@@ -15,7 +15,7 @@
 // 请求失败）、访问外网，都记成 film 上的致命错误，check() 抛出（RenderError，错误码见 README「错误码」，带下一步提示）；
 // 等 READY 期间出错立刻失败，并先关掉这个浏览器再抛。退出码与清理交给调用方（still / video / shots）。
 // 片段补丁没命中算构建失败（lib/patch-check.mjs）：engine/shade 的着色器补丁找不到锚点时，抛错的地方同时在 patch.js 模块闭包里记一条
-// 结构化记录。patchCheck(page) 读它（patch.js 每个实例登记的读出口，加上按页面请求过的 patch.js 地址找到的），有记录就抛 failure.shader-error：置 READY 之后读一次，此后这一页每次
+// 结构化记录。patchCheck(page) 读它（渲染器按请求路径、按响应内容认下来的 patch.js 地址，加上各实例登记的 #片段，import 同一个实例来读），有记录就抛 failure.shader-error：置 READY 之后读一次，此后这一页每次
 // page.evaluate 把结果交回之前都读（watchPatchModules 加的守卫：renderFrame、lib/yuv.mjs 的 captureGpuFrame、收尾都经它，不用各自调），
 // capture 截完图再读一次（截图走 CDP，不经 evaluate）——
 // 未捕获异常、render(t) 抛错、被页面接住后打到控制台、接住后静音照常画，单采样与超采样，都一样；--allow-gl-errors 不放行。

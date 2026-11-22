@@ -150,3 +150,62 @@ test('FX22 投影量化只认对拍过的投影块原文（three r170 / r187 发
     }
   } finally { THREE.ShaderChunk.shadowmap_pars_fragment = keep; }
 });
+
+test('FX22 锚点只认生效代码里的：写在注释里的不算数，生效的不止一处也报错（材质参数里的一段注释不能把补丁引进注释里）', () => {
+  const frag = THREE.ShaderLib.toon.fragmentShader, INC = '#include <shadowmap_pars_fragment>', who = 'fx22';
+  const pars = c => frag.replace('#include <common>', () => '#include <common>\n' + c), clean = quantizeShadow(frag, 'a', 'b', who);
+  assert.ok(frag.indexOf('#include <common>') < frag.indexOf(INC), '材质参数（fragmentPars）插在投影块的 #include 前面');
+  // 注释里先提到这条 #include（块注释、行注释、跨行块注释里顶着行首写、注释记号互相嵌着）：补丁照样落在生效的那一条上，注释原样留着
+  for (const c of [`/* ${INC} */`, `// ${INC}`, `/*\n${INC}\n*/`, `// 行注释里的 /* 不开块注释\n/* 块注释里的 // 不开行注释 */ // ${INC}`]) {
+    const out = quantizeShadow(pars(c), 'a', 'b', who);
+    assert.equal(out, clean.replace('#include <common>', () => '#include <common>\n' + c), `材质参数里写了「${c}」`);
+    assert.equal(out.split('smoothstep( a, b, shadow )').length, clean.split('smoothstep( a, b, shadow )').length, '量化的返回一处不少');
+  }
+  // 生效的指令被注释掉、或者不在行首（three 只展开行首的 #include）：没有可打的地方，报缺失
+  for (const [what, to] of [['行注释掉', '// ' + INC], ['块注释掉', `/* ${INC} */`], ['不在行首', 'float bmX; ' + INC]])
+    assert.throws(() => quantizeShadow(frag.replace(INC, () => to), 'a', 'b', who), /fx22：着色器锚点缺失「#include <shadowmap_pars_fragment>」/, what);
+  // 生效代码里不止一处（预处理死分支里再写一条、include 后多一个空格的另一种写法 three 也展开）：按文本分不出哪一条生效，报错，不挑头一条打
+  const n = inject.patchErrors().length;
+  for (const c of [`#if 0\n${INC}\n#endif`, `#if 0\n\t#include  <shadowmap_pars_fragment>\n#endif`, INC])
+    assert.throws(() => quantizeShadow(pars(c), 'a', 'b', who), /^ShaderPatchError: \[BEIMING_SHADER_PATCH_ERROR\] fx22：着色器锚点不唯一「#include <shadowmap_pars_fragment>」：生效代码里有 2 处/, c);
+  assert.deepEqual([inject.patchErrors().length - n, inject.patchErrors().at(-1).fn, inject.patchErrors().at(-1).anchor], [3, 'inject', INC], '照样记进补丁错误记录');
+  // 不是 #include 的锚点、三种插法、顶点钩子，同一条规矩
+  const src = '// void main() {\n/* void main() { */\nvoid main() {\n}';
+  assert.deepEqual(['after', 'before', 'replace'].map(mode => inject(src, 'void main() {', 'X', mode, who)),
+    ['// void main() {\n/* void main() { */\nvoid main() {\nX\n}', '// void main() {\n/* void main() { */\nX\nvoid main() {\n}', '// void main() {\n/* void main() { */\nX\n}']);
+  assert.throws(() => inject('void main() {\n}\n#if 0\nvoid main() {\n}\n#endif', 'void main() {', 'X', 'after', who), /fx22：着色器锚点不唯一「void main\(\) \{」：生效代码里有 2 处/);
+  const v = THREE.ShaderLib.toon.vertexShader, note = '// 形变写在 #include <begin_vertex> 后面\n/* void main() { */\n';
+  assert.equal(patchVertex(v, { vertexPars: note, vertexBegin: 'transformed.x += 1.0;\n' }, {}, who), patchVertex(v, { vertexBegin: 'transformed.x += 1.0;\n' }, {}, who).replace('#include <common>\n', () => '#include <common>\n' + note));
+});
+
+test('FX22 以前的补丁插进去的文本里不找锚点：材质钩子在死分支里另写一套锚点、再把原来的盖住，补丁不落进死分支；投影块整个没了也报补丁错', () => {
+  const frag = THREE.ShaderLib.toon.fragmentShader, INC = '#include <shadowmap_pars_fragment>', who = 'fx22', Q = 'smoothstep( a, b, shadow )';
+  const clean = quantizeShadow(frag, 'a', 'b', who), withPars = pars => clean.replace('#include <common>', () => '#include <common>\n' + pars);
+  const chain = pars => quantizeShadow(inject(frag, '#include <common>', pars, 'after', who), 'a', 'b', who);   // engine/shade/toon.js 的顺序：先插片元参数，再量化投影
+  // 钩子文本里的锚点不算数（死分支里的、直接写的都一样）：补丁落在原来那一条上，钩子文本原样留着
+  for (const pars of [`#if 0\n${INC}\n#endif\n`, INC + '\n', `#if 0\n${INC}\n#endif\n/* *\\\n/\n`])
+    assert.equal(chain(pars), withPars(pars), JSON.stringify(pars));
+  // 「/* *\换行/」是一段合法的注释（GLSL ES 3.00 先接行续接再认注释）：后面原来的锚点还生效，不能当成被注释掉了；
+  // 注释记号被行续接拆开的照样是注释：里面的锚点不算
+  assert.equal(chain('/* *\\\n/\n').split(Q).length, clean.split(Q).length);
+  assert.throws(() => inject(`/\\\n* ${INC}\n*\\\r\n/ float x;`, INC, 'X', 'replace', who), /着色器锚点缺失/);
+  assert.equal(inject(`/\\\n/ 行注释接到下一行 \\\n${INC}\n${INC}`, INC, 'X', 'replace', who), `/\\\n/ 行注释接到下一行 \\\n${INC}\nX`);
+  // 钩子文本把原来的锚点盖住了（开了一段没收尾的块注释，哪怕它在 three 会整段删掉的 0 次循环里）：报缺失，不拿钩子里的那条顶替
+  const n = inject.patchErrors().length;
+  for (const hide of ['/*\n', '#pragma unroll_loop_start\nfor ( int i = 0; i < 0; i ++ ) {\n/*\n}\n#pragma unroll_loop_end\n'])
+    assert.throws(() => chain(`#if 0\n${INC}\n#endif\n` + hide), /^ShaderPatchError: \[BEIMING_SHADER_PATCH_ERROR\] fx22：着色器锚点缺失「#include <shadowmap_pars_fragment>」/, JSON.stringify(hide));
+  assert.equal(inject.patchErrors().length - n, 2);
+  // 顶点钩子同一条规矩；同一个锚点后面接着插两次，各自的文本都不当锚点
+  const v = THREE.ShaderLib.toon.vertexShader, fake = '#if 0\n#include <begin_vertex>\nvoid main() {\n#include <beginnormal_vertex>\n#endif\n', hooks = { vertexBegin: 'transformed.x += 1.0;\n', vertexNormal: 'objectNormal.y = 0.0;\n' };
+  assert.equal(patchVertex(v, { ...hooks, vertexPars: fake }, {}, who), patchVertex(v, hooks, {}, who).replace('#include <common>\n', () => '#include <common>\n' + fake));
+  assert.equal(inject(inject('A\nB', 'A', 'A', 'after', who), 'A', 'x', 'after', who), 'A\nx\nA\nB');
+  // 投影块整个没了（three 升级拿掉了）、或者被换成会改写 replaceAll 的 String 对象：抛的是 ShaderPatchError、记进补丁错误记录，不是 TypeError
+  const keep = THREE.ShaderChunk.shadowmap_pars_fragment;
+  try {
+    for (const bad of [undefined, null, Object.assign(new String(keep), { replaceAll: () => keep })]) {
+      THREE.ShaderChunk.shadowmap_pars_fragment = bad;
+      assert.throws(() => quantizeShadow(frag, 'a', 'b', who), /^ShaderPatchError: \[BEIMING_SHADER_PATCH_ERROR\] fx22：投影量化锚点缺失（three r\d+）：投影块 shadowmap_pars_fragment 没了/, String(bad));
+    }
+    assert.deepEqual(inject.patchErrors().slice(-3).map(e => e.fn), ['quantizeShadow', 'quantizeShadow', 'quantizeShadow']);
+  } finally { THREE.ShaderChunk.shadowmap_pars_fragment = keep; }
+});

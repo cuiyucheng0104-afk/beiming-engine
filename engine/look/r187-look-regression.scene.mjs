@@ -15,7 +15,7 @@
 //                           pass 'id' 读 ID 图（半浮点原值），否则读整帧；ids = 场景开关，look = 覆盖的每帧参数
 //   CORRUPTIONS / corrupt(name)   片段补丁没命中的故意改错（FX22）：把 three 的一段着色器原文改掉，之后建的材质一编译就该抛错；
 //                         每项 { what, anchor（报错里应当点名的锚点）, shadowOnly（只在渲阴影的那条路径上编译）, run }
-//   build(v) → { scene, camera }
+//   build(v) → { scene, camera }   v.fragmentPars：给每个卡通材质加一段片元参数（fixtures/patch-miss 的 ?pars= 用）
 //   renderSuite(names) → { revision, gpu, shaders, frames: { base: { id, <各级> }, <变体>: { id | final } } }
 //                         id 是 Uint16Array（半浮点 RGBA 原值，自下而上），其余是 Uint8Array（RGBA8，自下而上）；
 //                         shaders 是这一趟交给 WebGL 编译的全部着色器源码（three 展开 #include、加完前缀之后的最终文本，去重），冻结的金标准拿它算摘要
@@ -136,13 +136,14 @@ export function build(v = {}) {
   const sun = new THREE.DirectionalLight(0xffffff, 1); sun.position.set(5, 9, 6); sun.castShadow = true; sun.shadow.mapSize.set(256, 256); sun.shadow.bias = -0.002;
   Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 30 });
   const at = (m, x, y, z) => { m.position.set(x, y, z); return m; };
-  const toon = (geo, opts, bind) => { const m = kind.make(opts); return kind.bind(new THREE.Mesh(geo, m), m, bind); };
+  const make = opts => kind.make(v.fragmentPars ? { ...opts, fragmentPars: v.fragmentPars } : opts);   // 夹具用：每个卡通材质都带上这段片元参数
+  const toon = (geo, opts, bind) => { const m = make(opts); return kind.bind(new THREE.Mesh(geo, m), m, bind); };
   const plain = (geo, mat, userData) => { const m = new THREE.Mesh(geo, mat); Object.assign(m.userData, userData); return m; };
 
   const ground = toon(new THREE.PlaneGeometry(40, 40), { color: '#cdbf9c', edgeNoise: 0, rimAmt: 0 }, { outline: false, castShadow: false }); ground.rotation.x = -Math.PI / 2;
 
   // 彩屑：逐实例 ID，跨过 11 位低段；没露出的实例缩成 0
-  const cm = kind.make({ color: '#ffffff', rimAmt: 0.5 }), confetti = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.3), cm, CONFETTI);
+  const cm = make({ color: '#ffffff', rimAmt: 0.5 }), confetti = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.3), cm, CONFETTI);
   o.scale.setScalar(0); o.updateMatrix(); for (let i = 0; i < CONFETTI; i++) confetti.setMatrixAt(i, o.matrix);
   SHOWN.forEach((i, n) => { o.position.set(-3.3 + 0.8 * n, 3.6 - 0.1 * (n % 2), 0); o.rotation.set(0.4 * n, 0.9 * n, 0); o.scale.setScalar(1); o.updateMatrix(); confetti.setMatrixAt(i, o.matrix); confetti.setColorAt(i, new THREE.Color().setHSL(n / 6, 0.7, 0.55)); });
   kind.bind(confetti, cm, { perInstance: I.perInstance });
@@ -151,7 +152,7 @@ export function build(v = {}) {
   Object.assign(ball.userData, { outlineWidth: I.width ?? BALL.width, outlineAlpha: I.alpha ?? BALL.alpha });
 
   // 卵石：整批实例共用一个 ID，互相挨着的地方不出线
-  const pm = kind.make({ color: '#8d99a6' }), pebbles = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.34, 1), pm, 5);
+  const pm = make({ color: '#8d99a6' }), pebbles = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.34, 1), pm, 5);
   for (let i = 0; i < 5; i++) { o.position.set(-1.5 + 0.5 * i, 0.3 + 0.08 * (i % 2), 2.4); o.rotation.set(0.5 * i, 0.3 * i, 0); o.scale.setScalar(1 - 0.08 * i); o.updateMatrix(); pebbles.setMatrixAt(i, o.matrix); }
   kind.bind(pebbles, pm, { perInstance: I.shared === false });
 
@@ -176,7 +177,7 @@ export function build(v = {}) {
   const lamp = at(plain(new THREE.SphereGeometry(0.22, 24, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(5, 3.6, 1.6) }), { outlineOccluder: 'solid' }), 1.5, 3.3, 0.3);   // 线性 HDR 的亮点：bloom 与高光保护
 
   // 双材质方块：±x 两个面用 noId 材质（这两组不进 ID 图），其余照常描边
-  const na = kind.make({ color: '#b07a4a' }), nb = kind.make({ color: '#e0d0b0', noId: I.noId !== false });
+  const na = make({ color: '#b07a4a' }), nb = make({ color: '#e0d0b0', noId: I.noId !== false });
   const duo = at(plain(new THREE.BoxGeometry(1, 1, 1), [nb, nb, na, na, na, na], { outline: true }), -0.9, 2.3, -1.2); duo.rotation.set(0.3, 0.7, 0); duo.castShadow = duo.receiveShadow = true;
 
   scene.add(sun, ground, confetti, ball, pebbles, body, leaf, reed, ghost, pillar, glass, block, lamp, duo);

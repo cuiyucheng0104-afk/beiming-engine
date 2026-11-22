@@ -2,12 +2,15 @@
 // 锚点逐条校验，缺失直接报错（three 升级后不会悄悄失效）；同一组钩子共用一个程序缓存键。
 // 片段补丁没命中算构建失败（FX22）：这里抛的错（ShaderPatchError）在 material.onBeforeCompile 里同步冒出 renderer.compile / render；
 // 构造时就把 { fn, anchor, message } 记进本模块闭包里的数组：页面把异常接住、把 console.error 静音都抹不掉，页面代码也没有写它的入口
-// （不挂 globalThis，不导出写入函数）。渲染器（engine/render/page.mjs + lib/patch-check.mjs）出每一帧之前用 inject.patchErrors() 读副本，
-// 有记录就判 failure.shader-error：本模块每个实例求值时把这个读出口登记到渲染器开页面时放好的登记口上（见下面 register 那一行），
-// 渲染器另按模块地址 import 再读一遍；消息以 [BEIMING_SHADER_PATCH_ERROR] 开头（与 patch-check.mjs 的 PATCH_TAG 一致），
+// （不挂 globalThis，不导出写入函数）。渲染器（engine/render/page.mjs + lib/patch-check.mjs）每次 page.evaluate 交回之前、截完图之后用 inject.patchErrors() 读副本，
+// 有记录就判 failure.shader-error：本模块每个实例求值时把自己的模块地址登记到渲染器开页面时放好的登记口上（见下面 register 那一行），
+// 渲染器按地址 import 同一个实例来读；消息以 [BEIMING_SHADER_PATCH_ERROR] 开头（与 patch-check.mjs 的 PATCH_TAG 一致），
 // 渲染器靠这个前缀认未捕获的异常与 console.error。
 //
-//   inject(src, anchor, code, mode, who)   在锚点后（'after'）/ 前（'before'）插入，或整段替换（'replace'）；who 用于报错
+//   inject(src, anchor, code, mode, who)   在锚点后（'after'）/ 前（'before'）插入，或整段替换（'replace'）；who 用于报错。
+//                                           锚点只认生效代码里的：// 与 /* */ 注释里的不算；#include 按 three 自己展开它的写法认（行首）；
+//                                           以前的 inject 插进去的文本（材质钩子、引擎自己的片段）里的也不算：接着上一次的结果再打补丁时，
+//                                           锚点只在原来的着色器里找。生效的一处都没有、或者不止一处（分不出哪一处真的生效）都报错
 //   inject.patchErrors() → [{ fn, anchor, message }]   本页至今记下的补丁错误（副本，只读、不可改写）；挂在 inject 上而不是新导出：
 //                                           本模块的导出名单被 tests/engine/api-snapshot.json 钉着（stable）
 //   strHash(s) / programKey(prefix, parts)  程序缓存键：前缀 | 各段源码拼起来的哈希
@@ -44,15 +47,41 @@ class ShaderPatchError extends Error {   // 不导出：别的模块按 name 认
   }
 }
 
+// 锚点在生效代码里的各处。照第一次出现的位置换不行：材质参数里一段注释先提到同一条 #include，补丁就整段写进注释里，
+// 生效的那一条原样留着、画面错了却没有任何报错。所以 // 与 /* */ 注释里的不算（GLSL 没有字符串，注释按先后认；GLSL ES 3.00 先把
+// 「反斜杠 + 换行」接起来再认注释，注释记号中间、行注释末尾夹着行续接的照它的规矩认）；
+// #include 照 three 展开它的正则认（WebGLProgram.js 的 includePattern：顶着行首，前面只许空格 / 制表符，include 后可以不止一个空格）。
+// 预处理死分支（#if 0）里的照样算一处：哪个分支生效按文本猜不准，由 inject 按「不唯一」报错
+const COMMENT = /\/(?:\\\r?\n)*\/(?:\\\r?\n|[^\n])*|\/(?:\\\r?\n)*\*[\s\S]*?(?:\*(?:\\\r?\n)*\/|$)/g, literal = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function activeAnchors(src, anchor) {
+  const inc = /^#include <([\w./]+)>$/.exec(anchor), dead = [...src.matchAll(COMMENT)].map(m => [m.index, m.index + m[0].length]);
+  const re = inc ? new RegExp(`(?<=^[ \\t]*)#include +<${literal(inc[1])}>`, 'gm') : new RegExp(literal(anchor), 'g');
+  return [...src.matchAll(re)].filter(m => !dead.some(([a, b]) => m.index > a && m.index < b));   // 起点落在注释里面的不算
+}
+
+// 以前的 inject 交出去的文本 → 里面哪些区间是补丁插进去的 [[起, 止), …]。接着它再打补丁时这些区间里不找锚点：材质钩子的文本是调用方给的，
+// 里面写一条同样的 #include（放在死分支里），再用注释把原来那条盖住，补丁就整段落进死分支，画面错了却没有任何报错。
+// 钩子文本里的注释记号照样参与上面的注释判定：它把原来的锚点盖住了（或者按文本看像是盖住了）就报缺失，不放行。
+// shortcut: 只按文本认「上一次的结果」，留最近 64 份（一条补丁链十来份）；调用方在两次 inject 之间自己改过文本的，这一段记录就断了，退回只按注释认。
+const INJECTED = new Map();
 export function inject(src, anchor, code, mode = 'after', who = 'patch.js') {
-  if (!src.includes(anchor)) throw new ShaderPatchError('inject', who, anchor, `着色器锚点缺失「${anchor.slice(0, 60)}」（three r${THREE.REVISION}，本模块支持 ${SUPPORTED}）`);
-  const rep = mode === 'after' ? anchor + '\n' + code : mode === 'before' ? code + '\n' + anchor : code;
-  return src.replace(anchor, () => rep);
+  const mine = INJECTED.get(src) ?? [], hits = activeAnchors(src, anchor).filter(m => !mine.some(([a, b]) => m.index >= a && m.index < b)), name = `「${anchor.slice(0, 60)}」`, rev = `three r${THREE.REVISION}，本模块支持 ${SUPPORTED}`;
+  if (!hits.length) throw new ShaderPatchError('inject', who, anchor, `着色器锚点缺失${name}（${rev}）`);
+  if (hits.length > 1) throw new ShaderPatchError('inject', who, anchor, `着色器锚点不唯一${name}：生效代码里有 ${hits.length} 处，分不出补丁该打在哪一处（${rev}）`);
+  const [{ index, 0: hit }] = hits;
+  // 在 at 处去掉 cut 个字符、放进 put
+  const at = mode === 'after' ? index + hit.length : index, cut = mode === 'replace' ? hit.length : 0, put = mode === 'after' ? '\n' + code : mode === 'before' ? code + '\n' : code;
+  const out = src.slice(0, at) + put + src.slice(at + cut);
+  INJECTED.delete(out);
+  INJECTED.set(out, [...mine.map(([a, b]) => a >= at ? [a + put.length - cut, b + put.length - cut] : [a, b]), [at, at + put.length]]);
+  if (INJECTED.size > 64) INJECTED.delete(INJECTED.keys().next().value);
+  return out;
 }
 Object.defineProperty(inject, 'patchErrors', { value: () => fatalPatchErrors.map(e => ({ ...e })) });   // 不可写、不可重配：页面换不掉这个出口
 // 同一个文件换个地址导入（带 #片段、?参数、patch%2Ejs）浏览器就另起一个实例、各记各的，渲染器按请求地址找不全：每个实例求值时
-// 把自己的读出口登记到渲染器放好的登记口上（patch-check.mjs 的 patchSink）。没有登记口（Node、平时预览）就不登记
-globalThis.__bmShadePatchSink?.register(inject.patchErrors);
+// 把自己的模块地址登记到渲染器放好的登记口上（patch-check.mjs 的 patchSink），渲染器按这个地址 import 到的就是这个实例。
+// 登记的是地址、不是读出口：页面自己塞一个函数冒充不了。没有登记口（Node、平时预览）就不登记
+globalThis.__bmShadePatchSink?.register(import.meta.url);
 
 export function strHash(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = (Math.imul(h, 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); }
 export const programKey = (prefix, parts) => prefix + '|' + strHash(parts.join('§'));
@@ -95,6 +124,8 @@ const PCF_SOFT_R170 = /* glsl */`{
 				}`;
 export function quantizeShadow(frag, lo, hi, who = 'patch.js') {
   let sm = THREE.ShaderChunk.shadowmap_pars_fragment;
+  // 投影块整个没了（three 升级拿掉了）或者不是原生字符串：下面的 includes / replaceAll 要么抛 TypeError（不记进补丁错误记录，页面接住就放行），要么能被改写
+  if (typeof sm !== 'string') throw new ShaderPatchError('quantizeShadow', who, SHADOW_ANCHOR, `投影量化锚点缺失（three r${THREE.REVISION}）：投影块 shadowmap_pars_fragment 没了（THREE.ShaderChunk 里是 ${sm === null ? 'null' : typeof sm}）`);
   const key = chunkKey(sm);   // 下面换采样核之前的原文
   const noKernel = anchor => new ShaderPatchError('quantizeShadow', who, anchor, `软阴影采样锚点缺失（three r${THREE.REVISION}）：${anchor}`);
   if (sm.includes('sampler2DShadow shadowMap')) {   // r187 这一路；r170 的块里没有它，下面的替换与以前逐字相同

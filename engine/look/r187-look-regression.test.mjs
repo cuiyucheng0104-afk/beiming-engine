@@ -14,7 +14,7 @@ import { W, H, STAGES, VARIANTS, EXPECT_IDS, IDS, CORRUPTIONS } from './r187-loo
 import { thumb, thumbDiff, decodeIds, THUMB_GATE, THUMB_SKIP } from './r187-look-regression.golden.mjs';
 import { TOON_PSNR_GATE_DB, TOON_MAX_FRAC_GT1, TOON_MAX_FRAC_GT5 } from '../shade/r187-toon-regression.mjs';
 import { inject, patchVertex, quantizeShadow } from '../shade/patch.js';
-import { anchoredFinalFs } from './compose.js';
+import { anchoredFinalFs, FINAL_FS } from './compose.js';
 import { PATCH_TAG, patchMiss, isPatchModule, readPatchErrors, patchSink } from '../render/lib/patch-check.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -274,6 +274,12 @@ test('FX22-2 渲染器只认 patch.js 模块里的记录与机器前缀：patch.
   // 不带机器前缀的文字不认：作品自己的日志、以前靠中文字样匹配的那几句，都不是补丁没命中
   for (const text of ['字幕变体对不上了，用默认字幕', 's6：着色器锚点缺失「#include <begin_vertex>」', 'toon：投影量化锚点缺失（three r188）', 'toon：软阴影采样锚点缺失', 'TypeError: x is not a function', undefined, '']) assert.equal(patchMiss(text), null, String(text));
   assert.equal(patchMiss([]), null, '记录表是空的 = 没出过错');
+  // 记录不看排第几：前面混进空消息、不带机器前缀的，后面真的照样判、只数真的；一条带前缀的都没有就不判
+  const real = table().at(-1), junk = [{ message: '' }, { message: '字幕变体对不上了' }, {}, null];
+  assert.deepEqual([patchMiss([...junk, real])?.code, patchMiss([...junk, real])?.message.includes('（共'), patchMiss([real, ...junk, real])?.message.endsWith('（共 2 处）'), patchMiss(junk)], ['failure.shader-error', false, true, null]);
+  // compose 纸纹变体：注释里先出现同一句原文，替换照样落在生效的那一句上
+  const note = '// float pp = texture2D(tPaper, gl_FragCoord.xy / uPaperSize).r;\n/* uniform vec2 uRes, uPaperSize; */\n';
+  assert.equal(anchoredFinalFs(note + FINAL_FS), note + anchoredFinalFs());
   // 记录在 patch.js 的模块闭包里，页面代码没有写它的入口：读到的是副本，改它、清它、往以前那个全局符号键上塞合成记录、
   // 把读出口换掉，都动不到已经记下的，也加不进一条新的
   const n = table().length, last = table().at(-1), SYM = Symbol.for('beiming.shaderPatchErrors'), had = Object.hasOwn(globalThis, SYM);
@@ -294,23 +300,43 @@ test('FX22-2 渲染器只认 patch.js 模块里的记录与机器前缀：patch.
   assert.equal(patchMiss(await readPatchErrors({ urls: [here] })).code, 'failure.shader-error');
 });
 
-test('FX22-2b 登记口：同一个 patch.js 换个地址导入是另一个模块实例，它记的错渲染器不靠地址也读到；登记口换不掉，口令不对读不出，同一个读出口只读一次', async () => {
-  patchSink('s6-key');   // 这里没有页面：把登记口直接放到这个进程的 globalThis 上，之后才求值的 patch.js 实例会来登记（上面那个早求值了，不在里面）
-  const sink = globalThis.__bmShadePatchSink, frag = new URL('../shade/patch.js#s6-sink', import.meta.url).href, other = await import(frag);
+test('FX22-2b 登记口：同一个 patch.js 带上 #片段 导入是另一个模块实例，它记的错渲染器靠登记口读到；登记口只补渲染器认下来的地址的 #片段，blob: / data: 地址内容与原文逐字相同才读；登记口换不掉，口令不对读不出', async () => {
+  const here = new URL('../shade/patch.js', import.meta.url).href, source = fs.readFileSync(fileURLToPath(here), 'utf8'), nodeFetch = globalThis.fetch;
+  // 这里没有页面：把登记口直接放到这个进程的 globalThis 上，之后才求值的 patch.js 实例会来登记（上面那个早求值了，不在里面）
+  patchSink({ secret: 's6-key', source });
+  const sink = globalThis.__bmShadePatchSink, frag = here + '#s6-sink', other = await import(frag), main = () => inject.patchErrors();
   assert.notEqual(other.inject, inject, '带 #片段的地址是另一个模块实例，各记各的');
   assert.throws(() => other.inject('void main(){}', '#include <nope>', 'x', 'after', 's6-sink'), /s6-sink：着色器锚点缺失「#include <nope>」/);
   const rec = other.inject.patchErrors();
   assert.deepEqual(rec.map(r => [r.fn, r.anchor]), [['inject', '#include <nope>']]);
-  assert.deepEqual(await readPatchErrors({ urls: [], secret: 's6-key' }), rec, '一个地址都不给，靠登记口读到');
-  assert.deepEqual(await readPatchErrors({ urls: [frag], secret: 's6-key' }), rec, '按地址 import 到的是同一个读出口：只读一次，不翻倍');
-  assert.deepEqual([await readPatchErrors({ urls: [], secret: 'wrong' }), await readPatchErrors({ urls: [] }), sink.read()], [[], [], []], '口令不对读不出');
-  // 页面换不掉、删不掉登记口，也清不掉登记过的读出口；登记的不是函数不收
+  assert.deepEqual(await sink.read('s6-key'), [{ url: frag, genuine: null }], '登记的是这个实例自己的模块地址（带着 #片段）');
+  // 渲染器认下来 patch.js 这个地址（这里直接给）之后，登记口补上它带 #片段 的那个实例；同一个实例只读一次
+  assert.deepEqual(await readPatchErrors({ urls: [here], secret: 's6-key' }), [...main(), ...rec]);
+  assert.deepEqual(await readPatchErrors({ urls: [here, frag], secret: 's6-key' }), [...main(), ...rec], '按地址 import 到的是同一个模块实例：只读一次，不翻倍');
+  assert.deepEqual(await readPatchErrors({ urls: [], secret: 's6-key' }), [], '渲染器没认下来的地址，登记了也不读');
+  assert.deepEqual([await readPatchErrors({ urls: [here], secret: 'wrong' }), await readPatchErrors({ urls: [here] }), await sink.read()], [main(), main(), []], '口令不对读不出登记口');
+  // 页面换不掉、删不掉登记口，也清不掉登记过的地址
   assert.throws(() => { globalThis.__bmShadePatchSink = null; }, TypeError);
   assert.throws(() => { delete globalThis.__bmShadePatchSink; }, TypeError);
   assert.throws(() => Object.defineProperty(globalThis, '__bmShadePatchSink', { value: null }), TypeError);
-  assert.throws(() => { sink.read = () => []; }, TypeError);
-  sink.register('不是函数'); sink.register(null); sink.read('s6-key').length = 0;
-  assert.deepEqual(await readPatchErrors({ urls: [], secret: 's6-key' }), rec);
+  assert.throws(() => { sink.read = async () => []; }, TypeError);
+  (await sink.read('s6-key')).length = 0;
+  // 合成的冒充不了：直接塞读出口（单塞、配上真的 patch.js 地址）不收；自造的报错模块（data: / blob:）内容不是 patch.js 的原文，不读，
+  // 页面事后把 fetch 换成「问什么都回原文」也没用；页面没加载过的 …/shade/patch.js 地址不读（渲染器不去 import）；
+  // patch.js 的地址换个 #片段 读到的是一个没出过错的新实例。内容是原文的 blob: / data: 认；取不到内容的（注销了的 blob:）核不了，照认
+  const FAKE = { fn: 'inject', anchor: 'A', message: `${PATCH_TAG} QA synthetic, no shader call` }, fakeCode = `export const inject = { patchErrors: () => [${JSON.stringify(FAKE)}] };`;
+  const data = code => 'data:text/javascript,' + encodeURIComponent(code), blob = code => URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+  assert.deepEqual((await import(data(fakeCode))).inject.patchErrors(), [FAKE], '这个自造模块 import 得到、也报得出合成记录');
+  const gone = blob(fakeCode), fakes = [data(fakeCode), data(fakeCode + '///shade/patch.js'), blob(fakeCode)], genuine = [data(source), blob(source), gone];
+  const unloaded = ['http://127.0.0.1:1/copy/shade/patch.js#alias', new URL('./no-such/shade/patch.js', import.meta.url).href, '不是地址'];
+  URL.revokeObjectURL(gone);
+  globalThis.fetch = async () => new Response(source);
+  try {
+    for (const args of [[() => [FAKE]], [() => [FAKE], frag], [null], [here + '#s6-forge'], ...[...fakes, ...genuine, ...unloaded].map(u => [u])]) sink.register(...args);
+    assert.deepEqual(await sink.read('s6-key'), [{ url: frag, genuine: null }, { url: here + '#s6-forge', genuine: null },
+      ...fakes.map(url => ({ url, genuine: false })), ...genuine.map(url => ({ url, genuine: true })), ...unloaded.map(url => ({ url, genuine: null }))]);
+    assert.deepEqual(await readPatchErrors({ urls: [here], secret: 's6-key' }), [...main(), ...rec], '合成的一条都没混进来（这里 Node import 不了 blob: 与带裸导入的 data: 模块，认下来的那三个读不出东西）');
+  } finally { globalThis.fetch = nodeFetch; }
   assert.equal(Object.keys(globalThis).includes('__bmShadePatchSink'), false, '不可枚举');
 });
 
@@ -336,13 +362,15 @@ test('FX22-3 两版页面里故意改错一段着色器原文：renderer.compile
   }
 });
 
+// 用正式的出图命令渲夹具影片的第 0 帧：退出码、报错、留没留图
+const stillIn = dir => (name, query, ...more) => {
+  const out = path.join(dir, name), r = spawnSync(process.execPath, [path.join(ROOT, 'engine/render/still.mjs'), 'engine/look/fixtures/patch-miss', '--frame', '0', '--size', '320x240', '--out', out, ...(query ? ['--query', query] : []), ...more], { cwd: ROOT, encoding: 'utf8', timeout: 300000 });
+  return { status: r.status, stderr: r.stderr, png: fs.existsSync(path.join(out, 'f000000.png')), file: path.join(out, 'f000000.png') };
+};
+
 test('FX22-4 构建命令：夹具影片不改时正常出图；改错一段片段原文后，错误不管从哪里冒出来，渲染器都以非零码退出、点名锚点、不留图', async t => {
   if ((await run()).skipped) return t.skip((await run()).skipped);
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 's6-fx22-'));
-  const still = (name, query, ...more) => {
-    const out = path.join(dir, name), r = spawnSync(process.execPath, [path.join(ROOT, 'engine/render/still.mjs'), 'engine/look/fixtures/patch-miss', '--frame', '0', '--size', '320x240', '--out', out, ...(query ? ['--query', query] : []), ...more], { cwd: ROOT, encoding: 'utf8', timeout: 300000 });
-    return { status: r.status, stderr: r.stderr, png: fs.existsSync(path.join(out, 'f000000.png')), file: path.join(out, 'f000000.png') };
-  };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 's6-fx22-')), still = stillIn(dir);
   try {
     const ok = still('ok', '');
     assert.deepEqual([ok.status, ok.png], [0, true], `夹具影片本身要能出图：${ok.stderr}`);
@@ -400,5 +428,54 @@ test('FX22-4 构建命令：夹具影片不改时正常出图；改错一段片�
     const late = still('late', 'late=4&mute=1');
     assert.ok(late.status === 1 ? !late.png && /错误\[failure\.shader-error\]：.*s6-late：着色器锚点缺失/.test(late.stderr) : late.status === 0 && fs.readFileSync(late.file).equals(fs.readFileSync(ok.file)),
       `late：退出码 ${late.status}，${late.png ? '留了图' : '没留图'}：${late.stderr.slice(-400)}`);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('FX22-5 构建命令（四审两项与交付前红队四项）：材质参数里的注释、假锚点不把补丁引到不生效的地方；空消息的读出口挡不住真的补丁错，合成的读出口冒充不了补丁错；页面挡住 fetch、换地址加载 patch.js 也读得到', async t => {
+  if ((await run()).skipped) return t.skip((await run()).skipped);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 's6-fx22-')), still = stillIn(dir), same = (a, b) => a.png && fs.readFileSync(a.file).equals(fs.readFileSync(b.file));
+  const fails = (r, want, what) => {
+    assert.equal(r.status, 1, `${what} 应当以退出码 1 失败，实际 ${r.status}：${r.stderr.slice(-400)}`);
+    assert.match(r.stderr, new RegExp('错误\\[failure\\.shader-error\\]：.*' + want.source), `${what}：报错里要点名锚点`);
+    assert.equal(r.png, false, `${what}：不能留图`);
+  };
+  const ID_MISS = /s6-id-callback：着色器锚点缺失「#include <color_fragment>」/;
+  try {
+    for (const rev of ['170', '187']) {
+      const three = rev === '187' ? 'three=187&' : '', ok = still('ok' + rev, three.slice(0, -1));
+      assert.deepEqual([ok.status, ok.png], [0, true], `r${rev} 夹具影片本身要能出图：${ok.stderr.slice(-400)}`);
+      // 材质的片元参数里先在注释里提到投影块的 #include（块注释 / 行注释）：补丁落在生效的那一条上，出的图与不带这段参数时逐字节相同
+      // （以前量化过的投影块整段写进注释里，生效的那条 #include 展开成没量化的原版，退出码 0、图是错的）
+      for (const pars of ['block', 'line']) {
+        const r = still(`pars-${pars}-${rev}`, `${three}pars=${pars}`);
+        assert.deepEqual([r.status, same(r, ok)], [0, true], `r${rev} pars=${pars}：要照常出图且与正常帧相同：${r.stderr.slice(-400)}`);
+      }
+      // 写在片元参数的预处理死分支里：钩子文本里的不当锚点，补丁照样落在原来那一条上，图与正常帧相同
+      const dead = still(`pars-dead-${rev}`, `${three}pars=dead`);
+      assert.deepEqual([dead.status, same(dead, ok)], [0, true], `r${rev} pars=dead：要照常出图且与正常帧相同：${dead.stderr.slice(-400)}`);
+      // 片元参数把原来的锚点全盖住、在死分支里另写一套（行续接的注释、three 的 0 次循环展开）：补丁不落进死分支，构建失败或图与正常帧相同
+      for (const pars of ['hide-splice', 'hide-unroll']) {
+        const r = still(`pars-${pars}-${rev}`, `${three}pars=${pars}&when=swallow&mute=1`);
+        assert.ok(r.status === 1 ? !r.png && /错误\[failure\.shader-error\]/.test(r.stderr) : r.status === 0 && same(r, ok), `r${rev} pars=${pars}：退出码 ${r.status}，${r.png ? '留了图' : '没留图'}：${r.stderr.slice(-400)}`);
+      }
+      // 生效的那条被注释掉：没有可打的地方，构建失败
+      fails(still(`pars-off-${rev}`, `${three}pars=off&when=swallow&mute=1`), /着色器锚点缺失「#include <shadowmap_pars_fragment>」/, `r${rev} pars=off`);
+      // 页面用 CSP 挡住 fetch（页面里取不到任何地址的源码）：patch.js 换个地址另起的实例记的错照样读到（渲染器在自己这边按路径、按响应内容认模块；
+      // //patch.js 按路径认不出，blob: 渲染器收不到响应、页面里又取不到内容，照认）
+      for (const addr of ['/engine/shade/patch.js%23calibration', '/engine/shade//patch.js', 'blob'])
+        fails(still(`csp-${rev}-${addr.length}`, `${three}csp=1&probe=id-callback&when=swallow&mute=1&patch=${addr}`), ID_MISS, `r${rev} csp ${addr}`);
+      for (const more of [[], ['--samples', '4']]) {
+        // 页面先往登记口塞只回空消息的读出口，真的补丁错记在 patch.js#calibration 那个实例里，页面接住、静音、画回退帧：照样判失败，只数真的
+        const junk = still(`junk-${rev}-${more.length}`, `${three}junk=1&probe=id-callback&when=swallow&mute=1&patch=/engine/shade/patch.js%23calibration`, ...more);
+        fails(junk, ID_MISS, `r${rev} junk ${more.join(' ')}`);
+        assert.equal(/（共 4 处）/.test(junk.stderr), more.length > 0, `r${rev} junk ${more.join(' ')}：空消息不计数：${junk.stderr.slice(-300)}`);
+        // 着色器一切正常，页面往登记口塞合成的读出口 / 自造的报错模块：不判失败，图与正常帧相同
+        const forge = still(`forge-${rev}-${more.length}`, `${three}forge=1`, ...more);
+        assert.deepEqual([forge.status, forge.png, more.length > 0 || same(forge, ok)], [0, true, true], `r${rev} forge ${more.join(' ')}：合成的记录不能判构建失败：${forge.stderr.slice(-400)}`);
+        assert.doesNotMatch(forge.stderr, /failure\.shader-error/);
+      }
+    }
+    // patch.js 的原文装进 blob: 地址再导入（不是 patch.js 的路径，请求记录里认不出）：是引擎的原文，它记的错照样读到
+    fails(still('blob', 'probe=id-callback&when=swallow&mute=1&patch=blob'), ID_MISS, 'patch=blob');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
