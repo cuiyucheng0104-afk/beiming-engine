@@ -159,7 +159,7 @@ test('顺手修复生效：案例 13 章号误标、案例标签统一成脱敏�
 });
 
 // 原作名、角色名、地名、曲名、人名的 sha256 前 16 位（名字本身不入库，免得测试文件自己泄露专名）。
-const IP_HASHES = new Set(["86663a1dd8f6b661", "924493ee15e2a68c", "dd9ab072bf740423", "2bf84b0ad08b23b8", "f4a6923996dbeb19", "3f8f01ea269b6cfe", "ecc9bddb65dc4451", "1351704cdc4d32f8", "b6f6732db83b899a", "a590c43e71d44866", "8534cd0426607ce6", "c6661966bce79f30", "419a4461434283fd", "bb1d46105bd704dc", "f27354a69b790eda", "d0b3b3d6c6c14f17", "aa416dab2cc47c86", "1ae0552a12823c54", "98162a1e33275f16", "ff627719813c923a", "40a7e9acb06295d6", "6d588db5b668cf12", "c512ca0c5c1e71be", "f44b7e30470bbf28", "c34305e7b35f6f0b", "965b8a7ec4177224", "1e445d2d4b31efe2", "f1ed891245759d1c", "26dd587fdb6a290c", "ad21b547ce7162c5", "1dd31cd072fdd30f", "b3158331cecc3845", "b9b13e1cd77acbd7", "ee839bf111a7e47a", "aaa1073bd98fd4e7", "07f0bf736c13b81f", "9e70b33fe4edaf5b", "5032f1bea2401f8f", "d4fff627da31250b", "36997f035118cae8", "9fa9e239e047e205", "b1f49128310e2481", "eb7855e04a2006fd", "f5105c9ea0cd361b", "e5a6d6899f2e6e04", "14fc1fd907298aaa", "dc7a4a2cc7e36000", "0b2058635ba3d17f", "1f25b77eea9b8db1", "59ee9ed12f7822d8", "ed818ec233248ae6", "930eaf1684b953a9", "400e436ed3eb0252", "f09bfa2c3c7042e4", "0e377aac3a660698", "d544b0316e19a87b", "dd415e6f13d54a9b", "1fe8ba945043480d", "e5993ec06c2e0d77", "c26804e0eaf84a96", "3d8c28f257964498", "d7834604301b3e8a", "06f8e2ae03f7ec87", "84a6921827058d16", "196cecb58d133eb0", "fba3a504b35a8d53", "a276bb8a748ddb9c", "90dd5db3f1b09545", "42c0b79536f2e4ff", "a7fb0e02239ad9aa", "3e9fd6d71c87b1db", "d2e2586d773f54ee", "9e863d7b36ae5de1", "729090481f813e9e", "b02ea6fe7b71ccf7", "7e8672748ae4410e", "3f33cff3bab2bd6e", "3eef1f7226e1215e"]);
+const IP_HASHES = new Set(["86663a1dd8f6b661", "924493ee15e2a68c", "dd9ab072bf740423", "2bf84b0ad08b23b8", "f4a6923996dbeb19", "3f8f01ea269b6cfe", "ecc9bddb65dc4451", "1351704cdc4d32f8", "b6f6732db83b899a", "a590c43e71d44866", "8534cd0426607ce6", "c6661966bce79f30", "419a4461434283fd", "bb1d46105bd704dc", "f27354a69b790eda", "d0b3b3d6c6c14f17", "aa416dab2cc47c86", "1ae0552a12823c54", "98162a1e33275f16", "ff627719813c923a", "40a7e9acb06295d6", "6d588db5b668cf12", "c512ca0c5c1e71be", "f44b7e30470bbf28", "c34305e7b35f6f0b", "965b8a7ec4177224", "1e445d2d4b31efe2", "f1ed891245759d1c", "26dd587fdb6a290c", "ad21b547ce7162c5", "1dd31cd072fdd30f", "b3158331cecc3845", "b9b13e1cd77acbd7", "ee839bf111a7e47a", "aaa1073bd98fd4e7", "07f0bf736c13b81f", "9e70b33fe4edaf5b", "5032f1bea2401f8f", "d4fff627da31250b", "36997f035118cae8", "9fa9e239e047e205", "b1f49128310e2481", "eb7855e04a2006fd", "f5105c9ea0cd361b", "e5a6d6899f2e6e04", "14fc1fd907298aaa", "dc7a4a2cc7e36000", "0b2058635ba3d17f", "1f25b77eea9b8db1", "59ee9ed12f7822d8", "ed818ec233248ae6", "930eaf1684b953a9", "400e436ed3eb0252", "f09bfa2c3c7042e4", "0e377aac3a660698", "d544b0316e19a87b", "dd415e6f13d54a9b", "1fe8ba945043480d", "e5993ec06c2e0d77", "c26804e0eaf84a96", "3d8c28f257964498", "d7834604301b3e8a", "06f8e2ae03f7ec87", "84a6921827058d16", "196cecb58d133eb0", "fba3a504b35a8d53", "a276bb8a748ddb9c", "90dd5db3f1b09545", "42c0b79536f2e4ff", "a7fb0e02239ad9aa", "3e9fd6d71c87b1db", "d2e2586d773f54ee", "9e863d7b36ae5de1", "729090481f813e9e", "b02ea6fe7b71ccf7", "7e8672748ae4410e", "3f33cff3bab2bd6e", "3eef1f7226e1215e", "619df91bac841eda", "0b1df33ea7eef2b2"]);
 
 test('零原作 IP 名：拉丁 1–3 词组（拆驼峰）与汉字 2–5 字串都不命中专名黑名单', () => {
   const grams = new Set();
@@ -181,10 +181,12 @@ test('零原包源码路径：四份 JSON 与加载器里没有 src/…、tools/
   const pathRe = /\b(?:src|tools|scripts|app|packages)\/[A-Za-z0-9_./-]+\.(?:m?js|ts|py)\b/;
   const fileRe = /\b[\w-]+\.(?:m?js|cjs|ts|py|sh|glsl)\b(?::\d+)?/;
   const mediaRe = /\b[\w-]+\.(?:mp3|wav|m4a|mp4|mov)\b/;
+  // 带通配符的源码文件模式（music*.js）与「目录/文件.数据扩展名」形式的原实现相对路径（audio/tts_ready.json）。
+  const globRe = /[\w-]*\*[\w*-]*\.(?:m?js|cjs|ts|py|sh|glsl)\b/;
+  const dataPathRe = /\b[\w.-]+\/[\w*.-]+\.(?:json|ya?ml|tsv|csv|wav|mp3|ogg|flac)\b/;
+  const dataFileRe = /(?<![\w.-])(?!audio-subs\.)[\w*-]+\.(?:json|ya?ml|tsv|csv)\b/; // 裸 events.json 一类；本库自己的 audio-subs.*.json 除外
   for (const f of files) {
-    assert.doesNotMatch(raw(f), pathRe, f);
-    assert.doesNotMatch(raw(f), fileRe, f);
-    assert.doesNotMatch(raw(f), mediaRe, f);
+    for (const re of [pathRe, fileRe, mediaRe, globRe, dataPathRe, dataFileRe]) assert.doesNotMatch(raw(f), re, f);
   }
   const loader = readFileSync(new URL('./priors-audio-subs.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(loader, /lab:\/\/|\/Users\/|案例复刻库/);
@@ -287,11 +289,74 @@ test('可移植量的值精确出现在条目原文里（数值比较，不是�
   const close = (a, b) => Math.abs(a - b) < 1e-9;
   for (const e of priors.filter((p) => !isSummary(p))) {
     const found = nums(e.provenance.note);
-    const vals = typeof e.value === 'number' ? [e.value] : Array.isArray(e.value) ? e.value : [e.value.from, e.value.to];
+    const vals = typeof e.value === 'number' ? [e.value] : Object.values(e.value);
     for (const v of vals) {
       // 换算口径：kHz→Hz（×1000）、百分数→ratio（×0.01）、±a→[−a, a]。
       const ok = found.some((n) => close(n, v) || close(n, -v) || close(n * 1000, v) || close(n / 100, v));
       assert.ok(ok, `${e.id} 的值 ${v} 不在原文里`);
     }
   }
+});
+
+// 二审（G_REV-R2）点名的物理量偏差：分数、跨量纲箭头、公式变量 px、时刻与时长、误差与 LRA、字幕淡入帧数。
+test('物理量语义：分数按值算、MIDI→Hz 只取频率、px= 变量不当像素、时刻不叫时长', () => {
+  const store = loadAudioSubsPriorsStore();
+  const all = [...priors, ...cardPriors, ...practices];
+  const qs = (sid) => all.filter((e) => e.id.split('.')[1] === sid && !isSummary(e))
+    .flatMap((e) => e.quantities ?? [{ value: e.value, unit: e.unit }]);
+  // 1/30 s 是 0.033333 s，不是 30 s。
+  assert.ok(qs('e216').some((q) => q.unit === 's' && q.value === 0.033333), 'e216 1/30 s');
+  assert.ok(!qs('e216').some((q) => q.value === 30), 'e216 不能出现 30 s');
+  // MIDI 音符号 36、38 到频率的换算只取频率；距离 d≥300 到 2000 Hz 也只取频率。
+  assert.ok(qs('e95').some((q) => q.unit === 'Hz' && q.value === 65.4), 'e95 65.4 Hz');
+  assert.ok(qs('e116').some((q) => q.unit === 'Hz' && q.value === 73.4), 'e116 73.4 Hz');
+  assert.ok(qs('e13').some((q) => q.unit === 'Hz' && q.value === 2000), 'e13 2000 Hz');
+  const midi = (m) => 440 * 2 ** ((m - 69) / 12);
+  for (const e of all) {
+    for (const q of e.quantities ?? [{ value: e.value, unit: e.unit }]) {
+      if (q.unit !== 'Hz' || q.value === null || typeof q.value !== 'object' || Array.isArray(q.value)) continue;
+      assert.ok(Math.abs(midi(q.value.from) - q.value.to) > 0.01 * q.value.to, `${e.id} 把 MIDI 音符号当成 Hz 起点`);
+    }
+  }
+  assert.ok(![300, 36, 38].some((v) => [...qs('e13'), ...qs('e95'), ...qs('e116')].some((q) => q.value?.from === v)));
+  // px=clamp(...) 里的 px 是距离因子变量，420、1500 不是像素。
+  assert.ok(!qs('e251').some((q) => q.unit === 'px'), 'e251 不出像素量');
+  for (const e of all) if (/\bpx\s*=/.test(e.text ?? e.provenance?.note ?? '')) {
+    assert.ok(!(e.quantities ?? [e]).some((q) => q.unit === 'px'), `${e.id} 把变量 px 当像素`);
+  }
+  // e352：5.48 s 是配乐起点，拉伸系数 1.009 与放慢量 0.009 分开。
+  assert.equal(store.get('audio-subs.e352.duration'), undefined);
+  for (const [id, value, unit] of [
+    ['audio-subs.e352.start-offset', 5.48, 's'],
+    ['audio-subs.e352.stretch-factor', 1.009, 'ratio'],
+    ['audio-subs.e352.slowdown', 0.009, 'ratio'],
+    ['audio-subs.e348.duration', 30.041, 's'],
+    ['audio-subs.e348.event-time', 10, 's'],
+    ['audio-subs.e422.loudnorm-error', 0.9, 'LU'],
+    ['audio-subs.e422.event-time', 12, 's'],
+    ['audio-subs.e367.event-time', 6.375, 's'],
+    ['audio-subs.e288.event-time', 11.20169, 's'],
+    ['audio-subs.e316.time-window', [0.3, 4.6], 's'],
+    ['audio-subs.e316.analysis-frame', 40, 'ms'],
+    ['audio-subs.e456.offset', [-0.4, 0.4], 's'],
+    ['audio-subs.e455.fade-in-frames', { median: 1, min: 0, max: 19 }, 'frame'],
+  ]) {
+    const e = store.get(id);
+    assert.ok(e, id);
+    assert.equal(e.unit, unit, id);
+    assert.deepEqual(e.value, value, id);
+  }
+  assert.equal(store.get('audio-subs.e422.loudness-range'), undefined, '单遍 loudnorm 误差不进 LRA');
+  for (const sid of ['e348', 'e422', 'e367', 'e288', 'e316', 'e456', 'e311', 'e452']) {
+    const d = store.get(`audio-subs.${sid}.duration`);
+    if (sid !== 'e348') assert.equal(d, undefined, `${sid} 不是时长`);
+  }
+  // 时长不能是负数；按 frame 能查到字幕淡入耗时，汇总行也跟着给帧数。
+  for (const e of priors.filter((p) => /\.duration$/.test(p.topic))) {
+    assert.ok((typeof e.value === 'number' ? [e.value] : Object.values(e.value)).every((v) => v >= 0), e.id);
+  }
+  const fade = store.query({ unit: 'frame', caseId: 'case-18', includeSummaries: true }).map((e) => e.id);
+  assert.ok(fade.includes('audio-subs.e455.fade-in-frames'));
+  const sum = priors.find((p) => isSummary(p) && p.summaryOf.includes('audio-subs.e455.fade-in-frames'));
+  assert.ok(sum && sum.unit === 'frame', 'e455 汇总行给帧数');
 });

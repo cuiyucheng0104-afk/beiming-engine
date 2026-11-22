@@ -30,17 +30,169 @@
   },
   "rules": {
     "method": "逐条读原文按 05 §8.1 判定去向（判定理由写在挂卡条目的 routeNote）；判为可移植却抽不出先验单位表里的量时降级，记在 routeAdjustments",
-    "portable": "物理或感知上跨实现通用的带单位量（LUFS、LU、dBTP、dB、Hz、ms、s、fps、frame、ratio、px）；每个单位取一条，主值取首个量（PRIMARY 例外表另记）",
+    "portable": "物理或感知上跨实现通用的带单位量（LUFS、LU、dBTP、dB、Hz、ms、s、fps、frame、ratio、px）；每个单位取一条，主值取首个量；同单位的时刻、起点、偏移、误差与系数按 semanticOverrides 分条命名",
     "portableLegacy": "有可移植单位（LUFS、LU、dBTP、dB、Hz、ms、s、fps、frame、ratio）的量，且不是代码常量堆（带代码标识且数字 ≥ 6 个算耦合）；每个单位取首个量一条",
     "cardCoupled": "特定合成器、脚本拓扑常量、参数表、某部作品逐曲或逐说话人的配置表；挂卡不当默认值。旧正则口径：代码标识 + 数字 ≥ 6 个，或没有单位却有 ≥ 6 个数字（单片数据表），或只有 BPM、音分、半音这类不在先验单位表里的量；挂卡不当默认值",
     "practice": "流程、算法、技巧、修法；没有带单位的量，只有流程、算法、技巧；含教训类字眼的标 fix",
     "skippedOrConflict": "空条目、只说未公开或无声音且没有可学做法的陈述；写了做法的归 practice。没有量，且是未公开、无声音、无音轨一类陈述；冲突行本身不单列，写进 conflicts",
     "evidence": "证据标签取最弱一级映射：实测/画面读数→实测，源码/脚本取值→源码，原文陈述→文档，推断/未公开→推断；原标签照抄在 note 或 evidenceLabel",
-    "units": "dBFS 记作 dB（标题注明 dBFS），kHz 换算成 Hz，百分数换算成 ratio，帧记 frame，像素记 px；千分位逗号去掉（1,134 帧 = 1134），±a 记作 [−a, a]，等号右边的无量纲输入（near=0.5）不当量",
-    "primaryOverrides": [
+    "units": "dBFS 记作 dB（标题注明 dBFS），kHz 换算成 Hz，百分数换算成 ratio，帧记 frame，像素记 px；千分位逗号去掉（1,134 帧 = 1134），±a 记作 [−a, a]，等号右边的无量纲输入（near=0.5）不当量；分数 1/N s 按值算（1/30 s = 0.033333 s）；箭头两侧量纲不同（MIDI 36→65.4 Hz、d≥300→2000 Hz）只取右边的物理量；公式里的变量 px（px=clamp(...)）不当像素",
+    "semanticOverrides": [
       {
-        "sourceId": "e299",
-        "s": 5.97
+        "sourceId": "e352",
+        "entries": [
+          {
+            "kind": "start-offset",
+            "unit": "s",
+            "value": 5.48,
+            "label": "配乐在成片里的起点"
+          },
+          {
+            "kind": "slowdown",
+            "unit": "ratio",
+            "value": 0.009,
+            "label": "放慢的相对变化量"
+          },
+          {
+            "kind": "stretch-factor",
+            "unit": "ratio",
+            "value": 1.009,
+            "label": "时长拉伸系数（乘法）"
+          }
+        ]
+      },
+      {
+        "sourceId": "e348",
+        "entries": [
+          {
+            "kind": "duration",
+            "unit": "s",
+            "value": 30.041,
+            "label": "实测时长（指定 30 s）"
+          },
+          {
+            "kind": "event-time",
+            "unit": "s",
+            "value": 10,
+            "label": "换拍时刻"
+          }
+        ]
+      },
+      {
+        "sourceId": "e422",
+        "entries": [
+          {
+            "kind": "loudnorm-error",
+            "unit": "LU",
+            "value": 0.9,
+            "label": "单遍 loudnorm 测量偏差"
+          },
+          {
+            "kind": "event-time",
+            "unit": "s",
+            "value": 12,
+            "label": "成片第一击时刻"
+          }
+        ]
+      },
+      {
+        "sourceId": "e367",
+        "entries": [
+          {
+            "kind": "event-time",
+            "unit": "s",
+            "value": 6.375,
+            "label": "彻底熄灭起点时刻"
+          }
+        ]
+      },
+      {
+        "sourceId": "e288",
+        "entries": [
+          {
+            "kind": "event-time",
+            "unit": "s",
+            "value": 11.20169,
+            "label": "首击峰时刻"
+          }
+        ]
+      },
+      {
+        "sourceId": "e316",
+        "entries": [
+          {
+            "kind": "time-window",
+            "unit": "s",
+            "value": [
+              0.3,
+              4.6
+            ],
+            "label": "独唱段时间窗"
+          },
+          {
+            "kind": "analysis-frame",
+            "unit": "ms",
+            "value": 40,
+            "label": "音高分析帧长"
+          }
+        ]
+      },
+      {
+        "sourceId": "e311",
+        "entries": [
+          {
+            "kind": "offset",
+            "unit": "ms",
+            "value": 6.8,
+            "label": "元音落在拍后的偏移（中位）"
+          }
+        ]
+      },
+      {
+        "sourceId": "e452",
+        "entries": [
+          {
+            "kind": "offset",
+            "unit": "s",
+            "value": 0.06,
+            "label": "字幕比起始词提前量"
+          }
+        ]
+      },
+      {
+        "sourceId": "e456",
+        "entries": [
+          {
+            "kind": "offset",
+            "unit": "s",
+            "value": [
+              -0.4,
+              0.4
+            ],
+            "label": "字幕相对旁白起声的偏差"
+          }
+        ]
+      },
+      {
+        "sourceId": "e455",
+        "entries": [
+          {
+            "kind": "fade-in-frames",
+            "unit": "frame",
+            "value": {
+              "median": 1,
+              "min": 0,
+              "max": 19
+            },
+            "label": "字幕淡入耗时"
+          }
+        ]
+      }
+    ],
+    "summaryPicks": [
+      {
+        "sourceId": "e455",
+        "kind": "fade-in-frames"
       }
     ]
   },
@@ -548,6 +700,10 @@
         {
           "to": "〔专名17〕",
           "n": 10
+        },
+        {
+          "to": "〔专名52〕",
+          "n": 4
         },
         {
           "to": "〔专名37〕",
@@ -2200,7 +2356,7 @@
       "route": "portable",
       "targets": [
         "audio-subs.e367.level",
-        "audio-subs.e367.duration",
+        "audio-subs.e367.event-time",
         "audio-subs.e367.frames",
         "audio-subs.e367.loudness"
       ]
@@ -4101,7 +4257,7 @@
       "route": "portable",
       "targets": [
         "audio-subs.e311.frequency",
-        "audio-subs.e311.duration",
+        "audio-subs.e311.offset",
         "audio-subs.e311.loudness",
         "audio-subs.e311.true-peak"
       ]
@@ -4151,7 +4307,8 @@
       "caseId": "case-20",
       "route": "portable",
       "targets": [
-        "audio-subs.e316.duration",
+        "audio-subs.e316.time-window",
+        "audio-subs.e316.analysis-frame",
         "audio-subs.e316.frequency",
         "audio-subs.e316.ratio"
       ]
@@ -6439,7 +6596,7 @@
         "audio-subs.e288.loudness",
         "audio-subs.e288.loudness-range",
         "audio-subs.e288.true-peak",
-        "audio-subs.e288.duration",
+        "audio-subs.e288.event-time",
         "audio-subs.e288.frequency"
       ]
     },
@@ -6488,8 +6645,8 @@
         "audio-subs.e422.loudness",
         "audio-subs.e422.true-peak",
         "audio-subs.e422.level",
-        "audio-subs.e422.loudness-range",
-        "audio-subs.e422.duration"
+        "audio-subs.e422.loudnorm-error",
+        "audio-subs.e422.event-time"
       ]
     },
     {
@@ -6705,8 +6862,9 @@
       "route": "portable",
       "targets": [
         "audio-subs.e352.frequency",
-        "audio-subs.e352.duration",
-        "audio-subs.e352.ratio"
+        "audio-subs.e352.start-offset",
+        "audio-subs.e352.slowdown",
+        "audio-subs.e352.stretch-factor"
       ]
     },
     {
@@ -6751,6 +6909,7 @@
       "route": "portable",
       "targets": [
         "audio-subs.e348.duration",
+        "audio-subs.e348.event-time",
         "audio-subs.e348.loudness",
         "audio-subs.e348.loudness-range",
         "audio-subs.e348.level"
@@ -7745,7 +7904,7 @@
       "caseId": "case-18",
       "route": "portable",
       "targets": [
-        "audio-subs.e452.duration"
+        "audio-subs.e452.offset"
       ]
     },
     {
@@ -7779,6 +7938,7 @@
       "caseId": "case-18",
       "route": "portable",
       "targets": [
+        "audio-subs.e455.fade-in-frames",
         "audio-subs.e455.ratio"
       ]
     },
@@ -7790,7 +7950,7 @@
       "caseId": "case-18",
       "route": "portable",
       "targets": [
-        "audio-subs.e456.duration"
+        "audio-subs.e456.offset"
       ]
     },
     {

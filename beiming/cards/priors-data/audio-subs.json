@@ -65,10 +65,10 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e367.duration",
+      "id": "audio-subs.e367.event-time",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.general.duration",
-      "title": "画面和声音读同一张逐帧表（duration）",
+      "topic": "audio-subs.general.event-time",
+      "title": "画面和声音读同一张逐帧表（彻底熄灭起点时刻，event-time）",
       "value": 6.375,
       "unit": "s",
       "conditions": {
@@ -208,10 +208,10 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e311.duration",
+      "id": "audio-subs.e311.offset",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.duration",
-      "title": "官方自报量测（duration）",
+      "topic": "audio-subs.voice.offset",
+      "title": "官方自报量测（元音落在拍后的偏移（中位），offset）",
       "value": 6.8,
       "unit": "ms",
       "conditions": {
@@ -391,15 +391,35 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e316.duration",
+      "id": "audio-subs.e316.time-window",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.duration",
-      "title": "复测音高（粗估）（duration）",
+      "topic": "audio-subs.voice.time-window",
+      "title": "复测音高（粗估）（独唱段时间窗，time-window）",
       "value": [
         0.3,
         4.6
       ],
       "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "§7 人声、嗓音、歌声与虚构语言：复测音高（粗估）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-20",
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §7 ^e316；原出处：20/量测结果 §7；20/09 §3.4",
+        "note": "原证据：实测；原验证：我们自己量过（不可与官方逐音符 0.6 音分比较）。0.3–4.6 s 主唱独唱段，归一化自相关，帧 40 ms 步长 20 ms 范围 150–450 Hz：有声帧 38；最近音名 E3 7 / F3 2 / A3 15 / C4 12 / A#3 2；相对半音偏差中位 16.3 音分、95 百分位 42.0、最大 44.2、±25 内占 65.8%；频率 162–267 Hz"
+      },
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e316.analysis-frame",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.voice.analysis-frame",
+      "title": "复测音高（粗估）（音高分析帧长，analysis-frame）",
+      "value": 40,
+      "unit": "ms",
       "conditions": {
         "appliesWhen": [
           "§7 人声、嗓音、歌声与虚构语言：复测音高（粗估）"
@@ -540,10 +560,10 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e288.duration",
+      "id": "audio-subs.e288.event-time",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.duration",
-      "title": "母带实测（duration）",
+      "topic": "audio-subs.master-loudness.event-time",
+      "title": "母带实测（首击峰时刻，event-time）",
       "value": 11.20169,
       "unit": "s",
       "conditions": {
@@ -683,10 +703,10 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e422.loudness-range",
+      "id": "audio-subs.e422.loudnorm-error",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.loudness-range",
-      "title": "01 响度目标与限幅教训（loudness-range）",
+      "topic": "audio-subs.master-loudness.loudnorm-error",
+      "title": "01 响度目标与限幅教训（单遍 loudnorm 测量偏差，loudnorm-error）",
       "value": 0.9,
       "unit": "LU",
       "conditions": {
@@ -703,10 +723,10 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e422.duration",
+      "id": "audio-subs.e422.event-time",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.duration",
-      "title": "01 响度目标与限幅教训（duration）",
+      "topic": "audio-subs.master-loudness.event-time",
+      "title": "01 响度目标与限幅教训（成片第一击时刻，event-time）",
       "value": 12,
       "unit": "s",
       "conditions": {
@@ -804,10 +824,10 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e352.duration",
+      "id": "audio-subs.e352.start-offset",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.beat-sync.duration",
-      "title": "配乐对位实测（duration）",
+      "topic": "audio-subs.beat-sync.start-offset",
+      "title": "配乐对位实测（配乐在成片里的起点，start-offset）",
       "value": 5.48,
       "unit": "s",
       "conditions": {
@@ -824,11 +844,31 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e352.ratio",
+      "id": "audio-subs.e352.slowdown",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.beat-sync.ratio",
-      "title": "配乐对位实测（ratio）",
+      "topic": "audio-subs.beat-sync.slowdown",
+      "title": "配乐对位实测（放慢的相对变化量，slowdown）",
       "value": 0.009,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "§11 节拍与音画对位：配乐对位实测"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §11 ^e352；原出处：05/09 §4.3；量测结果 §5",
+        "note": "原证据：实测；原验证：我们自己量过。把 原包素材文件 与成片音轨 150 Hz 以下包络做相关：相关系数 0.836（>0.5 即公开文件=成片所用）；配乐起点成片 5.48 s（第 131.5 帧，正片开头）；拉伸 1.009=放慢 0.9%；折合 140÷1.009=138.75 BPM；放慢后长度 30.041×1.009=30.31 s，尾巴超出成片约 0.29 s 被截"
+      },
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e352.stretch-factor",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.beat-sync.stretch-factor",
+      "title": "配乐对位实测（时长拉伸系数（乘法），stretch-factor）",
+      "value": 1.009,
       "unit": "ratio",
       "conditions": {
         "appliesWhen": [
@@ -847,7 +887,27 @@
       "id": "audio-subs.e348.duration",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.duration",
-      "title": "配乐（duration）",
+      "title": "配乐（实测时长（指定 30 s），duration）",
+      "value": 30.041,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "§12 各案例声音档案：配乐"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "文档",
+        "docRef": "声音配乐配音字幕汇编 §12 ^e348；原出处：05/09 §4.3；量测结果 §1、§3",
+        "note": "原证据：原文陈述+实测；原验证：时长响度我们量过；创作要点只是原文说法。暗色 trap，140 BPM 半速感，滑音 808，约 10 s 处换拍，结尾一记 808 重击；指定 30 s，实测 30.041 s，−13.6 LUFS，LRA 2.4，真峰值 +0.1 dBFS"
+      },
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e348.event-time",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.case-profile.event-time",
+      "title": "配乐（换拍时刻，event-time）",
       "value": 10,
       "unit": "s",
       "conditions": {
@@ -1916,10 +1976,10 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e452.duration",
+      "id": "audio-subs.e452.offset",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.subs.duration",
-      "title": "字幕块起终点（duration）",
+      "topic": "audio-subs.subs.offset",
+      "title": "字幕块起终点（字幕比起始词提前量，offset）",
       "value": 0.06,
       "unit": "s",
       "conditions": {
@@ -1979,6 +2039,30 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e455.fade-in-frames",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.subs.fade-in-frames",
+      "title": "字幕淡入（字幕淡入耗时，fade-in-frames）",
+      "value": {
+        "median": 1,
+        "min": 0,
+        "max": 19
+      },
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "§14 字幕：字幕淡入"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §14 ^e455；原出处：量测结果 §4",
+        "note": "原证据：实测；原验证：我们自己量过。墨量 10%→90% 用帧数中位 1（最小 0、最大 19），基本一下出现"
+      },
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e455.ratio",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.subs.ratio",
@@ -1999,10 +2083,10 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e456.duration",
+      "id": "audio-subs.e456.offset",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.subs.duration",
-      "title": "字幕与旁白对位（duration）",
+      "topic": "audio-subs.subs.offset",
+      "title": "字幕与旁白对位（字幕相对旁白起声的偏差，offset）",
       "value": [
         -0.4,
         0.4
@@ -2097,7 +2181,7 @@
     {
       "id": "audio-subs.sum.s08-t1-r09",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
+      "topic": "audio-subs.case-profile.event-time",
       "title": "跨案例对照：曲速、调式与乐曲结构（case-05）",
       "value": 10,
       "unit": "s",
@@ -2115,6 +2199,7 @@
       "verifiedInOurStack": false,
       "summaryOf": [
         "audio-subs.e348.duration",
+        "audio-subs.e348.event-time",
         "audio-subs.e348.loudness",
         "audio-subs.e348.loudness-range",
         "audio-subs.e348.level"
@@ -2323,6 +2408,7 @@
       "verifiedInOurStack": false,
       "summaryOf": [
         "audio-subs.e348.duration",
+        "audio-subs.e348.event-time",
         "audio-subs.e348.loudness",
         "audio-subs.e348.loudness-range",
         "audio-subs.e348.level"
@@ -2377,7 +2463,7 @@
         "audio-subs.e288.loudness",
         "audio-subs.e288.loudness-range",
         "audio-subs.e288.true-peak",
-        "audio-subs.e288.duration",
+        "audio-subs.e288.event-time",
         "audio-subs.e288.frequency"
       ]
     },
@@ -2428,8 +2514,8 @@
         "audio-subs.e422.loudness",
         "audio-subs.e422.true-peak",
         "audio-subs.e422.level",
-        "audio-subs.e422.loudness-range",
-        "audio-subs.e422.duration"
+        "audio-subs.e422.loudnorm-error",
+        "audio-subs.e422.event-time"
       ]
     },
     {
@@ -2478,8 +2564,9 @@
       "verifiedInOurStack": false,
       "summaryOf": [
         "audio-subs.e352.frequency",
-        "audio-subs.e352.duration",
-        "audio-subs.e352.ratio"
+        "audio-subs.e352.start-offset",
+        "audio-subs.e352.slowdown",
+        "audio-subs.e352.stretch-factor"
       ]
     },
     {
@@ -2505,8 +2592,8 @@
         "audio-subs.e422.loudness",
         "audio-subs.e422.true-peak",
         "audio-subs.e422.level",
-        "audio-subs.e422.loudness-range",
-        "audio-subs.e422.duration"
+        "audio-subs.e422.loudnorm-error",
+        "audio-subs.e422.event-time"
       ]
     },
     {
@@ -2561,7 +2648,7 @@
     {
       "id": "audio-subs.sum.s14-t1-r03",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.subs.duration",
+      "topic": "audio-subs.subs.offset",
       "title": "跨案例对照：字幕样式与时序（case-18）",
       "value": 0.06,
       "unit": "s",
@@ -2578,7 +2665,7 @@
       },
       "verifiedInOurStack": false,
       "summaryOf": [
-        "audio-subs.e452.duration"
+        "audio-subs.e452.offset"
       ]
     },
     {
@@ -2608,10 +2695,14 @@
     {
       "id": "audio-subs.sum.s14-t1-r06",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.subs.ratio",
+      "topic": "audio-subs.subs.fade-in-frames",
       "title": "跨案例对照：字幕样式与时序（case-18）",
-      "value": 0.1,
-      "unit": "ratio",
+      "value": {
+        "median": 1,
+        "min": 0,
+        "max": 19
+      },
+      "unit": "frame",
       "conditions": {
         "appliesWhen": [
           "§14 跨案例对照：字幕样式与时序"
@@ -2625,13 +2716,14 @@
       },
       "verifiedInOurStack": false,
       "summaryOf": [
+        "audio-subs.e455.fade-in-frames",
         "audio-subs.e455.ratio"
       ]
     },
     {
       "id": "audio-subs.sum.s14-t1-r07",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.subs.duration",
+      "topic": "audio-subs.subs.offset",
       "title": "跨案例对照：字幕样式与时序（case-18）",
       "value": [
         -0.4,
@@ -2651,7 +2743,7 @@
       },
       "verifiedInOurStack": false,
       "summaryOf": [
-        "audio-subs.e456.duration"
+        "audio-subs.e456.offset"
       ]
     }
   ]

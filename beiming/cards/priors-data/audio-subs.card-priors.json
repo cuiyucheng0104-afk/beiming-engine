@@ -151,10 +151,7 @@
           "rawUnit": "Hz"
         },
         {
-          "value": {
-            "from": 300,
-            "to": 2000
-          },
+          "value": 2000,
           "unit": "Hz",
           "rawUnit": "Hz"
         }
@@ -1905,10 +1902,7 @@
           "rawUnit": "s"
         },
         {
-          "value": {
-            "from": 36,
-            "to": 65.4
-          },
+          "value": 65.4,
           "unit": "Hz",
           "rawUnit": "Hz"
         },
@@ -2457,10 +2451,7 @@
       "text": "MIDI→Hz=440·2^((m−69)/12)(38→73.4 Hz)。〔专名02〕 38,45,57/1/520；〔专名03〕 41,48,55/0.9/460；〔专名04〕 31,38,44/1.1/430；〔专名05〕 38,39,45/1.25/380 whisper1；〔专名06〕 33,40,45/1/540；〔专名01〕 38,45,50/1.15/620；〔专名07〕 35,42,47/1.15/360 whisper0.4；〔专名08〕 40,47,55/0.95/430；〔专名09〕 33,40,46/1.05/340；〔专名10〕 33,40,45/0.95/380；地下crypt 38,39,45/1.1/240 whisper0.35 走room混响",
       "quantities": [
         {
-          "value": {
-            "from": 38,
-            "to": 73.4
-          },
+          "value": 73.4,
           "unit": "Hz",
           "rawUnit": "Hz"
         }
@@ -2482,7 +2473,7 @@
       "section": 5,
       "caseId": "case-13",
       "title": "树层和声底 DRONES_TREE",
-      "text": "treePass 36,43,48/0.95/470 crown0.45 leaves0.35 creak0；〔专名15〕 34,41,46/1/440/0.8/1/34 s；〔专名16〕 31,38,43/1.1/400/0.55/0.55/14；〔专名14〕 39,46,51/1.15/360/0/0/0 room+drips；〔专名17〕 36,43,48/1/480/0.9/0.5/11；〔专名17〕High 38,45,50/1/500/1.1/0.55/13(树干高度比例(y−45)/145≥0.5启用)；bough 34,41,46/0.8/420/1.3/0.7/18 n3 0；hush 34,41,46/0.7/520/0.9/0.4/0",
+      "text": "〔专名52〕 36,43,48/0.95/470 crown0.45 leaves0.35 creak0；〔专名15〕 34,41,46/1/440/0.8/1/34 s；〔专名16〕 31,38,43/1.1/400/0.55/0.55/14；〔专名14〕 39,46,51/1.15/360/0/0/0 room+drips；〔专名17〕 36,43,48/1/480/0.9/0.5/11；〔专名17〕High 38,45,50/1/500/1.1/0.55/13(树干高度比例(y−45)/145≥0.5启用)；bough 34,41,46/0.8/420/1.3/0.7/18 n3 0；hush 34,41,46/0.7/520/0.9/0.4/0",
       "quantities": [
         {
           "value": 34,
@@ -5659,7 +5650,7 @@
       "section": 8,
       "caseId": "case-13",
       "title": "战斗层：区域行 ROWS",
-      "text": "19区域一份战斗代码，差别全在ROWS(调式根音/调式/特色乐器colour/8小节和弦循环loop/区域动机motif/收尾和弦cad/胜利声部win)；derive()算完整可播数据。区域行：reach D多利亚 风铃琴+长笛 Dm G Dm C Am G C Dm 女声u；〔专名03〕 D多利亚 竖琴五连音滑奏 Dm G/D Am C F G Em Dm 女声o；〔专名04〕 G弗里几亚 木板(钟楼未解放)/裂钟 Gm A♭ Gm Fm E♭ A♭ Gm Gm 女声o；〔专名38〕 D弗里几亚 刀鸣 Dm E♭ Dm Cm B♭ E♭ Gm Dm 女声u；crypt D弗里几亚 男声咏叹 Dm E♭ Dm Dm Cm E♭ Dm Dm 男声o；stair D自然小调 簧管管风琴重击 Dm B♭ C Dm Gm B♭ A A 女声o；cathedral D弗里几亚 男声咏叹重音 Dm E♭ Dm Cm B♭ E♭ Gm Dm 男声a；〔专名07〕 B自然小调 低语+手鼓(无tom) Bm G Em Bm G A F♯m Bm 女声u；〔专名08〕 E弗里几亚 手摇琴+rattle(L3铜管) Em F Em Dm C F Em Em 女声a；treePass C多利亚 风铃琴 Cm B♭ F Cm Gm B♭ F Cm 女声u；〔专名15〕 B♭多利亚 玻璃+沙锤 B♭m A♭ E♭ B♭m Fm A♭ E♭ B♭m 女声i；〔专名16〕 G多利亚 树皮鼓3+3+2 Gm C Gm F B♭ C Dm Gm 男声u；〔专名14〕 E♭多利亚 琥珀玻璃+滴水 E♭m D♭ A♭ E♭m B♭m D♭ A♭ E♭m 女声u；〔专名17〕 C自然小调 长笛 Cm B♭/D E♭ Fm A♭ B♭ Cm Cm 女声o；〔专名17〕High D自然小调 长笛(整体高大二度) Dm C/E F Gm B♭ C Dm Dm 女声o；〔专名09〕借用〔专名08〕行；bough借用〔专名17〕High行；hushed/dry/cluster字段个别行存在k用0.9",
+      "text": "19区域一份战斗代码，差别全在ROWS(调式根音/调式/特色乐器colour/8小节和弦循环loop/区域动机motif/收尾和弦cad/胜利声部win)；derive()算完整可播数据。区域行：reach D多利亚 风铃琴+长笛 Dm G Dm C Am G C Dm 女声u；〔专名03〕 D多利亚 竖琴五连音滑奏 Dm G/D Am C F G Em Dm 女声o；〔专名04〕 G弗里几亚 木板(钟楼未解放)/裂钟 Gm A♭ Gm Fm E♭ A♭ Gm Gm 女声o；〔专名38〕 D弗里几亚 刀鸣 Dm E♭ Dm Cm B♭ E♭ Gm Dm 女声u；crypt D弗里几亚 男声咏叹 Dm E♭ Dm Dm Cm E♭ Dm Dm 男声o；stair D自然小调 簧管管风琴重击 Dm B♭ C Dm Gm B♭ A A 女声o；cathedral D弗里几亚 男声咏叹重音 Dm E♭ Dm Cm B♭ E♭ Gm Dm 男声a；〔专名07〕 B自然小调 低语+手鼓(无tom) Bm G Em Bm G A F♯m Bm 女声u；〔专名08〕 E弗里几亚 手摇琴+rattle(L3铜管) Em F Em Dm C F Em Em 女声a；〔专名52〕 C多利亚 风铃琴 Cm B♭ F Cm Gm B♭ F Cm 女声u；〔专名15〕 B♭多利亚 玻璃+沙锤 B♭m A♭ E♭ B♭m Fm A♭ E♭ B♭m 女声i；〔专名16〕 G多利亚 树皮鼓3+3+2 Gm C Gm F B♭ C Dm Gm 男声u；〔专名14〕 E♭多利亚 琥珀玻璃+滴水 E♭m D♭ A♭ E♭m B♭m D♭ A♭ E♭m 女声u；〔专名17〕 C自然小调 长笛 Cm B♭/D E♭ Fm A♭ B♭ Cm Cm 女声o；〔专名17〕High D自然小调 长笛(整体高大二度) Dm C/E F Gm B♭ C Dm Dm 女声o；〔专名09〕借用〔专名08〕行；bough借用〔专名17〕High行；hushed/dry/cluster字段个别行存在k用0.9",
       "quantities": [],
       "routeNote": "19区域行配置表",
       "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
@@ -6119,7 +6110,7 @@
       "section": 8,
       "caseId": "case-13",
       "title": "区域曲音量微调 dB",
-      "text": "REGION_TRIM_DB：reach0 〔专名03〕3 〔专名04〕2 〔专名38〕/crypt/stair/cathedral/〔专名14〕0 〔专名07〕4 〔专名08〕2 〔专名09〕5 treePass−1 〔专名15〕−1.5 〔专名16〕−1 〔专名17〕1 bough0 hush−2；COMBAT_TRIM_DB：〔专名14〕−0.5 〔专名15〕−1.5 〔专名17〕−0.8；gainMul=10^(dB/20)",
+      "text": "REGION_TRIM_DB：reach0 〔专名03〕3 〔专名04〕2 〔专名38〕/crypt/stair/cathedral/〔专名14〕0 〔专名07〕4 〔专名08〕2 〔专名09〕5 〔专名52〕−1 〔专名15〕−1.5 〔专名16〕−1 〔专名17〕1 bough0 hush−2；COMBAT_TRIM_DB：〔专名14〕−0.5 〔专名15〕−1.5 〔专名17〕−0.8；gainMul=10^(dB/20)",
       "quantities": [],
       "routeNote": "区域曲dB微调表",
       "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
@@ -6138,7 +6129,7 @@
       "section": 8,
       "caseId": "case-13",
       "title": "各曲 def.gain",
-      "text": "title1.25；explore回退1.55；combat回退/boss/boss2 1；vigil1.2；death1；victory0.85；ending0.95；reach3.2；〔专名03〕4.6；〔专名04〕4.5；〔专名38〕3.8；crypt3；stair2.7；cathedral/〔专名12〕 2.5/2.05；〔专名07〕5.5；〔专名08〕3.4；〔专名09〕2.9；treePass/〔专名15〕/〔专名16〕 5/3.3/4.3；〔专名14〕/〔专名17〕/bough/hush 5/3/4/3.5；lamp/lamp2/lampRite/lampWin 1.45/1.2/1.6/1.3；dragon/dragonAir/dragon3/dragonCall/dragonWin 4.2/4/3.3/3.8/3；TREE_LAYER2.1(增益只在曲内相对)",
+      "text": "title1.25；explore回退1.55；combat回退/boss/boss2 1；vigil1.2；death1；victory0.85；ending0.95；reach3.2；〔专名03〕4.6；〔专名04〕4.5；〔专名38〕3.8；crypt3；stair2.7；cathedral/〔专名12〕 2.5/2.05；〔专名07〕5.5；〔专名08〕3.4；〔专名09〕2.9；〔专名52〕/〔专名15〕/〔专名16〕 5/3.3/4.3；〔专名14〕/〔专名17〕/bough/hush 5/3/4/3.5；lamp/lamp2/lampRite/lampWin 1.45/1.2/1.6/1.3；dragon/dragonAir/dragon3/dragonCall/dragonWin 4.2/4/3.3/3.8/3；TREE_LAYER2.1(增益只在曲内相对)",
       "quantities": [],
       "routeNote": "各曲增益配置表",
       "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
@@ -7744,16 +7735,6 @@
           ],
           "unit": "s",
           "rawUnit": "s"
-        },
-        {
-          "value": 420,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 1500,
-          "unit": "px",
-          "rawUnit": "px"
         },
         {
           "value": 0.085,

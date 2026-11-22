@@ -7,7 +7,7 @@
       "section": 1,
       "caseId": "case-13",
       "title": "声音三条路线",
-      "text": "①启动后离线逐采样算好存成 AudioBuffer（原实现源码 全部 321 个基础键，种子来自键名，同键永远同声）；②实时节点合成（对话 原实现源码、环境 原实现源码、配乐里管风琴/合唱/弦）；③按规则生成的配乐（music*.js 9 个文件）；原实现源码 另有 4 处实时振荡器：低语、弓弦「静脉弦」后备、通用 tone、头目火焰后备；整包无任何音频文件（494 文件查 mp3/ogg/wav/m4a 零个，decodeAudioData/new Audio(/<audio 零命中）",
+      "text": "①启动后离线逐采样算好存成 AudioBuffer（原实现源码 全部 321 个基础键，种子来自键名，同键永远同声）；②实时节点合成（对话 原实现源码、环境 原实现源码、配乐里管风琴/合唱/弦）；③按规则生成的配乐（原实现源码 9 个文件）；原实现源码 另有 4 处实时振荡器：低语、弓弦「静脉弦」后备、通用 tone、头目火焰后备；整包无任何音频文件（494 文件查 mp3/ogg/wav/m4a 零个，decodeAudioData/new Audio(/<audio 零命中）",
       "quantities": [],
       "kind": "method",
       "evidenceLevel": "实测",
@@ -1192,7 +1192,7 @@
       "text": "GameAudio.renderPreview：OfflineAudioContext(2 声道, 48000×秒) 建 GameAudio({prep:false})，以 1/30 s 步长手动调 update，按时间表 events:[{t, call:\"hit(flesh)\"}] 触发，渲完 analyze(buf)，再附复音丢失数、乐曲块列表、龙/头目线索统计；试听语法 parseMusicSpec「名@区域:段落+旗标=值」（旗标 night after tempest …）；命令行 audio_preview combat@<区域>:L1；dryCalls() 查空壳；speakTest(type)；sfx(key,gain,rate)；stats()",
       "quantities": [
         {
-          "value": 30,
+          "value": 0.033333,
           "unit": "s",
           "rawUnit": "s"
         }
@@ -1815,7 +1815,7 @@
       "section": 10,
       "caseId": "case-01",
       "title": "01 重制音乐母带流程与自动验收",
-      "text": "仅 numpy+标准库(用 Blender 自带 python，系统 python3 无 numpy)；输出 原包素材文件 + events.json + report.json；母带：分轨去直流→求和→11.10–11.20 s 切静音→增益→软削波→前视限幅→再清一次静音段→ffmpeg 量测→调增益重来直到达标；脚本末尾自动验收 7 项并写 report.json，任一不达标非零退出；所有帧号来自 原实现源码",
+      "text": "仅 numpy+标准库(用 Blender 自带 python，系统 python3 无 numpy)；输出 原包素材文件 + 事件表 JSON + 验收报告 JSON；母带：分轨去直流→求和→11.10–11.20 s 切静音→增益→软削波→前视限幅→再清一次静音段→ffmpeg 量测→调增益重来直到达标；脚本末尾自动验收 7 项并写 验收报告 JSON，任一不达标非零退出；所有帧号来自 原实现源码",
       "quantities": [
         {
           "value": [
@@ -2741,7 +2741,7 @@
       "section": 13,
       "caseId": "case-b10",
       "title": "配音文件交接协议",
-      "text": "pi 把脚本拆成逐场景段落写 audio/tts_request.json({language, voice, segments:[{id,text}]}),先写 .tmp 再 mv 就位;Claude Code 监视该文件,批量出 原包素材文件…,最后才写 audio/tts_ready.json(文件与时长),避免 pi 读到半成品;pi 先用估算时长建场景,每 30 s 才轮询一次,拿到真实时长后(ffprobe)重排",
+      "text": "pi 把脚本拆成逐场景段落写 配音请求清单 JSON({language, voice, segments:[{id,text}]}),先写 .tmp 再 mv 就位;Claude Code 监视该文件,批量出 原包素材文件…,最后才写 配音就绪回执 JSON(文件与时长),避免 pi 读到半成品;pi 先用估算时长建场景,每 30 s 才轮询一次,拿到真实时长后(ffprobe)重排",
       "quantities": [
         {
           "value": 30,
