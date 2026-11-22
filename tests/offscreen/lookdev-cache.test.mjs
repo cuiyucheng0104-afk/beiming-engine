@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { loadGpu } from '../../engine/offscreen/load.mjs';
 import { createHost } from '../../engine/offscreen/host.mjs';
 import { createGpuTimer, attachGpuTimer, detachGpuTimer } from '../../engine/offscreen/gputimer.mjs';
+import { FFMPEG } from '../../engine/render/lib/ffmpeg.mjs';
 import { LOOKDEV_CACHE_KEYS as LOOK_KEYS } from '../../engine/offscreen/tsl/look.js';
 import { LOOKDEV_CACHE_KEYS as SWEEP_KEYS, canCacheLookdev } from '../../tools/lookdev/sweep.mjs';
 
@@ -17,6 +18,7 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const FIXTURE = `${ROOT}tests/offscreen/fixtures/look-work.mjs`;
 const SWEEP_CLI = path.join(ROOT, 'tools/lookdev/sweep.mjs');
 const DEFAULTS = JSON.parse(readFileSync(`${ROOT}engine/style/beiming-original.v1.json`, 'utf8')).lookDefaults.params;
+const hasFfmpeg = spawnSync(FFMPEG(), ['-version'], { stdio: 'ignore' }).status === 0;
 const W = 320, H = 180;
 
 test('B3 白名单纯函数：look.js 与 sweep.mjs 共享同一组纯后期键，任意白名单外键 fail-closed', () => {
@@ -84,6 +86,7 @@ test('lookdev 快照：重复帧 scene/ink:ids 为 0，输出逐字节等于完�
 });
 
 test('B3 + B1 + N1 端到端 sweep.mjs：白名单外 --look bg 禁用快照逐字节一致；白名单内 --t 0,0.04 --look outline.opacity=0,1 逐字节一致', { timeout: 180000 }, async t => {
+  if (!hasFfmpeg) return t.skip('没有 FFmpeg（CI 的 unit / windows-paths 不安装）');
   try {
     const gpu = await loadGpu();
     (await createHost({ gpu, width: 32, height: 32 })).dispose();
