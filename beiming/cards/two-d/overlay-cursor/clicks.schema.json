@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "overlay.cursor 的点击表",
+  "description": "按时间先后写，帧号是镜头局部帧号，一个比一个大。至少一次点击。",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "required": ["id", "frame", "x", "y"],
+    "additionalProperties": false,
+    "properties": {
+      "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "这次点击的名字，也是它在事件表里那条命名条目的 id" },
+      "frame": { "type": "integer", "minimum": 0, "description": "点击落在镜头的第几帧（镜头局部帧号，镜头第一帧是 0）" },
+      "x": { "type": "number", "minimum": 0, "maximum": 1, "description": "点在画面宽的几分之几，原点在左" },
+      "y": { "type": "number", "minimum": 0, "maximum": 1, "description": "点在画面高的几分之几，原点在上" }
+    }
+  }
+}
