@@ -17,7 +17,7 @@
     }
   ],
   "params": {
-    "clicks": { "type": "data", "unit": "none", "schema": "clicks.schema.json", "default": [], "coupling": "fps" },
+    "clicks": { "type": "data", "unit": "none", "schema": "clicks.schema.json", "default": [{ "id": "click", "frame": 0, "x": 0.5, "y": 0.5 }], "coupling": "fps" },
     "cutDelayFrames": { "type": "integer", "unit": "frame", "range": [0, 24], "default": 2, "coupling": "fps" },
     "moveFrames": { "type": "integer", "unit": "frame", "range": [0, 240], "default": 18, "coupling": "fps" },
     "pressFrames": { "type": "integer", "unit": "frame", "range": [0, 48], "default": 4, "coupling": "fps" },
@@ -34,9 +34,10 @@
     "out": [{ "name": "events", "type": "events" }, { "name": "readings", "type": "frame-meta" }],
     "order": { "before": ["comp.finish", "deliver.encode"], "after": ["comp.display"] },
     "requires": [
-      "合成工具给的 ctx 带 size（[宽, 高]，像素）和 shot（用到 shot.in，镜头起始帧）；meta(f) 的 f 是镜头局部帧号，点击表、事件条目和 draw、at 的帧号都是全片帧号",
-      "合成工具逐帧调 Handle.object.draw(frame, rgba) 往显示参考的 8 位 RGBA（直通透明度）上叠光标，取 Handle.object.events 并进事件表",
-      "点击的帧号要事先定好：要踩在配乐起音上，先用 audio.event-mix 的 snap 把帧号吸到起音上再交进来"
+      "合成工具给的 ctx 带 size（[宽, 高]，像素）和 shot（用到 shot.in 镜头起始帧、shot.frames 镜头帧数）；点击表和 at、draw、meta 的帧号都是镜头局部帧号（0 到镜头帧数 − 1），只有交出去的事件条目和事件对是全片帧号（局部帧号 + shot.in）",
+      "合成工具逐帧调 Handle.object.draw(f, rgba) 往显示参考的 8 位 RGBA（直通透明度）上叠光标，取 Handle.object.events 并进事件表",
+      "点击的帧号要事先定好：要踩在配乐起音上，先用 audio.event-mix 的 snap 把帧号吸到起音上，snap 交回的是全片帧号，减去 shot.in 再写进点击表",
+      "点击表至少一次点击，x、y 在 0 到 1 之间；写法不对的 create 一律报 usage.bad-argument，不交出带 NaN 的坐标或画面外的点击"
     ]
   },
   "conditions": {
@@ -45,10 +46,11 @@
   },
   "calibration": "probe-thin-geometry",
   "verify": {
-    "selftest": "1280 × 720：点击在第 24、60 帧，光标正好在点击帧到位，出发和到位那一帧的位移都小于 1 像素；点击帧起 4 帧下压、10 帧波纹；交出的切点条目都在点击之后 2 帧，事件条目按帧号再按 id 排；往全黑画面上叠出来的亮像素都在交回的包围盒里",
+    "selftest": "1280 × 720：点击在第 24、60 帧，光标正好在点击帧到位，出发和到位那一帧的位移都小于 1 像素；点击帧起 4 帧下压、10 帧波纹；交出的切点条目都在点击之后 2 帧，事件条目按帧号再按 id 排；同一张点击表放进第 120 帧起的镜头，读数不变、事件整体晚 120 帧；空点击表、画面外的坐标、镜头外的帧号都报错；往全黑画面上叠出来的亮像素都在交回的包围盒里",
     "predicates": []
   },
   "pitfalls": [
+    { "symptom": "非首镜头里 create 报帧号出了镜头，或者点击声和切点比画面晚了整个镜头起始帧", "fix": "点击表写的是镜头局部帧号，不是全片帧号：全片帧号先减去 shot.in 再写；交出去的事件条目卡自己会加回 shot.in" },
     { "symptom": "create 报点击的帧号不在上一次点击之后", "fix": "点击表按时间先后写，两次点击不能在同一帧；吸到起音上之后撞了帧的，去掉一个或者换一个起音" },
     { "symptom": "光标瞬移到下一个位置", "fix": "两次点击隔得比 moveFrames 近时只能用这点间隔滑过去；隔得只有一两帧就把点击排开，或者把两个位置放近" },
     { "symptom": "切画面之后还看得见上一次点击的波纹", "fix": "波纹默认 10 帧、切画面在第 2 帧，这是本意；不要就把 rippleFrames 调到不大于 cutDelayFrames" }

@@ -63,24 +63,42 @@ test('overlay.cursor：往全黑的画面上叠，亮起来的像素都在交回
   assert.deepEqual([...gray.subarray(at(700, 360), at(700, 360) + 4)], [100, 100, 100, 255]);
 });
 
-test('overlay.cursor：meta(f) 的 f 是镜头局部帧号，非首镜头要加上镜头起始帧；每帧都是闭式的，乱序求结果相同', () => {
-  const whole = cursor(), shot = cursor({}, { shot: { id: 's02', in: 20, frames: 60 } });
-  assert.deepEqual(shot.meta(4), whole.meta(24));
-  assert.deepEqual(shot.meta(4), { readings: { x: 320, y: 288, pressed: 1, ripple: 0 } });
-  assert.deepEqual(whole.meta(4), { readings: { x: 640, y: 360, pressed: 0, ripple: 0 } });
+test('overlay.cursor：点击表、at、draw、meta 都是镜头局部帧号，交出去的事件是全片帧号（加上镜头起始帧）；每帧都是闭式的，乱序求结果相同', () => {
+  const whole = cursor(), shot = cursor({}, { shot: { id: 's02', in: 120, frames: 96 } });
+  // 同一张局部点击表放到第 120 帧起的镜头里：画面读数不变，事件整体晚 120 帧
+  for (const f of [0, 4, 24, 26, 61]) assert.deepEqual(shot.meta(f), whole.meta(f));
+  assert.deepEqual(shot.meta(24), { readings: { x: 320, y: 288, pressed: 1, ripple: 0 } });
+  assert.deepEqual(shot.object.at(24), whole.object.at(24));
+  assert.deepEqual(shot.object.pairs, [{ id: 'open', clickFrame: 144, cutFrame: 146 }, { id: 'send', clickFrame: 180, cutFrame: 182 }]);
+  assert.deepEqual(shot.object.events.map((e) => [e.id, e.frame]), [['open', 144], ['cut.146', 146], ['send', 180], ['cut.182', 182]]);
+  // 一审的反例：镜头从第 120 帧起，局部第 6 帧点击、2 帧后切
+  const r1 = cursor({ clicks: [{ id: 'tap', frame: 6, x: 0.5, y: 0.5 }] }, { shot: { id: 's02', in: 120, frames: 48 } });
+  assert.deepEqual(r1.object.events.map((e) => e.frame), [126, 128]);
+  assert.deepEqual([r1.meta(5).readings.pressed, r1.meta(6).readings.pressed], [0, 1]);
   const forward = Array.from({ length: 80 }, (_, f) => whole.object.at(f)), again = cursor().object;
   for (const f of [79, 3, 60, 24, 41, 0]) assert.deepEqual(again.at(f), forward[f]);
 });
 
-test('overlay.cursor：点击表不按时间先后、两次点击同帧、id 重复或写法不对、墨色写法不对、缓冲大小不对都报错；没有点击就停在起点', () => {
-  const bad = (params) => assert.throws(() => cursor(params), { name: 'RangeError', code: 'contract.bad-value' });
+test('overlay.cursor：点击表是空的、有空位、不按时间先后、两次点击同帧、帧号出了镜头、坐标出了画面或者缺了、id 重复或写法不对、延迟和墨色写法不对、缓冲大小不对都报 usage.bad-argument', () => {
+  const bad = (params, ctx) => assert.throws(() => cursor(params, ctx), { name: 'RangeError', code: 'usage.bad-argument' });
+  bad({ clicks: [] });
+  bad({ clicks: undefined });
+  bad({ clicks: { 0: CLICKS[0], length: 1 } });
+  bad({ clicks: [CLICKS[0], , CLICKS[1]] }); // eslint-disable-line no-sparse-arrays
+  bad({ clicks: [null] });
   bad({ clicks: [CLICKS[1], CLICKS[0]] });
   bad({ clicks: [CLICKS[0], { ...CLICKS[1], frame: 24 }] });
   bad({ clicks: [CLICKS[0], { ...CLICKS[1], id: 'open' }] });
   bad({ clicks: [{ ...CLICKS[0], id: 'cut.26' }] });
-  bad({ clicks: [{ ...CLICKS[0], frame: 1.5 }] });
+  bad({ clicks: [{ ...CLICKS[0], id: 7 }] });
+  for (const frame of [1.5, -1, NaN, Infinity, '24', 2 ** 53]) bad({ clicks: [{ ...CLICKS[0], frame }] });
+  // 帧号是镜头局部的：不小于镜头帧数的点击落在镜头外
+  bad({}, { shot: { id: 's02', in: 120, frames: 60 } });
+  for (const x of [1.25, -0.01, NaN, Infinity, '0.5', undefined]) { bad({ clicks: [{ ...CLICKS[0], x }] }); bad({ clicks: [{ ...CLICKS[0], y: x }] }); }
+  bad({ clicks: [{ id: 'open', frame: 24, x: 0.25 }] });
+  for (const cutDelayFrames of [-1, 1.5, NaN]) bad({ cutDelayFrames });
   bad({ ink: 'white' });
-  assert.throws(() => cursor().object.draw(0, new Uint8ClampedArray(16)), { code: 'contract.bad-value' });
-  const still = cursor({ clicks: [] }).object;
-  assert.deepEqual([still.events, still.pairs, still.at(99).x, still.at(99).pressed], [[], [], 640, false]);
+  assert.throws(() => cursor().object.draw(0, new Uint8ClampedArray(16)), { code: 'usage.bad-argument' });
+  // 画面的边上是合法的
+  assert.deepEqual(cursor({ clicks: [{ id: 'edge', frame: 0, x: 1, y: 0 }] }).object.at(0).x, 1280);
 });

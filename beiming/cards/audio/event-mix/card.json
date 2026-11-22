@@ -29,7 +29,8 @@
     "order": { "before": ["audio.master"], "after": ["audio.align"] },
     "requires": [
       "合成工具给的 ctx 带 fps（分子/分母）和 seed（点击音色的噪声种子）",
-      "合成工具调 Handle.object.mix(events, { frames, bed, samples })：声音都是 48000 赫兹的 32 位浮点样本，一个或两个声道；事件条目的帧号是全片帧号",
+      "合成工具调 Handle.object.mix(events, { frames, bed, samples, sampleRate })：声音都是 48000 赫兹的 32 位浮点样本，一个或两个声道，不空、不带 NaN 或无穷；事件条目的帧号是全片帧号；sampleRate 可以不写，写了（ctx 里的也算）就得是 48000",
+      "参数和数据写法不对的一律报 usage.bad-argument，不交出静音或带 NaN 的声音",
       "这张卡只防削波，不定响度：混完交给 audio.master 调到目标响度"
     ]
   },
@@ -39,7 +40,7 @@
   },
   "calibration": "probe-moving-cube",
   "verify": {
-    "selftest": "24 帧每秒：第 10 帧、子帧相位 0.5 的事件落在第 21000 个采样点上，那之前全是 0；两个满幅的声音叠在一起整体降到 −1 dBFS；每秒两下的鼓点量出的起音离真值不到 5 毫秒；踩在鼓点上的事件命中率是 1，随机基线是量出来的那个占比",
+    "selftest": "24 帧每秒：第 10 帧、子帧相位 0.5 的事件落在第 21000 个采样点上，那之前全是 0；30000/1001 帧每秒第 20 帧、子帧相位 0.3125 正好半个采样点，进到第 32533 个；两个满幅的声音叠在一起整体降到 −1 dBFS；每秒两下的鼓点量出的起音离真值不到 5 毫秒，左右反相的立体声量出的一样；踩在鼓点上的事件命中率是 1，随机基线是量出来的那个占比",
     "predicates": []
   },
   "pitfalls": [
@@ -47,7 +48,7 @@
     { "symptom": "轻的那几下起音没被找到", "fix": "能量涨幅不到全曲最大涨幅 onsetFloor 倍的不算起音；把 onsetFloor 调小，或者先把配乐里特别响的那一下压下去" },
     { "symptom": "混完整体变轻了", "fix": "峰值超过 ceilingDb 时是整体降增益，不做限幅；看交回的 scaleDb，嫌轻就把 gainDb 调小，别让音效把峰值顶上去" }
   ],
-  "provenance": { "cases": [], "note": "事件时刻换采样点是 round((frame + sub) × 48000 × 帧率分母 ÷ 帧率分子)；起音取 5 毫秒一步的能量比上一步涨得最多的那一步，50 毫秒内只认一个" },
+  "provenance": { "cases": [], "note": "事件时刻换采样点是 round((frame + sub) × 48000 × 帧率分母 ÷ 帧率分子)，先乘完再除一次；起音取 5 毫秒一步的能量（两个声道各自平方再平均）比上一步涨得最多的那一步，50 毫秒内只认一个" },
   "status": [{ "level": "reproduced", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-22" }],
   "exams": ["29-2"]
 }

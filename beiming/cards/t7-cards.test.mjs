@@ -3,13 +3,15 @@
 //   二、29-2 式的用例（原创）：点击吸到配乐起音上，点击之后 2 帧切画面；用观察工具从叠了光标的画面和真值起音上量切点和命中率；
 //   三、5-1 式的用例（原创，考题编号不带前导零）：现成配乐对到 30 秒的正片上，拉伸比 1.009，用观察工具的对位复核拉伸比、偏移和重击落点；
 //   四、确定性：两个用例各做两遍，声音和事件的摘要相同；
-//   五、负向：不吸附的点击过不了命中率门槛，改了切画面的延迟切点就对不上，拉伸比出界必须报错，非首镜头的读数对着全片帧。
+//   五、负向：不吸附的点击过不了命中率门槛，改了切画面的延迟切点就对不上，拉伸比出界必须报错；
+//   六、一审的反例：点击表写镜头局部帧号、事件交全片帧号，分数帧率的采样点和合成收尾逐点一致，写法不对的参数和数据一律报 usage.bad-argument，左右反相的立体声不漏检。
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { eventSample, filmSamples } from '../comp/audio.mjs';
 import { loadContracts } from '../kernel/contracts/validate.mjs';
 import { align, telemetry } from '../observe/index.mjs';
 import { create as createAlign } from './audio/align/comp.mjs';
@@ -240,12 +242,97 @@ test('T7-7 三张卡确定性可重放：两个用例各做两遍，声音、事
   assert.equal(sha(alone), sha(inOrder));
 });
 
-test('T7-8 非首镜头：meta(f) 的 f 是镜头局部帧号，读数对着全片第 shot.in + f 帧', () => {
-  const { clicks } = scene29(), given = { clicks, sizeFrac: 0.03, rippleFrac: 0.12 };
-  const whole = createCursor({ size: S29.size }, params('overlay.cursor', given)), shotIn = clicks[4].frame - 3;
-  const shot = createCursor({ size: S29.size, shot: { id: 's02', in: shotIn, frames: 60 } }, params('overlay.cursor', given));
-  for (const f of [0, 3, 5, 20]) assert.deepEqual(shot.meta(f), whole.meta(shotIn + f));
-  assert.equal(shot.meta(3).readings.pressed, 1);
-  assert.equal(shot.meta(2).readings.pressed, 0);
-  assert.deepEqual(shot.object.events, whole.object.events, '事件条目的帧号是全片帧号，不跟着镜头变');
+test('T7-8 双镜头：点击表写镜头局部帧号，两个镜头交出的全片事件拼起来和整片一条镜头的一样；at、draw、meta 收局部帧号', async () => {
+  const { clicks, cursor: whole } = scene29(), look = { sizeFrac: 0.03, rippleFrac: 0.12 };
+  // 在第 5 次点击之前 3 帧切成两个镜头，各自的点击表减去自己的起始帧
+  const shotIn = clicks[4].frame - 3, shots = [{ id: 's01', in: 0, frames: shotIn }, { id: 's02', in: shotIn, frames: S29.frames - shotIn }];
+  const local = (shot) => clicks.filter((c) => c.frame >= shot.in && c.frame < shot.in + shot.frames).map((c) => ({ ...c, frame: c.frame - shot.in }));
+  const [first, second] = shots.map((shot) => createCursor({ size: S29.size, shot }, params('overlay.cursor', { ...look, clicks: local(shot) })));
+  assert.deepEqual([local(shots[0]).length, local(shots[1]).length, local(shots[1])[0].frame], [4, 7, 3]);
+  assert.deepEqual([...first.object.events, ...second.object.events], whole.object.events);
+  assert.deepEqual([...first.object.pairs, ...second.object.pairs], whole.object.pairs);
+  const judged = (await loadContracts()).validate({ format: 'events/0.1', film: 'f_t7_shots', fps: FPS, frames: S29.frames, events: [...first.object.events, ...second.object.events] });
+  assert.deepEqual([judged.schemaErrors, judged.violations], [[], {}]);
+
+  // 第二个镜头的局部第 3 帧就是那次点击：读数、摆法和整片那条镜头在全片第 shotIn + 3 帧上的一样
+  assert.deepEqual([2, 3].map((f) => second.meta(f).readings.pressed), [0, 1]);
+  const here = second.object.at(3), there = whole.object.at(shotIn + 3);
+  within(here.x, there.x, 1e-9);
+  within(here.y, there.y, 1e-9);
+  assert.deepEqual([here.pressed, here.scale, here.ripple], [there.pressed, there.scale, there.ripple]);
+  const [w, h] = S29.size, rgba = new Uint8ClampedArray(w * h * 4), box = second.object.draw(3, rgba);
+  assert.ok(rgba.some((v) => v > 0) && Math.abs((box[0] + box[2]) / 2 - there.x) < 1e-9, '按局部帧号画出来的光标在点击的位置上');
+
+  // 一审的反例：镜头从第 120 帧起，局部第 6 帧点击、2 帧后切，交出去的是全片第 126、128 帧
+  const r1 = createCursor({ size: S29.size, shot: { id: 's02', in: 120, frames: 48 } }, params('overlay.cursor', { clicks: [{ id: 'tap', frame: 6, x: 0.5, y: 0.5 }] }));
+  assert.deepEqual(r1.object.events.map((e) => [e.id, e.frame]), [['tap', 126], ['cut.128', 128]]);
+  assert.deepEqual([r1.meta(5).readings.pressed, r1.meta(6).readings.pressed], [0, 1]);
+  // 照全片帧号写的点击表在非首镜头里落到镜头外：拒掉，不悄悄把点击声和切点写到别处
+  assert.throws(() => createCursor({ size: S29.size, shot: shots[1] }, params('overlay.cursor', { ...look, clicks: clicks.slice(4) })), { code: 'usage.bad-argument' });
+});
+
+// ---------- 六、一审的反例 ----------
+
+test('T7-9 分数帧率：混音的落点和全片长度逐点等于合成收尾的 eventSample、filmSamples，正好半个采样点的时刻不提前', () => {
+  const pulse = Float32Array.of(1), subs = [0, 0.125, 0.3125, 0.5, 0.6875, 0.999];
+  for (const fps of ['24/1', '25/1', '30000/1001', '24000/1001', '60000/1001']) {
+    const events = Array.from({ length: 240 }, (_, frame) => subs.map((sub, k) => ({ id: `p-${frame}-${k}`, frame, sub, audio: 'pulse' }))).flat();
+    const out = createMix({ fps, seed: 0 }, params('audio.event-mix', { fadeMs: 0 })).object.mix(events, { frames: 240, samples: { pulse } });
+    assert.equal(out.channels[0].length, filmSamples(240, fps), fps);
+    const off = out.placements.filter((p) => p.sample !== eventSample(p.frame, p.sub, fps));
+    assert.deepEqual(off, [], `${fps}：${off.length} 个落点和 eventSample 不一样`);
+  }
+  const [at] = createMix({ fps: '30000/1001' }, params('audio.event-mix')).object.mix([{ id: 'tap', frame: 20, sub: 0.3125, audio: 'pulse' }], { frames: 60, samples: { pulse } }).placements;
+  assert.deepEqual([at.sample, eventSample(20, 0.3125, '30000/1001')], [32533, 32533]);
+});
+
+test('T7-10 写法不对的参数和数据：照卡文件解析参数再建卡，三张卡都报 usage.bad-argument，不交出事件、静音或带 NaN 的声音', () => {
+  const refused = (fn, what) => assert.throws(fn, { name: 'RangeError', code: 'usage.bad-argument' }, what);
+  // overlay.cursor：点击表的结构定义和 create 的入口两处口径一致
+  const [[, clicksOk]] = dataValidators(readCard('overlay.cursor')), tap = { id: 'tap', frame: 6, x: 0.5, y: 0.5 };
+  const cursorWith = (clicks) => () => createCursor({ size: [256, 144] }, params('overlay.cursor', { clicks }));
+  assert.equal(cursorWith([tap])().object.events.length, 2);
+  for (const [what, clicks] of Object.entries({ 空点击表: [], 'x 出了画面': [{ ...tap, x: 1.25 }], '缺 y': [{ id: 'tap', frame: 6, x: 0.5 }], 'id 写法不对': [{ ...tap, id: 'Tap' }], 负帧号: [{ ...tap, frame: -1 }] })) {
+    assert.equal(clicksOk(clicks), false, `结构定义该拒：${what}`);
+    refused(cursorWith(clicks), what);
+  }
+  refused(cursorWith([{ ...tap, y: NaN }]), 'y 是 NaN');
+
+  // audio.event-mix：负帧号、空样本、带 NaN 的样本、不是 48000 的采样率
+  const mix = createMix({ fps: FPS, seed: 1 }, params('audio.event-mix')).object, ev = { id: 'x', frame: 1, audio: 'probe' }, probe = new Float32Array(48).fill(0.5);
+  assert.equal(mix.mix([ev], { frames: 12, samples: { probe }, sampleRate: 48000 }).placements.length, 1);
+  refused(() => mix.mix([{ ...ev, frame: -1 }], { frames: 12, samples: { probe } }), '负帧号');
+  refused(() => mix.mix([{ ...ev, frame: Infinity }], { frames: 12, samples: { probe } }), '帧号无穷');
+  refused(() => mix.mix([{ ...ev, sub: NaN }], { frames: 12, samples: { probe } }), '子帧相位 NaN');
+  refused(() => mix.mix([ev], { frames: 12, samples: { probe: new Float32Array(0) } }), '空样本');
+  refused(() => mix.mix([ev], { frames: 12, samples: { probe: Float32Array.of(0.5, NaN) } }), '样本带 NaN');
+  refused(() => mix.mix([ev], { frames: 12, samples: { probe: Float32Array.of(Infinity) } }), '样本带无穷');
+  for (const sampleRate of [44100, 0, -1]) refused(() => mix.mix([ev], { frames: 12, samples: { probe }, sampleRate }), `采样率 ${sampleRate}`);
+  refused(() => createMix({ fps: FPS, sampleRate: 44100 }, params('audio.event-mix')), 'ctx 的采样率');
+
+  // audio.align：界是硬的闭区间；偏移不是有限数、总帧数不是正的安全整数
+  const card = createAlign({ fps: FPS }, params('audio.align')).object, src = [new Float32Array(RATE).fill(0.25)];
+  for (const stretch of [0.97, 1.03]) assert.equal(card.align(src, { frames: 24, stretch }).stretch, stretch);
+  for (const stretch of [0.9699999995, 1.0300000005, 0.969, 1.031, NaN]) refused(() => card.align(src, { frames: 24, stretch }), `拉伸比 ${stretch}`);
+  for (const offsetSec of [NaN, Infinity]) refused(() => card.align(src, { frames: 1, offsetSec }), `偏移 ${offsetSec}`);
+  for (const frames of [0, 1.5, 2 ** 53]) refused(() => card.align(src, { frames }), `总帧数 ${frames}`);
+  assert.ok(card.align(src, { frames: 1, offsetSec: 0.01 }).channels.every((ch) => ch.every(Number.isFinite)));
+});
+
+test('T7-11 左右反相的立体声：29-2 的吸附和 5-1 的按重击对位都和单声道的结果一样', () => {
+  const flip = (x) => x.map((v) => -v);
+  // 29-2：配乐右声道取反，找到的起音、吸到的帧、审计的命中率都不变
+  const { mix, bed, cursor } = scene29(), antiphase = [bed[0], flip(bed[0])];
+  assert.ok(mix.onsets([bed[0]]).length >= 11);
+  assert.deepEqual(mix.onsets(antiphase), mix.onsets([bed[0]]));
+  assert.deepEqual(mix.snap(S29.wanted, antiphase), mix.snap(S29.wanted, bed));
+  assert.equal(mix.audit(antiphase, cursor.object.events).hitRate, mix.audit(bed, cursor.object.events).hitRate);
+  // 5-1：配乐右声道取反，十下重击照样找到，对位的拉伸比和偏移不变，右声道还是左声道取反
+  const card = createAlign({ fps: FPS }, params('audio.align')).object, [left] = track05(), mono = card.align([left], { frames: S05.frames, anchors: anchors05() });
+  assert.deepEqual(card.hits([left, flip(left)]), card.hits([left]));
+  assert.equal(card.hits([left]).length, HIT_SECS.length);
+  const out = card.align([left, flip(left)], { frames: S05.frames, anchors: anchors05() });
+  assert.deepEqual([out.stretch, out.offsetSec], [mono.stretch, mono.offsetSec]);
+  within(card.hits(out.channels).at(-1) * 24, S05.cuts[1], 2, '反相立体声对完的最后一下重击 ');
+  assert.ok(out.channels[1].every((v, i) => v === -out.channels[0][i]));
 });

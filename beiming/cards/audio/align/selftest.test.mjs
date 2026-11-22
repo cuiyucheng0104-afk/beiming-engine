@@ -36,6 +36,16 @@ test('audio.align：hits 只认低频重击，十下都找到，离真值不到 
   assert.deepEqual(card().hits([SRC.map(() => 0)]), []);
 });
 
+test('audio.align：左右反相的立体声不会互相抵消：找到的重击和单声道、同相的一样，按第几下重击对位照样对得上', () => {
+  const c = card(), flipped = SRC.map((v) => -v), found = c.hits([SRC]);
+  assert.deepEqual(c.hits([SRC, flipped]), found);
+  assert.deepEqual(c.hits([SRC, SRC]), found);
+  assert.deepEqual(c.hits([SRC, new Float32Array(SRC.length)]), found);
+  const out = c.align([SRC, flipped], { frames: FRAMES, anchors: [{ frame: 96, hit: 0 }, { frame: 576, hit: -1 }] });
+  within(out.stretch, 1.009, 0.0005);
+  within(c.hits(out.channels).at(-1) * 24, 576, 1);
+});
+
 test('audio.align：首尾两下重击对到第 96 和第 576 帧：拉伸比 1.009，偏移 2.48 秒，对完量回来两下都离目标帧不到 1 帧', () => {
   const c = card(), out = c.align([SRC], { frames: FRAMES, anchors: [{ frame: 96, hit: 0 }, { frame: 576, hit: -1 }] });
   within(out.stretch, 1.009, 0.0005);
@@ -70,6 +80,11 @@ test('audio.align：要的拉伸比出了 [0.97, 1.03] 就报错，不悄悄变�
   refused(() => c.align([SRC], { frames: FRAMES, stretch: 0.969 }));
   assert.equal(c.align([SRC], { frames: FRAMES, stretch: 1.03 }).stretch, 1.03);
   assert.equal(c.align([SRC], { frames: FRAMES, stretch: 0.97 }).stretch, 0.97);
+  // 界是硬的闭区间，差十亿分之几也不收；不是有限数的也不收
+  for (const stretch of [0.9699999995, 1.0300000005, 0.97 - Number.EPSILON, 1.03 + 2 * Number.EPSILON, NaN, Infinity, 0, -1, '1']) refused(() => c.align([SRC], { frames: FRAMES, stretch }));
+  refused(() => card({ stretchMin: 0.99 }).align([SRC], { frames: FRAMES, stretch: 0.9899999995 }));
+  refused(() => card({ stretchMin: NaN }));
+  refused(() => card({ stretchMin: 1.01, stretchMax: 1 }));
   // 范围只能收窄，不能放宽
   refused(() => card({ stretchMax: 1.05 }));
   refused(() => card({ stretchMin: 0.9 }));
@@ -112,4 +127,21 @@ test('audio.align：锚点太多、帧号出了正片、没有那一下重击、
   refused(() => c.align([SRC], { frames: FRAMES, anchors: [{ frame: 576, hit: 0 }, { frame: 96, hit: -1 }] }));
   refused(() => c.align([SRC, SRC.subarray(1)], { frames: FRAMES }));
   refused(() => c.align([SRC], {}));
+});
+
+test('audio.align：偏移不是有限数、总帧数不是正的安全整数、帧率写法不对、空的或者带非有限数的配乐都报错，不交出带 NaN 的声音', () => {
+  const c = card(), short = new Float32Array(RATE).fill(0.25);
+  for (const offsetSec of [NaN, Infinity, -Infinity, '0']) refused(() => c.align([short], { frames: 1, offsetSec }));
+  for (const frames of [0, -1, 1.5, NaN, Infinity, 2 ** 53, '24']) refused(() => c.align([short], { frames }));
+  for (const dud of [new Float32Array(0), Float32Array.of(0, NaN), Float32Array.of(Infinity, 0)]) {
+    refused(() => c.align([dud], { frames: 1 }));
+    refused(() => c.align([new Float32Array(dud.length), dud], { frames: 1 }));
+    refused(() => c.hits([dud]));
+  }
+  for (const fps of ['24', '24/0', 'abc', undefined]) refused(() => create({ fps }, DEFAULTS));
+  refused(() => c.align([short], { frames: 24, anchors: [{ frame: 1, sourceSec: NaN }] }));
+  refused(() => c.align([short], { frames: 24, anchors: [{ frame: NaN, sourceSec: 0.5 }] }));
+  // 合法的偏移照做，交出来的每个采样都是有限数
+  const out = c.align([short], { frames: 24, offsetSec: -0.25, stretch: 1.03 });
+  assert.ok(out.channels.every((ch) => ch.every(Number.isFinite)));
 });

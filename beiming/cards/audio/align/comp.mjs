@@ -3,25 +3,28 @@
 // 合成宿主怎么用 Handle 还没有契约，这里定的用法写在卡文件的 ports.requires 里：ctx 带 fps；合成工具调 Handle.object.hits、align。
 // 口径：正片时刻 = offsetSec + stretch × 配乐时刻，stretch 大于 1 是放慢；和观察工具量拉伸比的口径相同。
 
-const RATE = 48000, LIMIT = [0.97, 1.03], EPS = 1e-9;
+const RATE = 48000, LIMIT = [0.97, 1.03];
 const WINDOW = 0.02 * RATE, STEP = 0.001 * RATE; // 找重击：20 毫秒的能量窗，1 毫秒一步
 const refuse = (message) => { throw Object.assign(new RangeError(`audio.align：${message}`), { code: 'usage.bad-argument' }); };
 
 function checked(channels) {
-  if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2 || channels.some((c) => !(c instanceof Float32Array) || c.length !== channels[0].length)) refuse('配乐要是一个或两个一样长的 32 位浮点声道，采样率 48000 赫兹');
+  if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2 || channels.some((c) => !(c instanceof Float32Array) || c.length < 1 || c.length !== channels[0].length)) refuse('配乐要是一个或两个一样长、不空的 32 位浮点声道，采样率 48000 赫兹');
+  if (!channels.every((c) => c.every(Number.isFinite))) refuse('配乐里有不是有限数的采样（NaN 或无穷）');
   return channels;
 }
 
-/** 低频重击的时刻（秒）：两级一阶低通之后 20 毫秒窗的能量，取局部最大（前后 150 毫秒内最大）且不低于全曲最大值 floor 倍的窗，时刻是窗的起点 */
+/** 低频重击的时刻（秒）：每个声道各自过两级一阶低通，平方之后在声道之间平均（不先把左右加起来：左右反相的立体声加起来是 0），再看 20 毫秒窗的能量，取局部最大（前后 150 毫秒内最大）且不低于全曲最大值 floor 倍的窗，时刻是窗的起点 */
 function findHits(channels, lowHz, floor) {
-  const n = channels[0].length, k = 1 - Math.exp((-2 * Math.PI * lowHz) / RATE), sum = new Float64Array(n + 1);
-  let a = 0, b = 0;
-  for (let i = 0; i < n; i++) {
-    const x = channels.length === 1 ? channels[0][i] : (channels[0][i] + channels[1][i]) / 2;
-    a += k * (x - a);
-    b += k * (a - b);
-    sum[i + 1] = sum[i] + b * b;
+  const n = channels[0].length, k = 1 - Math.exp((-2 * Math.PI * lowHz) / RATE), sum = new Float64Array(n + 1), power = new Float64Array(n);
+  for (const x of channels) {
+    let a = 0, b = 0;
+    for (let i = 0; i < n; i++) {
+      a += k * (x[i] - a);
+      b += k * (a - b);
+      power[i] += (b * b) / channels.length;
+    }
   }
+  for (let i = 0; i < n; i++) sum[i + 1] = sum[i] + power[i];
   const steps = Math.max(0, Math.floor((n - WINDOW) / STEP) + 1), energy = Float64Array.from({ length: steps }, (_, j) => sum[j * STEP + WINDOW] - sum[j * STEP]);
   const top = energy.reduce((m, v) => Math.max(m, v), 0), near = 150, out = [];
   for (let j = 0; j < steps; j++) {
@@ -34,7 +37,7 @@ function findHits(channels, lowHz, floor) {
 }
 
 /**
- * ctx：用到 fps（"分子/分母"，帧每秒）。params：stretchMin、stretchMax 只能在 [0.97, 1.03] 里收窄；splice 许不许剪接一次；crossfadeMs 剪接处交叉淡化多长；
+ * ctx：用到 fps（"分子/分母"，帧每秒）。params：stretchMin、stretchMax 只能在 [0.97, 1.03] 里收窄，界是硬的闭区间，不留浮点余量；splice 许不许剪接一次；crossfadeMs 剪接处交叉淡化多长；
  * lowHz、hitFloor 是找低频重击用的低通频率和门限。
  * Handle.object：
  *   hits(channels)  配乐里低频重击的时刻，秒，从早到晚。
@@ -43,19 +46,23 @@ function findHits(channels, lowHz, floor) {
  *       anchors 一个或两个 { frame, hit } 或 { frame, sourceSec }：配乐的这一刻要落在正片的第 frame 帧上；hit 是 hits() 里的第几个，负数从后往前数。
  *         一个锚点只平移。两个锚点先算拉伸比，在界内就只拉伸加平移；出界时 splice 没开就报错，开了就在两个锚点正中间剪掉（或者重放）一段，
  *         接缝在 ±20 毫秒里挑波形最像的位置再交叉淡化，剩下不到一个接缝搜索范围的差用拉伸比补齐。
- *       不给 anchors 时直接用 stretch（不写是 1）和 offsetSec（不写是 0）。
+ *       不给 anchors 时直接用 stretch（不写是 1）和 offsetSec（不写是 0）。frames 要是正整数，stretch、offsetSec 要是有限的数，不是就报错。
  *       返回 { channels: [左, 右], stretch, offsetSec, splice, anchors }：splice 是 null 或 { cutSec, resumeSec, crossfadeMs }（配乐放到 cutSec 接着从 resumeSec 放）；
  *       anchors 每项 { frame, sourceSec }。
  */
 export function create(ctx, params) {
-  const [num, den] = ctx.fps.split('/').map(Number), [lo, hi] = [params.stretchMin, params.stretchMax];
+  const fps = /^([1-9][0-9]*)\/([1-9][0-9]*)$/.exec(String(ctx.fps));
+  if (!fps) refuse(`帧率要写成 "分子/分母"，给的是 ${JSON.stringify(ctx.fps)}`);
+  const num = Number(fps[1]), den = Number(fps[2]), [lo, hi] = [params.stretchMin, params.stretchMax];
   if (!(LIMIT[0] <= lo && lo <= hi && hi <= LIMIT[1])) refuse(`拉伸比的范围只能在 [${LIMIT}] 里收窄，给的是 [${lo}, ${hi}]`);
-  const inRange = (s) => s >= lo - EPS && s <= hi + EPS;
+  // 硬的闭区间：不留浮点余量，差十亿分之几也算出界；NaN、字符串也在这里拦下
+  const inRange = (s) => Number.isFinite(s) && s >= lo && s <= hi;
   const hits = (channels) => findHits(checked(channels), params.lowHz, params.hitFloor);
 
   function align(channels, { frames, anchors, stretch = 1, offsetSec = 0 } = {}) {
     const src = checked(channels), total = src[0].length / RATE;
-    if (!Number.isInteger(frames) || frames < 1) refuse(`frames 要是正整数帧数，给的是 ${frames}`);
+    if (!Number.isSafeInteger(frames) || frames < 1) refuse(`frames 要是正整数帧数，给的是 ${frames}`);
+    if (!Number.isFinite(offsetSec)) refuse(`offsetSec 要是有限的数（秒），给的是 ${offsetSec}`);
     let splice = null, marks = [];
     if (anchors !== undefined) {
       if (!Array.isArray(anchors) || anchors.length < 1 || anchors.length > 2) refuse('anchors 要一个或两个锚点');
@@ -73,7 +80,7 @@ export function create(ctx, params) {
         if (!(want > 0 && have > 0)) refuse('两个锚点在配乐里和正片里的先后要一致，且不能重合');
         stretch = want / have;
         if (!inRange(stretch)) {
-          if (!params.splice) refuse(`两个锚点要的拉伸比是 ${stretch.toFixed(4)}，出了 [${lo}, ${hi}]；这张卡不做更大的变速，要么换锚点，要么把 splice 打开剪接一次`);
+          if (!params.splice) refuse(`两个锚点要的拉伸比是 ${stretch}，出了 [${lo}, ${hi}]；这张卡不做更大的变速，要么换锚点，要么把 splice 打开剪接一次`);
           // 在两个锚点正中间对称地剪：放到 cut 接着从 resume 放，剪掉（have − want）秒；负数就是往回重放
           const mid = (first.sourceSec + last.sourceSec) / 2, half = params.crossfadeMs / 2000, search = 0.02;
           const cutSec = mid - (have - want) / 2, margin = half + search + WINDOW / RATE;
@@ -81,7 +88,7 @@ export function create(ctx, params) {
           const resumeSec = bestSeam(src, cutSec, mid + (have - want) / 2, half, search);
           splice = { cutSec, resumeSec, crossfadeMs: params.crossfadeMs };
           stretch = want / (cutSec - first.sourceSec + last.sourceSec - resumeSec);
-          if (!inRange(stretch)) refuse(`剪接之后还要 ${stretch.toFixed(4)} 的拉伸比，出了 [${lo}, ${hi}]`);
+          if (!inRange(stretch)) refuse(`剪接之后还要 ${stretch} 的拉伸比，出了 [${lo}, ${hi}]`);
         }
       }
       // 剪接之后的时间轴上，后一个锚点提前了 resume − cut
