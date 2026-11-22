@@ -394,6 +394,16 @@ test('T7-10 写法不对的参数和数据：照卡文件解析参数再建卡�
   const both = mix.audit(pulses([24000, 0.2], [50000, 1]), [...at12, ...at24], film25);
   assert.deepEqual([both.hits, both.rows.map((r) => r.delta)], [1, [0, -12]]);
   assert.deepEqual(mix.snap([12, 24], pulses([24000, 0.2], [50000, 1]), film25), [12, 12]);
+  // 六审的反例之一：垫着 0.1 的 600 赫兹底音时，第 49920 个采样点那一下 0.8 的点击照样要找到。最后一步只有 80 个采样点，能量加起来比前一整步的底音还少，不能因此当成没涨
+  const bedded = pulses([49920, 0.8]);
+  for (let i = 0; i < bedded[0].length; i++) bedded[0][i] += 0.1 * Math.sin((2 * Math.PI * 600 * i) / RATE);
+  for (const [frames, to] of [[26, 25], [25, 24]]) {
+    assert.deepEqual(mix.onsets(bedded.map((c) => c.subarray(0, frames * 2000))), [0, 49920], `正片 ${frames} 帧`);
+    assert.deepEqual([mix.audit(bedded, last, { frames }).hits, mix.snap([23], bedded, { frames })], [1, [to]], `正片 ${frames} 帧`);
+  }
+  // 六审的反例之二：混进去的落点和量出来的起音是同一个采样点，一帧不差（toleranceFrames 是 0）也要算命中，差值正好是 0
+  const exact = mix.audit(mixed.channels, last, { ...film25, toleranceFrames: 0 });
+  assert.deepEqual([mix.onsets(mixed.channels), exact.hits, exact.rows[0].delta], [[49920], 1, 0]);
 
   // audio.align：界是硬的闭区间；偏移不是有限数、总帧数不是正的安全整数
   const card = createAlign({ fps: FPS }, params('audio.align')).object, src = [new Float32Array(RATE).fill(0.25)];

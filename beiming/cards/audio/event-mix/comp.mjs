@@ -78,12 +78,12 @@ const filmFrames = (opts, events, fromSound) => {
  *       audio 先在 samples（{ 名字: 单声道样本或 [左, 右] }）里找，再在自带音色里找，都没有报错。bed 是垫在下面的配乐（一个或两个声道），比全片长的截掉。
  *       每段音效乘 gainDb，尾巴 fadeMs 毫秒线性收到 0（被片尾截断的也收）；混完峰值超过 ceilingDb 时整体降增益到正好压线，不做限幅。
  *       返回 { channels: [左, 右], placements: [{ id, audio, frame, sub, sample, clippedTail }], peakDb, scaleDb }。
- *   onsets(channels)       起音的采样点下标：5 毫秒一步的能量（两个声道各自平方再平均，左右反相也不会抵消），比上一步涨得最多的那一步；涨幅不到全曲最大涨幅的 onsetFloor 倍的不算，50 毫秒内只认一个。准到一步（5 毫秒）；声音末尾不满一步的那一段也算一步。
+ *   onsets(channels)       起音的采样点下标：5 毫秒一步的能量（两个声道各自平方再平均，左右反相也不会抵消），比上一步涨得最多的那一步；涨幅不到全曲最大涨幅的 onsetFloor 倍的不算，50 毫秒内只认一个。准到一步（5 毫秒）；声音末尾不满一步的那一段也算一步，它和前两步里最响的同样长的一段比：垫着底音的点击找得到，一直响着的长音不多出起音。
  *   snap(frames, channels, { frames, windowFrames, sampleRate })
  *       把每个帧号换成离它最近的起音所在的帧（四舍五入到整数帧，起音在最后半帧里的收在最后一帧）；交回的帧号都在全片里，可以直接交给同一片长的 mix、audit。
  *       给了 windowFrames 时，要挪的帧数超过它的帧号留在原地；选项里的 frames 是全片帧数。
  *   audit(channels, events, { frames, toleranceFrames, sampleRate })
- *       逐条量事件离最近的起音差几帧（正数是起音晚到）：返回 { total, hits, hitRate, baseline, rows: [{ id, frame, delta }] }；
+ *       逐条量事件离最近的起音差几帧（正数是起音晚到；照采样点算，事件的落点和 mix 是同一个，混在起音上的差值正好是 0）：返回 { total, hits, hitRate, baseline, rows: [{ id, frame, delta }] }；
  *       差不超过 toleranceFrames（选项里的优先，没有用参数的）算命中；baseline 是随机基线：全片的整数帧里，离某个起音不超过 toleranceFrames 的占多少。
  */
 export function create(ctx, params) {
@@ -141,13 +141,24 @@ export function create(ctx, params) {
   function onsets(channels) {
     // 能量按声道各自平方再平均，不先把左右加起来：左右反相的立体声加起来是 0，会把起音整个消掉
     // 步数向上取整：声音不是整数步时最后那一步不满，那里的起音也算（25 帧的正片是 50000 个采样点，最后一步只有 80 个）
-    // 不满的那一步只加实际有的采样，不按采样数折成整步：折算会把长音的瞬时起伏放大成假起音（110 赫兹的稳定正弦，239 种片尾长度里 106 种多出一个）
+    // 不满的那一步不和前一整步比总量（采样少，垫着底音时点击加上去也比不过），也不按采样数折成整步（会把长音的瞬时起伏放大成假起音）：
+    // 和前两步里任何一段同样长的采样比，比其中最响的那段还多出来的才算涨。长音的起伏前面都出现过，多不出来
     const [l, r] = stereoOf(channels, 'channels'), steps = Math.ceil(l.length / HOP), rise = new Float64Array(steps);
+    const power = (i) => (l[i] * l[i] + r[i] * r[i]) / 2;
     let before = 0, top = 0;
     for (let k = 0; k < steps; k++) {
-      const end = Math.min((k + 1) * HOP, l.length);
+      const start = k * HOP, end = Math.min(start + HOP, l.length), n = end - start;
       let energy = 0;
-      for (let i = k * HOP; i < end; i++) energy += (l[i] * l[i] + r[i] * r[i]) / 2;
+      for (let i = start; i < end; i++) energy += power(i);
+      if (n < HOP && k > 0) {
+        const from = Math.max(0, start - 2 * HOP);
+        let run = 0;
+        before = 0;
+        for (let i = from; i < start; i++) {
+          run += power(i) - (i - n >= from ? power(i - n) : 0);
+          if (i - n + 1 >= from) before = Math.max(before, run);
+        }
+      }
       rise[k] = Math.max(0, energy - before);
       top = Math.max(top, rise[k]);
       before = energy;
@@ -161,8 +172,10 @@ export function create(ctx, params) {
     }
     return out;
   }
-  /** 起音在第几帧（带小数）。先把声音截到正片的长度再找：正片比配乐短时片尾之后的观众听不到，那里再响也不该抬高门槛、压掉片内的起音 */
-  const onsetFrames = (channels, frames) => onsets(stereoOf(channels, 'channels').map((c) => c.subarray(0, sampleAt(frames)))).map((s) => s / perFrame);
+  /** 正片里的起音（采样点）。先把声音截到正片的长度再找：正片比配乐短时片尾之后的观众听不到，那里再响也不该抬高门槛、压掉片内的起音 */
+  const onsetsIn = (channels, frames) => onsets(stereoOf(channels, 'channels').map((c) => c.subarray(0, sampleAt(frames))));
+  /** 起音在第几帧（带小数） */
+  const onsetFrames = (channels, frames) => onsetsIn(channels, frames).map((s) => s / perFrame);
   const nearest = (frame, list) => list.reduce((best, o) => (Math.abs(o - frame) < Math.abs(best - frame) ? o : best), Infinity);
 
   return {
@@ -180,8 +193,9 @@ export function create(ctx, params) {
         });
       },
       audit(channels, events, opts) {
-        const o = options(opts), { toleranceFrames: tol = params.toleranceFrames } = o, frames = filmFrames(o, events, framesOf(channels)), list = onsetFrames(channels, frames);
-        const rows = entries(events, frames).map((e) => ({ id: e.id, frame: e.frame, delta: nearest(e.frame + (e.sub ?? 0), list) - e.frame - (e.sub ?? 0) }));
+        const o = options(opts), { toleranceFrames: tol = params.toleranceFrames } = o, frames = filmFrames(o, events, framesOf(channels)), found = onsetsIn(channels, frames), list = found.map((s) => s / perFrame);
+        // 差值照采样点算，事件的落点和 mix 是同一个 sampleAt：混在起音上的事件差值正好是 0，不留先减帧号再减子帧的浮点尾数
+        const rows = entries(events, frames).map((e) => { const at = sampleAt(e.frame + (e.sub ?? 0)); return { id: e.id, frame: e.frame, delta: (nearest(at, found) - at) / perFrame }; });
         const hits = rows.filter((r) => Math.abs(r.delta) <= tol).length;
         // 随机基线照区间数，不逐帧扫（全片可以比声音长很多）：每个起音盖住 [o − tol, o + tol] 里的整数帧，起音从早到晚，盖过的不重数
         let near = 0, from = 0;

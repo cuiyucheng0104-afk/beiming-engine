@@ -261,7 +261,20 @@ test('audio.event-mix：正片比声音短时，起音只在正片那一段里�
   assert.deepEqual([c.audit(at(49920), at24, { frames: 25 }).hits, c.snap([24], at(49920), { frames: 25 })], [1, [24]]);
   assert.equal(c.audit(at(50000), at24, { frames: 25 }).hits, 0);
   assert.throws(() => c.snap([24], at(50000), { frames: 25 }), { name: 'RangeError', code: 'usage.bad-argument' });
-  // 最后那一步只加实际有的采样、不折成整步：一直响着的 110 赫兹长音，不管片尾停在一步里的哪儿，都只有开头那一个起音
-  const tone = Float32Array.from({ length: 24240 }, (_, i) => 0.3 * Math.sin((2 * Math.PI * 110 * i) / RATE));
-  for (let length = 24000; length <= 24240; length++) assert.deepEqual(c.onsets([tone.subarray(0, length)]), [0], `长音 ${length} 个采样点`);
+  // 最后不满的那一步不折成整步来比：一直响着的长音，不管片尾停在一步里的哪儿，都只有开头那一个起音
+  const sine = (hz, level, length) => Float32Array.from({ length }, (_, i) => level * Math.sin((2 * Math.PI * hz * i) / RATE));
+  for (const hz of [110, 220, 440]) {
+    const tone = sine(hz, 0.3, 24240);
+    for (let length = 24000; length <= 24240; length++) assert.deepEqual(c.onsets([tone.subarray(0, length)]), [0], `${hz} 赫兹的长音 ${length} 个采样点`);
+  }
+  // 六审的反例：0.1 的 600 赫兹底音上，第 49920 个采样点一下 0.8 的点击。最后那 80 个采样点的能量比前一整步的少，照样是起音：正片 25 帧和 26 帧找到的是同一下
+  const bed = sine(600, 0.1, 60 * 2000), last = [{ id: 'x', frame: 24, sub: 0.96, audio: 'click' }];
+  bed[49920] += 0.8;
+  assert.deepEqual([c.onsets([bed.subarray(0, 52000)]), c.onsets([bed.subarray(0, 50000)])], [[0, 49920], [0, 49920]]);
+  assert.deepEqual([c.audit([bed], last, { frames: 26 }).hits, c.snap([23], [bed], { frames: 26 })], [1, [25]]);
+  assert.deepEqual([c.audit([bed], last, { frames: 25 }).hits, c.snap([23], [bed], { frames: 25 })], [1, [24]]);
+  // 六审的反例：自带的点击混在第 24 帧、子帧相位 0.96，落点和量出的起音是同一个采样点，一帧不差（toleranceFrames 是 0）也要算命中，差值正好是 0
+  const mixed = c.mix(last, { frames: 25 }), exact = c.audit(mixed.channels, last, { frames: 25, toleranceFrames: 0 });
+  assert.deepEqual([mixed.placements[0].sample, c.onsets(mixed.channels)], [49920, [49920]]);
+  assert.deepEqual([exact.hits, exact.rows[0].delta], [1, 0]);
 });
