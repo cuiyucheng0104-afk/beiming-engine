@@ -16,8 +16,8 @@ function lengthOf(list, name) {
 
 // 把普通数组逐下标只读一次拷成快照，之后只用快照：空洞会让种子被悄悄少算，
 // 带 getter 的元素能在读取中途删项、改长度或第二次读出别的值：空洞抛 TypeError，长度变了抛 RangeError。
-// length 由调用方给时是入口长度：别处的 getter 可能在这次读取开始前就把 list 改短，等读完再补回去。
-function snapshot(list, name, length = lengthOf(list, name)) {
+function snapshot(list, name) {
+  const length = lengthOf(list, name);
   const sameLength = () => {
     if (list.length !== length) throw new RangeError(`welch: ${name} 的长度在读取中途被改了`);
   };
@@ -29,6 +29,17 @@ function snapshot(list, name, length = lengthOf(list, name)) {
     sameLength();
   }
   return copy;
+}
+
+// 不触发元素 getter 地取种子组每个槽位的属性描述符。空洞当场抛，超长的稀疏数组走不到头。
+function slotsOf(group, length, name) {
+  const slots = [];
+  for (let i = 0; i < length; i++) {
+    const slot = Object.getOwnPropertyDescriptor(group, i);
+    if (!slot) throw new TypeError(`welch: ${name} 组第 ${i} 项是空洞（稀疏数组，或在读取中途被删了）`);
+    slots.push(slot);
+  }
+  return slots;
 }
 
 // Lanczos（g=7，9 项），只用于 x >= 0.5。
@@ -202,24 +213,42 @@ export function welchTest(groupA, groupB, options = {}) {
   check(Array.isArray(groupA) && Array.isArray(groupB), '每边至少要 2 个种子样本（须为数组）');
   const lengthA = lengthOf(groupA, 'A 组');
   const lengthB = lengthOf(groupB, 'B 组');
+  // 同时记下每个槽位的描述符：数据槽位的帧此刻就定了，之后只认它，谁再把 B[2] 原地换掉都进不了统计。
+  const entry = [[groupA, lengthA, 'A'], [groupB, lengthB, 'B']]
+    .map(([group, length, name]) => [group, length, name, slotsOf(group, length, name)]);
   check(options !== null && typeof options === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(options)), 'options 须为普通对象');
-  const { alpha = 0.05, blockSize = 1, bins = 20, histogramAlpha = 0.001, channel = 'luma' } = options;
+  // 复查原种子组与入口是否一致：只比长度和槽位描述符，不读元素，合法 getter 不会被触发第二次。
+  const intact = () => entry.forEach(([group, length, name, slots]) => {
+    if (group.length !== length) throw new RangeError(`welch: ${name} 组的长度在读取中途被改了`);
+    slotsOf(group, length, name).forEach((slot, i) => {
+      if (!Object.is(slot.value, slots[i].value) || slot.get !== slots[i].get) {
+        throw new RangeError(`welch: ${name} 组第 ${i} 项在读取中途被换了`);
+      }
+    });
+  });
+  // 每读一个属性就复查：alpha 的 getter 把 B 缩短、blockSize 的再补回，等五个都读完才查就漏了。
+  const option = (key, fallback) => {
+    const value = options[key];
+    intact();
+    return value === undefined ? fallback : value;
+  };
+  const alpha = option('alpha', 0.05);
+  const blockSize = option('blockSize', 1);
+  const bins = option('bins', 20);
+  const histogramAlpha = option('histogramAlpha', 0.001);
+  const channel = option('channel', 'luma');
   check([alpha, histogramAlpha].every(v => typeof v === 'number' && v > 0 && v < 1), 'alpha 与 histogramAlpha 须在 (0, 1) 内');
   check(Number.isInteger(blockSize) && blockSize >= 1, 'blockSize 须为正整数');
   check(Number.isInteger(bins) && bins >= 1 && bins <= 10000, 'bins 须为 1 到 10000 的整数');
-  // 只看长度和槽位在不在，不再读元素，合法 getter 不会被触发第二次。循环按入口长度走，不再信 group.length。
-  const intact = () => [[groupA, lengthA, 'A'], [groupB, lengthB, 'B']].forEach(([group, length, name]) => {
-    if (group.length !== length) throw new RangeError(`welch: ${name} 组的长度在读取中途被改了`);
-    for (let i = 0; i < length; i++) {
-      if (!Object.hasOwn(group, i)) throw new TypeError(`welch: ${name} 组第 ${i} 项是空洞（稀疏数组，或在读取中途被删了）`);
-    }
-  });
-  intact(); // 读 options 时的 getter 可能已经改了种子组
-  // 先拍快照再查长度：new Array(1) 这种单槽稀疏数组也统一抛 TypeError，之后调用方再改种子组也影响不到统计。
-  // 快照按入口长度拷：等 K 的 3 对 3 里 A[0] 把 B 缩成 2 帧、之后再补回 3 帧，也不会拷出 3 对 2。
-  const snapshots = [snapshot(groupA, 'A 组', lengthA), snapshot(groupB, 'B 组', lengthB)];
-  intact(); // 读 B 时的 getter 可能回头改了已拍完快照的 A
-  check(lengthA >= 2 && lengthB >= 2, '每边至少要 2 个种子样本');
+  // 快照：数据槽位直接用入口记下的值，带 getter 的槽位这时才读、只读一次，读完立刻复查（它可能改了任何一边）。
+  const snapshots = entry.map(([group, , , slots]) => slots.map((slot, i) => {
+    if ('value' in slot) return slot.value;
+    const sample = group[i];
+    intact();
+    return sample;
+  }));
+  // 稠密的 0 个、1 个与两边不等同属个数不对，都是 RangeError；空洞在入口就抛了 TypeError。
+  if (lengthA < 2 || lengthB < 2) throw new RangeError('welch: 每边至少要 2 个种子样本');
   if (lengthA !== lengthB) throw new RangeError(`welch: 两边种子数须相等（A ${lengthA} 个，B ${lengthB} 个）`);
   const k = lengthA; // 两边共用这一个入口种子数：之后的平面数、Welford 轮数和自由度都只认它
   // 两边全部帧先解析、校验完，再做统计：最后一帧坏了也在任何累加之前抛。

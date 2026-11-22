@@ -547,3 +547,53 @@ test('V18-18 G_REV-R7 调用入口首行即锁死原始整数 K（防 options.al
   const ok = verify.welchTest([f(1), f(2), f(3)], [f(1), f(2), f(3)]);
   assert.deepEqual([ok.kA, ok.kB], [3, 3]);
 });
+
+test('V18-19 G_REV-R9 稠密种子组不足 2 统一抛 RangeError，且 options 连续属性 getter 先缩组后补回时仍被拦截', () => {
+  const f = (v) => ({ width: 2, height: 1, channels: 1, data: new Float32Array([v, v + 0.5]) });
+  // 1) 稠密 0/0、1/1、1/2、2/1 一律抛 RangeError；单槽稀疏 new Array(1) 仍优先抛 TypeError
+  for (const [a, b] of [[[], []], [[f(1)], [f(1)]], [[f(1)], [f(1), f(2)]], [[f(1), f(2)], [f(1)]]]) {
+    assert.throws(() => verify.welchTest(a, b), RangeError);
+  }
+  assert.throws(() => verify.welchTest(new Array(1), [f(1), f(2)]), TypeError);
+
+  // 2) options.alpha 把 B（含末帧 NaN）从 3 缩到 2，options.blockSize 再 push 有限帧补回 3：必须在快照与逐配置读取复查中抛 RangeError
+  const b3 = [f(1), f(2), f(NaN)];
+  const opts = {};
+  Object.defineProperty(opts, 'alpha', { enumerable: true, get() { b3.length = 2; return 0.05; } });
+  Object.defineProperty(opts, 'blockSize', { enumerable: true, get() { b3.push(f(3)); return 1; } });
+  assert.throws(() => verify.welchTest([f(1), f(2), f(3)], b3, opts), RangeError);
+  assert.equal(b3.length, 2, '读完 alpha 就该拒，blockSize 的 getter 不该被读到');
+
+  // 3) 不改长度、原地把 B 的 NaN 末帧换成有限帧：options 的 getter 换、A[0] 的 getter 换，都按入口槽位判，当场拒
+  const swapped = { name: 'RangeError', message: /被换了/ };
+  const bOpt = [f(1), f(2), f(NaN)];
+  const swapOpt = Object.defineProperty({}, 'alpha', { enumerable: true, get() { bOpt[2] = f(3); return 0.05; } });
+  assert.throws(() => verify.welchTest([f(1), f(2), f(3)], bOpt, swapOpt), swapped);
+  const bElem = [f(1), f(2), f(NaN)];
+  const aSwap = Object.defineProperty([null, f(2), f(3)], 0, { enumerable: true, get() { bElem[2] = f(3); return f(1); } });
+  assert.throws(() => verify.welchTest(aSwap, bElem), swapped);
+
+  // 4) B[0] 的 getter 把 B[2] 临时换成「读一次就还原」的 getter：读完后槽位与入口一模一样，统计仍须用入口的 NaN 帧
+  const nanFrame = f(NaN);
+  const bTemp = [null, f(2), nanFrame];
+  Object.defineProperty(bTemp, 0, {
+    enumerable: true,
+    get() {
+      Object.defineProperty(bTemp, 2, {
+        configurable: true,
+        get() {
+          Object.defineProperty(bTemp, 2, { value: nanFrame, writable: true, enumerable: true, configurable: true });
+          return f(3);
+        },
+      });
+      return f(1);
+    },
+  });
+  assert.throws(() => verify.welchTest([f(1), f(2), f(3)], bTemp), RangeError);
+
+  // 5) 正常的 getter 槽位不受影响：只读一次，数据槽位不经 getter
+  let reads = 0;
+  const lazyA = Object.defineProperty([null, f(2), f(3)], 0, { enumerable: true, get() { reads++; return f(1); } });
+  assert.equal(verify.welchTest(lazyA, [f(1), f(2), f(3)]).kA, 3);
+  assert.equal(reads, 1);
+});
