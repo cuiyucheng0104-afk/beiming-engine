@@ -41,7 +41,7 @@ async function startOrSkip(t, start, what) {
   try {
     return await start();
   } catch (err) {
-    if (err?.code !== 'ENOENT' && !/Executable doesn't exist|ENOENT/.test(String(err?.message))) throw err;
+    if (err?.code !== 'ENOENT' && !/executable doesn't exist|ENOENT/i.test(String(err?.message))) throw err;
     t.skip(`本机没有${what}（二进制不存在），跳过实渲`);
     return null;
   }
@@ -132,6 +132,26 @@ function checkStudioShading(scene, read, idOf, where) {
 
   const chrome = levels(ballPixels(scene, 'ball.chrome', read, idOf)), peak = chrome.at(-1), body = at(chrome, 0.5);
   assert.ok(peak >= 1 && peak >= 5 * body, `${where} 铬球没有高光亮斑：峰值 ${peak}，球面中位 ${body}`); // 实测峰值 three 39.6、Cycles 49.1，中位 0.04、0.25
+
+  // 三盏棚灯（key / fill / rim，其中 rim 落在外侧 0.94R 轮廓环）在铬球半程向量方向各自有独立镜面高光，漏挂任一盏即判红（二审 M13）
+  const norm3 = (v) => { const n = Math.hypot(...v); return v.map((x) => x / n); };
+  const chromeObj = scene.objects.find((o) => o.id === 'ball.chrome');
+  const W = scene.camera.widthPx, H = scene.camera.heightPx;
+  const viewDir = norm3(scene.camera.positionM.map((x, k) => x - chromeObj.positionM[k]));
+  const minPeak = { key: 20, fill: 6, rim: 20 }; // 实测 three: 39.6 / 12.3 / 44.9；Cycles: 49.1 / 15.1 / 58.2；漏灯后 < 1
+  for (const light of scene.lights) {
+    const lightDir = norm3(light.positionM.map((x, k) => x - chromeObj.positionM[k]));
+    const halfNormal = norm3(viewDir.map((x, k) => x + lightDir[k]));
+    const [u, v] = project(scene.camera, chromeObj.positionM.map((x, k) => x + chromeObj.radiusM * halfNormal[k])).map(Math.round);
+    let lobePeak = 0;
+    for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+      const px = u + dx, py = v + dy;
+      if (px < 0 || px >= W || py < 0 || py >= H) continue;
+      const idx = py * W + px;
+      if (read.objectId[idx] === idOf['ball.chrome']) lobePeak = Math.max(lobePeak, luma(read.color, idx));
+    }
+    assert.ok(lobePeak >= minPeak[light.id], `${where} 铬球缺少 ${light.id} 灯的半程向量镜面高光（(${u},${v}) 邻域峰值 ${lobePeak} < ${minPeak[light.id]}）`);
+  }
 }
 
 /**
@@ -177,7 +197,8 @@ async function crossCheck(source, key, ref, outDir) {
       if (ref === 'calib/hdr-post@1') checkHdrPeaks(scene, read.color, where);
       if (ref === 'calib/studio-balls@1') {
         checkStudioShading(scene, read, idOf, where);
-        // 两个宿主现在都把 meta.lights 写成 null（能力声明的 metaNull）；规格的灯表换成 meta/0.1 的写法并进去，照样过契约
+        // 冻结契约 K2 能力声明 caps.metaNull 规定双宿主原始 meta.lights 为 null；规格的灯表由 calibMetaLights 转为 meta/0.1 写法
+        assert.equal(meta.lights, null, `${where} 原始 meta.lights 按 caps.metaNull 规定为 null`);
         const lights = calibMetaLights(scene);
         assert.deepEqual(lights.map((l) => l.name), ['key', 'fill', 'rim'], `${where} 三点灯`);
         assertMeta({ ...meta, lights }, `${where}（并进灯表）`);
@@ -543,8 +564,21 @@ test('C8-14 帧源起不来：二进制不存在才跳过，别的错（起来�
   assert.equal(await startOrSkip(t, async () => 'source', 'x'), 'source');
   assert.equal(await startOrSkip(t, fails(() => Object.assign(new Error('spawn blender ENOENT'), { code: 'ENOENT' })), 'Blender'), null);
   assert.equal(await startOrSkip(t, fails(() => new Error("browserType.launch: Executable doesn't exist at /x/chrome-headless-shell")), '无头浏览器'), null);
-  assert.equal(skipped.length, 2);
+  assert.equal(await startOrSkip(t, fails(() => new Error("browserType.launch: Failed to launch chromium because executable doesn't exist at /nonexistent/chrome")), '无头浏览器'), null);
+  assert.equal(skipped.length, 3);
   await assert.rejects(() => startOrSkip(t, fails(() => new Error('页面运行时没装起来：超时')), '无头浏览器'), /没装起来/);
   await assert.rejects(() => startOrSkip(t, fails(() => new TypeError('boom')), 'Blender'), TypeError);
-  assert.equal(skipped.length, 2);
+  assert.equal(skipped.length, 3);
+
+  // 真实子进程核验：显式把 BEIMING_CHROME 与 BEIMING_BLENDER 指到不存在的路径时，C8-3 与 C8-4 均优雅跳过且退出码为 0
+  const { NODE_TEST_CONTEXT: _testCtx, ...cleanEnv } = process.env;
+  const sub = spawnSync(
+    process.execPath,
+    ['--test', '--test-reporter=tap', '--test-name-pattern=^C8-[34] ', fileURLToPath(import.meta.url)],
+    { encoding: 'utf8', env: { ...cleanEnv, LC_ALL: 'C', BEIMING_CHROME: '/nonexistent/chrome', BEIMING_BLENDER: '/nonexistent/blender' } },
+  );
+  const subOut = sub.stdout + sub.stderr;
+  assert.equal(sub.status, 0, subOut);
+  assert.match(subOut, /# skipped 2/);
+  assert.match(subOut, /# fail 0/);
 });
