@@ -7,10 +7,11 @@
 //   读数不成形（不是 JSON 对象、缺子表、表里有空洞或混进非数、帧率和总帧数跟交付规格不一致）一律 0 分、不合格，原因写在 detail.invalid，不抛错。
 //   读数的字段见 beiming/bench/refs/level-2-a/ 的夹具；时刻要么是整数帧，要么是整数毫秒，比较全用整数，不落在浮点误差上。
 //   read27_1、read29_2、read23_2 从成片量读数，镜头表取工程的片子描述或事件表；readFilm 只量成片这一头；read30_1 静态扫工程目录，
-//   要判基础谓词就把 readFilm 的结果并进去。机器上没有 ffmpeg/ffprobe 回 { toolMissing }。
+//   要判基础谓词就把 readFilm 的结果并进去。机器上没有 ffmpeg/ffprobe（read30_1 是没装 eslint）回 { toolMissing }。
 // shortcut: 命中率和随机基线（05 第 7.1 节的 metric:beat.onset-hit）观测层还没有，先在这里算；它进了 observe/metrics 就换成调它。
 import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
+import nodeModule, { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { expandEventFrames } from '../../../kernel/eval/events.mjs';
 import { audioLoudness, blackFreezeDup, cutYdif, deliverSpec } from '../../../observe/metrics/index.mjs';
@@ -256,17 +257,23 @@ export const read23_2 = orMissing(async (file, film, { jump = 0.35 } = {}) => {
 // 30-1：静态扫工程目录。片子描述 film.json（film/3.0）是时间的出处：timeline 是节拍表，原样读出它的 bpm、beatFrames；
 // events 是命名时刻，照片子描述契约 5.3 展开，event(m01) + 18、cut(180) + 12 这样的算式和整数帧一样算；shots 是镜头表。
 // 写死的帧号（第 0 帧不算）有两处来源。片子描述里别处把时间键写成整数（卡参数里相机关键帧的 f、片名入场的 enter 都在内；
-// 镜头的出入点、转场的 at、刻意区间契约只许写整数，不算）。镜头代码先把注释、字符串抹成空格，再整份文件一起认，换行不改结论：
-//   帧表达式跟整数比（数在哪边都算）、switch 帧表达式里的 case、名字以 frame 结尾的量赋成整数、对象里时间键写成两位以上的整数。
-//   帧表达式是整条取值链（a.b.c），末段是这几种名字：以 frame 结尾的（frame、localFrame、ctx.frame，一位数也认）；f、t；
-//   帧形参（帧回调 render、state、meta、apply、evaluate 的第一个形参，写成方法、属性、同名函数或对象里点名的函数 state: tick 都算；
-//   ctx 后面那个形参）；从帧表达式只做加减得来的 const、let、var（初值换行照认）。后三种只认两位以上的整数，x > 1 这样的归一化比较不算。
-//   ctx.size[0] 这样末段是下标的、width、height、循环下标、别的辅助函数的形参（const wide = pixels => pixels >= 640）都不是帧表达式。
+// 镜头的出入点、转场的 at、刻意区间契约只许写整数，不算）。镜头代码里认四种写法：
+//   帧的线性式跟常数比（数在哪边都算）、switch 帧的线性式里的 case、名字以 frame 结尾的量赋成整数、对象里时间键写成两位以上的整数。
+// JS、TS 源码解析成语法树，按词法作用域认哪个量是帧（scanTree），换行、注释、字符串、同名的别的量都不改结论：
+//   帧 = 名字以 frame 结尾的量和属性（frame、localFrame、ctx.frame）；叫 f、t 的量和属性；
+//     对象和类里的帧回调（render、state、meta、apply、evaluate，写成方法、属性、obj.state = …、点名的函数 state: tick）的第一个形参，
+//     叫 i、cursor 都算，只有 ctx 不算；从帧名解构改的名（const { frame: n } = ctx）；
+//     没人在文件里调用的函数：自己叫帧回调名字的取第一个形参，形参表是 (ctx, 名字) 的取第二个；
+//     文件里有调用点的函数：哪个形参是帧，看调用处传进来的实参是不是帧。
+//   帧的线性式 = 帧和常数只做加减、乘除常数得来的式子，赋给变量照样跟着走（声明、赋值、形参默认值都算，定义写在用处后面也传得到）。
+//   比较时折回帧上再看门槛：f - 432 >= 0、f / 24 >= 18、f >= 18 * 24、f >= 0x1b0 都是第 432 帧。门槛两位以上才算（x > 1 这样的
+//   归一化比较不算），式子里有名字以 frame 结尾的一位数也算。减去命名时刻（f - at('m02')）、除以总长这样带别的量的式子不是线性式，不算。
+// Python 和解析不了的 JS（语法错、Node 抹不掉的 TS 写法）先把注释、字符串抹成空格，再用正则整份文件一起认（hardcodedLines）。
 // 节拍常量的定义数 = 节拍表（有就算 1）+ 别处再给 bpm、tempo、beat* 赋数的次数；节拍表在不在看读数里有没有 bpm、beatFrames。
-// shortcut: 用正则认，不解析语法，只扫 JS、TS、Python 源码，film.json 以外的 JSON 不看；帧名按整份文件算，不分作用域；
-// 帧号先做算术再比（f - 432 >= 0）、先赋给名字不带 frame 的常量再比、帧传进辅助函数换了形参名再比（on(f) 里的 n >= 432）、
-// 不经声明直接赋值得来的派生量、十六进制写的，都认不出；
-// 模板字符串的 ${} 里再套花括号或模板、正则字面量里带引号的那一行、switch 里第一个右花括号之后的 case 会认错。要更准就换成语法树
+// shortcut: 只扫 JS、TS、Python 源码，film.json 以外的 JSON 不看；只在上面四种写法里认帧号，拿帧做算术不比较的
+// （(f - 432) / 216、clamp(f, 432, 648)、f % 24）不认；帧经对象的方法、回调、展开实参、别的文件传进辅助函数的不跟。真片上漏了再补规则。
+// shortcut: 正则那一路不解析语法：帧名按整份文件算、不分作用域，帧回调的第一个形参叫 i、w 这类名字的不认，算术里藏的帧号、
+// 十六进制也不认，模板字符串 ${} 里再套花括号、正则字面量里带引号的那一行会认错。Python 镜头多起来就接 Python 的语法树
 const TIME_KEYS = ['in', 'out', 'frame', 'at', 'start', 'end', 'f', 'enter', 'exit'];
 // 比较号：不是箭头、移位的一半
 const CMP = String.raw`(?<![<>=!])(?:[<>]=?|[!=]==?)(?![<>=])`;
@@ -323,6 +330,143 @@ function hardcodedLines(code) {
   ].join('|'), 'g');
   return Array.from(code.matchAll(literal), ({ index }) => code.slice(0, index).split('\n').length);
 }
+
+// ── JS、TS 源码走语法树 ──
+// 解析器 espree 和作用域分析 eslint-scope 用 eslint 自带的（仓库的开发依赖），不另加依赖；头一回扫到 JS 才载入
+let toolkit;
+function parser() {
+  if (!toolkit) {
+    let load;
+    try { load = createRequire(createRequire(import.meta.url).resolve('eslint/package.json')); } catch { throw absent('eslint'); }
+    toolkit = { espree: load('espree'), analyze: load('eslint-scope').analyze };
+  }
+  return toolkit;
+}
+// 解析成语法树和作用域表，模块、脚本两种读法都试；带类型标注的让 Node 把类型抹成空格（行号不变）再试。都不行回 null
+function parse(text) {
+  const { espree, analyze } = parser();
+  // 只有语法错算解析不了；作用域分析出错是这里的毛病，照抛，不混成解析不了去走正则
+  const tree = (source) => {
+    for (const sourceType of ['module', 'script']) {
+      let ast;
+      // range 是作用域分析要的
+      try { ast = espree.parse(source, { ecmaVersion: 'latest', sourceType, loc: true, range: true, ecmaFeatures: { jsx: true } }); } catch { continue; }
+      return { ast, manager: analyze(ast, { ecmaVersion: espree.latestEcmaVersion, sourceType, childVisitorKeys: espree.VisitorKeys }) };
+    }
+    return null;
+  };
+  const plainly = tree(text);
+  if (plainly) return plainly;
+  // stripTypeScriptTypes 在 Node 22.13 以后才有；没有、或者遇到抹不掉的写法（enum、TSX），都当解析不了
+  let typeless;
+  try { typeless = nodeModule.stripTypeScriptTypes(text); } catch { return null; }
+  return tree(typeless);
+}
+const FUNCTIONS = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
+const COMPARES = new Set(['<', '<=', '>', '>=', '==', '===', '!=', '!==']);
+const HOOK = new RegExp(`^(?:${HOOKS})$`), BEAT_NAME = /^(?:bpm|tempo|beat\w*)$/i, SLOT = /^(?:Property|MethodDefinition|PropertyDefinition)$/;
+// 一棵语法树里写死的帧号各在第几行、给节拍常量赋数有几处
+function scanTree({ ast, manager }) {
+  const { VisitorKeys } = parser().espree;
+  const each = (node, visit) => {
+    visit(node);
+    for (const key of VisitorKeys[node.type] ?? []) for (const child of [node[key]].flat()) if (child) each(child, visit);
+  };
+  // 每个标识符落在哪个绑定上，声明处和引用处都记；同名不同作用域是不同的绑定
+  const variables = manager.scopes.flatMap((scope) => scope.variables), bound = new Map();
+  for (const variable of variables) for (const id of variable.identifiers) bound.set(id, variable);
+  for (const scope of manager.scopes) for (const ref of scope.references) if (ref.resolved) bound.set(ref.identifier, ref.resolved);
+  // 绑定上的函数（function 声明，或初值是函数的量）、函数归哪个绑定、文件里对这个绑定的调用
+  const functionsOf = (variable) => (variable?.defs ?? []).map((def) => (def.type === 'FunctionName' ? def.node : def.node.init)).filter((node) => FUNCTIONS.has(node?.type));
+  const owner = new Map(variables.flatMap((variable) => functionsOf(variable).map((fn) => [fn, variable]))), calls = new Map();
+  each(ast, (node) => {
+    const callee = node.type === 'CallExpression' && bound.get(node.callee);
+    if (callee) calls.set(callee, [...(calls.get(callee) ?? []), node]);
+  });
+  // 「名字、值」的几种写法：声明、赋值、形参默认值、对象和类里的属性与方法
+  const pair = (node) => (node.type === 'VariableDeclarator' ? [node.id, node.init]
+    : (node.type === 'AssignmentExpression' && node.operator === '=') || node.type === 'AssignmentPattern' ? [node.left, node.right]
+      : SLOT.test(node.type) && !node.computed ? [node.key, node.value] : []);
+  const nameOf = (node) => (/^(?:Private)?Identifier$/.test(node?.type) ? node.name : node?.type === 'MemberExpression' && !node.computed ? node.property.name
+    : node?.type === 'Literal' && typeof node.value === 'string' ? node.value : '');
+  // 帧的线性式记成 帧 × k + c：frames 是认成帧的绑定，各自记着它的 k、c；named 是式子里有名字以 frame 结尾的
+  const frames = new Map();
+  const byName = (name) => (/[Ff]rame$/.test(name) ? { k: 1, c: 0, named: true } : /^[ft]$/.test(name) ? { k: 1, c: 0 } : null);
+  const scaled = (a, by) => ({ ...a, k: a.k * by, c: a.c * by });
+  const lin = (node) => {
+    if (node?.type === 'Literal') return typeof node.value === 'number' ? { k: 0, c: node.value } : null;
+    if (node?.type === 'ChainExpression') return lin(node.expression);
+    if (node?.type === 'Identifier') return frames.get(bound.get(node)) ?? byName(node.name);
+    if (node?.type === 'MemberExpression') return node.computed ? null : byName(node.property.name);
+    if (node?.type === 'UnaryExpression') {
+      const a = lin(node.argument);
+      return a && (node.operator === '+' ? a : node.operator === '-' ? scaled(a, -1) : null);
+    }
+    if (node?.type !== 'BinaryExpression') return null;
+    const a = lin(node.left), b = lin(node.right), sign = { '+': 1, '-': -1 }[node.operator];
+    if (!a || !b) return null;
+    if (sign) return { k: a.k + sign * b.k, c: a.c + sign * b.c, named: a.named || b.named };
+    if (node.operator === '*' && !(a.k && b.k)) return a.k ? scaled(a, b.c) : scaled(b, a.c);
+    return node.operator === '/' && !b.k ? scaled(a, 1 / b.c) : null;
+  };
+  const seed = (param, as = { k: 1, c: 0 }) => {
+    const variable = bound.get(param?.type === 'AssignmentPattern' ? param.left : param);
+    if (variable && variable.name !== 'ctx' && !frames.has(variable)) frames.set(variable, as);
+  };
+  each(ast, (node) => {
+    // 没人在文件里调用的函数照名字认：自己叫帧回调名字的取第一个形参，形参表是 (ctx, 名字) 的取第二个
+    if (FUNCTIONS.has(node.type) && !calls.has(owner.get(node))) {
+      const [first, second] = node.params;
+      if (HOOK.test(owner.get(node)?.name ?? '')) seed(first);
+      if (first?.type === 'Identifier' && first.name === 'ctx' && second?.type === 'Identifier' && !NOT_FRAME.test(second.name)) seed(second);
+    }
+    // 对象、类里的帧回调（方法、属性、obj.state = …），值是函数或点名的函数：第一个形参就是帧
+    const [key, value] = pair(node);
+    if ((SLOT.test(node.type) || key?.type === 'MemberExpression') && HOOK.test(nameOf(key))) {
+      for (const fn of FUNCTIONS.has(value?.type) ? [value] : functionsOf(bound.get(value))) seed(fn.params[0]);
+    }
+    // 从帧名解构改的名：const { frame: n } = ctx
+    if (node.type === 'ObjectPattern') {
+      for (const prop of node.properties) if (prop.type === 'Property' && !prop.computed && byName(nameOf(prop.key))) seed(prop.value, byName(nameOf(prop.key)));
+    }
+  });
+  // 一遍遍传到不再多出来：赋进来的值是帧的线性式的量（解构、for-of 这样只拿到一部分的不算）、调用处实参是帧的线性式的形参
+  for (let known = -1; known !== frames.size;) {
+    known = frames.size;
+    for (const variable of variables) {
+      const from = !frames.has(variable) && variable.references.map((ref) => ref.isWrite() && !ref.partial && lin(ref.writeExpr)).find((got) => got?.k);
+      if (from) frames.set(variable, from);
+    }
+    for (const [variable, sites] of calls) {
+      for (const fn of functionsOf(variable)) {
+        for (const site of sites) fn.params.forEach((param, i) => { const given = lin(site.arguments[i]); if (given?.k) seed(param, given); });
+      }
+    }
+  }
+  const lines = [];
+  let beatDefs = 0;
+  // 帧的线性式跟常数比，折回帧上的门槛够不够大
+  const past = (frame, fixed, least = frame?.named ? 1 : 10) => Boolean(frame?.k && fixed && !fixed.k) && (fixed.c - frame.c) / frame.k >= least;
+  each(ast, (node) => {
+    if (node.type === 'BinaryExpression' && COMPARES.has(node.operator)) {
+      const left = lin(node.left), right = lin(node.right);
+      if (past(left, right) || past(right, left)) lines.push(node.loc.start.line);
+    } else if (node.type === 'SwitchStatement') {
+      const on = lin(node.discriminant);
+      for (const branch of node.cases) if (past(on, lin(branch.test), 1)) lines.push(branch.loc.start.line);
+    } else {
+      const [key, value] = pair(node), name = nameOf(key), fixed = lin(value);
+      if (!fixed || fixed.k) return;
+      if (BEAT_NAME.test(name)) beatDefs++;
+      const least = /[Ff]rame$/.test(name) ? 1 : node.type === 'Property' && TIME_KEYS.includes(name) ? 10 : Infinity;
+      if (Number.isInteger(fixed.c) && fixed.c >= least) lines.push(node.loc.start.line);
+    }
+  });
+  return { lines: lines.sort((a, b) => a - b), beatDefs };
+}
+// 抹掉注释和字符串的源码用正则认：Python，和解析不了的 JS
+const scanText = (code) => ({ lines: hardcodedLines(code), beatDefs: code.match(BEAT_DEF)?.length ?? 0 });
+
 export function read30_1(root) {
   let film, frameOf;
   try { film = JSON.parse(readFileSync(join(root, 'film.json'), 'utf8')); } catch { film = null; }
@@ -349,9 +493,16 @@ export function read30_1(root) {
   const sources = readdirSync(root, { recursive: true }).map((file) => file.replaceAll('\\', '/'))
     .filter((file) => /\.(?:[cm]?[jt]sx?|py)$/.test(file) && !/(?:^|\/)(?:node_modules|out|\.[^/]*)\//.test(file)).sort();
   for (const file of sources) {
-    const code = codeOf(readFileSync(join(root, file), 'utf8'), file.endsWith('.py'));
-    for (const line of hardcodedLines(code)) found.push(`${file}:${line}`);
-    beatConstantDefs += code.match(BEAT_DEF)?.length ?? 0;
+    const text = readFileSync(join(root, file), 'utf8'), py = file.endsWith('.py');
+    let tree;
+    // 没装 eslint 就没有解析器：和缺 ffmpeg 一样回 toolMissing，不悄悄换成正则那一路
+    try { tree = py ? null : parse(text); } catch (error) {
+      if (!error.toolMissing) throw error;
+      return { toolMissing: error.toolMissing };
+    }
+    const { lines, beatDefs } = tree ? scanTree(tree) : scanText(codeOf(text, py));
+    for (const line of lines) found.push(`${file}:${line}`);
+    beatConstantDefs += beatDefs;
   }
   const [width, height] = Array.isArray(output?.size) ? output.size : [];
   return { width, height, fps: rate(output.fps), frames: output.frames, shots,

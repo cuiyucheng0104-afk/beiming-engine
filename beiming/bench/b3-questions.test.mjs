@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import nodeModule from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -559,6 +560,44 @@ test('B3-12 30-1 从工程读数：read30_1 静态扫工程目录，一张 80 BP
       'hook-named': 'const tick = n => n >= 432;\nexport function build() {\n  return { state: tick, meta() { return {}; } };\n}',
       'hook-named-function': 'function tick(n, sub) { return n >= 432; }\nexport const build = () => ({ meta: () => ({}), state: tick });' })) {
       assert.deepEqual(whole(project(name, { code: { 'shots/shot.js': `${code}\n` } })), [1, 0.6, false], name);
+    }
+    // 五审反例：四对画面逐帧相同的镜头，判定要成对相同。JS 按语法树和词法作用域认帧，不看名字在文件别处是什么
+    const lifecycle = (hooks, top = '') => `${top}export const build = () => ({ ${hooks}, meta() { return {}; } });\n`;
+    const HARD = [1, 0.6, false], SOFT = [0, 1, true];
+    for (const [name, code, want] of [
+      // 1 派生量写在箭头工厂返回的对象里，和写在 function 里一样认两处
+      ['factory-function', 'export function build() {\n  return { state(f, ctx) {\n    const local =\n      f - 1;\n    return local >= 432 && local < 648;\n  } };\n}\n', [2, 0.6, false]],
+      ['factory-arrow', lifecycle('state(f, ctx) {\n    const local =\n      f - 1;\n    return local >= 432 && local < 648;\n  }'), [2, 0.6, false]],
+      // 2 帧回调的第一个形参叫 i 也是帧；普通循环的 i 不是
+      ['hook-cursor', lifecycle('state(cursor, ctx) { return cursor >= 432; }'), HARD],
+      ['hook-i', lifecycle('state(i, ctx) { return i >= 432; }'), HARD],
+      ['loop-i', lifecycle('state(f, ctx) { let n = 0; for (let i = 0; i < 100; i++) n += i >= 50 ? 1 : 0; return n; }'), SOFT],
+      // 3 调用 fit(ctx, pixels) 是调用，不是形参表；有调用点的函数，形参是不是帧看传进来的实参
+      ['call-view', lifecycle('state(f, view) { const pixels = view.size[0]; return fit(view, pixels); }', 'const wide = pixels => pixels >= 640;\nconst fit = (v, w) => wide(w);\n'), SOFT],
+      ['call-ctx', lifecycle('state(f, ctx) { const pixels = ctx.size[0]; return fit(ctx, pixels); }', 'const wide = pixels => pixels >= 640;\nconst fit = (v, w) => wide(w);\n'), SOFT],
+      ['call-ctx-param', lifecycle('state(f, ctx) { const pixels = ctx.size[0]; return fit(ctx, pixels); }', 'const wide = pixels => pixels >= 640;\nconst fit = (ctx, w) => wide(w);\n'), SOFT],
+      ['call-apply', lifecycle('state(f, ctx) { return apply(ctx.size[0]); }', 'const apply = pixels => pixels >= 640;\n'), SOFT],
+      // 4 辅助函数自己的形参和外层的帧形参重名，里面那个是像素
+      ['shadow-pixels', lifecycle('state(cursor, ctx) { const wide = pixels => pixels >= 640; return wide(ctx.size[0]); }'), SOFT],
+      ['shadow-cursor', lifecycle('state(cursor, ctx) { const wide = cursor => cursor >= 640; return wide(ctx.size[0]); }'), SOFT],
+      // 帧传进辅助函数换了形参名、不经声明直接赋值、解构改名、帧号藏在算术里、换进制、换成秒，都是同一个第 432 帧
+      ['helper-arg', lifecycle('state(f, ctx) { return on(f - 1); }', 'const on = n => n >= 431;\n'), HARD],
+      ['assigned-later', lifecycle('state(f, ctx) { let local; local = f - 1; return local >= 431; }'), HARD],
+      ['destructured', lifecycle('state(f, ctx) { const { frame: n } = ctx; return n >= 432; }'), HARD],
+      ['offset-in-derived', lifecycle('state(f, ctx) { const local = f - 432; return local >= 0; }'), HARD],
+      ['offset-inline', lifecycle('state(f, ctx) { return f - 432 >= 0; }'), HARD],
+      ['hex', lifecycle('state(f, ctx) { return f >= 0x1b0; }'), HARD],
+      ['seconds', lifecycle('state(f, ctx) { const sec = f / 24; return sec >= 18; }'), HARD],
+      ['folded', lifecycle('state(f, ctx) { return f >= 18 * 24; }'), HARD],
+      // 相对命名时刻的偏移、归一化的进度不是写死的帧号
+      ['relative', lifecycle('state(f, ctx) { const since = f - ctx.at(\'m02\'); return since >= 12 && f / ctx.total >= 0.5 && ctx.t > 1; }'), SOFT],
+    ]) assert.deepEqual(whole(project(name, { code: { 'shots/shot.js': code } })), want, name);
+    // 带类型标注的源码先抹掉类型再解析，结论和不带标注的一样（这台 Node 没有 stripTypeScriptTypes 时退回正则扫描，不在这里核）
+    if (typeof nodeModule.stripTypeScriptTypes === 'function') {
+      for (const [name, hooks, want] of [['typed-hook-i', 'state(i: number, ctx: { size: number[] }): boolean { return i >= 432; }', HARD],
+        ['typed-shadow', 'state(cursor: number, ctx: { size: number[] }) { const wide = (cursor: number) => cursor >= 640; return wide(ctx.size[0]); }', SOFT]]) {
+        assert.deepEqual(whole(project(name, { code: { 'shots/shot.ts': lifecycle(hooks) } })), want, name);
+      }
     }
     // 片子描述里叠加层的出入点写死帧号
     const pinned = project('pinned-overlay', { film: { overlays: [{ id: 'name', shot: 's01', in: 240, out: 'event(m03) + 12', text: '对决' }] } });
