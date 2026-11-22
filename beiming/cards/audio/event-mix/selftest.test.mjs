@@ -303,8 +303,7 @@ test('audio.event-mix：不满一步的片尾和整步照每个采样点的平�
 
 test('audio.event-mix：随机基线和逐条审计是同一个判据：全片每个整数帧各放一个事件，命中率就是 baseline，分数帧率、一帧不差也一样', () => {
   const every = (frames) => Array.from({ length: frames }, (_, frame) => ({ id: `f-${frame}`, frame, audio: 'click' }));
-  // 每下 1 毫秒（48 个采样点）：声音末尾的 0 会剥掉，最后一下只有一个采样点时平均下来比前面几下重 240 倍，把它们全压到门槛下面，基线就只剩一个起音可验
-  const pulse = (length, ...at) => { const pcm = new Float32Array(length); for (const sample of at) pcm.fill(0.5, sample, sample + 48); return [pcm]; };
+  const pulse = (length, ...at) => { const pcm = new Float32Array(length); for (const sample of at) if (sample < length) pcm[sample] = 0.5; return [pcm]; };
   // 七审的两个反例：60000/1001 帧每秒，唯一的起音在第 300 帧（第 240240 个采样点），容差 2 帧时第 298、302 帧差 2.0005 帧，不算；
   // 120000/1001 帧每秒，第 199 帧的落点四舍五入正好是起音所在的第 79680 个采样点，一帧不差也算命中
   for (const [fps, frames, at, toleranceFrames, hits] of [['60000/1001', 305, 240240, 2, 3], ['120000/1001', 201, 79680, 0, 1]]) {
@@ -316,7 +315,8 @@ test('audio.event-mix：随机基线和逐条审计是同一个判据：全片�
   // 换几种帧率、容差和起音位置，两个数始终是同一个；正片比声音长、比声音短都算
   for (const fps of ['24/1', '24000/1001', '30000/1001', '60000/1001', '120000/1001', '25/1']) {
     const c = card({}, { fps }), pcm = pulse(c.mix([], { frames: 120 }).channels[0].length, 240, 24000, 30240, 60000, 62400);
-    assert.ok(c.onsets(pcm).length >= 3, `${fps}：基线要在好几个起音上验，找到的是 ${c.onsets(pcm)}`);
+    // 一样响的几下一下不少，基线是在好几个起音上验的：第 62400 个离第 60000 个正好 50 毫秒，一样响只认前一个；120000/1001 帧每秒的 120 帧只有 48048 个采样点，后两下在声音外面
+    assert.deepEqual(c.onsets(pcm), [240, 24000, 30240, 60000].filter((sample) => sample < pcm[0].length), fps);
     for (const frames of [90, 120, 150]) for (const toleranceFrames of [0, 0.5, 1, 2, 2.5, 7, 40]) {
       const seen = c.audit(pcm, every(frames), { frames, toleranceFrames });
       assert.equal(seen.baseline, seen.hitRate, `${fps}，全片 ${frames} 帧，容差 ${toleranceFrames} 帧`);
@@ -362,4 +362,27 @@ test('audio.event-mix：声音末尾的静音先剥掉再找起音：后面多�
   const right = new Float32Array(body.length + 6000);
   right[30000] = 0.9;
   assert.equal(c.onsets([padded(6000), right]).at(-1), 30000, '左声道末尾是 0、右声道还响着，不剥');
+});
+
+test('audio.event-mix：每一步各自剥掉两头的 0 再比涨幅：一样响的几下点击落在第几步、落在一步里的哪儿、后面还有没有声音，都一样重', () => {
+  // 十审的反例：240000 个采样点，第 12000、24000、36000、48000、60000 个各一下 0.5，其余全是 0。
+  // 只剥整段声音末尾的 0 时，最后一下照 1 个采样点平均、前四下照 240 个，最后一下重 240 倍，把前四下全压到门槛下面，五下只剩一下
+  const at = [12000, 24000, 36000, 48000, 60000], frames = at.map((sample) => sample / 2000);
+  const events = frames.map((frame) => ({ id: `c-${frame}`, frame, audio: 'click' }));
+  const clicks = (width, shift = [0, 0, 0, 0, 0], length = 240000) => {
+    const pcm = new Float32Array(length);
+    at.forEach((sample, i) => pcm.fill(0.5, sample + shift[i], sample + shift[i] + width));
+    return pcm;
+  };
+  for (const [width, onsetFloor] of [[1, 0.1], [12, 0.1], [48, 0.6]]) {
+    const c = card({ onsetFloor }), pcm = clicks(width), name = `每下 ${width} 个采样点，门槛 ${onsetFloor}`;
+    assert.deepEqual(c.onsets([pcm]), at, name);
+    assert.deepEqual([c.audit([pcm], events, { frames: 120, toleranceFrames: 0 }).hits, c.snap(frames, [pcm], { frames: 120 })], [5, frames], name);
+    // 最后一下之后正好没有采样了（没有 0 可剥）、后面接多少 0，都是这五下
+    for (const length of [60000 + width, 60240, 61000]) assert.deepEqual(c.onsets([clicks(width, undefined, length)]), at, `${name}，声音长 ${length}`);
+    // 不在一步开头的也一样重：五下各自往后挪得不一样多（都没出自己那一步），起音还是那五步
+    assert.deepEqual(c.onsets([clicks(width, [0, 100, 37, 191, 5])]), at, `${name}，各自挪开`);
+  }
+  // 一下跨在两步中间（前一步 20 个采样点、后一步 28 个）：只认前一步，不多出一个起音
+  assert.deepEqual(card().onsets([clicks(48, [0, 220, 0, 0, 0])]), at);
 });
