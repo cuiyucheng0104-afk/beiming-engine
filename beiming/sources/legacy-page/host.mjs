@@ -108,7 +108,7 @@ function textsOf(raw) {
   return raw.flatMap((e, i) => {
     if (typeof e?.text !== 'string' || e.text === '' || e.alpha === 0) return [];
     const bbox2d = boxOf(e);
-    if (!bbox2d) throw new SourceError('failure.render', `window.TEXTS(t) 第 ${i} 项「${cut(e.text, 20)}」的方框认不出或有非有限数：${JSON.stringify(e.box ?? null)}`, '写成 box: [x, y, w, h]（有限数）');
+    if (!bbox2d?.every(finite)) throw new SourceError('failure.render', `window.TEXTS(t) 第 ${i} 项「${cut(e.text, 20)}」的方框认不出或有非有限数：${JSON.stringify(e.box ?? null)}`, '写成 box: [x, y, w, h]（有限数）');
     return [{ ...(typeof e.id === 'string' && e.id ? { id: e.id } : {}), text: e.text, bbox2d }];
   });
 }
@@ -188,7 +188,8 @@ export async function open(input, env, { driver = pageDriver } = {}) {
   if (!env || typeof env !== 'object') throw bad('env 必须是对象');
   const missing = ['lock', 'tier', 'workspace', 'filmDir'].filter((k) => !(k in env));
   if (missing.length) throw bad(`env 缺 ${missing.join('、')}`);
-  const { shot } = input, { source, host, mode, entry } = renderingOf(shot);
+  const shot = { ...input.shot };
+  const { source, host, mode, entry } = renderingOf(shot);
   if (typeof shot.id !== 'string' || !SHOT_ID.test(shot.id) || shot.id === 'film') throw bad(`镜头标识必须是小写字母开头的小写字母、数字、连字符，且不是 film，给的是 ${JSON.stringify(shot.id)}`);
   if (source !== CAPS.id) throw bad(`出这个镜头的帧源是 ${source}，不是 ${CAPS.id}`);
   if (!['draft', 'final'].includes(env.tier)) throw bad(`档位只能是 draft、final，给的是 ${env.tier}`);
@@ -210,7 +211,7 @@ export async function open(input, env, { driver = pageDriver } = {}) {
     if (lock.film !== undefined && lock.film !== input.film) throw bad(`锁文件是片子 ${lock.film} 的，不是 ${input.film}`);
     const locked = lock.sources?.[CAPS.id]?.version, three = lock.sources?.three?.version;
     if (locked !== VERSION) throw new SourceError('contract.unsupported-input', `锁文件锁的 ${CAPS.id} 版本是 ${locked}，当前帧源是 ${VERSION}`);
-    if (three !== undefined && three !== THREE_VERSION) throw new SourceError('contract.unsupported-input', `锁文件锁的 three 是 ${three}，旧页面作品用的是 ${THREE_VERSION}`);
+    if (three !== THREE_VERSION) throw new SourceError('contract.unsupported-input', `锁文件锁的 three 是 ${three}，旧页面作品用的是 ${THREE_VERSION}`);
     seed = lock.seeds?.[shot.id];
     lockedSamples = lock.shots?.[shot.id]?.shutterSamples;
     if (!Number.isInteger(seed) || !Number.isInteger(lockedSamples)) throw bad(`锁文件里没有镜头 ${shot.id} 的种子或子帧采样数`);

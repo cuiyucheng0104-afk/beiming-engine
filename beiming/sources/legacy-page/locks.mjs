@@ -1,8 +1,7 @@
 // 已发布作品的锁文件和基线核对。锁文件在 locks/<作品>.lock.json（lock/1.0，本机锁），按 film-upgrade 升级后的片子描述生成：
 // 种子照锁文件契约 5.7 派生，卡的版本和摘要取自 beiming/cards 里的真卡，帧源锁 legacy-page 1.0.0 加 three 0.170.0（宿主都是 page）。
-// 基线有两份，像素哈希口径都是 sha256("RGB8 <宽>x<高>\n" + RGB)，和 host.mjs 的 pixelHash 一致：
-//   published（默认）：baselines/published-baselines.json，三部作品按真实 films/<作品> + 锁重建的抽样帧，绑定出片环境（平台、架构、渲染器、three）；
-//   golden：P9 的金标清单（tests/golden/<平台>/manifest.json），只有《北冥》10 秒样片，作辅助对照。
+// 三部作品的登记基线均可重建。P9 回归金标和冻结风格参照另作辅助对照，仅覆盖《北冥》。
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -36,40 +35,42 @@ export function loadLegacyLock(workId) {
   return readJson(path.join(HERE, entryOf(workId).lockFile));
 }
 
-/** 基线里这部作品的成片帧：{ 帧标识: 'sha256:<像素哈希>' }。调试参数（query）出的帧不是成片，不算；没有基线返回 {} */
-export function getBaselineHashes(workId, { repoRoot = REPO } = {}) {
-  const { baseline } = entryOf(workId);
-  if (!baseline) return {};
-  const manifest = readJson(path.join(repoRoot, baseline.manifest));
-  const out = {};
-  for (const name of baseline.sets) {
-    for (const fr of manifest.sets?.[name]?.frames ?? []) {
-      if (fr.page === baseline.page && !fr.query) out[fr.id] = `sha256:${fr.pixelSha256}`;
-    }
-  }
-  return out;
-}
-
 const fail = (reason) => ({ ok: false, mismatched: [], missing: [], reason });
 const HASH = /^sha256:[0-9a-f]{64}$/;
-const PIXEL_HASH_KEY = 'legacy-page.pixelSha256';
 const readOptional = (file) => { try { return readJson(file); } catch (e) { if (e.code === 'ENOENT') return null; throw e; } };
 
-/** 金标（P9 清单）：每个集合都得在、都带 env.three（且是 0.170.0）、都有成片帧；不满足返回 { problem } */
-function goldenBaseline(workId, repoRoot) {
+/** P9 金标和冻结风格参照均只选无调试参数的成片帧。 */
+function referenceBaseline(workId, repoRoot, kind) {
   const { baseline } = entryOf(workId);
   if (!baseline) return { problem: 'no-baseline' };
-  const manifest = readJson(path.join(repoRoot, baseline.manifest));
-  const sets = baseline.sets;
-  const noSet = sets.filter((n) => !manifest.sets?.[n]);
-  if (noSet.length) return { problem: `missing-set: 金标清单缺集合 ${noSet.join('、')}` };
-  const noThree = sets.filter((n) => manifest.sets[n].env?.three === undefined);
-  if (noThree.length) return { problem: `missing-three: 集合 ${noThree.join('、')} 没有 env.three` };
-  const wrong = sets.filter((n) => manifest.sets[n].env.three !== THREE_VERSION);
-  if (wrong.length) return { problem: `three-mismatch: 集合 ${wrong.join('、')} 的 three 是 ${manifest.sets[wrong[0]].env.three}，要的是 ${THREE_VERSION}` };
-  const empty = sets.filter((n) => !(manifest.sets[n].frames ?? []).some((fr) => fr.page === baseline.page && !fr.query));
-  if (empty.length) return { problem: `empty-baseline: 集合 ${empty.join('、')} 没有成片帧` };
-  return { frames: getBaselineHashes(workId, { repoRoot }) };
+  const style = kind === 'style';
+  const file = style ? 'docs/style-baselines/beiming-original@v1/darwin-metal.json' : baseline.manifest;
+  const manifest = readOptional(path.join(repoRoot, file));
+  if (!manifest) return { problem: 'missing-manifest: ' + file };
+  const sets = style ? { 'beiming-original-v1': manifest } : manifest.sets;
+  const frames = Object.create(null);
+  for (const name of style ? ['beiming-original-v1'] : baseline.sets) {
+    const set = sets?.[name];
+    if (!set) return { problem: 'missing-set: ' + name };
+    if (!set.env?.three) return { problem: 'missing-three: ' + name };
+    if (set.env.three !== THREE_VERSION) return { problem: 'three-mismatch: ' + name + ' ' + set.env.three };
+    const rows = Array.isArray(set.frames) ? set.frames.filter((fr) => fr?.page === baseline.page && !fr.query) : [];
+    if (!rows.length) return { problem: 'empty-baseline: ' + name };
+    for (const fr of rows) {
+      const hash = 'sha256:' + fr.pixelSha256;
+      if (!fr.id || !HASH.test(hash) || (Object.hasOwn(frames, fr.id) && frames[fr.id] !== hash)) {
+        return { problem: 'bad-baseline: ' + name + ' ' + fr.id };
+      }
+      frames[fr.id] = hash;
+    }
+  }
+  return { frames: { ...frames } };
+}
+
+/** 读取辅助参照。缺少有效清单时返回空表，核对接口保留具体原因。 */
+export function getBaselineHashes(workId, { repoRoot = REPO, baseline = 'golden' } = {}) {
+  if (!['golden', 'style'].includes(baseline)) throw new RangeError('辅助参照只能是 golden 或 style');
+  return referenceBaseline(workId, repoRoot, baseline).frames ?? {};
 }
 
 /** 已发布作品的重建基线（baselines/published-baselines.json）：缺作品、缺 env.three、空帧表、摘要不合格式都返回 { problem } */
@@ -79,25 +80,30 @@ function publishedBaseline(workId, file) {
   if (w.env?.three === undefined) return { problem: `missing-three: ${workId} 的基线没有 env.three` };
   if (w.env.three !== THREE_VERSION) return { problem: `three-mismatch: ${workId} 的基线 three 是 ${w.env.three}，要的是 ${THREE_VERSION}` };
   if (!Array.isArray(w.frames) || !w.frames.length) return { problem: `empty-baseline: ${workId} 的基线帧表是空的` };
-  const bad = w.frames.filter((f) => typeof f?.id !== 'string' || !Number.isInteger(f.frame) || !HASH.test(f.hash));
-  if (bad.length) return { problem: `bad-baseline: ${workId} 的基线有 ${bad.length} 项帧标识、帧号或摘要不合格式` };
+  const ids = new Set();
+  for (const f of w.frames) {
+    if (!Number.isSafeInteger(f?.frame) || f.frame < 0 || f.id !== `f${String(f.frame).padStart(6, '0')}` || !HASH.test(f.hash) || ids.has(f.id)) {
+      return { problem: `bad-baseline: ${workId} 的帧 ${f?.id} 重复或帧标识、帧号、摘要不合格式` };
+    }
+    ids.add(f.id);
+  }
   return { frames: Object.fromEntries(w.frames.map((f) => [f.id, f.hash])), list: w.frames, env: w.env };
 }
 
 /**
  * 按锁核对出片的像素哈希和基线是否逐帧一致。renderedHashes 是 { 帧标识: 'sha256:…' }。
- * baseline：'published'（默认，baselines/published-baselines.json，帧标识 f<6 位全片帧号>）或 'golden'（P9 金标清单，帧标识同清单）。
+ * baseline 可取 'published'（默认，帧标识 f<6 位全片帧号>）、'golden'（P9 金标）或 'style'（冻结风格参照）。
  * env 给了（{ platform, arch, three, renderer }）就核对基线绑定的出片环境，任何一项不同都不算过。
  * 返回 { ok, mismatched: [帧标识], missing: [帧标识], reason? }。缺集合、缺作品、缺 env.three、three 不符、空帧表、没有基线、
  * 少帧、摘要不匹配、环境不符一律 ok: false 并写明原因；只有基线完好且每一帧都对上才是 ok: true。
  */
 export function verifyBaselineHashes(workId, renderedHashes, { baseline = 'published', repoRoot = REPO, baselinesFile = PUBLISHED_BASELINES, env } = {}) {
   entryOf(workId);
-  if (baseline !== 'published' && baseline !== 'golden') throw new RangeError(`baseline 只能是 published 或 golden，给的是 ${baseline}`);
+  if (!['published', 'golden', 'style'].includes(baseline)) throw new RangeError(`baseline 只能是 published、golden 或 style，给的是 ${baseline}`);
   const lock = loadLegacyLock(workId);
   if (lock.sources?.['legacy-page']?.version !== VERSION) return fail(`锁的 legacy-page 是 ${lock.sources?.['legacy-page']?.version}，当前帧源是 ${VERSION}`);
   if (lock.sources?.three?.version !== THREE_VERSION) return fail(`锁的 three 是 ${lock.sources?.three?.version}，要的是 ${THREE_VERSION}`);
-  const want = baseline === 'golden' ? goldenBaseline(workId, repoRoot) : publishedBaseline(workId, baselinesFile);
+  const want = baseline === 'published' ? publishedBaseline(workId, baselinesFile) : referenceBaseline(workId, repoRoot, baseline);
   if (want.problem) return fail(want.problem);
   if (env && want.env) {
     const diff = ['platform', 'arch', 'three', 'renderer'].filter((k) => want.env[k] !== env[k]).map((k) => `${k} 基线是 ${want.env[k]}、出片是 ${env[k]}`);
@@ -109,6 +115,23 @@ export function verifyBaselineHashes(workId, renderedHashes, { baseline = 'publi
   const mismatched = ids.filter((id) => Object.hasOwn(got, id) && got[id] !== want.frames[id]);
   if (missing.length || mismatched.length) return { ok: false, mismatched, missing, reason: `少 ${missing.length} 帧、${mismatched.length} 帧摘要不匹配` };
   return { ok: true, mismatched: [], missing: [] };
+}
+
+/** 从交付的 f32 颜色层复算 RGB8 摘要，覆盖截图之后的转换与写盘。 */
+function layerHash(workspace, layer) {
+  const [height, width] = layer.shape;
+  const bytes = fs.readFileSync(path.join(workspace, layer.file));
+  if (bytes.length !== width * height * 16) throw new Error(`颜色层长度不符：${layer.file}`);
+  const linear = new Float32Array(bytes.buffer, bytes.byteOffset, width * height * 4);
+  const rgb = Buffer.allocUnsafe(width * height * 3);
+  for (let i = 0, j = 0; i < linear.length; i += 4) {
+    for (let c = 0; c < 3; c++) {
+      const v = linear[i + c];
+      if (!(v >= 0 && v <= 1)) throw new Error(`颜色层超出显示参考范围：${layer.file}`);
+      rgb[j++] = Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055));
+    }
+  }
+  return 'sha256:' + createHash('sha256').update(`RGB8 ${width}x${height}\n`).update(rgb).digest('hex');
 }
 
 /**
@@ -134,8 +157,8 @@ export async function rebuildAndVerifyWork(workId, { repoRoot = REPO, tier = 'fi
       const session = await open(shotInput(film, shot.id, events), { lock, tier, workspace: ws, filmDir }, driver ? { driver } : undefined);
       try {
         for (const f of mine) {
-          const { meta } = await session.render(f.frame - shot.in, {}, ['color', 'meta']);
-          rendered[f.id] = meta.ext?.[PIXEL_HASH_KEY];
+          const { meta, layers } = await session.render(f.frame - shot.in, {}, ['color', 'meta']);
+          rendered[f.id] = layerHash(ws, layers.color);
           gpu = meta.source.gpu ?? gpu;
         }
       } finally { await session.close(); }

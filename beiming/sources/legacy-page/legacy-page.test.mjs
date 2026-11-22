@@ -185,6 +185,9 @@ const openFake = (input, ws, log = [], over = {}) => legacyPage.open(input, { lo
 test('S15-4 镜像目录 films/beiming-10s 自动解析到仓库根页面入口，按全片帧数和 shot.in + f 驱动 render(t)', async () => {
   await withTmp(async (ws) => {
     const lock = legacyPage.loadLegacyLock('beiming-10s');
+    const incomplete = structuredClone(lock);
+    delete incomplete.sources.three;
+    await assert.rejects(() => legacyPage.open(realInput('beiming-10s', 'b'), { lock: incomplete, tier: 'draft', workspace: ws, filmDir: ws }, { driver: fakeDriver() }), code('contract.unsupported-input'));
     const log = [];
     const s = await legacyPage.open(realInput('beiming-10s', 'b'), { lock, tier: 'draft', workspace: ws, filmDir: path.join(REPO, 'films/beiming-10s') }, { driver: fakeDriver(log) });
     assert.equal(path.resolve(log[0].open.dir), REPO);
@@ -255,7 +258,7 @@ test('S15-6 TEXTS 同时认 [x,y,w,h]、{x0,y0,x1,y1}、{x,y,w,h} 和条目顶�
     ]);
     assert.deepEqual(problemsOf(contracts.validate(r.meta)), []);
     await s.close();
-    for (const box of [[NaN, 0, 1, 1], [0, 0, Infinity, 1], [0, '1', 1, 1], { x0: 0, y0: 0, x1: NaN, y1: 1 }, { x: 0, y: 0, w: -Infinity, h: 1 }, [0, 0, 1], 'box', null]) {
+    for (const box of [[Number.MAX_VALUE, 0, Number.MAX_VALUE, 1], [NaN, 0, 1, 1], [0, 0, Infinity, 1], [0, '1', 1, 1], { x0: 0, y0: 0, x1: NaN, y1: 1 }, { x: 0, y: 0, w: -Infinity, h: 1 }, [0, 0, 1], 'box', null]) {
       const bad = await openFake(shotInput(), ws, [], { texts: () => [{ text: 'x', box }] });
       await assert.rejects(() => bad.render(0, {}, ['meta']), code('failure.render'), JSON.stringify(box));
       await bad.close();
@@ -296,6 +299,14 @@ test('S15-8 写层文件只落在工作区内：镜头标识不合法、符号�
     const work = path.join(ws, 'work'), outside = path.join(ws, 'outside');
     fs.mkdirSync(work);
     fs.mkdirSync(outside);
+
+    const input = shotInput();
+    const stable = await openFake(input, path.join(ws, 'stable'));
+    input.shot.id = 'renamed';
+    const frame = await stable.render(3, {}, ['color']);
+    assert.equal(frame.layers.color.file, 's01/000003/color.f32');
+    assert.equal(frame.meta.shot, 's01');
+    await stable.close();
 
     // 镜头目录本身是指向外面的符号链接
     fs.symlinkSync(outside, path.join(work, 's01'));
@@ -341,7 +352,8 @@ test('S15-9 杀变异断言：低亮 sRGB 线性段、帧号越界、关后拒�
     const log = [];
     const s = await openFake(shotInput(), ws, log, { fill: () => [5, 10, 11] });
     const r = await s.render(0, {}, ['color']);
-    const px = new Float32Array(fs.readFileSync(path.join(ws, r.layers.color.file)).buffer.slice(0, 16));
+    const bytes = fs.readFileSync(path.join(ws, r.layers.color.file));
+    const px = new Float32Array(bytes.buffer, bytes.byteOffset, 4);
     assert.ok(Math.abs(px[0] - 5 / 255 / 12.92) < 1e-6);
     assert.ok(Math.abs(px[1] - 10 / 255 / 12.92) < 1e-6);
     assert.ok(Math.abs(px[2] - srgbToLinear(11)) < 1e-6);
@@ -389,8 +401,8 @@ test('S15-9 杀变异断言：低亮 sRGB 线性段、帧号越界、关后拒�
 // 真实子进程验证生命周期：进程必须自己退出（不靠外层信号强杀）
 const childRun = (script, env) => {
   const started = Date.now();
-  const r = spawnSync(process.execPath, ['--input-type=module', '-e', script], { env, encoding: 'utf8', timeout: 30000, cwd: REPO });
-  return { ...r, ms: Date.now() - started, endedAt: Date.now() };
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', script], { env, encoding: 'utf8', timeout: 5000, cwd: REPO });
+  return { ...r, ms: Date.now() - started };
 };
 const INDEX_URL = pathToFileURL(path.join(REPO, 'beiming/sources/legacy-page/index.mjs')).href;
 const CHILD = `
@@ -400,7 +412,7 @@ try {
   const s = await lp.open(input, { lock: null, tier: 'final', workspace: process.env.LP_WS, filmDir: process.env.LP_FILM });
   const r = await s.render(0, {}, ['color', 'meta']);
   await s.close();
-  console.log(JSON.stringify({ ok: true, hash: r.meta.ext['${HASH_KEY}'], closedAt: Date.now() }));
+  console.log(JSON.stringify({ ok: true, hash: r.meta.ext['${HASH_KEY}'] }));
 } catch (e) {
   console.log(JSON.stringify({ ok: false, code: e.code, message: e.message }));
 }
@@ -419,17 +431,17 @@ test('S15-10a 浏览器起不来（空浏览器缓存）：open 抛 env.browser-
   });
 });
 
-test('S15-10b 正常开页面渲 1 帧再 close：子进程退出码 0，close 之后 5 秒内自行退出，帧哈希与金标一致', async (t) => {
+test('S15-10b 正常开页面渲 1 帧再 close：子进程退出码 0，全程 5 秒内自行退出，帧哈希与金标一致', async (t) => {
   await withTmp(async (ws) => {
     const env = { ...process.env, LP_INDEX: INDEX_URL, LP_WS: ws, LP_FILM: path.join(REPO, 'tests/golden/fixtures/pure') };
     const r = childRun(CHILD, env);
     const out = JSON.parse(r.stdout.trim().split('\n').at(-1) || '{}');
-    if (String(out.code).startsWith('env.')) return t.skip(`本机起不了浏览器：${out.message}`);
     assert.equal(r.signal, null, `被信号杀掉：${r.signal}（挂住了）\n${r.stderr}`);
     assert.equal(r.status, 0, r.stderr);
+    if (out.code === 'env.browser-launch') return t.skip(`本机起不了浏览器：${out.message}`);
     assert.equal(out.ok, true, r.stdout);
     assert.match(out.hash, SHA);
-    assert.ok(r.endedAt - out.closedAt < 5000, `close 之后 ${r.endedAt - out.closedAt} ms 才退出`);
+    assert.ok(r.ms < 5000, `开页、渲染、关闭至退出共用 ${r.ms} ms`);
     if (process.platform === 'darwin') {
       const golden = readJson(path.join(REPO, 'tests/golden/darwin-metal/manifest.json')).sets.fixtures.frames.find((f) => f.id === 'fixture:pure@320x180#f=0');
       assert.equal(out.hash, `sha256:${golden['pixelSha256']}`);
@@ -518,6 +530,9 @@ test('S15-11b 已发布作品基线核对：缺作品、缺 env.three、空帧�
     assert.equal(wrongThreeNoEnv.ok, false);
     assert.match(wrongThreeNoEnv.reason, /three-mismatch.*0\.169\.0/);
 
+    const repeated = work();
+    repeated.frames.push({ ...repeated.frames[0], frame: 1 });
+    assert.equal(verify({ 'beiming-10s': repeated }).ok, false);
     const emptyFrames = verify({ 'beiming-10s': work({ frames: [] }) });
     assert.equal(emptyFrames.ok, false);
     assert.match(emptyFrames.reason, /empty-baseline/);
@@ -545,6 +560,31 @@ test('S15-11b 已发布作品基线核对：缺作品、缺 env.three、空帧�
       assert.equal(r.ok, false, JSON.stringify(patch));
       assert.match(r.reason, /env-mismatch/);
     }
+  });
+});
+
+test('S15-11d 读取冻结风格参照，金标文件或摘要缺失时对账失败', async () => {
+  const style = { baseline: 'style' };
+  const ref = readJson(path.join(REPO, 'docs/style-baselines/beiming-original@v1/darwin-metal.json'));
+  const hashes = legacyPage.getBaselineHashes('beiming-10s', style);
+  const frames = ref.frames.filter((f) => f.page === 'film' && !f.query);
+  assert.deepEqual(Object.keys(hashes).sort(), frames.map((f) => f.id).sort());
+  assert.equal(legacyPage.verifyBaselineHashes('beiming-10s', hashes, style).ok, true);
+  assert.equal(legacyPage.verifyBaselineHashes('du', {}, style).ok, false);
+  await withTmp(async (repoRoot) => {
+    for (const baseline of ['golden', 'style']) {
+      const r = legacyPage.verifyBaselineHashes('beiming-10s', {}, { baseline, repoRoot });
+      assert.equal(r.ok, false);
+      assert.match(r.reason, /missing/);
+    }
+  });
+  await withGoldenRoot((m) => {
+    const rows = m.sets['beiming-core'].frames;
+    const i = rows.findIndex((f) => f.page === 'film' && !f.query);
+    rows[i] = { id: rows[i].id, page: 'film' };
+  }, (repoRoot) => {
+    const opts = { repoRoot, baseline: 'golden' };
+    assert.equal(legacyPage.verifyBaselineHashes('beiming-10s', legacyPage.getBaselineHashes('beiming-10s', opts), opts).ok, false);
   });
 });
 
@@ -594,6 +634,19 @@ test('S15-12a rebuildAndVerifyWork（假页面）：按基线帧表逐镜头开�
     assert.equal(log.find((x) => x?.open).open.frameCount, 240);
     assert.equal(fs.existsSync(path.join(root, 'ws')), true, '调用方给的工作区不删');
 
+    // 截图后模拟颜色层写错，重建须从落盘颜色发现差异。
+    const workspace = path.join(root, 'damaged');
+    const colorFile = path.join(workspace, 'a/000000/color.f32');
+    const damaged = fakeDriver([], { ...over, texts: () => {
+      if (fs.existsSync(colorFile)) {
+        const fd = fs.openSync(colorFile, 'r+');
+        try { fs.writeSync(fd, Float32Array.of(1)); } finally { fs.closeSync(fd); }
+      }
+      return [];
+    } });
+    const detected = await legacyPage.rebuildAndVerifyWork('beiming-10s', { driver: damaged, baselinesFile, tier: 'draft', workspace });
+    assert.deepEqual(detected.mismatched, ['f000000']);
+
     // 篡改一帧摘要：对账抓得出
     const bad = publishedFile(path.join(root), { 'beiming-10s': { env, frames: frames.map((f, i) => (i === 1 ? { ...f, hash: h(7) } : f)) } });
     const res = (await run(bad)).r;
@@ -637,23 +690,21 @@ test('S15-12c 真实页面重建三部作品：从 films/<作品> + 锁文件开
   }
 });
 
-test('S15-13 交叉验证：旧 engine/render 截图链独立算出的 RGB8 摘要与基线登记的一致（《渡》）', async (t) => {
-  const doc = readJson(path.join(REPO, 'beiming/sources/legacy-page/baselines/published-baselines.json'));
-  const du = doc.works.du;
-  await withTmp(async (out) => {
-    const r = spawnSync(process.execPath, ['engine/render/still.mjs', 'films/du', '--frame', du.frames.map((f) => f.frame).join(','), '--out', out], { cwd: REPO, encoding: 'utf8', timeout: 120000 });
-    if (r.status === 3) return t.skip(`本机渲不了：${r.stderr.slice(0, 200)}`);
-    assert.equal(r.status, 0, r.stderr);
-    const png = await import(pathToFileURL(path.join(REPO, 'tools/baseline/lib/png.mjs')).href);
-    // 基线绑定出片环境：平台、架构、渲染器都相同才逐帧比登记值（和 S15-12c 的 env-mismatch 同口径）
-    const sameEnv = process.platform === du.env.platform && process.arch === du.env.arch && readJson(path.join(out, 'still.run.json')).gpu?.renderer === du.env.renderer;
-    for (const f of du.frames) {
-      const img = png.decodePNG(fs.readFileSync(path.join(out, `${f.id}.png`)));
-      const rgba = new Uint8Array(img.width * img.height * 4);
-      for (let i = 0, j = 0; j < img.rgb.length; i += 4, j += 3) { rgba[i] = img.rgb[j]; rgba[i + 1] = img.rgb[j + 1]; rgba[i + 2] = img.rgb[j + 2]; rgba[i + 3] = 255; }
-      const independent = `sha256:${png['pixelSha256'](img)}`;
-      assert.equal(legacyPage.pixelHash(rgba, [img.width, img.height]), independent);
-      if (sameEnv) assert.equal(independent, f.hash, f.id);
-    }
+for (const workId of legacyPage.PUBLISHED_WORKS) {
+  test(`S15-13 旧截图链独立复算 ${workId} 的全部登记帧`, async (t) => {
+    const { env, frames } = readJson(path.join(REPO, 'beiming/sources/legacy-page/baselines/published-baselines.json')).works[workId];
+    const dir = workId === 'beiming-10s' ? '.' : path.join('films', workId);
+    await withTmp(async (out) => {
+      const r = spawnSync(process.execPath, ['engine/render/still.mjs', dir, '--frame', frames.map((f) => f.frame).join(','), '--out', out], { cwd: REPO, encoding: 'utf8', timeout: 120000 });
+      if (r.status === 3) return t.skip(`本机渲不了：${r.stderr.slice(0, 200)}`);
+      assert.equal(r.status, 0, r.stderr);
+      const gpu = readJson(path.join(out, 'still.run.json')).gpu?.renderer;
+      if (process.platform !== env.platform || process.arch !== env.arch || gpu !== env.renderer) return t.skip(`基线绑定另一出片环境，本机渲染器为 ${gpu}`);
+      const png = await import('../../../tools/baseline/lib/png.mjs');
+      for (const f of frames) {
+        const img = png.decodePNG(fs.readFileSync(path.join(out, `${f.id}.png`)));
+        assert.equal(`sha256:${png.pixelSha256(img)}`, f.hash, f.id);
+      }
+    });
   });
-});
+}

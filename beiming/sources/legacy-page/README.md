@@ -42,19 +42,20 @@ await s.close();
 
 `locks/<作品>.lock.json` 是 `beiming-10s`、`chendu`、`du` 的本机锁（`lock/1.0`），按 `film-upgrade` 升级后的片子描述生成，过 `lock-check/0.1`：种子照锁文件契约 5.7 派生，卡的版本和摘要取自 `beiming/cards` 里的真卡。镜头标识按契约改成小写（`A` → `a`、`S1` → `s1`）。
 
-基线有两份，像素哈希都是 `sha256("RGB8 <宽>x<高>\n" + RGB 字节)`：
+以下三种基线共用像素哈希 `sha256("RGB8 <宽>x<高>\n" + RGB 字节)`：
 
 | 基线 | 文件 | 覆盖 | 帧标识 |
 | --- | --- | --- | --- |
 | `published`（默认） | `baselines/published-baselines.json` | 三部作品，每个镜头至少一帧，含全片首帧和末帧 | `f000010`（全片帧号补 6 位） |
 | `golden` | `tests/golden/darwin-metal/manifest.json` 的 `beiming-core`、`beiming-detail` | 只有《北冥》10 秒样片，不含带调试参数的帧 | 同清单 |
+| `style` | `docs/style-baselines/beiming-original@v1/darwin-metal.json` | 《北冥》冻结风格参照中无页面查询参数的成片帧，含 4K 裁切 | 同清单 |
 
 `published` 的每一帧都由两条链各自算出、逐帧相同后才登记：旧截图链 `node engine/render/still.mjs <目录> --frame …` 的 PNG 解码后算一次，`legacy-page` 从 `films/<作品>` 加锁打开渲一次。基线绑定出片环境，`env` 记 `platform`、`arch`、`three`、`renderer`（另记 `os` 备查）；登记这份基线的机器（darwin 27.2.0 arm64）抽查《北冥》样片两帧，摘要与 P9 金标（darwin 25.5.0 arm64 上登记）不同，所以换机器要重新实测登记，不能照抄；环境不符时核对返回 `env-mismatch`，不算通过。
 
 - `loadLegacyLock(workId)`：读锁。
-- `getBaselineHashes(workId)`：读 `golden` 的像素哈希表。
+- `getBaselineHashes(workId, { baseline })` 默认读取 `golden`。传 `baseline: 'style'` 读取冻结风格参照。
 - `verifyBaselineHashes(workId, renderedHashes, { baseline, env })`：先核锁的帧源版本与 three，再核基线本身，最后逐帧比对，返回 `{ ok, mismatched, missing, reason? }`。缺集合、缺作品（`no-baseline`）、缺 `env.three`、three 不是 0.170.0、帧表为空（`empty-baseline`）、少帧、摘要不匹配、给了 `env` 而与基线不符（`env-mismatch`），一律 `ok: false` 并写明原因。
-- `rebuildAndVerifyWork(workId, options)`：从真实的 `films/<作品>` 和锁打开 `legacy-page`，渲出基线规定的帧，独立算摘要后调 `verifyBaselineHashes` 对账。没有基线时不开页面；中途失败也会关净会话、清掉临时工作区。
+- `rebuildAndVerifyWork(workId, options)`：从真实的 `films/<作品>` 和锁打开 `legacy-page`，渲出基线规定的帧，从落盘的 f32 颜色层逐像素还原 RGB8 后计算摘要并对账。没有基线时不开页面；中途失败也会关净会话、清掉临时工作区。
 
 ```js
 const r = await legacyPage.rebuildAndVerifyWork('du');   // { ok: true, mismatched: [], missing: [] }
