@@ -302,13 +302,13 @@ test('A16-7 容差档混用旧帧与新帧：接缝尖峰被拦下，默认把�
   const second = drifting(0.65);
   const run = await jobs.renderShotsWithCache({ shots, cache, renderFrame: second });
   const [s01] = run.shots;
-  assert.equal(second.calls, 4, '先补渲后两帧，检出尖峰后再把复用的前两帧重渲');
-  assert.deepEqual([s01.totalFrames, s01.renderedFrames, s01.cachedFrames], [4, 4, 0]);
+  assert.equal(second.calls, 6, '先补两帧，失效四帧后整镜重渲，六次调用都计费');
+  assert.deepEqual([s01.totalFrames, s01.renderedFrames, s01.cachedFrames], [4, 6, 0]);
   assert.equal(s01.seamCheck.ok, true);
   assert.equal(s01.seamCheck.rerendered, true);
   assert.deepEqual(s01.seamCheck.spikes.map((s) => s.frame), [2]);
   assert.equal(run.ok, true);
-  assert.deepEqual([run.totalFrames, run.totalRenderedFrames, run.totalCachedFrames], [4, 4, 0]);
+  assert.deepEqual([run.totalFrames, run.totalRenderedFrames, run.totalCachedFrames], [4, 6, 0]);
 
   // 旧帧已被替换：第三轮整镜命中，读回的是第二轮的帧
   const third = drifting(0.9);
@@ -346,9 +346,9 @@ test('A16-7b 关掉自动重渲时只报不过；没有漂移不误报；缺接�
   await assert.rejects(jobs.renderShotsWithCache({ shots: toleranceShots(), cache: blind, renderFrame: drifting(0.2, { failAt: 2, floats: false }) }));
   const noFloats = drifting(0.2, { floats: false });
   const unknown = await jobs.renderShotsWithCache({ shots: toleranceShots(), cache: blind, renderFrame: noFloats });
-  assert.equal(noFloats.calls, 4);
+  assert.equal(noFloats.calls, 6);
   assert.equal(unknown.shots[0].seamCheck.rerendered, true);
-  assert.deepEqual([unknown.shots[0].renderedFrames, unknown.shots[0].cachedFrames], [4, 0]);
+  assert.deepEqual([unknown.shots[0].renderedFrames, unknown.shots[0].cachedFrames], [6, 0]);
 
   assert.throws(() => jobs.checkCacheSeams([], { determinism: 'exact' }), /./, '未知确定性档位不能静默放行');
   const nan = [0.2, 0.21, Number.NaN, 0.23].map((v, i) => ({ fromCache: i < 2, colorFloats: new Float32Array(4).fill(v) }));
@@ -432,4 +432,349 @@ test('A16-10 接进作业队列：缓存放在工作区里不进快照，第二�
   assert.deepEqual(queue.readLedger().map((row) => [row.status, row.renderedFrames, row.deliveredFrames]), [['succeeded', 6, 6], ['succeeded', 3, 6]]);
   assert.ok(frameFiles(workspace.resolve('cache')).length >= 9);
   assert.deepEqual(workspace.openSnapshot(ref).manifest.files.map((file) => file.path), ['film.json'], '缓存不算作品输入');
+});
+
+// ---- 以下为第一轮评审（G_REV-R1）的回归用例 ----
+import { createHash } from 'node:crypto';
+
+const sha256 = (data) => createHash('sha256').update(data).digest('hex');
+const entryOf = ({ shot, determinism, tier, samples, size, subs, ...keyed }, frame) =>
+  jobs.computeFrameCacheKey({ shot, ...keyed, renderSpec: { tier, samples, size, frame, subs } });
+const basesOf = (cache, run) => run.shots[0].frames.map((f) => cache.get(f.entry).meta.base);
+
+test('A16-11 六项键逐字段保护：每个进键字段单点变化都换键（M17、M26、M27、M36），片级输入有槽位，-0 与 0 不混同', () => {
+  const changes = {
+    '卡 id': (s) => { s.cards[0].id = 'camera.orbit'; },
+    '卡实现哈希': (s) => { s.cards[0].sha256 = 'd'.repeat(64); },
+    '文件路径': (s) => { s.loadedFiles[0].path = 'shots/s01b.js'; },
+    '帧源': (s) => { s.runtimeEnv.source = 'blender'; },
+    '运行时版本': (s) => { s.runtimeEnv.runtimeVersion = '0.188.0'; },
+    '浏览器构建': (s) => { s.runtimeEnv.browserBuild = '154.0.1.1'; },
+    '驱动签名': (s) => { s.runtimeEnv.driver = 'apple-m5-max'; },
+    '采样数': (s) => { s.renderSpec.samples = 2; },
+    '宽': (s) => { s.renderSpec.size = [16, 8]; },
+    '高': (s) => { s.renderSpec.size = [8, 16]; },
+    '片级种子': (s) => { s.film = { seed: 7 }; },
+    '片级帧率': (s) => { s.film = { seed: 7, fps: '30/1' }; },
+    '参数 -0': (s) => { s.shot.params.gain = -0; },
+    '参数 +0': (s) => { s.shot.params.gain = 0; },
+  };
+  const keys = new Map([['基准', jobs.computeFrameCacheKey(makeBaseSpec()).key]]);
+  for (const [name, change] of Object.entries(changes)) {
+    const spec = structuredClone(makeBaseSpec());
+    change(spec);
+    const { key } = jobs.computeFrameCacheKey(spec);
+    for (const [other, seen] of keys) assert.notEqual(key, seen, `${name} 与 ${other} 撞键`);
+    keys.set(name, key);
+  }
+  assert.equal(jobs.canonicalJson([-0, 0]), '[-0,0]');
+  assert.ok(Object.is(JSON.parse(jobs.canonicalJson(-0)), -0), '规范化 JSON 读回还是 -0');
+  // 片级输入归在第 1 项里，不多出第七项
+  const withFilm = jobs.computeFrameCacheKey(makeBaseSpec({ film: { seed: 7 } }));
+  assert.deepEqual(Object.keys(withFilm.components), ['shot', 'loadedFiles', 'tracks', 'cards', 'runtimeEnv', 'renderSpec']);
+  assert.notEqual(withFilm.components.shot, jobs.computeFrameCacheKey(makeBaseSpec()).components.shot);
+});
+
+test('A16-12 S1 关掉自动重渲：报不过之后原样重试，混轮帧不被洗白', async (t) => {
+  const cache = jobs.openShotCache(tmpDir(t));
+  const shots = toleranceShots();
+  await assert.rejects(jobs.renderShotsWithCache({ shots, cache, renderFrame: drifting(0.2, { failAt: 2 }) }));
+  const second = await jobs.renderShotsWithCache({ shots, cache, renderFrame: drifting(0.65), rerenderOnSeamSpike: false });
+  assert.equal(second.ok, false);
+
+  const retry = drifting(0.9);
+  const third = await jobs.renderShotsWithCache({ shots, cache, renderFrame: retry, rerenderOnSeamSpike: false });
+  assert.equal(retry.calls, 0, '四帧都在缓存里');
+  assert.equal(third.ok, false, '两轮的帧还混在一起，整镜命中也要查');
+  assert.equal(third.shots[0].seamCheck.checked, true);
+  assert.deepEqual(third.shots[0].seamCheck.spikes.map((s) => s.frame), [2]);
+
+  const heal = drifting(0.9);
+  const fourth = await jobs.renderShotsWithCache({ shots, cache, renderFrame: heal });
+  assert.equal(heal.calls, 4);
+  assert.equal(fourth.ok, true);
+  assert.deepEqual(basesOf(cache, fourth), [0.9, 0.9, 0.9, 0.9]);
+});
+
+test('A16-13 S2 自动重渲到一半崩溃：旧帧先失效，重试后不交付混轮帧', async (t) => {
+  const cache = jobs.openShotCache(tmpDir(t));
+  const shots = toleranceShots();
+  await assert.rejects(jobs.renderShotsWithCache({ shots, cache, renderFrame: drifting(0.2, { failAt: 2 }) }));
+  // 第二轮补渲后两帧、检出尖峰、重渲第 0 帧成功，重渲第 1 帧时被强杀
+  await assert.rejects(jobs.renderShotsWithCache({ shots, cache, renderFrame: drifting(0.65, { failAt: 1 }) }), /渲染中断/);
+  for (const frame of [1, 2, 3]) {
+    assert.equal(cache.get(entryOf(shots[0], frame)), undefined, `重渲中断时，第 ${frame} 帧必须已失效`);
+  }
+
+  const retry = drifting(0.9);
+  const third = await jobs.renderShotsWithCache({ shots, cache, renderFrame: retry });
+  assert.equal(third.ok, true);
+  assert.equal(third.shots[0].seamCheck.checked, true);
+  assert.deepEqual(basesOf(cache, third), [0.9, 0.9, 0.9, 0.9]);
+  assert.equal(new Set(third.shots[0].frames.map((f) => f.runId)).size, 1, '整镜出自同一轮');
+});
+
+test('A16-14 S3 连续两次中断后补渲：两轮旧帧之间的跳变也算交界', async (t) => {
+  const cache = jobs.openShotCache(tmpDir(t));
+  const shots = toleranceShots();
+  await assert.rejects(jobs.renderShotsWithCache({ shots, cache, renderFrame: drifting(0.2, { failAt: 2 }) }));
+  await assert.rejects(jobs.renderShotsWithCache({ shots, cache, renderFrame: drifting(0.65, { failAt: 3 }) }));
+
+  const strict = await jobs.renderShotsWithCache({ shots, cache, renderFrame: drifting(0.65), rerenderOnSeamSpike: false });
+  assert.equal(strict.ok, false);
+  assert.deepEqual(strict.shots[0].seamCheck.spikes.map((s) => s.frame), [2]);
+  assert.deepEqual([strict.shots[0].renderedFrames, strict.shots[0].cachedFrames], [1, 3]);
+
+  const heal = drifting(0.65);
+  const healed = await jobs.renderShotsWithCache({ shots, cache, renderFrame: heal });
+  assert.equal(heal.calls, 4, '四帧分属三轮，全部换成这一轮');
+  assert.equal(healed.shots[0].seamCheck.rerendered, true);
+  assert.deepEqual(basesOf(cache, healed), [0.65, 0.65, 0.65, 0.65]);
+});
+
+test('A16-15 文件头校验和：meta、seam、runId 被改都算坏条目，删掉后只重渲这一帧，不卡死重试', async (t) => {
+  const dir = tmpDir(t);
+  const cache = jobs.openShotCache(dir);
+  const entry = jobs.computeFrameCacheKey(makeBaseSpec());
+  const colorBytes = Buffer.from([1, 2, 3]);
+  const tamper = (file, change) => {
+    const raw = fs.readFileSync(file);
+    const split = raw.indexOf(0x0a);
+    const header = JSON.parse(raw.subarray(0, split).toString('utf8'));
+    change(header);
+    fs.writeFileSync(file, Buffer.concat([Buffer.from(`${JSON.stringify(header)}\n`), raw.subarray(split + 1)]));
+  };
+  const changes = [
+    (h) => { h.meta = { frame: 7, val: 0.9 }; },
+    (h) => { h.seam = [0.1, 0.9]; },
+    (h) => { h.seam = 'abc'; },
+    (h) => { h.runId = 'forged'; },
+    (h) => { delete h.headerSha256; },
+  ];
+  for (const change of changes) {
+    const written = cache.put(entry, { colorBytes, meta: { val: 0.2 }, seam: [0.2, 0.2], runId: 'run-1' });
+    assert.equal(written.colorSha256, sha256(colorBytes));
+    assert.deepEqual(cache.get(entry).seam, [0.2, 0.2]);
+    assert.equal(cache.get(entry).runId, 'run-1');
+    const [file] = frameFiles(dir);
+    tamper(file, change);
+    assert.equal(cache.get(entry), undefined);
+    assert.equal(fs.existsSync(file), false, '坏条目要清掉');
+  }
+  assert.throws(() => cache.put(entry, { colorBytes, seam: 'abc' }));
+  assert.throws(() => cache.put(entry, { colorBytes, seam: [Number.NaN] }));
+  assert.throws(() => cache.put(entry, { colorBytes, runId: '' }));
+
+  // 容差档镜头里一帧的 seam 被改成字符串：这一帧按未命中重渲，作业不抛 TypeError
+  const shots = toleranceShots();
+  const store = jobs.openShotCache(tmpDir(t));
+  await jobs.renderShotsWithCache({ shots, cache: store, renderFrame: drifting(0.2) });
+  tamper(frameFiles(store.root).find((file) => path.basename(file) === `${entryOf(shots[0], 2).key.slice(7)}.frame`), (h) => { h.seam = 'abc'; });
+  const again = drifting(0.2);
+  const rerun = await jobs.renderShotsWithCache({ shots, cache: store, renderFrame: again });
+  assert.equal(again.calls, 1);
+  assert.deepEqual(rerun.shots[0].frames.map((f) => f.fromCache), [true, true, false, true]);
+  assert.equal(rerun.ok, true);
+});
+
+test('A16-16 返回的帧记录带本轮验过的 colorSha256；命中帧的 frame、film、timing 按这一轮刷新', async (t) => {
+  const cache = jobs.openShotCache(tmpDir(t));
+  const shotsAt = (start) => [{ shot: { id: 's01', in: start, out: start + 3, source: 'three', seed: 1 }, determinism: 'hash-same-machine',
+    loadedFiles: [], tracksHash: 'none', cards: [], runtimeEnv: ENV, tier: 'final', samples: 1, size: [2, 2], subs: [0] }];
+  const renderFrame = async ({ shot, frame }) => ({ colorBytes: Buffer.from([frame + 1]),
+    meta: { film: 'film-a', shot: shot.id, frame: shot.in + frame, shotFrame: frame, timing: { stateMs: 1, renderMs: 5, readbackMs: 2 } } });
+
+  const first = await jobs.renderShotsWithCache({ shots: shotsAt(0), cache, renderFrame, filmId: 'film-a' });
+  assert.deepEqual(first.shots[0].frames.map((f) => f.colorSha256), [1, 2, 3].map((v) => sha256(Buffer.from([v]))));
+  assert.deepEqual(first.shots[0].frames[2].meta, { film: 'film-a', shot: 's01', frame: 2, shotFrame: 2, timing: { stateMs: 1, renderMs: 5, readbackMs: 2 } });
+
+  // 前面的镜头改长，这个镜头整体后移 10 帧，又是另一部片子在用：照样命中，但元数据不能还是上一轮的
+  const second = await jobs.renderShotsWithCache({ shots: shotsAt(10), cache, renderFrame, filmId: 'film-b' });
+  assert.equal(second.totalRenderedFrames, 0);
+  const idle = { stateMs: 0, renderMs: 0, readbackMs: 0 };
+  assert.deepEqual(second.shots[0].frames.map((f) => f.meta), [0, 1, 2].map((f) => ({ film: 'film-b', shot: 's01', frame: 10 + f, shotFrame: f, timing: idle })));
+  assert.deepEqual(second.shots[0].frames.map((f) => f.colorSha256), first.shots[0].frames.map((f) => f.colorSha256));
+  assert.equal(new Set([...first.shots[0].frames, ...second.shots[0].frames].map((f) => f.runId)).size, 1, '命中的帧保留原来那一轮的 runId');
+
+  // 并发的另一个作业把同一个键写成了别的内容：按返回的 colorSha256 比得出来
+  const [frame] = second.shots[0].frames;
+  cache.put(frame.entry, { colorBytes: Buffer.from([99]), meta: {} });
+  assert.notEqual(cache.get(frame.entry).colorSha256, frame.colorSha256);
+});
+
+test('A16-17 缓存目录本身是符号链接不认；缓存里的符号链接拆掉不跟（M30）；占位的坏目录按未命中清掉', { skip: process.platform === 'win32' }, (t) => {
+  const outside = tmpDir(t);
+  const link = path.join(tmpDir(t), 'cache');
+  fs.symlinkSync(outside, link, 'dir');
+  assert.throws(() => jobs.openShotCache(link), /符号链接/);
+
+  const dir = tmpDir(t);
+  const cache = jobs.openShotCache(dir);
+  const entry = jobs.computeFrameCacheKey(makeBaseSpec());
+  fs.symlinkSync(outside, path.join(dir, 'final'), 'dir');
+  cache.put(entry, { colorBytes: Buffer.from([1]), meta: {} });
+  assert.deepEqual(fs.readdirSync(outside), [], '不跟着符号链接写到缓存外');
+  assert.equal(fs.lstatSync(path.join(dir, 'final')).isSymbolicLink(), false);
+  assert.deepEqual([...cache.get(entry).colorBytes], [1]);
+
+  const [file] = frameFiles(dir);
+  fs.rmSync(file);
+  fs.symlinkSync(path.join(outside, 'planted.frame'), file);
+  assert.equal(cache.get(entry), undefined);
+  fs.mkdirSync(path.join(file, 'junk'), { recursive: true });
+  assert.equal(cache.get(entry), undefined);
+  cache.put(entry, { colorBytes: Buffer.from([2]), meta: {} });
+  assert.deepEqual([...cache.get(entry).colorBytes], [2]);
+  assert.deepEqual(fs.readdirSync(outside), []);
+});
+
+test('A16-18 prune 不动刚建的在途暂存目录，只清放久了的', (t) => {
+  const dir = tmpDir(t);
+  const cache = jobs.openShotCache(dir);
+  const [fresh, old] = ['.write-fresh', '.write-old'].map((name) => path.join(dir, name));
+  fs.mkdirSync(fresh);
+  fs.mkdirSync(old);
+  const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  fs.utimesSync(old, hourAgo, hourAgo);
+  cache.prune({ maxAgeMs: 0, now: Date.now() + 1000 });
+  assert.equal(fs.existsSync(fresh), true, '别的进程正在写的暂存目录不能删');
+  assert.equal(fs.existsSync(old), false);
+});
+
+test('A16-19 接缝判定的口径：基准不含交界帧差（M24），字节帧按 1/255 归一（M35），按 runId 分轮', async (t) => {
+  const mk = (val, fromCache) => ({ fromCache, colorFloats: new Float32Array(16).fill(val) });
+  // 只有一个非交界帧差 0.01：把交界帧差 0.44 也算进基准，阈值会被抬到 0.675 而放行
+  const three = jobs.checkCacheSeams([mk(0.2, true), mk(0.64, false), mk(0.65, false)], { determinism: 'tolerance' });
+  assert.deepEqual(three.spikes.map((s) => s.frame), [1]);
+  assert.ok(Math.abs(three.spikes[0].baseline - 0.01) < 1e-6);
+
+  const bytes = (values) => values.map((v, i) => ({ fromCache: i < 2, colorFloats: new Uint8Array(16).fill(v) }));
+  const spiked = jobs.checkCacheSeams(bytes([50, 52, 160, 162]), { determinism: 'tolerance' });
+  assert.ok(Math.abs(spiked.spikes[0].diff - 108 / 255) < 1e-9);
+  // 交界只差 2 个码值（2/255 < 0.015）：不归一就会被当成尖峰
+  assert.deepEqual(jobs.checkCacheSeams(bytes([50, 50, 52, 52]), { determinism: 'tolerance' }), { ok: true, checked: true, spikes: [] });
+
+  // 带 runId 的帧按轮次判交界：都是命中（fromCache 全为 true）也查得出
+  const runs = ['r1', 'r1', 'r2', 'r2'].map((runId, i) => ({ runId, fromCache: true, colorFloats: new Float32Array(16).fill(i < 2 ? 0.2 : 0.65) }));
+  assert.deepEqual(jobs.checkCacheSeams(runs, { determinism: 'tolerance' }).spikes.map((s) => s.frame), [2]);
+  assert.throws(() => jobs.checkCacheSeams([{ colorFloats: new Float32Array(4) }], { determinism: 'tolerance' }), /runId|fromCache/);
+
+  // 出片编排里字节帧的接缝特征同样归一
+  const cache = jobs.openShotCache(tmpDir(t));
+  const byteFrames = (base, failAt) => async ({ frame, size }) => {
+    if (frame === failAt) throw new Error('渲染中断');
+    const color = new Uint8Array(size[0] * size[1] * 4).fill(base);
+    return { colorBytes: Buffer.from(color), colorFloats: color, meta: {} };
+  };
+  await assert.rejects(jobs.renderShotsWithCache({ shots: toleranceShots(), cache, renderFrame: byteFrames(50, 2) }));
+  const run = await jobs.renderShotsWithCache({ shots: toleranceShots(), cache, renderFrame: byteFrames(52) });
+  assert.deepEqual(run.shots[0].seamCheck, { ok: true, checked: true, spikes: [] });
+  assert.deepEqual([run.shots[0].renderedFrames, run.shots[0].cachedFrames], [2, 2]);
+});
+
+test('A16-20 镜头 id 重复直接拒绝（M33）；取消信号在每帧渲染前生效（M29）', async (t) => {
+  const cache = jobs.openShotCache(tmpDir(t));
+  await assert.rejects(jobs.renderShotsWithCache({ shots: [...toleranceShots(), ...toleranceShots()], cache, renderFrame: drifting(0.2) }), /重复/);
+
+  const before = drifting(0.2);
+  await assert.rejects(jobs.renderShotsWithCache({ shots: toleranceShots(), cache, renderFrame: before, signal: AbortSignal.abort(new Error('作业已取消')) }), /作业已取消/);
+  assert.equal(before.calls, 0);
+
+  const controller = new AbortController();
+  const inner = drifting(0.2);
+  const renderFrame = async (request) => {
+    if (request.frame === 1) controller.abort(new Error('看门狗取消'));
+    return inner(request);
+  };
+  await assert.rejects(jobs.renderShotsWithCache({ shots: toleranceShots(), cache, renderFrame, signal: controller.signal }), /看门狗取消/);
+  assert.equal(inner.calls, 2, '第 1 帧渲完后取消，第 2 帧不再开始');
+});
+
+test('A16-21 工作区中未加载文件改变，缓存仍然全命中；已加载文件改变则重渲', async (t) => {
+  const dir = tmpDir(t);
+  const loaded = path.join(dir, 'scene.json');
+  const unused = path.join(dir, 'unused.json');
+  fs.writeFileSync(loaded, '1');
+  fs.writeFileSync(unused, '1');
+  const cache = jobs.openShotCache(path.join(dir, 'cache'));
+  const run = () => jobs.renderShotsWithCache({ cache,
+    shots: toleranceShots().map(s => ({ ...s, loadedFiles: [{ path: 'scene.json', sha256: sha256(fs.readFileSync(loaded)) }] })),
+    renderFrame: drifting(Number(fs.readFileSync(loaded, 'utf8'))) });
+  assert.equal((await run()).totalRenderedFrames, 4);
+  fs.writeFileSync(unused, '2');
+  assert.equal((await run()).totalRenderedFrames, 0);
+  fs.writeFileSync(loaded, '2');
+  assert.equal((await run()).totalRenderedFrames, 4);
+});
+
+test('A16-22 接缝采样包含非有限值时，混轮帧不能靠填零通过', async (t) => {
+  const cache = jobs.openShotCache(tmpDir(t));
+  const shots = toleranceShots();
+  async function renderFrame({ frame }) {
+    if (frame === 2) throw Error('渲染中断');
+    return { colorBytes: Buffer.from([1]), colorFloats: new Float32Array([NaN]) };
+  }
+  await assert.rejects(jobs.renderShotsWithCache({ shots, cache, renderFrame }), /渲染中断/);
+  const run = await jobs.renderShotsWithCache({ shots, cache, rerenderOnSeamSpike: false,
+    renderFrame: () => ({ colorBytes: Buffer.from([2]), colorFloats: new Float32Array([0]) }) });
+  assert.equal(run.ok, false);
+});
+
+test('A16-23 sub 集合换序后暖命中与独立冷渲的字节摘要必须相同', async (t) => {
+  const cache = jobs.openShotCache(tmpDir(t));
+  const run = (cache, subs) => jobs.renderShotsWithCache({ cache, shots: toleranceShots().map(s => ({ ...s, subs })),
+    renderFrame: ({ subs }) => ({ colorBytes: Buffer.from(subs.map(x => 100 * x)) }) });
+  await run(cache, [0, 0.5]);
+  const warm = await run(cache, [0.5, 0]);
+  const cold = await run(jobs.openShotCache(tmpDir(t)), [0.5, 0]);
+  assert.equal(warm.totalRenderedFrames, 0);
+  assert.equal(warm.shots[0].frames[0].colorSha256, cold.shots[0].frames[0].colorSha256);
+});
+
+test('A16-24 清理旧版本时中断，重开缓存不能看见部分旧帧', async (t) => {
+  const dir = tmpDir(t);
+  const cache = jobs.openShotCache(dir);
+  const shots = toleranceShots();
+  await assert.rejects(jobs.renderShotsWithCache({ shots, cache, renderFrame: drifting(0.2, { failAt: 2 }) }));
+  assert.equal((await jobs.renderShotsWithCache({ shots, cache, renderFrame: drifting(0.65), rerenderOnSeamSpike: false })).ok, false);
+  const remove = fs.rmSync;
+  const cleanup = t.mock.method(fs, 'rmSync', (...args) => { remove(...args); throw Error('清理中断'); });
+  try {
+    await assert.rejects(jobs.renderShotsWithCache({ shots, cache, renderFrame: drifting(0.65) }), /清理中断/);
+  } finally {
+    cleanup.mock.restore();
+  }
+  const retry = await jobs.renderShotsWithCache({ shots, cache: jobs.openShotCache(dir), renderFrame: drifting(0.65) });
+  assert.equal(retry.totalCachedFrames, 0);
+  assert.equal(retry.totalRenderedFrames, 4);
+});
+
+test('A16-25 两个终稿版本最近使用时间相同也只留一版', (t) => {
+  const dir = tmpDir(t);
+  const cache = jobs.openShotCache(dir);
+  const now = Date.now();
+  for (const seed of [1, 2]) {
+    const spec = makeBaseSpec();
+    spec.shot.seed = seed;
+    cache.put(jobs.computeFrameCacheKey(spec), { colorBytes: Buffer.from([seed]) });
+  }
+  for (const file of frameFiles(dir)) fs.utimesSync(file, new Date(now), new Date(now));
+  assert.equal(cache.prune({ now }).removed, 1);
+  assert.equal(frameFiles(dir).length, 1);
+});
+
+test('A16-26 写帧与整镜失效重叠时重新建目录并原子发布', (t) => {
+  const cache = jobs.openShotCache(tmpDir(t));
+  const entry = jobs.computeFrameCacheKey(makeBaseSpec());
+  const rename = fs.renameSync;
+  let retire = true;
+  t.mock.method(fs, 'renameSync', (source, target) => {
+    if (retire && target.endsWith('.frame')) {
+      retire = false;
+      cache.invalidateShot(entry);
+    }
+    return rename(source, target);
+  });
+  cache.put(entry, { colorBytes: Buffer.from([8]) });
+  assert.deepEqual([...cache.get(entry).colorBytes], [8]);
 });

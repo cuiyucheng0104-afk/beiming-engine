@@ -4,7 +4,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { atomicWrite, checkJobId, processIsAlive } from './workspace.mjs';
+import process from 'node:process';
+import { checkJobId, processIsAlive } from './workspace.mjs';
 
 const FORMAT = 'job-ledger/0.1';
 const TIERS = ['fable', 'opus', 'sonnet', 'haiku', 'other'];
@@ -88,8 +89,23 @@ function checkSettlement(row) {
   return row;
 }
 
-/** 目录里常规文件的字节数之和。符号链接不跟（防环、也不把工作区外的文件算进来）；目录不存在算 0。 */
+/** 工作区常规文件的字节数；顶层 cache/ 是跨作业缓存，不入账。符号链接不跟，目录不存在算 0。 */
 export function measureDiskBytes(dir) {
+  return directoryBytes(dir, true);
+}
+
+function isCacheDirectory(dir, name) {
+  if (name === 'cache') return true;
+  if (name.toLowerCase() !== 'cache') return false;
+  // 大小写敏感卷的 Cache/ 可以是另一份输入；不跟符号链接，只看目录身份。
+  const options = { bigint: true, throwIfNoEntry: false };
+  const cache = fs.lstatSync(path.join(dir, 'cache'), options);
+  if (!cache?.isDirectory()) return false;
+  const candidate = fs.lstatSync(path.join(dir, name), options);
+  return candidate?.dev === cache.dev && candidate.ino === cache.ino;
+}
+
+function directoryBytes(dir, topLevel) {
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -99,8 +115,9 @@ export function measureDiskBytes(dir) {
   }
   let bytes = 0;
   for (const entry of entries) {
+    if (topLevel && entry.isDirectory() && isCacheDirectory(dir, entry.name)) continue;
     const file = path.join(dir, entry.name);
-    if (entry.isDirectory()) bytes += measureDiskBytes(file);
+    if (entry.isDirectory()) bytes += directoryBytes(file, false);
     // 别的作业正在原子写入时，暂存文件会在统计途中消失，消失的算 0。
     else if (entry.isFile()) bytes += fs.lstatSync(file, { throwIfNoEntry: false })?.size ?? 0;
   }
@@ -170,45 +187,86 @@ export function readJobLedger(ledgerPath, options) {
   return load(ledgerPath, options).rows;
 }
 
-// 锁文件里是持锁进程号。只有拿到 .break 的进程才能删锁，而且删之前重读一遍进程号，所以活着的锁不会被误删。
+const lockRaceCodes = new Set(['ENOENT', 'EEXIST', 'EPERM', 'EACCES', 'EBUSY']);
+const lockGraceMs = 15;
+
+function isLockRace(error, lock, removingStaging = false) {
+  if (!lockRaceCodes.has(error.code) && !(removingStaging && error.code === 'ENOTEMPTY')) return false;
+  return fs.statSync(path.dirname(lock), { throwIfNoEntry: false })?.isDirectory();
+}
+
+// Windows 上另一个进程刚读过锁时，删除也可能暂时失败。不要递归删除锁路径。
+function removeWithRetry(file, options) {
+  for (let retry = 0; ; retry++) {
+    try {
+      fs.rmSync(file, options);
+      return;
+    } catch (error) {
+      if (!isLockRace(error, file, options?.recursive)) throw error;
+      if (error.code === 'ENOENT') return;
+      if (retry === 5) throw error;
+      Atomics.wait(sleeper, 0, 0, lockGraceMs * (retry + 1));
+    }
+  }
+}
+
+// 锁文件里是持锁进程号。只有拿到 .break 的进程才能删陈旧锁，而且删之前重读一遍进程号，所以活着的锁不会被误删。
 // shortcut: 进程号被系统复用，或进程恰好死在持有 .break 的瞬间，陈旧锁就清不掉、追加会超时报错（不会写坏账），那时手工删掉 .lock 与 .lock.break；要无人值守恢复再换成带租期的锁。
 function clearStaleLock(lock) {
   const breaker = `${lock}.break`;
   try {
     fs.writeFileSync(breaker, '', { flag: 'wx' });
   } catch (error) {
-    if (error.code === 'EEXIST') return;
+    if (isLockRace(error, lock)) return;
     throw error;
   }
   try {
     if (!processIsAlive(Number(fs.readFileSync(lock, 'utf8').trim()))) fs.rmSync(lock);
   } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
+    if (!isLockRace(error, lock)) throw error;
   } finally {
-    fs.rmSync(breaker, { force: true });
+    removeWithRetry(breaker);
+  }
+}
+
+// 硬链接一旦成功就已持锁，暂存目录交回给持锁者清理，不能把清理失败当作未取得锁。
+function publishLock(lock) {
+  const staging = fs.mkdtempSync(path.join(path.dirname(lock), '.write-'));
+  try {
+    const pending = path.join(staging, 'pending');
+    fs.writeFileSync(pending, `${process.pid}\n`, { flag: 'wx', flush: true });
+    fs.linkSync(pending, lock);
+    return staging;
+  } catch (error) {
+    removeWithRetry(staging, { recursive: true });
+    throw error;
   }
 }
 
 export function withFileLock(file, run, timeoutMs = 10_000) {
   const lock = `${file}.lock`;
   const deadline = performance.now() + amount(timeoutMs, 'lockTimeoutMs');
-  for (let waitMs = 1; ; waitMs = Math.min(waitMs * 2, 50)) {
+  let staging;
+  for (let waitMs = lockGraceMs; ; waitMs = Math.min(waitMs * 2, 50)) {
     if (!fs.existsSync(lock)) {
       try {
-        atomicWrite(lock, `${process.pid}\n`, { create: true }); // 硬链接创建：要么整个锁带着进程号出现，要么已存在
+        staging = publishLock(lock);
         break;
       } catch (error) {
-        if (error.code !== 'EEXIST') throw error;
+        if (!isLockRace(error, lock)) throw error;
       }
     }
-    clearStaleLock(lock);
-    if (performance.now() >= deadline) throw new Error(`等待账本锁 ${lock} 超时，另一个进程正在记账。`);
-    Atomics.wait(sleeper, 0, 0, waitMs);
+    const remaining = deadline - performance.now();
+    if (remaining <= 0) throw new Error(`等待账本锁 ${lock} 超时，另一个进程正在记账。`);
+    Atomics.wait(sleeper, 0, 0, Math.min(waitMs, remaining));
+    // 短临界区先留给持锁者释放，不急着读 PID 或抢 .break。
+    if (remaining >= lockGraceMs && fs.existsSync(lock)) clearStaleLock(lock);
   }
   try {
+    removeWithRetry(staging, { recursive: true });
     return run();
   } finally {
-    fs.rmSync(lock, { force: true });
+    removeWithRetry(lock);
   }
 }
 

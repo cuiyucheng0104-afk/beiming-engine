@@ -1,16 +1,17 @@
 // 内容寻址帧缓存（A16）：一帧的键由设计文档「缓存键」的六项哈希在一起；容差档混用旧帧与新帧后查接缝尖峰。
+import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { isPlainObject } from './ledger.mjs';
 import { atomicWrite, makeDirectory, safePath } from './workspace.mjs';
 
-const FORMAT = 'frame-cache/0.1';
+const FORMAT = 'frame-cache/0.2';
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000; // 毫秒
 const SEAM_BINS = 64;
 const TIERS = ['draft', 'final'];
 const DETERMINISM = ['hash-same-machine', 'tolerance'];
-const SPEC_KEYS = ['shot', 'events', 'loadedFiles', 'tracksHash', 'cards', 'runtimeEnv', 'renderSpec'];
+const SPEC_KEYS = ['shot', 'events', 'film', 'loadedFiles', 'tracksHash', 'cards', 'runtimeEnv', 'renderSpec'];
 const ENV_KEYS = ['source', 'runtimeVersion', 'browserBuild', 'gpuBackend', 'driver'];
 const RENDER_KEYS = ['tier', 'samples', 'size', 'frame', 'subs'];
 
@@ -23,6 +24,7 @@ const isShotId = value => matches(/^[a-z][a-z0-9-]*$/, value);
 const isCount = value => Number.isSafeInteger(value) && value > 0;
 const hasExactly = (value, keys) => isPlainObject(value) && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
 const isUnique = values => new Set(values).size === values.length;
+const sortedSubs = subs => [...subs].sort((a, b) => a - b || Number(Object.is(b, -0)) - Number(Object.is(a, -0)));
 const byText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 function need(ok, message) {
@@ -36,7 +38,7 @@ export function canonicalJson(value) {
     if (node === null || typeof node === 'boolean' || typeof node === 'string') return JSON.stringify(node);
     if (typeof node === 'number') {
       need(Number.isFinite(node), `${at} 不是有限数。`);
-      return JSON.stringify(node);
+      return Object.is(node, -0) ? '-0' : JSON.stringify(node);
     }
     need(Array.isArray(node) || isPlainObject(node), `${at} 不是 JSON 值。`);
     need(!open.has(node), `${at} 出现循环引用。`);
@@ -53,7 +55,8 @@ export function canonicalJson(value) {
 // 六项缺一不可：没有轨道写 'none'，没有卡写 []，环境里不适用的项写 'none'。
 export function computeFrameCacheKey(spec) {
   need(isPlainObject(spec) && Object.keys(spec).every(key => SPEC_KEYS.includes(key)), `缓存键输入只能有 ${SPEC_KEYS.join('、')}。`);
-  const { shot, events = null, loadedFiles, tracksHash, cards, runtimeEnv, renderSpec } = spec;
+  const { shot, events = null, film = null, loadedFiles, tracksHash, cards, runtimeEnv, renderSpec } = spec;
+  need(film === null || isPlainObject(film), 'film 必须是本镜头使用的片级参数对象。');
 
   need(isPlainObject(shot) && isShotId(shot.id), '第 1 项 shot 必须是带合法 id 的镜头条目。');
   const { in: start, out: end, ...entry } = shot;
@@ -76,9 +79,9 @@ export function computeFrameCacheKey(spec) {
     Array.isArray(subs) && subs.length > 0 && subs.every(Number.isFinite), '第 6 项 renderSpec 的档位、采样数、尺寸或 sub 采样集无效。');
   need(Number.isSafeInteger(frame) && frame >= 0 && frame < frames, '第 6 项 renderSpec.frame 必须是落在镜头内的局部帧号。');
 
-  const picture = { tier, samples, size, subs: [...subs].sort((a, b) => a - b) };
+  const picture = { tier, samples, size, subs: sortedSubs(subs) };
   const components = {
-    shot: digest({ entry, frames, events }),
+    shot: digest({ entry, frames, events, film }),
     loadedFiles: digest(loadedFiles.map(file => ({ path: file.path, sha256: file.sha256 })).sort((a, b) => byText(a.path, b.path))),
     tracks: tracksHash,
     cards: digest(cards.map(card => ({ id: card.id, version: card.version, sha256: card.sha256 })).sort((a, b) => byText(a.id, b.id))),
@@ -100,41 +103,71 @@ function seamSignature(values) {
   need((ArrayBuffer.isView(values) || Array.isArray(values)) && values.length > 0, 'colorFloats 必须是非空的数值数组。');
   const scale = values instanceof Uint8Array || values instanceof Uint8ClampedArray ? 1 / 255 : 1;
   const bins = Math.min(SEAM_BINS, values.length);
-  return Array.from({ length: bins }, (_, bin) => {
+  const signature = [];
+  for (let bin = 0; bin < bins; bin += 1) {
+    const from = Math.floor(bin * values.length / bins);
     const to = Math.floor((bin + 1) * values.length / bins);
     let sum = 0;
-    let count = 0;
-    for (let index = Math.floor(bin * values.length / bins); index < to; index += 1) {
-      if (Number.isFinite(values[index])) {
-        sum += values[index];
-        count += 1;
-      }
-    }
-    return count ? sum * scale / count : 0;
-  });
+    for (let index = from; index < to; index += 1) sum += values[index];
+    if (!Number.isFinite(sum)) return undefined;
+    signature.push(sum * scale / (to - from));
+  }
+  return signature;
 }
 
 export function openShotCache(cacheDir) {
-  const root = makeDirectory(cacheDir);
+  const lstat = file => fs.lstatSync(file, { throwIfNoEntry: false });
+  const requested = path.resolve(cacheDir);
+  need(!lstat(requested)?.isSymbolicLink(), '缓存根目录不得是符号链接。');
+  const root = makeDirectory(requested);
+  const checkRoot = () => need(lstat(root)?.isDirectory(), '缓存根目录消失或被替换为符号链接。');
+
+  // 缓存有独立的目录布局；只在已验证的父目录下清理占错位置的节点，不沿链接递归。
+  function child(parent, name, directory) {
+    const file = path.join(parent, name);
+    const stat = lstat(file);
+    if (stat && !(directory ? stat.isDirectory() : stat.isFile())) {
+      fs.rmSync(file, { force: true, recursive: stat.isDirectory() });
+    }
+    return safePath(parent, name);
+  }
 
   function fileOf(entry) {
+    checkRoot();
     need(isPlainObject(entry) && isDigest(entry.key) && isDigest(entry.shotKey) && isShotId(entry.shotId) && TIERS.includes(entry.tier),
       '缓存条目必须是 computeFrameCacheKey 的返回值。');
-    return safePath(root, `${entry.tier}/shot-${entry.shotId}/${entry.shotKey.slice(7, 23)}/${entry.key.slice(7)}.frame`);
+    let dir = root;
+    for (const name of [entry.tier, `shot-${entry.shotId}`, entry.shotKey.slice(7)]) dir = child(dir, name, true);
+    return child(dir, `${entry.key.slice(7)}.frame`, false);
   }
 
   // 一个条目一个文件：一行 JSON 文件头加颜色层字节，改名一步到位，不会出现头和颜色层对不上的中间态。
-  function put(entry, { colorBytes, meta = {}, seam } = {}) {
+  const validSeam = seam => seam === undefined || (Array.isArray(seam) && seam.length > 0 && seam.length <= SEAM_BINS && seam.every(Number.isFinite));
+  const validRun = id => typeof id === 'string' && id.length > 0;
+  function put(entry, { colorBytes, meta = {}, seam, runId = randomUUID() } = {}) {
     const file = fileOf(entry);
     need(colorBytes instanceof Uint8Array && colorBytes.length > 0, '颜色层必须是非空的 Buffer 或 Uint8Array。');
-    need(isPlainObject(meta), '元数据必须是纯对象。');
-    const { timing, ...stable } = meta; // timing 是那一次渲染的耗时，复用的帧没有花这个时间
-    const header = canonicalJson({ format: FORMAT, key: entry.key, colorSha256: sha256(colorBytes), meta: stable, ...(seam && { seam }) });
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    atomicWrite(file, Buffer.concat([Buffer.from(`${header}\n`), colorBytes]), { stagingParent: root });
+    need(isPlainObject(meta) && validSeam(seam) && validRun(runId), '元数据、接缝特征或写入轮次无效。');
+    const { timing, ...stable } = meta;
+    const colorSha256 = sha256(colorBytes);
+    const fields = { format: FORMAT, key: entry.key, colorSha256, meta: stable, runId, ...(seam && { seam }) };
+    const header = canonicalJson({ ...fields, headerSha256: sha256(canonicalJson(fields)) });
+    const bytes = Buffer.concat([Buffer.from(`${header}\n`), colorBytes]);
+    for (let attempt = 0; ; attempt++) {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      try {
+        atomicWrite(file, bytes, { stagingParent: root });
+        break;
+      } catch (error) {
+        // 并发失效/清理可能刚移走父目录；只补一次，持续的 I/O 故障交给调用方。
+        if (error.code !== 'ENOENT' || attempt > 0) throw error;
+        fileOf(entry);
+      }
+    }
+    return { colorSha256 };
   }
 
-  // 读回时重算颜色层的哈希；对不上的条目删掉并算未命中。
+  // 头部和颜色必须来自同一次读取；调用方以后再取颜色时用返回的摘要核对。
   function get(entry) {
     const file = fileOf(entry);
     let raw;
@@ -144,15 +177,17 @@ export function openShotCache(cacheDir) {
       if (error.code === 'ENOENT') return undefined;
       throw error;
     }
-    let header;
     const split = raw.indexOf(0x0a);
     const colorBytes = raw.subarray(split + 1);
+    let fields;
     try {
-      header = JSON.parse(raw.subarray(0, Math.max(split, 0)).toString('utf8'));
-    } catch {
-      header = undefined;
+      const { headerSha256, ...body } = JSON.parse(raw.subarray(0, Math.max(split, 0)).toString('utf8'));
+      if (body.format === FORMAT && body.key === entry.key && isPlainObject(body.meta) && validRun(body.runId) && validSeam(body.seam) &&
+          headerSha256 === sha256(canonicalJson(body)) && colorBytes.length && body.colorSha256 === sha256(colorBytes)) fields = body;
+    } catch (error) {
+      if (!(error instanceof SyntaxError || error instanceof TypeError || error instanceof RangeError)) throw error;
     }
-    if (header?.format !== FORMAT || header.key !== entry.key || header.colorSha256 !== sha256(colorBytes) || !isPlainObject(header.meta)) {
+    if (!fields) {
       fs.rmSync(file, { force: true });
       return undefined;
     }
@@ -161,7 +196,8 @@ export function openShotCache(cacheDir) {
     } catch {
       // 只读的共享缓存改不了时间，不影响命中
     }
-    return { colorBytes, colorSha256: header.colorSha256, meta: header.meta, seam: header.seam };
+    const { colorSha256, meta, seam, runId } = fields;
+    return { colorBytes, colorSha256, meta, seam, runId };
   }
 
   function list(dir) {
@@ -172,22 +208,23 @@ export function openShotCache(cacheDir) {
       throw error;
     }
   }
-  const modified = file => fs.statSync(file, { throwIfNoEntry: false })?.mtimeMs ?? 0;
+  const modified = file => lstat(file)?.mtimeMs ?? 0;
 
   // 保留策略（设计文档「中间产物留多久」）：草稿由调用方在作业结束时清，终稿每个镜头只留最近用过的一版，超过期限的都删。
   function prune({ maxAgeMs = WEEK_MS, clearDraft = false, now = Date.now() } = {}) {
     need(Number.isFinite(maxAgeMs) && maxAgeMs >= 0 && Number.isFinite(now), '清理期限无效。');
+    checkRoot();
     let removed = 0;
     for (const tier of TIERS) {
-      for (const shot of list(path.join(root, tier)).filter(item => item.isDirectory())) {
+      for (const shot of list(child(root, tier, true)).filter(item => item.isDirectory())) {
         const versions = list(path.join(root, tier, shot.name)).filter(item => item.isDirectory()).map(version => {
           const dir = path.join(root, tier, shot.name, version.name);
           const files = list(dir).filter(item => item.isFile()).map(item => path.join(dir, item.name)).map(file => ({ file, at: modified(file) }));
           return { dir, files, latest: files.reduce((latest, item) => Math.max(latest, item.at), 0) };
         });
-        const latest = versions.reduce((value, version) => Math.max(value, version.latest), 0);
+        versions.sort((a, b) => b.latest - a.latest || byText(a.dir, b.dir));
         for (const version of versions) {
-          const whole = tier === 'draft' ? clearDraft : version.latest < latest;
+          const whole = tier === 'draft' ? clearDraft : version !== versions[0];
           for (const { file, at } of version.files) {
             if (!whole && now - at <= maxAgeMs) continue;
             fs.rmSync(file, { force: true });
@@ -204,12 +241,24 @@ export function openShotCache(cacheDir) {
     // 写到一半就退出的进程留下的暂存目录
     for (const item of list(root)) {
       const staging = path.join(root, item.name);
-      if (item.name.startsWith('.write-') && now - modified(staging) > maxAgeMs) fs.rmSync(staging, { recursive: true, force: true });
+      if (item.name.startsWith('.write-') && now - modified(staging) > Math.max(maxAgeMs, 60_000)) fs.rmSync(staging, { recursive: true, force: true });
     }
     return { removed };
   }
 
-  return Object.freeze({ root, get, put, prune });
+  function invalidateShot(entry) {
+    const version = path.dirname(fileOf(entry));
+    const retired = path.join(root, `.write-retired-${randomUUID()}`);
+    try {
+      fs.renameSync(version, retired);
+    } catch (error) {
+      if (error.code === 'ENOENT') return;
+      throw error;
+    }
+    // 重试只能看到全空或新版本；删除中断留下的暂存由 prune 回收。
+    fs.rmSync(retired, { recursive: true, force: true });
+  }
+  return Object.freeze({ root, get, put, prune, invalidateShot });
 }
 
 function meanAbsDiff(a, b) {
@@ -221,73 +270,85 @@ function meanAbsDiff(a, b) {
   return sum * scale / a.length;
 }
 
-// frames 是一个镜头按帧序排好的全部帧：{ fromCache, colorFloats }。返回的 spikes[].frame 是数组下标，也就是镜头局部帧号。
-// 只在容差档、并且旧帧与新帧相邻时才查：交界处的帧间差明显高出不在交界上的帧间差，就是接缝尖峰。
+// 有轮次记录时，出自不同轮次的相邻帧就是交界；旧调用方只比较本次命中标记。
 export function checkCacheSeams(frames, { determinism, seamFactor = 3, minSpikeFloor = 0.015 } = {}) {
   need(DETERMINISM.includes(determinism), `determinism 只能是 ${DETERMINISM.join(' 或 ')}。`);
-  need(Array.isArray(frames) && frames.every(frame => isPlainObject(frame) && typeof frame.fromCache === 'boolean'), '每一帧都要带布尔值 fromCache。');
+  need(Array.isArray(frames) && frames.every(isPlainObject), '接缝检查需要镜头帧列表。');
+  const hasRuns = frames.some(frame => frame.runId !== undefined);
+  need(frames.every(frame => hasRuns ? typeof frame.runId === 'string' && frame.runId.length : typeof frame.fromCache === 'boolean'),
+    '每帧必须都有 runId，或全部使用旧接口的 fromCache。');
   need(Number.isFinite(seamFactor) && seamFactor > 0 && Number.isFinite(minSpikeFloor) && minSpikeFloor >= 0, '接缝阈值无效。');
-  const seams = [];
+  const seams = new Set();
+  const source = hasRuns ? 'runId' : 'fromCache';
   for (let frame = 1; frame < frames.length; frame += 1) {
-    if (frames[frame].fromCache !== frames[frame - 1].fromCache) seams.push(frame);
+    if (frames[frame][source] !== frames[frame - 1][source]) seams.add(frame);
   }
-  if (determinism !== 'tolerance' || seams.length === 0) return { ok: true, checked: false, spikes: [] };
+  if (determinism !== 'tolerance' || !seams.size) return { ok: true, checked: false, spikes: [] };
+  if (frames.some(frame => !frame.colorFloats?.length || frame.colorFloats.length !== frames[0].colorFloats?.length)) {
+    return { ok: false, checked: false, spikes: [], reason: '接缝特征缺失或长度不一致' };
+  }
 
   const diffs = frames.map((frame, index) => (index ? meanAbsDiff(frames[index - 1].colorFloats, frame.colorFloats) : 0));
-  // shortcut: 基准取整个镜头的中位数，快慢悬殊的镜头在快的那段交界会误报（代价是多重渲一次，不会漏放）；误报多了改成只看交界附近几帧
-  const calm = diffs.filter((_, frame) => frame > 0 && !seams.includes(frame)).sort((a, b) => a - b);
+  // shortcut: 全镜非交界中位数不能描述每段运动速度；需要局部判别时换用邻域基准。
+  const calm = diffs.filter((_, frame) => frame > 0 && !seams.has(frame)).sort((a, b) => a - b);
   const baseline = calm.length ? (calm[(calm.length - 1) >> 1] + calm[calm.length >> 1]) / 2 : 0;
   const threshold = Math.max(minSpikeFloor, seamFactor * baseline);
   // 写成「不小于等于」：算不出来的帧差（NaN）也按尖峰处理
-  const spikes = seams.filter(frame => !(diffs[frame] <= threshold)).map(frame => ({ frame, diff: diffs[frame], baseline, threshold }));
+  const spikes = [...seams].filter(frame => !(diffs[frame] <= threshold)).map(frame => ({ frame, diff: diffs[frame], baseline, threshold }));
   return { ok: spikes.length === 0, checked: true, spikes };
 }
 
 // 逐镜头、逐帧先查缓存，没命中才调 renderFrame 并写回。shots 的每一项是 computeFrameCacheKey 的前五项，
 // 加上 determinism 和摊平的 tier、samples、size、subs；帧号由这里按镜头局部帧号逐帧填。
 // renderFrame({ shot, frame, tier, samples, size, subs }) 返回 { colorBytes, meta, colorFloats? }。
-// 颜色层不留在内存里：出片时按返回的 frames[].entry 用 cache.get 取。
-export async function renderShotsWithCache({ shots, cache, renderFrame, rerenderOnSeamSpike = true, seamFactor, minSpikeFloor, signal } = {}) {
+// 颜色层不留在内存里：出片时再取 cache.get(entry)，核对返回记录的 colorSha256。
+export async function renderShotsWithCache({ shots, cache, renderFrame, filmId, rerenderOnSeamSpike = true, seamFactor, minSpikeFloor, signal } = {}) {
   need(Array.isArray(shots) && shots.length > 0 && shots.every(item => isPlainObject(item) && isPlainObject(item.shot)), 'shots 必须是非空的镜头输入列表。');
   need(isUnique(shots.map(item => item.shot.id)), '镜头 id 不能重复。');
-  need(typeof cache?.get === 'function' && typeof cache.put === 'function' && typeof renderFrame === 'function', '需要 cache 与 renderFrame。');
-
+  need(typeof cache?.get === 'function' && typeof cache.put === 'function' && typeof cache.invalidateShot === 'function' && typeof renderFrame === 'function', '需要 cache 与 renderFrame。');
+  need(filmId === undefined || (typeof filmId === 'string' && filmId.length > 0), 'filmId 必须是非空字符串。');
+  const runId = randomUUID();
   const done = [];
   for (const { shot, determinism, tier, samples, size, subs, ...keyed } of shots) {
     need(DETERMINISM.includes(determinism), `镜头 ${shot.id} 的 determinism 只能是 ${DETERMINISM.join(' 或 ')}。`);
     const totalFrames = shot.out - shot.in;
     need(isCount(totalFrames), `镜头 ${shot.id} 的 in、out 无效。`);
     let renderedFrames = 0;
+    const position = frame => ({ shot: shot.id, shotFrame: frame, frame: shot.in + frame, ...(filmId !== undefined && { film: filmId }) });
     async function render(frame, entry) {
       signal?.throwIfAborted();
-      const { colorBytes, colorFloats, meta } = await renderFrame({ shot, frame, tier, samples, size, subs });
+      const { colorBytes, colorFloats, meta = {} } = await renderFrame({ shot, frame, tier, samples, size, subs: sortedSubs(subs) });
+      signal?.throwIfAborted();
       const seam = colorFloats === undefined ? undefined : seamSignature(colorFloats);
-      cache.put(entry, { colorBytes, meta, seam });
+      const { colorSha256 } = cache.put(entry, { colorBytes, meta, seam, runId });
       renderedFrames += 1;
-      return { frame, fromCache: false, entry, colorFloats: seam };
+      return { frame, fromCache: false, entry, colorFloats: seam, runId, colorSha256, meta: { ...meta, ...position(frame) } };
     }
 
     const frames = [];
     for (let frame = 0; frame < totalFrames; frame += 1) {
+      signal?.throwIfAborted();
       const entry = computeFrameCacheKey({ shot, ...keyed, renderSpec: { tier, samples, size, frame, subs } });
       const hit = cache.get(entry);
-      frames.push(hit ? { frame, fromCache: true, entry, colorFloats: hit.seam } : await render(frame, entry));
+      if (!hit) {
+        frames.push(await render(frame, entry));
+      } else {
+        const { film, ...stable } = hit.meta;
+        const meta = { ...stable, ...position(frame), timing: { stateMs: 0, renderMs: 0, readbackMs: 0 } };
+        frames.push({ frame, fromCache: true, entry, colorFloats: hit.seam, runId: hit.runId, colorSha256: hit.colorSha256, meta });
+      }
     }
 
-    const mixed = frames.some(frame => frame.fromCache) && frames.some(frame => !frame.fromCache);
-    let seamCheck = determinism === 'tolerance' && mixed && frames.some(frame => !frame.colorFloats)
-      ? { ok: false, checked: false, spikes: [], reason: '有帧没带 colorFloats，查不了接缝' }
-      : checkCacheSeams(frames, { determinism, seamFactor, minSpikeFloor });
+    let seamCheck = checkCacheSeams(frames, { determinism, seamFactor, minSpikeFloor });
     if (!seamCheck.ok && rerenderOnSeamSpike) {
-      // 新渲的帧不用再渲：把复用的旧帧也重渲并替换缓存，整个镜头就都出自这一轮
-      for (const [index, old] of frames.entries()) {
-        if (old.fromCache) frames[index] = await render(old.frame, old.entry);
-      }
+      // 先使本版本的所有帧失效，再写第一帧；即使修复中断也不能留下已知有问题的交界。
+      cache.invalidateShot(frames[0].entry);
+      for (const [index, old] of frames.entries()) frames[index] = await render(old.frame, old.entry);
       seamCheck = { ...seamCheck, ok: true, rerendered: true };
     }
     const cachedFrames = frames.filter(frame => frame.fromCache).length;
     done.push({ shotId: shot.id, totalFrames, cachedFrames, renderedFrames, seamCheck,
-      frames: frames.map(({ frame, fromCache, entry }) => ({ frame, fromCache, entry })) });
+      frames: frames.map(({ colorFloats, ...record }) => record) });
   }
   const sum = field => done.reduce((total, item) => total + item[field], 0);
   return { ok: done.every(item => item.seamCheck.ok), shots: done,

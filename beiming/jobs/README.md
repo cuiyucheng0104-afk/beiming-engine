@@ -23,7 +23,7 @@
 | `diskBytes` | 收尾时工作区里常规文件的字节数 |
 
 - **位置**：`jobs/` 不属于作品输入，账本不进快照、不改快照哈希。旁边的 `ledger.jsonl.lock` 是写入锁，记账完就删。
-- **磁盘采样**在清理本轮中间产物前完成。`measureDiskBytes(dir)` 要求调用方传入可信根目录，递归时会跳过目录中的符号链接子项。汇总对磁盘取峰值 `maxDiskBytes`，对其余成本求和。
+- **磁盘采样**在清理本轮中间产物前完成。`measureDiskBytes(dir)` 要求调用方传入可信根目录，跳过符号链接和根目录下的 `cache/`；更深层的同名目录照常计量。历史帧缓存不会抬高本次报价。账本锁短时繁忙（包括 Windows 正在删除锁文件）时退避重试，父目录消失等错误仍会报告。汇总对磁盘取峰值 `maxDiskBytes`，对其余成本求和。
 - **崩溃恢复**以原子落盘的 `job.json` 终态事件为准（WAL）。事件先保存这一轮的成本，随后队列追加账本。`queue.readLedger()`、`queue.summarizeLedger()`、`queue.replay(id)` 和显式调用 `queue.reconcileLedger()` 都会按 `(jobId, attempt)` 补齐已有结算载荷的缺行。旧作业缺少载荷时保留原有记录。
 - **执行器怎么回报**：成功时在返回值里带 `cost`，失败时把 `cost` 挂在抛出的错误上（`throw Object.assign(new Error('渲染失败'), { cost })`）。`cost` 可以有 `gpuSeconds` 或 `frameMetas`（每帧 `timing.renderMs`，两样都给时用 `gpuSeconds`）、`tokensByTier`、`renderedFrames`、`deliveredFrames`，也可以用 `wallMs`、`diskBytes` 覆盖队列自己的实测。没回报的维度记 0。
 - **`gpuKnown` 口径**：回报了 `gpuSeconds` 或 `frameMetas` 是 `true`；都没回报时 `gpuSeconds` 记 0、`gpuKnown` 是 `false`，表示「没有实测」而不是「没用显卡」。汇总里的 `gpuUnknownRows` 不为 0 时，显卡秒合计只是下限。`beiming/api/` 的执行器目前不回报 `cost`，它们的行就是这种情况，显卡秒仍在旧 API 账本里。
@@ -67,11 +67,11 @@ const sum = queue.summarizeLedger(); // { count: 2, succeeded: 2, gpuSeconds: 6,
 
 `cache.mjs` 按 04 §10 的六项给每一帧算 sha256 键：① 本镜头的规范化 JSON（`in`/`out` 归一为帧数，只含这个镜头）；② 实际加载文件的哈希；③ `tracks` 哈希（没有写 `'none'`）；④ 所用卡的三段版本与实现哈希（取自 `film.lock`）；⑤ 帧源、运行时、浏览器构建、显卡后端、驱动；⑥ 档位、采样数、尺寸、镜头局部帧号、`sub` 采样集。缺一项或类型不对直接抛错，不退化成撞键。
 
-- `computeFrameCacheKey(spec)`、`canonicalJson(value)`：键与规范化 JSON；六项分哈希在返回的 `components` 里，便于看是哪一项变了。
-- `openShotCache(dir)` 返回 `{ get, put, prune }`：一个条目一个文件（头 + 颜色层，原子改名）；`get` 读回重算颜色层 sha256，对不上就删文件按未命中；`prune({ maxAgeMs = 7 天, clearDraft })` 草稿可清，终稿每镜只留最近用过的一版，过期的删。
-- `checkCacheSeams(frames, { determinism, seamFactor = 3, minSpikeFloor = 0.015 })`：只在 `tolerance` 档且旧帧与新帧相邻时查，交界帧差高于非交界帧差中位数的 `seamFactor` 倍（且不低于下限）算尖峰；NaN 按尖峰处理。
-- `renderShotsWithCache({ shots, cache, renderFrame })`：逐镜头逐帧先查缓存，没命中才调 `renderFrame` 并写回；有尖峰时默认把整个镜头重渲成同一轮。只改一个镜头时，其他镜头的 `renderedFrames` 为 0。
+- `computeFrameCacheKey(spec)`、`canonicalJson(value)`：返回的 `components` 可定位哪一项变化；数值 `-0` 与 `0` 不同键。调用方负责提供完整依赖：把影响画面的片级 `fps`、`seed`、风格等放进可选 `film` 对象，把本镜实际使用的事件放进 `events`。不要传整片镜头表；依赖全片位置的镜头应将该位置显式进键，否则平移镜头不会失效。
+- `openShotCache(dir)` 返回 `{ root, get, put, invalidateShot, prune }`。头部与颜色层在同一文件内原子替换，读时分别验证 SHA-256；旧格式冷启动，不信任缺少轮次的旧帧。使用由可信作业进程独占管理的目录，不接受符号链接根。顶层 `cache/` 不进快照也不计作业磁盘成本；多个工作区也可使用同一专用目录。`prune({ maxAgeMs, clearDraft })` 默认清七天前的条目，终稿每镜只保留最近用过的一版，草稿可整批清理。它不做抽样保留或单独归档元数据。
+- `renderShotsWithCache({ shots, cache, renderFrame, filmId })`：命中不调 `renderFrame`，只改第二镜时第一镜实际渲染 0 帧。返回帧记录中的 `frame` 是局部帧号；`meta.frame` 是本轮全片帧号，`meta.shotFrame` 是局部帧号。传当前 `filmId` 可刷新 `meta.film`，命中不沿用旧片名；命中帧的 `timing` 归零，新渲帧保留实测耗时。交付前检查 `run.ok`，再读取 `cache.get(record.entry)`，**只有其 `colorSha256` 与 `record.colorSha256` 相同才使用该读取的字节**；缓存被清理或被并发覆盖时要重试，不能只按键交付。
+- `checkCacheSeams(frames, { determinism, seamFactor = 3, minSpikeFloor = 0.015 })`：`tolerance` 档以相邻帧的写入 `runId` 不同为交界，即使本轮全命中也检查；无轮次的旧调用可传 `fromCache`。交界差超过 `max(minSpikeFloor, seamFactor × 非交界差中位数)` 报尖峰。自动修复先使本镜当前版本的所有帧失效，再整镜重渲；`renderedFrames` 计实际调用，可能大于交付帧数。设 `rerenderOnSeamSpike: false` 只报告失败，重试不会抹去轮次差异。
 
-缓存目录放在工作区里时用顶层 `cache/`（已在快照输入的排除名单里，不改快照哈希），也可以指向外部共享目录。
+接缝检查是启发式守卫，不是像素一致性证明。渲染器需提供同尺度、同布局的 `colorFloats`；缓存按内存顺序压成最多 64 段的均值，局部差异可能被平均抵消，快速运动也可能误报。混轮且缺少可比特征时不能判通过。A17 的 20 次重复和 V14 的重建测试必须**每次使用独立的空缓存目录**，或在调用层禁用复用（`noCache`），否则测到的是缓存命中而非重新渲染。
 
-已知局限：①写成全片帧号的事件或时刻参数会随 `in` 平移，调用方要把它们换成局部帧号后放进 `events`，或让它们进入 `tracksHash`；②接缝基准取整个镜头的中位数，快慢悬殊的镜头可能误报（多重渲一次，不会漏放）；③没有实现「元数据全留、抽样帧」，`prune` 只管颜色层文件。从仓库根目录运行 `node --test beiming/jobs/cache.test.mjs` 自检。
+从仓库根目录运行 `node --test beiming/jobs/cache.test.mjs` 自检。此处提供作业层缓存核，不代表 API 渲染路径已接入。
