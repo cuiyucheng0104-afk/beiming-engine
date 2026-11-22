@@ -39,8 +39,15 @@
 
 `projectPublicQuestion(question)` 回给做题方的副本，没过校验就抛错。隐藏题只留 `id`、`level`、`title`、`brief`、`deliverable`、`assets`（契约 5.5）；公开题只去掉私有的 `ext`。
 
+## 跑题器
+
+`node beiming/bench/runner.mjs run --question <题目> --root <仓库外目录> (--solver-cmd <命令> | --model <模型>)`，代码里用 `runExamQuestion()`；测试 `runner.test.mjs`。隔离和观测复用 `tools/eval/lib`。
+
+题目先过校验（不过 exit 4），再在 `<root>/<题号>/<runId>/` 下建 `worktree/`（只放公开投影 `question.json`）、`session/`、`tmp/`、`transcript/`，做完判分，写 `result.json`（`bench-result/0.1`）、`meta.json`、`observation.json`。exit 0 只表示跑完落盘，及格看 `status`：`pass`、`fail`、`error`、`expected-fail`。隐藏题只落总分；标了 `expectedFail` 的默认不实跑，`--force-expected-fail` 才跑。
+
 ## 已知限制
 
 - 没有指标登记表，指标名只认这道题 `scoring` 里的；卡和指标同名会被 `B1_METRIC_NAMESPACE` 拦。
 - 比较后面的单位后缀（样题的 `in [359, 361] deg`）一律放行，不核单位和谓词对不对得上；`verify` 的解析器还不认。
 - 不限输入大小。
+- 跑题器没给 `judge` 时读做题方自报的 `submission.json`，不防作弊；做题方够得着整个运行目录，隔离靠目录里不放私有段。
