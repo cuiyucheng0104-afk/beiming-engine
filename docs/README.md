@@ -33,6 +33,7 @@
 | [离屏出片 docs/offscreen](offscreen/README.md) | A、C 新作品可选的 WebGPU + TSL 同源离屏渲染（Node + Dawn，D12） |
 | [配音、字幕与口型](../engine/audio/voice/README.md) | `dialogue.json` 写法、配音服务、字幕与口型提示 |
 | [音效设计理论与声学工程手册](audio/SOUND-THEORY.md) | 视听契约、物理建模合成、心理声学掩蔽十二原则与「搜索、合成、编辑、贴合、混音」五段管线定量映射 |
+| [GPU 声音引擎规格书](audio/spec-gpu-audio.md) | 四层架构（L1 ERB 声源合成、L4 自动混音、L3 声画裁判、L2 声源铸造厂）的现状、验收线、Go / No-Go 与推进闸门；待拍板设计点集中在其 §7 |
 | [渲染与 4K](渲染与4K.md) | 4K 实测与怎么出 4K（含底板分辨率预算） |
 
 ## 环境与工作站
