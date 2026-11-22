@@ -1,6 +1,7 @@
 // 画面比对：对比两张图像缓冲区、PNG 文件或视频帧，输出 <= 500 token 的结构化差值表与容差判定，可选写差异热图。
 //   compare(a, b, options?)
-//     a、b      { width, height, rgb | data }、PNG 路径字符串、PNG Buffer/Uint8Array，或 { video | videoPath, frame?, fps? }
+//     a、b      { width, height, rgb | data }、PNG 路径字符串或 { path }、PNG Buffer/Uint8Array，或 { video | videoPath, frame?, fps? }；
+//               一个输入对象只能给一种来源（path、video、videoPath、rgb、data 之一），多给报错
 //     options   { tolerance?, heatmapPath?（别名 heatmapOut，不得指向输入文件）, heatmapGain?, metrics? }；未知容差键或指标名报错
 //   复用白名单：tools/baseline/lib/metrics.mjs（PSNR、SSIM、maxDiff、fracAbove1/2、容差 judge、热图 diffHeatmap）
 //     与 tools/eval/lib/metrics.mjs（seamDeltaE、paletteDeltaE、lineCoverage、grainEnergy），并补 Rec.709 亮度分位差（p05/p50/p95）。
@@ -31,34 +32,26 @@ function parseFps(fps) {
   throw new Error('fps 必须是正数或 "分子/分母" 字符串');
 }
 
-function loadVideoFrame(spec, label) {
-  const video = spec.video ?? spec.videoPath;
-  if (typeof video !== 'string' || video === '') throw new Error(`${label} 的视频路径不能为空`);
-  const frame = spec.frame ?? 0;
-  if (!Number.isInteger(frame) || frame < 0) throw new Error(`${label}.frame 必须是非负整数`);
-  const rate = parseFps(spec.fps);
-  const vf = rate ? `fps=fps=${rate},select=eq(n\\,${frame})` : `select=eq(n\\,${frame})`;
-  const png = runFfmpeg([
-    '-nostdin', '-v', 'error', '-i', resolve(video), '-map', '0:v:0',
-    '-vf', vf, '-fps_mode', 'passthrough', '-frames:v', '1', '-c:v', 'png', '-f', 'image2pipe', '-',
-  ], 128 * 1024 * 1024);
-  if (!png.length) throw new Error(`${label} 视频中读不到第 ${frame} 帧`);
-  return decodePng(png);
-}
-
-function loadImage(spec, label) {
+// 每个输入的来源只在这里解析一次（不做 I/O）：解码与热图防覆盖共用返回的 file，两处不会各选各的
+const SOURCE_KEYS = ['path', 'video', 'videoPath', 'rgb', 'data'];
+function resolveSource(spec, label) {
   if (typeof spec === 'string') {
     if (!spec) throw new Error(`${label} 路径不能为空`);
-    return decodePng(readFileSync(resolve(spec)));
+    return { file: resolve(spec) };
   }
   if (Buffer.isBuffer(spec) || (spec instanceof Uint8Array && spec.length >= 8 && Buffer.from(spec.buffer, spec.byteOffset, 8).equals(PNG_SIG))) {
-    return decodePng(Buffer.from(spec.buffer, spec.byteOffset, spec.byteLength));
+    return { png: Buffer.from(spec.buffer, spec.byteOffset, spec.byteLength) };
   }
   if (!isPlain(spec)) throw new Error(`${label} 要是图像对象 { width, height, rgb }、PNG 路径或视频帧对象`);
-  if (spec.video !== undefined || spec.videoPath !== undefined) return loadVideoFrame(spec, label);
-  if (typeof spec.path === 'string') {
-    if (!spec.path) throw new Error(`${label}.path 不能为空`);
-    return decodePng(readFileSync(resolve(spec.path)));
+  const given = SOURCE_KEYS.filter((k) => spec[k] !== undefined);
+  if (given.length > 1) throw new Error(`${label} 同时给了 ${given.join('、')}，图像来源只能有一个`);
+  const key = given[0];
+  if (key === 'path' || key === 'video' || key === 'videoPath') {
+    if (typeof spec[key] !== 'string' || !spec[key]) throw new Error(`${label}.${key} 必须是非空路径字符串`);
+    if (key === 'path') return { file: resolve(spec.path) };
+    const frame = spec.frame ?? 0;
+    if (!Number.isInteger(frame) || frame < 0) throw new Error(`${label}.frame 必须是非负整数`);
+    return { file: resolve(spec[key]), frame, rate: parseFps(spec.fps) };
   }
   const { width, height } = spec;
   const raw = spec.rgb ?? spec.data;
@@ -70,9 +63,23 @@ function loadImage(spec, label) {
     throw new Error(`${label} 的 rgb 必须是长度为 ${expected} 的 Uint8Array`);
   }
   const rgb = raw instanceof Uint8Array ? raw : new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
-  return { width, height, rgb };
+  return { image: { width, height, rgb } };
 }
 
+function loadImage(src, label) {
+  if (src.image) return src.image;
+  if (src.png) return decodePng(src.png);
+  if (src.frame === undefined) return decodePng(readFileSync(src.file));
+  const vf = src.rate ? `fps=fps=${src.rate},select=eq(n\\,${src.frame})` : `select=eq(n\\,${src.frame})`;
+  const png = runFfmpeg([
+    '-nostdin', '-v', 'error', '-i', src.file, '-map', '0:v:0',
+    '-vf', vf, '-fps_mode', 'passthrough', '-frames:v', '1', '-c:v', 'png', '-f', 'image2pipe', '-',
+  ], 128 * 1024 * 1024);
+  if (!png.length) throw new Error(`${label} 视频中读不到第 ${src.frame} 帧`);
+  return decodePng(png);
+}
+
+// 返回 0..255 的整数灰阶：差值先在整数上相减再除以 255，相邻一级恒等于 1/255（归一化后再减会有浮点误差）
 function lumaQuantiles({ width, height, rgb }) {
   const n = width * height;
   const hist = new Uint32Array(256);
@@ -83,9 +90,9 @@ function lumaQuantiles({ width, height, rgb }) {
   const q = (p) => {
     for (let i = 0, acc = 0; i < 256; i++) {
       acc += hist[i];
-      if (acc >= n * p) return i / 255;
+      if (acc >= n * p) return i;
     }
-    return 1;
+    return 255;
   };
   return { p05: q(0.05), p50: q(0.5), p95: q(0.95) };
 }
@@ -117,12 +124,11 @@ const TOL_KEYS = new Set([
 ]);
 const METRICS = new Set(['psnr', 'ssim', 'maxDiff', 'fracAbove1', 'fracAbove2', 'seamDeltaE', 'paletteDeltaE', 'lineCoverage', 'grainEnergy', 'lumaP05', 'lumaP50', 'lumaP95']);
 
-const inputPath = (s) => (typeof s === 'string' ? s : isPlain(s) ? s.path ?? s.video ?? s.videoPath : undefined);
 // 同一 dev+ino 即同一文件（覆盖软链、硬链与不同写法的路径）
 function sameFile(p, q) {
   try {
     const x = statSync(resolve(p));
-    const y = statSync(resolve(q));
+    const y = statSync(q);
     return x.dev === y.dev && x.ino === y.ino;
   } catch {
     return false;
@@ -188,12 +194,14 @@ export function compare(a, b, options = {}) {
     }
     const unknown = options.metrics?.find((m) => !METRICS.has(m));
     if (unknown !== undefined) throw new Error(`metrics 里的 ${unknown} 不是已知指标；可用 ${[...METRICS].join('、')}`);
-    if (heatmapPath && [a, b].some((s) => inputPath(s) && sameFile(heatmapPath, inputPath(s)))) {
+    const srcA = resolveSource(a, 'a');
+    const srcB = resolveSource(b, 'b');
+    if (heatmapPath && [srcA, srcB].some((s) => s.file && sameFile(heatmapPath, s.file))) {
       throw new Error('heatmapPath 指向了输入文件，拒绝覆盖');
     }
 
-    const imgA = loadImage(a, 'a');
-    const imgB = loadImage(b, 'b');
+    const imgA = loadImage(srcA, 'a');
+    const imgB = loadImage(srcB, 'b');
     const base = compareImages(imgA, imgB);
     if (!base.identical && !base.sizeMismatch && (imgA.width < 8 || imgA.height < 8)) base.ssim = globalSsim(imgA, imgB);
 
@@ -235,12 +243,12 @@ export function compare(a, b, options = {}) {
       ...(tolerance !== undefined ? { tolerance } : {}),
       pass: ok,
     });
-    const pairRow = (metric, va, vb, digits, tolerance) => {
-      const raw = vb - va; // 先用未舍入的差判定，再格式化展示
+    const pairRow = (metric, va, vb, digits, tolerance, den = 1) => {
+      const raw = (vb - va) / den; // 先用未舍入的差判定，再格式化展示；den 让整数量先相减再归一
       return {
         metric,
-        a: r(va, digits),
-        b: r(vb, digits),
+        a: r(va / den, digits),
+        b: r(vb / den, digits),
         diff: r(raw, digits),
         ...(tolerance !== undefined ? { tolerance } : {}),
         pass: tolerance === undefined ? true : Math.abs(raw) <= tolerance,
@@ -265,9 +273,9 @@ export function compare(a, b, options = {}) {
       valRow('paletteDeltaE', palDe, tPal, tPal === undefined || palDe <= tPal),
       pairRow('lineCoverage', lineA, lineB, 4, tLine),
       pairRow('grainEnergy', grainA, grainB, 3, tGrain),
-      pairRow('lumaP05', lumaA.p05, lumaB.p05, 4, tP05),
-      pairRow('lumaP50', lumaA.p50, lumaB.p50, 4, tP50),
-      pairRow('lumaP95', lumaA.p95, lumaB.p95, 4, tP95),
+      pairRow('lumaP05', lumaA.p05, lumaB.p05, 4, tP05, 255),
+      pairRow('lumaP50', lumaA.p50, lumaB.p50, 4, tP50, 255),
+      pairRow('lumaP95', lumaA.p95, lumaB.p95, 4, tP95, 255),
     ];
 
     const baseJudge = judge(base, tol);

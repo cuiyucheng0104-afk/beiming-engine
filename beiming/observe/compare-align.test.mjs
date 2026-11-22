@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, linkSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { encodeTracks } from '../kernel/eval/tracks.mjs';
@@ -545,4 +545,140 @@ test('O6-10 G_REV-R1 curves：省略 shot 时按全片帧号 frame 查询', () =
   const res = observe.curves({ tracks: encodeTracks({}), metas }, { entity: 'hero_card', quantity: 'screenX', range: [100, 101] });
   assert.equal(res.ok, true, JSON.stringify(res));
   assert.deepEqual(res.range, [100, 101]);
+});
+
+test('O6-11 G_REV-R2 compare：输入来源唯一且解码与热图防覆盖同源、亮度分位差按整数灰阶判定', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'o6-r2-'));
+  try {
+    const w = 32, h = 18;
+    const rgb = new Uint8Array(w * h * 3).fill(51);
+    const pA = join(dir, 'a.png');
+    const pB = join(dir, 'b.png');
+    writeFileSync(pA, observe.encodePng({ width: w, height: h, rgb }));
+    writeFileSync(pB, observe.encodePng({ width: w, height: h, rgb: new Uint8Array(w * h * 3).fill(153) }));
+    const bytesA = readFileSync(pA);
+    const bytesB = readFileSync(pB);
+    const hm = join(dir, 'heat.png');
+
+    // [P1] 同一输入给了两种来源：读任何文件之前就报错，两个位置（a、b）都查
+    const conflicts = [
+      { path: pA, video: pB },
+      { path: pA, videoPath: pB },
+      { video: pA, videoPath: pB },
+      { path: pA, width: w, height: h, rgb },
+      { video: pB, width: w, height: h, rgb },
+      { width: w, height: h, rgb, data: rgb },
+    ];
+    for (const c of conflicts) {
+      for (const args of [[c, pB], [pA, c]]) {
+        const bad = observe.compare(...args, { heatmapPath: hm });
+        assert.equal(bad.ok, false, JSON.stringify(bad));
+        assert.equal(bad.error.code, 'usage.bad-argument');
+        assert.match(bad.error.message, /来源/, JSON.stringify(c));
+        assert.equal(existsSync(hm), false);
+      }
+    }
+    // 二审复现：a 同时带 path 与 video，热图指向 video 那个文件，原文件一个字节都不改
+    assert.equal(observe.compare({ path: pA, video: pB }, pA, { heatmapPath: pB }).ok, false);
+    assert.deepEqual(readFileSync(pB), bytesB);
+
+    // 对象写法的 path、视频写法与硬链接，和字符串路径受同一套保护（守卫先于解码，不需要 ffmpeg）
+    const hard = join(dir, 'hard.png');
+    linkSync(pA, hard);
+    const guarded = [
+      [{ path: pA }, pB, pA],
+      [pA, { path: pB }, pB],
+      [pB, { video: pA }, pA],
+      [{ videoPath: pA, frame: 1 }, pB, pA],
+      [pA, pB, hard],
+      [pB, { video: hard }, pA],
+    ];
+    for (const [a, b, heatmapPath] of guarded) {
+      const bad = observe.compare(a, b, { heatmapPath });
+      assert.equal(bad.ok, false, JSON.stringify(bad));
+      assert.equal(bad.error.code, 'usage.bad-argument');
+      assert.match(bad.error.message, /拒绝覆盖/, JSON.stringify([a, b, heatmapPath]));
+    }
+    assert.deepEqual(readFileSync(pA), bytesA);
+    assert.deepEqual(readFileSync(pB), bytesB);
+    // 单一来源的对象写法照常可用
+    const fine = observe.compare({ path: pA }, { width: w, height: h, data: rgb }, { heatmapPath: hm });
+    assert.equal(fine.ok, true, JSON.stringify(fine));
+    assert.equal(fine.identical, true);
+    assert.equal(existsSync(hm), true);
+
+    // [P2-A] 255 组相邻灰阶：容差恰为 1/255 全过、0.00391 全拒，方向无关；差两级在 1/255 下必拒
+    const gray = (v) => ({ width: 8, height: 8, rgb: new Uint8Array(192).fill(v) });
+    const p50 = (a, b, tol) => observe.compare(gray(a), gray(b), { tolerance: { maxLumaP50Diff: tol }, metrics: ['lumaP50'] }).rows[0];
+    for (let k = 0; k < 255; k++) {
+      assert.equal(p50(k, k + 1, 1 / 255).pass, true, `k=${k}`);
+      assert.equal(p50(k + 1, k, 1 / 255).pass, true, `k=${k} 反向`);
+      assert.equal(p50(k, k + 1, 0.00391).pass, false, `k=${k}`);
+      if (k < 254) assert.equal(p50(k, k + 2, 1 / 255).pass, false, `k=${k} 差两级`);
+    }
+    assert.deepEqual(p50(32, 33, 1 / 255), { metric: 'lumaP50', a: 0.1255, b: 0.1294, diff: 0.0039, tolerance: 1 / 255, pass: true });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('O6-12 G_REV-R2 align：退化判定与尺度、朝向无关且退化不算收敛，裁剪面不可表示时返回结构化错误', () => {
+  const size = [1920, 1080];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const unit = (a) => { const l = Math.hypot(...a); return a.map((v) => v / l); };
+  const flat = [[-1, -1], [1, -1], [1, 1], [-1, 1], [0.3, 0.2], [-0.4, 0.5]];
+  const cube = [[-1, 0, -1], [1, 0.2, -1], [-1, 1.4, 1], [1, 1.2, 1], [0, 0.6, 0], [-0.5, 0.3, 1], [0.6, 1, -0.7], [0.2, 0.1, 0.8]];
+  const fit = (pts) => {
+    const res = observe.align({ camera: { points: pts, size } });
+    assert.equal(res.ok, true, JSON.stringify(res));
+    return res.camera;
+  };
+  for (const s of [1e-6, 1e-4, 1e-2, 1, 1e2, 1e4, 1e6]) {
+    // [P2-B] 正对相机的平面：任意法向、任意等比缩放都判退化，且不算收敛
+    for (const n of [[0, 0, 1], [0.6, 0, 0.8], [0.8, 0.6, 0], [1 / 3, 2 / 3, 2 / 3]]) {
+      const u = unit(cross(n, [0, 1, 0]));
+      const v = cross(n, u);
+      const plane = flat.map(([a, b]) => [0, 1, 2].map((k) => (u[k] * a + v[k] * b) * s));
+      const cam = fit(synthCamera(plane, n.map((c) => c * 4 * s), [0, 0, 0], 40, size));
+      assert.equal(cam.degenerate, true, `正对平面 n=${n} s=${s}: ${JSON.stringify(cam)}`);
+      assert.equal(cam.converged, false, `退化不算收敛 n=${n} s=${s}`);
+    }
+    // 共线同样与尺度无关
+    const line = fit(synthCamera([[0, 0, 0], [0.2, 0, 0], [0.5, 0, 0], [1, 0, 0]].map((p) => p.map((c) => c * s)), [0.5 * s, 0.5 * s, 3 * s], [0.5 * s, 0, 0], 40, size));
+    assert.equal(line.degenerate, true, `共线 s=${s}`);
+    assert.equal(line.converged, false, `共线 s=${s}`);
+    // 共面但斜着看可以辨识：不误报，照常收敛
+    const oblique = fit(synthCamera(flat.map(([a, b]) => [a * s, b * s, 0]), [3 * s, s, 3 * s], [0, 0, 0], 40, size));
+    assert.equal(oblique.degenerate, false, `斜视平面 s=${s}: ${JSON.stringify(oblique)}`);
+    assert.equal(oblique.converged, true, `斜视平面 s=${s}: ${JSON.stringify(oblique)}`);
+    // 非共面点集不误报，照常收敛
+    const solid = fit(synthCamera(cube.map((p) => p.map((c) => c * s)), [3.6 * s, 2.4 * s, 6.8 * s], [0, 0.6 * s, 0], 38, size));
+    assert.equal(solid.degenerate, false, `非共面 s=${s}: ${JSON.stringify(solid)}`);
+    assert.equal(solid.converged, true, `非共面 s=${s}: ${JSON.stringify(solid)}`);
+    assert.ok(solid.rmsePx < 0.5, `非共面 s=${s}: ${solid.rmsePx}`);
+  }
+  // 协方差会下溢的极小尺度（1e-170 的平方是 0）仍判共线：判定用的是归一化坐标
+  const speck = fit(synthCamera([[0, 0, 0], [2e-171, 0, 0], [5e-171, 0, 0], [1e-170, 0, 0]], [5e-171, 5e-171, 3e-170], [5e-171, 0, 0], 40, size));
+  assert.equal(speck.degenerate, true, JSON.stringify(speck));
+  // 全部重合（尺度为 0）也是退化
+  const same = fit([[10, 20], [10, 20], [10, 20], [10, 20]].map((screen) => ({ world: [1, 2, 3], screen })));
+  assert.equal(same.degenerate, true);
+  assert.equal(same.converged, false);
+
+  // [P2-C] near = 6e307、far = 1e308 时 proj[14] 溢出：报错，不带着 Infinity（JSON 里是 null）回 ok: true
+  const pts = synthCamera(cube, [3.6, 2.4, 6.8], [0, 0.6, 0], 38, size);
+  const huge = observe.align({ camera: { points: pts, size, initial: { near: 6e307, far: 1e308 } } });
+  assert.equal(huge.ok, false, JSON.stringify(huge));
+  assert.equal(huge.error.code, 'usage.bad-argument');
+  assert.match(huge.error.message, /浮点范围/);
+  // 点坐标大到质心溢出，同样报错而不是回一个含 null 的 world
+  const far = observe.align({ camera: { points: pts.map((p) => ({ ...p, world: p.world.map((c) => c * 1e308) })), size } });
+  assert.equal(far.ok, false, JSON.stringify(far));
+  assert.equal(far.error.code, 'usage.bad-argument');
+  assert.match(far.error.message, /浮点范围/);
+  // 可表示的极端值照常返回，矩阵里没有非有限数
+  const wide = observe.align({ camera: { points: pts, size, initial: { near: 1e-300, far: 1e308 } } });
+  assert.equal(wide.ok, true, JSON.stringify(wide));
+  assert.ok([...wide.camera.world, ...wide.camera.proj].every(Number.isFinite));
+  assert.equal(JSON.stringify(wide).includes('null'), false);
 });

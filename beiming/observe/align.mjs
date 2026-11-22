@@ -5,7 +5,8 @@
 //                  或 { filmPath, trackPath, ... }（经 ffmpeg 抽单声道 s16le PCM 算 20ms RMS 包络，不经 shell）
 //     composition  { reference: bbox2d, actual: bbox2d, size: [w, h] } → centerShiftPx、centerShiftNorm、areaRatio、iou
 //     camera       { points: [{ world: [x,y,z], screen: [u,v] }], size: [w, h], initial?: { pos?, target?, fovY?, near?, far? } }
-//                  7 参数（pos[3] + 轴角 rotation[3] + fovY[5..140]）阻尼高斯-牛顿（LM）拟合；world/proj 4x4 列主序对齐 meta/0.1（双精度），rmsePx 由返回矩阵复算，另给 converged 与 degenerate。
+//                  7 参数（pos[3] + 轴角 rotation[3] + fovY[5..140]）阻尼高斯-牛顿（LM）拟合；world/proj 4x4 列主序对齐 meta/0.1（双精度），rmsePx 由返回矩阵复算，另给 converged 与 degenerate
+//                  （点集重合、共线或共面且正对相机时不可辨识，此时 converged 恒为 false）；near/far 使 proj 溢出时报错。
 //   预算：返回值 JSON 严格满足 withinBudget(json, 500)；非法参数返回 { ok: false, error: { code, message } }，不抛异常。
 
 import { resolve } from 'node:path';
@@ -542,18 +543,19 @@ function reproject(points, world, proj, width, height) {
   return { rmse: Math.sqrt(sse / points.length), maxErr, behind };
 }
 
-// 点集协方差特征值：共线（λ2≈0），或共面且平面正对相机（法向∥视线，fovY 与距离不可分）时 7 参数不可辨识
-function isDegenerate(points, R) {
+// 点集协方差特征值：共线（λ2≈0），或共面且平面正对相机（法向∥视线，fovY 与距离不可分）时 7 参数不可辨识。
+// 先减质心、除以点集半径再算：阈值全落在无量纲坐标上，判定与场景尺度无关
+function isDegenerate(points, centroid, radius, R) {
+  if (!(radius > 0)) return true; // 全部重合
   const n = points.length;
-  const m = [0, 1, 2].map((k) => points.reduce((acc, p) => acc + p.world[k], 0) / n);
   const C = new Array(9).fill(0);
   for (const p of points) {
-    const d = sub3(p.world, m);
+    const d = sub3(p.world, centroid).map((v) => v / radius);
     for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) C[i * 3 + j] += (d[i] * d[j]) / n;
   }
   const q = (C[0] + C[4] + C[8]) / 3;
   const p = Math.sqrt(((C[0] - q) ** 2 + (C[4] - q) ** 2 + (C[8] - q) ** 2 + 2 * (C[1] ** 2 + C[2] ** 2 + C[5] ** 2)) / 6);
-  if (!(p > 0)) return !(q > 0); // 各向同性：只有全部重合才退化
+  if (!(p > 0)) return false; // 各向同性
   const B = C.map((v, i) => (v - (i % 4 === 0 ? q : 0)) / p);
   const det = B[0] * (B[4] * B[8] - B[5] * B[7]) - B[1] * (B[3] * B[8] - B[5] * B[6]) + B[2] * (B[3] * B[7] - B[4] * B[6]);
   const phi = Math.acos(clamp(det / 2, -1, 1)) / 3;
@@ -647,7 +649,10 @@ function alignCamera(spec) {
   const fovY = p9(best.fovY);
   const { world, proj } = buildCameraMatrices(best.pos, best.R, fovY, width, height, near, far);
   const rep = reproject(points, world, proj, width, height);
-  const finite = [...world, ...proj].every(Number.isFinite);
+  // 不把 Infinity/NaN（JSON 里是 null）放进 ok: true 的回答
+  if (!proj.every(Number.isFinite)) throw new Error('相机裁剪参数超出可表示浮点范围');
+  if (!world.every(Number.isFinite)) throw new Error('相机点坐标超出可表示浮点范围');
+  const degenerate = isDegenerate(points, centroid, radius, best.R);
   return {
     pos: best.pos.map(p9),
     rotation: matToAxisAngle(best.R).map(p9),
@@ -656,8 +661,8 @@ function alignCamera(spec) {
     proj,
     rmsePx: r(rep.rmse, 4),
     maxErrPx: r(rep.maxErr, 4),
-    converged: best.converged && finite && !rep.behind && rep.rmse <= 1,
-    degenerate: isDegenerate(points, best.R),
+    converged: best.converged && !degenerate && !rep.behind && rep.rmse <= 1,
+    degenerate,
   };
 }
 
