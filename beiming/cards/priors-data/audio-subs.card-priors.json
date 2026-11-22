@@ -6466,7 +6466,7 @@
       "section": 8,
       "caseId": "case-13",
       "title": "提示音 cue/dragonCue",
-      "text": "提示音排到 p.nextBeat(now+0.01) 对齐下一拍；龙提示音同类0.4 s去重；11个：choke wingBreak crash downed 〔专名33〕 callStart callBroken callDone phase2 phase3 stall；dragonzone_18闪避拉到0.03 0.12 s降、结束后0.3–0.35 s回升；dragonStall降到0.08持续1拍；dragonDowned padsOnly+每两拍一声heart 音量0.5×(1−0.35k/nb)；breath(sec=1.8)闪避降到0.4倍回到下一小节线",
+      "text": "提示音排到 p.nextBeat(now+0.01) 对齐下一拍；龙提示音同类0.4 s去重；11个：choke wingBreak crash downed 〔专名33〕 callStart callBroken callDone phase2 phase3 stall；龙战配乐压低闪避拉到0.03 0.12 s降、结束后0.3–0.35 s回升；dragonStall降到0.08持续1拍；dragonDowned padsOnly+每两拍一声heart 音量0.5×(1−0.35k/nb)；breath(sec=1.8)闪避降到0.4倍回到下一小节线",
       "quantities": [
         {
           "value": 0.4,
@@ -7494,7 +7494,7 @@
       "section": 8,
       "caseId": "case-13",
       "title": "导演参数表",
-      "text": "lookahead 0.6 s；ROUTER dwell4/gap20/xf4/xfWide6/xfzone_05 1.5/pivotShared5；枢轴音量0.014 flute a1 r1.6 混响送0.6；闪避(战斗压区域曲)0.2渐变xf秒；〔专名20〕Duck默认0.5 τ入0.4/出0.85；breath 0.4倍默认1.8 s；龙zone_18压到0.03 0.12 s入0.3–0.35 s出；龙stall 0.08持续1拍；龙倒地心跳每2拍0.5×(1−0.35k/nb)；DRAGON_INTRO full7/short1.5 s；DRAGON_FLAP 0.97 s；龙提示音去重0.4 s；liveLog上限6000超出删2000；销毁延迟淡出结束后+10 s",
+      "text": "lookahead 0.6 s；ROUTER dwell4/gap20/xf4/xfWide6/xfzone_05 1.5/pivotShared5；枢轴音量0.014 flute a1 r1.6 混响送0.6；闪避(战斗压区域曲)0.2渐变xf秒；〔专名20〕Duck默认0.5 τ入0.4/出0.85；breath 0.4倍默认1.8 s；龙战配乐压低到0.03 0.12 s入0.3–0.35 s出；龙stall 0.08持续1拍；龙倒地心跳每2拍0.5×(1−0.35k/nb)；DRAGON_INTRO full7/short1.5 s；DRAGON_FLAP 0.97 s；龙提示音去重0.4 s；liveLog上限6000超出删2000；销毁延迟淡出结束后+10 s",
       "quantities": [
         {
           "value": 0.6,

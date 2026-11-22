@@ -1165,7 +1165,7 @@
         },
         {
           "to": "zone_18",
-          "n": 10
+          "n": 8
         },
         {
           "to": "〔专名37〕",
@@ -4711,6 +4711,7 @@
       "section": 1,
       "caseId": "case-05",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e370",
       "targets": []
     },
@@ -4797,6 +4798,7 @@
       "section": 1,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.scene-events",
       "summaryOf": "e191",
       "targets": []
     },
@@ -4807,6 +4809,7 @@
       "section": 1,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.scene-events",
       "targets": [
         "audio-subs.e191.card"
       ]
@@ -4840,6 +4843,7 @@
       "section": 1,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.scene-events",
       "targets": [
         "audio-subs.e358.card"
       ]
@@ -4851,6 +4855,7 @@
       "section": 1,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.scene-events",
       "targets": [
         "audio-subs.e359.card"
       ]
@@ -4884,6 +4889,7 @@
       "section": 1,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.scene-events",
       "targets": [
         "audio-subs.e362.card"
       ]
@@ -4951,6 +4957,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "summaryOf": "e20",
       "targets": []
     },
@@ -4961,6 +4968,7 @@
       "section": 2,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e252",
       "targets": []
     },
@@ -4971,6 +4979,7 @@
       "section": 2,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e260",
       "targets": []
     },
@@ -4981,6 +4990,7 @@
       "section": 2,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.master",
       "summaryOf": "e286",
       "targets": []
     },
@@ -4991,6 +5001,7 @@
       "section": 2,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.scene-events",
       "summaryOf": "e358",
       "targets": []
     },
@@ -5001,6 +5012,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "summaryOf": "e14",
       "targets": []
     },
@@ -5011,6 +5023,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "summaryOf": "e15",
       "targets": []
     },
@@ -5021,6 +5034,7 @@
       "section": 2,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e242",
       "targets": []
     },
@@ -5031,6 +5045,7 @@
       "section": 2,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e253",
       "targets": []
     },
@@ -5041,6 +5056,7 @@
       "section": 2,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e257",
       "targets": []
     },
@@ -5051,6 +5067,7 @@
       "section": 2,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e258",
       "targets": []
     },
@@ -5072,6 +5089,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e6.card"
       ]
@@ -5083,6 +5101,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e7.card"
       ]
@@ -5094,6 +5113,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e8.card"
       ]
@@ -5105,6 +5125,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e9.card"
       ]
@@ -5116,6 +5137,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e10.card"
       ]
@@ -5138,6 +5160,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e12.card"
       ]
@@ -5149,6 +5172,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e13.card"
       ]
@@ -5160,6 +5184,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e14.card"
       ]
@@ -5171,6 +5196,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e15.card"
       ]
@@ -5182,6 +5208,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e16.card"
       ]
@@ -5193,6 +5220,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e17.card"
       ]
@@ -5204,6 +5232,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e18.card"
       ]
@@ -5215,6 +5244,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e19.card"
       ]
@@ -5226,6 +5256,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e20.card"
       ]
@@ -5237,6 +5268,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e21.card"
       ]
@@ -5248,6 +5280,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e22.card"
       ]
@@ -5259,6 +5292,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e25.card"
       ]
@@ -5270,6 +5304,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e26.card"
       ]
@@ -5281,6 +5316,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e205.card"
       ]
@@ -5292,6 +5328,7 @@
       "section": 2,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e206.card"
       ]
@@ -5303,6 +5340,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "summaryOf": "e24",
       "targets": []
     },
@@ -5313,6 +5351,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "summaryOf": "e23",
       "targets": []
     },
@@ -5343,6 +5382,7 @@
       "section": 3,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e220",
       "targets": []
     },
@@ -5353,6 +5393,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e23.card"
       ]
@@ -5364,6 +5405,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e24.card"
       ]
@@ -5375,6 +5417,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e27.card"
       ]
@@ -5386,6 +5429,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e28.card"
       ]
@@ -5397,6 +5441,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e30.card"
       ]
@@ -5408,6 +5453,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e31.card"
       ]
@@ -5419,6 +5465,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e32.card"
       ]
@@ -5430,6 +5477,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e33.card"
       ]
@@ -5441,6 +5489,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e34.card"
       ]
@@ -5452,6 +5501,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e57.card"
       ]
@@ -5463,6 +5513,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e72.card"
       ]
@@ -5474,6 +5525,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e73.card"
       ]
@@ -5485,6 +5537,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e74.card"
       ]
@@ -5496,6 +5549,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e75.card"
       ]
@@ -5518,6 +5572,7 @@
       "section": 3,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.dsp",
       "targets": [
         "audio-subs.e77.card"
       ]
@@ -5529,6 +5584,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "summaryOf": "e35",
       "targets": []
     },
@@ -5539,6 +5595,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "summaryOf": "e90",
       "targets": []
     },
@@ -5549,6 +5606,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "summaryOf": "e91",
       "targets": []
     },
@@ -5559,6 +5617,7 @@
       "section": 4,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e279",
       "targets": []
     },
@@ -5569,6 +5628,7 @@
       "section": 4,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e280",
       "targets": []
     },
@@ -5579,6 +5639,7 @@
       "section": 4,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.scene-events",
       "summaryOf": "e359",
       "targets": []
     },
@@ -5589,6 +5650,7 @@
       "section": 4,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e227",
       "targets": []
     },
@@ -5599,6 +5661,7 @@
       "section": 4,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e228",
       "targets": []
     },
@@ -5609,6 +5672,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e35.card"
       ]
@@ -5620,6 +5684,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e36.card"
       ]
@@ -5631,6 +5696,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e37.card"
       ]
@@ -5642,6 +5708,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e38.card"
       ]
@@ -5653,6 +5720,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e39.card"
       ]
@@ -5664,6 +5732,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e40.card"
       ]
@@ -5675,6 +5744,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e41.card"
       ]
@@ -5686,6 +5756,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e43.card"
       ]
@@ -5697,6 +5768,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e44.card"
       ]
@@ -5708,6 +5780,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e90.card"
       ]
@@ -5719,6 +5792,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e91.card"
       ]
@@ -5730,6 +5804,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e92.card"
       ]
@@ -5741,6 +5816,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e105.card"
       ]
@@ -5752,6 +5828,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e106.card"
       ]
@@ -5763,6 +5840,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e107.card"
       ]
@@ -5774,6 +5852,7 @@
       "section": 4,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e108.card"
       ]
@@ -5785,6 +5864,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "summaryOf": "e95",
       "targets": []
     },
@@ -5795,6 +5875,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "summaryOf": "e96",
       "targets": []
     },
@@ -5805,6 +5886,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "summaryOf": "e97",
       "targets": []
     },
@@ -5815,6 +5897,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "summaryOf": "e98",
       "targets": []
     },
@@ -5825,6 +5908,7 @@
       "section": 5,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e244",
       "targets": []
     },
@@ -5835,6 +5919,7 @@
       "section": 5,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e245",
       "targets": []
     },
@@ -5845,6 +5930,7 @@
       "section": 5,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e248",
       "targets": []
     },
@@ -5855,6 +5941,7 @@
       "section": 5,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e270",
       "targets": []
     },
@@ -5865,6 +5952,7 @@
       "section": 5,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e271",
       "targets": []
     },
@@ -5875,6 +5963,7 @@
       "section": 5,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e274",
       "targets": []
     },
@@ -5885,6 +5974,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e42.card"
       ]
@@ -5896,6 +5986,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e45.card"
       ]
@@ -5907,6 +5998,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e53.card"
       ]
@@ -5918,6 +6010,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e58.card"
       ]
@@ -5929,6 +6022,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e93.card"
       ]
@@ -5940,6 +6034,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e94.card"
       ]
@@ -5951,6 +6046,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e95.card"
       ]
@@ -5962,6 +6058,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e96.card"
       ]
@@ -5973,6 +6070,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e97.card"
       ]
@@ -5984,6 +6082,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e98.card"
       ]
@@ -5995,6 +6094,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e109.card"
       ]
@@ -6006,6 +6106,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e110.card"
       ]
@@ -6017,6 +6118,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e111.card"
       ]
@@ -6028,6 +6130,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e112.card"
       ]
@@ -6039,6 +6142,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e113.card"
       ]
@@ -6050,6 +6154,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e114.card"
       ]
@@ -6061,6 +6166,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e115.card"
       ]
@@ -6072,6 +6178,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e116.card"
       ]
@@ -6083,6 +6190,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e117.card"
       ]
@@ -6094,6 +6202,7 @@
       "section": 5,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e118.card"
       ]
@@ -6105,6 +6214,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e4.card"
       ]
@@ -6116,6 +6226,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e47.card"
       ]
@@ -6127,6 +6238,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e48.card"
       ]
@@ -6138,6 +6250,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e49.card"
       ]
@@ -6149,6 +6262,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e50.card"
       ]
@@ -6160,6 +6274,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e51.card"
       ]
@@ -6171,6 +6286,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e52.card"
       ]
@@ -6182,6 +6298,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e59.card"
       ]
@@ -6193,6 +6310,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e60.card"
       ]
@@ -6204,6 +6322,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e61.card"
       ]
@@ -6215,6 +6334,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e63.card"
       ]
@@ -6226,6 +6346,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e64.card"
       ]
@@ -6237,6 +6358,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e65.card"
       ]
@@ -6248,6 +6370,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e66.card"
       ]
@@ -6259,6 +6382,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e68.card"
       ]
@@ -6270,6 +6394,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e69.card"
       ]
@@ -6281,6 +6406,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e70.card"
       ]
@@ -6292,6 +6418,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e78.card"
       ]
@@ -6303,6 +6430,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e79.card"
       ]
@@ -6314,6 +6442,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e80.card"
       ]
@@ -6325,6 +6454,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e81.card"
       ]
@@ -6336,6 +6466,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e82.card"
       ]
@@ -6347,6 +6478,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e83.card"
       ]
@@ -6358,6 +6490,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e84.card"
       ]
@@ -6369,6 +6502,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e85.card"
       ]
@@ -6380,6 +6514,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e86.card"
       ]
@@ -6391,6 +6526,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e87.card"
       ]
@@ -6402,6 +6538,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e88.card"
       ]
@@ -6413,6 +6550,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e89.card"
       ]
@@ -6424,6 +6562,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e119.card"
       ]
@@ -6435,6 +6574,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e120.card"
       ]
@@ -6446,6 +6586,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e121.card"
       ]
@@ -6457,6 +6598,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e122.card"
       ]
@@ -6468,6 +6610,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e123.card"
       ]
@@ -6490,6 +6633,7 @@
       "section": 6,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
         "audio-subs.e198.card"
       ]
@@ -6501,6 +6645,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "summaryOf": "e431",
       "targets": []
     },
@@ -6511,6 +6656,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "summaryOf": "e434",
       "targets": []
     },
@@ -6521,6 +6667,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "summaryOf": "e435",
       "targets": []
     },
@@ -6595,6 +6742,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e29.card"
       ]
@@ -6606,6 +6754,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e46.card"
       ]
@@ -6617,6 +6766,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e54.card"
       ]
@@ -6628,6 +6778,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e55.card"
       ]
@@ -6639,6 +6790,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e67.card"
       ]
@@ -6650,6 +6802,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e71.card"
       ]
@@ -6661,6 +6814,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e100.card"
       ]
@@ -6672,6 +6826,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e101.card"
       ]
@@ -6683,6 +6838,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e102.card"
       ]
@@ -6694,6 +6850,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e103.card"
       ]
@@ -6705,6 +6862,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e104.card"
       ]
@@ -6816,6 +6974,7 @@
       "section": 7,
       "caseId": "case-20",
       "route": "card-coupled",
+      "target": "audio.align",
       "targets": [
         "audio-subs.e310.card"
       ]
@@ -6954,6 +7113,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e423.card"
       ]
@@ -6965,6 +7125,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e424.card"
       ]
@@ -6976,6 +7137,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e425.card"
       ]
@@ -6987,6 +7149,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e426.card"
       ]
@@ -6998,6 +7161,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e427.card"
       ]
@@ -7009,6 +7173,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e428.card"
       ]
@@ -7020,6 +7185,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e429.card"
       ]
@@ -7031,6 +7197,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e430.card"
       ]
@@ -7042,6 +7209,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e431.card"
       ]
@@ -7073,6 +7241,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e434.card"
       ]
@@ -7084,6 +7253,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e435.card"
       ]
@@ -7106,6 +7276,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e437.card"
       ]
@@ -7117,6 +7288,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e438.card"
       ]
@@ -7128,6 +7300,7 @@
       "section": 7,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
         "audio-subs.e444.card"
       ]
@@ -7150,6 +7323,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e128",
       "targets": []
     },
@@ -7160,6 +7334,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e129",
       "targets": []
     },
@@ -7170,6 +7345,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e130",
       "targets": []
     },
@@ -7180,6 +7356,7 @@
       "section": 8,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e234",
       "targets": []
     },
@@ -7190,6 +7367,7 @@
       "section": 8,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e263",
       "targets": []
     },
@@ -7200,6 +7378,7 @@
       "section": 8,
       "caseId": "case-01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e419",
       "targets": []
     },
@@ -7210,6 +7389,7 @@
       "section": 8,
       "caseId": "case-01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e420",
       "targets": []
     },
@@ -7220,6 +7400,7 @@
       "section": 8,
       "caseId": "case-07",
       "route": "card-coupled",
+      "target": "audio.master",
       "summaryOf": "e343",
       "targets": []
     },
@@ -7242,6 +7423,7 @@
       "section": 8,
       "caseId": "case-01-original",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e388",
       "targets": []
     },
@@ -7252,6 +7434,7 @@
       "section": 8,
       "caseId": "case-b08",
       "route": "card-coupled",
+      "target": "audio.master",
       "summaryOf": "e391",
       "targets": []
     },
@@ -7262,6 +7445,7 @@
       "section": 8,
       "caseId": "case-b04",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e392",
       "targets": []
     },
@@ -7272,6 +7456,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e56.card"
       ]
@@ -7283,6 +7468,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e62.card"
       ]
@@ -7294,6 +7480,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e99.card"
       ]
@@ -7305,6 +7492,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e125.card"
       ]
@@ -7316,6 +7504,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e126.card"
       ]
@@ -7327,6 +7516,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e127.card"
       ]
@@ -7338,6 +7528,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e128.card"
       ]
@@ -7349,6 +7540,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e129.card"
       ]
@@ -7360,6 +7552,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e130.card"
       ]
@@ -7371,6 +7564,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e131.card"
       ]
@@ -7382,6 +7576,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e132.card"
       ]
@@ -7393,6 +7588,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e133.card"
       ]
@@ -7404,6 +7600,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-seq",
       "targets": [
         "audio-subs.e134.card"
       ]
@@ -7415,6 +7612,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e135.card"
       ]
@@ -7426,6 +7624,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e136.card"
       ]
@@ -7437,6 +7636,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e137.card"
       ]
@@ -7448,6 +7648,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e138.card"
       ]
@@ -7459,6 +7660,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e139.card"
       ]
@@ -7470,6 +7672,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e140.card"
       ]
@@ -7481,6 +7684,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e141.card"
       ]
@@ -7492,6 +7696,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e142.card"
       ]
@@ -7503,6 +7708,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e143.card"
       ]
@@ -7514,6 +7720,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e144.card"
       ]
@@ -7525,6 +7732,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e145.card"
       ]
@@ -7536,6 +7744,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e146.card"
       ]
@@ -7547,6 +7756,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e147.card"
       ]
@@ -7558,6 +7768,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e148.card"
       ]
@@ -7569,6 +7780,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e149.card"
       ]
@@ -7580,6 +7792,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e150.card"
       ]
@@ -7591,6 +7804,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.align",
       "targets": [
         "audio-subs.e151.card"
       ]
@@ -7602,6 +7816,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e152.card"
       ]
@@ -7613,6 +7828,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e153.card"
       ]
@@ -7624,6 +7840,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e154.card"
       ]
@@ -7635,6 +7852,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e155.card"
       ]
@@ -7646,6 +7864,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e156.card"
       ]
@@ -7657,6 +7876,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e157.card"
       ]
@@ -7668,6 +7888,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e158.card"
       ]
@@ -7679,6 +7900,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e159.card"
       ]
@@ -7690,6 +7912,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e160.card"
       ]
@@ -7701,6 +7924,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e161.card"
       ]
@@ -7712,6 +7936,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e162.card"
       ]
@@ -7723,6 +7948,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e163.card"
       ]
@@ -7734,6 +7960,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e164.card"
       ]
@@ -7745,6 +7972,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e165.card"
       ]
@@ -7756,6 +7984,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e166.card"
       ]
@@ -7767,6 +7996,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e167.card"
       ]
@@ -7778,6 +8008,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e168.card"
       ]
@@ -7789,6 +8020,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e169.card"
       ]
@@ -7800,6 +8032,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e170.card"
       ]
@@ -7811,6 +8044,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e171.card"
       ]
@@ -7822,6 +8056,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e172.card"
       ]
@@ -7833,6 +8068,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e173.card"
       ]
@@ -7844,6 +8080,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e174.card"
       ]
@@ -7855,6 +8092,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e175.card"
       ]
@@ -7866,6 +8104,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e176.card"
       ]
@@ -7877,6 +8116,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e177.card"
       ]
@@ -7888,6 +8128,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e178.card"
       ]
@@ -7899,6 +8140,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e179.card"
       ]
@@ -7910,6 +8152,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e180.card"
       ]
@@ -7921,6 +8164,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e181.card"
       ]
@@ -7932,6 +8176,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e182.card"
       ]
@@ -7943,6 +8188,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e183.card"
       ]
@@ -7954,6 +8200,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e184.card"
       ]
@@ -7965,6 +8212,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e185.card"
       ]
@@ -7976,6 +8224,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e186.card"
       ]
@@ -7987,6 +8236,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e187.card"
       ]
@@ -7998,6 +8248,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e188.card"
       ]
@@ -8009,6 +8260,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e189.card"
       ]
@@ -8020,6 +8272,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e190.card"
       ]
@@ -8031,6 +8284,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e207.card"
       ]
@@ -8053,6 +8307,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e215.card"
       ]
@@ -8064,6 +8319,7 @@
       "section": 8,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e216.card"
       ]
@@ -8075,6 +8331,7 @@
       "section": 9,
       "caseId": "case-13",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e99",
       "targets": []
     },
@@ -8085,6 +8342,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e224",
       "targets": []
     },
@@ -8095,6 +8353,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e226",
       "targets": []
     },
@@ -8105,6 +8364,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e227",
       "targets": []
     },
@@ -8115,6 +8375,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e229",
       "targets": []
     },
@@ -8125,6 +8386,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e265",
       "targets": []
     },
@@ -8135,6 +8397,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e266",
       "targets": []
     },
@@ -8145,6 +8408,7 @@
       "section": 9,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "summaryOf": "e281",
       "targets": []
     },
@@ -8155,6 +8419,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e217.card"
       ]
@@ -8166,6 +8431,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e218.card"
       ]
@@ -8177,6 +8443,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e219.card"
       ]
@@ -8188,6 +8455,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e220.card"
       ]
@@ -8199,6 +8467,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e221.card"
       ]
@@ -8210,6 +8479,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e222.card"
       ]
@@ -8221,6 +8491,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e223.card"
       ]
@@ -8232,6 +8503,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e224.card"
       ]
@@ -8243,6 +8515,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e225.card"
       ]
@@ -8254,6 +8527,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e226.card"
       ]
@@ -8265,6 +8539,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e227.card"
       ]
@@ -8276,6 +8551,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e228.card"
       ]
@@ -8287,6 +8563,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e229.card"
       ]
@@ -8298,6 +8575,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e230.card"
       ]
@@ -8309,6 +8587,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e231.card"
       ]
@@ -8320,6 +8599,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e232.card"
       ]
@@ -8331,6 +8611,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e233.card"
       ]
@@ -8342,6 +8623,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e234.card"
       ]
@@ -8353,6 +8635,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e235.card"
       ]
@@ -8364,6 +8647,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e236.card"
       ]
@@ -8375,6 +8659,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e237.card"
       ]
@@ -8386,6 +8671,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e238.card"
       ]
@@ -8397,6 +8683,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e239.card"
       ]
@@ -8408,6 +8695,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e240.card"
       ]
@@ -8419,6 +8707,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e241.card"
       ]
@@ -8430,6 +8719,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e242.card"
       ]
@@ -8441,6 +8731,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e243.card"
       ]
@@ -8452,6 +8743,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e244.card"
       ]
@@ -8463,6 +8755,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e245.card"
       ]
@@ -8474,6 +8767,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e246.card"
       ]
@@ -8485,6 +8779,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e247.card"
       ]
@@ -8496,6 +8791,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e248.card"
       ]
@@ -8507,6 +8803,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e249.card"
       ]
@@ -8518,6 +8815,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e250.card"
       ]
@@ -8529,6 +8827,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e251.card"
       ]
@@ -8540,6 +8839,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e252.card"
       ]
@@ -8551,6 +8851,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e253.card"
       ]
@@ -8562,6 +8863,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e254.card"
       ]
@@ -8573,6 +8875,7 @@
       "section": 9,
       "caseId": "case-ext01",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e255.card"
       ]
@@ -8584,6 +8887,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e256.card"
       ]
@@ -8595,6 +8899,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e257.card"
       ]
@@ -8606,6 +8911,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e258.card"
       ]
@@ -8617,6 +8923,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
         "audio-subs.e259.card"
       ]
@@ -8628,6 +8935,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e260.card"
       ]
@@ -8639,6 +8947,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e261.card"
       ]
@@ -8650,6 +8959,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e262.card"
       ]
@@ -8661,6 +8971,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e263.card"
       ]
@@ -8672,6 +8983,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e264.card"
       ]
@@ -8683,6 +8995,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e265.card"
       ]
@@ -8694,6 +9007,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e266.card"
       ]
@@ -8705,6 +9019,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e267.card"
       ]
@@ -8716,6 +9031,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e268.card"
       ]
@@ -8727,6 +9043,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e269.card"
       ]
@@ -8738,6 +9055,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e270.card"
       ]
@@ -8749,6 +9067,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e271.card"
       ]
@@ -8760,6 +9079,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e272.card"
       ]
@@ -8771,6 +9091,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e273.card"
       ]
@@ -8782,6 +9103,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e274.card"
       ]
@@ -8793,6 +9115,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e275.card"
       ]
@@ -8804,6 +9127,7 @@
       "section": 9,
       "caseId": "case-02",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e276.card"
       ]
@@ -8826,6 +9150,7 @@
       "section": 9,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e278.card"
       ]
@@ -8837,6 +9162,7 @@
       "section": 9,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e279.card"
       ]
@@ -8848,6 +9174,7 @@
       "section": 9,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e280.card"
       ]
@@ -8859,6 +9186,7 @@
       "section": 9,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e281.card"
       ]
@@ -8870,6 +9198,7 @@
       "section": 9,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e282.card"
       ]
@@ -8881,6 +9210,7 @@
       "section": 9,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e283.card"
       ]
@@ -8892,6 +9222,7 @@
       "section": 9,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e284.card"
       ]
@@ -8903,6 +9234,7 @@
       "section": 9,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.music-gen",
       "targets": [
         "audio-subs.e285.card"
       ]
@@ -8914,6 +9246,7 @@
       "section": 9,
       "caseId": "case-01-legacy",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e292.card"
       ]
@@ -8941,6 +9274,7 @@
       "section": 9,
       "caseId": "case-01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e419.card"
       ]
@@ -8952,6 +9286,7 @@
       "section": 9,
       "caseId": "case-01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e420.card"
       ]
@@ -9153,6 +9488,7 @@
       "section": 10,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.master",
       "targets": [
         "audio-subs.e286.card"
       ]
@@ -9164,6 +9500,7 @@
       "section": 10,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.master",
       "targets": [
         "audio-subs.e287.card"
       ]
@@ -9202,6 +9539,7 @@
       "section": 10,
       "caseId": "case-01r",
       "route": "card-coupled",
+      "target": "audio.master",
       "targets": [
         "audio-subs.e290.card"
       ]
@@ -9275,6 +9613,7 @@
       "section": 11,
       "caseId": "case-07",
       "route": "card-coupled",
+      "target": "audio.master",
       "summaryOf": "e343",
       "targets": []
     },
@@ -9331,6 +9670,7 @@
       "section": 11,
       "caseId": "case-01",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e420",
       "targets": []
     },
@@ -9353,6 +9693,7 @@
       "section": 11,
       "caseId": "case-b08",
       "route": "card-coupled",
+      "target": "audio.master",
       "summaryOf": "e391",
       "targets": []
     },
@@ -9363,6 +9704,7 @@
       "section": 11,
       "caseId": "case-01-original",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e388",
       "targets": []
     },
@@ -9373,6 +9715,7 @@
       "section": 11,
       "caseId": "case-b04",
       "route": "card-coupled",
+      "target": "audio.drums",
       "summaryOf": "e392",
       "targets": []
     },
@@ -9396,6 +9739,7 @@
       "section": 11,
       "caseId": "case-03",
       "route": "card-coupled",
+      "target": "audio.align",
       "targets": [
         "audio-subs.e3.card"
       ]
@@ -9588,6 +9932,7 @@
       "section": 12,
       "caseId": "case-05",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e370.card"
       ]
@@ -9599,6 +9944,7 @@
       "section": 12,
       "caseId": "case-07",
       "route": "card-coupled",
+      "target": "audio.master",
       "targets": [
         "audio-subs.e343.card"
       ]
@@ -9938,6 +10284,7 @@
       "section": 12,
       "caseId": "case-27",
       "route": "card-coupled",
+      "target": "audio.master",
       "targets": [
         "audio-subs.e330.card"
       ]
@@ -10026,6 +10373,7 @@
       "section": 12,
       "caseId": "case-b02",
       "route": "card-coupled",
+      "target": "audio.master",
       "targets": [
         "audio-subs.e372.card"
       ]
@@ -10048,6 +10396,7 @@
       "section": 12,
       "caseId": "case-b04",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e392.card"
       ]
@@ -10059,6 +10408,7 @@
       "section": 12,
       "caseId": "case-b05",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e384.card"
       ]
@@ -10070,6 +10420,7 @@
       "section": 12,
       "caseId": "case-b05",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e385.card"
       ]
@@ -10081,6 +10432,7 @@
       "section": 12,
       "caseId": "case-b05",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e386.card"
       ]
@@ -10123,6 +10475,7 @@
       "section": 12,
       "caseId": "case-01-original",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e388.card"
       ]
@@ -10134,6 +10487,7 @@
       "section": 12,
       "caseId": "case-01-original",
       "route": "card-coupled",
+      "target": "audio.drums",
       "targets": [
         "audio-subs.e390.card"
       ]
@@ -10170,6 +10524,7 @@
       "section": 12,
       "caseId": "case-b07",
       "route": "card-coupled",
+      "target": "audio.master",
       "targets": [
         "audio-subs.e382.card"
       ]
@@ -10181,6 +10536,7 @@
       "section": 12,
       "caseId": "case-b08",
       "route": "card-coupled",
+      "target": "audio.master",
       "targets": [
         "audio-subs.e391.card"
       ]
@@ -10192,6 +10548,7 @@
       "section": 13,
       "caseId": "case-b10",
       "route": "card-coupled",
+      "target": "time.narration",
       "summaryOf": "e465",
       "targets": []
     },
@@ -10212,6 +10569,7 @@
       "section": 13,
       "caseId": "case-b02",
       "route": "card-coupled",
+      "target": "audio.master",
       "summaryOf": "e372",
       "targets": []
     },
@@ -10222,6 +10580,7 @@
       "section": 13,
       "caseId": "case-b07",
       "route": "card-coupled",
+      "target": "audio.master",
       "summaryOf": "e382",
       "targets": []
     },
@@ -10232,6 +10591,7 @@
       "section": 13,
       "caseId": "case-b05",
       "route": "card-coupled",
+      "target": "time.narration",
       "summaryOf": "e463",
       "targets": []
     },
@@ -10242,6 +10602,7 @@
       "section": 13,
       "caseId": "case-b05",
       "route": "card-coupled",
+      "target": "time.narration",
       "summaryOf": "e464",
       "targets": []
     },
@@ -10262,6 +10623,7 @@
       "section": 13,
       "caseId": "case-b09",
       "route": "card-coupled",
+      "target": "time.narration",
       "summaryOf": "e470",
       "targets": []
     },
@@ -10295,6 +10657,7 @@
       "section": 13,
       "caseId": "case-18",
       "route": "card-coupled",
+      "target": "time.narration",
       "targets": [
         "audio-subs.e449.card"
       ]
@@ -10317,6 +10680,7 @@
       "section": 13,
       "caseId": "case-b05",
       "route": "card-coupled",
+      "target": "time.narration",
       "targets": [
         "audio-subs.e463.card"
       ]
@@ -10328,6 +10692,7 @@
       "section": 13,
       "caseId": "case-b05",
       "route": "card-coupled",
+      "target": "time.narration",
       "targets": [
         "audio-subs.e464.card"
       ]
@@ -10339,6 +10704,7 @@
       "section": 13,
       "caseId": "case-b10",
       "route": "card-coupled",
+      "target": "time.narration",
       "targets": [
         "audio-subs.e465.card"
       ]
@@ -10361,6 +10727,7 @@
       "section": 13,
       "caseId": "case-b09",
       "route": "card-coupled",
+      "target": "time.narration",
       "targets": [
         "audio-subs.e470.card"
       ]
@@ -10408,6 +10775,7 @@
       "section": 14,
       "caseId": "case-18",
       "route": "card-coupled",
+      "target": "overlay.subs",
       "summaryOf": "e453",
       "targets": []
     },
@@ -10518,6 +10886,7 @@
       "section": 14,
       "caseId": "case-18",
       "route": "card-coupled",
+      "target": "overlay.subs",
       "targets": [
         "audio-subs.e453.card"
       ]

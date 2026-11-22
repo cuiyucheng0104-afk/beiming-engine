@@ -741,3 +741,34 @@ test('七审：离散个数记 count，点名五条挂到功能对应的卡并�
   for (const o of manifest.cardOverrides) assert.ok(o.sectionCard === 'audio.music-gen' && o.reason.length >= 6, o.sourceId);
   for (const sid of Object.keys(NAMED_CARD)) assert.ok(namedQuantities(sid).some((q) => 'jitter' in q), sid);
 });
+
+// 八审（G_REV-R8）：总账的挂卡行直接带目标卡 target，不用再拿 targets 里的条目 ID 去查；
+// 龙战时压低配乐是混音动作，跟同名的区域键不是一回事，不套区域编号。
+test('八审：总账挂卡行带直读目标卡 target，龙战配乐压低不写成区域编号', () => {
+  const byId = new Map(cardPriors.map((e) => [e.id, e]));
+  const cardOf = new Map(cardPriors.map((e) => [e.sourceId, e.cardId]));
+  const coupled = manifest.ledger.filter((r) => r.route === 'card-coupled');
+  const detail = coupled.filter((r) => r.kind === 'detail');
+  assert.equal(detail.length, 301);
+  for (const r of detail) {
+    assert.ok(typeof r.target === 'string' && r.target.length > 0, `${r.sourceId} 缺 target`);
+    assert.equal(r.target, byId.get(r.targets[0]).cardId, r.sourceId);
+    assert.ok(getAudioSubsCardPriors(r.target).some((e) => e.sourceId === r.sourceId), `${r.sourceId} 按 target 从公开入口查不到`);
+  }
+  const summary = coupled.filter((r) => r.kind === 'summary');
+  assert.equal(summary.length, 68);
+  for (const r of summary) assert.equal(r.target, cardOf.get(r.summaryOf), r.sourceId); // 汇总行只指回一条明细，目标卡跟它
+  for (const [sid, cardId] of Object.entries(NAMED_CARD)) assert.equal(manifest.ledger.find((r) => r.sourceId === sid).target, cardId, sid);
+
+  const text = (sid) => cardPriors.find((e) => e.sourceId === sid).text;
+  for (const sid of ['e150', 'e185']) {
+    assert.doesNotMatch(text(sid), /zone_18/, sid);
+    assert.match(text(sid), /龙战配乐压低/, sid);
+  }
+  assert.match(text('e150'), /龙战配乐压低闪避拉到0\.03 0\.12 s降、结束后0\.3–0\.35 s/); // 数值原样
+  assert.match(text('e185'), /龙战配乐压低到0\.03 0\.12 s入0\.3–0\.35 s出/);
+  for (const f of files) assert.doesNotMatch(raw(f), /(?:dragon|龙)zone_18/u, f);
+  // 三张区域表不受影响：18 个区域键、56 处映射。
+  const zones = ['e170', 'e187', 'e188'].flatMap((sid) => text(sid).match(/zone_\d\d/g));
+  assert.deepEqual([new Set(zones).size, zones.length], [18, 56]);
+});
