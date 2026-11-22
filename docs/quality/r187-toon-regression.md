@@ -2,7 +2,7 @@
 
 本页由 `node engine/shade/r187-toon-regression.mjs --write` 生成，数据在同名的 `.json` 里；不要手改，重跑即可。
 
-结论：**过门**。`engine/shade`（patch.js / toon.js / surface.js）在 three r187 下实渲的画面，逐项对 r170 金标准 PSNR ≥ 45 dB 且差 > 1 级的像素 ≤ 0.1%（10 / 10 项过门，其中 10 项逐字节相同）；负对照 4 / 4 组跌破 35 dB；逐特性消融 15 / 15 组被门拦住；两版页面控制台告警 0 条。
+结论：**过门**。`engine/shade`（patch.js / toon.js / surface.js）在 three r187 下实渲的画面，逐项对 r170 金标准 PSNR ≥ 45 dB 且差 > 1 级的像素 ≤ 0.1%（12 / 12 项过门，其中 12 项逐字节相同）；负对照 4 / 4 组跌破 35 dB；逐特性消融 16 / 16 组被门拦住；两版页面控制台告警 0 条。
 
 - 实际运行平台：darwin-arm64，Node v24.13.1，无头 Chrome 153.0.8010.12，ANGLE 后端 metal
 - WebGL 渲染器：ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)
@@ -33,6 +33,8 @@
 | `id:shadow-deform` | 法线 / ID 通道子区 | 逐字节相同 | 0 | 0.000% | 0.000% |
 | `id:surface-layers` | 法线 / ID 通道子区 | 逐字节相同 | 0 | 0.000% | 0.000% |
 | `id:instanced-tints` | 法线 / ID 通道子区 | 逐字节相同 | 0 | 0.000% | 0.000% |
+| `same-color` | 变体路径正对照：不改参数，只渲彩色的一个子区 | 逐字节相同 | 0 | 0.000% | 0.000% |
+| `same-id` | 变体路径正对照：不改参数，只渲法线 / ID 通道的一个子区 | 逐字节相同 | 0 | 0.000% | 0.000% |
 
 ## 负对照（在 r187 上故意改坏，再对 r170 金标准）
 
@@ -40,9 +42,9 @@
 
 | 项 | 改了什么 | PSNR | 最大单通道差 | 差 > 1 级的像素 | 差 > 5 级的像素 |
 |---|---|---|---|---|---|
-| `neg-step1` | 分档阈值 step1 整体 +0.12 | 30.66 dB | 78 | 10.713% | 9.296% |
+| `neg-step1` | 分档阈值 step1 整体 +0.12 | 30.66 dB | 78 | 10.708% | 9.290% |
 | `neg-shadow-quant` | 投影量化窗口放开到 0..1（等于不量化） | 32.6 dB | 77 | 4.543% | 3.557% |
-| `neg-rim-off` | 关掉背光侧与受光侧边缘光 | 22.41 dB | 235 | 3.465% | 3.381% |
+| `neg-rim-off` | 关掉背光侧与受光侧边缘光 | 22.79 dB | 235 | 3.452% | 3.372% |
 | `neg-depth-deform-off` | 摘掉带顶点形变的阴影深度材质（投影不跟形体弯） | 24.6 dB | 135 | 1.919% | 1.881% |
 
 ## 逐特性消融（在 r187 上只关掉一项特性，再对 r170 金标准）
@@ -51,13 +53,14 @@
 
 | 项 | 关掉了什么 | PSNR | 最大单通道差 | 差 > 1 级的像素 | 差 > 5 级的像素 |
 |---|---|---|---|---|---|
-| `abl-band3` | 第三档并进第二档（三档变两档） | 35.44 dB | 64 | 6.534% | 5.171% |
-| `abl-feather` | 绳结的羽化 0.14 / 0.1 收成硬边 | 44.65 dB | 38 | 4.861% | 2.473% |
+| `abl-band3` | 第三档并进第二档（三档变两档） | 35.43 dB | 64 | 6.520% | 5.195% |
+| `abl-feather` | 绳结的羽化 0.14 / 0.1 收成硬边 | 44.65 dB | 38 | 4.859% | 2.475% |
 | `abl-edge-noise` | 关掉明暗交界线噪声 edgeNoise | 38.7 dB | 146 | 3.398% | 2.210% |
-| `abl-rim-core` | 关掉边缘光亮芯（rimColor2 / rimLitColor2） | 36.62 dB | 65 | 1.608% | 1.533% |
+| `abl-rim-core-back` | 关掉背光侧边缘光亮芯（绳结的 rimColor2） | 39.93 dB | 100 | 1.008% | 0.953% |
+| `abl-rim-core-lit` | 关掉受光侧边缘光亮芯（球的 rimLitColor2） | 37.27 dB | 65 | 1.608% | 1.533% |
 | `abl-rim-break` | 关掉边缘光撕边 rimBreak | 33.66 dB | 148 | 2.269% | 1.723% |
-| `abl-fill` | 关掉下方补光 | 23.35 dB | 189 | 14.147% | 13.678% |
-| `abl-sky` | 关掉天空冷光 | 31.65 dB | 69 | 6.126% | 5.406% |
+| `abl-fill` | 关掉下方补光 | 23.35 dB | 189 | 14.129% | 13.634% |
+| `abl-sky` | 关掉天空冷光 | 31.65 dB | 69 | 6.121% | 5.396% |
 | `abl-patch` | 关掉 patchLayer 的锈斑 / 藻斑 / 斑点 / 斑驳 | 26.53 dB | 130 | 12.570% | 11.724% |
 | `abl-paint-stroke` | 关掉 paintLayer 的干笔笔触 | 40.9 dB | 48 | 1.798% | 1.470% |
 | `abl-paint-grain` | 关掉 paintLayer 的颜料颗粒 | 48.46 dB | 26 | 2.936% | 1.184% |
@@ -74,4 +77,4 @@
 - 版本告警：`engine/shade` 以前只认 r170，在 r187 下每次加载都告警；现在 r170 / r187 都不告警，别的版本照旧告警（对拍时另开一页把 r187 的版本号改成 999 实测，告警在）；着色器锚点缺失时两版都直接抛错。
 - 不影响卡通着色的差异：meshtoon 片元去掉了 `#include <packing>`（卡通栈不用其中的函数）；`lights_fragment_begin` / `lights_fragment_end` 多了 SunLight、光照探针网格、Lambert / Phong 的 IBL，MeshToonMaterial 都不走（卡通合成只取第一盏平行光的方向与投影，颜色全按参数给定，没有光照衰减参与）；`color_fragment` 把顶点色与带 alpha 的顶点色合成一支，实例色结果相同；`common` 把 `inverseTransformDirection` 改名并留了同义宏；深度材质多了反向深度分支，默认不开。
 - 阴影深度：r170 把深度打包进 RGBA8 颜色纹理，r187 直接用深度纹理；带顶点形变的 `makeDepthMaterial` 两版都照常生效（r187 只用它的顶点形变，片元输出不再被读）。
-- 没有覆盖的：r170 的 PCFShadowMap（17 点核）在 r187 下没有等价物，r187 的 PCF 一律按上面的软阴影核出；VSMShadowMap、点光源与聚光灯投影、three 自带的非卡通材质不在这套对拍里。
+- 没有覆盖的：r170 的 PCFShadowMap（17 点核）在 r187 下没有等价物，r187 的 PCF 一律按上面的软阴影核出；VSMShadowMap、点光源与聚光灯投影、translucent / noId 材质、three 自带的非卡通材质不在这套对拍里；paintLayer 的海绵点 rustDapple 与 muralLayer 的细碎点 dotAmt 在标定机位下被按屏幕频率淡出，画面里没有，这两个子项没有比到。

@@ -6,6 +6,7 @@
 //   VARIANTS              base（标定场景）与故意改坏的变体：只渲、只读回它所属的那个子区（pass: 'id' 的读法线 / ID 通道）
 //                           kind: 'negative'   负对照：大幅扰动，PSNR 必须明显跌破门限
 //                           kind: 'ablation'   逐特性消融：只关掉一项特性，必须过不了门（证明这项特性在画面里、门看得见）
+//                           kind: 'identity'   正对照：什么都不改，必须过门（证明变体这条路的裁剪、通道与金标准对得上；排在最后，顺带查残留像素）
 //                           mat: { 材质名: 覆盖的参数 }（all = 这个场景的全部材质）；depthDeform: false = 摘掉阴影深度材质
 //   renderSuite(names) → { revision, gpu, frames: { base: { color, id }, 变体名: { crop } } }   都是 RGBA8 的 base64；
 //                         color / id 是整帧（id = 旧的 uToonPass = 1 通道：视空间法线 + 物体 / 实例 ID 写在 alpha），crop 是一个子区
@@ -34,7 +35,8 @@ export const VARIANTS = {
   'abl-band3': abl(A, '第三档并进第二档（三档变两档）', { mat: { hard: { shade2: '#7a2f45' }, soft: { shade2: '#24464f' } } }),
   'abl-feather': abl(A, '绳结的羽化 0.14 / 0.1 收成硬边', { mat: { soft: { feather1: 0.02, feather2: 0.02 } } }),
   'abl-edge-noise': abl(A, '关掉明暗交界线噪声 edgeNoise', { mat: { hard: { edgeNoise: 0 } } }),
-  'abl-rim-core': abl(A, '关掉边缘光亮芯（rimColor2 / rimLitColor2）', { mat: { hard: { rimColor2: null, rimLitColor2: null } } }),
+  'abl-rim-core-back': abl(A, '关掉背光侧边缘光亮芯（绳结的 rimColor2）', { mat: { soft: { rimColor2: null } } }),
+  'abl-rim-core-lit': abl(A, '关掉受光侧边缘光亮芯（球的 rimLitColor2）', { mat: { hard: { rimLitColor2: null } } }),
   'abl-rim-break': abl(A, '关掉边缘光撕边 rimBreak', { mat: { hard: { rimBreak: 0 } } }),
   'abl-fill': abl(A, '关掉下方补光', { mat: { all: { fillAmt: 0 } } }),
   'abl-sky': abl(A, '关掉天空冷光', { mat: { all: { skyAmt: 0 } } }),
@@ -46,6 +48,8 @@ export const VARIANTS = {
   'abl-inst-tint': abl(D, '实例的两档阴影色调抹平成同一档', { mat: { inst: { shade1Tint: [0.8, 0.82, 0.9], shade2Tint: [0.8, 0.82, 0.9] } } }),
   'abl-id-outline-w': abl(B, '法线 / ID 通道：芦苇的描边权重 outlineW 1 → 0.5', { pass: 'id', mat: { reed: { outlineW: 0.5 } } }),
   'abl-id-instance': abl(D, '法线 / ID 通道：关掉实例 ID（整批实例同一个 ID）', { pass: 'id', mat: { inst: { instanceId: false } } }),
+  'same-color': { kind: 'identity', region: B, what: '变体路径正对照：不改参数，只渲彩色的一个子区' },
+  'same-id': { kind: 'identity', region: D, what: '变体路径正对照：不改参数，只渲法线 / ID 通道的一个子区', pass: 'id' },
 };
 
 const over = (v, key) => ({ ...v.mat?.all, ...v.mat?.[key] });   // 这个变体对某个材质的参数覆盖
@@ -63,11 +67,12 @@ function bands(v) {
   const shared = makeToonShared({ fillDir: [0.2, -1, 0.3], skyDir: [0, 1, 0] });
   const kind = toonKind({ name: 's5-bands', shared, rimCore: true, skyStepUniform: true });
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#2a2d52'); sunLight(scene, [5, 3, 1.5]);   // 侧光：三档都露在镜头里
+  // 球：受光侧边缘光比背光侧宽、会盖住它，所以背光侧的亮芯放在绳结上看（绳结不开受光侧边缘光）
   const hard = kind.make({ color: '#c8553d', shade1: '#7a2f45', shade2: '#3a1d40', step1: 0.55, feather1: 0.02, step2: 0.3, feather2: 0.03, edgeNoise: 0.05, edgeNoiseScale: 2.2,
     rimColor: '#ffd9a0', rimAmt: 1, rimColor2: '#ffffff', rimCore: 0.1, rimBreak: 0.25, rimNoiseScale: 3,
     rimLitColor: '#fff2c0', rimLitAmt: 0.9, rimLitColor2: '#ffffff', fillAmt: 0.8, skyAmt: 0.7, skyStep: 0.3, ...over(v, 'hard') });
   const soft = kind.make({ color: '#4f8f6a', shade1: '#24464f', shade2: '#141f3a', step1: 0.6, feather1: 0.14, step2: 0.35, feather2: 0.1, edgeNoise: 0,
-    rimAmt: 1, rimPower: 0.35, rimInside: 0.5, fillAmt: 0.6, fillFlat: 0.2, skyAmt: 0.5, skyStep: 0.1, ...over(v, 'soft') });
+    rimColor: '#ffd9a0', rimAmt: 1, rimPower: 0.35, rimInside: 0.5, rimColor2: '#ff7a3c', rimCore: 0.08, fillAmt: 0.6, fillFlat: 0.2, skyAmt: 0.5, skyStep: 0.1, ...over(v, 'soft') });
   const ball = kind.bind(new THREE.Mesh(new THREE.SphereGeometry(1.15, 48, 32)), hard); ball.position.x = -1.3;
   const knot = kind.bind(new THREE.Mesh(new THREE.TorusKnotGeometry(0.75, 0.28, 128, 24)), soft); knot.position.x = 1.25;
   scene.add(ball, knot);

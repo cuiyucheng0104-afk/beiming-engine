@@ -127,6 +127,26 @@
       "fracGt1": 0,
       "fracGt5": 0,
       "pass": true
+    },
+    {
+      "id": "same-color",
+      "what": "变体路径正对照：不改参数，只渲彩色的一个子区",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true
+    },
+    {
+      "id": "same-id",
+      "what": "变体路径正对照：不改参数，只渲法线 / ID 通道的一个子区",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true
     }
   ],
   "negativeControls": [
@@ -137,8 +157,8 @@
       "psnrDb": 30.66,
       "exactMatch": false,
       "maxAbsDiff": 78,
-      "fracGt1": 0.107135,
-      "fracGt5": 0.092956,
+      "fracGt1": 0.107083,
+      "fracGt5": 0.092904,
       "pass": false,
       "caught": true
     },
@@ -158,11 +178,11 @@
       "id": "neg-rim-off",
       "what": "关掉背光侧与受光侧边缘光",
       "region": "bands-rim-fill-sky",
-      "psnrDb": 22.41,
+      "psnrDb": 22.79,
       "exactMatch": false,
       "maxAbsDiff": 235,
-      "fracGt1": 0.034648,
-      "fracGt5": 0.033815,
+      "fracGt1": 0.034518,
+      "fracGt5": 0.033724,
       "pass": false,
       "caught": true
     },
@@ -184,11 +204,11 @@
       "id": "abl-band3",
       "what": "第三档并进第二档（三档变两档）",
       "region": "bands-rim-fill-sky",
-      "psnrDb": 35.44,
+      "psnrDb": 35.43,
       "exactMatch": false,
       "maxAbsDiff": 64,
-      "fracGt1": 0.065339,
-      "fracGt5": 0.051706,
+      "fracGt1": 0.065195,
+      "fracGt5": 0.051953,
       "pass": false,
       "caught": true
     },
@@ -199,8 +219,8 @@
       "psnrDb": 44.65,
       "exactMatch": false,
       "maxAbsDiff": 38,
-      "fracGt1": 0.048607,
-      "fracGt5": 0.024727,
+      "fracGt1": 0.048594,
+      "fracGt5": 0.024753,
       "pass": false,
       "caught": true
     },
@@ -217,10 +237,22 @@
       "caught": true
     },
     {
-      "id": "abl-rim-core",
-      "what": "关掉边缘光亮芯（rimColor2 / rimLitColor2）",
+      "id": "abl-rim-core-back",
+      "what": "关掉背光侧边缘光亮芯（绳结的 rimColor2）",
       "region": "bands-rim-fill-sky",
-      "psnrDb": 36.62,
+      "psnrDb": 39.93,
+      "exactMatch": false,
+      "maxAbsDiff": 100,
+      "fracGt1": 0.010078,
+      "fracGt5": 0.009531,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-rim-core-lit",
+      "what": "关掉受光侧边缘光亮芯（球的 rimLitColor2）",
+      "region": "bands-rim-fill-sky",
+      "psnrDb": 37.27,
       "exactMatch": false,
       "maxAbsDiff": 65,
       "fracGt1": 0.016081,
@@ -247,8 +279,8 @@
       "psnrDb": 23.35,
       "exactMatch": false,
       "maxAbsDiff": 189,
-      "fracGt1": 0.141471,
-      "fracGt5": 0.136784,
+      "fracGt1": 0.141289,
+      "fracGt5": 0.136341,
       "pass": false,
       "caught": true
     },
@@ -259,8 +291,8 @@
       "psnrDb": 31.65,
       "exactMatch": false,
       "maxAbsDiff": 69,
-      "fracGt1": 0.061263,
-      "fracGt5": 0.054063,
+      "fracGt1": 0.061211,
+      "fracGt5": 0.053958,
       "pass": false,
       "caught": true
     },
@@ -372,6 +404,6 @@
     "版本告警：`engine/shade` 以前只认 r170，在 r187 下每次加载都告警；现在 r170 / r187 都不告警，别的版本照旧告警（对拍时另开一页把 r187 的版本号改成 999 实测，告警在）；着色器锚点缺失时两版都直接抛错。",
     "不影响卡通着色的差异：meshtoon 片元去掉了 `#include <packing>`（卡通栈不用其中的函数）；`lights_fragment_begin` / `lights_fragment_end` 多了 SunLight、光照探针网格、Lambert / Phong 的 IBL，MeshToonMaterial 都不走（卡通合成只取第一盏平行光的方向与投影，颜色全按参数给定，没有光照衰减参与）；`color_fragment` 把顶点色与带 alpha 的顶点色合成一支，实例色结果相同；`common` 把 `inverseTransformDirection` 改名并留了同义宏；深度材质多了反向深度分支，默认不开。",
     "阴影深度：r170 把深度打包进 RGBA8 颜色纹理，r187 直接用深度纹理；带顶点形变的 `makeDepthMaterial` 两版都照常生效（r187 只用它的顶点形变，片元输出不再被读）。",
-    "没有覆盖的：r170 的 PCFShadowMap（17 点核）在 r187 下没有等价物，r187 的 PCF 一律按上面的软阴影核出；VSMShadowMap、点光源与聚光灯投影、three 自带的非卡通材质不在这套对拍里。"
+    "没有覆盖的：r170 的 PCFShadowMap（17 点核）在 r187 下没有等价物，r187 的 PCF 一律按上面的软阴影核出；VSMShadowMap、点光源与聚光灯投影、translucent / noId 材质、three 自带的非卡通材质不在这套对拍里；paintLayer 的海绵点 rustDapple 与 muralLayer 的细碎点 dotAmt 在标定机位下被按屏幕频率淡出，画面里没有，这两个子项没有比到。"
   ]
 }

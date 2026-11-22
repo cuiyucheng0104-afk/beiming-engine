@@ -9,7 +9,8 @@
 //       --frames <目录> 把读回的像素存成裸 RGBA8（自下而上；base 是整帧 640×480，变体是一个子区 320×240），排查差异时看图：
 //           ffmpeg -f rawvideo -pix_fmt rgba -s 640x480 -i golden-base-color.rgba -vf vflip -frames:v 1 golden.png
 //   过门 = PSNR ≥ 45 dB 且差 > 1 级的像素 ≤ 0.1%（只看 PSNR 时，占画面很小的特性整项坏掉也过得去）
-//   runR187ToonRegression() → { skipped } | { revisions, platform, gate, cases, negativeControls, ablations, consoleWarnings, unknownRevisionWarnings, overallPass }
+//   runR187ToonRegression() → { skipped } | { revisions, platform, gate, cases, negativeControls, ablations, consoleWarnings, unknownRevisionWarnings, overallPass, frames }
+//       frames：读回的原始像素（Buffer，不进报告）
 //       consoleWarnings：r170 / r187 两页的控制台告警与报错（应为空）；unknownRevisionWarnings：把版本号改成 999 的那一页收到的告警（应有版本告警）
 //       skipped 以环境码开头（SKIP_CODES：env.playwright-missing / env.browser-launch / env.three-r187-missing），调用方据此显式跳过
 //   compareFrames(a, b, { width, region, channels }) → { psnrDb, exactMatch, maxAbsDiff, fracGt1, fracGt5 }
@@ -105,6 +106,7 @@ export async function runR187ToonRegression() {
     const of = kind => variantNames.filter(n => VARIANTS[n].kind === kind).map(versus);
     const negativeControls = of('negative').map(m => ({ ...m, caught: m.psnrDb < NEGATIVE_MAX_PSNR_DB }));
     const ablations = of('ablation').map(m => ({ ...m, caught: !m.pass }));
+    cases.push(...of('identity').map(({ region, ...m }) => m));
     return {
       revisions: { golden: golden.revision, candidate: cand.revision },
       platform: { os: process.platform, arch: process.arch, node: process.version, chrome, angle: defaultAngle(), webglRenderer: cand.gpu, webglRendererGolden: golden.gpu },
@@ -123,7 +125,7 @@ const NOTES = [
   '版本告警：`engine/shade` 以前只认 r170，在 r187 下每次加载都告警；现在 r170 / r187 都不告警，别的版本照旧告警（对拍时另开一页把 r187 的版本号改成 999 实测，告警在）；着色器锚点缺失时两版都直接抛错。',
   '不影响卡通着色的差异：meshtoon 片元去掉了 `#include <packing>`（卡通栈不用其中的函数）；`lights_fragment_begin` / `lights_fragment_end` 多了 SunLight、光照探针网格、Lambert / Phong 的 IBL，MeshToonMaterial 都不走（卡通合成只取第一盏平行光的方向与投影，颜色全按参数给定，没有光照衰减参与）；`color_fragment` 把顶点色与带 alpha 的顶点色合成一支，实例色结果相同；`common` 把 `inverseTransformDirection` 改名并留了同义宏；深度材质多了反向深度分支，默认不开。',
   '阴影深度：r170 把深度打包进 RGBA8 颜色纹理，r187 直接用深度纹理；带顶点形变的 `makeDepthMaterial` 两版都照常生效（r187 只用它的顶点形变，片元输出不再被读）。',
-  '没有覆盖的：r170 的 PCFShadowMap（17 点核）在 r187 下没有等价物，r187 的 PCF 一律按上面的软阴影核出；VSMShadowMap、点光源与聚光灯投影、three 自带的非卡通材质不在这套对拍里。',
+  '没有覆盖的：r170 的 PCFShadowMap（17 点核）在 r187 下没有等价物，r187 的 PCF 一律按上面的软阴影核出；VSMShadowMap、点光源与聚光灯投影、translucent / noId 材质、three 自带的非卡通材质不在这套对拍里；paintLayer 的海绵点 rustDapple 与 muralLayer 的细碎点 dotAmt 在标定机位下被按屏幕频率淡出，画面里没有，这两个子项没有比到。',
 ];
 const row = c => `| \`${c.id}\` | ${c.what} | ${c.exactMatch ? '逐字节相同' : c.psnrDb + ' dB'} | ${c.maxAbsDiff} | ${(c.fracGt1 * 100).toFixed(3)}% | ${(c.fracGt5 * 100).toFixed(3)}% |`;
 export function reportMarkdown(r) {
@@ -179,6 +181,8 @@ ${r.notes.map(n => `- ${n}`).join('\n')}
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const at = process.argv.indexOf('--frames'), dumpDir = at > 0 ? process.argv[at + 1] : null;
+  const bad = process.argv.slice(2).filter((a, i) => !['--write', '--json', '--frames'].includes(a) && i + 2 !== at + 1);
+  if (bad.length) { console.error(`不认识的参数：${bad.join(' ')}（只有 --write、--json、--frames <目录>）`); process.exit(2); }
   if (at > 0 && (!dumpDir || dumpDir.startsWith('--'))) { console.error('--frames 后面要写一个目录'); process.exit(2); }
   if (dumpDir) fs.mkdirSync(dumpDir, { recursive: true });
   const r = await runR187ToonRegression();

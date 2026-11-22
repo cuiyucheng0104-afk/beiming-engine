@@ -21,7 +21,7 @@ test('S5-1 r187 对 r170 卡通着色四类核心特性实渲过 PSNR 门，且�
   }
   assert.equal(res.revisions.golden, '170');
   assert.equal(res.revisions.candidate, '187');
-  assert.ok(TOON_PSNR_GATE_DB >= 45);
+  assert.ok(TOON_PSNR_GATE_DB >= 45 && TOON_MAX_FRAC_GT1 <= 0.001);
   assert.equal(res.consoleWarnings.length, 0, `存在非预期告警: ${res.consoleWarnings.join('; ')}`);
   assert.ok(res.cases.length >= 4, '至少覆盖 4 类卡通着色子场景');
   for (const item of res.cases) {
@@ -44,10 +44,11 @@ test('S5-6 整帧之外逐子区都比到（彩色与法线 / ID 通道各四个
   const res = await run();
   if (res.skipped) return t.skip(res.skipped);
   const regions = ['bands-rim-fill-sky', 'shadow-deform', 'surface-layers', 'instanced-tints'];
-  assert.deepEqual(res.cases.map(c => c.id), ['frame', ...regions, 'id-frame', ...regions.map(r => 'id:' + r)]);
+  // 最后两条是变体路径的正对照：不改参数、只渲一个子区，必须与金标准对得上（裁剪或通道写错时消融会全体「拦住」，靠它们报出来）
+  assert.deepEqual(res.cases.map(c => c.id), ['frame', ...regions, 'id-frame', ...regions.map(r => 'id:' + r), 'same-color', 'same-id']);
   for (const c of res.cases) assert.ok(c.fracGt1 <= TOON_MAX_FRAC_GT1, `${c.id}：差 > 1 级的像素 ${c.fracGt1} 超过 ${TOON_MAX_FRAC_GT1}`);
   // 契约点名的特性每项至少一条消融
-  for (const id of ['abl-band3', 'abl-feather', 'abl-edge-noise', 'abl-rim-core', 'abl-rim-break', 'abl-fill', 'abl-sky', 'abl-patch', 'abl-paint-stroke', 'abl-paint-grain', 'abl-mural', 'abl-inst-tint', 'abl-id-outline-w', 'abl-id-instance'])
+  for (const id of ['abl-band3', 'abl-feather', 'abl-edge-noise', 'abl-rim-core-back', 'abl-rim-core-lit', 'abl-rim-break', 'abl-fill', 'abl-sky', 'abl-patch', 'abl-paint-stroke', 'abl-paint-grain', 'abl-mural', 'abl-inst-tint', 'abl-id-outline-w', 'abl-id-instance'])
     assert.ok(res.ablations.some(a => a.id === id), `缺消融 ${id}`);
   for (const a of res.ablations) {
     assert.equal(a.pass, false, `消融 ${a.id}（${a.what}）必须过不了门：psnr=${a.psnrDb} fracGt1=${a.fracGt1}`);
