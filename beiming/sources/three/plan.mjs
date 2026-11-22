@@ -27,7 +27,12 @@ const given = (obj, key) => {
   return obj?.[key];
 };
 // opts、shutter 这类参数容器：没写可以，写了就必须是普通对象（0n、字符串、数组、Date、Map 这类实例都不行，不然会悄悄退回默认值）
-const plain = (v) => v !== null && typeof v === 'object' && [null, Object.prototype].includes(Object.getPrototypeOf(v));
+// 普通对象的原型是 null 或某个上下文的 Object.prototype（它自己的原型是 null）；不拿本上下文的 Object.prototype 比，别的上下文（vm、iframe）造的 {} 也要认
+const plain = (v) => {
+  if (v === null || typeof v !== 'object') return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === null || Object.getPrototypeOf(proto) === null;
+};
 const box = (v, name) => {
   if (v !== undefined && !plain(v)) throw bad(`${name} 必须是普通对象，给的是 ${show(v)}`);
   return v;

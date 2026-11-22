@@ -30,7 +30,7 @@
 - 清屏：每一遍用 `(0, 0, 0, 0)`，渲完还原；镜头设了背景色时颜色层用背景色、透明度 1。
 - 取值次序：`RenderOpts` → 锁文件 → 镜头条目 → 能力声明。条目带 `renderer` 对象时出帧用它里面的 `source`、`host`、`mode`、`entry`；元数据 `source.id` 填顶层的，`source.renderer` 填 `three`。
 - 没有锁文件：种子必须写在条目里；条目的 `cards`、`assets` 或全片的 `assets`、`overlays` 不空报 `env.lock-required`。有锁文件时逐个卡实例（叠加层先展开）核对提供、主版本、锁里的版本和哈希、实现落点、数据卡的轨道（只有 `tracks.camera`），不对或带了资产报 `contract.unsupported-input`。先后：`contract.unsupported-mode` → 没锁文件 → 这一条。
-- 参数出值域（含显式 `null`、BigInt、`Date` 这类非普通对象的容器）报 `usage.bad-argument`；快门角 0 配多个子帧报 `contract.shutter-conflict`。
+- 参数出值域（含显式 `null`、BigInt、`Date` 这类非普通对象的容器；别的上下文造的普通对象照常收）报 `usage.bad-argument`；快门角 0 配多个子帧报 `contract.shutter-conflict`。
 
 ## 边界
 

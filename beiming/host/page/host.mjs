@@ -89,10 +89,12 @@ export async function startSource({ cards = [] } = {}) {
   const browser = await chromium.launch({ headless: true, executablePath: chromeExecutable(), args: [...chromeArgs(), '--mute-audio'] })
     .catch(async (e) => { await server.close(); throw e; });
 
-  async function open(input, env) {
+  async function open(liveInput, liveEnv) {
     // lock 必须写出来，哪怕是 null：忘了传当场报错
-    const missing = ENV_KEYS.filter((k) => env?.[k] === undefined);
+    const missing = ENV_KEYS.filter((k) => liveEnv?.[k] === undefined);
     if (missing.length) throw new SourceError('usage.bad-argument', `env 缺 ${missing.join('、')}`);
+    // 会话只认打开时拍下的这一份：调用方之后再改原对象，这边的预检、页面里的会话、层文件目录都不跟着变
+    const input = structuredClone(liveInput), env = structuredClone(Object.fromEntries(ENV_KEYS.map((k) => [k, liveEnv[k]])));
     const locked = planOpen(CAPS, input, env, library);
     // shortcut: 入口文件经本机静态服务进页面，片子描述所在的目录必须在放行的目录里；要装别处的片子时给静态服务加一个挂载点
     const filmDir = rel(resolve(env.filmDir));

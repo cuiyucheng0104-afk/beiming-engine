@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import { chromium } from 'playwright-core';
 import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs';
 import { resolveServed, startSource } from '../../host/page/host.mjs';
@@ -235,7 +236,8 @@ test('实渲：匀速方块 180 度快门从帧起点开，拖影亮度质心在
   const workspace = await mkdtemp(join(tmpdir(), 'beiming-s4-'));
   try {
     const film = await readJson(join(FIXTURES, 'film.json'));
-    const session = await source.open(shotInput(film, 's01'), { lock: null, tier: 'final', workspace, filmDir: FIXTURES });
+    const input = shotInput(film, 's01'), env = { lock: null, tier: 'final', workspace, filmDir: FIXTURES };
+    const session = await source.open(input, env);
     const AUX = ['depth', 'objectId', 'normal'];
     // 宿主两端：坏参数没进页面就报 usage.bad-argument，一个层文件都不写
     const badTag = { toString: 0, get [Symbol.toStringTag]() { throw new TypeError('tag-boom'); } };
@@ -252,6 +254,20 @@ test('实渲：匀速方块 180 度快门从帧起点开，拖影亮度质心在
       assert.equal(ref.hash, `sha256:${createHash('sha256').update(b).digest('hex')}`);
       return new Float32Array(b.buffer, b.byteOffset, b.length / 4);
     };
+    // 另一个上下文（vm）里造的普通对象照常收：当 opts、当 opts.shutter 都按 90 度 / 1 个子帧出帧，和本上下文写的同一帧
+    const NINETY = '({ angleDeg: 90, samples: 1 })', local = await session.render(24, { shutter: { angleDeg: 90, samples: 1 } }, ['color']);
+    for (const o of [runInNewContext(`({ shutter: ${NINETY} })`), { shutter: runInNewContext(NINETY) }]) {
+      const r = await session.render(24, o, ['color']);
+      assert.equal(r.meta.camera.shutterAngleDeg, 90);
+      assert.equal(r.layers.color.hash, local.layers.color.hash);
+    }
+    // 会话按打开时的镜头输入和环境算：调用方事后改原对象（改成会报 shutter-conflict 的快门、换档位、换画幅、换工作目录），照旧出同一帧、写在原工作目录
+    input.shot.shutter = { angleDeg: 0, samples: 8 };
+    input.output.size = [8, 8];
+    Object.assign(env, { tier: 'draft', workspace: join(workspace, 'elsewhere') });
+    const again = await session.render(24, {}, ['color']);
+    assert.equal(again.layers.color.hash, blur.layers.color.hash);
+    await read(again.layers.color);
     await session.close();
     for (const name of AUX) assert.equal(blur.layers[name].hash, still0.layers[name].hash, `${name} 层应等于 sub = 0 不模糊的`);
     const [c, c0, c1] = await Promise.all([blur, still0, still1].map(async (r) => lumaCentroid(await read(r.layers.color))));
@@ -298,4 +314,18 @@ test('参数容器：Date、Map、RegExp、TypedArray 这类实例，和 Symbol.
   // badTag 自己是普通对象，当容器合法；当快门角的值时报错消息要拼得出来
   assert.throws(() => planRender(CAPS, shot, [W, H], 'final', { shutter: { angle: badTag } }, ['color']), code('usage.bad-argument'));
   assert.equal(planRender(CAPS, shot, [W, H], 'final', Object.create(null), ['color']).shutterSamples, 4);
+});
+
+test('参数容器：另一个上下文（vm）里造的普通对象照常收，那边的 Date、Map、RegExp、TypedArray、类实例照样拒', () => {
+  const shot = { shutter: { angleDeg: 180, samples: 8 } };
+  const NINETY = '({ angleDeg: 90, samples: 1 })';
+  for (const o of [runInNewContext(`({ shutter: ${NINETY} })`), { shutter: runInNewContext(NINETY) }]) {
+    const plan = planRender(CAPS, shot, [W, H], 'final', o, ['color']);
+    assert.deepEqual([plan.angleDeg, plan.shutterSamples], [90, 1]);
+  }
+  assert.equal(planRender(CAPS, runInNewContext(`({ shutter: ${NINETY} })`), [W, H], 'final', {}, ['color']).angleDeg, 90);
+  for (const src of ['new Date()', 'new Map()', '/re/', 'new Uint8Array(2)', '[]', 'new (class Foo {})()']) {
+    assert.throws(() => planRender(CAPS, shot, [W, H], 'final', runInNewContext(src), ['color']), code('usage.bad-argument'), src);
+    assert.throws(() => planRender(CAPS, shot, [W, H], 'final', { shutter: runInNewContext(src) }, ['color']), code('usage.bad-argument'), src);
+  }
 });
