@@ -1,5 +1,6 @@
 // 历史回归守卫只检查传入的观测，不读工作树，也不启动渲染器。
 import { createHash } from 'node:crypto';
+import errors from '../contracts/errors/errors.json' with { type: 'json' };
 import { scanText } from './scan.mjs';
 
 const sha = (text) => createHash('sha256').update(text).digest('hex');
@@ -48,54 +49,10 @@ function frameFixture() {
   return { sequential: [0, 1, 2].map(observe), shuffled: [2, 0, 1].map(observe), single: [0, 1, 2].map(observe) };
 }
 
-// 遮住注释与普通字符串。保留方括号里的属性名和模板插值里的代码，再交给同一个扫描器。
-function codeForScan(source) {
-  let i = 0;
-  function quoted(q) {
-    const start = i++;
-    let expressions = '';
-    while (i < source.length) {
-      const c = source[i++];
-      if (c === '\\') i++;
-      else if (c === q) {
-        const raw = source.slice(start, i);
-        return /^(['"`])[\w$]+\1$/.test(raw) ? raw : ` "" ${expressions} `;
-      } else if (q === '`' && c === '$' && source[i] === '{') { i++; expressions += ` ${code(true)} `; }
-    }
-    throw new Error('源码字符串未闭合');
-  }
-  function code(interpolation = false) {
-    let out = '', depth = 0;
-    while (i < source.length) {
-      const c = source[i];
-      if (source.startsWith('//', i) || (c === '#' && !/[\w.$]/.test(source[i - 1] ?? ''))) {
-        while (i < source.length && source[i] !== '\n' && source[i] !== '\r') i++;
-        out += ' ';
-      } else if (source.startsWith('/*', i)) {
-        const end = source.indexOf('*/', i + 2);
-        need(end !== -1, '源码注释未闭合'); i = end + 2; out += ' ';
-      } else if ('\'"`'.includes(c)) out += quoted(c);
-      else {
-        i++;
-        if (interpolation && c === '}' && depth === 0) return out;
-        if (c === '{') depth++;
-        if (c === '}') depth--;
-        out += c;
-      }
-    }
-    need(!interpolation, '模板插值未闭合');
-    return out;
-  }
-  return code();
-}
-function seeded({ source, seed }) {
+function seeded({ source, seed, language, filename }) {
   need(nat(seed) && text(source), '需要显式整数种子和非空渲染源码');
-  const code = codeForScan(source);
-  need(text(code), '没有可扫描的渲染代码');
-  const hit = scanText(code).find(({ kind }) => kind === 'unseededRandom');
-  need(!hit, `渲染源码使用未播种随机源：${hit?.call}`);
-  // 宿主随机 API 由 scanText 判；另查直接调用的无参随机函数与模块级随机函数。
-  need(!/(?<![\w$.])random\s*(?:\(\s*\)|\.\s*(?:random|randint|randrange|uniform|choice|shuffle)\s*\()/.test(code), '直接调用了没有显式种子的随机函数');
+  const [hit] = scanText(source, { language, filename, requireCode: true });
+  need(!hit, `渲染源码读取了非确定性来源：${hit?.call}`);
 }
 function integerFrames({ fps, frames, shots, events }) {
   rate(fps);
@@ -230,22 +187,22 @@ function baseline({ baselineMachine, baselinePlatform, baselinePath, approvedRef
   need(tiers.size === 2, '必须同时覆盖同机哈希档与跨机容差档');
 }
 
-const exitCodes = new Map(Object.entries({ failure: 1, usage: 2, env: 3, contract: 4, busy: 5, timeout: 124 }));
-const dottedCode = (s) => text(s) && /^[a-z]+\.[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(s) && exitCodes.has(s.split('.')[0]);
+const exitCodes = new Map(errors.prefixes.map(({ prefix, exitCode }) => [prefix, exitCode]));
+const registeredCodes = new Set(errors.codes.map(({ code }) => code));
 function envelope(e, name) {
   need(record(e) && e.format === 'envelope/0.1', `${name}: 需要 envelope/0.1 信封`);
   need(nat(e.exitCode) && e.ok === (e.exitCode === 0), `${name}: ok 与 exitCode 不一致`);
   if (e.ok) need(e.error === null, `${name}: 成功信封必须写 error: null`);
   else {
-    need(record(e.error) && dottedCode(e.error.code) && text(e.error.message), `${name}: 错误码无效或缺少错误消息`);
-    const prefix = e.error.code.split('.')[0];
-    need(e.exitCode === exitCodes.get(prefix), `${name}: 前缀 ${prefix}. 要求退出码 ${exitCodes.get(prefix)}`);
+    need(record(e.error) && registeredCodes.has(e.error.code) && text(e.error.message), `${name}: 错误码未登记或缺少错误消息`);
+    const prefix = e.error.code.slice(0, e.error.code.indexOf('.') + 1);
+    need(e.exitCode === exitCodes.get(prefix), `${name}: 前缀 ${prefix} 要求退出码 ${exitCodes.get(prefix)}`);
     need(!Object.hasOwn(e.error, 'hint') || text(e.error.hint), `${name}: 错误提示格式无效`);
   }
   need(record(e.data), `${name}: data 必须是对象`);
   need(record(e.cost) && nat(e.cost.tokens) && [e.cost.gpuSeconds, e.cost.wallMs].every((v) => finite(v) && v >= 0), `${name}: token 数、GPU 秒数或墙钟毫秒数无效`);
   for (const o of list(e.outputs, `${name}.outputs`, 0)) need(record(o) && text(o.kind) && text(o.url) && (!Object.hasOwn(o, 'sha256') || digest(o.sha256)), `${name}: 产物引用无效`);
-  for (const d of list(e.diagnostics, `${name}.diagnostics`, 0)) need(record(d) && dottedCode(d.code) && text(d.message), `${name}: 诊断记录无效`);
+  for (const d of list(e.diagnostics, `${name}.diagnostics`, 0)) need(record(d) && registeredCodes.has(d.code) && text(d.message), `${name}: 诊断记录无效`);
   for (const a of list(e.next, `${name}.next`, 0)) need(record(a) && text(a.verb) && text(a.why), `${name}: 下一步动作无效`);
 }
 function uniformEnvelope({ cli, http, processExitCode }) {
@@ -259,6 +216,7 @@ function envelopeFixture() {
     outputs: [], diagnostics: [], data: {}, cost: { tokens: 0, gpuSeconds: 0, wallMs: 1 }, next: [] };
   return { cli: e, http: globalThis.structuredClone(e), processExitCode: 4 };
 }
+const agentReviewer = /agent|claude|codex|chatgpt|gemini|copilot|(?:^|[^a-z])(?:assistant|ai|bot|gpt)(?![a-z])|(?:build|review|auto|chat|dependa)bot\d*$|代理|助手|智能体|机器人/iu;
 function statusEvidence({ generated, technicalPassed, userApproved, artifactHash, qa, review }) {
   need([generated, technicalPassed, userApproved].every((v) => typeof v === 'boolean'), '需要生成、技检和认可三个独立布尔值');
   need((artifactHash === null || digest(artifactHash)) && generated === (artifactHash !== null), '生成状态与产物证据不符');
@@ -266,7 +224,7 @@ function statusEvidence({ generated, technicalPassed, userApproved, artifactHash
   need(technicalPassed === (qa !== null && qa.exitCode === 0), '机器 QA 不支持所报技术状态');
   if (review !== null) {
     need(record(review) && generated && review.artifactHash === artifactHash && review.role === 'user' && text(review.reviewer) &&
-      !/(?:agent|claude|codex|chatgpt|bot\d*$|代理|机器人)/iu.test(review.reviewer) && text(review.quote) && text(review.source) &&
+      !agentReviewer.test(review.reviewer) && text(review.quote) && text(review.source) &&
       ['approved', 'rejected'].includes(review.decision), '该版本的认可须有用户身份、原话和出处，代理不可自批');
   }
   need(userApproved === (review?.decision === 'approved'), '不能从产物或机器 QA 推断用户认可');
@@ -335,9 +293,16 @@ export function checkInvariant(id, fixture) {
   } catch (error) { return { id, ok: false, reason: error.message }; }
 }
 export function runInvariantSuite(cases) {
-  const rows = Array.isArray(cases) && cases.length
-    ? Array.from(cases, (c) => checkInvariant(c?.id, c?.fixture))
-    : [{ id: null, ok: false, reason: '至少需要一个不变量用例' }];
+  const seen = new Set();
+  const rows = Array.from(Array.isArray(cases) ? cases : [], (c) => {
+    const id = c?.id;
+    if (seen.has(id)) return { id, ok: false, reason: `重复的不变量编号 ${id}` };
+    seen.add(id);
+    return checkInvariant(id, c?.fixture);
+  });
+  for (const { id } of INVARIANTS) {
+    if (!seen.has(id)) rows.push({ id, ok: false, reason: `缺少不变量 ${id} 的观测` });
+  }
   const failed = rows.filter((r) => !r.ok).length;
   return { ok: failed === 0, passed: rows.length - failed, failed, rows };
 }

@@ -6,7 +6,7 @@ import json, math, os
 import bpy, bmesh, numpy as np
 from mathutils import Matrix, Vector
 
-SPEC = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'calib', 'probe-axes-turntable', 'scene.json')
+CALIB = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'calib')
 C3 = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]], float)
 
 
@@ -46,7 +46,14 @@ def mesh(o):
 
 
 def build(ctx):
-    s = json.load(open(SPEC, encoding='utf8')); sc = bpy.context.scene; c = s['camera']
+    # 三个单渲各开一个会话；保留所有实体的名字和编号，只让目标方块参与渲染。
+    solo = ctx.tokens.get('probeSoloCube')
+    scene = 'probe-axes-turntable' if solo is None else 'probe-occlusion'
+    with open(os.path.join(CALIB, scene, 'scene.json'), encoding='utf8') as f:
+        s = json.load(f)
+    if solo is not None and solo not in [o['id'] for o in s['objects']]:
+        raise ValueError(f'遮挡场景没有实体 {solo}')
+    sc = bpy.context.scene; c = s['camera']
     if list(ctx.size) != [c['widthPx'], c['heightPx']]: raise ValueError(f"画幅 {ctx.size} 和规格 {c['widthPx']}x{c['heightPx']} 不符")
     w = bpy.data.worlds.new('w'); w.use_nodes = True; sc.world = w
     bg = next(n for n in w.node_tree.nodes if n.type == 'BACKGROUND'); bg.inputs[0].default_value = (*s['backgroundLinear'], 1); bg.inputs[1].default_value = 1
@@ -62,6 +69,7 @@ def build(ctx):
         em.inputs[0].default_value = (*o['emissionLinear'], 1); em.inputs[1].default_value = 1; nt.links.new(em.outputs[0], mo.inputs[0])
         me = mesh(o); me.materials.append(mat)
         ob = bpy.data.objects.new(o['id'], me); sc.collection.objects.link(ob)
+        ob.hide_render = solo is not None and o['id'] != solo
         rs = axis_angle(o['rotation']['axisDir'], o['rotation']['angleRad']) if 'rotation' in o else np.eye(3)
         p, m = np.array(o['positionM'], float), o.get('motion')
         if m and m['kind'] == 'spin':  # 父空物体在枢轴上绕轴转，子物体带静态旋转：世界 = R运动 · R静态
