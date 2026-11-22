@@ -25,7 +25,7 @@ const REVIEW_SYSTEM = [
   '没有意见时 opinions 是空数组。不要回 JSON 以外的字。',
 ].join('\n');
 
-const HTTP_TOOL = {
+export const HTTP_TOOL = {
   type: 'function',
   function: {
     name: 'http_request',
@@ -57,17 +57,21 @@ function requireConfig(what, names, { endpoint, apiKey, model, ledgerPath }) {
 }
 
 /** 调一次 chat/completions：交回 { message, model, usage: { inputTokens, outputTokens } } */
-async function chat({ endpoint, apiKey, body }) {
+export async function chat({ endpoint, apiKey, body, signal, requireUsage = false }) {
   const target = /\/chat\/completions\/?$/.test(endpoint) ? endpoint : `${endpoint.replace(/\/+$/, '')}/chat/completions`;
   const res = await fetch(target, {
     method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify(body), signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+    body: JSON.stringify(body), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(MODEL_TIMEOUT_MS)]) : AbortSignal.timeout(MODEL_TIMEOUT_MS),
   }).catch(() => { throw new ModelResponseError('模型接口连接失败或超时'); });
   if (!res.ok) throw new ModelResponseError(`模型接口返回 HTTP ${res.status}`);
   let data;
   try { data = await res.json(); } catch { throw new ModelResponseError('模型接口返回的不是 JSON'); }
   const message = data?.choices?.[0]?.message;
   if (!message || typeof message !== 'object') throw new ModelResponseError('模型接口的返回里没有 choices[0].message');
+  if (requireUsage && !(Number.isSafeInteger(data.usage?.prompt_tokens) && data.usage.prompt_tokens > 0 &&
+    Number.isSafeInteger(data.usage.completion_tokens) && data.usage.completion_tokens >= 0)) {
+    throw new ModelResponseError('模型接口没有返回可核算的 token 用量');
+  }
   return { message, model: typeof data.model === 'string' ? data.model : body.model, usage: { inputTokens: count(data.usage?.prompt_tokens), outputTokens: count(data.usage?.completion_tokens) } };
 }
 
@@ -75,7 +79,7 @@ async function chat({ endpoint, apiKey, body }) {
  * 执行一次 http_request。只放行本服务 /v1/ 开头的路径；令牌由这里挑：建片交回的工作区令牌记下来（不交给模型），
  * 之后调那部片和它的作业时带工作区令牌，别的动词带账户令牌。交回 { text（给模型的工具结果）, call（留给调用方的记录） }。
  */
-async function callApi({ baseUrl, account, workspaces, jobs }, args) {
+export async function callApi({ baseUrl, account, workspaces, jobs, signal }, args) {
   const refuse = (why) => ({ text: JSON.stringify({ refused: why }), call: { method: String(args?.method), path: String(args?.path), status: 0, ok: false, refused: why } });
   const method = String(args?.method ?? '').toUpperCase();
   const path = args?.path;
@@ -90,7 +94,7 @@ async function callApi({ baseUrl, account, workspaces, jobs }, args) {
   const text = typeof args.body === 'string';
   const res = await fetch(target, {
     method, headers: { authorization: `Bearer ${token}`, ...(hasBody ? { 'content-type': text ? 'text/plain; charset=utf-8' : 'application/json' } : {}) },
-    ...(hasBody ? { body: text ? args.body : JSON.stringify(args.body) } : {}),
+    ...(hasBody ? { body: text ? args.body : JSON.stringify(args.body) } : {}), signal,
   });
   const call = { method, path, status: res.status, ok: res.ok };
   if (!/json/.test(res.headers.get('content-type') ?? '')) {
