@@ -891,10 +891,13 @@ const hogVram = ({ count, report, pauseMs }) => (async () => {
   return count;
 })();
 
-// 恶邻二：每个像素循环十五万次的片元着色器，128×128 一次只画一小幅、画完立刻读回，连画 3 秒。
-// 渲染线程这 3 秒一直卡在着色器求值与读回上；显卡队列里任何时刻最多一次小绘制（本机约 28 ms），进程被杀后不拖住同卡的别人。
-// 按墙钟收尾而不按次数：显卡再快也挂满 3 秒，远大于 A14-8 的 shaderHangMs。
-const hangShader = () => {
+// 恶邻二：每个像素循环 n 次的片元着色器，分两步。片元源码放在宿主这边，A14-8b 的负对照只改其中一个词。
+const HANG_FRAGMENT = `#version 300 es
+  precision highp float; uniform float seed; uniform int n; out vec4 o;
+  void main() { float a = seed + gl_FragCoord.x * 0.001; for (int i = 0; i < n; i++) { a = fract(sin(a * 12.9898 + float(i)) * 43758.5453) + 0.1; } o = vec4(fract(a), 0.5, 0.0, 1.0); }`;
+
+// 第一步（看门狗开始数心跳之前）：编译、链接，n = 1 画一次读回一次，交回回执；链接好的程序留在 window.__bmHang 给第二步用。
+const primeHangShader = (fragment) => {
   const canvas = Object.assign(document.createElement('canvas'), { width: 128, height: 128 });
   const gl = canvas.getContext('webgl2');
   const compile = (type, source) => {
@@ -903,16 +906,43 @@ const hangShader = () => {
     gl.compileShader(shader);
     return shader;
   };
+  const shaders = [
+    compile(gl.VERTEX_SHADER, `#version 300 es
+    void main() { vec2 v = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(v * 2.0 - 1.0, 0.0, 1.0); }`),
+    compile(gl.FRAGMENT_SHADER, fragment),
+  ];
   const program = gl.createProgram();
-  gl.attachShader(program, compile(gl.VERTEX_SHADER, `#version 300 es
-    void main() { vec2 v = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(v * 2.0 - 1.0, 0.0, 1.0); }`));
-  gl.attachShader(program, compile(gl.FRAGMENT_SHADER, `#version 300 es
-    precision highp float; uniform float seed; uniform int n; out vec4 o;
-    void main() { float a = seed + gl_FragCoord.x * 0.001; for (int i = 0; i < n; i++) { a = fract(sin(a * 12.9898 + float(i)) * 43758.5453) + 0.1; } o = vec4(fract(a), 0.5, 0.0, 1.0); }`));
+  for (const shader of shaders) gl.attachShader(program, shader);
   gl.linkProgram(program);
+  if (!shaders.every((shader) => gl.getShaderParameter(shader, gl.COMPILE_STATUS)) || !gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    return { linked: false, infoLog: [...shaders.map((shader) => gl.getShaderInfoLog(shader)), gl.getProgramInfoLog(program)].join('') };
+  }
   gl.useProgram(program);
-  gl.uniform1i(gl.getUniformLocation(program, 'n'), 150_000);
+  gl.uniform1i(gl.getUniformLocation(program, 'n'), 1);
+  gl.uniform1f(gl.getUniformLocation(program, 'seed'), 0);
   gl.viewport(0, 0, 128, 128);
+  const pixel = new Uint8Array(4);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+  window.__bmHang = { gl, program };
+  return { linked: true, glError: gl.getError(), pixel: [...pixel] };
+};
+
+// 回执要过的关：链接成功、没有 GL 错误、读回是这段着色器的固定输出（红非零、绿 0.5、蓝 0、不透明）。
+// 编译失败时读回的是全零，过不了这一关，也就进不了无心跳阶段。
+const assertHangShaderPrimed = (receipt) => {
+  assert.equal(receipt.linked, true, `着色器没有编译链接成功：${receipt.infoLog}`);
+  assert.equal(receipt.glError, 0);
+  const [red, green, blue, alpha] = receipt.pixel;
+  assert.ok(red > 0 && green >= 127 && green <= 128 && blue === 0 && alpha === 255, `首次绘制读回 [${receipt.pixel}]`);
+};
+
+// 第二步：同一个上下文、同一个程序，每像素循环十五万次，128×128 一次只画一小幅、画完立刻读回，连画 3 秒。
+// 渲染线程这 3 秒一直卡在着色器求值与读回上；显卡队列里任何时刻最多一次小绘制（本机约 28 ms），进程被杀后不拖住同卡的别人。
+// 按墙钟收尾而不按次数：显卡再快也挂满 3 秒，远大于 A14-8 的 shaderHangMs。
+const loopHangShader = () => {
+  const { gl, program } = window.__bmHang;
+  gl.uniform1i(gl.getUniformLocation(program, 'n'), 150_000);
   const pixel = new Uint8Array(4);
   const until = performance.now() + 3000;
   for (let draw = 0; performance.now() < until; draw += 1) {
@@ -975,6 +1005,8 @@ async function neighbours(t, { quotas, probeVramMB, misbehave }) {
   // 正常任务先倒了就直接判败，不干等恶邻。
   const error = await Promise.race([rejected(evilTask), goodTask.then(never)]).finally(() => { evilSettled = true; });
   const elapsedMs = Date.now() - started;
+  // 夹具自己的断言（比如着色器回执没过）原样报出来，不让下面的「进程还在」盖住真正的原因。
+  if (error instanceof assert.AssertionError) throw error;
   // 恶邻的浏览器进程树已经死透，租约当场归还：448 MB 的草稿立刻拿得到。
   assert.equal(processIsAlive(evil.pid), false, '恶邻的浏览器进程还在');
   if (posix) assert.equal(processIsAlive(evil.pid, { processGroup: true }), false, '恶邻的进程组里还有活口（GPU 进程、渲染进程）');
@@ -1028,8 +1060,10 @@ test('A14-8 真实 WebGL2「死循环着色器」：渲染卡死无心跳，shad
   const outcome = await neighbours(t, {
     quotas: { shaderHangMs: 250 },
     misbehave: async (page, watchdog) => {
+      // 先拿到这段着色器真的画出东西的回执，再开始数心跳：坏着色器在这里就失败，轮不到看门狗来「杀对」。
+      assertHangShaderPrimed(await page.evaluate(primeHangShader, HANG_FRAGMENT));
       watchdog.beginShaderPass('bounded-shader-hang');
-      const pixel = await page.evaluate(hangShader);
+      const pixel = await page.evaluate(loopHangShader);
       watchdog.endShaderPass();
       return pixel;
     },
@@ -1038,4 +1072,21 @@ test('A14-8 真实 WebGL2「死循环着色器」：渲染卡死无心跳，shad
   refuses('timeout.shader-hang', 124)(outcome.error);
   assert.deepEqual([outcome.error.label, outcome.error.shaderHangMs], ['bounded-shader-hang', 250]);
   assert.ok(outcome.elapsedMs >= 250 && outcome.elapsedMs < 250 + 2500, `${outcome.elapsedMs} ms`);
+});
+
+test('A14-8b 负对照：片元着色器编译不过（或读回全零）时拿不到回执，A14-8 进不了无心跳阶段', async (t) => {
+  const evil = await launch(t);
+  if (!evil) return;
+  const broken = HANG_FRAGMENT.replace('out vec4 o;', 'out nope4 o;');
+  assert.notEqual(broken, HANG_FRAGMENT);
+  const receipt = await evil.page.evaluate(primeHangShader, broken);
+  assert.equal(receipt.linked, false);
+  assert.ok(receipt.infoLog.length > 0, '编译日志是空的');
+  assert.equal(await evil.page.evaluate(() => window.__bmHang), undefined, '没链接成功就不留程序给第二步');
+  assert.throws(() => assertHangShaderPrimed(receipt), assert.AssertionError);
+  // 没查链接状态、硬画了一次的样子（四审量到的负对照读数）同样过不了。
+  assert.throws(() => assertHangShaderPrimed({ linked: true, glError: 1282, pixel: [0, 0, 0, 0] }), assert.AssertionError);
+  assert.throws(() => assertHangShaderPrimed({ linked: true, glError: 0, pixel: [0, 0, 0, 0] }), assert.AssertionError);
+  // 同一个页面上，原样的着色器拿得到回执。
+  assertHangShaderPrimed(await evil.page.evaluate(primeHangShader, HANG_FRAGMENT));
 });
