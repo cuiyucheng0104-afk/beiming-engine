@@ -373,6 +373,27 @@ test('T7-10 写法不对的参数和数据：照卡文件解析参数再建卡�
     assert.deepEqual([seen.hits, seen.hitRate, seen.rows[0].delta], [1, 1, 0], name);
     assert.deepEqual(mix.snap([12], [pcm], { frames: 24 }), [12], name);
   }
+  // 五审的反例：正片 25 帧是 50000 个采样点，不是 5 毫秒一步（240 个）的整数倍，最后一步只有 80 个采样点（49920 起）。成对锁住：49920 在片内要命中，50000 是片外第一个采样点要排除
+  const at24 = [{ ...ev, frame: 24 }], film25 = { frames: 25 }, pulses = (...at) => {
+    const pcm = new Float32Array(60 * 2000);
+    for (const [sample, level] of at) pcm[sample] = level;
+    return [pcm];
+  };
+  const inside = mix.audit(pulses([49920, 0.2]), at24, film25);
+  assert.equal(inside.hits, 1, '第 49920 个采样点的脉冲在片内最后一步里');
+  within(inside.rows[0].delta, 0.96, 1e-9, '第 49920 个采样点的脉冲离第 24 帧 ');
+  assert.deepEqual(mix.snap([24], pulses([49920, 0.2]), film25), [24]);
+  // 不靠人造脉冲：自带的点击混在第 24 帧、子帧相位 0.96，落点就是 49920，混出来的声音原样交回审计和吸附
+  const last = [{ id: 'c', frame: 24, sub: 0.96, audio: 'click' }], mixed = mix.mix(last, film25);
+  assert.deepEqual([mixed.placements[0].sample, mixed.channels[0].length], [49920, 50000]);
+  assert.deepEqual([mix.audit(mixed.channels, last, film25).hits, mix.snap([24], mixed.channels, film25)], [1, [24]]);
+  const outside = mix.audit(pulses([50000, 0.2]), at24, film25);
+  assert.deepEqual([outside.hits, outside.rows[0].delta], [0, Infinity], '第 50000 个采样点已经在片外');
+  refused(() => mix.snap([24], pulses([50000, 0.2]), film25), '片内没有起音，片外第一个采样点的脉冲不算');
+  // 片外第一个采样点再响，也不压掉片内第 12 帧那一下轻的
+  const both = mix.audit(pulses([24000, 0.2], [50000, 1]), [...at12, ...at24], film25);
+  assert.deepEqual([both.hits, both.rows.map((r) => r.delta)], [1, [0, -12]]);
+  assert.deepEqual(mix.snap([12, 24], pulses([24000, 0.2], [50000, 1]), film25), [12, 12]);
 
   // audio.align：界是硬的闭区间；偏移不是有限数、总帧数不是正的安全整数
   const card = createAlign({ fps: FPS }, params('audio.align')).object, src = [new Float32Array(RATE).fill(0.25)];

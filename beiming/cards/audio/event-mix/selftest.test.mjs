@@ -255,4 +255,13 @@ test('audio.event-mix：正片比声音短时，起音只在正片那一段里�
   }
   // 不给全片帧数就是整段声音：强音算数
   assert.deepEqual(c.snap([12], [loud]), [30]);
+  // 正片 25 帧是 50000 个采样点，最后一步只有 80 个（49920 起）：这一步里的起音算数，片外第一个采样点（50000）的不算
+  const at = (sample) => { const pcm = new Float32Array(60 * 2000); pcm[sample] = 0.2; return [pcm]; }, at24 = [{ id: 'x', frame: 24, audio: 'click' }];
+  assert.deepEqual(c.onsets([at(49920)[0].subarray(0, 50000)]), [49920]);
+  assert.deepEqual([c.audit(at(49920), at24, { frames: 25 }).hits, c.snap([24], at(49920), { frames: 25 })], [1, [24]]);
+  assert.equal(c.audit(at(50000), at24, { frames: 25 }).hits, 0);
+  assert.throws(() => c.snap([24], at(50000), { frames: 25 }), { name: 'RangeError', code: 'usage.bad-argument' });
+  // 最后那一步只加实际有的采样、不折成整步：一直响着的 110 赫兹长音，不管片尾停在一步里的哪儿，都只有开头那一个起音
+  const tone = Float32Array.from({ length: 24240 }, (_, i) => 0.3 * Math.sin((2 * Math.PI * 110 * i) / RATE));
+  for (let length = 24000; length <= 24240; length++) assert.deepEqual(c.onsets([tone.subarray(0, length)]), [0], `长音 ${length} 个采样点`);
 });
