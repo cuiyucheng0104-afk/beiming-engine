@@ -21,10 +21,13 @@ function luma(width, height, pixel, Type = Float32Array) {
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) out[y * width + x] = pixel(x, y);
   return { width, height, luma: out };
 }
-function gaussian(seed) {
+function uniform(seed) {
   let s = seed >>> 0;
-  const uniform = () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-  return () => Math.sqrt(-2 * Math.log(1 - uniform())) * Math.cos(2 * Math.PI * uniform());
+  return () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+function gaussian(seed) {
+  const next = uniform(seed);
+  return () => Math.sqrt(-2 * Math.log(1 - next())) * Math.cos(2 * Math.PI * next());
 }
 const badArgument = { name: 'RangeError', code: 'usage.bad-argument' };
 const repeat5 = (run) => { const first = run(); for (let i = 0; i < 4; i++) assert.deepStrictEqual(run(), first); return first; };
@@ -247,6 +250,78 @@ test('shape.iou：重合读 1，错位单调下降，空集按约定处理且不
   assert.ok(cropped.union < reference.union && cropped.iou > reference.iou);
 });
 
+// 以下三条是一审（G_REV-R1）给的反例。
+test('noise.residual：平移的条纹块和纹理块不读成噪声，静止的散粒噪声不判成运动', () => {
+  // 144×112 黑底上 64×64 的方块，里面是 4 像素宽的 0.2 / 0.8 竖条纹，每帧右移 2 像素，没有噪声。
+  const stripes = [0, 1, 2, 3].map(t => luma(144, 112, (x, y) => {
+    const u = x - 18 - 2 * t, v = y - 22;
+    return u >= 0 && u < 64 && v >= 0 && v < 64 ? (u & 4 ? 0.8 : 0.2) : 0;
+  }));
+  const moved = repeat5(() => noiseResidual(stripes));
+  assert.deepEqual([moved.value, moved.status], [0, 'ok']);
+  assert.ok(moved.staticRatio > 0.2 && moved.staticRatio < 1, `staticRatio ${moved.staticRatio}`);
+
+  // 96×72 静止平场 0.25 上叠稀疏散粒噪声 Poisson(0.02) / 8，没有运动：整幅都是静止区，读数接近真实标准差 √0.02 / 8。
+  const next = uniform(20261122);
+  const poisson = lambda => { let k = 0, p = next(); while (p > Math.exp(-lambda)) { k++; p *= next(); } return k; };
+  const shot = [0, 1, 2, 3].map(() => luma(96, 72, () => 0.25 + poisson(0.02) / 8));
+  const grain = repeat5(() => noiseResidual(shot));
+  assert.equal(grain.status, 'ok');
+  assert.ok(grain.staticRatio > 0.9, `staticRatio ${grain.staticRatio}`);
+  assert.ok(Math.abs(grain.value / (Math.sqrt(0.02) / 8) - 1) < 0.15, `散粒噪声读数 ${grain.value}`);
+
+  // 白噪声纹理块每帧平移 (3, 1)：帧间差不成片，靠整数位移配准认出来；关掉位移搜索就读成噪声。
+  const texture = Float32Array.from({ length: 40 * 40 }, uniform(7));
+  const drift = [0, 1, 2, 3].map(t => luma(96, 72, (x, y) => {
+    const u = x - 20 - 3 * t, v = y - 12 - t;
+    return u >= 0 && u < 40 && v >= 0 && v < 40 ? texture[v * 40 + u] : 0.1;
+  }));
+  const rigid = repeat5(() => noiseResidual(drift));
+  assert.deepEqual([rigid.value, rigid.status, rigid.maxShift], [0, 'ok', 6]);
+  assert.ok(noiseResidual(drift, { maxShift: 0 }).value > 0.01);
+});
+
+test('alias.edge：1 像素交替条纹的逐帧反相读成强闪烁', () => {
+  // L(x, p) = 0.5 + 0.5 · (−1)^x · cos(πp)，p 在 0.25 与 0.75 之间来回：周期 2 像素，Sobel 的隔一像素差分正好是 0。
+  const nyquist = p => luma(W, H, x => 0.5 + 0.5 * (x % 2 ? -1 : 1) * Math.cos(Math.PI * p));
+  const strobe = repeat5(() => aliasEdge([0.25, 0.75, 0.25, 0.75, 0.25].map(nyquist)));
+  assert.ok(strobe.detailPixels > 1000, `detailPixels ${strobe.detailPixels}`);
+  assert.ok(Math.abs(strobe.flicker - Math.SQRT1_2) < 1e-6, `flicker ${strobe.flicker}`);
+  assert.equal(aliasEdge([0.25, 0.25, 0.25].map(nyquist)).flicker, 0);
+  // 横条纹、棋盘同理。
+  const checker = flip => luma(W, H, (x, y) => (x + y + flip) % 2 ? 0.8 : 0.2);
+  assert.ok(Math.abs(aliasEdge([0, 1, 0, 1].map(checker)).flicker - 0.6) < 1e-6);
+});
+
+test('clip.highlight-ratio 与 color.palette-de00：外部掩码、稀疏数组与极大 share', () => {
+  // 外部掩码收定型数组或普通数组，元素是布尔或非负有限数。
+  const frame = rgba(4, 2, x => x < 2 ? 255 : 40), keep = [1, 0, 1, 0, 1, 0, 1, 0];
+  const byBytes = clipHighlightRatio(frame, { alphaMask: Uint8Array.from(keep) });
+  assert.deepEqual([byBytes.ratio, byBytes.totalPixels], [0.5, 4]);
+  assert.deepStrictEqual(clipHighlightRatio(frame, { alphaMask: keep }), byBytes);
+  assert.deepStrictEqual(clipHighlightRatio(frame, { alphaMask: keep.map(Boolean) }), byBytes);
+  const holed = [...keep]; delete holed[3];
+  for (const alphaMask of [Float32Array.from(keep, (v, i) => i === 5 ? NaN : v), Float64Array.from(keep, (v, i) => i ? v : Infinity),
+    Float32Array.from(keep, (v, i) => i ? v : -Infinity), Float32Array.from(keep, (v, i) => i ? v : -1), holed, new Array(8),
+    keep.map((v, i) => i === 2 ? NaN : v), keep.map(String), keep.map((v, i) => i ? v : null), new Uint16Array(8)]) {
+    assert.throws(() => clipHighlightRatio(frame, { alphaMask }), badArgument);
+  }
+
+  // 稀疏数组的空洞不能混过校验。
+  const red = [[200, 40, 40]];
+  for (const [a, b] of [[[{ lab: [50, , 0] }], red], [[[1, , 3]], red], [[{ rgb: [, 2, 3] }], red], [[, [1, 2, 3]], red], [red, [{ lab: [50, 0, '0'] }]]]) {
+    assert.throws(() => colorPaletteDe00(a, b), badArgument);
+  }
+  assert.throws(() => noiseResidual([frame, , frame]), badArgument);
+  assert.throws(() => shapeIou(frame, frame, { background: [0, , 0] }), badArgument);
+  // share 只看比例：1e307、1e308 和 1 读数相同，不溢出。
+  const pair = share => [{ rgb: [20, 200, 60], share }, { rgb: [40, 90, 200], share }];
+  const unit = colorPaletteDe00(pair(1), red);
+  assert.ok(unit.maxDe00 > 18 && Number.isFinite(unit.weightedDe00) && unit.weightedDe00 > 18);
+  for (const share of [1e307, 1e308]) assert.deepStrictEqual(colorPaletteDe00(pair(share), red), unit);
+  assert.deepStrictEqual(colorPaletteDe00(red, pair(1e308)), colorPaletteDe00(red, pair(1)));
+});
+
 test('非法入参一律抛带冻结错误码 usage.bad-argument 的 RangeError', () => {
   const ok = luma(W, H, () => 0.5), small = luma(8, 8, () => 0.5), mask = empty();
   const withNaN = luma(W, H, (x, y) => x === 3 && y === 3 ? NaN : 0.5), withInf = luma(W, H, (x) => x ? 0.5 : Infinity);
@@ -268,6 +343,7 @@ test('非法入参一律抛带冻结错误码 usage.bad-argument 的 RangeError'
     选项与类型: [() => clipHighlightRatio(ok, { thresold: 1 }), () => clipHighlightRatio(ok, null), () => clipHighlightRatio({ width: W, height: H, luma: new Array(W * H).fill(0) }),
       () => clipHighlightRatio({ width: W, height: H, luma: ok.luma, mask: mask.mask }), () => clipHighlightRatio(ok, { alphaMask: true }),
       () => clipHighlightRatio(rgba(4, 4, () => 0), { threshold: 256 }), () => noiseResidual([ok, ok], { block: 3 }), () => noiseResidual([ok, ok], { block: 64 }),
+      () => noiseResidual([ok, ok], { maxShift: -1 }), () => noiseResidual([ok, ok], { maxShift: 1.5 }),
       () => colorPaletteDe00([[1, 2, 3]], [[1, 2, 3]], { k: 0 }), () => colorPaletteDe00([[1, 2, 300]], [[1, 2, 3]]), () => colorPaletteDe00([{}], [[1, 2, 3]]),
       () => colorPaletteDe00([{ rgb: [1, 2, 3], share: 0 }], [[1, 2, 3]]), () => shapeIou(mask, mask, { id: 1.5 }), () => shapeIou(color3, color3, { id: 1 }),
       () => shapeIou(mask, mask, { background: [0, 0] }), () => shapeIou(mask, mask, { background: [0, 0, 0] }),

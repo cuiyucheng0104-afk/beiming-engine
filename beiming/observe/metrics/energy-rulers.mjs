@@ -41,9 +41,13 @@ function read(frame, label, wide = false) {
   return { width, height, data, channels, float, scale: float ? 1 : 255 };
 }
 
+// 普通数组一律逐索引查：map、every、some 会跳过稀疏数组的空洞。
+const triple = (value, ok = Number.isFinite) => Array.isArray(value) && value.length === 3 &&
+  [0, 1, 2].every(i => Object.hasOwn(value, i) && typeof value[i] === 'number' && ok(value[i]));
+
 function sequence(frames, min, name) {
   need(Array.isArray(frames) && frames.length >= min, `${name} 至少要 ${min} 帧`);
-  const list = frames.map((frame, i) => read(frame, `第 ${i} 帧`));
+  const list = Array.from(frames, (frame, i) => read(frame, `第 ${i} 帧`));
   for (const f of list) {
     need(f.width === list[0].width && f.height === list[0].height && f.channels === list[0].channels &&
       f.float === list[0].float, '各帧的尺寸、通道数或数值类型不一致');
@@ -69,13 +73,9 @@ function lumaPlane({ width, data, channels }, { x, y, width: w, height: h }) {
   return out;
 }
 
-function median(values) {
-  const v = values.sort(), n = v.length;
-  return n % 2 ? v[n >> 1] : (v[n / 2 - 1] + v[n / 2]) / 2;
-}
-
 // 任一色分量达到 threshold 的像素占比。默认阈值：8 位 254，线性浮点 1（显示白）。
-// alphaMask 为 true 时只数本帧 alpha 大于 0 的像素，也可以给与画面等大的单通道数组（大于 0 计入）。
+// alphaMask 为 true 时只数本帧 alpha 大于 0 的像素；也可以给与画面等大的单通道数组（8 位、浮点定型数组或普通数组），
+// 元素须为布尔或非负有限数，大于 0 计入。
 // 平顶斑块：最大分量等于全区峰值、且有四邻域同伴的像素；峰值不到阈值一半时不算。
 export function clipHighlightRatio(frame, opts = {}) {
   const { threshold, roi, alphaMask } = options(opts, ['threshold', 'roi', 'alphaMask']);
@@ -84,8 +84,15 @@ export function clipHighlightRatio(frame, opts = {}) {
     : number(threshold, 'threshold', float ? -Infinity : 0, float ? Infinity : 255);
   const own = alphaMask === true, external = !own && alphaMask !== undefined && alphaMask !== false;
   need(!own || channels === 4, 'alphaMask 为 true 时帧须带 alpha 通道');
-  need(!external || (isA(alphaMask, [...BYTES, ...FLOATS]) && alphaMask.length === width * img.height),
-    'alphaMask 须为 true 或与画面等大的单通道数组');
+  if (external) {
+    need((Array.isArray(alphaMask) || isA(alphaMask, [...BYTES, ...FLOATS])) && alphaMask.length === width * img.height,
+      'alphaMask 须为 true 或与画面等大的单通道数组');
+    for (let i = 0; i < alphaMask.length; i++) {
+      const v = alphaMask[i];
+      need(Object.hasOwn(alphaMask, i) && (typeof v === 'boolean' || (typeof v === 'number' && Number.isFinite(v) && v >= 0)),
+        'alphaMask 的元素须为布尔或非负有限数，不能有空洞');
+    }
+  }
   const { x, y, width: w, height: h } = region(img, roi), colors = Math.min(channels, 3);
   const top = new Float64Array(w * h).fill(-Infinity), hits = [0, 0, 0];
   let total = 0, clipped = 0, peak = -Infinity;
@@ -118,38 +125,62 @@ export function clipHighlightRatio(frame, opts = {}) {
     threshold: limit, plateauPixels: plateau, plateauRatio: share(plateau) };
 }
 
+const COHERENT = 0.6, COLLAPSE = 0.35 ** 2, DENSE = 1 / 4;
+
+// 有没有非零整数位移（各向不超过 reach）能把上一帧的块配准到本帧：残差平方和不超过 limit。只试源块整个落在量测区内的位移。
+function registers(cur, prev, w, h, [x0, x1, y0, y1], reach, limit) {
+  for (let dy = -reach; dy <= reach; dy++) for (let dx = -reach; dx <= reach; dx++) {
+    if ((!dx && !dy) || x0 - dx < 0 || x1 - dx > w || y0 - dy < 0 || y1 - dy > h) continue;
+    let rest = 0;
+    for (let y = y0; y < y1 && rest <= limit; y++) {
+      for (let x = x0; x < x1; x++) rest += (cur[y * w + x] - prev[(y - dy) * w + x - dx]) ** 2;
+    }
+    if (rest <= limit) return true;
+  }
+  return false;
+}
+
 // 相邻帧亮度差 d 的四邻域拉普拉斯在静止块上的均方根，除以 √40 折算成等效的单帧白噪声标准差。
-// 静止块：本块 max|d| 不超过 max(motionThreshold, 6σ)，且外圈八块也都满足；σ 取本块连同外圈一块范围内
-// |拉普拉斯| 的中位数 × 1.4826 / √20（只看高频，成片的亮度变化抬不高它）。
-// shortcut: 细于 2 像素的纹理整体位移和噪声在两帧里分不开，会读成噪声；要分开得另给运动真值掩码。
+// 块内 max|d| 不超过 motionThreshold 的直接算静止；超过的，满足下面任一条才是运动块，否则是静止区的随机噪声
+// （高斯噪声、稀疏的散粒脉冲都留在静止区里计数）：
+//   成片：块内横向或纵向相邻像素的 d 乘积和，绝对值超过 Σd² 的 0.6 倍（移动的边与条纹、整块亮度跳变、全画幅切换）；
+//   配准：至少四分之一像素的 |d| 超过 motionThreshold，且有非零整数位移（各向不超过 maxShift）让残差均方根
+//         塌到零位移的 0.35 倍以下（整体平移的细纹理；稀疏脉冲凑巧对上的不算）。
+// 运动块连同外圈八块都不计。
+// shortcut: 单个像素的移动、亚像素慢移或旋转形变的细纹理既不成片也配不准，会读成噪声；要分开得另给运动真值掩码。
 export function noiseResidual(frames, opts = {}) {
-  const { roi, block = 8, motionThreshold } = options(opts, ['roi', 'block', 'motionThreshold']);
+  const { roi, block = 8, motionThreshold, maxShift = 6 } = options(opts, ['roi', 'block', 'motionThreshold', 'maxShift']);
   const list = sequence(frames, 2, 'noiseResidual');
   const r = region(list[0], roi), w = r.width, h = r.height;
   need(Number.isInteger(block) && block >= 4 && block <= Math.min(w, h), 'block 须为 4 到量测区域短边之间的整数');
+  need(Number.isInteger(maxShift) && maxShift >= 0, 'maxShift 须为非负整数');
   const floor = motionThreshold === undefined ? 2 / 255 * list[0].scale : number(motionThreshold, 'motionThreshold');
   const planes = list.map(f => lumaPlane(f, r));
   const cols = Math.floor(w / block), rows = Math.floor(h / block);
   // 末行末列不足一块的余数并进最后一块。
   const extent = (bx, by) => [bx * block, bx === cols - 1 ? w : (bx + 1) * block, by * block, by === rows - 1 ? h : (by + 1) * block];
   const d = new Float64Array(w * h), lap = new Float64Array(w * h), moving = new Uint8Array(cols * rows);
-  const scratch = new Float64Array((4 * block) ** 2);
   let sum = 0, count = 0, staticPixels = 0;
   for (let t = 1; t < planes.length; t++) {
-    for (let i = 0; i < d.length; i++) d[i] = planes[t][i] - planes[t - 1][i];
+    const cur = planes[t], prev = planes[t - 1];
+    for (let i = 0; i < d.length; i++) d[i] = cur[i] - prev[i];
     for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
       const i = y * w + x;
       lap[i] = 4 * d[i] - d[i - 1] - d[i + 1] - d[i - w] - d[i + w];
     }
     for (let by = 0; by < rows; by++) for (let bx = 0; bx < cols; bx++) {
-      const [x0, x1, y0, y1] = extent(bx, by);
-      let peak = 0, n = 0;
-      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) peak = Math.max(peak, Math.abs(d[y * w + x]));
-      for (let y = Math.max(1, y0 - block); y < Math.min(h - 1, y1 + block); y++) {
-        for (let x = Math.max(1, x0 - block); x < Math.min(w - 1, x1 + block); x++) scratch[n++] = Math.abs(lap[y * w + x]);
+      const box = extent(bx, by), [x0, x1, y0, y1] = box;
+      let peak = 0, energy = 0, across = 0, down = 0, changed = 0;
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+        const v = d[y * w + x], size = Math.abs(v);
+        if (size > peak) peak = size;
+        if (size > floor) changed++;
+        energy += v * v;
+        if (x + 1 < x1) across += v * d[y * w + x + 1];
+        if (y + 1 < y1) down += v * d[(y + 1) * w + x];
       }
-      const sigma = 1.4826 * median(scratch.subarray(0, n)) / Math.sqrt(20);
-      moving[by * cols + bx] = peak > Math.max(floor, 6 * sigma) ? 1 : 0;
+      moving[by * cols + bx] = peak > floor && (Math.max(Math.abs(across), Math.abs(down)) > COHERENT * energy ||
+        (changed >= DENSE * (x1 - x0) * (y1 - y0) && registers(cur, prev, w, h, box, maxShift, COLLAPSE * energy))) ? 1 : 0;
     }
     for (let by = 0; by < rows; by++) for (let bx = 0; bx < cols; bx++) {
       let still = true;
@@ -168,7 +199,7 @@ export function noiseResidual(frames, opts = {}) {
   return { metric: 'metric:noise.residual', value: count ? Math.sqrt(sum / count / 40) : null,
     unit: list[0].float ? 'linear' : 'code8', status: count ? 'ok' : 'no-static-region',
     staticRatio: staticPixels / totalPixels, staticPixels, totalPixels, pairs: planes.length - 1,
-    block, motionThreshold: floor };
+    block, motionThreshold: floor, maxShift };
 }
 
 const REACH = 6;
@@ -201,7 +232,9 @@ function wobble(L, i, along, across, tol) {
 // 锯齿度：强边缘像素（Sobel 幅值 / 4 不低于 edgeThreshold）上，逐行（近水平的边逐列）覆盖面积的二阶差分绝对值的平均，单位像素。
 // 盒滤波抗锯齿下直边、细杆每行的覆盖面积随行号线性变化，读数接近 0；点采样的阶梯读数约 2·min(s, 1 − s)，s 是每行的横移量。
 // 距量测区边缘不到 REACH + 1 像素的边缘不计；数值按输入原样量，不做色彩空间换算。
-// 闪烁（至少 3 帧）：任一帧里是强边缘的像素上，相邻两次帧间亮度变化反号时取较小的那次幅度，再取平均。
+// 闪烁（至少 3 帧）：细节区像素上，相邻两次帧间亮度变化反号时取较小的那次幅度，再取平均。
+// 细节区：任一帧里 Sobel 幅值 / 4、向右向下的单步差分、横纵二阶差分的最大值不低于 edgeThreshold 的像素；
+// 1 像素交替的条纹、棋盘在 Sobel 的隔一像素差分里正好抵消，靠后两项认。
 // shortcut: 正好 0°、45°、90° 的点采样阶梯每行面积等差，读不出锯齿；这类画面看 flicker 或换成比参考图。
 export function aliasEdge(input, opts = {}) {
   const { roi, edgeThreshold } = options(opts, ['roi', 'edgeThreshold']);
@@ -212,11 +245,15 @@ export function aliasEdge(input, opts = {}) {
   let sum = 0, edges = 0;
   for (const L of planes) {
     for (let y = REACH + 1; y < h - REACH - 1; y++) for (let x = REACH + 1; x < w - REACH - 1; x++) {
-      const i = y * w + x;
+      const i = y * w + x, c = L[i];
       const gx = L[i - w + 1] + 2 * L[i + 1] + L[i + w + 1] - L[i - w - 1] - 2 * L[i - 1] - L[i + w - 1];
       const gy = L[i + w - 1] + 2 * L[i + w] + L[i + w + 1] - L[i - w - 1] - 2 * L[i - w] - L[i - w + 1];
-      if (gx === 0 && gy === 0 || Math.hypot(gx, gy) / 4 < limit) continue;
+      const edge = Math.hypot(gx, gy) / 4;
+      const fine = Math.max(edge, Math.abs(L[i + 1] - c), Math.abs(L[i + w] - c),
+        Math.abs(2 * c - L[i - 1] - L[i + 1]), Math.abs(2 * c - L[i - w] - L[i + w]));
+      if (fine === 0 || fine < limit) continue;
       detail[i] = 1;
+      if (edge === 0 || edge < limit) continue;
       const step = Math.abs(gx) >= Math.abs(gy) ? wobble(L, i, 1, w, limit / 4) : wobble(L, i, w, 1, limit / 4);
       if (Number.isNaN(step)) continue;
       sum += step; edges++;
@@ -256,15 +293,17 @@ function palette(input, k, label) {
     return colorPalette({ width, height, rgba }, k).details.palette.map(({ rgb, share }) => ({ color: rgb, share, lab: srgbToLab(...rgb) }));
   }
   need(input.length > 0, `${label}色板不能为空`);
-  const colors = input.map(entry => {
+  const colors = Array.from(input, entry => {
     const item = Array.isArray(entry) ? { rgb: entry } : entry;
     need(item !== null && typeof item === 'object' && (item.rgb === undefined) !== (item.lab === undefined), `${label}色板的颜色须给 rgb 或 lab 之一`);
-    const { rgb, lab, share = 1 } = item, color = rgb ?? lab;
-    need(Array.isArray(color) && color.length === 3 && color.every(rgb ? c => Number.isInteger(c) && c >= 0 && c <= 255 : Number.isFinite),
-      `${label}色板的色值无效`);
-    return { color: [...color], share: number(share, 'share'), lab: lab ? [...lab] : srgbToLab(...rgb) };
+    const { rgb, lab, share = 1 } = item;
+    need(rgb ? triple(rgb, c => Number.isInteger(c) && c >= 0 && c <= 255) : triple(lab), `${label}色板的色值无效`);
+    return { color: [...(rgb ?? lab)], share: number(share, 'share'), lab: lab ? [...lab] : srgbToLab(...rgb) };
   });
-  need(colors.some(c => c.share > 0), `${label}色板的 share 不能全为 0`);
+  const top = colors.reduce((most, c) => Math.max(most, c.share), 0);
+  need(top > 0, `${label}色板的 share 不能全为 0`);
+  // share 只看比例，先除以最大的那个：极大的 share 直接求和、乘色差会溢出成 Infinity。
+  for (const c of colors) c.share /= top;
   return colors;
 }
 
@@ -315,7 +354,7 @@ export function shapeIou(a, b, opts = {}) {
   const o = options(opts, ['roi', 'threshold', 'id', 'background', 'tol', 'emptyValue']);
   const { roi, id, background, tol = 0, threshold, emptyValue = 1 } = o;
   need(id === undefined || Number.isInteger(id), 'id 须为整数');
-  need(background === undefined || (Array.isArray(background) && background.length === 3 && background.every(Number.isFinite)), 'background 须为三个有限数');
+  need(background === undefined || triple(background), 'background 须为三个有限数');
   number(tol, 'tol'); number(emptyValue, 'emptyValue', 0, 1);
   if (threshold !== undefined) number(threshold, 'threshold', -Infinity);
   need(a?.width === b?.width && a?.height === b?.height, '两边尺寸不一致');

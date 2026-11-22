@@ -32,32 +32,35 @@
 - 坐标原点在左上，`roi` 是画面内的整数像素框 `{ x, y, width, height }`。
 - 每个函数都返回 `{ metric, value, unit, ... }`，`metric` 是带 `metric:` 前缀的标准名，`value` 是判分用的主读数。
 - 不用随机数、不读时钟：同一输入重复读数逐位一致，噪声地板是 0。
-- 尺寸不一致、空帧、非有限数、越界 `roi`、未知选项一律抛 `RangeError`，`code` 是 `usage.bad-argument`。
+- 尺寸不一致、空帧、非有限数、越界 `roi`、未知选项一律抛 `RangeError`，`code` 是 `usage.bad-argument`。普通数组入参（帧序列、色板、色值三元组、`background`、外部掩码）逐索引校验，稀疏数组的空洞同样报错。
 - `ENERGY_METRICS` 是标准名（不带前缀）到函数的冻结登记表；`runEnergyMetric(name, ...args)` 带不带 `metric:` 前缀都认，未知名字同样抛 `usage.bad-argument`。
 
 ### `clipHighlightRatio(frame, { threshold?, roi?, alphaMask? })`
 
 - 任一色分量达到 `threshold`（闭区间）的像素占比。默认阈值：8 位 254，线性浮点 1（显示白）。
-- `alphaMask: true` 只数本帧 alpha 大于 0 的像素（帧须带 alpha）；也可以给与画面等大的单通道数组，大于 0 计入。计入像素为 0 时 `ratio` 是 0、`peakMax` 是 `null`。
+- `alphaMask: true` 只数本帧 alpha 大于 0 的像素（帧须带 alpha）；也可以给与画面等大的单通道数组（`Uint8Array` / `Uint8ClampedArray`、`Float32Array` / `Float64Array` 或普通数组），元素须为布尔或非负有限数，大于 0 计入；含 `NaN`、正负无穷、负数、空洞或其他类型时报 `usage.bad-argument`。计入像素为 0 时 `ratio` 是 0、`peakMax` 是 `null`。
 - 返回 `ratio`、`clippedPixels`、`totalPixels`、`peakMax`（最大分量的峰值）、`channelRatios`（红、绿、蓝各自的占比）、`threshold`，以及平顶斑块 `plateauPixels` / `plateauRatio`：最大分量等于全区峰值、且四邻域里有同伴的像素；峰值不到阈值一半时不算。HDR 帧被硬削到某个高于阈值的上限时，削顶面积看 `plateauRatio`。
 
-### `noiseResidual(frames, { roi?, block?, motionThreshold? })`
+### `noiseResidual(frames, { roi?, block?, motionThreshold?, maxShift? })`
 
-- 至少 2 帧，各帧尺寸、通道数、数值类型须一致。相邻帧亮度差 `d` 的四邻域拉普拉斯在静止块上的均方根，除以 `√40` 折算成等效的单帧白噪声标准差（两帧相减方差翻倍，拉普拉斯核平方和 20）。
-- 静止块（边长 `block`，默认 8，取值 4 到量测区短边）：本块 `max|d|` 不超过 `max(motionThreshold, 6σ)`，且外圈八块也都满足。`motionThreshold` 默认 8 位 2 级、线性 `2/255`；`σ` 取本块连同外圈一块范围内 `|拉普拉斯|` 的中位数 × 1.4826 / `√20`，只看高频，成片的亮度变化抬不高它。
-- 返回 `value`（没有静止像素时是 `null`，不出 `NaN`）、`status`（`ok` 或 `no-static-region`）、`staticRatio`、`staticPixels`、`totalPixels`、`pairs`。
-- 局限：细于 2 像素的纹理整体位移和噪声在两帧里分不开，会读成噪声。
+- 至少 2 帧，各帧尺寸、通道数、数值类型须一致。相邻帧亮度差 `d` 的四邻域拉普拉斯在静止块上的均方根，除以 `√40` 折算成等效的单帧白噪声标准差（两帧相减方差翻倍，拉普拉斯核平方和 20；这个折算只要求噪声逐像素独立，不要求高斯）。
+- 画面按边长 `block`（默认 8，取值 4 到量测区短边）分块。块内 `max|d|` 不超过 `motionThreshold`（默认 8 位 2 级、线性 `2/255`）的直接算静止；超过的，满足下面任一条才是运动块：
+  1. 成片：块内横向或纵向相邻像素的 `d` 乘积和，绝对值超过 `Σd²` 的 0.6 倍。移动的边、平移的条纹、整块亮度跳变都落在这里；全画幅切换或曝光阶跃时每一块都成片，结果是 `no-static-region`。
+  2. 配准：块内至少四分之一像素的 `|d|` 超过 `motionThreshold`，且存在非零整数位移（横纵各不超过 `maxShift`，默认 6 像素，给 0 关掉；只试源块整个落在量测区内的位移）让上一帧对到本帧后的残差均方根不超过零位移时的 0.35 倍。整体平移的细纹理（帧间差本身像白噪声）靠这一条认；「四分之一」这道门是防稀疏脉冲凑巧对上。
+- 两条都不满足的块是静止区的随机噪声，留在静止区里计数：高斯噪声逐像素独立，不成片也配不准；稀疏的散粒、泊松脉冲同理。运动块连同外圈八块都不计。
+- 返回 `value`（没有静止像素时是 `null`，不出 `NaN`）、`status`（`ok` 或 `no-static-region`）、`staticRatio`、`staticPixels`、`totalPixels`、`pairs`、`block`、`motionThreshold`、`maxShift`。
+- 局限：单个像素的移动、亚像素慢移或旋转形变的细纹理既不成片也配不准，会读成噪声；位移超过 `maxShift` 的细纹理同理。`block` 取 4 时样本少，密的散粒噪声会有一部分块被误判成运动，`staticRatio` 下降，读数仍在真值附近。
 
 ### `aliasEdge(frame | frames, { roi?, edgeThreshold? })`
 
 - 锯齿度 `jaggedness`（单位像素）：强边缘像素（Sobel 幅值 / 4 不低于 `edgeThreshold`，默认 8 位 32 级、线性 `32/255`）上，沿边缘方向取窗，逐行（近水平的边逐列）覆盖面积的二阶差分绝对值除以窗内极差，再取平均。盒滤波抗锯齿下直边、细杆每行的覆盖面积随行号线性变化，读数接近 0；点采样的阶梯读数约 `2·min(s, 1 − s)`，`s` 是每行的横移量。
 - 窗的半宽从 1 加到 6，取第一个两端平坦的；距量测区边缘不到 7 像素的边缘不计。没有可量的边缘时 `value` 是 0、`status` 是 `no-edges`。
-- 闪烁 `flicker`（给 3 帧及以上才算，否则 `null`）：任一帧里是强边缘的像素上，相邻两次帧间亮度变化反号时取较小的那次幅度，再对像素和帧取平均，量纲见 `flickerUnit`。
+- 闪烁 `flicker`（给 3 帧及以上才算，否则 `null`）：细节区像素上，相邻两次帧间亮度变化反号时取较小的那次幅度，再对像素和帧取平均，量纲见 `flickerUnit`。细节区是任一帧里下面三项的最大值不低于 `edgeThreshold` 的像素：Sobel 幅值 / 4、向右与向下的单步差分 `|L(x+1,y) − L(x,y)|`、`|L(x,y+1) − L(x,y)|`、横纵二阶差分 `|2L(x,y) − L(x−1,y) − L(x+1,y)|`（纵向同理）。1 像素交替的条纹、棋盘周期是 2 像素，Sobel 的隔一像素差分正好抵消，靠后两项认；锯齿度仍只在 Sobel 强边缘上量，这类画面 `status` 是 `no-edges` 而 `detailPixels`、`flicker` 有读数。
 - 局限：正好 0°、45°、90° 的点采样阶梯每行面积等差，读不出锯齿；这类画面看 `flicker`，或用 `compare` 对参考图。
 
 ### `colorPaletteDe00(candidate, reference, { k? })`
 
-- 两边各自可以是帧（用 `colorPalette` 取前 `k` 个主色，默认 6；线性浮点帧先截到 0 到 1 再按 sRGB 编成 8 位）或色板数组，元素是 `[r, g, b]`、`{ rgb, share? }` 或 `{ lab, share? }`。
+- 两边各自可以是帧（用 `colorPalette` 取前 `k` 个主色，默认 6；线性浮点帧先截到 0 到 1 再按 sRGB 编成 8 位）或色板数组，元素是 `[r, g, b]`、`{ rgb, share? }` 或 `{ lab, share? }`。色值三个分量须都是数（`rgb` 是 0 到 255 的整数，`lab` 是有限数）。`share` 是非负有限数，只看比例：先除以色板里最大的 `share` 再加权，`1e308` 这样的权重不会溢出。
 - 色差是 `tools/eval/lib/metrics.mjs` 的 CIEDE2000（sRGB → 线性 → D65 XYZ → Lab，含旋转项与彩度修正）。匹配是双向最近色，不强制一一对应。
 - 顶层 `meanDe00`、`maxDe00`、`weightedDe00`（按 `share` 归一加权）与 `pairs` 是候选的每个主色到参考色板最近色；`reverse` 是参考到候选的同一组数。`value` 取两个方向平均色差里大的那个：多出色板外的主色、或缺了参考里的色，都会抬高它。
 
