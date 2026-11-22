@@ -11,12 +11,12 @@
      ?probe=id-callback（不用带 corrupt）加一个物体，它的 onBeforeRender 只在换上 ID 材质时调真实的 inject 去找一个没有的锚点：
        ID 图不能把这个错吞掉。
      ?patch=<模块地址> probe 用的 inject 改从这个地址导入（默认 /engine/shade/patch.js）。地址带 #片段、或是同一个文件的另一种写法
-       （patch%2Ejs）时，浏览器另起一个模块实例，错记在那个实例里：渲染器照样要读到。?patch=blob 把 patch.js 的原文装进一个 blob: 地址再导入。
+       （patch%2Ejs）时，浏览器另起一个模块实例，错记在那个实例里。blob / data 导入原文；frame-blob / frame-other 用同源 iframe 为原文或等长异文创建地址，主文档导入后注销。
      ?pars=<block | line | dead | hide-splice | hide-unroll | off | dead-only> 材质的片元参数（fragmentPars）里先提到投影块的 #include：block 写在块注释里、
        line 写在行注释里、dead 写在预处理死分支里（补丁照样要落在原来那一条上，出的图与不带参数时一样）；
        hide-splice / hide-unroll 在死分支里把片元补丁要找的几处原文全写一遍，再把后面原来的那几处盖住（前者用一段带行续接的合法注释
        「/* *\换行/」，后者把「/*」放进 three 会整段删掉的 0 次循环里）：补丁不能落进死分支，要么构建失败、要么图与正常帧相同；
-       off 把生效的投影锚点注释掉。dead-only 把唯一锚点放进 #if 0，带 expr=1 时条件为 (0x0 || 0)。#else 中展开原始投影块，两种死分支都应使构建失败。
+       off 注释掉生效的投影锚点。dead-only 用 expr 选择锚点所在的死分支（0、1、comment、endif）或零次循环（unroll），生效路径展开原始投影块。
      ?junk=1 赶在 patch.js 之前往渲染器的登记口塞只回空消息的读出口（直接塞函数、塞一个自造模块的地址）：挡不住后面真的补丁错。
      ?csp=1 页面给自己加一条 CSP（connect-src 'none'，在取好 ?patch=blob 的原文之后）：页面里取不到任何地址的源码，patch.js 换个地址
        （#片段、//patch.js、blob:）另起的实例记的错照样要读到（渲染器在自己这边按响应内容认模块）。
@@ -48,14 +48,24 @@ const FAKE = { fn: 'inject', anchor: '#include <color_fragment>', message: '[BEI
 const fakeCode = recs => `export const inject = { patchErrors: () => ${JSON.stringify(recs)} };`;
 const fakeModule = recs => 'data:text/javascript,' + encodeURIComponent(fakeCode(recs));
 let patchUrl = q.get('patch') ?? '/engine/shade/patch.js';
-if (patchUrl === 'blob' || patchUrl === 'data') {
+const inFrame = patchUrl === 'frame-blob' || patchUrl === 'frame-other';
+if (inFrame || patchUrl === 'blob' || patchUrl === 'data') {
   const source = await (await fetch('/engine/shade/patch.js')).text();
-  patchUrl = patchUrl === 'blob' ? URL.createObjectURL(new Blob([source], { type: 'text/javascript' })) : 'data:text/javascript,' + encodeURIComponent(source);
+  let creator = URL, body = source;
+  if (inFrame) {
+    const frame = document.createElement('iframe');
+    frame.hidden = true;
+    document.body.appendChild(frame);
+    creator = frame.contentWindow.URL;
+    if (patchUrl === 'frame-other') body = fakeCode([FAKE]).padEnd(new TextEncoder().encode(source).length);
+  }
+  patchUrl = patchUrl === 'data' ? 'data:text/javascript,' + encodeURIComponent(body) : creator.createObjectURL(new Blob([body], { type: 'text/javascript' }));
 }
 if (q.get('csp')) document.head.append(Object.assign(document.createElement('meta'), { httpEquiv: 'Content-Security-Policy', content: "connect-src 'none'" }));
 if (q.get('junk')) { sink?.register(() => [{ message: '' }]); sink?.register(() => [{ message: '' }], location.href); sink?.register(fakeModule([{ message: '' }])); }
 const { inject } = await import(patchUrl);
-if (q.get('patch') === 'blob') URL.revokeObjectURL(patchUrl);
+if (q.get('patch') === 'frame-other') sink?.register(patchUrl);
+if (patchUrl.startsWith('blob:')) URL.revokeObjectURL(patchUrl);
 const W = innerWidth, H = innerHeight;
 if (q.get('mute')) console.error = () => {};
 if (q.get('forge')) (globalThis[Symbol.for('beiming.shaderPatchErrors')] ??= []).push({ fn: 'inject', anchor: '#include <color_fragment>', message: '[BEIMING_SHADER_PATCH_ERROR] QA synthetic, no shader call' });
@@ -70,8 +80,10 @@ const FAKES = `#if 0\n${INC}\n#include <color_fragment>\n#include <normal_fragme
 const PARS = { block: `/* ${INC} */\n`, line: `// ${INC}\n`, dead: `#if 0\n${INC}\n#endif\n`, 'hide-splice': FAKES + '/* *\\\n/\n',
   'hide-unroll': FAKES + '#pragma unroll_loop_start\nfor ( int i = 0; i < 0; i ++ ) {\n/*\n}\n#pragma unroll_loop_end\n' }[q.get('pars')];
 if (q.get('pars') === 'dead-only') {
-  const condition = q.get('expr') === '1' ? '(0x0 || 0)' : '0';
-  THREE.ShaderLib.toon.fragmentShader = THREE.ShaderLib.toon.fragmentShader.replace(INC, () => `#if ${condition}\n${INC}\n#else\n${THREE.ShaderChunk.shadowmap_pars_fragment}\n#endif`);
+  const expr = q.get('expr'), chunk = THREE.ShaderChunk.shadowmap_pars_fragment;
+  const condition = { '1': '(0x0 || 0)', comment: '1 /*\n*/ && 0', endif: '0\nfloat bmX; /*\n*/ #endif' }[expr] ?? '0';
+  const replacement = expr === 'unroll' ? `#pragma unroll_loop_start\nfor ( int i = 0; i < 0; i ++ ) {\n${INC}\n}\n#pragma unroll_loop_end\n${chunk}` : `#if ${condition}\n${INC}\n#else\n${chunk}\n#endif`;
+  THREE.ShaderLib.toon.fragmentShader = THREE.ShaderLib.toon.fragmentShader.replace(INC, () => replacement);
 }
 if (q.get('pars') === 'off') THREE.ShaderLib.toon.fragmentShader = THREE.ShaderLib.toon.fragmentShader.replace(INC, '// ' + INC);
 const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });

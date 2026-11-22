@@ -24,7 +24,7 @@
 // console.error 里带前缀的只是线索，page.mjs 当场去读上面的记录，记录里没有就不判（页面自己打一行带前缀的字不算）。
 // 都判 failure.shader-error（退出码 1），这一帧不留图。--allow-gl-errors 不放行：它是调试时带着 GLSL 编译错误先出图用的；
 // 补丁没命中出的是「没打补丁的着色器」，画面错了却没有任何编译错误。
-// shortcut: 只读主文档的模块实例，在 iframe / Worker 里加载的 patch.js 读不到；页面渲染器的出片页都在主文档里建材质，真有 iframe / Worker 出片时给它们加同样的读法。
+// shortcut: 主文档可核验同源 iframe 创建的 Blob 地址；跨源 frame 或 Worker 创建的地址未登记。若出片依赖这些地址或在子上下文中执行模块，需接入对应上下文。
 // shortcut: 不防页面改写运行环境：内建原型（Array.prototype.push 之类，patch.js 自己记录也靠它）、静态方法与全局（Promise.allSettled、URL…）；要防得把记录与读法挪出页面的执行环境。
 // shortcut: 不防页面用 import map 把某个 patch.js 地址改指到别的模块：同样的手法能把引擎的 patch.js 整个换成不抛错的，页面里怎么读都拦不住。
 // shortcut: 作品自己在一个路径以 /shade/patch.js 结尾的地址上放一个模块并加载它，等于自称是引擎的 patch.js：它报的带机器前缀的记录照认（① 的口径，
@@ -66,11 +66,17 @@ export function patchSink({ secret, source }) {
   const { apply } = Reflect, create = URL.createObjectURL, text = Blob.prototype.text;
   const size = Object.getOwnPropertyDescriptor(Blob.prototype, 'size').get;
   const sourceSize = source === null ? -1 : new TextEncoder().encode(source).length;
+  let topSink;
+  try { topSink = globalThis.top?.__bmShadePatchSink; } catch { /* 跨源顶层窗口不可访问。 */ }
   URL.createObjectURL = function (obj) {
     const url = apply(create, this, arguments);
     try {
       // 只读与源码等长的 Blob，只保留核验结果。立即注销地址也不影响已开始的内存读取。
-      if (apply(size, obj, []) === sourceSize) blobs.set(url, apply(text, obj, []).then(body => body === source, () => false));
+      if (apply(size, obj, []) === sourceSize) {
+        const matches = apply(text, obj, []).then(body => body === source, () => false);
+        blobs.set(url, matches);
+        topSink?.recordBlob(secret, url, matches);
+      }
     } catch { /* MediaSource 等非 Blob 对象也可创建地址。 */ }
     return url;
   };
@@ -89,6 +95,7 @@ export function patchSink({ secret, source }) {
     } catch { return false; }
   }
   Object.defineProperty(globalThis, '__bmShadePatchSink', { value: Object.freeze({   // defineProperty 默认不可写、不可重配、不可枚举
+    recordBlob(key, url, matches) { if (key === secret) blobs.set(url, matches); },
     register(url) { if (typeof url === 'string' && !seen.has(url)) seen.set(url, genuine(url)); },
     read: async key => key === secret ? Promise.all([...seen].map(async ([url, genuine]) => ({ url, genuine: await genuine }))) : [],
   }) });

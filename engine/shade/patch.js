@@ -106,8 +106,12 @@ function activeAnchors(src, anchor) {
   const inc = /^#include <([\w./]+)>$/.exec(anchor), dead = [];
   const masked = src.replace(COMMENT, (comment, start) => {
     dead.push([start, start + comment.length]);
-    return comment.replace(/\\(?:\r\n|[\r\n])|[^\r\n]/g, c => c.length > 1 ? c : ' ');
+    return ' '.repeat(comment.length);   // 注释整体是空白，内部换行不结束预处理指令；等宽遮盖保留原文偏移。
   });
+  // three 展开循环时可能删除或复制整个循环体，补丁只认区间外的锚点。
+  for (const block of masked.matchAll(/#pragma\s+unroll_loop_start\b[\s\S]*?(?:#pragma\s+unroll_loop_end\b|$)/g)) {
+    dead.push([block.index, block.index + block[0].length]);
+  }
   const uncertain = [];
   preprocessorSpans(masked, dead, uncertain);
   const within = (spans, index) => spans.some(([a, b]) => a <= index && index < b);

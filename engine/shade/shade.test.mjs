@@ -193,6 +193,18 @@ test('FX22 原始着色器的常量死分支里有唯一投影锚点时抛错，
   ]) assert.equal(inject(before + inc + after, inc, 'X', 'replace'), before + 'X' + after);
 });
 
+test('FX22 跨行块注释保留逻辑行，three 展开循环内的锚点不能用于补丁', () => {
+  const inc = '#include <shadowmap_pars_fragment>', put = src => inject(src, inc, 'X', 'replace');
+  const loop = `#pragma unroll_loop_start\nfor ( int i = 0; i < 0; i ++ ) {\n${inc}\n}\n#pragma unroll_loop_end`;
+  for (const disabled of [`#if 1 /*\n*/ && 0\n${inc}\n#endif`, `#if 0\nfloat bmX; /*\r\n*/ #endif\n${inc}\n#endif`, loop]) {
+    assert.throws(() => put(disabled), { name: 'ShaderPatchError' }, disabled);
+    assert.equal(put(`${disabled}\n${inc}`), `${disabled}\nX`);
+  }
+  assert.throws(() => put(`#pragma unroll_loop_start\n${inc}`), { name: 'ShaderPatchError' });
+  const enabled = '#if 0 /*\n*/ || 1\n';
+  assert.equal(put(`${enabled}${inc}\n#endif`), `${enabled}X\n#endif`);
+});
+
 test('FX22 唯一命中也要证明分支生效：常量表达式、未知宏及其后续分支', () => {
   const inc = '#include <common>', put = src => inject(src, inc, 'X', 'replace');
   for (const condition of ['(0)', '0 || 0', '0x0', '!(1 && (0 || 1))']) {

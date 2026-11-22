@@ -333,6 +333,8 @@ test('FX22-2b 登记口：同一个 patch.js 带上 #片段 导入是另一个�
   const unloaded = ['http://127.0.0.1:1/copy/shade/patch.js#alias', new URL('./no-such/shade/patch.js', import.meta.url).href, '不是地址'];
   URL.revokeObjectURL(gone);
   URL.revokeObjectURL(revokedSource);
+  sink.recordBlob('wrong', unknown, true);
+  sink.recordBlob('wrong', revokedSource, false);
   globalThis.fetch = async () => new Response(source);
   try {
     for (const args of [[() => [FAKE]], [() => [FAKE], frag], [null], [here + '#s6-forge'], ...[...fakes, ...genuine, ...unloaded].map(u => [u])]) sink.register(...args);
@@ -440,13 +442,18 @@ test('FX22-6 原始投影锚点与 CSP 正文核验，两版在单采样和四�
   try {
     for (const rev of [170, 187]) for (const samples of [1, 4]) {
       const render = (name, query) => still(`${rev}-${samples}-${name}`, `three=${rev}&${query}`, '--samples', String(samples));
-      for (const suffix of ['', '&expr=1']) await t.test(`r${rev} ×${samples} 唯一锚点在死分支${suffix}`, () => {
-        const miss = render(suffix ? 'dead-expr' : 'dead', 'pars=dead-only&when=swallow&mute=1' + suffix);
+      for (const expr of ['0', '1', 'comment', 'endif', 'unroll']) await t.test(`r${rev} ×${samples} 唯一锚点在死分支 ${expr}`, () => {
+        const miss = render(`dead-${expr}`, `pars=dead-only&when=swallow&mute=1&expr=${expr}`);
         assert.deepEqual([miss.status, miss.png], [1, false], miss.stderr);
         assert.match(miss.stderr, /错误\[failure\.shader-error\]：.*着色器锚点缺失「#include <shadowmap_pars_fragment>」/);
       });
+      await t.test(`r${rev} ×${samples} CSP 下主文档导入同源 iframe 创建的补丁`, () => {
+        const miss = render('frame-blob', 'csp=1&patch=frame-blob&probe=id-callback&when=swallow&mute=1');
+        assert.deepEqual([miss.status, miss.png], [1, false], miss.stderr);
+        assert.match(miss.stderr, /错误\[failure\.shader-error\]：.*s6-id-callback：着色器锚点缺失「#include <color_fragment>」/);
+      });
       await t.test(`r${rev} ×${samples} CSP 下的健康页`, () => {
-        const clean = render('clean', ''), forge = render('forge', 'csp=1&forge=1');
+        const clean = render('clean', ''), forge = render('forge', 'csp=1&forge=1&patch=frame-other');
         assert.deepEqual([clean.status, clean.png], [0, true], clean.stderr);
         assert.deepEqual([forge.status, forge.png], [0, true], forge.stderr);
         assert.ok(fs.readFileSync(clean.file).equals(fs.readFileSync(forge.file)), '与同版本、同采样的正常 PNG 逐字节相等');
