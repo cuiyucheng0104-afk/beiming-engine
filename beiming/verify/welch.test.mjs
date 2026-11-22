@@ -706,10 +706,10 @@ test('V18-21 G_REV-R11 块内精确展开求和不吞 [-2^54, 2^54, 100 vs 101] 
     assert.equal(rHL.pass, true);
   }
 
-  // 3) 块均值只取决于块的精确和：多重集不同而精确和舍入后相等的两块均值逐位相等（半数加同号余量按精确和舍入，不按最近偶数）
+  // 3) 4 像素尾块（除数 4=2^2）：半 ULP 加同号余量按精确商最近偶数舍入后均为 2251799813685248.5，相等
   const row = (...values) => ({ width: values.length, height: 1, channels: 1, data: new Float64Array(values) });
   const twice = frame => [frame, frame];
-  const sameSum = verify.welchTest(twice(row(2 ** 53, 1, Number.MIN_VALUE)), twice(row(2 ** 53, 2, 0)), { blockSize: 8 });
+  const sameSum = verify.welchTest(twice(row(2 ** 53, 1, Number.MIN_VALUE, 0)), twice(row(2 ** 53, 2, 0, 0)), { blockSize: 8 });
   assert.equal(sameSum.testedUnits, 0);
   assert.equal(sameSum.biasMap[0], 0);
 
@@ -737,4 +737,52 @@ test('V18-21 G_REV-R11 块内精确展开求和不吞 [-2^54, 2^54, 100 vs 101] 
     assert.equal(r.pMap[0], orders[0].pMap[0]);
     assert.equal(r.biasMap[0], 2 ** -52);
   }
+});
+
+test('V18-22: 尾块均值与次正规 biasMap 对精确商单次最近偶数舍入，且 M6/M7 样本正逆序逐位相等', () => {
+  const row32 = (...values) => ({ width: values.length, height: 1, channels: 1, data: new Float32Array(values) });
+  const row64 = (...values) => ({ width: values.length, height: 1, channels: 1, data: new Float64Array(values) });
+  const twice = frame => [frame, frame];
+  const u = 2 ** -52;
+
+  // 1) 3×1 Float32 尾块（除数 3）：精确均值分别为 1.75+2u 与 1.75+3u，偏差 -2^-52
+  const tail3 = verify.welchTest(twice(row32(5.25, 6 * u, 0)), twice(row32(5.25, 9 * u, 0)), { blockSize: 8 });
+  assert.equal(tail3.testedUnits, 1);
+  assert.equal(tail3.biasMap[0], -u);
+  assert.equal(tail3.pMap[0], 0);
+  assert.equal(tail3.pass, false);
+
+  // 2) 5×1 Float64 极大值尾块（除数 5）：MAX_VALUE 对其前驱 MAX_VALUE - 2^971，偏差 +2^971
+  const hiMax = Number.MAX_VALUE;
+  const loMax = Number.MAX_VALUE - 2 ** 971;
+  const tail5 = verify.welchTest(twice(row64(hiMax, hiMax, hiMax, hiMax, hiMax)), twice(row64(loMax, loMax, loMax, loMax, loMax)), { blockSize: 8 });
+  assert.equal(tail5.testedUnits, 1);
+  assert.equal(tail5.biasMap[0], 2 ** 971);
+  assert.equal(tail5.pMap[0], 0);
+  assert.equal(tail5.pass, false);
+
+  // 3) K=8 次正规 biasMap：(2^53 + 5)*MIN_VALUE / 8 按最近偶数舍入为 (2^50 + 1)*MIN_VALUE
+  const m = Number.MIN_VALUE;
+  const px64 = v => ({ width: 1, height: 1, channels: 1, data: new Float64Array([v]) });
+  const subBias = verify.welchTest(
+    [2 ** -1021, 5 * m, 0, 0, 0, 0, 0, 0].map(px64),
+    [0, 0, 0, 0, 0, 0, 0, 0].map(px64)
+  );
+  assert.equal(subBias.biasMap[0], (2 ** 50 + 1) * m);
+
+  // 4) M6 与 M7 固定 Float32 样本：正序与逆序的 pMap[0]、qMap[0]、biasMap[0] 逐位相等
+  const px32 = v => ({ width: 1, height: 1, channels: 1, data: new Float32Array([v]) });
+  const m6A = [0.125, 2 ** -24, 1.5, 4, 13].map(px32);
+  const m6B = [2 ** -54, 2 ** -54, 2 ** -54, 2 ** -54, 2 ** -54].map(px32);
+  const m6Fwd = verify.welchTest(m6A, m6B);
+  const m6Rev = verify.welchTest([...m6A].reverse(), [...m6B].reverse());
+  assert.equal(m6Fwd.pMap[0], m6Rev.pMap[0]);
+  assert.equal(m6Fwd.qMap[0], m6Rev.qMap[0]);
+
+  const m7A = [0.125, 0.125, 3, 2 ** -52, 2 ** -64, 2 ** -52].map(px32);
+  const m7B = [7, 2 ** -64, 3, 7, 2 ** -64, 2].map(px32);
+  const m7Fwd = verify.welchTest(m7A, m7B);
+  const m7Rev = verify.welchTest([...m7A].reverse(), [...m7B].reverse());
+  assert.equal(m7Fwd.pMap[0], m7Rev.pMap[0]);
+  assert.equal(m7Fwd.qMap[0], m7Rev.qMap[0]);
 });

@@ -202,25 +202,30 @@ function toBig(v) {
   return bits >> 63n ? -magnitude : magnitude;
 }
 
-// n 个数大到顺序和会溢出时的慢路径：BigInt 精确求和，再舍入一次成 53 位。和可表示时与 exactSum(values, n) / divisor 逐位相同；
-// 和本身超出双精度范围时先除再还原量级，商仍超出就是 ±Infinity。
+// 精确和除以 divisor 的商，按最近偶数只舍入一次。BigInt 把和写成 2^-1074 的整数倍，取 s 使它除以 divisor·2^s 的商不超过 53 位
+// （商落在次正规区时 s = 0，末位就是 2^-1074），按余数舍入，再乘回 2^(s-1074)：这一步只移指数，超出双精度范围就是 ±Infinity。
 function bigMean(values, n, divisor) {
   let sum = 0n;
   for (let i = 0; i < n; i++) sum += toBig(values[i]);
   const magnitude = sum < 0n ? -sum : sum;
-  // 只留最高 64 位；丢掉的低位不全为 0 就在末位留 1（粘滞位），Number() 按最近偶数舍入成 53 位时才不会把非半数当成半数。
-  const shift = BigInt(Math.max(0, magnitude.toString(2).length - 64));
-  let top = magnitude >> shift;
-  if (top << shift !== magnitude) top |= 1n;
-  const rounded = sum < 0n ? -Number(top) : Number(top);
-  const e = Number(shift) - 1074;
-  const total = scale2(rounded, e);
-  return Number.isFinite(total) ? total / divisor : scale2(rounded / divisor, e);
+  const d = BigInt(divisor);
+  let s = BigInt(Math.max(0, magnitude.toString(2).length - d.toString(2).length - 53));
+  if (magnitude >= d << (53n + s)) s += 1n;
+  const denominator = d << s;
+  let q = magnitude / denominator;
+  const twice = (magnitude % denominator) << 1n;
+  if (twice > denominator || (twice === denominator && (q & 1n) === 1n)) q += 1n;
+  const result = scale2(Number(q), Number(s) - 1074);
+  return sum < 0n ? -result : result;
 }
 
-// 精确和除以 divisor：maxAbs 是这 n 个数的最大绝对值。
-const exactMean = (values, n, maxAbs, divisor) => (
-  maxAbs * n < SAFE_SUM ? exactSum(values, n) / divisor : bigMean(values, n, divisor));
+// 精确和除以 divisor 的商，只舍入一次。sum 是 exactSum 对这 n 个数的结果（和会溢出、算不了时传 NaN）。
+// 先把和舍入成 53 位再除是舍入两次：除数是 3、5（尾块、非 2 的幂的 K）或商落进次正规区时会差 1 个末位，把本来不等的均值并成相等。
+// 只有除以 2 的幂且商是正规数时除法才只减指数，其余走 BigInt。和为 0 时精确和就是 0，商也是 0。
+function exactQuotient(sum, values, n, divisor) {
+  const shiftOnly = POW2[1074 + Math.round(Math.log2(divisor))] === divisor && Math.abs(sum) >= divisor * POW2[53];
+  return sum === 0 || shiftOnly ? sum / divisor : bigMean(values, n, divisor);
+}
 
 // 把一个样本（帧对象、readExr 的返回、EXR 字节或路径）取成标量平面，再按块求均值。
 function loadPlane(sample, channel, blockSize) {
@@ -296,9 +301,10 @@ function loadPlane(sample, channel, blockSize) {
           maxAbs = Math.max(maxAbs, Math.abs(v));
         }
       }
-      // 块均值 = 块内像素的精确和（舍入一次）再除以像素数：同一批像素怎么排列都逐位相同，
-      // 精确和相等的两块均值相等，[-2^54, 2^54, 100] 这种大数相消后剩下的 100 也不丢。
-      values[by * gw + bx] = count === 1 ? block[0] : exactMean(block, count, maxAbs, count);
+      // 块均值 = 块内像素的精确和除以像素数，只舍入一次：同一批像素怎么排列都逐位相同，
+      // [-2^54, 2^54, 100] 这种大数相消后剩下的 100 也不丢，3、5 个像素的尾块也不多舍一次。
+      values[by * gw + bx] = count === 1 ? block[0]
+        : exactQuotient(maxAbs * count < SAFE_SUM ? exactSum(block, count) : NaN, block, count, count);
     }
   }
   return { width, height, gw, gh, values, components: weights.length };
@@ -380,7 +386,7 @@ export function welchTest(groupA, groupB, options = {}) {
       samples[k + i] = -planesB[i].values[j];
       maxAbs = Math.max(maxAbs, Math.abs(samples[i]), Math.abs(samples[k + i]));
     }
-    // A 减 B 的均值差 = 2K 个带符号样本的精确和除以 K：两边共有的大数精确相消，不吞真实偏差，也与种子次序无关。
+    // A 减 B 的均值差 = 2K 个带符号样本的精确和除以 K，只舍入一次：两边共有的大数精确相消，不吞真实偏差，也与种子次序无关。
     // 样本贴近双精度上限、2K 个相加会溢出时，偏差走 BigInt（不可表示就是 ±Infinity），检验用的样本先右移几位：
     // 这时丢的只是与 1e300 量级样本同处一个单元的次正规数低位，对 t 的影响不到 2^-1900。
     const guard = maxAbs * 2 * k < SAFE_SUM ? 0 : guardBits;
@@ -389,7 +395,7 @@ export function welchTest(groupA, groupB, options = {}) {
       for (let i = 0; i < 2 * k; i++) samples[i] = scale2(samples[i], -guard);
     }
     const sum = exactSum(samples, 2 * k);
-    if (!guard) biasMap[j] = sum / k;
+    if (!guard) biasMap[j] = exactQuotient(sum, samples, 2 * k, k);
     // 每组减去组内最小值，样本变成非负的离差（两个相近的数相减没有舍入）。离差全为 0 才是零方差：
     // Welford 这类边读边更新的算法会把 1 与 1 + 2^-52 的中点舍到端点上，算出假的零方差，结果还随种子次序变。
     const spreads = [0, k].map(start => {
