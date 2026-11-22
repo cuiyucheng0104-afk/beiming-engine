@@ -61,6 +61,7 @@ export function createDebugView({ THREE, TSL }, { width: W, height: H, depthText
     U.mode.value = code;
     U.scale.value = mode === 'bloom' ? 4 : 1;
     tColor.value = (code === 2 ? black : (known ? buffers[mode] : buffers.kuwahara)) || black;
+    tDepth.value = buffers.depth || depthTexture;
   }
 
   return { node, update, dispose() { black.dispose(); } };

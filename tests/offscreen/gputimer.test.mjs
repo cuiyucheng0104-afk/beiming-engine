@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { spansFrom, markGpu, attachGpuTimer, detachGpuTimer, createGpuTimer } from '../../engine/offscreen/gputimer.mjs';
+import { spansFrom, markGpu, markGpuZero, attachGpuTimer, detachGpuTimer, createGpuTimer } from '../../engine/offscreen/gputimer.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const FILM = `${ROOT}films/chendu/offscreen.mjs`;
@@ -33,6 +33,18 @@ test('markGpu：渲染器没挂计时器时什么也不做；挂上后按顺序�
   detachGpuTimer(renderer);
   markGpu(renderer, 'compose');
   assert.deepEqual(seen, ['scene', 'kuwahara']);
+});
+
+test('markGpuZero：未挂计时器或自定义计时器未实现 zero 时静默兼容；实现 zero 时正确转调', () => {
+  const renderer = {}, zeros = [];
+  markGpuZero(renderer, 'scene');
+  attachGpuTimer(renderer, { mark() {} });   // 只实现 mark 的自定义计时器
+  assert.doesNotThrow(() => markGpuZero(renderer, 'ink:ids'));
+  attachGpuTimer(renderer, { mark() {}, zero: l => zeros.push(l) });
+  markGpuZero(renderer, 'scene'); markGpuZero(renderer, 'ink:ids');
+  detachGpuTimer(renderer);
+  markGpuZero(renderer, 'compose');
+  assert.deepEqual(zeros, ['scene', 'ink:ids']);
 });
 
 test('createGpuTimer：设备没有 timestamp-query 时返回 null（调用方据此报环境错误）', () => {

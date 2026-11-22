@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import fs, { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { test } from 'node:test';
 import * as jobs from './index.mjs';
+import { withFileLock } from './ledger.mjs';
 
 const api = new URL('./index.mjs', import.meta.url).href;
 const zeroTiers = { fable: 0, opus: 0, sonnet: 0, haiku: 0, other: 0 };
@@ -511,6 +513,184 @@ test('A15-12 跨进程并发追加：4 个进程各 30 笔得到 120 个连续�
   assert.equal(existsSync(`${file}.lock`), true);
   rmSync(`${file}.lock`);
   assert.equal(jobs.readJobLedger(file).length, 120);
+});
+
+test('R1 工作区顶层 cache/ 不入账，素材目录下的 cache/ 仍入账', t => {
+  const dir = tempDir(t, 'cache-cost');
+  const ws = join(dir, 'ws');
+  for (const sub of ['cache/final', 'shots/cache']) mkdirSync(join(ws, sub), { recursive: true });
+  writeFileSync(join(ws, 'cache/final/a.frame'), Buffer.alloc(4096));
+  writeFileSync(join(ws, 'shots/cache/input'), '12345');
+  writeFileSync(join(ws, 'film.json'), '{}');
+  assert.equal(jobs.measureDiskBytes(ws), 7);
+  const row = jobs.appendJobLedger(join(dir, 'ledger.jsonl'), { ...baseRow, diskBytes: undefined, workspaceDir: ws });
+  assert.equal(row.diskBytes, 7);
+});
+
+test('R1 顶层 Cache/ 是 cache/ 的大小写别名才排除，独立目录仍入账', t => {
+  const root = tempDir(t, 'cache-case');
+  mkdirSync(join(root, 'Cache'));
+  writeFileSync(join(root, 'Cache/input'), '12345');
+  const expected = existsSync(join(root, 'cache/input')) ? 0 : 5;
+  assert.equal(jobs.measureDiskBytes(root), expected);
+  mkdirSync(join(root, 'cache'), { recursive: true });
+  writeFileSync(join(root, 'cache/shared'), '678');
+  assert.equal(jobs.measureDiskBytes(root), expected);
+});
+
+test('R1 等锁的头 15 ms 不碰 .break 或读 PID，短持锁者可直接交接', t => {
+  const file = join(tempDir(t, 'grace'), 'job.json');
+  const lock = `${file}.lock`;
+  writeFileSync(lock, `${process.pid}\n`);
+  let elapsed = 0;
+  const probes = [];
+  const waits = [];
+  t.mock.method(performance, 'now', () => elapsed);
+  for (const [method, target] of [['writeFileSync', `${lock}.break`], ['readFileSync', lock]]) {
+    const original = fs[method];
+    t.mock.method(fs, method, (...args) => {
+      if (args[0] === target) probes.push([method, elapsed]);
+      return original(...args);
+    });
+  }
+  t.mock.method(Atomics, 'wait', (_array, _index, _value, ms) => {
+    waits.push(ms);
+    elapsed += ms;
+    rmSync(lock, { force: true });
+  });
+  assert.equal(withFileLock(file, () => 'ok'), 'ok');
+  assert.equal(waits[0], 15);
+  assert.deepEqual(probes.filter(([, at]) => at < 15), []);
+});
+
+// 只干扰指定锁路径的一次系统调用，后续创建、读 PID、删除和新一轮加锁都走真实文件系统。
+for (const [method, target, code] of [
+  ['linkSync', 'lock', 'ENOENT'], ['linkSync', 'lock', 'EPERM'], ['linkSync', 'lock', 'EBUSY'],
+  ['writeFileSync', 'break', 'EACCES'], ['readFileSync', 'stale', 'EBUSY'],
+  ['rmSync', 'stale', 'EPERM'], ['rmSync', 'break', 'EBUSY'], ['rmSync', 'lock', 'EPERM'],
+]) {
+  test(`R1 ${method}(${target}) 短暂 ${code} 后正常取锁并清理`, t => {
+    const file = join(tempDir(t, 'pending'), 'ledger.jsonl');
+    const lock = `${file}.lock`;
+    if (target !== 'lock') writeFileSync(lock, `${spawnSync(process.execPath, ['-e', '']).pid}\n`);
+    const original = fs[method];
+    let injected = false;
+    t.mock.method(fs, method, (...args) => {
+      const path = args[method === 'linkSync' ? 1 : 0];
+      if (!injected && path === (target === 'break' ? `${lock}.break` : lock)) {
+        injected = true;
+        throw Object.assign(new Error('delete pending'), { code });
+      }
+      return original(...args);
+    });
+    const row = jobs.appendJobLedger(file, baseRow);
+    assert.equal(injected, true);
+    assert.deepEqual(jobs.readJobLedger(file), [row]);
+    assert.equal(existsSync(lock), false);
+    assert.equal(existsSync(`${lock}.break`), false);
+  });
+}
+
+for (const code of ['EBUSY', 'ENOTEMPTY']) {
+  test(`R1 发布硬链接后删除暂存遇 ${code}，不会把自己的锁误判为活锁`, t => {
+    const dir = tempDir(t, 'published');
+    const file = join(dir, 'job.json');
+    let injected = false;
+    t.mock.method(fs, 'rmSync', (path, options) => {
+      if (!injected && options?.recursive && existsSync(`${file}.lock`)) {
+        injected = true;
+        throw Object.assign(new Error('暂存清理失败'), { code });
+      }
+      return rmSync(path, options);
+    });
+    let entered = 0;
+    withFileLock(file, () => { entered++; }, 100);
+    assert.equal(injected, true);
+    assert.equal(entered, 1);
+    assert.deepEqual(fs.readdirSync(dir), []);
+  });
+}
+
+test('R1 主锁 ENOTEMPTY 不重试、不递归删除', t => {
+  const file = join(tempDir(t, 'lock-dir'), 'job.json');
+  const lock = `${file}.lock`;
+  let attempts = 0;
+  t.mock.method(fs, 'rmSync', (path, options) => {
+    if (path === lock) {
+      attempts++;
+      assert.ok(!options?.recursive);
+      throw Object.assign(new Error('不是普通锁文件'), { code: 'ENOTEMPTY' });
+    }
+    return rmSync(path, options);
+  });
+  assert.throws(() => withFileLock(file, () => {}), { code: 'ENOTEMPTY' });
+  assert.equal(attempts, 1);
+});
+
+test('R9 锁文件内容是「进程号 UUID」：已退出进程留下的新格式锁照常清掉，活进程的照常等到超时', t => {
+  const file = join(tempDir(t, 'payload'), 'job.json');
+  const lock = `${file}.lock`;
+  const uuid = '123e4567-e89b-42d3-a456-426614174000';
+  writeFileSync(lock, `${spawnSync(process.execPath, ['-e', '']).pid} ${uuid}\n`);
+  const held = withFileLock(file, () => readFileSync(lock, 'utf8'), 2000);
+  assert.match(held, new RegExp(`^${process.pid} [0-9a-f-]{36}\\n$`));
+  assert.equal(existsSync(lock), false);
+  writeFileSync(lock, `${process.pid} ${uuid}\n`);
+  assert.throws(() => withFileLock(file, assert.fail, 60), { code: 'ETIMEDOUT' });
+  assert.equal(readFileSync(lock, 'utf8'), `${process.pid} ${uuid}\n`, '别人的锁超时后原样留着');
+});
+
+test('R11 读账途中账本目录被轮换：认回持锁的那一代重读，序号接着那一代的账往下排，不写进原路径上的新目录', t => {
+  const dir = join(tempDir(t, 'reread'), 'jobs');
+  const retired = `${dir}-old`;
+  const file = join(dir, 'ledger.jsonl');
+  jobs.appendJobLedger(file, baseRow);
+  const realRead = fs.readFileSync;
+  let rotated = false;
+  t.mock.method(fs, 'readFileSync', (target, ...rest) => {
+    if (!rotated && target === file) {
+      rotated = true;
+      fs.renameSync(dir, retired);
+      mkdirSync(dir);
+    }
+    return realRead(target, ...rest);
+  });
+  assert.equal(jobs.appendJobLedger(file, { ...baseRow, jobId: 'j-2' }).seq, 2);
+  assert.equal(rotated, true);
+  assert.deepEqual(jobs.readJobLedger(join(retired, 'ledger.jsonl')).map(row => row.seq), [1, 2]);
+  assert.deepEqual(fs.readdirSync(dir), []);
+  assert.deepEqual(fs.readdirSync(retired), ['ledger.jsonl']);
+});
+
+test('R11 回调抛错、放锁又失败：报回调的错；留下的锁按登记的凭据在下一次取锁时回收', t => {
+  const file = join(tempDir(t, 'orphan'), 'job.json');
+  const lock = `${file}.lock`;
+  const boom = new Error('回调失败');
+  const stuck = t.mock.method(fs, 'rmSync', (target, options) => {
+    if (target === lock) throw Object.assign(new Error('删不掉'), { code: 'ENOTEMPTY' });
+    return rmSync(target, options);
+  });
+  assert.throws(() => withFileLock(file, () => { throw boom; }), error => error === boom);
+  stuck.mock.restore();
+  assert.equal(existsSync(lock), true);
+  assert.equal(withFileLock(file, () => 'ok', 200), 'ok');
+  assert.equal(existsSync(lock), false);
+});
+
+test('R1 等锁时父目录消失，立即报 ENOENT，不把缺目录变成竞争超时', t => {
+  const parent = join(tempDir(t, 'parent'), 'jobs');
+  const file = join(parent, 'ledger.jsonl');
+  assert.throws(() => withFileLock(file, assert.fail), { code: 'ENOENT' });
+  assert.equal(jobs.appendJobLedger(file, baseRow).seq, 1); // 首次追加仍会创建父目录
+  writeFileSync(`${file}.lock`, `${process.pid}\n`);
+  let waits = 0;
+  t.mock.method(Atomics, 'wait', () => {
+    assert.equal(++waits, 1, '父目录消失后不再退避');
+    rmSync(parent, { recursive: true });
+  });
+  assert.throws(() => withFileLock(file, assert.fail), { code: 'ENOENT' });
+  assert.equal(waits, 1);
+  assert.equal(existsSync(parent), false);
 });
 
 test('A15-13 报价只收正安全整数的帧数、画幅与采样，溢出报错；M12 1.5 倍缩放 1000 ms 精确报 1500 ms', () => {
