@@ -2,7 +2,7 @@
 // 工具表、入参结构与请求全部由 ROUTES 推出，改合同不用改这里。图片产物直接回 { type: 'image', data, mimeType }。
 // 传输是 stdio 上每行一条 JSON-RPC 2.0 消息：node beiming/api/cli.mjs mcp --url <服务地址> --token <账户令牌>。
 import { createInterface } from 'node:readline';
-import { callRoute, checkArgs, defaultUrl, imageMime, inputsOf, readEnvelope, sha256Hex, unreachable, urlOf } from './client.mjs';
+import { callRoute, checkArgs, defaultUrl, imageMime, inputsOf, readEnvelope, sha256Hex, unreachable, urlOf, whyOf } from './client.mjs';
 import { buildOpenApi, ROUTES } from './contract.mjs';
 
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -62,16 +62,21 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
     return [text({ binary: true, ...meta })];
   }
 
-  /** 引用（地址或路径）落在本服务的产物地址上时交回 [片号, 规整后的路径]；别的服务、不是产物地址、带 .. 的越界路径交回 null */
+  /**
+   * 引用（地址或路径）落在本服务的产物地址上时交回 [片号, 规整后的路径]；别的服务、不是产物地址、带 .. 的越界路径交回 null。
+   * 产物地址的样子每次从合同里 artifacts 那一行的路径模板推出，不在这里另抄一份。
+   */
   function artifactRef(ref) {
     try {
+      const template = byId.get('artifacts').path;
+      const shape = new RegExp(`^${template.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\{(\w+)\}/g, (_, k) => `(?<${k}>${k === 'name' ? '.+' : '[^/]+'})`)}$`);
       const root = new URL(`${base}/`);
       const url = new URL(ref, root);
       const path = url.pathname.startsWith(root.pathname) ? url.pathname.slice(root.pathname.length - 1) : url.pathname;
-      const [, film, name] = /^\/v1\/films\/([^/]+)\/artifacts\/(.+)$/.exec(path);
+      const { id, name } = shape.exec(path).groups;
       const segs = decodeURIComponent(name).split('/');
       if (url.origin !== root.origin || segs.some((s) => !s || s === '.' || s === '..' || s.includes('\\'))) return null;
-      return [decodeURIComponent(film), `/v1/films/${film}/artifacts/${segs.map(encodeURIComponent).join('/')}`];
+      return [decodeURIComponent(id), template.replace(/\{(\w+)\}/g, (_, k) => (k === 'name' ? segs.map(encodeURIComponent).join('/') : id))];
     } catch {
       return null;
     }
@@ -81,30 +86,43 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
    * 成功信封里的图片产物（联系表、切点条带）用同一个令牌取回来，一张不少、按出现的顺序、同一张只取一次。
    * 引用从顶层 outputs 和 data.sheet / data.strips / data.outputs 里找；信封被截短时先读挂在 outputs 里的全文。
    * 只取 film 这部片的；片号不知道时（重启后直接查作业）认第一个引用的那部片。
+   * 交回 { blocks, incomplete }：某一张取不回来只在它的位置留一条诊断，后面的照取；全文取不回来 incomplete 为 true。
    */
   async function outputImages(env, bearer, film) {
-    const get = (path) => fetchImpl(`${base}${path}`, { method: 'GET', headers: { authorization: `Bearer ${bearer}` } });
+    // 路径都是 artifactRef 规整过的本服务路径；带着令牌，不跟重定向。
+    const get = (path) => fetchImpl(`${base}${path}`, { method: 'GET', redirect: 'error', headers: { authorization: `Bearer ${bearer}` } });
     const mine = (ref) => {
       const hit = artifactRef(ref);
       return hit && hit[0] === String(film ??= hit[0]) ? hit[1] : null;
     };
     const blocks = [];
-    try {
-      const spill = mine(env.outputs?.find((o) => o?.kind === 'response')?.url);
-      if (spill) {
-        const res = await get(spill);
-        if (res.ok) env = await res.json();
-      }
-      const refs = [env?.outputs, env?.data?.sheet, env?.data?.strips, env?.data?.outputs].flatMap(strings);
-      for (const path of new Set(refs.map(mine).filter((p) => p && imageMime('', p)))) {
+    let incomplete = false;
+    const full = env.outputs?.find((o) => o?.kind === 'response')?.url;
+    if (full) {
+      try {
+        const path = mine(full);
+        if (!path) throw new Error('全文引用不是本服务这部片的产物地址');
         const res = await get(path);
-        blocks.push(...(res.ok ? await artifactBlocks(res, path) : [text({ url: path, error: `HTTP ${res.status}` })]));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = await res.json();
+        if (!isObject(body)) throw new Error('全文不是信封');
+        env = body;
+      } catch (e) {
+        incomplete = true;
+        blocks.push(text({ url: full, fullOutputError: `信封被截短，全文没取回来：${whyOf(e)}` }));
       }
-    } catch (e) {
-      // 动词本身已经成功，图取不回来不改它的结果，只把原因交回去。
-      blocks.push(text({ imagesError: e.message }));
     }
-    return blocks;
+    const refs = [env.outputs, env.data?.sheet, env.data?.strips, env.data?.outputs].flatMap(strings);
+    for (const path of new Set(refs.map(mine).filter((p) => p && imageMime('', p)))) {
+      try {
+        const res = await get(path);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        blocks.push(...await artifactBlocks(res, path));
+      } catch (e) {
+        blocks.push(text({ url: path, error: whyOf(e) }));
+      }
+    }
+    return { blocks, incomplete };
   }
 
   async function callTool(route, args, override) {
@@ -112,10 +130,17 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
     const res = await callRoute(route, args, { baseUrl, token: bearer, fetchImpl });
     if (route.binary && res.ok) return { content: await artifactBlocks(res, urlOf(route, args, '')) };
     const env = await readEnvelope(res, baseUrl);
-    if (env.ok && typeof env.data?.film === 'string' && typeof env.data?.token === 'string') workspaceTokens.set(env.data.film, env.data.token);
-    if (route.auth === 'workspace' && typeof env.data?.job === 'string') jobFilm.set(env.data.job, args.id);
-    const film = route.auth === 'workspace' ? args.id : jobFilm.get(args.id);
-    return { content: [text(env), ...(env.ok ? await outputImages(env, bearer, film) : [])], isError: env.ok !== true };
+    // 建片（账户动词）交回片号、工作区令牌，委托模式还有作业号；工作区动词交回作业号。都记下，后面的调用自己选令牌。
+    const str = (...vs) => vs.find((v) => typeof v === 'string');
+    const made = env.ok ? str(env.data?.film, env.data?.filmId) : undefined;
+    if (made && typeof env.data.token === 'string') workspaceTokens.set(made, env.data.token);
+    const owner = route.auth === 'workspace' ? args.id : route.auth === 'account' ? made : undefined;
+    // 失败信封也可能带着还能接着查的作业号，归属照记。
+    const job = str(env.data?.job, env.data?.job?.id, env.data?.jobId);
+    if (job && owner) jobFilm.set(job, owner);
+    if (!env.ok) return { content: [text(env)], isError: true };
+    const { blocks, incomplete } = await outputImages(env, bearer, route.auth === 'workspace' ? args.id : jobFilm.get(args.id));
+    return { content: [text(env), ...blocks], isError: incomplete };
   }
 
   async function handleMessage(msg) {
@@ -143,7 +168,7 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
         try {
           return reply(id, await callTool(route, args, _token));
         } catch (e) {
-          return reply(id, { content: [text(unreachable(baseUrl, e.cause?.code ?? e.message))], isError: true });
+          return reply(id, { content: [text(unreachable(baseUrl, whyOf(e)))], isError: true });
         }
       }
       default: return error(id, -32601, `Method not found: ${method}`);

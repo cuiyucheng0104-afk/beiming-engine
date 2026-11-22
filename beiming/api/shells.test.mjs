@@ -599,3 +599,142 @@ test('A9-16 mcp 子命令的启动参数写错按用法错误退出 2，不挂�
   }
   assert.match(readFileSync(new URL('./README.md', import.meta.url), 'utf8'), /不带 `--out`[^。]*原始字节/);
 });
+
+/* ---------------- 二审（G_REV-R2-A9）收口：取图地址跟合同走、逐张容错、全文取不回要报错、委托作业令牌衔接、不跟重定向 ---------------- */
+
+const notesOf = (result) => result.content.filter((c) => c.type === 'text').slice(1).map((c) => JSON.parse(c.text));
+const imagesOf = (result) => result.content.filter((c) => c.type === 'image').map((c) => Buffer.from(c.data, 'base64'));
+const callVia = (session) => async (name, args) => (await session.handleMessage({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } })).result;
+const png = () => new Response(PNG, { headers: { 'content-type': 'application/octet-stream' } });
+
+test('A9-17 自动取图的地址由合同里 artifacts 的路径模板推出：改合同路径，直接调和自动取图一起跟着变', async () => {
+  const routes = ROUTES.map((r) => (r.id === 'artifacts' ? { ...r, path: '/v2/works/{id}/files/{name}' } : r));
+  const seen = [];
+  const call = callVia(createMcpSession({
+    baseUrl: 'http://stub.invalid', token: 'ws', routes,
+    fetchImpl: async (url, init) => {
+      const path = new URL(url).pathname;
+      seen.push(`${init.method} ${path}`);
+      if (path.endsWith('/observe/sheet')) return Response.json(ok({ outputs: [{ kind: 'contact', url: '/v2/works/f_9/files/s/contact.png' }, { kind: 'contact', url: '/v1/films/f_9/artifacts/s/old.png' }] }));
+      return png();
+    },
+  }));
+  const sheet = await call('observe-sheet', { id: 'f_9', body: {} });
+  assert.equal(sheet.isError, false);
+  assert.deepEqual(imagesOf(sheet), [PNG]);
+  assert.deepEqual(seen, ['POST /v1/films/f_9/observe/sheet', 'GET /v2/works/f_9/files/s/contact.png'], '旧路径不再是产物地址，不取');
+  assert.deepEqual(imagesOf(await call('artifacts', { id: 'f_9', name: 'a.png' })), [PNG]);
+  assert.equal(seen.at(-1), 'GET /v2/works/f_9/files/a.png');
+});
+
+test('A9-18 批量取图逐张容错：中间一张断流或连不上，后面的图照样取回，坏的那张留下带地址的诊断', async () => {
+  const at = (n) => `/v1/films/f_9/artifacts/s/${n}.png`;
+  const seen = [];
+  const call = callVia(createMcpSession({
+    baseUrl: 'http://stub.invalid', token: 'ws',
+    fetchImpl: async (url, init) => {
+      const path = new URL(url).pathname;
+      seen.push(`${init.method} ${path}`);
+      if (path.endsWith('/observe/sheet')) return Response.json(ok({ outputs: [1, 2, 3, 4, 5].map((n) => ({ kind: 'contact', url: at(n) })) }));
+      if (path === at(2)) return new Response(new ReadableStream({ pull(c) { c.error(new Error('terminated')); } }));
+      if (path === at(4)) throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } });
+      return png();
+    },
+  }));
+  const sheet = await call('observe-sheet', { id: 'f_9', body: {} });
+  assert.deepEqual(seen.slice(1), [1, 2, 3, 4, 5].map((n) => `GET ${at(n)}`), '五张都要去取');
+  assert.deepEqual(imagesOf(sheet), [PNG, PNG, PNG], '第 1、3、5 张一张不少');
+  assert.deepEqual(notesOf(sheet).filter((n) => n.error), [{ url: at(2), error: 'terminated' }, { url: at(4), error: 'ECONNRESET' }]);
+});
+
+test('A9-19 截短信封的全文取不回来（404、断流、坏 JSON、不是信封、连不上）不装成功：留下诊断，isError 为 true', async () => {
+  const full = '/v1/films/f_9/artifacts/response-abc.json';
+  const broken = {
+    'HTTP 404': () => Response.json(fail('contract.not-found', '没有这个产物'), { status: 404 }),
+    terminated: () => new Response(new ReadableStream({ pull(c) { c.error(new Error('terminated')); } })),
+    JSON: () => new Response('{"ok":tr'),
+    信封: () => Response.json([1, 2]),
+    ECONNRESET: () => { throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } }); },
+  };
+  for (const [why, respond] of Object.entries(broken)) {
+    const call = callVia(createMcpSession({
+      baseUrl: 'http://stub.invalid', token: 'ws',
+      fetchImpl: async (url) => (new URL(url).pathname === full ? respond() : Response.json(ok({ data: { truncated: true }, outputs: [{ kind: 'response', url: full }] }))),
+    }));
+    const sheet = await call('observe-sheet', { id: 'f_9', body: {} });
+    assert.equal(sheet.isError, true, why);
+    assert.equal(textOf(sheet).data.truncated, true, '截短的信封照样交回');
+    const [note] = notesOf(sheet);
+    assert.equal(note.url, full, why);
+    assert.match(note.fullOutputError, new RegExp(why), why);
+  }
+  // 全文引用指到别的服务：不取，但同样不能装成拿到了全文。
+  const call = callVia(createMcpSession({ baseUrl: 'http://stub.invalid', token: 'ws', fetchImpl: async () => Response.json(ok({ data: { truncated: true }, outputs: [{ kind: 'response', url: `http://evil.invalid${full}` }] })) }));
+  const foreign = await call('observe-sheet', { id: 'f_9', body: {} });
+  assert.equal(foreign.isError, true);
+  assert.ok(notesOf(foreign)[0].fullOutputError);
+});
+
+test('A9-20 账户动词建片（mode=delegate）交回的工作区令牌和作业号一起记下：紧接着 job-get 自动用工作区令牌', async () => {
+  const shapes = [{ film: 'f_1', token: 'ws-1', job: 'j_1' }, { filmId: 'f_2', token: 'ws-2', jobId: 'j_2' }, { film: 'f_3', token: 'ws-3', job: { id: 'j_3' } }];
+  for (const data of shapes) {
+    const seen = [];
+    const call = callVia(createMcpSession({
+      baseUrl: 'http://stub.invalid', token: 'acct',
+      fetchImpl: async (url, init) => {
+        seen.push([`${init.method} ${new URL(url).pathname}`, init.headers.authorization]);
+        return Response.json(ok({ data }));
+      },
+    }));
+    const film = data.film ?? data.filmId;
+    const job = data.jobId ?? data.job.id ?? data.job;
+    assert.equal((await call('films-create', { body: { mode: 'delegate', brief: '一条鱼' } })).isError, false);
+    await call('job-get', { id: job });
+    await call('film-get', { id: film });
+    await call('job-get', { id: 'j_other' });
+    assert.deepEqual(seen, [['POST /v1/films', 'Bearer acct'], [`GET /v1/jobs/${job}`, `Bearer ws-${film.at(-1)}`], [`GET /v1/films/${film}/film`, `Bearer ws-${film.at(-1)}`], ['GET /v1/jobs/j_other', 'Bearer acct']]);
+  }
+});
+
+test('A9-21 带令牌的请求不跟重定向：动词调用、全文、自动取图遇到 302 都报错，令牌不到别的服务', { timeout: 60000 }, async () => {
+  const inits = [];
+  const call = callVia(createMcpSession({ baseUrl: 'http://stub.invalid', token: 'ws', fetchImpl: async (url, init) => { inits.push(init.redirect); return String(url).endsWith('.png') ? png() : Response.json(ok({ outputs: [{ kind: 'contact', url: '/v1/films/f_9/artifacts/a.png' }] })); } }));
+  await call('observe-sheet', { id: 'f_9', body: {} });
+  assert.deepEqual(inits, ['error', 'error'], '动词请求和取图请求都写明 redirect: error');
+
+  // 真实 fetch 对真实的回环服务：本服务把请求 302 到另一个服务，那个服务一次请求都不该收到。
+  const evil = await stubApi(() => [200, PNG]);
+  let mode = 'image';
+  const hop = (res, path) => { res.writeHead(302, { location: `${evil.url}${path}` }); res.end(); };
+  const server = createServer((req, res) => {
+    req.resume();
+    if (mode === 'verb') return hop(res, req.url);
+    if (req.url.endsWith('/observe/sheet')) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify(mode === 'full' ? ok({ data: { truncated: true }, outputs: [{ kind: 'response', url: '/v1/films/f_9/artifacts/response-1.json' }] }) : ok({ outputs: [{ kind: 'contact', url: '/v1/films/f_9/artifacts/a.png' }] })));
+    }
+    return hop(res, req.url);
+  });
+  await new Promise((done) => server.listen(0, '127.0.0.1', done));
+  const url = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const real = callVia(createMcpSession({ baseUrl: url, token: 'ws-secret' }));
+    const image = await real('observe-sheet', { id: 'f_9', body: {} });
+    assert.deepEqual(imagesOf(image), []);
+    assert.equal(notesOf(image)[0].url, '/v1/films/f_9/artifacts/a.png');
+    assert.ok(notesOf(image)[0].error);
+    mode = 'full';
+    const full = await real('observe-sheet', { id: 'f_9', body: {} });
+    assert.equal(full.isError, true);
+    assert.ok(notesOf(full)[0].fullOutputError);
+    mode = 'verb';
+    assert.equal((await real('artifacts', { id: 'f_9', name: 'a.png' })).isError, true);
+    assert.equal(textOf(await real('film-get', { id: 'f_9' })).error.code, 'env.missing-tool');
+    const out = await cli(['artifacts', '--id', 'f_9', '--name', 'a.png'], { url, token: 'ws-secret', encoding: 'buffer' });
+    assert.equal(out.code, 3, '命令行薄壳同样不跟重定向');
+    assert.deepEqual(evil.hits, [], '带令牌的请求一次都没到别的服务');
+  } finally {
+    await new Promise((done) => server.close(done));
+    await evil.close();
+  }
+});

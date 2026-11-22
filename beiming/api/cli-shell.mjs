@@ -3,7 +3,7 @@
 import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { callRoute, checkArgs, defaultUrl, imageMime, inputsOf, readEnvelope, sha256Hex, unreachable, urlOf } from './client.mjs';
+import { callRoute, checkArgs, defaultUrl, imageMime, inputsOf, readEnvelope, sha256Hex, unreachable, urlOf, whyOf } from './client.mjs';
 import { ROUTES } from './contract.mjs';
 import { exitCodeOf, fail, ok } from './envelope.mjs';
 
@@ -100,7 +100,7 @@ export async function runApiCli(argv = process.argv.slice(2), { env = process.en
     const type = (res.headers.get('content-type') ?? 'application/octet-stream').split(';')[0].trim();
     mimeType = imageMime(type, urlOf(cmd.route, args, '')) ?? type;
   } catch (e) {
-    return print(unreachable(baseUrl, e.cause?.code ?? e.message));
+    return print(unreachable(baseUrl, whyOf(e)));
   }
   if (values.out === undefined) { stdout.write(bytes); return 0; }
   // 先写临时文件再改名：中途失败不留半个文件，也不动原来的文件。

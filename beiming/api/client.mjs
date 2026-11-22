@@ -47,16 +47,20 @@ export function urlOf(route, args, baseUrl) {
   return `${String(baseUrl).replace(/\/+$/, '')}${route.path.replace(/\{(\w+)\}/g, (_, k) => encodeURIComponent(args[k]))}${search.size ? `?${search}` : ''}`;
 }
 
-/** 按路由和入参发一次请求，交回 fetch 的 Response */
+/** 按路由和入参发一次请求，交回 fetch 的 Response。请求带着令牌，不跟重定向：跟过去令牌就到了别的服务 */
 export function callRoute(route, args, { baseUrl, token, fetchImpl = fetch }) {
   const text = route.request?.type === 'string';
   const hasBody = route.request && args.body !== undefined;
   return fetchImpl(urlOf(route, args, baseUrl), {
     method: route.method,
+    redirect: 'error',
     headers: { ...(token && { authorization: `Bearer ${token}` }), ...(hasBody && { 'content-type': text ? 'text/plain; charset=utf-8' : 'application/json' }) },
     ...(hasBody && { body: text ? String(args.body) : JSON.stringify(args.body) }),
   });
 }
+
+/** 请求失败的原因：fetch 把真正的原因（ECONNREFUSED、unexpected redirect）放在 cause 里 */
+export const whyOf = (e) => e.cause?.code ?? e.cause?.message ?? e.message;
 
 /** 连不上服务，或对面不是北冥 API：登记表里没有网络类的码，归到环境不合格（env.，退出码 3） */
 export const unreachable = (baseUrl, why) => fail('env.missing-tool', `北冥 API 不可用（${baseUrl}）：${why}`, { hint: '先 node beiming/api/cli.mjs serve，再用 --url 或 BEIMING_API_URL 指过去' });
