@@ -2,10 +2,12 @@
 // 只用来核「参考读数过自己的题、反例判不过」；正式的跑题器是另一个工作包。
 // 读数按指标名归拢：{ 'music.align': {…}, … }，交的是原始量（时刻、帧号、逐帧矩阵、每帧占比）；偏差、中位数、命中率、随机基线由判分线自己重算，读数里自带的汇总不认。
 // 读数不可信：数组必须密实（没有空洞、没有附加属性）、元素都是有限数；缺项、null、NaN、字符串一律算这条线不过，不抛错。
-// 帧号一律是题目时间线上的：第 0 帧是成片第一帧，有效窗口是 [0, deliverable.frames)，由题目定，读数改不了；参考片的绝对帧号要先换过来。
+// 帧号默认是题目时间线上的：第 0 帧是成片第一帧，有效窗口是 [0, deliverable.frames)，时长是 frames ÷ fps，都由题目定，读数改不了。
+// 参考片的读数只多认一个窗口：题目 args.refFrames 写明的原片帧范围（照参考夹具抄的），读数要明说用的是它；别的自报窗口、时长一律不认。
 // 灰度帧是 Uint8Array（宽×高），彩色帧是 { width, height, rgba }（显示空间 sRGB，原点左上）；坏帧由 observe 报 RangeError。
 import { align } from '../../../observe/align.mjs';
 import { colorPalette, motionZoomPan } from '../../../observe/metrics/index.mjs';
+import { parseFps } from '../../../verify/predicates.mjs';
 
 const num = Number.isFinite; // 不做类型转换：null、字符串、BigInt 都不是数
 const plain = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -125,23 +127,35 @@ export function readCameraStatic(cameras) {
 
 // 5-1、18-2：事件（硬切、触发词的帧号）减去题面规定的提前量 leadFrames 是应起帧，每个应起帧 tolFrames 帧内都有记号，且比随机基线高出 minLiftOverRandom。
 // 题目给了 eventFrames 的（5-1 的硬切），量到的事件帧号必须就是这几个；给了 moves 的，记号必须正好那么多个，按先后和事件一一对应，没给的取离得最近的记号。
-// 窗口是题目的 [0, frames)：事件、应起帧、记号三样都得落在里面，随机基线也按它算。读数可以不报 range，报了就必须正好是这个窗口（报宽了会摊薄基线）。
-function hits(r, a, frames) {
+// 窗口是题目的 [0, frames)：事件、应起帧、记号三样都得落在里面，随机基线也按它算。读数可以不报 range，报了就必须正好是这个窗口（报宽了会摊薄基线），
+// 或者正好是题目 args.refFrames 写明的参考片窗口（18-2 的原片场景范围）：那时三样帧号都是原片的，都得落在参考片窗口里，基线照它算。
+function hits(r, a, { frames }) {
   if (!(Number.isInteger(frames) && frames > 0) || !rising(r.eventFrames) || r.eventFrames.length !== a.events.length || !rising(r.markFrames)
-    || (a.eventFrames !== undefined && !r.eventFrames.every((frame, i) => frame === a.eventFrames[i]))
-    || (r.range !== undefined && !(denseFinite(r.range, 2) && r.range.length === 2 && r.range[0] === 0 && r.range[1] === frames))) return false;
+    || (a.eventFrames !== undefined && !r.eventFrames.every((frame, i) => frame === a.eventFrames[i]))) return false;
+  const own = [0, frames];
+  const window = r.range === undefined ? own : [own, a.refFrames].find((allowed) => allowed !== undefined
+    && denseFinite(r.range, 2) && r.range.length === 2 && r.range[0] === allowed[0] && r.range[1] === allowed[1]);
+  if (window === undefined) return false;
   const expected = r.eventFrames.map((frame, i) => frame - (a.leadFrames?.[i] ?? 0));
-  if (![r.eventFrames, expected, r.markFrames].every((list) => list.every((frame) => frame >= 0 && frame < frames))) return false;
+  if (![r.eventFrames, expected, r.markFrames].every((list) => list.every((frame) => frame >= window[0] && frame < window[1]))) return false;
   if (a.moves !== undefined && r.markFrames.length !== a.moves) return false;
-  const { offsetsFrames, randomRate } = readHits(expected, r.markFrames, [0, frames], a.tolFrames);
+  const { offsetsFrames, randomRate } = readHits(expected, r.markFrames, window, a.tolFrames);
   const offsets = a.moves === undefined ? offsetsFrames : expected.map((frame, i) => Math.abs(r.markFrames[i] - frame));
   return offsets.every((d) => d <= a.tolFrames) && 1 - randomRate >= a.minLiftOverRandom;
 }
-// 18-1 字幕：字幕与起声的时刻都落在成片时长里，才重算中位数、命中率和随机基线
-function subtitles(r, a) {
-  if (!denseFinite(r.appearSec) || !denseFinite(r.onsetsSec) || !(num(r.spanSec) && r.spanSec > 0)
-    || ![...r.appearSec, ...r.onsetsSec].every((at) => at >= 0 && at <= r.spanSec)) return false;
-  const { subtitleLagSec, hitRate, randomRate } = readSubtitleLag(r.appearSec, r.onsetsSec, r.spanSec, a.maxSubtitleLagSec);
+// 18-1 字幕：成片时长由题目定（frames ÷ fps），随机基线的分母用它，不用读数自报的 spanSec（报长了会摊薄基线）。
+// 字幕与起声的时刻都装得进题目的时长就照题目的算，spanSec 可以不报，报了要和它差不超过 1 帧；
+// 装不进、读数又明说是 args.refFrames 那段参考片的时长（差不超过 1 帧）且都装得进它，才照参考片的算。别的时长一律不认。
+function subtitles(r, a, { frames, fps }) {
+  const rate = parseFps(fps);
+  if (!rate || !(Number.isInteger(frames) && frames > 0) || !denseFinite(r.appearSec) || !denseFinite(r.onsetsSec)) return false;
+  const perSec = Number(rate.num) / Number(rate.den);
+  const inside = (span) => [...r.appearSec, ...r.onsetsSec].every((at) => at >= 0 && at <= span);
+  const declared = (span) => num(r.spanSec) && Math.abs(r.spanSec - span) <= 1 / perSec + 1e-9;
+  const own = frames / perSec, ref = a.refFrames === undefined ? null : (a.refFrames[1] - a.refFrames[0]) / perSec;
+  const span = inside(own) ? (r.spanSec === undefined || declared(own) ? own : null) : (ref !== null && declared(ref) && inside(ref) ? ref : null);
+  if (span === null) return false;
+  const { subtitleLagSec, hitRate, randomRate } = readSubtitleLag(r.appearSec, r.onsetsSec, span, a.maxSubtitleLagSec);
   return subtitleLagSec <= a.maxSubtitleLagSec && hitRate - randomRate >= a.minLiftOverRandom;
 }
 // 18-1 淡出：minScenes 个场景之间至少 minScenes − 1 处边界；至少这么多处各自在范围里，中位数也在（参考是平台重压版，个别边界量不准）
@@ -155,11 +169,11 @@ const lines = (checks) => checks.some(([given]) => given) && checks.every(([give
 const JUDGES = {
   'music.align': (r, a) => within(r.corr, [a.minCorr, 1]) && within(r.stretch, a.stretch),
   'beat.onset-hit': hits,
-  'narration.timing': (r, a, frames) => lines([
-    [a.maxSubtitleLagSec !== undefined, () => subtitles(r, a)],
+  'narration.timing': (r, a, deliverable) => lines([
+    [a.maxSubtitleLagSec !== undefined, () => subtitles(r, a, deliverable)],
     [a.fadeFrames !== undefined, () => fades(r, a)],
     [a.minLeadSec !== undefined, () => pauses(r, a)],
-    [a.events !== undefined, () => hits(r, a, frames)],
+    [a.events !== undefined, () => hits(r, a, deliverable)],
   ]),
   'color.palette': (r, a) => denseFinite(r.shares, a.minScenes) && r.shares.every((share) => within(share, a.share)),
   'meta.camera-static': (r, a) => {
@@ -171,13 +185,13 @@ const JUDGES = {
     && Math.hypot(pair.dx, pair.dy) <= a.maxPanPx && num(pair.error) && pair.error >= 0 && num(pair.stillError) && Math.abs(pair.error - pair.stillError) <= a.maxErrorGap),
 };
 
-/** 照题目的 scoring 逐条判：回每条过没过、过了的权重之和、是不是满分。没给读数、读数不是对象、不认识的指标都算不过。帧窗口取题目的 deliverable.frames */
+/** 照题目的 scoring 逐条判：回每条过没过、过了的权重之和、是不是满分。没给读数、读数不是对象、不认识的指标都算不过。帧窗口和时长取题目的 deliverable（frames、fps） */
 export function score(question, readings) {
   const given = plain(readings) ? readings : {};
   const passes = (metric, args) => {
     // 读数不可信：判分线里抛了错（带取值器的对象、大到摊不开的数组）也只算这条不过
     try {
-      return Object.hasOwn(JUDGES, metric) && Object.hasOwn(given, metric) && plain(given[metric]) && JUDGES[metric](given[metric], args, question.deliverable?.frames) === true;
+      return Object.hasOwn(JUDGES, metric) && Object.hasOwn(given, metric) && plain(given[metric]) && JUDGES[metric](given[metric], args, question.deliverable ?? {}) === true;
     } catch { return false; }
   };
   const items = question.scoring.map(({ metric, args = {}, weight }) => ({ metric, weight, pass: passes(metric, args) }));

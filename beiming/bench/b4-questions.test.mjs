@@ -271,7 +271,12 @@ test('B4-5 18-1：案例 18 的读数满分；字幕滞后、不淡出、不留�
     [['narration.timing', 'maxSubtitleLagSec'], ['narration.timing', 'fadeFrames'], ['narration.timing', 'minLeadSec'], ['color.palette', 'color']]);
   const lagArgs = q.scoring[LAG].args, pauseArgs = q.scoring[PAUSE].args, paletteArgs = q.scoring[PALETTE].args;
   for (const index of [FADE, PAUSE, PALETTE]) assert.equal(q.scoring[index].args.minScenes, 3, '题面要至少三个场景');
-  const span = ref.frames / ref.fps;
+  // 两个时长：题目的成片 900 帧（30 秒），参考片 5375 帧（题目 args.refFrames 照夹具写明，判分只多认这一个）
+  const span = ref.frames / ref.fps, own = q.deliverable.frames / ref.fps;
+  assert.equal(q.deliverable.fps, `${ref.fps}/1`);
+  assert.equal(own, 30);
+  assert.deepEqual(lagArgs.refFrames, [0, ref.frames]);
+  assert.match(q.scoring[LAG].pass, /自报的时长/);
   const stats = (appear = ref.subtitleAppearSec, onsets = ref.narrationOnsetsSec) => readSubtitleLag(appear, onsets, span, lagArgs.maxSubtitleLagSec);
   const shares = (frames) => readBaseShare(frames.map(({ colors }) => paletteFrame(colors)), paletteArgs);
   // 判分吃的是原始读数：字幕与起声的时刻、各边界的淡出帧数、各场景的首尾留白、各场景的底色占比
@@ -312,11 +317,41 @@ test('B4-5 18-1：案例 18 的读数满分；字幕滞后、不淡出、不留�
     '字幕时刻是 null': { appearSec: ref.subtitleAppearSec.with(0, null) },
     '字幕表全是空洞': { appearSec: Array(47) },
     '起声表有 NaN': { onsetsSec: ref.narrationOnsetsSec.with(5, NaN) },
-    '没报成片时长': { spanSec: undefined },
+    '没报成片时长：照题目的 30 秒算，参考片后面的字幕都在片外': { spanSec: undefined },
     '成片时长是 0': { spanSec: 0 },
+    '成片时长是字符串': { spanSec: String(span) },
+    '参考片的读数自报题目的 30 秒': { spanSec: own },
+    '参考片的时长报长一倍': { spanSec: span * 2 },
+    '参考片的时长多报 1 秒': { spanSec: span + 1 },
     '字幕时刻在成片之外': { appearSec: [...ref.subtitleAppearSec, span + 1] },
+    '起声在片头之前': { onsetsSec: [-0.1, ...ref.narrationOnsetsSec] },
   };
   for (const [what, timing] of Object.entries(badLag)) assert.deepEqual(failedAt(judge(timing)), [LAG], what);
+  assert.ok(full(judge({ spanSec: span + 1 / ref.fps })), '参考片时长差一帧以内还认，基线照题目写明的参考片帧数算');
+
+  // 三审的反例：随机基线的时长由题目定（900 帧、30 帧每秒，30 秒），读数自报的时长改不了它。
+  // 30 次起声从 0.4 秒起每秒一次，字幕一块同帧、一块晚 0.1 秒：命中 50%，基线 30×0.126/30 = 12.6%，高出 37.4 个百分点，不够 40
+  const onsets30 = Array.from({ length: 30 }, (_, i) => (4 + 10 * i) / 10);
+  const half = onsets30.map((at, i) => (i % 2 ? (5 + 10 * i) / 10 : at));
+  const local = (appearSec, spanSec) => judge({ appearSec, onsetsSec: onsets30, spanSec });
+  const halfStats = readSubtitleLag(half, onsets30, own, lagArgs.maxSubtitleLagSec);
+  assert.ok(Math.abs(halfStats.subtitleLagSec - 0.05) < 1e-9 && halfStats.hitRate === 0.5 && Math.abs(halfStats.randomRate - 0.126) < 1e-9, JSON.stringify(halfStats));
+  for (const spanSec of [undefined, own, own + 1 / 30, own - 1 / 30, 60, 45, own + 0.1, span, 1e9, Infinity, null, '30']) {
+    const verdict = local(half, spanSec);
+    assert.deepEqual(failedAt(verdict), [LAG], `命中一半、自报时长 ${spanSec}：不过`);
+    assert.ok(Math.abs(verdict.score - 0.7) < 1e-9);
+  }
+  // 同一组起声、字幕全部同帧：命中 100%，不报时长、报 30 秒（差一帧以内）都满分；报别的时长照样不认
+  for (const spanSec of [undefined, own, own + 1 / 30, own - 1 / 30]) assert.ok(full(local(onsets30, spanSec)), `全部同帧、自报时长 ${spanSec}`);
+  for (const spanSec of [60, own + 0.1, span, 0, -30, NaN]) assert.deepEqual(failedAt(local(onsets30, spanSec)), [LAG], `全部同帧、自报时长 ${spanSec}`);
+  assert.deepEqual(failedAt(local([...onsets30, 30.01])), [LAG], '字幕在第 30 秒之后');
+  // 时长只从题目的 deliverable 来：帧数、帧率写坏了这条线不判过
+  for (const deliverable of [{ frames: 900 }, { fps: '30/1' }, { frames: 900, fps: 30 }, { frames: 900.5, fps: '30/1' }, { frames: 0, fps: '30/1' }]) {
+    assert.deepEqual(failedAt(score({ ...q, deliverable }, { 'narration.timing': { ...refTiming, appearSec: onsets30, onsetsSec: onsets30, spanSec: undefined }, 'color.palette': refShares })), [LAG], JSON.stringify(deliverable));
+  }
+  // 题目没写参考片的帧范围：参考片的时长也不认
+  const noRef = { ...q, scoring: q.scoring.map((item, i) => (i === LAG ? { ...item, args: { ...item.args, refFrames: undefined } } : item)) };
+  assert.deepEqual(failedAt(score(noRef, { 'narration.timing': refTiming, 'color.palette': refShares })), [LAG]);
   // 只交汇总数（中位数、命中率、随机基线）不认：三条线都要原始读数
   assert.deepEqual(failedAt(score(q, { 'narration.timing': { subtitleLagSec: 0, hitRate: 1, randomRate: 0, fadeFramesMedian: 3 }, 'color.palette': refShares })), [LAG, FADE, PAUSE]);
 
@@ -371,7 +406,7 @@ test('B4-5 18-1：案例 18 的读数满分；字幕滞后、不淡出、不留�
 test('B4-6 18-2：案例 18 两次运镜的读数满分；错位 2 帧以上、少一次、多一次、不运镜判不过', () => {
   const q = question('18-2'), ref = reference('18-2');
   const args = argsOf(q, 'narration.timing');
-  // 夹具的帧号是原片里的绝对帧号；题目的时间线从地图场景的起点记作第 0 帧，判分只认题目的 [0, 600)
+  // 夹具的帧号是原片里的绝对帧号；题目的时间线从地图场景的起点记作第 0 帧。判分认两个窗口：题目的 [0, 600)，和夹具写明的原片场景范围
   const size = [64, 36], origin = ref.sceneFrames[0], range = [0, q.deliverable.frames];
   assert.ok(ref.sceneFrames[1] - origin >= q.deliverable.frames, '地图场景够 600 帧');
   assert.deepEqual(ref.moves.map((move) => move.cue), args.events);
@@ -410,10 +445,32 @@ test('B4-6 18-2：案例 18 两次运镜的读数满分；错位 2 帧以上、�
   assert.equal(judge([225, 304, 519]).pass, false, '多做一次运镜');
   // 起在触发词上、没照题面提前：差 15 帧和 27 帧
   assert.equal(score(q, { 'narration.timing': reading(cues.map(Math.round)) }).pass, false, '比的是扣掉提前量之后的应起帧');
-  // 没换到题目时间线的绝对帧号不认，哪怕连原片的场景范围一起报上来
-  const absolute = { eventFrames: cues.map((frame) => frame + origin), markFrames: measured.map((frame) => frame + origin) };
-  assert.equal(score(q, { 'narration.timing': absolute }).pass, false, '绝对帧号');
-  assert.equal(score(q, { 'narration.timing': { ...absolute, range: ref.sceneFrames } }).pass, false, '绝对帧号加原片的场景范围');
+  // 夹具的原片帧号直接交也认，前提是连夹具的场景范围 [3396, 4015) 一起报上来（题目 args.refFrames 照夹具写明，判分只多认这一个窗口）
+  assert.deepEqual(args.refFrames, ref.sceneFrames);
+  assert.deepEqual(ref.sceneFrames, [3396, 4015]);
+  const absolute = { eventFrames: ref.moves.map((move) => move.cueSec * ref.fps), markFrames: ref.moves.map((move) => Math.round(move.measuredStartSec * ref.fps)) };
+  assert.deepEqual(absolute.eventFrames.map((frame) => Math.round(frame * 10) / 10), [3635.7, 3941.7]);
+  assert.deepEqual(absolute.markFrames, [3621, 3915]);
+  const direct = (range, extra = {}) => score(q, { 'narration.timing': { ...absolute, ...extra, ...(range === undefined ? {} : { range }) } });
+  assert.ok(full(direct(ref.sceneFrames)), '夹具的原片窗口读数满分');
+  assert.ok(full(score(q, { 'narration.timing': reading(measured) })), '换到题目的 [0, 600) 同样满分');
+  assert.equal(direct().pass, false, '绝对帧号不报范围：照题目的 600 帧算，都在片外');
+  assert.equal(direct().score, 0);
+  // 随手编的窗口都不认：放宽、平移、差一帧、照 600 帧截短、字符串
+  for (const range of [[0, 1200], [100, 700], [0, 4015], [3396, 4016], [3395, 4015], [3396, 3996], [3000, 4500], ['3396', 4015], [3396, 4015, 1], Object.assign([3396, 4015], { note: 1 })]) {
+    assert.equal(direct(range).score, 0, `窗口 ${JSON.stringify(range)}`);
+  }
+  // 原片窗口里三样照样都要在 [3396, 4015) 里；贴着两头的还算
+  const inRef = (starts, events) => score(q, { 'narration.timing': { eventFrames: events, markFrames: starts, range: ref.sceneFrames } }).pass;
+  assert.equal(inRef([3396, 3696], [3411, 3723]), true, '第一次运镜正好从场景第一帧起');
+  assert.equal(inRef([3496, 3987], [3511, 4014]), true, '第二个触发词在场景最后一帧');
+  assert.equal(inRef([3395, 3696], [3411, 3723]), false, '运镜起在场景之前');
+  assert.equal(inRef([3396, 3696], [3410, 3723]), false, '应起帧在场景之前');
+  assert.equal(inRef([3496, 3988], [3511, 4015]), false, '触发词在场景之外');
+  assert.equal(inRef([3496, 4015], [3511, 4041]), false, '运镜起在场景之外');
+  assert.equal(inRef(measured, cues), false, '报原片的窗口、帧号却是成片的');
+  assert.equal(inRef(absolute.markFrames.map((frame) => frame + 3), absolute.eventFrames), false, '原片窗口里错位 3 帧');
+  assert.equal(inRef(absolute.markFrames, absolute.eventFrames.map((frame, i) => frame - args.leadFrames[i])), false, '原片窗口里也要照提前量');
 
   // 判分线的边界：触发词在第 115、327 帧，应起帧是第 100、300 帧
   const line = (starts, events = [115, 327], span = [0, 600]) => score(q, { 'narration.timing': reading(starts, events, span) }).pass;
@@ -455,7 +512,7 @@ test('B4-6 18-2：案例 18 两次运镜的读数满分；错位 2 帧以上、�
     '帧范围改窄': [[100, 102], [115, 129], [99, 104]],
     '帧范围放宽到片外，片外的触发词不认': [[100, 590], [115, 617], [0, 1200]],
     '帧范围往片头前伸，片头前的运镜不认': [[-1, 300], [15, 327], [-600, 600]],
-    '帧范围是原片的绝对帧号': [[100, 300], [115, 327], [3396, 4015]],
+    '帧范围报原片的、帧号却是成片的': [[100, 300], [115, 327], [3396, 4015]],
     '帧范围是 null': [[100, 300], [115, 327], null],
   };
   for (const [what, given] of Object.entries(broken)) assert.equal(line(...given), false, what);
