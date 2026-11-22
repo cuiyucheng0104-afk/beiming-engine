@@ -354,12 +354,11 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
 }
 
 /**
- * 离线文字采样表模式（D 路线光追没有 HTML 页面，由 bundle 阶段逐帧调用 scene.textsAt(frame) 写出 work/texts.json，
- * 并在 pathtrace 阶段对代表帧渲出 work/contrast/{on,off}_NNNNNN.png）：复用同一套画内、安全区、停留时长、禁则与 WCAG 对比度规则。
+ * page-render 表复用页面探针的逐帧采样。D 路线的场景表来自 scene.textsAt(frame)，
+ * 只含三维文字，对比度读取 work/contrast/{on,off}_NNNNNN.png。
  */
-export async function runTextsFromJson({ textsFile, contrastDir = null, profile, film = null, step = 1, contrast = true, size = null, root = REPO_ROOT, verifyVideo = null }) {
+export async function runTextsFromJson({ textsFile, doc = readPageRecord(textsFile), contrastDir = null, profile, film = null, step = 1, contrast = true, size = null, root = REPO_ROOT, verifyVideo = null }) {
   const T = profile.texts;
-  const doc = readPageRecord(textsFile);
   if (doc?.source != null || doc?.videoStreamSha256 != null || ['a', 'c'].includes(film?.route) ||
       (verifyVideo && film?.route !== 'd')) {
     checkPageRecordSpec(doc, { film, size, fps: (film?.fps || fpsOf(profile)).value });

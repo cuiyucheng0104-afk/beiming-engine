@@ -22,6 +22,7 @@ import { collectWaivers, applyWaivers } from './lib/waivers.mjs';
 import { buildReport, validateReport, toMarkdown, technicalAcceptanceFrom } from './lib/report.mjs';
 import { requireFfmpeg } from './lib/proc.mjs';
 import { recordVideoVerifier, sha256File } from './lib/probe.mjs';
+import { readPageRecord } from './lib/page.mjs';
 
 const COMMON = {
   '--json': { type: 'boolean', desc: 'stdout 只输出一个 JSON 信封' },
@@ -192,11 +193,14 @@ async function runGroups(sub, opts, input) {
         const hasOff = !!(pageDir && fs.existsSync(path.join(pageDir, 'offscreen.mjs')));
         const useOffscreen = Boolean(opts.offscreen || (!hasPage && hasOff) || (ctx.film?.backend === 'webgpu' && hasOff && !opts.page));
         const textsFile = recordFile('texts');
-        if (textsFile) {
+        const doc = textsFile ? readPageRecord(textsFile) : null;
+        // D 路线的场景表只采三维文字，页面叠字要由页面或 page-render 记录检查。
+        const allowScene = opts.texts || (!opts.page && !hasPage && !useOffscreen);
+        if (textsFile && (doc?.source === 'page-render' || allowScene)) {
           const { runTextsFromJson } = await import('./checks/texts.mjs');
           log(`▶ texts：读取离线文字采样表 ${rel(textsFile)}`);
           const r = await runTextsFromJson({
-            textsFile, contrastDir: path.join(path.dirname(textsFile), 'contrast'), root: ROOT, verifyVideo: recordVerifier(),
+            textsFile, doc, contrastDir: path.join(path.dirname(textsFile), 'contrast'), root: ROOT, verifyVideo: recordVerifier(),
             size: pageSize(opts), profile: ctx.profile, film: ctx.film, step: opts.step || 1, contrast: !opts.noContrast,
           });
           recordPageGroup(g, r);

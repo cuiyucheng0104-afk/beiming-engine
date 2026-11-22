@@ -17,7 +17,7 @@ import { createHash } from 'node:crypto';
 import { openFilm, renderFrame, finalFaultCheck, ROOT } from '../page.mjs';
 import { RenderError } from './errors.mjs';
 import { FFMPEG, probe, streamSignature, must } from './ffmpeg.mjs';
-import { sha256 } from './record.mjs';
+import { sha256, sha256File } from './record.mjs';
 import { captureGpuFrame, exposureTimes, rawYuvInputArgs } from './yuv.mjs';
 import { telemetrySize, telemetryOutputArgs, createVisualCollector } from './visual-telemetry.mjs';
 import { beginPageQaFrame, samplePageQaFrame, endPageQaFrame, finishPageQaChunk, mergePageQaChunks } from './page-qa.mjs';
@@ -147,17 +147,18 @@ export async function renderRange(o) {
 
   // 复用：主输出与所有附加输出都在、帧数对、旁注里的参数键与这次相同，且渲它时加载过的文件一个都没变
   const todo = [];
-  for (let i = 0; i < chunks.length; i++) {
+  for (let i = 0; i < chunks.length && !signal.aborted; i++) {
     const [a, b] = chunks[i];
     if (reuse) {
-      const meta = readMeta(files[outputs[0].kind][i]);
+      const videoFiles = outputs.map(x => files[x.kind][i]);
+      const meta = await readMeta(videoFiles[0], qa && [...videoFiles, gray(i)], signal);
       const ok = meta && meta.a === a && meta.b === b && meta.key === key && Array.isArray(meta.hashes) && meta.deps && typeof meta.deps === 'object'
         && (!qa || (meta.pageQa && meta.hashes.length === b - a && meta.hashes.every(h => /^[0-9a-f]{64}$/.test(h))
           && fs.statSync(gray(i), { throwIfNoEntry: false })?.size === graySize.w * graySize.h * (b - a)))
-        && outputs.every(x => fs.existsSync(files[x.kind][i]));
+        && videoFiles.every(file => fs.existsSync(file));
       const stale = ok ? changed(meta.deps) : null;
       if (stale) openOptions?.log?.info?.(`第 ${a}–${b - 1} 帧这一块渲好之后 ${stale} 变了：重渲`);
-      if (ok && !stale && (await Promise.all(outputs.map(x => probe(files[x.kind][i]).then(p => p.video?.frames === b - a).catch(() => false)))).every(Boolean)) {
+      if (ok && !stale && (await Promise.all(videoFiles.map(file => probe(file, { signal }).then(p => p.video?.frames === b - a).catch(() => false)))).every(Boolean)) {
         meta.hashes.forEach((h, k) => hashes.set(a + k, h));
         for (const [p, [s]] of Object.entries(meta.deps)) deps.set(p, s);
         if (qa) await readyChunk(i, meta.pageQa);
@@ -212,9 +213,13 @@ export async function renderRange(o) {
         const n = (await probe(partial[j], { signal })).video?.frames;
         if (n !== b - a) throw new RenderError('contract.frame-count', `第 ${a}–${b - 1} 帧这一块编出来是 ${n} 帧，应为 ${b - a} 帧`, { hint: '编码器丢帧或重复帧：带上日志报告' });
       }
+      const json = JSON.stringify(meta);
+      const digest = qa && o.keepQaParts && await qaPartDigest(json, [...partial, tempGray], signal);
       for (let j = 0; j < outputs.length; j++) fs.renameSync(partial[j], files[outputs[j].kind][i]);
       if (qa) fs.renameSync(tempGray, gray(i));
-      writeMeta(files[outputs[0].kind][i], meta);
+      const metaFile = files[outputs[0].kind][i] + '.json';
+      writeAtomic(metaFile, json);
+      if (digest) writeAtomic(metaFile + '.sha256', digest);
       if (qa) await readyChunk(i, meta.pageQa);
     };
     let handedOff = false;
@@ -346,9 +351,38 @@ export async function renderRange(o) {
   };
 }
 
-const metaPath = file => `${file}.json`;
-function readMeta(file) { try { return JSON.parse(fs.readFileSync(metaPath(file), 'utf8')); } catch { return null; } }
-function writeMeta(file, meta) { const tmp = `${metaPath(file)}.tmp`; fs.writeFileSync(tmp, JSON.stringify(meta)); fs.renameSync(tmp, metaPath(file)); }
+// 独立校验值把旁注原文、按输出顺序排列的视频和灰度文件绑在一起，即使整份旁注被换走也能核对。
+async function qaPartDigest(json, parts, signal) {
+  const hash = createHash('sha256').update(json);
+  for (const file of parts) {
+    signal.throwIfAborted();
+    hash.update(await sha256File(file));
+  }
+  signal.throwIfAborted();
+  return hash.digest('hex');
+}
+
+async function readMeta(file, qaParts, signal) {
+  try {
+    const metaFile = file + '.json', json = fs.readFileSync(metaFile, 'utf8');
+    if (qaParts) {
+      const expected = fs.readFileSync(metaFile + '.sha256', 'utf8');
+      if (expected !== await qaPartDigest(json, qaParts, signal)) return null;
+    }
+    return JSON.parse(json);
+  } catch { return null; } // 缺失、不可读或损坏的缓存交给渲染；worker 统一处理取消。
+}
+
+function writeAtomic(file, text) {
+  const tmp = file + '.tmp';
+  try {
+    fs.writeFileSync(tmp, text);
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    try { fs.rmSync(tmp, { force: true }); } catch {}
+    throw e;
+  }
+}
 
 /**
  * 把几段同参数的 H.264 无损拼接（concat 复制，不重编码），核对帧数后原子改名；metadata 是附加的 -metadata 参数（AIGC 标识）。

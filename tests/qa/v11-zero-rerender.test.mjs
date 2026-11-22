@@ -204,6 +204,19 @@ test('V11：真实视觉记录与解码得同样黑场和静帧；缺失/损坏�
   }
 });
 
+test('V11：只改 MP4 显示方向也必须重新分析画面', { skip }, async () => {
+  const fx = fixture(12), original = join(fx.repo, 'original.mp4');
+  clip(original, { size: `${width}x${height}`, dur: 12 / fps, audio: 'none' });
+  const file = writeJson(join(fx.work, 'telemetry.json'), await visualRecord(original, 12));
+  ffmpeg(['-display_rotation', '180', '-i', original, '-c', 'copy', fx.mp4]);
+  assert.equal(streamHash(fx.mp4), streamHash(original));
+  const args = ['visual', fx.mp4], auto = fx.invoke(args);
+  assert.equal(auto.calls.luma, 1, '显示矩阵变化，旧像素坐标不能作证');
+  assert.ok(auto.env.warnings.some(w => /显示矩阵/.test(w)));
+  const explicit = fx.invoke([...args, '--telemetry', file]);
+  code(explicit, 2); assert.match(explicit.env.error.code, /^usage\./);
+});
+
 test('V11：无底板页写空投影表，离线仍有采样帧数', async () => {
   const fx = fixture(3);
   const { mergePageQaChunks } = await import('../../engine/render/lib/page-qa.mjs');

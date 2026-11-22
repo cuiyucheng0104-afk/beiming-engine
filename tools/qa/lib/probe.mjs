@@ -45,6 +45,10 @@ export function recordVideoVerifier(input, { timeoutMs, probe, decodedFrames } =
         !fps || !Number.isFinite(doc.fps) || Math.abs(doc.fps - fps.value) > 1e-6) {
       throw usageError(`${file} 的帧数、画幅或帧率与成片不符`);
     }
+    // 页面编码器不写显示矩阵；容器旋转或镜像不会改变视频包，却会改变 QA 的像素坐标。
+    if (video.side_data_list?.some(d => d.side_data_type === 'Display Matrix') || Number(video.tags?.rotate)) {
+      throw usageError(`${file} 未计入被检视频的显示矩阵，不能复用页面像素坐标`);
+    }
     hash ??= videoStreamSha256(input, args => run(tool('ffmpeg'), args, { timeoutMs }));
     if (doc.videoStreamSha256 !== await hash) throw usageError(`${file} 的视频码流指纹与成片不符`);
   };
