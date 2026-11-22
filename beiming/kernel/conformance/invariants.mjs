@@ -51,8 +51,7 @@ function frameFixture() {
 
 function seeded({ source, seed, language, filename }) {
   need(nat(seed) && text(source), '需要显式整数种子和非空渲染源码');
-  const hit = scanText(source, { language, filename, requireCode: true }).find(({ kind, call }) =>
-    kind === 'unseededRandom' || call === ['Date', 'now'].join('.'));
+  const [hit] = scanText(source, { language, filename, requireCode: true });
   need(!hit, `渲染源码读取了非确定性来源：${hit?.call}`);
 }
 function integerFrames({ fps, frames, shots, events }) {

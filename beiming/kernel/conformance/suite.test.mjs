@@ -94,7 +94,8 @@ test('十项独立读数：等号过线；缺项、错类型或越线只影响�
   assert.equal(direct(limits).ok, true);
   for (const [field, id, bad] of [
     ['colorLinearityMaxRelErr', 'color-linearity', 0.0201], ['colorZeroMaxAbsErr', 'color-linearity', 0.0051],
-    ['depthMedianRelErr', 'depth', -1], ['depthMedianRelErr', 'depth', 0.025], ['objectIdMetaMinIou', 'object-id-meta', 1.01],
+    ['depthMedianRelErr', 'depth', -1], ['depthMedianRelErr', 'depth', 0.025], ['depthMedianRelErr', 'depth', 0.0201],
+    ['objectIdMetaMinIou', 'object-id-meta', 0.9499], ['objectIdMetaMinIou', 'object-id-meta', 1.01],
     ['normalMedianDeg', 'normal-space', 2.01], ['cameraAnchorMaxPx', 'camera-convention', 1.01],
     ['shuffledPsnrDb', 'shuffled-order', 49.99], ['shuffledFracAbove5', 'shuffled-order', 0.00101],
     ['repeatPsnrDb', 'repeat-twice', 49.99], ['repeatFracAbove5', 'repeat-twice', 0.00101],
@@ -153,6 +154,22 @@ test('Three 表的重复样本不能补缺，坏掉的编号框不能被历史 I
   writeFileSync(join(tableDir, 'three.json'), JSON.stringify(column));
   assert.deepEqual(failures(loadProbeSuiteReport('three', { tableDir })),
     ['color-linearity', 'object-id-meta', 'normal-space', 'shuffled-order']);
+});
+
+test('Three 探针表中任一方块的单渲框错位，只拒绝 object-id-meta', (t) => {
+  const tableDir = mkdtempSync(join(tmpdir(), 'probe-v4-'));
+  t.after(() => rmSync(tableDir, { recursive: true, force: true }));
+  writeFileSync(join(tableDir, 'v4-three.mac.json'), readFileSync(new URL('./fixtures/v4-three.mac.json', import.meta.url)));
+  const original = readFileSync(new URL('../../calib/table/three.json', import.meta.url), 'utf8');
+  for (const name of ['cube-near', 'cube-mid', 'cube-far']) {
+    const column = JSON.parse(original);
+    const boxes = column.rows.find((r) => r.row === '可见比例的成本').readings;
+    boxes.find((r) => r.what.startsWith(`${name} 单独渲编号层反算包围盒 [`)).got = [0, 0, 1, 1];
+    writeFileSync(join(tableDir, 'three.json'), JSON.stringify(column));
+    const report = loadProbeSuiteReport('three', { tableDir });
+    assert.deepEqual(failures(report), ['object-id-meta'], name);
+    assert.equal(report.rows[2].measured.objectIdMetaMinIou, 0, name);
+  }
 });
 
 test('Three 补测只提供法线和乱序，不能为缺失的两遍探针表签发通过', (t) => {
@@ -473,4 +490,34 @@ test('V4 一审回归：私有字段、auth 前缀与不变量漏项', () => {
 
   // F-6: runInvariantSuite 缺项或重复同一条不得返回 ok: true
   assert.equal(runInvariantSuite([{ id: 'INV-01', fixture: makeValidInvariantFixture('INV-01') }]).ok, false);
+});
+
+for (const module of ['random', 'numpy.random']) {
+  test(`INV-02 在导入处拒绝 from ${module} import *`, () => {
+    const statement = `from ${module} import *`;
+    const check = (source) => checkInvariant('INV-02', { seed: 42, language: 'python', source });
+    const result = check(`${statement}  # 导入后只使用常量\nx = 42`);
+    assert.equal(result.ok, false);
+    assert.ok(result.reason.includes(statement));
+    assert.equal(check(`if enabled: ${statement}`).ok, false);
+    assert.equal(check(`from ${module.replace('.', ' . ')} import \\\n*`).ok, false);
+    assert.equal(check(`help = "${statement}"  # ${statement}`).ok, true);
+  });
+}
+
+test('V4-R3-Red 拒绝无确定性种子的随机源', () => {
+  for (const badSrc of [
+    'from random import *\nx = random()',
+    'from random import uniform\nx = uniform(0, 1)',
+    'import numpy as np\nrng = np.random.default_rng()\nx = rng.random()',
+    'import random\nr = random.Random()\nx = r.random()',
+    'x = random()',
+    'const r = createSeededRandom(performance.now());',
+    'const r = createSeededRandom(new Date());',
+    'import time\nrng = make_rng(time.time())',
+  ]) {
+    const f = makeValidInvariantFixture('INV-02');
+    f.source = badSrc;
+    assert.equal(checkInvariant('INV-02', f).ok, false, `应拦截无确定性种子随机：${badSrc}`);
+  }
 });

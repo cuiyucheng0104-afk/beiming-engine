@@ -80,6 +80,7 @@ function codeForScan(source, python, strict) {
   return out;
 }
 
+const pyRandomStarImport = /\bfrom\s+(?:numpy\s*\.\s*)?random\s+import\s*\*/g;
 const pyRandom = /^(?:random|randint|randrange|uniform|choice|choices|shuffle|sample|gauss|normalvariate|getrandbits|randbytes|triangular|\w+variate|SystemRandom)$/;
 const numpyRandom = /^(?:rand\w*|choice|shuffle|permutation|bytes|sample|ranf|standard_\w+|normal|uniform|beta|binomial|chisquare|dirichlet|exponential|f|gamma|geometric|gumbel|hypergeometric|laplace|logistic|lognormal|logseries|multinomial|multivariate_normal|negative_binomial|noncentral_\w+|pareto|poisson|power|rayleigh|triangular|vonmises|wald|weibull|zipf)$/;
 const noSeed = /^\s*\(\s*(?:(?:(?:seed|x|a|entropy)\s*=\s*)?None\s*,?\s*)?\)/;
@@ -202,8 +203,12 @@ export function scanText(source, options) {
   const implicit = !filename && !language;
   const pyImport = /^\s*(?:from[ \t]+(?:random|numpy(?:\.random)?|time)[ \t]+import\b|import[ \t]+(?:random|numpy(?:\.random)?|time)(?:[ \t]+as[ \t]+\w+)?[ \t]*(?:[;#\r\n]|$))/;
   const python = language ? /^(?:py|python)$/i.test(language) : /\.py$/i.test(filename ?? '') || (implicit && pyImport.test(source));
-  const code = bindings(codeForScan(source, python, requireCode), python, implicit);
-  const hits = python ? [] : matches(groupedReceivers(code), renderRules);
+  const masked = codeForScan(source, python, requireCode);
+  const code = bindings(masked, python, implicit);
+  // 星号导入本身就违规，在绑定展开、导入语句被移除之前的源码上检查。
+  const hits = python
+    ? Array.from(masked.replace(/\\\r?\n/g, '').matchAll(pyRandomStarImport), ([call]) => ({ kind: 'unseededRandom', call }))
+    : matches(groupedReceivers(code), renderRules);
   if (python || implicit) hits.push(...scanPython(code));
   return hits.concat(Array.from(code.matchAll(/(?<![.#\w$])random\s*\(\s*\)/g),
     () => ({ kind: 'unseededRandom', call: 'random()' })));
