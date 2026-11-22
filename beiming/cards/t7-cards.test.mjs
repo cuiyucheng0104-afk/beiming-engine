@@ -404,6 +404,24 @@ test('T7-10 写法不对的参数和数据：照卡文件解析参数再建卡�
   // 六审的反例之二：混进去的落点和量出来的起音是同一个采样点，一帧不差（toleranceFrames 是 0）也要算命中，差值正好是 0
   const exact = mix.audit(mixed.channels, last, { ...film25, toleranceFrames: 0 });
   assert.deepEqual([mix.onsets(mixed.channels), exact.hits, exact.rows[0].delta], [[49920], 1, 0]);
+  // 七审的反例之一：同一段底音加点击，起音门槛从 0.1 调到 0.6。片尾那 80 个采样点和整步照每个采样点的平均能量比涨幅：片头涨 0.005，片尾涨 0.008，是全片最大的，照样留下
+  const strict = createMix({ fps: FPS, seed: 1 }, params('audio.event-mix', { onsetFloor: 0.6 })).object;
+  assert.deepEqual(strict.onsets(bedded.map((c) => c.subarray(0, 50000))), [0, 49920], 'onsetFloor 0.6');
+  assert.deepEqual([strict.audit(bedded, last, film25).hits, strict.snap([23], bedded, film25)], [1, [24]], 'onsetFloor 0.6');
+  // 七审的反例之二：默认门槛，第 24000 到 24240 个采样点那一步的底音响到 0.26，片尾的点击还在门槛上面
+  const bumped = [Float32Array.from(bedded[0], (v, i) => (i >= 24000 && i < 24240 ? 0.26 * Math.sin((2 * Math.PI * 600 * i) / RATE) : v))];
+  assert.deepEqual(mix.onsets(bumped.map((c) => c.subarray(0, 50000))), [0, 24000, 49920]);
+  assert.deepEqual([mix.audit(bumped, last, film25).hits, mix.snap([23], bumped, film25)], [1, [24]]);
+  // 只有底音、没有点击：片尾不多出起音
+  const plain = [Float32Array.from({ length: 50000 }, (_, i) => 0.1 * Math.sin((2 * Math.PI * 600 * i) / RATE))];
+  assert.deepEqual([mix.onsets(plain), strict.onsets(plain), mix.audit(plain, last, film25).hits], [[0], [0], 0]);
+  // 七审的反例之三、之四：分数帧率下给全片每个整数帧各放一个事件，逐条量出的命中率和随机基线是同一个数（60000/1001 帧每秒容差 2 帧是 3/305，120000/1001 帧每秒一帧不差是 1/201）
+  for (const [fps, frames, at, toleranceFrames, hits] of [['60000/1001', 305, 240240, 2, 3], ['120000/1001', 201, 79680, 0, 1]]) {
+    const frac = createMix({ fps, seed: 1 }, params('audio.event-mix')).object, pcm = frac.mix([], { frames }).channels;
+    pcm[0][at] = pcm[1][at] = 0.5;
+    const seen = frac.audit(pcm, Array.from({ length: frames }, (_, frame) => ({ ...ev, frame })), { frames, toleranceFrames });
+    assert.deepEqual([frac.onsets(pcm), seen.hits, seen.hitRate, seen.baseline], [[at], hits, hits / frames, hits / frames], fps);
+  }
 
   // audio.align：界是硬的闭区间；偏移不是有限数、总帧数不是正的安全整数
   const card = createAlign({ fps: FPS }, params('audio.align')).object, src = [new Float32Array(RATE).fill(0.25)];

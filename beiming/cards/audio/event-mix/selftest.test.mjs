@@ -278,3 +278,46 @@ test('audio.event-mix：正片比声音短时，起音只在正片那一段里�
   assert.deepEqual([mixed.placements[0].sample, c.onsets(mixed.channels)], [49920, [49920]]);
   assert.deepEqual([exact.hits, exact.rows[0].delta], [1, 0]);
 });
+
+test('audio.event-mix：不满一步的片尾和整步照每个采样点的平均能量比涨幅：门槛调高、前面有更响的一步，片尾的点击照样找到', () => {
+  const sine = (level, length) => Float32Array.from({ length }, (_, i) => level * Math.sin((2 * Math.PI * 600 * i) / RATE));
+  const last = [{ id: 'x', frame: 24, sub: 0.96, audio: 'click' }], film25 = { frames: 25 };
+  // 七审的反例之一：0.1 的 600 赫兹底音，第 49920 个采样点一下 0.8 的点击，正片 25 帧。片头每个采样点涨 0.005，片尾 80 个采样点里每个涨 0.008，是全片最大的，门槛 0.6 也留得下
+  const bed = sine(0.1, 60 * 2000);
+  bed[49920] += 0.8;
+  for (const onsetFloor of [0.1, 0.6]) {
+    const c = card({ onsetFloor });
+    assert.deepEqual(c.onsets([bed.subarray(0, 50000)]), [0, 49920], `onsetFloor ${onsetFloor}`);
+    assert.deepEqual([c.audit([bed], last, film25).hits, c.snap([23], [bed], film25)], [1, [24]], `onsetFloor ${onsetFloor}`);
+  }
+  // 七审的反例之二：第 24000 到 24240 个采样点那一步的底音响到 0.26，门槛跟着抬到每个采样点 0.00288，片尾的 0.008 还在门槛上面
+  const c = card(), bump = sine(0.1, 60 * 2000);
+  bump.set(sine(0.26, 24240).subarray(24000), 24000);
+  bump[49920] += 0.8;
+  assert.deepEqual(c.onsets([bump.subarray(0, 50000)]), [0, 24000, 49920]);
+  assert.deepEqual([c.audit([bump], last, film25).hits, c.snap([23], [bump], film25)], [1, [24]]);
+  // 只有底音、没有点击：片尾停在一步里的哪儿、门槛调到多低，都只有开头那一个起音
+  const plain = sine(0.1, 50400), low = card({ onsetFloor: 0.01 });
+  for (let length = 49920; length <= 50400; length++) assert.deepEqual(low.onsets([plain.subarray(0, length)]), [0], `600 赫兹的底音 ${length} 个采样点`);
+});
+
+test('audio.event-mix：随机基线和逐条审计是同一个判据：全片每个整数帧各放一个事件，命中率就是 baseline，分数帧率、一帧不差也一样', () => {
+  const every = (frames) => Array.from({ length: frames }, (_, frame) => ({ id: `f-${frame}`, frame, audio: 'click' }));
+  const pulse = (length, ...at) => { const pcm = new Float32Array(length); for (const sample of at) pcm[sample] = 0.5; return [pcm]; };
+  // 七审的两个反例：60000/1001 帧每秒，唯一的起音在第 300 帧（第 240240 个采样点），容差 2 帧时第 298、302 帧差 2.0005 帧，不算；
+  // 120000/1001 帧每秒，第 199 帧的落点四舍五入正好是起音所在的第 79680 个采样点，一帧不差也算命中
+  for (const [fps, frames, at, toleranceFrames, hits] of [['60000/1001', 305, 240240, 2, 3], ['120000/1001', 201, 79680, 0, 1]]) {
+    const c = card({}, { fps }), pcm = pulse(c.mix([], { frames }).channels[0].length, at);
+    assert.deepEqual(c.onsets(pcm), [at], fps);
+    const seen = c.audit(pcm, every(frames), { frames, toleranceFrames });
+    assert.deepEqual([seen.hits, seen.hitRate, seen.baseline], [hits, hits / frames, hits / frames], fps);
+  }
+  // 换几种帧率、容差和起音位置，两个数始终是同一个；正片比声音长、比声音短都算
+  for (const fps of ['24/1', '24000/1001', '30000/1001', '60000/1001', '120000/1001', '25/1']) {
+    const c = card({}, { fps }), pcm = pulse(c.mix([], { frames: 120 }).channels[0].length, 240, 24000, 30240, 60000, 62400);
+    for (const frames of [90, 120, 150]) for (const toleranceFrames of [0, 0.5, 1, 2, 2.5, 7, 40]) {
+      const seen = c.audit(pcm, every(frames), { frames, toleranceFrames });
+      assert.equal(seen.baseline, seen.hitRate, `${fps}，全片 ${frames} 帧，容差 ${toleranceFrames} 帧`);
+    }
+  }
+});
