@@ -1393,46 +1393,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e351.loudness",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "声音用法（loudness）",
-      "value": -14,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：声音用法"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-05",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e351；原出处：05/09 §4.3",
-        "note": "原证据：原文陈述；原验证：作者成片用过（配乐放慢我们量过）。配乐放慢零点几个百分点让最后一记 808 落在切到定妆的那一帧；两条音效切成单发放在零件卡入的那一帧；母带 −14 LUFS，真峰值不高于 −1 dBTP"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e351.true-peak",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.true-peak",
-      "title": "声音用法（true-peak）",
-      "value": -1,
-      "unit": "dBTP",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：声音用法"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-05",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e351；原出处：05/09 §4.3",
-        "note": "原证据：原文陈述；原验证：作者成片用过（配乐放慢我们量过）。配乐放慢零点几个百分点让最后一记 808 落在切到定妆的那一帧；两条音效切成单发放在零件卡入的那一帧；母带 −14 LUFS，真峰值不高于 −1 dBTP"
-      },
-      "verifiedInOurStack": false
-    },
-    {
       "id": "audio-subs.e353.loudness",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.loudness",
@@ -3095,30 +3055,6 @@
       "summaryOf": [
         "audio-subs.e404.loudness",
         "audio-subs.e404.frequency"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s01-t1-r13",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.general.loudness",
-      "title": "跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）（case-05）",
-      "value": -14,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§1 跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-05",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §1 对照表 1 第 13 行 → ^e351",
-        "note": "原证据：原文陈述；原验证：作者成片用过（配乐放慢我们量过）。声音用法：配乐放慢零点几个百分点让最后一记 808 落在切到定妆的那一帧；两条音效切成单发放在零件卡入的那一帧；母带 −14 LUFS，真峰值不高于 −1 dBTP"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e351.loudness",
-        "audio-subs.e351.true-peak"
       ]
     },
     {

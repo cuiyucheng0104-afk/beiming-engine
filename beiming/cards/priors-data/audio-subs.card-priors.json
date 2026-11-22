@@ -46,6 +46,39 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e359.card",
+      "sourceId": "e359",
+      "cardId": "audio.scene-events",
+      "section": 1,
+      "caseId": "case-02",
+      "title": "打击感",
+      "text": "下滑正弦+带通噪声：太鼓 120→52 Hz/0.16 s(原实现源码)",
+      "quantities": [
+        {
+          "value": {
+            "from": 120,
+            "to": 52
+          },
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 0.16,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "routeNote": "五审裁定：太鼓扫频配方是某个实现的合成取值，挂卡",
+      "coupling": "与§1 总路线与通用原则里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "脚本取值",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §1 ^e359；原出处：09 复盘 §6.1 #25",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e362.card",
       "sourceId": "e362",
       "cardId": "audio.scene-events",
@@ -1226,6 +1259,16 @@
           "rawUnit": "Hz"
         },
         {
+          "value": [
+            0.035,
+            0.055
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 0.035,
+          "jitter": 0.02
+        },
+        {
           "value": 0.07,
           "unit": "s",
           "rawUnit": "s"
@@ -1365,6 +1408,16 @@
           "rawUnit": "Hz"
         },
         {
+          "value": [
+            1300,
+            1600
+          ],
+          "unit": "Hz",
+          "rawUnit": "Hz",
+          "base": 1300,
+          "jitter": 300
+        },
+        {
           "value": 0.2,
           "unit": "ms",
           "rawUnit": "ms"
@@ -1412,6 +1465,26 @@
           "value": 0.8,
           "unit": "s",
           "rawUnit": "s"
+        },
+        {
+          "value": [
+            0.38,
+            0.4
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 0.38,
+          "jitter": 0.02
+        },
+        {
+          "value": [
+            700,
+            1400
+          ],
+          "unit": "Hz",
+          "rawUnit": "Hz",
+          "base": 700,
+          "jitter": 700
         },
         {
           "value": 0.5,
@@ -1483,6 +1556,16 @@
           ],
           "unit": "Hz",
           "rawUnit": "Hz"
+        },
+        {
+          "value": [
+            640,
+            760
+          ],
+          "unit": "Hz",
+          "rawUnit": "Hz",
+          "base": 640,
+          "jitter": 120
         },
         {
           "value": 0.06,
@@ -2713,6 +2796,16 @@
           "value": 1.6,
           "unit": "s",
           "rawUnit": "s"
+        },
+        {
+          "value": [
+            0.9,
+            1.05
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": 0.9,
+          "jitter": 0.15
         }
       ],
       "routeNote": "零星事件间隔与增益",
@@ -4541,6 +4634,17 @@
       "text": "lvl=0.5·cfg.gain·o.gain·(虚弱0.9)；gM：t0−0.06前为0，t0+0.12线性升到lvl，保持到t0+T，t0+T+0.35线性降到0，t0默认now+0.06；颤音LFO频率vib[0]·(0.95+rand·0.1)，深度f0·vib[1](虚弱×1.6)；音高f=f0·(1−fall·u)·(词首?1+stress:1)·(1+(rand−0.5)·2·jit)，感叹×1.1，u=句中位置(分母至少0.3 s)，setTargetAtTime(f,a−0.015,0.025)；问句末音节在a+0.3·len起用τ0.3·len抬到f·1.16，其余在a+0.45·len起用τ0.45·len落到f·0.965；低八度三角波同步×0.5；元音vowel(s.v,a−0.02,0.06)",
       "quantities": [
         {
+          "value": [
+            0.95,
+            1.05
+          ],
+          "unit": "Hz",
+          "rawUnit": "Hz",
+          "base": 0.95,
+          "jitter": 0.1,
+          "scaleBy": "vib[0]"
+        },
+        {
           "value": 0.3,
           "unit": "s",
           "rawUnit": "s"
@@ -5557,6 +5661,16 @@
       "quantities": [
         {
           "value": [
+            5,
+            7
+          ],
+          "unit": "cent",
+          "rawUnit": "音分",
+          "base": 5,
+          "jitter": 2
+        },
+        {
+          "value": [
             -3,
             3
           ],
@@ -5570,6 +5684,16 @@
           ],
           "unit": "s",
           "rawUnit": "s"
+        },
+        {
+          "value": [
+            0.25,
+            1
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": 0.25,
+          "jitter": 0.75
         },
         {
           "value": 12000,
@@ -6441,6 +6565,16 @@
         },
         {
           "value": [
+            0.07,
+            0.12
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": 0.07,
+          "jitter": 0.05
+        },
+        {
+          "value": [
             16,
             32
           ],
@@ -6541,6 +6675,17 @@
       "title": "区域曲：焦土道路场景配乐/火堆场景配乐/林冠场景配乐",
       "text": "焦土道路场景配乐76/4 E弗里几亚 gain3.4：〔专名36〕 E2[4,7,11]、F2[5,9,0]、E2、D2[2,5,9]、C2[0,4,7]、F2、E2、E2；手摇琴hurdy([E2,B2],8.1,.045)偶数小节(熄灯段配乐后×1.25 buzz.5)；\"车轮\"WHEEL=[0,1.5,3]：frame[.22,.14,.17]、rattle[.06,.04,.05]、pluck[.3,.2,.24]，拍1、2.5各一声rattle.018，拍3 creak.09；〔专名36〕_MOTIF E3 .5,B3 .5,E3 .5,B3 .5,D4 2,A3 1,E3 1,E3 1,A3 1(b===0或白天b===4男声+reed)；灯醒着且loop%3===2 b===6唱THEME_A_HEAD E4 2,B3 2,A3 4；roadEnd01渐强铜管E2 B2。火堆场景配乐48/4 A音级集[5,9,2,10,4]=F A D B♭ E 无拍 gain2.9：pedal A1 vox.022+A2长笛.012每2小节8.6拍；风>0.62触发\"撞灯钟\"strike()依次敲LAMP_NOTES(〔专名24〕_SERIES八度4,4,5,5,5,5,5,5)chime次序用计数G.si循环音量.63×(.3+rnd×.2)×(.7+.5g)；灯醒着加火焰.02男声E3；熄灯段配乐后第一次进入播一遍〔专名19〕_TUNE竖琴速度×0.75(拍数×0.75)再加D3 A2 D3竖琴三音。林冠场景配乐TREE_LAYER 60/4最长20 s gain2.1：按区域取调(TREE_MODES)；i===0玻璃tonic,tonic+7,tonic+12(轻量2个)19拍.024；i===0与i===3女声(\"i\"元音)唱degLine([[5,2],[3,1],[4,5]],root,mode)vel.05(夜晚×1.41)",
       "quantities": [
+        {
+          "value": [
+            0.3,
+            0.5
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": 0.3,
+          "jitter": 0.2,
+          "scaleBy": ".63×(.7+.5g)"
+        },
         {
           "value": 20,
           "unit": "s",
@@ -7206,6 +7351,61 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过(未运行)",
       "docRef": "声音配乐配音字幕汇编 §8 ^e207；原出处：09§5.5、§7.2；原实现源码、原实现源码",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e215.card",
+      "sourceId": "e215",
+      "cardId": "audio.music-gen",
+      "section": 8,
+      "caseId": "case-13",
+      "title": "声音离线回归",
+      "text": "原实现源码 量：时长、峰值 dB、abs(x)≥0.999 削波采样数、NaN 个数、RMS dB、K 加权综合响度 LUFS（高架 1681.974 Hz +3.99984 dB，高通 38.135 Hz，400 ms 块 100 ms 步进，门限 −70/−10 LU）、最大瞬时 LUFS、频谱重心（2048 点 Hann FFT）、五段频带占比（<150/<600/<2500/<8000/其余 Hz）、静音占比（100 ms 窗 RMS<0.001）、直流量",
+      "quantities": [
+        {
+          "value": 1681.974,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 3.99984,
+          "unit": "dB",
+          "rawUnit": "dB"
+        },
+        {
+          "value": 38.135,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 400,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 100,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": -10,
+          "unit": "LU",
+          "rawUnit": "LU"
+        },
+        {
+          "value": 100,
+          "unit": "ms",
+          "rawUnit": "ms"
+        }
+      ],
+      "routeNote": "五审裁定：离线分析器的阈值、窗口与频带配置跟实现绑定，挂卡",
+      "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "声音配乐配音字幕汇编 §8 ^e215；原出处：09§5.7；原实现源码",
       "verifiedInOurStack": false
     },
     {
@@ -10377,6 +10577,17 @@
           "rawUnit": "s",
           "base": 0.035,
           "jitter": 0.02
+        },
+        {
+          "value": [
+            0.7,
+            1.2
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": 0.7,
+          "jitter": 0.5,
+          "scaleBy": "1.7−0.22i"
         },
         {
           "value": [

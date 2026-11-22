@@ -7,21 +7,21 @@
   "mergedDuplicatesNotCounted": 54,
   "order": "ledger 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "源总数 = 明细条目（带 ^e 锚点）+ 跨案例对照表行；汇总行的去向随它指回的明细，不另算一条明细；并入的重复条目原文已在明细里，不计数",
-  "portableCount": 89,
-  "cardCoupledCount": 366,
-  "practiceCount": 65,
-  "excludedOrConflictCount": 20,
+  "portableCount": 87,
+  "cardCoupledCount": 369,
+  "practiceCount": 66,
+  "excludedOrConflictCount": 18,
   "detailRouteCounts": {
-    "card-coupled": 299,
+    "card-coupled": 301,
     "practice": 49,
-    "skipped-or-conflict": 16,
-    "portable": 53
+    "skipped-or-conflict": 15,
+    "portable": 52
   },
   "summaryRouteCounts": {
-    "portable": 36,
-    "practice": 16,
-    "skipped-or-conflict": 4,
-    "card-coupled": 67
+    "portable": 35,
+    "practice": 17,
+    "card-coupled": 68,
+    "skipped-or-conflict": 3
   },
   "files": {
     "priors": "audio-subs.json",
@@ -37,7 +37,7 @@
     "skippedOrConflict": "没有步骤、判据、参数的一句话概述，读数对不上且原因未查的对账行（四审收紧）；空条目、只说未公开或无声音且没有可学做法的陈述；写了做法的归 practice。没有量，且是未公开、无声音、无音轨一类陈述；冲突行本身不单列，写进 conflicts",
     "evidence": "证据标签取最弱一级映射：实测/画面读数→实测，源码/脚本取值→源码，原文陈述→文档，推断/未公开→推断；原标签照抄在 note 或 evidenceLabel",
     "units": "dBFS 记作 dB（标题注明 dBFS），kHz 换算成 Hz，百分数换算成 ratio，帧记 frame，像素记 px；千分位逗号去掉（1,134 帧 = 1134），±a 记作 [−a, a]，等号右边的无量纲输入（near=0.5）不当量；分数 1/N s 按值算（1/30 s = 0.033333 s）；箭头两侧量纲不同（MIDI 36→65.4 Hz、d≥300→2000 Hz）只取右边的物理量；公式里的变量 px（px=clamp(...)）不当像素；m、m/s 只出现在挂卡与做法条目的 quantities，不进可移植库；等号右边带单位的量照取（dwell=4 s），「无量纲输入→带单位结果」（near=0.5→0.206 s）只取箭头右边；逗号元组里只有贴着单位的那个数是量（[0,110Hz,.34]），三个以上同质数列共用末尾单位（98,147,233,392Hz）；early 30s、1980s 这类年龄与年代词不是秒数；单位贴在含变量的表达式后面（comb[0] ms、12.5+1.5·sin(1.7t) Hz）的不抽量，原文留在 text",
-    "quantityFields": "base、jitter：随机算式 A + rnd × B 的基础量与随机跨度，value = [A, A+B]；同一行有几个随机算式就出几条，没写单位的按「同一变量再次赋值、紧跟的括号变体、A 与 B 并列」认单位。scaleBy：外层变量乘数（creak·(0.6+rand·0.9) s 记 scaleBy=creak），实际值 = value × 该变量，不是无条件的定值",
+    "quantityFields": "base、jitter：随机算式 A + rnd × B 的基础量与随机跨度，value = [A, A+B]；同一行有几个随机算式就出几条，没写单位的按「同一变量再次赋值、紧跟的括号变体、A 与 B 并列」认单位，再认不出的逐个读上下文定（基频 Hz、缓冲内起点 s、detune 音分；rate、vel、增益目标与幅度系数无量纲，记 ratio、rawUnit 写「无量纲」）；挂卡与做法条目里正写随机算式共 41 个，与带 jitter 的量逐条一一对应。随机项写在后面的变体（0.15+0.05·rand、0.3+0.7·rand²）与没有系数的（0.15+rand²）不出 base/jitter，原文留在 text。scaleBy：外层乘数，变量（creak·(0.6+rand·0.9) s 记 scaleBy=creak、vib[0]·(0.95+rand·0.1) 记 scaleBy=vib[0]）或表达式（(1.7−0.22i)·(0.7+rand·0.5) 记 1.7−0.22i，前后都有乘数的用 × 连起来）；实际值 = value × scaleBy，unit 是乘完以后的单位，不是无条件的定值",
     "semanticOverrides": [
       {
         "sourceId": "e352",
@@ -786,12 +786,12 @@
     {
       "cardId": "audio.music-gen",
       "exists": false,
-      "count": 99
+      "count": 100
     },
     {
       "cardId": "audio.scene-events",
       "exists": false,
-      "count": 3
+      "count": 4
     },
     {
       "cardId": "audio.sfx-bank",
@@ -1046,7 +1046,7 @@
         },
         {
           "to": "案例 13",
-          "n": 91
+          "n": 92
         },
         {
           "to": "〔专名18〕",
@@ -1536,8 +1536,8 @@
     },
     {
       "sourceId": "e351",
-      "route": "portable",
-      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
+      "route": "practice",
+      "reason": "五审裁定：主体是配乐变速对切点、音效切单发落帧的工序，母带目标只是附带，归做法（量仍在 quantities）"
     },
     {
       "sourceId": "e404",
@@ -1691,8 +1691,8 @@
     },
     {
       "sourceId": "e359",
-      "route": "practice",
-      "reason": "四审规则：拿掉标识符与具体数字后仍是一条完整可照做的工序或判断方法，归做法"
+      "route": "card-coupled",
+      "reason": "五审裁定：太鼓扫频配方是某个实现的合成取值，挂卡"
     },
     {
       "sourceId": "e360",
@@ -1756,13 +1756,18 @@
     },
     {
       "sourceId": "e331",
-      "route": "skipped-or-conflict",
-      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁"
+      "route": "practice",
+      "reason": "五审裁定：「每个音效按画面帧号放置」是可照做的工序，归做法（一审已确认，四审复核时误排除）"
     },
     {
       "sourceId": "e335",
       "route": "skipped-or-conflict",
       "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁"
+    },
+    {
+      "sourceId": "e215",
+      "route": "card-coupled",
+      "reason": "五审裁定：离线分析器的阈值、窗口与频带配置跟实现绑定，挂卡"
     }
   ],
   "routeAdjustments": [],
@@ -1770,18 +1775,20 @@
     "method": "独立代理按同一份判据（05 §8.1 加跨家族终审的判例）只读源文、全量盲判 417 条明细，不看迁移结果；首轮没把握或与清单不一致的条目由另一名独立代理在补充判例后重判，以重判为准。汇总行的独立去向随它指回的明细",
     "sampleSize": 417,
     "rejudgedCount": 119,
-    "firstRoundDisagreements": 36,
+    "firstRoundDisagreements": 37,
     "disagreements": [
+      "e359",
       "e362",
       "e308",
       "e314",
       "e424",
       "e432",
+      "e215",
       "e375",
-      "e351",
       "e404",
       "e395",
       "e330",
+      "e331",
       "e374",
       "e449"
     ],
@@ -4310,6 +4317,7 @@
         "e253",
         "e257",
         "e334",
+        "e351",
         "e391"
       ]
     }
@@ -4554,16 +4562,6 @@
       "docRef": "声音配乐配音字幕汇编 §12 ^e340；原出处：23/09 §4.3、§5.1"
     },
     {
-      "sourceId": "e331",
-      "section": 12,
-      "caseId": "case-27",
-      "title": "音乐与音效制作",
-      "text": "音乐为合成，每个音效按画面帧号放置（原文）；音色合成法、效果器、混音链未公开",
-      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁",
-      "evidenceLabel": "原文陈述+未公开",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e331；原出处：27/09 §4.2"
-    },
-    {
       "sourceId": "e335",
       "section": 12,
       "caseId": "case-29",
@@ -4633,7 +4631,7 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-27",
-      "route": "skipped-or-conflict",
+      "route": "practice",
       "summaryOf": "e331",
       "targets": []
     },
@@ -4729,11 +4727,9 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-05",
-      "route": "portable",
+      "route": "practice",
       "summaryOf": "e351",
-      "targets": [
-        "audio-subs.sum.s01-t1-r13"
-      ]
+      "targets": []
     },
     {
       "sourceLine": 45,
@@ -4795,9 +4791,9 @@
       "kind": "detail",
       "section": 1,
       "caseId": "case-02",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e359.practice"
+        "audio-subs.e359.card"
       ]
     },
     {
@@ -5523,7 +5519,7 @@
       "kind": "summary",
       "section": 4,
       "caseId": "case-02",
-      "route": "practice",
+      "route": "card-coupled",
       "summaryOf": "e359",
       "targets": []
     },
@@ -7997,9 +7993,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e215.practice"
+        "audio-subs.e215.card"
       ]
     },
     {
@@ -9486,10 +9482,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-05",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "audio-subs.e351.loudness",
-        "audio-subs.e351.true-peak"
+        "audio-subs.e351.practice"
       ]
     },
     {
@@ -9894,8 +9889,10 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-27",
-      "route": "skipped-or-conflict",
-      "targets": []
+      "route": "practice",
+      "targets": [
+        "audio-subs.e331.practice"
+      ]
     },
     {
       "sourceLine": 1519,

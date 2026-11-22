@@ -41,34 +41,6 @@
       "docRef": "声音配乐配音字幕汇编 §1 ^e357；原出处：09 复盘 §6.1 #23"
     },
     {
-      "id": "audio-subs.e359.practice",
-      "sourceId": "e359",
-      "section": 1,
-      "caseId": "case-02",
-      "title": "打击感",
-      "text": "下滑正弦+带通噪声：太鼓 120→52 Hz/0.16 s(原实现源码)",
-      "quantities": [
-        {
-          "value": {
-            "from": 120,
-            "to": 52
-          },
-          "unit": "Hz",
-          "rawUnit": "Hz"
-        },
-        {
-          "value": 0.16,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "脚本取值",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §1 ^e359；原出处：09 复盘 §6.1 #25"
-    },
-    {
       "id": "audio-subs.e360.practice",
       "sourceId": "e360",
       "section": 1,
@@ -530,56 +502,6 @@
       "docRef": "声音配乐配音字幕汇编 §8 ^e214；原出处：09§6A、§1A；原实现源码"
     },
     {
-      "id": "audio-subs.e215.practice",
-      "sourceId": "e215",
-      "section": 8,
-      "caseId": "case-13",
-      "title": "声音离线回归",
-      "text": "原实现源码 量：时长、峰值 dB、abs(x)≥0.999 削波采样数、NaN 个数、RMS dB、K 加权综合响度 LUFS（高架 1681.974 Hz +3.99984 dB，高通 38.135 Hz，400 ms 块 100 ms 步进，门限 −70/−10 LU）、最大瞬时 LUFS、频谱重心（2048 点 Hann FFT）、五段频带占比（<150/<600/<2500/<8000/其余 Hz）、静音占比（100 ms 窗 RMS<0.001）、直流量",
-      "quantities": [
-        {
-          "value": 1681.974,
-          "unit": "Hz",
-          "rawUnit": "Hz"
-        },
-        {
-          "value": 3.99984,
-          "unit": "dB",
-          "rawUnit": "dB"
-        },
-        {
-          "value": 38.135,
-          "unit": "Hz",
-          "rawUnit": "Hz"
-        },
-        {
-          "value": 400,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 100,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": -10,
-          "unit": "LU",
-          "rawUnit": "LU"
-        },
-        {
-          "value": 100,
-          "unit": "ms",
-          "rawUnit": "ms"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过(未运行)",
-      "docRef": "声音配乐配音字幕汇编 §8 ^e215；原出处：09§5.7；原实现源码"
-    },
-    {
       "id": "audio-subs.e277.practice",
       "sourceId": "e277",
       "section": 9,
@@ -916,6 +838,31 @@
       "docRef": "声音配乐配音字幕汇编 §12 ^e375；原出处：原文 § Step 4 §3"
     },
     {
+      "id": "audio-subs.e351.practice",
+      "sourceId": "e351",
+      "section": 12,
+      "caseId": "case-05",
+      "title": "声音用法",
+      "text": "配乐放慢零点几个百分点让最后一记 808 落在切到定妆的那一帧；两条音效切成单发放在零件卡入的那一帧；母带 −14 LUFS，真峰值不高于 −1 dBTP",
+      "quantities": [
+        {
+          "value": -14,
+          "unit": "LUFS",
+          "rawUnit": "LUFS"
+        },
+        {
+          "value": -1,
+          "unit": "dBTP",
+          "rawUnit": "dBTP"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过（配乐放慢我们量过）",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e351；原出处：05/09 §4.3"
+    },
+    {
       "id": "audio-subs.e344.practice",
       "sourceId": "e344",
       "section": 12,
@@ -1028,6 +975,20 @@
       "evidenceLabel": "实测",
       "verificationLabel": "我们自己量过",
       "docRef": "声音配乐配音字幕汇编 §12 ^e328；原出处：27/09 §6.1(4)"
+    },
+    {
+      "id": "audio-subs.e331.practice",
+      "sourceId": "e331",
+      "section": 12,
+      "caseId": "case-27",
+      "title": "音乐与音效制作",
+      "text": "音乐为合成，每个音效按画面帧号放置（原文）；音色合成法、效果器、混音链未公开",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "原文陈述+未公开",
+      "verificationLabel": "没验证",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e331；原出处：27/09 §4.2"
     },
     {
       "id": "audio-subs.e373.practice",

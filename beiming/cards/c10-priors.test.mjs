@@ -489,7 +489,11 @@ test('四审：全表带单位的随机算式一个不漏，外层乘数都标 s
       assert.ok(hit, `${e.sourceId} 漏了 ${m[0]}`);
       assert.equal(hit.scaleBy, scale, `${e.sourceId} ${m[0]} 的外层乘数`);
     }
-    for (const q of e.quantities.filter((x) => x.scaleBy)) assert.match(e.text, new RegExp(String.raw`(?<![A-Za-z0-9_])${q.scaleBy}\s*[·×*]`), `${e.sourceId} scaleBy=${q.scaleBy}`);
+    for (const q of e.quantities.filter((x) => x.scaleBy)) {
+      // 变量名要在原文里贴着乘号；表达式乘数（vib[0]、1.7−0.22i、.63×(.7+.5g)）的每个因子都要是原文里的字面片段。
+      if (/^[A-Za-z_]\w*$/.test(q.scaleBy)) assert.match(e.text, new RegExp(String.raw`(?<![A-Za-z0-9_])${q.scaleBy}\s*[·×*]`), `${e.sourceId} scaleBy=${q.scaleBy}`);
+      else for (const f of q.scaleBy.split('×')) assert.ok(e.text.includes(f), `${e.sourceId} scaleBy=${q.scaleBy} 的因子 ${f}`);
+    }
   }
   assert.ok(seen >= 26, `带单位的随机算式 ${seen} 个`);
   // 没有自带单位、但能从上下文认出单位的三种写法：同一变量再次赋值、紧跟的括号变体、「A 与 B 单位」并列。
@@ -570,4 +574,48 @@ test('四审：独立盲判覆盖全部明细，任取随机种子抽 ≥ 10%（
     assert.ok(n / picked.length <= 0.1, `种子 ${seed}：分歧 ${n}/${picked.length}`);
   }
   t.diagnostic(`全表分歧 ${total}/${ledger.length}；200 组种子里最差一组 ${worst}/67；四审前旧样本 ${audit.legacy.disagreements.length}/${audit.legacy.sampleSize}（旧口径，只记数）`);
+});
+
+test('五审：41 个随机算式与带 jitter 的量一一对应，上下文定单位的 12 个逐个核对', () => {
+  // 正写的 A + rnd × B（含幂次、省略前导零的 .07+rnd×.05），单位贴不贴着都算：全表 41 个，分在 20 条里。
+  const N = String.raw`[−+\-]?(?:\d+(?:\.\d+)?|\.\d+)`;
+  const expr = new RegExp(String.raw`(?<![\d.])(${N})\s*[+＋]\s*\(?\s*${RAND_SRC}(${N})(?![\d.])`, 'g');
+  const key = (base, jitter) => `${Math.round(base * 1e6)}+${Math.round(jitter * 1e6)}`;
+  let exprs = 0;
+  let entries = 0;
+  for (const e of coupledOrPractice) {
+    const want = [...e.text.matchAll(expr)].map((m) => key(toNum(m[1]), toNum(m[2])));
+    const have = e.quantities.filter((q) => 'jitter' in q).map((q) => key(q.base, q.jitter));
+    assert.deepEqual(have.sort(), want.sort(), `${e.sourceId} 的随机算式与 base/jitter 没有一一对上`);
+    exprs += want.length;
+    entries += want.length > 0;
+  }
+  assert.deepEqual([exprs, entries], [41, 20]);
+  for (const p of priors) assert.equal(p.provenance.note.match(expr), null, `${p.id}：带随机算式的条目都在挂卡与做法里，可移植条目没有 quantities 可对`);
+  // 没贴单位的 12 个：单位读上下文定（基频 Hz、起点 s、detune 音分，rate、vel、增益与幅度系数无量纲记 ratio），外层乘数记 scaleBy。
+  const context = [
+    ['e35', 0.035, 0.02, 's'], ['e38', 1300, 300, 'Hz'], ['e40', 0.38, 0.02, 's'], ['e40', 700, 700, 'Hz'], ['e41', 640, 120, 'Hz'],
+    ['e114', 0.9, 0.15, 'ratio'], ['e139', 5, 2, 'cent'], ['e139', 0.25, 0.75, 'ratio'], ['e165', 0.07, 0.05, 'ratio'],
+    ['e169', 0.3, 0.2, 'ratio', '.63×(.7+.5g)'], ['e271', 0.7, 0.5, 'ratio', '1.7−0.22i'], ['e428', 0.95, 0.1, 'Hz', 'vib[0]'],
+  ];
+  for (const [sid, base, jitter, unit, scaleBy] of context) {
+    const hit = quantitiesOf(sid).filter((q) => q.base === base && q.jitter === jitter);
+    assert.equal(hit.length, 1, `${sid} ${base}+rand×${jitter}`);
+    assert.deepEqual([hit[0].value, hit[0].unit, hit[0].scaleBy], [[base, Math.round((base + jitter) * 1e6) / 1e6], unit, scaleBy], `${sid} ${base}+rand×${jitter}`);
+  }
+  // 五审点名三例，从公开入口按卡读。
+  const byCard = (cardId, sid) => getAudioSubsCardPriors(cardId).find((e) => e.sourceId === sid).quantities.filter((q) => 'jitter' in q);
+  assert.deepEqual(byCard('audio.sfx-bank', 'e40').find((q) => q.unit === 'Hz'), { value: [700, 1400], unit: 'Hz', rawUnit: 'Hz', base: 700, jitter: 700 });
+  assert.deepEqual(byCard('audio.sfx-bank', 'e41'), [{ value: [640, 760], unit: 'Hz', rawUnit: 'Hz', base: 640, jitter: 120 }]);
+  assert.deepEqual(byCard('audio.voice-synth', 'e428'), [{ value: [0.95, 1.05], unit: 'Hz', rawUnit: 'Hz', base: 0.95, jitter: 0.1, scaleBy: 'vib[0]' }]);
+});
+
+test('五审：按画面帧号放音效的做法留在做法表，点名的三条边界随终审裁定', () => {
+  const route = new Map(manifest.ledger.map((r) => [r.sourceId, r.route]));
+  assert.equal(getAudioSubsPractices().filter((e) => e.sourceId === 'e331').length, 1);
+  for (const id of ['e331', 'sum.s01-t1-r04', 'e351', 'sum.s01-t1-r13']) assert.equal(route.get(id), 'practice', id);
+  for (const id of ['e359', 'sum.s04-t1-r06', 'e215']) assert.equal(route.get(id), 'card-coupled', id);
+  assert.ok(!manifest.excluded.some((x) => x.sourceId === 'e331'), 'e331 不在不迁表里');
+  // e351 的母带目标仍可从做法条目的 quantities 读到。
+  assert.ok(quantitiesOf('e351').some((q) => q.unit === 'LUFS' && q.value === -14) && quantitiesOf('e351').some((q) => q.unit === 'dBTP' && q.value === -1));
 });
