@@ -169,6 +169,7 @@ async function checkBackpressure(t, slowPreset) {
   let fastWrites = 0, slowWrites = 0, drained = 0;
   const blocked = Promise.withResolvers();
   const encoding = encode({ graph, outputs, timeoutMs: 10000, sinkFactory(spec) {
+    assert.equal(spec.expectedFrames, graph.frames);
     if (spec.preset !== slowPreset) {
       const sink = openFileSink(spec);
       return { ...sink, write(chunk) { fastWrites++; return sink.write(chunk); } };

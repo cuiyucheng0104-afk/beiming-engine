@@ -11,7 +11,7 @@ import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
-import { checkContract, masterAudio, measureLoudness, mixEvents, readEvents } from './audio.mjs';
+import { checkContract, masterAudio, measureAac, measureLoudness, mixEvents, readEvents } from './audio.mjs';
 import { encode, isFaststart, probeMedia } from './encode.mjs';
 import { CompError, bad, escapeFilterValue, parseFps, runTool, stitchGraph, tools } from './stitch.mjs';
 
@@ -196,11 +196,17 @@ function deliverBundle(opts) {
       }
       if (delivery.web) check(checks, 'web.mp4.faststart', isFaststart(readFileSync(join(dir, PIECES.web))), true, isFaststart(readFileSync(join(dir, PIECES.web))));
       let loud = null;
-      if (mastered && !mastered.silent) {
+      if (mastered && !mastered.silent && checks.every((c) => c.ok)) {
         loud = measureLoudness(join(dir, PIECES.master), { timeoutMs });
         const target = audioCfg.loudness ?? -14, peak = audioCfg.truePeak ?? -1;
         check(checks, 'master.mp4.loudness', loud.integrated >= target - 1 && loud.integrated <= target + 1, [target - 1, target + 1], loud.integrated);
         check(checks, 'master.mp4.true_peak', loud.truePeak <= peak, `<= ${peak}`, loud.truePeak);
+        for (const { path } of outputs) {
+          const actual = measureAac(path, { timeoutMs });
+          if (Math.abs(actual.integrated - target) > 1 || actual.truePeak > peak) {
+            throw mismatch(`${basename(path)} 的 AAC 为 ${actual.integrated} LUFS，${actual.truePeak} dBTP（目标 ${target} ± 1 LUFS，上限 ${peak} dBTP）`);
+          }
+        }
       }
       if (delivery.contact) {
         const size = pngSize(readFileSync(join(dir, PIECES.contact)));

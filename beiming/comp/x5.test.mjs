@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { test } from 'node:test';
 import { eventsTable } from '../kernel/eval/input.mjs';
-import { masterAudio, measureLoudness, mixEvents, VOICES } from './audio.mjs';
+import { masterAudio, measureLoudness, mixEvents, VOICES, writeWav } from './audio.mjs';
 import { deliver, PIECES } from './deliver.mjs';
 import { CompError, runTool, tools } from './stitch.mjs';
 
@@ -170,11 +171,11 @@ const hasFfmpeg = Object.values(tools()).every((bin) =>
 const needFfmpeg = { skip: !hasFfmpeg && '环境缺少 ffmpeg / ffprobe' };
 const example = (name) => JSON.parse(readFileSync(new URL(`../kernel/contracts/${name}`, import.meta.url), 'utf8'));
 
-function foleyFilm(audio, count) {
+function foleyFilm(audio, count, spacing = 15) {
   const film = example('film/examples/minimal.json');
-  film.output = { size: [32, 16], fps: '30/1', frames: 30 + 15 * count };
+  film.output = { size: [32, 16], fps: '30/1', frames: 45 + spacing * (count - 1) };
   Object.assign(film.shots[0], { out: film.output.frames, colorRef: 'display', seed: 7 });
-  film.events = Array.from({ length: count }, (_, i) => ({ id: `e${i}`, frame: 10 + 15 * i, audio, sync: 'onset' }));
+  film.events = Array.from({ length: count }, (_, i) => ({ id: `e${i}`, frame: 10 + spacing * i, audio, sync: 'onset' }));
   film.audio = { mode: 'script', loudness: -14, truePeak: -1 };
   film.delivery.web = true;
   return film;
@@ -187,8 +188,8 @@ function deliveryFrames(dir, length) {
   return { s01: { pattern } };
 }
 
-function deliveryInput(dir, voice, count = 4, frames) {
-  const film = foleyFilm(voice, count);
+function deliveryInput(dir, voice, count = 4, frames, spacing = 15) {
+  const film = foleyFilm(voice, count, spacing);
   const lock = example('lock/examples/minimal.json');
   lock.cards['audio.master'] = example('lock/examples/check-full.json').lock.cards['audio.master'];
   lock.seeds.s01 = film.shots[0].seed;
@@ -242,6 +243,14 @@ test('X5 M19 同一种子交付的 PCM 可重放，改 film 与锁的全片种�
   assert.notEqual(hashes[0], hashes[2], '不同全片种子');
 });
 
+// 独立读取解码样本的两位小数，防止 ebur128 把 −0.97 dBTP 显示为 −1.0。
+function decodedLevels(file) {
+  const { stderr } = runTool(tools().ffmpeg, ['-nostdin', '-nostats', '-i', file,
+    '-map', '0:a:0', '-af', 'loudnorm=print_format=json', '-f', 'null', '-']);
+  const levels = JSON.parse(stderr.slice(stderr.lastIndexOf('{'), stderr.lastIndexOf('}') + 1));
+  return { integrated: Number(levels.input_i), truePeak: Number(levels.input_tp) };
+}
+
 test('X5-R3-Red 衣料与脚步连发经真实 deliver 后两档 AAC 均达标', needFfmpeg, (t) => {
   const { dir } = fixture(t);
   const frames = deliveryFrames(dir, foleyFilm('foley.cloth', 24).output.frames);
@@ -257,12 +266,87 @@ test('X5-R3-Red 衣料与脚步连发经真实 deliver 后两档 AAC 均达标',
       input.film.seed = input.lock.seeds.film = seed;
       const bundle = deliver({ ...input, bed, outDir: join(dir, `deliver-${seed}-${count}-${bed}`) });
       for (const name of [PIECES.master, PIECES.web]) {
-        // loudnorm 的 input_* 读解码后的原声，避免 ebur128 的一位小数把 −0.97 报成 −1.0。
-        const { stderr } = runTool(tools().ffmpeg, ['-nostdin', '-nostats', '-i', join(bundle.dir, name),
-          '-map', '0:a:0', '-af', 'loudnorm=print_format=json', '-f', 'null', '-']);
-        const levels = JSON.parse(stderr.slice(stderr.lastIndexOf('{'), stderr.lastIndexOf('}') + 1));
-        checkLevels(t, `${voice}×${count}/${bed}/s${seed}/${name}`, { integrated: Number(levels.input_i), truePeak: Number(levels.input_tp) });
+        checkLevels(t, `${voice}×${count}/${bed}/s${seed}/${name}`, decodedLevels(join(bundle.dir, name)));
       }
     }
   }
+});
+
+test('网页输出端单独改变响度或真峰值时，deliver 拒绝发布整包', needFfmpeg, async (t) => {
+  const { openEncoderSink } = await import('./sink.mjs');
+  const { dir } = fixture(t);
+  const input = deliveryInput(dir, 'hit.low');
+  const outDir = join(dir, 'deliver');
+  for (const [fault, filter] of [['响度', 'volume=-8dB'], ['峰值', "aeval='if(between(t,0.40,0.408),sin(2*PI*1000*t),val(ch))':c=same"]]) {
+    let levels;
+    await assert.rejects(deliver({ ...input, outDir, sinkFactory(spec) {
+      if (spec.preset !== 'web') return openEncoderSink(spec);
+      const sink = openEncoderSink({ ...spec, args: [...spec.args, '-af', filter] });
+      return { ...sink, async finish() { await sink.finish(); levels = decodedLevels(spec.path); } };
+    } }), { code: 'contract.delivery-mismatch', message: /web\.mp4/ });
+    assert.equal(Math.abs(levels.integrated + 14) > 1, fault === '响度', JSON.stringify(levels));
+    assert.equal(levels.truePeak > -1, fault === '峰值', JSON.stringify(levels));
+    assert.equal(existsSync(outDir), false);
+  }
+});
+
+test('自定义网页输出缺音轨时报交付不匹配，不向无音轨文件索取响度', needFfmpeg, async (t) => {
+  const { openEncoderSink } = await import('./sink.mjs');
+  const { dir } = fixture(t);
+  const input = deliveryInput(dir, 'hit.low');
+  const outDir = join(dir, 'deliver');
+  await assert.rejects(deliver({ ...input, outDir, sinkFactory(spec) {
+    if (spec.preset === 'web') spec.args.push('-an');
+    return openEncoderSink(spec);
+  } }), { code: 'contract.delivery-mismatch', message: /web\.mp4\.audio/ });
+  assert.equal(existsSync(outDir), false);
+});
+
+test('达标的自定义母带不会因额外的峰值或响度余量而被拒收', needFfmpeg, (t) => {
+  const { dir } = fixture(t);
+  const input = deliveryInput(dir, 'hit.low', 2);
+  input.film.audio = { mode: 'track', loudness: -13.5, truePeak: -14 };
+  const path = join(dir, 'tone.wav');
+  const tone = Float32Array.from({ length: 96000 }, (_, i) => 0.25 * Math.sin(2 * Math.PI * 1000 * i / 48000));
+  writeFileSync(path, writeWav({ left: tone, right: tone }));
+  for (const loudness of [-13.5, -13.42]) {
+    input.film.audio.loudness = loudness;
+    const bundle = deliver({ ...input, tracks: [{ path, at: 0 }], outDir: join(dir, `deliver-${loudness}`) });
+    for (const name of [PIECES.master, PIECES.web]) {
+      const { integrated, truePeak } = decodedLevels(join(bundle.dir, name));
+      assert.ok(Math.abs(integrated - loudness) <= 1 && truePeak <= -14, `${name}: ${integrated} LUFS, ${truePeak} dBTP`);
+    }
+  }
+});
+
+test('X5-R4-Red 四种拟音材质在三审代表性失败种子与哈希派生种子经真实 deliver 后 master.mp4 与 web.mp4 均达标', needFfmpeg, (t) => {
+  const { dir } = fixture(t);
+  const frames = deliveryFrames(dir, foleyFilm('foley.cloth', 24).output.frames);
+  const hardCases = [
+    ['foley.impact', 8, 'room', 3501202185],
+    ['foley.impact', 3, 'room', 4294967294],
+    ['foley.step', 24, 'room', 987654321],
+    ['foley.step', 24, 'silence', 506314630],
+    ['foley.cloth', 24, 'room', 2637289995],
+    ['foley.metal', 8, 'room', 3501202185],
+  ];
+  const materials = ['foley.cloth', 'foley.step', 'foley.impact', 'foley.metal'];
+  const seeds = [...new Set(hardCases.map(([, , , seed]) => seed))];
+  for (const voice of materials) {
+    for (const spacing of [30, 60]) {
+      for (const seed of seeds) hardCases.push([voice, 4, spacing === 30 ? 'silence' : 'room', seed, spacing]);
+      const seed = createHash('sha256').update(`X5-R4/${voice}/${spacing}`).digest().readUInt32BE();
+      hardCases.push([voice, 4, spacing === 30 ? 'room' : 'silence', seed, spacing]);
+    }
+  }
+  hardCases.forEach(([voice, count, bed, seed, spacing = 15], idx) => {
+    const input = deliveryInput(dir, voice, count, frames, spacing);
+    input.film.seed = input.lock.seeds.film = seed;
+    const label = `${voice}×${count}/${spacing}帧/${bed}/s${seed}`;
+    t.diagnostic(label);
+    const bundle = deliver({ ...input, bed, outDir: join(dir, `r4-${idx}`) });
+    for (const name of [PIECES.master, PIECES.web]) {
+      checkLevels(t, `${label}/${name}`, decodedLevels(join(bundle.dir, name)));
+    }
+  });
 });

@@ -18,6 +18,15 @@ export const PRESETS = Object.freeze({
   preview: Object.freeze({ crf: 23, preset: 'veryfast', audioBitrate: '128k', faststart: true, hwBitrate: '8M' }),
 });
 
+/** 母带预检与实际封装共用这组参数，顺序也会进入交付记录。 */
+export function audioMuxArgs(preset, audio = true) {
+  return [
+    ...(audio ? ['-c:a', 'aac', '-b:a', preset.audioBitrate, '-ar', '48000', '-ac', '2'] : []),
+    '-map_metadata', '-1', '-fflags', '+bitexact', '-flags:v', '+bitexact', '-flags:a', '+bitexact',
+    ...(preset.faststart ? ['-movflags', '+faststart'] : []),
+  ];
+}
+
 /**
  * 一个输出的编码参数（不含输入、不含 -map）。
  * opts：{ preset, fps: "num/den", tier, hwEncoder?, audio: 有没有音轨 }
@@ -41,10 +50,7 @@ export function outputArgs({ preset, fps, tier = 'final', hwEncoder, audio = fal
     if (p.profile) args.push('-profile:v', p.profile);
     if (p.maxrate) args.push('-maxrate', p.maxrate, '-bufsize', p.bufsize);
   }
-  args.push('-pix_fmt', 'yuv420p', ...COLOR_TAGS, '-r', `${num}/${den}`);
-  if (audio) args.push('-c:a', 'aac', '-b:a', p.audioBitrate, '-ar', '48000', '-ac', '2');
-  args.push('-map_metadata', '-1', '-fflags', '+bitexact', '-flags:v', '+bitexact', '-flags:a', '+bitexact');
-  if (p.faststart) args.push('-movflags', '+faststart');
+  args.push('-pix_fmt', 'yuv420p', ...COLOR_TAGS, '-r', `${num}/${den}`, ...audioMuxArgs(p, audio));
   return args;
 }
 

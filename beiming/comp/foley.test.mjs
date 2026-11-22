@@ -93,21 +93,29 @@ test('从接触瞬态后的间隙量到主体首个样本，并检查余响', (t
   }
 });
 
-test('金属每轮取遍四种音高，不以随机噪声冒充轮换', () => {
+test('金属每轮取遍四种音高，同槽跨轮的共振主频有可重放的微扰', () => {
   const voice = VOICES['foley.metal'];
-  for (let cycle = 0; cycle < 2; cycle++) {
-    const takes = new Set();
-    for (let slot = 0; slot < 4; slot++) {
-      const body = voice.make(seed, 4 * cycle + slot).left.subarray(voice.pcenter + 240, voice.pcenter + 4800);
-      const powers = [-0.75, -0.25, 0.25, 0.75].map((semitones) => {
-        const omega = 2 * Math.PI * 1170 * 2 ** (semitones / 12) / SAMPLE_RATE;
-        let re = 0, im = 0;
-        for (let i = 0; i < body.length; i++) { re += body[i] * Math.cos(i * omega); im += body[i] * Math.sin(i * omega); }
-        return re * re + im * im;
-      });
-      takes.add(powers.indexOf(Math.max(...powers)));
+  const peaks = [];
+  for (let idx = 0; idx < 8; idx++) {
+    const body = voice.make(seed, idx).left.subarray(voice.pcenter + 240, voice.pcenter + 4800);
+    assert.deepEqual(body, voice.make(seed, idx).left.subarray(voice.pcenter + 240, voice.pcenter + 4800));
+    let maxPower = 0, peakHz = 0;
+    for (let hz = 1100; hz <= 1240; hz += 0.5) {
+      const omega = 2 * Math.PI * hz / SAMPLE_RATE;
+      let re = 0, im = 0;
+      for (let i = 0; i < body.length; i++) { re += body[i] * Math.cos(i * omega); im += body[i] * Math.sin(i * omega); }
+      const power = re * re + im * im;
+      if (power > maxPower) { maxPower = power; peakHz = hz; }
     }
-    assert.equal(takes.size, 4, `第 ${cycle + 1} 轮缺少材质变体`);
+    peaks.push(peakHz);
+  }
+  for (const cycle of [peaks.slice(0, 4), peaks.slice(4)]) {
+    const slots = cycle.map((hz) => Math.round(2 * (12 * Math.log2(hz / 1170) + 0.75)));
+    assert.deepEqual(new Set(slots), new Set([0, 1, 2, 3]));
+  }
+  for (let i = 0; i < 4; i++) {
+    const shift = Math.abs(peaks[i] - peaks[i + 4]);
+    assert.ok(shift >= 1 && shift < 17, `同槽跨轮 ${peaks[i]} → ${peaks[i + 4]} Hz`);
   }
 });
 
