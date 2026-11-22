@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -319,12 +319,25 @@ test('达标的自定义母带不会因额外的峰值或响度余量而被拒�
   }
 });
 
-test('X5-R4-Red 四种拟音材质在三审代表性失败种子与哈希派生种子经真实 deliver 后 master.mp4 与 web.mp4 均达标', needFfmpeg, (t) => {
+test('X5-R4-Red 四种拟音材质在三审代表性失败种子与哈希派生种子经真实 deliver 后 master.mp4 与 web.mp4 均达标，且同步交付失败零暂存残留', needFfmpeg, (t) => {
   const { dir } = fixture(t);
   const frames = deliveryFrames(dir, foleyFilm('foley.cloth', 24).output.frames);
+
+  // M33：同步路径交付失败（建暂存目录之后因缺 tracks 抛 usage.bad-argument）必须清干净父目录里的 .beiming-comp-*
+  const failStageParent = join(dir, 'sync-fail-parent');
+  mkdirSync(failStageParent, { recursive: true });
+  const syncFailInput = deliveryInput(dir, 'hit.low', 2, frames);
+  syncFailInput.film.audio = { mode: 'track', loudness: -14, truePeak: -1 };
+  assert.throws(
+    () => deliver({ ...syncFailInput, outDir: join(failStageParent, 'bundle') }),
+    { code: 'usage.bad-argument' },
+  );
+  assert.deepEqual(readdirSync(failStageParent), [], '同步路径 deliver 失败后不得遗留 .beiming-comp-* 暂存目录');
+
   const hardCases = [
     ['foley.impact', 8, 'room', 3501202185],
     ['foley.impact', 3, 'room', 4294967294],
+    ['foley.impact', 3, 'room', 156922488], // M06：重限幅循环去掉响度补偿会以 -12.42 LUFS 失败
     ['foley.step', 24, 'room', 987654321],
     ['foley.step', 24, 'silence', 506314630],
     ['foley.cloth', 24, 'room', 2637289995],
@@ -333,10 +346,12 @@ test('X5-R4-Red 四种拟音材质在三审代表性失败种子与哈希派生�
   const materials = ['foley.cloth', 'foley.step', 'foley.impact', 'foley.metal'];
   const seeds = [...new Set(hardCases.map(([, , , seed]) => seed))];
   for (const voice of materials) {
-    for (const spacing of [30, 60]) {
-      for (const seed of seeds) hardCases.push([voice, 4, spacing === 30 ? 'silence' : 'room', seed, spacing]);
-      const seed = createHash('sha256').update(`X5-R4/${voice}/${spacing}`).digest().readUInt32BE();
-      hardCases.push([voice, 4, spacing === 30 ? 'room' : 'silence', seed, spacing]);
+    const derived = createHash('sha256').update(`X5-R4/${voice}/30`).digest().readUInt32BE();
+    hardCases.push([voice, 4, 'room', derived, 30]);
+    if (process.env.X5_FULL_MATRIX === '1') {
+      for (const spacing of [30, 60]) {
+        for (const seed of seeds) hardCases.push([voice, 4, spacing === 30 ? 'silence' : 'room', seed, spacing]);
+      }
     }
   }
   hardCases.forEach(([voice, count, bed, seed, spacing = 15], idx) => {

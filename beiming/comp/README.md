@@ -18,4 +18,4 @@
 
 `mixEvents(events, { seed })` 输出 48 kHz 立体声。前导、接触、主体与余响按 `frame + sub` 对齐起音（`onset`）或接触重心（`pcenter`）。每种材质轮换四个变体，每次独立微调噪声、音高和均衡；`deliver` 使用锁定的全片种子，同一输入可逐位重放。
 
-非静音母带按 320k 母版与 192k 网页预设试编 AAC。超标时从原混音重限幅并补偿响度；`deliver` 还会在发布前复量实际成片。运行 `node --test --test-name-pattern=X5-R4-Red beiming/comp/x5.test.mjs` 复测四种材质；设 `X5_FULL_MATRIX=1` 并改用 `X5-R3-Red` 可跑衣料全矩阵。
+非静音母带按 320k 母版与 192k 网页预设试编 AAC。真峰值超标或集成响度偏离目标超过 0.9 LU（距 ±1 LU 窗口边缘不足 0.1 LU）时，从原混音重限幅并补偿响度；`deliver` 还会在发布前复量实际成片。运行 `node --test --test-name-pattern=X5-R4-Red beiming/comp/x5.test.mjs` 复测四种材质；设 `X5_FULL_MATRIX=1` 可展开间隔与衣料全矩阵。
