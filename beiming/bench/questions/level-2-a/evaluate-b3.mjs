@@ -1,15 +1,20 @@
 // B3 二级第一批四道题的判分核验：把题目的基础谓词和 scoring[].args 里的阈值套到一份读数上。
-//   evaluate(question, reading) → { score, pass, basePass, base: [{ predicate, pass }], items: [{ metric, weight, pass, detail }] }
-//   score 是过了的判分项的权重和；basePass 是基础谓词没有一条不过；pass 是 basePass 加每个判分项都过，差一项就判不合格。
-//   base[].pass 是 null 表示这份读数判不了这一条（cut_at(shots) 要镜头表，读数里没有），留给 runner 的谓词核，不算进 basePass。
+//   evaluate(question, reading) → { score, pass, basePass, base: [{ predicate, pass, status, why, atFrame }], items: [{ metric, weight, pass, detail }] }
+//   score 是过了的判分项的权重和；basePass 是基础谓词条条都过；pass 是 basePass 加每个判分项都过，差一项就判不合格。
+//   基础谓词这里不另写判法：读数拼成片子描述和成片量测，逐条交给正式谓词核（verify/predicates.mjs 的 evaluateAssertion），它判 pass 才算过。
+//   它回 skipped（缺量测）、要对镜头表而读数里没有成形的镜头表，都是没证据，不算过；不过的那条带 why 和反例帧 atFrame。
+//   所以读数除了各题自己的表，还要带成片这一头的 colorTag、blackFrames、freezes、cuts 和工程的镜头表 shots。
 //   读数不成形（不是 JSON 对象、缺子表、表里有空洞或混进非数、帧率和总帧数跟交付规格不一致）一律 0 分、不合格，原因写在 detail.invalid，不抛错。
 //   读数的字段见 beiming/bench/refs/level-2-a/ 的夹具；时刻要么是整数帧，要么是整数毫秒，比较全用整数，不落在浮点误差上。
-//   read27_1、read29_2、read23_2 从成片量读数，read30_1 静态扫工程目录；机器上没有 ffmpeg/ffprobe 回 { toolMissing }。
+//   read27_1、read29_2、read23_2 从成片量读数，镜头表取工程的片子描述或事件表；readFilm 只量成片这一头；read30_1 静态扫工程目录，
+//   要判基础谓词就把 readFilm 的结果并进去。机器上没有 ffmpeg/ffprobe 回 { toolMissing }。
 // shortcut: 命中率和随机基线（05 第 7.1 节的 metric:beat.onset-hit）观测层还没有，先在这里算；它进了 observe/metrics 就换成调它。
 import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { audioLoudness, cutYdif, deliverSpec } from '../../../observe/metrics/index.mjs';
+import { expandEventFrames } from '../../../kernel/eval/events.mjs';
+import { audioLoudness, blackFreezeDup, cutYdif, deliverSpec } from '../../../observe/metrics/index.mjs';
+import { evaluateAssertion } from '../../../verify/predicates.mjs';
 
 // 离周期网格最近一格有多远；网格向两头无限延伸，周期、相位、时刻同一个单位
 function offGrid(at, period, phase = 0) {
@@ -22,6 +27,8 @@ const plain = (value) => value !== null && typeof value === 'object' && !Array.i
 // 没有空洞的整数表，每项落在 [low, high)；Array.from 把空洞读成 undefined，every 才不会跳过它
 const ints = (list, low, high) => Array.isArray(list) && Array.from(list, (v) => Number.isSafeInteger(v) && v >= low && v < high).every(Boolean);
 const rising = (list) => list.every((v, i) => i === 0 || v > list[i - 1]);
+// 写死帧号的计数有两个名字，给了哪个算哪个
+const hardcoded = (timeline) => [timeline.hardcodedFrames, timeline.hardcodedFrameCount].filter((count) => count !== undefined);
 const rate = (fps) => {
   const [num, den] = typeof fps === 'string' ? fps.split('/').map(Number) : [];
   return num / den;
@@ -32,8 +39,10 @@ const SHAPES = {
   '27-1': ({ cuts, loudnessLufs, truePeakDbtp }, { frames }) =>
     (ints(cuts, 0, frames) && rising(cuts) ? '' : 'cuts 要是片内严格递增的整数帧')
     || (finite(loudnessLufs, truePeakDbtp) ? '' : 'loudnessLufs、truePeakDbtp 要是有限数'),
-  '29-2': ({ clicks, cuts, onsetsMs }, { frames, durationMs }) =>
-    ([clicks, cuts].every((list) => ints(list, 0, frames) && rising(list)) ? '' : 'clicks、cuts 要是片内严格递增的整数帧')
+  // 点击帧号出自事件表；那张表的 fps、frames 要和交付规格逐字相同（事件契约 EV6），不然帧号说的不是这条片子
+  '29-2': ({ clicks, cuts, onsetsMs, eventsFps, eventsFrames }, { fps, frames, durationMs }) =>
+    (eventsFps === fps && eventsFrames === frames ? '' : `事件表的 eventsFps、eventsFrames 要和交付规格一致（${fps}、${frames}）`)
+    || ([clicks, cuts].every((list) => ints(list, 0, frames) && rising(list)) ? '' : 'clicks、cuts 要是片内严格递增的整数帧')
     || (ints(onsetsMs, 0, durationMs) && rising(onsetsMs) && onsetsMs.length ? '' : 'onsetsMs 要是不空的、片内严格递增的整数毫秒'),
   '23-2': ({ chaptersMs, strongOnsetsMs, beat }, { durationMs }) =>
     (ints(chaptersMs, 0, durationMs) && rising(chaptersMs) ? '' : 'chaptersMs 要是片内严格递增的整数毫秒')
@@ -42,7 +51,10 @@ const SHAPES = {
   '30-1': ({ moments, timeline }, { frames }) =>
     (Array.isArray(moments) && Array.from(moments, (m) => plain(m) && typeof m.id === 'string' && m.id !== '' && ints([m.frame], 0, frames)).every(Boolean)
       && new Set(moments.map((m) => m.id)).size === moments.length ? '' : 'moments 每项要有不空、不重复的字符串 id 和片内的整数 frame')
-    || (plain(timeline) && ints([timeline.beatConstantDefs, timeline.hardcodedFrames], 0, Infinity) ? '' : 'timeline 的 beatConstantDefs、hardcodedFrames 要是非负整数'),
+    || (plain(timeline) && ints([timeline.beatConstantDefs], 0, Infinity) && hardcoded(timeline).length && ints(hardcoded(timeline), 0, Infinity)
+      ? '' : 'timeline 的 beatConstantDefs、hardcodedFrames（也认 hardcodedFrameCount）要是非负整数')
+    || ([timeline.bpm].every((v) => v === undefined || (Number.isFinite(v) && v > 0)) && (timeline.beatFrames === undefined || ints([timeline.beatFrames], 1, Infinity))
+      ? '' : 'timeline 的 bpm 要是正数、beatFrames 要是正整数；没有节拍表就两个都不写'),
 };
 
 // 判分里帧和毫秒互换、片内范围都按题面的帧率和总帧数算，所以这两项对不上的读数不判，直接算不成形；画幅只在基础谓词里核
@@ -52,18 +64,20 @@ function malformed({ id, deliverable }, reading) {
   if (reading.unreadable) return `读不了 ${reading.unreadable}`;
   const fps = rate(deliverable.fps), { frames } = deliverable;
   if (reading.fps !== fps || reading.frames !== frames) return `fps、frames 要和交付规格一致（${fps}、${frames}）`;
-  return SHAPES[id](reading, { frames, durationMs: (frames * 1000) / fps });
+  return SHAPES[id](reading, { fps: deliverable.fps, frames, durationMs: (frames * 1000) / fps });
 }
 
 // 每道题一组判法，次序和题目文件的 scoring 一一对应；进来的读数都过了上面的成形检查
 const RULES = {
   '27-1': [
-    ({ gridFrames, shotBeats }, { cuts, frames }) => {
+    ({ gridFrames, shotBeats, firstCut }, { cuts, frames }) => {
       const stray = cuts.filter((frame) => frame % gridFrames !== 0);
       // 片尾不足一拍的零头算最后一个镜头的收尾，不计拍数
       const edges = [0, ...cuts, frames - (frames % gridFrames)];
       const beats = edges.slice(1).map((frame, i) => (frame - edges[i]) / gridFrames);
-      return { pass: cuts.length > 0 && stray.length === 0 && beats.every((n) => shotBeats.includes(n)), cuts: cuts.length, offGrid: stray, beats };
+      // 切点表严格递增，cuts[0] 就是第一个换镜头：它前面再切一刀，第 firstCut 帧就不是首切了
+      return { pass: cuts.length > 0 && cuts[0] === firstCut && stray.length === 0 && beats.every((n) => shotBeats.includes(n)),
+        cuts: cuts.length, firstCut: cuts[0] ?? null, offGrid: stray, beats };
     },
     ({ rangeLufs: [low, high], maxTruePeakDbtp }, { loudnessLufs, truePeakDbtp }) => ({
       pass: loudnessLufs >= low && loudnessLufs <= high && truePeakDbtp <= maxTruePeakDbtp,
@@ -99,33 +113,38 @@ const RULES = {
     },
   ],
   '30-1': [
-    ({ bpm, minCount, tolFrames, minHitRate }, { fps, moments }) => {
-      const beatFrames = (fps * 60) / bpm;
-      const hit = share(moments.filter(({ frame }) => offGrid(frame, beatFrames) <= tolFrames).length, moments.length);
-      return { pass: Number.isInteger(beatFrames) && moments.length >= minCount && hit.hitRate >= minHitRate, ...hit, beatFrames };
+    ({ bpm, minCount, tolFrames, minHitRate }, { fps, moments, timeline }) => {
+      // 落拍按工程自己那张节拍表算，不拿题面的 BPM 代它；表里写了的 bpm、beatFrames 都要和题面对上，两个都没写就是没有表
+      const want = (fps * 60) / bpm;
+      const beatFrames = timeline.beatFrames ?? (timeline.bpm === undefined ? null : (fps * 60) / timeline.bpm);
+      const asAsked = Number.isInteger(want) && beatFrames === want && (timeline.bpm ?? bpm) === bpm;
+      const hit = share(beatFrames === null ? 0 : moments.filter(({ frame }) => offGrid(frame, beatFrames) <= tolFrames).length, moments.length);
+      return { pass: asAsked && moments.length >= minCount && hit.hitRate >= minHitRate, ...hit, beatFrames, bpm: timeline.bpm ?? null };
     },
-    ({ maxBeatConstantDefs, maxHardcodedFrames }, { timeline: { beatConstantDefs, hardcodedFrames } }) => ({
-      pass: beatConstantDefs >= 1 && beatConstantDefs <= maxBeatConstantDefs && hardcodedFrames <= maxHardcodedFrames,
-      beatConstantDefs,
-      hardcodedFrames,
-    }),
+    ({ maxBeatConstantDefs, maxHardcodedFrames }, { timeline }) => {
+      // 节拍表得真有：别处的一个节拍常量凑出来的「定义一次」不算
+      const table = timeline.bpm !== undefined || timeline.beatFrames !== undefined;
+      const { beatConstantDefs } = timeline, hardcodedFrames = Math.max(...hardcoded(timeline));
+      return { pass: table && beatConstantDefs >= 1 && beatConstantDefs <= maxBeatConstantDefs && hardcodedFrames <= maxHardcodedFrames,
+        table, beatConstantDefs, hardcodedFrames };
+    },
   ],
 };
 
-// 四道题用到的基础谓词写法；读数缺了要比的字段就是不过
-const BASE = [
-  [/^delivery\(width=(\d+), height=(\d+), fps=(\d+), frames=(\d+)\)$/, (r, ...want) => [r.width, r.height, r.fps, r.frames].every((got, i) => got === Number(want[i]))],
-  [/^cut_at\(shots\)$/, () => null],
-  [/^cut_at\((\d+)\)$/, (r, frame) => Array.isArray(r.cuts) && r.cuts.includes(Number(frame))],
-  [/^loudness\(film\) in \[(-?[\d.]+),(-?[\d.]+)\]$/, (r, low, high) => r.loudnessLufs >= Number(low) && r.loudnessLufs <= Number(high)],
-  [/^true_peak\(film\) <= (-?[\d.]+)$/, (r, max) => r.truePeakDbtp <= Number(max)],
-];
-function decide(predicate, reading) {
-  for (const [form, check] of BASE) {
-    const match = form.exec(predicate);
-    if (match) return check(reading, ...match.slice(1));
-  }
-  throw new Error(`基础谓词 ${predicate} 没有判法`);
+// 首尾相接、盖满全片的镜头表
+const shotTable = (shots, frames) => Array.isArray(shots) && shots.length > 0 && Array.from(shots, plain).every(Boolean)
+  && shots.every((shot, i) => Number.isSafeInteger(shot.out) && shot.in === (i ? shots[i - 1].out : 0) && shot.out > shot.in) && shots.at(-1).out === frames;
+
+// 基础谓词的判法：读数拼成正式谓词核的两份输入（映射照出片链的成片量测），一条一条交给它
+function basis({ deliverable: { size, fps, frames } }, reading) {
+  const film = { output: { size, fps, frames }, shots: reading.shots };
+  // 读数的 fps 是数，成形检查核过它等于交付规格，这里换回正式谓词核要的分数写法
+  const measured = { output: { size: [reading.width, reading.height], fps, frames: reading.frames, colorTag: reading.colorTag },
+    blackFrames: reading.blackFrames, freezes: reading.freezes, cuts: reading.cuts,
+    audio: { loudnessLufs: reading.loudnessLufs, truePeakDbtp: reading.truePeakDbtp } };
+  // 片子描述里没有镜头时正式谓词核把「对镜头表」当成没什么可对、判过；这里读数拿不出镜头表就是没证据
+  return (predicate) => (/\bshots\b/.test(predicate) && !shotTable(reading.shots, frames)
+    ? { status: 'skipped', reason: '读数里没有首尾相接、盖满全片的镜头表 shots' } : evaluateAssertion(predicate, film, measured));
 }
 
 // 读数先照 JSON 拍一份快照再判：一读就抛的取值器、已撤销的代理、读一回变一回的字段，到这里要么成了普通数据，要么算读不了
@@ -138,12 +157,16 @@ export function evaluate(question, given) {
   if (!rules || rules.length !== question.scoring.length) throw new Error(`题目 ${question.id} 没有和 scoring 对得上的判法`);
   const reading = snapshot(given);
   const invalid = malformed(question, reading);
-  const base = question.basePredicates.map((predicate) => ({ predicate, pass: invalid ? false : decide(predicate, reading) }));
+  const judge = invalid ? () => ({ status: 'skipped', reason: invalid }) : basis(question, reading);
+  const base = question.basePredicates.map((predicate) => {
+    const { status, reason, expected, counterexampleFrame } = judge(predicate);
+    return { predicate, pass: status === 'pass', status, ...(status === 'pass' ? {} : { why: reason ?? expected, atFrame: counterexampleFrame ?? null }) };
+  });
   const items = question.scoring.map(({ metric, weight, args }, i) => {
     const { pass, ...detail } = invalid ? { pass: false, invalid } : rules[i](args, reading);
     return { metric, weight, pass, detail };
   });
-  const basePass = base.every((item) => item.pass !== false);
+  const basePass = base.every((item) => item.pass);
   return { score: items.reduce((sum, item) => sum + (item.pass ? item.weight : 0), 0), pass: basePass && items.every((item) => item.pass), basePass, base, items };
 }
 
@@ -168,10 +191,14 @@ function run(tool, args) {
   if (child.status !== 0) throw new Error(`${tool}: ${child.error?.message ?? child.stderr}`);
   return child.stdout;
 }
-const delivered = async (file) => {
-  const { width, height, fps, frames } = (await metric(deliverSpec(file))).value;
-  return { width, height, fps, frames };
-};
+// 成片这一头正式谓词核要的量测：画幅、帧率、帧数、色彩标签、黑帧、冻结段（半开区间）、换镜头帧；crop 只看画面的一块认切点
+async function filmed(file, crop) {
+  const [spec, still, cuts] = await Promise.all([metric(deliverSpec(file)), metric(blackFreezeDup(file)), metric(cutYdif(file, 24, crop))]);
+  const { width, height, fps, frames, color_space: colorTag } = spec.value;
+  return { width, height, fps, frames, colorTag, blackFrames: still.details.black,
+    freezes: still.details.freezes.map(([from, to]) => ({ in: from, out: to + 1 })), cuts: cuts.value };
+}
+export const readFilm = orMissing((file) => filmed(file));
 
 // 起音：声轨解成 16 千赫单声道，每 10 毫秒一格算均方根音量的常用对数（满幅是 0，静音压到 -4），比前一格高出 jump 以上就记一个起音，回毫秒
 function onsets(file, jump) {
@@ -202,55 +229,72 @@ function beatOf(onsetsMs) {
   return periodMs ? { periodMs, phaseMs: mode(onsetsMs.map((ms) => ms % periodMs)) } : null;
 }
 
-// 27-1：交付规格、换镜头帧、响度和真峰值都从成片量
-export const read27_1 = orMissing(async (file) => {
-  const [spec, cuts, loud] = await Promise.all([delivered(file), metric(cutYdif(file)), metric(audioLoudness(file))]);
-  return { ...spec, cuts: cuts.value, loudnessLufs: loud.value, truePeakDbtp: loud.details.truePeakDbtp };
+// 27-1：交付量测、换镜头帧、响度和真峰值从成片量；镜头表取工程的片子描述
+export const read27_1 = orMissing(async (file, film) => {
+  const [seen, loud] = await Promise.all([filmed(file), metric(audioLoudness(file))]);
+  return { ...seen, shots: film?.shots, loudnessLufs: loud.value, truePeakDbtp: loud.details.truePeakDbtp };
 });
 
-// 29-2：点击取事件表（events/0.1）里名字以 click 开头的命名条目，切点从画面量（crop 只看画面的一块），起音从声轨量
+// 29-2：事件表（events/0.1）给点击（名字以 click 开头的命名条目）、镜头表（切点条目就是镜头的交界）和它自己的时间基准；
+// 切点从画面量（crop 只看画面的一块），起音从声轨量
 export const read29_2 = orMissing(async (file, events, { crop, jump = 0.25 } = {}) => {
-  const [spec, cuts] = await Promise.all([delivered(file), metric(cutYdif(file, 24, crop))]);
-  const clicks = Array.isArray(events?.events)
-    ? events.events.filter((entry) => entry?.kind === 'named' && /^click/.test(entry.id)).map((entry) => entry.frame) : undefined;
-  return { ...spec, clicks, cuts: cuts.value, onsetsMs: onsets(file, jump) };
+  const seen = await filmed(file, crop);
+  const at = (keep) => (Array.isArray(events?.events) ? events.events.filter((entry) => plain(entry) && keep(entry)).map((entry) => entry.frame) : []);
+  const edges = [0, ...at((entry) => entry.kind === 'cut'), events?.frames];
+  return { ...seen, eventsFps: events?.fps, eventsFrames: events?.frames, shots: edges.slice(1).map((out, i) => ({ in: edges[i], out })),
+    clicks: at((entry) => entry.kind === 'named' && /^click/.test(entry.id)), onsetsMs: onsets(file, jump) };
 });
 
-// 23-2：章节起点读成片的章节元数据，强起音和拍子从声轨量
-export const read23_2 = orMissing(async (file, { jump = 0.35 } = {}) => {
-  const spec = await delivered(file);
+// 23-2：章节起点读成片的章节元数据，强起音和拍子从声轨量；镜头表取工程的片子描述
+export const read23_2 = orMissing(async (file, film, { jump = 0.35 } = {}) => {
+  const seen = await filmed(file);
   const { chapters } = JSON.parse(run('ffprobe', ['-v', 'error', '-show_chapters', '-of', 'json', resolve(file)]));
   const strongOnsetsMs = onsets(file, jump);
-  return { ...spec, chaptersMs: chapters.map((chapter) => Math.round(Number(chapter.start_time) * 1000)), beat: beatOf(strongOnsetsMs), strongOnsetsMs };
+  return { ...seen, shots: film?.shots, chaptersMs: chapters.map((chapter) => Math.round(Number(chapter.start_time) * 1000)), beat: beatOf(strongOnsetsMs), strongOnsetsMs };
 });
 
-// 30-1：静态扫工程目录。片子描述 film.json（film/3.0）是时间的出处：timeline 是节拍表，events 里写成整数帧的是命名时刻，
-// shots 的 in、out 是镜头表；别处把时间键写成数、镜头代码里拿帧变量跟数比或赋成数，都算写死的帧号（第 0 帧不算）。
-// 节拍常量的定义数 = film.json 的节拍表（有就算 1）+ 别处再给 bpm、beat* 赋数的次数。
-// shortcut: 代码按行用正则认，不解析语法，只扫 JS、TS、Python 源码，film.json 以外的 JSON 不看；字符串里带 //（Python 是 #）的那行后半截会被当注释略过。要更准就换成语法树
-const TIME_KEYS = new Set(['in', 'out', 'frame', 'at', 'start', 'end']);
-const FRAME_LITERAL = /\b\w*frame\s*(?:[<>]=?|[!=]==?|[:=])\s*[1-9]|\b[1-9]\d*\s*(?:[<>]=?|[!=]==?)\s*\w*frame\b/gi;
-const BEAT_DEF = /\b(?:bpm|beat\w*)\s*[:=]\s*\d+(?:\.\d+)?\s*(?:[;,)}\]]|$)/gi;
+// 30-1：静态扫工程目录。片子描述 film.json（film/3.0）是时间的出处：timeline 是节拍表，原样读出它的 bpm、beatFrames；
+// events 是命名时刻，照片子描述契约 5.3 展开，event(m01) + 18、cut(180) + 12 这样的算式和整数帧一样算；shots 是镜头表。
+// 写死的帧号（第 0 帧不算）：片子描述里别处把时间键写成整数（卡参数里相机关键帧的 f、片名入场的 enter 都在内；镜头的出入点、
+// 转场的 at、刻意区间契约只许写整数，不算）；镜头代码里名字带 frame 的变量跟数比或赋成数、任何东西跟两位以上的整数比（case 432: 也是）、时间键写成两位以上的整数。
+// 节拍常量的定义数 = 节拍表（有就算 1）+ 别处再给 bpm、tempo、beat* 赋数的次数；节拍表在不在看读数里有没有 bpm、beatFrames。
+// shortcut: 代码按行用正则认，不解析语法，只扫 JS、TS、Python 源码，film.json 以外的 JSON 不看；字符串里带 //（Python 是 #）的那行后半截会被当注释略过；
+// 循环上限、像素尺寸跟两位以上的数比也会算进来，帧号先赋给常量再比则认不出。要更准就换成语法树加卡文件里的参数类型
+const TIME_KEYS = ['in', 'out', 'frame', 'at', 'start', 'end', 'f', 'enter', 'exit'];
+// 比较号：不是箭头、移位的一半
+const CMP = String.raw`(?<![<>=!])(?:[<>]=?|[!=]==?)(?![<>=])`;
+const FRAME_LITERAL = new RegExp([
+  String.raw`\b\w*frame\s*(?:${CMP}|[:=])\s*[1-9]`,
+  String.raw`\b[1-9]\d*\s*${CMP}\s*\w*frame\b`,
+  String.raw`${CMP}\s*[1-9]\d+\b(?!\.\d)`,
+  String.raw`(?<![\w.])[1-9]\d+\s*${CMP}`,
+  String.raw`\bcase\s+[1-9]\d+\s*:`,
+  String.raw`(?<![\w.])(?:${TIME_KEYS.join('|')})["']?\s*:\s*[1-9]\d+\b(?!\.\d)`,
+].join('|'), 'gi');
+const BEAT_DEF = /\b(?:bpm|tempo|beat\w*)\s*[:=]\s*\d+(?:\.\d+)?\s*(?:[;,)}\]]|$)/gi;
 export function read30_1(root) {
-  let film;
+  let film, frameOf;
   try { film = JSON.parse(readFileSync(join(root, 'film.json'), 'utf8')); } catch { film = null; }
   if (!plain(film)) return { unreadable: 'film.json' };
-  const { output, timeline, shots, events, ...rest } = film;
+  // 镜头表不首尾相接、算式引用了没定义的事件或者成环，求值核都拒收，这个工程就读不了
+  try { frameOf = expandEventFrames(film); } catch (error) { return { unreadable: `film.json（${error.message}）` }; }
+  const { output, timeline, shots, transitions, events, ...rest } = film;
+  const table = Object.fromEntries(['bpm', 'beatFrames'].filter((key) => plain(timeline) && Number.isFinite(timeline[key]) && timeline[key] > 0).map((key) => [key, timeline[key]]));
   const found = [];
-  let beatConstantDefs = plain(timeline) && [timeline.bpm, timeline.beatFrames].some((v) => Number.isFinite(v) && v > 0) ? 1 : 0;
+  let beatConstantDefs = Object.keys(table).length ? 1 : 0;
   const walk = (node, path) => {
     const under = (key) => (path ? `${path}/${key}` : String(key));
-    if (Array.isArray(node)) node.forEach((item, i) => walk(item, under(plain(item) && typeof item.id === 'string' ? item.id : i)));
+    if (Array.isArray(node)) node.forEach((item, i) => walk(item, under(plain(item) && typeof (item.id ?? item.as) === 'string' ? item.id ?? item.as : i)));
     else if (plain(node)) {
       for (const [key, value] of Object.entries(node)) {
         if (typeof value !== 'number') walk(value, under(key));
-        else if (TIME_KEYS.has(key) && value !== 0) found.push(`film.json:${under(key)}`);
-        else if (/^(?:bpm|beat)/i.test(key)) beatConstantDefs++;
+        else if (TIME_KEYS.includes(key) && Number.isInteger(value) && value !== 0) found.push(`film.json:${under(key)}`);
+        else if (/^(?:bpm|tempo|beat)/i.test(key)) beatConstantDefs++;
       }
     }
   };
   const rows = (list, ...own) => (Array.isArray(list) ? list.map((row) => (plain(row) ? Object.fromEntries(Object.entries(row).filter(([key]) => !own.includes(key))) : row)) : list);
-  walk({ ...rest, shots: rows(shots, 'in', 'out'), events: rows(events, 'frame') }, '');
+  walk({ ...rest, shots: rows(shots, 'in', 'out', 'deliberate'), transitions: rows(transitions, 'at'), events: rows(events, 'frame') }, '');
   const sources = readdirSync(root, { recursive: true }).map((file) => file.replaceAll('\\', '/'))
     .filter((file) => /\.(?:[cm]?[jt]sx?|py)$/.test(file) && !/(?:^|\/)(?:node_modules|out|\.[^/]*)\//.test(file)).sort();
   for (const file of sources) {
@@ -263,7 +307,6 @@ export function read30_1(root) {
     });
   }
   const [width, height] = Array.isArray(output?.size) ? output.size : [];
-  return { width, height, fps: rate(output?.fps), frames: output?.frames,
-    moments: Array.isArray(events) ? events.filter((event) => plain(event) && typeof event.frame === 'number').map(({ id, frame }) => ({ id, frame })) : undefined,
-    timeline: { beatConstantDefs, hardcodedFrames: found.length, found } };
+  return { width, height, fps: rate(output.fps), frames: output.frames, shots,
+    moments: (events ?? []).map(({ id }) => ({ id, frame: frameOf[id] })), timeline: { ...table, beatConstantDefs, hardcodedFrames: found.length, found } };
 }
