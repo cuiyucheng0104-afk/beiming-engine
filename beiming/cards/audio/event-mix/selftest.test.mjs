@@ -364,7 +364,7 @@ test('audio.event-mix：声音末尾的静音先剥掉再找起音：后面多�
   assert.equal(c.onsets([padded(6000), right]).at(-1), 30000, '左声道末尾是 0、右声道还响着，不剥');
 });
 
-test('audio.event-mix：每一步各自剥掉两头的 0 再比涨幅：一样响的几下点击落在第几步、落在一步里的哪儿、后面还有没有声音，都一样重', () => {
+test('audio.event-mix：每一步从第一个不是 0 的采样点量起、剥掉末尾的 0 再比涨幅：一样响的几下点击落在第几步、落在一步里的哪儿、后面还有没有声音，都一样重', () => {
   // 十审的反例：240000 个采样点，第 12000、24000、36000、48000、60000 个各一下 0.5，其余全是 0。
   // 只剥整段声音末尾的 0 时，最后一下照 1 个采样点平均、前四下照 240 个，最后一下重 240 倍，把前四下全压到门槛下面，五下只剩一下
   const at = [12000, 24000, 36000, 48000, 60000], frames = at.map((sample) => sample / 2000);
@@ -385,4 +385,30 @@ test('audio.event-mix：每一步各自剥掉两头的 0 再比涨幅：一样�
   }
   // 一下跨在两步中间（前一步 20 个采样点、后一步 28 个）：只认前一步，不多出一个起音
   assert.deepEqual(card().onsets([clicks(48, [0, 220, 0, 0, 0])]), at);
+});
+
+test('audio.event-mix：前面是静音的声音从它第一个采样点起往后看满一步：自带的点击（越往后越轻）落在一步里的哪个采样点、离步尾多近，都一样重', () => {
+  // 十一审的反例：第 6、12、18、24、30 帧各一下自带的点击，门槛 0.6；第二下的子帧相位从 0.12（第 24240 个采样点）改成 0.1195，提前 1 个采样点，成了那一步的最后一个采样点。
+  // 窗口截在步尾时这一下只剩 1 个采样点，照 1 个采样点平均正好是点击最响的开头，比照整步平均的另外四下重一倍，把它们全压到门槛下面，五下只剩一下
+  const frames = [6, 12, 18, 24, 30], strict = card({ onsetFloor: 0.6 }, { seed: 0 }), equal = card({ onsetFloor: 1 }, { seed: 0 });
+  const events = (sub) => frames.map((frame, i) => ({ id: `c-${frame}`, frame, audio: 'click', ...(i === 1 && { sub }) }));
+  const check = (sub, sample) => {
+    const table = events(sub), mixed = strict.mix(table, { frames: 36 }), name = `第二下在第 ${sample} 个采样点`;
+    assert.equal(mixed.placements[1].sample, sample, name);
+    // 起音准到一步：第二下算在它落进去的那一步（第 24000 或 24240 个采样点起）
+    const steps = [12000, sample - (sample % 240), 36000, 48000, 60000];
+    assert.deepEqual(strict.onsets(mixed.channels), steps, name);
+    // 门槛调到 1 也是五下：五下的涨幅是同一个数，不只是差不多
+    assert.deepEqual(equal.onsets(mixed.channels), steps, `${name}，门槛 1`);
+    assert.deepEqual(strict.snap(frames, mixed.channels, { frames: 36 }), frames, name);
+    assert.equal(strict.audit(mixed.channels, table, { frames: 36 }).hits, 5, name);
+    assert.equal(strict.audit(mixed.channels, table.filter((_, i) => i !== 1), { frames: 36, toleranceFrames: 0 }).hits, 4, `${name}，没挪的四下一帧不差`);
+  };
+  check(0.12, 24240);
+  check(0.1195, 24239);
+  // 第二下挪遍第 24000 到 24239 个采样点（那一步里的每一个位置）
+  for (let d = 0; d < 240; d++) check(d / 2000, 24000 + d);
+  // 垫着底音（步头不是 0）时窗口对着网格，跨在两步中间的点击能量分到两步，底音比点击轻得多时最轻约剩三分之一：0.03 的底音、门槛 0.3 时 240 个位置五下都还在（底音自己的开头另算一个）
+  const loose = card({ onsetFloor: 0.3 }, { seed: 0 }), bed = [Float32Array.from({ length: 72000 }, (_, i) => 0.03 * Math.sin((2 * Math.PI * 600 * i) / RATE))];
+  for (let d = 0; d < 240; d++) assert.equal(loose.onsets(loose.mix(events(d / 2000), { frames: 36, bed }).channels).filter((sample) => sample > 0).length, 5, `垫着底音，第二下在第 ${24000 + d} 个采样点`);
 });
