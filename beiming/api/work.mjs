@@ -8,6 +8,8 @@ import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeF
 import { dirname, join } from 'node:path';
 import { loadQueue } from '../jobs/index.mjs';
 import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, query } from '../observe/index.mjs';
+import { artifactUrl } from './client.mjs';
+import { ROUTES } from './contract.mjs';
 import { ApiError, diagnostic, isRegistered } from './envelope.mjs';
 import {
   deliverBundle, entitiesOf, frameSummary, layerL1, layerL2, layerL3, layerL5, measureMaster, readIndex, renderPlan, reviewMaterials,
@@ -85,7 +87,8 @@ export function createWork({ store, library, reviewer, scheduler }) {
   const running = new Map();
   const progress = new Map();
   const waiters = new Set();
-  const url = (id, rel) => `/v1/films/${id}/artifacts/${rel}`;
+  // 产物引用每次从合同里 artifacts 那一行的路径模板推出：改合同路径，签发的引用跟着变。
+  const url = (id, rel) => artifactUrl(ROUTES, id, rel);
   const deliverDir = (id) => join(store.filmDir(id), 'deliver');
   const jobDir = (id, jobId) => join(deliverDir(id), jobId);
   const output = (id, kind, rel) => ({ kind, url: url(id, rel), sha256: sha256File(join(deliverDir(id), rel)) });

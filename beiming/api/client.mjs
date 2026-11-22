@@ -47,6 +47,10 @@ export function urlOf(route, args, baseUrl) {
   return `${String(baseUrl).replace(/\/+$/, '')}${route.path.replace(/\{(\w+)\}/g, (_, k) => encodeURIComponent(args[k]))}${search.size ? `?${search}` : ''}`;
 }
 
+/** 产物地址：填进合同里 artifacts 那一行的路径模板，带 / 的产物路径逐段转义、/ 留着。服务端签发引用和薄壳规整引用共用这一处 */
+export const artifactUrl = (routes, id, name) => routes.find((r) => r.id === 'artifacts').path
+  .replace(/\{(\w+)\}/g, (_, k) => (k === 'name' ? String(name).split('/').map(encodeURIComponent).join('/') : encodeURIComponent(id)));
+
 /** 按路由和入参发一次请求，交回 fetch 的 Response。请求带着令牌，不跟重定向：跟过去令牌就到了别的服务 */
 export function callRoute(route, args, { baseUrl, token, fetchImpl = fetch }) {
   const text = route.request?.type === 'string';

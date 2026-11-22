@@ -2,7 +2,7 @@
 // 工具表、入参结构与请求全部由 ROUTES 推出，改合同不用改这里。图片产物直接回 { type: 'image', data, mimeType }。
 // 传输是 stdio 上每行一条 JSON-RPC 2.0 消息：node beiming/api/cli.mjs mcp --url <服务地址> --token <账户令牌>。
 import { createInterface } from 'node:readline';
-import { callRoute, checkArgs, defaultUrl, imageMime, inputsOf, readEnvelope, sha256Hex, unreachable, urlOf, whyOf } from './client.mjs';
+import { artifactUrl, callRoute, checkArgs, defaultUrl, imageMime, inputsOf, readEnvelope, sha256Hex, unreachable, urlOf, whyOf } from './client.mjs';
 import { buildOpenApi, ROUTES } from './contract.mjs';
 
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -76,7 +76,7 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
       const { id, name } = shape.exec(path).groups;
       const segs = decodeURIComponent(name).split('/');
       if (url.origin !== root.origin || segs.some((s) => !s || s === '.' || s === '..' || s.includes('\\'))) return null;
-      return [decodeURIComponent(id), template.replace(/\{(\w+)\}/g, (_, k) => (k === 'name' ? segs.map(encodeURIComponent).join('/') : id))];
+      return [decodeURIComponent(id), artifactUrl(routes, decodeURIComponent(id), segs.join('/'))];
     } catch {
       return null;
     }
@@ -105,7 +105,9 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
         const res = await get(path);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const body = await res.json();
-        if (!isObject(body)) throw new Error('全文不是信封');
+        // 这里只处理成功信封：HTTP 200 的普通对象、失败信封都不是这次调用的全文。
+        if (!isObject(body) || typeof body.ok !== 'boolean') throw new Error('全文不是信封');
+        if (!body.ok) throw new Error(`全文是失败信封：${body.error?.code ?? '没有错误码'}`);
         env = body;
       } catch (e) {
         incomplete = true;

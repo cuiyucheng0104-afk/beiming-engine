@@ -627,6 +627,49 @@ test('A9-17 自动取图的地址由合同里 artifacts 的路径模板推出：
   assert.equal(seen.at(-1), 'GET /v2/works/f_9/files/a.png');
 });
 
+/** 临时改掉内存里合同的 artifacts 路径模板（服务端和薄壳读的是同一份 ROUTES），跑完改回去 */
+async function withArtifactsPath(path, run) {
+  const route = ROUTES.find((r) => r.id === 'artifacts');
+  const frozen = route.path;
+  route.path = path;
+  try { return await run(); } finally { route.path = frozen; }
+}
+
+test('A9-17 真实服务签发的产物引用也跟合同走：改了 artifacts 的路径模板，observe-sheet 交回新路径，MCP 自动取回完整的联系表', { skip: sheetSkip(), timeout: 300000 }, async () => {
+  const call = callVia(createMcpSession({ baseUrl: api.url, token: account }));
+  const film = textOf(await call('films-create', { body: { output: { size: [320, 180], fps: '24/1', frames: 12 } } })).data.film;
+  let job = textOf(await call('render', { id: film, wait: 30, body: { tier: 'draft' } }));
+  while (['queued', 'running'].includes(job.data.status)) job = textOf(await call('job-get', { id: job.data.job, wait: 30 }));
+  assert.equal(job.data.status, 'succeeded', JSON.stringify(job));
+  const [before] = imagesOf(await call('observe-sheet', { id: film, body: {} }));
+  assert.deepEqual([...before.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  await withArtifactsPath('/v2/works/{id}/out/{name}', async () => {
+    const sheet = await call('observe-sheet', { id: film, body: {} });
+    assert.equal(sheet.isError, false, JSON.stringify(sheet.content[0]));
+    const contact = textOf(sheet).outputs.find((o) => o.kind === 'contact');
+    assert.match(contact.url, new RegExp(`^/v2/works/${film}/out/sheets/.+\\.png$`));
+    assert.deepEqual(imagesOf(sheet), [before], '改了路径，取回的还是同一张完整的联系表');
+    assert.equal(sha(before), contact.sha256);
+    assert.deepEqual(before, readFileSync(join(root, 'films', film, 'deliver', contact.url.split('/out/')[1])));
+  });
+});
+
+test('A9-17 真实服务签发的全文引用也跟合同走：改了 artifacts 的路径模板，截短信封的全文引用是新路径，MCP 取得回全文', async () => {
+  const call = callVia(createMcpSession({ baseUrl: api.url, token: account }));
+  const film = textOf(await call('films-create', { body: {} })).data.film;
+  const title = 'LONG'.repeat(3000);
+  assert.equal((await call('film-put', { id: film, body: { format: 'patch/0.1', rev: 1, ops: [{ op: 'set', path: 'title', value: title }] } })).isError, false);
+  await withArtifactsPath('/v2/works/{id}/out/{name}', async () => {
+    const got = await call('film-get', { id: film });
+    const env = textOf(got);
+    assert.equal(env.data.truncated, true);
+    const ref = env.outputs.find((o) => o.kind === 'response').url;
+    assert.match(ref, new RegExp(`^/v2/works/${film}/out/response-[0-9a-f]{64}\\.json$`));
+    assert.deepEqual([got.isError, notesOf(got)], [false, []], '全文取回来了，不留取不回的诊断');
+    assert.equal(textOf(await call('artifacts', { id: film, name: ref.split('/').at(-1) })).data.film.title, title);
+  });
+});
+
 test('A9-18 批量取图逐张容错：中间一张断流或连不上，后面的图照样取回，坏的那张留下带地址的诊断', async () => {
   const at = (n) => `/v1/films/f_9/artifacts/s/${n}.png`;
   const seen = [];
@@ -647,13 +690,16 @@ test('A9-18 批量取图逐张容错：中间一张断流或连不上，后面�
   assert.deepEqual(notesOf(sheet).filter((n) => n.error), [{ url: at(2), error: 'terminated' }, { url: at(4), error: 'ECONNRESET' }]);
 });
 
-test('A9-19 截短信封的全文取不回来（404、断流、坏 JSON、不是信封、连不上）不装成功：留下诊断，isError 为 true', async () => {
+test('A9-19 截短信封的全文取不回来（404、断流、坏 JSON、不是信封、HTTP 200 的普通对象、HTTP 200 的失败信封、连不上）不装成功：留下诊断，isError 为 true', async () => {
   const full = '/v1/films/f_9/artifacts/response-abc.json';
   const broken = {
     'HTTP 404': () => Response.json(fail('contract.not-found', '没有这个产物'), { status: 404 }),
     terminated: () => new Response(new ReadableStream({ pull(c) { c.error(new Error('terminated')); } })),
     JSON: () => new Response('{"ok":tr'),
     信封: () => Response.json([1, 2]),
+    全文不是信封: () => Response.json({ message: '当前不可用' }),
+    // 字面写：fail() 会把没登记的码归一成别的码。
+    '失败信封：contract.not-found': () => Response.json({ ok: false, error: { code: 'contract.not-found', message: '没有这个产物' } }),
     ECONNRESET: () => { throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } }); },
   };
   for (const [why, respond] of Object.entries(broken)) {
