@@ -158,7 +158,7 @@ function failStagingMkdir(t, error) {
 }
 
 function tmpDir(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-a16-'));
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'bm-a16-')));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
@@ -1293,21 +1293,24 @@ test('A16-34 八审收口：持锁发布后释放前轮换不留死锁与暂存�
   const c3B = openShotCache(root3B);
   const real3A = fs.realpathSync.native(root3A);
   const real3B = fs.realpathSync.native(root3B);
+  const roots3A = new Set([c3A.root, real3A]);
+  const roots3B = new Set([c3B.root, real3B]);
   const inoMock = t.mock.method(fs, 'lstatSync', (target, opts) => {
     const st = realLstat(target, opts);
     const resolved = path.resolve(String(target));
-    if (st && opts?.bigint && (resolved === real3A || resolved === real3B)) {
+    if (st && opts?.bigint && (roots3A.has(resolved) || roots3B.has(resolved))) {
       return Object.assign(Object.create(Object.getPrototypeOf(st)), st, { ino: 0n });
     }
     return st;
   });
   let rootBLockObserved = false;
   const renameSpy = t.mock.method(fs, 'renameSync', (from, to) => {
-    if (String(to).startsWith(real3A) && String(to).endsWith('.frame')) {
+    const dst = String(to);
+    if ((dst.startsWith(c3A.root) || dst.startsWith(real3A)) && dst.endsWith('.frame')) {
       c3B.put(entryA, { colorBytes: Buffer.from([2]), meta: sampleMeta, runId: 'r-3b' });
     }
-    if (String(to).startsWith(real3B) && String(to).endsWith('.frame')) {
-      rootBLockObserved = fs.existsSync(path.join(real3B, '.cache.lock'));
+    if ((dst.startsWith(c3B.root) || dst.startsWith(real3B)) && dst.endsWith('.frame')) {
+      rootBLockObserved = fs.existsSync(path.join(c3B.root, '.cache.lock'));
     }
     return realRename(from, to);
   });
@@ -1321,7 +1324,7 @@ test('A16-34 八审收口：持锁发布后释放前轮换不留死锁与暂存�
   const c4 = openShotCache(root4);
   c4.put(entryA, { colorBytes: Buffer.from([9]), meta: sampleMeta, runId: 'r-f4' });
   const badFramePath = path.join(
-    fs.realpathSync.native(root4),
+    c4.root,
     entryA.tier,
     `shot-${entryA.shotId}`,
     entryA.shotKey.slice(7),
@@ -1473,8 +1476,9 @@ test('A16-35 九审收口：建锁早期轮换回收（linkSync 即刻轮换）�
       return s;
     });
     let readdirBusy = true;
+    const parentDirs = new Set([path.resolve(parent), path.dirname(cache.root), fs.realpathSync.native(parent)]);
     st.mock.method(fs, 'readdirSync', (dir, opts) => {
-      if (readdirBusy && path.resolve(String(dir)) === fs.realpathSync.native(parent)) {
+      if (readdirBusy && parentDirs.has(path.resolve(String(dir)))) {
         readdirBusy = false;
         throw Object.assign(new Error('EBUSY: readdir'), { code: 'EBUSY' });
       }
@@ -2317,4 +2321,40 @@ test('A16-38 十三审收口（Red -> Green）：领取前轮换（runJob / repl
     assert.equal(fs.readFileSync(path.join(curDir, 'job.json'), 'utf8'), newOriginalBytes);
     assert.deepEqual(fs.readdirSync(curDir).filter(n => n.startsWith('attempt-')), []);
   });
+});
+
+test('A16-39 Windows 8.3 短路径回归：fs.realpathSync 与 fs.realpathSync.native 返回不同路径写法且 ino=0n 时，双根持锁与兄弟枚举均精准生效', (t) => {
+  const { openShotCache, computeFrameCacheKey } = jobs;
+  const entry = computeFrameCacheKey(makeBaseSpec());
+  const parent = tmpDir(t);
+  const rootA = path.join(parent, 'short-a');
+  const rootB = path.join(parent, 'short-b');
+  const cA = openShotCache(rootA);
+  const cB = openShotCache(rootB);
+  const realLstat = fs.lstatSync;
+  const realNative = fs.realpathSync.native;
+  const realRename = fs.renameSync;
+  // 模拟 Windows 8.3 短路径下 makeDirectory(fs.realpathSync) 保留短路径而 stateOf(fs.realpathSync.native) 展开长路径
+  t.mock.method(fs.realpathSync, 'native', (target, opts) => `${parent}__LONG83__${String(realNative(target, opts)).slice(parent.length)}`);
+  t.mock.method(fs, 'lstatSync', (target, opts) => {
+    const st = realLstat(target, opts);
+    const resolved = path.resolve(String(target));
+    if (st && opts?.bigint && (resolved === cA.root || resolved === cB.root)) {
+      return Object.assign(Object.create(Object.getPrototypeOf(st)), st, { ino: 0n });
+    }
+    return st;
+  });
+  let observedLockB = false;
+  t.mock.method(fs, 'renameSync', (from, to) => {
+    const dst = String(to);
+    if (dst.startsWith(cA.root) && dst.endsWith('.frame')) {
+      cB.put(entry, { colorBytes: Buffer.from([2]), meta: {}, runId: 'r-win-b' });
+    }
+    if (dst.startsWith(cB.root) && dst.endsWith('.frame')) {
+      observedLockB = fs.existsSync(path.join(cB.root, '.cache.lock'));
+    }
+    return realRename(from, to);
+  });
+  cA.put(entry, { colorBytes: Buffer.from([1]), meta: {}, runId: 'r-win-a' });
+  assert.equal(observedLockB, true, 'Windows 8.3 短长路径不一致且 ino=0n 时，第二缓存根仍必须独立持锁');
 });
