@@ -172,6 +172,7 @@ class L3ForensicsTests(unittest.TestCase):
         jg_sus = J.judge_wave(suspect_wave, D.SR, 'friction_cloth')
         self.assertTrue(jg_sus['ok'], '2.9–3.2 边界只标 suspect 不应硬拒')
         self.assertFalse(jg_sus['physics_hard_fail'])
+        self.assertFalse(jg_sus['flippable'])
         self.assertEqual(jg_sus['status'], 'suspect')
         self.assertTrue(any('存疑边界区' in r for r in jg_sus['reasons']), jg_sus['reasons'])
 
@@ -242,6 +243,7 @@ class L3ForensicsTests(unittest.TestCase):
         # 物理 pass + 上层只能行使降级标存疑权（默认不可直接拒收）
         pass_res = J.judge_wave(clean, D.SR, 'foley_snap')
         self.assertEqual(pass_res['status'], 'pass')
+        self.assertTrue(pass_res['flippable'])
         g_down = J.combine_physics_gate(pass_res, upper_status='reject', upper_score=-5.0, upper_reason='low_margin')
         self.assertTrue(g_down['ok'])
         self.assertEqual(g_down['status'], 'suspect')
@@ -253,6 +255,9 @@ class L3ForensicsTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             J.combine_physics_gate(pass_res, upper_status='unknown')
+        for bad_phys in ({}, None, {'status': 'bogus'}):
+            with self.assertRaises(ValueError):
+                J.combine_physics_gate(bad_phys, upper_status='pass')
 
 
 if __name__ == '__main__':

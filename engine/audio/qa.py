@@ -905,6 +905,8 @@ def check_sync(
     """纯 CPU 运动学对冲击同步检查（audio.sync）：未传 kinematics 与 video 时返回 None，保持原有 QA 行为完全不变。"""
     if kinematics is None and video is None:
         return None
+    if kinematics is not None and video is not None:
+        raise CliError('usage.conflicting-visual', '--kinematics 与 --video 不能同时指定')
     from . import sync_kernel as SK
 
     wav_abs = os.path.abspath(wav)
@@ -970,7 +972,7 @@ def check_sync(
         except Exception as e:
             raise CliError('contract.audio-unreadable', f'读取同步音频失败 {_rel(audio_path)}：{e}') from None
 
-    eff_fps = float(fps) if (fps is not None and float(fps) > 0.0) else (float(film['fps']) if film and film.get('fps') else None)
+    eff_fps = fps if fps is not None else (float(film['fps']) if film and film.get('fps') is not None else None)
     try:
         res = SK.evaluate_sync(
             audio_sig,
@@ -986,6 +988,10 @@ def check_sync(
         )
     except SK.FfmpegUnavailableError as e:
         raise CliError('env.ffmpeg-missing', str(e), hint='安装 ffmpeg 或设置 FFMPEG 环境变量') from None
+    except TimeoutError as e:
+        raise CliError('timeout.video-decode', str(e), hint='检查视频文件完整性或增大解码超时') from None
+    except RuntimeError as e:
+        raise CliError('contract.video-unreadable', str(e), hint='检查视频文件是否损坏或包含有效视频流') from None
     except ValueError as e:
         raise CliError('contract.sync-input', str(e)) from None
 

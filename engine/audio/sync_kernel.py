@@ -28,6 +28,8 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
+import threading
 import time
 
 import numpy as np
@@ -47,6 +49,26 @@ MIN_PEAK_CORR = 0.10
 
 class FfmpegUnavailableError(RuntimeError):
     """系统未安装或未配置可执行 ffmpeg 时抛出，供上层映射标准退出码 3（EXIT.ENV）。"""
+
+
+def _require_finite(arr: np.ndarray, label: str) -> np.ndarray:
+    """校验数组不含 NaN/Inf，否则抛出 ValueError。"""
+    if not np.all(np.isfinite(arr)):
+        raise ValueError(f'{label} 含非有限值（NaN/Inf）')
+    return arr
+
+
+def _require_pos_float(val, label: str) -> float:
+    """校验标量为严格大于 0 的有限浮点数（拒绝 bool / NaN / Inf / 非正数）。"""
+    if isinstance(val, bool):
+        raise ValueError(f'{label} 非法：{val!r}')
+    try:
+        out = float(val)
+    except (TypeError, ValueError):
+        raise ValueError(f'{label} 非法：{val!r}') from None
+    if not math.isfinite(out) or out <= 0.0:
+        raise ValueError(f'{label} 非法：{val!r}')
+    return out
 
 
 def _resolve_bin(cmd: str) -> str | None:
@@ -121,8 +143,8 @@ def load_kinematics(source) -> dict:
             elif isinstance(tr, dict):
                 tracks[str(name)] = tr
         raw = {
-            'fps': float(getattr(source, 'fps', DEFAULT_FPS) or DEFAULT_FPS),
-            'dur': float(getattr(source, 'dur', 0.0) or 0.0),
+            'fps': getattr(source, 'fps', None),
+            'dur': getattr(source, 'dur', None),
             'tracks': tracks,
         }
     elif isinstance(source, dict):
@@ -135,23 +157,34 @@ def load_kinematics(source) -> dict:
     tracks = raw.get('tracks')
     if not isinstance(tracks, dict) or not tracks:
         raise ValueError('遥测缺少有效的 tracks 字段')
-    fps = float(raw.get('fps') or DEFAULT_FPS)
-    if not math.isfinite(fps) or fps <= 0.0:
-        raise ValueError(f'遥测 fps 非法：{raw.get("fps")!r}')
+    raw_fps = raw.get('fps')
+    fps = DEFAULT_FPS if raw_fps is None else _require_pos_float(raw_fps, '遥测 fps')
 
     dur_val = raw.get('dur')
+    if dur_val is not None:
+        if isinstance(dur_val, bool):
+            raise ValueError(f'遥测 dur 非法：{dur_val!r}')
+        try:
+            dur_f = float(dur_val)
+        except (TypeError, ValueError):
+            raise ValueError(f'遥测 dur 非法：{dur_val!r}') from None
+        if not math.isfinite(dur_f) or dur_f < 0.0:
+            raise ValueError(f'遥测 dur 非法：{dur_val!r}')
+    else:
+        dur_f = 0.0
+
     max_len = 0
     for tr in tracks.values():
         if isinstance(tr, dict):
             for v in tr.values():
                 if isinstance(v, (list, tuple, np.ndarray)) and len(v) > max_len:
                     max_len = len(v)
-    if dur_val is None or float(dur_val) <= 0.0:
+    if dur_f == 0.0:
         if max_len <= 0:
             raise ValueError('遥测缺少有效 dur 或帧序列长度')
         dur = float(max_len) / fps
     else:
-        dur = float(dur_val)
+        dur = dur_f
     if not math.isfinite(dur) or dur <= 0.0:
         raise ValueError(f'遥测 dur 非法：{dur_val!r}')
     return {**raw, 'fps': fps, 'dur': dur, 'tracks': tracks}
@@ -194,6 +227,9 @@ def detect_actor_on_twos(kin: dict) -> bool:
             sc = np.zeros(m, dtype=np.float64)
         else:
             sc = sc[:m]
+        _require_finite(x[:m], f'actor 轨道 {name}.x')
+        _require_finite(y[:m], f'actor 轨道 {name}.y')
+        _require_finite(sc, f'actor 轨道 {name}.scale')
 
         ev_k = (m // 2) * 2
         if ev_k >= 4:
@@ -253,10 +289,10 @@ def motion_from_kinematics(kin: dict, *, path: str = 'auto') -> tuple[np.ndarray
             m_len = min(n, min(lens))
             if m_len < 3:
                 continue
-            x = np.asarray(tr['x'][:m_len], dtype=np.float64) if has_x else np.zeros(m_len, dtype=np.float64)
-            y = np.asarray(tr['y'][:m_len], dtype=np.float64) if has_y else np.zeros(m_len, dtype=np.float64)
-            sc = np.asarray(tr['scale'][:m_len], dtype=np.float64) if has_sc else np.zeros(m_len, dtype=np.float64)
-            vis = np.asarray(tr['visible'][:m_len], dtype=np.float64) if ('visible' in tr and len(tr['visible']) >= m_len) else np.ones(m_len, dtype=np.float64)
+            x = _require_finite(np.asarray(tr['x'][:m_len], dtype=np.float64), f'actor 轨道 {name}.x') if has_x else np.zeros(m_len, dtype=np.float64)
+            y = _require_finite(np.asarray(tr['y'][:m_len], dtype=np.float64), f'actor 轨道 {name}.y') if has_y else np.zeros(m_len, dtype=np.float64)
+            sc = _require_finite(np.asarray(tr['scale'][:m_len], dtype=np.float64), f'actor 轨道 {name}.scale') if has_sc else np.zeros(m_len, dtype=np.float64)
+            vis = _require_finite(np.asarray(tr['visible'][:m_len], dtype=np.float64), f'actor 轨道 {name}.visible') if ('visible' in tr and len(tr['visible']) >= m_len) else np.ones(m_len, dtype=np.float64)
             a2 = np.zeros(m_len, dtype=np.float64)
             a2[1:-1] = (
                 np.abs(x[2:] - 2.0 * x[1:-1] + x[:-2])
@@ -273,7 +309,7 @@ def motion_from_kinematics(kin: dict, *, path: str = 'auto') -> tuple[np.ndarray
         scr = tracks.get('screen')
         if not isinstance(scr, dict) or 'motion' not in scr or len(scr['motion']) == 0:
             return None
-        m = np.asarray(scr['motion'], dtype=np.float64)[:n]
+        m = _require_finite(np.asarray(scr['motion'], dtype=np.float64)[:n], 'screen.motion 轨道')
         if len(m) < n:
             m = np.pad(m, (0, n - len(m)))
         if float(np.max(m)) <= 1e-12:
@@ -351,23 +387,48 @@ def extract_video_frames(
     frames = []
     deadline = time.monotonic() + float(timeout_s)
     stderr_bytes = b''
-    with subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as proc:
-        try:
-            while True:
-                if time.monotonic() > deadline:
+    timed_out = [False]
+    with tempfile.TemporaryFile() as err_file:
+        with subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=err_file) as proc:
+            def _on_timeout():
+                timed_out[0] = True
+                _env.kill_tree(proc)
+
+            timer = threading.Timer(max(0.05, float(timeout_s)), _on_timeout)
+            timer.daemon = True
+            timer.start()
+            try:
+                while True:
+                    if timed_out[0] or time.monotonic() > deadline:
+                        raise TimeoutError(f'ffmpeg 解码视频超时（>{timeout_s:.1f} s）：{vp}')
+                    if n_frames is not None and len(frames) >= int(n_frames):
+                        break
+                    buf = _read_exact(proc.stdout, frame_bytes)
+                    if timed_out[0]:
+                        raise TimeoutError(f'ffmpeg 解码视频超时（>{timeout_s:.1f} s）：{vp}')
+                    if not buf or len(buf) < frame_bytes:
+                        break
+                    frames.append(np.frombuffer(buf, dtype=np.uint8).astype(np.float64))
+                if proc.stdout:
+                    try:
+                        proc.stdout.close()
+                    except OSError:
+                        pass
+                rem_t = max(0.5, deadline - time.monotonic())
+                try:
+                    proc.wait(timeout=rem_t)
+                except subprocess.TimeoutExpired:
+                    _env.kill_tree(proc)
+                    raise TimeoutError(f'ffmpeg 解码视频超时（>{timeout_s:.1f} s）：{vp}') from None
+                if timed_out[0]:
                     raise TimeoutError(f'ffmpeg 解码视频超时（>{timeout_s:.1f} s）：{vp}')
-                if n_frames is not None and len(frames) >= int(n_frames):
-                    break
-                buf = _read_exact(proc.stdout, frame_bytes)
-                if not buf or len(buf) < frame_bytes:
-                    break
-                frames.append(np.frombuffer(buf, dtype=np.uint8).astype(np.float64))
-            stderr_bytes = proc.stderr.read() if proc.stderr else b''
-            rem_t = max(1.0, deadline - time.monotonic())
-            proc.wait(timeout=rem_t)
-        except BaseException:
-            _env.kill_tree(proc)
-            raise
+            except BaseException:
+                _env.kill_tree(proc)
+                raise
+            finally:
+                timer.cancel()
+        err_file.seek(0)
+        stderr_bytes = err_file.read(65536)
 
     if proc.returncode != 0:
         err_msg = stderr_bytes.decode('utf-8', errors='replace').strip()
@@ -379,7 +440,7 @@ def extract_video_frames(
 
 def video_motion_curves(frames: np.ndarray, n_frames: int | None = None) -> tuple[np.ndarray, np.ndarray]:
     """返回帧对齐的帧间差分能量 d1[i]=|F[i]-F[i-1]| 与正部二阶变化 d2+[i]=max(0, d1[i]-d1[i-1])。"""
-    arr = np.asarray(frames, dtype=np.float64)
+    arr = _require_finite(np.asarray(frames, dtype=np.float64), 'frames')
     if arr.ndim < 2 or len(arr) < 2:
         raise ValueError(f'frames 至少需要 2 帧二维数组，收到形状 {arr.shape}')
     if arr.ndim > 2:
@@ -395,18 +456,42 @@ def apply_on_twos_guard(
     motion: np.ndarray,
     *,
     force: bool = False,
-    zero_frac_thr: float = 0.35,
+    alt_frac_thr: float = 0.60,
 ) -> tuple[np.ndarray, bool]:
-    """检测并抑制一拍二（12 fps 重复帧）造成的 12 Hz 零值梳状峰，采用零相移对称核 [0.25, 0.5, 0.25]。"""
-    m = np.asarray(motion, dtype=np.float64).reshape(-1)
+    """检测并抑制一拍二（12 fps 重复帧）造成的 12 Hz 零值梳状峰，采用零相移对称核 [0.25, 0.5, 0.25]。
+    按奇偶相位检查活动区内部“正→近零→正”交替比例，排除 24 fps 连续静置留白对检测的干扰。"""
+    m = _require_finite(np.asarray(motion, dtype=np.float64).reshape(-1), 'motion')
     pos = m[m > 0.0]
-    if len(pos) == 0:
-        return m.copy(), False
-    zero_frac = float(np.mean(m < 1e-3 * float(np.median(pos))))
-    detected = bool(zero_frac > zero_frac_thr)
+    if len(m) < 6 or len(pos) < 4:
+        out = np.convolve(m, ON_TWOS_KERNEL, mode='same') if force else m.copy()
+        return out, False
+    ref = float(np.percentile(pos, 75))
+    act_thr = max(1e-6, 0.08 * ref)
+
+    def _phase_alt(offset: int) -> tuple[int, float]:
+        a = m[offset:len(m) - 2:2]
+        mid = m[offset + 1:len(m) - 1:2]
+        b = m[offset + 2:len(m):2]
+        k = min(len(a), len(mid), len(b))
+        if k < 4:
+            return 0, 0.0
+        a, mid, b = a[:k], mid[:k], b[:k]
+        pair = (a > act_thr) & (b > act_thr)
+        npair = int(np.sum(pair))
+        if npair < 4:
+            return npair, 0.0
+        flank = np.minimum(a[pair], b[pair])
+        return npair, float(np.mean(mid[pair] <= 0.15 * flank))
+
+    p0 = _phase_alt(0)
+    p1 = _phase_alt(1)
+    detected = bool(
+        (p0[0] >= 4 and p0[1] >= alt_frac_thr and p1[1] < 0.35)
+        or (p1[0] >= 4 and p1[1] >= alt_frac_thr and p0[1] < 0.35)
+    )
     if force or detected:
         return np.convolve(m, ON_TWOS_KERNEL, mode='same'), detected
-    return m.copy(), detected
+    return m.copy(), False
 
 
 def onset_flux(
@@ -417,7 +502,7 @@ def onset_flux(
     fps: float = DEFAULT_FPS,
     n_frames: int | None = None,
 ) -> np.ndarray:
-    """多频带 Onset Flux（boundary='zeros' + 相对参考 log1p + 居中帧格平均池化）。"""
+    """多频带 Onset Flux（boundary='zeros' + 相对参考 log1p + 居中帧格平均池化）；非有限输入返回有限零序列。"""
     arr = np.asarray(x, dtype=np.float64)
     if arr.ndim == 2:
         arr = arr.mean(axis=1)
@@ -427,7 +512,7 @@ def onset_flux(
         n_frames = max(0, int(round(len(arr) / float(sr) * float(fps))))
     if n_frames <= 0:
         return np.zeros(0, dtype=np.float64)
-    if len(arr) < 16 or float(np.max(np.abs(arr))) <= 1e-12:
+    if len(arr) < 16 or not np.all(np.isfinite(arr)) or float(np.max(np.abs(arr))) <= 1e-12:
         return np.zeros(n_frames, dtype=np.float64)
 
     n_fft = min(1024, max(64, len(arr)))
@@ -457,7 +542,10 @@ def onset_flux(
     valid = (idx >= 0) & (idx < n_frames)
     np.add.at(out, idx[valid], flux[valid])
     np.add.at(cnt, idx[valid], 1.0)
-    return out / np.maximum(cnt, 1.0)
+    flux_out = out / np.maximum(cnt, 1.0)
+    if not np.all(np.isfinite(flux_out)):
+        return np.zeros(n_frames, dtype=np.float64)
+    return flux_out
 
 
 def xcorr_offset_frames(
@@ -471,14 +559,15 @@ def xcorr_offset_frames(
     m_arr = np.asarray(motion, dtype=np.float64).reshape(-1)
     a_arr = np.asarray(audio_flux, dtype=np.float64).reshape(-1)
     n = min(len(m_arr), len(a_arr))
-    if n < 4:
-        return {'offset_frames': 0.0, 'offset_ms': 0.0, 'peak_corr': 0.0, 'peak_snr': 0.0, 'valid': False}
+    invalid = {'offset_frames': 0.0, 'offset_ms': 0.0, 'peak_corr': 0.0, 'peak_snr': 0.0, 'valid': False}
+    if n < 4 or not (np.all(np.isfinite(m_arr[:n])) and np.all(np.isfinite(a_arr[:n]))):
+        return invalid
     m_c = m_arr[:n] - float(np.mean(m_arr[:n]))
     a_c = a_arr[:n] - float(np.mean(a_arr[:n]))
     nm = float(np.linalg.norm(m_c))
     na = float(np.linalg.norm(a_c))
-    if nm < 1e-12 or na < 1e-12:
-        return {'offset_frames': 0.0, 'offset_ms': 0.0, 'peak_corr': 0.0, 'peak_snr': 0.0, 'valid': False}
+    if not (math.isfinite(nm) and math.isfinite(na)) or nm < 1e-12 or na < 1e-12:
+        return invalid
     M = m_c / nm
     A = a_c / na
     max_lag = max(1, min(n - 2, int(round(float(max_lag_s) * float(fps)))))
@@ -487,6 +576,8 @@ def xcorr_offset_frames(
         float(np.dot(A[L:n], M[:n - L])) if L >= 0 else float(np.dot(A[:n + L], M[-L:n]))
         for L in lags
     ], dtype=np.float64)
+    if not np.all(np.isfinite(cc)):
+        return invalid
     k = int(np.argmax(cc))
     sub = 0.0
     if 0 < k < len(cc) - 1:
@@ -495,13 +586,17 @@ def xcorr_offset_frames(
         if abs(den) > 1e-12:
             sub = float(np.clip(0.5 * (y0 - y2) / den, -0.5, 0.5))
     off = float(lags[k] + sub)
+    off_ms = off / float(fps) * 1000.0
     med = float(np.median(cc))
     mad = float(np.median(np.abs(cc - med))) * 1.4826 + 1e-12
-    peak_snr = float((cc[k] - med) / mad)
+    peak_corr = float(cc[k])
+    peak_snr = float((peak_corr - med) / mad)
+    if not all(math.isfinite(v) for v in (off, off_ms, peak_corr, peak_snr)):
+        return invalid
     return {
         'offset_frames': round(off, 3),
-        'offset_ms': round(off / float(fps) * 1000.0, 1),
-        'peak_corr': round(float(cc[k]), 4),
+        'offset_ms': round(off_ms, 1),
+        'peak_corr': round(peak_corr, 4),
         'peak_snr': round(peak_snr, 2),
         'valid': True,
     }
@@ -552,10 +647,12 @@ def evaluate_sync(
     resolved_track = 'sfx' if input_track == 'stem' else ('unknown' if input_track == 'auto' else input_track)
     on_twos_detected = False
     guard_applied = False
-    eff_fps = float(fps) if (fps is not None and float(fps) > 0.0) else DEFAULT_FPS
+    eff_fps = _require_pos_float(fps, 'fps') if fps is not None else DEFAULT_FPS
 
     if motion is not None:
-        m_raw = np.asarray(motion, dtype=np.float64).reshape(-1)
+        m_raw = _require_finite(np.asarray(motion, dtype=np.float64).reshape(-1), 'motion')
+        if len(m_raw) < 4:
+            raise ValueError(f'motion 帧数不足（n={len(m_raw)}）')
         resolved_path = 'custom'
         if fps_mode == '24fps':
             _, on_twos_detected = apply_on_twos_guard(m_raw, force=False)
@@ -565,7 +662,7 @@ def evaluate_sync(
             guard_applied = bool(fps_mode == '12fps' or on_twos_detected)
     elif kinematics is not None:
         kin_doc = load_kinematics(kinematics)
-        eff_fps = float(fps) if (fps is not None and float(fps) > 0.0) else float(kin_doc['fps'])
+        eff_fps = _require_pos_float(fps, 'fps') if fps is not None else float(kin_doc['fps'])
         m_raw, resolved_path = motion_from_kinematics(kin_doc, path=motion_path)
         if resolved_path == 'actor':
             on_twos_detected = detect_actor_on_twos(kin_doc)
@@ -583,7 +680,7 @@ def evaluate_sync(
                 m_use = m_raw
     elif video_path is not None:
         frames, vid_fps = extract_video_frames(video_path)
-        eff_fps = float(fps) if (fps is not None and float(fps) > 0.0) else float(vid_fps)
+        eff_fps = _require_pos_float(fps, 'fps') if fps is not None else _require_pos_float(vid_fps, 'vid_fps')
         d1, d2p = video_motion_curves(frames)
         m_raw = d1 if video_metric == 'd1' else d2p
         resolved_path = f'video.{video_metric}'
@@ -607,6 +704,15 @@ def evaluate_sync(
     res = estimate_offset_frames(m_use, audio, sr=sr, fps=eff_fps, max_lag_s=max_lag_s)
     elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 2)
 
+    off_f = float(res.get('offset_frames', 0.0))
+    off_ms = float(res.get('offset_ms', 0.0))
+    peak_corr = float(res.get('peak_corr', 0.0))
+    peak_snr = float(res.get('peak_snr', 0.0))
+    res_finite = all(math.isfinite(v) for v in (off_f, off_ms, peak_corr, peak_snr))
+    if not res_finite:
+        off_f, off_ms, peak_corr, peak_snr = 0.0, 0.0, 0.0, 0.0
+    is_valid = bool(res.get('valid')) and res_finite
+
     warnings_list: list[str] = []
     if resolved_track == 'mix':
         if eff_fps_mode == '12fps':
@@ -623,42 +729,42 @@ def evaluate_sync(
             f'并采用 {warn_thr:.2f}f 告警门限'
         )
 
-    abs_off = abs(float(res['offset_frames']))
-    if not res['valid'] or res['peak_corr'] < float(min_peak_corr):
+    abs_off = abs(off_f)
+    if not is_valid or not math.isfinite(peak_corr) or peak_corr < float(min_peak_corr):
         status = 'warn'
         msg = (
-            f"音画相关置信度不足（peak_corr={res['peak_corr']:.4f} < {min_peak_corr:.2f}，"
+            f"音画相关置信度不足（peak_corr={peak_corr:.4f} < {min_peak_corr:.2f}，"
             f"路径 {resolved_path} / {resolved_track}），请结合人工试听或 sfx 分轨复核"
         )
         warnings_list.append(msg)
     elif abs_off >= fail_thr:
         status = 'fail'
         msg = (
-            f"音画偏移超限：{res['offset_frames']:+.3f} 帧（{res['offset_ms']:+.1f} ms，"
+            f"音画偏移超限：{off_f:+.3f} 帧（{off_ms:+.1f} ms，"
             f"|偏移| ≥ {fail_thr:.2f}f，路径 {resolved_path} / {eff_fps_mode}）"
         )
     elif abs_off >= warn_thr:
         status = 'warn'
         msg = (
-            f"音画偏移进入一拍二紧门限告警区：{res['offset_frames']:+.3f} 帧（{res['offset_ms']:+.1f} ms，"
+            f"音画偏移进入一拍二紧门限告警区：{off_f:+.3f} 帧（{off_ms:+.1f} ms，"
             f"∈ [{warn_thr:.2f}f, {fail_thr:.2f}f)，路径 {resolved_path} / {eff_fps_mode}）"
         )
         warnings_list.append(msg)
     else:
         status = 'pass'
         msg = (
-            f"音画同步正常：{res['offset_frames']:+.3f} 帧（{res['offset_ms']:+.1f} ms，"
-            f"peak_corr={res['peak_corr']:.4f}，路径 {resolved_path} / {eff_fps_mode}）"
+            f"音画同步正常：{off_f:+.3f} 帧（{off_ms:+.1f} ms，"
+            f"peak_corr={peak_corr:.4f}，路径 {resolved_path} / {eff_fps_mode}）"
         )
 
     return {
         'ok': status != 'fail',
         'status': status,
-        'offset_frames': float(res['offset_frames']),
-        'offset_ms': float(res['offset_ms']),
-        'peak_corr': float(res['peak_corr']),
-        'peak_snr': float(res['peak_snr']),
-        'valid': bool(res['valid']),
+        'offset_frames': off_f,
+        'offset_ms': off_ms,
+        'peak_corr': peak_corr,
+        'peak_snr': peak_snr,
+        'valid': is_valid,
         'path': resolved_path,
         'input_track': resolved_track,
         'fps': round(float(eff_fps), 6),
@@ -758,6 +864,10 @@ def main_cli(args, ctx):
         )
     except FfmpegUnavailableError as e:
         raise CliError('env.ffmpeg-missing', str(e), hint='安装 ffmpeg 或设置 FFMPEG 环境变量') from None
+    except TimeoutError as e:
+        raise CliError('timeout.video-decode', str(e), hint='检查视频文件完整性或增大解码超时') from None
+    except RuntimeError as e:
+        raise CliError('contract.video-unreadable', str(e), hint='检查视频文件是否损坏或包含有效视频流') from None
     except ValueError as e:
         raise CliError('contract.sync-input', str(e)) from None
 

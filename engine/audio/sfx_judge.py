@@ -673,8 +673,13 @@ def combine_physics_gate(
     if upper_status not in (None, 'pass', 'suspect', 'reject'):
         raise ValueError(f"upper_status 仅支持 None / 'pass' / 'suspect' / 'reject'，收到 {upper_status!r}")
 
-    phys = physics_result if isinstance(physics_result, dict) else {}
-    phys_status = str(phys.get('status') or '')
+    if not isinstance(physics_result, dict):
+        raise ValueError(f'physics_result 必须是 dict，收到 {type(physics_result).__name__}')
+    raw_status = physics_result.get('status')
+    if raw_status not in ('pass', 'suspect', 'reject'):
+        raise ValueError(f"physics_result['status'] 仅支持 'pass' / 'suspect' / 'reject'，收到 {raw_status!r}")
+    phys = physics_result
+    phys_status = str(raw_status)
     phys_hard = (phys_status == 'reject') or bool(phys.get('physics_hard_fail')) or (phys.get('ok') is False)
     u_score = float(upper_score) if upper_score is not None else None
 
@@ -1121,7 +1126,7 @@ def judge_wave(x: np.ndarray, sr: int = SR, archetype: str = 'generic', *, spec:
         'metrics': m,
         'reasons': hard + soft,
         'physics_hard_fail': bool(status == 'reject'),
-        'flippable': bool(status != 'reject'),
+        'flippable': bool(status == 'pass'),
         'forensics': {'b1_click': b1, 'b3_alias': b3, 'b4_kurt': b4},
     }
 

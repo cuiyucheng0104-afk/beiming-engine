@@ -118,18 +118,23 @@ class SyncKernelTests(unittest.TestCase):
 
     def test_on_twos_12fps_guard_prevents_comb_jumps_and_supports_tight_warn(self):
         n_frames = len(self.frames)
-        # 1) 构造 12 fps 偶相重复帧视频帧差（奇偶帧均有真实事件）
-        fr12_even = np.repeat(self.frames[0::2], 2, axis=0)[:n_frames]
-        fr12_odd = np.r_[self.frames[:1], np.repeat(self.frames[1::2], 2, axis=0)][:n_frames]
+        # 1) 构造带连续镜头微漂移的一拍二偶/奇相重复帧视频帧差（24 fps 连续运动不触发，12 fps 呈现 [val, 0, val, 0] 交替零梳）
+        t_f = np.arange(n_frames, dtype=np.float64)
+        pan = 8.0 * (2.0 * np.abs(2.0 * ((t_f / 40.0) - np.floor(t_f / 40.0 + 0.5))) - 1.0)
+        frames_anim = self.frames + pan[:, None]
+        d1_24_anim, _ = SK.video_motion_curves(frames_anim)
+        self.assertFalse(SK.apply_on_twos_guard(d1_24_anim, force=False)[1])
+
+        fr12_even = np.repeat(frames_anim[0::2], 2, axis=0)[:n_frames]
+        fr12_odd = np.repeat(frames_anim[1::2], 2, axis=0)[:n_frames]
         d1_even, _ = SK.video_motion_curves(fr12_even)
         d1_odd, _ = SK.video_motion_curves(fr12_odd)
 
-        # 未加守卫时 d1_even 仅偶帧非零（12 Hz 零值梳）
-        _, detected_ev = SK.apply_on_twos_guard(d1_even, force=False)
+        # 未加守卫时 d1_even 呈现偶相 12 Hz 零值梳；奇偶相均可被自动检出
+        guarded_ev, detected_ev = SK.apply_on_twos_guard(d1_even, force=False)
+        guarded_od, detected_od = SK.apply_on_twos_guard(d1_odd, force=False)
         self.assertTrue(detected_ev)
-
-        guarded_ev, _ = SK.apply_on_twos_guard(d1_even, force=True)
-        guarded_od, _ = SK.apply_on_twos_guard(d1_odd, force=True)
+        self.assertTrue(detected_od)
         for label, m_g in (('even', guarded_ev), ('odd', guarded_od)):
             errs = []
             for k in (0, 1, -1, 2, -2, 4, -4):
@@ -241,12 +246,31 @@ class SyncKernelTests(unittest.TestCase):
 
         res_ok = SK.evaluate_sync(sfx, sr=D.SR, video_path=mp4_path, video_metric='d1', input_track='sfx')
         self.assertEqual(res_ok['path'], 'video.d1')
+        self.assertEqual(res_ok['fps_mode'], '24fps', res_ok)
+        self.assertFalse(res_ok['on_twos_detected'])
+        self.assertFalse(res_ok['on_twos_guard_applied'])
         self.assertEqual(res_ok['status'], 'pass', res_ok)
         self.assertLess(abs(res_ok['offset_frames']), 1.0)
 
         res_bad = SK.evaluate_sync(_shift_audio(sfx, 3.0, fps=fps), sr=D.SR, video_path=mp4_path, video_metric='d1', input_track='sfx')
         self.assertEqual(res_bad['status'], 'fail', res_bad)
         self.assertGreater(res_bad['offset_frames'], 2.0)
+
+        # 损坏视频文件走 sync_kernel 与 qa CLI 均应映射 contract.video-unreadable (exit 4)
+        bad_mp4 = os.path.join(self.td, 'corrupt_real.mp4')
+        with open(bad_mp4, 'wb') as f:
+            f.write(b'not-a-valid-mp4-container-0000')
+        wav_cor = H.write_wav(os.path.join(self.td, 'sfx_cor.wav'), np.column_stack([sfx, sfx]))
+        r_cor_sk = H.run(['python', '-m', 'engine.audio.sync_kernel', '--audio', wav_cor, '--video', bad_mp4, '--json'])
+        self.assertEqual(r_cor_sk.returncode, 4, r_cor_sk.stderr)
+        self.assertEqual(H.envelope(r_cor_sk)['error']['code'], 'contract.video-unreadable')
+
+        film_cor = os.path.join(self.td, 'film-corrupt-vid')
+        H.film_json(film_cor, frames=nf, fps=fps, cuts=())
+        mix_cor = H.write_wav(os.path.join(film_cor, 'out', 'mix.wav'), np.column_stack([sfx, sfx]) * 0.4)
+        r_cor_qa = H.run(['python', '-m', 'engine.audio.qa', '--film', film_cor, '--wav', mix_cor, '--video', bad_mp4, '--no-report', '--json'])
+        self.assertEqual(r_cor_qa.returncode, 4, r_cor_qa.stderr)
+        self.assertEqual(H.envelope(r_cor_qa)['error']['code'], 'contract.video-unreadable')
 
     def test_qa_cli_integration_and_backward_compatibility(self):
         # 搭一份 10 s 合规作品目录，比较传与不传 --kinematics 的 QA 行为与 Node CLI 同步选项一致性
@@ -309,6 +333,148 @@ class SyncKernelTests(unittest.TestCase):
         r_miss = H.run(['python', '-m', 'engine.audio.qa', '--film', film_ok, '--kinematics', os.path.join(self.td, 'missing.json'), '--no-report', '--json'])
         self.assertEqual(r_miss.returncode, 3)
         self.assertEqual(H.envelope(r_miss)['error']['code'], 'env.kinematics-missing')
+
+    def test_review_fixes_finiteness_pause_on_twos_guard_kernel_and_cli_errors(self):
+        from unittest import mock
+        from engine.audio._cli import CliError
+
+        # 1) P1-1: kinematics / motion 含 NaN/Inf 直接抛 ValueError；audio 含 NaN/Inf 返回有限 valid=False 且可 json.dumps(allow_nan=False)
+        for bad_val in (float('nan'), float('inf')):
+            kin_nan = json.loads(json.dumps(self.kin))
+            kin_nan['tracks']['hero']['x'][10] = bad_val
+            with self.assertRaises(ValueError):
+                SK.evaluate_sync(self.sfx, sr=D.SR, kinematics=kin_nan, motion_path='actor')
+            kin_scr_nan = {'fps': 24, 'dur': 1.0, 'tracks': {'screen': {'motion': [0.1, bad_val] + [0.1] * 22}}}
+            with self.assertRaises(ValueError):
+                SK.evaluate_sync(self.sfx, sr=D.SR, kinematics=kin_scr_nan, motion_path='screen')
+            with self.assertRaises(ValueError):
+                SK.evaluate_sync(self.sfx, sr=D.SR, motion=np.array([0.0, 1.0, bad_val, 0.0]))
+
+        aud_nan = self.sfx.copy()
+        aud_nan[1234] = float('nan')
+        aud_inf = self.sfx.copy()
+        aud_inf[2345] = float('inf')
+        for bad_aud in (aud_nan, aud_inf):
+            flux = SK.onset_flux(bad_aud, D.SR, fps=24.0)
+            self.assertTrue(np.all(np.isfinite(flux)))
+            self.assertTrue(np.all(flux == 0.0))
+            xc = SK.xcorr_offset_frames(np.array([0.0, 1.0, 0.0, 0.5, 0.0]), np.array([0.0, float('nan'), 1.0, 0.0, 0.0]))
+            self.assertFalse(xc['valid'])
+            self.assertTrue(all(np.isfinite(xc[k]) for k in ('offset_frames', 'offset_ms', 'peak_corr', 'peak_snr')))
+            r_nan = SK.evaluate_sync(bad_aud, sr=D.SR, kinematics=self.kin, input_track='sfx')
+            self.assertEqual(r_nan['status'], 'warn')
+            self.assertFalse(r_nan['valid'])
+            json.dumps(r_nan, allow_nan=False)
+
+        # float WAV（SoundFile FLOAT）保留 NaN 经 sync_kernel CLI 检查不崩 --report
+        import soundfile as sf
+        wav_nan_f = os.path.join(self.td, 'sfx_nan_f32.wav')
+        sf.write(wav_nan_f, np.column_stack([aud_nan, aud_nan]), D.SR, subtype='FLOAT')
+        rep_nan = os.path.join(self.td, 'nan_sync_report.json')
+        r_cli_nan = H.run(['python', '-m', 'engine.audio.sync_kernel', '--audio', wav_nan_f, '--kinematics', self.kin_path, '--report', rep_nan, '--json'])
+        self.assertEqual(r_cli_nan.returncode, 0, r_cli_nan.stderr)
+        env_nan = H.envelope(r_cli_nan)
+        self.assertFalse(env_nan['data']['valid'])
+        json.dumps(H.read_json(rep_nan), allow_nan=False)
+
+        # CLI 对含 NaN kinematics 与显式 fps=0 均返回 exit 4（contract.sync-input）
+        wav_sfx = H.write_wav(os.path.join(self.td, 'sfx_check.wav'), np.column_stack([self.sfx, self.sfx]))
+        bad_kin_p = os.path.join(self.td, 'nan_kin.json')
+        with open(bad_kin_p, 'w', encoding='utf-8') as f:
+            json.dump({'fps': 24, 'dur': 1.0, 'tracks': {'screen': {'motion': [0.1, float('nan')] + [0.1] * 22}}}, f, allow_nan=True)
+        bad_kin_p2 = os.path.join(self.td, 'bad_fps_kin.json')
+        with open(bad_kin_p2, 'w', encoding='utf-8') as f:
+            json.dump({'fps': 0, 'dur': 1.0, 'tracks': {'screen': {'motion': [0.1] * 24}}}, f)
+        for bad_kp in (bad_kin_p, bad_kin_p2):
+            r_bad_kin = H.run(['python', '-m', 'engine.audio.sync_kernel', '--audio', wav_sfx, '--kinematics', bad_kp, '--json'])
+            self.assertEqual(r_bad_kin.returncode, 4, r_bad_kin.stderr)
+            self.assertEqual(H.envelope(r_bad_kin)['error']['code'], 'contract.sync-input')
+
+        # 2) P2-4: 显式 fps=0 不可静默 fallback 到 24.0；qa.check_sync 直调校验互斥
+        with self.assertRaises(ValueError):
+            SK.load_kinematics({'fps': 0, 'dur': 1.0, 'tracks': {'screen': {'motion': [0.1] * 24}}})
+        with self.assertRaises(ValueError):
+            SK.evaluate_sync(self.sfx, sr=D.SR, kinematics=self.kin, fps=0)
+        with self.assertRaises(CliError) as cm_ctx:
+            QA.check_sync(wav_sfx, kinematics=self.kin_path, video=wav_sfx)
+        self.assertEqual(cm_ctx.exception.code, 'usage.conflicting-visual')
+
+        # 3) P1-2 & P2-3: RuntimeError → exit 4 (contract.video-unreadable)；TimeoutError → exit 124 (timeout.video-decode)；阻塞超时真实终止
+        from engine.audio._cli import exit_code_for
+        fake_vid = os.path.join(self.td, 'fake_vid.mp4')
+        with open(fake_vid, 'wb') as f:
+            f.write(b'corrupt-bytes')
+        with mock.patch.object(SK, 'evaluate_sync', side_effect=RuntimeError('decode failed')):
+            with self.assertRaises(CliError) as cm_rt_sk:
+                SK.main_cli(SK.make_parser().parse_args(['--audio', wav_sfx, '--video', fake_vid]), mock.MagicMock())
+            self.assertEqual(cm_rt_sk.exception.code, 'contract.video-unreadable')
+            self.assertEqual(exit_code_for(cm_rt_sk.exception.code), 4)
+            with self.assertRaises(CliError) as cm_rt_qa:
+                QA.check_sync(wav_sfx, video=fake_vid)
+            self.assertEqual(cm_rt_qa.exception.code, 'contract.video-unreadable')
+            self.assertEqual(exit_code_for(cm_rt_qa.exception.code), 4)
+        with mock.patch.object(SK, 'evaluate_sync', side_effect=TimeoutError('timed out')):
+            with self.assertRaises(CliError) as cm_to_sk:
+                SK.main_cli(SK.make_parser().parse_args(['--audio', wav_sfx, '--video', fake_vid]), mock.MagicMock())
+            self.assertEqual(cm_to_sk.exception.code, 'timeout.video-decode')
+            self.assertEqual(exit_code_for(cm_to_sk.exception.code), 124)
+            with self.assertRaises(CliError) as cm_to_qa:
+                QA.check_sync(wav_sfx, video=fake_vid)
+            self.assertEqual(cm_to_qa.exception.code, 'timeout.video-decode')
+            self.assertEqual(exit_code_for(cm_to_qa.exception.code), 124)
+
+        # 真实子进程阻塞超时（stub ffmpeg 阻塞）验证 extract_video_frames deadline 必抛 TimeoutError 且终止进程树
+        if os.name == 'nt':
+            stub_bin = os.path.join(self.td, 'ff_sleep.bat')
+            with open(stub_bin, 'w', encoding='utf-8') as f:
+                f.write(f'@"{sys.executable}" -c "import time; time.sleep(30)"\r\n')
+        else:
+            stub_bin = os.path.join(self.td, 'ff_sleep.sh')
+            with open(stub_bin, 'w', encoding='utf-8') as f:
+                f.write('#!/bin/sh\nsleep 30\n')
+            os.chmod(stub_bin, 0o755)
+        with mock.patch('engine.audio._env.ffmpeg', return_value=stub_bin), mock.patch('engine.audio._env.ffprobe', return_value=''):
+            with self.assertRaises(TimeoutError):
+                SK.extract_video_frames(fake_vid, timeout_s=0.15)
+
+        # 4) P1-3: 60% 连续静置留白 + 40% 连续运动的 24 fps 曲线不得误判为一拍二
+        buf_pause = np.zeros((240, 32), dtype=np.float64)
+        for i in range(96, 192):
+            buf_pause[i] = (i - 96) * 2.0
+        d1_pause, _ = SK.video_motion_curves(buf_pause)
+        _, det_pause = SK.apply_on_twos_guard(d1_pause, force=False)
+        self.assertFalse(det_pause, '连续静置留白不应误判为一拍二')
+        r_pause = SK.evaluate_sync(self.sfx, sr=D.SR, motion=d1_pause, fps=24.0, fps_mode='auto', input_track='sfx')
+        self.assertEqual(r_pause['fps_mode'], '24fps')
+        self.assertFalse(r_pause['on_twos_detected'])
+
+        # 5) P2-5 ②: 连续平移动画 + 12 Hz 伴随底床场景下，[0.25, 0.5, 0.25] 守卫 vs [0, 1, 0] 必须拉出硬差距（改回 [0,1,0] 必挂）
+        nf = 240
+        tf = np.arange(nf)
+        tri = 60.0 * (2.0 * np.abs(2.0 * ((tf / 40.0) - np.floor(tf / 40.0 + 0.5))) - 1.0) + 100.0
+        fr_pan = np.tile(tri[:, None], (1, 32))
+        r_pan = np.random.default_rng(2026)
+        sfx_pan = np.zeros(int(round(10.0 * D.SR)), dtype=np.float64)
+        for idx, fi in enumerate([18, 37, 56, 79, 102, 125, 148, 171, 194, 217]):
+            fr_pan[fi:] += (35.0 if idx % 2 == 0 else -35.0)
+            s0 = int(round(fi / 24.0 * D.SR))
+            ln = int(round(0.055 * D.SR))
+            tt = np.arange(ln) / float(D.SR)
+            sfx_pan[s0:s0 + ln] += D.bp(r_pan.standard_normal(ln), 1200.0, 9500.0, 2) * np.minimum(1.0, tt / 0.0015) * np.exp(-tt / 0.012) * 0.85
+        ts = np.arange(len(sfx_pan)) / float(D.SR)
+        bed_12 = np.maximum(0.0, np.sin(2.0 * np.pi * 12.0 * ts - np.pi / 2.0)) ** 6
+        sfx_comb = sfx_pan + D.bp(r_pan.standard_normal(len(sfx_pan)), 2500.0, 9500.0, 2) * bed_12 * 0.25
+
+        fr_pan12_o = np.r_[fr_pan[:1], np.repeat(fr_pan[1::2], 2, axis=0)][:nf]
+        d1_pan12_o, _ = SK.video_motion_curves(fr_pan12_o)
+        d1_pan12_g, det_pan12 = SK.apply_on_twos_guard(d1_pan12_o, force=False)
+        self.assertTrue(det_pan12, '12fps 奇相重复帧应检出一拍二')
+        errs_guarded = [abs(SK.estimate_offset_frames(d1_pan12_g, _shift_audio(sfx_comb, k), sr=D.SR, fps=24.0)['offset_frames'] - k) for k in (0, 1, -1, 2, -2, 4, -4)]
+        # 验证 ON_TWOS_KERNEL 真正压住了 12 Hz 梳状跳跃（对比 [0,1,0] 的 6.0f 跳变；[0.25,0.5,0.25] 最大误差 < 1.25f，而 [0,1,0] > 2.0f）
+        self.assertLess(max(errs_guarded), 1.35, f'ON_TWOS_KERNEL 未有效抑制 12 Hz 伪峰跳变: {errs_guarded}')
+        d1_pan12_noop = np.convolve(d1_pan12_o, np.array([0.0, 1.0, 0.0]), mode='same')
+        errs_noop = [abs(SK.estimate_offset_frames(d1_pan12_noop, _shift_audio(sfx_comb, k), sr=D.SR, fps=24.0)['offset_frames'] - k) for k in (0, 1, -1, 2, -2, 4, -4)]
+        self.assertGreater(max(errs_noop), 2.5, f'对照组 [0,1,0] 应出现明显 12Hz 梳状跳变: {errs_noop}')
 
 
 if __name__ == '__main__':
