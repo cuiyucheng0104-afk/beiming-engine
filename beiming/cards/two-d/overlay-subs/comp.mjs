@@ -1,5 +1,5 @@
 // overlay.subs 在合成一侧的实现：把逐词时间和字幕分块排成字幕时间表，交给合成工具往成片上叠。
-// 合成宿主怎么用 Handle 还没有契约，这里定的用法写在卡文件的 ports.requires 里：ctx 带 size 和 fps；
+// 合成宿主怎么用 Handle 还没有契约，这里定的用法写在卡文件的 ports.requires 里：ctx 带 size、fps 和 shot；
 // 合成工具取 Handle.object.table 或 Handle.object.ass() 去叠字，逐帧调 meta(f) 拿文字框。时间先舍入到整数毫秒再算。
 
 /** 归一成词：小写；弯撇号当直撇号；后面紧跟字母或撇号的句点删掉（带句点的缩写连成一个词）；其余不是字母、数字、撇号的都断词 */
@@ -20,14 +20,15 @@ const fail = (message) => { throw Object.assign(new RangeError(`overlay.subs：$
 const two = (n) => String(n).padStart(2, '0');
 
 /**
- * ctx：用到 size（[宽, 高]，像素）和 fps（"分子/分母"，帧每秒）。
+ * ctx：用到 size（[宽, 高]，像素）、fps（"分子/分母"，帧每秒）和 shot.in（镜头起始帧，全片帧号；不带 shot 当 0）。
  * params.timing：{ scenes, words }，全片时间，秒，和 time.narration 收的是同一份；有旁白的场景要带 durSec、audioStartSec、audioDurSec。
  * params.blocks：每项 { scene, text, phrase }，一块字幕显示 text，从旁白念到 phrase（不写就用 text）第一次出现的那个词起。
- *   blocks 是空的就自己切：每个场景的词顺着排，一块最多 maxWords 个词、maxChars 个字符。
+ *   blocks 是空的就自己切：每个场景的词顺着排，一块最多 maxWords 个词、maxChars 个字符；一个词自己就超过 maxChars 的，
+ *   每 maxChars 个字符硬切成一截，各截的起点按字符数在这个词的起止之间摊。
  * 一块从它起始词的起点提前 earlySec 起（不早于配音起点），到同场景下一块的起点止；场景里最后一块停到配音结束之后 holdSec（不晚于场景结束）。
  * Handle.object.table 每项 { index, scene, text, startSec, endSec, startFrame, endFrame, bbox }：帧号是全片帧号，这一块在 [startFrame, endFrame) 这些帧上；
  *   bbox 是 [x0, y0, x1, y1]（像素，原点在左上角，y 向下）。Handle.object.ass() 是同一张表写成的 ASS 字幕文本，起止对着帧边界写。
- * meta(f) 交全片第 f 帧上那一块字幕的文字框，没有就交空的。
+ * meta(f) 的 f 是镜头局部帧号，交全片第 shot.in + f 帧上那一块字幕的文字框，没有就交空的。
  */
 export function create(ctx, params) {
   const [width, height] = ctx.size, [num, den] = ctx.fps.split('/').map(Number), { scenes, words } = params.timing;
@@ -55,9 +56,13 @@ export function create(ctx, params) {
       });
     } else {
       blocks = [];
+      const max = params.maxChars;
       for (const w of mine) {
-        const cur = blocks.at(-1);
-        if (cur && cur.n < params.maxWords && cur.text.length + 1 + w.word.length <= params.maxChars) { cur.text += ` ${w.word}`; cur.n++; } else blocks.push({ text: w.word, n: 1, start: ms(w.startSec) });
+        const chars = [...w.word], from = ms(w.startSec), span = ms(w.endSec) - from;
+        for (let k = 0; k < chars.length; k += max) {
+          const piece = chars.slice(k, k + max), cur = blocks.at(-1);
+          if (cur && cur.n < params.maxWords && cur.len + 1 + piece.length <= max) { cur.text += ` ${piece.join('')}`; cur.len += 1 + piece.length; cur.n++; } else blocks.push({ text: piece.join(''), len: piece.length, n: 1, start: from + Math.round((span * k) / chars.length) });
+        }
       }
     }
     if (!blocks.length) continue;
@@ -87,7 +92,7 @@ export function create(ctx, params) {
   return {
     object: { table, ass },
     meta(f) {
-      const row = table.find((r) => r.startFrame <= f && f < r.endFrame);
+      const frame = (ctx.shot?.in ?? 0) + f, row = table.find((r) => r.startFrame <= frame && frame < r.endFrame);
       return { texts: row ? [{ id: `sub-${row.index}`, text: row.text, bbox2d: row.bbox }] : [] };
     },
     dispose() {},

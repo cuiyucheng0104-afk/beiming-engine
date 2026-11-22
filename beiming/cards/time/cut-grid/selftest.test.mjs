@@ -41,6 +41,29 @@ test('time.cut-grid：这一刻在第几个镜头、离前后切点各几帧', (
   assert.deepEqual([cuts([24, 48], {}, 60).shot, cuts([24, 48], {}, 60).untilFrames], [2, null]);
 });
 
+test('time.cut-grid：非首镜头（shot.in 是 96）：默认 marks 是镜头局部帧号，交出的切点加上 96；f 也是局部帧号，局部第 12 帧正好到切点', () => {
+  const at = (params, f, sub = 0) => evaluate({ fps: '24/1', shot: { id: 's02', in: 96, frames: 240 } }, { ...DEFAULTS, marks: [12, 48], ...params }, f, sub).cuts;
+  const c = at({}, 12);
+  assert.deepEqual([c.frames, c.events.map((e) => [e.id, e.frame]), c.shot, c.sinceFrames, c.untilFrames], [[108, 144], [['cut.108', 108], ['cut.144', 144]], 1, 0, 36]);
+  assert.deepEqual([at({}, 0).shot, at({}, 0).sinceFrames, at({}, 0).untilFrames, at({}, 11, 0.5).untilFrames], [0, 0, 12, 0.5]);
+  assert.equal(at({ endFrame: 60 }, 0).end, 156);
+  assert.deepEqual([at({ marks: [31, 22, 47], marksAre: 'durations' }, 0).frames, at({ marks: [31, 22, 47], marksAre: 'durations' }, 0).end], [[132, 144], 192]);
+  // origin 是 film：marks、startFrame 是全片帧号，交出去不再加；这一刻还是全片第 96 + f 帧
+  const g = at({ origin: 'film', marks: [108, 144], startFrame: 96 }, 12);
+  assert.deepEqual([g.frames, g.shot, g.sinceFrames, g.untilFrames], [[108, 144], 1, 0, 36]);
+  assert.deepEqual([at({ origin: 'film', marks: [108, 144], startFrame: 96 }, 0).sinceFrames, at({ origin: 'film' }, 0).frames, at({ origin: 'film' }, 0).shot], [0, [12, 48], 2]);
+});
+
+test('time.cut-grid：不经宿主直接调，步长等帧数参数不合规矩报 usage.bad-argument，不交 NaN 也不交负步长算出来的数', () => {
+  const bad = (params) => assert.throws(() => cuts([10, 29], params), (e) => e instanceof RangeError && e.code === 'usage.bad-argument', JSON.stringify(params));
+  for (const gridFrames of [0, -12, 1.5, NaN, Infinity, '12', undefined]) bad({ gridFrames });
+  for (const minShotFrames of [0, -1, 2.5, NaN]) bad({ minShotFrames });
+  bad({ offsetFrames: -1 });
+  bad({ startFrame: 0.5 });
+  bad({ endFrame: NaN });
+  bad({ origin: 'scene' });
+});
+
 test('time.cut-grid：位置不是从小到大、时长不大于 0、marksAre 写了别的值都报错', () => {
   assert.throws(() => cuts([30, 10]), RangeError);
   assert.throws(() => cuts([10, 0], { marksAre: 'durations' }), RangeError);

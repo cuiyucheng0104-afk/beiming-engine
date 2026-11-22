@@ -37,6 +37,12 @@ test('time.narration：events 是命名条目，按帧号、标识排；hits 是
   assert.deepEqual(c.hits, ['a', 'b']);
 });
 
+test('time.narration：入口是四个参数；同一帧的触发点按码点序排，U+E000 在 U+10000 前面', () => {
+  assert.equal(evaluate.length, 4);
+  const ids = ['\u{10000}', '\u{E000}', 'b', 'a'], c = cues(ids.map((id) => ({ id, scene: 'rain', phrase: 'rain' })), 0, 15);
+  assert.deepEqual([c.events.map((e) => e.id), c.hits], [['a', 'b', '\u{E000}', '\u{10000}'], ['a', 'b', '\u{E000}', '\u{10000}']]);
+});
+
 test('time.narration：找不到短语、场景不在表里、id 重复、anchor 写错都报 contract.bad-value', () => {
   const bad = (triggers) => assert.throws(() => cues(triggers), (e) => e instanceof RangeError && e.code === 'contract.bad-value');
   bad([{ id: 'a', scene: 'rain', phrase: 'snow' }]);

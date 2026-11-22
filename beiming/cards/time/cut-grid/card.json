@@ -19,6 +19,7 @@
   "params": {
     "marks": { "type": "data", "unit": "frame", "schema": "marks.schema.json", "default": [], "coupling": "fps" },
     "marksAre": { "type": "string", "unit": "none", "default": "cuts", "coupling": "none" },
+    "origin": { "type": "string", "unit": "none", "default": "shot", "coupling": "none" },
     "gridFrames": { "type": "integer", "unit": "frame", "range": [1, 600], "default": 12, "coupling": "fps" },
     "minShotFrames": { "type": "integer", "unit": "frame", "range": [1, 6000], "default": 12, "coupling": "fps" },
     "offsetFrames": { "type": "integer", "unit": "frame", "range": [0, 599], "default": 0, "coupling": "fps" },
@@ -29,7 +30,7 @@
     "in": [],
     "out": [{ "name": "cuts", "type": "tracks.cuts" }],
     "order": { "before": [], "after": [] },
-    "requires": ["gridFrames 是一拍（或半拍）在这部片子的帧率下正好几帧；换了帧率要跟着改"]
+    "requires": ["marks、startFrame、endFrame、offsetFrames 默认是镜头局部帧号（origin 是 shot），交出的切点是全片帧号；要直接写全片帧号就把 origin 设成 film", "gridFrames 是一拍（或半拍）在这部片子的帧率下正好几帧；换了帧率要跟着改"]
   },
   "conditions": {
     "appliesWhen": ["跟着音乐剪的片子：切点要全部落在拍点网格上", "手排的镜头时长长短不齐，要对成拍的整数倍"],

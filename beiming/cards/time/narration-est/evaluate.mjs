@@ -22,12 +22,13 @@ const TIMES = ['wordSec', 'letterSec', 'stopSec', 'commaSec', 'segTailSec', 'lea
  * params.script：一段一项，按出场次序。带 text 的是有旁白的段；带 holdSec 的是没有旁白、固定时长的段。scene 不写就用 id。
  * 一段的时长 = 段前留白 + 配音时长 + 段后留白。配音时长：每个词 wordSec + letterSec × min(字母数, letterCap)；
  * 按空白切出的原始块以 . ? ! 结尾加 stopSec，以 , ; : 结尾或者是独立的破折号加 commaSec（破折号先被空格隔开，自己不算词）；整段再加 segTailSec。
- * 段前留白是 leadInSec，第一段多留 firstLeadExtraSec；段后留白是 tailPadSec；段与段之间隔 gapSec。各个秒数先舍入到整数毫秒。
+ * 段前留白是 leadInSec，id 是 firstLeadId（默认 s01）的那一段多留 firstLeadExtraSec，不看它排在第几；段后留白是 tailPadSec；段与段之间隔 gapSec。各个秒数先舍入到整数毫秒。
  * f 是镜头局部帧号，sub 是子帧相位 [0, 1)。
  * 返回 { narration: { durationSec, frames, scenes, words, at } }：时间都是全片时间。
  *   scenes 每项 { scene, seg, startSec, durSec, startFrame, endFrame }，有旁白的段另带 audioStartSec、audioDurSec，没有旁白的段 seg 是 null；
  *   words 每项 { scene, word, startSec, endSec }，是估出来的逐词时间；
  *   at 是这一刻（f + sub）的读数 { sec, scene, word }：落在哪个段、哪个词（words 的下标），都没有就是 null。
+ *   段按帧认，[startFrame, endFrame)，和 scenes 里交出去的帧号一致；词按秒认。
  */
 export function evaluate(inputs, params, f, sub) {
   const [num, den] = inputs.fps.split('/').map(Number), frameAt = (t) => Math.round((t * num) / (1000 * den));
@@ -40,7 +41,7 @@ export function evaluate(inputs, params, f, sub) {
     const row = { scene, seg: spoken ? seg.id : null, startSec: T / 1000 };
     let dur = spoken ? 0 : ms(seg.holdSec);
     if (spoken) {
-      const lead = p.leadInSec + (i === 0 ? p.firstLeadExtraSec : 0);
+      const lead = p.leadInSec + (seg.id === (params.firstLeadId ?? 's01') ? p.firstLeadExtraSec : 0);
       let t = 0;
       for (const chunk of seg.text.replaceAll('—', ' — ').split(/\s+/).filter(Boolean)) {
         for (const word of tokens(chunk)) {
@@ -59,7 +60,7 @@ export function evaluate(inputs, params, f, sub) {
     scenes.push({ ...row, durSec: dur / 1000, startFrame: frameAt(T), endFrame: frameAt(T + dur) });
     T += dur + (i + 1 < params.script.length ? p.gapSec : 0);
   });
-  const sec = ((inputs.shot.in + f + sub) * den) / num;
-  const here = scenes.find((s) => s.startSec <= sec && sec < s.startSec + s.durSec), word = words.findIndex((w) => w.startSec <= sec && sec < w.endSec);
+  const frame = inputs.shot.in + f + sub, sec = (frame * den) / num;
+  const here = scenes.find((s) => s.startFrame <= frame && frame < s.endFrame), word = words.findIndex((w) => w.startSec <= sec && sec < w.endSec);
   return { narration: { durationSec: T / 1000, frames: frameAt(T), scenes, words, at: { sec, scene: here?.scene ?? null, word: word < 0 ? null : word } } };
 }

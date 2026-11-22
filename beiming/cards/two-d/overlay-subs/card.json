@@ -33,7 +33,7 @@
     "out": [{ "name": "texts", "type": "frame-meta" }],
     "order": { "before": ["comp.finish", "deliver.encode"], "after": ["comp.display"] },
     "requires": [
-      "合成工具给的 ctx 带 size（[宽, 高]，像素）和 fps（分子/分母）；meta(f) 的 f 是全片帧号",
+      "合成工具给的 ctx 带 size（[宽, 高]，像素）、fps（分子/分母）和 shot（用到 shot.in，镜头起始帧）；meta(f) 的 f 是镜头局部帧号，表里的帧号是全片帧号",
       "合成工具取 Handle.object.table 或 Handle.object.ass() 去叠字：这张卡只排时间和位置，不画字",
       "timing 的时间是全片时间；有字幕的场景带 durSec、audioStartSec、audioDurSec"
     ]

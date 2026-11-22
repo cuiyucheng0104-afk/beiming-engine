@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { evaluate } from './evaluate.mjs';
 
-const DEFAULTS = { wordSec: 0.15, letterSec: 0.036, letterCap: 9, stopSec: 0.34, commaSec: 0.18, segTailSec: 0.15, leadInSec: 0.3, firstLeadExtraSec: 0.25, tailPadSec: 0.36, gapSec: 0 };
+const DEFAULTS = { wordSec: 0.15, letterSec: 0.036, letterCap: 9, stopSec: 0.34, commaSec: 0.18, segTailSec: 0.15, leadInSec: 0.3, firstLeadExtraSec: 0.25, tailPadSec: 0.36, gapSec: 0, firstLeadId: 's01' };
 const est = (script, params = {}, f = 0, sub = 0) => evaluate({ fps: '30/1', shot: { id: 's01', in: 0, frames: 300 } }, { ...DEFAULTS, ...params, script }, f, sub).narration;
 
 test('time.narration-est：Hi, all. 两个词：222 + 180 + 258 + 340 毫秒，整段再加 150；第一段段前留 0.55 秒，段后留 0.36 秒', () => {
@@ -18,19 +18,19 @@ test('time.narration-est：Hi, all. 两个词：222 + 180 + 258 + 340 毫秒，�
 
 test('time.narration-est：字母数封顶；带句点的缩写连成一个词、在句中也算句末；引号包住的句点不算；破折号加子句停顿、自己不算词', () => {
   // extraordinary 13 个字母按 9 个算：150 + 324
-  assert.equal(est([{ id: 'a', text: 'extraordinary' }]).words[0].endSec, 1.024);
+  assert.equal(est([{ id: 's01', text: 'extraordinary' }]).words[0].endSec, 1.024);
   // U.S. 是一个词 us（222），块以句点结尾加 340；gauge 330；整段 150
-  const abbr = est([{ id: 'a', text: 'U.S. gauge' }]);
+  const abbr = est([{ id: 's01', text: 'U.S. gauge' }]);
   assert.deepEqual(abbr.words.map((w) => [w.word, w.startSec]), [['us', 0.55], ['gauge', 1.112]]);
   assert.equal(abbr.scenes[0].audioDurSec, 1.042);
   // “stop.” 的最后一个字符是引号：只有 294 + 150
-  assert.equal(est([{ id: 'a', text: '“stop.”' }]).scenes[0].audioDurSec, 0.444);
+  assert.equal(est([{ id: 's01', text: '“stop.”' }]).scenes[0].audioDurSec, 0.444);
   // kit—no：258 + 180 + 222 + 150
-  assert.equal(est([{ id: 'a', text: 'kit—no' }]).scenes[0].audioDurSec, 0.81);
+  assert.equal(est([{ id: 's01', text: 'kit—no' }]).scenes[0].audioDurSec, 0.81);
 });
 
 test('time.narration-est：第二段起段前只留 leadInSec，段间隔 gapSec；参数先舍入到整数毫秒', () => {
-  const n = est([{ id: 'a', text: 'no' }, { id: 'b', text: 'no' }], { gapSec: 0.5, letterSec: 0.0364 });
+  const n = est([{ id: 's01', text: 'no' }, { id: 's02', text: 'no' }], { gapSec: 0.5, letterSec: 0.0364 });
   // 每段配音 222 + 150 = 372；第一段 550 + 372 + 360 = 1282，隔 500，第二段从 1782 起、配音从 2082 起
   assert.deepEqual(n.scenes.map((s) => [s.startSec, s.audioStartSec, s.durSec]), [[0, 0.55, 1.282], [1.782, 2.082, 1.032]]);
   assert.equal(n.durationSec, 2.814);
@@ -44,7 +44,23 @@ test('time.narration-est：at 是这一刻落在哪个段、哪个词；段和�
   assert.deepEqual(est(script, {}, 200).at.scene, null);
 });
 
+test('time.narration-est：段前多留的那 0.25 秒跟着 id 是 s01 的段走，不看它排第几；firstLeadId 可以改；没有这一段就谁都不多留', () => {
+  const lead = (script, params) => est(script, params).scenes.map((s) => Math.round((s.audioStartSec - s.startSec) * 1000));
+  assert.deepEqual(lead([{ id: 's02', text: 'no' }, { id: 's01', text: 'no' }]), [300, 550]);
+  assert.deepEqual(lead([{ id: 's01', text: 'no' }, { id: 's02', text: 'no' }]), [550, 300]);
+  assert.deepEqual(lead([{ id: 's02', text: 'no' }, { id: 's01', text: 'no' }], { firstLeadId: 's02' }), [550, 300]);
+  assert.deepEqual(lead([{ id: 'a', text: 'no' }, { id: 'b', text: 'no' }]), [300, 300]);
+});
+
+test('time.narration-est：at 的段按帧认，和交出去的 startFrame 一致：第二段 startFrame 那一帧已经是第二段，哪怕它的秒数还差一点', () => {
+  // 第一段 550 + 222 + 150 + 360 = 1282 毫秒，第二段从第 round(38.46) = 38 帧起，而第 38 帧是 1.2667 秒、还不到 1.282 秒
+  const script = [{ id: 's01', text: 'no' }, { id: 's02', text: 'no' }], n = est(script);
+  assert.deepEqual([n.scenes[0].endFrame, n.scenes[1].startFrame], [38, 38]);
+  assert.deepEqual([est(script, {}, 37, 0.75).at.scene, est(script, {}, 38).at.scene, est(script, {}, 8, 0).at.scene], ['s01', 's02', 's01']);
+  assert.equal(evaluate({ fps: '30/1', shot: { id: 's02', in: 38, frames: 31 } }, { ...DEFAULTS, script }, 0, 0).narration.at.scene, 's02');
+});
+
 test('time.narration-est：一段既没有 text 也没有 holdSec，或者两样都有，报错', () => {
   assert.throws(() => est([{ id: 'a' }]), RangeError);
-  assert.throws(() => est([{ id: 'a', text: 'no', holdSec: 1 }]), RangeError);
+  assert.throws(() => est([{ id: 's01', text: 'no', holdSec: 1 }]), RangeError);
 });

@@ -39,6 +39,20 @@ test('overlay.subs：meta(f) 交这一帧那块字幕的文字框，起始帧在
   assert.deepEqual([s.meta(68), s.meta(143)], [{ texts: [] }, { texts: [] }]);
 });
 
+test('overlay.subs：非首镜头（shot.in 是 69）：meta(f) 的 f 是镜头局部帧号，meta(0) 就是全片第 69 帧上的那一块；表里的帧号不变', () => {
+  const s = create({ size: [1920, 1080], fps: '30/1', shot: { id: 's02', in: 69, frames: 90 } }, DEFAULTS);
+  assert.deepEqual(s.object.table.map((r) => [r.startFrame, r.endFrame]), [[69, 94], [94, 143]]);
+  assert.deepEqual([s.meta(0).texts[0].id, s.meta(24).texts[0].id, s.meta(25).texts[0].id, s.meta(73).texts[0].id, s.meta(74).texts], ['sub-0', 'sub-0', 'sub-1', 'sub-1', []]);
+});
+
+test('overlay.subs：自己切的时候一个词比 maxChars 还长就硬切，每一块都不超过 maxChars，各截的起点按字符数摊', () => {
+  // 43 个字符的词，2.7 到 3.13 秒（430 毫秒）：前 42 个字符一块，从 2.7 - 0.06 起；第 43 个字符从 2700 + round(430 × 42 / 43) = 3120 毫秒起，和后面的 on 拼一块
+  const long = 'a'.repeat(42) + 'b', words = timing.words.map((w) => (w.word === 'falls' ? { ...w, word: long, endSec: 3.13 } : w));
+  const table = subs({ blocks: [], timing: { ...timing, words } }).object.table;
+  assert.deepEqual(table.map((r) => [r.text, r.startSec, r.endSec]), [['Rain', 2.3, 2.64], ['a'.repeat(42), 2.64, 3.06], ['b on the hills.', 3.06, 4.75]]);
+  for (const maxChars of [1, 5, 11, 42]) assert.ok(subs({ blocks: [], maxChars, timing: { ...timing, words } }).object.table.every((r) => [...r.text].length <= maxChars), `maxChars = ${maxChars}`);
+});
+
 test('overlay.subs：ASS 的起止对着帧边界往下取到百分之一秒，花括号转义', () => {
   const lines = subs({ blocks: [BLOCKS[0], { ...BLOCKS[1], text: 'on {the} hills.' }] }).object.ass().split('\n');
   assert.deepEqual(lines.filter((l) => l.startsWith('Dialogue:')), [

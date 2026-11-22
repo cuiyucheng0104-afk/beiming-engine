@@ -3,7 +3,9 @@
 //   二、拍点网格：切点全部落在 12 帧的网格上，交出的切点条目过事件表契约；
 //   三、估时、触发点、字幕在一份原创的合成稿上和参考表逐项相等，交出的命名条目过事件表契约；
 //   四、纯函数门（单独求、顺序求、乱序求摘要相同，不改输入）和负向变异（改一个常数必须对不上）；
-//   五、可选：设了环境变量 BEIMING_L16_TRUTH_DIR 就再拿那个目录里的稿子和时间表逐项核对，没设就跳过。
+//   五、外部时间表的核对：短语表没有时从时间表自己反推短语，照样逐项比；这套核对先在合成稿上证明改一处就过不了。
+//      设了环境变量 BEIMING_L16_TRUTH_DIR 就拿那个目录里的稿子和时间表再核一遍，没设就跳过；
+//   六、非首镜头：帧号是镜头局部帧号时，切点、字幕和这一刻的读数都对着全片帧。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -87,6 +89,7 @@ test('T6-3 每张卡：类别、落点、形状和任务书一致，入口和自
     for (const exam of exams) assert.ok(card.exams.includes(exam), `${id} 挂着 ${exam}`);
     const exported = Object.keys(await import(pathToFileURL(path.join(HERE, '..', impl.entry)))).filter((k) => ['create', 'evaluate'].includes(k));
     assert.deepEqual(exported, [shape], id);
+    if (shape === 'evaluate') assert.equal((await import(pathToFileURL(path.join(HERE, '..', impl.entry)))).evaluate.length, 4, `${id} 的入口是 (inputs, params, f, sub)`);
   }
 });
 
@@ -321,31 +324,110 @@ test('T6-11 负向变异：每字母、句末停顿、字幕提前量各改一�
 // ---------- 五、可选的外部对拍 ----------
 
 // 目录里要有 tts_request.json（{ segments: [{ id, text }] }）、timeline.json、subs.json；另有 tables.json（{ SUBS, CUES }，写法同上面的 SYN）时
-// 触发点和字幕逐项比，没有时只能核「每个触发点、每块字幕的起止都正好落在估出来的某个词上」。目录的位置和里面的内容都不进仓库。
+// 短语照它的。目录的位置和里面的内容都不进仓库。
+const msOf = (sec) => Math.round(sec * 1000);
+
+/**
+ * 拿一套外部的稿子和时间表核三张卡：场景起止、每个触发点、每块字幕的字和起止，逐项相等。
+ * 没有 tables 时短语从时间表自己反推：字幕拿它显示的字当起始短语；触发点先要求同一个场景里按写的次序时间不往回走、
+ * 正好落在估出来的某个词的起点上，再从那个词起往后接词、接到这几个词在场景里头一回出现就是这儿为止，当它的短语交给触发点卡。
+ * 接到场景末尾还不是头一回出现的（整段重复的稿子）只核到「落在词的起点上」。返回核了几个触发点、几块字幕。
+ */
+function assertTruth(request, timeline, subs, tables) {
+  const segScene = Object.fromEntries(timeline.scenes.filter((s) => s.seg !== null).map((s) => [s.seg, s.id]));
+  const script = [...request.segments.map((seg) => ({ id: seg.id, scene: segScene[seg.id], text: seg.text })), ...timeline.scenes.filter((s) => s.seg === null).map((s) => ({ id: s.id, holdSec: s.dur }))];
+  const bare = (t) => ({ fps: t.fps, duration: t.duration, scenes: t.scenes.map(({ cues, ...scene }) => scene) });
+  const est = pipeline(script, null);
+  assert.deepStrictEqual(bare(est.timeline), bare(timeline), '场景起止、配音起止、全片时长');
+  const derived = { SUBS: {}, CUES: {} };
+  for (const scene of est.narration.scenes.filter((sc) => sc.seg !== null)) {
+    const from = msOf(scene.startSec), words = est.narration.words.filter((w) => w.scene === scene.scene), truth = timeline.scenes.find((sc) => sc.id === scene.scene);
+    derived.SUBS[scene.seg] = subs.filter((b) => from <= msOf(b.start) && msOf(b.start) < from + msOf(scene.durSec)).map((b) => [b.text, b.text]);
+    derived.CUES[scene.seg] = {};
+    let prev = 0;
+    for (const [name, at] of Object.entries(truth.cues)) {
+      assert.ok(msOf(at) >= prev, `场景 ${scene.scene} 的触发点 ${name} 比它前面的触发点还早`);
+      prev = msOf(at);
+      const i = words.findIndex((w) => msOf(w.startSec) === from + msOf(at));
+      assert.ok(i >= 0, `场景 ${scene.scene} 的触发点 ${name} 不在词的起点上`);
+      const firstAt = (n) => words.findIndex((_, j) => words.slice(i, i + n).every((w, k) => words[j + k]?.word === w.word));
+      let n = 1;
+      while (firstAt(n) !== i && i + n < words.length) n++;
+      if (firstAt(n) === i) derived.CUES[scene.seg][name] = words.slice(i, i + n).map((w) => w.word).join(' ');
+    }
+  }
+  const used = tables ?? derived, run = pipeline(script, used);
+  for (const scene of timeline.scenes) {
+    const mine = run.timeline.scenes.find((sc) => sc.id === scene.id).cues;
+    assert.deepStrictEqual(mine, tables ? scene.cues : Object.fromEntries(Object.entries(scene.cues).filter(([name]) => name in mine)), `场景 ${scene.id} 的触发点`);
+  }
+  assert.deepStrictEqual(run.subs, subs.map((b) => ({ start: b.start, end: b.end, text: b.text })), '字幕的字和起止');
+  return { cues: run.cues.list.length, subs: run.subs.length };
+}
+
+test('T6-12 外部时间表的核对自己先过一遍：合成稿上有没有短语表都逐项相等；对调触发点、挪一毫秒、改字幕的字、少一块字幕都必须过不了', () => {
+  const request = { segments: SYN.script.filter((seg) => seg.text !== undefined).map(({ id, text }) => ({ id, text })) }, timeline = SYN_EXPECTED.timeline;
+  assert.deepEqual(assertTruth(request, timeline, SYN_EXPECTED.subs, SYN), { cues: 10, subs: 10 });
+  // 没有短语表：参考表的字幕显示的字和旁白不是一回事（9-alpha 对 nine-alpha），拿每块的起始短语当显示的字，另排一份
+  const phraseAsText = { ...SYN, SUBS: Object.fromEntries(Object.entries(SYN.SUBS).map(([seg, rows]) => [seg, rows.map(([, phrase]) => [phrase, phrase])])) };
+  const subs = pipeline(SYN.script, phraseAsText).subs;
+  assert.deepEqual(subs.map((b) => [b.start, b.end]), SYN_EXPECTED.subs.map((b) => [b.start, b.end]));
+  assert.deepEqual(assertTruth(request, timeline, subs, null), { cues: 10, subs: 10 });
+  const fails = (what, tl, sb) => assert.throws(() => assertTruth(request, tl, sb, null), (e) => e.code === 'ERR_ASSERTION' || e.code === 'contract.bad-value', what);
+  const withCues = (edit) => ({ ...timeline, scenes: timeline.scenes.map((sc, i) => (i === 0 ? { ...sc, cues: edit(sc.cues) } : sc)) });
+  fails('对调两个触发点的时间', withCues((c) => ({ ...c, gauge: c.ap, ap: c.gauge })), subs);
+  fails('触发点挪一毫秒', withCues((c) => ({ ...c, drift: c.drift + 0.001 })), subs);
+  fails('触发点挪到下一个词', withCues((c) => ({ ...c, more: 9.5 })), subs);
+  fails('字幕换了一个稿子里没有的词', timeline, subs.map((b, i) => (i === 3 ? { ...b, text: 'no it’s careless' } : b)));
+  fails('字幕换成稿子里别处的词', timeline, subs.map((b, i) => (i === 2 ? { ...b, text: 'luck' } : b)));
+  fails('字幕的结束挪一毫秒', timeline, subs.map((b, i) => (i === 5 ? { ...b, end: b.end + 0.001 } : b)));
+  // 少的是中间的一块：前一块就该一直停到再下一块。少场景里的头一块看不出来，那样的表自己也说得通
+  fails('少中间的一块字幕', timeline, subs.filter((_, i) => i !== 1));
+  fails('场景起点挪一毫秒', { ...timeline, scenes: timeline.scenes.map((sc, i) => (i === 1 ? { ...sc, start: sc.start + 0.001 } : sc)) }, subs);
+});
+
 const TRUTH = process.env.BEIMING_L16_TRUTH_DIR;
 const truthSkip = TRUTH && fs.existsSync(TRUTH) ? false : '没有设 BEIMING_L16_TRUTH_DIR（或目录不在）：只核了合成稿';
 
-test('T6-12 外部对拍：BEIMING_L16_TRUTH_DIR 里的稿子上，场景起止、触发点、字幕和那里的时间表逐项相等', { skip: truthSkip }, () => {
-  const read = (name) => readJson(path.join(TRUTH, name)), ms = (sec) => Math.round(sec * 1000);
-  const request = read('tts_request.json'), timeline = read('timeline.json'), subs = read('subs.json');
-  const tables = fs.existsSync(path.join(TRUTH, 'tables.json')) ? read('tables.json') : null;
-  const sceneOf = Object.fromEntries(timeline.scenes.filter((s) => s.seg !== null).map((s) => [s.seg, s.id]));
-  const script = [...request.segments.map((seg) => ({ id: seg.id, scene: sceneOf[seg.id], text: seg.text })), ...timeline.scenes.filter((s) => s.seg === null).map((s) => ({ id: s.id, holdSec: s.dur }))];
-  const run = pipeline(script, tables);
-  const bare = (t) => ({ fps: t.fps, duration: t.duration, scenes: t.scenes.map(({ cues, ...scene }) => scene) });
-  assert.deepStrictEqual(bare(run.timeline), bare(timeline), '场景起止、配音起止、全片时长');
-  if (tables) {
-    assert.deepStrictEqual(run.timeline.scenes.map((s) => s.cues), timeline.scenes.map((s) => s.cues), '触发点');
-    assert.deepStrictEqual(run.subs, subs, '字幕');
-    return;
-  }
-  const { early, hold } = { early: ms(cardDefaults('overlay.subs').earlySec), hold: ms(cardDefaults('overlay.subs').holdSec) };
-  for (const scene of run.narration.scenes.filter((s) => s.seg !== null)) {
-    const from = ms(scene.startSec), audio = ms(scene.audioStartSec), starts = run.narration.words.filter((w) => w.scene === scene.scene).map((w) => ms(w.startSec));
-    const truth = timeline.scenes.find((s) => s.id === scene.scene);
-    for (const [name, at] of Object.entries(truth.cues)) assert.ok(starts.includes(from + ms(at)), `场景 ${scene.scene} 的触发点 ${name} 不在词的起点上`);
-    const edges = new Set([...starts.map((s) => Math.max(audio, s - early)), audio + ms(scene.audioDurSec) + hold]);
-    const mine = subs.filter((s) => from <= ms(s.start) && ms(s.start) < from + ms(scene.durSec));
-    mine.forEach((s, i) => assert.ok(edges.has(ms(s.start)) && edges.has(ms(s.end)) && (i + 1 === mine.length ? ms(s.end) === audio + ms(scene.audioDurSec) + hold : s.end === mine[i + 1].start), `场景 ${scene.scene} 的第 ${i + 1} 块字幕起止不在词上`));
-  }
+test('T6-13 外部对拍：BEIMING_L16_TRUTH_DIR 里的稿子上，场景起止、每个触发点、每块字幕的字和起止都和那里的时间表逐项相等', { skip: truthSkip }, () => {
+  const read = (name) => readJson(path.join(TRUTH, name)), timeline = read('timeline.json'), subs = read('subs.json');
+  const done = assertTruth(read('tts_request.json'), timeline, subs, fs.existsSync(path.join(TRUTH, 'tables.json')) ? read('tables.json') : null);
+  assert.ok(done.subs === subs.length && done.subs > 0 && done.cues > 0, `核了 ${done.cues} 个触发点、${done.subs} 块字幕`);
+});
+
+// ---------- 六、非首镜头 ----------
+
+test('T6-14 非首镜头（从第 96 帧起）：拍点卡的局部切点交成全片帧号、过事件表契约，局部第 12 帧正好到切点；字幕卡 meta(0) 是全片第 96 帧', () => {
+  const shot = { id: 's02', in: 96, frames: 120 }, at = (f) => cutGrid({ ...GRID_INPUTS, shot }, { ...GRID_PARAMS, marks: [12, 50], marksAre: 'cuts' }, f, 0).cuts;
+  assert.deepEqual([at(0).frames, at(0).sinceFrames, at(12).shot, at(12).sinceFrames, at(12).untilFrames], [[108, 144], 0, 1, 0, 36]);
+  assertEventsTable(filmOf('f_t6_shot2', '30/1', 216, [96, ...at(0).frames]), [{ id: 'cut.96', frame: 96, sub: 0, kind: 'cut', from: 'film' }, ...at(0).events]);
+  assert.throws(() => cutGrid(GRID_INPUTS, { ...GRID_PARAMS, gridFrames: 0 }, 0, 0), (e) => e.code === 'usage.bad-argument');
+  const { narration, blocks } = pipeline(SYN.script, SYN), params = { ...cardDefaults('overlay.subs'), timing: narration, blocks };
+  const whole = subtitles({ size: INPUTS.size, fps: FPS }, params), second = subtitles({ size: INPUTS.size, fps: FPS, shot }, params);
+  assert.deepEqual(second.object.table, whole.object.table);
+  for (const f of [0, 75, 120]) assert.deepEqual(second.meta(f), whole.meta(96 + f), `f=${f}`);
+  assert.equal(second.meta(0).texts[0].id, 'sub-1');
+  // 估时卡：第 2 个场景从第 322 帧起，镜头从那一帧起时 f = 0 就在第 2 个场景里
+  const est = (inShot, f) => estimate({ ...INPUTS, shot: { id: 's02', in: inShot, frames: 100 } }, { ...cardDefaults('time.narration-est'), script: SYN.script }, f, 0).narration;
+  assert.deepEqual([est(322, 0).scenes[1].startFrame, est(322, 0).at.scene, est(0, 321).at.scene], [322, 'beta', 'alpha']);
+});
+
+test('T6-15 同一帧的触发点 id 一个是 U+E000、一个是 U+10000：交出的命名条目不用再排就过事件表契约的次序检查', () => {
+  const { narration } = pipeline(SYN.script, null), ids = ['\u{10000}', '\u{E000}', 'z'];
+  const cues = locate(INPUTS, { ...cardDefaults('time.narration'), timing: narration, triggers: ids.map((id) => ({ id, scene: 'gamma', phrase: 'check' })) }, 0, 0).cues;
+  assert.deepEqual(cues.events.map((e) => e.id), ['z', '\u{E000}', '\u{10000}']);
+  // 片子描述里的事件 id 只让写小写字母、数字、连字符，这两个 id 进不了片子描述；事件表自己的结构不拦，所以单拿事件表过契约
+  const judge = (events) => contracts.validate({ format: 'events/0.1', film: 'f_t6_cp', fps: FPS, frames: narration.frames, events });
+  assert.deepEqual([judge(cues.events).schemaErrors, judge(cues.events).violations], [[], {}]);
+  assert.deepEqual(Object.keys(judge([...cues.events].sort((x, y) => (x.id < y.id ? -1 : 1))).violations), ['EV1'], '按 UTF-16 码元排就过不了');
+});
+
+test('T6-16 估时：多留的段前留白跟着 id 是 s01 的段，调换段序后各段自己的时长不变；自己切的字幕遇到超长的词硬切，每块不超过 maxChars', () => {
+  const [a, b] = SYN.script, lead = (script) => pipeline(script, null).narration.scenes.map((sc) => [sc.seg, msOf(sc.audioStartSec - sc.startSec), msOf(sc.durSec)]);
+  assert.deepEqual(lead([a, b]), [['s01', 550, 10736], ['s02', 300, 9492]]);
+  assert.deepEqual(lead([b, a]), [['s02', 300, 9492], ['s01', 550, 10736]]);
+  const narration = pipeline([{ id: 's01', text: `Short ${'x'.repeat(43)} words follow here.` }], null).narration;
+  const table = subtitles({ size: INPUTS.size, fps: FPS }, { ...cardDefaults('overlay.subs'), timing: narration, blocks: [] }).object.table;
+  assert.ok(table.length >= 2 && table.every((r) => [...r.text].length <= 42), JSON.stringify(table.map((r) => r.text)));
+  assert.equal(table.map((r) => r.text).join(' ').replaceAll(' ', ''), `short${'x'.repeat(43)}wordsfollowhere`);
 });
