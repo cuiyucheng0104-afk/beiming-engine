@@ -75,7 +75,8 @@ const FIELDS = {
   event: ['id', 'frame', 'shot', 'end', 'audio', 'visual', 'domain', 'sync', 'beat', 'source', 'desc', 'note'],
   timeline: ['sections', 'beats', 'bars', 'meter', 'start', 'id', 'note'],
   tempo: ['id', 't0', 't1', 'bpm', 'meter', 'note'],
-  audio: ['mode', 'script', 'wav', 'cues', 'targetLUFS', 'truePeakDbTP', 'note'],
+  audio: ['mode', 'script', 'wav', 'cues', 'targetLUFS', 'truePeakDbTP', 'erb', 'note'],
+  audioErb: ['enabled', 'note'],
   style: ['id', 'version', 'preset', 'baseline', 'lock', 'note'],
   credit: ['what', 'owner', 'license', 'source', 'note'],
   aigc: ['contains', 'kinds', 'note', 'marking', 'sources'],
@@ -696,6 +697,13 @@ export function validateFilm(input, opts = {}) {
     if (a.mode === 'wav') checkPath(a.wav, 'audio.wav', { output: true, required: true });
     if (a.mode === 'none' && (a.script || a.wav)) warn('audio-mode-conflict', 'audio', 'mode = none 却写了 script / wav：不会被执行');
     if (a.cues !== undefined) checkPath(a.cues, 'audio.cues');
+    if (a.erb !== undefined) {   // engine/audio/erb_foley.enabled() 读 audio.erb.enabled
+      if (!isObj(a.erb)) err('audio-erb-invalid', 'audio.erb', 'audio.erb 必须是对象，例如 { "enabled": true }');
+      else {
+        known(a.erb, FIELDS.audioErb, 'audio.erb');
+        if (a.erb.enabled !== undefined && typeof a.erb.enabled !== 'boolean') err('audio-erb-invalid', 'audio.erb.enabled', 'audio.erb.enabled 必须是 true / false');
+      }
+    }
     if (a.mode === 'script' && route?.id === 'b' && f.native?.audio?.script && a.script !== f.native.audio.script) {
       err('audio-native-conflict', 'audio.script', `audio.script（${a.script}）与 native.audio.script（${f.native.audio.script}）不一致`, 'B 路线的声音写在 native.audio；film.audio 写 { "mode": "native" }');
     }

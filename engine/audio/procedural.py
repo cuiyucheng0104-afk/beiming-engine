@@ -37,17 +37,22 @@
   shock_blast(dur=1.4, *, kind='firework', distance_m=25.0, mach_crack=True,
               seed=1) -> (stereo_wave, sync_anchor_s)
       超音速前导弹道 N 波脆裂 + Friedlander (1946) 冲击波超压方程 + 地面反射梳状凹口与四类场景尾迹（礼花星群/火炮胸腔震荡/拔塞气泡/长鞭音爆）
+  shearing_cut(dur=0.090, *, material='xuan_paper', stroke='full', blade_len_cm=9.5,
+               closing_speed=1.0, pressure=0.75, tip_stop=True, exciter_sample=None,
+               sr=SR, seed=0) -> (stereo_wave, p_center_anchor_s)
+      双刃剪刀行进式剪切物理因果合成器：悬臂有效刃长缩短上滑金属斜面刮擦（嚓——）+ 非周期泊松纤维逐根微断裂级联 + 刃尖闭合止音与断口释能（咔），支持实录切片混合拟音
 """
 import math
 import numpy as np
-from scipy.signal import fftconvolve, lfilter
+import soxr
+from scipy.signal import butter, fftconvolve, lfilter, sosfilt
 
 from .dsp import (
     SR, N, smoothstep, fade, rng, norm, un_safe,
-    white, pink, brown, smooth_random, lp, hp, bp, peq, shelf, svf,
+    white, pink, brown, smooth_random, lp, hp, bp, peq, shelf, svf, _svf,
     pan_lr, stereo, decor_pair,
 )
-from .library import sync_anchor
+from .library import de_room_gate, sync_anchor
 
 __all__ = [
     'MATERIAL_MODES',
@@ -57,6 +62,8 @@ __all__ = [
     'THUNDER_GEOMETRIES',
     'DISC_MATERIALS',
     'BLAST_KINDS',
+    'SHEAR_MATERIALS',
+    'SHEAR_STROKES',
     'modal_impact',
     'phisem_particles',
     'aerodynamic_whoosh',
@@ -66,6 +73,7 @@ __all__ = [
     'pouring_vessel',
     'bouncing_disc',
     'shock_blast',
+    'shearing_cut',
 ]
 
 
@@ -320,6 +328,8 @@ CARTOON_KINDS = ('boing', 'pop', 'zip', 'blink', 'slide_up', 'slide_down', 'bonk
 THUNDER_GEOMETRIES = ('overhead', 'diagonal', 'distant_roll')
 DISC_MATERIALS = ('coin_brass', 'coin_silver', 'jade_token', 'stone_go')
 BLAST_KINDS = ('firework', 'cannon', 'cork_pop', 'whip_crack')
+SHEAR_MATERIALS = ('xuan_paper', 'cardstock', 'craft_paper', 'silk_fabric', 'thin_foil')
+SHEAR_STROKES = ('full', 'medium', 'tip_snip')
 
 _DISC_CFGS = {
     'coin_brass': {
@@ -1816,3 +1826,573 @@ def shock_blast(
         out = shelf(out, float(np.clip(fc_dist * 0.85, 1200.0, 9000.0)), sh_att, 'high')
 
     return _finalize_stereo(out, d_sec, fin_s=0.0008, fout_s=min(0.030, d_sec * 0.12), peak=0.91)
+
+
+# ———— 7. 双刃剪刀行进式剪切物理因果合成器（Traveling-Shear Fracture & Shortening-Cantilever Chirp） ————
+_SHEAR_STROKE_CFGS = {
+    'full': {
+        'u0': 0.08,
+        'u1': 0.98,
+        'kiss_frac': 0.85,
+        'bevel_gain': 1.00,
+        'tip_gain': 0.96,
+    },
+    'medium': {
+        'u0': 0.28,
+        'u1': 0.97,
+        'kiss_frac': 0.84,
+        'bevel_gain': 0.97,
+        'tip_gain': 0.94,
+    },
+    'tip_snip': {
+        'u0': 0.58,
+        'u1': 0.99,
+        'kiss_frac': 0.82,
+        'bevel_gain': 0.94,
+        'tip_gain': 1.04,
+    },
+}
+
+_SHEAR_MAT_CFGS = {
+    'xuan_paper': {
+        'label': '折叠桑皮宣纸 / 红窗花剪纸',
+        'rate_hz': 2050.0,
+        'burst_sigma': 0.56,
+        'tension_bp': (320.0, 750.0),
+        'tension_gain': 0.14,
+        'body_sweep': (980.0, 3150.0),
+        'body_q': 2.15,
+        'body_gain': 0.50,
+        'snap_bp': (3800.0, 14800.0),
+        'snap_gain': 0.88,
+        'air_bp': (10800.0, 19800.0),
+        'air_gain': 0.44,
+        'bevel_mix': 0.62,
+        'fiber_mix': 0.88,
+        'puff_bp': (650.0, 9200.0),
+        'puff_gain': 0.40,
+    },
+    'cardstock': {
+        'label': '硬卡纸 / 厚纸板清脆折断剪切',
+        'rate_hz': 1450.0,
+        'burst_sigma': 0.74,
+        'tension_bp': (280.0, 640.0),
+        'tension_gain': 0.18,
+        'body_sweep': (760.0, 2450.0),
+        'body_q': 2.40,
+        'body_gain': 0.64,
+        'snap_bp': (3200.0, 16000.0),
+        'snap_gain': 0.96,
+        'air_bp': (11200.0, 19900.0),
+        'air_gain': 0.46,
+        'bevel_mix': 0.66,
+        'fiber_mix': 0.96,
+        'puff_bp': (600.0, 9500.0),
+        'puff_gain': 0.50,
+    },
+    'craft_paper': {
+        'label': '牛皮纸致密木浆干脆裁切',
+        'rate_hz': 2250.0,
+        'burst_sigma': 0.62,
+        'tension_bp': (360.0, 820.0),
+        'tension_gain': 0.11,
+        'body_sweep': (1080.0, 3850.0),
+        'body_q': 2.25,
+        'body_gain': 0.52,
+        'snap_bp': (4500.0, 15500.0),
+        'snap_gain': 0.92,
+        'air_bp': (11500.0, 19900.0),
+        'air_gain': 0.48,
+        'bevel_mix': 0.64,
+        'fiber_mix': 0.90,
+        'puff_bp': (720.0, 9500.0),
+        'puff_gain': 0.42,
+    },
+    'silk_fabric': {
+        'label': '丝绸绫绢细密经纬丝滑裁切',
+        'rate_hz': 3150.0,
+        'burst_sigma': 0.36,
+        'tension_bp': (520.0, 1100.0),
+        'tension_gain': 0.04,
+        'body_sweep': (1850.0, 4200.0),
+        'body_q': 1.95,
+        'body_gain': 0.26,
+        'snap_bp': (4200.0, 17500.0),
+        'snap_gain': 0.96,
+        'air_bp': (12000.0, 20200.0),
+        'air_gain': 0.58,
+        'bevel_mix': 0.72,
+        'fiber_mix': 0.84,
+        'puff_bp': (1100.0, 9500.0),
+        'puff_gain': 0.24,
+    },
+    'thin_foil': {
+        'label': '薄金属箔 / 金银锡箔脆亮剪切',
+        'rate_hz': 2550.0,
+        'burst_sigma': 0.66,
+        'tension_bp': (680.0, 1450.0),
+        'tension_gain': 0.03,
+        'body_sweep': (2100.0, 5100.0),
+        'body_q': 2.65,
+        'body_gain': 0.32,
+        'snap_bp': (2500.0, 18500.0),
+        'snap_gain': 0.98,
+        'air_bp': (12500.0, 20400.0),
+        'air_gain': 0.68,
+        'bevel_mix': 0.84,
+        'fiber_mix': 0.88,
+        'puff_bp': (1200.0, 9500.0),
+        'puff_gain': 0.28,
+    },
+}
+
+
+def _hp_sr(x: np.ndarray, fc: float, order: int, sr_f: float) -> np.ndarray:
+    nyq = 0.5 * sr_f
+    f_clamped = float(np.clip(fc, 5.0, 0.92 * nyq))
+    sos = butter(order, f_clamped / nyq, btype='highpass', output='sos')
+    return sosfilt(sos, x, axis=0)
+
+
+def _bp_sr(x: np.ndarray, f_lo: float, f_hi: float, order: int, sr_f: float) -> np.ndarray:
+    nyq = 0.5 * sr_f
+    lo = float(np.clip(f_lo, 12.0, 0.86 * nyq))
+    hi = float(np.clip(f_hi, lo + 80.0, 0.93 * nyq))
+    sos = butter(order, [lo / nyq, hi / nyq], btype='bandpass', output='sos')
+    return sosfilt(sos, x, axis=0)
+
+
+def _peq_sr(x: np.ndarray, fc: float, g_db: float, q: float, sr_f: float) -> np.ndarray:
+    if fc >= 0.46 * sr_f or abs(g_db) < 1e-6:
+        return x
+    a_lin = 10.0 ** (g_db / 40.0)
+    w0 = 2.0 * math.pi * fc / sr_f
+    al = math.sin(w0) / (2.0 * q)
+    cw = math.cos(w0)
+    b = np.array([1.0 + al * a_lin, -2.0 * cw, 1.0 - al * a_lin], dtype=float)
+    a = np.array([1.0 + al / a_lin, -2.0 * cw, 1.0 - al / a_lin], dtype=float)
+    return lfilter(b / a[0], a / a[0], x, axis=0)
+
+
+def _svf_bp_sr(x: np.ndarray, fc: np.ndarray, q, sr_f: float) -> np.ndarray:
+    arr = np.ascontiguousarray(x, dtype=float)
+    n = len(arr)
+    fc_arr = np.full(n, float(fc), dtype=float) if np.isscalar(fc) else np.ascontiguousarray(fc, dtype=float)
+    q_arr = np.full(n, float(q), dtype=float) if np.isscalar(q) else np.ascontiguousarray(q, dtype=float)
+    if arr.ndim == 2:
+        return np.column_stack([
+            _svf(np.ascontiguousarray(arr[:, 0]), fc_arr, q_arr, 1, sr_f),
+            _svf(np.ascontiguousarray(arr[:, 1]), fc_arr, q_arr, 1, sr_f),
+        ])
+    return _svf(arr, fc_arr, q_arr, 1, sr_f)
+
+
+def _fade_sr(x: np.ndarray, fin_s: float, fout_s: float, sr_f: float) -> np.ndarray:
+    out = np.array(x, dtype=float, copy=True)
+    n = len(out)
+    if fin_s > 0.0:
+        k = min(n, max(1, int(round(fin_s * sr_f))))
+        w = (np.sin(np.linspace(0.0, 0.5 * math.pi, k)) ** 2).reshape(-1, *([1] * (out.ndim - 1)))
+        out[:k] *= w
+    if fout_s > 0.0:
+        k = min(n, max(1, int(round(fout_s * sr_f))))
+        w = (np.cos(np.linspace(0.0, 0.5 * math.pi, k)) ** 2).reshape(-1, *([1] * (out.ndim - 1)))
+        out[n - k:] *= w
+    return out
+
+
+def _make_fiber_snap_kernel(dur_s: float, sr_f: float, asym: float = 0.78) -> np.ndarray:
+    """构造亚 0.35ms 非对称零净冲量微纤维断裂脉冲核：陡峭应力跌落前沿 + 弹性回弹尾翼（严格零直流）。"""
+    m = max(3, int(round(max(0.00006, float(dur_s)) * sr_f)))
+    n_rise = max(1, m // 4)
+    n_rel = max(2, m - n_rise)
+    rise = np.linspace(0.45, 1.0, n_rise, endpoint=False) if n_rise > 1 else np.array([1.0], dtype=float)
+    u_r = np.linspace(0.0, 1.0, n_rel, dtype=float)
+    rel = -asym * np.exp(-2.6 * u_r) * (1.0 - 0.85 * u_r)
+    w = np.concatenate([rise, rel])
+    pos_s = float(np.sum(w[w > 0.0]))
+    neg_s = float(-np.sum(w[w < 0.0]))
+    if pos_s > 1e-12 and neg_s > 1e-12:
+        w = np.where(w < 0.0, w * (pos_s / neg_s), w)
+    pk = float(np.max(np.abs(w)))
+    return w / max(pk, 1e-12)
+
+
+def _fit_exciter_to_stroke(exc_raw: np.ndarray, n_target: int, stroke_env: np.ndarray, sr_i: int, r) -> np.ndarray:
+    """将真实剪纸录音切片非周期对齐至目标剪切包络（严禁 np.tile 循环，高通去隆隆声并门限降底噪）。"""
+    sr_f = float(sr_i)
+    arr = np.asarray(exc_raw, dtype=float)
+    if arr.ndim == 1:
+        st = stereo(arr, 0.0)
+    elif arr.shape[1] == 1:
+        st = np.repeat(arr, 2, axis=1)
+    else:
+        st = arr[:, :2].copy()
+
+    # 滤除 <165 Hz 话筒手持与电源低频隆隆声（四阶高通，零损 >250 Hz 纸张与剪刃本体），并轻柔压低安静段底噪
+    if len(st) >= 24:
+        st = _hp_sr(st, 165.0, 4, sr_f)
+    if sr_i == SR and len(st) >= N(0.06):
+        st = de_room_gate(st, ratio=2.2)
+
+    # 截取有效发声主段（保留起音前 8 ms 刀刃前导轻擦，避免硬切变成咔嗒）
+    mono_abs = np.max(np.abs(st), axis=1)
+    pk = float(np.max(mono_abs)) if len(mono_abs) else 0.0
+    if pk <= 1e-9:
+        return np.zeros((n_target, 2), dtype=float)
+    act = np.flatnonzero(mono_abs >= 0.035 * pk)
+    if len(act) >= 2:
+        i0 = max(0, int(act[0]) - int(round(0.008 * sr_f)))
+        i1 = min(len(st), int(act[-1]) + int(round(0.012 * sr_f)))
+        if i1 - i0 >= max(16, int(round(0.018 * sr_f))):
+            st = st[i0:i1].copy()
+
+    m_len = len(st)
+    ratio = float(m_len) / float(max(1, n_target))
+    if 0.72 <= ratio <= 1.38 and m_len >= 24:
+        fitted = soxr.resample(st, int(round(sr_f * ratio)), sr_i)
+        if len(fitted) > n_target:
+            fitted = fitted[:n_target].copy()
+        elif len(fitted) < n_target:
+            pad = np.zeros((n_target - len(fitted), 2), dtype=float)
+            fitted = np.vstack([fitted, pad])
+    elif m_len > n_target:
+        anc_s = sync_anchor(st, sr_i)
+        ia = max(0, min(m_len - n_target, int(round(anc_s * sr_f)) - int(round(0.28 * n_target))))
+        fitted = st[ia:ia + n_target].copy()
+    else:
+        stretched = soxr.resample(st, int(round(sr_f * 0.78)), sr_i) if m_len >= 24 else st.copy()
+        xf = min(max(12, int(round(0.012 * sr_f))), max(1, len(stretched) // 3))
+        ang = np.linspace(0.0, 0.5 * math.pi, xf, dtype=float)
+        cos_w = np.cos(ang)[:, None]
+        sin_w = np.sin(ang)[:, None]
+        min_off = min(len(stretched) // 6, max(0, len(stretched) - xf * 2))
+        max_off = max(min_off + 1, len(stretched) // 2)
+        out_ext = stretched.copy()
+        last_off = -1
+        while len(out_ext) < n_target:
+            if len(stretched) - max_off > xf * 2:
+                off = int(r.integers(min_off, max_off))
+                if max_off - min_off > 4 and abs(off - last_off) < max(2, (max_off - min_off) // 4):
+                    off = min_off + ((off - min_off + (max_off - min_off) // 2) % (max_off - min_off))
+            else:
+                off = 0
+            last_off = off
+            chunk = stretched[off:]
+            if xf > 0 and len(chunk) > xf and len(out_ext) > xf:
+                seam = out_ext[-xf:] * cos_w + chunk[:xf] * sin_w
+                out_ext = np.concatenate([out_ext[:-xf], seam, chunk[xf:]], axis=0)
+            else:
+                out_ext = np.concatenate([out_ext, chunk], axis=0)
+        fitted = out_ext[:n_target].copy()
+
+    # 智能包络匹配：保留实录亚毫秒纤维脆裂微结构，同时将 3ms 宏观包络精确贴合至冲程轮廓
+    win = max(8, int(round(0.003 * sr_f)))
+    rec_pow = np.mean(fitted * fitted, axis=1)
+    rec_env = np.sqrt(np.convolve(rec_pow, np.ones(win) / float(win), mode='same') + 1e-18)
+    rec_env_norm = rec_env / max(float(np.max(rec_env)), 1e-12)
+    target_env = np.clip(stroke_env, 0.0, 2.0)
+    target_env = target_env / max(float(np.max(target_env)), 1e-12)
+    gain_match = (target_env ** 0.90) / np.maximum(rec_env_norm ** 0.80, 0.12)
+    shaped = fitted * gain_match[:, None]
+    shaped = _fade_sr(shaped, min(0.0020, n_target / sr_f * 0.05), min(0.005, n_target / sr_f * 0.10), sr_f)
+    return un_safe(shaped)
+
+
+def shearing_cut(
+    dur: float = 0.090,
+    *,
+    material: str = 'xuan_paper',
+    stroke: str = 'full',
+    blade_len_cm: float = 9.5,
+    closing_speed: float = 1.0,
+    pressure: float = 0.75,
+    tip_stop: bool = True,
+    exciter_sample=None,
+    sr: int = SR,
+    seed: int = 0,
+) -> tuple[np.ndarray, float]:
+    """双刃剪刀行进式剪切物理因果全带宽（0–20 kHz）合成器（Traveling Shear Fracture & Bevel Chirp）：
+    · material ∈ SHEAR_MATERIALS = ('xuan_paper', 'cardstock', 'craft_paper', 'silk_fabric', 'thin_foil')；
+    · stroke ∈ SHEAR_STROKES = ('full', 'medium', 'tip_snip') 控制剪切交点 u(t) ∈ [u0, u1] 的行程区间；
+    · 物理机制 1（悬臂刃长缩短金属斜面刮擦上滑）：随交点 u(t) 推向刀尖，自由悬臂刃长 L_free(t) = L0*(1 - 0.68*u(t))
+      连续缩短，由表面微凸体粘滑噪声（v(t)^0.85 包络，中等阻尼 Q ∈ [3.8, 5.8]）激发的双刃斜面共振峰连续上扬（零钟磬铃音、零窄带哨音）；
+    · 物理机制 2（非周期泊松微纤维断裂级联）：按瞬时剪速 v(t) × 材质纤维线密度采样非齐次泊松微断裂时刻（亚 0.35 ms 零直流脉冲核），
+      激发随剩余未剪韧带刚度协同微上移的材质特征共振带（折叠宣纸张力释放/硬卡纸屈曲脆裂/丝绸细密经纬拉链感/金属箔脆响）；
+    · 物理机制 3（行程末端刃尖微闭合 tip_stop）：仅在剪切收尾处（t ≈ 0.82–0.86 dur，绝不在 t=0）叠加 <8 ms 强阻尼双尖闭合与断口空气释能，
+      并施加 3.5 kHz -2.5 dB 耳道舒适凹槽；
+    · exciter_sample：传入真实剪纸录音切片（1D/2D）时执行智能包络对齐与高通降噪混合（60% 实录有机纤维瞬态 + 40% 物理行进剪切上滑与刃体）。
+    返回 (立体声 (N(dur), 2) float64 波形, p_center_anchor_s)。"""
+    if material not in SHEAR_MATERIALS:
+        raise ValueError(f"shearing_cut：未知材质 {material!r}，可选 {SHEAR_MATERIALS}")
+    if stroke not in SHEAR_STROKES:
+        raise ValueError(f"shearing_cut：未知剪切行程 {stroke!r}，可选 {SHEAR_STROKES}")
+    sr_i = int(round(float(sr)))
+    if sr_i < 8000:
+        raise ValueError(f"shearing_cut：采样率 sr={sr!r} 过低（需 >= 8000 Hz）")
+
+    sr_f = float(sr_i)
+    d_sec = max(0.024, float(dur))
+    n = max(64, int(round(d_sec * sr_f)))
+    if float(closing_speed) <= 1e-6 or float(pressure) <= 1e-6:
+        return np.zeros((n, 2), dtype=np.float64), 0.0
+
+    r = rng(seed)
+    s_cfg = _SHEAR_STROKE_CFGS[stroke]
+    m_cfg = _SHEAR_MAT_CFGS[material]
+
+    blade_cm = float(np.clip(blade_len_cm, 3.0, 30.0))
+    spd = float(np.clip(closing_speed, 0.15, 4.0))
+    press = float(np.clip(pressure, 0.05, 2.0))
+    blade_scale = (9.5 / blade_cm) ** 0.82
+
+    t = np.arange(n, dtype=float) / sr_f
+
+    # ———— 1. 剪切交点运动学 u(t) ∈ [u0, u1] 与 S 形速度曲线 v(t) = du/dt ————
+    u0 = float(s_cfg['u0'])
+    u1 = float(s_cfg['u1'])
+    # tip_stop=True 时在 0.82–0.85 dur 处完成剪切并触发双尖轻吻；tip_stop=False 时提前平顺收刀，对比鲜明
+    kiss_frac = float(s_cfg['kiss_frac']) if tip_stop else 0.78
+    t_kiss = float(np.clip(kiss_frac * d_sec, 0.018, d_sec - 0.0035))
+
+    # 咬入起音窗控制在物理手部闭合惯性尺度（使 10%->90% LAT 恒稳居 15–24 ms，零机械硬刺且不拖沓）
+    t_bite = min(0.72 * t_kiss, float(np.clip(0.45 * t_kiss / (spd ** 0.14), 0.0225, 0.0275)))
+    atk_s = smoothstep(0.0, t_bite, t) ** 1.25
+
+    # 初咬入纸边建立清晰咬合峰（1.00），随后在 8ms 内进入约 0.78–0.84 稳健轻快滑剪，确保首峰恒定锁定在初咬处
+    post_bite = smoothstep(t_bite, min(t_kiss, t_bite + 0.008), t)
+    post_u = np.clip((t - t_bite) / max(t_kiss - t_bite, 1e-4), 0.0, 1.0)
+    glide_level = 1.0 - 0.24 * post_bite + 0.06 * (post_u ** 1.2)
+    close_span = max(0.0030, min(0.0065, 0.30 * (d_sec - t_kiss) + 0.0018))
+    if tip_stop:
+        close_gate = 1.0 - smoothstep(t_kiss * 0.99, min(d_sec, t_kiss + close_span), t) ** 1.35
+    else:
+        close_gate = 1.0 - smoothstep(t_kiss * 0.86, min(d_sec, t_kiss + 0.010), t) ** 1.20
+
+    v_prof = atk_s * glide_level * close_gate
+    v_max = max(float(np.max(v_prof)), 1e-12)
+    v_norm = v_prof / v_max
+
+    # 在冲程窗口 [0, t_kiss] 内积分得到严格单调 S 形推进位置 u(t) ∈ [u0, u1]
+    in_stroke = np.where(t <= t_kiss, v_norm, 0.0)
+    u_int = np.cumsum(in_stroke)
+    u_prog = np.clip(u_int / max(float(u_int[-1]), 1e-12), 0.0, 1.0)
+    u_t = u0 + (u1 - u0) * u_prog
+
+    # ———— 2. 物理机制 1：悬臂有效刃长缩短双刃斜面刮擦上滑（嚓——，零钟鸣、零纯音哨叫） ————
+    # L_free(t) = L0 * (1 - 0.68 * u(t))：u 从 0.08 推至 0.98 时，主刮擦带约 2.3->7.6 kHz，副斜面带约 5.0->14.2 kHz
+    l_ref = 1.0 - 0.68 * 0.08
+    l_ratio = l_ref / np.maximum(1.0 - 0.68 * u_t, 0.24)
+
+    nyq_lim = 0.445 * sr_f
+    spd_bright = spd ** 0.18
+    f_bev1 = np.clip(2300.0 * blade_scale * spd_bright * (l_ratio ** 1.15), 650.0, min(13500.0, nyq_lim))
+    f_bev2 = np.clip(5000.0 * blade_scale * spd_bright * (l_ratio ** 1.00), 1500.0, min(18200.0, nyq_lim))
+    f_sheen = np.clip(8800.0 * (blade_scale ** 0.55) * (l_ratio ** 0.72), 3200.0, min(19800.0, nyq_lim))
+
+    # 微凸体粘滑摩擦噪声源（慢速法向力微起伏 rate <= 10 Hz 避开 33–500 Hz 调制嗡声区 + 非周期粗糙峰）
+    force_fluct = smooth_random(n, r, rate=9.0, lo=0.86, hi=1.14)
+    asp_st = decor_pair(white, n, r, corr=0.68)
+    n_asp = max(24, int(round(d_sec * 1650.0 * spd)))
+    asp_pos = r.uniform(0.0, float(n - 2), size=n_asp)
+    asp_w = r.standard_normal(n_asp) * 0.58
+    _deposit_frac_1d(asp_st[:, 0], asp_pos, asp_w)
+    _deposit_frac_1d(asp_st[:, 1], np.clip(asp_pos + r.uniform(-1.2, 1.2, size=n_asp), 0.0, float(n - 2)), asp_w * 0.94)
+
+    exc_bevel = asp_st * ((v_norm ** 0.85) * force_fluct * (0.45 + 0.55 * press))[:, None]
+
+    # 上下两片剪刃轻微截面不对称（~2.2% 错频），呈现近麦双刃摩擦宽度并平滑窄带谱峰（hf_whistle_db < 13 dB）
+    q_bev1 = float(np.clip(4.2 + 0.85 * press, 3.6, 5.8))
+    q_bev2 = float(np.clip(4.5 + 0.75 * press, 3.8, 6.0))
+    bev1_l = _svf(np.ascontiguousarray(exc_bevel[:, 0]), f_bev1, np.full(n, q_bev1), 1, sr_f)
+    bev1_r = _svf(np.ascontiguousarray(exc_bevel[:, 1]), np.clip(f_bev1 * 1.024, 650.0, nyq_lim), np.full(n, q_bev1), 1, sr_f)
+    bev2_l = _svf(np.ascontiguousarray(exc_bevel[:, 0]), f_bev2, np.full(n, q_bev2), 1, sr_f)
+    bev2_r = _svf(np.ascontiguousarray(exc_bevel[:, 1]), np.clip(f_bev2 * 0.978, 1500.0, nyq_lim), np.full(n, q_bev2), 1, sr_f)
+    sheen_st = _svf_bp_sr(exc_bevel, f_sheen, 2.30, sr_f)
+
+    # 耦合绝对刃位 u_t 与本冲程推进度 u_prog，既保证 tip_snip 初频高于 full，又保证每种冲程自身显著上扬
+    pos_bright = 0.34 * u_t + 0.66 * u_prog
+    chirp_hi_tilt = 0.22 + 1.22 * (pos_bright ** 1.12)
+    bevel_st = (
+        np.column_stack([bev1_l, bev1_r]) * 0.84
+        + np.column_stack([bev2_l, bev2_r]) * (0.60 * chirp_hi_tilt)[:, None]
+        + sheen_st * (0.38 * (pos_bright ** 1.20))[:, None]
+    )
+    bevel_st = un_safe(bevel_st) * float(m_cfg['bevel_mix']) * float(s_cfg['bevel_gain'])
+
+    # ———— 3. 物理机制 2：非齐次泊松纤维粘滑微断裂级联（严格非周期指数间隔，hf_envelope_buzz < 0.30） ————
+    lam = float(m_cfg['rate_hz']) * (spd ** 0.72) * (0.55 + 0.45 * press) * (v_norm ** 0.92)
+    cum_h = np.cumsum(lam) / sr_f
+    tot_h = float(cum_h[-1])
+
+    k_durs = (0.000075, 0.00014, 0.00022, 0.00031)
+    snap_kernels = [_make_fiber_snap_kernel(kd, sr_f, asym=0.80) for kd in k_durs]
+    imp_l = np.zeros((4, n), dtype=float)
+    imp_r = np.zeros((4, n), dtype=float)
+
+    ev_idx = []
+    cur_h = 0.0
+    max_ev = max(48, int(round(d_sec * 6500.0)))
+    while len(ev_idx) < max_ev:
+        cur_h += float(r.exponential(1.0))
+        if cur_h >= tot_h:
+            break
+        pos_f = float(np.interp(cur_h, cum_h, np.arange(n, dtype=float)))
+        if 1.0 <= pos_f < float(n - 6):
+            ev_idx.append(pos_f)
+
+    if len(ev_idx) < 6 and tot_h > 1e-4:
+        extra_n = 6 - len(ev_idx)
+        ev_idx.extend(list(r.uniform(0.12 * n, 0.78 * n, size=extra_n)))
+
+    if ev_idx:
+        pos_arr = np.asarray(ev_idx, dtype=float)
+        m_ev = len(pos_arr)
+        idx_int = np.clip(np.round(pos_arr).astype(np.int64), 0, n - 1)
+        prog_ev = pos_bright[idx_int]
+        vel_ev = np.sqrt(np.maximum(v_norm[idx_int], 0.05))
+        sigma_b = float(m_cfg['burst_sigma'])
+        raw_amp = np.clip(r.lognormal(mean=0.0, sigma=sigma_b, size=m_ev), 0.22, 3.6)
+        pol_ev = r.choice(np.array([-1.0, 1.0]), size=m_ev, p=[0.38, 0.62])
+        pan_ev = r.uniform(-0.14, 0.14, size=m_ev)
+        gl_ev, gr_ev = pan_lr(pan_ev)
+        w_ev = raw_amp * vel_ev * pol_ev * (0.52 + 0.48 * press)
+
+        p_short = np.clip(0.22 + 0.62 * prog_ev, 0.18, 0.88)
+        u_sel = r.random(m_ev)
+        k_choice = np.where(
+            u_sel < p_short * 0.55, 0,
+            np.where(u_sel < p_short, 1, np.where(u_sel < 0.45 + 0.55 * p_short, 2, 3)),
+        )
+        itd_jit = r.uniform(-0.8, 0.8, size=m_ev)
+        for ki in range(4):
+            mk = k_choice == ki
+            if np.any(mk):
+                _deposit_frac_1d(imp_l[ki], pos_arr[mk], w_ev[mk] * gl_ev[mk])
+                _deposit_frac_1d(imp_r[ki], np.clip(pos_arr[mk] + itd_jit[mk], 0.0, float(n - 2)), w_ev[mk] * gr_ev[mk])
+
+    frac_raw = np.zeros((n, 2), dtype=float)
+    for ki, ker in enumerate(snap_kernels):
+        if np.any(imp_l[ki]) or np.any(imp_r[ki]):
+            frac_raw[:, 0] += fftconvolve(imp_l[ki], ker)[:n]
+            frac_raw[:, 1] += fftconvolve(imp_r[ki], ker)[:n]
+
+    micro_rub = decor_pair(pink, n, r, corr=0.58) * ((v_norm ** 0.90) * force_fluct)[:, None]
+    frac_exc = un_safe(frac_raw) * 0.80 + un_safe(micro_rub) * 0.28
+
+    # 材质共振层 A：纸面初始绷紧张力微释放（近枢轴/起剪时温暖饱满，向刀尖推进自然消退）
+    t_lo, t_hi = m_cfg['tension_bp']
+    tension_env = ((1.0 - 0.78 * pos_bright) ** 1.25) * (v_norm ** 0.75)
+    tension_st = un_safe(_bp_sr(frac_exc, t_lo, t_hi, 2, sr_f)) * (float(m_cfg['tension_gain']) * 1.95 * tension_env)[:, None]
+
+    # 材质共振层 B：折叠纸身/卡纸屈曲/丝绸绷紧主腔体（随刃位 u_t 与推进度 u_prog 连续上移）
+    b_lo, b_hi = m_cfg['body_sweep']
+    f_body = np.clip((b_lo + (b_hi - b_lo) * (pos_bright ** 0.95)) * (blade_scale ** 0.45), 240.0, nyq_lim)
+    body_raw = _svf_bp_sr(frac_exc, f_body, float(m_cfg['body_q']), sr_f)
+    body_st = un_safe(body_raw) * (float(m_cfg['body_gain']) * 1.55 * (1.12 - 0.36 * pos_bright))[:, None]
+
+    # 材质共振层 C：纤维素脆断 / 丝线细密拉链 / 金属箔脆裂高频带 + 11–20 kHz 空气锋利边
+    s_lo, s_hi = m_cfg['snap_bp']
+    s_hi_eff = float(np.clip(s_hi * (blade_scale ** 0.28), s_lo + 1800.0, 0.46 * sr_f))
+    snap_tilt = (0.20 + 1.26 * (pos_bright ** 1.14)) * (blade_scale ** 0.35)
+    snap_st = un_safe(_bp_sr(frac_exc, s_lo, s_hi_eff, 2, sr_f)) * (float(m_cfg['snap_gain']) * snap_tilt)[:, None]
+
+    a_lo, a_hi = m_cfg['air_bp']
+    air_st = np.zeros((n, 2), dtype=float)
+    if 0.46 * sr_f > a_lo + 400.0:
+        air_tilt = (0.14 + 1.32 * (pos_bright ** 1.22)) * (blade_scale ** 0.55)
+        air_st = un_safe(_bp_sr(frac_exc, a_lo, min(a_hi, 0.46 * sr_f), 2, sr_f)) * (float(m_cfg['air_gain']) * air_tilt)[:, None]
+
+    fiber_st = un_safe(tension_st + body_st + snap_st + air_st) * float(m_cfg['fiber_mix'])
+
+    # 保持亚毫秒纸纤维脆裂微峰的同时，令 2ms 短窗包络严格贴合运动学曲线 v_norm（确保起音锚点稳定无随机跳变）
+    shear_st = bevel_st + fiber_st
+    w2 = max(8, int(round(0.002 * sr_f)))
+    loc_pow = np.mean(shear_st * shear_st, axis=1)
+    loc_rms = np.sqrt(np.convolve(loc_pow, np.ones(w2) / float(w2), mode='same') + 1e-18)
+    pk_loc = max(float(np.max(loc_rms)), 1e-12)
+    env_reg = (v_norm ** 0.96) / np.maximum((loc_rms / pk_loc) ** 0.92, 0.12)
+    shear_st = un_safe(shear_st * env_reg[:, None])
+
+    # 测算冲程咬入峰 2ms 短窗 RMS，供末端刃尖轻吻精确配比（使末端咔声干脆可辨，且初咬峰 >= 0.85 全局包络峰）
+    sh_mono = shear_st.mean(axis=1)
+    sh_env2 = np.sqrt(np.convolve(sh_mono * sh_mono, np.ones(w2) / float(w2), mode='same') + 1e-24)
+    bite_pk_env2 = max(float(np.max(sh_env2)), 1e-9)
+
+    # ———— 4. 物理机制 3：行程末端刃尖闭合止音与断口空气释能（咔，仅在 t ≈ t_kiss，decay < 8 ms） ————
+    tip_st = np.zeros((n, 2), dtype=float)
+    if tip_stop:
+        i_kiss = int(np.clip(round(t_kiss * sr_f), 8, n - 10))
+        m_tip = min(n - i_kiss, max(10, int(round(0.014 * sr_f))))
+        if m_tip >= 8:
+            tt = np.arange(m_tip, dtype=float) / sr_f
+            onset_t = smoothstep(0.0, min(0.00035, 0.20 * m_tip / sr_f), tt)
+            tip_modes = (
+                (3280.0 * blade_scale, 0.58, 0.0024),
+                (6120.0 * blade_scale, 0.48, 0.0018),
+                (9850.0 * blade_scale, 0.36, 0.0013),
+            )
+            steel_kiss = np.zeros((m_tip, 2), dtype=float)
+            for fm, am, tau_m in tip_modes:
+                if fm >= nyq_lim:
+                    continue
+                ph_l = float(r.uniform(0.0, 2.0 * math.pi))
+                ph_r = ph_l + float(r.uniform(-0.35, 0.35))
+                env_m = am * onset_t * np.exp(-tt / tau_m)
+                steel_kiss[:, 0] += env_m * np.sin(2.0 * math.pi * fm * tt + ph_l)
+                steel_kiss[:, 1] += env_m * np.sin(2.0 * math.pi * (fm * 1.018) * tt + ph_r)
+
+            click_src = _bp_sr(decor_pair(white, m_tip, r, corr=0.62), 3000.0, min(19000.0, 0.46 * sr_f), 2, sr_f)
+            tip_click = un_safe(click_src) * (onset_t * np.exp(-tt / 0.0013))[:, None]
+
+            p_lo, p_hi = m_cfg['puff_bp']
+            puff_src = _bp_sr(decor_pair(pink, m_tip, r, corr=0.72), p_lo, min(p_hi, 0.45 * sr_f), 2, sr_f)
+            edge_puff = un_safe(puff_src) * (smoothstep(0.0, 0.0005, tt) * np.exp(-tt / 0.0026))[:, None] * float(m_cfg['puff_gain'])
+
+            kiss_wave = steel_kiss * 0.40 + tip_click * 0.78 + edge_puff * 0.56
+            kiss_wave = _peq_sr(kiss_wave, 3500.0, -2.5, 1.35, sr_f)
+            kw_mono = kiss_wave.mean(axis=1)
+            kw_env2 = float(np.max(np.sqrt(np.convolve(kw_mono * kw_mono, np.ones(min(w2, len(kw_mono))) / float(min(w2, len(kw_mono))), mode='same') + 1e-24)))
+            kiss_wave = kiss_wave / max(kw_env2, 1e-12)
+
+            # 令末端闭合点总 2ms 包络与初咬峰均衡衔接（初咬峰恒 >= 0.88 全局峰，既突出末端“咔”又守住起音测量）
+            kiss_target_env = bite_pk_env2 * float(s_cfg['tip_gain']) * (0.38 + 0.10 * min(press, 1.5))
+            tip_st[i_kiss:i_kiss + m_tip] += kiss_wave * kiss_target_env
+
+    # 合成纯物理因果模型输出
+    phys_st = shear_st + tip_st
+
+    # ———— 5. 可选实录切片混合拟音（60% 实录有机纤维瞬态 + 40% 因果物理行进上滑与刃体） ————
+    if exciter_sample is not None and len(np.asarray(exciter_sample)) > 0:
+        stroke_env = v_norm.copy()
+        if tip_stop:
+            t_rel_k = np.maximum(0.0, t - t_kiss)
+            stroke_env = np.maximum(stroke_env, 0.88 * (t >= t_kiss) * np.exp(-t_rel_k / 0.0028))
+        org_st = _fit_exciter_to_stroke(exciter_sample, n, stroke_env, sr_i, r)
+        org_hi_couple = _svf_bp_sr(org_st, f_bev1, 3.8, sr_f) * (0.16 * (0.65 + 0.55 * u_prog))[:, None]
+        phys_unit = un_safe(phys_st + org_hi_couple)
+        out = 0.60 * org_st + 0.40 * phys_unit
+    else:
+        out = phys_st
+
+    # 耳道敏感区 3.5 kHz 柔和 -2.5 dB 舒适凹槽，令快节奏连剪清脆不扎耳
+    out = _peq_sr(out, 3500.0, -2.5, 1.35, sr_f)
+    out = _hp_sr(out, 28.0, 1, sr_f)
+    out = out - np.mean(out, axis=0, keepdims=True)
+
+    # 温和软膝驯服极端单样本泊松叠加孤立毛刺，守住自然纸纤维波峰因数（14–22 dB）
+    sig_rms = float(np.sqrt(np.mean(out * out) + 1e-24))
+    if sig_rms > 1e-12:
+        ceil_soft = 5.2 * sig_rms
+        ratio_c = np.abs(out) / ceil_soft
+        out = np.where(ratio_c > 1.0, np.sign(out) * ceil_soft * (1.0 + np.tanh(ratio_c - 1.0) * 0.55), out)
+
+    out = out - np.mean(out, axis=0, keepdims=True)
+    out = _fade_sr(out, min(0.0012, d_sec * 0.04), min(0.0045, d_sec * 0.10), sr_f)
+
+    # 保留随闭合速度与法向压力单调递增的物理声功率趋势，同时峰值严格 <= 0.91 零削波
+    drive = (spd ** 0.45) * (0.45 + 0.55 * press)
+    pk_target = float(np.clip(0.91 * (drive / (drive + 0.36)), 0.18, 0.91))
+    out = norm(out, pk_target)
+    anc = sync_anchor(out, sr_i)
+    return np.asarray(out, dtype=np.float64), float(np.clip(anc, 0.0, (len(out) - 1) / sr_f))

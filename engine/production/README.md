@@ -49,7 +49,7 @@
 | `qa` | 机器 QA 段（`tools/qa` 读它，[QA-GATE.md](../../docs/quality/QA-GATE.md)）：`intentional` 是刻意的静帧、黑场、闪白（`{ kind, from, to, reason }`，半开区间、写理由；是设计声明，不是豁免）；`safeArea` / `texts` / `visual` / `sync` / `plates` 按键覆盖档位阈值（键名必须是档位里有的）；`clearColor`；`waivers` 是用户批准的 QA 豁免（`approvedBy`、`quote`、`source` 必填，不能是 agent）。改切点时 `intentional` 与豁免帧段跟着镜头走；`intentional[].shot` 写了就必须落在那一镜里（`qa-intentional-outside-shot`），跨切点的不写 `shot` |
 | `timeline` | 节拍三种写法只能用一种：`sections`（按 BPM 分段，`start` 为整数帧）、`beats`（逐拍帧表）、`bars`（小节数组，每小节逐拍帧数）。`drive: "beat"` 时必填（C 路线写 `tempo`） |
 | `tempo` / `cues` | C 路线页面的节拍写法（`routes/c-style/template`）：`tempo` 是 `engine/core/tempo.js` 的段落表 `[{ id, t0, bpm, meter }]`（`t0` 秒，必须落在整帧），`cues` 是画面打点 `{ 名字: [段落, 小节, 拍, 拍内分数] }`。与 `timeline` 只能写一种。校验用页面的同一公式（`createTempo().at`）：每个打点要落在整帧（容差 1e-4 帧，与页面自检相同）、在片长之内，段落存在、拍号不超出小节 |
-| `audio` | `mode`：`script`（声音脚本）、`wav`（现成混音）、`none`、`native`（B 路线）。`targetLUFS` 省略时取档位值 |
+| `audio` | `mode`：`script`（声音脚本）、`wav`（现成混音）、`none`、`native`（B 路线）。`targetLUFS` 省略时取档位值。`erb: { "enabled": true }` 打开拟音的 ERB 来源（`engine/audio/erb_foley.py`，缺省关闭） |
 | `deliveries` | 档位 id；帧率与画幅比必须与渲染档相同（换帧率、换画幅要另一份描述） |
 | `style` | A 路线必填（含视觉基准）；look 认可冻结 id 与 version |
 | `assets` | 资产 id，按 `engine/assets/manifest.js` 的注册表核对存在与哈希；作品自带的文件写 `local:<相对路径>` |
