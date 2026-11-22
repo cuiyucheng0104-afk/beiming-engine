@@ -4,7 +4,6 @@
 import { createInterface } from 'node:readline';
 import { artifactUrl, callRoute, checkArgs, defaultUrl, imageMime, inputsOf, readEnvelope, sha256Hex, unreachable, urlOf, whyOf } from './client.mjs';
 import { buildOpenApi, ROUTES } from './contract.mjs';
-import { loadContracts } from '../kernel/contracts/validate.mjs';
 
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'beiming-api', version: buildOpenApi().info.version };
@@ -12,11 +11,11 @@ const AUTH_NOTE = { account: '账户令牌', workspace: '这部片的工作区�
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const strings = (v) => (typeof v === 'string' ? [v] : v && typeof v === 'object' ? Object.values(v).flatMap(strings) : []);
 
-// 正式的契约校验器，第一次读截短信封的全文时才装。
+// 正式的契约校验器（带着 ajv），第一次读截短信封的全文时才装：装不上只是那一次全文报错，不挡 MCP 启动和别的动词。
 let frozen;
 /** 一个对象不是合法的 envelope/0.1（结构加 EN1 到 EN4）时交回头一条原因，合法交回 null */
 async function envelopeProblem(body) {
-  const { contract, schemaErrors, violations } = (await (frozen ??= loadContracts())).validate(body);
+  const { contract, schemaErrors, violations } = (await (frozen ??= import('../kernel/contracts/validate.mjs').then((m) => m.loadContracts()))).validate(body);
   if (contract !== 'envelope') return 'format 不是 envelope/0.1';
   return [...schemaErrors, ...Object.entries(violations).map(([id, why]) => `${id}：${why[0]}`)][0] ?? null;
 }
