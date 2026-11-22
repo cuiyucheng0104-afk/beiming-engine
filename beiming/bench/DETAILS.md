@@ -48,7 +48,7 @@
 
 **环境变量**只传白名单，名字不分大小写：`PATH`、`HOME`、`USERPROFILE`、`SYSTEMROOT`、`COMSPEC`、`PATHEXT`、`LANG`、`LC_ALL`、`TERM`、`NODE_PATH`，加上指到运行目录里的 `TMPDIR`、`TMP`、`TEMP`、`CLAUDE_CONFIG_DIR`，以及 `PLAYWRIGHT_BROWSERS_PATH`。`--model` 时另传 `ANTHROPIC_*`、`CLAUDE_CODE_*`、`HTTP_PROXY`、`HTTPS_PROXY`、`NO_PROXY`。 Windows 上 libuv 会把传入环境里缺的必选变量（`HOMEDRIVE`、`HOMEPATH`、`LOGONSERVER`、`SYSTEMDRIVE`、`USERDOMAIN`、`USERNAME`、`WINDIR` 等）从父进程补回来，所以跑题器一个不缺地自己填、名字一律大写：`SYSTEMROOT`、`WINDIR`、`SYSTEMDRIVE`、`COMSPEC`、`PATHEXT` 照宿主的，`PATH` 照宿主的、宿主没有就填 `%SYSTEMROOT%\System32`，`HOME`、`USERPROFILE` 指到做题目录，`HOMEDRIVE`、`HOMEPATH`、`USERNAME`（`bench`）、`USERDOMAIN`、`LOGONSERVER` 填固定的占位值，宿主的用户名和家目录不传。
 
-**怎么算没做完**（`status` 是 `error`，产物写完了也一样）：做题命令退出码不是 0；被信号杀掉（没有退出码）；超过墙钟预算被结束；做题函数抛错（消息是空的也算）。没做完的运行不采信半截产物，也不再调判分器：`score` 记 0，`assertions` 是空数组，`artifacts` 照记，开销里的 `gpuSeconds` 只认做题函数自己回的。做完了但判分器抛错同样落 `error`。失败原因在 `result.json` 和 `observation.json` 的 `error` 里各记一份、是同一句非空文字（没出错是 `null`）；隐藏题不写报错原文：做题函数抛错只写「做题出错」，判分器抛错只写「判分出错」，超时不写预算数值；判分器抛的环境类错误（如缺 `ffprobe`）照常按退出码 3 报出，不落结果。
+**怎么算没做完**（`status` 是 `error`，产物写完了也一样）：做题命令退出码不是 0；被信号杀掉（没有退出码）；超过墙钟预算被结束；做题函数抛错（消息是空的也算）。没做完的运行不采信半截产物，也不再调判分器：`score` 记 0，`assertions` 是空数组，`artifacts` 照记，开销里的 `gpuSeconds` 只认做题函数自己回的。做完了但判分器抛错同样落 `error`。失败原因在 `result.json` 和 `observation.json` 的 `error` 里各记一份、是同一句非空文字（没出错是 `null`）；隐藏题不写报错原文：做题函数抛错只写「做题出错」，判分器抛错只写「判分出错」，超时不写预算数值。做题、判分抛的错里只有环境缺失（`EvalError`，错误码形如 `env.ffmpeg-missing`）往上抛、按退出码 3 报出、不落结果，隐藏题的只留错误码、不带原因和提示；别的结构化错误（如 `contractError`）和普通报错一样记成 `error` 并落盘。
 
 ## 落盘
 

@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { EvalError, envError } from '../../tools/eval/lib/cli.mjs';
+import { contractError, envError } from '../../tools/eval/lib/cli.mjs';
 import { hasFfmpeg } from '../../tools/eval/lib/synth.mjs';
 import { projectPublicQuestion, runExamQuestion } from './index.mjs';
 import { solverEnv } from './runner.mjs';
@@ -123,11 +123,13 @@ test('B8-4 判分：超预算、做题出错都不算过；expectedFail 默认�
     assert.deepEqual([res.status, res.score, res.assertions], ['error', 0, []], `抛 ${JSON.stringify(String(thrown))}`);
     assert.deepEqual([res.error, (await readJson(res.resultFile)).error, (await readJson(join(res.runDir, 'observation.json'))).error], [reason, reason, reason]);
   }
-  // 做完了但判分器自己抛错：照样落 error；环境类错误（EvalError）照常往上抛
+  // 做完了但判分器自己抛错：照样落 error；只有环境缺失（错误码 env.*）照常往上抛，别的结构化错误和普通报错一样记进结果
   const badJudge = await runExamQuestion({ questionFile: qFile, evalRoot: root, solver: async () => ({}), judge: () => { throw new Error('量测器坏了'); } });
   assert.deepEqual((({ status, score, assertions, error }) => [status, score, assertions, error])(await readJson(badJudge.resultFile)), ['error', 0, [], '判分出错：量测器坏了']);
   assert.equal((await readJson(join(badJudge.runDir, 'observation.json'))).error, '判分出错：量测器坏了');
-  await assert.rejects(runExamQuestion({ questionFile: qFile, evalRoot: root, solver: async () => ({}), judge: () => { throw envError('env.ffmpeg-missing', '没有 ffprobe', '装 FFmpeg'); } }), EvalError);
+  await assert.rejects(runExamQuestion({ questionFile: qFile, evalRoot: root, solver: async () => ({}), judge: () => { throw envError('env.ffmpeg-missing', '没有 ffprobe', '装 FFmpeg'); } }), { code: 'env.ffmpeg-missing', exitCode: 3, message: '没有 ffprobe', hint: '装 FFmpeg' });
+  const contract = await runExamQuestion({ questionFile: qFile, evalRoot: root, solver: async () => { throw contractError('contract.bad-value', '值不对'); }, judge: allPass });
+  assert.deepEqual([contract.status, contract.score, contract.error, (await readJson(contract.resultFile)).error], ['error', 0, '值不对', '值不对']);
 
   const xfFile = join(dir, 'xf.json');
   await writeFile(xfFile, JSON.stringify({ ...sample, flags: { hidden: false, expectedFail: true, blockedBy: ['等 B9'] } }));
@@ -270,6 +272,21 @@ test('B8-8 隐藏题：blockedBy 原文和精确的墙钟预算不回显', async
   const reasons = [viaSolver.error, (await readJson(viaSolver.resultFile)).error, (await readJson(join(viaSolver.runDir, 'observation.json'))).error];
   assert.deepEqual([viaSolver.status, viaSolver.score, ...reasons], ['error', 0, '做题出错', '做题出错', '做题出错']);
   assert.ok(!reasons.join().includes(dir) && !dump(viaSolver.runDir).includes('referencePass'));
+  // 结构化错误（EvalError）也不例外：别的错误码照样记成这次运行出错并落盘；环境缺失（env.*）往上抛、退出码 3、不落成绩，但只剩错误码。两条路上私有标记和隐藏题目录都不外露
+  const diagnostic = `controls.referencePass=PRIVATE-9f3 读不到：${dir}`;
+  const leaks = (...texts) => ['PRIVATE-9f3', dir].filter((x) => texts.join('\n').includes(x));
+  for (const [who, reason] of [['solver', '做题出错'], ['judge', '判分出错']]) {
+    const run = (err) => runExamQuestion({ questionFile: qFile, evalRoot: root, forceExpectedFail: true, solver: async () => { if (who === 'solver') throw err; return {}; }, judge: (ctx) => { if (who === 'judge') throw err; return allPass(ctx); } });
+    // 错误码不是「env. 加短横线小写」的不算环境缺失：错误码本身也可能带私有文字
+    for (const err of [contractError('contract.bad-value', diagnostic, diagnostic), envError(`env.${dir}`, diagnostic)]) {
+      const res = await run(err);
+      const errors = [res.error, (await readJson(res.resultFile)).error, (await readJson(join(res.runDir, 'observation.json'))).error];
+      assert.deepEqual([res.status, res.score, ...errors], ['error', 0, reason, reason, reason], `${who} ${err.exitCode}`);
+      assert.deepEqual([leaks(...errors), dump(res.runDir).includes('PRIVATE-9f3')], [[], false], `${who} ${err.exitCode}`);
+    }
+    const env = await run(envError('env.ffmpeg-missing', diagnostic, diagnostic)).then(() => null, (e) => e);
+    assert.deepEqual([env?.exitCode, env?.code, leaks(env?.message, env?.stack, env?.hint, JSON.stringify(env))], [3, 'env.ffmpeg-missing', []], who);
+  }
   // 命令做题的失败原因只有退出码
   const exit7 = await runExamQuestion({ questionFile: qFile, evalRoot: root, forceExpectedFail: true, solverCmd: `"${process.execPath}" -e "process.exit(7)"`, judge: allPass });
   assert.deepEqual([exit7.status, exit7.error, (await readJson(exit7.resultFile)).error], ['error', '做题命令 exit 7', '做题命令 exit 7']);

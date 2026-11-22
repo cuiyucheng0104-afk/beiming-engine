@@ -207,6 +207,11 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
   const sandboxed = how === 'command' || how === 'claude';
   const profile = sandboxed && hasSeatbelt() ? seatbeltProfile(run, questionFile, hidden) : null;
   let solved = {}, error = null, measured = {}, wallMs = 0;
+  // 做题、判分抛的错里只有环境缺失（错误码是 env. 加短横线小写）往上抛、不落成绩，别的一律记成这次运行出错。隐藏题的只留错误码：原因和提示可能带私有段、隐藏题目录
+  const rethrowEnvGap = (e) => {
+    const code = e instanceof EvalError ? e.code : null;   // 只读一次：判断用的和抛出去的是同一个值
+    if (typeof code === 'string' && /^env\.[a-z0-9-]+$/.test(code)) throw hidden ? envError(code, '运行环境缺失', '隐藏题不回显报错原文，缺什么看错误码') : e;
+  };
   if (!skip) {
     writeJson(path.join(run.worktree, 'question.json'), projectPublicQuestion(question));
     const t0 = Date.now();
@@ -215,7 +220,7 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
         ? (await solver({ worktreeDir: run.worktree, questionFile: path.join(run.worktree, 'question.json'), env: solverEnv(run, false) })) ?? {}
         : await solveByCommand(run, { argv, model, claude, timeoutMs: question.budget.wallMs, profile });
     } catch (e) {
-      if (e instanceof EvalError) throw e;
+      rethrowEnvGap(e);
       // 隐藏题的 error 只有固定的几句（再加退出码）：做题函数和宿主同进程，报错原文可能带私有段和隐藏题目录，和下面判分出错同一个口径
       error = hidden ? '做题出错' : why(e);
     }
@@ -227,7 +232,7 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
     // 没做完就不判分：反正记 0 分，判分器读不到要的文件抛错还会把这条失败记录一起丢掉
     if (error === null) {
       try { measured = (await (judge ?? defaultJudge)({ question, worktreeDir: run.worktree, runDir: dir })) ?? {}; } catch (e) {
-        if (e instanceof EvalError) throw e;
+        rethrowEnvGap(e);
         // 判分器的报错可能带着指标名、阈值：隐藏题不写原因
         error = hidden ? '判分出错' : `判分出错：${why(e)}`;
       }
