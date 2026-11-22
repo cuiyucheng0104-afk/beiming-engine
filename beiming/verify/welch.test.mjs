@@ -375,3 +375,53 @@ test('V18-14 空洞检查先于长度检查，全部帧先校验完再统计', (
   const wide = { width: 3, height: 1, channels: 1, data: new Float32Array(3) };
   assert.throws(() => verify.welchTest(pair, [wide, { width: 2, height: 1, channels: 1, data: holey }]), TypeError);
 });
+
+test('V18-15 G_REV-R4 原始样本严格为有限 number（拒 null/字符串/未选通道 NaN）且防恶意 getter 篡改帧列表', () => {
+  const f = (v) => ({ width: 2, height: 1, channels: 1, data: new Float32Array([v, v]) });
+  const pair0 = [f(0), f(0)];
+  const pair1 = [f(1), f(1)];
+  // 1) 普通数组含 null 或字符串、或 data 本身是字符串
+  assert.throws(() => verify.welchTest(pair0, [f(0), { width: 2, height: 1, channels: 1, data: [0, null] }]), TypeError);
+  assert.throws(() => verify.welchTest(pair1, [f(1), { width: 2, height: 1, channels: 1, data: [1, '1'] }]), TypeError);
+  assert.throws(() => verify.welchTest(pair1, [f(1), { width: 2, height: 1, channels: 1, data: '11' }]), TypeError);
+  // 2) 未参与聚合的其他通道含 NaN / Infinity 也在预校验拒绝
+  const rgbA = () => ({ width: 1, height: 1, channels: 3, data: new Float32Array([1, 2, 3]) });
+  const rgbBadG = { width: 1, height: 1, channels: 3, data: new Float32Array([1, NaN, 3]) };
+  assert.throws(() => verify.welchTest([rgbA(), rgbA()], [rgbA(), rgbBadG], { channel: 0 }), RangeError);
+  const rgbaA = () => ({ width: 1, height: 1, channels: 4, data: new Float32Array([1, 1, 1, 1]) });
+  const rgbaBadAlpha = { width: 1, height: 1, channels: 4, data: new Float32Array([1, 1, 1, Infinity]) };
+  assert.throws(() => verify.welchTest([rgbaA(), rgbaA()], [rgbaA(), rgbaBadAlpha]), RangeError);
+  // 3) 恶意 getter 在读取第 0 帧时删掉 B[1] 或缩短 B 长度
+  const mutB = [, f(0)];
+  Object.defineProperty(mutB, 0, {
+    enumerable: true,
+    configurable: true,
+    get() {
+      delete mutB[1];
+      return f(0);
+    },
+  });
+  assert.throws(() => verify.welchTest(pair0, mutB), TypeError);
+  // 读取第 0 帧时往组里多塞一帧：长度变了也拒绝
+  const growB = [null, f(0)];
+  Object.defineProperty(growB, 0, { enumerable: true, get() { growB.push(f(0)); return f(0); } });
+  assert.throws(() => verify.welchTest(pair0, growB), TypeError);
+  // 4) 帧、data 元素、p 值各只读一次：第二次读会变值的 getter 骗不到统计
+  let reads = 0;
+  const once = (list, i, value) => Object.defineProperty(list, i, { enumerable: true, get() { reads++; return value; } });
+  const frames = once([null, f(3)], 0, f(1));
+  const data = once([null, 1], 0, 1);
+  const clean = verify.welchTest(frames, once([null, { width: 2, height: 1, channels: 1, data }], 0, f(1)));
+  assert.equal(reads, 3);
+  assert.deepEqual([...clean.biasMap], [1, 1]);
+  reads = 0;
+  assert.equal(verify.benjaminiHochberg(once([null, 0.5], 0, 0.01)).significantCount, 1);
+  assert.equal(reads, 1);
+  // EXR 形态的通道属性也只读一次（只有 R 时它会先按 RGB 探一次、再按唯一通道用一次）
+  reads = 0;
+  const exr = () => ({ width: 2, height: 1, channels: Object.defineProperty({}, 'R', { enumerable: true, get() { reads++; return new Float32Array(2); } }) });
+  assert.equal(verify.welchTest([exr(), exr()], pair0).deterministicUnits, 2);
+  assert.equal(reads, 2);
+  // DataView 有 byteLength 没有元素，不能当 data
+  assert.throws(() => verify.welchTest(pair0, [f(0), { width: 2, height: 1, channels: 1, data: new DataView(new ArrayBuffer(2)) }]), TypeError);
+});
