@@ -12,3 +12,9 @@ export {
 export * from './runtime.mjs';
 export { sweepCard, parseSweepAxis, SWEEP_TOKEN_LIMIT, MAX_SWEEP_CELLS, MAX_SWEEP_TIMES } from './sweep.mjs';
 export * from './priors.mjs';
+export {
+  getAudioSubsCardPriors,
+  getAudioSubsMigrationManifest,
+  getAudioSubsPractices,
+  loadAudioSubsPriorsStore,
+} from './priors-audio-subs.mjs';
