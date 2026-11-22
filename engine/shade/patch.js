@@ -2,9 +2,10 @@
 // 锚点逐条校验，缺失直接报错（three 升级后不会悄悄失效）；同一组钩子共用一个程序缓存键。
 // 片段补丁没命中算构建失败（FX22）：这里抛的错（ShaderPatchError）在 material.onBeforeCompile 里同步冒出 renderer.compile / render；
 // 构造时就把 { fn, anchor, message } 记进本模块闭包里的数组：页面把异常接住、把 console.error 静音都抹不掉，页面代码也没有写它的入口
-// （不挂 globalThis，不导出写入函数）。渲染器（engine/render/page.mjs + lib/patch-check.mjs）出每一帧之前按模块地址 import 本模块、
-// 用 inject.patchErrors() 读副本，有记录就判 failure.shader-error；消息以 [BEIMING_SHADER_PATCH_ERROR] 开头（与 patch-check.mjs 的
-// PATCH_TAG 一致），渲染器靠这个前缀认未捕获的异常与 console.error。
+// （不挂 globalThis，不导出写入函数）。渲染器（engine/render/page.mjs + lib/patch-check.mjs）出每一帧之前用 inject.patchErrors() 读副本，
+// 有记录就判 failure.shader-error：本模块每个实例求值时把这个读出口登记到渲染器开页面时放好的登记口上（见下面 register 那一行），
+// 渲染器另按模块地址 import 再读一遍；消息以 [BEIMING_SHADER_PATCH_ERROR] 开头（与 patch-check.mjs 的 PATCH_TAG 一致），
+// 渲染器靠这个前缀认未捕获的异常与 console.error。
 //
 //   inject(src, anchor, code, mode, who)   在锚点后（'after'）/ 前（'before'）插入，或整段替换（'replace'）；who 用于报错
 //   inject.patchErrors() → [{ fn, anchor, message }]   本页至今记下的补丁错误（副本，只读、不可改写）；挂在 inject 上而不是新导出：
@@ -17,9 +18,9 @@
 //                                           own = { head, begin, project } 是材质自己的声明与赋值，排在同位置的钩子前面；
 //                                           给了 vertexNormal 而着色器里没有 #include <beginnormal_vertex> 也报错（不给这个钩子的不要求有它）
 //   quantizeShadow(frag, lo, hi, who)       投影量化：getShadow / getPointShadow 的返回值过 smoothstep( lo, hi )（lo / hi 是 GLSL 表达式）；
-//                                           投影块里这句返回不止一处（r170 两处、r187 五处），要全部换掉：按函数头找出每个 getShadow /
-//                                           getPointShadow 的函数体（不看形参叫什么），每个体里都得有这句原文、且没有别的 return，
-//                                           有一个对不上就报错，不靠别处还在放行；
+//                                           投影块里这句返回不止一处（r170 两处、r187 五处），要全部换掉。只认对拍过的投影块原文
+//                                           （three r170 / r187 发行包里的，按长度与摘要认）：这段文本有任何改动（哪怕只加一段注释）都报错，
+//                                           重新对拍之后把新的摘要加进 SHADOW_CHUNKS；
 //                                           r187 下顺带把 PCF 采样核换回 r170 PCFSoftShadowMap 的核（投影边缘两版一致）；
 //                                           投影块既不是 r187 的写法、也没有 r170 自带的软阴影核时报错（不按没换核的样子出图）
 //   hasVertexHooks(hooks)                   有没有会改形体的顶点钩子（vertexPars / vertexMainStart / vertexBegin）
@@ -49,6 +50,9 @@ export function inject(src, anchor, code, mode = 'after', who = 'patch.js') {
   return src.replace(anchor, () => rep);
 }
 Object.defineProperty(inject, 'patchErrors', { value: () => fatalPatchErrors.map(e => ({ ...e })) });   // 不可写、不可重配：页面换不掉这个出口
+// 同一个文件换个地址导入（带 #片段、?参数、patch%2Ejs）浏览器就另起一个实例、各记各的，渲染器按请求地址找不全：每个实例求值时
+// 把自己的读出口登记到渲染器放好的登记口上（patch-check.mjs 的 patchSink）。没有登记口（Node、平时预览）就不登记
+globalThis.__bmShadePatchSink?.register(inject.patchErrors);
 
 export function strHash(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = (Math.imul(h, 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); }
 export const programKey = (prefix, parts) => prefix + '|' + strHash(parts.join('§'));
@@ -72,18 +76,10 @@ export function patchVertex(src, h, own = {}, who) {
 }
 
 const SHADOW_ANCHOR = 'return mix( 1.0, shadow, shadowIntensity );';
-// 这句返回在投影块里不止一处。函数按函数头认（不看形参叫什么：上游把形参连同返回一起改名，按形参名数会跟着少数一个）：
-// 每个 getShadow / getPointShadow 的函数体里都得有这句原文，体内的 return 只能是它；块里别处提到 shadowIntensity 的 return 也只能是它
-const SHADOW_HEAD = /\bfloat\s+get(?:Point)?Shadow\s*\(/g, SHADOW_BODY = /\bfloat\s+get(?:Point)?Shadow\s*\([^)]*\)\s*\{/g;
-const SHADOW_RETURN = /\breturn\b[^;]*\bshadowIntensity\b[^;]*;/g, GLSL_COMMENT = /\/\/.*|\/\*[\s\S]*?\*\//g;
-const count = (s, re) => (s.match(re) || []).length, hitsOf = s => s.split(SHADOW_ANCHOR).length - 1;
-function shadowBodies(code) {   // 从函数头后的 { 数到配对的 }；头后面不是函数体的（只有声明）不算进来，下面按「体数 ≠ 头数」报错
-  return Array.from(code.matchAll(SHADOW_BODY), m => {
-    let i = m.index + m[0].length;
-    for (let depth = 1; depth && i < code.length; i++) depth += code[i] === '{' ? 1 : code[i] === '}' ? -1 : 0;
-    return code.slice(m.index, i);
-  });
-}
+// 这句返回在投影块里不止一处，漏换一处画面就错、却没有任何编译错误。只认对拍过的投影块原文（three 发行包里的，按「长度:摘要」认），
+// 别的一律报错：改过的文本里哪些返回还算数，按文本猜不准（注释顶替空格、宏给函数或 return 起别名、预处理死分支，都骗得过去）
+const SHADOW_CHUNKS = new Set(['8884:222jt6.18wxyi2' /* r170 build */, '10168:mgthj5.3fkhhd' /* r187 build */, '12626:40cb13.7lwj9z' /* r187 src/（带注释，r187-toon-regression.test.mjs 用它核） */]);
+const chunkKey = s => `${s.length}:${strHash(s)}.${strHash([...s].reverse().join(''))}`;   // 正反各算一遍，两个 32 位摘要
 // r187 的 PCF 换成了硬件比较采样 + 按屏幕像素旋转的 Vogel 圆盘（投影边缘带屏幕空间抖动，量化后是毛边）；
 // 这里换回 r170 PCFSoftShadowMap 的确定性 3 × 3 双线性核：取样点都落在纹素中心，线性过滤的硬件比较在那里等于单个纹素的 step
 const PCF_VOGEL = /shadow = \(\s*texture\( shadowMap, vec3\( shadowCoord\.xy \+ vogelDiskSample\( 0, 5, phi \)[\s\S]*?\) \* 0\.2;/;
@@ -99,15 +95,14 @@ const PCF_SOFT_R170 = /* glsl */`{
 				}`;
 export function quantizeShadow(frag, lo, hi, who = 'patch.js') {
   let sm = THREE.ShaderChunk.shadowmap_pars_fragment;
-  const code = sm.replace(GLSL_COMMENT, ''), fns = count(code, SHADOW_HEAD), returns = count(code, SHADOW_RETURN);
-  const ok = shadowBodies(code).filter(b => hitsOf(b) && hitsOf(b) === count(b, /\breturn\b/g)).length;
-  if (!fns || ok !== fns || returns !== hitsOf(code)) throw new ShaderPatchError('quantizeShadow', who, SHADOW_ANCHOR,
-    `投影量化锚点缺失（three r${THREE.REVISION}）：${SHADOW_ANCHOR}（投影块里 getShadow / getPointShadow 有 ${fns} 个、带 shadowIntensity 的返回 ${returns} 句；函数体里只以这句原文返回的只有 ${ok} 处）`);
+  const key = chunkKey(sm);   // 下面换采样核之前的原文
   const noKernel = anchor => new ShaderPatchError('quantizeShadow', who, anchor, `软阴影采样锚点缺失（three r${THREE.REVISION}）：${anchor}`);
   if (sm.includes('sampler2DShadow shadowMap')) {   // r187 这一路；r170 的块里没有它，下面的替换与以前逐字相同
     if (!PCF_VOGEL.test(sm)) throw noKernel('vogelDiskSample( 0, 5, phi )');
     sm = sm.replace(PCF_VOGEL, () => PCF_SOFT_R170);
   } else if (!sm.includes('SHADOWMAP_TYPE_PCF_SOFT')) throw noKernel('SHADOWMAP_TYPE_PCF_SOFT');   // r170 这一路靠块里自带的软阴影核
+  if (!SHADOW_CHUNKS.has(key)) throw new ShaderPatchError('quantizeShadow', who, SHADOW_ANCHOR,
+    `投影量化锚点缺失（three r${THREE.REVISION}）：投影块 shadowmap_pars_fragment 不是对拍过的原文（three ${SUPPORTED} 发行包里的；现在这段是 ${key}）。先核对里面每个 getShadow / getPointShadow 都只以「${SHADOW_ANCHOR}」返回，重新对拍，再把它加进 engine/shade/patch.js 的 SHADOW_CHUNKS`);
   return inject(frag, '#include <shadowmap_pars_fragment>', sm.replaceAll(SHADOW_ANCHOR, `return mix( 1.0, smoothstep( ${lo}, ${hi}, shadow ), shadowIntensity );`), 'replace', who);
 }
 

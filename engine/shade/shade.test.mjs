@@ -86,30 +86,30 @@ test('FX22 片段补丁没命中直接抛错：inject / patchVertex / quantizeSh
   assert.ok(patchVertex(lib.vertexShader.replace('#include <beginnormal_vertex>', gone), { ...hooks, vertexNormal: '' }, own, who).includes(hooks.vertexBegin), '没给 vertexNormal 钩子的不要求有这个锚点');
   // quantizeShadow：片元里的 #include、投影块里 getShadow 的返回写法、软阴影采样核，三处任何一处对不上都报
   assert.throws(() => quantizeShadow(lib.fragmentShader.replace('#include <shadowmap_pars_fragment>', gone), 'a', 'b', who), missing('#include <shadowmap_pars_fragment>'));
-  const keep = THREE.ShaderChunk.shadowmap_pars_fragment;
+  const keep = THREE.ShaderChunk.shadowmap_pars_fragment, MOVED = /fx22：投影量化锚点缺失（three r170）：投影块 shadowmap_pars_fragment 不是对拍过的原文/;
   try {
     THREE.ShaderChunk.shadowmap_pars_fragment = keep.replaceAll('return mix( 1.0, shadow, shadowIntensity );', 'return mix(1.0, shadow, shadowIntensity);');
-    assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：投影量化锚点缺失/);
+    assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), MOVED);
     // 同一句返回在块里不止一处（r170：getShadow 与 getPointShadow）：只坏其中一处也报，不能靠另一处还在就放行、漏打这一处
     const RET = 'return mix( 1.0, shadow, shadowIntensity );', at = [keep.indexOf(RET), keep.lastIndexOf(RET)];
     assert.ok(at[0] >= 0 && at[1] > at[0], 'r170 的投影块里这句返回有两处');
     for (const [i, alt] of [[at[0], 'return mix(1.0, shadow, shadowIntensity);'], [at[1], 'return mix(1.0, shadow, shadowIntensity);'], [at[0], 'return shadow;'], [at[1], 'return 1.0 - shadowIntensity * ( 1.0 - shadow );']]) {
       THREE.ShaderChunk.shadowmap_pars_fragment = keep.slice(0, i) + alt + keep.slice(i + RET.length);
-      assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：投影量化锚点缺失（three r170）：.*只有 1 处/, `第 ${i} 字节处的返回改成「${alt}」`);
+      assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), MOVED, `第 ${i} 字节处的返回改成「${alt}」`);
     }
     // 函数按函数头认（float getShadow( / float getPointShadow(），不看形参叫什么：形参连同它的返回一起改名，GLSL 语义不变，这一处却不是原文了
     for (const head of ['float getShadow(', 'float getPointShadow(']) {
       const i = keep.indexOf(head), j = keep.indexOf(RET, i);
       assert.ok(i >= 0 && j > i && keep.slice(i, j).includes('float shadowIntensity'), `r170 的投影块里有 ${head}`);
       THREE.ShaderChunk.shadowmap_pars_fragment = keep.slice(0, i) + keep.slice(i, j).replace('float shadowIntensity', 'float shadowStrength') + 'return mix( 1.0, shadow, shadowStrength );' + keep.slice(j + RET.length);
-      assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：投影量化锚点缺失（three r170）：.*只有 1 处/, `${head} 的形参改名成 shadowStrength`);
+      assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), MOVED, `${head} 的形参改名成 shadowStrength`);
     }
     // 函数体里多出一句别的写法的 return（原来那句还在）：那条路出去的投影没有量化，也报
     THREE.ShaderChunk.shadowmap_pars_fragment = keep.slice(0, at[0]) + 'if ( shadowRadius < 0.0 ) return shadow;\n\t\t' + keep.slice(at[0]);
-    assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：投影量化锚点缺失（three r170）：.*只有 1 处/, 'getShadow 里多了一句提前返回');
-    // 注释里的 return 不算（r187 的投影块里就有一句「Early return if fully lit」）
+    assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), MOVED, 'getShadow 里多了一句提前返回');
+    // 只多一段注释（语义没变）也不是对拍过的原文了：报错，不去猜改过的文本里哪些返回还算数
     THREE.ShaderChunk.shadowmap_pars_fragment = keep.slice(0, at[0]) + '// Early return if fully lit\n\t\t/* return shadow; */ ' + keep.slice(at[0]);
-    assert.match(quantizeShadow(lib.fragmentShader, 'a', 'b', who), /smoothstep\( a, b, shadow \)/);
+    assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), MOVED, '投影块里多了一段注释');
     THREE.ShaderChunk.shadowmap_pars_fragment = keep.replaceAll('SHADOWMAP_TYPE_PCF_SOFT', 'SHADOWMAP_TYPE_SOFT_PCF');   // 既不是 r187 的写法，也没有 r170 自带的软阴影核
     assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：软阴影采样锚点缺失（three r170）：SHADOWMAP_TYPE_PCF_SOFT/);
   } finally { THREE.ShaderChunk.shadowmap_pars_fragment = keep; }
@@ -121,4 +121,32 @@ test('FX22 片段补丁没命中直接抛错：inject / patchVertex / quantizeSh
   const light = 'vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;';
   assert.throws(() => mat.onBeforeCompile(shaderOf(lib, x => x.replace(light, light.replace('directDiffuse + reflectedLight.indirectDiffuse', 'indirectDiffuse + reflectedLight.directDiffuse')))), missing(light));
   assert.throws(() => depth.onBeforeCompile(shaderOf(THREE.ShaderLib.depth, x => x.replace('#include <begin_vertex>', THREE.ShaderChunk.begin_vertex))), missing('#include <begin_vertex>'));
+});
+
+test('FX22 投影量化只认对拍过的投影块原文（three r170 / r187 发行包里的）：这段文本怎么改都报错，不交出漏换了返回的着色器', async t => {
+  const frag = THREE.ShaderLib.toon.fragmentShader, keep = THREE.ShaderChunk.shadowmap_pars_fragment, RET = 'return mix( 1.0, shadow, shadowIntensity );';
+  // r187 的投影块（可选依赖 three-webgpu = three@0.187.0）：quantizeShadow 按块的原文认，不看 THREE.REVISION，换进来就走 r187 那一路
+  const r187 = await import('three-webgpu').then(m => m.ShaderChunk.shadowmap_pars_fragment, () => null);
+  if (!r187) t.diagnostic('没装 three-webgpu：只核 r170 的投影块');
+  const out = chunk => { THREE.ShaderChunk.shadowmap_pars_fragment = chunk; return quantizeShadow(frag, 'a', 'b', 'fx22'); };
+  const first = (c, from, to) => { assert.ok(c.includes(from), `投影块里有「${from}」`); return c.replace(from, () => to); };
+  // 都是合法 GLSL。前两种语义没变；后面几种是按文本数函数体 / 数返回的核法放行过的：头一个 getShadow 的返回没量化，照常出图
+  const REWRITES = {
+    '头一处返回里夹一段块注释': c => first(c, RET, 'return mix( 1.0, shadow, /* mix weight */shadowIntensity );'),
+    '末尾多一个换行': c => c + '\n',
+    '注释顶替空格：float/**/getShadow 与 return/**/mix': c => first(first(c, 'float getShadow(', 'float/**/getShadow('), RET, 'return/**/mix( 1.0, shadow, shadowIntensity );'),
+    '注释顶替空格的函数头 + 形参连同返回改名': c => first(first(first(c, 'float getShadow(', 'float/**/getShadow('), 'float shadowIntensity', 'float shadowStrength'), RET, 'return mix( 1.0, shadow, shadowStrength );'),
+    '宏给函数起别名 + 形参连同返回改名': c => first(first(first(c, 'float getShadow(', '#define BM_FN getShadow\n\tfloat BM_FN('), 'float shadowIntensity', 'float shadowStrength'), RET, 'return mix( 1.0, shadow, shadowStrength );'),
+    '预处理死分支里留原句并多一个 }，真正的返回走别名': c => first(c, RET, `#if 0\n\t\t${RET} }\n\t\t#endif\n\t\tfloat k = shadowIntensity; return mix( 1.0, shadow, k );`),
+    '宏把 return 藏起来，死分支里留原句': c => first(c, RET, `#if 0\n\t\t${RET}\n\t\t#endif\n\t\t#define BM_RET return\n\t\tBM_RET mix( 1.0, shadow, shadowIntensity );`),
+  };
+  try {
+    for (const [rev, chunk, n] of [['170', keep, 2], ['187', r187, 5]]) {
+      if (!chunk) continue;
+      const stock = out(chunk);
+      assert.deepEqual([chunk.split(RET).length - 1, stock.split('return mix( 1.0, smoothstep( a, b, shadow ), shadowIntensity );').length - 1, stock.includes(RET)], [n, n, false], `r${rev} 的投影块原样：${n} 处返回全换掉`);
+      for (const [what, rewrite] of Object.entries(REWRITES))
+        assert.throws(() => out(rewrite(chunk)), /fx22：投影量化锚点缺失（three r170）：投影块 shadowmap_pars_fragment 不是对拍过的原文（three r170 \/ r187 发行包里的；现在这段是 \d+:\w+\.\w+）/, `r${rev}：${what}`);
+    }
+  } finally { THREE.ShaderChunk.shadowmap_pars_fragment = keep; }
 });

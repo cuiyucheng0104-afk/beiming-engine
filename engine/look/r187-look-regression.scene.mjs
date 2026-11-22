@@ -102,6 +102,12 @@ export const CORRUPTIONS = {
     edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'float shadowIntensity, float shadowBias', 'float shadowStrength, float shadowBias', false);
     edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'return mix( 1.0, shadow, shadowIntensity );', 'return mix( 1.0, shadow, shadowStrength );', false);
   } },
+  // 合法 GLSL、语义没变，但投影块不是对拍过的原文了：按文本数返回的核法在这两种改写上都漏换过头一处、照常出图
+  'shadow-return-comment': { what: '投影块里头一处 getShadow 的返回里夹了一段块注释，其余几处原样', anchor: '投影量化锚点缺失', run: () => edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'return mix( 1.0, shadow, shadowIntensity );', 'return mix( 1.0, shadow, /* mix weight */shadowIntensity );', false) },
+  'shadow-comment-space': { what: '投影块里头一个 getShadow 的函数头与返回各用一段块注释顶替了空格，其余几处原样', anchor: '投影量化锚点缺失', run: () => {
+    edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'float getShadow(', 'float/**/getShadow(', false);
+    edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'return mix( 1.0, shadow, shadowIntensity );', 'return/**/mix( 1.0, shadow, shadowIntensity );', false);
+  } },
   'depth-begin-vertex': { what: '阴影深度材质顶点着色器的 #include <begin_vertex> 被展开成原文（只在渲阴影时编译）', anchor: '#include <begin_vertex>', shadowOnly: true, run: () => inline(THREE.ShaderLib.depth, 'begin_vertex') },
   'pcf-kernel': { what: '投影块的软阴影采样核换了写法', anchor: '软阴影采样锚点缺失', run: () => THREE.REVISION === '170'
     ? edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'SHADOWMAP_TYPE_PCF_SOFT', 'SHADOWMAP_TYPE_SOFT_PCF')

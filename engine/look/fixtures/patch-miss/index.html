@@ -6,8 +6,13 @@
        frame         render(t) 里抛
        console       render(t) 里被页面自己接住，只打到控制台（渲染器也必须判失败，不能出一张缺补丁的图）
        swallow       render(t) 里被页面自己接住，什么都不打，照常画一张回退帧（渲染器靠 patch.js 记下的致命状态判失败）
+     ?late=<毫秒 | raf>（不用带 corrupt）render(t) 照常画完、返回之后（隔这么多毫秒，或等到下一个动画帧）才调真实的 inject 去找一个没有的锚点，
+       页面接住、画一张回退帧：错冒出来时渲染器出帧前那一次读记录已经过了，截图之后还得再读一次。
      ?probe=id-callback（不用带 corrupt）加一个物体，它的 onBeforeRender 只在换上 ID 材质时调真实的 inject 去找一个没有的锚点：
        ID 图不能把这个错吞掉。
+     ?patch=<模块地址> probe 用的 inject 改从这个地址导入（默认 /engine/shade/patch.js）。地址带 #片段、或是同一个文件的另一种写法
+       （patch%2Ejs）时，浏览器另起一个模块实例，错记在那个实例里：渲染器照样要读到。
+     ?three=187 换成 r187 那一套（可选依赖 three-webgpu = three@0.187.0），默认 r170。
      ?mute=1 页面把 console.error 静音（配 when=swallow：页面接住异常、什么都打不出来，渲染器只能靠 patch.js 模块里记下的致命状态）。
      ?forge=1 着色器一切正常，页面往 globalThis[Symbol.for('beiming.shaderPatchErrors')] 塞一条合成记录、再往 console.error 打一行带机器前缀的字：
        都不是 patch.js 记的，不能判失败。
@@ -15,23 +20,27 @@
      期望：不带 corrupt / probe 时渲染器正常出图、退出码 0（带 log=1 / forge=1 也一样）；带 corrupt 时各种 when 都以非零码退出，报错里点名缺的锚点。
      用法见 engine/look/r187-look-regression.test.mjs。 -->
 <html><head><meta charset="utf-8"><title>夹具：片段补丁没命中</title>
-<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script>
+// import map 要赶在头一个模块之前写进文档
+const pkg = new URLSearchParams(location.search).get('three') === '187' ? 'three-webgpu' : 'three';
+document.write(`<script type="importmap">{"imports":{"three":"/node_modules/${pkg}/build/three.module.js","three/addons/":"/node_modules/${pkg}/examples/jsm/"}}<\/script>`);
+</script>
 <style>html,body{margin:0;background:#000;overflow:hidden}</style>
 </head><body>
 <script type="module">
 import * as THREE from 'three';
 import { createLook } from '/engine/look/index.js';
 import { build, corrupt, P_BASE } from '/engine/look/r187-look-regression.scene.mjs';
-import { inject } from '/engine/shade/patch.js';
 
 const q = new URLSearchParams(location.search), when = q.get('when') || 'load';
+const { inject } = await import(q.get('patch') ?? '/engine/shade/patch.js');
 const W = innerWidth, H = innerHeight;
 if (q.get('mute')) console.error = () => {};
 if (q.get('forge')) (globalThis[Symbol.for('beiming.shaderPatchErrors')] ??= []).push({ fn: 'inject', anchor: '#include <color_fragment>', message: '[BEIMING_SHADER_PATCH_ERROR] QA synthetic, no shader call' });
 if (q.get('forge')) console.error('[BEIMING_SHADER_PATCH_ERROR] QA synthetic, no shader call');
 const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.REVISION === '170' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;   // r187 删掉了 PCFSoftShadowMap，采样核由 quantizeShadow 换回 r170 的
 document.body.appendChild(renderer.domElement);
 if (q.get('corrupt')) corrupt(q.get('corrupt'));
 const look = createLook(renderer, W, H, { refHeight: H, fps: 24 });
@@ -50,6 +59,10 @@ const draw = t => { part ??= make(); part.camera.aspect = W / H; part.camera.upd
 window.DUR = 1; window.FPS = window.__RENDER?.fps ?? 24;
 window.render = t => {
   if (q.get('log')) { console.info('字幕变体对不上了，用默认字幕'); console.warn('字幕变体对不上了，用默认字幕'); }
+  if (q.get('late')) {
+    const miss = () => { try { inject('void main(){}', '#include <color_fragment>', 'x', 'after', 's6-late'); } catch { renderer.setRenderTarget(null); renderer.setClearColor('#7f8fc4'); renderer.clear(); } };
+    draw(t); return void (q.get('late') === 'raf' ? requestAnimationFrame(miss) : setTimeout(miss, +q.get('late')));
+  }
   if (when !== 'console' && when !== 'swallow') return draw(t);
   try { draw(t); } catch (e) { if (when === 'console') console.error(e.message); else { renderer.setRenderTarget(null); renderer.setClearColor('#7f8fc4'); renderer.clear(); } }
 };

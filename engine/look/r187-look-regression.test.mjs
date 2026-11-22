@@ -15,7 +15,7 @@ import { thumb, thumbDiff, decodeIds, THUMB_GATE, THUMB_SKIP } from './r187-look
 import { TOON_PSNR_GATE_DB, TOON_MAX_FRAC_GT1, TOON_MAX_FRAC_GT5 } from '../shade/r187-toon-regression.mjs';
 import { inject, patchVertex, quantizeShadow } from '../shade/patch.js';
 import { anchoredFinalFs } from './compose.js';
-import { PATCH_TAG, patchMiss, isPatchModule, readPatchErrors } from '../render/lib/patch-check.mjs';
+import { PATCH_TAG, patchMiss, isPatchModule, readPatchErrors, patchSink } from '../render/lib/patch-check.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const GOLDEN = () => JSON.parse(fs.readFileSync(path.join(ROOT, 'engine/look/r187-look-regression.golden.json'), 'utf8'));
@@ -294,9 +294,29 @@ test('FX22-2 渲染器只认 patch.js 模块里的记录与机器前缀：patch.
   assert.equal(patchMiss(await readPatchErrors({ urls: [here] })).code, 'failure.shader-error');
 });
 
+test('FX22-2b 登记口：同一个 patch.js 换个地址导入是另一个模块实例，它记的错渲染器不靠地址也读到；登记口换不掉，口令不对读不出，同一个读出口只读一次', async () => {
+  patchSink('s6-key');   // 这里没有页面：把登记口直接放到这个进程的 globalThis 上，之后才求值的 patch.js 实例会来登记（上面那个早求值了，不在里面）
+  const sink = globalThis.__bmShadePatchSink, frag = new URL('../shade/patch.js#s6-sink', import.meta.url).href, other = await import(frag);
+  assert.notEqual(other.inject, inject, '带 #片段的地址是另一个模块实例，各记各的');
+  assert.throws(() => other.inject('void main(){}', '#include <nope>', 'x', 'after', 's6-sink'), /s6-sink：着色器锚点缺失「#include <nope>」/);
+  const rec = other.inject.patchErrors();
+  assert.deepEqual(rec.map(r => [r.fn, r.anchor]), [['inject', '#include <nope>']]);
+  assert.deepEqual(await readPatchErrors({ urls: [], secret: 's6-key' }), rec, '一个地址都不给，靠登记口读到');
+  assert.deepEqual(await readPatchErrors({ urls: [frag], secret: 's6-key' }), rec, '按地址 import 到的是同一个读出口：只读一次，不翻倍');
+  assert.deepEqual([await readPatchErrors({ urls: [], secret: 'wrong' }), await readPatchErrors({ urls: [] }), sink.read()], [[], [], []], '口令不对读不出');
+  // 页面换不掉、删不掉登记口，也清不掉登记过的读出口；登记的不是函数不收
+  assert.throws(() => { globalThis.__bmShadePatchSink = null; }, TypeError);
+  assert.throws(() => { delete globalThis.__bmShadePatchSink; }, TypeError);
+  assert.throws(() => Object.defineProperty(globalThis, '__bmShadePatchSink', { value: null }), TypeError);
+  assert.throws(() => { sink.read = () => []; }, TypeError);
+  sink.register('不是函数'); sink.register(null); sink.read('s6-key').length = 0;
+  assert.deepEqual(await readPatchErrors({ urls: [], secret: 's6-key' }), rec);
+  assert.equal(Object.keys(globalThis).includes('__bmShadePatchSink'), false, '不可枚举');
+});
+
 test('FX22-3 两版页面里故意改错一段着色器原文：renderer.compile、look.render、单独的 ID 图三条编译路径都同步抛错并点名锚点', async t => {
   const names = Object.keys(CORRUPTIONS);
-  assert.deepEqual(names, ['toon-light', 'toon-begin-vertex', 'toon-beginnormal', 'shadow-return', 'shadow-return-first', 'shadow-param-rename', 'depth-begin-vertex', 'pcf-kernel']);
+  assert.deepEqual(names, ['toon-light', 'toon-begin-vertex', 'toon-beginnormal', 'shadow-return', 'shadow-return-first', 'shadow-param-rename', 'shadow-return-comment', 'shadow-comment-space', 'depth-begin-vertex', 'pcf-kernel']);
   const res = await verifyShaderPatchBuild({ corruptions: [null, ...names] });
   if (res.skipped) return t.skip(res.skipped);
   const [clean, ...broken] = res.runs;
@@ -321,11 +341,13 @@ test('FX22-4 构建命令：夹具影片不改时正常出图；改错一段片�
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 's6-fx22-'));
   const still = (name, query, ...more) => {
     const out = path.join(dir, name), r = spawnSync(process.execPath, [path.join(ROOT, 'engine/render/still.mjs'), 'engine/look/fixtures/patch-miss', '--frame', '0', '--size', '320x240', '--out', out, ...(query ? ['--query', query] : []), ...more], { cwd: ROOT, encoding: 'utf8', timeout: 300000 });
-    return { status: r.status, stderr: r.stderr, png: fs.existsSync(path.join(out, 'f000000.png')) };
+    return { status: r.status, stderr: r.stderr, png: fs.existsSync(path.join(out, 'f000000.png')), file: path.join(out, 'f000000.png') };
   };
   try {
     const ok = still('ok', '');
     assert.deepEqual([ok.status, ok.png], [0, true], `夹具影片本身要能出图：${ok.stderr}`);
+    const ok187 = still('ok187', 'three=187');   // 夹具换成 r187 那一套（?three=187）
+    assert.deepEqual([ok187.status, ok187.png], [0, true], `夹具影片换成 r187 也要能出图：${ok187.stderr}`);
     // 作品自己的日志里带着「变体对不上了」这样的字样（console.info / console.warn），与着色器无关：照常出图
     const chatty = still('chatty', 'log=1');
     assert.deepEqual([chatty.status, chatty.png], [0, true], `普通日志不能被当成补丁没命中：${chatty.stderr.slice(-400)}`);
@@ -355,11 +377,28 @@ test('FX22-4 构建命令：夹具影片不改时正常出图；改错一段片�
       // 只在 ID 图回调里冒出来的补丁错，页面接住 + 静音 console.error + 超采样（lib/yuv.mjs 的 GPU 直出）：帧落盘之前读同一份致命记录
       ['id-callback-mute-ss', 'probe=id-callback&when=swallow&mute=1', /错误\[failure\.shader-error\]：.*s6-id-callback：着色器锚点缺失「#include <color_fragment>」/, '--samples', '4'],
       ['id-callback', 'probe=id-callback', /错误\[failure\.shader-error\]：.*s6-id-callback：着色器锚点缺失「#include <color_fragment>」/],   // 只在 ID 图里冒出来的补丁错
+      // 同上，但出错的 inject 来自 patch.js 的另一个模块实例（地址带 #片段：请求地址里没有它；patch%2Ejs：同一个文件的另一种写法，按路径认不出）：
+      // 错记在那个实例里，渲染器靠登记口照样读到；超采样四个子帧各记一条，读出来正好 4 条（两路读法不重复算）
+      ['id-callback-frag', 'probe=id-callback&when=swallow&mute=1&patch=/engine/shade/patch.js%23calibration', /错误\[failure\.shader-error\]：.*s6-id-callback：着色器锚点缺失「#include <color_fragment>」/],
+      ['id-callback-frag-ss', 'probe=id-callback&when=swallow&mute=1&patch=/engine/shade/patch.js%23calibration', /错误\[failure\.shader-error\]：.*s6-id-callback：着色器锚点缺失「#include <color_fragment>」.*（共 4 处）/, '--samples', '4'],
+      ['id-callback-alias', 'probe=id-callback&when=swallow&mute=1&patch=/engine/shade/patch%252Ejs', /错误\[failure\.shader-error\]：.*s6-id-callback：着色器锚点缺失「#include <color_fragment>」/],
+      ['first-187', 'three=187&corrupt=shadow-return-first&when=swallow', /错误\[failure\.shader-error\]：.*投影量化锚点缺失（three r187）/],   // r187 那一套：五处里只坏头一处
+      // 合法 GLSL、语义没变的改写（头一处返回里夹一段块注释；函数头与返回各用一段块注释顶替空格）：投影块不是对拍过的原文了，两版都判失败
+      // （以前按文本数返回，核过了却漏换头一处，退出码 0、图里头一个 getShadow 的投影没量化）
+      ['comment', 'corrupt=shadow-return-comment&when=swallow', /错误\[failure\.shader-error\]：.*投影量化锚点缺失（three r170）：投影块 shadowmap_pars_fragment 不是对拍过的原文/],
+      ['comment-187', 'three=187&corrupt=shadow-return-comment&when=swallow', /错误\[failure\.shader-error\]：.*投影量化锚点缺失（three r187）/],
+      ['comment-space', 'corrupt=shadow-comment-space&when=swallow', /错误\[failure\.shader-error\]：.*投影量化锚点缺失（three r170）/],
+      ['comment-space-187', 'three=187&corrupt=shadow-comment-space&when=swallow', /错误\[failure\.shader-error\]：.*投影量化锚点缺失（three r187）/, '--samples', '4'],
     ]) {
       const r = still(name, query, ...more);
       assert.equal(r.status, 1, `${name}（${query}）应当以退出码 1 失败，实际 ${r.status}：${r.stderr.slice(-400)}`);
       assert.match(r.stderr, want, `${name}：报错里要点名缺的锚点`);
       assert.equal(r.png, false, `${name}：不能留下一张没打补丁的图`);
     }
+    // render(t) 照常画完、返回之后 4 毫秒才冒出来的补丁错（页面里没等的异步活），页面接住、静音、画回退帧：出帧前那次读记录已经过了，
+    // 截图之后再读一次。要么判失败不留图；要么错冒出来时图已经截完，留下的是没受影响的那一帧。不能留下回退帧（以前单采样退出码 0、留的就是它）
+    const late = still('late', 'late=4&mute=1');
+    assert.ok(late.status === 1 ? !late.png && /错误\[failure\.shader-error\]：.*s6-late：着色器锚点缺失/.test(late.stderr) : late.status === 0 && fs.readFileSync(late.file).equals(fs.readFileSync(ok.file)),
+      `late：退出码 ${late.status}，${late.png ? '留了图' : '没留图'}：${late.stderr.slice(-400)}`);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

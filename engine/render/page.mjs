@@ -15,8 +15,9 @@
 // 请求失败）、访问外网，都记成 film 上的致命错误，check() 抛出（RenderError，错误码见 README「错误码」，带下一步提示）；
 // 等 READY 期间出错立刻失败，并先关掉这个浏览器再抛。退出码与清理交给调用方（still / video / shots）。
 // 片段补丁没命中算构建失败（lib/patch-check.mjs）：engine/shade 的着色器补丁找不到锚点时，抛错的地方同时在 patch.js 模块闭包里记一条
-// 结构化记录。patchCheck(page) 读它（只在页面加载过 patch.js 时），有记录就抛 failure.shader-error：置 READY 之后读一次，此后这一页每次
-// page.evaluate 把结果交回之前都读（watchPatchModules 加的守卫：renderFrame、lib/yuv.mjs 的 captureGpuFrame、收尾都经它，不用各自调）——
+// 结构化记录。patchCheck(page) 读它（patch.js 每个实例登记的读出口，加上按页面请求过的 patch.js 地址找到的），有记录就抛 failure.shader-error：置 READY 之后读一次，此后这一页每次
+// page.evaluate 把结果交回之前都读（watchPatchModules 加的守卫：renderFrame、lib/yuv.mjs 的 captureGpuFrame、收尾都经它，不用各自调），
+// capture 截完图再读一次（截图走 CDP，不经 evaluate）——
 // 未捕获异常、render(t) 抛错、被页面接住后打到控制台、接住后静音照常画，单采样与超采样，都一样；--allow-gl-errors 不放行。
 // 页面自己往全局键上塞记录、往 console.error 打带机器前缀的字，记录里没有就不判。
 //
@@ -181,7 +182,7 @@ export async function openFilm(dir, {
   try {
     const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
     await page.addInitScript(faultWatch);
-    watchPatchModules(page);
+    await watchPatchModules(page);
     await page.addInitScript(renderInfo, {
       fps: render?.fps ?? null, width: w, height: h, profile: render?.profile ?? null,
       frameCount: render?.frameCount ?? null, contract: CONTRACT_VERSION,
@@ -296,12 +297,14 @@ export async function openFilm(dir, {
     let cdp = null;
     /** 截一帧：png（CDP，optimizeForSpeed，与 Playwright PNG 像素一致）或 jpeg（Playwright，quality 默认 95） */
     const capture = async (format = 'png', quality = 95) => {
+      let shot;
       if (format === 'png') {
         cdp ??= await page.context().newCDPSession(page);
-        const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, fromSurface: true });
-        return Buffer.from(data, 'base64');
-      }
-      return page.screenshot({ type: 'jpeg', quality });
+        shot = Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, fromSurface: true })).data, 'base64');
+      } else shot = await page.screenshot({ type: 'jpeg', quality });
+      // 截图不经 page.evaluate，守卫管不到：render(t) 返回之后、截图之前才冒出来的补丁错（页面里没等的异步活）在这里读，图不交回去
+      await patchCheck(page);
+      return shot;
     };
     return { browser, page, gpu: probe.renderer, info, contract: pageContract, check, close, failed, warnings, requests, external, capture, origin };
   } catch (e) {
