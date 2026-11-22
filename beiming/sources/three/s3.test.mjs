@@ -140,6 +140,14 @@ const BAD_MARKUP = Object.fromEntries([
   ['onerror', domWith('<p data-entity="a"><img src="#x" onerror="1">x</p>')],
   ['src', domWith('<p data-entity="a"><img src="/beiming/x.png">x</p>')],
   ['srcset', domWith(`<p data-entity="a"><img srcset="${FAR} 1x">x</p>`)],
+  // 一个属性里能写好几个地址的：整个不收，全是本文档片段的也不收（浏览器按屏幕密度挑候选，后面的候选各有各的去处）
+  ['srcsetLocal', domWith('<p data-entity="a"><img src="#x" srcset="#a 1x, #b 2x">x</p>')],
+  ['srcsetLater', domWith(`<p data-entity="a"><img srcset="#a 1x, ${FAR} 2x">x</p>`)],
+  ['srcsetBare', domWith('<p data-entity="a"><img srcset>x</p>')],
+  ['imagesrcset', domWith('<p data-entity="a" imagesrcset="#a 1x, #b 2x">x</p>')],
+  ['ping', domWith('<a data-entity="a" href="#top" ping="#a #b">x</a>')],
+  ['archive', domWith('<p data-entity="a" archive="#a,#b">x</p>')],
+  ['attributionsrc', domWith(`<a data-entity="a" href="#top" attributionsrc="#a ${FAR}">x</a>`)],
   ['href', domWith('<a data-entity="a" href="javascript:void 0">x</a>')],
   ['formaction', domWith(`<button data-entity="a" formaction="${FAR}">x</button>`)],
   ['background', domWith(`<table data-entity="a" background="${FAR}"><tr><td>x</td></tr></table>`)],
@@ -273,6 +281,26 @@ const CLIP = [
   { kind: 'canvas2d', name: 'part', rect: [380, 40, 580, 120], fill: ['#FFFFFF', '#FFFFFF'], clip: [0, 0, 90, 80], label: YEAR('part.word', [60, 55]) },
   { kind: 'canvas2d', name: 'whole', rect: [380, 200, 580, 280], fill: ['#FFFFFF', '#FFFFFF'], label: YEAR('whole.word', [60, 55]) },
 ];
+// 邻居显式写了 visibility: visible：隔离一个实体或一段文字时它的墨迹不能串进来。display: none 的实体照常装载
+const SEEN = `${WORD};visibility:visible`;
+const spot = (x, y, width = 140) => `position:absolute;left:${x}px;top:${y}px;width:${width}px;height:50px;line-height:50px`;
+const under = (name, x, more = '') => `<div data-entity="${name}" style="${spot(x, 20)}"><b data-text-id="${name}.word" style="${SEEN}${more}">AIM</b></div>`;
+const BLEED = [
+  { kind: 'dom', html:
+    // 叠在一起的三对：下层的字显式看得见（第三对还带 !important），上层分别是透明的、藏着的、空的
+    under('low_a', 20) + `<div data-entity="top_a" style="${spot(20, 20)};opacity:0">AIM</div>`
+    + under('low_b', 200) + `<div data-entity="top_b" style="${spot(200, 20)};visibility:hidden">AIM</div>`
+    + under('low_c', 400, '!important;opacity:1!important') + `<div data-entity="top_c" style="${spot(400, 20)}"></div>`
+    // 不是实体的外壳显式看得见、带底色，伪元素里还有一段显式看得见的字：只参与排版，不画进里面的实体
+    + `<style>.shell::before{content:"AIM";position:absolute;left:80px;top:0;visibility:visible!important;${WORD}}</style>`
+    + `<div class="shell" style="${spot(20, 100)};visibility:visible;background:#D9654B"><div data-entity="bare" style="height:50px"><b data-text-id="bare.word" style="${WORD}">AIM</b></div></div>`
+    // 一个实体里并排两段字，第二段显式看得见；盖板（下一个元素）只盖住第一段
+    + `<div data-entity="pair" style="${spot(20, 200, 300)}"><b data-text-id="pair.a" style="${WORD}">AIM</b><b data-text-id="pair.b" style="${SEEN};margin-left:80px">AIM</b></div>`
+    // display: none 写在自己身上、写在祖先身上
+    + `<div data-entity="none_self" style="${spot(200, 100)};display:none;background:#5FA8A0"><b data-text-id="none_self.word" style="${SEEN}">AIM</b></div>`
+    + `<div style="display:none"><div data-entity="none_up" style="${spot(400, 100)};background:#5FA8A0"><b data-text-id="none_up.word" style="${SEEN}">AIM</b></div></div>` },
+  { kind: 'canvas2d', name: 'cap', rect: [10, 190, 110, 260], fill: ['#FFFFFF', '#FFFFFF'] },
+];
 
 test('探针：藏起来的、被盖住的、被裁掉的内容，颜色层、编号层、visible、texts 四处说法一致', async (t) => {
   await withSource(t, async ({ open, read }) => {
@@ -280,6 +308,7 @@ test('探针：藏起来的、被盖住的、被裁掉的内容，颜色层、�
     const film = probeFilm([
       { ...probeShot('hide', HIDE), roles: { hero: 'hero', mustSee: ['veiled', 'caption', 'shown'] } },
       { ...probeShot('clip', CLIP), roles: { hero: 'out', mustSee: ['part'] } },
+      { ...probeShot('bleed', BLEED), roles: { hero: 'low_a', mustSee: ['low_b', 'low_c', 'top_a', 'top_b', 'top_c', 'none_self', 'none_up'] } },
     ]);
     /** 渲一帧，交回按实体名、文字 id 查的元数据，和数像素的三个函数：编号层上这个实体占几个像素、矩形里有几个墨色像素、(x, y) 是不是这个颜色 */
     async function shoot(session, f) {
@@ -339,6 +368,28 @@ test('探针：藏起来的、被盖住的、被裁掉的内容，颜色层、�
     assert.ok(text.ok && text.frames[0].texts.every((x) => x.edgeErr <= 1), JSON.stringify(text.frames[0].texts));
     assert.equal(c0.entity.part.visible, 1);
     await clip.close();
+
+    const bleed = await open(film, 'bleed');
+    const b0 = await shoot(bleed, 0);
+    // 上层什么都没画出来：编号层、visible 都没有它，下层那段字的墨迹不算它的；字在画面上，编号层和 visible 归下层
+    for (const [low, top, x] of [['low_a', 'top_a', 20], ['low_b', 'top_b', 200], ['low_c', 'top_c', 400]]) {
+      assert.deepEqual([b0.idPixels(top), b0.entity[top].visible, b0.entity[top].pxArea], [0, 0, 0], top);
+      assert.ok(b0.entity[top].bbox2d[0] >= w, `${top} 的 bbox2d ${b0.entity[top].bbox2d}`);
+      assert.deepEqual([b0.idPixels(low), b0.entity[low].visible, b0.ink([x, 20, x + 140, 70]) > 0], [140 * 50, 1, true], low);
+    }
+    // 外壳的底色和伪元素没画进里面的实体，实体自己的字照画
+    b0.near(150, 105, PAPER, '外壳');
+    assert.ok(b0.ink([20, 100, 95, 150]) > 0 && b0.ink([95, 100, 160, 150]) === 0);
+    // 盖板底下没有墨迹，露在外面的只有第二段：texts 里只剩它，框里也只有它自己的墨迹
+    assert.ok(b0.ink([10, 190, 110, 260]) === 0 && b0.ink([110, 190, 320, 260]) > 0);
+    assert.deepEqual(b0.texts, ['bare.word', 'low_a.word', 'low_b.word', 'low_c.word', 'pair.b']);
+    assert.ok(b0.meta.texts.find((x) => x.id === 'pair.b').bbox2d[0] >= 110);
+    // display: none（自己、祖先）：照常装载出帧，是空实体，它的字不进 texts
+    gone(b0, 'none_self', [200, 100, 340, 150]);
+    gone(b0, 'none_up', [400, 100, 540, 150]);
+    const ocr = verifySampledBboxes([{ frame: 0, meta: b0.meta, ocr: ocrFromInk(b0.meta, b0.mask), inkMask: b0.mask }]);
+    assert.ok(ocr.ok && ocr.frames[0].texts.every((x) => x.edgeErr <= 1), JSON.stringify(ocr.frames[0].texts));
+    await bleed.close();
   });
 });
 
@@ -351,7 +402,6 @@ test('探针：排版里查出来的错带错误码，装载当场失败', async
     duptext: ['contract.bad-value', dom('<p data-entity="a"><i data-text-id="t">x</i><i data-text-id="t">y</i></p>')],
     empty: ['contract.bad-value', dom('<p>没有实体</p>')],
     outside: ['contract.bad-value', dom('<div data-entity="a" style="position:absolute;left:600px;top:0;width:100px;height:10px"></div>')],
-    flat: ['contract.bad-value', dom('<div data-entity="a" style="display:none">x</div>')],
     badname: ['contract.bad-value', dom('<p data-entity="has-dash">x</p>')],
     kind: ['usage.bad-argument', [{ kind: 'webgl', name: 'a', rect: [0, 0, 1, 1] }]],
     font: ['usage.bad-argument', dom('<p data-entity="a">x</p>'), { fonts: [{ family: 'Far', url: 'https://example.invalid/far.woff2' }] }],
@@ -361,7 +411,7 @@ test('探针：排版里查出来的错带错误码，装载当场失败', async
   };
   await withSource(t, async ({ open }) => {
     const film = probeFilm(Object.entries(cases).map(([id, [, elements, more]]) => probeShot(id, elements, more)));
-    for (const [id, [code]] of Object.entries(cases)) await assert.rejects(open(film, id), coded(code), id);
+    for (const [id, [code]] of Object.entries(cases)) await assert.rejects(open(film, id), (err) => { assert.equal(err.code, code, `${id}：${err.message}`); return true; }, id);
   });
 });
 
