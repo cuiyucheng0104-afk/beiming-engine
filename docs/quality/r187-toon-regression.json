@@ -1,0 +1,154 @@
+{
+  "schema": "beiming.r187-toon-regression/1",
+  "generatedBy": "node engine/shade/r187-toon-regression.mjs --write",
+  "revisions": {
+    "golden": "170",
+    "candidate": "187"
+  },
+  "platform": {
+    "os": "darwin",
+    "arch": "arm64",
+    "node": "v24.13.1",
+    "chrome": "153.0.8010.12",
+    "angle": "metal",
+    "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+    "webglRendererGolden": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)"
+  },
+  "gate": {
+    "minPsnrDb": 45,
+    "negativeMaxPsnrDb": 35,
+    "frame": {
+      "width": 640,
+      "height": 480
+    },
+    "region": {
+      "width": 320,
+      "height": 240
+    }
+  },
+  "cases": [
+    {
+      "id": "frame",
+      "what": "彩色整帧（2 × 2 子区）",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true
+    },
+    {
+      "id": "bands-rim-fill-sky",
+      "what": "彩色子区",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true
+    },
+    {
+      "id": "shadow-deform",
+      "what": "彩色子区",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true
+    },
+    {
+      "id": "surface-layers",
+      "what": "彩色子区",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true
+    },
+    {
+      "id": "instanced-tints",
+      "what": "彩色子区",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true
+    },
+    {
+      "id": "id-pass",
+      "what": "法线 + 物体 / 实例 ID 通道整帧（uToonPass = 1，RGBA 四通道）",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true
+    }
+  ],
+  "negativeControls": [
+    {
+      "id": "neg-step1",
+      "what": "分档阈值 step1 整体 +0.12",
+      "region": "bands-rim-fill-sky",
+      "psnrDb": 31.47,
+      "exactMatch": false,
+      "maxAbsDiff": 78,
+      "fracGt1": 0.112865,
+      "fracGt5": 0.094492,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "neg-shadow-quant",
+      "what": "投影量化窗口放开到 0..1（等于不量化）",
+      "region": "shadow-deform",
+      "psnrDb": 32.6,
+      "exactMatch": false,
+      "maxAbsDiff": 77,
+      "fracGt1": 0.04543,
+      "fracGt5": 0.035573,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "neg-rim-off",
+      "what": "关掉背光侧与受光侧边缘光",
+      "region": "bands-rim-fill-sky",
+      "psnrDb": 22.47,
+      "exactMatch": false,
+      "maxAbsDiff": 235,
+      "fracGt1": 0.036237,
+      "fracGt5": 0.035182,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "neg-depth-deform-off",
+      "what": "摘掉带顶点形变的阴影深度材质（投影不跟形体弯）",
+      "region": "shadow-deform",
+      "psnrDb": 24.6,
+      "exactMatch": false,
+      "maxAbsDiff": 135,
+      "fracGt1": 0.019193,
+      "fracGt5": 0.018815,
+      "pass": false,
+      "caught": true
+    }
+  ],
+  "consoleWarnings": [],
+  "unknownRevisionWarnings": [
+    "r999: engine/shade 只在 three r170 / r187 上对拍过，当前 r999：锚点不匹配时会直接报错"
+  ],
+  "overallPass": true,
+  "notes": [
+    "投影采样核（唯一会改变画面的差异）：r187 删掉了 PCFSoftShadowMap，PCFShadowMap 改成深度纹理 + 硬件比较采样（sampler2DShadow）+ 按屏幕像素旋转的 5 点 Vogel 圆盘，投影边缘带屏幕空间抖动。`quantizeShadow` 在 r187 下把这段换回 r170 PCFSoftShadowMap 的确定性 3 × 3 双线性核（取样点落在纹素中心，硬件比较在那里等于单个纹素的 step）。不换核时同一套场景实测：整帧 40.47 dB、`shadow-deform` 36.16 dB、`instanced-tints` 39.31 dB，过不了门（macOS Metal）。",
+    "软阴影类型：r187 下把 `renderer.shadowMap.type` 设成 PCFSoftShadowMap 会被 three 退回 PCFShadowMap 并告警；标定场景在 r187 下直接设 PCFShadowMap，两版都没有告警。`engine/stage/film.js` 的 `createFilm` 默认值仍写死 PCFSoftShadowMap（不在本次改动范围），整条出片链切到 r187 时要跟着改成 PCFShadowMap。",
+    "版本告警：`engine/shade` 以前只认 r170，在 r187 下每次加载都告警；现在 r170 / r187 都不告警，别的版本照旧告警（对拍时另开一页把 r187 的版本号改成 999 实测，告警在）；着色器锚点缺失时两版都直接抛错。",
+    "不影响卡通着色的差异：meshtoon 片元去掉了 `#include <packing>`（卡通栈不用其中的函数）；`lights_fragment_begin` / `lights_fragment_end` 多了 SunLight、光照探针网格、Lambert / Phong 的 IBL，MeshToonMaterial 都不走（卡通合成只取第一盏平行光的方向与投影，颜色全按参数给定，没有光照衰减参与）；`color_fragment` 把顶点色与带 alpha 的顶点色合成一支，实例色结果相同；`common` 把 `inverseTransformDirection` 改名并留了同义宏；深度材质多了反向深度分支，默认不开。",
+    "阴影深度：r170 把深度打包进 RGBA8 颜色纹理，r187 直接用深度纹理；带顶点形变的 `makeDepthMaterial` 两版都照常生效（r187 只用它的顶点形变，片元输出不再被读）。标定场景里两版投影逐字节相同。",
+    "没有覆盖的：r170 的 PCFShadowMap（17 点核）在 r187 下没有等价物，r187 的 PCF 一律按上面的软阴影核出；VSMShadowMap、点光源与聚光灯投影、three 自带的非卡通材质不在这套对拍里。"
+  ]
+}
