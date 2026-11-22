@@ -47,9 +47,15 @@ export function urlOf(route, args, baseUrl) {
   return `${String(baseUrl).replace(/\/+$/, '')}${route.path.replace(/\{(\w+)\}/g, (_, k) => encodeURIComponent(args[k]))}${search.size ? `?${search}` : ''}`;
 }
 
-/** 产物地址：填进合同里 artifacts 那一行的路径模板，带 / 的产物路径逐段转义、/ 留着。服务端签发引用和薄壳规整引用共用这一处 */
-export const artifactUrl = (routes, id, name) => routes.find((r) => r.id === 'artifacts').path
-  .replace(/\{(\w+)\}/g, (_, k) => (k === 'name' ? String(name).split('/').map(encodeURIComponent).join('/') : encodeURIComponent(id)));
+/**
+ * 产物地址：填进合同里 artifacts 那一行的路径模板。服务端签发引用和薄壳规整引用共用这一处。
+ * 跟路由器（contract.mjs 的 matchPath）对齐：{name} 是模板末段时收多段路径，逐段转义、/ 留着；后面还有固定段时只收一个路径段，整个产物名转义成一段。
+ */
+export function artifactUrl(routes, id, name) {
+  const { path } = routes.find((r) => r.id === 'artifacts');
+  const last = path.endsWith('/{name}');
+  return path.replace(/\{(\w+)\}/g, (_, k) => (k !== 'name' ? encodeURIComponent(id) : last ? String(name).split('/').map(encodeURIComponent).join('/') : encodeURIComponent(name)));
+}
 
 /** 按路由和入参发一次请求，交回 fetch 的 Response。请求带着令牌，不跟重定向：跟过去令牌就到了别的服务 */
 export function callRoute(route, args, { baseUrl, token, fetchImpl = fetch }) {

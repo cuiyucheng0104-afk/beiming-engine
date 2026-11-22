@@ -16,6 +16,7 @@ import { fail, ok } from './envelope.mjs';
 import { startServer } from './server.mjs';
 import { buildMcpTools, createMcpSession } from './mcp.mjs';
 import { buildCliCommands, exitCodeForEnvelope, runApiCli } from './cli-shell.mjs';
+import { artifactUrl } from './client.mjs';
 
 test('A9-1 MCP 与 CLI 两个薄壳与 ROUTES 动词严格 1:1 对应，且动态新增合同路由无需手改即生效', () => {
   const mcpTools = buildMcpTools(ROUTES);
@@ -251,7 +252,7 @@ test('A9-4 MCP stdio 子进程对真实服务：initialize、tools/list、tools/
 test('A9-5 MCP 动态新增路由直接能调；信封被截短时从全文里找回联系表与切点条带图片', async () => {
   const custom = { id: 'custom-ping', method: 'POST', path: '/v1/custom/{slug}', auth: 'account', tokens: 100, summary: '动态测试路由', params: { slug: { type: 'string' } }, query: { slug: { type: 'string' } }, request: { type: 'object', properties: { count: { type: 'integer' } } } };
   const seen = [];
-  const full = { ok: true, outputs: [{ kind: 'contact', url: '/v1/films/f_9/artifacts/sheets/rev1-draft/contact.png' }, { kind: 'cut-strip', url: '/v1/films/f_9/artifacts/sheets/rev1-draft/cuts/cut-12.jpeg' }, { kind: 'report', url: '/v1/films/f_9/artifacts/report.json' }] };
+  const full = ok({ outputs: [{ kind: 'contact', url: '/v1/films/f_9/artifacts/sheets/rev1-draft/contact.png' }, { kind: 'cut-strip', url: '/v1/films/f_9/artifacts/sheets/rev1-draft/cuts/cut-12.jpeg' }, { kind: 'report', url: '/v1/films/f_9/artifacts/report.json' }] });
   const { createMcpSession } = await import('./mcp.mjs');
   const session = createMcpSession({
     baseUrl: 'http://stub.invalid/', token: 'acct', workspaceTokens: new Map([['f_9', 'ws-9']]), routes: [...ROUTES, custom],
@@ -627,6 +628,8 @@ test('A9-17 自动取图的地址由合同里 artifacts 的路径模板推出：
   assert.equal(seen.at(-1), 'GET /v2/works/f_9/files/a.png');
 });
 
+const SUFFIXED = '/r4/archive/{id}/media/{name}/download';
+
 /** 临时改掉内存里合同的 artifacts 路径模板（服务端和薄壳读的是同一份 ROUTES），跑完改回去 */
 async function withArtifactsPath(path, run) {
   const route = ROUTES.find((r) => r.id === 'artifacts');
@@ -637,7 +640,7 @@ async function withArtifactsPath(path, run) {
 
 test('A9-17 真实服务签发的产物引用也跟合同走：改了 artifacts 的路径模板，observe-sheet 交回新路径，MCP 自动取回完整的联系表', { skip: sheetSkip(), timeout: 300000 }, async () => {
   const call = callVia(createMcpSession({ baseUrl: api.url, token: account }));
-  const film = textOf(await call('films-create', { body: { output: { size: [320, 180], fps: '24/1', frames: 12 } } })).data.film;
+  const { film, token } = textOf(await call('films-create', { body: { output: { size: [320, 180], fps: '24/1', frames: 12 } } })).data;
   let job = textOf(await call('render', { id: film, wait: 30, body: { tier: 'draft' } }));
   while (['queued', 'running'].includes(job.data.status)) job = textOf(await call('job-get', { id: job.data.job, wait: 30 }));
   assert.equal(job.data.status, 'succeeded', JSON.stringify(job));
@@ -651,6 +654,18 @@ test('A9-17 真实服务签发的产物引用也跟合同走：改了 artifacts 
     assert.deepEqual(imagesOf(sheet), [before], '改了路径，取回的还是同一张完整的联系表');
     assert.equal(sha(before), contact.sha256);
     assert.deepEqual(before, readFileSync(join(root, 'films', film, 'deliver', contact.url.split('/out/')[1])));
+  });
+  // {name} 后面还有固定路径段：路由器只收一个转义过的路径段，签发的地址直接 GET 也得通。
+  await withArtifactsPath(SUFFIXED, async () => {
+    const sheet = await call('observe-sheet', { id: film, body: {} });
+    assert.equal(sheet.isError, false, JSON.stringify(sheet.content[0]));
+    const contact = textOf(sheet).outputs.find((o) => o.kind === 'contact');
+    assert.match(contact.url, new RegExp(`^/r4/archive/${film}/media/sheets%2F[^/]+\\.png/download$`));
+    const direct = await fetch(`${api.url}${contact.url}`, { headers: { authorization: `Bearer ${token}` } });
+    assert.equal(direct.status, 200, '服务端签发的地址直接 GET 得到 200');
+    assert.deepEqual(Buffer.from(await direct.arrayBuffer()), before);
+    assert.deepEqual(imagesOf(sheet), [before], '自动取图拿到同一张完整的联系表');
+    assert.deepEqual(imagesOf(await call('artifacts', { id: film, name: decodeURIComponent(contact.url.split('/')[5]) })), [before], '直接调 artifacts 也是图片块');
   });
 });
 
@@ -668,6 +683,42 @@ test('A9-17 真实服务签发的全文引用也跟合同走：改了 artifacts 
     assert.deepEqual([got.isError, notesOf(got)], [false, []], '全文取回来了，不留取不回的诊断');
     assert.equal(textOf(await call('artifacts', { id: film, name: ref.split('/').at(-1) })).data.film.title, title);
   });
+  await withArtifactsPath(SUFFIXED, async () => {
+    const got = await call('film-get', { id: film });
+    assert.match(textOf(got).outputs.find((o) => o.kind === 'response').url, new RegExp(`^/r4/archive/${film}/media/response-[0-9a-f]{64}\\.json/download$`));
+    assert.deepEqual([got.isError, notesOf(got)], [false, []], '全文取回来了，不留取不回的诊断');
+    putArtifact(film, 'sheets/rev1-draft/contact.png', PNG);
+    assert.deepEqual(imagesOf(await call('artifacts', { id: film, name: 'sheets/rev1-draft/contact.png' })), [PNG], '地址以 /download 结尾，图片照认');
+  });
+});
+
+test('A9-22 {name} 后面还有固定路径段时产物名整段转义：签发、规整引用、直接调、自动取图和命令行都对得上服务端路由器', async () => {
+  const routes = ROUTES.map((r) => (r.id === 'artifacts' ? { ...r, path: SUFFIXED } : r));
+  const name = 's/rev 1/contact.png';
+  const issued = artifactUrl(routes, 'f_9', name);
+  assert.equal(issued, '/r4/archive/f_9/media/s%2Frev%201%2Fcontact.png/download');
+  assert.equal(artifactUrl(ROUTES, 'f_9', name), '/v1/films/f_9/artifacts/s/rev%201/contact.png', '{name} 在末段时 / 留着');
+  await withArtifactsPath(SUFFIXED, () => assert.deepEqual(matchRoute('GET', issued).params, { id: 'f_9', name }, '冻结的路由器把签发的地址对回原产物名'));
+  const seen = [];
+  const fetchImpl = async (url, init) => {
+    const path = new URL(url).pathname;
+    seen.push(`${init.method} ${path}`);
+    // 没转义的旧写法路由器对不上，服务端签发的是转义过的；两种引用都规整成同一个地址，只取一次。
+    if (path.endsWith('/observe/sheet')) return Response.json(ok({ outputs: [{ kind: 'contact', url: issued }, { kind: 'contact', url: '/r4/archive/f_9/media/s/rev%201/contact.png/download' }, { kind: 'report', url: artifactUrl(routes, 'f_9', 'report.json') }] }));
+    return png();
+  };
+  const call = callVia(createMcpSession({ baseUrl: 'http://stub.invalid', token: 'ws', routes, fetchImpl }));
+  const sheet = await call('observe-sheet', { id: 'f_9', body: {} });
+  assert.equal(sheet.isError, false);
+  assert.deepEqual(imagesOf(sheet), [PNG]);
+  assert.deepEqual(seen, ['POST /v1/films/f_9/observe/sheet', `GET ${issued}`]);
+  assert.deepEqual(imagesOf(await call('artifacts', { id: 'f_9', name })), [PNG]);
+  assert.equal(seen.at(-1), `GET ${issued}`);
+  const out = join(root, 'a9-22.png');
+  let line = '';
+  assert.equal(await runApiCli(['artifacts', '--id', 'f_9', '--name', name, '--out', out, '--url', 'http://stub.invalid', '--token', 'ws'], { routes, fetchImpl, env: {}, stdout: { write(text) { line += text; } } }), 0);
+  assert.equal(JSON.parse(line).data.mimeType, 'image/png');
+  assert.deepEqual(readFileSync(out), PNG);
 });
 
 test('A9-18 批量取图逐张容错：中间一张断流或连不上，后面的图照样取回，坏的那张留下带地址的诊断', async () => {
@@ -690,7 +741,7 @@ test('A9-18 批量取图逐张容错：中间一张断流或连不上，后面�
   assert.deepEqual(notesOf(sheet).filter((n) => n.error), [{ url: at(2), error: 'terminated' }, { url: at(4), error: 'ECONNRESET' }]);
 });
 
-test('A9-19 截短信封的全文取不回来（404、断流、坏 JSON、不是信封、HTTP 200 的普通对象、HTTP 200 的失败信封、连不上）不装成功：留下诊断，isError 为 true', async () => {
+test('A9-19 截短信封的全文取不回来（404、断流、坏 JSON、不是信封、HTTP 200 的普通对象、只带 ok:true 的对象、违反 EN1 的信封、HTTP 200 的失败信封、连不上）不装成功：留下诊断，isError 为 true', async () => {
   const full = '/v1/films/f_9/artifacts/response-abc.json';
   const broken = {
     'HTTP 404': () => Response.json(fail('contract.not-found', '没有这个产物'), { status: 404 }),
@@ -698,6 +749,10 @@ test('A9-19 截短信封的全文取不回来（404、断流、坏 JSON、不是
     JSON: () => new Response('{"ok":tr'),
     信封: () => Response.json([1, 2]),
     全文不是信封: () => Response.json({ message: '当前不可用' }),
+    // 全文要过正式的 envelope/0.1 契约：只带 ok:true 的对象、字段齐全但 ok 和 exitCode 对不上的都不算。
+    '全文不是信封：format 不是 envelope/0.1': () => Response.json({ ok: true, message: '当前不可用' }),
+    '全文不是信封：EN1': () => Response.json({ ...fail('contract.bad-value', '没有这个产物'), ok: true }),
+    '全文不是信封：/data must be object': () => Response.json({ ...ok(), data: null }),
     // 字面写：fail() 会把没登记的码归一成别的码。
     '失败信封：contract.not-found': () => Response.json({ ok: false, error: { code: 'contract.not-found', message: '没有这个产物' } }),
     ECONNRESET: () => { throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } }); },

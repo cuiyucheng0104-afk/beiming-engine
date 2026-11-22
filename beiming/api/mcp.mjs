@@ -4,12 +4,22 @@
 import { createInterface } from 'node:readline';
 import { artifactUrl, callRoute, checkArgs, defaultUrl, imageMime, inputsOf, readEnvelope, sha256Hex, unreachable, urlOf, whyOf } from './client.mjs';
 import { buildOpenApi, ROUTES } from './contract.mjs';
+import { loadContracts } from '../kernel/contracts/validate.mjs';
 
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'beiming-api', version: buildOpenApi().info.version };
 const AUTH_NOTE = { account: '账户令牌', workspace: '这部片的工作区令牌', job: '作业所属那部片的工作区令牌' };
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const strings = (v) => (typeof v === 'string' ? [v] : v && typeof v === 'object' ? Object.values(v).flatMap(strings) : []);
+
+// 正式的契约校验器，第一次读截短信封的全文时才装。
+let frozen;
+/** 一个对象不是合法的 envelope/0.1（结构加 EN1 到 EN4）时交回头一条原因，合法交回 null */
+async function envelopeProblem(body) {
+  const { contract, schemaErrors, violations } = (await (frozen ??= loadContracts())).validate(body);
+  if (contract !== 'envelope') return 'format 不是 envelope/0.1';
+  return [...schemaErrors, ...Object.entries(violations).map(([id, why]) => `${id}：${why[0]}`)][0] ?? null;
+}
 
 // 冻结契约内嵌进来时带着 $schema、$id，工具入参结构里不留。
 const plainSchema = (schema) => JSON.parse(JSON.stringify(schema, (key, value) => (key === '$schema' || key === '$id' ? undefined : value)));
@@ -51,11 +61,11 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
 
   const tokenFor = (route, args) => (route.auth === 'account' ? token : workspaceTokens.get(route.auth === 'job' ? jobFilm.get(args.id) : args.id) ?? token);
 
-  /** 一份产物字节变成内容块：图片直接回 image，JSON 与文本回正文，别的二进制只回摘要 */
-  async function artifactBlocks(res, url) {
+  /** 一份产物字节变成内容块：图片直接回 image，JSON 与文本回正文，别的二进制只回摘要。认图片看产物名 name，不看地址：地址在产物名后面可能还有固定段 */
+  async function artifactBlocks(res, url, name = url) {
     const bytes = Buffer.from(await res.arrayBuffer());
     const type = (res.headers.get('content-type') ?? 'application/octet-stream').split(';')[0].trim();
-    const image = imageMime(type, url);
+    const image = imageMime(type, name);
     const meta = { url, bytes: bytes.length, sha256: sha256Hex(bytes), mimeType: image ?? type };
     if (image) return [text(meta), { type: 'image', data: bytes.toString('base64'), mimeType: image }];
     if (!image && /json$|^text\//.test(type)) return [text(bytes.toString('utf8'))];
@@ -63,7 +73,7 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
   }
 
   /**
-   * 引用（地址或路径）落在本服务的产物地址上时交回 [片号, 规整后的路径]；别的服务、不是产物地址、带 .. 的越界路径交回 null。
+   * 引用（地址或路径）落在本服务的产物地址上时交回 { film, path: 规整后的路径, name: 解码后的产物名 }；别的服务、不是产物地址、带 .. 的越界路径交回 null。
    * 产物地址的样子每次从合同里 artifacts 那一行的路径模板推出，不在这里另抄一份。
    */
   function artifactRef(ref) {
@@ -76,7 +86,7 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
       const { id, name } = shape.exec(path).groups;
       const segs = decodeURIComponent(name).split('/');
       if (url.origin !== root.origin || segs.some((s) => !s || s === '.' || s === '..' || s.includes('\\'))) return null;
-      return [decodeURIComponent(id), artifactUrl(routes, decodeURIComponent(id), segs.join('/'))];
+      return { film: decodeURIComponent(id), path: artifactUrl(routes, decodeURIComponent(id), segs.join('/')), name: segs.join('/') };
     } catch {
       return null;
     }
@@ -93,21 +103,23 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
     const get = (path) => fetchImpl(`${base}${path}`, { method: 'GET', redirect: 'error', headers: { authorization: `Bearer ${bearer}` } });
     const mine = (ref) => {
       const hit = artifactRef(ref);
-      return hit && hit[0] === String(film ??= hit[0]) ? hit[1] : null;
+      return hit && hit.film === String(film ??= hit.film) ? hit : null;
     };
     const blocks = [];
     let incomplete = false;
     const full = env.outputs?.find((o) => o?.kind === 'response')?.url;
     if (full) {
       try {
-        const path = mine(full);
-        if (!path) throw new Error('全文引用不是本服务这部片的产物地址');
-        const res = await get(path);
+        const hit = mine(full);
+        if (!hit) throw new Error('全文引用不是本服务这部片的产物地址');
+        const res = await get(hit.path);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const body = await res.json();
-        // 这里只处理成功信封：HTTP 200 的普通对象、失败信封都不是这次调用的全文。
-        if (!isObject(body) || typeof body.ok !== 'boolean') throw new Error('全文不是信封');
-        if (!body.ok) throw new Error(`全文是失败信封：${body.error?.code ?? '没有错误码'}`);
+        // 这里只收成功信封，而且要过正式的 envelope/0.1 契约：HTTP 200 的普通对象、失败信封、只带 ok:true 的对象都不是这次调用的全文。
+        if (!isObject(body)) throw new Error('全文不是信封');
+        if (body.ok === false) throw new Error(`全文是失败信封：${body.error?.code ?? '没有错误码'}`);
+        const problem = await envelopeProblem(body);
+        if (problem) throw new Error(`全文不是信封：${problem}`);
         env = body;
       } catch (e) {
         incomplete = true;
@@ -115,11 +127,11 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
       }
     }
     const refs = [env.outputs, env.data?.sheet, env.data?.strips, env.data?.outputs].flatMap(strings);
-    for (const path of new Set(refs.map(mine).filter((p) => p && imageMime('', p)))) {
+    for (const [path, name] of new Map(refs.map(mine).filter((hit) => hit && imageMime('', hit.name)).map((hit) => [hit.path, hit.name]))) {
       try {
         const res = await get(path);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        blocks.push(...await artifactBlocks(res, path));
+        blocks.push(...await artifactBlocks(res, path, name));
       } catch (e) {
         blocks.push(text({ url: path, error: whyOf(e) }));
       }
@@ -130,7 +142,7 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
   async function callTool(route, args, override) {
     const bearer = override ?? tokenFor(route, args);
     const res = await callRoute(route, args, { baseUrl, token: bearer, fetchImpl });
-    if (route.binary && res.ok) return { content: await artifactBlocks(res, urlOf(route, args, '')) };
+    if (route.binary && res.ok) return { content: await artifactBlocks(res, urlOf(route, args, ''), args.name) };
     const env = await readEnvelope(res, baseUrl);
     // 建片（账户动词）交回片号、工作区令牌，委托模式还有作业号；工作区动词交回作业号。都记下，后面的调用自己选令牌。
     const str = (...vs) => vs.find((v) => typeof v === 'string');

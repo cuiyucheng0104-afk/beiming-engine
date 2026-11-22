@@ -98,7 +98,8 @@ export async function runApiCli(argv = process.argv.slice(2), { env = process.en
     if (!(cmd.route.binary && res.ok)) return print(await readEnvelope(res, baseUrl));
     bytes = Buffer.from(await res.arrayBuffer());
     const type = (res.headers.get('content-type') ?? 'application/octet-stream').split(';')[0].trim();
-    mimeType = imageMime(type, urlOf(cmd.route, args, '')) ?? type;
+    // 认图片看产物名，不看请求地址：地址在产物名后面可能还有固定段。
+    mimeType = imageMime(type, args.name ?? urlOf(cmd.route, args, '')) ?? type;
   } catch (e) {
     return print(unreachable(baseUrl, whyOf(e)));
   }
