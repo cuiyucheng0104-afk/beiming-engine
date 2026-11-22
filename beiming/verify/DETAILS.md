@@ -1,6 +1,6 @@
 # Welch 检验细则
 
-[README.md](README.md) 的补充：`welch.mjs` 的数值口径、通道选择、校准实测、已知误报漏报和输入校验边界。接口与输出结构看 README。
+[README.md](README.md) 的补充：`welch.mjs` 的数值口径、通道选择、校准实测、已知误报漏报和输入校验边界。接口与输出结构看 README。文末另有 `controllability.mjs` 两项回归作业（局部性、加锁重建）的细则。
 
 ## 做法与数值口径
 
@@ -40,3 +40,44 @@
 ## 限制与输入校验
 
 - **限制**：亮度检验看不到亮度相抵的纯色偏，要查色偏时按 `channel: 0`、`1`、`2` 各跑一次。样本含 NaN 或无穷（帧对象查 `data` 的全部分量，含当前 `channel` 没用到的通道，抛 `RangeError`；EXR 只查参与计算的通道，深度层的无穷不算错）、`data` 不是 TypedArray 或普通数组、普通数组里有不是 number 的元素（`null`、字符串、布尔，抛 `TypeError`，不做隐式转换）、尺寸不一致、种子组或 `data`、p 值数组含空洞（稀疏数组，抛 `TypeError`，先于个数与长度检查，所以 `new Array(1)` 也报空洞；普通数组的每个元素只读一次并拷成快照，读取中途被 getter 删项同样抛 `TypeError`，改了长度抛 `RangeError`；种子组分两段读：入口先记下两边的长度和每个槽位的属性描述符（不触发元素 getter），普通数据槽位的帧就此定下，带 getter 的槽位等读完 `options` 再各读一次；种子数够不够、相不相等都按入口长度判（稠密的 0 个、1 个与两边不等都抛 `RangeError`），再解析全部帧。入口长度是函数调用入口第一步、读 `options` 之前各读一次的 `length`，须是原始的非负安全整数：`Array` 的 Proxy 让 `length` 返回对象、字符串、负数或小数一律抛 `TypeError`，`data` 与 p 值数组的 `length` 同理；之后的平面数、统计轮数和自由度都只认这一个数，返回的 `kA`、`kB` 恒等于它。每读一个 `options` 属性、每读一个带 getter 的槽位、每解析完一帧各复查一次原种子组，长度变了或槽位被换成别的帧抛 `RangeError`、槽位是空洞或被删抛 `TypeError`，复查只比长度和槽位描述符、不再读元素，所以 `options` 或 A 的 getter 把 B 从 4 帧缩成 3 帧、`alpha` 把 B 缩成 2 帧而 `blockSize` 再补回 3 帧、不改长度原地把 B 的某一帧换掉、或帧的 `data` 与像素 getter 回头改种子组，都在统计前被拒；读一次就把自己改写成数据属性的惰性 getter 也算被换，要惰性加载就传路径。帧对象本身（`data` 里的数）在调用期间被别处改写不在防护范围内）、`options` 不是普通对象、`alpha` 不是 (0, 1) 内的数、`bins` 超过 10000 时抛错。两边全部帧先解析、校验完才开始统计，任何一帧不合格都不会算出半截结果；代价是 2K 个平面同时在内存里（每单元 8 字节）。`studentTwoSidedP` 在自由度大于 1e7（含无穷）时按正态算；`benjaminiHochberg` 只收 [0, 1] 内的数字。
+
+## 可控与可复现回归（controllability.mjs）
+
+04 §12 看板「可控与可复现」栏的两项作业。两项都先让片子描述过 `film/3.0` 契约，交给渲染器的是副本，不改调用方的片子描述、补丁和锁。
+
+### 帧对象与帧对比较
+
+- **帧对象**：`{ frame, width, height, color, channels?, shot? }`。`color` 收 `Uint8Array`、`Uint8ClampedArray`（按 ÷255 归一）、`Float32Array`、`Float64Array` 与数的数组（按 [0, 1] 标尺直接比）；`channels` 只收 1、3、4，不写时照长度推。渲染器交回全片 `[0, output.frames)` 每帧正好一幅：缺帧、重复抛 `Error`，帧号越界抛 `RangeError`，没交数组抛 `TypeError`。
+- **`compareFramePair(a, b, { diffLevel = P8_DIFF_LEVEL })`** 回冻结的 `{ identical, sha256A, sha256B, mse, psnrDb, maxAbsDiff, gt5Pixels, totalPixels, fracGt5 }`。`identical` 看颜色层字节的 SHA-256，所以 +0 与 −0 算不同；`mse` 对全部分量求平均，`psnrDb = 10 × log10(1 / mse)`，`mse` 是 0 时为 `Infinity`；一个像素任一通道差严格大于 `diffLevel` 算一个超差像素，`fracGt5 = gt5Pixels / (width × height)`。
+- **坏输入抛错**：不是帧对象、`color` 类型不收、数组有空洞或非数的元素、两边数组类型不同抛 `TypeError`；宽高不是正整数、通道数或长度不对、两边尺寸不一致、分量是 NaN 或无穷、`diffLevel` 为负抛 `RangeError`。
+- **P8 口径**：`P8_PSNR_MIN_DB = 50`、`P8_MAX_DIFF_FRAC = 0.001`、`P8_DIFF_LEVEL = 5 / 255`。容差档一帧在线内，要 `psnrDb >= psnrMinDb` 且 `fracGt5 <= maxDiffFrac`，三个门限都能在两项作业的参数里改。
+
+### 局部性回归 runLocalityTest
+
+参数 `{ film, patch, renderFilm, explainContext = {}, tier = 'hash', allowNoOp = false, psnrMinDb, maxDiffFrac, diffLevel }`。
+
+- **补丁**：`patch/0.1`，经 `applyFilmWrite` 作用；片子描述没带修订号时按补丁自己的 `rev` 对。作用不上抛错（消息以「补丁作用不上」开头），改了总帧数抛 `RangeError`。
+- **预测**：补丁每个操作的路径（`rename` 另加新路径）在改动前、改动后的片子描述上各问一次 `explainParam`，问到的取并集（新加的键改动前问不到，删掉的键改动后问不到；两边都问不到就抛错）。一帧算在范围里要同时满足：帧号落在某条预测的半开区间 `frameRange` 里、它所在的镜头在那条预测的 `shots` 里（`style/view/scene` 这类预测区间会跨过没受影响的镜头，按镜头表收紧）、帧上标了 `shot` 时标的镜头也在里面。
+- **渲染**：`renderFilm(片子描述, { phase: 'before' | 'after' })` 各调一次，可以是异步的。
+- **算不算变了**：`hash`、`hash-same-machine` 看字节，差一个末位也算；`tolerance` 只把超出 P8 口径的差算成变化。
+- **判定**：有变化帧在范围外，`reason` 是 `leaked-outside-affects`；一帧都没变是 `no-frames-changed`（不理参数的空壳渲染器过不了；确实不该变时给 `allowNoOp: true`）；否则 `ok`。
+- **报告**（深冻结）：`{ format: 'locality-regression/0.1', pass, reason, filmId, tier, allowNoOp, paths, predicted: { shots, frameRanges, frameCount }, totalFrames, changedFrames, leakedFrames, unchangedOutsideCount }`。`changedFrames`、`leakedFrames` 是全片帧号的升序数组，`frameCount` 是按镜头表收紧后的预测帧数。04 §3.5 样例把 `shots/s01/cards/cam/params/margin` 从 0.9 改成 0.82：预测 `shots: ['s01']`、`frameRanges: [[0, 180]]`，`[180, 300)` 变一帧就不过。
+
+### 加锁重建回归 runRebuildTest
+
+参数 `{ film, lock, renderLocked, tier = 'hash-same-machine', psnrMinDb, maxDiffFrac, diffLevel }`。
+
+- **开渲之前就拒**：缺锁、锁不是 `lock/1.0` 或不合锁文件契约、`lock.film` 不是这部片子、片子描述带着修订号（补丁入口交回的）而和 `lock.rev` 不同。不跑 `lock-check/0.1` 的跨文件不变量（一致性夹具的锁只钉帧源，过不了），要查锁钉没钉全由调用方先查。
+- **渲染**：`renderLocked(片子描述, 锁, { run: 1 | 2 })` 调两次，每次交回帧数组，或 `{ frames, deliverables }`（`deliverables` 是「文件名 → 哈希字符串」）。两遍必须各自重渲：同一帧两遍交回同一块缓冲区直接抛错。
+- **判定**：哈希档有帧不逐位相同是 `frames-differ`，帧都相同而 `deliverables` 有键不同（多一键、少一键、值不同）是 `deliverable-mismatch`；容差档有帧超出 P8 口径是 `outside-tolerance`，不比 `deliverables`（编码件在容差档本来就不要求逐位相同）。
+- **报告**（深冻结）：`{ format: 'rebuild-regression/0.1', pass, reason, filmId, rev, tier, totalFrames, identicalFrames, failedFrames, mismatchedDeliverables, worstPsnrDb, worstFracGt5 }`。`rev` 是锁的修订号，锁没写时为 `null`；`worstPsnrDb` 是各帧里最低的，全片零差时为 `Infinity`。
+
+### 看板行
+
+- **`buildControllabilityRow({ filmId, recordedAt, l2PassRate = null, locality = null, rebuild = null, legacyNightlyPass = null })`** 回深冻结的 `controllability-row/0.1`：`locality` 是 `{ pass, reason, tier, paths, totalFrames, predictedFrames, changedFrames, leakedFrames }`（后三项是帧数），`rebuild` 是 `{ pass, reason, tier, rev, totalFrames, identicalFrames, failedFrames, worstPsnrDb, worstFracGt5 }`（无穷大的 PSNR 记 `null`，整行可直接写成 JSON），没给的项是 `null`。`overallPass`：给了的项全过才是 `true`，`l2PassRate` 要正好是 1。
+- **拒收**：两份报告一项都没给、`filmId` 和报告的片号不同、报告的 `pass` 和它带的帧表矛盾抛 `Error`；`recordedAt` 不是带时区的 ISO 8601 时刻、`l2PassRate` 不在 [0, 1] 抛 `RangeError`；报告结构不对、`legacyNightlyPass` 不是布尔抛 `TypeError`。
+- **`appendControllabilityRow(filePath, row)`**：追加一行 JSON（目录不在就建），交回这一行。只收 `buildControllabilityRow` 交回的行，手拼的、读回来改过的抛 `TypeError`。
+
+### 实渲核验
+
+测试 V14-9 用页面宿主（`beiming/host/page`）把一致性校准片裁成两个镜头实渲：改 s01 的快门角只变 `[0, 3)`，改 s02 的背景只变 `[3, 6)`；加锁重渲每遍新起一个帧源进程，6 帧逐位相同；串扰与第二遍动过参数的负对照都判红。本机没有无头浏览器（二进制不存在）时这一条跳过，别的启动错误照常算失败。
