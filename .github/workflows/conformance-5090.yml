@@ -101,12 +101,16 @@ jobs:
         run: node --input-type=module -e "const { browserOk } = await import('./tests/ci/browser.mjs'); if (!browserOk) { console.error('::error::5090 运行器上没有无头浏览器'); process.exit(3); }"
       - name: 真起停一次 three 帧源（只有空的浏览器目录时上一步也会过，render.test.mjs 起不来就跳过）
         run: node --input-type=module -e "const { startSource } = await import('./beiming/host/page/host.mjs'); try { const s = await startSource(); await s.stop(); } catch (e) { console.error('::error::5090 运行器上起不了 three 帧源：' + e.message); process.exit(3); }"
-      - name: 帧源一致性套件、校准检查与帧源实渲测试（three 实渲测试起不了帧源会 t.skip、退出码照样 0：TAP 里有 # SKIP 就 exit 3）
+      - name: 帧源一致性套件、校准检查与帧源实渲测试（three 实渲测试起不了帧源会 t.skip、退出码照样 0：由 Node 核对 TAP 报告 0 跳过，否则 exit 3）
         run: |
-          set -o pipefail
+          set -eo pipefail
           node --test 'beiming/kernel/conformance/*.test.mjs' 'beiming/calib/*.test.mjs' 'beiming/sources/blender/*.test.mjs' 'beiming/host/page/*.test.mjs'
-          node --test --test-reporter=tap 'beiming/sources/three/*.test.mjs' | tee "${RUNNER_TEMP:-/tmp}/conformance-5090-three.tap"
-          if grep -q '# SKIP' "${RUNNER_TEMP:-/tmp}/conformance-5090-three.tap"; then echo "::error::5090 上 three 实渲测试有被跳过的，不能当绿灯"; exit 3; fi
+          # 不用 tee / grep：缺命令（127）或文件读不了（2）会被 if grep 当成「没有跳过」放行。只靠 node：读不到、没有用例、有跳过都不过
+          TAP="${RUNNER_TEMP:-/tmp}/conformance-5090-three.tap"
+          rc=0
+          node --test --test-reporter=tap 'beiming/sources/three/*.test.mjs' > "$TAP" || rc=$?
+          TAP="$TAP" node --input-type=module -e "import fs from 'node:fs'; const tap = fs.readFileSync(process.env.TAP, 'utf8'); process.stdout.write(tap); if (!/^# tests [1-9]/m.test(tap) || /^# skipped [1-9]/m.test(tap) || /# SKIP\b/.test(tap)) { console.error('::error::5090 上 three 实渲测试有被跳过或未产出有效 TAP，不能当绿灯'); process.exit(3); }"
+          test "$rc" -eq 0 || exit "$rc"
 
   nightly-rebuild:
     needs: conformance-5090

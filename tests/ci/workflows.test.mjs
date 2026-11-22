@@ -4,7 +4,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { REPO } from './helpers.mjs';
 
 const read = rel => fs.readFileSync(path.join(REPO, rel), 'utf8');
@@ -170,10 +172,29 @@ test('conformance-5090.yml：PR 先过轻量 filter，改到帧源且开了 5090
   const nightlyCond = (/if: >-\n([\s\S]*?)\n {4}\S/.exec(nightly)?.[1] ?? '').replace(/\s+/g, ' ').trim();
   assert.ok(nightlyCond.startsWith("!cancelled() && needs['conformance-5090'].result == 'success' && "), nightlyCond);
   // render.test.mjs 起不了帧源就 t.skip，node --test 仍退出 0：three 那一条用 TAP 落盘，出现 # SKIP 就 exit 3
-  assert.match(gpu, /set -o pipefail\n/);
-  const tap = /node --test --test-reporter=tap 'beiming\/sources\/three\/\*\.test\.mjs' \| tee "([^"\n]+)"\n/.exec(gpu);
-  assert.ok(tap, 'three 实渲测试要用 TAP 报告并落盘');
-  assert.ok(gpu.includes(`if grep -q '# SKIP' "${tap[1]}"; then`) && /grep -q '# SKIP'[^\n]*exit 3; fi/.test(gpu), '5090 上必跑的 three 实渲测试不得静默跳过当绿灯');
+  assert.match(gpu, /set -eo pipefail\n/);
+  assert.match(gpu, /\n\s+rc=0\n\s+node --test --test-reporter=tap 'beiming\/sources\/three\/\*\.test\.mjs' > "\$TAP" \|\| rc=\$\?\n/, 'three 实渲测试要用 TAP 报告并落盘，退出码先记下');
+  // 不得用 grep / tee 判跳过：缺命令（127）或文件不可读（2）会被 if grep 当成未命中放行。命令行里不许出现，注释里提到不算
+  assert.doesNotMatch(gpu.replace(/^\s*#.*$/gm, ''), /\b(grep|tee)\b/, '判跳过只靠 node');
+  // 校验脚本拿出来真跑：bash 双引号里没有 $ ` \" 时内容原样交给 node
+  const verify = /\n\s+TAP="\$TAP" node --input-type=module -e "([^"\n]*readFileSync[^"\n]*)"\n\s+test "\$rc" -eq 0 \|\| exit "\$rc"\n/.exec(gpu)?.[1];
+  assert.ok(verify && !/[$`]/.test(verify), 'three 的 TAP 要由 node 校验，之后再按测试自己的退出码收尾');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i6-tap-'));
+  const OK = 'TAP version 13\nok 1 - a\n# tests 1\n# skipped 0\n';
+  for (const [name, tap, want] of [
+    ['通过', OK, 0],
+    ['有 # SKIP 指令', OK.replace('ok 1 - a', 'ok 1 - a # SKIP 起不了帧源'), 3],
+    ['汇总里跳过数非零', OK.replace('# skipped 0', '# skipped 2'), 3],
+    ['没有用例', OK.replace('# tests 1', '# tests 0'), 3],
+    ['空文件', '', 3],
+    ['文件不存在', null, 1],
+  ]) {
+    const TAP = path.join(dir, `${name}.tap`);
+    if (tap !== null) fs.writeFileSync(TAP, tap);
+    const r = spawnSync(process.execPath, ['--input-type=module', '-e', verify], { env: { ...process.env, TAP }, encoding: 'utf8' });
+    assert.equal(r.status, want, `${name}：${r.stderr}`);
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
   assert.ok(nightly.replace(/\s+/g, ' ').includes(`!${PR} &&`), 'PR 里一致性通过也不能触发夜间重建');
   assert.ok(nightly.replace(/\s+/g, ' ').includes(sameRepo), 'nightly-rebuild 缺同仓来源守卫');
   assert.match(nightly, /uses: actions\/setup-node@/);
