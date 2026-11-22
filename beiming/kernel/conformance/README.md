@@ -94,4 +94,61 @@ node beiming/kernel/conformance/run.mjs
 
 后面要在上面出帧的那几次 `open`（原样的镜头输入、带例子锁的、草稿档的）装不上时，入口当场停下，不写记录。
 
-测试：`node --test 'beiming/kernel/conformance/*.test.mjs'`（不起浏览器）
+## 帧源注册与升级：七行报告
+
+`run.mjs` 是三镜头的实渲入口；`suite.mjs` 是判定器，**读历史测量，不启动渲染器**。在仓库根目录看某一列：
+
+```sh
+node --input-type=module -e "import {loadProbeSuiteReport as load} from './beiming/kernel/conformance/suite.mjs'; const r = load('blender', {machine:'mac'}); console.table(r.rows); process.exitCode = r.ok ? 0 : 1"
+```
+
+`loadProbeSuiteReport(source, {machine, conformance, tableDir})` 支持 `three`、`blender`；机器默认 `mac`，合规档默认 `full`。先读[探针表](../../calib/table/README.md)，再读同帧源、同机器的 `fixtures/v4-<source>.<machine>.json` 补测法线与乱序。指定自备 `tableDir` 时，把探针列和补测 JSON 放在该目录，不借用内置补测。**缺测不是通过**：Linux 5090 两遍重渲的历史读数不能证明乱序或法线合规；没有该机补测时，这两行应为 `fail`。
+
+Mac 补测走两个实际帧源的 `open` 和 `render`。Three 用页面宿主，Blender 用 Cycles CPU。预期法线由校准场景求交得到，固定在相机空间。每个帧源在三个静止端头球内部采 256 个像素，连续比较五个采样帧，共 1280 对向量；另起进程以 `[24,48,0,36,12]` 重排五帧，按帧号比较颜色和法线层的 SHA-256。两份实测的法线夹角中位数分别为 0.05224° 和 0.02611°，两层各自的乱序差异帧数均为 0。重新采集会更新对应的 Mac JSON：
+
+```sh
+node beiming/kernel/conformance/fixtures/v4-probe.mjs record three
+node beiming/kernel/conformance/fixtures/v4-probe.mjs record blender
+node beiming/kernel/conformance/fixtures/v4-probe.mjs check
+```
+
+最后一条命令只复核已有记录，可在没有渲染器的环境下运行。
+
+新帧源直接调用 `evaluateSourceConformance({source, machine, conformance, determinism, readings, observations})`。结果总是按下表顺序列七行，有 `status`、`measured`（按指标名取值）、`threshold`（含端点的 `[下限, 上限]`，`null` 上限表示不限）；失败时另有 `reason`。`limited` 只免第 2–5 行，任一必测行缺数、错类型或越线均令 `ok: false`。
+
+| 行 | `readings` 字段与口径 |
+|---|---|
+| `color-linearity` | `colorLinearityMaxRelErr` ≤ 0.02；零分量另量 `colorZeroMaxAbsErr` ≤ 0.005。取线性 RGB，不用显示码值。 |
+| `depth` | `depthMedianRelErr` ≤ 0.02；取已知平面的相机前向深度（米），不是射线距离。 |
+| `object-id-meta` | `objectIdMetaMinIou` ≥ 0.95；三个方块取单独渲的编号层。Blender 旧表没有单独渲 IoU，只取完全可见的前景主方块，不把被遮挡的可见部分与完整框硬比。 |
+| `normal-space` | `normalMedianDeg` ≤ 2°；实测法线与同空间预期向量夹角的中位数。 |
+| `camera-convention` | `cameraAnchorMaxPx` ≤ 1 px；取三轴及转台光栅化位置的最大误差，不用纯矩阵投影冒充读回。 |
+| `shuffled-order` | 哈希档 `shuffledMaxDiff` = 0；容差档 `shuffledPsnrDb` ≥ 50 且 `shuffledFracAbove5` ≤ 0.001。 |
+| `repeat-twice` | 同上，字段前缀为 `repeat`。5090 的 Blender 显卡列用容差档；其余三列用同机哈希档。 |
+
+例如旧页面帧源只需提交三行的观测：
+
+```js
+const report = evaluateSourceConformance({ source: 'legacy-page', conformance: 'limited',
+  determinism: 'hash-same-machine', readings: {
+    colorLinearityMaxRelErr: 0.012, colorZeroMaxAbsErr: 0, shuffledMaxDiff: 0, repeatMaxDiff: 0,
+  } });
+```
+
+也可传原始 `observations`，对应行优先重算而不信汇总：`normals` 为 `{expected, got}` 三维向量对；`sequential`、`shuffled`、`repeat` 是独立采集的帧记录数组，键为整数 `frame`。哈希档每帧带解码层数据的 SHA-256 `digest`。采集法线层时，每帧同时提供 `normalDigest`，任一层发生变化都会记为该帧不一致。容差档每帧带展平的 `rgb8` 三通道数组。按帧号配对，取各帧最低 PSNR 与最高大差像素比例（一个像素的任一通道差 **>5** 才计一次）。完全相同的像素在 JSON 报告中写 `'+Infinity'`。乱序至少两帧、帧集合相同且访问顺序确实改变；重复两遍不得代替乱序证据。
+
+两次采集的进程与会话由调用方建立。Three 的历史表保留六个场景的两遍 SHA-256 比较结论，Blender 的历史表还保留用于比对的摘要对。文件加载器另核对补测的帧源版本、校准像素集合、相机空间方向和转台的实际帧序。
+
+## 历史不变量：逐项做正负对照
+
+`invariants.mjs` 的 `INVARIANTS` 按 `INV-01` 至 `INV-17` 登记。用 `makeValidInvariantFixture(id)` 看该项的输入形状；传入实际观测即可判定。`makeViolatingInvariantFixture(id)` 提供相同口径下的单故障反例。示例（不是对当前成片、CI 或机器的认证）：
+
+```js
+import { INVARIANTS, checkInvariant, makeValidInvariantFixture, makeViolatingInvariantFixture, runInvariantSuite } from './invariants.mjs';
+const id = 'INV-04';
+console.log(checkInvariant(id, makeViolatingInvariantFixture(id))); // ok: false，并给出失败原因
+const cases = INVARIANTS.map(({ id }) => ({ id, fixture: makeValidInvariantFixture(id) }));
+console.log(runInvariantSuite(cases)); // passed: 17, failed: 0
+```
+
+运行全部对照与原三镜头单测：`node --test 'beiming/kernel/conformance/*.test.mjs'`（不起浏览器）。
