@@ -1,0 +1,74 @@
+{
+  "format": "question/0.1",
+  "id": "30-1",
+  "level": 2,
+  "title": "一张节拍表",
+  "brief": "做一条 90 秒、24 帧每秒、1920×1080 的巨兽对决短片，共 2160 帧，配 80 BPM 的音乐（一拍 18 帧）。画面、特效、相机、配乐只读同一张节拍表：表里的命名时刻不少于 20 个，所有事件都写成「命名时刻加偏移」，片子描述里没有写死的帧号，节拍常量只定义一次。命名时刻落在拍点上（帧号是 18 的整数倍）的比例不低于 85%。",
+  "deliverable": {
+    "size": [1920, 1080],
+    "fps": "24/1",
+    "frames": 2160,
+    "audio": "required"
+  },
+  "assets": {},
+  "refs": [
+    "beiming/bench/refs/level-2-a/30-1.reference.json"
+  ],
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=24, frames=2160)",
+    "cut_at(shots)"
+  ],
+  "scoring": [
+    {
+      "metric": "beat.onset-hit",
+      "source": "events",
+      "args": {
+        "event": "moment",
+        "bpm": 80,
+        "minCount": 20,
+        "tolFrames": 0,
+        "minHitRate": 0.85
+      },
+      "pass": "命名时刻不少于 20 个；帧号是 18 的整数倍的比例不低于 85%",
+      "weight": 0.6
+    },
+    {
+      "metric": "timeline.single-source",
+      "source": "片子描述的静态检查",
+      "args": {
+        "maxBeatConstantDefs": 1,
+        "maxHardcodedFrames": 0
+      },
+      "pass": "节拍常量只定义一次；事件的时间里没有写死的帧号",
+      "weight": 0.4
+    }
+  ],
+  "controls": {
+    "referencePass": "参考读数必须得满分：20 个命名时刻里 17 个落拍（85%），节拍常量只定义一次，没有写死的帧号",
+    "negative": "负对照必须判不合格：有事件写死帧号，或者节拍常量定义了两次，或者落拍比例低于 85%",
+    "random": "随机对照：任取一帧正好是 18 的整数倍的概率是 1/18（5.6%），随机时刻必须判不合格"
+  },
+  "needs": [
+    "time.timeline",
+    "time.envelope"
+  ],
+  "budget": {
+    "tokens": 500000,
+    "wallMs": 2400000,
+    "gpuSeconds": 600
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": false,
+    "blockedBy": []
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "案例量测与考题设计调研第 6 节给的初值，还没试跑",
+    "noiseFloor": null,
+    "version": 0
+  },
+  "ext": {
+    "bench.code": "外01-1"
+  }
+}
