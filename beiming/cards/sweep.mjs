@@ -4,6 +4,7 @@ import { resolveParams } from './runtime.mjs';
 import { parseVersion } from './status.mjs';
 import { digest, encodeCells, prepareOutDir, writeCells } from './sweep-artifacts.mjs';
 import { measure } from './sweep-metrics.mjs';
+import { dataValidators } from './sweep-schema.mjs';
 
 export const SWEEP_TOKEN_LIMIT = 800;
 export const MAX_SWEEP_CELLS = 64;
@@ -64,7 +65,14 @@ function prepare(card, request, timing) {
     names.add(param);
     combos = combos.flatMap(combo => values.map(v => ({ ...combo, [param]: v })));
   }
-  const cells = combos.map(params => ({ params: globalThis.structuredClone(params), resolvedParams: resolveParams(card, params, timing) }));
+  const validators = dataValidators(card);
+  const cells = combos.map(params => {
+    const resolvedParams = resolveParams(card, params, timing);
+    for (const [name, validate] of validators) {
+      if (!validate(resolvedParams[name])) throw bad(`参数 ${name} 不符合卡声明的 schema`);
+    }
+    return { params: globalThis.structuredClone(params), resolvedParams };
+  });
   return { axisNames: [...names], cells };
 }
 

@@ -123,6 +123,19 @@ test('无效请求在第一个求值前拒绝，含第 64 格越界与 data 内�
   assert.equal(calls, 0);
 });
 
+test('data 的显式取值与默认值均在第一格前按卡目录的 schema 校验', async () => {
+  const valid = CAMERA.params.keys.default;
+  const invalid = [{ ...valid[0], f: -1 }];
+  let calls = 0;
+  const opts = { evaluateCell() { calls++; return { value: 1 }; } };
+  const badDefault = { ...CAMERA, params: { ...CAMERA.params, keys: { ...CAMERA.params.keys, default: invalid } } };
+  for (const [card, params] of [[CAMERA, { keys: [valid, invalid] }], [badDefault, { fovDeg: [30] }]]) {
+    const res = await cards.sweepCard(card, { params, metrics: ['value'] }, opts);
+    assert.equal(res.error?.code, 'usage.bad-argument');
+    assert.equal(calls, 0);
+  }
+});
+
 test('浮点曝光按比例改变亮度，差异指标区分完全相同和不同的帧', async () => {
   const metrics = ['lumaMean', 'lumaP50', 'lumaP95', 'lumaP99', 'contrast', 'psnr', 'ssim', 'maxDiff'];
   const res = await cards.sweepCard(TITLE_CARD, { params: { distance: [0.5, 1, 1.5] }, metrics }, {
