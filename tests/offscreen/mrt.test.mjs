@@ -1,4 +1,4 @@
-// WP2.2：ss=1/msaa=0 的主场景 MRT 与双遍 ID 必须逐字节相同；先回退/无墨线后切 MRT 不失配；自定义 fragmentNode 不触发 GPU fault；soft/own/outlineVertex/非等价深度状态自动回退。
+// WP2.2：ss=1/msaa=0 的主场景 MRT 与双遍 ID 必须逐字节相同；先回退/无墨线后切 MRT 不失配；自定义 fragmentNode 不触发 GPU fault；阴影嵌套遍/BundleGroup/wireframe/非等价渲染状态全覆盖。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGpu } from '../../engine/offscreen/load.mjs';
@@ -7,7 +7,7 @@ import { createIdPass } from '../../engine/offscreen/tsl/idpass.js';
 import { createInk } from '../../engine/offscreen/tsl/ink.js';
 import { createLook } from '../../engine/offscreen/tsl/look.js';
 import { createGpuTimer, attachGpuTimer, detachGpuTimer } from '../../engine/offscreen/gputimer.mjs';
-import { toonKind } from '../../engine/offscreen/tsl/toon.js';
+import { toonKind, useR170Shadow } from '../../engine/offscreen/tsl/toon.js';
 
 const W = 128, H = 72;
 let gpu = null, host = null, why = null;
@@ -307,5 +307,157 @@ test('S1：depthTest=false / 非默认 depthFunc / clippingPlanes / polygonOffse
       ink.dispose(); look.dispose(); pass.dispose();
       mrt.dispose(); mrt.depthTexture.dispose(); ids.dispose(); ids.depthTexture.dispose(); outRt.dispose();
     }
+  }
+});
+
+test('B4：shadowMap + DirectionalLight.castShadow 多帧动画，嵌套阴影遍不污染 MRT ID，逐帧与双遍逐字节一致', async t => {
+  if (why) return t.skip(`离屏出片不可用：${why}`);
+  const { THREE, TSL } = gpu, { renderer } = host;
+  const prevShadow = renderer.shadowMap.enabled, prevType = renderer.shadowMap.type;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+
+  const makeShadowScene = () => {
+    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x304050);
+    const camera = new THREE.PerspectiveCamera(35, W / H, 0.1, 100);
+    camera.position.set(0, 3.5, 9); camera.lookAt(0, 0.5, 0);
+    const sun = useR170Shadow(TSL, new THREE.DirectionalLight(0xffffff, 2.2));
+    sun.position.set(4, 7, 5); sun.castShadow = true;
+    sun.shadow.mapSize.set(256, 256);
+    sun.shadow.camera.left = -5; sun.shadow.camera.right = 5;
+    sun.shadow.camera.top = 5; sun.shadow.camera.bottom = -5;
+    sun.shadow.camera.near = 1; sun.shadow.camera.far = 25;
+    scene.add(sun);
+    const kind = toonKind({ THREE, TSL }, { name: 'mrt-shadow-b4' });
+    const boxMat = kind.make({ color: '#7D78B8' }), floorMat = kind.make({ color: '#9EA8B8' });
+    const box = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.8, 1.8), boxMat);
+    box.position.set(0, 1.1, 0); box.castShadow = true; box.receiveShadow = true;
+    kind.bind(box, boxMat, { outline: true }); scene.add(box);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), floorMat);
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+    kind.bind(floor, floorMat, { outline: true }); scene.add(floor);
+    return { scene, camera, box, floor };
+  };
+
+  const { scene, camera, box } = makeShadowScene();
+  const userBefore = function () {};
+  box.onBeforeRender = userBefore;
+  const pass = createIdPass({ THREE, TSL, renderer }), mrt = target(2), color = target(1), ids = target(1);
+  const look = createLook({ THREE, TSL, renderer }, { width: W, height: H, ss: 1, msaa: 0 });
+  const outRt = new THREE.RenderTarget(W, H, { type: THREE.UnsignedByteType, colorSpace: THREE.SRGBColorSpace });
+  const post = host.pipeline(look.output);
+  const dummy = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, 0.01), new THREE.MeshBasicNodeMaterial({ colorWrite: false, depthWrite: false }));
+  dummy.userData.noId = true; dummy.position.set(0, 0, -50);
+  try {
+    for (let f = 0; f < 3; f++) {
+      box.rotation.y = f * 0.45; box.rotation.x = f * 0.2;
+      const prepared = pass.renderMrt(scene, camera, mrt);
+      assert.ok(prepared && Number.isFinite(prepared.maxWidth), `第 ${f} 帧应走 MRT 路径`);
+      assert.equal(box.onBeforeRender, userBefore, 'renderMrt 不应改写用户 onBeforeRender');
+
+      renderer.setRenderTarget(color); renderer.clear(true, true, true); renderer.render(scene, camera);
+      pass.render(scene, camera, ids);
+      const mrtId = await bytes(renderer, mrt, 1), refId = await bytes(renderer, ids);
+      assert.ok(mrtId.some(x => x !== 0), `第 ${f} 帧阴影场景 MRT ID 不得被嵌套阴影遍清零`);
+      assert.ok(mrtId.equals(refId), `第 ${f} 帧阴影场景 MRT ID 应与双遍逐字节相同`);
+      assert.ok((await bytes(renderer, mrt, 0)).equals(await bytes(renderer, color)), `第 ${f} 帧阴影场景 MRT 主颜色应逐字节相同`);
+
+      // 端到端 createLook(ss=1, msaa=0)：验证确实走 MRT（ink:ids=0）且成图与双遍逐字节相同
+      const timer = createGpuTimer(host.device);
+      attachGpuTimer(renderer, timer); timer.mark('pre');
+      look.render(scene, camera, { t: f / 24, outline: { opacity: 1 }, kuwahara: false, paper: false, bloom: false, vignette: 0, grain: 0 });
+      timer.end(); detachGpuTimer(renderer);
+      const timing = await timer.read(); timer.dispose();
+      assert.equal(timing.spans.find(s => s.label === 'ink:ids')?.ms, 0, `第 ${f} 帧 createLook 应命中 MRT（ink:ids=0）`);
+      renderer.setRenderTarget(outRt); post.render();
+      const got = await bytes(renderer, outRt);
+
+      // 强制退回双遍（加屏幕外 noId 占位物体）对拍
+      scene.add(dummy);
+      look.render(scene, camera, { t: f / 24, outline: { opacity: 1 }, kuwahara: false, paper: false, bloom: false, vignette: 0, grain: 0 });
+      scene.remove(dummy);
+      renderer.setRenderTarget(outRt); post.render();
+      const ref = await bytes(renderer, outRt);
+      assert.ok(got.equals(ref), `第 ${f} 帧阴影场景 createLook MRT 输出应与双遍逐字节相同`);
+    }
+  } finally {
+    detachGpuTimer(renderer);
+    renderer.setRenderTarget(null);
+    renderer.shadowMap.enabled = prevShadow; renderer.shadowMap.type = prevType;
+    look.dispose(); pass.dispose();
+    mrt.dispose(); mrt.depthTexture.dispose(); color.dispose(); color.depthTexture.dispose();
+    ids.dispose(); ids.depthTexture.dispose(); outRt.dispose();
+  }
+});
+
+test('S3：wireframe=true 回退双遍，避免线框 ID 与实心双遍 ID 失配', async t => {
+  if (why) return t.skip(`离屏出片不可用：${why}`);
+  const { THREE, TSL } = gpu, { renderer } = host;
+  const { scene, camera, meshes } = world();
+  meshes[0].material.wireframe = true;
+  const pass = createIdPass({ THREE, TSL, renderer }), mrt = target(2);
+  const look = createLook({ THREE, TSL, renderer }, { width: W, height: H, ss: 1, msaa: 0 });
+  const outRt = new THREE.RenderTarget(W, H, { type: THREE.UnsignedByteType, colorSpace: THREE.SRGBColorSpace });
+  const post = host.pipeline(look.output);
+  try {
+    assert.equal(pass.renderMrt(scene, camera, mrt), null, 'wireframe=true 必须被 canMrt 拒绝回退双遍');
+    look.render(scene, camera, { t: 0, outline: { opacity: 1 }, kuwahara: false, paper: false, bloom: false, vignette: 0, grain: 0 });
+    renderer.setRenderTarget(outRt); post.render();
+    const got = await bytes(renderer, outRt);
+    const dummy = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, 0.01), new THREE.MeshBasicNodeMaterial({ colorWrite: false, depthWrite: false }));
+    dummy.userData.noId = true; dummy.position.set(0, 0, -50); scene.add(dummy);
+    look.render(scene, camera, { t: 0, outline: { opacity: 1 }, kuwahara: false, paper: false, bloom: false, vignette: 0, grain: 0 });
+    renderer.setRenderTarget(outRt); post.render();
+    const ref = await bytes(renderer, outRt);
+    assert.ok(got.equals(ref), 'wireframe=true 回退输出与强制双遍逐字节一致');
+  } finally {
+    renderer.setRenderTarget(null);
+    look.dispose(); pass.dispose(); mrt.dispose(); mrt.depthTexture.dispose(); outRt.dispose();
+  }
+});
+
+test('N6：BundleGroup 静态场景连续两帧 MRT 均刷新 ID，不丢失墨线且两帧逐字节一致', async t => {
+  if (why) return t.skip(`离屏出片不可用：${why}`);
+  const { THREE, TSL } = gpu, { renderer } = host;
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x304050);
+  const camera = new THREE.PerspectiveCamera(35, W / H, 0.1, 100);
+  camera.position.set(0, 0, 10); camera.lookAt(0, 0, 0);
+  const kind = toonKind({ THREE, TSL }, { name: 'mrt-bundle-n6' });
+  const shared = kind.make({ color: '#7D78B8' });
+  const bundle = new THREE.BundleGroup();
+  for (const x of [-1.6, 1.6]) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), shared);
+    m.position.set(x, 0, 0); kind.bind(m, shared, { outline: true }); bundle.add(m);
+  }
+  scene.add(bundle);
+  const pass = createIdPass({ THREE, TSL, renderer }), mrt = target(2), ids = target(1);
+  const look = createLook({ THREE, TSL, renderer }, { width: W, height: H, ss: 1, msaa: 0 });
+  const outRt = new THREE.RenderTarget(W, H, { type: THREE.UnsignedByteType, colorSpace: THREE.SRGBColorSpace });
+  const post = host.pipeline(look.output);
+  try {
+    pass.render(scene, camera, ids);
+    const refId = await bytes(renderer, ids);
+    assert.ok(refId.some(x => x !== 0), '参考 ID 非空');
+
+    const idFrames = [], lookFrames = [];
+    for (let f = 0; f < 2; f++) {
+      assert.ok(pass.renderMrt(scene, camera, mrt), `BundleGroup 第 ${f} 帧应走 MRT`);
+      const idBytes = await bytes(renderer, mrt, 1);
+      assert.ok(idBytes.some(x => x !== 0), `BundleGroup 第 ${f} 帧 ID 不应为零`);
+      assert.ok(idBytes.equals(refId), `BundleGroup 第 ${f} 帧 MRT ID 应与双遍逐字节相同`);
+      idFrames.push(idBytes);
+
+      look.render(scene, camera, { t: 0, outline: { opacity: 1 }, kuwahara: false, paper: false, bloom: false, vignette: 0, grain: 0 });
+      renderer.setRenderTarget(outRt); post.render();
+      lookFrames.push(await bytes(renderer, outRt));
+    }
+    assert.ok(idFrames[0].equals(idFrames[1]), 'BundleGroup 连续两帧 ID 逐字节相同');
+    assert.ok(lookFrames[0].equals(lookFrames[1]), 'BundleGroup 连续两帧成图逐字节相同');
+    look.render(scene, camera, { t: 0, outline: { opacity: 0 }, kuwahara: false, paper: false, bloom: false, vignette: 0, grain: 0 });
+    renderer.setRenderTarget(outRt); post.render();
+    assert.ok(!lookFrames[1].equals(await bytes(renderer, outRt)), 'BundleGroup 第 2 帧确实绘出墨线（与 opacity=0 不同）');
+  } finally {
+    renderer.setRenderTarget(null);
+    look.dispose(); pass.dispose(); mrt.dispose(); mrt.depthTexture.dispose();
+    ids.dispose(); ids.depthTexture.dispose(); outRt.dispose();
   }
 });

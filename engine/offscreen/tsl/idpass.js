@@ -12,7 +12,7 @@
 //   材质带 map 且设了 alphaTest 或 transparent 时，按贴图 alpha 镂空（阈值 alphaTest > 0 ? alphaTest : 0.5）；MeshBasicNodeMaterial 原生处理 InstancedMesh、SkinnedMesh 与变形目标。
 //   材质上 userData.noId = true：这个物体不进 ID 图（不描边也不挡线）。
 // 不支持（遇到抛 Error(code 'unsupported.outline')，不静默画错）：BatchedMesh、多材质数组、只给 GLSL 字符串没给 tsl 的 outlineVertex。
-// MRT 只接受与双遍深度/混合语义完全等价的不透明 toonKind 网格（depthWrite/depthTest/LessEqualDepth/NormalBlending、无本地裁剪/多边形偏移/自定义 fragmentNode、
+// MRT 只接受与双遍深度/混合语义完全等价的不透明 toonKind 网格（depthWrite/depthTest/LessEqualDepth/NormalBlending、非线框、无本地裁剪/多边形偏移/自定义 fragmentNode、
 // 无 soft/own/outlineVertex/noId、无 overrideMaterial/纹理背景）；任一不满足即回退双遍，且不修改主材质的 mrtNode，避免着色器缓存跨路径污染。
 
 export function createIdPass({ THREE, TSL, renderer }) {
@@ -23,10 +23,20 @@ export function createIdPass({ THREE, TSL, renderer }) {
   const keyOf = x => { if (!x) return 0; if (!objKey.has(x)) objKey.set(x, seq++); return objKey.get(x); };
   const made = new Set();
   const HIDE = new THREE.MeshBasicNodeMaterial({ visible: false });
-  // 全局 MRT 节点自带 objectGroup 级别 uniform，逐物体在 onBeforeRender 填 ID、onAfterRender 归零：
-  // 绝不改写主材质的 mrtNode，单附件回退（mrt=null）与双附件 MRT（mrt=sceneMrt）在 three RenderContexts 中天然分桶，不会跨状态复用旧着色器。
-  const mrtU = { baseId: uniform(0), perInstance: uniform(0), width: uniform(1), alpha: uniform(1) };
-  const sceneMrt = mrt({ output, inkId: Fn(() => idNode(mrtU, true))() }).setClearColor('inkId', 0x000000, 0);
+  // 全局 MRT 节点用 objectGroup 级别 vec4 uniform 的 onObjectUpdate 按当帧 WeakMap 查表填 ID：
+  // 1) 绝不改写主材质 mrtNode，单附件回退（mrt=null）与双附件 MRT（mrt=sceneMrt）在 three RenderContexts 中天然分桶；
+  // 2) onObjectUpdate 在 updateBefore（嵌套阴影遍）之后、updateForRender 之前执行，从根上免疫嵌套渲染遍覆写；
+  // 3) 不改写物体 onBeforeRender/onAfterRender，且在 BundleGroup 缓存重放帧同样随 updateForRender 刷新。
+  let mrtEntries = null;
+  const mrtVec = uniform(new THREE.Vector4()).onObjectUpdate(({ object }, self) => {
+    const e = mrtEntries?.get(object);
+    if (e) self.value.set(e.baseId, e.perInst, e.wmul, e.alpha);
+    else self.value.set(0, 0, 0, 0);
+  });
+  const sceneMrt = mrt({
+    output,
+    inkId: Fn(() => idNode({ baseId: mrtVec.x, perInstance: mrtVec.y, width: mrtVec.z, alpha: mrtVec.w }, true))(),
+  }).setClearColor('inkId', 0x000000, 0);
 
   const BLEND_KEYS = ['blending', 'blendSrc', 'blendDst', 'blendEquation', 'blendSrcAlpha', 'blendDstAlpha', 'blendEquationAlpha', 'depthWrite'];
   const unsupported = (o, what) => Object.assign(new Error(`离屏墨线 ID 通道未支持：${what}（物体 ${o.name || o.type}）`), { code: 'unsupported.outline' });
@@ -173,10 +183,10 @@ export function createIdPass({ THREE, TSL, renderer }) {
     return maxWidth;
   }
 
-  // 与双遍 idMaterialFor（默认 depthTest=true / LessEqualDepth / NormalBlending / 无本地裁剪与多边形偏移）逐状态核对等价性
+  // 与双遍 idMaterialFor（默认 depthTest=true / LessEqualDepth / NormalBlending / 非线框 / 无本地裁剪与多边形偏移）逐状态核对等价性
   const canMrt = (scene, entries) => !scene.overrideMaterial && !scene.backgroundNode && !scene.background?.isTexture &&
     entries.every(e => (e.mode === 'outline' || e.mode === 'solid') && !e.ov && e.o.isMesh &&
-      e.m0?.isToonTslMaterial === true && !e.m0.transparent && e.m0.depthWrite === true &&
+      e.m0?.isToonTslMaterial === true && !e.m0.transparent && !e.m0.wireframe && e.m0.depthWrite === true &&
       e.m0.depthTest === true && e.m0.depthFunc === THREE.LessEqualDepth &&
       e.m0.colorWrite === true && e.m0.blending === THREE.NormalBlending &&
       !e.m0.polygonOffset && !e.m0.stencilWrite && !e.m0.map && !(e.m0.alphaTest > 0) &&
@@ -186,25 +196,18 @@ export function createIdPass({ THREE, TSL, renderer }) {
     const p = plan ?? collect(scene);
     if (!canMrt(scene, p.entries)) return null;
     const prevTarget = renderer.getRenderTarget(), prevClear = renderer.getClearColor(new THREE.Color()), prevAlpha = renderer.getClearAlpha(), prevMrt = renderer.getMRT();
-    const callbacks = [];
+    const map = new WeakMap();
+    for (const e of p.entries) map.set(e.o, e);
+    const prevEntries = mrtEntries;
     try {
-      setU(mrtU, 0, 0, 0, 0);
-      for (const e of p.entries) {
-        const origBefore = e.o.onBeforeRender, origAfter = e.o.onAfterRender;
-        callbacks.push([e.o, origBefore, origAfter]);
-        e.o.onBeforeRender = function (...a) { origBefore.apply(this, a); setU(mrtU, e.baseId, e.perInst, e.wmul, e.alpha); };
-        e.o.onAfterRender = function (...a) { setU(mrtU, 0, 0, 0, 0); origAfter.apply(this, a); };
-      }
+      mrtEntries = map;
       const rt = typeof target === 'function' ? target() : target;
       renderer.setMRT(sceneMrt); renderer.setRenderTarget(rt);
       renderer.clear(true, true, true); renderer.render(scene, camera);
       return { maxWidth: p.maxWidth, target: rt, texture: rt.textures[1], depthTexture: rt.depthTexture };
     } finally {
-      setU(mrtU, 0, 0, 0, 0);
-      for (let i = callbacks.length - 1; i >= 0; i--) {
-        callbacks[i][0].onBeforeRender = callbacks[i][1];
-        callbacks[i][0].onAfterRender = callbacks[i][2];
-      }
+      mrtEntries = prevEntries;
+      mrtVec.value.set(0, 0, 0, 0);
       renderer.setMRT(prevMrt); renderer.setClearColor(prevClear, prevAlpha); renderer.setRenderTarget(prevTarget);
     }
   }
