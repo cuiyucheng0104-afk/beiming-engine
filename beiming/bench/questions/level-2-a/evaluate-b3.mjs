@@ -268,19 +268,28 @@ export const read23_2 = orMissing(async (file, film, { jump = 0.35 } = {}) => {
 //     同一次调用的几个实参配成一组，函数体照每一组各算一遍：ge(frame, at.m01) 和 ge(width, 640) 不会配出 frame >= 640。
 //     形参的默认值只在那一次调用没传这一位时才用（没写、写 undefined 或 void 0，隔一层辅助函数原样传下来的也算没传）：
 //     ge(frame, at.m01) 和靠默认值 640 的 ge(width) 也配不到一起。函数体里的兜底值（min ?? 640、min || 640、min ??= 640）和默认值一个口径。
+//     展开的实参摊平了再按位配：ge(frame, ...[at.m01])、先存成数组再展开（const args = [frame, at.m01]; ge(...args)）和直接写一样是传了这一位，
+//     摊出来没有这一位（...[]、数组里的空位）才算没传；剩余形参（...pair）收下剩下的几位，pair[0]、解构、再展开传下去都照这几位认。
 //     调用回出来的函数（柯里化 ge(432)(frame)、先存成量 const late = ge(432)、三元挑出来的）带着外层那次调用的实参，和里层这次的实参配成一组。
 //     文件里有调用点、文件外也有人调用的函数（导出的、交出去的、帧回调），文件外那次调用另算一组：
 //     实参不知道，各位都可能没传，导出的照名字认帧。
 //   帧的线性式 = 帧和常数只做加减、乘除常数得来的式子，赋给变量照样跟着走（声明、赋值、形参默认值都算，定义写在用处后面也传得到）；
 //     同文件的函数回出来的也跟着走（offset(frame) 回 n - 432 就是 frame - 432），逗号、await 包一层照样算；
+//     写成语句块的函数走得到末尾、写了不带值的 return，算它还回一个 undefined（传给带默认值的形参，默认值就生效），每条路都回了值的不算；
+//     写在文件里的对象、数组上取一格和直接点名一样（timing.offset(frame)、cfg.min、steps[0]、const { offset } = timing），
+//     后来赋上去的属性、展开抄来的对象、工厂回出来的对象都算；
 //     三元两支都算得出来就都算，有一支算不出来（命名时刻）时另一支只留带着帧的式子，常数不知道配谁、不算。
 //   比较时折回帧上再看门槛：f - 432 >= 0、f / 24 >= 18、f >= 18 * 24、f >= 0x1b0 都是第 432 帧。门槛两位以上才算（x > 1 这样的
 //   归一化比较不算），式子里有名字以 frame 结尾的一位数也算。减去命名时刻（f - at('m02')）、除以总长这样带别的量的式子不是线性式，不算。
 // Python 和解析不了的 JS（语法错、Node 抹不掉的 TS 写法）先把注释、字符串抹成空格，再用正则整份文件一起认（hardcodedLines）。
 // 节拍常量的定义数 = 节拍表（有就算 1）+ 别处再给 bpm、tempo、beat* 赋数的次数；节拍表在不在看读数里有没有 bpm、beatFrames。
 // shortcut: 只扫 JS、TS、Python 源码，film.json 以外的 JSON 不看；只在上面四种写法里认帧号，拿帧做算术不比较的
-// （(f - 432) / 216、clamp(f, 432, 648)、f % 24）不认；帧经对象的方法、回调、展开实参、别的文件传进辅助函数的不跟，
-// 对象的方法和别的文件的函数回出来的值（Math.max(f, 432)、tools.offset(f)）、当实参或默认值传进去的函数（run(f, n => n >= 432)）也不跟。真片上漏了再补规则。
+// （(f - 432) / 216、clamp(f, 432, 648)、f % 24）不认；帧经类的方法、this、回调、摊不开的展开实参（...view.rest，从它起往后当没传）、
+// 别的文件传进辅助函数的不跟，内置对象和别的文件的函数回出来的值（Math.max(f, 432)）、当实参或默认值传进去的函数（run(f, n => n >= 432)）也不跟。真片上漏了再补规则。
+// shortcut: 对象、数组只认写在这份文件里的字面量：当实参传进函数的、解构形参收到的、类的实例上的不跟；字面量里没写的键算不知道、不当 undefined，
+// get、set 不算；点名的数组被动过（调了它的方法、给下标赋值）或交出去过就不摊；展开摊出几种可能时最多排 64 行；
+// 带标号的块、有出口的循环拿不准，算走得到函数末尾；几个互相递归的函数经对象属性回值（i = scan(src, i + 1).end）时环境一圈多一种，
+// 靠 spent、LIMIT 收住，六个一环的实测 3 秒。镜头真这么写了再补
 // shortcut: 左边算不出来的兜底常数不算（view.start ?? 432 和 at.m02 ?? 0 分不开）；解构形参里的默认值不分哪次调用；
 // 柯里化回出来的函数在文件里有调用点时，导出去的那一份（export const late = ge(432)）不另照名字认；a && b 不算；
 // 先起了名字再回出去、放进对象里的函数（const test = f => …; return test）不照名字认：分不清它出没出这个文件；
@@ -404,28 +413,143 @@ function scanTree({ ast, manager }) {
   const LIMIT = 10000, DEEP = 400, NONE = [];
   // 没传的实参、undefined 记成常数 NaN：拿它做算术还是 NaN，跟谁比都不成立，传给下一层照旧是没传。CUT 是递归绕回来的那一支：不添东西，和算不出来（空表）不是一回事
   const VOID = [{ k: 0, c: NaN }], CUT = [], isVoid = (a) => !a.k && Number.isNaN(a.c), sure = (a) => a.k || isVoid(a);
-  // 函数各回哪几个式子：箭头函数直接回的那个，或函数体里自己的 return；生成器调用回的是迭代器，不算
-  const returns = new Map();
-  each(ast, (node, within) => { if (node.type === 'ReturnStatement' && node.argument && within) returns.set(within, [...(returns.get(within) ?? []), node.argument]); });
-  const returnsOf = (fn) => (fn.body.type !== 'BlockStatement' ? [fn.body] : fn.generator ? [] : returns.get(fn) ?? []);
-  // 一个式子的值可能原样取自哪几个子式：三元的两支、?? || && 的两边、逗号的最后一个、await 等的那个
+  // 函数各回哪几个式子：箭头函数直接回的那个，或函数体里自己的 return。不带值的 return、走得到函数末尾的，另算回一个 undefined（VOID_NODE），
+  // 和三元里写 undefined 一个口径；生成器调用回的是迭代器，不算
+  const VOID_NODE = { type: 'UnaryExpression', operator: 'void', argument: { type: 'Literal', value: 0 } };
+  // 循环、switch 里有没有跳得出它的 break：这一层不带标号的，或带标号的（跳到哪不追，一律算）；里层函数的不算
+  const escapes = (node, nested = false) => {
+    if (FUNCTIONS.has(node.type)) return false;
+    if (node.type === 'BreakStatement') return !nested || Boolean(node.label);
+    const deeper = nested || /^(?:For|ForIn|ForOf|While|DoWhile|Switch)Statement$/.test(node.type);
+    return (VisitorKeys[node.type] ?? []).some((key) => [node[key]].flat().some((child) => child && escapes(child, deeper)));
+  };
+  // 一条语句是不是一定走不到它后面：return、throw，或每条路都这样（if 两支、try 两头、带 default 又没有 break 的 switch、没有出口的死循环）。
+  // 拿不准的（带标号的块、普通循环）算走得到
+  const ends = (node) => ({
+    ReturnStatement: () => true, ThrowStatement: () => true, BlockStatement: () => node.body.some(ends),
+    IfStatement: () => ends(node.consequent) && ends(node.alternate),
+    TryStatement: () => ends(node.finalizer) || (ends(node.block) && (!node.handler || ends(node.handler.body))),
+    SwitchStatement: () => node.cases.some((branch) => !branch.test) && node.cases.at(-1).consequent.some(ends) && !node.cases.some((branch) => branch.consequent.some((part) => escapes(part))),
+    WhileStatement: () => node.test.type === 'Literal' && Boolean(node.test.value) && !escapes(node.body),
+    DoWhileStatement: () => node.test.type === 'Literal' && Boolean(node.test.value) && !escapes(node.body),
+    ForStatement: () => !node.test && !escapes(node.body),
+  }[node?.type]?.() ?? false);
+  // 属性名写死的才认：点号后面的名字、方括号里的字符串、数、不带 ${} 的模板
+  const keyOf = (key, computed) => (key.type === 'Identifier' ? (computed ? null : key.name) : key.type === 'Literal' ? String(key.value)
+    : key.type === 'TemplateLiteral' && !key.expressions.length ? key.quasis[0].value.cooked : null);
+  // 写在文件里的对象、数组（字面量）：slotted 是直接放在里面的函数和里层字面量各归哪个字面量，holder 是字面量当初值给了哪个量，
+  // patches 是点名的对象后来赋上去的属性（timing.offset = offset）。点名的量用在哪也记下：held 取属性，spilled 被展开或解构，
+  // invoked 它的属性被调用，poked 它可能被改了（属性被赋值、增减、删掉，或调了它的方法：push、sort；按下标取出来调用的不算）
+  const returns = new Map(), slotted = new Map(), holder = new Map(), patches = new Map(), held = new Set(), spilled = new Set(), invoked = new Set(), poked = new Set();
+  each(ast, (node, within) => {
+    if (node.type === 'ReturnStatement' && within) returns.set(within, [...(returns.get(within) ?? []), node.argument ?? VOID_NODE]);
+    if (node.type === 'ObjectExpression') for (const prop of node.properties) if (prop.type === 'Property') slotted.set(prop.value, node);
+    if (node.type === 'ArrayExpression') for (const element of node.elements) if (element) slotted.set(element, node);
+    if (node.type === 'VariableDeclarator') bound.has(node.id) ? holder.set(node.init, bound.get(node.id)) : spilled.add(node.init);
+    if (node.type === 'MemberExpression') held.add(node.object);
+    if (node.type === 'SpreadElement') spilled.add(node.argument);
+    if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression') {
+      invoked.add(node.callee.object);
+      if (!/^\d+$/.test(keyOf(node.callee.property, node.callee.computed) ?? '')) poked.add(node.callee.object);
+    }
+    const target = { AssignmentExpression: node.left, UpdateExpression: node.argument, UnaryExpression: node.operator === 'delete' && node.argument }[node.type];
+    if (target?.type !== 'MemberExpression') return;
+    poked.add(target.object);
+    const variable = bound.get(target.object), key = keyOf(target.property, target.computed);
+    if (variable && key !== null && node.operator === '=') patches.set(variable, [...(patches.get(variable) ?? []), [key, node.right]]);
+  });
+  const falls = new Map();
+  const returnsOf = (fn) => {
+    if (fn.body.type !== 'BlockStatement') return [fn.body];
+    if (!falls.has(fn)) falls.set(fn, fn.generator ? [] : [...(returns.get(fn) ?? []), ...(ends(fn.body) ? [] : [VOID_NODE])]);
+    return falls.get(fn);
+  };
+  // 一个式子的值可能原样取自哪几个子式：三元的两支、?? || && 的两边、逗号的最后一个、await 等的那个、?. 链包着的那个
   const parts = (node) => ({ ConditionalExpression: [node.consequent, node.alternate], LogicalExpression: [node.left, node.right],
-    SequenceExpression: node.expressions?.slice(-1), AwaitExpression: [node.argument] }[node.type]);
-  // 一个式子可能是哪几个函数：函数本身、点名的函数或初值（const late = ge(432)）、上面那几种子式、调用回出来的函数（柯里化）。
-  // 每个都带着它定义处的环境，回出来的函数带的是外层那次调用的环境；env 给 null 时只认函数、不算环境。
-  // trail 记正在看的节点，绕回来就停；同一个函数走两条路（三元两支出自同一个工厂）各算各的，一共看过 LIMIT 个节点就不再看
-  const closuresOf = (node, env, trail = { on: new Set(), steps: 0 }) => {
+    SequenceExpression: node.expressions?.slice(-1), AwaitExpression: [node.argument], ChainExpression: [node.expression] }[node.type]);
+  // 一个式子可能是文件里写的哪几个函数、对象、数组：写在原地的、点名的量的初值（const late = ge(432)、const timing = { offset }）、
+  // 上面那几种子式、调用回出来的（柯里化、工厂）、对象和数组上取的一格（timing.offset、steps[0]）、解构出来的名字。
+  // 函数记成 { fn, env }、对象记成 { object, env }、数组记成 { array, env }，带着定义处的环境，回出来的带的是外层那次调用的环境；
+  // 剩余形参收下的几位记成 { row }。
+  // env 给 null 时只认是谁、不算环境。trail 记正在看的节点，绕回来就停；同一个函数走两条路（三元两支出自同一个工厂）各算各的，一共看过 LIMIT 个节点就不再看
+  const fresh = () => ({ on: new Set(), steps: 0 });
+  const valuesOf = (node, env, trail = fresh()) => {
     if (!node || trail.on.has(node) || trail.steps++ >= LIMIT) return [];
     if (FUNCTIONS.has(node.type)) return [{ fn: node, env }];
+    if (node.type === 'ObjectExpression') return [{ object: node, env }];
+    if (node.type === 'ArrayExpression') return [{ array: node, env }];
     trail.on.add(node);
-    const found = node.type === 'Identifier' ? (bound.get(node)?.defs ?? []).flatMap((def) => (def.type === 'FunctionName' ? [{ fn: def.node, env }]
-      : def.type === 'Variable' && def.node.id === def.name ? closuresOf(def.node.init, env, trail) : []))
-      : node.type === 'CallExpression' ? closuresOf(node.callee, env, trail).flatMap(({ fn, env: base }) => {
-        const made = env && bind(fn, node, env, base);
-        return returnsOf(fn).flatMap((result) => closuresOf(result, made, trail));
-      }) : (parts(node) ?? []).flatMap((part) => closuresOf(part, env, trail));
+    const variable = node.type === 'Identifier' && bound.get(node);
+    // 点名的数组只在没人动过它时才认（只取下标、展开、解构）：push 过、交出去过的，里面有几位说不准
+    const found = variable ? [...[env?.get(variable)?.rest].filter(Boolean).map((row) => ({ row })), ...variable.defs.flatMap((def) => (def.type === 'FunctionName' ? [{ fn: def.node, env }]
+      : def.type === 'Variable' ? sourcesOf(def, env, trail).flatMap((slot) => valuesOf(slot.node, slot.env, trail)) : []))]
+      .filter((value) => !(value.row || value.array) || variable.references.every((ref) => ref.init || ((held.has(ref.identifier) || spilled.has(ref.identifier)) && !poked.has(ref.identifier))))
+      : node.type === 'CallExpression' ? closuresOf(node.callee, env, trail).flatMap(({ fn, env: base }) => (env ? bind(fn, node, env, base, trail) : [null])
+        .flatMap((made) => returnsOf(fn).flatMap((result) => valuesOf(result, made, trail))))
+        : node.type === 'MemberExpression' ? slotsOf(node.object, keyOf(node.property, node.computed), env, trail).flatMap((slot) => valuesOf(slot.node, slot.env, trail))
+          : (parts(node) ?? []).flatMap((part) => valuesOf(part, env, trail));
     trail.on.delete(node);
     return found;
+  };
+  const closuresOf = (node, env, trail) => valuesOf(node, env, trail).filter((value) => value.fn);
+  // 实参表、数组字面量的元素按位排开，每一位记成 { node, env }（在哪个环境里算），空位是 undefined。展开的数组摊平接上，
+  // 有几种可能（三元挑的）就排几行，最多 ROWS 行；摊不开的展开从它起往后对不上号，这一行到此为止（cut）。只要前 most 位时排够就停（几万个数的表不整张排）
+  const ROWS = 64;
+  const rowsOf = (items, env, trail, most = Infinity) => {
+    let rows = [[]];
+    for (const item of items) {
+      if (rows.every((row) => row.cut || row.length >= most)) break;
+      if (item?.type === 'SpreadElement') {
+        const more = valuesOf(item.argument, env, trail).flatMap((value) => laid(value, trail));
+        rows = rows.flatMap((row) => (row.cut ? [row] : more.length ? more.map((tail) => Object.assign([...row, ...tail], { cut: tail.cut })) : [Object.assign(row, { cut: true })])).slice(0, ROWS);
+      } else for (const row of rows) if (!row.cut) row.push({ node: item ?? VOID_NODE, env });
+    }
+    return rows;
+  };
+  // 一个数组摊成的几行：剩余形参收下的那一行，或字面量的元素排开（展开的是自己时绕回来就停）
+  const laid = (value, trail, most) => {
+    if (!value.array || trail.on.has(value.array)) return value.row ? [value.row] : [];
+    trail.on.add(value.array);
+    const rows = rowsOf(value.array.elements, value.env, trail, most);
+    trail.on.delete(value.array);
+    return rows;
+  };
+  // 对象、数组上名字写死的那一格可能是哪几个式子：对象字面量里写的（后写的盖前写的，展开抄来的也算；get、set 不算）、
+  // 数组摊平后的那一位、点名的对象后来赋上去的
+  const written = (object, key, env, trail) => {
+    // 展开抄的是自己（递归的工厂 { ...make() }）时绕回来就停
+    if (trail.on.has(object)) return [];
+    trail.on.add(object);
+    let found = [];
+    for (const prop of [...object.properties].reverse()) {
+      if (prop.type === 'SpreadElement') found = slotsOf(prop.argument, key, env, trail);
+      else if (keyOf(prop.key, prop.computed) === key) found = prop.kind === 'init' ? [{ node: prop.value, env }] : [];
+      else continue;
+      if (found.length || prop.type !== 'SpreadElement') break;
+    }
+    trail.on.delete(object);
+    return found;
+  };
+  const slotsOf = (object, key, env, trail = fresh()) => (key === null ? [] : [
+    ...valuesOf(object, env, trail).flatMap((value) => (value.object ? written(value.object, key, value.env, trail)
+      : /^\d+$/.test(key) ? laid(value, trail, Number(key) + 1).flatMap((row) => (row[key] ? [row[key]] : [])) : [])),
+    ...(patches.get(bound.get(object)) ?? []).filter(([name]) => name === key).map(([, node]) => ({ node, env }))]);
+  // 解构里一个名字是顺着哪几格取到的（const { a: [fn] } = box 是 a、0）；剩余元素、算出来的键取不到，回 null
+  const pathTo = (pattern, target) => {
+    if (pattern === target) return [];
+    if (pattern?.type === 'AssignmentPattern') return pathTo(pattern.left, target);
+    const steps = pattern?.type === 'ObjectPattern' ? pattern.properties.map((prop) => [prop.type === 'Property' ? keyOf(prop.key, prop.computed) : null, prop.value])
+      : pattern?.type === 'ArrayPattern' ? pattern.elements.map((element, i) => [element?.type === 'RestElement' ? null : String(i), element]) : [];
+    for (const [key, inner] of steps) {
+      const rest = key !== null && inner ? pathTo(inner, target) : null;
+      if (rest) return [key, ...rest];
+    }
+    return null;
+  };
+  // 一个声明出来的量取自哪个式子：直接的初值；解构出来的，顺着解构的路到初值里的那一格
+  const sourcesOf = (def, env, trail = fresh()) => {
+    const path = def.node.init ? pathTo(def.node.id, def.name) : null;
+    return path ? path.reduce((slots, key) => slots.flatMap((slot) => slotsOf(slot.node, key, slot.env, trail)), [{ node: def.node.init, env }]) : [];
   };
   // handed 是当实参交出去的回调（直接写在调用里的函数，或点名的绑定）：收到什么由对方定，some、map 给的是数组元素
   // stepped 把 n -= 432 这样的赋值记成 n - 432，和 n = n - 432 一样算
@@ -452,6 +576,14 @@ function scanTree({ ast, manager }) {
   const exported = new Set(ast.body.filter((node) => /^Export(?:Named|Default)Declaration$/.test(node.type))
     .flatMap(({ declaration: made, specifiers = [] }) => [made, made?.id, ...(made?.declarations ?? []).map(({ id }) => id), ...specifiers.map(({ local }) => local)])
     .map((id) => bound.get(id)).filter(Boolean));
+  // 放在对象、数组里的函数出不出这个文件：最外层的字面量是没导出的量的初值、这个量只拿来点名调用上面的属性，才算没出去
+  const leaks = (node) => {
+    let box = slotted.get(node);
+    if (!box) return false;
+    while (slotted.has(box)) box = slotted.get(box);
+    const variable = holder.get(box);
+    return !variable || exported.has(variable) || !variable.references.every((ref) => ref.init || invoked.has(ref.identifier));
+  };
   // 「名字、值」的几种写法：声明、赋值、形参默认值、对象和类里的属性与方法
   const pair = (node) => (node.type === 'VariableDeclarator' ? [node.id, node.init]
     : (node.type === 'AssignmentExpression' && node.operator === '=') || node.type === 'AssignmentPattern' ? [node.left, node.right]
@@ -484,14 +616,16 @@ function scanTree({ ast, manager }) {
         if (called && bound.has(param.left ?? param)) paramOf.set(bound.get(param.left ?? param), node);
       }
       // 调用点在别的文件的函数（导出的、对象和类里的方法、返回出去的）只能照名字认：形参叫 f、t 的是帧，形参表是 (ctx, 名字) 的取第二个。
-      // 文件里没导出的局部函数、交给别的调用的回调不照名字认，形参收到帧才是帧；没名字的函数在文件里有调用点（柯里化、当场调用）也只看实参
-      if (!given && (named ? exported.has(named) : !called)) {
+      // 文件里没导出的局部函数、交给别的调用的回调不照名字认，形参收到帧才是帧；没名字的函数在文件里有调用点（柯里化、当场调用、
+      // 只在文件里经属性调用的对象方法）也只看实参。放在对象里又出了文件的（导出的、回出去的对象）两头都算：文件里的照实参，文件外的照名字
+      const shared = !named && called && leaks(node);
+      if (!given && (named ? exported.has(named) : !called || shared)) {
         for (const param of node.params) seed(param, byName(nameOf(param.left ?? param)));
         if (first?.type === 'Identifier' && first.name === 'ctx' && second?.type === 'Identifier' && !NOT_FRAME.test(second.name)) seed(second);
       }
       // 自己叫帧回调名字的函数取第一个形参
       if (HOOK.test(named?.name ?? '') && (!called || exported.has(named))) seed(first);
-      if (given || exported.has(named)) outside.add(node);
+      if (given || exported.has(named) || shared) outside.add(node);
     }
     // 对象、类里的帧回调（方法、属性、obj.state = …），值是函数或点名的函数：第一个形参就是帧
     const [key, value] = pair(node);
@@ -512,29 +646,37 @@ function scanTree({ ast, manager }) {
   const contexts = new Map(), open = new Map(), states = new WeakMap(), loops = new Set();
   // envs 让内容相同的环境共用一份，算过的不重算；sights 是每个函数看得见的作用域；results、running 是函数的返回值算过的和正在算的
   const envs = new Map([['', NO_ENV]]), sights = new Map(), results = new Map(), running = new Map();
-  let depth = 0, spent = 0;
+  const digging = new Set(), unpacking = new Map();
+  let depth = 0, spent = 0, dug = 0;
   // 一次调用的环境：base（函数定义处的环境）里这个函数看得见的外层形参原样带进来，闭包里用的是外层那一次调用的实参；
-  // 形参各收到这次的实参，没传的记成 VOID，可能没传的那一位才换成默认值（默认值里看得见前面的形参）。展开实参后面的几位对不上号，当没传。
-  // site 给 null 是文件外的那次调用：实参不知道，照名字认的种子算数，各位都可能没传
-  function bind(fn, site, from, base) {
+  // 形参各收到这次的实参，没传的记成 VOID，可能没传的那一位才换成默认值（默认值里看得见前面的形参）。实参先摊平成行（rowsOf）再按位配：
+  // 展开的数组摊得开就和直接写一样，摊出几行就回几个环境；摊不开的展开后面的几位对不上号，当没传。剩余形参收下这一行剩下的几位（不是线性式，
+  // 记在 rest 上，按下标取、解构、再展开时照这几位认）。site 给 null 是文件外的那次调用：实参不知道，照名字认的种子算数，各位都可能没传
+  const tags = new WeakMap();
+  let tagged = 0;
+  const tag = (slot) => `${slot.node.range ?? 'void'}@${tags.get(slot.env) ?? tags.set(slot.env, ++tagged).get(slot.env)}`;
+  function bind(fn, site, from, base, trail) {
     if (!sights.has(fn)) {
       const visible = new Set();
       for (let scope = manager.acquire(fn); scope; scope = scope.upper) visible.add(scope);
       sights.set(fn, visible);
     }
-    const env = new Map([...base].filter(([variable]) => sights.get(fn).has(variable.scope)));
-    const spread = site ? site.arguments.findIndex((arg) => arg.type === 'SpreadElement') : -1;
-    fn.params.forEach((param, i) => {
-      const variable = bound.get(param.left ?? param), arg = spread < 0 || i < spread ? site?.arguments[i] : undefined;
-      if (!variable) return;
-      const given = arg ? lin(arg, from) : [...(site ? NONE : seeds.get(variable)?.values() ?? NONE), ...VOID];
-      // 默认值在环境的抄本里算：这时后面的形参还没绑上，算到一半的不留在环境的账上
-      const forms = param.right && given.some(isVoid) ? [...given.filter((a) => !isVoid(a)), ...lin(param.right, new Map(env))] : given;
-      env.set(variable, [...gather(forms).values()]);
+    const kept = [...base].filter(([variable]) => sights.get(fn).has(variable.scope));
+    return (site ? rowsOf(site.arguments, from, trail ?? fresh()) : [[]]).map((row) => {
+      const env = new Map(kept);
+      fn.params.forEach((param, i) => {
+        const rest = param.type === 'RestElement', variable = bound.get(rest ? param.argument : param.left ?? param);
+        if (!variable) return;
+        const given = rest ? Object.assign([], { rest: Object.assign(row.slice(i), { cut: row.cut }) })
+          : row[i] ? lin(row[i].node, row[i].env) : [...(site ? NONE : seeds.get(variable)?.values() ?? NONE), ...VOID];
+        // 默认值在环境的抄本里算：这时后面的形参还没绑上，算到一半的不留在环境的账上
+        const forms = param.right && given.some(isVoid) ? [...given.filter((a) => !isVoid(a)), ...lin(param.right, new Map(env))] : given;
+        env.set(variable, rest ? given : [...gather(forms).values()]);
+      });
+      const key = Array.from(env, ([variable, forms]) => `${ids.get(variable)}=${forms.rest ? `[${forms.rest.map(tag)}]` : [...gather(forms).keys()].sort()}`).sort().join(';');
+      if (!envs.has(key)) envs.set(key, env);
+      return envs.get(key);
     });
-    const key = Array.from(env, ([variable, forms]) => `${ids.get(variable)}=${[...gather(forms).keys()].sort()}`).sort().join(';');
-    if (!envs.has(key)) envs.set(key, env);
-    return envs.get(key);
   }
   const contextsOf = (fn) => {
     if (!fn) return TOP;
@@ -554,10 +696,10 @@ function scanTree({ ast, manager }) {
       open.set(fn, [...found]);
       for (const site of sites) {
         for (const from of contextsOf(inside.get(site))) {
-          for (const { fn: made, env: base } of closuresOf(site.callee, from)) if (made === fn && found.size < LIMIT) found.add(bind(fn, site, from, base));
+          for (const { fn: made, env: base } of closuresOf(site.callee, from)) if (made === fn) for (const env of bind(fn, site, from, base)) if (found.size < LIMIT) found.add(env);
         }
       }
-      if (outside.has(fn)) for (const from of contextsOf(inside.get(fn))) found.add(bind(fn, null, from, from));
+      if (outside.has(fn)) for (const from of contextsOf(inside.get(fn))) found.add(bind(fn, null, from, from)[0]);
     }
     const all = found.size ? [...found] : TOP;
     depth--;
@@ -608,6 +750,19 @@ function scanTree({ ast, manager }) {
     gather(env.get(variable) ?? contextsOf(paramOf.get(variable)).flatMap((other) => other.get(variable) ?? NONE), forms);
     // 环境里有的形参，默认值用没用上那次调用已经定了（bind），这里不再并进来
     for (const ref of variable.references) if (ref.isWrite() && !ref.partial && !(defaults.has(ref.identifier) && env.has(variable))) gather(lin(stepped.get(ref.identifier) ?? ref.writeExpr, env), forms);
+    // 从文件里写的对象、数组解构出来的量（const { min } = cfg、const [d] = [frame - 432]）取那一格的式子
+    // 递归的函数回对象、调用处解构（const { end } = read(src, i + 1); i = end）每绕一圈是一个新环境，和 returned 一个口径：里面那一层照算，
+    // 再绕回来的那一支不添东西（不然循环下标一路累加到几百，被当成写死的数）
+    for (const def of variable.defs) {
+      if (def.type !== 'Variable' || def.node.id === def.name) continue;
+      const outer = unpacking.get(def.name);
+      if (outer?.again) { loops.add(outer.forms); continue; }
+      if (outer) outer.again = true;
+      else unpacking.set(def.name, { forms });
+      for (const slot of sourcesOf(def, env)) gather(lin(slot.node, slot.env), forms);
+      if (outer) outer.again = false;
+      else unpacking.delete(def.name);
+    }
     depth--;
     busy.delete(variable);
     loops.delete(forms);
@@ -625,7 +780,18 @@ function scanTree({ ast, manager }) {
       const variable = bound.get(node), forms = variable ? formsOf(variable, env) : NONE;
       return forms.some((a) => a.k) || (variable && !/[Ff]rame$/.test(node.name)) ? forms : [...byName(node.name), ...forms];
     }
-    if (node?.type === 'MemberExpression') return node.computed ? NONE : byName(node.property.name);
+    // 文件里写的对象、数组上取一格，照那一格的式子算（cfg.min 是 432、box[0] 是 frame - 432）；属性名是帧的照旧也算帧。
+    // 一格的式子里又取别的格，层层套着算过 LIMIT 回（dug）就只照名字认
+    if (node?.type === 'MemberExpression') {
+      const named = node.computed ? NONE : byName(node.property.name);
+      if (depth >= DEEP || digging.has(node) || (digging.size && dug++ >= LIMIT)) return named;
+      digging.add(node);
+      depth++;
+      const forms = slotsOf(node.object, keyOf(node.property, node.computed), env).flatMap((slot) => lin(slot.node, slot.env));
+      depth--;
+      digging.delete(node);
+      return forms.length ? [...gather([...named, ...forms]).values()] : named;
+    }
     if (node?.type === 'UnaryExpression') {
       const sign = { '+': 1, '-': -1 }[node.operator];
       const inner = sign ? lin(node.argument, env) : NONE;
@@ -650,7 +816,7 @@ function scanTree({ ast, manager }) {
     if (node?.type === 'CallExpression') {
       if (depth >= DEEP) return NONE;
       depth++;
-      const all = closuresOf(node.callee, env).map(({ fn, env: base }) => returned(fn, bind(fn, node, env, base)));
+      const all = closuresOf(node.callee, env).flatMap(({ fn, env: base }) => bind(fn, node, env, base).map((made) => returned(fn, made)));
       depth--;
       return all.length && all.every((forms) => forms === CUT) ? CUT : [...gather(all.flat()).values()];
     }
@@ -691,7 +857,8 @@ function scanTree({ ast, manager }) {
       let literal = BEAT_NAME.test(name);
       if (literal) each(value, (part) => { literal &&= part.type !== 'Identifier'; });
       if (literal) beatDefs++;
-      const least = /[Ff]rame$/.test(name) ? 1 : node.type === 'Property' && TIME_KEYS.includes(name) ? 10 : Infinity;
+      // 时间键只认写在对象字面量里的（slotted）：解构的写法（const { end } = read()）是取数，不是又写了一处，取来的数在它原来那一格已经算过
+      const least = /[Ff]rame$/.test(name) ? 1 : node.type === 'Property' && slotted.has(node.value) && TIME_KEYS.includes(name) ? 10 : Infinity;
       if (fixed.some((forms) => forms.some((a) => Number.isInteger(a.c) && a.c >= least))) lines.push(node.loc.start.line);
     }
   });

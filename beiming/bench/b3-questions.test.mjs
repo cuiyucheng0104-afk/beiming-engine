@@ -566,7 +566,7 @@ test('B3-12 30-1 从工程读数：read30_1 静态扫工程目录，一张 80 BP
     const HARD = [1, 0.6, false], SOFT = [0, 1, true];
     const GE = 'const ge = (x, min) => x >= min;\n', PAIR = 'ge(frame, view.events.m01) && ge(view.size[0], 640)', PAIR_HARD = 'ge(frame, 432) && ge(view.size[0], 640)';
     const GE_WIDE = 'const ge = (x, min = 640) => x >= min;\n', GE_LATE = 'const ge = (x, min = 432) => x >= min;\n';
-    const ON = 'const on = ctx => ctx >= 0;\n', SUB = 'const sub = (a, b) => a - b;\n';
+    const ON = 'const on = ctx => ctx >= 0;\n', SUB = 'const sub = (a, b) => a - b;\n', OFFSET = 'const offset = n => n - 432;\n';
     // 7 个两两互相调用的函数
     const TANGLE = Array.from({ length: 7 }, (_, i) => `const m${i} = n => ${Array.from({ length: 7 }, (_, j) => `m${j}(n)`).join(' + ')} + n - 1;\n`).join('');
     for (const [name, code, want] of [
@@ -743,6 +743,110 @@ test('B3-12 30-1 从工程读数：read30_1 静态扫工程目录，一张 80 BP
       // 一组互相调用的函数算不完时，不相干的比较函数照旧认，写在这组函数前面还是后面都一样
       ['tangle-before', lifecycle('state(frame, view) { return ge(frame, 432); }', `${GE}${TANGLE}`), HARD],
       ['tangle-after', lifecycle('state(frame, view) { return ge(frame, 432); }', `${TANGLE}${GE}`), HARD],
+      // 十审反例：三对画面逐帧相同的镜头
+      // 1 展开的实参摊平了按位配：...[命名时刻] 和直接写一样是传了这一位，摊出来没有这一位（...[]、数组里的空位）才算没传。
+      //   点名的数组、套一层展开、三元挑的、函数回出来的数组一样摊；中途改过的数组摊不开，照旧当没传
+      ['spread-literal', lifecycle('state(frame, view) { return ge(frame, ...[view.events.m01]) && ge(view.size[0]); }', GE_WIDE), SOFT],
+      ['spread-literal-swapped', lifecycle('state(frame, view) { return ge(view.size[0]) && ge(frame, ...[view.events.m01]); }', GE_WIDE), SOFT],
+      ['spread-empty', lifecycle('state(frame, view) { return ge(frame, ...[]); }', GE_LATE), HARD],
+      ['spread-hole', lifecycle('state(frame, view) { return ge(frame, ...[,]); }', GE_LATE), HARD],
+      ['spread-whole', lifecycle('state(frame, view) { return ge(...[frame, view.events.m01]) && ge(...[view.size[0]]); }', GE_WIDE), SOFT],
+      ['spread-whole-hard', lifecycle('state(frame, view) { return ge(...[frame, 432]); }', GE), HARD],
+      ['spread-whole-default', lifecycle('state(frame, view) { return ge(...[frame]); }', GE_LATE), HARD],
+      ['spread-nested', lifecycle('state(frame, view) { return ge(...[frame, ...[view.events.m01]]) && ge(view.size[0]); }', GE_WIDE), SOFT],
+      ['spread-named', lifecycle('state(frame, view) { const args = [frame, view.events.m01]; return ge(...args) && ge(view.size[0]); }', GE_WIDE), SOFT],
+      ['spread-named-hard', lifecycle('state(frame, view) { const args = [frame, 432]; return ge(...args); }', GE), HARD],
+      ['spread-named-tail', lifecycle('state(frame, view) { const rest = [view.events.m01]; return ge(frame, ...rest) && ge(view.size[0]); }', GE_WIDE), SOFT],
+      ['spread-picked', lifecycle('state(frame, view) { return ge(...(view.ready ? [frame, view.events.m01] : [view.size[0], 640])); }', GE), SOFT],
+      ['spread-picked-hard', lifecycle('state(frame, view) { return ge(...(view.ready ? [frame, 432] : [view.size[0], 640])); }', GE), HARD],
+      ['spread-returned', lifecycle('state(frame, view) { return ge(...pair(frame, view)) && ge(view.size[0]); }', `${GE_WIDE}const pair = (n, v) => [n, v.events.m01];\n`), SOFT],
+      ['spread-returned-hard', lifecycle('state(frame, view) { return ge(...pair(frame)); }', `${GE}const pair = n => [n, 432];\n`), HARD],
+      ['spread-pushed', lifecycle('state(frame, view) { const args = [frame]; args.push(view.events.m01); return ge(...args) && ge(view.size[0]); }', GE_WIDE), SOFT],
+      // 剩余形参收到的是这次调用剩下的那几位：按下标取、解构、再展开传给下一层都照实参认
+      ['rest-pair', lifecycle(`state(frame, view) { return ${PAIR}; }`, 'const ge = (...pair) => pair[0] >= pair[1];\n'), SOFT],
+      ['rest-hard', lifecycle(`state(frame, view) { return ${PAIR_HARD}; }`, 'const ge = (...pair) => pair[0] >= pair[1];\n'), HARD],
+      ['rest-tail-hard', lifecycle(`state(frame, view) { return ${PAIR_HARD}; }`, 'const ge = (x, ...more) => x >= more[0];\n'), HARD],
+      ['rest-destructured', lifecycle(`state(frame, view) { return ${PAIR}; }`, 'const ge = (...pair) => { const [x, min] = pair; return x >= min; };\n'), SOFT],
+      ['rest-destructured-hard', lifecycle(`state(frame, view) { return ${PAIR_HARD}; }`, 'const ge = (...pair) => { const [x, min] = pair; return x >= min; };\n'), HARD],
+      ['rest-forwarded', lifecycle('state(frame, view) { return late(frame, view.events.m01) && late(view.size[0]); }', `${GE_WIDE}const late = (...args) => ge(...args);\n`), SOFT],
+      ['rest-forwarded-hard', lifecycle('state(frame, view) { return late(frame); }', `${GE_LATE}const late = (...args) => ge(...args);\n`), HARD],
+      // 2 写成语句块的函数走得到末尾、写了不带值的 return，都是回 undefined，和三元里写 undefined 一样让默认值生效；
+      //   每条路都回了值（if 两支、if 后面接着 return、switch 带 default、try 两头、抛错、不带出口的死循环）就没有这一份 undefined
+      ['void-ternary', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}const cue = v => (v.size[0] < 640 ? v.events.m01 : undefined);\n`), HARD],
+      ['void-fallthrough', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { if (v.size[0] < 640) return v.events.m01; }\n`), HARD],
+      ['void-arrow-block', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}const cue = v => { if (v.size[0] < 640) return v.events.m01; };\n`), HARD],
+      ['void-bare-return', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { if (v.size[0] >= 640) return; return v.events.m01; }\n`), HARD],
+      ['void-empty-body', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue() {}\n`), HARD],
+      ['void-loop', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { for (const id of v.ids) if (id) return v.events[id]; }\n`), HARD],
+      ['void-switch-break', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { switch (v.mode) { case 1: break; default: return v.events.m01; } }\n`), HARD],
+      ['void-nullish', lifecycle('state(frame, view) { return frame >= (cue(view) ?? 432); }', 'function cue(v) { if (v.size[0] < 640) return v.events.m01; }\n'), HARD],
+      ['returns-both', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { if (v.size[0] < 640) return v.events.m01; else return v.events.m02; }\n`), SOFT],
+      ['returns-after-if', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { if (v.size[0] < 640) return v.events.m01; return v.events.m02; }\n`), SOFT],
+      ['returns-switch', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { switch (v.mode) { case 1: return v.events.m01; default: return v.events.m02; } }\n`), SOFT],
+      ['returns-try', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { try { return v.events.m01; } catch { return v.events.m02; } }\n`), SOFT],
+      ['returns-throw', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { if (v.size[0] < 640) return v.events.m01; throw new Error('窄'); }\n`), SOFT],
+      ['returns-forever', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { for (;;) { if (v.ready) return v.events.m01; } }\n`), SOFT],
+      ['void-pixels', lifecycle('state(frame, view) { return ge(frame, view.events.m01) && ge(view.size[0], floor(view)); }', `${GE_WIDE}function floor(v) { if (v.narrow) return 320; }\n`), SOFT],
+      // 3 写在文件里的对象、数组上放着的函数和数，取出来用和直接点名一样：简写属性、方法、箭头函数、套一层对象、数组下标、
+      //   后来赋上去的属性、展开抄过来的对象、工厂回出来的对象、解构出来的名字都跟着走
+      ['member-call', lifecycle('state(frame, view) { return on(timing.offset(frame)); }', `${ON}${OFFSET}const timing = { offset };\n`), HARD],
+      ['member-call-computed', lifecycle('state(frame, view) { return on(timing[\'offset\'](frame)); }', `${ON}${OFFSET}const timing = { offset };\n`), HARD],
+      ['member-call-optional', lifecycle('state(frame, view) { return on(timing?.offset(frame)); }', `${ON}${OFFSET}const timing = { offset };\n`), HARD],
+      ['member-method', lifecycle('state(frame, view) { return on(timing.offset(frame)); }', `${ON}const timing = { offset(n) { return n - 432; } };\n`), HARD],
+      ['member-arrow', lifecycle('state(frame, view) { return on(timing.offset(frame)); }', `${ON}const timing = { offset: n => n - 432 };\n`), HARD],
+      ['member-nested', lifecycle('state(frame, view) { return on(ns.timing.offset(frame)); }', `${ON}${OFFSET}const ns = { timing: { offset } };\n`), HARD],
+      ['member-array', lifecycle('state(frame, view) { return on(steps[0](frame)); }', `${ON}${OFFSET}const steps = [offset];\n`), HARD],
+      ['member-assigned', lifecycle('state(frame, view) { return on(timing.offset(frame)); }', `${ON}${OFFSET}const timing = {};\ntiming.offset = offset;\n`), HARD],
+      ['member-spread', lifecycle('state(frame, view) { return on(timing.offset(frame)); }', `${ON}${OFFSET}const base = { offset };\nconst timing = { ...base };\n`), HARD],
+      ['member-factory', lifecycle('state(frame, view) { return on(tools().offset(frame)); }', `${ON}${OFFSET}const tools = () => ({ offset });\n`), HARD],
+      ['member-factory-arg', lifecycle('state(frame, view) { return on(shift(432).offset(frame)); }', `${ON}const shift = d => ({ offset: n => n - d });\n`), HARD],
+      ['member-factory-pair', lifecycle('state(frame, view) { return on(shift(view.events.m01).offset(frame)) && on(shift(640).offset(view.size[0])); }', `${ON}const shift = d => ({ offset: n => n - d });\n`), SOFT],
+      ['member-destructured', lifecycle('state(frame, view) { const { offset: fn } = timing; return on(fn(frame)); }', `${ON}${OFFSET}const timing = { offset };\n`), HARD],
+      ['member-destructured-array', lifecycle('state(frame, view) { const [fn] = [offset]; return on(fn(frame)); }', `${ON}${OFFSET}`), HARD],
+      ['member-const', lifecycle('state(frame, view) { return frame >= cfg.min; }', 'const cfg = { min: 432 };\n'), HARD],
+      ['member-const-offset', lifecycle('state(frame, view) { const since = frame - cfg.delay; return since >= 0; }', 'const cfg = { delay: 18 * 24 };\n'), HARD],
+      ['member-const-destructured', lifecycle('state(frame, view) { const { min } = cfg; return frame >= min; }', 'const cfg = { min: 432 };\n'), HARD],
+      ['member-const-arg', lifecycle('state(frame, view) { return ge(frame, cfg.min); }', `${GE}const cfg = { min: 432 };\n`), HARD],
+      ['member-boxed', lifecycle('state(frame, view) { const box = [frame - 432]; return box[0] >= 0; }'), HARD],
+      ['member-pair', lifecycle('state(frame, view) { return tools.ge(frame, view.events.m01) && tools.ge(view.size[0], 640); }', 'const tools = { ge: (x, min) => x >= min };\n'), SOFT],
+      ['member-pair-hard', lifecycle('state(frame, view) { return tools.ge(frame, 432) && tools.ge(view.size[0], 640); }', 'const tools = { ge: (x, min) => x >= min };\n'), HARD],
+      // 像素那一头照旧不是帧：对象里的函数只在文件里经属性调用时，形参叫 f 也只看实参；对象导出去、回出去了，文件外的人照名字调得到，照旧按名字认
+      ['member-pixels', lifecycle('state(frame, view) { return on(pixel.id(view.size[0])); }', `${ON}const pixel = { id: w => w - 640 };\n`), SOFT],
+      ['member-pixels-const', lifecycle('state(frame, view) { return view.size[0] >= cfg.width; }', 'const cfg = { width: 640 };\n'), SOFT],
+      ['member-pixels-f', lifecycle('state(frame, view) { return helpers.check(view.size[0]); }', 'const helpers = { check(f) { return f >= 640; } };\n'), SOFT],
+      ['member-relative', lifecycle('state(frame, view) { const since = frame - view.events.m02; return since >= cfg.hold; }', 'const cfg = { hold: 12 };\n'), SOFT],
+      ['member-exported-f', lifecycle('state(n, view) { return true; }', 'export const api = { check(f) { return f >= 432; } };\n'), HARD],
+      ['member-exported-f-called', lifecycle('state(n, view) { return api.check(view.size[0]); }', 'export const api = { check(f) { return f >= 432; } };\n'), HARD],
+      ['member-returned-f-called', 'const make = () => ({ check(f) { return f >= 432; } });\nexport const build = (view) => (make().check(view.size[0]) ? make() : null);\n', HARD],
+      ['member-leaked-f-called', lifecycle('state(frame, view) { return helpers.check(view.size[0]); }', 'const helpers = { check(f) { return f >= 640; } };\nexport const leak = helpers.check;\n'), HARD],
+      ['member-array-pixels-f', lifecycle('state(frame, view) { return tests[0](view.size[0]); }', 'const tests = [f => f >= 640];\n'), SOFT],
+      ['member-array-exported-f', lifecycle('state(frame, view) { return tests[0](view.size[0]); }', 'export const tests = [f => f >= 640];\n'), HARD],
+      ['member-shadowed', lifecycle('state(frame, view) { const cfg = view.cfg; return frame >= cfg.min; }', 'const cfg = { min: 432 };\n'), SOFT],
+      // 二阶的写法：数字键、模板键、套两层的解构、剩余形参接着展开；动过的数组（给下标赋值、交给别人）摊不开，照旧当没传
+      ['member-numeric-key', lifecycle('state(frame, view) { return on(table[1](frame)); }', `${ON}${OFFSET}const table = { 1: offset };\n`), HARD],
+      ['member-template-key', lifecycle('state(frame, view) { return on(table[`offset`](frame)); }', `${ON}${OFFSET}const table = { offset };\n`), HARD],
+      ['member-destructured-nested', lifecycle('state(frame, view) { const { a: [fn] } = box; return on(fn(frame)); }', `${ON}${OFFSET}const box = { a: [offset] };\n`), HARD],
+      ['rest-forwarded-tail', lifecycle('state(frame, view) { return late(frame); }', `${GE_LATE}const late = (x, ...more) => ge(x, ...more);\n`), HARD],
+      ['spread-index-written', lifecycle('state(frame, view) { const args = [frame]; args[1] = view.events.m01; return ge(...args) && ge(view.size[0]); }', GE_WIDE), SOFT],
+      ['spread-handed', lifecycle('state(frame, view) { const args = [frame]; view.fill(args); return ge(...args) && ge(view.size[0]); }', GE_WIDE), SOFT],
+      // 拿不准走不走得到末尾的（带标号的块、有 break 的死循环、catch 里没回值、switch 没有 default）算走得到；finally 里回了值的不算
+      ['void-labeled', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { out: { if (v.ready) break out; return v.events.m01; } }\n`), HARD],
+      ['void-forever-break', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { while (true) { if (v.ready) break; return v.events.m01; } }\n`), HARD],
+      ['void-catch', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { try { return v.events.m01; } catch { v.log(); } }\n`), HARD],
+      ['void-switch-no-default', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { switch (v.mode) { case 1: return v.events.m01; } }\n`), HARD],
+      ['returns-finally', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { try { v.touch(); } finally { return v.events.m01; } }\n`), SOFT],
+      ['returns-forever-inner-break', lifecycle('state(frame, view) { return ge(frame, cue(view)); }', `${GE_LATE}function cue(v) { while (true) { switch (v.mode) { case 1: break; } if (v.ready) return v.events.m01; } }\n`), SOFT],
+      // 绕回自己的对象、数组扫得完：展开抄自己的工厂、展开自己的数组、8 个互相引用的属性
+      ['member-recursive-spread', lifecycle('state(frame, view) { return on(grow(2).offset(frame)); }', `${ON}${OFFSET}const grow = k => (k ? { ...grow(k - 1) } : { offset });\n`), HARD],
+      ['spread-recursive', lifecycle('state(frame, view) { return ge(...loop()); }', `${GE}const loop = () => [...loop()];\n`), SOFT],
+      ['member-tangle', lifecycle('state(frame, view) { return ge(frame, 432) && box.p0 >= 1; }', `${GE}const box = {};\n${Array.from({ length: 8 }, (_, i) => `box.p${i} = ${Array.from({ length: 8 }, (_, j) => `box.p${j}`).join(' + ')} + 1;\n`).join('')}`), HARD],
+      // 递归的读词函数回 { end }、调用处解构出来接着读：循环下标不会一圈圈累加成写死的数，和回一个数的写法一个结论
+      ['recursive-destructured', lifecycle('state(frame, view) { return read(view.src, 0).end > 0; }',
+        'function read(src, i) { while (i < src.length) { if (src[i] === \'(\') { const { end } = read(src, i + 1); i = end; continue; } i++; } return { end: i }; }\n'), SOFT],
+      ['recursive-returned', lifecycle('state(frame, view) { return read(view.src, 0) > 0; }',
+        'function read(src, i) { while (i < src.length) { if (src[i] === \'(\') { i = read(src, i + 1); continue; } i++; } return i; }\n'), SOFT],
+      // 解构是取数、不是又写了一处时间键：{ end: 432 } 只在写它的那一格算一处
+      ['destructured-time-key', 'const read = () => ({ end: 432 });\nexport function scan() { const { end } = read(); return end; }\n', HARD],
     ]) assert.deepEqual(whole(project(name, { code: { 'shots/shot.js': code } })), want, name);
     // 从节拍常量算出来的量（beatSeconds = 60 / BPM）不是另一处定义；绕回自己的量、递归的辅助函数、一长串派生量都扫得完
     const derivedBeat = project('derived-beat', { code: { 'shots/music.js': 'const BPM = 80;\nexport const beatSeconds = 60 / BPM;\nexport const table = { tempo: BPM };\n' } });
