@@ -626,7 +626,8 @@ test('五审：按画面帧号放音效的做法留在做法表，点名的三�
 // 六审（G_REV-R6）：正写以外的随机写法也要出结构化区间——倒写（0.15+0.05·rand）、省略系数（0.15+rand²）、
 // 中心化（(rnd−0.5)×0.05）、纯幂次（rand³·0.6）、除法（(0.3+1.4rnd)/rate）、紧贴数字（.4rand），
 // 以及同一类的调用写法 r()、rng()、Math.random()、随机(−1,1)。这些量带 expr（算式原文）与 label（它是什么）。
-const RAND_TOKEN = /(?<![A-Za-z_])(?:(?:rand|rnd)(?![A-Za-z])|rng\(\)|r\(\)|Math\.random\(\)|随机\()/g;
+// 十一审：算式里不带括号的裸变量 rng（floor(rng×4)）也是随机记号；当参数传（gen(sr,rng,v)）或只是提到（共用 rng）的不算。
+const RAND_TOKEN = /(?<![A-Za-z_])(?:(?:rand|rnd)(?![A-Za-z])|rng\(\)|rng(?=\s*[×*·/+\-−^])|(?<=[×*·/+\-−]\s*)rng(?![\w(])|r\(\)|Math\.random\(\)|随机\()/g;
 const spansOf = (text, needle) => {
   const out = [];
   for (let i = text.indexOf(needle); i !== -1; i = text.indexOf(needle, i + 1)) out.push([i, i + needle.length]);
@@ -667,6 +668,35 @@ test('六审：全表每个随机记号都有结构化区间，或登记在清�
   assert.ok(skipped.length <= 4, `例外只留指数写法、生成器定义与没给范围的，现有 ${skipped.length} 个`);
   for (const p of priors) assert.equal(p.provenance.note.match(RAND_TOKEN), null, `${p.id}：可移植条目里不该有随机算式`);
   t.diagnostic(`随机记号 ${tokens} 个：结构化区间 ${structured} 条，例外 ${skipped.length} 个`);
+});
+
+// 十一审（G_REV-R11）：e152、e157 的三个裸 rng 取整算式出离散区间；取值不连续的带 step（相邻取值的间距），范围随条件变的带 condition。
+test('十一审：裸 rng 取整算式出离散区间，带 step 与条件，其余区间不动', () => {
+  const tokens = (s) => [...s.matchAll(RAND_TOKEN)].length;
+  assert.deepEqual(
+    ['floor(rng×4)', '2·rng', 'rng()^1.3', 'gen(sr,rng,v,arg)', '两声道共用 rng；', 'pickNonword(rng,avoid)', 'default_rng(5090)'].map(tokens),
+    [1, 1, 1, 0, 0, 0, 0],
+  );
+  const read = (cardId, sid) => getAudioSubsCardPriors(cardId).find((e) => e.sourceId === sid).quantities;
+  const e152 = read('audio.drums', 'e152');
+  assert.deepEqual(e152.map((q) => ({ ...q, label: '', condition: '' })), [
+    { value: [0, 1], unit: 'count', rawUnit: '位', base: 0, jitter: 1, expr: 'floor(rng×min(2,max(1,音数−5)))', label: '', step: 1, condition: '' },
+  ]);
+  assert.match(e152[0].condition, /≤ 6.*固定为 0.*≥ 7.*0 或 1/);
+  const e157 = read('audio.music-gen', 'e157');
+  assert.deepEqual(e157.filter((q) => !('jitter' in q)), [
+    { value: 24, unit: 'semitone', rawUnit: '半音' }, { value: 0.78, unit: 'ratio', rawUnit: '%' },
+    { value: 0.45, unit: 'ratio', rawUnit: '%' }, { value: 0.5, unit: 'ratio', rawUnit: '%' },
+  ]);
+  assert.deepEqual(e157.filter((q) => 'jitter' in q).map((q) => ({ ...q, label: '' })), [
+    { value: [4, 10], unit: 'count', rawUnit: '小节', base: 4, jitter: 6, expr: '4+floor(rng×4)×2', label: '', step: 2 },
+    { value: [8, 22], unit: 'count', rawUnit: '小节', base: 8, jitter: 14, expr: '8+floor(rng×8)×2', label: '', step: 2 },
+  ]);
+  const ranges = coupledOrPractice.flatMap((e) => e.quantities.filter((q) => 'jitter' in q).map((q) => [e.sourceId, q]));
+  assert.equal(ranges.length, 75, '既有 72 条加这三条');
+  const stepped = ranges.filter(([, q]) => 'step' in q);
+  assert.deepEqual(stepped.map(([sid]) => sid), ['e152', 'e157', 'e157']);
+  for (const [sid, q] of stepped) assert.ok(q.unit === 'count' && Number.isInteger(q.step) && q.jitter % q.step === 0, `${sid} ${q.expr}`);
 });
 
 // 十审（G_REV-R10）校准后新挂卡的 8 条与各自的卡；其中 4 条不随所在节的默认卡，登记在清单的 cardOverrides。
@@ -710,6 +740,8 @@ test('六审：点名 11 条与同类调用写法逐条按源式取区间', () =
     e103: [[[3.1, 4.1], 'ms']],
     e137: [[[-1, 1], 'cent']], // detune ±随机(−1,1)
     e229: [[[0.98, 1.02], 'Hz', '61×1.205^k']], // 61×1.205^k×(1+(rnd−0.5)×0.04)
+    e152: [[[0, 1], 'count']], // 十一审：floor(rng×min(2,max(1,音数−5)))
+    e157: [[[4, 10], 'count'], [[8, 22], 'count']], // 十一审：4+floor(rng×4)×2、8+floor(rng×8)×2 小节
   };
   for (const [sid, rows] of Object.entries(want)) {
     const got = (NAMED_CARD[sid] ? namedQuantities(sid) : quantitiesOf(sid)).filter((q) => q.expr && 'jitter' in q);
@@ -795,7 +827,9 @@ test('九审：e64 的 0.3s01、0.25s01 是算式里的变量，不记成秒', (
   );
   // 全表没有别的量是从「单位紧跟数字或下划线」的标识符里抽出来的：除 e64.quantities 外，挂卡表与上一版（4e68d78）逐字相同。
   // 十审校准新挂卡的 8 条（R11_CARDS）不算在内：原有 301 条一字未动。
-  const rest = cardPriors.filter((e) => !(e.sourceId in R11_CARDS)).map((e) => (e.sourceId === 'e64' ? { ...e, quantities: null } : e));
+  // 十一审给 e152、e157 补的三条离散区间（带 step）也不算在内：拿掉它们，哈希仍是上一版的，既有 72 条区间一字未动。
+  const rest = cardPriors.filter((e) => !(e.sourceId in R11_CARDS))
+    .map((e) => (e.sourceId === 'e64' ? { ...e, quantities: null } : { ...e, quantities: e.quantities.filter((q) => !('step' in q)) }));
   assert.equal(rest.length, 301);
   assert.equal(createHash('sha256').update(JSON.stringify(rest)).digest('hex').slice(0, 16), '04e295e02cd6b342');
 });
