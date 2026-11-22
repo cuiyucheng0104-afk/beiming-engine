@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "overlay.subs 的字幕分块",
+  "description": "按出场次序写。空数组表示让卡自己按 maxWords、maxChars 切。",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["scene", "text"],
+    "additionalProperties": false,
+    "properties": {
+      "scene": { "type": "string", "minLength": 1, "description": "这一块在哪个场景" },
+      "text": { "type": "string", "minLength": 1, "description": "画面上显示的字" },
+      "phrase": { "type": "string", "minLength": 1, "description": "旁白念到这个短语时这一块出现，取第一次连续出现的位置；不写就用 text" }
+    }
+  }
+}

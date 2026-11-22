@@ -1,4 +1,4 @@
-// 北冥引擎 · 三档卡通材质（三渲二的“光”）：MeshToonMaterial + 着色器补丁（three r170）。
+// 北冥引擎 · 三档卡通材质（三渲二的“光”）：MeshToonMaterial + 着色器补丁（three r170 / r187，两版实渲对拍见 r187-toon-regression.mjs）。
 // 三色分档（两道羽化 + fwidth 抗锯齿）、投影量化（投影区压进阴影档）、背光侧 / 受光侧硬边边缘光（可选双色亮芯 + 撕边 rimCore）、
 // 下方补光 fill（两档量化）、天空冷光（只进阴影档）；表面层见 surface.js。输出模式 shared.uToonPass：0 彩色，1 视空间法线 + 物体 / 实例 ID。
 // 主光 = 第一盏投影平行光，只取方向和投影；颜色全按参数绝对给定（保色板用 NoToneMapping）；噪声是坐标的纯函数，任意帧可单独重渲。

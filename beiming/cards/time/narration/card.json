@@ -1,0 +1,47 @@
+{
+  "format": "card/0.1",
+  "id": "time.narration",
+  "version": "1.0.0",
+  "kind": "time",
+  "title": "旁白触发点",
+  "intent": "旁白念到某个短语的那一刻，交成一个有名字的触发点，画面上的动作照它卡",
+  "visibleToAgent": true,
+  "livesIn": ["data"],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/time/narration/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/time/narration/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "timing": { "type": "data", "unit": "none", "schema": "timing.schema.json", "default": { "scenes": [], "words": [] }, "coupling": "none" },
+    "triggers": { "type": "data", "unit": "none", "schema": "triggers.schema.json", "default": [], "coupling": "none" },
+    "anticipationSec": { "type": "number", "unit": "s", "range": [0, 5], "default": 0, "coupling": "none" }
+  },
+  "ports": {
+    "in": [],
+    "out": [{ "name": "cues", "type": "tracks.cues" }],
+    "order": { "before": [], "after": [] },
+    "requires": ["timing 的时间是全片时间；words 里每个词标了它在哪个场景"]
+  },
+  "conditions": {
+    "appliesWhen": ["讲解片：图表、标注、镜头动作要跟着旁白念到的词出现", "配音换了一版，要触发点跟着新的逐词时间重排"],
+    "notWhen": ["动作卡的是音乐的拍点或切点，不是旁白", "稿子里没有这个短语：卡会报错，不会猜一个位置"]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "30 帧每秒，场景从 2 秒起，词 rain 在 2.5 到 2.8 秒、falls 在 2.9 到 3.3 秒：短语 rain 的触发点在 2.5 秒、第 75 帧、离场景起点 0.5 秒；anchor 是 end 的 rain falls 在 3.3 秒；提前量 1 秒时压在场景起点 2 秒",
+    "predicates": []
+  },
+  "pitfalls": [
+    { "symptom": "报找不到短语", "fix": "短语要和旁白里连续的几个词逐词相同；数字、缩写照词序列里切出来的样子写，或者直接抄稿子里的原文" },
+    { "symptom": "触发点落在了同一个短语更早的那一次", "fix": "取的是第一次出现的位置；把短语写长一点，带上前后的词" },
+    { "symptom": "相邻两帧的触发点挤在同一帧", "fix": "帧号是毫秒乘帧率再四舍五入；要错开就用 offsetSec 挪" }
+  ],
+  "provenance": { "cases": [], "note": "词面归一后做连续短语匹配，时间在整数毫秒上算；触发点不早于所在场景的起点" },
+  "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-22" }],
+  "exams": ["18-1", "18-2", "cal:time.narration"]
+}
