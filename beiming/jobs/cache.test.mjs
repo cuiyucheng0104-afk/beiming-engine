@@ -902,3 +902,91 @@ test('A16-28 G_REV-R3 清理重试不误删等待期间发布的新帧，坏帧�
   assert.ok(waits.mock.callCount() >= injected, `退避次数 ${waits.mock.callCount()} 少于冲突次数 ${injected}`);
   assert.ok(waits.mock.calls.every((call) => call.arguments[3] >= 2), '每次退避至少等 2 ms');
 });
+
+test('A16-29 G_REV-R4 最终身份检查之后至 unlink 之前的窗口内同键发布受文件锁互斥保护，且 get 初始 lstatSync 遇 EBUSY 可重试', async (t) => {
+  const dir = tmpDir(t);
+  const cache = jobs.openShotCache(dir);
+  const entry = jobs.computeFrameCacheKey(makeBaseSpec());
+  const now = Date.now();
+  cache.put(entry, { colorBytes: Buffer.from([1]) });
+  for (const file of frameFiles(dir)) fs.utimesSync(file, new Date(now - 7200_000), new Date(now - 7200_000));
+
+  // 1) get 初始 bigint lstatSync 单独遇一次 EBUSY：自动退避重试成功，不直接崩
+  const realLstat = fs.lstatSync;
+  let lstatBusy = true;
+  const lstatOnce = t.mock.method(fs, 'lstatSync', (target, opts) => {
+    if (lstatBusy && opts?.bigint && typeof target === 'string' && target.endsWith('.frame')) {
+      lstatBusy = false;
+      throw Object.assign(new Error('EBUSY: lstat'), { code: 'EBUSY', syscall: 'lstat' });
+    }
+    return realLstat(target, opts);
+  });
+  assert.deepEqual([...cache.get(entry).colorBytes], [1]);
+  lstatOnce.mock.restore();
+  for (const file of frameFiles(dir)) fs.utimesSync(file, new Date(now - 7200_000), new Date(now - 7200_000));
+
+  // 2) prune 首次 unlink 遇 EBUSY，第 2 次重试已完成最终身份检查返回旧快照之后、调 unlinkSync 之前发布新帧：新帧不得丢失
+  //    发布改名与删除的那一刻跨进程文件锁必须在场：身份检查到 unlink 的窗口由它对别的进程互斥
+  const realUnlink = fs.unlinkSync;
+  const realRename = fs.renameSync;
+  const lockHeld = [];
+  const sawLock = (target) => { if (String(target).endsWith('.frame')) lockHeld.push(fs.existsSync(path.join(cache.root, '.cache.lock'))); };
+  const renameSpy = t.mock.method(fs, 'renameSync', (source, target) => { sawLock(target); return realRename(source, target); });
+  let step = 0;
+  const unlinkMock = t.mock.method(fs, 'unlinkSync', (target) => {
+    sawLock(target);
+    if (typeof target === 'string' && target.endsWith('.frame') && step === 0) {
+      step = 1;
+      throw Object.assign(new Error('EBUSY'), { code: 'EBUSY', syscall: 'unlink' });
+    }
+    return realUnlink(target);
+  });
+  const afterStamp = t.mock.method(fs, 'lstatSync', (target, opts) => {
+    const res = realLstat(target, opts);
+    if (step === 1 && opts?.bigint && typeof target === 'string' && target.endsWith('.frame')) {
+      step = 2;
+      cache.put(entry, { colorBytes: Buffer.from([77]) });
+    }
+    return res;
+  });
+  const pruned = cache.prune({ maxAgeMs: 3600_000, now });
+  unlinkMock.mock.restore();
+  afterStamp.mock.restore();
+  assert.equal(pruned.removed, 0, '最终身份检查后被新帧替换的条目不得计入 removed');
+  assert.deepEqual([...cache.get(entry).colorBytes], [77], '最终身份检查后发布的新帧必须保留');
+
+  // 3) 跨进程实测：写子进程反复「发布旧帧并做旧 → 发布新帧 [77] → 读回」，父进程同时连续 prune 与 get。
+  //    只有做旧的帧可以被清掉；新帧一旦被误删，子进程读不回就以 3 退出。
+  const keeper = jobs.computeFrameCacheKey(makeBaseSpec({ renderSpec: { ...makeBaseSpec().renderSpec, frame: 1 } }));
+  cache.put(keeper, { colorBytes: Buffer.from([5]) }); // 同版本留一帧新的，版本目录不会被回收，子进程不必处理目录消失
+  renameSpy.mock.restore();
+  assert.deepEqual(lockHeld, [true, true, true], '首次 unlink、重入发布与独立发布都要在 .cache.lock 之内');
+  const stop = path.join(tmpDir(t), 'stop');
+  const script = `import fs from 'node:fs';
+    import { computeFrameCacheKey, openShotCache } from ${JSON.stringify(api)};
+    const cache = openShotCache(${JSON.stringify(dir)});
+    const entry = computeFrameCacheKey(${JSON.stringify(makeBaseSpec())});
+    const file = ${JSON.stringify(frameFiles(dir).find((name) => name.endsWith(`${entry.key.slice(7)}.frame`)))};
+    const old = new Date(Date.now() - 7200_000);
+    do {
+      cache.put(entry, { colorBytes: Buffer.from([1]) });
+      fs.utimesSync(file, old, old);
+      cache.put(entry, { colorBytes: Buffer.from([77]) });
+      if (cache.get(entry)?.colorBytes[0] !== 77) process.exit(3);
+    } while (!fs.existsSync(${JSON.stringify(stop)}));`;
+  const writer = spawn(process.execPath, ['--input-type=module', '-e', script], { stdio: 'inherit' });
+  const exited = once(writer, 'exit');
+  let removed = 0;
+  let alive = true;
+  writer.once('exit', () => { alive = false; });
+  for (const deadline = Date.now() + 20_000; alive && removed < 20 && Date.now() < deadline;) {
+    removed += cache.prune({ maxAgeMs: 3600_000 }).removed;
+    cache.get(entry);
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  fs.writeFileSync(stop, '');
+  assert.equal((await exited)[0], 0, '写子进程刚发布的新帧被并发清理误删，或子进程出错');
+  assert.ok(removed >= 20, `并发期间只清掉 ${removed} 个做旧帧，没有真正压到竞争窗口`);
+  assert.deepEqual([...cache.get(entry).colorBytes], [77]);
+  assert.deepEqual(fs.readdirSync(dir).filter((name) => name.startsWith('.')), [], '不留锁文件与暂存目录');
+});

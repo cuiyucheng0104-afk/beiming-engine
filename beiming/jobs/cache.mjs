@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { isPlainObject } from './ledger.mjs';
+import { isPlainObject, withFileLock } from './ledger.mjs';
 import { atomicWrite, makeDirectory, retrySharing, safePath } from './workspace.mjs';
 
 const FORMAT = 'frame-cache/0.2';
@@ -141,6 +141,25 @@ export function openShotCache(cacheDir) {
     return child(dir, `${entry.key.slice(7)}.frame`, false);
   }
 
+  // 发布（改名到位）与「核对身份后删除」在同一把跨进程文件锁里互斥：核对之后、删除之前不会有新帧换进来。
+  // 只读的共享缓存拿不了锁，照旧不加锁；同一进程在临界区里再进来（inLock）直接执行，靠 putSeq 发现期间的发布。
+  let putSeq = 0;
+  let inLock = false;
+  function withCacheLock(run) {
+    if (inLock) return run();
+    try {
+      fs.accessSync(root, fs.constants.W_OK);
+    } catch {
+      return run();
+    }
+    inLock = true;
+    try {
+      return withFileLock(path.join(root, '.cache'), run);
+    } finally {
+      inLock = false;
+    }
+  }
+
   // 一个条目一个文件：一行 JSON 文件头加颜色层字节，改名一步到位，不会出现头和颜色层对不上的中间态。
   const validSeam = seam => seam === undefined || (Array.isArray(seam) && seam.length > 0 && seam.length <= SEAM_BINS && seam.every(Number.isFinite));
   const validRun = id => typeof id === 'string' && id.length > 0;
@@ -156,7 +175,7 @@ export function openShotCache(cacheDir) {
     for (let attempt = 0; ; attempt++) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       try {
-        atomicWrite(file, bytes, { stagingParent: root });
+        atomicWrite(file, bytes, { stagingParent: root, aroundPublish: publish => withCacheLock(() => { putSeq += 1; publish(); }) });
         break;
       } catch (error) {
         // 并发失效/清理可能刚移走父目录；只补一次，持续的 I/O 故障交给调用方。
@@ -168,29 +187,31 @@ export function openShotCache(cacheDir) {
   }
 
   // 共享冲突的退避期间，别的写者可能已在同一路径原子发布了新帧：每次删除前重验身份，只删快照里的那个文件。
+  // 锁套在单次尝试里面，退避等待时不占锁。
   const stamp = file => fs.lstatSync(file, { bigint: true, throwIfNoEntry: false });
   function removeSame(file, snap) {
     let removed = false;
-    retrySharing(file, () => {
+    retrySharing(file, () => withCacheLock(() => {
+      const seqBefore = putSeq;
       const now = stamp(file);
-      if (!now || !snap || now.ino !== snap.ino || now.size !== snap.size || now.mtimeNs !== snap.mtimeNs || now.ctimeNs !== snap.ctimeNs) return;
+      if (putSeq !== seqBefore || !now || !snap || now.ino !== snap.ino || now.size !== snap.size || now.mtimeNs !== snap.mtimeNs || now.ctimeNs !== snap.ctimeNs) return;
       try {
         fs.unlinkSync(file);
         removed = true;
       } catch (error) {
         if (error.code !== 'ENOENT') throw error;
       }
-    }, 5);
+    }), 5);
     return removed;
   }
 
   // 头部和颜色必须来自同一次读取；调用方以后再取颜色时用返回的摘要核对。
   function get(entry) {
     const file = fileOf(entry);
-    const snap = stamp(file);
+    let snap;
     let raw;
     try {
-      raw = retrySharing(file, () => fs.readFileSync(file), 12);
+      [snap, raw] = retrySharing(file, () => [stamp(file), fs.readFileSync(file)], 12);
     } catch (error) {
       if (error.code === 'ENOENT') return undefined;
       throw error;

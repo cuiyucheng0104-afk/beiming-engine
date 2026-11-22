@@ -105,13 +105,16 @@ export function retrySharing(file, run, retries = 16) {
   }
 }
 
-export function atomicWrite(file, text, { stagingParent = path.dirname(file), create = false } = {}) {
+// aroundPublish 只包住最后的发布一步：写盘和刷盘在它外面做完，调用方要加锁时临界区才短。
+export function atomicWrite(file, text, { stagingParent = path.dirname(file), create = false, aroundPublish = publish => publish() } = {}) {
   const staging = fs.mkdtempSync(path.join(stagingParent, '.write-'));
   try {
     const pending = path.join(staging, 'pending');
     fs.writeFileSync(pending, text, { flag: 'wx', flush: true });
-    if (create) fs.linkSync(pending, file);
-    else retrySharing(file, () => fs.renameSync(pending, file));
+    aroundPublish(() => {
+      if (create) fs.linkSync(pending, file);
+      else retrySharing(file, () => fs.renameSync(pending, file));
+    });
   } finally {
     fs.rmSync(staging, { recursive: true, force: true, maxRetries: 5, retryDelay: 10 });
   }
