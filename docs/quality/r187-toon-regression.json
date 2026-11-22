@@ -16,6 +16,7 @@
   },
   "gate": {
     "minPsnrDb": 45,
+    "maxFracGt1": 0.001,
     "negativeMaxPsnrDb": 35,
     "frame": {
       "width": 640,
@@ -78,8 +79,48 @@
       "pass": true
     },
     {
-      "id": "id-pass",
+      "id": "id-frame",
       "what": "法线 + 物体 / 实例 ID 通道整帧（uToonPass = 1，RGBA 四通道）",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true
+    },
+    {
+      "id": "id:bands-rim-fill-sky",
+      "what": "法线 / ID 通道子区",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true
+    },
+    {
+      "id": "id:shadow-deform",
+      "what": "法线 / ID 通道子区",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true
+    },
+    {
+      "id": "id:surface-layers",
+      "what": "法线 / ID 通道子区",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true
+    },
+    {
+      "id": "id:instanced-tints",
+      "what": "法线 / ID 通道子区",
       "psnrDb": 99,
       "exactMatch": true,
       "maxAbsDiff": 0,
@@ -93,11 +134,11 @@
       "id": "neg-step1",
       "what": "分档阈值 step1 整体 +0.12",
       "region": "bands-rim-fill-sky",
-      "psnrDb": 31.47,
+      "psnrDb": 30.66,
       "exactMatch": false,
       "maxAbsDiff": 78,
-      "fracGt1": 0.112865,
-      "fracGt5": 0.094492,
+      "fracGt1": 0.107135,
+      "fracGt5": 0.092956,
       "pass": false,
       "caught": true
     },
@@ -117,11 +158,11 @@
       "id": "neg-rim-off",
       "what": "关掉背光侧与受光侧边缘光",
       "region": "bands-rim-fill-sky",
-      "psnrDb": 22.47,
+      "psnrDb": 22.41,
       "exactMatch": false,
       "maxAbsDiff": 235,
-      "fracGt1": 0.036237,
-      "fracGt5": 0.035182,
+      "fracGt1": 0.034648,
+      "fracGt5": 0.033815,
       "pass": false,
       "caught": true
     },
@@ -138,17 +179,199 @@
       "caught": true
     }
   ],
+  "ablations": [
+    {
+      "id": "abl-band3",
+      "what": "第三档并进第二档（三档变两档）",
+      "region": "bands-rim-fill-sky",
+      "psnrDb": 35.44,
+      "exactMatch": false,
+      "maxAbsDiff": 64,
+      "fracGt1": 0.065339,
+      "fracGt5": 0.051706,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-feather",
+      "what": "绳结的羽化 0.14 / 0.1 收成硬边",
+      "region": "bands-rim-fill-sky",
+      "psnrDb": 44.65,
+      "exactMatch": false,
+      "maxAbsDiff": 38,
+      "fracGt1": 0.048607,
+      "fracGt5": 0.024727,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-edge-noise",
+      "what": "关掉明暗交界线噪声 edgeNoise",
+      "region": "bands-rim-fill-sky",
+      "psnrDb": 38.7,
+      "exactMatch": false,
+      "maxAbsDiff": 146,
+      "fracGt1": 0.033984,
+      "fracGt5": 0.022096,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-rim-core",
+      "what": "关掉边缘光亮芯（rimColor2 / rimLitColor2）",
+      "region": "bands-rim-fill-sky",
+      "psnrDb": 36.62,
+      "exactMatch": false,
+      "maxAbsDiff": 65,
+      "fracGt1": 0.016081,
+      "fracGt5": 0.015326,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-rim-break",
+      "what": "关掉边缘光撕边 rimBreak",
+      "region": "bands-rim-fill-sky",
+      "psnrDb": 33.66,
+      "exactMatch": false,
+      "maxAbsDiff": 148,
+      "fracGt1": 0.022695,
+      "fracGt5": 0.017227,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-fill",
+      "what": "关掉下方补光",
+      "region": "bands-rim-fill-sky",
+      "psnrDb": 23.35,
+      "exactMatch": false,
+      "maxAbsDiff": 189,
+      "fracGt1": 0.141471,
+      "fracGt5": 0.136784,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-sky",
+      "what": "关掉天空冷光",
+      "region": "bands-rim-fill-sky",
+      "psnrDb": 31.65,
+      "exactMatch": false,
+      "maxAbsDiff": 69,
+      "fracGt1": 0.061263,
+      "fracGt5": 0.054063,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-patch",
+      "what": "关掉 patchLayer 的锈斑 / 藻斑 / 斑点 / 斑驳",
+      "region": "surface-layers",
+      "psnrDb": 26.53,
+      "exactMatch": false,
+      "maxAbsDiff": 130,
+      "fracGt1": 0.125703,
+      "fracGt5": 0.11724,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-paint-stroke",
+      "what": "关掉 paintLayer 的干笔笔触",
+      "region": "surface-layers",
+      "psnrDb": 40.9,
+      "exactMatch": false,
+      "maxAbsDiff": 48,
+      "fracGt1": 0.017982,
+      "fracGt5": 0.014701,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-paint-grain",
+      "what": "关掉 paintLayer 的颜料颗粒",
+      "region": "surface-layers",
+      "psnrDb": 48.46,
+      "exactMatch": false,
+      "maxAbsDiff": 26,
+      "fracGt1": 0.029362,
+      "fracGt5": 0.011836,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-mural",
+      "what": "关掉 muralLayer 的风化",
+      "region": "surface-layers",
+      "psnrDb": 31.76,
+      "exactMatch": false,
+      "maxAbsDiff": 97,
+      "fracGt1": 0.062448,
+      "fracGt5": 0.059609,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-key-dir",
+      "what": "没有灯时的主光方向 uKeyDirW 换一个方向",
+      "region": "surface-layers",
+      "psnrDb": 30.7,
+      "exactMatch": false,
+      "maxAbsDiff": 80,
+      "fracGt1": 0.086719,
+      "fracGt5": 0.083516,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-inst-tint",
+      "what": "实例的两档阴影色调抹平成同一档",
+      "region": "instanced-tints",
+      "psnrDb": 41.72,
+      "exactMatch": false,
+      "maxAbsDiff": 46,
+      "fracGt1": 0.031159,
+      "fracGt5": 0.027435,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-id-outline-w",
+      "what": "法线 / ID 通道：芦苇的描边权重 outlineW 1 → 0.5",
+      "region": "shadow-deform",
+      "psnrDb": 30.08,
+      "exactMatch": false,
+      "maxAbsDiff": 64,
+      "fracGt1": 0.063112,
+      "fracGt5": 0.063112,
+      "pass": false,
+      "caught": true
+    },
+    {
+      "id": "abl-id-instance",
+      "what": "法线 / ID 通道：关掉实例 ID（整批实例同一个 ID）",
+      "region": "instanced-tints",
+      "psnrDb": 23.99,
+      "exactMatch": false,
+      "maxAbsDiff": 148,
+      "fracGt1": 0.181732,
+      "fracGt5": 0.163164,
+      "pass": false,
+      "caught": true
+    }
+  ],
   "consoleWarnings": [],
   "unknownRevisionWarnings": [
     "r999: engine/shade 只在 three r170 / r187 上对拍过，当前 r999：锚点不匹配时会直接报错"
   ],
   "overallPass": true,
   "notes": [
-    "投影采样核（唯一会改变画面的差异）：r187 删掉了 PCFSoftShadowMap，PCFShadowMap 改成深度纹理 + 硬件比较采样（sampler2DShadow）+ 按屏幕像素旋转的 5 点 Vogel 圆盘，投影边缘带屏幕空间抖动。`quantizeShadow` 在 r187 下把这段换回 r170 PCFSoftShadowMap 的确定性 3 × 3 双线性核（取样点落在纹素中心，硬件比较在那里等于单个纹素的 step）。不换核时同一套场景实测：整帧 40.47 dB、`shadow-deform` 36.16 dB、`instanced-tints` 39.31 dB，过不了门（macOS Metal）。",
+    "投影采样核（唯一会改变画面的差异）：r187 删掉了 PCFSoftShadowMap，PCFShadowMap 改成深度纹理 + 硬件比较采样（sampler2DShadow）+ 按屏幕像素旋转的 5 点 Vogel 圆盘，投影边缘带屏幕空间抖动。`quantizeShadow` 在 r187 下把这段换回 r170 PCFSoftShadowMap 的确定性 3 × 3 双线性核（取样点落在纹素中心，硬件比较在那里等于单个纹素的 step）。不换核时过不了门：开发时临时关掉换核、在 macOS Metal 上量过一次，投影所在的两个子区只有 36 到 39 dB（一次性实验的读数，本执行器不复现它；要复现就把 `quantizeShadow` 里换核那一支临时关掉再跑）。",
     "软阴影类型：r187 下把 `renderer.shadowMap.type` 设成 PCFSoftShadowMap 会被 three 退回 PCFShadowMap 并告警；标定场景在 r187 下直接设 PCFShadowMap，两版都没有告警。`engine/stage/film.js` 的 `createFilm` 默认值仍写死 PCFSoftShadowMap（不在本次改动范围），整条出片链切到 r187 时要跟着改成 PCFShadowMap。",
     "版本告警：`engine/shade` 以前只认 r170，在 r187 下每次加载都告警；现在 r170 / r187 都不告警，别的版本照旧告警（对拍时另开一页把 r187 的版本号改成 999 实测，告警在）；着色器锚点缺失时两版都直接抛错。",
     "不影响卡通着色的差异：meshtoon 片元去掉了 `#include <packing>`（卡通栈不用其中的函数）；`lights_fragment_begin` / `lights_fragment_end` 多了 SunLight、光照探针网格、Lambert / Phong 的 IBL，MeshToonMaterial 都不走（卡通合成只取第一盏平行光的方向与投影，颜色全按参数给定，没有光照衰减参与）；`color_fragment` 把顶点色与带 alpha 的顶点色合成一支，实例色结果相同；`common` 把 `inverseTransformDirection` 改名并留了同义宏；深度材质多了反向深度分支，默认不开。",
-    "阴影深度：r170 把深度打包进 RGBA8 颜色纹理，r187 直接用深度纹理；带顶点形变的 `makeDepthMaterial` 两版都照常生效（r187 只用它的顶点形变，片元输出不再被读）。标定场景里两版投影逐字节相同。",
+    "阴影深度：r170 把深度打包进 RGBA8 颜色纹理，r187 直接用深度纹理；带顶点形变的 `makeDepthMaterial` 两版都照常生效（r187 只用它的顶点形变，片元输出不再被读）。",
     "没有覆盖的：r170 的 PCFShadowMap（17 点核）在 r187 下没有等价物，r187 的 PCF 一律按上面的软阴影核出；VSMShadowMap、点光源与聚光灯投影、three 自带的非卡通材质不在这套对拍里。"
   ]
 }

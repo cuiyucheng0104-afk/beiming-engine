@@ -5,15 +5,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import * as THREE from 'three';
-import { runR187ToonRegression, compareFrames, TOON_PSNR_GATE_DB } from './r187-toon-regression.mjs';
+import { runR187ToonRegression, compareFrames, TOON_PSNR_GATE_DB, TOON_MAX_FRAC_GT1 } from './r187-toon-regression.mjs';
 import { inject, quantizeShadow } from './patch.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-const RUN = runR187ToonRegression();   // 实渲只跑一遍，S5-1 与 S5-3 共用
+let RUN = null;
+const run = () => RUN ??= runR187ToonRegression();   // 实渲只跑一遍，几条用例共用；只跑不要浏览器的用例时不启动
 
 test('S5-1 r187 对 r170 卡通着色四类核心特性实渲过 PSNR 门，且负对照必被拦截', async (t) => {
-  const res = await RUN;
+  const res = await run();
   if (res.skipped) {
     t.skip(res.skipped);
     return;
@@ -32,6 +33,26 @@ test('S5-1 r187 对 r170 卡通着色四类核心特性实渲过 PSNR 门，且�
     assert.equal(neg.pass, false, `负对照 ${neg.id} 必须判不过`);
     assert.ok(neg.psnrDb < 35, `负对照 ${neg.id} PSNR 应明显跌破门限，实测 ${neg.psnrDb}`);
   }
+  assert.equal(res.overallPass, true);
+  // 落盘报告与当前代码是同一套门、同一批项目（读数随机器变，不比）
+  const report = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/quality/r187-toon-regression.json'), 'utf8'));
+  assert.deepEqual(report.gate, res.gate, '改了门限或画幅：node engine/shade/r187-toon-regression.mjs --write 重出报告');
+  for (const k of ['cases', 'negativeControls', 'ablations']) assert.deepEqual(report[k].map(c => [c.id, c.what]), res[k].map(c => [c.id, c.what]), `报告的 ${k} 与当前标定场景不一致：重出报告`);
+});
+
+test('S5-6 整帧之外逐子区都比到（彩色与法线 / ID 通道各四个）；逐特性消融：只关一项特性就过不了门', async (t) => {
+  const res = await run();
+  if (res.skipped) return t.skip(res.skipped);
+  const regions = ['bands-rim-fill-sky', 'shadow-deform', 'surface-layers', 'instanced-tints'];
+  assert.deepEqual(res.cases.map(c => c.id), ['frame', ...regions, 'id-frame', ...regions.map(r => 'id:' + r)]);
+  for (const c of res.cases) assert.ok(c.fracGt1 <= TOON_MAX_FRAC_GT1, `${c.id}：差 > 1 级的像素 ${c.fracGt1} 超过 ${TOON_MAX_FRAC_GT1}`);
+  // 契约点名的特性每项至少一条消融
+  for (const id of ['abl-band3', 'abl-feather', 'abl-edge-noise', 'abl-rim-core', 'abl-rim-break', 'abl-fill', 'abl-sky', 'abl-patch', 'abl-paint-stroke', 'abl-paint-grain', 'abl-mural', 'abl-inst-tint', 'abl-id-outline-w', 'abl-id-instance'])
+    assert.ok(res.ablations.some(a => a.id === id), `缺消融 ${id}`);
+  for (const a of res.ablations) {
+    assert.equal(a.pass, false, `消融 ${a.id}（${a.what}）必须过不了门：psnr=${a.psnrDb} fracGt1=${a.fracGt1}`);
+    assert.ok(a.fracGt1 >= 5 * TOON_MAX_FRAC_GT1 || a.psnrDb < 40, `消融 ${a.id} 离门限太近（psnr=${a.psnrDb} fracGt1=${a.fracGt1}）：让这项特性在标定画面里占更多像素`);
+  }
 });
 
 test('S5-2 落盘回归报告 docs/quality/r187-toon-regression.{json,md} 结构完整且脱敏合规', () => {
@@ -45,12 +66,13 @@ test('S5-2 落盘回归报告 docs/quality/r187-toon-regression.{json,md} 结构
   assert.equal(report.overallPass, true);
   assert.ok(Array.isArray(report.cases) && report.cases.length >= 4);
   assert.ok(Array.isArray(report.negativeControls) && report.negativeControls.length >= 3);
+  assert.ok(Array.isArray(report.ablations) && report.ablations.length >= 14 && report.ablations.every(a => a.caught === true));
   const raw = fs.readFileSync(jsonPath, 'utf8') + '\n' + fs.readFileSync(mdPath, 'utf8');
   assert.doesNotMatch(raw, /\/Users\/|\/home\/|lab:\/\//);
 });
 
 test('S5-3 版本告警：r170 / r187 两页零告警（S5-1 已断言），没对拍过的版本（r187 构建改号 999）照旧告警', async (t) => {
-  const res = await RUN;
+  const res = await run();
   if (res.skipped) return t.skip(res.skipped);
   assert.equal(res.unknownRevisionWarnings.length, 1, `应当只有一条版本告警：${res.unknownRevisionWarnings.join('; ')}`);
   assert.match(res.unknownRevisionWarnings[0], /engine\/shade 只在 three r170 \/ r187 上对拍过，当前 r999：锚点不匹配时会直接报错/);
