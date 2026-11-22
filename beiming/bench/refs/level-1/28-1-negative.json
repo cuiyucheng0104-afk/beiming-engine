@@ -1,0 +1,24 @@
+{
+  "question": "28-1",
+  "kind": "negative",
+  "source": "案例 28 原作环绕成片（1920×824、24 帧每秒、289 帧、带立体声）；2026-11-22 用 evaluate-b2.mjs 的 readFraming、readClosure 调 pixelBbox、loopClosurePsnr 实测，规格用 deliverSpec 和 ffprobe 读回",
+  "readings": {
+    "meta.bbox-limits": {
+      "frames": 289,
+      "maxW": 0.3167,
+      "minH": 0.8714,
+      "maxH": 0.9114,
+      "minMarginLr": 0.2891,
+      "minMarginTb": 0
+    },
+    "loop.closure-psnr": {
+      "closurePsnr": 27.707,
+      "adjacentPsnr": 37.579
+    },
+    "base": {
+      "spec": { "width": 1920, "height": 824, "fps": 24, "frames": 289, "audioChannels": 2 }
+    }
+  },
+  "violatingFrames": { "maxW": 0, "maxH": 289, "minMarginLr": 0, "minMarginTb": 289 },
+  "note": "原作是视频，没有每帧元数据：包围盒那一项用逐帧的像素估计代替（底色 #6E6C6C，容差 48 级；容差取 32 到 64 级，289 帧的高度都在 86% 以上），像素复核那一项没有读数，判不过。原作 289 帧，比题面多 1 帧，还带声音，规格这一条基础门也不过；首尾闭合量的是第 0 帧对最后一帧（第 288 帧）。案例 28 当时用缩小图量的记录是高 0.835 到 0.913、首尾 27.70 dB 对相邻帧 37.59 dB，和这里对得上。"
+}
