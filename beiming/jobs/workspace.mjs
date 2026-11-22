@@ -100,7 +100,8 @@ export function retrySharing(file, run, retries = 16, mode = fs.constants.W_OK) 
       try {
         fs.accessSync(reading ? file : path.dirname(file), mode);
       } catch (denied) {
-        if (!reading || denied.code !== 'ENOENT') throw error;
+        // 探测自己撞上 EBUSY 也是瞬态冲突，不算「永久不可写」，接着退避
+        if (denied.code !== 'EBUSY' && !(reading && denied.code === 'ENOENT')) throw error;
       }
       Atomics.wait(sleeper, 0, 0, Math.min(25, 2 + attempt * 2));
     }

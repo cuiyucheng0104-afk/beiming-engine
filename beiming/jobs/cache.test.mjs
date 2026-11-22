@@ -1145,3 +1145,79 @@ test('A16-32 G_REV-R6 大小写不敏感的卷上同一缓存根的不同写法�
   assert.equal(alias.get(old), undefined);
   assert.deepEqual([...alias.get(fresh).colorBytes], [2]);
 });
+
+test('A16-33 G_REV-R7 缓存根目录轮换重建后新旧句柄按当前物理根共享锁状态不自死锁，坏帧清理遇 UNKNOWN/EROFS 返回 undefined，且根 lstat 冲突可退避', (t) => {
+  const base = tmpDir(t);
+  const rootPath = path.join(base, 'cache');
+  const oldHandle = jobs.openShotCache(rootPath);
+  const entry1 = jobs.computeFrameCacheKey(makeBaseSpec());
+  const entry2 = jobs.computeFrameCacheKey(makeBaseSpec({ shot: { ...makeBaseSpec().shot, id: 's02' } }));
+  oldHandle.put(entry1, { colorBytes: Buffer.from([1]) });
+
+  // 1) 将原根改名并在原路径重建新根：旧句柄与新打开句柄在发布临界区同步重入 prune 时按当前物理根共享状态，绝不 ETIMEDOUT
+  fs.renameSync(rootPath, path.join(base, 'cache-retired'));
+  fs.mkdirSync(rootPath);
+  const newHandle = jobs.openShotCache(rootPath);
+  newHandle.put(entry2, { colorBytes: Buffer.from([77]) });
+  const realRename = fs.renameSync;
+  let inner;
+  const hook = t.mock.method(fs, 'renameSync', (source, target) => {
+    if (!inner && String(target).endsWith('.frame')) {
+      inner = newHandle.prune({ maxAgeMs: 0, now: Date.now() + 5000, lockTimeoutMs: 30 });
+    }
+    return realRename(source, target);
+  });
+  oldHandle.put(entry1, { colorBytes: Buffer.from([93]) });
+  hook.mock.restore();
+  assert.deepEqual(inner, { removed: 1 });
+  assert.deepEqual([...newHandle.get(entry1).colorBytes], [93]);
+
+  // 2) 坏帧机会性清理遇 Windows libuv UNKNOWN (errno=-4094) 或 EROFS/EMFILE 时保留坏帧并返回 undefined
+  const [file] = frameFiles(rootPath);
+  fs.appendFileSync(file, 'corrupt');
+  for (const code of ['UNKNOWN', 'EROFS', 'EMFILE']) {
+    const m = t.mock.method(fs, 'mkdtempSync', () => {
+      throw Object.assign(new Error(`${code}: fs error`), { code, errno: code === 'UNKNOWN' ? -4094 : -1, syscall: 'mkdtemp' });
+    });
+    assert.equal(newHandle.get(entry1), undefined, `坏帧清理遇 ${code} 必须返回 undefined`);
+    assert.equal(fs.existsSync(file), true);
+    m.mock.restore();
+  }
+
+  // 3) get 中 checkRoot 普通 lstatSync 遇一次 EBUSY 时纳入退避重试，不直接抛错
+  newHandle.put(entry1, { colorBytes: Buffer.from([55]) });
+  const realLstat = fs.lstatSync;
+  let rootBusy = true;
+  const rootLstat = t.mock.method(fs, 'lstatSync', (target, opts) => {
+    if (rootBusy && !opts?.bigint && String(target) === newHandle.root) {
+      rootBusy = false;
+      throw Object.assign(new Error('EBUSY: root lstat'), { code: 'EBUSY', syscall: 'lstat' });
+    }
+    return realLstat(target, opts);
+  });
+  assert.deepEqual([...newHandle.get(entry1).colorBytes], [55]);
+  rootLstat.mock.restore();
+
+  // 4) 退避前的可读性探测（accessSync）自己撞上一次 EBUSY 也是瞬态冲突：接着退避，不把原错误当永久错误抛出
+  const busy = syscall => Object.assign(new Error(`EBUSY: ${syscall}`), { code: 'EBUSY', syscall });
+  const realRead = fs.readFileSync;
+  const realAccess = fs.accessSync;
+  let readBusy = true;
+  let probeBusy = true;
+  t.mock.method(fs, 'readFileSync', (target, opts) => {
+    if (readBusy && String(target).endsWith('.frame')) {
+      readBusy = false;
+      throw busy('open');
+    }
+    return realRead(target, opts);
+  });
+  t.mock.method(fs, 'accessSync', (target, mode) => {
+    if (probeBusy) {
+      probeBusy = false;
+      throw busy('access');
+    }
+    return realAccess(target, mode);
+  });
+  assert.deepEqual([...newHandle.get(entry1).colorBytes], [55]);
+  assert.equal(probeBusy, false);
+});

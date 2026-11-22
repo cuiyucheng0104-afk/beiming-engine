@@ -153,16 +153,21 @@ export function openShotCache(cacheDir) {
   // 同一进程里指向同一根目录的句柄共用一份状态：已在临界区里（held）再进来直接执行，靠 putSeq 发现期间的发布。
   // 大小写不敏感的卷上同一目录有多种写法，所以按设备号与节点号认根；拿不到节点号的文件系统退回小写的真实路径。
   const stamp = file => fs.lstatSync(file, { bigint: true, throwIfNoEntry: false });
-  const rootStamp = stamp(root);
-  const lockKey = rootStamp?.dev || rootStamp?.ino ? `${rootStamp.dev}:${rootStamp.ino}` : fs.realpathSync.native(root).toLowerCase();
-  const state = processLocks.get(lockKey) ?? processLocks.set(lockKey, { held: false, putSeq: 0 }).get(lockKey);
+  // 状态按操作这一刻的物理根取，不在打开时固定：根目录被改名轮换、原路径重建后，新旧句柄争的是同一个 .cache.lock，必须认到同一份状态。
+  function currentState() {
+    const now = stamp(root);
+    const lockKey = now?.dev || now?.ino ? `${now.dev}:${now.ino}` : fs.realpathSync.native(root).toLowerCase();
+    return processLocks.get(lockKey) ?? processLocks.set(lockKey, { held: false, putSeq: 0 }).get(lockKey);
+  }
   function withCacheLock(run, timeoutMs) {
-    if (state.held) return run();
+    const entered = currentState();
+    if (entered.held) return run(entered);
     // held 只在真正拿到文件锁之后置位：还在等别的进程放锁时重入的调用同样要去等锁，不能当成已持锁。
     return withFileLock(path.join(root, '.cache'), () => {
+      const state = currentState(); // 等锁期间根也可能被轮换，拿到锁后再认一次
       state.held = true;
       try {
-        return run();
+        return run(state);
       } finally {
         state.held = false;
       }
@@ -184,7 +189,7 @@ export function openShotCache(cacheDir) {
     for (let attempt = 0; ; attempt++) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       try {
-        atomicWrite(file, bytes, { stagingParent: root, aroundPublish: publish => withCacheLock(() => { state.putSeq += 1; publish(); }) });
+        atomicWrite(file, bytes, { stagingParent: root, aroundPublish: publish => withCacheLock(state => { state.putSeq += 1; publish(); }) });
         break;
       } catch (error) {
         // 并发失效/清理可能刚移走父目录；只补一次，持续的 I/O 故障交给调用方。
@@ -199,7 +204,7 @@ export function openShotCache(cacheDir) {
   // 锁套在单次尝试里面，退避等待时不占锁。
   function removeSame(file, snap, timeoutMs) {
     let removed = false;
-    retrySharing(file, () => withCacheLock(() => {
+    retrySharing(file, () => withCacheLock(state => {
       const seqBefore = state.putSeq;
       const now = stamp(file);
       if (state.putSeq !== seqBefore || !now || !snap || now.ino !== snap.ino || now.size !== snap.size || now.mtimeNs !== snap.mtimeNs || now.ctimeNs !== snap.ctimeNs) return;
@@ -258,8 +263,9 @@ export function openShotCache(cacheDir) {
       try {
         removeSame(file, snap, 200); // 机会性清理：短等一下锁，等不到就留给下一次 put 覆盖或 prune
       } catch (error) {
-        // 已经确定是未命中：建锁或删除遇到任何文件系统错误（磁盘满、句柄用尽、只读、等锁超时）都留着坏帧，只放过非系统错误
-        if (!/^E[A-Z0-9]+$/.test(error.code)) throw error;
+        // 已经确定是未命中：建锁或删除遇到任何文件系统错误（磁盘满、句柄用尽、只读、等锁超时）都留着坏帧，只放过非系统错误。
+        // Windows 上 libuv 认不出的系统错误码是 'UNKNOWN'（errno -4094），同样算文件系统错误。
+        if (!(error?.code === 'UNKNOWN' || /^E[A-Z0-9_]+$/.test(error?.code))) throw error;
       }
       return undefined;
     }
