@@ -61,14 +61,14 @@
 - **渲染**：`renderFilm(片子描述, { phase: 'before' | 'after' })` 各调一次，可以是异步的。改动前那一遍交回后、后一遍开渲前，每帧当场另存（帧对象浅拷贝，像素是独立副本、数组类型不变）：帧源复用同一块工作缓冲区或同一批帧对象、后一遍原地覆写，泄漏帧照样比得出来。
 - **算不算变了**：`hash`、`hash-same-machine` 看字节，差一个末位也算；`tolerance` 只把超出 P8 口径的差算成变化。
 - **判定**：有变化帧在范围外，`reason` 是 `leaked-outside-affects`；一帧都没变是 `no-frames-changed`（不理参数的空壳渲染器过不了；确实不该变时给 `allowNoOp: true`）；否则 `ok`。
-- **报告**（深冻结）：`{ format: 'locality-regression/0.1', pass, reason, filmId, tier, gate: { psnrMinDb, maxDiffFrac, diffLevel }, allowNoOp, paths, predicted: { shots, frameRanges, frameCount }, totalFrames, changedFrames, leakedFrames, unchangedOutsideCount }`。`changedFrames`、`leakedFrames` 是全片帧号的升序数组，`frameCount` 是按镜头表收紧后的预测帧数。04 §3.5 样例把 `shots/s01/cards/cam/params/margin` 从 0.9 改成 0.82：预测 `shots: ['s01']`、`frameRanges: [[0, 180]]`，`[180, 300)` 变一帧就不过。
+- **报告**（深冻结）：`{ format: 'locality-regression/0.1', pass, reason, filmId, tier, gate: { psnrMinDb, maxDiffFrac, diffLevel }, allowNoOp, paths, predicted: { shots, frameRanges, frameCount }, totalFrames, changedFrames, leakedFrames, unchangedOutsideCount }`。`changedFrames`、`leakedFrames` 是全片帧号的升序数组，`frameRanges` 是按镜头表收紧后的预测区间（每条预测和它点名的每个镜头取交集），并起来正好是 `frameCount` 帧。04 §3.5 样例把 `shots/s01/cards/cam/params/margin` 从 0.9 改成 0.82：预测 `shots: ['s01']`、`frameRanges: [[0, 180]]`，`[180, 300)` 变一帧就不过。
 
 ### 加锁重建回归 runRebuildTest
 
 参数 `{ film, lock, renderLocked, tier = 'hash-same-machine', allowPartialLock = false, psnrMinDb, maxDiffFrac, diffLevel }`。
 
 - **开渲之前就拒**（渲染器一次都不调）：缺锁、锁不是 `lock/1.0` 或不合锁文件契约、片子描述带着修订号（补丁入口交回的）而和 `lock.rev` 不同；再照出锁时那套跨文件核对查一遍锁和片子描述：`lock-check/0.1` 的全部不变量（`kernel/contracts/lock/check.mjs`）加片子描述一侧的 D3，片号、种子（LK3，锁里镜头种子 7802 改成 7803 就拒）、镜头表、卡、帧源、模版、查找表、资产对不上都拒，消息带不变量编号。
-- **`allowPartialLock: true`**：只放过「没钉全」的几条（LK1、LK4、LK8、LK9、LK10、D3），片号、种子、镜头表照查；报告的 `lockCheck` 记 `partial`（全过记 `full`）。一致性夹具的锁只钉了帧源，要给这个开关。
+- **`allowPartialLock: true`**：只放过「锁里没有这一项」的违反（LK1、LK4、LK8、LK9、LK10、D3 里报缺项的那几句）；锁里写了却对不上的（模版或卡的主版本、帧源的宿主、卡的 `from`，同样是这几个规则码）照样在开渲前拒收，片号、种子、镜头表照查；报告的 `lockCheck` 记 `partial`（全过记 `full`）。一致性夹具的锁只钉了帧源，要给这个开关。
 - **渲染**：`renderLocked(片子描述, 锁, { run: 1 | 2 })` 调两次，每次交回帧数组，或 `{ frames, deliverables }`（`deliverables` 是「文件名 → 哈希字符串」）。两遍必须各自重渲：同一帧两遍交回同一块缓冲区直接抛错。第一遍的帧和 `deliverables` 表在第二遍开渲前当场另存，第二遍原地覆写工作缓冲区或改同一张表也瞒不过。
 - **判定**：哈希档有帧不逐位相同是 `frames-differ`，帧都相同而 `deliverables` 有键不同（多一键、少一键、值不同）是 `deliverable-mismatch`；容差档有帧超出 P8 口径是 `outside-tolerance`，不比 `deliverables`（编码件在容差档本来就不要求逐位相同）。
 - **报告**（深冻结）：`{ format: 'rebuild-regression/0.1', pass, reason, filmId, rev, tier, gate: { psnrMinDb, maxDiffFrac, diffLevel }, lockCheck, totalFrames, identicalFrames, failedFrames, mismatchedDeliverables, worstPsnrDb, worstFracGt5 }`。`rev` 是锁的修订号，锁没写时为 `null`；`worstPsnrDb` 是各帧里最低的，全片零差时为 `Infinity`。
@@ -77,7 +77,7 @@
 
 - **`buildControllabilityRow({ filmId, recordedAt, jobId = null, l2PassRate = null, locality = null, rebuild = null, legacyNightlyPass = null })`** 回深冻结的 `controllability-row/0.1`：`locality` 是 `{ pass, reason, tier, gate, pathCount, paths, totalFrames, predictedFrames, changedFrames, leakedFrames, leakedSample }`（`changedFrames`、`leakedFrames` 是帧数），`rebuild` 是 `{ pass, reason, tier, gate, lockCheck, rev, totalFrames, identicalFrames, failedFrames, failedSample, worstPsnrDb, worstFracGt5 }`（`failedFrames` 是帧数；无穷大的 PSNR 记 `null`，整行可直接写成 JSON），没给的项是 `null`。
 - **体积上界**：逐帧明细不进这一行，只留总数和样例。`paths` 留首尾各 4 条、每条截到 96 个字符，总数在 `pathCount`；`leakedSample`、`failedSample` 留首尾各 3 个帧号；`filmId`、`jobId` 各不超过 128 个字符。一行不超过 8192 字节。
-- **不轻信报告**：帧表、计数、读数、门限照两项作业的判定规则重算一遍，和报告写的 `pass`、`reason` 对不上就拒收。局部性：帧号表要是 `[0, totalFrames)` 里严格升序的整数，泄漏帧都在变化帧里，变化帧不在预测区间里的必须记成泄漏，范围里变了的帧不多于 `predicted.frameCount`，`frameCount` 不超过预测区间并起来盖住的帧数，`unchangedOutsideCount` 和总帧数对得上。重建：`totalFrames ≥ 1`，`0 ≤ identicalFrames ≤ totalFrames`；哈希档不过的帧数正好是不相同的帧数；全片逐位相同时 `worstPsnrDb` 必须是 `Infinity`、`worstFracGt5` 是 0；容差档有没有不过的帧要和最差读数过不过门限一致；`worstFracGt5` 在 [0, 1] 内。
+- **不轻信报告**：帧表、计数、读数、门限照两项作业的判定规则重算一遍，和报告写的 `pass`、`reason` 对不上就拒收。各个数组都要是实心的（没有空洞、没有多出来的自有属性），路径、镜头、交付件名不空不重复。局部性：帧号表要是 `[0, totalFrames)` 里严格升序的整数，泄漏帧都在变化帧里，变化帧不在预测区间里的必须记成泄漏，范围里变了的帧不多于 `predicted.frameCount`，预测区间不出全片、并起来盖住的帧数正好是 `frameCount`，`frameCount > 0` 时 `predicted.shots` 不空，`unchangedOutsideCount` 和总帧数对得上。重建：`totalFrames ≥ 1`，`0 ≤ identicalFrames ≤ totalFrames`；哈希档不过的帧数正好是不相同的帧数；全片逐位相同时 `worstPsnrDb` 必须是 `Infinity`、`worstFracGt5` 是 0；容差档有没有不过的帧要和最差读数过不过门限一致；`worstFracGt5` 在 [0, 1] 内。
 - **`overallPass`**：给了的项全过才是 `true`，`l2PassRate` 要正好是 1，`legacyNightlyPass` 不是 `false`；容差档的门限调得比 P8 松（`psnrMinDb` 低于 50、`maxDiffFrac` 高于 0.001 或 `diffLevel` 高于 5/255）的，作业自己判过也不给绿，行里留着实际用的门限。
 - **拒收**：抛的错都带 `code: 'usage.bad-argument'`。两份报告一项都没给、`filmId` 和报告的片号不同、报告自相矛盾抛 `Error`；`recordedAt` 不是带时区的 ISO 8601 时刻、`l2PassRate` 不在 [0, 1]、`filmId` 或 `jobId` 超长、`jobId` 是空串抛 `RangeError`；报告结构不对、`jobId` 不是字符串、`legacyNightlyPass` 不是布尔抛 `TypeError`。
 - **`appendControllabilityRow(filePath, row)`**：追加一行 JSON（目录不在就建），交回这一行。只收 `buildControllabilityRow` 交回的行，手拼的、读回来改过的抛 `TypeError`。并发追加逐行完整：同一个进程里按规范化的目标路径（目录过 `realpath`，经符号链接的另一种写法算同一个文件）排队；别的进程靠锁文件 `<目标>.lock`（独占创建，写完就删）挡，等锁最多 30 秒，握锁的进程死了留下、超过 10 秒的旧锁清掉再写；每行又是一次不超过 8192 字节的追加写。

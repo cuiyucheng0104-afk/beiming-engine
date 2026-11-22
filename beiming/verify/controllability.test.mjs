@@ -203,7 +203,7 @@ test('V14-5 预测区间跨着没受影响的镜头时，按片子描述的镜�
   });
   const patch = patchOf('style/view/scene', 'aces');
   const clean = await runLocalityTest({ film, patch, renderFilm: render(false) });
-  assert.deepEqual(clean.predicted, { shots: ['s01', 's03'], frameRanges: [[0, 107]], frameCount: 58 });
+  assert.deepEqual(clean.predicted, { shots: ['s01', 's03'], frameRanges: [[0, 49], [98, 107]], frameCount: 58 }, '报告里的区间已按镜头表收紧，并起来正好是 frameCount 帧');
   assert.deepEqual([clean.pass, clean.changedFrames.length, clean.unchangedOutsideCount], [true, 58, 49]);
   const crossed = await runLocalityTest({ film, patch, renderFilm: render(true) });
   assert.deepEqual([crossed.pass, crossed.reason, crossed.leakedFrames.length, crossed.leakedFrames[0], crossed.leakedFrames.at(-1)], [false, 'leaked-outside-affects', 49, 49, 97]);
@@ -477,7 +477,7 @@ test('V14-13 看板行有体积上界，并发追加逐行完整：进程内排�
   const rows = Array.from({ length: 8 }, (_, i) => buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, jobId: `nightly-${i}`, locality: long }));
   assert.equal(rows[0].locality.pathCount, 20000);
   assert.deepEqual([rows[0].locality.paths.length, rows[0].locality.paths[0], rows[0].locality.paths.at(-1)], [8, long.paths[0], long.paths.at(-1)]);
-  const huge = buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, jobId: 'j'.repeat(128), locality: { ...locality, paths: Array.from({ length: 9 }, () => '\u0001'.repeat(5000)) } });
+  const huge = buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, jobId: 'j'.repeat(128), locality: { ...locality, paths: Array.from({ length: 9 }, (_, i) => String.fromCharCode(0x10 + i).repeat(5000)) } }); // 各不相同的控制字符，写成 JSON 每个 6 字节
   assert.ok(Buffer.byteLength(JSON.stringify(huge)) < 8192, '最坏情况的一行也在 8 KiB 以内');
   const refuse = (over, Type) => assert.throws(() => buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, locality, ...over }), Type);
   refuse({ filmId: 'f'.repeat(129) }, RangeError);
@@ -605,6 +605,69 @@ test('V14-14 看板行不轻信报告：计数、范围对不上的一律拒收�
   }
   assert.equal(calls, 2);
   await assert.rejects(() => runRebuildTest({ film, lock, renderLocked: counting, allowPartialLock: 'yes' }), TypeError);
+});
+
+test('V14-15 帧表、预测带空洞或自相矛盾的报告拒收；allowPartialLock 只放过没钉的项，钉了却对不上的在开渲前照拒', async () => {
+  const at = '2026-11-22T12:00:00.000Z';
+  const locality = await runLocalityTest({ film: assembly, patch: patchOf(MARGIN, 0.82), renderFilm: renderAssembly });
+  const rebuild = await runRebuildTest({ film: assembly, lock: assemblyLock, renderLocked: twice() });
+  const build = (over) => buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, locality, rebuild, ...over });
+  const refuse = (over, why) => assert.throws(() => build(over), (err) => err.code === 'usage.bad-argument', why);
+  const holes = (n, own = {}) => Object.assign(new Array(n), own);
+  const predicted = (over) => ({ ...locality.predicted, ...over });
+
+  // Array.prototype.every 跳过空洞：全是空洞的帧表不能当成 180 个合法帧号
+  refuse({ locality: { ...locality, changedFrames: holes(180) } }, '变化帧表全是空洞');
+  refuse({ locality: { ...locality, changedFrames: holes(180, { 0: 0 }) } }, '变化帧表只有第 0 项');
+  refuse({ locality: { ...locality, leakedFrames: holes(1) } }, '泄漏帧表是空洞');
+  refuse({ locality: { ...locality, changedFrames: Object.assign([...locality.changedFrames], { extra: 1 }) } }, '帧表带着多出来的自有属性');
+  refuse({ locality: { ...locality, changedFrames: Object.assign(holes(2, { 0: 0 }), { extra: 1 }) } }, '空洞加多出来的属性，键数凑巧对得上');
+  refuse({ locality: { ...locality, paths: holes(2) } }, '路径表是空洞');
+  refuse({ locality: { ...locality, paths: [MARGIN, MARGIN] } }, '路径重复');
+  refuse({ locality: { ...locality, predicted: predicted({ frameRanges: holes(2, { 0: [0, 180] }) }) } }, '预测区间表有空洞');
+  refuse({ locality: { ...locality, predicted: predicted({ frameRanges: [holes(2)] }) } }, '预测区间本身是空洞');
+  refuse({ locality: { ...locality, predicted: predicted({ shots: holes(1) }) } }, '预测镜头表是空洞');
+  refuse({ locality: { ...locality, predicted: predicted({ shots: ['s01', 's01'] }) } }, '预测镜头重复');
+  refuse({ locality: { ...locality, predicted: predicted({ shots: [''] }) } }, '预测镜头是空串');
+  refuse({ locality: { ...locality, predicted: predicted({ shots: undefined }) } }, '没有预测镜头表');
+  refuse({ rebuild: { ...rebuild, identicalFrames: 299, failedFrames: holes(1), pass: false, reason: 'frames-differ' } }, '不过的帧表是空洞');
+  refuse({ rebuild: { ...rebuild, mismatchedDeliverables: holes(1), pass: false, reason: 'deliverable-mismatch' } }, '交付件表是空洞');
+
+  // predicted 自己要对得上：区间并起来正好是 frameCount 帧，有预测帧就得有预测镜头，区间不出全片
+  refuse({ locality: { ...locality, predicted: predicted({ shots: [] }) } }, 'shots 是空的，frameCount 却是 180');
+  refuse({ locality: { ...locality, changedFrames: locality.changedFrames.slice(0, 179), predicted: predicted({ frameCount: 179 }) } }, '区间盖住 180 帧，frameCount 写 179');
+  refuse({ locality: { ...locality, predicted: predicted({ frameRanges: [[-5, 180]] }) } }, '区间从负帧号起');
+  refuse({ locality: { ...locality, totalFrames: 200, unchangedOutsideCount: 20, predicted: predicted({ frameRanges: [[0, 400]] }) } }, '区间伸到全片之外');
+  // 真跑出来的报告（预测跨着没受影响的镜头）照常收
+  const calib = await readJson(join(FIXTURES, 'film.json')), calibLock = await readJson(join(FIXTURES, 'lock.json'));
+  const spanFilm = structuredClone(calib);
+  spanFilm.shots[1].colorRef = 'display'; // style/view/scene 只影响 s01、s03，explainParam 给的区间却是 [0, 107) 整段
+  const spanning = await runLocalityTest({ film: spanFilm, patch: patchOf('style/view/scene', 'aces'), renderFilm: async (f) => Array.from({ length: f.output.frames }, (_, n) => {
+    const hit = f.shots.find((s) => s.in <= n && n < s.out).id !== 's02';
+    return { frame: n, ...flat((hit ? f.style.view.scene.length / 20 : 0.3) + n / 1000) };
+  }) });
+  assert.deepEqual([spanning.pass, spanning.predicted.frameRanges, spanning.predicted.frameCount], [true, [[0, 49], [98, 107]], 58]);
+  assert.equal(build({ filmId: calib.id, locality: spanning, rebuild: null }).locality.predictedFrames, 58);
+
+  // 锁里写了版本却和片子描述要的主版本对不上：不是「没钉全」，开了 allowPartialLock 也在开渲前拒收
+  let calls = 0;
+  const counting = async (...args) => { calls++; return twice()(...args); };
+  const tamperedLock = (base, tamper) => { const bad = structuredClone(base); tamper(bad); return bad; };
+  assert.equal(assemblyLock.templates.assembly, '1.0.0');
+  for (const [base, film, tamper, rule] of [
+    [assemblyLock, assembly, (l) => { l.templates.assembly = '2.0.0'; }, /LK8/],
+    [assemblyLock, assembly, (l) => { l.cards['camera.fit'].version = '2.0.0'; }, /D3/],
+    [calibLock, calib, (l) => { l.templates.floor = '2.0.0'; }, /LK8/],
+    [calibLock, calib, (l) => { l.sources.three.host = 'offscreen'; }, /LK4/],
+    [calibLock, calib, (l) => { l.cards['comp.display'] = { ...l.cards['time.timeline'], from: 'delivery' }; }, /LK1/],
+  ]) {
+    for (const allowPartialLock of [false, true]) {
+      await assert.rejects(() => runRebuildTest({ film, lock: tamperedLock(base, tamper), renderLocked: counting, allowPartialLock }), rule, `${rule} allowPartialLock=${allowPartialLock}`);
+    }
+  }
+  assert.equal(calls, 0, '拒收发生在渲染之前');
+  // 只是没钉的照旧放行
+  assert.equal((await runRebuildTest({ film: calib, lock: calibLock, renderLocked: counting, allowPartialLock: true })).lockCheck, 'partial');
 });
 
 // ---------- 页面宿主实渲 ----------

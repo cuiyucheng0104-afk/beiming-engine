@@ -141,6 +141,7 @@ function keep(frames, who) {
  * 预测：补丁每个操作的路径（rename 另加新路径）在改动前、改动后的片子描述上各问一次 explainParam，取并集；
  * 一帧算在范围里，要帧号落在某条预测的半开区间里、它所在的镜头在那条预测的镜头表里；帧上标了 shot 的，标的镜头也得在里面。
  * 算不算「变了」：哈希档（hash、hash-same-machine）看字节，容差档（tolerance）看是否超出 P8 口径。
+ * 报告的 predicted.frameRanges 是按镜头表收紧后的区间（每条预测和它点名的每个镜头取交集），并起来正好是 predicted.frameCount 帧。
  * 判定：有变化帧落在范围外是 leaked-outside-affects；一帧都没变是 no-frames-changed（allowNoOp 为真时放行）；否则 ok。
  * 改动前那一遍的帧当场另存，帧源复用缓冲区、后一遍原地覆写也照样比得出来。
  */
@@ -177,7 +178,8 @@ export async function runLocalityTest({
     && table.some((s) => s.in <= f && f < s.out && shots.includes(s.id)) && labels.every((id) => shots.includes(id)));
   const predicted = {
     shots: [...new Set(affects.flatMap((a) => a.shots))],
-    frameRanges: [...new Set(affects.map((a) => JSON.stringify(a.frameRange)))].map((s) => JSON.parse(s)),
+    frameRanges: [...new Set(affects.flatMap(({ shots, frameRange: [from, to], table }) => table.filter((s) => shots.includes(s.id))
+      .map((s) => [Math.max(from, s.in), Math.min(to, s.out)]).filter(([lo, hi]) => lo < hi).map((x) => JSON.stringify(x))))].map((s) => JSON.parse(s)),
     frameCount: Array.from({ length: total }, (_, f) => f).filter((f) => inside(f)).length,
   };
 
@@ -204,8 +206,18 @@ export async function runLocalityTest({
 
 /* ---------------- 加锁重建回归 ---------------- */
 
-// 锁「钉没钉全」的几条：全片级的卡、帧源、模版、查找表、叠加层卡，镜头用的卡和资产。allowPartialLock 只放过这几条
-const PIN_COVERAGE = ['LK1', 'LK4', 'LK8', 'LK9', 'LK10', 'D3'];
+// 锁「钉没钉全」的几条：全片级的卡、帧源、模版、查找表、叠加层卡，镜头用的卡和资产。上游同一个规则码既报「锁里没有这一项」，
+// 也报「锁里写了却和片子描述对不上」（主版本、宿主、from）；allowPartialLock 只放过前一种，认的是下面这几句原话。
+// 认不出来的一律照拒：上游改了措辞，没钉全的锁会被拒收（V14-14 的夹具用例会红），不会把对不上的放过去
+const N = '[^\\s，]+';
+const NOT_PINNED = Object.fromEntries(Object.entries({
+  LK1: [`片子描述里有 ${N}，cards 里没有它绑的 ${N}`],
+  LK4: [`镜头 ${N}(?: 的 renderer)? 的帧源 ${N} 不在 sources 里`],
+  LK8: [`predicates\\.base 引用了 ${N}，templates 里没有 ${N}`],
+  LK9: [`style\\.view\\.scene 是 ${N}，view 里没有这个键`],
+  LK10: ['片子描述有叠加层，cards 里没有 two-d\\.overlay'],
+  D3: [`镜头 ${N} 的 ${N} 在锁文件 cards 里没有`, `资产 ${N} 在锁文件 assets 里没有`],
+}).map(([id, list]) => [id, new RegExp(`^(?:${list.join('|')})$`)]));
 
 /**
  * 加锁重建回归：同一份 film 加同一份 lock，调两次 renderLocked(片子描述的副本, 锁的副本, { run: 1 | 2 })，两遍必须是独立重渲。
@@ -213,7 +225,8 @@ const PIN_COVERAGE = ['LK1', 'LK4', 'LK8', 'LK9', 'LK10', 'D3'];
  * 哈希档：每帧颜色层逐位相同，deliverables 逐键相同；容差档：每帧 PSNR ≥ psnrMinDb 且超差像素比例 ≤ maxDiffFrac，不比 deliverables。
  * 开渲之前就拒：缺锁、锁不合 lock/1.0、修订号和片子描述对不上、锁和片子描述过不了出锁时（kernel/lock-gen.mjs）那套跨文件核对
  * （lock-check/0.1 的全部不变量加片子描述一侧的 D3：片号、种子、镜头表、卡、帧源、模版、查找表、资产）。
- * allowPartialLock 为真时只放过「没钉全」的那几条（PIN_COVERAGE），片号、种子、镜头表照查，报告的 lockCheck 记 partial。
+ * allowPartialLock 为真时只放过「锁里没有这一项」（NOT_PINNED）：锁里写了却对不上的（模版、卡的主版本，帧源的宿主，卡的 from）照拒，
+ * 片号、种子、镜头表照查；放过了东西的，报告的 lockCheck 记 partial。
  * 第一遍的帧和交付件表当场另存，帧源在第二遍里原地覆写也照样比得出来。
  */
 export async function runRebuildTest({
@@ -231,8 +244,8 @@ export async function runRebuildTest({
   const rev = getFilmRev(film);
   if (rev !== undefined && lock.rev !== rev) throw new Error(`修订号对不上：片子描述是 rev ${rev}，锁是 rev ${lock.rev ?? '（没写）'}`);
   const cross = validate({ format: 'lock-check/0.1', lock, film });
-  const found = Object.entries({ ...cross.violations, D3: filmChecks.D3({ format: 'film-check/0.1', film, lock }) }).filter(([, list]) => list.length);
-  const fatal = [...cross.schemaErrors, ...found.filter(([id]) => !(allowPartialLock && PIN_COVERAGE.includes(id))).flatMap(([id, list]) => list.map((m) => `${id} ${m}`))];
+  const found = Object.entries({ ...cross.violations, D3: filmChecks.D3({ format: 'film-check/0.1', film, lock }) }).flatMap(([id, list]) => list.map((m) => [id, m]));
+  const fatal = [...cross.schemaErrors, ...found.filter(([id, m]) => !(allowPartialLock && NOT_PINNED[id]?.test(m))).map(([id, m]) => `${id} ${m}`)];
   if (fatal.length) throw new Error(`锁和片子描述对不上：${fatal.join('；')}`);
   const lockCheck = found.length ? 'partial' : 'full';
 
@@ -280,8 +293,16 @@ const ISO_TIME = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,9})?(?:Z|[+-]\d\d:\d\
 const MAX_ROW_BYTES = 8192, MAX_NAME = 128, PATH_SAMPLES = 4, PATH_CHARS = 96, FRAME_SAMPLES = 3;
 const badArg = (Type, message) => Object.assign(new Type(message), { code: 'usage.bad-argument' });
 const headTail = (list, n) => (list.length <= 2 * n ? [...list] : [...list.slice(0, n), ...list.slice(-n)]);
+/** 实心数组：没有空洞、没有多出来的自有属性，每项过 itemOk。every 会跳过空洞，这里逐个下标查；键数先比，极长的空洞数组不用走完 */
+function dense(v, itemOk) {
+  if (!Array.isArray(v) || Reflect.ownKeys(v).length !== v.length + 1) return false;
+  for (let i = 0; i < v.length; i++) if (!Object.hasOwn(v, i) || !itemOk(v[i], i)) return false;
+  return true;
+}
 /** 帧号表：[0, total) 里严格升序的整数 */
-const frameTable = (v, total) => Array.isArray(v) && v.every((n, i) => Number.isSafeInteger(n) && n >= 0 && n < total && (i === 0 || n > v[i - 1]));
+const frameTable = (v, total) => dense(v, (n, i) => Number.isSafeInteger(n) && n >= 0 && n < total && (i === 0 || n > v[i - 1]));
+/** 名字表：不空、不重复的字符串 */
+const nameTable = (v) => dense(v, (s) => typeof s === 'string' && s !== '') && new Set(v).size === v.length;
 const gateOk = (g) => isObj(g) && Number.isFinite(g.psnrMinDb) && inUnit(g.maxDiffFrac) && Number.isFinite(g.diffLevel) && g.diffLevel >= 0;
 const gateOf = ({ psnrMinDb, maxDiffFrac, diffLevel }) => ({ psnrMinDb, maxDiffFrac, diffLevel });
 /** 容差档的门限不比 P8 松才算数；哈希档不看门限 */
@@ -299,16 +320,17 @@ function reportOf(report, name, format, filmId, shapeOk, reasonOf) {
 }
 
 function localityReason(r) {
-  const { frameRanges, frameCount } = r.predicted, total = r.totalFrames;
+  const { frameRanges, frameCount, shots } = r.predicted, total = r.totalFrames;
   const inRange = (f) => frameRanges.some(([from, to]) => from <= f && f < to);
   const changed = new Set(r.changedFrames), leaked = new Set(r.leakedFrames), outside = total - frameCount;
   // 预测区间并起来盖住多少帧（不逐帧数：手拼的报告可以把 totalFrames 写得极大）
   let covered = 0, reach = 0;
   for (const [from, to] of [...frameRanges].sort((x, y) => x[0] - y[0])) {
-    const lo = Math.max(from, reach, 0), hi = Math.min(to, total);
-    if (hi > lo) [covered, reach] = [covered + hi - lo, hi];
+    const lo = Math.max(from, reach);
+    if (to > lo) [covered, reach] = [covered + to - lo, to];
   }
-  const sound = frameRanges.every(([from, to]) => from < to) && frameCount >= 0 && frameCount <= covered // 按镜头表收紧只会让预测帧数变少
+  // 报告里的区间已按镜头表收紧：不出全片，并起来正好是 frameCount 帧；有预测帧就得有预测镜头
+  const sound = frameRanges.every(([from, to]) => from >= 0 && from < to && to <= total) && frameCount === covered && (frameCount === 0 || shots.length > 0)
     && r.leakedFrames.every((f) => changed.has(f)) && r.changedFrames.every((f) => inRange(f) || leaked.has(f))
     && changed.size - leaked.size <= frameCount && r.unchangedOutsideCount <= outside && r.unchangedOutsideCount >= outside - leaked.size;
   return !sound ? null : leaked.size ? 'leaked-outside-affects' : !changed.size && !r.allowNoOp ? 'no-frames-changed' : 'ok';
@@ -339,15 +361,15 @@ export function buildControllabilityRow({ filmId, recordedAt, jobId = null, l2Pa
   if (legacyNightlyPass !== null && typeof legacyNightlyPass !== 'boolean') throw badArg(TypeError, 'legacyNightlyPass 必须是布尔值或 null');
   if (locality === null && rebuild === null) throw badArg(Error, '局部性回归和加锁重建回归的报告至少要给一项');
   const loc = locality === null ? null : reportOf(locality, 'locality', 'locality-regression/0.1', filmId,
-    (r) => typeof r.allowNoOp === 'boolean' && Array.isArray(r.paths) && r.paths.every((p) => typeof p === 'string')
-      && Array.isArray(r.predicted?.frameRanges) && r.predicted.frameRanges.every((x) => Array.isArray(x) && x.length === 2 && x.every(Number.isSafeInteger))
+    (r) => typeof r.allowNoOp === 'boolean' && nameTable(r.paths) && isObj(r.predicted) && nameTable(r.predicted.shots)
+      && dense(r.predicted.frameRanges, (x) => x.length === 2 && dense(x, Number.isSafeInteger))
       && Number.isSafeInteger(r.predicted.frameCount) && Number.isSafeInteger(r.unchangedOutsideCount)
       && frameTable(r.changedFrames, r.totalFrames) && frameTable(r.leakedFrames, r.totalFrames),
     localityReason);
   const reb = rebuild === null ? null : reportOf(rebuild, 'rebuild', 'rebuild-regression/0.1', filmId,
     (r) => (r.rev === null || (Number.isSafeInteger(r.rev) && r.rev >= 0)) && ['full', 'partial'].includes(r.lockCheck)
       && Number.isSafeInteger(r.identicalFrames) && frameTable(r.failedFrames, r.totalFrames)
-      && Array.isArray(r.mismatchedDeliverables) && r.mismatchedDeliverables.every((k) => typeof k === 'string')
+      && nameTable(r.mismatchedDeliverables)
       && typeof r.worstPsnrDb === 'number' && !Number.isNaN(r.worstPsnrDb) && inUnit(r.worstFracGt5),
     rebuildReason);
   const row = deepFreeze({
