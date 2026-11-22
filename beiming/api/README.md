@@ -17,4 +17,19 @@ node beiming/api/cli.mjs serve --data-dir .beiming-api --port 8080
 
 `runHandsOnAgent` 通过唯一的 `http_request` 工具操作 API。用 `BEIMING_AGENT_ENDPOINT`、`BEIMING_AGENT_MODEL`、`BEIMING_AGENT_API_KEY` 配置模型，并用 `ledgerPath` 指定外部用量账本。视觉审片使用对应的 `BEIMING_REVIEW_*` 配置，服务端将其用量写入数据目录的 `external-ledger.jsonl`。
 
+委托模式：`POST /v1/films` 带 `{ "mode": "delegate", "brief": "…", "budget": { "tokens", "gpuSeconds", "wallSeconds" } }`，返回 `data.job`，用 `GET /v1/jobs/{job}?wait=30` 等终态。服务端用 `delegate.mjs` 的 `runDelegateOrchestrator` 只经本服务的 `/v1/*` 依次起导演、每镜头一个镜头工（未过可重试一次）和收尾员；子作业在工具内长轮询到终态。模型配置读 `startServer({ delegate })`，没传就读 `BEIMING_AGENT_ENDPOINT`、`BEIMING_AGENT_API_KEY`，导演与镜头工的模型分别可用 `BEIMING_DIRECTOR_MODEL`、`BEIMING_WORKER_MODEL` 覆盖 `BEIMING_AGENT_MODEL`。配了这些变量，持账户令牌的人就能开委托，每片最多花 120 万 token；目前没有账户级配额与并发上限。每次调模型前读 `GET /v1/films/{id}/ledger`，token（含预留，默认 2 万且不超过预算上限）、墙钟、显卡秒（含在跑子作业的实时用量）任一到线就不再调模型，作业以 `stopped` 结束，结论带 `stoppedReason`、`stoppedAt`（`<角色>:step-<n>`）、`bestRev`（见过的最新修订，不一定已核验）与 `cost`。队列里的 `stopped` 原本表示被抢占，委托作业靠 `stoppedReason` 区分预算停止。六件套已交到最新修订时按 `succeeded` 收尾，不再因预算改判。委托作业不占显卡调度槽；取消委托作业（`DELETE /v1/jobs/{job}`）会同时取消这部片所有还在排队或在跑的渲染、核验、交付作业，包括你自己用工作区令牌提交的；进程崩溃后重启读、等或取消遗留的 `running` 委托作业会自动收敛为 `stopped`（`reason: 'interrupted'`）。
+
 合同与预算见 [OpenAPI](./openapi.json)。修改合同后运行 `node beiming/api/contract.mjs --write`，然后运行 `node --test beiming/api/api.test.mjs`。冻结信封与诊断口径见[信封契约](../kernel/contracts/envelope/CONTRACT.md)和[错误码表](../kernel/contracts/errors/CONTRACT.md)。
+
+## 命令行薄壳与 MCP 薄壳
+
+两个薄壳由合同 `ROUTES` 生成，动词名就是 `operationId`。服务地址取 `--url` 或 `BEIMING_API_URL`，令牌取 `--token` 或 `BEIMING_API_TOKEN`。
+
+```sh
+node beiming/api/cli.mjs --list-verbs
+node beiming/api/cli.mjs film-put --help
+node beiming/api/cli.mjs artifacts --id f_001 --name contact.png --out contact.png
+node beiming/api/cli.mjs mcp --url http://127.0.0.1:8080 --token <账户令牌>
+```
+
+命令行的标准输出是一行信封；`artifacts` 不带 `--out` 时是文件的原始字节。退出码按错误码前缀取，只有 0、1、2、3、4、5、124。`mcp` 在 stdio 上把同一组动词提供成 MCP 工具，图片产物直接以图片内容返回。选项、退出码表、令牌选择与取图规则见 [DETAILS.md](./DETAILS.md)。

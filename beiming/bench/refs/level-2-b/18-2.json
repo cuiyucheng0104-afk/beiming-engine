@@ -1,0 +1,11 @@
+{
+  "question": "18-2",
+  "note": "案例 18 成片地图场景两次快速运镜的量测读数，不带原片媒体和旁白内容。30 帧每秒，时刻是成片里的秒。cueSec 是触发词的时刻，leadSec 是关键帧声明的提前量（题面照这两个数规定：0.5 秒是 15 帧，0.9 秒是 27 帧），expectedStartSec 是两者相减得出的应起时刻；判分比的是应起时刻，不是触发词本身。measuredStartSec 是地图区逐帧灰度差越过门限的起点，按 0.1 秒（3 帧）一格取均值，所以起点读数的分辨率是 0.1 秒。sceneFrames 是地图场景在原片里的帧范围（619 帧）；题目的时间线把场景起点第 3396 帧记作第 0 帧、只有 600 帧，两个触发词（第 239.7、545.7 帧）和两次运镜的起点（第 225、519 帧）都在里面。判分认两种交法：帧号减去场景起点、换到题目的时间线；或者按原片的绝对帧号交，连同 sceneFrames 当帧范围一起报（题目的 refFrames 照它写）。不报范围的绝对帧号不认。",
+  "fps": 30,
+  "sceneFrames": [3396, 4015],
+  "resolutionSec": 0.1,
+  "moves": [
+    { "cue": "cue_a", "cueSec": 121.19, "leadSec": 0.5, "expectedStartSec": 120.69, "measuredStartSec": 120.7, "measuredEndSec": 122.2 },
+    { "cue": "cue_b", "cueSec": 131.39, "leadSec": 0.9, "expectedStartSec": 130.49, "measuredStartSec": 130.5, "measuredEndSec": 131.9 }
+  ]
+}

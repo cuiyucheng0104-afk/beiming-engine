@@ -1,0 +1,58 @@
+{
+  "format": "card/0.1",
+  "id": "overlay.subs",
+  "version": "1.0.0",
+  "kind": "two-d",
+  "title": "字幕",
+  "intent": "照旁白的逐词时间把字幕一块一块排好起止，交给合成往成片上叠，并把每帧那块字幕的像素框交进元数据",
+  "visibleToAgent": true,
+  "livesIn": ["comp"],
+  "impl": [
+    {
+      "livesIn": "comp",
+      "entry": "cards/two-d/overlay-subs/comp.mjs",
+      "shape": "create",
+      "hosts": [],
+      "selftest": "cards/two-d/overlay-subs/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "timing": { "type": "data", "unit": "none", "schema": "timing.schema.json", "default": { "scenes": [], "words": [] }, "coupling": "none" },
+    "blocks": { "type": "data", "unit": "none", "schema": "blocks.schema.json", "default": [], "coupling": "none" },
+    "maxWords": { "type": "integer", "unit": "none", "range": [1, 40], "default": 7, "coupling": "none" },
+    "maxChars": { "type": "integer", "unit": "none", "range": [1, 200], "default": 42, "coupling": "none" },
+    "earlySec": { "type": "number", "unit": "s", "range": [0, 2], "default": 0.06, "coupling": "none" },
+    "holdSec": { "type": "number", "unit": "s", "range": [0, 5], "default": 0.25, "coupling": "none" },
+    "heightFrac": { "type": "number", "unit": "none", "range": [0.01, 0.5], "default": 0.05, "coupling": "none" },
+    "bottomFrac": { "type": "number", "unit": "none", "range": [0, 0.9], "default": 0.08, "coupling": "none" },
+    "charAspect": { "type": "number", "unit": "none", "range": [0.1, 2], "default": 0.5, "coupling": "none" },
+    "font": { "type": "string", "unit": "none", "default": "sans-serif", "coupling": "host-api" }
+  },
+  "ports": {
+    "in": [],
+    "out": [{ "name": "texts", "type": "frame-meta" }],
+    "order": { "before": ["comp.finish", "deliver.encode"], "after": ["comp.display"] },
+    "requires": [
+      "合成工具给的 ctx 带 size（[宽, 高]，像素）、fps（分子/分母）和 shot（用到 shot.in，镜头起始帧）；meta(f) 的 f 是镜头局部帧号，表里的帧号是全片帧号",
+      "合成工具取 Handle.object.table 或 Handle.object.ass() 去叠字：这张卡只排时间和位置，不画字",
+      "timing 的时间是全片时间；有字幕的场景带 durSec、audioStartSec、audioDurSec"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["讲解片要跟着旁白出字幕", "字幕的起止要和旁白的逐词时间对得上，换了配音能重排"],
+    "notWhen": ["要逐词高亮的卡拉 OK 字幕", "字幕要多行、要跟着画面里的东西走", "要量得准的文字框：这一版的框是按字数估的"]
+  },
+  "calibration": "probe-thin-geometry",
+  "verify": {
+    "selftest": "1920 × 1080、30 帧每秒：配音从 2.3 秒起、时长 2.2 秒，两块字幕的起始词在 2.3 和 3.2 秒：第一块 2.3 到 3.14 秒、第 69 到 94 帧，第二块 3.14 到 4.75 秒、第 94 到 143 帧；第一块十个字符的框是 [825, 940, 1095, 994]",
+    "predicates": []
+  },
+  "pitfalls": [
+    { "symptom": "报字幕块排不出时长", "fix": "同一个场景里两块的起始短语落在了同一个词上，或者次序反了：把 phrase 写长一点，让每块落在各自的词上" },
+    { "symptom": "字幕比旁白早出来一点", "fix": "这是 earlySec 的本意，让字先到；不要就设成 0" },
+    { "symptom": "文字框比画面上的字宽或者窄", "fix": "框是按字符数乘字高乘 charAspect 估的；换了字体照它的平均字宽调 charAspect" }
+  ],
+  "provenance": { "cases": [], "note": "字幕块首尾相接：前一块停在后一块起始词之前 earlySec；场景里最后一块停到配音结束之后 holdSec。时间在整数毫秒上算" },
+  "status": [{ "level": "reproduced", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-22" }],
+  "exams": ["18-1", "cal:overlay.subs"]
+}

@@ -179,6 +179,8 @@ export const command = defineCommand({
     cq: { type: 'integer', default: MASTER_CQ, arg: '<n>', describe: `nvenc 恒定质量 cq（默认 ${MASTER_CQ}，Fast 档；数字小画质高；勿用 6，真实画面外的纯噪声在 cq 6 出过坏流）` },
     query: { type: 'string', default: '', arg: '<k=v&…>', describe: '交给作品 build 的查询串（同页面的 location.search，不带 ?；出片链的 --query 与预演的 previs=1 原样转来）' },
     preset: { type: 'string', default: 'medium', choices: ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow'], arg: '<名字>', describe: 'x264 preset（默认 medium）' },
+    gop: { type: 'integer', min: 1, arg: '<n>', describe: '关键帧间隔（-g）；只在切片分发（offscreen:farm）统一各片编码时显式给出，缺省用编码器默认' },
+    timescale: { type: 'integer', min: 1, arg: '<n>', describe: 'MP4 视频轨时间基刻度（-video_track_timescale）；切片分发统一各片时间基用，缺省用混流器默认' },
     daemon: { type: 'string', arg: '<目标>', describe: '常驻守护进程接入（默认 off；可选 off、auto、on 或 socket 路径；未传时读取 BEIMING_OFFSCREEN_DAEMON）' },
     socket: { type: 'string', arg: '<路径>', describe: 'daemon 监听或连接的本机 IPC 路径（默认 $XDG_RUNTIME_DIR/beiming-offscreen.sock，否则 <临时目录>/beiming-offscreen-<uid>/daemon.sock；父目录须本人所有且 0700）；render/stills/probe/profile 上要与 --daemon on|auto 一起用' },
     'idle-timeout': { type: 'number', default: 600, arg: '<秒>', describe: 'daemon 空闲自动退出时长（秒，默认 600；0 表示不超时）' },
@@ -273,6 +275,7 @@ export const command = defineCommand({
       ...(a.sub === 'render' ? {
         from: a.from, to: a.to, mode: ctx.opts.mode, encoder: ctx.opts.encoder,
         pixFmt: ctx.opts['pix-fmt'], crf: ctx.opts.crf, cq: ctx.opts.cq, preset: ctx.opts.preset,
+        gop: ctx.opts.gop, timescale: ctx.opts.timescale,
       } : {}),
       ...(ctx.opts['events-out'] ? { eventsOut: path.resolve(ctx.opts['events-out']) } : {}),
     };

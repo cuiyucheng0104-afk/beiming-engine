@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "time.narration 的触发点",
+  "description": "每项说旁白念到哪个短语时触发。id 在全片里不得重复。",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id", "scene", "phrase"],
+    "additionalProperties": false,
+    "properties": {
+      "id": { "type": "string", "pattern": "^\\S+$", "description": "触发点的标识，就是事件条目的 id" },
+      "scene": { "type": "string", "minLength": 1, "description": "在哪个场景的旁白里找" },
+      "phrase": { "type": "string", "minLength": 1, "description": "要找的短语，取第一次连续出现的位置；大小写和标点不计" },
+      "anchor": { "enum": ["start", "end"], "description": "start 取短语第一个词的起点，end 取最后一个词的终点；不写是 start" },
+      "offsetSec": { "type": "number", "description": "再挪多少秒，正数往后；不写是 0" }
+    }
+  }
+}

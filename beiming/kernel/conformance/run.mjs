@@ -9,7 +9,9 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
+import { cameraBasis, objectTransform } from '../../calib/check.mjs';
 import { startSource } from '../../host/page/host.mjs';
+import { isXyz } from '../../host/page/measure.js';
 import { loadContracts } from '../contracts/validate.mjs';
 import { eventsTable, renderingOf, shotInput } from '../eval/input.mjs';
 import { stream, streamName } from '../eval/rng.mjs';
@@ -32,8 +34,28 @@ const CLOCK = [{ path: 'beiming/host/page/clock.js', call: ['performance', 'now'
 const LANGUAGES = { '.js': 'js', '.mjs': 'js', '.py': 'python' };
 // 被测帧源的说明里写着还没接的三样：镜头输入带着哪一样，那次 open 的 unfitInput 就记哪一样。能力声明里没有这个字段，只能照说明填
 const UNMOUNTED = ['cards', 'assets', 'overlays'];
-// 备了问法的场景查询：能力声明里列了、这里却没备的种类算没验。total 是照自己问的算的「一共该有几项」
-const QUERIES = { bbox3d: (of) => ({ q: { kind: 'bbox3d', of }, total: of.length }) };
+// 规格里一个物体在第 t 帧的最低点，世界坐标 y（米）：盒子取八个角里最低的，球取球心减半径
+const lowestY = (o, t) => {
+  const { R, T } = objectTransform(o, t);
+  return T[1] - (o.shape === 'box' ? o.sizeM.reduce((sum, size, i) => sum + Math.abs(R[1][i]) * size / 2, 0) : o.radiusM);
+};
+/** 夹具场景里叫这个名字的物体：规格里有的照规格；镜头条目 params.offscreen 里的第 i 个是边长 0.1 米的方块，在相机前方 10 米、往上 100 + i 米（fixtures/calib-scene.js） */
+function fixtureObject(scene, shot, name) {
+  const listed = scene.objects.find((o) => o.id === name), i = (shot.params?.offscreen ?? []).indexOf(name);
+  if (listed) return listed;
+  if (i < 0) throw new Error(`夹具场景里没有实体 ${name}`);
+  const { fwd, up } = cameraBasis(scene.camera);
+  return { shape: 'box', sizeM: [0.1, 0.1, 0.1], positionM: scene.camera.positionM.map((p, k) => p + up[k] * (100 + i) + fwd[k] * 10) };
+}
+// 备了问法的场景查询：能力声明里列了、这里却没备的种类算没验。每一种交回「一共该有几项」：照夹具场景的规格自己算，不取帧源交回的数。
+// objects 是规格里被问到的物体，t 是问的那一帧。夹具镜头的 meta(f) 不交锚点，anchor 该有 0 项（非空的另由 anchorProbe 问）；belowGround 数最低点低于地面（y = 0）的
+const QUERIES = {
+  bbox3d: (objects) => objects.length,
+  anchor: () => 0,
+  belowGround: (objects, t) => objects.filter((o) => lowestY(o, t) < 0).length,
+  // 登记表里 three 没有这一种：留着当「没声明的」问
+  intersect: () => 0,
+};
 // 元数据里主物体的屏幕包围盒对编号层反算出的包围盒，交并比不得低于这个数：帧源接口契约 5.3「编号与元数据」一行的过线。
 // 主物体没被别的实体挡住，合渲的编号层就等于单独渲的。读数每次都打印、写进 summary.json
 const META_BOX_IOU_MIN = 0.95;
@@ -180,7 +202,7 @@ async function runShot(shot) {
 
   /** 问一次场景查询。expect 是打算的结局，不进记录 */
   async function ask(s, kind, of, expect) {
-    const { q, total } = QUERIES[kind](of), rec = { kind };
+    const q = { kind, of }, total = QUERIES[kind](of.map((name) => fixtureObject(plan.scene, shot, name)), midF), rec = { kind };
     one.queries.push(rec);
     Object.defineProperty(rec, 'expect', { value: expect });
     try {
@@ -190,6 +212,21 @@ async function runShot(shot) {
     } catch (e) {
       Object.assign(rec, { status: 'error', ...uncoded(`query ${kind}`, e) });
     }
+    // 查询把 (f, 0) 写进了场景，观测点记了一笔；只要元数据渲一次把它清掉，不然会算到下一次 render 头上
+    await s.session.render(midF, {}, ['meta']);
+  }
+
+  /** 故意把帧号传出值域的一次 query（5.13）：问的种类是声明过的。只记结局，不进 queries */
+  async function badQueryFrame(s, kind, of) {
+    const rec = { call: 'query', arg: 'f' };
+    one.badArgs.push(rec);
+    try {
+      await s.session.query(frames, { kind, of });
+      rec.status = 'ok';
+    } catch (e) {
+      Object.assign(rec, { status: 'error', ...uncoded('query（f 出值域）', e) });
+    }
+    await s.session.render(midF, {}, ['meta']);
   }
 
   /** 纯函数门：对一批时刻各求一次状态。从帧源接口要一个时刻的办法是只取一个子帧采样，它落在「快门角 ÷ 720」；状态摘要取那张颜色层的哈希，所以只看得见会改变颜色的状态 */
@@ -249,6 +286,7 @@ async function runShot(shot) {
     for (const kind of caps.sceneQuery.filter((k) => QUERIES[k])) await ask(seq, kind, of, 'ok');
     const undeclared = Object.keys(QUERIES).find((k) => !caps.sceneQuery.includes(k));
     if (undeclared) await ask(seq, undeclared, of, 'contract.unsupported-query');
+    if (caps.sceneQuery.length) await badQueryFrame(seq, caps.sceneQuery[0], of);
     await evaluate(seq, plan.moments, 'sequential');
     await seq.session.close();
     for (const [i, m] of plan.moments.entries()) {
@@ -289,6 +327,30 @@ async function runShot(shot) {
 }
 const shots = [];
 for (const shot of film.shots) shots.push(await runShot(shot));
+
+// ---------- 锚点探针 ----------
+// 夹具镜头的 meta(f) 不交锚点，上面三个镜头的 anchor 都只问得到 0 项，锚点采集坏了它们看不出来。声明了 anchor 的帧源另开一个交锚点的探针镜头
+// （beiming/sources/three/s7-probe.shot.js：照校准场景 probe-plane-steps 搭，每个实体交一个 center 锚点）问一次；该交回哪几项、各在哪，照校准规格自己算
+async function anchorProbe() {
+  const scene = await readJson(join(REPO, 'beiming/calib/probe-plane-steps/scene.json'));
+  const want = scene.objects.map((o) => ({ entity: o.id.replaceAll('-', '_'), at: objectTransform(o, 0).T }));
+  const probe = { format: film.format, id: 'anchor-probe', output: { ...film.output, frames: 1 }, shots: [{ id: 'p01', in: 0, out: 1, source: 'three', host: 'page', mode: 'native-code', entry: 's7-probe.shot.js', colorRef: 'scene', seed: 1, params: { scene: 'probe-plane-steps' } }] };
+  const source = await startSource();
+  try {
+    const session = await source.open(shotInput(probe, 'p01'), { lock: null, tier: 'final', workspace: join(OUT, 'anchor-probe'), filmDir: join(REPO, 'beiming/sources/three') });
+    const res = await session.query(0, { kind: 'anchor', of: want.map((w) => w.entity) });
+    await session.close();
+    const got = new Map(res.items.map((i) => [i.a, i.at]));
+    // 先判交回的是三个有限的数，再照规格的三个轴逐个比：按交回的数组 every 的话，少一个分量的也「都对上」
+    const agrees = (at, w) => isXyz(at) && w.at.every((v, k) => Math.abs(at[k] - v) <= 1e-6);
+    const off = want.filter((w) => !agrees(got.get(`${w.entity}#center`), w)).map((w) => w.entity);
+    if (res.items.length !== want.length || off.length) throw new Error(`该交回 ${want.length} 个锚点，交回了 ${res.items.length} 个；位置对不上或没交的：${off.join('、') || '没有'}`);
+    return { asked: want.length, returned: res.items.length };
+  } finally {
+    await source.stop();
+  }
+}
+const anchors = caps.sceneQuery.includes('anchor') ? await anchorProbe().catch((e) => { problems.push(`锚点探针：${e.message}`); return null; }) : null;
 
 // ---------- 量：这些读数要进核对记录。量不出来就不写那一段，对应的门算不过 ----------
 const layerOf = (one, r, name) => readLayer(join(OUT, one.shot.id, r.session, r.refs[name].file), caps.outputs[name].type);
@@ -537,7 +599,7 @@ const gates = {
 const hashes = Object.fromEntries(all.filter((r) => r.refs).flatMap((r) => r.layerRefs.map((x) => [`${r.shot.id}/${r.session}/${r.refs[x.output].file}`, x.fileHash])));
 const summary = {
   ok: Object.values(gates).every(Boolean),
-  gates, problems, objects, quietObjects: { count: quiet.length, bad: quiet.filter((o) => !o.ok) }, expected, determinism, lockedRuns, draftRuns, metaOnly, sampleCounts, accumulations, auxMismatches, unverified, frameRows, metaBoxIou: { min: META_BOX_IOU_MIN, readings: cal('idLayer').map((x) => x.metaBoxIou) }, randomStreams: streams,
+  gates, problems, objects, quietObjects: { count: quiet.length, bad: quiet.filter((o) => !o.ok) }, expected, determinism, lockedRuns, draftRuns, metaOnly, sampleCounts, accumulations, auxMismatches, unverified, frameRows, anchorProbe: anchors, metaBoxIou: { min: META_BOX_IOU_MIN, readings: cal('idLayer').map((x) => x.metaBoxIou) }, randomStreams: streams,
   calibration,
   scan: { files: scans.path.files, wallClock: scans.path.wallClock, unseededRandom: scans.path.unseededRandom, allowedClock: scans.path.allowed },
   machine: { gpu: all.find((r) => r.meta)?.meta.source.gpu, platform: process.platform },
@@ -559,6 +621,7 @@ for (const c of calibration) {
 }
 for (const x of accumulations) console.log(x.unmeasurable ? `  ${x.shot} 第 ${x.frame} 帧 ${x.subFrames} 个子帧累积的颜色层：量不出（${x.unmeasurable}），T6 对这一帧不判` : `  ${x.shot} 第 ${x.frame} 帧 ${x.subFrames} 个子帧累积的颜色层对线性平均的预言图：边缘带之外最大差 ${sci(x.linearErr)}（进记录的数；各时刻预言不全相同的像素 ${x.moving ?? 0} 个），连边缘带的 ${x.edgePixels ?? 0} 个像素一起比是 ${sci(x.wholeFrame)}`);
 for (const x of auxMismatches) console.log(`  ${x.shot} 第 ${x.frame} 帧 编号层对 sub = 0、针孔、像素中心的预言图：${x.auxMismatch === null ? '量不出' : `边缘带之外对不上 ${x.auxMismatch} 个像素（进记录的数；连边缘带一共 ${x.idMismatch} 个，边缘带 ${x.edgeLimit} 个像素）`}`);
+if (anchors) console.log(`  锚点探针（s7-probe 镜头）：问 ${anchors.asked} 个实体的锚点，交回 ${anchors.returned} 个，位置都对上校准规格`);
 for (const x of unverified) console.log(`  没验：能力声明里列了 ${x}，这次没有夹具`);
 for (const x of frameRows.filter((y) => y.want !== y.got)) console.log(`  ${x.shot} 出了颜色层的成功 render ${x.want} 次，时间核对记录的 frames 里只有 ${x.got} 项`);
 for (const x of metaOnly) console.log(`  ${x.shot} 第 ${x.frame} 帧 只要元数据（${x.afterOtherFrame ? '排在别的帧后面' : '没排在别的帧后面'}）对整帧渲染的元数据：${x.differs === null ? '没有元数据可比' : x.differs.length ? `不一样的段 ${x.differs.join('、')}` : '去掉 stats、hash、timing 之后相同'}`);

@@ -99,6 +99,7 @@
         "script": { "type": "string" }, "wav": { "type": "string" }, "cues": { "type": "string" },
         "targetLUFS": { "type": "number", "description": "混音目标；省略时取档位值，写了必须落在档位窗口内" },
         "truePeakDbTP": { "type": "number", "maximum": 0 },
+        "erb": { "type": "object", "description": "拟音的 ERB 来源（engine/audio/erb_foley.py）；enabled 缺省 false", "properties": { "enabled": { "type": "boolean" }, "note": { "type": "string" } }, "additionalProperties": false },
         "note": { "type": "string" }
       },
       "additionalProperties": false

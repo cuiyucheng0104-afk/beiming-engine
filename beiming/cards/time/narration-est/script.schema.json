@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "time.narration-est 的旁白稿",
+  "description": "一段一项，按出场次序。带 text 的是有旁白的段，带 holdSec 的是没有旁白、固定时长的段，两样只能有一样。",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id"],
+    "additionalProperties": false,
+    "oneOf": [{ "required": ["text"] }, { "required": ["holdSec"] }],
+    "properties": {
+      "id": { "type": "string", "minLength": 1, "description": "段的标识" },
+      "scene": { "type": "string", "minLength": 1, "description": "这一段属于哪个场景；不写就用 id" },
+      "text": { "type": "string", "minLength": 1, "description": "旁白原文，拉丁字母的稿子" },
+      "holdSec": { "type": "number", "minimum": 0, "description": "没有旁白的段停多久，秒" }
+    }
+  }
+}

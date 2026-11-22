@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "time.narration 的旁白时间表",
+  "description": "全片时间，秒。time.narration-est 交出的 narration 可以整个传进来，多出来的字段不看。",
+  "type": "object",
+  "required": ["scenes", "words"],
+  "properties": {
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["scene", "startSec"],
+        "properties": {
+          "scene": { "type": "string", "minLength": 1, "description": "场景的标识" },
+          "startSec": { "type": "number", "minimum": 0, "description": "场景起点，秒" }
+        }
+      }
+    },
+    "words": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["scene", "word", "startSec", "endSec"],
+        "properties": {
+          "scene": { "type": "string", "minLength": 1, "description": "这个词在哪个场景" },
+          "word": { "type": "string", "minLength": 1, "description": "词面，可以带标点和大小写" },
+          "startSec": { "type": "number", "minimum": 0, "description": "词的起点，秒" },
+          "endSec": { "type": "number", "minimum": 0, "description": "词的终点，秒" }
+        }
+      }
+    }
+  }
+}

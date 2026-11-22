@@ -9,7 +9,7 @@ import { chromium } from 'playwright-core';
 import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs';
 import { hashCardContents, validateCard } from '../../cards/index.mjs';
 import { caps } from '../../sources/three/caps.mjs';
-import { planOpen, planRender, SourceError } from '../../sources/three/plan.mjs';
+import { planFrame, planOpen, planQuery, planRender, SourceError } from '../../sources/three/plan.mjs';
 import { coverage2x, HALF_FLOATS } from '../../sources/three/source.js';
 import { writeExr } from '../../verify/exr/exr.mjs';
 
@@ -165,9 +165,15 @@ export async function startSource({ cards = [] } = {}) {
         return { meta: res.meta, layers, exr, ...(objectId2x && { objectId2x }) };
       },
 
+      /**
+       * 场景查询，在 (f, sub = 0) 上答（帧源接口契约 3.7）：bbox3d、anchor、belowGround，算式见 measure.js 的 answerQuery。
+       * 先判帧号，再判查询：没声明的种类报 contract.unsupported-query，错上的 next 是替代办法。进页面的是判过的纯数据快照
+       */
       async query(f, q) {
-        if (!CAPS.sceneQuery.includes(q?.kind)) throw new SourceError('contract.unsupported-query', `这个帧源不答 ${q?.kind} 查询`);
-        throw new Error(`${q.kind} 查询声明了却没实现`);
+        planFrame(manifest.frames, f);
+        const res = await page.evaluate(([frame, snap]) => window.__session.query(frame, snap), [f, planQuery(CAPS, q, manifest.entities.map((e) => e.name)).q]);
+        if (!res.ok) throw new SourceError(res.code, res.message, res.next);
+        return res.result;
       },
 
       async close() {
