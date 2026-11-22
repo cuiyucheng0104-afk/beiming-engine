@@ -1,8 +1,9 @@
 // three 帧源里的渲染器（页面一侧）：只有这个文件碰 WebGL 渲染器。它是一对里算像素的那一半，不是帧源对上层的接口；
-// 对上层的接口在页面宿主的 node 一侧。渲染库由宿主注入（THREE），这里不自己引入。宿主在建渲染器时交进来四个服务：
+// 对上层的接口在页面宿主的 node 一侧。渲染库由宿主注入（THREE），这里不自己引入。宿主在建渲染器时交进来五个服务：
 //   host.load(shot, { THREE, renderer })   装载镜头：搭 ctx、调一次 build（「卡加数据」模式是跑固定装载脚本），交回 { object, size, post? }
 //   host.apply(loaded, f, sub)             把 (f, sub) 的状态写进场景
 //   host.measure(loaded, f, facts)         量这一帧的元数据（相机、实体、统计、哈希）
+//   host.query(loaded, f, plan)            答一次场景查询（包围盒、锚点、地面以下）；状态由渲染器先写好
 // 后期链：loaded.post 是 post 类的卡交出的全屏通道（一张网格，材质带 uniforms.tInput），按次序排好。各子帧只渲后期之前的场景、
 // 在线性光里平均之后，依次把每个通道画一遍（只跑一次）：tInput 填上一遍的输出，画到另一个同样的浮点目标，最后一遍的输出才读回；
 // 跑之前状态先回到 sub = 0（后期通道的参数也取这一刻），通道声明了 uniforms.tDepth 时填 sub = 0 的深度。辅助层不过这条链。
@@ -11,7 +12,7 @@
 // 成片（过完后期链）落回这张目标、读回半浮点，由宿主送出浏览器落成 EXR；要了编号层时再渲一张 2 倍超采样的。
 import { renderingOf } from '../../kernel/eval/input.mjs';
 import { caps, VERSION } from './caps.mjs';
-import { planRender, SourceError } from './plan.mjs';
+import { planFrame, planQuery, planRender, SourceError } from './plan.mjs';
 
 // 辅助样本什么都没打到时深度层写的数，米
 const NO_HIT_DEPTH = 1e10;
@@ -293,7 +294,7 @@ export function createThreeSource({ THREE, host }) {
 
       async render(f, opts, want) {
         if (closed) throw new Error('会话已经关了');
-        if (!Number.isInteger(f) || f < 0 || f >= manifest.frames) throw new SourceError('usage.bad-argument', `镜头局部帧号必须在 [0, ${manifest.frames})，给的是 ${f}`);
+        planFrame(manifest.frames, f);
         const plan = planRender(CAPS, shot, loaded.size, tier, opts, want, locked);
         const timing = { stateMs: 0, renderMs: 0, readbackMs: 0 };
         const timed = (key, fn) => { const t0 = host.now(); const v = fn(); timing[key] += host.now() - t0; return v; };
@@ -413,6 +414,15 @@ export function createThreeSource({ THREE, host }) {
           source: { id: shot.source, renderer: CAPS.id, host: renderingOf(shot).host, version: VERSION, tier, gpu, backend: 'webgl2', samples: plan.pixelSamples },
         });
         return { meta, layers, ...(extra && { extra }) };
+      },
+
+      /** 场景查询在 (f, sub = 0) 上答：先把这一刻写进场景再交给宿主量。render 每次自己写状态，这里写的不会留到下一次调用里 */
+      async query(f, q) {
+        if (closed) throw new Error('会话已经关了');
+        planFrame(manifest.frames, f);
+        const plan = planQuery(CAPS, q, names);
+        host.apply(loaded, f, 0);
+        return host.query(loaded, f, plan);
       },
 
       async close() {
