@@ -2,13 +2,14 @@
 // 切片规划（优先镜头切点、单镜过长按块长切）、单块失败只重试该块的槽位池、PTS 核验，以及（有 GPU 与 FFmpeg 时）本机双槽位端到端。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { planShards, runShards, shotSeams, checkPts, mergeAndVerify } from '../../tools/offscreen/farm.mjs';
-import { FFMPEG, FFPROBE } from '../../engine/render/lib/ffmpeg.mjs';
+import { FFMPEG, FFPROBE, probe } from '../../engine/render/lib/ffmpeg.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const FARM = join(ROOT, 'tools/offscreen/farm.mjs');
@@ -206,7 +207,7 @@ test('mergeAndVerify：两段同参 MP4 合并 → 帧数精确、PTS 严格单�
   try {
     const a = makeSegment(dir, 'a.mp4', 'testsrc2'), b = makeSegment(dir, 'b.mp4', 'smptebars');
     const out = join(dir, 'merged.mp4');
-    const res = await mergeAndVerify({ files: [a, b], out, from: 0, to: 24, fps: 24, workDir: dir });
+    const res = await mergeAndVerify({ files: [a, b], out, from: 0, to: 24, fps: 24, width: 320, height: 180, timescale: 12288, workDir: dir });
     assert.equal(res.verify.frames, 24);
     assert.equal(res.verify.pts.ok, true);
     assert.equal(res.verify.colorOk, true);
@@ -215,17 +216,27 @@ test('mergeAndVerify：两段同参 MP4 合并 → 帧数精确、PTS 严格单�
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('mergeAndVerify：帧数不符 / 段参数不一致 / PTS 有空洞都拦下（变异检查）', { skip: !ffmpegOk && '没有 FFmpeg' }, async () => {
+test('mergeAndVerify：帧数不符 / 切片画幅或帧率与请求不符 / 真实 MP4 的 PTS 有空洞都拦下（变异检查）', { skip: !ffmpegOk && '没有 FFmpeg' }, async () => {
   const dir = tmp();
+  const req = { fps: 24, width: 320, height: 180, timescale: 12288, workDir: dir };
   try {
     const a = makeSegment(dir, 'a.mp4', 'testsrc2'), b = makeSegment(dir, 'b.mp4', 'smptebars');
     // 帧数不符 → contract
-    await assert.rejects(() => mergeAndVerify({ files: [a, b], out: join(dir, 'm1.mp4'), from: 0, to: 25, fps: 24, workDir: dir }), e => e?.code?.startsWith('contract.') === true);
-    // 参数不一致（画幅不同）→ contract.concat-mismatch
+    await assert.rejects(() => mergeAndVerify({ ...req, files: [a, b], out: join(dir, 'm1.mp4'), from: 0, to: 25 }), e => e?.code?.startsWith('contract.') === true);
+    // 第二片画幅不是本次请求的（另一个任务的切片混进来）→ contract.shard-mismatch，且不写出成片
     const r = spawnSync(FFMPEG(), ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=duration=0.5:size=160x90:rate=24',
       '-c:v', 'libx264', '-crf', '14', '-g', '12', '-video_track_timescale', '12288', '-pix_fmt', 'yuv420p', join(dir, 'small.mp4')], { encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
-    await assert.rejects(() => mergeAndVerify({ files: [a, join(dir, 'small.mp4')], out: join(dir, 'm2.mp4'), from: 0, to: 24, fps: 24, workDir: dir }), e => e?.code === 'contract.concat-mismatch');
+    await assert.rejects(() => mergeAndVerify({ ...req, files: [a, join(dir, 'small.mp4')], out: join(dir, 'm2.mp4'), from: 0, to: 24 }), e => e?.code === 'contract.shard-mismatch' && /size=160x90/.test(e.message));
+    assert.equal(existsSync(join(dir, 'm2.mp4')), false);
+    // 各片彼此一致、但都不是请求的画幅 / 帧率 → 同样拒绝（只核对片与片一致是不够的）
+    await assert.rejects(() => mergeAndVerify({ ...req, width: 640, height: 360, files: [a, b], out: join(dir, 'm3.mp4'), from: 0, to: 24 }), e => e?.code === 'contract.shard-mismatch');
+    await assert.rejects(() => mergeAndVerify({ ...req, fps: 25, files: [a, b], out: join(dir, 'm4.mp4'), from: 0, to: 24 }), e => e?.code === 'contract.shard-mismatch' && /rate=24\/1/.test(e.message));
+    // 真实容器级 PTS 空洞：第二片最后一帧 PTS 5632 → 6144
+    const hole = join(dir, 'hole.mp4');
+    const h = spawnSync(FFMPEG(), ['-y', '-v', 'error', '-i', b, '-c', 'copy', '-bsf:v', 'setts=pts=if(eq(PTS\\,5632)\\,6144\\,PTS)', '-video_track_timescale', '12288', hole], { encoding: 'utf8' });
+    assert.equal(h.status, 0, h.stderr);
+    await assert.rejects(() => mergeAndVerify({ ...req, files: [a, hole], out: join(dir, 'm5.mp4'), from: 0, to: 24 }), e => e?.code === 'contract.pts' && /间隔 1024/.test(e.message));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -258,7 +269,7 @@ test('端到端：ink 0:8 双槽位两片 → 合并帧数精确、PTS 单调，
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('端到端：--keep 保留切片目录与逐段 sha256 留痕，默认清理', { skip: noEncode, timeout: 300000 }, async () => {
+test('端到端：--keep 保留本次的切片子目录与逐段 sha256 留痕；默认只删本次建的子目录', { skip: noEncode, timeout: 300000 }, async () => {
   const dir = tmp();
   try {
     const keep = join(dir, 'keep');
@@ -267,11 +278,69 @@ test('端到端：--keep 保留切片目录与逐段 sha256 留痕，默认清�
     assert.equal(r.status, 0, r.stderr);
     const e = envelope(r);
     assert.ok(e.data.shards.every(s => /^[0-9a-f]{64}$/.test(s.sha256)), '每片都要有 sha256 留痕');
-    assert.equal(existsSync(join(keep, 'shard-000000-000004.mp4')), true);
-    assert.equal(existsSync(join(keep, 'shard-000004-000008.mp4')), true);
+    const sub = e.data.workDir;
+    assert.ok(sub && sub.startsWith(keep), `workDir 应在 --work-dir 之下：${sub}`);
+    assert.equal(existsSync(join(sub, 'shard-000000-000004.mp4')), true);
+    assert.equal(existsSync(join(sub, 'shard-000004-000008.mp4')), true);
+    const gone = join(dir, 'gone');
     const r2 = run(['render', WORK, '--out', join(dir, 'farm2.mp4'), '--frames', '0:8', '--size', '320x180',
-      '--slots', '2', '--seams', '4', '--work-dir', join(dir, 'gone'), '--json']);
+      '--slots', '2', '--seams', '4', '--work-dir', gone, '--json']);
     assert.equal(r2.status, 0, r2.stderr);
-    assert.equal(existsSync(join(dir, 'gone')), false, '默认应清理切片目录');
+    assert.equal(envelope(r2).data.workDir, null);
+    assert.deepEqual(readdirSync(gone), [], '默认只删本次的子目录，--work-dir 本身保留且为空');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('P0 回归：--work-dir 指向非空的已有目录，原有内容原样保留；--out 放在 work-dir 里也不丢成片', { skip: noEncode, timeout: 300000 }, async () => {
+  const dir = tmp();
+  try {
+    const work = join(dir, 'work');
+    mkdirSync(join(work, 'nested'), { recursive: true });
+    writeFileSync(join(work, 'sentinel.txt'), 'keep me\n');
+    writeFileSync(join(work, 'nested', 'deep.txt'), 'deep\n');
+    const out = join(work, 'out.mp4');
+    const r = run(['render', WORK, '--out', out, '--frames', '0:2', '--size', '64x64', '--work-dir', work, '--json']);
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(readFileSync(join(work, 'sentinel.txt'), 'utf8'), 'keep me\n');
+    assert.equal(readFileSync(join(work, 'nested', 'deep.txt'), 'utf8'), 'deep\n');
+    assert.equal(existsSync(out), true, '成片被删了');
+    assert.equal(envelope(r).outputs[0].sha256, createHash('sha256').update(readFileSync(out)).digest('hex'));
+    assert.deepEqual(readdirSync(work).sort(), ['nested', 'out.mp4', 'sentinel.txt'], '只应多出成片，不留本次的临时子目录');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('P1 回归：两个任务并发共用 --work-dir、同帧区间只差画幅，各自拿到自己的画幅', { skip: noEncode, timeout: 300000 }, async () => {
+  const dir = tmp();
+  try {
+    const shared = join(dir, 'shared');
+    const go = (name, size) => new Promise(resolve => {
+      const c = spawn(process.execPath, [FARM, 'render', WORK, '--out', join(dir, name), '--frames', '0:4', '--size', size,
+        '--slots', '1', '--retries', '0', '--work-dir', shared, '--keep', '--json'], { cwd: ROOT });
+      let stdout = '', stderr = '';
+      c.stdout.on('data', d => { stdout += d; });
+      c.stderr.on('data', d => { stderr += d; });
+      c.on('close', code => resolve({ code, stdout, stderr }));
+    });
+    const [a, b] = await Promise.all([go('a.mp4', '320x180'), go('b.mp4', '640x360')]);
+    assert.equal(a.code, 0, a.stderr);
+    assert.equal(b.code, 0, b.stderr);
+    const pa = (await probe(join(dir, 'a.mp4'))).video, pb = (await probe(join(dir, 'b.mp4'))).video;
+    assert.deepEqual([pa.width, pa.height, pa.frames], [320, 180, 4]);
+    assert.deepEqual([pb.width, pb.height, pb.frames], [640, 360, 4]);
+    assert.notEqual(JSON.parse(a.stdout).data.workDir, JSON.parse(b.stdout).data.workDir, '两个任务必须用各自的子目录');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('P2 回归：缺 FFmpeg（子进程退出 3）时 farm 也退出 3，错误类别是 env.*', { timeout: 300000 }, () => {
+  const dir = tmp();
+  try {
+    const missing = join(dir, 'no-such-ffmpeg');
+    const r = run(['render', WORK, '--out', join(dir, 'o.mp4'), '--frames', '0:1', '--size', '64x64', '--retries', '0', '--work-dir', dir, '--json'],
+      { env: { ...process.env, FFMPEG: missing, FFPROBE: missing } });
+    assert.equal(r.status, 3, r.stderr);
+    const e = envelope(r);
+    assert.equal(e.exitCode, 3);
+    assert.match(e.error.code, /^env\./);
+    assert.equal(existsSync(join(dir, 'o.mp4')), false);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

@@ -11,6 +11,7 @@
 // 确定性（规格 §2 第 3 条）：各片用 --frame-hashes on 记录无损读回哈希，data.frameHashes 与单机整段渲染逐帧比对即无接缝判据。
 // 退出码：0 成功；1 切片渲染或合并失败；2 用法错误；3 缺 FFmpeg 等环境；4 拼接契约或核验不符。
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { spawn, spawnSync } from 'node:child_process';
@@ -24,6 +25,7 @@ import { FFMPEG, FFPROBE, probe, streamSignature, frameMd5, run } from '../../en
 
 const ROOT = fs.realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const OFFSCREEN_CLI = path.join(ROOT, 'engine', 'offscreen', 'cli.mjs');
+const OWNER_MARK = '.offscreen-farm-owner';
 const pad = n => String(n).padStart(6, '0');
 const sha256File = p => createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 const repoRel = p => { const r = path.relative(ROOT, p); return (r.startsWith('..') || path.isAbsolute(r) ? p : r.split(path.sep).join('/')); };
@@ -127,13 +129,25 @@ async function probePts(file) {
   return (JSON.parse(r.stdout || '{}').packets ?? []).map(p => p?.pts).filter(x => x !== undefined && x !== 'N/A').map(Number);
 }
 
+/** 流签名与本次请求对不上的项（画幅、帧率、编码、像素格式，给了 timescale 时还有时间基）；全对返回空数组。 */
+export function signatureMismatch(sig, { width, height, fps, timescale = null }) {
+  const want = { size: `${width}x${height}`, rate: `${fps}/1`, codec: 'h264', pixFmt: 'yuv420p', ...(timescale ? { timeBase: `1/${timescale}` } : {}) };
+  return Object.entries(want).filter(([k, x]) => sig[k] !== x).map(([k, x]) => `${k}=${sig[k]}（应为 ${x}）`);
+}
+
 /**
- * 无损合并并核验：ffmpeg concat -c copy（先核对各段编码/像素格式/画幅/帧率/时间基/色彩标记一致，不一致抛 contract.concat-mismatch），
+ * 无损合并并核验：先逐片对照本次请求的画幅 / 帧率 / 编码 / 像素格式（/ 时间基），不符抛 contract.shard-mismatch（防止别的任务的切片混进来）；
+ * 再 ffmpeg concat -c copy（核对各段签名彼此一致，不一致抛 contract.concat-mismatch），
  * 然后核验总帧数、PTS 严格单调无空洞（步长按时间基与帧率换算）、四项 BT.709 色彩标记、合并前后 framemd5 逐帧连续。
  * 返回 { verify: { frames, pts, color, colorOk, md5Continuous }, probe, shardMd5 }。
  */
-export async function mergeAndVerify({ files, out, from, to, fps, workDir }) {
+export async function mergeAndVerify({ files, out, from, to, fps, width, height, timescale = null, workDir }) {
   const expect = to - from;
+  const want = { width, height, fps, timescale };
+  for (const f of files) {
+    const bad = signatureMismatch(await streamSignature(f), want);
+    if (bad.length) throw new CliError('contract.shard-mismatch', `切片 ${path.basename(f)} 与本次请求不符：${bad.join('、')}`, { hint: '切片目录里混进了别的任务的产物：重跑（每次运行用独占子目录）' });
+  }
   fs.mkdirSync(workDir, { recursive: true });
   await concatChunks(files, out, { expectFrames: expect, workDir });     // 内部已核对段签名一致与合并后帧数
   const p = await probe(out);
@@ -198,7 +212,8 @@ export const command = defineCommand({
     '  切片规则：优先对齐镜头切点（--seams 显式给出，缺省读作品旁的 film.json 镜头表）；单镜超过 --block（默认 240 帧）按块长均分',
     '  编码对齐：各片同分辨率/帧率/编码参数/像素格式，-g 与 -video_track_timescale 全段统一，首帧 IDR，本地 ffmpeg concat -c copy 无损合并',
     '  核验：总帧数 = to-from、PTS 严格单调无空洞、BT.709 色彩标记完整、合并前后 framemd5 连续、逐段 sha256 留痕（data.shards）',
-    '  容错：单块失败只重试该块（--retries），已完成的切片不重跑；失败时保留切片目录（--keep 成功后也保留）',
+    '  容错：单块失败只重试该块（--retries），已完成的切片不重跑；失败时保留本次的切片子目录（--keep 成功后也保留）',
+    '  工作目录：--work-dir 只当父目录，每次运行在其下建独占子目录，切片与本次请求的画幅/帧率/编码对不上就拒绝拼接',
     '  混卡：跨机要码流逐字节一致时显式 --encoder x264；NVENC 各片画质达标即可',
     '  无接缝判据：各片 --frame-hashes on 的无损读回哈希拼起来（data.frameHashes）与单机整段渲染逐帧比对',
   ],
@@ -225,8 +240,8 @@ export const command = defineCommand({
     cq: { type: 'integer', default: MASTER_CQ, min: 0, arg: '<n>', describe: `nvenc cq（默认 ${MASTER_CQ}）` },
     preset: { type: 'string', default: 'medium', arg: '<名>', describe: 'x264 preset（默认 medium）' },
     query: { type: 'string', default: '', arg: '<k=v&…>', describe: '交给作品 build 的查询串（与 offscreen render 相同）' },
-    'work-dir': { type: 'string', arg: '<目录>', describe: '切片工作目录（默认 <out 目录>/.<成片名>-farm）' },
-    keep: { type: 'boolean', describe: '成功后保留切片目录与逐段文件（默认删除，sha256 已记录在信封里）' },
+    'work-dir': { type: 'string', arg: '<目录>', describe: '切片工作目录的父目录（默认系统临时目录）；每次运行在其下新建独占子目录 .offscreen-farm-*，这个目录本身和里面原有的东西都不会被删' },
+    keep: { type: 'boolean', describe: '成功后保留本次的切片子目录（路径在 data.workDir；默认只删本次建的子目录，sha256 已记录在信封里）' },
   },
   exitCodes: { 0: '成功', 1: '切片渲染或合并失败', 2: '用法错误', 3: '缺 FFmpeg 等环境', 4: '拼接契约或核验不符' },
   examples: [
@@ -259,9 +274,12 @@ export const command = defineCommand({
       if (seams.length) ctx.log.info(`镜头切点（film.json）：${seams.join('、')}`);
     }
     const shards = planShards({ from, to, target, seams, block });
-    const workDir = o['work-dir'] ? path.resolve(o['work-dir']) : path.join(path.dirname(out), `.${path.basename(out, path.extname(out))}-farm`);
-    fs.rmSync(workDir, { recursive: true, force: true });
-    fs.mkdirSync(workDir, { recursive: true });
+    // 用户给的目录只当父目录、绝不删除；每次运行在其下建独占子目录（不同任务共用 --work-dir 也互不覆盖），只清理带本次所有权标记的子目录
+    const workBase = o['work-dir'] ? path.resolve(o['work-dir']) : os.tmpdir();
+    fs.mkdirSync(workBase, { recursive: true });
+    const workDir = fs.mkdtempSync(path.join(workBase, '.offscreen-farm-'));
+    const owner = `${process.pid}-${path.basename(workDir)}`;
+    fs.writeFileSync(path.join(workDir, OWNER_MARK), owner);
     const live = new Set();
     ctx.onCleanup(() => { for (const c of live) { try { c.kill('SIGKILL'); } catch { /* 已退出 */ } } });
 
@@ -296,7 +314,9 @@ export const command = defineCommand({
 
     const failed = results.filter(r => !r.ok);
     if (failed.length) {
-      throw new CliError('failure.shards', `${failed.length}/${results.length} 个切片失败（${failed.map(r => `${r.from}:${r.to}`).join('、')}）：${failed[0].error.message}`, {
+      // 失败的块全是环境问题（子进程退出 3，如缺 FFmpeg / 可选依赖）时保留 env.* 类别 → 退出码 3，与帮助里的约定一致
+      const envOnly = failed.every(r => String(r.error?.code).startsWith('env.'));
+      throw new CliError(envOnly ? 'env.shards' : 'failure.shards',`${failed.length}/${results.length} 个切片失败（${failed.map(r => `${r.from}:${r.to}`).join('、')}）：${failed[0].error.message}`, {
         hint: `已完成的切片保留在 ${repoRel(workDir)}；单独重跑失败段：node engine/offscreen/cli.mjs render ${repoRel(file)} --out <切片文件> --frames ${failed[0].from}:${failed[0].to} <同参数>`,
       });
     }
@@ -309,15 +329,16 @@ export const command = defineCommand({
     }
 
     const files = results.map(r => r.file);
-    const merged = await mergeAndVerify({ files, out, from, to, fps, workDir });
+    const merged = await mergeAndVerify({ files, out, from, to, fps, width, height, timescale, workDir });
     const seconds = Number(process.hrtime.bigint() - t0) / 1e9;
     const ffLine = ffmpegVersionLine();
-    if (!o.keep) fs.rmSync(workDir, { recursive: true, force: true });
+    if (!o.keep) removeOwnedDir(workDir, owner);
     ctx.out(`合并完成 ${repoRel(out)}  ${to - from} 帧（${from}–${to - 1}）  ${width}×${height} ${fps} fps  编码 ${first.encode.encoder}(${first.encode.pixFmt})  ${seconds.toFixed(1)}s（含传输与拼接，吞吐 ${((to - from) / seconds).toFixed(1)} 帧/秒）`);
     ctx.out(`核验：帧数精确 ✓  PTS 严格单调无空洞（步长 ${merged.verify.step}）✓  BT.709 标记完整 ✓  合并前后 framemd5 连续 ✓`);
     return {
       data: {
         work: repoRel(file), from, to, width, height, fps, slots, gop, timescale, seconds: +seconds.toFixed(2),
+        workDir: o.keep ? repoRel(workDir) : null,
         shards: results.map(({ frameHashes, ...r }) => r),
         frameHashes: results.flatMap(r => r.frameHashes ?? []),
         verify: merged.verify,
@@ -330,6 +351,12 @@ export const command = defineCommand({
 });
 
 function existsSafe(p) { try { fs.accessSync(p); return true; } catch { return false; } }
+// 只删本次运行建的子目录：所有权标记内容必须对得上，否则一个文件都不动
+function removeOwnedDir(dir, owner) {
+  let mark = null;
+  try { mark = fs.readFileSync(path.join(dir, OWNER_MARK), 'utf8'); } catch { /* 没有标记：不删 */ }
+  if (mark === owner) fs.rmSync(dir, { recursive: true, force: true });
+}
 function ffmpegVersionLine() {
   try { return String(spawnSync(FFMPEG(), ['-hide_banner', '-version'], { encoding: 'utf8', timeout: 15000 }).stdout || '').split('\n')[0] || null; } catch { return null; }
 }
