@@ -24,9 +24,10 @@ const DECOY_SOURCE = "process.stdout.write('ready\\n');"
   + 'setInterval(() => {}, 1000)';
 const DECOY_PONG_MS = 2000;
 // 同一进程里第几轮红队：randomUUID 给出相同的值（被桩掉，或截短后相撞）时，靠它让各轮的标记不同。
-// 挂在 process 上而不是模块顶层：同一文件被加载成几份模块实例（?v=1、?v=2）时也共用一个序号。
+// 挂在 process 上而不是模块顶层：同一文件被加载成几份模块实例（?v=1、?v=2）时也共用一个序号。它只是起点，独占靠 claimRun。
 const RUN_SEQ = Symbol.for('beiming.jobs.sandboxRedTeamSeq');
 const canaryEnvKeys = (nonce) => ['API_KEY', 'AWS_SECRET_ACCESS_KEY'].map((name) => `BEIMING_REDTEAM_${nonce.replace('-', '_').toUpperCase()}_${name}`);
+const claimsRoot = () => path.join(os.tmpdir(), `bm-redteam-claims-${process.pid}`);
 const SENSITIVE_ENV = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|^(?:AWS|SSH|GH|GITHUB|ANTHROPIC|OPENAI|GOOGLE|AZURE|DOCKER|NPM)_/i;
 
 // expectedAttempts 是这一项该有的全部子尝试：判定时逐个核对，少一个这一项就不算数。
@@ -273,6 +274,42 @@ function mapStrings(value, map) {
   return value;
 }
 
+// 非递归建目录：建成返回 true，已经有了返回 false。父目录刚被另一轮收尾删掉（ENOENT）就补上再建；父目录建不了（比如那里是个文件）直接抛。
+function mkdirExclusive(dir) {
+  for (;;) {
+    fs.mkdirSync(path.dirname(dir), { recursive: true });
+    try {
+      fs.mkdirSync(dir);
+      return true;
+    } catch (error) {
+      if (error.code === 'EEXIST') return false;
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+}
+
+// 给这一轮占一个本进程（同一个 PID）里独占的序号，占到的同一步把两个环境变量诱饵挂上 process.env。
+// 开了 SHARE_ENV 的 Worker 各有一份 process 对象和模块实例，却共用 process.env：在 process.env 上「先查后写」，线程之间不是原子的。
+// 所以先用非递归 mkdir 在临时目录下占序号：同名目录内核只让一个调用建成，别的拿到 EEXIST 就换下一个。
+// shortcut: 进程被强杀时占位目录留在临时目录里，之后同 PID 的进程只是跳过这些序号；要回收再加按进程启动时间认主的清扫。
+function claimRun(uuid, [valueKey, valueAws]) {
+  for (let seq = (process[RUN_SEQ] ?? 0) + 1; ; seq += 1) {
+    const dir = path.join(claimsRoot(), String(seq));
+    if (!mkdirExclusive(dir)) continue;
+    const nonce = `${seq}-${uuid}`;
+    const [envKey, envAws] = canaryEnvKeys(nonce);
+    // 序号是独占的，带它的键别的轮次不会碰；已经在场的只能是调用方自己设的：让出序号，换下一个。
+    if ([envKey, envAws].some((key) => Object.hasOwn(process.env, key))) {
+      fs.rmdirSync(dir);
+      continue;
+    }
+    process[RUN_SEQ] = seq;
+    const hostEnv = { [envKey]: valueKey, [envAws]: valueAws };
+    Object.assign(process.env, hostEnv);
+    return { nonce, hostEnv, dir };
+  }
+}
+
 /**
  * 在真实沙箱里逐项实测五类逃逸。run 默认是 runInWorkspaceSandbox；makePool 默认建 WarmProcessPool。
  * 判定不信探针自己的说法：读到的东西里有没有金丝雀、宿主机监听端口收没收到连接、只读目录变没变，都在宿主机这边核对。
@@ -288,11 +325,8 @@ export async function runSandboxRedTeam({
   );
 
   const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'bm-redteam-')));
-  // 本轮标记 = 进程级序号 + 完整 UUID（不截短）：夹具目录、/var/tmp 下的探测文件和环境变量键都带它。
-  // process.env 就是在途登记表：键已经在场（别的轮次、别的模块实例或调用方自己的）就换下一个序号，选中后在 try 的第一句同步占位。
+  // 本轮标记 = 进程内独占的序号 + 完整 UUID（不截短）：夹具目录、/var/tmp 下的探测文件和环境变量键都带它。序号在 try 的第一句占。
   const uuid = String(randomUUID()).replace(/[^A-Za-z0-9]/g, '').toLowerCase();
-  let nonce;
-  do nonce = `${process[RUN_SEQ] = (process[RUN_SEQ] ?? 0) + 1}-${uuid}`; while (canaryEnvKeys(nonce).some((key) => Object.hasOwn(process.env, key)));
   const canary = Object.fromEntries(
     ['own', 'sibling', 'sshKey', 'awsKey', 'envKey', 'envAws', 'decoyArg', 'decoyEnv', 'residue'].map((name) => [name, `bm-canary-${randomUUID()}`]),
   );
@@ -301,25 +335,26 @@ export async function runSandboxRedTeam({
     return Object.entries(canary).some(([name, value]) => name !== 'own' && text.includes(value));
   };
   const root = path.join(base, 'workspaces');
-  const siblingName = `ws-b-${nonce}`;
-  const own = path.join(root, `ws-a-${nonce}`);
-  const sibling = path.join(root, siblingName);
   const app = path.join(base, 'app');
   const fakeHome = path.join(base, 'host-home');
   const realHome = os.homedir();
-  const rootFile = `/var/tmp/bm-redteam-${nonce}`;
-  // 键名带本轮标记：同一进程里重叠的两轮各用各的键，也不占调用方自己设的同名变量。两个键名都要命中 SENSITIVE_ENV。
-  const [envKey, envAws] = canaryEnvKeys(nonce);
-  const hostEnv = { [envKey]: canary.envKey, [envAws]: canary.envAws };
-  const hostEnvIntact = () => Object.entries(hostEnv).every(([key, value]) => process.env[key] === value);
   const server = http.createServer((request, response) => response.end('ok'));
   const fixtureErrors = [];
   let connections = 0;
   let decoy;
+  let claim;
+  let rootFile;
 
   try {
-    // 从选键到这里没有 await：占位是原子的，别的轮次选键时已经看得到这两个键。
-    Object.assign(process.env, hostEnv);
+    // 占序号和挂诱饵在 try 里一步做完：后面哪一步抛错，finally 都会摘键并让出序号。
+    // 键名带本轮标记：同一进程里重叠的两轮各用各的键，也不占调用方自己设的同名变量。两个键名都要命中 SENSITIVE_ENV。
+    claim = claimRun(uuid, [canary.envKey, canary.envAws]);
+    const { nonce, hostEnv } = claim;
+    const hostEnvIntact = () => Object.entries(hostEnv).every(([key, value]) => process.env[key] === value);
+    const siblingName = `ws-b-${nonce}`;
+    const own = path.join(root, `ws-a-${nonce}`);
+    const sibling = path.join(root, siblingName);
+    rootFile = `/var/tmp/bm-redteam-${nonce}`;
     for (const dir of [own, sibling, app, path.join(fakeHome, '.ssh'), path.join(fakeHome, '.aws')]) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(own, 'own.txt'), canary.own);
     fs.writeFileSync(path.join(sibling, 'secret.txt'), canary.sibling);
@@ -485,13 +520,20 @@ export async function runSandboxRedTeam({
     // 报告不带本机路径：夹具目录与真实家目录换成占位符。
     return mapStrings(report, (text) => text.replaceAll(base, '<夹具>').replaceAll(realHome, '<宿主机家目录>'));
   } finally {
-    // 选键时两个键都不在场，删掉就是恢复原状。
-    for (const key of Object.keys(hostEnv)) delete process.env[key];
+    // 选键时两个键都不在场，删掉就是恢复原状。先摘键再让出序号：反过来的话，接手这个序号的下一轮刚挂上的键会被这里删掉。
+    for (const key of Object.keys(claim?.hostEnv ?? {})) delete process.env[key];
+    for (const dir of [claim?.dir, claimsRoot()]) {
+      try {
+        if (dir) fs.rmdirSync(dir);
+      } catch {
+        // 占位根目录里还有别的轮次在途：留给最后收尾的那一轮删。
+      }
+    }
     decoy?.kill('SIGKILL');
     pool.close();
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
-    fs.rmSync(rootFile, { force: true });
+    if (rootFile) fs.rmSync(rootFile, { force: true });
     // Windows 上刚杀掉的诱饵进程还占着它的工作目录，多等几次。
     fs.rmSync(base, { recursive: true, force: true, maxRetries: 10 });
   }

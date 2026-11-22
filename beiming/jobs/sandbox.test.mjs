@@ -7,6 +7,7 @@ import process from 'node:process';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
+import { SHARE_ENV, Worker } from 'node:worker_threads';
 import {
   buildContainerSpec,
   detectSandboxBackend,
@@ -983,4 +984,108 @@ test('A13-25 同一进程里把同一文件加载成两份模块实例（?case=a
   const seq = Symbol.for('beiming.jobs.sandboxRedTeamSeq');
   assert.equal(typeof process[seq], 'number', '进程级序号挂在 process 上');
   await interleaved(t, a.runSandboxRedTeam, b.runSandboxRedTeam, () => { process[seq] -= 1; });
+});
+
+// 一个 Worker 里跑一轮红队（A13-26）。Worker 有自己的 process 对象和模块实例，开了 SHARE_ENV 才和主线程共用 process.env。
+// 取到本轮标记用的 UUID 之后停在屏障上，等两个 Worker 都到齐再一起放行去抢序号；夹具建好后报一声，等主线程放行才往下实测。
+const WORKER_ROUND = `
+const { parentPort, workerData } = require('node:worker_threads');
+const crypto = require('node:crypto');
+const EXPECTED_ATTEMPTS = workerData.attempts;
+const fakeBlockedRun = ${fakeBlockedRun};
+// sandbox.mjs 加载时自己先取一个 UUID：等它加载完再顶掉 randomUUID，这一轮取的第一个才是本轮标记。
+import(new URL('./sandbox.mjs', workerData.url).href).then(async () => {
+  const real = crypto.randomUUID;
+  let calls = 0;
+  crypto.randomUUID = (...args) => {
+    calls += 1;
+    if (calls === 1) return workerData.uuid;
+    if (calls === 2) {
+      parentPort.postMessage({ at: 'barrier' });
+      Atomics.wait(workerData.gate, 0, 0, 10000);
+    }
+    return real(...args);
+  };
+  require('node:fs').symlinkSync = () => {};
+  require('node:module').syncBuiltinESMExports();
+  const { runSandboxRedTeam } = await import(workerData.url);
+  const report = await runSandboxRedTeam({
+    ...workerData.offline,
+    run: fakeBlockedRun([], async (receipt, cfg) => {
+      if (receipt.item !== 'cross_workspace_read') return;
+      parentPort.postMessage({ at: 'built', nonce: cfg.nonce });
+      await new Promise((resolve) => parentPort.once('message', resolve));
+    }),
+  });
+  parentPort.postMessage({ at: 'done', report });
+});
+`;
+
+test('A13-26 同一进程里两个开了 SHARE_ENV 的 Worker 同时选键：UUID 整个相同、各自的进程级序号都从 1 起算，两轮也各占一个序号，诱饵键不相交', async (t) => {
+  // 九审的复现：两个 Worker 的 PID 相同、process 对象各一份，却共用 process.env。
+  const uuid = 'deadbeef-3333-4333-8333-333333333333';
+  const gate = new Int32Array(new SharedArrayBuffer(4));
+  const claimsRoot = path.join(os.tmpdir(), `bm-redteam-claims-${process.pid}`);
+  const workerData = { url: new URL('./sandbox-redteam.mjs', import.meta.url).href, uuid, gate, attempts: EXPECTED_ATTEMPTS, offline: OFFLINE };
+  const teams = ['A', 'B'].map(() => {
+    const worker = new Worker(WORKER_ROUND, { eval: true, env: SHARE_ENV, workerData });
+    const at = Object.fromEntries(['barrier', 'built', 'done'].map((stage) => [stage, new Promise((resolve, reject) => {
+      worker.on('message', (message) => { if (message.at === stage) resolve(message); });
+      worker.once('error', reject);
+    })]));
+    return { worker, at };
+  });
+  t.after(() => Promise.all(teams.map(({ worker }) => worker.terminate())));
+  const [a, b] = teams;
+
+  // 整套流程先走完再断言：中途失败就停的话，没收尾的那一轮会把诱饵留在共用的环境里。
+  await Promise.all(teams.map(({ at }) => at.barrier));
+  Atomics.store(gate, 0, 1);
+  Atomics.notify(gate, 0);
+  const [builtA, builtB] = await Promise.all(teams.map(({ at }) => at.built));
+  const both = canaries();
+  a.worker.postMessage('go');
+  const reportA = (await a.at.done).report;
+  const afterA = canaries();
+  b.worker.postMessage('go');
+  const reportB = (await b.at.done).report;
+
+  const hex = uuid.replaceAll('-', '');
+  assert.deepEqual([builtA.nonce, builtB.nonce].sort(), [`1-${hex}`, `2-${hex}`], '两轮的序号是 1 和 2');
+  const mineB = both.filter(([key]) => key.startsWith(`BEIMING_REDTEAM_${builtB.nonce.replace('-', '_').toUpperCase()}_`));
+  assert.deepEqual([both.length, mineB.length], [4, 2], '两轮在途时共 4 个诱饵键，各占两个');
+  assert.deepEqual(afterA, mineB, 'A 收尾之后 B 的两个在途诱饵原样还在');
+  assert.deepEqual([reportA.ok, reportA.blocked, reportB.ok, reportB.blocked], [true, 5, true, 5]);
+  assert.deepEqual(canaries(), [], '两轮都结束后宿主环境不留诱饵');
+  assert.equal(fs.existsSync(claimsRoot), false, '临时目录下不留序号占位目录');
+});
+
+test('A13-27 调用方自己占着下一个候选序号的键名：红队让出这个序号换下一个，调用方的值原样留着，占位目录不留', async (t) => {
+  t.mock.method(fs, 'symlinkSync', () => {});
+  const uuid = 'deadbeef-4444-4444-8444-444444444444';
+  const hex = uuid.replaceAll('-', '');
+  const real = crypto.randomUUID;
+  let forced = uuid;
+  t.mock.method(crypto, 'randomUUID', (...args) => {
+    const value = forced ?? real(...args);
+    forced = undefined;
+    return value;
+  });
+  syncBuiltinESMExports();
+  const next = (process[Symbol.for('beiming.jobs.sandboxRedTeamSeq')] ?? 0) + 1;
+  const presetKey = `BEIMING_REDTEAM_${next}_${hex.toUpperCase()}_API_KEY`;
+  process.env[presetKey] = 'caller-own';
+  t.after(() => {
+    delete process.env[presetKey];
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  });
+
+  let nonce;
+  const report = await runSandboxRedTeam({ ...OFFLINE, run: fakeBlockedRun([], (receipt, cfg) => { nonce = cfg.nonce; }) });
+  assert.equal(nonce, `${next + 1}-${hex}`, '跳过被占的序号');
+  assert.deepEqual([report.ok, report.blocked], [true, 5]);
+  assert.equal(process.env[presetKey], 'caller-own', '调用方的值没被覆盖，收尾也没被删');
+  assert.deepEqual(canaries(), [], '收尾后不留诱饵');
+  assert.equal(fs.existsSync(path.join(os.tmpdir(), `bm-redteam-claims-${process.pid}`)), false, '让出的序号和本轮的序号都不留占位目录');
 });
