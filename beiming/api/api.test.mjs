@@ -241,6 +241,8 @@ test('真实双镜头建片、修复、渲染、观测、核验与交付六件�
   assert.ok(ledger.data.expectedCount > ledger.data.actualCount);
   assert.equal(entries.filter(r => r.step === 'harvest-hook').length, 1);
   assert.equal(entries.find(r => r.step === 'job.deliver').frames, 24);
+  // 取消要赶在帧源真渲的途中：先清掉交付留下的终渲帧缓存，否则 24 帧全部命中、作业一下就完
+  rmSync(join(root, 'films', a.film, 'deliver', '.shot-cache'), { recursive: true, force: true });
   const cancel = await request('POST', '/render', { tier: 'final' });
   const jobPath = `/v1/jobs/${cancel.data.job}`;
   let live;
