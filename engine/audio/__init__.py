@@ -7,6 +7,8 @@
   sampler    多采样乐器采样器（CC0 库，BEIMING_SAMPLES 指路径）
   library    CC0 真实录音音效库（按清单加载、48 kHz 重采样、感知锚点 P-Center 标定、过零切片与署名，供 --real-sfx 切换）
   foley      物理拟音层：子事件复合（Pre/Transient/Body/Tail）、P-Center 锚定放置、防机关枪轮询池与运动学颗粒声床
+  erb        96 带 ERB 复基带分析-再合成（子包 erb/，CPU 参考实现 core.py + GPU 执行器 erb_cuda.cu / gpu.py，用法见 erb/README.md）：从一段录音学出不含波形的 ERB 模型，
+             按新种子合成「同一件东西的另一下」（起音因果约束与颗粒约束保住「咔」的干脆，多下录音学 take 间变化，连敲每下不同；python -m engine.audio.erb）
   procedural 物理因果与风格化音效程序化合成：刚体模态撞击（含 radiation='accel' 加速度辐射）、PhISEM 随机粒子碰撞、
              Strouhal 涡街破空、Minnaert 气泡共振、卡通原语，以及三维雷电传播（thunder_strike）、时变四分之一波腔注水
              （pouring_vessel）、简并分裂圆片弹跳与欧拉盘滚振（bouncing_disc）、弹道 N 波与 Friedlander 爆破（shock_blast）
