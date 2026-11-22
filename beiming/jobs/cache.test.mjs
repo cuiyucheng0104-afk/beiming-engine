@@ -1046,3 +1046,102 @@ test('A16-30 G_REV-R5 只读目录有效帧遇 EBUSY/EPERM/EACCES 首次 stamp �
     fs.rmSync(path.join(cache.root, '.cache.lock'), { force: true });
   }
 });
+
+test('A16-31 G_REV-R6 held 仅在真实取得锁后置位、只读首次普通 lstat 冲突可恢复且坏帧遇 ENOSPC 返回未命中', { skip: process.platform === 'win32' }, (t) => {
+  const dir = tmpDir(t);
+  const cache = jobs.openShotCache(dir);
+  const entry = jobs.computeFrameCacheKey(makeBaseSpec());
+  cache.put(entry, { colorBytes: Buffer.from([77]) });
+  const [file] = frameFiles(dir);
+  const dirs = [path.dirname(file), path.dirname(path.dirname(file)), path.dirname(path.dirname(path.dirname(file))), cache.root];
+
+  // 1) 只读目录下，帧路径的第一次 lstatSync（含不带 bigint 的路径检查）遇 EBUSY/EPERM/EACCES 都能退避并在本次 get 返回 [77]（绝不假未命中）
+  fs.chmodSync(file, 0o444);
+  for (const d of dirs) fs.chmodSync(d, 0o555);
+  try {
+    const realLstat = fs.lstatSync;
+    for (const code of ['EBUSY', 'EPERM', 'EACCES']) {
+      let onceBusy = true;
+      const m = t.mock.method(fs, 'lstatSync', (target, opts) => {
+        if (onceBusy && typeof target === 'string' && target.endsWith('.frame')) {
+          onceBusy = false;
+          throw Object.assign(new Error(`${code}: early frame lstat`), { code, syscall: 'lstat' });
+        }
+        return realLstat(target, opts);
+      });
+      assert.deepEqual([...cache.get(entry).colorBytes], [77], `只读目录下早期 lstat ${code} 必须重试恢复，不能变 undefined`);
+      m.mock.restore();
+    }
+  } finally {
+    for (const d of [...dirs].reverse()) fs.chmodSync(d, 0o755);
+    fs.chmodSync(file, 0o644);
+  }
+
+  // 2) 等锁期间 state.held 必须仍为 false（未取得 .cache.lock 时重入绝不能直接放行修改！）
+  fs.writeFileSync(path.join(cache.root, '.cache.lock'), `${process.pid}\n`);
+  const realWait = Atomics.wait;
+  let reentered = false;
+  let reenterErr;
+  const waitHook = t.mock.method(Atomics, 'wait', (...args) => {
+    if (!reentered) {
+      reentered = true;
+      try {
+        // 重入用带短超时的 prune：put 没有超时参数，等满默认 10 秒才报错
+        cache.prune({ maxAgeMs: 0, now: Date.now() + 999999, lockTimeoutMs: 25 });
+      } catch (err) {
+        reenterErr = err;
+      }
+    }
+    return realWait(...args);
+  });
+  try {
+    assert.throws(() => cache.prune({ maxAgeMs: 0, now: Date.now() + 999999, lockTimeoutMs: 25 }), { code: 'ETIMEDOUT' });
+    assert.equal(reenterErr?.code, 'ETIMEDOUT', '等锁期间重入的调用绝不能把 held 误判为已持锁而无锁删除');
+    assert.deepEqual([...cache.get(entry).colorBytes], [77]);
+  } finally {
+    waitHook.mock.restore();
+    fs.rmSync(path.join(cache.root, '.cache.lock'), { force: true });
+  }
+
+  // 3) 坏帧机会性清理在创建锁暂存目录遇 ENOSPC 时保留坏帧并返回 undefined
+  fs.appendFileSync(file, 'corrupt');
+  const realMkdtemp = fs.mkdtempSync;
+  const noSpace = t.mock.method(fs, 'mkdtempSync', (...args) => {
+    throw Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' });
+  });
+  try {
+    assert.equal(cache.get(entry), undefined);
+    assert.equal(fs.existsSync(file), true);
+  } finally {
+    noSpace.mock.restore();
+  }
+});
+
+test('A16-32 G_REV-R6 大小写不敏感的卷上同一缓存根的不同写法共用持锁状态，临界区里重入不自己等自己', (t) => {
+  const cache = jobs.openShotCache(path.join(tmpDir(t), 'cache'));
+  const aliasDir = path.join(path.dirname(cache.root), 'CACHE');
+  if (!fs.existsSync(aliasDir)) return t.skip('大小写敏感的卷上没有别名写法');
+  const alias = jobs.openShotCache(aliasDir);
+  const old = jobs.computeFrameCacheKey(makeBaseSpec({ shot: { ...makeBaseSpec().shot, id: 's02' } }));
+  const fresh = jobs.computeFrameCacheKey(makeBaseSpec());
+  cache.put(old, { colorBytes: Buffer.from([1]) });
+
+  // cache 句柄发布改名的那一刻正持着 .cache.lock：别名句柄此时清理，必须认出是同一个根直接执行，而不是去等自己进程的锁
+  const realRename = fs.renameSync;
+  let inner;
+  const hook = t.mock.method(fs, 'renameSync', (source, target) => {
+    if (!inner && String(target).endsWith('.frame')) {
+      try {
+        inner = alias.prune({ maxAgeMs: 0, now: Date.now() + 1000, lockTimeoutMs: 25 });
+      } catch (error) {
+        inner = error;
+      }
+    }
+    return realRename(source, target);
+  });
+  cache.put(fresh, { colorBytes: Buffer.from([2]) });
+  hook.mock.restore();
+  assert.deepEqual(inner, { removed: 1 });
+  assert.equal(alias.get(old), undefined);
+  assert.deepEqual([...alias.get(fresh).colorBytes], [2]);
+});

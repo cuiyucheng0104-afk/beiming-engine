@@ -135,27 +135,38 @@ export function openShotCache(cacheDir) {
     return safePath(parent, name);
   }
 
-  function fileOf(entry) {
-    checkRoot();
+  // 一帧的落盘位置：档位 / 镜头 / 镜头版本 / 帧文件
+  function segments(entry) {
     need(isPlainObject(entry) && isDigest(entry.key) && isDigest(entry.shotKey) && isShotId(entry.shotId) && TIERS.includes(entry.tier),
       '缓存条目必须是 computeFrameCacheKey 的返回值。');
-    let dir = root;
-    for (const name of [entry.tier, `shot-${entry.shotId}`, entry.shotKey.slice(7)]) dir = child(dir, name, true);
-    return child(dir, `${entry.key.slice(7)}.frame`, false);
+    return [entry.tier, `shot-${entry.shotId}`, entry.shotKey.slice(7), `${entry.key.slice(7)}.frame`];
+  }
+
+  function fileOf(entry) {
+    checkRoot();
+    const names = segments(entry);
+    return names.reduce((dir, name, depth) => child(dir, name, depth < names.length - 1), root);
   }
 
   // 发布（改名到位）与「核对身份后删除」在同一把跨进程文件锁里互斥：核对之后、删除之前不会有新帧换进来。
   // 拿不到锁（根只读、别的进程久占）就抛错，绝不无锁发布或删除；命中读取不进这把锁，只读的共享缓存照常读。
   // 同一进程里指向同一根目录的句柄共用一份状态：已在临界区里（held）再进来直接执行，靠 putSeq 发现期间的发布。
-  const state = processLocks.get(root) ?? processLocks.set(root, { held: false, putSeq: 0 }).get(root);
+  // 大小写不敏感的卷上同一目录有多种写法，所以按设备号与节点号认根；拿不到节点号的文件系统退回小写的真实路径。
+  const stamp = file => fs.lstatSync(file, { bigint: true, throwIfNoEntry: false });
+  const rootStamp = stamp(root);
+  const lockKey = rootStamp?.dev || rootStamp?.ino ? `${rootStamp.dev}:${rootStamp.ino}` : fs.realpathSync.native(root).toLowerCase();
+  const state = processLocks.get(lockKey) ?? processLocks.set(lockKey, { held: false, putSeq: 0 }).get(lockKey);
   function withCacheLock(run, timeoutMs) {
     if (state.held) return run();
-    state.held = true;
-    try {
-      return withFileLock(path.join(root, '.cache'), run, timeoutMs, '缓存');
-    } finally {
-      state.held = false;
-    }
+    // held 只在真正拿到文件锁之后置位：还在等别的进程放锁时重入的调用同样要去等锁，不能当成已持锁。
+    return withFileLock(path.join(root, '.cache'), () => {
+      state.held = true;
+      try {
+        return run();
+      } finally {
+        state.held = false;
+      }
+    }, timeoutMs, '缓存');
   }
 
   // 一个条目一个文件：一行 JSON 文件头加颜色层字节，改名一步到位，不会出现头和颜色层对不上的中间态。
@@ -186,7 +197,6 @@ export function openShotCache(cacheDir) {
 
   // 共享冲突的退避期间，别的写者可能已在同一路径原子发布了新帧：每次删除前重验身份，只删快照里的那个文件。
   // 锁套在单次尝试里面，退避等待时不占锁。
-  const stamp = file => fs.lstatSync(file, { bigint: true, throwIfNoEntry: false });
   function removeSame(file, snap, timeoutMs) {
     let removed = false;
     retrySharing(file, () => withCacheLock(() => {
@@ -204,19 +214,36 @@ export function openShotCache(cacheDir) {
   }
 
   // 头部和颜色必须来自同一次读取；调用方以后再取颜色时用返回的摘要核对。
-  // 命中读取不要求写权限：只读缓存里清不掉的错位节点、拿不到锁的坏帧都按未命中处理，不删也不崩。
-  const cannotClean = error => ['EACCES', 'EPERM', 'EROFS', 'ETIMEDOUT'].includes(error.code);
+  // 命中读取不要求写权限：只读缓存里清不掉的错位节点、清不掉的坏帧都按未命中处理，不删也不崩。
   function get(entry) {
-    let file;
-    let snap;
-    let raw;
+    const names = segments(entry);
+    const file = path.join(root, ...names);
+    let found;
     try {
-      file = fileOf(entry);
-      [snap, raw] = retrySharing(file, () => [stamp(file), fs.readFileSync(file)], 12, fs.constants.R_OK);
+      // 逐段检查和读取同在一次尝试里：哪一步遇到共享冲突都整体退避重来，瞬态错误不会变成假未命中。
+      found = retrySharing(file, () => {
+        checkRoot();
+        let node = root;
+        let snap;
+        for (const [depth, name] of names.entries()) {
+          node = path.join(node, name);
+          snap = stamp(node);
+          if (!snap) return undefined;
+          if (depth < names.length - 1 ? snap.isDirectory() : snap.isFile()) continue;
+          try {
+            fs.rmSync(node, { force: true, recursive: snap.isDirectory() }); // 占错位置的节点（含符号链接）拆掉不跟
+          } catch (error) {
+            if (!['EACCES', 'EPERM', 'EROFS'].includes(error.code)) throw error;
+          }
+          return undefined;
+        }
+        return [snap, fs.readFileSync(file)];
+      }, 12, fs.constants.R_OK);
     } catch (error) {
-      if (error.code === 'ENOENT' || (!file && cannotClean(error))) return undefined;
-      throw error;
+      if (error.code !== 'ENOENT') throw error;
     }
+    if (!found) return undefined;
+    const [snap, raw] = found;
     const split = raw.indexOf(0x0a);
     const colorBytes = raw.subarray(split + 1);
     let fields;
@@ -231,7 +258,8 @@ export function openShotCache(cacheDir) {
       try {
         removeSame(file, snap, 200); // 机会性清理：短等一下锁，等不到就留给下一次 put 覆盖或 prune
       } catch (error) {
-        if (!cannotClean(error)) throw error;
+        // 已经确定是未命中：建锁或删除遇到任何文件系统错误（磁盘满、句柄用尽、只读、等锁超时）都留着坏帧，只放过非系统错误
+        if (!/^E[A-Z0-9]+$/.test(error.code)) throw error;
       }
       return undefined;
     }
