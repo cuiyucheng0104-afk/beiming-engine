@@ -406,7 +406,7 @@ test('V18-15 G_REV-R4 原始样本严格为有限 number（拒 null/字符串/�
   // 读取第 0 帧时往组里多塞一帧：长度变了也拒绝
   const growB = [null, f(0)];
   Object.defineProperty(growB, 0, { enumerable: true, get() { growB.push(f(0)); return f(0); } });
-  assert.throws(() => verify.welchTest(pair0, growB), TypeError);
+  assert.throws(() => verify.welchTest(pair0, growB), RangeError);
   // 4) 帧、data 元素、p 值各只读一次：第二次读会变值的 getter 骗不到统计
   let reads = 0;
   const once = (list, i, value) => Object.defineProperty(list, i, { enumerable: true, get() { reads++; return value; } });
@@ -464,4 +464,42 @@ test('V18-16 G_REV-R5 杀灭 M33（EXR 选中通道含 Infinity 在统计前抛 
   const pixArr = [null, 3.5];
   Object.defineProperty(pixArr, 0, { enumerable: true, get() { delete bHole[1]; return 3; } });
   assert.throws(() => verify.welchTest([f(1), f(2), { width: 2, height: 1, channels: 1, data: pixArr }], bHole), TypeError);
+});
+
+test('V18-17 G_REV-R6 入口等 K (3 对 3) 下读取 A[0] 把 B 缩至 2 再在平面阶段补回 3 帧，快照长度与入口不一致必须在统计前拒绝', () => {
+  const f = (v) => ({ width: 2, height: 1, channels: 1, data: new Float32Array([v, v + 0.5]) });
+  let readsB = 0;
+  const b3 = Object.defineProperty([null, f(2), f(NaN)], 0, { enumerable: true, configurable: true, get() { readsB++; return f(1); } });
+  const a3 = [null, f(2), { width: 2, height: 1, channels: 1 }];
+  Object.defineProperty(a3, 0, { enumerable: true, get() { b3.length = 2; return f(1); } });
+  Object.defineProperty(a3[2], 'data', { enumerable: true, get() { b3.push(f(3)); return new Float32Array([3, 3.5]); } });
+  assert.throws(() => verify.welchTest(a3, b3), RangeError);
+  assert.equal(b3.length, 2); // 在平面阶段之前就拒了，补回 3 帧的 data getter 没机会跑
+  assert.equal(readsB, 0); // 而且是在读 B 的任何一帧之前
+
+  // A[0] 把 B 清空：读 B 之前就按入口长度拒（RangeError），不落到「第 0 项是空洞」的 TypeError
+  const bGone = [f(1), f(2)];
+  const aWipe = [null, f(2)];
+  Object.defineProperty(aWipe, 0, { enumerable: true, get() { bGone.length = 0; return f(1); } });
+  assert.throws(() => verify.welchTest(aWipe, bGone), RangeError);
+
+  // 平面阶段内改短又补回：A[0] 的 data getter 把 B 缩成 2 帧、A[1] 的再补回 3 帧，每帧解析完都复查，当场拒
+  const bFlip = [f(1), f(2), f(3)];
+  const lazy = (effect, v) => Object.defineProperty({ width: 2, height: 1, channels: 1 }, 'data', {
+    enumerable: true, get() { effect(); return new Float32Array([v, v + 0.5]); },
+  });
+  const aFlip = [lazy(() => { bFlip.length = 2; }, 1), lazy(() => { bFlip.push(f(3)); }, 2), f(3)];
+  assert.throws(() => verify.welchTest(aFlip, bFlip), RangeError);
+  assert.equal(bFlip.length, 2);
+
+  // 帧的 data 普通数组读到一半被自己的 getter 加长：没有种子组复查兜底，靠快照自己的读后检查拒
+  const dataGrow = [null, 1.5];
+  Object.defineProperty(dataGrow, 0, { enumerable: true, get() { dataGrow.push(9); return 1; } });
+  assert.throws(() => verify.welchTest([f(1), f(2)], [f(1), { width: 2, height: 1, channels: 1, data: dataGrow }]), RangeError);
+
+  // 读 B[0] 时删掉已拍完快照的 A[1]：解析任何帧之前就抛 TypeError，轮不到 A[0] 的「无效尺寸」普通 Error
+  const aCut = [{ width: 0, height: 1, channels: 1, data: new Float32Array(0) }, f(2)];
+  const bCut = [null, f(2)];
+  Object.defineProperty(bCut, 0, { enumerable: true, get() { delete aCut[1]; return f(1); } });
+  assert.throws(() => verify.welchTest(aCut, bCut), TypeError);
 });

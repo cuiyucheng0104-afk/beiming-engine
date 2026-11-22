@@ -7,14 +7,18 @@ function check(condition, reason) {
 }
 
 // 把普通数组逐下标只读一次拷成快照，之后只用快照：空洞会让种子被悄悄少算，
-// 带 getter 的元素能在读取中途删项、改长度或第二次读出别的值，这里一律 TypeError。
-function snapshot(list, name) {
-  const length = list.length;
+// 带 getter 的元素能在读取中途删项、改长度或第二次读出别的值：空洞抛 TypeError，长度变了抛 RangeError。
+// length 由调用方给时是入口长度：别处的 getter 可能在这次读取开始前就把 list 改短，等读完再补回去。
+function snapshot(list, name, length = list.length) {
+  const sameLength = () => {
+    if (list.length !== length) throw new RangeError(`welch: ${name} 的长度在读取中途被改了`);
+  };
+  sameLength();
   const copy = new Array(length);
   for (let i = 0; i < length; i++) {
     if (!Object.hasOwn(list, i)) throw new TypeError(`welch: ${name} 第 ${i} 项是空洞（稀疏数组）`);
     copy[i] = list[i];
-    if (list.length !== length) throw new TypeError(`welch: ${name} 的长度在读取中途被改了`);
+    sameLength();
   }
   return copy;
 }
@@ -204,13 +208,18 @@ export function welchTest(groupA, groupB, options = {}) {
     }
   });
   // 先拍快照再查长度：new Array(1) 这种单槽稀疏数组也统一抛 TypeError，之后调用方再改种子组也影响不到统计。
-  const snapshots = [snapshot(groupA, 'A 组'), snapshot(groupB, 'B 组')];
+  // 快照按入口长度拷：等 K 的 3 对 3 里 A[0] 把 B 缩成 2 帧、之后再补回 3 帧，也不会拷出 3 对 2。
+  const snapshots = [snapshot(groupA, 'A 组', lengthA), snapshot(groupB, 'B 组', lengthB)];
+  intact(); // 读 B 时的 getter 可能回头改了已拍完快照的 A
   check(lengthA >= 2 && lengthB >= 2, '每边至少要 2 个种子样本');
   if (lengthA !== lengthB) throw new RangeError(`welch: 两边种子数须相等（A ${lengthA} 个，B ${lengthB} 个）`);
   // 两边全部帧先解析、校验完，再做统计：最后一帧坏了也在任何累加之前抛。
   // shortcut: 2K 个平面同时在内存里（每单元 8 字节），4K 逐像素 K=16 约 2 GB；吃紧时用 blockSize 8 或改成两遍读。
-  const groups = snapshots.map(group => group.map(sample => loadPlane(sample, channel, blockSize)));
-  intact(); // A 的 getter、帧的 data 或像素 getter 都可能改另一个种子组，统计前统一查一遍
+  const groups = snapshots.map(group => group.map(sample => {
+    const plane = loadPlane(sample, channel, blockSize);
+    intact(); // 帧的 data、像素 getter 也能改种子组：每帧查一次，改短后又补回也逃不掉；末帧这次就是统计前的复查
+    return plane;
+  }));
   const grid = groups[0][0];
   for (const plane of groups.flat()) {
     check(plane.width === grid.width && plane.height === grid.height, '样本尺寸不一致');
