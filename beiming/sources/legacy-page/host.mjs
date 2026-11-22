@@ -2,12 +2,14 @@
 // 旧页面按页面约定 v1 出画面：window.render(t) 画到时刻 t，window.TEXTS(t) 报文字框。这里截 8 位 sRGB 图，
 // 按 IEC 61966-2-1 精确解码成线性 f32 颜色层（显示参考），元数据只交文字框和来源信息，camera、entities 写 null（limited 档）。
 // 页面怎么开由驱动管：默认用 engine/render/page.mjs 开无头浏览器（pageDriver），测试和别的宿主可以注入 options.driver：
-//   driver.open({ dir, size: [w, h], fps, frameCount }) → { render(t) → RGBA 字节（w·h·4）, texts(t) → TEXTS 原样, gpu?, close() }
+//   driver.open({ dir, size: [w, h], fps, frameCount }) → { render(t) → RGBA 字节（w·h·4）, texts(t) → TEXTS 原样, gpu?, frames?, close() }
+//   frameCount 是全片帧数（不是镜头出点）；frames 是页面自己 DUR × fps 的帧数，给了就核对镜头出点不超过它。
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { fileURLToPath } from 'node:url';
 import { renderingOf } from '../../kernel/eval/input.mjs';
 import { shutterSubs } from '../../kernel/eval/time.mjs';
 import { caps, THREE_VERSION, VERSION } from './caps.mjs';
@@ -20,7 +22,12 @@ export class SourceError extends Error {
   }
 }
 
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const CAPS = caps();
+const META_MAX = 65536; // meta/0.1 M3：序列化后的字节上限
+const TEXT_MAX = 1024; // 单条文字（码点）上限，超出截断
+const ID_MAX = 256;
+const SHOT_ID = /^[a-z][a-z0-9-]*$/;
 const bad = (message) => new SourceError('usage.bad-argument', message);
 const used = (v) => (Array.isArray(v) ? v.length > 0 : v !== null && typeof v === 'object' && Object.keys(v).length > 0);
 const sha = (buf) => `sha256:${createHash('sha256').update(buf).digest('hex')}`;
@@ -44,14 +51,24 @@ const fpsValue = (fps) => {
   return Number(m[1]) / Number(m[2]);
 };
 
+// 活跃的浏览器会话数（含正在 open 的）：engine/render/page.mjs 的静态服务是进程级单例，
+// openFilm 在起浏览器之前就把它开了，所以开失败和最后一个会话关掉时都得清场，否则进程挂着不退出
+let activeBrowserSessions = 0;
+export const browserSessions = () => activeBrowserSessions;
+
 /** 默认驱动：无头浏览器开页面约定 v1 的页面。只在真要出帧时才引入浏览器那一套 */
 export const pageDriver = {
   async open({ dir, size: [w, h], fps, frameCount }) {
-    const { openFilm, renderFrame } = await import('../../../engine/render/page.mjs');
+    const { openFilm, renderFrame, closeServer } = await import('../../../engine/render/page.mjs');
     const { decodePNG } = await import('../../../tools/baseline/lib/png.mjs');
-    const film = await openFilm(dir, { w, h, render: { fps, frameCount } });
+    activeBrowserSessions++;
+    const release = async () => { if (--activeBrowserSessions === 0) await closeServer().catch(() => {}); };
+    let film;
+    try { film = await openFilm(dir, { w, h, render: { fps, frameCount } }); } catch (e) { await release(); throw e; }
+    let closed = false;
     return {
       gpu: film.gpu,
+      frames: Math.round(film.contract.dur * fps),
       async render(t) {
         await renderFrame(film, t);
         const img = decodePNG(await film.capture('png'));
@@ -61,16 +78,94 @@ export const pageDriver = {
         return rgba;
       },
       texts: (t) => film.page.evaluate((tt) => (typeof globalThis.TEXTS === 'function' ? globalThis.TEXTS(tt) : []), t),
-      close: () => film.close(),
+      async close() {
+        if (closed) return;
+        closed = true;
+        try { await film.close(); } finally { await release(); }
+      },
     };
   },
 };
 
-/** TEXTS(t) 的 { text, box: [x, y, w, h], alpha } 换成元数据的 { id?, text, bbox2d: [x0, y0, x1, y1] }；透明度是 0 的不在画面上 */
+const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+const metaBytes = (v) => Buffer.byteLength(JSON.stringify(v));
+const cut = (str, n) => { const cps = [...str]; return cps.length > n ? cps.slice(0, n).join('') : str; };
+
+/** 一条文字的方框换成 [x0, y0, x1, y1]：认 box: [x, y, w, h]、box: { x0, y0, x1, y1 }、box: { x, y, w, h } 和条目顶层的 x0..y1（旧写法）；认不出或有非有限数返回 null */
+function boxOf(e) {
+  const b = e.box ?? ('x0' in e ? e : null);
+  if (Array.isArray(b)) return b.length === 4 && b.every(finite) ? [b[0], b[1], b[0] + Math.max(0, b[2]), b[1] + Math.max(0, b[3])] : null;
+  if (b && typeof b === 'object') {
+    if (['x0', 'y0', 'x1', 'y1'].every((k) => finite(b[k]))) return [b.x0, b.y0, Math.max(b.x0, b.x1), Math.max(b.y0, b.y1)];
+    if (['x', 'y', 'w', 'h'].every((k) => finite(b[k]))) return [b.x, b.y, b.x + Math.max(0, b.w), b.y + Math.max(0, b.h)];
+  }
+  return null;
+}
+
+/** TEXTS(t) 换成元数据的 { id?, text, bbox2d: [x0, y0, x1, y1] }；透明度是 0 或空文字的不在画面上，其余方框认不出就报错（QA 要看的文字不静默丢） */
 function textsOf(raw) {
   if (!Array.isArray(raw)) throw new SourceError('failure.render', `window.TEXTS(t) 必须返回数组，收到 ${typeof raw}`);
-  return raw.filter((x) => typeof x?.text === 'string' && x.text !== '' && x.alpha !== 0 && Array.isArray(x.box) && x.box.length === 4)
-    .map(({ id, text, box: [x, y, w, h] }) => ({ ...(typeof id === 'string' && id ? { id } : {}), text, bbox2d: [x, y, x + Math.max(0, w), y + Math.max(0, h)] }));
+  return raw.flatMap((e, i) => {
+    if (typeof e?.text !== 'string' || e.text === '' || e.alpha === 0) return [];
+    const bbox2d = boxOf(e);
+    if (!bbox2d) throw new SourceError('failure.render', `window.TEXTS(t) 第 ${i} 项「${cut(e.text, 20)}」的方框认不出或有非有限数：${JSON.stringify(e.box ?? null)}`, '写成 box: [x, y, w, h]（有限数）');
+    return [{ ...(typeof e.id === 'string' && e.id ? { id: e.id } : {}), text: e.text, bbox2d }];
+  });
+}
+
+/** 把文字框装进元数据并保证序列化后不超过 65536 字节：单条文字截断，塞不下的丢弃，截断和丢弃的数记进 ext */
+function fitTexts(meta, all) {
+  let room = META_MAX - metaBytes({ ...meta, texts: [] }) - 160; // 160 留给 ext 里的记账
+  const kept = [];
+  let truncated = 0, dropped = 0;
+  for (const t of all) {
+    const id = t.id === undefined ? undefined : cut(t.id, ID_MAX), text = cut(t.text, TEXT_MAX);
+    const e = { ...(id === undefined ? {} : { id }), text, bbox2d: t.bbox2d };
+    const n = metaBytes(e) + 1;
+    if (n > room) { dropped++; continue; }
+    room -= n;
+    kept.push(e);
+    if (text !== t.text || id !== t.id) truncated++;
+  }
+  const ext = truncated || dropped ? { ...meta.ext, 'legacy-page.texts-trimmed': { truncated, dropped } } : meta.ext;
+  const out = { ...meta, texts: kept, ...(ext ? { ext } : {}) };
+  if (metaBytes(out) > META_MAX) throw new SourceError('failure.render', `元数据序列化后 ${metaBytes(out)} 字节，超过 ${META_MAX}`);
+  return out;
+}
+
+/** 层文件只写进工作区：逐级检查路径上没有符号链接，目标文件也不跟随符号链接 */
+function writeLayer(workspace, file, bytes) {
+  fs.mkdirSync(workspace, { recursive: true });
+  let dir = fs.realpathSync(path.resolve(workspace));
+  const parts = file.split('/');
+  const name = parts.pop();
+  const refuse = (what) => bad(`工作区里的 ${what} 是符号链接或不是目录，层文件不写到工作区之外：${file}`);
+  for (const part of parts) {
+    dir = path.join(dir, part);
+    const st = fs.lstatSync(dir, { throwIfNoEntry: false });
+    if (!st) fs.mkdirSync(dir);
+    else if (st.isSymbolicLink() || !st.isDirectory()) throw refuse(part);
+  }
+  const target = path.join(dir, name);
+  if (fs.lstatSync(target, { throwIfNoEntry: false })?.isSymbolicLink()) throw refuse(name);
+  const { O_WRONLY, O_CREAT, O_TRUNC, O_NOFOLLOW = 0 } = fs.constants;
+  let fd;
+  try { fd = fs.openSync(target, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0o644); } catch (e) { throw e.code === 'ELOOP' ? refuse(name) : e; }
+  try { fs.writeFileSync(fd, bytes); } finally { fs.closeSync(fd); }
+}
+
+/** 页面所在目录：目录里没有 index.html、film.json 又标了 mirror.paths = repo（films/beiming-10s）时，页面在仓库根 */
+function pageDirOf(filmDir, entry) {
+  const dir = path.dirname(path.resolve(filmDir, entry));
+  if (fs.existsSync(path.join(dir, 'index.html'))) return dir;
+  return readFilmJson(dir)?.mirror?.paths === 'repo' ? REPO : dir;
+}
+
+function readFilmJson(dir) {
+  try { return JSON.parse(fs.readFileSync(path.join(dir, 'film.json'), 'utf8')); } catch (e) {
+    if (e.code === 'ENOENT') return null;
+    throw bad(`${dir}/film.json 读不了：${e.message}`);
+  }
 }
 
 /** 显示参考的统计：亮度按 Rec.709 系数在线性值上算，百分位取下取整的名次 */
@@ -94,6 +189,7 @@ export async function open(input, env, { driver = pageDriver } = {}) {
   const missing = ['lock', 'tier', 'workspace', 'filmDir'].filter((k) => !(k in env));
   if (missing.length) throw bad(`env 缺 ${missing.join('、')}`);
   const { shot } = input, { source, host, mode, entry } = renderingOf(shot);
+  if (typeof shot.id !== 'string' || !SHOT_ID.test(shot.id) || shot.id === 'film') throw bad(`镜头标识必须是小写字母开头的小写字母、数字、连字符，且不是 film，给的是 ${JSON.stringify(shot.id)}`);
   if (source !== CAPS.id) throw bad(`出这个镜头的帧源是 ${source}，不是 ${CAPS.id}`);
   if (!['draft', 'final'].includes(env.tier)) throw bad(`档位只能是 draft、final，给的是 ${env.tier}`);
   if (!CAPS.hosts.includes(host) || !CAPS.modes.includes(mode)) throw new SourceError('contract.unsupported-mode', `${CAPS.id} 帧源不支持宿主 ${host} 加作者模式 ${mode}`, `改用宿主 ${CAPS.hosts.join('、')}、作者模式 ${CAPS.modes.join('、')}`);
@@ -125,7 +221,15 @@ export async function open(input, env, { driver = pageDriver } = {}) {
   const preset = shot.tiers?.[env.tier] ?? {};
   const scale = preset.scale ?? CAPS[env.tier].scale;
   const size = input.output.size.map((n) => Math.max(1, Math.round(n * scale)));
-  const page = await driver.open({ dir: path.dirname(path.resolve(env.filmDir, entry)), size, fps, frameCount: shot.out });
+  // 全片帧数：事件表、没有就读 film.json（v2 的 output.frameCount、v3 的 output.frames）；都没有退回镜头出点
+  const filmJson = readFilmJson(path.resolve(env.filmDir));
+  const total = input.events?.frames ?? filmJson?.output?.frameCount ?? filmJson?.output?.frames ?? shot.out;
+  if (!Number.isInteger(total) || shot.out > total) throw bad(`镜头 ${shot.id} 的出点 ${shot.out} 超出全片帧数 ${total}`);
+  const page = await driver.open({ dir: pageDirOf(env.filmDir, entry), size, fps, frameCount: total });
+  if (Number.isInteger(page.frames) && shot.out > page.frames) {
+    await page.close();
+    throw bad(`镜头 ${shot.id} 的出点 ${shot.out} 超出页面自己的 DUR × fps = ${page.frames} 帧`);
+  }
   const manifest = { frames: shot.out - shot.in, entities: [] };
   const eventsAt = (frame) => (input.events?.events ?? []).filter((e) => e.frame === frame).map((e) => ({ id: e.id, frame: e.frame }));
   let closed = false;
@@ -153,37 +257,44 @@ export async function open(input, env, { driver = pageDriver } = {}) {
       if (opts.scale !== undefined && opts.scale !== scale) throw new SourceError('contract.unsupported-option', `这个会话按 scale ${scale} 开的页面，要的是 ${opts.scale}`, '换档位或缩放就重新 open');
 
       const frame = shot.in + f;
+      const subs = shutterSubs(angleDeg, subN);
+      // 可选精确时刻（给基线的非整数帧采样点复核用）：只能落在本帧区间 [frame/fps, (frame+1)/fps) 内，且只取一个子帧
+      const exact = opts.timeSec;
+      if (exact !== undefined) {
+        if (typeof exact !== 'number' || !(exact >= frame / fps && exact < (frame + 1) / fps)) throw bad(`timeSec 必须是落在第 ${frame} 帧区间 [${frame / fps}, ${(frame + 1) / fps}) 里的数，给的是 ${exact}`);
+        if (subs.length !== 1) throw bad('timeSec 只能用在单子帧的渲染上');
+      }
+      const times = exact !== undefined ? [exact] : subs.map((sub) => (frame + sub) / fps);
       const timing = { stateMs: 0, renderMs: 0, readbackMs: 0 };
       const layers = {};
       let colorHash = null, stats = null, ext;
       if (want.includes('color')) {
-        const subs = shutterSubs(angleDeg, subN), n = size[0] * size[1] * 4;
+        const n = size[0] * size[1] * 4;
         const sum = new Float64Array(n);
         let first;
-        for (const sub of subs) {
+        for (const t of times) {
           const start = performance.now();
-          const rgba = await page.render((frame + sub) / fps);
+          const rgba = await page.render(t);
           timing.renderMs += performance.now() - start;
           if (rgba.length !== n) throw new SourceError('failure.render', `页面交回 ${rgba.length} 字节，要的是 ${n}`);
           first ??= rgba;
           for (let i = 0; i < n; i++) sum[i] += (i & 3) === 3 ? rgba[i] / 255 : SRGB_TO_LINEAR[rgba[i]];
         }
-        const color = Float32Array.from(sum, (v) => v / subs.length);
+        const color = Float32Array.from(sum, (v) => v / times.length);
         const bytes = Buffer.from(color.buffer, color.byteOffset, color.byteLength);
         const file = `${shot.id}/${String(f).padStart(6, '0')}/color.f32`;
-        fs.mkdirSync(path.join(env.workspace, path.dirname(file)), { recursive: true });
-        fs.writeFileSync(path.join(env.workspace, file), bytes);
+        writeLayer(env.workspace, file, bytes);
         colorHash = sha(bytes);
         layers.color = { file, shape: [size[1], size[0], 4], components: ['R', 'G', 'B', 'A'], hash: colorHash };
         stats = statsOf(color);
         // 只取一个子帧时截图就是成片，附上和基线清单同口径的像素哈希，供 verifyBaselineHashes 对账
-        if (subs.length === 1) ext = { 'legacy-page.pixelSha256': pixelHash(first, size) };
+        if (times.length === 1) ext = { 'legacy-page.pixelSha256': pixelHash(first, size) };
       }
       const textStart = performance.now();
-      const texts = textsOf(await page.texts(frame / fps));
+      const texts = textsOf(await page.texts(exact ?? frame / fps));
       timing.stateMs += performance.now() - textStart;
 
-      const meta = {
+      const meta = fitTexts({
         format: 'meta/0.1',
         film: input.film,
         shot: shot.id,
@@ -198,14 +309,14 @@ export async function open(input, env, { driver = pageDriver } = {}) {
         entities: null,
         lights: [],
         events: eventsAt(frame),
-        texts,
+        texts: [],
         stats,
         source: { id: shot.source, renderer: CAPS.id, host, version: VERSION, tier: env.tier, ...(page.gpu ? { gpu: String(page.gpu) } : {}), samples: pixelSamples },
         timing,
         origin: { host: ['camera', 'entities', 'lights', 'stats', 'source', 'timing'], shot: ['texts'], kernel: ['events'] },
         hash: { color: colorHash },
         ...(ext ? { ext } : {}),
-      };
+      }, texts);
       return { meta, layers };
     },
 
