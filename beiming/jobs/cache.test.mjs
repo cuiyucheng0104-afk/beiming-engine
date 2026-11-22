@@ -827,3 +827,78 @@ test('A16-27 Windows NTFS 并发覆盖/读取同一 .frame 偶发 EPERM/EACCES/E
   assert.deepEqual([...cache.get(entry).colorBytes], [4, 5, 6], '失败的覆盖不动旧帧');
   assert.deepEqual(fs.readdirSync(cache.root).filter((name) => name.startsWith('.')), [], '不留暂存目录');
 });
+
+test('A16-28 G_REV-R3 清理重试不误删等待期间发布的新帧，坏帧与空目录清理及 invalidateShot 在 EACCES/EBUSY 下可恢复且有真实退避', async (t) => {
+  const cache = jobs.openShotCache(tmpDir(t));
+  const dir = cache.root; // 用缓存自己解析后的根，注入点才能按完整路径对上
+  const entry = jobs.computeFrameCacheKey(makeBaseSpec());
+  const now = Date.now();
+  const age = () => { for (const file of frameFiles(dir)) fs.utimesSync(file, new Date(now - 7200_000), new Date(now - 7200_000)); };
+  const waits = t.mock.method(Atomics, 'wait'); // 只旁听，等待照常发生
+  // 让 fs[method] 对命中的路径依次抛 codes 里的共享冲突；during 模拟退避期间别的进程做的事
+  let injected = 0;
+  const conflict = (method, hit, codes, during) => {
+    const real = fs[method];
+    const left = [...codes];
+    return t.mock.method(fs, method, (target, ...rest) => {
+      if (left.length && hit(String(target))) {
+        const code = left.shift();
+        injected += 1;
+        during?.();
+        throw Object.assign(new Error(`${code}: sharing violation`), { code });
+      }
+      return real(target, ...rest);
+    });
+  };
+  const isFrame = (target) => target.endsWith('.frame');
+
+  // 1) prune 删过期帧首次遇 EBUSY，退避期间另一进程在同一键发布了新帧：重试不得删掉新帧
+  cache.put(entry, { colorBytes: Buffer.from([1]) });
+  age();
+  let mock = conflict('unlinkSync', isFrame, ['EBUSY'], () => cache.put(entry, { colorBytes: Buffer.from([99]) }));
+  assert.equal(cache.prune({ maxAgeMs: 3600_000, now }).removed, 0, '已被新发布覆盖的条目不计删除');
+  mock.mock.restore();
+  assert.deepEqual([...cache.get(entry).colorBytes], [99], '等待期间新发布的帧必须保留');
+
+  // 2) 没被替换的过期帧：删除连遇 2 次 EACCES、回收空版本目录遇 1 次 EBUSY，都当轮成功
+  age();
+  const versionDir = path.dirname(frameFiles(dir)[0]);
+  mock = conflict('unlinkSync', isFrame, ['EACCES', 'EACCES']);
+  const rmdir = conflict('rmdirSync', (target) => target === versionDir, ['EBUSY']);
+  assert.equal(cache.prune({ maxAgeMs: 3600_000, now }).removed, 1);
+  mock.mock.restore();
+  rmdir.mock.restore();
+  assert.equal(fs.existsSync(versionDir), false, '空版本目录要回收');
+
+  // 3) 坏帧清理遇 1 次 EACCES 仍当轮清掉并只补渲这一帧
+  let calls = 0;
+  const shots = [{ shot: makeBaseSpec().shot, determinism: 'hash-same-machine', loadedFiles: [], tracksHash: 'none', cards: [], runtimeEnv: ENV, tier: 'final', samples: 1, size: [2, 2], subs: [0] }];
+  const renderFrame = async ({ frame }) => { calls += 1; return { colorBytes: Buffer.from([frame + 1]), meta: {} }; };
+  const first = await jobs.renderShotsWithCache({ shots, cache, renderFrame });
+  const victim = frameFiles(dir).find((name) => fs.readFileSync(name).at(-1) === 3);
+  fs.appendFileSync(victim, 'x');
+  calls = 0;
+  mock = conflict('unlinkSync', isFrame, ['EACCES']);
+  const again = await jobs.renderShotsWithCache({ shots, cache, renderFrame });
+  mock.mock.restore();
+  assert.deepEqual([calls, again.totalRenderedFrames, again.totalCachedFrames], [1, 1, 3]);
+  //    坏帧删除遇 EBUSY，退避期间被新的有效帧覆盖：新帧不被误删
+  const bad = first.shots[0].frames[2].entry;
+  fs.appendFileSync(victim, 'x');
+  mock = conflict('unlinkSync', isFrame, ['EBUSY'], () => cache.put(bad, { colorBytes: Buffer.from([77]) }));
+  assert.equal(cache.get(bad), undefined, '读到的是坏帧，本次算未命中');
+  mock.mock.restore();
+  assert.deepEqual([...cache.get(bad).colorBytes], [77], '等待期间发布的有效帧必须保留');
+
+  // 4) invalidateShot 的改名连遇 2 次 EACCES 仍让旧版本失效
+  mock = conflict('renameSync', (target) => target === path.dirname(victim), ['EACCES', 'EACCES']);
+  cache.invalidateShot(bad);
+  mock.mock.restore();
+  assert.equal(cache.get(bad), undefined);
+  assert.deepEqual(frameFiles(dir), []);
+
+  // 5) 每次冲突之后都真的退避等待过，不是空转重试
+  assert.equal(injected, 8);
+  assert.ok(waits.mock.callCount() >= injected, `退避次数 ${waits.mock.callCount()} 少于冲突次数 ${injected}`);
+  assert.ok(waits.mock.calls.every((call) => call.arguments[3] >= 2), '每次退避至少等 2 ms');
+});

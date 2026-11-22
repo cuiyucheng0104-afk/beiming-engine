@@ -167,9 +167,27 @@ export function openShotCache(cacheDir) {
     return { colorSha256 };
   }
 
+  // 共享冲突的退避期间，别的写者可能已在同一路径原子发布了新帧：每次删除前重验身份，只删快照里的那个文件。
+  const stamp = file => fs.lstatSync(file, { bigint: true, throwIfNoEntry: false });
+  function removeSame(file, snap) {
+    let removed = false;
+    retrySharing(file, () => {
+      const now = stamp(file);
+      if (!now || !snap || now.ino !== snap.ino || now.size !== snap.size || now.mtimeNs !== snap.mtimeNs || now.ctimeNs !== snap.ctimeNs) return;
+      try {
+        fs.unlinkSync(file);
+        removed = true;
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+    }, 5);
+    return removed;
+  }
+
   // 头部和颜色必须来自同一次读取；调用方以后再取颜色时用返回的摘要核对。
   function get(entry) {
     const file = fileOf(entry);
+    const snap = stamp(file);
     let raw;
     try {
       raw = retrySharing(file, () => fs.readFileSync(file), 12);
@@ -188,7 +206,7 @@ export function openShotCache(cacheDir) {
       if (!(error instanceof SyntaxError || error instanceof TypeError || error instanceof RangeError)) throw error;
     }
     if (!fields) {
-      fs.rmSync(file, { force: true });
+      removeSame(file, snap);
       return undefined;
     }
     try {
@@ -219,19 +237,21 @@ export function openShotCache(cacheDir) {
       for (const shot of list(child(root, tier, true)).filter(item => item.isDirectory())) {
         const versions = list(path.join(root, tier, shot.name)).filter(item => item.isDirectory()).map(version => {
           const dir = path.join(root, tier, shot.name, version.name);
-          const files = list(dir).filter(item => item.isFile()).map(item => path.join(dir, item.name)).map(file => ({ file, at: modified(file) }));
+          const files = list(dir).filter(item => item.isFile()).map(item => path.join(dir, item.name)).map(file => {
+            const snap = stamp(file);
+            return { file, snap, at: snap ? Number(snap.mtimeNs) / 1e6 : 0 };
+          });
           return { dir, files, latest: files.reduce((latest, item) => Math.max(latest, item.at), 0) };
         });
         versions.sort((a, b) => b.latest - a.latest || byText(a.dir, b.dir));
         for (const version of versions) {
           const whole = tier === 'draft' ? clearDraft : version !== versions[0];
-          for (const { file, at } of version.files) {
+          for (const { file, snap, at } of version.files) {
             if (!whole && now - at <= maxAgeMs) continue;
-            retrySharing(file, () => fs.rmSync(file, { force: true }), 5);
-            removed += 1;
+            if (removeSame(file, snap)) removed += 1;
           }
           try {
-            fs.rmdirSync(version.dir);
+            retrySharing(version.dir, () => fs.rmdirSync(version.dir), 5);
           } catch (error) {
             if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(error.code)) throw error;
           }

@@ -13,7 +13,7 @@
 
 ### Added
 
-- 新增 `beiming/jobs/cache`（A16 Part 1，作业层）：六项内容键支持单镜复用，只改第二镜时第一镜实际渲染 0 帧。缓存校验文件头和颜色层，容差档按写入轮次检查接缝，中断重试也不会跳过检查；检出尖峰可先失效再整镜重渲。顶层 `cache/` 不进快照、不计入作业磁盘用量；账本文件锁在 Windows 短时删除竞争时退避重试；多个进程同时写、读同一个缓存帧时，Windows 的短时共享冲突（EPERM、EACCES、EBUSY）同样有限次退避重试，永久权限错误照旧抛出。
+- 新增 `beiming/jobs/cache`（A16 Part 1，作业层）：六项内容键支持单镜复用，只改第二镜时第一镜实际渲染 0 帧。缓存校验文件头和颜色层，容差档按写入轮次检查接缝，中断重试也不会跳过检查；检出尖峰可先失效再整镜重渲。顶层 `cache/` 不进快照、不计入作业磁盘用量；账本文件锁在 Windows 短时删除竞争时退避重试；多个进程同时写、读同一个缓存帧时，Windows 的短时共享冲突（EPERM、EACCES、EBUSY）同样有限次退避重试，永久权限错误照旧抛出；清理过期帧、坏帧和空版本目录遇到这类冲突也会重试，每次删除前重新核对文件身份，退避期间别的进程在同一路径新发布的帧不会被误删。
 - 新增 `beiming/observe/curves`（读 tracks/0.1，无轨道实体回退 meta/0.1，回峰值、零平台、单调段与缓动类型）和 `beiming/observe/telemetry`（八分之一亮度平面上的运动能量、横向重心、切点、静止段、闪烁与可选音频起音帧差），回答均不超过 600 token；agent 不看图就能读曲线与时间节奏。
 - 帧源注册与升级可用七项一致性报告核对 Three、Blender 探针读数，`limited` 档保留颜色和两项确定性检查。另提供 17 条历史不变量的判定器及逐项违例用例（#75）。
 - 新系统 `beiming/api/` 单一来源 OpenAPI 合同、HTTP 服务端、1500-token 入口卡与全套 M1a 动词闭环（#60）：新增 `contract.mjs` 与逐字节同步的 `openapi.json`（覆盖全部 23 个 HTTP 动词与独立 token 上限）、零外部框架 `node:http` 服务端 `server.mjs` 与两级令牌隔离鉴权 `auth.mjs`（全响应过冻结 `envelope/0.1` 与 `EN1–EN4`，溢出自动转存只读产物链接）、1210-token 入口卡 `guide.mjs`（原生双 `cards-data` 样例）、真实串联内核补丁与正式锁签发 / Blender Cycles 与 Three 页面帧源 / 空间观测与联系表 / L1–L5 核验与异族视觉审片接口 / 六件套终渲交付的制作管线（`films.mjs`、`pipeline.mjs`、`work.mjs`），以及通用 OpenAI 兼容唯一工具 `http_request` 代理循环 `agents.mjs` 与独立用量账本，配套 18 项端到端与裸机兼容单测。
