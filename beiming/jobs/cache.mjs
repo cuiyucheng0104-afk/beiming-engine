@@ -151,7 +151,9 @@ export function openShotCache(cacheDir) {
   // 发布（改名到位）与「核对身份后删除」在同一把跨进程文件锁里互斥：核对之后、删除之前不会有新帧换进来。
   // 拿不到锁（根只读、别的进程久占）就抛错，绝不无锁发布或删除；命中读取不进这把锁，只读的共享缓存照常读。
   // 同一进程里指向同一根目录的句柄共用一份状态：已在临界区里（held）再进来直接执行，靠 putSeq 发现期间的发布。
-  // 大小写不敏感的卷上同一目录有多种写法，所以按设备号与节点号认根；拿不到节点号的文件系统退回小写的真实路径。
+  // 大小写不敏感的卷上同一目录有多种写法，所以按设备号与节点号认根；拿不到节点号的文件系统退回内核给出的真实路径。
+  // 真实路径不转小写：区分大小写的卷上只差大小写的是两个目录，转了会共用状态、跳过锁；本地 APFS、NTFS 上内核已把写法归一。
+  // shortcut: 节点号为 0 且内核不归一大小写的卷（个别 FUSE、网络盘）上，同一根的两种写法在临界区里重入会等到锁超时报错，那时统一用一种写法打开缓存。
   const stamp = file => fs.lstatSync(file, { bigint: true, throwIfNoEntry: false });
   // 状态按操作这一刻的物理根取，不在打开时固定：根目录被改名轮换、原路径重建后，新旧句柄争的是同一个 .cache.lock，必须认到同一份状态。
   // 取样遇到共享冲突就退避重来；节点号为 0 时设备号分不出同卷的两个目录，只能用路径。
@@ -160,10 +162,10 @@ export function openShotCache(cacheDir) {
       const now = stamp(root);
       if (now && now.ino > 0n) return `${now.dev}:${now.ino}`;
       try {
-        return fs.realpathSync.native(root).toLowerCase();
+        return fs.realpathSync.native(root);
       } catch (error) {
         if (error.code !== 'ENOENT') throw error;
-        return root.toLowerCase(); // 根已不在：随后的建锁会报 ENOENT，由 put 补建后重来
+        return path.resolve(root); // 根已不在：随后的建锁会报 ENOENT，由 put 补建后重来
       }
     }, 12, fs.constants.R_OK);
     return processLocks.get(lockKey) ?? processLocks.set(lockKey, { held: false, putSeq: 0 }).get(lockKey);

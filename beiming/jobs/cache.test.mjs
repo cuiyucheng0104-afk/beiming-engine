@@ -148,6 +148,15 @@ const api = new URL('./index.mjs', import.meta.url).href;
 const ENV = { source: 'blender', runtimeVersion: '5.2.3', browserBuild: 'none', gpuBackend: 'optix', driver: '581.15' };
 const frameFiles = dir => fs.readdirSync(dir, { recursive: true }).filter((name) => name.endsWith('.frame')).map((name) => path.join(dir, name));
 
+// 建锁与原子写的暂存目录是 mkdirSync 建的 .write-<UUID>：只让它失败，别的建目录照常
+function failStagingMkdir(t, error) {
+  const real = fs.mkdirSync;
+  return t.mock.method(fs, 'mkdirSync', (dir, ...rest) => {
+    if (path.basename(String(dir)).startsWith('.write-')) throw error;
+    return real(dir, ...rest);
+  });
+}
+
 function tmpDir(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-a16-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -1105,10 +1114,7 @@ test('A16-31 G_REV-R6 held 仅在真实取得锁后置位、只读首次普通 l
 
   // 3) 坏帧机会性清理在创建锁暂存目录遇 ENOSPC 时保留坏帧并返回 undefined
   fs.appendFileSync(file, 'corrupt');
-  const realMkdtemp = fs.mkdtempSync;
-  const noSpace = t.mock.method(fs, 'mkdtempSync', (...args) => {
-    throw Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' });
-  });
+  const noSpace = failStagingMkdir(t, Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' }));
   try {
     assert.equal(cache.get(entry), undefined);
     assert.equal(fs.existsSync(file), true);
@@ -1176,9 +1182,7 @@ test('A16-33 G_REV-R7 缓存根目录轮换重建后新旧句柄按当前物理�
   const [file] = frameFiles(rootPath);
   fs.appendFileSync(file, 'corrupt');
   for (const code of ['UNKNOWN', 'EROFS', 'EMFILE']) {
-    const m = t.mock.method(fs, 'mkdtempSync', () => {
-      throw Object.assign(new Error(`${code}: fs error`), { code, errno: code === 'UNKNOWN' ? -4094 : -1, syscall: 'mkdtemp' });
-    });
+    const m = failStagingMkdir(t, Object.assign(new Error(`${code}: fs error`), { code, errno: code === 'UNKNOWN' ? -4094 : -1, syscall: 'mkdir' }));
     assert.equal(newHandle.get(entry1), undefined, `坏帧清理遇 ${code} 必须返回 undefined`);
     assert.equal(fs.existsSync(file), true);
     m.mock.restore();
@@ -1328,9 +1332,7 @@ test('A16-34 八审收口：持锁发布后释放前轮换不留死锁与暂存�
     Object.assign(new TypeError('The "prefix" argument must be of type string'), { code: 'ERR_INVALID_ARG_TYPE' }),
     new TypeError('plain bug without code'),
   ]) {
-    const mkMock = t.mock.method(fs, 'mkdtempSync', () => {
-      throw bugErr; // get 里只有建锁暂存目录会走到 mkdtemp
-    });
+    const mkMock = failStagingMkdir(t, bugErr); // get 里只有建锁会建 .write- 暂存目录
     assert.throws(() => c4.get(entryA), err => err === bugErr);
     mkMock.mock.restore();
     assert.equal(fs.existsSync(badFramePath), true);
@@ -1395,4 +1397,180 @@ test('A16-34 八审收口：持锁发布后释放前轮换不留死锁与暂存�
   mRen.mock.restore();
   mAcc.mock.restore();
   assert.deepEqual([...c2.get(entryA).colorBytes], [88]);
+});
+
+test('A16-35 九审收口：建锁早期轮换回收（linkSync 即刻轮换）、ino=0n 锁凭据防误删新代、兄弟枚举 EBUSY 退避、区分大小写回退及 unlinkSync 异常传播', async (t) => {
+  const { openShotCache, computeFrameCacheKey } = jobs;
+  const baseSpec = makeBaseSpec;
+  const sampleMeta = {};
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-a16-r9-'));
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const entryA = computeFrameCacheKey(baseSpec());
+
+  await t.test('1) 主锁 linkSync 刚返回即轮换目录并在新根预置锁：旧根零残留 .lock/.write-*，新根锁完整保留', (st) => {
+    const root = path.join(parent, 'early-lock');
+    const retired = path.join(parent, 'early-lock-old');
+    const cache = openShotCache(root);
+    cache.put(entryA, { colorBytes: Buffer.from([31]), meta: sampleMeta, runId: 'r-early' });
+    const realLink = fs.linkSync;
+    const realRename = fs.renameSync;
+    let rotated = false;
+    st.mock.method(fs, 'linkSync', (src, dst) => {
+      const r = realLink(src, dst);
+      if (!rotated && String(dst).endsWith('.cache.lock')) {
+        rotated = true;
+        realRename(cache.root, retired);
+        fs.mkdirSync(cache.root, { recursive: true });
+        fs.writeFileSync(path.join(cache.root, '.cache.lock'), '999999 newgen\n');
+      }
+      return r;
+    });
+    // 有过期帧要删，prune 才去建锁；轮换后新根里没有这一帧，所以一帧没删
+    assert.deepEqual(cache.prune({ maxAgeMs: 0, now: Date.now() + 5000, lockTimeoutMs: 50 }), { removed: 0 });
+    assert.equal(rotated, true);
+    assert.equal(fs.readFileSync(path.join(cache.root, '.cache.lock'), 'utf8'), '999999 newgen\n');
+    fs.rmSync(path.join(cache.root, '.cache.lock'), { force: true });
+    assert.deepEqual(fs.readdirSync(retired).filter(n => n === '.cache.lock' || n.startsWith('.write-')), []);
+    assert.deepEqual(openShotCache(retired).prune({ maxAgeMs: 86_400_000, lockTimeoutMs: 50 }), { removed: 0 });
+  });
+
+  await t.test('2) 锁文件 ino=0n 且兄弟目录枚举单次报 EBUSY 时：按锁内唯一凭据精准回收旧代锁，绝不误删新根同名锁', (st) => {
+    const root = path.join(parent, 'ino0-lock');
+    const retired = path.join(parent, 'ino0-lock-old');
+    const cache = openShotCache(root);
+    const realLstat = fs.lstatSync;
+    const realRename = fs.renameSync;
+    const realReaddir = fs.readdirSync;
+    st.mock.method(fs, 'lstatSync', (target, opts) => {
+      const s = realLstat(target, opts);
+      if (s && opts?.bigint && String(target).endsWith('.cache.lock')) {
+        return Object.assign(Object.create(Object.getPrototypeOf(s)), s, { ino: 0n });
+      }
+      return s;
+    });
+    let readdirBusy = true;
+    st.mock.method(fs, 'readdirSync', (dir, opts) => {
+      if (readdirBusy && path.resolve(String(dir)) === fs.realpathSync.native(parent)) {
+        readdirBusy = false;
+        throw Object.assign(new Error('EBUSY: readdir'), { code: 'EBUSY' });
+      }
+      return realReaddir(dir, opts);
+    });
+    let flipped = false;
+    st.mock.method(fs, 'renameSync', (from, to) => {
+      const r = realRename(from, to);
+      if (!flipped && String(to).endsWith('.frame')) {
+        flipped = true;
+        realRename(cache.root, retired);
+        fs.mkdirSync(cache.root, { recursive: true });
+        fs.writeFileSync(path.join(cache.root, '.cache.lock'), '888888 other\n');
+      }
+      return r;
+    });
+    cache.put(entryA, { colorBytes: Buffer.from([66]), meta: sampleMeta, runId: 'r-ino0' });
+    assert.equal(readdirBusy, false);
+    assert.equal(fs.readFileSync(path.join(cache.root, '.cache.lock'), 'utf8'), '888888 other\n');
+    fs.rmSync(path.join(cache.root, '.cache.lock'), { force: true });
+    assert.deepEqual(fs.readdirSync(retired).filter(n => n === '.cache.lock' || n.startsWith('.write-')), []);
+  });
+
+  await t.test('3) 删除阶段（unlinkSync）遇系统错误返回未命中，遇 ERR_INVALID_ARG_TYPE 或普通 TypeError 原样抛出', (st) => {
+    const root = path.join(parent, 'unlink-err');
+    const cache = openShotCache(root);
+    cache.put(entryA, { colorBytes: Buffer.from([12]), meta: sampleMeta, runId: 'r-ul' });
+    const badPath = path.join(cache.root, entryA.tier, `shot-${entryA.shotId}`, entryA.shotKey.slice(7), `${entryA.key.slice(7)}.frame`);
+    fs.writeFileSync(badPath, 'broken\nbytes');
+    const realUnlink = fs.unlinkSync;
+    for (const sysErr of [
+      Object.assign(new Error('UNKNOWN'), { code: 'UNKNOWN' }),
+      Object.assign(new Error('ENOSPC'), { code: 'ENOSPC' }),
+    ]) {
+      const m = st.mock.method(fs, 'unlinkSync', (p) => {
+        if (String(p).endsWith('.frame')) throw sysErr;
+        return realUnlink(p);
+      });
+      assert.equal(cache.get(entryA), undefined);
+      m.mock.restore();
+    }
+    for (const bugErr of [
+      Object.assign(new TypeError('bad path'), { code: 'ERR_INVALID_ARG_TYPE' }),
+      new TypeError('plain unlink bug'),
+    ]) {
+      const m = st.mock.method(fs, 'unlinkSync', (p) => {
+        if (String(p).endsWith('.frame')) throw bugErr;
+        return realUnlink(p);
+      });
+      assert.throws(() => cache.get(entryA), err => err === bugErr);
+      m.mock.restore();
+    }
+  });
+
+  await t.test('4) 节点号为 0 时按内核给出的真实路径原样分根：只差大小写的两个路径各取各的锁，解析到同一路径的别名共用状态', (st) => {
+    // 用三个真实目录模拟区分大小写的卷：A 解析成 Vol/Cache，B 解析成 Vol/cache（另一个目录），C 是 A 的别名写法
+    const [a, b, alias] = ['cs-a', 'cs-b', 'cs-alias'].map(name => openShotCache(path.join(parent, name)));
+    const resolved = new Map([[a.root, path.join(parent, 'Vol', 'Cache')], [b.root, path.join(parent, 'Vol', 'cache')], [alias.root, path.join(parent, 'Vol', 'Cache')]]);
+    const realLstat = fs.lstatSync;
+    st.mock.method(fs, 'lstatSync', (target, opts) => {
+      const s = realLstat(target, opts);
+      return s && opts?.bigint && resolved.has(String(target)) ? Object.assign(Object.create(Object.getPrototypeOf(s)), s, { ino: 0n }) : s;
+    });
+    const realNative = fs.realpathSync.native;
+    st.mock.method(fs.realpathSync, 'native', target => resolved.get(String(target)) ?? realNative(target));
+    const realRename = fs.renameSync;
+    const locked = {};
+    st.mock.method(fs, 'renameSync', (from, to) => {
+      const dest = String(to);
+      if (dest.endsWith('.frame')) {
+        if (dest.startsWith(a.root + path.sep) && !('b' in locked)) {
+          locked.b = null;
+          b.put(entryA, { colorBytes: Buffer.from([2]), meta: sampleMeta, runId: 'r-cs-b' });
+          alias.put(entryA, { colorBytes: Buffer.from([3]), meta: sampleMeta, runId: 'r-cs-alias' });
+        }
+        if (dest.startsWith(b.root + path.sep)) locked.b = fs.existsSync(path.join(b.root, '.cache.lock'));
+        if (dest.startsWith(alias.root + path.sep)) locked.alias = fs.existsSync(path.join(alias.root, '.cache.lock'));
+      }
+      return realRename(from, to);
+    });
+    a.put(entryA, { colorBytes: Buffer.from([1]), meta: sampleMeta, runId: 'r-cs-a' });
+    assert.deepEqual(locked, { b: true, alias: false }, '只差大小写的另一个根要取自己的锁；同一路径的别名在临界区里重入、不再建锁');
+  });
+
+  await t.test('5) 释放锁的每次尝试都重新认主：删锁遇 EBUSY 或 ENOENT 的空档里根被轮换，下一次尝试到旧根里删自己的锁；读不出锁内容时按节点号照样放锁', (st) => {
+    const realRm = fs.rmSync;
+    const realRename = fs.renameSync;
+    for (const mode of ['EBUSY', 'ENOENT']) {
+      const root = path.join(parent, `retry-${mode}`);
+      const retired = `${root}-old`;
+      const cache = openShotCache(root);
+      const lock = path.join(cache.root, '.cache.lock');
+      let rotated = false;
+      const m = st.mock.method(fs, 'rmSync', (target, opts) => {
+        if (!rotated && String(target) === lock) {
+          rotated = true;
+          realRename(cache.root, retired);
+          fs.mkdirSync(cache.root);
+          if (mode === 'EBUSY') {
+            fs.writeFileSync(lock, '777777 other\n');
+            throw Object.assign(new Error('EBUSY: unlink'), { code: 'EBUSY' });
+          }
+        }
+        return realRm(target, opts); // ENOENT 一档：原路径上已经没有锁，真实删除自己报 ENOENT
+      });
+      cache.put(entryA, { colorBytes: Buffer.from([51]), meta: sampleMeta, runId: `r-retry-${mode}` });
+      m.mock.restore();
+      assert.equal(rotated, true);
+      if (mode === 'EBUSY') assert.equal(fs.readFileSync(lock, 'utf8'), '777777 other\n');
+      assert.deepEqual(fs.readdirSync(retired).filter(n => n === '.cache.lock' || n.startsWith('.write-')), [], `${mode}：旧根里不留自己的锁和暂存`);
+    }
+
+    // 句柄耗尽时读不了锁内容：节点号对得上就放锁，不把自己的锁当成别人的留下
+    const cache = openShotCache(path.join(parent, 'emfile'));
+    const realRead = fs.readFileSync;
+    st.mock.method(fs, 'readFileSync', (target, ...rest) => {
+      if (String(target).endsWith('.cache.lock')) throw Object.assign(new Error('EMFILE: too many open files'), { code: 'EMFILE' });
+      return realRead(target, ...rest);
+    });
+    cache.put(entryA, { colorBytes: Buffer.from([52]), meta: sampleMeta, runId: 'r-emfile' });
+    assert.equal(fs.existsSync(path.join(cache.root, '.cache.lock')), false);
+  });
 });

@@ -627,6 +627,19 @@ test('R1 主锁 ENOTEMPTY 不重试、不递归删除', t => {
   assert.equal(attempts, 1);
 });
 
+test('R9 锁文件内容是「进程号 UUID」：已退出进程留下的新格式锁照常清掉，活进程的照常等到超时', t => {
+  const file = join(tempDir(t, 'payload'), 'job.json');
+  const lock = `${file}.lock`;
+  const uuid = '123e4567-e89b-42d3-a456-426614174000';
+  writeFileSync(lock, `${spawnSync(process.execPath, ['-e', '']).pid} ${uuid}\n`);
+  const held = withFileLock(file, () => readFileSync(lock, 'utf8'), 2000);
+  assert.match(held, new RegExp(`^${process.pid} [0-9a-f-]{36}\\n$`));
+  assert.equal(existsSync(lock), false);
+  writeFileSync(lock, `${process.pid} ${uuid}\n`);
+  assert.throws(() => withFileLock(file, assert.fail, 60), { code: 'ETIMEDOUT' });
+  assert.equal(readFileSync(lock, 'utf8'), `${process.pid} ${uuid}\n`, '别人的锁超时后原样留着');
+});
+
 test('R1 等锁时父目录消失，立即报 ENOENT，不把缺目录变成竞争超时', t => {
   const parent = join(tempDir(t, 'parent'), 'jobs');
   const file = join(parent, 'ledger.jsonl');
