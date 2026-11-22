@@ -1,4 +1,4 @@
-// V4 补录：给帧源一致性套件 Mac 一列的「法线空间」「乱序求值」两行补实测（探针表 P7/P8 没量这两样）。
+// V4 补录：Mac 实测法线空间、乱序求值；Blender 另从 probe-occlusion 实渲三个单独方块的编号层，与帧源元数据对照。
 //   node beiming/kernel/conformance/fixtures/v4-probe.mjs record <three|blender>   # 实渲、写 fixtures/v4-<帧源>.mac.json（只在 Mac 上跑）
 //   node beiming/kernel/conformance/fixtures/v4-probe.mjs check [文件...]          # 不重渲，只核已记的文件
 // 两个帧源都走自己的帧源接口（startSource → open → render）：three 是页面宿主 beiming/host/page/host.mjs，镜头 v4-turntable.shot.js；
@@ -7,69 +7,31 @@
 // （像素中心周围 ±0.75 像素九点都打到同一个球，避开边缘），期望 = 归一(交点 − 球心) 折成相机空间（x 右、y 上、z 朝向相机）。
 // 法线空间按两个帧源能力声明写死为相机空间，帧源交回的值原样当相机空间比；另两种空间的夹角只记作诊断，不参与判定。
 // 帧序：一个帧源进程按 FRAMES 升序渲，另起一个进程、新会话按命名随机流打乱的次序渲（同 run.mjs 的 shuffled），按帧号比颜色层哈希。
-// 临时产物只放系统临时目录，用完删掉；记录文件只有法线样本和摘要。
+// 临时产物放系统临时目录；编号层保存所有非零行程，离线可以逐字节还原并核对帧源摘要。
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import console from 'node:console';
 import process from 'node:process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, mkdtempSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { release, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cameraBasis, objectTransform, raycast } from '../../../calib/check.mjs';
 import { eventsTable, shotInput } from '../../eval/input.mjs';
-import { stream, streamName } from '../../eval/rng.mjs';
+import { CUBES, FRAMES, H, SEED, SHOT, W, deg, probeObservations, shuffledFrames, spherePixels, toCamera } from '../probe-observations.mjs';
 import { readLayer } from '../compare.mjs';
 
+// 兼容原先从录制脚本导入的调用方；离线核验的实现不反向依赖这里。
+export { probeObservations };
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../../../..');
-const SCENE = JSON.parse(readFileSync(join(REPO, 'beiming/calib/probe-axes-turntable/scene.json'), 'utf8'));
-const FRAMES = [0, 12, 24, 36, 48];
-const SEED = 20261122, SHOT = 's01';
-const INTERIOR = [-0.75, 0, 0.75].flatMap((dx) => [-0.75, 0, 0.75].map((dy) => [dx, dy]));
-const { widthPx: W, heightPx: H } = SCENE.camera;
-const BASIS = cameraBasis(SCENE.camera);
 const ENTRY = {
   three: { source: 'three', host: 'page', mode: 'native-code', entry: 'v4-turntable.shot.js', tiers: { final: { samples: 1, scale: 1 } } },
   blender: { source: 'blender', host: 'cycles', mode: 'build-script', entry: 'v4-blender.py', tiers: { final: { samples: 64, scale: 1 } } },
 };
 
 const r5 = (x) => Math.round(x * 1e5) / 1e5;
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const unit = (a) => { const n = Math.hypot(...a); return n > 0 ? a.map((v) => v / n) : [0, 0, 0]; };
-const deg = (a, b) => (Math.acos(Math.max(-1, Math.min(1, dot(unit(a), unit(b))))) * 180) / Math.PI;
 const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return (s[Math.floor(s.length / 2)] + s[Math.floor((s.length - 1) / 2)]) / 2; };
-const toCamera = (n) => [dot(n, BASIS.right), dot(n, BASIS.up), -dot(n, BASIS.fwd)];
-
-/** 像素 (x, y) 中心处、时刻 t 的期望：打到的端头球和它在规格世界轴里的法线；不是端头球内部的像素交回 null */
-function sphereNormalAt(x, y, t) {
-  const first = (px) => raycast(SCENE, px, t)[0] ?? null;
-  const hit = first([x + 0.5, y + 0.5]);
-  const o = SCENE.objects.find((s) => s.id === hit?.objectId);
-  if (o?.shape !== 'sphere' || !INTERIOR.every(([dx, dy]) => first([x + 0.5 + dx, y + 0.5 + dy])?.objectId === o.id)) return null;
-  const { fwd, right, up, f } = BASIS;
-  const d = [0, 1, 2].map((i) => right[i] * (x + 0.5 - W / 2) / f - up[i] * (y + 0.5 - H / 2) / f + fwd[i]);
-  const p = SCENE.camera.positionM.map((v, i) => v + hit.planeDepthM * d[i]);
-  const center = objectTransform(o, t).T;
-  return { object: o.id, world: unit(p.map((v, i) => v - center[i])) };
-}
-
-/** 端头球的投影很小：只扫各球投影周围的方框 */
-function spherePixels(t) {
-  const out = [], { right, up, fwd, f } = BASIS;
-  for (const o of SCENE.objects.filter((s) => s.shape === 'sphere')) {
-    const d = objectTransform(o, t).T.map((v, i) => v - SCENE.camera.positionM[i]), z = dot(d, fwd);
-    const cx = W / 2 + f * dot(d, right) / z, cy = H / 2 - f * dot(d, up) / z, rad = Math.ceil(f * o.radiusM / z) + 2;
-    for (let y = Math.max(0, Math.floor(cy - rad)); y <= Math.min(H - 1, Math.ceil(cy + rad)); y++) {
-      for (let x = Math.max(0, Math.floor(cx - rad)); x <= Math.min(W - 1, Math.ceil(cx + rad)); x++) {
-        const hit = sphereNormalAt(x, y, t);
-        if (hit) out.push({ x, y, ...hit });
-      }
-    }
-  }
-  return out;
-}
 
 /** 帧源交回的法线原样当相机空间（能力声明写死）；diagnostic 是拿它当另两种空间时的夹角中位数，只作诊断 */
 function normalSamples(normal, t) {
@@ -82,39 +44,69 @@ function normalSamples(normal, t) {
   return { samples, diagnostic };
 }
 
-/** 同 run.mjs 的 shuffled：用命名随机流打乱；打乱后和原来一样就再来 */
-function shuffledFrames() {
-  const s = stream(streamName(SEED, SHOT, 'conformance/shuffle')), out = [...FRAMES];
-  do {
-    for (let i = out.length - 1; i > 0; i--) { const j = s.u32() % (i + 1); [out[i], out[j]] = [out[j], out[i]]; }
-  } while (out.every((v, i) => v === FRAMES[i]));
-  return out;
+function probeInput(source, solo) {
+  const film = JSON.parse(readFileSync(join(HERE, 'film.json'), 'utf8'));
+  Object.assign(film, { id: solo ? 'probe-occlusion' : 'v4-turntable', events: [] });
+  if (solo) film.style = { tokens: { probeSoloCube: solo } };
+  film.output.frames = solo ? 1 : 49;
+  film.shots = [{ id: SHOT, in: 0, out: film.output.frames, colorRef: 'scene', seed: SEED, shutter: { angleDeg: solo ? 0 : 180 }, ...ENTRY[source] }];
+  return shotInput(film, SHOT, eventsTable(film));
 }
 
-/** 一个帧源进程、一个会话，按 order 渲；交回逐帧颜色层哈希、法线层哈希和法线层文件 */
-async function renderOrder(source, order, tmp) {
-  const film = JSON.parse(readFileSync(join(HERE, 'film.json'), 'utf8'));
-  Object.assign(film, { id: 'v4-turntable', events: [] });
-  film.output.frames = 49;
-  film.shots = [{ id: SHOT, in: 0, out: 49, colorRef: 'scene', seed: SEED, shutter: { angleDeg: 180 }, ...ENTRY[source] }];
-  const input = shotInput(film, SHOT, eventsTable(film));
+function verifiedBytes(layer, workspace) {
+  const bytes = readFileSync(join(workspace, layer.file));
+  const digest = createHash('sha256').update(bytes).digest('hex');
+  assert.equal(`sha256:${digest}`, layer.hash, `${layer.file} 的文件字节哈希和帧源交回的不符`);
+  return { bytes, digest };
+}
+
+/** 同一帧源进程里另开三个会话，各自只渲一个方块；每次都从帧源实际返回的层和 meta 取证。 */
+async function renderCubes(src, env) {
+  const objects = [];
+  for (const name of CUBES) {
+    const session = await src.open(probeInput('blender', name), env);
+    try {
+      // 按帧源契约，want 不含 color 时只交元数据，不会写任何像素层。
+      const { layers, meta } = await session.render(0, {}, ['color', 'objectId']);
+      assert.equal(meta.film, 'probe-occlusion');
+      assert.equal(meta.frame, 0);
+      assert.deepEqual(meta.size, [W, H]);
+      assert.equal(meta.source.version, src.caps().version);
+      assert.equal(meta.source.backend, src.device.backend);
+      const { id, bbox2d: metaBBox } = meta.entities.find((e) => e.name === name);
+      const layer = layers.objectId, { bytes, digest } = verifiedBytes(layer, env.workspace);
+      assert.deepEqual(layer.shape, [H, W, 1]);
+      assert.deepEqual(layer.components, ['id']);
+      assert.equal(bytes.length, W * H * 4);
+      const runs = [];
+      let last;
+      for (let i = 0; i < W * H; i++) {
+        const got = bytes.readUInt32LE(i * 4);
+        if (!got) continue;
+        assert.equal(got, id, `${name} 的单渲编号层混入了其他实体`);
+        if (last && last[0] + last[1] === i) last[1]++;
+        else { last = [i, 1]; runs.push(last); }
+      }
+      objects.push({ name, id, metaBBox, pixelSha256: digest, runs });
+    } finally { await session.close(); }
+  }
+  return { scene: 'probe-occlusion', frame: 0, size: [W, H], objects };
+}
+
+/** 每次从新的帧源进程开转台会话。方块在乱序转台渲完后补录，不干扰两遍的初始状态。 */
+async function renderOrder(source, order, tmp, cubes = false) {
   const { startSource } = source === 'three' ? await import('../../../host/page/host.mjs') : await import('../../../sources/blender/host.mjs');
   const src = await startSource(source === 'blender' ? { device: 'cpu' } : {});
   try {
-    const session = await src.open(input, { lock: null, tier: 'final', workspace: tmp, filmDir: HERE });
+    const env = { lock: null, tier: 'final', workspace: tmp, filmDir: HERE };
+    const session = await src.open(probeInput(source), env);
     const frames = [];
     for (const f of order) {
       const { layers } = await session.render(f, {}, ['color', 'normal']);
-      // 摘要自己按层文件字节算，再和帧源交回的哈希对照：不单信帧源的说法
-      const hex = (l) => {
-        const own = createHash('sha256').update(readFileSync(join(tmp, l.file))).digest('hex');
-        assert.equal(`sha256:${own}`, l.hash, `第 ${f} 帧 ${l.file} 的文件字节哈希和帧源交回的不符`);
-        return own;
-      };
-      frames.push({ frame: f, digest: hex(layers.color), normalDigest: hex(layers.normal), normalFile: join(tmp, layers.normal.file) });
+      frames.push({ frame: f, digest: verifiedBytes(layers.color, tmp).digest, normalDigest: verifiedBytes(layers.normal, tmp).digest, normalFile: join(tmp, layers.normal.file) });
     }
     await session.close();
-    return { frames, version: src.caps().version, device: src.device ?? null };
+    return { frames, version: src.caps().version, device: src.device ?? null, ...(cubes && { objectIdEvidence: await renderCubes(src, env) }) };
   } finally {
     await src.stop();
   }
@@ -128,7 +120,9 @@ async function record(source) {
   const tmps = [mkdtempSync(join(tmpdir(), 'v4-seq-')), mkdtempSync(join(tmpdir(), 'v4-shuf-'))];
   try {
     const seq = await renderOrder(source, FRAMES, tmps[0]);
-    const shuf = await renderOrder(source, shuffled, tmps[1]);
+    const shuf = await renderOrder(source, shuffled, tmps[1], source === 'blender');
+    assert.equal(seq.version, shuf.version);
+    assert.deepEqual(seq.device, shuf.device);
     const perFrame = seq.frames.map((x) => normalSamples(readLayer(x.normalFile, 'f32'), x.frame));
     const strip = ({ frame, digest, normalDigest }) => ({ frame, digest, normalDigest });
     const out = {
@@ -159,26 +153,30 @@ async function record(source) {
       normals: perFrame.flatMap((p) => p.samples),
       sequential: seq.frames.map(strip),
       shuffled: shuf.frames.map(strip),
+      ...(shuf.objectIdEvidence && { objectIdEvidence: shuf.objectIdEvidence }),
     };
     out.observed = { ...summarize(out), normalDiagnosticMedianDegPerFrame: perFrame.map((p, i) => ({ frame: FRAMES[i], ...p.diagnostic })) };
-    // 先写同目录的临时文件、核过再原子替换：核不过时现有记录原样留着
+    // 同卷临时文件核过再原子替换；独占创建失败时不碰已有文件。
     const file = join(HERE, `v4-${source}.mac.json`), staged = `${file}.tmp-${process.pid}`;
-    writeFileSync(staged, `${JSON.stringify(out)}\n`);
-    console.log(JSON.stringify(out.observed, null, 1));
-    check(staged);
-    renameSync(staged, file);
-    console.log(file);
+    const fd = openSync(staged, 'wx');
+    try {
+      try { writeFileSync(fd, `${JSON.stringify(out)}\n`); } finally { closeSync(fd); }
+      console.log(JSON.stringify(out.observed, null, 1));
+      check(staged);
+      renameSync(staged, file);
+      console.log(file);
+    } finally { rmSync(staged, { force: true }); }
   } finally {
     for (const t of tmps) rmSync(t, { recursive: true, force: true });
-    rmSync(join(HERE, `v4-${source}.mac.json.tmp-${process.pid}`), { force: true });
   }
 }
 
 /** 观测摘要：只写看到的数，过不过线由套件判 */
-function summarize(rec) {
+function summarize(rec, verified = probeObservations(rec)) {
   const angles = rec.normals.map((n) => deg(n.got, n.expected));
   const bySeq = new Map(rec.sequential.map((x) => [x.frame, x]));
   return {
+    ...(rec.source === 'blender' && { objectIdMetaIous: verified.objectIdMetaIous }),
     normalSamples: angles.length,
     normalMedianDeg: r5(median(angles)),
     normalMaxDeg: r5(Math.max(...angles)),
@@ -190,57 +188,23 @@ function summarize(rec) {
   };
 }
 
-// 规格固定，离线加载多张表只需求交一次。每次核对都使用独立的像素清单。
-let expectedNormals;
-function validNormalSamples(samples) {
-  expectedNormals ??= new Map(FRAMES.flatMap((f) => spherePixels(f).map((p) =>
-    [`${f}/${p.object}@${p.x},${p.y}`, toCamera(p.world)])));
-  if (!Array.isArray(samples) || samples.length !== expectedNormals.size) return false;
-  const unseen = new Map(expectedNormals);
-  const unitVector = (v) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite) && Math.abs(Math.hypot(...v) - 1) < 1e-3;
-  for (const n of samples) {
-    if (!n || !Number.isSafeInteger(n.frame) || !Array.isArray(n.pixel) || n.pixel.length !== 2 || !n.pixel.every(Number.isSafeInteger)) return false;
-    const key = `${n.frame}/${n.object}@${n.pixel}`, expected = unseen.get(key);
-    if (!expected || !unitVector(n.expected) || !unitVector(n.got) || deg(expected, n.expected) >= 1e-3) return false;
-    unseen.delete(key);
-  }
-  return unseen.size === 0;
-}
-
-function validTurntableOrder(rec) {
-  const matches = (run, frames) => Array.isArray(run) && run.length === frames.length && frames.every((f, i) => run[i]?.frame === f);
-  if (!matches(rec.sequential, FRAMES) || !matches(rec.shuffled, shuffledFrames())) return false;
-  // 这组转台帧的颜色必须随时间变化，才能检出总是返回第一帧的帧源。
-  if (rec.source === 'blender' && rec.machine === 'linux-5090') {
-    const first = rec.sequential[0].rgb8;
-    return Array.isArray(first) && rec.sequential.some(({ rgb8 }) => Array.isArray(rgb8) && rgb8.length === first.length && rgb8.some((v, i) => v !== first[i]));
-  }
-  const hex = (s) => typeof s === 'string' && /^[a-f0-9]{64}$/.test(s);
-  return [...rec.sequential, ...rec.shuffled].every((r) => hex(r.digest) && hex(r.normalDigest)) && new Set(rec.sequential.map((r) => r.digest)).size > 1;
-}
-
-/** 文件补测与通用读数的区别是已知场景、帧序和设备。失败的那一项留空，由套件判为缺测。 */
-export function probeObservations(rec, column) {
-  const p = rec.provenance;
-  if (!p || typeof p.sourceVersion !== 'string' || !p.sourceVersion || (column && p.sourceVersion !== column.version?.split(' ')[0])) return {};
-  const backend = rec.machine === 'mac' ? 'CPU' : 'OPTIX';
-  if (rec.source === 'blender' && p.device?.backend?.toUpperCase?.() !== backend) return {};
-  return { normals: validNormalSamples(rec.normals) ? rec.normals : null, sequential: rec.sequential,
-    shuffled: validTurntableOrder(rec) ? rec.shuffled : null };
-}
-
 /** 核已记的文件：结构、期望法线照规格重算对上、摘要和逐帧记录对上。不重渲 */
 function check(file) {
   const rec = JSON.parse(readFileSync(file, 'utf8'));
   assert.equal(rec.format, 'v4-probe/0.1');
   assert.ok(['three', 'blender'].includes(rec.source));
   assert.equal(rec.machine, 'mac', '这个脚本只记 Mac 一列');
-  const verified = probeObservations(rec);
+  const column = JSON.parse(readFileSync(join(REPO, `beiming/calib/table/${rec.source}.json`), 'utf8'));
+  const verified = probeObservations(rec, column);
+  if (rec.source === 'blender') {
+    for (const name of CUBES) assert.ok(Number.isFinite(verified.objectIdMetaIous?.[name]), `${name} 缺少可信单渲编号层或元数据框`);
+    console.log(`单渲编号层/元数据框 IoU：${JSON.stringify(verified.objectIdMetaIous)}`);
+  }
   assert.ok(verified.normals, '法线像素集合或方向与校准规格不符');
   assert.ok(verified.shuffled, '转台帧序、颜色变化或层摘要不完整');
   assert.deepEqual(rec.sequential.map((x) => x.frame), rec.frameOrder.sequential);
   assert.deepEqual(rec.shuffled.map((x) => x.frame), rec.frameOrder.shuffled);
-  const again = summarize(rec);
+  const again = summarize(rec, verified);
   for (const [k, v] of Object.entries(again)) assert.deepEqual(v, rec.observed[k], `摘要 ${k} 和记录对不上`);
   console.log(`ok ${file}: ${rec.source}/${rec.machine} 法线 ${again.normalSamples} 个样本 中位 ${again.normalMedianDeg}° 最大 ${again.normalMaxDeg}°；乱序挪动 ${again.reorderedPositions} 帧，颜色哈希不同 ${again.shuffledColorDigestMismatch} 帧`);
 }
