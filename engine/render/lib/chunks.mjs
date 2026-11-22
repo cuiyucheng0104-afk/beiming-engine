@@ -18,9 +18,9 @@ import { openFilm, renderFrame, finalFaultCheck, ROOT } from '../page.mjs';
 import { RenderError } from './errors.mjs';
 import { FFMPEG, probe, streamSignature, must } from './ffmpeg.mjs';
 import { sha256 } from './record.mjs';
-import { captureGpuFrame, rawYuvInputArgs } from './yuv.mjs';
+import { captureGpuFrame, exposureTimes, rawYuvInputArgs } from './yuv.mjs';
 import { telemetrySize, telemetryOutputArgs, createVisualCollector } from './visual-telemetry.mjs';
-import { beginPageQaFrame, endPageQaFrame, finishPageQaChunk, mergePageQaChunks } from './page-qa.mjs';
+import { beginPageQaFrame, samplePageQaFrame, endPageQaFrame, finishPageQaChunk, mergePageQaChunks } from './page-qa.mjs';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms).unref());
 const pad = n => String(n).padStart(6, '0');
@@ -173,7 +173,7 @@ export async function renderRange(o) {
   const claim = () => (next < todo.length ? todo[next++] : null);
   const t0 = Date.now();
 
-  async function renderChunk(film, i, k) {
+  async function renderChunk(film, i, k, revisit) {
     const [a, b] = chunks[i];
     const partial = outputs.map(x => files[x.kind][i].replace(/\.mp4$/, '.partial.mp4'));
     const args = intermediate === 'yuv420'
@@ -194,7 +194,7 @@ export async function renderRange(o) {
     ff.stdin.on('error', () => {});   // FFmpeg 中途退出时的 EPIPE：由 exited 报告
     const stop = () => { try { ff.stdin.destroy(); } catch {} try { ff.kill('SIGKILL'); } catch {} };
     signal.addEventListener('abort', stop, { once: true });
-    const blockHashes = [], pageFrames = [];
+    const blockHashes = [], pageFrames = [], peaks = new Map();
     const useGpuCapture = intermediate === 'yuv420' || samples > 1;
     const cleanup = async () => {
       signal.removeEventListener('abort', stop);
@@ -228,7 +228,7 @@ export async function renderRange(o) {
         const f0 = Date.now();
         let img;
         const recordPage = async (onPng = null) => {
-          pageFrames.push(await endPageQaFrame(film, { frame: f, fps, onPng }));
+          pageFrames.push(await endPageQaFrame(film, { frame: f, fps, onPng, peaks }));
         };
         if (qa) await beginPageQaFrame(film);
         if (useGpuCapture) {
@@ -252,7 +252,7 @@ export async function renderRange(o) {
       ff.stdin.end();
       // 帧都喂完了：等 FFmpeg 编完、核对帧数、改名交给返回的 done，worker 先去渲下一块（输入与参数不变，码流逐字节不变）
       const meta = { a, b, key, hashes: blockHashes, deps: Object.fromEntries([...film.requests].map(([p, s]) => [p, [s, hashOf(p)]])) };
-      if (qa) meta.pageQa = await finishPageQaChunk(film, pageFrames);
+      if (qa) meta.pageQa = await finishPageQaChunk(film, pageFrames, peaks, revisit, { ...qa.plates, signal });
       handedOff = true;
       return { done: finish(meta).finally(cleanup) };
     } finally {
@@ -262,6 +262,34 @@ export async function renderRange(o) {
 
   async function worker(k) {
     let film = k === 0 && o.firstFilm ? o.firstFilm : null;
+    const history = [];
+    let cursor = 0, sequentialFilm = null, seekFilm = null;
+    const openProbe = () => openFilm(dir, { ...openOptions, handleSignals: false, signal });
+    const replayOptions = { timeoutMs: frameTimeoutMs, settle, signal };
+    async function replayFrame(probe, f, take, direct) {
+      const times = exposureTimes(f / fps, samples, shutter, fps, probe.contract.dur);
+      await beginPageQaFrame(probe);
+      await renderFrame(probe, times[0], replayOptions);
+      await samplePageQaFrame(probe, f, fps);
+      if (take) await take(probe);
+      if (!direct) for (const t of times.slice(1)) await renderFrame(probe, t, replayOptions);
+    }
+    async function seek(target, take) {
+      seekFilm ??= await openProbe();
+      await replayFrame(seekFilm, target, take, true);
+    }
+    async function replay(target, take) {
+      // 只追本路领取的分块，跳过缓存和其他路。整条曝光历史只向前走一遍。
+      sequentialFilm ??= await openProbe();
+      while (cursor < history.length) {
+        const range = history[cursor], f = range[0]++;
+        if (range[0] === range[1]) cursor++;
+        if (f > target) break;
+        await replayFrame(sequentialFilm, f, f === target ? take : null, false);
+        if (f === target) return;
+      }
+      throw new Error(`文字对比度目标帧 ${target} 不在本路尚未重放的帧内`);
+    }
     let tail = null;   // 上一块的收尾：每路最多一块在后台收尾
     try {
       if (signal.aborted) throw signal.reason;
@@ -270,7 +298,10 @@ export async function renderRange(o) {
       for (const p of film.requests.keys()) hashOf(p);   // 页面刚就绪时的内容：渲染中途有人改文件，旁注也不会记成改后的
       info ??= film.info; contract ??= film.contract;
       for (let i = claim(); i !== null; i = claim()) {
-        const { done: fin } = await renderChunk(film, i, k);
+        const [a, b] = chunks[i];
+        if (qa) history.push([a, b]);
+        const randomAccess = qa && o.shots?.some(s => s.in <= a && b <= s.out && ['absolute', 'baked'].includes(s.raw?.evaluation));
+        const { done: fin } = await renderChunk(film, i, k, randomAccess ? seek : replay);
         fin.catch(abort);   // 收尾出错立即中止所有块，不等下一次 await
         const prev = tail;
         tail = fin;
@@ -283,6 +314,7 @@ export async function renderRange(o) {
       throw e;
     } finally {
       if (tail) await tail.catch(() => {});   // 关浏览器、返回之前，后台收尾的 FFmpeg 与半成品都已清理
+      await Promise.all([sequentialFilm?.close(), seekFilm?.close()]);
       if (film) {
         for (const [p, s] of film.requests) deps.set(p, s);
         for (const u of film.external) external.add(u);

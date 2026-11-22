@@ -58,7 +58,11 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 - 出片编排（`tools/film`）有两种接法：不写 `--out`，由渲染器建运行目录，从 `--json` 信封的 `data.runId`、`data.runDir` 取位置；或者自己定运行目录，写 `--out <运行目录>/master.mp4 --web <运行目录>/web.mp4 --run-json <运行目录>/run.json`。
 - 写盘一律先写临时名再改名：失败或被中断不留半成品；分段临时目录 `<输出目录>/.segs-*` 任何结局都删。拼接与封装的结果先写成**目标文件所在目录**里的 `.<名>.partial-<pid>.mp4` 再改名，所以 `--web`、镜头缓存的 `--out` 可以落在另一个卷上（另一个盘符、tmpfs）；这些半成品与 `mux` 的临时目录都登记在收尾里，收到 SIGINT / SIGTERM 也删。
 
-运行目录中的 `work/telemetry.json` 记录完整的逐帧截图 SHA-256，以及从**已编码母版**取得的亮度、帧差、静帧段和边缘统计。`work/texts.json`、`work/plates.json` 记录渲这一帧时的文字与面片。`video.mjs` 自定 `--out` 时，用 `--qa-records <目录>` 启用同样的采集；一个目录只对应一次输出。`qa report master.mp4` 优先读同级 `work/`，不为文字或底板重开页面，交付与同步检查仍读最终影音。单独检查可用 `qa texts --run-dir <运行目录>`、`qa plates --plates <记录>` 或 `qa visual <成片> --telemetry <记录>`。没有记录的旧片走原路径；自动发现的画面遥测与成片规格不符会告警并回退，显式指定的不合法遥测报用法错误。
+页面出片链 `film build` 将采集结果写入运行目录的 `work/`。其中 `work/telemetry.json` 记录完整的逐帧截图 SHA-256，以及从**已编码母版**取得的亮度、帧差、静帧段和边缘统计。`work/texts.json`、`work/plates.json` 记录渲这一帧时的文字与面片。直接运行 `video.mjs` 时，用 `--qa-records <目录>` 启用采集，一个目录对应一次输出。页面与作品描述分目录时，`--qa-film <作品描述>` 指定采集阈值所用的文件，`film build` 会传入本次生效的描述。`qa report master.mp4` 优先读同级 `work/`，不为文字或底板重开页面，交付与同步检查仍读最终影音。单独检查可用 `qa texts --run-dir <运行目录>`、`qa plates --plates <记录>` 或 `qa visual <成片> --telemetry <记录>`。没有记录的旧片走原路径。三份页面渲染记录都带 `videoStreamSha256`，指向母版的第一个视频流，而非整个 MP4 文件：只替换音轨且 `-c:v copy` 仍可复用；画面重编码或换片后不可复用。自动发现的画面遥测与被检视频的指纹或规格不符时，QA 告警并重新解码画面；显式指定的不合法遥测报用法错误。文字或底板记录不能用于另一份视频；纯离线、没有成片的目录只能检查记录本身及作品规格。
+
+文字框和透明度逐帧保留。`texts.contrast` 为每条文字选取首次达到全片最高透明度的帧，比较该帧字形与背景的像素。文字随后变色，或背景在同一透明度下变化，都可能改变后续帧的可读性。没有渲染记录的页面仍按旧规则在并列峰值中取中间帧，同一作品两种检查方式的结论可能因此不同。
+
+每个分片只在每条文字首次达到分片最高透明度的帧测量对比度，裁片包含字框及背景边距。透明度达到 1 时当场取样。峰值低于 1 时，渲染器在分片结束后用独立页面重访代表帧。分片完整落在标为 `absolute` 或 `baked` 的镜头内时可直接跳帧，顺序累积页则按当前 worker 的实际渲染顺序重放到代表帧，保留多次曝光的历史。
 
 运行记录每次都写，失败也写（开渲前先写一份占位，旧记录不会被误当成这次的结果）。主要字段：
 
@@ -134,6 +138,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 | `usage.angle` | 2 | ANGLE 后端不认识或不属于这个平台 | 跑 `node tools/rtx/gpucheck.mjs` 选后端 |
 | `usage.gpu-policy` | 2 | `--gpu` / `BEIMING_GPU` 不是 required、any、software-ok | 改成三者之一 |
 | `usage.profile-unknown` | 2 | 不认识的交付档位 | 提示里列出可用档位 |
+| `usage.no-file` | 2 | 显式指定的 QA 档位表不存在 | 检查路径，或省略自定义档位表 |
 | `usage.no-shots`、`usage.shot-unknown`、`usage.sequential-partial` | 2 | 没有镜头表、镜头 id 不存在、从 sequential 镜头中间起渲 | 按提示改 |
 | `usage.input-missing` | 2 | 封装时找不到画面或声音文件 | 先出无声视频；无声片写 `-` |
 | `usage.bad-root` | 2 | `serve --root` 不是目录 | 写仓库里的目录 |
@@ -143,6 +148,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 | `env.browser-launch` | 3 | 无头浏览器起不来 | `npm run setup` 装锁定的 headless shell |
 | `env.playwright-missing` | 3 | 加载不了 playwright-core（没装 npm 依赖） | 在仓库根 `npm ci` |
 | `env.ffmpeg-missing`、`env.ffprobe-missing`、`env.ffmpeg-encoder-missing`、`env.ffmpeg-spawn` | 3 | 找不到 FFmpeg / ffprobe、缺 libx264 或 aac、起不来；预检时 15 秒没有响应（`FFMPEG` 指向卡住的程序） | 装 FFmpeg ≥ 7，或设 `FFMPEG` / `FFPROBE` 为本机能直接运行的可执行文件 |
+| `env.tool-missing` | 3 | 采集 QA 底板时启动不了 ffmpeg 或 ffprobe | 确认程序已安装，或用 `FFMPEG` / `FFPROBE` 指定完整路径 |
 | `env.disk-insufficient` | 3 | `--plan` 估算磁盘不够 1.5 倍余量 | 换输出目录或清理磁盘 |
 | `env.lock-io`、`env.listen` | 3 | 输出目录不可写；预览服务监听失败 | 查权限 |
 | `contract.dur`、`contract.render`、`contract.fps`、`contract.texts`、`contract.version` | 4 | 页面约定不符（第 2 节） | 按报错改页面 |

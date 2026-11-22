@@ -1,6 +1,6 @@
 // 渲染期与 QA 解码共用一个按放映顺序接收灰度帧的分析器。
-import { analysisSize } from '../../../tools/qa/lib/frames.mjs';
-import { loadProfiles, resolveProfile } from '../../../tools/qa/lib/profiles.mjs';
+import { analysisSize } from './analysis-size.mjs';
+import { loadProfiles, resolveProfile } from './qa-profiles.mjs';
 
 export const telemetrySize = (width, height, frames) => analysisSize(width, height, frames > 3000 ? 320 : 480);
 

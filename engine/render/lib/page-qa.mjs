@@ -1,11 +1,10 @@
-// A/C 页面的渲染期旁注：原 render 只调用一次。保留 draw/DOM 探针、字体、投影和各候选帧的对比度；
-// 合并之后 QA 才能按整片取每条文字峰值（并列取中间），不能取各块峰值的平均。
+// A/C 渲染期逐帧记录文字、字体和投影；对比度按分块取每条文字的首次峰值，再按全片帧序归并。
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PROBE, THREE_MODULE, threeShim, fontInventory } from '../../../tools/qa/lib/page.mjs';
-import { loadFaceBytes, measureContrast, sampleTextItems } from '../../../tools/qa/checks/texts.mjs';
-import { analyzePlate } from '../../../tools/qa/lib/plate-edges.mjs';
-import { decodePng } from '../../../tools/qa/lib/png.mjs';
+import { PROBE, THREE_MODULE, threeShim, fontInventory } from './page-probe.mjs';
+import { loadFaceBytes, measureContrast, sampleTextItems } from './text-samples.mjs';
+import { analyzePlate, plateEdgeOptions } from './plate-edges.mjs';
+import { decodePng } from './png.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 
@@ -74,7 +73,7 @@ function installBackgrounds() {
     return ret;
   };
   // DevTools 的 inspector stylesheet 不改作品 DOM、inline style、画布内容或画布状态；清空即可还原。
-  qa.backgroundCSS = () => {
+  qa.backgroundCSS = bounds => {
     const cvs = [...document.querySelectorAll('canvas')];
     const gl = cvs.filter(c => c.__bmType === 'webgl');
     const selector = el => {
@@ -92,13 +91,31 @@ function installBackgrounds() {
       const overlay = c.__bmType === '2d' && gl.some(g => (+getComputedStyle(g).zIndex || 0) < (+cs.zIndex || 0));
       if (overlay) layer += `${sel}{visibility:hidden!important}`;
       if (!m?.text) continue;
-      // CSS object-position moves the original replaced content out of its clip; preserve underlying CSS backgrounds.
+      const rect = c.getBoundingClientRect();
+      // 移开原画布的替换内容，作品原有的 CSS 背景仍在。
       if (cs.objectFit !== 'fill' || cs.objectPosition !== '50% 50%') { qa.backgroundError = true; continue; }
-      const css = `${sel}{object-position:-100000px -100000px!important;background-image:url(${m.c.toDataURL()}),${cs.backgroundImage}!important;background-size:100% 100%,${cs.backgroundSize}!important;background-position:0 0,${cs.backgroundPosition}!important;background-repeat:no-repeat,${cs.backgroundRepeat}!important;background-origin:content-box,${cs.backgroundOrigin}!important;background-clip:content-box,${cs.backgroundClip}!important}`;
+      let image = m.c, size = '100% 100%', pos = '0 0';
+      // 一比一的未变换画布可精确裁切镜像；不能按屏幕轴换算的画布保留原 CSS 合成。
+      let aligned = Number.isInteger(rect.left) && Number.isInteger(rect.top) && rect.width === c.width && rect.height === c.height &&
+        c.clientWidth === c.width && c.clientHeight === c.height && ['paddingLeft','paddingRight','paddingTop','paddingBottom'].every(k => cs[k] === '0px');
+      for (let el = c; aligned && el; el = el.parentElement) {
+        const st = getComputedStyle(el);
+        aligned = [st.transform, st.scale, st.rotate, st.translate, st.perspective, st.filter, st.offsetPath].every(v => v === 'none') && st.zoom === '1';
+      }
+      if (aligned) {
+        if (!bounds.some(b => b.x < rect.right && b.y < rect.bottom && b.x + b.width > rect.left && b.y + b.height > rect.top)) continue;
+        const tile = m.tile ??= document.createElement('canvas'); privateCanvases.add(tile);
+        const x = Math.max(0, Math.min(...bounds.map(b => b.x)) - rect.left), y = Math.max(0, Math.min(...bounds.map(b => b.y)) - rect.top);
+        tile.width = Math.min(c.width, Math.max(...bounds.map(b => b.x + b.width)) - rect.left) - x;
+        tile.height = Math.min(c.height, Math.max(...bounds.map(b => b.y + b.height)) - rect.top) - y;
+        tile.getContext('2d', m.ctx.getContextAttributes()).drawImage(m.c, x, y, tile.width, tile.height, 0, 0, tile.width, tile.height);
+        image = tile; size = `${tile.width}px ${tile.height}px`; pos = `${x}px ${y}px`;
+      }
+      const css = `${sel}{object-position:-100000px -100000px!important;background-image:url(${image.toDataURL()}),${cs.backgroundImage}!important;background-size:${size},${cs.backgroundSize}!important;background-position:${pos},${cs.backgroundPosition}!important;background-repeat:no-repeat,${cs.backgroundRepeat}!important;background-origin:content-box,${cs.backgroundOrigin}!important;background-clip:content-box,${cs.backgroundClip}!important}`;
       text += css;
       if (!overlay) layer += css;
     }
-    return { text, layer, error: !!qa.backgroundError };
+    return { text, layer, error: !!qa.backgroundError, scrollX, scrollY };
   };
 }
 
@@ -122,13 +139,80 @@ async function inspectorSheet(page) {
     await session.send('DOM.enable'); await session.send('CSS.enable');
     const { frameTree } = await session.send('Page.getFrameTree');
     const { styleSheetId } = await session.send('CSS.createStyleSheet', { frameId: frameTree.frame.id });
-    sheets.set(page, text => session.send('CSS.setStyleSheetText', { styleSheetId, text }));
+    sheets.set(page, { setCSS: text => session.send('CSS.setStyleSheetText', { styleSheetId, text }),
+      async capture(clip) {
+        const { data } = await session.send('Page.captureScreenshot', { format: 'png', fromSurface: true, optimizeForSpeed: true, captureBeyondViewport: false, clip });
+        return Buffer.from(data, 'base64');
+      } });
   }
   return sheets.get(page);
 }
 
-export async function endPageQaFrame(film, { frame, fps, onPng = null }) {
-  const row = await film.page.evaluate(async ({ frame, fps }) => {
+// 同一 id 换了字是另一条轨；同帧重报同一条时取最后一条，与 QA 的逐帧表一致。
+function updatePeaks(peaks, row, derived, width, height) {
+  const items = new Map();
+  for (const it of sampleTextItems(row, derived, width, height)) if (!it.bad) items.set(JSON.stringify([it.id, it.text]), it);
+  const changed = [];
+  for (const [key, it] of items) {
+    const alpha = it.alpha ?? 1;
+    if (alpha <= (peaks.get(key)?.alpha ?? 0.02)) continue;
+    const peak = { row, it, alpha };
+    peaks.set(key, peak); changed.push(peak);
+  }
+  return changed;
+}
+
+// 只保存 WCAG 取样实际会读的区域（含字框外的背景），不为一个小标题截全画幅。
+async function snapshotPeaks(film, peaks, onPng) {
+  const { width, height } = film.page.viewportSize();
+  const input = onPng && decodePng(onPng);
+  const regions = [];
+  for (const peak of peaks) {
+    const b = peak.it.box;
+    const x0 = Math.max(0, Math.floor(b[0])), y0 = Math.max(0, Math.floor(b[1]));
+    const x1 = Math.min(width, Math.ceil(b[2])), y1 = Math.min(height, Math.ceil(b[3]));
+    if (x1 - x0 < 2 || y1 - y0 < 2) { peak.outside = true; continue; }
+    const pad = Math.max(4, Math.round(0.3 * (y1 - y0)));
+    const x = Math.max(0, x0 - pad), y = Math.max(0, y0 - pad);
+    const w = Math.min(width, x1 + pad) - x, h = Math.min(height, y1 + pad) - y;
+    const clip = { x, y, width: w, height: h, scale: 1 };
+    const region = { clip, box: [b[0] - x, b[1] - y, b[2] - x, b[3] - y] };
+    if (input) { // PNG 母版本来就已截取，不再多截前景，不为一条字保留整张母版。
+      const data = Buffer.allocUnsafe(w * h * 4);
+      for (let i = 0; i < h; i++) data.set(input.data.subarray(((y + i) * width + x) * 4, ((y + i) * width + x + w) * 4), i * w * 4);
+      region.on = { width: w, height: h, data };
+    }
+    regions.push({ peak, region });
+  }
+  if (!regions.length) return;
+  const css = await film.page.evaluate(bounds => window.__BMQA.backgroundCSS(bounds), regions.map(p => p.region.clip));
+  if (css.error) return; // 缺证据让 QA 报缺失，不拿另一帧顶替。
+  const { capture, setCSS } = await inspectorSheet(film.page);
+  for (const { region: r } of regions) {
+    r.clip.x += css.scrollX; r.clip.y += css.scrollY;
+    r.on ??= decodePng(await capture(r.clip));
+  }
+  try {
+    await setCSS(css.text);
+    for (const { peak, region: r } of regions) {
+      peak.measurement = measureContrast(r.on, decodePng(await capture(r.clip)), r.box);
+    }
+    if (css.layer !== css.text) {
+      // 仅对未分离的路径字取隐藏整层的背景。
+      const fallback = regions.filter(({ peak }) => !peak.measurement?.separable);
+      if (fallback.length) {
+        await setCSS(css.layer);
+        for (const { peak, region: r } of fallback) {
+          peak.measurement = measureContrast(r.on, decodePng(await capture(r.clip)), r.box);
+          peak.via = 'layer';
+        }
+      }
+    }
+  } finally { await setCSS(''); }
+}
+
+export function samplePageQaFrame(film, frame, fps) {
+  return film.page.evaluate(async ({ frame, fps }) => {
     const q = window.__BMQA;
     q.rec = q.platesRec = false;
     const sample = await q.sampleTexts(frame, frame / fps);
@@ -138,30 +222,29 @@ export async function endPageQaFrame(film, { frame, fps, onPng = null }) {
       return { ...p, file: decodeURIComponent(u.pathname).replace(/^\/+/, '') };
     }), contrast: [] };
   }, { frame, fps });
+}
+
+export async function endPageQaFrame(film, { frame, fps, peaks, onPng = null }) {
+  const row = await samplePageQaFrame(film, frame, fps);
   const { width, height } = film.page.viewportSize();
-  const items = sampleTextItems(row, !film.contract.texts, width, height).filter(x => !x.bad && (x.alpha ?? 1) > 0.02);
-  if (!items.length) return row;
-  const css = await film.page.evaluate(() => window.__BMQA.backgroundCSS());
-  if (css.error) return row;
-  const on = decodePng(onPng || await film.capture('png'));
-  const setCSS = await inspectorSheet(film.page);
-  try {
-    await setCSS(css.text);
-    const text = decodePng(await film.capture('png'));
-    let layer = null;
-    for (const { id, box, text: label } of items) {
-      let m = measureContrast(on, text, box), via = 'text';
-      if (!m?.separable && css.layer !== css.text) {
-        if (!layer) { await setCSS(css.layer); layer = decodePng(await film.capture('png')); }
-        m = measureContrast(on, layer, box); via = 'layer';
-      }
-      row.contrast.push({ id, text: label, box, via, ...(m || { separable: false }) });
-    }
-  } finally { await setCSS(''); }
+  // 首次完全显现可直接取证；亚 1 的峰值要等分块结束才能确定。
+  const now = updatePeaks(peaks, row, !film.contract.texts, width, height).filter(p => p.alpha === 1);
+  if (now.length) {
+    await snapshotPeaks(film, now, onPng);
+    for (const peak of now) peak.sampled = true;
+  }
   return row;
 }
 
-export async function finishPageQaChunk(film, rows) {
+export async function finishPageQaChunk(film, rows, peaks, revisit, plateOpts = {}) {
+  const byFrame = Map.groupBy([...peaks.values()], p => p.row.f);
+  for (const f of [...byFrame.keys()].sort((a, b) => a - b)) {
+    const list = byFrame.get(f), missing = list.filter(p => !p.sampled);
+    if (missing.length) await revisit(f, probe => snapshotPeaks(probe, missing, null));
+    for (const { it: { id, text, box }, row, measurement, outside, via = 'text' } of list) {
+      if (measurement || outside) row.contrast.push({ id, text, box, via, ...(measurement || { separable: false }) });
+    }
+  }
   const fonts = await fontInventory(film);
   for (const face of fonts.faces) {
     if (!face.bin) {
@@ -176,7 +259,8 @@ export async function finishPageQaChunk(film, rows) {
   for (const file of new Set(rows.flatMap(row => row.plates.map(p => p.file)))) {
     const abs = path.resolve(ROOT, file);
     if (!abs.startsWith(path.resolve(ROOT) + path.sep)) throw new Error('面片路径不在渲染根内');
-    images.push({ file, analysis: await analyzePlate(abs) });
+    const analysis = await analyzePlate(abs, plateOpts);
+    images.push({ file, analysis: { ...analysis, options: plateEdgeOptions(plateOpts) } });
   }
   return { rows, fonts, images, info: { hasTexts: film.contract.texts, dur: film.contract.dur, gpu: film.gpu }, three, platesErr, externalRequests: [...film.external] };
 }
@@ -187,12 +271,14 @@ export function mergePageQaChunks(parts, { width, height, fps, frameCount, first
       !Array.isArray(s.runs) || !Array.isArray(s.dom) || !Array.isArray(s.plates) || !Array.isArray(s.contrast))) throw new Error('页面 QA 分块缺帧、重帧或缺少探针记录');
   const info = parts[0].info;
   if (parts.some(p => p.info.hasTexts !== info.hasTexts || p.three !== parts[0].three)) throw new Error('页面 QA 分块的探针契约不一致');
+  const peaks = new Map();
+  for (const row of rows) updatePeaks(peaks, row, !info.hasTexts, width, height);
   const uniq = list => [...new Set(list.map(x => JSON.stringify(x)))].map(x => JSON.parse(x));
   const base = { schemaVersion: 1, source: 'page-render', width, height, fps, frameCount, firstFrame };
   const fonts = Object.fromEntries(['faces', 'set', 'errors'].map(k => [k, uniq(parts.flatMap(p => p.fonts[k]))]));
   return {
     texts: { ...base, info: { ...info, viewport: [width, height] }, fonts, externalRequests: [...new Set(parts.flatMap(p => p.externalRequests))],
-      frames: rows.map(({ plates, ...s }, f) => ({ ...s, f })) },
+      frames: rows.map(({ plates, contrast, ...s }, f) => ({ ...s, f, contrast: contrast.filter(x => peaks.get(JSON.stringify([x.id, x.text]))?.row.f === s.f) })) },
     plates: { ...base, frames: frameCount, three: parts[0].three, platesErr: parts.find(p => p.platesErr)?.platesErr || null,
       images: uniq(parts.flatMap(p => p.images || [])), placements: rows.some(s => s.plates.length) ? rows.map((s, f) => ({ f, plates: s.plates })) : [] },
   };

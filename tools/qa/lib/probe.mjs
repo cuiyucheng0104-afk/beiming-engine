@@ -8,7 +8,8 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { run, tool, tail } from './proc.mjs';
-import { QaError, EXIT } from './cli-kit.mjs';
+import { QaError, EXIT, usageError } from './cli-kit.mjs';
+import { videoStreamSha256 } from '../../../engine/render/lib/video-stream-hash.mjs';
 import { parseFps } from './profiles.mjs';
 
 export async function probeFile(file, { timeoutMs } = {}) {
@@ -24,6 +25,29 @@ export async function probeFile(file, { timeoutMs } = {}) {
   const videos = streams.filter(s => s.codec_type === 'video' && !isCover(s));
   const audios = streams.filter(s => s.codec_type === 'audio');
   return { format: raw.format, streams, video: videos[0] || null, videos, audio: audios[0] || null, audios, raw };
+}
+
+export function checkRecordHash(doc, file) {
+  if (typeof doc.videoStreamSha256 !== 'string' || !/^[0-9a-f]{64}$/.test(doc.videoStreamSha256)) {
+    throw usageError(`${file} 缺少有效的视频码流指纹 videoStreamSha256`);
+  }
+}
+
+// 一次 report 的各组共用码流和探测结果；没有采用渲染记录时不额外读成片。
+export function recordVideoVerifier(input, { timeoutMs, probe, decodedFrames } = {}) {
+  let hash, video = probe?.video;
+  return async (doc, file, probedVideo) => {
+    checkRecordHash(doc, file);
+    video ??= probedVideo ?? (await probeFile(input, { timeoutMs })).video;
+    const fps = rate(video?.avg_frame_rate) || rate(video?.r_frame_rate);
+    const frames = decodedFrames ?? Number(video?.nb_frames);
+    if (!video || doc.width !== video.width || doc.height !== video.height || doc.frameCount !== frames ||
+        !fps || !Number.isFinite(doc.fps) || Math.abs(doc.fps - fps.value) > 1e-6) {
+      throw usageError(`${file} 的帧数、画幅或帧率与成片不符`);
+    }
+    hash ??= videoStreamSha256(input, args => run(tool('ffmpeg'), args, { timeoutMs }));
+    if (doc.videoStreamSha256 !== await hash) throw usageError(`${file} 的视频码流指纹与成片不符`);
+  };
 }
 
 export async function videoPackets(file, { timeoutMs } = {}) {

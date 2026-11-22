@@ -26,7 +26,8 @@ import { openFilm, locateFilm, renderFrame, closeServer, ROOT } from './page.mjs
 import { RenderError } from './lib/errors.mjs';
 import { renderCommand, pickOptions, parseSize, parseFrames, positiveNumber, resolveCapture, resolveMotionBlur } from './lib/command.mjs';
 import { resolveAngle, resolveGpuPolicy } from './lib/gpu.mjs';
-import { preflight, COLOR, TAGS, x264Args, FFMPEG } from './lib/ffmpeg.mjs';
+import { preflight, COLOR, TAGS, x264Args, FFMPEG, must } from './lib/ffmpeg.mjs';
+import { videoStreamSha256 } from './lib/video-stream-hash.mjs';
 import { captureGpuFrame, rawYuvInputArgs } from './lib/yuv.mjs';
 import { acquireLock } from './lib/lock.mjs';
 import { acquireSlot, guardGpu, slotCount } from './lib/slots.mjs';
@@ -35,7 +36,7 @@ import { resolveProfile } from './lib/profiles.mjs';
 import { readFilm, pickShot } from './lib/film.mjs';
 import { planFilmChunks, renderRange, concatChunks } from './lib/chunks.mjs';
 import { aigcMetadata } from './lib/mux.mjs';
-import { loadProfiles as loadQaProfiles, resolveProfile as resolveQaProfile } from '../../tools/qa/lib/profiles.mjs';
+import { loadProfiles as loadQaProfiles, resolveProfile as resolveQaProfile } from './lib/qa-profiles.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const sleep = ms => new Promise(r => setTimeout(r, ms).unref());
@@ -126,7 +127,8 @@ const OPTIONS = {
   shot: { type: 'string', arg: '<镜头 id>', describe: '只渲 film.json 镜头表里的这一个镜头（v2 的 shots[].in/out）' },
   ...pickOptions(['workers', 'chunk', 'query', 'fast', 'capture', 'samples', 'shutter', 'crf', 'preset']),
   web: { type: 'string', arg: '<文件.mp4>', describe: '同一遍渲染再出一个网页版（crf 20、码率上限 14M、2 秒关键帧，宽 > 1920 时缩到 1920）' },
-  'qa-records': { type: 'string', arg: '<目录>', describe: '随编码写出 telemetry.json、texts.json 与 plates.json；默认运行目录写在 work/，自定 --out 时需显式指定' },
+  'qa-records': { type: 'string', arg: '<目录>', describe: '随编码写出 telemetry.json、texts.json 与 plates.json，film build 自动启用' },
+  'qa-film': { type: 'string', arg: '<作品描述>', describe: '采集档位和 QA 阈值所用的作品描述，默认读取页面目录的 film.json' },
   'web-crf': { type: 'integer', min: 0, max: 51, default: 20, arg: '<n>', describe: '网页版的 crf（默认 20）' },
   ...pickOptions(['gpu', 'angle', 'allow-network', 'lenient-assets', 'allow-gl-errors', 'ready-timeout', 'frame-timeout', 'settle']),
   resume: { type: 'boolean', describe: '块放在 <输出>.parts/，失败或中断后保留；再加 --resume 只补渲没完成的块' },
@@ -182,7 +184,8 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
   if (web && web === out) throw new RenderError('usage.conflict', '--web 不能与输出是同一个文件', { hint: '网页版另起一个文件名，例如 out/x_web.mp4' });
   const runJsonPath = path.resolve(opts['run-json'] ?? (runDir ? path.join(runDir.dir, 'run.json') : `${out}.run.json`));
 
-  const qaDir = !opts.plan && (opts['qa-records'] ? path.resolve(opts['qa-records']) : runDir && path.join(runDir.dir, 'work'));
+  const qaDir = !opts.plan && opts['qa-records'] ? path.resolve(opts['qa-records']) : null;
+  const qaFilm = qaDir && opts['qa-film'] ? readFilm(dir, opts['qa-film']) : film;
   const isRoot = path.resolve(dir) === ROOT;
   const record = baseRecord({ command: 'video', argv: process.argv.slice(1).map(a => (path.isAbsolute(a) ? repoPath(ROOT, a) : a)), env,
     projectId: film?.id ?? (isRoot ? 'beiming' : path.basename(path.resolve(dir))),
@@ -270,9 +273,15 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
     // 2) 块目录：默认临时目录（任何结局都删）；--resume / --keep-segments 用 <输出>.parts/
     const persistent = Boolean(opts.resume || opts['keep-segments']);
     const { browserVersion: browser, angle, software } = probeFilm.info;   // 换了浏览器构建或 GPU 后端，像素可能不同：不能与旧块混拼
-    const qaSpec = qaDir ? { width: w, height: h, frames: b - a, fps: FPS, clearColor: film?.raw?.qa?.clearColor,
-      visual: resolveQaProfile(loadQaProfiles(), profile?.id, { qa: film?.raw?.qa }).visual } : null;
-    const key = sha256(JSON.stringify({ qaSpec, dir: repoPath(ROOT, dir), q: opts.query, w, h, FPS, a, b, chunks, outputs: outputs.map(x => [x.kind, x.vf, x.args]), intermediate, samples, shutter: samples > 1 ? shutter : 0, settle, r: record.render.renderer, browser, angle, software })).slice(0, 16);
+    let qaSpec = null;
+    if (qaDir) {
+      const qa = qaFilm?.raw?.qa;
+      const profileId = opts.profile || qaFilm?.output.profile || qaFilm?.raw?.deliveries?.[0];
+      const { visual, plates: { maxStdPx, minCoverage } } = resolveQaProfile(loadQaProfiles(), profileId, { qa });
+      const evaluation = (qaFilm?.shots ?? []).map(s => [s.in, s.out, s.raw.evaluation ?? null]);
+      qaSpec = { width: w, height: h, frames: b - a, fps: FPS, clearColor: qa?.clearColor, visual, plates: { maxStdPx, minCoverage }, evaluation };
+    }
+    const key = sha256(JSON.stringify({ qaSpec, ffmpeg: ff.version, dir: repoPath(ROOT, dir), q: opts.query, w, h, FPS, a, b, chunks, outputs: outputs.map(x => [x.kind, x.vf, x.args]), intermediate, samples, shutter: samples > 1 ? shutter : 0, settle, r: record.render.renderer, browser, angle, software })).slice(0, 16);
     if (persistent) {
       workDir = `${out}.parts`;
       // 开渲前先写下参数键：中断或失败后换了参数再续跑，旧块一块都不留（源文件变没变由每块的旁注核对，见 lib/chunks.mjs）
@@ -289,7 +298,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
     handedOver = true;
     const tr = Date.now();
     const r = await renderRange({
-      dir, query: opts.query, w, h, fps: FPS, chunks, workers: opts.workers, intermediate, samples, shutter, outputs, workDir,
+      dir, query: opts.query, w, h, fps: FPS, chunks, shots: qaFilm?.shots, workers: opts.workers, intermediate, samples, shutter, outputs, workDir,
       reuse: Boolean(opts.resume), key, qaSpec, keepQaParts: persistent, openOptions, firstFilm: probeFilm, signal, live: life.procs, settle,
       frameTimeoutMs: opts['frame-timeout'] ? opts['frame-timeout'] * 1000 : undefined,
       onProgress: makeProgress(log, b - a),
@@ -314,8 +323,9 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
       outputsDone.push({ path: repoPath(ROOT, x.file), sha256: sha, kind: x.kind === 'master' ? 'video' : 'web', probe: p });
     }
     if (qaDir) {
+      const hash = await videoStreamSha256(out, args => must(FFMPEG(), args, '核对母版视频码流', { capture: true, signal, live: life.procs }));
       fs.mkdirSync(qaDir, { recursive: true });
-      for (const [name, doc] of Object.entries(r.qaRecords)) writeJson(path.join(qaDir, name + '.json'), doc);
+      for (const [name, doc] of Object.entries(r.qaRecords)) writeJson(path.join(qaDir, name + '.json'), { ...doc, videoStreamSha256: hash });
     }
     record.timing.encodeSeconds = +((Date.now() - te) / 1000).toFixed(2);
     const m = outputsDone[0].probe.video;

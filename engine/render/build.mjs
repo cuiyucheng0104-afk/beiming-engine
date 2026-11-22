@@ -366,13 +366,25 @@ async function offscreenVideo(ctx) {
   return { gpu, renderer: 'offscreen', frames: info.frames, color: info.color, pixFmt: info.pixFmt, encoder, mode: offData?.mode || offscreenEncode(ctx).mode, args: offscreenArgs(ctx) };
 }
 
+// 页面视频和三份 QA 记录的代码输入。离线判定、报告与预览服务各自独立更新。
+const PAGE_VIDEO_FILES = [
+  'page.mjs', 'video.mjs',
+  ...['chunks', 'command', 'errors', 'ffmpeg', 'film', 'gpu', 'inject', 'lock', 'mux', 'profiles',
+    'record', 'server', 'slots', 'yuv', 'analysis-size', 'page-probe', 'page-qa', 'plate-edges', 'png',
+    'qa-error', 'qa-process', 'qa-profiles', 'text-samples', 'video-stream-hash', 'visual-telemetry'].map(name => `lib/${name}.mjs`),
+  'lib/qa-profiles.builtin.json', '../production/profiles.json', '../production/timeline.js',
+  '../../tools/lib/cli.mjs', '../../tools/lib/profiles.mjs', '../../tools/env/lib/ffmpeg.mjs',
+  '../../tools/env/lib/proc.mjs', '../../tools/env/lib/cli.mjs', '../../tools/compliance/lib/aigc.mjs',
+];
+
 const video = {
   id: 'video', title: '逐帧渲染（engine/render/video.mjs，或 --renderer offscreen 时 engine/offscreen/cli.mjs）',
   key: ctx => {
     if (ctx.opts.renderer !== 'offscreen') {
       return ctx.hashJson({
-        step: 'video@3', qaCode: ctx.hashTree(path.join(ROOT, 'tools/qa')), renderLib: ctx.hashTree(R('lib')), trees: pageTrees(ctx), args: videoArgs(ctx),
-        renderer: ['page.mjs', 'video.mjs', 'args.mjs'].map(f => (fs.existsSync(R(f)) ? ctx.fileHash(R(f)) : null)), playwright: ctx.tools.playwright, browser: ctx.tools.browser,
+        step: 'video@4', trees: pageTrees(ctx), args: videoArgs(ctx), qaProfile: ctx.profile.id,
+        renderer: PAGE_VIDEO_FILES.map(f => (fs.existsSync(R(f)) ? ctx.fileHash(R(f)) : null)),
+        playwright: ctx.tools.playwright, browser: ctx.tools.browser, ffmpeg: ctx.tools.ffmpeg,
         angle: process.env.BEIMING_ANGLE || null, chrome: process.env.BEIMING_CHROME || null, platform: `${process.platform}-${process.arch}`,
         frameTimeout: process.env.BEIMING_FRAME_TIMEOUT || null,
       });
@@ -395,7 +407,8 @@ const video = {
     const per = Math.ceil(ctx.frames / ctx.opts.workers);
     const timeoutSec = ctx.opts.timeout || Math.round(240 + per * (ctx.opts.gpu === 'required' ? 6 : 12));
     try {
-      await ctx.exec(process.execPath, [R('video.mjs'), ctx.film.pageDir, ...videoArgs(ctx), '--out', out, '--qa-records', ctx.run.work],
+      const qaFilm = ctx.filmEffective?.path || path.join(ctx.film.dir, 'film.json');
+      await ctx.exec(process.execPath, [R('video.mjs'), ctx.film.pageDir, ...videoArgs(ctx), '--out', out, '--qa-records', ctx.run.work, '--qa-film', qaFilm],
         { label: '逐帧渲染（video.mjs）', timeoutSec, stallSec: ctx.opts.stall || 300 });
     } finally {
       // video.mjs 在部分失败路径上会留下 .segs-*（加固计划 TOOLS-08）：段目录只会出现在输出旁，这里统一扫掉

@@ -9,6 +9,7 @@ import { Readable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 import { haveFfmpeg, tmp, cleanup, clip, ffmpeg, qa, check, writeJson, ROOT, FIXTURES, TEST_PROFILES } from './helpers.mjs';
 import { browserOk } from '../ci/browser.mjs';
+import { RENDERER_DIRS, framemd5 } from '../render/helpers.mjs';
 import { CHECKS } from '../../tools/qa/lib/checks.mjs';
 
 const skip = !haveFfmpeg && '需要 FFmpeg ≥7';
@@ -63,16 +64,24 @@ function fixture(n = frameCount) {
 }
 function code(r, want) { assert.equal(r.code, want, `${r.stderr}\n${JSON.stringify(r.env?.error)} ${JSON.stringify(r.env?.result?.summary)}`); }
 
-async function visualRecord(mp4) {
+function streamHash(mp4) {
+  const { stdout } = ffmpeg(['-i', mp4, '-map', '0:v:0', '-c', 'copy', '-f', 'streamhash', '-hash', 'sha256', '-']);
+  assert.match(stdout, /SHA256=([0-9a-f]{64})\s*$/);
+  return stdout.trim().split('=').at(-1);
+}
+
+async function visualRecord(mp4, n = frameCount, visual) {
   const { createVisualCollector, telemetrySize } = await import('../../engine/render/lib/visual-telemetry.mjs');
-  const { w, h } = telemetrySize(width, height, frameCount);
+  const { w, h } = telemetrySize(width, height, n);
   const raw = execFileSync(process.env.FFMPEG || 'ffmpeg', ['-v', 'error', '-i', mp4, '-map', '0:v:0', '-vf', `scale=${w}:${h}:flags=area,format=gray`, '-fps_mode', 'passthrough', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'], { maxBuffer: width * height * frameCount });
-  const size = w * h, collector = createVisualCollector({ width, height, fps, frames: frameCount });
-  assert.equal(raw.length, size * frameCount);
-  // 第二块从第 17 帧开始，第一块的输入流还故意在像素帧中间断一次。
-  await collector.readChunk(Readable.from([raw.subarray(0, 13), raw.subarray(13, 17 * size)]), 17);
-  await collector.readChunk(Readable.from([raw.subarray(17 * size)]), frameCount - 17);
-  return collector.finish(Array.from({ length: frameCount }, (_, f) => createHash('sha256').update(raw.subarray(f * size, (f + 1) * size)).digest('hex')));
+  const size = w * h, collector = createVisualCollector({ width, height, fps, frames: n, visual });
+  assert.equal(raw.length, size * n);
+  // 第一个输入流故意断在一帧的像素中间；再检查第二块能接续该分析器。
+  const cut = Math.min(17, n - 1);
+  await collector.readChunk(Readable.from([raw.subarray(0, 13), raw.subarray(13, cut * size)]), cut);
+  await collector.readChunk(Readable.from([raw.subarray(cut * size)]), n - cut);
+  const hashes = Array.from({ length: n }, (_, f) => createHash('sha256').update(raw.subarray(f * size, (f + 1) * size)).digest('hex'));
+  return { ...collector.finish(hashes), videoStreamSha256: streamHash(mp4) };
 }
 
 async function pageRecords(fix, bad = false) {
@@ -89,7 +98,10 @@ async function pageRecords(fix, bad = false) {
     return { f, texts: visible ? [item] : [], textsError: null, runs: [], dom: [], plates: [plate],
       contrast: visible ? [{ id: item.id, text: item.text, box, via: 'text', separable: true, ratio: bad ? 1.2 : 12 }] : [] };
   }) });
-  return mergePageQaChunks([part(0, 17), part(17, frameCount)], spec);
+  const records = mergePageQaChunks([part(0, 17), part(17, frameCount)], spec);
+  const hash = streamHash(fix.mp4);
+  for (const doc of Object.values(records)) doc.videoStreamSha256 = hash;
+  return records;
 }
 
 function assert38(r) {
@@ -147,6 +159,18 @@ test('V11：自动发现三份记录；38 项全部执行；显式覆盖不会�
     const missing = fx.invoke([...args, '--run-dir', fx.run, '--' + key, join(fx.repo, 'absent.json')]);
     code(missing, 2); assert.equal(missing.env.error.code, 'usage.no-file'); assert.deepEqual(missing.calls, noCalls);
   }
+  for (const key of ['texts', 'plates']) {
+    const other = key === 'texts' ? 'plates' : 'texts';
+    const file = writeJson(join(fx.work, `${key}.json`), { ...good[key], videoStreamSha256: '0'.repeat(64) });
+    const args = [...reportArgs, '--skip', `delivery,visual,sync,${other}`];
+    const wrong = fx.invoke([...args, '--' + key, file]);
+    code(wrong, 2); assert.match(wrong.env.error.code, /^usage\./); assert.deepEqual(wrong.calls, noCalls);
+    const discovered = fx.invoke(args);
+    assert.notEqual(discovered.code, 0, `不得用自动发现的异源 ${key}.json 放行`);
+    const viaRun = fx.invoke([key, '--run-dir', fx.run]);
+    assert.notEqual(viaRun.code, 0, `运行目录有 master.mp4 时也须核对 ${key} 的指纹`);
+    writeJson(file, good[key]);
+  }
 });
 
 test('V11：真实视觉记录与解码得同样黑场和静帧；缺失/损坏自动回退，坏显式记录不回退', { skip }, async () => {
@@ -166,6 +190,9 @@ test('V11：真实视觉记录与解码得同样黑场和静帧；缺失/损坏�
   for (const [why, damage] of [['坏 JSON', () => fs.writeFileSync(file, '{')],
     ['缺末帧哈希', () => writeJson(file, { ...telemetry, frameHashes: telemetry.frameHashes.slice(1) })],
     ['帧率不同', () => writeJson(file, { ...telemetry, fps: 25 })],
+    ['原始画幅不同但分析尺寸相同', () => writeJson(file, { ...telemetry, width: 1280, height: 720 })],
+    ['缺少码流指纹', () => writeJson(file, { ...telemetry, videoStreamSha256: undefined })],
+    ['码流指纹格式错误', () => writeJson(file, { ...telemetry, videoStreamSha256: 'bad' })],
     ['统计越界', () => writeJson(file, { ...telemetry, series: { ...telemetry.series, blackRatio: telemetry.series.blackRatio.map(() => 2) } })]]) {
     damage();
     const auto = fx.invoke(args);
@@ -192,6 +219,19 @@ test('V11：无底板页写空投影表，离线仍有采样帧数', async () =>
   }
 });
 
+test('V11：纯离线读取也须核对页面记录与作品的帧数', { skip }, async () => {
+  const fx = fixture(4);
+  const { mergePageQaChunks } = await import('../../engine/render/lib/page-qa.mjs');
+  const rows = [0, 1, 2].map(f => ({ f, texts: [], runs: [], dom: [], plates: [], contrast: [] }));
+  const part = { rows, three: null, info: { hasTexts: true, dur: 3 / fps }, fonts: { faces: [], set: [], errors: [] }, externalRequests: [] };
+  const records = mergePageQaChunks([part], { ...spec, frameCount: 3 });
+  for (const key of ['texts', 'plates']) {
+    const file = writeJson(join(fx.work, `${key}.json`), records[key]);
+    const r = fx.invoke([key, '--film', fx.film, '--' + key, file]);
+    code(r, 2); assert.match(r.env.error.code, /^usage\./); assert.deepEqual(r.calls, noCalls);
+  }
+});
+
 test('V11：旧片无记录仍打开页面逐帧；浏览器不可用不算通过', { skip }, () => {
   const fx = fixture(3), args = ['texts', '--film', fx.film, '--run-dir', fx.run];
   const absent = fx.invoke(args);
@@ -202,35 +242,67 @@ test('V11：旧片无记录仍打开页面逐帧；浏览器不可用不算通�
   }
 });
 
-for (const samples of [1, 2]) test(`V11：真实 video CLI 编码并采集（${samples} 次采样），QA 自动消费原始输出，报告复现 three 底板密度失败`, { skip: skipBrowser, timeout: 120000 }, () => {
+for (const samples of [1, 2]) test(`V11：真实 video CLI 编码并采集（${samples} 次采样），QA 自动消费原始输出，报告复现 three 底板密度失败`, { skip: skipBrowser, timeout: 180000 }, async () => {
   const fx = fixture(24);
-  // 渲染入口只服务仓库内的页面。在 tmpdir 建最小仓库，复用真实 three 底板夹具和完整 QA 探针。
-  for (const dir of ['engine/render', 'tools/qa', 'tools/lib', 'tools/env/lib', 'tools/compliance/lib']) {
-    fs.cpSync(join(ROOT, dir), join(fx.repo, dir), { recursive: true });
-  }
-  for (const dir of ['engine/overlay', 'tools/plates']) fs.symlinkSync(join(ROOT, dir), join(fx.repo, dir), 'junction');
+  // 真实渲染入口独立运行；临时仓库不提供 tools/qa 或 QA 的间接依赖。
+  for (const dir of RENDERER_DIRS) fs.cpSync(join(ROOT, dir), join(fx.repo, dir), { recursive: true });
   fs.mkdirSync(join(fx.repo, 'engine/production'), { recursive: true });
   fs.copyFileSync(TEST_PROFILES, join(fx.repo, 'engine/production/profiles.json'));
   fs.symlinkSync(join(ROOT, 'node_modules'), join(fx.repo, 'node_modules'), 'junction');
-  fs.copyFileSync(join(FIXTURES, 'plates-page/fade.png'), join(fx.film, 'fade.png'));
-  fs.copyFileSync(join(ROOT, 'fonts/Barlow-500.woff2'), join(fx.film, 'demo.woff2'));
+  const page = samples === 2 ? join(fx.film, 'page') : fx.film;
+  fs.mkdirSync(page, { recursive: true });
+  const filmFile = join(fx.film, 'film.json'), manifest = json(filmFile);
+  if (samples === 2) {
+    manifest.qa = { visual: { blackPixel: 0.17 }, plates: { maxStdPx: 8, minCoverage: 0.4 } };
+    writeJson(filmFile, manifest);
+  }
+  fs.copyFileSync(join(FIXTURES, 'plates-page/fade.png'), join(page, 'fade.png'));
+  fs.copyFileSync(join(ROOT, 'fonts/Barlow-500.woff2'), join(page, 'demo.woff2'));
   const html = fs.readFileSync(join(FIXTURES, 'plates-page/index.html'), 'utf8');
   assert.ok(html.includes('window.TEXTS = () => [];'));
-  fs.writeFileSync(join(fx.film, 'index.html'), html.replace('window.TEXTS = () => [];', `
+  fs.writeFileSync(join(page, 'index.html'), html.replace('window.TEXTS = () => [];', `
     const face = await new FontFace('Demo', 'url(./demo.woff2)', { weight:'500' }).load(); document.fonts.add(face);
     const overlay = document.createElement('canvas'); overlay.width = W; overlay.height = H;
     overlay.style.cssText='position:absolute;inset:0;z-index:2'; document.body.append(overlay);
     const c = overlay.getContext('2d'), baseRender = window.render, font='500 24px Demo';
     window.render = t => { baseRender(t); c.fillStyle='#222'; c.fillRect(48,48,56,40); c.font=font; c.fillStyle='#fff'; c.fillText('5',60,76); };
     window.TEXTS = () => [{ id:'digit', text:'5', box:[57,52,22,30], alpha:1, font }];`));
-  const r = spawnSync(process.execPath, [join(fx.repo, 'engine/render/video.mjs'), fx.film, '--out', fx.mp4, '--qa-records', fx.work, '--workers', '2', '--chunk', '12', '--samples', String(samples), '--gpu', 'software-ok', '--angle', 'swiftshader', '--no-guard', '--progress', 'none', '--json'],
-    { cwd: fx.repo, encoding: 'utf8', timeout: 90000 });
-  assert.equal(r.status, 0, `${r.error || ''}\n${r.stderr}\n${r.stdout}`);
+  const render = (out, extra = []) => {
+    const r = spawnSync(process.execPath, [join(fx.repo, 'engine/render/video.mjs'), page, '--size', `${width}x${height}`, '--fps', String(fps), '--out', out, ...extra, '--workers', '2', '--chunk', '12', '--samples', String(samples), '--gpu', 'software-ok', '--angle', 'swiftshader', '--no-guard', '--progress', 'none', '--json'],
+      { cwd: fx.repo, encoding: 'utf8', timeout: 90000 });
+    assert.equal(r.status, 0, `${r.error || ''}\n${r.stderr}\n${r.stdout}`);
+    return json(`${out}.run.json`);
+  };
+  const original = join(fx.run, 'baseline.mp4'), baseline = render(original);
+  const captureArgs = ['--qa-records', fx.work, ...(samples === 2 ? ['--qa-film', filmFile, '--resume', '--keep-segments'] : [])];
+  const captured = render(fx.mp4, captureArgs);
+  if (samples === 2) {
+    manifest.shots[0].evaluation = 'absolute';
+    writeJson(filmFile, manifest);
+    assert.equal(render(fx.mp4, captureArgs).render.reusedChunks, 0, '作品改了取样求值方式后须重新采集');
+    assert.equal(render(fx.mp4, captureArgs).render.reusedChunks, 2, '求值方式相同可续用两个分片');
+  }
+  assert.deepEqual(captured.render.chunks, [[0, 12], [12, 24]]);
+  assert.deepEqual(framemd5(fx.mp4), framemd5(original), '编码后逐帧像素不受采集影响');
+  assert.deepEqual(captured.frameHashes.values, baseline.frameHashes.values, '采集前后逐帧像素一致');
   const telemetry = json(join(fx.work, 'telemetry.json'));
   assert.equal(telemetry.frameCount, 24);
   assert.equal(telemetry.frameHashes.length, 24);
   assert.ok(telemetry.frameHashes.every(h => /^[0-9a-f]{64}$/.test(h)));
-  assert.deepEqual(telemetry.frameHashes.map(h => h.slice(0,16)), json(`${fx.mp4}.run.json`).frameHashes.values);
+  assert.deepEqual(telemetry.frameHashes.map(h => h.slice(0,16)), captured.frameHashes.values);
+  const { loadProfiles, resolveProfile } = await import('../../tools/qa/lib/profiles.mjs');
+  const { visual } = resolveProfile(loadProfiles({ file: TEST_PROFILES }), manifest.output.profile, manifest);
+  assert.equal(telemetry.config.blackPixel, visual.blackPixel);
+  const decoded = await visualRecord(fx.mp4, 24, visual);
+  assert.deepEqual(telemetry.series, decoded.series, '分片采集对齐最终成片的逐帧解码统计');
+  for (const key of ['telemetry', 'texts', 'plates']) {
+    assert.equal(json(join(fx.work, `${key}.json`)).videoStreamSha256, decoded.videoStreamSha256, key);
+  }
+  if (samples === 2) {
+    const record = json(join(fx.work, 'plates.json'));
+    assert.deepEqual(record.images[0].analysis.options, manifest.qa.plates);
+    fs.renameSync(join(page, 'fade.png'), join(page, 'fade-original.png'));
+  }
   // video CLI 按约定出无声片，复制原视频流，加带第 12 帧起音的音轨供 sync 实测。
   const silent = join(fx.run, 'silent.mp4'); fs.renameSync(fx.mp4, silent);
   ffmpeg(['-i', silent, '-f', 'lavfi', '-i', "aevalsrc='0.33*sin(2*PI*440*t)*gte(t,0.5)':s=48000:d=1", '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-ac', '2', '-b:a', '192k', '-movflags', '+faststart', fx.mp4]);
@@ -243,4 +315,32 @@ for (const samples of [1, 2]) test(`V11：真实 video CLI 编码并采集（${s
   assert.equal(check(report.env, 'plates.straight-fade').status, 'warn');
   assert.equal(check(report.env, 'plates.density').evidence.rows[0].texelPerPx, 0.32);
   assert.equal(check(report.env, 'plates.density').status, 'fail');
+});
+
+test('V11-R2-Red：分片合并拒收重帧/缺帧，且被顶替成同规格全黑片的 master.mp4 不得借旧遥测蒙混通过 visual.black', { skip }, async () => {
+  const { mergePageQaChunks } = await import('../../engine/render/lib/page-qa.mjs');
+  const mkPart = frames => ({
+    rows: frames.map(f => ({ f, runs: [], dom: [], plates: [], contrast: [] })),
+    three: null,
+    info: { hasTexts: true },
+    fonts: { faces: [], set: [], errors: [] },
+    externalRequests: [],
+  });
+  assert.throws(() => mergePageQaChunks([mkPart([0, 1]), mkPart([1, 3])], { ...spec, frameCount: 4 }), /帧|frame|连续/i);
+
+  // 用全黑同规格成片顶替原成片（旧 work/telemetry.json 仍留在运行目录）：自动发现必须因码流指纹不符告警并回退真解码判黑场失败
+  const fx = fixture(12);
+  clip(fx.mp4, { size: `${width}x${height}`, dur: 12 / fps, audio: 'none' });
+  const brightTelemetry = await visualRecord(fx.mp4, 12);
+  const file = writeJson(join(fx.work, 'telemetry.json'), brightTelemetry);
+  clip(fx.mp4, { size: `${width}x${height}`, dur: 12 / fps, src: 'color=black:s={S}:r={R}:d={D}', audio: 'none' });
+  assert.notEqual(streamHash(fx.mp4), brightTelemetry.videoStreamSha256);
+  const args = ['visual', fx.mp4, '--run-dir', fx.run];
+  const r = fx.invoke(args);
+  assert.equal(r.calls.luma, 1, '换片后必须重新解码画面');
+  code(r, 4);
+  assert.equal(check(r.env, 'visual.black').status, 'fail');
+  assert.ok(r.env.warnings.some(w => /遥测|telemetry/i.test(w)));
+  const explicit = fx.invoke([...args, '--telemetry', file]);
+  code(explicit, 2); assert.match(explicit.env.error.code, /^usage\./); assert.deepEqual(explicit.calls, noCalls);
 });

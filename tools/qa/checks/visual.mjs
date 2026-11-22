@@ -12,7 +12,7 @@
 //   runVisual({ input, profile, film, probe, timeoutMs, telemetryFile, telemetryExplicit }) → { checks, series, framesOfInterest, source, warnings }
 import fs from 'node:fs/promises';
 import { makeCheck, finding, settle, notRun } from '../lib/checks.mjs';
-import { probeFile, rate } from '../lib/probe.mjs';
+import { probeFile, rate, recordVideoVerifier } from '../lib/probe.mjs';
 import { streamLuma } from '../lib/frames.mjs';
 import { usageError } from '../lib/cli-kit.mjs';
 import { fpsOf } from '../lib/profiles.mjs';
@@ -27,7 +27,7 @@ const covered = (r, list, tol = 1) => list.some(x => r[0] >= x.from - tol && r[1
 const near = (i, set, d) => { for (const c of set) if (Math.abs(i - c) <= d) return true; return false; };
 const srgbLin = v => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
 
-export async function runVisual({ input, profile, film = null, probe = null, timeoutMs, telemetryFile, telemetryExplicit = false }) {
+export async function runVisual({ input, profile, film = null, probe = null, timeoutMs, telemetryFile, telemetryExplicit = false, verifyVideo = recordVideoVerifier(input, { timeoutMs }) }) {
   const pr = probe || await probeFile(input, { timeoutMs });
   const v = pr.video;
   const checks = [], warnings = [];
@@ -45,7 +45,9 @@ export async function runVisual({ input, profile, film = null, probe = null, tim
   if (telemetryFile) {
     try {
       const doc = JSON.parse(await fs.readFile(telemetryFile, 'utf8'));
-      S = validateVisualTelemetry(doc, { width: v.width, height: v.height, frames: nb, fps, visual: V, clearColor });
+      const series = validateVisualTelemetry(doc, { width: v.width, height: v.height, frames: nb, fps, visual: V, clearColor });
+      await verifyVideo(doc, telemetryFile, v);
+      S = series;
       source = 'telemetry';
     } catch (e) {
       const why = `画面遥测 ${telemetryFile} 不可用：${e.message}`;

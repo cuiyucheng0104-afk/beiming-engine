@@ -21,7 +21,7 @@ import { findFilm, loadFilm, loadEvents, runDirOf, repoRootOf } from './lib/film
 import { collectWaivers, applyWaivers } from './lib/waivers.mjs';
 import { buildReport, validateReport, toMarkdown, technicalAcceptanceFrom } from './lib/report.mjs';
 import { requireFfmpeg } from './lib/proc.mjs';
-import { sha256File } from './lib/probe.mjs';
+import { recordVideoVerifier, sha256File } from './lib/probe.mjs';
 
 const COMMON = {
   '--json': { type: 'boolean', desc: 'stdout 只输出一个 JSON 信封' },
@@ -142,7 +142,8 @@ async function writeOut(dir, files) {
 async function runGroups(sub, opts, input) {
   // 同目录的 web.mp4 可能已转码；不要拿母版遥测替另一份码流作证。
   const run = opts.runDir ? path.resolve(opts.runDir) : input && ['master.mp4', 'animatic.mp4'].includes(path.basename(input)) ? path.dirname(path.resolve(input)) : null;
-  const ctx = context(opts, input || (run && path.join(run, 'master.mp4')));
+  const recordVideo = input || (run && ['master.mp4', 'animatic.mp4'].map(name => path.join(run, name)).find(file => fs.existsSync(file)));
+  const ctx = context(opts, recordVideo || (run && path.join(run, 'master.mp4')));
   function recordFile(name) {
     if (opts[name]) {
       const file = path.resolve(opts[name]);
@@ -152,14 +153,19 @@ async function runGroups(sub, opts, input) {
     const file = run && path.join(run, 'work', name + '.json');
     return file && fs.existsSync(file) ? file : null;
   }
-  const env = input || !['texts'].includes(sub) ? await envInfo() : { node: process.versions.node, platform: `${process.platform}-${process.arch}`, warnings: [] };
+  const offlinePlates = sub === 'plates' && !opts.images.length && recordFile('plates');
+  const env = sub === 'texts' || offlinePlates ? { node: process.versions.node, platform: `${process.platform}-${process.arch}`, warnings: [] } : await envInfo();
   const warnings = [...ctx.warnings, ...env.warnings];
   const ALL = ['delivery', 'visual', 'texts', 'plates', 'sync'];
   const groups = sub === 'report' ? ALL.filter(g => !(opts.skip || []).includes(g)) : [sub];
   const bad = (opts.skip || []).filter(g => !ALL.includes(g));
   if (bad.length) throw usageError(`--skip 只认 ${ALL.join(',')}，收到 ${bad.join(',')}`);
   const checks = [], skipped = [], extra = {}, errors = [];
-  let probe = null, facts = null, foi = [];
+  let probe = null, facts = null, foi = [], verifier;
+  function recordVerifier() {
+    if (!recordVideo) return null;
+    return verifier ??= recordVideoVerifier(recordVideo, { probe, decodedFrames: facts?.frames, timeoutMs: ctx.timeoutMs });
+  }
   function recordPageGroup(group, r) {
     checks.push(...r.checks); warnings.push(...r.warnings); extra[group] = r.summary;
     for (const c of r.checks) for (const f of c.findings || []) if ((f.status === 'fail' || f.status === 'warn') && f.frames) foi.push(f.frames[0]);
@@ -177,7 +183,7 @@ async function runGroups(sub, opts, input) {
         const { runVisual } = await import('./checks/visual.mjs');
         const telemetryFile = recordFile('telemetry');
         log(telemetryFile ? `▶ visual：读取渲染期遥测 ${rel(telemetryFile)}` : '▶ visual：解码分析画面');
-        const r = await runVisual({ input, profile: ctx.profile, film: ctx.film, probe, timeoutMs: ctx.timeoutMs, telemetryFile, telemetryExplicit: Boolean(opts.telemetry) });
+        const r = await runVisual({ input, profile: ctx.profile, film: ctx.film, probe, timeoutMs: ctx.timeoutMs, telemetryFile, telemetryExplicit: Boolean(opts.telemetry), verifyVideo: recordVerifier() });
         warnings.push(...r.warnings);
         checks.push(...r.checks); foi = [...new Set([...foi, ...r.framesOfInterest])]; extra.visualSeries = r.series;
       } else if (g === 'texts') {
@@ -190,7 +196,7 @@ async function runGroups(sub, opts, input) {
           const { runTextsFromJson } = await import('./checks/texts.mjs');
           log(`▶ texts：读取离线文字采样表 ${rel(textsFile)}`);
           const r = await runTextsFromJson({
-            textsFile, contrastDir: path.join(path.dirname(textsFile), 'contrast'), root: ROOT,
+            textsFile, contrastDir: path.join(path.dirname(textsFile), 'contrast'), root: ROOT, verifyVideo: recordVerifier(),
             size: pageSize(opts), profile: ctx.profile, film: ctx.film, step: opts.step || 1, contrast: !opts.noContrast,
           });
           recordPageGroup(g, r);
@@ -210,11 +216,11 @@ async function runGroups(sub, opts, input) {
       } else if (g === 'plates') {
         const images = sub === 'plates' ? (opts.images || []) : [];
         if (images.length && opts.plates) throw usageError('图片路径与 --plates 投影表不能同时使用');
-        const platesFile = !images.length && recordFile('plates');
+        const platesFile = sub === 'plates' ? offlinePlates : recordFile('plates');
         if (platesFile) {
           const { runPlatesFromJson } = await import('./checks/plates.mjs');
           log(`▶ plates：读取渲染期投影表 ${rel(platesFile)}`);
-          const r = await runPlatesFromJson({ platesFile, root: ROOT, size: pageSize(opts), profile: ctx.profile, film: ctx.film, step: opts.step || 1, timeoutMs: ctx.timeoutMs });
+          const r = await runPlatesFromJson({ platesFile, verifyVideo: recordVerifier(), root: ROOT, size: pageSize(opts), profile: ctx.profile, film: ctx.film, step: opts.step || 1, timeoutMs: ctx.timeoutMs });
           recordPageGroup(g, r);
           continue;
         }

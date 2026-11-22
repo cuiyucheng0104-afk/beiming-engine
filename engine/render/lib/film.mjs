@@ -9,11 +9,11 @@ import { RenderError } from './errors.mjs';
 
 const int = v => (Number.isInteger(v) ? v : null);
 
-export function readFilm(dir) {
-  const file = path.join(dir, 'film.json');
+export function readFilm(dir, overrideFile = null) {
+  const file = overrideFile || path.join(dir, 'film.json');
   let j;
   try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {
-    if (e.code === 'ENOENT') return null;
+    if (!overrideFile && e.code === 'ENOENT') return null;
     throw new RenderError('contract.film-json', `${file} 不是合法 JSON：${e.message}`, { hint: '先修好 film.json（node engine/production/film.js check 可逐项检查）' });
   }
   const v2 = j.schemaVersion === 2 || (j.output && typeof j.output === 'object');

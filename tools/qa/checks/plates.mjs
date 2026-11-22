@@ -105,8 +105,9 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
   const addFile = async (f, use) => {
     if (!files.has(f)) {
       const saved = snapshots.get(f);
-      // 阈值不同则要重查原图，而且必须仍是渲染时那份字节；默认档位不依赖原素材还在。
-      const useSnapshot = saved && (T.maxStdPx ?? 15) === 15 && (T.minCoverage ?? 0.3) === 0.3;
+      // 旧记录统一按默认阈值分析。只有验收改了采样阈值，才需要重查渲染时的原图。
+      const useSnapshot = saved && (saved.options?.maxStdPx ?? 15) === (T.maxStdPx ?? 15) &&
+        (saved.options?.minCoverage ?? 0.3) === (T.minCoverage ?? 0.3);
       const analysis = useSnapshot ? saved : await analyzePlate(f, opts);
       if (saved && analysis.sha256 !== saved.sha256) throw usageError('底板已变，不能按新阈值重查渲染时的素材');
       files.set(f, { name: nameOf(f), file: f, analysis, uses: new Set() });
@@ -228,7 +229,7 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
 }
 
 // 页面渲染期的同帧投影直接走原来的密度、遮边与静态 alpha 检查，不启动页面。
-export async function runPlatesFromJson({ platesFile, root = REPO_ROOT, profile, film = null, step = 1, size = null, timeoutMs }) {
+export async function runPlatesFromJson({ platesFile, root = REPO_ROOT, profile, film = null, step = 1, size = null, timeoutMs, verifyVideo = null }) {
   const doc = readPageRecord(platesFile);
   checkPageRecordSpec(doc, { film, size, fps: (film?.fps || fpsOf(profile)).value });
   const count = doc.frames;
@@ -246,5 +247,6 @@ export async function runPlatesFromJson({ platesFile, root = REPO_ROOT, profile,
     !(Number.isSafeInteger(p.iw) && p.iw > 0 && Number.isSafeInteger(p.ih) && p.ih > 0 && Number.isFinite(p.opacity)) ||
     ![p.flipY, p.wrapS, p.wrapT].every(v => typeof v === 'boolean') || !(p.crop === null || Number.isFinite(p.crop?.soft)) || [p.clip, p.uv].some((a, k) => !Array.isArray(a) || a.length !== 4 || a.some(v => !Array.isArray(v) || v.length !== (k ? 2 : 4) || !v.every(Number.isFinite)))))) throw usageError('plates.json 缺少逐帧投影或底板坐标无效');
   if (doc.platesErr) throw usageError('面片探针出错：' + doc.platesErr);
+  await verifyVideo?.(doc, platesFile);
   return runPlates({ root, profile, film, step, size: size || [doc.width, doc.height], timeoutMs, recorded: doc });
 }

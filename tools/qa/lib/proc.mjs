@@ -5,63 +5,9 @@
 //   run(cmd, args, { timeoutMs, onStdout, maxStdout, stdin })   → { code, stdout: Buffer, stderr: string }
 //        onStdout(chunk) 给了就流式交出 stdout、不在内存里攒；超时抛 QaError('timeout', exit 124)
 //   requireFfmpeg(filters)                 版本与滤镜不满足时抛 QaError（exit 3），说明缺什么、怎么装
-import { spawn } from 'node:child_process';
-import { QaError, EXIT, trackChild } from './cli-kit.mjs';
-
-const ENV = { ffmpeg: 'FFMPEG', ffprobe: 'FFPROBE' };
-export const tool = name => (ENV[name] && process.env[ENV[name]]) || name;
-
-const INSTALL_HINT = '安装 FFmpeg 7 或更新的版本（需带 libx264、aac、ebur128、loudnorm）：macOS 用 brew install ffmpeg，'
-  + 'Windows 用 winget install Gyan.FFmpeg，Linux 用发行版的 ffmpeg 包；装在非标准位置时设环境变量 FFMPEG / FFPROBE 指向可执行文件';
-
-export function run(cmd, args, { timeoutMs = 10 * 60 * 1000, onStdout = null, maxStdout = 512 << 20, stdin = null } = {}) {
-  return new Promise((resolve, reject) => {
-    let cp;
-    try {
-      cp = spawn(cmd, args, { stdio: [stdin == null ? 'ignore' : 'pipe', 'pipe', 'pipe'], windowsHide: true });
-    } catch (e) {
-      reject(new QaError('env.tool-missing', `无法启动 ${cmd}：${e.message}`, { hint: INSTALL_HINT, exitCode: EXIT.ENV }));
-      return;
-    }
-    trackChild(cp);
-    const out = [];
-    let outLen = 0, err = '', settled = false, overflow = false;
-    const done = (fn, v) => { if (!settled) { settled = true; clearTimeout(timer); fn(v); } };
-    const timer = setTimeout(() => {
-      try { cp.kill('SIGKILL'); } catch { /* 已退出 */ }
-      done(reject, new QaError('timeout', `${cmd} 超过 ${Math.round(timeoutMs / 1000)} 秒没有结束，已终止`,
-        { hint: '文件很长时用 --timeout 放宽（单位秒）；否则检查输入是否损坏', exitCode: EXIT.TIMEOUT }));
-    }, timeoutMs);
-    cp.on('error', e => {
-      const missing = e.code === 'ENOENT';
-      done(reject, new QaError(missing ? 'env.tool-missing' : 'runtime', missing ? `找不到 ${cmd}` : `${cmd} 启动失败：${e.message}`,
-        { hint: missing ? INSTALL_HINT : null, exitCode: missing ? EXIT.ENV : EXIT.RUNTIME }));
-    });
-    cp.stdout.on('data', chunk => {
-      if (onStdout) {
-        try { onStdout(chunk); } catch (e) { try { cp.kill('SIGKILL'); } catch { /* 已退出 */ } done(reject, e); }
-        return;
-      }
-      if (outLen + chunk.length > maxStdout) { overflow = true; return; }
-      out.push(chunk); outLen += chunk.length;
-    });
-    cp.stderr.on('data', chunk => {
-      err += chunk.toString('utf8');
-      if (err.length > 8 << 20) err = err.slice(-(4 << 20));
-    });
-    cp.on('close', (code, signal) => {
-      if (overflow) {
-        done(reject, new QaError('runtime', `${cmd} 的输出超过 ${Math.round(maxStdout / 2 ** 20)} MB 上限`, { exitCode: EXIT.RUNTIME }));
-        return;
-      }
-      done(resolve, { code: code ?? (signal ? 128 : 1), signal, stdout: Buffer.concat(out), stderr: err });
-    });
-    if (stdin != null) { cp.stdin.on('error', () => {}); cp.stdin.end(stdin); }
-  });
-}
-
-// 最后几行有用的 stderr（给错误信息用，避免把整页日志塞进报告）
-export const tail = (s, n = 6) => String(s || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).slice(-n).join(' | ');
+import { QaError, EXIT } from './cli-kit.mjs';
+import { run, tool, tail, INSTALL_HINT } from '../../../engine/render/lib/qa-process.mjs';
+export { run, tool, tail };
 
 let info = null;
 export async function ffmpegInfo() {

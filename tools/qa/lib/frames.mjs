@@ -8,12 +8,7 @@
 import { run, tool, tail } from './proc.mjs';
 import { QaError, EXIT } from './cli-kit.mjs';
 
-export function analysisSize(w, h, maxW = 480) {
-  const s = Math.min(1, maxW / w);
-  const ow = Math.max(2, Math.round((w * s) / 2) * 2);
-  const oh = Math.max(2, Math.round((h * s) / 2) * 2);
-  return { w: ow, h: oh };
-}
+export { analysisSize } from '../../../engine/render/lib/analysis-size.mjs';
 
 function framer(size, onFrame) {
   let buf = Buffer.alloc(0), n = 0;
