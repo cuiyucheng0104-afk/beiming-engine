@@ -1,7 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { atomicWrite, checkJobId, checkKeep, openWorkspace, processIsAlive, readText, safePath } from './workspace.mjs';
+import { atomicWrite, checkJobId, checkKeep, locateOwned, openWorkspace, processIsAlive, readText, safePath } from './workspace.mjs';
 import { appendSettlement, isPlainObject, prepareSettlement, quoteFromDraft, readJobLedger, summarizeJobLedger, withFileLock } from './ledger.mjs';
 import { defaultScheduler } from './scheduler.mjs';
 
@@ -55,7 +56,11 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
   const workspace = openWorkspace(dir);
   const jobFile = id => workspace.resolve(`jobs/${checkJobId(id)}/job.json`);
   const ledgerFile = () => workspace.resolve('jobs/ledger.jsonl');
-  const ownerFile = (id, attempt, generation) => workspace.resolve(`jobs/${checkJobId(id)}/attempt-${attempt}.owner-${generation}`);
+  const ownerFileIn = (jobDir, attempt, generation) => path.join(jobDir, `attempt-${attempt}.owner-${generation}`);
+  const parseOwnerPid = text => Number(text.trim().split(/\s+/)[0]);
+  const sameJobSeed = (a, b) => a.id === b.id && a.handler === b.handler &&
+    JSON.stringify(a.payload) === JSON.stringify(b.payload) &&
+    JSON.stringify(a.snapshot) === JSON.stringify(b.snapshot);
 
   function readJob(id, file = jobFile(id)) {
     const job = JSON.parse(readText(file));
@@ -67,39 +72,80 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     return job;
   }
 
+  function readLockedJob(id, locked) {
+    for (;;) {
+      const file = locked();
+      let snap;
+      try {
+        snap = readJob(id, file);
+      } catch (error) {
+        if (error?.code === 'ENOENT' && locked() !== file) continue;
+        throw error;
+      }
+      if (locked() === file) return { job: snap, file };
+    }
+  }
+
   function save(job, create = false, file = jobFile(job.id)) {
     atomicWrite(file, `${JSON.stringify(job, null, 2)}\n`, { create });
   }
 
-  // 领取文件按轮次和代号追加。崩溃后只能通过下一代恢复，避免两个进程移除对方的领取文件。
-  function claim(job, attempt = job.attempt) {
-    let file;
-    for (let generation = 1; ; generation += 1) {
-      file = ownerFile(job.id, attempt, generation);
+  function findActiveForDir(jobDir) {
+    for (const entry of active.values()) {
       try {
-        atomicWrite(file, `${process.pid}\n`, { create: true });
+        if (entry.gen.currentDir() === jobDir) return entry;
+      } catch {}
+    }
+    return undefined;
+  }
+
+  // 领取文件按轮次和代号追加，并写入唯一认主令牌；后续运行态和终态回写靠 locateOwned 追随本代目录，绝不跨代覆盖。
+  function claim(job, attempt = job.attempt, file = jobFile(job.id)) {
+    checkJobId(job.id);
+    let lastDir = path.dirname(file);
+    const token = `${process.pid} ${randomUUID()}\n`;
+    let claimedFile;
+    for (let generation = 1; ; generation += 1) {
+      claimedFile = ownerFileIn(lastDir, attempt, generation);
+      try {
+        atomicWrite(claimedFile, token, { create: true });
         break;
       } catch (error) {
         if (error.code !== 'EEXIST') throw error;
-        if (processIsAlive(Number(readText(file).trim())) || attempt === job.attempt) {
+        if (processIsAlive(parseOwnerPid(readText(claimedFile))) || attempt === job.attempt) {
           throw new Error('该作业轮次已经由执行器领取。', { cause: error });
         }
       }
     }
+    const ownerName = path.basename(claimedFile);
+    const resolveFile = () => {
+      const found = locateOwned(path.join(lastDir, ownerName), candidate => readText(candidate) === token, true);
+      if (!found) throw new Error('作业所属目录在执行期间丢失。');
+      lastDir = path.dirname(found);
+      return path.join(lastDir, 'job.json');
+    };
     try {
-      if (readJob(job.id).events.length !== job.events.length) throw new Error('作业状态已在磁盘上更新。');
+      const currentFile = resolveFile();
+      const disk = readJob(job.id, currentFile);
+      if (disk.events.length !== job.events.length || !sameJobSeed(disk, job)) {
+        throw new Error('作业状态已在磁盘上更新。');
+      }
     } catch (error) {
-      fs.rmSync(file, { force: true });
+      const mine = locateOwned(path.join(lastDir, ownerName), candidate => readText(candidate) === token);
+      if (mine) fs.rmSync(mine, { force: true });
       throw error;
     }
+    return { token, resolveFile, currentDir: () => path.dirname(resolveFile()) };
   }
 
-  function owner(job) {
+  function owner(job, file = jobFile(job.id)) {
+    checkJobId(job.id);
+    const jobDir = path.dirname(file);
     let pid;
     for (let generation = 1; ; generation += 1) {
-      const file = ownerFile(job.id, job.attempt, generation);
-      if (!fs.lstatSync(file, { throwIfNoEntry: false })) return pid;
-      pid = Number(readText(file).trim());
+      const candidate = ownerFileIn(jobDir, job.attempt, generation);
+      if (!fs.lstatSync(candidate, { throwIfNoEntry: false })) return pid;
+      pid = parseOwnerPid(readText(candidate));
     }
   }
 
@@ -163,26 +209,30 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     }
   }
 
-  function finish(job, status, details, usage) {
+  function finishLocked(job, status, details, usage, locked) {
     const ledger = settlementDetails(job, status, usage);
     workspace.cleanupIntermediate(job.id, { keep: job.keep, status, attempt: job.attempt });
     transition(job, status, { ...details, ...ledger });
     // 终态首次可见后仍可能回写追加失败的诊断。重放领取前须等这一轮写完。
     // 持锁期间作业目录被轮换的话，两次回写都落在锁所在的那一代目录里。
-    withFileLock(jobFile(job.id), locked => {
-      const write = () => save(job, false, locked());
+    const write = () => save(job, false, locked());
+    write();
+    if (!ledger.settlement) return;
+    try {
+      appendSettlement(ledgerFile(), ledger.settlement);
+    } catch (error) {
+      job.events.at(-1).ledgerError = message(error);
       write();
-      if (!ledger.settlement) return;
-      try {
-        appendSettlement(ledgerFile(), ledger.settlement);
-      } catch (error) {
-        job.events.at(-1).ledgerError = message(error);
-        write();
-      }
-    });
+    }
   }
 
-  async function execute(job, handler, signal) {
+  function finish(job, status, details, usage, gen) {
+    const target = gen ? gen.resolveFile() : jobFile(job.id);
+    withFileLock(target, locked => finishLocked(job, status, details, usage, locked));
+  }
+
+  async function execute(job, handler, signal, gen) {
+    let currentGen = gen;
     for (;;) {
       let lease;
       try {
@@ -192,35 +242,42 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
           if (!signal.aborted) throw error;
         }
         if (signal.aborted) {
-          finish(job, 'canceled', { reason: 'canceled' });
+          finish(job, 'canceled', { reason: 'canceled' }, undefined, currentGen);
           return job;
         }
         transition(job, 'running');
-        save(job);
+        save(job, false, currentGen.resolveFile());
         const startedAt = performance.now();
-        const outcome = await executeAttempt(job, handler, lease.signal);
+        const outcome = await executeAttempt(job, handler, lease.signal, currentGen);
         const usage = { cost: outcome.cost, ledgerError: outcome.ledgerError, startedAt };
         if (signal.aborted) {
-          finish(job, 'canceled', { reason: 'canceled' }, usage);
+          finish(job, 'canceled', { reason: 'canceled' }, usage, currentGen);
           return job;
         }
         if (lease.signal.reason !== 'preempted') {
           if (outcome.error !== undefined) job.error = outcome.error;
           if (outcome.result !== undefined) job.result = outcome.result;
-          finish(job, outcome.status, undefined, usage);
+          finish(job, outcome.status, undefined, usage, currentGen);
           return job;
         }
-        finish(job, 'stopped', { reason: 'preempted' }, usage);
-        claim(job, job.attempt + 1);
+        finish(job, 'stopped', { reason: 'preempted' }, usage, currentGen);
+        const nextGen = claim(job, job.attempt + 1, currentGen.resolveFile());
+        const activeEntry = active.get(currentGen.token);
+        if (activeEntry) {
+          active.delete(currentGen.token);
+          activeEntry.gen = nextGen;
+          active.set(nextGen.token, activeEntry);
+        }
+        currentGen = nextGen;
         nextAttempt(job);
-        save(job);
+        save(job, false, currentGen.resolveFile());
       } finally {
         lease?.release();
       }
     }
   }
 
-  async function executeAttempt(job, handler, signal) {
+  async function executeAttempt(job, handler, signal, gen) {
     const pending = new Set();
     let acceptingSteps = true;
     async function measure(name, run) {
@@ -229,7 +286,7 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
       if (typeof name !== 'string' || !name || typeof run !== 'function') throw new TypeError('步骤需要名称和执行函数。');
       const entry = { name, attempt: job.attempt, startEvent: addEvent(job, 'step-start', { name }) };
       job.steps.push(entry);
-      save(job);
+      save(job, false, gen.resolveFile());
       let status = 'failed';
       let durationMs;
       try {
@@ -259,7 +316,7 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
         entry.status = signal.aborted ? 'stopped' : status;
         if (durationMs !== undefined) entry.durationMs = durationMs;
         entry.endEvent = addEvent(job, 'step-end', { name, status: entry.status });
-        save(job);
+        save(job, false, gen.resolveFile());
       }
     }
     function step(name, run) {
@@ -299,11 +356,12 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     }
   }
 
-  function launch(job, handler) {
+  function launch(job, handler, gen) {
     const controller = new AbortController();
-    const file = jobFile(job.id);
-    const promise = Promise.resolve().then(() => execute(job, handler, controller.signal)).finally(() => active.delete(file));
-    active.set(file, { controller, promise });
+    const record = { id: job.id, gen, controller, promise: null };
+    const promise = Promise.resolve().then(() => execute(job, handler, controller.signal, record.gen)).finally(() => active.delete(record.gen.token));
+    record.promise = promise;
+    active.set(gen.token, record);
     return promise.then(result => structuredClone(result));
   }
 
@@ -314,12 +372,15 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
   }
 
   function runJob(id) {
-    const job = readJob(id);
-    if (job.status !== 'queued') throw new Error('只能启动排队中的作业。');
-    const handler = getHandler(job);
-    scheduler.request(job.request);
-    claim(job);
-    return launch(job, handler);
+    const claimed = withFileLock(jobFile(id), locked => {
+      const { job, file } = readLockedJob(id, locked);
+      if (job.status !== 'queued') throw new Error('只能启动排队中的作业。');
+      const handler = getHandler(job);
+      scheduler.request(job.request);
+      const gen = claim(job, job.attempt, file);
+      return { job, handler, gen };
+    });
+    return launch(claimed.job, claimed.handler, claimed.gen);
   }
 
   function replay(id) {
@@ -328,55 +389,55 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     } catch {
       // 补旧账失败不挡执行；读账仍严格报错，新轮追加失败也会在终态记录原因。
     }
-    const job = withFileLock(jobFile(id), locked => {
-      for (;;) {
-        const file = locked();
-        let snap;
-        try {
-          snap = readJob(id, file);
-        } catch (error) {
-          if (error?.code === 'ENOENT' && locked() !== file) continue;
-          throw error;
+    const claimed = withFileLock(jobFile(id), locked => {
+      const { job, file } = readLockedJob(id, locked);
+      if (findActiveForDir(path.dirname(file))) throw new Error('作业仍由本进程执行。');
+      const handler = getHandler(job);
+      scheduler.request(job.request);
+      const pid = owner(job, file);
+      if (job.status === 'queued' && pid === undefined) {
+        const gen = claim(job, job.attempt, file);
+        return { job, handler, gen };
+      }
+      if (!terminal.has(job.status) && (pid === undefined || processIsAlive(pid))) throw new Error('作业仍由执行进程领取。');
+      const gen = claim(job, job.attempt + 1, file);
+      if (job.status === 'running') {
+        for (const step of job.steps.filter(step => step.attempt === job.attempt && !step.endEvent)) {
+          step.status = 'stopped';
+          step.endEvent = addEvent(job, 'step-end', { name: step.name, status: 'stopped' });
         }
-        if (locked() === file) return snap;
+        finishLocked(job, 'stopped', { reason: 'interrupted' }, undefined, locked);
+      } else if (job.status === 'queued') {
+        finishLocked(job, 'canceled', { reason: 'interrupted' }, undefined, locked);
       }
+      nextAttempt(job);
+      save(job, false, gen.resolveFile());
+      return { job, handler, gen };
     });
-    if (active.has(jobFile(id))) throw new Error('作业仍由本进程执行。');
-    const handler = getHandler(job);
-    scheduler.request(job.request);
-    const pid = owner(job);
-    if (job.status === 'queued' && pid === undefined) {
-      claim(job);
-      return launch(job, handler);
-    }
-    if (!terminal.has(job.status) && (pid === undefined || processIsAlive(pid))) throw new Error('作业仍由执行进程领取。');
-    claim(job, job.attempt + 1);
-    if (job.status === 'running') {
-      for (const step of job.steps.filter(step => step.attempt === job.attempt && !step.endEvent)) {
-        step.status = 'stopped';
-        step.endEvent = addEvent(job, 'step-end', { name: step.name, status: 'stopped' });
-      }
-      finish(job, 'stopped', { reason: 'interrupted' });
-    } else if (job.status === 'queued') {
-      finish(job, 'canceled', { reason: 'interrupted' });
-    }
-    nextAttempt(job);
-    save(job);
-    return launch(job, handler);
+    return launch(claimed.job, claimed.handler, claimed.gen);
   }
 
   function cancelJob(id) {
-    const entry = active.get(jobFile(id));
-    if (entry) {
-      entry.controller.abort('canceled');
-      return entry.promise.then(job => structuredClone(job));
+    const direct = findActiveForDir(path.dirname(jobFile(id)));
+    if (direct) {
+      direct.controller.abort('canceled');
+      return direct.promise.then(job => structuredClone(job));
     }
-    const job = readJob(id);
-    if (job.status === 'canceled') return Promise.resolve(job);
-    if (job.status !== 'queued') throw new Error('当前作业状态不能取消。');
-    claim(job);
-    finish(job, 'canceled', { reason: 'canceled' });
-    return Promise.resolve(job);
+    const canceled = withFileLock(jobFile(id), locked => {
+      const { job, file } = readLockedJob(id, locked);
+      const runningEntry = findActiveForDir(path.dirname(file));
+      if (runningEntry) return { runningEntry };
+      if (job.status === 'canceled') return { job };
+      if (job.status !== 'queued') throw new Error('当前作业状态不能取消。');
+      claim(job, job.attempt, file);
+      finishLocked(job, 'canceled', { reason: 'canceled' }, undefined, locked);
+      return { job };
+    });
+    if (canceled.runningEntry) {
+      canceled.runningEntry.controller.abort('canceled');
+      return canceled.runningEntry.promise.then(job => structuredClone(job));
+    }
+    return Promise.resolve(canceled.job);
   }
 
   function waitForJob(id, { timeoutMs = 30000 } = {}) {
@@ -437,7 +498,7 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     return quoteFromDraft({ ...draft, draftFrames: row.renderedFrames, draftGpuSeconds: row.gpuSeconds, draftWallMs: row.wallMs });
   }
 
-  return Object.freeze({ enqueue, runJob, getJob: readJob, listJobs, jobFile, waitForJob, cancelJob, replay,
+  return Object.freeze({ enqueue, runJob, getJob: id => readJob(id), listJobs, jobFile, waitForJob, cancelJob, replay,
     ledgerFile, reconcileLedger, readLedger: reconcileLedger, summarizeLedger: options => summarizeJobLedger(reconcileLedger(options)), quoteJobFromDraft });
 }
 

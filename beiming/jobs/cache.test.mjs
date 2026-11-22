@@ -1948,10 +1948,10 @@ test('A16-37 十一审收口（Red -> Green）：缓存根 ino=0n 轮换后重�
     assert.deepEqual(fs.readdirSync(cache.root).filter(n => n === '.cache.lock' || n.startsWith('.write-')), []);
   });
 
-  await t.test('2) queue.replay() 在持锁回调内发生目录轮换且新代由另一把锁持有时：只读自己持锁的 old-generation，绝不读 new-generation', (st) => {
+  await t.test('2) queue.replay() 在首次打开 job.json 前及运行中发生目录轮换且新代由另一把锁持有时：认主、领取、运行与终态落盘全程绑定 old-generation，绝不污染 new-generation，且 getJob 支持一元 map 回调', async (st) => {
     const wsOld = path.join(parent, 'ws-replay');
     const wsNew = path.join(parent, 'ws-replay-new');
-    for (const [wsDir, handlerName] of [[wsOld, 'old-generation'], [wsNew, 'new-generation']]) {
+    for (const [wsDir, handlerName, tag] of [[wsOld, 'old-generation', 'old'], [wsNew, 'new-generation', 'new']]) {
       fs.mkdirSync(path.join(wsDir, 'shots'), { recursive: true });
       fs.writeFileSync(path.join(wsDir, 'shots', 's01.js'), 'export default {};\n');
       fs.writeFileSync(path.join(wsDir, 'film.json'), JSON.stringify({
@@ -1960,47 +1960,88 @@ test('A16-37 十一审收口（Red -> Green）：缓存根 ino=0n 轮换后重�
         shots: [{ id: 's01', entry: 'shots/s01.js', in: 0, out: 2 }],
       }));
       openWorkspace(wsDir).commitRevision(0);
-      loadQueue(wsDir, { handlers: { [handlerName]: async () => ({}) } }).enqueue({ id: 'job-1', kind: 'draft', handler: handlerName, rev: 0 });
+      const qInit = loadQueue(wsDir, { handlers: { [handlerName]: async () => ({}) } });
+      qInit.enqueue({ id: 'job-1', kind: 'draft', handler: handlerName, payload: tag, rev: 0 });
+      assert.deepEqual(['job-1'].map(qInit.getJob).map(j => j.id), ['job-1'], 'ids.map(queue.getJob) 不得受 map 下标二参干扰');
     }
 
-    const q = loadQueue(wsOld, { handlers: {} }); // 故意不注册 handler，用抛出的缺失执行器名精确观察读到了哪一代
     const jobRetired = path.join(fs.realpathSync(wsOld), 'jobs', 'job-1-retired');
+    const jobRetired2 = path.join(fs.realpathSync(wsOld), 'jobs', 'job-1-retired-2');
     const newJobDir = path.join(fs.realpathSync(wsNew), 'jobs', 'job-1');
     const oldJobDir = path.join(fs.realpathSync(wsOld), 'jobs', 'job-1');
     const realRename = fs.renameSync;
+    const realOpenSync = fs.openSync;
+    const seen = [];
+    let rotatedOnOpen = false;
+    let rotatedMidRun = false;
 
-    withFileLock(path.join(newJobDir, 'job.json'), () => {
-      const realLstat = fs.lstatSync;
-      let postLockSeen = false;
-      let rotated = false;
-      st.mock.method(fs, 'lstatSync', (target, opts) => {
-        const s = realLstat(target, opts);
-        if (String(target) === path.join(oldJobDir, 'job.json.lock') && opts?.bigint) {
-          if (postLockSeen && !rotated) {
-            rotated = true;
+    const q = loadQueue(wsOld, {
+      handlers: {
+        'old-generation': async ({ job, step }) => {
+          seen.push({ handler: 'old-generation', payload: job.payload });
+          await step('rotate-mid-run', async () => {
+            if (!rotatedMidRun) {
+              rotatedMidRun = true;
+              realRename(jobRetired, jobRetired2);
+            }
+          });
+          return { ran: 'old' };
+        },
+        'new-generation': async ({ job }) => {
+          seen.push({ handler: 'new-generation', payload: job.payload });
+          return { ran: 'new' };
+        },
+      },
+    });
+
+    let pendingReplay;
+    try {
+      withFileLock(path.join(newJobDir, 'job.json'), () => {
+        st.mock.method(fs, 'openSync', (target, ...rest) => {
+          if (!rotatedOnOpen && String(target) === path.join(oldJobDir, 'job.json') && fs.existsSync(path.join(oldJobDir, 'job.json.lock'))) {
+            rotatedOnOpen = true;
             realRename(oldJobDir, jobRetired);
             realRename(newJobDir, oldJobDir);
           }
-          postLockSeen = true;
-        }
-        return s;
-      });
-
-      try {
-        assert.throws(
-          () => q.replay('job-1'),
-          /缺少作业执行器 old-generation。/,
-          'replay 必须读取自己持锁的 old-generation，不得读取另一把锁保护的 new-generation',
-        );
-        assert.equal(rotated, true);
-      } finally {
+          return realOpenSync(target, ...rest);
+        });
+        pendingReplay = q.replay('job-1');
         st.mock.restoreAll();
-        if (rotated) {
-          realRename(oldJobDir, newJobDir);
-          realRename(jobRetired, oldJobDir);
-        }
+      }, 500, '测试');
+
+      const replayed = await pendingReplay;
+      assert.equal(rotatedOnOpen, true, '必须在首次打开 oldJobDir/job.json 前触发轮换');
+      assert.equal(rotatedMidRun, true, '必须在步骤执行中触发二次目录轮换');
+      assert.equal(replayed.status, 'succeeded');
+      assert.equal(replayed.handler, 'old-generation');
+      assert.equal(replayed.payload, 'old');
+      assert.deepEqual(seen, [{ handler: 'old-generation', payload: 'old' }]);
+
+      const oldOnDisk = JSON.parse(fs.readFileSync(path.join(jobRetired2, 'job.json'), 'utf8'));
+      const newOnDisk = JSON.parse(fs.readFileSync(path.join(oldJobDir, 'job.json'), 'utf8'));
+      assert.equal(oldOnDisk.handler, 'old-generation');
+      assert.equal(oldOnDisk.payload, 'old');
+      assert.equal(oldOnDisk.status, 'succeeded');
+      assert.equal(fs.existsSync(path.join(jobRetired2, 'attempt-1.owner-1')), true, '领取文件必须落在 old-generation 目录');
+
+      assert.equal(newOnDisk.handler, 'new-generation');
+      assert.equal(newOnDisk.payload, 'new');
+      assert.equal(newOnDisk.status, 'queued', '轮换进来的 new-generation 记录必须保持原样 queued，绝不可被 old 覆盖');
+      assert.deepEqual(
+        fs.readdirSync(oldJobDir).filter(name => name.startsWith('attempt-')),
+        [],
+        'new-generation 目录不得被写入 old-generation 的领取文件',
+      );
+    } finally {
+      st.mock.restoreAll();
+      if (rotatedMidRun && fs.existsSync(jobRetired2)) {
+        realRename(jobRetired2, jobRetired);
       }
-    }, 500, '测试');
+      if (rotatedOnOpen) {
+        realRename(oldJobDir, newJobDir);
+        realRename(jobRetired, oldJobDir);
+      }
+    }
   });
 
   await t.test('3) 兄弟目录可列出但旧代锁候选持续 EBUSY 或目录权限 000：释放必须报错登记孤儿锁，故障恢复后同进程重取成功；无关 000 兄弟目录不干扰正常回收', (st) => {
