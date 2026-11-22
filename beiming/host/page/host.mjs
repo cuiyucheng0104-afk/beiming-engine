@@ -1,6 +1,7 @@
 // 页面宿主（node 一侧）：three 帧源对上层的接口就在这里。起本机静态服务和无头、静音的浏览器；
 // open 开一个新页面装载镜头，render 让页面出一帧、把读回的各层写成层文件、交回元数据和层引用。页面一侧在 runtime.js。
 import { createHash } from 'node:crypto';
+import { realpathSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
@@ -47,19 +48,29 @@ function plane(data, k, at, lut) {
   return out;
 }
 
-/** 地址里的路径换成仓库里的文件；不在放行目录里、或者想跳出去的，返回 null */
-export function resolveServed(urlPath) {
+/**
+ * 地址里的路径换成仓库里的文件，交回它的真实路径；不在放行目录里的、想跳出去的、文件不存在的返回 null。
+ * 符号链接照它指到的真实文件再判一遍：真实路径必须还在那个放行目录（也取真实路径）下面、扩展名不变，链接跳出目录的拿不到。
+ * repo 是仓库根，只有测试会换。
+ */
+export function resolveServed(urlPath, repo = REPO) {
   let path;
   try { path = decodeURIComponent(urlPath.split('?')[0]).replace(/^\/+/, ''); } catch { return null; }
-  const abs = resolve(REPO, path);
-  const at = rel(abs), ext = extname(abs);
-  return (SERVED.some((dir) => at.startsWith(dir)) && MIME[ext]) || (at.startsWith(FONTS) && ext === '.woff2') ? abs : null;
+  const abs = resolve(repo, path);
+  const at = relative(repo, abs).split(sep).join('/'), ext = extname(abs);
+  const dir = (MIME[ext] && SERVED.find((d) => at.startsWith(d))) || (ext === '.woff2' && at.startsWith(FONTS) && FONTS);
+  if (!dir) return null;
+  try {
+    const real = realpathSync(abs);
+    return real.startsWith(realpathSync(resolve(repo, dir)) + sep) && extname(real) === ext ? real : null;
+  } catch { return null; }
 }
 
-async function startServer() {
+/** 起本机静态服务（只绑 127.0.0.1）。repo 是仓库根，只有测试会换 */
+export async function startServer(repo = REPO) {
   const server = createServer(async (req, res) => {
     if (req.url === '/') return res.writeHead(200, { 'content-type': 'text/html' }).end(PAGE);
-    const file = resolveServed(req.url);
+    const file = resolveServed(req.url, repo);
     const body = file && await readFile(file).catch(() => null);
     if (!body) return res.writeHead(404).end();
     res.writeHead(200, { 'content-type': MIME[extname(file)], 'cache-control': 'no-store' }).end(body);

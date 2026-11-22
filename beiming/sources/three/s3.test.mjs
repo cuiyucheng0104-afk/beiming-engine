@@ -122,6 +122,47 @@ test('元素声明不对当场报 usage.bad-argument：种类不认识、矩形�
   assert.equal(typeof createTwoDStage, 'function');
 });
 
+// 进页面之前就要拒掉的标记：外链、会执行的属性和标签、样式里的外部地址、svg 里再声明实体。纯校验和实渲两头都用这一份
+const FAR = 'https://example.invalid/a.png';
+const svgWith = (inner, attrs = '') => [{ kind: 'svg', name: 'a', rect: [0, 0, 10, 10], svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" ${attrs}>${inner}</svg>` }];
+const domWith = (html) => [{ kind: 'dom', html }];
+const BAD_MARKUP = Object.fromEntries([
+  ['image', svgWith(`<image href="${FAR}" width="1" height="1"/>`)],
+  ['xlink', svgWith('<use xlink:href="//example.invalid/a.svg#p"/>')],
+  ['emptyEvent', svgWith('', 'onload=""')],
+  ['bareEvent', svgWith('', 'onload')],
+  ['script', svgWith('<script>1</script>')],
+  ['foreign', svgWith('<foreignObject width="1" height="1"><p>x</p></foreignObject>')],
+  ['smil', svgWith(`<image href="#a"><set attributeName="href" to="${FAR}"/></image>`)],
+  ['paint', svgWith('<rect width="1" height="1" fill="url(https://example.invalid/p.svg#g)"/>')],
+  ['sheet', svgWith('<style>rect{fill:url("data:image/svg+xml,x")}</style>')],
+  ['nested', svgWith('<rect data-entity="inner" x="1" y="1" width="2" height="2"/>')],
+  ['onerror', domWith('<p data-entity="a"><img src="#x" onerror="1">x</p>')],
+  ['src', domWith('<p data-entity="a"><img src="/beiming/x.png">x</p>')],
+  ['srcset', domWith(`<p data-entity="a"><img srcset="${FAR} 1x">x</p>`)],
+  ['href', domWith('<a data-entity="a" href="javascript:void 0">x</a>')],
+  ['formaction', domWith(`<button data-entity="a" formaction="${FAR}">x</button>`)],
+  ['background', domWith(`<table data-entity="a" background="${FAR}"><tr><td>x</td></tr></table>`)],
+  ['styleUrl', domWith('<p data-entity="a" style="background:url(//example.invalid/a.png)">x</p>')],
+  ['fileUrl', domWith('<p data-entity="a" style="background:url( \'file:///etc/hosts\' )">x</p>')],
+  ['importRule', domWith('<style>@import "https://example.invalid/a.css";</style><p data-entity="a">x</p>')],
+  ['imageSet', domWith(`<p data-entity="a" style="background:image-set('${FAR}' 1x)">x</p>`)],
+  ['cssEscape', domWith(`<p data-entity="a" style="background:u\\72l(${FAR})">x</p>`)],
+  ['charRef', domWith(`<p data-entity="a" style="background:&#117;rl(${FAR})">x</p>`)],
+  ['namedRef', domWith(`<p data-entity="a" style="background:url&lpar;${FAR})">x</p>`)],
+  ...['script', 'iframe', 'object', 'embed', 'link', 'meta', 'base', 'audio', 'video', 'applet', 'template'].map((tag) => [`tag_${tag}`, domWith(`<${tag}></${tag}><p data-entity="a">x</p>`)]),
+]);
+// 照样收的：指本文档里片段的引用、写成 &amp; 的和号、单独的和号
+const GOOD_MARKUP = [
+  ...svgWith('<defs><linearGradient id="g"><stop offset="0" stop-color="#D9654B"/></linearGradient><rect id="r" width="1" height="1"/></defs><rect width="10" height="10" fill="url(#g)"/><use href="#r"/><use xlink:href="#r"/>'),
+  ...domWith('<style>.on{color:#1E1B18}</style><a data-entity="b" class="on" href="#top" style="filter:url(\'#f\')">Q&amp;A、R&D、turn on</a>'),
+];
+
+test('标记进页面之前先拒掉外链、事件属性、会执行或会联网的标签、样式里的外部地址和 svg 里的嵌套实体，都报 usage.bad-argument', () => {
+  assert.equal(checkElements([640, 360], GOOD_MARKUP).length, 2);
+  for (const [what, elements] of Object.entries(BAD_MARKUP)) assert.throws(() => checkElements([640, 360], elements), coded('usage.bad-argument'), what);
+});
+
 test('页面宿主只多放行 fonts/ 下的 woff2：许可文件、锁文件、跳出目录的都拿不到', () => {
   assert.match(resolveServed('/fonts/NotoSansSC-var.woff2'), /fonts[\\/]NotoSansSC-var\.woff2$/);
   for (const bad of ['/fonts/LICENSE.md', '/fonts/fonts.lock.json', '/fonts/../package.json', '/engine/x.woff2']) assert.equal(resolveServed(bad), null, bad);
@@ -209,6 +250,98 @@ test('探针：三种元素同台，逐元素的 bbox2d 对真实像素框不超
   });
 });
 
+const WORD = 'font:700 30px sans-serif;color:#1E1B18';
+const block = (name, x, y, style, more = '') => `<div data-entity="${name}" style="position:absolute;left:${x}px;top:${y}px;width:140px;height:50px;line-height:50px;${style}"><b data-text-id="${name}.word" style="${WORD}">AIM</b>${more}</div>`;
+const BLOCK = { hero: [20, 20, 160, 70], shown: [200, 20, 340, 70], veiled: [20, 100, 160, 150], caption: [400, 20, 540, 70], peek: [400, 100, 540, 150] };
+const HIDE = [
+  { kind: 'dom', html: block('hero', 20, 20, 'background:#D9654B;opacity:0')
+    + block('shown', 200, 20, 'background:#FFFFFF', `<b data-text-id="shown.ghost" style="${WORD};visibility:hidden">AIM</b>`)
+    + `<div style="visibility:hidden">${block('veiled', 20, 100, 'background:#5FA8A0')}</div>`
+    + block('caption', 400, 20, '') + block('peek', 400, 100, '') },
+  // 盖板：第 0 帧不透明、把 caption 整个盖住，第 1 帧半透明，第 2 帧不在；lid_b 一直在，只盖住 peek 那段字的左边
+  { kind: 'canvas2d', name: 'lid', rect: [390, 10, 550, 80], fill: ['#FFFFFF', '#FFFFFF'], opacity: [1, 0.5, 0] },
+  { kind: 'canvas2d', name: 'lid_b', rect: [390, 90, 430, 160], fill: ['#FFFFFF', '#FFFFFF'] },
+  { kind: 'svg', name: 'grad', rect: [200, 100, 340, 150], svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 50"><defs><linearGradient id="g"><stop offset="0" stop-color="#D9654B"/><stop offset="1" stop-color="#D9654B"/></linearGradient></defs><rect width="140" height="50" fill="url(#g)"/></svg>' },
+];
+const YEAR = (id, at) => ({ id, text: '2026', font: '700 36px sans-serif', at });
+const CLIP = [
+  // 透明的小画布，字画到画布外面：什么都没画出来
+  { kind: 'canvas2d', name: 'out', rect: [40, 40, 104, 80], label: { id: 'out.word', text: 'X', font: '700 36px sans-serif', at: [110, 60] } },
+  // 字整个在裁剪区外面
+  { kind: 'canvas2d', name: 'cut', rect: [140, 40, 340, 120], fill: ['#FFFFFF', '#FFFFFF'], clip: [0, 0, 20, 20], label: YEAR('cut.word', [60, 55]) },
+  // 裁剪区的右边从字的中间切过去：只留下左半
+  { kind: 'canvas2d', name: 'part', rect: [380, 40, 580, 120], fill: ['#FFFFFF', '#FFFFFF'], clip: [0, 0, 90, 80], label: YEAR('part.word', [60, 55]) },
+  { kind: 'canvas2d', name: 'whole', rect: [380, 200, 580, 280], fill: ['#FFFFFF', '#FFFFFF'], label: YEAR('whole.word', [60, 55]) },
+];
+
+test('探针：藏起来的、被盖住的、被裁掉的内容，颜色层、编号层、visible、texts 四处说法一致', async (t) => {
+  await withSource(t, async ({ open, read }) => {
+    const [w, h] = PROBE_SIZE;
+    const film = probeFilm([
+      { ...probeShot('hide', HIDE), roles: { hero: 'hero', mustSee: ['veiled', 'caption', 'shown'] } },
+      { ...probeShot('clip', CLIP), roles: { hero: 'out', mustSee: ['part'] } },
+    ]);
+    /** 渲一帧，交回按实体名、文字 id 查的元数据，和数像素的三个函数：编号层上这个实体占几个像素、矩形里有几个墨色像素、(x, y) 是不是这个颜色 */
+    async function shoot(session, f) {
+      const r = await session.render(f, {}, ['color', 'objectId']);
+      assertMeta(r.meta, `第 ${f} 帧`);
+      const ids = typed(Uint32Array, await read(r.layers.objectId)), rgb = toSrgb8(typed(Float32Array, await read(r.layers.color))), mask = inkMask(rgb, PROBE_SIZE);
+      const entity = Object.fromEntries(r.meta.entities.map((e) => [e.name, e]));
+      return {
+        meta: r.meta, entity, rgb, mask, ids,
+        texts: r.meta.texts.map((x) => x.id).sort(),
+        idPixels: (name) => ids.reduce((n, id) => n + (id === entity[name].id), 0),
+        ink: ([x0, y0, x1, y1]) => { let n = 0; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) n += mask.data[y * w + x]; return n; },
+        near: (x, y, hex, what) => assert.ok(worst(pixel(rgb, w, x, y), rgbOf(hex)) <= 1, `第 ${f} 帧 ${what} (${x}, ${y}) 是 ${pixel(rgb, w, x, y)}，要 ${hex}`),
+      };
+    }
+    /** 画面上没有它：颜色层是纸色、编号层一个像素都没有、visible 是 0、停在画面外 */
+    const gone = (shot, name, box) => {
+      shot.near((box[0] + box[2]) >> 1, (box[1] + box[3]) >> 1, PAPER, name);
+      assert.deepEqual([shot.idPixels(name), shot.ink(box), shot.entity[name].visible, shot.entity[name].pxArea], [0, 0, 0, 0], name);
+      assert.ok(shot.entity[name].bbox2d[0] >= w, `${name} 的 bbox2d ${shot.entity[name].bbox2d}`);
+    };
+
+    const hide = await open(film, 'hide');
+    const f0 = await shoot(hide, 0);
+    // CSS 的 opacity: 0、祖先的 visibility: hidden：实体是空的，它上面的字、自己 visibility: hidden 的字都不进 texts
+    gone(f0, 'hero', BLOCK.hero);
+    gone(f0, 'veiled', BLOCK.veiled);
+    // 被不透明的盖板整个盖住的字幕：画面上是盖板的白，编号层和 visible 说它看不见，texts 里也没有它；只被盖住一半的照交
+    f0.near(470, 45, '#FFFFFF', '盖板');
+    assert.deepEqual([f0.idPixels('caption'), f0.ink(BLOCK.caption), f0.entity.caption.visible], [0, 0, 0]);
+    assert.deepEqual(f0.texts, ['peek.word', 'shown.word']);
+    assert.ok(f0.ink(BLOCK.peek) > 0 && f0.ink(BLOCK.shown) > 0 && f0.idPixels('shown') === 140 * 50 && f0.entity.shown.visible === 1);
+    f0.near(330, 25, '#FFFFFF', 'shown 的底');
+    // 指本文档里片段的引用照常能用
+    f0.near(270, 125, '#D9654B', 'svg 的渐变');
+    // 盖板半透明：字幕透得出来，回到 texts 里
+    assert.deepEqual((await shoot(hide, 1)).texts, ['caption.word', 'peek.word', 'shown.word']);
+    // 盖板不在：字幕的墨迹、编号、visible 都回来了
+    const f2 = await shoot(hide, 2);
+    assert.deepEqual(f2.texts, ['caption.word', 'peek.word', 'shown.word']);
+    assert.ok(f2.ink(BLOCK.caption) > 0 && f2.idPixels('caption') === 140 * 50 && f2.entity.caption.visible === 1);
+    gone(f2, 'hero', BLOCK.hero);
+    await hide.close();
+
+    const clip = await open(film, 'clip');
+    const c0 = await shoot(clip, 0);
+    // 画到画布外面的字、整个被裁掉的字：颜色层上没有墨迹，texts 里也没有；什么都没画的画布是空实体
+    gone(c0, 'out', [40, 40, 104, 80]);
+    assert.equal(c0.ink([0, 0, 360, h]), 0);
+    assert.deepEqual(c0.texts, ['part.word', 'whole.word']);
+    // 裁掉一半的字：文字框交的是留下来的墨迹，右边正好停在裁剪区的边上；没裁的那段是整个字形
+    const box = Object.fromEntries(c0.meta.texts.map((x) => [x.id, x.bbox2d]));
+    assert.equal(box['part.word'][2], 380 + 90);
+    assert.ok(box['whole.word'][2] - box['whole.word'][0] > box['part.word'][2] - box['part.word'][0] + 20, JSON.stringify(box));
+    assert.deepEqual([box['part.word'][0] - 380, box['part.word'][1] - 40, box['part.word'][3] - 40], [box['whole.word'][0] - 380, box['whole.word'][1] - 200, box['whole.word'][3] - 200]);
+    const text = verifySampledBboxes([{ frame: 0, meta: c0.meta, ocr: ocrFromInk(c0.meta, c0.mask), inkMask: c0.mask }]);
+    assert.ok(text.ok && text.frames[0].texts.every((x) => x.edgeErr <= 1), JSON.stringify(text.frames[0].texts));
+    assert.equal(c0.entity.part.visible, 1);
+    await clip.close();
+  });
+});
+
 test('探针：排版里查出来的错带错误码，装载当场失败', async (t) => {
   const dom = (html) => [{ kind: 'dom', html }];
   const cases = {
@@ -222,6 +355,9 @@ test('探针：排版里查出来的错带错误码，装载当场失败', async
     badname: ['contract.bad-value', dom('<p data-entity="has-dash">x</p>')],
     kind: ['usage.bad-argument', [{ kind: 'webgl', name: 'a', rect: [0, 0, 1, 1] }]],
     font: ['usage.bad-argument', dom('<p data-entity="a">x</p>'), { fonts: [{ family: 'Far', url: 'https://example.invalid/far.woff2' }] }],
+    css: ['usage.bad-argument', dom('<p data-entity="a">x</p>'), { css: `p{background:url(${FAR})}` }],
+    tail: ['usage.bad-argument', [{ ...PROBE[1], svg: `${MARK}<p>x</p>` }]],
+    ...Object.fromEntries(Object.entries(BAD_MARKUP).map(([what, elements]) => [`markup_${what}`, ['usage.bad-argument', elements]])),
   };
   await withSource(t, async ({ open }) => {
     const film = probeFilm(Object.entries(cases).map(([id, [, elements, more]]) => probeShot(id, elements, more)));

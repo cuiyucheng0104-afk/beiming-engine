@@ -4,6 +4,7 @@
 // SVG 和 DOM 走同一条路：排进页面里一个看不见的、和画幅同大的容器（真的浏览器排版），整层序列化成 SVG 的 foreignObject、
 // 解码成图、裁到元素的矩形里画上画布。解码是异步的，所以只在 build 里做一次；逐帧能变的是不透明度，要逐帧重画的用 Canvas 2D。
 // 当图片用的 SVG 文档拿不到外部资源（浏览器的规矩），字体只能照 fonts 声明内联进去；没声明字体时用的是这台机器的系统字体。
+// 排版是在活动的页面里做的，那里拿得到外部资源、也会执行脚本，所以标记和样式进页面之前先过 checkMarkup、checkCss：外链、事件属性、会执行的标签一律拒收。
 
 /** 舞台的相机和摆法：竖直视场角（度）、近远裁剪面（米）、第一个元素离相机多远（米）、每后一个元素靠近多少（米）、默认的纸色 */
 export const STAGE = Object.freeze({ fovYDeg: 40, nearM: 1, farM: 100, distanceM: 10, stepM: 0.001, paper: '#F4F0E9' });
@@ -16,6 +17,64 @@ const INK_ALPHA = 32;
 const INK_PAD = 32;
 const coded = (code, message) => Object.assign(new Error(message), { code });
 const show = (v) => JSON.stringify(v) ?? String(v);
+
+// ---- 标记和样式的拒收表 ----
+// 不收的标签：会执行、会联网、会带进另一份文档的，和按时间走的 SMIL 动画（它还能把引用改成外部地址）；parsererror 是解析失败留下的
+const BAD_TAGS = ['script', 'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'foreignobject', 'link', 'meta', 'base', 'audio', 'video', 'template', 'portal', 'fencedframe', 'parsererror', 'animate', 'set', 'animatemotion', 'animatetransform'];
+// 值是地址的属性：只收指本文档里片段的（# 打头）
+const URL_ATTRS = ['href', 'src', 'srcset', 'action', 'formaction', 'background', 'poster', 'data', 'ping'];
+// 样式里不收的写法。反斜杠转义能把 url 拼出来（u\72l），所以整个不收
+const CSS_BAD = [[/url\((?!\s*["']?\s*#)/i, 'url(…) 只能指本文档里的片段（url(#名字)）'], [/@import/i, '不收 @import'], [/image-set\(/i, '不收 image-set(…)'], [/\\/, '不收反斜杠转义']];
+// 不看上下文的整段扫描（node 里只有这一步）：宁可错拒。文字内容里出现这些写法也拒
+const TEXT_BAD = [
+  [new RegExp(`<\\/?(?:[\\w-]+:)?(?:${BAD_TAGS.join('|')})(?![\\w-])`, 'i'), `不收这些标签：${BAD_TAGS.join('、')}`],
+  [/(?:^|[\s"'/])on[\w:-]*\s*=/i, '不收 on 打头的事件属性'],
+  [new RegExp(`(?:^|[\\s"'/:])(?:${URL_ATTRS.join('|')})\\s*=(?!\\s*["']?\\s*#)`, 'i'), `${URL_ATTRS.join('、')} 只能指本文档里的片段（# 打头）`],
+  // 字符引用解出来可以是上面任何一种写法
+  [/&#|&(?!(?:amp|lt|gt|quot|apos|nbsp);)[a-z0-9]+;/i, '字符引用只收 &amp; &lt; &gt; &quot; &apos; &nbsp;，别的字直接写'],
+  ...CSS_BAD,
+];
+const refuse = (what, why, hit) => coded('usage.bad-argument', `${what}：${why}${hit ? `（${show(String(hit).slice(0, 40))}）` : ''}`);
+
+/** 样式进页面之前：外部地址、@import、image-set、反斜杠转义都报 usage.bad-argument */
+export function checkCss(what, css) {
+  for (const [re, why] of CSS_BAD) if (re.test(css)) throw refuse(what, why, css.match(re)[0]);
+}
+
+/**
+ * 标记（svg、html）进页面之前先过这一关，不过的报 usage.bad-argument。两步：整段扫一遍（TEXT_BAD，加逐个标签看属性名）；
+ * 有 DOMParser 的地方（页面里）再落成一份惰性文档逐个节点查。惰性文档不取资源、不执行脚本，舞台挂进页面的就是这份查过的节点，不把原文再解析一遍。
+ * svg 为真时是 kind: 'svg' 的标记：只能是一个 <svg>，里面不能再有 data-entity（一张图就是一个实体）。交回惰性文档，node 里交 null。
+ */
+function checkMarkup(what, markup, svg = false) {
+  for (const [re, why] of TEXT_BAD) if (re.test(markup)) throw refuse(what, why, markup.match(re)[0]);
+  // 没写值的事件属性（<svg onload>）上面那条扫不到：逐个标签把属性名过一遍
+  for (const [, attrs] of markup.matchAll(/<[a-z][^\s/>]*((?:"[^"]*"|'[^']*'|[^>"'])*)/gi)) {
+    for (const [, name] of attrs.matchAll(/([^\s"'<>/=]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*))?/g)) if (/^on/i.test(name)) throw refuse(what, '不收 on 打头的事件属性', name);
+  }
+  if (svg && /data-entity/i.test(markup)) throw refuse(what, 'svg 元素整张图是一个实体，里面不能再写 data-entity；要逐个图形当实体就把 <svg> 写进 dom 元素');
+  if (typeof DOMParser === 'undefined') return null;
+
+  const doc = new DOMParser().parseFromString(markup, 'text/html');
+  for (const el of doc.querySelectorAll('*')) {
+    const tag = el.localName.toLowerCase();
+    if (BAD_TAGS.includes(tag)) throw refuse(what, `不收 <${tag}>`);
+    if (tag === 'style') checkCss(what, el.textContent);
+    for (const { name, value } of el.attributes) {
+      const key = name.toLowerCase();
+      if (key.startsWith('on')) throw refuse(what, '不收 on 打头的事件属性', name);
+      if (URL_ATTRS.includes(key.split(':').pop()) && !value.trim().startsWith('#')) throw refuse(what, `${name} 只能指本文档里的片段（# 打头）`, value);
+      // 样式属性和 SVG 的呈现属性（fill、filter、mask…）都当样式解析
+      checkCss(what, value);
+    }
+  }
+  if (svg) {
+    const [root, ...rest] = [...doc.head.children, ...doc.body.children];
+    if (root?.localName !== 'svg' || rest.length) throw refuse(what, '标记必须正好是一个 <svg>');
+    if (doc.querySelector('[data-entity]')) throw refuse(what, 'svg 元素里面不能再写 data-entity');
+  }
+  return doc;
+}
 
 /**
  * 像素矩形 [x0, y0, x1, y1]（原点在左上角，y 向下）反算成正对相机的平面：相机在原点朝 −Z、竖直视场角 STAGE.fovYDeg。
@@ -45,7 +104,7 @@ function checkName(name, taken, code) {
  *   { kind: 'canvas2d', name, rect, draw(c, tools), opacity? }   每个时刻调一次 draw 重画
  *   { kind: 'svg', name, rect, svg: '<svg …>…</svg>', opacity? }  整张图是一个实体，拉满 rect
  *   { kind: 'dom', html, opacity? }                              一层排版，里面每个带 data-entity 的节点是一个实体，矩形从排版结果量
- * opacity(f, sub) 交 [0, 1] 里的数，不写就是 1。声明不对报 usage.bad-argument。
+ * opacity(f, sub) 交 [0, 1] 里的数，不写就是 1。声明不对报 usage.bad-argument；svg、html 还要过 checkMarkup（查过的惰性文档抄在 doc 里，node 里是 null）。
  */
 export function checkElements(size, elements) {
   const bad = (message) => coded('usage.bad-argument', message);
@@ -56,13 +115,13 @@ export function checkElements(size, elements) {
     if (e.opacity !== undefined && typeof e.opacity !== 'function') throw bad(`第 ${i} 个元素的 opacity 必须是函数 (f, sub) => [0, 1] 里的数`);
     if (e.kind === 'dom') {
       if (typeof e.html !== 'string' || !e.html.trim()) throw bad(`第 ${i} 个元素（dom）缺 html`);
-      return { kind: e.kind, html: e.html, opacity: e.opacity };
+      return { kind: e.kind, html: e.html, opacity: e.opacity, doc: checkMarkup(`第 ${i} 个元素（dom）的 html`, e.html) };
     }
     checkName(e.name, taken, 'usage.bad-argument');
     checkRect(`元素 ${e.name}`, e.rect, size, 'usage.bad-argument');
     if (e.kind === 'canvas2d' && typeof e.draw !== 'function') throw bad(`元素 ${e.name}（canvas2d）缺 draw(c, tools)`);
     if (e.kind === 'svg' && !(typeof e.svg === 'string' && /^\s*<svg[\s>]/.test(e.svg))) throw bad(`元素 ${e.name}（svg）的 svg 必须是 <svg> 打头的标记`);
-    return { kind: e.kind, name: e.name, rect: [...e.rect], draw: e.draw, svg: e.svg, opacity: e.opacity };
+    return { kind: e.kind, name: e.name, rect: [...e.rect], draw: e.draw, svg: e.svg, opacity: e.opacity, doc: e.kind === 'svg' ? checkMarkup(`元素 ${e.name}（svg）的标记`, e.svg, true) : null };
   });
 }
 
@@ -91,18 +150,26 @@ async function loadFonts(fonts) {
   return { faces, css };
 }
 
-/** 画布上不透明度够得上墨迹的像素的外接矩形 [x0, y0, x1, y1]（画布自己的像素，外沿）；一个都没有是 null */
-function inkBox(canvas) {
-  const { width, height } = canvas, { data } = canvas.getContext('2d').getImageData(0, 0, width, height);
+/** 二维上下文里一块像素（默认整张画布）的透明度通道，逐像素一个 0 到 255 的数 */
+function alphaOf(c, x = 0, y = 0, w = c.canvas.width, h = c.canvas.height) {
+  const { data } = c.getImageData(x, y, w, h), out = new Uint8Array(w * h);
+  for (let i = 0; i < out.length; i++) out[i] = data[i * 4 + 3];
+  return out;
+}
+
+/** 宽 width、高 height 的一块像素里 isInk(第几个像素) 说算墨迹的那些：外接矩形 box [x0, y0, x1, y1]（这块像素自己的坐标，外沿）和逐像素的掩膜 mask；一个都没有是 null */
+function inkOf(width, height, isInk) {
+  const mask = new Uint8Array(width * height);
   let x0 = width, y0 = height, x1 = -1, y1 = -1;
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-    if (data[(y * width + x) * 4 + 3] < INK_ALPHA) continue;
+    if (!isInk(y * width + x)) continue;
+    mask[y * width + x] = 1;
     if (x < x0) x0 = x;
     if (x > x1) x1 = x;
     if (y < y0) y0 = y;
     if (y > y1) y1 = y;
   }
-  return x1 < 0 ? null : [x0, y0, x1 + 1, y1 + 1];
+  return x1 < 0 ? null : { box: [x0, y0, x1 + 1, y1 + 1], mask };
 }
 
 /**
@@ -110,10 +177,13 @@ function inkBox(canvas) {
  * opts：elements（见 checkElements）；background 纸色（默认 STAGE.paper）；css 排版用的样式；
  * fonts [{ family, url, weight?, style? }] 要锁定的字体（woff2，本机静态服务上的地址）。
  * 排版里查出来的错（实体名重复、矩形是空的或伸出画面、文字不在任何实体里、文字 id 重复）报 contract.bad-value。
+ * 画面上看不见的东西不交：画出来一个像素都没有的实体是空实体（不画、停到画面外、不占编号层）；藏起来的、没有墨迹的、
+ * 墨迹被登记在后的不透明实体整个盖住的文字不进 texts。
  */
 export async function createTwoDStage(ctx, opts = {}) {
   const { THREE, size } = ctx, [W, H] = size;
   const items = checkElements(size, opts.elements);
+  checkCss('css', String(opts.css ?? ''));
   const bad = (message) => coded('contract.bad-value', message);
   const fonts = await loadFonts(opts.fonts ?? []);
   // 样式进 XML 文档之前把 & 和 < 转掉
@@ -147,11 +217,18 @@ export async function createTwoDStage(ctx, opts = {}) {
     const material = new THREE.MeshBasicMaterial({ map, transparent: true, toneMapped: false });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = name;
-    // 不透明度是 0 时整个停到画面右边两个画幅宽以外：不占编号层，量出来的 bbox2d 也在画面外
-    mesh.userData.park = 2 * W * plane.pixelM;
+    // 不画的时候（不透明度是 0、空实体）整个停到画面右边两个画幅宽以外：不占编号层，量出来的 bbox2d 也在画面外。
+    // alpha 是画布这一刻的透明度通道（见 alphaOf），empty 是它一个像素都没有
+    Object.assign(mesh.userData, { park: 2 * W * plane.pixelM, order, cover, alpha: null, empty: false });
     camera.add(mesh);
     entities[name] = mesh;
     disposable.push(geometry, material, map);
+    return mesh;
+  }
+  /** 画布重画之后：重取透明度通道，一个像素都没有就是空实体 */
+  function inked(mesh) {
+    mesh.userData.alpha = alphaOf(mesh.material.map.image.getContext('2d'));
+    mesh.userData.empty = !mesh.userData.alpha.some((a) => a);
     return mesh;
   }
   const coverOf = (rect) => [Math.floor(rect[0]), Math.floor(rect[1]), Math.ceil(rect[2]), Math.ceil(rect[3])];
@@ -160,11 +237,15 @@ export async function createTwoDStage(ctx, opts = {}) {
   // ---- SVG 和 DOM：排版、量矩形、逐实体光栅化 ----
   const origin = root.getBoundingClientRect(), serializer = new XMLSerializer();
   const rectOf = (el) => { const r = el.getBoundingClientRect(); return [r.left - origin.left, r.top - origin.top, r.right - origin.left, r.bottom - origin.top]; };
-  /** 这一层只让 selector 选中的节点看得见，光栅化、裁到 cover（整数像素格）里 */
-  async function raster(layer, selector, cover) {
+  /**
+   * 这一层只让 el（selector 选中的就是它）看得见，光栅化、裁到 cover（整数像素格）里。办法是先把整层和每个实体都藏起来、再把 el 翻回看得见；
+   * el 本来就被样式藏着的（自己或祖先 visibility: hidden）不翻：画出来是空的，和浏览器里一样
+   */
+  async function raster(layer, el, selector, cover) {
     const canvas = blank(cover), [w, h] = [canvas.width, canvas.height];
+    const reveal = getComputedStyle(el).visibility === 'visible' ? `${selector}{visibility:visible!important}` : '';
     const xml = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${cover[0]} ${cover[1]} ${w} ${h}"><foreignObject width="${W}" height="${H}">`
-      + `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${W}px;height:${H}px"><style>${css}.bm2d-layer,[data-entity]{visibility:hidden!important}${selector}{visibility:visible!important}</style>`
+      + `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${W}px;height:${H}px"><style>${css}.bm2d-layer,[data-entity]{visibility:hidden!important}${reveal}</style>`
       + `${serializer.serializeToString(layer)}</div></foreignObject></svg>`;
     const img = new Image();
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;
@@ -179,22 +260,25 @@ export async function createTwoDStage(ctx, opts = {}) {
     if (item.kind === 'canvas2d') {
       const cover = coverOf(item.rect), canvas = blank(cover);
       checkName(item.name, taken, 'contract.bad-value');
+      // 每次重画都要读回像素（量文字的墨迹、判是不是空的），画布放在内存里
+      Object.assign(group, { draw: item.draw, rect: item.rect, cover, c: canvas.getContext('2d', { willReadFrequently: true }) });
       group.meshes.push(addEntity(item.name, item.rect, canvas, cover));
-      Object.assign(group, { draw: item.draw, rect: item.rect, cover, c: canvas.getContext('2d') });
       continue;
     }
     const layer = document.createElement('div');
     layer.className = 'bm2d-layer';
     layer.style.cssText = `position:absolute;left:0;top:0;width:${W}px;height:${H}px`;
+    // 挂进页面的是 checkMarkup 查过的那份惰性文档里的节点，不拿原文再解析一遍
     if (item.kind === 'svg') {
-      const [x0, y0, x1, y1] = item.rect;
-      layer.innerHTML = `<div data-entity="${item.name}" style="position:absolute;left:${x0}px;top:${y0}px;width:${x1 - x0}px;height:${y1 - y0}px">${item.svg}</div>`;
-      const svg = layer.firstChild.firstElementChild;
-      if (svg?.localName !== 'svg') throw coded('usage.bad-argument', `元素 ${item.name}（svg）的标记里没有 <svg>`);
+      const [x0, y0, x1, y1] = item.rect, box = document.createElement('div'), svg = item.doc.querySelector('svg');
+      box.dataset.entity = item.name;
+      box.style.cssText = `position:absolute;left:${x0}px;top:${y0}px;width:${x1 - x0}px;height:${y1 - y0}px`;
       svg.setAttribute('width', '100%');
       svg.setAttribute('height', '100%');
       svg.style.display = 'block';
-    } else layer.innerHTML = item.html;
+      box.append(svg);
+      layer.append(box);
+    } else layer.append(...item.doc.head.childNodes, ...item.doc.body.childNodes);
     root.append(layer);
 
     const nodes = [...layer.querySelectorAll('[data-entity]')];
@@ -206,27 +290,35 @@ export async function createTwoDStage(ctx, opts = {}) {
       const rect = item.kind === 'svg' ? item.rect : rectOf(el);
       checkRect(`实体 ${name}`, rect, size, 'contract.bad-value');
       const cover = coverOf(rect);
-      group.meshes.push(addEntity(name, rect, await raster(layer, `[data-entity="${name}"]`, cover), cover));
+      // 画出来一个像素都没有的（不透明度是 0、被藏起来的、没有底色也没有内容的）是空实体
+      group.meshes.push(inked(addEntity(name, rect, await raster(layer, el, `[data-entity="${name}"]`, cover), cover)));
     }
     for (const el of layer.querySelectorAll('[data-text-id]')) {
       const id = el.dataset.textId, text = el.textContent.replace(/\s+/g, ' ').trim();
       if (!TEXT_ID.test(id) || textIds.has(id)) throw bad(`文字 id ${show(id)} 重复，或者写法不对（只能是字母、数字、下划线、点、冒号、连字符）`);
       textIds.add(id);
-      if (!el.closest('[data-entity]')) throw bad(`文字 ${id} 不在任何带 data-entity 的节点里，画不出来`);
-      const box = rectOf(el);
-      // 空的、display:none 的（排版盒是空的）不进文字框
-      if (!text || !(box[2] > box[0] && box[3] > box[1])) continue;
-      const cover = [Math.max(0, Math.floor(box[0]) - INK_PAD), Math.max(0, Math.floor(box[1]) - INK_PAD), Math.min(W, Math.ceil(box[2]) + INK_PAD), Math.min(H, Math.ceil(box[3]) + INK_PAD)];
+      const owner = el.closest('[data-entity]');
+      if (!owner) throw bad(`文字 ${id} 不在任何带 data-entity 的节点里，画不出来`);
+      // 这段字画在离它最近的那个实体的贴图上：只看落在那张画布里的墨迹，伸出去的画不出来
+      const mesh = entities[owner.dataset.entity], within = mesh.userData.cover, box = rectOf(el);
+      // 空的、display:none 的（排版盒是空的）、被样式藏起来的不进文字框
+      if (!text || !(box[2] > box[0] && box[3] > box[1]) || getComputedStyle(el).visibility !== 'visible') continue;
+      const cover = [Math.max(within[0], Math.floor(box[0]) - INK_PAD), Math.max(within[1], Math.floor(box[1]) - INK_PAD), Math.min(within[2], Math.ceil(box[2]) + INK_PAD), Math.min(within[3], Math.ceil(box[3]) + INK_PAD)];
       if (!(cover[2] > cover[0] && cover[3] > cover[1])) continue;
       // 文字框取墨迹的外接矩形，不取排版盒：只让这段文字看得见、光栅化、数不透明的像素；一个都没有（透明的字）不进文字框
-      const ink = inkBox(await raster(layer, `[data-text-id="${id}"]`, cover));
-      if (ink) group.texts.push({ id, text, bbox2d: [cover[0] + ink[0], cover[1] + ink[1], cover[0] + ink[2], cover[1] + ink[3]] });
+      const width = cover[2] - cover[0], alpha = alphaOf((await raster(layer, el, `[data-text-id="${id}"]`, cover)).getContext('2d'));
+      const ink = inkOf(width, cover[3] - cover[1], (i) => alpha[i] >= INK_ALPHA);
+      if (ink) group.texts.push({ id, text, bbox2d: [cover[0] + ink.box[0], cover[1] + ink.box[1], cover[0] + ink.box[2], cover[1] + ink.box[3]], mesh, at: [cover[0], cover[1]], width, mask: ink.mask });
     }
   }
 
-  /** Canvas 2D 元素在这个时刻重画一遍。坐标原点在元素矩形的左上角；tools.text 画一段字并记下它的文字框 */
+  /**
+   * Canvas 2D 元素在这个时刻重画一遍。坐标原点在元素矩形的左上角；tools.text 画一段字并记下它的文字框。
+   * 文字框取这一笔真的落在画布上的墨迹：画之前、画之后各读一遍字形盒那一块的像素，变了的才算（有一个通道差到 INK_ALPHA）。
+   * 所以画到画布外面的、被裁剪区整个裁掉的、和底色分不出来的字不进文字框；裁掉一部分的交留下来的那部分。
+   */
   function redraw(group, f, sub) {
-    const { c, rect, cover } = group, texts = [];
+    const { c, rect, cover } = group, mesh = group.meshes[0], texts = [];
     c.reset();
     c.translate(rect[0] - cover[0], rect[1] - cover[1]);
     group.draw(c, {
@@ -235,18 +327,42 @@ export async function createTwoDStage(ctx, opts = {}) {
         const text = String(value);
         if (!text.trim() || !(c.globalAlpha > 0)) return;
         if (typeof id !== 'string' || !TEXT_ID.test(id)) throw bad(`文字 id ${show(id)} 写法不对`);
-        c.fillText(text, x, y);
         const m = c.measureText(text), t = c.getTransform();
         const corners = [[-m.actualBoundingBoxLeft, -m.actualBoundingBoxAscent], [m.actualBoundingBoxRight, -m.actualBoundingBoxAscent], [-m.actualBoundingBoxLeft, m.actualBoundingBoxDescent], [m.actualBoundingBoxRight, m.actualBoundingBoxDescent]]
           .map(([dx, dy]) => t.transformPoint({ x: x + dx, y: y + dy }));
-        const xs = corners.map((p) => p.x + cover[0]), ys = corners.map((p) => p.y + cover[1]);
-        const bbox2d = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
-        if (!bbox2d.every(Number.isFinite)) throw bad(`文字 ${id} 的框算出来不是有限的数：${show([x, y])}`);
-        texts.push({ id, text, bbox2d });
+        const xs = corners.map((p) => p.x), ys = corners.map((p) => p.y);
+        if (![...xs, ...ys].every(Number.isFinite)) throw bad(`文字 ${id} 的框算出来不是有限的数：${show([x, y])}`);
+        // 字形盒过当前变换，外面多看 2 像素（抗锯齿），裁到画布里
+        const x0 = Math.max(0, Math.floor(Math.min(...xs)) - 2), y0 = Math.max(0, Math.floor(Math.min(...ys)) - 2);
+        const w = Math.min(c.canvas.width, Math.ceil(Math.max(...xs)) + 2) - x0, h = Math.min(c.canvas.height, Math.ceil(Math.max(...ys)) + 2) - y0;
+        if (!(w > 0 && h > 0)) { c.fillText(text, x, y); return; }
+        const before = c.getImageData(x0, y0, w, h).data;
+        c.fillText(text, x, y);
+        const after = c.getImageData(x0, y0, w, h).data;
+        const ink = inkOf(w, h, (i) => [0, 1, 2, 3].some((k) => Math.abs(after[i * 4 + k] - before[i * 4 + k]) >= INK_ALPHA));
+        if (ink) texts.push({ id, text, bbox2d: [cover[0] + x0 + ink.box[0], cover[1] + y0 + ink.box[1], cover[0] + x0 + ink.box[2], cover[1] + y0 + ink.box[3]], mesh, at: [cover[0] + x0, cover[1] + y0], width: w, mask: ink.mask });
       },
     });
     group.texts = texts;
-    group.meshes[0].material.map.needsUpdate = true;
+    inked(mesh).material.map.needsUpdate = true;
+  }
+
+  /**
+   * 这段字这一刻有没有露出来的墨迹。盖得住它的只有登记在它所属实体之后（更靠近相机）、这一刻画着、整组不透明的实体里完全不透明的像素；
+   * 半透明的盖不住。墨迹全被盖住的不算露出来。
+   * shortcut: 只看实体之间的遮挡；同一个实体里画在字上面的东西（同一层 DOM 里叠在上面的节点、Canvas 2D 里后画的图形）看不出来，要查就得逐段文字多光栅化一遍。
+   */
+  function seen(t) {
+    if (!t.mesh.visible) return false;
+    const [x0, y0, x1, y1] = t.bbox2d;
+    const upper = Object.values(entities).filter((m) => m.userData.order > t.mesh.userData.order && m.visible && m.material.opacity >= 0.999)
+      .map((m) => m.userData).filter(({ cover }) => cover[0] < x1 && cover[2] > x0 && cover[1] < y1 && cover[3] > y0);
+    if (!upper.length) return true;
+    return t.mask.some((ink, i) => {
+      if (!ink) return false;
+      const x = t.at[0] + (i % t.width), y = t.at[1] + Math.floor(i / t.width);
+      return !upper.some(({ cover: [cx0, cy0, cx1, cy1], alpha }) => x >= cx0 && x < cx1 && y >= cy0 && y < cy1 && alpha[(y - cy0) * (cx1 - cx0) + (x - cx0)] === 255);
+    });
   }
 
   let at = null;
@@ -255,22 +371,22 @@ export async function createTwoDStage(ctx, opts = {}) {
       const opacity = group.opacity ? group.opacity(f, sub) : 1;
       if (typeof opacity !== 'number' || !(opacity >= 0 && opacity <= 1)) throw bad(`元素 ${group.meshes[0].name} 在 (${f}, ${sub}) 的不透明度必须是 [0, 1] 里的数，交的是 ${show(opacity)}`);
       group.on = opacity > 0;
+      if (group.on && group.draw) redraw(group, f, sub);
       for (const mesh of group.meshes) {
-        mesh.visible = group.on;
-        mesh.position.x = group.on ? 0 : mesh.userData.park;
+        mesh.visible = group.on && !mesh.userData.empty;
+        mesh.position.x = mesh.visible ? 0 : mesh.userData.park;
         mesh.material.opacity = opacity;
       }
-      if (group.on && group.draw) redraw(group, f, sub);
     }
     at = `${f}/${sub}`;
   }
 
   return {
     scene, camera, entities, state,
-    /** 这一帧 sub = 0 时看得见的元素上的文字框；宿主量之前渲染器已经写过这一刻，没写过就自己写一遍 */
+    /** 这一帧 sub = 0 时看得见的元素上露出来的文字框（见 seen）；宿主量之前渲染器已经写过这一刻，没写过就自己写一遍 */
     meta(f) {
       if (at !== `${f}/0`) state(f, 0);
-      const texts = groups.filter((g) => g.on).flatMap((g) => g.texts.map((t) => ({ id: t.id, text: t.text, bbox2d: [...t.bbox2d] })));
+      const texts = groups.filter((g) => g.on).flatMap((g) => g.texts.filter(seen).map((t) => ({ id: t.id, text: t.text, bbox2d: [...t.bbox2d] })));
       const twice = texts.find((t, i) => texts.findIndex((x) => x.id === t.id) !== i);
       if (twice) throw bad(`文字 id ${twice.id} 在这一帧交了两次`);
       return { texts };

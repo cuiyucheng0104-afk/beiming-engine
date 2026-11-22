@@ -48,4 +48,4 @@
 
 ## 静态服务放行什么
 
-页面只拿得到 `beiming/`（`.js`、`.mjs`、`.json`、`.woff2`）和 three 的构建目录；另外只读放行仓库根 `fonts/` 下的 woff2（锁定的字体子集，许可和锁文件拿不到），给二维讲解舞台（`beiming/sources/three/two-d.js`）锁字体用。片子描述所在的目录仍然必须在 `beiming/` 或 three 的构建目录里。
+页面只拿得到 `beiming/`（`.js`、`.mjs`、`.json`、`.woff2`）和 three 的构建目录；另外只读放行仓库根 `fonts/` 下的 woff2（锁定的字体子集，许可和锁文件拿不到），给二维讲解舞台（`beiming/sources/three/two-d.js`）锁字体用。放行照真实路径再判一遍（`resolveServed`）：文件的真实路径必须还在它那个放行目录的真实路径下面、扩展名不变，所以放行目录里的符号链接指到目录外面的、换了类型的、文件不存在的都是 404；交给页面读的也是真实路径。片子描述所在的目录仍然必须在 `beiming/` 或 three 的构建目录里。
