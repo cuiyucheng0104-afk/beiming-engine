@@ -370,3 +370,29 @@ test('S18-R2-Red: 锚点投影在非单位相机位姿下精确且落在相机�
   // 相机后面的（w 小于 0）照样做透视除法：右后方一米的点 w = −1，落点是穿过相机镜像到左边的 (20, 20)
   assert.deepEqual(placeAnchors(idView, proj, [80, 40], [['hero#back', [1, 0, 1]]], ['hero']).hero.back.screen, [20, 20]);
 });
+
+test('S18-R3-Red: 渲染目标超出 GPU 上限时报错，不把读不回的全零写成覆盖率 0', async (t) => {
+  await withSource(t, async ({ open, read }) => {
+    // 画面高 4、竖直视场角 90 度：10 米外的墙上一个像素 5 米见方，墙宽 60 米，每行正中 12 个像素的中心和它们的 2 倍子样本都打在墙上
+    const render = async (w) => {
+      const session = await open('strip', [w, 4]);
+      try { return await session.render(0, {}, ['color', 'objectId']); } finally { await session.close(); }
+    };
+    // 这台机器的上限从报错里读：主目标一边 70000，哪种显卡都放不下
+    const over = await render(70000).then(() => assert.fail('70000×4 的主目标应该报错'), (e) => e);
+    const limit = Number(over.message.match(/渲染目标 70000×4 超出这台机器的 GPU 上限 (\d+)/)?.[1]);
+    assert.ok(limit >= 2048 && limit < 70000 && limit % 2 === 0, over.message);
+
+    // 2 倍编号目标正好顶到上限：照常出帧，墙上的像素覆盖率是 1
+    const w = limit / 2;
+    const r = await render(w);
+    const exr = readExr(await read(r.exr), { requiredChannels: r.exr.channels });
+    const wall = [];
+    exr.channels['objectId.id'].forEach((v, i) => { if (v === 1) wall.push(i); });
+    assert.deepEqual(wall, [0, 1, 2, 3].flatMap((y) => Array.from({ length: 12 }, (_, k) => y * w + w / 2 - 6 + k)));
+    assert.deepEqual(wall.map((i) => exr.channels['objectId2x.coverage'][i]), wall.map(() => 1));
+
+    // 再宽一个像素：主目标放得下，2 倍编号目标超限。以前那张目标的帧缓冲不完整，读回的全零被写成墙上覆盖率 0
+    await assert.rejects(render(w + 1), new RegExp(`2 倍编号目标 ${limit + 2}×8 超出这台机器的 GPU 上限 ${limit}`));
+  });
+});

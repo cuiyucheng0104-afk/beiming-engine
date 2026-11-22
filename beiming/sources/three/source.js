@@ -91,13 +91,15 @@ export function createThreeSource({ THREE, host }) {
     r.setPixelRatio(1);
     const gl = r.getContext();
     const info = gl.getExtension('WEBGL_debug_renderer_info');
-    shared = { r, gl, gpu: String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) };
+    // 渲染目标一边最多几个像素：颜色附件是纹理，深度附件是渲染缓冲，取两个上限里小的
+    const maxDim = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE));
+    shared = { r, gl, maxDim, gpu: String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) };
     return shared;
   }
 
   /** shot 是镜头条目（原样，带 renderer 对象时出帧用的是它里面的那一套），tier 是档位，locked 是装载计划（planOpen 的返回值）。装得了装不了由宿主先用 planOpen 判 */
   async function open(shot, tier, locked) {
-    const { r, gl, gpu } = renderer();
+    const { r, gl, maxDim, gpu } = renderer();
     const loaded = await host.load(shot, { THREE, renderer: r }, locked);
     const { scene, camera, entities } = loaded.object;
     const post = loaded.post ?? [];
@@ -162,8 +164,14 @@ export function createThreeSource({ THREE, host }) {
       }
     }
 
+    /** 目标要改成 w × h 之前先问：一边超过显卡上限的目标帧缓冲不完整，画不进去、读回来是一张全零，所以先报错 */
+    function fits([w, h], what = '渲染目标') {
+      if (Math.max(w, h) > maxDim) throw new Error(`${what} ${w}×${h} 超出这台机器的 GPU 上限 ${maxDim}（MAX_TEXTURE_SIZE 和 MAX_RENDERBUFFER_SIZE 里小的那个）`);
+    }
+
     /** 场景渲进目标 into（默认 rt），不过后期链 */
     function drawScene([w, h], timed, into = rt) {
+      fits([w, h]);
       into.setSize(w, h);
       r.setRenderTarget(into);
       cleared(() => timed('renderMs', () => r.render(scene, camera)));
@@ -173,8 +181,14 @@ export function createThreeSource({ THREE, host }) {
     /** 读回 from 目标成 RGBA 浮点，行序是 GL 的（从下到上）。readPixels 会等绘制做完，所以显卡上的耗时大半记在读回里 */
     function readRaw(from, [w, h], timed) {
       r.setRenderTarget(from);
+      // 帧缓冲不完整或者读回报了错时 readPixels 不动数组，交出去就是一张全零（编号层上是「什么都没打到」）：报错，不把它当读数
+      const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+      if (status !== gl.FRAMEBUFFER_COMPLETE) throw new Error(`渲染目标 ${w}×${h} 的帧缓冲不完整（checkFramebufferStatus 0x${status.toString(16)}），读不回`);
       const raw = new Float32Array(w * h * 4);
+      while (gl.getError() !== gl.NO_ERROR) { /* 清掉之前留下的错误标志，下面只看这一次读回 */ }
       timed('readbackMs', () => gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, raw));
+      const error = gl.getError();
+      if (error !== gl.NO_ERROR) throw new Error(`渲染目标 ${w}×${h} 读回报错（getError 0x${error.toString(16)}）`);
       return raw;
     }
 
@@ -210,6 +224,7 @@ export function createThreeSource({ THREE, host }) {
     function landHalf(raw, size, timed) {
       const tex = upload(raw, size);
       try {
+        fits(size);
         rtScene.setSize(...size);
         copy.material.uniforms.tInput.value = tex;
         r.setRenderTarget(rtScene);
@@ -226,6 +241,7 @@ export function createThreeSource({ THREE, host }) {
       cleared(() => {
         for (const pass of chain) {
           const to = last === rt ? rtPost : rt;
+          fits([w, h]);
           to.setSize(w, h);
           pass.material.uniforms.tInput.value = from;
           if (pass.material.uniforms.tDepth) pass.material.uniforms.tDepth.value = depth;
@@ -349,7 +365,11 @@ export function createThreeSource({ THREE, host }) {
             layers.objectId = { type: 'u32', components: ['id'], size: plan.size, data: Uint32Array.from(pick(px, [1])) };
             // 场景参考通路的编号层另渲一张宽高各两倍的：照样点采样、不抗锯齿，子样本落在各自的中心上，编号还是整数。
             // 层文件 objectId 不从它来：像素中心不是它的任何一个子样本（输出通道契约 PS4 要的是像素中心）
-            if (extra) extra.objectId2x = Uint32Array.from(pick(drawAux(plan.size.map((n) => n * 2), 0, timed), [1]));
+            if (extra) {
+              const twice = plan.size.map((n) => n * 2);
+              fits(twice, '场景参考镜头的 2 倍编号目标');
+              extra.objectId2x = Uint32Array.from(pick(drawAux(twice, 0, timed), [1]));
+            }
           }
         }
         if (plan.layers.includes('normal')) {
