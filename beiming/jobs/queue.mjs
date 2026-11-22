@@ -321,7 +321,11 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
   }
 
   function replay(id) {
-    reconcileLedger();
+    try {
+      reconcileLedger();
+    } catch {
+      // 补旧账失败不挡执行；读账仍严格报错，新轮追加失败也会在终态记录原因。
+    }
     const job = withFileLock(jobFile(id), () => readJob(id));
     if (active.has(jobFile(id))) throw new Error('作业仍由本进程执行。');
     const handler = getHandler(job);

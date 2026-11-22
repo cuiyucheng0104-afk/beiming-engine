@@ -657,6 +657,22 @@ test('A15-20 首轮追加失败写诊断时，另一进程的重放保留两轮�
   assert.deepEqual(queue.readLedger().map(row => row.attempt), [1, 2]);
 });
 
+test('A15-21 坏账不挡作业重放，严格读取报错，修复后补齐两轮', async t => {
+  const { queue } = queueFixture(t, { draft: () => '完成' });
+  const { id } = queue.enqueue({ kind: 'draft', rev: 0 });
+  await queue.runJob(id);
+  const file = queue.ledgerFile();
+  const original = readFileSync(file);
+  writeFileSync(file, '{bad\n');
+  const job = await queue.replay(id);
+  assert.deepEqual([job.status, job.attempt, job.result], ['succeeded', 2, '完成']);
+  assert.match(queue.getJob(id).events.at(-1).ledgerError, /第 1 行损坏/);
+  for (const read of [queue.readLedger, queue.summarizeLedger, queue.reconcileLedger]) assert.throws(() => read(), /第 1 行损坏/);
+  assert.equal(readFileSync(file, 'utf8'), '{bad\n');
+  writeFileSync(file, original);
+  assert.deepEqual(queue.readLedger().map(row => row.attempt), [1, 2]);
+});
+
 test('A15-18 M21 四个子进程同时结算同一轮，只记 10 ms', { timeout: 20000 }, async t => {
   const file = join(tempDir(t, 'same-key'), 'ledger.jsonl');
   const script = `
