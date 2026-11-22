@@ -1,0 +1,98 @@
+{
+  "format": "question/0.1",
+  "id": "29-1",
+  "level": 1,
+  "title": "上下分屏版式",
+  "brief": "做一条 20 秒、30 帧每秒、1080×1350 的上下分屏：上下两个面板各 1080×608，上下边距各 44 像素，两个面板之间的中缝 46 像素，中缝正中一条 4 像素高、通栏的 #CBFB03 分隔线。边距和中缝是近黑的底色 #090906。三个实体依次叫 panel_top、panel_bottom、divider。",
+  "deliverable": {
+    "size": [
+      1080,
+      1350
+    ],
+    "fps": "30/1",
+    "frames": 600,
+    "audio": "none"
+  },
+  "assets": {},
+  "refs": [
+    "bench/refs/level-1/29-1-reference.json"
+  ],
+  "basePredicates": [
+    "delivery(width=1080, height=1350, fps=30, frames=600)",
+    "bbox_w(panel_top) >= 1 @ all",
+    "bbox_h(panel_top) in [0.4501, 0.4507] @ all",
+    "margin_tb(panel_top) in [0.0323, 0.0329] @ all",
+    "bbox_w(panel_bottom) >= 1 @ all",
+    "bbox_h(panel_bottom) in [0.4501, 0.4507] @ all",
+    "margin_tb(panel_bottom) in [0.0323, 0.0329] @ all",
+    "bbox_w(divider) >= 1 @ all",
+    "bbox_h(divider) in [0.0027, 0.0033] @ all",
+    "margin_tb(divider) in [0.4982, 0.4988] @ all"
+  ],
+  "scoring": [
+    {
+      "metric": "layout.edges",
+      "args": {
+        "frame": 300,
+        "background": "#090906",
+        "backgroundTol": 32,
+        "rowFill": 0.5,
+        "bands": [
+          [
+            44,
+            652
+          ],
+          [
+            673,
+            677
+          ],
+          [
+            698,
+            1306
+          ]
+        ],
+        "maxEdgeErrorPx": 0
+      },
+      "pass": "第 300 帧逐行数不是底色的像素，过半的行连成上面板、分隔线、下面板三段，六条上下沿和题面每条相差 0 像素；三段各在自己的行里逐列数，过半的列里最左、最右的正好是第 0 列和第 1079 列，六条左右沿也相差 0 像素",
+      "weight": 0.5
+    },
+    {
+      "metric": "layout.edges",
+      "args": {
+        "frame": 300,
+        "coreRows": [
+          674,
+          676
+        ],
+        "color": "#CBFB03",
+        "maxLevels": 4
+      },
+      "pass": "第 300 帧分隔线中间两行逐像素对 #CBFB03，三个通道的最大差不超过 4 级；上下各让出 1 行，因为 4:2:0 色度抽样会把边缘行的色度和底色混在一起",
+      "weight": 0.5
+    }
+  ],
+  "controls": {
+    "referencePass": "标准答案工程必须得满分；案例 29 作者原文件第 300 帧的读数也必须得满分",
+    "negative": "上下左右任何一条边界偏 1 像素、或分隔线偏色超过 4 级的提交必须判不合格"
+  },
+  "needs": [
+    "layout.panels",
+    "deliver.encode"
+  ],
+  "budget": {
+    "tokens": 200000,
+    "wallMs": 600000,
+    "gpuSeconds": 60
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": false,
+    "blockedBy": []
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "05 第 6.3 节的初值，没有试跑过",
+    "noiseFloor": null,
+    "version": 0
+  }
+}

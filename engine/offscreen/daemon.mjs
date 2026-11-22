@@ -380,6 +380,7 @@ export async function executeOffscreenJob({
       enc = startEncoder({
         width: params.width, height: params.height, fps: params.fps, out: partial,
         crf: params.crf ?? 14, preset: params.preset ?? 'medium', encoder, cq: params.cq ?? MASTER_CQ, pixFmt,
+        gop: params.gop ?? null, timescale: params.timescale ?? null,
       });
       const total = params.to - params.from;
       const hashes = params.hashFrames ? [] : null;
