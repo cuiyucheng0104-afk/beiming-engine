@@ -208,6 +208,31 @@ test('FX22 跨行块注释保留逻辑行，three 展开循环内的锚点不能
   assert.equal(put(`${enabled}${inc}\n#endif`), `${enabled}X\n#endif`);
 });
 
+test('FX22 条件指令续行上的 include 不能作为锚点', () => {
+  const inc = '#include <shadowmap_pars_fragment>';
+  for (const newline of ['\n', '\r\n']) {
+    const hidden = ['#if 1', '#else', '#if 0 \\', inc, '#endif', '#endif'].join(newline);
+    assert.throws(() => inject(hidden, inc, 'X', 'replace'), /着色器锚点缺失「#include <shadowmap_pars_fragment>」/);
+    assert.equal(inject(`${hidden}\n${inc}`, inc, 'X', 'replace'), `${hidden}\nX`);
+  }
+});
+
+test('FX22 重叠循环头各自起配，零次循环吞掉的唯一锚点报缺失', () => {
+  const inc = '#include <shadowmap_pars_fragment>';
+  const hidden = `#if 0
+#pragma unroll_loop_start
+for ( int i = a; i < b; i ++ ) {
+#endif
+#pragma unroll_loop_start
+for ( int i = 0; i < 0; i ++ ) {}
+#pragma unroll_loop_end
+${inc}
+}
+#pragma unroll_loop_end`;
+  assert.throws(() => inject(hidden, inc, 'X', 'replace'), /着色器锚点缺失「#include <shadowmap_pars_fragment>」/);
+  assert.equal(inject(`${hidden}\n${inc}`, inc, 'X', 'replace'), `${hidden}\nX`);
+});
+
 test('FX22 唯一命中也要证明分支生效：常量表达式、未知宏及其后续分支', () => {
   const inc = '#include <common>', put = src => inject(src, inc, 'X', 'replace');
   for (const condition of ['(0)', '0 || 0', '0x0', '!(1 && (0 || 1))']) {

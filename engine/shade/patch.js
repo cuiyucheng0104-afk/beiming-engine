@@ -1,5 +1,8 @@
 // 北冥引擎 · 内置材质补丁：往 three（r170 / r187）的内置材质（MeshToonMaterial、MeshDepthMaterial…）里注入自定义着色器片段。
-// 锚点逐条校验，缺失直接报错（three 升级后不会悄悄失效）；同一组钩子共用一个程序缓存键。
+// 在传入的着色器原文中逐条校验锚点，缺失直接报错。同一组钩子共用一个程序缓存键。
+// shortcut: activeAnchors 只在 inject 的当前文本内判定注释、条件指令与展开循环，不递归展开其他 ShaderChunk。
+// 页面改写 THREE.ShaderChunk 跨 #include 打开未闭合的 #if 0、用 #define 重命名已补丁函数，与用 import map 替换 patch.js 同属页面自改运行环境。
+// 若需支持这类跨块改写，须在 three 展开后的着色器上核验补丁效果。
 // 片段补丁没命中算构建失败（FX22）：这里抛的错（ShaderPatchError）在 material.onBeforeCompile 里同步冒出 renderer.compile / render；
 // 构造时就把 { fn, anchor, message } 记进本模块闭包里的数组：页面把异常接住、把 console.error 静音都抹不掉，页面代码也没有写它的入口
 // （不挂 globalThis，不导出写入函数）。渲染器（engine/render/page.mjs + lib/patch-check.mjs）每次 page.evaluate 交回之前、截完图之后用 inject.patchErrors() 读副本，
@@ -8,7 +11,7 @@
 // 渲染器靠这个前缀认未捕获的异常与 console.error。
 //
 //   inject(src, anchor, code, mode, who)   在锚点后（'after'）/ 前（'before'）插入，或整段替换（'replace'）；who 用于报错。
-//                                           锚点必须能确认生效：注释、常量死分支内的不算；仅在未知编译条件内出现也报错。#include 按 three 的行首规则认；
+//                                           当前文本中，注释、条件指令、常量死分支与展开循环内的锚点不算。仅在未知编译条件内出现也报错。#include 按 three 的行首规则认。
 //                                           以前的 inject 插进去的文本（材质钩子、引擎自己的片段）里的也不算：接着上一次的结果再打补丁时，
 //                                           锚点只在原来的着色器里找。生效的一处都没有、或者不止一处（分不出哪一处真的生效）都报错
 //   inject.patchErrors() → [{ fn, anchor, message }]   本页至今记下的补丁错误（副本，只读、不可改写）；挂在 inject 上而不是新导出：
@@ -91,6 +94,7 @@ function preprocessorSpans(masked, dead, uncertain) {
       if (state !== ALWAYS) (state === NEVER ? dead : uncertain).push([line.index, line.index + line[0].length]);
       continue;
     }
+    dead.push([line.index, line.index + line[0].length]);   // 条件指令的续行仍是指令的一部分。
     const [, op, rest] = directive;
     if (op === 'endif') { state = stack.pop()?.parent ?? ALWAYS; continue; }
     if (op === 'if' || op === 'ifdef' || op === 'ifndef') stack.push({ parent: state, remaining: state });
@@ -109,9 +113,9 @@ function activeAnchors(src, anchor) {
     return ' '.repeat(comment.length);   // 注释整体是空白，内部换行不结束预处理指令；等宽遮盖保留原文偏移。
   });
   // three 先在原文里展开循环，再交给 GLSL 处理注释；循环头尾即使在两段注释里也会匹配。
-  // 循环界限在展开前还可能是 NUM_* 等计数。只有完整循环才按原文认，注释里单提 pragma 不影响后文。
-  for (const block of src.matchAll(/#pragma unroll_loop_start\s+for\s*\(\s*int\s+i\s*=\s*\w+\s*;\s*i\s*<\s*\w+\s*;\s*i\s*\+\+\s*\)\s*\{[\s\S]+?\}\s+#pragma unroll_loop_end/g)) {
-    dead.push([block.index, block.index + block[0].length]);
+  // 循环界限可能是 NUM_* 等计数。用前瞻从每个循环头起配，避免符号界限的匹配吞掉 three 会展开的数字循环头。
+  for (const block of src.matchAll(/(?=(#pragma unroll_loop_start\s+for\s*\(\s*int\s+i\s*=\s*\w+\s*;\s*i\s*<\s*\w+\s*;\s*i\s*\+\+\s*\)\s*\{[\s\S]+?\}\s+#pragma unroll_loop_end))/g)) {
+    dead.push([block.index, block.index + block[1].length]);
   }
   // 可见的 pragma（含不完整的循环）仍按保守规则排除，不把补丁放进展开区。
   for (const block of masked.matchAll(/#pragma\s+unroll_loop_start\b[\s\S]*?(?:#pragma\s+unroll_loop_end\b|$)/g)) {
