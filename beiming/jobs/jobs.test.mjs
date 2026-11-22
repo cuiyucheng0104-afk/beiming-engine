@@ -831,3 +831,23 @@ test('二审回归 3 & 4：listJobs 忽略普通杂目录如 .cache 且拒符号
   fs.symlinkSync(workspace.resolve('assets'), path.join(workspace.resolve('jobs'), 'bad-link'));
   assert.throws(() => queue.listJobs(), { code: 'contract.bad-path' });
 });
+
+test('A16 终态回写期间作业目录被轮换：补记诊断的回写落在作业锁所在的那一代目录，不写进原路径上的新目录', async t => {
+  const { queue, enqueue } = queueFixture(t);
+  const job = enqueue({ id: 'rotating' });
+  const dir = path.dirname(queue.jobFile(job.id));
+  const retired = path.join(path.dirname(dir), '.rotating-old');
+  const realAppend = fs.appendFileSync;
+  t.mock.method(fs, 'appendFileSync', (target, ...rest) => {
+    if (target !== queue.ledgerFile()) return realAppend(target, ...rest);
+    fs.renameSync(dir, retired);
+    fs.mkdirSync(dir);
+    throw Object.assign(new Error('磁盘满'), { code: 'ENOSPC' });
+  });
+  await queue.runJob(job.id);
+  const saved = JSON.parse(fs.readFileSync(path.join(retired, 'job.json'), 'utf8'));
+  assert.equal(saved.status, 'succeeded');
+  assert.match(saved.events.at(-1).ledgerError, /磁盘满/);
+  assert.deepEqual(fs.readdirSync(dir), []);
+  assert.equal(fs.existsSync(path.join(retired, 'job.json.lock')), false);
+});

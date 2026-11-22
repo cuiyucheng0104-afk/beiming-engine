@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
-const inputExcluded = new Set(['rev', 'snapshots', 'intermediate', 'deliver', 'jobs']);
+const inputExcluded = new Set(['rev', 'snapshots', 'intermediate', 'deliver', 'jobs', 'cache']);
 const keepPolicies = new Set(['none', 'failed-only', 'all']);
 const filmIdPattern = /^[a-z][a-z0-9_-]*$/;
 const sha256Pattern = /^[a-f0-9]{64}$/;
@@ -85,15 +85,76 @@ export function readText(file) {
   }
 }
 
-export function atomicWrite(file, text, { stagingParent = path.dirname(file), create = false } = {}) {
-  const staging = fs.mkdtempSync(path.join(stagingParent, '.write-'));
+const sleeper = new Int32Array(new SharedArrayBuffer(4));
+
+// Windows 上另一个进程正在读、改时间或替换同一路径时，rename / open / unlink 会短暂报共享冲突（EPERM、EACCES、EBUSY），退避重试即可。
+// 父目录不可写是永久错误，不空等；重试用完仍失败就把原错误抛给调用方。
+// 只读操作传 mode = R_OK：只要求文件本身可读，只读目录里的帧照样退避；文件在退避期间被删就让下一次尝试自己报 ENOENT。
+export function retrySharing(file, run, retries = 16, mode = fs.constants.W_OK) {
+  const reading = mode === fs.constants.R_OK;
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return run();
+    } catch (error) {
+      if (!['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt >= retries) throw error;
+      try {
+        fs.accessSync(reading ? file : path.dirname(file), mode);
+      } catch (denied) {
+        // 探测自己撞上 EBUSY 也是瞬态冲突，不算「永久不可写」，接着退避
+        if (denied.code !== 'EBUSY' && !(reading && denied.code === 'ENOENT')) throw error;
+      }
+      Atomics.wait(sleeper, 0, 0, Math.min(25, 2 + attempt * 2));
+    }
+  }
+}
+
+// 找回自己建的节点。isMine 按创建时就定下的唯一凭据认（带 UUID 的目录名、锁文件里的 UUID），不靠节点号，也没有「建完再取样」的空档。
+// 持有期间父目录可能被改名轮换、原路径重建：原路径上不是自己的就不碰，到上一级的兄弟目录里找回自己的那个；找不到返回 undefined。
+// shortcut: 兄弟目录逐个探一遍，只在轮换后才走到；上一级有上万个目录时会慢，那时改成由调用方传入轮换后的去向。
+// mustList：找的是锁。上一级还在却一直列不出来时报错，不能当成「没有」悄悄留下一把活锁；暂存目录找不回就留给 prune。
+export function locateOwned(file, isMine = candidate => Boolean(fs.lstatSync(candidate, { throwIfNoEntry: false })), mustList = false) {
+  let siblingError;
+  const owned = (candidate, sibling) => {
+    try {
+      return retrySharing(candidate, () => isMine(candidate), 12, fs.constants.R_OK);
+    } catch (error) {
+      // 不存在、不是目录：确定不是自己的。无关兄弟目录读不了时先跳过接着找；若遍历全部兄弟也没找到自己的锁，再把该错误抛给调用方。
+      if (['ENOENT', 'ENOTDIR', 'EISDIR'].includes(error?.code)) return false;
+      if (sibling && typeof error?.code === 'string' && !error.code.startsWith('ERR_')) {
+        siblingError ??= error;
+        return false;
+      }
+      throw error;
+    }
+  };
+  if (owned(file)) return file;
+  const outer = path.dirname(path.dirname(file));
+  let siblings;
+  try {
+    siblings = retrySharing(outer, () => fs.readdirSync(outer), 12, fs.constants.R_OK);
+  } catch (error) {
+    if (mustList && !['ENOENT', 'ENOTDIR'].includes(error?.code)) throw error;
+    return undefined; // 上一级不在了，或暂存目录列不出来：找不回，留给 prune
+  }
+  const found = siblings.map(name => path.join(outer, name, path.basename(file))).find(candidate => owned(candidate, true));
+  if (!found && mustList && siblingError) throw siblingError;
+  return found;
+}
+
+// aroundPublish 只包住最后的发布一步：写盘和刷盘在它外面做完，调用方要加锁时临界区才短。
+export function atomicWrite(file, text, { stagingParent = path.dirname(file), create = false, aroundPublish = publish => publish() } = {}) {
+  const staging = path.join(stagingParent, `.write-${randomUUID()}`);
+  fs.mkdirSync(staging, { mode: 0o700 });
   try {
     const pending = path.join(staging, 'pending');
     fs.writeFileSync(pending, text, { flag: 'wx', flush: true });
-    if (create) fs.linkSync(pending, file);
-    else fs.renameSync(pending, file);
+    aroundPublish(() => {
+      if (create) fs.linkSync(pending, file);
+      else retrySharing(file, () => fs.renameSync(pending, file));
+    });
   } finally {
-    fs.rmSync(staging, { recursive: true, force: true });
+    const mine = locateOwned(staging);
+    if (mine) fs.rmSync(mine, { recursive: true, force: true, maxRetries: 5, retryDelay: 10 });
   }
 }
 
