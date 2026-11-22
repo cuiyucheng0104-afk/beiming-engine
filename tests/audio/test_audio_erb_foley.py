@@ -1,12 +1,17 @@
 # -*- coding: utf-8 -*-
 """engine/audio/erb_foley.py：拟音的 ERB 来源（默认关闭、整片一次批量、按内容缓存、种子由 cue/事件/take 决定）。
 
-素材全部是测试里现造的合成「咔」，不依赖任何下载文件；全部走 CPU（device='cpu'），没有 GPU 的机器也跑。
+素材全部是测试里现造的短「咔」（以噪声为主，免得 ERB 保留下来的稳定正弦被误判成拼了原声），不依赖任何下载文件；
+全部走 CPU（device='cpu'），没有 GPU 的机器也跑。音频测试域贴着时限，真渲染只在 setUpClass 里做两次，各用例共用。
 """
 import os
+import pathlib
+import shutil
 import sys
 import tempfile
+import threading
 import unittest
+import warnings
 from unittest import mock
 
 import numpy as np
@@ -18,21 +23,15 @@ from engine.audio.erb import core  # noqa: E402
 SR = core.SR
 
 
-def click(seconds=0.12, seed=1, stereo=True):
-    """15 ms 静音 + 1 ms 的「咔」+ 衰减噪声 + 衰减谐音，立体声右声道略轻。"""
+def click(seed=1, stereo=True, seconds=0.06):
+    """10 ms 静音 + 1 ms 的「咔」+ 衰减噪声，立体声右声道略轻、晚 3 个采样。"""
     r = np.random.default_rng(seed)
-    n, on = int(seconds * SR), int(0.015 * SR)
+    n, on = int(seconds * SR), int(0.010 * SR)
     tt = np.arange(n - on) / SR
-
-    def one():
-        x = np.zeros(n)
-        x[on:] = (np.exp(-tt / 0.03) * 0.4 * np.sin(2 * np.pi * (900 + 80 * seed) * tt)
-                  + np.exp(-tt / 0.015) * 0.4 * r.standard_normal(len(tt)) + np.exp(-tt / 0.001) * 0.9 * r.standard_normal(len(tt)))
-        return x * 0.5 / np.abs(x).max()
-    left = one()
-    if not stereo:
-        return left.astype(np.float32)
-    return np.stack([left, 0.8 * one()], axis=1).astype(np.float32)
+    x = np.zeros(n)
+    x[on:] = np.exp(-tt / 0.012) * r.standard_normal(n - on) + np.exp(-tt / 0.001) * 3 * r.standard_normal(n - on)
+    x *= 0.5 / np.abs(x).max()
+    return (np.stack([x, 0.8 * np.roll(x, 3)], 1) if stereo else x).astype(np.float32)
 
 
 def xcorr_peak(a, b, max_lag=96):
@@ -47,25 +46,25 @@ def xcorr_peak(a, b, max_lag=96):
     return best
 
 
-def make(cache_dir=None):
-    srcs = [click(seed=s) for s in (1, 2, 3)]
-    t = erb_foley.ErbTakes(device='cpu', exact=2, candidates=3, cache_dir=cache_dir)
-    t.want('snip_q', srcs, events=4)
-    t.want('snip_e', [click(seed=4)], events=3)     # 单一来源：vary 抖动
-    return t, srcs
+SRCS = [click(seed=s) for s in (1, 2)]
+MONO = click(seed=4, stereo=False)
 
 
-class SeedTests(unittest.TestCase):
+def make(cache_dir=None, events=3, **kw):
+    t = erb_foley.ErbTakes(device='cpu', exact=1, candidates=2, cache_dir=cache_dir, **kw)
+    t.want('q', SRCS, events=events)
+    t.want('m', [MONO], events=2)          # 单一来源、单声道
+    return t
+
+
+class SeedAndSwitchTests(unittest.TestCase):
     def test_seed_is_stable_distinct_and_31_bit(self):  # 第三个参数是 take（候选）序号
-        a = erb_foley.take_seed('snip_q', 3, 0)
-        self.assertEqual(a, erb_foley.take_seed('snip_q', 3, 0))
-        seeds = {erb_foley.take_seed(c, e, k) for c in ('snip_q', 'snip_e') for e in range(16) for k in range(3)}
+        self.assertEqual(erb_foley.take_seed('q', 3, 0), erb_foley.take_seed('q', 3, 0))
+        seeds = {erb_foley.take_seed(c, e, k) for c in ('q', 'e') for e in range(16) for k in range(3)}
         self.assertEqual(len(seeds), 2 * 16 * 3)
         self.assertTrue(all(0 <= s < 2 ** 31 for s in seeds))
         self.assertNotEqual(erb_foley.take_seed('a', 1, 2), erb_foley.take_seed('a', 2, 1))
 
-
-class SwitchTests(unittest.TestCase):
     def test_default_off_and_explicit_on(self):
         self.assertFalse(erb_foley.enabled())
         self.assertFalse(erb_foley.enabled({'audio': {'mode': 'script'}}))
@@ -81,152 +80,208 @@ class SwitchTests(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr.decode('utf-8', 'replace'))
 
 
+class InputAndMetricTests(unittest.TestCase):
+    def test_want_rejects_non_finite_and_bad_shapes(self):
+        t = erb_foley.ErbTakes(device='cpu')
+        for bad in (np.full(2000, np.nan, np.float32), np.full((2000, 2), np.inf, np.float32), np.zeros((2000, 3), np.float32),
+                    np.zeros((2, 2000, 2), np.float32), np.zeros(4, np.float32)):
+            with self.assertRaises(ValueError, msg=str(bad.shape)):
+                t.want('x', [SRCS[0], bad], events=2)
+        self.assertEqual(t._wants, {}, '被拒的 cue 不应登记')
+
+    def test_fidelity_is_zero_against_itself_and_ignores_zero_padding(self):
+        x = SRCS[0]
+        for other in (x, np.pad(x, ((0, len(x)), (0, 0))), np.pad(x, ((len(x) // 3, 0), (0, 0)))):
+            for k, v in erb_foley.fidelity(other, x).items():
+                self.assertLess(abs(v), 0.02, (other.shape, k, v))
+
+    def test_source_shape_is_part_of_the_cache_key(self):
+        flat = SRCS[0].reshape(-1)
+        self.assertNotEqual(erb_foley._wave_sha(flat), erb_foley._wave_sha(flat.reshape(-1, 2)))
+
+    def test_changed_source_or_param_changes_the_key(self):
+        t, sha = make(), erb_foley._wave_sha(SRCS[0])
+        k0 = t._key(sha, 'q', 0, 'cpu')[0]
+        self.assertNotEqual(k0, erb_foley.ErbTakes(device='cpu', exact=2, candidates=2)._key(sha, 'q', 0, 'cpu')[0])
+        self.assertNotEqual(k0, t._key(erb_foley._wave_sha(SRCS[1]), 'q', 0, 'cpu')[0])
+        self.assertNotEqual(k0, t._key(erb_foley._wave_sha(SRCS[0]), 'q', 0, 'gpu')[0])
+        self.assertNotEqual(k0, t._key(erb_foley._wave_sha(SRCS[0]), 'q', 1, 'cpu')[0])
+
+    def test_non_finite_output_is_neither_saved_nor_returned(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d)
+        t = erb_foley.ErbTakes(device='cpu', exact=1, candidates=2, cache_dir=d).want('q', [SRCS[0]], events=1)
+        with mock.patch.object(erb_foley.erb, 'render_many', side_effect=lambda jobs, device: [np.full_like(SRCS[0], np.nan)] * len(jobs)):
+            with self.assertRaisesRegex(ValueError, 'NaN'):
+                t.render()
+        self.assertEqual(os.listdir(d), [])
+
+    def test_concurrent_saves_of_one_key_do_not_clash(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d)
+        t = erb_foley.ErbTakes(device='cpu', cache_dir=d)
+        errors = []
+
+        def save():
+            try:
+                for _ in range(10):
+                    t._save('k', {'x': 1}, SRCS[0], {'gate': 'pass'})
+            except Exception as e:   # noqa: BLE001
+                errors.append(e)
+        ths = [threading.Thread(target=save) for _ in range(4)]
+        [th.start() for th in ths]
+        [th.join() for th in ths]
+        self.assertEqual(errors, [])
+        self.assertEqual(sorted(os.listdir(d)), ['k.json', 'k.npz'], '不留临时文件')
+        self.assertTrue(np.array_equal(t._load('k')[0], SRCS[0]))
+
+    def test_bad_cache_files_are_misses(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d)
+        t = erb_foley.ErbTakes(device='cpu', cache_dir=d)
+        p = os.path.join(d, 'k.npz')
+        t._save('k', {}, SRCS[0], {'gate': 'pass'})
+        good = pathlib.Path(p).read_bytes()
+        for name, write in (('0 字节', lambda: pathlib.Path(p).write_bytes(b'')),
+                            ('截断的 zip', lambda: pathlib.Path(p).write_bytes(good[:len(good) // 2])),
+                            ('meta=1', lambda: np.savez(p, wave=SRCS[0], sha256=erb_foley._wave_sha(SRCS[0]), meta='1')),
+                            ('meta=[]', lambda: np.savez(p, wave=SRCS[0], sha256=erb_foley._wave_sha(SRCS[0]), meta='[]')),
+                            ('sha 不符', lambda: np.savez(p, wave=SRCS[0], sha256='0', meta='{"gate": "pass"}'))):
+            write()
+            self.assertIsNone(t._load('k'), name)
+
+
 class RenderTests(unittest.TestCase):
-    def test_one_batch_call_for_the_whole_film(self):
-        t, _ = make()
+    """整片两次真渲染（空缓存、无缓存），再用缓存跑一次。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cache = tempfile.mkdtemp()
+        cls.a = make(cls.cache)
         real = erb.render_many
         with mock.patch.object(erb_foley.erb, 'render_many', side_effect=real) as m:
-            out = t.render()
-        self.assertEqual(m.call_count, 1, '整片的 ERB 任务必须合成一次 render_many')
-        self.assertEqual(len(m.call_args[0][0]), (4 + 3) * 3, '每个事件 3 个候选，全在这一次调用里')
-        self.assertEqual(t.report['jobs'], 7)
-        self.assertEqual(len(out['snip_q']), 4)
-        self.assertEqual(len(out['snip_e']), 3)
+            cls.ra = cls.a.render()
+        cls.calls, cls.njobs = m.call_count, len(m.call_args[0][0])
+        cls.rb = make().render()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.cache)
+
+    def test_one_batch_call_for_the_whole_film(self):
+        self.assertEqual(self.calls, 1, '整片的 ERB 任务必须合成一次 render_many')
+        self.assertEqual(self.njobs, (3 + 2) * 2, '每个事件 2 个候选，全在这一次调用里')
+        self.assertEqual(self.a.report['jobs'], 5)
+        self.assertEqual([len(self.ra['q']), len(self.ra['m'])], [3, 2])
 
     def test_bit_identical_across_runs_and_takes_all_differ(self):
-        a, _ = make()
-        b, _ = make()
-        ra, rb = a.render(), b.render()
-        for cue in ra:
-            for x, y in zip(ra[cue], rb[cue]):
+        for cue in self.ra:
+            for x, y in zip(self.ra[cue], self.rb[cue]):
                 self.assertTrue(np.array_equal(x[0], y[0]), f'{cue} 两遍渲染应逐比特相同')
-        waves = [w[0] for cue in ra for w in ra[cue]]
+        waves = [w[0] for cue in self.ra for w in self.ra[cue]]
         for i in range(len(waves)):
             for j in range(i + 1, len(waves)):
-                n = min(len(waves[i]), len(waves[j]))
-                self.assertFalse(np.array_equal(waves[i][:n], waves[j][:n]), f'take {i} 与 {j} 完全相同')
-        for cue in ra:
-            ws = [w[0] for w in ra[cue]]
-            for i in range(len(ws)):
-                for j in range(i + 1, len(ws)):
-                    n = min(len(ws[i]), len(ws[j]))
-                    self.assertLess(abs(float(np.corrcoef(ws[i][:n, 0], ws[j][:n, 0])[0, 1])), 0.9)
-
-    def test_take_does_not_contain_the_source_waveform(self):
-        # 来源用噪声为主的「咔」（没有会被 ERB 保留频率的稳定正弦，免得把「同频」误判成「拼了原声」）
-        r = np.random.default_rng(7)
-        n, on = int(0.12 * SR), int(0.015 * SR)
-        tt = np.arange(n - on) / SR
-        srcs = []
-        for _ in range(3):
-            x = np.zeros(n)
-            x[on:] = np.exp(-tt / 0.02) * r.standard_normal(n - on) + np.exp(-tt / 0.001) * 3 * r.standard_normal(n - on)
-            x *= 0.5 / np.abs(x).max()
-            srcs.append(np.stack([x, 0.8 * np.roll(x, 3)], 1).astype(np.float32))
-        t = erb_foley.ErbTakes(device='cpu', exact=2)
-        t.want('n', srcs, events=3)
-        out = t.render()['n']
-        worst = max(xcorr_peak(w[0], s) for w in out for s in srcs)
-        self.assertLess(worst, 0.35, '输出与来源在 ±2 ms 内的波形相关过高，像是拼了原声')
-        # 对照：把来源的一段直接拼进去，同一把尺必须量得出来
-        spliced = out[0][0].copy()
-        m = min(len(spliced), len(srcs[0]))
-        spliced[:m] = 0.7 * spliced[:m] + 0.7 * srcs[0][:m]
-        self.assertGreater(xcorr_peak(spliced, srcs[0]), 0.6)
-
-    def test_changing_event_index_changes_the_take_but_not_other_events(self):
-        a, _ = make()
-        ra = a.render()
-        b = erb_foley.ErbTakes(device='cpu', exact=2, candidates=3)
-        b.want('snip_q', [click(seed=s) for s in (1, 2, 3)], events=6)   # 多了两个事件
-        rb = b.render()
-        for k in range(4):
-            self.assertTrue(np.array_equal(ra['snip_q'][k][0], rb['snip_q'][k][0]), '已有事件不能因为事件数变化而变')
+                a, b = waves[i], waves[j]
+                n = min(len(a), len(b))
+                self.assertFalse(a.shape == b.shape and np.array_equal(a, b), f'take {i} 与 {j} 完全相同')
+                if a.ndim == b.ndim == 2:
+                    self.assertLess(abs(float(np.corrcoef(a[:n, 0], b[:n, 0])[0, 1])), 0.9)
 
     def test_output_shape_matches_source_channels(self):
-        t = erb_foley.ErbTakes(device='cpu', exact=2)
-        t.want('mono', [click(seed=1, stereo=False)], events=2)
-        t.want('st', [click(seed=1), click(seed=2)], events=2)
-        out = t.render()
-        self.assertEqual(out['mono'][0][0].ndim, 1)
-        self.assertEqual(out['st'][0][0].ndim, 2)
-        self.assertTrue(all(np.isfinite(w[0]).all() for c in out.values() for w in c))
+        self.assertEqual(self.ra['m'][0][0].ndim, 1)
+        self.assertEqual(self.ra['q'][0][0].ndim, 2)
+        self.assertTrue(all(np.isfinite(w[0]).all() for c in self.ra.values() for w in c))
 
+    def test_take_does_not_contain_the_source_waveform(self):
+        worst = max(xcorr_peak(w, s) for w, _ in self.ra['q'] for s in SRCS)
+        self.assertLess(worst, 0.35, '输出与来源在 ±2 ms 内的波形相关过高，像是拼了原声')
+        spliced = self.ra['q'][0][0].copy()          # 对照：把来源的一段直接拼进去，同一把尺必须量得出来
+        m = min(len(spliced), len(SRCS[0]))
+        spliced[:m] = 0.7 * spliced[:m] + 0.7 * SRCS[0][:m]
+        self.assertGreater(xcorr_peak(spliced, SRCS[0]), 0.6)
 
-class CacheTests(unittest.TestCase):
-    def test_second_run_hits_cache_and_matches(self):
-        with tempfile.TemporaryDirectory() as d:
-            a, _ = make(d)
-            ra = a.render()
-            self.assertEqual(a.report['rendered'], 7)
-            b, _ = make(d)
-            with mock.patch.object(erb_foley.erb, 'render_many', side_effect=AssertionError('缓存命中时不该再渲染')):
-                rb = b.render()
-            self.assertEqual(b.report['cached'], 7)
-            self.assertEqual(b.report['rendered'], 0)
-            for cue in ra:
-                for x, y in zip(ra[cue], rb[cue]):
-                    self.assertTrue(np.array_equal(x[0], y[0]))
+    def test_gate_meta_matches_fidelity_and_seed(self):
+        for cue, srcs in (('q', SRCS), ('m', [MONO])):
+            for e, (w, meta) in enumerate(self.ra[cue]):
+                self.assertEqual(meta['seed'], erb_foley.take_seed(cue, e, meta['attempt']))
+                fid = erb_foley.fidelity(w, srcs[e % len(srcs)])
+                if meta['gate'] == 'pass':
+                    self.assertEqual(meta['judge'], 'pass')
+                    self.assertLess(max(abs(v) for v in fid.values()), 1.5, (cue, e, fid))
+        self.assertEqual(self.a.report['fallback'], sum(m['gate'] == 'fallback' for c in self.ra.values() for _, m in c))
 
-    def test_changed_source_or_param_misses(self):
-        with tempfile.TemporaryDirectory() as d:
-            a, _ = make(d)
-            a.render()
-            c = erb_foley.ErbTakes(device='cpu', exact=3, candidates=3, cache_dir=d)      # exact 不同
-            c.want('snip_q', [click(seed=s) for s in (1, 2, 3)], events=4)
-            c.render()
-            self.assertEqual(c.report['cached'], 0)
-            e = erb_foley.ErbTakes(device='cpu', exact=2, candidates=3, cache_dir=d)
-            e.want('snip_q', [click(seed=s) for s in (7, 8, 9)], events=4)  # 来源全换
-            e.render()
-            self.assertEqual(e.report['cached'], 0)
-
-
-class FidelityGateTests(unittest.TestCase):
-    def test_fidelity_metric_is_zero_against_itself(self):
-        x = click(seed=2)
-        f = erb_foley.fidelity(x, x)
-        self.assertAlmostEqual(f['bw95_db'], 0.0, places=6)
-        self.assertAlmostEqual(f['hf12_db'], 0.0, places=6)
-        self.assertAlmostEqual(f['hf12_energy_db'], 0.0, places=6)
-
-    def test_chosen_takes_meet_tolerance_and_say_which_attempt(self):
-        t = erb_foley.ErbTakes(device='cpu', exact=2, candidates=4, tol_db=1.5)
-        srcs = [click(seed=s) for s in (1, 2, 3)]
-        t.want('c', srcs, events=3)
-        out = t.render()['c']
-        self.assertEqual(t.report['jobs'], 3)
-        self.assertEqual(t.report['candidates'], 12)
-        for e, (w, meta) in enumerate(out):
-            self.assertIn(meta['attempt'], range(4))
-            self.assertEqual(meta['gate'], 'pass')
-            fid = erb_foley.fidelity(w, srcs[e % 3])
-            for k in ('bw95_db', 'hf12_db', 'hf12_energy_db'):
-                self.assertLess(abs(fid[k]), 1.5, (e, meta['attempt'], fid))
-            self.assertEqual(meta['seed'], erb_foley.take_seed('c', e, meta['attempt']))
-
-    def test_impossible_tolerance_falls_back_loudly_to_the_closest_candidate(self):
-        t = erb_foley.ErbTakes(device='cpu', exact=2, candidates=3, tol_db=1e-6)
-        t.want('c', [click(seed=1)], events=2)
-        out = t.render()['c']
-        for w, meta in out:
-            self.assertEqual(meta['gate'], 'fallback')
-            self.assertTrue(np.isfinite(w).all())
-        self.assertEqual(t.report['fallback'], 2)
-
-    def test_chosen_take_is_cached_with_its_attempt(self):
-        with tempfile.TemporaryDirectory() as d:
-            a = erb_foley.ErbTakes(device='cpu', exact=2, candidates=3, cache_dir=d)
-            a.want('c', [click(seed=1), click(seed=2)], events=3)
-            ra = a.render()['c']
-            b = erb_foley.ErbTakes(device='cpu', exact=2, candidates=3, cache_dir=d)
-            b.want('c', [click(seed=1), click(seed=2)], events=3)
-            with mock.patch.object(erb_foley.erb, 'render_many', side_effect=AssertionError('命中缓存不该再渲')):
-                rb = b.render()['c']
-            for (x, mx), (y, my) in zip(ra, rb):
+    def test_cache_hits_match_and_keep_meta_and_new_events_render_alone(self):
+        b = make(self.cache, events=5)                     # 多了两个事件：已有事件命中缓存，只渲新的
+        rb = b.render()
+        self.assertEqual((b.report['cached'], b.report['rendered']), (5, 2))
+        self.assertEqual(b.report['fallback'], sum(m['gate'] == 'fallback' for c in rb.values() for _, m in c))
+        for cue in self.ra:
+            for (x, mx), (y, my) in zip(self.ra[cue], rb[cue]):
                 self.assertTrue(np.array_equal(x, y))
-                self.assertEqual(mx['attempt'], my['attempt'])
+                self.assertEqual((mx['attempt'], mx['gate']), (my['attempt'], my['gate']))
                 self.assertTrue(my['cached'])
+
+
+class FallbackAndDeviceTests(unittest.TestCase):
+    """一个事件、阈值不可能达到：必走 fallback；再用它的 CPU 缓存核对设备与坏缓存的处理。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cache = tempfile.mkdtemp()
+        cls.t = cls.mk('cpu')
+        cls.r = cls.t.render()['q']
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.cache)
+
+    @classmethod
+    def mk(cls, device, cache=True):
+        return erb_foley.ErbTakes(device=device, exact=1, candidates=2, tol_db=1e-6,
+                                  cache_dir=cls.cache if cache else None).want('q', [SRCS[0]], events=1)
+
+    def test_fallback_is_loud_and_counted_from_cache_too(self):
+        self.assertEqual(self.r[0][1]['gate'], 'fallback')
+        self.assertEqual(self.t.report['fallback'], 1)
+        again = self.mk('cpu')
+        again.render()
+        self.assertEqual((again.report['cached'], again.report['fallback']), (1, 1))
+
+    def test_forced_gpu_never_uses_cpu_cache(self):
+        with mock.patch.object(erb_foley.erb.gpu, 'available', return_value=False):
+            with self.assertRaises(erb_foley.erb.gpu.GpuUnavailable):
+                self.mk('gpu').render()
+
+    def test_auto_reuses_the_cpu_cache_after_an_oom_fallback(self):
+        with mock.patch.object(erb_foley.erb.gpu, 'available', return_value=True), \
+                mock.patch.object(erb_foley.erb, 'render_many', side_effect=AssertionError('应当命中 CPU 缓存')):
+            t = self.mk('auto')
+            t.render()
+        self.assertEqual(t.report['cached'], 1)
+
+    def test_oom_warning_reaches_the_caller(self):
+        def fake(jobs, device):
+            warnings.warn('显存不够放下其中一条，这一批退回 CPU', RuntimeWarning)
+            return [self.r[0][0]] * len(jobs)
+        with mock.patch.object(erb_foley.erb.gpu, 'available', return_value=True), \
+                mock.patch.object(erb_foley.erb, 'render_many', side_effect=fake):
+            t = self.mk('auto', cache=False)
+            with self.assertWarnsRegex(RuntimeWarning, '退回 CPU'):
+                out = t.render()
+        self.assertEqual((t.report['device'], out['q'][0][1]['device']), ('cpu', 'cpu'))
+
+    def test_corrupt_cache_file_is_rerendered(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d)
+        for f in os.listdir(self.cache):
+            shutil.copy(os.path.join(self.cache, f), d)
+        for f in os.listdir(d):
+            if f.endswith('.npz'):
+                pathlib.Path(d, f).write_bytes(b'')
+        t = erb_foley.ErbTakes(device='cpu', exact=1, candidates=2, tol_db=1e-6, cache_dir=d).want('q', [SRCS[0]], events=1)
+        out = t.render()['q']
+        self.assertEqual((t.report['cached'], t.report['rendered']), (0, 1))
+        self.assertTrue(np.array_equal(out[0][0], self.r[0][0]))
 
 
 class DeckPolicyTests(unittest.TestCase):

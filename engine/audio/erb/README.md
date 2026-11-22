@@ -93,6 +93,9 @@ if erb_foley.enabled(film_json):                      # film.json 的 audio.erb.
 ```
 
 - 种子 = `take_seed(cue, 事件序号, 候选序号)`（sha256，不依赖 `hash()`），同一设备上重渲逐比特相同；GPU 与 CPU 的随机数不是同一组，缓存键里带设备。
-- 缓存（`cache_dir`，每条一对 `<键>.npz` / `<键>.json`，键含来源波形、参数、cue、事件、erb 与本模块的代码哈希、设备）：命中就不再渲；读到坏文件按未命中重渲。
+- 缓存（`cache_dir`，每条一对 `<键>.npz` / `<键>.json`，键含来源波形与形状、参数、cue、事件、erb 与本模块的代码哈希、设备）：命中就不再渲；读到坏文件（0 字节、截断、元信息不对）按未命中重渲；并发写同一个键各用自己的临时文件。`device='auto'` 时 GPU 键没命中会再查 CPU 键（上次显存不够退回过 CPU），退回 CPU 的警告照常发给调用方；`device='gpu'` 只认 GPU 键，没有 GPU 抛 `GpuUnavailable`。
+- 来源有 NaN / Inf 或形状不是 `(n,)` / `(n, 2)` 时 `want()` 抛 `ValueError`；候选全是非有限值时 `render()` 抛错，不保存也不交付。
+- 保真指标按 `norm='ortho'` 的频谱算，补零、时长不同不影响「>12 kHz 能量」这一项。
+- 作品的 `film.json` 用 `audio.erb.enabled` 打开（已登记在 `engine/production/film.js` 与 `film.schema.json`）。
 - 保真闸：每个事件默认渲 4 个候选（都在同一次批量里），取第一个「95% 带宽、>12 kHz 占比、>12 kHz 能量相对来源的偏差都 < 1.5 dB 且过 `sfx_judge`」的；都不达标取偏差最小的并标 `gate: 'fallback'`（`report['fallback']` 计数）。这是挑选，不是拼接。
 - `ActionVariationDeck(policy='erb')`：takes 就是上面渲好的、每个事件一条，按事件顺序取，只按力度定增益，不变调、不均衡、不叠副层。
