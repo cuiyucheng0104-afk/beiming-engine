@@ -119,7 +119,10 @@ test('元素声明不对当场报 usage.bad-argument：种类不认识、矩形�
     [{ ...ok[0], opacity: 0.5 }], [null],
   ];
   for (const elements of bad) assert.throws(() => checkElements(size, elements), coded('usage.bad-argument'), JSON.stringify(elements));
-  assert.equal(typeof createTwoDStage, 'function');
+  // 搭舞台的调用自己也当场抛，不是交回一个失败的 Promise：调用处不带 await 的 try/catch 接得住。样式里的外部地址一样
+  for (const opts of [...bad.map((elements) => ({ elements })), { elements: ok, css: 'p{background:url(https://example.invalid/a.png)}' }]) {
+    assert.throws(() => createTwoDStage({ size }, opts), coded('usage.bad-argument'), JSON.stringify(opts));
+  }
 });
 
 // 进页面之前就要拒掉的标记：外链、会执行的属性和标签、样式里的外部地址、svg 里再声明实体。纯校验和实渲两头都用这一份
@@ -168,7 +171,10 @@ const GOOD_MARKUP = [
 
 test('标记进页面之前先拒掉外链、事件属性、会执行或会联网的标签、样式里的外部地址和 svg 里的嵌套实体，都报 usage.bad-argument', () => {
   assert.equal(checkElements([640, 360], GOOD_MARKUP).length, 2);
-  for (const [what, elements] of Object.entries(BAD_MARKUP)) assert.throws(() => checkElements([640, 360], elements), coded('usage.bad-argument'), what);
+  for (const [what, elements] of Object.entries(BAD_MARKUP)) {
+    assert.throws(() => checkElements([640, 360], elements), coded('usage.bad-argument'), what);
+    assert.throws(() => createTwoDStage({ size: [640, 360] }, { elements }), coded('usage.bad-argument'), `搭舞台：${what}`);
+  }
 });
 
 test('页面宿主只多放行 fonts/ 下的 woff2：许可文件、锁文件、跳出目录的都拿不到', () => {
@@ -284,7 +290,7 @@ const CLIP = [
 // 邻居显式写了 visibility: visible：隔离一个实体或一段文字时它的墨迹不能串进来。display: none 的实体照常装载
 const SEEN = `${WORD};visibility:visible`;
 const spot = (x, y, width = 140) => `position:absolute;left:${x}px;top:${y}px;width:${width}px;height:50px;line-height:50px`;
-const under = (name, x, more = '') => `<div data-entity="${name}" style="${spot(x, 20)}"><b data-text-id="${name}.word" style="${SEEN}${more}">AIM</b></div>`;
+const under = (name, x, more = '', y = 20) => `<div data-entity="${name}" style="${spot(x, y)}"><b data-text-id="${name}.word" style="${SEEN}${more}">AIM</b></div>`;
 const BLEED = [
   { kind: 'dom', html:
     // 叠在一起的三对：下层的字显式看得见（第三对还带 !important），上层分别是透明的、藏着的、空的
@@ -301,6 +307,25 @@ const BLEED = [
     + `<div style="display:none"><div data-entity="none_up" style="${spot(400, 100)};background:#5FA8A0"><b data-text-id="none_up.word" style="${SEEN}">AIM</b></div></div>` },
   { kind: 'canvas2d', name: 'cap', rect: [10, 190, 110, 260], fill: ['#FFFFFF', '#FFFFFF'] },
 ];
+// 邻居外面套一层包装：普通的（_w）和 display: contents 的（_c）各一组，结果要一样。display: contents 的节点自己不生成盒，写在它身上的不透明度不起作用
+const WRAPS = { w: '', c: 'display:contents' };
+const WRAP = [
+  { kind: 'dom', html:
+    // 叠在一起的两对：下层套着包装、字显式看得见，上层是透明的
+    Object.entries(WRAPS).map(([k, wrap], i) => `<div style="${wrap}">${under(`low_${k}`, 20 + 180 * i)}</div><div data-entity="top_${k}" style="${spot(20 + 180 * i, 20)};opacity:0">AIM</div>`).join('')
+    // 不是实体的 display: contents 节点显式看得见，直接带着一段字、伪元素里还有一段：不画进叠在上面的空实体
+    + `<style>.ghost::before{content:"AIM";visibility:visible!important}</style>`
+    + `<div style="${spot(400, 20)}"><span class="ghost" style="display:contents;visibility:visible;${WORD}">AIM</span><div data-entity="top_g" style="position:absolute;inset:0"></div></div>`
+    // 一个实体里并排两段字，第二段套着包装、显式看得见；盖板只盖住第一段
+    + Object.entries(WRAPS).map(([k, wrap], i) => `<div data-entity="pair_${k}" style="${spot(20, 100 + 80 * i, 300)}"><b data-text-id="pair_${k}.a" style="${WORD}">AIM</b><span style="${wrap}"><b data-text-id="pair_${k}.b" style="${SEEN};margin-left:80px">AIM</b></span></div>`).join('')
+    // 看不看得见照浏览器合成出来的算：祖先 visibility: hidden、子节点显式恢复的看得见；祖先 opacity: 0 的怎么写都看不见
+    + `<div style="visibility:hidden">${under('back', 20, '', 280)}</div><div style="opacity:0">${under('faded', 200, '', 280)}</div>`
+    // 不是实体的祖先自己带着字，::first-letter、::first-line 都显式看得见：不画进里面的空实体
+    + `<style>.lead::first-letter,.lead::first-line{visibility:visible!important}</style><div class="lead" style="${spot(400, 280)};${WORD}">AIM<div data-entity="top_l" style="position:absolute;inset:0"></div></div>`
+    // 实体是 svg 里的一个图形，裁剪路径在祖先的 <defs> 里：祖先藏起来，裁剪路径照样作数，只留左半
+    + `<svg style="${spot(340, 100)}" viewBox="0 0 140 50"><defs><clipPath id="half"><rect width="70" height="50"/></clipPath></defs><rect data-entity="cut" width="140" height="50" fill="#D9654B" clip-path="url(#half)"/></svg>` },
+  ...Object.keys(WRAPS).map((k, i) => ({ kind: 'canvas2d', name: `cap_${k}`, rect: [10, 90 + 80 * i, 110, 160 + 80 * i], fill: ['#FFFFFF', '#FFFFFF'] })),
+];
 
 test('探针：藏起来的、被盖住的、被裁掉的内容，颜色层、编号层、visible、texts 四处说法一致', async (t) => {
   await withSource(t, async ({ open, read }) => {
@@ -309,6 +334,7 @@ test('探针：藏起来的、被盖住的、被裁掉的内容，颜色层、�
       { ...probeShot('hide', HIDE), roles: { hero: 'hero', mustSee: ['veiled', 'caption', 'shown'] } },
       { ...probeShot('clip', CLIP), roles: { hero: 'out', mustSee: ['part'] } },
       { ...probeShot('bleed', BLEED), roles: { hero: 'low_a', mustSee: ['low_b', 'low_c', 'top_a', 'top_b', 'top_c', 'none_self', 'none_up'] } },
+      { ...probeShot('wrap', WRAP), roles: { hero: 'low_w', mustSee: ['low_c', 'top_w', 'top_c', 'top_g', 'top_l', 'back', 'faded', 'cut'] } },
     ]);
     /** 渲一帧，交回按实体名、文字 id 查的元数据，和数像素的三个函数：编号层上这个实体占几个像素、矩形里有几个墨色像素、(x, y) 是不是这个颜色 */
     async function shoot(session, f) {
@@ -390,6 +416,28 @@ test('探针：藏起来的、被盖住的、被裁掉的内容，颜色层、�
     const ocr = verifySampledBboxes([{ frame: 0, meta: b0.meta, ocr: ocrFromInk(b0.meta, b0.mask), inkMask: b0.mask }]);
     assert.ok(ocr.ok && ocr.frames[0].texts.every((x) => x.edgeErr <= 1), JSON.stringify(ocr.frames[0].texts));
     await bleed.close();
+
+    const wrap = await open(film, 'wrap');
+    const w0 = await shoot(wrap, 0);
+    Object.keys(WRAPS).forEach((k, i) => {
+      // 套不套包装、包装生不生成盒都一样：透明的上层是空实体，编号层和 visible 归下层
+      const x = 20 + 180 * i, y = 100 + 80 * i;
+      assert.deepEqual([w0.idPixels(`top_${k}`), w0.entity[`top_${k}`].visible, w0.entity[`top_${k}`].pxArea], [0, 0, 0], `top_${k}`);
+      assert.deepEqual([w0.idPixels(`low_${k}`), w0.entity[`low_${k}`].visible, w0.ink([x, 20, x + 140, 70]) > 0], [140 * 50, 1, true], `low_${k}`);
+      // 盖板底下没有墨迹，露在外面的只有第二段：texts 里没有被盖死的第一段，第二段的框里只有它自己的墨迹
+      assert.ok(w0.ink([10, y - 10, 110, y + 60]) === 0 && w0.ink([110, y - 10, 320, y + 60]) > 0, `pair_${k}`);
+      assert.ok(w0.meta.texts.find((t) => t.id === `pair_${k}.b`).bbox2d[0] >= 110, `pair_${k}.b`);
+    });
+    gone(w0, 'top_g', [400, 20, 540, 70]);
+    gone(w0, 'top_l', [400, 280, 540, 330]);
+    w0.near(360, 125, '#D9654B', '裁剪路径留下的左半'); w0.near(460, 125, PAPER, '裁掉的右半');
+    assert.deepEqual([w0.idPixels('cut'), w0.entity.cut.visible], [140 * 50, 1], 'cut');
+    gone(w0, 'faded', [200, 280, 340, 330]);
+    assert.deepEqual([w0.idPixels('back'), w0.entity.back.visible, w0.ink([20, 280, 160, 330]) > 0], [140 * 50, 1, true], 'back');
+    assert.deepEqual(w0.texts, ['back.word', 'low_c.word', 'low_w.word', 'pair_c.b', 'pair_w.b']);
+    const seenInk = verifySampledBboxes([{ frame: 0, meta: w0.meta, ocr: ocrFromInk(w0.meta, w0.mask), inkMask: w0.mask }]);
+    assert.ok(seenInk.ok && seenInk.frames[0].texts.every((t) => t.edgeErr <= 1), JSON.stringify(seenInk.frames[0].texts));
+    await wrap.close();
   });
 });
 

@@ -15,8 +15,8 @@ const NAME = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/, TEXT_ID = /^[\w.:-]+$/, FONT_W
 const INK_ALPHA = 32;
 // 量文字墨迹时在排版盒外面多看这么多像素：字形可以伸出行盒
 const INK_PAD = 32;
-// 自己从不画出来、只给别处引用的 SVG 节点：隔离一个节点时不动它们（<symbol> 上的样式会跟着 <use> 进到用它的地方）
-const UNPAINTED = ['defs', 'symbol', 'clippath', 'mask', 'pattern', 'marker', 'lineargradient', 'radialgradient', 'filter', 'style', 'title', 'desc', 'metadata'];
+// 自己从不画出来、只给别处引用的 SVG 节点：隔离一个节点时不藏它们和它们里面的（裁剪路径、蒙版里藏起来的图形不算数，引用它的就被裁空了）
+const UNPAINTED = ['defs', 'symbol', 'clippath', 'mask', 'pattern', 'marker', 'lineargradient', 'radialgradient', 'filter'];
 const coded = (code, message) => Object.assign(new Error(message), { code });
 const show = (v) => JSON.stringify(v) ?? String(v);
 
@@ -183,17 +183,24 @@ function inkOf(width, height, isInk) {
 }
 
 /**
- * 搭一个二维讲解舞台，交回镜头对象 { scene, camera, entities, state, meta, dispose }，build 可以直接把它交给宿主。
+ * 搭一个二维讲解舞台，交回 Promise，兑现出来是镜头对象 { scene, camera, entities, state, meta, dispose }，build 可以直接把它交给宿主。
+ * 声明不对（usage.bad-argument：elements、标记、css）在调用时同步抛出，不进 Promise；字体和排版里查出来的错让 Promise 失败。
  * opts：elements（见 checkElements）；background 纸色（默认 STAGE.paper）；css 排版用的样式；
  * fonts [{ family, url, weight?, style? }] 要锁定的字体（woff2，本机静态服务上的地址）。
  * 排版里查出来的错（实体名重复、矩形伸出画面、文字不在任何实体里、文字 id 重复）报 contract.bad-value。
- * 画面上看不见的东西不交：画出来一个像素都没有的、排版出来没有面积的（display: none）实体是空实体（不画、停到画面外、不占编号层）；藏起来的、没有墨迹的、
+ * 画面上看不见的东西不交：画出来一个像素都没有的、排版出来没有面积的（display: none、display: contents）实体是空实体（不画、停到画面外、不占编号层）；藏起来的、没有墨迹的、
  * 墨迹被登记在后的不透明实体整个盖住的文字不进 texts。
  */
-export async function createTwoDStage(ctx, opts = {}) {
-  const { THREE, size } = ctx, [W, H] = size;
-  const items = checkElements(size, opts.elements);
+export function createTwoDStage(ctx, opts = {}) {
+  // 声明不对当场抛，不放进交回的 Promise 里：调用处不带 await 的 try/catch 也接得住，页面一个节点都还没动
+  const items = checkElements(ctx.size, opts.elements);
   checkCss('css', String(opts.css ?? ''));
+  return mount(ctx, opts, items);
+}
+
+/** createTwoDStage 的异步部分：取字体、排版、光栅化。items 是 checkElements 核对过的元素 */
+async function mount(ctx, opts, items) {
+  const { THREE, size } = ctx, [W, H] = size;
   const bad = (message) => coded('contract.bad-value', message);
   const fonts = await loadFonts(opts.fonts ?? []);
   // 样式进 XML 文档之前把 & 和 < 转掉
@@ -252,30 +259,39 @@ export async function createTwoDStage(ctx, opts = {}) {
   const inert = document.implementation.createHTMLDocument('');
   const force = (node, prop, value) => node.style.setProperty(prop, value, 'important');
   /**
-   * 这一层只画 el 这一个节点（what 是报错时怎么称呼它），光栅化、裁到 cover（整数像素格）里。改的是抄出来的一份，页面里排着版的那份不动：
+   * 这一层只画 el 这一个节点（what 是报错时怎么称呼它），光栅化、裁到 cover（整数像素格）里。改的是抄出来的一份，页面里排着版的那份不动。
+   * 抄出来的和页面里的节点按文档顺序一一对应：照页面里的判，改抄出来的。
    * - el 的祖先藏起来（visibility: hidden）：自己的底色、边框、文字不画，排版、裁剪、不透明度照旧作用在 el 上；
-   * - 祖先链上每一层的其余子节点、el 里面的别的实体，不透明度写成 0。visibility 藏不住它们：子孙显式写 visibility: visible 照样画出来；
-   *   祖先的不透明度是 0 时整棵子树合成出来就是空的，子孙怎么写都画不出一个像素，排版也不变；
+   * - 其余的节点（不在 el 里面的每一个，和 el 里面别的实体连同它们的子孙）逐个写上 opacity: 0 和 visibility: hidden，不是只写在最外面那个上：
+   *   display: contents 的节点自己不生成盒，写在它身上的不透明度不起作用，它的子孙和直接带着的字要各自藏；
+   *   生成盒的节点不透明度是 0 时整棵子树合成出来是空的，排版不变；
    * - el 本来看得见才翻成看得见；本来就被样式藏着的（自己或祖先 visibility: hidden）不翻，画出来是什么和浏览器里一样。
-   * 都写成带 !important 的行内样式，样式表盖不过；祖先的伪元素够不着行内样式，放进最先声明的一层（带 !important 时先声明的层赢）。
-   * shortcut: el 用 <use> 引用的图形要是自己直接和 el 的祖先链并排（不在 <defs>、<symbol> 里），会跟着一起隐去；碰到了把它挪进 <defs>。
+   * 都写成带 !important 的行内样式，样式表盖不过；伪元素够不着行内样式，放进最先声明的一层（带 !important 时先声明的层赢）。
+   * 不动的：<defs>、<symbol> 这类只给别处引用的节点和它们里面的（见 UNPAINTED）；visibility: collapse 的（改成 hidden 会把收起来的表格行撑回去），它本来就不画。
+   * 祖先的 ::first-letter、::first-line 写成跟着那个字所在的节点走（inherit）：首字母是 el 的照画，是祖先自己的不画；祖先样式表里给首字母、首行写的 visibility 不作数。
+   * 两个要一起写：首字母的样式是从首行的样式继承的，只写首字母，首行那条规则里的 visibility: visible 会顺着露出来。
+   * shortcut: el 用 <use> 引用的图形要是在 el 外面、又不在 <defs>、<symbol> 里，会跟着一起隐去；碰到了把它挪进 <defs>。
+   * shortcut: 伪元素只管 ::before、::after、::marker、::first-letter、::first-line；祖先和 display: contents 节点上别的会生成内容的伪元素（::scroll-button 这类）不管，真有人用了再加进那一层。
    */
   async function raster(layer, el, cover, what) {
     const canvas = blank(cover), [w, h] = [canvas.width, canvas.height];
-    const shown = getComputedStyle(el).visibility === 'visible', path = [];
-    for (let n = el; n !== layer; n = n.parentElement) path.unshift([...n.parentElement.children].indexOf(n));
-    const copy = inert.importNode(layer, true);
-    let node = copy;
-    for (const index of path) {
-      force(node, 'visibility', 'hidden');
-      node.setAttribute('data-bm2d-spine', '');
-      [...node.children].forEach((child, i) => { if (i !== index && !UNPAINTED.includes(child.localName.toLowerCase())) force(child, 'opacity', '0'); });
-      node = node.children[index];
-    }
-    if (shown) force(node, 'visibility', 'visible');
-    for (const inner of node.querySelectorAll('[data-entity]')) force(inner, 'opacity', '0');
+    const copy = inert.importNode(layer, true), twins = [copy, ...copy.querySelectorAll('*')];
+    let skip = null;
+    [layer, ...layer.querySelectorAll('*')].forEach((n, i) => {
+      if (skip?.contains(n)) return;
+      const twin = twins[i], look = getComputedStyle(n).visibility, tag = n.localName.toLowerCase();
+      // 只给别处引用的：里面不动，自己写回页面里算出来的 visibility，不跟着藏起来的祖先走。<symbol> 不写：它身上的样式会跟着 <use> 进到用它的地方
+      if (UNPAINTED.includes(tag)) { skip = n; if (tag !== 'symbol') force(twin, 'visibility', look); return; }
+      if (n === el) { if (look === 'visible') force(twin, 'visibility', 'visible'); return; }
+      // el 里面归 el 自己的节点原样画：离它最近的实体就是 el，或者在 el 外面（el 是一段文字）
+      const owner = n.closest('[data-entity]');
+      if (el.contains(n) && (owner === el || !el.contains(owner))) return;
+      twin.setAttribute('data-bm2d-off', '');
+      if (look !== 'collapse') force(twin, 'visibility', 'hidden');
+      if (!n.contains(el)) force(twin, 'opacity', '0');
+    });
     const xml = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${cover[0]} ${cover[1]} ${w} ${h}"><foreignObject width="${W}" height="${H}">`
-      + `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${W}px;height:${H}px"><style>@layer bm2d{[data-bm2d-spine]::before,[data-bm2d-spine]::after,[data-bm2d-spine]::marker{visibility:hidden!important}}${css}</style>`
+      + `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${W}px;height:${H}px"><style>@layer bm2d{[data-bm2d-off]::before,[data-bm2d-off]::after,[data-bm2d-off]::marker{visibility:hidden!important}[data-bm2d-off]::first-letter,[data-bm2d-off]::first-line{visibility:inherit!important}}${css}</style>`
       + `${serializer.serializeToString(copy)}</div></foreignObject></svg>`;
     const img = new Image();
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;
