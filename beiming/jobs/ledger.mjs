@@ -243,7 +243,7 @@ function publishLock(lock) {
   }
 }
 
-export function withFileLock(file, run, timeoutMs = 10_000) {
+export function withFileLock(file, run, timeoutMs = 10_000, label = '账本') {
   const lock = `${file}.lock`;
   const deadline = performance.now() + amount(timeoutMs, 'lockTimeoutMs');
   let staging;
@@ -257,7 +257,7 @@ export function withFileLock(file, run, timeoutMs = 10_000) {
       }
     }
     const remaining = deadline - performance.now();
-    if (remaining <= 0) throw new Error(`等待账本锁 ${lock} 超时，另一个进程正在记账。`);
+    if (remaining <= 0) throw Object.assign(new Error(`等待${label}锁 ${lock} 超时：另一个进程正持有它，或锁所在目录不可写。`), { code: 'ETIMEDOUT' });
     Atomics.wait(sleeper, 0, 0, Math.min(waitMs, remaining));
     // 短临界区先留给持锁者释放，不急着读 PID 或抢 .break。
     if (remaining >= lockGraceMs && fs.existsSync(lock)) clearStaleLock(lock);

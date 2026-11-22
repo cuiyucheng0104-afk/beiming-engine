@@ -990,3 +990,59 @@ test('A16-29 G_REV-R4 最终身份检查之后至 unlink 之前的窗口内同�
   assert.deepEqual([...cache.get(entry).colorBytes], [77]);
   assert.deepEqual(fs.readdirSync(dir).filter((name) => name.startsWith('.')), [], '不留锁文件与暂存目录');
 });
+
+test('A16-30 G_REV-R5 只读目录有效帧遇 EBUSY/EPERM/EACCES 首次 stamp 冲突可退避读回，且任何无法持锁场景严禁无锁发布或删除', { skip: process.platform === 'win32' }, (t) => {
+  const dir = tmpDir(t);
+  const cache = jobs.openShotCache(dir);
+  const entry = jobs.computeFrameCacheKey(makeBaseSpec());
+  cache.put(entry, { colorBytes: Buffer.from([77]) });
+  const [file] = frameFiles(dir);
+  const versionDir = path.dirname(file);
+  const shotDir = path.dirname(versionDir);
+  const tierDir = path.dirname(shotDir);
+
+  // 1) 真正只读目录（0555 根与子目录，0444 帧）叠加首次 bigint lstatSync 的 EBUSY / EPERM / EACCES 共享冲突：全部退避重试并在当次 get 读回 [77]
+  fs.chmodSync(file, 0o444);
+  for (const d of [versionDir, shotDir, tierDir, cache.root]) fs.chmodSync(d, 0o555);
+  try {
+    const realLstat = fs.lstatSync;
+    for (const code of ['EBUSY', 'EPERM', 'EACCES']) {
+      let onceBusy = true;
+      const m = t.mock.method(fs, 'lstatSync', (target, opts) => {
+        if (onceBusy && opts?.bigint && typeof target === 'string' && target.endsWith('.frame')) {
+          onceBusy = false;
+          throw Object.assign(new Error(`${code}: transient lstat sharing`), { code, syscall: 'lstat' });
+        }
+        return realLstat(target, opts);
+      });
+      assert.deepEqual([...cache.get(entry).colorBytes], [77], `只读目录下 ${code} 首次冲突应恢复`);
+      m.mock.restore();
+    }
+  } finally {
+    for (const d of [cache.root, tierDir, shotDir, versionDir]) fs.chmodSync(d, 0o755);
+    fs.chmodSync(file, 0o644);
+  }
+
+  // 2) 锁根只读（0555）而叶目录可写（0755），且已有活进程锁：prune 与坏帧 get 严禁绕过锁进入 unlinkSync
+  const now = Date.now();
+  fs.utimesSync(file, new Date(now - 7200_000), new Date(now - 7200_000));
+  fs.writeFileSync(path.join(cache.root, '.cache.lock'), `${process.pid}\n`);
+  fs.chmodSync(cache.root, 0o555);
+  let unlinkCalls = 0;
+  const realUnlink = fs.unlinkSync;
+  const unlinkSpy = t.mock.method(fs, 'unlinkSync', (target) => {
+    if (String(target).endsWith('.frame')) unlinkCalls += 1;
+    return realUnlink(target);
+  });
+  try {
+    assert.throws(() => cache.prune({ maxAgeMs: 0, now, lockTimeoutMs: 30 }));
+    assert.equal(unlinkCalls, 0, '未取得 .cache.lock 时绝不允许调用 unlinkSync');
+    fs.appendFileSync(file, 'corrupt');
+    assert.equal(cache.get(entry), undefined, '只读根下坏帧机会性清理拿不到锁应安全跳过并返回未命中');
+    assert.equal(unlinkCalls, 0, '坏帧机会性清理未持锁时不得调用 unlinkSync');
+  } finally {
+    unlinkSpy.mock.restore();
+    fs.chmodSync(cache.root, 0o755);
+    fs.rmSync(path.join(cache.root, '.cache.lock'), { force: true });
+  }
+});

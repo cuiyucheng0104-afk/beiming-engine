@@ -115,6 +115,9 @@ function seamSignature(values) {
   return signature;
 }
 
+// 按缓存根目录记本进程的持锁状态与发布序号，见 openShotCache 里的 withCacheLock。
+const processLocks = new Map();
+
 export function openShotCache(cacheDir) {
   const lstat = file => fs.lstatSync(file, { throwIfNoEntry: false });
   const requested = path.resolve(cacheDir);
@@ -142,21 +145,16 @@ export function openShotCache(cacheDir) {
   }
 
   // 发布（改名到位）与「核对身份后删除」在同一把跨进程文件锁里互斥：核对之后、删除之前不会有新帧换进来。
-  // 只读的共享缓存拿不了锁，照旧不加锁；同一进程在临界区里再进来（inLock）直接执行，靠 putSeq 发现期间的发布。
-  let putSeq = 0;
-  let inLock = false;
-  function withCacheLock(run) {
-    if (inLock) return run();
+  // 拿不到锁（根只读、别的进程久占）就抛错，绝不无锁发布或删除；命中读取不进这把锁，只读的共享缓存照常读。
+  // 同一进程里指向同一根目录的句柄共用一份状态：已在临界区里（held）再进来直接执行，靠 putSeq 发现期间的发布。
+  const state = processLocks.get(root) ?? processLocks.set(root, { held: false, putSeq: 0 }).get(root);
+  function withCacheLock(run, timeoutMs) {
+    if (state.held) return run();
+    state.held = true;
     try {
-      fs.accessSync(root, fs.constants.W_OK);
-    } catch {
-      return run();
-    }
-    inLock = true;
-    try {
-      return withFileLock(path.join(root, '.cache'), run);
+      return withFileLock(path.join(root, '.cache'), run, timeoutMs, '缓存');
     } finally {
-      inLock = false;
+      state.held = false;
     }
   }
 
@@ -175,7 +173,7 @@ export function openShotCache(cacheDir) {
     for (let attempt = 0; ; attempt++) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       try {
-        atomicWrite(file, bytes, { stagingParent: root, aroundPublish: publish => withCacheLock(() => { putSeq += 1; publish(); }) });
+        atomicWrite(file, bytes, { stagingParent: root, aroundPublish: publish => withCacheLock(() => { state.putSeq += 1; publish(); }) });
         break;
       } catch (error) {
         // 并发失效/清理可能刚移走父目录；只补一次，持续的 I/O 故障交给调用方。
@@ -189,31 +187,34 @@ export function openShotCache(cacheDir) {
   // 共享冲突的退避期间，别的写者可能已在同一路径原子发布了新帧：每次删除前重验身份，只删快照里的那个文件。
   // 锁套在单次尝试里面，退避等待时不占锁。
   const stamp = file => fs.lstatSync(file, { bigint: true, throwIfNoEntry: false });
-  function removeSame(file, snap) {
+  function removeSame(file, snap, timeoutMs) {
     let removed = false;
     retrySharing(file, () => withCacheLock(() => {
-      const seqBefore = putSeq;
+      const seqBefore = state.putSeq;
       const now = stamp(file);
-      if (putSeq !== seqBefore || !now || !snap || now.ino !== snap.ino || now.size !== snap.size || now.mtimeNs !== snap.mtimeNs || now.ctimeNs !== snap.ctimeNs) return;
+      if (state.putSeq !== seqBefore || !now || !snap || now.ino !== snap.ino || now.size !== snap.size || now.mtimeNs !== snap.mtimeNs || now.ctimeNs !== snap.ctimeNs) return;
       try {
         fs.unlinkSync(file);
         removed = true;
       } catch (error) {
         if (error.code !== 'ENOENT') throw error;
       }
-    }), 5);
+    }, timeoutMs), 5);
     return removed;
   }
 
   // 头部和颜色必须来自同一次读取；调用方以后再取颜色时用返回的摘要核对。
+  // 命中读取不要求写权限：只读缓存里清不掉的错位节点、拿不到锁的坏帧都按未命中处理，不删也不崩。
+  const cannotClean = error => ['EACCES', 'EPERM', 'EROFS', 'ETIMEDOUT'].includes(error.code);
   function get(entry) {
-    const file = fileOf(entry);
+    let file;
     let snap;
     let raw;
     try {
-      [snap, raw] = retrySharing(file, () => [stamp(file), fs.readFileSync(file)], 12);
+      file = fileOf(entry);
+      [snap, raw] = retrySharing(file, () => [stamp(file), fs.readFileSync(file)], 12, fs.constants.R_OK);
     } catch (error) {
-      if (error.code === 'ENOENT') return undefined;
+      if (error.code === 'ENOENT' || (!file && cannotClean(error))) return undefined;
       throw error;
     }
     const split = raw.indexOf(0x0a);
@@ -227,7 +228,11 @@ export function openShotCache(cacheDir) {
       if (!(error instanceof SyntaxError || error instanceof TypeError || error instanceof RangeError)) throw error;
     }
     if (!fields) {
-      removeSame(file, snap);
+      try {
+        removeSame(file, snap, 200); // 机会性清理：短等一下锁，等不到就留给下一次 put 覆盖或 prune
+      } catch (error) {
+        if (!cannotClean(error)) throw error;
+      }
       return undefined;
     }
     try {
@@ -250,7 +255,7 @@ export function openShotCache(cacheDir) {
   const modified = file => lstat(file)?.mtimeMs ?? 0;
 
   // 保留策略（设计文档「中间产物留多久」）：草稿由调用方在作业结束时清，终稿每个镜头只留最近用过的一版，超过期限的都删。
-  function prune({ maxAgeMs = WEEK_MS, clearDraft = false, now = Date.now() } = {}) {
+  function prune({ maxAgeMs = WEEK_MS, clearDraft = false, now = Date.now(), lockTimeoutMs } = {}) {
     need(Number.isFinite(maxAgeMs) && maxAgeMs >= 0 && Number.isFinite(now), '清理期限无效。');
     checkRoot();
     let removed = 0;
@@ -269,7 +274,7 @@ export function openShotCache(cacheDir) {
           const whole = tier === 'draft' ? clearDraft : version !== versions[0];
           for (const { file, snap, at } of version.files) {
             if (!whole && now - at <= maxAgeMs) continue;
-            if (removeSame(file, snap)) removed += 1;
+            if (removeSame(file, snap, lockTimeoutMs)) removed += 1;
           }
           try {
             retrySharing(version.dir, () => fs.rmdirSync(version.dir), 5);

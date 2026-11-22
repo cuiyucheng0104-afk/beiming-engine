@@ -89,16 +89,18 @@ const sleeper = new Int32Array(new SharedArrayBuffer(4));
 
 // Windows 上另一个进程正在读、改时间或替换同一路径时，rename / open / unlink 会短暂报共享冲突（EPERM、EACCES、EBUSY），退避重试即可。
 // 父目录不可写是永久错误，不空等；重试用完仍失败就把原错误抛给调用方。
-export function retrySharing(file, run, retries = 16) {
+// 只读操作传 mode = R_OK：只要求文件本身可读，只读目录里的帧照样退避；文件在退避期间被删就让下一次尝试自己报 ENOENT。
+export function retrySharing(file, run, retries = 16, mode = fs.constants.W_OK) {
+  const reading = mode === fs.constants.R_OK;
   for (let attempt = 0; ; attempt += 1) {
     try {
       return run();
     } catch (error) {
       if (!['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt >= retries) throw error;
       try {
-        fs.accessSync(path.dirname(file), fs.constants.W_OK);
-      } catch {
-        throw error;
+        fs.accessSync(reading ? file : path.dirname(file), mode);
+      } catch (denied) {
+        if (!reading || denied.code !== 'ENOENT') throw error;
       }
       Atomics.wait(sleeper, 0, 0, Math.min(25, 2 + attempt * 2));
     }
