@@ -123,10 +123,13 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
     store.writeMeta(id, { template: body.template ?? 'title', brief: body.brief, question, assets: question?.assets ?? {}, assetRef, managedFiles: Object.keys(files).filter(p => scriptPath.test(p)) });
     const token = issueWorkspaceToken(dataDir, id, { account: who.name });
     if (!delegated) return { data: { film: id, token, rev: 1, scaffold: 'film.json', base: film.predicates.base }, diagnostics };
-    const job = work.submitDelegate(id, ({ signal }) => runDelegateOrchestrator({
+    const job = work.submitDelegate(id, ({ signal, onTokens }) => runDelegateOrchestrator({
       ...model, baseUrl: url, accountToken: bearer, workspaceToken: token, filmId: id,
       brief: body.brief, assets: body.assets, budget: body.budget, signal,
-      onUsage: entry => appendExternalLedger(join(dataDir, 'external-ledger.jsonl'), { film: id, ...entry }),
+      onUsage: entry => {
+        onTokens?.((entry.inputTokens ?? 0) + (entry.outputTokens ?? 0));
+        appendExternalLedger(join(dataDir, 'external-ledger.jsonl'), { film: id, ...entry });
+      },
     }));
     return { data: { film: id, token, rev: 1, scaffold: 'film.json', base: film.predicates.base, job }, diagnostics, next: [{ verb: `GET /v1/jobs/${job}?wait=30`, why: '委托编排在后台跑，长轮询看它停在哪' }] };
   }

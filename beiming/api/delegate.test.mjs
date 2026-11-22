@@ -349,6 +349,56 @@ test('子作业还没入账时，实时显卡秒超限也会停下并撤掉子�
   assert.ok(seen.includes('DELETE /v1/jobs/j1'));
 });
 
+test('取消委托时，建子作业的请求还在途（编排器没拿到作业号）也立即取消子作业', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'bm-a12-inflight-'));
+  const mock = await startMockModelServer(async (body) => (body.messages[0].content.includes('[ROLE:director]')
+    ? doneReply(body.model, 'ok')
+    : toolReply(body.model, 1, 'POST', `/v1/films/${/f_\d{3}/.exec(JSON.stringify(body.messages))[0]}/render`, {})));
+  // 租约永远等不到：子作业停在排队，只有取消能让它到终态，也就不需要 FFmpeg 和浏览器
+  const neverGrants = {
+    request: ({ kind }) => ({ kind, vramMB: 1 }),
+    acquire: (_request, { signal }) => new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason))),
+  };
+  const token = issueAccountToken(dir);
+  const api = await startServer({ dataDir: dir, port: 0, reviewer: null, scheduler: neverGrants,
+    delegate: { endpoint: mock.endpoint, apiKey: 'test', directorModel: 'director', workerModel: 'worker' } });
+  const realFetch = globalThis.fetch;
+  let release, accepted;
+  const held = new Promise((resolve) => { release = resolve; });
+  const child = new Promise((resolve) => { accepted = resolve; });
+  let first = true;
+  // 服务端已受理 render，应答压在路上：编排器这时还不知道子作业号
+  t.mock.method(globalThis, 'fetch', async (url, init = {}) => {
+    const res = await realFetch(url, init);
+    if (first && init.method === 'POST' && new URL(String(url)).pathname.endsWith('/render')) {
+      first = false;
+      accepted((await res.clone().json()).data.job);
+      await held;
+    }
+    return res;
+  });
+  try {
+    const created = await (await realFetch(`${api.url}/v1/films`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ mode: 'delegate', brief: '在途取消验证', output: { size: [320, 180], fps: '10/1', frames: 6 } }),
+    })).json();
+    assert.equal(created.ok, true);
+    const auth = { authorization: `Bearer ${created.data.token}` };
+    const childJob = await child;
+    const canceling = realFetch(`${api.url}/v1/jobs/${created.data.job}`, { method: 'DELETE', headers: auth });
+    const seen = await (await realFetch(`${api.url}/v1/jobs/${childJob}?wait=5`, { headers: auth })).json();
+    assert.equal(seen.data.status, 'canceled', '编排器还没收尾，子作业就该已经取消');
+    release();
+    assert.equal((await (await canceling).json()).data.status, 'canceled');
+  } finally {
+    release();
+    await api.close();
+    await mock.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('收尾交付六件套后预算触线，仍按 succeeded 收尾且不再为汇报调模型', async (t) => {
   const root = '/v1/films/f_001';
   let delivered = false, modelCalls = 0;
@@ -502,7 +552,6 @@ test('A12-5 连续 5 次委托出片不用重启服务（含工具层自动长�
       assert.equal(report.verification.layers.L2.ok, true);
       assert.equal(report.verification.layers.L3.basePass, true);
       assert.equal(report.verification.layers.L5.status, 'not-run');
-      assert.match(report.verification.layers.L5.reason, /推迟/);
     }
   } finally {
     await api.close();

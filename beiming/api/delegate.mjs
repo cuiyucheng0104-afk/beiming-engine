@@ -4,15 +4,27 @@ import { callApi, chat, familyOf, HTTP_TOOL } from './agents.mjs';
 export const DELEGATE_HARD_TOKEN_CAP = 1_200_000;
 const SYSTEM = {
   director: '你是导演。先 GET /v1/guide，再 GET 片子，照需求用补丁（patch/0.1，带 rev）调片子描述和谓词；改完用一段话说明。',
-  'shot-worker': '你是镜头工。为指定镜头 POST render（tier draft）出草稿，再 POST verify 核验。工具会等到终态。通过后汇报。',
+  'shot-worker': '你是镜头工。为指定镜头 POST render（tier draft）出草稿，再 POST verify 核验；未过可用 patch/0.1 调本镜头参数再验。工具会等到终态。通过后汇报。',
   finalizer: '你是收尾。POST deliver（tier final）出六件套。工具会等到终态，交付完汇报。',
 };
 
 /** 模型的账户级查询只开放素材、卡和契约。片子的写入与作业等待绑定到本次工作区。 */
 function inScope(method, pathname, root) {
-  return pathname.startsWith(`${root}/`) ||
-    (method === 'GET' && (pathname === '/v1/guide' || /^\/v1\/(cards|schema)\/[^/]+$/.test(pathname))) ||
-    (method === 'POST' && ['/v1/cards/search', '/v1/assets/search'].includes(pathname));
+  let decoded;
+  try { decoded = decodeURIComponent(pathname); } catch { return false; }
+  if (/(?:^|\/)\.\.(?:\/|$)/.test(decoded)) return false;
+  return decoded.startsWith(`${root}/`) ||
+    (method === 'GET' && (decoded === '/v1/guide' || /^\/v1\/(cards|schema)\/[^/]+$/.test(decoded))) ||
+    (method === 'POST' && ['/v1/cards/search', '/v1/assets/search'].includes(decoded));
+}
+
+/** 镜头工修改片子时只允许 patch/0.1 且全部 ops 落在本镜头路径下。 */
+function ownShotPatch(body, shotId) {
+  if (!body || typeof body !== 'object' || body.format !== 'patch/0.1' || !Array.isArray(body.ops) || !body.ops.length) return false;
+  const prefix = `shots/${shotId}/`;
+  return body.ops.every(op => op && typeof op === 'object' && typeof op.path === 'string'
+    && op.path.startsWith(prefix) && !op.path.split('/').some(s => !s || s === '.' || s === '..')
+    && (op.to === undefined || (typeof op.to === 'string' && op.to.length > 0 && !op.to.includes('/'))));
 }
 
 /** 运行一次委托，交回终态、最后修订、累计成本以及已经验证过的交付产物。 */
@@ -28,12 +40,15 @@ export async function runDelegateOrchestrator({
     throw new RangeError('预算必须是正整数');
   }
   const maxTokens = Math.min(budget.tokens ?? DELEGATE_HARD_TOKEN_CAP, DELEGATE_HARD_TOKEN_CAP);
+  const stepReserve = Math.min(reserveTokens, maxTokens);
   const root = `/v1/films/${filmId}`;
+  const baseOrigin = new URL(baseUrl).origin;
   const api = { baseUrl, account: accountToken ?? workspaceToken, workspaces: { [filmId]: workspaceToken }, jobs: {}, signal };
   const start = performance.now();
   const elapsed = () => Math.round(performance.now() - start);
   let usedTokens = 0, serverTokens = 0, gpuSeconds = 0, liveGpu = 0, bestRev = 1, deliveredRev = null, outputs = [];
-  let at = 'director:step-1', child = null, stoppedReason;
+  let at = 'director:step-1', stoppedReason;
+  const activeChildren = new Set();
   const result = (status, extra = {}) => ({ status, ...extra, bestRev, delegateTokens: usedTokens, cost: { tokens: usedTokens + serverTokens, gpuSeconds, wallMs: elapsed() }, outputs });
   const http = async (method, path, client = api) => JSON.parse((await callApi(client, { method, path })).text).body;
   async function full(env) {
@@ -69,48 +84,58 @@ export async function runDelegateOrchestrator({
     const method = String(args.method).toUpperCase();
     if (typeof args.path !== 'string' || !args.path.startsWith('/v1/')) return JSON.stringify({ refused: '需要本服务的 /v1/ 路径' });
     const target = new URL(args.path, baseUrl);
-    if (!inScope(method, target.pathname, root)) return JSON.stringify({ refused: '该动词不在本片的委托范围内' });
+    if (target.origin !== baseOrigin || !inScope(method, target.pathname, root)) return JSON.stringify({ refused: '该动词不在本片的委托范围内' });
     const verb = target.pathname.slice(root.length + 1);
     const isJob = method === 'POST' && ['render', 'verify', 'deliver'].includes(verb);
     if (target.pathname.startsWith(`${root}/`) && method !== 'GET') {
-      const allowed = (role === 'director' && method === 'PUT' && verb === 'film') ||
-        (role === 'shot-worker' && method === 'POST' && ['observe/query', 'observe/sheet', 'render', 'verify'].includes(verb)) ||
-        (role === 'finalizer' && method === 'POST' && verb === 'deliver');
-      if (!allowed) return JSON.stringify({ refused: '该动词不属于当前角色' });
+      if (role === 'shot-worker' && method === 'PUT' && verb === 'film') {
+        if (!ownShotPatch(args.body, shot.id)) return JSON.stringify({ refused: `镜头工只允许用 patch/0.1 修改本镜头 shots/${shot.id}/` });
+      } else {
+        const allowed = (role === 'director' && method === 'PUT' && verb === 'film') ||
+          (role === 'shot-worker' && method === 'POST' && ['observe/query', 'observe/sheet', 'render', 'verify'].includes(verb)) ||
+          (role === 'finalizer' && method === 'POST' && verb === 'deliver');
+        if (!allowed) return JSON.stringify({ refused: '该动词不属于当前角色' });
+      }
     }
     if (isJob) {
       // 先拿到作业号，才能在取消或预算到期时终止自己提交的子作业。
       target.searchParams.delete('wait');
       args = { ...args, path: target.pathname + target.search, body: { ...args.body, wait: 0 } };
-      if (verb === 'deliver') Object.assign(args.body, { tier: 'final', deferReview: true });
+      if (verb === 'deliver') Object.assign(args.body, { tier: 'final' });
       if (shot) Object.assign(args.body, { shots: [shot.id], tier: 'draft' });
     }
-    let res = await callApi(api, args);
+    // 创建子作业的 POST（wait=0）用独立短超时信号，防止取消信号在途打断响应导致孤儿子作业。
+    let res = await callApi(isJob ? { ...api, signal: AbortSignal.timeout(30_000) } : api, args);
     let env = JSON.parse(res.text).body;
     if (isJob) {
+      let waited = false;
+      let jobId = null;
       while (['queued', 'running'].includes(env?.data?.status)) {
-        child = env.data.job;
-        if (!child) throw new Error('子作业没有交回编号');
+        jobId = env.data.job;
+        if (!jobId) throw new Error('子作业没有交回编号');
+        activeChildren.add(jobId);
+        waited = true;
         // 子作业跑完才入账；先读账本再轮询，在跑作业的实时显卡秒就不会和账本重复计。
         liveGpu = env.data.cost?.gpuSeconds ?? 0;
         checkBudget();
         const remaining = budget.wallSeconds === undefined ? 30 : Math.max(1, Math.ceil(budget.wallSeconds - elapsed() / 1000));
         await readLedger();
-        res = await callApi(api, { method: 'GET', path: `/v1/jobs/${child}?wait=${Math.min(30, remaining)}` });
+        checkBudget();
+        res = await callApi(api, { method: 'GET', path: `/v1/jobs/${jobId}?wait=${Math.min(30, remaining)}` });
         env = JSON.parse(res.text).body;
       }
-      if (child) await readLedger();
-      child = null;
+      if (jobId) activeChildren.delete(jobId);
+      if (waited) await readLedger();
       liveGpu = 0;
     }
     if (env?.ok && Number.isSafeInteger(env.data?.rev)) bestRev = Math.max(bestRev, env.data.rev);
     if (isJob && env?.ok && env.data?.status === 'succeeded') {
       const complete = await full(env);
       if (verb === 'deliver') {
-        outputs = complete.outputs;
-        deliveredRev = complete.data.rev;
+        outputs = Array.isArray(complete.outputs) ? complete.outputs : [];
+        deliveredRev = complete.data?.rev ?? null;
       } else if (evidence) {
-        evidence[verb] = complete.data.rev;
+        evidence[verb] = complete.data?.rev;
       }
     }
     return res.text;
@@ -128,11 +153,11 @@ export async function runDelegateOrchestrator({
       // 六件套已交到最新修订，不再为汇报调模型，免得预算触线把已交付的片子收成 stopped。
       if (role === 'finalizer' && delivered()) return true;
       await readLedger();
-      checkBudget(reserveTokens);
+      checkBudget(stepReserve);
       const body = { model, messages, tools: [HTTP_TOOL], tool_choice: 'auto' };
       // 以 UTF-8 字节为保守的输入界，预留消息封装开销；服务商同时限制输出，单次请求不能借用下一步预算。
       const inputBound = Buffer.byteLength(JSON.stringify(body)) + 256 + 16 * messages.length;
-      body.max_tokens = Math.min(reserveTokens, maxTokens - usedTokens - serverTokens - inputBound);
+      body.max_tokens = Math.min(stepReserve, maxTokens - usedTokens - serverTokens - inputBound);
       if (body.max_tokens < 1) stop('tokens');
       const remainingMs = budget.wallSeconds * 1000 - elapsed();
       const deadline = Number.isFinite(remainingMs) && remainingMs < 120_000 ? AbortSignal.timeout(Math.max(1, remainingMs)) : null;
@@ -158,7 +183,7 @@ export async function runDelegateOrchestrator({
       }
     }
     await readLedger();
-    checkBudget(reserveTokens);
+    checkBudget(stepReserve);
     return false;
   }
 
@@ -180,9 +205,13 @@ export async function runDelegateOrchestrator({
     await readLedger();
     return delivered() ? result('succeeded') : result('failed', { failedAt: at });
   } catch (e) {
-    if (child) {
+    if (activeChildren.size) {
       // 取消信号可能已触发，清理请求需要自己的信号。
-      await http('DELETE', `/v1/jobs/${child}`, { ...api, signal: AbortSignal.timeout(30_000) }).catch(() => {});
+      const cleanup = { ...api, signal: AbortSignal.timeout(30_000) };
+      for (const id of [...activeChildren]) {
+        await http('DELETE', `/v1/jobs/${id}`, cleanup).catch(() => {});
+        activeChildren.delete(id);
+      }
       if (!signal?.aborted) await readLedger().catch(() => {});
     }
     if (signal?.aborted) return result('canceled');

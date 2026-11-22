@@ -307,8 +307,6 @@ export function createWork({ store, library, reviewer, scheduler }) {
       }));
       const l4 = await step('l4', () => ({ status: 'not-run', reason: '未提供可量测的 ref-pack', compChecks: { pointer: '#/checks', count: bundle.report.checks.length, ok: bundle.report.ok } }));
       const l5 = await step('l5', async () => {
-        // L5 是意见而非硬门。预算委托不启动无法预先限额的外部审片，保留独立 review 动词。
-        if (job.payload.deferReview) return { status: 'not-run', reason: '可选 L5 已推迟，可另行 POST review', opinions: [], suggestedPredicates: [], overridesHardGates: false };
         const images = reviewer ? reviewMaterials({ master, fps: film.output.fps, film, outDir: join(dir, 'review') }) : [];
         return layerL5({ reviewer, brief: meta.brief ?? meta.question?.brief ?? '', images, loudness: bundle.report.loudness ?? null, film });
       });
@@ -364,11 +362,50 @@ export function createWork({ store, library, reviewer, scheduler }) {
 
   // 委托作业：编排进程只发 HTTP、不占显存，所以不进 GPU 调度器（否则它等自己触发的 render/deliver 子作业会自死锁）。
   // 队列跑作业必经调度器，它的 stopped 也只留给抢占，所以委托作业照 job/0.1 的字段自己写 jobs/<作业号>/job.json（路径取自队列的 jobFile），
-  // 读、等、取消已停下的作业都走队列的 getJob，和普通作业一条路。内存里只留在跑的作业的取消开关，收尾就删。
-  // shortcut: 进程被杀时在跑的委托作业记录停在 running（编排闭包续不上）；要自动收尾时在启动时把它们扫成 stopped。
+  // 读、等、取消已停下的作业都走队列的 getJob，和普通作业一条路；重启后碰到磁盘仍在 running 的委托作业会自动收敛成 stopped（interrupted）。
   const delegates = new Map();
 
-  /** 提交委托作业：run({ signal }) 交回编排结论 { status, stoppedReason?, stoppedAt?, failedAt?, bestRev, cost, outputs }。交回作业号 */
+  /** 进程重启后遗留在磁盘的 running 委托作业已无编排闭包，立即收敛成 stopped（interrupted）并补齐结论。 */
+  function recoverDelegate(id, jobId) {
+    const q = queue(id);
+    const job = q.getJob(jobId);
+    if (job.handler !== 'delegate' || TERMINAL.has(job.status) || running.has(jobId)) return job;
+    const file = q.jobFile(jobId);
+    const open = job.steps.filter((s) => s.attempt === job.attempt && !s.endEvent).at(-1);
+    const append = (type, details) => {
+      const seq = (job.events.at(-1)?.seq ?? 0) + 1;
+      job.events.push({ seq, attempt: job.attempt, type, ...details });
+      return seq;
+    };
+    if (open) {
+      open.status = 'stopped';
+      open.endEvent = append('step-end', { name: open.name, status: 'stopped' });
+    }
+    job.status = 'stopped';
+    append('stopped', { reason: 'interrupted' });
+    const dir = jobDir(id, jobId);
+    const outFile = join(dir, 'outcome.json');
+    if (!existsSync(outFile)) {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(outFile, jsonText({
+        ok: true,
+        data: { stoppedReason: 'interrupted', bestRev: job.payload?.rev ?? store.rev(id) },
+        outputs: [],
+        next: [{ verb: `GET /v1/films/${id}/ledger`, why: '看这部片花了多少' }],
+        cost: { tokens: 0, gpuSeconds: 0, wallMs: 0 },
+        frames: 0,
+      }));
+    }
+    if (!store.readLedger(id).some((r) => r.step === 'job.delegate' && r.job === jobId)) {
+      store.ledger(id, { step: 'job.delegate', job: jobId, rev: job.payload?.rev ?? store.rev(id), status: 'stopped', ok: true, wallMs: 0, gpuSeconds: 0, tokens: 0, modelTokens: 0, frames: 0 });
+    }
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(`${file}.tmp`, jsonText(job));
+    renameSync(`${file}.tmp`, file);
+    return job;
+  }
+
+  /** 提交委托作业：run({ signal, onTokens }) 交回编排结论 { status, stoppedReason?, stoppedAt?, failedAt?, bestRev, cost, outputs }。交回作业号 */
   function submitDelegate(id, run) {
     const jobId = store.nextJobId(id);
     const file = queue(id).jobFile(jobId);
@@ -394,7 +431,9 @@ export function createWork({ store, library, reviewer, scheduler }) {
     progress.set(jobId, acc);
     const done = (async () => {
       let res;
-      try { res = await run({ signal: controller.signal }); } catch (e) { res = { status: 'failed', message: sanitizeErrorText(e?.message) || '委托编排失败' }; }
+      try {
+        res = await run({ signal: controller.signal, onTokens: (n) => { if (Number.isFinite(n) && n > 0) acc.tokens += Math.round(n); } });
+      } catch (e) { res = { status: 'failed', message: sanitizeErrorText(e?.message) || '委托编排失败' }; }
       try {
         if (controller.signal.aborted) res = { ...res, status: 'canceled' };
         else if (!TERMINAL.has(res?.status)) res = { status: 'failed', message: '委托编排没有交回结论' };
@@ -427,7 +466,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
     return jobId;
   }
 
-  const statusOf = (id, jobId) => queue(id).getJob(jobId).status;
+  const statusOf = (id, jobId) => recoverDelegate(id, jobId).status;
 
   /** 等：until 是 'done'（到终态）或 'change'（状态变了）；最多等 seconds 秒 */
   function wait(id, jobId, seconds, until = 'done') {
@@ -447,7 +486,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
 
   /** 作业现在的样子：{ job, terminal, base（状态、阶段、最近 5 条事件、累计成本）, outcome（结论，没有是 null） } */
   function view(id, jobId) {
-    const job = queue(id).getJob(jobId);
+    const job = recoverDelegate(id, jobId);
     const terminal = TERMINAL.has(job.status);
     const open = job.steps.filter((s) => s.attempt === job.attempt && !s.endEvent).at(-1);
     const file = join(jobDir(id, jobId), 'outcome.json');
@@ -468,10 +507,20 @@ export function createWork({ store, library, reviewer, scheduler }) {
   /** 取消：没到终态的发取消信号并等它停下；已经到终态的原样交回 */
   async function cancel(id, jobId) {
     const q = queue(id);
+    const job = recoverDelegate(id, jobId);
     const del = delegates.get(jobId);
-    if (del) del.abort();
-    else if (!TERMINAL.has(q.getJob(jobId).status)) await Promise.resolve().then(() => q.cancelJob(jobId)).catch(() => undefined);
-    await running.get(jobId);
+    const cancelChildren = () => Promise.all([...running.keys()]
+      .filter((otherId) => otherId !== jobId && store.filmOfJob(otherId) === id && !delegates.has(otherId))
+      .map((otherId) => cancel(id, otherId)));
+    if (del) {
+      del.abort();
+      await Promise.all([running.get(jobId), cancelChildren()]);
+      // 再扫一遍：覆盖在 del.abort() 发出瞬间刚落进队列的子作业。
+      await cancelChildren();
+    } else {
+      if (!TERMINAL.has(job.status)) await Promise.resolve().then(() => q.cancelJob(jobId)).catch(() => undefined);
+      await running.get(jobId);
+    }
     return q.getJob(jobId).status;
   }
 

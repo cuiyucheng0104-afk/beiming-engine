@@ -66,7 +66,7 @@ export const ROUTES = Object.freeze([
   { id: 'review', method: 'POST', path: '/v1/films/{id}/review', auth: 'workspace', tokens: 1000, summary: 'L5 审片：异族视觉模型的意见与建议谓词；没配置时 status 是 not-run，不覆盖硬门',
     params: { id: str() }, request: obj({ brief: str() }), response: looseObj({ status: str({ enum: ['ok', 'not-run', 'failed'] }) }, ['status']) },
   { id: 'deliver', method: 'POST', path: '/v1/films/{id}/deliver', auth: 'workspace', tokens: 600, summary: '终渲全部镜头、出六件套，自动再过 L2–L5 写进 report.json',
-    params: { id: str() }, query: { wait: WAIT }, request: obj({ tier: str({ enum: ['final'] }), wait: WAIT, deferReview: { type: 'boolean', description: '推迟可选 L5 审片，不调用额外的模型；L1–L3 硬门不变，之后可 POST review' } }), response: JOB_DATA },
+    params: { id: str() }, query: { wait: WAIT }, request: obj({ tier: str({ enum: ['final'] }), wait: WAIT }), response: JOB_DATA },
   { id: 'harvest', method: 'POST', path: '/v1/films/{id}/harvest', auth: 'workspace', tokens: 600, summary: '收获：M1a 返回空候选列表',
     params: { id: str() }, request: obj({}), response: COUNTED(arr(looseObj())) },
   { id: 'ledger', method: 'GET', path: '/v1/films/{id}/ledger', auth: 'workspace', tokens: 600, summary: '账本：分步墙钟、显卡秒、token、帧数',
