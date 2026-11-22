@@ -309,6 +309,22 @@ test('T7-10 写法不对的参数和数据：照卡文件解析参数再建卡�
   refused(() => mix.mix([ev], { frames: 12, samples: { probe: Float32Array.of(Infinity) } }), '样本带无穷');
   for (const sampleRate of [44100, 0, -1]) refused(() => mix.mix([ev], { frames: 12, samples: { probe }, sampleRate }), `采样率 ${sampleRate}`);
   refused(() => createMix({ fps: FPS, sampleRate: 44100 }, params('audio.event-mix')), 'ctx 的采样率');
+  // 二审的反例：字符串的子帧相位不再拼成 "10.5" 晚 18000 个采样点；mix、snap、audit 对同一条事件口径一致
+  assert.equal(mix.mix([{ ...ev, sub: 0.5 }], { frames: 24, samples: { probe } }).placements[0].sample, 3000);
+  const { bed: bed29 } = scene29(), kicked = mix.mix([{ id: 'k', frame: 0, audio: 'kick' }], { frames: 24 }).channels;
+  for (const sub of ['0.5', null, true]) {
+    refused(() => mix.mix([{ ...ev, sub }], { frames: 24, samples: { probe } }), `mix 的子帧相位 ${JSON.stringify(sub)}`);
+    refused(() => mix.audit(bed29, [{ ...ev, frame: 20, sub }]), `audit 的子帧相位 ${JSON.stringify(sub)}`);
+  }
+  // 第 0 帧就有起音：片头之前的第 -1 帧离它只差 1 帧，以前被 audit 算成命中
+  assert.equal(mix.audit(kicked, [{ ...ev, frame: 0 }]).hitRate, 1);
+  for (const frame of [-1, 24, 1.5, '1']) {
+    refused(() => mix.mix([{ ...ev, frame }], { frames: 24, samples: { probe } }), `mix 的帧号 ${frame}`);
+    refused(() => mix.audit(kicked, [{ ...ev, frame, sub: 0 }]), `audit 的帧号 ${frame}`);
+    refused(() => mix.snap([frame], kicked), `snap 的帧号 ${frame}`);
+  }
+  refused(() => mix.audit(bed29, [null]), 'audit 的条目不是对象');
+  refused(() => mix.audit(bed29, { frames: S29.frames }), 'audit 的事件表没有 events');
 
   // audio.align：界是硬的闭区间；偏移不是有限数、总帧数不是正的安全整数
   const card = createAlign({ fps: FPS }, params('audio.align')).object, src = [new Float32Array(RATE).fill(0.25)];

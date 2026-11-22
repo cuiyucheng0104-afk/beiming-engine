@@ -30,7 +30,7 @@
     "requires": [
       "合成工具给的 ctx 带 fps（分子/分母）和 seed（点击音色的噪声种子）",
       "合成工具调 Handle.object.mix(events, { frames, bed, samples, sampleRate })：声音都是 48000 赫兹的 32 位浮点样本，一个或两个声道，不空、不带 NaN 或无穷；事件条目的帧号是全片帧号；sampleRate 可以不写，写了（ctx 里的也算）就得是 48000",
-      "参数和数据写法不对的一律报 usage.bad-argument，不交出静音或带 NaN 的声音",
+      "参数和数据写法不对的一律报 usage.bad-argument，不交出静音或带 NaN 的声音；mix、snap、audit 对事件是同一套校验：frame 是全片里的整数帧号，sub 不写或者是 [0, 1) 里的数值（字符串不收）",
       "这张卡只防削波，不定响度：混完交给 audio.master 调到目标响度"
     ]
   },

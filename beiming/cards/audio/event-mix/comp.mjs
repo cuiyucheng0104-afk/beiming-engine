@@ -46,6 +46,8 @@ const checkRate = (rate) => { if (rate !== undefined && rate !== RATE) fail(`采
 /**
  * ctx：用到 fps（"分子/分母"，帧每秒）和 seed（点击音色的噪声种子，不带当 0）；带 sampleRate 的话必须是 48000。
  * 参数和数据写法不对的（帧号、子帧相位、增益不是有限数或出了界，样本是空的或带 NaN、无穷，采样率不是 48000）一律报 usage.bad-argument。
+ * mix、snap、audit 对事件是同一套校验：事件表里每一条（不带 audio 的也查）都得是对象，frame 是全片里的安全整数帧号，sub 不写或者是 [0, 1) 里的数值（字符串不收）；
+ * snap、audit 的全片帧数从声音的长度换算。三个入口的 sampleRate 都可以不写，写了就得是 48000。
  * Handle.object：
  *   voices                 自带音色 { click, kick }，各是一段单声道样本。
  *   mix(events, { frames, bed, samples, sampleRate })
@@ -54,29 +56,46 @@ const checkRate = (rate) => { if (rate !== undefined && rate !== RATE) fail(`采
  *       每段音效乘 gainDb，尾巴 fadeMs 毫秒线性收到 0（被片尾截断的也收）；混完峰值超过 ceilingDb 时整体降增益到正好压线，不做限幅。
  *       返回 { channels: [左, 右], placements: [{ id, audio, frame, sub, sample, clippedTail }], peakDb, scaleDb }。
  *   onsets(channels)       起音的采样点下标：5 毫秒一步的能量（两个声道各自平方再平均，左右反相也不会抵消），比上一步涨得最多的那一步；涨幅不到全曲最大涨幅的 onsetFloor 倍的不算，50 毫秒内只认一个。准到一步（5 毫秒）。
- *   snap(frames, channels) 把每个帧号换成离它最近的起音所在的帧（四舍五入到整数帧）。
- *   audit(channels, events) 逐条量事件离最近的起音差几帧（正数是起音晚到）：返回 { total, hits, hitRate, baseline, rows: [{ id, frame, delta }] }；
+ *   snap(frames, channels, { sampleRate }) 把每个帧号换成离它最近的起音所在的帧（四舍五入到整数帧）。
+ *   audit(channels, events, { sampleRate }) 逐条量事件离最近的起音差几帧（正数是起音晚到）：返回 { total, hits, hitRate, baseline, rows: [{ id, frame, delta }] }；
  *       差不超过 toleranceFrames 算命中；baseline 是随机基线：全片的整数帧里，离某个起音不超过 toleranceFrames 的占多少。
  */
 export function create(ctx, params) {
   const fps = /^([1-9][0-9]*)\/([1-9][0-9]*)$/.exec(String(ctx.fps));
   if (!fps) fail(`帧率要写成 "分子/分母"，给的是 ${JSON.stringify(ctx.fps)}`);
   checkRate(ctx.sampleRate);
+  for (const key of ['gainDb', 'ceilingDb', 'fadeMs', 'toleranceFrames', 'onsetFloor']) if (typeof params?.[key] !== 'number' || !Number.isFinite(params[key])) fail(`参数 ${key} 要是有限的数，给的是 ${params?.[key]}`);
+  if (params.toleranceFrames < 0 || params.fadeMs < 0 || !(params.onsetFloor > 0)) fail('toleranceFrames、fadeMs 不能是负数，onsetFloor 要大于 0');
   // perFrame 只用来把采样点换回帧号（给起音和审计）；帧号换采样点一律走 sampleAt
   const num = Number(fps[1]), den = Number(fps[2]), perFrame = (RATE * den) / num, sampleAt = (frames) => Math.round((frames * RATE * den) / num);
   const voices = { click: VOICES.click(ctx.seed ?? 0), kick: VOICES.kick() };
-  const entries = (events) => (Array.isArray(events) ? events : events.events).filter((e) => e.audio !== undefined);
+  /** 声音有多少帧：sampleAt 的反算，mix 按 frames 帧混出来的声音换回来还是 frames */
+  const framesOf = (channels) => Math.round((stereoOf(channels, 'channels')[0].length * num) / (RATE * den));
+  /** mix、snap、audit 共用的时刻校验。sub 先看类型：字符串 "0.5" 过得了大小比较，再被加号拼成 "10.5" */
+  const checkTime = (frame, sub, frames, what) => {
+    if (!Number.isSafeInteger(frame) || frame < 0 || frame >= frames) fail(`${what} 的帧号要是全片 0 到 ${frames - 1} 帧里的整数，给的是 ${frame}`);
+    if (sub !== undefined && !(typeof sub === 'number' && sub >= 0 && sub < 1)) fail(`${what} 的 sub 要是 [0, 1) 里的数，给的是 ${JSON.stringify(sub)}`);
+  };
+  /** mix、audit 共用：整张事件表逐条校验（照下标走，数组里的空洞也拦得住），交回带 audio 的条目 */
+  const entries = (events, frames) => {
+    const list = Array.isArray(events) ? events : events?.events;
+    if (!Array.isArray(list)) fail('events 要是事件条目的数组，或者带 events 数组的事件表');
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] === null || typeof list[i] !== 'object' || Array.isArray(list[i])) fail(`第 ${i} 条事件要是一个对象`);
+      checkTime(list[i].frame, list[i].sub, frames, `事件 ${list[i].id}`);
+    }
+    return list.filter((e) => e.audio !== undefined);
+  };
 
-  function mix(events, { frames = events.frames, bed, samples = {}, sampleRate } = {}) {
+  function mix(events, { frames = events?.frames, bed, samples = {}, sampleRate } = {}) {
     checkRate(sampleRate);
     if (!Number.isSafeInteger(frames) || frames < 1) fail(`frames 要是正整数帧数，给的是 ${frames}`);
     const length = sampleAt(frames), left = new Float32Array(length), right = new Float32Array(length);
     if (bed) stereoOf(bed, 'bed').forEach((c, k) => (k ? right : left).set(c.subarray(0, length)));
     const fade = Math.round((params.fadeMs / 1000) * RATE);
-    const placements = entries(events).map((e) => {
+    const placements = entries(events, frames).map((e) => {
       const sound = Object.hasOwn(samples, e.audio) ? samples[e.audio] : Object.hasOwn(voices, e.audio) ? voices[e.audio] : fail(`事件 ${e.id} 要的声音 ${e.audio} 不在 samples 里，也不是自带音色（${Object.keys(voices).join('、')}）`);
       const [l, r] = stereoOf(sound, `声音 ${e.audio}`), sub = e.sub ?? 0;
-      if (!Number.isInteger(e.frame) || e.frame < 0 || e.frame >= frames || !(sub >= 0 && sub < 1)) fail(`事件 ${e.id} 的时刻（frame ${e.frame}、sub ${sub}）不在全片的 0 到 ${frames - 1} 帧里`);
       if (!Number.isFinite(e.gainDb ?? 0)) fail(`事件 ${e.id} 的 gainDb 要是有限的数，给的是 ${e.gainDb}`);
       const sample = sampleAt(e.frame + sub), n = Math.min(l.length, length - sample), g = gain(params.gainDb + (e.gainDb ?? 0));
       for (let i = 0; i < n; i++) {
@@ -119,14 +138,18 @@ export function create(ctx, params) {
   return {
     object: {
       voices, mix, onsets,
-      snap(frames, channels) {
-        const list = onsetFrames(channels);
+      snap(frames, channels, { sampleRate } = {}) {
+        checkRate(sampleRate);
+        const list = onsetFrames(channels), total = framesOf(channels);
+        if (!Array.isArray(frames)) fail('snap 要的是帧号的数组');
+        for (let i = 0; i < frames.length; i++) checkTime(frames[i], undefined, total, `snap 的第 ${i} 个帧号`);
         if (!list.length) fail('这段声音里没找到起音，吸不了');
         return frames.map((f) => Math.round(nearest(f, list)));
       },
-      audit(channels, events) {
-        const list = onsetFrames(channels), tol = params.toleranceFrames, frames = Math.floor(stereoOf(channels, 'channels')[0].length / perFrame);
-        const rows = entries(events).map((e) => ({ id: e.id, frame: e.frame, delta: nearest(e.frame + (e.sub ?? 0), list) - e.frame - (e.sub ?? 0) }));
+      audit(channels, events, { sampleRate } = {}) {
+        checkRate(sampleRate);
+        const list = onsetFrames(channels), tol = params.toleranceFrames, frames = framesOf(channels);
+        const rows = entries(events, frames).map((e) => ({ id: e.id, frame: e.frame, delta: nearest(e.frame + (e.sub ?? 0), list) - e.frame - (e.sub ?? 0) }));
         const hits = rows.filter((r) => Math.abs(r.delta) <= tol).length;
         let near = 0;
         for (let f = 0; f < frames; f++) if (Math.abs(nearest(f, list) - f) <= tol) near++;

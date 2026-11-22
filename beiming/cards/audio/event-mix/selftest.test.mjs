@@ -127,3 +127,44 @@ test('audio.event-mix：没有的声音、帧号出了全片或者不是有限�
   for (const fps of ['24', '0/1', '24/0', 'abc', undefined]) bad(() => card({}, { fps }));
   bad(() => c.snap([3], [new Float32Array(RATE)]));
 });
+
+test('audio.event-mix：mix、snap、audit 用同一套事件校验：字符串、null、布尔的 sub，片头之前、片尾之后、不是安全整数的帧号，有空洞的数组、不是对象的条目，三个入口都报 usage.bad-argument', () => {
+  const c = card({ fadeMs: 0 }), bad = (fn, what) => assert.throws(fn, { name: 'RangeError', code: 'usage.bad-argument' }, what);
+  const bed = c.mix(BEATS, { frames: 120 }).channels, pulse = { samples: { pulse: ones(1) } };
+  // 数值 0.5 落在第 3000 个采样点；字符串 "0.5" 以前会拼成 "10.5"，晚 18000 个采样点
+  assert.equal(c.mix([{ id: 'x', frame: 1, sub: 0.5, audio: 'pulse' }], { frames: 24, ...pulse }).channels[0].findIndex((v) => v !== 0), 3000);
+  for (const sub of ['0.5', '0', '', null, true, false, [0.5], NaN, Infinity, 1, -0.1]) {
+    bad(() => c.mix([{ id: 'x', frame: 1, sub, audio: 'pulse' }], { frames: 24, ...pulse }), `mix 的 sub ${JSON.stringify(sub)}`);
+    bad(() => c.audit(bed, [{ id: 'x', frame: 18, sub, audio: 'click' }]), `audit 的 sub ${JSON.stringify(sub)}`);
+  }
+  // 片头之前的事件以前被 audit 按距离算成命中；全片 120 帧，第 120 帧已经出了片尾
+  for (const frame of [-1, 120, 1.5, NaN, Infinity, 2 ** 53, '18', null, true, undefined]) {
+    bad(() => c.mix([{ id: 'x', frame, audio: 'click' }], { frames: 120 }), `mix 的帧号 ${frame}`);
+    bad(() => c.audit(bed, [{ id: 'x', frame, audio: 'click' }]), `audit 的帧号 ${frame}`);
+    bad(() => c.snap([frame], bed), `snap 的帧号 ${frame}`);
+  }
+  // 不带 audio 的条目不出声，写错了照样拒
+  bad(() => c.mix([{ id: 'note', frame: -1 }], { frames: 120 }));
+  bad(() => c.audit(bed, [{ id: 'note', frame: 5, sub: '0.5' }]));
+  const holes = [{ id: 'a', frame: 6, audio: 'click' }, , { id: 'b', frame: 18, audio: 'click' }]; // eslint-disable-line no-sparse-arrays
+  for (const events of [holes, [null], [18], ['x'], [[]], null, undefined, 18, 'x', {}, { events: null }, { frames: 120, events: holes }]) {
+    bad(() => c.mix(events, { frames: 120 }), `mix 的事件 ${JSON.stringify(events)}`);
+    bad(() => c.audit(bed, events), `audit 的事件 ${JSON.stringify(events)}`);
+  }
+  for (const frames of [[6, , 18], null, undefined, 18, { length: 1, 0: 6 }]) bad(() => c.snap(frames, bed), `snap 的帧号表 ${JSON.stringify(frames)}`); // eslint-disable-line no-sparse-arrays
+  // 采样率：snap、audit 也可以不写，写了就得是 48000
+  for (const sampleRate of [44100, 0, NaN, '48000']) {
+    bad(() => c.snap([6], bed, { sampleRate }));
+    bad(() => c.audit(bed, [], { sampleRate }));
+  }
+  // 合法的照常：片头第 0 帧、片尾最后一帧、sub 不写或写 0
+  assert.deepEqual(c.snap([0, 119], bed, { sampleRate: 48000 }), [6, 102]);
+  assert.deepEqual(c.audit(bed, [{ id: 'a', frame: 6, audio: 'click' }, { id: 'b', frame: 119, sub: 0, audio: 'click' }, { id: 'cut.8', frame: 8 }], { sampleRate: 48000 }).rows.map((r) => r.frame), [6, 119]);
+});
+
+test('audio.event-mix：建卡时参数不是有限的数、容差或收尾是负数、起音门槛不是正数都报 usage.bad-argument，不让无穷大的容差把命中率刷满', () => {
+  const bad = (params) => assert.throws(() => card(params), { name: 'RangeError', code: 'usage.bad-argument' }, JSON.stringify(params));
+  for (const key of Object.keys(DEFAULTS)) for (const value of [NaN, Infinity, '2', null]) bad({ [key]: value });
+  for (const params of [{ toleranceFrames: -1 }, { fadeMs: -1 }, { onsetFloor: 0 }, { onsetFloor: -0.1 }]) bad(params);
+  assert.ok(card({ toleranceFrames: 0, fadeMs: 0 }));
+});
