@@ -491,7 +491,34 @@
       "caseId": "case-13",
       "title": "混响脉冲响应（自生成）",
       "text": "每声道：白噪 Noise(mulberry(seed*17+ch*5))；从 floor(pre·sr) 写起；包络 env=10^(−60·t/rt60/20)×min(1,t/0.02+0.15)；一极点低通截止 f=lpStart·(lpEnd/lpStart)^min(1,t/(rt60·0.8))，每 64 采样更新；早期反射 early 个，t=pre·0.4+rng()^1.3·earlySpan，幅度 ±(0.9−0.6·t/(earlySpan+pre))·(0.5+0.5·rng())；两声道共用 rng；无归一化",
-      "quantities": [],
+      "quantities": [
+        {
+          "value": [
+            0,
+            1
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 0,
+          "jitter": 1,
+          "scaleBy": "earlySpan",
+          "expr": "rng()^1.3·earlySpan",
+          "label": "早期反射时刻的随机跨度（加在 pre·0.4 上）"
+        },
+        {
+          "value": [
+            0.5,
+            1
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": 0.5,
+          "jitter": 0.5,
+          "scaleBy": "(0.9−0.6·t/(earlySpan+pre))",
+          "expr": "(0.5+0.5·rng())",
+          "label": "早期反射幅度的随机系数（正负号另取）"
+        }
+      ],
       "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
       "coupling": "与§2 案例 13 音频引擎：总线、空间化、混响里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
       "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
@@ -828,7 +855,20 @@
       "caseId": "case-13",
       "title": "三种噪声算法",
       "text": "白噪 r()*2−1；粉噪三个一极点叠加(系数 0.99765/0.963/0.57，增益 0.099046/0.2965164/1.0526913，直通项 0.1848，总乘 0.22)；棕噪泄漏积分 br=(br+0.02*w)/1.02，输出×3.5",
-      "quantities": [],
+      "quantities": [
+        {
+          "value": [
+            -1,
+            1
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": -1,
+          "jitter": 2,
+          "expr": "r()*2−1",
+          "label": "白噪样本值"
+        }
+      ],
       "routeNote": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡",
       "coupling": "与§3 DSP 积木与噪声里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
       "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
@@ -941,7 +981,21 @@
       "caseId": "case-13",
       "title": "积木：clicks",
       "text": "clicks：count 个随机短阻尼正弦碎点，时刻均匀(tau<1e8 时指数分布)，频率 fLo–fHi 对数均匀，幅度 amp·(0.3+0.7·rand²)",
-      "quantities": [],
+      "quantities": [
+        {
+          "value": [
+            0.3,
+            1
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": 0.3,
+          "jitter": 0.7,
+          "scaleBy": "amp",
+          "expr": "0.3+0.7·rand²",
+          "label": "碎点幅度系数"
+        }
+      ],
       "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
       "coupling": "与§3 DSP 积木与噪声里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
       "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
@@ -1714,9 +1768,33 @@
           "rawUnit": "s"
         },
         {
+          "value": [
+            850,
+            1050
+          ],
+          "unit": "Hz",
+          "rawUnit": "Hz",
+          "base": 850,
+          "jitter": 200,
+          "expr": "850+r()·200",
+          "label": "敲击基频"
+        },
+        {
           "value": 0.2,
           "unit": "ms",
           "rawUnit": "ms"
+        },
+        {
+          "value": [
+            0.035,
+            0.055
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 0.035,
+          "jitter": 0.02,
+          "expr": "0.035+r()·0.02",
+          "label": "带通噪声段的起点"
         }
       ],
       "routeNote": "石地脚步配方",
@@ -1742,6 +1820,18 @@
           "value": 1.3,
           "unit": "s",
           "rawUnit": "s"
+        },
+        {
+          "value": [
+            330,
+            420
+          ],
+          "unit": "Hz",
+          "rawUnit": "Hz",
+          "base": 330,
+          "jitter": 90,
+          "expr": "330+r()·90",
+          "label": "金属板基频"
         },
         {
           "value": 0.188,
@@ -1774,9 +1864,69 @@
           "rawUnit": "s"
         },
         {
+          "value": [
+            290,
+            350
+          ],
+          "unit": "Hz",
+          "rawUnit": "Hz",
+          "base": 290,
+          "jitter": 60,
+          "expr": "290+r()·60",
+          "label": "第一块金属板基频"
+        },
+        {
+          "value": [
+            760,
+            900
+          ],
+          "unit": "Hz",
+          "rawUnit": "Hz",
+          "base": 760,
+          "jitter": 140,
+          "expr": "760+r()·140",
+          "label": "第二块金属板基频"
+        },
+        {
           "value": 1.7,
           "unit": "s",
           "rawUnit": "s"
+        },
+        {
+          "value": [
+            0.32,
+            0.37
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 0.32,
+          "jitter": 0.05,
+          "expr": "0.32+r()·0.05",
+          "label": "刮擦声起点"
+        },
+        {
+          "value": [
+            1350,
+            1550
+          ],
+          "unit": "Hz",
+          "rawUnit": "Hz",
+          "base": 1350,
+          "jitter": 200,
+          "expr": "1350+r()·200",
+          "label": "刮擦声起始基频（再滑到 2500）"
+        },
+        {
+          "value": [
+            2050,
+            2170
+          ],
+          "unit": "Hz",
+          "rawUnit": "Hz",
+          "base": 2050,
+          "jitter": 120,
+          "expr": "2050+r()·120",
+          "label": "剑身基频"
         },
         {
           "value": 0.2,
@@ -2035,6 +2185,18 @@
           ],
           "unit": "Hz",
           "rawUnit": "Hz"
+        },
+        {
+          "value": [
+            0,
+            0.6
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": 0,
+          "jitter": 0.6,
+          "expr": "rand³·0.6",
+          "label": "雨滴幅度"
         }
       ],
       "routeNote": "雨循环合成配方",
@@ -2227,9 +2389,57 @@
           "rawUnit": "s"
         },
         {
+          "value": [
+            2,
+            3
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": 2,
+          "jitter": 1,
+          "expr": "2+floor(r()·2)",
+          "label": "叫声个数（只取整数 2 或 3）"
+        },
+        {
+          "value": [
+            0.18,
+            0.28
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 0.18,
+          "jitter": 0.1,
+          "expr": "0.18+r()·0.1",
+          "label": "每声时长"
+        },
+        {
+          "value": [
+            470,
+            560
+          ],
+          "unit": "Hz",
+          "rawUnit": "Hz",
+          "base": 470,
+          "jitter": 90,
+          "expr": "470+r()·90",
+          "label": "每声起始音高"
+        },
+        {
           "value": 0.4,
           "unit": "ratio",
           "rawUnit": "%"
+        },
+        {
+          "value": [
+            0.14,
+            0.26
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 0.14,
+          "jitter": 0.12,
+          "expr": "0.14+r()·0.12",
+          "label": "相邻两声的间隔（加在本声长上）"
         }
       ],
       "routeNote": "乌鸦叫人声合成参数",
@@ -2401,6 +2611,33 @@
           "value": 120,
           "unit": "Hz",
           "rawUnit": "Hz"
+        },
+        {
+          "value": 0.05,
+          "unit": "s",
+          "rawUnit": "s",
+          "expr": "近0.05",
+          "label": "近雷随机隆隆的基础起点"
+        },
+        {
+          "value": 0.3,
+          "unit": "s",
+          "rawUnit": "s",
+          "expr": "远0.3",
+          "label": "远雷随机隆隆的基础起点"
+        },
+        {
+          "value": [
+            0,
+            0.6
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 0,
+          "jitter": 0.6,
+          "scaleBy": "时长",
+          "expr": "rand^1.5·0.6·时长",
+          "label": "隆隆声起点的随机跨度（加在基础起点上）"
         },
         {
           "value": [
@@ -2676,6 +2913,18 @@
           "rawUnit": "s",
           "base": 0.0015,
           "jitter": 0.0045
+        },
+        {
+          "value": [
+            0.15,
+            1.15
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": 0.15,
+          "jitter": 1,
+          "expr": "0.15+rand²",
+          "label": "碎点幅度"
         },
         {
           "value": 1.21,
@@ -3985,6 +4234,18 @@
       "text": "元音组(aeiouy连续串)一个音节：时长(0.15+0.05·rand)，词尾×1.25，双元音×1.12，除以语速pace；辅音起首含szxfhc加0.035 s \"s\"爆擦、含tkpdbgq加\"t\"爆音；词间0.05 s、逗号0.22 s、句末0.42 s；超上限等比压缩。元音映射 a e i y→i o u；空文字用8个咕哝音节之一；西里尔字母先转写成拉丁",
       "quantities": [
         {
+          "value": [
+            0.15,
+            0.2
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 0.15,
+          "jitter": 0.05,
+          "expr": "0.15+0.05·rand",
+          "label": "音节基础时长（再按词尾、双元音与语速调整）"
+        },
+        {
           "value": 0.035,
           "unit": "s",
           "rawUnit": "s"
@@ -4298,6 +4559,18 @@
       "title": "〔专名24〕 嗓音",
       "text": "〔专名24〕Breath(kind,dur)=粉噪经bass共振峰(u吸气或o→a呼气,shift0.9,bw2.2)+梳状[3.1+r(),0.25]+高通(吸气260/呼气150)+3200低通+刮擦(300→260 Hz,颗粒30/s)；alert吸气1.3 s；attack呼气0.55；hurt呼气0.45+ironStrike；death长呼气2.6；roar呼气1.6+fireBody(低通300→700)",
       "quantities": [
+        {
+          "value": [
+            3.1,
+            4.1
+          ],
+          "unit": "ms",
+          "rawUnit": "ms",
+          "base": 3.1,
+          "jitter": 1,
+          "expr": "3.1+r()",
+          "label": "梳状滤波延迟（同一实现的梳状参数是延迟 ms 与反馈）"
+        },
         {
           "value": {
             "from": 300,
@@ -4643,6 +4916,19 @@
           "base": 0.95,
           "jitter": 0.1,
           "scaleBy": "vib[0]"
+        },
+        {
+          "value": [
+            -1,
+            1
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": -1,
+          "jitter": 2,
+          "scaleBy": "jit",
+          "expr": "1+(rand−0.5)·2·jit",
+          "label": "音高抖动：音高再乘 1+本量×jit；jit 是说话人参数，原文没有默认值，jit=0.1 时因子为 0.9–1.1"
         },
         {
           "value": 0.3,
@@ -5490,7 +5776,20 @@
       "caseId": "case-13",
       "title": "拍→秒与渐慢",
       "text": "恒速 at(b)=T+b×beat，beat=60/bpm；渐慢 p.rit={b0,b1}：k=(b1−b0)/barBeats，at(b)=T+(60/k)×ln((b0+k·b)/b0)(对60/bpm(b)积分的闭式解)；战斗胜利从116降到90(RIT_TO=90，b1=bpm·90/116)；小节换速直接改 p.bpm/beat/barDur(tempo())；夜晚×0.92(nightBpm)；古冢场景配乐 rubato：p.rub=clamp(p.rub+(rnd−0.5)×0.05,−0.06,0.06)速度=基础×(1+rub)；持续长音时值写成 长度+0.02~0.05 拍让相邻音交叠",
-      "quantities": [],
+      "quantities": [
+        {
+          "value": [
+            -0.025,
+            0.025
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": -0.025,
+          "jitter": 0.05,
+          "expr": "(rnd−0.5)×0.05",
+          "label": "自由速度每步的随机增量（累加后再限幅到 ±0.06）"
+        }
+      ],
       "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
       "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
       "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
@@ -5558,6 +5857,18 @@
           "value": 4,
           "unit": "cent",
           "rawUnit": "音分"
+        },
+        {
+          "value": [
+            -1,
+            1
+          ],
+          "unit": "cent",
+          "rawUnit": "音分",
+          "base": -1,
+          "jitter": 2,
+          "expr": "±随机(−1,1)",
+          "label": "detune 上叠加的随机偏移"
         },
         {
           "value": 6,
@@ -6311,6 +6622,18 @@
           "value": 4,
           "unit": "s",
           "rawUnit": "s"
+        },
+        {
+          "value": [
+            0.06,
+            0.1
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": 0.06,
+          "jitter": 0.04,
+          "expr": ".1×(.6+.4rand)",
+          "label": "提示音力度 vel"
         }
       ],
       "routeNote": "作品提示音配置",
@@ -7929,6 +8252,19 @@
         },
         {
           "value": [
+            0.98,
+            1.02
+          ],
+          "unit": "Hz",
+          "rawUnit": "Hz",
+          "base": 0.98,
+          "jitter": 0.04,
+          "scaleBy": "61×1.205^k",
+          "expr": "(1+(rnd−0.5)×0.04)",
+          "label": "分音频率的随机失谐系数（±2%）"
+        },
+        {
+          "value": [
             61,
             3062
           ],
@@ -8000,6 +8336,19 @@
           ],
           "unit": "s",
           "rawUnit": "s"
+        },
+        {
+          "value": [
+            0.3,
+            1.7
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 0.3,
+          "jitter": 1.4,
+          "scaleBy": "1/rate",
+          "expr": "(0.3+1.4rnd)/rate",
+          "label": "铃声敲击间隔"
         },
         {
           "value": 0.35,
@@ -9058,6 +9407,18 @@
           "rawUnit": "Hz"
         },
         {
+          "value": [
+            0.25,
+            2.85
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 0.25,
+          "jitter": 2.6,
+          "expr": "0.25+2.6·rnd^1.4",
+          "label": "水滴起点（相对该段开头）"
+        },
+        {
           "value": 980,
           "unit": "Hz",
           "rawUnit": "Hz"
@@ -9702,6 +10063,18 @@
         },
         {
           "value": [
+            0,
+            1
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": 0,
+          "jitter": 1,
+          "expr": "rnd^1.6",
+          "label": "碎响幅度"
+        },
+        {
+          "value": [
             0.0006,
             0.0041
           ],
@@ -9709,6 +10082,31 @@
           "rawUnit": "s",
           "base": 0.0006,
           "jitter": 0.0035
+        },
+        {
+          "value": [
+            -0.8,
+            0.8
+          ],
+          "unit": "ratio",
+          "rawUnit": "无量纲",
+          "base": -0.8,
+          "jitter": 1.6,
+          "expr": "rnd·1.6−0.8",
+          "label": "碎响里的噪声样本值"
+        },
+        {
+          "value": [
+            0,
+            1
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 0,
+          "jitter": 1,
+          "scaleBy": "max(0,时长−0.5)",
+          "expr": "Math.random()·max(0,时长−0.5)",
+          "label": "噪声缓冲的读取起点"
         }
       ],
       "routeNote": "噪声库种子与生成常量",

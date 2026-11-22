@@ -457,6 +457,8 @@ const quantitiesOf = (sid) => coupledOrPractice.find((e) => e.sourceId === sid).
 const RAND_SRC = String.raw`(?:rnd|rand)(?:\^[\d.]+|²)?\s*[·×*]\s*`;
 const NUM_SRC = String.raw`[−-]?\d*\.?\d+`;
 const toNum = (s) => Number(s.replace('−', '-'));
+const NUM_DOT_SRC = String.raw`[−+\-]?(?:\d+(?:\.\d+)?|\.\d+)`;
+const RAND_CLASSIC = new RegExp(String.raw`(?<![\d.])(${NUM_DOT_SRC})\s*[+＋]\s*\(?\s*${RAND_SRC}(${NUM_DOT_SRC})(?![\d.])`, 'g');
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 
 test('四审：点名四条按源式取值（重置区间、外层乘数、距离区间、年龄词）', () => {
@@ -491,8 +493,9 @@ test('四审：全表带单位的随机算式一个不漏，外层乘数都标 s
     }
     for (const q of e.quantities.filter((x) => x.scaleBy)) {
       // 变量名要在原文里贴着乘号；表达式乘数（vib[0]、1.7−0.22i、.63×(.7+.5g)）的每个因子都要是原文里的字面片段。
-      if (/^[A-Za-z_]\w*$/.test(q.scaleBy)) assert.match(e.text, new RegExp(String.raw`(?<![A-Za-z0-9_])${q.scaleBy}\s*[·×*]`), `${e.sourceId} scaleBy=${q.scaleBy}`);
-      else for (const f of q.scaleBy.split('×')) assert.ok(e.text.includes(f), `${e.sourceId} scaleBy=${q.scaleBy} 的因子 ${f}`);
+      // 六审：乘数写在算式后面的（rng()^1.3·earlySpan、(rand−0.5)·2·jit）乘号在变量左边；除数（(0.3+1.4rnd)/rate）记 1/rate，按 /rate 核对。
+      if (/^[A-Za-z_]\w*$/.test(q.scaleBy)) assert.match(e.text, new RegExp(String.raw`(?<![A-Za-z0-9_])${q.scaleBy}\s*[·×*]|[·×*]\s*${q.scaleBy}(?![A-Za-z0-9_])`), `${e.sourceId} scaleBy=${q.scaleBy}`);
+      else for (const f of q.scaleBy.split('×')) assert.ok(e.text.includes(f.replace(/^1(?=\/)/, '')), `${e.sourceId} scaleBy=${q.scaleBy} 的因子 ${f}`);
     }
   }
   assert.ok(seen >= 26, `带单位的随机算式 ${seen} 个`);
@@ -576,21 +579,21 @@ test('四审：独立盲判覆盖全部明细，任取随机种子抽 ≥ 10%（
   t.diagnostic(`全表分歧 ${total}/${ledger.length}；200 组种子里最差一组 ${worst}/67；四审前旧样本 ${audit.legacy.disagreements.length}/${audit.legacy.sampleSize}（旧口径，只记数）`);
 });
 
-test('五审：41 个随机算式与带 jitter 的量一一对应，上下文定单位的 12 个逐个核对', () => {
-  // 正写的 A + rnd × B（含幂次、省略前导零的 .07+rnd×.05），单位贴不贴着都算：全表 41 个，分在 20 条里。
-  const N = String.raw`[−+\-]?(?:\d+(?:\.\d+)?|\.\d+)`;
-  const expr = new RegExp(String.raw`(?<![\d.])(${N})\s*[+＋]\s*\(?\s*${RAND_SRC}(${N})(?![\d.])`, 'g');
+test('五审：正写随机算式与带 jitter 的量一一对应，上下文定单位的 12 个逐个核对', () => {
+  // 正写的 A + rnd × B（含幂次、省略前导零的 .07+rnd×.05），单位贴不贴着都算：五审时全表 41 个，分在 20 条里。
+  const expr = RAND_CLASSIC;
   const key = (base, jitter) => `${Math.round(base * 1e6)}+${Math.round(jitter * 1e6)}`;
   let exprs = 0;
   let entries = 0;
   for (const e of coupledOrPractice) {
     const want = [...e.text.matchAll(expr)].map((m) => key(toNum(m[1]), toNum(m[2])));
-    const have = e.quantities.filter((q) => 'jitter' in q).map((q) => key(q.base, q.jitter));
+    // 六审起，正写以外的写法也出 base/jitter，那些量带 expr（算式原文），在下面的六审测试里对。
+    const have = e.quantities.filter((q) => 'jitter' in q && !q.expr).map((q) => key(q.base, q.jitter));
     assert.deepEqual(have.sort(), want.sort(), `${e.sourceId} 的随机算式与 base/jitter 没有一一对上`);
     exprs += want.length;
     entries += want.length > 0;
   }
-  assert.deepEqual([exprs, entries], [41, 20]);
+  assert.ok(exprs >= 41 && entries >= 20, `正写随机算式 ${exprs} 个，分在 ${entries} 条里`);
   for (const p of priors) assert.equal(p.provenance.note.match(expr), null, `${p.id}：带随机算式的条目都在挂卡与做法里，可移植条目没有 quantities 可对`);
   // 没贴单位的 12 个：单位读上下文定（基频 Hz、起点 s、detune 音分，rate、vel、增益与幅度系数无量纲记 ratio），外层乘数记 scaleBy。
   const context = [
@@ -607,7 +610,7 @@ test('五审：41 个随机算式与带 jitter 的量一一对应，上下文定
   const byCard = (cardId, sid) => getAudioSubsCardPriors(cardId).find((e) => e.sourceId === sid).quantities.filter((q) => 'jitter' in q);
   assert.deepEqual(byCard('audio.sfx-bank', 'e40').find((q) => q.unit === 'Hz'), { value: [700, 1400], unit: 'Hz', rawUnit: 'Hz', base: 700, jitter: 700 });
   assert.deepEqual(byCard('audio.sfx-bank', 'e41'), [{ value: [640, 760], unit: 'Hz', rawUnit: 'Hz', base: 640, jitter: 120 }]);
-  assert.deepEqual(byCard('audio.voice-synth', 'e428'), [{ value: [0.95, 1.05], unit: 'Hz', rawUnit: 'Hz', base: 0.95, jitter: 0.1, scaleBy: 'vib[0]' }]);
+  assert.deepEqual(byCard('audio.voice-synth', 'e428').filter((q) => !q.expr), [{ value: [0.95, 1.05], unit: 'Hz', rawUnit: 'Hz', base: 0.95, jitter: 0.1, scaleBy: 'vib[0]' }]);
 });
 
 test('五审：按画面帧号放音效的做法留在做法表，点名的三条边界随终审裁定', () => {
@@ -618,4 +621,93 @@ test('五审：按画面帧号放音效的做法留在做法表，点名的三�
   assert.ok(!manifest.excluded.some((x) => x.sourceId === 'e331'), 'e331 不在不迁表里');
   // e351 的母带目标仍可从做法条目的 quantities 读到。
   assert.ok(quantitiesOf('e351').some((q) => q.unit === 'LUFS' && q.value === -14) && quantitiesOf('e351').some((q) => q.unit === 'dBTP' && q.value === -1));
+});
+
+// 六审（G_REV-R6）：正写以外的随机写法也要出结构化区间——倒写（0.15+0.05·rand）、省略系数（0.15+rand²）、
+// 中心化（(rnd−0.5)×0.05）、纯幂次（rand³·0.6）、除法（(0.3+1.4rnd)/rate）、紧贴数字（.4rand），
+// 以及同一类的调用写法 r()、rng()、Math.random()、随机(−1,1)。这些量带 expr（算式原文）与 label（它是什么）。
+const RAND_TOKEN = /(?<![A-Za-z_])(?:(?:rand|rnd)(?![A-Za-z])|rng\(\)|r\(\)|Math\.random\(\)|随机\()/g;
+const spansOf = (text, needle) => {
+  const out = [];
+  for (let i = text.indexOf(needle); i !== -1; i = text.indexOf(needle, i + 1)) out.push([i, i + needle.length]);
+  return out;
+};
+
+test('六审：全表每个随机记号都有结构化区间，或登记在清单的例外表里', (t) => {
+  const skipped = manifest.rules.randomNotStructured;
+  assert.ok(Array.isArray(skipped), '清单要列出不出区间的随机写法与理由');
+  let tokens = 0;
+  let structured = 0;
+  for (const e of coupledOrPractice) {
+    const skips = skipped.filter((s) => s.sourceId === e.sourceId);
+    const withExpr = e.quantities.filter((q) => q.expr);
+    for (const q of withExpr) {
+      assert.ok(e.text.includes(q.expr), `${e.sourceId} 的 expr「${q.expr}」不是原文片段`);
+      assert.ok(typeof q.label === 'string' && q.label.length >= 2, `${e.sourceId} ${q.expr} 要有 label`);
+    }
+    const cover = [
+      ...[...e.text.matchAll(RAND_CLASSIC)].map((m) => [m.index, m.index + m[0].length]),
+      ...withExpr.flatMap((q) => spansOf(e.text, q.expr)),
+      ...skips.flatMap((s) => spansOf(e.text, s.expr)),
+    ];
+    const found = [...e.text.matchAll(RAND_TOKEN)];
+    for (const m of found) {
+      assert.ok(cover.some(([a, b]) => a <= m.index && m.index < b), `${e.sourceId} 的随机量「${e.text.slice(Math.max(0, m.index - 14), m.index + 18)}」没有结构化区间`);
+    }
+    const jitters = e.quantities.filter((q) => 'jitter' in q).length;
+    // 一个随机记号一条区间：既不漏，也不把同一个算式拆成两条。
+    assert.equal(found.length, jitters + skips.length, `${e.sourceId}：随机记号 ${found.length} 个，区间 ${jitters} 条，例外 ${skips.length} 个`);
+    tokens += found.length;
+    structured += jitters;
+  }
+  for (const s of skipped) {
+    const e = coupledOrPractice.find((x) => x.sourceId === s.sourceId);
+    assert.ok(e && e.text.includes(s.expr) && s.expr.match(RAND_TOKEN) && s.reason.length >= 6, `例外 ${s.sourceId} ${s.expr}`);
+  }
+  assert.ok(skipped.length <= 4, `例外只留指数写法、生成器定义与没给范围的，现有 ${skipped.length} 个`);
+  for (const p of priors) assert.equal(p.provenance.note.match(RAND_TOKEN), null, `${p.id}：可移植条目里不该有随机算式`);
+  t.diagnostic(`随机记号 ${tokens} 个：结构化区间 ${structured} 条，例外 ${skipped.length} 个`);
+});
+
+test('六审：点名 11 条与同类调用写法逐条按源式取区间', () => {
+  // [区间, 单位, 外层乘数]；按原文出现的先后。区间 = 随机数取 0 与 1 时算式的两端。
+  const want = {
+    e32: [[[0.3, 1], 'ratio', 'amp']], // amp·(0.3+0.7·rand²)
+    e42: [[[0, 0.6], 'ratio']], // 幅度 rand³·0.6
+    e54: [[[0.15, 0.2], 's']], // 时长 (0.15+0.05·rand)
+    e98: [[[0, 0.6], 's', '时长']], // 起点 = (近0.05/远0.3) + rand^1.5·0.6·时长
+    e112: [[[0.15, 1.15], 'ratio']], // 幅度 0.15+rand²
+    e134: [[[-0.025, 0.025], 'ratio']], // (rnd−0.5)×0.05
+    e156: [[[0.06, 0.1], 'ratio']], // vel .1×(.6+.4rand)
+    e230: [[[0.3, 1.7], 's', '1/rate']], // (0.3+1.4rnd)/rate
+    e250: [[[0.25, 2.85], 's']], // 0.25+2.6·rnd^1.4
+    e259: [[[0, 1], 'ratio'], [[-0.8, 0.8], 'ratio'], [[0, 1], 's', 'max(0,时长−0.5)']], // rnd^1.6、rnd·1.6−0.8、Math.random()·max(0,时长−0.5)
+    e428: [[[-1, 1], 'ratio', 'jit']], // 1+(rand−0.5)·2·jit：jit 是说话人参数，原文没有默认值
+    e19: [[[0, 1], 's', 'earlySpan'], [[0.5, 1], 'ratio', '(0.9−0.6·t/(earlySpan+pre))']],
+    e24: [[[-1, 1], 'ratio']], // 白噪 r()*2−1
+    e90: [[[850, 1050], 'Hz'], [[0.035, 0.055], 's']],
+    e91: [[[330, 420], 'Hz']],
+    e92: [[[290, 350], 'Hz'], [[760, 900], 'Hz'], [[0.32, 0.37], 's'], [[1350, 1550], 'Hz'], [[2050, 2170], 'Hz']],
+    e94: [[[2, 3], 'ratio'], [[0.18, 0.28], 's'], [[470, 560], 'Hz'], [[0.14, 0.26], 's']],
+    e103: [[[3.1, 4.1], 'ms']],
+    e137: [[[-1, 1], 'cent']], // detune ±随机(−1,1)
+    e229: [[[0.98, 1.02], 'Hz', '61×1.205^k']], // 61×1.205^k×(1+(rnd−0.5)×0.04)
+  };
+  for (const [sid, rows] of Object.entries(want)) {
+    const got = quantitiesOf(sid).filter((q) => q.expr && 'jitter' in q);
+    assert.deepEqual(got.map((q) => [q.value, q.unit, ...(q.scaleBy ? [q.scaleBy] : [])]), rows, sid);
+    for (const q of got) assert.deepEqual(q.value, [q.base, Math.round((q.base + q.jitter) * 1e6) / 1e6], `${sid} ${q.expr}`);
+  }
+  assert.deepEqual(coupledOrPractice.filter((e) => e.quantities.some((q) => q.expr)).map((e) => e.sourceId).sort(), Object.keys(want).sort(), '带 expr 的条目就是上面这些');
+  // 六审的最小复现：从公开入口按卡读 e32。
+  const e32 = getAudioSubsCardPriors('audio.dsp').find((e) => e.sourceId === 'e32').quantities;
+  assert.equal(e32.length, 1);
+  assert.deepEqual({ ...e32[0], label: undefined }, { value: [0.3, 1], unit: 'ratio', rawUnit: '无量纲', base: 0.3, jitter: 0.7, scaleBy: 'amp', expr: '0.3+0.7·rand²', label: undefined });
+  // e54 原有的辅音与停顿常量还在；e98 两种基础起点另记成标量；e428 的颤音频率不动，音高抖动注明 jit 是参数。
+  for (const v of [0.035, 0.05, 0.22, 0.42]) assert.ok(quantitiesOf('e54').some((q) => q.unit === 's' && q.value === v), `e54 ${v} s`);
+  assert.deepEqual(quantitiesOf('e98').filter((q) => q.expr && !('jitter' in q)).map((q) => [q.value, q.unit]), [[0.05, 's'], [0.3, 's']]);
+  assert.match(quantitiesOf('e428').find((q) => q.scaleBy === 'jit').label, /jit=0\.1.*0\.9.*1\.1/);
+  // 对数均匀的两处（1500·5^rand、1900×5.6^((p+rnd)/96)）不出 base/jitter，原文写明的区间仍是一条量。
+  assert.ok(quantitiesOf('e42').some((q) => q.unit === 'Hz' && q.value[0] === 1500 && q.value[1] === 7500));
+  assert.ok(quantitiesOf('e228').some((q) => q.unit === 'Hz' && q.value[0] === 1900 && q.value[1] === 10640));
 });
