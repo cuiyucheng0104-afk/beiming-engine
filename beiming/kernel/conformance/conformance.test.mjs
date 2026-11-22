@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { isXyz } from '../../host/page/measure.js';
 import { caps } from '../../sources/three/caps.mjs';
 import { loadContracts } from '../contracts/validate.mjs';
 import { eventsTable, renderingOf } from '../eval/input.mjs';
@@ -214,7 +215,7 @@ test('观测点：记下 build 跑了几次、state 收到的每个时刻和那�
 
 // 一次像样的观测：两个镜头，第二个从全片第 10 帧起、没写子帧采样数；各渲了局部第 3 帧（两个子帧采样加辅助层），第一个镜头外加一次只要元数据、一次报错、一次没有锁文件又没写种子的 open
 function observation() {
-  const sha = `sha256:${'ab'.repeat(32)}`, CAPS = { ...caps(), motionBlur: { mode: 'accumulate', auxAt: 'sub0', samples: 2 } };
+  const sha = `sha256:${'ab'.repeat(32)}`, CAPS = { ...caps(), sceneQuery: [], motionBlur: { mode: 'accumulate', auxAt: 'sub0', samples: 2 } };   // 合成观测固定成一种查询都没声明，不跟着 three 的声明变
   const one = (id, start, shutter) => {
     const meta = { film: 'f_x', shot: id, fps: '24/1', frame: start + 3, shotFrame: 3, seed: 7, size: [640, 360], colorRef: 'scene', camera: { shutterAngleDeg: 180 }, entities: [{ id: 1, name: 'cube', class: 'part' }], source: { id: 'three', renderer: 'three', tier: 'final' }, hash: { color: sha } };
     const seen = (states) => ({ builds: 1, shot: id, metaF: 3, cardUses: [], metaKeys: [], states, ctx: { seed: 7, fps: '24/1', frames: 10, shotIn: start, size: [640, 360] } });
@@ -292,6 +293,31 @@ test('像样的观测写出的核对记录一条不违反', () => {
   assert.deepEqual([r[2].renders[0].shutterSamples, r[5].renders[0].shutterSamples], [2, 2]);
   assert.deepEqual(effectiveShutter({ opts: { shutter: { angleDeg: 0, samples: 1 } } }, obs.shots[1].shot, obs.caps, obs.lock), { angleDeg: 0, samples: 1 });
   assert.deepEqual(effectiveShutter({ opts: {} }, { id: 's09' }, obs.caps, obs.lock), { angleDeg: 0, samples: 1 });
+});
+
+test('three 真实声明的三种场景查询答了、没声明的 intersect 拒了，F8、F9、F24 都不违反', () => {
+  const obs = observation(), declared = caps().sceneQuery;
+  assert.deepEqual(declared, ['bbox3d', 'anchor', 'belowGround']);
+  obs.caps.sceneQuery = declared;
+  for (const one of obs.shots) {
+    one.queries = [...declared.map((kind) => ({ kind, status: 'ok', total: 1, returned: 1 })), { kind: 'intersect', status: 'error', code: 'contract.unsupported-query' }];
+  }
+  const r = build(obs);
+  assert.deepEqual(r.flatMap(violations), []);
+  assert.deepEqual(r[2].queries.map((q) => [q.kind, q.status]), [['bbox3d', 'ok'], ['anchor', 'ok'], ['belowGround', 'ok'], ['intersect', 'error']]);
+  // 声明了的那三种里有一种报错，F24 判出来（两个镜头各一条）
+  for (const one of obs.shots) one.queries[1] = { kind: 'anchor', status: 'error', code: 'contract.unsupported-query' };
+  assert.deepEqual(build(obs).flatMap(violations), ['F24', 'F24']);
+});
+
+test('锚点探针认坐标的判法：缺 Z 的、带空位的不算三个有限的数，逐轴比之前先过这一关', () => {
+  // run.mjs 的锚点探针先用 isXyz 判交回的 at，再照规格的三个轴逐个比：只按交回的数组 every 的话，少一个分量的也「都对上」
+  const want = [-0.3, 0, -2], agrees = (at) => isXyz(at) && want.every((v, k) => Math.abs(at[k] - v) <= 1e-6);
+  assert.equal(agrees([-0.3, 0, -2]), true);
+  assert.equal([-0.3, 0].every((v, k) => Math.abs(v - want[k]) <= 1e-6), true, '旧判法：缺 Z 的漏过去');
+  for (const at of [[-0.3, 0], [-0.3, , -2], [-0.3, 0, -2, 0], [-0.3, 0, Number.NaN], [-0.3, 0, null], [-0.3, 0, -2.00001], undefined, null]) assert.equal(agrees(at), false, JSON.stringify(at)); // eslint-disable-line no-sparse-arrays
+  // 入口用的就是这个判法
+  assert.match(readFileSync(new URL('./run.mjs', import.meta.url), 'utf8'), /isXyz\(at\) && w\.at\.every\(/);
 });
 
 test('没量到的不写：没量出对预言图的差时 accumulation 是空的，没量编号层对预言图就不写那个字段，观测点没交东西、没读到镜头标识的那一帧整项不写', () => {
