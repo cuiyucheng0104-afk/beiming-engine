@@ -191,14 +191,26 @@ export function welchTest(groupA, groupB, options = {}) {
   check([alpha, histogramAlpha].every(v => typeof v === 'number' && v > 0 && v < 1), 'alpha 与 histogramAlpha 须在 (0, 1) 内');
   check(Number.isInteger(blockSize) && blockSize >= 1, 'blockSize 须为正整数');
   check(Number.isInteger(bins) && bins >= 1 && bins <= 10000, 'bins 须为 1 到 10000 的整数');
+  check(Array.isArray(groupA) && Array.isArray(groupB), '每边至少要 2 个种子样本（须为数组）');
+  // 读任何槽位之前记下入口长度：A 里的 getter 能把 4 帧的 B 缩成 3 帧，让 3 对 4 蒙混成 3 对 3。
+  const raw = [groupA, groupB];
+  const [lengthA, lengthB] = raw.map(group => group.length);
+  // 只看长度和槽位在不在，不再读元素，合法 getter 不会被触发第二次。
+  const intact = () => raw.forEach((group, g) => {
+    const name = 'AB'[g];
+    if (group.length !== [lengthA, lengthB][g]) throw new RangeError(`welch: ${name} 组的长度在读取中途被改了`);
+    for (let k = 0; k < group.length; k++) {
+      if (!Object.hasOwn(group, k)) throw new TypeError(`welch: ${name} 组第 ${k} 项在读取中途被删了`);
+    }
+  });
   // 先拍快照再查长度：new Array(1) 这种单槽稀疏数组也统一抛 TypeError，之后调用方再改种子组也影响不到统计。
-  if (Array.isArray(groupA)) groupA = snapshot(groupA, 'A 组');
-  if (Array.isArray(groupB)) groupB = snapshot(groupB, 'B 组');
-  check([groupA, groupB].every(g => Array.isArray(g) && g.length >= 2), '每边至少要 2 个种子样本');
-  if (groupA.length !== groupB.length) throw new RangeError(`welch: 两边种子数须相等（A ${groupA.length} 个，B ${groupB.length} 个）`);
+  const snapshots = [snapshot(groupA, 'A 组'), snapshot(groupB, 'B 组')];
+  check(lengthA >= 2 && lengthB >= 2, '每边至少要 2 个种子样本');
+  if (lengthA !== lengthB) throw new RangeError(`welch: 两边种子数须相等（A ${lengthA} 个，B ${lengthB} 个）`);
   // 两边全部帧先解析、校验完，再做统计：最后一帧坏了也在任何累加之前抛。
   // shortcut: 2K 个平面同时在内存里（每单元 8 字节），4K 逐像素 K=16 约 2 GB；吃紧时用 blockSize 8 或改成两遍读。
-  const groups = [groupA, groupB].map(group => group.map(sample => loadPlane(sample, channel, blockSize)));
+  const groups = snapshots.map(group => group.map(sample => loadPlane(sample, channel, blockSize)));
+  intact(); // A 的 getter、帧的 data 或像素 getter 都可能改另一个种子组，统计前统一查一遍
   const grid = groups[0][0];
   for (const plane of groups.flat()) {
     check(plane.width === grid.width && plane.height === grid.height, '样本尺寸不一致');

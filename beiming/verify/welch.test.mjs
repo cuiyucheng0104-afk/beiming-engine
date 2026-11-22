@@ -392,6 +392,7 @@ test('V18-15 G_REV-R4 原始样本严格为有限 number（拒 null/字符串/�
   const rgbaBadAlpha = { width: 1, height: 1, channels: 4, data: new Float32Array([1, 1, 1, Infinity]) };
   assert.throws(() => verify.welchTest([rgbaA(), rgbaA()], [rgbaA(), rgbaBadAlpha]), RangeError);
   // 3) 恶意 getter 在读取第 0 帧时删掉 B[1] 或缩短 B 长度
+  // eslint-disable-next-line no-sparse-arrays
   const mutB = [, f(0)];
   Object.defineProperty(mutB, 0, {
     enumerable: true,
@@ -424,4 +425,43 @@ test('V18-15 G_REV-R4 原始样本严格为有限 number（拒 null/字符串/�
   assert.equal(reads, 2);
   // DataView 有 byteLength 没有元素，不能当 data
   assert.throws(() => verify.welchTest(pair0, [f(0), { width: 2, height: 1, channels: 1, data: new DataView(new ArrayBuffer(2)) }]), TypeError);
+});
+
+test('V18-16 G_REV-R5 杀灭 M33（EXR 选中通道含 Infinity 在统计前抛 RangeError）且防跨阶段 getter 篡改已复制种子组', async () => {
+  const { writeExr } = await import('./exr/exr.mjs');
+  const okExr = writeExr({
+    width: 2, height: 1, compression: 2,
+    channels: { R: new Float32Array([0.2, 0.4]), 'depth.Z': new Float32Array([5, 6]) },
+  });
+  const infExr = writeExr({
+    width: 2, height: 1, compression: 2,
+    channels: { R: new Float32Array([0.2, 0.4]), 'depth.Z': new Float32Array([5, Infinity]) },
+  });
+  assert.throws(() => verify.welchTest([okExr, okExr], [okExr, infExr], { channel: 'depth.Z' }), RangeError);
+
+  const f = (v) => ({ width: 2, height: 1, channels: 1, data: new Float32Array([v, v + 0.5]) });
+  // 1) 入口时 A 有 3 帧、B 有 4 帧，读取 A[0] 时把 B 缩成 3 帧：必须在统计前抛 RangeError
+  const b4 = [f(1), f(2), f(3), f(99)];
+  const a3 = [null, f(1), f(2)];
+  Object.defineProperty(a3, 0, { enumerable: true, get() { b4.length = 3; return f(1); } });
+  assert.throws(() => verify.welchTest(a3, b4), RangeError);
+
+  // 2) 初始 3 对 3，A 末帧 data getter 把已复制的 B 缩至 2 帧：必须在统计前拒绝
+  const bShrink = [f(1), f(2), f(3)];
+  const aLate = [f(1), f(2), { width: 2, height: 1, channels: 1 }];
+  Object.defineProperty(aLate[2], 'data', { enumerable: true, get() { bShrink.length = 2; return new Float32Array([3, 3.5]); } });
+  assert.throws(() => verify.welchTest(aLate, bShrink), RangeError);
+
+  // 2b) 入口 3 对 4，A[0] 把 B 缩成 3 帧，A 末帧 data getter 再补回 4 帧：种子数按入口长度判，仍抛 RangeError
+  const bBack = [f(1), f(2), f(3), f(99)];
+  const aBack = [null, f(2), { width: 2, height: 1, channels: 1 }];
+  Object.defineProperty(aBack, 0, { enumerable: true, get() { bBack.length = 3; return f(1); } });
+  Object.defineProperty(aBack[2], 'data', { enumerable: true, get() { bBack.push(f(99)); return new Float32Array([3, 3.5]); } });
+  assert.throws(() => verify.welchTest(aBack, bBack), RangeError);
+
+  // 3) 初始 3 对 3，A 末帧像素 getter 删除 B[1]：必须在统计前抛 TypeError
+  const bHole = [f(1), f(2), f(3)];
+  const pixArr = [null, 3.5];
+  Object.defineProperty(pixArr, 0, { enumerable: true, get() { delete bHole[1]; return 3; } });
+  assert.throws(() => verify.welchTest([f(1), f(2), { width: 2, height: 1, channels: 1, data: pixArr }], bHole), TypeError);
 });
