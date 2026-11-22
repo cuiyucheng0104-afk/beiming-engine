@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { audioLoudness, blackFreezeDup, deliverSpec, layoutEdges, loopClosurePsnr, pixelBbox } from '../../../observe/metrics/index.mjs';
+import { validateQuestion } from '../../index.mjs';
 
 const fin = (x) => typeof x === 'number' && Number.isFinite(x);
 const isObj = (x) => typeof x === 'object' && x !== null && !Array.isArray(x);
@@ -130,9 +131,9 @@ const psnr = (x) => ge(x, 0) || x === Infinity;
 const amplitude = (db) => 10 ** (-db / 20);
 // 换算的舍入余量。差正好是 1.1 倍的两帧，经 PSNR 的对数来回一趟算出 1.1000000000000003，不留余量会把压线的判成越线
 const RATIO_EPS = 1e-12, DB_EPS = 1e-9;
-/** 误差读数的数组：真数组，正好 n 个槽，没有空洞和多余的属性，每个槽是不小于 0 的有限数 */
+/** 误差读数的数组：真数组，正好 n 个槽，没有空洞和多余的属性，每个槽是可枚举的数据属性、值是不小于 0 的有限数。只看属性描述，不取值 */
 const errorList = (list, n) => Array.isArray(list) && list.length === n && Reflect.ownKeys(list).length === n + 1
-  && Array.from({ length: n }, (_, i) => i).every((i) => Object.hasOwn(list, i) && ge(list[i], 0));
+  && Array.from({ length: n }, (_, i) => Object.getOwnPropertyDescriptor(list, i)).every((slot) => slot && 'value' in slot && slot.enumerable && ge(slot.value, 0));
 /** 读数里的数组成不成形，按指标列。没量出来（null、undefined）不算不成形，由判分那一项自己判不过 */
 const SHAPES = {
   'layout.edges': (r, a) => [r.edgeErrorsPx, r.sideErrorsPx].every((list) => list == null || errorList(list, 2 * a.bands.length)),
@@ -172,8 +173,24 @@ const JUDGES = {
   'frame.black-freeze-dup': (r) => r.blackFrames === 0 && r.freezeSegments === 0 && r.duplicateFrames === 0,
 };
 
-/** 对象自己的属性；不是对象、没有这个属性回 undefined */
+/** 对象自己的属性；不是对象、没有这个属性回 undefined。只用在 plain 抄出来的数据上 */
 const own = (object, key) => (isObj(object) && Object.hasOwn(object, key) ? object[key] : undefined);
+/** 属性描述里的值。读数只认可枚举的数据属性：取值器（不调它）和不可枚举的属性抛出去 */
+const valueIn = (slot) => {
+  if (!('value' in slot) || !slot.enumerable) throw new TypeError('读数只认可枚举的数据属性');
+  return slot.value;
+};
+/** 读数抄成普通数据，全程只看自有属性的描述，不调取值器。数组的空洞、多余的属性照样留着，交给 errorList 判；抄不成就抛 */
+function plain(value) {
+  if (typeof value !== 'object' || value === null) return value;
+  const list = Array.isArray(value), copy = list ? [] : {};
+  for (const key of Reflect.ownKeys(value)) {
+    const slot = Object.getOwnPropertyDescriptor(value, key);
+    if (list && key === 'length') copy.length = slot.value;
+    else Object.defineProperty(copy, key, { value: plain(valueIn(slot)), enumerable: true, writable: true, configurable: true });
+  }
+  return copy;
+}
 /** 读数不成形、判的时候出错，都按不过算，不往外抛 */
 const holds = (check) => {
   try { return check() === true; } catch { return false; }
@@ -181,9 +198,18 @@ const holds = (check) => {
 
 /** 题号对题目文件名。冻结的题号写法不带前导零，1-1 和文件名 01-1 是同一道题 */
 const FILES = { '29-1': '29-1', '28-1': '28-1', '23-1': '23-1', '1-1': '01-1', '01-1': '01-1' };
-/** 给的是题号就读同目录的题目文件，别的原样回；不认识的题号回 null */
-const questionOf = (given) => (typeof given !== 'string' ? given
-  : Object.hasOwn(FILES, given) ? JSON.parse(readFileSync(new URL(`./${FILES[given]}.json`, import.meta.url), 'utf8')) : null);
+/**
+ * 给的是题号就读同目录的题目文件，给的是对象就用它；两样都要过 validateQuestion 才判，回一份抄出来的题目。
+ * 不认识的题号、不是对象、过不了校验、scoring 是空的，都抛（score 接住，回认不出题目的那份结果）。
+ * 校验只看属性描述；抄用 structuredClone，代理抄不了会抛，所以判的那份和校验过的那份是同一份数据
+ */
+function questionOf(given) {
+  const question = typeof given !== 'string' ? given : Object.hasOwn(FILES, given) ? JSON.parse(readFileSync(new URL(`./${FILES[given]}.json`, import.meta.url), 'utf8')) : null;
+  if (!isObj(question) || validateQuestion(question).ok !== true) throw new TypeError('不是合规的题目');
+  const copy = structuredClone(question);
+  if (!Array.isArray(copy.scoring) || copy.scoring.length === 0) throw new TypeError('题目没有判分项');
+  return copy;
+}
 
 /**
  * 照题目判一份读数，回 { id, score, pass, basePass, scoringPass, malformed, base, items }。
@@ -195,9 +221,11 @@ const questionOf = (given) => (typeof given !== 'string' ? given
  *   谓词的判定由调用方拿每帧元数据和成片量测交 verify 的 evaluateAssertion 得出，这里不重判；没给、'fail'、'skipped' 都不算过：没判过不当成过。
  *   所以只有成片、没有每帧元数据的参考片，basePass 是 false。
  * - pass = basePass && scoringPass，是整题合格。负对照、容差校准要看整题合不合格用 pass，只看判分线用 scoringPass 和 score。
- * - malformed：读数里有给了却不成形的数组（空洞、伪数组、字符串、带多余属性、槽数不对、槽里是负数或不是数）。这份读数整份作废：
+ * - malformed：读数里有给了却不成形的数组（空洞、伪数组、字符串、带多余属性、槽数不对、槽里是负数或不是数），
+ *   或者读数用到的哪一栏（base、题目判分用的指标）里有取值器、不可枚举的属性、取不出属性描述的代理。这份读数整份作废：
  *   每一项都不过，score 是 0，不给别的项部分分。数组成形只是数值超差、或者没量出来（null），不算，照常逐项判。
- * - 题号不认识、第一个参数不是题目：id 是 null，score 是 0，都不合格，base 和 items 是空的，不往外抛。题目对象本身合不合契约归 validateQuestion 管，这里不重验。
+ *   读数只看自有属性的描述，取值器一次都不调。
+ * - 题号不认识、第一个参数不是题目、题目对象过不了 validateQuestion（或者 scoring 是空的）：id 是 null，score 是 0，都不合格，base 和 items 是空的，不往外抛。
  */
 export function score(questionOrId, readings) {
   try {
@@ -208,10 +236,25 @@ export function score(questionOrId, readings) {
 }
 
 function judge(question, readings) {
-  const malformed = question.scoring.some(({ metric, args = {} }) => holds(() => isObj(own(readings, metric)) && Object.hasOwn(SHAPES, metric) && !SHAPES[metric](own(readings, metric), args)));
+  let malformed = false;
+  /** 读数的一栏（base，或者一个指标名）抄成普通数据；没给是 undefined。抄不成的，整份读数记成不成形，这一栏当没给 */
+  const column = (key) => {
+    try {
+      const slot = isObj(readings) ? Object.getOwnPropertyDescriptor(readings, key) : undefined;
+      return slot && plain(valueIn(slot));
+    } catch {
+      malformed = true;
+      return undefined;
+    }
+  };
+  const evidence = column('base'), measured = new Map(question.scoring.map(({ metric }) => [metric, column(metric)]));
+  // 形状检查自己出错也算不成形。同一个指标的几条判分各带一部分 args，并起来再查
+  for (const [metric, reading] of measured) {
+    if (isObj(reading) && Object.hasOwn(SHAPES, metric) && !holds(() => SHAPES[metric](reading, argsOf(question, metric)))) malformed = true;
+  }
   const items = question.scoring.map(({ metric, args = {}, weight }) => ({ metric, weight,
-    pass: !malformed && holds(() => isObj(own(readings, metric)) && Object.hasOwn(JUDGES, metric) && JUDGES[metric](own(readings, metric), args, question)) }));
-  const gate = (key) => own(own(readings, 'base'), key);
+    pass: !malformed && holds(() => isObj(measured.get(metric)) && Object.hasOwn(JUDGES, metric) && JUDGES[metric](measured.get(metric), args, question)) }));
+  const gate = (key) => own(evidence, key);
   const base = [{ check: 'deliverable', pass: holds(() => isObj(gate('spec')) && sameSpec(gate('spec'), question.deliverable)) },
     ...question.basePredicates.map((text) => ({ check: text, pass: holds(() => own(gate('predicates'), text) === 'pass') }))];
   const basePass = base.every((check) => check.pass), scoringPass = items.every((item) => item.pass);

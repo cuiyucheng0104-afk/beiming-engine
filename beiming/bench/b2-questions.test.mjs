@@ -162,6 +162,40 @@ test('B2-3 29-1：参考片读数满分；合成版式过真实 layoutEdges 满�
     }
   }
   assert.equal(score(q, exact).malformed, false);
+  // 三审反例：边界数组有个槽位是取值器（一取就抛，或者回个合格的 0），原来只算边界那一项不过，线色照拿 0.5 分。
+  // 成不成形只看属性描述，取值器一次都不调：槽位、读数的一栏、整项读数、基础门里，凡是取值器、不可枚举的属性、连描述都取不出来的代理，整份读数作废
+  let calls = 0;
+  const getters = [() => { calls += 1; throw new TypeError('取不到'); }, () => { calls += 1; return 0; }];
+  const refuse = () => { throw new TypeError('取不到'); };
+  const zeros = () => [0, 0, 0, 0, 0, 0];
+  const voided = (readings, label) => {
+    const verdict = score(q, readings);
+    assert.deepEqual([verdict.malformed, verdict.items.map((item) => item.pass), verdict.score, verdict.scoringPass, verdict.pass], [true, [false, false], 0, false, false], label);
+    return verdict;
+  };
+  const revoked = Proxy.revocable(zeros(), {});
+  revoked.revoke();
+  for (const key of ['edgeErrorsPx', 'sideErrorsPx']) {
+    const withList = (list) => ({ ...exact, 'layout.edges': { ...reading, [key]: list } });
+    for (const [n, get] of getters.entries()) {
+      for (const slot of [0, 2, 5]) {
+        // 基础门的证据是另一栏，照常判
+        assert.equal(voided(withList(Object.defineProperty(zeros(), slot, { get, enumerable: true })), `${key} 第 ${slot} 槽是取值器 ${n}`).basePass, true);
+      }
+      voided({ ...exact, 'layout.edges': Object.defineProperty({ ...reading }, key, { get, enumerable: true }) }, `${key} 这一栏是取值器 ${n}`);
+    }
+    voided(withList(Object.defineProperty(zeros(), 2, { value: 0, enumerable: false })), `${key} 第 2 槽不可枚举`);
+    voided(withList(new Proxy(zeros(), { getOwnPropertyDescriptor: refuse })), `${key} 取不出属性描述的代理`);
+    voided(withList(new Proxy(zeros(), { ownKeys: refuse })), `${key} 列不出键的代理`);
+    voided(withList(revoked.proxy), `${key} 撤销了的代理`);
+    voided({ ...exact, 'layout.edges': Object.defineProperty({ ...reading }, key, { value: zeros(), enumerable: false }) }, `${key} 这一栏不可枚举`);
+  }
+  for (const [n, get] of getters.entries()) {
+    voided(Object.defineProperty({ ...exact }, 'layout.edges', { get, enumerable: true }), `整项读数是取值器 ${n}`);
+    assert.equal(voided(Object.defineProperty({ ...exact }, 'base', { get, enumerable: true }), `基础门证据是取值器 ${n}`).basePass, false);
+    assert.equal(voided({ ...exact, base: Object.defineProperty({ ...exact.base }, 'spec', { get, enumerable: true }) }, `基础门的规格是取值器 ${n}`).basePass, false);
+  }
+  assert.equal(calls, 0);
   for (const bad of [null, undefined, NaN, '1', -1, 5]) {
     assert.deepEqual(score(q, { ...exact, 'layout.edges': { ...reading, lineColorError: bad } }).items.map((item) => item.pass), [true, false], String(bad));
   }
@@ -428,7 +462,8 @@ test('B2-8 读数整份不成形（空、不是对象）时四道题都回 0 分
     }
     const full = Object.fromEntries(keys.map((key) => [key, key === 'base' ? built(q) : {}]));
     assert.deepEqual(marks(score(q, Object.create(full))), [0, false, false, false], name);
-    assert.deepEqual(marks(score(q, Object.defineProperties({}, Object.fromEntries(keys.map((key) => [key, thrower]))))), [0, false, false, false], name);
+    const trapped = score(q, Object.defineProperties({}, Object.fromEntries(keys.map((key) => [key, thrower]))));
+    assert.deepEqual([...marks(trapped), trapped.malformed], [0, false, false, false, true], name);
   }
 });
 
@@ -455,4 +490,25 @@ test('B2-9 score 的第一个参数给题号也行（01-1 和 1-1 是同一道�
     for (const given of [readings, null]) assert.deepEqual(score(bad, given), none, `${String(bad)} ${JSON.stringify(bad)}`);
   }
   assert.deepEqual(score(), none);
+  // 三审反例：过不了 validateQuestion 的题目对象不判。只有交付规格、scoring 是空数组的对象，原来空数组上的 every 回 true，凭成片规格相符就整题合格
+  const master = question('01-1');
+  const hollow = { deliverable: master.deliverable, scoring: [], basePredicates: [] };
+  assert.equal(validateQuestion(hollow).ok, false);
+  assert.deepEqual(score(hollow, { base: { spec: specOf(master) } }), none);
+  for (const [name, fixture] of Object.entries(fixtures)) {
+    const q = question(name), full = { ...ref(fixture).readings, base: built(q) };
+    const { id, ...anonymous } = q;
+    const invalid = { 'scoring 是空数组': { ...q, scoring: [] }, '没有题号': anonymous, '多一个字段': { ...q, extra: 1 }, '权重和不是 1': { ...q, scoring: q.scoring.map((item) => ({ ...item, weight: item.weight / 2 })) },
+      '谓词没登记': { ...q, basePredicates: [...q.basePredicates, 'no.such.predicate == 1'] }, 'scoring 是取值器': Object.defineProperty({ ...q }, 'scoring', { get: () => q.scoring, enumerable: true }) };
+    for (const [label, bad] of Object.entries(invalid)) {
+      assert.equal(validateQuestion(bad).ok, false, `${id} ${label}`);
+      for (const given of [full, null]) assert.deepEqual(score(bad, given), none, `${id} ${label}`);
+    }
+    // 代理：描述照实给（校验看的是描述），取值时把 scoring 说成空的，或者把基础谓词说成一条都没有。抄不成普通数据的题目也不判
+    for (const [field, lie] of [['scoring', []], ['basePredicates', []]]) {
+      const lying = new Proxy(q, { get: (target, key) => (key === field ? lie : target[key]) });
+      for (const given of [full, null]) assert.deepEqual(score(lying, given), none, `${id} 代理谎报 ${field}`);
+    }
+    assert.notDeepEqual(score(q, full), none, id);
+  }
 });
