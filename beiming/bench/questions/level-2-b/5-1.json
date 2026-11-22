@@ -1,0 +1,88 @@
+{
+  "format": "question/0.1",
+  "id": "5-1",
+  "level": 2,
+  "title": "配乐拉伸对位，低频重击落在硬切上",
+  "brief": "给一条 30 秒、24 帧每秒、1920×1080、720 帧的产品展示正片配上题目自带的现成配乐 track，带立体声。配乐可以平移，可以整体拉伸，拉伸比必须在 0.97 到 1.03 之间（不超过 3%），不能重新编曲。正片第 624 帧（26.0 秒）有一次硬切；配乐最后一组低频重击（120 Hz 以下）的峰必须落在这次硬切前后 2 帧内。",
+  "deliverable": {
+    "size": [
+      1920,
+      1080
+    ],
+    "fps": "24/1",
+    "frames": 720,
+    "audio": "stereo"
+  },
+  "assets": {
+    "track": "bench/assets/5-1/track@1"
+  },
+  "refs": [
+    "bench/refs/level-2-b/5-1.json"
+  ],
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=24, frames=720)",
+    "cut_at(624)"
+  ],
+  "scoring": [
+    {
+      "metric": "music.align",
+      "source": "film-audio",
+      "args": {
+        "minCorr": 0.5,
+        "stretch": [
+          0.97,
+          1.03
+        ],
+        "searchStretch": [
+          0.94,
+          1.06
+        ],
+        "stepSec": 0.02
+      },
+      "pass": "题目自带的配乐对成片音轨做 20 毫秒能量包络互相关，相关不低于 0.5 才判；判的时候拉伸比在 0.97 到 1.03 之间",
+      "weight": 0.5
+    },
+    {
+      "metric": "beat.onset-hit",
+      "source": "film-audio",
+      "args": {
+        "events": [
+          "hard_cut"
+        ],
+        "maxHz": 120,
+        "riseDb": 6,
+        "tolFrames": 2,
+        "minLiftOverRandom": 0.4
+      },
+      "pass": "成片音轨 120 Hz 以下、高出中位数 6 dB 以上的重击峰里，离第 624 帧硬切最近的一个不超过 2 帧；命中率比随机对照的基线高 40 个百分点以上",
+      "weight": 0.5
+    }
+  ],
+  "controls": {
+    "referencePass": "标准答案工程必须得满分；案例 05 成片的读数（相关 0.836、拉伸比 1.009、重击峰离硬切 1 帧）也必须得满分",
+    "negative": "配乐拉伸到 1.05、换成一条不相关的配乐（相关低于 0.5）、重击峰离硬切 3 帧以上的提交都必须判不合格",
+    "random": "在 720 帧里任取一帧当硬切，前后 2 帧内有低频重击峰的比例当基线；参考读数 18 个峰，基线是 87/720，约 12%"
+  },
+  "needs": [
+    "audio.align"
+  ],
+  "budget": {
+    "tokens": 400000,
+    "wallMs": 1200000,
+    "gpuSeconds": 300
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": false,
+    "blockedBy": []
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "05 第 6.3 节的初值，没有试跑过；比随机基线高 40 个百分点沿用同一节对拍点题的写法",
+    "noiseFloor": null,
+    "version": 0
+  },
+  "ext": {
+    "bench.code": "05-1"
+  }
+}

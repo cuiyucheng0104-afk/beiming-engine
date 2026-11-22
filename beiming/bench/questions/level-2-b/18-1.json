@@ -1,0 +1,94 @@
+{
+  "format": "question/0.1",
+  "id": "18-1",
+  "level": 2,
+  "title": "旁白讲解场景的版式与字幕节奏",
+  "brief": "按题目自带的旁白 narration 和字幕稿 copy 做一条 30 秒、30 帧每秒、1920×1080、900 帧的讲解片，带立体声，至少分三个场景。每个场景在旁白开头前留 0.30 秒，结尾后留 0.36 秒。字幕一块一块整块更替，不逐字出现；每块字幕和它那句旁白的起声同帧出现。场景之间用 3 到 4 帧的淡出衔接。每个讲解场景的底色是 #F4F0E9，占画面的 75% 到 85%。",
+  "deliverable": {
+    "size": [
+      1920,
+      1080
+    ],
+    "fps": "30/1",
+    "frames": 900,
+    "audio": "stereo"
+  },
+  "assets": {
+    "narration": "bench/assets/18-1/narration@1",
+    "copy": "bench/assets/18-1/copy@1"
+  },
+  "refs": [
+    "bench/refs/level-2-b/18-1.json"
+  ],
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=30, frames=900)",
+    "text_matches(copy) @ all"
+  ],
+  "scoring": [
+    {
+      "metric": "narration.timing",
+      "source": "film-audio",
+      "args": {
+        "maxSubtitleLagSec": 0.063,
+        "pauseDb": -45,
+        "minPauseSec": 0.25,
+        "minLiftOverRandom": 0.4
+      },
+      "pass": "每块字幕出现的时刻减离它最近的旁白起声，绝对值的中位数不超过 0.063 秒；0.063 秒内对上起声的字幕块所占比例比随机对照的基线高 40 个百分点以上",
+      "weight": 0.4
+    },
+    {
+      "metric": "narration.timing",
+      "source": "film",
+      "args": {
+        "fadeFrames": [
+          3,
+          4
+        ]
+      },
+      "pass": "各场景边界淡出帧数的中位数在 3 到 4 帧之间",
+      "weight": 0.3
+    },
+    {
+      "metric": "color.palette",
+      "source": "film",
+      "args": {
+        "color": "#F4F0E9",
+        "binLevels": 16,
+        "k": 64,
+        "share": [
+          0.75,
+          0.85
+        ]
+      },
+      "pass": "每个讲解场景抽一帧，和底色 #F4F0E9 落在同一个 16 档色格里的像素占比都在 75% 到 85% 之间",
+      "weight": 0.3
+    }
+  ],
+  "controls": {
+    "referencePass": "标准答案工程必须得满分；案例 18 成片的读数（字幕出现减起声的中位数 0.013 秒、淡出帧数的中位数 3 帧、三个场景的底色占比 84.6%、79.2%、75.2%）也必须得满分",
+    "negative": "字幕整体滞后 0.2 秒、场景之间不做淡出、底色占比低于 75% 或高于 85% 的提交都必须判不合格",
+    "random": "在成片时长里任取一个时刻当字幕出现时刻，离最近的旁白起声不超过 0.063 秒的比例当基线；参考读数 62 次起声，基线约 4%"
+  },
+  "needs": [
+    "time.narration",
+    "overlay.subs",
+    "page.det2d"
+  ],
+  "budget": {
+    "tokens": 500000,
+    "wallMs": 1800000,
+    "gpuSeconds": 120
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": false,
+    "blockedBy": []
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "05 第 6.3 节的初值，没有试跑过；参考是平台重压版，淡出帧数按中位数判；比随机基线高 40 个百分点沿用同一节对拍点题的写法",
+    "noiseFloor": null,
+    "version": 0
+  }
+}
