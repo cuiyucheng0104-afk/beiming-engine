@@ -444,6 +444,7 @@ npm run offscreen -- profile films/chendu/offscreen.mjs --frames 0,48,90 --size 
 npm run offscreen -- batch films/chendu/offscreen.mjs lab/offscreen/ink.mjs --out-dir out/offscreen/batch --frames 0:48 --mode fast
 npm run offscreen:compare -- films/chendu/offscreen.mjs --frames 0,48,72,90 --size 960x540 --query "msaa=0&notext=1"
 npm run offscreen:bench -- lab/offscreen/ink.mjs --films 1,2,4,8 --frames 192 --size 1920x1080 --encode --encoder nvenc --pix-fmt yuv420p
+npm run offscreen:farm -- render lab/offscreen/ink.mjs --out out/offscreen/ink-farm.mp4 --frames 0:192 --slots 2
 npm run determinism -- films/chendu --renderer offscreen --size 320x180 --seams
 npm run lookdev:sweep -- films/chendu --renderer offscreen --t 1.5 --look vignette=0,0.35 --query msaa=0
 npm run qa -- texts --film films/chendu --offscreen
@@ -485,6 +486,14 @@ npm run film -- build films/chendu --renderer offscreen --mode fast
 - **WP5 lookdev 中间层快照**：`lookdev:sweep` 严格按白名单（`grade`、`fog`、`bloom`、`kuwahara`、`paper`、`vignette`、`grain`、`outline`）fail-closed 启用，出现任意白名单外键（如作品自定义键）一律禁用快照退回全量渲染（`look.js` 同步做纵深防线校验）；`--q` 按查询字符串分组重建独立宿主隔离快照，组内按外层时刻、内层参数格遍历使多时刻 sweep 也能命中同帧快照（不改变产物命名与顺序契约）；普通出片不受影响。4K《晨渡》十组：33/33 张 PNG 与 `main` 逐字节相同，后 9 组 `scene` / `ink:ids` 为 0；纯渲染+读回 `392.248 → 326.049 ms`（−16.9%），GPU −12.9%，端到端 sweep 噪声内。**未达 ≥ 40%**：可跳过的两段只占十组总 GPU 约 21%，规格范围内理论上限约 −21%。
 - **T0（二轮退修复测，对 `main` `50665516`）**：RGBA 18/18 帧（《晨渡》《度》与 MRT 夹具 1080p/4K）、普通帧序列 `outline.opacity` 0→1→0→1（4/4）、自定义 `fragmentNode`（2/2，零 GPU fault）、`depthTest=false` 重叠（1/1）、白名单外 `--look bg=0,1`（3/3 PNG）、4K 白名单内 `--t 0,0.04 --look outline.opacity=0,1`（5/5 PNG）、4K《晨渡》10 组 lookdev（11/11 PNG），共 44/44 项全部逐字节相同；前期 MP4 16/16 组逐字节相同；`npm run determinism -- films/chendu --renderer offscreen --size 320x180 --seams` 四路通过。
 - **未验证**：Windows / 5090 真机；Chrome WebGPU 下的 MRT 路径；有真实作品实现 `stateKey` 的长片。
+
+### 7.23 阶段 4：WP3 无状态帧级切片分发（`offscreen:farm`，2026-11-22）
+
+`npm run offscreen:farm -- render <作品.mjs> --out <成片.mp4> --frames a:b [--slots 2]`（`tools/offscreen/farm.mjs`，规格书 §3 WP3）：把帧区间切成连续帧段——优先对齐镜头切点（缺省读作品目录 `film.json` 的镜头表，`--seams` 可覆盖；单镜超过 `--block`（默认 240 帧，同时是 `-g`）按块长均分；段数不足 `--shards`（默认 `--slots`）平分最长段补足）——`--transport local` 用多个**独立渲染进程**（各自一个 `GPUDevice`，模拟多节点）并发执行 `offscreen render`，每片统一 `--gop` / `--timescale`（`fps×512`，MP4 时间基）与编码参数，首帧 IDR；最后 `ffmpeg -f concat -c copy` 无损合并并核验：总帧数、PTS 严格单调无空洞（按时间基整数步长）、四项 BT.709 标记、合并前后 framemd5 逐帧连续、逐段 sha256 留痕（信封 `data.shards`）。单块失败只重试该块（`--retries`，默认 1），已完成的切片不重跑；某片实际编码与首片不一致（如混卡回退）在拼接前就拦下（`contract.shard-encode-mismatch`，退出 4）。
+
+- **无接缝判据**（规格书 WP3 验收的「无损中间对比」）：各片带 `--frame-hashes on`，信封 `data.frameHashes` 是各片无损读回哈希的拼接，与**单机整段渲染**（`offscreen render --frames a:b --frame-hashes on`）逐帧相等即逐像素无接缝；分片合并与整段单编的**码流不逐字节相同**（分片边界是 IDR、整段是 P 帧，属预期，同混卡注意条款），但同参数重跑各自确定。
+- `--transport` 目前只实现 `local`；多机分发复用 `tools/remote`（机器档案 + 按提交出片），接入条件与实测状态见规格书 §5.4。
+- 实测（2026-11-22，RTX 4070 Laptop）：1080p / 4K × 《晨渡》+ `ink` 交替 A/B 共 10 轮，合并帧数、PTS、色彩标记、framemd5 连续全部通过，各片无损读回哈希与单机整段渲染逐帧逐字节相同（零接缝）；同参数各轮合并成片 sha256 相同（确定）。单卡双槽位对吞吐无稳定收益（单卡 GPU 已满载，分片收益在多卡 / 多机）；**多机 ≥ 1.7× 未测**（无已接入工作站档案）。数字与环境声明见规格书 [§5.4](spec-perf-first-principles.md)。
 
 ## 8. 风险
 
