@@ -1,7 +1,8 @@
-// 一级 4 道题（29-1、28-1、23-1、01-1）的判分核验辅助：read* 调 observe/metrics 的真实指标出读数，score 照题目文件 scoring[].args 里的线判，并核基础门。
+// 一级 4 道题（29-1、28-1、23-1、01-1）的判分核验辅助：read* 调 observe/metrics 的真实指标出读数，score 照题目文件（或题号）scoring[].args 里的线判，并核基础门。
 // 只用来核「参考读数过自己的题、反例判不过」；正式的跑题器是另一个工作包。
 // 读数按指标名归拢：{ 'layout.edges': {…}, …, base: {…} }。帧是 { width, height, rgba }（显示空间 sRGB，原点左上）；包围盒是 [x0, y0, x1, y1] 像素。
 import { execFile } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { audioLoudness, blackFreezeDup, deliverSpec, layoutEdges, loopClosurePsnr, pixelBbox } from '../../../observe/metrics/index.mjs';
@@ -88,12 +89,13 @@ export function readPixelBoxes(samples, background, tol) {
   return { maxDiffPx: diffs.length ? Math.max(...diffs) : null };
 }
 
-/** 第一条音轨的声道数和声道布局；没有音轨是 0 个声道。缺 ffprobe 时回 null */
+/** 第一条音轨有没有、声道数和声道布局；没有音轨是 hasAudio: false、0 个声道。缺 ffprobe 时回 null */
 async function audioTrack(file) {
   try {
     const { stdout } = await promisify(execFile)('ffprobe', ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=channels,channel_layout', '-of', 'json', resolve(file)]);
     const [stream] = JSON.parse(stdout).streams ?? [];
-    return { audioChannels: stream?.channels ?? 0, audioLayout: stream?.channel_layout ?? null };
+    const audioChannels = stream?.channels ?? 0;
+    return { hasAudio: audioChannels > 0, audioChannels, audioLayout: stream?.channel_layout ?? null };
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
     return null;
@@ -102,12 +104,14 @@ async function audioTrack(file) {
 
 /**
  * 01-1：成片文件读回规格与色彩标签（外加声道数）、响度与真峰值、黑帧冻结重复帧。
- * 没有音轨时不去量响度：声道数是 0，响度和真峰值是 null。缺 ffmpeg / ffprobe 时对应的读数是 null（判不过）
+ * hasAudio 是有没有音轨，顶层和 deliver.spec 里各写一份：有是 true，没有是 false。没有音轨时不去量响度：声道数是 0，响度和真峰值是 null。
+ * 缺 ffmpeg / ffprobe 时对应的读数是 null（判不过），hasAudio 也是 null：没探过，不说成没有
  */
 export async function readMaster(file, frameArgs) {
   const track = await audioTrack(file);
-  const [spec, loudness, frames] = await Promise.all([deliverSpec(file), track?.audioChannels ? audioLoudness(file) : { value: null }, blackFreezeDup(file, frameArgs)]);
+  const [spec, loudness, frames] = await Promise.all([deliverSpec(file), track?.hasAudio ? audioLoudness(file) : { value: null }, blackFreezeDup(file, frameArgs)]);
   return {
+    hasAudio: track ? track.hasAudio : null,
     'deliver.spec': spec.value && track ? { ...spec.value, ...track } : null,
     'audio.loudness': { lufs: loudness.value, truePeakDbtp: loudness.details?.truePeakDbtp ?? null },
     'frame.black-freeze-dup': frames.value,
@@ -129,6 +133,10 @@ const RATIO_EPS = 1e-12, DB_EPS = 1e-9;
 /** 误差读数的数组：真数组，正好 n 个槽，没有空洞和多余的属性，每个槽是不小于 0 的有限数 */
 const errorList = (list, n) => Array.isArray(list) && list.length === n && Reflect.ownKeys(list).length === n + 1
   && Array.from({ length: n }, (_, i) => i).every((i) => Object.hasOwn(list, i) && ge(list[i], 0));
+/** 读数里的数组成不成形，按指标列。没量出来（null、undefined）不算不成形，由判分那一项自己判不过 */
+const SHAPES = {
+  'layout.edges': (r, a) => [r.edgeErrorsPx, r.sideErrorsPx].every((list) => list == null || errorList(list, 2 * a.bands.length)),
+};
 /** 一项判分里的几条线：args 里给了哪条判哪条；一条都没给不算过 */
 const lines = (...pairs) => {
   const given = pairs.filter(([arg]) => arg !== undefined);
@@ -171,8 +179,15 @@ const holds = (check) => {
   try { return check() === true; } catch { return false; }
 };
 
+/** 题号对题目文件名。冻结的题号写法不带前导零，1-1 和文件名 01-1 是同一道题 */
+const FILES = { '29-1': '29-1', '28-1': '28-1', '23-1': '23-1', '1-1': '01-1', '01-1': '01-1' };
+/** 给的是题号就读同目录的题目文件，别的原样回；不认识的题号回 null */
+const questionOf = (given) => (typeof given !== 'string' ? given
+  : Object.hasOwn(FILES, given) ? JSON.parse(readFileSync(new URL(`./${FILES[given]}.json`, import.meta.url), 'utf8')) : null);
+
 /**
- * 照题目判一份读数，回 { id, score, pass, basePass, scoringPass, base, items }。各字段的意思（契约语义）：
+ * 照题目判一份读数，回 { id, score, pass, basePass, scoringPass, malformed, base, items }。
+ * 第一个参数给题目对象，或者这四道题的题号（'29-1'、'28-1'、'23-1'、'1-1'，'01-1' 也认）。各字段的意思（契约语义）：
  * - items、score、scoringPass 只管 scoring[]：items 是每一项过没过，score 是过了的项的权重和（满分 1），scoringPass 是每一项都过。
  *   没有读数、没有判法、读数缺项或不是数的项不过。「参考片的读数在自己的题上得满分」说的是这一层。
  * - base、basePass 是基础门，逐条列在 base 里：第一条 deliverable 是成片读回的规格 readings.base.spec（宽、高、帧率、帧数、声道数）
@@ -180,13 +195,25 @@ const holds = (check) => {
  *   谓词的判定由调用方拿每帧元数据和成片量测交 verify 的 evaluateAssertion 得出，这里不重判；没给、'fail'、'skipped' 都不算过：没判过不当成过。
  *   所以只有成片、没有每帧元数据的参考片，basePass 是 false。
  * - pass = basePass && scoringPass，是整题合格。负对照、容差校准要看整题合不合格用 pass，只看判分线用 scoringPass 和 score。
+ * - malformed：读数里有给了却不成形的数组（空洞、伪数组、字符串、带多余属性、槽数不对、槽里是负数或不是数）。这份读数整份作废：
+ *   每一项都不过，score 是 0，不给别的项部分分。数组成形只是数值超差、或者没量出来（null），不算，照常逐项判。
+ * - 题号不认识、第一个参数不是题目：id 是 null，score 是 0，都不合格，base 和 items 是空的，不往外抛。题目对象本身合不合契约归 validateQuestion 管，这里不重验。
  */
-export function score(question, readings) {
+export function score(questionOrId, readings) {
+  try {
+    return judge(questionOf(questionOrId), readings);
+  } catch {
+    return { id: null, score: 0, pass: false, basePass: false, scoringPass: false, malformed: false, base: [], items: [] };
+  }
+}
+
+function judge(question, readings) {
+  const malformed = question.scoring.some(({ metric, args = {} }) => holds(() => isObj(own(readings, metric)) && Object.hasOwn(SHAPES, metric) && !SHAPES[metric](own(readings, metric), args)));
   const items = question.scoring.map(({ metric, args = {}, weight }) => ({ metric, weight,
-    pass: holds(() => isObj(own(readings, metric)) && Object.hasOwn(JUDGES, metric) && JUDGES[metric](own(readings, metric), args, question)) }));
+    pass: !malformed && holds(() => isObj(own(readings, metric)) && Object.hasOwn(JUDGES, metric) && JUDGES[metric](own(readings, metric), args, question)) }));
   const gate = (key) => own(own(readings, 'base'), key);
   const base = [{ check: 'deliverable', pass: holds(() => isObj(gate('spec')) && sameSpec(gate('spec'), question.deliverable)) },
     ...question.basePredicates.map((text) => ({ check: text, pass: holds(() => own(gate('predicates'), text) === 'pass') }))];
   const basePass = base.every((check) => check.pass), scoringPass = items.every((item) => item.pass);
-  return { id: question.id, score: items.reduce((sum, item) => sum + (item.pass ? item.weight : 0), 0), pass: basePass && scoringPass, basePass, scoringPass, base, items };
+  return { id: question.id, score: items.reduce((sum, item) => sum + (item.pass ? item.weight : 0), 0), pass: basePass && scoringPass, basePass, scoringPass, malformed, base, items };
 }

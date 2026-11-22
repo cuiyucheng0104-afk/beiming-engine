@@ -146,15 +146,22 @@ test('B2-3 29-1：参考片读数满分；合成版式过真实 layoutEdges 满�
     assert.equal(score(q, { base: built(q), 'layout.edges': off }).score, 0);
   }
   assert.equal(score(q, {}).score, 0);
-  // 一审反例：边界读数是空洞数组、字符串、带多余属性、槽数不对、负数、不是数，都判不过，也不抛
+  // 二审反例：边界读数给了却不成形（空洞数组、字符串、带多余属性、伪数组、槽数不对、槽里是负数或不是数），整份读数作废：
+  // 整题 0 分，线色量得再准也不给分，也不抛。数组成形只是偏了 1 像素、或者没量出来（null），只有边界那一项不过，线色照常给分
   const reading = exact['layout.edges'];
-  for (const bad of [Array(6), '000000', Object.assign([0, 0, 0, 0, 0, 0], { ok: true }), [0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, -1],
-    [0, 0, 0, 0, 0, NaN], [0, 0, 0, 0, 0, null], [0, 0, 0, 0, 0, '0'], [0, 0, 0, 0, 0, 1], { length: 6 }, null, undefined]) {
-    for (const key of ['edgeErrorsPx', 'sideErrorsPx']) {
-      const verdict = score(q, { ...exact, 'layout.edges': { ...reading, [key]: bad } });
-      assert.deepEqual([verdict.items.map((item) => item.pass), verdict.score, verdict.pass], [[false, true], 0.5, false], `${key} ${JSON.stringify(bad)}`);
+  const edgesWith = (key, value) => score(q, { ...exact, 'layout.edges': { ...reading, [key]: value } });
+  for (const key of ['edgeErrorsPx', 'sideErrorsPx']) {
+    for (const bad of [Array(6), '000000', Object.assign([0, 0, 0, 0, 0, 0], { ok: true }), Object.assign([0, 0, 0, 0, 0, 0], { [Symbol('ok')]: 1 }), { length: 6 }, { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, length: 6 },
+      [0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [], [0, 0, 0, 0, 0, -1], [0, 0, 0, 0, 0, NaN], [0, 0, 0, 0, 0, Infinity], [0, 0, 0, 0, 0, null], [0, 0, 0, 0, 0, '0'], [0, 0, 0, , 0, 0], 0, true, {}]) {
+      const verdict = edgesWith(key, bad);
+      assert.deepEqual([verdict.malformed, verdict.items.map((item) => item.pass), ...marks(verdict)], [true, [false, false], 0, false, true, false], `${key} ${JSON.stringify(bad)}`);
+    }
+    for (const off of [[0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0.5], null, undefined]) {
+      const verdict = edgesWith(key, off);
+      assert.deepEqual([verdict.malformed, verdict.items.map((item) => item.pass), ...marks(verdict)], [false, [false, true], 0.5, false, true, false], `${key} ${JSON.stringify(off)}`);
     }
   }
+  assert.equal(score(q, exact).malformed, false);
   for (const bad of [null, undefined, NaN, '1', -1, 5]) {
     assert.deepEqual(score(q, { ...exact, 'layout.edges': { ...reading, lineColorError: bad } }).items.map((item) => item.pass), [true, false], String(bad));
   }
@@ -325,7 +332,7 @@ test('B2-6 01-1：重制片终版读回满分且整题合格；缺色彩标签�
   assert.equal(q.id, fixture.question);
   const judge = (readings) => score(q, { ...readings, base: judged(q, readings) });
   // 基础谓词由 verify 逐条判过，整题合格
-  assert.deepEqual(judge(fixture.readings), { id: '1-1', score: 1, pass: true, basePass: true, scoringPass: true,
+  assert.deepEqual(judge(fixture.readings), { id: '1-1', score: 1, pass: true, basePass: true, scoringPass: true, malformed: false,
     base: [{ check: 'deliverable', pass: true }, ...q.basePredicates.map((check) => ({ check, pass: true }))], items: ITEMS_01(true, true, true) });
   // 夹具里只有读回的规格，基础谓词没判：满分，不算合格
   assert.deepEqual(marks(score(q, fixture.readings)), [1, true, false, false]);
@@ -381,7 +388,7 @@ test('B2-7 01-1：合成成片过真实 deliverSpec、audioLoudness、blackFreez
     const moving = "color=gray:s=64x36:r=30:d=36.8,geq=lum='128+100*sin(2*PI*(X/W+N/90))':cb=128:cr=128";
     // 两个声道同相的 997 Hz 正弦，幅度 −14 dBFS，响度就是 −14 LUFS
     const good = await read('good.mp4', moving, [0.1995, 0.1995], bt709);
-    assert.equal(good['deliver.spec'].audioChannels, 2);
+    assert.deepEqual([good.hasAudio, good['deliver.spec'].hasAudio, good['deliver.spec'].audioChannels], [true, true, 2]);
     const verdict = score(q, good);
     assert.deepEqual([marks(verdict), verdict.items], [[1, true, true, true], ITEMS_01(true, true, true)], JSON.stringify(good));
     const bad = await read('bad.mp4', `${moving},drawbox=w=iw:h=ih:color=black:t=fill:enable='lt(n,30)'`, [0.95, 0.95], []);
@@ -391,13 +398,14 @@ test('B2-7 01-1：合成成片过真实 deliverSpec、audioLoudness、blackFreez
     assert.equal(bad['frame.black-freeze-dup'].blackFrames, 30);
     // 一审反例：单声道。一个声道 −11 dBFS 的正弦响度也是 −14 LUFS，别的都合规，只差声道数
     const mono = await read('mono.mp4', moving, [0.2818], bt709);
-    assert.equal(mono['deliver.spec'].audioChannels, 1);
+    assert.deepEqual([mono.hasAudio, mono['deliver.spec'].hasAudio, mono['deliver.spec'].audioChannels], [true, true, 1]);
     assert.ok(Math.abs(mono['audio.loudness'].lufs + 14) <= 0.5 && mono['audio.loudness'].truePeakDbtp <= -1, JSON.stringify(mono));
     const single = score(q, mono);
     assert.deepEqual([marks(single), single.items], [[0.75, false, false, false], ITEMS_01(false, true, true)], JSON.stringify(mono));
-    // 一审反例：没有音轨。读数照常回来，声音两项是空的，不抛
+    // 一审、二审反例：没有音轨。读数照常回来，hasAudio 明写 false，声音两项是空的，不抛
     const silent = await read('silent.mp4', moving, [], bt709);
-    assert.equal(silent['deliver.spec'].audioChannels, 0);
+    assert.equal(silent.hasAudio, false);
+    assert.deepEqual([silent['deliver.spec'].hasAudio, silent['deliver.spec'].audioChannels], [false, 0]);
     assert.deepEqual(silent['audio.loudness'], { lufs: null, truePeakDbtp: null });
     const mute = score(q, silent);
     assert.deepEqual([marks(mute), mute.items], [[0.25, false, false, false], ITEMS_01(false, false, true)], JSON.stringify(silent));
@@ -422,4 +430,29 @@ test('B2-8 读数整份不成形（空、不是对象）时四道题都回 0 分
     assert.deepEqual(marks(score(q, Object.create(full))), [0, false, false, false], name);
     assert.deepEqual(marks(score(q, Object.defineProperties({}, Object.fromEntries(keys.map((key) => [key, thrower]))))), [0, false, false, false], name);
   }
+});
+
+test('B2-9 score 的第一个参数给题号也行（01-1 和 1-1 是同一道题），判出来和给题目对象一样；题号不认识、给的不是题目，回 0 分不合格，不抛', () => {
+  const fixtures = { '29-1': '29-1-reference', '28-1': '28-1-negative', '23-1': '23-1-reference', '01-1': '01-1-reference' };
+  for (const [name, id] of Object.entries(IDS)) {
+    const q = question(name), { readings } = ref(fixtures[name]);
+    for (const key of new Set([name, id])) {
+      // 二审反例：score('29-1', null)、score('1-1', null) 原来在取 scoring 时抛 TypeError
+      for (const bad of [null, undefined, 0, 'readings', []]) {
+        const verdict = score(key, bad);
+        assert.deepEqual([...marks(verdict), verdict.malformed], [0, false, false, false, false], `${key} ${String(bad)}`);
+        assert.deepEqual([verdict.id, verdict.items.length, verdict.base.length], [id, q.scoring.length, 1 + q.basePredicates.length], key);
+      }
+      assert.deepEqual(score(key, readings), score(q, readings), key);
+    }
+    assert.equal(score(name, readings).score, name === '28-1' ? 0 : 1, name);
+  }
+  // 认不出题目：id 是 null，一项都不列
+  const none = { id: null, score: 0, pass: false, basePass: false, scoringPass: false, malformed: false, base: [], items: [] };
+  const { readings } = ref('29-1-reference');
+  for (const bad of ['99-9', '', '29-1 ', '29-1.json', '../level-1/29-1', '__proto__', 'constructor', 'toString', null, undefined, 291, 1.1, true, [], ['29-1'], {}, { id: '29-1' }, { scoring: null, basePredicates: [] },
+    { scoring: [null], basePredicates: [] }, { scoring: [{ metric: 'layout.edges', weight: 1 }] }, () => question('29-1'), new String('29-1')]) {
+    for (const given of [readings, null]) assert.deepEqual(score(bad, given), none, `${String(bad)} ${JSON.stringify(bad)}`);
+  }
+  assert.deepEqual(score(), none);
 });
