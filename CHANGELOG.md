@@ -13,6 +13,7 @@
 
 ### Added
 
+- 技术卡新增 `sweepCard` 扫参后端（#90）。固定场景下可比较最多 64 组参数在 6 个时刻的量测值。全部组合先过卡参数校验，返回表最多 800 UTF-8 字节，可将完整结果与逐格 SHA-256 保存到 `cells.json`。
 - 新增 `beiming/observe/curves`（读 tracks/0.1，无轨道实体回退 meta/0.1，回峰值、零平台、单调段与缓动类型）和 `beiming/observe/telemetry`（八分之一亮度平面上的运动能量、横向重心、切点、静止段、闪烁与可选音频起音帧差），回答均不超过 600 token；agent 不看图就能读曲线与时间节奏。
 - 帧源注册与升级可用七项一致性报告核对 Three、Blender 探针读数，`limited` 档保留颜色和两项确定性检查。另提供 17 条历史不变量的判定器及逐项违例用例（#75）。
 - 新系统 `beiming/api/` 单一来源 OpenAPI 合同、HTTP 服务端、1500-token 入口卡与全套 M1a 动词闭环（#60）：新增 `contract.mjs` 与逐字节同步的 `openapi.json`（覆盖全部 23 个 HTTP 动词与独立 token 上限）、零外部框架 `node:http` 服务端 `server.mjs` 与两级令牌隔离鉴权 `auth.mjs`（全响应过冻结 `envelope/0.1` 与 `EN1–EN4`，溢出自动转存只读产物链接）、1210-token 入口卡 `guide.mjs`（原生双 `cards-data` 样例）、真实串联内核补丁与正式锁签发 / Blender Cycles 与 Three 页面帧源 / 空间观测与联系表 / L1–L5 核验与异族视觉审片接口 / 六件套终渲交付的制作管线（`films.mjs`、`pipeline.mjs`、`work.mjs`），以及通用 OpenAI 兼容唯一工具 `http_request` 代理循环 `agents.mjs` 与独立用量账本，配套 18 项端到端与裸机兼容单测。
