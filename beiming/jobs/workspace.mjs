@@ -85,15 +85,35 @@ export function readText(file) {
   }
 }
 
+const sleeper = new Int32Array(new SharedArrayBuffer(4));
+
+// Windows 上另一个进程正在读、改时间或替换同一路径时，rename / open / unlink 会短暂报共享冲突（EPERM、EACCES、EBUSY），退避重试即可。
+// 父目录不可写是永久错误，不空等；重试用完仍失败就把原错误抛给调用方。
+export function retrySharing(file, run, retries = 16) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return run();
+    } catch (error) {
+      if (!['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt >= retries) throw error;
+      try {
+        fs.accessSync(path.dirname(file), fs.constants.W_OK);
+      } catch {
+        throw error;
+      }
+      Atomics.wait(sleeper, 0, 0, Math.min(25, 2 + attempt * 2));
+    }
+  }
+}
+
 export function atomicWrite(file, text, { stagingParent = path.dirname(file), create = false } = {}) {
   const staging = fs.mkdtempSync(path.join(stagingParent, '.write-'));
   try {
     const pending = path.join(staging, 'pending');
     fs.writeFileSync(pending, text, { flag: 'wx', flush: true });
     if (create) fs.linkSync(pending, file);
-    else fs.renameSync(pending, file);
+    else retrySharing(file, () => fs.renameSync(pending, file));
   } finally {
-    fs.rmSync(staging, { recursive: true, force: true });
+    fs.rmSync(staging, { recursive: true, force: true, maxRetries: 5, retryDelay: 10 });
   }
 }
 

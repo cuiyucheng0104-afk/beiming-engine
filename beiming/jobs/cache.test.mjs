@@ -778,3 +778,52 @@ test('A16-26 写帧与整镜失效重叠时重新建目录并原子发布', (t) 
   cache.put(entry, { colorBytes: Buffer.from([8]) });
   assert.deepEqual([...cache.get(entry).colorBytes], [8]);
 });
+
+test('A16-27 Windows NTFS 并发覆盖/读取同一 .frame 偶发 EPERM/EACCES/EBUSY 共享冲突时有限重试成功，永久权限错误仍抛出', (t) => {
+  const cache = jobs.openShotCache(tmpDir(t));
+  const entry = jobs.computeFrameCacheKey(makeBaseSpec());
+  cache.put(entry, { colorBytes: Buffer.from([1, 2, 3]) });
+
+  const realRename = fs.renameSync;
+  let renameFails = 3;
+  const renameMock = t.mock.method(fs, 'renameSync', (source, target) => {
+    if (renameFails > 0 && target.endsWith('.frame')) {
+      renameFails -= 1;
+      throw Object.assign(new Error('EPERM: operation not permitted, rename'), { code: 'EPERM', syscall: 'rename' });
+    }
+    return realRename(source, target);
+  });
+  cache.put(entry, { colorBytes: Buffer.from([4, 5, 6]) });
+  renameMock.mock.restore();
+
+  const realRead = fs.readFileSync;
+  let readFails = 2;
+  const readMock = t.mock.method(fs, 'readFileSync', (file, ...rest) => {
+    if (readFails > 0 && typeof file === 'string' && file.endsWith('.frame')) {
+      readFails -= 1;
+      throw Object.assign(new Error('EBUSY: resource busy or locked'), { code: 'EBUSY', syscall: 'open' });
+    }
+    return realRead(file, ...rest);
+  });
+  assert.deepEqual([...cache.get(entry).colorBytes], [4, 5, 6]);
+  readMock.mock.restore();
+
+  const permFail = t.mock.method(fs, 'renameSync', (source, target) => {
+    if (target.endsWith('.frame')) {
+      throw Object.assign(new Error('EPERM: permanent lock'), { code: 'EPERM', syscall: 'rename' });
+    }
+    return realRename(source, target);
+  });
+  try {
+    assert.throws(() => cache.put(entry, { colorBytes: Buffer.from([9]) }), { code: 'EPERM' });
+    // 父目录不可写是永久错误：原错误当场抛出，一次都不重试
+    const before = permFail.mock.callCount();
+    t.mock.method(fs, 'accessSync', () => { throw Object.assign(new Error('EACCES: access'), { code: 'EACCES' }); });
+    assert.throws(() => cache.put(entry, { colorBytes: Buffer.from([9]) }), { code: 'EPERM', message: /permanent lock/ });
+    assert.equal(permFail.mock.callCount() - before, 1);
+  } finally {
+    t.mock.restoreAll();
+  }
+  assert.deepEqual([...cache.get(entry).colorBytes], [4, 5, 6], '失败的覆盖不动旧帧');
+  assert.deepEqual(fs.readdirSync(cache.root).filter((name) => name.startsWith('.')), [], '不留暂存目录');
+});

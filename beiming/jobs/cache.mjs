@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { isPlainObject } from './ledger.mjs';
-import { atomicWrite, makeDirectory, safePath } from './workspace.mjs';
+import { atomicWrite, makeDirectory, retrySharing, safePath } from './workspace.mjs';
 
 const FORMAT = 'frame-cache/0.2';
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000; // 毫秒
@@ -172,7 +172,7 @@ export function openShotCache(cacheDir) {
     const file = fileOf(entry);
     let raw;
     try {
-      raw = fs.readFileSync(file);
+      raw = retrySharing(file, () => fs.readFileSync(file), 12);
     } catch (error) {
       if (error.code === 'ENOENT') return undefined;
       throw error;
@@ -227,7 +227,7 @@ export function openShotCache(cacheDir) {
           const whole = tier === 'draft' ? clearDraft : version !== versions[0];
           for (const { file, at } of version.files) {
             if (!whole && now - at <= maxAgeMs) continue;
-            fs.rmSync(file, { force: true });
+            retrySharing(file, () => fs.rmSync(file, { force: true }), 5);
             removed += 1;
           }
           try {
@@ -241,7 +241,7 @@ export function openShotCache(cacheDir) {
     // 写到一半就退出的进程留下的暂存目录
     for (const item of list(root)) {
       const staging = path.join(root, item.name);
-      if (item.name.startsWith('.write-') && now - modified(staging) > Math.max(maxAgeMs, 60_000)) fs.rmSync(staging, { recursive: true, force: true });
+      if (item.name.startsWith('.write-') && now - modified(staging) > Math.max(maxAgeMs, 60_000)) fs.rmSync(staging, { recursive: true, force: true, maxRetries: 5, retryDelay: 10 });
     }
     return { removed };
   }
@@ -250,13 +250,13 @@ export function openShotCache(cacheDir) {
     const version = path.dirname(fileOf(entry));
     const retired = path.join(root, `.write-retired-${randomUUID()}`);
     try {
-      fs.renameSync(version, retired);
+      retrySharing(version, () => fs.renameSync(version, retired));
     } catch (error) {
       if (error.code === 'ENOENT') return;
       throw error;
     }
     // 重试只能看到全空或新版本；删除中断留下的暂存由 prune 回收。
-    fs.rmSync(retired, { recursive: true, force: true });
+    fs.rmSync(retired, { recursive: true, force: true, maxRetries: 5, retryDelay: 10 });
   }
   return Object.freeze({ root, get, put, prune, invalidateShot });
 }
