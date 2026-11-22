@@ -1,4 +1,5 @@
 // V18 单测（Red -> Green）：双样本 Welch t 检验、Benjamini-Hochberg 多重比较校正、p 值直方图平坦性与 1.01 倍微偏检出
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as verify from './index.mjs';
@@ -785,4 +786,28 @@ test('V18-22: 尾块均值与次正规 biasMap 对精确商单次最近偶数舍
   const m7Rev = verify.welchTest([...m7A].reverse(), [...m7B].reverse());
   assert.equal(m7Fwd.pMap[0], m7Rev.pMap[0]);
   assert.equal(m7Fwd.qMap[0], m7Rev.qMap[0]);
+});
+
+test('V18-23: 奇数商半距向偶进位、非 2 的幂 K=3 偏差图单次舍入，且 verify/README.md 不超过 1500 token', () => {
+  const u = 2 ** -52;
+  const row32 = (...values) => ({ width: values.length, height: 1, channels: 1, data: new Float32Array(values) });
+  const px32 = v => ({ width: 1, height: 1, channels: 1, data: new Float32Array([v]) });
+  const twice = frame => [frame, frame];
+
+  // 1) 奇数商半距进位：A=[3, 4.5u, 0] 精确均值 1+1.5u 向偶进位到 1+2u，与 B=[3, 6u, 0] 相等
+  const oddTie = verify.welchTest(twice(row32(3, 4.5 * u, 0)), twice(row32(3, 6 * u, 0)), { blockSize: 8 });
+  assert.equal(oddTie.biasMap[0], 0);
+  assert.equal(oddTie.testedUnits, 0);
+  assert.equal(oddTie.pMap[0], 1);
+  assert.equal(oddTie.qMap[0], 1);
+  assert.equal(oddTie.pass, true);
+
+  // 2) 非 2 的幂 K=3 偏差图：A=[5.25, 6u, 0]、B=[0, 0, 0]，精确商 1.75 + 2u
+  const k3 = verify.welchTest([5.25, 6 * u, 0].map(px32), [0, 0, 0].map(px32));
+  assert.equal(k3.biasMap[0], 1.75 + 2 * u);
+
+  // 3) 组件入口说明不超过 1500 token（ceil(utf8Bytes / 3.5) <= 1500）
+  const readmeBytes = Buffer.byteLength(fs.readFileSync(new URL('./README.md', import.meta.url), 'utf8'), 'utf8');
+  const readmeTokens = Math.ceil(readmeBytes / 3.5);
+  assert.ok(readmeTokens <= 1500, `beiming/verify/README.md 估算 ${readmeTokens} token 超过 1500 上限`);
 });
