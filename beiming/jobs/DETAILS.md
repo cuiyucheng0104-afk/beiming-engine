@@ -1,6 +1,6 @@
 # 作业：细则
 
-[README.md](README.md) 是接口索引与维护约定；这里放字段口径、示例代码与锁时序。自检命令见 README。
+[README.md](README.md) 是接口索引与维护约定；这里放字段口径、示例代码、沙箱隔离细则与锁时序。自检命令见 README。
 
 ## 作业成本账本
 
@@ -68,6 +68,83 @@ const sum = queue.summarizeLedger(); // { count: 2, succeeded: 2, gpuSeconds: 6,
 - `checkCacheSeams(frames, { determinism, seamFactor = 3, minSpikeFloor = 0.015 })`：`tolerance` 档以相邻帧的写入 `runId` 不同为交界，即使本轮全命中也检查；无轮次的旧调用可传 `fromCache`。交界差超过 `max(minSpikeFloor, seamFactor × 非交界差中位数)` 报尖峰。自动修复先使本镜当前版本的所有帧失效，再整镜重渲；`renderedFrames` 计实际调用，可能大于交付帧数。设 `rerenderOnSeamSpike: false` 只报告失败，重试不会抹去轮次差异。
 
 接缝检查是启发式守卫，不是像素一致性证明。渲染器需提供同尺度、同布局的 `colorFloats`；缓存按内存顺序压成最多 64 段的均值，局部差异可能被平均抵消，快速运动也可能误报。混轮且缺少可比特征时不能判通过。A17 的 20 次重复和 V14 的重建测试必须**每次使用独立的空缓存目录**，或在调用层禁用复用（`noCache`），否则测到的是缓存命中而非重新渲染。
+
+## 工作区沙箱（A13）
+
+`sandbox.mjs` 给每个工作区的每个作业起一个一次性沙箱。隔离策略只有一份（隔离规格），三种后端各自把它渲染成要起的进程。
+
+### U8 守卫
+
+`enforceAuthorMode(request)` 在生成规格之前执行，`runInWorkspaceSandbox` 每次都调，不带 `request` 也按拒收算。只收 `mode: 'cards-data'`；下面几种一律报 `contract.unsupported-mode`：
+
+- `mode` 是 `build-script`、`native-code` 或没写；
+- 带了入口文件 `entry`，或者调用方自带执行命令 `command`；
+- `files` 里有扩展名不在数据白名单里的文件（JSON、表格、字幕、图片、模型、音视频、字体之外的都不收，没有扩展名的也不收）。
+
+守卫看的是调用方报上来的清单，不扫工作区目录；写文件的一方要保证清单和实际写入一致。
+
+### 隔离规格
+
+`buildContainerSpec({ workspacesRoot, workspaceDir, appDir, command, image })` 交回规格，`validateContainerSpec(spec)` 交回违例说明（空数组才合格）。建规格时自己先校验一遍，不合格报 `usage.bad-argument`。
+
+| 项 | 取值 | 校验 |
+|---|---|---|
+| 工作区 | `fs.realpathSync.native` 之后必须是工作区根的直接子目录，目录名只用小写字母、数字、连字符 | 根本身、嵌套目录、根外目录、路径里的 `..` 段、符号链接（含 Windows 目录联接）、包住宿主机家目录的目录都报 `contract.bad-path` |
+| 容器名 | `bm-ws-<工作区标识>-<8 位随机十六进制>` | 每次不同，必须绑定工作区标识 |
+| 网络 | `none` | 只能是 `none` |
+| 根文件系统 | 只读，另给一个 `/tmp` 的 tmpfs（`noexec,nosuid,nodev`，256 MB） | 不能可写，不能多 tmpfs |
+| 权限 | `--cap-drop=ALL`、`--security-opt=no-new-privileges`、非 root 用户、`--pids-limit 256` | 多一条 `security-opt`、uid 是 0、进程数不设限都不合格 |
+| 挂载 | 只有两处：本工作区到 `/workspace`（读写），引擎目录到 `/app`（只读） | 多挂一处（兄弟工作区、家目录、Docker socket）、引擎目录可写、引擎目录在工作区根里或包住工作区根与家目录，都不合格 |
+| 环境变量 | 固定六个：`HOME=/tmp/home`、`TMPDIR=/tmp`、`LC_ALL=C`、`PATH`、`BEIMING_WORKSPACE=/workspace`、`BEIMING_APP=/app` | 不继承宿主机的任何变量，多一个就不合格 |
+| 命令 | 以 `node` 开头的字符串数组，由服务端决定 | 别的可执行文件不合格 |
+
+用户与宿主机相同（宿主机不是 root 时），挂进去的工作区才写得了；宿主机是 root 或没有 uid 的平台用 `65534:65534`。
+
+### 三种后端
+
+`detectSandboxBackend()` 按本机探测，也可以用 `backend` 指定。`planSandboxExec(spec, { backend, runtime, tmpDir })` 是纯函数，只渲染不执行、不校验；执行只走 `runInWorkspaceSandbox`，它每次都先校验。
+
+| 后端 | 怎么起 | `isolation` | 边界 |
+|---|---|---|---|
+| `oci` | `docker run`（或 `podman run`）加上表的全部选项；要给带 node 的 `image` | `oci-container` | Linux 命名空间容器，和宿主机共用内核；用户命名空间与 seccomp 沿用运行时默认值。超时后另发 `kill` 停容器 |
+| `darwin-seatbelt` | `/usr/bin/sandbox-exec -p <策略>`：`(deny default)`，只许执行 node，文件读只放行系统库、本工作区、引擎目录与专属临时目录，写只放行本工作区与专属临时目录，`(deny network*)`，`signal` 与 `process-info` 只对自己 | `seatbelt-process-policy` | 进程策略，不是容器：没有 PID、挂载、网络命名空间，`pids-limit` 与 tmpfs 大小不生效；`/` 下的目录名可以列出；凭进程号能分辨别的进程在不在（`EPERM` 对 `ESRCH`），读不到它的命令行与环境变量。`sandbox-exec` 已被系统标为弃用 |
+| `portable` | 直接起 node 子进程，只换环境变量和工作目录 | `needs-oci-runtime` | 没有内核级隔离，文件、网络、进程都拦不住。默认拒跑（`env.missing-tool`），`allowDegraded: true` 只给本机调试用，不得用于对外服务 |
+
+宿主机后端（后两种）没有挂载命名空间：规格里的 `/workspace`、`/app`、`/tmp` 在命令参数、环境变量和工作目录里换成本机真实路径，`/tmp` 换成每次新建、跑完即删的专属临时目录。作业代码从 `BEIMING_WORKSPACE`、`BEIMING_APP`、`TMPDIR` 取路径，三种后端写法相同。Windows 的 `portable` 后端另带 `SystemRoot`（node 起得来要它，不是凭据）。
+
+`runInWorkspaceSandbox` 交回 `{ backend, isolation, workspaceId, containerName, code, signal, timedOut, stdout, stderr }`。默认 10 分钟超时；标准输出与标准错误各只留前 8 Mi 个字符，多的丢掉。已经跑在别的 seatbelt 沙箱里时 `sandbox-exec` 起不来，探测会落到 `portable`。
+
+### 预热池
+
+`new WarmProcessPool({ size, spawn, destroy })`：`spawn()` 不带参数，预热时没有工作区可绑；`acquire(workspaceId)` 借出一个进程，`release()` 立刻销毁它并补一个新的，重复归还不重复销毁；`close()` 之后不再补。用过的进程不会回到池里。它只管进程的生命周期：`runInWorkspaceSandbox` 目前每个作业现起一个沙箱，没有接预热进程（容器起来之后加不了挂载，接法要等帧源常驻化时定）。
+
+### 红队逃逸实测
+
+`runSandboxRedTeam(options)` 搭一套夹具（两个工作区、一个模拟的宿主机家目录、一个只读引擎目录、宿主机回环上的监听端口、一个属于兄弟工作区的诱饵进程），把探针拷进引擎目录，在真实沙箱里逐项跑五类逃逸。判定在宿主机一侧做，不信探针自己的说法：读到的内容里有没有夹具埋的随机标记、监听端口收没收到连接、只读目录与沙箱外的文件变没变。探针对真实家目录只报条目数，报告里的本机路径换成占位符。
+
+| 项 | 尝试 |
+|---|---|
+| `cross_workspace_read` | 绝对路径、`../` 相对路径、预先植入的文件与目录符号链接、列工作区根 |
+| `host_home_and_secrets` | 模拟的 `.ssh/id_ed25519` 与 `.aws/credentials`、真实家目录及 `.ssh`、`.aws`、`.gnupg`、`.config`、环境变量里的密钥 |
+| `external_network` | 宿主机回环端口的 TCP 与 HTTP、外网地址的 TCP、域名解析 |
+| `cross_workspace_processes` | `ps`、`/proc/<进程号>/cmdline` 与 `environ`、0 号信号、用过的预热进程再分配后的内存残留 |
+| `readonly_image_write` | 改写与新建引擎目录里的文件、在 `/var/tmp`、兄弟工作区、模拟家目录里新建文件 |
+
+报告（`sandbox-redteam/0.1`）每项一条：`command`、`exitCode`（探针退出码：1 全部尝试失败，0 至少一次得手，3 连自己的工作区都读写不了）、`blockedBy`（拦截层）、`escaped`、`conclusive`、`hostEvidence`，以及每次尝试的载荷与实测错误码；顶层带 `backend`、`isolation`、`boundary`（后端边界）。`ok` 要五项都有结论且都没逃逸。命令行 `node beiming/jobs/sandbox-redteam.mjs [--json 文件] [--md 文件] [--backend 后端] [--image 镜像] [--allow-degraded]`：全拦 exit 0，有逃逸或结论无效 exit 4，没有可用后端 exit 3。默认的外网目标是 `1.1.1.1:443` 与 `example.com`，被拦时没有包发出去。
+
+2026-11-22 在 macOS 27.2（arm64，Node 24.13.1）上用 `darwin-seatbelt` 后端实测，5/5 被拦：
+
+| 项 | 探针退出码 | 各次尝试的实测错误码 | 逃逸 |
+|---|---|---|---|
+| `cross_workspace_read` | 1 | 五次都是 `EPERM` | 否 |
+| `host_home_and_secrets` | 1 | 模拟密钥与真实家目录 `EPERM`（机器上没有的目录 `ENOENT`），环境变量 `STRIPPED` | 否 |
+| `external_network` | 1 | 回环 TCP、HTTP 与外网 TCP `EPERM`，域名解析 `ENOTFOUND`，监听端口收到 0 个连接 | 否 |
+| `cross_workspace_processes` | 1 | `ps` 与 0 号信号 `EPERM`，`/proc` `ENOENT`，预热进程 `CLEAN` | 否 |
+| `readonly_image_write` | 1 | 五次都是 `EPERM`，引擎目录与沙箱外没有多出文件 | 否 |
+
+`oci` 后端这次没有实测（这台机器上容器运行时没开）：规格渲染出的参数有单测，真跑容器的那一条测试要设 `BEIMING_SANDBOX_OCI_IMAGE`（带 node 的本地镜像名）才执行，否则显式跳过。Windows 上只有 `portable` 后端，它的红队报告如实判红。
+
+测试里另有五个负向变异：放开网络、带进宿主机环境变量、多挂兄弟工作区、引擎目录挂成可写（这四个按改坏的规格真起 seatbelt 沙箱）、预热进程用后不销毁。每一个都被红队在对应那一项上判 `escaped: true`，前四个同时过不了 `validateContainerSpec`。
 
 ## 锁与暂存目录的回收时序
 

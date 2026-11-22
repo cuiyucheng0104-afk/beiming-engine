@@ -21,6 +21,8 @@
 | `queue.mjs` | `loadQueue`、`replayJob` | 持久化作业队列，到终态自动记账 |
 | `ledger.mjs` | `appendJobLedger`、`readJobLedger`、`normalizeLedgerEntry`、`summarizeJobLedger`、`quoteFromDraft`、`measureDiskBytes` | 六维成本账本与草稿报价 |
 | `cache.mjs` | `computeFrameCacheKey`、`canonicalJson`、`openShotCache`、`renderShotsWithCache`、`checkCacheSeams` | 镜头帧缓存（A16） |
+| `sandbox.mjs` | `runInWorkspaceSandbox`、`enforceAuthorMode`、`buildContainerSpec`、`validateContainerSpec`、`WarmProcessPool` 等 | 工作区沙箱（A13） |
+| `sandbox-redteam.mjs` | `runSandboxRedTeam`、`formatRedTeamReport`（不经 `index.mjs`） | 红队逃逸实测 |
 
 ## 作业成本账本
 
@@ -48,6 +50,10 @@
 2. **拿不到 `.cache.lock` 就不发布也不删除**。`put`、`prune` 直接抛错（等锁超时是 `ETIMEDOUT`）；`get` 清坏帧遇到文件系统错误就留着坏帧、按未命中返回。
 3. **只删自己建的，只在自己锁住的目录里写**。锁文件内容是「进程号 UUID」，暂存目录名是 `.write-<UUID>`，回收时按这份凭据认，节点号为 0 的文件系统上照常成立。缓存根被改名轮换、原路径重建后：建锁后原路径上不是自己的锁就回收重取，不进临界区；每次删除前重验凭据，到改名后的目录里回收；放不掉锁就报错，不报成功。认主与按路径删除之间的极窄空档等限制见 [DETAILS.md](DETAILS.md)。`prune` 的 `removed` 只计实际删掉的旧帧。
 
+## 工作区沙箱（A13）
+
+`runInWorkspaceSandbox` 先过 U8 守卫（只收 `cards-data`，否则报 `contract.unsupported-mode`），再生成一次性隔离规格：无网络、根只读、丢全部 capability、非 root，只挂本工作区（`/workspace`）与只读引擎目录（`/app`），环境变量按固定白名单重建。后端有三种：`oci`（docker、podman）、`darwin-seatbelt`（macOS 进程策略，非容器）、`portable`（没有内核级隔离，默认拒跑，标 `needs-oci-runtime`）。`WarmProcessPool` 的进程用一次就销毁。红队：`node beiming/jobs/sandbox-redteam.mjs`，五项全拦才 exit 0。边界与实测见 [DETAILS.md](DETAILS.md)。
+
 ## 自检
 
 从仓库根目录运行：
@@ -56,6 +62,7 @@
 node --test "beiming/jobs/*.test.mjs"      # 全部
 node --test beiming/jobs/ledger.test.mjs   # 账本与文件锁
 node --test beiming/jobs/cache.test.mjs    # 镜头帧缓存
+node --test beiming/jobs/sandbox.test.mjs  # 工作区沙箱与红队
 ```
 
 这里是作业层的缓存核，不代表 API 渲染路径已接入。
