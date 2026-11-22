@@ -45,3 +45,7 @@
 `visible`（可见比例）由渲染器在编号层上数了交过来，只有出了像素、带角色的实体才有，别的写 `null`；量法见 `beiming/sources/three/README.md`。
 
 元数据量的是这一帧 `sub = 0` 的状态，和辅助层同一个样本；只要元数据的调用也先把这个状态写进场景再量。`seed` 填这次装载生效的镜头种子，`size` 填这次输出的宽和高（档位带缩放时是缩放之后的；只要元数据时照要是出像素会交回的颜色层填），`source.tier` 填这次装载的档位。`source.id` 填镜头条目顶层的 `source`，`source.renderer` 填出帧的帧源，`source.host` 填出帧用的宿主。溢出和压死的占比只给显示参考镜头算（按通道判）。
+
+## 静态服务放行什么
+
+页面只拿得到 `beiming/`（`.js`、`.mjs`、`.json`、`.woff2`）和 three 的构建目录；另外只读放行仓库根 `fonts/` 下的 woff2（锁定的字体子集，许可和锁文件拿不到），给二维讲解舞台（`beiming/sources/three/two-d.js`）锁字体用。片子描述所在的目录仍然必须在 `beiming/` 或 three 的构建目录里。

@@ -14,9 +14,10 @@ import { coverage2x, HALF_FLOATS } from '../../sources/three/source.js';
 import { writeExr } from '../../verify/exr/exr.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-// 页面只拿得到这两处：本系统的代码，和 0.187.0 的 three
+// 页面只拿得到这两处：本系统的代码，和 0.187.0 的 three；另外只读放行仓库锁定的字体子集（fonts/ 下的 woff2，许可和锁文件拿不到）
 const SERVED = ['beiming/', 'node_modules/three-webgpu/build/'];
-const MIME = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json' };
+const FONTS = 'fonts/';
+const MIME = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.woff2': 'font/woff2' };
 // 带错误码的错在页面里换成普通对象再过来：错误码过不了页面和 node 之间的序列化
 const PAGE = `<!doctype html><meta charset="utf-8">
 <script type="importmap">{ "imports": { "three": "/node_modules/three-webgpu/build/three.module.js" } }</script>
@@ -51,7 +52,8 @@ export function resolveServed(urlPath) {
   let path;
   try { path = decodeURIComponent(urlPath.split('?')[0]).replace(/^\/+/, ''); } catch { return null; }
   const abs = resolve(REPO, path);
-  return SERVED.some((dir) => rel(abs).startsWith(dir)) && MIME[extname(abs)] ? abs : null;
+  const at = rel(abs), ext = extname(abs);
+  return (SERVED.some((dir) => at.startsWith(dir)) && MIME[ext]) || (at.startsWith(FONTS) && ext === '.woff2') ? abs : null;
 }
 
 async function startServer() {
