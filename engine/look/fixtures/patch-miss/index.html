@@ -5,7 +5,11 @@
        load（默认）  置 READY 之前预热一帧时抛（等同 film.run 的 warm）
        frame         render(t) 里抛
        console       render(t) 里被页面自己接住，只打到控制台（渲染器也必须判失败，不能出一张缺补丁的图）
-     期望：不带 corrupt 时渲染器正常出图、退出码 0；带 corrupt 时三种 when 都以非零码退出，报错里点名缺的锚点。
+       swallow       render(t) 里被页面自己接住，什么都不打，照常画一张回退帧（渲染器靠 patch.js 记下的致命状态判失败）
+     ?probe=id-callback（不用带 corrupt）加一个物体，它的 onBeforeRender 只在换上 ID 材质时调真实的 inject 去找一个没有的锚点：
+       ID 图不能把这个错吞掉。
+     ?log=1 打两句与着色器无关、却带着「变体对不上了」字样的作品日志（console.info / console.warn）：不能被当成补丁没命中。
+     期望：不带 corrupt / probe 时渲染器正常出图、退出码 0（带 log=1 也一样）；带 corrupt 时各种 when 都以非零码退出，报错里点名缺的锚点。
      用法见 engine/look/r187-look-regression.test.mjs。 -->
 <html><head><meta charset="utf-8"><title>夹具：片段补丁没命中</title>
 <script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
@@ -15,6 +19,7 @@
 import * as THREE from 'three';
 import { createLook } from '/engine/look/index.js';
 import { build, corrupt, P_BASE } from '/engine/look/r187-look-regression.scene.mjs';
+import { inject } from '/engine/shade/patch.js';
 
 const q = new URLSearchParams(location.search), when = q.get('when') || 'load';
 const W = innerWidth, H = innerHeight;
@@ -25,9 +30,23 @@ document.body.appendChild(renderer.domElement);
 if (q.get('corrupt')) corrupt(q.get('corrupt'));
 const look = createLook(renderer, W, H, { refHeight: H, fps: 24 });
 let part = null;
-const draw = t => { part ??= build(); part.camera.aspect = W / H; part.camera.updateProjectionMatrix(); look.render(part.scene, part.camera, { ...P_BASE, t }); };
+const make = () => {
+  const p = build();
+  if (q.get('probe') === 'id-callback') {
+    const probe = new THREE.Mesh(new THREE.BoxGeometry(.4, .4, .4), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+    probe.position.set(0, 2.6, 2); probe.userData.outline = true;
+    probe.onBeforeRender = (r, s, c, g, m) => { if (m.uniforms?.uBaseId) inject('void main(){}', '#include <color_fragment>', 'x', 'after', 's6-id-callback'); };
+    p.scene.add(probe);
+  }
+  return p;
+};
+const draw = t => { part ??= make(); part.camera.aspect = W / H; part.camera.updateProjectionMatrix(); look.render(part.scene, part.camera, { ...P_BASE, t }); };
 window.DUR = 1; window.FPS = window.__RENDER?.fps ?? 24;
-window.render = t => { if (when !== 'console') return draw(t); try { draw(t); } catch (e) { console.error(e.message); } };
+window.render = t => {
+  if (q.get('log')) { console.info('字幕变体对不上了，用默认字幕'); console.warn('字幕变体对不上了，用默认字幕'); }
+  if (when !== 'console' && when !== 'swallow') return draw(t);
+  try { draw(t); } catch (e) { if (when === 'console') console.error(e.message); else { renderer.setRenderTarget(null); renderer.setClearColor('#7f8fc4'); renderer.clear(); } }
+};
 await look.ready;
 if (when === 'load') draw(0);
 window.READY = true;

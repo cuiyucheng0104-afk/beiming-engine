@@ -7,7 +7,8 @@
 //            均值管颜色、雾、暗角、线的位置；粗糙度管均值看不出的高频（颗粒、纸纹、笔触）。THUMB_SKIP 里的三张离散缓冲不存缩略图
 //   ids      ID 图里每个编号占的像素数。编号本身是离散值，冻结的编号必须都在、不能多；像素数留容差（不同显卡在物体边缘上差几个像素）
 //
-//   decodeIds(px16) → { id, width, alpha }   ids.js 的半浮点 RGBA（id 低 11 位, id 高位, 线宽系数, 可见度）→ 每像素的整数编号与两个浮点通道
+//   decodeIds(px16) → { id, lo, hi, width, alpha }   ids.js 的半浮点 RGBA（id 低 11 位, id 高位, 线宽系数, 可见度）→ 每像素的整数编号（lo + hi × 2048）与四个通道的原值；
+//                         NaN / Infinity 照原样解出来，由调用方判（r187-look-regression.mjs 的 compareIdMaps / idCensus）
 //   idAreas(px16) → { 编号: 像素数 }          0（没有描边物体）不算
 //   thumb(rgba) → Uint8Array                  一张 W × H 画面的缩略图（每块 4 字节：R、G、B 均值与粗糙度）
 //   thumbDiff(a, b) → { maxBlockDiff, meanBlockDiff, maxRoughDiff, meanRoughDiff, pass }   均值按 RGB 里最差的一个通道算
@@ -33,13 +34,13 @@ const THUMBED = STAGES.filter(s => !THUMB_SKIP.includes(s.id));
 
 const half = h => { const e = (h >> 10) & 31, m = h & 1023; return (h & 0x8000 ? -1 : 1) * (e === 0 ? m * 2 ** -24 : e === 31 ? (m ? NaN : Infinity) : (1 + m / 1024) * 2 ** (e - 15)); };
 export function decodeIds(px) {
-  const n = px.length / 4, id = new Float64Array(n), width = new Float32Array(n), alpha = new Float32Array(n);
-  for (let i = 0; i < n; i++) { id[i] = half(px[i * 4]) + half(px[i * 4 + 1]) * 2048; width[i] = half(px[i * 4 + 2]); alpha[i] = half(px[i * 4 + 3]); }
-  return { id, width, alpha };
+  const n = px.length / 4, id = new Float64Array(n), lo = new Float32Array(n), hi = new Float32Array(n), width = new Float32Array(n), alpha = new Float32Array(n);
+  for (let i = 0; i < n; i++) { lo[i] = half(px[i * 4]); hi[i] = half(px[i * 4 + 1]); id[i] = lo[i] + hi[i] * 2048; width[i] = half(px[i * 4 + 2]); alpha[i] = half(px[i * 4 + 3]); }
+  return { id, lo, hi, width, alpha };
 }
 export function idAreas(px) {
   const out = {}, { id } = decodeIds(px);
-  for (const v of id) if (v !== 0) out[v] = (out[v] ?? 0) + 1;
+  for (const v of id) if (v !== 0 && Number.isFinite(v)) out[v] = (out[v] ?? 0) + 1;
   return out;
 }
 

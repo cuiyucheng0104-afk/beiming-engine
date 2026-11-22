@@ -16,8 +16,8 @@
 //   CORRUPTIONS / corrupt(name)   片段补丁没命中的故意改错（FX22）：把 three 的一段着色器原文改掉，之后建的材质一编译就该抛错；
 //                         每项 { what, anchor（报错里应当点名的锚点）, shadowOnly（只在渲阴影的那条路径上编译）, run }
 //   build(v) → { scene, camera }
-//   renderSuite(names) → { revision, gpu, addons, shaders, frames: { base: { id, <各级> }, <变体>: { id | final } } }
-//                         id 是 Uint16Array（半浮点 RGBA 原值，自下而上），其余是 Uint8Array（RGBA8，自下而上）；addons 是 OutputPass 实际解析到的地址；
+//   renderSuite(names) → { revision, gpu, shaders, frames: { base: { id, <各级> }, <变体>: { id | final } } }
+//                         id 是 Uint16Array（半浮点 RGBA 原值，自下而上），其余是 Uint8Array（RGBA8，自下而上）；
 //                         shaders 是这一趟交给 WebGL 编译的全部着色器源码（three 展开 #include、加完前缀之后的最终文本，去重），冻结的金标准拿它算摘要
 //   patchBuild() → { revision, stages: { compile, look, ids } }   三条编译路径各用一个新渲染器建一遍场景：
 //                         renderer.compile、look.render（含阴影深度材质）、单独的 ID 图；每条 null = 没出错，否则是抛出的错误信息
@@ -87,7 +87,7 @@ export const VARIANTS = {
 };
 
 // FX22：把 three 的一段着色器原文改掉（等于升级后上游改了这段文字），engine/shade 的补丁在这里应当直接抛错、点名缺的锚点
-const edit = (obj, key, from, to) => { if (!obj[key].includes(from)) throw new Error(`corrupt：three r${THREE.REVISION} 的 ${key} 里本来就没有「${from}」`); obj[key] = obj[key].replaceAll(from, to); };
+const edit = (obj, key, from, to, all = true) => { if (!obj[key].includes(from)) throw new Error(`corrupt：three r${THREE.REVISION} 的 ${key} 里本来就没有「${from}」`); obj[key] = all ? obj[key].replaceAll(from, to) : obj[key].replace(from, () => to); };
 // 上游把一处 #include 就地展开成块的原文：three 自己照常编译、画面不变，按 #include 找锚点的补丁却没处落
 const inline = (lib, chunk) => edit(lib, 'vertexShader', `#include <${chunk}>`, THREE.ShaderChunk[chunk]);
 export const CORRUPTIONS = {
@@ -95,6 +95,8 @@ export const CORRUPTIONS = {
   'toon-begin-vertex': { what: '卡通顶点着色器的 #include <begin_vertex> 被展开成原文', anchor: '#include <begin_vertex>', run: () => inline(THREE.ShaderLib.toon, 'begin_vertex') },
   'toon-beginnormal': { what: '卡通顶点着色器的 #include <beginnormal_vertex> 被展开成原文（材质带 vertexNormal 钩子）', anchor: '#include <beginnormal_vertex>', run: () => inline(THREE.ShaderLib.toon, 'beginnormal_vertex') },
   'shadow-return': { what: '投影块里 getShadow 的返回写法变了', anchor: '投影量化锚点缺失', run: () => edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'return mix( 1.0, shadow, shadowIntensity );', 'return mix(1.0, shadow, shadowIntensity);') },
+  // 同一句返回在投影块里有好几处（r170 两处、r187 五处）：只有头一处变了，其余几处原样。头一处正是标定场景用的那个 getShadow
+  'shadow-return-first': { what: '投影块里只有头一处 getShadow 的返回写法变了，其余几处原样', anchor: '投影量化锚点缺失', run: () => edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'return mix( 1.0, shadow, shadowIntensity );', 'return mix(1.0, shadow, shadowIntensity);', false) },
   'depth-begin-vertex': { what: '阴影深度材质顶点着色器的 #include <begin_vertex> 被展开成原文（只在渲阴影时编译）', anchor: '#include <begin_vertex>', shadowOnly: true, run: () => inline(THREE.ShaderLib.depth, 'begin_vertex') },
   'pcf-kernel': { what: '投影块的软阴影采样核换了写法', anchor: '软阴影采样锚点缺失', run: () => THREE.REVISION === '170'
     ? edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'SHADOWMAP_TYPE_PCF_SOFT', 'SHADOWMAP_TYPE_SOFT_PCF')
@@ -199,7 +201,7 @@ export function renderSuite(names = ['base']) {
       frames[name] = v.pass === 'id' ? { id: idMap(part) } : { final: final(part, withLook(v.look)) };
     }
   }
-  return { revision: THREE.REVISION, gpu: ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '', addons: import.meta.resolve('three/addons/postprocessing/OutputPass.js'), shaders: [...shaders], frames };
+  return { revision: THREE.REVISION, gpu: ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '', shaders: [...shaders], frames };
 }
 
 export function patchBuild() {

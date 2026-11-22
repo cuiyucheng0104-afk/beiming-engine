@@ -13,8 +13,9 @@ import { runR187LookRegression, judgeLookRegression, verifyShaderPatchBuild, com
 import { W, H, STAGES, VARIANTS, EXPECT_IDS, IDS, CORRUPTIONS } from './r187-look-regression.scene.mjs';
 import { thumb, thumbDiff, decodeIds, THUMB_GATE, THUMB_SKIP } from './r187-look-regression.golden.mjs';
 import { TOON_PSNR_GATE_DB, TOON_MAX_FRAC_GT1, TOON_MAX_FRAC_GT5 } from '../shade/r187-toon-regression.mjs';
-import { patchVertex } from '../shade/patch.js';
-import { PATCH_MISS, patchMiss } from '../render/lib/patch-check.mjs';
+import { inject, patchVertex, quantizeShadow } from '../shade/patch.js';
+import { anchoredFinalFs } from './compose.js';
+import { PATCH_TAG, PATCH_ERRORS_KEY, patchMiss, patchWatch, readPatchErrors } from '../render/lib/patch-check.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const GOLDEN = () => JSON.parse(fs.readFileSync(path.join(ROOT, 'engine/look/r187-look-regression.golden.json'), 'utf8'));
@@ -37,6 +38,7 @@ test('S6-1 r187 对 r170：ID 图与逐级 / 整帧后期实渲过门，两页�
     assert.ok(c.psnrDb >= TOON_PSNR_GATE_DB && c.fracGt1 <= TOON_MAX_FRAC_GT1 && c.fracGt5 <= TOON_MAX_FRAC_GT5);
   }
   assert.equal(res.idMap.pass, true);
+  assert.equal(res.versionGatePass, true);
   assert.equal(res.overallPass, true);
   // 落盘报告与当前代码是同一套门、同一批项目（读数随机器变，不比）
   const report = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/quality/r187-look-regression.json'), 'utf8'));
@@ -93,8 +95,10 @@ test('S6-4 落盘回归报告 docs/quality/r187-look-regression.{json,md} 结构
   const report = JSON.parse(fs.readFileSync(jsonPath, 'utf8')), md = fs.readFileSync(mdPath, 'utf8');
   assert.deepEqual(report.revisions, { golden: '170', candidate: '187', goldenAddons: '170', candidateAddons: '187' });
   assert.equal(report.overallPass, true);
-  assert.deepEqual([report.idMap.idDiffCount, report.idMap.widthAlphaDiffCount, report.idMap.pass], [0, 0, true]);
-  assert.ok(report.idMap.sides.length === 2 && report.idMap.sides.every(s => s.pass && s.idsMissing.length === 0 && s.highSegmentPixels > 0));
+  assert.equal(report.versionGatePass, true);
+  assert.deepEqual(report.moduleLoads, { golden: { outputPass: ['/node_modules/three/examples/jsm/postprocessing/OutputPass.js'], foreign: [] }, candidate: { outputPass: ['/node_modules/three-webgpu/examples/jsm/postprocessing/OutputPass.js'], foreign: [] } });
+  assert.deepEqual([report.idMap.idDiffCount, report.idMap.idLoDiffCount, report.idMap.idHiDiffCount, report.idMap.nonFiniteCount, report.idMap.widthAlphaDiffCount, report.idMap.pass], [0, 0, 0, 0, 0, true]);
+  assert.ok(report.idMap.sides.length === 2 && report.idMap.sides.every(s => s.pass && s.rawOff === 0 && s.idsMissing.length === 0 && s.highSegmentPixels > 0));
   assert.ok(report.cases.length === STAGES.length + 1 && report.cases.every(c => c.pass === true && c.psnrDb >= 50 && c.fracGt1 <= 0.001 && c.fracGt5 <= 0.001));
   assert.ok(report.negativeControls.length >= 3 && report.negativeControls.every(n => n.caught === true && n.psnrDb < 35));
   assert.ok(report.ablations.length === POST.length + ID_BRANCHES.length && report.ablations.every(a => a.caught === true));
@@ -164,17 +168,74 @@ test('S6-7 错版不算过门：待测页的 three 或 three/addons/ 有一样�
   if (core.skipped) return t.skip(core.skipped);
   assert.deepEqual(core.revisions, { golden: '170', candidate: '170', goldenAddons: '170', candidateAddons: '187' });
   assert.match(core.error ?? '', /^env\.three-revision-mismatch：/);
-  assert.equal(core.overallPass, false, '170 对 170 的自比不能判成双版本回归通过');
+  assert.deepEqual([core.versionGatePass, core.overallPass], [false, false], '170 对 170 的自比不能判成双版本回归通过');
+  assert.deepEqual(core.moduleLoads.candidate.foreign, ['/node_modules/three/build/three.module.js'], '待测页实际请求了 r170 的核');
   const addons = await runR187LookRegression({ builds: { 187: { addons: '/node_modules/three/examples/jsm/' } } });
   assert.deepEqual(addons.revisions, { golden: '170', candidate: '187', goldenAddons: '170', candidateAddons: '170' }, 'r187 的核配 r170 的 OutputPass');
   assert.match(addons.error ?? '', /^env\.three-revision-mismatch：.*待测页的 three 实报 r187、OutputPass 来自 r170/);
-  assert.equal(addons.overallPass, false);
+  assert.deepEqual([addons.versionGatePass, addons.overallPass], [false, false]);
+  assert.deepEqual(addons.moduleLoads.candidate.outputPass, ['/node_modules/three/examples/jsm/postprocessing/OutputPass.js'], '版本取自这一页实际发出的请求');
+  assert.ok(addons.moduleLoads.candidate.foreign.length >= 2, 'r170 的 OutputPass 连同它自己引的文件都算请求到了另一版的包');
+  // import map 两样都对，页面里另有一处按写死的路径加载了 r170 的 OutputPass（等于 engine 里的导入绕过了 import map）：静态服务照实记下，不算过门
+  const direct = await runR187LookRegression({ builds: { 187: { direct: '/node_modules/three/examples/jsm/postprocessing/OutputPass.js' } } });
+  assert.deepEqual(direct.revisions, { golden: '170', candidate: '187', goldenAddons: '170', candidateAddons: '170+187' }, 'candidateAddons 照实报两版都加载了');
+  assert.match(direct.error ?? '', /^env\.three-revision-mismatch：.*待测页的 three 实报 r187、OutputPass 来自 r170\+187（都要 r187），另请求了 \d+ 个另一版包里的文件/);
+  assert.ok(direct.moduleLoads.candidate.foreign.includes('/node_modules/three/examples/jsm/postprocessing/OutputPass.js'));
+  assert.deepEqual([direct.moduleLoads.golden.foreign, direct.versionGatePass, direct.overallPass], [[], false, false]);
+  // 反过来：r170 页捎带加载了 r187 的包
+  const stray = await runR187LookRegression({ builds: { 170: { direct: '/node_modules/three-webgpu/examples/jsm/postprocessing/Pass.js' } } });
+  assert.deepEqual([stray.revisions.goldenAddons, stray.moduleLoads.golden.foreign.includes('/node_modules/three-webgpu/examples/jsm/postprocessing/Pass.js'), stray.versionGatePass, stray.overallPass], ['170', true, false, false]);
 });
 
 test('S6-8 命令行入口：不认识的参数 exit 2', () => {
   const r = spawnSync(process.execPath, [path.join(ROOT, 'engine/look/r187-look-regression.mjs'), '--not-a-s6-option'], { encoding: 'utf8' });
   assert.equal(r.status, 2);
   assert.match(r.stderr, /不认识的参数/);
+});
+
+test('S6-9 ID 判定按原始通道比：低 / 高两段各比各的，四个通道有一个不是有限数就不过', async t => {
+  const res = await run();
+  if (res.skipped) return t.skip(res.skipped);
+  const N = W * H, id = decodeIds(res.frames.candidate.base.id).id;
+  const judge = (edit, sides = ['candidate']) => judgeLookRegression({ ...res, frames: Object.fromEntries(['golden', 'candidate'].map(s => [s, sides.includes(s) ? { ...res.frames[s], base: { ...res.frames[s].base, id: edit(res.frames[s].base.id.slice()) } } : res.frames[s]])) });
+  const each = (want, max, fn) => px => { let hit = 0; for (let i = 0; i < N && hit < max; i++) if (id[i] === want) { fn(px, i * 4); hit++; } assert.ok(hit >= 100, `编号 ${want} 只有 ${hit} 个像素`); return px; };
+  // 编号 2048 的 128 个像素从 (低, 高) = (0, 1) 写成 (2048, 0)：两个通道都错，合起来的编号还是 2048
+  const swapped = judge(each(2048, 128, (px, o) => { px[o] = 0x6800; px[o + 1] = 0; }));
+  assert.deepEqual(decodeIds(Uint16Array.of(0x6800, 0, 0, 0)).id[0], 2048);
+  assert.deepEqual([swapped.idMap.idDiffCount, swapped.idMap.idLoDiffCount, swapped.idMap.idHiDiffCount, swapped.idMap.pass, swapped.overallPass], [128, 128, 128, false, false]);
+  // 两版一起写成 (2048, 0)：互比全等，各版自己的核对报出来（低段必须是 0..2047 的整数）
+  const both = judge(each(2048, 128, (px, o) => { px[o] = 0x6800; px[o + 1] = 0; }), ['golden', 'candidate']);
+  assert.deepEqual([both.idMap.idDiffCount, both.idMap.sides.map(s => s.rawOff), both.idMap.pass, both.overallPass], [0, [128, 128], false, false]);
+  // 躯干的线宽写成半浮点 NaN、可见度写成 Infinity：一版坏、两版一起坏都不过（NaN 不能被比较吞成 0）
+  for (const [what, ch, bits] of [['线宽 NaN', 2, 0x7e00], ['可见度 Infinity', 3, 0x7c00], ['低段 NaN', 0, 0x7e00], ['高段 -Infinity', 1, 0xfc00]]) for (const sides of [['candidate'], ['golden', 'candidate']]) {
+    const bad = judge(each(IDS.body, 500, (px, o) => { px[o + ch] = bits; }), sides);
+    assert.deepEqual([bad.idMap.nonFiniteCount, bad.idMap.pass, bad.overallPass], [500, false, false], `${what}（${sides.join(' + ')}）`);
+  }
+  assert.deepEqual([res.idMap.idLoDiffCount, res.idMap.idHiDiffCount, res.idMap.nonFiniteCount, res.idMap.sides.map(s => s.rawOff)], [0, 0, 0, [0, 0]], '没改时都是 0');
+});
+
+test('S6-10 版本门看两张渲染页实际发出的模块请求：绕过 import map 加载了另一版的模块不算过门', async t => {
+  const res = await run();
+  if (res.skipped) return t.skip(res.skipped);
+  const OUT = 'examples/jsm/postprocessing/OutputPass.js', own = { golden: '/node_modules/three/', candidate: '/node_modules/three-webgpu/' };
+  for (const side of ['golden', 'candidate']) {
+    assert.ok(res.loads[side].includes(own[side] + OUT) && res.loads[side].includes(own[side] + 'build/three.module.js'), `${side} 页实际请求了自己那一版的 three 与 OutputPass`);
+    assert.deepEqual(res.loads[side].filter(p => p.startsWith(own[side === 'golden' ? 'candidate' : 'golden'])), [], `${side} 页没有请求另一版的包`);
+    assert.deepEqual(res.moduleLoads[side], { outputPass: [own[side] + OUT], foreign: [] });
+  }
+  assert.equal(res.versionGatePass, true);
+  const judge = loads => judgeLookRegression({ ...res, loads: { ...res.loads, ...loads } });
+  // engine/look 里的导入写成直指 r170 的相对路径：r187 页的 import map 没问题，实际加载的却是 r170 的 OutputPass
+  const bypass = judge({ candidate: res.loads.candidate.map(p => p === own.candidate + OUT ? own.golden + OUT : p) });
+  assert.deepEqual(bypass.revisions, { golden: '170', candidate: '187', goldenAddons: '170', candidateAddons: '170' }, 'candidateAddons 照实报错载的那一版');
+  assert.deepEqual([bypass.moduleLoads.candidate.foreign, bypass.versionGatePass, bypass.overallPass], [[own.golden + OUT], false, false]);
+  // 两版的 OutputPass 都加载了、r170 页捎带请求了 r187 的包、哪一版的 OutputPass 都没请求：都不过
+  const extra = judge({ candidate: [...res.loads.candidate, own.golden + 'examples/jsm/postprocessing/Pass.js'] });
+  assert.deepEqual([extra.revisions.candidateAddons, extra.versionGatePass, extra.overallPass], ['187', false, false]);
+  const cross = judge({ golden: [...res.loads.golden, own.candidate + OUT] });
+  assert.deepEqual([cross.revisions.goldenAddons, cross.versionGatePass, cross.overallPass], ['170+187', false, false]);
+  const none = judge({ candidate: res.loads.candidate.filter(p => !p.endsWith(OUT)) });
+  assert.deepEqual([none.revisions.candidateAddons, none.versionGatePass, none.overallPass], ['?', false, false]);
 });
 
 // ───────── FX22：片段补丁没命中算构建失败 ─────────
@@ -188,21 +249,52 @@ test('FX22-1 patchVertex：给了 vertexNormal 钩子而着色器里没有 #incl
   assert.equal(patchVertex(inlined, { vertexNormal: '', vertexBegin: 'transformed.x += 1.0;\n' }, {}, 'fx22'), patchVertex(inlined, { vertexBegin: 'transformed.x += 1.0;\n' }, {}, 'fx22'));
 });
 
-test('FX22-2 渲染器认得补丁没命中的报错：三种写法都归到 failure.shader-error（退出码 1），别的报错不归', () => {
-  for (const msg of ['s6：着色器锚点缺失「#include <begin_vertex>」（three r187，本模块支持 r170 / r187）', 'toon：投影量化锚点缺失（three r188）：return mix( 1.0, shadow, shadowIntensity );', 'toon：软阴影采样锚点缺失（three r188）：vogelDiskSample( 0, 5, phi )', 'compose：FINAL_FS 里找不到纸纹取样那一行，锚点变体对不上了']) {
-    assert.match(msg, PATCH_MISS);
-    const e = patchMiss(`Error: ${msg}\n    at inject (patch.js:26:36)`, '第 3 帧：');
-    assert.deepEqual([e.code, e.exitCode], ['failure.shader-error', 1]);
-    assert.ok(e.message.startsWith('第 3 帧：着色器补丁没命中（构建失败）：') && e.message.includes(msg) && !e.message.includes('at inject'), e.message);
-    assert.match(e.hint, /不能用 --allow-gl-errors 放行/);
+test('FX22-2 渲染器只认结构化记录与机器前缀：patch.js / compose.js 抛的错归到 failure.shader-error（退出码 1），普通文字一概不归', () => {
+  const table = () => globalThis[Symbol.for(PATCH_ERRORS_KEY)] ?? [], thrown = fn => { try { fn(); } catch (e) { return e; } assert.fail('应当抛错'); };
+  // 真抛一遍：消息带机器前缀，名字是 ShaderPatchError，同时记进全局的补丁错误表（函数名、缺的锚点、消息）
+  for (const [fn, anchor, text, run] of [
+    ['inject', '#include <begin_vertex>', /^\[BEIMING_SHADER_PATCH_ERROR\] s6：着色器锚点缺失「#include <begin_vertex>」（three r170，本模块支持 r170 \/ r187）$/, () => inject('void main() {}', '#include <begin_vertex>', 'x', 'after', 's6')],
+    ['quantizeShadow', '#include <shadowmap_pars_fragment>', /^\[BEIMING_SHADER_PATCH_ERROR\] toon：着色器锚点缺失「#include <shadowmap_pars_fragment>」/, () => quantizeShadow('void main() {}', 'a', 'b', 'toon')],
+    ['paperVariantFs', 'float pp = texture2D(tPaper, gl_FragCoord.xy / uPaperSize).r;', /^\[BEIMING_SHADER_PATCH_ERROR\] compose：FINAL_FS 里找不到纸纹取样那一行，锚点变体对不上了$/, () => anchoredFinalFs('void main(){}')],
+  ]) {
+    const before = table().length, err = thrown(run), rec = table().at(-1);
+    assert.match(err.message, text);
+    assert.ok(err.message.startsWith(PATCH_TAG + ' ') && err.name === 'ShaderPatchError');
+    assert.equal(table().length, before + 1, '抛一次记一条');
+    assert.deepEqual([rec.message, typeof rec.fn, rec.anchor], [err.message, 'string', fn === 'quantizeShadow' ? rec.anchor : anchor]);
+    if (fn !== 'quantizeShadow') assert.equal(rec.fn, fn);   // 片元里缺 #include 是 quantizeShadow 借 inject 报的
+    for (const src of [`Error: ${err.message}\n    at inject (patch.js:26:36)`, `ShaderPatchError: ${err.message}`, [rec], [rec, rec]]) {
+      const e = patchMiss(src, '第 3 帧：'), body = err.message.slice(PATCH_TAG.length + 1);
+      assert.deepEqual([e.code, e.exitCode], ['failure.shader-error', 1]);
+      assert.ok(e.message.startsWith(`第 3 帧：着色器补丁没命中（构建失败）：${body}`) && !e.message.includes('at inject') && !e.message.includes(PATCH_TAG), e.message);
+      assert.equal(e.message.endsWith('（共 2 处）'), Array.isArray(src) && src.length === 2);
+      assert.match(e.hint, /不能用 --allow-gl-errors 放行/);
+    }
   }
-  assert.equal(patchMiss('TypeError: x is not a function'), null);
-  assert.equal(patchMiss(undefined), null);
+  // 不带机器前缀的文字不认：作品自己的日志、以前靠中文字样匹配的那几句，都不是补丁没命中
+  for (const text of ['字幕变体对不上了，用默认字幕', 's6：着色器锚点缺失「#include <begin_vertex>」', 'toon：投影量化锚点缺失（three r188）', 'toon：软阴影采样锚点缺失', 'TypeError: x is not a function', undefined, '']) assert.equal(patchMiss(text), null, String(text));
+  assert.equal(patchMiss([]), null, '记录表是空的 = 没出过错');
+  // 渲染器注入页面的记录表只能追加：拿到的是副本，清空、截断、整个换掉都动不到已经记下的；每记一条打一行带前缀的 console.error
+  const KEY = 'beiming.test.patchWatchSelfCheck', sym = Symbol.for(KEY);
+  assert.equal(Object.getOwnPropertyDescriptor(globalThis, sym), undefined);
+  try {
+    patchWatch({ key: KEY, tag: PATCH_TAG });
+    const printed = [], error = console.error; console.error = (...a) => printed.push(a.join(' '));
+    try { (globalThis[sym] ??= []).push({ fn: 'inject', anchor: 'A', message: 'M' }); } finally { console.error = error; }   // patch.js 的写法
+    assert.deepEqual(printed, [`${PATCH_TAG} M`]);
+    assert.equal(patchMiss(printed[0]).code, 'failure.shader-error');
+    globalThis[sym].length = 0; globalThis[sym].splice(0); globalThis[sym].pop();
+    assert.throws(() => { 'use strict'; globalThis[sym] = []; }, TypeError);
+    assert.throws(() => delete globalThis[sym], TypeError);
+    assert.deepEqual(readPatchErrors(KEY), [{ fn: 'inject', anchor: 'A', message: 'M' }]);
+    assert.equal(patchMiss(readPatchErrors(KEY)).code, 'failure.shader-error');
+    assert.deepEqual(readPatchErrors('s6.fx22.never-written'), []);
+  } finally { /* 属性不可删（这正是要验的）：留在本测试进程里，键名只有这里用 */ }
 });
 
 test('FX22-3 两版页面里故意改错一段着色器原文：renderer.compile、look.render、单独的 ID 图三条编译路径都同步抛错并点名锚点', async t => {
   const names = Object.keys(CORRUPTIONS);
-  assert.deepEqual(names, ['toon-light', 'toon-begin-vertex', 'toon-beginnormal', 'shadow-return', 'depth-begin-vertex', 'pcf-kernel']);
+  assert.deepEqual(names, ['toon-light', 'toon-begin-vertex', 'toon-beginnormal', 'shadow-return', 'shadow-return-first', 'depth-begin-vertex', 'pcf-kernel']);
   const res = await verifyShaderPatchBuild({ corruptions: [null, ...names] });
   if (res.skipped) return t.skip(res.skipped);
   const [clean, ...broken] = res.runs;
@@ -216,8 +308,8 @@ test('FX22-3 两版页面里故意改错一段着色器原文：renderer.compile
       // 阴影深度材质只在渲阴影时编译：renderer.compile 与单独的 ID 图不碰它，整条后期链（先渲阴影）必须抛
       if (c.shadowOnly && stage !== 'look') { assert.equal(err, null, `${b.corrupt} r${r.revision} ${stage}`); continue; }
       assert.ok(err && err.includes(c.anchor), `${b.corrupt} r${r.revision} 的 ${stage} 路径应当抛错并点名「${c.anchor}」，实际：${err}`);
-      assert.match(err, PATCH_MISS);
-      assert.match(err, /^s6：/, '报错带材质族的名字');
+      assert.ok(err.startsWith(PATCH_TAG + ' s6：'), `报错带机器前缀与材质族的名字：${err}`);
+      assert.equal(patchMiss(err)?.code, 'failure.shader-error');
     }
   }
 });
@@ -232,6 +324,10 @@ test('FX22-4 构建命令：夹具影片不改时正常出图；改错一段片�
   try {
     const ok = still('ok', '');
     assert.deepEqual([ok.status, ok.png], [0, true], `夹具影片本身要能出图：${ok.stderr}`);
+    // 作品自己的日志里带着「变体对不上了」这样的字样（console.info / console.warn），与着色器无关：照常出图
+    const chatty = still('chatty', 'log=1');
+    assert.deepEqual([chatty.status, chatty.png], [0, true], `普通日志不能被当成补丁没命中：${chatty.stderr.slice(-400)}`);
+    assert.doesNotMatch(chatty.stderr, /failure\.shader-error/);
     const light = /错误\[failure\.shader-error\]：.*着色器补丁没命中（构建失败）：s6：着色器锚点缺失「vec3 outgoingLight = reflectedLight\.directDiffuse/;
     for (const [name, query, want, ...more] of [
       ['load', 'corrupt=toon-light', light],                                        // 置 READY 之前预热时抛
@@ -241,6 +337,11 @@ test('FX22-4 构建命令：夹具影片不改时正常出图；改错一段片�
       ['normal', 'corrupt=toon-beginnormal&when=frame', /错误\[failure\.shader-error\]：.*着色器锚点缺失「#include <beginnormal_vertex>」/],
       ['depth', 'corrupt=depth-begin-vertex&when=frame', /错误\[failure\.shader-error\]：.*着色器锚点缺失「#include <begin_vertex>」/],
       ['pcf', 'corrupt=pcf-kernel&when=frame', /错误\[failure\.shader-error\]：.*软阴影采样锚点缺失/],
+      ['first', 'corrupt=shadow-return-first&when=frame', /错误\[failure\.shader-error\]：.*投影量化锚点缺失/],          // 几处同名锚点只坏头一处
+      ['swallow', 'corrupt=toon-light&when=swallow', light],                        // 页面接住后什么都不打、照常画回退帧
+      ['swallow-ss', 'corrupt=toon-light&when=swallow', light, '--samples', '4'],   // 同上，走超采样的 GPU 直出路径（lib/yuv.mjs，帧末只调 check()）
+      ['swallow-first', 'corrupt=shadow-return-first&when=swallow', /错误\[failure\.shader-error\]：.*投影量化锚点缺失/],
+      ['id-callback', 'probe=id-callback', /错误\[failure\.shader-error\]：.*s6-id-callback：着色器锚点缺失「#include <color_fragment>」/],   // 只在 ID 图里冒出来的补丁错
     ]) {
       const r = still(name, query, ...more);
       assert.equal(r.status, 1, `${name}（${query}）应当以退出码 1 失败，实际 ${r.status}：${r.stderr.slice(-400)}`);

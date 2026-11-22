@@ -90,6 +90,13 @@ test('FX22 片段补丁没命中直接抛错：inject / patchVertex / quantizeSh
   try {
     THREE.ShaderChunk.shadowmap_pars_fragment = keep.replaceAll('return mix( 1.0, shadow, shadowIntensity );', 'return mix(1.0, shadow, shadowIntensity);');
     assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：投影量化锚点缺失/);
+    // 同一句返回在块里不止一处（r170：getShadow 与 getPointShadow）：只坏其中一处也报，不能靠另一处还在就放行、漏打这一处
+    const RET = 'return mix( 1.0, shadow, shadowIntensity );', at = [keep.indexOf(RET), keep.lastIndexOf(RET)];
+    assert.ok(at[0] >= 0 && at[1] > at[0], 'r170 的投影块里这句返回有两处');
+    for (const [i, alt] of [[at[0], 'return mix(1.0, shadow, shadowIntensity);'], [at[1], 'return mix(1.0, shadow, shadowIntensity);'], [at[0], 'return shadow;'], [at[1], 'return 1.0 - shadowIntensity * ( 1.0 - shadow );']]) {
+      THREE.ShaderChunk.shadowmap_pars_fragment = keep.slice(0, i) + alt + keep.slice(i + RET.length);
+      assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：投影量化锚点缺失（three r170）：.*只有 1 处/, `第 ${i} 字节处的返回改成「${alt}」`);
+    }
     THREE.ShaderChunk.shadowmap_pars_fragment = keep.replaceAll('SHADOWMAP_TYPE_PCF_SOFT', 'SHADOWMAP_TYPE_SOFT_PCF');   // 既不是 r187 的写法，也没有 r170 自带的软阴影核
     assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：软阴影采样锚点缺失（three r170）：SHADOWMAP_TYPE_PCF_SOFT/);
   } finally { THREE.ShaderChunk.shadowmap_pars_fragment = keep; }
