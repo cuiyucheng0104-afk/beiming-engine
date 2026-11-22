@@ -13,19 +13,21 @@
 //       --freeze <基线提交> 用这次的 r170 结果重写冻结的金标准 r187-toon-regression.golden.json（只在有意改画面并按 POLICY 审批之后；不做对拍判定）
 //       --frames <目录> 把读回的像素存成裸 RGBA8（自下而上；base 是整帧 640×480，变体与 idref 是一个子区 320×240），排查差异时看图：
 //           ffmpeg -f rawvideo -pix_fmt rgba -s 640x480 -i golden-base-color.rgba -vf vflip -frames:v 1 golden.png
-//   过门 = PSNR ≥ 45 dB 且差 > 1 级的像素 ≤ 0.1%（只看 PSNR 时，占画面很小的特性整项坏掉也过得去）；按未舍入的读数判，
-//       报告里的读数向不利的一边取整（PSNR 向下取两位、占比向上取六位），不会出现「写着 45 却没过」
+//   过门 = PSNR ≥ 50 dB、差 > 1 级的像素 ≤ 0.1%、差 > 5 级的像素 ≤ 0.1% 三项都满足（只看 PSNR 时，占画面很小的特性整项坏掉也过得去）；按未舍入的读数判，
+//       报告里的读数向不利的一边取整（PSNR 向下取两位、占比向上取六位），不会出现「写着 50 却没过」
 //   runR187ToonRegression({ builds }) → { skipped } | { error, revisions, overallPass: false }
 //       | { revisions, platform, gate, cases, layoutChecks, goldenAnchor, negativeControls, ablations, consoleWarnings, unknownRevisionWarnings, overallPass, frames }
 //       builds：覆盖页面里 three 的构建路径（测试用：把 187 指到 r170 的构建，验证错版报 error）
-//       layoutChecks：两版各四条，拼图里的法线 / ID 子区对独立参照（过门且最大差 ≤ 1 级）+ 预期的物体 / 实例 ID（idsExpected / idsMissing）
+//       layoutChecks：两版各四条，拼图里的法线 / ID 子区对独立参照：RGB 法线过门且最大差 ≤ 1 级，alpha（物体 / 实例 ID）逐像素相同（alphaDiffCount = 0），
+//           预期的 ID 本值都在（idsExpected / idsMissing，不接受差 1 级的值）
 //       goldenAnchor：r170 对冻结金标准（checkGolden 的返回值）
 //       frames：读回的原始像素（Buffer，不进报告）
 //       consoleWarnings：r170 / r187 两页的控制台告警与报错（应为空）；unknownRevisionWarnings：把版本号改成 999 的那一页收到的告警（应有版本告警）
 //       skipped 以环境码开头（SKIP_CODES：env.playwright-missing / env.browser-launch / env.three-r187-missing），调用方据此显式跳过
-//   compareFrames(a, b, { width, region, channels }) → { psnrDb, exactMatch, maxAbsDiff, fracGt1, fracGt5, pass }
+//   judgeToonRegression({ revisions, platform, frames, consoleWarnings, unknownRevisionWarnings }) → 同上但不带 frames：对读回的像素重判一遍，不启动浏览器
+//   compareFrames(a, b, { width, region, channels, minPsnrDb = 50, maxFracGt1 = 0.001, maxFracGt5 = 0.001 }) → { psnrDb, exactMatch, maxAbsDiff, fracGt1, fracGt5, pass }
 //       PSNR 按区域内全部像素、channels 个通道合并算；逐字节相同记 99 并带 exactMatch: true（有差时最高记 98.99，不与它混）；frac* 是任一通道差 > 1 / > 5 级的像素占比；
-//       读数都不舍入，pass 就是用它们判的门
+//       读数都不舍入，pass 就是用它们判的门：psnrDb ≥ minPsnrDb、fracGt1 ≤ maxFracGt1、fracGt5 ≤ maxFracGt5 三项都满足
 import fs from 'node:fs';
 import process from 'node:process';   // eslint 把 engine/ 下的 .mjs 当浏览器端，Node 全局显式导入
 import { Buffer } from 'node:buffer';
@@ -38,8 +40,9 @@ import { launchBrowser, defaultAngle } from '../render/lib/gpu.mjs';
 import { QW, QH, REGIONS, VARIANTS } from './r187-toon-regression.scene.mjs';
 import { checkGolden, freezeGolden } from './r187-toon-regression.golden.mjs';
 
-export const TOON_PSNR_GATE_DB = 45;       // 过门：r187 对 r170 每一项 PSNR ≥ 45 dB……
-export const TOON_MAX_FRAC_GT1 = 0.001;    // ……且任一通道差 > 1 级的像素不超过 0.1%
+export const TOON_PSNR_GATE_DB = 50;       // 过门：r187 对 r170 每一项 PSNR ≥ 50 dB（契约下限 45 dB；实测十二项逐字节相同，收紧到 50）……
+export const TOON_MAX_FRAC_GT1 = 0.001;    // ……且任一通道差 > 1 级的像素不超过 0.1%……
+export const TOON_MAX_FRAC_GT5 = 0.001;    // ……且差 > 5 级的像素不超过 0.1%（三项都可以按次传入更紧的值）
 export const NEGATIVE_MAX_PSNR_DB = 35;    // 负对照：必须 < 35 dB
 export const SKIP_CODES = ['env.playwright-missing', 'env.browser-launch', 'env.three-r187-missing'];
 
@@ -62,7 +65,7 @@ import '/engine/shade/patch.js';
 window.RESULT = { revision: THREE.REVISION, frames: {} };`}
 </script></body></html>`;
 
-export function compareFrames(a, b, { width, region, channels = 3 }) {
+export function compareFrames(a, b, { width, region, channels = 3, minPsnrDb = TOON_PSNR_GATE_DB, maxFracGt1 = TOON_MAX_FRAC_GT1, maxFracGt5 = TOON_MAX_FRAC_GT5 }) {
   let se = 0, max = 0, gt1 = 0, gt5 = 0;
   for (let y = region.y; y < region.y + region.h; y++) for (let x = region.x; x < region.x + region.w; x++) {
     let worst = 0;
@@ -70,7 +73,7 @@ export function compareFrames(a, b, { width, region, channels = 3 }) {
     if (worst > max) max = worst; if (worst > 1) gt1++; if (worst > 5) gt5++;
   }
   const n = region.w * region.h, psnrDb = se === 0 ? 99 : Math.min(98.99, 10 * Math.log10(255 * 255 * n * channels / se));
-  return { psnrDb, exactMatch: se === 0, maxAbsDiff: max, fracGt1: gt1 / n, fracGt5: gt5 / n, pass: psnrDb >= TOON_PSNR_GATE_DB && gt1 / n <= TOON_MAX_FRAC_GT1 };
+  return { psnrDb, exactMatch: se === 0, maxAbsDiff: max, fracGt1: gt1 / n, fracGt5: gt5 / n, pass: psnrDb >= minPsnrDb && gt1 / n <= maxFracGt1 && gt5 / n <= maxFracGt5 };
 }
 // 进报告的读数：向不利的一边取整（判门在 compareFrames 里用未舍入的值做完了）
 const up6 = v => Math.ceil(v * 1e6) / 1e6, shown = m => ({ ...m, psnrDb: Math.floor(m.psnrDb * 100) / 100, fracGt1: up6(m.fracGt1), fracGt5: up6(m.fracGt5) });
@@ -114,41 +117,53 @@ export async function runR187ToonRegression({ builds } = {}) {
     const golden = await shoot(browser, url, 170, ['base'], warnings);
     const cand = await shoot(browser, url, 187, ['base', ...variantNames], warnings);
     await shoot(browser, url, 999, [], unknown);
-    const W = QW * 2, full = { x: 0, y: 0, w: W, h: QH * 2 }, sub = { x: 0, y: 0, w: QW, h: QH }, G = golden.frames.base, K = cand.frames.base;
-    const regionOf = id => { const r = REGIONS.find(q => q.id === id); return { x: r.x, y: r.y, w: QW, h: QH }; };
-    const crop = (buf, r) => { const out = Buffer.alloc(QW * QH * 4); for (let y = 0; y < QH; y++) buf.copy(out, y * QW * 4, ((r.y + y) * W + r.x) * 4, ((r.y + y) * W + r.x + QW) * 4); return out; };
-    const gate = (id, what, m) => ({ id, what, ...shown(m) });
-    const cases = [
-      gate('frame', '彩色整帧（2 × 2 子区）', compareFrames(G.color, K.color, { width: W, region: full })),
-      ...REGIONS.map(r => gate(r.id, '彩色子区', compareFrames(G.color, K.color, { width: W, region: regionOf(r.id) }))),
-      gate('id-frame', '法线 + 物体 / 实例 ID 通道整帧（uToonPass = 1，RGBA 四通道）', compareFrames(G.id, K.id, { width: W, region: full, channels: 4 })),
-      ...REGIONS.map(r => gate('id:' + r.id, '法线 / ID 通道子区', compareFrames(G.id, K.id, { width: W, region: regionOf(r.id), channels: 4 }))),
-    ];
-    // 变体只读回它所属的子区：与金标准同一子区（彩色或法线 / ID 通道）比
-    const versus = n => { const v = VARIANTS[n], id = v.pass === 'id'; const m = compareFrames(crop(id ? G.id : G.color, regionOf(v.region)), cand.frames[n].crop, { width: QW, region: sub, channels: id ? 4 : 3 }); return { id: n, what: v.what, region: v.region, ...shown(m), caught: v.kind === 'negative' ? m.psnrDb < NEGATIVE_MAX_PSNR_DB : !m.pass }; };
-    const of = kind => variantNames.filter(n => VARIANTS[n].kind === kind).map(versus);
-    const negativeControls = of('negative'), ablations = of('ablation');
-    cases.push(...of('identity').map(({ region, caught, ...m }) => m));
-    // 拼图布局：每个法线 / ID 子区对一张单独渲的参照，并且通道里确实有这个场景的物体 / 实例 ID（各占 16 个像素以上；差 1 级算同一个）。
-    // 参照不要求逐字节：SwiftShader 上全等，macOS Metal 上实例化那个子区实测有 2 个字节（法线的 z 分量）差 1 级，所以是过门且最大差 ≤ 1 级
-    const layoutChecks = [['r170', golden], ['r187', cand]].flatMap(([tag, side]) => REGIONS.map(r => {
-      const tile = crop(side.frames.base.id, r), m = compareFrames(tile, side.frames.idref[r.id], { width: QW, region: sub, channels: 4 });
-      const area = new Map(); for (let i = 3; i < tile.length; i += 4) area.set(tile[i], (area.get(tile[i]) ?? 0) + 1);
-      const want = r.ids.flatMap(([id, n]) => Array.from({ length: n }, (_, i) => idByte(id, i)));
-      const idsMissing = want.filter(b => ![b - 1, b, b + 1].some(v => area.get(v) >= 16));
-      return { id: `${tag}:${r.id}`, what: '拼图里的法线 / ID 子区对单独渲的参照', ...shown(m), idsExpected: want.length, idsMissing, pass: m.pass && m.maxAbsDiff <= 1 && idsMissing.length === 0 };
-    }));
-    const goldenAnchor = checkGolden(G.color, W);
-    const revisions = { golden: golden.revision, candidate: cand.revision };
     return {
-      revisions,
-      platform: { os: process.platform, arch: process.arch, node: process.version, chrome, angle: defaultAngle(), webglRenderer: cand.gpu, webglRendererGolden: golden.gpu },
-      gate: { minPsnrDb: TOON_PSNR_GATE_DB, maxFracGt1: TOON_MAX_FRAC_GT1, negativeMaxPsnrDb: NEGATIVE_MAX_PSNR_DB, frame: { width: W, height: QH * 2 }, region: { width: QW, height: QH } },
-      cases, layoutChecks, goldenAnchor, negativeControls, ablations, consoleWarnings: warnings, unknownRevisionWarnings: unknown,
-      overallPass: !revisionError(revisions) && warnings.length === 0 && unknown.some(w => w.includes('当前 r999')) && [...cases, ...layoutChecks].every(c => c.pass) && goldenAnchor.pass && [...negativeControls, ...ablations].every(n => n.caught),
+      ...judgeToonRegression({
+        revisions: { golden: golden.revision, candidate: cand.revision },
+        platform: { os: process.platform, arch: process.arch, node: process.version, chrome, angle: defaultAngle(), webglRenderer: cand.gpu, webglRendererGolden: golden.gpu },
+        frames: { golden: golden.frames, candidate: cand.frames }, consoleWarnings: warnings, unknownRevisionWarnings: unknown,
+      }),
       frames: { golden: golden.frames, candidate: cand.frames },   // 原始像素（不进报告），调试时存图用
     };
   } finally { await browser.close(); await server.close(); }
+}
+
+// 判定与实渲分开：只看读回的像素与两页的自报，不碰浏览器（测试里改坏读回的像素再判一遍）
+export function judgeToonRegression({ revisions, platform, frames, consoleWarnings, unknownRevisionWarnings }) {
+  const variantNames = Object.keys(VARIANTS).filter(n => n !== 'base');
+  const W = QW * 2, full = { x: 0, y: 0, w: W, h: QH * 2 }, sub = { x: 0, y: 0, w: QW, h: QH }, G = frames.golden.base, K = frames.candidate.base;
+  const regionOf = id => { const r = REGIONS.find(q => q.id === id); return { x: r.x, y: r.y, w: QW, h: QH }; };
+  const crop = (buf, r) => { const out = Buffer.alloc(QW * QH * 4); for (let y = 0; y < QH; y++) buf.copy(out, y * QW * 4, ((r.y + y) * W + r.x) * 4, ((r.y + y) * W + r.x + QW) * 4); return out; };
+  const gate = (id, what, m) => ({ id, what, ...shown(m) });
+  const cases = [
+    gate('frame', '彩色整帧（2 × 2 子区）', compareFrames(G.color, K.color, { width: W, region: full })),
+    ...REGIONS.map(r => gate(r.id, '彩色子区', compareFrames(G.color, K.color, { width: W, region: regionOf(r.id) }))),
+    gate('id-frame', '法线 + 物体 / 实例 ID 通道整帧（uToonPass = 1，RGBA 四通道）', compareFrames(G.id, K.id, { width: W, region: full, channels: 4 })),
+    ...REGIONS.map(r => gate('id:' + r.id, '法线 / ID 通道子区', compareFrames(G.id, K.id, { width: W, region: regionOf(r.id), channels: 4 }))),
+  ];
+  // 变体只读回它所属的子区：与金标准同一子区（彩色或法线 / ID 通道）比
+  const versus = n => { const v = VARIANTS[n], id = v.pass === 'id'; const m = compareFrames(crop(id ? G.id : G.color, regionOf(v.region)), frames.candidate[n].crop, { width: QW, region: sub, channels: id ? 4 : 3 }); return { id: n, what: v.what, region: v.region, ...shown(m), caught: v.kind === 'negative' ? m.psnrDb < NEGATIVE_MAX_PSNR_DB : !m.pass }; };
+  const of = kind => variantNames.filter(n => VARIANTS[n].kind === kind).map(versus);
+  const negativeControls = of('negative'), ablations = of('ablation');
+  cases.push(...of('identity').map(({ region, caught, ...m }) => m));
+  // 拼图布局：每个法线 / ID 子区对一张单独渲的参照，两类通道分开判。
+  // RGB 法线过门且最大差 ≤ 1 级：SwiftShader 上全等，macOS Metal 上实例化那个子区实测有 2 个字节（法线的 z 分量）差 1 级。
+  // alpha 是离散的物体 / 实例 ID，不留容差：与参照逐像素相同（两种后端实测都是 0 个不同），预期的每个 ID 本值各占 16 个像素以上（差 1 级是另一个 ID）
+  const layoutChecks = [['r170', frames.golden], ['r187', frames.candidate]].flatMap(([tag, side]) => REGIONS.map(r => {
+    const tile = crop(side.base.id, r), ref = side.idref[r.id], m = compareFrames(tile, ref, { width: QW, region: sub });
+    const area = new Map(); let alphaDiffCount = 0;
+    for (let i = 3; i < tile.length; i += 4) { area.set(tile[i], (area.get(tile[i]) ?? 0) + 1); if (tile[i] !== ref[i]) alphaDiffCount++; }
+    const want = r.ids.flatMap(([id, n]) => Array.from({ length: n }, (_, i) => idByte(id, i)));
+    const idsMissing = want.filter(b => !(area.get(b) >= 16));
+    return { id: `${tag}:${r.id}`, what: '拼图里的法线 / ID 子区对单独渲的参照（读数是 RGB 法线）', ...shown(m), alphaDiffCount, idsExpected: want.length, idsMissing, pass: m.pass && m.maxAbsDiff <= 1 && alphaDiffCount === 0 && idsMissing.length === 0 };
+  }));
+  const goldenAnchor = checkGolden(G.color, W);
+  return {
+    revisions, platform,
+    gate: { minPsnrDb: TOON_PSNR_GATE_DB, maxFracGt1: TOON_MAX_FRAC_GT1, maxFracGt5: TOON_MAX_FRAC_GT5, negativeMaxPsnrDb: NEGATIVE_MAX_PSNR_DB, frame: { width: W, height: QH * 2 }, region: { width: QW, height: QH } },
+    cases, layoutChecks, goldenAnchor, negativeControls, ablations, consoleWarnings, unknownRevisionWarnings,
+    overallPass: !revisionError(revisions) && consoleWarnings.length === 0 && unknownRevisionWarnings.some(w => w.includes('当前 r999')) && [...cases, ...layoutChecks].every(c => c.pass) && goldenAnchor.pass && [...negativeControls, ...ablations].every(n => n.caught),
+  };
 }
 
 // 逐行比对 three@0.170.0 与 three@0.187.0 的 MeshToonMaterial / MeshDepthMaterial / 平行光阴影着色器后的结论（读数是本执行器实测）
@@ -167,7 +182,7 @@ export function reportMarkdown(r) {
 
 本页由 \`node engine/shade/r187-toon-regression.mjs --write\` 生成，数据在同名的 \`.json\` 里；不要手改，重跑即可。
 
-结论：**${r.overallPass ? '过门' : '没过门'}**。\`engine/shade\`（patch.js / toon.js / surface.js）在 three r${r.revisions.candidate} 下实渲的画面，逐项对 r${r.revisions.golden} 金标准 PSNR ≥ ${r.gate.minPsnrDb} dB 且差 > 1 级的像素 ≤ ${r.gate.maxFracGt1 * 100}%（${r.cases.filter(c => c.pass).length} / ${r.cases.length} 项过门，其中 ${r.cases.filter(c => c.exactMatch).length} 项逐字节相同）；负对照 ${r.negativeControls.filter(c => c.caught).length} / ${r.negativeControls.length} 组跌破 ${r.gate.negativeMaxPsnrDb} dB；逐特性消融 ${r.ablations.filter(c => c.caught).length} / ${r.ablations.length} 组被门拦住；拼图布局核对 ${r.layoutChecks.filter(c => c.pass).length} / ${r.layoutChecks.length} 条对上；r170 对冻结的金标准（基线 \`${r.goldenAnchor.baseline}\`）${r.goldenAnchor.pass ? '没变' : '**变了**'}；两版页面控制台告警 ${r.consoleWarnings.length} 条。
+结论：**${r.overallPass ? '过门' : '没过门'}**。\`engine/shade\`（patch.js / toon.js / surface.js）在 three r${r.revisions.candidate} 下实渲的画面，逐项对 r${r.revisions.golden} 金标准 PSNR ≥ ${r.gate.minPsnrDb} dB、差 > 1 级的像素 ≤ ${r.gate.maxFracGt1 * 100}%、差 > 5 级的像素 ≤ ${r.gate.maxFracGt5 * 100}%（${r.cases.filter(c => c.pass).length} / ${r.cases.length} 项过门，其中 ${r.cases.filter(c => c.exactMatch).length} 项逐字节相同）；负对照 ${r.negativeControls.filter(c => c.caught).length} / ${r.negativeControls.length} 组跌破 ${r.gate.negativeMaxPsnrDb} dB；逐特性消融 ${r.ablations.filter(c => c.caught).length} / ${r.ablations.length} 组被门拦住；拼图布局核对 ${r.layoutChecks.filter(c => c.pass).length} / ${r.layoutChecks.length} 条对上；r170 对冻结的金标准（基线 \`${r.goldenAnchor.baseline}\`）${r.goldenAnchor.pass ? '没变' : '**变了**'}；两版页面控制台告警 ${r.consoleWarnings.length} 条。
 
 - 实际运行平台：${p.os}-${p.arch}，Node ${p.node}，无头 Chrome ${p.chrome}，ANGLE 后端 ${p.angle}
 - WebGL 渲染器：${p.webglRenderer}
@@ -175,7 +190,7 @@ export function reportMarkdown(r) {
 
 ## 怎么比的
 
-两张互相独立的测试页，各自的 import map 把 \`three\` 指到 r170（\`three\`）或 r187（\`three-webgpu\` 别名包），渲同一套确定性标定场景（\`engine/shade/r187-toon-regression.scene.mjs\`），渲染器设置与 \`createFilm\` 相同（sRGB 输出、不做色调映射、不开抗锯齿、软阴影）。整帧 ${r.gate.frame.width} × ${r.gate.frame.height}，分成 2 × 2 个 ${r.gate.region.width} × ${r.gate.region.height} 子区；彩色只比 RGB，法线 / ID 通道（旧的 uToonPass = 1：视空间法线 + 物体 / 实例 ID）同样的 2 × 2 布局、比 RGBA。PSNR 按区域内全部像素（含背景）合并计算；只看 PSNR 时，占画面很小的特性整项坏掉也过得去，所以过门还要求差 > 1 级的像素不超过 ${r.gate.maxFracGt1 * 100}%。
+两张互相独立的测试页，各自的 import map 把 \`three\` 指到 r170（\`three\`）或 r187（\`three-webgpu\` 别名包），渲同一套确定性标定场景（\`engine/shade/r187-toon-regression.scene.mjs\`），渲染器设置与 \`createFilm\` 相同（sRGB 输出、不做色调映射、不开抗锯齿、软阴影）。整帧 ${r.gate.frame.width} × ${r.gate.frame.height}，分成 2 × 2 个 ${r.gate.region.width} × ${r.gate.region.height} 子区；彩色只比 RGB，法线 / ID 通道（旧的 uToonPass = 1：视空间法线 + 物体 / 实例 ID）同样的 2 × 2 布局、比 RGBA。PSNR 按区域内全部像素（含背景）合并计算；只看 PSNR 时，占画面很小的特性整项坏掉也过得去，所以过门还要求差 > 1 级的像素不超过 ${r.gate.maxFracGt1 * 100}%、差 > 5 级的像素不超过 ${r.gate.maxFracGt5 * 100}%；三项都按未舍入的读数判。
 
 | 子区 | 覆盖的特性 |
 |---|---|
@@ -192,11 +207,11 @@ ${r.cases.map(row).join('\n')}
 
 ## 拼图布局核对（各版自己比自己）
 
-上表两边用的是同一套拼图画法，画错了位置会一起错。这里每个场景再单独渲一张 ${r.gate.region.width} × ${r.gate.region.height} 的法线 / ID 参照（自己的渲染目标，不设子区视口），拼图里对应的子区对它要过门且最大差不超过 1 级（SwiftShader 上逐字节相同；macOS Metal 上实例化那个子区实测有 2 个字节差 1 级，在法线的 z 分量上），并且通道里要有这个场景全部的物体 / 实例 ID。彩色拼图直接画在画布上，没有单独的参照；彩色子区画错了位置时，下一节按子区冻结的缩略图会变。
+上表两边用的是同一套拼图画法，画错了位置会一起错。这里每个场景再单独渲一张 ${r.gate.region.width} × ${r.gate.region.height} 的法线 / ID 参照（自己的渲染目标，不设子区视口），拼图里对应的子区对它分两类通道判：RGB 法线要过门且最大差不超过 1 级（SwiftShader 上逐字节相同；macOS Metal 上实例化那个子区实测有 2 个字节差 1 级，在法线的 z 分量上）；alpha 里的物体 / 实例 ID 是离散值，要逐像素相同，并且这个场景全部的 ID 本值都在（差 1 级的值算另一个 ID）。彩色拼图直接画在画布上，没有单独的参照；彩色子区画错了位置时，下一节按子区冻结的缩略图会变。
 
-| 项 | 内容 | PSNR | 最大单通道差 | 差 > 1 级的像素 | 差 > 5 级的像素 | 预期的 ID | 没找到的 ID |
-|---|---|---|---|---|---|---|---|
-${r.layoutChecks.map(c => `${row(c)} ${c.idsExpected} 个 | ${c.idsMissing.length ? c.idsMissing.join('、') : '无'} |`).join('\n')}
+| 项 | 内容 | PSNR | 最大单通道差 | 差 > 1 级的像素 | 差 > 5 级的像素 | ID 不同的像素 | 预期的 ID | 没找到的 ID |
+|---|---|---|---|---|---|---|---|---|
+${r.layoutChecks.map(c => `${row(c)} ${c.alphaDiffCount} 个 | ${c.idsExpected} 个 | ${c.idsMissing.length ? c.idsMissing.join('、') : '无'} |`).join('\n')}
 
 ## r170 对冻结的金标准
 

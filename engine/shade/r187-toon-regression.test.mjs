@@ -7,7 +7,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import * as THREE from 'three';
-import { runR187ToonRegression, compareFrames, TOON_PSNR_GATE_DB, TOON_MAX_FRAC_GT1 } from './r187-toon-regression.mjs';
+import { runR187ToonRegression, judgeToonRegression, compareFrames, TOON_PSNR_GATE_DB, TOON_MAX_FRAC_GT1, TOON_MAX_FRAC_GT5 } from './r187-toon-regression.mjs';
+import { QW, QH, REGIONS } from './r187-toon-regression.scene.mjs';
 import { inject, quantizeShadow } from './patch.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -25,7 +26,7 @@ test('S5-1 r187 对 r170 卡通着色四类核心特性实渲过 PSNR 门，且�
   }
   assert.equal(res.revisions.golden, '170');
   assert.equal(res.revisions.candidate, '187');
-  assert.ok(TOON_PSNR_GATE_DB >= 45 && TOON_MAX_FRAC_GT1 <= 0.001);
+  assert.ok(TOON_PSNR_GATE_DB >= 45 && TOON_MAX_FRAC_GT1 <= 0.001 && TOON_MAX_FRAC_GT5 <= 0.001);
   assert.equal(res.consoleWarnings.length, 0, `存在非预期告警: ${res.consoleWarnings.join('; ')}`);
   assert.ok(res.cases.length >= 4, '至少覆盖 4 类卡通着色子场景');
   for (const item of res.cases) {
@@ -72,7 +73,7 @@ test('S5-2 落盘回归报告 docs/quality/r187-toon-regression.{json,md} 结构
   assert.ok(Array.isArray(report.cases) && report.cases.length >= 4);
   assert.ok(Array.isArray(report.negativeControls) && report.negativeControls.length >= 3);
   assert.ok(Array.isArray(report.ablations) && report.ablations.length >= 14 && report.ablations.every(a => a.caught === true));
-  assert.ok(report.layoutChecks.length === 8 && report.layoutChecks.every(c => c.pass === true), '报告里要有两版各四条拼图布局核对');
+  assert.ok(report.layoutChecks.length === 8 && report.layoutChecks.every(c => c.pass === true && c.alphaDiffCount === 0), '报告里要有两版各四条拼图布局核对，物体 / 实例 ID 零差异');
   assert.equal(report.goldenAnchor.pass, true);
   assert.equal(report.goldenAnchor.baseline, GOLDEN().baseline, '报告对的是当前这份冻结金标准');
   const raw = fs.readFileSync(jsonPath, 'utf8') + '\n' + fs.readFileSync(mdPath, 'utf8');
@@ -120,15 +121,31 @@ test('S5-5 compareFrames：逐字节相同记 99 dB；有差时 PSNR、最大差
   assert.equal(compareFrames(a, b, { width: 4, region: full }).exactMatch, true);
   assert.equal(compareFrames(a, b, { width: 4, region: full, channels: 4 }).maxAbsDiff, 100);
   // 判门用未舍入的读数。临界反例：320 × 240，28 个像素只有 R 差 128、另 1 个差 124 → 44.99667 dB，四舍五入是 45，但没到 45
-  const p = new Uint8Array(320 * 240 * 4), q = p.slice();
-  for (let i = 0; i < 28; i++) q[i * 4] = 128;
-  q[28 * 4] = 124;
-  const edge = compareFrames(p, q, { width: 320, region: { x: 0, y: 0, w: 320, h: 240 } });
+  const p = new Uint8Array(320 * 240 * 4), whole = { width: 320, region: { x: 0, y: 0, w: 320, h: 240 } };
+  const withDiffs = (...ds) => { const q = p.slice(); ds.forEach((d, i) => { q[i * 4] = d; }); return q; };
+  const n128 = n => Array(n).fill(128);
+  const edge = compareFrames(p, withDiffs(...n128(28), 124), { ...whole, minPsnrDb: 45 });
   assert.ok(Math.abs(edge.psnrDb - 44.9966723194) < 1e-9, `PSNR ${edge.psnrDb}`);
   assert.ok(edge.fracGt1 <= TOON_MAX_FRAC_GT1, '这个反例只卡 PSNR，像素占比是过的');
   assert.equal(edge.pass, false, '44.99667 dB 不能过 45 dB 的门');
-  q[28 * 4] = 122;   // 那一个像素差 122 级时是 45.0012 dB，刚过
-  assert.equal(compareFrames(p, q, { width: 320, region: { x: 0, y: 0, w: 320, h: 240 } }).pass, true);
+  assert.equal(compareFrames(p, withDiffs(...n128(28), 122), { ...whole, minPsnrDb: 45 }).pass, true, '那一个像素差 122 级时是 45.0012 dB，刚过');
+  // 默认门是 50 dB：9 个像素差 128、另 1 个差 50 → 49.99599 dB（四舍五入是 50.00）不过；另 1 个差 48 → 50.00167 dB 过；同一张图按 45 dB 的门是过的
+  assert.equal(TOON_PSNR_GATE_DB, 50);
+  const edge50 = compareFrames(p, withDiffs(...n128(9), 50), whole);
+  assert.ok(Math.abs(edge50.psnrDb - 49.9959898830) < 1e-9, `PSNR ${edge50.psnrDb}`);
+  assert.ok(edge50.fracGt1 <= TOON_MAX_FRAC_GT1 && edge50.fracGt5 <= TOON_MAX_FRAC_GT5, '这个反例只卡 PSNR');
+  assert.equal(edge50.pass, false, '49.99599 dB 不能过 50 dB 的门');
+  assert.equal(compareFrames(p, withDiffs(...n128(9), 50), { ...whole, minPsnrDb: 50 }).pass, false);
+  assert.equal(compareFrames(p, withDiffs(...n128(9), 48), whole).pass, true);
+  assert.equal(compareFrames(p, withDiffs(...n128(9), 50), { ...whole, minPsnrDb: 45 }).pass, true);
+  // 差 > 5 级的像素占比也进判定：只有 1 个像素差 6 级（1 / 76800 ≈ 0.00001302），上限 0.000013 时不过，默认上限与 0.0000131 时过
+  const one6 = compareFrames(p, withDiffs(6), { ...whole, maxFracGt5: 0.000013 });
+  assert.equal(one6.fracGt5, 1 / 76800);
+  assert.ok(one6.psnrDb >= TOON_PSNR_GATE_DB && one6.fracGt1 <= TOON_MAX_FRAC_GT1, '这个反例只卡差 > 5 级的占比');
+  assert.equal(one6.pass, false, 'fracGt5 超过 maxFracGt5 不能过门');
+  assert.equal(compareFrames(p, withDiffs(6), { ...whole, maxFracGt5: 0.0000131 }).pass, true);
+  assert.equal(compareFrames(p, withDiffs(6), whole).pass, true);
+  assert.equal(compareFrames(p, withDiffs(6), { ...whole, maxFracGt1: 0.000013 }).pass, false, 'maxFracGt1 同样可调');
 });
 
 test('S5-7 拼图布局：两版的四个法线 / ID 子区各自对得上单独渲的 320 × 240 参照（最大差 ≤ 1 级），且含预期的物体 / 实例 ID', async (t) => {
@@ -140,6 +157,7 @@ test('S5-7 拼图布局：两版的四个法线 / ID 子区各自对得上单独
   for (const c of res.layoutChecks) {
     assert.ok(c.maxAbsDiff <= 1 && c.fracGt1 === 0, `${c.id}：拼图里的子区与独立参照不一致（psnr=${c.psnrDb}，最大差 ${c.maxAbsDiff} 级）：子区视口 / 裁剪没对上，或这个子区没画进去`);
     assert.deepEqual(c.idsMissing, [], `${c.id}：通道里找不到这些物体 / 实例 ID`);
+    assert.equal(c.alphaDiffCount, 0, `${c.id}：拼图里的物体 / 实例 ID（alpha）与独立参照有 ${c.alphaDiffCount} 个像素不同；ID 是离散值，不留容差`);
     assert.equal(c.pass, true);
   }
 });
@@ -190,4 +208,25 @@ test('S5-11 命令行入口：经符号链接路径启动也进命令行，不�
     assert.equal(r.status, 2, `经符号链接启动应当 exit 2，实际 ${r.status}：${r.stderr}`);
     assert.match(r.stderr, /不认识的参数/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('S5-12 离散的物体 ID 精确匹配：拼图读回里的 ID 227 改成 226（只差 1 级）时报缺 227、整体不过门', async (t) => {
+  const res = await run();
+  if (res.skipped) return t.skip(res.skipped);
+  const r = REGIONS.find(q => q.id === 'surface-layers'), W = QW * 2;
+  const tamper = side => {
+    const id = Buffer.from(res.frames[side].base.id); let hit = 0;
+    for (let y = r.y; y < r.y + QH; y++) for (let x = r.x; x < r.x + QW; x++) { const i = (y * W + x) * 4 + 3; if (id[i] === 227) { id[i] = 226; hit++; } }
+    assert.ok(hit >= 16, `${side}：表面层子区里应当有物体 ID 227`);
+    return { ...res.frames, [side]: { ...res.frames[side], base: { ...res.frames[side].base, id } } };
+  };
+  assert.equal(judgeToonRegression(res).overallPass, true, '不改时重判与实渲结论一致');
+  for (const [side, tag] of [['golden', 'r170'], ['candidate', 'r187']]) {
+    const out = judgeToonRegression({ ...res, frames: tamper(side) });
+    const c = out.layoutChecks.find(q => q.id === `${tag}:surface-layers`);
+    assert.deepEqual(c.idsMissing, [227], `${tag}：226 不能顶替 227`);
+    assert.ok(c.alphaDiffCount >= 16 && c.maxAbsDiff <= 1, 'RGB 法线没动，只有 alpha 差 1 级');
+    assert.equal(c.pass, false);
+    assert.equal(out.overallPass, false);
+  }
 });
