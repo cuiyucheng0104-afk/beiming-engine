@@ -10,7 +10,7 @@ import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs
 import { hashCardContents, validateCard } from '../../cards/index.mjs';
 import { caps } from '../../sources/three/caps.mjs';
 import { planOpen, planRender, SourceError } from '../../sources/three/plan.mjs';
-import { coverage2x, float16ToFloat32 } from '../../sources/three/source.js';
+import { coverage2x, HALF_FLOATS } from '../../sources/three/source.js';
 import { writeExr } from '../../verify/exr/exr.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -37,8 +37,6 @@ const ENV_KEYS = ['lock', 'tier', 'workspace', 'filmDir'];
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const pad = (n, width) => String(n).padStart(width, '0');
 const rel = (abs) => relative(REPO, abs).split(sep).join('/');
-// 半浮点的 65536 种位型各是多少，解一整帧时查表
-const HALF = Float32Array.from({ length: 0x10000 }, (_, bits) => float16ToFloat32(bits));
 // 字节拷成对齐的数组：Buffer 可能落在共用池里，起点不一定对齐到 4 字节
 const typed = (T, bytes) => new T(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length));
 /** 交错的数组里每 k 个数取第 at 个，排成一个通道；给了 lut 就拿取到的数查表（半浮点的位型换成数） */
@@ -156,7 +154,7 @@ export async function startSource({ cards = [] } = {}) {
 
         // 场景参考通路：页面送出来的半浮点成片解成数，连同这一帧的辅助层落成一个线性的 EXR（32 位浮点通道，不压缩）
         const [w, h] = res.layers.color.size, half = typed(Uint16Array, Buffer.from(res.extra.rgba16f, 'base64'));
-        ['R', 'G', 'B', 'A'].forEach((c, at) => { channels[`color.${c}`] = plane(half, 4, at, HALF); });
+        ['R', 'G', 'B', 'A'].forEach((c, at) => { channels[`color.${c}`] = plane(half, 4, at, HALF_FLOATS); });
         let objectId2x;
         if (res.extra.objectId2x) {
           const bytes = Buffer.from(res.extra.objectId2x, 'base64');

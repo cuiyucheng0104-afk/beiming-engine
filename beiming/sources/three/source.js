@@ -7,7 +7,8 @@
 // 在线性光里平均之后，依次把每个通道画一遍（只跑一次）：tInput 填上一遍的输出，画到另一个同样的浮点目标，最后一遍的输出才读回；
 // 跑之前状态先回到 sub = 0（后期通道的参数也取这一刻），通道声明了 uniforms.tDepth 时填 sub = 0 的深度。辅助层不过这条链。
 //   host.now()                             单调时钟，毫秒；读数只进元数据的 timing
-// 场景参考通路（04 §4.1）：场景参考镜头的成片另落到一张 RGBA16F 目标、读回半浮点，由宿主送出浏览器落成 EXR；要了编号层时再渲一张 2 倍超采样的。
+// 场景参考通路（04 §4.1）：场景参考镜头颜色那一遍的场景画进一张挂着深度纹理的 RGBA16F 目标，各子帧从它读回半浮点再平均；
+// 成片（过完后期链）落回这张目标、读回半浮点，由宿主送出浏览器落成 EXR；要了编号层时再渲一张 2 倍超采样的。
 import { renderingOf } from '../../kernel/eval/input.mjs';
 import { caps, VERSION } from './caps.mjs';
 import { planRender, SourceError } from './plan.mjs';
@@ -55,6 +56,8 @@ export function float16ToFloat32(bits) {
   const v = e === 0 ? m * 2 ** -24 : e === 31 ? (m ? NaN : Infinity) : (m + 1024) * 2 ** (e - 25);
   return bits & 0x8000 ? -v : v;
 }
+/** 半浮点的 65536 种位型各是多少，解一整帧时查表 */
+export const HALF_FLOATS = Float32Array.from({ length: 0x10000 }, (_, bits) => float16ToFloat32(bits));
 
 /**
  * 2 倍超采样编号层的覆盖率：id 是输出尺寸 [w, h] 的编号层（像素中心），id2x 是宽高各两倍的编号层（点采样）。
@@ -118,12 +121,13 @@ export function createThreeSource({ THREE, host }) {
       entities[e.name].traverse((o) => { if (o.isMesh) idOf.set(o, e.id); });
     }
 
-    // 颜色层和辅助层都渲到同一个 32 位浮点目标：层文件是 32 位，渲染时不先过一道半精度
-    const target = () => new THREE.WebGLRenderTarget(1, 1, { type: THREE.FloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+    // 辅助层和后期链渲到 32 位浮点目标：层文件是 32 位，深度、编号、法线不先过一道半精度
+    const target = (more) => new THREE.WebGLRenderTarget(1, 1, { type: THREE.FloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, ...more });
     const rt = target(), rtPost = post.length ? target() : null;
-    // 场景参考通路：成片另落到这张 RGBA16F 目标再读回半浮点。层文件 color 照旧取 32 位目标（帧源接口契约 3.4 的登记表），不从这里解
+    // 颜色那一遍的场景画进 rtScene。显示参考镜头就是 rt；场景参考镜头（04 §4.1）是一张 RGBA16F 目标，挂 32 位浮点的深度纹理：
+    // 各子帧从它读回半浮点，成片最后也落回它再读回。深度纹理现在没有人采：depth 层和后期链的 tDepth 照旧取辅助那一遍的平面深度（米）
     const sceneRef = shot.colorRef === 'scene';
-    const rtHalf = sceneRef ? new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false }) : null;
+    const rtScene = sceneRef ? target({ type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(1, 1, THREE.FloatType) }) : rt;
     const copy = sceneRef ? new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
       uniforms: { tInput: { value: null } },
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
@@ -188,23 +192,29 @@ export function createThreeSource({ THREE, host }) {
       return tex;
     };
 
+    /** 读回 RGBA16F 目标 rtScene 里的半浮点位型，行序是 GL 的 */
+    function readHalf([w, h], timed) {
+      const half = new Uint16Array(w * h * 4);
+      // 读不回时 readRenderTargetPixels 只在控制台报错、数组原样留着：先放一个渲不出来的位型（尾数全 1 的负非数）当记号，不能把一张黑图当成片交出去
+      half[0] = 0xffff;
+      while (gl.getError() !== gl.NO_ERROR) { /* 清掉之前留下的错误标志，下面只看这一次读回 */ }
+      timed('readbackMs', () => r.readRenderTargetPixels(rtScene, 0, 0, w, h, half));
+      if (gl.getError() !== gl.NO_ERROR || half[0] === 0xffff) throw new Error('这台机器的 RGBA16F 目标读不回半浮点，场景参考通路出不了 EXR');
+      return half;
+    }
+
     /**
-     * 成片（raw，GL 的行序）落到 RGBA16F 目标，读回半浮点的位型，行序还是 GL 的。
-     * shortcut: 成片一律从内存再传一次纹理（不动的单子帧、过了后期链的本来就在显存里）；大画幅上这一趟显出来时改成直接拿那张纹理
+     * 成片（raw，GL 的行序）落回 RGBA16F 目标，读回半浮点的位型，行序还是 GL 的。
+     * shortcut: 成片一律从内存再传一次纹理（不动的单子帧已经在这张目标里、过了后期链的本来就在显存里）；大画幅上这一趟显出来时改成直接拿那张纹理
      */
-    function readHalf(raw, [w, h], timed) {
-      const tex = upload(raw, [w, h]);
+    function landHalf(raw, size, timed) {
+      const tex = upload(raw, size);
       try {
-        rtHalf.setSize(w, h);
+        rtScene.setSize(...size);
         copy.material.uniforms.tInput.value = tex;
-        r.setRenderTarget(rtHalf);
+        r.setRenderTarget(rtScene);
         cleared(() => timed('renderMs', () => r.render(copy, postCamera)));
-        const half = new Uint16Array(w * h * 4);
-        while (gl.getError() !== gl.NO_ERROR) { /* 清掉之前留下的错误标志，下面只看这一次读回 */ }
-        timed('readbackMs', () => gl.readPixels(0, 0, w, h, gl.RGBA, gl.HALF_FLOAT, half));
-        // 读不回时 readPixels 不抛错、数组留着全 0：不能把一张黑图当成片交出去
-        if (gl.getError() !== gl.NO_ERROR) throw new Error('这台机器的 RGBA16F 目标读不回半浮点，场景参考通路出不了 EXR');
-        return half;
+        return readHalf(size, timed);
       } finally {
         tex.dispose();
       }
@@ -287,14 +297,15 @@ export function createThreeSource({ THREE, host }) {
         });
 
         if (plan.layers.length) {
-          // 逐子帧累积（04 §3.1）：每个子帧只渲后期链之前的场景线性浮点目标，读回后在线性光里逐像素取算术平均
+          // 逐子帧累积（04 §3.1）：每个子帧只渲后期链之前的场景，读回后在线性光里逐像素取算术平均。
+          // 场景参考镜头读回的是 RGBA16F 目标里的半浮点位型，解成数再加
           const sum = new Float64Array(plan.size[0] * plan.size[1] * 4);
           for (const sub of plan.subs) {
             applyAt(sub);
-            drawScene(plan.size, timed);
+            drawScene(plan.size, timed, rtScene);
             tris = sceneTris;
-            const px = readRaw(rt, plan.size, timed);
-            for (let i = 0; i < sum.length; i++) sum[i] += px[i];
+            const px = sceneRef ? readHalf(plan.size, timed) : readRaw(rt, plan.size, timed);
+            for (let i = 0; i < sum.length; i++) sum[i] += sceneRef ? HALF_FLOATS[px[i]] : px[i];
           }
           let raw = Float32Array.from(sum, (v) => v / plan.subs.length);
           // 后期链对平均后的结果只跑一次；它要的深度取 sub = 0（R 是平面深度，米；A 是 0 表示没打到）
@@ -318,7 +329,7 @@ export function createThreeSource({ THREE, host }) {
           }
           color = flipRows(raw, plan.size);
           layers.color = { type: 'f32', components: ['R', 'G', 'B', 'A'], size: plan.size, data: color };
-          if (sceneRef) extra = { rgba16f: flipRows(readHalf(raw, plan.size, timed), plan.size) };
+          if (sceneRef) extra = { rgba16f: flipRows(landHalf(raw, plan.size, timed), plan.size) };
         }
 
         // 辅助层和元数据取同一个样本：sub = 0，针孔，不累积，像素中心
@@ -391,7 +402,7 @@ export function createThreeSource({ THREE, host }) {
         rt.dispose();
         rtPost?.dispose();
         rtDepth?.dispose();
-        rtHalf?.dispose();
+        if (sceneRef) rtScene.dispose();
         copy?.geometry.dispose();
         copy?.material.dispose();
         for (const m of auxMaterials.values()) m.dispose();
