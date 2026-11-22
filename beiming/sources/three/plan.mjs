@@ -15,6 +15,51 @@ const AUX = ['depth', 'objectId', 'normal', 'motion'];
 // 数据层的卡产出的轨道里，这个帧源有地方写的只有相机轨道
 const WRITABLE_TRACKS = ['tracks.camera'];
 const bad = (message) => new SourceError('usage.bad-argument', message);
+// 报错消息里的值：{ toString: 0 }、无原型对象转不成字符串会抛原生 TypeError，丢掉 SourceError.code
+const show = (v) => {
+  try { return typeof v === 'string' ? JSON.stringify(v) : String(v); } catch { /* 转不成字符串 */ }
+  // Symbol.toStringTag 的取值器也可能抛
+  try { return Object.prototype.toString.call(v); } catch { return '<unprintable>'; }
+};
+// 显式写了 null 不能被 ?? 当成没写，悄悄退回默认值
+const given = (obj, key) => {
+  if (obj != null && Object.hasOwn(obj, key) && obj[key] === null) throw bad(`${key} 不能是 null`);
+  return obj?.[key];
+};
+// opts、shutter 这类参数容器是纯数据：没写可以，写了就必须是普通对象（0n、字符串、数组、Date、Map 这类实例都不行，不然会悄悄退回默认值）。
+// 普通对象只有两种：没有原型的，和原型是某个上下文内建的 Object.prototype 的。
+// 不拿本上下文的 Object.prototype 比，别的上下文（vm、iframe）造的 {} 也要认；Object.create(无原型字典)、class extends null 的实例多了一层原型，不认。
+// 内建的认法照形状仿不出来：它的 constructor 是内建函数 Object（源码文本是 [native code]，自己写的类和函数、bind 出来的、Proxy 包的都不是），
+// 而内建 Object 的 prototype 改不了，只指回真的那个根原型（根原型的上一层原型也改不了，这两样不用另判）。
+const fnToStr = Function.prototype.toString;
+const own = (o, k) => Object.getOwnPropertyDescriptor(o, k)?.value;
+const rootProto = (proto) => {
+  const C = own(proto, 'constructor');
+  // shortcut: 源码文本按 V8 的写法比（node 和页面宿主的 Chromium 都是），换成别的引擎空白不一样、所有 {} 都会被拒，到时改成压掉空白再比
+  return typeof C === 'function' && fnToStr.call(C) === 'function Object() { [native code] }' && own(C, 'prototype') === proto;
+};
+const plain = (v) => {
+  if (v === null || typeof v !== 'object') return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === null || rootProto(proto);
+};
+// 交回一份只有自有数据属性的快照，后面只读快照，页面宿主也拿它进页面：全程不执行调用方的取值器，node 和页面两边读到的是同一份。
+// 原型上的值过页面序列化就丢了、Symbol 键和不认识的键两边都读不到，所以一律报错，不猜
+const box = (v, name, keys) => {
+  if (v === undefined) return v;
+  let why = '必须是普通对象', snap;
+  try {
+    if (plain(v)) {
+      const stray = Reflect.ownKeys(v).find((k) => !keys.includes(k)), d = Object.getOwnPropertyDescriptors(v);
+      if (stray !== undefined) why = `不认识键 ${show(stray)}`;
+      else if (keys.some((k) => (d[k] ? !Object.hasOwn(d[k], 'value') : k in v))) why = `的 ${keys.join('、')} 只能是自有的数据属性`;
+      else snap = Object.fromEntries(Object.keys(d).filter((k) => d[k].value !== undefined).map((k) => [k, d[k].value]));
+    }
+  } catch { /* Proxy 的陷阱抛了：当成不是普通对象 */ }
+  if (!snap) throw bad(`${name} ${why}，给的是 ${show(v)}`);
+  return snap;
+};
+const OPT_KEYS = ['scale', 'samples', 'shutter'], SHUTTER_KEYS = ['angle', 'angleDeg', 'samples'];
 const used = (v) => (Array.isArray(v) ? v.length > 0 : v !== null && typeof v === 'object' && Object.keys(v).length > 0);
 
 /** 声明过的输出：outputs 里出现并且取值不是 false；lightgroup:<名> 看 lightgroup:* 这个键 */
@@ -63,9 +108,36 @@ export function planOpen(caps, input, env, library = {}) {
   return { seed, shutterSamples };
 }
 
+/** 快门角：angleDeg 是契约写法，angle 是兼容写法；两个都写又不相等报错。都没写返回 undefined */
+export function shutterAngle(shutter) {
+  const s = box(shutter, 'shutter', SHUTTER_KEYS), angleDeg = given(s, 'angleDeg'), angle = given(s, 'angle');
+  if (angle !== undefined && angleDeg !== undefined && angle !== angleDeg) throw bad(`快门角 angle（${show(angle)}）和 angleDeg（${show(angleDeg)}）对不上`);
+  return angleDeg ?? angle;
+}
+
+/**
+ * 命令行的快门参数：--shutter <快门角，度> 和 --samples <子帧采样数>，交回 RenderOpts 的 { shutter: { angleDeg?, samples? } }，
+ * 没给的不出现；别的参数不管。值域由 planRender 判（快门角 0 配多个采样报 contract.shutter-conflict）。
+ * 注意这里的 --samples 是子帧采样数，不是 RenderOpts.samples（每像素采样数）。
+ */
+const FLAGS = new Map([['--shutter', 'angleDeg'], ['--samples', 'samples']]);
+export function parseShutterArgs(argv) {
+  const shutter = {};
+  for (let i = 0; i < argv.length; i++) {
+    const [flag, inline] = argv[i].split(/=(.*)/s);
+    const key = FLAGS.get(flag);
+    if (!key) continue;
+    const raw = inline ?? argv[++i];
+    if (raw === undefined || raw.trim() === '' || !Number.isFinite(Number(raw))) throw bad(`${flag} 要一个数，给的是 ${raw}`);
+    shutter[key] = Number(raw);
+  }
+  return Object.keys(shutter).length ? { shutter } : {};
+}
+
 /**
  * 一次 render 的计划。shot 是镜头条目，size 是画幅 [宽, 高]，locked 是 planOpen 的返回值。
- * 返回 { angleDeg, shutterSamples, subs, size, pixelSamples, layers, aux }：layers 是这次要交的像素输出，aux 是里面有没有辅助层。
+ * 返回 { angleDeg, shutterSamples, subs, size, pixelSamples, auxSub, layers, aux, renderOpts }：layers 是这次要交的像素输出，aux 是里面有没有辅助层，
+ * renderOpts 是判过的 opts 的纯数据快照（只有调用方写了的键），页面宿主拿它而不是调用方的原对象进页面。
  * 取值次序：这次调用 → 锁文件 → 镜头条目 → 能力声明。
  */
 export function planRender(caps, shot, size, tier, opts = {}, want, locked = {}) {
@@ -73,17 +145,20 @@ export function planRender(caps, shot, size, tier, opts = {}, want, locked = {})
   const missing = want.filter((n) => !declared(caps, n));
   if (missing.length) throw new SourceError('contract.unsupported-output', `这个帧源交不出：${missing.join('、')}`);
 
-  const angleDeg = opts.shutter?.angleDeg ?? shot.shutter?.angleDeg ?? 0;
-  if (!(angleDeg >= 0 && angleDeg <= 360)) throw bad(`快门角必须在 [0, 360] 度，给的是 ${angleDeg}`);
-  const shutterSamples = opts.shutter?.samples ?? locked.shutterSamples ?? shot.shutter?.samples ?? (angleDeg === 0 ? 1 : caps.motionBlur.samples);
-  if (!Number.isInteger(shutterSamples) || shutterSamples < 1) throw bad(`子帧采样数必须是不小于 1 的整数，给的是 ${shutterSamples}`);
+  const o = box(opts, 'opts', OPT_KEYS);
+  const optShutter = box(given(o, 'shutter'), 'shutter', SHUTTER_KEYS), shotShutter = box(given(shot, 'shutter'), 'shutter', SHUTTER_KEYS);
+  const angleDeg = shutterAngle(optShutter) ?? shutterAngle(shotShutter) ?? 0;
+  // 只认有限的 number：'0'、false 这类会被 >= 隐式转换放过去
+  if (typeof angleDeg !== 'number' || !(angleDeg >= 0 && angleDeg <= 360)) throw bad(`快门角必须是 [0, 360] 里的数（度），给的是 ${show(angleDeg)}`);
+  const shutterSamples = given(optShutter, 'samples') ?? locked.shutterSamples ?? given(shotShutter, 'samples') ?? (angleDeg === 0 ? 1 : caps.motionBlur.samples);
+  if (!Number.isInteger(shutterSamples) || shutterSamples < 1) throw bad(`子帧采样数必须是不小于 1 的整数，给的是 ${show(shutterSamples)}`);
   if (angleDeg === 0 && shutterSamples > 1) throw new SourceError('contract.shutter-conflict', `快门角是 0，子帧采样数却是 ${shutterSamples}`);
 
   const preset = shot.tiers?.[tier] ?? {};
-  const scale = opts.scale ?? preset.scale ?? caps[tier].scale;
-  const pixelSamples = opts.samples ?? preset.samples ?? caps[tier].samples;
-  if (!(scale > 0 && scale <= 1)) throw bad(`scale 必须在 (0, 1]，给的是 ${scale}`);
-  if (!Number.isInteger(pixelSamples) || pixelSamples < 1) throw bad(`每像素采样数必须是不小于 1 的整数，给的是 ${pixelSamples}`);
+  const scale = given(o, 'scale') ?? preset.scale ?? caps[tier].scale;
+  const pixelSamples = given(o, 'samples') ?? preset.samples ?? caps[tier].samples;
+  if (typeof scale !== 'number' || !(scale > 0 && scale <= 1)) throw bad(`scale 必须在 (0, 1]，给的是 ${show(scale)}`);
+  if (!Number.isInteger(pixelSamples) || pixelSamples < 1) throw bad(`每像素采样数必须是不小于 1 的整数，给的是 ${show(pixelSamples)}`);
   // shortcut: 每像素只取 1 个样本（没接多重采样），要更多就报错；颜色层要抗锯齿时再接
   if (pixelSamples !== 1) throw new SourceError('contract.unsupported-option', `这个帧源每像素只取 1 个样本，要的是 ${pixelSamples}`);
 
@@ -93,8 +168,11 @@ export function planRender(caps, shot, size, tier, opts = {}, want, locked = {})
     subs: shutterSubs(angleDeg, shutterSamples),
     size: [Math.max(1, Math.round(size[0] * scale)), Math.max(1, Math.round(size[1] * scale))],
     pixelSamples,
+    // 辅助层和元数据固定取 sub = 0（快门窗口 [f, f + angleDeg / 360) 的起点），不累积
+    auxSub: 0,
     // 没要颜色层就是「只要元数据」：不出像素
     layers: want.includes('color') ? want.filter((n) => n !== 'meta') : [],
     aux: want.includes('color') && want.some((n) => AUX.includes(n)),
+    renderOpts: { ...o, ...(optShutter && { shutter: optShutter }) },
   };
 }
