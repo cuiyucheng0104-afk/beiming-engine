@@ -142,8 +142,8 @@ export function create(ctx, params) {
     // 能量按声道各自平方再平均，不先把左右加起来：左右反相的立体声加起来是 0，会把起音整个消掉
     // 步数向上取整：声音不是整数步时最后那一步不满，那里的起音也算（25 帧的正片是 50000 个采样点，最后一步只有 80 个）
     // 涨幅一律除以这一步的采样数，是「每个采样点的平均能量涨了多少」：80 个采样点的片尾和 240 个的整步才能放在同一个门槛下比
-    // 不满的那一步不和前一整步比（长短不一样，长音的瞬时起伏会变成假起音）：和前两步里任何一段同样长的采样比，
-    // 比其中最响的那段还多出来的才算涨。长音的起伏前面都出现过，多不出来
+    // 不满的那一步不和前一整步比（长短不一样，长音的瞬时起伏会变成假起音）：和紧邻前一步里任何一段同样长的采样比，
+    // 比其中最响的那段还多出来的才算涨。长音的起伏前一步里都出现过，多不出来；只看前一步，和整步的参照是同一段，不越过静音去拿更早的声音
     // shortcut: 一个采样点的脉冲落在不满的片尾里，平均下来比落在整步里重 240 ÷ 片尾采样数 倍；要脉冲不分位置一样重时改成滑动的整步窗
     const [l, r] = stereoOf(channels, 'channels'), steps = Math.ceil(l.length / HOP), rise = new Float64Array(steps);
     const power = (i) => (l[i] * l[i] + r[i] * r[i]) / 2;
@@ -153,7 +153,7 @@ export function create(ctx, params) {
       let energy = 0;
       for (let i = start; i < end; i++) energy += power(i);
       if (n < HOP && k > 0) {
-        const from = Math.max(0, start - 2 * HOP);
+        const from = Math.max(0, start - HOP);
         let run = 0;
         before = 0;
         for (let i = from; i < start; i++) {

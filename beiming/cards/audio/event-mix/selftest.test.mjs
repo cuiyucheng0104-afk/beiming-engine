@@ -321,3 +321,18 @@ test('audio.event-mix：随机基线和逐条审计是同一个判据：全片�
     }
   }
 });
+
+test('audio.event-mix：不满一步的片尾只和紧邻的前一步比：隔着静音的底音不算进参照，片尾多一帧少一帧静音找到的是同一下', () => {
+  // 八审的反例：0.1 的 600 赫兹底音停在第 51520 个采样点，静音 320 个采样点，第 51840 个采样点起 160 个采样点的 0.12，之后全是 0，门槛 0.6。
+  // 正片 27 帧时这一下在整步里，前一步全是静音；26 帧时落在 160 个采样点的片尾里，参照也只到前一步为止，不越过静音去拿更早的底音。
+  // 底音停在第 51600 个采样点（静音正好一步）时也一样
+  const c = card({ onsetFloor: 0.6 }), at = [{ id: 'x', frame: 25, sub: 0.92, audio: 'click' }];
+  for (const quiet of [51520, 51600]) {
+    const pcm = Float32Array.from({ length: 54000 }, (_, i) => (i < quiet ? 0.1 : i >= 51840 && i < 52000 ? 0.12 : 0) * Math.sin((2 * Math.PI * 600 * i) / RATE));
+    for (const [frames, snapped] of [[26, 25], [27, 26]]) {
+      const name = `底音停在第 ${quiet} 个采样点，正片 ${frames} 帧`;
+      assert.deepEqual(c.onsets([pcm.subarray(0, frames * 2000)]), [0, 51840], name);
+      assert.deepEqual([c.audit([pcm], at, { frames, toleranceFrames: 0 }).hits, c.snap([25], [pcm], { frames })], [1, [snapped]], name);
+    }
+  }
+});
