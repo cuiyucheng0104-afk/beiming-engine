@@ -648,6 +648,8 @@ test('V14-15 帧表、预测带空洞或自相矛盾的报告拒收；allowParti
   }) });
   assert.deepEqual([spanning.pass, spanning.predicted.frameRanges, spanning.predicted.frameCount], [true, [[0, 49], [98, 107]], 58]);
   assert.equal(build({ filmId: calib.id, locality: spanning, rebuild: null }).locality.predictedFrames, 58);
+  assert.equal(build({ filmId: calib.id, film: spanFilm, locality: spanning, rebuild: null }).locality.predictedFrames, 58, '带着片子描述核镜头表，照常收');
+  refuse({ filmId: calib.id, film: spanFilm, rebuild: null, locality: { ...spanning, predicted: { ...spanning.predicted, shots: ['s01', 's02'] } } }, '区间 [98, 107) 在 s03 里，点名的却是 s02');
 
   // 锁里写了版本却和片子描述要的主版本对不上：不是「没钉全」，开了 allowPartialLock 也在开渲前拒收
   let calls = 0;
@@ -668,6 +670,66 @@ test('V14-15 帧表、预测带空洞或自相矛盾的报告拒收；allowParti
   assert.equal(calls, 0, '拒收发生在渲染之前');
   // 只是没钉的照旧放行
   assert.equal((await runRebuildTest({ film: calib, lock: calibLock, renderLocked: counting, allowPartialLock: true })).lockCheck, 'partial');
+});
+
+test('V14-16 allowPartialLock 不放过同名资产钉了另一个版本；看板行给了 film 就照镜头表核预测，坏参数都带错误码', async () => {
+  // 资产的版本写在键名里：片子要 @3、锁里钉的是 @4，上游 D3 报的和「没钉」是同一句，不能当成没钉全放过去
+  let calls = 0;
+  const counting = async (...args) => { calls++; return twice()(...args); };
+  const rekeyed = (from, to) => {
+    const { [from]: digest, ...rest } = assemblyLock.assets;
+    assert.ok(digest, `样例锁里有 ${from}`);
+    return { ...structuredClone(assemblyLock), assets: { ...rest, ...(to ? { [to]: digest } : {}) } };
+  };
+  const pinned = [['asset:rtx-card@3', 'asset:rtx-card@4'], ['asset:vo-open@1', 'asset:vo-open@2']]; // 镜头用的资产、全片资产各一个
+  for (const [from, to] of pinned) {
+    for (const allowPartialLock of [false, true]) {
+      await assert.rejects(() => runRebuildTest({ film: assembly, lock: rekeyed(from, to), renderLocked: counting, allowPartialLock }),
+        (err) => err.message.includes(`D3 资产 ${from} 在锁里钉的是另一个版本 ${to}`), `${to} allowPartialLock=${allowPartialLock}`);
+    }
+  }
+  assert.equal(calls, 0, '拒收发生在渲染之前');
+  // 正对照：整项没钉、也没有同名的别的版本，缺省拒收，开了 allowPartialLock 才放行并记 partial
+  for (const [from] of pinned) {
+    await assert.rejects(() => runRebuildTest({ film: assembly, lock: rekeyed(from), renderLocked: counting }), /D3/);
+    const partial = await runRebuildTest({ film: assembly, lock: rekeyed(from), renderLocked: counting, allowPartialLock: true });
+    assert.deepEqual([partial.pass, partial.lockCheck], [true, 'partial'], from);
+  }
+  assert.equal(calls, 4);
+
+  const at = '2026-11-22T12:00:00.000Z';
+  const locality = await runLocalityTest({ film: assembly, patch: patchOf(MARGIN, 0.82), renderFilm: renderAssembly });
+  const rebuild = await runRebuildTest({ film: assembly, lock: assemblyLock, renderLocked: twice() });
+  const build = (over) => buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, film: assembly, locality, rebuild, ...over });
+  const refuse = (over, why) => assert.throws(() => build(over), (err) => err.code === 'usage.bad-argument', why);
+  const predicted = (over) => ({ ...locality.predicted, ...over });
+
+  // 样例的镜头表：s01 是 [0, 180)，s02 是 [180, 300)
+  assert.deepEqual(assembly.shots.map((s) => [s.id, s.in, s.out]), [['s01', 0, 180], ['s02', 180, 300]]);
+  assert.deepEqual(locality.predicted, { shots: ['s01'], frameRanges: [[0, 180]], frameCount: 180 });
+  assert.equal(build().overallPass, true, 's01 配 [0, 180) 是对的');
+  refuse({ locality: { ...locality, predicted: predicted({ shots: ['s02'] }) } }, '区间和变化帧都在 [0, 180)，点名的却是 s02');
+  refuse({ locality: { ...locality, predicted: predicted({ shots: ['s01', 's02'] }) } }, 's02 点了名，却没有一帧预测落在它里面');
+  refuse({ locality: { ...locality, predicted: predicted({ shots: ['s01', 's09'] }) } }, 's09 不在镜头表里');
+  // 区间伸进了没点名的 s02：不给 film 时报告自己挑不出错，给了就拒
+  const spilled = { ...locality, predicted: predicted({ frameRanges: [[0, 200]], frameCount: 200 }), unchangedOutsideCount: 100 };
+  assert.equal(build({ film: null, locality: spilled }).locality.predictedFrames, 200);
+  refuse({ locality: spilled }, '预测区间 [0, 200) 伸出了 s01');
+  // 片子描述本身也要对得上：片号、总帧数、契约
+  refuse({ film: { ...assembly, id: 'f_9z9' } }, '片子描述的片号和这一行不同');
+  const longer = { ...rebuild, totalFrames: 301, identicalFrames: 301 };
+  assert.equal(build({ film: null, locality: null, rebuild: longer }).rebuild.totalFrames, 301);
+  refuse({ locality: null, rebuild: longer }, '报告的总帧数和片子描述的 output.frames 不同');
+  refuse({ film: 5 }, 'film 不是对象');
+  refuse({ film: { format: 'film/3.0' } }, 'film 不合契约');
+
+  // 坏参数抛的错都带 code：frameRanges 里不是数组的项、整个参数不是对象
+  for (const film of [null, assembly]) {
+    for (const bad of [[null], [undefined], [5], ['ab'], [{ length: 2, 0: 0, 1: 180 }]]) {
+      refuse({ film, locality: { ...locality, predicted: predicted({ frameRanges: bad }) } }, `frameRanges = ${JSON.stringify(bad)}`);
+    }
+  }
+  for (const bad of [null, 5, 'row', []]) assert.throws(() => buildControllabilityRow(bad), (err) => err.code === 'usage.bad-argument', `参数是 ${JSON.stringify(bad)}`);
 });
 
 // ---------- 页面宿主实渲 ----------
