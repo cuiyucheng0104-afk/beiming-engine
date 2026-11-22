@@ -3,7 +3,7 @@
 有多远（按不对称的同步容差）；可选查静默段、实测混音里的起音。超差以退出码 4 挡在出片之前。
 
 用法（在仓库根目录）：
-  python -m engine.audio.cuecheck <作品目录> [--grid 2] [--tol-ms 0.5] [--keys 类型或 id,…] [--silence 段,段] [--quiet-db 15]
+  python -m engine.audio.cuecheck <作品目录> [--grid 2] [--tol-ms 0.5] [--keys 类型或 id,…] [--silence 段,段] [--quiet-db 15] [--breath]
          [--film <film.json>] [--events <events.json>] [--timeline <timeline.json>] [--onsets <score_onsets.json>] [--mix <mix.wav>]
          [--measure] [--early-ms 10.4] [--late-frames 1] [--report <cuecheck.json>] [--json]
 
@@ -26,6 +26,8 @@
 关键事件集合：--keys、film.json 的 cuecheck.keys、timeline.json 的 keys / KEYS / KEY，或 events.json 的事件自己 key: true；写法是事件类型
   或 cue / id。关键事件必须有同一时刻（≤ tol）的音乐起音（score_onsets.json 的 notes 里任意一个，不要求打标签），否则判不通过。
 默认值：--grid、--tol-ms、--silence、--quiet-db 没给时取 film.json 的 cuecheck.{grid, tolMs, silence, quietDb}，再缺省 2 / 0.5 / 无 / 15。
+--breath（或 film.json 的 cuecheck.breath: true，默认关）：静默段按作曲内核的「悬停呼吸段」口径判：核心窗排除段首 0.30 s 余韵与段末 0.42 s 弱起引子，
+  对比基准取全片 RMS 与紧随其后段 RMS 的较大值。不开时静默段口径不变（起音全段不许有，只对全片 RMS 比）。
 --measure：在混音（有分轨时用该声音所在总线的分轨）里实测瞬态类声音事件的起音（2 ms 包络、抬升 ≥ 9 dB、峰前 20% 处），
   按同步容差再看一遍；实测只给告警，成片的声画同步以 tools/qa 对最终文件的 sync 检查为准。
 
@@ -297,7 +299,7 @@ def _keyset(cli_keys, film, tl):
 
 
 def run_check(film_dir, *, tol_ms=None, grid=None, silences=None, quiet_db=None, keys=None, film_json=None, events=None,
-              timeline=None, onsets=None, mix=None, measure=False, early_ms=None, late_frames=1.0, out=print):
+              timeline=None, onsets=None, mix=None, measure=False, early_ms=None, late_frames=1.0, breath=None, out=print):
     from . import filmspec as F
     here = os.path.abspath(film_dir)
     film = None
@@ -312,6 +314,7 @@ def run_check(film_dir, *, tol_ms=None, grid=None, silences=None, quiet_db=None,
     grid = F.pick(grid, cc.get('grid'), 2)
     silences = F.pick(silences, cc.get('silence'), ())
     quiet_db = float(F.pick(quiet_db, cc.get('quietDb'), 15.0))
+    breath = bool(F.pick(breath, cc.get('breath'), False))   # 默认关：静默段口径与 main 一致
     if not (isinstance(grid, (int, float)) and grid > 0):
         raise CliError('usage.bad-value', f'网格细分要正数，收到 {grid!r}（--grid 或 film.json 的 cuecheck.grid）')
     ev_path = events or os.path.join(here, 'events.json')
@@ -485,7 +488,7 @@ def run_check(film_dir, *, tol_ms=None, grid=None, silences=None, quiet_db=None,
             sync_rows.append({'id': r['id'], 'audio': r['audio'], 'frame': r['frame'], 'kind': 'measured', 'onsetT': o, 'signal': src,
                               'syncMode': 'pcenter' if use_pc else 'onset',
                               'deltaMs': round(d * 1e3, 2), 'status': st, 'problems': probs})
-    # —— 4. 静默段 / 音乐挂留呼吸段（兼容零静音 digital-zero 与 -28~-33 dBFS Fermata Breath + 弱起引子） ——
+    # —— 4. 静默段；breath=True 时按音乐挂留呼吸段口径（-28~-33 dBFS Fermata Breath + 弱起引子）判 ——
     sil_rows = []
     if silences:
         if tempo is None:
@@ -497,16 +500,22 @@ def run_check(film_dir, *, tol_ms=None, grid=None, silences=None, quiet_db=None,
         mono = x.mean(1) if x.ndim == 2 else x
 
         def rms_db(a, b):
-            i0 = max(0, int(round(a * sr)))
-            i1 = min(len(mono), int(round(b * sr)))
-            y = mono[i0:i1]
+            y = mono[int(a * sr):int(b * sr)]
             return 20 * np.log10(np.sqrt(np.mean(y ** 2)) + 1e-12) if len(y) else -240.0
-        dur = float(_ci(TL or {}, 'dur') or (len(mono) / sr))
-        full = rms_db(0.0, dur)
+        dur = _ci(TL or {}, 'dur') or len(mono) / sr
+        full = rms_db(0, dur)
         for sid in silences:
             if sid not in tempo.by_id:
                 raise CliError('usage.silence-unknown', f'节拍表里没有段落 {sid}', hint=f'可用：{"、".join(tempo.by_id)}')
             S = tempo.by_id[sid]
+            if not breath:
+                inside = [n for n in notes if S['t0'] <= n < S['t1'] - 1e-6]
+                sil = rms_db(S['t0'] + .3, S['t1'] - .02)
+                after = rms_db(S['t1'], S['t1'] + .5)
+                ok = not inside and full - sil >= quiet_db
+                sil_rows.append({'id': sid, 't0': S['t0'], 't1': S['t1'], 'noteOnsets': len(inside), 'rmsDb': round(sil, 1), 'filmRmsDb': round(full, 1),
+                                 'afterDb': round(after, 1), 'status': 'pass' if ok else 'fail'})
+                continue
             s_t0 = max(0.0, float(S['t0']))
             s_t1 = min(dur, float(S['t1']))
             span = max(0.0, s_t1 - s_t0)
@@ -675,6 +684,7 @@ def make_parser():
     p.add_argument('--keys', default='', help='关键事件集合：事件类型或 cue / id，逗号分隔（另认 film.json 的 cuecheck.keys）')
     p.add_argument('--silence', help='要求安静的段落 id（节拍表的段落），逗号分隔（默认 film.json 的 cuecheck.silence）')
     p.add_argument('--quiet-db', type=float, help='静默段至少比全片 RMS 低多少 dB（默认 film.json 的 cuecheck.quietDb，再缺省 15）')
+    p.add_argument('--breath', action='store_true', default=None, help='静默段按作曲悬停呼吸段口径判（排除弱起引子窗、对比基准取全片与后一段的较大值；默认 film.json 的 cuecheck.breath，再缺省关）')
     p.add_argument('--film-json', dest='film_json', help='film.json（默认 <作品>/film.json）')
     p.add_argument('--events', help='events.json（默认 <作品>/events.json）')
     p.add_argument('--timeline', help='timeline.json（默认 <作品>/timeline.json）')
@@ -696,7 +706,7 @@ def main_cli(args, ctx):
     rep = run_check(args.film, tol_ms=args.tol_ms, grid=args.grid, silences=None if args.silence is None else [s for s in args.silence.split(',') if s],
                     quiet_db=args.quiet_db, keys=args.keys or None, film_json=args.film_json, events=args.events, timeline=args.timeline,
                     onsets=args.onsets, mix=args.mix, measure=args.measure, early_ms=args.early_ms, late_frames=args.late_frames,
-                    out=lines.append)
+                    breath=args.breath, out=lines.append)
     for ln in lines:
         ctx.out(ln)
     outputs = []

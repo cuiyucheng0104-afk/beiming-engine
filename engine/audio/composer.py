@@ -1369,7 +1369,9 @@ def _normalize_sections(raw_secs: list[dict], eff_dur: float) -> list[dict]:
 
     secs: list[dict] = []
     for idx, s in enumerate(raw_secs):
-        t0 = float(s.get('t0', 0.0 if idx == 0 else secs[-1]['t1']))
+        if not isinstance(s, dict):
+            continue
+        t0 = float(s.get('t0', secs[-1]['t1'] if secs else 0.0))  # 看 secs 而非 idx：首项被过滤时 secs 仍为空
         t1 = float(s.get('t1', eff_dur))
         t0 = max(0.0, min(eff_dur, t0))
         t1 = max(t0, min(eff_dur, t1))

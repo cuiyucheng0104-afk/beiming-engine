@@ -361,11 +361,62 @@ class ComposerEngineTests(unittest.TestCase):
             onsets_list = sorted(set(score_cc['note_onsets']) | {6.25})
             json.dump({'onsets': {'hit1': 6.25}, 'notes': onsets_list}, f)
 
-        rep_cc = CC.run_check(film_dir, silences=['B'], quiet_db=15.0, grid=4, tol_ms=1.0, out=lambda *_: None)
+        rep_cc = CC.run_check(film_dir, silences=['B'], quiet_db=15.0, grid=4, tol_ms=1.0, breath=True, out=lambda *_: None)
         self.assertTrue(rep_cc['ok'], rep_cc)
         self.assertEqual(rep_cc['silences'][0]['status'], 'pass')
         self.assertGreater(rep_cc['silences'][0]['rmsDb'], -38.0)
         self.assertLess(rep_cc['silences'][0]['rmsDb'], -24.0)
+
+    def _silence_film(self, name, level_db, notes):
+        """合成三段混音 A 0..3.75 / B（呼吸段）3.75..5.625 / C 5.625..9（各段恒定 RMS，dBFS），返回作品目录。"""
+        import json
+        film_dir = os.path.join(self.td, name)
+        sr = 48000
+        r = np.random.default_rng(5)
+        edges = [0.0, 3.75, 5.625, 9.0]
+        x = np.concatenate([
+            r.standard_normal(int(round((b - a) * sr))) * 10.0 ** (db / 20.0)
+            for a, b, db in zip(edges, edges[1:], level_db)
+        ])
+        H.write_wav(os.path.join(film_dir, 'out', 'mix.wav'), np.stack([x, x], axis=1))
+        secs = [{'id': i, 't0': a, 't1': b, 'bpm': 96, 'meter': 4} for i, a, b in zip('ABC', edges, edges[1:])]
+        with open(os.path.join(film_dir, 'timeline.json'), 'w', encoding='utf-8') as f:
+            json.dump({'fps': 24, 'dur': 9.0, 'secs': secs, 't': {'hit1': 6.25}}, f)
+        with open(os.path.join(film_dir, 'events.json'), 'w', encoding='utf-8') as f:
+            json.dump({'dur': 9.0, 'ev': [{'t': 6.25, 'type': 'hit', 'cue': 'hit1'}]}, f)
+        with open(os.path.join(film_dir, 'out', 'score_onsets.json'), 'w', encoding='utf-8') as f:
+            json.dump({'onsets': {'hit1': 6.25}, 'notes': sorted({6.25, *notes})}, f)
+        return film_dir
+
+    def test_cuecheck_silence_breath_is_opt_in_and_default_stays_strict(self):
+        def sil(film_dir, **kw):
+            rep = CC.run_check(film_dir, silences=['B'], quiet_db=15.0, grid=4, tol_ms=1.0, out=lambda *_: None, **kw)
+            return rep['silences'][0]
+
+        # 反例 1：起音落在段末前 0.175 s（弱起引子窗内）；默认口径整段不许有起音，breath 才放过
+        d1 = self._silence_film('sil_late_onset', (-30.0, -40.0, -10.0), [5.45])
+        self.assertEqual(sil(d1)['status'], 'fail')
+        self.assertEqual(sil(d1)['noteOnsets'], 1)
+        self.assertNotIn('problems', sil(d1))              # 默认行结构与 main 一致
+        self.assertEqual(sil(d1, breath=True)['status'], 'pass')
+
+        # 反例 2：呼吸段比后一段低 18 dB，但只比全片 RMS 低约 13.7 dB；默认口径只比全片，breath 取较大基准
+        d2 = self._silence_film('sil_contrast', (-35.0, -28.0, -10.0), [])
+        self.assertEqual(sil(d2)['status'], 'fail')
+        self.assertEqual(sil(d2, breath=True)['status'], 'pass')
+
+        # film.json 的 cuecheck.breath 与 CLI --breath 也能显式开启，不写就关
+        self.assertIsNone(CC.make_parser().parse_args([d2]).breath)
+        self.assertTrue(CC.make_parser().parse_args([d2, '--breath']).breath)
+
+    def test_normalize_sections_survives_filtered_leading_items(self):
+        # 首项非 dict / 首项 t1 <= t0 被过滤后，次项缺 t0 的回退不得读空列表（曾 IndexError）
+        for bad_first in ('not-a-dict', {'id': 'x', 't0': 3.0, 't1': 2.0}):
+            with self.subTest(first=bad_first):
+                secs = COMP._normalize_sections([bad_first, {'id': 'y', 't1': 3.0}, {'id': 'z', 't1': 99}], 5.0)
+                self.assertEqual([(s['id'], s['t0'], s['t1']) for s in secs], [('y', 0.0, 3.0), ('z', 3.0, 5.0)])
+                score = COMP.compose_film_score([bad_first, {'id': 'y', 't0': -1, 't1': 99}], dur=5.0)
+                self.assertTrue(score['note_onsets'])
 
     def test_concert_pitch_440hz_pad_tail_and_smf_type1_midi_export(self):
         # 1) 验证 A4 = 440.00 Hz 零跑调合成（< 0.5 cents 误差）
