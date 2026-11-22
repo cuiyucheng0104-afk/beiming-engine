@@ -1,11 +1,12 @@
 // 宿主量元数据用的算式：投影到屏幕、实体的包围盒和平面深度、画面统计。
 // 纯函数，只收数组，不碰渲染库；页面里用，node 里测。矩阵是 16 个数、列主序。
 
-const mulPoint = (m, [x, y, z]) => [
-  m[0] * x + m[4] * y + m[8] * z + m[12],
-  m[1] * x + m[5] * y + m[9] * z + m[13],
-  m[2] * x + m[6] * y + m[10] * z + m[14],
-  m[3] * x + m[7] * y + m[11] * z + m[15],
+// 点按下标取，不解构：解构走迭代器
+const mulPoint = (m, p) => [
+  m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12],
+  m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13],
+  m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14],
+  m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15],
 ];
 
 /**
@@ -38,13 +39,20 @@ export function measureEntity(view, proj, size, points) {
 }
 
 /**
- * 是不是三个有限的数：数组，正好下标 0、1、2 三个自有的、可枚举的数据属性。只看属性描述符：带空位的（every 会跳过空位）、
- * 索引上是取值器的（一次都不执行）、继承来的、多出键的都不算。
+ * 三个有限的数抄成普通数组，不是就交 null：数组，正好下标 0、1、2 三个自有的、可枚举的数据属性。只看属性描述符：带空位的（every 会跳过空位）、
+ * 索引上是取值器的（一次都不执行）、继承来的、多出键的都不算。抄的就是判过的那三个描述符的值，不展开、不解构、不调数组的方法：
+ * Array 子类可以把迭代器改成只交前两项，展开会丢 Z。每个下标只读一次描述符，判的和抄的是同一个值。
  */
-export function isXyz(v) {
-  if (!Array.isArray(v) || v.length !== 3 || Reflect.ownKeys(v).length !== 4) return false;
-  return [0, 1, 2].every((i) => { const d = Object.getOwnPropertyDescriptor(v, i); return d !== undefined && 'value' in d && d.enumerable && Number.isFinite(d.value); });
+function xyzOf(v) {
+  try {
+    if (!Array.isArray(v) || v.length !== 3 || Reflect.ownKeys(v).length !== 4) return null;
+    const d = [0, 1, 2].map((i) => Object.getOwnPropertyDescriptor(v, i));
+    return d.every((x) => x !== undefined && 'value' in x && x.enumerable && Number.isFinite(x.value)) ? [d[0].value, d[1].value, d[2].value] : null;
+  } catch { return null; } // Proxy 的陷阱抛了（或者代理已经撤销）：当成不是
 }
+
+/** 是不是三个有限的数（判法见 xyzOf） */
+export const isXyz = (v) => xyzOf(v) !== null;
 
 /**
  * 锚点投到屏幕（每帧元数据契约 3.3、5.2）。pairs 是 [["实体名#锚点名", [x, y, z]], …]，世界坐标，米；names 是这个镜头的实体名。
@@ -56,12 +64,13 @@ export function placeAnchors(view, proj, size, pairs, names) {
   for (const [key, world] of pairs) {
     const [entity, name, ...rest] = String(key).split('#');
     if (!name || rest.length || !names.includes(entity)) throw new Error(`锚点 ${key} 要写成「实体名#锚点名」，实体要是这个镜头的实体`);
-    if (!isXyz(world)) throw new Error(`锚点 ${key} 的世界坐标必须是三个有限的数`);
+    const at = xyzOf(world);
+    if (!at) throw new Error(`锚点 ${key} 的世界坐标必须是三个有限的数`);
     if (seen.has(key)) throw new Error(`锚点 ${key} 交了两次`);
     seen.add(key);
-    const { screen, w } = toScreen(view, proj, size, world);
+    const { screen, w } = toScreen(view, proj, size, at);
     if (Math.abs(w) <= 1e-12 || !screen.every(Number.isFinite)) throw new Error(`锚点 ${key} 落在相机平面上（透视除法的除数是 ${w}），投不到有限的屏幕坐标`);
-    byEntity.set(entity, [...(byEntity.get(entity) ?? []), [name, { world: [...world], screen }]]);
+    byEntity.set(entity, [...(byEntity.get(entity) ?? []), [name, { world: at, screen }]]);
   }
   return Object.fromEntries([...byEntity].map(([entity, list]) => [entity, Object.fromEntries(list)]));
 }
@@ -99,7 +108,7 @@ const byCodePoint = (x, y) => {
 /**
  * 锚点查询要答的那几个锚点。pairs 同 placeAnchors；of 是问到的实体名。只收挂在 of 里的实体上的，交回 [['实体名#锚点名', [x, y, z]]]。
  * 世界坐标原样交，不过屏幕投影：落在相机平面上的锚点照交；没问到的实体上的锚点写得对不对不管，不牵连这一次查询。
- * 问到的实体上的锚点写法不对、交了两次、坐标不是三个有限的数（isXyz：缺一项、带空位的也算），报 contract.bad-value：是镜头或卡交错了，不是查询写错了。
+ * 问到的实体上的锚点写法不对、交了两次、坐标不是三个有限的数（xyzOf：缺一项、带空位的也算），报 contract.bad-value：是镜头或卡交错了，不是查询写错了。
  */
 export function pickAnchors(pairs, of) {
   const bad = (message) => Object.assign(new Error(message), { code: 'contract.bad-value' });
@@ -108,10 +117,11 @@ export function pickAnchors(pairs, of) {
     const [entity, name, ...rest] = String(key).split('#');
     if (!of.includes(entity)) continue;
     if (!name || rest.length) throw bad(`锚点 ${key} 要写成「实体名#锚点名」`);
-    if (!isXyz(world)) throw bad(`锚点 ${key} 的世界坐标必须是三个有限的数`);
+    const at = xyzOf(world);
+    if (!at) throw bad(`锚点 ${key} 的世界坐标必须是三个有限的数`);
     if (seen.has(key)) throw bad(`锚点 ${key} 交了两次`);
     seen.add(key);
-    picked.push([key, [...world]]);
+    picked.push([key, at]);
   }
   return picked;
 }
@@ -126,7 +136,8 @@ export function pickAnchors(pairs, of) {
 export function answerQuery(kind, subjects, tol = 0) {
   const items = [];
   for (const [a, data] of subjects) {
-    if (kind === 'anchor') { items.push({ a, value: Math.hypot(...data), at: data }); continue; }
+    // 锚点的三个数按下标取，不展开（展开走迭代器）
+    if (kind === 'anchor') { items.push({ a, value: Math.hypot(data[0], data[1], data[2]), at: [data[0], data[1], data[2]] }); continue; }
     const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
     let low = data[0];
     for (const p of data) {

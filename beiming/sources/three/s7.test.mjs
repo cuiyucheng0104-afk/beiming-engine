@@ -38,9 +38,10 @@ const CROWD = {
   objects: [box('kit', [0, 1, -5]), box('lone', [1, 2, -5]), ...Array.from({ length: 60 }, (_, i) => box(`kit.b${pad2(i)}`, [(i % 10) * 0.2 - 0.9, 0.05 - 0.01 * (i + 1), -5 - Math.floor(i / 10)]))],
 };
 // 边界夹具：相机在世界原点。swarm 是一个实例网格，两个边长 1 米的方块实例平移到 (2, 3, −6)、(−2, −3, −6)；
-// kit#eye 正好在相机平面上（投不到屏幕，但世界坐标是好的）；lone#bad 的坐标写坏了
+// kit#eye 正好在相机平面上（投不到屏幕，但世界坐标是好的）；lone#bad 的坐标写坏了；
+// kit#two 是迭代器只交前两项的 Array 子类实例，三个下标是 0、1、−3（合法的三个数，照下标交）
 const EDGE = { camera: CAMERA, backgroundLinear: [0, 0, 0], objects: [box('kit', [0, 1, -5]), box('lone', [1, 2, -5])] };
-const EDGE_PARAMS = { spec: EDGE, instanced: { swarm: [[2, 3, -6], [-2, -3, -6]] }, anchors: { 'kit#eye': [0, 0, 0], 'lone#bad': [0, null, 0] } };
+const EDGE_PARAMS = { spec: EDGE, instanced: { swarm: [[2, 3, -6], [-2, -3, -6]] }, anchors: { 'kit#eye': [0, 0, 0], 'lone#bad': [0, null, 0] }, twoStep: { 'kit#two': [0, 1, -3] } };
 // 坐标缺项的夹具：kit#hole 是 [0, , −3]（下标 1 是空位），lone#short 是 [0, 0]（缺 Z）
 const SPARSE_PARAMS = { spec: EDGE, holes: { 'kit#hole': 1 }, anchors: { 'lone#short': [0, 0] } };
 const shotOf = (id, frames, params) => ({ id, in: 0, out: frames, source: 'three', host: 'page', mode: 'native-code', entry: 's7-probe.shot.js', colorRef: 'scene', seed: 7, params });
@@ -176,7 +177,8 @@ test('S7-2 校准场景实测 bbox3d / anchor / belowGround、通配符与 F9 �
     const sunkSwarm = await ask(edge, 0, { kind: 'belowGround', of: ['swarm'], tol: 1 });
     assert.deepEqual(sunkSwarm.items.map((i) => [i.a, i.value, i.at[1]]), [['swarm', 3.5, -3.5]]);
     // 锚点查询交的是世界坐标，不过屏幕投影：落在相机平面上的照答
-    assert.deepEqual((await ask(edge, 0, { kind: 'anchor', of: ['kit'] })).items, [{ a: 'kit#center', value: Math.hypot(1, 5), unit: 'm', at: [0, 1, -5] }, { a: 'kit#eye', value: 0, unit: 'm', at: [0, 0, 0] }]);
+    // kit#two 的迭代器只交前两项：坐标照校验过的三个下标交，at 是三个数，value 是三维的距离（不是丢了 Z 的 1）
+    assert.deepEqual((await ask(edge, 0, { kind: 'anchor', of: ['kit'] })).items, [{ a: 'kit#center', value: Math.hypot(1, 5), unit: 'm', at: [0, 1, -5] }, { a: 'kit#two', value: Math.hypot(0, 1, -3), unit: 'm', at: [0, 1, -3] }, { a: 'kit#eye', value: 0, unit: 'm', at: [0, 0, 0] }]);
     // 没问到的实体上的锚点（相机平面上的、写坏的）不牵连这一次查询
     assert.deepEqual(await ask(edge, 0, { kind: 'anchor', of: ['nomatch.*'] }), { kind: 'anchor', items: [] });
     assert.deepEqual((await ask(edge, 0, { kind: 'anchor', of: ['swarm'] })).items, []);
@@ -266,6 +268,26 @@ test('S7-5 pickAnchors：只收挂在问到的实体上的锚点，世界坐标�
   }
   assert.equal(calls, 0, '索引上的取值器不该被执行');
   assert.deepEqual([measure.isXyz([0, -0, 1e300]), measure.isXyz([0, 0]), measure.isXyz([0, 0, 0, 0]), measure.isXyz(new Float32Array(3)), measure.isXyz('abc')], [true, false, false, false, false]);
+  // 迭代器只交前两项的 Array 子类实例：三个下标合法就收，坐标照校验过的下标抄成普通数组，不走它的迭代器（展开、解构、for..of 会丢 Z）
+  class TwoStep extends Array { *[Symbol.iterator]() { yield this[0]; yield this[1]; } }
+  const two = TwoStep.of(0, 1, -3);
+  assert.deepEqual([measure.isXyz(two), [...two]], [true, [0, 1]]);
+  const [[, copied]] = measure.pickAnchors([['hero#eye', two]], ['hero']);
+  assert.deepEqual([copied, Object.getPrototypeOf(copied) === Array.prototype], [[0, 1, -3], true]);
+  assert.deepEqual(measure.answerQuery('anchor', [['hero#eye', two]]).items, [{ a: 'hero#eye', value: Math.hypot(0, 1, -3), unit: 'm', at: [0, 1, -3] }]);
+  // 元数据的锚点走同一份抄法：world 是三个数，屏幕坐标是有限的
+  // 数组的 Proxy：陷阱抛了、代理撤销了都当成坏坐标（带错误码），不把陷阱的异常漏出去；老实的代理照判过的值抄
+  const revoked = Proxy.revocable([0, 0, 0], {});
+  revoked.revoke();
+  for (const world of [new Proxy([0, 0, 0], { ownKeys() { throw new Error('陷阱'); } }), revoked.proxy]) {
+    assert.throws(() => measure.pickAnchors([['hero#eye', world]], ['hero']), badValue);
+    assert.equal(measure.isXyz(world), false);
+  }
+  assert.deepEqual(measure.pickAnchors([['hero#eye', new Proxy([4, 5, 6], {})]], ['hero']), [['hero#eye', [4, 5, 6]]]);
+  // 相机在原点朝 −Z，透视投影 fov 90°、宽高比 2：(2, 1, −2) 的 w 是 2，落在 (60, 10)
+  const idView = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], proj = [0.5, 0, 0, 0, 0, 1, 0, 0, 0, 0, -101 / 99, -1, 0, 0, -200 / 99, 0];
+  const placed = measure.placeAnchors(idView, proj, [80, 40], [['hero#eye', TwoStep.of(2, 1, -2)]], ['hero']).hero.eye;
+  assert.deepEqual([placed.world, Object.getPrototypeOf(placed.world) === Array.prototype, placed.screen], [[2, 1, -2], true, [60, 10]]);
   // 交回的坐标和镜头交的数组脱钩
   const mine = [1, 2, 3], [[, kept]] = measure.pickAnchors([['hero#eye', mine]], ['hero']);
   mine[0] = 9;
