@@ -1,9 +1,16 @@
 # 技术卡
 
-存放全部卡文件，以及内建能力之外的数据层卡实现。数据层卡实现在 `cards/<类>/<名>/`，其中 `<名>` 是卡名的最后一段。时间线、事件、随机流和插值的实现在 `kernel/eval/`。
+卡在 `cards/<类>/<名>/`。[组件契约](../kernel/contracts/)
 
-卡文件格式、运行时接口和卡的放置遵循契约。跨组件通过契约交接，引用旧目录须命中白名单。
+## 扫参
 
-业务契约：[卡文件格式](../kernel/contracts/card-file/CONTRACT.md)（卡文件字段与验证状态）、[卡的运行时接口](../kernel/contracts/card-runtime/CONTRACT.md)（卡入口与装载顺序）。
+```js
+import { sweepCard } from './index.mjs';
+await sweepCard(card, { params: { fovDeg: [30, 60] }, metrics: ['camera.fovDeg'] });
+```
 
-通用约定见[契约目录](../kernel/contracts/)、[契约写法约定](../kernel/contracts/CONVENTIONS.md)和[目录归属契约](../kernel/contracts/ownership/CONTRACT.md)。
+`axes` 可用 `{ param, values }` 或字符串 `'fovDeg=30,60'`。轴覆盖 `baseParams`，最多 64 格，每格最多 6 个 `frames` 或 `times`（秒），默认第 0 帧、24 fps。`inputs` 固定场景与种子，`events`、`shotIn` 解析时刻。
+
+数据参数先按卡内 schema 校验。数据卡直跑。第三参 `{ evaluateCell }` 接收 `params`、`resolvedParams`、`frame`、`time`、`cellIndex`，返回 `readings`、数值字段或 `{ rgb, width, height, channels, referenceRgb }`。字节像素归一化，浮点按原值。Rec.709 亮度指标有 `lumaMean`、`lumaMin`、`lumaMax`、`lumaP05`、`lumaP50`、`lumaP95`、`lumaP99` 和 `contrast`（P95−P05）。另有 `highlightClipRatio`、`shadowCrushRatio`，以及需参考帧的 `psnr`、`ssim`、`maxDiff`。
+
+`rows` 按 `columns` 排，数值保留 4 位小数。响应 ≤800 字节（UTF-8），`totalCells` 含各时刻，`omittedRows` 为省略行数。`outDir` 下的 `artifacts.cellsPath` 指向含原始读数与逐格 SHA-256 的 `cells.json`。`outDir` 应由调用方独占。拒绝业务软链和外来文件，可替换已核验产物。入参或目录无效报 `usage.bad-argument`，求值、量测、表头超限或产物格式与摘要错误报 `contract.bad-value`。
