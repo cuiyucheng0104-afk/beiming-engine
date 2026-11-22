@@ -3,6 +3,7 @@
 // clip [x, y, 宽, 高]（画字之前设的裁剪区）和 label { id, text, font, at: [x, y] }（墨色的一段字），三样都可以不写；
 // opacity 是按帧号取的数组（可以故意放不是数的东西）。另有 css、fonts、background 原样交给舞台。
 // trials 为真时先在页面里把 TRIALS 的坏声明（过不了 JSON 的也在里面）各试装一遍，结果记进 readings，再照常搭 elements。
+import { countingHandler, earlyHits, earlyOptions } from './s3-proxy.probe.js';
 import { createTwoDStage } from './two-d.js';
 
 const INK = '#1E1B18';
@@ -12,9 +13,8 @@ HOLE.length = 2;
 const FONT = new URL('../../../fonts/NotoSansSC-var.woff2', import.meta.url).href;
 const DRAWN = { kind: 'canvas2d', name: 'c', rect: [1, 1, 20, 20], draw() {} }, GONE = Proxy.revocable([DRAWN], {});
 GONE.revoke();
-const TRAPS = ['apply', 'construct', 'defineProperty', 'deleteProperty', 'get', 'getOwnPropertyDescriptor', 'getPrototypeOf', 'has', 'isExtensible', 'ownKeys', 'preventExtensions', 'set', 'setPrototypeOf'];
 /** 包一层 13 种陷阱全转发并计数的活 Proxy，hit() 记一次触发 */
-const liveProxy = (target, hit) => new Proxy(target, Object.fromEntries(TRAPS.map((k) => [k, (...a) => { hit(); return Reflect[k](...a); }])));
+const liveProxy = (target, hit) => new Proxy(target, countingHandler(hit));
 /** 带空槽的数组：只有 entries 里的下标有值 */
 const sparse = (length, entries) => Object.assign(Array(length), entries);
 const sized = (size) => (ctx) => ({ ...ctx, size });
@@ -50,6 +50,7 @@ const TRIALS = {
   optsProxy: ['usage.bad-argument', (hit) => liveProxy({ elements: [DRAWN] }, hit)],
   ctxDiagNull: ['usage.bad-argument', null, diagCtx],
   ctxDiagOk: [null, { elements: [DRAWN] }, diagCtx],
+  early: ['usage.bad-argument', earlyOptions],
   fine: [null, { elements: [DRAWN] }],
   // 第一款字体登记上了，第二款取不到
   font: ['usage.bad-argument', { elements: [ONE], fonts: [{ family: 'Probe', url: FONT }, { family: 'Gone', url: `${FONT}.gone.woff2` }] }],
@@ -72,6 +73,59 @@ async function runTrials(ctx) {
     const after = count();
     Object.assign(readings, { [`${name}.sync`]: sync, [`${name}.late`]: late, [`${name}.nodes`]: after[0] - before[0], [`${name}.fonts`]: after[1] - before[1], [`${name}.traps`]: traps });
   }
+  return { ...readings, earlyHits, ...await declarationReadings(ctx) };
+}
+
+/** Node 和页面使用同一批声明。分别记录同步校验、异步装载、属性描述符和陷阱计数。 */
+export async function declarationReadings(host) {
+  const readings = {};
+  async function probe(place, form, badOpts = false) {
+    let hits = 0;
+    const bump = () => { hits++; };
+    const ctx = { get diagnostic() { bump(); } };
+    const item = { ...DRAWN, rect: [...DRAWN.rect] }, font = { family: 'Probe', url: FONT };
+    const opts = { elements: [item], fonts: place === 'font' ? [font] : [] };
+    const args = { ctx, opts }, size = [...host.size];
+    const slots = { ctx: [args, 'ctx'], size: [ctx, 'size'], opts: [args, 'opts'], elements: [opts, 'elements'], item: [opts.elements, 0], rect: [item, 'rect'], fonts: [opts, 'fonts'], font: [opts.fonts, 0] };
+    const [owner, key] = slots[place];
+    const target = place === 'size' ? size : owner[key];
+    const accessor = { get: bump, set: bump, enumerable: true, configurable: true };
+    if (form === 'live' || form === 'revoked') {
+      const handler = countingHandler(bump);
+      if (form === 'live') owner[key] = new Proxy(target, handler);
+      else {
+        const pair = Proxy.revocable(target, handler);
+        pair.revoke();
+        owner[key] = pair.proxy;
+      }
+    } else if (form === 'inherited') {
+      Object.setPrototypeOf(target, Object.create(Object.getPrototypeOf(target), { stack: accessor }));
+    } else {
+      const data = { value: Array.isArray(target) ? 1 : 'keep', writable: true, enumerable: true, configurable: form !== 'fixed' };
+      Object.defineProperty(target, 'stack', form === 'accessor' ? accessor : data);
+    }
+    // 两个访问器都排在真正要读的字段前面。
+    if (!Object.hasOwn(ctx, 'size')) ctx.size = size;
+    ctx.THREE = host.THREE;
+    const descriptor = () => Object.getOwnPropertyDescriptor(target, 'stack');
+    const before = descriptor(), diagnostic = Object.getOwnPropertyDescriptor(ctx, 'diagnostic');
+    let sync = 0, late = 0;
+    try {
+      await createTwoDStage(args.ctx, badOpts ? null : args.opts).then((stage) => stage.dispose(), () => { late = 1; });
+    } catch (err) { sync = err.code === 'usage.bad-argument' ? 1 : -1; }
+    const after = descriptor();
+    const kept = before === after || (before && after && Reflect.ownKeys(before).every((k) => Object.is(before[k], after[k])));
+    const id = `${place}.${form}${badOpts ? '.badOpts' : ''}`;
+    readings[`${id}.kept`] = Number(Boolean(kept) && diagnostic.get === Object.getOwnPropertyDescriptor(ctx, 'diagnostic')?.get);
+    readings[`${id}.sync`] = sync;
+    readings[`${id}.late`] = late;
+    readings[`${id}.hits`] = hits;
+  }
+  for (const place of ['ctx', 'size', 'opts', 'elements', 'item', 'rect', 'fonts', 'font']) {
+    for (const form of ['data', 'accessor', 'fixed', 'inherited']) await probe(place, form);
+    if (place !== 'font') for (const form of ['live', 'revoked']) await probe(place, form);
+  }
+  await probe('ctx', 'accessor', true);
   return readings;
 }
 

@@ -6,6 +6,8 @@
 // 当图片用的 SVG 文档拿不到外部资源（浏览器的规矩），字体只能照 fonts 声明内联进去；没声明字体时用的是这台机器的系统字体。
 // 排版是在活动的页面里做的，那里拿得到外部资源、也会执行脚本，所以标记和样式进页面之前先过 checkMarkup、checkCss：外链、事件属性、会执行的标签一律拒收。
 
+import { installProxyRegistry } from './proxy-registry.js';
+
 /** 舞台的相机和摆法：竖直视场角（度）、近远裁剪面（米）、第一个元素离相机多远（米）、每后一个元素靠近多少（米）、默认的纸色 */
 export const STAGE = Object.freeze({ fovYDeg: 40, nearM: 1, farM: 100, distanceM: 10, stepM: 0.001, paper: '#F4F0E9' });
 export const KINDS = Object.freeze(['canvas2d', 'svg', 'dom']);
@@ -33,33 +35,11 @@ function declared(read) {
   }
 }
 
-const nodeIsProxy = globalThis.process?.getBuiltinModule?.('node:util/types')?.isProxy;
-const captureTrace = Error.captureStackTrace;
-const TRACE_PROXY_ERR = typeof captureTrace === 'function' ? (() => {
-  try { captureTrace(new Proxy({}, {})); return null; } catch (err) { return String(err.message); }
-})() : null;
+// Node 直接查内部槽。页面查私有 WeakSet，直接加载本模块的页面也从此刻开始登记。
+const isProxy = globalThis.process?.getBuiltinModule?.('node:util/types')?.isProxy ?? installProxyRegistry();
 
 /**
- * 零陷阱、零访问器地判断对象或数组 v 是不是 Proxy（活的和撤销了的都认）：
- * - Node 直接用 node:util/types 的 isProxy（V8 C++ 内部槽判定，不碰任何陷阱或属性）；
- * - 浏览器（V8）走 Error.captureStackTrace（V8 C++ 先查 IsJSObject，见任何 JSProxy——对象、数组、套层或撤销的——直接抛 invalid_argument、零陷阱；真对象若可扩展则立刻删掉临时写的 stack）。
- * shortcut: 浏览器里对象或数组若自带可配置的自有属性 stack，captureStackTrace 会盖掉再被删掉（ctx、opts、元素、字体、画幅、矩形里都没有 stack 字段；没有 captureStackTrace 的引擎退回 opaque）。
- */
-function isProxy(v) {
-  if (v === null || typeof v !== 'object') return false;
-  if (nodeIsProxy) return nodeIsProxy(v);
-  if (TRACE_PROXY_ERR === null) return false;
-  try {
-    captureTrace(v, isProxy);
-    delete v.stack;
-    return false;
-  } catch (err) {
-    return String(err.message) === TRACE_PROXY_ERR;
-  }
-}
-
-/**
- * v 自己过不过得了结构化克隆的第一关：克隆不了的内建对象（页面节点、模块这类）过不了（Proxy 已由 isProxy 在读描述符前零陷阱拦下）。
+ * v 自己过不过得了结构化克隆的第一关：克隆不了的内建对象（页面节点、模块这类）和页面里未登记的 Proxy 过不了。
  * 带函数的真对象也克隆不了，但报的是里面那个函数；v 自己过不了时报的是 v。所以拿 v 的报错去对「套了一层 Proxy 的 v」的报错（那个一定是报 v 自己）：一样就是没过。
  * 克隆会往 v 里面走，所以里面的访问器要先查完（见 copy）。
  * shortcut: 靠的是 V8 的报错里写着克隆不了的是哪个值；报错千篇一律的引擎里带函数的真声明也会被拒掉（宁可错拒），到那时得另找判法。
@@ -72,7 +52,7 @@ function opaque(v) {
 
 /**
  * 抄一份声明交回，之后查的、用的都是抄的这份：调用方那份之后怎么变、读一次给一个样，都碰不到舞台。对象和数组逐层照自有属性的描述符抄，基本值和函数原样。
- * 不收的：Proxy（在读任何描述符前零陷阱拒收，见 isProxy）、访问器（一次都不读它）、克隆不了的内建对象（见 opaque）、有空槽的数组、带着下标以外属性的数组。what 是报错时怎么称呼它。
+ * 不收的：Proxy（Node 或页面已登记的在读描述符前拒收）、访问器（一次都不读它）、克隆不了的内建对象（见 opaque）、有空槽的数组、带着下标以外属性的数组。what 是报错时怎么称呼它。
  */
 function copy(what, v) {
   if (v === null || typeof v !== 'object') return v;
@@ -295,7 +275,6 @@ export function createTwoDStage(ctx, opts = {}) {
       return p?.value;
     });
     const size = checkSize('ctx 必须是 build(ctx) 收到的那个，ctx.size', copy('ctx.size', raw));
-    if (!nodeIsProxy && TRACE_PROXY_ERR === null && opaque(ctx)) throw bad('ctx 是 Proxy，必须是 build(ctx) 收到的那个');
     if (!opts || typeof opts !== 'object') throw bad('opts 必须是对象');
     const given = copy('opts', opts), css = given.css ?? '', background = given.background ?? STAGE.paper;
     if (typeof css !== 'string') throw bad('css 必须是字符串');

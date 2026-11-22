@@ -9,7 +9,9 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { inspect } from 'node:util';
-import { resolveServed, startSource } from '../../host/page/host.mjs';
+import { chromium } from 'playwright-core';
+import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs';
+import { resolveServed, startServer, startSource } from '../../host/page/host.mjs';
 import { measureEntity } from '../../host/page/measure.js';
 import { metaCheck, sourceCheck } from '../../kernel/conformance/records.mjs';
 import { loadContracts } from '../../kernel/contracts/validate.mjs';
@@ -17,6 +19,7 @@ import { shotInput } from '../../kernel/eval/input.mjs';
 import { verifySampledBboxes } from '../../verify/l2.mjs';
 import { caps } from './caps.mjs';
 import { FADE, FPS, FRAMES, INK, LEAD, PAPER, RECTS, SCENES, SIZE, TAIL } from './s3-18-1.shot.js';
+import { declarationReadings } from './s3-probe.shot.js';
 import { checkElements, createTwoDStage, rectToPlane, STAGE } from './two-d.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -221,6 +224,26 @@ test('声明只收直接写出来的：Proxy、访问器、数组空槽、数组
   assert.deepEqual([held.name, held.rect], ['plot', rect]);
 });
 
+function assertDeclarationReadings(readings, browser) {
+  const arrays = ['size', 'elements', 'rect', 'fonts'];
+  function check(id, reject) {
+    const actual = ['kept', 'hits', 'sync', 'late'].map((key) => readings[`${id}.${key}`]);
+    // Node 只运行同步校验，通过后缺少页面；在 Chromium 中合法声明必须建台并成功释放。
+    assert.deepEqual(actual, [1, 0, Number(reject), Number(!browser && !reject)], `${id} 的描述符保留、访问次数、同步拒收、异步失败`);
+  }
+  for (const place of ['ctx', 'size', 'opts', 'elements', 'item', 'rect', 'fonts', 'font']) {
+    for (const form of ['data', 'accessor', 'fixed', 'inherited']) {
+      check(`${place}.${form}`, place !== 'ctx' && form !== 'inherited' && (form === 'accessor' || arrays.includes(place)));
+    }
+    if (place !== 'font') for (const form of ['live', 'revoked']) check(`${place}.${form}`, true);
+  }
+  check('ctx.accessor.badOpts', true);
+}
+
+test('Node：33 种 stack 声明保留属性，七处活 Proxy 和已撤销 Proxy 零陷阱同步拒收', async () => {
+  assertDeclarationReadings(await declarationReadings({ size: [320, 160], THREE: {} }), false);
+});
+
 // 进页面之前就要拒掉的标记：外链、会执行的属性和标签、样式里的外部地址、svg 里再声明实体。纯校验和实渲两头都用这一份
 const FAR = 'https://example.invalid/a.png';
 const svgWith = (inner, attrs = '') => [{ kind: 'svg', name: 'a', rect: [0, 0, 10, 10], svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" ${attrs}>${inner}</svg>` }];
@@ -276,6 +299,31 @@ test('标记进页面之前先拒掉外链、事件属性、会执行或会联�
 test('页面宿主只多放行 fonts/ 下的 woff2：许可文件、锁文件、跳出目录的都拿不到', () => {
   assert.match(resolveServed('/fonts/NotoSansSC-var.woff2'), /fonts[\\/]NotoSansSC-var\.woff2$/);
   for (const bad of ['/fonts/LICENSE.md', '/fonts/fonts.lock.json', '/fonts/../package.json', '/engine/x.woff2']) assert.equal(resolveServed(bad), null, bad);
+});
+
+test('裸页面直接加载舞台后登记 Proxy，导入前的声明对象仍经克隆校验', async (t) => {
+  let browser;
+  try { browser = await chromium.launch({ executablePath: chromeExecutable(), args: chromeArgs() }); }
+  catch (err) { t.skip(`起不了浏览器：${err.message.split('\n')[0]}`); return; }
+  t.after(() => browser.close());
+  const server = await startServer();
+  t.after(() => server.close());
+  const page = await browser.newPage();
+  await page.goto(server.origin);
+  // 静态服务只提供模块；这个页面没有宿主的 addInitScript。
+  await page.addScriptTag({ type: 'module', content: `
+    import { earlyOptions } from '/beiming/sources/three/s3-proxy.probe.js';
+    import { declarationReadings } from '/beiming/sources/three/s3-probe.shot.js';
+    import { createTwoDStage } from '/beiming/sources/three/two-d.js';
+    import * as THREE from 'three';
+    const ctx = { size: [320, 160], THREE };
+    window.probe = declarationReadings(ctx);
+    try { createTwoDStage(ctx, earlyOptions).then(stage => stage.dispose(), () => {}); }
+    catch (err) { window.earlyCode = err.code; }
+  ` });
+  await page.waitForFunction(() => window.probe);
+  assertDeclarationReadings(await page.evaluate(() => window.probe), true);
+  assert.equal(await page.evaluate(() => window.earlyCode), 'usage.bad-argument');
 });
 
 // ---------- 实渲：探针镜头 ----------
@@ -605,8 +653,10 @@ test('探针：过不了 JSON 的坏声明（数组空槽、访问器、Proxy、
   await withSource(t, async ({ open }) => {
     const session = await open(probeFilm([probeShot('trials', [PROBE[1]], { trials: true })]), 'trials');
     const { readings } = (await session.render(0, {}, ['color'])).meta;
+    assertDeclarationReadings(readings, true);
     // 每种：[调用当场抛了该抛的错误码, 交回的 Promise 带着该报的错误码失败, 事后页面多出来的节点数, 多登记的字体数, 陷阱/无关访问器触发次数]
-    const sync = ['slot', 'hole', 'getter', 'noCtx', 'noOpts', 'proxy', 'swap', 'trap', 'revoked', 'item', 'rectProxy', 'rectHole', 'fontsProxy', 'sizeHole', 'sizeTail', 'sizeGetter', 'sizeProxy', 'ctxProxy', 'optsProxy', 'ctxDiagNull'];
+    assert.equal(readings.earlyHits, 0, '宿主应在镜头的依赖模块执行之前登记 Proxy');
+    const sync = ['early', 'slot', 'hole', 'getter', 'noCtx', 'noOpts', 'proxy', 'swap', 'trap', 'revoked', 'item', 'rectProxy', 'rectHole', 'fontsProxy', 'sizeHole', 'sizeTail', 'sizeGetter', 'sizeProxy', 'ctxProxy', 'optsProxy', 'ctxDiagNull'];
     // fine、ctxDiagOk 是对照：写对了的 Canvas 2D 声明在页面里照常装上（没抛、没失败），撤掉之后页面不多东西，diagnostic 访问器一次不碰
     const want = { ...Object.fromEntries(sync.map((k) => [k, [1, 0, 0, 0, 0]])), font: [0, 1, 0, 0, 0], dup: [0, 1, 0, 0, 0], fine: [0, 0, 0, 0, 0], ctxDiagOk: [0, 0, 0, 0, 0] };
     assert.deepEqual(Object.fromEntries(Object.keys(want).map((k) => [k, ['sync', 'late', 'nodes', 'fonts', 'traps'].map((x) => readings?.[`${k}.${x}`])])), want);

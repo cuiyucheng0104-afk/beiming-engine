@@ -11,6 +11,7 @@ import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs
 import { hashCardContents, validateCard } from '../../cards/index.mjs';
 import { caps } from '../../sources/three/caps.mjs';
 import { planFrame, planOpen, planQuery, planRender, SourceError } from '../../sources/three/plan.mjs';
+import { installProxyRegistry } from '../../sources/three/proxy-registry.js';
 import { coverage2x, HALF_FLOATS } from '../../sources/three/source.js';
 import { writeExr } from '../../verify/exr/exr.mjs';
 
@@ -128,6 +129,7 @@ export async function startSource({ cards = [] } = {}) {
     try {
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      await page.addInitScript(installProxyRegistry);
       await page.goto(`${server.origin}/`);
       await page.waitForFunction(() => window.__open, null, { timeout: 30000 }).catch(() => { throw new Error(`页面运行时没装起来：${errors.join('；') || '超时'}`); });
       const opened = await page.evaluate((cfg) => window.__open(cfg), { input, env: { lock: env.lock, tier: env.tier }, filmBase: `${server.origin}/${filmDir}/`, cards: library });
