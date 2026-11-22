@@ -145,3 +145,22 @@ test('audio.align：偏移不是有限数、总帧数不是正的安全整数、
   const out = c.align([short], { frames: 24, offsetSec: -0.25, stretch: 1.03 });
   assert.ok(out.channels.every((ch) => ch.every(Number.isFinite)));
 });
+
+test('audio.align：声道数组和锚点数组有空洞、选项不是对象、锚点不是对象、hit 不是整数、sourceSec 不是数值、找重击的参数不是正数都报错', () => {
+  const c = card(), short = new Float32Array(RATE).fill(0.25), noRight = [short], noLeft = [, short]; // eslint-disable-line no-sparse-arrays
+  noRight.length = 2;
+  // some、every 会跳过空位：以前右声道是空洞时悄悄拿左声道顶上
+  for (const holed of [noRight, noLeft]) {
+    refused(() => c.align(holed, { frames: 24 }));
+    refused(() => c.hits(holed));
+  }
+  for (const opts of [null, 5, 'x', [], undefined]) refused(() => c.align([short], opts));
+  for (const anchors of [[null], [5], [[]], [, { frame: 1, sourceSec: 0.5 }], null, {}]) refused(() => c.align([short], { frames: 24, anchors })); // eslint-disable-line no-sparse-arrays
+  for (const hit of ['0', 0.5, null, NaN, true]) refused(() => c.align([SRC], { frames: FRAMES, anchors: [{ frame: 96, hit }] }));
+  for (const sourceSec of ['0.5', null, true, undefined]) refused(() => c.align([short], { frames: 24, anchors: [{ frame: 1, sourceSec }] }));
+  for (const key of ['lowHz', 'hitFloor', 'crossfadeMs']) for (const value of [NaN, Infinity, '120', null, -1]) refused(() => create({ fps: '24/1' }, { ...DEFAULTS, [key]: value }));
+  refused(() => c.align([short], { frames: Number.MAX_SAFE_INTEGER }));
+  refused(() => create(null, DEFAULTS));
+  refused(() => create({ fps: '24/1' }, null));
+  assert.equal(c.align([short], { frames: 24, anchors: [{ frame: 1, sourceSec: 0.5 }] }).anchors[0].sourceSec, 0.5);
+});

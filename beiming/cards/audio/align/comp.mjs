@@ -6,10 +6,15 @@
 const RATE = 48000, LIMIT = [0.97, 1.03];
 const WINDOW = 0.02 * RATE, STEP = 0.001 * RATE; // 找重击：20 毫秒的能量窗，1 毫秒一步
 const refuse = (message) => { throw Object.assign(new RangeError(`audio.align：${message}`), { code: 'usage.bad-argument' }); };
+const isPlain = (o) => Object.prototype.toString.call(o) === '[object Object]';
 
 function checked(channels) {
-  if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2 || channels.some((c) => !(c instanceof Float32Array) || c.length < 1 || c.length !== channels[0].length)) refuse('配乐要是一个或两个一样长、不空的 32 位浮点声道，采样率 48000 赫兹');
-  if (!channels.every((c) => c.every(Number.isFinite))) refuse('配乐里有不是有限数的采样（NaN 或无穷）');
+  if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2) refuse('配乐要是一个或两个一样长、不空的 32 位浮点声道，采样率 48000 赫兹');
+  // 照下标一个个看：some、every 会跳过数组里的空洞，少一轨的声道数组就混过去了
+  for (let k = 0; k < channels.length; k++) {
+    if (!(channels[k] instanceof Float32Array) || channels[k].length < 1 || channels[k].length !== channels[0].length) refuse('配乐要是一个或两个一样长、不空的 32 位浮点声道，采样率 48000 赫兹');
+    if (!channels[k].every(Number.isFinite)) refuse('配乐里有不是有限数的采样（NaN 或无穷）');
+  }
   return channels;
 }
 
@@ -47,30 +52,37 @@ function findHits(channels, lowHz, floor) {
  *         一个锚点只平移。两个锚点先算拉伸比，在界内就只拉伸加平移；出界时 splice 没开就报错，开了就在两个锚点正中间剪掉（或者重放）一段，
  *         接缝在 ±20 毫秒里挑波形最像的位置再交叉淡化，剩下不到一个接缝搜索范围的差用拉伸比补齐。
  *       不给 anchors 时直接用 stretch（不写是 1）和 offsetSec（不写是 0）。frames 要是正整数，stretch、offsetSec 要是有限的数，不是就报错。
+ *       声道数组和锚点数组要密实（有空洞的报错，不拿另一个声道顶上），选项和锚点要是对象，hit 是整数，sourceSec 是数值。
  *       返回 { channels: [左, 右], stretch, offsetSec, splice, anchors }：splice 是 null 或 { cutSec, resumeSec, crossfadeMs }（配乐放到 cutSec 接着从 resumeSec 放）；
  *       anchors 每项 { frame, sourceSec }。
  */
 export function create(ctx, params) {
-  const fps = /^([1-9][0-9]*)\/([1-9][0-9]*)$/.exec(String(ctx.fps));
-  if (!fps) refuse(`帧率要写成 "分子/分母"，给的是 ${JSON.stringify(ctx.fps)}`);
+  const fps = /^([1-9][0-9]*)\/([1-9][0-9]*)$/.exec(String(ctx?.fps));
+  if (!fps) refuse(`帧率要写成 "分子/分母"，给的是 ${JSON.stringify(ctx?.fps)}`);
+  if (!isPlain(params)) refuse('参数要是一个对象');
   const num = Number(fps[1]), den = Number(fps[2]), [lo, hi] = [params.stretchMin, params.stretchMax];
-  if (!(LIMIT[0] <= lo && lo <= hi && hi <= LIMIT[1])) refuse(`拉伸比的范围只能在 [${LIMIT}] 里收窄，给的是 [${lo}, ${hi}]`);
+  if (!(Number.isFinite(lo) && Number.isFinite(hi) && LIMIT[0] <= lo && lo <= hi && hi <= LIMIT[1])) refuse(`拉伸比的范围只能在 [${LIMIT}] 里收窄，给的是 [${lo}, ${hi}]`);
+  if (!(Number.isFinite(params.lowHz) && params.lowHz > 0 && Number.isFinite(params.hitFloor) && params.hitFloor > 0 && Number.isFinite(params.crossfadeMs) && params.crossfadeMs >= 0)) refuse('lowHz、hitFloor 要是正数，crossfadeMs 要是不小于 0 的有限数');
   // 硬的闭区间：不留浮点余量，差十亿分之几也算出界；NaN、字符串也在这里拦下
   const inRange = (s) => Number.isFinite(s) && s >= lo && s <= hi;
   const hits = (channels) => findHits(checked(channels), params.lowHz, params.hitFloor);
 
-  function align(channels, { frames, anchors, stretch = 1, offsetSec = 0 } = {}) {
+  function align(channels, opts = {}) {
+    if (!isPlain(opts)) refuse('选项要是一个对象');
+    let { frames, anchors, stretch = 1, offsetSec = 0 } = opts;
     const src = checked(channels), total = src[0].length / RATE;
     if (!Number.isSafeInteger(frames) || frames < 1) refuse(`frames 要是正整数帧数，给的是 ${frames}`);
     if (!Number.isFinite(offsetSec)) refuse(`offsetSec 要是有限的数（秒），给的是 ${offsetSec}`);
     let splice = null, marks = [];
     if (anchors !== undefined) {
       if (!Array.isArray(anchors) || anchors.length < 1 || anchors.length > 2) refuse('anchors 要一个或两个锚点');
+      // 照下标看，数组里的空洞也拦得住；hit 先看是不是整数：at() 会把字符串、小数悄悄当成别的下标
+      for (let i = 0; i < anchors.length; i++) if (!isPlain(anchors[i]) || (anchors[i].hit !== undefined && !Number.isInteger(anchors[i].hit))) refuse(`第 ${i} 个锚点要是 { frame, hit } 或 { frame, sourceSec }，hit 是整数`);
       const found = anchors.some((a) => a.hit !== undefined) ? hits(src) : [];
       marks = anchors.map((a) => {
         const sourceSec = a.hit === undefined ? a.sourceSec : found.at(a.hit);
         if (!Number.isInteger(a.frame) || a.frame < 0 || a.frame >= frames) refuse(`锚点的 frame ${a.frame} 不在正片的 0 到 ${frames - 1} 帧里`);
-        if (!(sourceSec >= 0 && sourceSec <= total)) refuse(a.hit === undefined ? `锚点的 sourceSec ${a.sourceSec} 不在配乐的 0 到 ${total} 秒里` : `配乐里只找到 ${found.length} 个低频重击，没有第 ${a.hit} 个`);
+        if (!(Number.isFinite(sourceSec) && sourceSec >= 0 && sourceSec <= total)) refuse(a.hit === undefined ? `锚点的 sourceSec ${a.sourceSec} 不在配乐的 0 到 ${total} 秒里` : `配乐里只找到 ${found.length} 个低频重击，没有第 ${a.hit} 个`);
         return { frame: a.frame, sourceSec };
       }).sort((p, q) => p.sourceSec - q.sourceSec);
       const [first, last] = [marks[0], marks.at(-1)], at = (m) => (m.frame * den) / num;
@@ -101,7 +113,9 @@ export function create(ctx, params) {
     const length = Math.round((frames * RATE * den) / num), jump = splice ? (splice.resumeSec - splice.cutSec) * RATE : 0;
     const cut = splice ? splice.cutSec * RATE : Infinity, half = splice ? (splice.crossfadeMs / 2000) * RATE : 0;
     const out = [0, 1].map((c) => {
-      const from = src[Math.min(c, src.length - 1)], to = new Float32Array(length), n = from.length;
+      const from = src[Math.min(c, src.length - 1)], n = from.length;
+      let to;
+      try { to = new Float32Array(length); } catch { refuse(`正片 ${frames} 帧的声音太长，开不出这么大的缓冲`); }
       const read = (u) => {
         if (u < 0 || u > n - 1) return 0;
         const i = Math.floor(u), next = i + 1 < n ? from[i + 1] : from[i];

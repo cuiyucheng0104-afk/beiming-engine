@@ -168,3 +168,72 @@ test('audio.event-mix：建卡时参数不是有限的数、容差或收尾是�
   for (const params of [{ toleranceFrames: -1 }, { fadeMs: -1 }, { onsetFloor: 0 }, { onsetFloor: -0.1 }]) bad(params);
   assert.ok(card({ toleranceFrames: 0, fadeMs: 0 }));
 });
+
+test('audio.event-mix：片尾、空洞和选项：audit、snap 和 mix 认同一个全片帧数，snap 交出的帧号都在全片里，声道数组有空洞、选项写法不对三个入口都报 usage.bad-argument', () => {
+  const c = card({ fadeMs: 0 }), bad = (fn, what) => assert.throws(fn, { name: 'RangeError', code: 'usage.bad-argument' }, what);
+  // 48 帧的配乐，鼓点在第 12 和第 24 帧；正片可以比配乐短
+  const pcm = c.mix([12, 24].map((frame) => ({ id: `k-${frame}`, frame, audio: 'kick' })), { frames: 48 }).channels;
+  const at12 = [{ id: 'x', frame: 12, audio: 'click' }], at23 = [{ id: 'y', frame: 23, audio: 'click' }];
+  assert.equal(c.audit(pcm, { frames: 24, events: at12 }).hitRate, 1);
+  assert.equal(c.mix({ frames: 24, events: at12 }).placements[0].sample, 24000);
+  // 全片只有 12 帧：第 12 帧在片外，mix 和 audit 一起拒；全片帧数写在事件表里、选项里都算，选项的优先
+  for (const [events, opts] of [[{ frames: 12, events: at12 }, undefined], [at12, { frames: 12 }], [{ frames: 24, events: at12 }, { frames: 12 }]]) {
+    bad(() => c.mix(events, opts), `mix 全片 12 帧 ${JSON.stringify(opts)}`);
+    bad(() => c.audit(pcm, events, opts), `audit 全片 12 帧 ${JSON.stringify(opts)}`);
+  }
+  bad(() => c.snap([12], pcm, { frames: 12 }));
+  // 全片 24 帧：片尾之后（第 24 帧）的那下鼓点不算起音，随机基线的分母是 24 不是 48
+  const short = c.audit(pcm, { frames: 24, events: at23 });
+  assert.deepEqual([short.hits, short.baseline], [0, 5 / 24]);
+  assert.equal(c.audit(pcm, at23).hits, 1);
+  assert.deepEqual(c.snap([23], pcm, { frames: 24 }), [12]);
+  assert.deepEqual(c.snap([23], pcm), [24]);
+  // 事件表、选项里的全片帧数写了就得是正的安全整数，被选项盖掉的也查
+  for (const frames of [0, -1, 1.5, NaN, Infinity, 2 ** 53, '24', null, true]) {
+    bad(() => c.mix(at12, { frames }), `mix 的 frames ${frames}`);
+    bad(() => c.audit(pcm, at12, { frames }), `audit 的 frames ${frames}`);
+    bad(() => c.snap([12], pcm, { frames }), `snap 的 frames ${frames}`);
+    bad(() => c.mix({ frames, events: at12 }, { frames: 24 }), `mix 的事件表 frames ${frames}`);
+    bad(() => c.audit(pcm, { frames, events: at12 }, { frames: 24 }), `audit 的事件表 frames ${frames}`);
+  }
+
+  // 全片帧数大得离谱：mix 开不出缓冲，报带 code 的错；snap、audit 不逐帧扫，照常交结果
+  bad(() => c.mix(at12, { frames: Number.MAX_SAFE_INTEGER }), 'mix 的全片帧数开不出缓冲');
+  assert.deepEqual(c.snap([Number.MAX_SAFE_INTEGER - 1], pcm, { frames: Number.MAX_SAFE_INTEGER }), [24]);
+  assert.deepEqual([c.audit(pcm, at12, { frames: Number.MAX_SAFE_INTEGER }).baseline, c.audit(pcm, at12, { frames: 1e9, toleranceFrames: 1e300 }).baseline], [10 / Number.MAX_SAFE_INTEGER, 1]);
+  bad(() => create(null, DEFAULTS));
+  bad(() => create({ fps: '24/1' }, null));
+
+  // 24 帧的配乐，唯一的起音在第 47760 个采样点（第 23.88 帧）：四舍五入是第 24 帧，已经出了片尾，收回第 23 帧
+  const tail = new Float32Array(RATE).fill(1, 47760);
+  assert.deepEqual(c.onsets([tail]), [47760]);
+  const snapped = c.snap([23, 0], [tail]);
+  assert.deepEqual(snapped, [23, 23]);
+  assert.equal(c.mix(snapped.map((frame) => ({ id: 'x', frame, audio: 'click' })), { frames: 24 }).placements.length, 2);
+  assert.equal(c.audit([tail], snapped.map((frame) => ({ id: 'x', frame, audio: 'click' }))).hitRate, 1);
+  // windowFrames：吸过去要挪的帧数超过它的留在原地；toleranceFrames：这一次审计换一个容差
+  assert.deepEqual(c.snap([20, 19, 0], [tail], { windowFrames: 3 }), [23, 19, 0]);
+  assert.deepEqual(c.snap([23, 22], [tail], { windowFrames: 0 }), [23, 22]);
+  assert.deepEqual([undefined, { toleranceFrames: 0 }, { toleranceFrames: 3 }].map((opts) => c.audit([tail], [{ id: 'x', frame: 21, audio: 'click' }], opts).hits), [0, 0, 1]);
+
+  // 声道数组有空洞：some、every 会跳过空位，以前 mix 悄悄丢掉右声道，snap、audit 抛不带 code 的 TypeError
+  const one = pcm[0], noRight = [one], noLeft = [, one]; // eslint-disable-line no-sparse-arrays
+  noRight.length = 2;
+  for (const holed of [noRight, noLeft]) {
+    bad(() => c.mix(at12, { frames: 24, bed: holed }), 'mix 的配乐有空洞');
+    bad(() => c.mix([{ id: 'x', frame: 1, audio: 'wide' }], { frames: 24, samples: { wide: holed } }), 'mix 的音效有空洞');
+    bad(() => c.onsets(holed), 'onsets 的声道有空洞');
+    bad(() => c.snap([12], holed), 'snap 的声道有空洞');
+    bad(() => c.audit(holed, at12), 'audit 的声道有空洞');
+  }
+  for (const bed of [null, 0, '', false, {}]) bad(() => c.mix(at12, { frames: 24, bed }), `mix 的配乐 ${JSON.stringify(bed)}`);
+
+  // 选项：要是普通对象；windowFrames、toleranceFrames 写了就得是不小于 0 的有限数，哪个入口都查
+  const entries = { mix: (opts) => c.mix(at12, opts), snap: (opts) => c.snap([12], pcm, opts), audit: (opts) => c.audit(pcm, at12, opts) };
+  for (const [name, call] of Object.entries(entries)) {
+    for (const opts of [null, 5, 'x', true, [], new Map()]) bad(() => call(opts), `${name} 的选项 ${JSON.stringify(opts)}`);
+    for (const key of ['windowFrames', 'toleranceFrames']) for (const value of [-1, NaN, Infinity, '2', null, true]) bad(() => call({ frames: 24, [key]: value }), `${name} 的 ${key} ${value}`);
+    for (const samples of [null, 5, 'x', []]) bad(() => call({ frames: 24, samples }), `${name} 的 samples ${JSON.stringify(samples)}`);
+    assert.ok(call({ frames: 24, sampleRate: 48000, windowFrames: 0, toleranceFrames: 0 }), `${name} 收合法的选项`);
+  }
+});

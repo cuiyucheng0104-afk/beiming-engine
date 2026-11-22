@@ -325,6 +325,33 @@ test('T7-10 写法不对的参数和数据：照卡文件解析参数再建卡�
   }
   refused(() => mix.audit(bed29, [null]), 'audit 的条目不是对象');
   refused(() => mix.audit(bed29, { frames: S29.frames }), 'audit 的事件表没有 events');
+  // 三审的反例一：同一段 24 帧的配乐、同一个第 12 帧的事件，事件表写全片 12 帧时 mix 和 audit 一起拒，不再只有 audit 算成满分
+  const at12 = [{ ...ev, frame: 12 }], long = mix.mix([{ id: 'k', frame: 12, audio: 'kick' }], { frames: 24 }).channels;
+  assert.equal(mix.mix({ frames: 24, events: at12 }, { samples: { probe } }).placements[0].sample, 24000);
+  assert.equal(mix.audit(long, { frames: 24, events: at12 }).hitRate, 1);
+  refused(() => mix.mix({ frames: 12, events: at12 }, { samples: { probe } }), 'mix：事件表全片 12 帧，第 12 帧在片外');
+  refused(() => mix.audit(long, { frames: 12, events: at12 }), 'audit：事件表全片 12 帧，第 12 帧在片外');
+  refused(() => mix.audit(long, at12, { frames: 12 }), 'audit：选项全片 12 帧，第 12 帧在片外');
+  // 反例二：起音在第 47760 个采样点（第 23.88 帧）时 snap 交回第 23 帧，不是片外的第 24 帧；交回的帧号 mix、audit 都收
+  const tail = [new Float32Array(RATE).fill(1, 47760)], snapped = mix.snap([23], tail);
+  assert.deepEqual(snapped, [23]);
+  assert.equal(mix.mix([{ ...ev, frame: snapped[0] }], { frames: 24, samples: { probe } }).placements.length, 1);
+  assert.equal(mix.audit(tail, [{ ...ev, frame: snapped[0] }]).hitRate, 1);
+  // 反例三：右声道是空洞的声道数组，混音卡的三个入口和对位卡都拒，不悄悄丢掉一轨、不抛没有 code 的 TypeError
+  const holed = [long[0]];
+  holed.length = 2;
+  refused(() => mix.mix(at12, { frames: 24, samples: { probe }, bed: holed }), 'mix 的配乐右声道是空洞');
+  refused(() => mix.snap([12], holed), 'snap 的声道有空洞');
+  refused(() => mix.audit(holed, at12), 'audit 的声道有空洞');
+  refused(() => createAlign({ fps: FPS }, params('audio.align')).object.align(holed, { frames: 24 }), 'align 的声道有空洞');
+  refused(() => createAlign({ fps: FPS }, params('audio.align')).object.hits(holed), 'hits 的声道有空洞');
+  // 反例四：选项里的 windowFrames、toleranceFrames 写了就得是不小于 0 的有限数，三个入口都查；选项本身要是对象
+  for (const opts of [{ windowFrames: -1 }, { windowFrames: NaN }, { windowFrames: '2' }, { toleranceFrames: -1 }, { toleranceFrames: Infinity }, null, 'x']) {
+    refused(() => mix.mix(at12, opts === null || typeof opts !== 'object' ? opts : { frames: 24, samples: { probe }, ...opts }), `mix 的选项 ${JSON.stringify(opts)}`);
+    refused(() => mix.snap([12], long, opts), `snap 的选项 ${JSON.stringify(opts)}`);
+    refused(() => mix.audit(long, at12, opts), `audit 的选项 ${JSON.stringify(opts)}`);
+  }
+  assert.deepEqual(mix.snap([12, 0], long, { windowFrames: 2 }), [12, 0]);
 
   // audio.align：界是硬的闭区间；偏移不是有限数、总帧数不是正的安全整数
   const card = createAlign({ fps: FPS }, params('audio.align')).object, src = [new Float32Array(RATE).fill(0.25)];

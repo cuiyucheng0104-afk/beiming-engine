@@ -36,18 +36,39 @@ const VOICES = {
 
 const stereoOf = (sound, name) => {
   const channels = sound instanceof Float32Array ? [sound, sound] : sound;
-  if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2 || channels.some((c) => !(c instanceof Float32Array) || c.length < 1 || c.length !== channels[0].length)) fail(`${name} 要是一个或两个一样长、不空的 32 位浮点声道`);
-  if (!channels.every((c) => c.every(Number.isFinite))) fail(`${name} 里有不是有限数的采样（NaN 或无穷）`);
+  if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2) fail(`${name} 要是一个或两个一样长、不空的 32 位浮点声道`);
+  // 照下标一个个看：some、every 会跳过数组里的空洞，少一轨的声道数组就混过去了
+  for (let k = 0; k < channels.length; k++) {
+    if (!(channels[k] instanceof Float32Array) || channels[k].length < 1 || channels[k].length !== channels[0].length) fail(`${name} 要是一个或两个一样长、不空的 32 位浮点声道`);
+    if (!channels[k].every(Number.isFinite)) fail(`${name} 里有不是有限数的采样（NaN 或无穷）`);
+  }
   return channels.length === 1 ? [channels[0], channels[0]] : channels;
 };
 /** 这张卡只做 48000 赫兹；采样率可以不写，写了就得是它 */
 const checkRate = (rate) => { if (rate !== undefined && rate !== RATE) fail(`采样率只能是 ${RATE} 赫兹，给的是 ${rate}`); };
+const isPlain = (o) => Object.prototype.toString.call(o) === '[object Object]';
+const wholeFrames = (n) => (Number.isSafeInteger(n) && n >= 1 ? n : fail(`frames 要是正整数帧数，给的是 ${n}`));
+/** mix、snap、audit 共用的选项校验：三个入口收同一份选项、各取各的，哪一项写了都得合法，不认识的才不管 */
+const options = (opts = {}) => {
+  if (!isPlain(opts)) fail('选项要是一个对象');
+  checkRate(opts.sampleRate);
+  for (const key of ['windowFrames', 'toleranceFrames']) if (opts[key] !== undefined && !(Number.isFinite(opts[key]) && opts[key] >= 0)) fail(`选项 ${key} 要是不小于 0 的有限数，给的是 ${opts[key]}`);
+  if (opts.samples !== undefined && !isPlain(opts.samples)) fail('samples 要是 { 名字: 样本 } 的对象');
+  return opts;
+};
+/** mix、snap、audit 共用的全片帧数：选项里的 frames 优先，其次是事件表自己写的，都没有才用声音的长度换算（mix 没有声音可量，必须给）；写了的都得是正的安全整数，被盖掉的也查 */
+const filmFrames = (opts, events, fromSound) => {
+  for (const n of [opts.frames, events?.frames]) if (n !== undefined) wholeFrames(n);
+  return wholeFrames(opts.frames ?? events?.frames ?? fromSound);
+};
 
 /**
  * ctx：用到 fps（"分子/分母"，帧每秒）和 seed（点击音色的噪声种子，不带当 0）；带 sampleRate 的话必须是 48000。
  * 参数和数据写法不对的（帧号、子帧相位、增益不是有限数或出了界，样本是空的或带 NaN、无穷，采样率不是 48000）一律报 usage.bad-argument。
- * mix、snap、audit 对事件是同一套校验：事件表里每一条（不带 audio 的也查）都得是对象，frame 是全片里的安全整数帧号，sub 不写或者是 [0, 1) 里的数值（字符串不收）；
- * snap、audit 的全片帧数从声音的长度换算。三个入口的 sampleRate 都可以不写，写了就得是 48000。
+ * mix、audit 收事件表或事件条目的数组，snap 收帧号的数组，时刻是同一套校验：事件表里每一条（不带 audio 的也查）都得是对象，frame 是全片里的安全整数帧号，sub 不写或者是 [0, 1) 里的数值（字符串不收）。
+ * 全片帧数三个入口是同一个来源：选项里的 frames，没有就是事件表自己的 frames，都没有时 snap、audit 从声音的长度换算、mix 报错。正片可以比配乐短：片尾之后的事件报错，片尾之后的起音不算。
+ * 选项三个入口可以给同一份，要是对象：frames、sampleRate（可以不写，写了就得是 48000）、windowFrames（snap 用）、toleranceFrames（audit 用），写了的在哪个入口都查。
+ * 声道数组要密实：两个声道缺一个（数组里有空洞）报错，不拿另一个顶上。
  * Handle.object：
  *   voices                 自带音色 { click, kick }，各是一段单声道样本。
  *   mix(events, { frames, bed, samples, sampleRate })
@@ -56,13 +77,16 @@ const checkRate = (rate) => { if (rate !== undefined && rate !== RATE) fail(`采
  *       每段音效乘 gainDb，尾巴 fadeMs 毫秒线性收到 0（被片尾截断的也收）；混完峰值超过 ceilingDb 时整体降增益到正好压线，不做限幅。
  *       返回 { channels: [左, 右], placements: [{ id, audio, frame, sub, sample, clippedTail }], peakDb, scaleDb }。
  *   onsets(channels)       起音的采样点下标：5 毫秒一步的能量（两个声道各自平方再平均，左右反相也不会抵消），比上一步涨得最多的那一步；涨幅不到全曲最大涨幅的 onsetFloor 倍的不算，50 毫秒内只认一个。准到一步（5 毫秒）。
- *   snap(frames, channels, { sampleRate }) 把每个帧号换成离它最近的起音所在的帧（四舍五入到整数帧）。
- *   audit(channels, events, { sampleRate }) 逐条量事件离最近的起音差几帧（正数是起音晚到）：返回 { total, hits, hitRate, baseline, rows: [{ id, frame, delta }] }；
- *       差不超过 toleranceFrames 算命中；baseline 是随机基线：全片的整数帧里，离某个起音不超过 toleranceFrames 的占多少。
+ *   snap(frames, channels, { frames, windowFrames, sampleRate })
+ *       把每个帧号换成离它最近的起音所在的帧（四舍五入到整数帧，起音在最后半帧里的收在最后一帧）；交回的帧号都在全片里，可以直接交给同一片长的 mix、audit。
+ *       给了 windowFrames 时，要挪的帧数超过它的帧号留在原地；选项里的 frames 是全片帧数。
+ *   audit(channels, events, { frames, toleranceFrames, sampleRate })
+ *       逐条量事件离最近的起音差几帧（正数是起音晚到）：返回 { total, hits, hitRate, baseline, rows: [{ id, frame, delta }] }；
+ *       差不超过 toleranceFrames（选项里的优先，没有用参数的）算命中；baseline 是随机基线：全片的整数帧里，离某个起音不超过 toleranceFrames 的占多少。
  */
 export function create(ctx, params) {
-  const fps = /^([1-9][0-9]*)\/([1-9][0-9]*)$/.exec(String(ctx.fps));
-  if (!fps) fail(`帧率要写成 "分子/分母"，给的是 ${JSON.stringify(ctx.fps)}`);
+  const fps = /^([1-9][0-9]*)\/([1-9][0-9]*)$/.exec(String(ctx?.fps));
+  if (!fps) fail(`帧率要写成 "分子/分母"，给的是 ${JSON.stringify(ctx?.fps)}`);
   checkRate(ctx.sampleRate);
   for (const key of ['gainDb', 'ceilingDb', 'fadeMs', 'toleranceFrames', 'onsetFloor']) if (typeof params?.[key] !== 'number' || !Number.isFinite(params[key])) fail(`参数 ${key} 要是有限的数，给的是 ${params?.[key]}`);
   if (params.toleranceFrames < 0 || params.fadeMs < 0 || !(params.onsetFloor > 0)) fail('toleranceFrames、fadeMs 不能是负数，onsetFloor 要大于 0');
@@ -87,11 +111,11 @@ export function create(ctx, params) {
     return list.filter((e) => e.audio !== undefined);
   };
 
-  function mix(events, { frames = events?.frames, bed, samples = {}, sampleRate } = {}) {
-    checkRate(sampleRate);
-    if (!Number.isSafeInteger(frames) || frames < 1) fail(`frames 要是正整数帧数，给的是 ${frames}`);
-    const length = sampleAt(frames), left = new Float32Array(length), right = new Float32Array(length);
-    if (bed) stereoOf(bed, 'bed').forEach((c, k) => (k ? right : left).set(c.subarray(0, length)));
+  function mix(events, opts) {
+    const o = options(opts), { bed, samples = {} } = o, frames = filmFrames(o, events), length = sampleAt(frames);
+    let left, right;
+    try { left = new Float32Array(length); right = new Float32Array(length); } catch { fail(`全片 ${frames} 帧的声音太长，开不出这么大的缓冲`); }
+    if (bed !== undefined) stereoOf(bed, 'bed').forEach((c, k) => (k ? right : left).set(c.subarray(0, length)));
     const fade = Math.round((params.fadeMs / 1000) * RATE);
     const placements = entries(events, frames).map((e) => {
       const sound = Object.hasOwn(samples, e.audio) ? samples[e.audio] : Object.hasOwn(voices, e.audio) ? voices[e.audio] : fail(`事件 ${e.id} 要的声音 ${e.audio} 不在 samples 里，也不是自带音色（${Object.keys(voices).join('、')}）`);
@@ -132,27 +156,34 @@ export function create(ctx, params) {
     }
     return out;
   }
-  const onsetFrames = (channels) => onsets(channels).map((s) => s / perFrame);
+  /** 起音在第几帧（带小数）；片尾之后的不算：正片比配乐短时，那里的起音观众听不到 */
+  const onsetFrames = (channels, frames) => onsets(channels).map((s) => s / perFrame).filter((o) => o < frames);
   const nearest = (frame, list) => list.reduce((best, o) => (Math.abs(o - frame) < Math.abs(best - frame) ? o : best), Infinity);
 
   return {
     object: {
       voices, mix, onsets,
-      snap(frames, channels, { sampleRate } = {}) {
-        checkRate(sampleRate);
-        const list = onsetFrames(channels), total = framesOf(channels);
+      snap(frames, channels, opts) {
+        const o = options(opts), { windowFrames = Infinity } = o, total = filmFrames(o, undefined, framesOf(channels)), list = onsetFrames(channels, total);
         if (!Array.isArray(frames)) fail('snap 要的是帧号的数组');
         for (let i = 0; i < frames.length; i++) checkTime(frames[i], undefined, total, `snap 的第 ${i} 个帧号`);
-        if (!list.length) fail('这段声音里没找到起音，吸不了');
-        return frames.map((f) => Math.round(nearest(f, list)));
+        if (!list.length) fail('这段声音在全片里没找到起音，吸不了');
+        // 起音在最后半帧里时四舍五入会进到片尾之后的那一帧，收回最后一帧
+        return frames.map((f) => {
+          const to = Math.min(total - 1, Math.round(nearest(f, list)));
+          return Math.abs(to - f) <= windowFrames ? to : f;
+        });
       },
-      audit(channels, events, { sampleRate } = {}) {
-        checkRate(sampleRate);
-        const list = onsetFrames(channels), tol = params.toleranceFrames, frames = framesOf(channels);
+      audit(channels, events, opts) {
+        const o = options(opts), { toleranceFrames: tol = params.toleranceFrames } = o, frames = filmFrames(o, events, framesOf(channels)), list = onsetFrames(channels, frames);
         const rows = entries(events, frames).map((e) => ({ id: e.id, frame: e.frame, delta: nearest(e.frame + (e.sub ?? 0), list) - e.frame - (e.sub ?? 0) }));
         const hits = rows.filter((r) => Math.abs(r.delta) <= tol).length;
-        let near = 0;
-        for (let f = 0; f < frames; f++) if (Math.abs(nearest(f, list) - f) <= tol) near++;
+        // 随机基线照区间数，不逐帧扫（全片可以比声音长很多）：每个起音盖住 [o − tol, o + tol] 里的整数帧，起音从早到晚，盖过的不重数
+        let near = 0, from = 0;
+        for (const at of list) {
+          const lo = Math.max(from, Math.ceil(at - tol)), hi = Math.min(frames - 1, Math.floor(at + tol));
+          if (hi >= lo) { near += hi - lo + 1; from = hi + 1; }
+        }
         return { total: rows.length, hits, hitRate: rows.length ? hits / rows.length : 0, baseline: frames ? near / frames : 0, rows };
       },
     },
