@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import process from 'node:process';
-import { checkJobId, locateOwned, processIsAlive } from './workspace.mjs';
+import { checkJobId, locateOwned, processIsAlive, retrySharing } from './workspace.mjs';
 
 const FORMAT = 'job-ledger/0.1';
 const TIERS = ['fable', 'opus', 'sonnet', 'haiku', 'other'];
@@ -296,7 +296,7 @@ export function withFileLock(file, run, timeoutMs = 10_000, label = '账本') {
         let entered = false;
         try {
           removeWithRetry(() => locateOwned(held.staging), { recursive: true });
-          entered = mine(lock);
+          entered = retrySharing(lock, () => mine(lock), 12, fs.constants.R_OK);
         } finally {
           if (!entered) release();
         }
@@ -316,9 +316,10 @@ export function withFileLock(file, run, timeoutMs = 10_000, label = '账本') {
     if (!at) throw Object.assign(new Error(`${label}锁在临界区内丢失。`), { code: 'ENOENT' });
     return at.slice(0, -'.lock'.length);
   };
+  const ownsLock = candidate => retrySharing(candidate, () => mine(candidate), 12, fs.constants.R_OK);
   let result;
   try {
-    result = run(locked);
+    result = run(locked, ownsLock);
   } catch (error) {
     try {
       release();

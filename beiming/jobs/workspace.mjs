@@ -113,13 +113,17 @@ export function retrySharing(file, run, retries = 16, mode = fs.constants.W_OK) 
 // shortcut: 兄弟目录逐个探一遍，只在轮换后才走到；上一级有上万个目录时会慢，那时改成由调用方传入轮换后的去向。
 // mustList：找的是锁。上一级还在却一直列不出来时报错，不能当成「没有」悄悄留下一把活锁；暂存目录找不回就留给 prune。
 export function locateOwned(file, isMine = candidate => Boolean(fs.lstatSync(candidate, { throwIfNoEntry: false })), mustList = false) {
+  let siblingError;
   const owned = (candidate, sibling) => {
     try {
       return retrySharing(candidate, () => isMine(candidate), 12, fs.constants.R_OK);
     } catch (error) {
-      // 不存在、不是目录：确定不是自己的。兄弟目录里读不了的（别人的目录）也不会是自己的。
-      // 原路径上认不出来（句柄耗尽、读盘出错）就抛给调用方，不能当成「不是自己的」悄悄留下。
-      if (['ENOENT', 'ENOTDIR', 'EISDIR'].includes(error?.code) || (sibling && typeof error?.code === 'string' && !error.code.startsWith('ERR_'))) return false;
+      // 不存在、不是目录：确定不是自己的。无关兄弟目录读不了时先跳过接着找；若遍历全部兄弟也没找到自己的锁，再把该错误抛给调用方。
+      if (['ENOENT', 'ENOTDIR', 'EISDIR'].includes(error?.code)) return false;
+      if (sibling && typeof error?.code === 'string' && !error.code.startsWith('ERR_')) {
+        siblingError ??= error;
+        return false;
+      }
       throw error;
     }
   };
@@ -132,7 +136,9 @@ export function locateOwned(file, isMine = candidate => Boolean(fs.lstatSync(can
     if (mustList && !['ENOENT', 'ENOTDIR'].includes(error?.code)) throw error;
     return undefined; // 上一级不在了，或暂存目录列不出来：找不回，留给 prune
   }
-  return siblings.map(name => path.join(outer, name, path.basename(file))).find(candidate => owned(candidate, true));
+  const found = siblings.map(name => path.join(outer, name, path.basename(file))).find(candidate => owned(candidate, true));
+  if (!found && mustList && siblingError) throw siblingError;
+  return found;
 }
 
 // aroundPublish 只包住最后的发布一步：写盘和刷盘在它外面做完，调用方要加锁时临界区才短。

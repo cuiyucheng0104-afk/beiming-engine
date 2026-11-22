@@ -57,8 +57,8 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
   const ledgerFile = () => workspace.resolve('jobs/ledger.jsonl');
   const ownerFile = (id, attempt, generation) => workspace.resolve(`jobs/${checkJobId(id)}/attempt-${attempt}.owner-${generation}`);
 
-  function readJob(id) {
-    const job = JSON.parse(readText(jobFile(id)));
+  function readJob(id, file = jobFile(id)) {
+    const job = JSON.parse(readText(file));
     if (job?.format !== 'job/0.1' || job.id !== id ||
         !(job.status === 'queued' || job.status === 'running' || terminal.has(job.status)) ||
         !Number.isSafeInteger(job.attempt) || job.attempt < 1 || !Array.isArray(job.events) || !Array.isArray(job.steps)) {
@@ -140,7 +140,7 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
       if (!/^[a-z0-9][a-z0-9-]*$/.test(entry.name)) continue;
       if (fs.lstatSync(jobFile(entry.name), { throwIfNoEntry: false })) ids.push(entry.name);
     }
-    return ids.map(readJob);
+    return ids.map(id => readJob(id));
   }
 
   function settlementDetails(job, status, { cost = {}, startedAt, ledgerError } = {}) {
@@ -328,7 +328,19 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     } catch {
       // 补旧账失败不挡执行；读账仍严格报错，新轮追加失败也会在终态记录原因。
     }
-    const job = withFileLock(jobFile(id), () => readJob(id));
+    const job = withFileLock(jobFile(id), locked => {
+      for (;;) {
+        const file = locked();
+        let snap;
+        try {
+          snap = readJob(id, file);
+        } catch (error) {
+          if (error?.code === 'ENOENT' && locked() !== file) continue;
+          throw error;
+        }
+        if (locked() === file) return snap;
+      }
+    });
     if (active.has(jobFile(id))) throw new Error('作业仍由本进程执行。');
     const handler = getHandler(job);
     scheduler.request(job.request);

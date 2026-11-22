@@ -1895,3 +1895,211 @@ test('A16-36 十审收口（Red -> Green）：双真锁代际交换互斥、回�
     assert.deepEqual(leftovers(split.root), []);
   });
 });
+
+test('A16-37 十一审收口（Red -> Green）：缓存根 ino=0n 轮换后重入新根必取新锁、queue.replay 绑定持锁代、兄弟枚举成功但旧锁不可读（EBUSY / chmod 000）显式报错且恢复、建锁复核单次 EBUSY 退避', async (t) => {
+  const { openShotCache, computeFrameCacheKey, appendJobLedger, openWorkspace, loadQueue } = jobs;
+  const { withFileLock } = await import('./ledger.mjs');
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-a16-r11-'));
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const entryA = computeFrameCacheKey(makeBaseSpec());
+
+  await t.test('1) 缓存根 bigint lstat 返回 ino=0n 时，外层持锁期间轮换目录再重入 put：新根必须持有自己的 .cache.lock', (st) => {
+    const root = path.join(parent, 'ino0-reenter');
+    const retired = path.join(parent, 'ino0-reenter-old');
+    const cache = openShotCache(root);
+    const realLstat = fs.lstatSync;
+    const realRename = fs.renameSync;
+
+    st.mock.method(fs, 'lstatSync', (target, opts) => {
+      const s = realLstat(target, opts);
+      if (s && opts?.bigint && String(target) === cache.root) {
+        return Object.assign(Object.create(Object.getPrototypeOf(s)), s, { ino: 0n });
+      }
+      return s;
+    });
+
+    let rotated = false;
+    let innerLocks = null;
+    st.mock.method(fs, 'renameSync', (from, to) => {
+      const res = realRename(from, to);
+      const dest = String(to);
+      if (dest.endsWith('.frame')) {
+        if (!rotated) {
+          rotated = true;
+          realRename(cache.root, retired);
+          fs.mkdirSync(cache.root, { recursive: true });
+          cache.put(entryA, { colorBytes: Buffer.from([2]), meta: {}, runId: 'r-inner' });
+        } else {
+          innerLocks = {
+            newRootHasLock: fs.existsSync(path.join(cache.root, '.cache.lock')),
+            oldRootHasLock: fs.existsSync(path.join(retired, '.cache.lock')),
+          };
+        }
+      }
+      return res;
+    });
+
+    cache.put(entryA, { colorBytes: Buffer.from([1]), meta: {}, runId: 'r-outer' });
+    st.mock.restoreAll();
+    assert.deepEqual(innerLocks, { newRootHasLock: true, oldRootHasLock: true }, '轮换后新根与旧根必须各自持锁');
+    assert.deepEqual([...openShotCache(retired).get(entryA).colorBytes], [1]);
+    assert.deepEqual([...cache.get(entryA).colorBytes], [2]);
+    assert.deepEqual(fs.readdirSync(retired).filter(n => n === '.cache.lock' || n.startsWith('.write-')), []);
+    assert.deepEqual(fs.readdirSync(cache.root).filter(n => n === '.cache.lock' || n.startsWith('.write-')), []);
+  });
+
+  await t.test('2) queue.replay() 在持锁回调内发生目录轮换且新代由另一把锁持有时：只读自己持锁的 old-generation，绝不读 new-generation', (st) => {
+    const wsOld = path.join(parent, 'ws-replay');
+    const wsNew = path.join(parent, 'ws-replay-new');
+    for (const [wsDir, handlerName] of [[wsOld, 'old-generation'], [wsNew, 'new-generation']]) {
+      fs.mkdirSync(path.join(wsDir, 'shots'), { recursive: true });
+      fs.writeFileSync(path.join(wsDir, 'shots', 's01.js'), 'export default {};\n');
+      fs.writeFileSync(path.join(wsDir, 'film.json'), JSON.stringify({
+        format: 'film/3.0',
+        id: 'replay-gen-test',
+        shots: [{ id: 's01', entry: 'shots/s01.js', in: 0, out: 2 }],
+      }));
+      openWorkspace(wsDir).commitRevision(0);
+      loadQueue(wsDir, { handlers: { [handlerName]: async () => ({}) } }).enqueue({ id: 'job-1', kind: 'draft', handler: handlerName, rev: 0 });
+    }
+
+    const q = loadQueue(wsOld, { handlers: {} }); // 故意不注册 handler，用抛出的缺失执行器名精确观察读到了哪一代
+    const jobRetired = path.join(fs.realpathSync(wsOld), 'jobs', 'job-1-retired');
+    const newJobDir = path.join(fs.realpathSync(wsNew), 'jobs', 'job-1');
+    const oldJobDir = path.join(fs.realpathSync(wsOld), 'jobs', 'job-1');
+    const realRename = fs.renameSync;
+
+    withFileLock(path.join(newJobDir, 'job.json'), () => {
+      const realLstat = fs.lstatSync;
+      let postLockSeen = false;
+      let rotated = false;
+      st.mock.method(fs, 'lstatSync', (target, opts) => {
+        const s = realLstat(target, opts);
+        if (String(target) === path.join(oldJobDir, 'job.json.lock') && opts?.bigint) {
+          if (postLockSeen && !rotated) {
+            rotated = true;
+            realRename(oldJobDir, jobRetired);
+            realRename(newJobDir, oldJobDir);
+          }
+          postLockSeen = true;
+        }
+        return s;
+      });
+
+      try {
+        assert.throws(
+          () => q.replay('job-1'),
+          /缺少作业执行器 old-generation。/,
+          'replay 必须读取自己持锁的 old-generation，不得读取另一把锁保护的 new-generation',
+        );
+        assert.equal(rotated, true);
+      } finally {
+        st.mock.restoreAll();
+        if (rotated) {
+          realRename(oldJobDir, newJobDir);
+          realRename(jobRetired, oldJobDir);
+        }
+      }
+    }, 500, '测试');
+  });
+
+  await t.test('3) 兄弟目录可列出但旧代锁候选持续 EBUSY 或目录权限 000：释放必须报错登记孤儿锁，故障恢复后同进程重取成功；无关 000 兄弟目录不干扰正常回收', (st) => {
+    const sub = fs.mkdtempSync(path.join(parent, 'sib-unreadable-'));
+    const unrelated000 = path.join(sub, 'unrelated-unreadable');
+    fs.mkdirSync(unrelated000, { mode: 0o700 });
+    fs.chmodSync(unrelated000, 0o000);
+    try {
+      // 3a: 存在无关 000 兄弟目录时，正常轮换仍顺利找到可读旧代锁并清除
+      const okCur = path.join(sub, 'ok-cur');
+      const okRetired = path.join(sub, 'ok-retired');
+      fs.mkdirSync(okCur, { recursive: true });
+      const realRename = fs.renameSync;
+      withFileLock(path.join(okCur, 'record'), () => {
+        realRename(okCur, okRetired);
+        fs.mkdirSync(okCur, { recursive: true });
+      }, 200, '测试');
+      assert.equal(fs.existsSync(path.join(okRetired, 'record.lock')), false);
+
+      // 3b: 已枚举到的旧锁自身 lstatSync 持续 13 次 EBUSY -> 释放必须抛 EBUSY，故障解除后重取恢复
+      const busyCur = path.join(sub, 'busy-cur');
+      const busyRetired = path.join(sub, 'busy-retired');
+      fs.mkdirSync(busyCur, { recursive: true });
+      const realLstat = fs.lstatSync;
+      let failRetiredLstat = false;
+      const retiredLockPath = path.join(busyRetired, 'record.lock');
+      st.mock.method(fs, 'lstatSync', (target, opts) => {
+        if (failRetiredLstat && path.resolve(String(target)) === path.resolve(retiredLockPath)) {
+          throw Object.assign(new Error('EBUSY: retired lock lstat'), { code: 'EBUSY' });
+        }
+        return realLstat(target, opts);
+      });
+      assert.throws(
+        () => withFileLock(path.join(busyCur, 'record'), () => {
+          realRename(busyCur, busyRetired);
+          fs.mkdirSync(busyCur, { recursive: true });
+          failRetiredLstat = true;
+          return 'done';
+        }, 200, '测试'),
+        err => err?.code === 'EBUSY',
+      );
+      failRetiredLstat = false;
+      st.mock.restoreAll();
+      assert.equal(withFileLock(path.join(busyRetired, 'record'), () => 'recovered', 200, '测试'), 'recovered');
+      assert.equal(fs.existsSync(retiredLockPath), false);
+
+      // 3c: 真实操作系统权限将旧代目录临时设为 000 -> 释放抛 EACCES/EPERM，恢复 0700 后同进程立即重取成功
+      if (typeof process.getuid === 'function' && process.getuid() !== 0) {
+        const permCur = path.join(sub, 'perm-cur');
+        const permRetired = path.join(sub, 'perm-retired');
+        fs.mkdirSync(permCur, { recursive: true });
+        try {
+          assert.throws(
+            () => withFileLock(path.join(permCur, 'record'), () => {
+              realRename(permCur, permRetired);
+              fs.mkdirSync(permCur, { recursive: true });
+              fs.chmodSync(permRetired, 0o000);
+              return 'done';
+            }, 200, '测试'),
+            err => ['EACCES', 'EPERM'].includes(err?.code),
+          );
+          fs.chmodSync(permRetired, 0o700);
+          assert.equal(withFileLock(path.join(permRetired, 'record'), () => 'recovered-perm', 200, '测试'), 'recovered-perm');
+          assert.equal(fs.existsSync(path.join(permRetired, 'record.lock')), false);
+        } finally {
+          try { fs.chmodSync(permRetired, 0o700); } catch {}
+        }
+      }
+    } finally {
+      try { fs.chmodSync(unrelated000, 0o700); } catch {}
+    }
+  });
+
+  await t.test('4) 建锁发布后归属复核 mine(lock) 遇单次 EBUSY 时退避重试，当次 appendJobLedger 直接成功', (st) => {
+    const dir = path.join(parent, 'mine-ebusy');
+    fs.mkdirSync(dir, { recursive: true });
+    const ledgerPath = path.join(dir, 'ledger.jsonl');
+    const lockPath = `${ledgerPath}.lock`;
+    const realLstat = fs.lstatSync;
+    let injected = false;
+    st.mock.method(fs, 'lstatSync', (target, opts) => {
+      if (!injected && opts?.bigint && String(target) === lockPath) {
+        injected = true;
+        throw Object.assign(new Error('EBUSY: transient post-link lstat'), { code: 'EBUSY' });
+      }
+      return realLstat(target, opts);
+    });
+    const row = appendJobLedger(ledgerPath, {
+      jobId: 'job-mine-ebusy',
+      attempt: 1,
+      kind: 'render',
+      status: 'succeeded',
+      wallMs: 5,
+      renderedFrames: 1,
+      deliveredFrames: 1,
+      diskBytes: 0,
+    });
+    st.mock.restoreAll();
+    assert.equal(injected, true);
+    assert.equal(row.seq, 1);
+  });
+});

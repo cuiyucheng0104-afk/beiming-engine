@@ -172,17 +172,25 @@ export function openShotCache(cacheDir) {
   }
   function withCacheLock(run, timeoutMs) {
     const entered = stateOf(root);
-    if (entered.held) return run(entered, root);
+    // 节点号为 0 时原路径被轮换重建会撞上同一把路径键：必须核实外层持锁目录上仍是当前这把锁，才算同代重入
+    if (entered.held && entered.ownsLock?.(path.join(entered.lockedRoot, '.cache.lock'))) return run(entered, root);
     // held 只在真正拿到文件锁之后置位：还在等别的进程放锁时重入的调用同样要去等锁，不能当成已持锁。
-    return withFileLock(path.join(root, '.cache'), locked => {
+    return withFileLock(path.join(root, '.cache'), (locked, ownsLock) => {
       // 等锁期间、拿到锁之后根都可能被轮换：状态认锁所在的那一代目录，不在原路径上别人的目录里标记持锁
       const lockedRoot = path.dirname(locked());
       const state = stateOf(lockedRoot);
+      const prevHeld = state.held;
+      const prevOwns = state.ownsLock;
+      const prevRoot = state.lockedRoot;
       state.held = true;
+      state.ownsLock = ownsLock;
+      state.lockedRoot = lockedRoot;
       try {
         return run(state, lockedRoot);
       } finally {
-        state.held = false;
+        state.held = prevHeld;
+        state.ownsLock = prevOwns;
+        state.lockedRoot = prevRoot;
       }
     }, timeoutMs, '缓存');
   }
