@@ -10,7 +10,7 @@ import { caps } from '../../sources/three/caps.mjs';
 import { planOpen } from '../../sources/three/plan.mjs';
 import { createThreeSource } from '../../sources/three/source.js';
 import { monotonicMs } from './clock.js';
-import { clipStats, lumaStats, measureEntity } from './measure.js';
+import { clipStats, lumaStats, measureEntity, placeAnchors } from './measure.js';
 
 const META_KEYS = ['texts', 'anchors', 'readings'];
 const CARD_ENTRIES = ['create', 'evaluate'];
@@ -241,15 +241,21 @@ export async function openSession({ input, env, filmBase, cards = {} }) {
         ? t
         : { ...t, bbox2d: [t.bbox2d[0] * rx, t.bbox2d[1] * ry, t.bbox2d[2] * rx, t.bbox2d[3] * ry] });
       const texts = (extra.texts ?? []).map(scaleText), readings = { ...extra.readings };
-      let anchored = Boolean(extra.anchors);
+      // 锚点：镜头代码交「实体名#锚点名」到世界坐标，宿主投到屏幕、挂到那个实体上。同一个锚点交了两次这一帧算失败，不让后来的盖掉先来的
+      const anchorPairs = Object.entries(extra.anchors ?? {});
       for (const i of loaded.reporters) {
         const m = mergeMeta(i.as, i.handle.meta(f) ?? {});
         texts.push(...m.texts.map(scaleText));
         Object.assign(readings, m.readings);
-        anchored ||= Boolean(m.anchors);
+        // 卡交的锚点只能挂在它自己带进来的实体上（卡的运行时接口契约 3.2）：实体名换成并进镜头之后的名字
+        for (const [key, world] of Object.entries(m.anchors ?? {})) {
+          const rel = key.split('#')[0], own = i.merged.find((x) => x.rel === rel);
+          if (!own) throw new Error(`卡实例 ${i.as} 交的锚点 ${key} 不在它自己带进来的实体上`);
+          anchorPairs.push([own.name + key.slice(rel.length), world]);
+        }
         Object.assign(i.row, { metaIds: m.ids, mergedMetaIds: m.merged });
       }
-      if (anchored) throw new Error('页面宿主还没接锚点');
+      const anchors = placeAnchors(view, proj, facts.size, anchorPairs, facts.manifest.entities.map((e) => e.name));
       const nulls = CAPS.metaNull ?? [];
       if (!nulls.includes('lights') || !nulls.includes('stats.noise')) throw new Error('页面宿主不会量灯和噪声，帧源必须在 metaNull 里声明');
 
@@ -263,7 +269,7 @@ export async function openSession({ input, env, filmBase, cards = {} }) {
         const m = measureEntity(view, proj, facts.size, points);
         const role = entry.roles?.hero === e.name ? 'hero' : entry.roles?.mustSee?.includes(e.name) ? 'mustSee' : null;
         // 可见比例由渲染器在编号层上数了交过来：只有出了像素、这个实体有角色时才有，别的写 null
-        return { id: e.id, name: e.name, class: e.class, ...(role ? { role } : {}), bbox2d: m.bbox2d, bbox3d: m.bbox3d, visible: (role && facts.visible?.[e.name]) ?? null, pxArea: m.pxArea, depth: m.depth };
+        return { id: e.id, name: e.name, class: e.class, ...(role ? { role } : {}), bbox2d: m.bbox2d, bbox3d: m.bbox3d, visible: (role && facts.visible?.[e.name]) ?? null, pxArea: m.pxArea, depth: m.depth, ...(Object.hasOwn(anchors, e.name) ? { anchors: anchors[e.name] } : {}) };
       });
 
       return {
@@ -319,7 +325,9 @@ export async function openSession({ input, env, filmBase, cards = {} }) {
         const res = await session.render(f, opts, want);
         const layers = {};
         for (const [name, l] of Object.entries(res.layers)) layers[name] = { type: l.type, components: l.components, size: l.size, base64: base64(l.data) };
-        return { ok: true, meta: res.meta, layers };
+        // 场景参考通路另交的（半浮点的成片、2 倍编号层）也编成 base64，宽高 node 一侧照颜色层的算
+        const extra = res.extra && Object.fromEntries(Object.entries(res.extra).map(([name, data]) => [name, base64(data)]));
+        return { ok: true, meta: res.meta, layers, ...(extra && { extra }) };
       } catch (e) {
         if (!e.code) throw e;
         return { ok: false, code: e.code, message: e.message };

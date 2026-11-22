@@ -1,0 +1,649 @@
+{
+  "format": "calib-scene/0.1",
+  "id": "hdr-post@1",
+  "title": "HDR 后期校准板：2 米外三排自发光体。上排六级曝光阶 2⁻⁴ 到 2⁶（1/16 到 64，每级 4 倍）；中排亮度 8 的红绿蓝三原色加 18% 灰、白 1、黑 0；下排亮度 1000 和 100 的两个小球、一根亮度 50 的细条，给辉光、色调映射和高光压缩用。背景是 0.02 的暗灰，黑块能和背景分开",
+  "probeRows": [
+    "颜色层的线性度",
+    "显示变换",
+    "显示变换的整形曲线",
+    "确定性",
+    "耗时"
+  ],
+  "colorSpace": "scene-linear-rec709",
+  "frameRange": {
+    "startFrame": 0,
+    "endFrame": 0
+  },
+  "frameRateFps": 24,
+  "camera": {
+    "positionM": [
+      0,
+      0,
+      0
+    ],
+    "lookAtM": [
+      0,
+      0,
+      -1
+    ],
+    "upDir": [
+      0,
+      1,
+      0
+    ],
+    "yFovDeg": 40,
+    "widthPx": 640,
+    "heightPx": 360,
+    "nearM": 0.1,
+    "farM": 100
+  },
+  "backgroundLinear": [
+    0.02,
+    0.02,
+    0.02
+  ],
+  "objects": [
+    {
+      "id": "ev.m4",
+      "idIndex": 1,
+      "shape": "plane",
+      "sizeM": [
+        0.32,
+        0.32
+      ],
+      "positionM": [
+        -1,
+        0.42,
+        -2
+      ],
+      "emissionLinear": [
+        0.0625,
+        0.0625,
+        0.0625
+      ]
+    },
+    {
+      "id": "ev.m2",
+      "idIndex": 2,
+      "shape": "plane",
+      "sizeM": [
+        0.32,
+        0.32
+      ],
+      "positionM": [
+        -0.6,
+        0.42,
+        -2
+      ],
+      "emissionLinear": [
+        0.25,
+        0.25,
+        0.25
+      ]
+    },
+    {
+      "id": "ev.0",
+      "idIndex": 3,
+      "shape": "plane",
+      "sizeM": [
+        0.32,
+        0.32
+      ],
+      "positionM": [
+        -0.19999999999999996,
+        0.42,
+        -2
+      ],
+      "emissionLinear": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "ev.p2",
+      "idIndex": 4,
+      "shape": "plane",
+      "sizeM": [
+        0.32,
+        0.32
+      ],
+      "positionM": [
+        0.20000000000000018,
+        0.42,
+        -2
+      ],
+      "emissionLinear": [
+        4,
+        4,
+        4
+      ]
+    },
+    {
+      "id": "ev.p4",
+      "idIndex": 5,
+      "shape": "plane",
+      "sizeM": [
+        0.32,
+        0.32
+      ],
+      "positionM": [
+        0.6000000000000001,
+        0.42,
+        -2
+      ],
+      "emissionLinear": [
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ev.p6",
+      "idIndex": 6,
+      "shape": "plane",
+      "sizeM": [
+        0.32,
+        0.32
+      ],
+      "positionM": [
+        1,
+        0.42,
+        -2
+      ],
+      "emissionLinear": [
+        64,
+        64,
+        64
+      ]
+    },
+    {
+      "id": "sat.red",
+      "idIndex": 7,
+      "shape": "plane",
+      "sizeM": [
+        0.32,
+        0.32
+      ],
+      "positionM": [
+        -1,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        8,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "sat.green",
+      "idIndex": 8,
+      "shape": "plane",
+      "sizeM": [
+        0.32,
+        0.32
+      ],
+      "positionM": [
+        -0.6,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "id": "sat.blue",
+      "idIndex": 9,
+      "shape": "plane",
+      "sizeM": [
+        0.32,
+        0.32
+      ],
+      "positionM": [
+        -0.19999999999999996,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0,
+        0,
+        8
+      ]
+    },
+    {
+      "id": "gray.18",
+      "idIndex": 10,
+      "shape": "plane",
+      "sizeM": [
+        0.32,
+        0.32
+      ],
+      "positionM": [
+        0.20000000000000018,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0.18,
+        0.18,
+        0.18
+      ]
+    },
+    {
+      "id": "white.1",
+      "idIndex": 11,
+      "shape": "plane",
+      "sizeM": [
+        0.32,
+        0.32
+      ],
+      "positionM": [
+        0.6000000000000001,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "black.0",
+      "idIndex": 12,
+      "shape": "plane",
+      "sizeM": [
+        0.32,
+        0.32
+      ],
+      "positionM": [
+        1,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "spark.1000",
+      "idIndex": 13,
+      "shape": "sphere",
+      "radiusM": 0.02,
+      "positionM": [
+        -0.8,
+        -0.42,
+        -2
+      ],
+      "emissionLinear": [
+        1000,
+        1000,
+        1000
+      ]
+    },
+    {
+      "id": "spark.100",
+      "idIndex": 14,
+      "shape": "sphere",
+      "radiusM": 0.06,
+      "positionM": [
+        -0.3,
+        -0.42,
+        -2
+      ],
+      "emissionLinear": [
+        100,
+        100,
+        100
+      ]
+    },
+    {
+      "id": "bar.50",
+      "idIndex": 15,
+      "shape": "box",
+      "sizeM": [
+        0.8,
+        0.012,
+        0.012
+      ],
+      "positionM": [
+        0.55,
+        -0.42,
+        -2
+      ],
+      "emissionLinear": [
+        50,
+        50,
+        50
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "kind": "patchColor",
+      "objectId": "ev.m4",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        72.727032,
+        76.145354
+      ],
+      "valueLinear": [
+        0.0625,
+        0.0625,
+        0.0625
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ev.m2",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        171.636219,
+        76.145354
+      ],
+      "valueLinear": [
+        0.25,
+        0.25,
+        0.25
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ev.0",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        270.545406,
+        76.145354
+      ],
+      "valueLinear": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ev.p2",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        369.454594,
+        76.145354
+      ],
+      "valueLinear": [
+        4,
+        4,
+        4
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ev.p4",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        468.363781,
+        76.145354
+      ],
+      "valueLinear": [
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ev.p6",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        567.272968,
+        76.145354
+      ],
+      "valueLinear": [
+        64,
+        64,
+        64
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "sat.red",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        72.727032,
+        180
+      ],
+      "valueLinear": [
+        8,
+        0,
+        0
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "sat.green",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        171.636219,
+        180
+      ],
+      "valueLinear": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "sat.blue",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        270.545406,
+        180
+      ],
+      "valueLinear": [
+        0,
+        0,
+        8
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "gray.18",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        369.454594,
+        180
+      ],
+      "valueLinear": [
+        0.18,
+        0.18,
+        0.18
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "white.1",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        468.363781,
+        180
+      ],
+      "valueLinear": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "black.0",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        567.272968,
+        180
+      ],
+      "valueLinear": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "spark.1000",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "亮度 1000 的小球球心的针孔投影：辉光的中心该落在这里",
+      "pixelPx": [
+        122.181626,
+        283.854646
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "spark.100",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "亮度 100 的小球球心的针孔投影",
+      "pixelPx": [
+        245.81811,
+        283.854646
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "bar.50",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        -0.4,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "细条左端面中心的针孔投影",
+      "pixelPx": [
+        357.090945,
+        283.854646
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "bar.50",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0.4,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "细条右端面中心的针孔投影",
+      "pixelPx": [
+        554.909319,
+        283.854646
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        122.5,
+        283.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "亮度 1000 的小球中心所在像素：只打到它，后期之前这个像素的线性值是 1000",
+      "intendedHitIds": [
+        "spark.1000"
+      ],
+      "hits": [
+        {
+          "objectId": "spark.1000",
+          "planeDepthM": 1.982517,
+          "rayDistanceM": 2.174708
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        456.5,
+        283.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "细条中段的像素：只打到细条的正面",
+      "intendedHitIds": [
+        "bar.50"
+      ],
+      "hits": [
+        {
+          "objectId": "bar.50",
+          "planeDepthM": 1.994,
+          "rayDistanceM": 2.110234
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        567.5,
+        76.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "最亮一级曝光阶（64）的中心像素：平面深度 2 米",
+      "intendedHitIds": [
+        "ev.p6"
+      ],
+      "hits": [
+        {
+          "objectId": "ev.p6",
+          "planeDepthM": 2,
+          "rayDistanceM": 2.27531
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        320.5,
+        128.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "上排和中排之间的空隙：背景。辉光开着时这里会被两边的亮块洇到，后期之前应是背景值",
+      "intendedHitIds": [],
+      "hits": []
+    }
+  ]
+}

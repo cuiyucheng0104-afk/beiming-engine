@@ -10,7 +10,8 @@ import { explainParam } from '../kernel/explain.mjs';
 import { applyFilmWrite, parseRequestText } from '../kernel/patch-apply.mjs';
 import { loadContracts } from '../kernel/contracts/validate.mjs';
 import { scanShot } from '../verify/index.mjs';
-import { reviewerFromEnv } from './agents.mjs';
+import { appendExternalLedger, reviewerFromEnv } from './agents.mjs';
+import { runDelegateOrchestrator } from './delegate.mjs';
 import { searchAssets, uploadRef } from './assets.mjs';
 import { identify, authorize, issueWorkspaceToken } from './auth.mjs';
 import { matchRoute, ROUTES } from './contract.mjs';
@@ -77,20 +78,32 @@ function jobResult(work, id, job) {
 }
 
 /** 启动一个使用独立数据目录的 HTTP 服务。port 为 0 时由系统分配。 */
-export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1', port = 0, localTrusted = false, reviewer, scheduler } = {}) {
+export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1', port = 0, localTrusted = false, reviewer, scheduler, delegate = {} } = {}) {
+  const env = process.env;
+  const model = {
+    endpoint: delegate.endpoint ?? env.BEIMING_AGENT_ENDPOINT, apiKey: delegate.apiKey ?? env.BEIMING_AGENT_API_KEY,
+    directorModel: delegate.directorModel ?? (env.BEIMING_DIRECTOR_MODEL || env.BEIMING_AGENT_MODEL), workerModel: delegate.workerModel ?? (env.BEIMING_WORKER_MODEL || env.BEIMING_AGENT_MODEL),
+    ...(delegate.reserveTokens !== undefined && { reserveTokens: delegate.reserveTokens }),
+  };
   dataDir = resolve(dataDir);
   const store = createStore(dataDir);
   const library = loadCardLibrary();
   const cards = Object.fromEntries(Object.entries(library).map(([id, item]) => [id, item.card]));
   const registry = createCardRegistry(Object.values(cards), { allowReproduced: true });
   const frozen = await loadContracts();
+  let url;
   const work = createWork({ store, library, scheduler, reviewer: reviewer === undefined ? reviewerFromEnv({ ledgerPath: join(dataDir, 'external-ledger.jsonl') }) : reviewer });
 
   async function commit(id, film, rev, files = {}) {
     return store.commit(id, film, rev, { files, library, lut: await ensureLut(dataDir) });
   }
 
-  async function createFilm(body, who) {
+  async function createFilm(body, who, bearer) {
+    const delegated = body.mode === 'delegate';
+    if (delegated && !body.brief?.trim()) throw bad('委托模式要 brief（需求原文）');
+    if (delegated && !(model.endpoint && model.apiKey && model.directorModel && model.workerModel)) {
+      throw new ApiError('env.missing-tool', '服务端没配委托模型', { hint: '设 BEIMING_AGENT_ENDPOINT、BEIMING_AGENT_API_KEY、BEIMING_AGENT_MODEL 后重启服务' });
+    }
     let question = body.question;
     if (body.exam && !question) {
       const dir = join(frozen.contracts.get('question-file').dir, 'examples');
@@ -109,7 +122,16 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
     const { diagnostics } = await commit(id, film, 1, files);
     store.writeMeta(id, { template: body.template ?? 'title', brief: body.brief, question, assets: question?.assets ?? {}, assetRef, managedFiles: Object.keys(files).filter(p => scriptPath.test(p)) });
     const token = issueWorkspaceToken(dataDir, id, { account: who.name });
-    return { data: { film: id, token, rev: 1, scaffold: 'film.json', base: film.predicates.base }, diagnostics };
+    if (!delegated) return { data: { film: id, token, rev: 1, scaffold: 'film.json', base: film.predicates.base }, diagnostics };
+    const job = work.submitDelegate(id, ({ signal, onTokens }) => runDelegateOrchestrator({
+      ...model, baseUrl: url, accountToken: bearer, workspaceToken: token, filmId: id,
+      brief: body.brief, assets: body.assets, budget: body.budget, signal,
+      onUsage: entry => {
+        onTokens?.((entry.inputTokens ?? 0) + (entry.outputTokens ?? 0));
+        appendExternalLedger(join(dataDir, 'external-ledger.jsonl'), { film: id, ...entry });
+      },
+    }));
+    return { data: { film: id, token, rev: 1, scaffold: 'film.json', base: film.predicates.base, job }, diagnostics, next: [{ verb: `GET /v1/jobs/${job}?wait=30`, why: '委托编排在后台跑，长轮询看它停在哪' }] };
   }
 
   async function writeFilm(id, body, machine) {
@@ -250,7 +272,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
     return { data: { rev: result.rev, applied, lock: 'film.lock' }, diagnostics: [...checked.diagnostics, ...saved.diagnostics] };
   }
 
-  async function dispatch(route, params, query, body, who, id) {
+  async function dispatch(route, params, query, body, who, id, bearer) {
     const job = params.id;
     switch (route.id) {
       case 'guide': return { data: guideData() };
@@ -268,7 +290,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
         const { items, expectedCount } = searchAssets(body);
         return { data: counted(items, expectedCount) };
       }
-      case 'films-create': return createFilm(body, who);
+      case 'films-create': return createFilm(body, who, bearer);
       case 'film-get': return { data: { rev: store.rev(id), film: store.readFilm(id) } };
       case 'film-put': return store.serial(id, () => writeFilm(id, body, query.get('applyFixes') === 'machine'));
       case 'film-files':
@@ -359,7 +381,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
         return;
       }
       const body = await readBody(req, route);
-      result = await dispatch(route, match.params, target.searchParams, body, who, id);
+      result = await dispatch(route, match.params, target.searchParams, body, who, id, /^Bearer\s+(\S+)$/.exec(req.headers.authorization?.trim() ?? '')?.[1]);
       if (route.id === 'films-create') id = result.data.film;
       if (result.ok === false) status = httpStatusOf(result.code);
     } catch (e) {
@@ -400,7 +422,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
   });
   await new Promise((done, reject) => { server.once('error', reject); server.listen(port, host, done); });
   const address = server.address();
-  const url = `http://${address.family === 'IPv6' ? `[${address.address}]` : address.address}:${address.port}`;
+  url = `http://${address.family === 'IPv6' ? `[${address.address}]` : address.address}:${address.port}`;
   async function close() {
     const closed = new Promise((done, reject) => server.close(err => err ? reject(err) : done()));
     await work.cancelAll();

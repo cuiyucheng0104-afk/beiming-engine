@@ -1,6 +1,6 @@
 // 校准场景检查器：查格式、查单位、从规格重算 expected 并比对。只用 Node 标准库。
 // 格式说明见同目录 README.md。
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -13,7 +13,7 @@ export const PROBE_ROWS = [
 ];
 
 // 数值字段必须以下列后缀之一结尾（最长的先匹配）。整数后缀另查整数。
-export const UNIT_SUFFIXES = ['MPerFrame', 'RadPerFrame', 'Linear', 'Ratio', 'Frame', 'Index', 'Fps', 'Deg', 'Rad', 'Dir', 'Px', 'M'];
+export const UNIT_SUFFIXES = ['MPerFrame', 'RadPerFrame', 'Linear', 'Ratio', 'Frame', 'Index', 'Fps', 'Deg', 'Rad', 'Dir', 'Px', 'M', 'W'];
 const INTEGER_SUFFIXES = new Set(['Frame', 'Index']);
 const INTEGER_PATHS = new Set(['camera.widthPx', 'camera.heightPx']);
 
@@ -45,10 +45,13 @@ export function checkUnits(node, path = '', key = null, out = []) {
 
 // ---------- 格式 ----------
 
-const TOP = { req: ['format', 'id', 'title', 'probeRows', 'colorSpace', 'frameRange', 'frameRateFps', 'camera', 'backgroundLinear', 'objects', 'expected'], opt: ['ext'] };
+const TOP = { req: ['format', 'id', 'title', 'probeRows', 'colorSpace', 'frameRange', 'frameRateFps', 'camera', 'backgroundLinear', 'objects', 'expected'], opt: ['ext', 'lights'] };
 const CAMERA = { req: ['positionM', 'lookAtM', 'upDir', 'yFovDeg', 'widthPx', 'heightPx', 'nearM', 'farM'], opt: ['shutterAngleDeg', 'shutterOpens', 'apertureDiameterM', 'focusDistanceM'] };
 const SHAPES = { box: ['sizeM'], plane: ['sizeM'], sphere: ['radiusM'], cylinder: ['radiusM', 'heightM'] };
-const OBJECT_BASE = { req: ['id', 'idIndex', 'shape', 'positionM', 'emissionLinear'], opt: ['rotation', 'motion'] };
+const OBJECT_BASE = { req: ['id', 'idIndex', 'shape', 'positionM', 'emissionLinear'], opt: ['rotation', 'motion', 'material'] };
+// 受光材质（可选）：写了 material 的物体受 lights 照，不写的是不受光的自发光体
+const MATERIAL = ['kind', 'baseColorLinear', 'roughnessRatio', 'metallicRatio'];
+const LIGHT = ['id', 'kind', 'positionM', 'colorLinear', 'powerW'];
 const MOTIONS = { linear: ['velocityMPerFrame'], spin: ['pivotM', 'axisDir', 'angularVelocityRadPerFrame'] };
 const EXPECTED = {
   pixelHits: { req: ['atFrame', 'pixelPx', 'intendedHitIds', 'hits', 'toleranceRatio'] },
@@ -97,6 +100,12 @@ export function checkFormat(s) {
     if (!isVec(o.positionM, 3) || !isVec(o.emissionLinear, 3)) out.push(`${w}：positionM、emissionLinear 必须是 3 个数`);
     if ('sizeM' in o && !isVec(o.sizeM, o.shape === 'box' ? 3 : 2)) out.push(`${w}：sizeM 个数不对`);
     if (o.rotation && fields(o.rotation, ['axisDir', 'angleRad'], [], `${w}.rotation`, out) && !isVec(o.rotation.axisDir, 3)) out.push(`${w}.rotation.axisDir：必须是 3 个数`);
+    if (o.material && fields(o.material, MATERIAL, [], `${w}.material`, out)) {
+      const m = o.material;
+      if (m.kind !== 'standard') out.push(`${w}.material.kind 只能是 standard`);
+      if (!isVec(m.baseColorLinear, 3)) out.push(`${w}.material.baseColorLinear：必须是 3 个数`);
+      for (const k of ['roughnessRatio', 'metallicRatio']) if (!(m[k] >= 0 && m[k] <= 1)) out.push(`${w}.material.${k}：必须在 0 到 1 之间`);
+    }
     if (o.motion) {
       const mReq = MOTIONS[o.motion.kind];
       if (!mReq) out.push(`${w}.motion.kind 只能是 ${Object.keys(MOTIONS).join('、')}`);
@@ -104,6 +113,17 @@ export function checkFormat(s) {
     }
   });
   if (!Array.isArray(s.objects) || !s.objects.length) out.push('objects：必须是非空数组');
+  if ('lights' in s && !Array.isArray(s.lights)) out.push('lights：必须是数组');
+  const lightIds = new Set();
+  (Array.isArray(s.lights) ? s.lights : []).forEach((l, i) => {
+    const w = `lights[${i}]`;
+    if (!fields(l, LIGHT, [], w, out)) return;
+    if (l.kind !== 'point') out.push(`${w}.kind 只能是 point`);
+    if (typeof l.id !== 'string' || !l.id || ids.has(l.id) || lightIds.has(l.id)) out.push(`${w}：id 必须是名字，不和物体、别的灯重复`);
+    lightIds.add(l.id);
+    if (!isVec(l.positionM, 3) || !isVec(l.colorLinear, 3) || l.colorLinear.some(x => x < 0)) out.push(`${w}：positionM、colorLinear 必须是 3 个数，颜色不为负`);
+    if (!(l.powerW > 0)) out.push(`${w}.powerW：必须大于 0`);
+  });
   if (!Array.isArray(s.expected) || !s.expected.length) out.push('expected：必须是非空数组');
   (Array.isArray(s.expected) ? s.expected : []).forEach((e, i) => {
     const w = `expected[${i}]`;
@@ -283,6 +303,7 @@ export function computeExpected(s, e) {
       const pixelPx = project(s.camera, toWorld(o, s.frameRange.startFrame, [0, 0, 0])).map(r6);
       const first = raycast(s, pixelPx, s.frameRange.startFrame)[0];
       if (first?.objectId !== e.objectId) return { error: `像素 ${pixelPx} 最先打到的是 ${first?.objectId ?? '背景'}，不是 ${e.objectId}` };
+      if (o.material) return { error: `${e.objectId} 是受光物体，读回多少要看灯和渲染器，规格不给答案；patchColor 只能指自发光物体` };
       return { pixelPx, valueLinear: o.emissionLinear };
     }
     case 'projectedBox': {
@@ -334,13 +355,16 @@ export function checkScene(s, dirName) {
 
 export const CALIB_DIR = dirname(fileURLToPath(import.meta.url));
 
-export function loadScenes(dir = CALIB_DIR) {
-  return readdirSync(dir).filter(n => n.startsWith('probe-') && statSync(join(dir, n)).isDirectory()).sort()
+// 默认只列七个 probe-* 探针场景；all 时列目录下带 scene.json 的全部场景（再加四个带版本的公开场景），都按名字排。
+export function loadScenes(dir = CALIB_DIR, { all = false } = {}) {
+  return readdirSync(dir).filter(n => (all ? existsSync(join(dir, n, 'scene.json')) : n.startsWith('probe-') && statSync(join(dir, n)).isDirectory())).sort()
     .map(name => ({ name, scene: JSON.parse(readFileSync(join(dir, name, 'scene.json'), 'utf8')) }));
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const scenes = loadScenes();
+// argv[1] 可能带符号链接（macOS 的 /tmp、/var），import.meta.url 是解开之后的：不解开就比，直接运行会什么都不查、退出 0
+const entry = process.argv[1];
+if (entry && existsSync(entry) && fileURLToPath(import.meta.url) === realpathSync(entry)) {
+  const scenes = loadScenes(CALIB_DIR, { all: true });
   let bad = 0;
   for (const { name, scene } of scenes) {
     const problems = checkScene(scene, name);
@@ -348,5 +372,5 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     else console.log(`${name}：通过，核对标准答案 ${scene.expected.length} 个`);
   }
   console.log(`${scenes.length} 个场景，${bad} 个有问题`);
-  process.exitCode = bad || scenes.length !== 7 ? 1 : 0;
+  process.exitCode = bad || scenes.length !== 11 ? 1 : 0; // 7 个探针场景加 4 个公开场景，少一个也不算过
 }
