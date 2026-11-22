@@ -87,6 +87,21 @@ for (const mode of ['abort', 'exit', 'drain']) {
   });
 }
 
+test('M10 编码器未读输入便以 0 退出，finish 拒绝并清除半截文件', { timeout: 10000 }, async (t) => {
+  const { sink, dir, go, pid } = await stalledEncoder(t, 'process.exit(0)');
+  await sink.write(Buffer.from('unread'));
+  writeFileSync(go, '');
+  // 等子进程自行退出后才关输入，否则提前发送 EOF 会掩盖这次提前退出。
+  while (true) {
+    try { process.kill(pid, 0); }
+    catch (err) { assert.equal(err.code, 'ESRCH'); break; }
+    await sleep(5, undefined, { signal: t.signal });
+  }
+  await assert.rejects(sink.finish(), (err) => failed(err) && /管道退出 0/.test(err.message));
+  rmSync(go);
+  assert.deepEqual(readdirSync(dir), []);
+});
+
 test('并发 finish 和 abort 会拒绝在途写入，保留原成品', async (t) => {
   const { openFileSink } = await import('./sink.mjs');
   const { path, dir } = fixture(t);
@@ -125,6 +140,10 @@ for (const voice of ['foley.step', 'foley.cloth', 'foley.impact', 'foley.metal']
   test(`X5 ${voice} 第 5 次触发与第 1 次的波形不同`, () => {
     const { make, pcenter } = VOICES[voice];
     const first = make(42, 0).left, fifth = make(42, 4).left;
+    // 前导没有振荡器或高架均衡，独立噪声的样本极性也应改变。
+    let flipped = 0;
+    for (let i = 1; i < pcenter; i++) if (first[i] * fifth[i] < 0) flipped++;
+    assert.ok(flipped > pcenter / 8, `${voice} 跨轮重复了前导噪声`);
     // 分开比较接触与主体：只有音高或只有高频增益在变，整段样本也会不等。
     for (const [layer, from, to] of [['接触', 0, 72], ['主体', 160, 600]]) {
       let delta = 0;
@@ -149,15 +168,19 @@ function foleyFilm(audio, count) {
   return film;
 }
 
-function deliveryInput(dir, voice) {
-  const film = foleyFilm(voice, 4);
+function deliveryFrames(dir, length) {
+  const pattern = join(dir, 'frame%03d.png');
+  runTool(tools().ffmpeg, ['-nostdin', '-v', 'error', '-f', 'lavfi', '-i', 'color=s=32x16:r=30',
+    '-frames:v', String(length), '-start_number', '0', pattern]);
+  return { s01: { pattern } };
+}
+
+function deliveryInput(dir, voice, count = 4, frames) {
+  const film = foleyFilm(voice, count);
   const lock = example('lock/examples/minimal.json');
   lock.cards['audio.master'] = example('lock/examples/check-full.json').lock.cards['audio.master'];
   lock.seeds.s01 = film.shots[0].seed;
-  const pattern = join(dir, 'frame%03d.png');
-  runTool(tools().ffmpeg, ['-nostdin', '-v', 'error', '-f', 'lavfi', '-i', 'color=s=32x16:r=30',
-    '-frames:v', String(film.output.frames), '-start_number', '0', pattern]);
-  return { film, lock, events: eventsTable(film), frames: { s01: { pattern } } };
+  return { film, lock, events: eventsTable(film), frames: frames ?? deliveryFrames(dir, film.output.frames) };
 }
 
 function checkLevels(t, label, { integrated, truePeak }) {
@@ -205,4 +228,22 @@ test('X5 M19 同一种子交付的 PCM 可重放，改 film 与锁的全片种�
   });
   assert.equal(hashes[0], hashes[1], '同种子重放');
   assert.notEqual(hashes[0], hashes[2], '不同全片种子');
+});
+
+test('X5-R3-Red 衣料与脚步连发经真实 deliver 后两档 AAC 均达标', needFfmpeg, (t) => {
+  const { dir } = fixture(t);
+  const frames = deliveryFrames(dir, foleyFilm('foley.cloth', 24).output.frames);
+  // 首轮保留二审复现的种子 1、2、3、5，第二轮换种子重测同样的八种工况。
+  const cases = [[3, 'room'], [24, 'room'], [4, 'silence'], [8, 'room'],
+    [24, 'silence'], [3, 'silence'], [8, 'silence'], [4, 'room']];
+  for (let seed = 0; seed < 18; seed++) {
+    const voice = seed < 16 ? 'foley.cloth' : 'foley.step';
+    const [count, bed] = cases[seed % cases.length];
+    const input = deliveryInput(dir, voice, count, frames);
+    input.film.seed = input.lock.seeds.film = seed;
+    const bundle = deliver({ ...input, bed, outDir: join(dir, `deliver-${seed}`) });
+    for (const name of [PIECES.master, PIECES.web]) {
+      checkLevels(t, `${voice}×${count}/${bed}/s${seed}/${name}`, measureLoudness(join(bundle.dir, name)));
+    }
+  }
 });

@@ -13,7 +13,7 @@
 
 ### Added
 
-- 合成收尾可向 `encode`、`deliver` 注入流式输出端，逐块写入并在背压时等待，编码成功后原子发布。事件混音新增撞击、脚步、金属和衣料四种分层拟音，按种子轮换，相邻触发有变化，同一锁可复现（#84）。
+- 合成收尾可向 `encode`、`deliver` 注入流式输出端，逐块等待背压，编码成功后原子发布，空输入或提前退出会拒绝发布。工厂入口通过 Promise 报告参数错误。事件混音新增撞击、脚步、金属和衣料四种分层拟音，同一种子可逐位重放，跨轮触发使用独立噪声。脚步与衣料连发时控制接触峰值，衣料摩擦带限后可同时满足母版与网页 AAC 的响度和真峰值目标（#84）。
 - 新增 `beiming/observe/curves`（读 tracks/0.1，无轨道实体回退 meta/0.1，回峰值、零平台、单调段与缓动类型）和 `beiming/observe/telemetry`（八分之一亮度平面上的运动能量、横向重心、切点、静止段、闪烁与可选音频起音帧差），回答均不超过 600 token；agent 不看图就能读曲线与时间节奏。
 - 帧源注册与升级可用七项一致性报告核对 Three、Blender 探针读数，`limited` 档保留颜色和两项确定性检查。另提供 17 条历史不变量的判定器及逐项违例用例（#75）。
 - 新系统 `beiming/api/` 单一来源 OpenAPI 合同、HTTP 服务端、1500-token 入口卡与全套 M1a 动词闭环（#60）：新增 `contract.mjs` 与逐字节同步的 `openapi.json`（覆盖全部 23 个 HTTP 动词与独立 token 上限）、零外部框架 `node:http` 服务端 `server.mjs` 与两级令牌隔离鉴权 `auth.mjs`（全响应过冻结 `envelope/0.1` 与 `EN1–EN4`，溢出自动转存只读产物链接）、1210-token 入口卡 `guide.mjs`（原生双 `cards-data` 样例）、真实串联内核补丁与正式锁签发 / Blender Cycles 与 Three 页面帧源 / 空间观测与联系表 / L1–L5 核验与异族视觉审片接口 / 六件套终渲交付的制作管线（`films.mjs`、`pipeline.mjs`、`work.mjs`），以及通用 OpenAI 兼容唯一工具 `http_request` 代理循环 `agents.mjs` 与独立用量账本，配套 18 项端到端与裸机兼容单测。
@@ -107,8 +107,6 @@
 - 旧作品站的生成物 `showcase/`（由 `site/` 与 `tools/build-showcase.py` 取代）。
 
 ### Fixed
-
-- 修复脚步与衣料拟音连续触发时母带响度不足，以及四种拟音每四次触发逐位复读的问题；原有非拟音音色与母带算法不变。流式编码不再发布空输入成片；注入输出端工厂时，参数错误也通过 Promise 返回（#84）。
 
 - `beiming/api/pipeline.mjs` 长镜头颜色层转 EXR 分批喂入 FFmpeg 管道：将单镜整段 `gbrapf32le` 浮点缓冲拼接改为按不超过 `256 MiB` 一批（`-start_number` 续接）分块送入 `spawnSync`，消除 1080p/4K 多秒长镜头超过 libuv `INT32_MAX`（约 `2 GiB`）管道上限导致的 `EINVAL` 报错并大幅降低终渲峰值内存。
 - 音频终局闭环合入后的审计修复（Refs #64）：`HDRMixer` 直调 `set_dialogue()` 时不再走 legacy 分轨导出，`vo` 分轨照常做真峰值限幅（无对白脚本逐样本不变）；`music_gen --ssh` 主机名以 `-` 开头或含空白时按 usage 错误（退出码 2）拒绝，并在 ssh 命令里 host 前加 `--`；`audio.dialogue` 检查跳过采样率不符的伴奏分轨时关闭其文件句柄；出片链 `mix` 步骤的缓存键加入档位，换响度目标档位不再复用旧 `audio/qa.json`；`_check_masking` 去掉等价的冗余条件。

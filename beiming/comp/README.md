@@ -20,6 +20,6 @@
 
 在 `events/0.1` 条目里设置 `audio` 为 `foley.impact`、`foley.step`、`foley.metal` 或 `foley.cloth`，`sync` 为 `onset` 或 `pcenter`。例如 `{ "id": "step1", "kind": "named", "from": "film", "frame": 24, "sub": 0.5, "audio": "foley.step", "sync": "pcenter" }`。
 
-音色包含前导、接触瞬态、主体与余响。`mixEvents(events, { seed })` 依 `frame + sub` 对齐起音或接触重心，返回 48 kHz 立体声。每种材质独立轮换四个变体，每次触发再由种子与该材质的触发序号微调音高和均衡，下一轮不复读。`deliver` 使用 `film.lock` 的全片种子，同一输入可逐位重放。
+音色包含前导、接触瞬态、主体与余响。`mixEvents(events, { seed })` 依 `frame + sub` 对齐起音或接触重心，返回 48 kHz 立体声。每种材质轮换四个变体，按全片种子和本材质的触发序号生成每次的噪声、音高和均衡。衣料摩擦经过两级低通，控制网页 AAC 编码后的真峰值。`deliver` 从 `film.lock` 取全片种子，同一输入可逐位重放。
 
 通用约定见[契约目录](../kernel/contracts/)、[契约写法约定](../kernel/contracts/CONVENTIONS.md)和[目录归属契约](../kernel/contracts/ownership/CONTRACT.md)。

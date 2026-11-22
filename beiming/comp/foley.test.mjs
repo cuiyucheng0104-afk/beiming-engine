@@ -80,7 +80,8 @@ test('从接触瞬态后的间隙量到主体首个样本，并检查余响', (t
       const at = Math.round((frame + sub) * SAMPLE_RATE / 60);
       const attack = left.subarray(at, at + 240);
       assert.ok(attack.subarray(0, 48).some((v) => Math.abs(v) > 0.05), `${name} 缺接触瞬态`);
-      const gap = attack.findIndex((v, i) => i >= 48 && v === 0 && attack[i + 1] === 0);
+      // 低通的衰减尾巴渐近于零，用与主体起点一致的振幅阈值判定间隙。
+      const gap = attack.findIndex((v, i) => i >= 48 && Math.abs(v) <= 1e-7 && Math.abs(attack[i + 1]) <= 1e-7);
       assert.ok(gap >= 0, `${name} 找不到瞬态和主体的间隙`);
       const body = attack.findIndex((v, i) => i > gap && Math.abs(v) > 1e-7);
       const lagMs = body * 1000 / SAMPLE_RATE;
