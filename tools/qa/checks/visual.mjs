@@ -9,11 +9,16 @@
 //   切点：分数 = min(帧差%, |帧差% − 上一帧帧差%|)（同 ffmpeg scdet 的算法）≥ cutScore，±cutNmsFrames 内非极大值抑制，与镜头表 ±cutTolFrames 对应
 //   跳帧：帧差 ≥ jumpRatio × 前后 6 帧帧差中值，且至少高出 jumpMinLevels 级（方法借鉴 cases/source/style-18-art-deco/tools/motioncheck.py@1046c14 的帧差对中值倍数，代码重写）
 //
-//   runVisual({ input, profile, film, probe, timeoutMs }) → { checks, series, framesOfInterest }
+//   runVisual({ input, profile, film, probe, timeoutMs, telemetryFile, telemetryExplicit }) → { checks, series, framesOfInterest, source, warnings }
+import fs from 'node:fs/promises';
 import { makeCheck, finding, settle, notRun } from '../lib/checks.mjs';
-import { probeFile, rate } from '../lib/probe.mjs';
-import { streamLuma, analysisSize } from '../lib/frames.mjs';
+import { probeFile, rate, recordVideoVerifier } from '../lib/probe.mjs';
+import { streamLuma } from '../lib/frames.mjs';
+import { usageError } from '../lib/cli-kit.mjs';
 import { fpsOf } from '../lib/profiles.mjs';
+import { createAnalyzer, hexLuma, telemetrySize, validateVisualTelemetry } from '../../../engine/render/lib/visual-telemetry.mjs';
+
+export { createAnalyzer };
 
 const median = a => { if (!a.length) return 0; const s = Float64Array.from(a).sort(); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const runs = (flags, n) => { const out = []; let s = -1; for (let i = 0; i <= n; i++) { if (i < n && flags[i]) { if (s < 0) s = i; } else if (s >= 0) { out.push([s, i]); s = -1; } } return out; };
@@ -22,149 +27,39 @@ const covered = (r, list, tol = 1) => list.some(x => r[0] >= x.from - tol && r[1
 const near = (i, set, d) => { for (const c of set) if (Math.abs(i - c) <= d) return true; return false; };
 const srgbLin = v => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
 
-function boxBlur(src, dst, tmp, w, h) {
-  for (let y = 0; y < h; y++) {
-    const o = y * w;
-    for (let x = 0; x < w; x++) {
-      const a = src[o + (x > 0 ? x - 1 : x)], b = src[o + x], c = src[o + (x < w - 1 ? x + 1 : x)];
-      tmp[o + x] = (a + b + c) / 3;
-    }
-  }
-  for (let y = 0; y < h; y++) {
-    const up = (y > 0 ? y - 1 : y) * w, me = y * w, dn = (y < h - 1 ? y + 1 : y) * w;
-    for (let x = 0; x < w; x++) dst[me + x] = (tmp[up + x] + tmp[me + x] + tmp[dn + x]) / 3;
-  }
-}
-
-export function createAnalyzer({ w, h, fps, visual, clearLuma = 0 }) {
-  const N = w * h;
-  const gx = 16, gy = Math.max(4, Math.round(16 * h / w));
-  const bw = Math.ceil(w / gx), bh = Math.ceil(h / gy);
-  const blur1 = new Float32Array(N), blur2 = new Float32Array(N), tmp = new Float32Array(N);
-  let prev = null, ref = null, refIndex = 0;
-  const noise = 10 ** (visual.freezeNoiseDb / 20) * 255;
-  const blackThr = visual.blackPixel * 255;
-  const S = { yavg: [], mafd: [], blackRatio: [], blockLum: [], freezeRuns: [], bands: [], lines: [], n: 0, gx, gy, w, h };
-  const blockDiffMax = (a, b) => {
-    const sums = new Float64Array(gx * gy), cnt = new Uint32Array(gx * gy);
-    for (let y = 0; y < h; y++) {
-      const row = Math.min(gy - 1, (y / bh) | 0) * gx;
-      for (let x = 0; x < w; x++) { const k = row + Math.min(gx - 1, (x / bw) | 0); sums[k] += Math.abs(a[y * w + x] - b[y * w + x]); cnt[k]++; }
-    }
-    let m = 0, tot = 0;
-    for (let k = 0; k < sums.length; k++) { if (cnt[k]) { const v = sums[k] / cnt[k]; if (v > m) m = v; } tot += sums[k]; }
-    return { max: m, mean: tot / N };
-  };
-  const clearLine = (lum, idxs, ref0) => {
-    let n = 0;
-    for (const i of idxs) if (Math.abs(lum[i] - ref0) <= 8) n++;
-    return n >= 0.95 * idxs.length;
-  };
-  const lineIdx = (side, k, seg, segs) => {
-    const out = [];
-    if (side === 'left' || side === 'right') {
-      const x = side === 'left' ? k : w - 1 - k, y0 = Math.floor(seg * h / segs), y1 = Math.floor((seg + 1) * h / segs);
-      for (let y = y0; y < y1; y++) out.push(y * w + x);
-    } else {
-      const y = side === 'top' ? k : h - 1 - k, x0 = Math.floor(seg * w / segs), x1 = Math.floor((seg + 1) * w / segs);
-      for (let x = x0; x < x1; x++) out.push(y * w + x);
-    }
-    return out;
-  };
-  const meanOf = (lum, idxs) => { let s = 0; for (const i of idxs) s += lum[i]; return idxs.length ? s / idxs.length : 0; };
-
-  return {
-    S,
-    push(lum, i) {
-      let sum = 0, dark = 0;
-      for (let k = 0; k < N; k++) sum += lum[k];
-      boxBlur(lum, blur1, tmp, w, h);
-      boxBlur(blur1, blur2, tmp, w, h);
-      for (let k = 0; k < N; k++) if (blur2[k] <= blackThr) dark++;
-      const yavg = sum / N;
-      S.yavg.push(yavg);
-      S.blackRatio.push(dark / N);
-      // 帧差与静帧
-      let mafd = 0;
-      if (prev) mafd = blockDiffMax(blur2, prev).mean;
-      S.mafd.push(mafd);
-      if (!ref) { ref = Float32Array.from(blur2); refIndex = i; }
-      else {
-        const d = blockDiffMax(blur2, ref).max;
-        if (d >= noise) {
-          if (i - refIndex >= 2) S.freezeRuns.push([refIndex, i]);
-          ref.set(blur2); refIndex = i;
-        }
-      }
-      prev = prev || new Float32Array(N);
-      prev.set(blur2);
-      // 分块亮度（大面积闪烁筛查用）
-      const bl = new Float32Array(gx * gy), bc = new Uint32Array(gx * gy);
-      for (let y = 0; y < h; y++) {
-        const row = Math.min(gy - 1, (y / bh) | 0) * gx;
-        for (let x = 0; x < w; x++) { const k = row + Math.min(gx - 1, (x / bw) | 0); bl[k] += lum[y * w + x]; bc[k]++; }
-      }
-      for (let k = 0; k < bl.length; k++) bl[k] = bc[k] ? bl[k] / bc[k] : 0;
-      S.blockLum.push(bl);
-      // 边缘：清屏色暗带（每边分 4 段）
-      if (yavg > 10) {
-        const maxBand = Math.max(2, Math.round(Math.min(w, h) * 0.04));
-        for (const side of ['top', 'right', 'bottom', 'left']) {
-          for (let seg = 0; seg < 4; seg++) {
-            let k = 0;
-            while (k < maxBand && clearLine(lum, lineIdx(side, k, seg, 4), clearLuma)) k++;
-            if (k > 0 && k < maxBand) {
-              const inner = meanOf(lum, lineIdx(side, Math.min(maxBand - 1, k + 1), seg, 4));
-              if (inner >= clearLuma + 12) S.bands.push({ frame: i, side, seg, px: k });
-            }
-          }
-        }
-      }
-      // 笔直竖边：每行取横向梯度的局部极大点，再看同一列（±1）连续多少行都有
-      const g = 10, minRun = Math.round(visual.edgeLineMinFrac * h);
-      const colRun = new Uint16Array(w), best = new Uint16Array(w), bestEnd = new Uint16Array(w);
-      const edge = new Uint8Array(w);
-      for (let y = 0; y < h; y++) {
-        const o = y * w;
-        edge.fill(0);
-        for (let x = 2; x < w - 2; x++) {
-          const d = Math.abs(blur1[o + x + 1] - blur1[o + x - 1]);
-          if (d >= g && d >= Math.abs(blur1[o + x] - blur1[o + x - 2]) && d >= Math.abs(blur1[o + x + 2] - blur1[o + x])) edge[x] = 1;
-        }
-        for (let x = 3; x < w - 3; x++) {
-          if (edge[x - 1] || edge[x] || edge[x + 1]) { colRun[x]++; if (colRun[x] > best[x]) { best[x] = colRun[x]; bestEnd[x] = y; } }
-          else colRun[x] = 0;
-        }
-      }
-      for (let x = 3; x < w - 3; x++) {
-        if (best[x] >= minRun && best[x] >= best[x - 1] && best[x] > best[x + 1]) S.lines.push({ frame: i, x, run: best[x], y1: bestEnd[x] + 1, y0: bestEnd[x] + 1 - best[x] });
-      }
-      S.n = i + 1;
-    },
-    end() { if (ref && S.n - refIndex >= 2) S.freezeRuns.push([refIndex, S.n]); return S; },
-  };
-}
-
-function hexLuma(hex) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
-  if (!m) return 0;
-  const v = parseInt(m[1], 16);
-  return 0.2126 * (v >> 16) + 0.7152 * ((v >> 8) & 255) + 0.0722 * (v & 255);
-}
-
-export async function runVisual({ input, profile, film = null, probe = null, timeoutMs }) {
+export async function runVisual({ input, profile, film = null, probe = null, timeoutMs, telemetryFile, telemetryExplicit = false, verifyVideo = recordVideoVerifier(input, { timeoutMs }) }) {
   const pr = probe || await probeFile(input, { timeoutMs });
   const v = pr.video;
-  const checks = [];
+  const checks = [], warnings = [];
   const ids = ['visual.black', 'visual.freeze', 'visual.flicker', 'visual.cuts', 'visual.jumps', 'visual.flash-rate', 'visual.edge-clear', 'visual.edge-line'];
-  if (!v) { for (const id of ids) checks.push(notRun(makeCheck(id), '没有视频流')); return { checks, series: null, framesOfInterest: [] }; }
-  const V = profile.visual;
+  if (!v) {
+    if (telemetryExplicit) throw usageError('没有视频流，无法核对 --telemetry');
+    for (const id of ids) checks.push(notRun(makeCheck(id), '没有视频流'));
+    return { checks, series: null, framesOfInterest: [], source: null, warnings };
+  }
+  const V = profile.visual, clearColor = film?.qa?.clearColor;
   const fps = (rate(v.avg_frame_rate) || rate(v.r_frame_rate) || fpsOf(profile)).value;
   const nb = Number(v.nb_frames) || 0;
-  const size = analysisSize(v.width, v.height, nb > 3000 ? 320 : 480);
-  const an = createAnalyzer({ w: size.w, h: size.h, fps, visual: V, clearLuma: hexLuma(film?.qa?.clearColor) });
-  await streamLuma(input, { w: size.w, h: size.h, timeoutMs, onFrame: (lum, i) => an.push(lum, i) });
-  const S = an.end();
+  const size = telemetrySize(v.width, v.height, nb);
+  let S, source = 'decode';
+  if (telemetryFile) {
+    try {
+      const doc = JSON.parse(await fs.readFile(telemetryFile, 'utf8'));
+      const series = validateVisualTelemetry(doc, { width: v.width, height: v.height, frames: nb, fps, visual: V, clearColor });
+      await verifyVideo(doc, telemetryFile, v);
+      S = series;
+      source = 'telemetry';
+    } catch (e) {
+      const why = `画面遥测 ${telemetryFile} 不可用：${e.message}`;
+      if (telemetryExplicit) throw usageError(why, '使用本片渲染生成的 telemetry.json，或去掉 --telemetry 按成片解码');
+      warnings.push(`${why}；改用成片解码`);
+    }
+  }
+  if (!S) {
+    const an = createAnalyzer({ ...size, visual: V, clearLuma: hexLuma(clearColor) });
+    await streamLuma(input, { ...size, timeoutMs, onFrame: (lum, i) => an.push(lum, i) });
+    S = an.end();
+  }
   const n = S.n;
   const intentional = film?.qa?.intentional || [];
   const ofKind = k => intentional.filter(x => x.kind === k);
@@ -352,7 +247,7 @@ export async function runVisual({ input, profile, film = null, probe = null, tim
   checks.push(settle(el));
 
   return {
-    checks,
+    checks, source, warnings,
     series: { frames: n, yavg: S.yavg.map(x => +x.toFixed(2)), cutScore: score.map(x => +x.toFixed(2)), analysis: `${size.w}×${size.h}` },
     framesOfInterest: [...foi].sort((a, b) => a - b),
   };

@@ -10,6 +10,8 @@ import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs
 import { hashCardContents, validateCard } from '../../cards/index.mjs';
 import { caps } from '../../sources/three/caps.mjs';
 import { planOpen, planRender, SourceError } from '../../sources/three/plan.mjs';
+import { coverage2x, HALF_FLOATS } from '../../sources/three/source.js';
+import { writeExr } from '../../verify/exr/exr.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 // 页面只拿得到这两处：本系统的代码，和 0.187.0 的 three
@@ -35,6 +37,14 @@ const ENV_KEYS = ['lock', 'tier', 'workspace', 'filmDir'];
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const pad = (n, width) => String(n).padStart(width, '0');
 const rel = (abs) => relative(REPO, abs).split(sep).join('/');
+// 字节拷成对齐的数组：Buffer 可能落在共用池里，起点不一定对齐到 4 字节
+const typed = (T, bytes) => new T(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length));
+/** 交错的数组里每 k 个数取第 at 个，排成一个通道；给了 lut 就拿取到的数查表（半浮点的位型换成数） */
+function plane(data, k, at, lut) {
+  const out = new (lut ? Float32Array : data.constructor)(data.length / k);
+  for (let i = 0; i < out.length; i++) out[i] = lut ? lut[data[i * k + at]] : data[i * k + at];
+  return out;
+}
 
 /** 地址里的路径换成仓库里的文件；不在放行目录里、或者想跳出去的，返回 null */
 export function resolveServed(urlPath) {
@@ -127,14 +137,32 @@ export async function startSource({ cards = [] } = {}) {
         const { renderOpts } = planRender(CAPS, input.shot, input.output.size, env.tier, opts, want, locked);
         const res = await page.evaluate(([frame, o, w]) => window.__session.render(frame, o, w), [f, renderOpts, want]);
         if (!res.ok) throw new SourceError(res.code, res.message);
-        const dir = `r${pad(renders++, 3)}-f${pad(f, 4)}`, layers = {};
+        const dir = `r${pad(renders++, 3)}-f${pad(f, 4)}`, layers = {}, channels = {};
+        const save = async (file, bytes) => { await writeFile(join(env.workspace, file), bytes); return { file, hash: `sha256:${sha256(bytes)}` }; };
         for (const [name, l] of Object.entries(res.layers)) {
-          const bytes = Buffer.from(l.base64, 'base64'), file = `${dir}/${name}.${l.type}`;
+          const bytes = Buffer.from(l.base64, 'base64');
           await mkdir(join(env.workspace, dir), { recursive: true });
-          await writeFile(join(env.workspace, file), bytes);
-          layers[name] = { file, shape: [l.size[1], l.size[0], l.components.length], components: l.components, hash: `sha256:${sha256(bytes)}` };
+          const { file, hash } = await save(`${dir}/${name}.${l.type}`, bytes);
+          layers[name] = { file, shape: [l.size[1], l.size[0], l.components.length], components: l.components, hash };
+          // EXR 里辅助层的通道照输出通道契约的名字（depth.Z、objectId.id、normal.X…），数就是层文件里的；颜色另取半浮点读回的
+          if (res.extra && name !== 'color') {
+            const data = typed(l.type === 'u32' ? Uint32Array : Float32Array, bytes);
+            l.components.forEach((c, at) => { channels[`${name}.${c}`] = plane(data, l.components.length, at); });
+          }
         }
-        return { meta: res.meta, layers };
+        if (!res.extra) return { meta: res.meta, layers };
+
+        // 场景参考通路：页面送出来的半浮点成片解成数，连同这一帧的辅助层落成一个线性的 EXR（32 位浮点通道，不压缩）
+        const [w, h] = res.layers.color.size, half = typed(Uint16Array, Buffer.from(res.extra.rgba16f, 'base64'));
+        ['R', 'G', 'B', 'A'].forEach((c, at) => { channels[`color.${c}`] = plane(half, 4, at, HALF_FLOATS); });
+        let objectId2x;
+        if (res.extra.objectId2x) {
+          const bytes = Buffer.from(res.extra.objectId2x, 'base64');
+          objectId2x = { ...await save(`${dir}/objectId2x.u32`, bytes), shape: [2 * h, 2 * w, 1], components: ['id'] };
+          channels['objectId2x.coverage'] = coverage2x(channels['objectId.id'], typed(Uint32Array, bytes), [w, h]);
+        }
+        const exr = { ...await save(`${dir}/frame.exr`, writeExr({ width: w, height: h, channels })), channels: Object.keys(channels).sort() };
+        return { meta: res.meta, layers, exr, ...(objectId2x && { objectId2x }) };
       },
 
       async query(f, q) {

@@ -17,8 +17,10 @@ import { createHash } from 'node:crypto';
 import { openFilm, renderFrame, finalFaultCheck, ROOT } from '../page.mjs';
 import { RenderError } from './errors.mjs';
 import { FFMPEG, probe, streamSignature, must } from './ffmpeg.mjs';
-import { sha256 } from './record.mjs';
-import { captureGpuFrame, rawYuvInputArgs } from './yuv.mjs';
+import { sha256, sha256File } from './record.mjs';
+import { captureGpuFrame, exposureTimes, rawYuvInputArgs } from './yuv.mjs';
+import { telemetrySize, telemetryOutputArgs, createVisualCollector } from './visual-telemetry.mjs';
+import { beginPageQaFrame, samplePageQaFrame, endPageQaFrame, finishPageQaChunk, mergePageQaChunks } from './page-qa.mjs';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms).unref());
 const pad = n => String(n).padStart(6, '0');
@@ -116,6 +118,25 @@ export async function renderRange(o) {
   const perFrame = [];
   let done = 0, rendered = 0, reused = 0, info = null, contract = null;
   const files = Object.fromEntries(outputs.map(x => [x.kind, chunks.map(([a, b]) => path.join(workDir, chunkName(x.kind, a, b)))]));
+  // 浏览器可乱序完工；画面分析器只按母版帧序推进，静帧和闪帧不会在块边界断开。
+  const qa = o.qaSpec, visual = qa && createVisualCollector(qa);
+  const graySize = qa && telemetrySize(w, h, total);
+  const gray = i => files[outputs[0].kind][i] + '.gray';
+  const pageChunks = [], ready = new Set();
+  let nextGray = 0, reading = Promise.resolve();
+  function readyChunk(i, pageQa) {
+    pageChunks[i] = pageQa;
+    ready.add(i);
+    reading = reading.then(async () => {
+      while (ready.delete(nextGray)) {
+        const j = nextGray++, [a, b] = chunks[j];
+        await visual.readChunk(fs.createReadStream(gray(j), { signal }), b - a);
+        if (!o.keepQaParts) fs.unlinkSync(gray(j));
+      }
+    });
+    reading.catch(abort);
+    return reading;
+  }
   // 依赖文件的内容哈希：这一趟里每个文件只读一次（各路开好页面时先记下，读不到记 null）
   const memo = new Map();
   const hashOf = p => {
@@ -126,17 +147,21 @@ export async function renderRange(o) {
 
   // 复用：主输出与所有附加输出都在、帧数对、旁注里的参数键与这次相同，且渲它时加载过的文件一个都没变
   const todo = [];
-  for (let i = 0; i < chunks.length; i++) {
+  for (let i = 0; i < chunks.length && !signal.aborted; i++) {
     const [a, b] = chunks[i];
     if (reuse) {
-      const meta = readMeta(files[outputs[0].kind][i]);
+      const videoFiles = outputs.map(x => files[x.kind][i]);
+      const meta = await readMeta(videoFiles[0], qa && [...videoFiles, gray(i)], signal);
       const ok = meta && meta.a === a && meta.b === b && meta.key === key && Array.isArray(meta.hashes) && meta.deps && typeof meta.deps === 'object'
-        && outputs.every(x => fs.existsSync(files[x.kind][i]));
+        && (!qa || (meta.pageQa && meta.hashes.length === b - a && meta.hashes.every(h => /^[0-9a-f]{64}$/.test(h))
+          && fs.statSync(gray(i), { throwIfNoEntry: false })?.size === graySize.w * graySize.h * (b - a)))
+        && videoFiles.every(file => fs.existsSync(file));
       const stale = ok ? changed(meta.deps) : null;
       if (stale) openOptions?.log?.info?.(`第 ${a}–${b - 1} 帧这一块渲好之后 ${stale} 变了：重渲`);
-      if (ok && !stale && (await Promise.all(outputs.map(x => probe(files[x.kind][i]).then(p => p.video?.frames === b - a).catch(() => false)))).every(Boolean)) {
+      if (ok && !stale && (await Promise.all(videoFiles.map(file => probe(file, { signal }).then(p => p.video?.frames === b - a).catch(() => false)))).every(Boolean)) {
         meta.hashes.forEach((h, k) => hashes.set(a + k, h));
         for (const [p, [s]] of Object.entries(meta.deps)) deps.set(p, s);
+        if (qa) await readyChunk(i, meta.pageQa);
         reused++; done += b - a;
         continue;
       }
@@ -149,7 +174,7 @@ export async function renderRange(o) {
   const claim = () => (next < todo.length ? todo[next++] : null);
   const t0 = Date.now();
 
-  async function renderChunk(film, i, k) {
+  async function renderChunk(film, i, k, revisit) {
     const [a, b] = chunks[i];
     const partial = outputs.map(x => files[x.kind][i].replace(/\.mp4$/, '.partial.mp4'));
     const args = intermediate === 'yuv420'
@@ -162,20 +187,22 @@ export async function renderRange(o) {
       args.push('-filter_complex', `[0:v]split=${outputs.length}${outputs.map((_, j) => `[s${j}]`).join('')};` + outputs.map((x, j) => `[s${j}]${x.vf}${labels[j]}`).join(';'));
       outputs.forEach((x, j) => args.push('-map', labels[j], ...x.args, partial[j]));
     }
+    const tempGray = qa && gray(i) + '.partial';
+    if (qa) args.push(...telemetryOutputArgs(qa, tempGray));
     const ff = spawn(FFMPEG(), args, { cwd: workDir, stdio: ['pipe', 'ignore', 'inherit'] });
     live.add(ff);
     const exited = new Promise(r => { ff.once('close', (code, sig) => r({ code, sig })); ff.once('error', error => r({ error })); });
     ff.stdin.on('error', () => {});   // FFmpeg 中途退出时的 EPIPE：由 exited 报告
     const stop = () => { try { ff.stdin.destroy(); } catch {} try { ff.kill('SIGKILL'); } catch {} };
     signal.addEventListener('abort', stop, { once: true });
-    const blockHashes = [];
+    const blockHashes = [], pageFrames = [], peaks = new Map();
     const useGpuCapture = intermediate === 'yuv420' || samples > 1;
     const cleanup = async () => {
       signal.removeEventListener('abort', stop);
       if (ff.exitCode === null && ff.signalCode === null) stop();
       await Promise.race([exited, sleep(10000)]);
       live.delete(ff);
-      for (const p of partial) { try { fs.rmSync(p, { force: true }); } catch {} }
+      for (const p of [...partial, ...(qa ? [tempGray] : [])]) { try { fs.rmSync(p, { force: true }); } catch {} }
     };
     const finish = async meta => {
       const r = await Promise.race([exited, new Promise((_, reject) => {
@@ -186,8 +213,14 @@ export async function renderRange(o) {
         const n = (await probe(partial[j], { signal })).video?.frames;
         if (n !== b - a) throw new RenderError('contract.frame-count', `第 ${a}–${b - 1} 帧这一块编出来是 ${n} 帧，应为 ${b - a} 帧`, { hint: '编码器丢帧或重复帧：带上日志报告' });
       }
+      const json = JSON.stringify(meta);
+      const digest = qa && o.keepQaParts && await qaPartDigest(json, [...partial, tempGray], signal);
       for (let j = 0; j < outputs.length; j++) fs.renameSync(partial[j], files[outputs[j].kind][i]);
-      writeMeta(files[outputs[0].kind][i], meta);
+      if (qa) fs.renameSync(tempGray, gray(i));
+      const metaFile = files[outputs[0].kind][i] + '.json';
+      writeAtomic(metaFile, json);
+      if (digest) writeAtomic(metaFile + '.sha256', digest);
+      if (qa) await readyChunk(i, meta.pageQa);
     };
     let handedOff = false;
     try {
@@ -199,17 +232,22 @@ export async function renderRange(o) {
         const where = `第 ${k} 路第 ${f} 帧（t=${t.toFixed(4)}s）`;
         const f0 = Date.now();
         let img;
+        const recordPage = async (onPng = null) => {
+          pageFrames.push(await endPageQaFrame(film, { frame: f, fps, onPng, peaks }));
+        };
+        if (qa) await beginPageQaFrame(film);
         if (useGpuCapture) {
           img = await captureGpuFrame(film, t, {
             w, h, format: intermediate, samples, shutter, fps, dur: film.contract?.dur ?? Infinity,
-            timeoutMs: frameTimeoutMs, settle, where, signal,
+            timeoutMs: frameTimeoutMs, settle, where, signal, afterFirstSample: qa && recordPage,
           });
         } else {
           await renderFrame(film, t, { timeoutMs: frameTimeoutMs, settle, where, signal });
           img = await film.capture(intermediate);
           film.check();
         }
-        const hsh = sha256(img).slice(0, 16);
+        if (qa && samples === 1) await recordPage(intermediate === 'png' ? img : null);
+        const digest = sha256(img), hsh = qa ? digest : digest.slice(0, 16);
         hashes.set(f, hsh); blockHashes.push(hsh);
         await feed(ff, img, exited, signal, where);
         perFrame.push(Date.now() - f0);
@@ -219,6 +257,7 @@ export async function renderRange(o) {
       ff.stdin.end();
       // 帧都喂完了：等 FFmpeg 编完、核对帧数、改名交给返回的 done，worker 先去渲下一块（输入与参数不变，码流逐字节不变）
       const meta = { a, b, key, hashes: blockHashes, deps: Object.fromEntries([...film.requests].map(([p, s]) => [p, [s, hashOf(p)]])) };
+      if (qa) meta.pageQa = await finishPageQaChunk(film, pageFrames, peaks, revisit, { ...qa.plates, signal });
       handedOff = true;
       return { done: finish(meta).finally(cleanup) };
     } finally {
@@ -228,6 +267,34 @@ export async function renderRange(o) {
 
   async function worker(k) {
     let film = k === 0 && o.firstFilm ? o.firstFilm : null;
+    const history = [];
+    let cursor = 0, sequentialFilm = null, seekFilm = null;
+    const openProbe = () => openFilm(dir, { ...openOptions, handleSignals: false, signal });
+    const replayOptions = { timeoutMs: frameTimeoutMs, settle, signal };
+    async function replayFrame(probe, f, take, direct) {
+      const times = exposureTimes(f / fps, samples, shutter, fps, probe.contract.dur);
+      await beginPageQaFrame(probe);
+      await renderFrame(probe, times[0], replayOptions);
+      await samplePageQaFrame(probe, f, fps);
+      if (take) await take(probe);
+      if (!direct) for (const t of times.slice(1)) await renderFrame(probe, t, replayOptions);
+    }
+    async function seek(target, take) {
+      seekFilm ??= await openProbe();
+      await replayFrame(seekFilm, target, take, true);
+    }
+    async function replay(target, take) {
+      // 只追本路领取的分块，跳过缓存和其他路。整条曝光历史只向前走一遍。
+      sequentialFilm ??= await openProbe();
+      while (cursor < history.length) {
+        const range = history[cursor], f = range[0]++;
+        if (range[0] === range[1]) cursor++;
+        if (f > target) break;
+        await replayFrame(sequentialFilm, f, f === target ? take : null, false);
+        if (f === target) return;
+      }
+      throw new Error(`文字对比度目标帧 ${target} 不在本路尚未重放的帧内`);
+    }
     let tail = null;   // 上一块的收尾：每路最多一块在后台收尾
     try {
       if (signal.aborted) throw signal.reason;
@@ -236,7 +303,10 @@ export async function renderRange(o) {
       for (const p of film.requests.keys()) hashOf(p);   // 页面刚就绪时的内容：渲染中途有人改文件，旁注也不会记成改后的
       info ??= film.info; contract ??= film.contract;
       for (let i = claim(); i !== null; i = claim()) {
-        const { done: fin } = await renderChunk(film, i, k);
+        const [a, b] = chunks[i];
+        if (qa) history.push([a, b]);
+        const randomAccess = qa && o.shots?.some(s => s.in <= a && b <= s.out && ['absolute', 'baked'].includes(s.raw?.evaluation));
+        const { done: fin } = await renderChunk(film, i, k, randomAccess ? seek : replay);
         fin.catch(abort);   // 收尾出错立即中止所有块，不等下一次 await
         const prev = tail;
         tail = fin;
@@ -249,6 +319,7 @@ export async function renderRange(o) {
       throw e;
     } finally {
       if (tail) await tail.catch(() => {});   // 关浏览器、返回之前，后台收尾的 FFmpeg 与半成品都已清理
+      await Promise.all([sequentialFilm?.close(), seekFilm?.close()]);
       if (film) {
         for (const [p, s] of film.requests) deps.set(p, s);
         for (const u of film.external) external.add(u);
@@ -262,24 +333,56 @@ export async function renderRange(o) {
   try {
     const n = Math.max(1, Math.min(o.workers, todo.length || 1));
     await Promise.allSettled(Array.from({ length: n }, (_, k) => worker(k)));
+    await reading;
     if (signal.aborted) throw signal.reason;
   } finally {
     outer.removeEventListener('abort', onOuter);
   }
   perFrame.sort((x, y) => x - y);
   const q = p => (perFrame.length ? perFrame[Math.min(perFrame.length - 1, Math.floor(p * perFrame.length))] : null);
+  const fullHashes = Array.from({ length: total }, (_, i) => hashes.get(chunks[0][0] + i));
   return {
+    qaRecords: qa && { telemetry: visual.finish(fullHashes), ...mergePageQaChunks(pageChunks, { width: w, height: h, fps, frameCount: total, firstFrame: chunks[0][0] }) },
     files, deps, info, contract, warnings, external: [...external],
-    hashes: Array.from({ length: total }, (_, i) => hashes.get(chunks[0][0] + i) ?? null),
+    hashes: fullHashes.map(h => h?.slice(0, 16) ?? null),
     hashMap: hashes,
     stats: { renderedFrames: rendered, reusedChunks: reused, chunks: chunks.length,
       seconds: +((Date.now() - t0) / 1000).toFixed(2), perFrameMs: { p50: q(0.5), p95: q(0.95), max: perFrame.at(-1) ?? null } },
   };
 }
 
-const metaPath = file => `${file}.json`;
-function readMeta(file) { try { return JSON.parse(fs.readFileSync(metaPath(file), 'utf8')); } catch { return null; } }
-function writeMeta(file, meta) { const tmp = `${metaPath(file)}.tmp`; fs.writeFileSync(tmp, JSON.stringify(meta)); fs.renameSync(tmp, metaPath(file)); }
+// 独立校验值把旁注原文、按输出顺序排列的视频和灰度文件绑在一起，即使整份旁注被换走也能核对。
+async function qaPartDigest(json, parts, signal) {
+  const hash = createHash('sha256').update(json);
+  for (const file of parts) {
+    signal.throwIfAborted();
+    hash.update(await sha256File(file));
+  }
+  signal.throwIfAborted();
+  return hash.digest('hex');
+}
+
+async function readMeta(file, qaParts, signal) {
+  try {
+    const metaFile = file + '.json', json = fs.readFileSync(metaFile, 'utf8');
+    if (qaParts) {
+      const expected = fs.readFileSync(metaFile + '.sha256', 'utf8');
+      if (expected !== await qaPartDigest(json, qaParts, signal)) return null;
+    }
+    return JSON.parse(json);
+  } catch { return null; } // 缺失、不可读或损坏的缓存交给渲染；worker 统一处理取消。
+}
+
+function writeAtomic(file, text) {
+  const tmp = file + '.tmp';
+  try {
+    fs.writeFileSync(tmp, text);
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    try { fs.rmSync(tmp, { force: true }); } catch {}
+    throw e;
+  }
+}
 
 /**
  * 把几段同参数的 H.264 无损拼接（concat 复制，不重编码），核对帧数后原子改名；metadata 是附加的 -metadata 参数（AIGC 标识）。
