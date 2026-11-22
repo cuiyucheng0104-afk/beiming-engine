@@ -45,6 +45,8 @@
 
 04 §12 看板「可控与可复现」栏的两项作业。两项都先让片子描述过 `film/3.0` 契约，交给渲染器的是副本，不改调用方的片子描述、补丁和锁。片子描述、补丁、锁在入口各存一份快照（`structuredClone`），之后的校验、每一遍渲染和报告的 `filmId`、`rev` 都只认快照：作业进行中调用方改了原对象（比如第一遍开渲后把锁换成下一个修订号），后一遍用的仍是入口核过的那一份；带着函数之类存不成快照的值抛 `TypeError`，渲染器一次都不调。片子描述的修订号（补丁入口记在对象上的）也在入口读一次。
 
+**选项容器与抛错时机**：三个入口的选项参数只收普通对象（原型是空或 `Object.prototype`，别的 realm 的也算）：类实例、`Map`、数组、Proxy、`Object.create(某个对象)` 抛 `TypeError`，渲染器一次都不调。`runLocalityTest`、`runRebuildTest` 是异步函数，坏参数和渲染器交回的坏结果都不在调用现场抛，交回的 Promise 以对应的错拒绝，要用 `await` 或 `.catch` 接（只在调用外面包同步 `try/catch` 接不到）；`buildControllabilityRow` 是同步函数，当场抛。`Object.prototype` 在本模块装载之后被加了项的进程里，每个普通对象都读得到那一项，三个入口一律按不是普通对象拒收。
+
 ### 帧对象与帧对比较
 
 - **帧对象**：`{ frame, width, height, color, channels?, shot? }`。`color` 收 `Uint8Array`、`Uint8ClampedArray`（按 ÷255 归一）、`Float32Array`、`Float64Array` 与数的数组（按 [0, 1] 标尺直接比）；`channels` 只收 1、3、4，不写时照长度推。渲染器交回全片 `[0, output.frames)` 每帧正好一幅：缺帧、重复抛 `Error`，帧号越界抛 `RangeError`，没交数组抛 `TypeError`。
@@ -69,7 +71,7 @@
 
 - **开渲之前就拒**（渲染器一次都不调）：缺锁、锁不是 `lock/1.0` 或不合锁文件契约、片子描述带着修订号（补丁入口交回的）而和 `lock.rev` 不同；再照出锁时那套跨文件核对查一遍锁和片子描述：`lock-check/0.1` 的全部不变量（`kernel/contracts/lock/check.mjs`）加片子描述一侧的 D3，片号、种子（LK3，锁里镜头种子 7802 改成 7803 就拒）、镜头表、卡、帧源、模版、查找表、资产对不上都拒，消息带不变量编号。
 - **`allowPartialLock: true`**：只放过「锁里没有这一项」的违反（LK1、LK4、LK8、LK9、LK10、D3 里报缺项的那几句）；锁里写了却对不上的（模版或卡的主版本、帧源的宿主、卡的 `from`，同样是这几个规则码）照样在开渲前拒收，片号、种子、镜头表照查。资产的版本写在键名 `asset:<名>@<版本>` 里，上游 D3 只查整个键：片子要 `asset:rtx-card@3`、锁里钉的是 `asset:rtx-card@4` 时它报的和没钉是同一句，这里另查，锁里有同名的别的版本就按对不上拒收（消息写明两个键），整个名字都没钉才放过；报告的 `lockCheck` 记 `partial`（全过记 `full`）。一致性夹具的锁只钉了帧源，要给这个开关。
-- **渲染**：`renderLocked(片子描述, 锁, { run: 1 | 2 })` 调两次，每次交回帧数组，或 `{ frames, deliverables }`（`deliverables` 是「文件名 → 哈希字符串」的普通对象：自有键和值都是不空的字符串；`Map`、`Set`、`Date`、类实例、带继承项、访问器或 Symbol 键的抛 `TypeError`，它们的内容不在自有属性里，照普通对象读会读成空表，两遍摘要不同也比不出来）。两遍必须各自重渲：同一帧两遍交回同一块缓冲区直接抛错。第一遍的帧和 `deliverables` 表在第二遍开渲前当场另存，第二遍原地覆写工作缓冲区或改同一张表也瞒不过。
+- **渲染**：`renderLocked(片子描述, 锁, { run: 1 | 2 })` 调两次，每次交回帧数组，或 `{ frames, deliverables }`（`deliverables` 是「文件名 → 哈希字符串」的普通对象：每一项都是自有、可枚举的数据属性，键和值都是不空的字符串；`Map`、`Set`、`Date`、Proxy、类实例（`extends null` 的也算）、原型链上带项（可枚举不可枚举都算）、带访问器、不可枚举的键或 Symbol 键的抛 `TypeError`：这些内容读得到却不在自有可枚举属性里，照普通对象读会读成空表，两遍摘要不同也比不出来。交付件表挂在帧数组上的同样抛 `TypeError`，要带就交回 `{ frames, deliverables }`。第一遍的表坏了当场拒，不调第二遍）。两遍必须各自重渲：同一帧两遍交回同一块缓冲区直接抛错。第一遍的帧和 `deliverables` 表在第二遍开渲前当场另存，第二遍原地覆写工作缓冲区或改同一张表也瞒不过。
 - **判定**：哈希档有帧不逐位相同是 `frames-differ`，帧都相同而 `deliverables` 有键不同（多一键、少一键、值不同）是 `deliverable-mismatch`；容差档有帧超出 P8 口径是 `outside-tolerance`，不比 `deliverables`（编码件在容差档本来就不要求逐位相同）。
 - **报告**（深冻结）：`{ format: 'rebuild-regression/0.1', pass, reason, filmId, rev, tier, gate: { psnrMinDb, maxDiffFrac, diffLevel }, lockCheck, totalFrames, identicalFrames, failedFrames, mismatchedDeliverables, worstPsnrDb, worstFracGt5 }`。`rev` 是锁的修订号，锁没写时为 `null`；`worstPsnrDb` 是各帧里最低的，全片零差时为 `Infinity`。
 
@@ -81,7 +83,7 @@
 - **两份报告互核**：`locality`、`rebuild` 都给了，两边的 `totalFrames` 要相同（300 帧配 301 帧拒收），不带 `film` 也查。
 - **带着片子描述核**（`film`，可不给）：给了就要合 `film/3.0` 契约、`film.id` 等于 `filmId`、`output.frames` 等于两份报告的 `totalFrames`，并照镜头表核 `predicted`：点名的镜头都在表里、每个都有预测帧落在里面，每条预测区间都落在点名的镜头里。04 §3.5 样例里 s01 是 `[0, 180)`、s02 是 `[180, 300)`：区间 `[[0, 180]]` 配 `['s01']` 收，配 `['s02']` 拒。不给 `film` 时报告里没有镜头边界，这一项查不了。补丁改了镜头号或切点的报告，预测是照改动前后两张镜头表并起来的，和单独一张表对不上，不要带 `film`。
 - **`overallPass`**：给了的项全过才是 `true`，`l2PassRate` 要正好是 1，`legacyNightlyPass` 不是 `false`；容差档的门限调得比 P8 松（`psnrMinDb` 低于 50、`maxDiffFrac` 高于 0.001 或 `diffLevel` 高于 5/255）的，作业自己判过也不给绿，行里留着实际用的门限。
-- **拒收**：抛的错都带 `code: 'usage.bad-argument'`。两份报告一项都没给、`filmId` 和报告或 `film` 的片号不同、报告自相矛盾、报告和 `film` 的总帧数或镜头表对不上抛 `Error`；`recordedAt` 不是带时区的 ISO 8601 时刻、`l2PassRate` 不在 [0, 1]、`filmId` 或 `jobId` 超长、`jobId` 是空串抛 `RangeError`；参数不是对象、报告结构不对（`predicted.frameRanges` 里有不是二元整数数组的项在内）、`film` 不是 `film/3.0`、`jobId` 不是字符串、`legacyNightlyPass` 不是布尔抛 `TypeError`。
+- **拒收**：抛的错都带 `code: 'usage.bad-argument'`。两份报告一项都没给、`filmId` 和报告或 `film` 的片号不同、报告自相矛盾、报告和 `film` 的总帧数或镜头表对不上抛 `Error`；`recordedAt` 不是带时区的 ISO 8601 时刻、`l2PassRate` 不在 [0, 1]、`filmId` 或 `jobId` 超长、`jobId` 是空串抛 `RangeError`；参数不是普通对象、报告结构不对（`predicted.frameRanges` 里有不是二元整数数组的项在内）、`film` 不是 `film/3.0`、`jobId` 不是字符串、`legacyNightlyPass` 不是布尔抛 `TypeError`。
 - **`appendControllabilityRow(filePath, row)`**：追加一行 JSON（目录不在就建），交回这一行。只收 `buildControllabilityRow` 交回的行，手拼的、读回来改过的抛 `TypeError`。并发追加逐行完整：同一个进程里按规范化的目标路径（目录过 `realpath`，经符号链接的另一种写法算同一个文件）排队；别的进程靠锁文件 `<目标>.lock`（独占创建，写完就删）挡，等锁最多 30 秒，握锁的进程死了留下、超过 10 秒的旧锁清掉再写；每行又是一次不超过 8192 字节的追加写。
 
 ### 实渲核验

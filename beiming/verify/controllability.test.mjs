@@ -865,11 +865,10 @@ test('V14-18 交付件表只收普通对象：Map、Set、Date、类实例、带
     await assert.rejects(() => rebuild(table), (e) => e instanceof TypeError && /deliverables/.test(e.message), name);
     assert.equal(calls, 1, `${name}：第一遍交回就拒，不等第二遍`);
   }
-  // 正对照：空原型的表、别的 realm 来的普通对象、不可枚举的键都照常逐键比，摘要不同就红
+  // 正对照：空原型的表、别的 realm 来的普通对象都照常逐键比，摘要不同就红
   const good = {
     空原型: (run) => Object.assign(Object.create(null), { 'master.mp4': digest(run) }),
     '别的 realm': (run) => runInNewContext(`({ 'master.mp4': '${digest(run)}' })`),
-    不可枚举的键: (run) => Object.defineProperty({}, 'master.mp4', { value: digest(run) }),
     __proto__: (run) => JSON.parse(`{ "__proto__": "${digest(run)}" }`),
   };
   for (const [name, table] of Object.entries(good)) {
@@ -877,6 +876,86 @@ test('V14-18 交付件表只收普通对象：Map、Set、Date、类实例、带
     assert.deepEqual([report.pass, report.reason, report.mismatchedDeliverables], [false, 'deliverable-mismatch', [name === '__proto__' ? '__proto__' : 'master.mp4']], name);
   }
   assert.equal((await rebuild(() => Object.assign(Object.create(null), { 'master.mp4': 'sha256:aa' }))).pass, true);
+});
+
+test('V14-19 交付件读得到却不在自有可枚举数据属性里的（空原型链上的继承项、extends null 的类、不可枚举键、Proxy、换了原型的 Map）一律 TypeError；选项容器只收普通对象', async () => {
+  let calls = 0;
+  const renderLocked = (table) => async (f, l, info) => { calls++; return { frames: await twice()(f, l, info), deliverables: table(info.run) }; };
+  const digest = (run) => (run === 1 ? 'sha256:aa' : 'sha256:ab');
+  const hidden = (run, base = {}) => Object.defineProperty(Object.assign(Object.create(null), base), 'master.mp4', { value: digest(run) });
+  // 六审的反例：table['master.mp4'] 两遍读得到不同的摘要，自有可枚举的键却是空的，以前复制成空表判 ok
+  const readable = {
+    空原型上不可枚举的继承项: (run) => Object.create(hidden(run)),
+    'extends null 的类实例': (run) => {
+      class Files extends null { get 'master.mp4'() { return digest(run); } }
+      const files = Object.create(Files.prototype);
+      assert.ok(files instanceof Files);
+      return files;
+    },
+    '仿 Object.prototype 的原型': (run) => Object.create(hidden(run, { hasOwnProperty() { return false; }, constructor: { name: 'Object' } })),
+    自有不可枚举的键: (run) => Object.defineProperty({}, 'master.mp4', { value: digest(run) }),
+    Proxy: (run) => new Proxy({}, { get: (_, key) => (key === 'master.mp4' ? digest(run) : undefined) }),
+    'Proxy 当原型': (run) => Object.create(new Proxy(Object.prototype, { get: (o, key) => (key === 'master.mp4' ? digest(run) : o[key]) })),
+    '别的 realm 的 Object.prototype 上加了项': (run) => runInNewContext(`Object.defineProperty(Object.prototype, 'master.mp4', { value: '${digest(run)}' }); ({})`),
+  };
+  const bad = {
+    ...readable,
+    // 内容在内部槽里，原型换掉以后看着就是个空的普通对象
+    换成空原型的Map: (run) => Object.setPrototypeOf(new Map([['master.mp4', digest(run)]]), null),
+    '换成 Object.prototype 的 Set': (run) => Object.setPrototypeOf(new Set([digest(run)]), Object.prototype),
+  };
+  for (const name of Object.keys(readable)) assert.deepEqual([1, 2].map((run) => readable[name](run)['master.mp4']), ['sha256:aa', 'sha256:ab'], name);
+  for (const [name, table] of Object.entries(bad)) {
+    calls = 0;
+    // 异步入口：调用现场拿到的是 Promise，错在 Promise 里；第一遍交回就拒，不调第二遍
+    const pending = runRebuildTest({ film: assembly, lock: assemblyLock, renderLocked: renderLocked(table) });
+    assert.ok(pending instanceof Promise, name);
+    await assert.rejects(pending, (e) => e instanceof TypeError && /deliverables/.test(e.message), name);
+    assert.equal(calls, 1, `${name}：第一遍交回就拒，不等第二遍`);
+  }
+  // 交付件表挂在帧数组上（自有的、子类原型上的都算）：不当成「没带交付件表」
+  class Frames extends Array { get deliverables() { return { 'master.mp4': 'sha256:aa' }; } }
+  for (const wrap of [(frames) => Object.assign(frames, { deliverables: { 'master.mp4': 'sha256:aa' } }), (frames) => Frames.from(frames)]) {
+    calls = 0;
+    await assert.rejects(runRebuildTest({ film: assembly, lock: assemblyLock, renderLocked: async (f, l, info) => { calls++; return wrap(await twice()(f, l, info)); } }), (e) => e instanceof TypeError && /deliverables/.test(e.message));
+    assert.equal(calls, 1);
+  }
+  // 本 realm 的 Object.prototype 被人加了项：每个 {} 都读得到它，普通对象一律不再收，一遍都不渲
+  Object.defineProperty(Object.prototype, 'master.mp4', { get: () => 'sha256:aa', configurable: true });
+  try {
+    calls = 0;
+    await assert.rejects(runRebuildTest({ film: assembly, lock: assemblyLock, renderLocked: renderLocked(() => ({})) }), TypeError);
+    assert.equal(calls, 0);
+  } finally {
+    delete Object.prototype['master.mp4'];
+  }
+
+  // 选项容器：合法的 film、lock、renderLocked 装进类实例、Map、数组、带原型的对象、Proxy，一遍都不渲
+  class RebuildOptions { constructor(fields) { Object.assign(this, fields); } }
+  const boxes = (fields) => ({
+    类实例: new RebuildOptions(fields), Map: new Map(Object.entries(fields)), 数组: [fields], 继承来的: Object.create(fields), Proxy: new Proxy(fields, {}), null: null,
+  });
+  const rebuildOpts = { film: assembly, lock: assemblyLock, renderLocked: renderLocked(() => ({ 'master.mp4': 'sha256:aa' })) };
+  const localityOpts = { film: assembly, patch: patchOf(MARGIN, 0.82), renderFilm: (film) => { calls++; return renderAssembly(film); } };
+  for (const [run, fields] of [[runRebuildTest, rebuildOpts], [runLocalityTest, localityOpts]]) {
+    for (const [name, box] of Object.entries(boxes(fields))) {
+      calls = 0;
+      const pending = run(box);
+      assert.ok(pending instanceof Promise, `${run.name} ${name}`);
+      await assert.rejects(pending, TypeError, `${run.name} ${name}`);
+      assert.equal(calls, 0, `${run.name} ${name}：一遍都不渲`);
+    }
+  }
+  // 正对照：普通对象和空原型的对象照常跑完
+  const rebuilt = await runRebuildTest(Object.assign(Object.create(null), rebuildOpts));
+  assert.deepEqual([rebuilt.pass, (await runLocalityTest(localityOpts)).pass], [true, true]);
+
+  // 看板行是同步函数：坏容器当场抛，带错误码
+  const rowOpts = { filmId: assembly.id, recordedAt: '2026-11-22T00:00:00Z', rebuild: rebuilt };
+  for (const [name, box] of Object.entries(boxes(rowOpts))) {
+    assert.throws(() => buildControllabilityRow(box), (e) => e instanceof TypeError && e.code === 'usage.bad-argument', name);
+  }
+  assert.equal(buildControllabilityRow(Object.assign(Object.create(null), rowOpts)).overallPass, true);
 });
 
 test('V14-9 页面宿主实渲：双镜头局部性（改谁只变谁）与加锁重渲（两个帧源进程逐位相同）', async (t) => {

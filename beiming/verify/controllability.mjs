@@ -7,6 +7,7 @@ import { appendFile, mkdir, open, realpath, rm, stat } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import process from 'node:process';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { types } from 'node:util';
 import { checks as filmChecks } from '../kernel/contracts/film/check.mjs';
 import { loadContracts } from '../kernel/contracts/validate.mjs';
 import { explainParam } from '../kernel/explain.mjs';
@@ -22,6 +23,29 @@ const { validate } = await loadContracts();
 const TIERS = ['hash', 'hash-same-machine', 'tolerance'];
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const inUnit = (v) => typeof v === 'number' && v >= 0 && v <= 1;
+// node:util 的 types 全是「带不带某种内部槽」的判断（Map、Set、Date、Proxy……），换了原型也认得出
+const NATIVE = Object.values(types).filter((is) => typeof is === 'function');
+const exotic = (v) => NATIVE.some((is) => is(v));
+// 模块装载时 Object.prototype 上有的名字；之后谁往上加了项，带着它的普通对象都不再算普通对象
+const OBJECT_PROTO_KEYS = new Set(Reflect.ownKeys(Object.prototype));
+/** 本 realm 或别的 realm 的 Object.prototype：原型是空，自有项只有那几个标准名字，都是不可枚举的函数（访问器只有 __proto__），带不了数据 */
+function objectProto(proto) {
+  return !exotic(proto) && Object.getPrototypeOf(proto) === null && Reflect.ownKeys(proto).every((key) => {
+    const desc = Object.getOwnPropertyDescriptor(proto, key);
+    return OBJECT_PROTO_KEYS.has(key) && !desc.enumerable && typeof (key === '__proto__' ? desc.get : desc.value) === 'function';
+  }) && typeof proto.hasOwnProperty === 'function' && proto.constructor?.name === 'Object';
+}
+/**
+ * 普通对象：内容全在自有属性里，照自有属性读不会漏。原型只认空和 Object.prototype（objectProto 认得的），
+ * 所以类实例（extends null 的也是）、Object.create(带着项的原型或 Proxy) 都不算；内容在内部槽或陷阱里的（Map、Set、Date、Proxy）换了原型也不算。
+ * 先认内部槽再碰对象：Proxy 的陷阱一个都不触发。
+ */
+function isPlainRecord(v) {
+  if (v === null || typeof v !== 'object' || exotic(v) || Array.isArray(v) || Object.prototype.toString.call(v) !== '[object Object]') return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === null || objectProto(proto);
+}
+const BAD_OPTIONS = '参数必须是普通对象：类实例、Map、数组、Proxy 和带继承项的对象不收';
 function deepFreeze(v) {
   if (v !== null && typeof v === 'object' && !Object.isFrozen(v)) Object.values(Object.freeze(v)).forEach(deepFreeze);
   return v;
@@ -155,11 +179,14 @@ function keep(frames, who) {
  * 判定：有变化帧落在范围外是 leaked-outside-affects；一帧都没变是 no-frames-changed（allowNoOp 为真时放行）；否则 ok。
  * 改动前那一遍的帧当场另存，帧源复用缓冲区、后一遍原地覆写也照样比得出来。
  * film、patch 在入口各存一份快照，之后只认快照：渲染期间调用方改了原对象，后一遍和报告不受影响。
+ * 异步函数：坏参数（选项容器不是普通对象在内）不在调用现场抛，交回的 Promise 以对应的错拒绝。
  */
-export async function runLocalityTest({
-  film: givenFilm, patch: givenPatch, renderFilm, explainContext = {}, tier = 'hash', allowNoOp = false,
-  psnrMinDb = P8_PSNR_MIN_DB, maxDiffFrac = P8_MAX_DIFF_FRAC, diffLevel = P8_DIFF_LEVEL,
-} = {}) {
+export async function runLocalityTest(options = {}) {
+  if (!isPlainRecord(options)) throw new TypeError(BAD_OPTIONS);
+  const {
+    film: givenFilm, patch: givenPatch, renderFilm, explainContext = {}, tier = 'hash', allowNoOp = false,
+    psnrMinDb = P8_PSNR_MIN_DB, maxDiffFrac = P8_MAX_DIFF_FRAC, diffLevel = P8_DIFF_LEVEL,
+  } = options;
   // 修订号记在调用方那个对象上（patch-apply 的 WeakMap），快照带不走，入口读一次
   const film = snapshot(givenFilm, '片子描述'), patch = snapshot(givenPatch, '补丁'), rev = getFilmRev(givenFilm);
   if (typeof renderFilm !== 'function') throw new TypeError('renderFilm 必须是函数');
@@ -242,21 +269,18 @@ function assetClashes(film, lock) {
 }
 
 /**
- * 交付件表只收普通对象：自有键都是不空的文件名，值都是不空的哈希字符串，不带 Symbol 键、访问器和继承来的项。
- * Map、Set、Date、类实例的内容不在自有属性里，照普通对象读会读成空表，两遍摘要不同也判一致，所以直接拒。
+ * 交付件表只收普通对象（isPlainRecord）：自有键都是不空的文件名，值都是可枚举的不空哈希字符串，不带 Symbol 键、访问器、不可枚举的键和继承来的项。
+ * 读得到却不在自有可枚举数据属性里的内容（Map、类实例、原型链上的项、Proxy 的陷阱），照普通对象读会读成空表，两遍摘要不同也判一致，所以直接拒。
  * 每个键只读一次，交回的是副本。
  */
 function fileTable(table, who) {
   const bad = (why) => new TypeError(`${who}的 deliverables 必须是「文件名 → 哈希字符串」的普通对象：${why}`);
-  if (!isObj(table)) throw bad('交回的不是对象');
-  const proto = Object.getPrototypeOf(table);
-  // 原型只认空和 Object.prototype（别的 realm 的也算：它的原型是空、上面没有可枚举的项）
-  if (proto !== null && (Object.getPrototypeOf(proto) !== null || Object.keys(proto).length)) throw bad('Map、Set、Date、类实例和带继承项的对象不收');
+  if (!isPlainRecord(table)) throw bad('Map、Set、Date、Proxy、类实例和带继承项的对象不收');
   return Object.fromEntries(Reflect.ownKeys(table).map((key) => {
     if (typeof key !== 'string' || key === '') throw bad('键必须是不空的字符串，不收 Symbol 键');
-    const { value } = Object.getOwnPropertyDescriptor(table, key);
-    if (typeof value !== 'string' || value === '') throw bad(`${key} 的值必须是不空的字符串，不收访问器`);
-    return [key, value];
+    const desc = Object.getOwnPropertyDescriptor(table, key);
+    if (!('value' in desc) || !desc.enumerable || typeof desc.value !== 'string' || desc.value === '') throw bad(`${key} 必须是可枚举的数据属性、值是不空的字符串，不收访问器和不可枚举的键`);
+    return [key, desc.value];
   }));
 }
 
@@ -271,11 +295,14 @@ function fileTable(table, who) {
  * 片号、种子、镜头表照查；放过了东西的，报告的 lockCheck 记 partial。
  * 第一遍的帧和交付件表当场另存，帧源在第二遍里原地覆写也照样比得出来。
  * film、lock 在入口各存一份快照，核对、两遍渲染、报告的 filmId 和 rev 都只认快照：第一遍开渲后调用方换了原锁，第二遍用的仍是核过的那一份。
+ * 异步函数：坏参数（选项容器不是普通对象在内）和坏 deliverables 都不在调用现场抛，交回的 Promise 以对应的错拒绝；第一遍的 deliverables 坏了就停，不调第二遍。
  */
-export async function runRebuildTest({
-  film: givenFilm, lock: givenLock, renderLocked, tier = 'hash-same-machine', allowPartialLock = false,
-  psnrMinDb = P8_PSNR_MIN_DB, maxDiffFrac = P8_MAX_DIFF_FRAC, diffLevel = P8_DIFF_LEVEL,
-} = {}) {
+export async function runRebuildTest(options = {}) {
+  if (!isPlainRecord(options)) throw new TypeError(BAD_OPTIONS);
+  const {
+    film: givenFilm, lock: givenLock, renderLocked, tier = 'hash-same-machine', allowPartialLock = false,
+    psnrMinDb = P8_PSNR_MIN_DB, maxDiffFrac = P8_MAX_DIFF_FRAC, diffLevel = P8_DIFF_LEVEL,
+  } = options;
   // 核过的和两遍渲的必须是同一份：入口存快照，之后不再读调用方的对象（修订号记在原对象上，也在入口读）
   const film = snapshot(givenFilm, '片子描述'), lock = snapshot(givenLock, '锁'), rev = getFilmRev(givenFilm);
   if (typeof renderLocked !== 'function') throw new TypeError('renderLocked 必须是函数');
@@ -297,6 +324,8 @@ export async function runRebuildTest({
   for (const run of [1, 2]) {
     const out = await renderLocked(structuredClone(film), structuredClone(lock), { run });
     const packed = isObj(out);
+    // 只交帧数组就是不带交付件表；数组上挂着 deliverables 的不能当没看见
+    if (!packed && out?.deliverables !== undefined) throw new TypeError(`第 ${run} 遍的 deliverables 挂在帧数组上：要带交付件表就交回 { frames, deliverables }`);
     const given = packed ? out.deliverables : undefined;
     const deliverables = given === undefined ? {} : fileTable(given, `第 ${run} 遍`);
     const frames = frameList(packed ? out.frames : out, total, `第 ${run} 遍`);
@@ -404,7 +433,7 @@ function rebuildReason(r) {
  * 交回的行深冻结、体积有上界（长表只留总数和首尾样例），无穷大的 PSNR 记 null，可直接写成 JSON。坏参数抛的错都带 code: 'usage.bad-argument'。
  */
 export function buildControllabilityRow(options = {}) {
-  if (!isObj(options)) throw badArg(TypeError, '参数必须是对象');
+  if (!isPlainRecord(options)) throw badArg(TypeError, BAD_OPTIONS);
   const { filmId, recordedAt, jobId = null, film = null, l2PassRate = null, locality = null, rebuild = null, legacyNightlyPass = null } = options;
   if (typeof filmId !== 'string' || !filmId) throw badArg(TypeError, 'filmId 必须是不空的字符串');
   if (filmId.length > MAX_NAME) throw badArg(RangeError, `filmId 不超过 ${MAX_NAME} 个字符`);
