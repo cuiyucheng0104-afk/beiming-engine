@@ -43,7 +43,7 @@
 
 ## 可控与可复现回归（controllability.mjs）
 
-04 §12 看板「可控与可复现」栏的两项作业。两项都先让片子描述过 `film/3.0` 契约，交给渲染器的是副本，不改调用方的片子描述、补丁和锁。
+04 §12 看板「可控与可复现」栏的两项作业。两项都先让片子描述过 `film/3.0` 契约，交给渲染器的是副本，不改调用方的片子描述、补丁和锁。片子描述、补丁、锁在入口各存一份快照（`structuredClone`），之后的校验、每一遍渲染和报告的 `filmId`、`rev` 都只认快照：作业进行中调用方改了原对象（比如第一遍开渲后把锁换成下一个修订号），后一遍用的仍是入口核过的那一份；带着函数之类存不成快照的值抛 `TypeError`，渲染器一次都不调。片子描述的修订号（补丁入口记在对象上的）也在入口读一次。
 
 ### 帧对象与帧对比较
 
@@ -78,6 +78,7 @@
 - **`buildControllabilityRow({ filmId, recordedAt, jobId = null, film = null, l2PassRate = null, locality = null, rebuild = null, legacyNightlyPass = null })`** 回深冻结的 `controllability-row/0.1`：`locality` 是 `{ pass, reason, tier, gate, pathCount, paths, totalFrames, predictedFrames, changedFrames, leakedFrames, leakedSample }`（`changedFrames`、`leakedFrames` 是帧数），`rebuild` 是 `{ pass, reason, tier, gate, lockCheck, rev, totalFrames, identicalFrames, failedFrames, failedSample, worstPsnrDb, worstFracGt5 }`（`failedFrames` 是帧数；无穷大的 PSNR 记 `null`，整行可直接写成 JSON），没给的项是 `null`。
 - **体积上界**：逐帧明细不进这一行，只留总数和样例。`paths` 留首尾各 4 条、每条截到 96 个字符，总数在 `pathCount`；`leakedSample`、`failedSample` 留首尾各 3 个帧号；`filmId`、`jobId` 各不超过 128 个字符。一行不超过 8192 字节。
 - **不轻信报告**：帧表、计数、读数、门限照两项作业的判定规则重算一遍，和报告写的 `pass`、`reason` 对不上就拒收。各个数组都要是实心的（没有空洞、没有多出来的自有属性），路径、镜头、交付件名不空不重复。局部性：帧号表要是 `[0, totalFrames)` 里严格升序的整数，泄漏帧都在变化帧里，变化帧不在预测区间里的必须记成泄漏，范围里变了的帧不多于 `predicted.frameCount`，预测区间不出全片、并起来盖住的帧数正好是 `frameCount`，`frameCount > 0` 时 `predicted.shots` 不空，`unchangedOutsideCount` 和总帧数对得上。重建：`totalFrames ≥ 1`，`0 ≤ identicalFrames ≤ totalFrames`；哈希档不过的帧数正好是不相同的帧数；全片逐位相同时 `worstPsnrDb` 必须是 `Infinity`、`worstFracGt5` 是 0；容差档有没有不过的帧要和最差读数过不过门限一致；`worstFracGt5` 在 [0, 1] 内。
+- **两份报告互核**：`locality`、`rebuild` 都给了，两边的 `totalFrames` 要相同（300 帧配 301 帧拒收），不带 `film` 也查。
 - **带着片子描述核**（`film`，可不给）：给了就要合 `film/3.0` 契约、`film.id` 等于 `filmId`、`output.frames` 等于两份报告的 `totalFrames`，并照镜头表核 `predicted`：点名的镜头都在表里、每个都有预测帧落在里面，每条预测区间都落在点名的镜头里。04 §3.5 样例里 s01 是 `[0, 180)`、s02 是 `[180, 300)`：区间 `[[0, 180]]` 配 `['s01']` 收，配 `['s02']` 拒。不给 `film` 时报告里没有镜头边界，这一项查不了。补丁改了镜头号或切点的报告，预测是照改动前后两张镜头表并起来的，和单独一张表对不上，不要带 `film`。
 - **`overallPass`**：给了的项全过才是 `true`，`l2PassRate` 要正好是 1，`legacyNightlyPass` 不是 `false`；容差档的门限调得比 P8 松（`psnrMinDb` 低于 50、`maxDiffFrac` 高于 0.001 或 `diffLevel` 高于 5/255）的，作业自己判过也不给绿，行里留着实际用的门限。
 - **拒收**：抛的错都带 `code: 'usage.bad-argument'`。两份报告一项都没给、`filmId` 和报告或 `film` 的片号不同、报告自相矛盾、报告和 `film` 的总帧数或镜头表对不上抛 `Error`；`recordedAt` 不是带时区的 ISO 8601 时刻、`l2PassRate` 不在 [0, 1]、`filmId` 或 `jobId` 超长、`jobId` 是空串抛 `RangeError`；参数不是对象、报告结构不对（`predicted.frameRanges` 里有不是二元整数数组的项在内）、`film` 不是 `film/3.0`、`jobId` 不是字符串、`legacyNightlyPass` 不是布尔抛 `TypeError`。

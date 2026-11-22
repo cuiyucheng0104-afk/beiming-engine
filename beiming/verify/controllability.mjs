@@ -110,6 +110,16 @@ function needFilm(film) {
   if (errors.length) throw new Error(`片子描述不合 film/3.0 契约：${errors.join('；')}`);
 }
 
+/** 入口快照：作业进行中调用方再改原对象，校验、渲染和报告用的仍是这一份。不是对象的原样交回，留给后面的校验照原话拒 */
+function snapshot(v, who) {
+  if (!isObj(v)) return v;
+  try {
+    return structuredClone(v);
+  } catch (err) {
+    throw new TypeError(`${who}存不成快照：带着函数之类复制不了的值`, { cause: err });
+  }
+}
+
 /** 渲染器交回的帧按帧号排好：[0, total) 每帧正好一幅，缺帧、重复、越界都抛错 */
 function frameList(result, total, who) {
   if (!Array.isArray(result)) throw new TypeError(`${who}没有交回帧数组`);
@@ -144,17 +154,20 @@ function keep(frames, who) {
  * 报告的 predicted.frameRanges 是按镜头表收紧后的区间（每条预测和它点名的每个镜头取交集），并起来正好是 predicted.frameCount 帧。
  * 判定：有变化帧落在范围外是 leaked-outside-affects；一帧都没变是 no-frames-changed（allowNoOp 为真时放行）；否则 ok。
  * 改动前那一遍的帧当场另存，帧源复用缓冲区、后一遍原地覆写也照样比得出来。
+ * film、patch 在入口各存一份快照，之后只认快照：渲染期间调用方改了原对象，后一遍和报告不受影响。
  */
 export async function runLocalityTest({
-  film, patch, renderFilm, explainContext = {}, tier = 'hash', allowNoOp = false,
+  film: givenFilm, patch: givenPatch, renderFilm, explainContext = {}, tier = 'hash', allowNoOp = false,
   psnrMinDb = P8_PSNR_MIN_DB, maxDiffFrac = P8_MAX_DIFF_FRAC, diffLevel = P8_DIFF_LEVEL,
 } = {}) {
+  // 修订号记在调用方那个对象上（patch-apply 的 WeakMap），快照带不走，入口读一次
+  const film = snapshot(givenFilm, '片子描述'), patch = snapshot(givenPatch, '补丁'), rev = getFilmRev(givenFilm);
   if (typeof renderFilm !== 'function') throw new TypeError('renderFilm 必须是函数');
   if (typeof allowNoOp !== 'boolean') throw new TypeError('allowNoOp 必须是布尔值');
   const gate = needGate(tier, { psnrMinDb, maxDiffFrac, diffLevel });
   needFilm(film);
   if (!isObj(patch)) throw new TypeError('补丁必须是 patch/0.1 对象');
-  const written = applyFilmWrite(film, patch, { rev: getFilmRev(film) ?? patch.rev });
+  const written = applyFilmWrite(film, patch, { rev: rev ?? patch.rev });
   if (!written.ok) throw new Error(`补丁作用不上（第 ${written.step} 步 ${written.code}）：${written.message}`);
   const after = written.film, total = film.output.frames;
   if (after.output.frames !== total) throw new RangeError('补丁改了总帧数，前后没法逐帧比');
@@ -238,11 +251,14 @@ function assetClashes(film, lock) {
  * 同名资产钉的是另一个版本）照拒，
  * 片号、种子、镜头表照查；放过了东西的，报告的 lockCheck 记 partial。
  * 第一遍的帧和交付件表当场另存，帧源在第二遍里原地覆写也照样比得出来。
+ * film、lock 在入口各存一份快照，核对、两遍渲染、报告的 filmId 和 rev 都只认快照：第一遍开渲后调用方换了原锁，第二遍用的仍是核过的那一份。
  */
 export async function runRebuildTest({
-  film, lock, renderLocked, tier = 'hash-same-machine', allowPartialLock = false,
+  film: givenFilm, lock: givenLock, renderLocked, tier = 'hash-same-machine', allowPartialLock = false,
   psnrMinDb = P8_PSNR_MIN_DB, maxDiffFrac = P8_MAX_DIFF_FRAC, diffLevel = P8_DIFF_LEVEL,
 } = {}) {
+  // 核过的和两遍渲的必须是同一份：入口存快照，之后不再读调用方的对象（修订号记在原对象上，也在入口读）
+  const film = snapshot(givenFilm, '片子描述'), lock = snapshot(givenLock, '锁'), rev = getFilmRev(givenFilm);
   if (typeof renderLocked !== 'function') throw new TypeError('renderLocked 必须是函数');
   if (typeof allowPartialLock !== 'boolean') throw new TypeError('allowPartialLock 必须是布尔值');
   const gate = needGate(tier, { psnrMinDb, maxDiffFrac, diffLevel });
@@ -251,7 +267,6 @@ export async function runRebuildTest({
   if (lock.format !== 'lock/1.0') throw new TypeError('锁不是 lock/1.0');
   const errors = contractErrors(lock);
   if (errors.length) throw new Error(`锁不合 lock/1.0 契约：${errors.join('；')}`);
-  const rev = getFilmRev(film);
   if (rev !== undefined && lock.rev !== rev) throw new Error(`修订号对不上：片子描述是 rev ${rev}，锁是 rev ${lock.rev ?? '（没写）'}`);
   const cross = validate({ format: 'lock-check/0.1', lock, film });
   const found = Object.entries({ ...cross.violations, D3: filmChecks.D3({ format: 'film-check/0.1', film, lock }) }).flatMap(([id, list]) => list.map((m) => [id, m]));
@@ -367,7 +382,7 @@ function rebuildReason(r) {
  * l2PassRate 是 L2 纯函数门通过率（[0, 1] 或 null），legacyNightlyPass 是旧作品夜间重建的结果（布尔或 null），jobId 是这次作业的编号（可不给）。
  * film（可不给）是两项作业用的那份片子描述：给了就核片号、总帧数，并照镜头表核 predicted（点名的镜头都在表里、各有预测帧，区间都落在点名的镜头里）。
  * 补丁改了镜头号或切点的报告，预测是照改动前后两张镜头表并起来的，和单独一张表对不上，不要带 film。
- * 报告不照单全收：帧表、计数、读数、门限照两项作业的判定规则重算一遍，和报告写的 pass、reason 对不上就拒收。
+ * 报告不照单全收：帧表、计数、读数、门限照两项作业的判定规则重算一遍，和报告写的 pass、reason 对不上就拒收；两份报告都给了，totalFrames 要相同（不带 film 也查）。
  * overallPass：给了的项全过才是 true（l2PassRate 要正好是 1；容差档的门限比 P8 松的不算过）。
  * 交回的行深冻结、体积有上界（长表只留总数和首尾样例），无穷大的 PSNR 记 null，可直接写成 JSON。坏参数抛的错都带 code: 'usage.bad-argument'。
  */
@@ -394,6 +409,7 @@ export function buildControllabilityRow(options = {}) {
       && nameTable(r.mismatchedDeliverables)
       && typeof r.worstPsnrDb === 'number' && !Number.isNaN(r.worstPsnrDb) && inUnit(r.worstFracGt5),
     rebuildReason);
+  if (loc && reb && loc.totalFrames !== reb.totalFrames) throw badArg(Error, `locality 报告是 ${loc.totalFrames} 帧，rebuild 报告是 ${reb.totalFrames} 帧，不是同一份片子描述的`);
   if (film !== null) {
     try {
       needFilm(film);

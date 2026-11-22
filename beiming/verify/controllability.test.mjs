@@ -732,6 +732,61 @@ test('V14-16 allowPartialLock 不放过同名资产钉了另一个版本；看�
   for (const bad of [null, 5, 'row', []]) assert.throws(() => buildControllabilityRow(bad), (err) => err.code === 'usage.bad-argument', `参数是 ${JSON.stringify(bad)}`);
 });
 
+test('V14-17 入口快照：作业进行中调用方改了片子描述、补丁或锁，照入口那一份渲、照入口那一份记；看板行不把片长不同的两份报告并成一行', async () => {
+  const camOf = (f) => f.shots[0].cards.find((c) => c.as === 'cam').params;
+  // 重建：第一遍开渲之后，调用方把原锁换成 rev 8、资产改钉 @4，片子描述换了片号。第二遍拿到的还得是入口核过的那一份
+  const film = structuredClone(assembly), lock = structuredClone(assemblyLock), seen = [];
+  const rebuild = await runRebuildTest({
+    film,
+    lock,
+    renderLocked: async (f, l, info) => {
+      seen.push([info.run, f.id, l.rev, Object.keys(l.assets).filter((k) => k.startsWith('asset:rtx-card@'))]);
+      if (info.run === 1) {
+        const { 'asset:rtx-card@3': digest, ...rest } = lock.assets;
+        Object.assign(lock, { rev: 8, assets: { ...rest, 'asset:rtx-card@4': digest } });
+        film.id = 'f_9z9';
+      }
+      return twice()(f, l, info);
+    },
+  });
+  assert.deepEqual(seen, [[1, 'f_8k2', 7, ['asset:rtx-card@3']], [2, 'f_8k2', 7, ['asset:rtx-card@3']]], '两遍用的是同一份锁');
+  assert.deepEqual([rebuild.pass, rebuild.filmId, rebuild.rev, rebuild.lockCheck], [true, 'f_8k2', 7, 'full'], '报告记的是入口那一份');
+
+  // 局部性：改动前那一遍开渲之后，调用方改了原片子描述的片号、镜头号、参数，又改了补丁的值
+  const film2 = structuredClone(assembly), patch = patchOf(MARGIN, 0.82), phases = [];
+  const locality = await runLocalityTest({
+    film: film2,
+    patch,
+    renderFilm: async (f, { phase }) => {
+      phases.push([phase, f.id, f.shots[0].id, camOf(f).margin]);
+      if (phase === 'before') {
+        Object.assign(film2, { id: 'f_9z9' });
+        film2.shots[0].id = 's09';
+        camOf(film2).margin = 0.5;
+        patch.ops[0].value = 0.1;
+      }
+      return renderAssembly(f);
+    },
+  });
+  assert.deepEqual(phases, [['before', 'f_8k2', 's01', 0.9], ['after', 'f_8k2', 's01', 0.82]]);
+  assert.deepEqual([locality.pass, locality.filmId, locality.predicted, locality.changedFrames.length, locality.leakedFrames],
+    [true, 'f_8k2', { shots: ['s01'], frameRanges: [[0, 180]], frameCount: 180 }, 180, []]);
+
+  // 存不成快照的（带函数）在开渲前拒
+  let calls = 0;
+  const counting = async (...args) => { calls++; return twice()(...args); };
+  await assert.rejects(() => runRebuildTest({ film: assembly, lock: { ...assemblyLock, hook() {} }, renderLocked: counting }), TypeError);
+  await assert.rejects(() => runLocalityTest({ film: { ...assembly, hook() {} }, patch: patchOf(MARGIN, 0.82), renderFilm: counting }), TypeError);
+  assert.equal(calls, 0, '拒收发生在渲染之前');
+
+  // 看板行：两份报告都给了，片长就得一样，不带 film 也查
+  const row = (over) => buildControllabilityRow({ filmId: 'f_8k2', recordedAt: '2026-11-22T12:00:00.000Z', locality, rebuild, ...over });
+  const longer = { ...rebuild, totalFrames: 301, identicalFrames: 301 };
+  assert.equal(row().overallPass, true, '都是 300 帧');
+  assert.equal(row({ locality: null, rebuild: longer }).rebuild.totalFrames, 301, '单给一份没得比');
+  assert.throws(() => row({ rebuild: longer }), (err) => err.code === 'usage.bad-argument' && /300.*301/.test(err.message), 'locality 300 帧、rebuild 301 帧');
+});
+
 // ---------- 页面宿主实渲 ----------
 
 /** 只有二进制确实不在（没装、路径不存在）才跳过；别的错（起来之后的运行时错在内）照常抛，算失败 */
