@@ -32,6 +32,7 @@
 - 坐标原点在左上，`roi` 是画面内的整数像素框 `{ x, y, width, height }`。
 - 每个函数都返回 `{ metric, value, unit, ... }`，`metric` 是带 `metric:` 前缀的标准名，`value` 是判分用的主读数。
 - 不用随机数、不读时钟：同一输入重复读数逐位一致，噪声地板是 0。
+- 浮点输入的量级不限，从亚正规数到 `1.79e308` 都读出有限数：`noiseResidual` 与 `aliasEdge` 量之前把整个序列乘同一个 2 的幂挪到双精度中段，带量纲的读数再除回去。乘 2 的幂不舍入，常规量级的读数与不缩放逐位相同；序列整体乘 2 的幂（阈值跟着乘）时判定不变，`value`、`flicker` 严格成比例。真值超出双精度的读数封顶在 `Number.MAX_VALUE`，不出 `Infinity`。
 - 尺寸不一致、空帧、非有限数、越界 `roi`、未知选项一律抛 `RangeError`，`code` 是 `usage.bad-argument`。普通数组入参（帧序列、色板、色值三元组、`background`、外部掩码）逐索引校验，只认数组自己的索引：稀疏数组的空洞同样报错，空洞处从原型链上继承到值也不算。
 - `ENERGY_METRICS` 是标准名（不带前缀）到函数的冻结登记表；`runEnergyMetric(name, ...args)` 带不带 `metric:` 前缀都认，未知名字同样抛 `usage.bad-argument`。
 
@@ -53,6 +54,7 @@
 - 两条都不满足的块是静止区的随机噪声，留在静止区里计数：高斯噪声逐像素独立，不成片也配不准；稀疏的散粒、泊松脉冲同理（等幅脉冲偶尔有两对凑巧同位移，那一块连外圈被排除，`staticRatio` 低一两个百分点，读数不受影响）。运动块连同外圈八块都不计。
 - 返回 `value`（没有静止像素时是 `null`，不出 `NaN`）、`status`（`ok` 或 `no-static-region`）、`staticRatio`、`staticPixels`、`totalPixels`、`pairs`、`block`、`motionThreshold`、`maxShift`。
 - 局限：下面几种运动既不成片也配不准，会读成噪声：亚像素慢移或旋转形变的细纹理；位移超过 `maxShift` 的细纹理；3×3 块窗口里变化像素不到 4 个的稀疏运动（单个像素在动、间距 16 像素以上的单像素点阵，后者把 `block` 调大到窗口里装得下两个点就能认）；叠在有纹理的静止背景上的稀疏点阵（窗口里的静止纹理挪不动）。`block` 取 4 时样本少，密的散粒噪声会有一部分块被误判成运动，`staticRatio` 下降，读数仍在真值附近。
+- 动态范围的局限：同一序列里比帧间差峰值小 `2^980` 倍（约 295 个数量级）以上、或比亮度峰值小 `2^1510` 倍（约 455 个数量级）以上的噪声，平方后下溢，读成 0 或 `no-static-region`；真有这种序列，先用 `roi` 避开离群的那块。
 
 ### `aliasEdge(frame | frames, { roi?, edgeThreshold? })`
 
@@ -64,7 +66,7 @@
 ### `colorPaletteDe00(candidate, reference, { k? })`
 
 - 两边各自可以是帧（用 `colorPalette` 取前 `k` 个主色，默认 6；线性浮点帧先截到 0 到 1 再按 sRGB 编成 8 位）或色板数组，元素是 `[r, g, b]`、`{ rgb, share? }` 或 `{ lab, share? }`。色值三个分量须都是数（`rgb` 是 0 到 255 的整数，`lab` 是有限数）。`share` 是非负有限数，只看比例：先除以色板里最大的 `share` 再加权，`1e308` 这样的权重不会溢出。
-- 色差是 CIEDE2000（含旋转项与彩度修正），`rgb` 按 `tools/eval/lib/metrics.mjs` 的 `srgbToLab` 换算（sRGB → 线性 → D65 XYZ → Lab）。公式在本文件里另写了一份不溢出的：常规范围与 `tools/eval/lib/metrics.mjs` 的 `deltaE00` 对到 `1e-9`，任何有限 Lab 都读出有限非负数，三个分量逐一相等恰为 0（那一版彩度上到 `1e44` 会出 `Infinity`），超出双精度的色差封顶在 `Number.MAX_VALUE`。匹配是双向最近色，不强制一一对应。
+- 色差是 CIEDE2000（含旋转项与彩度修正），`rgb` 按 `tools/eval/lib/metrics.mjs` 的 `srgbToLab` 换算（sRGB → 线性 → D65 XYZ → Lab）。公式在本文件里另写了一份不溢出的：常规范围与 `tools/eval/lib/metrics.mjs` 的 `deltaE00` 对到 `1e-9`，任何有限 Lab 都读出有限非负数（那一版彩度上到 `1e44` 会出 `Infinity`）：`a`、`b` 贴近双精度上限时先一起乘 2 的负幂再算，彩度不溢出，`1.3e308` 与 `1.7e308` 两个彩度照样分得开；旋转项配方后用 `hypot` 合成，极小的色差不会平方后下溢。只有三个分量逐一相等才读 0，不同的色至少读出最小正数，所以色板里有完全相同的色时最近色一定是它；超出双精度的色差封顶在 `Number.MAX_VALUE`。匹配是双向最近色，不强制一一对应。
 - 顶层 `meanDe00`、`maxDe00`、`weightedDe00`（按 `share` 归一加权）与 `pairs` 是候选的每个主色到参考色板最近色；`reverse` 是参考到候选的同一组数。`value` 取两个方向平均色差里大的那个：多出色板外的主色、或缺了参考里的色，都会抬高它。
 
 ### `shapeIou(a, b, { roi?, threshold?, id?, background?, tol?, emptyValue? })`

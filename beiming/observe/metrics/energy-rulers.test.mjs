@@ -433,6 +433,58 @@ test('noise.residual：maxShift 须为安全整数，搜索半径不超过量测
   assert.equal(noiseResidual(frames, { maxShift: 0 }).maxShift, 0);
 });
 
+test('极大极小的有限输入：色差、残差、闪烁不溢出也不下溢，读数随 2 的幂严格成比例', () => {
+  const near = (got, want, label) => assert.ok(Math.abs(got / want - 1) < 1e-12, `${label} 读出 ${got}，应为 ${want}`);
+  // 明度、色相相同，彩度贴着双精度上限的两个色：只剩彩度项，极限是 ΔC / (0.045 · 平均彩度)。
+  const p = { lab: [50, 1.3e308, 1.3e308] }, q = { lab: [50, 1.7e308, 1.7e308] };
+  near(repeat5(() => colorPaletteDe00([p], [q])).value, 0.4 / (0.045 * 1.5), 'p 对 q');
+  near(colorPaletteDe00([q], [p]).value, 0.4 / (0.045 * 1.5), 'q 对 p');
+  const pick = colorPaletteDe00([p], [q, p]).pairs[0];
+  assert.deepEqual([pick.index, pick.de00], [1, 0]);
+  // 极小一端：彩度修正 G 是 0.5，彩度差 2e-200 读 3e-200；不同的色不读 0。
+  near(colorPaletteDe00([{ lab: [50, 1e-200, 0] }], [{ lab: [50, 3e-200, 0] }]).value, 3e-200, '极小彩度差');
+  assert.ok(colorPaletteDe00([{ lab: [5e-324, 0, 0] }], [{ lab: [0, 0, 0] }]).value > 0);
+
+  // 16×16 全黑上一个幅度 A 的单像素脉冲：拉普拉斯是一个 4A 加四个 −A，摊到 14×14 个内部像素，读数 A / √392。
+  const impulse = A => [0, A].map(v => luma(16, 16, (x, y) => x === 8 && y === 8 ? v : 0, Float64Array));
+  for (const A of [1, 1e155, 1e300, 1.7e308, 1e-160, 1e-300]) {
+    const got = repeat5(() => noiseResidual(impulse(A)));
+    assert.deepEqual([got.status, got.staticRatio], ['ok', 1]);
+    near(got.value, A / Math.sqrt(392), `脉冲 ${A}`);
+  }
+
+  // 整个序列乘 2 的幂、阈值跟着乘：判定不变，带量纲的读数严格成比例。
+  const times = (frames, n) => frames.map(f => ({ ...f, luma: f.luma.map(v => v * 2 ** n) }));
+  const next = gaussian(11), moving = [0, 1, 2].map(t => luma(W, H, (x, y) =>
+    (x >= 8 + 6 * t && x < 24 + 6 * t && y >= 16 && y < 32 ? 0.9 : 0.2 + x / 256) + 0.01 * next(), Float64Array));
+  const rods = [0, 0.5, 0].map(phase => { const f = rod(1, phase); return { ...f, luma: Float64Array.from(f.luma) }; });
+  const noise = noiseResidual(moving, { motionThreshold: 2 / 255 }), alias = aliasEdge(rods, { edgeThreshold: 32 / 255 });
+  assert.ok(noise.value > 0 && noise.staticRatio < 1 && alias.jaggedness > 0 && alias.flicker > 0);
+  for (const n of [-960, -400, 400, 1000]) {
+    const s = 2 ** n;
+    assert.deepStrictEqual(noiseResidual(times(moving, n), { motionThreshold: 2 / 255 * s }),
+      { ...noise, value: noise.value * s, motionThreshold: 2 / 255 * s }, `noise.residual 乘 2^${n}`);
+    assert.deepStrictEqual(aliasEdge(times(rods, n), { edgeThreshold: 32 / 255 * s }),
+      { ...alias, flicker: alias.flicker * s, edgeThreshold: 32 / 255 * s }, `alias.edge 乘 2^${n}`);
+  }
+
+  // 幅度贴着上限、正负都有的白噪声：读数仍是它的标准差（均匀分布，幅度 / √3），和缩小 2^1000 倍再量的逐位成比例。
+  const draw = uniform(5), wild = [0, 1, 2, 3].map(() => luma(W, H, () => 1.7e308 * (2 * draw() - 1), Float64Array));
+  const loud = repeat5(() => noiseResidual(wild)), sharp = repeat5(() => aliasEdge(wild));
+  assert.ok(Math.abs(loud.value / (1.7e308 / Math.sqrt(3)) - 1) < 0.15 && loud.staticRatio > 0.9, `读出 ${loud.value}，静止占比 ${loud.staticRatio}`);
+  assert.equal(loud.value, noiseResidual(times(wild, -1000)).value * 2 ** 1000);
+  assert.ok(Number.isFinite(sharp.value) && sharp.flicker > 1e306 && sharp.flicker < Infinity, `锯齿度 ${sharp.value}，闪烁 ${sharp.flicker}`);
+  assert.equal(sharp.flicker, aliasEdge(times(wild, -1000)).flicker * 2 ** 1000);
+  // 每个像素逐帧在上下限之间翻转：真值超出双精度，封顶在 Number.MAX_VALUE。
+  const flip = [0, 1, 2].map(t => luma(W, H, (x, y) => (x + y + t) % 2 ? 1.7e308 : -1.7e308, Float64Array));
+  assert.equal(aliasEdge(flip).flicker, Number.MAX_VALUE);
+
+  // 一个 1e308 的静止坏点不拖累旁边正常噪声的读数。
+  const spot = hot => { const g = gaussian(3); return [0, 1, 2].map(() => luma(W, H, (x, y) => x === 40 && y === 20 ? hot : 0.5 + 0.01 * g(), Float64Array)); };
+  const hot = noiseResidual(spot(1e308)).value, plain = noiseResidual(spot(0.5)).value;
+  assert.ok(Math.abs(hot / plain - 1) < 0.05, `带坏点 ${hot}，不带 ${plain}`);
+});
+
 test('非法入参一律抛带冻结错误码 usage.bad-argument 的 RangeError', () => {
   const ok = luma(W, H, () => 0.5), small = luma(8, 8, () => 0.5), mask = empty();
   const withNaN = luma(W, H, (x, y) => x === 3 && y === 3 ? NaN : 0.5), withInf = luma(W, H, (x) => x ? 0.5 : Infinity);

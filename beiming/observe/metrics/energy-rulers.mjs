@@ -78,6 +78,22 @@ function lumaPlane({ width, data, channels }, { x, y, width: w, height: h }) {
   return out;
 }
 
+const top = v => Math.min(v, Number.MAX_VALUE);
+// 把峰值 peak 挪到 2^to 要乘的 2 的幂，回它的指数；peak 为 0 时不设限。
+const lift = (peak, to) => to - Math.ceil(Math.log2(top(peak)));
+function peakOf(planes) {
+  let peak = 0;
+  for (const plane of planes) for (let i = 0; i < plane.length; i++) peak = Math.max(peak, Math.abs(plane[i]));
+  return peak;
+}
+// 各平面就地乘同一个 2 的幂 k（指数取 exps 里最小的，不超过 1023），回 k。乘 2 的幂不舍入：缩放后的判定与比值同原样逐位相同，
+// 带量纲的读数除回 k 也一样，差分、求和、平方却不再溢出或下溢。阈值要跟着乘 k。
+function rescale(planes, ...exps) {
+  const k = 2 ** Math.min(1023, ...exps);
+  for (const plane of planes) for (let i = 0; i < plane.length; i++) plane[i] *= k;
+  return k;
+}
+
 // 任一色分量达到 threshold 的像素占比。默认阈值：8 位 254，线性浮点 1（显示白）。
 // alphaMask 为 true 时只数本帧 alpha 大于 0 的像素；也可以给与画面等大的单通道数组（8 位、浮点定型数组或普通数组），
 // 元素须为布尔或非负有限数，大于 0 计入。
@@ -183,14 +199,20 @@ function drifts(cur, prev, d, w, h, box, wide, reach, floor, energy, at) {
 //         稀疏脉冲凑巧对上一两个的不算）。
 // 运动块连同外圈八块都不计。
 // shortcut: 单个像素的移动、亚像素慢移或旋转形变的细纹理、叠在有纹理的静止背景上的稀疏点阵既不成片也配不准，会读成噪声；要分开得另给运动真值掩码。
+// 量之前整个序列乘同一个 2 的幂（见 rescale）：帧间差的峰值挪到 2^470，平方和上下都有余量；亮度本身不过 2^1000，
+// 配准时跨像素相减不溢出（平方溢出成 Infinity 只会判成配不上，本来也配不上）。
+// shortcut: 比帧间差峰值小 2^980 倍（约 295 个数量级）以上的噪声，平方后下溢，读成 0 或 no-static-region；真有这种序列，先用 roi 避开离群的那块再量。
 export function noiseResidual(frames, opts = {}) {
   const { roi, block = 8, motionThreshold, maxShift = 6 } = options(opts, ['roi', 'block', 'motionThreshold', 'maxShift']);
   const list = sequence(frames, 2, 'noiseResidual');
   const r = region(list[0], roi), w = r.width, h = r.height;
   need(Number.isInteger(block) && block >= 4 && block <= Math.min(w, h), 'block 须为 4 到量测区域短边之间的整数');
   need(Number.isSafeInteger(maxShift) && maxShift >= 0, 'maxShift 须为非负安全整数');
-  const floor = motionThreshold === undefined ? 2 / 255 * list[0].scale : number(motionThreshold, 'motionThreshold');
+  const limit = motionThreshold === undefined ? 2 / 255 * list[0].scale : number(motionThreshold, 'motionThreshold');
   const planes = list.map(f => lumaPlane(f, r));
+  let jump = 0;
+  for (let t = 1; t < planes.length; t++) for (let i = 0; i < w * h; i++) jump = Math.max(jump, Math.abs(planes[t][i] - planes[t - 1][i]));
+  const k = rescale(planes, lift(jump, 470), lift(peakOf(planes), 1000)), floor = limit * k;
   const cols = Math.floor(w / block), rows = Math.floor(h / block);
   // 末行末列不足一块的余数并进最后一块。
   const extent = (bx, by) => [bx * block, bx === cols - 1 ? w : (bx + 1) * block, by * block, by === rows - 1 ? h : (by + 1) * block];
@@ -234,10 +256,10 @@ export function noiseResidual(frames, opts = {}) {
     }
   }
   const totalPixels = w * h * (planes.length - 1);
-  return { metric: 'metric:noise.residual', value: count ? Math.sqrt(sum / count / 40) : null,
+  return { metric: 'metric:noise.residual', value: count ? top(Math.sqrt(sum / count / 40) / k) : null,
     unit: list[0].float ? 'linear' : 'code8', status: count ? 'ok' : 'no-static-region',
     staticRatio: staticPixels / totalPixels, staticPixels, totalPixels, pairs: planes.length - 1,
-    block, motionThreshold: floor, maxShift };
+    block, motionThreshold: limit, maxShift };
 }
 
 const REACH = 6;
@@ -278,8 +300,10 @@ export function aliasEdge(input, opts = {}) {
   const { roi, edgeThreshold } = options(opts, ['roi', 'edgeThreshold']);
   const list = Array.isArray(input) ? sequence(input, 1, 'aliasEdge') : [read(input, '帧')];
   const r = region(list[0], roi), w = r.width, h = r.height;
-  const limit = edgeThreshold === undefined ? 32 / 255 * list[0].scale : number(edgeThreshold, 'edgeThreshold');
+  const threshold = edgeThreshold === undefined ? 32 / 255 * list[0].scale : number(edgeThreshold, 'edgeThreshold');
   const planes = list.map(f => lumaPlane(f, r)), detail = new Uint8Array(w * h);
+  // 亮度峰值挪到 2^900（见 rescale）：Sobel、窗内求和、闪烁累加都不溢出。锯齿度是比值，不用除回去。
+  const k = rescale(planes, lift(peakOf(planes), 900)), limit = threshold * k;
   let sum = 0, edges = 0;
   for (const L of planes) {
     for (let y = REACH + 1; y < h - REACH - 1; y++) for (let x = REACH + 1; x < w - REACH - 1; x++) {
@@ -308,12 +332,12 @@ export function aliasEdge(input, opts = {}) {
         if (before * after < 0) energy += Math.min(Math.abs(before), Math.abs(after));
       }
     }
-    flicker = detailPixels ? energy / (detailPixels * (planes.length - 2)) : 0;
+    flicker = detailPixels ? top(energy / (detailPixels * (planes.length - 2)) / k) : 0;
   }
   const jaggedness = edges ? sum / edges : 0;
   return { metric: 'metric:alias.edge', value: jaggedness, unit: 'px', status: edges ? 'ok' : 'no-edges', jaggedness,
     edgePixels: edges, edgeRatio: edges / (w * h * planes.length), flicker,
-    flickerUnit: list[0].float ? 'linear' : 'code8', detailPixels, frames: planes.length, edgeThreshold: limit };
+    flickerUnit: list[0].float ? 'linear' : 'code8', detailPixels, frames: planes.length, edgeThreshold: threshold };
 }
 
 const encode = v => { const c = Math.min(1, Math.max(0, v)); return Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055)); };
@@ -345,18 +369,21 @@ function palette(input, k, label) {
   return colors;
 }
 
-const top = v => Math.min(v, Number.MAX_VALUE), rad = d => d * Math.PI / 180;
-// c⁷ / (c⁷ + 25⁷) 的有界写法：c 为 0 得 0，c 极大得 1，中间不溢出。
-const ratio7 = c => 1 / (1 + (25 / c) ** 7);
+const rad = d => d * Math.PI / 180;
 
 // CIEDE2000（Sharma 等 2005），与 tools/eval/lib/metrics.mjs 的 deltaE00 同式，常规范围读数对到 1e-9。
 // 那一版彩度上到 1e44 时 C⁷ 溢出，同色自比也出 Infinity；这里各项都写成有界的比值或先减半再算：
-// 任何有限 Lab 都得有限非负数，三个分量逐一相等恰为 0，超出双精度的色差封顶在 Number.MAX_VALUE。
+// 任何有限 Lab 都得有限非负数，只有三个分量逐一相等才是 0，超出双精度的色差封顶在 Number.MAX_VALUE。
 function de00([L1, a1, b1], [L2, a2, b2]) {
   if (L1 === L2 && a1 === a2 && b1 === b2) return 0;
-  // 彩度大到 1 + G 会让 a 溢出时，G 早已是 0。
-  const G = 0.5 * (1 - Math.sqrt(ratio7(top(Math.hypot(a1, b1)) / 2 + top(Math.hypot(a2, b2)) / 2)));
-  const A1 = (1 + G) * a1, A2 = (1 + G) * a2, C1 = top(Math.hypot(A1, b1)), C2 = top(Math.hypot(A2, b2));
+  // a、b 贴近双精度上限时彩度会溢出：四个数先一起乘 2 的负幂 s（压到 2^1000 以内，平常是 1），
+  // 原式里与彩度相加、相比的常数跟着乘 s，各项的值不变。
+  const s = 2 ** Math.min(0, lift(Math.max(Math.abs(a1), Math.abs(b1), Math.abs(a2), Math.abs(b2)), 1000));
+  a1 *= s; b1 *= s; a2 *= s; b2 *= s;
+  // c⁷ / (c⁷ + 25⁷) 的有界写法，c 是乘过 s 的彩度：c 为 0 得 0，c 极大得 1，中间不溢出。
+  const ratio7 = c => 1 / (1 + (25 * s / c) ** 7);
+  const G = 0.5 * (1 - Math.sqrt(ratio7(Math.hypot(a1, b1) / 2 + Math.hypot(a2, b2) / 2)));
+  const A1 = (1 + G) * a1, A2 = (1 + G) * a2, C1 = Math.hypot(A1, b1), C2 = Math.hypot(A2, b2);
   const hue = (b, a) => { if (a === 0 && b === 0) return 0; const v = Math.atan2(b, a) * 180 / Math.PI; return v >= 0 ? v : v + 360; };
   const h1 = hue(b1, A1), h2 = hue(b2, A2), gray = C1 === 0 || C2 === 0;
   let dh = gray ? 0 : h2 - h1, hb = h1 + h2;
@@ -365,11 +392,13 @@ function de00([L1, a1, b1], [L2, a2, b2]) {
   const Cb = C1 / 2 + C2 / 2, q = L1 / 2 + L2 / 2 - 50;
   const T = 1 - 0.17 * Math.cos(rad(hb - 30)) + 0.24 * Math.cos(rad(2 * hb)) + 0.32 * Math.cos(rad(3 * hb + 6)) - 0.20 * Math.cos(rad(4 * hb - 63));
   // S_L 原式 1 + 0.015·q² / √(20 + q²)，分子分母同除以 |q|。
-  const Sl = 1 + 0.015 * Math.abs(q) / Math.sqrt(1 + 20 / (q * q)), Sc = 1 + 0.045 * Cb, Sh = 1 + 0.015 * Cb * T;
+  const Sl = 1 + 0.015 * Math.abs(q) / Math.sqrt(1 + 20 / (q * q)), Sc = s + 0.045 * Cb, Sh = s + 0.015 * Cb * T;
   const Rt = -Math.sin(rad(60 * Math.exp(-(((hb - 275) / 25) ** 2)))) * 2 * Math.sqrt(ratio7(Cb));
   // halfL 是 ΔL′ / S_L 的一半：L 一正一负都极大时差值本身会溢出。色度项、色相项有界（不超过 45 与 1905）。
   const halfL = (L2 / 2 - L1 / 2) / Sl, tC = (C2 - C1) / Sc, tH = Math.sqrt(C1) * Math.sqrt(C2) / Sh * 2 * Math.sin(rad(dh / 2));
-  return top(2 * Math.hypot(halfL, Math.sqrt(Math.max(0, tC * tC + tH * tH + Rt * tC * tH)) / 2));
+  // tC² + tH² + Rt·tC·tH 配方成两个平方（|Rt| 不超过 √3），连同明度项一起交给 hypot：极小的色差不会平方后下溢成 0。
+  // 不同的色至少读出最小正数，0 只留给逐分量相等，最近色遇到它一定先中。
+  return Math.max(Number.MIN_VALUE, top(2 * Math.hypot(halfL, (tC + Rt / 2 * tH) / 2, Math.sqrt(1 - Rt * Rt / 4) * tH / 2)));
 }
 
 // 每个颜色到对面色板最近色的 CIEDE2000 色差，按 share 归一加权。
