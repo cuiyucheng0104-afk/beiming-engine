@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import { execFileSync, spawn } from 'node:child_process';
+import { ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright-core';
 import { chromeArgs, chromeExecutable } from '../../engine/render/lib/gpu.mjs';
@@ -76,7 +76,11 @@ function workspace(t) {
 
 function watch(t, options) {
   const watchdog = createJobWatchdog(options);
-  t.after(() => watchdog.close());
+  // 收尾：断言中途失败时受管进程也要收掉（报一次 GPU 丢失就会零宽限杀掉名下全部进程）。
+  t.after(() => {
+    watchdog.reportGpuLost('test-teardown');
+    watchdog.close();
+  });
   return watchdog;
 }
 
@@ -110,7 +114,15 @@ test('A14-1 入参防御：Proxy、取值器、未知键、Symbol 键、类实�
   let getterHits = 0;
   const withGetter = (key) => Object.defineProperty({}, key, { enumerable: true, get() { getterHits += 1; return 10; } });
   const scheduler = new Scheduler({ totalMB: 512, previewReserveMB: 64 });
-  const watchdog = watch(t, { quotas: { vramQuotaMB: 64 } });
+  // 这一条里的看门狗只关不杀：下面要拿本进程、父进程、祖先的进程号去试，收尾时不能有任何强杀。
+  const watchdog = createJobWatchdog({ quotas: { vramQuotaMB: 64 } });
+  t.after(() => watchdog.close());
+  // 把 process.kill 换成只记账的假货：哪条防线万一失效，测试也不会真的把信号发给本进程的父辈。
+  const signals = [];
+  t.mock.method(process, 'kill', (pid, signal) => {
+    if (signal !== 0 && signal !== undefined) signals.push([pid, signal]);
+    throw Object.assign(new Error('测试里不真发信号'), { code: 'ESRCH' });
+  });
   const task = () => assert.fail('入参不合格时不得跑任务');
   const ownGroup = posix ? Number(execFileSync('ps', ['-o', 'pgid=', '-p', String(process.pid)], { encoding: 'utf8' })) : null;
 
@@ -130,7 +142,12 @@ test('A14-1 入参防御：Proxy、取值器、未知键、Symbol 键、类实�
     ['计时类配额超过定时器上限', () => createJobWatchdog({ quotas: { frameTimeoutMs: 2 ** 31 } })],
     ['killGraceMs 是负数', () => createJobWatchdog({ quotas: { killGraceMs: -1 } })],
     ['探针不是函数', () => createJobWatchdog({ quotas: { vramQuotaMB: 1 }, probeVramMB: 128 })],
-    ['给了显存探针没给配额', () => createJobWatchdog({ probeVramMB: () => 0 })],
+    ['给了显存探针没给配额', () => createJobWatchdog({ quotas: {}, probeVramMB: () => 0 })],
+    ['quotas 整个没给', () => createJobWatchdog({})],
+    ['什么都没给', () => createJobWatchdog()],
+    ['quotas 是 undefined（变量名写错）', () => createJobWatchdog({ quotas: undefined })],
+    ['runWithWatchdog 没给 quotas', () => runWithWatchdog({ scheduler, scheduleSpec: { kind: 'draft' } }, task)],
+    ['给了工作区没给磁盘配额', () => createJobWatchdog({ quotas: { frameTimeoutMs: 10 }, workspaceDir: dir })],
     ['给了磁盘配额没给工作区', () => createJobWatchdog({ quotas: { diskQuotaBytes: 1 } })],
     ['工作区是相对路径', () => createJobWatchdog({ quotas: { maxFiles: 1 }, workspaceDir: 'ws' })],
     ['工作区不存在', () => createJobWatchdog({ quotas: { maxFiles: 1 }, workspaceDir: path.join(dir, 'missing') })],
@@ -139,6 +156,13 @@ test('A14-1 入参防御：Proxy、取值器、未知键、Symbol 键、类实�
     ['强杀信号不在白名单', () => killProcessTree(999999, { signal: 'SIGSTOP' })],
     ['登记的不是 ChildProcess', () => watchdog.registerProcess({ pid: 999999 })],
     ['登记的是 Proxy', () => watchdog.registerProcess(trap.proxy)],
+    ['登记的对象原型链上有 Proxy', () => watchdog.registerProcess(Object.create(trap.proxy))],
+    ['登记仿造的 ChildProcess，pid 是取值器', () => watchdog.registerProcess(Object.defineProperty(Object.create(ChildProcess.prototype), 'pid', { get() { getterHits += 1; return 999999; } }))],
+    ['起进程的参数是已撤销的 Proxy', () => watchdog.spawnManaged(node, revoked.proxy)],
+    ['起进程的 env 是 Proxy', () => watchdog.spawnManaged(node, ['-e', IDLE], { env: trap.proxy })],
+    ['起进程的 env 有非字符串值', () => watchdog.spawnManaged(node, ['-e', IDLE], { env: { A: 1 } })],
+    ['起进程的 stdio 不在白名单', () => watchdog.spawnManaged(node, ['-e', IDLE], { stdio: ['ignore', 'ipc'] })],
+    ['起进程的 stdio 是 Proxy', () => watchdog.spawnManaged(node, ['-e', IDLE], { stdio: new Proxy([], {}) })],
     ['登记选项带取值器', () => watchdog.registerProcess(999999, withGetter('processGroup'))],
     ['起进程的参数不是字符串数组', () => watchdog.spawnManaged(node, ['-e', 1])],
     ['起进程的选项想自己定 detached', () => watchdog.spawnManaged(node, ['-e', IDLE], { detached: false })],
@@ -151,16 +175,20 @@ test('A14-1 入参防御：Proxy、取值器、未知键、Symbol 键、类实�
     ['帧函数不是函数', () => watchdog.runFrame(0, 'frame')],
     ['着色器标签不是字符串', () => watchdog.beginShaderPass(5)],
     ['GPU 丢失原因不是字符串', () => watchdog.reportGpuLost({})],
-    ['任务不是函数', () => runWithWatchdog({}, null)],
+    ['任务不是函数', () => runWithWatchdog({ quotas: {} }, null)],
     ['runWithWatchdog 的选项是 Proxy', () => runWithWatchdog(trap.proxy, task)],
-    ['scheduler 是 Proxy', () => runWithWatchdog({ scheduler: new Proxy(scheduler, {}), scheduleSpec: { kind: 'draft' } }, task)],
-    ['scheduler 是仿造的对象', () => runWithWatchdog({ scheduler: { acquire: task, request: task }, scheduleSpec: { kind: 'draft' } }, task)],
-    ['scheduleSpec 带取值器', () => runWithWatchdog({ scheduler, scheduleSpec: withGetter('vramMB') }, task)],
-    ['scheduleSpec 有未知键', () => runWithWatchdog({ scheduler, scheduleSpec: { kind: 'draft', gpu: 0 } }, task)],
-    ['scheduleSpec 的类别无效', () => runWithWatchdog({ scheduler, scheduleSpec: { kind: 'constructor' } }, task)],
-    ['给了 scheduleSpec 没给 scheduler', () => runWithWatchdog({ scheduleSpec: { kind: 'draft' } }, task)],
+    ['scheduler 是 Proxy', () => runWithWatchdog({ quotas: {}, scheduler: new Proxy(scheduler, {}), scheduleSpec: { kind: 'draft' } }, task)],
+    ['scheduler 是仿造的对象', () => runWithWatchdog({ quotas: {}, scheduler: { acquire: task, request: task }, scheduleSpec: { kind: 'draft' } }, task)],
+    ['scheduler 只是原型对得上', () => runWithWatchdog({ quotas: {}, scheduler: Object.create(Scheduler.prototype), scheduleSpec: { kind: 'draft' } }, task)],
+    ['scheduler 的原型链上有 Proxy', () => runWithWatchdog({ quotas: {}, scheduler: Object.create(trap.proxy), scheduleSpec: { kind: 'draft' } }, task)],
+    ['scheduleSpec 带取值器', () => runWithWatchdog({ quotas: {}, scheduler, scheduleSpec: withGetter('vramMB') }, task)],
+    ['scheduleSpec 有未知键', () => runWithWatchdog({ quotas: {}, scheduler, scheduleSpec: { kind: 'draft', gpu: 0 } }, task)],
+    ['scheduleSpec 的类别无效', () => runWithWatchdog({ quotas: {}, scheduler, scheduleSpec: { kind: 'constructor' } }, task)],
+    ['给了 scheduleSpec 没给 scheduler', () => runWithWatchdog({ quotas: {}, scheduleSpec: { kind: 'draft' } }, task)],
     ['显存配额高于调度器准入额度', () => runWithWatchdog({ scheduler, scheduleSpec: { kind: 'draft', vramMB: 128 }, quotas: { vramQuotaMB: 129 } }, task)],
-    ['signal 不是 AbortSignal', () => runWithWatchdog({ signal: { aborted: false } }, task)],
+    ['signal 不是 AbortSignal', () => runWithWatchdog({ quotas: {}, signal: { aborted: false } }, task)],
+    ['signal 是仿造的（只有原型对得上）', () => runWithWatchdog({ quotas: {}, signal: Object.create(AbortSignal.prototype) }, task)],
+    ['signal 是 Proxy', () => runWithWatchdog({ quotas: {}, signal: trap.proxy }, task)],
   ];
   for (const key of ['frameTimeoutMs', 'shaderHangMs', 'pollIntervalMs', 'vramQuotaMB', 'diskQuotaBytes', 'maxFiles', 'killGraceMs']) {
     for (const value of [key === 'killGraceMs' ? -1 : 0, 1.5, NaN, Infinity, '100', 2 ** 53, 10n, null, undefined, true]) {
@@ -168,8 +196,17 @@ test('A14-1 入参防御：Proxy、取值器、未知键、Symbol 键、类实�
     }
   }
   for (const pid of [0, 1, -1, process.pid, process.ppid, 1.5, NaN, '4242', 2 ** 53, null]) {
-    mutants.push([`killProcessTree(${String(pid)})`, () => killProcessTree(pid)]);
+    // Windows 上强杀走 taskkill，换不成假货：本进程、父进程这两个真进程号只在 POSIX 上试。
+    if (posix || (pid !== process.pid && pid !== process.ppid)) mutants.push([`killProcessTree(${String(pid)})`, () => killProcessTree(pid)]);
     mutants.push([`registerProcess(${String(pid)})`, () => watchdog.registerProcess(pid)]);
+  }
+  if (posix) {
+    // 父进程的父进程：既不是本进程也不是父进程，但杀它等于杀掉自己这一支。
+    const grandparent = Number(execFileSync('ps', ['-o', 'ppid=', '-p', String(process.ppid)], { encoding: 'utf8' }));
+    if (grandparent > 1) {
+      mutants.push(['强杀本进程的祖先', () => killProcessTree(grandparent)]);
+      mutants.push(['登记本进程的祖先', () => watchdog.registerProcess(grandparent)]);
+    }
   }
   if (posix && ownGroup !== process.pid && ownGroup !== process.ppid) {
     mutants.push(['对本进程所在的进程组发信号', () => killProcessTree(ownGroup, { processGroup: true })]);
@@ -181,11 +218,19 @@ test('A14-1 入参防御：Proxy、取值器、未知键、Symbol 键、类实�
   assert.equal(trap.hits(), 0, 'Proxy 的陷阱不得被触发');
   assert.equal(getterHits, 0, '取值器不得被调用');
   assert.equal(watchdog.violation, null);
+  assert.deepEqual(signals, [], '入参不合格时一个信号也不得发出');
+  t.mock.restoreAll();
   assert.equal(processIsAlive(process.pid), true, '本进程还在');
   // 调度器没有被入参不合格的调用占住额度。
   (await scheduler.acquire({ kind: 'final' })).release();
   // 原型是 null 的普通对象照收。
   createJobWatchdog({ quotas: Object.assign(Object.create(null), { frameTimeoutMs: 5 }) }).close();
+  // 一个看门狗同时只跑一帧：第二帧当场拒收，不会悄悄清掉第一帧的计时器。
+  const single = watch(t, { quotas: { frameTimeoutMs: 5000 } });
+  const first = single.runFrame(0, async () => { await delay(50); return 'first'; });
+  await assert.rejects(single.runFrame(1, task), badArgument);
+  assert.equal(await first, 'first');
+  assert.equal(await single.runFrame(1, () => 'second'), 'second');
 });
 
 test('A14-2 单帧超时：不理 AbortSignal 也不理 SIGTERM 的同步死循环，宽限一过升级 SIGKILL 整组杀净，报 timeout.frame（124），不留孙进程', async (t) => {
@@ -215,17 +260,80 @@ test('A14-2 单帧超时：不理 AbortSignal 也不理 SIGTERM 的同步死循�
 });
 
 test('A14-2b 单帧超时的宽限：听 SIGTERM 的进程在宽限内自己退出；按时完成的帧不受影响，计时器逐帧清掉', async (t) => {
-  const watchdog = watch(t, { quotas: { frameTimeoutMs: 300, killGraceMs: 2000 } });
+  const watchdog = watch(t, { quotas: { frameTimeoutMs: 400, killGraceMs: 2000 } });
   for (let frame = 0; frame < 3; frame += 1) {
-    assert.equal(await watchdog.runFrame(frame, async ({ frameIndex }) => { await delay(150); return frameIndex * 2; }), frame * 2);
+    assert.equal(await watchdog.runFrame(frame, async ({ frameIndex }) => { await delay(40); return frameIndex * 2; }), frame * 2);
   }
   const child = watchdog.spawnManaged(node, ['-e', IDLE], { stdio: 'ignore' });
   await delay(150);
   const started = Date.now();
   refuses('timeout.frame', 124)(await rejected(watchdog.runFrame(3, never)));
-  assert.ok(Date.now() - started < 300 + 1500, '进程一退出就返回，不把宽限等满');
+  assert.ok(Date.now() - started < 400 + 1500, '进程一退出就返回，不把宽限等满');
   if (posix) assert.equal(child.signalCode, 'SIGTERM');
   assert.equal(processIsAlive(child.pid), false);
+});
+
+test('A14-2c 单帧超时，登记时没说是进程组：根进程听 SIGTERM 先死，不理 SIGTERM 的孙进程改认 1 号进程之后照样被 SIGKILL', { skip: posix ? false : '靠 POSIX 信号' }, async (t) => {
+  const watchdog = watch(t, { quotas: { frameTimeoutMs: 500, killGraceMs: 150 } });
+  // 根进程不装 SIGTERM 处理函数；孙进程装了。不 detached：和测试进程同组，只能按进程表找后代。
+  const script = `
+const grandchild = require('node:child_process').spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); require('node:fs').writeSync(1, 'ready\\\\n'); setInterval(() => {}, 1000)"], { stdio: ['ignore', 'inherit', 'ignore'] });
+require('node:fs').writeSync(1, grandchild.pid + '\\n');
+setInterval(() => {}, 1000);`;
+  const parent = spawn(node, ['-e', script], { stdio: ['ignore', 'pipe', 'inherit'] });
+  let output = '';
+  await new Promise((resolve) => {
+    parent.stdout.on('data', (chunk) => {
+      output += chunk;
+      if (/^\d+$/m.test(output) && output.includes('ready')) resolve(); // 孙进程的处理函数已经装好
+    });
+  });
+  const grandchild = Number(output.match(/^\d+$/m)[0]);
+  t.after(() => { if (processIsAlive(grandchild)) process.kill(grandchild, 'SIGKILL'); });
+  watchdog.registerProcess(parent);
+  const error = await rejected(watchdog.runFrame(0, never));
+  refuses('timeout.frame', 124)(error);
+  assert.equal(parent.signalCode, 'SIGTERM', '根进程在宽限内自己退出');
+  assert.equal(processIsAlive(grandchild), false, '不理 SIGTERM 的孙进程不得留下');
+  assert.ok(error.killed.includes(grandchild));
+  assert.deepEqual(error.survivors, []);
+});
+
+test('A14-2d 受管名单不留死人：已经退出的进程除名，之后越线不再向它的进程号发信号', async (t) => {
+  const watchdog = watch(t, { quotas: {} });
+  const gone = watchdog.spawnManaged(node, ['-e', ''], { stdio: 'ignore' });
+  await new Promise((resolve) => { gone.once('exit', resolve); });
+  const already = spawn(node, ['-e', ''], { stdio: 'ignore' });
+  await new Promise((resolve) => { already.once('exit', resolve); });
+  watchdog.registerProcess(already); // 登记时就已经退出的
+  const live = watchdog.spawnManaged(node, ['-e', IDLE], { stdio: 'ignore' });
+  if (posix) for (let waited = 0; processIsAlive(gone.pid, { processGroup: true }) && waited < 2000; waited += 20) await delay(20);
+  const error = await rejected(watchdog.guard(() => { watchdog.reportGpuLost('gpu-process-crashed'); return never(); }));
+  assert.ok(error.killed.includes(live.pid));
+  assert.ok(!error.killed.includes(gone.pid) && !error.killed.includes(already.pid), `不得再向已退出的进程号发信号：${error.killed}`);
+  assert.ok(killedHard(live));
+});
+
+test('A14-3c 探针不回话：过了 probeTimeoutMs 按失败处理；探针挂着的时候磁盘照查', async (t) => {
+  const hung = watch(t, { quotas: { pollIntervalMs: 20, probeTimeoutMs: 100 }, probeGpuHealth: never });
+  const started = Date.now();
+  const lost = await rejected(hung.check());
+  refuses('failure.gpu-lost', 1)(lost);
+  assert.match(lost.cause.message, /没有回话/);
+  assert.ok(Date.now() - started < 2000);
+
+  const blind = watch(t, { quotas: { vramQuotaMB: 64, pollIntervalMs: 20, probeTimeoutMs: 100 }, probeVramMB: never });
+  const exceeded = await rejected(blind.guard(never));
+  refuses('failure.vram-exceeded', 1)(exceeded);
+  assert.equal(exceeded.reason, 'probe-failed');
+
+  // 探针时限很长、一直不回话：磁盘检查不排在它后面。
+  const { dir } = workspace(t);
+  const disk = watch(t, { workspaceDir: dir, quotas: { diskQuotaBytes: 100_000, pollIntervalMs: 20, probeTimeoutMs: 60_000 }, probeGpuHealth: never });
+  await delay(80); // 探针已经挂住
+  fs.writeFileSync(path.join(dir, 'intermediate', 'flood.bin'), Buffer.alloc(300_000, 1));
+  const full = await Promise.race([rejected(disk.guard(never)), delay(2000).then(() => assert.fail('探针挂住之后磁盘检查失效了'))]);
+  refuses('failure.disk-quota', 1)(full);
 });
 
 test('A14-3 着色器挂起：有心跳不算挂，心跳一停到点零宽限 SIGKILL，报 timeout.shader-hang（124）', async (t) => {
@@ -263,16 +371,20 @@ test('A14-3b GPU 丢失：渲染端上报或健康探针没报健康，清掉残
   assert.equal(error.reason, 'webglcontextlost');
   assert.ok(killedHard(first));
   // 越线之后：不再起新进程；这时才登记上来的进程当场补杀。
-  assert.throws(() => reported.spawnManaged(node, ['-e', IDLE]), badArgument);
-  const late = spawn(node, ['-e', IDLE], { stdio: 'ignore' });
-  const lateExit = new Promise((resolve) => { late.once('exit', resolve); });
-  reported.registerProcess(late);
-  await lateExit;
-  assert.ok(killedHard(late));
+  assert.throws(() => reported.spawnManaged(node, ['-e', IDLE]), (thrown) => thrown === error);
+  for (const closeFirst of [false, true]) {
+    // 任务还在起浏览器时就越线了：runWithWatchdog 已经关了看门狗，进程这时才起好来登记，也要补杀。
+    if (closeFirst) reported.close();
+    const late = spawn(node, ['-e', IDLE], { stdio: 'ignore' });
+    const lateExit = new Promise((resolve) => { late.once('exit', resolve); });
+    assert.throws(() => reported.registerProcess(late), (thrown) => thrown === error);
+    await lateExit;
+    assert.ok(killedHard(late));
+  }
 
   // 没有独立进程组的受管进程：按进程表把孙进程找全，一起杀。
   if (posix) {
-    const plain = watch(t, {});
+    const plain = watch(t, { quotas: {} });
     const parent = spawn(node, ['-e', PARENT], { stdio: ['ignore', 'pipe', 'inherit'] });
     const grandchild = Number((await firstLine(parent.stdout)).split(' ')[1]);
     plain.registerProcess(parent);
@@ -301,7 +413,7 @@ test('A14-4 显存配额联动调度器：账本越线当场 SIGKILL，进程死
   const scheduler = new Scheduler({ totalMB: 512, previewReserveMB: 64 });
   let child;
   let thrown;
-  const error = await rejected(runWithWatchdog({ scheduler, scheduleSpec: { kind: 'draft', vramMB: 128 } }, async ({ watchdog, lease }) => {
+  const error = await rejected(runWithWatchdog({ scheduler, scheduleSpec: { kind: 'draft', vramMB: 128 }, quotas: {} }, async ({ watchdog, lease }) => {
     assert.equal(lease.vramMB, 128);
     child = watchdog.spawnManaged(node, ['-e', IDLE], { stdio: 'ignore' });
     assert.equal(watchdog.recordVramBytes(64 * MB), 64);
@@ -419,6 +531,20 @@ test('A14-5 磁盘统计：intermediate、deliver、snapshots、jobs、cache 全
   const early = measureWorkspaceQuotaBytes(dir, { maxFiles: 3 });
   assert.deepEqual([early.files, early.complete], [4, false]);
   assert.equal(measureWorkspaceQuotaBytes(dir, { maxBytes: 100 }).complete, false);
+  // 文件名不是合法 UTF-8（ext4 等允许任意字节；APFS、NTFS 拒收这种名字，那里测不了）：照样数得到。
+  const rawName = Buffer.concat([Buffer.from(path.join(dir, 'intermediate') + path.sep), Buffer.from([0x66, 0xff, 0xfe, 0x2e, 0x62, 0x69, 0x6e])]);
+  let rawNameWritten = true;
+  try {
+    fs.writeFileSync(rawName, Buffer.alloc(200_000, 1));
+  } catch {
+    rawNameWritten = false;
+    t.diagnostic('这个文件系统不收非 UTF-8 文件名，「按字节读文件名」这一段没有测');
+  }
+  if (rawNameWritten) {
+    const withRaw = measureWorkspaceQuotaBytes(dir);
+    assert.ok(withRaw.bytes >= logical + 10 * MB + 200_000, '非 UTF-8 文件名的文件被漏数了');
+    fs.rmSync(rawName);
+  }
   // 工作区自己是符号链接：拒收。
   if (trySymlink(dir, path.join(base, 'ws-link'), 'dir')) assert.throws(() => measureWorkspaceQuotaBytes(path.join(base, 'ws-link')), badArgument);
 });
@@ -485,7 +611,10 @@ test('A14-5c 文件数配额与量不出来的目录：空文件炸弹按条目�
     } catch {
       readable = false;
     }
-    if (readable) return; // root 或 Windows：chmod 拦不住读，这一段测不了
+    if (readable) {
+      t.diagnostic('root 或 Windows 上 chmod 拦不住读，「目录不可读按超限处理」这一段没有测');
+      return;
+    }
     const blind = watch(t, { workspaceDir: hidden, quotas: { diskQuotaBytes: 10 * MB } });
     const unmeasurable = await rejected(blind.check());
     refuses('failure.disk-quota', 1)(unmeasurable);
@@ -521,7 +650,7 @@ test('A14-6 强杀原语与正常路径：killProcessTree 杀整组；任务正�
 
   // 终渲抢占草稿：草稿任务从 signal 上得知，收手之后终渲才拿到租约。
   let finalLease;
-  const draft = runWithWatchdog({ scheduler, scheduleSpec: { kind: 'draft', vramMB: 448 } }, ({ signal }) => new Promise((resolve) => {
+  const draft = runWithWatchdog({ scheduler, scheduleSpec: { kind: 'draft', vramMB: 448 }, quotas: {} }, ({ signal }) => new Promise((resolve) => {
     signal.addEventListener('abort', () => resolve(signal.reason));
     finalLease = scheduler.acquire({ kind: 'final' });
   }));
@@ -530,11 +659,11 @@ test('A14-6 强杀原语与正常路径：killProcessTree 杀整组；任务正�
 
   // 调用方先取消：不排队、不起任务。
   const cancelled = new Error('作业已取消');
-  assert.equal(await rejected(runWithWatchdog({ scheduler, scheduleSpec: { kind: 'draft' }, signal: AbortSignal.abort(cancelled) }, () => assert.fail('已取消'))), cancelled);
+  assert.equal(await rejected(runWithWatchdog({ scheduler, scheduleSpec: { kind: 'draft' }, quotas: {}, signal: AbortSignal.abort(cancelled) }, () => assert.fail('已取消'))), cancelled);
   (await scheduler.acquire({ kind: 'final' })).release();
   // 任务自己的错原样抛出，租约照还。
   const own = new Error('任务自己失败');
-  assert.equal(await rejected(runWithWatchdog({ scheduler, scheduleSpec: { kind: 'draft' } }, () => { throw own; })), own);
+  assert.equal(await rejected(runWithWatchdog({ scheduler, scheduleSpec: { kind: 'draft' }, quotas: {} }, () => { throw own; })), own);
   (await scheduler.acquire({ kind: 'final' })).release();
 });
 
@@ -735,7 +864,7 @@ async function neighbours(t, { quotas, probeVramMB, misbehave }) {
   return { error, elapsedMs, frames };
 }
 
-test('A14-7 真实 WebGL2「故意打满显存」：恶邻分配到第三张 64 MiB 纹理时被 SIGKILL，租约归还，同卡正常任务帧帧逐像素一致', async (t) => {
+test('A14-7 真实 WebGL2「故意打满显存」的恶邻：不停分配 64 MiB 纹理，越过 128 MB 配额即被 SIGKILL（最多分到 192 MiB），租约归还，同卡正常任务帧帧逐像素一致', async (t) => {
   const outcome = await neighbours(t, {
     probeVramMB: process.platform === 'darwin' ? createVramProbe() : undefined,
     misbehave: (page) => page.evaluate(hogVram, { count: 16, report: true, pauseMs: 0 }),
@@ -743,7 +872,7 @@ test('A14-7 真实 WebGL2「故意打满显存」：恶邻分配到第三张 64 
   if (!outcome) return;
   refuses('failure.vram-exceeded', 1)(outcome.error);
   assert.equal(outcome.error.vramQuotaMB, 128);
-  assert.ok(outcome.error.usedMB > 128 && outcome.error.usedMB < 16 * 64, `用到 ${outcome.error.usedMB} MB 时被拦下`);
+  assert.ok(outcome.error.usedMB > 128 && outcome.error.usedMB <= 192, `用到 ${outcome.error.usedMB} MB 时被拦下`);
 });
 
 test('A14-7b 真实 WebGL2「不自报也照杀」：恶邻不申报，靠本机显存探针量 GPU 进程的图形内存抓到', {

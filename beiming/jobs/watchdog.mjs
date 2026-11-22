@@ -1,6 +1,7 @@
 // 作业看门狗（A14）：单帧超时、着色器挂起与 GPU 丢失、显存配额、工作区磁盘配额。越线就强杀受管进程树，再报带错误码的错。
 // 看门狗和出帧的重活必须在不同进程里：同一线程里的同步死循环，定时器轮不到，谁也杀不了。
 /* global AbortController, AbortSignal */
+import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -19,6 +20,7 @@ const quotaRanges = {
   frameTimeoutMs: [1, MAX_TIMER_MS],
   shaderHangMs: [1, MAX_TIMER_MS],
   pollIntervalMs: [1, MAX_TIMER_MS],
+  probeTimeoutMs: [1, MAX_TIMER_MS],
   killGraceMs: [0, MAX_TIMER_MS],
   vramQuotaMB: [1, Number.MAX_SAFE_INTEGER],
   diskQuotaBytes: [1, Number.MAX_SAFE_INTEGER],
@@ -38,13 +40,16 @@ function snapshot(value, where, allowed) {
   }
   const out = {};
   for (const key of Reflect.ownKeys(value)) {
-    if (typeof key !== 'string' || !allowed.includes(key)) throw bad(`${where} 有不认识的键：${String(key)}。`);
+    if (typeof key !== 'string' || (allowed && !allowed.includes(key))) throw bad(`${where} 有不认识的键：${String(key)}。`);
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
     if (!Object.hasOwn(descriptor, 'value')) throw bad(`${where}.${key} 不得是取值器。`);
     out[key] = descriptor.value;
   }
   return out;
 }
+
+// 原型正好是这个类的非 Proxy 对象。不用 instanceof：它会顺着原型链走，链上有 Proxy 就触发陷阱。
+const isExactly = (value, Class) => value !== null && typeof value === 'object' && !types.isProxy(value) && Object.getPrototypeOf(value) === Class.prototype;
 
 function int(value, name, min, max = Number.MAX_SAFE_INTEGER) {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < min || value > max) {
@@ -86,14 +91,14 @@ export function processIsAlive(pid, options = {}) {
 // shortcut: Windows 上不列进程表（强杀靠 taskkill /T，不受影响），显存探针只看得到登记的那个进程号；要在 Windows 上按进程树探显存时补上。
 function listProcesses() {
   if (!posix) return [];
-  const { status, stdout } = spawnSync('ps', ['-A', '-o', 'pid=,ppid=,pgid='], { encoding: 'utf8' });
+  const { status, stdout } = spawnSync('ps', ['-A', '-o', 'pid=,ppid=,pgid='], { encoding: 'utf8', timeout: 5000 });
   if (status !== 0) return null;
   return stdout.trim().split('\n').map((line) => line.trim().split(/\s+/).map(Number));
 }
 
 // 受管根进程连同它们的后代、同组成员。
 function treePids(roots, table) {
-  const pids = new Set(roots.map((root) => root.pid));
+  const pids = new Set(roots.filter((root) => !root.groupOnly).map((root) => root.pid));
   const groups = new Set(roots.filter((root) => root.processGroup).map((root) => root.pid));
   for (let grew = true; grew;) {
     grew = false;
@@ -107,29 +112,34 @@ function treePids(roots, table) {
   return [...pids];
 }
 
-let ownGroup; // 本进程所在的进程组号，查一次
-
-function checkKillTarget(pid, processGroup, knownLeader = false) {
+// 裸进程号（raw）没法确认是自己起的：对着进程表再查它不是本进程的祖先，按组杀时不是本进程所在的组。
+function checkKillTarget(pid, processGroup, raw) {
   if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 1 || pid === process.pid || pid === process.ppid) {
     throw bad('受管进程号必须是大于 1 的安全整数，且不得是本进程或父进程。', RangeError);
   }
-  if (processGroup && posix && !knownLeader) {
-    ownGroup ??= listProcesses()?.find((row) => row[0] === process.pid)?.[2];
-    if (ownGroup === undefined) throw coded('env.missing-tool', '查不到本进程的进程组号（需要 ps），不对别的进程组发信号。');
-    if (pid === ownGroup) throw bad('不得对本进程所在的进程组发信号。', RangeError);
+  if (!raw || !posix) return pid;
+  const table = listProcesses();
+  if (!table) {
+    if (processGroup) throw coded('env.missing-tool', '查不到进程表（需要 ps），不对别的进程组发信号。');
+    return pid;
+  }
+  const row = new Map(table.map((entry) => [entry[0], entry]));
+  if (processGroup && row.get(process.pid)?.[2] === pid) throw bad('不得对本进程所在的进程组发信号。', RangeError);
+  for (let ancestor = process.ppid, depth = 0; ancestor > 1 && depth < 64; ancestor = row.get(ancestor)?.[1], depth += 1) {
+    if (ancestor === pid) throw bad('受管进程不得是本进程的祖先。', RangeError);
   }
   return pid;
 }
 
 // 向一批根进程连同后代发信号，交回信号发出时点到的进程号。
-function signalTrees(roots, signal) {
+function signalTrees(roots, signal, known = []) {
   if (!posix) {
     // taskkill /T 连子进程一起结束；Windows 没有可拦的 SIGTERM，两种信号都是强制结束。
     for (const { pid } of roots) spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
     return roots.map((root) => root.pid);
   }
-  // 先拍下进程树：根一死，孙进程改认 1 号进程，再按父进程号就找不回来了。
-  const pids = treePids(roots, listProcesses() ?? []).filter((pid) => pid > 1 && pid !== process.pid && pid !== process.ppid);
+  // 先拍下进程树再发信号：根一死，孙进程改认 1 号进程，再按父进程号就找不回来了。
+  const pids = [...new Set([...known, ...treePids(roots, listProcesses() ?? [])])].filter((pid) => pid > 1 && pid !== process.pid && pid !== process.ppid);
   for (const { pid, processGroup } of roots) if (processGroup) send(-pid, signal); // 整组一次发到，中途新起的成员也跑不掉
   for (const pid of pids) send(pid, signal);
   return pids;
@@ -144,7 +154,7 @@ export function killProcessTree(pid, options = {}) {
   if (!['SIGKILL', 'SIGTERM'].includes(signal) || typeof processGroup !== 'boolean') {
     throw bad('signal 只认 SIGKILL 或 SIGTERM，processGroup 只认布尔值。');
   }
-  checkKillTarget(pid, processGroup);
+  checkKillTarget(pid, processGroup, true);
   // 已经不在的不发信号：进程号可能已经被别的进程用上。
   if (!processIsAlive(pid) && !processIsAlive(pid, { processGroup })) return false;
   signalTrees([{ pid, processGroup }], signal);
@@ -164,18 +174,20 @@ export function measureWorkspaceQuotaBytes(workspaceDir, limits = {}) {
   if (!fs.lstatSync(workspaceDir, { throwIfNoEntry: false })?.isDirectory()) throw bad('workspaceDir 必须是已存在的真实目录（不能是符号链接）。');
   let bytes = 0;
   let files = 0;
-  const pending = [workspaceDir];
+  // 文件名按字节读：解码成字符串会把不是 UTF-8 的名字改坏，再 lstat 就成了「不存在」，整个文件被漏数。
+  const separator = Buffer.from(path.sep);
+  const pending = [Buffer.from(workspaceDir)];
   while (pending.length) {
     const dir = pending.pop();
     let names;
     try {
-      names = fs.readdirSync(dir);
+      names = fs.readdirSync(dir, { encoding: 'buffer' });
     } catch (error) {
       if (error.code === 'ENOENT') continue; // 统计途中被删掉的目录
       throw error;
     }
     for (const name of names) {
-      const file = path.join(dir, name);
+      const file = Buffer.concat([dir, separator, name]);
       const stat = fs.lstatSync(file, { throwIfNoEntry: false });
       if (!stat) continue;
       files += 1;
@@ -239,21 +251,22 @@ export function createVramProbe(options = {}) {
 /**
  * 建一个看门狗。quotas 里给了哪一维就查哪一维：
  * frameTimeoutMs（单帧超时）、shaderHangMs（着色器挂起）、vramQuotaMB（显存）、diskQuotaBytes / maxFiles（工作区磁盘），
- * 另有 pollIntervalMs（轮询间隔，默认 250）与 killGraceMs（单帧超时从 SIGTERM 升级到 SIGKILL 的宽限，默认 150）。
+ * 另有 pollIntervalMs（轮询间隔，默认 250）、probeTimeoutMs（探针不回话的时限，默认 5000）与 killGraceMs（单帧超时从 SIGTERM 升级到 SIGKILL 的宽限，默认 150）。
+ * quotas 必须显式给（一维都不设写 {}）；一个看门狗同时只跑一帧。
  * 第一次越线就定案：中止 signal，强杀全部受管进程树，杀完再让 runFrame / guard / check 以这次的错拒绝。
  */
-export function createJobWatchdog(input = {}) {
+export function createJobWatchdog(input) {
   const options = snapshot(input, 'options', ['quotas', 'workspaceDir', 'probeVramMB', 'probeGpuHealth']);
-  const quotas = { pollIntervalMs: 250, killGraceMs: 150, ...checkQuotas(options.quotas === undefined ? {} : options.quotas) };
-  const { frameTimeoutMs, shaderHangMs, vramQuotaMB, diskQuotaBytes, maxFiles, pollIntervalMs, killGraceMs } = quotas;
+  const quotas = { pollIntervalMs: 250, killGraceMs: 150, probeTimeoutMs: 5000, ...checkQuotas(options.quotas) };
+  const { frameTimeoutMs, shaderHangMs, vramQuotaMB, diskQuotaBytes, maxFiles, pollIntervalMs, killGraceMs, probeTimeoutMs } = quotas;
   const { workspaceDir, probeVramMB, probeGpuHealth } = options;
   const diskLimited = diskQuotaBytes !== undefined || maxFiles !== undefined;
   for (const [name, probe] of [['probeVramMB', probeVramMB], ['probeGpuHealth', probeGpuHealth]]) {
     if (probe !== undefined && typeof probe !== 'function') throw bad(`${name} 必须是函数。`);
   }
   if (probeVramMB && vramQuotaMB === undefined) throw bad('给了显存探针就要给 quotas.vramQuotaMB。');
-  if (diskLimited && workspaceDir === undefined) throw bad('给了磁盘配额就要给 workspaceDir。');
-  if (workspaceDir !== undefined) measureWorkspaceQuotaBytes(workspaceDir, { maxFiles: 0 }); // 只借它的路径检查
+  if (diskLimited !== (workspaceDir !== undefined)) throw bad('workspaceDir 与磁盘配额（diskQuotaBytes / maxFiles）要一起给。');
+  if (diskLimited) measureWorkspaceQuotaBytes(workspaceDir, { maxFiles: 0 }); // 只借它的路径检查
 
   const managed = new Map();
   const controller = new AbortController();
@@ -263,6 +276,8 @@ export function createJobWatchdog(input = {}) {
   let probedMB = 0;
   let hang = null;
   let polling = false;
+  let frameActive = false;
+  const probeTimers = new Set(); // 还在等回话的探针时限
   let rejectViolated;
   const violated = new Promise((_, reject) => { rejectViolated = reject; });
   violated.catch(() => {}); // 没人在等的时候也不算未处理的拒绝
@@ -270,29 +285,49 @@ export function createJobWatchdog(input = {}) {
   const entryAlive = (entry) => (entry.child ? entry.child.exitCode === null && entry.child.signalCode === null : processIsAlive(entry.pid))
     || (entry.processGroup && processIsAlive(entry.pid, { processGroup: true }));
 
+  // 现在还值得发信号的根。已经退出、组里也没人的当场除名：它的进程号以后可能被别的进程用上。
+  // 组长退了组里还有人的，只按进程组发信号（groupOnly），不再碰那个进程号。
+  function liveRoots() {
+    const roots = [];
+    for (const entry of managed.values()) {
+      const exited = entry.child ? entry.child.exitCode !== null || entry.child.signalCode !== null : !processIsAlive(entry.pid);
+      if (!exited) roots.push(entry);
+      else if (entry.processGroup && processIsAlive(entry.pid, { processGroup: true })) roots.push({ ...entry, groupOnly: true });
+      else managed.delete(entry.pid);
+    }
+    return roots;
+  }
+
   async function killManaged(graceMs) {
-    const roots = [...managed.values()];
+    const roots = liveRoots();
     if (!roots.length) return { killed: [], survivors: [] };
     const until = async (deadline, done) => {
       while (!done() && Date.now() < deadline) await sleep(5);
     };
     let killed = [];
+    const alive = () => [...new Set([...killed.filter((pid) => processIsAlive(pid)), ...roots.filter(entryAlive).map((root) => root.pid)])];
     if (graceMs > 0) {
       killed = signalTrees(roots, 'SIGTERM');
-      await until(Date.now() + graceMs, () => !roots.some(entryAlive));
+      await until(Date.now() + graceMs, () => !alive().length);
     }
-    // 过了宽限不管根进程死没死都补一刀：组里可能还有不理 SIGTERM 的孙进程。
-    killed = [...new Set([...killed, ...signalTrees(roots, 'SIGKILL')])];
-    const alive = () => [...new Set([...killed.filter((pid) => processIsAlive(pid)), ...roots.filter(entryAlive).map((root) => root.pid)])];
+    // 过了宽限不管根进程死没死都补一刀，连第一轮点到的进程号一起：根死后不理 SIGTERM 的孙进程已经改认 1 号进程。
+    killed = signalTrees(roots, 'SIGKILL', killed);
     await until(Date.now() + KILL_WAIT_MS, () => !alive().length);
     return { killed, survivors: alive() };
+  }
+
+  // 越线或关闭之后不再有任何计时器拦着事件循环（没回话的探针时限也清掉）。
+  function stopTimers() {
+    clearInterval(pollTimer);
+    clearTimeout(hang?.timer);
+    for (const timer of probeTimers) clearTimeout(timer);
+    probeTimers.clear();
   }
 
   function trip(error, graceMs = 0) {
     if (violation || closed) return;
     violation = error;
-    clearInterval(pollTimer);
-    clearTimeout(hang?.timer);
+    stopTimers();
     controller.abort(error);
     killManaged(graceMs).then(
       (outcome) => rejectViolated(Object.assign(error, outcome)),
@@ -330,24 +365,38 @@ export function createJobWatchdog(input = {}) {
   function probePids() {
     const table = listProcesses();
     if (!table) throw coded('env.missing-tool', '查不到进程表（需要 ps），量不了受管进程树。');
-    return treePids([...managed.values()], table);
+    return treePids(liveRoots(), table);
   }
 
-  async function poll() {
-    checkDisk();
+  // 调一次探针。探针不回话（GPU 挂死时很常见）不能把后面的检查一起拖住：过了 probeTimeoutMs 按失败算。
+  function callProbe(probe, pids) {
+    let timer;
+    const expired = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`探针超过 ${probeTimeoutMs} ms 没有回话。`)), probeTimeoutMs);
+    });
+    probeTimers.add(timer);
+    return Promise.race([Promise.resolve().then(() => probe({ pids })), expired]).finally(() => {
+      clearTimeout(timer);
+      probeTimers.delete(timer);
+    });
+  }
+
+  async function runProbes() {
+    let pids;
     if (probeGpuHealth && !violation) {
       let healthy;
       try {
-        healthy = await probeGpuHealth({ pids: probePids() });
+        pids = probePids();
+        healthy = await callProbe(probeGpuHealth, pids);
       } catch (cause) {
         healthy = cause;
       }
-      // 探针只有明确交回 true 才算健康；别的回执、抛错都按 GPU 丢失处理。
+      // 探针只有明确交回 true 才算健康；别的回执、抛错、超时都按 GPU 丢失处理。
       if (healthy !== true) trip(coded('failure.gpu-lost', 'GPU 健康探针没有报健康。', { reason: 'probe', ...(healthy instanceof Error && { cause: healthy }) }));
     }
     if (probeVramMB && !violation) {
       try {
-        const reading = await probeVramMB({ pids: probePids() });
+        const reading = await callProbe(probeVramMB, pids ?? probePids());
         if (typeof reading !== 'number' || !Number.isFinite(reading) || reading < 0) throw new TypeError('显存探针要交回非负有限数（MB）。');
         probedMB = reading;
       } catch (cause) {
@@ -359,9 +408,10 @@ export function createJobWatchdog(input = {}) {
   }
 
   const pollTimer = setInterval(() => {
+    checkDisk(); // 磁盘每个间隔都查，不排在还没回话的探针后面
     if (polling) return;
     polling = true;
-    poll().finally(() => { polling = false; });
+    runProbes().finally(() => { polling = false; });
   }, pollIntervalMs);
   pollTimer.unref(); // 轮询不拖住进程退出；帧和着色器的计时器只在各自进行中才存在，照常拦住事件循环
 
@@ -394,19 +444,19 @@ export function createJobWatchdog(input = {}) {
     }, shaderHangMs);
   }
 
-  function register(target, processGroup, knownLeader) {
-    if (closed) throw bad('看门狗已经关闭。');
+  function register(target, processGroup, raw) {
+    // 越线之后（哪怕已经关闭）才登记上来的进程照样收下补杀；没越线就关闭的看门狗不再收。
+    if (closed && !violation) throw bad('看门狗已经关闭。');
     const child = typeof target === 'number' ? null : target;
-    if (child && (types.isProxy(child) || !(child instanceof ChildProcess))) throw bad('受管进程要给 ChildProcess 或进程号。');
-    const pid = checkKillTarget(child ? child.pid : target, processGroup, knownLeader);
+    if (child && !isExactly(child, ChildProcess)) throw bad('受管进程要给 ChildProcess 或进程号。');
+    // 进程号只读自有数据属性，仿造对象上的取值器不调。
+    const pid = checkKillTarget(child ? Object.getOwnPropertyDescriptor(child, 'pid')?.value : target, processGroup, raw && !child);
     const entry = { pid, processGroup, child };
+    if (violation) {
+      signalTrees([entry], 'SIGKILL');
+      throw violation;
+    }
     managed.set(pid, entry);
-    // 正常退出且组里没人了就除名：进程号以后可能被别的进程用上。
-    child?.once('exit', () => {
-      if (managed.get(pid) === entry && !violation && !entryAlive(entry)) managed.delete(pid);
-    });
-    // 已经越线之后才登记上来的进程，补杀。
-    if (violation) signalTrees([entry], 'SIGKILL');
     return pid;
   }
 
@@ -419,22 +469,31 @@ export function createJobWatchdog(input = {}) {
     registerProcess(target, processOptions = {}) {
       const { processGroup = false } = snapshot(processOptions, 'registerProcess 的选项', ['processGroup']);
       if (typeof processGroup !== 'boolean') throw bad('processGroup 只认布尔值。');
-      return register(target, processGroup, false);
+      return register(target, processGroup, true);
     },
 
     /** 起一个受管子进程：POSIX 上独立进程组，强杀时连孙进程一起。spawnOptions 只收 cwd、env、stdio。 */
     spawnManaged(file, args = [], spawnOptions = {}) {
       const safe = snapshot(spawnOptions, 'spawnManaged 的选项', ['cwd', 'env', 'stdio']);
-      if (typeof file !== 'string' || !file || !Array.isArray(args) || types.isProxy(args) || !args.every((arg) => typeof arg === 'string')) {
+      if (typeof file !== 'string' || !file || types.isProxy(args) || !Array.isArray(args) || !args.every((arg) => typeof arg === 'string')) {
         throw bad('spawnManaged 要给可执行文件路径和字符串参数数组。');
       }
-      if (closed || violation) throw bad('看门狗已经关闭或已经越线，不再起新进程。');
-      const child = spawn(file, args, { ...safe, detached: posix, windowsHide: true });
+      const { cwd, stdio } = safe;
+      const stdioWord = (word) => ['ignore', 'pipe', 'inherit'].includes(word);
+      if ((cwd !== undefined && typeof cwd !== 'string')
+        || (stdio !== undefined && !stdioWord(stdio) && !(!types.isProxy(stdio) && Array.isArray(stdio) && stdio.every(stdioWord)))) {
+        throw bad('cwd 要是字符串，stdio 只认 ignore、pipe、inherit 或它们的数组。');
+      }
+      const env = safe.env === undefined ? undefined : snapshot(safe.env, 'spawnManaged 的 env', null);
+      if (env && !Object.values(env).every((value) => typeof value === 'string')) throw bad('env 的值要都是字符串。');
+      if (violation) throw violation; // 已经越线：不再起新进程
+      if (closed) throw bad('看门狗已经关闭。');
+      const child = spawn(file, args, { cwd, env, stdio, detached: posix, windowsHide: true });
       if (child.pid === undefined) {
         child.once('error', () => {});
         throw coded('env.missing-tool', `起不了进程：${file}`);
       }
-      register(child, posix, true); // 自己 detached 起的，一定是组长，不用再查进程表
+      register(child, posix, false); // 自己 detached 起的，一定是组长，不用再对进程表
       return child;
     },
 
@@ -442,6 +501,9 @@ export function createJobWatchdog(input = {}) {
     async runFrame(frameIndex, fn) {
       int(frameIndex, 'frameIndex', 0);
       if (typeof fn !== 'function') throw bad('runFrame 要给一个函数。');
+      // 帧计时与着色器计时各只有一份：两帧并发会互相清掉对方的计时器。
+      if (frameActive) throw bad('上一帧还没结束：一个看门狗同时只跑一帧。');
+      frameActive = true;
       checkDisk();
       const timer = frameTimeoutMs === undefined ? undefined : setTimeout(() => {
         trip(coded('timeout.frame', `第 ${frameIndex} 帧超过 ${frameTimeoutMs} ms。`, { frameIndex, frameTimeoutMs }), killGraceMs);
@@ -452,6 +514,7 @@ export function createJobWatchdog(input = {}) {
         if (violation) await violated;
         return result;
       } finally {
+        frameActive = false;
         clearTimeout(timer);
         endShaderPass();
       }
@@ -494,34 +557,43 @@ export function createJobWatchdog(input = {}) {
     /** 现在就把磁盘、GPU 健康、显存各查一遍；已经越线就以那次的错拒绝。 */
     async check() {
       if (closed) throw bad('看门狗已经关闭。');
-      await poll();
+      checkDisk();
+      await runProbes();
       if (violation) await violated;
     },
 
     /** 停掉全部计时器。不杀进程：没越线的任务，进程归调用方自己收。 */
     close() {
       closed = true;
-      clearInterval(pollTimer);
-      endShaderPass();
+      stopTimers();
+      hang = null;
     },
   });
 }
 
 /**
  * 带着看门狗跑一个任务：task 收到 { watchdog, lease, signal }。
- * 给了 scheduler 就先按 scheduleSpec 拿租约，显存配额默认取租约的 vramMB、不得比它大；不论成败，进程杀完之后归还租约。
+ * 给了 scheduler 就先按 scheduleSpec 拿租约，显存配额默认取租约的 vramMB、不得比它大；不论成败，强杀结束之后归还租约
+ * （等满 2 秒还杀不死的进程列在错误的 survivors 里，租约照还）。
  * signal 在越线、租约被抢占或调用方的 signal 中止时中止。
  */
 export async function runWithWatchdog(input, task) {
   const { scheduler, scheduleSpec, signal, ...rest } = snapshot(input, 'options', ['scheduler', 'scheduleSpec', 'signal', 'quotas', 'workspaceDir', 'probeVramMB', 'probeGpuHealth']);
   if (typeof task !== 'function') throw bad('runWithWatchdog 要给任务函数。');
-  if (signal !== undefined && (types.isProxy(signal) || !(signal instanceof AbortSignal))) throw bad('signal 必须是 AbortSignal。');
-  const quotas = checkQuotas(rest.quotas === undefined ? {} : rest.quotas);
+  if (signal !== undefined) {
+    try {
+      if (!isExactly(signal, AbortSignal)) throw new TypeError();
+      AbortSignal.any([signal]); // 仿造的对象过不了内部槽检查
+    } catch {
+      throw bad('signal 必须是 AbortSignal。');
+    }
+  }
+  const quotas = checkQuotas(rest.quotas);
   let spec;
   if (scheduler === undefined) {
     if (scheduleSpec !== undefined) throw bad('给了 scheduleSpec 就要给 scheduler。');
   } else {
-    if (types.isProxy(scheduler) || !(scheduler instanceof Scheduler)) throw bad('scheduler 必须是 Scheduler 实例。');
+    if (!isExactly(scheduler, Scheduler)) throw bad('scheduler 必须是 Scheduler 实例。');
     spec = snapshot(scheduleSpec, 'scheduleSpec', ['kind', 'vramMB', 'priority']);
     let granted;
     try {
