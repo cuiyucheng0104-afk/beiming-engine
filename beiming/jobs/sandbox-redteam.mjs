@@ -23,9 +23,10 @@ const DECOY_SOURCE = "process.stdout.write('ready\\n');"
   + ".on('line', (line) => { if (line === 'ping') process.stdout.write('pong:' + process.argv[2] + '\\n'); });"
   + 'setInterval(() => {}, 1000)';
 const DECOY_PONG_MS = 2000;
-// 同一进程里第几轮红队：randomUUID 给出相同的值（被桩掉，或截短后相撞）时，靠它保证各轮的标记不同。
-let redTeamRunSeq = 0;
-const activeCanaryTags = new Set();
+// 同一进程里第几轮红队：randomUUID 给出相同的值（被桩掉，或截短后相撞）时，靠它让各轮的标记不同。
+// 挂在 process 上而不是模块顶层：同一文件被加载成几份模块实例（?v=1、?v=2）时也共用一个序号。
+const RUN_SEQ = Symbol.for('beiming.jobs.sandboxRedTeamSeq');
+const canaryEnvKeys = (nonce) => ['API_KEY', 'AWS_SECRET_ACCESS_KEY'].map((name) => `BEIMING_REDTEAM_${nonce.replace('-', '_').toUpperCase()}_${name}`);
 const SENSITIVE_ENV = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|^(?:AWS|SSH|GH|GITHUB|ANTHROPIC|OPENAI|GOOGLE|AZURE|DOCKER|NPM)_/i;
 
 // expectedAttempts 是这一项该有的全部子尝试：判定时逐个核对，少一个这一项就不算数。
@@ -287,11 +288,11 @@ export async function runSandboxRedTeam({
   );
 
   const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'bm-redteam-')));
-  // 本轮标记 = 进程内序号 + 完整 UUID（不截短）：夹具目录、/var/tmp 下的探测文件和环境变量键都带它，同一进程里在途的两轮不会重名。
+  // 本轮标记 = 进程级序号 + 完整 UUID（不截短）：夹具目录、/var/tmp 下的探测文件和环境变量键都带它。
+  // process.env 就是在途登记表：键已经在场（别的轮次、别的模块实例或调用方自己的）就换下一个序号，选中后在 try 的第一句同步占位。
   const uuid = String(randomUUID()).replace(/[^A-Za-z0-9]/g, '').toLowerCase();
   let nonce;
-  do nonce = `${++redTeamRunSeq}-${uuid}`; while (activeCanaryTags.has(nonce));
-  activeCanaryTags.add(nonce);
+  do nonce = `${process[RUN_SEQ] = (process[RUN_SEQ] ?? 0) + 1}-${uuid}`; while (canaryEnvKeys(nonce).some((key) => Object.hasOwn(process.env, key)));
   const canary = Object.fromEntries(
     ['own', 'sibling', 'sshKey', 'awsKey', 'envKey', 'envAws', 'decoyArg', 'decoyEnv', 'residue'].map((name) => [name, `bm-canary-${randomUUID()}`]),
   );
@@ -308,9 +309,8 @@ export async function runSandboxRedTeam({
   const realHome = os.homedir();
   const rootFile = `/var/tmp/bm-redteam-${nonce}`;
   // 键名带本轮标记：同一进程里重叠的两轮各用各的键，也不占调用方自己设的同名变量。两个键名都要命中 SENSITIVE_ENV。
-  const envTag = nonce.replace('-', '_').toUpperCase();
-  const hostEnv = { [`BEIMING_REDTEAM_${envTag}_API_KEY`]: canary.envKey, [`BEIMING_REDTEAM_${envTag}_AWS_SECRET_ACCESS_KEY`]: canary.envAws };
-  const savedEnv = Object.fromEntries(Object.keys(hostEnv).map((key) => [key, process.env[key]]));
+  const [envKey, envAws] = canaryEnvKeys(nonce);
+  const hostEnv = { [envKey]: canary.envKey, [envAws]: canary.envAws };
   const hostEnvIntact = () => Object.entries(hostEnv).every(([key, value]) => process.env[key] === value);
   const server = http.createServer((request, response) => response.end('ok'));
   const fixtureErrors = [];
@@ -318,6 +318,8 @@ export async function runSandboxRedTeam({
   let decoy;
 
   try {
+    // 从选键到这里没有 await：占位是原子的，别的轮次选键时已经看得到这两个键。
+    Object.assign(process.env, hostEnv);
     for (const dir of [own, sibling, app, path.join(fakeHome, '.ssh'), path.join(fakeHome, '.aws')]) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(own, 'own.txt'), canary.own);
     fs.writeFileSync(path.join(sibling, 'secret.txt'), canary.sibling);
@@ -386,7 +388,6 @@ export async function runSandboxRedTeam({
       decoy.once('exit', () => resolve(false));
     });
     if (!ready || !decoyAlive()) decoyGone('没起来');
-    Object.assign(process.env, hostEnv);
 
     const [externalHost, externalPort] = externalTarget.split(':');
     const cfg = {
@@ -484,11 +485,8 @@ export async function runSandboxRedTeam({
     // 报告不带本机路径：夹具目录与真实家目录换成占位符。
     return mapStrings(report, (text) => text.replaceAll(base, '<夹具>').replaceAll(realHome, '<宿主机家目录>'));
   } finally {
-    for (const [key, value] of Object.entries(savedEnv)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
-    activeCanaryTags.delete(nonce);
+    // 选键时两个键都不在场，删掉就是恢复原状。
+    for (const key of Object.keys(hostEnv)) delete process.env[key];
     decoy?.kill('SIGKILL');
     pool.close();
     server.closeAllConnections();

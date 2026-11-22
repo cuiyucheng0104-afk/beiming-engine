@@ -907,7 +907,8 @@ test('A13-23 环境变量诱饵每轮一套专属键：两轮重叠互不踩踏�
   }
 });
 
-test('A13-24 两轮交错（A 建夹具、B 建夹具、A 先收尾、B 再核对并收尾）：UUID 前 8 位相同乃至整个相同，两轮的诱饵键与夹具名也不相交', async (t) => {
+// 两轮交错：A 建夹具、B 建夹具、A 先收尾、B 再核对并收尾。teamA、teamB 是两轮各自用的 runSandboxRedTeam。
+async function interleaved(t, teamA, teamB, beforeB = () => {}) {
   t.mock.method(fs, 'symlinkSync', () => {});
   // 只顶掉每轮取的第一个 UUID（本轮标记），金丝雀照旧各取各的随机值。
   const real = crypto.randomUUID;
@@ -935,14 +936,15 @@ test('A13-24 两轮交错（A 建夹具、B 建夹具、A 先收尾、B 再核�
     let afterA;
     const nonces = [];
     forced = uuidA;
-    const runA = runSandboxRedTeam({
+    const runA = teamA({
       ...OFFLINE,
       run: fakeBlockedRun([], async (receipt, cfg) => {
         if (receipt.item !== first) return;
         nonces.push(cfg.nonce);
         mineA = canaries();
         forced = uuidB;
-        runB = runSandboxRedTeam({
+        beforeB();
+        runB = teamB({
           ...OFFLINE,
           run: fakeBlockedRun([], async (inner, cfgB) => {
             if (inner.item !== first) return;
@@ -968,4 +970,17 @@ test('A13-24 两轮交错（A 建夹具、B 建夹具、A 先收尾、B 再核�
     assert.equal(new Set(nonces).size, 2, `${name}：夹具目录与探测文件用的本轮标记也不相同`);
     assert.deepEqual(canaries(), [], `${name}：两轮都结束后宿主环境不留诱饵`);
   }
+}
+
+test('A13-24 两轮交错（A 建夹具、B 建夹具、A 先收尾、B 再核对并收尾）：UUID 前 8 位相同乃至整个相同，两轮的诱饵键与夹具名也不相交', (t) => interleaved(t, runSandboxRedTeam, runSandboxRedTeam));
+
+test('A13-25 同一进程里把同一文件加载成两份模块实例（?case=a、?case=b）再交错两轮：UUID 整个相同、进程级序号被拨回去，诱饵键与夹具名也不相交', async (t) => {
+  // 八审的复现：两份实例各有各的模块顶层状态，却共用 process.env。
+  const [a, b] = await Promise.all(['a', 'b'].map((name) => import(`./sandbox-redteam.mjs?case=${name}`)));
+  assert.notEqual(a.runSandboxRedTeam, b.runSandboxRedTeam, '确实是两份模块实例');
+  await interleaved(t, a.runSandboxRedTeam, b.runSandboxRedTeam);
+  // 序号被拨回去、B 的头一个候选和 A 在途的标记一模一样也不撞：选键时实查 process.env，在场的键不会被第二轮选中。
+  const seq = Symbol.for('beiming.jobs.sandboxRedTeamSeq');
+  assert.equal(typeof process[seq], 'number', '进程级序号挂在 process 上');
+  await interleaved(t, a.runSandboxRedTeam, b.runSandboxRedTeam, () => { process[seq] -= 1; });
 });
