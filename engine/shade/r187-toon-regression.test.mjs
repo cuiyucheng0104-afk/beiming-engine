@@ -170,6 +170,18 @@ test('S5-8 冻结的 r170 金标准（不随待测代码重生）：64 段着色
   assert.deepEqual(Object.keys(now), Object.keys(frozen.shaders));
 });
 
+test('S5-8b uniform 初值摘要按 WebGL 实传的单精度算：float64 末位漂移（Node 22 / 24 的 Math.pow 差 1 ULP）不改摘要，单精度分得出的改动照拦', async () => {
+  const { shaderDigests } = await import('./r187-toon-regression.golden.mjs');
+  const base = shaderDigests(), uniforms = d => Object.values(d).map(x => x.uniforms);
+  for (const k of [1 + 1e-15, 1 - 1e-15]) assert.deepEqual(shaderDigests(x => x * k), base, `所有 uniform 浮点初值乘 ${k} 后摘要应当不变`);
+  const moved = shaderDigests(x => x + 1e-5);
+  for (const [k, d] of Object.entries(base)) {
+    assert.notEqual(moved[k].uniforms, d.uniforms, `${k}：uniform 初值挪了 1e-5，摘要没变`);
+    assert.equal(moved[k].shaders, d.shaders, `${k}：只动 uniform 初值不该改着色器源码摘要`);
+  }
+  assert.equal(new Set(uniforms(base)).size > 1, true);
+});
+
 test('S5-9 冻结的 r170 金标准：实渲的 r170 彩色帧四个子区对冻结缩略图都在容差内；缩略图比对分得出分档线移动', async (t) => {
   const { thumb, thumbDiff, THUMB_GATE } = await import('./r187-toon-regression.golden.mjs');
   // 不要浏览器的部分：320 × 240 的两色画面，分界线横移 6 像素（分档阈值漂移的样子）必须超出容差

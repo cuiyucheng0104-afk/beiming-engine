@@ -5,7 +5,7 @@
 //   thumbs    标定场景 r170 彩色帧四个子区的 16 × 12 块均值缩略图（每块 20 × 20 像素的 RGB 均值）；分档线、投影、表面层挪了位置，块均值跟着变
 // 缩略图比对留容差（不同显卡 / 软件渲染在投影与物体边缘上差几个像素）；着色器摘要是逐字节的，画面上看不出的改动也拦。
 //
-//   shaderDigests() → { '族/参数': { shaders, uniforms } }   只能在 r170 下算（Node 里的 three 就是 r170）
+//   shaderDigests() → { '族/参数': { shaders, uniforms } }   只能在 r170 下算（Node 里的 three 就是 r170）；uniform 浮点初值先收到单精度
 //   thumb(rgba, width, { x, y }) → Uint8Array   一个子区（QW × QH，左下角在 x / y）的缩略图
 //   thumbDiff(a, b) → { maxBlockDiff, meanBlockDiff, pass }   块均值差（级）的最大值与平均值；pass = 两个都不超过 THUMB_GATE
 //   checkGolden(rgba, width) → { baseline, backend, shaders, shadersChanged, gate, regions: [{ id, maxBlockDiff, meanBlockDiff, pass }], pass }
@@ -42,15 +42,17 @@ const PARAMS = {
     uniforms: { uBend: { value: 1.3 }, uTone: { value: 0.9 } }, defines: { G_HOOK: 1 } },
 };
 const sha = v => createHash('sha256').update(JSON.stringify(v)).digest('hex');
+// uniform 是按单精度传给 WebGL 的；float64 末位随 V8 版本漂（Color 的 sRGB 转线性走 Math.pow，Node 22 / 24 差 1 ULP），先收到单精度再算摘要
+const f32 = (v, drift) => Array.isArray(v) ? v.map(x => f32(x, drift)) : Number.isFinite(v) ? Math.fround(drift(v)) : v;   // -0 由 JSON.stringify 写成 0
 const compiled = (mat, lib) => { const sh = { uniforms: {}, defines: {}, vertexShader: lib.vertexShader, fragmentShader: lib.fragmentShader }; mat.onBeforeCompile(sh); return sh; };
 
-export function shaderDigests() {
+export function shaderDigests(drift = x => x) {   // drift 只给测试用：算摘要前先扰动每个 uniform 浮点初值
   if (THREE.REVISION !== '170') throw new Error(`冻结的金标准是 r170 的：这里的 three 是 r${THREE.REVISION}`);
   const out = {};
   for (const [f, kind] of Object.entries(FAMILIES)) for (const [p, opts] of Object.entries(PARAMS)) {
     const k = kind(), mat = k.make(opts), depth = k.depth(mat);
     const toon = compiled(mat, THREE.ShaderLib.toon), dep = compiled(depth, THREE.ShaderLib.depth);
-    const values = Object.keys(toon.uniforms).sort().map(n => { const v = toon.uniforms[n].value; return [n, v?.toArray ? v.toArray() : v]; });
+    const values = Object.keys(toon.uniforms).sort().map(n => { const v = toon.uniforms[n].value; return [n, f32(v?.toArray ? v.toArray() : v, drift)]; });
     out[`${f}/${p}`] = {
       shaders: sha([toon.vertexShader, toon.fragmentShader, toon.defines, dep.vertexShader, dep.fragmentShader, dep.defines]),
       uniforms: sha([values, mat.side, mat.transparent, mat.depthWrite, depth.side]),
