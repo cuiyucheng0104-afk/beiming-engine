@@ -1,0 +1,103 @@
+{
+  "schema": "legacy-page-baselines/1",
+  "works": {
+    "beiming-10s": {
+      "env": {
+        "platform": "darwin",
+        "arch": "arm64",
+        "os": "darwin 27.2.0",
+        "three": "0.170.0",
+        "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)"
+      },
+      "frames": [
+        {
+          "id": "f000000",
+          "frame": 0,
+          "hash": "sha256:86124859cb39c894128c3086e55b1643386d344ceca1a93228d7c4014e3597ca"
+        },
+        {
+          "id": "f000010",
+          "frame": 10,
+          "hash": "sha256:8faa34d8ad30f472826b03dbd31ed5b0f259f46d1ad7f99b1a680a896ff29d34"
+        },
+        {
+          "id": "f000040",
+          "frame": 40,
+          "hash": "sha256:de641e2ef1b89f22996797279b886bcb13f9e472d9bf1dfa44881ac236db49c3"
+        },
+        {
+          "id": "f000096",
+          "frame": 96,
+          "hash": "sha256:e0efc3d8581fc967b91d0773b24c129dc16ab772a6b6e829501dd658b9d8ec7e"
+        },
+        {
+          "id": "f000180",
+          "frame": 180,
+          "hash": "sha256:8c53d5dc48fc4e6551d5f97e57668c92b93abb33b7ac09a4dd4dbbeffd9bca19"
+        },
+        {
+          "id": "f000239",
+          "frame": 239,
+          "hash": "sha256:208062a0e26d3dcb7307fdfb08aed752c251f5969d48046444afeb1f50872476"
+        }
+      ]
+    },
+    "chendu": {
+      "env": {
+        "platform": "darwin",
+        "arch": "arm64",
+        "os": "darwin 27.2.0",
+        "three": "0.170.0",
+        "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)"
+      },
+      "frames": [
+        {
+          "id": "f000000",
+          "frame": 0,
+          "hash": "sha256:21fff320b97ef2cf9e597bc1c8d1986bdbb7e6ee8300af3692ec71a322b79e18"
+        },
+        {
+          "id": "f000036",
+          "frame": 36,
+          "hash": "sha256:0927fbe76d4f0f76f8fe632843078977f4253f4e7f7287477472d394e4a4e14b"
+        },
+        {
+          "id": "f000120",
+          "frame": 120,
+          "hash": "sha256:26eaee70d52d3baf647734216a67a7069685d284da62ff5e964099c502e08c0c"
+        },
+        {
+          "id": "f000191",
+          "frame": 191,
+          "hash": "sha256:97d81b8f50712f81a7be0dcab5fd40370c336049d0791915354a5c3b1d3ef3da"
+        }
+      ]
+    },
+    "du": {
+      "env": {
+        "platform": "darwin",
+        "arch": "arm64",
+        "os": "darwin 27.2.0",
+        "three": "0.170.0",
+        "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)"
+      },
+      "frames": [
+        {
+          "id": "f000000",
+          "frame": 0,
+          "hash": "sha256:8a0308ae705d280459a8678aac1a77203482202cab6de9bfb393667882c0d6d7"
+        },
+        {
+          "id": "f000048",
+          "frame": 48,
+          "hash": "sha256:0c8ce789cf2f57d0747e982779211567a3d250b430731e49642900877aeb7b8d"
+        },
+        {
+          "id": "f000095",
+          "frame": 95,
+          "hash": "sha256:8244527b6492f35c89eb51b8cd2ed7691457c532e7328477e7fce006163be21c"
+        }
+      ]
+    }
+  }
+}
