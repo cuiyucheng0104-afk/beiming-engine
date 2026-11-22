@@ -52,7 +52,9 @@ const wholeFrames = (n) => (Number.isSafeInteger(n) && n >= 1 ? n : fail(`frames
 const options = (opts = {}) => {
   if (!isPlain(opts)) fail('选项要是一个对象');
   checkRate(opts.sampleRate);
-  for (const key of ['windowFrames', 'toleranceFrames']) if (opts[key] !== undefined && !(Number.isFinite(opts[key]) && opts[key] >= 0)) fail(`选项 ${key} 要是不小于 0 的有限数，给的是 ${opts[key]}`);
+  // windowFrames 是正的有限数，0 也不收：零窗口等于不吸，不写 snap 就是了；toleranceFrames 可以是 0（一帧不差才算命中）
+  if (opts.windowFrames !== undefined && !(Number.isFinite(opts.windowFrames) && opts.windowFrames > 0)) fail(`选项 windowFrames 要是大于 0 的有限数，给的是 ${opts.windowFrames}`);
+  if (opts.toleranceFrames !== undefined && !(Number.isFinite(opts.toleranceFrames) && opts.toleranceFrames >= 0)) fail(`选项 toleranceFrames 要是不小于 0 的有限数，给的是 ${opts.toleranceFrames}`);
   if (opts.samples !== undefined && !isPlain(opts.samples)) fail('samples 要是 { 名字: 样本 } 的对象');
   return opts;
 };
@@ -66,8 +68,8 @@ const filmFrames = (opts, events, fromSound) => {
  * ctx：用到 fps（"分子/分母"，帧每秒）和 seed（点击音色的噪声种子，不带当 0）；带 sampleRate 的话必须是 48000。
  * 参数和数据写法不对的（帧号、子帧相位、增益不是有限数或出了界，样本是空的或带 NaN、无穷，采样率不是 48000）一律报 usage.bad-argument。
  * mix、audit 收事件表或事件条目的数组，snap 收帧号的数组，时刻是同一套校验：事件表里每一条（不带 audio 的也查）都得是对象，frame 是全片里的安全整数帧号，sub 不写或者是 [0, 1) 里的数值（字符串不收）。
- * 全片帧数三个入口是同一个来源：选项里的 frames，没有就是事件表自己的 frames，都没有时 snap、audit 从声音的长度换算、mix 报错。正片可以比配乐短：片尾之后的事件报错，片尾之后的起音不算。
- * 选项三个入口可以给同一份，要是对象：frames、sampleRate（可以不写，写了就得是 48000）、windowFrames（snap 用）、toleranceFrames（audit 用），写了的在哪个入口都查。
+ * 全片帧数三个入口是同一个来源：选项里的 frames，没有就是事件表自己的 frames，都没有时 snap、audit 从声音的长度换算、mix 报错。正片可以比配乐短：片尾之后的事件报错；snap、audit 只在正片那一段声音里找起音，片尾之后的采样不参与（门槛也不看它）。
+ * 选项三个入口可以给同一份，要是对象：frames、sampleRate（可以不写，写了就得是 48000）、windowFrames（snap 用，大于 0 的有限数）、toleranceFrames（audit 用，不小于 0 的有限数），写了的在哪个入口都查。
  * 声道数组要密实：两个声道缺一个（数组里有空洞）报错，不拿另一个顶上。
  * Handle.object：
  *   voices                 自带音色 { click, kick }，各是一段单声道样本。
@@ -156,8 +158,8 @@ export function create(ctx, params) {
     }
     return out;
   }
-  /** 起音在第几帧（带小数）；片尾之后的不算：正片比配乐短时，那里的起音观众听不到 */
-  const onsetFrames = (channels, frames) => onsets(channels).map((s) => s / perFrame).filter((o) => o < frames);
+  /** 起音在第几帧（带小数）。先把声音截到正片的长度再找：正片比配乐短时片尾之后的观众听不到，那里再响也不该抬高门槛、压掉片内的起音 */
+  const onsetFrames = (channels, frames) => onsets(stereoOf(channels, 'channels').map((c) => c.subarray(0, sampleAt(frames)))).map((s) => s / perFrame);
   const nearest = (frame, list) => list.reduce((best, o) => (Math.abs(o - frame) < Math.abs(best - frame) ? o : best), Infinity);
 
   return {

@@ -345,13 +345,34 @@ test('T7-10 写法不对的参数和数据：照卡文件解析参数再建卡�
   refused(() => mix.audit(holed, at12), 'audit 的声道有空洞');
   refused(() => createAlign({ fps: FPS }, params('audio.align')).object.align(holed, { frames: 24 }), 'align 的声道有空洞');
   refused(() => createAlign({ fps: FPS }, params('audio.align')).object.hits(holed), 'hits 的声道有空洞');
-  // 反例四：选项里的 windowFrames、toleranceFrames 写了就得是不小于 0 的有限数，三个入口都查；选项本身要是对象
+  // 反例四：选项里的 windowFrames、toleranceFrames 写了就得合法，三个入口都查；选项本身要是对象
   for (const opts of [{ windowFrames: -1 }, { windowFrames: NaN }, { windowFrames: '2' }, { toleranceFrames: -1 }, { toleranceFrames: Infinity }, null, 'x']) {
     refused(() => mix.mix(at12, opts === null || typeof opts !== 'object' ? opts : { frames: 24, samples: { probe }, ...opts }), `mix 的选项 ${JSON.stringify(opts)}`);
     refused(() => mix.snap([12], long, opts), `snap 的选项 ${JSON.stringify(opts)}`);
     refused(() => mix.audit(long, at12, opts), `audit 的选项 ${JSON.stringify(opts)}`);
   }
   assert.deepEqual(mix.snap([12, 0], long, { windowFrames: 2 }), [12, 0]);
+  // 四审的反例一：windowFrames 写了就得是正的有限数，0 也不收；混音卡的 audit、snap、mix 和对位卡的 align、hits 一个口径
+  const aligner = createAlign({ fps: FPS }, params('audio.align')).object;
+  for (const windowFrames of [-1, 0, NaN, '2', null]) {
+    refused(() => mix.audit(long, at12, { windowFrames }), `audit 的 windowFrames ${windowFrames}`);
+    refused(() => mix.snap([12], long, { windowFrames }), `snap 的 windowFrames ${windowFrames}`);
+    refused(() => mix.mix(at12, { frames: 24, samples: { probe }, windowFrames }), `mix 的 windowFrames ${windowFrames}`);
+    refused(() => aligner.align(long, { frames: 24, windowFrames }), `align 的 windowFrames ${windowFrames}`);
+    refused(() => aligner.hits(long, { windowFrames }), `hits 的 windowFrames ${windowFrames}`);
+  }
+  assert.deepEqual(mix.snap([12, 0], long, { windowFrames: 0.01 }), [12, 0]);
+  assert.equal(mix.audit(long, at12, { windowFrames: 0.01 }).hitRate, 1);
+  assert.equal(aligner.align(long, { frames: 24, windowFrames: 0.01 }).stretch, 1);
+  // 四审的反例二：正片 24 帧、声音 60 帧，第 12 帧一下 0.2 的脉冲；片尾之后第 30 帧的采样从 0 改成 1，片内第 12 帧的审计和吸附不变
+  const quiet = new Float32Array(60 * 2000), loud = new Float32Array(60 * 2000);
+  quiet[24000] = loud[24000] = 0.2;
+  loud[60000] = 1;
+  for (const [name, pcm] of [['片尾之后是 0', quiet], ['片尾之后是 1', loud]]) {
+    const seen = mix.audit([pcm], { frames: 24, events: at12 });
+    assert.deepEqual([seen.hits, seen.hitRate, seen.rows[0].delta], [1, 1, 0], name);
+    assert.deepEqual(mix.snap([12], [pcm], { frames: 24 }), [12], name);
+  }
 
   // audio.align：界是硬的闭区间；偏移不是有限数、总帧数不是正的安全整数
   const card = createAlign({ fps: FPS }, params('audio.align')).object, src = [new Float32Array(RATE).fill(0.25)];

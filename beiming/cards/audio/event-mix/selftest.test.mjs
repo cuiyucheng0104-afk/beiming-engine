@@ -213,7 +213,8 @@ test('audio.event-mix：片尾、空洞和选项：audit、snap 和 mix 认同�
   assert.equal(c.audit([tail], snapped.map((frame) => ({ id: 'x', frame, audio: 'click' }))).hitRate, 1);
   // windowFrames：吸过去要挪的帧数超过它的留在原地；toleranceFrames：这一次审计换一个容差
   assert.deepEqual(c.snap([20, 19, 0], [tail], { windowFrames: 3 }), [23, 19, 0]);
-  assert.deepEqual(c.snap([23, 22], [tail], { windowFrames: 0 }), [23, 22]);
+  assert.deepEqual(c.snap([23, 22], [tail], { windowFrames: 0.01 }), [23, 22]);
+  bad(() => c.snap([23, 22], [tail], { windowFrames: 0 }), '零窗口');
   assert.deepEqual([undefined, { toleranceFrames: 0 }, { toleranceFrames: 3 }].map((opts) => c.audit([tail], [{ id: 'x', frame: 21, audio: 'click' }], opts).hits), [0, 0, 1]);
 
   // 声道数组有空洞：some、every 会跳过空位，以前 mix 悄悄丢掉右声道，snap、audit 抛不带 code 的 TypeError
@@ -228,12 +229,30 @@ test('audio.event-mix：片尾、空洞和选项：audit、snap 和 mix 认同�
   }
   for (const bed of [null, 0, '', false, {}]) bad(() => c.mix(at12, { frames: 24, bed }), `mix 的配乐 ${JSON.stringify(bed)}`);
 
-  // 选项：要是普通对象；windowFrames、toleranceFrames 写了就得是不小于 0 的有限数，哪个入口都查
+  // 选项：要是普通对象；windowFrames 写了就得是正的有限数（0 也不收），toleranceFrames 是不小于 0 的有限数，哪个入口都查
   const entries = { mix: (opts) => c.mix(at12, opts), snap: (opts) => c.snap([12], pcm, opts), audit: (opts) => c.audit(pcm, at12, opts) };
   for (const [name, call] of Object.entries(entries)) {
     for (const opts of [null, 5, 'x', true, [], new Map()]) bad(() => call(opts), `${name} 的选项 ${JSON.stringify(opts)}`);
     for (const key of ['windowFrames', 'toleranceFrames']) for (const value of [-1, NaN, Infinity, '2', null, true]) bad(() => call({ frames: 24, [key]: value }), `${name} 的 ${key} ${value}`);
+    bad(() => call({ frames: 24, windowFrames: 0 }), `${name} 的 windowFrames 0`);
     for (const samples of [null, 5, 'x', []]) bad(() => call({ frames: 24, samples }), `${name} 的 samples ${JSON.stringify(samples)}`);
-    assert.ok(call({ frames: 24, sampleRate: 48000, windowFrames: 0, toleranceFrames: 0 }), `${name} 收合法的选项`);
+    assert.ok(call({ frames: 24, sampleRate: 48000, windowFrames: 0.01, toleranceFrames: 0 }), `${name} 收合法的选项`);
   }
+});
+
+test('audio.event-mix：正片比声音短时，起音只在正片那一段里找：片尾之后再响也压不掉片内的起音', () => {
+  const c = card(), at12 = { frames: 24, events: [{ id: 'x', frame: 12, audio: 'click' }] };
+  // 60 帧的声音、24 帧的正片，第 12 帧一下 0.2 的脉冲；两段只差片尾之后第 30 帧的一个采样
+  const quiet = new Float32Array(60 * 2000), loud = new Float32Array(60 * 2000);
+  quiet[24000] = loud[24000] = 0.2;
+  loud[60000] = 1;
+  // 整段找的话门槛跟着那一下强音走，片内的脉冲不到它的 onsetFloor 倍
+  assert.deepEqual([c.onsets([quiet]), c.onsets([loud])], [[24000], [60000]]);
+  for (const pcm of [quiet, loud]) {
+    const seen = c.audit([pcm], at12);
+    assert.deepEqual([seen.hits, seen.hitRate, seen.rows[0].delta, seen.baseline], [1, 1, 0, 5 / 24]);
+    assert.deepEqual(c.snap([12, 0], [pcm], { frames: 24 }), [12, 12]);
+  }
+  // 不给全片帧数就是整段声音：强音算数
+  assert.deepEqual(c.snap([12], [loud]), [30]);
 });

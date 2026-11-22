@@ -45,7 +45,7 @@ function findHits(channels, lowHz, floor) {
  * ctx：用到 fps（"分子/分母"，帧每秒）。params：stretchMin、stretchMax 只能在 [0.97, 1.03] 里收窄，界是硬的闭区间，不留浮点余量；splice 许不许剪接一次；crossfadeMs 剪接处交叉淡化多长；
  * lowHz、hitFloor 是找低频重击用的低通频率和门限。
  * Handle.object：
- *   hits(channels)  配乐里低频重击的时刻，秒，从早到晚。
+ *   hits(channels, 选项)  配乐里低频重击的时刻，秒，从早到晚。
  *   align(channels, { frames, anchors, stretch, offsetSec })
  *       frames 是正片的总帧数，交回的声音正好这么长，配乐盖不到的地方是静音。
  *       anchors 一个或两个 { frame, hit } 或 { frame, sourceSec }：配乐的这一刻要落在正片的第 frame 帧上；hit 是 hits() 里的第几个，负数从后往前数。
@@ -53,6 +53,7 @@ function findHits(channels, lowHz, floor) {
  *         接缝在 ±20 毫秒里挑波形最像的位置再交叉淡化，剩下不到一个接缝搜索范围的差用拉伸比补齐。
  *       不给 anchors 时直接用 stretch（不写是 1）和 offsetSec（不写是 0）。frames 要是正整数，stretch、offsetSec 要是有限的数，不是就报错。
  *       声道数组和锚点数组要密实（有空洞的报错，不拿另一个声道顶上），选项和锚点要是对象，hit 是整数，sourceSec 是数值。
+ *       align、hits 的选项里带了 windowFrames（和 audio.event-mix 共用一份选项时）只查写法：要是大于 0 的有限数，不是就报错；这张卡不用它。
  *       返回 { channels: [左, 右], stretch, offsetSec, splice, anchors }：splice 是 null 或 { cutSec, resumeSec, crossfadeMs }（配乐放到 cutSec 接着从 resumeSec 放）；
  *       anchors 每项 { frame, sourceSec }。
  */
@@ -65,10 +66,16 @@ export function create(ctx, params) {
   if (!(Number.isFinite(params.lowHz) && params.lowHz > 0 && Number.isFinite(params.hitFloor) && params.hitFloor > 0 && Number.isFinite(params.crossfadeMs) && params.crossfadeMs >= 0)) refuse('lowHz、hitFloor 要是正数，crossfadeMs 要是不小于 0 的有限数');
   // 硬的闭区间：不留浮点余量，差十亿分之几也算出界；NaN、字符串也在这里拦下
   const inRange = (s) => Number.isFinite(s) && s >= lo && s <= hi;
-  const hits = (channels) => findHits(checked(channels), params.lowHz, params.hitFloor);
+  // windowFrames 这张卡用不上，只查写法：和 audio.event-mix 共用一份选项时会带过来，两张卡一个口径（大于 0 的有限数）
+  const options = (opts) => {
+    if (!isPlain(opts)) refuse('选项要是一个对象');
+    if (opts.windowFrames !== undefined && !(Number.isFinite(opts.windowFrames) && opts.windowFrames > 0)) refuse(`选项 windowFrames 要是大于 0 的有限数，给的是 ${opts.windowFrames}`);
+    return opts;
+  };
+  const hits = (channels, opts = {}) => { options(opts); return findHits(checked(channels), params.lowHz, params.hitFloor); };
 
   function align(channels, opts = {}) {
-    if (!isPlain(opts)) refuse('选项要是一个对象');
+    options(opts);
     let { frames, anchors, stretch = 1, offsetSec = 0 } = opts;
     const src = checked(channels), total = src[0].length / RATE;
     if (!Number.isSafeInteger(frames) || frames < 1) refuse(`frames 要是正整数帧数，给的是 ${frames}`);

@@ -31,7 +31,7 @@
     "requires": [
       "合成工具给的 ctx 带 fps（分子/分母）",
       "合成工具调 Handle.object.align(channels, { frames, anchors })：channels 是一个或两个声道的 32 位浮点样本，采样率 48000 赫兹，不空、不带 NaN 或无穷，声道数组和锚点数组不能有空洞；锚点的 frame 是全片帧号，hit 是整数，sourceSec 是数值",
-      "拉伸比的界是硬的闭区间 [0.97, 1.03]，不留浮点余量；出界的拉伸比、不是有限数的 stretch 和 offsetSec、不是正整数的 frames 一律报 usage.bad-argument",
+      "拉伸比的界是硬的闭区间 [0.97, 1.03]，不留浮点余量；出界的拉伸比、不是有限数的 stretch 和 offsetSec、不是正整数的 frames 一律报 usage.bad-argument；align、hits 的选项里带了 windowFrames（和 audio.event-mix 共用一份选项时）只查写法，不是大于 0 的有限数也报，这张卡不用它",
       "对完的声音还没定响度：交给 audio.master"
     ]
   },

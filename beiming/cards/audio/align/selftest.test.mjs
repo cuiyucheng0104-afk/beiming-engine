@@ -163,4 +163,12 @@ test('audio.align：声道数组和锚点数组有空洞、选项不是对象、
   refused(() => create(null, DEFAULTS));
   refused(() => create({ fps: '24/1' }, null));
   assert.equal(c.align([short], { frames: 24, anchors: [{ frame: 1, sourceSec: 0.5 }] }).anchors[0].sourceSec, 0.5);
+  // windowFrames 这张卡用不上，可是和混音卡共用一份选项时会带过来：写了就得是正的有限数，和混音卡一个口径
+  for (const windowFrames of [-1, 0, NaN, Infinity, '2', null, true]) {
+    refused(() => c.align([short], { frames: 24, windowFrames }));
+    refused(() => c.hits([short], { windowFrames }));
+  }
+  for (const opts of [null, 5, 'x', []]) refused(() => c.hits([short], opts));
+  assert.equal(c.align([short], { frames: 24, windowFrames: 0.01 }).stretch, 1);
+  assert.deepEqual(c.hits([SRC], { windowFrames: 2 }), c.hits([SRC]));
 });
