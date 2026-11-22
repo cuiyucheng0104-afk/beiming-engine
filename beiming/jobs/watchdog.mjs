@@ -413,15 +413,17 @@ export function createJobWatchdog(input) {
     const stopped = () => closed || violation;
     let pids;
     if (probeGpuHealth && !stopped()) {
-      let healthy;
+      // 探针只有正常交回 true 才算健康；别的回执、抛错、超时都按 GPU 丢失处理。
+      // 交回的值与拒绝的原因分开记：以 true 为原因拒绝的不是健康。
+      let healthy = false;
+      let failure;
       try {
         pids = probePids();
-        healthy = await callProbe(probeGpuHealth, pids);
+        healthy = (await callProbe(probeGpuHealth, pids)) === true;
       } catch (cause) {
-        healthy = cause;
+        failure = { cause };
       }
-      // 探针只有明确交回 true 才算健康；别的回执、抛错、超时都按 GPU 丢失处理。
-      if (healthy !== true) trip(coded('failure.gpu-lost', 'GPU 健康探针没有报健康。', { reason: 'probe', ...(healthy instanceof Error && { cause: healthy }) }));
+      if (!healthy) trip(coded('failure.gpu-lost', 'GPU 健康探针没有报健康。', { reason: 'probe', ...failure }));
     }
     if (probeVramMB && !stopped()) {
       try {

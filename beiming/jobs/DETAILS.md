@@ -226,7 +226,7 @@ await runWithWatchdog({
 | `usage.bad-argument` | 2 | 入参不合格（`TypeError` 或 `RangeError`） | 不杀 | 无 |
 | `timeout.frame` | 124 | 一帧超过 `frameTimeoutMs` | SIGTERM，过 `killGraceMs` 再 SIGKILL | `frameIndex`、`frameTimeoutMs` |
 | `timeout.shader-hang` | 124 | 着色器派发超过 `shaderHangMs` 没完成也没心跳 | 零宽限 SIGKILL | `label`、`shaderHangMs` |
-| `failure.gpu-lost` | 1 | `reportGpuLost(reason)`，或 `probeGpuHealth` 没有交回 `true`（抛错、超过 `probeTimeoutMs` 不回话都算） | 零宽限 SIGKILL | `reason`（探针一路是 `probe`） |
+| `failure.gpu-lost` | 1 | `reportGpuLost(reason)`，或 `probeGpuHealth` 没有交回 `true`（抛错或拒绝，不论原因是什么，超过 `probeTimeoutMs` 不回话都算） | 零宽限 SIGKILL | `reason`（探针一路是 `probe`） |
 | `failure.vram-exceeded` | 1 | 账本与探针里大的那个超过 `vramQuotaMB`，或探针失败、不回话（`reason: 'probe-failed'`） | 零宽限 SIGKILL | `usedMB`、`vramQuotaMB`、`accountedMB`、`probedMB` |
 | `failure.disk-quota` | 1 | 工作区字节或条目数超限，或量不出来（`reason: 'unmeasurable'`） | 零宽限 SIGKILL | `usedBytes`、`diskQuotaBytes`、`files`、`maxFiles` |
 
@@ -284,7 +284,7 @@ await runWithWatchdog({
 - 统计途中目录被换成指向别处的符号链接，这一次会数进别处的条目（只读、只会把任务自己判超限）。
 - **杀不到的后代**：自己另起会话或进程组、又脱离了父进程链的后代（两次 fork 加 `setsid`）；零宽限路径上拍完进程表之后才起的、不在受管进程组里的后代。要管住这类任务得靠 A13 的沙箱，不是看门狗。
 - **进程号复用**：只给进程号登记的条目、带宽限的两轮信号之间（默认 150 ms）退出的进程，进程号被系统复用时信号会落到无关的进程上。窗口很窄；名单清理把已退出进程的窗口限制在「上一次轮询到这次越线」之间。祖先检查要靠进程表：POSIX 上 `ps` 不可用时、以及 Windows 上，只挡得住本进程与父进程。
-- 已经提交给显卡的绘制，进程死后还可能跑完当前这一批。开发时在本机（Apple M5 Pro，Metal）量过一次：恶邻挂起期间同卡正常任务单帧从约 2 ms 涨到最多约 150 ms，强杀后 1 秒内回落；测试只断言像素逐帧一致，没有断言这些耗时。
+- 已经提交给显卡的绘制，进程死后还可能跑完当前这一批，看门狗管不到。A14-8 的夹具因此把每次绘制压小（128×128、每像素 15 万次循环，本机单次约 28 ms），画一次读回一次、按墙钟连画 3 秒，显卡队列里任何时刻最多一次小绘制；`shaderHangMs` 给 250。本机（Apple M5 Pro，Metal）连跑 5 遍：恶邻 368 到 442 ms 后被杀，它挂起期间同卡正常任务单帧最长 16 到 56 ms（每遍的数字在测试的诊断行里）；测试只断言像素逐帧一致，没有断言这些耗时。一次提交就占住显卡数秒的大绘制现在不在测试里：早先的夹具连发 30 幅 1024×1024、每像素一百万次循环，那时量到正常任务单帧最多约 150 ms、强杀后 1 秒内回落。
 - A14-7 测到的是「越过配额即杀」：恶邻在 128 MB 配额下最多分到 192 MiB 就被杀，正常任务没有经历显卡真被占满的情形。
 - node 自己是 1 号进程（容器里）时，改认它的孤儿进程死后没人回收，`processIsAlive` 会一直报活，每次强杀等满 2 秒并把它们列进 `survivors`。没有在 Linux 容器里验证。
 - Windows 上的行为（`taskkill`、探针）和 NVIDIA 显卡上的探针都没有实测。

@@ -421,6 +421,22 @@ test('A14-3d 关闭与探针的微任务竞态：close() 返回或越线之后�
   assert.deepEqual(lost.calls, { health: 0, vram: 0 });
 });
 
+test('A14-3e 健康探针以 true 为原因拒绝不算报健康：check() 与 runWithWatchdog 返回前的核查都报 failure.gpu-lost（1）', async (t) => {
+  for (const probeGpuHealth of [() => Promise.reject(true), () => { throw true; }]) {
+    const lost = await rejected(watch(t, { quotas: { pollIntervalMs: 60_000 }, probeGpuHealth }).check());
+    refuses('failure.gpu-lost', 1)(lost);
+    assert.deepEqual([lost.reason, lost.cause], ['probe', true]);
+  }
+  // 入场那次采样健康、任务交回 42、返回前那次采样以 true 拒绝：42 不得当成功交回。
+  const calls = { health: 0, task: 0 };
+  const error = await rejected(runWithWatchdog({
+    quotas: { pollIntervalMs: 60_000 },
+    probeGpuHealth: () => { calls.health += 1; return calls.health === 1 ? true : Promise.reject(true); },
+  }, () => { calls.task += 1; return 42; }));
+  refuses('failure.gpu-lost', 1)(error);
+  assert.deepEqual([error.reason, calls], ['probe', { health: 2, task: 1 }]);
+});
+
 test('A14-3 着色器挂起：有心跳不算挂，心跳一停到点零宽限 SIGKILL，报 timeout.shader-hang（124）', async (t) => {
   const watchdog = watch(t, { quotas: { shaderHangMs: 400, frameTimeoutMs: 20_000, killGraceMs: 5000 } });
   const child = watchdog.spawnManaged(node, ['-e', IDLE], { stdio: 'ignore' });
@@ -875,9 +891,11 @@ const hogVram = ({ count, report, pauseMs }) => (async () => {
   return count;
 })();
 
-// 恶邻二：每个像素循环一百万次的片元着色器，连发 30 次，再读回，渲染线程卡在读回上。
+// 恶邻二：每个像素循环十五万次的片元着色器，128×128 一次只画一小幅、画完立刻读回，连画 3 秒。
+// 渲染线程这 3 秒一直卡在着色器求值与读回上；显卡队列里任何时刻最多一次小绘制（本机约 28 ms），进程被杀后不拖住同卡的别人。
+// 按墙钟收尾而不按次数：显卡再快也挂满 3 秒，远大于 A14-8 的 shaderHangMs。
 const hangShader = () => {
-  const canvas = Object.assign(document.createElement('canvas'), { width: 1024, height: 1024 });
+  const canvas = Object.assign(document.createElement('canvas'), { width: 128, height: 128 });
   const gl = canvas.getContext('webgl2');
   const compile = (type, source) => {
     const shader = gl.createShader(type);
@@ -893,14 +911,15 @@ const hangShader = () => {
     void main() { float a = seed + gl_FragCoord.x * 0.001; for (int i = 0; i < n; i++) { a = fract(sin(a * 12.9898 + float(i)) * 43758.5453) + 0.1; } o = vec4(fract(a), 0.5, 0.0, 1.0); }`));
   gl.linkProgram(program);
   gl.useProgram(program);
-  gl.uniform1i(gl.getUniformLocation(program, 'n'), 1_000_000);
-  gl.viewport(0, 0, 1024, 1024);
-  for (let draw = 0; draw < 30; draw += 1) {
+  gl.uniform1i(gl.getUniformLocation(program, 'n'), 150_000);
+  gl.viewport(0, 0, 128, 128);
+  const pixel = new Uint8Array(4);
+  const until = performance.now() + 3000;
+  for (let draw = 0; performance.now() < until; draw += 1) {
     gl.uniform1f(gl.getUniformLocation(program, 'seed'), draw * 0.1);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
   }
-  const pixel = new Uint8Array(4);
-  gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
   return [...pixel];
 };
 
@@ -925,8 +944,9 @@ async function neighbours(t, { quotas, probeVramMB, misbehave }) {
     const frames = [];
     const frame = async () => {
       const during = misbehaving && !evilSettled;
+      const began = Date.now();
       const result = await watchdog.runFrame(frames.length, () => goodFrame(good.page, frames.length));
-      frames.push({ ...result, during: during && !evilSettled, after: evilSettled });
+      frames.push({ ...result, ms: Date.now() - began, during: during && !evilSettled, after: evilSettled });
     };
     await frame();
     await frame();
@@ -976,7 +996,7 @@ async function neighbours(t, { quotas, probeVramMB, misbehave }) {
   }
   assert.equal(disconnected, false, '正常任务的浏览器不得断连');
   assert.equal(processIsAlive(good.pid), true);
-  t.diagnostic(`显卡：${good.renderer}；正常任务 ${frames.length}/${frames.length} 帧逐像素一致（恶邻作恶期间 ${during} 帧）；恶邻 ${elapsedMs} ms 后被杀（${error.code}）`);
+  t.diagnostic(`显卡：${good.renderer}；正常任务 ${frames.length}/${frames.length} 帧逐像素一致（恶邻作恶期间 ${during} 帧，其中单帧最长 ${Math.max(...frames.filter((frame) => frame.during).map((frame) => frame.ms))} ms）；恶邻 ${elapsedMs} ms 后被杀（${error.code}）`);
   return { error, elapsedMs, frames };
 }
 
@@ -1006,9 +1026,9 @@ test('A14-7b 真实 WebGL2「不自报也照杀」：恶邻不申报，靠本机
 
 test('A14-8 真实 WebGL2「死循环着色器」：渲染卡死无心跳，shaderHangMs 一到零宽限 SIGKILL，同卡正常任务帧帧逐像素一致', async (t) => {
   const outcome = await neighbours(t, {
-    quotas: { shaderHangMs: 1000 },
+    quotas: { shaderHangMs: 250 },
     misbehave: async (page, watchdog) => {
-      watchdog.beginShaderPass('million-iteration-loop');
+      watchdog.beginShaderPass('bounded-shader-hang');
       const pixel = await page.evaluate(hangShader);
       watchdog.endShaderPass();
       return pixel;
@@ -1016,6 +1036,6 @@ test('A14-8 真实 WebGL2「死循环着色器」：渲染卡死无心跳，shad
   });
   if (!outcome) return;
   refuses('timeout.shader-hang', 124)(outcome.error);
-  assert.deepEqual([outcome.error.label, outcome.error.shaderHangMs], ['million-iteration-loop', 1000]);
-  assert.ok(outcome.elapsedMs >= 1000 && outcome.elapsedMs < 1000 + 6000, `${outcome.elapsedMs} ms`);
+  assert.deepEqual([outcome.error.label, outcome.error.shaderHangMs], ['bounded-shader-hang', 250]);
+  assert.ok(outcome.elapsedMs >= 250 && outcome.elapsedMs < 250 + 2500, `${outcome.elapsedMs} ms`);
 });
