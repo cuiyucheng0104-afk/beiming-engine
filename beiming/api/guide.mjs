@@ -24,6 +24,7 @@ export function guideText() {
     '所有 JSON 响应是 envelope/0.1：先看 ok、error.code、diagnostics（fix 可直接当补丁）、next。',
     '## 动词',
     ...ROUTES.map(verbLine),
+    '委托：POST films 带 mode=delegate、brief，可给 assets 和 budget（tokens 上限 120 万、gpuSeconds、wallSeconds）。用工作区令牌 GET jobs/{id}?wait=30；stopped 看 stoppedReason、stoppedAt、bestRev、cost。',
     '## 作者模式',
     '默认 cards-data：只写 film.json 的数据（卡、参数、时刻），不交脚本；PUT files 交脚本会被拒（contract.unsupported-mode）。local-trusted 要服务器开启，入库前跑 L1 源码扫描。',
     '## 样例 three（cards-data）',

@@ -1,0 +1,687 @@
+{
+  "format": "calib-scene/0.1",
+  "id": "studio-balls@1",
+  "title": "影棚四球：3 乘 2 米的受光地台上并排四个半径 0.25 米的受光球（18% 灰漫反射 ball.gray、低粗糙度铬球 ball.chrome、90% 白 ball.white、3% 黑 ball.black），三点棚灯是三个点光源（左前上方主灯 key 500 瓦、右前方辅灯 fill 150 瓦、后上方轮廓灯 rim 300 瓦）。后上方一排红绿蓝青品黄六块自发光色卡，右侧立一根 1 米高的自发光标尺杆：色卡和标尺的 emissionLinear 是不受光、不过色调映射时该读回的基准值；受光的球和地台读回多少要看渲染器，规格不给答案",
+  "probeRows": [
+    "颜色层的线性度",
+    "深度口径",
+    "坐标与相机",
+    "可见比例的成本",
+    "确定性",
+    "耗时"
+  ],
+  "colorSpace": "scene-linear-rec709",
+  "frameRange": {
+    "startFrame": 0,
+    "endFrame": 0
+  },
+  "frameRateFps": 24,
+  "camera": {
+    "positionM": [
+      0,
+      0.8,
+      3
+    ],
+    "lookAtM": [
+      0,
+      0.35,
+      0
+    ],
+    "upDir": [
+      0,
+      1,
+      0
+    ],
+    "yFovDeg": 40,
+    "widthPx": 640,
+    "heightPx": 360,
+    "nearM": 0.1,
+    "farM": 100
+  },
+  "backgroundLinear": [
+    0,
+    0,
+    0
+  ],
+  "objects": [
+    {
+      "id": "floor",
+      "idIndex": 1,
+      "shape": "plane",
+      "sizeM": [
+        3,
+        2
+      ],
+      "positionM": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "axisDir": [
+          1,
+          0,
+          0
+        ],
+        "angleRad": -1.5707963267948966
+      },
+      "emissionLinear": [
+        0,
+        0,
+        0
+      ],
+      "material": {
+        "kind": "standard",
+        "baseColorLinear": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "roughnessRatio": 1,
+        "metallicRatio": 0
+      }
+    },
+    {
+      "id": "ball.gray",
+      "idIndex": 2,
+      "shape": "sphere",
+      "radiusM": 0.25,
+      "positionM": [
+        -0.9,
+        0.25,
+        0
+      ],
+      "emissionLinear": [
+        0,
+        0,
+        0
+      ],
+      "material": {
+        "kind": "standard",
+        "baseColorLinear": [
+          0.18,
+          0.18,
+          0.18
+        ],
+        "roughnessRatio": 1,
+        "metallicRatio": 0
+      }
+    },
+    {
+      "id": "ball.chrome",
+      "idIndex": 3,
+      "shape": "sphere",
+      "radiusM": 0.25,
+      "positionM": [
+        -0.3,
+        0.25,
+        0
+      ],
+      "emissionLinear": [
+        0,
+        0,
+        0
+      ],
+      "material": {
+        "kind": "standard",
+        "baseColorLinear": [
+          0.9,
+          0.9,
+          0.9
+        ],
+        "roughnessRatio": 0.25,
+        "metallicRatio": 1
+      }
+    },
+    {
+      "id": "ball.white",
+      "idIndex": 4,
+      "shape": "sphere",
+      "radiusM": 0.25,
+      "positionM": [
+        0.3,
+        0.25,
+        0
+      ],
+      "emissionLinear": [
+        0,
+        0,
+        0
+      ],
+      "material": {
+        "kind": "standard",
+        "baseColorLinear": [
+          0.9,
+          0.9,
+          0.9
+        ],
+        "roughnessRatio": 1,
+        "metallicRatio": 0
+      }
+    },
+    {
+      "id": "ball.black",
+      "idIndex": 5,
+      "shape": "sphere",
+      "radiusM": 0.25,
+      "positionM": [
+        0.9,
+        0.25,
+        0
+      ],
+      "emissionLinear": [
+        0,
+        0,
+        0
+      ],
+      "material": {
+        "kind": "standard",
+        "baseColorLinear": [
+          0.03,
+          0.03,
+          0.03
+        ],
+        "roughnessRatio": 1,
+        "metallicRatio": 0
+      }
+    },
+    {
+      "id": "chart.red",
+      "idIndex": 6,
+      "shape": "plane",
+      "sizeM": [
+        0.2,
+        0.2
+      ],
+      "positionM": [
+        -0.625,
+        0.95,
+        -0.8
+      ],
+      "emissionLinear": [
+        0.8,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "id": "chart.green",
+      "idIndex": 7,
+      "shape": "plane",
+      "sizeM": [
+        0.2,
+        0.2
+      ],
+      "positionM": [
+        -0.375,
+        0.95,
+        -0.8
+      ],
+      "emissionLinear": [
+        0.1,
+        0.8,
+        0.1
+      ]
+    },
+    {
+      "id": "chart.blue",
+      "idIndex": 8,
+      "shape": "plane",
+      "sizeM": [
+        0.2,
+        0.2
+      ],
+      "positionM": [
+        -0.125,
+        0.95,
+        -0.8
+      ],
+      "emissionLinear": [
+        0.1,
+        0.1,
+        0.8
+      ]
+    },
+    {
+      "id": "chart.cyan",
+      "idIndex": 9,
+      "shape": "plane",
+      "sizeM": [
+        0.2,
+        0.2
+      ],
+      "positionM": [
+        0.125,
+        0.95,
+        -0.8
+      ],
+      "emissionLinear": [
+        0.1,
+        0.8,
+        0.8
+      ]
+    },
+    {
+      "id": "chart.magenta",
+      "idIndex": 10,
+      "shape": "plane",
+      "sizeM": [
+        0.2,
+        0.2
+      ],
+      "positionM": [
+        0.375,
+        0.95,
+        -0.8
+      ],
+      "emissionLinear": [
+        0.8,
+        0.1,
+        0.8
+      ]
+    },
+    {
+      "id": "chart.yellow",
+      "idIndex": 11,
+      "shape": "plane",
+      "sizeM": [
+        0.2,
+        0.2
+      ],
+      "positionM": [
+        0.625,
+        0.95,
+        -0.8
+      ],
+      "emissionLinear": [
+        0.8,
+        0.8,
+        0.1
+      ]
+    },
+    {
+      "id": "ruler",
+      "idIndex": 12,
+      "shape": "cylinder",
+      "radiusM": 0.01,
+      "heightM": 1,
+      "positionM": [
+        1.3,
+        0.5,
+        0
+      ],
+      "emissionLinear": [
+        1,
+        0.8,
+        0.2
+      ]
+    }
+  ],
+  "lights": [
+    {
+      "id": "key",
+      "kind": "point",
+      "positionM": [
+        -2.5,
+        2.5,
+        2.5
+      ],
+      "colorLinear": [
+        1,
+        1,
+        1
+      ],
+      "powerW": 500
+    },
+    {
+      "id": "fill",
+      "kind": "point",
+      "positionM": [
+        2.5,
+        1.2,
+        2.5
+      ],
+      "colorLinear": [
+        1,
+        1,
+        1
+      ],
+      "powerW": 150
+    },
+    {
+      "id": "rim",
+      "kind": "point",
+      "positionM": [
+        0,
+        3,
+        -2
+      ],
+      "colorLinear": [
+        1,
+        1,
+        1
+      ],
+      "powerW": 300
+    }
+  ],
+  "expected": [
+    {
+      "kind": "patchColor",
+      "objectId": "chart.red",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        237.260319,
+        85.738432
+      ],
+      "valueLinear": [
+        0.8,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "chart.green",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        270.356192,
+        85.738432
+      ],
+      "valueLinear": [
+        0.1,
+        0.8,
+        0.1
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "chart.blue",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        303.452064,
+        85.738432
+      ],
+      "valueLinear": [
+        0.1,
+        0.1,
+        0.8
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "chart.cyan",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        336.547936,
+        85.738432
+      ],
+      "valueLinear": [
+        0.1,
+        0.8,
+        0.8
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "chart.magenta",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        369.643808,
+        85.738432
+      ],
+      "valueLinear": [
+        0.8,
+        0.1,
+        0.8
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "chart.yellow",
+      "toleranceRatio": 0.02,
+      "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
+      "pixelPx": [
+        402.739681,
+        85.738432
+      ],
+      "valueLinear": [
+        0.8,
+        0.8,
+        0.1
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "ball.gray",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "球心的针孔投影",
+      "pixelPx": [
+        173.991641,
+        196.043664
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "ball.chrome",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "球心的针孔投影",
+      "pixelPx": [
+        271.330547,
+        196.043664
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "ball.white",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "球心的针孔投影",
+      "pixelPx": [
+        368.669453,
+        196.043664
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "ball.black",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "球心的针孔投影",
+      "pixelPx": [
+        466.008359,
+        196.043664
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "ruler",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        -0.5,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "标尺杆底端（落在地台高度 y = 0）的针孔投影",
+      "pixelPx": [
+        528.366095,
+        235.477909
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "ruler",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0.5,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "标尺杆顶端（y = 1 米）的针孔投影：和底端的像素距离就是这个位置上 1 米的屏幕长度",
+      "pixelPx": [
+        538.889636,
+        71.766041
+      ]
+    },
+    {
+      "kind": "projectedWidth",
+      "objectId": "ruler",
+      "atFrame": 0,
+      "tolerancePx": 0.5,
+      "source": "标尺杆中心沿相机右方向 ± 半径两点投影的横坐标差",
+      "widthPx": 3.284589
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        368.5,
+        226.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "白球下半部的像素：先打到白球，穿过去落在球后面的地台上",
+      "intendedHitIds": [
+        "ball.white",
+        "floor"
+      ],
+      "hits": [
+        {
+          "objectId": "ball.white",
+          "planeDepthM": 2.866672,
+          "rayDistanceM": 2.893008
+        },
+        {
+          "objectId": "floor",
+          "planeDepthM": 3.31502,
+          "rayDistanceM": 3.345475
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        368.5,
+        196.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "白球球心所在的像素：视线越过地台后沿，只打到白球",
+      "intendedHitIds": [
+        "ball.white"
+      ],
+      "hits": [
+        {
+          "objectId": "ball.white",
+          "planeDepthM": 2.799753,
+          "rayDistanceM": 2.814735
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        271.5,
+        196.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "铬球球心所在的像素：只打到铬球",
+      "intendedHitIds": [
+        "ball.chrome"
+      ],
+      "hits": [
+        {
+          "objectId": "ball.chrome",
+          "planeDepthM": 2.799753,
+          "rayDistanceM": 2.814735
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        196.5,
+        272.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "球前面的地台：只打到地台",
+      "intendedHitIds": [
+        "floor"
+      ],
+      "hits": [
+        {
+          "objectId": "floor",
+          "planeDepthM": 2.400158,
+          "rayDistanceM": 2.514269
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        533.5,
+        155.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "标尺杆中点所在的像素：视线从地台上方越过，只打到标尺杆",
+      "intendedHitIds": [
+        "ruler"
+      ],
+      "hits": [
+        {
+          "objectId": "ruler",
+          "planeDepthM": 3.001992,
+          "rayDistanceM": 3.273172
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        40.5,
+        20.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "左上角：背景",
+      "intendedHitIds": [],
+      "hits": []
+    }
+  ]
+}
