@@ -1,0 +1,83 @@
+{
+  "format": "question/0.1",
+  "id": "1-1",
+  "level": 1,
+  "title": "成片交付与母带规格",
+  "brief": "交付一条旗舰显卡硬表面展示成片：36.8 秒、30 帧每秒、1104 帧、1920×1080，带立体声。色彩空间、传递函数、原色三项标签都是 bt709；整片响度 −14 LUFS ± 0.5，真峰值不高于 −1 dBTP；没有黑帧，没有半秒以上的静止，没有重复帧。",
+  "deliverable": {
+    "size": [
+      1920,
+      1080
+    ],
+    "fps": "30/1",
+    "frames": 1104,
+    "audio": "stereo"
+  },
+  "assets": {},
+  "refs": [
+    "bench/refs/level-1/01-1-reference.json"
+  ],
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=30, frames=1104)",
+    "loudness(film) in [-14.5, -13.5]",
+    "true_peak(film) <= -1"
+  ],
+  "scoring": [
+    {
+      "metric": "deliver.spec",
+      "args": {
+        "color": "bt709"
+      },
+      "pass": "成片读回 1920×1080、30 帧每秒、1104 帧、立体声（2 个声道）；色彩空间、传递函数、原色三项标签都是 bt709",
+      "weight": 0.25
+    },
+    {
+      "metric": "audio.loudness",
+      "args": {
+        "lufs": [
+          -14.5,
+          -13.5
+        ],
+        "maxTruePeakDbtp": -1
+      },
+      "pass": "整片响度在 −14.5 到 −13.5 LUFS 之间，真峰值不高于 −1 dBTP",
+      "weight": 0.5
+    },
+    {
+      "metric": "frame.black-freeze-dup",
+      "args": {
+        "blackLevel": 32,
+        "blackPercent": 98,
+        "freezeDiff": 0.15,
+        "freezeFrames": 15,
+        "duplicateDiff": 0
+      },
+      "pass": "黑帧 0 帧，连续 15 帧（半秒）以上的冻结 0 段，重复帧 0 帧",
+      "weight": 0.25
+    }
+  ],
+  "controls": {
+    "referencePass": "标准答案工程必须得满分；案例 01 重制片终版的读回也必须得满分",
+    "negative": "缺色彩标签、单声道或没有音轨、响度超出 ±0.5、真峰值高于 −1 dBTP、带黑帧的提交都必须判不合格"
+  },
+  "needs": [
+    "deliver.encode",
+    "audio.master"
+  ],
+  "budget": {
+    "tokens": 400000,
+    "wallMs": 1200000,
+    "gpuSeconds": 300
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": false,
+    "blockedBy": []
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "05 第 6.3 节的初值，没有试跑过",
+    "noiseFloor": null,
+    "version": 0
+  }
+}
