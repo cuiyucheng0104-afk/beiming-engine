@@ -1,0 +1,369 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { test } from 'node:test';
+import { eventsTable } from '../kernel/eval/input.mjs';
+import { masterAudio, measureLoudness, mixEvents, VOICES, writeWav } from './audio.mjs';
+import { deliver, PIECES } from './deliver.mjs';
+import { CompError, runTool, tools } from './stitch.mjs';
+
+function fixture(t) {
+  const dir = mkdtempSync(join(tmpdir(), 'comp-sink-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  return { dir, path: join(dir, 'out.bin') };
+}
+
+const failed = (e) => e instanceof CompError && e.code === 'failure.ffmpeg';
+
+// 子进程先产生半截文件，再等父进程放行，让 drain、abort 和提前退出的顺序可复现。
+async function stalledEncoder(t, action) {
+  const { openEncoderSink } = await import('./sink.mjs');
+  const { dir, path } = fixture(t);
+  const ready = join(dir, 'ready'), go = join(dir, 'go');
+  const script = `const fs = require('node:fs');
+    const [ready, go, tmp] = process.argv.slice(1);
+    fs.writeFileSync(tmp, 'partial');
+    fs.writeFileSync(ready + '.tmp', String(process.pid)); fs.renameSync(ready + '.tmp', ready);
+    const timer = setInterval(() => { if (fs.existsSync(go)) { clearInterval(timer); ${action} } }, 5);`;
+  const sink = openEncoderSink({ path, bin: process.execPath, args: ['-e', script, ready, go], timeoutMs: 20000 });
+  t.after(() => sink.abort());
+  while (!existsSync(ready)) await sleep(5, undefined, { signal: t.signal });
+  const pid = Number(readFileSync(ready, 'utf8'));
+  rmSync(ready);
+  return { sink, dir, path, go, pid };
+}
+
+const countTimers = () => process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length;
+const assertReaped = (pid) => assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+
+test('文件在 finish 后一次发布，abort 保留已有内容', async (t) => {
+  const { openFileSink } = await import('./sink.mjs');
+  const { dir, path } = fixture(t);
+  const first = openFileSink({ path });
+  await first.write(Buffer.alloc(256 * 1024, 1));
+  assert.ok(!existsSync(path));
+  await Promise.all([first.abort(), first.abort()]);
+  assert.deepEqual(readdirSync(dir), []);
+  writeFileSync(path, 'previous');
+  const next = openFileSink({ path });
+  await next.write(Buffer.from('complete'));
+  assert.equal(readFileSync(path, 'utf8'), 'previous');
+  await next.finish();
+  await next.abort();
+  assert.equal(readFileSync(path, 'utf8'), 'complete');
+  const cancelled = openFileSink({ path });
+  await cancelled.write(Buffer.from('partial'));
+  await cancelled.abort();
+  assert.equal(readFileSync(path, 'utf8'), 'complete');
+  assert.deepEqual(readdirSync(dir), ['out.bin']);
+});
+
+for (const mode of ['abort', 'exit', 'drain']) {
+  test(`写满真实管道后 ${mode}，回收子进程、定时器和临时文件`, { timeout: 10000 }, async (t) => {
+    const timers = countTimers();
+    const action = mode === 'exit' ? 'process.exit(9)' : "process.stdin.pipe(fs.createWriteStream(tmp)).on('finish', () => console.log('progress=end'))";
+    const { sink, dir, path, go, pid } = await stalledEncoder(t, action);
+    const bytes = Buffer.alloc(4 * 1024 * 1024, 7);
+    let settled = false;
+    const write = sink.write(bytes).finally(() => { settled = true; });
+    const checked = mode === 'drain' ? write : assert.rejects(write, failed);
+    await sleep(15);
+    assert.equal(settled, false);
+    assert.ok(!existsSync(path));
+    if (mode === 'abort') await Promise.all([sink.abort(), sink.abort()]);
+    else writeFileSync(go, '');
+    await checked;
+    if (mode === 'drain') {
+      await sink.finish();
+      assert.deepEqual(readFileSync(path), bytes);
+    } else await assert.rejects(sink.finish(), failed);
+    assertReaped(pid);
+    rmSync(go, { force: true });
+    assert.deepEqual(readdirSync(dir), mode === 'drain' ? ['out.bin'] : []);
+    assert.equal(countTimers(), timers);
+  });
+}
+
+test('M10 编码器未读输入便以 0 退出，finish 拒绝并清除半截文件', { timeout: 10000 }, async (t) => {
+  const { sink, dir, go, pid } = await stalledEncoder(t, 'process.exit(0)');
+  await sink.write(Buffer.from('unread'));
+  writeFileSync(go, '');
+  // 等子进程自行退出后才关输入，否则提前发送 EOF 会掩盖这次提前退出。
+  while (true) {
+    try { process.kill(pid, 0); }
+    catch (err) { assert.equal(err.code, 'ESRCH'); break; }
+    await sleep(5, undefined, { signal: t.signal });
+  }
+  // Windows 上 GetExitCodeProcess 先于 IOCP 投递 exit 事件：留一轮事件循环让 exit 先于 stream.end 抵达。
+  await sleep(100, undefined, { signal: t.signal });
+  await assert.rejects(sink.finish(), (err) => failed(err) && /管道退出 0/.test(err.message));
+  rmSync(go);
+  assert.deepEqual(readdirSync(dir), []);
+});
+
+test('M10 写小块后立即 finish，不把管道已接收误作编码完成', async (t) => {
+  const { openEncoderSink } = await import('./sink.mjs');
+  const { dir, path } = fixture(t);
+  writeFileSync(path, 'previous');
+  const script = `require('node:fs').writeFileSync(process.argv[1], 'partial');`;
+  const sink = openEncoderSink({ path, bin: process.execPath, args: ['-e', script] });
+  await sink.write(Buffer.from('unread'));
+  await assert.rejects(sink.finish(), failed);
+  assert.equal(readFileSync(path, 'utf8'), 'previous');
+  assert.deepEqual(readdirSync(dir), ['out.bin']);
+});
+
+test('并发 finish 和 abort 会拒绝在途写入，保留原成品', async (t) => {
+  const { openFileSink } = await import('./sink.mjs');
+  const { path, dir } = fixture(t);
+  writeFileSync(path, 'original');
+  const sink = openFileSink({ path });
+  await Promise.all([
+    assert.rejects(sink.write(Buffer.alloc(256 * 1024)), failed),
+    assert.rejects(sink.finish(), failed),
+    sink.abort(),
+  ]);
+  assert.equal(readFileSync(path, 'utf8'), 'original');
+  assert.deepEqual(readdirSync(dir), ['out.bin']);
+});
+
+test('缺失编码器和超时分别给出登记的 CompError，目录内零残留', async (t) => {
+  const { openEncoderSink } = await import('./sink.mjs');
+  const { path, dir } = fixture(t);
+  for (const [code, options] of [
+    ['env.ffmpeg-missing', { bin: join(dir, 'absent'), args: [] }],
+    ['timeout.ffmpeg', { bin: process.execPath, args: ['-e', 'process.stdin.resume(); setInterval(() => {}, 1000)'], timeoutMs: 100 }],
+  ]) {
+    const sink = openEncoderSink({ path, ...options });
+    await assert.rejects(sink.finish(), (e) => e instanceof CompError && e.code === code);
+    assert.deepEqual(readdirSync(dir), []);
+  }
+});
+
+test('合成收尾公共入口提供两种输出端和拟音库', async () => {
+  const comp = await import('./index.mjs');
+  assert.equal(typeof comp.openFileSink, 'function');
+  assert.equal(typeof comp.openEncoderSink, 'function');
+  assert.equal(typeof comp.FOLEY_VOICES, 'object');
+});
+
+for (const voice of ['foley.step', 'foley.cloth', 'foley.impact', 'foley.metal']) {
+  test(`X5 ${voice} 第 5 次触发与第 1 次的波形不同`, () => {
+    const { make, pcenter } = VOICES[voice];
+    const first = make(42, 0).left, fifth = make(42, 4).left;
+    // 前导没有振荡器或高架均衡，独立噪声的样本极性也应改变。
+    let flipped = 0;
+    for (let i = 1; i < pcenter; i++) if (first[i] * fifth[i] < 0) flipped++;
+    assert.ok(flipped > pcenter / 8, `${voice} 跨轮重复了前导噪声`);
+    // 分开比较接触与主体：只有音高或只有高频增益在变，整段样本也会不等。
+    for (const [layer, from, to] of [['接触', 0, 72], ['主体', 160, 600]]) {
+      let delta = 0;
+      for (let i = pcenter + from; i < pcenter + to; i++) delta = Math.max(delta, Math.abs(first[i] - fifth[i]));
+      assert.ok(delta > 1e-4, `第 1、5 次${layer}的最大采样差 ${delta}`);
+    }
+  });
+}
+
+const hasFfmpeg = Object.values(tools()).every((bin) =>
+  spawnSync(bin, ['-version'], { stdio: 'ignore', windowsHide: true, timeout: 15000 }).status === 0);
+const needFfmpeg = { skip: !hasFfmpeg && '环境缺少 ffmpeg / ffprobe' };
+const example = (name) => JSON.parse(readFileSync(new URL(`../kernel/contracts/${name}`, import.meta.url), 'utf8'));
+
+function foleyFilm(audio, count, spacing = 15) {
+  const film = example('film/examples/minimal.json');
+  film.output = { size: [32, 16], fps: '30/1', frames: 45 + spacing * (count - 1) };
+  Object.assign(film.shots[0], { out: film.output.frames, colorRef: 'display', seed: 7 });
+  film.events = Array.from({ length: count }, (_, i) => ({ id: `e${i}`, frame: 10 + spacing * i, audio, sync: 'onset' }));
+  film.audio = { mode: 'script', loudness: -14, truePeak: -1 };
+  film.delivery.web = true;
+  return film;
+}
+
+function deliveryFrames(dir, length) {
+  const pattern = join(dir, 'frame%03d.png');
+  runTool(tools().ffmpeg, ['-nostdin', '-v', 'error', '-f', 'lavfi', '-i', 'color=s=32x16:r=30',
+    '-frames:v', String(length), '-start_number', '0', pattern]);
+  return { s01: { pattern } };
+}
+
+function deliveryInput(dir, voice, count = 4, frames, spacing = 15) {
+  const film = foleyFilm(voice, count, spacing);
+  const lock = example('lock/examples/minimal.json');
+  lock.cards['audio.master'] = example('lock/examples/check-full.json').lock.cards['audio.master'];
+  lock.seeds.s01 = film.shots[0].seed;
+  return { film, lock, events: eventsTable(film), frames: frames ?? deliveryFrames(dir, film.output.frames) };
+}
+
+function checkLevels(t, label, { integrated, truePeak }) {
+  const measured = `${label} ${integrated} LUFS，${truePeak} dBTP`;
+  t.diagnostic(measured);
+  assert.ok(integrated >= -15 && integrated <= -13 && truePeak <= -1, measured);
+}
+
+for (const voice of ['foley.step', 'foley.cloth']) {
+  for (const count of [3, 8, 24]) {
+    test(`X5 masterAudio ${voice} ×${count} 的 WAV 响度和真峰值达标`, needFfmpeg, (t) => {
+      const events = eventsTable(foleyFilm(voice, count));
+      const master = masterAudio(mixEvents(events, { seed: 1 }), fixture(t).dir);
+      checkLevels(t, 'master.wav', measureLoudness(master.path));
+    });
+  }
+
+  test(`X5 deliver ${voice} ×4 的母版与网页 AAC 响度和真峰值达标`, needFfmpeg, (t) => {
+    const { dir } = fixture(t);
+    const input = deliveryInput(dir, voice);
+    const bundle = deliver({ ...input, outDir: join(dir, 'deliver') });
+    const run = JSON.parse(readFileSync(join(bundle.dir, PIECES.run), 'utf8'));
+    const audio = run.steps.find((step) => step.step === 'audio');
+    assert.deepEqual(audio.placements.map((p) => [p.audio, p.frame]), input.film.events.map((e) => [e.audio, e.frame]));
+    checkLevels(t, '交付记录中的 WAV 母带', audio.passes.at(-1));
+    for (const name of [PIECES.master, PIECES.web]) {
+      assert.equal(bundle.report.probes[name].audio.codec, 'aac');
+      checkLevels(t, name, measureLoudness(join(bundle.dir, name)));
+    }
+  });
+}
+
+test('X5 M19 同一种子交付的 PCM 可重放，改 film 与锁的全片种子后 PCM 改变', needFfmpeg, (t) => {
+  const { dir } = fixture(t);
+  const input = deliveryInput(dir, 'foley.metal');
+  const hashes = [1, 1, 2].map((seed, i) => {
+    input.film.seed = input.lock.seeds.film = seed;
+    const bundle = deliver({ ...input, outDir: join(dir, `deliver-${i}`) });
+    const { stdout } = runTool(tools().ffmpeg, ['-nostdin', '-v', 'error', '-i', join(bundle.dir, PIECES.master),
+      '-map', '0:a:0', '-c:a', 'pcm_f32le', '-f', 'hash', '-hash', 'sha256', 'pipe:1']);
+    const hash = stdout.toString('utf8').trim();
+    assert.match(hash, /^SHA256=[0-9a-f]{64}$/);
+    t.diagnostic(`seed=${seed} PCM ${hash}`);
+    return hash;
+  });
+  assert.equal(hashes[0], hashes[1], '同种子重放');
+  assert.notEqual(hashes[0], hashes[2], '不同全片种子');
+});
+
+// 独立读取解码样本的两位小数，防止 ebur128 把 −0.97 dBTP 显示为 −1.0。
+function decodedLevels(file) {
+  const { stderr } = runTool(tools().ffmpeg, ['-nostdin', '-nostats', '-i', file,
+    '-map', '0:a:0', '-af', 'loudnorm=print_format=json', '-f', 'null', '-']);
+  const levels = JSON.parse(stderr.slice(stderr.lastIndexOf('{'), stderr.lastIndexOf('}') + 1));
+  return { integrated: Number(levels.input_i), truePeak: Number(levels.input_tp) };
+}
+
+test('X5-R3-Red 衣料与脚步连发经真实 deliver 后两档 AAC 均达标', needFfmpeg, (t) => {
+  const { dir } = fixture(t);
+  const frames = deliveryFrames(dir, foleyFilm('foley.cloth', 24).output.frames);
+  // 首轮保留二审复现的种子 1、2、3、5，第二轮换种子重测同样的八种工况。
+  const cases = [[3, 'room'], [24, 'room'], [4, 'silence'], [8, 'room'],
+    [24, 'silence'], [3, 'silence'], [8, 'silence'], [4, 'room']];
+  const full = process.env.X5_FULL_MATRIX === '1';
+  const clothSeeds = full ? 24 : 16;
+  for (let seed = 0; seed < clothSeeds + 2; seed++) {
+    const voice = seed < clothSeeds ? 'foley.cloth' : 'foley.step';
+    for (const [count, bed] of full && seed < clothSeeds ? cases : [cases[seed % cases.length]]) {
+      const input = deliveryInput(dir, voice, count, frames);
+      input.film.seed = input.lock.seeds.film = seed;
+      const bundle = deliver({ ...input, bed, outDir: join(dir, `deliver-${seed}-${count}-${bed}`) });
+      for (const name of [PIECES.master, PIECES.web]) {
+        checkLevels(t, `${voice}×${count}/${bed}/s${seed}/${name}`, decodedLevels(join(bundle.dir, name)));
+      }
+    }
+  }
+});
+
+test('网页输出端单独改变响度或真峰值时，deliver 拒绝发布整包', needFfmpeg, async (t) => {
+  const { openEncoderSink } = await import('./sink.mjs');
+  const { dir } = fixture(t);
+  const input = deliveryInput(dir, 'hit.low');
+  const outDir = join(dir, 'deliver');
+  for (const [fault, filter] of [['响度', 'volume=-8dB'], ['峰值', "aeval='if(between(t,0.40,0.408),sin(2*PI*1000*t),val(ch))':c=same"]]) {
+    let levels;
+    await assert.rejects(deliver({ ...input, outDir, sinkFactory(spec) {
+      if (spec.preset !== 'web') return openEncoderSink(spec);
+      const sink = openEncoderSink({ ...spec, args: [...spec.args, '-af', filter] });
+      return { ...sink, async finish() { await sink.finish(); levels = decodedLevels(spec.path); } };
+    } }), { code: 'contract.delivery-mismatch', message: /web\.mp4/ });
+    assert.equal(Math.abs(levels.integrated + 14) > 1, fault === '响度', JSON.stringify(levels));
+    assert.equal(levels.truePeak > -1, fault === '峰值', JSON.stringify(levels));
+    assert.equal(existsSync(outDir), false);
+  }
+});
+
+test('自定义网页输出缺音轨时报交付不匹配，不向无音轨文件索取响度', needFfmpeg, async (t) => {
+  const { openEncoderSink } = await import('./sink.mjs');
+  const { dir } = fixture(t);
+  const input = deliveryInput(dir, 'hit.low');
+  const outDir = join(dir, 'deliver');
+  await assert.rejects(deliver({ ...input, outDir, sinkFactory(spec) {
+    if (spec.preset === 'web') spec.args.push('-an');
+    return openEncoderSink(spec);
+  } }), { code: 'contract.delivery-mismatch', message: /web\.mp4\.audio/ });
+  assert.equal(existsSync(outDir), false);
+});
+
+test('达标的自定义母带不会因额外的峰值或响度余量而被拒收', needFfmpeg, (t) => {
+  const { dir } = fixture(t);
+  const input = deliveryInput(dir, 'hit.low', 2);
+  input.film.audio = { mode: 'track', loudness: -13.5, truePeak: -14 };
+  const path = join(dir, 'tone.wav');
+  const tone = Float32Array.from({ length: 96000 }, (_, i) => 0.25 * Math.sin(2 * Math.PI * 1000 * i / 48000));
+  writeFileSync(path, writeWav({ left: tone, right: tone }));
+  for (const loudness of [-13.5, -13.42]) {
+    input.film.audio.loudness = loudness;
+    const bundle = deliver({ ...input, tracks: [{ path, at: 0 }], outDir: join(dir, `deliver-${loudness}`) });
+    for (const name of [PIECES.master, PIECES.web]) {
+      const { integrated, truePeak } = decodedLevels(join(bundle.dir, name));
+      assert.ok(Math.abs(integrated - loudness) <= 1 && truePeak <= -14, `${name}: ${integrated} LUFS, ${truePeak} dBTP`);
+    }
+  }
+});
+
+test('X5-R4-Red 四种拟音材质在三审代表性失败种子与哈希派生种子经真实 deliver 后 master.mp4 与 web.mp4 均达标，且同步交付失败零暂存残留', needFfmpeg, (t) => {
+  const { dir } = fixture(t);
+  const frames = deliveryFrames(dir, foleyFilm('foley.cloth', 24).output.frames);
+
+  // M33：同步路径交付失败（建暂存目录之后因缺 tracks 抛 usage.bad-argument）必须清干净父目录里的 .beiming-comp-*
+  const failStageParent = join(dir, 'sync-fail-parent');
+  mkdirSync(failStageParent, { recursive: true });
+  const syncFailInput = deliveryInput(dir, 'hit.low', 2, frames);
+  syncFailInput.film.audio = { mode: 'track', loudness: -14, truePeak: -1 };
+  assert.throws(
+    () => deliver({ ...syncFailInput, outDir: join(failStageParent, 'bundle') }),
+    { code: 'usage.bad-argument' },
+  );
+  assert.deepEqual(readdirSync(failStageParent), [], '同步路径 deliver 失败后不得遗留 .beiming-comp-* 暂存目录');
+
+  const hardCases = [
+    ['foley.impact', 8, 'room', 3501202185],
+    ['foley.impact', 3, 'room', 4294967294],
+    ['foley.impact', 3, 'room', 156922488], // M06：重限幅循环去掉响度补偿会以 -12.42 LUFS 失败
+    ['foley.step', 24, 'room', 987654321],
+    ['foley.step', 24, 'silence', 506314630],
+    ['foley.cloth', 24, 'room', 2637289995],
+    ['foley.metal', 8, 'room', 3501202185],
+  ];
+  const materials = ['foley.cloth', 'foley.step', 'foley.impact', 'foley.metal'];
+  const seeds = [...new Set(hardCases.map(([, , , seed]) => seed))];
+  for (const voice of materials) {
+    const derived = createHash('sha256').update(`X5-R4/${voice}/30`).digest().readUInt32BE();
+    hardCases.push([voice, 4, 'room', derived, 30]);
+    if (process.env.X5_FULL_MATRIX === '1') {
+      for (const spacing of [30, 60]) {
+        for (const seed of seeds) hardCases.push([voice, 4, spacing === 30 ? 'silence' : 'room', seed, spacing]);
+      }
+    }
+  }
+  hardCases.forEach(([voice, count, bed, seed, spacing = 15], idx) => {
+    const input = deliveryInput(dir, voice, count, frames, spacing);
+    input.film.seed = input.lock.seeds.film = seed;
+    const label = `${voice}×${count}/${spacing}帧/${bed}/s${seed}`;
+    t.diagnostic(label);
+    const bundle = deliver({ ...input, bed, outDir: join(dir, `r4-${idx}`) });
+    for (const name of [PIECES.master, PIECES.web]) {
+      checkLevels(t, `${label}/${name}`, decodedLevels(join(bundle.dir, name)));
+    }
+  });
+});

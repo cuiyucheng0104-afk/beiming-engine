@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
@@ -13,7 +13,7 @@ import { eventsTable } from '../kernel/eval/index.mjs';
 import {
   CompError, PIECES, SETPARAMS, VOICES, contactFrames, deliver, encode, encodeCommand, escapeFilterValue, eventSample,
   filmSamples, finishFilters, framePath, isFaststart, masterAudio, measureLoudness, mixEvents, normalizeShot, outputArgs,
-  parseFps, probeMedia, readWav, renderRaw, runTool, shaperValue, srgbEncode, stitchGraph, tools, topLevelBoxes,
+  openEncoderSink, openFileSink, parseFps, probeMedia, readWav, renderRaw, runTool, shaperValue, srgbEncode, stitchGraph, tools, topLevelBoxes,
   verifyDeliveryBundle, writeWav,
 } from './index.mjs';
 
@@ -532,6 +532,48 @@ describe('独立复核回归', () => {
     assert.equal(bundle.report.ok, true);
     assert.equal(measureLoudness(join(bundle.dir, PIECES.master)).truePeak, -Infinity);
     assert.equal(probeMedia(join(bundle.dir, PIECES.master)).audio.channels, 2);
+  });
+
+  test('X5 encode 工厂接收 yuv420p 字节，两个输出逐字节匹配拼接结果', NEED_FFMPEG, async () => {
+    const graph = stitchGraph({ size: [64, 36], fps: '24/1', shots: [
+      { id: 'a', in: 0, out: 4, colorRef: 'display', pattern: fx.grayPng },
+    ] });
+    const outputs = ['preview', 'web'].map((preset) => ({ preset, path: join(root, `${preset}.yuv`) }));
+    await encode({ graph, outputs, sinkFactory: openFileSink });
+    const expected = renderRaw(graph);
+    for (const { path } of outputs) assert.deepEqual(readFileSync(path), expected);
+  });
+
+  test('X5 FFmpeg 编码失败时，输入已关闭，目录内零残留', NEED_FFMPEG, async () => {
+    const dir = mkdtempSync(join(root, 'bad-encoder-'));
+    const sink = openEncoderSink({ path: join(dir, 'out.mp4'), args: [
+      '-v', 'error', '-f', 'rawvideo', '-pixel_format', 'yuv420p', '-video_size', '32x16', '-i', 'pipe:0', '-c:v', 'missing-x5-encoder',
+    ] });
+    await sink.write(Buffer.alloc(768));
+    await assert.rejects(sink.finish(), code('failure.ffmpeg'));
+    assert.deepEqual(readdirSync(dir), []);
+    await sink.abort();
+  });
+
+  test('X5 deliver 等全部编码端完成再验收并发布，写入失败则回收整套暂存目录', NEED_FFMPEG, async () => {
+    const base = audioDelivery('30/1', 30, { id: 'step1', frame: 12, audio: 'foley.step', sync: 'pcenter' });
+    base.film.delivery = { master: 'h264-crf14-bt709', web: true };
+    const dir = mkdtempSync(join(root, 'sink-delivery-'));
+    const outDir = join(dir, 'bundle');
+    const presets = [];
+    await assert.rejects(deliver({ ...base, outDir, sinkFactory: (spec) => {
+      const sink = openEncoderSink(spec);
+      return { ...sink, write() { throw new Error('注入写入失败'); } };
+    } }), code('failure.ffmpeg'));
+    assert.deepEqual(readdirSync(dir), []);
+    const bundle = await deliver({ ...base, outDir, sinkFactory: (spec) => {
+      presets.push(spec.preset);
+      return openEncoderSink(spec);
+    } });
+    assert.deepEqual(presets, ['h264-crf14-bt709', 'web']);
+    assert.equal(bundle.report.ok, true);
+    assert.deepEqual(verifyDeliveryBundle(outDir).files, bundle.files);
+    assert.deepEqual(readdirSync(dir), ['bundle']);
   });
 
   test('M04 riser 从第 0 或 90 帧起音，显式峰值对齐命中最大振幅', () => {
