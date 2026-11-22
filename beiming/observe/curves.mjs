@@ -139,8 +139,9 @@ export function curves(input, request) {
     if (!isPlain(input)) throw new Error('要给 tracks/0.1（{ indexJson, bin }）、已解码的轨道映射，或 { tracks, metas }');
     const named = (v) => typeof v === 'string' && v !== '';
     if (!isPlain(request) || !(named(request.track) || named(request.entity))) throw new Error('request 要给 track（轨道名）或 entity（实体名）');
-    const { track, entity, range } = request;
+    const { track, entity, range, shot } = request;
     if (request.quantity !== undefined && !named(request.quantity)) throw new Error('quantity 要是非空字符串');
+    if (shot !== undefined && !named(shot)) throw new Error('shot 要是非空字符串');
     if (range !== undefined && !(Array.isArray(range) && range.length === 2 && range.every(Number.isInteger) && range[0] >= 0 && range[0] <= range[1])) {
       throw new Error('range 要是 [起帧, 止帧]：非负整数，起不大于止');
     }
@@ -158,12 +159,18 @@ export function curves(input, request) {
       if (!Object.hasOwn(META_QUANTITIES, quantity)) throw new Error(`元数据回退只有 ${Object.keys(META_QUANTITIES).join('、')}`);
       const metas = normalizeMetas(input.metas);
       if (typeof metas === 'string') throw new Error(metas);
-      const rows = metas.flatMap((m) => {
+      const scoped = shot !== undefined ? metas.filter((m) => m.shot === shot) : metas;
+      if (!scoped.length) throw new Error(`元数据里没有镜头 ${clip(shot)}`);
+      // 只有显式给 shot 才用镜头内帧号 shotFrame；省略时一律按全片帧号 frame
+      const singleShot = shot !== undefined;
+      const rows = scoped.flatMap((m) => {
         const e = (m.entities ?? []).find((x) => x.name === name);
         const v = e && META_QUANTITIES[quantity](e, m.size);
-        return Number.isFinite(v) && (!range || (m.frame >= range[0] && m.frame <= range[1])) ? [[m.frame, v]] : [];
+        const f = singleShot ? (m.shotFrame ?? m.frame) : m.frame;
+        return Number.isFinite(v) && (!range || (f >= range[0] && f <= range[1])) ? [[f, v]] : [];
       });
       if (!rows.length) throw new Error(`元数据里这段帧没有实体 ${clip(name)} 的 ${quantity}`);
+      rows.sort((x, y) => x[0] - y[0]);
       frames = rows.map((r) => r[0]);
       values = rows.map((r) => r[1]);
     } else {
