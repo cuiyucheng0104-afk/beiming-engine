@@ -48,7 +48,8 @@ export function solverEnv(run, viaModel, platform = process.platform, host = ses
   if (!win) return env;
   const sysRoot = env.SYSTEMROOT || 'C:\\Windows';
   return {
-    ...env, SYSTEMROOT: sysRoot, WINDIR: env.WINDIR || sysRoot, SYSTEMDRIVE: env.SYSTEMDRIVE || 'C:',
+    // 宿主连 PATH 都没有时给系统目录：留空 libuv 照样从父进程补；宿主给了空串就留空串
+    ...env, PATH: env.PATH ?? path.win32.join(sysRoot, 'System32'), SYSTEMROOT: sysRoot, WINDIR: env.WINDIR || sysRoot, SYSTEMDRIVE: env.SYSTEMDRIVE || 'C:',
     COMSPEC: env.COMSPEC || path.win32.join(sysRoot, 'System32', 'cmd.exe'), PATHEXT: env.PATHEXT || '.COM;.EXE;.BAT;.CMD',
     HOME: run.worktree, USERPROFILE: run.worktree, TEMP: run.tmpDir, TMP: run.tmpDir, TMPDIR: run.tmpDir,
     HOMEDRIVE: path.win32.parse(run.worktree).root.replace(/[\\/]+$/, '') || 'C:', HOMEPATH: '\\',

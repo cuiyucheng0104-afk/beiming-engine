@@ -339,6 +339,11 @@ test('B8-9b 做题进程的环境变量按平台构造：POSIX 只过滤；win32
   const bare = solverEnv(run, true, 'win32', { Path: 'C:\\Windows\\System32', ANTHROPIC_API_KEY: 'k', https_proxy: 'http://p', B8_HOST_SECRET: 's3' });
   assert.deepEqual([bare.SYSTEMROOT, bare.WINDIR, bare.SYSTEMDRIVE, bare.COMSPEC, bare.PATHEXT], ['C:\\Windows', 'C:\\Windows', 'C:', 'C:\\Windows\\System32\\cmd.exe', '.COM;.EXE;.BAT;.CMD']);
   assert.deepEqual([bare.ANTHROPIC_API_KEY, bare.HTTPS_PROXY, 'B8_HOST_SECRET' in bare, 'https_proxy' in bare], ['k', 'http://p', false, false]);
+  // 宿主一个变量都没有（连 PATH 也没有）：11 个必选的照样一个不缺，PATH 给系统目录；宿主的 PATH 是空串就留空串
+  const empty = solverEnv(run, false, 'win32', {});
+  assert.deepEqual(LIBUV_REQUIRED.filter((k) => !Object.hasOwn(empty, k)), []);
+  assert.equal(empty.PATH, 'C:\\Windows\\System32');
+  assert.equal(solverEnv(run, false, 'win32', { Path: '' }).PATH, '');
 
   // POSIX：名字分大小写，原样过滤，不补 Windows 的那些
   const posixHost = { PATH: '/bin', HOME: '/Users/alice', TMPDIR: '/runs/tmp', USER: 'alice', USERNAME: 'alice', LOGNAME: 'alice', SHELL: '/bin/zsh', B8_HOST_SECRET: 's3', ANTHROPIC_API_KEY: 'k', https_proxy: 'http://p' };
