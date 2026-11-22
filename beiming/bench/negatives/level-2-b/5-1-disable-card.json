@@ -1,0 +1,22 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "5-1-disable-card",
+  "questionId": "5-1",
+  "kind": "disable-card",
+  "disabledCards": [
+    "audio.align"
+  ],
+  "seed": null,
+  "description": "关掉配乐对位：配乐不平移、不拉伸，原样从片头铺到底。配乐最后一下低频重击原样落在第 620 帧，离第 624 帧的硬切 4 帧。拉伸比量回 1.000，在 0.97 到 1.03 之内，相关也够，配乐对位那一条照过：没对位不等于拉伸超限。「不平移」「不拉伸」是关掉对位这一件事的两个参数。",
+  "perturbation": {
+    "stretch": 1,
+    "offsetSec": 0
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 1,
+      "metric": "beat.onset-hit",
+      "why": "离硬切最近的重击峰差 4 帧，超过 2 帧的容差"
+    }
+  ]
+}
