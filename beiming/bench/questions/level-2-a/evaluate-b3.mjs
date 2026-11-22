@@ -255,23 +255,63 @@ export const read23_2 = orMissing(async (file, film, { jump = 0.35 } = {}) => {
 
 // 30-1：静态扫工程目录。片子描述 film.json（film/3.0）是时间的出处：timeline 是节拍表，原样读出它的 bpm、beatFrames；
 // events 是命名时刻，照片子描述契约 5.3 展开，event(m01) + 18、cut(180) + 12 这样的算式和整数帧一样算；shots 是镜头表。
-// 写死的帧号（第 0 帧不算）：片子描述里别处把时间键写成整数（卡参数里相机关键帧的 f、片名入场的 enter 都在内；镜头的出入点、
-// 转场的 at、刻意区间契约只许写整数，不算）；镜头代码里名字带 frame 的变量跟数比或赋成数、任何东西跟两位以上的整数比（case 432: 也是）、时间键写成两位以上的整数。
+// 写死的帧号（第 0 帧不算）有两处来源。片子描述里别处把时间键写成整数（卡参数里相机关键帧的 f、片名入场的 enter 都在内；
+// 镜头的出入点、转场的 at、刻意区间契约只许写整数，不算）。镜头代码先把注释、字符串抹成空格，再整份文件一起认，换行不改结论：
+//   帧表达式跟整数比（数在哪边都算）、switch 帧表达式里的 case、名字以 frame 结尾的量赋成整数、对象里时间键写成两位以上的整数。
+//   帧表达式是整条取值链（a.b.c），末段是这几种名字：以 frame 结尾的（frame、localFrame、ctx.frame，一位数也认）；f、t；
+//   帧形参（render、state、meta、apply、evaluate 的形参，ctx 后面那个形参，赋给名字或属性的单形参箭头函数的形参）；
+//   从帧表达式只做加减得来的 const、let、var。后三种只认两位以上的整数，x > 1 这样的归一化比较不算。
+//   ctx.size[0] 这样末段是下标的、width、height、循环下标都不是帧表达式。
 // 节拍常量的定义数 = 节拍表（有就算 1）+ 别处再给 bpm、tempo、beat* 赋数的次数；节拍表在不在看读数里有没有 bpm、beatFrames。
-// shortcut: 代码按行用正则认，不解析语法，只扫 JS、TS、Python 源码，film.json 以外的 JSON 不看；字符串里带 //（Python 是 #）的那行后半截会被当注释略过；
-// 循环上限、像素尺寸跟两位以上的数比也会算进来，帧号先赋给常量再比则认不出。要更准就换成语法树加卡文件里的参数类型
+// shortcut: 用正则认，不解析语法，只扫 JS、TS、Python 源码，film.json 以外的 JSON 不看；帧名按整份文件算，不分作用域；
+// 帧号先做算术再比（f - 432 >= 0）、先赋给名字不带 frame 的常量再比、形参名不在上面几种里的、十六进制写的，都认不出；
+// 模板字符串的 ${} 里再套花括号或模板、正则字面量里带引号的那一行、switch 里第一个右花括号之后的 case 会认错。要更准就换成语法树
 const TIME_KEYS = ['in', 'out', 'frame', 'at', 'start', 'end', 'f', 'enter', 'exit'];
 // 比较号：不是箭头、移位的一半
 const CMP = String.raw`(?<![<>=!])(?:[<>]=?|[!=]==?)(?![<>=])`;
-const FRAME_LITERAL = new RegExp([
-  String.raw`\b\w*frame\s*(?:${CMP}|[:=])\s*[1-9]`,
-  String.raw`\b[1-9]\d*\s*${CMP}\s*\w*frame\b`,
-  String.raw`${CMP}\s*[1-9]\d+\b(?!\.\d)`,
-  String.raw`(?<![\w.])[1-9]\d+\s*${CMP}`,
-  String.raw`\bcase\s+[1-9]\d+\s*:`,
-  String.raw`(?<![\w.])(?:${TIME_KEYS.join('|')})["']?\s*:\s*[1-9]\d+\b(?!\.\d)`,
-].join('|'), 'gi');
-const BEAT_DEF = /\b(?:bpm|tempo|beat\w*)\s*[:=]\s*\d+(?:\.\d+)?\s*(?:[;,)}\]]|$)/gi;
+const BEAT_DEF = /\b(?:bpm|tempo|beat\w*)\s*[:=]\s*\d+(?:\.\d+)?\s*(?:[;,)}\]]|$)/gim;
+// 注释和字符串：JS 的块注释、行注释、模板、两种引号；Python 的三引号、# 注释、行尾续行的反斜杠、两种引号。写成一条正则，谁先开头谁算数
+const NOISE = {
+  js: /\/\*[\s\S]*?\*\/|\/\/[^\n]*|`(?:[^`\\]|\\[\s\S])*`|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g,
+  py: /"""[\s\S]*?"""|'''[\s\S]*?'''|#[^\n]*|\\(?=\r?\n)|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g,
+};
+// 抹成空格、留着换行，行号不变。只有一个词的字符串原样留下（带引号的键）；模板字符串 ${} 里的是代码，留下
+const codeOf = (text, py) => text.replace(py ? NOISE.py : NOISE.js, (noise) => (/^(["'])\w+\1$/.test(noise) ? noise
+  : noise[0] === '`' ? noise.replace(/(\$\{[^}]*\})|[^\n]/g, (char, kept) => kept ?? ' ') : noise.replace(/[^\n]/g, ' ')));
+const FRAME_NAMED = String.raw`[\w$]*[Ff]rame`;
+// 叫这些名字的形参是像素、下标，不当帧
+const NOT_FRAME = /^(?:w|h|x|y|z|i|j|width|height|size|aspect|index|count)$/;
+// 整条取值链，末段是 names 里的名字；后面跟着 . [ ( 的是没取完的链，不算
+const chain = (names) => String.raw`(?<![\w$.\])])(?:[\w$]+\.)*(?:${names})(?![\w$.\[(])`;
+// 这份代码里哪些名字是帧：固定的几种加帧形参，再加从它们只做加减得来的量（照书写顺序认一遍）
+function frameNames(code) {
+  const names = new Set(['f', 't']);
+  const add = (name) => { if (!NOT_FRAME.test(name)) names.add(name.replaceAll('$', String.raw`\$`)); };
+  for (const [, list] of code.matchAll(/\b(?:render|state|meta|apply|evaluate)\s*(?:[:=]\s*(?:async\s+)?(?:function\b\s*[\w$]*\s*)?)?\(([^)]*)\)\s*(?:=>|[{:])/g)) {
+    for (const [, name] of list.matchAll(/(?:^|,)\s*([\w$]+)/g)) add(name);
+  }
+  for (const [, name] of code.matchAll(/\(\s*ctx\s*,\s*([\w$]+)/g)) add(name);
+  for (const [, name] of code.matchAll(/[=:]\s*(?:async\s+)?\(?\s*([\w$]+)\s*\)?\s*=>/g)) add(name);
+  const all = () => [FRAME_NAMED, ...names].join('|');
+  for (const [, name, init] of code.matchAll(/\b(?:const|let|var)\s+([\w$]+)\s*=([^;\n]*)/g)) {
+    if (!/[*/%?<>=!&|]/.test(init) && new RegExp(chain(all())).test(init)) add(name);
+  }
+  return all();
+}
+// 一份代码里写死的帧号各在第几行
+function hardcodedLines(code) {
+  const named = chain(FRAME_NAMED), any = chain(frameNames(code));
+  const one = String.raw`[1-9][\d_]*\b(?!\.\d)`, two = String.raw`[1-9][\d_]+\b(?!\.\d)`, left = String.raw`(?<![\w$.])`;
+  // 帧表达式放在环视里不吃掉，Python 的 432 <= t < 648 才能两头各认一处
+  const literal = new RegExp([
+    String.raw`(?<=${named}\s*)${CMP}\s*${one}`, String.raw`${left}${one}\s*${CMP}(?=\s*${named})`,
+    String.raw`(?<=${any}\s*)${CMP}\s*${two}`, String.raw`${left}${two}\s*${CMP}(?=\s*${any})`,
+    String.raw`${named}\s*[:=]\s*${one}`,
+    String.raw`(?<=\bswitch\s*\(\s*${any}\s*\)\s*\{[^}]*)\bcase\s+${one}\s*:`,
+    String.raw`(?<=[{,]\s*["']?)(?:${TIME_KEYS.join('|')})["']?\s*:\s*${two}`,
+  ].join('|'), 'g');
+  return Array.from(code.matchAll(literal), ({ index }) => code.slice(0, index).split('\n').length);
+}
 export function read30_1(root) {
   let film, frameOf;
   try { film = JSON.parse(readFileSync(join(root, 'film.json'), 'utf8')); } catch { film = null; }
@@ -298,13 +338,9 @@ export function read30_1(root) {
   const sources = readdirSync(root, { recursive: true }).map((file) => file.replaceAll('\\', '/'))
     .filter((file) => /\.(?:[cm]?[jt]sx?|py)$/.test(file) && !/(?:^|\/)(?:node_modules|out|\.[^/]*)\//.test(file)).sort();
   for (const file of sources) {
-    // 块注释删掉但留着换行，行号不变
-    const lines = readFileSync(join(root, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, '')).split('\n');
-    lines.forEach((line, i) => {
-      const code = line.replace(file.endsWith('.py') ? /#.*$/ : /\/\/.*$/, '');
-      for (let n = code.match(FRAME_LITERAL)?.length ?? 0; n > 0; n--) found.push(`${file}:${i + 1}`);
-      beatConstantDefs += code.match(BEAT_DEF)?.length ?? 0;
-    });
+    const code = codeOf(readFileSync(join(root, file), 'utf8'), file.endsWith('.py'));
+    for (const line of hardcodedLines(code)) found.push(`${file}:${line}`);
+    beatConstantDefs += code.match(BEAT_DEF)?.length ?? 0;
   }
   const [width, height] = Array.isArray(output?.size) ? output.size : [];
   return { width, height, fps: rate(output.fps), frames: output.frames, shots,

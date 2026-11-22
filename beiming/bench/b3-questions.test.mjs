@@ -513,6 +513,31 @@ test('B3-12 30-1 从工程读数：read30_1 静态扫工程目录，一张 80 BP
     assert.equal(magic.timeline.hardcodedFrames, 3);
     assert.deepEqual(magic.timeline.found, ['shots/fx.js:1', 'shots/fx.js:1', 'shots/fx.js:2']);
     assert.deepEqual(judged(magic), [[true, false], false]);
+    // 三审反例：换行不改结论。比较号和帧号分在两行、数写在左边再换行，和写成一行一样各认一处；字符串里的 // 不是注释，它后面的代码照扫
+    const wrapped = project('wrapped-compare', { code: { 'shots/fx.js': 'export const burst = (f) => f >=\n  432 && f <\n  648;\n'
+      + 'export const late = (ctx) => 989 <=\n  ctx.frame;\nconst src = \'http://example.invalid/a\'; export const hit = (ctx, k) => k >= 432;\n' } });
+    assert.deepEqual(wrapped.timeline.found, ['shots/fx.js:1', 'shots/fx.js:2', 'shots/fx.js:4', 'shots/fx.js:6']);
+    assert.deepEqual(judged(wrapped), [[true, false], false]);
+    // 三审反例：节拍常量换行再定义，和写成一行一样算重复定义（节拍表 1 处加这里 4 处，Python 的反斜杠续行在内）
+    const split = project('wrapped-bpm', { code: { 'shots/music.js': 'const BPM =\n  120;\nlet beatFrames =\n  12;\nexport const table = { bpm:\n  120 };\n'
+      + 'export const turn = (f) => (f * BPM) / beatFrames / table.bpm;\n', 'rig/tempo.py': 'TEMPO = \\\n    120\n' } });
+    assert.equal(split.timeline.beatConstantDefs, 5);
+    assert.deepEqual(judged(split), [[true, false], false]);
+    assert.deepEqual(judged(project('wrapped-bpm-once', { code: { 'shots/music.js': 'const BPM =\n  120;\nexport const turn = (f) => f * BPM;\n' } })), [[true, false], false]);
+    // 三审反例：像素宽度、画幅比、循环下标跟数比不是帧号；注释、字符串、模板字符串里的字样也不算。整题照样满分
+    const pixels = project('pixel-width', { code: { 'shots/fit.js': 'export function fit(ctx, mesh) {\n  const [width, height] = ctx.size, aspect = width / height;\n'
+      + '  mesh.scale.x = ctx.size[0] >= 640 ? 1 : 0.5;\n  if (width >= 1920 && height < 1080 && aspect > 1) mesh.visible = true;\n'
+      + '  for (let i = 0; i < 100; i++) mesh.rotation.y += 0.01;\n  /* f >= 432\n     frame === 240 */\n'
+      + '  return \'frame >= 432，见 http://example.invalid/432\' + `BPM = 120; f >= ${width}`; // const BPM = 120\n}\n'
+      + 'export const wide = (width) => width >= 1920;\n' } });
+    assert.deepEqual([pixels.timeline.found, pixels.timeline.beatConstantDefs], [[], 1]);
+    const fitted = evaluate(q, { ...pixels, ...CLEAN, cuts: [] });
+    assert.deepEqual([passed(fitted), fitted.score, fitted.pass], [[true, true], 1, true]);
+    // 同一个工程把帧号比较写进模板字符串的 ${} 里、用只做加减的派生量去比，照样拦下
+    const sly = project('derived-frame', { code: { 'shots/fx.js': 'export const tag = (f) => `${f >= 432 ? 1 : 0}`;\n'
+      + 'export function state(n, sub) {\n  const local = n - 96;\n  return local >= 24 && n < 648;\n}\n' } });
+    assert.deepEqual(sly.timeline.found, ['shots/fx.js:1', 'shots/fx.js:4', 'shots/fx.js:4']);
+    assert.deepEqual(judged(sly), [[true, false], false]);
     // 片子描述里叠加层的出入点写死帧号
     const pinned = project('pinned-overlay', { film: { overlays: [{ id: 'name', shot: 's01', in: 240, out: 'event(m03) + 12', text: '对决' }] } });
     assert.deepEqual([pinned.timeline.hardcodedFrames, pinned.timeline.found], [1, ['film.json:overlays/name/in']]);
