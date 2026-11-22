@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""北冥引擎 · 音效物理形态与录音取证判定器（Stage 1，零训练确定性信号特征）。
+"""北冥引擎 · 音效物理形态与录音取证判定器（Stage 1 + L3 纯 CPU 物理取证，零训练确定性信号特征）。
 
 依据 Geoffroy Peeters et al. (2011)《The Timbre Toolbox》正交物理描述符与录音取证判据，
-在不依赖神经网络权重训练的前提下，筛查外部 CC0 录音或合成音效的七类常见缺陷：
+在不依赖神经网络权重训练的前提下，筛查外部 CC0 录音或合成音效的十类常见缺陷：
   1. 削波过载 / 直流偏移（clipped_samples / dc_offset）
   2. 伪高采样率升频（8/11 kHz 老旧电话或游戏素材转存 48 kHz，bandwidth_95_hz 过低）
   3. 50/60 Hz 交流电源哼声与底噪过高（hum_prominence_db / snr_db）
@@ -10,12 +10,19 @@
   5. 动作包络错配（Log-Attack Time 与波峰因数 Crest Factor：如衣袂摩擦里混入机械硬刺 H1，或撞击音效起音拖沓）
   6. 非乐音拟音里混入合成器周期振荡或人声口技谐波梳（频谱白化自相关 pitch_prominence）
   7. 高频程序化合成伪影（>6 kHz 周期颗粒/帧跳包络调制电嗡声 hf_envelope_buzz 与 4–16 kHz 窄带金属哨音尖刺 hf_whistle_db）
+  8. B1 内部样本级数字咔嗒/跳变（detect_digital_click：二阶差分局部峰对 ±3 ms 环形邻域 RMS 比值 > 18.0）
+  9. B3 奈奎斯特镜像折叠混叠（detect_nyquist_alias：1500 Hz 平坦化 Welch 谱折返轴镜像相关 > 0.55，与 bandwidth_95_hz 互补）
+ 10. B4 2–8 kHz 去包络峭度真实度（measure_deenv_kurtosis：仅约束脆裂/摩擦/撞击/木质四类原型；< 2.9 硬拒、2.9–3.2 标 suspect、> 45.0 硬拒）
 
 接口：
   infer_archetype(name_or_query) → 原型名
+  detect_digital_click(x, sr=SR, ...) → B1 数字咔嗒取证 dict
+  detect_nyquist_alias(x, sr=SR, ...) → B3 奈奎斯特折叠混叠取证 dict
+  measure_deenv_kurtosis(x, sr=SR, archetype='generic', ...) → B4 去包络峭度取证 dict
   extract_metrics(x, sr=SR) → 物理指标 dict
-  judge_wave(x, sr=SR, archetype='generic') → {ok, status, score, archetype, metrics, reasons}
+  judge_wave(x, sr=SR, archetype='generic') → {ok, status, score, archetype, metrics, reasons, physics_hard_fail, flippable, forensics}
   judge_file(path, archetype=None) → 同上（自动按文件名推断原型，除非显式指定）
+  combine_physics_gate(physics_result, ...) → 物理硬门不可翻转状态机（任何上层评分/模型均不可翻转物理拒收）
 """
 import json
 import math
@@ -24,17 +31,23 @@ import re
 import sys
 
 import numpy as np
+from scipy.fft import next_fast_len
 from scipy.ndimage import median_filter, uniform_filter1d
-from scipy.signal import butter, sosfiltfilt
+from scipy.signal import butter, hilbert, sosfiltfilt
+from scipy.stats import kurtosis
 import soundfile as sf
 
 from ._cli import ArgumentParser, CliError, rel as _rel, run as run_cli
 from .dsp import SR
 
+B4_ACTIVE_ARCHETYPES = ('foley_snap', 'friction_cloth', 'impact', 'wood')
+B4_KURT_BOUNDS = (2.9, 3.2, 45.0)  # (硬失败下界, 存疑上界, 稀疏尖刺硬失败上界)
+
 # 各拟音原型的物理形态约束：
 # lat = (最小 log10(起音秒), 最大 log10(起音秒))；crest_max = 最大允许波峰因数 dB；
 # min_bw = 95% 能量带宽下限 Hz；tonal_max = 频谱白化谐波显著度上限；rt20_max = 20dB 衰减秒上限；
-# hf_buzz_max = >6 kHz 包络周期调制上限；hf_whistle_max_db = 4–16 kHz 窄带哨音尖刺上限 dB（仅设于宽带非乐音原型）
+# hf_buzz_max = >6 kHz 包络周期调制上限；hf_whistle_max_db = 4–16 kHz 窄带哨音尖刺上限 dB（仅设于宽带非乐音原型）；
+# b4_kurt_bounds = (硬拒下界, 存疑上界, 硬拒上界)（仅设于宽带脆裂/摩擦/撞击/木质四类原型）
 ARCHETYPES = {
     'friction_cloth': {
         'lat': (-1.90, 0.05),       # 真实衣料/织物摩擦起音 ≥ 12.5 ms；机械咔嗒/脆刺 LAT < -2.0
@@ -44,6 +57,7 @@ ARCHETYPES = {
         'rt20_max': 0.48,
         'hf_buzz_max': 0.50,
         'hf_whistle_max_db': 17.0,
+        'b4_kurt_bounds': B4_KURT_BOUNDS,
     },
     'whoosh': {
         'lat': (-1.75, 0.15),       # 破空挥动需有气动建立过程（≥ 18 ms）
@@ -78,6 +92,7 @@ ARCHETYPES = {
         'rt20_max': 0.60,
         'hf_buzz_max': 0.58,
         'hf_whistle_max_db': 19.5,
+        'b4_kurt_bounds': B4_KURT_BOUNDS,
     },
     'wood': {
         'lat': (-3.50, -1.25),      # 木质敲击起音短促（≤ 56 ms）
@@ -87,6 +102,7 @@ ARCHETYPES = {
         'rt20_max': 0.45,
         'hf_buzz_max': 0.58,
         'hf_whistle_max_db': 19.5,
+        'b4_kurt_bounds': B4_KURT_BOUNDS,
     },
     'foley_snap': {
         'lat': (-3.60, -1.50),
@@ -96,6 +112,7 @@ ARCHETYPES = {
         'rt20_max': 0.38,
         'hf_buzz_max': 0.55,
         'hf_whistle_max_db': 18.5,
+        'b4_kurt_bounds': B4_KURT_BOUNDS,
     },
     'mechanical': {
         'lat': (-3.65, -0.85),      # 涵盖圆珠笔微动按压、塑料螺纹破拆、棘轮咬合、机械快门与钟表擒纵（0.2–140 ms）
@@ -359,18 +376,396 @@ def _hf_whistle_db(m: np.ndarray, sr: int) -> float:
     return round(float(max(0.0, np.max(spec_db - baseline_db))), 2)
 
 
-def extract_metrics(x: np.ndarray, sr: int = SR) -> dict:
-    """提取单声道或立体声信号的确定性物理形态与取证指标。"""
+def _fast_hilbert(x: np.ndarray) -> np.ndarray:
+    n = len(x)
+    return hilbert(x, N=next_fast_len(n))[:n]
+
+
+def _b1_mono(x: np.ndarray, sr: int, ratio_thr: float, min_d2: float, guard_ms: float) -> dict:
+    n = len(x)
+    if n < max(64, int(0.01 * sr)):
+        return {'score': 0.0, 'max_ratio': 0.0, 'hits': 0, 'events': 0, 'hit': False, 'note': 'too_short'}
+    pk = float(np.max(np.abs(x)))
+    if pk < 1e-4:
+        return {'score': 0.0, 'max_ratio': 0.0, 'hits': 0, 'events': 0, 'hit': False, 'note': 'near_silent'}
+
+    d2 = np.zeros_like(x)
+    d2[1:-1] = x[2:] - 2.0 * x[1:-1] + x[:-2]
+    ad2 = np.abs(d2)
+
+    act_d2 = ad2[ad2 > 1e-5 * pk]
+    clip_floor = float(np.percentile(act_d2, 90)) * 0.25 if len(act_d2) > 16 else 1e-3 * pk
+    abs_thr = max(float(min_d2), 0.12 * pk)
+    cands = np.flatnonzero(ad2 > abs_thr)
+
+    ring_half = max(32, int(round(0.003 * sr)))
+    excl = 4
+    max_ratio = 0.0
+    hit_idx = []
+    for i in cands:
+        idx = int(i)
+        lo_e = max(0, idx - excl)
+        hi_e = min(n, idx + excl + 1)
+        if ad2[idx] < float(np.max(ad2[lo_e:hi_e])):
+            continue
+        left = ad2[max(0, idx - ring_half):lo_e]
+        right = ad2[hi_e:min(n, idx + ring_half + 1)]
+        if len(left) + len(right) < 16:
+            continue
+        ring_sq_mean = float((np.dot(left, left) + np.dot(right, right)) / float(len(left) + len(right)))
+        ring_rms = float(np.sqrt(ring_sq_mean))
+        scale = max(ring_rms, clip_floor, 1e-6)
+        r = float(ad2[idx] / scale)
+        if r > max_ratio:
+            max_ratio = r
+        if r > ratio_thr:
+            hit_idx.append(idx)
+
+    events = 0
+    guard = int(round(guard_ms / 1000.0 * sr))
+    last = -10 * int(sr)
+    for idx in hit_idx:
+        if idx - last >= guard:
+            events += 1
+        last = idx
+    return {
+        'score': round(float(max_ratio), 3),
+        'max_ratio': round(float(max_ratio), 3),
+        'hits': int(len(hit_idx)),
+        'events': int(events),
+        'hit': bool(events > 0),
+        'note': '',
+    }
+
+
+def detect_digital_click(
+    x: np.ndarray,
+    sr: int = SR,
+    *,
+    ratio_thr: float = 18.0,
+    min_d2: float = 0.05,
+    guard_ms: float = 1.5,
+) -> dict:
+    """B1 二阶差分内部数字咔嗒检测：局部峰值 |d2[i]| 对排除中心 ±4 样本的 ±3 ms 环形邻域 RMS 比值。
+    立体声输入按各声道独立运行并取最差声道，避免反相或单侧毛刺在声道平均后被抵消。"""
+    arr = np.asarray(x, dtype=np.float64)
+    if arr.size == 0 or not np.all(np.isfinite(arr)):
+        return {'score': 0.0, 'max_ratio': 0.0, 'hits': 0, 'events': 0, 'hit': False, 'note': 'empty_or_nan'}
+    if arr.ndim == 1:
+        return _b1_mono(arr, sr, ratio_thr, min_d2, guard_ms)
+    if arr.ndim != 2 or arr.shape[1] == 0:
+        return _b1_mono(arr.reshape(-1), sr, ratio_thr, min_d2, guard_ms)
+    ch_res = [_b1_mono(arr[:, ch], sr, ratio_thr, min_d2, guard_ms) for ch in range(arr.shape[1])]
+    worst = max(ch_res, key=lambda r: (int(r['hit']), float(r['max_ratio'])))
+    any_hit = any(r['hit'] for r in ch_res)
+    notes = [r['note'] for r in ch_res if r.get('note')]
+    note = '' if (any_hit or len(notes) < len(ch_res)) else notes[0]
+    return {
+        'score': round(max(float(r['score']) for r in ch_res), 3),
+        'max_ratio': round(max(float(r['max_ratio']) for r in ch_res), 3),
+        'hits': int(max(int(r['hits']) for r in ch_res)),
+        'events': int(max(int(r['events']) for r in ch_res)),
+        'hit': bool(any_hit),
+        'note': worst['note'] if worst['hit'] else note,
+    }
+
+
+def detect_nyquist_alias(
+    x: np.ndarray,
+    sr: int = SR,
+    *,
+    corr_thr: float = 0.55,
+    hf_floor_db: float = -45.0,
+) -> dict:
+    """B3 奈奎斯特折叠混叠检测：1500 Hz 平坦化 Welch 谱的多折返轴镜像相关 + 折叠带能量门。
+    专抓无抗混叠（ZOH/线性插值）升采样产生的镜像折叠；带抗镜像低通的劣质降采样升频仍由 bandwidth_95_hz 负责，二者互补。"""
+    arr = np.asarray(x, dtype=np.float64)
+    if arr.size == 0 or not np.all(np.isfinite(arr)):
+        return {'score': 0.0, 'mirror_corr': 0.0, 'fold_hz': 0.0, 'hf_db': -999.0, 'hit': False, 'note': 'empty_or_nan'}
+    m = arr.mean(axis=1) if arr.ndim == 2 else arr.reshape(-1)
+    if len(m) < 1024 or sr < 24000:
+        return {
+            'score': 0.0, 'mirror_corr': 0.0, 'fold_hz': 0.0,
+            'hf_db': -999.0, 'hit': False, 'note': 'too_short_or_low_sr',
+        }
+    if float(np.max(np.abs(m))) < 1e-8:
+        return {
+            'score': 0.0, 'mirror_corr': 0.0, 'fold_hz': 0.0,
+            'hf_db': -999.0, 'hit': False, 'note': 'near_silent',
+        }
+
+    nfft, hop = 2048, 512
+    if len(m) < nfft:
+        fr = np.pad(m, (0, nfft - len(m)))[None, :]
+    else:
+        fr = np.lib.stride_tricks.sliding_window_view(m, nfft)[::hop]
+    frms = np.sqrt(np.mean(fr ** 2, axis=1) + 1e-24)
+    act = fr[frms >= 0.1 * float(frms.max())]
+    if len(act) == 0:
+        act = fr
+    P = np.mean(np.abs(np.fft.rfft(act * np.hanning(nfft), axis=1)) ** 2, axis=0) + 1e-30
+    f = np.fft.rfftfreq(nfft, 1.0 / float(sr))
+    df = float(f[1] - f[0])
+    logP = 10.0 * np.log10(P)
+    sm = max(7, int(round(1500.0 / max(df, 1e-6))) | 1)
+    flat = logP - uniform_filter1d(logP, size=sm, mode='nearest')
+    tot_p = float(np.sum(P)) + 1e-30
+    nyq = float(sr) / 2.0
+
+    best_corr = -1.0
+    best_fold = 0.0
+    best_hf = -999.0
+    had_hf = False
+    cands = sorted({round(v, 1) for v in (sr / 6.0, sr / 4.0, sr / 3.0, 8000.0, 11025.0, 12000.0, 16000.0)})
+    for f_fold in cands:
+        if f_fold * 1.35 >= nyq:
+            continue
+        span = min(f_fold - 1000.0, nyq - f_fold - 500.0, 6000.0)
+        if span < 2000.0:
+            continue
+        m_hi = (f >= f_fold + 400.0) & (f <= f_fold + span)
+        if int(np.sum(m_hi)) < 20:
+            continue
+        hi_p = P[m_hi]
+        hf_db = float(10.0 * np.log10(float(np.sum(hi_p)) / tot_p + 1e-30))
+        if hf_db < hf_floor_db:
+            continue
+        had_hf = True
+        # 连续频谱占空比守卫：真实无抗混叠折叠会把连续宽带谱镜像到高频；少数孤立纯正弦泛音（如对称 UI 和弦）不判混叠
+        hi_peak = float(np.max(hi_p))
+        if hi_peak <= 1e-30 or float(np.mean(hi_p > 0.01 * hi_peak)) < 0.08:
+            continue
+        hi_v = flat[m_hi]
+        lo_v = np.interp(2.0 * f_fold - f[m_hi], f, flat)
+        a = hi_v - hi_v.mean()
+        b = lo_v - lo_v.mean()
+        c = float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-30))
+        if c > best_corr:
+            best_corr = c
+            best_fold = float(f_fold)
+            best_hf = hf_db
+
+    if best_fold == 0.0:
+        return {
+            'score': 0.0, 'mirror_corr': 0.0, 'fold_hz': 0.0,
+            'hf_db': round(float(best_hf), 2), 'hit': False,
+            'note': 'sparse_tonal_hf' if had_hf else 'hf_below_floor',
+        }
+    score = float(max(0.0, best_corr))
+    hit = bool(best_corr > corr_thr and best_hf >= hf_floor_db)
+    return {
+        'score': round(score, 4),
+        'mirror_corr': round(float(best_corr), 4),
+        'fold_hz': float(best_fold),
+        'hf_db': round(float(best_hf), 2),
+        'hit': hit,
+        'note': '',
+    }
+
+
+def _apply_b4_archetype(b4_res: dict, archetype: str, bounds: tuple[float, float, float] = B4_KURT_BOUNDS) -> dict:
+    out = dict(b4_res)
+    exempt = archetype not in B4_ACTIVE_ARCHETYPES
+    out['exempt'] = bool(exempt)
+    k = out.get('kurtosis')
+    if k is None:
+        out['status'] = 'skip'
+        out['raw_hit'] = False
+        out['raw_suspect'] = False
+        out['hit'] = False
+        out['suspect'] = False
+        return out
+    k_hard_low, k_suspect_low, k_high = bounds
+    if k < k_hard_low:
+        raw_hit, raw_suspect, reason = True, False, 'too_gaussian'
+    elif k > k_high:
+        raw_hit, raw_suspect, reason = True, False, 'sparse_spikes'
+    elif k < k_suspect_low:
+        raw_hit, raw_suspect, reason = False, True, 'borderline_gaussian'
+    else:
+        raw_hit, raw_suspect, reason = False, False, ''
+    hit = bool(raw_hit and not exempt)
+    suspect = bool(raw_suspect and not exempt)
+    out['raw_hit'] = raw_hit
+    out['raw_suspect'] = raw_suspect
+    out['hit'] = hit
+    out['suspect'] = suspect
+    out['reason'] = reason
+    out['status'] = 'exempt' if exempt else ('reject' if hit else ('suspect' if suspect else 'pass'))
+    out['note'] = f'exempt_archetype:{archetype}' if exempt else ''
+    return out
+
+
+def measure_deenv_kurtosis(
+    x: np.ndarray,
+    sr: int = SR,
+    *,
+    k_hard_low: float = 2.9,
+    k_suspect_low: float = 3.2,
+    k_high: float = 45.0,
+    act_floor_db: float = -45.0,
+    archetype: str = 'generic',
+) -> dict:
+    """B4 2–8 kHz 去包络峭度检测：仅在活动样本（env_s ≥ 15% 峰值）计算，并保留宽带脆裂/摩擦/撞击/木质原型门控。
+    严格低于 k_hard_low (2.9) 或高于 k_high (45.0) 判硬失败；[2.9, 3.2) 边界区标为 suspect。"""
+    exempt = archetype not in B4_ACTIVE_ARCHETYPES
+
+    def _skip(note: str) -> dict:
+        return {
+            'score': None, 'kurtosis': None, 'status': 'skip',
+            'raw_hit': False, 'raw_suspect': False, 'hit': False, 'suspect': False,
+            'exempt': exempt, 'reason': '', 'note': note,
+        }
+
+    arr = np.asarray(x, dtype=np.float64)
+    if arr.size == 0 or not np.all(np.isfinite(arr)):
+        return _skip('empty_or_nan')
+    m = arr.mean(axis=1) if arr.ndim == 2 else arr.reshape(-1)
+    if sr < 18000:
+        return _skip('sr_too_low')
+    if len(m) < 64:
+        return _skip('too_short')
+
+    hi_hz = min(8000.0, 0.45 * float(sr))
+    sos = butter(4, [2000.0 / (float(sr) / 2.0), hi_hz / (float(sr) / 2.0)], btype='bandpass', output='sos')
+    xb = sosfiltfilt(sos, m)
+    env = np.abs(_fast_hilbert(xb))
+    win = max(3, int(round(0.008 * sr)))
+    env_s = uniform_filter1d(env, win, mode='nearest')
+    pk_e = float(np.max(env_s))
+    if pk_e < 10.0 ** (act_floor_db / 20.0):
+        return _skip('band_inactive')
+    act = env_s >= 0.15 * pk_e
+    if int(np.sum(act)) < max(64, int(0.015 * sr)):
+        return _skip('active_too_short')
+    resid = xb[act] / (env_s[act] + 1e-12)
+    k = float(kurtosis(resid, fisher=False))
+    if not np.isfinite(k):
+        return _skip('non_finite_kurtosis')
+    k_val = round(k, 3)
+    base = {
+        'score': k_val,
+        'kurtosis': k_val,
+        'status': 'pass',
+        'raw_hit': False,
+        'raw_suspect': False,
+        'hit': False,
+        'suspect': False,
+        'exempt': exempt,
+        'reason': '',
+        'note': '',
+    }
+    return _apply_b4_archetype(base, archetype, (float(k_hard_low), float(k_suspect_low), float(k_high)))
+
+
+def combine_physics_gate(
+    physics_result: dict,
+    *,
+    upper_status: str | None = None,
+    upper_score: float | None = None,
+    upper_reason: str | None = None,
+    allow_upper_reject: bool = False,
+) -> dict:
+    """物理硬门不可翻转契约状态机：
+    1) 物理硬门拒收（status == 'reject' / physics_hard_fail == True / ok == False）绝对不可被任何上层评分或大模型翻转；
+    2) 物理存疑（suspect）不可被上层评分翻回 pass；
+    3) 上层大模型/评分仅具「降级标存疑权」，默认不可越权直接拒收（除非显式 allow_upper_reject=True）。"""
+    if upper_status not in (None, 'pass', 'suspect', 'reject'):
+        raise ValueError(f"upper_status 仅支持 None / 'pass' / 'suspect' / 'reject'，收到 {upper_status!r}")
+
+    phys = physics_result if isinstance(physics_result, dict) else {}
+    phys_status = str(phys.get('status') or '')
+    phys_hard = (phys_status == 'reject') or bool(phys.get('physics_hard_fail')) or (phys.get('ok') is False)
+    u_score = float(upper_score) if upper_score is not None else None
+
+    if phys_hard:
+        return {
+            'ok': False,
+            'status': 'reject',
+            'flippable': False,
+            'physics_hard_fail': True,
+            'reasons': list(phys.get('reasons') or ['physics_hard_fail']),
+            'upper_status': upper_status,
+            'upper_score': u_score,
+            'note': '物理硬门已拒收，任何上层评分或复核模型均不可翻转',
+        }
+
+    reasons = list(phys.get('reasons') or [])
+    if phys_status == 'suspect':
+        if upper_status in ('suspect', 'reject') and upper_reason:
+            reasons.append(str(upper_reason))
+        if allow_upper_reject and upper_status == 'reject':
+            return {
+                'ok': False,
+                'status': 'reject',
+                'flippable': False,
+                'physics_hard_fail': False,
+                'reasons': reasons or ['upper_reject'],
+                'upper_status': upper_status,
+                'upper_score': u_score,
+                'note': '物理存疑且允许上层拒收',
+            }
+        return {
+            'ok': True,
+            'status': 'suspect',
+            'flippable': False,
+            'physics_hard_fail': False,
+            'reasons': reasons,
+            'upper_status': upper_status,
+            'upper_score': u_score,
+            'note': '物理层已标存疑，不可被上层评分升为 pass',
+        }
+
+    if upper_status == 'reject' and allow_upper_reject:
+        if upper_reason:
+            reasons.append(str(upper_reason))
+        return {
+            'ok': False,
+            'status': 'reject',
+            'flippable': False,
+            'physics_hard_fail': False,
+            'reasons': reasons or ['upper_reject'],
+            'upper_status': upper_status,
+            'upper_score': u_score,
+            'note': '上层模型按授权门槛拒收',
+        }
+    if upper_status in ('suspect', 'reject'):
+        if upper_reason:
+            reasons.append(str(upper_reason))
+        return {
+            'ok': True,
+            'status': 'suspect',
+            'flippable': False,
+            'physics_hard_fail': False,
+            'reasons': reasons or ['upper_downgraded_to_suspect'],
+            'upper_status': upper_status,
+            'upper_score': u_score,
+            'note': '上层复核仅行使降级标存疑权（不可越权直接拒收）',
+        }
+    return {
+        'ok': True,
+        'status': 'pass',
+        'flippable': True,
+        'physics_hard_fail': False,
+        'reasons': reasons,
+        'upper_status': upper_status,
+        'upper_score': u_score,
+        'note': '物理硬门通过',
+    }
+
+
+def _extract_core(x: np.ndarray, sr: int = SR) -> tuple:
+    """内部提取核心：同时返回 (metrics_dict, b1, b3, b4_raw)，供 extract_metrics 与 judge_wave 复用。"""
     arr = np.asarray(x, dtype=float)
     if arr.size == 0 or not np.all(np.isfinite(arr)):
-        return {'empty_or_nan': True}
+        return {'empty_or_nan': True}, None, None, None
     m = arr.mean(axis=1) if arr.ndim == 2 else arr
     n = len(m)
     dur_s = n / float(sr)
     abs_all = np.abs(arr)
     peak = float(abs_all.max())
     if peak < 1e-8 or n < max(32, int(sr * 0.01)):
-        return {'empty_or_nan': False, 'silent': True, 'duration_s': round(dur_s, 4), 'peak': round(peak, 6)}
+        return {'empty_or_nan': False, 'silent': True, 'duration_s': round(dur_s, 4), 'peak': round(peak, 6)}, None, None, None
 
     clipped = int(np.sum(abs_all >= 0.999))
     clip_ratio = clipped / float(abs_all.size)
@@ -465,8 +860,11 @@ def extract_metrics(x: np.ndarray, sr: int = SR) -> dict:
     rt20_s = _estimate_rt20(env2, hop2_s, pk_idx, crest_db)
     hf_buzz = _hf_envelope_buzz(m, sr)
     hf_whistle = _hf_whistle_db(m, sr)
+    b1 = detect_digital_click(arr, sr)
+    b3 = detect_nyquist_alias(m, sr)
+    b4_raw = measure_deenv_kurtosis(m, sr, archetype='generic')
 
-    return {
+    metrics = {
         'empty_or_nan': False,
         'silent': False,
         'sample_rate': int(sr),
@@ -488,7 +886,20 @@ def extract_metrics(x: np.ndarray, sr: int = SR) -> dict:
         'hum_prominence_db': round(hum_db, 2),
         'snr_db': round(snr_db, 2) if snr_db is not None else None,
         'rt20_s': rt20_s,
+        'digital_click_ratio': b1['max_ratio'],
+        'digital_click_events': b1['events'],
+        'nyquist_alias_corr': b3['mirror_corr'],
+        'nyquist_alias_fold_hz': b3['fold_hz'],
+        'nyquist_alias_hf_db': b3['hf_db'],
+        'deenv_kurtosis_2k_8k': b4_raw['kurtosis'],
     }
+    return metrics, b1, b3, b4_raw
+
+
+def extract_metrics(x: np.ndarray, sr: int = SR) -> dict:
+    """提取单声道或立体声信号的确定性物理形态与取证指标。"""
+    metrics, _, _, _ = _extract_core(x, sr)
+    return metrics
 
 
 def _apply_manifest_window(x: np.ndarray, sr: int, spec: dict) -> np.ndarray:
@@ -535,18 +946,48 @@ def judge_wave(x: np.ndarray, sr: int = SR, archetype: str = 'generic', *, spec:
         arch = archetype if archetype in ARCHETYPES else infer_archetype(archetype)
     cfg = ARCHETYPES[arch]
 
-    raw_m = extract_metrics(x, sr)
+    raw_m, raw_b1, raw_b3, raw_b4 = _extract_core(x, sr)
     if raw_m.get('empty_or_nan'):
-        return {'ok': False, 'status': 'reject', 'score': 0.0, 'archetype': arch, 'metrics': raw_m, 'reasons': ['空信号或含 NaN/Inf']}
+        return {
+            'ok': False, 'status': 'reject', 'score': 0.0, 'archetype': arch,
+            'metrics': raw_m, 'reasons': ['空信号或含 NaN/Inf'],
+            'physics_hard_fail': True, 'flippable': False, 'forensics': {},
+        }
     if raw_m.get('silent'):
-        return {'ok': False, 'status': 'reject', 'score': 0.0, 'archetype': arch, 'metrics': raw_m, 'reasons': ['近乎全静音']}
+        return {
+            'ok': False, 'status': 'reject', 'score': 0.0, 'archetype': arch,
+            'metrics': raw_m, 'reasons': ['近乎全静音'],
+            'physics_hard_fail': True, 'flippable': False, 'forensics': {},
+        }
 
-    x_eval = _apply_manifest_window(x, sr, spec)
-    if arch in ('foley_snap', 'mechanical'):
-        x_eval = _primary_slice_if_multi(x_eval, sr)
-    m = extract_metrics(x_eval, sr) if x_eval is not x else raw_m
-    if m.get('empty_or_nan') or m.get('silent'):
-        m = raw_m
+    x_win = _apply_manifest_window(x, sr, spec)
+    x_eval = _primary_slice_if_multi(x_win, sr) if arch in ('foley_snap', 'mechanical') else x_win
+    if x_eval is x:
+        m, b1, b3, b4_raw = dict(raw_m), raw_b1, raw_b3, raw_b4
+    else:
+        m, eval_b1, eval_b3, eval_b4 = _extract_core(x_eval, sr)
+        if m.get('empty_or_nan') or m.get('silent'):
+            m, b1, b3, b4_raw = dict(raw_m), raw_b1, raw_b3, raw_b4
+            x_win = x
+        elif x_win is x:
+            b1, b3, b4_raw = raw_b1, raw_b3, raw_b4
+        elif x_eval is x_win:
+            b1, b3, b4_raw = eval_b1, eval_b3, eval_b4
+        else:
+            b1 = detect_digital_click(x_win, sr)
+            b3 = detect_nyquist_alias(x_win, sr)
+            b4_raw = measure_deenv_kurtosis(x_win, sr, archetype='generic')
+
+    b4_arch = 'generic' if (explicit_lp is not None and explicit_lp < 4000.0) else arch
+    b4_bounds = cfg.get('b4_kurt_bounds') or B4_KURT_BOUNDS
+    b4 = _apply_b4_archetype(b4_raw, b4_arch, b4_bounds)
+    m['digital_click_ratio'] = b1['max_ratio']
+    m['digital_click_events'] = b1['events']
+    m['nyquist_alias_corr'] = b3['mirror_corr']
+    m['nyquist_alias_fold_hz'] = b3['fold_hz']
+    m['nyquist_alias_hf_db'] = b3['hf_db']
+    m['deenv_kurtosis_2k_8k'] = b4['kurtosis']
+
     # 原始文件若已削波，即使裁剪段外也不漏报；裁剪段内削波更直接命中
     m['clipped_samples'] = max(int(m.get('clipped_samples', 0)), int(raw_m.get('clipped_samples', 0)))
     m['clip_ratio'] = max(float(m.get('clip_ratio', 0.0)), float(raw_m.get('clip_ratio', 0.0)))
@@ -568,6 +1009,16 @@ def judge_wave(x: np.ndarray, sr: int = SR, archetype: str = 'generic', *, spec:
     elif m['dc_offset'] > 0.012:
         soft.append(f"直流偏移偏高（{m['dc_offset']:.4f}）")
         score -= 10.0
+
+    if b1['hit']:
+        hard.append(f"检出内部数字咔嗒/样本跳变（digital_click_ratio={b1['max_ratio']:.2f} > 18.0，共 {b1['events']} 处）")
+        score -= 45.0
+
+    if b3['hit']:
+        hard.append(
+            f"检出奈奎斯特折叠混叠（nyquist_alias_corr={b3['mirror_corr']:.3f} > 0.55 @ {b3['fold_hz']:.0f} Hz，疑似无抗混叠劣质降采升频）"
+        )
+        score -= 45.0
 
     min_bw = float(cfg['min_bw'])
     if explicit_lp is not None:
@@ -642,6 +1093,18 @@ def judge_wave(x: np.ndarray, sr: int = SR, archetype: str = 'generic', *, spec:
                 soft.append(f"高频存在窄带哨音尖刺（hf_whistle_db={whistle:.1f} dB > {whistle_max} dB）")
                 score -= 15.0
 
+        # 3c. B4 2–8 kHz 去包络峭度真实度（仅约束脆裂/摩擦/撞击/木质四类原型；2.9–3.2 为 suspect 边界区）
+        if cfg.get('b4_kurt_bounds') is not None:
+            if b4['hit']:
+                if b4['reason'] == 'too_gaussian':
+                    hard.append(f"2–8 kHz 去包络呈平坦高斯噪声或正弦合成（deenv_kurtosis_2k_8k={b4['kurtosis']:.3f} < {b4_bounds[0]:g}）")
+                else:
+                    hard.append(f"2–8 kHz 去包络存在极端孤立尖刺（deenv_kurtosis_2k_8k={b4['kurtosis']:.3f} > {b4_bounds[2]:g}）")
+                score -= 40.0
+            elif b4['suspect']:
+                soft.append(f"2–8 kHz 去包络峭度落入存疑边界区（deenv_kurtosis_2k_8k={b4['kurtosis']:.3f} ∈ [{b4_bounds[0]:g}, {b4_bounds[1]:g})）")
+                score -= 15.0
+
     # 4. 录死混响尾音（仅对脉冲型衰减信号生效）
     if cfg['rt20_max'] is not None and m['rt20_s'] is not None and m['duration_s'] >= 0.45:
         if m['rt20_s'] > cfg['rt20_max'] * 1.6:
@@ -657,6 +1120,9 @@ def judge_wave(x: np.ndarray, sr: int = SR, archetype: str = 'generic', *, spec:
         'archetype': arch,
         'metrics': m,
         'reasons': hard + soft,
+        'physics_hard_fail': bool(status == 'reject'),
+        'flippable': bool(status != 'reject'),
+        'forensics': {'b1_click': b1, 'b3_alias': b3, 'b4_kurt': b4},
     }
 
 
@@ -668,6 +1134,7 @@ def judge_file(path: str, archetype: str = None, *, spec: dict = None) -> dict:
             'ok': False, 'status': 'reject', 'score': 0.0,
             'archetype': archetype or infer_archetype(os.path.basename(path)),
             'metrics': {}, 'reasons': [f'音频无法解码：{e}'], 'file': _rel(path),
+            'physics_hard_fail': True, 'flippable': False, 'forensics': {},
         }
     arch = archetype or ((spec or {}).get('archetype') if isinstance(spec, dict) else None) or infer_archetype(os.path.basename(path))
     res = judge_wave(x, sr, arch, spec=spec)
