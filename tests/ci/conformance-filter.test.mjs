@@ -62,10 +62,23 @@ test('真实 git 仓库：git diff -z --name-only --no-renames base...head | --n
     assert.equal(r.status, 0, r.stderr);
     return r.stdout.trim();
   };
+  const hashBlob = content => {
+    const r = spawnSync('git', ['hash-object', '-w', '--stdin'], { cwd: dir, input: content, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    return r.stdout.trim();
+  };
+  // 直接写 Git 索引与对象库生成真实 commit（Windows NTFS 工作树不允许文件名含 \t 或字面 \，而 Git 树对象全平台原生支持）
   const commit = (files, msg) => {
-    for (const f of files) { fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true }); fs.writeFileSync(path.join(dir, f), msg); }
-    git('add', '--', ...files); git('commit', '-q', '-m', msg);
-    return git('rev-parse', 'HEAD');
+    const hasHead = spawnSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: dir, encoding: 'utf8' });
+    if (hasHead.status === 0) git('read-tree', 'HEAD');
+    else git('read-tree', '--empty');
+    const blob = hashBlob(`${msg}\n`);
+    for (const f of files) git('update-index', '--add', '--cacheinfo', `100644,${blob},${f}`);
+    const tree = git('write-tree');
+    const commitArgs = ['commit-tree', tree, ...(hasHead.status === 0 ? ['-p', hasHead.stdout.trim()] : []), '-m', msg];
+    const sha = git(...commitArgs);
+    git('update-ref', 'HEAD', sha);
+    return sha;
   };
   const classify = (base, head) => {
     const diff = spawnSync('git', ['diff', '-z', '--name-only', '--no-renames', `${base}...${head}`], { cwd: dir });
@@ -81,14 +94,17 @@ test('真实 git 仓库：git diff -z --name-only --no-renames base...head | --n
     [['beiming/sources/three/a\tb.mjs'], true],
     [['beiming/host/page/a b.mjs'], true],
     [[' beiming/sources/a.mjs'], false],
+    [['beiming\\sources\\notes.txt'], false],
     [['beiming/sources-notes/a.md', 'docs/a.md'], false],
   ];
   for (const [files, want] of cases) {
-    git('checkout', '-q', '-B', 'pr', base);
+    git('update-ref', 'refs/heads/pr', base);
+    git('symbolic-ref', 'HEAD', 'refs/heads/pr');
     assert.equal(classify(base, commit(files, JSON.stringify(files))), `frame_sources_changed=${want}\n`, JSON.stringify(files));
   }
   // 多提交 PR：第 1 个提交改帧源、第 2 个只改 README，三点差异仍要看到第 1 个
-  git('checkout', '-q', '-B', 'pr', base);
+  git('update-ref', 'refs/heads/pr', base);
+  git('symbolic-ref', 'HEAD', 'refs/heads/pr');
   commit(['beiming/calib/check.mjs'], 'c1');
   const head = commit(['README.md'], 'c2');
   assert.equal(classify(base, head), 'frame_sources_changed=true\n');
