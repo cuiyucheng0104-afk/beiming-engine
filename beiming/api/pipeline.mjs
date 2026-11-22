@@ -25,8 +25,9 @@ import { canonicalJson, checkCacheSeams, computeFrameCacheKey, seamSignature } f
 import { eventsTable, renderingOf, shotInput, shutterSubs } from '../kernel/eval/index.mjs';
 import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutYdif, deliverSpec } from '../observe/index.mjs';
 import { caps as blenderCaps } from '../sources/blender/caps.mjs';
-import { startSource as startBlender } from '../sources/blender/host.mjs';
+import { planRender as planBlender, startSource as startBlender } from '../sources/blender/host.mjs';
 import { caps as threeCaps } from '../sources/three/caps.mjs';
+import { planRender as planThree } from '../sources/three/plan.mjs';
 import { readExr, writeExr } from '../verify/exr/exr.mjs';
 import {
   checkL1, evaluateAssertion, evaluateFloor, guardPredicates, IOU_MIN, runPureFunctionGate, toVerdict, verifySampledBboxes,
@@ -164,7 +165,20 @@ function convertShot(records, shot, { dir, fps, lutPath, paperLinear, embed = []
 
 // 不起帧源也拿得到的能力声明：确定性分档和两个档位的默认采样数（Blender 的版本号不影响这几项）
 const SOURCE_CAPS = { three: () => threeCaps(), blender: () => blenderCaps('') };
+const SOURCE_PLAN = { three: planThree, blender: planBlender };
 const hexOf = (digest) => String(digest).replace(/^sha256:/, '');
+
+/**
+ * 帧源照这次请求该出的画幅 [宽, 高]：帧源自己的出帧计划（纯函数，不起帧源）算的，和它真出帧时用的是同一个函数。
+ * 不是 film.output.size：草稿档默认按能力声明缩小，镜头条目的 tiers.<档位>.scale 也能改。算不出来（镜头条目有帧源才判得出的错）交 null
+ */
+function renderSize({ film, lock, shot, tier, want }) {
+  try {
+    return SOURCE_PLAN[shot.source](SOURCE_CAPS[shot.source](), shot, film.output.size, tier, {}, [...want, 'meta'], { shutterSamples: lock.shots?.[shot.id]?.shutterSamples }).size;
+  } catch {
+    return null;
+  }
+}
 
 /** 浏览器构建的指纹：可执行文件的路径（Playwright 的路径带构建号）、大小和修改时间。只进哈希，不落盘 */
 function browserBuild() {
@@ -268,21 +282,36 @@ const entryFrom = ({ determinism, tier, samples, size, subs, layers, ...five }, 
 const NATIVE = { 'frame.exr': null, 'objectId2x.u32': 16 };
 /**
  * 原生 frame.exr 整个解得开、是这一帧的画幅，页面宿主该写的通道（host/page/host.mjs：color.R/G/B/A，要了的辅助层每个分量，要了编号层另有 objectId2x.coverage）
- * 一个不缺、类型和样本数都对。外层校验和只保证存进去的字节没变，不保证存的是个好文件；独立的层文件齐全也不说明这个文件里的通道齐全
+ * 一个不缺、类型和样本数都对。外层校验和只保证存进去的字节没变，不保证存的是个好文件；独立的层文件齐全也不说明这个文件里的通道齐全。
+ * 辅助通道的数还要和层文件（layers，大小已经核过）里的一样：页面宿主写这个文件时辅助通道就是层文件里的数，对不上就是别的帧的文件
  */
-function validNativeExr(bytes, w, h, aux) {
+function validNativeExr(bytes, w, h, aux, layers) {
   try {
     const exr = readExr(bytes);
     const has = (name, type = Float32Array) => exr.channels[name] instanceof type && exr.channels[name].length === w * h;
+    const same = (name) => {
+      const [type, components] = AUX[name], bytes = layers[auxFile(name)];
+      const ArrayType = type === 'u32' ? Uint32Array : Float32Array;
+      // 文件在缓存载荷中的偏移可能未对齐。
+      const data = new ArrayType(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length));
+      return components.every((component, at) => {
+        const channel = `${name}.${component}`;
+        if (!has(channel, ArrayType)) return false;
+        return exr.channels[channel].every((value, i) => {
+          const stored = data[i * components.length + at];
+          return value === stored || (Number.isNaN(value) && Number.isNaN(stored));
+        });
+      });
+    };
     return exr.width === w && exr.height === h && ['R', 'G', 'B', 'A'].every((c) => has(`color.${c}`))
-      && aux.every((name) => AUX[name][1].every((c) => has(`${name}.${c}`, AUX[name][0] === 'u32' ? Uint32Array : Float32Array)))
-      && (!aux.includes('objectId') || has('objectId2x.coverage'));
+      && aux.every(same) && (!aux.includes('objectId') || has('objectId2x.coverage'));
   } catch {
     return false;
   }
 }
 
 const ZERO_TIMING = Object.freeze({ stateMs: 0, renderMs: 0, readbackMs: 0 });
+const digestsOf = (layers) => Object.fromEntries(Object.entries(layers).map(([name, bytes]) => [name, sha256(bytes)]));
 const floatsOf = (buf) => new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length));
 
 /**
@@ -294,7 +323,7 @@ const floatsOf = (buf) => new Float32Array(buf.buffer.slice(buf.byteOffset, buf.
  * shots 是每个镜头的 { shot, renderedFrames, cachedFrames, seam? }；
  * versions 是 { 镜头: { entry, hit } }（走了缓存的镜头才有）：entry 是这一版镜头的一个帧条目，hit 是这一轮是不是全部命中，给 layerL2 用。
  * cache 是 jobs/cache.mjs 的 openShotCache 句柄，不给就每帧都渲（和接缓存之前一样）。给了：
- *   命中的帧核过颜色层和每个辅助层的 SHA-256、要的层一层不缺才用，坏了缺了的当没命中重渲；元数据的 timing 记 0，别的原样；
+ *   命中的帧核过颜色层和每个辅助层的 SHA-256、要的层一层不缺、条目是这一帧的（见 restore）才用，坏了缺了、不是这一帧的当没命中重渲；元数据的 timing 记 0，别的原样；
  *   容差档帧源（determinism 是 tolerance）出的一段连续帧里混了几轮的帧时查接缝尖峰，有尖峰就让这个镜头这一版的缓存失效、把旧帧在这一轮重渲。
  * shortcut: 抽样帧（不连续）不查接缝，相邻帧差在抽样间隔上没有可比性；要查时改渲连续区间。
  */
@@ -311,6 +340,7 @@ export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool
     mkdirSync(dir, { recursive: true });
     const live = new Map(); // 这一轮真渲的帧：全片帧号 → 记录
     const native = shot.source === 'three' && shot.colorRef === 'scene';
+    const size = cache ? renderSize({ film, lock, shot, tier, want }) : null;
     const seams = new Map(); // 全片帧号 → { runId, colorFloats }，查接缝用
     let mine, session, keyed = null, device = cache ? readDevices(cache)[shot.source] : undefined, seam;
 
@@ -327,7 +357,9 @@ export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool
     const store = (frame, rec) => {
       const colorBytes = readFileSync(rec.color), colorFloats = seamSignature(floatsOf(colorBytes));
       const layers = Object.fromEntries(Object.entries(rec.files).map(([name, file]) => [name, readFileSync(file)]));
-      cache.put(entryOf(frame), { colorBytes, layers, meta: rec.meta, seam: colorFloats, runId });
+      // 存进去的元数据多记一项 cache：这一帧是照哪个键渲的、存的每一层的摘要（还原时核，交出去的元数据不带）
+      const entry = entryOf(frame);
+      cache.put(entry, { colorBytes, layers, meta: { ...rec.meta, cache: { key: entry.key, layers: digestsOf(layers) } }, seam: colorFloats, runId });
       seams.set(frame, { runId, colorFloats });
     };
     const render = async (frame) => {
@@ -346,13 +378,26 @@ export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool
       live.set(frame, rec);
       return rec;
     };
-    /** 命中的帧还原成层文件和元数据；要的层缺了一个、层的大小或颜色摘要对不上元数据、页面帧源场景参考镜头少了原生文件（NATIVE）、原生 EXR 解不开或少了要的通道就当没命中 */
-    const restore = (frame, hit) => {
-      const m = hit.meta, [w, h] = Array.isArray(m.size) ? m.size : [];
+    /**
+     * 查这一帧的缓存，命中就还原成层文件和元数据。键对、校验和对、条目自己和自己对得上，都不说明存进去的是这一帧，下面任一条不成立就当没命中：
+     * 条目记的 cache 是这一帧的键和这几层的摘要（store 存的；别的版本、别的画幅、别的帧的载荷记的是它自己的键，偷换过的层摘要对不上。
+     * 颜色层由元数据的 hash.color 管）；
+     * 元数据的画幅是帧源照这次请求该出的（size，不照条目自己说的）、镜头、帧号、帧源、档位是这一帧的；颜色层的大小和摘要对得上；
+     * 要的层一层不缺、大小对；页面帧源场景参考镜头带着原生文件（NATIVE），原生 EXR 过得了 validNativeExr
+     */
+    const restore = (frame) => {
+      const entry = entryOf(frame), hit = cache.get(entry);
+      if (!hit) return null;
+      const { cache: made, ...m } = hit.meta;
+      if (!size || m.format !== 'meta/0.1' || !isDeepStrictEqual(m.size, size)) return null;
+      if (m.shot !== shot.id || m.frame !== frame || m.shotFrame !== frame - shot.in) return null;
+      if (m.source?.id !== shot.source || m.source.tier !== tier || made?.key !== entry.key) return null;
+      const [w, h] = size;
       if (hit.colorBytes.length !== w * h * 16 || m.hash?.color !== `sha256:${hit.colorSha256}`) return null;
       if (aux.some((name) => !AUX[name] || hit.layers?.[auxFile(name)]?.length !== w * h * 4 * AUX[name][1].length)) return null;
       if (native && Object.entries(NATIVE).some(([name, perPixel]) => !hit.layers?.[name]?.length || (perPixel && hit.layers[name].length !== w * h * perPixel))) return null;
-      if (native && !validNativeExr(hit.layers['frame.exr'], w, h, aux)) return null;
+      if (!isDeepStrictEqual(made.layers, digestsOf(hit.layers))) return null;
+      if (native && !validNativeExr(hit.layers['frame.exr'], w, h, aux, hit.layers)) return null;
       const sub = join(dir, 'layers', `cache-f${pad(frame - shot.in)}`);
       mkdirSync(sub, { recursive: true });
       writeFileSync(join(sub, 'color.f32'), hit.colorBytes);
@@ -372,7 +417,7 @@ export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool
         mine = [];
         for (const frame of frames) {
           signal?.throwIfAborted();
-          const hit = live.get(frame) ?? (keyed && ((found) => found && restore(frame, found))(cache.get(entryOf(frame))));
+          const hit = live.get(frame) ?? (keyed && restore(frame));
           if (hit) { mine.push(hit); continue; }
           const rec = await render(frame);
           mine.push(rec);
