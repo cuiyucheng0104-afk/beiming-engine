@@ -31,18 +31,36 @@ const COLOR_SPACE_RULES = Object.freeze({
   'rgb-display': Object.freeze(['srgb-display']),
 });
 
-/** 颜色单位 → 允许的色彩空间（只读快照，校验内部读私有冻结表，不受外部篡改影响）。 */
-const readonlyColorMap = new Map([
-  ['rgb-linear', COLOR_SPACE_RULES['rgb-linear']],
-  ['rgb-display', COLOR_SPACE_RULES['rgb-display']],
-]);
-const rejectMapMutation = () => {
+/** 颜色单位 → 允许的色彩空间（无 [[MapData]] 槽位的纯只读视图；任何直接或借用 Map.prototype 的写调用均抛 TypeError）。 */
+const COLOR_SPACE_KEYS = Object.freeze(['rgb-linear', 'rgb-display']);
+const rejectMapMutation = Object.freeze(() => {
   throw new TypeError('PRIOR_COLOR_SPACES 是只读映射');
+});
+const freezeMethods = (obj) => {
+  for (const key of Reflect.ownKeys(obj)) {
+    const desc = Object.getOwnPropertyDescriptor(obj, key);
+    if (typeof desc?.value === 'function') Object.freeze(desc.value);
+    if (typeof desc?.get === 'function') Object.freeze(desc.get);
+  }
+  return Object.freeze(obj);
 };
-readonlyColorMap.set = rejectMapMutation;
-readonlyColorMap.delete = rejectMapMutation;
-readonlyColorMap.clear = rejectMapMutation;
-export const PRIOR_COLOR_SPACES = Object.freeze(readonlyColorMap);
+export const PRIOR_COLOR_SPACES = freezeMethods({
+  get size() { return COLOR_SPACE_KEYS.length; },
+  has(k) { return typeof k === 'string' && Object.hasOwn(COLOR_SPACE_RULES, k); },
+  get(k) { return typeof k === 'string' && Object.hasOwn(COLOR_SPACE_RULES, k) ? COLOR_SPACE_RULES[k] : undefined; },
+  keys() { return COLOR_SPACE_KEYS.slice()[Symbol.iterator](); },
+  values() { return COLOR_SPACE_KEYS.map((k) => COLOR_SPACE_RULES[k])[Symbol.iterator](); },
+  entries() { return COLOR_SPACE_KEYS.map((k) => Object.freeze([k, COLOR_SPACE_RULES[k]]))[Symbol.iterator](); },
+  [Symbol.iterator]() { return PRIOR_COLOR_SPACES.entries(); },
+  forEach(cb, thisArg) {
+    if (typeof cb !== 'function') throw new TypeError('forEach 回调必须是函数');
+    for (const k of COLOR_SPACE_KEYS) cb.call(thisArg, COLOR_SPACE_RULES[k], k, PRIOR_COLOR_SPACES);
+  },
+  [Symbol.toStringTag]: 'ReadonlyColorSpaces',
+  set: rejectMapMutation,
+  delete: rejectMapMutation,
+  clear: rejectMapMutation,
+});
 
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)+$/;
 const ENV_KEY = /^[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)+$/;
@@ -428,7 +446,7 @@ export function createPriorsStore(tableOrEntries) {
   const isSummary = (e) => Object.hasOwn(e, 'summaryOf');
   const view = (e) => deepFreeze({ ...structuredClone(e), readbackLabel: e.verifiedInOurStack ? '已在我方读回' : '未在我方读回' });
 
-  return Object.freeze({
+  return freezeMethods({
     get(id) {
       if (typeof id !== 'string') return undefined;
       const found = entries.find((e) => e.id === id);

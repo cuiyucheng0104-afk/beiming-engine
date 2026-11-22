@@ -536,3 +536,66 @@ test('C9-12 G_REV-R1 收口：全覆盖私有/本机路径且不误伤公开 URL
   assert.deepEqual(codes(validatePriorEntry(dupSummary)), ['prior.bad-value@/summaryOf']);
   assert.equal(validatePriorsTable({ format: 'priors/0.1', entries: [validAudioPrior(), dupSummary] }).ok, false);
 });
+
+test('C9-13 G_REV-R2 收口：Map.prototype.call 无法篡改公开 PRIOR_COLOR_SPACES，且每次 get/query 返回互不共享嵌套引用的独立深冻结克隆（杀灭 M10）', async () => {
+  const { PRIOR_COLOR_SPACES } = await import('./priors.mjs');
+
+  // 1) 原生 Map.prototype 写方法通过 .call 作用在 PRIOR_COLOR_SPACES 上同样抛 TypeError，且第二读取者与校验器看到的规则完全一致
+  assert.throws(() => Map.prototype.set.call(PRIOR_COLOR_SPACES, 'rgb-display', ['scene-linear-rec709']), TypeError);
+  assert.throws(() => Map.prototype.delete.call(PRIOR_COLOR_SPACES, 'rgb-display'), TypeError);
+  assert.throws(() => Map.prototype.clear.call(PRIOR_COLOR_SPACES), TypeError);
+
+  const { PRIOR_COLOR_SPACES: secondReader } = await import('./index.mjs');
+  assert.equal(secondReader, PRIOR_COLOR_SPACES);
+  assert.equal(secondReader.size, 2);
+  assert.equal(secondReader.has('rgb-linear'), true);
+  assert.equal(secondReader.has('rgb-display'), true);
+  assert.deepEqual(secondReader.get('rgb-linear'), ['scene-linear-rec709']);
+  assert.deepEqual(secondReader.get('rgb-display'), ['srgb-display']);
+  assert.deepEqual(Array.from(secondReader.keys()), ['rgb-linear', 'rgb-display']);
+  assert.deepEqual(Array.from(secondReader.values()), [['scene-linear-rec709'], ['srgb-display']]);
+  assert.deepEqual(Array.from(secondReader), [['rgb-linear', ['scene-linear-rec709']], ['rgb-display', ['srgb-display']]]);
+  assert.deepEqual(
+    codes(validatePriorEntry({ ...validColorPrior(), unit: 'rgb-display', colorSpace: 'scene-linear-rec709' })),
+    ['prior.color-space@/colorSpace'],
+  );
+
+  // 2) 杀灭 M10：每次 get / query 均返回全新的深拷贝嵌套对象（不仅顶层不等，value / conditions / appliesWhen / conflicts / readbackEvidence 引用均不共享）
+  const summary = {
+    id: 'audio.master.loudness-summary',
+    domain: 'audio-music-voice-subs',
+    topic: 'audio.master.loudness',
+    title: '流媒体综合响度区间',
+    value: [-16, -13],
+    unit: 'LUFS',
+    conditions: { appliesWhen: ['流媒体成片'] },
+    provenance: { caseId: 'summary:loudness', evidenceLevel: '实测' },
+    verifiedInOurStack: false,
+    summaryOf: ['audio.master.target-loudness'],
+  };
+  const store = createPriorsStore({
+    format: 'priors/0.1',
+    entries: [validAudioPrior(), validColorPrior(), summary],
+  });
+
+  const c1 = store.get('fx.palette.warm-ember');
+  const c2 = store.get('fx.palette.warm-ember');
+  const cq = store.query({ unit: 'rgb-linear' })[0];
+  assert.notEqual(c1, c2);
+  assert.notEqual(c1.value, c2.value);
+  assert.notEqual(c1.conditions, c2.conditions);
+  assert.notEqual(c1.conditions.appliesWhen, c2.conditions.appliesWhen);
+  assert.notEqual(c1.provenance, c2.provenance);
+  assert.notEqual(c1, cq);
+  assert.notEqual(c1.value, cq.value);
+  assert.notEqual(c1.conditions, cq.conditions);
+  assert.notEqual(c1.conditions.appliesWhen, cq.conditions.appliesWhen);
+  assert.notEqual(c1.provenance, cq.provenance);
+
+  const a1 = store.get('audio.master.target-loudness');
+  const aq = store.query({ unit: 'LUFS' })[0];
+  assert.notEqual(a1, aq);
+  assert.notEqual(a1.readbackEvidence, aq.readbackEvidence);
+  assert.notEqual(a1.conflicts, aq.conflicts);
+  assert.notEqual(a1.conflicts[0], aq.conflicts[0]);
+});

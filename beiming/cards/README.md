@@ -26,6 +26,6 @@ createPriorsStore(table).query({ unit: 'LUFS', onlyVerified: true });
 
 - 每条必填 `id`、`domain`、`topic`、`title`、`value`、`unit`、`conditions.appliesWhen`、`provenance`（`caseId`、`evidenceLevel`）和 `verifiedInOurStack`。词表见 `PRIOR_UNITS`、`PRIOR_DOMAINS`、`PRIOR_EVIDENCE_LEVELS`，冲突项 `conflicts[]` 同样要单位。
 - `value` 是数、数值向量或数值对象；两元数组当区间 `[min, max]`。`rgb-linear` 配 `scene-linear-rec709`，`rgb-display` 配 `srgb-display`，其他单位不得带 `colorSpace`。
-- `verifiedInOurStack: true` 必须带字符串 `readbackEvidence`（`envKey`、`reportSha256`），`false` 不得带；`false` 的值没在我方读回，不能当默认值。`get`/`query`/`stats` 返回深冻结只读视图（带 `readbackLabel`）。
+- `verifiedInOurStack: true` 必须带 `readbackEvidence` 对象（含字符串 `envKey`、`reportSha256`），`false` 不得带；`false` 的值没在我方读回，不能当默认值。`get`/`query` 返回条目带 `readbackLabel`，`get`/`query`/`stats` 返回深冻结只读视图。
 - 汇总行用无重复的字符串 ID 数组 `summaryOf` 指回明细，默认不进查询，`stats().detailCount` 不计。同子题、同案例、同适用条件只收一条。
 - 拒收私有路径（`复刻/`、`调研资料/`、`北冥引擎规划/`、`实验室/`、`原包源码`、`cards-overlay`、`exams-hidden`）、`lab://`、本机路径（含 `~`、`/tmp/`、`file:///`，公开 `http(s)` 路由不误伤）、不带规范小写 `sha256:` 前缀的 64 位十六进制，以及非纯 JSON、保留键、重复 JSON 键、超安全整数、孤立代理码元。自检：`node --test beiming/cards/priors.test.mjs`。
