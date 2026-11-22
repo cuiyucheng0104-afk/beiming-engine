@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "18-1-random-beats",
+  "questionId": "18-1",
+  "kind": "random-beats",
+  "disabledCards": [],
+  "seed": 20261123,
+  "description": "十块字幕不跟旁白起声，换成固定种子在 900 帧里取的十个随机拍点（两两至少隔 2 帧），块数不变；旁白、淡出、留白都不动，页面也不动（抽到的那一帧上字幕不同，底色占比差一两个百分点，仍在线内）。",
+  "perturbation": {
+    "subtitleTrigger": "random-beats"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "narration.timing",
+      "why": "字幕离最近起声的中位数远超 0.063 秒的线"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "18-1-shift-2f",
+  "questionId": "18-1",
+  "kind": "shift-2f",
+  "disabledCards": [],
+  "seed": null,
+  "description": "字幕轨整体晚 2 帧（1/15 秒，约 0.0667 秒），旁白和画面别的都不动。正对照里每块字幕出在起声之后的第一个帧边界（滞后 0 到 0.03 秒），晚 2 帧之后每块都滞后 0.0667 秒以上。贴线说明：2 帧只比 0.063 秒的线多 0.0037 秒；字幕整体早 2 帧时滞后的中位数落回线内，判得过。",
+  "perturbation": {
+    "subtitleShiftFrames": 2
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "narration.timing",
+      "why": "每块字幕都比起声晚 0.0667 秒以上，中位数超过 0.063 秒的线，一块都没对上"
+    }
+  ]
+}
