@@ -806,8 +806,10 @@ test('V18-23: 奇数商半距向偶进位、非 2 的幂 K=3 偏差图单次舍�
   const k3 = verify.welchTest([5.25, 6 * u, 0].map(px32), [0, 0, 0].map(px32));
   assert.equal(k3.biasMap[0], 1.75 + 2 * u);
 
-  // 3) 组件入口说明不超过 1500 token（ceil(utf8Bytes / 3.5) <= 1500）
+  // 3) 组件入口说明不超过 1500 token（ceil(utf8Bytes / 3.5) <= 1500），且 DETAILS.md 快路径阈值与实现 2^-1021 一致
   const readmeBytes = Buffer.byteLength(fs.readFileSync(new URL('./README.md', import.meta.url), 'utf8'), 'utf8');
   const readmeTokens = Math.ceil(readmeBytes / 3.5);
   assert.ok(readmeTokens <= 1500, `beiming/verify/README.md 估算 ${readmeTokens} token 超过 1500 上限`);
+  const details = fs.readFileSync(new URL('./DETAILS.md', import.meta.url), 'utf8');
+  assert.match(details, /2\^-1021/, 'DETAILS.md 应写明快路径判据 divisor × 2^-1021');
 });
