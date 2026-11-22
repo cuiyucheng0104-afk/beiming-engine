@@ -2,6 +2,7 @@
 // 宿主照常从网格顶点量 entities[].bbox2d，文字框经 meta(f).texts 交。纯函数部分不起浏览器；实渲部分起无头浏览器（起不了时跳过）：
 // 探针镜头 s3-probe.shot.js 照 params 搭任意元素，样板镜头 s3-18-1.shot.js 是考题 18-1 的三场讲解。
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -9,6 +10,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { inspect } from 'node:util';
+import { runInNewContext } from 'node:vm';
 import { chromium } from 'playwright-core';
 import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs';
 import { resolveServed, startServer, startSource } from '../../host/page/host.mjs';
@@ -19,6 +21,7 @@ import { shotInput } from '../../kernel/eval/input.mjs';
 import { verifySampledBboxes } from '../../verify/l2.mjs';
 import { caps } from './caps.mjs';
 import { FADE, FPS, FRAMES, INK, LEAD, PAPER, RECTS, SCENES, SIZE, TAIL } from './s3-18-1.shot.js';
+import { installProxyRegistry } from './proxy-registry.js';
 import { declarationReadings } from './s3-probe.shot.js';
 import { checkElements, createTwoDStage, rectToPlane, STAGE } from './two-d.js';
 
@@ -239,6 +242,21 @@ function assertDeclarationReadings(readings, browser) {
   }
   check('ctx.accessor.badOpts', true);
 }
+
+test('登记器在初始化时报告标记冲突，不把无关全局值当作判定函数', () => {
+  for (const value of ['{}', '() => false']) {
+    assert.throws(() => runInNewContext(`Object.defineProperty(globalThis, Symbol.for('beiming.three.isProxy'), {value:${value}}); (${installProxyRegistry})()`), /登记标记冲突/);
+  }
+});
+
+test('早期 Node 22 没有 getBuiltinModule 也不替换全局 Proxy，导入前创建的 ctx 同步拒收', () => {
+  const preload = 'process.getBuiltinModule = undefined; globalThis.original = Proxy; globalThis.at = new Proxy({ size: [32, 32] }, {});';
+  const check = `import assert from 'node:assert/strict';
+    import { createTwoDStage } from ${JSON.stringify(new URL('./two-d.js', import.meta.url).href)};
+    assert.equal(Proxy, globalThis.original);
+    assert.throws(() => createTwoDStage(globalThis.at, { elements: [{ kind: 'dom', html: '<p>x</p>' }] }), {code: 'usage.bad-argument'});`;
+  execFileSync(process.execPath, ['--import', `data:text/javascript,${encodeURIComponent(preload)}`, '--input-type=module', '-e', check]);
+});
 
 test('Node：33 种 stack 声明保留属性，七处活 Proxy 和已撤销 Proxy 零陷阱同步拒收', async () => {
   assertDeclarationReadings(await declarationReadings({ size: [320, 160], THREE: {} }), false);

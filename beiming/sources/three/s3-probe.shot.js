@@ -82,7 +82,7 @@ export async function declarationReadings(host) {
   async function probe(place, form, badOpts = false) {
     let hits = 0;
     const bump = () => { hits++; };
-    const ctx = { get diagnostic() { bump(); } };
+    const ctx = { get diagnostic() { bump(); return 1; } };
     const item = { ...DRAWN, rect: [...DRAWN.rect] }, font = { family: 'Probe', url: FONT };
     const opts = { elements: [item], fonts: place === 'font' ? [font] : [] };
     const args = { ctx, opts }, size = [...host.size];
@@ -107,16 +107,17 @@ export async function declarationReadings(host) {
     // 两个访问器都排在真正要读的字段前面。
     if (!Object.hasOwn(ctx, 'size')) ctx.size = size;
     ctx.THREE = host.THREE;
-    const descriptor = () => Object.getOwnPropertyDescriptor(target, 'stack');
-    const before = descriptor(), diagnostic = Object.getOwnPropertyDescriptor(ctx, 'diagnostic');
+    const proto = Object.getPrototypeOf(target);
+    const descriptors = () => [Object.getOwnPropertyDescriptor(target, 'stack'), Object.getOwnPropertyDescriptor(proto, 'stack'), Object.getOwnPropertyDescriptor(ctx, 'diagnostic')];
+    const before = descriptors();
     let sync = 0, late = 0;
     try {
       await createTwoDStage(args.ctx, badOpts ? null : args.opts).then((stage) => stage.dispose(), () => { late = 1; });
     } catch (err) { sync = err.code === 'usage.bad-argument' ? 1 : -1; }
-    const after = descriptor();
-    const kept = before === after || (before && after && Reflect.ownKeys(before).every((k) => Object.is(before[k], after[k])));
+    const after = descriptors();
+    const kept = before.every((d, i) => d === after[i] || (d && after[i] && Reflect.ownKeys(d).every((k) => Object.is(d[k], after[i][k]))));
     const id = `${place}.${form}${badOpts ? '.badOpts' : ''}`;
-    readings[`${id}.kept`] = Number(Boolean(kept) && diagnostic.get === Object.getOwnPropertyDescriptor(ctx, 'diagnostic')?.get);
+    readings[`${id}.kept`] = Number(kept && Object.getPrototypeOf(target) === proto);
     readings[`${id}.sync`] = sync;
     readings[`${id}.late`] = late;
     readings[`${id}.hits`] = hits;

@@ -2,7 +2,11 @@
 export function installProxyRegistry() {
   const key = Symbol.for('beiming.three.isProxy');
   const installed = Object.getOwnPropertyDescriptor(globalThis, key);
-  if (installed) return installed.value;
+  if (installed) {
+    const has = installed.value;
+    if (!installed.configurable && !installed.writable && typeof has === 'function' && Object.getOwnPropertyDescriptor(has, key)?.value === globalThis.Proxy) return has;
+    throw new Error('二维舞台的 Proxy 登记标记冲突，请在未改写的页面中初始化');
+  }
 
   const proxies = new WeakSet();
   const add = WeakSet.prototype.add.bind(proxies), has = WeakSet.prototype.has.bind(proxies);
@@ -26,6 +30,7 @@ export function installProxyRegistry() {
     name: Object.getOwnPropertyDescriptor(NativeProxy, 'name'),
     revocable: { ...Object.getOwnPropertyDescriptor(NativeProxy, 'revocable'), value: revocable },
   });
+  Object.defineProperty(has, key, { value: wrapped });
   globalThis.Proxy = wrapped;
   Object.defineProperty(globalThis, key, { value: has });
   return has;

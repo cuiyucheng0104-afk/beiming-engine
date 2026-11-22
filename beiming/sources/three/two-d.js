@@ -36,7 +36,10 @@ function declared(read) {
 }
 
 // Node 直接查内部槽。页面查私有 WeakSet，直接加载本模块的页面也从此刻开始登记。
-const isProxy = globalThis.process?.getBuiltinModule?.('node:util/types')?.isProxy ?? installProxyRegistry();
+const node = globalThis.process;
+const isProxy = node?.versions?.node
+  ? (node.getBuiltinModule?.('node:util/types') ?? await import('node:util/types')).isProxy
+  : installProxyRegistry();
 
 /**
  * v 自己过不过得了结构化克隆的第一关：克隆不了的内建对象（页面节点、模块这类）和页面里未登记的 Proxy 过不了。
