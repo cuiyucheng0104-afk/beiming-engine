@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
-import { runInNewContext } from 'node:vm';
+import { runInNewContext, Script } from 'node:vm';
 import { startSource } from '../host/page/host.mjs';
 import { shotInput } from '../kernel/eval/input.mjs';
 import { applyFilmWrite } from '../kernel/patch-apply.mjs';
@@ -956,6 +956,81 @@ test('V14-19 交付件读得到却不在自有可枚举数据属性里的（空�
     assert.throws(() => buildControllabilityRow(box), (e) => e instanceof TypeError && e.code === 'usage.bad-argument', name);
   }
   assert.equal(buildControllabilityRow(Object.assign(Object.create(null), rowOpts)).overallPass, true);
+});
+
+/**
+ * 源码文本和原生 Object 一字不差的假构造器：V8 的代码缓存只核对源码长度，配一份同样长的假源码，toString 就照假源码切。
+ * 这台机器的 V8 不吃这一套（缓存被拒，假源码不合语法）就交回 null。
+ */
+function forgedNativeObjectProto() {
+  try {
+    const compiled = new Script('(function Object(){/*............*/})');
+    compiled.runInNewContext()();
+    const Forged = new Script('(function Object() { [native code] })', { cachedData: compiled.createCachedData() }).runInNewContext();
+    Forged.prototype = Object.create(null, { ...Object.getOwnPropertyDescriptors(Object.prototype), constructor: { value: Forged, writable: true, configurable: true } });
+    return Forged.prototype;
+  } catch {
+    return null;
+  }
+}
+
+test('V14-20 原型按身份认，不按长相认：Object.prototype 的克隆、别的 realm 里名叫 Object 的类、源码文本伪造成原生的构造器，在三个入口的选项和首遍交付件表四处一律 TypeError；别的 realm 的真普通对象照收', async (t) => {
+  let calls = 0;
+  const renderLocked = (table) => async (f, l, info) => { calls++; return { frames: await twice()(f, l, info), deliverables: table() }; };
+  const fakes = {
+    // 七审的反例：照 Object.prototype 的属性描述符克隆出来的原型，自有项一模一样，constructor 也指着真的 Object
+    'Object.prototype 的克隆': Object.create(null, Object.getOwnPropertyDescriptors(Object.prototype)),
+    '别的 realm 里 Object.prototype 的克隆': runInNewContext('Object.create(null, Object.getOwnPropertyDescriptors(Object.prototype))'),
+    // constructor 是别的 realm 的函数、名字叫 Object、prototype 指回自己，只有原生签名对不上
+    '别的 realm 里名叫 Object 的类': runInNewContext(`(() => {
+      const { defineProperties, getOwnPropertyDescriptors, prototype } = Object;
+      const standard = getOwnPropertyDescriptors(prototype);
+      delete standard.constructor;
+      { class Object extends null {} return defineProperties(Object.prototype, standard); }
+    })()`),
+    // 冻结以后和冻结的克隆分不出来，认不出身份的按拒收算
+    '别的 realm 冻结了的 Object.prototype': runInNewContext('Object.freeze(Object.prototype)'),
+  };
+  const forged = forgedNativeObjectProto();
+  if (forged) {
+    assert.match(Function.prototype.toString.call(forged.constructor), /^function Object\(\) \{ \[native code\] \}$/);
+    fakes['constructor 的源码文本伪造成原生 Object'] = forged;
+  } else {
+    t.diagnostic('这台机器的 V8 拒收配假源码的代码缓存，伪造原生签名的反例没跑');
+  }
+  const real = {
+    '别的 realm 的字面量': () => runInNewContext('({})'),
+    // 那个 realm 的 Object 构造器原型链上有 Proxy 也不碍事：认身份只读自有属性，陷阱一个都不触发
+    '别的 realm 的字面量，Object 构造器的原型换成了带陷阱的 Proxy': () => runInNewContext(`Object.setPrototypeOf(Object, new Proxy(Function.prototype, { getPrototypeOf() { throw new Error('trap'); } })); ({})`),
+  };
+  const table = { 'master.mp4': 'sha256:aa' };
+  const rebuildOpts = { film: assembly, lock: assemblyLock, renderLocked: renderLocked(() => table) };
+  const localityOpts = { film: assembly, patch: patchOf(MARGIN, 0.82), renderFilm: (film) => { calls++; return renderAssembly(film); } };
+  const rowOpts = { filmId: assembly.id, recordedAt: '2026-11-22T00:00:00Z', rebuild: await runRebuildTest(rebuildOpts) };
+
+  for (const [name, proto] of Object.entries(fakes)) {
+    const wrap = (fields) => Object.assign(Object.create(proto), fields);
+    const ctor = Object.getOwnPropertyDescriptor(proto, 'constructor').value;
+    assert.deepEqual([Object.getPrototypeOf(proto), ctor.name, Reflect.ownKeys(proto).length], [null, 'Object', Reflect.ownKeys(Object.prototype).length], `${name}：长相和 Object.prototype 一样`);
+    for (const [run, fields] of [[runRebuildTest, rebuildOpts], [runLocalityTest, localityOpts]]) {
+      calls = 0;
+      const pending = run(wrap(fields));
+      assert.ok(pending instanceof Promise, `${run.name} ${name}`);
+      await assert.rejects(pending, TypeError, `${run.name} ${name}`);
+      assert.equal(calls, 0, `${run.name} ${name}：一遍都不渲`);
+    }
+    assert.throws(() => buildControllabilityRow(wrap(rowOpts)), (e) => e instanceof TypeError && e.code === 'usage.bad-argument', name);
+    calls = 0;
+    await assert.rejects(runRebuildTest({ ...rebuildOpts, renderLocked: renderLocked(() => wrap(table)) }), (e) => e instanceof TypeError && /deliverables/.test(e.message), name);
+    assert.equal(calls, 1, `${name}：第一遍交回就拒，不等第二遍`);
+    assert.equal(Object.getPrototypeOf(proto), null, `${name}：认完身份原样放回`);
+  }
+  // 正对照：别的 realm 的真 Object.prototype 四处都照收
+  for (const [name, make] of Object.entries(real)) {
+    const wrap = (fields) => Object.assign(make(), fields);
+    const rebuilt = await runRebuildTest({ ...wrap(rebuildOpts), renderLocked: renderLocked(() => wrap(table)) });
+    assert.deepEqual([rebuilt.pass, (await runRebuildTest(wrap(rebuildOpts))).pass, (await runLocalityTest(wrap(localityOpts))).pass, buildControllabilityRow(wrap(rowOpts)).overallPass], [true, true, true, true], name);
+  }
 });
 
 test('V14-9 页面宿主实渲：双镜头局部性（改谁只变谁）与加锁重渲（两个帧源进程逐位相同）', async (t) => {

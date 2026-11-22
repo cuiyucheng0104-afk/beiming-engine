@@ -45,7 +45,7 @@
 
 04 §12 看板「可控与可复现」栏的两项作业。两项都先让片子描述过 `film/3.0` 契约，交给渲染器的是副本，不改调用方的片子描述、补丁和锁。片子描述、补丁、锁在入口各存一份快照（`structuredClone`），之后的校验、每一遍渲染和报告的 `filmId`、`rev` 都只认快照：作业进行中调用方改了原对象（比如第一遍开渲后把锁换成下一个修订号），后一遍用的仍是入口核过的那一份；带着函数之类存不成快照的值抛 `TypeError`，渲染器一次都不调。片子描述的修订号（补丁入口记在对象上的）也在入口读一次。
 
-**选项容器与抛错时机**：三个入口的选项参数只收普通对象（原型是空或 `Object.prototype`，别的 realm 的也算）：类实例、`Map`、数组、Proxy、`Object.create(某个对象)` 抛 `TypeError`，渲染器一次都不调。`runLocalityTest`、`runRebuildTest` 是异步函数，坏参数和渲染器交回的坏结果都不在调用现场抛，交回的 Promise 以对应的错拒绝，要用 `await` 或 `.catch` 接（只在调用外面包同步 `try/catch` 接不到）；`buildControllabilityRow` 是同步函数，当场抛。`Object.prototype` 在本模块装载之后被加了项的进程里，每个普通对象都读得到那一项，三个入口一律按不是普通对象拒收。
+**选项容器与抛错时机**：三个入口的选项参数只收普通对象（原型是空或 `Object.prototype`，别的 realm 的也算）：类实例、`Map`、数组、Proxy、`Object.create(某个对象)` 抛 `TypeError`，渲染器一次都不调。原型按身份认，不按长相认：照属性描述符克隆出来的 `Object.prototype`（`Object.create(null, Object.getOwnPropertyDescriptors(Object.prototype))`）、别的 realm 里名叫 `Object` 的类的原型同样拒收，交付件表用的是同一条判定。别的 realm 把 `Object.prototype` 冻结了（不可扩展）的，和冻结的克隆体分不出来，那个 realm 来的普通对象也拒收，要用就在本 realm 里另建一个 `{ ...它 }`。`runLocalityTest`、`runRebuildTest` 是异步函数，坏参数和渲染器交回的坏结果都不在调用现场抛，交回的 Promise 以对应的错拒绝，要用 `await` 或 `.catch` 接（只在调用外面包同步 `try/catch` 接不到）；`buildControllabilityRow` 是同步函数，当场抛。`Object.prototype` 在本模块装载之后被加了项的进程里，每个普通对象都读得到那一项，三个入口一律按不是普通对象拒收。
 
 ### 帧对象与帧对比较
 

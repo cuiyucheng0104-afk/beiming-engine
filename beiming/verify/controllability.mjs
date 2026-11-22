@@ -28,12 +28,29 @@ const NATIVE = Object.values(types).filter((is) => typeof is === 'function');
 const exotic = (v) => NATIVE.some((is) => is(v));
 // 模块装载时 Object.prototype 上有的名字；之后谁往上加了项，带着它的普通对象都不再算普通对象
 const OBJECT_PROTO_KEYS = new Set(Reflect.ownKeys(Object.prototype));
-/** 本 realm 或别的 realm 的 Object.prototype：原型是空，自有项只有那几个标准名字，都是不可枚举的函数（访问器只有 __proto__），带不了数据 */
+const fnSource = Function.prototype.toString;
+// 原生 Object 构造器的源码文本；用户写的函数和类交回自己的源码，绑定函数和 Proxy 不带名字
+const NATIVE_OBJECT = /^function Object\(\) \{ \[native code\] \}$/;
+/**
+ * 本 realm 或别的 realm 的 Object.prototype，按身份认：照着属性描述符克隆出来的原型长相一样，身份不是。
+ * 自有项只有那几个标准名字，都是不可枚举的函数（访问器只有 __proto__），带不了数据。
+ * 别的 realm 的认两层：原生 Object 构造器的 prototype 指回它（只读自有属性描述符，不调对方的函数，不走 instanceof，陷阱一个都不触发）；
+ * 再认规范给 Object.prototype 独一份的性质：可扩展，原型却改不了。构造器那层的源码文本造得了假（代码缓存配假源码），这层造不了。
+ * 冻结了的和冻结的克隆分不出来，按不是算。
+ */
 function objectProto(proto) {
-  return !exotic(proto) && Object.getPrototypeOf(proto) === null && Reflect.ownKeys(proto).every((key) => {
+  if (exotic(proto) || Object.getPrototypeOf(proto) !== null || !Reflect.ownKeys(proto).every((key) => {
     const desc = Object.getOwnPropertyDescriptor(proto, key);
     return OBJECT_PROTO_KEYS.has(key) && !desc.enumerable && typeof (key === '__proto__' ? desc.get : desc.value) === 'function';
-  }) && typeof proto.hasOwnProperty === 'function' && proto.constructor?.name === 'Object';
+  })) return false;
+  if (proto === Object.prototype) return true;
+  const Ctor = Object.getOwnPropertyDescriptor(proto, 'constructor')?.value;
+  if (typeof Ctor !== 'function' || types.isProxy(Ctor) || Object.getPrototypeOf(Ctor) === Function.prototype
+    || Object.getOwnPropertyDescriptor(Ctor, 'prototype')?.value !== proto || !NATIVE_OBJECT.test(fnSource.call(Ctor))
+    || !Object.isExtensible(proto)) return false;
+  if (!Reflect.setPrototypeOf(proto, Object.create(null))) return true;
+  Reflect.setPrototypeOf(proto, null); // 改成了，是普通对象冒充的：原样放回
+  return false;
 }
 /**
  * 普通对象：内容全在自有属性里，照自有属性读不会漏。原型只认空和 Object.prototype（objectProto 认得的），
