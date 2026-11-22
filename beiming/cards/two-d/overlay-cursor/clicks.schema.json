@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "overlay.cursor 的点击表",
+  "description": "按时间先后写，帧号一个比一个大。空数组表示光标停在起点不动。",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id", "frame", "x", "y"],
+    "additionalProperties": false,
+    "properties": {
+      "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "这次点击的名字，也是它在事件表里那条命名条目的 id" },
+      "frame": { "type": "integer", "minimum": 0, "description": "点击落在全片第几帧" },
+      "x": { "type": "number", "minimum": 0, "maximum": 1, "description": "点在画面宽的几分之几，原点在左" },
+      "y": { "type": "number", "minimum": 0, "maximum": 1, "description": "点在画面高的几分之几，原点在上" }
+    }
+  }
+}

@@ -1,0 +1,127 @@
+// audio.event-mix 在合成一侧的实现：照事件表把短音效精确到采样点地摆进一条 48000 赫兹的立体声，垫上配乐，整体防削波；
+// 另带起音检测，用来把点击吸到配乐的起音上，和事后审计事件是不是踩在起音上。
+// 合成宿主怎么用 Handle 还没有契约，这里定的用法写在卡文件的 ports.requires 里：ctx 带 fps 和 seed；合成工具调 Handle.object.mix、audit、snap。
+// 事件时刻 → 采样点：round((frame + sub) × 48000 × 分母 ÷ 分子)，和合成收尾的事件混音同一个口径。
+
+const RATE = 48000, HOP = 240; // 起音检测的步长：5 毫秒
+const fail = (message) => { throw Object.assign(new RangeError(`audio.event-mix：${message}`), { code: 'contract.bad-value' }); };
+const gain = (db) => 10 ** (db / 20);
+
+/** 带种子的噪声，[-1, 1) */
+function noise(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), a | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 2 ** 31 - 1;
+  };
+}
+
+/** 自带的两个音色，单声道，第一个采样就是起音：click 是 12 毫秒的点击瞬态，kick 是 220 毫秒往下扫的低频鼓点 */
+const VOICES = {
+  click(seed) {
+    const rnd = noise(seed);
+    return Float32Array.from({ length: 0.012 * RATE }, (_, i) => (0.6 * rnd() + 0.4 * Math.sin((2 * Math.PI * 2400 * i) / RATE)) * Math.exp(-i / (0.002 * RATE)));
+  },
+  kick() {
+    let phase = 0;
+    return Float32Array.from({ length: 0.22 * RATE }, (_, i) => {
+      phase += (2 * Math.PI * (48 + 110 * Math.exp(-i / (0.03 * RATE)))) / RATE;
+      return Math.sin(phase) * Math.exp(-i / (0.06 * RATE));
+    });
+  },
+};
+
+const mono = (channels) => (channels.length === 1 ? channels[0] : Float32Array.from(channels[0], (v, i) => (v + channels[1][i]) / 2));
+const stereoOf = (sound, name) => {
+  const channels = sound instanceof Float32Array ? [sound, sound] : sound;
+  if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2 || channels.some((c) => !(c instanceof Float32Array) || c.length !== channels[0].length)) fail(`${name} 要是一个或两个一样长的 32 位浮点声道`);
+  return channels.length === 1 ? [channels[0], channels[0]] : channels;
+};
+
+/**
+ * ctx：用到 fps（"分子/分母"，帧每秒）和 seed（点击音色的噪声种子，不带当 0）。
+ * Handle.object：
+ *   voices                 自带音色 { click, kick }，各是一段单声道样本。
+ *   mix(events, { frames, bed, samples })
+ *       events 是事件表（events/0.1，frames 取它自己的）或者事件条目的数组；只放带 audio 的条目，条目可带 sub（子帧相位）和 gainDb（这一条另加的增益）。
+ *       audio 先在 samples（{ 名字: 单声道样本或 [左, 右] }）里找，再在自带音色里找，都没有报错。bed 是垫在下面的配乐（一个或两个声道），比全片长的截掉。
+ *       每段音效乘 gainDb，尾巴 fadeMs 毫秒线性收到 0（被片尾截断的也收）；混完峰值超过 ceilingDb 时整体降增益到正好压线，不做限幅。
+ *       返回 { channels: [左, 右], placements: [{ id, audio, frame, sub, sample, clippedTail }], peakDb, scaleDb }。
+ *   onsets(channels)       起音的采样点下标：5 毫秒一步的能量，比上一步涨得最多的那一步；涨幅不到全曲最大涨幅的 onsetFloor 倍的不算，50 毫秒内只认一个。准到一步（5 毫秒）。
+ *   snap(frames, channels) 把每个帧号换成离它最近的起音所在的帧（四舍五入到整数帧）。
+ *   audit(channels, events) 逐条量事件离最近的起音差几帧（正数是起音晚到）：返回 { total, hits, hitRate, baseline, rows: [{ id, frame, delta }] }；
+ *       差不超过 toleranceFrames 算命中；baseline 是随机基线：全片的整数帧里，离某个起音不超过 toleranceFrames 的占多少。
+ */
+export function create(ctx, params) {
+  const [num, den] = ctx.fps.split('/').map(Number), perFrame = (RATE * den) / num;
+  const voices = { click: VOICES.click(ctx.seed ?? 0), kick: VOICES.kick() };
+  const entries = (events) => (Array.isArray(events) ? events : events.events).filter((e) => e.audio !== undefined);
+
+  function mix(events, { frames = events.frames, bed, samples = {} } = {}) {
+    if (!Number.isInteger(frames) || frames < 1) fail(`frames 要是正整数帧数，给的是 ${frames}`);
+    const length = Math.round(frames * perFrame), left = new Float32Array(length), right = new Float32Array(length);
+    if (bed) stereoOf(bed, 'bed').forEach((c, k) => (k ? right : left).set(c.subarray(0, length)));
+    const fade = Math.round((params.fadeMs / 1000) * RATE);
+    const placements = entries(events).map((e) => {
+      const sound = Object.hasOwn(samples, e.audio) ? samples[e.audio] : Object.hasOwn(voices, e.audio) ? voices[e.audio] : fail(`事件 ${e.id} 要的声音 ${e.audio} 不在 samples 里，也不是自带音色（${Object.keys(voices).join('、')}）`);
+      const [l, r] = stereoOf(sound, `声音 ${e.audio}`), sub = e.sub ?? 0, sample = Math.round((e.frame + sub) * perFrame);
+      if (!Number.isInteger(e.frame) || e.frame < 0 || e.frame >= frames || !(sub >= 0 && sub < 1)) fail(`事件 ${e.id} 的时刻（frame ${e.frame}、sub ${sub}）不在全片的 0 到 ${frames - 1} 帧里`);
+      const n = Math.min(l.length, length - sample), g = gain(params.gainDb + (e.gainDb ?? 0));
+      for (let i = 0; i < n; i++) {
+        const env = g * Math.min(1, (n - i) / fade);
+        left[sample + i] += l[i] * env;
+        right[sample + i] += r[i] * env;
+      }
+      return { id: e.id, audio: e.audio, frame: e.frame, sub, sample, clippedTail: l.length - n };
+    });
+    let peak = 0;
+    for (let i = 0; i < length; i++) peak = Math.max(peak, Math.abs(left[i]), Math.abs(right[i]));
+    const scale = Math.min(1, gain(params.ceilingDb) / peak);
+    if (scale < 1) for (let i = 0; i < length; i++) { left[i] *= scale; right[i] *= scale; }
+    return { channels: [left, right], placements, peakDb: 20 * Math.log10(peak * scale), scaleDb: 20 * Math.log10(scale) };
+  }
+
+  function onsets(channels) {
+    const x = mono(stereoOf(channels, 'channels')), steps = Math.floor(x.length / HOP), rise = new Float64Array(steps);
+    let before = 0, top = 0;
+    for (let k = 0; k < steps; k++) {
+      let energy = 0;
+      for (let i = k * HOP; i < (k + 1) * HOP; i++) energy += x[i] * x[i];
+      rise[k] = Math.max(0, energy - before);
+      top = Math.max(top, rise[k]);
+      before = energy;
+    }
+    const out = [], near = 10; // 50 毫秒
+    for (let k = 0; k < steps; k++) {
+      if (rise[k] <= 0 || rise[k] < params.onsetFloor * top) continue;
+      let best = true;
+      for (let j = Math.max(0, k - near); j <= Math.min(steps - 1, k + near) && best; j++) best = rise[j] < rise[k] || (rise[j] === rise[k] && j >= k);
+      if (best) out.push(k * HOP);
+    }
+    return out;
+  }
+  const onsetFrames = (channels) => onsets(channels).map((s) => s / perFrame);
+  const nearest = (frame, list) => list.reduce((best, o) => (Math.abs(o - frame) < Math.abs(best - frame) ? o : best), Infinity);
+
+  return {
+    object: {
+      voices, mix, onsets,
+      snap(frames, channels) {
+        const list = onsetFrames(channels);
+        if (!list.length) fail('这段声音里没找到起音，吸不了');
+        return frames.map((f) => Math.round(nearest(f, list)));
+      },
+      audit(channels, events) {
+        const list = onsetFrames(channels), tol = params.toleranceFrames, frames = Math.floor(stereoOf(channels, 'channels')[0].length / perFrame);
+        const rows = entries(events).map((e) => ({ id: e.id, frame: e.frame, delta: nearest(e.frame + (e.sub ?? 0), list) - e.frame - (e.sub ?? 0) }));
+        const hits = rows.filter((r) => Math.abs(r.delta) <= tol).length;
+        let near = 0;
+        for (let f = 0; f < frames; f++) if (Math.abs(nearest(f, list) - f) <= tol) near++;
+        return { total: rows.length, hits, hitRate: rows.length ? hits / rows.length : 0, baseline: frames ? near / frames : 0, rows };
+      },
+    },
+    dispose() {},
+  };
+}
