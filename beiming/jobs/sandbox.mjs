@@ -274,6 +274,7 @@ function collect(plan, timeoutMs, onTimeout) {
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
+      // shortcut: 只杀主进程，宿主机后端上作业另起会话的后台进程留着（仍在策略内）；对外服务用 oci 后端，停容器时一并清掉。
       child.kill('SIGKILL');
       onTimeout();
     }, timeoutMs);

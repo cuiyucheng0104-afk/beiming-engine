@@ -107,7 +107,7 @@ const sum = queue.summarizeLedger(); // { count: 2, succeeded: 2, gpuSeconds: 6,
 | 后端 | 怎么起 | `isolation` | 边界 |
 |---|---|---|---|
 | `oci` | `docker run`（或 `podman run`）加上表的全部选项；要给带 node 的 `image` | `oci-container` | Linux 命名空间容器，和宿主机共用内核；用户命名空间与 seccomp 沿用运行时默认值。超时后另发 `kill` 停容器 |
-| `darwin-seatbelt` | `/usr/bin/sandbox-exec -p <策略>`：`(deny default)`，只许执行 node，文件读只放行系统库、本工作区、引擎目录与专属临时目录，写只放行本工作区与专属临时目录，`(deny network*)`，`signal` 与 `process-info` 只对自己 | `seatbelt-process-policy` | 进程策略，不是容器：没有 PID、挂载、网络命名空间，`pids-limit` 与 tmpfs 大小不生效；`/` 下的目录名可以列出；凭进程号能分辨别的进程在不在（`EPERM` 对 `ESRCH`），读不到它的命令行与环境变量。`sandbox-exec` 已被系统标为弃用 |
+| `darwin-seatbelt` | `/usr/bin/sandbox-exec -p <策略>`：`(deny default)`，只许执行 node，文件读只放行系统库、本工作区、引擎目录与专属临时目录，写只放行本工作区与专属临时目录，`(deny network*)`，`signal` 与 `process-info` 只对自己 | `seatbelt-process-policy` | 进程策略，不是容器：没有 PID、挂载、网络命名空间，`pids-limit` 与 tmpfs 大小不生效；`/` 下的目录名可以列出；凭进程号能分辨别的进程在不在（`EPERM` 对 `ESRCH`），读不到它的命令行与环境变量；超时只杀主进程，作业另起会话的后台进程不会被回收（仍受同一份策略约束，容器后端没有这个问题）。`sandbox-exec` 已被系统标为弃用 |
 | `portable` | 直接起 node 子进程，只换环境变量和工作目录 | `needs-oci-runtime` | 没有内核级隔离，文件、网络、进程都拦不住。默认拒跑（`env.missing-tool`），`allowDegraded: true` 只给本机调试用，不得用于对外服务 |
 
 宿主机后端（后两种）没有挂载命名空间：规格里的 `/workspace`、`/app`、`/tmp` 在命令参数、环境变量和工作目录里换成本机真实路径，`/tmp` 换成每次新建、跑完即删的专属临时目录。作业代码从 `BEIMING_WORKSPACE`、`BEIMING_APP`、`TMPDIR` 取路径，三种后端写法相同。Windows 的 `portable` 后端另带 `SystemRoot`（node 起得来要它，不是凭据）。

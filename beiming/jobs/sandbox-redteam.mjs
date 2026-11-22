@@ -27,7 +27,7 @@ const ITEMS = [
 
 const BACKENDS = {
   'darwin-seatbelt': {
-    boundary: 'macOS seatbelt（/usr/bin/sandbox-exec，系统已标为弃用）进程策略，不是 Linux 命名空间容器：没有 PID、挂载、网络命名空间，也没有 cgroup 限额（pids-limit 不生效）；根目录 / 下的目录名可以列出；给别的进程发信号被拒时返回 EPERM、进程不存在时返回 ESRCH，凭进程号能分辨进程在不在，但读不到它的命令行和环境变量。',
+    boundary: 'macOS seatbelt（/usr/bin/sandbox-exec，系统已标为弃用）进程策略，不是 Linux 命名空间容器：没有 PID、挂载、网络命名空间，也没有 cgroup 限额（pids-limit 不生效）；根目录 / 下的目录名可以列出；给别的进程发信号被拒时返回 EPERM、进程不存在时返回 ESRCH，凭进程号能分辨进程在不在，但读不到它的命令行和环境变量；作业自己另起会话的后台进程在超时或结束后不会被回收（仍受同一份策略约束）。',
     layers: {
       cross_workspace_read: 'seatbelt 默认拒绝：file-read* 只放行本工作区、只读引擎目录与专属临时目录',
       host_home_and_secrets: 'seatbelt 默认拒绝读家目录；环境变量按固定白名单重建，不继承宿主机',
