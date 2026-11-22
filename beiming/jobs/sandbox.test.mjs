@@ -770,6 +770,20 @@ test('A13-22 根目录与盘符卷根（/、D:\\、D:/、D:）不得当工作区
     assert.throws(() => resolveWorkspace({ workspacesRoot: root, workspaceDir: `${root}${/[\\/]$/.test(root) ? '' : path.sep}ws-a` }), volume('contract.bad-path'), `workspacesRoot=${root}`);
     assert.throws(() => buildContainerSpec({ ...options, workspacesRoot: root }), volume('contract.bad-path'), `build workspacesRoot=${root}`);
   }
+  // POSIX 上当前目录里真有叫 D: 的普通目录时，规范化会把 D:/ 解析成它：原始写法要在规范化之前就拒（Windows 上建不出这种目录）。
+  if (process.platform !== 'win32') {
+    const cwd = process.cwd();
+    for (const dir of [path.join('D:', 'ws-a'), 'D:\\']) fs.mkdirSync(path.join(base, dir), { recursive: true });
+    process.chdir(base);
+    try {
+      for (const root of ['D:', 'D:/', 'D:\\', 'D://', 'D:/.']) {
+        assert.throws(() => buildContainerSpec({ ...options, appDir: root }), volume('usage.bad-argument'), `当前目录有同名目录时 appDir=${root}`);
+        assert.throws(() => resolveWorkspace({ workspacesRoot: root, workspaceDir: path.join('D:', 'ws-a') }), volume('contract.bad-path'), `当前目录有同名目录时 workspacesRoot=${root}`);
+      }
+    } finally {
+      process.chdir(cwd);
+    }
+  }
   // 换一种写法指到卷根（/private/.. 这类）：规范化之后再认一次，卷根下面的顶层目录不当工作区。
   const real = fs.realpathSync.native(base);
   const top = path.parse(real).root;

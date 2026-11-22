@@ -64,10 +64,11 @@ const isPlain = (value) => value !== null && typeof value === 'object' && [Objec
 const ownTrue = (object, key) => Object.hasOwn(object, key) && object[key] === true;
 
 // 根目录与盘符卷根（/、D:\、D:/、D:）。Windows 上别的盘的卷根不包住家目录，靠「包住家目录」认不出来，按写法单独认；
-// 用 path.win32 认，在 POSIX 上碰到 Windows 写法也一样拒收。
+// 用 path.win32 认，在 POSIX 上碰到 Windows 写法也一样拒收；先按 Windows 规则规范化，D://、D:/. 这类写法一并认出来。
 function isVolumeRoot(dir) {
-  return typeof dir === 'string' && dir !== ''
-    && (path.parse(dir).root === dir || path.win32.parse(dir).root.toLowerCase() === dir.toLowerCase() || /^[A-Za-z]:[\\/]?$/.test(dir));
+  if (typeof dir !== 'string' || dir === '') return false;
+  const win = path.win32.normalize(dir);
+  return path.parse(dir).root === dir || path.win32.parse(win).root.toLowerCase() === win.toLowerCase() || /^[A-Za-z]:[\\/]?$/.test(dir);
 }
 
 // 不该挂进沙箱的宿主机目录：卷根，包住家目录的（含家目录本身），和家目录下带点开头段的（.ssh、.aws、.config 这类配置与凭据目录）。
@@ -214,6 +215,8 @@ export function validateContainerSpec(spec) {
 export function buildContainerSpec({ workspacesRoot, workspaceDir, appDir, command, image = null } = {}) {
   const { root, dir, workspaceId } = resolveWorkspace({ workspacesRoot, workspaceDir });
   if (typeof appDir !== 'string' || !appDir) throw codedError('usage.bad-argument', 'appDir 必须是引擎运行时目录的路径。');
+  // 规范化之前先认原始写法：POSIX 上当前目录里有叫 D: 的普通目录时，tryReal 会把 D:/ 解析成它。
+  if (isVolumeRoot(appDir)) throw codedError('usage.bad-argument', 'appDir 不得是根目录或盘符卷根。');
   const uid = process.getuid?.();
   const spec = {
     format: 'workspace-sandbox/0.1',
