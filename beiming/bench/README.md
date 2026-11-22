@@ -14,8 +14,8 @@
 
 `validateQuestion(input)` 收题目对象或 JSON 原文，回 `{ ok, schemaErrors, violations: { 规则编号: [问题] }, leaks, parseError? }`，不抛错。重复的键和里面夹带的泄露只有原文查得出。按顺序查，不过就停：
 
-1. **泄露门禁**（`scanQuestionLeaks`）：`lab://`、原包源码与私有覆盖层、`复刻/` 路径、`exams-hidden`、本机路径、裸的 64 位十六进制哈希（规范写法 `sha256:` 加 64 位小写十六进制放行），全角、夹零宽字符的也认。只回类型和位置（对象回 `path`，原文回 `line`），不回显内容；对象里的取值器不调，记 `accessor-property`，Symbol 键记 `symbol-key`。
-2. **结构**：[`question.schema.json`](../kernel/contracts/question-file/schema/question.schema.json)。类实例、取值器、Symbol 键、不可枚举属性、数组的空洞和附加属性、非有限数、环、原文里重复的键直接拒。`parseError` 只写位置，不回显原文。
+1. **泄露门禁**（`scanQuestionLeaks`）：`lab://`、原包源码与私有覆盖层、`复刻/` 路径、`exams-hidden`、本机路径、裸的 64 位十六进制哈希（规范写法 `sha256:` 加 64 位小写十六进制放行），全角、夹零宽字符的也认。只回类型和位置（对象回 `path`，原文回 `line`），不回显内容；对象里的取值器不调，记 `accessor-property`，Symbol 键记 `symbol-key`，不可枚举属性记 `non-enumerable-property`，有空洞或带附加属性的数组记 `invalid-array`（里面照扫）。
+2. **结构**：[`question.schema.json`](../kernel/contracts/question-file/schema/question.schema.json)。类实例、取值器、Symbol 键、不可枚举属性、数组的空洞和附加属性、非有限数、超出安全整数的整数字段、不成对的代理码元、开头的 BOM、环、原文里重复的键直接拒。`parseError` 是固定的一句，不回显原文。
 3. **规则**，违反的记在 `violations`；`B1_*` 是契约不变量之外的增补：
 
 | 编号 | 查什么 |

@@ -467,3 +467,71 @@ test('B1-R2-Red 一审收口：规范 sha256: 摘要放行、JSON 语法诊断�
   const directLeaks = scanQuestionLeaks('{"id":"28-1","refs":["cards-overlay/secret.yaml"],"refs":["bench/ok.txt"]}');
   assert.ok(directLeaks.length > 0 && !JSON.stringify(directLeaks).includes('secret'));
 });
+
+test('B1-R3-Red 二审收口：JSON 语法错误不回显原文伪造 position 数字、非法数组双入口一致识别、安全整数上限与孤立代理码元拒收、杀灭 R15/P01/P02', () => {
+  // 1) F1: 原文伪装 "position 42" 时，parseError 绝不提取原文里的 42
+  const fakePosRes = validateQuestion('position 42');
+  assert.equal(fakePosRes.ok, false);
+  assert.equal(fakePosRes.parseError, '无效的 JSON 语法');
+  assert.equal(JSON.stringify(fakePosRes).includes('42'), false);
+
+  // 2) F2 + P01: 数组带普通附加属性、稀疏空洞在 scanQuestionLeaks 与 validateQuestion 双入口一致报出；附加属性值含泄露标记时同步报出内容命中
+  const arrCleanExtra = variant(() => {});
+  arrCleanExtra.needs.extraNote = 'clean';
+  assert.ok(scanQuestionLeaks(arrCleanExtra).length > 0, '独立扫描必须识别带普通附加属性的非法数组');
+  assert.equal(validateQuestion(arrCleanExtra).ok, false);
+
+  const arrSparse = variant(() => {});
+  delete arrSparse.needs[0];
+  assert.ok(scanQuestionLeaks(arrSparse).length > 0, '独立扫描必须识别稀疏数组空洞');
+  assert.equal(validateQuestion(arrSparse).ok, false);
+
+  const arrLeakyExtra = variant(() => {});
+  arrLeakyExtra.needs.reviewNote = 'cards-overlay/secret.yaml';
+  const arrLeakHits = scanQuestionLeaks(arrLeakyExtra);
+  assert.ok(arrLeakHits.some((item) => item.code === 'private-source-path' && item.path === '/needs/reviewNote'));
+
+  // 3) P02: 多行重复键原文直接调 scanQuestionLeaks 精确断言完整 { code, line }
+  assert.deepEqual(
+    scanQuestionLeaks('{\n  "id": "28-1",\n  "refs": ["cards-overlay/secret.yaml"],\n  "refs": ["bench/ok.txt"]\n}'),
+    [{ code: 'private-source-path', line: 3 }],
+  );
+
+  // 4) R15: 非 TypeError 异常兜底只回错误名，绝不带出异常 message 中的敏感词
+  const hostileProxy = new Proxy({}, {
+    getOwnPropertyDescriptor() {
+      throw new Error('review fixture secret');
+    },
+    ownKeys() {
+      throw new Error('review fixture secret');
+    },
+  });
+  const proxyRes = validateQuestion(hostileProxy);
+  assert.equal(proxyRes.ok, false);
+  assert.deepEqual(proxyRes.schemaErrors, ['/ 校验不了：Error']);
+  assert.equal(JSON.stringify(proxyRes).includes('review fixture'), false);
+
+  // 5) 契约通用口径：整数型字段最大为 MAX_SAFE_INTEGER (9007199254740991)，+1 在对象与原文双入口均拒收；合法浮点字段不受影响
+  const maxSafeQ = variant((q) => { q.deliverable.frames = Number.MAX_SAFE_INTEGER; });
+  assert.equal(validateQuestion(maxSafeQ).ok, true);
+  assert.equal(validateQuestion(JSON.stringify(maxSafeQ)).ok, true);
+  const unsafeFramesObj = variant((q) => { q.deliverable.frames = Number.MAX_SAFE_INTEGER + 1; });
+  assert.equal(validateQuestion(unsafeFramesObj).ok, false);
+  assert.equal(validateQuestion(JSON.stringify(unsafeFramesObj)).ok, false);
+  assert.equal(validateQuestion(variant((q) => { q.budget.tokens = Number.MAX_SAFE_INTEGER + 1; })).ok, false);
+  assert.equal(validateQuestion(variant((q) => { q.deliverable.size = [Number.MAX_SAFE_INTEGER + 1, 824]; })).ok, false);
+
+  // 6) 契约通用口径：合法补充平面代理对通过，孤立高/低代理码元与 UTF-8 BOM 在对象与原文双入口均拒收
+  const emojiQ = variant((q) => { q.title = '测试 😀 镜头'; });
+  assert.equal(validateQuestion(emojiQ).ok, true);
+  assert.equal(validateQuestion(JSON.stringify(emojiQ).replace('😀', '\\uD83D\\uDE00')).ok, true);
+  for (const lone of ['标题\uD800尾', '标题\uDC00尾']) {
+    const loneQ = variant((q) => { q.title = lone; });
+    assert.equal(validateQuestion(loneQ).ok, false);
+  }
+  for (const rawLoneEsc of ['\\uD800', '\\uDFFF']) {
+    const rawJson = JSON.stringify(variant((q) => { q.title = '__SURR__'; })).replace('__SURR__', rawLoneEsc);
+    assert.equal(validateQuestion(rawJson).ok, false);
+  }
+  assert.equal(validateQuestion(`\uFEFF${JSON.stringify(q28)}`).ok, false);
+});

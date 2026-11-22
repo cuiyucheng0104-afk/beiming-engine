@@ -26,6 +26,7 @@ function leakCodes(text) {
   return leakPatterns.filter(([, pattern]) => pattern.test(plain)).map(([code]) => code);
 }
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const isDense = (slots, length) => Array.from({ length }, (_, i) => slots[i]).every((slot) => slot && 'value' in slot && slot.enumerable);
 const show = (v) => (typeof v === 'string' ? JSON.stringify(v) : typeof v);
 
 /* ---------------- 指标引用 ---------------- */
@@ -54,10 +55,17 @@ function scanObject(root) {
     active.add(value);
     // 和 toJsonData 一个读法：只看自有属性的描述符，取值器不调（它的值扫不到，记一条）；Symbol 键不是 JSON 数据，也记
     if (Object.getOwnPropertySymbols(value).length) leaks.push({ code: 'symbol-key', path: path || '/' });
-    for (const [key, slot] of Object.entries(Object.getOwnPropertyDescriptors(value))) {
+    const slots = Object.getOwnPropertyDescriptors(value);
+    const array = Array.isArray(value);
+    // 和 toJsonData 一个口径：数组的自有键只能是 length 加 0 到 length-1 的可枚举数据属性（键数先对上，下面那遍才有界）
+    if (array && (Object.keys(slots).length !== value.length + 1 || !isDense(slots, value.length))) leaks.push({ code: 'invalid-array', path: path || '/' });
+    for (const [key, slot] of Object.entries(slots)) {
+      if (array && key === 'length') continue;
       const bad = leakCodes(key);
       leaks.push(...bad.map((code) => ({ code, path: path || '/', field: 'key' })));
       const at = `${path}/${bad.length ? '[redacted]' : key.replaceAll('~', '~0').replaceAll('/', '~1')}`;
+      // 形状不对的照样往里扫：附加属性、不可枚举属性里的内容一样要报
+      if (!array && !slot.enumerable) leaks.push({ code: 'non-enumerable-property', path: at });
       if ('value' in slot) visit(slot.value, at);
       else leaks.push({ code: 'accessor-property', path: at });
     }
@@ -99,7 +107,8 @@ function scanText(text) {
 /**
  * 只回泄露的类型和位置，不回显命中的内容。
  * 给对象回 { code, path, field? }（键命中时 field 是 'key'，路径里那一段写成 [redacted]）；给原文回 { code, line }（行号从 1 起）。
- * 对象里扫不到的地方也记：取值器（不调它）是 accessor-property，Symbol 键是 symbol-key。
+ * 对象里扫不到或不是 JSON 形状的地方也记：取值器（不调它）是 accessor-property，Symbol 键是 symbol-key，
+ * 不可枚举属性是 non-enumerable-property，有空洞或带附加属性的数组是 invalid-array（里面的内容照扫）。
  */
 export const scanQuestionLeaks = (input) => (typeof input === 'string' ? scanText(input).leaks : scanObject(input));
 
@@ -112,7 +121,9 @@ function toJsonData(value, path = '', active = new Set()) {
     const message = `${path || '/'} ${why}`;
     throw new TypeError(leakCodes(message).length ? '[redacted] 不是 JSON 数据' : message);
   };
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  // 约定第 5 节的 JSON 文本口径：字符串和键都得是合法的 Unicode
+  if (typeof value === 'string') return value.isWellFormed() ? value : bad('含有不成对的代理码元');
+  if (value === null || typeof value === 'boolean') return value;
   if (typeof value === 'number') return Number.isFinite(value) ? value : bad('不是有限数');
   if (typeof value !== 'object') return bad(`不是 JSON 数据（${typeof value}）`);
   if (active.has(value)) return bad('有环');
@@ -125,6 +136,7 @@ function toJsonData(value, path = '', active = new Set()) {
   const slots = Object.getOwnPropertyDescriptors(value);
   const read = (key) => {
     const slot = slots[key];
+    if (!key.isWellFormed()) return bad('的键含有不成对的代理码元');
     if (!slot || !('value' in slot) || !slot.enumerable) return bad(`的 ${key} 不是数据属性`);
     return toJsonData(slot.value, `${path}/${key}`, active);
   };
@@ -183,6 +195,17 @@ const rules = {
     : [flags.expectedFail ? 'flags.expectedFail 是 true，blockedBy 至少写一项挡住它的东西' : 'flags.expectedFail 是 false，blockedBy 必须是空数组']),
 };
 
+// 结构定义里声明成 integer 的全部字段
+const integerFields = (q) => [
+  ['/level', q.level],
+  ['/deliverable/size/0', q.deliverable.size[0]],
+  ['/deliverable/size/1', q.deliverable.size[1]],
+  ['/deliverable/frames', q.deliverable.frames],
+  ['/budget/tokens', q.budget?.tokens],
+  ['/budget/wallMs', q.budget?.wallMs],
+  ['/calibration/version', q.calibration.version],
+];
+
 function inspect(input) {
   try {
     return check(input);
@@ -199,12 +222,12 @@ function check(input) {
   if (typeof input === 'string') {
     const { leaks, duplicates } = scanText(input);
     if (leaks.length) return stop({ leaks });
+    if (input.startsWith('\uFEFF')) return stop({ schemaErrors: ['/ 开头带了 BOM，不是合规的 RFC 8259 JSON 文本'] });
     try {
       data = JSON.parse(input);
-    } catch (error) {
-      // V8 的消息会回显出错处的原文（隐藏题的判分细则可能就在那儿），只取位置
-      const at = /position (\d+)/.exec(error.message);
-      return stop({ parseError: `无效的 JSON 语法${at ? `（位置 ${at[1]}）` : ''}`, schemaErrors: ['/ 不是有效的 JSON'] });
+    } catch {
+      // V8 的消息会回显出错处的原文（隐藏题的判分细则可能就在那儿），连位置也不取：原文里写一句 position 42 就能冒充
+      return stop({ parseError: '无效的 JSON 语法', schemaErrors: ['/ 不是有效的 JSON'] });
     }
     if (duplicates.length) return stop({ schemaErrors: duplicates });
   }
@@ -215,6 +238,9 @@ function check(input) {
     return stop({ schemaErrors: validateStructure.errors.map(({ instancePath, message, params }) =>
       `${instancePath || '/'} ${message}${params.additionalProperty === undefined ? '' : `：${JSON.stringify(params.additionalProperty)}`}`) });
   }
+  // 约定第 5 节的数值口径：整数要在安全整数范围内，Ajv 的 integer 只查 Number.isInteger
+  const unsafe = integerFields(question).filter(([, value]) => value !== undefined && !Number.isSafeInteger(value));
+  if (unsafe.length) return stop({ schemaErrors: unsafe.map(([path]) => `${path} 超出安全整数范围`) });
   for (const [id, rule] of Object.entries(rules)) {
     const problems = rule(question, { registries: { predicates: REGISTRY } });
     if (problems.length) result.violations[id] = problems;
