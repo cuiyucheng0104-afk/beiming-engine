@@ -669,6 +669,17 @@ test('六审：全表每个随机记号都有结构化区间，或登记在清�
   t.diagnostic(`随机记号 ${tokens} 个：结构化区间 ${structured} 条，例外 ${skipped.length} 个`);
 });
 
+// 七审（G_REV-R7）：点名 11 条从公开入口按指定的卡读；卡挂错了，按卡检索就是空。
+const NAMED_CARD = {
+  e32: 'audio.dsp', e42: 'audio.sfx-bank', e54: 'audio.voice-synth', e98: 'audio.sfx-bank', e112: 'audio.sfx-bank', e134: 'audio.music-seq',
+  e156: 'audio.sfx-bank', e230: 'audio.sfx-bank', e250: 'audio.sfx-bank', e259: 'audio.sfx-bank', e428: 'audio.voice-synth',
+};
+const namedQuantities = (sid) => {
+  const hit = getAudioSubsCardPriors(NAMED_CARD[sid]).filter((e) => e.sourceId === sid);
+  assert.equal(hit.length, 1, `${sid} 要能从 ${NAMED_CARD[sid]} 读到`);
+  return hit[0].quantities;
+};
+
 test('六审：点名 11 条与同类调用写法逐条按源式取区间', () => {
   // [区间, 单位, 外层乘数]；按原文出现的先后。区间 = 随机数取 0 与 1 时算式的两端。
   const want = {
@@ -688,13 +699,14 @@ test('六审：点名 11 条与同类调用写法逐条按源式取区间', () =
     e90: [[[850, 1050], 'Hz'], [[0.035, 0.055], 's']],
     e91: [[[330, 420], 'Hz']],
     e92: [[[290, 350], 'Hz'], [[760, 900], 'Hz'], [[0.32, 0.37], 's'], [[1350, 1550], 'Hz'], [[2050, 2170], 'Hz']],
-    e94: [[[2, 3], 'ratio'], [[0.18, 0.28], 's'], [[470, 560], 'Hz'], [[0.14, 0.26], 's']],
+    e94: [[[2, 3], 'count'], [[0.18, 0.28], 's'], [[470, 560], 'Hz'], [[0.14, 0.26], 's']], // 叫声次数是整数个数，不是比例（七审）
     e103: [[[3.1, 4.1], 'ms']],
     e137: [[[-1, 1], 'cent']], // detune ±随机(−1,1)
     e229: [[[0.98, 1.02], 'Hz', '61×1.205^k']], // 61×1.205^k×(1+(rnd−0.5)×0.04)
   };
   for (const [sid, rows] of Object.entries(want)) {
-    const got = quantitiesOf(sid).filter((q) => q.expr && 'jitter' in q);
+    const got = (NAMED_CARD[sid] ? namedQuantities(sid) : quantitiesOf(sid)).filter((q) => q.expr && 'jitter' in q);
+    assert.ok(got.length > 0, `${sid} 的 quantities 里要有随机区间`);
     assert.deepEqual(got.map((q) => [q.value, q.unit, ...(q.scaleBy ? [q.scaleBy] : [])]), rows, sid);
     for (const q of got) assert.deepEqual(q.value, [q.base, Math.round((q.base + q.jitter) * 1e6) / 1e6], `${sid} ${q.expr}`);
   }
@@ -710,4 +722,22 @@ test('六审：点名 11 条与同类调用写法逐条按源式取区间', () =
   // 对数均匀的两处（1500·5^rand、1900×5.6^((p+rnd)/96)）不出 base/jitter，原文写明的区间仍是一条量。
   assert.ok(quantitiesOf('e42').some((q) => q.unit === 'Hz' && q.value[0] === 1500 && q.value[1] === 7500));
   assert.ok(quantitiesOf('e228').some((q) => q.unit === 'Hz' && q.value[0] === 1900 && q.value[1] === 10640));
+});
+
+test('七审：离散个数记 count，点名五条挂到功能对应的卡并登记在清单', () => {
+  const calls = getAudioSubsCardPriors('audio.sfx-bank').find((e) => e.sourceId === 'e94').quantities.filter((q) => q.unit === 'count');
+  assert.deepEqual(calls, [{ value: [2, 3], unit: 'count', rawUnit: '次', base: 2, jitter: 1, expr: '2+floor(r()·2)', label: calls[0]?.label }]);
+  for (const e of coupledOrPractice) for (const q of e.quantities) {
+    // 取整的随机算式出的是个数；个数的两端都是整数。
+    if (q.expr && /floor|ceil|round/.test(q.expr)) assert.equal(q.unit, 'count', `${e.sourceId} ${q.expr}`);
+    if (q.unit === 'count') assert.ok([q.value].flat().every(Number.isInteger), `${e.sourceId} ${q.expr ?? q.value}`);
+  }
+  const moved = { e134: 'audio.music-seq', e156: 'audio.sfx-bank', e230: 'audio.sfx-bank', e250: 'audio.sfx-bank', e259: 'audio.sfx-bank' };
+  for (const [sid, cardId] of Object.entries(moved)) {
+    assert.equal(cardPriors.find((e) => e.sourceId === sid).cardId, cardId, sid);
+    assert.equal(getAudioSubsCardPriors('audio.music-gen').filter((e) => e.sourceId === sid).length, 0, `${sid} 不再挂配乐生成卡`);
+  }
+  assert.deepEqual(Object.fromEntries(manifest.cardOverrides.map((o) => [o.sourceId, o.cardId])), moved);
+  for (const o of manifest.cardOverrides) assert.ok(o.sectionCard === 'audio.music-gen' && o.reason.length >= 6, o.sourceId);
+  for (const sid of Object.keys(NAMED_CARD)) assert.ok(namedQuantities(sid).some((q) => 'jitter' in q), sid);
 });

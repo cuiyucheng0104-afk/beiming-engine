@@ -2393,12 +2393,12 @@
             2,
             3
           ],
-          "unit": "ratio",
-          "rawUnit": "无量纲",
+          "unit": "count",
+          "rawUnit": "次",
           "base": 2,
           "jitter": 1,
           "expr": "2+floor(r()·2)",
-          "label": "叫声个数（只取整数 2 或 3）"
+          "label": "叫声次数（只取整数 2 或 3）"
         },
         {
           "value": [
@@ -5771,7 +5771,7 @@
     {
       "id": "audio-subs.e134.card",
       "sourceId": "e134",
-      "cardId": "audio.music-gen",
+      "cardId": "audio.music-seq",
       "section": 8,
       "caseId": "case-13",
       "title": "拍→秒与渐慢",
@@ -6612,7 +6612,7 @@
     {
       "id": "audio-subs.e156.card",
       "sourceId": "e156",
-      "cardId": "audio.music-gen",
+      "cardId": "audio.sfx-bank",
       "section": 8,
       "caseId": "case-13",
       "title": "抄谱：头目战配乐提示音",
@@ -8318,7 +8318,7 @@
     {
       "id": "audio-subs.e230.card",
       "sourceId": "e230",
-      "cardId": "audio.music-gen",
+      "cardId": "audio.sfx-bank",
       "section": 9,
       "caseId": "case-ext01",
       "title": "铃/云铃",
@@ -9372,7 +9372,7 @@
     {
       "id": "audio-subs.e250.card",
       "sourceId": "e250",
-      "cardId": "audio.music-gen",
+      "cardId": "audio.sfx-bank",
       "section": 9,
       "caseId": "case-ext01",
       "title": "SPLASH-BEAM-BLAST-GONG 音效",
@@ -10025,7 +10025,7 @@
     {
       "id": "audio-subs.e259.card",
       "sourceId": "e259",
-      "cardId": "audio.music-gen",
+      "cardId": "audio.sfx-bank",
       "section": 9,
       "caseId": "case-02",
       "title": "共享素材库 makeBank",
