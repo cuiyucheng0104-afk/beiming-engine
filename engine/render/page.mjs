@@ -14,6 +14,8 @@
 // 出错不在这里退出进程：页面未捕获的异常、页面崩溃、着色器编译失败、WebGL 上下文丢失、缺本地文件（任何类型返回 ≥400 或
 // 请求失败）、访问外网，都记成 film 上的致命错误，check() 抛出（RenderError，错误码见 README「错误码」，带下一步提示）；
 // 等 READY 期间出错立刻失败，并先关掉这个浏览器再抛。退出码与清理交给调用方（still / video / shots）。
+// 片段补丁没命中算构建失败（lib/patch-check.mjs）：engine/shade 的着色器补丁找不到锚点时抛的错，不管是未捕获异常、render(t) 抛错，
+// 还是被页面接住后只打到控制台，都判 failure.shader-error；--allow-gl-errors 不放行。
 //
 // GPU：ANGLE 后端按 --angle / BEIMING_ANGLE / 平台默认选（macOS metal、Windows vulkan、Linux default），平台不对直接报错；
 //   --gpu required（默认，读 BEIMING_GPU）时落到软件渲染判失败（退出码 3）。浏览器与启动参数见 lib/gpu.mjs，
@@ -28,6 +30,7 @@ import { fileURLToPath } from 'url';
 import { createServer } from './lib/server.mjs';
 import { RenderError, EXIT } from './lib/errors.mjs';
 import { faultWatch, renderInfo } from './lib/inject.mjs';
+import { patchMiss } from './lib/patch-check.mjs';
 import {
   chromeArgs, chromeExecutable, defaultAngle, isSoftwareRenderer, SOFTWARE_RENDERER,
   resolveAngle, resolveGpuPolicy, launchBrowser, probeGpu, enforceGpu,
@@ -198,7 +201,7 @@ export async function openFilm(dir, {
       const where = String(e.stack ?? '').split('\n').slice(1, 3).map(s => s.trim()).join(' ← ');
       note(`[页面错误] ${e.message}`);
       log.error(`[页面错误] ${e.message}${where ? `（${where}）` : ''}`);
-      fail(new RenderError('failure.page-error', `页面错误：${e.message}${where ? `（${where}）` : ''}`, { hint: '页面脚本抛了未捕获的异常：按位置修好页面代码；用 node engine/render/still.mjs <目录> 0 单独复现' }));
+      fail(patchMiss(e.message) ?? new RenderError('failure.page-error', `页面错误：${e.message}${where ? `（${where}）` : ''}`, { hint: '页面脚本抛了未捕获的异常：按位置修好页面代码；用 node engine/render/still.mjs <目录> 0 单独复现' }));
     });
     page.on('crash', () => {
       note('[页面崩溃]');
@@ -210,6 +213,8 @@ export async function openFilm(dir, {
         note(`[页面] ${text.slice(0, 200)}`);
         return fail(new RenderError('failure.context-lost', `WebGL 上下文丢失：${text.slice(0, 160)}`, { hint: '显存不够、驱动重置（Windows TDR）或页面调用了 loseContext：减少 --workers 或尺寸，查共享 GPU 上的其他任务' }));
       }
+      const miss = patchMiss(text);   // 页面自己接住了补丁没命中的错、只打到控制台：照样判失败（不看消息类型，也不受 --allow-gl-errors 影响）
+      if (miss) { note(`[页面] ${text.slice(0, 300)}`); log.error(`[页面] ${text.slice(0, 300)}`); return fail(miss); }
       if (type === 'error' && SHADER_FATAL.test(text)) {
         note(`[页面] ${text.slice(0, 300)}`);
         log.error(`[页面] ${text.slice(0, 600)}`);
@@ -346,7 +351,7 @@ export async function renderFrame(film, t, { timeoutMs = frameTimeoutMs(), settl
     if (e instanceof RenderError || signal?.aborted) throw signal?.aborted ? signal.reason : e;
     film.check();
     const msg = String(e?.message ?? e).replace(/^page\.evaluate:\s*/, '').split('\n')[0];
-    throw new RenderError('failure.render-throw', `${where}render 出错：${msg}`, { hint: '页面的 render(t) 抛了异常：用 node engine/render/still.mjs <目录> --frame <帧号> 单独复现' });
+    throw patchMiss(msg, `${where}：`) ?? new RenderError('failure.render-throw', `${where}render 出错：${msg}`, { hint: '页面的 render(t) 抛了异常：用 node engine/render/still.mjs <目录> --frame <帧号> 单独复现' });
   } finally { clearTimeout(timer); }
   if (faults > 0) {
     throw new RenderError('failure.context-lost', `${where}：WebGL 上下文丢失`, { hint: '显存不够、驱动重置（Windows TDR）或页面调用了 loseContext：减少 --workers 或尺寸，查共享 GPU 上的其他任务' });

@@ -1,0 +1,35 @@
+<!doctype html>
+<!-- engine/look 的构建失败夹具（FX22：片段补丁没命中算构建失败）。一张能正常出片的最小影片页面：卡通材质 + 完整后期链。
+     ?corrupt=<改法> 在建材质之前把 three 的一段着色器原文改掉（改法见 engine/look/r187-look-regression.scene.mjs 的 CORRUPTIONS），
+     ?when= 决定补丁没命中的错误从哪里冒出来：
+       load（默认）  置 READY 之前预热一帧时抛（等同 film.run 的 warm）
+       frame         render(t) 里抛
+       console       render(t) 里被页面自己接住，只打到控制台（渲染器也必须判失败，不能出一张缺补丁的图）
+     期望：不带 corrupt 时渲染器正常出图、退出码 0；带 corrupt 时三种 when 都以非零码退出，报错里点名缺的锚点。
+     用法见 engine/look/r187-look-regression.test.mjs。 -->
+<html><head><meta charset="utf-8"><title>夹具：片段补丁没命中</title>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<style>html,body{margin:0;background:#000;overflow:hidden}</style>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { createLook } from '/engine/look/index.js';
+import { build, corrupt, P_BASE } from '/engine/look/r187-look-regression.scene.mjs';
+
+const q = new URLSearchParams(location.search), when = q.get('when') || 'load';
+const W = innerWidth, H = innerHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+if (q.get('corrupt')) corrupt(q.get('corrupt'));
+const look = createLook(renderer, W, H, { refHeight: H, fps: 24 });
+let part = null;
+const draw = t => { part ??= build(); part.camera.aspect = W / H; part.camera.updateProjectionMatrix(); look.render(part.scene, part.camera, { ...P_BASE, t }); };
+window.DUR = 1; window.FPS = window.__RENDER?.fps ?? 24;
+window.render = t => { if (when !== 'console') return draw(t); try { draw(t); } catch (e) { console.error(e.message); } };
+await look.ready;
+if (when === 'load') draw(0);
+window.READY = true;
+</script>
+</body></html>

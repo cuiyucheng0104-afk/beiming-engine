@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { colorOf } from './patch.js';
+import { colorOf, inject, patchVertex, quantizeShadow, makeDepthMaterial } from './patch.js';
 import { toonKind, tintFrom } from './toon.js';
 import { muralLayer } from './surface.js';
 
@@ -70,4 +70,35 @@ test('R37 壁画层：分支只按 uniform 判断，toonMuralK 只进风化量�
   // 分支内部不能再有依赖逐像素量的 if（fwidth 都在一致控制流里）
   const body = post.slice(post.indexOf('{') + 1, post.lastIndexOf('}'));
   assert.doesNotMatch(body, /\bif\s*\(/);
+});
+
+test('FX22 片段补丁没命中直接抛错：inject / patchVertex / quantizeShadow 的锚点被改掉时点名缺的锚点，不出没打补丁的着色器', () => {
+  const lib = THREE.ShaderLib.toon, who = 'fx22', gone = '/* 上游改了这一段 */';
+  const missing = anchor => new RegExp(`fx22：着色器锚点缺失「${anchor.slice(0, 60).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}」`);
+  // inject：三种插法都先核锚点
+  for (const mode of ['after', 'before', 'replace']) assert.throws(() => inject(lib.fragmentShader.replace('#include <color_fragment>', gone), '#include <color_fragment>', 'x', mode, who), missing('#include <color_fragment>'));
+  // patchVertex：五个锚点逐个改掉，都报；给了 vertexNormal 钩子时 #include <beginnormal_vertex> 也算（以前这一处悄悄跳过）
+  const hooks = { vertexPars: 'uniform float uFx;\n', vertexMainStart: 'float fxT = 0.0;\n', vertexNormal: 'objectNormal = normalize( objectNormal );\n', vertexBegin: 'transformed.x += uFx;\n' }, own = { project: 'fxT = 1.0;' };
+  const patched = patchVertex(lib.vertexShader, hooks, own, who);
+  for (const code of [...Object.values(hooks), own.project]) assert.ok(patched.includes(code), `补丁没打进去：${code}`);
+  for (const anchor of ['#include <common>', 'void main() {', '#include <beginnormal_vertex>', '#include <begin_vertex>', '#include <project_vertex>'])
+    assert.throws(() => patchVertex(lib.vertexShader.replace(anchor, gone), hooks, own, who), missing(anchor));
+  assert.ok(patchVertex(lib.vertexShader.replace('#include <beginnormal_vertex>', gone), { ...hooks, vertexNormal: '' }, own, who).includes(hooks.vertexBegin), '没给 vertexNormal 钩子的不要求有这个锚点');
+  // quantizeShadow：片元里的 #include、投影块里 getShadow 的返回写法、软阴影采样核，三处任何一处对不上都报
+  assert.throws(() => quantizeShadow(lib.fragmentShader.replace('#include <shadowmap_pars_fragment>', gone), 'a', 'b', who), missing('#include <shadowmap_pars_fragment>'));
+  const keep = THREE.ShaderChunk.shadowmap_pars_fragment;
+  try {
+    THREE.ShaderChunk.shadowmap_pars_fragment = keep.replaceAll('return mix( 1.0, shadow, shadowIntensity );', 'return mix(1.0, shadow, shadowIntensity);');
+    assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：投影量化锚点缺失/);
+    THREE.ShaderChunk.shadowmap_pars_fragment = keep.replaceAll('SHADOWMAP_TYPE_PCF_SOFT', 'SHADOWMAP_TYPE_SOFT_PCF');   // 既不是 r187 的写法，也没有 r170 自带的软阴影核
+    assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：软阴影采样锚点缺失（three r170）：SHADOWMAP_TYPE_PCF_SOFT/);
+  } finally { THREE.ShaderChunk.shadowmap_pars_fragment = keep; }
+  assert.match(quantizeShadow(lib.fragmentShader, 'a', 'b', who), /smoothstep\( a, b, shadow \)/, '原样的 r170 投影块照常量化');
+  // 整个材质：卡通材质与阴影深度材质的 onBeforeCompile 在原文被改掉时同步抛出（WebGLRenderer 编译前调的就是它）
+  const shaderOf = (l, edit = x => x) => ({ uniforms: {}, defines: {}, vertexShader: edit(l.vertexShader), fragmentShader: edit(l.fragmentShader) });
+  const kind = toonKind({ name: 'fx22' }), mat = kind.make({ vertexBegin: 'transformed.y += 0.1;\n' }), depth = makeDepthMaterial({ hooks: { vertexBegin: 'transformed.y += 0.1;\n' }, who });
+  assert.doesNotThrow(() => { mat.onBeforeCompile(shaderOf(lib)); depth.onBeforeCompile(shaderOf(THREE.ShaderLib.depth)); });
+  const light = 'vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;';
+  assert.throws(() => mat.onBeforeCompile(shaderOf(lib, x => x.replace(light, light.replace('directDiffuse + reflectedLight.indirectDiffuse', 'indirectDiffuse + reflectedLight.directDiffuse')))), missing(light));
+  assert.throws(() => depth.onBeforeCompile(shaderOf(THREE.ShaderLib.depth, x => x.replace('#include <begin_vertex>', THREE.ShaderChunk.begin_vertex))), missing('#include <begin_vertex>'));
 });

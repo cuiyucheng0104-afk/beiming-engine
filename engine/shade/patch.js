@@ -1,5 +1,7 @@
 // 北冥引擎 · 内置材质补丁：往 three（r170 / r187）的内置材质（MeshToonMaterial、MeshDepthMaterial…）里注入自定义着色器片段。
 // 锚点逐条校验，缺失直接报错（three 升级后不会悄悄失效）；同一组钩子共用一个程序缓存键。
+// 片段补丁没命中算构建失败：这里抛的错在 material.onBeforeCompile 里同步冒出 renderer.compile / render，渲染器（engine/render/lib/patch-check.mjs）
+// 认它的文字判 failure.shader-error；改报错写法要同步那边的 PATCH_MISS。
 //
 //   inject(src, anchor, code, mode, who)   在锚点后（'after'）/ 前（'before'）插入，或整段替换（'replace'）；who 用于报错
 //   strHash(s) / programKey(prefix, parts)  程序缓存键：前缀 | 各段源码拼起来的哈希
@@ -7,9 +9,11 @@
 //                                           '#hex' / 0xhex / THREE.Color / [r, g, b]（sRGB 0..1，与 engine/look/params.js 的 toColor 同一约定）；
 //                                           空值 = 白；别的类型直接报错（three 的 Color.set 遇到不认识的值会静默保持白色）
 //   patchVertex(src, hooks, own, who)       顶点钩子 vertexPars / vertexMainStart / vertexNormal（改 objectNormal）/ vertexBegin（改 transformed）；
-//                                           own = { head, begin, project } 是材质自己的声明与赋值，排在同位置的钩子前面
+//                                           own = { head, begin, project } 是材质自己的声明与赋值，排在同位置的钩子前面；
+//                                           给了 vertexNormal 而着色器里没有 #include <beginnormal_vertex> 也报错（不给这个钩子的不要求有它）
 //   quantizeShadow(frag, lo, hi, who)       投影量化：getShadow 的返回值过 smoothstep( lo, hi )（lo / hi 是 GLSL 表达式）；
-//                                           r187 下顺带把 PCF 采样核换回 r170 PCFSoftShadowMap 的核（投影边缘两版一致）
+//                                           r187 下顺带把 PCF 采样核换回 r170 PCFSoftShadowMap 的核（投影边缘两版一致）；
+//                                           投影块既不是 r187 的写法、也没有 r170 自带的软阴影核时报错（不按没换核的样子出图）
 //   hasVertexHooks(hooks)                   有没有会改形体的顶点钩子（vertexPars / vertexMainStart / vertexBegin）
 //   makeDepthMaterial({ hooks, uniforms, defines, key, side, who })   带同样顶点形变的阴影深度材质，投影才跟形体对得上
 //   bindPatched(mesh, mat, { castShadow, receiveShadow, outline, depth, id, weight, perInstance })
@@ -43,7 +47,7 @@ export function patchVertex(src, h, own = {}, who) {
   let s = src;
   s = inject(s, '#include <common>', (own.head || '') + (h.vertexPars || ''), 'after', who);
   s = inject(s, 'void main() {', h.vertexMainStart || '', 'after', who);
-  if (s.includes('#include <beginnormal_vertex>') && h.vertexNormal) s = inject(s, '#include <beginnormal_vertex>', h.vertexNormal, 'after', who);
+  if (h.vertexNormal) s = inject(s, '#include <beginnormal_vertex>', h.vertexNormal, 'after', who);
   s = inject(s, '#include <begin_vertex>', (own.begin || '') + (h.vertexBegin || ''), 'after', who);
   if (own.project) s = inject(s, '#include <project_vertex>', own.project, 'after', who);
   return s;
@@ -69,7 +73,7 @@ export function quantizeShadow(frag, lo, hi, who = 'patch.js') {
   if (sm.includes('sampler2DShadow shadowMap')) {   // r187 这一路；r170 的块里没有它，下面的替换与以前逐字相同
     if (!PCF_VOGEL.test(sm)) throw new Error(`${who}：软阴影采样锚点缺失（three r${THREE.REVISION}）：vogelDiskSample( 0, 5, phi )`);
     sm = sm.replace(PCF_VOGEL, () => PCF_SOFT_R170);
-  }
+  } else if (!sm.includes('SHADOWMAP_TYPE_PCF_SOFT')) throw new Error(`${who}：软阴影采样锚点缺失（three r${THREE.REVISION}）：SHADOWMAP_TYPE_PCF_SOFT`);   // r170 这一路靠块里自带的软阴影核
   return inject(frag, '#include <shadowmap_pars_fragment>', sm.replaceAll(SHADOW_ANCHOR, `return mix( 1.0, smoothstep( ${lo}, ${hi}, shadow ), shadowIntensity );`), 'replace', who);
 }
 
