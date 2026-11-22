@@ -16,7 +16,7 @@
        line 写在行注释里、dead 写在预处理死分支里（补丁照样要落在原来那一条上，出的图与不带参数时一样）；
        hide-splice / hide-unroll 在死分支里把片元补丁要找的几处原文全写一遍，再把后面原来的那几处盖住（前者用一段带行续接的合法注释
        「/* *\换行/」，后者把「/*」放进 three 会整段删掉的 0 次循环里）：补丁不能落进死分支，要么构建失败、要么图与正常帧相同；
-       off 把着色器里生效的那一条注释掉。dead-only 把唯一的投影锚点放进 #if 0，#else 中展开原始投影块，两种都应使构建失败。
+       off 把生效的投影锚点注释掉。dead-only 把唯一锚点放进 #if 0，带 expr=1 时条件为 (0x0 || 0)。#else 中展开原始投影块，两种死分支都应使构建失败。
      ?junk=1 赶在 patch.js 之前往渲染器的登记口塞只回空消息的读出口（直接塞函数、塞一个自造模块的地址）：挡不住后面真的补丁错。
      ?csp=1 页面给自己加一条 CSP（connect-src 'none'，在取好 ?patch=blob 的原文之后）：页面里取不到任何地址的源码，patch.js 换个地址
        （#片段、//patch.js、blob:）另起的实例记的错照样要读到（渲染器在自己这边按响应内容认模块）。
@@ -69,7 +69,10 @@ if (q.get('forge')) {
 const FAKES = `#if 0\n${INC}\n#include <color_fragment>\n#include <normal_fragment_maps>\nvec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;\n#include <dithering_fragment>\n#endif\n`;
 const PARS = { block: `/* ${INC} */\n`, line: `// ${INC}\n`, dead: `#if 0\n${INC}\n#endif\n`, 'hide-splice': FAKES + '/* *\\\n/\n',
   'hide-unroll': FAKES + '#pragma unroll_loop_start\nfor ( int i = 0; i < 0; i ++ ) {\n/*\n}\n#pragma unroll_loop_end\n' }[q.get('pars')];
-if (q.get('pars') === 'dead-only') THREE.ShaderLib.toon.fragmentShader = THREE.ShaderLib.toon.fragmentShader.replace(INC, () => `#if 0\n${INC}\n#else\n${THREE.ShaderChunk.shadowmap_pars_fragment}\n#endif`);
+if (q.get('pars') === 'dead-only') {
+  const condition = q.get('expr') === '1' ? '(0x0 || 0)' : '0';
+  THREE.ShaderLib.toon.fragmentShader = THREE.ShaderLib.toon.fragmentShader.replace(INC, () => `#if ${condition}\n${INC}\n#else\n${THREE.ShaderChunk.shadowmap_pars_fragment}\n#endif`);
+}
 if (q.get('pars') === 'off') THREE.ShaderLib.toon.fragmentShader = THREE.ShaderLib.toon.fragmentShader.replace(INC, '// ' + INC);
 const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;

@@ -8,7 +8,7 @@
 // 渲染器靠这个前缀认未捕获的异常与 console.error。
 //
 //   inject(src, anchor, code, mode, who)   在锚点后（'after'）/ 前（'before'）插入，或整段替换（'replace'）；who 用于报错。
-//                                           锚点只认生效代码里的：// 与 /* */ 注释里的不算；#include 按 three 自己展开它的写法认（行首）；
+//                                           锚点必须能确认生效：注释、常量死分支内的不算；仅在未知编译条件内出现也报错。#include 按 three 的行首规则认；
 //                                           以前的 inject 插进去的文本（材质钩子、引擎自己的片段）里的也不算：接着上一次的结果再打补丁时，
 //                                           锚点只在原来的着色器里找。生效的一处都没有、或者不止一处（分不出哪一处真的生效）都报错
 //   inject.patchErrors() → [{ fn, anchor, message }]   本页至今记下的补丁错误（副本，只读、不可改写）；挂在 inject 上而不是新导出：
@@ -51,43 +51,68 @@ class ShaderPatchError extends Error {   // 不导出：别的模块按 name 认
 // 生效的那一条原样留着、画面错了却没有任何报错。所以 // 与 /* */ 注释里的不算（GLSL 没有字符串，注释按先后认；GLSL ES 3.00 先把
 // 「反斜杠 + 换行」接起来再认注释，注释记号中间、行注释末尾夹着行续接的照它的规矩认）；
 // #include 照 three 展开它的正则认（WebGLProgram.js 的 includePattern：顶着行首，前面只许空格 / 制表符，include 后可以不止一个空格）。
-const COMMENT = /\/(?:\\\r?\n)*\/(?:\\\r?\n|[^\n])*|\/(?:\\\r?\n)*\*[\s\S]*?(?:\*(?:\\\r?\n)*\/|$)/g, literal = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const COMMENT = /\/(?:\\(?:\r\n|[\r\n]))*\/(?:\\(?:\r\n|[\r\n])|[^\r\n])*|\/(?:\\(?:\r\n|[\r\n]))*\*[\s\S]*?(?:\*(?:\\(?:\r\n|[\r\n]))*\/|$)/g, literal = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// 只排除能由常量确定的分支。宏值要到编译时才知道，未知条件两边都保留。
-function deadPreprocessorSpans(masked) {
-  const stack = [], spans = [];
-  let dead = false;
-  for (const line of masked.matchAll(/(?:\\\r?\n|[^\n])+/g)) {
-    const logical = line[0].replace(/\\\r?\n/g, '');
+// 只算整数和布尔常量的 !、&&、|| 与括号。其余表达式不猜：即使只有一个命中，也不能向可能关闭的分支打补丁。
+const NEVER = 0, MAYBE = 1, ALWAYS = 2;
+function conditionOf(expr) {
+  const tokens = expr.match(/\w+|&&|\|\||\S/g) ?? [];
+  let i = 0;
+  function atom(depth) {
+    if (depth > 64) return NaN;
+    const t = tokens[i++];
+    if (t === '(') { const v = or(depth + 1); return tokens[i++] === ')' ? v : NaN; }
+    if (t === '!') return 1 - atom(depth + 1);
+    if (t === 'true' || t === 'false') return Number(t === 'true');
+    if (!/^(?:0x[\da-f]+|0[0-7]*|[1-9]\d*)u?$/i.test(t)) return NaN;
+    return Number(!/^0(?:x0+|0*)u?$/i.test(t));
+  }
+  function and(depth) {
+    let v = atom(depth);
+    while (tokens[i] === '&&') { i++; v = Math.min(v, atom(depth)); }
+    return v;
+  }
+  function or(depth) {
+    let v = and(depth);
+    while (tokens[i] === '||') { i++; v = Math.max(v, and(depth)); }
+    return v;
+  }
+  const v = or(0);
+  return i === tokens.length && !Number.isNaN(v) ? v * ALWAYS : MAYBE;
+}
+
+function preprocessorSpans(masked, dead, uncertain) {
+  const stack = [];
+  let state = ALWAYS;
+  for (const line of masked.matchAll(/(?:\\(?:\r\n|[\r\n])|[^\r\n])+/g)) {
+    const logical = line[0].replace(/\\(?:\r\n|[\r\n])/g, '');
     const directive = /^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)/.exec(logical);
     if (!directive) {
-      if (dead) spans.push([line.index, line.index + line[0].length]);
+      if (state !== ALWAYS) (state === NEVER ? dead : uncertain).push([line.index, line.index + line[0].length]);
       continue;
     }
     const [, op, rest] = directive;
-    if (op === 'endif') {
-      dead = stack.pop()?.parentDead ?? false;
-      continue;
-    }
-    if (op === 'if' || op === 'ifdef' || op === 'ifndef') stack.push({ parentDead: dead, taken: false });
+    if (op === 'endif') { state = stack.pop()?.parent ?? ALWAYS; continue; }
+    if (op === 'if' || op === 'ifdef' || op === 'ifndef') stack.push({ parent: state, remaining: state });
     const branch = stack.at(-1);
     if (!branch) continue;
-    const condition = op === 'if' || op === 'elif' ? rest.trim() : '';
-    dead = branch.parentDead || branch.taken || /^(?:0+|false)$/.test(condition);
-    if (op === 'else' || /^(?:1|true)$/.test(condition)) branch.taken = true;
+    const condition = op === 'else' ? ALWAYS : op === 'if' || op === 'elif' ? conditionOf(rest) : MAYBE;
+    state = Math.min(branch.remaining, condition);
+    branch.remaining = Math.min(branch.remaining, ALWAYS - condition);   // 只有此前所有分支都没选中，才可能进入后续分支
   }
-  return spans;
 }
 
 function activeAnchors(src, anchor) {
   const inc = /^#include <([\w./]+)>$/.exec(anchor), dead = [];
   const masked = src.replace(COMMENT, (comment, start) => {
     dead.push([start, start + comment.length]);
-    return comment.replace(/\\\r?\n|[^\r\n]/g, c => c.endsWith('\n') ? c : ' ');
+    return comment.replace(/\\(?:\r\n|[\r\n])|[^\r\n]/g, c => c.length > 1 ? c : ' ');
   });
-  const excluded = dead.concat(deadPreprocessorSpans(masked));
+  const uncertain = [];
+  preprocessorSpans(masked, dead, uncertain);
+  const within = (spans, index) => spans.some(([a, b]) => a <= index && index < b);
   const re = inc ? new RegExp(`(?<=^[ \\t]*)#include +<${literal(inc[1])}>`, 'gm') : new RegExp(literal(anchor), 'g');
-  return [...src.matchAll(re)].filter(m => !excluded.some(([a, b]) => a <= m.index && m.index < b));
+  return [...src.matchAll(re)].filter(m => !within(dead, m.index)).map(m => ({ index: m.index, hit: m[0], uncertain: within(uncertain, m.index) }));
 }
 
 // 以前的 inject 交出去的文本 → 里面哪些区间是补丁插进去的 [[起, 止), …]。接着它再打补丁时这些区间里不找锚点：材质钩子的文本是调用方给的，
@@ -99,7 +124,8 @@ export function inject(src, anchor, code, mode = 'after', who = 'patch.js') {
   const mine = INJECTED.get(src) ?? [], hits = activeAnchors(src, anchor).filter(m => !mine.some(([a, b]) => m.index >= a && m.index < b)), name = `「${anchor.slice(0, 60)}」`, rev = `three r${THREE.REVISION}，本模块支持 ${SUPPORTED}`;
   if (!hits.length) throw new ShaderPatchError('inject', who, anchor, `着色器锚点缺失${name}（${rev}）`);
   if (hits.length > 1) throw new ShaderPatchError('inject', who, anchor, `着色器锚点不唯一${name}：生效代码里有 ${hits.length} 处，分不出补丁该打在哪一处（${rev}）`);
-  const [{ index, 0: hit }] = hits;
+  const [{ index, hit, uncertain }] = hits;
+  if (uncertain) throw new ShaderPatchError('inject', who, anchor, `无法确认着色器锚点${name}所在的条件分支生效（${rev}）`);
   // 在 at 处去掉 cut 个字符、放进 put
   const at = mode === 'after' ? index + hit.length : index, cut = mode === 'replace' ? hit.length : 0, put = mode === 'after' ? '\n' + code : mode === 'before' ? code + '\n' : code;
   const out = src.slice(0, at) + put + src.slice(at + cut);

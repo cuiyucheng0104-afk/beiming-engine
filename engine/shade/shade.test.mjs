@@ -193,6 +193,19 @@ test('FX22 原始着色器的常量死分支里有唯一投影锚点时抛错，
   ]) assert.equal(inject(before + inc + after, inc, 'X', 'replace'), before + 'X' + after);
 });
 
+test('FX22 唯一命中也要证明分支生效：常量表达式、未知宏及其后续分支', () => {
+  const inc = '#include <common>', put = src => inject(src, inc, 'X', 'replace');
+  for (const condition of ['(0)', '0 || 0', '0x0', '!(1 && (0 || 1))']) {
+    const disabled = `#if ${condition}\n${inc}\n#endif`;
+    assert.throws(() => put(disabled), /着色器锚点缺失/, condition);
+    assert.equal(put(`${disabled}\n${inc}`), `${disabled}\nX`, condition);
+  }
+  for (const guard of ['#ifdef FLAG', '#ifndef FLAG', '#if FLAG\n#else', '#if FLAG\n#elif 1', '#if (2 + 3) == 5']) {
+    assert.throws(() => put(`${guard}\n${inc}\n#endif`), /无法确认.*生效/, guard);
+  }
+  assert.equal(put(`#if 0x1 && (!0 || 0)\n${inc}\n#endif`), '#if 0x1 && (!0 || 0)\nX\n#endif');
+});
+
 test('FX22 以前的补丁插进去的文本里不找锚点：材质钩子在死分支里另写一套锚点、再把原来的盖住，补丁不落进死分支；投影块整个没了也报补丁错', () => {
   const frag = THREE.ShaderLib.toon.fragmentShader, INC = '#include <shadowmap_pars_fragment>', who = 'fx22', Q = 'smoothstep( a, b, shadow )';
   const clean = quantizeShadow(frag, 'a', 'b', who), withPars = pars => clean.replace('#include <common>', () => '#include <common>\n' + pars);
