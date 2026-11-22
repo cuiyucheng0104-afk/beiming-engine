@@ -722,7 +722,7 @@ test('A9-22 {name} 后面还有固定路径段时产物名整段转义：签发�
   assert.deepEqual(readFileSync(out), PNG);
 });
 
-test('A9-23 产物名里带 # 或 ? 照样认图片：默认路由和 {name}/download 后缀路由下，直接调、全文里的引用自动取图、命令行落盘都交回完整的 PNG', { timeout: 60000 }, async () => {
+test('A9-23 产物名里带 # 照样认图片：默认路由和 {name}/download 后缀路由下，直接调、全文里的引用自动取图、命令行落盘都交回完整的 PNG', { timeout: 60000 }, async () => {
   const name = 'sheets/rev1-draft/contact#2.png';
   const image = [{ type: 'image', data: PNG.toString('base64'), mimeType: 'image/png' }];
   const blocksOf = (result) => result.content.filter((c) => c.type === 'image');
@@ -764,6 +764,27 @@ test('A9-23 产物名里带 # 或 ? 照样认图片：默认路由和 {name}/dow
   const thumb = { id: 'thumb', method: 'GET', path: '/v1/thumbs/{file}', auth: 'account', tokens: null, binary: true, summary: '动态测试路由', params: { file: { type: 'string' } }, query: { w: { type: 'integer' } } };
   const viaStub = callVia(createMcpSession({ baseUrl: 'http://stub.invalid', token: 'acct', routes: [...ROUTES, thumb], fetchImpl: async () => png() }));
   assert.deepEqual(blocksOf(await viaStub('thumb', { file: 'cut#1.png', w: 64 })), image);
+});
+
+test('A9-24 产物名里带 ? 过不了工作区的跨平台路径规则：默认路由和 {name}/download 后缀路由下，两个薄壳把真实服务的 HTTP 422 contract.bad-path 原样交回，不出图、不落盘', { timeout: 60000 }, async () => {
+  const name = 'sheets/rev1-draft/contact?2.png';
+  const call = callVia(createMcpSession({ baseUrl: api.url, token: account }));
+  const made = textOf(await call('films-create', { body: {} })).data;
+  for (const template of [ROUTES.find((r) => r.id === 'artifacts').path, SUFFIXED]) {
+    await withArtifactsPath(template, async () => {
+      const ref = artifactUrl(ROUTES, made.film, name);
+      assert.match(ref, /contact%3F2\.png(\/download)?$/, '? 在地址里是 %3F，不当查询串发出去');
+      // 拒收的是服务端的工作区路径规则（safePath），不是薄壳：直接请求同一个地址也是 422。
+      assert.equal((await fetch(api.url + ref, { headers: { authorization: `Bearer ${made.token}` } })).status, 422, template);
+      const direct = await call('artifacts', { id: made.film, name });
+      const body = textOf(direct);
+      assert.deepEqual([direct.isError, direct.content.filter((c) => c.type === 'image').length, body.ok, body.exitCode, body.error.code], [true, 0, false, 4, 'contract.bad-path'], `${template}：MCP 交回完整的失败信封`);
+      const out = join(root, 'a9-24.png');
+      let line = '';
+      assert.equal(await runApiCli(['artifacts', '--id', made.film, '--name', name, '--out', out, '--url', api.url, '--token', made.token], { env: {}, stdout: { write(text) { line += text; } } }), 4, `${template}：contract. 前缀退出 4`);
+      assert.deepEqual([JSON.parse(line).ok, JSON.parse(line).error.code, existsSync(out)], [false, 'contract.bad-path', false], `${template}：命令行交回同一个错误码，不留文件`);
+    });
+  }
 });
 
 test('A9-18 批量取图逐张容错：中间一张断流或连不上，后面的图照样取回，坏的那张留下带地址的诊断', async () => {

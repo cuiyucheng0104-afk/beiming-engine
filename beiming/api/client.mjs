@@ -10,6 +10,7 @@ export const sha256Hex = (bytes) => createHash('sha256').update(bytes).digest('h
 /**
  * 响应是不是图片：先看 content-type，再看产物名末尾的扩展名（服务端的产物一律回 application/octet-stream）。不是图片交回 null。
  * name 是解码后的产物名，不是地址：名字里的 # 和 ? 是字面量（contact#2.png），不能当地址分隔符截掉。
+ * 工作区产物名本身不许带 ?（safePath 回 422 contract.bad-path）；这里不重复那条规则，只认扩展名。
  */
 export function imageMime(contentType, name = '') {
   const type = String(contentType ?? '').split(';')[0].trim().toLowerCase();
