@@ -10,7 +10,7 @@
   ErbTakes(device='auto', exact=8, vary=1.0, candidates=4, tol_db=1.5, judge='foley_snap', cache_dir=None)
     .want(cue, sources, events)                 登记一个 cue：sources 是一到几段来源声音（(n,) 或 (n, 2)），events 个事件；事件 k 取第 k % len(sources) 段来源
     .render() → {cue: [(波形, 元信息), …]}      整片的全部任务合并成一次 erb.render_many（CUDA 只初始化一次）；没有 GPU 或显存不够时 engine/audio/erb 自动走 CPU
-    .report                                      {jobs, candidates, cached, rendered, fallback, device, initMs（GPU 探测/首次编译）, cacheMs, analyzeMs, renderMs, gateMs}
+    .report                                      {jobs, candidates, cached, rendered, fallback, device（全部 take 同一设备时是它，否则 'mixed'）, devices（{设备: 条数}）, initMs（GPU 探测/首次编译）, cacheMs, analyzeMs, renderMs, gateMs}
 
 保真闸：vary=1 的抖动（时长、尺寸、音色倾斜）本来就会让个别 take 的带宽或高频偏离来源，所以每个事件渲 candidates 个候选（候选序号 0.. 即种子的第三个参数，
 全部在同一次批量里），按序取第一个同时满足「bw95、>12 kHz 占比、>12 kHz 能量相对来源的偏差都小于 tol_db，且过 sfx_judge（原型 judge）」的；
@@ -223,7 +223,11 @@ class ErbTakes:
                 self._save(key, inputs, y, meta)
                 out[cue][e] = (np.asarray(y, dtype=np.float32), dict(meta, cached=False))
             t4 = time.perf_counter()
+        counts = {}                                         # 每条 take 实际来自哪台设备（命中的缓存可能是上次退回 CPU 时写的）
+        for v in out.values():
+            for _, m in v:
+                counts[m['device']] = counts.get(m['device'], 0) + 1
         self.report = {'jobs': hits + len(pending), 'candidates': ncand, 'cached': hits, 'rendered': len(pending), 'fallback': nfall,
-                       'device': used, 'initMs': round(1e3 * (t0 - t00), 1), 'cacheMs': round(1e3 * (t1 - t0), 1),
+                       'device': next(iter(counts)) if len(counts) == 1 else ('mixed' if counts else used), 'devices': counts, 'initMs': round(1e3 * (t0 - t00), 1), 'cacheMs': round(1e3 * (t1 - t0), 1),
                        'analyzeMs': round(1e3 * (t2 - t1), 1), 'renderMs': round(1e3 * (t3 - t2), 1), 'gateMs': round(1e3 * (t4 - t3), 1)}
         return out

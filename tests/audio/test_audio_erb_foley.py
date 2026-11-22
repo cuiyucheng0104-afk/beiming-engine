@@ -209,6 +209,32 @@ class RenderTests(unittest.TestCase):
                     self.assertEqual(meta['judge'], 'pass')
                     self.assertLess(max(abs(v) for v in fid.values()), 1.5, (cue, e, fid))
         self.assertEqual(self.a.report['fallback'], sum(m['gate'] == 'fallback' for c in self.ra.values() for _, m in c))
+        # 夹具在 CPU 上是确定的：钉住哪几条过闸，_gate 退化成永远不过（或永远过）时这里会失败
+        gates = {c: [m['gate'] for _, m in v] for c, v in self.ra.items()}
+        self.assertEqual(gates, {'q': ['fallback', 'pass', 'fallback'], 'm': ['pass', 'pass']})
+        self.assertEqual(self.a.report['fallback'], 2)
+
+    def test_gate_skips_failing_candidates_and_takes_the_first_pass(self):
+        # 不真渲染：render_many 与 _gate 都换成假的，候选 0 不过、候选 1 过 → 必须选 attempt 1；全不过 → 取偏差最小的 fallback
+        cands = [np.full_like(SRCS[0], 0.01 * (i + 1)) for i in range(3)]
+        for seq, want in (([(False, 3.0), (True, 0.1), (True, 0.2)], (1, 'pass')),
+                          ([(False, 3.0), (False, 0.5), (False, 2.0)], (1, 'fallback')),
+                          ([(True, 0.3), (True, 0.1), (True, 0.1)], (0, 'pass'))):
+            it = iter(seq)
+            calls = []
+
+            def gate(y, src):
+                ok, d = next(it)
+                calls.append(float(y.flat[0]))
+                return ok, {'bw95_db': d, 'hf12_db': 0.0, 'hf12_energy_db': 0.0}, 'pass' if ok else 'suspect'
+            t = erb_foley.ErbTakes(device='cpu', exact=1, candidates=3).want('q', [SRCS[0]], events=1)
+            with mock.patch.object(erb_foley.erb, 'render_many', side_effect=lambda jobs, device: cands[:len(jobs)]), \
+                    mock.patch.object(t, '_gate', side_effect=gate):
+                w, meta = t.render()['q'][0]
+            self.assertEqual((meta['attempt'], meta['gate']), want, seq)
+            self.assertTrue(np.array_equal(w, cands[want[0]]))
+            self.assertEqual(meta['seed'], erb_foley.take_seed('q', 0, want[0]))
+            self.assertEqual(len(calls), want[0] + 1 if want[1] == 'pass' else 3, '过了就停，不再评后面的候选')
 
     def test_cache_hits_match_and_keep_meta_and_new_events_render_alone(self):
         b = make(self.cache, events=5)                     # 多了两个事件：已有事件命中缓存，只渲新的
@@ -256,8 +282,19 @@ class FallbackAndDeviceTests(unittest.TestCase):
         with mock.patch.object(erb_foley.erb.gpu, 'available', return_value=True), \
                 mock.patch.object(erb_foley.erb, 'render_many', side_effect=AssertionError('应当命中 CPU 缓存')):
             t = self.mk('auto')
-            t.render()
+            out = t.render()
         self.assertEqual(t.report['cached'], 1)
+        self.assertEqual(out['q'][0][1]['device'], 'cpu')
+        self.assertEqual((t.report['device'], t.report['devices']), ('cpu', {'cpu': 1}), '全部命中 CPU 缓存时报 cpu，不报 gpu')
+
+    def test_mixed_devices_are_reported_as_mixed(self):
+        # 事件 0 命中上次的 CPU 缓存，事件 1 这次在「GPU」上渲（假的 render_many）
+        with mock.patch.object(erb_foley.erb.gpu, 'available', return_value=True), \
+                mock.patch.object(erb_foley.erb, 'render_many', side_effect=lambda jobs, device: [self.r[0][0]] * len(jobs)):
+            t = erb_foley.ErbTakes(device='auto', exact=1, candidates=2, tol_db=1e-6, cache_dir=self.cache).want('q', [SRCS[0]], events=2)
+            out = t.render()['q']
+        self.assertEqual([m['device'] for _, m in out], ['cpu', 'gpu'])
+        self.assertEqual((t.report['device'], t.report['devices']), ('mixed', {'cpu': 1, 'gpu': 1}))
 
     def test_oom_warning_reaches_the_caller(self):
         def fake(jobs, device):
