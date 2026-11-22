@@ -1,6 +1,6 @@
 # 感知：细则
 
-[README.md](README.md) 是接口索引与预算说明；这里放 `compare` 与 `align` 的完整参数、容差与退化判定口径。
+[README.md](README.md) 是接口索引与预算说明；这里放 `compare`、`align` 与画面能量尺子的完整参数、容差与退化判定口径。
 
 ## `compare(a, b, options?)`
 
@@ -23,3 +23,46 @@
    - `converged` 只在 `rmsePx <= 1`、无点在相机后方且 `degenerate` 为假时为真。
    - `degenerate` 由两道门给出：一是点集本身，重合、独立世界点不足 4 个（世界坐标相差不超过点集半径的 `1e-9` 视为同一点）、共线或共面且正对相机，在减质心、除以点集半径后的坐标上判定；二是解处的可辨识性，把位置按点集半径、角度与 `fovY` 按弧度归一后求重投影残差雅可比的 `J^T J`（7x7），最小与最大特征值之比低于 `1e-7` 即 7 个自由度局部不可唯一辨识（如正对平面的四角加光轴上一点，或相机距点集约 10 倍半径以上、`fovY` 约 11° 以下透视过弱时）。
    - 求解与两道门都在减去质心后的局部坐标里做，长度量按点集半径归一，结果再加回质心，世界坐标整体大平移不影响判定（回归覆盖半径 `2^-20`、平移 `262144` 及半径 `1e-9` 到 `1e9`）；`near`/`far` 或点坐标极端到 `world`/`proj` 出现非有限数时报 `usage.bad-argument`，不返回矩阵。
+
+## 画面能量尺子与小指标（`metrics/energy-rulers.mjs`）
+
+通用口径：
+
+- 帧是 `{ width, height, <像素数组> }`，像素数组的键只能给一个：`rgba`（4 通道）、`rgb`（3 通道）、`luma` / `mask` / `ids`（单通道）或 `data`（按长度除以宽高判 1、3、4 通道）。`Uint8Array` / `Uint8ClampedArray` 是显示空间 8 位码值，`Float32Array` / `Float64Array` 是场景线性值，可以大于 1。阈值和读数都用输入自己的量纲（返回里的 `unit`：`code8` 或 `linear`），不做色彩空间换算；亮度按 Rec.709 权重。
+- 坐标原点在左上，`roi` 是画面内的整数像素框 `{ x, y, width, height }`。
+- 每个函数都返回 `{ metric, value, unit, ... }`，`metric` 是带 `metric:` 前缀的标准名，`value` 是判分用的主读数。
+- 不用随机数、不读时钟：同一输入重复读数逐位一致，噪声地板是 0。
+- 尺寸不一致、空帧、非有限数、越界 `roi`、未知选项一律抛 `RangeError`，`code` 是 `usage.bad-argument`。
+- `ENERGY_METRICS` 是标准名（不带前缀）到函数的冻结登记表；`runEnergyMetric(name, ...args)` 带不带 `metric:` 前缀都认，未知名字同样抛 `usage.bad-argument`。
+
+### `clipHighlightRatio(frame, { threshold?, roi?, alphaMask? })`
+
+- 任一色分量达到 `threshold`（闭区间）的像素占比。默认阈值：8 位 254，线性浮点 1（显示白）。
+- `alphaMask: true` 只数本帧 alpha 大于 0 的像素（帧须带 alpha）；也可以给与画面等大的单通道数组，大于 0 计入。计入像素为 0 时 `ratio` 是 0、`peakMax` 是 `null`。
+- 返回 `ratio`、`clippedPixels`、`totalPixels`、`peakMax`（最大分量的峰值）、`channelRatios`（红、绿、蓝各自的占比）、`threshold`，以及平顶斑块 `plateauPixels` / `plateauRatio`：最大分量等于全区峰值、且四邻域里有同伴的像素；峰值不到阈值一半时不算。HDR 帧被硬削到某个高于阈值的上限时，削顶面积看 `plateauRatio`。
+
+### `noiseResidual(frames, { roi?, block?, motionThreshold? })`
+
+- 至少 2 帧，各帧尺寸、通道数、数值类型须一致。相邻帧亮度差 `d` 的四邻域拉普拉斯在静止块上的均方根，除以 `√40` 折算成等效的单帧白噪声标准差（两帧相减方差翻倍，拉普拉斯核平方和 20）。
+- 静止块（边长 `block`，默认 8，取值 4 到量测区短边）：本块 `max|d|` 不超过 `max(motionThreshold, 6σ)`，且外圈八块也都满足。`motionThreshold` 默认 8 位 2 级、线性 `2/255`；`σ` 取本块连同外圈一块范围内 `|拉普拉斯|` 的中位数 × 1.4826 / `√20`，只看高频，成片的亮度变化抬不高它。
+- 返回 `value`（没有静止像素时是 `null`，不出 `NaN`）、`status`（`ok` 或 `no-static-region`）、`staticRatio`、`staticPixels`、`totalPixels`、`pairs`。
+- 局限：细于 2 像素的纹理整体位移和噪声在两帧里分不开，会读成噪声。
+
+### `aliasEdge(frame | frames, { roi?, edgeThreshold? })`
+
+- 锯齿度 `jaggedness`（单位像素）：强边缘像素（Sobel 幅值 / 4 不低于 `edgeThreshold`，默认 8 位 32 级、线性 `32/255`）上，沿边缘方向取窗，逐行（近水平的边逐列）覆盖面积的二阶差分绝对值除以窗内极差，再取平均。盒滤波抗锯齿下直边、细杆每行的覆盖面积随行号线性变化，读数接近 0；点采样的阶梯读数约 `2·min(s, 1 − s)`，`s` 是每行的横移量。
+- 窗的半宽从 1 加到 6，取第一个两端平坦的；距量测区边缘不到 7 像素的边缘不计。没有可量的边缘时 `value` 是 0、`status` 是 `no-edges`。
+- 闪烁 `flicker`（给 3 帧及以上才算，否则 `null`）：任一帧里是强边缘的像素上，相邻两次帧间亮度变化反号时取较小的那次幅度，再对像素和帧取平均，量纲见 `flickerUnit`。
+- 局限：正好 0°、45°、90° 的点采样阶梯每行面积等差，读不出锯齿；这类画面看 `flicker`，或用 `compare` 对参考图。
+
+### `colorPaletteDe00(candidate, reference, { k? })`
+
+- 两边各自可以是帧（用 `colorPalette` 取前 `k` 个主色，默认 6；线性浮点帧先截到 0 到 1 再按 sRGB 编成 8 位）或色板数组，元素是 `[r, g, b]`、`{ rgb, share? }` 或 `{ lab, share? }`。
+- 色差是 `tools/eval/lib/metrics.mjs` 的 CIEDE2000（sRGB → 线性 → D65 XYZ → Lab，含旋转项与彩度修正）。匹配是双向最近色，不强制一一对应。
+- 顶层 `meanDe00`、`maxDe00`、`weightedDe00`（按 `share` 归一加权）与 `pairs` 是候选的每个主色到参考色板最近色；`reverse` 是参考到候选的同一组数。`value` 取两个方向平均色差里大的那个：多出色板外的主色、或缺了参考里的色，都会抬高它。
+
+### `shapeIou(a, b, { roi?, threshold?, id?, background?, tol?, emptyValue? })`
+
+- `a` 是候选、`b` 是参考，尺寸须一致，选项对两边同样生效。掩码来源：给 `id` 时读单通道编号层里等于 `id` 的像素（另收 16、32 位整数数组）；给 `background` 时取彩色帧里任一分量与背景色相差超过 `tol` 的像素；四通道帧取 alpha 大于 `threshold`（默认半幅）；单通道取大于 `threshold`（默认 0）。三通道帧不给 `background` 报错。
+- 返回 `iou`、`intersection`、`union`、`precision`（交 / 候选面积）、`recall`（交 / 参考面积）、`bboxIou`（两个紧包围盒的交并比）、`areaA`、`areaB`、`emptyBoth`。
+- 两边都空时各比值取 `emptyValue`（默认 1）并置 `emptyBoth: true`；只有一边空时都是 0。
