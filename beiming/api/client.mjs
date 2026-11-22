@@ -7,12 +7,18 @@ const IMAGE_BY_EXT = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', 
 
 export const sha256Hex = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
-/** 响应是不是图片：先看 content-type，再看文件扩展名（服务端的产物一律回 application/octet-stream）。不是图片交回 null */
+/**
+ * 响应是不是图片：先看 content-type，再看产物名末尾的扩展名（服务端的产物一律回 application/octet-stream）。不是图片交回 null。
+ * name 是解码后的产物名，不是地址：名字里的 # 和 ? 是字面量（contact#2.png），不能当地址分隔符截掉。
+ */
 export function imageMime(contentType, name = '') {
   const type = String(contentType ?? '').split(';')[0].trim().toLowerCase();
   if (Object.values(IMAGE_BY_EXT).includes(type)) return type;
-  return IMAGE_BY_EXT[/\.([a-z0-9]+)$/i.exec(String(name).split(/[?#]/)[0])?.[1].toLowerCase()] ?? null;
+  return IMAGE_BY_EXT[/\.(png|jpe?g|webp|gif)$/i.exec(String(name))?.[1].toLowerCase()] ?? null;
 }
+
+/** 认图片用的产物名（解码后的字面量）：有 name 入参就是它；没有的二进制路由用填了入参、不带查询串的路径，不拿转义过的请求地址去认 */
+export const artifactName = (route, args) => String(args.name ?? route.path.replace(/\{(\w+)\}/g, (_, k) => args[k]));
 
 /** 一个动词的入参表：{ path: [名], query: [[入参名, 查询名]], body: 请求体结构或 undefined, required: [入参名] } */
 export function inputsOf(route) {

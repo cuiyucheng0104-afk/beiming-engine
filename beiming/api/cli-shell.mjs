@@ -3,7 +3,7 @@
 import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { callRoute, checkArgs, defaultUrl, imageMime, inputsOf, readEnvelope, sha256Hex, unreachable, urlOf, whyOf } from './client.mjs';
+import { artifactName, callRoute, checkArgs, defaultUrl, imageMime, inputsOf, readEnvelope, sha256Hex, unreachable, whyOf } from './client.mjs';
 import { ROUTES } from './contract.mjs';
 import { exitCodeOf, fail, ok } from './envelope.mjs';
 
@@ -99,7 +99,7 @@ export async function runApiCli(argv = process.argv.slice(2), { env = process.en
     bytes = Buffer.from(await res.arrayBuffer());
     const type = (res.headers.get('content-type') ?? 'application/octet-stream').split(';')[0].trim();
     // 认图片看产物名，不看请求地址：地址在产物名后面可能还有固定段。
-    mimeType = imageMime(type, args.name ?? urlOf(cmd.route, args, '')) ?? type;
+    mimeType = imageMime(type, artifactName(cmd.route, args)) ?? type;
   } catch (e) {
     return print(unreachable(baseUrl, whyOf(e)));
   }

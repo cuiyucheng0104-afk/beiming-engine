@@ -16,7 +16,7 @@ import { fail, ok } from './envelope.mjs';
 import { startServer } from './server.mjs';
 import { buildMcpTools, createMcpSession } from './mcp.mjs';
 import { buildCliCommands, exitCodeForEnvelope, runApiCli } from './cli-shell.mjs';
-import { artifactUrl } from './client.mjs';
+import { artifactUrl, imageMime } from './client.mjs';
 
 test('A9-1 MCP 与 CLI 两个薄壳与 ROUTES 动词严格 1:1 对应，且动态新增合同路由无需手改即生效', () => {
   const mcpTools = buildMcpTools(ROUTES);
@@ -205,9 +205,10 @@ test('A9-4 MCP stdio 子进程对真实服务：initialize、tools/list、tools/
     putArtifact(film, 'shot.png', PNG);
     putArtifact(film, 'photo.jpg', JPEG);
     putArtifact(film, 'sheets/rev1-draft/contact.png', PNG);
+    putArtifact(film, 'sheets/rev1-draft/contact#2.png', PNG);
     putArtifact(film, 'clip.mp4', MP4);
     putArtifact(film, 'report.json', '{"hello":"world"}');
-    for (const [name, bytes, mimeType] of [['shot.png', PNG, 'image/png'], ['photo.jpg', JPEG, 'image/jpeg'], ['sheets/rev1-draft/contact.png', PNG, 'image/png']]) {
+    for (const [name, bytes, mimeType] of [['shot.png', PNG, 'image/png'], ['photo.jpg', JPEG, 'image/jpeg'], ['sheets/rev1-draft/contact.png', PNG, 'image/png'], ['sheets/rev1-draft/contact#2.png', PNG, 'image/png']]) {
       const result = await callTool('artifacts', { id: film, name });
       const image = result.content.find((c) => c.type === 'image');
       assert.deepEqual(image, { type: 'image', data: bytes.toString('base64'), mimeType }, name);
@@ -719,6 +720,50 @@ test('A9-22 {name} 后面还有固定路径段时产物名整段转义：签发�
   assert.equal(await runApiCli(['artifacts', '--id', 'f_9', '--name', name, '--out', out, '--url', 'http://stub.invalid', '--token', 'ws'], { routes, fetchImpl, env: {}, stdout: { write(text) { line += text; } } }), 0);
   assert.equal(JSON.parse(line).data.mimeType, 'image/png');
   assert.deepEqual(readFileSync(out), PNG);
+});
+
+test('A9-23 产物名里带 # 或 ? 照样认图片：默认路由和 {name}/download 后缀路由下，直接调、全文里的引用自动取图、命令行落盘都交回完整的 PNG', { timeout: 60000 }, async () => {
+  const name = 'sheets/rev1-draft/contact#2.png';
+  const image = [{ type: 'image', data: PNG.toString('base64'), mimeType: 'image/png' }];
+  const blocksOf = (result) => result.content.filter((c) => c.type === 'image');
+  const hits = [];
+  let film;
+  // 只有 observe-sheet 的回应是造的（截短信封，全文挂在 outputs 里）；全文和图片都向真实服务取，过的是服务端自己的路由器。
+  const fetchImpl = (url, init) => {
+    const path = new URL(url).pathname;
+    hits.push(`${init.method} ${path}`);
+    return path.endsWith('/observe/sheet') ? Response.json(ok({ data: { truncated: true }, outputs: [{ kind: 'response', url: artifactUrl(ROUTES, film, 'response-a9-23.json') }] })) : fetch(url, init);
+  };
+  const call = callVia(createMcpSession({ baseUrl: api.url, token: account, fetchImpl }));
+  const made = textOf(await call('films-create', { body: {} })).data;
+  film = made.film;
+  putArtifact(film, name, PNG);
+  for (const template of [ROUTES.find((r) => r.id === 'artifacts').path, SUFFIXED]) {
+    await withArtifactsPath(template, async () => {
+      const ref = artifactUrl(ROUTES, film, name);
+      assert.match(ref, /contact%232\.png(\/download)?$/, '# 在地址里是 %23');
+      const direct = await call('artifacts', { id: film, name });
+      assert.deepEqual(blocksOf(direct), image, `${template}：直接调 artifacts 是一个逐字节相等的图片块`);
+      assert.equal(textOf(direct).mimeType, 'image/png');
+      putArtifact(film, 'response-a9-23.json', JSON.stringify(ok({ data: { sheet: ref } })));
+      hits.length = 0;
+      const sheet = await call('observe-sheet', { id: film, body: {} });
+      assert.deepEqual([sheet.isError, notesOf(sheet).filter((n) => n.error || n.fullOutputError)], [false, []]);
+      assert.deepEqual(blocksOf(sheet), image, `${template}：全文 data.sheet 里的引用自动取回`);
+      assert.deepEqual(hits, [`POST /v1/films/${film}/observe/sheet`, `GET ${artifactUrl(ROUTES, film, 'response-a9-23.json')}`, `GET ${ref}`]);
+      const out = join(root, 'a9-23.png');
+      let line = '';
+      assert.equal(await runApiCli(['artifacts', '--id', film, '--name', name, '--out', out, '--url', api.url, '--token', made.token], { env: {}, stdout: { write(text) { line += text; } } }), 0);
+      assert.deepEqual([JSON.parse(line).data.mimeType, JSON.parse(line).data.sha256], ['image/png', sha(PNG)], `${template}：命令行摘要认出 PNG`);
+      assert.deepEqual(readFileSync(out), PNG);
+      rmSync(out);
+    });
+  }
+  assert.deepEqual([imageMime('', 'a#2.png'), imageMime('application/octet-stream', 's/c?v=1.JPEG'), imageMime('', 'a.png#2'), imageMime('', 'a.constructor')], ['image/png', 'image/jpeg', null, null], '产物名是解码后的字面量，# 和 ? 不是地址分隔符，只看末尾的扩展名');
+  // 没有 name 入参的二进制路由（合同以后可能加）：按填了入参的路径认，查询串和转义都不掺进来。
+  const thumb = { id: 'thumb', method: 'GET', path: '/v1/thumbs/{file}', auth: 'account', tokens: null, binary: true, summary: '动态测试路由', params: { file: { type: 'string' } }, query: { w: { type: 'integer' } } };
+  const viaStub = callVia(createMcpSession({ baseUrl: 'http://stub.invalid', token: 'acct', routes: [...ROUTES, thumb], fetchImpl: async () => png() }));
+  assert.deepEqual(blocksOf(await viaStub('thumb', { file: 'cut#1.png', w: 64 })), image);
 });
 
 test('A9-18 批量取图逐张容错：中间一张断流或连不上，后面的图照样取回，坏的那张留下带地址的诊断', async () => {

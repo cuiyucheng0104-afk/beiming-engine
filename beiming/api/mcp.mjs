@@ -2,7 +2,7 @@
 // 工具表、入参结构与请求全部由 ROUTES 推出，改合同不用改这里。图片产物直接回 { type: 'image', data, mimeType }。
 // 传输是 stdio 上每行一条 JSON-RPC 2.0 消息：node beiming/api/cli.mjs mcp --url <服务地址> --token <账户令牌>。
 import { createInterface } from 'node:readline';
-import { artifactUrl, callRoute, checkArgs, defaultUrl, imageMime, inputsOf, readEnvelope, sha256Hex, unreachable, urlOf, whyOf } from './client.mjs';
+import { artifactName, artifactUrl, callRoute, checkArgs, defaultUrl, imageMime, inputsOf, readEnvelope, sha256Hex, unreachable, urlOf, whyOf } from './client.mjs';
 import { buildOpenApi, ROUTES } from './contract.mjs';
 
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -61,7 +61,7 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
   const tokenFor = (route, args) => (route.auth === 'account' ? token : workspaceTokens.get(route.auth === 'job' ? jobFilm.get(args.id) : args.id) ?? token);
 
   /** 一份产物字节变成内容块：图片直接回 image，JSON 与文本回正文，别的二进制只回摘要。认图片看产物名 name，不看地址：地址在产物名后面可能还有固定段 */
-  async function artifactBlocks(res, url, name = url) {
+  async function artifactBlocks(res, url, name) {
     const bytes = Buffer.from(await res.arrayBuffer());
     const type = (res.headers.get('content-type') ?? 'application/octet-stream').split(';')[0].trim();
     const image = imageMime(type, name);
@@ -141,7 +141,7 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
   async function callTool(route, args, override) {
     const bearer = override ?? tokenFor(route, args);
     const res = await callRoute(route, args, { baseUrl, token: bearer, fetchImpl });
-    if (route.binary && res.ok) return { content: await artifactBlocks(res, urlOf(route, args, ''), args.name) };
+    if (route.binary && res.ok) return { content: await artifactBlocks(res, urlOf(route, args, ''), artifactName(route, args)) };
     const env = await readEnvelope(res, baseUrl);
     // 建片（账户动词）交回片号、工作区令牌，委托模式还有作业号；工作区动词交回作业号。都记下，后面的调用自己选令牌。
     const str = (...vs) => vs.find((v) => typeof v === 'string');
