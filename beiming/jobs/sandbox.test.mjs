@@ -836,3 +836,70 @@ test('A13-22 根目录与盘符卷根（/、D:\\、D:/、D:）不得当工作区
   // 没被拒的照旧能用。
   assert.deepEqual(validateContainerSpec(buildContainerSpec(options)), []);
 });
+
+test('A13-23 环境变量诱饵每轮一套专属键：两轮重叠互不踩踏、调用方同名变量原样留着；诱饵缺失或被改写这一项判结论无效并判红', async (t) => {
+  t.mock.method(fs, 'symlinkSync', () => {});
+  // 调用方自己预置的同名变量：红队不得覆盖，也不得在收尾时删掉。
+  const preset = { BEIMING_REDTEAM_API_KEY: 'caller-own-api-key', BEIMING_REDTEAM_AWS_SECRET_ACCESS_KEY: 'caller-own-aws-key' };
+  const saved = Object.fromEntries(Object.keys(preset).map((key) => [key, process.env[key]]));
+  t.after(() => {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  Object.assign(process.env, preset);
+  // 宿主机环境里此刻挂着的红队诱饵：键以 BEIMING_REDTEAM_ 开头、值是夹具埋的随机标记。
+  const canaries = () => Object.entries(process.env).filter(([key, value]) => key.startsWith('BEIMING_REDTEAM_') && value.startsWith('bm-canary-')).sort();
+  const presetIntact = () => assert.deepEqual(Object.fromEntries(Object.keys(preset).map((key) => [key, process.env[key]])), preset);
+
+  // 六审的复现：A 建好夹具，B 整轮跑完并清理，再回到 A 跑 host_home_and_secrets。
+  let mine;
+  let during;
+  let reportB;
+  const reportA = await runSandboxRedTeam({
+    ...OFFLINE,
+    run: fakeBlockedRun([], async (receipt) => {
+      if (receipt.item === 'cross_workspace_read') {
+        mine = canaries();
+        reportB = await runSandboxRedTeam({ ...OFFLINE, run: fakeBlockedRun() });
+      }
+      if (receipt.item === 'host_home_and_secrets') during = canaries();
+    }),
+  });
+  assert.equal(mine.length, 2, 'A 开跑时自己的两个环境变量诱饵都在');
+  assert.deepEqual(during, mine, 'B 清理之后 A 的诱饵原样还在');
+  assert.ok(mine.every(([key]) => !Object.hasOwn(preset, key) && /KEY|SECRET/.test(key)), 'A 的诱饵用专属键名，不占调用方的固定键');
+  assert.deepEqual([reportA.ok, reportA.blocked, reportB.ok, reportB.blocked], [true, 5, true, 5]);
+  assert.deepEqual(canaries(), [], '两轮收尾后不留诱饵');
+  presetIntact();
+
+  // 诱饵在这一项实测的前后任何一端不在或被改写：探针回的「没读到」什么也说明不了。
+  const id = 'host_home_and_secrets';
+  const first = 'cross_workspace_read';
+  let taken;
+  const spoil = {
+    实测期间删掉: (item) => { if (item === id) delete process.env[canaries()[0][0]]; },
+    实测期间改写: (item) => { if (item === id) process.env[canaries()[0][0]] = 'tampered'; },
+    实测开始之前就删掉: (item) => { if (item === first) delete process.env[canaries()[0][0]]; },
+    // 起探针的那一刻诱饵不在，事后才补回去：只有实测之前的那一次核对认得出来。
+    实测开始之前删掉又在实测期间补回去: (item) => {
+      if (item === first) {
+        [taken] = canaries();
+        delete process.env[taken[0]];
+      }
+      if (item === id) process.env[taken[0]] = taken[1];
+    },
+  };
+  for (const [name, how] of Object.entries(spoil)) {
+    const report = await runSandboxRedTeam({ ...OFFLINE, run: fakeBlockedRun([], (receipt) => how(receipt.item)) });
+    const hit = report.items.find((item) => item.id === id);
+    assert.match(hit.fixtureErrors.join(), /环境变量诱饵/, name);
+    assert.deepEqual([hit.conclusive, hit.blocked, hit.escaped], [false, false, false], name);
+    assert.deepEqual([report.ok, report.blocked], [false, 4], name);
+    assert.deepEqual(report.items.filter((item) => !item.blocked).map((item) => item.id), [id], name);
+    assert.match(formatRedTeamReport(report), /夹具没建起来[^]*环境变量诱饵/, name);
+    assert.deepEqual(canaries(), [], `${name}：收尾后不留诱饵`);
+    presetIntact();
+  }
+});

@@ -300,7 +300,11 @@ export async function runSandboxRedTeam({
   const fakeHome = path.join(base, 'host-home');
   const realHome = os.homedir();
   const rootFile = `/var/tmp/bm-redteam-${nonce}`;
-  const hostEnv = { BEIMING_REDTEAM_API_KEY: canary.envKey, BEIMING_REDTEAM_AWS_SECRET_ACCESS_KEY: canary.envAws };
+  // 键名带本轮标记：同一进程里重叠的两轮各用各的键，也不占调用方自己设的同名变量。两个键名都要命中 SENSITIVE_ENV。
+  const envTag = nonce.toUpperCase();
+  const hostEnv = { [`BEIMING_REDTEAM_${envTag}_API_KEY`]: canary.envKey, [`BEIMING_REDTEAM_${envTag}_AWS_SECRET_ACCESS_KEY`]: canary.envAws };
+  const savedEnv = Object.fromEntries(Object.keys(hostEnv).map((key) => [key, process.env[key]]));
+  const hostEnvIntact = () => Object.entries(hostEnv).every(([key, value]) => process.env[key] === value);
   const server = http.createServer((request, response) => response.end('ok'));
   const fixtureErrors = [];
   let connections = 0;
@@ -398,12 +402,15 @@ export async function runSandboxRedTeam({
     const items = [];
     let used;
     for (const { id, title, expectedAttempts } of ITEMS) {
+      // 环境变量诱饵要在这一项实测的前后两端都原样挂在宿主机上：不在的话，探针回的「没读到」什么也说明不了。
+      const envPlanted = id !== 'host_home_and_secrets' || hostEnvIntact();
       const result = await execute({
         request: { mode: 'cards-data' }, workspacesRoot: root, workspaceDir: own, appDir: app,
         command: ['node', '/app/probe.mjs', '--probe', id, JSON.stringify(cfg)],
         backend, runtime, image, allowDegraded, timeoutMs: 30_000,
       });
       used = result;
+      if (id === 'host_home_and_secrets' && !(envPlanted && hostEnvIntact())) fixtureErrors.push({ item: id, text: '宿主机环境变量诱饵缺失或被改写' });
       let parsed = null;
       try {
         parsed = JSON.parse(result.stdout.split('\n').find((line) => line.includes(SENTINEL)));
@@ -470,7 +477,10 @@ export async function runSandboxRedTeam({
     // 报告不带本机路径：夹具目录与真实家目录换成占位符。
     return mapStrings(report, (text) => text.replaceAll(base, '<夹具>').replaceAll(realHome, '<宿主机家目录>'));
   } finally {
-    for (const key of Object.keys(hostEnv)) delete process.env[key];
+    for (const [key, value] of Object.entries(savedEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
     decoy?.kill('SIGKILL');
     pool.close();
     server.closeAllConnections();
