@@ -155,7 +155,7 @@ class ScissorsVocabAndSeriesMaskingTests(unittest.TestCase):
         self.assertGreater(FS.human_score(clean_foley, query='scissors cutting paper', world='realistic'), 25.0)
 
     def test_add_sfx_series_and_qa_check_masking_catches_buried_vs_passes_audible_cuts(self):
-        self.assertTrue(issubclass(ED.ThreeStemWorkstation, ED.FourStemWorkstation))
+        self.assertIs(ED.FourStemWorkstation, ED.ThreeStemWorkstation)  # 钉住别名关系
 
         dur = 6.5
         fps = 24
@@ -214,13 +214,13 @@ class ScissorsVocabAndSeriesMaskingTests(unittest.TestCase):
             fps=fps,
             cuts=(),
             events=[],
-            audio={'mode': 'script', 'script': 'mix.py', 'targetLUFS': -14.0, 'truePeakDbTP': -1.5},
+            audio={'mode': 'script', 'script': 'mix.py', 'targetLUFS': -14.0, 'truePeakDbTP': -1.5, 'preciseWindow': True},
         )
         wav_ok = C.write(os.path.join(fdir_ok, 'out'), master_ok, stems=stems_ok)
-        # 即使 film.json 未逐帧罗列 12 剪，写出 foreground_events.json 后 qa.check_masking 与 CLI 自动全量覆盖审计
+        # 即使 film.json 未逐帧罗列 12 剪，写出 foreground_events.json 后 qa.check_masking 与 CLI 自动全量覆盖审计（按事件时值取窗，需显式 precise_window / audio.preciseWindow）
         ws_ok.write_foreground_events(os.path.join(fdir_ok, 'out', 'stems'))
 
-        mc_ok = QA.check_masking(wav_ok, fdir_ok)
+        mc_ok = QA.check_masking(wav_ok, fdir_ok, precise_window=True)
         self.assertIsNotNone(mc_ok)
         self.assertEqual(mc_ok['status'], 'pass', mc_ok)
         self.assertEqual(len(mc_ok['evidence']['items']), 12)
@@ -258,7 +258,7 @@ class ScissorsVocabAndSeriesMaskingTests(unittest.TestCase):
             fps=fps,
             cuts=(),
             events=[],
-            audio={'mode': 'script', 'script': 'mix.py', 'targetLUFS': -14.0, 'truePeakDbTP': -1.5},
+            audio={'mode': 'script', 'script': 'mix.py', 'targetLUFS': -14.0, 'truePeakDbTP': -1.5, 'preciseWindow': True},
         )
         # 同时验证 sfx.wav 别名分轨（与 pilot mix.py 导出 stems/sfx.wav 一致）同样被 check_masking 精确拦截
         wav_bad = C.write(
@@ -268,7 +268,7 @@ class ScissorsVocabAndSeriesMaskingTests(unittest.TestCase):
         )
         ws_buried.write_foreground_events(os.path.join(fdir_bad, 'out', 'stems'))
 
-        mc_bad = QA.check_masking(wav_bad, fdir_bad)
+        mc_bad = QA.check_masking(wav_bad, fdir_bad, precise_window=True)
         self.assertIsNotNone(mc_bad)
         self.assertEqual(mc_bad['status'], 'fail', mc_bad)
         self.assertLess(min(it['bestBandSnrDb'] for it in mc_bad['evidence']['items']), -12.0)
@@ -277,6 +277,48 @@ class ScissorsVocabAndSeriesMaskingTests(unittest.TestCase):
         self.assertEqual(cli_bad.returncode, 4, cli_bad.stdout + '\n' + cli_bad.stderr)
         env_bad = H.envelope(cli_bad)
         self.assertIn('audio.masking', env_bad['data']['summary']['hardFailures'])
+
+    def test_generic_material_words_keep_their_main_recipes(self):
+        # 守卫只拦纸类泛词被 scissors_cut 劫持，不能让 metal / plastic / wood 失去 main 上的首选配方
+        for q, rid in (('metal', 'helical_screw_thread'), ('plastic', 'latch_brick_snap'), ('wood', 'wood_carpentry_impact'),
+                       ('wooden', 'wood_carpentry_impact'), ('塑料', 'latch_brick_snap'), ('paper', 'paper_scroll_book')):
+            with self.subTest(query=q):
+                self.assertEqual(SV.match_recipes(q)[0]['id'], rid)
+
+    def _fx_music_film(self, name, **film_kw):
+        """2.5 s：fx 分轨在 0.5 s 有 70 ms 中高频短瞬态；music 分轨 0.8 s 前很轻、之后变响。返回 (混音路径, 作品目录)。"""
+        r = D.rng(11)
+        n = D.N(2.5)
+        fx = np.zeros(n)
+        i0, ln = D.N(0.5), D.N(0.07)
+        fx[i0:i0 + ln] = D.bp(D.white(ln, r), 3000.0, 7000.0, 2) * 0.15 * np.hanning(ln)
+        music = D.white(n, r) * 0.002
+        music[D.N(0.8):] = D.white(n - D.N(0.8), r) * 0.4
+        fdir = os.path.join(self.td, name)
+        H.film_json(fdir, frames=60, fps=24, cuts=(), audio={'mode': 'script', 'script': 'mix.py', 'cues': 'cues.json'}, **film_kw)
+        with open(os.path.join(fdir, 'cues.json'), 'w', encoding='utf-8') as f:
+            json.dump({'cues': [{'id': 'hit', 't': 0.5, 'dur': 1.2}]}, f)
+        wav = C.write(os.path.join(fdir, 'out'), D.stereo(fx + music, 0.0), stems={'fx': D.stereo(fx, 0.0), 'music': D.stereo(music, 0.0)})
+        return wav, fdir
+
+    def test_default_masking_window_is_fixed_and_precise_window_is_opt_in(self):
+        ev = [{'id': 'hit', 'frame': 12, 'audio': 'hit', 'domain': 'sfx'}]
+        wav, fdir = self._fx_music_film('mask-window', events=ev)
+        mc = QA.check_masking(wav, fdir)
+        self.assertEqual(mc['status'], 'pass', mc)           # 默认：起音前 15 ms 到后 220 ms，不看 cue 声明的 dur
+        mc_p = QA.check_masking(wav, fdir, precise_window=True)
+        self.assertNotEqual(mc_p['status'], 'pass', mc_p)    # 开启后按 dur=1.2 s 取窗，吃进 0.8 s 后的响亮配乐
+        self.assertLess(mc_p['evidence']['items'][0]['bestBandSnrDb'], mc['evidence']['items'][0]['bestBandSnrDb'])
+        self.assertTrue(QA._resolve_film_flag({'audio': {'qa': {'preciseWindow': True}}}, None, 'preciseWindow'))
+        self.assertFalse(QA._resolve_film_flag({'audio': {}}, None, 'preciseWindow'))
+
+    def test_inline_film_json_foreground_events_are_audited(self):
+        # 只在 film.json 顶层写 foregroundEvents（没有 events、没有 sidecar）也要出掩蔽检查，不能静默跳过
+        fg = [{'id': 'fg1', 't': 0.5, 'dur': 0.2, 'audio': 'fg1', 'domain': 'sfx'}]
+        wav, fdir = self._fx_music_film('mask-inline-fg', foregroundEvents=fg)
+        mc = QA.check_masking(wav, fdir)
+        self.assertIsNotNone(mc)
+        self.assertEqual([it['id'] for it in mc['evidence']['items']], ['fg1'])
 
 
 if __name__ == '__main__':

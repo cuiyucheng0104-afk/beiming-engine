@@ -538,10 +538,10 @@ _SCRIBE_TOOL_RE = re.compile(
     r'钢笔|铅笔|粉笔|圆规|卡尺|制图|\b(fountain\s*pen|pencil|chalk|caliper|drafting\s*compass|scribe)\b',
     re.I,
 )
+# 只拦「纸类泛词作为子串被 scissors_cut 这类带纸的复合触发词劫持」；plastic / metal / wood 等不在其内，保持与 main 一致的反向子串命中
 _GENERIC_SUBSTR_GUARD_TOKENS = {
     'paper', 'cardstock', 'cardboard', 'parchment',
-    'plastic', 'metal', 'wood', 'wooden', 'stone', 'cloth', 'water',
-    '纸', '纸张', '宣纸', '卡纸', '金属', '塑料', '木', '木头',
+    '纸', '纸张', '宣纸', '卡纸',
 }
 
 
