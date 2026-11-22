@@ -136,6 +136,7 @@ export function deliver(opts) {
   mkdirSync(dirname(destination), { recursive: true });
   const work = mkdtempSync(join(dirname(destination), '.beiming-comp-'));
   const dir = join(work, 'out');
+  const cleanup = () => rmSync(work, { recursive: true, force: true });
   try {
     mkdirSync(dir);
     const steps = [];
@@ -145,7 +146,7 @@ export function deliver(opts) {
     if (mode === 'track' && tracks.length === 0) throw bad('audio.mode 是 track，要传外部音轨 tracks');
     let mastered = null;
     if (mode !== 'none') {
-      const mix = mixEvents(events, { mode, bed: bedKind, tracks });
+      const mix = mixEvents(events, { mode, bed: bedKind, tracks, seed });
       mastered = masterAudio(mix, work, { loudness: audioCfg.loudness ?? -14, truePeak: audioCfg.truePeak ?? -1, timeoutMs });
       steps.push({ step: 'audio', mode, bed: mode === 'track' ? 'silence' : bedKind, sampleRate: 48000, channels: 2, samples: mix.length, placements: mix.placements,
         passes: mastered.passes, ceilingDbtp: mastered.ceilingDb, silent: mastered.silent });
@@ -155,74 +156,82 @@ export function deliver(opts) {
     // 2. 编码
     const outputs = [{ preset: delivery.master, path: join(dir, PIECES.master) }];
     if (delivery.web) outputs.push({ preset: 'web', path: join(dir, PIECES.web) });
-    const args = encode({ graph, outputs, audioPath: mastered?.path, tier, hwEncoder: opts.hwEncoder, timeoutMs });
-    const subst = [[dir, '<out>'], [work, '<work>'],
-      ...(view.lutPath ? [[escapeFilterValue(view.lutPath), `<lut:${lut?.file}>`], [view.lutPath, `<lut:${lut?.file}>`]] : []),
-      ...shots.map((s) => [s.pattern, `<frames:${s.id}>`])];
-    steps.push({ step: 'encode', outputs: outputs.map((o) => ({ preset: o.preset, file: basename(o.path) })), args: placeholders(args, subst) });
-    // 3. 联系表
-    if (delivery.contact) {
-      const c = contactSheet(join(dir, PIECES.master), join(dir, PIECES.contact), film.output.frames, { timeoutMs });
-      steps.push({ step: 'contact', frames: c.picks, grid: [CONTACT.columns, CONTACT.rows], args: placeholders(c.args, subst) });
-    }
-    // 4. 锁文件副本
-    writeFileSync(join(dir, PIECES.lock), lockBytes);
+    const encoded = encode({ graph, outputs, audioPath: mastered?.path, tier, hwEncoder: opts.hwEncoder, timeoutMs, sinkFactory: opts.sinkFactory });
+    if (encoded instanceof Promise) return encoded.then(publish).finally(cleanup);
+    const result = publish(encoded);
+    cleanup();
+    return result;
 
-    // 核对
-    const checks = [];
-    const probes = {};
-    for (const o of outputs) {
-      const name = basename(o.path);
-      const p = probeMedia(o.path, { timeoutMs });
-      probes[name] = p;
-      videoChecks(checks, name, p, film);
-      if (mastered) {
-        check(checks, `${name}.audio`, p.audio?.codec === 'aac' && p.audio.sampleRate === 48000 && p.audio.channels === 2,
-          { codec: 'aac', sampleRate: 48000, channels: 2 }, p.audio && { codec: p.audio.codec, sampleRate: p.audio.sampleRate, channels: p.audio.channels });
+    function publish(args) {
+      const subst = [[dir, '<out>'], [work, '<work>'],
+        ...(view.lutPath ? [[escapeFilterValue(view.lutPath), `<lut:${lut?.file}>`], [view.lutPath, `<lut:${lut?.file}>`]] : []),
+        ...shots.map((s) => [s.pattern, `<frames:${s.id}>`])];
+      steps.push({ step: 'encode', outputs: outputs.map((o) => ({ preset: o.preset, file: basename(o.path) })), args: placeholders(args, subst) });
+      // 3. 联系表
+      if (delivery.contact) {
+        const c = contactSheet(join(dir, PIECES.master), join(dir, PIECES.contact), film.output.frames, { timeoutMs });
+        steps.push({ step: 'contact', frames: c.picks, grid: [CONTACT.columns, CONTACT.rows], args: placeholders(c.args, subst) });
       }
-    }
-    if (delivery.web) check(checks, 'web.mp4.faststart', isFaststart(readFileSync(join(dir, PIECES.web))), true, isFaststart(readFileSync(join(dir, PIECES.web))));
-    let loud = null;
-    if (mastered && !mastered.silent) {
-      loud = measureLoudness(join(dir, PIECES.master), { timeoutMs });
-      const target = audioCfg.loudness ?? -14, peak = audioCfg.truePeak ?? -1;
-      check(checks, 'master.mp4.loudness', loud.integrated >= target - 1 && loud.integrated <= target + 1, [target - 1, target + 1], loud.integrated);
-      check(checks, 'master.mp4.true_peak', loud.truePeak <= peak, `<= ${peak}`, loud.truePeak);
-    }
-    if (delivery.contact) {
-      const size = pngSize(readFileSync(join(dir, PIECES.contact)));
-      check(checks, 'contact.png.size', size && size[0] === CONTACT.columns * CONTACT.thumbWidth, CONTACT.columns * CONTACT.thumbWidth, size?.[0] ?? null);
-    }
-    check(checks, 'film.lock.film', lock.film === film.id, film.id, lock.film);
+      // 4. 锁文件副本
+      writeFileSync(join(dir, PIECES.lock), lockBytes);
 
-    const run = {
-      format: 'comp-run/0.1', film: film.id, rev: lock.rev ?? null, tier, seed,
-      output: film.output, view: { scene: film.style?.view?.scene ?? null, display: film.style?.view?.display ?? null, lut, shaper: view.shaper ?? null },
-      finish: { grain: film.style?.finish?.grain ?? 0, vignette: film.style?.finish?.vignette ?? 0, filters: graph.shotFilters },
-      transitions: film.transitions ?? [], shots: graph.shots.map((s) => ({ id: s.id, in: s.in, out: s.out, colorRef: s.colorRef, kind: s.kind, transfer: s.transfer, start: s.start })),
-      ffmpeg: ffmpegVersion(timeoutMs), steps,
-    };
+      // 核对
+      const checks = [];
+      const probes = {};
+      for (const o of outputs) {
+        const name = basename(o.path);
+        const p = probeMedia(o.path, { timeoutMs });
+        probes[name] = p;
+        videoChecks(checks, name, p, film);
+        if (mastered) {
+          check(checks, `${name}.audio`, p.audio?.codec === 'aac' && p.audio.sampleRate === 48000 && p.audio.channels === 2,
+            { codec: 'aac', sampleRate: 48000, channels: 2 }, p.audio && { codec: p.audio.codec, sampleRate: p.audio.sampleRate, channels: p.audio.channels });
+        }
+      }
+      if (delivery.web) check(checks, 'web.mp4.faststart', isFaststart(readFileSync(join(dir, PIECES.web))), true, isFaststart(readFileSync(join(dir, PIECES.web))));
+      let loud = null;
+      if (mastered && !mastered.silent) {
+        loud = measureLoudness(join(dir, PIECES.master), { timeoutMs });
+        const target = audioCfg.loudness ?? -14, peak = audioCfg.truePeak ?? -1;
+        check(checks, 'master.mp4.loudness', loud.integrated >= target - 1 && loud.integrated <= target + 1, [target - 1, target + 1], loud.integrated);
+        check(checks, 'master.mp4.true_peak', loud.truePeak <= peak, `<= ${peak}`, loud.truePeak);
+      }
+      if (delivery.contact) {
+        const size = pngSize(readFileSync(join(dir, PIECES.contact)));
+        check(checks, 'contact.png.size', size && size[0] === CONTACT.columns * CONTACT.thumbWidth, CONTACT.columns * CONTACT.thumbWidth, size?.[0] ?? null);
+      }
+      check(checks, 'film.lock.film', lock.film === film.id, film.id, lock.film);
 
-    const files = {};
-    for (const name of expectedPieces(delivery).filter((n) => n !== PIECES.run)) files[name] = fileEntry(join(dir, name));
-    const report = {
-      format: 'comp-report/0.1', film: film.id, delivery: { master: delivery.master, web: Boolean(delivery.web), contact: Boolean(delivery.contact) },
-      ok: checks.every((c) => c.ok), checks, probes, loudness: loud, files,
-    };
-    if (!report.ok) {
-      throw mismatch(`交付核对不过：${checks.filter((c) => !c.ok).map((c) => `${c.id}（要 ${JSON.stringify(c.expected)}，实际 ${JSON.stringify(c.actual)}）`).join('；')}`);
+      const run = {
+        format: 'comp-run/0.1', film: film.id, rev: lock.rev ?? null, tier, seed,
+        output: film.output, view: { scene: film.style?.view?.scene ?? null, display: film.style?.view?.display ?? null, lut, shaper: view.shaper ?? null },
+        finish: { grain: film.style?.finish?.grain ?? 0, vignette: film.style?.finish?.vignette ?? 0, filters: graph.shotFilters },
+        transitions: film.transitions ?? [], shots: graph.shots.map((s) => ({ id: s.id, in: s.in, out: s.out, colorRef: s.colorRef, kind: s.kind, transfer: s.transfer, start: s.start })),
+        ffmpeg: ffmpegVersion(timeoutMs), steps,
+      };
+
+      const files = {};
+      for (const name of expectedPieces(delivery).filter((n) => n !== PIECES.run)) files[name] = fileEntry(join(dir, name));
+      const report = {
+        format: 'comp-report/0.1', film: film.id, delivery: { master: delivery.master, web: Boolean(delivery.web), contact: Boolean(delivery.contact) },
+        ok: checks.every((c) => c.ok), checks, probes, loudness: loud, files,
+      };
+      if (!report.ok) {
+        throw mismatch(`交付核对不过：${checks.filter((c) => !c.ok).map((c) => `${c.id}（要 ${JSON.stringify(c.expected)}，实际 ${JSON.stringify(c.actual)}）`).join('；')}`);
+      }
+      run.delivery = report.delivery;
+      run.reportBodySha256 = sha256(jsonBytes(report));
+      writeFileSync(join(dir, PIECES.run), jsonBytes(run));
+      files[PIECES.run] = fileEntry(join(dir, PIECES.run));
+      writeFileSync(join(dir, PIECES.report), jsonBytes(report));
+      // 同文件系统内一次发布。并发交付已填满目标目录时，rename 会拒绝覆盖。
+      renameSync(dir, destination);
+      files[PIECES.report] = fileEntry(join(destination, PIECES.report));
+      return { dir: destination, files, report };
     }
-    run.delivery = report.delivery;
-    run.reportBodySha256 = sha256(jsonBytes(report));
-    writeFileSync(join(dir, PIECES.run), jsonBytes(run));
-    files[PIECES.run] = fileEntry(join(dir, PIECES.run));
-    writeFileSync(join(dir, PIECES.report), jsonBytes(report));
-    // 同文件系统内一次发布。并发交付已填满目标目录时，rename 会拒绝覆盖。
-    renameSync(dir, destination);
-    files[PIECES.report] = fileEntry(join(destination, PIECES.report));
-    return { dir: destination, files, report };
-  } finally {
-    rmSync(work, { recursive: true, force: true });
+  } catch (e) {
+    cleanup();
+    throw e;
   }
 }
 

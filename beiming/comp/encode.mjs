@@ -2,7 +2,8 @@
 // 三档都在滤镜链末尾挂 setparams，并在输出参数里写齐 BT.709 有限范围四项标注。
 // 可复现：libx264 固定线程数、关闭非确定性、固定 GOP（2 秒一个关键帧、不按场景插关键帧），封装去掉版本串与时间戳。
 // 显卡编码器只给预览档，并且只在 tier 是 preview 或 draft 时收；终渲（final）传了就报错。
-import { CompError, bad, parseFps, runTool, tools } from './stitch.mjs';
+import { startPipe } from './sink.mjs';
+import { CompError, bad, parseFps, rawCommand, runTool, tools } from './stitch.mjs';
 
 export const SETPARAMS = 'setparams=range=tv:colorspace=bt709:color_primaries=bt709:color_trc=bt709';
 export const COLOR_TAGS = Object.freeze(['-color_range', 'tv', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709']);
@@ -72,8 +73,46 @@ export function encodeCommand({ graph, outputs, audioPath, tier = 'final', hwEnc
   return args;
 }
 
-/** 跑 encodeCommand；返回实际用的参数 */
+async function encodeToSinks({ graph, outputs, audioPath, tier, hwEncoder, timeoutMs, sinkFactory }) {
+  if (typeof sinkFactory !== 'function') throw bad('sinkFactory 必须是函数');
+  if (!Array.isArray(outputs) || !outputs.length) throw bad('至少要一个输出');
+  const fps = `${graph.fps.num}/${graph.fps.den}`;
+  const controller = new globalThis.AbortController();
+  const sourceArgs = rawCommand(graph);
+  const sinks = [];
+  let source;
+  try {
+    for (const output of outputs) {
+      const args = ['-hide_banner', '-nostdin', '-v', 'error', '-f', 'rawvideo', '-pixel_format', 'yuv420p',
+        '-video_size', graph.size.join('x'), '-framerate', fps, '-i', 'pipe:0'];
+      if (audioPath) args.push('-i', audioPath);
+      args.push('-map', '0:v:0');
+      if (audioPath) args.push('-map', '1:a:0');
+      args.push('-vf', `setsar=1,${SETPARAMS}`, ...outputArgs({ preset: output.preset, fps, tier, hwEncoder, audio: Boolean(audioPath) }));
+      const sink = await sinkFactory({ ...output, args, timeoutMs });
+      if (typeof sink?.abort === 'function') sinks.push(sink);
+      if (!['write', 'finish', 'abort'].every((key) => typeof sink?.[key] === 'function')) throw bad('输出端必须提供 write、finish 和 abort');
+    }
+    source = startPipe(tools().ffmpeg, sourceArgs, 'read', controller, timeoutMs);
+    for await (const chunk of source.stream) {
+      await Promise.all(sinks.map((sink) => sink.write(chunk)));
+    }
+    await source.closed;
+    controller.signal.throwIfAborted();
+    await Promise.all(sinks.map((sink) => sink.finish()));
+    return sourceArgs;
+  } catch (e) {
+    const error = controller.signal.reason ?? (e instanceof CompError ? e : new CompError('failure.ffmpeg', `流式编码失败：${e.message}`));
+    controller.abort(error);
+    await Promise.allSettled(sinks.map(async (sink) => sink.abort()));
+    await source?.closed;
+    throw error;
+  }
+}
+
+/** 默认同步编码；注入工厂时返回 Promise，按最慢输出端的背压分发同一份 yuv420p 字节。 */
 export function encode(opts) {
+  if (opts.sinkFactory !== undefined) return encodeToSinks(opts);
   const args = encodeCommand(opts);
   runTool(tools().ffmpeg, args, { timeoutMs: opts.timeoutMs, what: '编码成片' });
   return args;

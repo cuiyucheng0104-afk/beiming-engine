@@ -12,6 +12,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadContracts } from '../kernel/contracts/validate.mjs';
+import { FOLEY_VOICES, noise, SAMPLE_RATE } from './foley.mjs';
 import { CompError, bad, parseFps, runTool, tools } from './stitch.mjs';
 
 const contracts = await loadContracts();
@@ -34,23 +35,11 @@ export function readEvents(input, film) {
   return events;
 }
 
-export const SAMPLE_RATE = 48000;
+export { noise, SAMPLE_RATE };
 export const CHANNELS = 2;
 export const LIMITER_MARGIN_DB = 1.6;
 /** 限制器在 4 倍采样率上做：alimiter 只看样本峰值，升采样后的样本峰值逼近真峰值 */
 export const OVERSAMPLE = 4;
-
-/** 带种子的 32 位随机流（mulberry32），出 [-1, 1) 的数 */
-export function noise(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return (((t ^ (t >>> 14)) >>> 0) / 4294967296) * 2 - 1;
-  };
-}
 
 const db = (x) => 10 ** (x / 20);
 
@@ -133,6 +122,7 @@ export const VOICES = Object.freeze({
     }),
     onset: 0, pcenter: 2 * SAMPLE_RATE,
   },
+  ...FOLEY_VOICES,
 });
 
 /** 垫底：silence 是全零；room 是 −60 dBFS 左右的低通噪声，整片铺满 */
@@ -178,9 +168,10 @@ function addInto(mix, src, at, gain = 1) {
  * 按事件表混音。只读 events/0.1 里带 audio 的条目。
  * input 接受文件路径或展开表对象。mode=track 只放给定 tracks。
  * 混音选项 sync='peak' 以实际峰值对齐；事件文件仍使用冻结的 onset/pcenter 枚举。
+ * 片种子 seed 决定各拟音材质的轮换次序与噪声。
  * 返回 { left, right, placements: [{ id, audio, sync, frame, sample, start }], length }
  */
-export function mixEvents(input, { bed: bedKind = 'silence', tracks = [], mode = 'script', sync: alignment } = {}) {
+export function mixEvents(input, { bed: bedKind = 'silence', tracks = [], mode = 'script', sync: alignment, seed = 0 } = {}) {
   const events = readEvents(input);
   if (!['script', 'track'].includes(mode)) throw bad(`未知混音模式 ${mode}`);
   if (alignment !== undefined && alignment !== 'peak') throw bad('显式峰值对齐只收 peak');
@@ -188,20 +179,24 @@ export function mixEvents(input, { bed: bedKind = 'silence', tracks = [], mode =
   const mix = bed(mode === 'track' ? 'silence' : bedKind, length);
   const placements = [];
   const cache = new Map();
+  const turns = new Map();
   for (const e of mode === 'track' ? [] : events.events) {
     if (!e.audio) continue;
     if (!Object.hasOwn(VOICES, e.audio)) throw bad(`事件 ${e.id} 要的音色 ${e.audio} 不在音色库里：只有 ${Object.keys(VOICES).join('、')}`);
     const voice = VOICES[e.audio];
-    if (!cache.has(e.audio)) {
-      const samples = voice.make();
+    const turn = turns.get(e.audio) ?? 0;
+    if (voice.variants) turns.set(e.audio, (turn + 1) % voice.variants);
+    const key = `${e.audio}:${turn}`;
+    if (!cache.has(key)) {
+      const samples = voice.make(seed, turn);
       let peak = 0;
       if (alignment === 'peak') {
         const level = (i) => Math.max(Math.abs(samples.left[i]), Math.abs(samples.right[i]));
         for (let i = 1; i < samples.left.length; i++) if (level(i) > level(peak)) peak = i;
       }
-      cache.set(e.audio, { samples, peak });
+      cache.set(key, { samples, peak });
     }
-    const { samples, peak } = cache.get(e.audio);
+    const { samples, peak } = cache.get(key);
     const sync = alignment ?? e.sync;
     const sample = eventSample(e.frame, e.sub, events.fps);
     const start = sample - (sync === 'peak' ? peak : voice[sync]);

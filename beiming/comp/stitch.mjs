@@ -218,9 +218,12 @@ export function stitchGraph(spec) {
   return { inputs, filter: parts.join(';'), label: 'vout', frames: at, fps, size, shots: list, finish: filters[0], shotFilters: filters };
 }
 
+export function rawCommand(graph) {
+  return ['-hide_banner', '-nostdin', '-v', 'error', ...graph.inputs.flat(), '-filter_complex', graph.filter,
+    '-map', `[${graph.label}]`, '-f', 'rawvideo', '-pix_fmt', 'yuv420p', '-'];
+}
+
 /** 跑一张拼接图，输出原始 yuv420p 字节（测试与核对用；不编码） */
 export function renderRaw(graph, { timeoutMs } = {}) {
-  const args = ['-hide_banner', '-nostdin', '-v', 'error', ...graph.inputs.flat(), '-filter_complex', graph.filter,
-    '-map', `[${graph.label}]`, '-f', 'rawvideo', '-pix_fmt', 'yuv420p', '-'];
-  return runTool(tools().ffmpeg, args, { timeoutMs, what: '拼接出原始帧' }).stdout;
+  return runTool(tools().ffmpeg, rawCommand(graph), { timeoutMs, what: '拼接出原始帧' }).stdout;
 }
