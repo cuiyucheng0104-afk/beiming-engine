@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { contractError, envError } from '../../tools/eval/lib/cli.mjs';
+import { EvalError, contractError, envError } from '../../tools/eval/lib/cli.mjs';
 import { hasFfmpeg } from '../../tools/eval/lib/synth.mjs';
 import { projectPublicQuestion, runExamQuestion } from './index.mjs';
 import { solverEnv } from './runner.mjs';
@@ -414,4 +414,28 @@ test('B8-10 命令行退出码：用法错 2、环境缺 3、题目不合格 4',
 test('B8-11 从标准输入跑的脚本（node -）也能导入公共入口', () => {
   const r = spawnSync(process.execPath, ['--input-type=module', '-'], { cwd: REPO, encoding: 'utf8', input: "import { validateQuestion } from './beiming/bench/index.mjs';\nconsole.log(typeof validateQuestion);\n" });
   assert.deepEqual([r.status, r.stdout.trim()], [0, 'function'], r.stderr);
+});
+
+test('B8-12 环境缺失的退出码：回调没用 envError、直接抛 new EvalError(env.*)，公开题、隐藏题一律 3，不落结果', async (t) => {
+  const sample = example('minimal.json');
+  const files = (root, name) => (existsSync(root) ? readdirSync(root, { recursive: true }).filter((f) => f.endsWith(name)).length : 0);
+  // 子进程里经 runCli 报出来：进程退出码就是异常的 exitCode
+  const viaRunCli = `import { EvalError, runCli } from './tools/eval/lib/cli.mjs';
+import { runExamQuestion } from './beiming/bench/index.mjs';
+const [questionFile, evalRoot, who] = process.argv.slice(2);
+const gap = () => { throw new EvalError('env.media.probe-missing', '探针缺失'); };
+await runCli({ command: 'probe', argv: ['--json'], spec: { summary: '', options: {} }, handler: async () => ({ data: await runExamQuestion({ questionFile, evalRoot, forceExpectedFail: true, solver: who === 'solver' ? gap : async () => ({}), judge: who === 'judge' ? gap : () => ({}) }) }) });
+`;
+  for (const hidden of [false, true]) {
+    const { qFile, root } = await setup(t, { ...sample, flags: { ...sample.flags, hidden } });
+    for (const who of ['solver', 'judge']) {
+      const gap = () => { throw new EvalError('env.media.probe-missing', '探针缺失'); };
+      const err = await runExamQuestion({ questionFile: qFile, evalRoot: root, forceExpectedFail: true, solver: who === 'solver' ? gap : async () => ({}), judge: who === 'judge' ? gap : allPass }).then(() => null, (e) => e);
+      const r = spawnSync(process.execPath, ['--input-type=module', '-', qFile, root, who], { cwd: REPO, encoding: 'utf8', input: viaRunCli });
+      const out = r.stdout.trim() ? JSON.parse(r.stdout) : null;
+      assert.deepEqual([err?.code, err?.exitCode, r.status, out?.error?.code, files(root, 'result.json'), files(root, 'observation.json')], ['env.media.probe-missing', 3, 3, 'env.media.probe-missing', 0, 0], `${hidden ? '隐藏题' : '公开题'} ${who} ${r.stderr}`);
+      // 公开题照旧带原因，隐藏题只剩错误码
+      assert.equal(err.message, hidden ? 'env.media.probe-missing' : '探针缺失');
+    }
+  }
 });

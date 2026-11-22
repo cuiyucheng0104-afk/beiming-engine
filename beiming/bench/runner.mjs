@@ -190,7 +190,7 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
   // 做题、判分抛的错里只有环境缺失（错误码是 env. 加点分的短横线小写段，如 env.media.probe-missing）往上抛、不落成绩，别的一律记成这次运行出错。隐藏题的只留错误码（消息就是错误码）：原因和提示可能带私有段、隐藏题目录
   const rethrowEnvGap = (e) => {
     const code = e instanceof EvalError ? e.code : null;   // 只读一次：判断用的和抛出去的是同一个值
-    if (typeof code === 'string' && /^env\.[a-z0-9-]+(?:\.[a-z0-9-]+)*$/.test(code)) throw hidden ? envError(code, code, '隐藏题不回显报错原文，缺什么看错误码') : e;
+    if (typeof code === 'string' && /^env\.[a-z0-9-]+(?:\.[a-z0-9-]+)*$/.test(code)) throw hidden ? envError(code, code, '隐藏题不回显报错原文，缺什么看错误码') : e.exitCode === 3 ? e : envError(code, why(e), typeof e.hint === 'string' ? e.hint : undefined);   // 没用 envError 构造的（退出码不是 3）也按环境缺失报
   };
   const root = assertEvalRoot(resolveEvalRoot(evalRoot), REPO);
   // 默认判分要 ffprobe：做题之前先查，别等花完预算才发现判不了
