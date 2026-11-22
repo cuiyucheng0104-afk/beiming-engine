@@ -74,20 +74,33 @@ export function getBaselineHashes(workId, { repoRoot = REPO, baseline = 'golden'
 }
 
 /** 已发布作品的重建基线（baselines/published-baselines.json）：缺作品、缺 env.three、空帧表、摘要不合格式都返回 { problem } */
-function publishedBaseline(workId, file) {
+export function publishedBaseline(workId, file = PUBLISHED_BASELINES) {
   const w = readOptional(file)?.works?.[workId];
   if (!w) return { problem: 'no-baseline' };
-  if (w.env?.three === undefined) return { problem: `missing-three: ${workId} 的基线没有 env.three` };
-  if (w.env.three !== THREE_VERSION) return { problem: `three-mismatch: ${workId} 的基线 three 是 ${w.env.three}，要的是 ${THREE_VERSION}` };
+  if (w.env?.three !== THREE_VERSION) return { problem: `three-mismatch: ${workId} 的 env.three 是 ${w.env?.three ?? '未登记'}，要的是 ${THREE_VERSION}` };
   if (!Array.isArray(w.frames) || !w.frames.length) return { problem: `empty-baseline: ${workId} 的基线帧表是空的` };
   const ids = new Set();
   for (const f of w.frames) {
-    if (!Number.isSafeInteger(f?.frame) || f.frame < 0 || f.id !== `f${String(f.frame).padStart(6, '0')}` || !HASH.test(f.hash) || ids.has(f.id)) {
+    if (!Number.isSafeInteger(f?.frame) || f.frame < 0 || f.id !== `f${String(f.frame).padStart(6, '0')}` || typeof f.hash !== 'string' || !HASH.test(f.hash) || ids.has(f.id)) {
       return { problem: `bad-baseline: ${workId} 的帧 ${f?.id} 重复或帧标识、帧号、摘要不合格式` };
     }
     ids.add(f.id);
   }
+  for (const field of ['platform', 'arch', 'renderer']) {
+    if (typeof w.env[field] !== 'string' || !w.env[field].trim()) return { problem: `bad-baseline: ${workId} 的 env.${field} 缺少有效值` };
+  }
   return { frames: Object.fromEntries(w.frames.map((f) => [f.id, f.hash])), list: w.frames, env: w.env };
+}
+
+/** 开页前能确定的环境差异。实际 GPU 名称由首帧确认。 */
+export function staticEnvMismatch(env) {
+  if (env.platform !== process.platform || env.arch !== process.arch) {
+    return `env-mismatch: 基线平台是 ${env.platform}/${env.arch}，本机是 ${process.platform}/${process.arch}`;
+  }
+  if (process.env.BEIMING_ANGLE?.trim().toLowerCase() === 'swiftshader' && !/swiftshader/i.test(env.renderer)) {
+    return `env-mismatch: 基线 renderer 是 ${env.renderer}，本机指定了 SwiftShader`;
+  }
+  return null;
 }
 
 /**
@@ -143,6 +156,8 @@ export async function rebuildAndVerifyWork(workId, { repoRoot = REPO, tier = 'fi
   entryOf(workId);
   const want = publishedBaseline(workId, baselinesFile);
   if (want.problem) return fail(want.problem);
+  const mismatch = staticEnvMismatch(want.env);
+  if (mismatch) return fail(mismatch);
   const lock = loadLegacyLock(workId);
   const filmDir = path.join(repoRoot, 'films', workId);
   const film = upgradeFilmV2ToV3(readJson(path.join(filmDir, 'film.json')));
@@ -158,8 +173,9 @@ export async function rebuildAndVerifyWork(workId, { repoRoot = REPO, tier = 'fi
       try {
         for (const f of mine) {
           const { meta, layers } = await session.render(f.frame - shot.in, {}, ['color', 'meta']);
+          gpu = meta.source.gpu;
+          if (gpu !== want.env.renderer) return fail(`env-mismatch: renderer 基线是 ${want.env.renderer}、出片是 ${gpu ?? '未知'}`);
           rendered[f.id] = layerHash(ws, layers.color);
-          gpu = meta.source.gpu ?? gpu;
         }
       } finally { await session.close(); }
     }
