@@ -564,6 +564,7 @@ test('B3-12 30-1 从工程读数：read30_1 静态扫工程目录，一张 80 BP
     // 五审反例：四对画面逐帧相同的镜头，判定要成对相同。JS 按语法树和词法作用域认帧，不看名字在文件别处是什么
     const lifecycle = (hooks, top = '') => `${top}export const build = () => ({ ${hooks}, meta() { return {}; } });\n`;
     const HARD = [1, 0.6, false], SOFT = [0, 1, true];
+    const GE = 'const ge = (x, min) => x >= min;\n', PAIR = 'ge(frame, view.events.m01) && ge(view.size[0], 640)', PAIR_HARD = 'ge(frame, 432) && ge(view.size[0], 640)';
     for (const [name, code, want] of [
       // 1 派生量写在箭头工厂返回的对象里，和写在 function 里一样认两处
       ['factory-function', 'export function build() {\n  return { state(f, ctx) {\n    const local =\n      f - 1;\n    return local >= 432 && local < 648;\n  } };\n}\n', [2, 0.6, false]],
@@ -625,6 +626,34 @@ test('B3-12 30-1 从工程读数：read30_1 静态扫工程目录，一张 80 BP
       // 3 同一个辅助函数收到 17 种偏移，第 432 帧那个排第一还是排最后都认
       ['offsets-late-first', lifecycle(`state(frame, ctx) { return on(frame - 432) && ${Array.from({ length: 16 }, (_, k) => `on(frame + ${k})`).join(' && ')}; }`, 'const on = x => x >= 0;\n'), HARD],
       ['offsets-late-last', lifecycle(`state(frame, ctx) { return ${Array.from({ length: 16 }, (_, k) => `on(frame + ${k})`).join(' && ')} && on(frame - 432); }`, 'const on = x => x >= 0;\n'), HARD],
+      // 八审反例：两对画面逐帧相同的镜头
+      // 1 同一次调用的几个实参配成一组看。比较函数一处比帧和命名时刻、一处比像素宽度和 640，不把这处的帧配上那处的 640；真拿帧比 432 的那一组照样认。
+      //   两处调用谁先谁后、比较落在派生量上、写在闭包或回调里、隔一层辅助函数传进来都一样
+      ['pair-inline', lifecycle('state(frame, view) { return frame >= view.events.m01 && view.size[0] >= 640; }'), SOFT],
+      ['pair-helper', lifecycle(`state(frame, view) { return ${PAIR}; }`, GE), SOFT],
+      ['pair-helper-swapped', lifecycle('state(frame, view) { return ge(view.size[0], 640) && ge(frame, view.events.m01); }', GE), SOFT],
+      ['pair-helper-hard', lifecycle(`state(frame, view) { return ${PAIR_HARD}; }`, GE), HARD],
+      ['pair-helper-third', lifecycle(`state(frame, view) { return ${PAIR} && ge(frame, 432); }`, GE), HARD],
+      ['pair-derived', lifecycle(`state(frame, view) { return ${PAIR}; }`, 'const ge = (x, min) => { const over = x - min; return over >= 0; };\n'), SOFT],
+      ['pair-derived-hard', lifecycle(`state(frame, view) { return ${PAIR_HARD}; }`, 'const ge = (x, min) => { const over = x - min; return over >= 0; };\n'), HARD],
+      ['pair-closure', lifecycle(`state(frame, view) { return ${PAIR}; }`, 'const ge = (x, min) => { const test = () => x >= min; return test(); };\n'), SOFT],
+      ['pair-closure-hard', lifecycle(`state(frame, view) { return ${PAIR_HARD}; }`, 'const ge = (x, min) => { const test = () => x >= min; return test(); };\n'), HARD],
+      ['pair-callback', lifecycle(`state(frame, view) { return ${PAIR}; }`, 'const ge = (x, min) => [0].every(() => x >= min);\n'), SOFT],
+      ['pair-callback-hard', lifecycle(`state(frame, view) { return ${PAIR_HARD}; }`, 'const ge = (x, min) => [0].every(() => x >= min);\n'), HARD],
+      ['pair-nested', lifecycle('state(frame, view) { return both(frame, view.events.m01, view.size[0], 640); }', `${GE}const both = (a, b, c, d) => ge(a, b) && ge(c, d);\n`), SOFT],
+      ['pair-nested-hard', lifecycle('state(frame, view) { return both(frame, 432, view.size[0], 640); }', `${GE}const both = (a, b, c, d) => ge(a, b) && ge(c, d);\n`), HARD],
+      ['chained-helpers', lifecycle('state(frame, view) { return first(frame); }', 'const first = x => second(x - 432);\nconst second = n => n >= 0;\n'), HARD],
+      ['recursive-helper', lifecycle('state(frame, view) { return wait(frame - 432); }', 'const wait = n => (n >= 0 ? n : wait(n + 1));\n'), HARD],
+      ['shared-variable', lifecycle('state(frame, view) { mark(frame); return since >= 0; }', 'let since;\nconst mark = v => { since = v - 432; };\n'), HARD],
+      // 2 直接调用的辅助函数，形参叫 ctx 也照传进来的实参认：收到帧就是帧，收到像素就不是；从帧名解构改名叫 ctx、函数写出来当场调用也一样
+      ['helper-n', lifecycle('state(frame, view) { return on(frame - 432); }', 'const on = n => n >= 0;\n'), HARD],
+      ['helper-ctx', lifecycle('state(frame, view) { return on(frame - 432); }', 'const on = ctx => ctx >= 0;\n'), HARD],
+      ['helper-ctx-function', lifecycle('state(frame, view) { return on(frame - 432); }', 'function on(ctx) { return ctx >= 0; }\n'), HARD],
+      ['helper-ctx-stepped', lifecycle('state(frame, view) { return on(frame); }', 'const on = ctx => { ctx = ctx - 432; return ctx >= 0; };\n'), HARD],
+      ['helper-ctx-pixels', lifecycle('state(frame, view) { return on(view.size[0]); }', 'const on = ctx => ctx >= 640;\n'), SOFT],
+      ['destructured-ctx', lifecycle('state(f, view) { const { frame: ctx } = view; return ctx >= 432; }'), HARD],
+      ['called-in-place', lifecycle('state(frame, view) { return (n => n >= 0)(frame - 432); }'), HARD],
+      ['called-in-place-pixels', lifecycle('state(frame, view) { return (f => f >= 640)(view.size[0]); }'), SOFT],
     ]) assert.deepEqual(whole(project(name, { code: { 'shots/shot.js': code } })), want, name);
     // 从节拍常量算出来的量（beatSeconds = 60 / BPM）不是另一处定义；绕回自己的量、递归的辅助函数、一长串派生量都扫得完
     const derivedBeat = project('derived-beat', { code: { 'shots/music.js': 'const BPM = 80;\nexport const beatSeconds = 60 / BPM;\nexport const table = { tempo: BPM };\n' } });
