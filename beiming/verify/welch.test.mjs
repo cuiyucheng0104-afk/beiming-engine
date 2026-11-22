@@ -597,3 +597,78 @@ test('V18-19 G_REV-R9 稠密种子组不足 2 统一抛 RangeError，且 options
   assert.equal(verify.welchTest(lazyA, [f(1), f(2), f(3)]).kA, 3);
   assert.equal(reads, 1);
 });
+
+test('V18-20 G_REV-R10 8x8 完整块与尾块像素多重集置换不产生舍入假阳性，且跨 1e-250..1e250 共同缩放保持尺度不变', () => {
+  // 1) 8x8 完整块与 3x1 尾块：每帧含完全相同的颜色多重集（两个纯红、一个纯白、其余纯黑），仅像素顺序不同 -> 块均值严格相等，testedUnits=0, pass=true
+  function permFrame(width, height, order) {
+    const data = new Float32Array(width * height * 3);
+    order.forEach(([idx, rgb]) => {
+      data[idx * 3] = rgb[0];
+      data[idx * 3 + 1] = rgb[1];
+      data[idx * 3 + 2] = rgb[2];
+    });
+    return { width, height, channels: 3, data };
+  }
+  const RED = [1, 0, 0], WHITE = [1, 1, 1];
+  const groupFullA = Array.from({ length: 16 }, (_, k) => permFrame(8, 8, [[k, RED], [k + 16, RED], [k + 32, WHITE]]));
+  const groupFullB = Array.from({ length: 16 }, (_, k) => permFrame(8, 8, [[k, WHITE], [k + 16, RED], [k + 32, RED]]));
+  const resFull = verify.welchTest(groupFullA, groupFullB, { blockSize: 8 });
+  assert.equal(resFull.testedUnits, 0);
+  assert.equal(resFull.pMap[0], 1);
+  assert.equal(resFull.qMap[0], 1);
+  assert.equal(resFull.pass, true);
+
+  const groupTailA = [permFrame(3, 1, [[0, RED], [1, RED], [2, WHITE]]), permFrame(3, 1, [[0, RED], [2, RED], [1, WHITE]])];
+  const groupTailB = [permFrame(3, 1, [[0, WHITE], [1, RED], [2, RED]]), permFrame(3, 1, [[2, WHITE], [0, RED], [1, RED]])];
+  const resTail = verify.welchTest(groupTailA, groupTailB, { blockSize: 8 });
+  assert.equal(resTail.testedUnits, 0);
+  assert.equal(resTail.pass, true);
+
+  // 2) 共同正比例缩放 s 跨 1、1e80、1e-90、1e-170、1e250、1e-250：p 值全部约等于 0.2928932188134525，pass=true
+  const single = (v) => ({ width: 1, height: 1, channels: 1, data: [v] });
+  for (const s of [1, 1e80, 1e-90, 1e-170, 1e250, 1e-250]) {
+    const r = verify.welchTest([single(0), single(s)], [single(s), single(2 * s)]);
+    assert.ok(Math.abs(r.pMap[0] - 0.2928932188134525) < 1e-12, `s=${s} p=${r.pMap[0]}`);
+    assert.equal(r.pass, true, `s=${s}`);
+  }
+
+  // 3) 尺度是 2 的幂时乘法不舍入：p 值与 s=1 逐位相同，偏差图还原到原尺度
+  const unit = verify.welchTest([single(0), single(1)], [single(1), single(2)]);
+  for (const s of [2 ** -1000, 2 ** 1000, Number.MIN_VALUE]) {
+    const r = verify.welchTest([single(0), single(s)], [single(s), single(2 * s)]);
+    assert.equal(r.pMap[0], unit.pMap[0], `s=${s}`);
+    assert.equal(r.biasMap[0], -s, `s=${s}`);
+  }
+
+  // 4) 一边方差极小、另一边为 0：自由度的四次方项不得下溢成 0/0（df 应为 K-1=1，p = 2/π·atan(1/|t|)）
+  for (const [groupA, groupB] of [[[1e-85, 2e-85], [1, 1]], [[1, 1], [1e-85, 2e-85]]]) {
+    const r = verify.welchTest(groupA.map(single), groupB.map(single));
+    assert.ok(Math.abs(r.pMap[0] / 3.183098861837907e-86 - 1) < 1e-9, `p=${r.pMap[0]}`);
+    assert.equal(r.pass, false);
+  }
+
+  // 5) 8x8 块贴近双精度上限：64 个 1e308 量级的值求块均值不溢出，结果与量级 1 时一致
+  const flatBlock = (v) => ({ width: 8, height: 8, channels: 1, data: new Float64Array(64).fill(v) });
+  for (const s of [1, 1e308]) {
+    const r = verify.welchTest([1, 1.2].map(v => flatBlock(v * s)), [1.1, 1.3].map(v => flatBlock(v * s)), { blockSize: 8 });
+    assert.ok(Math.abs(r.pMap[0] - 0.5527864045000421) < 1e-9, `s=${s} p=${r.pMap[0]}`);
+    assert.ok(Math.abs(r.biasMap[0] / s + 0.1) < 1e-9, `s=${s} bias=${r.biasMap[0]}`);
+  }
+
+  // 5b) 归一化的尺度取自两边全部样本：A 全零、B 极小时 B 的方差不得下溢（t=-3、df=1，p = 1 - 2/π·atan(3)）；
+  //     样本取到双精度上限也照常统计
+  const zeros = [0, 0].map(single), tinies = [1e-200, 2e-200].map(single);
+  for (const oneSided of [verify.welchTest(zeros, tinies), verify.welchTest(tinies, zeros)]) {
+    assert.ok(Math.abs(oneSided.pMap[0] - 0.2048327646991335) < 1e-12, `p=${oneSided.pMap[0]}`);
+  }
+  const top = Number.MAX_VALUE;
+  const atMax = verify.welchTest([top, top / 2].map(single), [top / 2, top].map(single));
+  assert.equal(atMax.testedUnits, 1);
+  assert.equal(atMax.pMap[0], 1);
+  assert.equal(atMax.biasMap[0], 0);
+
+  // 6) 两边符号相反又都贴近上限：均值差不可表示，偏差图记带符号的无穷，检验照常出结果
+  const opposite = verify.welchTest([1.7e308, 1.6e308].map(single), [-1.7e308, -1.6e308].map(single));
+  assert.equal(opposite.biasMap[0], Infinity);
+  assert.ok(opposite.pMap[0] > 0 && opposite.pMap[0] < 0.001);
+});

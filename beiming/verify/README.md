@@ -18,6 +18,7 @@ const result = welchTest(seedsA, seedsB, { blockSize: 8 }); // 缺省 alpha 0.05
 ```
 
 - **做法**：三通道先取线性亮度，按 `blockSize × blockSize` 求块均值（尾块按实际像素数平均），每个单元算两边的均值和无偏方差，做 Welch t 检验（Welch–Satterthwaite 自由度，双侧 p 值），再对参检单元做 Benjamini–Hochberg 校正。
+- **数值口径**：块均值在块内先排序再求和，同一批像素不管怎么排列都得逐位相同的均值（否则两边都无噪声的块会因 1e-18 量级的舍入尾差被判成必然有偏）；多重集不同而精确和恰好相等的两块仍可能差 1 ulp。每个单元先按两边全部样本的最大绝对值除掉一个 2 的幂再算方差和自由度，自由度按两边方差之比算，所以样本整体乘同一个正数（1e-250 到 1e250 都测过）p 值不变，乘的是 2 的幂时逐位不变。`biasMap` 仍是原尺度；两边符号相反又都贴近 1.8e308、均值差不可表示时记 `±Infinity`。
 - **取哪个通道**：EXR 有 `color.R/G/B` 就取它，没有才取裸 `R/G/B`，再没有就要求只有一个浮点通道；其余情况（比如只有 `normal.X/Y/Z`）不猜，抛错，要检就用 `channel` 给通道名。`channel` 给序号时只检颜色的那一个通道。两边解析出的形态要一致，一边三通道亮度、一边单通道会抛错。
 - **结果**：`biasMap`（A 减 B 的均值差，偏差位置图）、`pMap`、`qMap`、`significantMask`（都是 `gridSize` 宽高的行主序平面）、`significantRatio`（校正后显著的单元比例）、`rawSignificantRatio`（未校正 p ≤ alpha 的比例）、`pHistogram`（`counts` 是 `bins` 个等宽桶的计数，`flat` 是平坦性判定，`lowTailP` 是判定用的 p 值，`effectiveAlpha` 是判定用的名义率）。`pass` 等于 `significantRatio <= alpha && pHistogram.flat`，两个条件缺一不可。
 - **`testedUnits` 与 `totalUnits`**：`totalUnits` 是网格单元总数，`testedUnits` 是参检单元数，差值是 `deterministicUnits`。两个比例、直方图和 BH 校正的分母都是 `testedUnits`。

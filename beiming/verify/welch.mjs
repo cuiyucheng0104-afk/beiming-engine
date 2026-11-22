@@ -130,6 +130,21 @@ export function benjaminiHochberg(pValues, alpha = 0.05) {
 
 const LUMA = [0.2126, 0.7152, 0.0722];
 
+// 2 的整数次幂表（下标 = 指数 + 1074），从最小次正规数逐次乘 2 得到，每一项都精确。
+const POW2 = new Float64Array(2098);
+POW2[0] = Number.MIN_VALUE;
+for (let i = 1; i < POW2.length; i++) POW2[i] = POW2[i - 1] * 2;
+
+// 最大绝对值的二进制指数（-1074 到 1024），0 记 0。log2 贴着 2 的幂时差 1 无妨：只要乘的是 2 的幂就不舍入。
+const exponentOf = maxAbs => (maxAbs === 0 ? 0 : Math.floor(Math.log2(maxAbs)));
+
+// x 乘 2 的 e 次幂（|e| <= 1074）：只移指数，不溢出、不落进次正规就没有舍入。
+// 拆两步乘，因为 e 超出 ±1023 时 2^e 本身不可表示。
+function scale2(x, e) {
+  const half = e >> 1;
+  return x * POW2[1074 + half] * POW2[1074 + e - half];
+}
+
 // 把一个样本（帧对象、readExr 的返回、EXR 字节或路径）取成标量平面，再按块求均值。
 function loadPlane(sample, channel, blockSize) {
   if (typeof sample === 'string') sample = readFileSync(sample);
@@ -186,20 +201,39 @@ function loadPlane(sample, channel, blockSize) {
   const gw = Math.ceil(width / blockSize);
   const gh = Math.ceil(height / blockSize);
   const values = new Float64Array(gw * gh);
-  for (let y = 0; y < height; y++) {
-    const row = Math.floor(y / blockSize) * gw;
-    for (let x = 0; x < width; x++) {
-      const p = y * width + x;
-      let v = 0;
-      for (let s = 0; s < weights.length; s++) v += weights[s] * sources[s][0][sources[s][1] + p * sources[s][2]];
-      if (!Number.isFinite(v)) throw new RangeError(`welch: 样本含非有限值（像素 ${x},${y}）`);
-      values[row + Math.floor(x / blockSize)] += v;
-    }
-  }
-  // 边缘不足整块的尾块按实际像素数平均。
+  const block = new Float64Array(Math.min(blockSize, width) * Math.min(blockSize, height));
   for (let by = 0; by < gh; by++) {
     for (let bx = 0; bx < gw; bx++) {
-      values[by * gw + bx] /= Math.min(blockSize, width - bx * blockSize) * Math.min(blockSize, height - by * blockSize);
+      // 边缘不足整块的尾块按实际像素数平均。
+      const x1 = Math.min(width, (bx + 1) * blockSize);
+      const y1 = Math.min(height, (by + 1) * blockSize);
+      let count = 0;
+      let maxAbs = 0;
+      for (let y = by * blockSize; y < y1; y++) {
+        for (let x = bx * blockSize; x < x1; x++) {
+          const p = y * width + x;
+          let v = 0;
+          for (let s = 0; s < weights.length; s++) v += weights[s] * sources[s][0][sources[s][1] + p * sources[s][2]];
+          if (!Number.isFinite(v)) throw new RangeError(`welch: 样本含非有限值（像素 ${x},${y}）`);
+          block[count++] = v;
+          maxAbs = Math.max(maxAbs, Math.abs(v));
+        }
+      }
+      if (count === 1) {
+        values[by * gw + bx] = block[0];
+        continue;
+      }
+      // 块内先排序再求和：浮点加法不结合，同一批像素换个排列，顺序累加会差出 1e-18 量级的尾数，
+      // 两边都无噪声时就被当成必然有偏。排序后同一多重集逐位得同一均值。
+      // 先除掉 2 的幂：64 个接近 1e308 的值直接相加会溢出。
+      // shortcut: 只保证同一多重集得同一均值；多重集不同而精确和相等的两块仍可能差 1 ulp，真遇到再换 Shewchuk 精确求和。
+      const e = exponentOf(maxAbs);
+      const sorted = block.subarray(0, count);
+      for (let i = 0; i < count; i++) sorted[i] = scale2(sorted[i], -e);
+      sorted.sort();
+      let sum = 0;
+      for (let i = 0; i < count; i++) sum += sorted[i];
+      values[by * gw + bx] = scale2(sum / count, e);
     }
   }
   return { width, height, gw, gh, values, components: weights.length };
@@ -266,22 +300,30 @@ export function welchTest(groupA, groupB, options = {}) {
     check(plane.width === grid.width && plane.height === grid.height, '样本尺寸不一致');
     check(plane.components === grid.components, '样本通道形态不一致（三通道亮度对单通道）');
   }
+  // 每个单元先按两边 2K 个样本的最大绝对值除掉一个 2 的幂再统计：平方和的量级是尺度的平方，
+  // 1e-170 的样本直接算会下溢成 0、1e160 的会上溢。乘 2 的幂不舍入，常规量级下结果逐位不变。
+  const totalUnits = grid.gw * grid.gh;
+  const maxAbs = new Float64Array(totalUnits);
+  for (const { values } of groups.flat()) {
+    for (let j = 0; j < totalUnits; j++) maxAbs[j] = Math.max(maxAbs[j], Math.abs(values[j]));
+  }
+  const exponent = Int16Array.from(maxAbs, exponentOf);
   const [a, b] = groups.map(group => {
-    const mean = new Float64Array(grid.values.length);
-    const m2 = new Float64Array(grid.values.length);
+    const mean = new Float64Array(totalUnits);
+    const m2 = new Float64Array(totalUnits);
     for (let i = 0; i < k; i++) {
       // Welford 在线均值与平方和，避免大数相减。
       const { values } = group[i];
-      for (let j = 0; j < mean.length; j++) {
-        const delta = values[j] - mean[j];
+      for (let j = 0; j < totalUnits; j++) {
+        const value = scale2(values[j], -exponent[j]);
+        const delta = value - mean[j];
         mean[j] += delta / (i + 1);
-        m2[j] += delta * (values[j] - mean[j]);
+        m2[j] += delta * (value - mean[j]);
       }
     }
     return { mean, m2 };
   });
 
-  const totalUnits = grid.gw * grid.gh;
   const biasMap = new Float64Array(totalUnits);
   const pMap = new Float64Array(totalUnits).fill(1);
   const tested = [];
@@ -289,15 +331,18 @@ export function welchTest(groupA, groupB, options = {}) {
     const delta = a.mean[j] - b.mean[j];
     const va = a.m2[j] / (k - 1) / k;
     const vb = b.m2[j] / (k - 1) / k;
-    biasMap[j] = delta;
+    biasMap[j] = scale2(delta, exponent[j]); // 还原到原尺度；两边符号相反又都贴近 1.8e308 时为 ±Infinity
     if (va === 0 && vb === 0) {
       // 两边都无噪声：相等的单元不是随机检验，不进校正和直方图；不等的单元必然有偏。
       if (delta === 0) continue;
       pMap[j] = 0;
     } else {
-      const se2 = va + vb;
-      const df = se2 * se2 / (va * va / (k - 1) + vb * vb / (k - 1));
-      pMap[j] = studentTwoSidedP(delta / Math.sqrt(se2), df);
+      // 自由度只取决于两边方差之比：先除以较大的一边，四次方项才不会下溢成 0/0（一边方差 1e-170、另一边为 0）。
+      const top = Math.max(va, vb);
+      const ra = va / top;
+      const rb = vb / top;
+      const df = (ra + rb) ** 2 * (k - 1) / (ra * ra + rb * rb);
+      pMap[j] = studentTwoSidedP(delta / Math.sqrt(va + vb), df);
     }
     tested.push(j);
   }
