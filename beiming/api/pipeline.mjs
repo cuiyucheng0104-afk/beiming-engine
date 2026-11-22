@@ -266,11 +266,17 @@ export function buildShotCacheInputs({ film, lock, shot, filmDir, tier, events =
 const entryFrom = ({ determinism, tier, samples, size, subs, layers, ...five }, frame) => computeFrameCacheKey({ ...five, renderSpec: { tier, samples, size, frame, subs, layers } });
 // 页面帧源的场景参考镜头每帧另交的文件（sources/three/source.js：出了颜色就有 frame.exr，要了编号层就有宽高各两倍的 objectId2x）→ 每像素字节数，null 是不定长
 const NATIVE = { 'frame.exr': null, 'objectId2x.u32': 16 };
-/** 原生 frame.exr 整个解得开、是这一帧的画幅、带浮点的颜色通道（页面宿主写的名字是 color.R/G/B）。外层校验和只保证存进去的字节没变，不保证存的是个好文件 */
-function validNativeExr(bytes, w, h) {
+/**
+ * 原生 frame.exr 整个解得开、是这一帧的画幅，页面宿主该写的通道（host/page/host.mjs：color.R/G/B/A，要了的辅助层每个分量，要了编号层另有 objectId2x.coverage）
+ * 一个不缺、类型和样本数都对。外层校验和只保证存进去的字节没变，不保证存的是个好文件；独立的层文件齐全也不说明这个文件里的通道齐全
+ */
+function validNativeExr(bytes, w, h, aux) {
   try {
     const exr = readExr(bytes);
-    return exr.width === w && exr.height === h && ['color.R', 'color.G', 'color.B'].every((name) => exr.channels[name] instanceof Float32Array && exr.channels[name].length === w * h);
+    const has = (name, type = Float32Array) => exr.channels[name] instanceof type && exr.channels[name].length === w * h;
+    return exr.width === w && exr.height === h && ['R', 'G', 'B', 'A'].every((c) => has(`color.${c}`))
+      && aux.every((name) => AUX[name][1].every((c) => has(`${name}.${c}`, AUX[name][0] === 'u32' ? Uint32Array : Float32Array)))
+      && (!aux.includes('objectId') || has('objectId2x.coverage'));
   } catch {
     return false;
   }
@@ -340,13 +346,13 @@ export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool
       live.set(frame, rec);
       return rec;
     };
-    /** 命中的帧还原成层文件和元数据；要的层缺了一个、层的大小或颜色摘要对不上元数据、页面帧源场景参考镜头少了原生文件（NATIVE）或原生 EXR 解不开就当没命中 */
+    /** 命中的帧还原成层文件和元数据；要的层缺了一个、层的大小或颜色摘要对不上元数据、页面帧源场景参考镜头少了原生文件（NATIVE）、原生 EXR 解不开或少了要的通道就当没命中 */
     const restore = (frame, hit) => {
       const m = hit.meta, [w, h] = Array.isArray(m.size) ? m.size : [];
       if (hit.colorBytes.length !== w * h * 16 || m.hash?.color !== `sha256:${hit.colorSha256}`) return null;
       if (aux.some((name) => !AUX[name] || hit.layers?.[auxFile(name)]?.length !== w * h * 4 * AUX[name][1].length)) return null;
       if (native && Object.entries(NATIVE).some(([name, perPixel]) => !hit.layers?.[name]?.length || (perPixel && hit.layers[name].length !== w * h * perPixel))) return null;
-      if (native && !validNativeExr(hit.layers['frame.exr'], w, h)) return null;
+      if (native && !validNativeExr(hit.layers['frame.exr'], w, h, aux)) return null;
       const sub = join(dir, 'layers', `cache-f${pad(frame - shot.in)}`);
       mkdirSync(sub, { recursive: true });
       writeFileSync(join(sub, 'color.f32'), hit.colorBytes);

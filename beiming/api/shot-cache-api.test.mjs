@@ -71,10 +71,23 @@ const lockOf = () => ({
 /**
  * 记数的假帧源池。calls[镜头] = { open, render }；bias 加在每个像素上（模拟容差档两轮之间的亮度漂移），gpu 是它报的显卡。
  * 颜色只由镜头条目、风格 tokens 和局部帧号决定。照 want 交层（color、objectId、depth、normal，别的报 contract.unsupported-output），
- * wants 记每次 render 要的输出；extras 是 true 时另交场景参考通路的 frame.exr（通道名照页面宿主：color.R/G/B/A）和 objectId2x（占位字节）。
+ * wants 记每次 render 要的输出；extras 是 true 时另交场景参考通路的 frame.exr（通道照页面宿主：color.R/G/B/A、要了的辅助层每个分量、要了编号层另有 objectId2x.coverage）和 objectId2x（占位字节）。
  * 元数据登记一个铺满画面的实体、编号层全是它的编号（包围盒 IoU 是 1）；badId(镜头, 局部帧号) 为真的帧只污染编号层（见 smearedIds），颜色和元数据不变。
  * drift 不是 0 时每调一次 render 颜色都多漂一点（镜头不是时刻的纯函数，纯函数门必不过）；onRender 在每次 render 开头调一下（测试拿它在半路取消作业）。
  */
+const NATIVE_AUX = { objectId: ['id'], depth: ['Z'], normal: ['X', 'Y', 'Z'] };
+/** 原生 EXR 去掉 drop 里的通道重写一遍：文件本身完好、画幅不变，只是通道比页面宿主该写的少 */
+const rechannel = (bytes, drop) => {
+  const { width, height, channels } = readExr(bytes);
+  return writeExr({ width, height, channels: Object.fromEntries(Object.entries(channels).filter(([name]) => !drop.includes(name))) });
+};
+/** 把文件头通道表里一个通道的像素类型改掉（0 整数、2 浮点，都是每样本 4 字节，文件照样解得开）：写入器不肯给已知通道写错类型，只能改字节 */
+const retyped = (bytes, name, type) => {
+  const out = Buffer.from(bytes);
+  out.writeInt32LE(type, out.indexOf(`${name}\0`) + name.length + 1);
+  return out;
+};
+
 function fakePool(knobs = {}) {
   const pool = { calls: {}, wants: [], bias: 0, drift: 0, onRender: null, gpu: 'fake-gpu', extras: false, badId: null, ...knobs };
   pool.get = async (source) => ({
@@ -99,17 +112,20 @@ function fakePool(knobs = {}) {
           };
           const sub = `r${String(n++).padStart(3, '0')}-f${String(f).padStart(4, '0')}`;
           mkdirSync(join(env.workspace, sub), { recursive: true });
-          const layers = {};
+          const layers = {}, channels = {};
           for (const name of want.filter((x) => x !== 'meta')) {
             if (!made[name]) throw Object.assign(new Error(`这个帧源交不出：${name}`), { code: 'contract.unsupported-output' });
             const [type, comps, bytes] = made[name]();
             writeFileSync(join(env.workspace, sub, `${name}.${type}`), bytes);
             layers[name] = { file: `${sub}/${name}.${type}`, shape: [h, w, comps] };
+            const data = new (type === 'u32' ? Uint32Array : Float32Array)(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length));
+            if (name !== 'color') NATIVE_AUX[name].forEach((c, at) => { channels[`${name}.${c}`] = data.filter((_, i) => i % comps === at); });
           }
           const extra = {};
           if (pool.extras) {
             const plane = (at) => color.filter((_, i) => i % 4 === at);
-            writeFileSync(join(env.workspace, sub, 'frame.exr'), writeExr({ width: w, height: h, channels: { 'color.R': plane(0), 'color.G': plane(1), 'color.B': plane(2), 'color.A': plane(3) } }));
+            if (channels['objectId.id']) channels['objectId2x.coverage'] = new Float32Array(w * h).fill(1);
+            writeFileSync(join(env.workspace, sub, 'frame.exr'), writeExr({ width: w, height: h, channels: { 'color.R': plane(0), 'color.G': plane(1), 'color.B': plane(2), 'color.A': plane(3), ...channels } }));
             writeFileSync(join(env.workspace, sub, 'objectId2x.u32'), Buffer.from(new Uint32Array(4 * w * h).fill(f + 1).buffer));
             Object.assign(extra, { exr: { file: `${sub}/frame.exr` }, objectId2x: { file: `${sub}/objectId2x.u32` } });
           }
@@ -607,16 +623,17 @@ test('L2 包围盒没过同样当场作废：纯函数门过了也不留过门�
   }
 });
 
-test('页面帧源场景参考镜头的命中要带解得开的原生 frame.exr 和尺寸对的 objectId2x：缺了、截断了、尺寸或通道不对都当没命中，重渲补齐', { skip: noFfmpeg }, async () => {
+test('页面帧源场景参考镜头的命中要带解得开的原生 frame.exr 和尺寸对的 objectId2x：缺了、截断了、尺寸不对、少了请求的通道或通道类型不对都当没命中，重渲补齐', { skip: noFfmpeg }, async () => {
   const { run, cache } = arena();
-  const film = patched(filmOf(), (f) => { f.shots[1].colorRef = 'scene'; }), shot = film.shots[1];
+  const film = patched(withLayers(filmOf(), ['color', 'normal', 'depth']), (f) => { f.shots[1].colorRef = 'scene'; }), shot = film.shots[1];
   const round = () => run(film, { plan: [{ shot, frames: [12, 13, 14, 15] }], pool: fakePool({ extras: true }) });
   const cold = await round();
   assert.deepEqual((await round()).pool.calls, {});
   const { determinism, tier, samples, size, subs, layers, ...five } = pipeline.buildShotCacheInputs({ film, lock: lockOf(), shot, filmDir: root, tier: 'final', device: { backend: 'fake', gpu: 'fake-gpu' } });
   const entry = computeFrameCacheKey({ ...five, renderSpec: { tier, samples, size, frame: 3, subs, layers } });
   const whole = cache.get(entry);
-  assert.deepEqual(Object.keys(whole.layers).sort(), ['frame.exr', 'objectId.u32', 'objectId2x.u32']);
+  assert.deepEqual(Object.keys(whole.layers).sort(), ['depth.f32', 'frame.exr', 'normal.f32', 'objectId.u32', 'objectId2x.u32']);
+  assert.deepEqual(Object.keys(readExr(whole.layers['frame.exr']).channels).sort(), ['color.A', 'color.B', 'color.G', 'color.R', 'depth.Z', 'normal.X', 'normal.Y', 'normal.Z', 'objectId.id', 'objectId2x.coverage']);
   // 条目经缓存的写入口重存：文件头和每一层的校验和都对，只是少了一层、层的大小不对，或者原生 EXR 本身解不开、不是这一帧的画幅和颜色通道
   const [w, h] = SIZE, exrOf = (width, height, names) => writeExr({ width, height, channels: Object.fromEntries(names.map((name) => [name, new Float32Array(width * height)])) });
   const nativeColor = ['color.R', 'color.G', 'color.B', 'color.A'];
@@ -626,6 +643,10 @@ test('页面帧源场景参考镜头的命中要带解得开的原生 frame.exr 
     ['frame.exr 少了最后一行扫描线', (all) => ({ ...all, 'frame.exr': all['frame.exr'].subarray(0, all['frame.exr'].length - 8) })],
     ['frame.exr 不是这一帧的画幅', (all) => ({ ...all, 'frame.exr': exrOf(w / 2, h, nativeColor) })],
     ['frame.exr 没有颜色通道', (all) => ({ ...all, 'frame.exr': exrOf(w, h, ['depth.Z']) })],
+    // 四审的复现：文件解得开、颜色齐全、独立的 normal.f32 也在，只是原生 EXR 里少了请求的通道的一个分量
+    ...['color.A', 'normal.Z', 'normal.X', 'depth.Z', 'objectId.id', 'objectId2x.coverage'].map((channel) => [`frame.exr 少了 ${channel}`, (all) => ({ ...all, 'frame.exr': rechannel(all['frame.exr'], [channel]) })]),
+    ['frame.exr 的 normal.Z 是整数通道', (all) => ({ ...all, 'frame.exr': retyped(all['frame.exr'], 'normal.Z', 0) })],
+    ['frame.exr 的 objectId.id 是浮点通道', (all) => ({ ...all, 'frame.exr': retyped(all['frame.exr'], 'objectId.id', 2) })],
     ['缺 objectId2x.u32', ({ 'objectId2x.u32': _, ...rest }) => rest],
     ['objectId2x.u32 不是 2 倍画幅', (all) => ({ ...all, 'objectId2x.u32': all['objectId2x.u32'].subarray(4) })],
   ];
@@ -637,7 +658,8 @@ test('页面帧源场景参考镜头的命中要带解得开的原生 frame.exr 
     for (const [i, rec] of healed.records.entries()) {
       for (const file of ['frame.exr', 'objectId2x.u32']) assert.deepEqual(readFileSync(join(dirname(rec.color), file)), readFileSync(join(dirname(cold.records[i].color), file)), `${name}：帧 ${rec.frame} 的 ${file}`);
       const exr = readExr(readFileSync(join(dirname(rec.color), 'frame.exr')));
-      assert.deepEqual([exr.width, exr.height, ...nativeColor.map((c) => exr.channels[c] instanceof Float32Array && exr.channels[c].length)], [w, h, w * h, w * h, w * h, w * h], `${name}：帧 ${rec.frame} 的 frame.exr 解得开`);
+      assert.deepEqual([exr.width, exr.height, ...[...nativeColor, 'normal.X', 'normal.Y', 'normal.Z', 'depth.Z', 'objectId2x.coverage'].map((c) => exr.channels[c] instanceof Float32Array && exr.channels[c].length), exr.channels['objectId.id'] instanceof Uint32Array && exr.channels['objectId.id'].length],
+        [w, h, ...Array(10).fill(w * h)], `${name}：帧 ${rec.frame} 的 frame.exr 解得开，通道齐全`);
     }
     assert.deepEqual((await round()).pool.calls, {}, '补齐的条目写回了缓存');
   }
@@ -815,6 +837,29 @@ test('HTTP：只改 s02 再交付时 s01 的帧源调用是 0（含 L2），原�
   const [was, bumped] = [realLock, { ...realLock, machine: { ...realLock.machine, driver: `${realLock.machine.driver}-next` } }].map(keysOf);
   assert.deepEqual([was.key, was.shotKey], [victim.key, victim.shotKey], '复算的键就是服务写进缓存的键');
   assert.ok(bumped.components.runtimeEnv !== was.components.runtimeEnv && bumped.key !== was.key && bumped.shotKey !== was.shotKey);
+
+  // 四审的复现：场景参考的 s02 要 color、normal、depth，一帧的原生 EXR 只少 normal.Z（颜色、别的通道、独立的 normal.f32 都在），经缓存的写入口重存。
+  // 命中时要照页面宿主的写出契约核通道：只重渲这一帧，交付目录和缓存里的原生 EXR 都补回 normal.Z
+  const fullCold = await ask(['color', 'normal', 'depth']);
+  assert.deepEqual(fullCold.data.shots, [{ shot: 's01', renderedFrames: 12, cachedFrames: 0 }, { shot: 's02', renderedFrames: 12, cachedFrames: 0 }]);
+  const [fullVersion, ...staleFull] = readdirSync(join(cacheRoot, 'final', 'shot-s02'));
+  assert.deepEqual(staleFull, []);
+  const holed = { key: frameFiles(sceneCache, 's02').map((file) => { const raw = readFileSync(file); return JSON.parse(raw.subarray(0, raw.indexOf(0x0a)).toString('utf8')); }).find((h) => h.meta?.frame === 15).key,
+    shotKey: `sha256:${fullVersion}`, shotId: 's02', tier: 'final' };
+  const full = stored(holed), fullChannels = Object.keys(readExr(full.layers['frame.exr']).channels).sort();
+  assert.deepEqual(fullChannels, ['color.A', 'color.B', 'color.G', 'color.R', 'depth.Z', 'normal.X', 'normal.Y', 'normal.Z', 'objectId.id', 'objectId2x.coverage']);
+  sceneCache.put(holed, { ...full.rest, layers: { ...full.layers, 'frame.exr': rechannel(full.layers['frame.exr'], ['normal.Z']) } });
+  assert.deepEqual([Object.keys(readExr(sceneCache.get(holed).layers['frame.exr']).channels).sort(), sceneCache.get(holed).layers['normal.f32'].length], [fullChannels.filter((c) => c !== 'normal.Z'), 320 * 180 * 12]);
+  const refilled = await job('deliver');
+  assert.deepEqual(refilled.data.shots, [{ shot: 's01', renderedFrames: 0, cachedFrames: 12 }, { shot: 's02', renderedFrames: 1, cachedFrames: 11 }], '原生 EXR 少了请求的 normal.Z 不当命中');
+  assert.deepEqual([ledgerOf(refilled.data.job).sourceRenders, refilled.data.layers.L2.ok], [{ s02: 7 }, true], '输出调用 1 次，加这一轮有真渲帧的 s02 重新过门 6 次');
+  const refilledNatives = layerFiles(refilled.data.job, 's02', 'frame.exr');
+  assert.equal(refilledNatives.length, 12);
+  for (const bytes of [...refilledNatives.map((file) => readFileSync(file)), sceneCache.get(holed).layers['frame.exr']]) {
+    const z = readExr(bytes, { requiredChannels: ['normal.Z'] }).channels['normal.Z'];
+    assert.deepEqual([z instanceof Float32Array, z.length], [true, 57600]);
+  }
+  assert.deepEqual(sceneCache.get(holed).layers['frame.exr'], full.layers['frame.exr'], '带全通道的原生 EXR 写回了缓存，和动手之前的逐字节相同');
 
   // 三审的复现：L2 的包围盒没过（纯函数门过了、或者照记录用）时，这一版镜头的过门记录和帧当场作废，帧源没毛病就能原样再交付过去。
   // s02 改回显示参考（这部片子 s02 是场景参考时 L3 的 cut_at 本来就判不过，看不出整个交付过没过）
