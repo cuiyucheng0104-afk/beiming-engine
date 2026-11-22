@@ -2,7 +2,7 @@ import { URL } from 'node:url';
 import { estimateTokens } from './registry.mjs';
 import { resolveParams } from './runtime.mjs';
 import { parseVersion } from './status.mjs';
-import { digest, encodeCells, writeCells } from './sweep-artifacts.mjs';
+import { digest, encodeCells, prepareOutDir, writeCells } from './sweep-artifacts.mjs';
 import { measure } from './sweep-metrics.mjs';
 
 export const SWEEP_TOKEN_LIMIT = 800;
@@ -10,6 +10,13 @@ export const MAX_SWEEP_CELLS = 64;
 export const MAX_SWEEP_TIMES = 6;
 
 const bad = message => Object.assign(new Error(message), { code: 'usage.bad-argument' });
+const badValue = message => Object.assign(new Error(message), { code: 'contract.bad-value' });
+
+function diagnostic(error) {
+  if (error?.syscall || error?.code === 'ERR_MODULE_NOT_FOUND') return '无法访问所需的文件或目录';
+  if (typeof error === 'string') return error;
+  return typeof error?.message === 'string' ? error.message : '操作失败';
+}
 const isPlain = v => v !== null && typeof v === 'object' && [null, Object.prototype].includes(Object.getPrototypeOf(v));
 const named = v => typeof v === 'string' && v.trim().length > 0;
 
@@ -105,7 +112,7 @@ function table(card, columns, rows, artifacts) {
     }
   }
   if (estimateTokens(result) > SWEEP_TOKEN_LIMIT) {
-    throw Object.assign(new Error('列名与固定字段已超过 800 字节'), { code: 'contract.budget-exceeded' });
+    throw badValue('列名与固定字段已超过 800 字节');
   }
   return result;
 }
@@ -117,7 +124,7 @@ export async function sweepCard(card, request, options = {}) {
     const version = parseVersion(card.version);
     if (!named(card.id) || !version) throw bad('需要卡名与三段版本号');
     const ref = `${card.id}@${version[0]}`;
-    const { events = [], shotIn = 0, inputs = {}, outDir } = request;
+    const { events = [], shotIn = 0, inputs = {} } = request;
     if (!Array.isArray(events) || !Number.isSafeInteger(shotIn) || !isPlain(inputs)) throw bad('卡输入或事件时刻无效');
     for (const event of events) if (!isPlain(event) || !Number.isSafeInteger(event.frame)) throw bad('事件须给出整数帧号');
     const { steps, stepCol } = sampling(request);
@@ -125,13 +132,16 @@ export async function sweepCard(card, request, options = {}) {
     if (!metrics.every(named) || new Set(metrics).size !== metrics.length) throw bad('metrics 须为不重复的指标名');
     const { cells, axisNames } = prepare(card, request, { events, shotIn });
     const columns = [...axisNames, ...(steps.length > 1 ? [stepCol] : []), ...metrics];
+    const outDir = request.outDir === undefined ? undefined : prepareOutDir(request.outDir);
     const evaluateCell = options.evaluateCell === undefined ? await dataEvaluator(card, inputs) : options.evaluateCell;
     if (typeof evaluateCell !== 'function') throw bad('evaluateCell 须为函数');
     const rows = [], records = [];
     for (const [cellIndex, cell] of cells.entries()) {
       const samples = [];
       for (const step of steps) {
-        const output = await evaluateCell({ card, inputs, ...globalThis.structuredClone(cell), cellIndex, ...step });
+        let output;
+        try { output = await evaluateCell({ card, inputs, ...globalThis.structuredClone(cell), cellIndex, ...step }); }
+        catch (error) { throw badValue(`evaluateCell failed: ${diagnostic(error)}`); }
         const readings = measure(output, metrics);
         rows.push([...axisNames.map(k => cell.params[k]), ...(steps.length > 1 ? [step[stepCol]] : []), ...metrics.map(k => readings[k])]);
         if (outDir !== undefined) samples.push({ ...step, readings });
@@ -146,7 +156,8 @@ export async function sweepCard(card, request, options = {}) {
     if (file) writeCells(outDir, file);
     return result;
   } catch (error) {
-    const code = ['contract.missing-metric', 'contract.budget-exceeded'].includes(error?.code) ? error.code : 'usage.bad-argument';
-    return { ok: false, error: { code, message: String(error?.message ?? error).slice(0, 110) } };
+    const code = error?.code === 'contract.bad-value' ? error.code : 'usage.bad-argument';
+    // 每个 UTF-16 码元在 JSON 内最多占 6 字节，给错误信封保留余量。
+    return { ok: false, error: { code, message: diagnostic(error).slice(0, 110) } };
   }
 }

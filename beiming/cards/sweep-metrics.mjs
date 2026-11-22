@@ -1,5 +1,5 @@
 // 每个时刻只量测一帧。亮度与时间遥测使用同样的最近秩百分位。
-const missing = message => Object.assign(new Error(message), { code: 'contract.missing-metric' });
+const missing = message => Object.assign(new Error(message), { code: 'contract.bad-value' });
 
 function scaleOf(buffer, length) {
   if (buffer?.length !== length || !(buffer instanceof Uint8Array || buffer instanceof Float32Array)) {
