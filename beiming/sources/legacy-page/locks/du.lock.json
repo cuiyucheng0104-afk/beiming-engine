@@ -1,0 +1,115 @@
+{
+  "format": "lock/1.0",
+  "issuer": "local",
+  "film": "du",
+  "contracts": "0.1.0",
+  "seeds": {
+    "film": 1612393508,
+    "s1": 2315945598
+  },
+  "shots": {
+    "s1": {
+      "shutterSamples": 1
+    }
+  },
+  "sources": {
+    "legacy-page": {
+      "version": "1.0.0",
+      "host": "page"
+    },
+    "three": {
+      "version": "0.170.0",
+      "host": "page"
+    }
+  },
+  "cards": {
+    "time.timeline": {
+      "version": "1.0.0",
+      "impl": [
+        "data"
+      ],
+      "sha256": "096075bae66cfa47c7f08093815d3ee14f022553572f00c0974e84bfcc4cf63a",
+      "verified": {
+        "level": "reproduced",
+        "host": "kernel-eval",
+        "source": "0.1.0",
+        "gpu": "none"
+      }
+    },
+    "time.events": {
+      "version": "1.0.0",
+      "impl": [
+        "data"
+      ],
+      "sha256": "82e67892d0eb4f006a952cf715d84e43e891a09dd54c3cdbae4ac55f28b96aec",
+      "verified": {
+        "level": "reproduced",
+        "host": "kernel-eval",
+        "source": "0.1.0",
+        "gpu": "none"
+      }
+    },
+    "time.seeded": {
+      "version": "1.0.0",
+      "impl": [
+        "data"
+      ],
+      "sha256": "b14e991778dd2652057fa7d72998f3a39b7a7741cf96bb87e84f1543bc083a55",
+      "verified": {
+        "level": "reproduced",
+        "host": "kernel-eval",
+        "source": "0.1.0",
+        "gpu": "none"
+      }
+    },
+    "comp.display": {
+      "version": "1.0.0",
+      "impl": [
+        "comp"
+      ],
+      "sha256": "1bb230c23458c46d3fff24397fe54f765aa07a53059dde08f9de1c9b2afc5445",
+      "from": "style.view",
+      "verified": {
+        "level": "reproduced",
+        "host": "node",
+        "source": "24.13.1",
+        "gpu": "none"
+      }
+    },
+    "deliver.encode": {
+      "version": "1.0.0",
+      "impl": [
+        "comp"
+      ],
+      "sha256": "40325dc0d5ec2333f48ecefb9e6ace05bbe41480e436511a7b94e06ba80b07a1",
+      "from": "delivery",
+      "verified": {
+        "level": "reproduced",
+        "host": "node",
+        "source": "24.13.1",
+        "gpu": "none"
+      }
+    },
+    "audio.master": {
+      "version": "1.0.0",
+      "impl": [
+        "comp"
+      ],
+      "sha256": "b380b33502ad79c78f466c379a5f4308d7e3e014934d0c4ff303c78470cda890",
+      "from": "audio",
+      "verified": {
+        "level": "reproduced",
+        "host": "node",
+        "source": "24.13.1",
+        "gpu": "none"
+      }
+    }
+  },
+  "assets": {},
+  "templates": {
+    "floor": "1.0.0"
+  },
+  "view": {
+    "agx-mhc": "sha256:a74a605b3486933ec836ad49256566001edd1d36986680affe84f8b9368b501e"
+  }
+}
