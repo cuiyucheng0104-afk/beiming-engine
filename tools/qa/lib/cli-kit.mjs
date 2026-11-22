@@ -10,17 +10,11 @@
 //   onCleanup(fn) / trackChild(cp) / runCleanups()   登记清理动作与子进程；退出、出错、收到信号时统一清理
 //   installSignalHandlers()      SIGINT → 清理后 exit 130；SIGTERM → 清理后 exit 143
 //   log(...)                     供人阅读的日志，一律写 stderr
-export const EXIT = Object.freeze({ OK: 0, RUNTIME: 1, USAGE: 2, ENV: 3, GATE: 4, BUSY: 5, TIMEOUT: 124, SIGINT: 130, SIGTERM: 143 });
+import { QaError, EXIT } from '../../../engine/render/lib/qa-error.mjs';
+import { killChildren } from '../../../engine/render/lib/qa-process.mjs';
+export { QaError, EXIT };
+export { trackChild } from '../../../engine/render/lib/qa-process.mjs';
 
-export class QaError extends Error {
-  constructor(code, message, { hint = null, exitCode = EXIT.RUNTIME, cause } = {}) {
-    super(message, cause ? { cause } : undefined);
-    this.name = 'QaError';
-    this.code = code;
-    this.hint = hint;
-    this.exitCode = exitCode;
-  }
-}
 export const usageError = (message, hint = '用 --help 查看用法', code = 'usage.bad-value') => new QaError(code, message, { hint, exitCode: EXIT.USAGE });
 
 // spec = { options: { '--name': { type: 'boolean'|'string'|'number'|'list', alias?: '-x', desc } }, positionals: { min, max, names } }
@@ -103,16 +97,9 @@ export const log = (...a) => { if (!quiet) process.stderr.write(a.join(' ') + '\
 
 // ── 清理与子进程 ──
 const cleanups = [];
-const children = new Set();
 export function onCleanup(fn) {
   cleanups.push(fn);
   return () => { const i = cleanups.indexOf(fn); if (i >= 0) cleanups.splice(i, 1); };
-}
-export function trackChild(cp) {
-  children.add(cp);
-  cp.once('exit', () => children.delete(cp));
-  cp.once('error', () => children.delete(cp));
-  return cp;
 }
 // 给一个 Promise 设上限：到时间 onTimeout() 的返回值（或抛出的错）作为结果；结束后清掉计时器，不让它拖住进程退出
 export function withTimeout(promise, ms, onTimeout) {
@@ -124,8 +111,7 @@ export function withTimeout(promise, ms, onTimeout) {
 }
 
 export async function runCleanups() {
-  for (const cp of children) { try { cp.kill('SIGKILL'); } catch { /* 已退出 */ } }
-  children.clear();
+  killChildren();
   while (cleanups.length) {
     const fn = cleanups.pop();
     try { await withTimeout(Promise.resolve().then(fn), 5000, () => undefined); } catch { /* 清理失败不再抛 */ }
