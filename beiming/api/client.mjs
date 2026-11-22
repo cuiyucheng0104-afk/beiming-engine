@@ -32,17 +32,18 @@ export function checkArgs(route, args) {
   if (lost.length) return `${route.id} 缺少必填入参：${lost.join('、')}`;
   const badPath = path.filter((k) => !['string', 'number'].includes(typeof args[k]));
   if (badPath.length) return `${route.id} 的路径参数应为字符串：${badPath.join('、')}`;
-  const badQuery = query.filter(([arg]) => args[arg] !== undefined && !['string', 'number', 'boolean'].includes(typeof args[arg])).map(([arg]) => arg);
-  if (badQuery.length) return `${route.id} 的查询参数应为标量：${badQuery.join('、')}`;
+  const scalar = (v) => ['string', 'number', 'boolean'].includes(typeof v);
+  const badQuery = query.filter(([arg, name]) => args[arg] !== undefined && !scalar(args[arg]) && !(route.query[name].type === 'array' && Array.isArray(args[arg]) && args[arg].every(scalar))).map(([arg]) => arg);
+  if (badQuery.length) return `${route.id} 的查询参数应为标量（合同里是数组的可以给标量数组）：${badQuery.join('、')}`;
   return null;
 }
 
 /** 命令行与 MCP 共用的服务地址：BEIMING_API_URL，没设就是 serve 的默认监听地址 */
 export const defaultUrl = (env = process.env) => env.BEIMING_API_URL || 'http://127.0.0.1:8080';
 
-/** 路由加入参拼出的地址。路径参数整段转义，带 / 的产物路径由服务端逐段解码 */
+/** 路由加入参拼出的地址。路径参数整段转义，带 / 的产物路径由服务端逐段解码；数组查询参数按重复键发（tags=a&tags=b） */
 export function urlOf(route, args, baseUrl) {
-  const search = new URLSearchParams(inputsOf(route).query.filter(([arg]) => args[arg] !== undefined).map(([arg, name]) => [name, String(args[arg])]));
+  const search = new URLSearchParams(inputsOf(route).query.filter(([arg]) => args[arg] !== undefined).flatMap(([arg, name]) => [args[arg]].flat().map((v) => [name, String(v)])));
   return `${String(baseUrl).replace(/\/+$/, '')}${route.path.replace(/\{(\w+)\}/g, (_, k) => encodeURIComponent(args[k]))}${search.size ? `?${search}` : ''}`;
 }
 
@@ -60,12 +61,13 @@ export function callRoute(route, args, { baseUrl, token, fetchImpl = fetch }) {
 /** 连不上服务，或对面不是北冥 API：登记表里没有网络类的码，归到环境不合格（env.，退出码 3） */
 export const unreachable = (baseUrl, why) => fail('env.missing-tool', `北冥 API 不可用（${baseUrl}）：${why}`, { hint: '先 node beiming/api/cli.mjs serve，再用 --url 或 BEIMING_API_URL 指过去' });
 
-/** 把响应读成信封；不是信封的（代理错误页、别的服务）落到 unreachable，不让调用方看见半截正文 */
+/** 把响应读成信封；不是信封的（代理错误页、别的服务）落到 unreachable，不让调用方看见半截正文。
+ * HTTP 状态不是 2xx 却回成功信封的也落到 unreachable：信 HTTP 状态，失败的调用不能读成成功。 */
 export async function readEnvelope(res, baseUrl) {
   const text = await res.text();
   try {
     const env = JSON.parse(text);
-    if (env && typeof env === 'object' && typeof env.ok === 'boolean') return env;
+    if (env && typeof env === 'object' && typeof env.ok === 'boolean') return env.ok && !res.ok ? unreachable(baseUrl, `HTTP ${res.status} 却回了成功信封`) : env;
   } catch { /* 落到下面的失败信封 */ }
   return unreachable(baseUrl, `HTTP ${res.status} 的响应不是信封`);
 }

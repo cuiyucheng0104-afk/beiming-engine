@@ -15,17 +15,17 @@ const USAGE = [
   '服务地址默认取 BEIMING_API_URL（没设是 http://127.0.0.1:8080），令牌默认取 BEIMING_API_TOKEN。',
 ].join('\n');
 
-/** 信封对到的退出码：成功 0；失败按错误码前缀查冻结表，前缀没登记的用信封自带的 exitCode，再没有就是 1 */
+/** 信封对到的退出码：成功 0；失败只按错误码前缀查冻结表。前缀没登记的一律 1，不用信封自带的 exitCode：退出码不出冻结集合 0 / 1 / 2 / 3 / 4 / 5 / 124 */
 export function exitCodeForEnvelope(env) {
   if (env?.ok === true) return 0;
   try {
     return exitCodeOf(String(env?.error?.code ?? ''));
   } catch {
-    return Number.isInteger(env?.exitCode) && env.exitCode >= 1 && env.exitCode <= 255 ? env.exitCode : 1;
+    return 1;
   }
 }
 
-/** 纯函数：由路由表生成命令表，和 routes 一一对应。每条命令带选项表 flags（[名, 说明]）与帮助文字 */
+/** 纯函数：由路由表生成命令表，和 routes 一一对应。每条命令带选项表 flags（[名, 说明]）、可重复给的选项 many 与帮助文字 */
 export function buildCliCommands(routes = ROUTES) {
   return routes.map((route) => {
     const { path, query, body, required } = inputsOf(route);
@@ -33,9 +33,10 @@ export function buildCliCommands(routes = ROUTES) {
     const fileKey = Object.entries(body?.properties ?? {}).find(([, schema]) => schema?.contentEncoding === 'base64')?.[0];
     const must = (arg) => (required.includes(arg) ? '（必填）' : '');
     const fields = Object.keys(body?.properties ?? {});
+    const many = new Set(query.filter(([, name]) => route.query[name].type === 'array').map(([arg]) => arg));
     const flags = [
       ...path.map((name) => [name, `路径参数${must(name)}${route.params[name].description ? `：${route.params[name].description}` : ''}`]),
-      ...query.map(([arg, name]) => [arg, `查询参数 ${name}${must(arg)}${route.query[name].enum ? `：${route.query[name].enum.join(' | ')}` : ''}`]),
+      ...query.map(([arg, name]) => [arg, `查询参数 ${name}${must(arg)}${many.has(arg) ? '，可重复给' : ''}${route.query[name].enum ? `：${route.query[name].enum.join(' | ')}` : ''}`]),
       ...(body ? [[text ? 'text' : 'json', `请求体${text ? '文本' : ' JSON'}${must('body')}${fields.length ? `，字段：${fields.join('、')}` : ''}`], ['body-file', '从这个文件读请求体']] : []),
       ...(fileKey ? [['file', `读这个文件，按 base64 填进请求体的 ${fileKey}${fields.includes('name') ? '，没给 name 就用文件名' : ''}`]] : []),
       ...(route.binary ? [['out', '文件字节写到这个路径，标准输出只回摘要信封；不给就把字节写到标准输出']] : []),
@@ -47,7 +48,7 @@ export function buildCliCommands(routes = ROUTES) {
       `${route.method} ${route.path}（${AUTH_NOTE[route.auth] ?? route.auth}）：${route.summary}`,
       ...flags.map(([name, note]) => `  --${name}  ${note}`),
     ].join('\n');
-    return { id: route.id, route, flags, fileKey, help };
+    return { id: route.id, route, flags, fileKey, many, help };
   });
 }
 
@@ -66,7 +67,7 @@ export async function runApiCli(argv = process.argv.slice(2), { env = process.en
   }
   let values;
   try {
-    const parsed = parseArgs({ args: argv, allowPositionals: true, options: { ...SHARED, ...Object.fromEntries(cmd.flags.map(([name]) => [name, { type: 'string' }])) } });
+    const parsed = parseArgs({ args: argv, allowPositionals: true, options: { ...SHARED, ...Object.fromEntries(cmd.flags.map(([name]) => [name, { type: 'string', multiple: cmd.many.has(name) }])) } });
     if (parsed.positionals.length !== 1) return usage(`多余的参数：${parsed.positionals.filter((p) => p !== cmd.id).join(' ')}`, cmd.help);
     values = parsed.values;
   } catch (e) {

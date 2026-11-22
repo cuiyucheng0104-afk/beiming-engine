@@ -28,9 +28,19 @@ if (sub === 'issue-token' || sub === 'serve') {
     process.exitCode = 2;
   }
 } else if (sub === 'mcp') {
-  const { values } = parseArgs({ args: argv, allowPositionals: true, options: SHELL });
-  const { serveMcpStdio } = await import('./mcp.mjs');
-  await serveMcpStdio({ baseUrl: values.url ?? defaultUrl(), token: values.token ?? process.env.BEIMING_API_TOKEN });
+  let values;
+  try {
+    const parsed = parseArgs({ args: argv, allowPositionals: true, options: SHELL });
+    if (parsed.positionals.length === 1) values = parsed.values;
+  } catch { /* 选项写错：落到下面的用法 */ }
+  if (values) {
+    const { serveMcpStdio } = await import('./mcp.mjs');
+    await serveMcpStdio({ baseUrl: values.url ?? defaultUrl(), token: values.token ?? process.env.BEIMING_API_TOKEN });
+  } else {
+    // 启动参数写错不进 stdio 循环：不然配置里的拼写错误看起来像在正常等输入。
+    console.error('用法：node beiming/api/cli.mjs mcp [--url <服务地址>] [--token <令牌>]');
+    process.exitCode = 2;
+  }
 } else {
   process.exitCode = await runApiCli(argv);
 }

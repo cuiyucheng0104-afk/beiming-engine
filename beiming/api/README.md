@@ -32,6 +32,6 @@ node beiming/api/cli.mjs artifacts --id f_001 --name contact.png --out contact.p
 node beiming/api/cli.mjs mcp --url http://127.0.0.1:8080 --token <账户令牌>
 ```
 
-命令行里路径参数和查询参数是同名选项，请求体用 `--json` 或 `--body-file`（`film-files` 用 `--text`，`film-assets` 可用 `--file` 直接上传网格）。标准输出是一行信封。退出码按错误码前缀取：成功 0，`usage.` 2，`env.` 3（连不上服务也算），`contract.` 与 `auth.` 4，`busy.` 5，`timeout.` 124，其余 1。
+命令行里路径参数和查询参数是同名选项，请求体用 `--json` 或 `--body-file`（`film-files` 用 `--text`，`film-assets` 可用 `--file` 直接上传网格）。标准输出是一行信封；`artifacts` 不带 `--out` 时标准输出是文件的原始字节，不要交给 JSON 解析器。退出码只按错误码前缀取：成功 0，`usage.` 2，`env.` 3（连不上服务、HTTP 状态与信封对不上也算），`contract.` 与 `auth.` 4，`busy.` 5，`timeout.` 124，`failure.` 和没登记的前缀一律 1。
 
-`mcp` 在 stdio 上把同一组动词提供成 MCP 工具，入参是路径参数、查询参数和 `body`。建片交回的工作区令牌与作业归属会自动记住。`artifacts` 取到的 PNG、JPEG、WebP、GIF，以及 `observe-sheet` 等信封 `outputs` 里的图片，直接以图片内容返回；其他二进制只回字节数与 SHA-256。入参规则、令牌选择、图片上限与程序接口见 [DETAILS.md](./DETAILS.md)。
+`mcp` 在 stdio 上把同一组动词提供成 MCP 工具，入参是路径参数、查询参数和 `body`。建片交回的工作区令牌与作业归属会自动记住。`artifacts` 取到的 PNG、JPEG、WebP、GIF，以及成功信封的 `outputs`、`data.sheet`、`data.strips`、`data.outputs` 里指向本片产物的图片，全部直接以图片内容返回，不限张数和大小；其他二进制只回字节数与 SHA-256。入参规则、令牌选择、图片取回规则与程序接口见 [DETAILS.md](./DETAILS.md)。

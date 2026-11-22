@@ -8,10 +8,8 @@ import { buildOpenApi, ROUTES } from './contract.mjs';
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'beiming-api', version: buildOpenApi().info.version };
 const AUTH_NOTE = { account: '账户令牌', workspace: '这部片的工作区令牌', job: '作业所属那部片的工作区令牌' };
-const ARTIFACT_URL = /^\/v1\/films\/[^/]+\/artifacts\/.+/;
-// shortcut: 单张图超过 5 MiB 只回摘要、一个信封最多带回 8 张图，模型上下文放不下更多；要原件用命令行薄壳的 --out 落盘
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const MAX_IMAGES = 8;
+const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const strings = (v) => (typeof v === 'string' ? [v] : v && typeof v === 'object' ? Object.values(v).flatMap(strings) : []);
 
 // 冻结契约内嵌进来时带着 $schema、$id，工具入参结构里不留。
 const plainSchema = (schema) => JSON.parse(JSON.stringify(schema, (key, value) => (key === '$schema' || key === '$id' ? undefined : value)));
@@ -43,6 +41,7 @@ export function buildMcpTools(routes = ROUTES) {
  * token 是账户令牌（或单部片的工作区令牌）；建片交回的工作区令牌和作业所属的片子自动记住，后面的调用自己选令牌。
  */
 export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.BEIMING_API_TOKEN, workspaceTokens = new Map(), fetchImpl = fetch, routes = ROUTES } = {}) {
+  const base = String(baseUrl).replace(/\/+$/, '');
   const tools = buildMcpTools(routes);
   const byId = new Map(routes.map((route) => [route.id, route]));
   const jobFilm = new Map();
@@ -58,25 +57,48 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
     const type = (res.headers.get('content-type') ?? 'application/octet-stream').split(';')[0].trim();
     const image = imageMime(type, url);
     const meta = { url, bytes: bytes.length, sha256: sha256Hex(bytes), mimeType: image ?? type };
-    if (image && bytes.length <= MAX_IMAGE_BYTES) return [text(meta), { type: 'image', data: bytes.toString('base64'), mimeType: image }];
+    if (image) return [text(meta), { type: 'image', data: bytes.toString('base64'), mimeType: image }];
     if (!image && /json$|^text\//.test(type)) return [text(bytes.toString('utf8'))];
     return [text({ binary: true, ...meta })];
   }
 
-  /** 信封 outputs 里的图片产物（联系表、切点条带）用同一个令牌取回来；信封被截短时先读挂在 outputs 里的全文 */
-  async function outputImages(env, bearer) {
-    const get = (url) => fetchImpl(`${String(baseUrl).replace(/\/+$/, '')}${url}`, { method: 'GET', headers: { authorization: `Bearer ${bearer}` } });
+  /** 引用（地址或路径）落在本服务的产物地址上时交回 [片号, 规整后的路径]；别的服务、不是产物地址、带 .. 的越界路径交回 null */
+  function artifactRef(ref) {
+    try {
+      const root = new URL(`${base}/`);
+      const url = new URL(ref, root);
+      const path = url.pathname.startsWith(root.pathname) ? url.pathname.slice(root.pathname.length - 1) : url.pathname;
+      const [, film, name] = /^\/v1\/films\/([^/]+)\/artifacts\/(.+)$/.exec(path);
+      const segs = decodeURIComponent(name).split('/');
+      if (url.origin !== root.origin || segs.some((s) => !s || s === '.' || s === '..' || s.includes('\\'))) return null;
+      return [decodeURIComponent(film), `/v1/films/${film}/artifacts/${segs.map(encodeURIComponent).join('/')}`];
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 成功信封里的图片产物（联系表、切点条带）用同一个令牌取回来，一张不少、按出现的顺序、同一张只取一次。
+   * 引用从顶层 outputs 和 data.sheet / data.strips / data.outputs 里找；信封被截短时先读挂在 outputs 里的全文。
+   * 只取 film 这部片的；片号不知道时（重启后直接查作业）认第一个引用的那部片。
+   */
+  async function outputImages(env, bearer, film) {
+    const get = (path) => fetchImpl(`${base}${path}`, { method: 'GET', headers: { authorization: `Bearer ${bearer}` } });
+    const mine = (ref) => {
+      const hit = artifactRef(ref);
+      return hit && hit[0] === String(film ??= hit[0]) ? hit[1] : null;
+    };
     const blocks = [];
     try {
-      let outputs = env.outputs ?? [];
-      const full = outputs.find((o) => o.kind === 'response' && ARTIFACT_URL.test(o.url));
-      if (full) {
-        const res = await get(full.url);
-        if (res.ok) outputs = (await res.json()).outputs ?? outputs;
+      const spill = mine(env.outputs?.find((o) => o?.kind === 'response')?.url);
+      if (spill) {
+        const res = await get(spill);
+        if (res.ok) env = await res.json();
       }
-      for (const o of outputs.filter((o) => ARTIFACT_URL.test(o.url) && imageMime('', o.url)).slice(0, MAX_IMAGES)) {
-        const res = await get(o.url);
-        blocks.push(...(res.ok ? await artifactBlocks(res, o.url) : [text({ url: o.url, error: `HTTP ${res.status}` })]));
+      const refs = [env?.outputs, env?.data?.sheet, env?.data?.strips, env?.data?.outputs].flatMap(strings);
+      for (const path of new Set(refs.map(mine).filter((p) => p && imageMime('', p)))) {
+        const res = await get(path);
+        blocks.push(...(res.ok ? await artifactBlocks(res, path) : [text({ url: path, error: `HTTP ${res.status}` })]));
       }
     } catch (e) {
       // 动词本身已经成功，图取不回来不改它的结果，只把原因交回去。
@@ -92,14 +114,18 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
     const env = await readEnvelope(res, baseUrl);
     if (env.ok && typeof env.data?.film === 'string' && typeof env.data?.token === 'string') workspaceTokens.set(env.data.film, env.data.token);
     if (route.auth === 'workspace' && typeof env.data?.job === 'string') jobFilm.set(env.data.job, args.id);
-    return { content: [text(env), ...(env.ok ? await outputImages(env, bearer) : [])], isError: !res.ok || env.ok !== true };
+    const film = route.auth === 'workspace' ? args.id : jobFilm.get(args.id);
+    return { content: [text(env), ...(env.ok ? await outputImages(env, bearer, film) : [])], isError: env.ok !== true };
   }
 
   async function handleMessage(msg) {
-    if (!msg || typeof msg !== 'object' || Array.isArray(msg) || msg.jsonrpc !== '2.0' || typeof msg.method !== 'string') return error(msg?.id, -32600, 'Invalid Request');
+    // id 只能是字符串、数字或 null；不合规的 id 不回显。
+    const idOk = isObject(msg) && (msg.id === undefined || msg.id === null || ['string', 'number'].includes(typeof msg.id));
+    if (!idOk || msg.jsonrpc !== '2.0' || typeof msg.method !== 'string') return error(idOk ? msg.id : null, -32600, 'Invalid Request');
     const { id, method } = msg;
-    const params = msg.params ?? {};
     if (id === undefined) return null;
+    if (msg.params !== undefined && !isObject(msg.params)) return error(id, -32602, 'params 应为对象');
+    const params = msg.params ?? {};
     switch (method) {
       case 'initialize': return reply(id, { protocolVersion: PROTOCOLS.includes(params.protocolVersion) ? params.protocolVersion : PROTOCOLS[0], capabilities: { tools: {} }, serverInfo: SERVER_INFO });
       case 'ping': return reply(id, {});
@@ -107,8 +133,9 @@ export function createMcpSession({ baseUrl = defaultUrl(), token = process.env.B
       case 'tools/call': {
         const route = byId.get(params.name);
         if (!route) return error(id, -32602, `Unknown tool: ${params.name}`);
-        const given = params.arguments ?? {};
-        if (typeof given !== 'object' || Array.isArray(given)) return error(id, -32602, 'arguments 应为对象');
+        // 省略 arguments 当空对象；显式给 null、数组或原始值是入参错误，不调上游。
+        const given = params.arguments === undefined ? {} : params.arguments;
+        if (!isObject(given)) return error(id, -32602, 'arguments 应为对象');
         const { _token, ...args } = given;
         if (_token !== undefined && typeof _token !== 'string') return error(id, -32602, '_token 应为字符串');
         const why = checkArgs(route, args);

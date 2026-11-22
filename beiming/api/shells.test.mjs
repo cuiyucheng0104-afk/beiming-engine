@@ -11,7 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { tools as mediaTools } from '../comp/index.mjs';
 import { issueAccountToken } from './auth.mjs';
 import { matchRoute, ROUTES } from './contract.mjs';
-import { fail } from './envelope.mjs';
+import { encodePng } from '../observe/sheet.mjs';
+import { fail, ok } from './envelope.mjs';
 import { startServer } from './server.mjs';
 import { buildMcpTools, createMcpSession } from './mcp.mjs';
 import { buildCliCommands, exitCodeForEnvelope, runApiCli } from './cli-shell.mjs';
@@ -116,11 +117,11 @@ function putArtifact(film, name, bytes) {
 }
 
 /** 异步跑命令行（服务端和测试同进程，不能用同步子进程堵住事件循环）。交回 { code, stdout, stderr } */
-const cli = (args, { url = api.url, token, encoding = 'utf8' } = {}) => new Promise((done) => {
+const cli = (args, { url = api.url, token, encoding = 'utf8', timeout } = {}) => new Promise((done) => {
   const env = { ...process.env, BEIMING_API_URL: url };
   delete env.BEIMING_API_TOKEN;
   if (token) env.BEIMING_API_TOKEN = token;
-  execFile(process.execPath, [CLI, ...args], { env, encoding, maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => done({ code: error ? error.code : 0, stdout, stderr }));
+  execFile(process.execPath, [CLI, ...args], { env, encoding, timeout, maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => done({ code: error ? error.code : 0, stdout, stderr }));
 });
 const cliJson = async (args, opts) => {
   const out = await cli(args, opts);
@@ -128,8 +129,9 @@ const cliJson = async (args, opts) => {
 };
 const textOf = (result) => JSON.parse(result.content.find((c) => c.type === 'text').text);
 
-test('A9-4 MCP stdio 子进程对真实服务：initialize、tools/list、tools/call、图片与二进制产物、令牌衔接、JSON-RPC 错误码', async () => {
-  const child = spawn(process.execPath, [CLI, 'mcp', '--url', api.url, '--token', account], { stdio: ['pipe', 'pipe', 'inherit'] });
+/** 起一个真实的 MCP stdio 子进程：rpc 发请求等回应，send 原样写一行，stray 收没人等的回应，close 关输入并交回退出码 */
+function mcpStdio(url, token) {
+  const child = spawn(process.execPath, [CLI, 'mcp', '--url', url, '--token', token], { stdio: ['pipe', 'pipe', 'inherit'] });
   const waiting = new Map();
   const stray = [];
   createInterface({ input: child.stdout }).on('line', (line) => {
@@ -138,18 +140,43 @@ test('A9-4 MCP stdio 子进程对真实服务：initialize、tools/list、tools/
     if (take) take(msg); else stray.push(msg);
   });
   let seq = 0;
+  const send = (msg) => child.stdin.write(`${typeof msg === 'string' ? msg : JSON.stringify(msg)}\n`);
   const rpc = (method, params) => new Promise((done) => {
     const id = ++seq;
     waiting.set(id, done);
-    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, ...(params && { params }) })}\n`);
+    send({ jsonrpc: '2.0', id, method, ...(params !== undefined && { params }) });
   });
   const callTool = async (name, args = {}) => (await rpc('tools/call', { name, arguments: args })).result;
+  const close = async () => {
+    child.stdin.end();
+    await new Promise((done) => (child.exitCode === null ? child.once('exit', done) : done()));
+    return child.exitCode;
+  };
+  return { rpc, send, callTool, stray, close };
+}
+
+/** 只回固定响应的回环 HTTP 服务：reply(地址, 请求) 交回 [状态码, 正文]，正文是 Buffer 按文件字节回，别的按 JSON 回。hits 记下每次请求 */
+async function stubApi(reply) {
+  const hits = [];
+  const server = createServer((req, res) => {
+    req.resume();
+    hits.push({ method: req.method, url: req.url, auth: req.headers.authorization });
+    const [status, body] = reply(req.url, req);
+    res.writeHead(status, { 'content-type': Buffer.isBuffer(body) ? 'application/octet-stream' : 'application/json' });
+    res.end(Buffer.isBuffer(body) ? body : JSON.stringify(body));
+  });
+  await new Promise((done) => server.listen(0, '127.0.0.1', done));
+  return { url: `http://127.0.0.1:${server.address().port}`, hits, close: () => new Promise((done) => server.close(done)) };
+}
+
+test('A9-4 MCP stdio 子进程对真实服务：initialize、tools/list、tools/call、图片与二进制产物、令牌衔接、JSON-RPC 错误码', async () => {
+  const { rpc, send, callTool, stray, close } = mcpStdio(api.url, account);
   try {
     const init = (await rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '0' } })).result;
     assert.equal(init.protocolVersion, '2025-06-18');
     assert.deepEqual(init.capabilities, { tools: {} });
     assert.equal(init.serverInfo.name, 'beiming-api');
-    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`);
+    send({ jsonrpc: '2.0', method: 'notifications/initialized' });
     assert.deepEqual((await rpc('ping')).result, {});
     assert.deepEqual(stray, [], '通知不回消息');
 
@@ -213,14 +240,12 @@ test('A9-4 MCP stdio 子进程对真实服务：initialize、tools/list、tools/
     assert.equal((await rpc('tools/call', { name: 'nope' })).error.code, -32602);
     assert.equal((await rpc('tools/call', { name: 'film-get', arguments: {} })).error.code, -32602);
     assert.equal((await rpc('tools/call', { name: 'film-get', arguments: { id: film, bogus: 1 } })).error.code, -32602);
-    child.stdin.write('{not json\n');
+    send('{not json');
     assert.equal((await rpc('ping')).result !== undefined, true);
     assert.deepEqual(stray.map((m) => [m.id, m.error.code]), [[null, -32700]]);
   } finally {
-    child.stdin.end();
-    await new Promise((done) => child.once('exit', done));
+    assert.equal(await close(), 0);
   }
-  assert.equal(child.exitCode, 0);
 });
 
 test('A9-5 MCP 动态新增路由直接能调；信封被截短时从全文里找回联系表与切点条带图片', async () => {
@@ -408,4 +433,169 @@ test('A9-10 README 不超过 1500 token，细则在 DETAILS.md', () => {
   const readme = readFileSync(new URL('./README.md', import.meta.url));
   assert.ok(Math.ceil(readme.length / 3.5) <= 1500, `README 估算 ${Math.ceil(readme.length / 3.5)} token`);
   assert.ok(readme.includes('./DETAILS.md') && existsSync(new URL('./DETAILS.md', import.meta.url)));
+});
+
+/* ---------------- 二轮回归：一审 G_REV-R1-A9 的 6 项 ---------------- */
+
+test('A9-11 MCP 大图与多图完整直返：5.5 MiB 以上的 PNG 和同一信封的 9 张图一张不少、按序交回', { timeout: 120000 }, async () => {
+  const rgb = Buffer.alloc(1400 * 1400 * 3);
+  for (let i = 0, x = 1; i < rgb.length; i++) rgb[i] = (x = (Math.imul(x, 1103515245) + 12345) >>> 0) >>> 16;
+  const big = encodePng({ width: 1400, height: 1400, rgb });
+  assert.ok(big.length > 5.5 * 1024 * 1024, `夹具只有 ${big.length} 字节`);
+  const real = mcpStdio(api.url, account);
+  try {
+    const film = textOf(await real.callTool('films-create', { body: {} })).data.film;
+    putArtifact(film, 'big.png', big);
+    const result = await real.callTool('artifacts', { id: film, name: 'big.png' });
+    const image = result.content.find((c) => c.type === 'image');
+    assert.equal(image?.mimeType, 'image/png', result.content[0].text);
+    assert.ok(Buffer.from(image.data, 'base64').equals(big), '大图逐字节相同');
+    assert.deepEqual([textOf(result).bytes, textOf(result).sha256], [big.length, sha(big)]);
+  } finally {
+    assert.equal(await real.close(), 0);
+  }
+
+  // 每张图在 PNG 后面跟上自己的地址，用来核对顺序。
+  const urls = Array.from({ length: 9 }, (_, i) => `/v1/films/f_9/artifacts/sheets/cut-${i}.png`);
+  const stub = await stubApi((url) => (url.endsWith('/observe/sheet') ? [200, ok({ outputs: urls.map((u) => ({ kind: 'cut-strip', url: u })) })] : [200, Buffer.concat([PNG, Buffer.from(url)])]));
+  const mcp = mcpStdio(stub.url, 'ws-9');
+  try {
+    const sheet = await mcp.callTool('observe-sheet', { id: 'f_9', body: {} });
+    assert.equal(sheet.isError, false);
+    const images = sheet.content.filter((c) => c.type === 'image').map((c) => Buffer.from(c.data, 'base64'));
+    assert.deepEqual(images.map((b) => b.subarray(PNG.length).toString()), urls);
+    assert.ok(images.every((b) => b.subarray(0, PNG.length).equals(PNG)));
+    assert.deepEqual(stub.hits.map((h) => `${h.method} ${h.url}`), ['POST /v1/films/f_9/observe/sheet', ...urls.map((u) => `GET ${u}`)]);
+  } finally {
+    await mcp.close();
+    await stub.close();
+  }
+});
+
+test('A9-12 MCP 取回只写在 data.sheet / data.strips / data.outputs 里的本片图片：去重、同一令牌；别的片、别的服务、越界路径不取', async () => {
+  const at = (name, film = 'f_9') => `/v1/films/${film}/artifacts/${name}`;
+  const stub = await stubApi((url) => {
+    if (url === '/v1/films/f_9/observe/sheet') {
+      return [200, ok({ data: {
+        sheet: at('s/contact.png'),
+        strips: [{ url: at('s/cut-1.jpeg') }, `${stub.url}${at('s/cut-2.png')}`],
+        outputs: [
+          { kind: 'contact', url: at('s/contact.png') }, { kind: 'report', url: at('report.json') },
+          { kind: 'contact', url: at('x.png', 'f_8') }, { kind: 'contact', url: `http://evil.invalid${at('y.png')}` },
+          { kind: 'contact', url: at('../../f_8/artifacts/z.png') }, { kind: 'contact', url: at('..%2F..%2Ff_8%2Fartifacts%2Fw.png') },
+        ],
+      } })];
+    }
+    // 第二部片：信封被截短，图片引用只在全文的 data.sheet 里。
+    if (url === '/v1/films/f_7/observe/sheet') return [200, ok({ data: { truncated: true }, outputs: [{ kind: 'response', url: at('response-1.json', 'f_7') }] })];
+    if (url === at('response-1.json', 'f_7')) return [200, ok({ data: { sheet: { url: at('s/contact.png', 'f_7') } } })];
+    return [200, url.endsWith('.jpeg') ? JPEG : PNG];
+  });
+  const mcp = mcpStdio(stub.url, 'ws-tok');
+  try {
+    const sheet = await mcp.callTool('observe-sheet', { id: 'f_9', body: {} });
+    assert.equal(sheet.isError, false);
+    assert.deepEqual(sheet.content.filter((c) => c.type === 'image'), [
+      { type: 'image', data: PNG.toString('base64'), mimeType: 'image/png' },
+      { type: 'image', data: JPEG.toString('base64'), mimeType: 'image/jpeg' },
+      { type: 'image', data: PNG.toString('base64'), mimeType: 'image/png' },
+    ]);
+    assert.deepEqual(stub.hits.map((h) => `${h.method} ${h.url}`), ['POST /v1/films/f_9/observe/sheet', `GET ${at('s/contact.png')}`, `GET ${at('s/cut-1.jpeg')}`, `GET ${at('s/cut-2.png')}`]);
+    stub.hits.length = 0;
+    const cut = await mcp.callTool('observe-sheet', { id: 'f_7', body: {} });
+    assert.deepEqual(cut.content.filter((c) => c.type === 'image'), [{ type: 'image', data: PNG.toString('base64'), mimeType: 'image/png' }]);
+    assert.deepEqual(stub.hits.map((h) => `${h.method} ${h.url}`), ['POST /v1/films/f_7/observe/sheet', `GET ${at('response-1.json', 'f_7')}`, `GET ${at('s/contact.png', 'f_7')}`]);
+    assert.ok(stub.hits.every((h) => h.auth === 'Bearer ws-tok'));
+  } finally {
+    await mcp.close();
+    await stub.close();
+  }
+});
+
+test('A9-13 CLI 退出码只落在冻结集合里：没登记的前缀不管信封自带什么 exitCode 都是 1', async () => {
+  const table = [['usage.x', 2], ['env.x', 3], ['contract.x', 4], ['auth.x', 4], ['busy.x', 5], ['timeout.x', 124], ['failure.x', 1], ['weird.x', 1], ['pred.x', 1], ['qa.x', 1], ['', 1]];
+  for (const [code, want] of table) for (const exitCode of [42, 0, undefined, '7']) assert.equal(exitCodeForEnvelope({ ok: false, exitCode, error: { code } }), want, `${code} ${exitCode}`);
+  assert.equal(exitCodeForEnvelope({ ok: false, exitCode: 42 }), 1);
+
+  // 真实子进程对回环服务：令牌写成「错误码|exitCode」，服务照着回失败信封。
+  const stub = await stubApi((url, req) => {
+    const [code, exitCode] = req.headers.authorization.slice('Bearer '.length).split('|');
+    return [500, { format: 'envelope/0.1', ok: false, ...(exitCode && { exitCode: Number(exitCode) }), error: { code, message: '夹具' } }];
+  });
+  try {
+    for (const [token, want] of [['weird.thing|42', 1], ['weird.thing', 1], ['pred.gate|4', 1], ['qa.gate|4', 1], ['failure.ffmpeg|1', 1], ['auth.base-readonly|4', 4], ['busy.rev-conflict|42', 5]]) {
+      const out = await cliJson(['guide'], { url: stub.url, token });
+      assert.deepEqual([out.code, out.env.error.code], [want, token.split('|')[0]], token);
+    }
+  } finally {
+    await stub.close();
+  }
+});
+
+test('A9-14 HTTP 非 2xx 配成功信封不算成功：CLI 退出 3，MCP 标 isError；正常失败信封保留原码与诊断', async () => {
+  const stub = await stubApi((url, req) => ({
+    lie: [503, ok({ data: { verbs: [] } })],
+    down: [503, fail('env.ffmpeg-missing', '找不到 ffmpeg', { diagnostics: [{ code: 'env.ffmpeg-missing', message: '装 FFmpeg' }] })],
+    fine: [200, ok({ data: { verbs: [] } })],
+  })[req.headers.authorization.slice('Bearer '.length)]);
+  const mcp = mcpStdio(stub.url, 'lie');
+  try {
+    const lie = await cliJson(['guide'], { url: stub.url, token: 'lie' });
+    assert.deepEqual([lie.code, lie.env.ok, lie.env.exitCode, lie.env.error.code], [3, false, 3, 'env.missing-tool']);
+    assert.match(lie.env.error.message, /HTTP 503/);
+    const down = await cliJson(['guide'], { url: stub.url, token: 'down' });
+    assert.deepEqual([down.code, down.env.error.code, down.env.diagnostics.length], [3, 'env.ffmpeg-missing', 1]);
+    assert.equal((await cliJson(['guide'], { url: stub.url, token: 'fine' })).code, 0);
+
+    const lied = await mcp.callTool('guide');
+    assert.deepEqual([lied.isError, textOf(lied).ok, textOf(lied).error.code], [true, false, 'env.missing-tool']);
+    const failed = await mcp.callTool('guide', { _token: 'down' });
+    assert.deepEqual([failed.isError, textOf(failed).error.code, textOf(failed).diagnostics.length], [true, 'env.ffmpeg-missing', 1]);
+    assert.equal((await mcp.callTool('guide', { _token: 'fine' })).isError, false);
+  } finally {
+    await mcp.close();
+    await stub.close();
+  }
+});
+
+test('A9-15 MCP 严格校验 JSON-RPC 请求结构：非法 id 回 -32600，非法 params / arguments 回 -32602 且不打上游；查询数组按重复键发', async () => {
+  const stub = await stubApi(() => [200, ok()]);
+  const mcp = mcpStdio(stub.url, 't');
+  try {
+    for (const id of [{}, [1], true]) mcp.send({ jsonrpc: '2.0', id, method: 'ping' });
+    mcp.send({ jsonrpc: '1.0', id: 'old', method: 'ping' });
+    mcp.send({ jsonrpc: '2.0', method: 'notifications/initialized', params: true });
+    assert.deepEqual((await mcp.rpc('ping')).result, {});
+    assert.deepEqual(mcp.stray.map((m) => [m.id, m.error.code]), [[null, -32600], [null, -32600], [null, -32600], ['old', -32600]]);
+    for (const params of [true, [], 'x', 5, null]) assert.equal((await mcp.rpc('ping', params)).error?.code, -32602, `params ${JSON.stringify(params)}`);
+    for (const args of [null, [], 'x', 5, true]) assert.equal((await mcp.rpc('tools/call', { name: 'guide', arguments: args })).error?.code, -32602, `arguments ${JSON.stringify(args)}`);
+    assert.equal((await mcp.rpc('tools/call', { name: 5 })).error?.code, -32602);
+    assert.deepEqual(stub.hits, [], '非法请求不打上游');
+    assert.equal((await mcp.rpc('tools/call', { name: 'guide' })).result.isError, false, '省略 arguments 当空对象');
+    assert.equal(stub.hits.length, 1);
+
+    // 查询参数的结构是数组时按重复键发，MCP 与命令行同一个编码；真实 fetch 打到回环服务核对线上的地址。
+    const tagged = { id: 'custom-tags', method: 'GET', path: '/v1/custom', auth: 'account', summary: '数组查询', query: { tags: { type: 'array', items: { type: 'string' } }, wait: { type: 'integer' } } };
+    const session = createMcpSession({ baseUrl: stub.url, token: 't', routes: [tagged] });
+    assert.equal(session.tools[0].inputSchema.properties.tags.type, 'array');
+    const call = (args) => session.handleMessage({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'custom-tags', arguments: args } });
+    assert.equal((await call({ tags: ['a b', 'c&d'], wait: 0 })).result?.isError, false);
+    assert.equal((await call({ wait: [1, 2] })).error?.code, -32602, '结构不是数组的查询参数不收数组');
+    assert.equal((await call({ tags: [{}] })).error?.code, -32602);
+    assert.equal(await runApiCli(['custom-tags', '--tags', 'a b', '--tags', 'c&d', '--wait', '0', '--url', stub.url, '--token', 't'], { routes: [tagged], stdout: { write() {} }, env: {} }), 0);
+    assert.deepEqual(stub.hits.slice(1).map((h) => h.url), ['/v1/custom?tags=a+b&tags=c%26d&wait=0', '/v1/custom?tags=a+b&tags=c%26d&wait=0']);
+  } finally {
+    await mcp.close();
+    await stub.close();
+  }
+});
+
+test('A9-16 mcp 子命令的启动参数写错按用法错误退出 2，不挂着等输入；README 写明不带 --out 时出原始字节', { timeout: 90000 }, async () => {
+  for (const args of [['mcp', 'extra'], ['mcp', '--bogus'], ['mcp', '--url']]) {
+    const out = await cli(args, { token: account, timeout: 15000 });
+    assert.deepEqual([out.code, out.stdout], [2, ''], args.join(' '));
+    assert.match(out.stderr, /^用法：.*\bmcp\b/, args.join(' '));
+    assert.doesNotMatch(out.stderr, /node:internal|\n\s+at /, args.join(' '));
+  }
+  assert.match(readFileSync(new URL('./README.md', import.meta.url), 'utf8'), /不带 `--out`[^。]*原始字节/);
 });
