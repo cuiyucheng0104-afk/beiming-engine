@@ -50,13 +50,19 @@ test('V18-1 同一渲染器换种子两组 (K=16)：BH 显著像素比例不超�
   assert.equal(resPx.biasMap.length, 64 * 64);
   assert.equal(resPx.pHistogram.counts.reduce((sum, n) => sum + n, 0), 64 * 64);
 
-  // lowTailP 是 p <= alpha 的单元数对 Binomial(n, alpha) 的单侧精确尾概率，用逐项求和对照
+  // rawSignificantRatio 从 pMap 独立数一遍核对
   const n = resPx.testedUnits;
-  const low = Math.round(resPx.rawSignificantRatio * n);
-  let pmf = 0.95 ** n;
+  const low = resPx.pMap.reduce((count, p) => count + (p <= 0.05 ? 1 : 0), 0);
+  assert.ok(low > 0);
+  assert.equal(resPx.rawSignificantRatio, low / n);
+  // 平坦性的名义率按 K 留余量：K=16 时是 alpha 的 1 + 0.5/15 倍
+  const rate = resPx.pHistogram.effectiveAlpha;
+  assert.ok(Math.abs(rate - 0.05 * (1 + 0.5 / 15)) < 1e-15, `effectiveAlpha=${rate}`);
+  // lowTailP 是 p <= alpha 的单元数对 Binomial(n, effectiveAlpha) 的单侧精确尾概率，用逐项求和对照
+  let pmf = (1 - rate) ** n;
   let tail = low === 0 ? pmf : 0;
   for (let i = 0; i < n; i++) {
-    pmf *= (n - i) / (i + 1) * (0.05 / 0.95);
+    pmf *= (n - i) / (i + 1) * (rate / (1 - rate));
     if (i + 1 >= low) tail += pmf;
   }
   assert.ok(Math.abs(resPx.pHistogram.lowTailP - tail) < 1e-9, `${resPx.pHistogram.lowTailP} 对 ${tail}`);
@@ -159,14 +165,14 @@ test('V18-5 大片无噪背景加局部带噪前景：确定性单元单列，�
 
   // 只有一边有噪声：自由度退化为有噪一边的 K-1，p 与单样本 t 检验一致
   const noisy = [0.1, 0.3, 0.2, 0.6].map(v => ({ width: 1, height: 1, data: Float32Array.of(v) }));
-  const fixed = [0.2, 0.2, 0.2].map(v => ({ width: 1, height: 1, data: Float32Array.of(v) }));
+  const fixed = [0.2, 0.2, 0.2, 0.2].map(v => ({ width: 1, height: 1, data: Float32Array.of(v) }));
   const values = noisy.map(f => f.data[0]);
   const mean = values.reduce((s, v) => s + v, 0) / 4;
   const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / 3;
   const oneSided = verify.welchTest(noisy, fixed);
   const expected = verify.studentTwoSidedP((mean - fixed[0].data[0]) / Math.sqrt(variance / 4), 3);
   assert.ok(Math.abs(oneSided.pMap[0] - expected) < 1e-12);
-  assert.deepEqual([oneSided.kA, oneSided.kB], [4, 3]);
+  assert.deepEqual([oneSided.kA, oneSided.kB], [4, 4]);
 });
 
 test('V18-6 EXR 字节、路径与帧对象三种输入结果一致；尾块按实际像素数平均', async () => {
@@ -179,6 +185,7 @@ test('V18-6 EXR 字节、路径与帧对象三种输入结果一致；尾块按�
   const framesB = renderNoisyGroup(4, width, height, 4242, 1.2);
   const toExr = (frame, prefix) => writeExr({ width, height, compression: 2, channels: {
     ...Object.fromEntries(['R', 'G', 'B'].map((c, k) => [prefix + c, Float32Array.from({ length: width * height }, (_, p) => frame.data[p * 3 + k])])),
+    ...(prefix && Object.fromEntries(['R', 'G', 'B'].map((c, k) => [c, Float32Array.from({ length: width * height }, (_, p) => frame.data[p * 3 + k] * 3)]))),
     'depth.Z': new Float32Array(width * height).fill(7),
     'objectId.id': new Uint32Array(width * height),
   } });
@@ -203,6 +210,7 @@ test('V18-6 EXR 字节、路径与帧对象三种输入结果一致；尾块按�
       writeFileSync(file, toExr(frame, ''));
       return file;
     });
+    // A 边同时带 color.R/G/B 和数值乘了 3 的裸 R/G/B：结果与帧对象一致，说明取的是 color.*
     const viaExr = verify.welchTest(framesA.map(f => toExr(f, 'color.')), paths, { blockSize: 8 });
     assert.deepEqual([...viaExr.pMap], [...reference.pMap]);
     assert.deepEqual([...viaExr.biasMap], [...reference.biasMap]);
@@ -223,6 +231,7 @@ test('V18-7 非法输入一律抛错', () => {
   assert.throws(() => verify.welchTest([frame()], pair), /至少要 2 个/);
   assert.throws(() => verify.welchTest(pair, 'not-a-group'), /至少要 2 个/);
   assert.throws(() => verify.welchTest(pair, [frame(), frame(3, 2)]), /尺寸不一致/);
+  assert.throws(() => verify.welchTest(pair, [frame(), frame(2, 3)]), /尺寸不一致/);
   assert.throws(() => verify.welchTest(pair, [frame(), frame(2, 2, NaN)]), /非有限值/);
   assert.throws(() => verify.welchTest(pair, [frame(), frame(2, 2, Infinity)]), /非有限值/);
   assert.throws(() => verify.welchTest(pair, [frame(), { width: 2, height: 2, data: new Float32Array(5) }]), /数据长度/);
@@ -235,4 +244,87 @@ test('V18-7 非法输入一律抛错', () => {
   }
   assert.throws(() => verify.welchTest(pair, [frame(), Buffer.from('not an exr file')]), /EXR/);
   assert.throws(() => verify.welchTest(pair, [frame(), { width: 2, height: 2, channels: { 'normal.X': new Float32Array(4), 'normal.Y': new Float32Array(4) } }]), /EXR 须含/);
+});
+
+test('V18-8 两边种子数不等抛 RangeError；大自由度切正态渐近', () => {
+  const f = v => ({ width: 2, height: 2, channels: 1, data: new Float32Array([v, v + 0.1, v + 0.2, v + 0.3]) });
+  assert.throws(() => verify.welchTest([f(1), f(1.1), f(0.9), f(1.05)], [f(1), f(1.1), f(0.9)]), RangeError);
+  for (const df of [1.0000001e7, 1e12, 1e15, Infinity]) {
+    const p = verify.studentTwoSidedP(1.959963984540054, df);
+    assert.ok(Math.abs(p - 0.05) < 1e-8, `df=${df}: ${p}`);
+  }
+  // 正态尾部对照 erfc 的已知值（相对误差）
+  for (const [x, expected] of [[0.5, 0.4795001221869535], [1, 0.15729920705028513], [3, 2.209049699858544e-5], [5, 1.5374597944280349e-12]]) {
+    assert.ok(Math.abs(verify.studentTwoSidedP(x * Math.SQRT2, Infinity) / expected - 1) < 1e-12, `erfc(${x})`);
+  }
+  assert.equal(verify.studentTwoSidedP(0, Infinity), 1);
+  for (const [t, df] of [[null, 7], [undefined, 7], ['2', 7], [2, '7'], [2, null], [2, undefined], [2, 0], [2, NaN]]) {
+    assert.throws(() => verify.studentTwoSidedP(t, df), /welch/, `t=${t} df=${df}`);
+  }
+});
+
+// 每个像素一个单元：A 边第 i 个种子取 base[i] + shift[x]，B 边取 base[i]；shift 为 null 的单元两边恒为 0.5（无噪声）。
+function shiftedGroups(base, shifts) {
+  const side = sign => base.map(b => ({ width: shifts.length, height: 1, data: Float32Array.from(shifts, d => (d === null ? 0.5 : b + sign * d)) }));
+  return [side(1), side(0)];
+}
+
+test('V18-9 pass 的两个条件各自独立起作用；比例的分母是 testedUnits', () => {
+  // 三成单元 p 约 0.04：BH 一个都不拒（第 30 小的 p 要过 0.015），但小 p 明显堆高，平坦性不过
+  const piled = verify.welchTest(...shiftedGroups([0, 1, 2, 3], Array.from({ length: 100 }, (_, x) => (x < 30 ? 2.375 : 0.125))));
+  assert.ok(piled.pMap[0] > 0.015 && piled.pMap[0] < 0.05 && piled.pMap[99] > 0.5, `${piled.pMap[0]} ${piled.pMap[99]}`);
+  assert.equal(piled.pMap.reduce((count, p) => count + (p <= 0.05 ? 1 : 0), 0), 30);
+  assert.equal(piled.rawSignificantRatio, 0.3);
+  assert.deepEqual([piled.significantCount, piled.significantRatio, piled.pHistogram.flat, piled.pass], [0, 0, false, false]);
+
+  // 十个带噪单元里一个强偏，另有六个无噪单元：平坦性过，BH 比例 1/10 超过 alpha，判不过
+  const strong = verify.welchTest(...shiftedGroups([0, 1, 2, 3], [64, ...new Array(9).fill(0.125), ...new Array(6).fill(null)]));
+  assert.deepEqual([strong.totalUnits, strong.testedUnits, strong.deterministicUnits, strong.significantCount], [16, 10, 6, 1]);
+  assert.ok(strong.testedUnits < strong.totalUnits);
+  assert.equal(strong.significantRatio, strong.significantCount / strong.testedUnits);
+  assert.equal(strong.rawSignificantRatio, 1 / 10);
+  assert.deepEqual([strong.pHistogram.flat, strong.pass], [true, false]);
+  assert.deepEqual([...strong.significantMask], [1, ...new Array(15).fill(0)]);
+});
+
+test('V18-10 直方图分桶向下取整；BH 贴线判显著', () => {
+  // K=2 且两边方差相等时自由度恰为 2，p 有闭式 1 - t / sqrt(2 + t^2)；t = sqrt(2) 时 p = 1 - sqrt(1/2)，约 0.2929
+  const res = verify.welchTest(...shiftedGroups([0, 1], [1, 0]));
+  assert.ok(Math.abs(res.pMap[0] - (1 - Math.SQRT1_2)) < 1e-12, `p=${res.pMap[0]}`);
+  assert.equal(res.pMap[1], 1);
+  assert.deepEqual([res.pHistogram.counts[5], res.pHistogram.counts[19], res.pHistogram.counts[6]], [1, 1, 0]);
+  assert.equal(verify.welchTest(...shiftedGroups([0, 1], [1, 0]), { bins: 10 }).pHistogram.counts[2], 1);
+
+  const edge = verify.benjaminiHochberg([0.25, 0.5], 0.5);
+  assert.deepEqual([[...edge.qValues], [...edge.significant], edge.significantCount], [[0.5, 0.5], [1, 1], 2]);
+});
+
+test('V18-11 通道选择不猜、两边形态一致、参数类型校验', () => {
+  const plane = fill => new Float32Array(4).fill(fill);
+  const exr = (names, fill) => ({ width: 2, height: 2, channels: Object.fromEntries(names.map((name, i) => [name, plane(fill + i)])) });
+  const normals = ['normal.X', 'normal.Y', 'normal.Z'];
+  // 恰好三个浮点通道但不是颜色：不当成 RGB
+  assert.throws(() => verify.welchTest([exr(normals, 0), exr(normals, 1)], [exr(normals, 0), exr(normals, 1)]), /EXR 须含/);
+  // 显式给通道名就能检
+  const named = verify.welchTest([exr(normals, 0), exr(normals, 2)], [exr(normals, 0), exr(normals, 1)], { channel: 'normal.Y' });
+  assert.equal(named.biasMap[0], 0.5);
+  assert.throws(() => verify.welchTest([exr(normals, 0), exr(normals, 1)], [exr(normals, 0), exr(normals, 1)], { channel: 'depth.Z' }), /没有浮点通道/);
+  // 一边三通道取亮度、一边单通道：不比
+  const rgb = { width: 2, height: 2, channels: 3, data: new Float32Array(12).fill(0.5) };
+  const mono = { width: 2, height: 2, data: plane(0.5) };
+  assert.throws(() => verify.welchTest([rgb, rgb], [mono, mono]), /通道形态/);
+  assert.throws(() => verify.welchTest([exr(['R', 'G', 'B'], 0), exr(['R', 'G', 'B'], 0)], [exr(['depth.Z'], 0), exr(['depth.Z'], 0)]), /通道形态/);
+
+  const pair = [mono, mono];
+  for (const options of [null, [], 'fast', 5, new Map(), { alpha: '0.05' }, { alpha: null }, { alpha: Infinity }, { histogramAlpha: '0.001' }, { bins: 10001 }, { bins: '20' }, { blockSize: '8' }]) {
+    assert.throws(() => verify.welchTest(pair, pair, options), /welch/, JSON.stringify(options));
+  }
+  assert.equal(verify.welchTest(pair, pair, { bins: 10000 }).pHistogram.counts.length, 10000);
+  assert.equal(verify.welchTest(pair, pair, Object.create(null)).pass, true);
+
+  for (const pValues of [[0.5, null], ['0.5'], [0.5, Infinity], [undefined], '0.5', null, { length: 1, 0: 0.5 }]) {
+    assert.throws(() => verify.benjaminiHochberg(pValues), /welch/, JSON.stringify(pValues));
+  }
+  assert.throws(() => verify.benjaminiHochberg([0.5], '0.5'), /alpha/);
+  assert.equal(verify.benjaminiHochberg(Float64Array.of(0.001, 0.9)).significantCount, 1);
 });

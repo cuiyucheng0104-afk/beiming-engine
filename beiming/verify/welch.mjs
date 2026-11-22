@@ -43,15 +43,35 @@ function incompleteBeta(x, y, a, b) {
   return flip ? 1 - value : value;
 }
 
+// 互补误差函数（x >= 0）：x < 2.5 用全正项级数，以上用连分数，保住小尾部的相对精度。
+function erfc(x) {
+  if (x < 2.5) {
+    let term = x;
+    let sum = x;
+    for (let n = 1; term > sum * 1e-17; n++) {
+      term *= 2 * x * x / (2 * n + 1);
+      sum += term;
+    }
+    return 1 - 2 / Math.sqrt(Math.PI) * Math.exp(-x * x) * sum;
+  }
+  let f = x;
+  for (let n = 100; n >= 1; n--) f = x + n / 2 / f;
+  return Math.exp(-x * x) / Math.sqrt(Math.PI) / f;
+}
+
 // Student t 分布的双侧 p 值，自由度可为非整数。
 export function studentTwoSidedP(t, df) {
-  check(df > 0 && !Number.isNaN(t), '无效的 t 或自由度');
-  return Number.isFinite(t) ? incompleteBeta(df / (df + t * t), t * t / (df + t * t), df / 2, 0.5) : 0;
+  check(typeof t === 'number' && typeof df === 'number' && df > 0 && !Number.isNaN(t), '无效的 t 或自由度');
+  if (!Number.isFinite(t)) return 0;
+  // 自由度很大（含无穷）时 lgamma 相减丢精度，这时 t 分布与正态的相对差不到 1e-6，直接用正态。
+  if (df > 1e7) return erfc(Math.abs(t) / Math.SQRT2);
+  return incompleteBeta(df / (df + t * t), t * t / (df + t * t), df / 2, 0.5);
 }
 
 // BH 校正：返回每个检验的调整后 p 值（q 值）与 q <= alpha 的显著标记。
 export function benjaminiHochberg(pValues, alpha = 0.05) {
-  check(alpha > 0 && alpha < 1, 'alpha 须在 (0, 1) 内');
+  check(typeof alpha === 'number' && alpha > 0 && alpha < 1, 'alpha 须在 (0, 1) 内');
+  check(Array.isArray(pValues) || ArrayBuffer.isView(pValues), 'p 值须为数组');
   const m = pValues.length;
   const order = Uint32Array.from(pValues, (_, i) => i).sort((i, j) => pValues[i] - pValues[j]);
   const qValues = new Float64Array(m);
@@ -60,7 +80,7 @@ export function benjaminiHochberg(pValues, alpha = 0.05) {
   let significantCount = 0;
   for (let rank = m; rank >= 1; rank--) {
     const i = order[rank - 1];
-    check(pValues[i] >= 0 && pValues[i] <= 1, 'p 值须在 [0, 1] 内');
+    check(typeof pValues[i] === 'number' && pValues[i] >= 0 && pValues[i] <= 1, 'p 值须在 [0, 1] 内');
     q = Math.min(q, pValues[i] * m / rank);
     qValues[i] = q;
     if (q <= alpha) {
@@ -85,9 +105,17 @@ function loadPlane(sample, channel, blockSize) {
   if (sample.channels !== null && typeof sample.channels === 'object') {
     const planes = sample.channels;
     const isFloat = name => planes[name] instanceof Float32Array && planes[name].length === pixels;
-    const names = ['color.', ''].map(prefix => ['R', 'G', 'B'].map(c => prefix + c)).find(set => set.every(isFloat))
-      ?? Object.keys(planes).filter(isFloat);
-    check(names.length === 3 || names.length === 1, 'EXR 须含 color.R/G/B、R/G/B 或唯一的浮点通道');
+    let names;
+    if (typeof channel === 'string' && channel !== 'luma') {
+      check(isFloat(channel), `EXR 没有浮点通道 ${channel}`);
+      names = [channel];
+      channel = 0;
+    } else {
+      // 不按「恰好三个浮点通道」兜底：normal.X/Y/Z 或灯光组不是颜色。
+      const rgb = ['color.', ''].map(prefix => ['R', 'G', 'B'].map(c => prefix + c)).find(set => set.every(isFloat));
+      names = rgb ?? Object.keys(planes).filter(isFloat);
+      check(rgb || names.length === 1, 'EXR 须含 color.R/G/B、R/G/B 或唯一的浮点通道，否则用 channel 给通道名');
+    }
     sources = names.map(name => [planes[name], 0, 1]);
   } else {
     const count = sample.channels ?? 1;
@@ -122,17 +150,20 @@ function loadPlane(sample, channel, blockSize) {
       values[by * gw + bx] /= Math.min(blockSize, width - bx * blockSize) * Math.min(blockSize, height - by * blockSize);
     }
   }
-  return { width, height, gw, gh, values };
+  return { width, height, gw, gh, values, components: weights.length };
 }
 
 // groupA、groupB：每边至少 2 个（建议 16 个）独立种子的样本。blockSize 为 1 逐像素，为 8 按 8×8 块。
-// channel 为 'luma'（三通道取线性亮度）或通道序号。
+// channel 为 'luma'（三通道取线性亮度）、通道序号，或 EXR 的通道名。
 // shortcut: 亮度检验看不到亮度相抵的纯色偏，要查色偏时按 channel 0、1、2 各跑一次。
-export function welchTest(groupA, groupB, { alpha = 0.05, blockSize = 1, bins = 20, histogramAlpha = 0.001, channel = 'luma' } = {}) {
-  check(alpha > 0 && alpha < 1 && histogramAlpha > 0 && histogramAlpha < 1, 'alpha 与 histogramAlpha 须在 (0, 1) 内');
+export function welchTest(groupA, groupB, options = {}) {
+  check(options !== null && typeof options === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(options)), 'options 须为普通对象');
+  const { alpha = 0.05, blockSize = 1, bins = 20, histogramAlpha = 0.001, channel = 'luma' } = options;
+  check([alpha, histogramAlpha].every(v => typeof v === 'number' && v > 0 && v < 1), 'alpha 与 histogramAlpha 须在 (0, 1) 内');
   check(Number.isInteger(blockSize) && blockSize >= 1, 'blockSize 须为正整数');
-  check(Number.isInteger(bins) && bins >= 1, 'bins 须为正整数');
+  check(Number.isInteger(bins) && bins >= 1 && bins <= 10000, 'bins 须为 1 到 10000 的整数');
   check([groupA, groupB].every(g => Array.isArray(g) && g.length >= 2), '每边至少要 2 个种子样本');
+  if (groupA.length !== groupB.length) throw new RangeError(`welch: 两边种子数须相等（A ${groupA.length} 个，B ${groupB.length} 个）`);
   let grid;
   const [a, b] = [groupA, groupB].map(group => {
     let mean;
@@ -141,6 +172,7 @@ export function welchTest(groupA, groupB, { alpha = 0.05, blockSize = 1, bins = 
       const plane = loadPlane(sample, channel, blockSize);
       grid ??= plane;
       check(plane.width === grid.width && plane.height === grid.height, '样本尺寸不一致');
+      check(plane.components === grid.components, '样本通道形态不一致（三通道亮度对单通道）');
       mean ??= new Float64Array(plane.values.length);
       m2 ??= new Float64Array(plane.values.length);
       // Welford 在线均值与平方和，避免大数相减。
@@ -186,10 +218,13 @@ export function welchTest(groupA, groupB, { alpha = 0.05, blockSize = 1, bins = 
     counts[Math.min(bins - 1, Math.floor(testedP[i] * bins))]++;
     if (testedP[i] <= alpha) rawSignificant++;
   });
-  // 平坦性只判小 p 端有没有堆高：p <= alpha 的单元数对 Binomial(n, alpha) 做单侧精确检验，
-  // P(X >= count) = I_alpha(count, n - count + 1)。有偏必然让小 p 变多；Welch 近似在 K 不大或噪声重尾时偏保守，
-  // 小 p 反而变少，全高清的单元数下对整条分布做双侧检验会把这点保守判成不平坦。
-  const lowTailP = rawSignificant ? incompleteBeta(alpha, 1 - alpha, rawSignificant, tested.length - rawSignificant + 1) : 1;
+  // 平坦性只判小 p 端有没有堆高：p <= alpha 的单元数对 Binomial(n, effectiveAlpha) 做单侧精确检验，
+  // P(X >= count) = I_rate(count, n - count + 1)。有偏必然让小 p 变多。p 偏向 1（Welch 近似偏保守）不判不过。
+  // 噪声非高斯时小 p 的实际比例会略高于 alpha（K=16 均匀噪声实测约 0.0504），全高清的单元数下这点膨胀也显著，
+  // 所以名义率按 K 留余量：K=16 时为 alpha 的 1 + 0.5/15 倍。
+  const effectiveAlpha = Math.max(alpha, Math.min(0.25, alpha * (1 + 0.5 / Math.max(2, a.k - 1))));
+  const lowTailP = rawSignificant
+    ? incompleteBeta(effectiveAlpha, 1 - effectiveAlpha, rawSignificant, tested.length - rawSignificant + 1) : 1;
   const flat = lowTailP >= histogramAlpha;
   const significantRatio = tested.length ? bh.significantCount / tested.length : 0;
   return {
@@ -197,7 +232,7 @@ export function welchTest(groupA, groupB, { alpha = 0.05, blockSize = 1, bins = 
     totalUnits, testedUnits: tested.length, deterministicUnits: totalUnits - tested.length,
     significantCount: bh.significantCount, significantRatio,
     rawSignificantRatio: tested.length ? rawSignificant / tested.length : 0,
-    pHistogram: { bins, counts, lowTailP, flat },
+    pHistogram: { bins, counts, effectiveAlpha, lowTailP, flat },
     pass: significantRatio <= alpha && flat,
     biasMap, pMap, qMap, significantMask,
   };

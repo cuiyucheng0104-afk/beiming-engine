@@ -13,7 +13,7 @@
 
 ### Added
 
-- `beiming/verify/` 新增带噪渲染对拍用的 Welch 检验（#83）：`welch.mjs` 的 `welchTest` 收每边 K 个独立种子的样本（帧对象、多层 EXR 字节或路径，建议 K 为 16），逐像素或按 8×8 块比均值和方差，做 Welch t 检验与 Benjamini–Hochberg 校正，回偏差位置图、p 值与 q 值平面、p 值直方图及平坦性判定、显著单元比例和 `pass`。同一渲染器换种子判过，一边亮度乘 1.01 判不过；平坦性只判小 p 端是否堆高，两边都无噪声且相等的单元不进检验。另导出 `benjaminiHochberg` 与 `studentTwoSidedP`。
+- `beiming/verify/` 新增带噪渲染对拍用的 Welch 检验（#83）：`welch.mjs` 的 `welchTest` 收每边 K 个独立种子的样本（帧对象、多层 EXR 字节或路径，建议 K 为 16），逐像素或按 8×8 块比均值和方差，做 Welch t 检验与 Benjamini–Hochberg 校正，回偏差位置图、p 值与 q 值平面、p 值直方图及平坦性判定、显著单元比例和 `pass`。同一渲染器换种子判过，一边亮度乘 1.01 判不过；两边种子数必须相等；平坦性只判小 p 端是否堆高，名义率按 K 留余量（K 为 16 时是 alpha 的 1.033 倍），两边都无噪声且相等的单元不进检验；EXR 只取 `color.R/G/B`、裸 `R/G/B`、唯一的浮点通道或 `channel` 点名的通道。K 为 8 的两点噪声会误报、高噪声下逐像素检不出 1.01 倍偏移（按 8×8 块能检出），实测数字见 `beiming/verify/README.md`。另导出 `benjaminiHochberg` 与 `studentTwoSidedP`。
 - 新增 `beiming/observe/curves`（读 tracks/0.1，无轨道实体回退 meta/0.1，回峰值、零平台、单调段与缓动类型）和 `beiming/observe/telemetry`（八分之一亮度平面上的运动能量、横向重心、切点、静止段、闪烁与可选音频起音帧差），回答均不超过 600 token；agent 不看图就能读曲线与时间节奏。
 - 帧源注册与升级可用七项一致性报告核对 Three、Blender 探针读数，`limited` 档保留颜色和两项确定性检查。另提供 17 条历史不变量的判定器及逐项违例用例（#75）。
 - 新系统 `beiming/api/` 单一来源 OpenAPI 合同、HTTP 服务端、1500-token 入口卡与全套 M1a 动词闭环（#60）：新增 `contract.mjs` 与逐字节同步的 `openapi.json`（覆盖全部 23 个 HTTP 动词与独立 token 上限）、零外部框架 `node:http` 服务端 `server.mjs` 与两级令牌隔离鉴权 `auth.mjs`（全响应过冻结 `envelope/0.1` 与 `EN1–EN4`，溢出自动转存只读产物链接）、1210-token 入口卡 `guide.mjs`（原生双 `cards-data` 样例）、真实串联内核补丁与正式锁签发 / Blender Cycles 与 Three 页面帧源 / 空间观测与联系表 / L1–L5 核验与异族视觉审片接口 / 六件套终渲交付的制作管线（`films.mjs`、`pipeline.mjs`、`work.mjs`），以及通用 OpenAI 兼容唯一工具 `http_request` 代理循环 `agents.mjs` 与独立用量账本，配套 18 项端到端与裸机兼容单测。
