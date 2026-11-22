@@ -89,10 +89,12 @@ function localLock(film, seeds, lib = library) {
 
 // ---------- 一、卡文件 ----------
 
-test('cards/ 下面除 mechanism/ 外正好是首批 11 张基础卡，各在 cards/<kind>/<目录名>/，带卡文件、入口和自测', () => {
+test('cards/ 下面包含首批 11 张 M1a 基础卡，每张卡（连后来加的）都在 cards/<kind>/<目录名>/，基础卡带卡文件、入口和自测', () => {
   const found = readdirSync(HERE, { recursive: true }).filter((p) => p.endsWith('card.json')).map((p) => dirname(p).split(sep).join('/')).filter((d) => !d.startsWith('mechanism/')).sort();
-  assert.deepEqual(found, CARDS.map((c) => c.dir).sort());
-  assert.equal(found.length, 11);
+  // 后来的里程碑往 cards/ 里加卡，这里不数总数：只要求这 11 张都在，所有卡的目录都是两层
+  assert.equal(CARDS.length, 11);
+  assert.deepEqual(CARDS.map((c) => c.dir).filter((d) => !found.includes(d)), []);
+  assert.deepEqual(found.filter((d) => !/^[^/]+\/[^/]+$/.test(d)), []);
   for (const c of CARDS) {
     const card = readJson(join(c.abs, 'card.json')), [impl] = card.impl;
     assert.deepEqual([card.id, card.kind, card.livesIn, card.impl.length, impl.livesIn, impl.shape], [c.id, c.kind, [c.livesIn], 1, c.livesIn, c.shape], c.dir);
