@@ -14,6 +14,7 @@ import { appendExternalLedger, reviewerFromEnv } from './agents.mjs';
 import { runDelegateOrchestrator } from './delegate.mjs';
 import { searchAssets, uploadRef } from './assets.mjs';
 import { identify, authorize, issueWorkspaceToken } from './auth.mjs';
+import { artifactUrl } from './client.mjs';
 import { matchRoute, ROUTES } from './contract.mjs';
 import { ApiError, estimateTokens, fail, fitEnvelope, httpStatusOf, isRegistered, ok } from './envelope.mjs';
 import { candidate, fixesIntoOps, hasStoredPath, scaffold, unknownKeyFixes, wholeFilmPatch } from './films.mjs';
@@ -399,7 +400,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
       const name = `response-${sha256(bytes)}.json`;
       const file = store.workspace(id).resolve(`deliver/${name}`);
       writeFileSync(file, bytes);
-      return { kind: 'response', url: `/v1/films/${id}/artifacts/${name}` };
+      return { kind: 'response', url: artifactUrl(ROUTES, id, name) };
     } : undefined;
     // 留足 cost.tokens 的位数，再用最终序列化字节数回填。
     env.cost.tokens = limit;
