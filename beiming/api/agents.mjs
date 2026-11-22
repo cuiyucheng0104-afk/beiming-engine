@@ -7,11 +7,38 @@
 // 这份账本和工作区的账本（GET ledger）分开记：那边是服务器花的，这边是外部模型花的。
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import {
+  DELEGATE_ROLES,
+  L5_GRADES,
+  L5_PERSPECTIVES,
+  SHOT_WORKER_MAX_START_TOKENS,
+  aggregateL5Votes,
+  buildShotWorkerBrief,
+  buildShotWorkerMessages,
+  filterL5SuggestedPredicates,
+  measureStartContextTokens,
+  selectDelegateTemplate,
+  shuffleCandidatesForBallot,
+} from './delegate-roles.mjs';
+
+export {
+  DELEGATE_ROLES,
+  L5_GRADES,
+  L5_PERSPECTIVES,
+  SHOT_WORKER_MAX_START_TOKENS,
+  aggregateL5Votes,
+  buildShotWorkerBrief,
+  buildShotWorkerMessages,
+  filterL5SuggestedPredicates,
+  measureStartContextTokens,
+  selectDelegateTemplate,
+  shuffleCandidatesForBallot,
+};
 
 const METHODS = ['GET', 'POST', 'PUT', 'DELETE'];
 // 一次模型调用最多等多久（毫秒）
 const MODEL_TIMEOUT_MS = 120000;
-const SEVERITIES = ['low', 'medium', 'high'];
+const SEVERITIES = ['low', 'medium', 'high', 'info', 'warn', 'error'];
 
 const AGENT_SYSTEM = [
   '你是一个只通过 HTTP 接口做片子的代理。你手里只有一个工具 http_request，只能调本服务 /v1/ 开头的动词；令牌由工具替你带。',
@@ -158,7 +185,10 @@ export async function runHandsOnAgent({
 
 class ModelResponseError extends Error {}
 
-export const reviewFailure = error => error instanceof ModelResponseError ? error.message : '视觉审片适配器调用失败';
+export const reviewFailure = error =>
+  (error instanceof ModelResponseError || error?.code === 'usage.bad-argument')
+    ? error.message
+    : '视觉审片适配器调用失败';
 
 export function validateReview(parsed, frames = Infinity) {
   const text = value => typeof value === 'string' && value.trim().length > 0;
@@ -168,11 +198,33 @@ export function validateReview(parsed, frames = Infinity) {
       || o.frames[0] > o.frames[1] || !SEVERITIES.includes(o.severity) || !text(o.evidence) || !text(o.comment)) {
       throw new ModelResponseError(`审片意见 opinions[${i}] 的帧段、严重度、证据或意见不合法`);
     }
-    return { frames: o.frames, severity: o.severity, evidence: o.evidence, comment: o.comment };
+    return {
+      ...(text(o.issueKey) ? { issueKey: o.issueKey.trim() } : {}),
+      frames: o.frames,
+      severity: o.severity,
+      evidence: o.evidence,
+      comment: o.comment,
+      ...(text(o.suggestedPredicate) ? { suggestedPredicate: o.suggestedPredicate.trim() } : {}),
+    };
   });
   const suggestedPredicates = parsed.suggestedPredicates === undefined ? [] : parsed.suggestedPredicates;
   if (!Array.isArray(suggestedPredicates) || !suggestedPredicates.every(text)) throw new ModelResponseError('suggestedPredicates 必须是断言字符串数组');
-  return { opinions, suggestedPredicates };
+  if (parsed.grade !== undefined && !L5_GRADES.includes(parsed.grade)) {
+    throw new ModelResponseError(`审片等级 grade 必须是 ${L5_GRADES.join('/')} 之一`);
+  }
+  let candidateGrades;
+  if (parsed.candidateGrades !== undefined) {
+    if (!Array.isArray(parsed.candidateGrades) || !parsed.candidateGrades.every(cg => cg && text(cg.id) && L5_GRADES.includes(cg.grade))) {
+      throw new ModelResponseError('candidateGrades 必须是含 id 与合法等级词的数组');
+    }
+    candidateGrades = parsed.candidateGrades.map(cg => ({ id: cg.id.trim(), grade: cg.grade }));
+  }
+  return {
+    ...(parsed.grade !== undefined ? { grade: parsed.grade } : {}),
+    ...(candidateGrades !== undefined ? { candidateGrades } : {}),
+    opinions,
+    suggestedPredicates,
+  };
 }
 
 function parseReview(text, frames) {
@@ -182,25 +234,103 @@ function parseReview(text, frames) {
 }
 
 /**
- * 异族视觉审片客户端。交回 { model, review({ brief, images: [{ name, path }], loudness, film }) }；
- * review 交回 { model, opinions, suggestedPredicates, dropped（形状不对被丢掉的意见条数）, usage }。调不通或回答不成形就抛异常，由调用方记成 failed。
+ * 异族视觉审片客户端（L5 三视角 × 3 票 = 9 票完整规程）。
+ * 交回 { model, perspectives, votesPerPerspective, review({ brief, images, loudness, film, candidates }) }；
+ * review 按三个视角各投 3 票（共 9 票），每票独立校验并写外部用量账本，返回 { model, ballots, usage } 供 layerL5 聚合与 L1 过滤。
  */
-export function createOpenAiVisionReviewer({ endpoint, apiKey, model, ledgerPath } = {}) {
+export function createOpenAiVisionReviewer({
+  endpoint,
+  apiKey,
+  model,
+  ledgerPath,
+  perspectives = L5_PERSPECTIVES,
+  votesPerPerspective = 3,
+} = {}) {
   requireConfig('审片客户端', { endpoint: 'BEIMING_REVIEW_ENDPOINT', apiKey: 'BEIMING_REVIEW_API_KEY', model: 'BEIMING_REVIEW_MODEL' }, { endpoint, apiKey, model, ledgerPath });
   return {
     model,
-    async review({ brief, images = [], loudness = null, film = null }) {
-      const text = [
-        `需求原文：${brief || '（没有给）'}`,
-        `片子：${JSON.stringify(film)}`,
-        `声音量测表：${loudness ? JSON.stringify(loudness) : '（没有声音量测）'}`,
-        `图：${images.map((img, i) => `第 ${i + 1} 张 ${img.name}`).join('；') || '（没有图）'}。联系表每格左上角是全片帧号；切点条带是切点前 3 帧到后 2 帧，红线是切口。`,
-      ].join('\n');
-      const content = [{ type: 'text', text }, ...images.map((img) => ({ type: 'image_url', image_url: { url: `data:image/png;base64,${readFileSync(img.path).toString('base64')}` } }))];
-      const res = await chat({ endpoint, apiKey, body: { model, messages: [{ role: 'system', content: REVIEW_SYSTEM }, { role: 'user', content }] } });
-      appendExternalLedger(ledgerPath, { role: 'reviewer', family: familyOf(res.model), model: res.model, inputTokens: res.usage.inputTokens, outputTokens: res.usage.outputTokens });
-      const answer = typeof res.message.content === 'string' ? res.message.content : (Array.isArray(res.message.content) ? res.message.content.map((p) => p?.text ?? '').join('') : '');
-      return { model: res.model, ...parseReview(answer, film?.output?.frames), usage: { ...res.usage, totalTokens: res.usage.inputTokens + res.usage.outputTokens } };
+    perspectives,
+    votesPerPerspective,
+    async review({ brief, images = [], loudness = null, film = null, candidates = [] }) {
+      const imageParts = images.map((img) => ({
+        type: 'image_url',
+        image_url: { url: `data:image/png;base64,${readFileSync(img.path).toString('base64')}` },
+      }));
+      const ballots = [];
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let lastModel = model;
+
+      for (const p of perspectives) {
+        const votes = Number.isSafeInteger(p.votes) && p.votes > 0 ? p.votes : votesPerPerspective;
+        for (let voteIndex = 0; voteIndex < votes; voteIndex++) {
+          const orderedCandidates = shuffleCandidatesForBallot(candidates, {
+            filmId: film?.id ?? 'film',
+            perspective: p.id,
+            voteIndex,
+          });
+          const candidateOrder = orderedCandidates.map((c, idx) =>
+            typeof c === 'string' ? c : String(c?.id ?? idx),
+          );
+          const text = [
+            `审片视角：${p.title}（${p.id}）· 第 ${voteIndex + 1}/${votes} 票`,
+            `视角关注点：${p.focus}`,
+            `等级词枚举：${L5_GRADES.join(' / ')}`,
+            `需求原文：${brief || '（没有给）'}`,
+            `片子：${JSON.stringify(film)}`,
+            `声音量测表：${loudness ? JSON.stringify(loudness) : '（没有声音量测）'}`,
+            ...(orderedCandidates.length
+              ? [`候选展示顺序（已按种子打乱）：${JSON.stringify(orderedCandidates)}`]
+              : []),
+            `图：${images.map((img, i) => `第 ${i + 1} 张 ${img.name}`).join('；') || '（没有图）'}。联系表每格左上角是全片帧号；切点条带是切点前 3 帧到后 2 帧，红线是切口。`,
+          ].join('\n');
+          const content = [{ type: 'text', text }, ...imageParts];
+          const systemContent = `[ROLE:reviewer][PERSPECTIVE:${p.id}][VOTE:${voteIndex + 1}]\n${DELEGATE_ROLES.reviewer.systemPrompt}\n${REVIEW_SYSTEM}`;
+          const res = await chat({
+            endpoint,
+            apiKey,
+            body: {
+              model,
+              messages: [
+                { role: 'system', content: systemContent },
+                { role: 'user', content },
+              ],
+            },
+          });
+          lastModel = res.model;
+          inputTokens += res.usage.inputTokens;
+          outputTokens += res.usage.outputTokens;
+          appendExternalLedger(ledgerPath, {
+            role: 'reviewer',
+            perspective: p.id,
+            voteIndex,
+            family: familyOf(res.model),
+            model: res.model,
+            inputTokens: res.usage.inputTokens,
+            outputTokens: res.usage.outputTokens,
+          });
+          const answer = typeof res.message.content === 'string'
+            ? res.message.content
+            : (Array.isArray(res.message.content) ? res.message.content.map((part) => part?.text ?? '').join('') : '');
+          const parsedBallot = parseReview(answer, film?.output?.frames);
+          ballots.push({
+            perspective: p.id,
+            voteIndex,
+            ...(candidateOrder.length ? { candidateOrder } : {}),
+            ...parsedBallot,
+          });
+        }
+      }
+
+      return {
+        model: lastModel,
+        ballots,
+        usage: {
+          inputTokens,
+          outputTokens,
+          totalTokens: inputTokens + outputTokens,
+        },
+      };
     },
   };
 }

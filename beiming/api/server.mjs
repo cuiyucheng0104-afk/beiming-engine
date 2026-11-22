@@ -10,7 +10,7 @@ import { explainParam } from '../kernel/explain.mjs';
 import { applyFilmWrite, parseRequestText } from '../kernel/patch-apply.mjs';
 import { loadContracts } from '../kernel/contracts/validate.mjs';
 import { scanShot } from '../verify/index.mjs';
-import { appendExternalLedger, reviewerFromEnv } from './agents.mjs';
+import { appendExternalLedger, reviewerFromEnv, selectDelegateTemplate } from './agents.mjs';
 import { runDelegateOrchestrator } from './delegate.mjs';
 import { searchAssets, uploadRef } from './assets.mjs';
 import { identify, authorize, issueWorkspaceToken } from './auth.mjs';
@@ -50,6 +50,9 @@ async function readBody(req, route) {
     const parsed = parseRequestText(bytes);
     if (!parsed.ok) throw bad(parsed.message);
     body = parsed.body;
+  }
+  if (route.id === 'films-create' && body && typeof body === 'object' && !Array.isArray(body) && body.mode === 'delegate' && !body.exam && !body.question) {
+    delete body.template;
   }
   if (route.id !== 'film-put') validateBody(route.id, body);
   return body;
@@ -116,12 +119,28 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
       if (result.contract !== 'question-file' || result.schemaErrors.length || Object.keys(result.violations).length || (body.exam && body.exam !== question.id)) throw bad('考题未通过冻结契约或题号不一致');
     }
     const id = store.nextFilmId();
-    const { film, files, assetRef } = scaffold({ ...body, id, question });
+    const selected = delegated && !question ? selectDelegateTemplate({ brief: body.brief, assets: body.assets }) : null;
+    const chosenTemplate = selected ? selected.template : (body.template ?? 'title');
+    const { film, files, assetRef } = scaffold({
+      ...body,
+      id,
+      template: chosenTemplate,
+      ...(selected?.asset && !body.asset ? { asset: selected.asset } : {}),
+      question,
+    });
     const check = frozen.validate(film);
     if (check.schemaErrors.length || Object.keys(check.violations).length) throw new ApiError('contract.bad-value', '脚手架未通过片子契约', { data: check });
     store.workspace(id);
     const { diagnostics } = await commit(id, film, 1, files);
-    store.writeMeta(id, { template: body.template ?? 'title', brief: body.brief, question, assets: question?.assets ?? {}, assetRef, managedFiles: Object.keys(files).filter(p => scriptPath.test(p)) });
+    store.writeMeta(id, {
+      template: chosenTemplate,
+      ...(selected ? { templateSelectedBy: selected.selectedBy } : {}),
+      brief: body.brief,
+      question,
+      assets: question?.assets ?? {},
+      assetRef,
+      managedFiles: Object.keys(files).filter(p => scriptPath.test(p)),
+    });
     const token = issueWorkspaceToken(dataDir, id, { account: who.name });
     if (!delegated) return { data: { film: id, token, rev: 1, scaffold: 'film.json', base: film.predicates.base }, diagnostics };
     const job = work.submitDelegate(id, ({ signal, onTokens }) => runDelegateOrchestrator({

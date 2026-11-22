@@ -81,3 +81,23 @@ node beiming/api/cli.mjs render --id f_001 --wait 30 --json '{"tier":"draft"}'
 - 测「重新渲染」（重复性、重建）时每次用新片子，或先删 `deliver/.shot-cache/`，否则测到的是命中。`renderPlan` 不传 `cache` 就每帧都渲。
 
 改动后运行 `node --test beiming/api/shot-cache-api.test.mjs`：前半用记数的假帧源（只要 FFmpeg），最后两条用真 Blender 和无头浏览器：一条经 HTTP 把双镜头片交付二十来次（改一个镜头、原样再交付、换三组 `delivery.layers`、把页面镜头改成场景参考，各冷热对照；从一帧的缓存条目里抽掉原生 `frame.exr`、把它截成前 16 字节、只去掉它里面的 `normal.Z`，看它只重渲这一帧补齐；往一帧的编号层点坏两个像素让包围盒不过，看交付和单独核验都报 422 并作废这一版，原样再交付重渲后 200），另一条用单镜头的场景参考页面片，把 288 × 200、180 × 320、同画幅另一帧和改片名之前那一版的整条真实载荷（还有只换原生 EXR 的）写进 320 × 180 一帧的键，看交付照样 200、只重渲这一帧，草稿档缩半的帧照常命中。帧源调用次数读账本行的 `sourceRenders`，缺工具时跳过。
+
+## 委托三角色、镜头工五段任务书、服务端模板判定与 L5 三视角九票规程
+
+`beiming/api/delegate-roles.mjs` 定义委托模式与 L5 审片的角色边界、任务书模板与投票聚合器，由 `index.mjs` 统一导出：
+
+- **三角色配置（`DELEGATE_ROLES`）**：
+  - `director`（导演）：读取 `GET /v1/guide`、服务端已判定的片子脚手架与检索到的技术卡（`POST /v1/cards/search`），先把需求转化为可核验的 `predicates.extra` 断言（严禁削弱 `predicates.base` 的 `floor@1` 底线），再排定镜头表与文案，用 `PUT /v1/films/{id}/film`（`patch/0.1` 带 `rev`）提交。
+  - `shot-worker`（镜头工）：每个镜头启动全新独立会话（`freshSessionPerShot: true`），只允许修改本镜头 `shots/<shotId>/*` 的 `patch/0.1` 并执行草稿渲染与核验。起始上下文（`system` + 首条 `user` 任务书 + `HTTP_TOOL`）按 `measureStartContextTokens`（`ceil(utf8Bytes / 3.5)`）核验，硬上限 `SHOT_WORKER_MAX_START_TOKENS = 15,000`。
+  - `reviewer`（异族视觉审片人）：执行 L5 三视角 × 3 票审片，输出只做参考（`overridesHardGates: false`）。
+- **固定五段镜头工任务书（`buildShotWorkerBrief` / `buildShotWorkerMessages`）**：
+  - 按顺序固定输出五段标题：`## 1. 镜头条目`（镜头 JSON、帧区间 `[in, out)`、当前 `rev` 与 `shots/<shotId>/` 路径边界）、`## 2. 基础谓词`（`floor@1` 展开项与导演追加的 `predicates.extra`）、`## 3. 可用的卡`（已绑卡实例与候选卡摘要）、`## 4. 预算`（可用 `tokens`、`gpuSeconds`、`wallSeconds`、`maxSteps`）、`## 5. 汇报格式`（状态、修订号、草稿渲染与核验摘要、遗留问题）。
+  - 当候选卡库或需求原文超长时，按三级确定性配置自动折叠非核心摘要，保证五段结构完整且起始上下文严格 `<= 15,000` token。
+- **委托片服务端确定性模板判定（`selectDelegateTemplate({ brief, assets })`）**：
+  - 零随机、零墙钟、零外部状态：当 `POST /v1/films` 指定 `mode: "delegate"` 且非考题片时，服务端忽略客户端传入的 `template`，按需求原文与资产引用确定性判出 `turntable` 或 `title` 及默认资产引用，并在工作区 `meta` 记录 `templateSelectedBy: "server"`。
+- **L5 三视角九票审片规程（`L5_PERSPECTIVES`、`L5_GRADES`、`aggregateL5Votes`、`filterL5SuggestedPredicates`）**：
+  - 三个冻结视角：`composition-readability`（构图与可读）、`motion-rhythm`（动作与节奏）、`look-consistency`（质感与一致性），每个视角独立投 3 票，共 9 张选票；等级词固定为 `L5_GRADES = ['好', '一般', '差']`。
+  - 含候选对比列表 `candidates` 时，`shuffleCandidatesForBallot` 按 `sha256(filmId:perspective:voteIndex:candidateId:idx)` 确定性打乱每票候选展示顺序，再汇总各候选等级词得票。
+  - 每条意见必须含合法全片帧区间 `frames: [start, end]`（`0 <= start <= end < totalFrames`）、严重度、非空证据 `evidence` 与非空意见 `comment`。按同问题标识（`issueKey` 或规范化摘要）与帧区间重叠聚类，**得票数 `>= 2`（`quorum: 2`）才成立进入 `opinions`**，仅得 1 票的孤立意见丢弃并计入 `discardedOpinionCount`。
+  - 选票建议谓词经 `filterL5SuggestedPredicates` 逐条过 `checkExtra`、帧域范围、`enforcePredicateFloor` 与 `checkL1`：只有完全通过 L1 的合法谓词才进入 `suggestedPredicates` / `validatedExtraPredicates`，未登记谓词、越界帧域或削弱 `floor@1` 底线的建议谓词一律拦截在 `rejectedPredicates`。
+  - 改动后运行 `node --test beiming/api/a19-delegate-roles.test.mjs`。
