@@ -127,8 +127,8 @@ function loadPlane(sample, channel, blockSize) {
     sources = names.map(name => [planes[name], 0, 1]);
   } else {
     const count = sample.channels ?? 1;
+    if (Array.isArray(sample.data)) checkDense(sample.data, 'data'); // 先于长度检查：空洞一律 TypeError
     check(Number.isInteger(count) && count >= 1 && sample.data?.length === pixels * count, '数据长度与尺寸、通道数不符');
-    if (Array.isArray(sample.data)) checkDense(sample.data, 'data');
     sources = Array.from({ length: count }, (_, c) => [sample.data, c, count]);
   }
   let weights = LUMA;
@@ -171,21 +171,23 @@ export function welchTest(groupA, groupB, options = {}) {
   check([alpha, histogramAlpha].every(v => typeof v === 'number' && v > 0 && v < 1), 'alpha 与 histogramAlpha 须在 (0, 1) 内');
   check(Number.isInteger(blockSize) && blockSize >= 1, 'blockSize 须为正整数');
   check(Number.isInteger(bins) && bins >= 1 && bins <= 10000, 'bins 须为 1 到 10000 的整数');
+  // 空洞检查先于长度检查：new Array(1) 这种单槽稀疏数组也统一抛 TypeError。
+  if (Array.isArray(groupA)) checkDense(groupA, 'A 组');
+  if (Array.isArray(groupB)) checkDense(groupB, 'B 组');
   check([groupA, groupB].every(g => Array.isArray(g) && g.length >= 2), '每边至少要 2 个种子样本');
-  checkDense(groupA, 'A 组');
-  checkDense(groupB, 'B 组');
   if (groupA.length !== groupB.length) throw new RangeError(`welch: 两边种子数须相等（A ${groupA.length} 个，B ${groupB.length} 个）`);
-  let grid;
-  const [a, b] = [groupA, groupB].map(group => {
-    let mean;
-    let m2;
-    group.forEach((sample, i) => {
-      const plane = loadPlane(sample, channel, blockSize);
-      grid ??= plane;
-      check(plane.width === grid.width && plane.height === grid.height, '样本尺寸不一致');
-      check(plane.components === grid.components, '样本通道形态不一致（三通道亮度对单通道）');
-      mean ??= new Float64Array(plane.values.length);
-      m2 ??= new Float64Array(plane.values.length);
+  // 两边全部帧先解析、校验完，再做统计：最后一帧坏了也在任何累加之前抛。
+  // shortcut: 2K 个平面同时在内存里（每单元 8 字节），4K 逐像素 K=16 约 2 GB；吃紧时用 blockSize 8 或改成两遍读。
+  const groups = [groupA, groupB].map(group => group.map(sample => loadPlane(sample, channel, blockSize)));
+  const grid = groups[0][0];
+  for (const plane of groups.flat()) {
+    check(plane.width === grid.width && plane.height === grid.height, '样本尺寸不一致');
+    check(plane.components === grid.components, '样本通道形态不一致（三通道亮度对单通道）');
+  }
+  const [a, b] = groups.map(group => {
+    const mean = new Float64Array(grid.values.length);
+    const m2 = new Float64Array(grid.values.length);
+    group.forEach((plane, i) => {
       // Welford 在线均值与平方和，避免大数相减。
       for (let j = 0; j < mean.length; j++) {
         const delta = plane.values[j] - mean[j];

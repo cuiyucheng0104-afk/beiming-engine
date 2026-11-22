@@ -357,3 +357,21 @@ test('V18-13 raw 计数在 p === alpha 处是闭区间（杀 M39）', () => {
   assert.equal(boundary.rawSignificantRatio, 1);
   assert.equal(boundary.pass, false);
 });
+
+test('V18-14 空洞检查先于长度检查，全部帧先校验完再统计', () => {
+  const f = v => ({ width: 2, height: 1, channels: 1, data: new Float32Array([v, v]) });
+  const pair = [f(1), f(2)];
+  // 单槽稀疏数组：不能落到「至少要 2 个」的普通 Error
+  assert.throws(() => verify.welchTest(new Array(1), pair), TypeError);
+  assert.throws(() => verify.welchTest(pair, new Array(1)), TypeError);
+  assert.throws(() => verify.benjaminiHochberg(new Array(1)), TypeError);
+  // data 又有空洞又长度不对：空洞优先
+  const sparse = new Array(3);
+  sparse[0] = 1;
+  assert.throws(() => verify.welchTest([f(1), { width: 2, height: 1, channels: 1, data: sparse }], pair), TypeError);
+  // B 组第一帧尺寸就对不上，但最后一帧含空洞：全部帧先解析，所以先报空洞
+  const holey = [1, 1];
+  delete holey[1];
+  const wide = { width: 3, height: 1, channels: 1, data: new Float32Array(3) };
+  assert.throws(() => verify.welchTest(pair, [wide, { width: 2, height: 1, channels: 1, data: holey }]), TypeError);
+});
