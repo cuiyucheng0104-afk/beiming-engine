@@ -98,6 +98,8 @@ test('M10 编码器未读输入便以 0 退出，finish 拒绝并清除半截文
     catch (err) { assert.equal(err.code, 'ESRCH'); break; }
     await sleep(5, undefined, { signal: t.signal });
   }
+  // Windows 上 GetExitCodeProcess 先于 IOCP 投递 exit 事件：留一轮事件循环让 exit 先于 stream.end 抵达。
+  await sleep(100, undefined, { signal: t.signal });
   await assert.rejects(sink.finish(), (err) => failed(err) && /管道退出 0/.test(err.message));
   rmSync(go);
   assert.deepEqual(readdirSync(dir), []);
