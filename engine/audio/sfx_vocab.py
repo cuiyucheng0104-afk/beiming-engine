@@ -16,7 +16,7 @@
   list_categories()                           列出全部 82 个顶层大类（中英对照与子类数）
   get_cat(cat_id_or_prefix)                   按精确 CatID（如 MECHGear）或前缀（如 MECH / UI）取词条
   search_ucs(query, top_n=10)                 中英文关键词或 CatID 检索 UCS 753 子类与同义词
-  match_recipes(query, top_n=5)               匹配北冥 24 类音效师复合检索配方
+  match_recipes(query, top_n=5)               匹配北冥 25 类音效师复合检索配方
   expand_for_freesound(query, ..., world=None) 将中文意图、CatID 或泛词扩展成英文检索短语列表
   WORLD_PALETTES                              六种世界观调性声族路由与三干线配比表（与 director.WORLD_PROFILES 对齐）
   SCENE_AMBIENCE_LAYERS                       复合场景三层环境声拆解词典（远景底床 + 主环境纹理 + 间歇生机点缀）
@@ -64,9 +64,37 @@ SEARCH_MODIFIERS = {
     },
 }
 
-# 24 类高频影视/代码动画场景的音效师复合搜索词配方：
+# 25 类高频影视/代码动画场景的音效师复合搜索词配方：
 # identityQueries = 认知锚点层（搜本尊物件）；detailQueries = 高频精密/质感叠层（跨界借声）
 DESIGNER_RECIPES = [
+    {
+        'id': 'scissors_cut',
+        'title': '剪刀裁纸 / 双刃行进剪切',
+        'layer': '物理本体',
+        'power': 'passive',
+        'archetype': 'foley_snap',
+        'catIds': ['TOOLHand', 'OBJOffc', 'PAPRRip', 'PAPRFric'],
+        'triggers': [
+            'scissors', 'scissor', 'shears', 'shear', 'snip', 'snips',
+            'papercut', 'paper-cut', 'paper cut', 'cut paper', 'cutting paper',
+            'scissors paper', 'cut cardstock', 'cutting cardstock',
+            '剪刀', '剪子', '剪纸', '裁纸', '剪窗花', '窗花剪纸', '钢剪', '裁切', '双刃剪切',
+        ],
+        'identityQueries': [
+            'scissors cutting paper',
+            'scissors cut paper close',
+            'paper snip scissors foley',
+            'shears cutting cardstock',
+        ],
+        'detailQueries': [
+            'scissors metal blade slide',
+            'crisp paper tear short',
+            'cardstock cut crisp',
+        ],
+        'avoid': [
+            'scroll unroll', 'lego', 'plastic latch', 'motor', 'servo', 'synth', '8bit', 'cartoon',
+        ],
+    },
     {
         'id': 'pen_button_switch',
         'title': '圆珠笔按压 / 精密按钮开关',
@@ -489,28 +517,94 @@ def search_ucs(query: str, top_n: int = 10) -> list:
     return scored[:max(1, int(top_n))]
 
 
+_CUTTING_TOOL_RE = re.compile(
+    r'剪刀|剪子|剪纸|裁纸|剪窗花|窗花剪纸|钢剪|裁切|双刃|剪切|'
+    r'\b(scissors?|shears?|snips?|papercut|paper[- ]cut|cut(?:ting)?\s+(?:paper|cardstock|cardboard)|(?:paper|cardstock|cardboard)\s+cut(?:ting)?)\b',
+    re.I,
+)
+_PASSIVE_PAPER_MATERIAL_RE = re.compile(
+    r'宣纸|纸张|卡纸|红纸|白纸|纸|\b(paper|cardstock|cardboard|parchment)\b',
+    re.I,
+)
+_EXPLICIT_SCROLL_BOOK_RE = re.compile(
+    r'画卷|卷轴|翻书|书页|\b(scroll|unroll|page\s*turn|book)\b',
+    re.I,
+)
+_EXPLICIT_TOY_BRICK_RE = re.compile(
+    r'积木|乐高|玩具|\b(lego|brick|toy\s*block)\b',
+    re.I,
+)
+_SCRIBE_TOOL_RE = re.compile(
+    r'钢笔|铅笔|粉笔|圆规|卡尺|制图|\b(fountain\s*pen|pencil|chalk|caliper|drafting\s*compass|scribe)\b',
+    re.I,
+)
+# 只拦「纸类泛词作为子串被 scissors_cut 这类带纸的复合触发词劫持」；plastic / metal / wood 等不在其内，保持与 main 一致的反向子串命中
+_GENERIC_SUBSTR_GUARD_TOKENS = {
+    'paper', 'cardstock', 'cardboard', 'parchment',
+    '纸', '纸张', '宣纸', '卡纸',
+}
+
+
+def _ascii_trigger_in_query(trig_lower: str, query_lower: str) -> bool:
+    return bool(re.search(rf'(?<![a-z0-9]){re.escape(trig_lower)}(?![a-z0-9])', query_lower))
+
+
 def match_recipes(query: str, top_n: int = 5) -> list:
-    """匹配北冥音效师复合搜索词配方（DESIGNER_RECIPES）。"""
+    """匹配北冥音效师复合搜索词配方（DESIGNER_RECIPES），对「工具/动作 + 材质」复合查询优先锁定具体工具动作。"""
     q = str(query or '').strip()
     if not q:
         return []
     ql = q.lower()
     toks = [t.lower() for t in _tokens(q)]
+    has_cutting = bool(_CUTTING_TOOL_RE.search(q))
+    has_scribe = bool(_SCRIBE_TOOL_RE.search(q))
+    has_paper_mat = bool(_PASSIVE_PAPER_MATERIAL_RE.search(q))
+    has_scroll_book = bool(_EXPLICIT_SCROLL_BOOK_RE.search(q))
+    has_toy_brick = bool(_EXPLICIT_TOY_BRICK_RE.search(q))
+
     hits = []
     for rec in DESIGNER_RECIPES:
         score = 0.0
+        rev_matched_toks = set()
         if ql == rec['id'] or ql in [c.lower() for c in rec['catIds']]:
             score += 100.0
         for trig in rec['triggers']:
             tl = trig.lower()
+            is_cjk_trig = bool(_CJK_RE.search(tl))
             if tl == ql:
-                score += 90.0
-            elif tl in ql or (len(ql) >= 2 and ql in tl):
-                score += 45.0
+                score += 95.0
+            elif (tl in ql) if is_cjk_trig else _ascii_trigger_in_query(tl, ql):
+                spec_bonus = 18.0 if (' ' in tl or (is_cjk_trig and len(tl) >= 3)) else 0.0
+                score += 48.0 + spec_bonus
+            elif len(ql) >= 2 and ql in tl and ql not in _GENERIC_SUBSTR_GUARD_TOKENS:
+                if '__q__' not in rev_matched_toks:
+                    score += 38.0
+                    rev_matched_toks.add('__q__')
             else:
                 for tok in toks:
-                    if len(tok) >= 2 and (tok == tl or tok in tl or tl in tok):
+                    if len(tok) < 2:
+                        continue
+                    if tok == tl:
+                        score += 28.0
+                    elif len(tl) >= 2 and tl in tok and (is_cjk_trig or len(tl) >= 3):
                         score += 22.0
+                    elif tok in tl and tok not in _GENERIC_SUBSTR_GUARD_TOKENS and tok not in rev_matched_toks:
+                        score += 18.0
+                        rev_matched_toks.add(tok)
+
+        if has_cutting:
+            if rec['id'] == 'scissors_cut':
+                score += 75.0 + (30.0 if has_paper_mat else 0.0)
+            elif rec['id'] == 'paper_scroll_book' and not has_scroll_book:
+                score = 0.0
+            elif rec['id'] in ('latch_brick_snap', 'pen_button_switch', 'sword_blade_metal') and not has_toy_brick:
+                score = round(score * 0.18, 1)
+        elif has_scribe:
+            if rec['id'] == 'drafting_scribe_pen':
+                score += 45.0
+            elif rec['id'] == 'paper_scroll_book' and not has_scroll_book:
+                score = round(score * 0.35, 1)
+
         if score > 0:
             out = dict(rec)
             out['score'] = round(score, 1)
@@ -677,6 +771,7 @@ _CATSHORT_TO_JUDGE_ARCH = {
 
 # 分镜/剧本常见中文意象词到可检索声学概念的桥接扩展
 _STORYBOARD_BRIDGES = [
+    (re.compile(r'窗花|剪纸|裁纸|起剪|运剪|连剪|双刃|钢剪|\b(scissors?|shears?|papercut|snip)\b', re.I), '剪刀 裁纸 双刃剪切 scissors cutting paper snip'),
     (re.compile(r'落笔|书写|毛笔|题写|第一笔|书法|brush|calligraph', re.I), '宣纸 划线 毛笔 paper brush'),
     (re.compile(r'钤印|印章|落款|篆刻|seal|stamp', re.I), '印章 石材 宣纸 stone seal stamp'),
     (re.compile(r'汽笛|雾角|号角|鲲鸣|ferry\s*horn|foghorn', re.I), '雾角 号角 古钟 foghorn horn'),
@@ -790,8 +885,8 @@ _FOLEY_STEM_RE = re.compile(
     re.I,
 )
 _DEVICE_OBJECT_RE = re.compile(
-    r'按钮|开关|微动|圆珠笔|笔帽|齿轮|棘轮|镜腿|旋钮|卡扣|插销|螺纹|卡尺|菜单|界面|屏幕|键盘|'
-    r'\b(button|switch|pen|gear|ratchet|dial|latch|screw|caliper|menu|hud|ui|screen|key)\b',
+    r'按钮|开关|微动|圆珠笔|笔帽|齿轮|棘轮|镜腿|旋钮|卡扣|插销|螺纹|卡尺|剪刀|剪子|钢剪|裁纸|裁切|菜单|界面|屏幕|键盘|'
+    r'\b(button|switch|pen|gear|ratchet|dial|latch|screw|caliper|scissors?|shears?|snip|menu|hud|ui|screen|key)\b',
     re.I,
 )
 _DIGITAL_UI_RE = re.compile(
@@ -902,8 +997,16 @@ def search_by_world(query: str, world: str = 'realistic', top_n: int = 8) -> dic
         world_recipes.append(rc)
     world_recipes.sort(key=lambda x: (-x['score'], x['id']))
 
-    # 2. 合并世界观专属概念提示词条
-    hint_matches = [h for h in _WORLD_CONCEPT_HINTS.get(w, ()) if h[0].search(q)]
+    # 2. 合并世界观专属概念提示词条（若已有高置信具体动作配方且其 avoid 明确排斥该提示词，防止泛化材质/积木词劫持具体工具动作）
+    raw_hint_matches = [h for h in _WORLD_CONCEPT_HINTS.get(w, ()) if h[0].search(q)]
+    if world_recipes and world_recipes[0]['score'] >= 90.0 and w not in ('cartoon', 'scifi'):
+        top_avoid_low = [a.lower() for a in world_recipes[0]['avoid']]
+        hint_matches = [
+            h for h in raw_hint_matches
+            if not any(av in phrase.lower() for phrase in h[2] for av in top_avoid_low)
+        ]
+    else:
+        hint_matches = raw_hint_matches
 
     # 3. 对 UCS 词条执行禁入剔除 + 偏好大类加权
     cand_map = {}
@@ -979,11 +1082,16 @@ def search_by_world(query: str, world: str = 'realistic', top_n: int = 8) -> dic
         for x in h_det:
             _push(det_queries, seen_det, x)
 
-    for rec in world_recipes[:2]:
-        for iq in rec['identityQueries'][:3]:
-            _push(id_queries, seen_id, iq)
+    top_rec_avoid = [a.lower() for a in world_recipes[0]['avoid']] if world_recipes else []
+    for r_idx, rec in enumerate(world_recipes[:2]):
+        if r_idx > 0 and rec['score'] < world_recipes[0]['score'] * 0.55:
+            continue
+        for iq in rec['identityQueries'][:4 if r_idx == 0 else 3]:
+            if r_idx == 0 or not any(av in iq.lower() for av in top_rec_avoid):
+                _push(id_queries, seen_id, iq)
         for dq in rec['detailQueries'][:3]:
-            _push(det_queries, seen_det, dq)
+            if r_idx == 0 or not any(av in dq.lower() for av in top_rec_avoid):
+                _push(det_queries, seen_det, dq)
         for av in rec['avoid']:
             _push(avoid_list, seen_av, av)
 
@@ -1042,12 +1150,26 @@ def search_by_world(query: str, world: str = 'realistic', top_n: int = 8) -> dic
 
     queries = []
     seen_q = set()
-    for phrase in (*id_queries[:4], *det_queries[:3]):
+    q_clean = re.sub(r'\s+', ' ', q).strip()
+    is_ascii_q = bool(q_clean and not _CJK_RE.search(q_clean))
+    q_violates_avoid = any(av.lower() in q_clean.lower() for av in avoid_list) if is_ascii_q else False
+    candidate_pool_low = {p.lower() for p in (*id_queries, *det_queries)}
+    if is_ascii_q and not excluded_cats and q_clean.lower() in candidate_pool_low:
+        seen_q.add(q_clean.lower())
+        queries.append(q_clean)
+    for phrase in id_queries[:4]:
         if phrase.lower() not in seen_q:
             seen_q.add(phrase.lower())
             queries.append(phrase)
-    if not _CJK_RE.search(q) and q.lower() not in seen_q and not excluded_cats:
-        queries.append(q)
+    if is_ascii_q and not excluded_cats and not q_violates_avoid and q_clean.lower() not in seen_q and len(_tokens(q_clean)) >= 2:
+        seen_q.add(q_clean.lower())
+        queries.append(q_clean)
+    for phrase in det_queries[:3]:
+        if phrase.lower() not in seen_q:
+            seen_q.add(phrase.lower())
+            queries.append(phrase)
+    if is_ascii_q and q_clean.lower() not in seen_q and not excluded_cats and not q_violates_avoid:
+        queries.append(q_clean)
 
     return {
         'query': q,
@@ -1958,11 +2080,26 @@ def expand_for_freesound(query: str, max_queries: int = 6, *, world: str = None)
             seen.add(p.lower())
             queries.append(p)
 
-    for rec in recipes[:2]:
-        for iq in rec['identityQueries'][:3]:
-            _add(iq)
+    top_free_avoid = [a.lower() for a in recipes[0]['avoid']] if recipes else []
+    q_clean = re.sub(r'\s+', ' ', q).strip()
+    if q_clean and not _CJK_RE.search(q_clean):
+        rec_pool_low = {
+            p.lower()
+            for r in recipes[:1]
+            for p in (*r['identityQueries'], *r['detailQueries'])
+        }
+        if q_clean.lower() in rec_pool_low:
+            _add(q_clean)
+
+    for r_idx, rec in enumerate(recipes[:2]):
+        if r_idx > 0 and rec['score'] < recipes[0]['score'] * 0.55:
+            continue
+        for iq in rec['identityQueries'][:4 if r_idx == 0 else 3]:
+            if r_idx == 0 or not any(av in iq.lower() for av in top_free_avoid):
+                _add(iq)
         for dq in rec['detailQueries'][:3]:
-            _add(dq)
+            if r_idx == 0 or not any(av in dq.lower() for av in top_free_avoid):
+                _add(dq)
 
     if not recipes or recipes[0]['score'] < 45.0:
         for u in ucs_hits[:3]:
