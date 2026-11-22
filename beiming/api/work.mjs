@@ -4,8 +4,8 @@
 // 渲出来的帧按档位并进一份索引 deliver/frames-<档位>.json（只留当前修订的），观测和核验都读它。
 // 计时只用单调时钟量耗时（记成本用），不进任何产物的内容。
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { loadQueue } from '../jobs/index.mjs';
 import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, query } from '../observe/index.mjs';
 import { ApiError, diagnostic, isRegistered } from './envelope.mjs';
@@ -360,17 +360,124 @@ export function createWork({ store, library, reviewer, scheduler }) {
     return jobId;
   }
 
+  // 委托作业：编排进程只发 HTTP、不占显存，所以不进 GPU 调度器（否则它等自己触发的 render/deliver 子作业会自死锁）。
+  // 队列跑作业必经调度器，它的 stopped 也只留给抢占，所以委托作业照 job/0.1 的字段自己写 jobs/<作业号>/job.json（路径取自队列的 jobFile），
+  // 读、等、取消已停下的作业都走队列的 getJob，和普通作业一条路；重启后碰到磁盘仍在 running 的委托作业会自动收敛成 stopped（interrupted）。
+  const delegates = new Map();
+
+  /** 进程重启后遗留在磁盘的 running 委托作业已无编排闭包，立即收敛成 stopped（interrupted）并补齐结论。 */
+  function recoverDelegate(id, jobId) {
+    const q = queue(id);
+    const job = q.getJob(jobId);
+    if (job.handler !== 'delegate' || TERMINAL.has(job.status) || running.has(jobId)) return job;
+    const file = q.jobFile(jobId);
+    const open = job.steps.filter((s) => s.attempt === job.attempt && !s.endEvent).at(-1);
+    const append = (type, details) => {
+      const seq = (job.events.at(-1)?.seq ?? 0) + 1;
+      job.events.push({ seq, attempt: job.attempt, type, ...details });
+      return seq;
+    };
+    if (open) {
+      open.status = 'stopped';
+      open.endEvent = append('step-end', { name: open.name, status: 'stopped' });
+    }
+    job.status = 'stopped';
+    append('stopped', { reason: 'interrupted' });
+    const dir = jobDir(id, jobId);
+    const outFile = join(dir, 'outcome.json');
+    if (!existsSync(outFile)) {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(outFile, jsonText({
+        ok: true,
+        data: { stoppedReason: 'interrupted', bestRev: job.payload?.rev ?? store.rev(id) },
+        outputs: [],
+        next: [{ verb: `GET /v1/films/${id}/ledger`, why: '看这部片花了多少' }],
+        cost: { tokens: 0, gpuSeconds: 0, wallMs: 0 },
+        frames: 0,
+      }));
+    }
+    if (!store.readLedger(id).some((r) => r.step === 'job.delegate' && r.job === jobId)) {
+      store.ledger(id, { step: 'job.delegate', job: jobId, rev: job.payload?.rev ?? store.rev(id), status: 'stopped', ok: true, wallMs: 0, gpuSeconds: 0, tokens: 0, modelTokens: 0, frames: 0 });
+    }
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(`${file}.tmp`, jsonText(job));
+    renameSync(`${file}.tmp`, file);
+    return job;
+  }
+
+  /** 提交委托作业：run({ signal, onTokens }) 交回编排结论 { status, stoppedReason?, stoppedAt?, failedAt?, bestRev, cost, outputs }。交回作业号 */
+  function submitDelegate(id, run) {
+    const jobId = store.nextJobId(id);
+    const file = queue(id).jobFile(jobId);
+    const job = { format: 'job/0.1', id: jobId, request: { kind: 'delegate', vramMB: 0 }, handler: 'delegate', payload: { film: id, rev: store.rev(id) }, keep: 'none',
+      status: 'running', attempt: 1, events: [], steps: [] };
+    const event = (type, details) => job.events.push({ seq: job.events.length + 1, attempt: 1, type, ...details });
+    const save = () => { mkdirSync(dirname(file), { recursive: true }); writeFileSync(`${file}.tmp`, jsonText(job)); renameSync(`${file}.tmp`, file); };
+    const finish = (status, reason) => {
+      const step = job.steps[0];
+      step.status = status === 'succeeded' || status === 'failed' ? status : 'stopped';
+      step.endEvent = event('step-end', { name: step.name, status: step.status });
+      job.status = status;
+      event(status, reason && { reason });
+      save();
+    };
+    event('queued');
+    event('running');
+    job.steps.push({ name: 'orchestrate', attempt: 1, startEvent: event('step-start', { name: 'orchestrate' }) });
+    save();
+    const controller = new AbortController();
+    const acc = { gpuSeconds: 0, frames: 0, tokens: 0, start: monotonicMs() };
+    delegates.set(jobId, controller);
+    progress.set(jobId, acc);
+    const done = (async () => {
+      let res;
+      try {
+        res = await run({ signal: controller.signal, onTokens: (n) => { if (Number.isFinite(n) && n > 0) acc.tokens += Math.round(n); } });
+      } catch (e) { res = { status: 'failed', message: sanitizeErrorText(e?.message) || '委托编排失败' }; }
+      try {
+        if (controller.signal.aborted) res = { ...res, status: 'canceled' };
+        else if (!TERMINAL.has(res?.status)) res = { status: 'failed', message: '委托编排没有交回结论' };
+        const { status, cost = {}, delegateTokens = cost.tokens ?? 0, outputs = [], message, ...data } = res;
+        const wallMs = Math.round(monotonicMs() - acc.start);
+        const outcome = status === 'failed'
+          ? { ok: false, code: 'contract.bad-value', message: message ?? `委托出片没有完成（${data.failedAt ?? '未知步骤'}）`, data, outputs, next: [{ verb: `GET /v1/films/${id}/ledger`, why: '看花了多少、停在哪' }] }
+          : { ok: true, data, outputs, next: [{ verb: `GET /v1/films/${id}/ledger`, why: '看这部片花了多少' }] };
+        outcome.cost = { tokens: cost.tokens ?? 0, gpuSeconds: r3(cost.gpuSeconds ?? 0), wallMs };
+        outcome.frames = 0;
+        mkdirSync(jobDir(id, jobId), { recursive: true });
+        writeFileSync(join(jobDir(id, jobId), 'outcome.json'), jsonText(outcome));
+        store.ledger(id, { step: 'job.delegate', job: jobId, rev: data.bestRev ?? job.payload.rev, status, ok: outcome.ok, wallMs, gpuSeconds: 0, tokens: 0, modelTokens: delegateTokens, frames: 0 });
+        if (status === 'failed') job.error = outcome.message;
+        finish(status, status === 'canceled' ? 'canceled' : data.stoppedReason);
+      } catch (e) {
+        // 结论、账本或记录写不了盘：记录尽量收在 failed，等的人才不会一直轮询。这个 promise 没人接，不能 reject。
+        try {
+          if (TERMINAL.has(job.status)) save();
+          // 结论可能已经写下、账本没写上：删掉它，免得 failed 的记录配一份说成功的结论
+          else { job.error = sanitizeErrorText(e?.message) || '委托结论落盘失败'; finish('failed'); rmSync(join(jobDir(id, jobId), 'outcome.json'), { force: true }); }
+        } catch { /* 盘还是写不了：记录留在 running */ }
+      } finally {
+        delegates.delete(jobId);
+        progress.delete(jobId);
+      }
+    })();
+    running.set(jobId, done);
+    done.then(() => running.delete(jobId));
+    return jobId;
+  }
+
+  const statusOf = (id, jobId) => recoverDelegate(id, jobId).status;
+
   /** 等：until 是 'done'（到终态）或 'change'（状态变了）；最多等 seconds 秒 */
   function wait(id, jobId, seconds, until = 'done') {
-    const q = queue(id);
-    const first = q.getJob(jobId).status;
+    const first = statusOf(id, jobId);
     if (TERMINAL.has(first) || !(seconds > 0)) return Promise.resolve();
     return new Promise((resolve) => {
       const stop = () => { clearTimeout(deadline); clearInterval(poll); waiters.delete(stop); resolve(); };
       const deadline = setTimeout(stop, seconds * 1000);
       // 每 40 毫秒看一次作业记录
       const poll = setInterval(() => {
-        const now = q.getJob(jobId).status;
+        const now = statusOf(id, jobId);
         if (TERMINAL.has(now) || (until === 'change' && now !== first)) stop();
       }, 40);
       waiters.add(stop);
@@ -379,7 +486,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
 
   /** 作业现在的样子：{ job, terminal, base（状态、阶段、最近 5 条事件、累计成本）, outcome（结论，没有是 null） } */
   function view(id, jobId) {
-    const job = queue(id).getJob(jobId);
+    const job = recoverDelegate(id, jobId);
     const terminal = TERMINAL.has(job.status);
     const open = job.steps.filter((s) => s.attempt === job.attempt && !s.endEvent).at(-1);
     const file = join(jobDir(id, jobId), 'outcome.json');
@@ -400,8 +507,20 @@ export function createWork({ store, library, reviewer, scheduler }) {
   /** 取消：没到终态的发取消信号并等它停下；已经到终态的原样交回 */
   async function cancel(id, jobId) {
     const q = queue(id);
-    if (!TERMINAL.has(q.getJob(jobId).status)) await Promise.resolve().then(() => q.cancelJob(jobId)).catch(() => undefined);
-    await running.get(jobId);
+    const job = recoverDelegate(id, jobId);
+    const del = delegates.get(jobId);
+    const cancelChildren = () => Promise.all([...running.keys()]
+      .filter((otherId) => otherId !== jobId && store.filmOfJob(otherId) === id && !delegates.has(otherId))
+      .map((otherId) => cancel(id, otherId)));
+    if (del) {
+      del.abort();
+      await Promise.all([running.get(jobId), cancelChildren()]);
+      // 再扫一遍：覆盖在 del.abort() 发出瞬间刚落进队列的子作业。
+      await cancelChildren();
+    } else {
+      if (!TERMINAL.has(job.status)) await Promise.resolve().then(() => q.cancelJob(jobId)).catch(() => undefined);
+      await running.get(jobId);
+    }
     return q.getJob(jobId).status;
   }
 
@@ -543,5 +662,5 @@ export function createWork({ store, library, reviewer, scheduler }) {
     };
   }
 
-  return { submit, view, wait, cancel, cancelAll, observeQuery, observeSheet, observeMetrics, review };
+  return { submit, submitDelegate, view, wait, cancel, cancelAll, observeQuery, observeSheet, observeMetrics, review };
 }

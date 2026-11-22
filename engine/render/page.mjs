@@ -147,7 +147,7 @@ const stderrLog = { info: m => console.error(m), warn: m => console.error(`[提�
 export async function openFilm(dir, {
   w = 1920, h = 1040, query = '', handleSignals = true, signal, render = null,
   gpu, angle, allowNetwork = false, lenientAssets = false, allowGlErrors = false,
-  contract = true, readyTimeoutMs: readyMs = readyTimeoutMs(), hintAfterMs = 15000, log = quiet, life = null,
+  contract = true, pageQa = false, readyTimeoutMs: readyMs = readyTimeoutMs(), hintAfterMs = 15000, log = quiet, life = null,
 } = {}) {
   const { rel } = locateFilm(dir);
   const { angle: ANGLE, source: angleSource } = resolveAngle(angle);
@@ -190,6 +190,10 @@ export async function openFilm(dir, {
       }));
       return route.abort('blockedbyclient');
     });
+    if (pageQa) {
+      const { installPageQa } = await import('./lib/page-qa.mjs');
+      await installPageQa(page, origin);
+    }
     page.on('pageerror', e => {
       const where = String(e.stack ?? '').split('\n').slice(1, 3).map(s => s.trim()).join(' ← ');
       note(`[页面错误] ${e.message}`);
