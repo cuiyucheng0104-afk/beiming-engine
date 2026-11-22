@@ -28,6 +28,14 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const rel = p => { const r = path.relative(ROOT, path.resolve(p)); return r && !r.startsWith('..') && !path.isAbsolute(r) ? r.split(path.sep).join('/') : path.resolve(p); };
 
 const MAX_CELLS = 64, MAX_TIMES = 6;
+// WP5 安全白名单（fail-closed）：只有当全部 --look 轴的顶层键均属于以下纯后期参数（不改变 scene / depth / ID 通道）时，
+// 离屏扫参才开启同帧中间层快照；出现任何白名单外键（如作品自定义键）一律禁用快照、退回全量渲染。
+// --q 轴在外层按 query 字符串分组，每组重建独立 host 与作品实例，不同 query 之间不共享快照。
+export const LOOKDEV_CACHE_KEYS = Object.freeze(new Set(['grade', 'fog', 'bloom', 'kuwahara', 'paper', 'vignette', 'grain', 'outline']));
+export function canCacheLookdev(axes) {
+  const lookAxes = axes.filter(a => a.kind === 'look');
+  return lookAxes.length > 0 && lookAxes.every(a => LOOKDEV_CACHE_KEYS.has(a.key.split('.')[0]));
+}
 
 function parseAxis(spec, kind) {
   const i = spec.indexOf('=');
@@ -160,31 +168,46 @@ export const command = defineCommand({
       let ownerHost = null, curHost = null;
       const undo = ctx.onCleanup(() => {
         globalThis.__LOOKDEV = null;
+        globalThis.__OFFSCREEN_LOOKDEV_CACHE = null;
         if (curHost) { try { curHost.dispose(); } catch { /* 忽略 */ } curHost = null; }
         if (ownerHost) { try { ownerHost.dispose(); } catch { /* 忽略 */ } ownerHost = null; }
       });
+      const cacheEligible = canCacheLookdev(axes);
       try {
         ownerHost = await createHost({ gpu, width: 16, height: 16, fps });
+        // --q 分组策略：按完整 query 字符串分组，每组新建独立 host 与作品实例，天然隔离快照；
+        // 组内按「外层时刻 t、内层参数格 i」遍历，使多时刻 sweep 的同一时刻相邻格也能命中 WP5 中间层快照，产物命名与 cells/outputs 顺序保持不变。
         for (const [query, idxs] of groups) {
           curHost = await createHost({ gpu, width: w, height: h, fps, device: ownerHost.device, query });
           const work = await curHost.load(entry);
+          const lookdevs = new Map();
+          const shotsByCell = new Map();
           for (const i of idxs) {
             const lookdev = {};
             for (const a of combos[i]) if (a.kind === 'look') setPath(lookdev, a.key, a.v);
-            globalThis.__LOOKDEV = Object.keys(lookdev).length ? lookdev : null;
-            const shots = [];
-            for (const t of times) {
-              const f = Math.max(0, Math.round(t * fps));
+            lookdevs.set(i, lookdev);
+            shotsByCell.set(i, new Array(times.length));
+          }
+          for (let ti = 0; ti < times.length; ti++) {
+            const t = times[ti];
+            const f = Math.max(0, Math.round(t * fps));
+            for (const i of idxs) {
+              const lookdev = lookdevs.get(i);
+              globalThis.__LOOKDEV = Object.keys(lookdev).length ? lookdev : null;
+              globalThis.__OFFSCREEN_LOOKDEV_CACHE = cacheEligible ? f : null;
               const px = await withTimeout(curHost.renderFrame(work, f), frameMs, `第 ${i + 1} 格 t=${t} 超过 ${frameMs / 1000} 秒没画完`);
               const opaque = Uint8Array.from(px);
               for (let k = 3; k < opaque.length; k += 4) opaque[k] = 255;
               const file = path.join(outDir, `cell-${String(i).padStart(3, '0')}-t${t}.png`);
               const buf = encodePng({ width: w, height: h, data: opaque, channels: 4 });
               fs.writeFileSync(file, buf);
-              shots.push({ t, file: path.basename(file), sha256: sha256(buf) });
-              out(file, 'lookdev-cell');
+              shotsByCell.get(i)[ti] = { t, file: path.basename(file), sha256: sha256(buf) };
             }
-            cells[i] = { index: i, params: Object.fromEntries(combos[i].map(a => [`${a.kind}:${a.key}`, a.v])), lookdev, query, shots };
+          }
+          for (const i of idxs) {
+            const shots = shotsByCell.get(i);
+            for (const s of shots) out(path.join(outDir, s.file), 'lookdev-cell');
+            cells[i] = { index: i, params: Object.fromEntries(combos[i].map(a => [`${a.kind}:${a.key}`, a.v])), lookdev: lookdevs.get(i), query, shots };
             log(`格 ${i + 1}/${combos.length}  ${combos[i].map(a => `${a.key}=${JSON.stringify(a.v)}`).join('  ')}`);
           }
           curHost.dispose();
@@ -192,6 +215,7 @@ export const command = defineCommand({
         }
       } finally {
         globalThis.__LOOKDEV = null;
+        globalThis.__OFFSCREEN_LOOKDEV_CACHE = null;
         if (curHost) { try { curHost.dispose(); } catch { /* 忽略 */ } curHost = null; }
         if (ownerHost) { try { ownerHost.dispose(); } catch { /* 忽略 */ } ownerHost = null; }
         undo();
