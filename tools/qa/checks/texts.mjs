@@ -12,7 +12,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { makeCheck, finding, settle, notRun } from '../lib/checks.mjs';
-import { openPage, sampleFrames, fontInventory, screenshotSet } from '../lib/page.mjs';
+import { usageError } from '../lib/cli-kit.mjs';
+import { readPageRecord, checkPageRecordSpec, openPage, sampleFrames, fontInventory, screenshotSet } from '../lib/page.mjs';
 import { openOffscreen, sampleFramesOffscreen, fontInventoryOffscreen, screenshotSetOffscreen } from '../lib/offscreen.mjs';
 import { parseFont, parseUnicodeRange, inRanges } from '../lib/font.mjs';
 import { decodePng } from '../lib/png.mjs';
@@ -90,7 +91,7 @@ function normalizeItem(t, W, H) {
 const overlap = (a, b) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
 const area = b => Math.max(0, b[2] - b[0]) * Math.max(0, b[3] - b[1]);
 
-function loadFaceBytes(face, origin, root) {
+export function loadFaceBytes(face, origin, root) {
   if (face.bin) return Buffer.from(face.bin, 'base64');
   const src = face.src || '';
   if (/^\s*local\(/i.test(src) && !/url\(/i.test(src)) return { local: true };
@@ -104,7 +105,7 @@ function loadFaceBytes(face, origin, root) {
   }
   if (u.origin !== origin) return { external: u.href };
   const file = path.join(root, decodeURIComponent(u.pathname));
-  if (!file.startsWith(path.resolve(root)) || !fs.existsSync(file)) return { missing: u.pathname };
+  if (!file.startsWith(path.resolve(root) + path.sep) || !fs.existsSync(file)) return { missing: u.pathname };
   return fs.readFileSync(file);
 }
 
@@ -149,18 +150,43 @@ export function cjkBreaks(text) {
   return String(text).split('\n').flatMap(line => lintLine(line).map(v => ({ line, kind: v.kind, ch: v.ch })));
 }
 
-export async function runTexts({ pageDir, profile, film = null, step = 1, readyTimeoutMs = 120000, contrast = true, timeoutMs = 600000, root = REPO_ROOT, size = null, offscreen = false }) {
+// 取画字不透明度、字框、字体的规则由页面探针与离线判定共用。
+export function sampleTextItems(s, derived, W, H) {
+  let items;
+  if (!derived) items = (s.texts || []).map(t => normalizeItem(t, W, H)).filter(Boolean);
+  else {
+    const merged = new Map();
+    for (const r of [...s.runs.filter(x => x.attached && x.box), ...s.dom]) {
+      if (!r.text.trim()) continue;
+      const k = r.text.trim();
+      const m = merged.get(k);
+      if (m) { m.box = [Math.min(m.box[0], r.box[0]), Math.min(m.box[1], r.box[1]), Math.max(m.box[2], r.box[2]), Math.max(m.box[3], r.box[3])]; m.alpha = Math.max(m.alpha, r.alpha ?? 1); }
+      else merged.set(k, { id: k, text: k, box: [...r.box], alpha: r.alpha ?? 1, font: r.font });
+    }
+    items = [...merged.values()];
+  }
+  return items.map(it => {
+    if (it.bad) return it;
+    // 探针给出同一帧里落在方框内、文字相同的画字调用：取它们的最大不透明度与字体
+    const runs = s.runs.filter(r => r.box && (r.text === it.text || (it.text.includes(r.text) && r.text.trim().length > 0)) && (!r.attached || overlap(r.box, it.box) > 0.3 * Math.min(area(r.box), area(it.box) || 1)));
+    const alpha = it.alpha ?? (runs.length ? Math.max(...runs.map(r => r.alpha ?? 1)) : null);
+    const font = it.font || runs.find(r => !r.filter)?.font || runs[0]?.font || null;
+    return { ...it, alpha, font };
+  });
+}
+
+export async function runTexts({ pageDir, profile, film = null, step = 1, readyTimeoutMs = 120000, contrast = true, timeoutMs = 600000, root = REPO_ROOT, size = null, offscreen = false, recorded = null }) {
   const T = profile.texts;
-  const fps = (film?.fps || fpsOf(profile)).value;
+  const fps = recorded?.fps ?? (film?.fps || fpsOf(profile)).value;
   const [W, H] = size || [film?.width || profile.width, film?.height || profile.height];
   const warnings = [];
   const ids = ['texts.contract', 'texts.inframe', 'texts.safe-area', 'texts.duration', 'texts.contrast', 'texts.glyphs', 'texts.cjk-break'];
   const C = Object.fromEntries(ids.map(id => [id, makeCheck(id)]));
-  const h = offscreen
+  const h = recorded || (offscreen
     ? await openOffscreen({ root, pageDir, width: W, height: H, fps, film })
-    : await openPage({ root, pageDir, width: W, height: H, fps, profileId: profile.id, readyTimeoutMs });
+    : await openPage({ root, pageDir, width: W, height: H, fps, profileId: profile.id, readyTimeoutMs }));
   try {
-    const frameCount = film?.frameCount ?? Math.round(h.info.dur * fps);
+    const frameCount = recorded?.frameCount ?? film?.frameCount ?? Math.round(h.info.dur * fps);
     const contract = C['texts.contract'];
     contract.value = `${h.info.hasTexts ? '有' : '没有'} ${offscreen ? 'work.texts' : 'window.TEXTS'}；DUR ${h.info.dur} 秒；GPU ${h.info.gpu || '未知'}`;
     contract.evidence = { dur: h.info.dur, frames: frameCount, viewport: h.info.viewport, gpu: h.info.gpu, step };
@@ -171,7 +197,7 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
     const frames = [];
     for (let f = 0; f < frameCount; f += step) frames.push(f);
     if (frames[frames.length - 1] !== frameCount - 1) frames.push(frameCount - 1);
-    const samples = offscreen ? await sampleFramesOffscreen(h, frames, { fps }) : await sampleFrames(h, frames, { fps, dom: true, timeoutMs });
+    const samples = recorded ? frames.map(f => recorded.frames[f]) : offscreen ? await sampleFramesOffscreen(h, frames, { fps }) : await sampleFrames(h, frames, { fps, dom: true, timeoutMs });
     if (h.externalRequests.length) finding(contract, { key: 'external', message: `页面请求了外网资源（已拦截）：${[...new Set(h.externalRequests)].slice(0, 3).join('、')}`, hint: '素材、字体、库全部放进仓库或作品目录（附录 C5 禁止访问外网）' });
     const badItems = new Set(), textsErrors = new Set();
 
@@ -182,25 +208,9 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
     for (const s of samples) {
       if (s.textsError) textsErrors.add(s.textsError);
       for (const r of [...s.runs, ...s.dom]) if (r.text && r.font) runFonts.push({ text: r.text, font: r.font, loaded: r.loaded, f: s.f });
-      let items;
-      if (!derived) items = (s.texts || []).map(t => normalizeItem(t, W, H)).filter(Boolean);
-      else {
-        const merged = new Map();
-        for (const r of [...s.runs.filter(x => x.attached && x.box), ...s.dom]) {
-          if (!r.text.trim()) continue;
-          const k = r.text.trim();
-          const m = merged.get(k);
-          if (m) { m.box = [Math.min(m.box[0], r.box[0]), Math.min(m.box[1], r.box[1]), Math.max(m.box[2], r.box[2]), Math.max(m.box[3], r.box[3])]; m.alpha = Math.max(m.alpha, r.alpha ?? 1); }
-          else merged.set(k, { id: k, text: k, box: [...r.box], alpha: r.alpha ?? 1, font: r.font });
-        }
-        items = [...merged.values()];
-      }
-      for (const it of items) {
+      for (const it of sampleTextItems(s, derived, W, H)) {
         if (it.bad) { badItems.add(it.text || '(空)'); continue; }
-        // 探针给出同一帧里落在方框内、文字相同的画字调用：取它们的最大不透明度与字体
-        const runs = s.runs.filter(r => r.box && (r.text === it.text || (it.text.includes(r.text) && r.text.trim().length > 0)) && (!r.attached || overlap(r.box, it.box) > 0.3 * Math.min(area(r.box), area(it.box) || 1)));
-        const alpha = it.alpha ?? (runs.length ? Math.max(...runs.map(r => r.alpha ?? 1)) : null);
-        const font = it.font || runs.find(r => !r.filter)?.font || runs[0]?.font || null;
+        const { font, alpha } = it;
         // 按「id + 文字」分轨：同一个 id 换了内容（如 识别中… → 未能识别）是两条要分别读完的字
         const key = `${it.id}\u0000${it.text}`;
         let tr = tracks.get(key);
@@ -295,7 +305,7 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
     // ── 缺字（cmap）──
     const gl = C['texts.glyphs'];
     gl.expected = '每个字都落在声明的网页字体里，没有回退到系统字体';
-    const inv = offscreen ? await fontInventoryOffscreen(h) : await fontInventory(h);
+    const inv = recorded ? recorded.fonts : offscreen ? await fontInventoryOffscreen(h) : await fontInventory(h);
     for (const e of inv.errors) warnings.push(e);
     const faces = [];
     const seenFace = new Set();
@@ -344,7 +354,7 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
     let checked = 0;
     const seenRun = new Set();
     for (const r of runFonts) {
-      const k = r.text + '\u0000' + r.font;
+      const k = JSON.stringify([r.text, r.font, r.loaded === false]);
       if (seenRun.has(k)) continue;
       seenRun.add(k);
       const spec = parseFontSpec(r.font);
@@ -394,15 +404,21 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
       for (const tr of tracks.values()) { const f = pickFrame(tr); if (f === null) continue; if (!byFrame.has(f)) byFrame.set(f, []); byFrame.get(f).push(tr); }
       const rows = [];
       for (const [f, list] of [...byFrame.entries()].sort((a, b) => a[0] - b[0])) {
-        const shots = offscreen ? await screenshotSetOffscreen(h, f, fps) : await screenshotSet(h, f, fps);
-        const A = decodePng(shots.on), Bt = decodePng(shots.text);
+        const shots = recorded ? null : offscreen ? await screenshotSetOffscreen(h, f, fps) : await screenshotSet(h, f, fps);
+        const A = shots && decodePng(shots.on), Bt = shots && decodePng(shots.text);
         let Bl = null;
         for (const tr of list) {
           const d = tr.frames.get(f);
           // 先只关文字（字后面的底板、图标留着当背景）；画成路径的字关不掉，再改用整层藏掉的那张
-          let m = measureContrast(A, Bt, d.box), via = 'text';
-          if (!m || !m.separable) { Bl = Bl || decodePng(shots.layer); m = measureContrast(A, Bl, d.box); via = 'layer'; }
-          rows.push({ id: tr.id, text: tr.text, frame: f, alpha: d.alpha, via, ...(m || { separable: false }) });
+          const saved = recorded?.frames[f].contrast.find(x => x.text === tr.text && x.box?.every((n, k) => n === d.box[k]) && x.box.length === 4 && tr.key === x.id + '\u0000' + x.text);
+          if (recorded && !saved) {
+            rows.push({ id: tr.id, text: tr.text, frame: f, alpha: d.alpha, separable: false });
+            finding(ct, { key: 'missing@' + tr.id, target: tr.id, frames: [f, f + 1], message: '渲染记录缺这条文字峰值帧的可验证对比证据' });
+            continue;
+          }
+          let m = recorded ? saved : measureContrast(A, Bt, d.box), via = saved?.via || 'text';
+          if (!recorded && (!m || !m.separable)) { Bl = Bl || decodePng(shots.layer); m = measureContrast(A, Bl, d.box); via = 'layer'; }
+          rows.push({ ...(m || { separable: false }), id: tr.id, text: tr.text, frame: f, alpha: d.alpha, via });
           if (!m || !m.separable) { finding(ct, { key: `unmeasured@${tr.id}`, target: tr.id, frames: [f, f + 1], status: 'warn', message: `「${tr.text}」第 ${f} 帧分不出字和背景（关掉文字后画面没变），对比度没测到`, hint: '文字若画在 WebGL 场景里（世界内文字），要人工看 4K 与 1080 对照帧' }); continue; }
           if (m.ratio < T.minContrast) finding(ct, { key: `low@${tr.id}`, target: tr.id, frames: [f, f + 1], message: `「${tr.text}」第 ${f} 帧对比度 ${m.ratio}:1，低于 ${T.minContrast}:1`, hint: '加暗晕、描边或半透明底板，或换落点（文字不压亮背景）；VISUAL-DESIGN §6.3' });
           else if (m.ratio < T.goodContrast) finding(ct, { key: `fair@${tr.id}`, target: tr.id, frames: [f, f + 1], status: 'warn', message: `「${tr.text}」第 ${f} 帧对比度 ${m.ratio}:1，低于建议的 ${T.goodContrast}:1` });
@@ -418,7 +434,7 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
       summary: { frames: frameCount, sampled: samples.length, step, derived, texts: [...tracks.values()].map(t => ({ id: t.id, text: t.text, frames: t.frames.size })) },
     };
   } finally {
-    await h.close();
+    if (!recorded) await h.close();
   }
 }
 
@@ -426,9 +442,20 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
  * 离线文字采样表模式（D 路线光追没有 HTML 页面，由 bundle 阶段逐帧调用 scene.textsAt(frame) 写出 work/texts.json，
  * 并在 pathtrace 阶段对代表帧渲出 work/contrast/{on,off}_NNNNNN.png）：复用同一套画内、安全区、停留时长、禁则与 WCAG 对比度规则。
  */
-export async function runTextsFromJson({ textsFile, contrastDir = null, profile, film = null, step = 1, contrast = true, size = null }) {
+export async function runTextsFromJson({ textsFile, contrastDir = null, profile, film = null, step = 1, contrast = true, size = null, root = REPO_ROOT }) {
   const T = profile.texts;
-  const doc = JSON.parse(fs.readFileSync(textsFile, 'utf8'));
+  const doc = readPageRecord(textsFile);
+  if (doc?.source === 'page-render' || ['a','c'].includes(film?.route)) {
+    checkPageRecordSpec(doc, { film, size, fps: (film?.fps || fpsOf(profile)).value });
+    if (doc.frames?.length !== doc.frameCount ||
+        !Array.isArray(doc.frames) || doc.frames.some((s, i) => s?.f !== i || !Array.isArray(s.runs) || !Array.isArray(s.dom) || !Array.isArray(s.contrast) ||
+          !(s.texts === null || Array.isArray(s.texts)) || s.contrast.some(x => !Array.isArray(x.box) || x.box.length !== 4 || !x.box.every(Number.isFinite) ||
+            (x.separable && (!Number.isFinite(x.ratio) || x.ratio < 1 || x.ratio > 21)))) ||
+        !Array.isArray(doc.fonts?.faces) || !Array.isArray(doc.fonts?.set) || !Array.isArray(doc.fonts?.errors) || typeof doc.info?.hasTexts !== 'boolean' ||
+        !Array.isArray(doc.externalRequests)) throw usageError('texts.json 的逐帧文字、字体或对比采样不完整');
+    return runTexts({ profile, film, step, contrast, root, size: size || [doc.width, doc.height], recorded: { ...doc, origin: 'http://page.invalid' } });
+  }
+  if (doc?.schemaVersion !== 1 || !Array.isArray(doc.frames) || !doc.frames.length || doc.frames.some((s, i) => (s?.frame ?? s?.f) !== i || !(Array.isArray(s.items) || Array.isArray(s.texts)))) throw usageError('texts.json 缺少逐帧文字采样');
   const fps = (film?.fps || fpsOf(profile)).value;
   const [W, H] = size || [doc.width || film?.width || profile.width, doc.height || film?.height || profile.height];
   const frameCount = film?.frameCount ?? doc.frameCount ?? 0;

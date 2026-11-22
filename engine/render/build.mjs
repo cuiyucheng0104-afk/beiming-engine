@@ -371,7 +371,7 @@ const video = {
   key: ctx => {
     if (ctx.opts.renderer !== 'offscreen') {
       return ctx.hashJson({
-        step: 'video@2', trees: pageTrees(ctx), args: videoArgs(ctx),
+        step: 'video@3', qaCode: ctx.hashTree(path.join(ROOT, 'tools/qa')), renderLib: ctx.hashTree(R('lib')), trees: pageTrees(ctx), args: videoArgs(ctx),
         renderer: ['page.mjs', 'video.mjs', 'args.mjs'].map(f => (fs.existsSync(R(f)) ? ctx.fileHash(R(f)) : null)), playwright: ctx.tools.playwright, browser: ctx.tools.browser,
         angle: process.env.BEIMING_ANGLE || null, chrome: process.env.BEIMING_CHROME || null, platform: `${process.platform}-${process.arch}`,
         frameTimeout: process.env.BEIMING_FRAME_TIMEOUT || null,
@@ -385,7 +385,9 @@ const video = {
       platform: `${process.platform}-${process.arch}`,
     });
   },
-  outputs: () => ({ video: 'work/video.mp4' }),
+  outputs: ctx => ({ video: 'work/video.mp4', ...(ctx.opts.renderer === 'offscreen' ? {} : {
+    telemetry: 'work/telemetry.json', texts: 'work/texts.json', plates: 'work/plates.json',
+  }) }),
   restored: (ctx, meta) => { ctx.gpu = meta.gpu || ctx.meta.probe?.gpu || ctx.gpu; },
   async run(ctx) {
     if (ctx.opts.renderer === 'offscreen') return offscreenVideo(ctx);
@@ -393,7 +395,7 @@ const video = {
     const per = Math.ceil(ctx.frames / ctx.opts.workers);
     const timeoutSec = ctx.opts.timeout || Math.round(240 + per * (ctx.opts.gpu === 'required' ? 6 : 12));
     try {
-      await ctx.exec(process.execPath, [R('video.mjs'), ctx.film.pageDir, ...videoArgs(ctx), '--out', out],
+      await ctx.exec(process.execPath, [R('video.mjs'), ctx.film.pageDir, ...videoArgs(ctx), '--out', out, '--qa-records', ctx.run.work],
         { label: '逐帧渲染（video.mjs）', timeoutSec, stallSec: ctx.opts.stall || 300 });
     } finally {
       // video.mjs 在部分失败路径上会留下 .segs-*（加固计划 TOOLS-08）：段目录只会出现在输出旁，这里统一扫掉

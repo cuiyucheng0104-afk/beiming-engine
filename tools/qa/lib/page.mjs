@@ -11,7 +11,20 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { QaError, EXIT, onCleanup, withTimeout } from './cli-kit.mjs';
+import { QaError, EXIT, onCleanup, withTimeout, usageError } from './cli-kit.mjs';
+
+export function readPageRecord(file) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch (e) { throw usageError(`${path.basename(file)} 不是可读取的 JSON：${e.message}`); }
+}
+
+export function checkPageRecordSpec(doc, { film, size, fps }) {
+  const w = size?.[0] ?? film?.width, h = size?.[1] ?? film?.height;
+  if (doc?.schemaVersion !== 1 || doc.source !== 'page-render' ||
+      ![doc.width, doc.height, doc.frameCount].every(n => Number.isSafeInteger(n) && n > 0) ||
+      (w != null && doc.width !== w) || (h != null && doc.height !== h) || !Number.isFinite(doc.fps) || Math.abs(doc.fps - fps) > 1e-6 ||
+      (film?.frameCount != null && film.frameCount !== doc.frameCount)) throw usageError('页面 QA 记录的版本、来源、帧数、画幅或帧率与成片不符');
+}
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -25,8 +38,8 @@ const MIME = {
 // 原样转出真模块的全部导出（同一批类，页面行为不变），只把 WebGLRenderer 换成一个子类：构造完把实例的 render 交给探针包一层
 // （three 的 render 是构造函数里挂在实例上的，改原型抓不到），用来记每帧画面里贴图面片的屏幕位置（plates 检查）。
 // 本地导出的同名绑定优先于 export *；真模块用 ?bmqa=real 区分，服务端照常给原文件。
-const THREE_MODULE = /^\/node_modules\/three\/build\/(three\.module(?:\.min)?\.js)$/;
-const threeShim = name => [
+export const THREE_MODULE = /^\/node_modules\/three\/build\/(three\.module(?:\.min)?\.js)$/;
+export const threeShim = name => [
   `import * as T from './${name}?bmqa=real';`,
   `export * from './${name}?bmqa=real';`,
   'const QA = window.__BMQA;',
@@ -67,8 +80,8 @@ function chromeArgs() {
 }
 
 // 页面里的探针（在页面任何脚本之前运行）
-const PROBE = cfg => {
-  if (!window.__RENDER) window.__RENDER = { fps: cfg.fps, width: cfg.width, height: cfg.height, profile: cfg.profile };
+export const PROBE = cfg => {
+  if (cfg && !window.__RENDER) window.__RENDER = { fps: cfg.fps, width: cfg.width, height: cfg.height, profile: cfg.profile };
   const QA = window.__BMQA = { rec: false, hide: false, runs: [], fonts: [], ids: new WeakMap(), next: 1 };
   const alphaOf = s => {
     if (typeof s !== 'string') return 1;
@@ -145,6 +158,15 @@ const PROBE = cfg => {
     }
     return out;
   };
+  QA.sampleTexts = async (f, t, dom = true) => {
+    let texts = null, textsError = null;
+    if (typeof window.TEXTS === 'function') {
+      try { texts = window.TEXTS(t); if (texts && typeof texts.then === 'function') texts = await texts; } catch (e) { textsError = String((e && e.message) || e); }
+      if (texts != null && !Array.isArray(texts)) { textsError = `TEXTS(t) 应返回数组，收到 ${typeof texts}`; texts = null; }
+      else if (texts) texts = JSON.parse(JSON.stringify(texts));
+    }
+    return { f, texts, textsError, runs: QA.runs, dom: dom ? QA.domTexts() : [] };
+  };
   // mode：false = 恢复；'text' = 只关文字（fillText / strokeText 不画、DOM 与 SVG 文字透明），字后面的底板、图标照常画；
   // 'layer' = 再把叠在 WebGL 画布上面的 2D 显示层整层藏掉（engine/stage/film.js 的做法），给画成路径的字（书法片名）取背景
   QA.setHidden = mode => {
@@ -176,10 +198,14 @@ const PROBE = cfg => {
     const orig = renderer.render;
     const v = new T.Vector4(), pv = new T.Matrix4();
     renderer.render = function (scene, camera) {
-      if (QA.platesRec && scene && camera && camera.isCamera) {
+      const capture = QA.platesRec && scene && camera && camera.isCamera;
+      // 在生产页先让作品自行更新世界矩阵、渲染，再只读已经生效的矩阵；不能替作品提前执行更新钩子。
+      const afterDraw = capture && cfg === null;
+      const result = afterDraw ? orig.apply(this, arguments) : undefined;
+      if (capture) {
         try {
-          if (scene.matrixWorldAutoUpdate !== false) scene.updateMatrixWorld();
-          if (camera.parent === null && camera.matrixWorldAutoUpdate !== false) camera.updateMatrixWorld();
+          if (!afterDraw && scene.matrixWorldAutoUpdate !== false) scene.updateMatrixWorld();
+          if (!afterDraw && camera.parent === null && camera.matrixWorldAutoUpdate !== false) camera.updateMatrixWorld();
           pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
           scene.traverseVisible(o => {
             if (!o.isMesh || !o.geometry || o.geometry.type !== 'PlaneGeometry' || QA.platesSeen.has(o.uuid)) return;
@@ -200,7 +226,7 @@ const PROBE = cfg => {
               uv = corners.map(([, , s, t]) => { const q = flip ? 1 - s : s; return [r.x + q * r.z, r.y + t * r.w]; });
             } else if (U && !mat.map) return;   // 自定义着色器，uv 怎么用不知道，不猜
             else {
-              if (map.matrixAutoUpdate) map.updateMatrix();
+              if (!afterDraw && map.matrixAutoUpdate) map.updateMatrix();
               const e = map.matrix.elements;
               uv = corners.map(([, , s, t]) => [e[0] * s + e[3] * t + e[6], e[1] * s + e[4] * t + e[7]]);
             }
@@ -212,7 +238,7 @@ const PROBE = cfg => {
           });
         } catch (e) { QA.platesErr = String((e && e.message) || e); }
       }
-      return orig.apply(this, arguments);
+      return afterDraw ? result : orig.apply(this, arguments);
     };
   };
 
@@ -297,13 +323,7 @@ export async function sampleFrames(h, frames, { fps, dom = true, batch = 24, tim
           QA.runs = []; QA.rec = true;
           try { const p = window.render(f / fps); if (p && typeof p.then === 'function') await p; } catch (e) { QA.rec = false; return { error: `render(${f}/${fps}) 抛错：${(e && e.message) || e}`, frame: f, res }; }
           QA.rec = false;
-          let texts = null, textsError = null;
-          if (typeof window.TEXTS === 'function') {
-            try { texts = window.TEXTS(f / fps); if (texts && typeof texts.then === 'function') texts = await texts; } catch (e) { textsError = String((e && e.message) || e); }
-            if (texts != null && !Array.isArray(texts)) { textsError = `TEXTS(t) 应返回数组，收到 ${typeof texts}`; texts = null; }
-            else if (texts) texts = JSON.parse(JSON.stringify(texts));
-          }
-          res.push({ f, texts, textsError, runs: QA.runs, dom: dom ? QA.domTexts() : [] });
+          res.push(await QA.sampleTexts(f, f / fps, dom));
         }
         return { res };
       }, { part, fps, dom }),

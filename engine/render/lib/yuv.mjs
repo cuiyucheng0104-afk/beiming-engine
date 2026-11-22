@@ -396,7 +396,7 @@ async function browserCaptureStep(arg) {
   };
 
   const count = Math.max(1, samples | 0);
-  if (count > 1) {
+  if (count > 1 && arg.phase !== 'remaining') {
     gl.bindFramebuffer(gl.FRAMEBUFFER, state.accum.fbo);
     gl.viewport(0, 0, w, h);
     gl.clearColor(0, 0, 0, 0);
@@ -404,7 +404,8 @@ async function browserCaptureStep(arg) {
   }
 
   const maxT = Number.isFinite(dur) && dur > 0 ? Math.max(0, dur - 1e-6) : Infinity;
-  for (let s = 0; s < count; s++) {
+  const end = arg.phase === 'first' ? 1 : count;
+  for (let s = arg.phase === 'remaining' ? 1 : 0; s < end; s++) {
     const ts = count === 1 ? t : Math.min(maxT, t + (s / count) * (shutter / fps));
     await window.render(ts);
     if (settle === 'raf2') await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -431,6 +432,7 @@ async function browserCaptureStep(arg) {
     }
   }
 
+  if (arg.phase === 'first') return;
   let srgbTex = state.sub.tex;
   let srgbFbo = state.sub.fbo;
   if (count > 1) {
@@ -523,7 +525,7 @@ async function browserCaptureStep(arg) {
  */
 export async function captureGpuFrame(film, t, {
   w, h, format = 'yuv420', quality = 95, samples = 1, shutter = 0.5, fps = 24, dur = Infinity,
-  timeoutMs = 60000, settle = 'none', where = `t=${t}`, signal,
+  timeoutMs = 60000, settle = 'none', where = `t=${t}`, signal, afterFirstSample,
 } = {}) {
   film.check();
   if (signal?.aborted) throw signal.reason;
@@ -542,10 +544,14 @@ export async function captureGpuFrame(film, t, {
   try {
     // 注意：绝不把长生命周期永不决议的 film.failed 直接放进每帧 Promise.race，
     // 否则 V8 会在 film.failed 的内部反应链上永久挂载每帧 4.15MB 的 PromiseResult 造成 20GB 内存泄漏。
-    res = await Promise.race([
-      film.page.evaluate(browserCaptureStep, { t, samples, shutter, fps, dur, format, quality, settle, w, h }),
-      guard,
-    ]);
+    const args = { t, samples, shutter, fps, dur, format, quality, settle, w, h };
+    // 第一子帧对应时间轴的整数帧；在继续曝光前采文字和投影，保留 GPU 已累积的颜色。
+    if (samples > 1 && afterFirstSample) {
+      await Promise.race([film.page.evaluate(browserCaptureStep, { ...args, phase: 'first' }), guard]);
+      await Promise.race([afterFirstSample(), guard]);
+      args.phase = 'remaining';
+    }
+    res = await Promise.race([film.page.evaluate(browserCaptureStep, args), guard]);
   } catch (e) {
     if (e instanceof RenderError || signal?.aborted) throw signal?.aborted ? signal.reason : e;
     film.check();

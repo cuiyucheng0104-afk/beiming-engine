@@ -32,12 +32,15 @@ const COMMON = {
   '--waivers': { type: 'list', desc: '额外的豁免文件（JSON，可重复）' },
   '--out': { type: 'string', desc: '把结果写进这个目录' },
   '--timeout': { type: 'number', min: 1, desc: '单个外部进程的超时秒数（默认 600）' },
+  '--telemetry': { type: 'string', desc: '渲染期画面遥测；母版默认读取同级 work/telemetry.json' },
+  '--plates': { type: 'string', desc: '渲染期底板投影表；母版默认读取同级 work/plates.json' },
+  '--run-dir': { type: 'string', desc: '读取此运行目录 work/ 下的渲染期记录' },
 };
 const pick = (...keys) => Object.fromEntries(keys.map(k => [k, COMMON[k]]));
 const PAGE = {
   '--page': { type: 'string', desc: '页面目录（含 index.html 或 offscreen.mjs）；缺省用作品目录' },
   '--offscreen': { type: 'boolean', desc: '用离屏宿主（offscreen.mjs）做文字与底板检查，不启动无头浏览器；纯 webgpu 作品自动启用' },
-  '--texts': { type: 'string', desc: '离线文字采样表（如 D 路线 work/texts.json）；没有 index.html 时用它代替浏览器采样' },
+  '--texts': { type: 'string', desc: '离线文字采样表；母版默认读取同级 work/texts.json' },
   '--step': { type: 'number', min: 1, desc: '每隔几帧采一次（默认 1，即逐帧）' },
   '--ready-timeout': { type: 'number', min: 1, desc: '等 window.READY 的秒数（默认 120）' },
   '--no-contrast': { type: 'boolean', desc: '跳过对比度（不截图，快）' },
@@ -45,14 +48,14 @@ const PAGE = {
 };
 const SUBS = {
   delivery: { args: '<成片>', pos: 1, options: pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout') },
-  visual: { args: '<成片>', pos: 1, options: pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout') },
-  texts: { args: '', pos: 0, options: { ...pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout'), ...PAGE } },
-  plates: { args: '[图片…]', pos: 0, max: Infinity, options: { ...pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout'), '--page': PAGE['--page'], '--offscreen': PAGE['--offscreen'], '--step': PAGE['--step'], '--ready-timeout': PAGE['--ready-timeout'], '--size': PAGE['--size'] } },
+  visual: { args: '<成片>', pos: 1, options: pick('--telemetry', '--run-dir', '--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout') },
+  texts: { args: '', pos: 0, options: { ...pick('--run-dir', '--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout'), ...PAGE } },
+  plates: { args: '[图片…]', pos: 0, max: Infinity, options: { ...pick('--plates', '--run-dir', '--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout'), '--page': PAGE['--page'], '--offscreen': PAGE['--offscreen'], '--step': PAGE['--step'], '--ready-timeout': PAGE['--ready-timeout'], '--size': PAGE['--size'] } },
   sync: { args: '<成片>', pos: 1, options: { ...pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout'), '--events': { type: 'string', desc: '事件表（film.json 或 events.json）；缺省用作品描述的 events' } } },
   report: {
     args: '<成片>', pos: 1,
     options: {
-      ...pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout'), ...PAGE,
+      ...pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout'), ...PAGE, ...pick('--telemetry', '--plates', '--run-dir'),
       '--events': { type: 'string', desc: '事件表（缺省用作品描述的 events）' },
       '--skip': { type: 'list', desc: '跳过的检查组：delivery,visual,texts,plates,sync' },
       '--no-sheet': { type: 'boolean', desc: '不出联系表' },
@@ -64,8 +67,8 @@ const SUBS = {
 const DESC = {
   delivery: '交付规格（容器、解码、帧数、帧率、色彩、音轨、响度、AIGC 标识）',
   visual: '画面异常（黑场、静帧、闪帧、切点、跳帧、闪烁、露边）',
-  texts: '文字（越界、安全区、停留时长、对比度、缺字）；需要页面与无头浏览器',
-  plates: '底板（直线淡出 / 硬切边露在画内、贴图密度）；页面型作品要无头浏览器',
+  texts: '文字（越界、安全区、停留时长、对比度、缺字）；优先使用渲染期记录',
+  plates: '底板（直线淡出 / 硬切边露在画内、贴图密度）；优先使用渲染期记录',
   sync: '声画同步（事件帧 vs 起音，按 craft/animation.md §5.7 的不对称容差）',
   report: '全部检查 → qa/report.json + report.md + contact.jpg',
   profiles: '列出交付档位、来源与关键数值',
@@ -137,7 +140,18 @@ async function writeOut(dir, files) {
 }
 
 async function runGroups(sub, opts, input) {
-  const ctx = context(opts, input);
+  // 同目录的 web.mp4 可能已转码；不要拿母版遥测替另一份码流作证。
+  const run = opts.runDir ? path.resolve(opts.runDir) : input && ['master.mp4', 'animatic.mp4'].includes(path.basename(input)) ? path.dirname(path.resolve(input)) : null;
+  const ctx = context(opts, input || (run && path.join(run, 'master.mp4')));
+  function recordFile(name) {
+    if (opts[name]) {
+      const file = path.resolve(opts[name]);
+      checkInput(file);
+      return file;
+    }
+    const file = run && path.join(run, 'work', name + '.json');
+    return file && fs.existsSync(file) ? file : null;
+  }
   const env = input || !['texts'].includes(sub) ? await envInfo() : { node: process.versions.node, platform: `${process.platform}-${process.arch}`, warnings: [] };
   const warnings = [...ctx.warnings, ...env.warnings];
   const ALL = ['delivery', 'visual', 'texts', 'plates', 'sync'];
@@ -146,6 +160,11 @@ async function runGroups(sub, opts, input) {
   if (bad.length) throw usageError(`--skip 只认 ${ALL.join(',')}，收到 ${bad.join(',')}`);
   const checks = [], skipped = [], extra = {}, errors = [];
   let probe = null, facts = null, foi = [];
+  function recordPageGroup(group, r) {
+    checks.push(...r.checks); warnings.push(...r.warnings); extra[group] = r.summary;
+    for (const c of r.checks) for (const f of c.findings || []) if ((f.status === 'fail' || f.status === 'warn') && f.frames) foi.push(f.frames[0]);
+    foi = [...new Set(foi)].sort((a, b) => a - b);
+  }
   for (const g of groups) {
     try {
       if (g === 'delivery') {
@@ -156,31 +175,28 @@ async function runGroups(sub, opts, input) {
         if (!probe) { log('  容器无法解析，其余检查跳过'); break; }
       } else if (g === 'visual') {
         const { runVisual } = await import('./checks/visual.mjs');
-        log('▶ visual：解码分析画面');
-        const r = await runVisual({ input, profile: ctx.profile, film: ctx.film, probe, timeoutMs: ctx.timeoutMs });
+        const telemetryFile = recordFile('telemetry');
+        log(telemetryFile ? `▶ visual：读取渲染期遥测 ${rel(telemetryFile)}` : '▶ visual：解码分析画面');
+        const r = await runVisual({ input, profile: ctx.profile, film: ctx.film, probe, timeoutMs: ctx.timeoutMs, telemetryFile, telemetryExplicit: Boolean(opts.telemetry) });
+        warnings.push(...r.warnings);
         checks.push(...r.checks); foi = [...new Set([...foi, ...r.framesOfInterest])]; extra.visualSeries = r.series;
       } else if (g === 'texts') {
         const pageDir = opts.page ? path.resolve(opts.page) : ctx.film?.dir;
         const hasPage = !!(pageDir && fs.existsSync(path.join(pageDir, 'index.html')));
         const hasOff = !!(pageDir && fs.existsSync(path.join(pageDir, 'offscreen.mjs')));
         const useOffscreen = Boolean(opts.offscreen || (!hasPage && hasOff) || (ctx.film?.backend === 'webgpu' && hasOff && !opts.page));
-        if (opts.offscreen && !hasOff) throw new QaError('usage.bad-value', `${opts.page || pageDir || '(未指定)'} 里没有 offscreen.mjs`, { exitCode: EXIT.USAGE });
-        const explicitTexts = opts.texts ? path.resolve(opts.texts) : null;
-        if (explicitTexts && !fs.existsSync(explicitTexts)) throw new QaError('usage.no-file', `找不到文字采样表：${opts.texts}`, { exitCode: EXIT.USAGE });
-        const autoTexts = !hasPage && !useOffscreen && input && runDirOf(input) ? path.join(runDirOf(input), 'work', 'texts.json') : null;
-        const textsFile = explicitTexts || (autoTexts && fs.existsSync(autoTexts) ? autoTexts : null);
-        if (textsFile && (explicitTexts || (!hasPage && !useOffscreen))) {
+        const textsFile = recordFile('texts');
+        if (textsFile) {
           const { runTextsFromJson } = await import('./checks/texts.mjs');
           log(`▶ texts：读取离线文字采样表 ${rel(textsFile)}`);
           const r = await runTextsFromJson({
-            textsFile, contrastDir: path.join(path.dirname(textsFile), 'contrast'),
+            textsFile, contrastDir: path.join(path.dirname(textsFile), 'contrast'), root: ROOT,
             size: pageSize(opts), profile: ctx.profile, film: ctx.film, step: opts.step || 1, contrast: !opts.noContrast,
           });
-          checks.push(...r.checks); warnings.push(...r.warnings); extra.texts = r.summary;
-          for (const c of r.checks) for (const f of c.findings || []) if ((f.status === 'fail' || f.status === 'warn') && f.frames) foi.push(f.frames[0]);
-          foi = [...new Set(foi)].sort((a, b) => a - b);
+          recordPageGroup(g, r);
           continue;
         }
+        if (opts.offscreen && !hasOff) throw new QaError('usage.bad-value', `${opts.page || pageDir || '(未指定)'} 里没有 offscreen.mjs`, { exitCode: EXIT.USAGE });
         if (!pageDir || (!hasPage && !useOffscreen)) {
           const why = opts.page ? `${opts.page} 里没有 index.html（也没有 offscreen.mjs）` : '没有可打开的作品页面、offscreen.mjs 或 work/texts.json（B 路线原生片没有页面；页面型或离屏作品用 --page 或 --film 指定）';
           if (sub === 'texts') throw new QaError('usage.bad-value', why, { exitCode: EXIT.USAGE });
@@ -190,12 +206,18 @@ async function runGroups(sub, opts, input) {
         const { runTexts } = await import('./checks/texts.mjs');
         log(`▶ texts：${useOffscreen ? `离屏加载 ${rel(pageDir)}/offscreen.mjs` : `打开 ${rel(pageDir)}/index.html`} 逐帧读文字`);
         const r = await runTexts({ pageDir, offscreen: useOffscreen, size: pageSize(opts), root: repoRootOf(pageDir) || ROOT, profile: ctx.profile, film: ctx.film, step: opts.step || 1, readyTimeoutMs: (opts.readyTimeout || 120) * 1000, contrast: !opts.noContrast, timeoutMs: ctx.timeoutMs });
-        checks.push(...r.checks); warnings.push(...r.warnings); extra.texts = r.summary;
-        // 文字有问题的帧也进联系表（红框）
-        for (const c of r.checks) for (const f of c.findings || []) if ((f.status === 'fail' || f.status === 'warn') && f.frames) foi.push(f.frames[0]);
-        foi = [...new Set(foi)].sort((a, b) => a - b);
+        recordPageGroup(g, r);
       } else if (g === 'plates') {
         const images = sub === 'plates' ? (opts.images || []) : [];
+        if (images.length && opts.plates) throw usageError('图片路径与 --plates 投影表不能同时使用');
+        const platesFile = !images.length && recordFile('plates');
+        if (platesFile) {
+          const { runPlatesFromJson } = await import('./checks/plates.mjs');
+          log(`▶ plates：读取渲染期投影表 ${rel(platesFile)}`);
+          const r = await runPlatesFromJson({ platesFile, root: ROOT, size: pageSize(opts), profile: ctx.profile, film: ctx.film, step: opts.step || 1, timeoutMs: ctx.timeoutMs });
+          recordPageGroup(g, r);
+          continue;
+        }
         const pageDir = opts.page ? path.resolve(opts.page) : ctx.film?.dir;
         const hasPage = !!(pageDir && fs.existsSync(path.join(pageDir, 'index.html')));
         const hasOff = !!(pageDir && fs.existsSync(path.join(pageDir, 'offscreen.mjs')));
@@ -212,9 +234,7 @@ async function runGroups(sub, opts, input) {
         log(`▶ plates：${useOffscreen ? `离屏加载 ${rel(pageDir)}/offscreen.mjs 逐帧记面片` : hasPage ? `打开 ${rel(pageDir)}/index.html 逐帧记面片` : '静态找边'}`);
         const projDir = (hasPage || useOffscreen) ? pageDir : null;
         const r = await runPlates({ pageDir: projDir, offscreen: useOffscreen, size: pageSize(opts), root: (projDir && repoRootOf(projDir)) || ROOT, profile: ctx.profile, film: ctx.film, step: opts.step || 1, images, readyTimeoutMs: (opts.readyTimeout || 120) * 1000, timeoutMs: ctx.timeoutMs });
-        checks.push(...r.checks); warnings.push(...r.warnings); extra.plates = r.summary;
-        for (const c of r.checks) for (const f of c.findings || []) if ((f.status === 'fail' || f.status === 'warn') && f.frames) foi.push(f.frames[0]);
-        foi = [...new Set(foi)].sort((a, b) => a - b);
+        recordPageGroup(g, r);
       } else if (g === 'sync') {
         // 事件表：--events 优先；作品描述没写 events 时，先找运行目录的 events.json，再找作品目录的 events.json
         let evFile = opts.events ? path.resolve(opts.events) : null;
@@ -319,7 +339,7 @@ async function main(argv) {
   if (opts.help) { process.stdout.write(usage(sub) + '\n'); return { code: EXIT.OK, command, silent: true }; }
   if (positionals.length < spec.pos) throw usageError(`缺少参数 ${spec.args}`, `node tools/qa/cli.mjs ${sub} --help`, 'usage.missing-argument');
 
-  ROOT = repoRootOf((sub !== 'plates' && positionals[0]) || opts.page || opts.film || positionals[0] || process.cwd()) || REPO_ROOT;
+  ROOT = repoRootOf((sub !== 'plates' && positionals[0]) || opts.page || opts.film || opts.runDir || opts.texts || opts.plates || positionals[0] || process.cwd()) || REPO_ROOT;
   if (sub === 'profiles') {
     const store = loadProfiles({ root: ROOT, file: opts.profilesFile || null });
     const list = [...store.profiles.values()].map(p => ({ id: p.id, label: p.label, source: p.source, width: p.width, height: p.height, fps: p.fps, pixFmt: p.video.pixFmt, color: `${p.video.colorRange}/${p.video.colorSpace}`, loudness: `${p.audio.integratedLufs}±${p.audio.lufsTolerance} LUFS`, truePeak: `≤${p.audio.truePeakMaxDbtp} dBTP` }));

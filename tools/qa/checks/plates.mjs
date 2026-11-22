@@ -11,8 +11,9 @@
 //   runPlates({ pageDir, root, profile, film, step, images, readyTimeoutMs, timeoutMs }) → { checks, warnings, summary }
 import fs from 'node:fs';
 import path from 'node:path';
-import { makeCheck, finding, settle, notRun } from '../lib/checks.mjs';
-import { openPage, samplePlates } from '../lib/page.mjs';
+import { makeCheck, finding, settle } from '../lib/checks.mjs';
+import { usageError } from '../lib/cli-kit.mjs';
+import { readPageRecord, checkPageRecordSpec, openPage, samplePlates } from '../lib/page.mjs';
 import { openOffscreen, samplePlatesOffscreen } from '../lib/offscreen.mjs';
 import { analyzePlate } from '../lib/plate-edges.mjs';
 import { fpsOf, REPO_ROOT } from '../lib/profiles.mjs';
@@ -89,7 +90,7 @@ function resolveSrc(src, origin, root) {
   } catch { return null; }
 }
 
-export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, film = null, step = 1, images = [], readyTimeoutMs = 120000, timeoutMs = 600000, size = null, offscreen = false }) {
+export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, film = null, step = 1, images = [], readyTimeoutMs = 120000, timeoutMs = 600000, size = null, offscreen = false, recorded = null }) {
   const T = profile.plates;
   const [W, H] = size || [film?.width || profile.width, film?.height || profile.height];
   const sides = new Set(T.sides || ['left', 'right']);
@@ -100,8 +101,16 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
   dens.expected = `画内贴图密度 ≥ ${T.densityWarn} texel/px（低于 ${T.densityFail} 不通过）`;
   const opts = { maxStdPx: T.maxStdPx, minCoverage: T.minCoverage, timeoutMs };
   const files = new Map();                              // 文件 → { name, analysis, uses }
+  const snapshots = new Map(recorded?.images.map(im => [path.resolve(root, im.file), im.analysis]));
   const addFile = async (f, use) => {
-    if (!files.has(f)) files.set(f, { name: nameOf(f), file: f, analysis: await analyzePlate(f, opts), uses: new Set() });
+    if (!files.has(f)) {
+      const saved = snapshots.get(f);
+      // 阈值不同则要重查原图，而且必须仍是渲染时那份字节；默认档位不依赖原素材还在。
+      const useSnapshot = saved && (T.maxStdPx ?? 15) === 15 && (T.minCoverage ?? 0.3) === 0.3;
+      const analysis = useSnapshot ? saved : await analyzePlate(f, opts);
+      if (saved && analysis.sha256 !== saved.sha256) throw usageError('底板已变，不能按新阈值重查渲染时的素材');
+      files.set(f, { name: nameOf(f), file: f, analysis, uses: new Set() });
+    }
     if (use) files.get(f).uses.add(use);
     return files.get(f);
   };
@@ -120,26 +129,29 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
   let projected = false, frames = 0, placementsSeen = 0;
   const vis = new Map();      // `${file}|${side}` → { frames: [], box, maxOpacity, edge }
   const dmin = new Map();     // file → { value, frame, at }
-  if (pageDir) {
-    const h = offscreen
+  if (pageDir || recorded) {
+    const h = recorded || (offscreen
       ? await openOffscreen({ root, pageDir, width: W, height: H, fps, film, shimThree: true })
-      : await openPage({ root, pageDir, width: W, height: H, fps, profileId: profile.id, readyTimeoutMs, shimThree: true });
+      : await openPage({ root, pageDir, width: W, height: H, fps, profileId: profile.id, readyTimeoutMs, shimThree: true }));
     try {
-      const frameCount = film?.frameCount ?? Math.round(h.info.dur * fps);
+      const frameCount = recorded?.frames ?? film?.frameCount ?? Math.round(h.info.dur * fps);
       const list = [];
       for (let f = 0; f < frameCount; f += step) list.push(f);
       if (list[list.length - 1] !== frameCount - 1) list.push(frameCount - 1);
-      const samples = offscreen ? await samplePlatesOffscreen(h, list) : await samplePlates(h, list, { fps, timeoutMs });
-      frames = samples.length;
+      const samples = recorded ? (recorded.placements.length ? list.map(f => recorded.placements[f]) : []) : offscreen ? await samplePlatesOffscreen(h, list) : await samplePlates(h, list, { fps, timeoutMs });
+      frames = recorded ? list.length : samples.length;
       if (h.platesErr) warnings.push(`面片探针出错（结果可能不全）：${h.platesErr}`);
       if (!h.three) {
         finding(inv, { key: 'no-three', message: '页面没有经 importmap 加载 three.js（C 路线的 2D 页面，或 three 不是按模版的 importmap 引的）：面片投影与贴图密度不适用', hint: 'A 路线页面按模版的 importmap 引 three；2D 页面用到的图片底板可以单独静态找边：node tools/qa/cli.mjs plates <图片…>' });
       } else projected = true;
       for (const s of samples) {
         for (const P of s.plates) {
-          const direct = P.file ? path.resolve(P.file) : null;
-          const f = (direct && direct.startsWith(path.resolve(root)) && fs.existsSync(direct)) ? direct : resolveSrc(P.src, h.origin, root);
-          if (!f) continue;
+          const direct = P.file ? path.resolve(root, P.file) : null;
+          const f = (direct && direct.startsWith(path.resolve(root) + path.sep) && (snapshots.has(direct) || fs.existsSync(direct))) ? direct : resolveSrc(P.src, h.origin, root);
+          if (!f) {
+            if (recorded) throw usageError('plates.json 引用的渲染底板不可读，不能离线判定');
+            continue;
+          }
           placementsSeen++;
           const rec = await addFile(f, offscreen ? '离屏' : '页面');
           if (P.opacity >= T.minOpacity) {
@@ -161,7 +173,7 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
           }
         }
       }
-    } finally { await h.close(); }
+    } finally { if (!recorded) await h.close(); }
   }
 
   // ── 清单 ──
@@ -188,7 +200,7 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
     const all = rows.flatMap(r => r.edges.filter(e => sides.has(e.side)).map(e => ({ r, e })));
     for (const { r, e } of all) {
       finding(fade, { key: `${r.name}:${e.side}`, target: r.name, status: 'warn',
-        message: `${r.name} ${SIDE[e.side]}边有${e.kind === 'hard-cut' ? '硬切边' : '直线淡出'}（图内 ≈${(e.pos * 100).toFixed(1)}%，覆盖主体 ${Math.round(e.coverage * 100)}%）；${pageDir ? '页面面片位置记不到' : '没有页面可投影'}，露不露在画内要人工看`,
+        message: `${r.name} ${SIDE[e.side]}边有${e.kind === 'hard-cut' ? '硬切边' : '直线淡出'}（图内 ≈${(e.pos * 100).toFixed(1)}%，覆盖主体 ${Math.round(e.coverage * 100)}%）；${(pageDir || recorded) ? '页面面片位置记不到' : '没有页面可投影'}，露不露在画内要人工看`,
         hint: 'B 路线：在最大相机运动处出静帧逐张看这一端（native.mjs --at）；素材入库：先修掉这一端再用' });
     }
     fade.value = all.length ? `${all.length} 条直线边（未投影）` : '没有直线边';
@@ -198,8 +210,8 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
   // ── 贴图密度 ──
   if (!projected) {
     // 原生片（B 路线）、2D 页面（C 路线）与单独的图片：结构上量不了，记「注意」而不是硬失败（理由写在 inventory 里）
-    dens.value = pageDir ? '不适用（页面没有 three.js 面片）' : '不适用（没有页面）';
-    finding(dens, { key: 'n/a', status: 'warn', message: `${pageDir ? '页面没有 three.js 贴图面片' : '没有页面（B 路线原生片或只给了图片）'}，贴图密度量不了：4K 交付时按 routes/directing/craft/two-five-d.md §2.2 的公式手算，或出 1:1 对照帧人工看` });
+    dens.value = (pageDir || recorded) ? '不适用（页面没有 three.js 面片）' : '不适用（没有页面）';
+    finding(dens, { key: 'n/a', status: 'warn', message: `${(pageDir || recorded) ? '页面没有 three.js 贴图面片' : '没有页面（B 路线原生片或只给了图片）'}，贴图密度量不了：4K 交付时按 routes/directing/craft/two-five-d.md §2.2 的公式手算，或出 1:1 对照帧人工看` });
     settle(dens);
   }
   else {
@@ -213,4 +225,26 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
     settle(dens);
   }
   return { checks: [inv, fade, dens], warnings, summary: { plates: rows.length, frames, projected } };
+}
+
+// 页面渲染期的同帧投影直接走原来的密度、遮边与静态 alpha 检查，不启动页面。
+export async function runPlatesFromJson({ platesFile, root = REPO_ROOT, profile, film = null, step = 1, size = null, timeoutMs }) {
+  const doc = readPageRecord(platesFile);
+  checkPageRecordSpec(doc, { film, size, fps: (film?.fps || fpsOf(profile)).value });
+  const count = doc.frames;
+  const relative = f => typeof f === 'string' && f.length > 0 && !path.isAbsolute(f) && !/[\\:]/.test(f) && !f.split('/').includes('..');
+  if (count !== doc.frameCount || !Array.isArray(doc.placements) || !Array.isArray(doc.images) || !(doc.three === null || typeof doc.three === 'string')) throw usageError('plates.json 缺完整的面片记录');
+  for (const im of doc.images) {
+    const a = im?.analysis;
+    if (!relative(im?.file) || !a || !/^[a-f0-9]{64}$/.test(a.sha256) || !Number.isSafeInteger(a.width) || a.width < 1 || !Number.isSafeInteger(a.height) || a.height < 1 ||
+      typeof a.hasAlpha !== 'boolean' || !Array.isArray(a.edges) || a.edges.some(e => !Object.hasOwn(SIDE, e?.side) || !['straight-fade', 'hard-cut'].includes(e.kind) ||
+      ![e.pos, e.posPx, e.coverage, e.fadePx].every(Number.isFinite) || !Array.isArray(e.span) || e.span.length !== 2 || !e.span.every(Number.isFinite))) throw usageError('plates.json 底板静态找边证据无效');
+  }
+  const empty = !doc.placements.length && !doc.images.length;
+  if ((!empty && doc.placements.length !== count) || doc.placements.some((s, i) => s?.f !== i || !Array.isArray(s.plates) || s.plates.some(p =>
+    !p || !relative(p.file) || !doc.three ||
+    !(Number.isSafeInteger(p.iw) && p.iw > 0 && Number.isSafeInteger(p.ih) && p.ih > 0 && Number.isFinite(p.opacity)) ||
+    ![p.flipY, p.wrapS, p.wrapT].every(v => typeof v === 'boolean') || !(p.crop === null || Number.isFinite(p.crop?.soft)) || [p.clip, p.uv].some((a, k) => !Array.isArray(a) || a.length !== 4 || a.some(v => !Array.isArray(v) || v.length !== (k ? 2 : 4) || !v.every(Number.isFinite)))))) throw usageError('plates.json 缺少逐帧投影或底板坐标无效');
+  if (doc.platesErr) throw usageError('面片探针出错：' + doc.platesErr);
+  return runPlates({ root, profile, film, step, size: size || [doc.width, doc.height], timeoutMs, recorded: doc });
 }
