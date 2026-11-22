@@ -8,8 +8,11 @@
        swallow       render(t) 里被页面自己接住，什么都不打，照常画一张回退帧（渲染器靠 patch.js 记下的致命状态判失败）
      ?probe=id-callback（不用带 corrupt）加一个物体，它的 onBeforeRender 只在换上 ID 材质时调真实的 inject 去找一个没有的锚点：
        ID 图不能把这个错吞掉。
+     ?mute=1 页面把 console.error 静音（配 when=swallow：页面接住异常、什么都打不出来，渲染器只能靠 patch.js 模块里记下的致命状态）。
+     ?forge=1 着色器一切正常，页面往 globalThis[Symbol.for('beiming.shaderPatchErrors')] 塞一条合成记录、再往 console.error 打一行带机器前缀的字：
+       都不是 patch.js 记的，不能判失败。
      ?log=1 打两句与着色器无关、却带着「变体对不上了」字样的作品日志（console.info / console.warn）：不能被当成补丁没命中。
-     期望：不带 corrupt / probe 时渲染器正常出图、退出码 0（带 log=1 也一样）；带 corrupt 时各种 when 都以非零码退出，报错里点名缺的锚点。
+     期望：不带 corrupt / probe 时渲染器正常出图、退出码 0（带 log=1 / forge=1 也一样）；带 corrupt 时各种 when 都以非零码退出，报错里点名缺的锚点。
      用法见 engine/look/r187-look-regression.test.mjs。 -->
 <html><head><meta charset="utf-8"><title>夹具：片段补丁没命中</title>
 <script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
@@ -23,6 +26,9 @@ import { inject } from '/engine/shade/patch.js';
 
 const q = new URLSearchParams(location.search), when = q.get('when') || 'load';
 const W = innerWidth, H = innerHeight;
+if (q.get('mute')) console.error = () => {};
+if (q.get('forge')) (globalThis[Symbol.for('beiming.shaderPatchErrors')] ??= []).push({ fn: 'inject', anchor: '#include <color_fragment>', message: '[BEIMING_SHADER_PATCH_ERROR] QA synthetic, no shader call' });
+if (q.get('forge')) console.error('[BEIMING_SHADER_PATCH_ERROR] QA synthetic, no shader call');
 const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;

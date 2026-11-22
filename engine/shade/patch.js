@@ -1,11 +1,14 @@
 // 北冥引擎 · 内置材质补丁：往 three（r170 / r187）的内置材质（MeshToonMaterial、MeshDepthMaterial…）里注入自定义着色器片段。
 // 锚点逐条校验，缺失直接报错（three 升级后不会悄悄失效）；同一组钩子共用一个程序缓存键。
 // 片段补丁没命中算构建失败（FX22）：这里抛的错（ShaderPatchError）在 material.onBeforeCompile 里同步冒出 renderer.compile / render；
-// 构造时就把 { fn, anchor, message } 记进 globalThis[Symbol.for('beiming.shaderPatchErrors')]，页面把异常接住也抹不掉这条记录，
-// 渲染器（engine/render/page.mjs + lib/patch-check.mjs）每帧读它、判 failure.shader-error；消息以 [BEIMING_SHADER_PATCH_ERROR] 开头，
-// 渲染器靠这个前缀认未捕获的异常与 console.error。这两个字面量要与 patch-check.mjs 的 PATCH_ERRORS_KEY / PATCH_TAG 一致。
+// 构造时就把 { fn, anchor, message } 记进本模块闭包里的数组：页面把异常接住、把 console.error 静音都抹不掉，页面代码也没有写它的入口
+// （不挂 globalThis，不导出写入函数）。渲染器（engine/render/page.mjs + lib/patch-check.mjs）出每一帧之前按模块地址 import 本模块、
+// 用 inject.patchErrors() 读副本，有记录就判 failure.shader-error；消息以 [BEIMING_SHADER_PATCH_ERROR] 开头（与 patch-check.mjs 的
+// PATCH_TAG 一致），渲染器靠这个前缀认未捕获的异常与 console.error。
 //
 //   inject(src, anchor, code, mode, who)   在锚点后（'after'）/ 前（'before'）插入，或整段替换（'replace'）；who 用于报错
+//   inject.patchErrors() → [{ fn, anchor, message }]   本页至今记下的补丁错误（副本，只读、不可改写）；挂在 inject 上而不是新导出：
+//                                           本模块的导出名单被 tests/engine/api-snapshot.json 钉着（stable）
 //   strHash(s) / programKey(prefix, parts)  程序缓存键：前缀 | 各段源码拼起来的哈希
 //   vec3Of(v) / colorOf(c)                  数组 / {x,y,z} / 实例 → 新的 THREE.Vector3；色值 → 新的 THREE.Color：
 //                                           '#hex' / 0xhex / THREE.Color / [r, g, b]（sRGB 0..1，与 engine/look/params.js 的 toColor 同一约定）；
@@ -14,7 +17,9 @@
 //                                           own = { head, begin, project } 是材质自己的声明与赋值，排在同位置的钩子前面；
 //                                           给了 vertexNormal 而着色器里没有 #include <beginnormal_vertex> 也报错（不给这个钩子的不要求有它）
 //   quantizeShadow(frag, lo, hi, who)       投影量化：getShadow / getPointShadow 的返回值过 smoothstep( lo, hi )（lo / hi 是 GLSL 表达式）；
-//                                           投影块里这句返回不止一处（r170 两处、r187 五处），要全部换掉：有一处对不上原文就报错，不靠别处还在放行；
+//                                           投影块里这句返回不止一处（r170 两处、r187 五处），要全部换掉：按函数头找出每个 getShadow /
+//                                           getPointShadow 的函数体（不看形参叫什么），每个体里都得有这句原文、且没有别的 return，
+//                                           有一个对不上就报错，不靠别处还在放行；
 //                                           r187 下顺带把 PCF 采样核换回 r170 PCFSoftShadowMap 的核（投影边缘两版一致）；
 //                                           投影块既不是 r187 的写法、也没有 r170 自带的软阴影核时报错（不按没换核的样子出图）
 //   hasVertexHooks(hooks)                   有没有会改形体的顶点钩子（vertexPars / vertexMainStart / vertexBegin）
@@ -29,12 +34,12 @@ import * as THREE from 'three';
 const SUPPORTED_THREE_REVISIONS = new Set(['170', '187']), SUPPORTED = 'r' + [...SUPPORTED_THREE_REVISIONS].join(' / r');
 if (!SUPPORTED_THREE_REVISIONS.has(THREE.REVISION)) console.warn(`engine/shade 只在 three ${SUPPORTED} 上对拍过，当前 r${THREE.REVISION}：锚点不匹配时会直接报错`);
 
-const PATCH_ERRORS = Symbol.for('beiming.shaderPatchErrors'), PATCH_TAG = '[BEIMING_SHADER_PATCH_ERROR]';
-class ShaderPatchError extends Error {   // 不导出：别的模块按 name 认（engine/look/ids.js）
+const PATCH_TAG = '[BEIMING_SHADER_PATCH_ERROR]', fatalPatchErrors = [];   // 模块私有：只有下面的构造函数往里记
+class ShaderPatchError extends Error {   // 不导出：别的模块按 name 认（engine/look/ids.js），要抛就调 inject（engine/look/compose.js）
   constructor(fn, who, anchor, text) {
     super(`${PATCH_TAG} ${who}：${text}`);
     this.name = 'ShaderPatchError';
-    (globalThis[PATCH_ERRORS] ??= []).push({ fn, anchor, message: this.message });
+    fatalPatchErrors.push(Object.freeze({ fn, anchor, message: this.message }));
   }
 }
 
@@ -43,6 +48,7 @@ export function inject(src, anchor, code, mode = 'after', who = 'patch.js') {
   const rep = mode === 'after' ? anchor + '\n' + code : mode === 'before' ? code + '\n' + anchor : code;
   return src.replace(anchor, () => rep);
 }
+Object.defineProperty(inject, 'patchErrors', { value: () => fatalPatchErrors.map(e => ({ ...e })) });   // 不可写、不可重配：页面换不掉这个出口
 
 export function strHash(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = (Math.imul(h, 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); }
 export const programKey = (prefix, parts) => prefix + '|' + strHash(parts.join('§'));
@@ -66,9 +72,18 @@ export function patchVertex(src, h, own = {}, who) {
 }
 
 const SHADOW_ANCHOR = 'return mix( 1.0, shadow, shadowIntensity );';
-// 这句返回在投影块里不止一处：收 shadowIntensity 的函数有几个、提到 shadowIntensity 的 return 有几句，原文一字不差的锚点就得有几处
-const SHADOW_FN = /\bfloat\s+get\w*Shadow\s*\([^)]*\bfloat\s+shadowIntensity\b/g, SHADOW_RETURN = /\breturn\b[^;]*\bshadowIntensity\b[^;]*;/g;
-const count = (s, re) => (s.match(re) || []).length;
+// 这句返回在投影块里不止一处。函数按函数头认（不看形参叫什么：上游把形参连同返回一起改名，按形参名数会跟着少数一个）：
+// 每个 getShadow / getPointShadow 的函数体里都得有这句原文，体内的 return 只能是它；块里别处提到 shadowIntensity 的 return 也只能是它
+const SHADOW_HEAD = /\bfloat\s+get(?:Point)?Shadow\s*\(/g, SHADOW_BODY = /\bfloat\s+get(?:Point)?Shadow\s*\([^)]*\)\s*\{/g;
+const SHADOW_RETURN = /\breturn\b[^;]*\bshadowIntensity\b[^;]*;/g, GLSL_COMMENT = /\/\/.*|\/\*[\s\S]*?\*\//g;
+const count = (s, re) => (s.match(re) || []).length, hitsOf = s => s.split(SHADOW_ANCHOR).length - 1;
+function shadowBodies(code) {   // 从函数头后的 { 数到配对的 }；头后面不是函数体的（只有声明）不算进来，下面按「体数 ≠ 头数」报错
+  return Array.from(code.matchAll(SHADOW_BODY), m => {
+    let i = m.index + m[0].length;
+    for (let depth = 1; depth && i < code.length; i++) depth += code[i] === '{' ? 1 : code[i] === '}' ? -1 : 0;
+    return code.slice(m.index, i);
+  });
+}
 // r187 的 PCF 换成了硬件比较采样 + 按屏幕像素旋转的 Vogel 圆盘（投影边缘带屏幕空间抖动，量化后是毛边）；
 // 这里换回 r170 PCFSoftShadowMap 的确定性 3 × 3 双线性核：取样点都落在纹素中心，线性过滤的硬件比较在那里等于单个纹素的 step
 const PCF_VOGEL = /shadow = \(\s*texture\( shadowMap, vec3\( shadowCoord\.xy \+ vogelDiskSample\( 0, 5, phi \)[\s\S]*?\) \* 0\.2;/;
@@ -84,9 +99,10 @@ const PCF_SOFT_R170 = /* glsl */`{
 				}`;
 export function quantizeShadow(frag, lo, hi, who = 'patch.js') {
   let sm = THREE.ShaderChunk.shadowmap_pars_fragment;
-  const hits = sm.split(SHADOW_ANCHOR).length - 1, fns = count(sm, SHADOW_FN), returns = count(sm, SHADOW_RETURN);
-  if (!hits || hits !== fns || hits !== returns) throw new ShaderPatchError('quantizeShadow', who, SHADOW_ANCHOR,
-    `投影量化锚点缺失（three r${THREE.REVISION}）：${SHADOW_ANCHOR}（投影块里收 shadowIntensity 的函数 ${fns} 个、带 shadowIntensity 的返回 ${returns} 句，原文对得上的只有 ${hits} 处）`);
+  const code = sm.replace(GLSL_COMMENT, ''), fns = count(code, SHADOW_HEAD), returns = count(code, SHADOW_RETURN);
+  const ok = shadowBodies(code).filter(b => hitsOf(b) && hitsOf(b) === count(b, /\breturn\b/g)).length;
+  if (!fns || ok !== fns || returns !== hitsOf(code)) throw new ShaderPatchError('quantizeShadow', who, SHADOW_ANCHOR,
+    `投影量化锚点缺失（three r${THREE.REVISION}）：${SHADOW_ANCHOR}（投影块里 getShadow / getPointShadow 有 ${fns} 个、带 shadowIntensity 的返回 ${returns} 句；函数体里只以这句原文返回的只有 ${ok} 处）`);
   const noKernel = anchor => new ShaderPatchError('quantizeShadow', who, anchor, `软阴影采样锚点缺失（three r${THREE.REVISION}）：${anchor}`);
   if (sm.includes('sampler2DShadow shadowMap')) {   // r187 这一路；r170 的块里没有它，下面的替换与以前逐字相同
     if (!PCF_VOGEL.test(sm)) throw noKernel('vogelDiskSample( 0, 5, phi )');

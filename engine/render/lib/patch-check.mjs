@@ -1,40 +1,47 @@
 // 北冥引擎 · 片段补丁没命中算构建失败（FX22）：engine/shade/patch.js 的补丁（inject / patchVertex / quantizeShadow）与 engine/look/compose.js 的
-// 纸纹变体是按 three / 引擎着色器里的一段原文找位置的，原文变了就抛 ShaderPatchError。渲染器（page.mjs）只认两样东西，别的文字一概不认
-// （作品自己的日志里写了「变体对不上了」之类的话，不算）：
-//   ① 结构化记录：抛错的地方在构造错误时就往页面的 globalThis[Symbol.for(PATCH_ERRORS_KEY)] 里记一条 { fn, anchor, message }。
-//      page.mjs 在置 READY 之后、每帧 render 之后、收尾时各读一次，非空就判失败——页面把异常接住、什么都不打、照常画回退帧也一样。
-//      patchWatch 在页面脚本之前把这张表换成只能追加的，页面脚本清不掉已经记下的；每记一条同时照 ② 的写法打一行 console.error，
-//      不经 renderFrame 的出片路径（lib/yuv.mjs 的 GPU 直出 / 超采样，帧末只调 film.check()）靠它当场判失败。
-//   ② 机器前缀：错误信息以 PATCH_TAG 开头。未捕获的异常（pageerror）、render(t) 抛的错、console.error 里带这个前缀的，当场判失败。
+// 纸纹变体是按 three / 引擎着色器里的一段原文找位置的，原文变了就抛 ShaderPatchError。判失败只认一样东西：
+//   patch.js 模块闭包里的记录。抛错的地方在构造错误时就记一条 { fn, anchor, message }，页面代码没有写它的入口（不在 globalThis 上，
+//   也没有导出写入函数），页面把异常接住、把 console.error 静音、照常画回退帧都抹不掉；页面自己往哪个全局键上塞东西都不算。
+//   渲染器按页面实际请求过的模块地址（isPatchModule）在页面里 import 同一个模块实例、读 inject.patchErrors()。所有出帧路径调同一个
+//   patchCheck(page)：page.mjs 在置 READY 之后、renderFrame 每帧之后、收尾时，lib/yuv.mjs 的 captureGpuFrame（GPU 直出 / 超采样）在交出帧
+//   之前，非空就抛。没加载过 patch.js 的页面不读、不多发请求。
+// 机器前缀 PATCH_TAG 只用来给已经致命的错归类（未捕获的异常、render(t) 抛的错：failure.shader-error 而不是 page-error / render-throw）；
+// console.error 里带前缀的只是线索，page.mjs 当场去读上面的记录，记录里没有就不判（页面自己打一行带前缀的字不算）。
 // 都判 failure.shader-error（退出码 1），这一帧不留图。--allow-gl-errors 不放行：它是调试时带着 GLSL 编译错误先出图用的；
 // 补丁没命中出的是「没打补丁的着色器」，画面错了却没有任何编译错误。
+// shortcut: 只读主文档的模块实例，在 Worker 里加载的 patch.js 读不到；页面渲染器的出片页都在主文档里建材质，真有 Worker 出片时给 Worker 加同样的读法。
 //
-//   PATCH_TAG / PATCH_ERRORS_KEY      与 engine/shade/patch.js、engine/look/compose.js 里的字面量一致（那两个是页面端模块，不从这里导入）
-//   patchWatch({ key, tag })          注入页面（page.addInitScript）：只能追加的记录表，每追加一条打一行带前缀的 console.error
-//   readPatchErrors(key) → [{ fn, anchor, message }]   在页面里执行（page.evaluate）：读出记录
-//   patchMiss(src, where?) → RenderError | null   src 是记录数组（非空就算），或页面的报错 / 控制台文字（可带堆栈，要有 PATCH_TAG）；where 写在信息前面
+//   PATCH_TAG                         与 engine/shade/patch.js 里的字面量一致（那是页面端模块，不从这里导入）
+//   isPatchModule(url)                这个请求是不是 engine/shade/patch.js（按路径结尾认，作品站把 engine/ 拷到别处也认得）
+//   watchPatchModules(page)           开页面时调（openFilm）：记下这一页请求过的 patch.js 地址
+//   patchCheck(page, where?)          读记录，有一条就抛 failure.shader-error。没被 watchPatchModules 看着的页面（调用方自己开的）
+//                                     改在页面里按资源加载记录找 patch.js 的地址，不跳过
+//   readPatchErrors({ urls, re }) → Promise<[{ fn, anchor, message }]>   在页面里执行（page.evaluate）：urls 是页面请求过的 patch.js 地址，
+//                                     null = 按 re 在 performance 的资源记录里找
+//   patchMiss(src, where?) → RenderError | null   src 是记录数组（非空就算），或页面的报错文字（可带堆栈，要有 PATCH_TAG）；where 写在信息前面
 import { RenderError } from './errors.mjs';
 
 export const PATCH_TAG = '[BEIMING_SHADER_PATCH_ERROR]';
-export const PATCH_ERRORS_KEY = 'beiming.shaderPatchErrors';
 
-export function patchWatch({ key, tag }) {
-  const sym = Symbol.for(key), kept = [], text = v => String(v ?? '').slice(0, 600);
-  if (Object.getOwnPropertyDescriptor(globalThis, sym)) return;
-  Object.defineProperty(globalThis, sym, { configurable: false, enumerable: false, get() {   // 每次给一份副本：改它、清它都动不到 kept
-    const view = kept.slice();
-    view.push = (...recs) => {
-      for (const r of recs) {
-        const rec = Object.freeze({ fn: text(r?.fn), anchor: text(r?.anchor), message: text(r?.message ?? r) });
-        kept.push(rec); console.error(rec.message.includes(tag) ? rec.message : `${tag} ${rec.message}`);
-      }
-      return kept.length;
-    };
-    return view;
-  } });
+const PATCH_MODULE = /^[^?#]*\/shade\/patch\.js([?#]|$)/, WATCHED = new WeakMap();   // page → 这一页请求过的 patch.js 地址
+export const isPatchModule = url => PATCH_MODULE.test(String(url));
+
+// 同一个地址再 import 一次拿到的是页面模块表里的同一个实例；加载失败的（404）页面自己也没加载成，不会有记录
+// shortcut: urls 为 null 时靠 performance 的资源记录找模块，页面资源超过缓冲（默认 250 条）或自己清过记录就找不全；出片入口都走 watchPatchModules，自己开页面出片的调用方多起来时也改成先 watch。
+export const readPatchErrors = ({ urls, re }) => Promise.allSettled((urls ?? [...new Set(performance.getEntriesByType('resource').map(e => e.name).filter(n => new RegExp(re).test(n)))]).map(u => import(u)))
+  .then(mods => mods.flatMap(m => m.value?.inject?.patchErrors?.() ?? []).map(r => ({ fn: String(r.fn), anchor: String(r.anchor), message: String(r.message) })));
+
+export function watchPatchModules(page) {
+  const urls = new Set(); WATCHED.set(page, urls);
+  page.on('request', r => { if (isPatchModule(r.url())) urls.add(r.url()); });
 }
 
-export const readPatchErrors = key => Array.from(globalThis[Symbol.for(key)] ?? [], r => ({ fn: String(r?.fn ?? ''), anchor: String(r?.anchor ?? ''), message: String(r?.message ?? r) }));
+export async function patchCheck(page, where = '') {
+  const urls = WATCHED.get(page);
+  if (urls && !urls.size) return;   // 看着的页面没加载过 patch.js：不读
+  const miss = patchMiss(await page.evaluate(readPatchErrors, { urls: urls ? [...urls] : null, re: PATCH_MODULE.source }), where);
+  if (miss) throw miss;
+}
 
 export function patchMiss(src, where = '') {
   const line = Array.isArray(src) ? src[0] && String(src[0].message ?? src[0]) : String(src ?? '').split('\n').find(l => l.includes(PATCH_TAG));

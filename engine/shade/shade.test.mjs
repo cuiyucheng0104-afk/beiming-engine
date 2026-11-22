@@ -97,6 +97,19 @@ test('FX22 片段补丁没命中直接抛错：inject / patchVertex / quantizeSh
       THREE.ShaderChunk.shadowmap_pars_fragment = keep.slice(0, i) + alt + keep.slice(i + RET.length);
       assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：投影量化锚点缺失（three r170）：.*只有 1 处/, `第 ${i} 字节处的返回改成「${alt}」`);
     }
+    // 函数按函数头认（float getShadow( / float getPointShadow(），不看形参叫什么：形参连同它的返回一起改名，GLSL 语义不变，这一处却不是原文了
+    for (const head of ['float getShadow(', 'float getPointShadow(']) {
+      const i = keep.indexOf(head), j = keep.indexOf(RET, i);
+      assert.ok(i >= 0 && j > i && keep.slice(i, j).includes('float shadowIntensity'), `r170 的投影块里有 ${head}`);
+      THREE.ShaderChunk.shadowmap_pars_fragment = keep.slice(0, i) + keep.slice(i, j).replace('float shadowIntensity', 'float shadowStrength') + 'return mix( 1.0, shadow, shadowStrength );' + keep.slice(j + RET.length);
+      assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：投影量化锚点缺失（three r170）：.*只有 1 处/, `${head} 的形参改名成 shadowStrength`);
+    }
+    // 函数体里多出一句别的写法的 return（原来那句还在）：那条路出去的投影没有量化，也报
+    THREE.ShaderChunk.shadowmap_pars_fragment = keep.slice(0, at[0]) + 'if ( shadowRadius < 0.0 ) return shadow;\n\t\t' + keep.slice(at[0]);
+    assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：投影量化锚点缺失（three r170）：.*只有 1 处/, 'getShadow 里多了一句提前返回');
+    // 注释里的 return 不算（r187 的投影块里就有一句「Early return if fully lit」）
+    THREE.ShaderChunk.shadowmap_pars_fragment = keep.slice(0, at[0]) + '// Early return if fully lit\n\t\t/* return shadow; */ ' + keep.slice(at[0]);
+    assert.match(quantizeShadow(lib.fragmentShader, 'a', 'b', who), /smoothstep\( a, b, shadow \)/);
     THREE.ShaderChunk.shadowmap_pars_fragment = keep.replaceAll('SHADOWMAP_TYPE_PCF_SOFT', 'SHADOWMAP_TYPE_SOFT_PCF');   // 既不是 r187 的写法，也没有 r170 自带的软阴影核
     assert.throws(() => quantizeShadow(lib.fragmentShader, 'a', 'b', who), /fx22：软阴影采样锚点缺失（three r170）：SHADOWMAP_TYPE_PCF_SOFT/);
   } finally { THREE.ShaderChunk.shadowmap_pars_fragment = keep; }

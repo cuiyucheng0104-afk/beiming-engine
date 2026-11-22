@@ -14,10 +14,10 @@
 // 出错不在这里退出进程：页面未捕获的异常、页面崩溃、着色器编译失败、WebGL 上下文丢失、缺本地文件（任何类型返回 ≥400 或
 // 请求失败）、访问外网，都记成 film 上的致命错误，check() 抛出（RenderError，错误码见 README「错误码」，带下一步提示）；
 // 等 READY 期间出错立刻失败，并先关掉这个浏览器再抛。退出码与清理交给调用方（still / video / shots）。
-// 片段补丁没命中算构建失败（lib/patch-check.mjs）：engine/shade 的着色器补丁找不到锚点时，抛错的地方同时在页面里记一条结构化记录；
-// 置 READY 之后、每帧 render 之后、收尾时各读一次，有记录就判 failure.shader-error——未捕获异常、render(t) 抛错、被页面接住后打到
-// 控制台、接住后什么都不打照常画，都一样；--allow-gl-errors 不放行。控制台只认 console.error 里带机器前缀的，不按普通文字猜
-// （记录表每记一条也打这样一行：不经 renderFrame、帧末只调 check() 的出片路径靠它当场判失败）。
+// 片段补丁没命中算构建失败（lib/patch-check.mjs）：engine/shade 的着色器补丁找不到锚点时，抛错的地方同时在 patch.js 模块闭包里记一条
+// 结构化记录。patchCheck(page) 读它（只在页面加载过 patch.js 时），有记录就抛 failure.shader-error：置 READY 之后、renderFrame 每帧之后、
+// lib/yuv.mjs 的 captureGpuFrame 交出帧之前、收尾时各调一次——未捕获异常、render(t) 抛错、被页面接住后打到控制台、接住后静音照常画，
+// 单采样与超采样，都一样；--allow-gl-errors 不放行。页面自己往全局键上塞记录、往 console.error 打带机器前缀的字，记录里没有就不判。
 //
 // GPU：ANGLE 后端按 --angle / BEIMING_ANGLE / 平台默认选（macOS metal、Windows vulkan、Linux default），平台不对直接报错；
 //   --gpu required（默认，读 BEIMING_GPU）时落到软件渲染判失败（退出码 3）。浏览器与启动参数见 lib/gpu.mjs，
@@ -32,7 +32,7 @@ import { fileURLToPath } from 'url';
 import { createServer } from './lib/server.mjs';
 import { RenderError, EXIT } from './lib/errors.mjs';
 import { faultWatch, renderInfo } from './lib/inject.mjs';
-import { patchMiss, patchWatch, readPatchErrors, PATCH_ERRORS_KEY, PATCH_TAG } from './lib/patch-check.mjs';
+import { patchMiss, patchCheck, watchPatchModules, PATCH_TAG } from './lib/patch-check.mjs';
 import {
   chromeArgs, chromeExecutable, defaultAngle, isSoftwareRenderer, SOFTWARE_RENDERER,
   resolveAngle, resolveGpuPolicy, launchBrowser, probeGpu, enforceGpu,
@@ -180,7 +180,7 @@ export async function openFilm(dir, {
   try {
     const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
     await page.addInitScript(faultWatch);
-    await page.addInitScript(patchWatch, { key: PATCH_ERRORS_KEY, tag: PATCH_TAG });
+    watchPatchModules(page);
     await page.addInitScript(renderInfo, {
       fps: render?.fps ?? null, width: w, height: h, profile: render?.profile ?? null,
       frameCount: render?.frameCount ?? null, contract: CONTRACT_VERSION,
@@ -216,8 +216,8 @@ export async function openFilm(dir, {
         note(`[页面] ${text.slice(0, 200)}`);
         return fail(new RenderError('failure.context-lost', `WebGL 上下文丢失：${text.slice(0, 160)}`, { hint: '显存不够、驱动重置（Windows TDR）或页面调用了 loseContext：减少 --workers 或尺寸，查共享 GPU 上的其他任务' }));
       }
-      const miss = type === 'error' ? patchMiss(text) : null;   // 页面自己接住了补丁没命中的错、打到 console.error：照样判失败（只认机器前缀，不受 --allow-gl-errors 影响）
-      if (miss) { note(`[页面] ${text.slice(0, 300)}`); log.error(`[页面] ${text.slice(0, 300)}`); return fail(miss); }
+      // 页面自己接住了补丁没命中的错、打到 console.error：文字只是线索，当场去读 patch.js 里的记录，真有才判（不受 --allow-gl-errors 影响）
+      if (type === 'error' && text.includes(PATCH_TAG)) patchCheck(page).catch(e => { if (e instanceof RenderError) fail(e); });
       if (type === 'error' && SHADER_FATAL.test(text)) {
         note(`[页面] ${text.slice(0, 300)}`);
         log.error(`[页面] ${text.slice(0, 600)}`);
@@ -362,12 +362,6 @@ export async function renderFrame(film, t, { timeoutMs = frameTimeoutMs(), settl
   }
   await patchCheck(film.page, `${where}：`);
   film.check();
-}
-
-/** 页面里记下的着色器补丁没命中（lib/patch-check.mjs）：有一条就抛 failure.shader-error，页面有没有把异常接住都一样 */
-async function patchCheck(page, where = '') {
-  const miss = patchMiss(await page.evaluate(readPatchErrors, PATCH_ERRORS_KEY), where);
-  if (miss) throw miss;
 }
 
 /** 最后一帧之后再查一次：上下文丢失事件是异步派发的，留一个任务的时间让它落地 */

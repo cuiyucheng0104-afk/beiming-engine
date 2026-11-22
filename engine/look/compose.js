@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { HASH_NOISE } from './glsl.js';
 import { srgbVec } from './params.js';
+import { inject } from '../shade/patch.js';
 
 const FINAL_FS = /* glsl */`
 ${HASH_NOISE}
@@ -71,12 +72,9 @@ float paperArea(vec2 u, vec2 hw) {   // u：输出像素中心在纸纹上的位
 }
 void main(){`;
 function paperVariantFs({ anchor = false, area = false } = {}, fs = FINAL_FS) {
-  if (!fs.includes(PAPER_SAMPLE) || !fs.includes(PAPER_UNIFORMS) || !fs.includes('void main(){')) {
-    // 与 engine/shade/patch.js 的 ShaderPatchError 同一套约定（那边不导出）：带机器前缀、记进全局的补丁错误表，渲染器据此判构建失败
-    const message = `[BEIMING_SHADER_PATCH_ERROR] compose：FINAL_FS 里找不到纸纹取样那一行，${anchor ? '锚点' : ''}${anchor && area ? '、' : ''}${area ? '面积取样' : ''}变体对不上了`;
-    (globalThis[Symbol.for('beiming.shaderPatchErrors')] ??= []).push({ fn: 'paperVariantFs', anchor: PAPER_SAMPLE, message });
-    throw Object.assign(new Error(message), { name: 'ShaderPatchError' });
-  }
+  // 三处原文先核一遍，借 engine/shade/patch.js 的 inject 报：抛的是真正的 ShaderPatchError（带机器前缀、记进那边模块里的补丁错误记录），渲染器据此判构建失败
+  const who = `compose 纸纹${anchor ? '锚点' : ''}${anchor && area ? '、' : ''}${area ? '面积取样' : ''}变体对不上了`;
+  for (const a of [PAPER_SAMPLE, PAPER_UNIFORMS, 'void main(){']) inject(fs, a, '', 'replace', who);
   const P = anchor ? PAPER_POINT_ANCHOR : PAPER_POINT;
   const sample = area
     ? `float pp = paperArea(${P} / uPaperSize * uPaperTexels, .5 * uPaperTexels / (uPaperSize${anchor ? ' * uPaperZoom' : ''}));`

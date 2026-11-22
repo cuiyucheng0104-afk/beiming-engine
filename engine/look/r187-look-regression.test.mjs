@@ -15,7 +15,7 @@ import { thumb, thumbDiff, decodeIds, THUMB_GATE, THUMB_SKIP } from './r187-look
 import { TOON_PSNR_GATE_DB, TOON_MAX_FRAC_GT1, TOON_MAX_FRAC_GT5 } from '../shade/r187-toon-regression.mjs';
 import { inject, patchVertex, quantizeShadow } from '../shade/patch.js';
 import { anchoredFinalFs } from './compose.js';
-import { PATCH_TAG, PATCH_ERRORS_KEY, patchMiss, patchWatch, readPatchErrors } from '../render/lib/patch-check.mjs';
+import { PATCH_TAG, patchMiss, isPatchModule, readPatchErrors } from '../render/lib/patch-check.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const GOLDEN = () => JSON.parse(fs.readFileSync(path.join(ROOT, 'engine/look/r187-look-regression.golden.json'), 'utf8'));
@@ -249,20 +249,20 @@ test('FX22-1 patchVertex：给了 vertexNormal 钩子而着色器里没有 #incl
   assert.equal(patchVertex(inlined, { vertexNormal: '', vertexBegin: 'transformed.x += 1.0;\n' }, {}, 'fx22'), patchVertex(inlined, { vertexBegin: 'transformed.x += 1.0;\n' }, {}, 'fx22'));
 });
 
-test('FX22-2 渲染器只认结构化记录与机器前缀：patch.js / compose.js 抛的错归到 failure.shader-error（退出码 1），普通文字一概不归', () => {
-  const table = () => globalThis[Symbol.for(PATCH_ERRORS_KEY)] ?? [], thrown = fn => { try { fn(); } catch (e) { return e; } assert.fail('应当抛错'); };
-  // 真抛一遍：消息带机器前缀，名字是 ShaderPatchError，同时记进全局的补丁错误表（函数名、缺的锚点、消息）
-  for (const [fn, anchor, text, run] of [
-    ['inject', '#include <begin_vertex>', /^\[BEIMING_SHADER_PATCH_ERROR\] s6：着色器锚点缺失「#include <begin_vertex>」（three r170，本模块支持 r170 \/ r187）$/, () => inject('void main() {}', '#include <begin_vertex>', 'x', 'after', 's6')],
-    ['quantizeShadow', '#include <shadowmap_pars_fragment>', /^\[BEIMING_SHADER_PATCH_ERROR\] toon：着色器锚点缺失「#include <shadowmap_pars_fragment>」/, () => quantizeShadow('void main() {}', 'a', 'b', 'toon')],
-    ['paperVariantFs', 'float pp = texture2D(tPaper, gl_FragCoord.xy / uPaperSize).r;', /^\[BEIMING_SHADER_PATCH_ERROR\] compose：FINAL_FS 里找不到纸纹取样那一行，锚点变体对不上了$/, () => anchoredFinalFs('void main(){}')],
+test('FX22-2 渲染器只认 patch.js 模块里的记录与机器前缀：patch.js / compose.js 抛的错归到 failure.shader-error（退出码 1），普通文字、页面自己塞的记录一概不归', async () => {
+  const table = () => inject.patchErrors(), thrown = fn => { try { fn(); } catch (e) { return e; } assert.fail('应当抛错'); };
+  // 真抛一遍：消息带机器前缀，名字是 ShaderPatchError，同时记进 patch.js 模块闭包里的补丁错误记录（函数名、缺的锚点、消息）
+  for (const [anchor, text, run] of [
+    ['#include <begin_vertex>', /^\[BEIMING_SHADER_PATCH_ERROR\] s6：着色器锚点缺失「#include <begin_vertex>」（three r170，本模块支持 r170 \/ r187）$/, () => inject('void main() {}', '#include <begin_vertex>', 'x', 'after', 's6')],
+    ['#include <shadowmap_pars_fragment>', /^\[BEIMING_SHADER_PATCH_ERROR\] toon：着色器锚点缺失「#include <shadowmap_pars_fragment>」/, () => quantizeShadow('void main() {}', 'a', 'b', 'toon')],
+    // compose.js 的纸纹变体借 inject 报：同一个错误类、同一份记录（以前自己拼一个同名的错、自己往全局表里记）
+    ['float pp = texture2D(tPaper, gl_FragCoord.xy / uPaperSize).r;', /^\[BEIMING_SHADER_PATCH_ERROR\] compose 纸纹锚点变体对不上了：着色器锚点缺失「float pp = texture2D\(tPaper, gl_FragCoord\.xy \/ uPaperSize\)\.r」（three r170/, () => anchoredFinalFs('void main(){}')],
   ]) {
     const before = table().length, err = thrown(run), rec = table().at(-1);
     assert.match(err.message, text);
     assert.ok(err.message.startsWith(PATCH_TAG + ' ') && err.name === 'ShaderPatchError');
     assert.equal(table().length, before + 1, '抛一次记一条');
-    assert.deepEqual([rec.message, typeof rec.fn, rec.anchor], [err.message, 'string', fn === 'quantizeShadow' ? rec.anchor : anchor]);
-    if (fn !== 'quantizeShadow') assert.equal(rec.fn, fn);   // 片元里缺 #include 是 quantizeShadow 借 inject 报的
+    assert.deepEqual(rec, { fn: 'inject', anchor, message: err.message });
     for (const src of [`Error: ${err.message}\n    at inject (patch.js:26:36)`, `ShaderPatchError: ${err.message}`, [rec], [rec, rec]]) {
       const e = patchMiss(src, '第 3 帧：'), body = err.message.slice(PATCH_TAG.length + 1);
       assert.deepEqual([e.code, e.exitCode], ['failure.shader-error', 1]);
@@ -274,36 +274,38 @@ test('FX22-2 渲染器只认结构化记录与机器前缀：patch.js / compose.
   // 不带机器前缀的文字不认：作品自己的日志、以前靠中文字样匹配的那几句，都不是补丁没命中
   for (const text of ['字幕变体对不上了，用默认字幕', 's6：着色器锚点缺失「#include <begin_vertex>」', 'toon：投影量化锚点缺失（three r188）', 'toon：软阴影采样锚点缺失', 'TypeError: x is not a function', undefined, '']) assert.equal(patchMiss(text), null, String(text));
   assert.equal(patchMiss([]), null, '记录表是空的 = 没出过错');
-  // 渲染器注入页面的记录表只能追加：拿到的是副本，清空、截断、整个换掉都动不到已经记下的；每记一条打一行带前缀的 console.error
-  const KEY = 'beiming.test.patchWatchSelfCheck', sym = Symbol.for(KEY);
-  assert.equal(Object.getOwnPropertyDescriptor(globalThis, sym), undefined);
+  // 记录在 patch.js 的模块闭包里，页面代码没有写它的入口：读到的是副本，改它、清它、往以前那个全局符号键上塞合成记录、
+  // 把读出口换掉，都动不到已经记下的，也加不进一条新的
+  const n = table().length, last = table().at(-1), SYM = Symbol.for('beiming.shaderPatchErrors'), had = Object.hasOwn(globalThis, SYM);
+  assert.ok(n >= 3);
   try {
-    patchWatch({ key: KEY, tag: PATCH_TAG });
-    const printed = [], error = console.error; console.error = (...a) => printed.push(a.join(' '));
-    try { (globalThis[sym] ??= []).push({ fn: 'inject', anchor: 'A', message: 'M' }); } finally { console.error = error; }   // patch.js 的写法
-    assert.deepEqual(printed, [`${PATCH_TAG} M`]);
-    assert.equal(patchMiss(printed[0]).code, 'failure.shader-error');
-    globalThis[sym].length = 0; globalThis[sym].splice(0); globalThis[sym].pop();
-    assert.throws(() => { 'use strict'; globalThis[sym] = []; }, TypeError);
-    assert.throws(() => delete globalThis[sym], TypeError);
-    assert.deepEqual(readPatchErrors(KEY), [{ fn: 'inject', anchor: 'A', message: 'M' }]);
-    assert.equal(patchMiss(readPatchErrors(KEY)).code, 'failure.shader-error');
-    assert.deepEqual(readPatchErrors('s6.fx22.never-written'), []);
-  } finally { /* 属性不可删（这正是要验的）：留在本测试进程里，键名只有这里用 */ }
+    table().length = 0; table().push({ fn: 'x', anchor: 'x', message: 'x' }); table()[n - 1].message = '改掉';
+    (globalThis[SYM] ??= []).push({ fn: 'inject', anchor: 'A', message: `${PATCH_TAG} QA synthetic, no shader call` });
+    assert.throws(() => { 'use strict'; inject.patchErrors = () => []; }, TypeError);
+    assert.throws(() => Object.defineProperty(inject, 'patchErrors', { value: () => [] }), TypeError);
+    assert.deepEqual([table().length, table().at(-1)], [n, last]);
+  } finally { if (!had) delete globalThis[SYM]; }
+  assert.equal(globalThis[SYM], undefined, 'patch.js / compose.js 不再往 globalThis 上挂记录');
+  // 渲染器的读法（在页面里执行）：按页面请求过的模块地址 import 同一个实例；不是 patch.js 的地址不认，加载不了的当没有
+  const here = new URL('../shade/patch.js', import.meta.url).href;
+  assert.deepEqual([isPatchModule(here), isPatchModule('http://127.0.0.1:1/engine/shade/patch.js?v=2'), isPatchModule('http://127.0.0.1:1/engine/shade/toon.js'), isPatchModule('http://127.0.0.1:1/x?f=/shade/patch.js'), isPatchModule('不是地址')], [true, true, false, false, false]);
+  assert.deepEqual(await readPatchErrors({ urls: [here, new URL('./no-such-module.js', import.meta.url).href] }), table());
+  assert.deepEqual([await readPatchErrors({ urls: [] }), await readPatchErrors({ urls: null, re: 'x' })], [[], []]);
+  assert.equal(patchMiss(await readPatchErrors({ urls: [here] })).code, 'failure.shader-error');
 });
 
 test('FX22-3 两版页面里故意改错一段着色器原文：renderer.compile、look.render、单独的 ID 图三条编译路径都同步抛错并点名锚点', async t => {
   const names = Object.keys(CORRUPTIONS);
-  assert.deepEqual(names, ['toon-light', 'toon-begin-vertex', 'toon-beginnormal', 'shadow-return', 'shadow-return-first', 'depth-begin-vertex', 'pcf-kernel']);
+  assert.deepEqual(names, ['toon-light', 'toon-begin-vertex', 'toon-beginnormal', 'shadow-return', 'shadow-return-first', 'shadow-param-rename', 'depth-begin-vertex', 'pcf-kernel']);
   const res = await verifyShaderPatchBuild({ corruptions: [null, ...names] });
   if (res.skipped) return t.skip(res.skipped);
   const [clean, ...broken] = res.runs;
   assert.equal(clean.failed, false, `不改时两版三条路径都不该出错：${JSON.stringify(clean.results)}`);
-  assert.deepEqual(clean.results.map(r => [r.revision, r.stages]), [['170', { compile: null, look: null, ids: null }], ['187', { compile: null, look: null, ids: null }]]);
+  assert.deepEqual(clean.results.map(r => [r.revision, r.stages, r.recorded]), [['170', { compile: null, look: null, ids: null }, null], ['187', { compile: null, look: null, ids: null }, null]]);
   for (const b of broken) {
     const c = CORRUPTIONS[b.corrupt];
     assert.equal(b.failed, true, `${b.corrupt}（${c.what}）：构建应当失败`);
-    assert.deepEqual(b.results.map(r => r.revision), ['170', '187']);
+    assert.deepEqual(b.results.map(r => [r.revision, r.recorded]), [['170', 'failure.shader-error'], ['187', 'failure.shader-error']], `${b.corrupt}：页面把错都接住了，渲染器照样从 patch.js 模块里读到记录`);
     for (const r of b.results) for (const [stage, err] of Object.entries(r.stages)) {
       // 阴影深度材质只在渲阴影时编译：renderer.compile 与单独的 ID 图不碰它，整条后期链（先渲阴影）必须抛
       if (c.shadowOnly && stage !== 'look') { assert.equal(err, null, `${b.corrupt} r${r.revision} ${stage}`); continue; }
@@ -328,6 +330,12 @@ test('FX22-4 构建命令：夹具影片不改时正常出图；改错一段片�
     const chatty = still('chatty', 'log=1');
     assert.deepEqual([chatty.status, chatty.png], [0, true], `普通日志不能被当成补丁没命中：${chatty.stderr.slice(-400)}`);
     assert.doesNotMatch(chatty.stderr, /failure\.shader-error/);
+    // 页面往以前那个全局符号键上塞一条合成记录、再往 console.error 打一行带机器前缀的字：记录只认 patch.js 模块闭包里的，着色器没出错就照常出图
+    for (const more of [[], ['--samples', '4']]) {
+      const forge = still('forge' + more.length, 'forge=1', ...more);
+      assert.deepEqual([forge.status, forge.png], [0, true], `页面伪造的记录不能判构建失败（${more.join(' ')}）：${forge.stderr.slice(-400)}`);
+      assert.doesNotMatch(forge.stderr, /failure\.shader-error/);
+    }
     const light = /错误\[failure\.shader-error\]：.*着色器补丁没命中（构建失败）：s6：着色器锚点缺失「vec3 outgoingLight = reflectedLight\.directDiffuse/;
     for (const [name, query, want, ...more] of [
       ['load', 'corrupt=toon-light', light],                                        // 置 READY 之前预热时抛
@@ -341,6 +349,11 @@ test('FX22-4 构建命令：夹具影片不改时正常出图；改错一段片�
       ['swallow', 'corrupt=toon-light&when=swallow', light],                        // 页面接住后什么都不打、照常画回退帧
       ['swallow-ss', 'corrupt=toon-light&when=swallow', light, '--samples', '4'],   // 同上，走超采样的 GPU 直出路径（lib/yuv.mjs，帧末只调 check()）
       ['swallow-first', 'corrupt=shadow-return-first&when=swallow', /错误\[failure\.shader-error\]：.*投影量化锚点缺失/],
+      ['rename', 'corrupt=shadow-param-rename&when=frame', /错误\[failure\.shader-error\]：.*投影量化锚点缺失/],          // 头一个 getShadow 的形参连同返回一起改名
+      ['frame-ss', 'corrupt=toon-light&when=frame', light, '--samples', '4'],        // render(t) 里抛，走超采样：同一个错误码（以前这一路是 failure.render-throw）
+      ['swallow-mute', 'corrupt=toon-light&when=swallow&mute=1', light],            // 页面接住、画回退帧，console.error 也被页面静音
+      // 只在 ID 图回调里冒出来的补丁错，页面接住 + 静音 console.error + 超采样（lib/yuv.mjs 的 GPU 直出）：帧落盘之前读同一份致命记录
+      ['id-callback-mute-ss', 'probe=id-callback&when=swallow&mute=1', /错误\[failure\.shader-error\]：.*s6-id-callback：着色器锚点缺失「#include <color_fragment>」/, '--samples', '4'],
       ['id-callback', 'probe=id-callback', /错误\[failure\.shader-error\]：.*s6-id-callback：着色器锚点缺失「#include <color_fragment>」/],   // 只在 ID 图里冒出来的补丁错
     ]) {
       const r = still(name, query, ...more);

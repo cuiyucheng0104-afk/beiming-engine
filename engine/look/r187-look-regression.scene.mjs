@@ -97,6 +97,11 @@ export const CORRUPTIONS = {
   'shadow-return': { what: '投影块里 getShadow 的返回写法变了', anchor: '投影量化锚点缺失', run: () => edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'return mix( 1.0, shadow, shadowIntensity );', 'return mix(1.0, shadow, shadowIntensity);') },
   // 同一句返回在投影块里有好几处（r170 两处、r187 五处）：只有头一处变了，其余几处原样。头一处正是标定场景用的那个 getShadow
   'shadow-return-first': { what: '投影块里只有头一处 getShadow 的返回写法变了，其余几处原样', anchor: '投影量化锚点缺失', run: () => edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'return mix( 1.0, shadow, shadowIntensity );', 'return mix(1.0, shadow, shadowIntensity);', false) },
+  // 头一个 getShadow 的形参连同它的返回一起改名（GLSL 语义不变），其余几处原样：按形参名去数函数的核法会跟着少数一个、放行
+  'shadow-param-rename': { what: '投影块里头一个 getShadow 的形参 shadowIntensity 连同它的返回一起改了名，其余几处原样', anchor: '投影量化锚点缺失', run: () => {
+    edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'float shadowIntensity, float shadowBias', 'float shadowStrength, float shadowBias', false);
+    edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'return mix( 1.0, shadow, shadowIntensity );', 'return mix( 1.0, shadow, shadowStrength );', false);
+  } },
   'depth-begin-vertex': { what: '阴影深度材质顶点着色器的 #include <begin_vertex> 被展开成原文（只在渲阴影时编译）', anchor: '#include <begin_vertex>', shadowOnly: true, run: () => inline(THREE.ShaderLib.depth, 'begin_vertex') },
   'pcf-kernel': { what: '投影块的软阴影采样核换了写法', anchor: '软阴影采样锚点缺失', run: () => THREE.REVISION === '170'
     ? edit(THREE.ShaderChunk, 'shadowmap_pars_fragment', 'SHADOWMAP_TYPE_PCF_SOFT', 'SHADOWMAP_TYPE_SOFT_PCF')

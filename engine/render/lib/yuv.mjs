@@ -7,6 +7,7 @@
 //   captureGpuFrame(film, t, opts)       在页面内跑 render(t)（samples > 1 时在线性光下累积子帧运动模糊），并在 WebGL2 中直接
 //                                        输出 yuv420p 裸流或 png/jpeg Buffer；默认 samples=1 且非 yuv420 时外层仍走原 capture 路径
 import { RenderError } from './errors.mjs';
+import { patchMiss, patchCheck } from './patch-check.mjs';
 
 const clampByte = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -562,7 +563,7 @@ export async function captureGpuFrame(film, t, {
     if (e instanceof RenderError || signal?.aborted) throw signal?.aborted ? signal.reason : e;
     film.check();
     const msg = String(e?.message ?? e).replace(/^page\.evaluate:\s*/, '').split('\n')[0];
-    throw new RenderError('failure.render-throw', `${where}render 出错：${msg}`, {
+    throw patchMiss(msg, `${where}：`) ?? new RenderError('failure.render-throw', `${where}render 出错：${msg}`, {
       hint: '页面的 render(t) 抛了异常：用 node engine/render/still.mjs <目录> --frame <帧号> 单独复现',
     });
   } finally {
@@ -576,6 +577,7 @@ export async function captureGpuFrame(film, t, {
       hint: '显存不够、驱动重置（Windows TDR）或页面调用了 loseContext：减少 --workers 或尺寸，查共享 GPU 上的其他任务',
     });
   }
+  await patchCheck(film.page, `${where}：`);   // 与 renderFrame 同一套：页面接住补丁没命中的错、照常画回退帧时，这一帧不交出去
   film.check();
   return Buffer.from(b64, 'base64');
 }
