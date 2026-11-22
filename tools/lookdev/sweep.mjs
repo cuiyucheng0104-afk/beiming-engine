@@ -160,6 +160,7 @@ export const command = defineCommand({
       let ownerHost = null, curHost = null;
       const undo = ctx.onCleanup(() => {
         globalThis.__LOOKDEV = null;
+        globalThis.__OFFSCREEN_LOOKDEV_CACHE = null;
         if (curHost) { try { curHost.dispose(); } catch { /* 忽略 */ } curHost = null; }
         if (ownerHost) { try { ownerHost.dispose(); } catch { /* 忽略 */ } ownerHost = null; }
       });
@@ -175,6 +176,7 @@ export const command = defineCommand({
             const shots = [];
             for (const t of times) {
               const f = Math.max(0, Math.round(t * fps));
+              globalThis.__OFFSCREEN_LOOKDEV_CACHE = f;
               const px = await withTimeout(curHost.renderFrame(work, f), frameMs, `第 ${i + 1} 格 t=${t} 超过 ${frameMs / 1000} 秒没画完`);
               const opaque = Uint8Array.from(px);
               for (let k = 3; k < opaque.length; k += 4) opaque[k] = 255;
@@ -192,6 +194,7 @@ export const command = defineCommand({
         }
       } finally {
         globalThis.__LOOKDEV = null;
+        globalThis.__OFFSCREEN_LOOKDEV_CACHE = null;
         if (curHost) { try { curHost.dispose(); } catch { /* 忽略 */ } curHost = null; }
         if (ownerHost) { try { ownerHost.dispose(); } catch { /* 忽略 */ } ownerHost = null; }
         undo();

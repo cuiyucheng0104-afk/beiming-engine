@@ -22,7 +22,7 @@ import { createIdPass } from './idpass.js';
 import { fogUniforms, setFog, fogNodes } from './fog.js';
 import { noise } from './noise.js';
 import { createFullscreen, glCoord } from './pass.js';
-import { markGpu } from '../gputimer.mjs';
+import { markGpu, markGpuZero } from '../gputimer.mjs';
 
 const TILE = 8;
 
@@ -261,11 +261,22 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
     return vec4(cov, 0, 0, 1);
   })();
 
-  function render({ scene, camera, p, fog = null, fogColor, t, k = 1, ss = 1, fps = 24 }) {
+  function renderMrt(scene, camera, target) { return idPass.renderMrt(scene, camera, target); }
+  function renderScene(scene, camera, target, allowMrt) { return idPass.renderScene(scene, camera, target, allowMrt); }
+
+  function render({ scene, camera, p, fog = null, fogColor, t, k = 1, ss = 1, fps = 24, ids = null }) {
     const prev = renderer.getRenderTarget();
     try {
-      markGpu(renderer, 'ink:ids');
-      const maxWidth = idPass.render(scene, camera, idTarget) || 1;
+      if (ids) markGpuZero(renderer, 'ink:ids');
+      else markGpu(renderer, 'ink:ids');
+      let maxWidth;
+      if (ids) {
+        idTex.value = ids.texture; depthTex.value = ids.depthTexture;
+        maxWidth = ids.maxWidth || 1;
+      } else {
+        idTex.value = idTarget.texture; depthTex.value = idTarget.depthTexture;
+        maxWidth = idPass.render(scene, camera, idTarget) || 1;
+      }
       U.near.value = camera.near; U.far.value = camera.far; U.ortho.value = camera.isOrthographicCamera ? 1 : 0;
       const hw = p.width * 0.5 * k * ss;
       U.halfW.value = hw; U.depthThr.value = p.depthThreshold; U.inner.value = p.inner; U.sil.value = p.silhouette; U.opacity.value = p.opacity;
@@ -285,6 +296,7 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
       fx.draw(tileHMat, tileH);
       fx.draw(tileVMat, tileReach);
       fx.draw(strokeMat, line);
+      return maxWidth;
     } finally { renderer.setRenderTarget(prev); }
   }
 
@@ -293,5 +305,6 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
     idTarget.dispose(); idTarget.depthTexture.dispose(); edge.dispose(); tile0.dispose(); tileH.dispose(); tileReach.dispose(); line.dispose();
   }
 
-  return { render, line, edge, idTarget, dispose };
+  return { render, renderMrt, renderScene, line, edge, idTarget,
+    get idTexture() { return idTex.value; }, get depthTexture() { return depthTex.value; }, dispose };
 }

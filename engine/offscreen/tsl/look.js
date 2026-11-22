@@ -14,7 +14,7 @@ import { createCompose } from './compose.js';
 import { createDebugView } from './debug.js';
 import { kuwahara } from './kuwahara.js';
 import { createFullscreen } from './pass.js';
-import { markGpu } from '../gputimer.mjs';
+import { markGpu, markGpuZero } from '../gputimer.mjs';
 
 const unsupported = (code, msg) => Object.assign(new Error(msg), { code });
 
@@ -25,10 +25,15 @@ export function createLook({ THREE, TSL, renderer }, { width: W, height: H, ss =
   const LW = W * ss, LH = H * ss;
   const fx = createFullscreen({ THREE, renderer });
   const rt = (w, h, o = {}) => new THREE.RenderTarget(w, h, { type: THREE.HalfFloatType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, ...o });
+  const mrtOk = ss === 1 && msaa === 0;   // WP2.2：只有这种配置才可能同遍写 ID，其余作品保持单附件、与原路径完全相同
   const T = {
-    scene: new THREE.RenderTarget(W, H, { type: THREE.HalfFloatType, samples: msaa, depthTexture: new THREE.DepthTexture(W, H, THREE.FloatType) }),
+    scene: new THREE.RenderTarget(W, H, { count: mrtOk ? 2 : 1, type: THREE.HalfFloatType, samples: msaa, depthTexture: new THREE.DepthTexture(W, H, THREE.FloatType) }),
     fog: rt(W, H), grade: rt(W, H), out: rt(W, H), kuwa: rt(W, H),
   };
+  if (mrtOk) {
+    T.scene.textures[0].name = 'output'; T.scene.textures[1].name = 'inkId';
+    T.scene.textures[1].minFilter = T.scene.textures[1].magFilter = THREE.NearestFilter;
+  }
   const ink = createInk({ THREE, TSL, renderer }, { width: LW, height: LH });
   const fog = createFog({ THREE, TSL, renderer }, { width: W, height: H });
   const grade = createGrade({ THREE, TSL, renderer }, { width: W, height: H });
@@ -54,6 +59,7 @@ export function createLook({ THREE, TSL, renderer }, { width: W, height: H, ss =
 
   const node = select(uDebugOn.greaterThan(0.5), debug.node, compose.node);
   const output = vec4(sRGBTransferEOTF(node.rgb), 1);
+  let snapshot = null;   // WP5：lookdev 显式给令牌时才复用现有 GPU 目标；普通出片令牌为 null，永远重渲
 
   function render(scene, camera, p = {}) {
     const t = p.t ?? 0, k = H / refHeight, kp = Math.max(1, Math.round(k));   // kp：图片纸纹 / 颗粒的整数像素倍率
@@ -63,15 +69,27 @@ export function createLook({ THREE, TSL, renderer }, { width: W, height: H, ss =
       markGpu(renderer, 'paper'); paper.prepare();
       camera.updateMatrixWorld();
 
-      // ① 主场景（markGpu：offscreen profile 的分段计时标记，没开计时时什么也不做）
-      markGpu(renderer, 'scene');
-      renderer.setRenderTarget(T.scene); renderer.clear(true, true, true);
-      renderer.render(scene, camera);
-      renderer.setClearColor(prevClear, prevAlpha);
-
-      // ② 墨线：ID 图 → 边缘（含雾淡出）→ 笔画
+      // ① 主场景；lookdev 同帧只改后期时保留 T.scene / depthTexture，普通出片永远重渲
       const lineOn = !!(OL && OL.opacity > 0 && OL.width > 0);
-      if (lineOn) { ink.render({ scene, camera, p: OL, fog: FG, fogColor, t, k, ss, fps }); renderer.setClearColor(prevClear, prevAlpha); }
+      const token = globalThis.__OFFSCREEN_LOOKDEV_CACHE ?? null;
+      const reuse = token !== null && snapshot?.key === token && snapshot.scene === scene && snapshot.camera === camera;
+      let ids = reuse ? snapshot.ids : null;
+      if (reuse) markGpuZero(renderer, 'scene');
+      else markGpu(renderer, 'scene');
+      if (!reuse) {
+        renderer.setRenderTarget(T.scene);
+        if (mrtOk) ids = ink.renderScene(scene, camera, T.scene, lineOn);
+        else { renderer.clear(true, true, true); renderer.render(scene, camera); }
+        snapshot = { key: token, scene, camera, ids: null };
+        renderer.setClearColor(prevClear, prevAlpha);
+      }
+
+      // ② 墨线：有快照就直接读 T.scene 第二附件或保留的 ink.idTarget；首组未开墨线时这里会补跑 ID
+      if (lineOn) {
+        const maxWidth = ink.render({ scene, camera, p: OL, fog: FG, fogColor, t, k, ss, fps, ids });
+        if (token !== null) snapshot.ids = ids ?? { maxWidth, texture: ink.idTarget.texture, depthTexture: ink.idTarget.depthTexture };
+        renderer.setClearColor(prevClear, prevAlpha);
+      }
 
       // ③ 雾 → bloom → 调色 → 输出变换
       let src = T.scene.texture;
@@ -96,7 +114,7 @@ export function createLook({ THREE, TSL, renderer }, { width: W, height: H, ss =
       if (p.debug) {
         uDebugOn.value = 1;
         debug.update(p.debug, {
-          id: ink.idTarget.texture, depth: ink.idTarget.depthTexture, edge: ink.edge.texture,
+          id: ink.idTexture, depth: ink.depthTexture, edge: ink.edge.texture,
           line: ink.line.texture, bloom: glow, paper: layer.texture, kuwahara: col, scene: T.scene.texture,
         }, camera);
       } else {
