@@ -1,0 +1,37 @@
+{
+  "question": "1-1",
+  "kind": "reference",
+  "source": "案例 01 重制片终版（第 2 版）成片文件；2026-11-22 用 evaluate-b2.mjs 的 readMaster 调 deliverSpec、audioLoudness、blackFreezeDup 实测，声道数用 ffprobe 读回",
+  "readings": {
+    "deliver.spec": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "frames": 1104,
+      "color_space": "bt709",
+      "color_transfer": "bt709",
+      "color_primaries": "bt709",
+      "color_range": "tv",
+      "audioChannels": 2,
+      "audioLayout": "stereo"
+    },
+    "audio.loudness": {
+      "lufs": -14.1,
+      "truePeakDbtp": -1.7
+    },
+    "frame.black-freeze-dup": {
+      "blackFrames": 0,
+      "freezeSegments": 0,
+      "duplicateFrames": 0
+    },
+    "base": {
+      "spec": { "width": 1920, "height": 1080, "fps": 30, "frames": 1104, "audioChannels": 2 }
+    }
+  },
+  "preview": {
+    "audio.loudness": { "lufs": -14.2, "truePeakDbtp": -0.8 },
+    "missingColorTags": ["color_transfer", "color_primaries"],
+    "blackFrames": [116, 117, 118, 119]
+  },
+  "note": "和案例 01 重制片自己的读回记录一致（1104 帧、立体声、三项 bt709、−14.1 LUFS、−1.7 dBTP、无黑帧、无半秒以上静止、无重复帧）。base 里只有读回的规格；这道题的三条基础谓词（规格、响度、真峰值）本版 verify 判得了，测试里拿这份读数交 evaluateAssertion 逐条判过，整题合格。preview 是同一条片预演版的读回记录，三样都不合格，当反例用：真峰值 −0.8 dBTP，色彩标签缺传递函数和原色两项，第 116 到 119 帧近黑。"
+}
