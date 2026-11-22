@@ -2,6 +2,25 @@
   "format": "card-priors/0.1",
   "entries": [
     {
+      "id": "audio-subs.e191.card",
+      "sourceId": "e191",
+      "cardId": "audio.scene-events",
+      "section": 1,
+      "caseId": "case-13",
+      "title": "声音三条路线",
+      "text": "①启动后离线逐采样算好存成 AudioBuffer（原实现源码 全部 321 个基础键，种子来自键名，同键永远同声）；②实时节点合成（对话 原实现源码、环境 原实现源码、配乐里管风琴/合唱/弦）；③按规则生成的配乐（原实现源码 9 个文件）；原实现源码 另有 4 处实时振荡器：低语、弓弦「静脉弦」后备、通用 tone、头目火焰后备；整包无任何音频文件（494 文件查 mp3/ogg/wav/m4a 零个，decodeAudioData/new Audio(/<audio 零命中）",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§1 总路线与通用原则里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "实测",
+      "evidenceLabel": "实测",
+      "verificationLabel": "统筹脚本量过",
+      "docRef": "声音配乐配音字幕汇编 §1 ^e191；原出处：09§5.1、§5.10",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e358.card",
       "sourceId": "e358",
       "cardId": "audio.scene-events",
@@ -24,34 +43,6 @@
       "evidenceLabel": "脚本取值",
       "verificationLabel": "作者成片用过",
       "docRef": "声音配乐配音字幕汇编 §1 ^e358；原出处：09 复盘 §6.1 #24",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e360.card",
-      "sourceId": "e360",
-      "cardId": "audio.music-gen",
-      "section": 1,
-      "caseId": "case-02",
-      "title": "合奏感靠失谐",
-      "text": "每个音 2–3 个锯齿波，±5 到 ±12 音分(原实现源码)",
-      "quantities": [
-        {
-          "value": [
-            -12,
-            12
-          ],
-          "unit": "cent",
-          "rawUnit": "音分"
-        }
-      ],
-      "routeNote": "合奏失谐音分范围，可跨实现参考",
-      "coupling": "与§1 总路线与通用原则里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "脚本取值",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §1 ^e360；原出处：09 复盘 §6.1 #26",
       "verifiedInOurStack": false
     },
     {
@@ -125,6 +116,55 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
       "docRef": "声音配乐配音字幕汇编 §2 ^e7；原出处：26 §2.7 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e8.card",
+      "sourceId": "e8",
+      "cardId": "audio.event-mix",
+      "section": 2,
+      "caseId": "case-13",
+      "title": "finish 收尾",
+      "text": "去直流；峰值归一 0.89（≈−1.01 dBFS）；开头 24 采样线性淡入；结尾 12 ms 线性淡出",
+      "quantities": [
+        {
+          "value": -1.01,
+          "unit": "dB",
+          "rawUnit": "dBFS"
+        },
+        {
+          "value": 12,
+          "unit": "ms",
+          "rawUnit": "ms"
+        }
+      ],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§2 案例 13 音频引擎：总线、空间化、混响里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §2 ^e8；原出处：26 §2.7、§3.7 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e9.card",
+      "sourceId": "e9",
+      "cardId": "audio.event-mix",
+      "section": 2,
+      "caseId": "case-13",
+      "title": "单一发声入口 play(key,选项)",
+      "text": "一个 play 管冷却/复音/距离剔除/3D 声像池/按距离加混响与高频衰减/多普勒；触发示例 `e.play(\"hit_flesh\",{gain:.9,rate:jitter(.07),pos,ref:5,field:.15,prio:true,cool:[\"hit_hit_flesh\",.035]})`",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§2 案例 13 音频引擎：总线、空间化、混响里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §2 ^e9；原出处：26 §0.2、§2.4",
       "verifiedInOurStack": false
     },
     {
@@ -408,6 +448,25 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
       "docRef": "声音配乐配音字幕汇编 §2 ^e18；原出处：26 §2.9、§3.4 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e19.card",
+      "sourceId": "e19",
+      "cardId": "audio.event-mix",
+      "section": 2,
+      "caseId": "case-13",
+      "title": "混响脉冲响应（自生成）",
+      "text": "每声道：白噪 Noise(mulberry(seed*17+ch*5))；从 floor(pre·sr) 写起；包络 env=10^(−60·t/rt60/20)×min(1,t/0.02+0.15)；一极点低通截止 f=lpStart·(lpEnd/lpStart)^min(1,t/(rt60·0.8))，每 64 采样更新；早期反射 early 个，t=pre·0.4+rng()^1.3·earlySpan，幅度 ±(0.9−0.6·t/(earlySpan+pre))·(0.5+0.5·rng())；两声道共用 rng；无归一化",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§2 案例 13 音频引擎：总线、空间化、混响里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §2 ^e19；原出处：26 §2.5、§7.6 (原实现源码)",
       "verifiedInOurStack": false
     },
     {
@@ -773,6 +832,56 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e28.card",
+      "sourceId": "e28",
+      "cardId": "audio.dsp",
+      "section": 3,
+      "caseId": "case-13",
+      "title": "模态敲击 modal/damped",
+      "text": "modal(out,sr,o,partials,exciterMs,rng,amp)：exciterMs 毫秒线性衰减随机噪声脉冲喂各分音 Reson 后自由衰减；damped：单阻尼正弦，起音默认 1.2 ms",
+      "quantities": [
+        {
+          "value": 1.2,
+          "unit": "ms",
+          "rawUnit": "ms"
+        }
+      ],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§3 DSP 积木与噪声里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §3 ^e28；原出处：26 §2.8 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e30.card",
+      "sourceId": "e30",
+      "cardId": "audio.dsp",
+      "section": 3,
+      "caseId": "case-13",
+      "title": "积木：thud",
+      "text": "thud(ch,sr,t0,f0,f1,tau,amp)：正弦闷响，频率 f0 指数落到 f1(频差衰减时间常数 tau×0.35)，振幅衰减常数 tau，开头 sr/3000 采样(≈0.33 ms)线性起音，长度 7·tau",
+      "quantities": [
+        {
+          "value": 0.33,
+          "unit": "ms",
+          "rawUnit": "ms"
+        }
+      ],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§3 DSP 积木与噪声里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §3 ^e30；原出处：26 §2.10 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e31.card",
       "sourceId": "e31",
       "cardId": "audio.dsp",
@@ -789,6 +898,25 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
       "docRef": "声音配乐配音字幕汇编 §3 ^e31；原出处：26 §2.10 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e32.card",
+      "sourceId": "e32",
+      "cardId": "audio.dsp",
+      "section": 3,
+      "caseId": "case-13",
+      "title": "积木：clicks",
+      "text": "clicks：count 个随机短阻尼正弦碎点，时刻均匀(tau<1e8 时指数分布)，频率 fLo–fHi 对数均匀，幅度 amp·(0.3+0.7·rand²)",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§3 DSP 积木与噪声里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §3 ^e32；原出处：26 §2.10 (原实现源码)",
       "verifiedInOurStack": false
     },
     {
@@ -1606,6 +1734,11 @@
           "value": 0.5,
           "unit": "s",
           "rawUnit": "s"
+        },
+        {
+          "value": 1.5,
+          "unit": "s",
+          "rawUnit": "s"
         }
       ],
       "routeNote": "脚步去重与材质增益表",
@@ -1859,6 +1992,16 @@
           "value": 50,
           "unit": "ms",
           "rawUnit": "ms"
+        },
+        {
+          "value": 9.2,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 4.25,
+          "unit": "s",
+          "rawUnit": "s"
         }
       ],
       "routeNote": "教堂钟分音配方",
@@ -1882,6 +2025,11 @@
       "quantities": [
         {
           "value": 0.34,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 2.38,
           "unit": "s",
           "rawUnit": "s"
         },
@@ -2198,6 +2346,11 @@
           "value": 0.6,
           "unit": "s",
           "rawUnit": "s"
+        },
+        {
+          "value": 23,
+          "unit": "Hz",
+          "rawUnit": "Hz"
         }
       ],
       "routeNote": "雷声合成配方",
@@ -2508,6 +2661,16 @@
         },
         {
           "value": [
+            12,
+            30
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 12,
+          "jitter": 18
+        },
+        {
+          "value": [
             80,
             170
           ],
@@ -2579,7 +2742,8 @@
           "unit": "s",
           "rawUnit": "s",
           "base": 0.6,
-          "jitter": 0.9
+          "jitter": 0.9,
+          "scaleBy": "creak"
         },
         {
           "value": [
@@ -2764,6 +2928,11 @@
       "text": "每帧算箭未来最近点：参考点取箭头前0.8 m，对听者与玩家头部(+1.5)求 tc=−(r·v)/`／v／`² 与最近距离 d；tc≤0.34 s(ARROW_LOOK)触发；d>9(ARROW_MISS)不响；d<3.2 用 arrow_whizz(0.52)否则 arrow_whizz_far(0.46·clamp(1.5−d/9,0.4,1))；音效峰值在0.2 s(ARROW_PEAK)，起播提前 tc−0.2 s；起播位置沿飞行方向前移 lead+0.045 s 并给 vel 做多普勒；箭峰值前落地则12 ms内淡掉",
       "quantities": [
         {
+          "value": 0.8,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
           "value": 0.34,
           "unit": "s",
           "rawUnit": "s"
@@ -2883,6 +3052,11 @@
         },
         {
           "value": 0.838,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 4.6,
           "unit": "s",
           "rawUnit": "s"
         }
@@ -3098,6 +3272,11 @@
         },
         {
           "value": 0.25,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 2.6,
           "unit": "s",
           "rawUnit": "s"
         },
@@ -3652,6 +3831,25 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e29.card",
+      "sourceId": "e29",
+      "cardId": "audio.voice-synth",
+      "section": 7,
+      "caseId": "case-13",
+      "title": "元音共振峰表",
+      "text": "VOWELS 4 声部(soprano/alto/tenor/bass)×元音(a e i o u)×4 共振峰(频率/相对dB/带宽)；Formants 用 4 个带通 Q=F/带宽 并联；morph 在两元音间线性插值，每 32 次调用才更新系数（具体数值笔记扫读未抄）",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§7 人声、嗓音、歌声与虚构语言里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §7 ^e29；原出处：26 §2.8、§11 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e46.card",
       "sourceId": "e46",
       "cardId": "audio.voice-synth",
@@ -3685,6 +3883,46 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e54.card",
+      "sourceId": "e54",
+      "cardId": "audio.voice-synth",
+      "section": 7,
+      "caseId": "case-13",
+      "title": "对话文字转\"语音\"脉冲 planSpeech",
+      "text": "元音组(aeiouy连续串)一个音节：时长(0.15+0.05·rand)，词尾×1.25，双元音×1.12，除以语速pace；辅音起首含szxfhc加0.035 s \"s\"爆擦、含tkpdbgq加\"t\"爆音；词间0.05 s、逗号0.22 s、句末0.42 s；超上限等比压缩。元音映射 a e i y→i o u；空文字用8个咕哝音节之一；西里尔字母先转写成拉丁",
+      "quantities": [
+        {
+          "value": 0.035,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.05,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.22,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.42,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§7 人声、嗓音、歌声与虚构语言里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §7 ^e54；原出处：26 §2.9、§7.13 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e55.card",
       "sourceId": "e55",
       "cardId": "audio.voice-synth",
@@ -3702,6 +3940,11 @@
           "value": 8,
           "unit": "dB",
           "rawUnit": "dB"
+        },
+        {
+          "value": 205,
+          "unit": "Hz",
+          "rawUnit": "Hz"
         },
         {
           "value": 0.17,
@@ -3798,6 +4041,36 @@
       "evidenceLabel": "源码+推断",
       "verificationLabel": "没验证",
       "docRef": "声音配乐配音字幕汇编 §7 ^e71；原出处：26 §2.13 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e100.card",
+      "sourceId": "e100",
+      "cardId": "audio.voice-synth",
+      "section": 7,
+      "caseId": "case-13",
+      "title": "离线人声/兽吼算法 voice()",
+      "text": "每16采样更新音高/包络/元音；①f0=contour(p.f0,t)折线点间几何插值a·(b/a)^u ②颤音 f0*=1+深度·sin(2π·Hz·t+1.3)·min(1,3t) ③包络min(1,t/a)(a默认0.04)×末尾rel(默认0.3)线性释放×可选(1−u)^fade ④抖动 f*=1+6·jitter·(白噪经18 Hz一极点低通)(jitter默认0.02) ⑤声源saw(f)(PolyBLEP)或sine·系数+saw·(1−系数)，second:[倍频,幅度]再叠锯齿，rough: src*=1+rough·(正弦(f/2)或5×噪声) ⑥Formants 4并联带通：F=表值·shift，带宽bw=表值·bw乘数，Q=F/bw，增益10^(dB/20)，元音关键帧间线性渐变，输入=0.6·声源+呼吸噪声(400 Hz高通白噪×breath,breathRamp时0.4线性升到2.0)，实际每32采样更新 ⑦饱和 drive>0：tanh(3·drive·y)/tanh(1)/3 ⑧comb:[ms,反馈]后×0.6；低通lp默认7000 Q0.6；sub叠sin(f/2)·sub·0.15；乘包络",
+      "quantities": [
+        {
+          "value": 18,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 400,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        }
+      ],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§7 人声、嗓音、歌声与虚构语言里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §7 ^e100；原出处：27 §2.5 (原实现源码；原实现源码)",
       "verifiedInOurStack": false
     },
     {
@@ -4231,7 +4504,23 @@
       "caseId": "case-13",
       "title": "元音切换 vowel(v,t,glide)",
       "text": "每个共振峰k=0..3：f=表[0][k]·shift，Q=f/(表[2][k]·bw)，增益10^(表[1][k]/20)；setTargetAtTime(…,t,glide/3)，glide默认0.06；算例captain元音a bass表：F1=600·0.79=474 Hz，带宽60·2.2=132 Hz，Q=3.59；F2=1040·0.79=821.6 Hz，增益10^(−7/20)=0.447",
-      "quantities": [],
+      "quantities": [
+        {
+          "value": 474,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 132,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 821.6,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        }
+      ],
       "routeNote": "依赖共振峰表与角色缩放常量",
       "coupling": "与§7 人声、嗓音、歌声与虚构语言里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
       "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
@@ -4541,6 +4830,11 @@
           "rawUnit": "Hz"
         },
         {
+          "value": 174.6,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
           "value": 34,
           "unit": "cent",
           "rawUnit": "音分"
@@ -4621,6 +4915,11 @@
           "rawUnit": "Hz"
         },
         {
+          "value": 3.8,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": 3.9,
           "unit": "s",
           "rawUnit": "s"
@@ -4692,6 +4991,72 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e125.card",
+      "sourceId": "e125",
+      "cardId": "audio.drums",
+      "section": 8,
+      "caseId": "case-13",
+      "title": "配乐总架构",
+      "text": "无音乐文件：每首曲是一段 JS 函数 bar(p,i)，导演每小节调用一次，安排哪些乐器在第几拍弹哪个音；乐器=现场振荡器合成(管风琴/合唱/弦/玻璃/手摇琴)或启动时预算短采样(竖琴/拨奏弦/定音鼓/铜管/钟)。一曲=和弦表+几条动机+bar(p,i)；i%8取和弦、i%16切段落、floor(i/16)%3选第几遍，8/16小节表变出48小节不重样；旋律写成 [\"A4\",2](音名,拍数)，和声写成 低音名+音级集合",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §8 ^e125；原出处：28 §0.1 (原实现源码；原实现源码；原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e126.card",
+      "sourceId": "e126",
+      "cardId": "audio.music-gen",
+      "section": 8,
+      "caseId": "case-13",
+      "title": "同曲随状态变形而非换曲",
+      "text": "区域曲带 variants：夜晚速度×0.92(withNight)；击败头目后换大调(zone_06_MAJOR/〔专名12〕_DEF)；暴雨/战斗时 bar 开头 return 只留铺底；战斗层用\"区域行\"一次生成19个区域的战斗版",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §8 ^e126；原出处：28 §0.2 (原实现源码；原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e127.card",
+      "sourceId": "e127",
+      "cardId": "audio.music-gen",
+      "section": 8,
+      "caseId": "case-13",
+      "title": "小节线切曲+枢轴音",
+      "text": "导演 switchTo：旧曲淡出点对齐旧曲下一小节线；新旧调共有音级<5(ROUTER.pivotShared)则先在小节线放一个2.5–5 s长笛音(新旧共有音级)当桥，桥后新曲才入；实际只一个 inst.organ 调用",
+      "quantities": [
+        {
+          "value": [
+            2.5,
+            5
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §8 ^e127；原出处：28 §0.3、§2.7 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e128.card",
       "sourceId": "e128",
       "cardId": "audio.music-gen",
@@ -4711,7 +5076,22 @@
           "rawUnit": "s"
         },
         {
+          "value": 128,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 64,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": 2.069,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 16.55,
           "unit": "s",
           "rawUnit": "s"
         },
@@ -4726,7 +5106,17 @@
           "rawUnit": "s"
         },
         {
+          "value": 29.09,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": 4.286,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 68.57,
           "unit": "s",
           "rawUnit": "s"
         }
@@ -4874,6 +5264,11 @@
           "rawUnit": "s"
         },
         {
+          "value": 17.5,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": 3.158,
           "unit": "s",
           "rawUnit": "s"
@@ -4984,6 +5379,25 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e134.card",
+      "sourceId": "e134",
+      "cardId": "audio.music-gen",
+      "section": 8,
+      "caseId": "case-13",
+      "title": "拍→秒与渐慢",
+      "text": "恒速 at(b)=T+b×beat，beat=60/bpm；渐慢 p.rit={b0,b1}：k=(b1−b0)/barBeats，at(b)=T+(60/k)×ln((b0+k·b)/b0)(对60/bpm(b)积分的闭式解)；战斗胜利从116降到90(RIT_TO=90，b1=bpm·90/116)；小节换速直接改 p.bpm/beat/barDur(tempo())；夜晚×0.92(nightBpm)；古冢场景配乐 rubato：p.rub=clamp(p.rub+(rnd−0.5)×0.05,−0.06,0.06)速度=基础×(1+rub)；持续长音时值写成 长度+0.02~0.05 拍让相邻音交叠",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §8 ^e134；原出处：28 §2.2、§7.2 (原实现源码；原实现源码；原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e135.card",
       "sourceId": "e135",
       "cardId": "audio.music-gen",
@@ -5070,6 +5484,16 @@
           "value": 16,
           "unit": "cent",
           "rawUnit": "音分"
+        },
+        {
+          "value": [
+            -9,
+            -6
+          ],
+          "unit": "cent",
+          "rawUnit": "音分",
+          "base": -9,
+          "jitter": 3
         },
         {
           "value": [
@@ -5179,6 +5603,11 @@
         },
         {
           "value": 0.4,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 3,
           "unit": "s",
           "rawUnit": "s"
         },
@@ -5444,6 +5873,25 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e144.card",
+      "sourceId": "e144",
+      "cardId": "audio.music-gen",
+      "section": 8,
+      "caseId": "case-13",
+      "title": "回退合成",
+      "text": "乐器方法不存在时 原实现源码 有7个简化版(fbWindHarp fbHurdy fbGlass fbCrackle fbVein fbShaker fbWhisper)与liveSustain，音色粗但接口一致，曲子代码从不判断有没有这件乐器",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §8 ^e144；原出处：28 §2.4 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e145.card",
       "sourceId": "e145",
       "cardId": "audio.music-gen",
@@ -5554,7 +6002,18 @@
       "caseId": "case-13",
       "title": "区域路由 route/switchTo",
       "text": "候选区域要停留 ROUTER.dwell=4 s 且距上次切换≥gap=20 s才切；剧情区域(zone_06 zone_07 zone_16+树关zone_15 zone_17 zone_18)与地穴立刻切；淡出xf：出入地穴1.5(xfzone_05)；高地↔渡口场景配乐6(xfWide)；其它4；边界：地穴或immediate为now+0.05否则old.nextBarLine(now+0.05)；shared=A.pcs∩B.pcs，pivot=!zone_05&&shared.length<5；桥：pd=clamp(旧曲小节秒,2.5,5)，旧曲在边界淡出min(2,pd×0.6)等功率，桥音级取[B.pcs[0],B.pcs[4],B.pcs[2]]中第一个在A里也有的否则shared[0]再否则B.pcs[0]，音高=该音级在MIDI45–57内最低(缺省50)，inst.organ(bus,边界,音高,pd+1.2,0.014,\"flute\",{a:1,r:1.6})送混响0.6，新曲at=边界+pd",
-      "quantities": [],
+      "quantities": [
+        {
+          "value": 4,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 20,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
       "routeNote": "区域名、驻留与淡变时长全为本作配置",
       "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
       "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
@@ -5899,6 +6358,16 @@
           "rawUnit": "s",
           "base": 12,
           "jitter": 8
+        },
+        {
+          "value": [
+            24,
+            38
+          ],
+          "unit": "s",
+          "rawUnit": "s",
+          "base": 24,
+          "jitter": 14
         }
       ],
       "routeNote": "区域曲和弦动机配置",
@@ -5919,7 +6388,18 @@
       "caseId": "case-13",
       "title": "区域曲：渡口场景配乐(含\"静止悬停\"机制)",
       "text": "72/4 F利底亚 gain4.6；和弦F2[5,9,0]、F2[7,11,2](低音保持F的G大和弦)、A2[9,0,4]、E2[4,7,11]、D2[2,5,9]、G2[7,11,2]、F2[5,9,0]、F2[5,9,0]；每小节弦bass+12 4.15拍.012(cut900)+高音弦.008(cut1100夜降八度)；男声bass+12 .045；平静时竖琴涟漪ashRipple 5音间隔0.2拍上行或下行tonesOf(pcs∪{11},65,89)第1拍vel.13(kk偶数小节第3拍再来一次下行.1/.09)；kk===3／／7定音鼓.1。主题ASH_MOTIF_A=F4 .5,C5 1.5,F4 .5,D5 1.5(vox管风琴.05)后下一小节用sustain开B4长音(ASH_HOLD)；玩家静止(still≥ASH_HOLD_MIN=1.5 s)进入悬停，每小节续ashHoldBar(弦F3/D4+男声G3+可选竖琴涟漪)，直到再动(still<ASH_MOVE=.25)或达ASH_HOLD_MAX=11.2 s才把B4滑到C5(ASH_RESOLVE)；tick每帧也检查释放对齐最近拍线；整套里唯一把\"玩家静止\"当音乐输入",
-      "quantities": [],
+      "quantities": [
+        {
+          "value": 1.5,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 11.2,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
       "routeNote": "区域曲配置含悬停阈值",
       "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
       "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
@@ -6305,6 +6785,16 @@
       "text": "airBar 216/7：beat=八分音符(60/216=0.2778 s)，小节7拍=1.944 s，与龙振翅同步wingLock={beatsPerFlap:3.5}每小节两次振翅周期0.972 s对应DRAGON_FLAP=.97；H_BAR=[THEME_H前三音降8度,后三音降8度]每小节用一半；spic重击(首音.28其余.2)+弦颤音vel.013(B段.016,trem12,cut1700)；pedal B♭1 14.05拍；沙锤.032/.042密度.42/.62；frame拍0(.16)2(.1)4(.12)；j%4===0定音鼓；前8小节(A)女声长音D5/C5交替vel.042 13.9拍；后8小节(B)女声唱THEME_L_FALL vel.06",
       "quantities": [
         {
+          "value": 0.2778,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 1.944,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": 0.972,
           "unit": "s",
           "rawUnit": "s"
@@ -6343,6 +6833,11 @@
           "value": 130,
           "unit": "Hz",
           "rawUnit": "Hz"
+        },
+        {
+          "value": 60,
+          "unit": "s",
+          "rawUnit": "s"
         }
       ],
       "routeNote": "龙战P3P4胜利谱面",
@@ -6382,7 +6877,28 @@
       "caseId": "case-13",
       "title": "巨树关七曲(动机与和弦)",
       "text": "共性：铺底+随机倒计时触发的动机+一种风/鸟类打击乐，wait-=barDur(秒)；variants给night(速度)与gale(gale01>.3–.5时沙锤变密)。山口场景配乐C混合利底亚：PASS_H C2[E4 G4]、C2[D4 F4]、C2[A3 F4]、C2[E4 B♭4]、B♭1[D4 G4]、B♭1[D4 F4]、F2[A3 C4]、C2[E4 G4]；偶数小节reed C2 8.2拍.03(+五度.018)+windHarp C1.045(金风.048,泛音5/6,轻量3)+glass(beat.6)；PASS_MOTIF B♭4 1.5,B♭4 .5,F4 1,G4 1,F4 2,E4 1,F4 1,C4 4(轮流长笛/vein/哼唱夜−12)；PASS_COUNTER C3 1.5,C3 .5,F3 1,E3 1,F3 2,G3 1,F3 1,B♭3 4(弦kk===5)。落叶场景配乐3/4：DRIFT_H B♭2[10,2,5]、B♭2[0,4,7]、D3[2,5,9]、A2[9,0,4]、G2[7,10,2]、B♭2[0,4,7]、A2[5,9,0]、B♭2[10,2,5]；DRIFT_CELL=[[0,0],[1,1],[2,2],[3,3],[4,2],[5,1]](拍位,音阶索引)夜晚/苍白只弹偶数项；DRIFT_MOTIF F4 1.5,F4 .5,B♭3 1,G4 3,E4 1.5,E4 .5,C4 1,G4 1,G4 2；沙锤v=.045+.03gust+.05gale密度.25+.5gust+.4gale；〔专名20〕>.35动机停vein F3接管vel.06+.04〔专名20〕。地下回廊场景配乐G多利亚：ROOT_H G2[7,10,2]、G2[0,4,7]、G2[7,10,2]、F2[5,9,0]、B♭2[10,2,5]、C3[0,4,7]、D3[2,5,9]、G2[7,10,2]；ROOT_DRUM=[[0,110Hz,.34],[1.5,145Hz,.22],[3,110Hz,.26]]+幽灵音[3.5,145Hz,.1]；哼唱根音+12(夜+0)高档加五度；ROOT_MOTIF C4 1.5,G3 1.5,G3 1,E4 1.5,B♭3 1.5,D4 1,G3 1.5,A3 2.5(夜男声×2放慢)；〔专名25〕Done与〔专名35〕01>.5后和弦固定G换长笛长音鼓×0.7",
-      "quantities": [],
+      "quantities": [
+        {
+          "value": 110,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 145,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 110,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 145,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        }
+      ],
       "routeNote": "巨树关曲和弦动机表",
       "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
       "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
@@ -6444,6 +6960,25 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
       "docRef": "声音配乐配音字幕汇编 §8 ^e181；原出处：28 §2.14 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e182.card",
+      "sourceId": "e182",
+      "cardId": "audio.music-gen",
+      "section": 8,
+      "caseId": "case-13",
+      "title": "名字密码 cipher(word)",
+      "text": "A–G=1–7，H–N=1–7，O–U=1–7，V–Z=1–5；非字母跳过：c=字母序号0..25，c<21?c%7+1:c−20；在调式里step(root,d−1,mode)。cipher(\"〔专名24〕\")=[6,1,4,6,2,5,6,1]→头目战配乐低音型THEME_B；cipher(\"〔专名20〕\")=[1,5,5,2,5,4]→龙战主题H",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §8 ^e182；原出处：28 §2.15、§7.10 (原实现源码)",
       "verifiedInOurStack": false
     },
     {
@@ -6630,6 +7165,25 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e190.card",
+      "sourceId": "e190",
+      "cardId": "audio.music-gen",
+      "section": 8,
+      "caseId": "case-13",
+      "title": "龙翅膀节拍输出",
+      "text": "barPhase()向外暴露当前小节相位与翅膀相位：wing.period=len/n，n取wingLock.beatsPerFlap换算或round(len/DRAGON_FLAP)；音乐给动画的拍点输出，动画侧读取在第11块未核对",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "没验证(使用端未核对)",
+      "docRef": "声音配乐配音字幕汇编 §8 ^e190；原出处：28 §5 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e207.card",
       "sourceId": "e207",
       "cardId": "audio.music-gen",
@@ -6655,6 +7209,31 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e216.card",
+      "sourceId": "e216",
+      "cardId": "audio.music-gen",
+      "section": 8,
+      "caseId": "case-13",
+      "title": "离线渲染预览",
+      "text": "GameAudio.renderPreview：OfflineAudioContext(2 声道, 48000×秒) 建 GameAudio({prep:false})，以 1/30 s 步长手动调 update，按时间表 events:[{t, call:\"hit(flesh)\"}] 触发，渲完 analyze(buf)，再附复音丢失数、乐曲块列表、龙/头目线索统计；试听语法 parseMusicSpec「名@区域:段落+旗标=值」（旗标 night after tempest …）；命令行 audio_preview combat@<区域>:L1；dryCalls() 查空壳；speakTest(type)；sfx(key,gain,rate)；stats()",
+      "quantities": [
+        {
+          "value": 0.033333,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§8 配乐系统：案例 13里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "声音配乐配音字幕汇编 §8 ^e216；原出处：09§5.7、§1A；原实现源码、原实现源码、原实现源码",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e217.card",
       "sourceId": "e217",
       "cardId": "audio.music-gen",
@@ -6671,6 +7250,36 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "声音配乐配音字幕汇编 §9 ^e217；原出处：09 章 §2.1（原实现源码, 172-696, 871-873）",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e218.card",
+      "sourceId": "e218",
+      "cardId": "audio.music-gen",
+      "section": 9,
+      "caseId": "case-ext01",
+      "title": "声画同表",
+      "text": "每个音符、雷击、撞击的时间写成节拍表算式（R0+0.09，R0=T.ROAR），雷声读 Film.STRIKES；加载时 picture()（每秒 20 次共 1801 点：相机、龙头屏幕 x、exits、cloud、ax）和 world()（body 50 Hz 4501 点、trees 25 Hz 2251 点、falls、birds、breath、wash、lantern、cloth、light）把画面读成事件表，声像=屏幕 x：panX(x,side)=clamp(0.5+0.62·x+0.05·side, 0.12, 0.88)，PANW=0.62；缺哪个模块只丢对应声音",
+      "quantities": [
+        {
+          "value": 50,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 25,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        }
+      ],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§9 外部案例 01、案例 02 与自制片的配乐和音效里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §9 ^e218；原出处：09 章 §0、§2.2（原实现源码, 41-42）",
       "verifiedInOurStack": false
     },
     {
@@ -7119,7 +7728,10 @@
           "rawUnit": "s"
         },
         {
-          "value": 3062,
+          "value": [
+            61,
+            3062
+          ],
           "unit": "Hz",
           "rawUnit": "Hz"
         },
@@ -7326,6 +7938,11 @@
           "value": 0.055,
           "unit": "s",
           "rawUnit": "s"
+        },
+        {
+          "value": 0.1875,
+          "unit": "s",
+          "rawUnit": "s"
         }
       ],
       "routeNote": "和弦表与鼓型编排常量",
@@ -7353,7 +7970,17 @@
           "rawUnit": "bpm"
         },
         {
+          "value": 0.75,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": 3,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.1875,
           "unit": "s",
           "rawUnit": "s"
         }
@@ -7732,6 +8359,21 @@
           "rawUnit": "s"
         },
         {
+          "value": 3.05,
+          "unit": "dB",
+          "rawUnit": "dB"
+        },
+        {
+          "value": 2.4,
+          "unit": "dB",
+          "rawUnit": "dB"
+        },
+        {
+          "value": 6.6,
+          "unit": "dB",
+          "rawUnit": "dB"
+        },
+        {
           "value": -6.6,
           "unit": "dB",
           "rawUnit": "dB"
@@ -7895,7 +8537,8 @@
         {
           "value": 60,
           "unit": "Hz",
-          "rawUnit": "Hz"
+          "rawUnit": "Hz",
+          "scaleBy": "rj"
         },
         {
           "value": 160,
@@ -8073,6 +8716,11 @@
           "rawUnit": "s"
         },
         {
+          "value": 0.11,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": 1.4,
           "unit": "s",
           "rawUnit": "s"
@@ -8220,6 +8868,11 @@
           "rawUnit": "Hz"
         },
         {
+          "value": 4.38,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": 3300,
           "unit": "Hz",
           "rawUnit": "Hz"
@@ -8235,7 +8888,10 @@
           "rawUnit": "Hz"
         },
         {
-          "value": 390,
+          "value": [
+            82,
+            390
+          ],
           "unit": "Hz",
           "rawUnit": "Hz"
         },
@@ -8291,6 +8947,21 @@
       "text": "鳞片擦岩：速度>0.25 m/s 且 seat>0.004，每滑 0.32 m 一次咔，带通中心 1000+30·min(v,60) Hz，电平 min(1,(v/9)^0.6)·min(1,seat·1.6)·sqrt(1400/fc)·0.78；起跳：红龙速度升过 25 m/s 且 seat>0.5，起跳前 2.3 s 开始低吼 46+30u² Hz；身体撕开空气 1–36 s，v 取 min(1.3,(v/70)^1.6)，中心 280+700·min(v/70,1.2)+420px 与 2100+1500px，px=clamp(75/距离,0.35,2)；翅膀 dove 0.085 s 1700+190k Hz 带通、heavy 0.24 s 290+70k Hz；入水判定下沉>0.12 s 记一圈，权重 SPLASH 附近 0.55 其余 1；涟漪到岸 SPLASH 环 r=3+22·(1−e^(−d/0.45))+6d，身体环 4.4 m/s，间隔 0.85 s 衰减 0.72^j；瀑布 3600/3900 Hz 低通 170/190 Hz 高通+105 Hz 隆隆；蟋蟀 9 只（7 啁啾 4250+150c Hz，2 颤鸣 3050/3310 Hz）；灯笼撞柱 640+90k Hz 正弦+2.76 倍频×0.6，摆角速度局部峰>20°/s 且间隔>0.45 s 最多 420 条；布被吹满 1000 Hz Q0.6×0.7+280 Hz Q0.8×1.5，每次 3–5 下间隔 0.11–0.17 s 每下×0.75；沉睡呼吸 吸气 360+260lv Hz 呼气 190+110lv Hz 23 Hz 喉颤，9 s 前 1−sm(8.5,10.5,t)；收尾：26.8–27.51 s 窗口里山谷新增部分×(1−0.96·win)，ssNew 从母带归一化能量扣除（画面驱动声音不改变音乐响度）",
       "quantities": [
         {
+          "value": 0.25,
+          "unit": "m/s",
+          "rawUnit": "m/s"
+        },
+        {
+          "value": 0.32,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 25,
+          "unit": "m/s",
+          "rawUnit": "m/s"
+        },
+        {
           "value": 2.3,
           "unit": "s",
           "rawUnit": "s"
@@ -8317,6 +8988,11 @@
           "value": 0.12,
           "unit": "s",
           "rawUnit": "s"
+        },
+        {
+          "value": 4.4,
+          "unit": "m/s",
+          "rawUnit": "m/s"
         },
         {
           "value": 0.85,
@@ -8496,6 +9172,11 @@
           "rawUnit": "dBFS"
         },
         {
+          "value": 88,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": [
             67.374,
             67.5
@@ -8553,6 +9234,11 @@
       "quantities": [
         {
           "value": 0.25,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.05,
           "unit": "s",
           "rawUnit": "s"
         },
@@ -8680,6 +9366,25 @@
       "evidenceLabel": "源码/实测",
       "verificationLabel": "我们自己渲染读回过",
       "docRef": "声音配乐配音字幕汇编 §9 ^e255；原出处：09 章 §3.5；原文档:runtime-reading §6",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e256.card",
+      "sourceId": "e256",
+      "cardId": "audio.music-gen",
+      "section": 9,
+      "caseId": "case-02",
+      "title": "总体架构",
+      "text": "整个游戏无音频文件，全部音效/持续环境音/配乐运行时用 WebAudio 节点图现场搭；原实现源码=共享缓冲+32 个一次性音效+4 持续音；原实现源码=总线/空间化/事件映射+18 飞行动作/升级/闪电音效+6 持续音；原实现源码=按小节调度的程序化配乐（9 乐器层 6 模式）；声音完全由游戏事件驱动，风声由速度/高度/俯冲/云密度逐帧调制；同一套代码可跑 AudioContext 与 OfflineAudioContext（离线响度工具 原实现源码 未随包）；乐器全部是减法/加法合成（锯齿/三角→低通/带通→增益包络），无采样无 FM（闪电持续音除外）",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§9 外部案例 01、案例 02 与自制片的配乐和音效里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §9 ^e256；原出处：A8 §1、§2.4（原实现源码, 原实现源码）",
       "verifiedInOurStack": false
     },
     {
@@ -8925,6 +9630,16 @@
       "title": "空间化与发声预算",
       "text": "声速 343 m/s；Panner equalpower（不用 HRTF），距离模型 inverse rolloff 1 maxDistance 30000，默认 ref 40 max 4；空气吸收低通 300+16000·exp(−d/700) Hz；距离>9000 m 不播；far=clamp(距离/3000,0,1)；声速延迟 min(delayed,距离/343)；起播提前 0.005 s；听者=相机位置/朝向/上方向；每个名字一个结束时间列表，预算占用 起播+0.25 s（实际限制 0.25 s 窗口内的起播数，推断）；释放 延迟+时长+0.6 s 后断开；多普勒（仅 rush）343/max(80,343−clamp(接近速度,−250,250))；各音效 ref/max/delayed：wingbeat 30/10、fireball 40/8、explosion 90/8/1.2、roar 400/2、rumble 600/2、thunder 800/2/5、巨型头目-inhale/charge 320/2、巨型头目-whoosh/crack 300/2、巨型头目-clap 450/2/0.4、巨型头目-slam 550/2/0.4、巨型头目-gust 400/2、巨型头目-fall 1500/1/0.6、巨型头目-impact 260/3/0.2、boltThunder 260/3、boltHit 120/3、arcZap 60/6、nearMiss 30/2 等",
       "quantities": [
+        {
+          "value": 343,
+          "unit": "m/s",
+          "rawUnit": "m/s"
+        },
+        {
+          "value": 9000,
+          "unit": "m",
+          "rawUnit": "m"
+        },
         {
           "value": 0.005,
           "unit": "s",
@@ -9694,6 +10409,21 @@
           "jitter": 12
         },
         {
+          "value": [
+            1500,
+            5000
+          ],
+          "unit": "m",
+          "rawUnit": "m",
+          "base": 1500,
+          "jitter": 3500
+        },
+        {
+          "value": 300,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
           "value": 9,
           "unit": "s",
           "rawUnit": "s"
@@ -9846,6 +10576,14 @@
           "value": 0.28,
           "unit": "Hz",
           "rawUnit": "Hz"
+        },
+        {
+          "value": [
+            150,
+            600
+          ],
+          "unit": "m",
+          "rawUnit": "m"
         }
       ],
       "routeNote": "泰坦音效配方常量",
@@ -10205,6 +10943,51 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e276.card",
+      "sourceId": "e276",
+      "cardId": "audio.music-gen",
+      "section": 9,
+      "caseId": "case-02",
+      "title": "制作痕迹（声音）",
+      "text": "三文件全文检索 playtest/tester/critic/fix pass/round/owner/review/feedback/TODO 无试玩者/批评者意见，owner 仅作代码变量；注释：“kept above ~40 Hz so laptop speakers still convey it”(原实现源码)；“beyond 350 m a wingbeat is below −22 dB anyway”(原实现源码，14 条龙每秒 30 次扑翼并发问题用距离剔除+独立预算池解决)；“Music scheduler runs on a timer (not rAF) so render hitches never starve it”(原实现源码)；“One console line per kind of failure”(原实现源码)；“UI clicks: soft wooden/glass ticks, never harsh”(原实现源码)；META/LOOP_META/MOVE_SOUNDS/SOUNDS 分期追加（Object.assign 3 次）反映功能顺序：基础→泰坦→飞行动作→悬停/生存→等级/元素；注释与代码不一致 5 处（调度前瞻 0.4 vs 0.6；强度淡化 ~1.5 s vs 0.6 s；size 0.8 vs 0.75；levelUp 钟音 C6 起 vs MIDI 72；sonicBoom 传入 strength 未读）",
+      "quantities": [
+        {
+          "value": 40,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 350,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": -22,
+          "unit": "dB",
+          "rawUnit": "dB"
+        },
+        {
+          "value": 1.5,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.6,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§9 外部案例 01、案例 02 与自制片的配乐和音效里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §9 ^e276；原出处：A8 §4",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e278.card",
       "sourceId": "e278",
       "cardId": "audio.music-gen",
@@ -10213,6 +10996,11 @@
       "title": "原实现源码总览",
       "text": "numpy+标准库逐采样合成(Blender自带python),SR=48000,SPF=1600,N=1,766,400,固定种子default_rng(5090);G弗里几亚音阶SC=[0,1,3,5,7,8,10] G1=49Hz;note(deg,oct)=49×2^(oct+(SC[deg%7]+12×(deg//7))/12);跑一次约3秒;682行;117个音效(过程片76成片41)",
       "quantities": [
+        {
+          "value": 49,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
         {
           "value": 3,
           "unit": "s",
@@ -10425,6 +11213,31 @@
           "value": 48,
           "unit": "frame",
           "rawUnit": "帧"
+        },
+        {
+          "value": 73.4,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 110,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 164.8,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 246,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 415,
+          "unit": "Hz",
+          "rawUnit": "Hz"
         }
       ],
       "routeNote": "成片段落与鼓型编排",
@@ -10447,6 +11260,26 @@
       "text": "hit(0,1.0)/hit(384,1.5):kick(3.5,0.16)增益0.62×1.25×size+boom(100,36,tau0.3+0.2size,dur1.2)+4金属簇(98,147,233,392Hz)+crash;侧链抽吸:每个底鼓起0.3秒增益=1-0.65×exp(-t/0.07)(约-9.1dB,τ70ms)作用于low+drone;铺底drone=5锯齿(98,98,146.83,196,293.66Hz)带通80–1400,包络0.4→0.55,断奏段按十六分音符32格以0.72概率保留",
       "quantities": [
         {
+          "value": 98,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 147,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 233,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 392,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
           "value": 0.3,
           "unit": "s",
           "rawUnit": "秒"
@@ -10460,6 +11293,31 @@
           "value": 70,
           "unit": "ms",
           "rawUnit": "ms"
+        },
+        {
+          "value": 98,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 98,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 146.83,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 196,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 293.66,
+          "unit": "Hz",
+          "rawUnit": "Hz"
         }
       ],
       "routeNote": "段落击与侧链常量",
@@ -10824,6 +11682,72 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e290.card",
+      "sourceId": "e290",
+      "cardId": "audio.master",
+      "section": 10,
+      "caseId": "case-01r",
+      "title": "原实现源码自带验收",
+      "text": "7项:积分-14±0.3LUFS;真峰值≤-1.5dBTP;时长36.800s±1采样/48k/16bit/立体声;首击峰值11.20s±10ms;静音段峰值<-40dBFS;过程片比成片低≥6LU;无削波无直流(峰<1.0且\\|均值\\|<0.001);自检8项含断奏比DROP1低≥4dB、成片低频占比<0.65、高频占比0.015–0.2、相关度>0.2;任何不达标非零退出",
+      "quantities": [
+        {
+          "value": [
+            -14.3,
+            -13.7
+          ],
+          "unit": "LUFS",
+          "rawUnit": "LUFS"
+        },
+        {
+          "value": -1.5,
+          "unit": "dBTP",
+          "rawUnit": "dBTP"
+        },
+        {
+          "value": 36.8,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 11.2,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": [
+            -10,
+            10
+          ],
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": -40,
+          "unit": "dB",
+          "rawUnit": "dBFS"
+        },
+        {
+          "value": 6,
+          "unit": "LU",
+          "rawUnit": "LU"
+        },
+        {
+          "value": 4,
+          "unit": "dB",
+          "rawUnit": "dB"
+        }
+      ],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§10 母带、响度与量测里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §10 ^e290；原出处：A4 §4.5",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e3.card",
       "sourceId": "e3",
       "cardId": "audio.align",
@@ -10843,72 +11767,48 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e315.card",
-      "sourceId": "e315",
-      "cardId": "audio.align",
-      "section": 11,
-      "caseId": "case-20",
-      "title": "复测节拍",
-      "text": "歌词行起点（whisper 段起点）0.0、5.0、10.02、14.64、19.98、25.04、32.08 s；前 6 段平均间隔 5.008 s ≈ 96 BPM 4/4 两小节 5.000 s；包络自相关只在 10–20 s 段得 96.0 BPM（0–10 s 218.2，20–30 s 63.9，混有人声不可靠）",
+      "id": "audio-subs.e370.card",
+      "sourceId": "e370",
+      "cardId": "audio.drums",
+      "section": 12,
+      "caseId": "case-05",
+      "title": "案例 05 三条音频提示词",
+      "text": "均为 ElevenLabs Music v2.5 经 Higgsfield MCP,每条两个 take:①trap 曲 140 BPM 半拍,约 10 s 处 beat switch+808 drop,结尾一记巨大 808 slam 后只剩暗色余响;②喷气发动机 spool-up/镜头掠过 whoosh/次低频 drop/机库混响大 boom 的纯音效;③140 BPM 纯打击工厂实录风(金属卡扣/棘轮/气动铆枪/液压/伺服)切成 one-shot 放在零件锁定帧;母带 −14 LUFS,真峰值 ≤ −1 dBTP",
       "quantities": [
         {
-          "value": 32.08,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 5.008,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 96,
+          "value": 140,
           "unit": "bpm",
           "rawUnit": "BPM"
         },
         {
-          "value": 5,
+          "value": 10,
           "unit": "s",
           "rawUnit": "s"
         },
         {
-          "value": [
-            10,
-            20
-          ],
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 96,
+          "value": 140,
           "unit": "bpm",
           "rawUnit": "BPM"
         },
         {
-          "value": [
-            0,
-            10
-          ],
-          "unit": "s",
-          "rawUnit": "s"
+          "value": -14,
+          "unit": "LUFS",
+          "rawUnit": "LUFS"
         },
         {
-          "value": [
-            20,
-            30
-          ],
-          "unit": "s",
-          "rawUnit": "s"
+          "value": -1,
+          "unit": "dBTP",
+          "rawUnit": "dBTP"
         }
       ],
-      "routeNote": "单曲歌词时间戳实测",
-      "coupling": "与§11 节拍与音画对位里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§12 各案例声音档案里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
       "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
       "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "实测+推断",
-      "verificationLabel": "我们自己量过（量级核对，词时间戳 ±0.3 s）",
-      "docRef": "声音配乐配音字幕汇编 §11 ^e315；原出处：20/09 §1.3、§3.4",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e370；原出处：原文 § Step 6",
       "verifiedInOurStack": false
     },
     {
@@ -10952,150 +11852,6 @@
       "evidenceLabel": "原文陈述+推断算术",
       "verificationLabel": "184/118 BPM 没核实",
       "docRef": "声音配乐配音字幕汇编 §12 ^e343；原出处：07/09 §4.1、§4.3",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e298.card",
-      "sourceId": "e298",
-      "cardId": "audio.master",
-      "section": 12,
-      "caseId": "case-18",
-      "title": "10 段旁白起止",
-      "text": "s01 0.65→8.85（8.20 s）、s02 9.86→26.35（16.49）、s03 27.12→42.19（15.07）、s04 43.19→56.43（13.24）、s05 57.44→76.47（19.03）、s06 77.33→93.79（16.46）、s07 94.47→112.67（18.20）、s08 113.68→133.42（19.74）、s09 134.18→150.71（16.53）、s10 151.48→172.58（21.10）；合计 164.06 s",
-      "quantities": [
-        {
-          "value": 8.2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 164.06,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "本片10段旁白时间表",
-      "coupling": "与§12 各案例声音档案里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "实测",
-      "evidenceLabel": "实测",
-      "verificationLabel": "我们自己量过",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e298；原出处：18/09 §2.3",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e299.card",
-      "sourceId": "e299",
-      "cardId": "audio.master",
-      "section": 12,
-      "caseId": "case-18",
-      "title": "来源卡",
-      "text": "173.20 s 起到 179.17 s，约 5.97 s，无旁白；对上 SOURCES_DUR=6.0",
-      "quantities": [
-        {
-          "value": 173.2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 179.17,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 5.97,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "对上作品常量 SOURCES_DUR",
-      "coupling": "与§12 各案例声音档案里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "实测+源码",
-      "verificationLabel": "我们自己量过",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e299；原出处：18/09 §2.3",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e326.card",
-      "sourceId": "e326",
-      "cardId": "audio.master",
-      "section": 12,
-      "caseId": "case-27",
-      "title": "音乐结构（按拍均值 dBFS，全频/低频<150 Hz/高频>6 kHz）",
-      "text": "拍0–6(0–2.8 s) −20 至 −23 / −25 至 −27 / −49 至 −58 安静前奏；拍7(2.8 s) −21.8/**−41.6**/**−30.2** 低音抽掉高频升起；拍8(3.2 s) **−10.4**/−14.4/−20.0 切换全部进来；拍9–34(3.6–13.6 s) −9.6 至 −11.5 / −12.3 至 −15.2 / −22 至 −26 主段很平；拍35(14.0 s) −28.2/−46.7/−30.2 几乎静音；拍36(14.4 s) −9.8/−12.1/−21.5 最后重击；拍37–41(14.8–16.4 s) −16 至 −27 尾音衰减；拍42(16.8 s) −52.8 静音，最后 5 帧<−45 dBFS",
-      "quantities": [
-        {
-          "value": [
-            0,
-            2.8
-          ],
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 2.8,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 3.2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": [
-            3.6,
-            13.6
-          ],
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 14,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 14.4,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": [
-            14.8,
-            16.4
-          ],
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 16.8,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 5,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": -45,
-          "unit": "dB",
-          "rawUnit": "dBFS"
-        }
-      ],
-      "routeNote": "本片逐拍电平结构表",
-      "coupling": "与§12 各案例声音档案里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "实测",
-      "evidenceLabel": "实测",
-      "verificationLabel": "我们自己量过",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e326；原出处：27/09 §4.2；量测结果 §3",
       "verifiedInOurStack": false
     },
     {
@@ -11180,11 +11936,6 @@
           "rawUnit": "s"
         },
         {
-          "value": 30,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
           "value": [
             0,
             10
@@ -11211,6 +11962,74 @@
       "evidenceLabel": "原文陈述",
       "verificationLabel": "作者成片用过",
       "docRef": "声音配乐配音字幕汇编 §12 ^e392；原出处：原文 § 第3步",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e384.card",
+      "sourceId": "e384",
+      "cardId": "audio.drums",
+      "section": 12,
+      "caseId": "case-b05",
+      "title": "发布片声音设计",
+      "text": "剪点用短干 tick+玻璃边缘扫音+克制低频冲击;对话回合用两声不同的非语言 tap;扫描声;品牌帧一个两音玻璃音;配乐「120 BPM」圆润低音脉冲+切分十六分打击+稀疏合成音;微观插入镜加 fill,品牌亮相减打击,13.8 s 以短音衰减停拍",
+      "quantities": [
+        {
+          "value": 120,
+          "unit": "bpm",
+          "rawUnit": "BPM"
+        },
+        {
+          "value": 13.8,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§12 各案例声音档案里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e384；原出处：原文 § 1.",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e385.card",
+      "sourceId": "e385",
+      "cardId": "audio.drums",
+      "section": 12,
+      "caseId": "case-b05",
+      "title": "食品广告声音",
+      "text": "配乐「Symphonic advertising score」:翻转顶点静音、隧道段气声急流、回归暖落地、环绕渐强、冠部定音鼓、尾版明亮管弦花腔、吉祥物靠字母时落终和弦;音效:煎声爆点、翻转 whoosh、层层 whoosh、落地 thud、每层「weighted squish-thud」、旗 pop、字母砸落+纸屑",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§12 各案例声音档案里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e385；原出处：原文 § 3.",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e386.card",
+      "sourceId": "e386",
+      "cardId": "audio.drums",
+      "section": 12,
+      "caseId": "case-b05",
+      "title": "机械表声音",
+      "text": "开场表针 tick;分解段深次低频 whoosh 拉成慢动作+水晶 chime;FPV 每次倾斜气流 whoosh、每个微距停留短暂静默、标注 ui-click;重装为机械声节奏打击(轴入宝石 snap、摆轮金属 ping、表盘软平 thud、壳合上沉重双 clunk);配乐脉冲电子低音+紧绷弦乐 ostinato,分解时降为拉长低鸣,收束于单音钢琴",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§12 各案例声音档案里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e386；原出处：原文 § 〔专名13〕",
       "verifiedInOurStack": false
     },
     {
@@ -11274,6 +12093,41 @@
       "evidenceLabel": "原文陈述",
       "verificationLabel": "作者成片用过",
       "docRef": "声音配乐配音字幕汇编 §12 ^e388；原出处：原文 § Step 2",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e390.card",
+      "sourceId": "e390",
+      "cardId": "audio.drums",
+      "section": 12,
+      "caseId": "case-01-original",
+      "title": "making-of 前奏音乐",
+      "text": "12 s 器乐 build-up,140 BPM,「Immediate start, no intro」键盘点击声+伺服+金属拨弦+每拍次低脉冲、半程进底鼓、上升琶音与加速点击→紧张 riser 骤停到静音;提示词里去掉小节数与时间码;最终混入的是 operator 自拟的第二变体,裁到 11.56 s;前奏混得比正片轻,使正片第一击保持开场最响",
+      "quantities": [
+        {
+          "value": 12,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 140,
+          "unit": "bpm",
+          "rawUnit": "BPM"
+        },
+        {
+          "value": 11.56,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§12 各案例声音档案里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e390；原出处：原文 § Step 6",
       "verifiedInOurStack": false
     },
     {
@@ -11420,6 +12274,25 @@
       "evidenceLabel": "原文陈述",
       "verificationLabel": "作者成片用过",
       "docRef": "声音配乐配音字幕汇编 §13 ^e463；原出处：原文 § 3.",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e464.card",
+      "sourceId": "e464",
+      "cardId": "time.narration",
+      "section": 13,
+      "caseId": "case-b05",
+      "title": "科普短片旁白",
+      "text": "英语暖声、惊奇好奇、briskly;从第一帧开始、逐字说一遍:「Hate your recorded voice? …」;语义同步(问句配播放惊讶、空气与骨传导配两路径…);配乐 plucked bass+干鼓+短马林巴,始终低于旁白;音效:按键、纸张拍落字、匹配切重音、低频层加入时极短软低音",
+      "quantities": [],
+      "routeNote": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡",
+      "coupling": "与§13 配音 TTS 与口型里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §13 ^e464；原出处：原文 § 6.",
       "verifiedInOurStack": false
     },
     {

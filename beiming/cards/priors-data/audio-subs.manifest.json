@@ -7,21 +7,21 @@
   "mergedDuplicatesNotCounted": 54,
   "order": "ledger 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "源总数 = 明细条目（带 ^e 锚点）+ 跨案例对照表行；汇总行的去向随它指回的明细，不另算一条明细；并入的重复条目原文已在明细里，不计数",
-  "portableCount": 82,
-  "cardCoupledCount": 342,
-  "practiceCount": 104,
-  "excludedOrConflictCount": 12,
+  "portableCount": 89,
+  "cardCoupledCount": 366,
+  "practiceCount": 65,
+  "excludedOrConflictCount": 20,
   "detailRouteCounts": {
-    "practice": 82,
-    "card-coupled": 276,
-    "portable": 48,
-    "skipped-or-conflict": 11
+    "card-coupled": 299,
+    "practice": 49,
+    "skipped-or-conflict": 16,
+    "portable": 53
   },
   "summaryRouteCounts": {
-    "portable": 34,
-    "practice": 22,
-    "skipped-or-conflict": 1,
-    "card-coupled": 66
+    "portable": 36,
+    "practice": 16,
+    "skipped-or-conflict": 4,
+    "card-coupled": 67
   },
   "files": {
     "priors": "audio-subs.json",
@@ -32,11 +32,12 @@
     "method": "逐条读原文按 05 §8.1 判定去向（判定理由写在挂卡条目的 routeNote）；判为可移植却抽不出先验单位表里的量时降级，记在 routeAdjustments",
     "portable": "物理或感知上跨实现通用的带单位量（LUFS、LU、dBTP、dB、Hz、ms、s、fps、frame、ratio、px）；每个单位取一条，主值取首个量；同单位的时刻、起点、偏移、误差与系数按 semanticOverrides 分条命名",
     "portableLegacy": "有可移植单位（LUFS、LU、dBTP、dB、Hz、ms、s、fps、frame、ratio）的量，且不是代码常量堆（带代码标识且数字 ≥ 6 个算耦合）；每个单位取首个量一条",
-    "cardCoupled": "特定合成器、脚本拓扑常量、参数表、某部作品逐曲或逐说话人的配置表；挂卡不当默认值。旧正则口径：代码标识 + 数字 ≥ 6 个，或没有单位却有 ≥ 6 个数字（单片数据表），或只有 BPM、音分、半音这类不在先验单位表里的量；挂卡不当默认值",
-    "practice": "流程、算法、技巧、修法；没有带单位的量，只有流程、算法、技巧；含教训类字眼的标 fix",
-    "skippedOrConflict": "空条目、只说未公开或无声音且没有可学做法的陈述；写了做法的归 practice。没有量，且是未公开、无声音、无音轨一类陈述；冲突行本身不单列，写进 conflicts",
+    "cardCoupled": "主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值（四审收紧）。特定合成器、脚本拓扑常量、参数表、某部作品逐曲或逐说话人的配置表；挂卡不当默认值。旧正则口径：代码标识 + 数字 ≥ 6 个，或没有单位却有 ≥ 6 个数字（单片数据表），或只有 BPM、音分、半音这类不在先验单位表里的量；挂卡不当默认值",
+    "practice": "跨实现可复用的工序、算法思路、判断方法与修法：拿掉标识符和具体数字后仍是一条完整可照做的做法（四审收紧）。流程、算法、技巧、修法；没有带单位的量，只有流程、算法、技巧；含教训类字眼的标 fix",
+    "skippedOrConflict": "没有步骤、判据、参数的一句话概述，读数对不上且原因未查的对账行（四审收紧）；空条目、只说未公开或无声音且没有可学做法的陈述；写了做法的归 practice。没有量，且是未公开、无声音、无音轨一类陈述；冲突行本身不单列，写进 conflicts",
     "evidence": "证据标签取最弱一级映射：实测/画面读数→实测，源码/脚本取值→源码，原文陈述→文档，推断/未公开→推断；原标签照抄在 note 或 evidenceLabel",
-    "units": "dBFS 记作 dB（标题注明 dBFS），kHz 换算成 Hz，百分数换算成 ratio，帧记 frame，像素记 px；千分位逗号去掉（1,134 帧 = 1134），±a 记作 [−a, a]，等号右边的无量纲输入（near=0.5）不当量；分数 1/N s 按值算（1/30 s = 0.033333 s）；箭头两侧量纲不同（MIDI 36→65.4 Hz、d≥300→2000 Hz）只取右边的物理量；公式里的变量 px（px=clamp(...)）不当像素",
+    "units": "dBFS 记作 dB（标题注明 dBFS），kHz 换算成 Hz，百分数换算成 ratio，帧记 frame，像素记 px；千分位逗号去掉（1,134 帧 = 1134），±a 记作 [−a, a]，等号右边的无量纲输入（near=0.5）不当量；分数 1/N s 按值算（1/30 s = 0.033333 s）；箭头两侧量纲不同（MIDI 36→65.4 Hz、d≥300→2000 Hz）只取右边的物理量；公式里的变量 px（px=clamp(...)）不当像素；m、m/s 只出现在挂卡与做法条目的 quantities，不进可移植库；等号右边带单位的量照取（dwell=4 s），「无量纲输入→带单位结果」（near=0.5→0.206 s）只取箭头右边；逗号元组里只有贴着单位的那个数是量（[0,110Hz,.34]），三个以上同质数列共用末尾单位（98,147,233,392Hz）；early 30s、1980s 这类年龄与年代词不是秒数；单位贴在含变量的表达式后面（comb[0] ms、12.5+1.5·sin(1.7t) Hz）的不抽量，原文留在 text",
+    "quantityFields": "base、jitter：随机算式 A + rnd × B 的基础量与随机跨度，value = [A, A+B]；同一行有几个随机算式就出几条，没写单位的按「同一变量再次赋值、紧跟的括号变体、A 与 B 并列」认单位。scaleBy：外层变量乘数（creak·(0.6+rand·0.9) s 记 scaleBy=creak），实际值 = value × 该变量，不是无条件的定值",
     "semanticOverrides": [
       {
         "sourceId": "e352",
@@ -409,6 +410,202 @@
             "label": "乐句前停顿超过此值才吸气"
           }
         ]
+      },
+      {
+        "sourceId": "e299",
+        "entries": [
+          {
+            "kind": "event-time",
+            "unit": "s",
+            "value": 173.2,
+            "label": "来源卡起点时刻"
+          },
+          {
+            "kind": "end-time",
+            "unit": "s",
+            "value": 179.17,
+            "label": "来源卡终点时刻"
+          },
+          {
+            "kind": "duration",
+            "unit": "s",
+            "value": 5.97,
+            "label": "来源卡段长（成片起止点量得，无旁白）"
+          }
+        ]
+      },
+      {
+        "sourceId": "e400",
+        "entries": [
+          {
+            "kind": "event-time",
+            "unit": "s",
+            "value": 0.44,
+            "label": "所选配乐首个重音时刻（约 139.96 BPM）"
+          },
+          {
+            "kind": "final-hit-time",
+            "unit": "s",
+            "value": 22.74,
+            "label": "剪辑后最后一记重击的时刻"
+          },
+          {
+            "kind": "intro-accent-time",
+            "unit": "s",
+            "value": 12,
+            "label": "过程片首个重音时刻（11.56 + 0.44）"
+          },
+          {
+            "kind": "loudness",
+            "unit": "LUFS",
+            "value": -14.1,
+            "label": "代码合成音效的混音响度"
+          }
+        ]
+      },
+      {
+        "sourceId": "e323",
+        "entries": [
+          {
+            "kind": "analysis-window",
+            "unit": "ms",
+            "value": 50,
+            "label": "音量中位的量测窗长"
+          }
+        ]
+      },
+      {
+        "sourceId": "e293",
+        "entries": [
+          {
+            "kind": "loudness-range",
+            "unit": "LU",
+            "value": 7.8,
+            "label": "LRA"
+          },
+          {
+            "kind": "loudness-error",
+            "unit": "LU",
+            "value": 0.7,
+            "label": "比 −14 LUFS 目标偏轻"
+          },
+          {
+            "kind": "true-peak-level",
+            "unit": "dB",
+            "value": -0.7,
+            "label": "真峰值（dBFS，超目标 0.3 dB）"
+          },
+          {
+            "kind": "residual-level",
+            "unit": "dB",
+            "value": -14.1,
+            "label": "应静音段的残余最大电平"
+          },
+          {
+            "kind": "time-window",
+            "unit": "s",
+            "value": [
+              11.88,
+              11.98
+            ],
+            "label": "应静音却有残余的时间窗"
+          }
+        ]
+      },
+      {
+        "sourceId": "e315",
+        "entries": [
+          {
+            "kind": "line-interval",
+            "unit": "s",
+            "value": 5.008,
+            "label": "前 6 段歌词行起点的平均间隔（≈96 BPM 两小节）"
+          },
+          {
+            "kind": "last-line-time",
+            "unit": "s",
+            "value": 32.08,
+            "label": "最后一段歌词行起点"
+          }
+        ]
+      },
+      {
+        "sourceId": "e298",
+        "entries": [
+          {
+            "kind": "duration",
+            "unit": "s",
+            "value": 164.06,
+            "label": "10 段旁白合计时长"
+          },
+          {
+            "kind": "segment-duration",
+            "unit": "s",
+            "value": 8.2,
+            "label": "第 1 段旁白时长"
+          }
+        ]
+      },
+      {
+        "sourceId": "e326",
+        "entries": [
+          {
+            "kind": "time-window",
+            "unit": "s",
+            "value": [
+              0,
+              2.8
+            ],
+            "label": "安静前奏的时间窗（拍 0–6）"
+          },
+          {
+            "kind": "event-time",
+            "unit": "s",
+            "value": 3.2,
+            "label": "切换后全部进来的拍点"
+          },
+          {
+            "kind": "pause-time",
+            "unit": "s",
+            "value": 14,
+            "label": "近乎静音的那一拍"
+          },
+          {
+            "kind": "final-hit-time",
+            "unit": "s",
+            "value": 14.4,
+            "label": "最后重击的拍点"
+          },
+          {
+            "kind": "tail-silence-frames",
+            "unit": "frame",
+            "value": 5,
+            "label": "结尾低于 −45 dBFS 的帧数"
+          },
+          {
+            "kind": "silence-threshold",
+            "unit": "dB",
+            "value": -45,
+            "label": "结尾静音电平（dBFS）"
+          }
+        ]
+      },
+      {
+        "sourceId": "e460",
+        "entries": [
+          {
+            "kind": "event-time",
+            "unit": "s",
+            "value": 31.5,
+            "label": "最后一句歌词出现时刻"
+          },
+          {
+            "kind": "end-card-time",
+            "unit": "s",
+            "value": 34.5,
+            "label": "末屏句出现时刻"
+          }
+        ]
       }
     ],
     "summaryPicks": [
@@ -564,37 +761,37 @@
     {
       "cardId": "audio.align",
       "exists": false,
-      "count": 4
+      "count": 3
     },
     {
       "cardId": "audio.drums",
       "exists": false,
-      "count": 43
+      "count": 49
     },
     {
       "cardId": "audio.dsp",
       "exists": false,
-      "count": 12
+      "count": 15
     },
     {
       "cardId": "audio.event-mix",
       "exists": false,
-      "count": 52
+      "count": 55
     },
     {
       "cardId": "audio.master",
       "exists": true,
-      "count": 10
+      "count": 8
     },
     {
       "cardId": "audio.music-gen",
       "exists": false,
-      "count": 90
+      "count": 99
     },
     {
       "cardId": "audio.scene-events",
       "exists": false,
-      "count": 2
+      "count": 3
     },
     {
       "cardId": "audio.sfx-bank",
@@ -604,7 +801,7 @@
     {
       "cardId": "audio.voice-synth",
       "exists": false,
-      "count": 22
+      "count": 25
     },
     {
       "cardId": "overlay.subs",
@@ -614,7 +811,7 @@
     {
       "cardId": "time.narration",
       "exists": false,
-      "count": 4
+      "count": 5
     }
   ],
   "fixes": [
@@ -845,11 +1042,11 @@
       "replacements": [
         {
           "to": "案例 01 原作",
-          "n": 10
+          "n": 12
         },
         {
           "to": "案例 13",
-          "n": 82
+          "n": 91
         },
         {
           "to": "〔专名18〕",
@@ -1125,11 +1322,11 @@
         },
         {
           "to": "外部案例 01",
-          "n": 71
+          "n": 80
         },
         {
           "to": "案例 02",
-          "n": 71
+          "n": 80
         },
         {
           "to": "巨型头目",
@@ -1351,904 +1548,2771 @@
       "sourceId": "e413",
       "route": "portable",
       "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
-    }
-  ],
-  "routeAdjustments": [
+    },
+    {
+      "sourceId": "e191",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e9",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e19",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e28",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e30",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e32",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e29",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e54",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e100",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e125",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e126",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e127",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e134",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e144",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e182",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e190",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e216",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e218",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e256",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e276",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e290",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e370",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e384",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e385",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e386",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e390",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e464",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e8",
+      "route": "card-coupled",
+      "reason": "四审规则：主体是某个实现的函数、接口、调度器、合成器配置或架构描述（带它的标识符、计数、常量），或某部片写死的时长、节拍、落点与验收阈值，跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e359",
+      "route": "practice",
+      "reason": "四审规则：拿掉标识符与具体数字后仍是一条完整可照做的工序或判断方法，归做法"
+    },
     {
       "sourceId": "e360",
-      "from": "portable",
-      "to": "card-coupled",
-      "reason": "判为可移植，但原文抽不出先验单位表里的量"
+      "route": "practice",
+      "reason": "四审规则：拿掉标识符与具体数字后仍是一条完整可照做的工序或判断方法，归做法"
+    },
+    {
+      "sourceId": "e293",
+      "route": "portable",
+      "reason": "四审规则：从成片或音频直接量出（或成片自报）的时间、响度、电平读数，换实现照样成立，可移植"
+    },
+    {
+      "sourceId": "e400",
+      "route": "portable",
+      "reason": "四审规则：从成片或音频直接量出（或成片自报）的时间、响度、电平读数，换实现照样成立，可移植"
+    },
+    {
+      "sourceId": "e315",
+      "route": "portable",
+      "reason": "四审规则：从成片或音频直接量出（或成片自报）的时间、响度、电平读数，换实现照样成立，可移植"
+    },
+    {
+      "sourceId": "e298",
+      "route": "portable",
+      "reason": "四审规则：从成片或音频直接量出（或成片自报）的时间、响度、电平读数，换实现照样成立，可移植"
+    },
+    {
+      "sourceId": "e299",
+      "route": "portable",
+      "reason": "四审规则：从成片或音频直接量出（或成片自报）的时间、响度、电平读数，换实现照样成立，可移植"
+    },
+    {
+      "sourceId": "e326",
+      "route": "portable",
+      "reason": "四审规则：从成片或音频直接量出（或成片自报）的时间、响度、电平读数，换实现照样成立，可移植"
+    },
+    {
+      "sourceId": "e460",
+      "route": "portable",
+      "reason": "四审规则：从成片或音频直接量出（或成片自报）的时间、响度、电平读数，换实现照样成立，可移植"
+    },
+    {
+      "sourceId": "e411",
+      "route": "skipped-or-conflict",
+      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁"
+    },
+    {
+      "sourceId": "e377",
+      "route": "skipped-or-conflict",
+      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁"
+    },
+    {
+      "sourceId": "e383",
+      "route": "skipped-or-conflict",
+      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁"
+    },
+    {
+      "sourceId": "e376",
+      "route": "skipped-or-conflict",
+      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁"
+    },
+    {
+      "sourceId": "e331",
+      "route": "skipped-or-conflict",
+      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁"
+    },
+    {
+      "sourceId": "e335",
+      "route": "skipped-or-conflict",
+      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁"
     }
   ],
+  "routeAdjustments": [],
   "audit": {
-    "method": "两组固定种子（20261122、7731）各从 417 条明细里无放回随机抽 60 条，复核员只读源文判定去向；重叠条目两人判定一致才收",
-    "sampleSize": 109,
+    "method": "独立代理按同一份判据（05 §8.1 加跨家族终审的判例）只读源文、全量盲判 417 条明细，不看迁移结果；首轮没把握或与清单不一致的条目由另一名独立代理在补充判例后重判，以重判为准。汇总行的独立去向随它指回的明细",
+    "sampleSize": 417,
+    "rejudgedCount": 119,
+    "firstRoundDisagreements": 36,
+    "disagreements": [
+      "e362",
+      "e308",
+      "e314",
+      "e424",
+      "e432",
+      "e375",
+      "e351",
+      "e404",
+      "e395",
+      "e330",
+      "e374",
+      "e449"
+    ],
     "sample": [
       {
-        "sourceId": "e0",
-        "independentRoute": "portable",
-        "why": "拍与帧换算，纯时间量",
-        "seeds": [
-          7731
-        ]
+        "sourceId": "e191",
+        "independentRoute": "card-coupled",
+        "why": "某实现的声音架构描述，带文件名与键数计数",
+        "rubric": "v2"
       },
       {
-        "sourceId": "e5",
+        "sourceId": "e291",
         "independentRoute": "practice",
-        "why": "离线渲采样的架构做法",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e9",
-        "independentRoute": "practice",
-        "why": "单一发声入口的引擎设计",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e14",
-        "independentRoute": "card-coupled",
-        "why": "该引擎总线拓扑与增益",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e17",
-        "independentRoute": "portable",
-        "why": "心率与紧张低通Hz可迁",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e19",
-        "independentRoute": "practice",
-        "why": "混响脉冲生成算法",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e30",
-        "independentRoute": "practice",
-        "why": "闷响合成算法",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e31",
-        "independentRoute": "card-coupled",
-        "why": "函数选项键表",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e33",
-        "independentRoute": "card-coupled",
-        "why": "合成器分音比例表",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e46",
-        "independentRoute": "card-coupled",
-        "why": "作品嗓音配置表",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e50",
-        "independentRoute": "card-coupled",
-        "why": "键名增益冷却映射",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e54",
-        "independentRoute": "practice",
-        "why": "文字转音节脉冲算法",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e56",
-        "independentRoute": "card-coupled",
-        "why": "合成器常量",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e62",
-        "independentRoute": "card-coupled",
-        "why": "具体曲目编配参数",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e64",
-        "independentRoute": "card-coupled",
-        "why": "龙音效配置常量",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e65",
-        "independentRoute": "card-coupled",
-        "why": "逐钟增益距离配置",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e66",
-        "independentRoute": "card-coupled",
-        "why": "总线名与键名常量",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e81",
-        "independentRoute": "card-coupled",
-        "why": "作品键名表",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e84",
-        "independentRoute": "card-coupled",
-        "why": "键名总表",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e85",
-        "independentRoute": "card-coupled",
-        "why": "键名总表",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e86",
-        "independentRoute": "card-coupled",
-        "why": "键名总表",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e89",
-        "independentRoute": "card-coupled",
-        "why": "本作音库内存推算",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e90",
-        "independentRoute": "card-coupled",
-        "why": "拟音合成配方常量",
-        "seeds": [
-          20261122,
-          7731
-        ]
-      },
-      {
-        "sourceId": "e91",
-        "independentRoute": "card-coupled",
-        "why": "拟音合成配方常量",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e95",
-        "independentRoute": "card-coupled",
-        "why": "龙吼合成配方常量",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e98",
-        "independentRoute": "card-coupled",
-        "why": "雷声合成配方常量",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e115",
-        "independentRoute": "card-coupled",
-        "why": "场景坐标与音阶配置",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e119",
-        "independentRoute": "card-coupled",
-        "why": "作品事件映射表",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e122",
-        "independentRoute": "card-coupled",
-        "why": "作品事件映射表",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e124",
-        "independentRoute": "practice",
-        "why": "默认值加补丁覆盖做法",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e127",
-        "independentRoute": "practice",
-        "why": "小节线切曲与枢轴音技巧",
-        "seeds": [
-          20261122,
-          7731
-        ]
-      },
-      {
-        "sourceId": "e128",
-        "independentRoute": "card-coupled",
-        "why": "作品曲目配置表",
-        "seeds": [
-          20261122,
-          7731
-        ]
-      },
-      {
-        "sourceId": "e130",
-        "independentRoute": "card-coupled",
-        "why": "逐曲BPM调式表",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e131",
-        "independentRoute": "practice",
-        "why": "音乐状态判定流程",
-        "seeds": [
-          20261122,
-          7731
-        ]
-      },
-      {
-        "sourceId": "e134",
-        "independentRoute": "practice",
-        "why": "拍秒换算与渐慢积分算法",
-        "seeds": [
-          20261122,
-          7731
-        ]
-      },
-      {
-        "sourceId": "e136",
-        "independentRoute": "card-coupled",
-        "why": "音栓谐波幅度表",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e137",
-        "independentRoute": "card-coupled",
-        "why": "乐器合成常量",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e138",
-        "independentRoute": "card-coupled",
-        "why": "合唱合成器常量",
-        "seeds": [
-          20261122,
-          7731
-        ]
-      },
-      {
-        "sourceId": "e140",
-        "independentRoute": "card-coupled",
-        "why": "乐器合成常量",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e141",
-        "independentRoute": "card-coupled",
-        "why": "乐器合成常量",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e143",
-        "independentRoute": "card-coupled",
-        "why": "乐器默认值表",
-        "seeds": [
-          20261122,
-          7731
-        ]
-      },
-      {
-        "sourceId": "e144",
-        "independentRoute": "practice",
-        "why": "回退合成同接口做法",
-        "seeds": [
-          20261122,
-          7731
-        ]
-      },
-      {
-        "sourceId": "e159",
-        "independentRoute": "card-coupled",
-        "why": "逐曲抄谱",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e165",
-        "independentRoute": "card-coupled",
-        "why": "区域曲编配配置",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e169",
-        "independentRoute": "card-coupled",
-        "why": "逐曲区域配置",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e171",
-        "independentRoute": "practice",
-        "why": "低音与固定音型推导算法",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e172",
-        "independentRoute": "card-coupled",
-        "why": "分层编配力度常量",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e179",
-        "independentRoute": "card-coupled",
-        "why": "作品提示音清单",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e185",
-        "independentRoute": "card-coupled",
-        "why": "导演参数表",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e186",
-        "independentRoute": "card-coupled",
-        "why": "逐状态淡入淡出表",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e188",
-        "independentRoute": "card-coupled",
-        "why": "逐曲增益表",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e198",
-        "independentRoute": "card-coupled",
-        "why": "本作键表类别统计",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e205",
-        "independentRoute": "card-coupled",
-        "why": "缓存实现常量",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e218",
-        "independentRoute": "practice",
-        "why": "画面驱动事件表做法",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e225",
-        "independentRoute": "card-coupled",
-        "why": "音色合成常量",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e228",
-        "independentRoute": "card-coupled",
-        "why": "打击乐合成常量",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e230",
-        "independentRoute": "card-coupled",
-        "why": "FM铃合成常量",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e231",
-        "independentRoute": "card-coupled",
-        "why": "弦乐垫合成常量",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e234",
-        "independentRoute": "card-coupled",
-        "why": "作品调式速度动机配置",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e235",
-        "independentRoute": "card-coupled",
-        "why": "逐音主题谱",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e238",
-        "independentRoute": "card-coupled",
-        "why": "本作段落编配表",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e253",
-        "independentRoute": "portable",
-        "why": "母带频率响度限幅量",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e257",
-        "independentRoute": "practice",
-        "why": "音频图与总线架构",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e263",
-        "independentRoute": "card-coupled",
-        "why": "作品模式参数表",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e265",
-        "independentRoute": "card-coupled",
-        "why": "乐器合成配方常量",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e270",
-        "independentRoute": "card-coupled",
-        "why": "吼声合成常量",
-        "seeds": [
-          20261122,
-          7731
-        ]
-      },
-      {
-        "sourceId": "e273",
-        "independentRoute": "card-coupled",
-        "why": "逐音效合成配置",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e279",
-        "independentRoute": "card-coupled",
-        "why": "底鼓合成常量",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e280",
-        "independentRoute": "card-coupled",
-        "why": "鼓合成常量",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e282",
-        "independentRoute": "card-coupled",
-        "why": "本片逐帧编排",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e289",
-        "independentRoute": "portable",
-        "why": "AAC真峰值反弹实测dB",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e296",
-        "independentRoute": "portable",
-        "why": "实测静音电平dBFS",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e302",
-        "independentRoute": "practice",
-        "why": "文本到音素步骤",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e317",
-        "independentRoute": "skipped-or-conflict",
-        "why": "音域数据冲突未对账",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e319",
-        "independentRoute": "practice",
-        "why": "尾部淡出修爆音",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e328",
-        "independentRoute": "practice",
-        "why": "切换前抽低音技巧",
-        "seeds": [
-          20261122,
-          7731
-        ]
-      },
-      {
-        "sourceId": "e333",
-        "independentRoute": "portable",
-        "why": "成片响度实测",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e334",
-        "independentRoute": "practice",
-        "why": "点击对起音的对拍原则",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e336",
-        "independentRoute": "skipped-or-conflict",
-        "why": "空条目无可迁内容",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e345",
-        "independentRoute": "portable",
-        "why": "实测响度与峰值",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e349",
-        "independentRoute": "portable",
-        "why": "实测时长响度LRA",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e351",
-        "independentRoute": "portable",
-        "why": "母带响度真峰值目标",
-        "seeds": [
-          7731
-        ]
+        "why": "主体是改用代码音乐的取舍：节拍直接给定而非事后量",
+        "rubric": "v2"
       },
       {
         "sourceId": "e357",
         "independentRoute": "practice",
-        "why": "共享噪声库固定种子",
-        "seeds": [
-          7731
-        ]
+        "why": "共享噪声库加随机起点、固定种子可复现的做法",
+        "rubric": "v2"
       },
       {
         "sourceId": "e358",
         "independentRoute": "card-coupled",
-        "why": "脉冲生成常量",
-        "seeds": [
-          7731
-        ]
+        "why": "某实现混响脉冲的时长、衰减系数与反射数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e359",
+        "independentRoute": "practice",
+        "why": "下滑正弦加带通噪声做打击感，数字只是示意",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e360",
+        "independentRoute": "practice",
+        "why": "多锯齿波失谐出合奏感的做法，音分范围是示意",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e361",
+        "independentRoute": "practice",
+        "why": "曲子拆成节拍、和弦表、旋律表的编写思路",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e362",
+        "independentRoute": "practice",
+        "why": "按整小节前瞻调度且可离线渲染的做法，两数为示意",
+        "rubric": "v2"
       },
       {
         "sourceId": "e363",
         "independentRoute": "practice",
-        "why": "离线渲染量响度做法",
-        "seeds": [
-          20261122
-        ]
+        "why": "离线渲染同一套合成器量响度的工序",
+        "rubric": "v2"
       },
       {
         "sourceId": "e364",
         "independentRoute": "skipped-or-conflict",
-        "why": "无音轨，无声音内容",
-        "seeds": [
-          7731
-        ]
+        "why": "只说角标、无字幕转场、无音轨，没有可迁内容",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e365",
+        "independentRoute": "practice",
+        "why": "声音按镜头分布的设计判断，无带单位读数",
+        "rubric": "v2"
       },
       {
         "sourceId": "e367",
         "independentRoute": "portable",
-        "why": "逐帧实测音量变化",
-        "seeds": [
-          7731
-        ]
+        "why": "成片逐帧量出的电平、帧号时刻与响度读数",
+        "rubric": "v2"
       },
       {
-        "sourceId": "e370",
+        "sourceId": "e368",
         "independentRoute": "practice",
-        "why": "音频提示词做法",
-        "seeds": [
-          20261122
-        ]
+        "why": "声音读画面事件表、改画面声音自动跟随的做法",
+        "rubric": "v2"
       },
       {
-        "sourceId": "e375",
+        "sourceId": "e5",
         "independentRoute": "practice",
-        "why": "声音设计思路",
-        "seeds": [
-          20261122
-        ]
+        "why": "离线逐采样渲染再当录音播的思路与理由",
+        "rubric": "v2"
       },
       {
-        "sourceId": "e384",
-        "independentRoute": "practice",
-        "why": "声音设计手法描述",
-        "seeds": [
-          20261122,
-          7731
-        ]
+        "sourceId": "e6",
+        "independentRoute": "card-coupled",
+        "why": "某实现的变体种子公式与各模块种子常量",
+        "rubric": "v2"
       },
       {
-        "sourceId": "e391",
+        "sourceId": "e7",
+        "independentRoute": "card-coupled",
+        "why": "某函数的键语法、查表与归一常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e8",
+        "independentRoute": "card-coupled",
+        "why": "某收尾函数的归一峰值与淡入淡出常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e9",
+        "independentRoute": "card-coupled",
+        "why": "指定发声接口的选项与冷却优先级配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e10",
+        "independentRoute": "card-coupled",
+        "why": "某接口内部流程，带复音上限与默认值",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e11",
         "independentRoute": "practice",
-        "why": "配乐结构编排做法",
-        "seeds": [
-          7731
-        ]
+        "why": "移动声像器位置实现多普勒的算法思路，无常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e12",
+        "independentRoute": "card-coupled",
+        "why": "声像池数量与空间化参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e13",
+        "independentRoute": "card-coupled",
+        "why": "某实现的远场发送与空气吸收公式常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e14",
+        "independentRoute": "card-coupled",
+        "why": "某引擎六总线连接图与返回增益",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e15",
+        "independentRoute": "card-coupled",
+        "why": "限幅器与软削波器的参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e16",
+        "independentRoute": "card-coupled",
+        "why": "各游戏状态下滤波与闪避的常量表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e17",
+        "independentRoute": "card-coupled",
+        "why": "心跳间隔与紧张低通的实现公式常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e18",
+        "independentRoute": "card-coupled",
+        "why": "音量滑块映射与各总线默认值",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e19",
+        "independentRoute": "card-coupled",
+        "why": "某实现生成混响脉冲的逐项公式与系数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e20",
+        "independentRoute": "card-coupled",
+        "why": "三种混响的规格参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e21",
+        "independentRoute": "card-coupled",
+        "why": "回声拍的时刻、滤波与幅度常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e22",
+        "independentRoute": "card-coupled",
+        "why": "某实现的缓冲内存占用与截断配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e25",
+        "independentRoute": "card-coupled",
+        "why": "三种混响的延迟装入配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e26",
+        "independentRoute": "card-coupled",
+        "why": "小喇叭补偿链路的滤波与增益参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e205",
+        "independentRoute": "card-coupled",
+        "why": "某缓存库的键、版本、容量与超时配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e206",
+        "independentRoute": "card-coupled",
+        "why": "手机降级档的逐项配置与判定条件",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e23",
+        "independentRoute": "card-coupled",
+        "why": "噪声缓冲的长度、种子与归一常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e24",
+        "independentRoute": "card-coupled",
+        "why": "三种噪声的滤波系数与增益常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e27",
+        "independentRoute": "card-coupled",
+        "why": "某工具集各函数的公式与夹取常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e28",
+        "independentRoute": "card-coupled",
+        "why": "两个敲击函数的签名与默认起音",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e30",
+        "independentRoute": "card-coupled",
+        "why": "闷响函数的签名与包络常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e31",
+        "independentRoute": "card-coupled",
+        "why": "噪声函数的选项键与默认值表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e32",
+        "independentRoute": "card-coupled",
+        "why": "碎点函数的分布与幅度公式",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e33",
+        "independentRoute": "card-coupled",
+        "why": "金属板分音比例表与衰减幅度常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e34",
+        "independentRoute": "card-coupled",
+        "why": "某音色四个分音的频比、幅度与衰减",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e57",
+        "independentRoute": "card-coupled",
+        "why": "两个通用发声函数的节点链与默认值",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e72",
+        "independentRoute": "card-coupled",
+        "why": "积木函数全表及各自比例常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e73",
+        "independentRoute": "card-coupled",
+        "why": "呼吸音函数的滤波频率与梳状延时",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e74",
+        "independentRoute": "card-coupled",
+        "why": "弓弦函数的泛音公式与时间常数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e75",
+        "independentRoute": "card-coupled",
+        "why": "掠过音函数的多普勒与振幅公式常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e76",
+        "independentRoute": "practice",
+        "why": "多算一段再等功率交叉做无缝循环的算法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e77",
+        "independentRoute": "card-coupled",
+        "why": "带参数键的键名与参数取值清单",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e35",
+        "independentRoute": "card-coupled",
+        "why": "草地脚步的逐层合成参数与触发配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e36",
+        "independentRoute": "card-coupled",
+        "why": "挥剑音的合成公式与触发增益配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e37",
+        "independentRoute": "card-coupled",
+        "why": "三个音效的函数调用参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e38",
+        "independentRoute": "card-coupled",
+        "why": "肉击音效的逐层合成参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e39",
+        "independentRoute": "card-coupled",
+        "why": "材质到音效键的映射与叠层增益表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e40",
+        "independentRoute": "card-coupled",
+        "why": "翻滚音效的逐层参数与触发配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e41",
+        "independentRoute": "card-coupled",
+        "why": "受击音效的逐层参数与触发配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e43",
+        "independentRoute": "card-coupled",
+        "why": "界面音效的合成参数与触发增益冷却",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e44",
+        "independentRoute": "card-coupled",
+        "why": "头目脚步的逐层参数与触发配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e90",
+        "independentRoute": "card-coupled",
+        "why": "石地脚步的逐层合成参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e91",
+        "independentRoute": "card-coupled",
+        "why": "金属撞击音的逐层合成参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e92",
+        "independentRoute": "card-coupled",
+        "why": "招架反击音十一层的合成参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e105",
+        "independentRoute": "card-coupled",
+        "why": "脚步触发的阈值常量与材质键映射",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e106",
+        "independentRoute": "card-coupled",
+        "why": "脚步增益与叠层的实现公式与阈值",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e107",
+        "independentRoute": "card-coupled",
+        "why": "落地拟音的冲击阈值与叠层增益公式",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e108",
+        "independentRoute": "card-coupled",
+        "why": "滑步披风喘息的触发阈值与状态条件",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e42",
+        "independentRoute": "card-coupled",
+        "why": "雨循环缓冲的合成参数与叠层条件",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e45",
+        "independentRoute": "card-coupled",
+        "why": "教堂钟的分音表与播放配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e53",
+        "independentRoute": "card-coupled",
+        "why": "钟声齐鸣的音序表、间隔与增益配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e58",
+        "independentRoute": "card-coupled",
+        "why": "头目火焰后备链路的节点参数与回退",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e93",
+        "independentRoute": "card-coupled",
+        "why": "点火音效的逐层合成参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e94",
+        "independentRoute": "card-coupled",
+        "why": "乌鸦叫的人声合成器参数配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e95",
+        "independentRoute": "card-coupled",
+        "why": "龙吼四层的音高包络与合成参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e96",
+        "independentRoute": "card-coupled",
+        "why": "火焰咆哮循环的合成公式与参数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e97",
+        "independentRoute": "card-coupled",
+        "why": "两种火声的函数参数对照表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e98",
+        "independentRoute": "card-coupled",
+        "why": "近雷远雷的合成参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e109",
+        "independentRoute": "card-coupled",
+        "why": "龙火声调度器的状态机、常量与时间常数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e110",
+        "independentRoute": "card-coupled",
+        "why": "龙火各层的混音配置表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e111",
+        "independentRoute": "card-coupled",
+        "why": "环境声各层的节点链与滤波参数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e112",
+        "independentRoute": "card-coupled",
+        "why": "树层环境床的节点链、种子与参数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e113",
+        "independentRoute": "card-coupled",
+        "why": "环境各层电平的实现公式与时间常数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e114",
+        "independentRoute": "card-coupled",
+        "why": "零星环境事件的间隔、距离与增益配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e115",
+        "independentRoute": "card-coupled",
+        "why": "树层事件的音阶、间隔与位置常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e116",
+        "independentRoute": "card-coupled",
+        "why": "逐区域和声底的音符、增益与低通表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e117",
+        "independentRoute": "card-coupled",
+        "why": "逐树层区域的和声底配置表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e118",
+        "independentRoute": "card-coupled",
+        "why": "环境床休眠的阈值、时长与检测周期",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e4",
+        "independentRoute": "card-coupled",
+        "why": "某演出里各音效写死的触发时刻",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e47",
+        "independentRoute": "card-coupled",
+        "why": "头目与龙音效表的项结构、取值与回退",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e48",
+        "independentRoute": "card-coupled",
+        "why": "箭矢呼啸调度流程，带命名常量与阈值",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e49",
+        "independentRoute": "card-coupled",
+        "why": "近身箭声与扎入声的窗口、增益与材质映射",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e50",
+        "independentRoute": "card-coupled",
+        "why": "弓箭动作到音效键的增益冷却表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e51",
+        "independentRoute": "card-coupled",
+        "why": "命中标记音的键映射与距离增益规则",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e52",
+        "independentRoute": "card-coupled",
+        "why": "闸门各阶段音效的增益、间隔与回退",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e59",
+        "independentRoute": "card-coupled",
+        "why": "发现提示音的合唱叠加时刻与增益配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e60",
+        "independentRoute": "card-coupled",
+        "why": "升级音的半音表、增益与和弦配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e61",
+        "independentRoute": "card-coupled",
+        "why": "点燃休息拾取各音效的增益与音符配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e63",
+        "independentRoute": "card-coupled",
+        "why": "敌人招式到音效的增益冷却表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e64",
+        "independentRoute": "card-coupled",
+        "why": "龙与树层音效的声像器与增益配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e65",
+        "independentRoute": "card-coupled",
+        "why": "各钟位的增益、参考距离与最远距离表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e66",
+        "independentRoute": "card-coupled",
+        "why": "旅行过场的总线增益与提示音配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e68",
+        "independentRoute": "card-coupled",
+        "why": "循环敌声的合并半径、上限与淡变常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e69",
+        "independentRoute": "card-coupled",
+        "why": "某键表的立体声标记与强制单声道规则",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e70",
+        "independentRoute": "card-coupled",
+        "why": "某实现音效表的项数统计，只有标识符与计数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e78",
+        "independentRoute": "card-coupled",
+        "why": "逐音效键的变体数与时长表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e79",
+        "independentRoute": "card-coupled",
+        "why": "某音效库近战类键名的变体数与时长表，逐音效配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e80",
+        "independentRoute": "card-coupled",
+        "why": "某音效库状态与界面类键名的变体数与时长表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e81",
+        "independentRoute": "card-coupled",
+        "why": "某音效库魔法天气类键名的变体数与时长表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e82",
+        "independentRoute": "card-coupled",
+        "why": "某音效库乐器采样键名与合成函数对应表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e83",
+        "independentRoute": "card-coupled",
+        "why": "某音效库弓箭类键名的变体数与时长表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e84",
+        "independentRoute": "card-coupled",
+        "why": "某音效库闸门类五个键的变体数与时长",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e85",
+        "independentRoute": "card-coupled",
+        "why": "某头目专属音效键名的变体数与时长表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e86",
+        "independentRoute": "card-coupled",
+        "why": "尸体掉落与树层敌人机关的键名清单",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e87",
+        "independentRoute": "card-coupled",
+        "why": "树层世界与巨龙叫声的键名清单",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e88",
+        "independentRoute": "card-coupled",
+        "why": "龙音效 48 个键名、时长与被覆盖的旧版行号",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e89",
+        "independentRoute": "card-coupled",
+        "why": "某实现键表的内存粗估，依赖其键数与变体数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e119",
+        "independentRoute": "card-coupled",
+        "why": "头目一事件到键的增益、参考距离、混响、冷却映射表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e120",
+        "independentRoute": "card-coupled",
+        "why": "龙音效映射表的增益、衰减、挂点与撞击点配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e121",
+        "independentRoute": "card-coupled",
+        "why": "主体是逐音效 mark 取值与对齐常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e122",
+        "independentRoute": "card-coupled",
+        "why": "树层音效映射表的最终增益、参考距离与冷却",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e123",
+        "independentRoute": "card-coupled",
+        "why": "树层各敌人逐事件的增益覆盖表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e124",
+        "independentRoute": "practice",
+        "why": "先默认值再统一补丁改增益的做法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e198",
+        "independentRoute": "card-coupled",
+        "why": "某实现音效键表的分类计数与时长范围",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e29",
+        "independentRoute": "card-coupled",
+        "why": "某合成器共振峰表结构与更新周期常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e46",
+        "independentRoute": "card-coupled",
+        "why": "逐敌人嗓音的增益、参考距离、混响发送与冷却配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e54",
+        "independentRoute": "card-coupled",
+        "why": "planSpeech 函数的时长常量与映射规则",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e55",
+        "independentRoute": "card-coupled",
+        "why": "低语实时链的节点连接、滤波系数与时间常数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e67",
+        "independentRoute": "card-coupled",
+        "why": "树层逐敌人嗓音的增益、参考距离与最远距离配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e71",
+        "independentRoute": "card-coupled",
+        "why": "某实现的音节常量表与取名函数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e100",
+        "independentRoute": "card-coupled",
+        "why": "voice() 函数逐步公式加一串默认常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e101",
+        "independentRoute": "card-coupled",
+        "why": "树层嗓音的固定时长表与裁尾阈值常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e102",
+        "independentRoute": "card-coupled",
+        "why": "逐敌人嗓音合成的频率、共振峰偏移与梳状参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e103",
+        "independentRoute": "card-coupled",
+        "why": "某角色呼吸嗓音函数的滤波参数与逐事件时长",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e104",
+        "independentRoute": "card-coupled",
+        "why": "巨龙叫声合成器的振荡器比例、梳状与音高表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e301",
+        "independentRoute": "practice",
+        "why": "全代码合成人声的工序链与禁用项",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e302",
+        "independentRoute": "practice",
+        "why": "手写发音词典按唱法拆音节的做法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e303",
+        "independentRoute": "practice",
+        "why": "辅音拍前元音落拍的排布规则，带一个示意比例",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e304",
+        "independentRoute": "portable",
+        "why": "声带脉冲 0.4% 抖动、3% 闪烁，与判例同文",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e305",
+        "independentRoute": "practice",
+        "why": "音符台阶二阶平滑得滑音与延迟颤音的思路",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e306",
+        "independentRoute": "practice",
+        "why": "声道滤波级联结构的算法思路",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e307",
+        "independentRoute": "practice",
+        "why": "噪声带做擦音、爆破音分三段的思路",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e308",
+        "independentRoute": "practice",
+        "why": "停顿超阈值加吸气的规则，仅一个示意数字",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e309",
+        "independentRoute": "practice",
+        "why": "同一套代码换声道参数叠出合唱的做法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e310",
+        "independentRoute": "card-coupled",
+        "why": "某片的乐器与混音链构成加固定调性速度小节",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e311",
+        "independentRoute": "portable",
+        "why": "成片自报读数：音分偏差、颤音频率、落拍偏移、响度",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e312",
+        "independentRoute": "portable",
+        "why": "成片复测的响度、响度范围与真峰值读数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e313",
+        "independentRoute": "portable",
+        "why": "成片逐秒 RMS 电平读数与音乐收住时刻",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e314",
+        "independentRoute": "portable",
+        "why": "成片识别命中率的实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e316",
+        "independentRoute": "portable",
+        "why": "成片独唱段量出的基频范围与音分偏差读数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e317",
+        "independentRoute": "skipped-or-conflict",
+        "why": "音域三个读数对不上且原因未查的对账行",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e318",
+        "independentRoute": "practice",
+        "why": "量出听错就改歌词而不硬调合成器的修法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e319",
+        "independentRoute": "practice",
+        "why": "尾部加淡出并把爆音数做成检查项的修法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e320",
+        "independentRoute": "practice",
+        "why": "合成人声的缺点清单，可作检查判据与教训",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e321",
+        "independentRoute": "skipped-or-conflict",
+        "why": "只列未公开的参数项",
+        "rubric": "v2"
       },
       {
         "sourceId": "e406",
         "independentRoute": "practice",
-        "why": "歌声合成管线步骤",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e416",
-        "independentRoute": "practice",
-        "why": "音乐生成与测量流程",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e421",
-        "independentRoute": "practice",
-        "why": "母带流程与自动验收",
-        "seeds": [
-          7731
-        ]
+        "why": "声乐合成七步工序为主体，数字是例证",
+        "rubric": "v2"
       },
       {
         "sourceId": "e423",
         "independentRoute": "card-coupled",
-        "why": "作品台词键与时长",
-        "seeds": [
-          7731
-        ]
+        "why": "某片头目台词的触发时刻与字幕键名格式",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e424",
+        "independentRoute": "practice",
+        "why": "文字拆音节加句调规则的假说话思路",
+        "rubric": "v2"
       },
       {
         "sourceId": "e425",
         "independentRoute": "card-coupled",
-        "why": "输出字段键表",
-        "seeds": [
-          20261122
-        ]
+        "why": "某函数输出片段的字段结构与幅度取值",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e426",
+        "independentRoute": "card-coupled",
+        "why": "某说话合成器的节点连接、滤波与发送配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e427",
+        "independentRoute": "card-coupled",
+        "why": "某元音切换函数的系数计算式、默认值与算例",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e428",
+        "independentRoute": "card-coupled",
+        "why": "某说话函数的总包络与逐音节音高调度常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e429",
+        "independentRoute": "card-coupled",
+        "why": "某合成器增益节点上辅音与气声的毫秒级时序常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e430",
+        "independentRoute": "card-coupled",
+        "why": "某低语函数的音节正则、滤波系数与起音常量表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e431",
+        "independentRoute": "card-coupled",
+        "why": "八个说话人的逐字段参数表",
+        "rubric": "v1"
       },
       {
         "sourceId": "e432",
-        "independentRoute": "portable",
-        "why": "标准元音共振峰Hz表",
-        "seeds": [
-          20261122
-        ]
+        "independentRoute": "card-coupled",
+        "why": "合成器源码里的共振峰参数表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e433",
+        "independentRoute": "skipped-or-conflict",
+        "why": "只是出处推断，无做法无参数",
+        "rubric": "v2"
       },
       {
         "sourceId": "e434",
         "independentRoute": "card-coupled",
-        "why": "嗓音合成底板常量",
-        "seeds": [
-          7731
-        ]
+        "why": "六类敌人嗓音底板的合成器参数表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e435",
+        "independentRoute": "card-coupled",
+        "why": "27 个敌人叫声事件的时长、音高折线与元音配置表",
+        "rubric": "v1"
       },
       {
         "sourceId": "e436",
         "independentRoute": "practice",
-        "why": "变体用整体音高随机",
-        "seeds": [
-          20261122
-        ]
+        "why": "变体用整体音高随机的做法，带两个示意数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e437",
+        "independentRoute": "card-coupled",
+        "why": "某说话人实现的增益参数与未归一存疑",
+        "rubric": "v2"
       },
       {
         "sourceId": "e438",
         "independentRoute": "card-coupled",
-        "why": "角色嗓音配置",
-        "seeds": [
-          20261122
-        ]
+        "why": "某实现的说话人键名、时长公式与声源高度常量",
+        "rubric": "v1"
       },
       {
-        "sourceId": "e447",
-        "independentRoute": "practice",
-        "why": "旁白字幕数字分写",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e448",
-        "independentRoute": "portable",
-        "why": "留白秒数与-19LUFS",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e451",
-        "independentRoute": "portable",
-        "why": "字幕位置像素",
-        "seeds": [
-          20261122
-        ]
-      },
-      {
-        "sourceId": "e454",
-        "independentRoute": "portable",
-        "why": "字幕块间隔时间实测",
-        "seeds": [
-          7731
-        ]
-      },
-      {
-        "sourceId": "e456",
-        "independentRoute": "portable",
-        "why": "字幕旁白对位偏差秒数",
-        "seeds": [
-          7731
-        ]
+        "sourceId": "e444",
+        "independentRoute": "card-coupled",
+        "why": "逐说话人的音乐闪避值表",
+        "rubric": "v1"
       },
       {
         "sourceId": "e461",
         "independentRoute": "practice",
-        "why": "可懂度测量方法",
-        "seeds": [
-          7731
-        ]
+        "why": "用语音识别命中率量可懂度的判断方法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e56",
+        "independentRoute": "card-coupled",
+        "why": "某弓弦实时合成器的振荡器、共振峰与电平公式",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e62",
+        "independentRoute": "card-coupled",
+        "why": "某主题曲提示的速度、乐器音量与重播间隔配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e99",
+        "independentRoute": "card-coupled",
+        "why": "竖琴、拨奏弦、铜管采样合成的公式与常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e125",
+        "independentRoute": "card-coupled",
+        "why": "某配乐实现的架构描述，带标识符与取模常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e126",
+        "independentRoute": "card-coupled",
+        "why": "某实现区域曲变体的配置与常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e127",
+        "independentRoute": "card-coupled",
+        "why": "某导演切曲流程，带标识符与阈值常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e128",
+        "independentRoute": "card-coupled",
+        "why": "基础曲逐曲的速度、小节数与调式表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e129",
+        "independentRoute": "card-coupled",
+        "why": "区域曲逐区域的速度、夜间速度与调式表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e130",
+        "independentRoute": "card-coupled",
+        "why": "树关、头目战配乐、龙战逐曲的速度、拍号与调式表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e131",
+        "independentRoute": "card-coupled",
+        "why": "某实现的配乐状态判定顺序与距离、保持时间阈值",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e132",
+        "independentRoute": "card-coupled",
+        "why": "某配乐对象的总线连接、淡入方式与随机种子构造",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e133",
+        "independentRoute": "card-coupled",
+        "why": "某小节调度器的预排窗口、失败回退与销毁时限",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e134",
+        "independentRoute": "card-coupled",
+        "why": "某调度器的变速公式与限幅参数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e135",
+        "independentRoute": "card-coupled",
+        "why": "某配乐对象 36 个乐器方法的接口清单",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e136",
+        "independentRoute": "card-coupled",
+        "why": "管风琴各音栓的谐波幅度常量表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e137",
+        "independentRoute": "card-coupled",
+        "why": "管风琴与合唱乐器的包络、失谐与颤音默认值",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e138",
+        "independentRoute": "card-coupled",
+        "why": "某合唱共振峰组的滤波器系数与增益",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e139",
+        "independentRoute": "card-coupled",
+        "why": "弦乐与风铃琴合成的失谐、滤波与阵风权重公式",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e140",
+        "independentRoute": "card-coupled",
+        "why": "玻璃琴与手摇琴合成的分音、带通与削波参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e141",
+        "independentRoute": "card-coupled",
+        "why": "静脉弦、沙锤与哼鸣合成的带通组与颗粒参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e142",
+        "independentRoute": "card-coupled",
+        "why": "簧风琴、火焰声与长音乐器的合成参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e143",
+        "independentRoute": "card-coupled",
+        "why": "各乐器起音、释放与颤音的默认值总表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e144",
+        "independentRoute": "card-coupled",
+        "why": "某实现的回退乐器函数清单与接口约定",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e145",
+        "independentRoute": "card-coupled",
+        "why": "某配乐系统的复音上限表与让位规则",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e146",
+        "independentRoute": "card-coupled",
+        "why": "乐器子总线逐乐器的声像与混响送量表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e147",
+        "independentRoute": "card-coupled",
+        "why": "某实现配乐状态切换的淡入淡出与入点细则",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e148",
+        "independentRoute": "card-coupled",
+        "why": "某实现变体选择的键值计算与判定阈值",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e149",
+        "independentRoute": "card-coupled",
+        "why": "某区域路由的停留、间隔、淡出时长与桥音参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e150",
+        "independentRoute": "card-coupled",
+        "why": "某提示音接口的对齐、去重与闪避参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e151",
+        "independentRoute": "card-coupled",
+        "why": "标题曲的逐小节和弦与旋律抄谱",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e152",
+        "independentRoute": "card-coupled",
+        "why": "标题曲和弦 B 与各乐器的发声参数抄谱",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e153",
+        "independentRoute": "card-coupled",
+        "why": "头目战一配乐的主题音符、和弦字典与进行表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e154",
+        "independentRoute": "card-coupled",
+        "why": "头目战一配乐每小节各乐器的发声条件与力度",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e155",
+        "independentRoute": "card-coupled",
+        "why": "头目战二配乐、仪式与熄灯段配乐各曲的逐小节编配参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e156",
+        "independentRoute": "card-coupled",
+        "why": "头目战配乐提示音的逐条音符与音量配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e157",
+        "independentRoute": "card-coupled",
+        "why": "探索回退曲的和弦、音型与乐句触发参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e158",
+        "independentRoute": "card-coupled",
+        "why": "战斗回退曲的和弦、鼓点网格与力度配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e159",
+        "independentRoute": "card-coupled",
+        "why": "头目曲 bossBar 逐小节音符与力度常量表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e160",
+        "independentRoute": "card-coupled",
+        "why": "守夜/死亡/胜利三曲的和弦与发声参数表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e161",
+        "independentRoute": "card-coupled",
+        "why": "结局曲 END 和弦旋律表与乐器调用参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e162",
+        "independentRoute": "card-coupled",
+        "why": "区域曲工具函数的合唱起音偏移与权重常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e163",
+        "independentRoute": "card-coupled",
+        "why": "高地区域曲的和弦、动机与触发间隔配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e164",
+        "independentRoute": "card-coupled",
+        "why": "渡口场景配乐区域曲和弦表与悬停阈值常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e165",
+        "independentRoute": "card-coupled",
+        "why": "村镇场景配乐/古冢场景配乐/地穴三区域曲逐曲配置表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e166",
+        "independentRoute": "card-coupled",
+        "why": "阶梯场景配乐曲按高度分层的阈值与和弦表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e167",
+        "independentRoute": "card-coupled",
+        "why": "大教堂两曲的和弦、动机与力度配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e168",
+        "independentRoute": "card-coupled",
+        "why": "林地场景配乐曲的音对、随机间隔与力度配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e169",
+        "independentRoute": "card-coupled",
+        "why": "焦土道路场景配乐/火堆/林冠场景配乐的逐曲配置表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e170",
+        "independentRoute": "card-coupled",
+        "why": "战斗层 ROWS 逐区域调式与和弦循环配置表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e171",
+        "independentRoute": "card-coupled",
+        "why": "derive 函数与共用 ostinato 的音级重音常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e172",
+        "independentRoute": "card-coupled",
+        "why": "战斗层各强度档的乐器力度与升降档阈值",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e173",
+        "independentRoute": "card-coupled",
+        "why": "战斗前奏/收尾/逃离小节的乐器参数配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e174",
+        "independentRoute": "card-coupled",
+        "why": "战斗层 GAIN_DB/TRIM_DB 增益常量表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e175",
+        "independentRoute": "card-coupled",
+        "why": "龙战主题的音高时值常量与变形定义",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e176",
+        "independentRoute": "card-coupled",
+        "why": "龙战 P1 nestBar 和弦进行与乐器力度配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e177",
+        "independentRoute": "card-coupled",
+        "why": "龙战 P2 airBar 速度拍号与乐器力度配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e178",
+        "independentRoute": "card-coupled",
+        "why": "龙战 P3/P4/胜利曲的和弦事件表与力度",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e179",
+        "independentRoute": "card-coupled",
+        "why": "龙战提示音清单及 sting 包装接口",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e180",
+        "independentRoute": "card-coupled",
+        "why": "巨树关前三曲的和弦、动机与鼓型配置表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e181",
+        "independentRoute": "card-coupled",
+        "why": "巨树关后四曲的和弦、动机与间隔配置表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e182",
+        "independentRoute": "card-coupled",
+        "why": "cipher 函数的映射规则与具体输出",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e183",
+        "independentRoute": "card-coupled",
+        "why": "本作主旋律与音列的具体音高时值及出现位置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e184",
+        "independentRoute": "card-coupled",
+        "why": "某实现的空壳判定阈值与回退配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e185",
+        "independentRoute": "card-coupled",
+        "why": "音乐导演的前瞻、闪避、淡变等参数表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e186",
+        "independentRoute": "card-coupled",
+        "why": "各音乐状态的淡入淡出秒数配置表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e187",
+        "independentRoute": "card-coupled",
+        "why": "逐区域曲音量微调 dB 常量表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e188",
+        "independentRoute": "card-coupled",
+        "why": "各曲 def.gain 增益取值表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e189",
+        "independentRoute": "card-coupled",
+        "why": "某实现输入驱动音乐的阈值与状态条件",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e190",
+        "independentRoute": "card-coupled",
+        "why": "barPhase 接口的输出字段与换算",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e207",
+        "independentRoute": "card-coupled",
+        "why": "某配乐实现的调用链，带标识符计数常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e214",
+        "independentRoute": "practice",
+        "why": "旋律撞车后改尾并加筛查回归的教训",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e215",
+        "independentRoute": "practice",
+        "why": "离线回归该量哪些指标的清单，常量为通用标准",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e216",
+        "independentRoute": "card-coupled",
+        "why": "renderPreview 接口的参数与试听语法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e217",
+        "independentRoute": "card-coupled",
+        "why": "某实现的采样率缓冲常量与渲染流程",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e218",
+        "independentRoute": "card-coupled",
+        "why": "某实现读画面事件表的结构与声像常量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e219",
+        "independentRoute": "card-coupled",
+        "why": "fill 分片与 WAV 导出的片长、字节数常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e220",
+        "independentRoute": "card-coupled",
+        "why": "该合成脚本基础函数的种子与滤波常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e221",
+        "independentRoute": "card-coupled",
+        "why": "lead() 函数二胡/箫/笛的包络滤波参数表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e222",
+        "independentRoute": "card-coupled",
+        "why": "二胡声源的波形配比与共振峰常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e223",
+        "independentRoute": "card-coupled",
+        "why": "箫与笛声源的谐波配比和滤波常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e224",
+        "independentRoute": "card-coupled",
+        "why": "三件乐器的 gain/pan/send 预设值",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e225",
+        "independentRoute": "card-coupled",
+        "why": "玻璃弓擦合成器的分音、包络与增益常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e226",
+        "independentRoute": "card-coupled",
+        "why": "古筝 Karplus-Strong 实现的延迟与衰减常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e227",
+        "independentRoute": "card-coupled",
+        "why": "太鼓合成器各层频率、衰减与增益常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e228",
+        "independentRoute": "card-coupled",
+        "why": "ka/shime/镲/木鱼合成器的参数表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e229",
+        "independentRoute": "card-coupled",
+        "why": "锣合成器 22 个分音的频率衰减常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e230",
+        "independentRoute": "card-coupled",
+        "why": "FM 铃与云铃函数的调制、间隔与增益常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e231",
+        "independentRoute": "card-coupled",
+        "why": "弦乐垫合成器的失谐、滤波与包络常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e232",
+        "independentRoute": "card-coupled",
+        "why": "人声垫/低弦断奏/持续低音合成器参数表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e233",
+        "independentRoute": "card-coupled",
+        "why": "编排辅助函数的和弦表、鼓型与力度常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e234",
+        "independentRoute": "card-coupled",
+        "why": "本片写死的配器、调式、动机音与 80 bpm",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e235",
+        "independentRoute": "card-coupled",
+        "why": "红龙主题 19 个音的时刻时值力度表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e236",
+        "independentRoute": "card-coupled",
+        "why": "黎明段逐音时刻与乐器力度的写死配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e237",
+        "independentRoute": "card-coupled",
+        "why": "EMERGE 段逐音时刻与力度的写死配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e238",
+        "independentRoute": "card-coupled",
+        "why": "DRUMS 段逐音时刻与力度的写死配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e239",
+        "independentRoute": "card-coupled",
+        "why": "ROAR 到 FACEOFF 各段逐音时刻力度配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e240",
+        "independentRoute": "card-coupled",
+        "why": "WROAR/CLASH 段逐音时刻与 ostinato 配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e241",
+        "independentRoute": "card-coupled",
+        "why": "SPLASH 到 GONG 各段逐音时刻力度配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e242",
+        "independentRoute": "card-coupled",
+        "why": "音乐母线增益曲线与让路窗口系数表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e243",
+        "independentRoute": "card-coupled",
+        "why": "音效通用函数的滤波频率与衰减常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e244",
+        "independentRoute": "card-coupled",
+        "why": "龙吼 voice() 源滤波模型与两龙共振峰预设",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e245",
+        "independentRoute": "card-coupled",
+        "why": "fire() 与风床的滤波中心和电平公式常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e246",
+        "independentRoute": "card-coupled",
+        "why": "逐音效等级 X/Y 增益表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e247",
+        "independentRoute": "card-coupled",
+        "why": "EMERGE 到 ROAR 段音效的基频电平与增益配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e248",
+        "independentRoute": "card-coupled",
+        "why": "雷声四击的时刻、功率、声像与滚雷参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e249",
+        "independentRoute": "card-coupled",
+        "why": "DESCENT 到战斗段音效的基频与增益配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e250",
+        "independentRoute": "card-coupled",
+        "why": "SPLASH 到 GONG 段音效的频率与包络配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e251",
+        "independentRoute": "card-coupled",
+        "why": "valley() 画面驱动音效的触发阈值与频率表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e252",
+        "independentRoute": "card-coupled",
+        "why": "8 线 FDN 混响的延迟线长度与衰减配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e253",
+        "independentRoute": "card-coupled",
+        "why": "该脚本母带链的滤波、归一与限幅常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e254",
+        "independentRoute": "card-coupled",
+        "why": "音画对时函数的误差阈值与重启条件",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e255",
+        "independentRoute": "card-coupled",
+        "why": "各事件表的读表频率、点数与条数上限",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e256",
+        "independentRoute": "card-coupled",
+        "why": "某游戏音频三文件的架构与计数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e257",
+        "independentRoute": "card-coupled",
+        "why": "某实现的 AudioContext 配置与总线拓扑",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e258",
+        "independentRoute": "card-coupled",
+        "why": "主输出各总线默认音量与压缩器参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e259",
+        "independentRoute": "card-coupled",
+        "why": "makeBank 噪声库的种子、时长与系数常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e260",
+        "independentRoute": "card-coupled",
+        "why": "代码生成混响脉冲与回声的延时增益配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e261",
+        "independentRoute": "card-coupled",
+        "why": "空间化模型常量与逐音效 ref/max 配置表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e262",
+        "independentRoute": "card-coupled",
+        "why": "配乐调度器的前瞻、时间常数与强度阈值",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e263",
+        "independentRoute": "card-coupled",
+        "why": "六种音乐模式的 BPM、进行与旋律参数表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e264",
+        "independentRoute": "card-coupled",
+        "why": "各模式乐器层目标增益、配平与送出表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e265",
+        "independentRoute": "card-coupled",
+        "why": "pad/choir/bass/harp/bell 合成配方常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e266",
+        "independentRoute": "card-coupled",
+        "why": "strings/taiko/brass/horn 配方与节奏型",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e267",
+        "independentRoute": "card-coupled",
+        "why": "各模式和弦进行的 MIDI 音高表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e268",
+        "independentRoute": "card-coupled",
+        "why": "五条旋律的逐小节 MIDI 音符表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e269",
+        "independentRoute": "card-coupled",
+        "why": "基础一次性音效的逐音效合成配方",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e270",
+        "independentRoute": "card-coupled",
+        "why": "roar 合成器的基频、共振峰与包络常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e271",
+        "independentRoute": "card-coupled",
+        "why": "雷声与滚雷音效的滤波、间隔与幅度配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e272",
+        "independentRoute": "card-coupled",
+        "why": "泰坦系音效逐层频率与时长配方",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e273",
+        "independentRoute": "card-coupled",
+        "why": "飞行动作与升级音效的逐音效配方",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e274",
+        "independentRoute": "card-coupled",
+        "why": "风/吐息等持续音的滤波与调制公式常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e275",
+        "independentRoute": "card-coupled",
+        "why": "ELEMENT_AUDIO 逐元素吐息声音配置表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e276",
+        "independentRoute": "card-coupled",
+        "why": "某实现源码注释与不一致处的考证记录",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e277",
+        "independentRoute": "practice",
+        "why": "可照搬做法要点汇总，数字只是例证",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e278",
+        "independentRoute": "card-coupled",
+        "why": "原实现源码 的采样率、种子、音阶公式常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e279",
+        "independentRoute": "card-coupled",
+        "why": "kick 函数的频率下滑、驱动与默认参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e280",
+        "independentRoute": "card-coupled",
+        "why": "军鼓/踩镲/金属撞击合成函数常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e281",
+        "independentRoute": "card-coupled",
+        "why": "bass/sub/boom/tick/servo/pluck 函数常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e282",
+        "independentRoute": "card-coupled",
+        "why": "过程片配乐按帧写死的编排时间表",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e283",
+        "independentRoute": "card-coupled",
+        "why": "成片配乐的段落帧位与鼓型配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e284",
+        "independentRoute": "card-coupled",
+        "why": "hit 函数调用与侧链、drone 的参数配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e285",
+        "independentRoute": "card-coupled",
+        "why": "117 个音效的分类条数、频率与混响配置",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e292",
+        "independentRoute": "card-coupled",
+        "why": "主体是该片合成脚本的分段时间码、泛音比与音量系数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e293",
+        "independentRoute": "portable",
+        "why": "旧版成片响度与真峰值的实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e419",
+        "independentRoute": "card-coupled",
+        "why": "主体是该曲逐小节编排表，源码里写死的结构",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e420",
+        "independentRoute": "card-coupled",
+        "why": "某片音乐段落设计，带固定时间落点",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e286",
+        "independentRoute": "card-coupled",
+        "why": "主体是混响与滤波函数的默认值、带通与预延迟常量",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e287",
+        "independentRoute": "card-coupled",
+        "why": "主体是该片母带链各级参数与迭代收敛阈值",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e288",
+        "independentRoute": "portable",
+        "why": "主体是混音文件量出的响度、真峰值、分段电平读数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e289",
+        "independentRoute": "portable",
+        "why": "编码前后真峰值读数与反弹量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e290",
+        "independentRoute": "card-coupled",
+        "why": "某片脚本自带验收的固定阈值配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e421",
+        "independentRoute": "practice",
+        "why": "母带工序链与量测迭代、自动验收的流程",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e422",
+        "independentRoute": "portable",
+        "why": "响度与真峰值目标及限幅余量、偏差读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e0",
+        "independentRoute": "portable",
+        "why": "主体是量出的拍帧换算与落点帧数、自相关周期",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e3",
+        "independentRoute": "card-coupled",
+        "why": "cue 调用的参数与该片固定帧号",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e315",
+        "independentRoute": "portable",
+        "why": "歌词行起点与平均间隔的实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e325",
+        "independentRoute": "portable",
+        "why": "主体是起音自相关量出的间隔与 BPM 读数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e337",
+        "independentRoute": "portable",
+        "why": "主体是量出的拍间隔、拍点相位与起音命中统计",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e346",
+        "independentRoute": "practice",
+        "why": "混音上做自相关测拍失败的教训，读数不可靠",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e352",
+        "independentRoute": "portable",
+        "why": "主体是量出的配乐起点、拉伸比、折算 BPM 与段长",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e383",
+        "independentRoute": "skipped-or-conflict",
+        "why": "只概述全代码生成与声源清单，无步骤参数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e375",
+        "independentRoute": "skipped-or-conflict",
+        "why": "某片声音素材的描述清单，无步骤参数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e411",
+        "independentRoute": "skipped-or-conflict",
+        "why": "一句话概述，无步骤无参数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e348",
+        "independentRoute": "portable",
+        "why": "配乐描述加时长响度真峰值实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e349",
+        "independentRoute": "portable",
+        "why": "主体是音效文件量出的时长、响度、响度范围、峰值",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e350",
+        "independentRoute": "portable",
+        "why": "音效描述加时长响度实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e351",
+        "independentRoute": "practice",
+        "why": "微调配乐速度对切点、音效切单发卡帧的做法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e353",
+        "independentRoute": "portable",
+        "why": "主体是三个成片文件量出的响度、峰值与末帧时刻",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e354",
+        "independentRoute": "skipped-or-conflict",
+        "why": "只说量不出",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e355",
+        "independentRoute": "portable",
+        "why": "成片编码规格与码率的实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e370",
+        "independentRoute": "card-coupled",
+        "why": "某片三条音频提示词的写死速度与母带配置",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e343",
+        "independentRoute": "card-coupled",
+        "why": "某片段落设计，带固定速度与落点",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e344",
+        "independentRoute": "practice",
+        "why": "台词多遍择优与从语音算口型的工序",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e345",
+        "independentRoute": "portable",
+        "why": "主体是成片量出的响度、逐秒 RMS 与最响最静秒位",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e393",
+        "independentRoute": "practice",
+        "why": "固定种子合成与提示点表回测起音的做法为主",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e404",
+        "independentRoute": "practice",
+        "why": "音效生成加代码补合成的流程与提示词修法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e413",
+        "independentRoute": "portable",
+        "why": "声源清单加终混响度读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e378",
+        "independentRoute": "portable",
+        "why": "声源清单加成片响度读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e322",
+        "independentRoute": "practice",
+        "why": "多行共用一段音乐加短淡入淡出的做法，余未公开",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e323",
+        "independentRoute": "portable",
+        "why": "主体是成片音轨量出的时长、响度、真峰值读数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e324",
+        "independentRoute": "portable",
+        "why": "主体是量出的淡入淡出逐 50 ms 电平曲线",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e376",
+        "independentRoute": "skipped-or-conflict",
+        "why": "只概述全程序化与声源清单",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e294",
+        "independentRoute": "portable",
+        "why": "主体是成片量出的响度、响度范围与真峰值",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e295",
+        "independentRoute": "skipped-or-conflict",
+        "why": "两个响度读数对不上、原因未查的对账行",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e296",
+        "independentRoute": "portable",
+        "why": "停顿处静音电平的实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e297",
+        "independentRoute": "portable",
+        "why": "主体是量出的停顿数量与时长分布",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e298",
+        "independentRoute": "portable",
+        "why": "十段旁白起止与段长的实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e299",
+        "independentRoute": "portable",
+        "why": "来源卡起止时刻与段长的实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e300",
+        "independentRoute": "skipped-or-conflict",
+        "why": "只说发音没人核过",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e394",
+        "independentRoute": "portable",
+        "why": "声源清单加终混响度读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e356",
+        "independentRoute": "skipped-or-conflict",
+        "why": "无音轨且未公开",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e338",
+        "independentRoute": "portable",
+        "why": "主体是成片量出的响度、真峰值与音频规格",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e339",
+        "independentRoute": "portable",
+        "why": "主体是量出的开头结尾逐窗电平曲线",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e340",
+        "independentRoute": "skipped-or-conflict",
+        "why": "配乐来源未公开",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e395",
+        "independentRoute": "portable",
+        "why": "声源清单加配乐速度自报读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e399",
+        "independentRoute": "portable",
+        "why": "声源清单加终混响度读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e326",
+        "independentRoute": "portable",
+        "why": "按拍电平与时刻的实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e327",
+        "independentRoute": "portable",
+        "why": "主体是量出的低音加重拍位与抬升分贝数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e328",
+        "independentRoute": "practice",
+        "why": "切换前抽低音、结尾前留静音再重击的手法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e329",
+        "independentRoute": "portable",
+        "why": "主体是三个文件量出的响度、真峰值与电平范围",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e330",
+        "independentRoute": "portable",
+        "why": "低频最响帧号与电平的实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e331",
+        "independentRoute": "skipped-or-conflict",
+        "why": "一句概述，其余未公开",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e332",
+        "independentRoute": "portable",
+        "why": "主体是成片量出的音频采样率与码率读数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e333",
+        "independentRoute": "portable",
+        "why": "主体是成片与预告量出的响度、真峰值、时长",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e334",
+        "independentRoute": "portable",
+        "why": "点击与切点的声画偏移实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e335",
+        "independentRoute": "skipped-or-conflict",
+        "why": "一句原文描述，无步骤无参数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e336",
+        "independentRoute": "skipped-or-conflict",
+        "why": "只说没人听过",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e373",
+        "independentRoute": "practice",
+        "why": "音效覆盖清单与避免削波叠音的要求",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e372",
+        "independentRoute": "card-coupled",
+        "why": "某平台的声音库、克隆时长与计价参数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e374",
+        "independentRoute": "skipped-or-conflict",
+        "why": "某案例声音素材的描述清单，未验证",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e392",
+        "independentRoute": "card-coupled",
+        "why": "主体是该片音频提示词写死的时长、BPM 与按秒分段",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e384",
+        "independentRoute": "card-coupled",
+        "why": "某片声音段落设计，带固定速度与停拍时刻",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e385",
+        "independentRoute": "card-coupled",
+        "why": "某片逐段配乐与音效的设计表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e386",
+        "independentRoute": "card-coupled",
+        "why": "某片逐段音效与配乐的设计表",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e377",
+        "independentRoute": "skipped-or-conflict",
+        "why": "一句话概述加声源清单",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e418",
+        "independentRoute": "practice",
+        "why": "提示词里写嘴型锁与音频否定项的规则",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e387",
+        "independentRoute": "practice",
+        "why": "先出多版音乐再按拍网格建时间线的工序",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e388",
+        "independentRoute": "card-coupled",
+        "why": "主体是该片音乐提示词写死的时长、BPM 与分段时间码",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e390",
+        "independentRoute": "card-coupled",
+        "why": "某片前奏音乐提示词的写死时长与速度",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e400",
+        "independentRoute": "portable",
+        "why": "配乐首重音、速度、响度与落点的实测读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e416",
+        "independentRoute": "practice",
+        "why": "音乐生成前报价、文字写结构、量测拒收的规则",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e382",
+        "independentRoute": "card-coupled",
+        "why": "主体是指定生成接口的音色、稳定度与时长参数",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e391",
+        "independentRoute": "card-coupled",
+        "why": "主体是该片配乐提示词写死的 BPM 与按秒分段",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e447",
+        "independentRoute": "practice",
+        "why": "旁白与字幕数字分两套写法的做法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e448",
+        "independentRoute": "portable",
+        "why": "配音留白、停顿上限与响度的通用量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e449",
+        "independentRoute": "portable",
+        "why": "返工剪掉的静音与停顿时长、合计时长读数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e462",
+        "independentRoute": "practice",
+        "why": "参考素材分工与图形随词出现的提示词写法",
+        "rubric": "v2"
       },
       {
         "sourceId": "e463",
         "independentRoute": "card-coupled",
-        "why": "本片逐句时间表",
-        "seeds": [
-          20261122
-        ]
+        "why": "主体是该片旁白台词与写死的逐句秒点对应表",
+        "rubric": "v1"
       },
       {
         "sourceId": "e464",
+        "independentRoute": "card-coupled",
+        "why": "某片旁白配乐音效的专属提示词内容",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e465",
+        "independentRoute": "card-coupled",
+        "why": "主体是指定配音接口的音色、格式与各项设置值",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e467",
         "independentRoute": "practice",
-        "why": "旁白与配乐做法",
-        "seeds": [
-          20261122
-        ]
+        "why": "先写临时文件再就位、就绪标记最后写的交接工序",
+        "rubric": "v2"
       },
       {
         "sourceId": "e470",
         "independentRoute": "card-coupled",
-        "why": "平台专属配音规格",
-        "seeds": [
-          7731
-        ]
+        "why": "某平台声线、克隆样本时长与计价参数",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e443",
+        "independentRoute": "portable",
+        "why": "字幕停留、打字速度与标点停顿的时序量",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e450",
+        "independentRoute": "practice",
+        "why": "弃用识别词时间、改吸附真实停顿的方法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e451",
+        "independentRoute": "portable",
+        "why": "主体是画面量出的字幕位置像素读数与样式",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e452",
+        "independentRoute": "portable",
+        "why": "字幕块相对词时间的提前量与尾留时长",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e453",
+        "independentRoute": "card-coupled",
+        "why": "某片逐场景字幕块数的固定数值",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e454",
+        "independentRoute": "portable",
+        "why": "主体是成片量出的字幕块间与场景间空白时长",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e455",
+        "independentRoute": "portable",
+        "why": "主体是量出的字幕淡入帧数分布",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e456",
+        "independentRoute": "portable",
+        "why": "主体是量出的字幕与旁白起声偏移分布",
+        "rubric": "v1"
+      },
+      {
+        "sourceId": "e457",
+        "independentRoute": "practice",
+        "why": "字幕空白随旧场景淡出起算的规则，读数是例证",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e458",
+        "independentRoute": "practice",
+        "why": "裁字幕带统计墨量的量测方法与取高教训",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e459",
+        "independentRoute": "practice",
+        "why": "歌词按音节三态着色当字幕的做法",
+        "rubric": "v2"
+      },
+      {
+        "sourceId": "e460",
+        "independentRoute": "portable",
+        "why": "末屏句与最后一句出现时刻的画面读数",
+        "rubric": "v2"
       }
-    ]
+    ],
+    "legacy": {
+      "method": "四审前：两组固定种子（20261122、7731）各从 417 条明细里无放回随机抽 60 条，复核员只读源文判定去向；判据是收紧前的口径",
+      "sampleSize": 109,
+      "disagreements": [
+        "e9",
+        "e17",
+        "e30",
+        "e54",
+        "e127",
+        "e131",
+        "e134",
+        "e144",
+        "e370",
+        "e384",
+        "e464",
+        "e19",
+        "e171",
+        "e218",
+        "e253",
+        "e257",
+        "e334",
+        "e391"
+      ]
+    }
   },
   "conflicts": [
     {
@@ -2362,7 +4426,7 @@
     {
       "sourceId": "e400",
       "caseId": "case-01-original",
-      "route": "practice",
+      "route": "portable",
       "text": "提示词写约 140 BPM，我们量出 139.96 BPM；带时间码的 25 s 提示词返回 42 s（与「时长按提示词」的预期冲突）",
       "attachedTo": [],
       "note": "数值单位与该条先验对不上或该条不是可移植量，冲突原文留在总账"
@@ -2410,6 +4474,26 @@
       "docRef": "声音配乐配音字幕汇编 §7 ^e433；原出处：27 §3.2"
     },
     {
+      "sourceId": "e383",
+      "section": 12,
+      "caseId": "case-02",
+      "title": "案例 02 程序音频",
+      "text": "Web Audio API 合成翅膀声/火/命中/风;音乐用代码作曲并随战斗切换;弦乐、竖琴、圆号、太鼓,巨型头目 战加合唱;全部由代码生成",
+      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁",
+      "evidenceLabel": "原文陈述",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e383；原出处：原文 § What's Inside/Step 2"
+    },
+    {
+      "sourceId": "e411",
+      "section": 12,
+      "caseId": "case-03",
+      "title": "透明机械头 机械声",
+      "text": "Python DSP 合成机械声",
+      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁",
+      "evidenceLabel": "原文陈述",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e411；原出处：003 § 分工"
+    },
+    {
       "sourceId": "e354",
       "section": 12,
       "caseId": "case-05",
@@ -2418,6 +4502,16 @@
       "reason": "无可迁的量或做法（未公开或无声音的陈述）",
       "evidenceLabel": "实测",
       "docRef": "声音配乐配音字幕汇编 §12 ^e354；原出处：05/09 §4.3、§6.3"
+    },
+    {
+      "sourceId": "e376",
+      "section": 12,
+      "caseId": "case-16",
+      "title": "全程序化声音",
+      "text": "音乐与全部音效在游戏中实时计算,无音频文件:脚步、剑击、铃、环境、配乐;腰间小铃按 R 响,回声指向当前目标",
+      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁",
+      "evidenceLabel": "原文陈述",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e376；原出处：原文 § Step 4"
     },
     {
       "sourceId": "e295",
@@ -2460,6 +4554,26 @@
       "docRef": "声音配乐配音字幕汇编 §12 ^e340；原出处：23/09 §4.3、§5.1"
     },
     {
+      "sourceId": "e331",
+      "section": 12,
+      "caseId": "case-27",
+      "title": "音乐与音效制作",
+      "text": "音乐为合成，每个音效按画面帧号放置（原文）；音色合成法、效果器、混音链未公开",
+      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁",
+      "evidenceLabel": "原文陈述+未公开",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e331；原出处：27/09 §4.2"
+    },
+    {
+      "sourceId": "e335",
+      "section": 12,
+      "caseId": "case-29",
+      "title": "配乐停顿配动作",
+      "text": "Doors 阶段“配乐停顿时地板铺开”（原文）",
+      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁",
+      "evidenceLabel": "原文陈述",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e335；原出处：29/09 §4.1"
+    },
+    {
       "sourceId": "e336",
       "section": 12,
       "caseId": "case-29",
@@ -2470,14 +4584,14 @@
       "docRef": "声音配乐配音字幕汇编 §12 ^e336；原出处：29/09 §4.3、§5.2"
     },
     {
-      "sourceId": "e460",
-      "section": 14,
-      "caseId": "case-20",
-      "title": "收尾句",
-      "text": "末屏句 “No recordings. No TTS. No neural nets.”（约 34.5 s 起）；约 31.5 s 出现最后一句",
-      "reason": "无可迁的量或做法（未公开或无声音的陈述）",
-      "evidenceLabel": "画面读数",
-      "docRef": "声音配乐配音字幕汇编 §14 ^e460；原出处：20/09 §1.3、§2.3"
+      "sourceId": "e377",
+      "section": 12,
+      "caseId": "case-b06",
+      "title": "博客案例 b06 音轨",
+      "text": "原创音轨全由代码合成:鼓、贝斯、风、伺服、犬吠与嚎叫",
+      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁",
+      "evidenceLabel": "原文陈述",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e377；原出处：原文 § Step 1"
     }
   ],
   "ledger": [
@@ -2519,7 +4633,7 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-27",
-      "route": "practice",
+      "route": "skipped-or-conflict",
       "summaryOf": "e331",
       "targets": []
     },
@@ -2539,7 +4653,7 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-05",
-      "route": "practice",
+      "route": "card-coupled",
       "summaryOf": "e370",
       "targets": []
     },
@@ -2583,7 +4697,7 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-16",
-      "route": "practice",
+      "route": "skipped-or-conflict",
       "summaryOf": "e376",
       "targets": []
     },
@@ -2593,7 +4707,7 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-02",
-      "route": "practice",
+      "route": "skipped-or-conflict",
       "summaryOf": "e383",
       "targets": []
     },
@@ -2627,7 +4741,7 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "summaryOf": "e191",
       "targets": []
     },
@@ -2637,9 +4751,9 @@
       "kind": "detail",
       "section": 1,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e191.practice"
+        "audio-subs.e191.card"
       ]
     },
     {
@@ -2681,10 +4795,9 @@
       "kind": "detail",
       "section": 1,
       "caseId": "case-02",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "audio-subs.e359.frequency",
-        "audio-subs.e359.duration"
+        "audio-subs.e359.practice"
       ]
     },
     {
@@ -2693,9 +4806,9 @@
       "kind": "detail",
       "section": 1,
       "caseId": "case-02",
-      "route": "card-coupled",
+      "route": "practice",
       "targets": [
-        "audio-subs.e360.card"
+        "audio-subs.e360.practice"
       ]
     },
     {
@@ -2925,10 +5038,9 @@
       "kind": "detail",
       "section": 2,
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e8.level",
-        "audio-subs.e8.duration"
+        "audio-subs.e8.card"
       ]
     },
     {
@@ -2937,9 +5049,9 @@
       "kind": "detail",
       "section": 2,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e9.practice"
+        "audio-subs.e9.card"
       ]
     },
     {
@@ -3047,9 +5159,9 @@
       "kind": "detail",
       "section": 2,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e19.practice"
+        "audio-subs.e19.card"
       ]
     },
     {
@@ -3165,7 +5277,7 @@
       "kind": "summary",
       "section": 3,
       "caseId": "case-02",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "e360",
       "targets": []
     },
@@ -3218,9 +5330,9 @@
       "kind": "detail",
       "section": 3,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e28.practice"
+        "audio-subs.e28.card"
       ]
     },
     {
@@ -3229,9 +5341,9 @@
       "kind": "detail",
       "section": 3,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e30.practice"
+        "audio-subs.e30.card"
       ]
     },
     {
@@ -3251,9 +5363,9 @@
       "kind": "detail",
       "section": 3,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e32.practice"
+        "audio-subs.e32.card"
       ]
     },
     {
@@ -3411,11 +5523,9 @@
       "kind": "summary",
       "section": 4,
       "caseId": "case-02",
-      "route": "portable",
+      "route": "practice",
       "summaryOf": "e359",
-      "targets": [
-        "audio-subs.sum.s04-t1-r06"
-      ]
+      "targets": []
     },
     {
       "sourceLine": 273,
@@ -4429,9 +6539,9 @@
       "kind": "detail",
       "section": 7,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e29.practice"
+        "audio-subs.e29.card"
       ]
     },
     {
@@ -4451,9 +6561,9 @@
       "kind": "detail",
       "section": 7,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e54.practice"
+        "audio-subs.e54.card"
       ]
     },
     {
@@ -4495,9 +6605,9 @@
       "kind": "detail",
       "section": 7,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e100.practice"
+        "audio-subs.e100.card"
       ]
     },
     {
@@ -5139,9 +7249,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e125.practice"
+        "audio-subs.e125.card"
       ]
     },
     {
@@ -5150,9 +7260,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e126.practice"
+        "audio-subs.e126.card"
       ]
     },
     {
@@ -5161,9 +7271,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e127.practice"
+        "audio-subs.e127.card"
       ]
     },
     {
@@ -5238,9 +7348,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e134.practice"
+        "audio-subs.e134.card"
       ]
     },
     {
@@ -5348,9 +7458,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e144.practice"
+        "audio-subs.e144.card"
       ]
     },
     {
@@ -5766,9 +7876,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e182.practice"
+        "audio-subs.e182.card"
       ]
     },
     {
@@ -5854,9 +7964,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e190.practice"
+        "audio-subs.e190.card"
       ]
     },
     {
@@ -5898,9 +8008,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e216.practice"
+        "audio-subs.e216.card"
       ]
     },
     {
@@ -6000,9 +8110,9 @@
       "kind": "detail",
       "section": 9,
       "caseId": "case-ext01",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e218.practice"
+        "audio-subs.e218.card"
       ]
     },
     {
@@ -6418,9 +8528,9 @@
       "kind": "detail",
       "section": 9,
       "caseId": "case-02",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e256.practice"
+        "audio-subs.e256.card"
       ]
     },
     {
@@ -6638,9 +8748,9 @@
       "kind": "detail",
       "section": 9,
       "caseId": "case-02",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e276.practice"
+        "audio-subs.e276.card"
       ]
     },
     {
@@ -6759,9 +8869,14 @@
       "kind": "detail",
       "section": 9,
       "caseId": "case-01-legacy",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "audio-subs.e293.practice"
+        "audio-subs.e293.loudness",
+        "audio-subs.e293.loudness-range",
+        "audio-subs.e293.loudness-error",
+        "audio-subs.e293.true-peak-level",
+        "audio-subs.e293.residual-level",
+        "audio-subs.e293.time-window"
       ]
     },
     {
@@ -6912,9 +9027,11 @@
       "kind": "summary",
       "section": 10,
       "caseId": "case-01-original",
-      "route": "practice",
+      "route": "portable",
       "summaryOf": "e400",
-      "targets": []
+      "targets": [
+        "audio-subs.sum.s10-t1-r11"
+      ]
     },
     {
       "sourceLine": 1233,
@@ -7029,9 +9146,9 @@
       "kind": "detail",
       "section": 10,
       "caseId": "case-01r",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e290.practice"
+        "audio-subs.e290.card"
       ]
     },
     {
@@ -7122,9 +9239,11 @@
       "kind": "summary",
       "section": 11,
       "caseId": "case-20",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "e315",
-      "targets": []
+      "targets": [
+        "audio-subs.sum.s11-t1-r06"
+      ]
     },
     {
       "sourceLine": 1275,
@@ -7144,9 +9263,11 @@
       "kind": "summary",
       "section": 11,
       "caseId": "case-01-original",
-      "route": "practice",
+      "route": "portable",
       "summaryOf": "e400",
-      "targets": []
+      "targets": [
+        "audio-subs.sum.s11-t1-r08"
+      ]
     },
     {
       "sourceLine": 1277,
@@ -7230,9 +9351,10 @@
       "kind": "detail",
       "section": 11,
       "caseId": "case-20",
-      "route": "card-coupled",
+      "route": "portable",
       "targets": [
-        "audio-subs.e315.card"
+        "audio-subs.e315.line-interval",
+        "audio-subs.e315.last-line-time"
       ]
     },
     {
@@ -7292,10 +9414,8 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-02",
-      "route": "practice",
-      "targets": [
-        "audio-subs.e383.practice"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceLine": 1327,
@@ -7314,10 +9434,8 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-03",
-      "route": "practice",
-      "targets": [
-        "audio-subs.e411.practice"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceLine": 1336,
@@ -7415,9 +9533,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-05",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e370.practice"
+        "audio-subs.e370.card"
       ]
     },
     {
@@ -7523,7 +9641,8 @@
         "audio-subs.e323.duration",
         "audio-subs.e323.loudness",
         "audio-subs.e323.loudness-range",
-        "audio-subs.e323.level"
+        "audio-subs.e323.level",
+        "audio-subs.e323.analysis-window"
       ]
     },
     {
@@ -7544,10 +9663,8 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-16",
-      "route": "practice",
-      "targets": [
-        "audio-subs.e376.practice"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceLine": 1430,
@@ -7603,9 +9720,10 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-18",
-      "route": "card-coupled",
+      "route": "portable",
       "targets": [
-        "audio-subs.e298.card"
+        "audio-subs.e298.duration",
+        "audio-subs.e298.segment-duration"
       ]
     },
     {
@@ -7614,9 +9732,11 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-18",
-      "route": "card-coupled",
+      "route": "portable",
       "targets": [
-        "audio-subs.e299.card"
+        "audio-subs.e299.event-time",
+        "audio-subs.e299.end-time",
+        "audio-subs.e299.duration"
       ]
     },
     {
@@ -7712,9 +9832,14 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-27",
-      "route": "card-coupled",
+      "route": "portable",
       "targets": [
-        "audio-subs.e326.card"
+        "audio-subs.e326.time-window",
+        "audio-subs.e326.event-time",
+        "audio-subs.e326.pause-time",
+        "audio-subs.e326.final-hit-time",
+        "audio-subs.e326.tail-silence-frames",
+        "audio-subs.e326.silence-threshold"
       ]
     },
     {
@@ -7769,10 +9894,8 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-27",
-      "route": "practice",
-      "targets": [
-        "audio-subs.e331.practice"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceLine": 1519,
@@ -7817,10 +9940,8 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-29",
-      "route": "practice",
-      "targets": [
-        "audio-subs.e335.practice"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceLine": 1534,
@@ -7881,9 +10002,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-b05",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e384.practice"
+        "audio-subs.e384.card"
       ]
     },
     {
@@ -7892,9 +10013,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-b05",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e385.practice"
+        "audio-subs.e385.card"
       ]
     },
     {
@@ -7903,9 +10024,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-b05",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e386.practice"
+        "audio-subs.e386.card"
       ]
     },
     {
@@ -7914,10 +10035,8 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-b06",
-      "route": "practice",
-      "targets": [
-        "audio-subs.e377.practice"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceLine": 1582,
@@ -7958,9 +10077,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-01-original",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e390.practice"
+        "audio-subs.e390.card"
       ]
     },
     {
@@ -7969,9 +10088,12 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-01-original",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "audio-subs.e400.practice"
+        "audio-subs.e400.event-time",
+        "audio-subs.e400.final-hit-time",
+        "audio-subs.e400.intro-accent-time",
+        "audio-subs.e400.loudness"
       ]
     },
     {
@@ -8063,7 +10185,7 @@
       "kind": "summary",
       "section": 13,
       "caseId": "case-b05",
-      "route": "practice",
+      "route": "card-coupled",
       "summaryOf": "e464",
       "targets": []
     },
@@ -8149,9 +10271,9 @@
       "kind": "detail",
       "section": 13,
       "caseId": "case-b05",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e464.practice"
+        "audio-subs.e464.card"
       ]
     },
     {
@@ -8418,8 +10540,11 @@
       "kind": "detail",
       "section": 14,
       "caseId": "case-20",
-      "route": "skipped-or-conflict",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "audio-subs.e460.event-time",
+        "audio-subs.e460.end-card-time"
+      ]
     }
   ]
 }

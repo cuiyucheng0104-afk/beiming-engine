@@ -217,7 +217,7 @@ test('数值精确：小数不截断、千分位不吞、物理量不错配、px
     assert.deepEqual(e.value, value, id);
   }
   const all = [...priors, ...cardPriors, ...practices];
-  // e299 是挂卡条目：5.97 s 时长要在，起点 173.2 s 不能当成可移植的时长。
+  // e299：5.97 s 段长要在，起点 173.2 s 不能当成时长（四审起它是可移植条目，起止时刻另有名字）。
   const tail = all.filter((e) => /\be299\b/.test(e.id));
   assert.ok(tail.some((e) => (e.quantities ?? [{ value: e.value, unit: e.unit }]).some((q) => q.unit === 's' && q.value === 5.97)), 'e299 5.97 s');
   const tailDur = store.get('audio-subs.e299.duration');
@@ -449,4 +449,125 @@ test('三审：§8.1 两条边界——带实现参数表的源码条目挂卡�
   const sum = priors.find((p) => p.id === 'audio-subs.sum.s01-t1-r09');
   assert.deepEqual(sum.summaryOf, priors.filter((p) => p.id.startsWith('audio-subs.e378.')).map((p) => p.id));
   for (const id of ['e325', 'e337']) assert.ok(loadAudioSubsPriorsStore().get(`audio-subs.${id}.beat-interval`)?.unit === 'ms', id);
+});
+
+// 四审（G_REV-R4）：同一行多个随机算式、外层变量乘数、米制距离、年龄词误当秒数；§8.1 归类再收紧。
+const coupledOrPractice = [...cardPriors, ...practices];
+const quantitiesOf = (sid) => coupledOrPractice.find((e) => e.sourceId === sid).quantities;
+const RAND_SRC = String.raw`(?:rnd|rand)(?:\^[\d.]+|²)?\s*[·×*]\s*`;
+const NUM_SRC = String.raw`[−-]?\d*\.?\d+`;
+const toNum = (s) => Number(s.replace('−', '-'));
+const near = (a, b) => Math.abs(a - b) < 1e-9;
+
+test('四审：点名四条按源式取值（重置区间、外层乘数、距离区间、年龄词）', () => {
+  // e163：同一个计时器先 12+rnd×8 s，触发后重置为 24+rnd×14，两段区间都要在。
+  assert.deepEqual(quantitiesOf('e163').filter((q) => 'jitter' in q), [
+    { value: [12, 20], unit: 's', rawUnit: 's', base: 12, jitter: 8 },
+    { value: [24, 38], unit: 's', rawUnit: 's', base: 24, jitter: 14 },
+  ]);
+  // e115：creak·(0.6+rand·0.9) s 的上下界都乘 creak，不是无条件的 [0.6, 1.5] s。
+  assert.deepEqual(quantitiesOf('e115').find((q) => q.base === 0.6), { value: [0.6, 1.5], unit: 's', rawUnit: 's', base: 0.6, jitter: 0.9, scaleBy: 'creak' });
+  assert.ok(!quantitiesOf('e115').some((q) => !q.scaleBy && q.unit === 's' && q.value[0] === 0.6), 'e115 不给无条件秒数');
+  // e271：雷声间隔 8+rand·12 s 与距离 1500+rand·3500 m 各一条，高度 +300 m 也在。
+  const thunder = quantitiesOf('e271');
+  assert.deepEqual(thunder.find((q) => q.base === 8), { value: [8, 20], unit: 's', rawUnit: 's', base: 8, jitter: 12 });
+  assert.deepEqual(thunder.find((q) => q.unit === 'm' && 'jitter' in q), { value: [1500, 5000], unit: 'm', rawUnit: 'm', base: 1500, jitter: 3500 });
+  assert.ok(thunder.some((q) => q.unit === 'm' && q.value === 300), 'e271 高度 300 m');
+  // e392：early 30s 是年龄，不是 30 s；秒数只有语音窗、音乐窗与 2.6 s。
+  assert.deepEqual(quantitiesOf('e392').filter((q) => q.unit === 's').map((q) => q.value), [[0, 2.6], [0, 10], 2.6]);
+});
+
+test('四审：全表带单位的随机算式一个不漏，外层乘数都标 scaleBy', () => {
+  const unitOf = { s: 's', ms: 'ms', Hz: 'Hz', m: 'm', 音分: 'cent' };
+  const rand = new RegExp(String.raw`(?:([A-Za-z_]\w*)\s*[·×*]\s*\(\s*)?(${NUM_SRC})\s*[+＋]\s*${RAND_SRC}(${NUM_SRC})\)?\s*(ms|s|Hz|m|音分)(?![A-Za-z/])`, 'g');
+  let seen = 0;
+  for (const e of coupledOrPractice) {
+    for (const m of e.text.matchAll(rand)) {
+      const [, scale, base, jitter, unit] = m;
+      seen += 1;
+      const hit = e.quantities.find((q) => q.unit === unitOf[unit] && near(q.base, toNum(base)) && near(q.jitter, toNum(jitter)));
+      assert.ok(hit, `${e.sourceId} 漏了 ${m[0]}`);
+      assert.equal(hit.scaleBy, scale, `${e.sourceId} ${m[0]} 的外层乘数`);
+    }
+    for (const q of e.quantities.filter((x) => x.scaleBy)) assert.match(e.text, new RegExp(String.raw`(?<![A-Za-z0-9_])${q.scaleBy}\s*[·×*]`), `${e.sourceId} scaleBy=${q.scaleBy}`);
+  }
+  assert.ok(seen >= 26, `带单位的随机算式 ${seen} 个`);
+  // 没有自带单位、但能从上下文认出单位的三种写法：同一变量再次赋值、紧跟的括号变体、「A 与 B 单位」并列。
+  assert.ok(quantitiesOf('e114').some((q) => q.unit === 's' && q.base === 12 && q.jitter === 18), 'e114 括号里的 12+rand·18 也是秒');
+  assert.ok(quantitiesOf('e137').some((q) => q.unit === 'cent' && q.base === -9 && q.jitter === 3), 'e137 −9+rand×3 与 +7+rand×3 都是音分');
+  assert.ok(quantitiesOf('e244').some((q) => q.unit === 'Hz' && q.value === 60 && q.scaleBy === 'rj'), 'e244 rj·60 Hz 带乘数');
+});
+
+test('四审：源文写了单位的量在产物里都有对应单位，年代与年龄词不当秒数', () => {
+  const unitOf = { 'm/s': 'm/s', m: 'm', Hz: 'Hz', kHz: 'Hz', dB: 'dB', dBFS: 'dB', ms: 'ms', s: 's', LUFS: 'LUFS', BPM: 'bpm', bpm: 'bpm' };
+  const age = /\b(?:early|mid|late)[ -]\d0s\b|(?<![\d.–~-])(?:19|20)\d0s\b/g;
+  const stated = new RegExp(String.raw`(?<![A-Za-z0-9_.])\d+(?:\.\d+)?\s?(m\/s|kHz|Hz|dBFS|dB|ms|LUFS|BPM|bpm|s|m)(?![A-Za-z/])`, 'g');
+  for (const e of coupledOrPractice) {
+    const text = e.text.replace(age, ' ');
+    const have = new Set(e.quantities.map((q) => q.unit));
+    for (const m of text.matchAll(stated)) {
+      if (/\bpx\s*=/.test(text) && m[1] === 'px') continue;
+      assert.ok(have.has(unitOf[m[1]]), `${e.sourceId} 写了「${m[0]}」，产物里没有 ${unitOf[m[1]]} 的量`);
+    }
+    for (const m of e.text.matchAll(age)) {
+      const n = Number(m[0].match(/\d+/)[0]);
+      assert.ok(!e.quantities.some((q) => q.unit === 's' && q.value === n), `${e.sourceId} 把「${m[0]}」当成 ${n} s`);
+    }
+  }
+  // 等号右边带单位的量、逗号元组里的量、同质频率列表都要取到。
+  assert.ok(quantitiesOf('e149').some((q) => q.unit === 's' && q.value === 4) && quantitiesOf('e149').some((q) => q.unit === 's' && q.value === 20), 'e149 dwell=4 s、gap=20 s');
+  assert.ok(quantitiesOf('e180').filter((q) => q.unit === 'Hz' && [110, 145].includes(q.value)).length >= 4, 'e180 鼓点元组里的 110/145 Hz');
+  assert.deepEqual(quantitiesOf('e284').filter((q) => q.unit === 'Hz').slice(0, 4).map((q) => q.value), [98, 147, 233, 392], 'e284 金属簇四个频率');
+  assert.ok(quantitiesOf('e261').some((q) => q.unit === 'm/s' && q.value === 343), 'e261 声速 343 m/s');
+  for (const e of coupledOrPractice.filter((x) => /near=0\.5/.test(x.text))) assert.ok(!e.quantities.some((q) => q.value === 0.5 || q.value?.from === 0.5), 'near=0.5 仍不当秒');
+});
+
+test('四审：§8.1 再收紧——实现或片内固定配置挂卡、成片量出的读数可移植、空泛一句话不迁', () => {
+  const route = new Map(manifest.ledger.map((r) => [r.sourceId, r.route]));
+  for (const id of ['e9', 'e126', 'e134', 'e190', 'e290', 'e390', 'e370', 'sum.s01-t1-r06']) assert.equal(route.get(id), 'card-coupled', id);
+  for (const id of ['e299', 'e400', 'sum.s11-t1-r08']) assert.equal(route.get(id), 'portable', id);
+  assert.equal(route.get('e411'), 'skipped-or-conflict');
+  const store = loadAudioSubsPriorsStore();
+  assert.deepEqual([store.get('audio-subs.e299.duration').value, store.get('audio-subs.e299.duration').unit], [5.97, 's']);
+  assert.deepEqual([store.get('audio-subs.e400.event-time').value, store.get('audio-subs.e400.event-time').unit], [0.44, 's']);
+  assert.deepEqual(priors.find((p) => p.id === 'audio-subs.sum.s11-t1-r08').summaryOf, priors.filter((p) => p.id.startsWith('audio-subs.e400.')).map((p) => p.id));
+  // 做法表里不留没有步骤、判据、参数的空泛短句。
+  for (const e of practices) assert.ok(e.text.length >= 20 || e.quantities.length > 0, `${e.sourceId} 只有一句概述`);
+});
+
+test('四审：独立盲判覆盖全部明细，任取随机种子抽 ≥ 10%（54 明细 + 13 汇总）分歧都不超一成', (t) => {
+  const { audit, ledger } = manifest;
+  const details = ledger.filter((r) => r.kind === 'detail');
+  const summaries = ledger.filter((r) => r.kind === 'summary');
+  const independent = new Map(audit.sample.map((s) => [s.sourceId, s.independentRoute]));
+  assert.deepEqual([...independent.keys()].sort(), details.map((r) => r.sourceId).sort(), '盲判一条不缺');
+  const route = new Map(ledger.map((r) => [r.sourceId, r.route]));
+  const differs = (r) => independent.get(r.summaryOf ?? r.sourceId) !== route.get(r.sourceId); // 汇总行的独立去向随它指回的明细
+  assert.deepEqual(audit.disagreements, details.filter(differs).map((r) => r.sourceId));
+  const total = ledger.filter(differs).length;
+  assert.ok(total / ledger.length < 0.06, `全表分歧 ${total}/${ledger.length}`);
+  // 固定算法的伪随机（mulberry32）：200 组种子各按源文行序无放回抽 54 条明细、13 条汇总。
+  const rng = (seed) => () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let x = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+  const draw = (pool, n, rand) => {
+    const a = [...pool];
+    for (let i = 0; i < n; i += 1) {
+      const j = i + Math.floor(rand() * (a.length - i));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a.slice(0, n);
+  };
+  let worst = 0;
+  for (let seed = 1; seed <= 200; seed += 1) {
+    const rand = rng(Math.imul(seed, 0x9e3779b1));
+    const picked = [...draw(details, 54, rand), ...draw(summaries, 13, rand)];
+    const n = picked.filter(differs).length;
+    worst = Math.max(worst, n);
+    assert.ok(n / picked.length <= 0.1, `种子 ${seed}：分歧 ${n}/${picked.length}`);
+  }
+  t.diagnostic(`全表分歧 ${total}/${ledger.length}；200 组种子里最差一组 ${worst}/67；四审前旧样本 ${audit.legacy.disagreements.length}/${audit.legacy.sampleSize}（旧口径，只记数）`);
 });
