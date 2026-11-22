@@ -2,6 +2,7 @@
 // 只用来核「参考读数过自己的题、反例判不过」；正式的跑题器是另一个工作包。
 // 读数按指标名归拢：{ 'music.align': {…}, … }，交的是原始量（时刻、帧号、逐帧矩阵、每帧占比）；偏差、中位数、命中率、随机基线由判分线自己重算，读数里自带的汇总不认。
 // 读数不可信：数组必须密实（没有空洞、没有附加属性）、元素都是有限数；缺项、null、NaN、字符串一律算这条线不过，不抛错。
+// 帧号一律是题目时间线上的：第 0 帧是成片第一帧，有效窗口是 [0, deliverable.frames)，由题目定，读数改不了；参考片的绝对帧号要先换过来。
 // 灰度帧是 Uint8Array（宽×高），彩色帧是 { width, height, rgba }（显示空间 sRGB，原点左上）；坏帧由 observe 报 RangeError。
 import { align } from '../../../observe/align.mjs';
 import { colorPalette, motionZoomPan } from '../../../observe/metrics/index.mjs';
@@ -107,7 +108,8 @@ export function readLock(pairs, [width, height], { maxPan }) {
 
 /**
  * 15-2：逐帧的相机矩阵（每帧 { world, proj }，各是 16 个有限数的普通数组）和第 0 帧逐分量比。
- * changedAt 是第一处和第 0 帧不同、或者矩阵不完整（缺帧、不是 16 个有限数）的帧号，全相同是 null；cameras 不是数组时 frames 回 null。
+ * changedAt 是第一处和第 0 帧不同、或者矩阵不完整（缺帧、不是 16 个有限数）的帧号，全相同是 null。
+ * frames 是帧数；cameras 不是数组、或者数组的键数对不上（有空洞，或者挂了 fps 之类的附加属性）时回 null。
  */
 export function readCameraStatic(cameras) {
   if (!Array.isArray(cameras)) return { frames: null, changedAt: null };
@@ -116,21 +118,22 @@ export function readCameraStatic(cameras) {
   // findIndex 不跳过空洞；第 0 帧自己不完整时在第 0 帧就停
   const changed = cameras.findIndex((cam) => !(plain(cam) && matrix(cam.world) && matrix(cam.proj)
     && same(cam.world, cameras[0].world) && same(cam.proj, cameras[0].proj)));
-  return { frames: cameras.length, changedAt: changed === -1 ? null : changed };
+  return { frames: Reflect.ownKeys(cameras).length === cameras.length + 1 ? cameras.length : null, changedAt: changed === -1 ? null : changed };
 }
 
 /* ---------------- 判分 ---------------- */
 
 // 5-1、18-2：事件（硬切、触发词的帧号）减去题面规定的提前量 leadFrames 是应起帧，每个应起帧 tolFrames 帧内都有记号，且比随机基线高出 minLiftOverRandom。
 // 题目给了 eventFrames 的（5-1 的硬切），量到的事件帧号必须就是这几个；给了 moves 的，记号必须正好那么多个，按先后和事件一一对应，没给的取离得最近的记号。
-function hits(r, a) {
-  if (!rising(r.eventFrames) || r.eventFrames.length !== a.events.length || !rising(r.markFrames)
+// 窗口是题目的 [0, frames)：事件、应起帧、记号三样都得落在里面，随机基线也按它算。读数可以不报 range，报了就必须正好是这个窗口（报宽了会摊薄基线）。
+function hits(r, a, frames) {
+  if (!(Number.isInteger(frames) && frames > 0) || !rising(r.eventFrames) || r.eventFrames.length !== a.events.length || !rising(r.markFrames)
     || (a.eventFrames !== undefined && !r.eventFrames.every((frame, i) => frame === a.eventFrames[i]))
-    || !denseFinite(r.range, 2) || r.range.length !== 2 || !r.range.every(Number.isInteger) || !(r.range[0] < r.range[1])) return false;
+    || (r.range !== undefined && !(denseFinite(r.range, 2) && r.range.length === 2 && r.range[0] === 0 && r.range[1] === frames))) return false;
   const expected = r.eventFrames.map((frame, i) => frame - (a.leadFrames?.[i] ?? 0));
-  if (!expected.every((frame) => frame >= r.range[0] && frame < r.range[1])) return false;
+  if (![r.eventFrames, expected, r.markFrames].every((list) => list.every((frame) => frame >= 0 && frame < frames))) return false;
   if (a.moves !== undefined && r.markFrames.length !== a.moves) return false;
-  const { offsetsFrames, randomRate } = readHits(expected, r.markFrames, r.range, a.tolFrames);
+  const { offsetsFrames, randomRate } = readHits(expected, r.markFrames, [0, frames], a.tolFrames);
   const offsets = a.moves === undefined ? offsetsFrames : expected.map((frame, i) => Math.abs(r.markFrames[i] - frame));
   return offsets.every((d) => d <= a.tolFrames) && 1 - randomRate >= a.minLiftOverRandom;
 }
@@ -152,11 +155,11 @@ const lines = (checks) => checks.some(([given]) => given) && checks.every(([give
 const JUDGES = {
   'music.align': (r, a) => within(r.corr, [a.minCorr, 1]) && within(r.stretch, a.stretch),
   'beat.onset-hit': hits,
-  'narration.timing': (r, a) => lines([
+  'narration.timing': (r, a, frames) => lines([
     [a.maxSubtitleLagSec !== undefined, () => subtitles(r, a)],
     [a.fadeFrames !== undefined, () => fades(r, a)],
     [a.minLeadSec !== undefined, () => pauses(r, a)],
-    [a.events !== undefined, () => hits(r, a)],
+    [a.events !== undefined, () => hits(r, a, frames)],
   ]),
   'color.palette': (r, a) => denseFinite(r.shares, a.minScenes) && r.shares.every((share) => within(share, a.share)),
   'meta.camera-static': (r, a) => {
@@ -168,13 +171,13 @@ const JUDGES = {
     && Math.hypot(pair.dx, pair.dy) <= a.maxPanPx && num(pair.error) && pair.error >= 0 && num(pair.stillError) && Math.abs(pair.error - pair.stillError) <= a.maxErrorGap),
 };
 
-/** 照题目的 scoring 逐条判：回每条过没过、过了的权重之和、是不是满分。没给读数、读数不是对象、不认识的指标都算不过 */
+/** 照题目的 scoring 逐条判：回每条过没过、过了的权重之和、是不是满分。没给读数、读数不是对象、不认识的指标都算不过。帧窗口取题目的 deliverable.frames */
 export function score(question, readings) {
   const given = plain(readings) ? readings : {};
   const passes = (metric, args) => {
     // 读数不可信：判分线里抛了错（带取值器的对象、大到摊不开的数组）也只算这条不过
     try {
-      return Object.hasOwn(JUDGES, metric) && Object.hasOwn(given, metric) && plain(given[metric]) && JUDGES[metric](given[metric], args) === true;
+      return Object.hasOwn(JUDGES, metric) && Object.hasOwn(given, metric) && plain(given[metric]) && JUDGES[metric](given[metric], args, question.deliverable?.frames) === true;
     } catch { return false; }
   };
   const items = question.scoring.map(({ metric, args = {}, weight }) => ({ metric, weight, pass: passes(metric, args) }));

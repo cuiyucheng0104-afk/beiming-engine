@@ -1,6 +1,7 @@
 // B4：二级第二批 4 道考题（5-1[05-1]、18-1、18-2、15-2）契约校验与参考片/反例自动判分核验
 // 参考读数夹具里只有数，没有原片媒体：包络、彩色帧、灰度帧都在这里照读数现造，再交给 observe 的真实实现去量。
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -22,6 +23,40 @@ const failed = (verdict) => verdict.items.filter((item) => !item.pass).map((item
 const failedAt = (verdict) => verdict.items.flatMap((item, index) => (item.pass ? [] : [index]));
 // 一审抓到的坏数组：空洞、null、NaN、字符串、空洞和附加属性正好抵掉个数
 const holed = (values, at) => { const list = [...values]; delete list[at]; return Object.assign(list, { note: 1 }); };
+
+/* ---------------- 专名扫描 ---------------- */
+
+// 案例 05、15、18 的专名（片名、角色、人名、地名、党派、媒体）和发布平台名只以小写词元的 SHA-256 前 24 位存在这里，明文不进仓库。
+// 「哨兵」两个不是专名：是给 B4-10 验扫描器用的假词元，测试里现拼出来，源码里不连着写。
+const NOUN_HASHES = {
+  '05': ['ecc9bddb65dc44516ca3eae9'],
+  '15': ['566f0e77c60c808d3df7b1a1', '63d3b43e6d435d22e0b7cc21', '7633807107cbdcc4174f1af1', 'b05a020b94ff9f43c3b65c5a', 'def3735d7a0d2696775d6d72'],
+  '18': [
+    '076cf05c96c8c20b60923f38', '089604bb0ff1ecd14b7ea9c7', '12cea0154ec4197be1086abf', '1afa6288d29572719515162a', '234330834c41105ad5ed794f',
+    '4525c311a99de9a61848525d', '49acc9cf1abc2ba8d84ed6a8', '49dc32d144254d01d8552785', '4aa08612a8f6e9e429c9a460', '4af48d7c76b521e9d80c5230',
+    '4b42194596899bcdf9c34975', '4d4cae7427a8d6cd86e571d0', '557e4489db5fb3fbe2ad822a', '5612606d4255b7f815565530', '5873102fa0951713a8115478',
+    '58ed3bdb0c701c24d6bb0aad', '61e81a50ea9de3c9a48c95d6', '7781113a99f177280ad3e89b', '783ef849d8a6ffe64e7dd712', '7921767e6c66d880c2ab8e6f',
+    '85ef3bae7236215b8c5f4dfe', '91826add52a73308c02e18e9', '965b8a7ec41772241a9bc0d8', '9fdc4c03d5273e3f2c9c83e7', 'a60a52382d7077712def2a69',
+    'aad226149fbe8747517aeb8b', 'ae116ddc05ab23967947b990', 'b20a63a37c1698c7fb2174f8', 'b8a8419e2236fc7ae0da5ecd', 'c34305e7b35f6f0bdf4eaacb',
+    'c383a4673531ee25f43f19e0', 'c4a1e6f3639a098e68060c2a', 'c512ca0c5c1e71be19f33568', 'c880901c00eae55922076e75', 'd00622926850b0b5bcaa0970',
+    'd28f8c2373c679cc67da209e', 'd85e7e209322f1bfa433f876', 'e39d09a79f5f5dd87b8865ce', 'ebc53c4358ac0cbc5b1ed738', 'efe335d482607688ab22b4af',
+    'f9070e8db0018ad670e837ed', 'f98407019f8c4af6fbb6c9dd', 'fce1063da40b94ca30598bc9',
+  ],
+  '平台': ['50b2676afbe30c833f43fedf'],
+  '哨兵': ['7f0fc5db48e25e28bae3470a', 'c89664987661b0dc3c75a2ca'],
+};
+const NOUN_GROUP = new Map(Object.entries(NOUN_HASHES).flatMap(([group, hashes]) => hashes.map((hash) => [hash, group])));
+const tokenHash = (token) => createHash('sha256').update(token).digest('hex').slice(0, 24);
+// 分词后逐个比哈希，回 [{ line, group }]（不回词元本身，日志里不印专名）。先做 NFKC、去零宽字符，和 B1 的泄露扫描一个口径；
+// 字母按词切并转小写，驼峰、数字、下划线、连字符都断词（按词比，不按子串比：三个字母的台名会撞进普通单词里）；汉字连续段取每个 2 到 4 字的片段。
+function scanProperNouns(text) {
+  return text.normalize('NFKC').replace(/\p{Cf}/gu, '').split('\n').flatMap((line, index) => {
+    const tokens = (line.match(/\p{Script=Han}+|\p{Lu}?\p{Ll}+|\p{Lu}+(?!\p{Ll})/gu) ?? []).flatMap((run) => (/\p{Script=Han}/u.test(run)
+      ? [2, 3, 4].flatMap((size) => Array.from({ length: Math.max(0, run.length - size + 1) }, (_, i) => run.slice(i, i + size)))
+      : [run.toLowerCase()]));
+    return [...new Set(tokens)].flatMap((token) => (NOUN_GROUP.has(tokenHash(token)) ? [{ line: index + 1, group: NOUN_GROUP.get(tokenHash(token)) }] : []));
+  });
+}
 
 /* ---------------- 照读数造信号 ---------------- */
 
@@ -124,10 +159,13 @@ test('B4-2 题号、代号、参考夹具、要用的卡和随机对照照 05 �
   assert.equal(question('15-2').controls.random, undefined);
 });
 
-test('B4-3 题目、夹具、核验器和本测试文件全部零泄露', () => {
+test('B4-3 题目、夹具、核验器和本测试文件全部零泄露、零专名', () => {
   const files = [...readdirSync(QUESTIONS).map((name) => join(QUESTIONS, name)), ...readdirSync(REFS).map((name) => join(REFS, name)), fileURLToPath(import.meta.url)];
   assert.equal(files.length, 10, '4 道题、1 个核验器、4 份夹具、1 个测试');
-  for (const file of files) assert.deepEqual(scanQuestionLeaks(readFileSync(file, 'utf8')), [], file);
+  for (const file of files) {
+    assert.deepEqual(scanQuestionLeaks(readFileSync(file, 'utf8')), [], file);
+    assert.deepEqual(scanProperNouns(readFileSync(file, 'utf8')), [], `${file} 里有案例专名`);
+  }
 });
 
 /* ---------------- 5-1 ---------------- */
@@ -169,11 +207,19 @@ test('B4-4 5-1：案例 05 的读数满分；拉伸超 3%、不相关的配乐�
   // 边界：正好 2 帧过，3 帧不过
   assert.ok(full(judge(refAlign, hit([626]))));
   assert.deepEqual(failed(judge(refAlign, hit([627]))), ['beat.onset-hit']);
-  // 每 4 帧一个峰：硬切怎么放都命中，随机基线 100%，不算对上
-  const dense = Array.from({ length: 181 }, (_, i) => i * 4);
+  // 每 4 帧一个峰（第 1、5、…、717 帧）：硬切怎么放都命中，随机基线 100%，不算对上
+  const dense = Array.from({ length: 180 }, (_, i) => 1 + i * 4);
   assert.equal(stats(dense).hitRate, 1);
   assert.equal(stats(dense).randomRate, 1);
   assert.deepEqual(failed(judge(refAlign, hit(dense))), ['beat.onset-hit']);
+  // 随机基线的分母是题目的 720 帧，不是读数自报的范围：把范围报成 [0, 1440) 基线就摊成 50%，不认
+  assert.equal(readHits([ref.hardCutFrame], dense, [0, 2 * ref.frames], hitArgs.tolFrames).randomRate, 0.5);
+  assert.deepEqual(failed(judge(refAlign, hit(dense, undefined, [0, 2 * ref.frames]))), ['beat.onset-hit'], '范围翻倍摊薄基线');
+  assert.deepEqual(failed(judge(refAlign, { eventFrames: [ref.hardCutFrame], markFrames: dense })), ['beat.onset-hit'], '不报范围，基线照 720 帧算还是 100%');
+  // 读数可以不报范围；报了就必须正好是题目的 [0, 720)
+  assert.ok(full(judge(refAlign, { eventFrames: [ref.hardCutFrame], markFrames: ref.lowBand.peakFrames })), '不报范围');
+  assert.ok(full(judge(refAlign, hit([623, 719]))), '峰在成片最后一帧');
+  assert.match(q.scoring[1].pass, /都要落在成片的 720 帧里/);
 
   // 硬切表和重击峰表都得非空、密实、是有限数；只交汇总数不认
   const broken = {
@@ -191,6 +237,14 @@ test('B4-4 5-1：案例 05 的读数满分；拉伸超 3%、不相关的配乐�
     '帧范围倒着': hit(ref.lowBand.peakFrames, [ref.hardCutFrame], [720, 0]),
     '帧范围不是整数': hit(ref.lowBand.peakFrames, [ref.hardCutFrame], [0, 720.5]),
     '帧范围缺一头': hit(ref.lowBand.peakFrames, [ref.hardCutFrame], [0]),
+    '帧范围翻倍': hit(ref.lowBand.peakFrames, [ref.hardCutFrame], [0, 1440]),
+    '帧范围少一帧': hit(ref.lowBand.peakFrames, [ref.hardCutFrame], [0, 719]),
+    '帧范围不从第 0 帧起': hit(ref.lowBand.peakFrames, [ref.hardCutFrame], [1, 720]),
+    '帧范围往片头前伸': hit(ref.lowBand.peakFrames, [ref.hardCutFrame], [-720, 720]),
+    '帧范围多一项': hit(ref.lowBand.peakFrames, [ref.hardCutFrame], [0, 720, 1440]),
+    '帧范围是 null': hit(ref.lowBand.peakFrames, [ref.hardCutFrame], null),
+    '有个峰在片尾之外（第 720 帧）': hit([623, 720]),
+    '有个峰在片头之前': hit([-1, 623]),
     '只交汇总': { offsetsFrames: [0], hitRate: 1, randomRate: 0 },
   };
   for (const [what, onset] of Object.entries(broken)) assert.deepEqual(failed(judge(refAlign, onset)), ['beat.onset-hit'], what);
@@ -317,7 +371,9 @@ test('B4-5 18-1：案例 18 的读数满分；字幕滞后、不淡出、不留�
 test('B4-6 18-2：案例 18 两次运镜的读数满分；错位 2 帧以上、少一次、多一次、不运镜判不过', () => {
   const q = question('18-2'), ref = reference('18-2');
   const args = argsOf(q, 'narration.timing');
-  const size = [64, 36], range = ref.sceneFrames;
+  // 夹具的帧号是原片里的绝对帧号；题目的时间线从地图场景的起点记作第 0 帧，判分只认题目的 [0, 600)
+  const size = [64, 36], origin = ref.sceneFrames[0], range = [0, q.deliverable.frames];
+  assert.ok(ref.sceneFrames[1] - origin >= q.deliverable.frames, '地图场景够 600 帧');
   assert.deepEqual(ref.moves.map((move) => move.cue), args.events);
   assert.equal(args.moves, args.events.length, '快速运镜正好两次，一次对一个触发点');
   // 比较基准：触发词的帧号减去题面规定的提前量（15 帧、27 帧），不是触发词本身
@@ -325,20 +381,22 @@ test('B4-6 18-2：案例 18 两次运镜的读数满分；错位 2 帧以上、�
   assert.deepEqual(args.leadFrames, [15, 27]);
   for (const frames of args.leadFrames) assert.ok(q.brief.includes(`${frames} 帧`) && q.scoring[0].pass.includes(`${frames} 帧`), `题面和判分细则都写明提前 ${frames} 帧`);
   for (const move of ref.moves) assert.ok(Math.abs(move.cueSec - move.leadSec - move.expectedStartSec) < 1e-9);
-  const cues = ref.moves.map((move) => move.cueSec * ref.fps);
-  const expected = ref.moves.map((move) => move.expectedStartSec * ref.fps);
+  const cues = ref.moves.map((move) => move.cueSec * ref.fps - origin);
+  const expected = ref.moves.map((move) => move.expectedStartSec * ref.fps - origin);
   // 判分吃的是原始读数：触发词的帧号、量出的运镜起点、地图场景的帧范围
   const reading = (starts, events = cues, span = range) => ({ eventFrames: events, markFrames: starts, range: span });
   // 每次运镜 45 帧、每帧横移 2 像素；别的时候机位不动
   const film = (starts) => (k) => grayFrame(...size, { dx: -2 * starts.reduce((sum, start) => sum + Math.max(0, Math.min(45, k - start)), 0) });
   const judge = (starts) => score(q, { 'narration.timing': reading(readMoveStarts(film(starts), range, size, args)) });
 
-  const measured = ref.moves.map((move) => Math.round(move.measuredStartSec * ref.fps));
-  assert.deepEqual(measured, [3621, 3915]);
+  const measured = ref.moves.map((move) => Math.round(move.measuredStartSec * ref.fps) - origin);
+  assert.deepEqual(measured.map((start) => start + origin), [3621, 3915]);
+  assert.deepEqual(measured, [225, 519]);
+  for (const frame of [...cues, ...expected, ...measured]) assert.ok(frame >= 0 && frame < q.deliverable.frames, `第 ${frame} 帧在题目的 600 帧里`);
   assert.deepEqual(readMoveStarts(film(measured), range, size, args), measured, '真实指标逐帧量回两次运镜的起点');
   const refHits = readHits(expected, measured, range, args.tolFrames);
   assert.ok(refHits.offsetsFrames.every((offset) => offset < 0.31), JSON.stringify(refHits.offsetsFrames));
-  assert.equal(refHits.randomRate, 6 / 619);
+  assert.equal(refHits.randomRate, 6 / 600);
   assert.match(q.controls.random, /6\/600/);
   assert.ok(full(judge(measured)), '案例 18 的读数满分');
 
@@ -348,16 +406,30 @@ test('B4-6 18-2：案例 18 两次运镜的读数满分；错位 2 帧以上、�
   assert.equal(judge([]).pass, false, '全程不运镜');
   assert.equal(judge(measured.map((start) => start - 1)).pass, true, '早 1 帧（离应起帧 0.7 帧）还在容差内');
   // 两次都对上，中间又多做一次：题面只许两次
-  assert.deepEqual(readMoveStarts(film([3621, 3700, 3915]), range, size, args), [3621, 3700, 3915]);
-  assert.equal(judge([3621, 3700, 3915]).pass, false, '多做一次运镜');
+  assert.deepEqual(readMoveStarts(film([225, 304, 519]), range, size, args), [225, 304, 519]);
+  assert.equal(judge([225, 304, 519]).pass, false, '多做一次运镜');
   // 起在触发词上、没照题面提前：差 15 帧和 27 帧
   assert.equal(score(q, { 'narration.timing': reading(cues.map(Math.round)) }).pass, false, '比的是扣掉提前量之后的应起帧');
+  // 没换到题目时间线的绝对帧号不认，哪怕连原片的场景范围一起报上来
+  const absolute = { eventFrames: cues.map((frame) => frame + origin), markFrames: measured.map((frame) => frame + origin) };
+  assert.equal(score(q, { 'narration.timing': absolute }).pass, false, '绝对帧号');
+  assert.equal(score(q, { 'narration.timing': { ...absolute, range: ref.sceneFrames } }).pass, false, '绝对帧号加原片的场景范围');
 
   // 判分线的边界：触发词在第 115、327 帧，应起帧是第 100、300 帧
   const line = (starts, events = [115, 327], span = [0, 600]) => score(q, { 'narration.timing': reading(starts, events, span) }).pass;
   assert.equal(line([100, 300]), true);
   assert.equal(line([101, 301]), true);
   assert.equal(line([99, 299]), true);
+  assert.equal(score(q, { 'narration.timing': { eventFrames: [115, 327], markFrames: [100, 300] } }).pass, true, '读数可以不报范围，窗口照题目的 600 帧');
+  // 触发词、应起帧、量到的起点三样都要在 [0, 600) 里；贴着两头的还算
+  assert.equal(line([0, 300], [15, 327]), true, '第一次运镜正好从第 0 帧起');
+  assert.equal(line([100, 572], [115, 599]), true, '第二个触发词在最后一帧');
+  assert.match(q.scoring[0].pass, /都要落在成片的 600 帧里/);
+  // 窗口只从题目的 deliverable.frames 来：题目没写、写的不是正整数，这条线不判过
+  for (const frames of [undefined, '600', 600.5, 0, -600, Infinity]) {
+    assert.equal(score({ ...q, deliverable: { ...q.deliverable, frames } }, { 'narration.timing': { eventFrames: [115, 327], markFrames: [100, 300] } }).pass, false, String(frames));
+  }
+  assert.equal(score({ scoring: q.scoring }, { 'narration.timing': { eventFrames: [115, 327], markFrames: [100, 300] } }).pass, false, '题目没有 deliverable');
   const broken = {
     '第二次差 1.01 帧': [[101, 301.01]],
     '第一次差 2 帧': [[98, 300]],
@@ -374,9 +446,17 @@ test('B4-6 18-2：案例 18 两次运镜的读数满分；错位 2 帧以上、�
     '只报一个触发点': [[100, 300], [115]],
     '触发点是 null': [[100, 300], [null, 327]],
     '触发点不递增': [[100, 300], [327, 115]],
-    '应起帧不在场景里': [[100, 300], [115, 327], [200, 600]],
+    '运镜起在片头之前（第 −1 帧）': [[-1, 300], [15, 327]],
+    '触发词在片尾之外（第 617 帧）': [[100, 590], [115, 617]],
+    '运镜起在片尾之外': [[100, 600], [115, 626]],
+    '应起帧在片头之前': [[0, 300], [14, 327]],
+    '帧范围不从第 0 帧起': [[100, 300], [115, 327], [200, 600]],
     '帧范围不是数': [[100, 300], [115, 327], [0, '600']],
-    '帧范围太窄，随机基线 100%': [[100, 102], [115, 129], [99, 104]],
+    '帧范围改窄': [[100, 102], [115, 129], [99, 104]],
+    '帧范围放宽到片外，片外的触发词不认': [[100, 590], [115, 617], [0, 1200]],
+    '帧范围往片头前伸，片头前的运镜不认': [[-1, 300], [15, 327], [-600, 600]],
+    '帧范围是原片的绝对帧号': [[100, 300], [115, 327], [3396, 4015]],
+    '帧范围是 null': [[100, 300], [115, 327], null],
   };
   for (const [what, given] of Object.entries(broken)) assert.equal(line(...given), false, what);
   // 只交汇总数不认：偏差写 999、命中率写满，或者偏差写 0，都没有原始读数
@@ -463,6 +543,9 @@ test('B4-7 15-2：案例 15 细密画一行的读数满分；缓推、平移、�
   const at = (index, cam) => locked().with(index, cam);
   const sparse = locked();
   delete sparse[150];
+  // 下面几项的第三个数是读出的帧数：相机数组自己有空洞或带了附加属性（键数对不上）时帧数读成 null
+  const patched = locked();
+  delete patched[150];
   const badCameras = {
     '少一帧': [locked().slice(1), null],
     '多一帧': [[...locked(), camera()], null],
@@ -470,7 +553,10 @@ test('B4-7 15-2：案例 15 细密画一行的读数满分；缓推、平移、�
     '300 帧都是空矩阵': [every(() => ({ world: [], proj: [] })), 0],
     '分量全是 null': [every(() => ({ world: Array(16).fill(null), proj: Array(16).fill(null) })), 0],
     '矩阵是 16 个空洞': [every(() => ({ world: Array(16), proj: Array(16) })), 0],
-    '第 150 帧缺了（稀疏数组）': [sparse, 150],
+    '第 150 帧缺了（稀疏数组）': [sparse, 150, null],
+    '300 帧都对，数组上多挂了一个 fps': [Object.assign(locked(), { fps: 30 }), null, null],
+    '300 帧都对，数组上多挂了一个 Symbol 键': [Object.assign(locked(), { [Symbol('fps')]: 30 }), null, null],
+    '第 150 帧缺了，附加属性正好抵掉个数': [Object.assign(patched, { fps: 30 }), 150],
     '第 7 帧是 null': [at(7, null), 7],
     '第 7 帧没有投影矩阵': [at(7, { world: camera().world }), 7],
     '第 7 帧只有 15 个分量': [at(7, { ...camera(), world: camera().world.slice(1) }), 7],
@@ -479,8 +565,8 @@ test('B4-7 15-2：案例 15 细密画一行的读数满分；缓推、平移、�
     '第 7 帧有个字符串': [at(7, { ...camera(), proj: camera().proj.with(0, '1.3') }), 7],
     '第 7 帧矩阵空洞和附加属性抵掉个数': [at(7, { ...camera(), world: holed(camera().world, 4) }), 7],
   };
-  for (const [what, [cameras, changedAt]] of Object.entries(badCameras)) {
-    assert.deepEqual(readCameraStatic(cameras), { frames: cameras.length, changedAt }, what);
+  for (const [what, [cameras, changedAt, count = cameras.length]] of Object.entries(badCameras)) {
+    assert.deepEqual(readCameraStatic(cameras), { frames: count, changedAt }, what);
     assert.deepEqual(failed(judge(refLock, cameras)), ['meta.camera-static'], what);
   }
   for (const cameras of [null, undefined, 300, { length: frames }]) {
@@ -526,4 +612,32 @@ test('B4-9 denseFinite：密实、没有附加属性、元素都是有限数的�
   const bad = [[], Array(3), [1, null], [1, undefined], [1, NaN], [1, Infinity], ['1'], [1n], [[1]], holed([1, 2, 3], 1), Object.assign([1, 2], { note: 1 }),
     { length: 1, 0: 1 }, new Float32Array([1, 2]), null, undefined, 'ab', 12];
   for (const value of bad) assert.equal(denseFinite(value), false, String(value));
+});
+
+test('B4-10 专名扫描：三个案例各有词元在册，拼进已知词元就报警，换大小写、驼峰、全角、夹零宽字符都躲不过', () => {
+  for (const group of ['05', '15', '18', '平台', '哨兵']) assert.ok(NOUN_HASHES[group].length >= 1, `${group} 没有词元`);
+  const hashes = Object.values(NOUN_HASHES).flat();
+  assert.equal(new Set(hashes).size, hashes.length, '没有重复');
+  for (const hash of hashes) assert.match(hash, /^[0-9a-f]{24}$/, '只存 24 位前缀，不是裸的 64 位摘要');
+  // 真专名在仓库里只有哈希、拿不出明文，这里用在册的两个哨兵词元验扫描器；两段现拼，源码里不连着出现
+  const word = ['zqx', 'canary'].join(''), han = ['甲乙', '丙丁'].join('');
+  const alarm = [{ line: 2, group: '哨兵' }];
+  const disguises = {
+    '注释里': `// ${word}`,
+    '全大写': word.toUpperCase(),
+    '首字母大写接在驼峰里': `ref${word[0].toUpperCase()}${word.slice(1)}Frames`,
+    '下划线和数字夹着': `shot_${word}_02.json`,
+    '全角字母': [...word].map((letter) => String.fromCodePoint(letter.codePointAt(0) + 0xFEE0)).join(''),
+    '夹零宽字符': `${word.slice(0, 3)}\u200b${word.slice(3)}`,
+    '汉字，前后连着别的字': `案例${han}的读数`,
+    '汉字夹零宽字符': `${han.slice(0, 2)}\u200d${han.slice(2)}`,
+    'JSON 的值里': JSON.stringify({ note: `${han} ${word}` }),
+  };
+  for (const [what, text] of Object.entries(disguises)) assert.deepEqual(scanProperNouns(`第一行\n${text}\n`).map(({ line, group }) => ({ line, group })).slice(0, 1), alarm, what);
+  // 二审的做法：给本测试文件的原文追加一行带词元的注释，必须报出是哪一行
+  const self = readFileSync(fileURLToPath(import.meta.url), 'utf8');
+  assert.deepEqual(scanProperNouns(self), []);
+  assert.deepEqual(scanProperNouns(`${self}\n// ${word}`), [{ line: self.split('\n').length + 1, group: '哨兵' }]);
+  // 按词比，不按子串比：词元前后连着别的字母不算
+  for (const clean of ['', '旁白讲解场景，底色 #F4F0E9', `${word}s`, `un${word}`, word.slice(1), han.slice(1)]) assert.deepEqual(scanProperNouns(clean), [], clean);
 });
