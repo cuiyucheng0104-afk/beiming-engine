@@ -389,13 +389,20 @@ function de00([L1, a1, b1], [L2, a2, b2]) {
   let dh = gray ? 0 : h2 - h1, hb = h1 + h2;
   if (dh > 180) dh -= 360; else if (dh < -180) dh += 360;
   if (!gray) hb = Math.abs(h1 - h2) <= 180 ? hb / 2 : hb < 360 ? (hb + 360) / 2 : (hb - 360) / 2;
+  // 两个色只差几个浮点步长时，两个 hypot、两个 atan2 各自舍入后再相减会减成 0。彩度差、色相差都从分量差 dA、dB 算
+  // （相近的数相减没有舍入）：ΔC′ = (C2² − C1²) / (C1 + C2)，sin Δh′ = 两个向量的叉积 / (C1·C2)，叉积写成和向量 × 差向量的一半。
+  const dA = (1 + G) * (a2 - a1), dB = b2 - b1, sumC = C1 + C2, ua = sumC === 0 ? 0 : (A1 + A2) / sumC, ub = sumC === 0 ? 0 : (b1 + b2) / sumC;
+  const dC = dA * ua + dB * ub, cross = ua * dB - ub * dA;
+  // 叉积的写法只在夹角小、两个彩度差不到一倍时用：差得远的，和向量比短的那个长得多，除回去反而不准，那里 atan2 的差本来就够用。
+  let half = rad(dh / 2);
+  if (!gray && Math.abs(dh) < 30 && C1 <= 2 * C2 && C2 <= 2 * C1) half = Math.asin((cross / C1 + cross / C2) / 2) / 2;
   const Cb = C1 / 2 + C2 / 2, q = L1 / 2 + L2 / 2 - 50;
   const T = 1 - 0.17 * Math.cos(rad(hb - 30)) + 0.24 * Math.cos(rad(2 * hb)) + 0.32 * Math.cos(rad(3 * hb + 6)) - 0.20 * Math.cos(rad(4 * hb - 63));
   // S_L 原式 1 + 0.015·q² / √(20 + q²)，分子分母同除以 |q|。
   const Sl = 1 + 0.015 * Math.abs(q) / Math.sqrt(1 + 20 / (q * q)), Sc = s + 0.045 * Cb, Sh = s + 0.015 * Cb * T;
   const Rt = -Math.sin(rad(60 * Math.exp(-(((hb - 275) / 25) ** 2)))) * 2 * Math.sqrt(ratio7(Cb));
   // halfL 是 ΔL′ / S_L 的一半：L 一正一负都极大时差值本身会溢出。色度项、色相项有界（不超过 45 与 1905）。
-  const halfL = (L2 / 2 - L1 / 2) / Sl, tC = (C2 - C1) / Sc, tH = Math.sqrt(C1) * Math.sqrt(C2) / Sh * 2 * Math.sin(rad(dh / 2));
+  const halfL = (L2 / 2 - L1 / 2) / Sl, tC = dC / Sc, tH = Math.sqrt(C1) * Math.sqrt(C2) / Sh * 2 * Math.sin(half);
   // tC² + tH² + Rt·tC·tH 配方成两个平方（|Rt| 不超过 √3），连同明度项一起交给 hypot：极小的色差不会平方后下溢成 0。
   // 不同的色至少读出最小正数，0 只留给逐分量相等，最近色遇到它一定先中。
   return Math.max(Number.MIN_VALUE, top(2 * Math.hypot(halfL, (tC + Rt / 2 * tH) / 2, Math.sqrt(1 - Rt * Rt / 4) * tH / 2)));
@@ -404,15 +411,19 @@ function de00([L1, a1, b1], [L2, a2, b2]) {
 // 每个颜色到对面色板最近色的 CIEDE2000 色差，按 share 归一加权。
 function nearest(from, to) {
   const weightSum = from.reduce((sum, c) => sum + c.share, 0);
-  let mean = 0, max = 0, weighted = 0;
+  let max = 0;
   const pairs = from.map(({ color, share, lab }) => {
     let best = Infinity, index = 0;
     to.forEach((other, j) => { const e = de00(lab, other.lab); if (e < best) { best = e; index = j; } });
-    mean += best / from.length; max = Math.max(max, best); weighted += best * share / weightSum;
+    max = Math.max(max, best);
     return { color, share: share / weightSum, nearest: to[index].color, index, de00: best };
   });
-  // 几个封顶的色差相加，舍入可能刚好越过 Number.MAX_VALUE。
-  return { meanDe00: top(mean), maxDe00: max, weightedDe00: top(weighted), pairs };
+  // 各色差先除以最大的那个再平均，最后乘回去：几个封顶的大数相加不溢出，贴着最小正数的也不会各自先除成 0。
+  let plain = 0, weighted = 0, lit = false;
+  for (const { de00: e, share } of pairs) { plain += e / max; weighted += e / max * share; lit ||= e > 0 && share > 0; }
+  // 有不为 0 的色差（加权的还要那个色的 share 不为 0），平均数至少是最小正数：不同的色板不读成 0。
+  const back = (sum, any) => any ? Math.max(Number.MIN_VALUE, top(max * sum)) : 0;
+  return { meanDe00: back(plain / pairs.length, max > 0), maxDe00: max, weightedDe00: back(weighted, lit), pairs };
 }
 
 // 顶层的 meanDe00、maxDe00、weightedDe00、pairs 是候选的每个主色到参考色板最近色；reverse 是参考的每个色到候选。

@@ -514,3 +514,54 @@ test('非法入参一律抛带冻结错误码 usage.bad-argument 的 RangeError'
   };
   for (const [group, list] of Object.entries(cases)) list.forEach((run, i) => assert.throws(run, badArgument, `${group} 第 ${i} 条`));
 });
+
+test('color.palette-de00：只差一个浮点步长的色照样分得开，平均色差不下溢成 0', () => {
+  const near = (got, want, label) => assert.ok(Math.abs(got / want - 1) < 1e-12, `${label} 读出 ${got}，应为 ${want}`);
+  // 正数的下 n 个可表示的双精度数。
+  const up = (x, n = 1) => { const f = new Float64Array([x]); new BigUint64Array(f.buffer)[0] += BigInt(n); return f[0]; };
+  const one = (p, q) => colorPaletteDe00([{ lab: p }], [{ lab: q }]).value;
+
+  // 四审反例：对角彩度贴着上限、每对只差一个步长。明度色相相同，只剩彩度项 |y − x| / (0.045 · (x + y) / 2)。
+  const xs = [1.3000000000000003e308, 1.7000000000000001e308], ys = [1.3000000000000005e308, 1.7000000000000003e308];
+  assert.deepEqual(ys, xs.map(x => up(x)));
+  const diagonal = list => list.map(x => ({ lab: [50, x, x] }));
+  const r = repeat5(() => colorPaletteDe00(diagonal(xs), diagonal(ys)));
+  const want = [3.4116928368114857e-15, 2.6089415810911365e-15];
+  xs.forEach((x, i) => {
+    near(want[i], (ys[i] - x) / (0.045 * (x / 2 + ys[i] / 2)), `第 ${i} 对的期望值`);
+    near(r.pairs[i].de00, want[i], `第 ${i} 对`);
+    near(r.reverse.pairs[i].de00, want[i], `反向第 ${i} 对`);
+    assert.equal(r.pairs[i].index, i);
+  });
+  for (const v of [r.meanDe00, r.reverse.meanDe00, r.value, r.weightedDe00]) near(v, 3.0103172089513113e-15, '平均色差');
+
+  // 彩度极小时修正系数是 1.5、各权重是 1、没有旋转项，色差就是 hypot(1.5·Δa, Δb)：只挪 b 一个步长，彩度差和色相差都比彩度自己的步长小。
+  const t = 1e-200;
+  near(one([50, t, t], [50, t, up(t)]), up(t) - t, '极小彩度挪 b 一步');
+  near(one([50, t, t], [50, up(t), t]), 1.5 * (up(t) - t), '极小彩度挪 a 一步');
+  near(one([50, t, t], [50, up(t, 3), up(t, 4)]), Math.hypot(4.5, 4) * (up(t) - t), '极小彩度斜着挪');
+
+  // 常规范围和贴着上限：挪 8 步的色差是挪 1 步的 8 倍，两个方向读数逐位相同。
+  for (const [L, a, b] of [[50, 20, 30], [50, 1, 1], [62, 41.5, 3.25], [50, 1.3e308, 0.9e308], [50, 3e-320, 2e-320]]) {
+    const step = one([L, a, b], [L, a, up(b)]);
+    assert.ok(step > 0 && (step > 5e-324 || a < 1e-300), `Lab(${L}, ${a}, ${b}) 挪 b 一步读出 ${step}`);
+    assert.equal(step, one([L, a, up(b)], [L, a, b]), `Lab(${L}, ${a}, ${b}) 应对称`);
+    if (step > 1e-300) for (const [da, db] of [[0, 8], [8, 0], [8, 8]]) {
+      const unit = one([L, a, b], [L, up(a, da / 8), up(b, db / 8)]);
+      assert.ok(Math.abs(one([L, a, b], [L, up(a, da), up(b, db)]) / unit - 8) < 1e-9, `Lab(${L}, ${a}, ${b}) 挪 (${da}, ${db}) 步应是 8 倍`);
+    }
+  }
+
+  // 每对色差都是最小正数：平均数不能先除以色数再加（各自下溢成 0），share 再小也不把不同的色板读成 0。
+  const floor = colorPaletteDe00([{ lab: [50, 0, 0] }, { lab: [60, 0, 0], share: 1e-300 }], [{ lab: [50, 0, 5e-324] }, { lab: [60, 0, 5e-324] }]);
+  assert.deepEqual([floor.pairs[0].de00, floor.pairs[1].de00, floor.meanDe00, floor.reverse.meanDe00, floor.value], [5e-324, 5e-324, 5e-324, 5e-324, 5e-324]);
+  assert.equal(floor.weightedDe00, 5e-324);
+  const tiny = colorPaletteDe00([{ lab: [50, 0, 0], share: 0 }, { lab: [60, 0, 0], share: 1e-300 }], [{ lab: [50, 0, 0] }, { lab: [60, 0, 5e-324] }]);
+  assert.deepEqual([tiny.meanDe00, tiny.weightedDe00], [5e-324, 5e-324]);
+  // share 为 0 的色不算进加权色差，全同的色板还是 0。
+  const off = colorPaletteDe00([{ lab: [50, 0, 0], share: 1 }, { lab: [60, 0, 0], share: 0 }], [{ lab: [50, 0, 0] }, { lab: [60, 0, 5e-324] }]);
+  assert.deepEqual([off.weightedDe00, off.meanDe00], [0, 5e-324]);
+  // 亚正规数的色差平均后还是它自己，不多不少。
+  const same = colorPaletteDe00([{ lab: [50, 0, 0] }, { lab: [60, 0, 0] }, { lab: [70, 0, 0] }], [{ lab: [50, 0, 1.5e-322] }, { lab: [60, 0, 1.5e-322] }, { lab: [70, 0, 1.5e-322] }]);
+  assert.deepEqual([same.meanDe00, same.weightedDe00], [same.pairs[0].de00, same.pairs[0].de00]);
+});
