@@ -13,7 +13,7 @@ export const caps = (library = {}) => ({
   hosts: ['page'],
   conformance: 'full',
   outputs: {
-    color: { type: 'f32', transfer: 'linear', primaries: 'rec709', note: '场景线性，预乘透明度；32 位浮点渲染目标逐子帧读回后在线性光里取平均' },
+    color: { type: 'f32', transfer: 'linear', primaries: 'rec709', note: '场景线性，预乘透明度；逐子帧读回后在线性光里取平均。显示参考镜头从 32 位浮点目标读回；场景参考镜头（colorRef: scene）从 RGBA16F（16 位半浮点）目标读回，另落成线性 EXR，这一层只有半浮点精度' },
     meta: true,
     depth: { type: 'f32', note: '平面深度，米；不抗锯齿，取像素中心；什么都没打到写 1e10' },
     objectId: { type: 'u32', note: '不抗锯齿，取像素中心；不带覆盖率；0 表示没打到任何实体' },
