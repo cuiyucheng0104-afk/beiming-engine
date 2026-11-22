@@ -132,7 +132,7 @@
 
 ### Fixed
 
-- 拟音的 ERB 缓存 `engine/audio/erb_foley.py` 在 Windows 上多个线程同时写同一个缓存键不再偶发失败（#140）：`ErbTakes._save` 的两次 `os.replace` 遇到 NTFS 的瞬态 `PermissionError`（另一线程正替换或打开同一目标，WinError 5 / 32）时退避重试，最多 25 次、合计约 0.6 秒，仍失败按真的没权限原样抛出；写入半路出错也会删掉本轮的 `*.tmp` 临时文件，缓存目录不留残片。缓存内容、键与混音结果不变，macOS 与 Linux 行为不变。
+- 拟音的 ERB 缓存 `engine/audio/erb_foley.py` 在 Windows 上多个线程同时写同一个缓存键不再偶发失败（#140）：`ErbTakes._save` 的两次 `os.replace` 遇到 NTFS 的瞬态 `PermissionError`（另一线程正替换或打开同一目标，WinError 5 / 32）时退避重试，最多 25 次、合计约 0.6 秒，仍失败按真的没权限原样抛出；写入半路出错也会删掉本轮的 `*.tmp` 临时文件，缓存目录不留残片。缓存格式与混音结果不变，升级后已有 ERB 缓存会按新键重建，macOS 与 Linux 行为不变。
 - 帧源一致性套件逐一核对三个遮挡方块的单独渲编号层，缺测或请求给完整帧源降档时无法通过。修正未播种随机扫描、错误码映射、代理自批及 17 条不变量的整套覆盖判定（#75）。
 
 - `beiming/sources/three/` 子帧累积和后期链的先后（04 §3.1，#85）：带后期链的镜头改为各子帧只渲后期之前的线性 HDR 场景、平均之后对结果只跑一次后期链（跑之前状态回到 `sub = 0`，通道参数也取这一刻；通道声明 `uniforms.tDepth` 时填 `sub = 0` 的深度），不再逐子帧跑后期再平均；没有后期链的镜头颜色层逐位不变。新增 `averageDisplaySrgbFrames`（显示参考 8 位 sRGB 帧的 RGB 先线性化再平均，透明度保持线性）、`parseShutterArgs`（`--shutter <度> --samples <子帧数>`）和快门角兼容写法 `angle`，快门角只认有限 number（`'0'`、`false`、BigInt 和显式 `null` 的快门参数，以及 `opts`、`shutter` 不是普通对象（`0n`、字符串、数组，`Date`、`Map` 这类实例）或值转不成字符串（`{ toString: 0 }`、`Symbol.toStringTag` 取值器会抛的对象）都报 `usage.bad-argument`，不退回默认，页面宿主在进页面之前先判一遍（显式 `null` 的 `opts` 不再被当成没写；别的上下文如 `vm` 里造的普通对象照常收；会话的预检、页面和层文件目录都按 `open` 时拍下的镜头输入与环境算，调用方事后改原对象不影响已开的会话；参数容器只收纯数据：多一层原型的（`Object.create(无原型字典)`、`class extends null` 的实例，原型照根原型的形状伪造的也不认，根原型按内建 `Object` 认）、带 Symbol 键或契约外的键的、自有取值器的一律报错，`planRender` 多交一份判过的快照 `renderOpts`，页面宿主拿它而不是调用方的原对象进页面，两边读到的参数是同一份）；命令行里 `constructor` 这类原型属性名当普通参数），计划多一项 `auxSub: 0`。`s4.test.mjs` 实渲核对：静止场景 8 子帧等于单子帧，亮度 50 高光过非线性后期等于解析期望，`probe-moving-cube` 帧起点 180 度快门拖影中点 f + 0.2500（整帧位移标定像素速度），对 Blender START 读数 f + 0.2465 在 0.02 帧内；多通道后期链、动画通道取 `sub = 0`、临时纹理与浮点目标释放也有实测。
