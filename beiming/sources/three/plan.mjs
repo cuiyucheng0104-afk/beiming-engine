@@ -15,12 +15,19 @@ const AUX = ['depth', 'objectId', 'normal', 'motion'];
 // 数据层的卡产出的轨道里，这个帧源有地方写的只有相机轨道
 const WRITABLE_TRACKS = ['tracks.camera'];
 const bad = (message) => new SourceError('usage.bad-argument', message);
-// 报错消息里的值：BigInt、Symbol 进 JSON.stringify 或模板字符串会抛原生 TypeError
-const show = (v) => (typeof v === 'string' ? JSON.stringify(v) : typeof v === 'symbol' || typeof v === 'bigint' ? String(v) : `${v}`);
+// 报错消息里的值：{ toString: 0 }、无原型对象转不成字符串会抛原生 TypeError，丢掉 SourceError.code
+const show = (v) => {
+  try { return typeof v === 'string' ? JSON.stringify(v) : String(v); } catch { return Object.prototype.toString.call(v); }
+};
 // 显式写了 null 不能被 ?? 当成没写，悄悄退回默认值
 const given = (obj, key) => {
   if (obj != null && Object.hasOwn(obj, key) && obj[key] === null) throw bad(`${key} 不能是 null`);
   return obj?.[key];
+};
+// opts、shutter 这类参数容器：没写可以，写了就必须是普通对象（0n、字符串、数组都不行）
+const box = (v, name) => {
+  if (v !== undefined && (v === null || typeof v !== 'object' || Array.isArray(v))) throw bad(`${name} 必须是对象，给的是 ${show(v)}`);
+  return v;
 };
 const used = (v) => (Array.isArray(v) ? v.length > 0 : v !== null && typeof v === 'object' && Object.keys(v).length > 0);
 
@@ -72,6 +79,7 @@ export function planOpen(caps, input, env, library = {}) {
 
 /** 快门角：angleDeg 是契约写法，angle 是兼容写法；两个都写又不相等报错。都没写返回 undefined */
 export function shutterAngle(shutter) {
+  box(shutter, 'shutter');
   const angleDeg = given(shutter, 'angleDeg'), angle = given(shutter, 'angle');
   if (angle !== undefined && angleDeg !== undefined && angle !== angleDeg) throw bad(`快门角 angle（${show(angle)}）和 angleDeg（${show(angleDeg)}）对不上`);
   return angleDeg ?? angle;
@@ -106,7 +114,8 @@ export function planRender(caps, shot, size, tier, opts = {}, want, locked = {})
   const missing = want.filter((n) => !declared(caps, n));
   if (missing.length) throw new SourceError('contract.unsupported-output', `这个帧源交不出：${missing.join('、')}`);
 
-  const optShutter = given(opts, 'shutter'), shotShutter = given(shot, 'shutter');
+  box(opts, 'opts');
+  const optShutter = box(given(opts, 'shutter'), 'shutter'), shotShutter = box(given(shot, 'shutter'), 'shutter');
   const angleDeg = shutterAngle(optShutter) ?? shutterAngle(shotShutter) ?? 0;
   // 只认有限的 number：'0'、false 这类会被 >= 隐式转换放过去
   if (typeof angleDeg !== 'number' || !(angleDeg >= 0 && angleDeg <= 360)) throw bad(`快门角必须是 [0, 360] 里的数（度），给的是 ${show(angleDeg)}`);
@@ -115,10 +124,10 @@ export function planRender(caps, shot, size, tier, opts = {}, want, locked = {})
   if (angleDeg === 0 && shutterSamples > 1) throw new SourceError('contract.shutter-conflict', `快门角是 0，子帧采样数却是 ${shutterSamples}`);
 
   const preset = shot.tiers?.[tier] ?? {};
-  const scale = opts.scale ?? preset.scale ?? caps[tier].scale;
-  const pixelSamples = opts.samples ?? preset.samples ?? caps[tier].samples;
-  if (!(scale > 0 && scale <= 1)) throw bad(`scale 必须在 (0, 1]，给的是 ${scale}`);
-  if (!Number.isInteger(pixelSamples) || pixelSamples < 1) throw bad(`每像素采样数必须是不小于 1 的整数，给的是 ${pixelSamples}`);
+  const scale = given(opts, 'scale') ?? preset.scale ?? caps[tier].scale;
+  const pixelSamples = given(opts, 'samples') ?? preset.samples ?? caps[tier].samples;
+  if (typeof scale !== 'number' || !(scale > 0 && scale <= 1)) throw bad(`scale 必须在 (0, 1]，给的是 ${show(scale)}`);
+  if (!Number.isInteger(pixelSamples) || pixelSamples < 1) throw bad(`每像素采样数必须是不小于 1 的整数，给的是 ${show(pixelSamples)}`);
   // shortcut: 每像素只取 1 个样本（没接多重采样），要更多就报错；颜色层要抗锯齿时再接
   if (pixelSamples !== 1) throw new SourceError('contract.unsupported-option', `这个帧源每像素只取 1 个样本，要的是 ${pixelSamples}`);
 

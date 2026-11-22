@@ -4,7 +4,7 @@
 //   二、经页面宿主 startSource 渲一致性夹具 s01（calib/probe-moving-cube），和 calib/table/blender.json 的帧起点读数对拍。
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -237,6 +237,9 @@ test('实渲：匀速方块 180 度快门从帧起点开，拖影亮度质心在
     const film = await readJson(join(FIXTURES, 'film.json'));
     const session = await source.open(shotInput(film, 's01'), { lock: null, tier: 'final', workspace, filmDir: FIXTURES });
     const AUX = ['depth', 'objectId', 'normal'];
+    // 宿主两端：坏参数在页面里就报 usage.bad-argument，一个层文件都不写
+    for (const o of [{ shutter: 0n }, { shutter: { angle: { toString: 0 } } }]) await assert.rejects(session.render(24, o, ['color']), code('usage.bad-argument'));
+    assert.deepEqual(await readdir(workspace), []);
     const blur = await session.render(24, {}, ['color', ...AUX]);
     const still0 = await session.render(24, SINGLE, ['color', ...AUX]);
     // 每帧像素速度用整帧位移（f = 24 到 25，都取 sub = 0）标定：Metal 的 SUBPIXEL_BITS 是 4（边缘量化 1/16 像素），
@@ -271,4 +274,14 @@ test('快门参数：显式 null、BigInt 报 usage.bad-argument，不退回默�
   }
   for (const s of [null, { angleDeg: null }, { samples: null }]) assert.throws(() => planRender(CAPS, { shutter: s }, [W, H], 'final', {}, ['color']), code('usage.bad-argument'));
   for (const junk of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) assert.deepEqual(parseShutterArgs([junk, '--shutter', '180']), { shutter: { angleDeg: 180 } }, junk);
+});
+
+
+test('参数容器：opts、shutter 不是普通对象，或值转不成字符串，都报 usage.bad-argument', () => {
+  const shot = { shutter: { angleDeg: 180, samples: 4 } };
+  const cases = [{ shutter: 0n }, { shutter: 1n }, { shutter: '180' }, { shutter: [] }, { shutter: { angle: { toString: 0 } } }, { shutter: { angle: Object.create(null) } }, { scale: 0n }, { scale: null }, { samples: null }];
+  for (const o of cases) assert.throws(() => planRender(CAPS, shot, [W, H], 'final', o, ['color']), code('usage.bad-argument'));
+  for (const o of [null, 0n, [], 'x']) assert.throws(() => planRender(CAPS, shot, [W, H], 'final', o, ['color']), code('usage.bad-argument'));
+  assert.throws(() => planRender(CAPS, { shutter: 1n }, [W, H], 'final', {}, ['color']), code('usage.bad-argument'));
+  assert.throws(() => shutterAngle(0n), code('usage.bad-argument'));
 });
