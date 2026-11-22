@@ -145,6 +145,83 @@ function scale2(x, e) {
   return x * POW2[1074 + half] * POW2[1074 + e - half];
 }
 
+// Shewchuk 精确求和（同 Python 的 math.fsum）：partials 是互不重叠的浮点展开，每加一个数都用两数和把舍入误差留在低位，
+// 最后只舍入一次。结果是精确和的最近双精度数，只取决于这批数的多重集，与次序无关，大数相消后的小余量也不丢。
+// 调用方保证 n >= 1 且 n 个数的绝对值之和小于 2^1023（中间和不溢出）。
+const SAFE_SUM = 2 ** 1023;
+const partials = [];
+function exactSum(values, n) {
+  let count = 0;
+  for (let k = 0; k < n; k++) {
+    let x = values[k];
+    let kept = 0;
+    for (let j = 0; j < count; j++) {
+      let y = partials[j];
+      if (Math.abs(x) < Math.abs(y)) {
+        const swap = x;
+        x = y;
+        y = swap;
+      }
+      const hi = x + y;
+      const lo = y - (hi - x);
+      if (lo !== 0) partials[kept++] = lo;
+      x = hi;
+    }
+    partials[kept] = x;
+    count = kept + 1;
+  }
+  // 从高位往低位加，加到第一次出现舍入为止。
+  let i = count - 1;
+  let hi = partials[i];
+  let lo = 0;
+  while (i > 0) {
+    const x = hi;
+    const y = partials[--i];
+    hi = x + y;
+    lo = y - (hi - x);
+    if (lo !== 0) break;
+  }
+  // 余量恰好是半个末位、更低位还有同号的余量时，最近偶数舍入可能舍错方向，补回去。
+  if (i > 0 && ((lo < 0 && partials[i - 1] < 0) || (lo > 0 && partials[i - 1] > 0))) {
+    const y = lo * 2;
+    const x = hi + y;
+    if (y === x - hi) hi = x;
+  }
+  return hi;
+}
+
+// 有限双精度数写成 2^-1074 的整数倍。
+const F64 = new Float64Array(1);
+const U64 = new BigUint64Array(F64.buffer);
+function toBig(v) {
+  F64[0] = v;
+  const bits = U64[0];
+  const exponent = Number((bits >> 52n) & 0x7ffn);
+  const fraction = bits & 0xfffffffffffffn;
+  const magnitude = exponent ? (fraction | 0x10000000000000n) << BigInt(exponent - 1) : fraction;
+  return bits >> 63n ? -magnitude : magnitude;
+}
+
+// n 个数大到顺序和会溢出时的慢路径：BigInt 精确求和，再舍入一次成 53 位。和可表示时与 exactSum(values, n) / divisor 逐位相同；
+// 和本身超出双精度范围时先除再还原量级，商仍超出就是 ±Infinity。
+function bigMean(values, n, divisor) {
+  let sum = 0n;
+  for (let i = 0; i < n; i++) sum += toBig(values[i]);
+  const magnitude = sum < 0n ? -sum : sum;
+  // 只留最高 64 位；丢掉的低位不全为 0 就在末位留 1（粘滞位），Number() 按最近偶数舍入成 53 位时才不会把非半数当成半数。
+  const shift = BigInt(Math.max(0, magnitude.toString(2).length - 64));
+  let top = magnitude >> shift;
+  if (top << shift !== magnitude) top |= 1n;
+  const rounded = sum < 0n ? -Number(top) : Number(top);
+  const e = Number(shift) - 1074;
+  const total = scale2(rounded, e);
+  return Number.isFinite(total) ? total / divisor : scale2(rounded / divisor, e);
+}
+
+// 精确和除以 divisor：maxAbs 是这 n 个数的最大绝对值。
+const exactMean = (values, n, maxAbs, divisor) => (
+  maxAbs * n < SAFE_SUM ? exactSum(values, n) / divisor : bigMean(values, n, divisor));
+
 // 把一个样本（帧对象、readExr 的返回、EXR 字节或路径）取成标量平面，再按块求均值。
 function loadPlane(sample, channel, blockSize) {
   if (typeof sample === 'string') sample = readFileSync(sample);
@@ -219,21 +296,9 @@ function loadPlane(sample, channel, blockSize) {
           maxAbs = Math.max(maxAbs, Math.abs(v));
         }
       }
-      if (count === 1) {
-        values[by * gw + bx] = block[0];
-        continue;
-      }
-      // 块内先排序再求和：浮点加法不结合，同一批像素换个排列，顺序累加会差出 1e-18 量级的尾数，
-      // 两边都无噪声时就被当成必然有偏。排序后同一多重集逐位得同一均值。
-      // 先除掉 2 的幂：64 个接近 1e308 的值直接相加会溢出。
-      // shortcut: 只保证同一多重集得同一均值；多重集不同而精确和相等的两块仍可能差 1 ulp，真遇到再换 Shewchuk 精确求和。
-      const e = exponentOf(maxAbs);
-      const sorted = block.subarray(0, count);
-      for (let i = 0; i < count; i++) sorted[i] = scale2(sorted[i], -e);
-      sorted.sort();
-      let sum = 0;
-      for (let i = 0; i < count; i++) sum += sorted[i];
-      values[by * gw + bx] = scale2(sum / count, e);
+      // 块均值 = 块内像素的精确和（舍入一次）再除以像素数：同一批像素怎么排列都逐位相同，
+      // 精确和相等的两块均值相等，[-2^54, 2^54, 100] 这种大数相消后剩下的 100 也不丢。
+      values[by * gw + bx] = count === 1 ? block[0] : exactMean(block, count, maxAbs, count);
     }
   }
   return { width, height, gw, gh, values, components: weights.length };
@@ -284,7 +349,7 @@ export function welchTest(groupA, groupB, options = {}) {
   // 稠密的 0 个、1 个与两边不等同属个数不对，都是 RangeError；空洞在入口就抛了 TypeError。
   if (lengthA < 2 || lengthB < 2) throw new RangeError('welch: 每边至少要 2 个种子样本');
   if (lengthA !== lengthB) throw new RangeError(`welch: 两边种子数须相等（A ${lengthA} 个，B ${lengthB} 个）`);
-  const k = lengthA; // 两边共用这一个入口种子数：之后的平面数、Welford 轮数和自由度都只认它
+  const k = lengthA; // 两边共用这一个入口种子数：之后的平面数、每组的样本数和自由度都只认它
   // 两边全部帧先解析、校验完，再做统计：最后一帧坏了也在任何累加之前抛。
   // shortcut: 2K 个平面同时在内存里（每单元 8 字节），4K 逐像素 K=16 约 2 GB；吃紧时用 blockSize 8 或改成两遍读。
   const groups = snapshots.map(group => {
@@ -300,49 +365,64 @@ export function welchTest(groupA, groupB, options = {}) {
     check(plane.width === grid.width && plane.height === grid.height, '样本尺寸不一致');
     check(plane.components === grid.components, '样本通道形态不一致（三通道亮度对单通道）');
   }
-  // 每个单元先按两边 2K 个样本的最大绝对值除掉一个 2 的幂再统计：平方和的量级是尺度的平方，
-  // 1e-170 的样本直接算会下溢成 0、1e160 的会上溢。乘 2 的幂不舍入，常规量级下结果逐位不变。
   const totalUnits = grid.gw * grid.gh;
-  const maxAbs = new Float64Array(totalUnits);
-  for (const { values } of groups.flat()) {
-    for (let j = 0; j < totalUnits; j++) maxAbs[j] = Math.max(maxAbs[j], Math.abs(values[j]));
-  }
-  const exponent = Int16Array.from(maxAbs, exponentOf);
-  const [a, b] = groups.map(group => {
-    const mean = new Float64Array(totalUnits);
-    const m2 = new Float64Array(totalUnits);
-    for (let i = 0; i < k; i++) {
-      // Welford 在线均值与平方和，避免大数相减。
-      const { values } = group[i];
-      for (let j = 0; j < totalUnits; j++) {
-        const value = scale2(values[j], -exponent[j]);
-        const delta = value - mean[j];
-        mean[j] += delta / (i + 1);
-        m2[j] += delta * (value - mean[j]);
-      }
-    }
-    return { mean, m2 };
-  });
-
   const biasMap = new Float64Array(totalUnits);
   const pMap = new Float64Array(totalUnits).fill(1);
   const tested = [];
+  const [planesA, planesB] = groups;
+  const samples = new Float64Array(2 * k); // 一个单元的 2K 个样本：前 K 个是 A，后 K 个是 B 取负
+  const centered = new Float64Array(k);
+  const guardBits = Math.ceil(Math.log2(2 * k)) + 1;
   for (let j = 0; j < totalUnits; j++) {
-    const delta = a.mean[j] - b.mean[j];
-    const va = a.m2[j] / (k - 1) / k;
-    const vb = b.m2[j] / (k - 1) / k;
-    biasMap[j] = scale2(delta, exponent[j]); // 还原到原尺度；两边符号相反又都贴近 1.8e308 时为 ±Infinity
-    if (va === 0 && vb === 0) {
+    let maxAbs = 0;
+    for (let i = 0; i < k; i++) {
+      samples[i] = planesA[i].values[j];
+      samples[k + i] = -planesB[i].values[j];
+      maxAbs = Math.max(maxAbs, Math.abs(samples[i]), Math.abs(samples[k + i]));
+    }
+    // A 减 B 的均值差 = 2K 个带符号样本的精确和除以 K：两边共有的大数精确相消，不吞真实偏差，也与种子次序无关。
+    // 样本贴近双精度上限、2K 个相加会溢出时，偏差走 BigInt（不可表示就是 ±Infinity），检验用的样本先右移几位：
+    // 这时丢的只是与 1e300 量级样本同处一个单元的次正规数低位，对 t 的影响不到 2^-1900。
+    const guard = maxAbs * 2 * k < SAFE_SUM ? 0 : guardBits;
+    if (guard) {
+      biasMap[j] = bigMean(samples, 2 * k, k);
+      for (let i = 0; i < 2 * k; i++) samples[i] = scale2(samples[i], -guard);
+    }
+    const sum = exactSum(samples, 2 * k);
+    if (!guard) biasMap[j] = sum / k;
+    // 每组减去组内最小值，样本变成非负的离差（两个相近的数相减没有舍入）。离差全为 0 才是零方差：
+    // Welford 这类边读边更新的算法会把 1 与 1 + 2^-52 的中点舍到端点上，算出假的零方差，结果还随种子次序变。
+    const spreads = [0, k].map(start => {
+      let low = Infinity;
+      let high = -Infinity;
+      for (let i = start; i < start + k; i++) {
+        low = Math.min(low, samples[i]);
+        high = Math.max(high, samples[i]);
+      }
+      for (let i = start; i < start + k; i++) samples[i] -= low;
+      return high - low;
+    });
+    if (spreads[0] === 0 && spreads[1] === 0) {
       // 两边都无噪声：相等的单元不是随机检验，不进校正和直方图；不等的单元必然有偏。
-      if (delta === 0) continue;
+      if (sum === 0) continue;
       pMap[j] = 0;
     } else {
-      // 自由度只取决于两边方差之比：先除以较大的一边，四次方项才不会下溢成 0/0（一边方差 1e-170、另一边为 0）。
+      // 离差按较大一组的量级除掉 2 的幂再平方：1e-170 的离差直接平方会下溢成 0、1e160 的会上溢。
+      // 乘 2 的幂不舍入，样本整体乘 2 的幂时结果逐位不变。和都用精确求和，同一组样本换次序逐位相同。
+      const e = exponentOf(Math.max(spreads[0], spreads[1]));
+      const [va, vb] = [0, k].map(start => {
+        for (let i = 0; i < k; i++) centered[i] = scale2(samples[start + i], -e);
+        const mean = exactSum(centered, k) / k;
+        for (let i = 0; i < k; i++) centered[i] = (centered[i] - mean) ** 2;
+        return exactSum(centered, k) / (k - 1) / k; // 无偏方差再除以 K：均值标准误的平方
+      });
+      // 自由度只取决于两边方差之比：先除以较大的一边，四次方项才不会下溢成 0/0。
       const top = Math.max(va, vb);
       const ra = va / top;
       const rb = vb / top;
       const df = (ra + rb) ** 2 * (k - 1) / (ra * ra + rb * rb);
-      pMap[j] = studentTwoSidedP(delta / Math.sqrt(va + vb), df);
+      // 均值差远大于离差时 t 溢出成 ±Infinity，p 记 0。
+      pMap[j] = studentTwoSidedP(scale2(sum, -e) / k / Math.sqrt(va + vb), df);
     }
     tested.push(j);
   }

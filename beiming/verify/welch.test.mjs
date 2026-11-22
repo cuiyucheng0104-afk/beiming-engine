@@ -672,3 +672,69 @@ test('V18-20 G_REV-R10 8x8 完整块与尾块像素多重集置换不产生舍�
   assert.equal(opposite.biasMap[0], Infinity);
   assert.ok(opposite.pMap[0] > 0 && opposite.pMap[0] < 0.001);
 });
+
+test('V18-21 G_REV-R11 块内精确展开求和不吞 [-2^54, 2^54, 100 vs 101] 微偏，且近邻样本 [L,H] 与 [H,L] 种子换序恒得精确 p=0.5', () => {
+  // 1) [-2^54, 2^54, 100] vs [-2^54, 2^54, 101]（以及乘 2^-54 归一到 [-1,1] 的版本）：完整 8x8 块与 3x1 尾块均须保留真实残差
+  for (const scale of [1, 2 ** -54]) {
+    const N = 2 ** 54 * scale;
+    const cancelFrame = (w, h, r) => {
+      const data = new Float32Array(w * h);
+      data[0] = -N; data[1] = N; data[2] = r * scale;
+      return { width: w, height: h, channels: 1, data };
+    };
+    for (const [w, h, expectedBias] of [[8, 8, (-1 / 64) * scale], [3, 1, (-1 / 3) * scale]]) {
+      const r = verify.welchTest([cancelFrame(w, h, 100), cancelFrame(w, h, 100)], [cancelFrame(w, h, 101), cancelFrame(w, h, 101)], { blockSize: 8 });
+      assert.equal(r.testedUnits, 1, `scale=${scale} ${w}x${h} testedUnits`);
+      assert.ok(Math.abs(r.biasMap[0] - expectedBias) <= Math.abs(expectedBias) * 1e-6, `scale=${scale} ${w}x${h} bias=${r.biasMap[0]}`);
+      assert.equal(r.pMap[0], 0);
+      assert.equal(r.qMap[0], 0);
+      assert.equal(r.pass, false);
+    }
+  }
+
+  // 2) 全非负 Float32Array 帧 L=[1,0]、H=[1,2^-52]（注意 Float32Array([1, 2^-52]) 为 [1, 2^-52 -> Float32 仍精确表示 2^-52]）：
+  //    固定 B=[H,H]，A 为 [L,H] 或 [H,L] 时 Welch 精确值均为 |t|=1, df=1, p=q=0.5, pass=true
+  for (const Ctor of [Float32Array, Float64Array]) {
+    const eps = Ctor === Float32Array ? 2 ** -52 : 2 ** -52;
+    const L = { width: 2, height: 1, channels: 1, data: new Ctor([1, 0]) };
+    const H = { width: 2, height: 1, channels: 1, data: new Ctor([1, eps]) };
+    const rLH = verify.welchTest([L, H], [H, H], { blockSize: 8 });
+    const rHL = verify.welchTest([H, L], [H, H], { blockSize: 8 });
+    assert.ok(Math.abs(rLH.pMap[0] - 0.5) < 1e-12, `${Ctor.name} LH p=${rLH.pMap[0]}`);
+    assert.equal(rLH.pMap[0], rHL.pMap[0], `${Ctor.name} 种子换序结果须逐位相同`);
+    assert.equal(rLH.pass, true);
+    assert.equal(rHL.pass, true);
+  }
+
+  // 3) 块均值只取决于块的精确和：多重集不同而精确和舍入后相等的两块均值逐位相等（半数加同号余量按精确和舍入，不按最近偶数）
+  const row = (...values) => ({ width: values.length, height: 1, channels: 1, data: new Float64Array(values) });
+  const twice = frame => [frame, frame];
+  const sameSum = verify.welchTest(twice(row(2 ** 53, 1, Number.MIN_VALUE)), twice(row(2 ** 53, 2, 0)), { blockSize: 8 });
+  assert.equal(sameSum.testedUnits, 0);
+  assert.equal(sameSum.biasMap[0], 0);
+
+  // 4) 贴近双精度上限、顺序和会溢出的块走 BigInt 慢路径：与常规路径是同一个函数，相消后的次正规余量也不丢
+  const M = 1.5e308;
+  const crossPath = verify.welchTest(twice(row(M, -M, 0.1, 0.7, 2 ** -30)), twice(row(0, 0, 0.1, 0.7, 2 ** -30)), { blockSize: 8 });
+  assert.equal(crossPath.testedUnits, 0);
+  const residue = verify.welchTest(twice(row(M, -M, 3 * Number.MIN_VALUE)), twice(row(M, -M, 0)), { blockSize: 8 });
+  assert.equal(residue.testedUnits, 1);
+  assert.equal(residue.biasMap[0], Number.MIN_VALUE);
+  assert.equal(residue.pMap[0], 0);
+  // 2^1024 + 2^971 恰在两个 53 位数正中（按最近偶数舍到 2^1024），再加 2^-1000 就该进位到 2^1024 + 2^972
+  const P = 2 ** 1023;
+  const sticky = verify.welchTest(twice(row(P, P, 2 ** 971, 2 ** -1000)), twice(row(P, P, 2 ** 971, 0)), { blockSize: 8 });
+  assert.equal(sticky.testedUnits, 1);
+  assert.equal(sticky.biasMap[0], 2 ** 970);
+
+  // 5) K=3 近邻样本：A 的三个种子相差 1 ulp、B 无噪声，t=√3、df=2，p = 1 - √(3/5)；六种种子次序逐位相同
+  const pixel = v => ({ width: 1, height: 1, channels: 1, data: new Float64Array([v]) });
+  const near = [1, 1 + 2 ** -52, 1 + 2 ** -51];
+  const orders = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]
+    .map(order => verify.welchTest(order.map(i => pixel(near[i])), [1, 1, 1].map(pixel)));
+  for (const r of orders) {
+    assert.ok(Math.abs(r.pMap[0] - (1 - Math.sqrt(3 / 5))) < 1e-12, `p=${r.pMap[0]}`);
+    assert.equal(r.pMap[0], orders[0].pMap[0]);
+    assert.equal(r.biasMap[0], 2 ** -52);
+  }
+});
