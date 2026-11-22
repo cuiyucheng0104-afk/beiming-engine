@@ -34,6 +34,7 @@ const cli = (args) => {
   const r = spawnSync(process.execPath, [RUNNER, ...args, '--json'], { encoding: 'utf8' });
   return { code: r.status, stderr: r.stderr, json: r.stdout.trim() ? JSON.parse(r.stdout) : null };
 };
+const landed = (root) => (existsSync(root) ? readdirSync(root, { recursive: true }).filter((f) => f.endsWith('result.json')).length : 0);   // 运行根下落了几份成绩
 const NEED_FFMPEG = { skip: !hasFfmpeg() && '环境缺少 ffmpeg / ffprobe' };
 const POSIX = process.platform !== 'win32';
 const SEATBELT = process.platform === 'darwin' && spawnSync('/usr/bin/sandbox-exec', ['-p', '(version 1)(allow default)', '/usr/bin/true']).status === 0;
@@ -86,9 +87,10 @@ test('B8-2 公开题：隔离目录、公开投影题面、过程观测、标准
   assert.deepEqual(await readJson(join(res.runDir, 'worktree/question.json')), projectPublicQuestion(sample), '题面是公开投影，ext 已去掉');
   for (const f of ['meta.json', 'observation.json', 'session/settings.json', 'session/mcp.json', 'tmp', 'transcript']) assert.ok(existsSync(join(res.runDir, f)), f);
   const saved = await readJson(res.resultFile);
-  assert.deepEqual(Object.keys(saved), ['format', 'questionId', 'level', 'source', 'model', 'runId', 'status', 'score', 'error', 'visibility', 'blockedBy', 'unmeasured', 'assertions', 'cost', 'overBudget', 'artifacts', 'createdAt']);
+  assert.deepEqual(Object.keys(saved), ['format', 'questionId', 'level', 'source', 'model', 'runId', 'status', 'pass', 'score', 'error', 'visibility', 'blockedBy', 'unmeasured', 'assertions', 'cost', 'overBudget', 'artifacts', 'createdAt']);
   assert.deepEqual([saved.format, saved.questionId, saved.level, saved.source, saved.status, saved.score, saved.visibility], ['bench-result/0.1', '28-1', 1, 'three', 'fail', 0.5, 'public']);
   assert.deepEqual([res.error, saved.error], [null, null], '没出错时 error 是 null');
+  assert.deepEqual([res.pass, saved.pass], [false, false], 'pass 是布尔：只有 status 是 pass 才为 true');
   assert.equal(saved.assertions.length, sample.basePredicates.length + sample.scoring.length);
   assert.deepEqual(saved.assertions.filter((a) => a.pass).map((a) => a.name), ['meta.bbox-limits']);
   assert.deepEqual([[...new Set(saved.assertions.map((a) => a.basis))], saved.unmeasured], [['judge'], 0]);
@@ -104,7 +106,7 @@ test('B8-3 隐藏题：做题方和运行目录都见不到私有段，宿主侧
   const { qFile, root } = await setup(t, { ...sample, flags: { ...sample.flags, hidden: true } });
   const res = await runExamQuestion({ questionFile: qFile, evalRoot: root, solver: async () => ({ tokens: 10 }), judge: allPass });
   assert.deepEqual(Object.keys(await readJson(join(res.runDir, 'worktree/question.json'))), ['id', 'level', 'title', 'brief', 'deliverable', 'assets']);
-  assert.deepEqual([res.status, res.score, res.visibility, res.assertions], ['pass', 1, 'hidden', []]);
+  assert.deepEqual([res.status, res.pass, (await readJson(res.resultFile)).pass, res.score, res.visibility, res.assertions], ['pass', true, true, 1, 'hidden', []]);
   const text = dump(res.runDir);
   for (const secret of ['loop.closure-psnr', 'referencePass', 'orbit_total', qFile]) assert.ok(!text.includes(secret), secret);
 });
@@ -130,6 +132,14 @@ test('B8-4 判分：超预算、做题出错都不算过；expectedFail 默认�
   await assert.rejects(runExamQuestion({ questionFile: qFile, evalRoot: root, solver: async () => ({}), judge: () => { throw envError('env.ffmpeg-missing', '没有 ffprobe', '装 FFmpeg'); } }), { code: 'env.ffmpeg-missing', exitCode: 3, message: '没有 ffprobe', hint: '装 FFmpeg' });
   const contract = await runExamQuestion({ questionFile: qFile, evalRoot: root, solver: async () => { throw contractError('contract.bad-value', '值不对'); }, judge: allPass });
   assert.deepEqual([contract.status, contract.score, contract.error, (await readJson(contract.resultFile)).error], ['error', 0, '值不对', '值不对']);
+  assert.deepEqual([contract.pass, (await readJson(contract.resultFile)).pass, over.pass], [false, false, false], 'error、fail 都落 pass: false，字段不缺');
+  // 多段的环境错误码（env.media.probe-missing）也是环境缺失：做题、判分两头抛都往上抛，不落零分成绩
+  const before = landed(root);
+  for (const who of ['solver', 'judge']) {
+    const gap = () => { throw envError('env.media.probe-missing', '探针没装', '装探针'); };
+    await assert.rejects(runExamQuestion({ questionFile: qFile, evalRoot: root, solver: who === 'solver' ? gap : async () => ({}), judge: who === 'judge' ? gap : allPass }), { code: 'env.media.probe-missing', exitCode: 3, message: '探针没装', hint: '装探针' }, who);
+  }
+  assert.equal(landed(root), before, '环境缺失不落成绩文件');
 
   const xfFile = join(dir, 'xf.json');
   await writeFile(xfFile, JSON.stringify({ ...sample, flags: { hidden: false, expectedFail: true, blockedBy: ['等 B9'] } }));
@@ -284,9 +294,22 @@ test('B8-8 隐藏题：blockedBy 原文和精确的墙钟预算不回显', async
       assert.deepEqual([res.status, res.score, ...errors], ['error', 0, reason, reason, reason], `${who} ${err.exitCode}`);
       assert.deepEqual([leaks(...errors), dump(res.runDir).includes('PRIVATE-9f3')], [[], false], `${who} ${err.exitCode}`);
     }
-    const env = await run(envError('env.ffmpeg-missing', diagnostic, diagnostic)).then(() => null, (e) => e);
-    assert.deepEqual([env?.exitCode, env?.code, leaks(env?.message, env?.stack, env?.hint, JSON.stringify(env))], [3, 'env.ffmpeg-missing', []], who);
+    for (const code of ['env.ffmpeg-missing', 'env.media.probe-missing']) {   // 往上抛的消息就是错误码；多段的错误码一样
+      const before = landed(root);
+      const env = await run(envError(code, diagnostic, diagnostic)).then(() => null, (e) => e);
+      assert.deepEqual([env?.exitCode, env?.code, env?.message, leaks(env?.message, env?.stack, env?.hint, JSON.stringify(env)), landed(root) - before], [3, code, code, [], 0], `${who} ${code}`);
+    }
   }
+  // 命令行那条路也走同一个口子：隐藏题的做题命令启动不了、宿主没有 ffprobe，报出来的消息都只是错误码
+  const gone = cli(['run', '--question', qFile, '--root', root, '--force-expected-fail', '--solver-cmd', join(dir, 'no-such-solver')]);
+  if (gone.json.error.code !== 'env.ffmpeg-missing') assert.deepEqual([gone.code, gone.json.error.code, gone.json.error.message, leaks(JSON.stringify(gone.json), gone.stderr)], [3, 'env.solver-missing', 'env.solver-missing', []]);
+  const ffprobeWas = process.env.FFPROBE;
+  process.env.FFPROBE = join(dir, 'no-ffprobe');
+  try {
+    const fresh = join(dir, 'never');
+    const err = await runExamQuestion({ questionFile: qFile, evalRoot: fresh, forceExpectedFail: true, solver: async () => ({}) }).then(() => null, (e) => e);
+    assert.deepEqual([err?.exitCode, err?.code, err?.message, leaks(err?.message, err?.hint), existsSync(fresh)], [3, 'env.ffmpeg-missing', 'env.ffmpeg-missing', [], false]);
+  } finally { if (ffprobeWas === undefined) delete process.env.FFPROBE; else process.env.FFPROBE = ffprobeWas; }
   // 命令做题的失败原因只有退出码
   const exit7 = await runExamQuestion({ questionFile: qFile, evalRoot: root, forceExpectedFail: true, solverCmd: `"${process.execPath}" -e "process.exit(7)"`, judge: allPass });
   assert.deepEqual([exit7.status, exit7.error, (await readJson(exit7.resultFile)).error], ['error', '做题命令 exit 7', '做题命令 exit 7']);

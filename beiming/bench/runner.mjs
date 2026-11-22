@@ -187,9 +187,14 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
   if (!how) throw usageError('没说谁来做题', '写 --solver-cmd <命令> 或 --model <模型>', 'usage.missing-argument');
   if (how === 'command' && !argv.length) throw usageError('--solver-cmd 是空的');
 
+  // 做题、判分抛的错里只有环境缺失（错误码是 env. 加点分的短横线小写段，如 env.media.probe-missing）往上抛、不落成绩，别的一律记成这次运行出错。隐藏题的只留错误码（消息就是错误码）：原因和提示可能带私有段、隐藏题目录
+  const rethrowEnvGap = (e) => {
+    const code = e instanceof EvalError ? e.code : null;   // 只读一次：判断用的和抛出去的是同一个值
+    if (typeof code === 'string' && /^env\.[a-z0-9-]+(?:\.[a-z0-9-]+)*$/.test(code)) throw hidden ? envError(code, code, '隐藏题不回显报错原文，缺什么看错误码') : e;
+  };
   const root = assertEvalRoot(resolveEvalRoot(evalRoot), REPO);
   // 默认判分要 ffprobe：做题之前先查，别等花完预算才发现判不了
-  if (!skip && !judge && spawnSync(ffprobe(), ['-version'], { stdio: 'ignore', windowsHide: true }).status !== 0) throw noFfprobe();
+  if (!skip && !judge && spawnSync(ffprobe(), ['-version'], { stdio: 'ignore', windowsHide: true }).status !== 0) rethrowEnvGap(noFfprobe());
   const startedAt = new Date();
   let runId, dir;
   fs.mkdirSync(path.join(root, question.id), { recursive: true });
@@ -207,11 +212,6 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
   const sandboxed = how === 'command' || how === 'claude';
   const profile = sandboxed && hasSeatbelt() ? seatbeltProfile(run, questionFile, hidden) : null;
   let solved = {}, error = null, measured = {}, wallMs = 0;
-  // 做题、判分抛的错里只有环境缺失（错误码是 env. 加短横线小写）往上抛、不落成绩，别的一律记成这次运行出错。隐藏题的只留错误码：原因和提示可能带私有段、隐藏题目录
-  const rethrowEnvGap = (e) => {
-    const code = e instanceof EvalError ? e.code : null;   // 只读一次：判断用的和抛出去的是同一个值
-    if (typeof code === 'string' && /^env\.[a-z0-9-]+$/.test(code)) throw hidden ? envError(code, '运行环境缺失', '隐藏题不回显报错原文，缺什么看错误码') : e;
-  };
   if (!skip) {
     writeJson(path.join(run.worktree, 'question.json'), projectPublicQuestion(question));
     const t0 = Date.now();
@@ -263,7 +263,7 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
     transcript: fs.readdirSync(path.join(dir, 'transcript')).sort(), startedAt: startedAt.toISOString(), endedAt,
   });
   const result = {
-    format: RESULT_FORMAT, questionId: question.id, level: question.level, source, model: model ?? solved.model ?? null, runId, status, score,
+    format: RESULT_FORMAT, questionId: question.id, level: question.level, source, model: model ?? solved.model ?? null, runId, status, pass: status === 'pass', score,
     // 没出错是 null；出错时和 observation.json 的 error 是同一句（隐藏题的做题与判分原因、预算数值在上面已经抹掉）
     error,
     // 隐藏题只落总分和计数：blockedBy 的原文、逐项的指标名和断言原文都是私有段
@@ -291,7 +291,7 @@ const RUN = {
       'force-expected-fail': { type: 'boolean', desc: '题目标了 expectedFail 也照样实跑（默认直接落 expected-fail）' },
     },
     notes: [
-      '退出码 0 表示跑完并落盘，及格与否看 result.json 的 status（pass / fail / error / expected-fail）；题目没过校验 exit 4，宿主缺 ffprobe exit 3。',
+      '退出码 0 表示跑完并落盘，及格与否看 result.json 的 pass（布尔），细分看 status（pass / fail / error / expected-fail）；题目没过校验 exit 4，宿主缺 ffprobe exit 3。',
       '判分只认宿主用 ffprobe 量到的成片（做题目录里的 deliverable.mp4），做题方在 submission.json 里自报的过没过不看。',
     ],
   },

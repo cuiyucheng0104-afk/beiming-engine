@@ -43,7 +43,7 @@
 
 `node beiming/bench/runner.mjs run --question <题目> --root <仓库外目录> (--solver-cmd <命令> | --model <模型>)`，代码里用 `runExamQuestion()`。隔离和观测复用 `tools/eval/lib`。
 
-题目先过校验（不过 exit 4），在 `<root>/<题号>/<runId>/` 下建 `worktree/`（只放公开投影 `question.json`），判完分写 `result.json`、`meta.json`、`observation.json`。exit 0 只表示跑完落盘，及格看 `status`。隐藏题只落总分；`expectedFail` 题加 `--force-expected-fail` 才跑。
+题目先过校验（不过 exit 4），在 `<root>/<题号>/<runId>/` 下建 `worktree/`（只放公开投影 `question.json`），判完分写 `result.json`、`meta.json`、`observation.json`。exit 0 只表示跑完落盘，及格看 `pass`（布尔）与 `status`。隐藏题只落总分；`expectedFail` 题加 `--force-expected-fail` 才跑。
 
 宿主判分（`defaultJudge`，缺 `ffprobe` exit 3）：实测做题目录的 `deliverable.mp4`，自报不算；没接量测器的项一律不过，条数记 `unmeasured`。
 
