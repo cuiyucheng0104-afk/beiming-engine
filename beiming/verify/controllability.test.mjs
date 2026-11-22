@@ -1033,6 +1033,76 @@ test('V14-20 原型按身份认，不按长相认：Object.prototype 的克隆�
   }
 });
 
+test('V14-21 原型链上有 Proxy 的对象先认原型再碰对象：活 Proxy 的陷阱一个都不触发，已撤销的照样按坏参数拒；看板行里读不出来的参数抛的错也带错误码', async () => {
+  let calls = 0;
+  const traps = [];
+  const renderLocked = (table) => async (f, l, info) => { calls++; return { frames: await twice()(f, l, info), deliverables: table() }; };
+  // 处理器本身也是 Proxy：哪个陷阱被问到都记一笔
+  const live = () => new Proxy({}, new Proxy({}, { get: (_, trap) => { traps.push(trap); } }));
+  const revoked = () => {
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    return proxy;
+  };
+  // 八审的反例是「已撤销的 Proxy 当直接原型」；隔一层普通对象的也一样不该碰到它
+  const protos = {
+    '活 Proxy 当直接原型': live, '已撤销的 Proxy 当直接原型': revoked,
+    '隔一层的活 Proxy': () => Object.create(live()), '隔一层的已撤销 Proxy': () => Object.create(revoked()),
+  };
+  const table = { 'master.mp4': 'sha256:aa' };
+  const rebuildOpts = { film: assembly, lock: assemblyLock, renderLocked: renderLocked(() => table) };
+  const localityOpts = { film: assembly, patch: patchOf(MARGIN, 0.82), renderFilm: (film) => { calls++; return renderAssembly(film); } };
+  const rebuilt = await runRebuildTest(rebuildOpts), located = await runLocalityTest(localityOpts);
+  const rowOpts = { filmId: assembly.id, recordedAt: '2026-11-22T00:00:00Z', rebuild: rebuilt, locality: located };
+  const coded = (e) => e instanceof TypeError && e.code === 'usage.bad-argument';
+
+  for (const [name, make] of Object.entries(protos)) {
+    // 不用 Object.assign：往对象上写会先问原型的 set 陷阱
+    const wrap = (fields) => Object.create(make(), Object.getOwnPropertyDescriptors(fields));
+    traps.length = 0;
+    for (const [run, fields] of [[runRebuildTest, rebuildOpts], [runLocalityTest, localityOpts]]) {
+      calls = 0;
+      await assert.rejects(run(wrap(fields)), (e) => e instanceof TypeError && /普通对象/.test(e.message), `${run.name} ${name}`);
+      assert.equal(calls, 0, `${run.name} ${name}：一遍都不渲`);
+    }
+    assert.throws(() => buildControllabilityRow(wrap(rowOpts)), (e) => coded(e) && /普通对象/.test(e.message), name);
+    calls = 0;
+    await assert.rejects(runRebuildTest({ ...rebuildOpts, renderLocked: renderLocked(() => wrap(table)) }), (e) => e instanceof TypeError && /deliverables/.test(e.message), name);
+    assert.equal(calls, 1, `${name}：第一遍交回就拒，不等第二遍`);
+    assert.deepEqual(traps, [], `${name}：陷阱一个都不触发`);
+  }
+  // 自有的 Symbol.toStringTag 访问器一读就抛：照样按「不是普通对象」拒，访问器的错不漏出去
+  const tagged = (fields) => Object.defineProperty({ ...fields }, Symbol.toStringTag, { get() { throw new Error('boom'); } });
+  const notPlain = (e) => e instanceof TypeError && /普通对象/.test(e.message);
+  calls = 0;
+  await assert.rejects(runRebuildTest(tagged(rebuildOpts)), notPlain);
+  await assert.rejects(runLocalityTest(tagged(localityOpts)), notPlain);
+  assert.equal(calls, 0);
+  assert.throws(() => buildControllabilityRow(tagged(rowOpts)), (e) => coded(e) && notPlain(e));
+  await assert.rejects(runRebuildTest({ ...rebuildOpts, renderLocked: renderLocked(() => tagged(table)) }), (e) => e instanceof TypeError && /deliverables/.test(e.message));
+
+  // 看板行的其他容器：报告、film 和它们里面的表是已撤销的 Proxy，或者访问器一读就抛，错都带错误码
+  const boom = (base, key) => Object.defineProperty({ ...base }, key, { get() { throw new Error('boom'); }, enumerable: true });
+  const { lockCheck: _dropped, ...noLockCheck } = rebuilt;
+  const unreadable = {
+    'rebuild 是已撤销的 Proxy': { rebuild: revoked() },
+    'locality 是已撤销的 Proxy': { locality: revoked() },
+    'film 是已撤销的 Proxy': { film: revoked() },
+    'rebuild.gate 是已撤销的 Proxy': { rebuild: { ...rebuilt, gate: revoked() } },
+    'rebuild.failedFrames 是已撤销的 Proxy': { rebuild: { ...rebuilt, failedFrames: revoked() } },
+    'locality.predicted 是已撤销的 Proxy': { locality: { ...located, predicted: revoked() } },
+    'locality.paths 是已撤销的 Proxy': { locality: { ...located, paths: revoked() } },
+    'rebuild 的原型是已撤销的 Proxy、缺一项要到原型上找': { rebuild: Object.create(revoked(), Object.getOwnPropertyDescriptors(noLockCheck)) },
+    'rebuild 的访问器一读就抛': { rebuild: boom(rebuilt, 'tier') },
+  };
+  for (const [name, fields] of Object.entries(unreadable)) {
+    assert.throws(() => buildControllabilityRow({ ...rowOpts, ...fields }), coded, name);
+  }
+  assert.throws(() => buildControllabilityRow(boom(rowOpts, 'filmId')), coded, '选项的访问器一读就抛');
+  // 正对照：同一份选项原样给，照常出行
+  assert.equal(buildControllabilityRow(rowOpts).overallPass, true);
+});
+
 test('V14-9 页面宿主实渲：双镜头局部性（改谁只变谁）与加锁重渲（两个帧源进程逐位相同）', async (t) => {
   const source = await startOrSkip(t);
   if (!source) return;

@@ -23,7 +23,8 @@ const { validate } = await loadContracts();
 const TIERS = ['hash', 'hash-same-machine', 'tolerance'];
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const inUnit = (v) => typeof v === 'number' && v >= 0 && v <= 1;
-// node:util 的 types 全是「带不带某种内部槽」的判断（Map、Set、Date、Proxy……），换了原型也认得出
+// node:util 的 types 认的是「带不带某种内部槽」（Map、Set、Date、Proxy……），换了原型也认得出。
+// 其中 isKeyObject、isCryptoKey 是顺着原型链读属性认的，会问到原型上的 Proxy：exotic 只对原型已经认过的对象用
 const NATIVE = Object.values(types).filter((is) => typeof is === 'function');
 const exotic = (v) => NATIVE.some((is) => is(v));
 // 模块装载时 Object.prototype 上有的名字；之后谁往上加了项，带着它的普通对象都不再算普通对象
@@ -39,10 +40,11 @@ const NATIVE_OBJECT = /^function Object\(\) \{ \[native code\] \}$/;
  * 冻结了的和冻结的克隆分不出来，按不是算。
  */
 function objectProto(proto) {
-  if (exotic(proto) || Object.getPrototypeOf(proto) !== null || !Reflect.ownKeys(proto).every((key) => {
+  // 顺序要紧：先挡 Proxy 和再往上还有原型的，自有项认完了才轮到 exotic，原型链上的陷阱和访问器一个都不碰
+  if (types.isProxy(proto) || Object.getPrototypeOf(proto) !== null || !Reflect.ownKeys(proto).every((key) => {
     const desc = Object.getOwnPropertyDescriptor(proto, key);
     return OBJECT_PROTO_KEYS.has(key) && !desc.enumerable && typeof (key === '__proto__' ? desc.get : desc.value) === 'function';
-  })) return false;
+  }) || exotic(proto)) return false;
   if (proto === Object.prototype) return true;
   const Ctor = Object.getOwnPropertyDescriptor(proto, 'constructor')?.value;
   if (typeof Ctor !== 'function' || types.isProxy(Ctor) || Object.getPrototypeOf(Ctor) === Function.prototype
@@ -55,12 +57,17 @@ function objectProto(proto) {
 /**
  * 普通对象：内容全在自有属性里，照自有属性读不会漏。原型只认空和 Object.prototype（objectProto 认得的），
  * 所以类实例（extends null 的也是）、Object.create(带着项的原型或 Proxy) 都不算；内容在内部槽或陷阱里的（Map、Set、Date、Proxy）换了原型也不算。
- * 先认内部槽再碰对象：Proxy 的陷阱一个都不触发。
+ * 先认原型再碰对象：exotic 和 toString 都会顺着原型链读属性，原型是 Proxy（活的、已撤销的）就先拒掉，陷阱一个都不触发。
+ * 只交回布尔值：自有的访问器一读就抛的也不算普通对象，由调用方统一报坏参数。
  */
 function isPlainRecord(v) {
-  if (v === null || typeof v !== 'object' || exotic(v) || Array.isArray(v) || Object.prototype.toString.call(v) !== '[object Object]') return false;
-  const proto = Object.getPrototypeOf(v);
-  return proto === null || objectProto(proto);
+  try {
+    if (v === null || typeof v !== 'object' || types.isProxy(v) || Array.isArray(v)) return false;
+    const proto = Object.getPrototypeOf(v);
+    return (proto === null || objectProto(proto)) && !exotic(v) && Object.prototype.toString.call(v) === '[object Object]';
+  } catch {
+    return false;
+  }
 }
 const BAD_OPTIONS = '参数必须是普通对象：类实例、Map、数组、Proxy 和带继承项的对象不收';
 function deepFreeze(v) {
@@ -379,7 +386,7 @@ const ISO_TIME = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,9})?(?:Z|[+-]\d\d:\d\
 // 一行的体积上界：路径只留首尾各 4 条、每条 96 个字符，片号和作业号各 128 个字符，其余都是数和枚举。
 // 一行远小于 Node 一次 write 的块（512 KiB），追加是一次 O_APPEND 写，不会被别的写入者从中间插开
 const MAX_ROW_BYTES = 8192, MAX_NAME = 128, PATH_SAMPLES = 4, PATH_CHARS = 96, FRAME_SAMPLES = 3;
-const badArg = (Type, message) => Object.assign(new Type(message), { code: 'usage.bad-argument' });
+const badArg = (Type, message, options) => Object.assign(new Type(message, options), { code: 'usage.bad-argument' });
 const headTail = (list, n) => (list.length <= 2 * n ? [...list] : [...list.slice(0, n), ...list.slice(-n)]);
 /** 实心数组：没有空洞、没有多出来的自有属性，每项过 itemOk。every 会跳过空洞，这里逐个下标查；键数先比，极长的空洞数组不用走完 */
 function dense(v, itemOk) {
@@ -447,9 +454,20 @@ function rebuildReason(r) {
  * 补丁改了镜头号或切点的报告，预测是照改动前后两张镜头表并起来的，和单独一张表对不上，不要带 film。
  * 报告不照单全收：帧表、计数、读数、门限照两项作业的判定规则重算一遍，和报告写的 pass、reason 对不上就拒收；两份报告都给了，totalFrames 要相同（不带 film 也查）。
  * overallPass：给了的项全过才是 true（l2PassRate 要正好是 1；容差档的门限比 P8 松的不算过）。
- * 交回的行深冻结、体积有上界（长表只留总数和首尾样例），无穷大的 PSNR 记 null，可直接写成 JSON。坏参数抛的错都带 code: 'usage.bad-argument'。
+ * 交回的行深冻结、体积有上界（长表只留总数和首尾样例），无穷大的 PSNR 记 null，可直接写成 JSON。
+ * 坏参数抛的错都带 code: 'usage.bad-argument'：读不出来的参数（报告、film 或里面的表是已撤销的 Proxy，访问器一读就抛）也算，包成 TypeError，原来的错在 cause 里。
  */
 export function buildControllabilityRow(options = {}) {
+  try {
+    return rowOf(options);
+  } catch (err) {
+    // 这里不做 I/O，抛出来的错都出自参数。认自己的错只看自有数据属性，不调对方的代码
+    if (types.isNativeError(err) && Object.getOwnPropertyDescriptor(err, 'code')?.value === 'usage.bad-argument') throw err;
+    throw badArg(TypeError, '参数读不出来：读的时候抛了错（已撤销的 Proxy、抛错的访问器），原来的错在 cause 里', { cause: err });
+  }
+}
+
+function rowOf(options) {
   if (!isPlainRecord(options)) throw badArg(TypeError, BAD_OPTIONS);
   const { filmId, recordedAt, jobId = null, film = null, l2PassRate = null, locality = null, rebuild = null, legacyNightlyPass = null } = options;
   if (typeof filmId !== 'string' || !filmId) throw badArg(TypeError, 'filmId 必须是不空的字符串');
