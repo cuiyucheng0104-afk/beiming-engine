@@ -10,13 +10,33 @@ const INK = '#1E1B18';
 const ONE = { kind: 'dom', html: '<p data-entity="t">x</p>' }, HOLE = [ONE];
 HOLE.length = 2;
 const FONT = new URL('../../../fonts/NotoSansSC-var.woff2', import.meta.url).href;
-// 名字: [该报的错误码, opts, ctx（不写就用真的）]。前五种该在调用当场抛，后两种装到一半才查得出、该经 Promise 报
+const DRAWN = { kind: 'canvas2d', name: 'c', rect: [1, 1, 20, 20], draw() {} }, GONE = Proxy.revocable([DRAWN], {});
+GONE.revoke();
+/** 带空槽的数组：只有 entries 里的下标有值 */
+const sparse = (length, entries) => Object.assign(Array(length), entries);
+const sized = (size) => (ctx) => ({ ...ctx, size });
+// 名字: [该报的错误码, opts, ctx（不写就用真的；写成函数是从真的改出来的）]。font、dup 装到一半才查得出、该经 Promise 报，fine 是写对了的对照，其余都该在调用当场抛
 const TRIALS = {
   slot: ['usage.bad-argument', { elements: Array(1) }],
   hole: ['usage.bad-argument', { elements: HOLE }],
   getter: ['usage.bad-argument', { elements: Object.defineProperty([], 0, { get: () => ONE, enumerable: true }) }],
   noCtx: ['usage.bad-argument', { elements: [ONE] }, null],
   noOpts: ['usage.bad-argument', null],
+  // Proxy：原样转发的、读下标时换一份声明的、查描述符时抛错的、撤销了的、元素自己是 Proxy 的
+  proxy: ['usage.bad-argument', { elements: new Proxy([DRAWN], {}) }],
+  swap: ['usage.bad-argument', { elements: new Proxy([DRAWN], { get: (t, k, r) => (k === '0' ? { ...DRAWN, name: 'second' } : Reflect.get(t, k, r)) }) }],
+  trap: ['usage.bad-argument', { elements: new Proxy([DRAWN], { getOwnPropertyDescriptor() { throw new Error('陷阱里抛的'); } }) }],
+  revoked: ['usage.bad-argument', { elements: GONE.proxy }],
+  item: ['usage.bad-argument', { elements: [new Proxy(DRAWN, {})] }],
+  rectHole: ['usage.bad-argument', { elements: [{ ...DRAWN, rect: sparse(4, { 1: 1, 2: 20, 3: 20 }) }] }],
+  // 画幅：缺宽、缺高、高是访问器、是 Proxy；ctx、opts 自己是 Proxy
+  sizeHole: ['usage.bad-argument', { elements: [DRAWN] }, sized(sparse(2, { 1: 160 }))],
+  sizeTail: ['usage.bad-argument', { elements: [DRAWN] }, sized(sparse(2, { 0: 320 }))],
+  sizeGetter: ['usage.bad-argument', { elements: [DRAWN] }, sized(Object.defineProperty([320], 1, { get: () => 160, enumerable: true }))],
+  sizeProxy: ['usage.bad-argument', { elements: [DRAWN] }, sized(new Proxy([320, 160], {}))],
+  ctxProxy: ['usage.bad-argument', { elements: [DRAWN] }, (ctx) => new Proxy(ctx, {})],
+  optsProxy: ['usage.bad-argument', new Proxy({ elements: [DRAWN] }, {})],
+  fine: [null, { elements: [DRAWN] }],
   // 第一款字体登记上了，第二款取不到
   font: ['usage.bad-argument', { elements: [ONE], fonts: [{ family: 'Probe', url: FONT }, { family: 'Gone', url: `${FONT}.gone.woff2` }] }],
   // 第一层排好、画好了，第二层的实体和它重名
@@ -30,7 +50,7 @@ async function runTrials(ctx) {
     const before = count(), hit = (err) => (err.code === code ? 1 : -1);
     let sync = 0, late = 0;
     try {
-      await createTwoDStage(at, opts).then((stage) => stage.dispose(), (err) => { late = hit(err); });
+      await createTwoDStage(typeof at === 'function' ? at(ctx) : at, opts).then((stage) => stage.dispose(), (err) => { late = hit(err); });
     } catch (err) { sync = hit(err); }
     const after = count();
     Object.assign(readings, { [`${name}.sync`]: sync, [`${name}.late`]: late, [`${name}.nodes`]: after[0] - before[0], [`${name}.fonts`]: after[1] - before[1] });

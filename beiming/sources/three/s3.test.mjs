@@ -138,6 +138,65 @@ test('元素声明不对当场报 usage.bad-argument：种类不认识、矩形�
   }
 });
 
+test('声明只收直接写出来的：Proxy、访问器、数组空槽、数组上下标以外的属性，在 ctx、ctx.size、opts、elements、元素、rect、fonts 哪一层都当场报 usage.bad-argument，访问器一次都不执行', () => {
+  const size = [640, 360], draw = () => {}, canvas = { kind: 'canvas2d', name: 'plot', rect: [1, 1, 20, 20], draw }, font = { family: 'Probe', url: '/fonts/a.woff2' };
+  let read = 0;
+  /** target 上加一个读一次记一次的访问器 */
+  const getter = (target, key, value) => Object.defineProperty(target, key, { get: () => { read++; return value; }, enumerable: true });
+  /** 带空槽的数组：只有 entries 里的下标有值 */
+  const sparse = (length, entries) => Object.assign(Array(length), entries);
+  const revoked = Proxy.revocable([canvas], {});
+  revoked.revoke();
+  const { rect, ...noRect } = canvas, { kind, ...noKind } = canvas;
+  const badElements = {
+    proxy: new Proxy([canvas], {}),
+    // 调用方读到 second，舞台照描述符拿到的是 plot
+    swap: new Proxy([canvas], { get: (t, k, r) => (k === '0' ? { ...canvas, name: 'second' } : Reflect.get(t, k, r)) }),
+    trap: new Proxy([canvas], { getOwnPropertyDescriptor() { throw new Error('陷阱里抛的'); } }),
+    revoked: revoked.proxy,
+    extra: Object.assign([canvas], { more: {} }),
+    // 空槽加一个多出来的属性：自有属性的个数对得上，下标对不上
+    holeExtra: Object.assign(sparse(2, { 1: canvas }), { more: 1 }),
+    item: [new Proxy(canvas, {})],
+    itemGetter: [getter({ ...noRect }, 'rect', rect)],
+    kindGetter: [getter({ ...noKind }, 'kind', kind)],
+    rectHole: [{ ...canvas, rect: sparse(4, { 1: 1, 2: 20, 3: 20 }) }],
+    rectProxy: [{ ...canvas, rect: new Proxy([1, 1, 20, 20], {}) }],
+    rectGetter: [{ ...canvas, rect: getter([1, 1, 20], 3, 20) }],
+    rectExtra: [{ ...canvas, rect: Object.assign([1, 1, 20, 20], { more: 1 }) }],
+  };
+  for (const [k, elements] of Object.entries(badElements)) {
+    assert.throws(() => checkElements(size, elements), coded('usage.bad-argument'), k);
+    assert.throws(() => createTwoDStage({ size }, { elements }), coded('usage.bad-argument'), k);
+  }
+  const badSize = { hole: sparse(2, { 1: 160 }), tail: sparse(2, { 0: 320 }), getter: getter([320], 1, 160), proxy: new Proxy([320, 160], {}), extra: Object.assign([320, 160], { more: 1 }), holeExtra: Object.assign(sparse(2, { 1: 160 }), { more: 1 }), long: [320, 160, 1], text: ['320', 160] };
+  for (const [k, at] of Object.entries(badSize)) {
+    assert.throws(() => checkElements(at, [canvas]), coded('usage.bad-argument'), `size ${k}`);
+    assert.throws(() => createTwoDStage({ size: at }, { elements: [canvas] }), coded('usage.bad-argument'), `ctx.size ${k}`);
+  }
+  const badCalls = {
+    ctxProxy: [new Proxy({ size }, {}), { elements: [canvas] }],
+    ctxGetter: [getter({}, 'size', size), { elements: [canvas] }],
+    optsProxy: [{ size }, new Proxy({ elements: [canvas] }, {})],
+    optsGetter: [{ size }, getter({}, 'elements', [canvas])],
+    // 读一次一个样的 css：查的那次和用的那次可以不是同一段
+    cssObject: [{ size }, { elements: [canvas], css: { toString: () => '' } }],
+    fontsProxy: [{ size }, { elements: [canvas], fonts: new Proxy([font], {}) }],
+    fontProxy: [{ size }, { elements: [canvas], fonts: [new Proxy(font, {})] }],
+    fontGetter: [{ size }, { elements: [canvas], fonts: [getter({ url: font.url }, 'family', 'Probe')] }],
+  };
+  for (const [k, [ctx, opts]] of Object.entries(badCalls)) assert.throws(() => createTwoDStage(ctx, opts), coded('usage.bad-argument'), k);
+  assert.equal(read, 0, '访问器被执行了');
+  // 照样收的：冻结的声明、带着别的字段的元素（字段里的对象一样逐层抄，舞台不用）
+  const frozen = Object.freeze([Object.freeze({ ...canvas, rect: Object.freeze([...rect]), note: 'x', more: { deep: [1] } })]);
+  assert.deepEqual(checkElements(Object.freeze([...size]), frozen).map((e) => [e.name, e.rect]), [['plot', rect]]);
+  // 查的和用的是抄出来的那一份：交回之后调用方再改自己那份，舞台手里的不变
+  const mine = [{ ...canvas, rect: [...rect] }], [held] = checkElements(size, mine);
+  mine[0].rect[0] = NaN;
+  mine[0].name = 'renamed';
+  assert.deepEqual([held.name, held.rect], ['plot', rect]);
+});
+
 // 进页面之前就要拒掉的标记：外链、会执行的属性和标签、样式里的外部地址、svg 里再声明实体。纯校验和实渲两头都用这一份
 const FAR = 'https://example.invalid/a.png';
 const svgWith = (inner, attrs = '') => [{ kind: 'svg', name: 'a', rect: [0, 0, 10, 10], svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" ${attrs}>${inner}</svg>` }];
@@ -518,12 +577,14 @@ test('探针：文字自己的盒不作数（display: contents 没有盒、盒�
   });
 });
 
-test('探针：过不了 JSON 的坏声明（数组空槽、访问器、不对的 ctx）调用当场抛，装到一半才失败的（字体取不到、实体重名）经 Promise 报；哪一种事后页面都不多一个节点、一款字体', async (t) => {
+test('探针：过不了 JSON 的坏声明（数组空槽、访问器、Proxy、不对的 ctx 和画幅）调用当场抛，装到一半才失败的（字体取不到、实体重名）经 Promise 报；哪一种事后页面都不多一个节点、一款字体', async (t) => {
   await withSource(t, async ({ open }) => {
     const session = await open(probeFilm([probeShot('trials', [PROBE[1]], { trials: true })]), 'trials');
     const { readings } = (await session.render(0, {}, ['color'])).meta;
     // 每种：[调用当场抛了该抛的错误码, 交回的 Promise 带着该报的错误码失败, 事后页面多出来的节点数, 多登记的字体数]
-    const want = { slot: [1, 0, 0, 0], hole: [1, 0, 0, 0], getter: [1, 0, 0, 0], noCtx: [1, 0, 0, 0], noOpts: [1, 0, 0, 0], font: [0, 1, 0, 0], dup: [0, 1, 0, 0] };
+    const sync = ['slot', 'hole', 'getter', 'noCtx', 'noOpts', 'proxy', 'swap', 'trap', 'revoked', 'item', 'rectHole', 'sizeHole', 'sizeTail', 'sizeGetter', 'sizeProxy', 'ctxProxy', 'optsProxy'];
+    // fine 是对照：写对了的 Canvas 2D 声明在页面里照常装上（没抛、没失败），撤掉之后页面不多东西
+    const want = { ...Object.fromEntries(sync.map((k) => [k, [1, 0, 0, 0]])), font: [0, 1, 0, 0], dup: [0, 1, 0, 0], fine: [0, 0, 0, 0] };
     assert.deepEqual(Object.fromEntries(Object.keys(want).map((k) => [k, ['sync', 'late', 'nodes', 'fonts'].map((x) => readings?.[`${k}.${x}`])])), want);
     await session.close();
   });

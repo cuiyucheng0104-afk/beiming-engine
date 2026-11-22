@@ -18,7 +18,58 @@ const INK_PAD = 32;
 // 自己从不画出来、只给别处引用的 SVG 节点：隔离一个节点时不藏它们和它们里面的（裁剪路径、蒙版里藏起来的图形不算数，引用它的就被裁空了）
 const UNPAINTED = ['defs', 'symbol', 'clippath', 'mask', 'pattern', 'marker', 'lineargradient', 'radialgradient', 'filter'];
 const coded = (code, message) => Object.assign(new Error(message), { code });
+const bad = (message) => coded('usage.bad-argument', message);
 const show = (v) => JSON.stringify(v) ?? String(v);
+
+// ---- 声明只收直接写出来的 ----
+/** 跑一段读声明的同步代码：里面抛出来的不管是什么（陷阱里抛的、撤销了的 Proxy、套成环的对象），都报成 usage.bad-argument */
+function declared(read) {
+  try { return read(); } catch (err) {
+    let why = '';
+    // 抛出来的东西自己也可能读不了
+    try { why = err.code === 'usage.bad-argument' ? null : String(err.message); } catch { /* 留空 */ }
+    if (why === null) throw err;
+    throw bad(`声明读不了：${why}`);
+  }
+}
+
+/**
+ * v 自己过不过得了结构化克隆的第一关：Proxy 和克隆不了的内建对象（页面节点、模块这类）过不了。脚本里认得出 Proxy 的只有它：见到 Proxy 当场报错、一个陷阱都不碰。
+ * 带函数的真对象也克隆不了，但报的是里面那个函数；v 自己过不了时报的是 v。所以拿 v 的报错去对「套了一层 Proxy 的 v」的报错（那个一定是报 v 自己）：一样就是没过。
+ * 克隆会往 v 里面走，所以里面的要先查完（见 copy）。
+ * shortcut: 靠的是 V8 的报错里写着克隆不了的是哪个值；报错千篇一律的引擎里带函数的真声明也会被拒掉（宁可错拒），到那时得另找判法。
+ */
+function opaque(v) {
+  const says = (x) => { try { structuredClone(x); return null; } catch (err) { return String(err.message); } };
+  const mine = says(v);
+  return mine !== null && mine === says(new Proxy(v, {}));
+}
+
+/**
+ * 抄一份声明交回，之后查的、用的都是抄的这份：调用方那份之后怎么变、读一次给一个样，都碰不到舞台。对象和数组逐层照自有属性的描述符抄，基本值和函数原样。
+ * 不收的：访问器（一次都不读它）、Proxy 和克隆不了的内建对象（见 opaque）、有空槽的数组、带着下标以外属性的数组。what 是报错时怎么称呼它。
+ */
+function copy(what, v) {
+  if (v === null || typeof v !== 'object') return v;
+  const array = Array.isArray(v), props = Object.getOwnPropertyDescriptors(v), keys = Reflect.ownKeys(props), out = array ? [] : {};
+  if (array) {
+    const n = props.length.value;
+    if (keys.length !== n + 1) throw bad(`${what} 是有空槽的数组，或者带着下标以外的属性`);
+    for (let i = 0; i < n; i++) if (!Object.hasOwn(props, i)) throw bad(`${what} 的第 ${i} 项是空槽`);
+  }
+  for (const k of keys) {
+    if (!Object.hasOwn(props[k], 'value')) throw bad(`${what} 的 ${String(k)} 是访问器（读一次一个样），要直接写成值`);
+    if (typeof k === 'string' && !(array && k === 'length')) Object.defineProperty(out, k, { value: copy(`${what}.${k}`, props[k].value), enumerable: true, writable: true, configurable: true });
+  }
+  if (opaque(v)) throw bad(`${what} 不是直接写出来的${array ? '数组' : '对象'}（是 Proxy，或者是克隆不了的内建对象）`);
+  return out;
+}
+
+/** 画幅 [宽, 高]：两个正的有限的数，按下标查（空槽读出来是 undefined，过不了） */
+function checkSize(what, size) {
+  if (!Array.isArray(size) || size.length !== 2 || ![size[0], size[1]].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0)) throw bad(`${what} 必须是 [宽, 高] 两个正数，给的是 ${show(size)}`);
+  return size;
+}
 
 // ---- 标记和样式的拒收表 ----
 // 不收的标签：会执行、会联网、会带进另一份文档的，和按时间走的 SMIL 动画（它还能把引用改成外部地址）；parsererror 是解析失败留下的
@@ -40,7 +91,7 @@ const TEXT_BAD = [
   [/&#|&(?!(?:amp|lt|gt|quot|apos|nbsp);)[a-z0-9]+;/i, '字符引用只收 &amp; &lt; &gt; &quot; &apos; &nbsp;，别的字直接写'],
   ...CSS_BAD,
 ];
-const refuse = (what, why, hit) => coded('usage.bad-argument', `${what}：${why}${hit ? `（${show(String(hit).slice(0, 40))}）` : ''}`);
+const refuse = (what, why, hit) => bad(`${what}：${why}${hit ? `（${show(String(hit).slice(0, 40))}）` : ''}`);
 
 /** 样式进页面之前：外部地址、@import、image-set、反斜杠转义都报 usage.bad-argument */
 export function checkCss(what, css) {
@@ -97,9 +148,9 @@ export function rectToPlane([x0, y0, x1, y1], [width, height], order = 0) {
   return { distance, pixelM, corners: [at(x0, y0), at(x1, y0), at(x0, y1), at(x1, y1)] };
 }
 
-/** 矩形必须是四个有限的数、宽高是正的、整个在画面里；不是就报 code */
+/** 矩形必须是四个有限的数（按下标查，空槽过不了）、宽高是正的、整个在画面里；不是就报 code */
 function checkRect(what, rect, [width, height], code) {
-  if (!Array.isArray(rect) || rect.length !== 4 || !rect.every((v) => typeof v === 'number' && Number.isFinite(v))) throw coded(code, `${what} 的矩形必须是 [x0, y0, x1, y1] 四个有限的数（像素），给的是 ${show(rect)}`);
+  if (!Array.isArray(rect) || rect.length !== 4 || ![rect[0], rect[1], rect[2], rect[3]].every((v) => typeof v === 'number' && Number.isFinite(v))) throw coded(code, `${what} 的矩形必须是 [x0, y0, x1, y1] 四个有限的数（像素），给的是 ${show(rect)}`);
   if (!(rect[0] < rect[2] && rect[1] < rect[3])) throw coded(code, `${what} 的矩形宽高必须是正的，给的是 ${show(rect)}`);
   if (rect[0] < 0 || rect[1] < 0 || rect[2] > width || rect[3] > height) throw coded(code, `${what} 的矩形 ${show(rect)} 伸出了画面 ${width}×${height}`);
 }
@@ -115,16 +166,17 @@ function checkName(name, taken, code) {
  *   { kind: 'svg', name, rect, svg: '<svg …>…</svg>', opacity? }  整张图是一个实体，拉满 rect
  *   { kind: 'dom', html, opacity? }                              一层排版，里面每个带 data-entity 的节点是一个实体，矩形从排版结果量
  * opacity(f, sub) 交 [0, 1] 里的数，不写就是 1。声明不对报 usage.bad-argument；svg、html 还要过 checkMarkup（查过的惰性文档抄在 doc 里，node 里是 null）。
- * 按下标逐槽查，不用会跳过空槽的遍历：数组空槽和访问器（读一次一个样）都不收，交回的数组没有空槽。
+ * size、elements 先各抄一份再查（见 copy）：Proxy、访问器、数组空槽都不收，交回的数组没有空槽。
  */
 export function checkElements(size, elements) {
-  const bad = (message) => coded('usage.bad-argument', message);
+  return declared(() => checkItems(checkSize('size', copy('size', size)), copy('elements', elements)));
+}
+
+/** checkElements 查的那一步：size、elements 是抄好的 */
+function checkItems(size, elements) {
   if (!Array.isArray(elements) || !elements.length) throw bad('elements 必须是不空的数组');
   const taken = new Set();
-  return Array.from({ length: elements.length }, (_, i) => {
-    const slot = Object.getOwnPropertyDescriptor(elements, i);
-    if (!slot || !Object.hasOwn(slot, 'value')) throw bad(`第 ${i} 个元素是数组的空槽或访问器，要直接写成对象`);
-    const e = slot.value;
+  return elements.map((e, i) => {
     if (!e || !KINDS.includes(e.kind)) throw bad(`第 ${i} 个元素的种类 ${show(e?.kind)} 不认识，只有 ${KINDS.join('、')}`);
     if (e.opacity !== undefined && typeof e.opacity !== 'function') throw bad(`第 ${i} 个元素的 opacity 必须是函数 (f, sub) => [0, 1] 里的数`);
     if (e.kind === 'dom') {
@@ -145,13 +197,12 @@ function base64(bytes) {
   return btoa(s);
 }
 
-/** 核对字体声明 [{ family, url, weight?, style? }]，交回抄好的一份；写法不对报 usage.bad-argument。地址指到哪儿要到页面里才查得了（见 loadFonts） */
+/** 核对字体声明 [{ family, url, weight?, style? }]（抄好的，见 copy），交回整理过的一份；写法不对报 usage.bad-argument。地址指到哪儿要到页面里才查得了（见 loadFonts） */
 function checkFonts(fonts) {
-  if (!Array.isArray(fonts)) throw coded('usage.bad-argument', `fonts 必须是数组，给的是 ${show(fonts)}`);
-  // Array.from 不跳过空槽：空槽当 undefined 查，过不了
-  return Array.from(fonts, (font) => {
+  if (!Array.isArray(fonts)) throw bad(`fonts 必须是数组，给的是 ${show(fonts)}`);
+  return fonts.map((font) => {
     const { family, url, weight = 'normal', style = 'normal' } = font ?? {};
-    if (![family, weight, style].every((v) => typeof v === 'string' && FONT_WORD.test(v)) || typeof url !== 'string') throw coded('usage.bad-argument', `字体声明 ${show(font)} 写法不对：family、weight、style 只含字母、数字、下划线、空格、连字符，url 是字符串`);
+    if (![family, weight, style].every((v) => typeof v === 'string' && FONT_WORD.test(v)) || typeof url !== 'string') throw bad(`字体声明 ${show(font)} 写法不对：family、weight、style 只含字母、数字、下划线、空格、连字符，url 是字符串`);
     return { family, url, weight, style };
   });
 }
@@ -207,13 +258,25 @@ function inkOf(width, height, isInk) {
  */
 export function createTwoDStage(ctx, opts = {}) {
   // 声明不对当场抛，不放进交回的 Promise 里：调用处不带 await 的 try/catch 也接得住，页面一个节点都还没动
-  const size = ctx?.size;
-  if (!Array.isArray(size) || size.length !== 2 || !size.every((v) => Number.isFinite(v) && v > 0)) throw coded('usage.bad-argument', `ctx 必须是 build(ctx) 收到的那个，ctx.size 是 [宽, 高] 两个正数，给的是 ${show(size)}`);
-  if (!opts || typeof opts !== 'object') throw coded('usage.bad-argument', `opts 必须是对象，给的是 ${show(opts)}`);
-  const items = checkElements(size, opts.elements);
-  checkCss('css', String(opts.css ?? ''));
-  const fonts = checkFonts(opts.fonts ?? []), held = { root: null, faces: [], disposable: [] };
-  return mount(ctx, opts, items, fonts, held).catch((err) => { release(held); throw err; });
+  const [at, look, items, fonts] = declared(() => {
+    if (!ctx || typeof ctx !== 'object') throw bad('ctx 必须是 build(ctx) 收到的那个');
+    // ctx 是宿主的东西，不整份抄：只照描述符读 size、THREE 这两个（访问器不收），自己不能是 Proxy
+    const [raw, THREE] = ['size', 'THREE'].map((k) => {
+      const p = Object.getOwnPropertyDescriptor(ctx, k);
+      if (p && !Object.hasOwn(p, 'value')) throw bad(`ctx.${k} 是访问器，ctx 必须是 build(ctx) 收到的那个`);
+      return p?.value;
+    });
+    const size = checkSize('ctx 必须是 build(ctx) 收到的那个，ctx.size', copy('ctx.size', raw));
+    if (opaque(ctx)) throw bad('ctx 是 Proxy，必须是 build(ctx) 收到的那个');
+    if (!opts || typeof opts !== 'object') throw bad('opts 必须是对象');
+    const given = copy('opts', opts), css = given.css ?? '', background = given.background ?? STAGE.paper;
+    if (typeof css !== 'string') throw bad('css 必须是字符串');
+    if (!['string', 'number'].includes(typeof background)) throw bad('background 必须是颜色字符串或十六进制数');
+    checkCss('css', css);
+    return [{ THREE, size }, { css, background }, checkItems(size, given.elements), checkFonts(given.fonts ?? [])];
+  });
+  const held = { root: null, faces: [], disposable: [] };
+  return mount(at, look, items, fonts, held).catch((err) => { release(held); throw err; });
 }
 
 /** 撤掉一个舞台占着的东西：页面里的排版容器、登记给页面的字体、网格和贴图。dispose 和装到一半失败都走这里 */
@@ -223,23 +286,23 @@ function release({ root, faces, disposable }) {
   for (const x of disposable) x.dispose();
 }
 
-/** createTwoDStage 的异步部分：取字体、排版、光栅化。items、fonts 是核对过的元素和字体声明；占着的东西随手记进 held（见 release） */
+/** createTwoDStage 的异步部分：取字体、排版、光栅化。ctx { THREE, size }、opts { css, background }、items、fonts 都是核对过、抄好的；占着的东西随手记进 held（见 release） */
 async function mount(ctx, opts, items, fonts, held) {
   const { THREE, size } = ctx, [W, H] = size;
   const bad = (message) => coded('contract.bad-value', message);
   // 样式进 XML 文档之前把 & 和 < 转掉
-  const css = await loadFonts(fonts, held.faces) + String(opts.css ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;');
+  const css = await loadFonts(fonts, held.faces) + opts.css.replaceAll('&', '&amp;').replaceAll('<', '&lt;');
 
   const root = document.createElement('div');
   root.style.cssText = `position:fixed;left:0;top:0;width:${W}px;height:${H}px;overflow:hidden;opacity:0;pointer-events:none`;
   const sheet = document.createElement('style');
-  sheet.textContent = opts.css ?? '';
+  sheet.textContent = opts.css;
   root.append(sheet);
   document.body.append(root);
   held.root = root;
 
   const scene = new THREE.Scene(), entities = {}, { disposable } = held, groups = [], taken = new Set(), textIds = new Set();
-  scene.background = new THREE.Color(opts.background ?? STAGE.paper);
+  scene.background = new THREE.Color(opts.background);
   const camera = new THREE.PerspectiveCamera(STAGE.fovYDeg, W / H, STAGE.nearM, STAGE.farM);
   scene.add(camera);
 
