@@ -95,7 +95,7 @@ async function encodeToSinks({ graph, outputs, audioPath, tier, hwEncoder, timeo
       args.push('-map', '0:v:0');
       if (audioPath) args.push('-map', '1:a:0');
       args.push('-vf', `setsar=1,${SETPARAMS}`, ...outputArgs({ preset: output.preset, fps, tier, hwEncoder, audio: Boolean(audioPath) }));
-      const sink = await sinkFactory({ ...output, args, timeoutMs });
+      const sink = await sinkFactory({ ...output, args, timeoutMs, expectedFrames: graph.frames });
       if (typeof sink?.abort === 'function') sinks.push(sink);
       if (!['write', 'finish', 'abort'].every((key) => typeof sink?.[key] === 'function')) throw bad('输出端必须提供 write、finish 和 abort');
     }

@@ -64,7 +64,7 @@ test('文件在 finish 后一次发布，abort 保留已有内容', async (t) =>
 for (const mode of ['abort', 'exit', 'drain']) {
   test(`写满真实管道后 ${mode}，回收子进程、定时器和临时文件`, { timeout: 10000 }, async (t) => {
     const timers = countTimers();
-    const action = mode === 'exit' ? 'process.exit(9)' : 'process.stdin.pipe(fs.createWriteStream(tmp))';
+    const action = mode === 'exit' ? 'process.exit(9)' : "process.stdin.pipe(fs.createWriteStream(tmp)).on('finish', () => console.log('progress=end'))";
     const { sink, dir, path, go, pid } = await stalledEncoder(t, action);
     const bytes = Buffer.alloc(4 * 1024 * 1024, 7);
     let settled = false;
@@ -100,6 +100,18 @@ test('M10 编码器未读输入便以 0 退出，finish 拒绝并清除半截文
   await assert.rejects(sink.finish(), (err) => failed(err) && /管道退出 0/.test(err.message));
   rmSync(go);
   assert.deepEqual(readdirSync(dir), []);
+});
+
+test('M10 写小块后立即 finish，不把管道已接收误作编码完成', async (t) => {
+  const { openEncoderSink } = await import('./sink.mjs');
+  const { dir, path } = fixture(t);
+  writeFileSync(path, 'previous');
+  const script = `require('node:fs').writeFileSync(process.argv[1], 'partial');`;
+  const sink = openEncoderSink({ path, bin: process.execPath, args: ['-e', script] });
+  await sink.write(Buffer.from('unread'));
+  await assert.rejects(sink.finish(), failed);
+  assert.equal(readFileSync(path, 'utf8'), 'previous');
+  assert.deepEqual(readdirSync(dir), ['out.bin']);
 });
 
 test('并发 finish 和 abort 会拒绝在途写入，保留原成品', async (t) => {
@@ -236,14 +248,21 @@ test('X5-R3-Red 衣料与脚步连发经真实 deliver 后两档 AAC 均达标',
   // 首轮保留二审复现的种子 1、2、3、5，第二轮换种子重测同样的八种工况。
   const cases = [[3, 'room'], [24, 'room'], [4, 'silence'], [8, 'room'],
     [24, 'silence'], [3, 'silence'], [8, 'silence'], [4, 'room']];
-  for (let seed = 0; seed < 18; seed++) {
-    const voice = seed < 16 ? 'foley.cloth' : 'foley.step';
-    const [count, bed] = cases[seed % cases.length];
-    const input = deliveryInput(dir, voice, count, frames);
-    input.film.seed = input.lock.seeds.film = seed;
-    const bundle = deliver({ ...input, bed, outDir: join(dir, `deliver-${seed}`) });
-    for (const name of [PIECES.master, PIECES.web]) {
-      checkLevels(t, `${voice}×${count}/${bed}/s${seed}/${name}`, measureLoudness(join(bundle.dir, name)));
+  const full = process.env.X5_FULL_MATRIX === '1';
+  const clothSeeds = full ? 24 : 16;
+  for (let seed = 0; seed < clothSeeds + 2; seed++) {
+    const voice = seed < clothSeeds ? 'foley.cloth' : 'foley.step';
+    for (const [count, bed] of full && seed < clothSeeds ? cases : [cases[seed % cases.length]]) {
+      const input = deliveryInput(dir, voice, count, frames);
+      input.film.seed = input.lock.seeds.film = seed;
+      const bundle = deliver({ ...input, bed, outDir: join(dir, `deliver-${seed}-${count}-${bed}`) });
+      for (const name of [PIECES.master, PIECES.web]) {
+        // loudnorm 的 input_* 读解码后的原声，避免 ebur128 的一位小数把 −0.97 报成 −1.0。
+        const { stderr } = runTool(tools().ffmpeg, ['-nostdin', '-nostats', '-i', join(bundle.dir, name),
+          '-map', '0:a:0', '-af', 'loudnorm=print_format=json', '-f', 'null', '-']);
+        const levels = JSON.parse(stderr.slice(stderr.lastIndexOf('{'), stderr.lastIndexOf('}') + 1));
+        checkLevels(t, `${voice}×${count}/${bed}/s${seed}/${name}`, { integrated: Number(levels.input_i), truePeak: Number(levels.input_tp) });
+      }
     }
   }
 });

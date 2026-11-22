@@ -9,10 +9,14 @@ import { CompError, bad, tools } from './stitch.mjs';
 const failure = (message) => new CompError('failure.ffmpeg', message);
 
 // 拼接进程读 stdout，编码进程写 stdin。close 意味着进程和管道均已回收。
-export function startPipe(bin, args, direction, controller, timeoutMs = 600000) {
+export function startPipe(bin, args, direction, controller, timeoutMs = 600000, expectedFrames) {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2147483647) throw bad('timeoutMs 超出定时器范围');
   const input = direction === 'write';
-  const child = spawn(bin, args, { stdio: [input ? 'pipe' : 'ignore', input ? 'ignore' : 'pipe', 'pipe'], windowsHide: true });
+  const child = spawn(bin, input ? [...args, '-progress', 'pipe:1'] : args, {
+    stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'], windowsHide: true,
+  });
+  let progress = '';
+  if (input) child.stdout.setEncoding('utf8').on('data', (s) => { progress = (progress + s).slice(-4096); });
   const stream = input ? child.stdin : child.stdout;
   const kill = () => {
     stream.destroy();
@@ -32,6 +36,15 @@ export function startPipe(bin, args, direction, controller, timeoutMs = 600000) 
   const closed = new Promise((done) => child.once('close', () => {
     clearTimeout(timer);
     controller.signal.removeEventListener('abort', kill);
+    // 父端写完只代表管道接收了字节；等进程和 stdout 都关闭，再核对编码器自己的末次回报。
+    if (input && !controller.signal.aborted) {
+      const last = progress.split('progress=continue').at(-1).trim();
+      const frames = /^frame=\s*(\d+)\r?$/m.exec(last)?.[1];
+      if (!/(?:^|\n)progress=end$/.test(last)) controller.abort(failure('编码器未报告完成'));
+      else if (expectedFrames !== undefined && Number(frames) !== expectedFrames) {
+        controller.abort(failure(`编码器报告 ${frames ?? 0} 帧，预期 ${expectedFrames} 帧`));
+      }
+    }
     done();
   }));
   return { stream, closed };
@@ -45,7 +58,7 @@ function atomicSink(path, encoder) {
   const { signal } = controller;
   let stream, closed;
   if (encoder) {
-    ({ stream, closed } = startPipe(encoder.bin, [...encoder.args, tmp], 'write', controller, encoder.timeoutMs));
+    ({ stream, closed } = startPipe(encoder.bin, [...encoder.args, tmp], 'write', controller, encoder.timeoutMs, encoder.expectedFrames));
   } else {
     stream = createWriteStream(tmp, { flags: 'wx' });
     stream.on('error', (e) => controller.abort(failure(`文件写入失败：${e.message}`)));
@@ -115,9 +128,10 @@ export function openFileSink({ path }) {
 }
 
 /** args 包含输入 pipe:0 和编码参数，输出文件名由 sink 追加。 */
-export function openEncoderSink({ path, args, bin = tools().ffmpeg, timeoutMs }) {
+export function openEncoderSink({ path, args, bin = tools().ffmpeg, timeoutMs, expectedFrames }) {
   if (!Array.isArray(args) || !args.every((arg) => typeof arg === 'string')) throw bad('编码输出端需要字符串参数数组 args');
-  return atomicSink(path, { bin, args, timeoutMs });
+  if (expectedFrames !== undefined && (!Number.isSafeInteger(expectedFrames) || expectedFrames < 1)) throw bad('expectedFrames 须为正整数');
+  return atomicSink(path, { bin, args, timeoutMs, expectedFrames });
 }
 
 export { openFileSink as openSink, openEncoderSink as startEncoderSink };

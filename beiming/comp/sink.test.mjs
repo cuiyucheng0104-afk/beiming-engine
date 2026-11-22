@@ -19,11 +19,21 @@ const hasFFmpeg = spawnSync(ffmpeg, ['-version'], { stdio: 'ignore', timeout: 15
 const needFFmpeg = { skip: !hasFFmpeg && '需要 FFmpeg' };
 const rawArgs = ['-v', 'error', '-f', 'rawvideo', '-pixel_format', 'yuv420p', '-video_size', '32x16', '-i', 'pipe:0', '-c:v', 'libx264'];
 
+test('FFmpeg 输入两帧但仅编码一帧，即使正常结束也保留旧目标', needFFmpeg, async (t) => {
+  const { dir, path } = fixture(t);
+  writeFileSync(path, 'previous');
+  const sink = openEncoderSink({ path, args: [...rawArgs, '-frames:v', '1'], expectedFrames: 2 });
+  await sink.write(Buffer.alloc(32 * 16 * 1.5 * 2));
+  await assert.rejects(sink.finish(), { name: 'CompError', code: 'failure.ffmpeg' });
+  assert.deepEqual(readdirSync(dir), ['out.mp4']);
+  assert.equal(readFileSync(path, 'utf8'), 'previous');
+});
+
 for (const mode of ['无 write', '零字节 write']) {
   test(`空编码 ${mode}，即使编码器成功写出文件头也保留旧成品`, async (t) => {
     const { dir, path } = fixture(t);
     writeFileSync(path, 'previous');
-    const headerOnly = `const fs = require('node:fs'); fs.readFileSync(0); fs.writeFileSync(process.argv[1], 'header');`;
+    const headerOnly = `const fs = require('node:fs'); fs.readFileSync(0); fs.writeFileSync(process.argv[1], 'header'); console.log('progress=end');`;
     const sink = openEncoderSink(hasFFmpeg ? { path, args: rawArgs } : { path, bin: process.execPath, args: ['-e', headerOnly] });
     if (mode === '零字节 write') await sink.write(Buffer.alloc(0));
     await assert.rejects(sink.finish(), { name: 'CompError', code: 'failure.ffmpeg' });
@@ -34,7 +44,7 @@ for (const mode of ['无 write', '零字节 write']) {
 
 test('编码器消费输入并成功退出，零字节产物仍拒绝发布', async (t) => {
   const { dir, path } = fixture(t);
-  const script = `const fs = require('node:fs'); fs.readFileSync(0); fs.writeFileSync(process.argv[1], '');`;
+  const script = `const fs = require('node:fs'); fs.readFileSync(0); fs.writeFileSync(process.argv[1], ''); console.log('progress=end');`;
   const sink = openEncoderSink({ path, bin: process.execPath, args: ['-e', script] });
   await sink.write(Buffer.from([1]));
   await assert.rejects(sink.finish(), { name: 'CompError', code: 'failure.ffmpeg' });
@@ -154,7 +164,7 @@ async function checkBackpressure(t, slowPreset) {
     inputs: [['-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=24:duration=1']], filter: '[0:v]null[v]' };
   const script = `const fs = require('node:fs');
     const timer = setInterval(() => { if (fs.existsSync(process.argv[1])) {
-      clearInterval(timer); process.stdin.pipe(fs.createWriteStream(process.argv[2]));
+      clearInterval(timer); process.stdin.pipe(fs.createWriteStream(process.argv[2])).on('finish', () => console.log('frame=24\\nprogress=end'));
     } }, 5);`;
   let fastWrites = 0, slowWrites = 0, drained = 0;
   const blocked = Promise.withResolvers();
