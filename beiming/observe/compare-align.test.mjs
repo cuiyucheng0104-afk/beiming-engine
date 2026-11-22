@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { encodeTracks } from '../kernel/eval/tracks.mjs';
@@ -361,4 +361,188 @@ test('O6-7 O5 二阶加固: telemetry 15 万帧不爆栈 + 隔帧频闪检出 + 
   assert.deepEqual(curRes.range, [0, 10]);
   assert.equal(curRes.easing, 'linear');
   assert.ok(withinBudget(JSON.stringify(curRes), 600));
+});
+
+test('O6-8 G_REV-R1 compare 加固：热图不覆盖输入、小图 SSIM、亮度容差未舍入判定、未知键报错、存活变异', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'o6-rev-'));
+  try {
+    const w = 32, h = 18;
+    const pA = join(dir, 'a.png');
+    const pB = join(dir, 'b.png');
+    writeFileSync(pA, observe.encodePng({ width: w, height: h, rgb: new Uint8Array(w * h * 3).fill(51) }));
+    writeFileSync(pB, observe.encodePng({ width: w, height: h, rgb: new Uint8Array(w * h * 3).fill(153) }));
+    const bytesA = readFileSync(pA);
+    const bytesB = readFileSync(pB);
+    const link = join(dir, 'link.png');
+    symlinkSync(pA, link);
+    // [P1-1] 热图目标与任一输入同文件（含软链与 heatmapOut 别名）时报错，原 PNG 一个字节都不改
+    for (const opts of [{ heatmapPath: pA }, { heatmapPath: pB }, { heatmapOut: pB }, { heatmapPath: link }]) {
+      const bad = observe.compare(pA, pB, opts);
+      assert.equal(bad.ok, false, JSON.stringify(bad));
+      assert.equal(bad.error.code, 'usage.bad-argument');
+    }
+    assert.deepEqual(readFileSync(pA), bytesA);
+    assert.deepEqual(readFileSync(pB), bytesB);
+    // 已知差图热图像素为红色高亮而非暗灰（杀灭 diffHeatmap(a, a) 变异）
+    const hm = join(dir, 'heat.png');
+    assert.equal(observe.compare(pA, pB, { heatmapPath: hm }).ok, true);
+    const heat = observe.decodePng(readFileSync(hm));
+    assert.equal(heat.rgb[0], 255);
+
+    // [P1-2] 4x4 全黑对全白：SSIM 接近 0，ssimMin 0.99 下判不过
+    const black = { width: 4, height: 4, rgb: new Uint8Array(48) };
+    const white = { width: 4, height: 4, rgb: new Uint8Array(48).fill(255) };
+    const small = observe.compare(black, white, { tolerance: { ssimMin: 0.99 } });
+    assert.equal(small.ok, true, JSON.stringify(small));
+    assert.equal(small.pass, false);
+    assert.ok(small.rows.find((row) => row.metric === 'ssim').value < 0.01);
+
+    // [P2-1] 灰度 1->2 与 2->3 同为 1/255，判定必须一致
+    const gray = (v) => ({ width: 8, height: 8, rgb: new Uint8Array(192).fill(v) });
+    for (const tol of [1 / 255, 0.0039]) {
+      const p12 = observe.compare(gray(1), gray(2), { tolerance: { maxLumaP50Diff: tol }, metrics: ['lumaP50'] });
+      const p23 = observe.compare(gray(2), gray(3), { tolerance: { maxLumaP50Diff: tol }, metrics: ['lumaP50'] });
+      assert.equal(p12.rows[0].pass, p23.rows[0].pass, `tol=${tol}: ${JSON.stringify([p12.rows, p23.rows])}`);
+      assert.equal(p12.rows[0].pass, tol === 1 / 255);
+    }
+
+    // [P2-2] 拼错的容差键与未知指标名报错，不静默放行
+    for (const opts of [{ tolerance: { maxDif: 1 } }, { metrics: ['psr'] }]) {
+      const bad = observe.compare(gray(1), gray(2), opts);
+      assert.equal(bad.ok, false, JSON.stringify(bad));
+      assert.equal(bad.error.code, 'usage.bad-argument');
+    }
+
+    // 存活变异 4：一半像素差 2 级、四分之一差 3 级 -> fracAbove1 = 0.75，fracAbove2 = 0.25
+    const n = 32 * 32;
+    const base = new Uint8Array(n * 3).fill(100);
+    const mixed = new Uint8Array(n * 3).fill(100);
+    for (let i = 0; i < n; i++) {
+      const d = i < n / 2 ? 2 : i < (3 * n) / 4 ? 3 : 0;
+      mixed.fill(100 + d, i * 3, i * 3 + 3);
+    }
+    const frac = observe.compare({ width: 32, height: 32, rgb: base }, { width: 32, height: 32, rgb: mixed }, { tolerance: { maxFracAbove1: 0.5, maxFracAbove2: 0.5 } });
+    const f1 = frac.rows.find((row) => row.metric === 'fracAbove1');
+    const f2 = frac.rows.find((row) => row.metric === 'fracAbove2');
+    assert.equal(f1.value, 0.75);
+    assert.equal(f2.value, 0.25);
+    assert.equal(f1.pass, false);
+    assert.equal(f2.pass, true);
+    assert.equal(frac.pass, false);
+
+    // 存活变异 5：seamDeltaE 超限判不过；非均匀图 p95 与 p05 不等
+    const seam = observe.compare(pA, pB, { tolerance: { maxSeamDeltaE: 1 } });
+    assert.equal(seam.pass, false);
+    assert.equal(seam.rows.find((row) => row.metric === 'seamDeltaE').pass, false);
+    const ramp = new Uint8Array(n * 3);
+    for (let i = 0; i < n; i++) ramp.fill(Math.round((i / (n - 1)) * 255), i * 3, i * 3 + 3);
+    const rr = observe.compare({ width: 32, height: 32, rgb: ramp }, { width: 32, height: 32, rgb: base });
+    const p05 = rr.rows.find((row) => row.metric === 'lumaP05');
+    const p95 = rr.rows.find((row) => row.metric === 'lumaP95');
+    assert.notEqual(p05.a, p95.a);
+    assert.ok(p95.a > 0.9 && p05.a < 0.1, JSON.stringify([p05, p95]));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// 用调用方拿到的 world（相机到世界）与 proj 独立复算重投影 RMSE
+function reprojectRmse(points, world, proj, [W, H]) {
+  let sse = 0;
+  for (const { world: p, screen } of points) {
+    const d = [p[0] - world[12], p[1] - world[13], p[2] - world[14]];
+    const c = [0, 1, 2].map((k) => world[k * 4] * d[0] + world[k * 4 + 1] * d[1] + world[k * 4 + 2] * d[2]);
+    const clip = [0, 1, 3].map((row) => proj[row] * c[0] + proj[4 + row] * c[1] + proj[8 + row] * c[2] + proj[12 + row]);
+    const u = (clip[0] / clip[2] * 0.5 + 0.5) * W;
+    const v = (0.5 - clip[1] / clip[2] * 0.5) * H;
+    sse += (u - screen[0]) ** 2 + (v - screen[1]) ** 2;
+  }
+  return Math.sqrt(sse / points.length);
+}
+
+function synthCamera(worldPts, pos, target, fovY, [W, H]) {
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const norm = (a) => { const l = Math.hypot(...a); return a.map((v) => v / l); };
+  const z = norm(sub(pos, target));
+  const x = norm(cross([0, 1, 0], z));
+  const y = cross(z, x);
+  const f = 1 / Math.tan((fovY * Math.PI) / 360);
+  return worldPts.map((p) => {
+    const d = sub(p, pos);
+    const cz = dot(d, z);
+    return { world: p, screen: [((dot(d, x) * f * H / W) / -cz * 0.5 + 0.5) * W, (0.5 - (dot(d, y) * f) / -cz * 0.5) * H] };
+  });
+}
+
+test('O6-9 G_REV-R1 align 加固：相机矩阵全精度复算、远裁剪面防溢出、退化与收敛判定、切点边界与计数、弱相关', () => {
+  // [P1-3] 1e-4 尺度 8 点：用返回的 world/proj 独立复算 RMSE < 0.5 px，far = 1e308 时 proj 全有限
+  const size = [1920, 1080];
+  const s = 1e-4;
+  const cube = [[-1, 0, -1], [1, 0.2, -1], [-1, 1.4, 1], [1, 1.2, 1], [0, 0.6, 0], [-0.5, 0.3, 1], [0.6, 1, -0.7], [0.2, 0.1, 0.8]].map((p) => p.map((v) => v * s));
+  const tinyPts = synthCamera(cube, [1.8 * s * 2, 1.2 * s * 2, 3.4 * s * 2], [0, 0.6 * s, 0], 38, size);
+  const tiny = observe.align({ camera: { points: tinyPts, size, initial: { near: 1e-6, far: 1e308 } } });
+  assert.equal(tiny.ok, true, JSON.stringify(tiny));
+  assert.ok(tiny.camera.proj.every(Number.isFinite), JSON.stringify(tiny.camera.proj));
+  const rm = reprojectRmse(tinyPts, tiny.camera.world, tiny.camera.proj, size);
+  assert.ok(rm < 0.5, `复算 RMSE ${rm}，返回 ${JSON.stringify(tiny.camera)}`);
+  assert.ok(Math.abs(rm - tiny.camera.rmsePx) < 1e-3, `rmsePx 须由返回矩阵复算：${rm} vs ${tiny.camera.rmsePx}`);
+  assert.equal(tiny.camera.converged, true);
+  assert.equal(tiny.camera.degenerate, false);
+  assert.ok(withinBudget(JSON.stringify(tiny), 500));
+
+  // 四点共线 -> degenerate；正对平面 -> degenerate
+  const line = [[0, 0, 0], [0.2, 0, 0], [0.5, 0, 0], [1, 0, 0]];
+  const lineRes = observe.align({ camera: { points: synthCamera(line, [0.5, 0.5, 3], [0.5, 0, 0], 40, size), size } });
+  assert.equal(lineRes.ok, true, JSON.stringify(lineRes));
+  assert.equal(lineRes.camera.degenerate, true);
+  const plane = [[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0], [0.3, 0.2, 0], [-0.4, 0.5, 0]];
+  const planeRes = observe.align({ camera: { points: synthCamera(plane, [0, 0, 4], [0, 0, 0], 40, size), size } });
+  assert.equal(planeRes.ok, true, JSON.stringify(planeRes));
+  assert.equal(planeRes.camera.degenerate, true);
+
+  // 高残差（屏幕点被打乱）-> converged: false
+  const good = synthCamera(cube.map((p) => p.map((v) => v / s)), [3.6, 2.4, 6.8], [0, 0.6, 0], 38, size);
+  const shuffled = good.map((p, i) => ({ world: p.world, screen: good[(i + 3) % good.length].screen }));
+  const hi = observe.align({ camera: { points: shuffled, size } });
+  assert.equal(hi.ok, true, JSON.stringify(hi));
+  assert.ok(hi.camera.rmsePx > 1, JSON.stringify(hi.camera));
+  assert.equal(hi.camera.converged, false);
+
+  // 存活变异 6：帧差恰等于 maxDeltaFrames 时配对，delta = actual - ref 带符号
+  const edge = observe.align({ cuts: { reference: [10, 50], actual: [7, 53], maxDeltaFrames: 3 } });
+  assert.deepEqual(edge.cuts.pairs, [{ ref: 10, actual: 7, delta: -3 }, { ref: 50, actual: 53, delta: 3 }]);
+  assert.equal(edge.cuts.missedCount, 0);
+  assert.equal(edge.cuts.extraCount, 0);
+
+  // [P2-4] 截断时 truncated: true 且保留截断前总数
+  const lost = observe.align({ cuts: { reference: Array.from({ length: 300 }, (_, i) => i * 10), actual: Array.from({ length: 250 }, (_, i) => i * 10 + 5) } });
+  assert.equal(lost.ok, true);
+  assert.equal(lost.truncated, true);
+  assert.equal(lost.cuts.missedCount, 300);
+  assert.equal(lost.cuts.extraCount, 250);
+  assert.ok(withinBudget(JSON.stringify(lost), 500));
+
+  // 存活变异 7：相关系数落在 0.2..0.4 的弱相关包络 -> reliable: false
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const trackEnvelope = Array.from({ length: 300 }, () => rnd());
+  const filmEnvelope = Array.from({ length: 340 }, (_, j) => (j >= 20 && j < 320 ? 0.3 * trackEnvelope[j - 20] : 0) + rnd());
+  const weak = observe.align({ stretch: { filmEnvelope, trackEnvelope, stretchRange: [1, 1], maxOffsetSec: 1 } });
+  assert.equal(weak.ok, true, JSON.stringify(weak));
+  assert.ok(weak.stretch.corr >= 0.2 && weak.stretch.corr <= 0.4, JSON.stringify(weak.stretch));
+  assert.equal(weak.stretch.reliable, false);
+});
+
+test('O6-10 G_REV-R1 curves：省略 shot 时按全片帧号 frame 查询', () => {
+  const mk = (frame, shotFrame, cx) => ({
+    ...structuredClone(full), shot: 's02', frame, shotFrame,
+    entities: [{ id: 1, name: 'hero_card', class: 'card2d', role: 'hero', bbox2d: [cx - 50, 400, cx + 50, 600], visible: 1, pxArea: (100 * 200) / (1920 * 1080) }],
+    texts: [], events: [], lights: [],
+  });
+  const metas = Array.from({ length: 11 }, (_, i) => mk(100 + i, i, 300 + i * 50));
+  const res = observe.curves({ tracks: encodeTracks({}), metas }, { entity: 'hero_card', quantity: 'screenX', range: [100, 101] });
+  assert.equal(res.ok, true, JSON.stringify(res));
+  assert.deepEqual(res.range, [100, 101]);
 });

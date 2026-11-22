@@ -1,13 +1,14 @@
 // 画面比对：对比两张图像缓冲区、PNG 文件或视频帧，输出 <= 500 token 的结构化差值表与容差判定，可选写差异热图。
 //   compare(a, b, options?)
 //     a、b      { width, height, rgb | data }、PNG 路径字符串、PNG Buffer/Uint8Array，或 { video | videoPath, frame?, fps? }
-//     options   { tolerance?, heatmapPath?, heatmapGain?, metrics? }
+//     options   { tolerance?, heatmapPath?（别名 heatmapOut，不得指向输入文件）, heatmapGain?, metrics? }；未知容差键或指标名报错
 //   复用白名单：tools/baseline/lib/metrics.mjs（PSNR、SSIM、maxDiff、fracAbove1/2、容差 judge、热图 diffHeatmap）
 //     与 tools/eval/lib/metrics.mjs（seamDeltaE、paletteDeltaE、lineCoverage、grainEnergy），并补 Rec.709 亮度分位差（p05/p50/p95）。
 //   成功返回 { ok: true, size, identical, pass, rows, heatmap?, truncated }；非法参数返回 { ok: false, error: { code, message } }，不抛异常。
 //   预算：返回值 JSON 严格满足 withinBudget(json, 500)。
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { Buffer } from 'node:buffer';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { compareImages, diffHeatmap, judge } from '../../tools/baseline/lib/metrics.mjs';
 import { blockColors, deltaE00, grainEnergy, lineCoverage, median, paletteDeltaE, seamDeltaE } from '../../tools/eval/lib/metrics.mjs';
@@ -82,11 +83,50 @@ function lumaQuantiles({ width, height, rgb }) {
   const q = (p) => {
     for (let i = 0, acc = 0; i < 256; i++) {
       acc += hist[i];
-      if (acc >= n * p) return r(i / 255, 4);
+      if (acc >= n * p) return i / 255;
     }
     return 1;
   };
   return { p05: q(0.05), p50: q(0.5), p95: q(0.95) };
+}
+
+// 白名单 SSIM 在 < 8x8 时直接回 1；小图改用整幅单窗口的标准 SSIM（逐通道再取平均）
+function globalSsim(a, b) {
+  const n = a.width * a.height;
+  const c1 = (0.01 * 255) ** 2;
+  const c2 = (0.03 * 255) ** 2;
+  let total = 0;
+  for (let c = 0; c < 3; c++) {
+    let sa = 0, sb = 0, saa = 0, sbb = 0, sab = 0;
+    for (let p = c; p < n * 3; p += 3) {
+      const x = a.rgb[p], y = b.rgb[p];
+      sa += x; sb += y; saa += x * x; sbb += y * y; sab += x * y;
+    }
+    const ma = sa / n, mb = sb / n;
+    const va = saa / n - ma * ma, vb = sbb / n - mb * mb, cov = sab / n - ma * mb;
+    total += ((2 * ma * mb + c1) * (2 * cov + c2)) / ((ma * ma + mb * mb + c1) * (va + vb + c2));
+  }
+  return r(total / 3, 6);
+}
+
+const TOL_KEYS = new Set([
+  'psnrMin', 'ssimMin', 'maxDiff', 'maxFracAbove1', 'maxFracAbove2',
+  'maxSeamDeltaE', 'seamDeltaEMax', 'maxPaletteDeltaE', 'paletteDeltaEMax',
+  'maxLineCoverageDiff', 'lineCoverageDiffMax', 'maxGrainEnergyDiff', 'grainEnergyDiffMax',
+  'maxLumaP05Diff', 'lumaP05DiffMax', 'maxLumaP50Diff', 'lumaP50DiffMax', 'maxLumaP95Diff', 'lumaP95DiffMax',
+]);
+const METRICS = new Set(['psnr', 'ssim', 'maxDiff', 'fracAbove1', 'fracAbove2', 'seamDeltaE', 'paletteDeltaE', 'lineCoverage', 'grainEnergy', 'lumaP05', 'lumaP50', 'lumaP95']);
+
+const inputPath = (s) => (typeof s === 'string' ? s : isPlain(s) ? s.path ?? s.video ?? s.videoPath : undefined);
+// 同一 dev+ino 即同一文件（覆盖软链、硬链与不同写法的路径）
+function sameFile(p, q) {
+  try {
+    const x = statSync(resolve(p));
+    const y = statSync(resolve(q));
+    return x.dev === y.dev && x.ino === y.ino;
+  } catch {
+    return false;
+  }
 }
 
 function safeSeamDeltaE(evalA, evalB) {
@@ -102,6 +142,7 @@ function checkTolerance(tol) {
   if (tol === undefined) return {};
   if (!isPlain(tol)) throw new Error('tolerance 必须是对象');
   for (const [k, v] of Object.entries(tol)) {
+    if (!TOL_KEYS.has(k)) throw new Error(`tolerance.${k} 不是已知容差键；可用 ${[...TOL_KEYS].join('、')}`);
     if (v !== undefined && !(typeof v === 'number' && Number.isFinite(v) && v >= 0)) {
       throw new Error(`tolerance.${k} 必须是非负有限数`);
     }
@@ -118,7 +159,7 @@ function fitCompare(payload) {
   if (withinBudget(JSON.stringify(payload), COMPARE_TOKEN_LIMIT)) return payload;
   let cur = { ...payload };
   if (typeof cur.heatmap === 'string') {
-    cur = { ...cur, heatmap: basename(cur.heatmap), heatmapTruncated: true };
+    cur = { ...cur, heatmap: basename(cur.heatmap), heatmapTruncated: true, truncated: true };
     if (withinBudget(JSON.stringify(cur), COMPARE_TOKEN_LIMIT)) return cur;
   }
   const failed = cur.rows.filter((row) => row.pass === false);
@@ -138,21 +179,28 @@ export function compare(a, b, options = {}) {
     const tol = checkTolerance(options.tolerance);
     const gain = options.heatmapGain ?? 8;
     if (!(typeof gain === 'number' && Number.isFinite(gain) && gain > 0)) throw new Error('heatmapGain 必须是正数');
-    if (options.heatmapPath !== undefined && (typeof options.heatmapPath !== 'string' || !options.heatmapPath)) {
+    const heatmapPath = options.heatmapPath ?? options.heatmapOut;
+    if (heatmapPath !== undefined && (typeof heatmapPath !== 'string' || !heatmapPath)) {
       throw new Error('heatmapPath 必须是非空文件路径');
     }
     if (options.metrics !== undefined && (!Array.isArray(options.metrics) || !options.metrics.every((m) => typeof m === 'string'))) {
       throw new Error('metrics 必须是指标名字符串数组');
     }
+    const unknown = options.metrics?.find((m) => !METRICS.has(m));
+    if (unknown !== undefined) throw new Error(`metrics 里的 ${unknown} 不是已知指标；可用 ${[...METRICS].join('、')}`);
+    if (heatmapPath && [a, b].some((s) => inputPath(s) && sameFile(heatmapPath, inputPath(s)))) {
+      throw new Error('heatmapPath 指向了输入文件，拒绝覆盖');
+    }
 
     const imgA = loadImage(a, 'a');
     const imgB = loadImage(b, 'b');
     const base = compareImages(imgA, imgB);
+    if (!base.identical && !base.sizeMismatch && (imgA.width < 8 || imgA.height < 8)) base.ssim = globalSsim(imgA, imgB);
 
     let heatmap;
-    if (options.heatmapPath) {
+    if (heatmapPath) {
       const hm = diffHeatmap(imgA, imgB, { gain });
-      const outPath = resolve(options.heatmapPath);
+      const outPath = resolve(heatmapPath);
       mkdirSync(dirname(outPath), { recursive: true });
       writeFileSync(outPath, encodePng(hm));
       heatmap = outPath;
@@ -188,14 +236,14 @@ export function compare(a, b, options = {}) {
       pass: ok,
     });
     const pairRow = (metric, va, vb, digits, tolerance) => {
-      const diff = r(vb - va, digits);
+      const raw = vb - va; // 先用未舍入的差判定，再格式化展示
       return {
         metric,
-        a: va,
-        b: vb,
-        diff,
+        a: r(va, digits),
+        b: r(vb, digits),
+        diff: r(raw, digits),
         ...(tolerance !== undefined ? { tolerance } : {}),
-        pass: tolerance === undefined ? true : Math.abs(diff) <= tolerance,
+        pass: tolerance === undefined ? true : Math.abs(raw) <= tolerance,
       };
     };
 

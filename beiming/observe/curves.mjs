@@ -161,7 +161,8 @@ export function curves(input, request) {
       if (typeof metas === 'string') throw new Error(metas);
       const scoped = shot !== undefined ? metas.filter((m) => m.shot === shot) : metas;
       if (!scoped.length) throw new Error(`元数据里没有镜头 ${clip(shot)}`);
-      const singleShot = shot !== undefined || new Set(scoped.map((m) => m.shot)).size <= 1;
+      // 只有显式给 shot 才用镜头内帧号 shotFrame；省略时一律按全片帧号 frame
+      const singleShot = shot !== undefined;
       const rows = scoped.flatMap((m) => {
         const e = (m.entities ?? []).find((x) => x.name === name);
         const v = e && META_QUANTITIES[quantity](e, m.size);

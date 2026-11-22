@@ -1,11 +1,11 @@
 // 对齐与拟合：切点对齐、20ms 能量包络互相关时间偏移与拉伸比求解、构图包围盒对位、7 参数最小二乘相机拟合。
 //   align(request)  可单独或组合提供 { cuts?, stretch?, composition?, camera? }（兼容别名 audioEnvelope/media、boxes、cameraFit）
-//     cuts         { reference: number[], actual: number[], maxDeltaFrames = 3 } → 单调最优匹配 pairs、meanAbsDelta、maxAbsDelta、missed、extra
+//     cuts         { reference: number[], actual: number[], maxDeltaFrames = 3 } → 单调最优匹配 pairs、meanAbsDelta、maxAbsDelta、missed、extra、missedCount、extraCount
 //     stretch      { filmEnvelope, trackEnvelope, stepSec = 0.02, fps = 24, stretchRange = [0.97, 1.03], stretchStep = 0.001, maxOffsetSec = 8.0 }
 //                  或 { filmPath, trackPath, ... }（经 ffmpeg 抽单声道 s16le PCM 算 20ms RMS 包络，不经 shell）
 //     composition  { reference: bbox2d, actual: bbox2d, size: [w, h] } → centerShiftPx、centerShiftNorm、areaRatio、iou
 //     camera       { points: [{ world: [x,y,z], screen: [u,v] }], size: [w, h], initial?: { pos?, target?, fovY?, near?, far? } }
-//                  7 参数（pos[3] + 轴角 rotation[3] + fovY[5..140]）阻尼高斯-牛顿（LM）拟合；world/proj 4x4 列主序对齐 meta/0.1。
+//                  7 参数（pos[3] + 轴角 rotation[3] + fovY[5..140]）阻尼高斯-牛顿（LM）拟合；world/proj 4x4 列主序对齐 meta/0.1（双精度），rmsePx 由返回矩阵复算，另给 converged 与 degenerate。
 //   预算：返回值 JSON 严格满足 withinBudget(json, 500)；非法参数返回 { ok: false, error: { code, message } }，不抛异常。
 
 import { resolve } from 'node:path';
@@ -102,6 +102,8 @@ function alignCuts(spec) {
     maxAbsDelta: pairs.length ? maxAbs : null,
     missed,
     extra,
+    missedCount: missed.length,
+    extraCount: extra.length,
   };
 }
 
@@ -375,9 +377,9 @@ function projectResiduals(points, width, height, pos, R, fovY) {
     const cy = R[1] * dx + R[4] * dy + R[7] * dz;
     const cz = R[2] * dx + R[5] * dy + R[8] * dz;
     const depth = -cz;
-    if (depth <= 1e-4) {
+    if (depth <= 1e-12) {
       valid = false;
-      const pen = 1e4 * (1e-4 - depth + 1);
+      const pen = 1e4 * (1 - depth);
       res[i * 2] = pen;
       res[i * 2 + 1] = pen;
       sse += 2 * pen * pen;
@@ -394,14 +396,15 @@ function projectResiduals(points, width, height, pos, R, fovY) {
   return { res, sse, valid };
 }
 
-function lmOptimize(points, width, height, initPos, initR, initFovY) {
+// scale 为点集半径：位置差分步长与收敛步长按场景尺度归一，微小尺度场景也能收敛
+function lmOptimize(points, width, height, initPos, initR, initFovY, scale) {
   let pos = [...initPos];
   let R = [...initR];
   let fovY = clamp(initFovY, 5, 140);
   let cur = projectResiduals(points, width, height, pos, R, fovY);
   let lambda = 1e-3;
   const m = points.length * 2;
-  const steps = [1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-3];
+  const steps = [1e-5 * scale, 1e-5 * scale, 1e-5 * scale, 1e-5, 1e-5, 1e-5, 1e-3];
   let converged = false;
 
   for (let iter = 0; iter < 80; iter++) {
@@ -470,7 +473,7 @@ function lmOptimize(points, width, height, initPos, initR, initFovY) {
       const next = projectResiduals(points, width, height, nPos, nR, nFov);
       if (next.sse < cur.sse) {
         const rel = (cur.sse - next.sse) / Math.max(cur.sse, 1e-12);
-        const stepNorm = Math.hypot(...delta);
+        const stepNorm = Math.hypot(delta[0] / scale, delta[1] / scale, delta[2] / scale, delta[3], delta[4], delta[5], delta[6]);
         pos = nPos;
         R = nR;
         fovY = nFov;
@@ -514,10 +517,55 @@ function buildCameraMatrices(pos, R, fovY, width, height, near, far) {
   const proj = [
     fx, 0, 0, 0,
     0, f, 0, 0,
-    0, 0, -(far + near) / (far - near), -1,
-    0, 0, (-2 * far * near) / (far - near), 0,
+    0, 0, -(1 + near / far) / (1 - near / far), -1,
+    0, 0, -(2 * near) / (1 - near / far), 0, // 与 -2fn/(f-n) 等价，far 极大时不溢出
   ];
   return { world, proj };
+}
+
+// 用将要返回给调用方的 world（相机到世界，列主序）与 proj 复算重投影误差
+function reproject(points, world, proj, width, height) {
+  let sse = 0;
+  let maxErr = 0;
+  let behind = false;
+  for (const { world: p, screen } of points) {
+    const d = [p[0] - world[12], p[1] - world[13], p[2] - world[14]];
+    const c = [0, 1, 2].map((k) => world[k * 4] * d[0] + world[k * 4 + 1] * d[1] + world[k * 4 + 2] * d[2]);
+    const cw = proj[3] * c[0] + proj[7] * c[1] + proj[11] * c[2] + proj[15];
+    if (!(cw > 0)) behind = true;
+    const u = ((proj[0] * c[0] + proj[4] * c[1] + proj[8] * c[2] + proj[12]) / cw * 0.5 + 0.5) * width;
+    const v = (0.5 - ((proj[1] * c[0] + proj[5] * c[1] + proj[9] * c[2] + proj[13]) / cw) * 0.5) * height;
+    const e = Math.hypot(u - screen[0], v - screen[1]);
+    sse += e * e;
+    if (e > maxErr) maxErr = e;
+  }
+  return { rmse: Math.sqrt(sse / points.length), maxErr, behind };
+}
+
+// 点集协方差特征值：共线（λ2≈0），或共面且平面正对相机（法向∥视线，fovY 与距离不可分）时 7 参数不可辨识
+function isDegenerate(points, R) {
+  const n = points.length;
+  const m = [0, 1, 2].map((k) => points.reduce((acc, p) => acc + p.world[k], 0) / n);
+  const C = new Array(9).fill(0);
+  for (const p of points) {
+    const d = sub3(p.world, m);
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) C[i * 3 + j] += (d[i] * d[j]) / n;
+  }
+  const q = (C[0] + C[4] + C[8]) / 3;
+  const p = Math.sqrt(((C[0] - q) ** 2 + (C[4] - q) ** 2 + (C[8] - q) ** 2 + 2 * (C[1] ** 2 + C[2] ** 2 + C[5] ** 2)) / 6);
+  if (!(p > 0)) return !(q > 0); // 各向同性：只有全部重合才退化
+  const B = C.map((v, i) => (v - (i % 4 === 0 ? q : 0)) / p);
+  const det = B[0] * (B[4] * B[8] - B[5] * B[7]) - B[1] * (B[3] * B[8] - B[5] * B[6]) + B[2] * (B[3] * B[7] - B[4] * B[6]);
+  const phi = Math.acos(clamp(det / 2, -1, 1)) / 3;
+  const l1 = q + 2 * p * Math.cos(phi);
+  const l3 = q + 2 * p * Math.cos(phi + (2 * Math.PI) / 3);
+  if (3 * q - l1 - l3 <= 1e-6 * l1) return true;
+  if (l3 > 1e-6 * l1) return false;
+  const M = C.map((v, i) => v - (i % 4 === 0 ? l3 : 0));
+  const rows = [M.slice(0, 3), M.slice(3, 6), M.slice(6, 9)];
+  const normal = [cross3(rows[0], rows[1]), cross3(rows[0], rows[2]), cross3(rows[1], rows[2])]
+    .reduce((a, b) => (Math.hypot(...b) > Math.hypot(...a) ? b : a));
+  return Math.abs(dot3(norm3(normal), [R[2], R[5], R[8]])) > 0.99;
 }
 
 function alignCamera(spec) {
@@ -559,7 +607,8 @@ function alignCamera(spec) {
     const d = Math.hypot(p.world[0] - centroid[0], p.world[1] - centroid[1], p.world[2] - centroid[2]);
     if (d > radius) radius = d;
   }
-  const dist = Math.max(radius * 4, 2.0);
+  const scale = radius > 0 ? radius : 1;
+  const dist = radius * 4 || 2.0;
   const seeds = [];
   if (initial.pos || initial.target || initial.fovY !== undefined) {
     const t = Array.isArray(initial.target) && initial.target.length === 3 && initial.target.every(Number.isFinite) ? initial.target : centroid;
@@ -580,7 +629,7 @@ function alignCamera(spec) {
 
   let best = null;
   for (const s of seeds) {
-    const cand = lmOptimize(points, width, height, s.pos, s.R, s.fovY);
+    const cand = lmOptimize(points, width, height, s.pos, s.R, s.fovY, scale);
     if (!best || (cand.valid && !best.valid) || (cand.valid === best.valid && cand.rmsePx < best.rmsePx)) {
       best = cand;
     }
@@ -588,23 +637,27 @@ function alignCamera(spec) {
   }
   if (best && (!best.valid || best.rmsePx >= 0.5)) {
     for (const fv of [25, 65]) {
-      const cand = lmOptimize(points, width, height, best.pos, best.R, fv);
+      const cand = lmOptimize(points, width, height, best.pos, best.R, fv, scale);
       if (cand.valid && cand.rmsePx < best.rmsePx) best = cand;
     }
   }
 
-  const fovY = r(best.fovY, 4);
+  // 不按固定小数位截断：world/proj 保留双精度，误差由返回矩阵复算，微小尺度场景不被放大
+  const p9 = (v) => Number(v.toPrecision(9));
+  const fovY = p9(best.fovY);
   const { world, proj } = buildCameraMatrices(best.pos, best.R, fovY, width, height, near, far);
-  const rotation = matToAxisAngle(best.R);
+  const rep = reproject(points, world, proj, width, height);
+  const finite = [...world, ...proj].every(Number.isFinite);
   return {
-    pos: best.pos.map((v) => r(v, 5)),
-    rotation: rotation.map((v) => r(v, 5)),
+    pos: best.pos.map(p9),
+    rotation: matToAxisAngle(best.R).map(p9),
     fovY,
-    world: world.map((v) => (v === 0 || v === 1 ? v : r(v, 6))),
+    world,
     proj,
-    rmsePx: r(best.rmsePx, 4),
-    maxErrPx: r(best.maxErrPx, 4),
-    converged: best.converged,
+    rmsePx: r(rep.rmse, 4),
+    maxErrPx: r(rep.maxErr, 4),
+    converged: best.converged && finite && !rep.behind && rep.rmse <= 1,
+    degenerate: isDegenerate(points, best.R),
   };
 }
 
@@ -625,17 +678,6 @@ function fitAlign(payload) {
     }
     if (withinBudget(JSON.stringify(next), ALIGN_TOKEN_LIMIT)) return next;
   }
-  // 仍超限时压缩相机矩阵精度以保住 500 token 预算
-  const slim = { ...payload, truncated: true };
-  if (slim.cuts) slim.cuts = { meanAbsDelta: slim.cuts.meanAbsDelta, maxAbsDelta: slim.cuts.maxAbsDelta, missed: [], extra: [], pairs: [] };
-  if (slim.camera) {
-    slim.camera = {
-      ...slim.camera,
-      world: slim.camera.world.map((v) => r(v, 4)),
-      proj: slim.camera.proj.map((v) => r(v, 4)),
-    };
-  }
-  if (withinBudget(JSON.stringify(slim), ALIGN_TOKEN_LIMIT)) return slim;
   return { ok: true, truncated: true };
 }
 
