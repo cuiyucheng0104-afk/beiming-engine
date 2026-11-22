@@ -70,6 +70,18 @@ function isPlainRecord(v) {
   }
 }
 const BAD_OPTIONS = '参数必须是普通对象：类实例、Map、数组、Proxy 和带继承项的对象不收';
+// 本模块拒收输入（参数、渲染器交回的结果）时自己抛的错都带这个错误码；渲染器自己抛的错、等锁超时和文件系统的错不带
+const badArg = (Type, message, options) => Object.assign(new Type(message, options), { code: 'usage.bad-argument' });
+/** 只读参数、不做 I/O 也不调渲染器的一段：里面冒出来的错都出自参数，读不出来的（已撤销的 Proxy、抛错的访问器）包成带错误码的 TypeError */
+function readArgs(read) {
+  try {
+    return read();
+  } catch (err) {
+    // 认自己的错只看自有数据属性，不调对方的代码
+    if (types.isNativeError(err) && Object.getOwnPropertyDescriptor(err, 'code')?.value === 'usage.bad-argument') throw err;
+    throw badArg(TypeError, '参数读不出来：读的时候抛了错（已撤销的 Proxy、抛错的访问器），原来的错在 cause 里', { cause: err });
+  }
+}
 function deepFreeze(v) {
   if (v !== null && typeof v === 'object' && !Object.isFrozen(v)) Object.values(Object.freeze(v)).forEach(deepFreeze);
   return v;
@@ -82,27 +94,27 @@ const scaleOf = (c) => (c instanceof Uint8Array || c instanceof Uint8ClampedArra
   : c instanceof Float32Array || c instanceof Float64Array || Array.isArray(c) ? 1 : 0);
 
 function readFrame(frame, who) {
-  if (!isObj(frame)) throw new TypeError(`${who}不是帧对象 { width, height, color, channels? }`);
+  if (!isObj(frame)) throw badArg(TypeError, `${who}不是帧对象 { width, height, color, channels? }`);
   const { width, height, color } = frame;
-  if (!Number.isSafeInteger(width) || width < 1 || !Number.isSafeInteger(height) || height < 1) throw new RangeError(`${who}的宽高必须是正整数`);
+  if (!Number.isSafeInteger(width) || width < 1 || !Number.isSafeInteger(height) || height < 1) throw badArg(RangeError, `${who}的宽高必须是正整数`);
   const scale = scaleOf(color);
-  if (!scale) throw new TypeError(`${who}的 color 只收 Uint8Array、Uint8ClampedArray、Float32Array、Float64Array 和数的数组`);
+  if (!scale) throw badArg(TypeError, `${who}的 color 只收 Uint8Array、Uint8ClampedArray、Float32Array、Float64Array 和数的数组`);
   if (Array.isArray(color)) {
-    for (let i = 0; i < color.length; i++) if (!Object.hasOwn(color, i) || typeof color[i] !== 'number') throw new TypeError(`${who}的 color 第 ${i} 项是空洞或不是数`);
+    for (let i = 0; i < color.length; i++) if (!Object.hasOwn(color, i) || typeof color[i] !== 'number') throw badArg(TypeError, `${who}的 color 第 ${i} 项是空洞或不是数`);
   }
   const channels = frame.channels ?? color.length / (width * height);
-  if (![1, 3, 4].includes(channels)) throw new RangeError(`${who}的通道数只收 1、3、4`);
-  if (color.length !== width * height * channels) throw new RangeError(`${who}的 color 长度应是 ${width} × ${height} × ${channels}`);
+  if (![1, 3, 4].includes(channels)) throw badArg(RangeError, `${who}的通道数只收 1、3、4`);
+  if (color.length !== width * height * channels) throw badArg(RangeError, `${who}的 color 长度应是 ${width} × ${height} × ${channels}`);
   return { width, height, channels, color, scale };
 }
 
 function diffFrames(frameA, frameB, diffLevel, where = '') {
-  if (!Number.isFinite(diffLevel) || diffLevel < 0) throw new RangeError('diffLevel 必须是 ≥ 0 的有限数');
+  if (!Number.isFinite(diffLevel) || diffLevel < 0) throw badArg(RangeError, 'diffLevel 必须是 ≥ 0 的有限数');
   const a = readFrame(frameA, `${where}前一幅`), b = readFrame(frameB, `${where}后一幅`);
   if (a.width !== b.width || a.height !== b.height || a.channels !== b.channels) {
-    throw new RangeError(`${where}两幅尺寸不一致：${a.width}×${a.height}×${a.channels} 对 ${b.width}×${b.height}×${b.channels}`);
+    throw badArg(RangeError, `${where}两幅尺寸不一致：${a.width}×${a.height}×${a.channels} 对 ${b.width}×${b.height}×${b.channels}`);
   }
-  if (a.color.constructor !== b.color.constructor) throw new TypeError(`${where}两幅的数组类型不同，字节没法比`);
+  if (a.color.constructor !== b.color.constructor) throw badArg(TypeError, `${where}两幅的数组类型不同，字节没法比`);
   const totalPixels = a.width * a.height, count = totalPixels * a.channels, full = a.scale * a.scale;
   // 平方和在原始刻度上累加，最后归一一次：8 位帧累加的是整数，和 P8（kernel/conformance/suite.mjs）同一个算式，
   // 恰好 50 dB 的帧不会因为逐分量先除 255 算成 49.99999999999771
@@ -111,7 +123,7 @@ function diffFrames(frameA, frameB, diffLevel, where = '') {
     let worst = 0;
     for (let c = 0; c < a.channels; c++, i++) {
       const x = a.color[i], y = b.color[i];
-      if (!Number.isFinite(x) || !Number.isFinite(y)) throw new RangeError(`${where}第 ${i} 个分量不是有限数`);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) throw badArg(RangeError, `${where}第 ${i} 个分量不是有限数`);
       const d = Math.abs(x - y);
       sumSq += d * d;
       if (d > worst) worst = d;
@@ -131,19 +143,19 @@ function diffFrames(frameA, frameB, diffLevel, where = '') {
 /**
  * 比两幅帧。identical 看颜色层字节的 SHA-256（哈希档用，+0 与 −0 算不同）；
  * mse、psnrDb 对全部分量算（8 位帧照 P8 的整数平方和），gt5Pixels 是「任一通道差严格大于 diffLevel」的像素数（容差档用）。
- * 坏输入一律抛错：结构、类型不对抛 TypeError，宽高、通道数、长度、尺寸不一致、NaN 或无穷抛 RangeError。
+ * 坏输入一律抛错，都带 code: 'usage.bad-argument'：结构、类型不对或读不出来抛 TypeError，宽高、通道数、长度、尺寸不一致、NaN 或无穷抛 RangeError。
  */
 export function compareFramePair(frameA, frameB, options = {}) {
-  return diffFrames(frameA, frameB, options?.diffLevel ?? P8_DIFF_LEVEL);
+  return readArgs(() => diffFrames(frameA, frameB, options?.diffLevel ?? P8_DIFF_LEVEL));
 }
 
 /* ---------------- 两项作业共用的校验 ---------------- */
 
 function needGate(tier, { psnrMinDb, maxDiffFrac, diffLevel }) {
-  if (!TIERS.includes(tier)) throw new RangeError(`tier 只收 ${TIERS.join('、')}`);
-  if (!Number.isFinite(psnrMinDb)) throw new RangeError('psnrMinDb 必须是有限数');
-  if (!inUnit(maxDiffFrac)) throw new RangeError('maxDiffFrac 必须在 [0, 1] 内');
-  if (!Number.isFinite(diffLevel) || diffLevel < 0) throw new RangeError('diffLevel 必须是 ≥ 0 的有限数');
+  if (!TIERS.includes(tier)) throw badArg(RangeError, `tier 只收 ${TIERS.join('、')}`);
+  if (!Number.isFinite(psnrMinDb)) throw badArg(RangeError, 'psnrMinDb 必须是有限数');
+  if (!inUnit(maxDiffFrac)) throw badArg(RangeError, 'maxDiffFrac 必须在 [0, 1] 内');
+  if (!Number.isFinite(diffLevel) || diffLevel < 0) throw badArg(RangeError, 'diffLevel 必须是 ≥ 0 的有限数');
   return { hash: tier !== 'tolerance', within: (cmp) => cmp.psnrDb >= psnrMinDb && cmp.fracGt5 <= maxDiffFrac };
 }
 
@@ -153,9 +165,9 @@ function contractErrors(obj) {
 }
 
 function needFilm(film) {
-  if (!isObj(film) || film.format !== 'film/3.0') throw new TypeError('片子描述不是 film/3.0');
+  if (!isObj(film) || film.format !== 'film/3.0') throw badArg(TypeError, '片子描述不是 film/3.0');
   const errors = contractErrors(film);
-  if (errors.length) throw new Error(`片子描述不合 film/3.0 契约：${errors.join('；')}`);
+  if (errors.length) throw badArg(Error, `片子描述不合 film/3.0 契约：${errors.join('；')}`);
 }
 
 /** 入口快照：作业进行中调用方再改原对象，校验、渲染和报告用的仍是这一份。不是对象的原样交回，留给后面的校验照原话拒 */
@@ -164,21 +176,21 @@ function snapshot(v, who) {
   try {
     return structuredClone(v);
   } catch (err) {
-    throw new TypeError(`${who}存不成快照：带着函数之类复制不了的值`, { cause: err });
+    throw badArg(TypeError, `${who}存不成快照：带着函数之类复制不了的值`, { cause: err });
   }
 }
 
 /** 渲染器交回的帧按帧号排好：[0, total) 每帧正好一幅，缺帧、重复、越界都抛错 */
 function frameList(result, total, who) {
-  if (!Array.isArray(result)) throw new TypeError(`${who}没有交回帧数组`);
+  if (!Array.isArray(result)) throw badArg(TypeError, `${who}没有交回帧数组`);
   const out = new Array(total);
   for (const frame of result) {
-    if (!isObj(frame)) throw new TypeError(`${who}交回的帧不是对象`);
-    if (!Number.isSafeInteger(frame.frame) || frame.frame < 0 || frame.frame >= total) throw new RangeError(`${who}交回的帧号 ${frame.frame} 不在 [0, ${total}) 内`);
-    if (out[frame.frame]) throw new Error(`${who}的第 ${frame.frame} 帧重复`);
+    if (!isObj(frame)) throw badArg(TypeError, `${who}交回的帧不是对象`);
+    if (!Number.isSafeInteger(frame.frame) || frame.frame < 0 || frame.frame >= total) throw badArg(RangeError, `${who}交回的帧号 ${frame.frame} 不在 [0, ${total}) 内`);
+    if (out[frame.frame]) throw badArg(Error, `${who}的第 ${frame.frame} 帧重复`);
     out[frame.frame] = frame;
   }
-  for (let f = 0; f < total; f++) if (!out[f]) throw new Error(`${who}缺第 ${f} 帧`);
+  for (let f = 0; f < total; f++) if (!out[f]) throw badArg(Error, `${who}缺第 ${f} 帧`);
   return out;
 }
 
@@ -204,24 +216,25 @@ function keep(frames, who) {
  * 改动前那一遍的帧当场另存，帧源复用缓冲区、后一遍原地覆写也照样比得出来。
  * film、patch 在入口各存一份快照，之后只认快照：渲染期间调用方改了原对象，后一遍和报告不受影响。
  * 异步函数：坏参数（选项容器不是普通对象在内）不在调用现场抛，交回的 Promise 以对应的错拒绝。
+ * 拒收参数和渲染器交回的坏结果时抛的错都带 code: 'usage.bad-argument'（选项的访问器一读就抛的也算）；renderFilm 自己抛的错原样透出。
  */
 export async function runLocalityTest(options = {}) {
-  if (!isPlainRecord(options)) throw new TypeError(BAD_OPTIONS);
+  if (!isPlainRecord(options)) throw badArg(TypeError, BAD_OPTIONS);
   const {
     film: givenFilm, patch: givenPatch, renderFilm, explainContext = {}, tier = 'hash', allowNoOp = false,
     psnrMinDb = P8_PSNR_MIN_DB, maxDiffFrac = P8_MAX_DIFF_FRAC, diffLevel = P8_DIFF_LEVEL,
-  } = options;
+  } = readArgs(() => ({ ...options }));
   // 修订号记在调用方那个对象上（patch-apply 的 WeakMap），快照带不走，入口读一次
   const film = snapshot(givenFilm, '片子描述'), patch = snapshot(givenPatch, '补丁'), rev = getFilmRev(givenFilm);
-  if (typeof renderFilm !== 'function') throw new TypeError('renderFilm 必须是函数');
-  if (typeof allowNoOp !== 'boolean') throw new TypeError('allowNoOp 必须是布尔值');
+  if (typeof renderFilm !== 'function') throw badArg(TypeError, 'renderFilm 必须是函数');
+  if (typeof allowNoOp !== 'boolean') throw badArg(TypeError, 'allowNoOp 必须是布尔值');
   const gate = needGate(tier, { psnrMinDb, maxDiffFrac, diffLevel });
   needFilm(film);
-  if (!isObj(patch)) throw new TypeError('补丁必须是 patch/0.1 对象');
+  if (!isObj(patch)) throw badArg(TypeError, '补丁必须是 patch/0.1 对象');
   const written = applyFilmWrite(film, patch, { rev: rev ?? patch.rev });
-  if (!written.ok) throw new Error(`补丁作用不上（第 ${written.step} 步 ${written.code}）：${written.message}`);
+  if (!written.ok) throw badArg(Error, `补丁作用不上（第 ${written.step} 步 ${written.code}）：${written.message}`);
   const after = written.film, total = film.output.frames;
-  if (after.output.frames !== total) throw new RangeError('补丁改了总帧数，前后没法逐帧比');
+  if (after.output.frames !== total) throw badArg(RangeError, '补丁改了总帧数，前后没法逐帧比');
 
   const paths = [...new Set(patch.ops.flatMap((op) => (op.op === 'rename' ? [op.path, op.path.slice(0, op.path.lastIndexOf('/') + 1) + op.to] : [op.path])))];
   const affects = [];
@@ -236,7 +249,7 @@ export async function runLocalityTest(options = {}) {
         why = err;
       }
     }
-    if (!found) throw new Error(`参数 ${path} 改动前后都说不出影响范围：${why.message}`, { cause: why });
+    if (!found) throw badArg(Error, `参数 ${path} 改动前后都说不出影响范围：${why.message}`, { cause: why });
   }
   const inside = (f, labels = []) => affects.some(({ shots, frameRange: [from, to], table }) => from <= f && f < to
     && table.some((s) => s.in <= f && f < s.out && shots.includes(s.id)) && labels.every((id) => shots.includes(id)));
@@ -298,7 +311,7 @@ function assetClashes(film, lock) {
  * 每个键只读一次，交回的是副本。
  */
 function fileTable(table, who) {
-  const bad = (why) => new TypeError(`${who}的 deliverables 必须是「文件名 → 哈希字符串」的普通对象：${why}`);
+  const bad = (why) => badArg(TypeError, `${who}的 deliverables 必须是「文件名 → 哈希字符串」的普通对象：${why}`);
   if (!isPlainRecord(table)) throw bad('Map、Set、Date、Proxy、类实例和带继承项的对象不收');
   return Object.fromEntries(Reflect.ownKeys(table).map((key) => {
     if (typeof key !== 'string' || key === '') throw bad('键必须是不空的字符串，不收 Symbol 键');
@@ -320,28 +333,29 @@ function fileTable(table, who) {
  * 第一遍的帧和交付件表当场另存，帧源在第二遍里原地覆写也照样比得出来。
  * film、lock 在入口各存一份快照，核对、两遍渲染、报告的 filmId 和 rev 都只认快照：第一遍开渲后调用方换了原锁，第二遍用的仍是核过的那一份。
  * 异步函数：坏参数（选项容器不是普通对象在内）和坏 deliverables 都不在调用现场抛，交回的 Promise 以对应的错拒绝；第一遍的 deliverables 坏了就停，不调第二遍。
+ * 拒收参数、锁和渲染器交回的坏结果时抛的错都带 code: 'usage.bad-argument'（选项的访问器一读就抛的也算）；renderLocked 自己抛的错原样透出。
  */
 export async function runRebuildTest(options = {}) {
-  if (!isPlainRecord(options)) throw new TypeError(BAD_OPTIONS);
+  if (!isPlainRecord(options)) throw badArg(TypeError, BAD_OPTIONS);
   const {
     film: givenFilm, lock: givenLock, renderLocked, tier = 'hash-same-machine', allowPartialLock = false,
     psnrMinDb = P8_PSNR_MIN_DB, maxDiffFrac = P8_MAX_DIFF_FRAC, diffLevel = P8_DIFF_LEVEL,
-  } = options;
+  } = readArgs(() => ({ ...options }));
   // 核过的和两遍渲的必须是同一份：入口存快照，之后不再读调用方的对象（修订号记在原对象上，也在入口读）
   const film = snapshot(givenFilm, '片子描述'), lock = snapshot(givenLock, '锁'), rev = getFilmRev(givenFilm);
-  if (typeof renderLocked !== 'function') throw new TypeError('renderLocked 必须是函数');
-  if (typeof allowPartialLock !== 'boolean') throw new TypeError('allowPartialLock 必须是布尔值');
+  if (typeof renderLocked !== 'function') throw badArg(TypeError, 'renderLocked 必须是函数');
+  if (typeof allowPartialLock !== 'boolean') throw badArg(TypeError, 'allowPartialLock 必须是布尔值');
   const gate = needGate(tier, { psnrMinDb, maxDiffFrac, diffLevel });
   needFilm(film);
-  if (!isObj(lock)) throw new TypeError('缺锁：加锁重建要带和片子描述配套的锁');
-  if (lock.format !== 'lock/1.0') throw new TypeError('锁不是 lock/1.0');
+  if (!isObj(lock)) throw badArg(TypeError, '缺锁：加锁重建要带和片子描述配套的锁');
+  if (lock.format !== 'lock/1.0') throw badArg(TypeError, '锁不是 lock/1.0');
   const errors = contractErrors(lock);
-  if (errors.length) throw new Error(`锁不合 lock/1.0 契约：${errors.join('；')}`);
-  if (rev !== undefined && lock.rev !== rev) throw new Error(`修订号对不上：片子描述是 rev ${rev}，锁是 rev ${lock.rev ?? '（没写）'}`);
+  if (errors.length) throw badArg(Error, `锁不合 lock/1.0 契约：${errors.join('；')}`);
+  if (rev !== undefined && lock.rev !== rev) throw badArg(Error, `修订号对不上：片子描述是 rev ${rev}，锁是 rev ${lock.rev ?? '（没写）'}`);
   const cross = validate({ format: 'lock-check/0.1', lock, film });
   const found = Object.entries({ ...cross.violations, D3: filmChecks.D3({ format: 'film-check/0.1', film, lock }) }).flatMap(([id, list]) => list.map((m) => [id, m]));
   const fatal = [...cross.schemaErrors, ...found.filter(([id, m]) => !(allowPartialLock && NOT_PINNED[id]?.test(m))).map(([id, m]) => `${id} ${m}`), ...assetClashes(film, lock)];
-  if (fatal.length) throw new Error(`锁和片子描述对不上：${fatal.join('；')}`);
+  if (fatal.length) throw badArg(Error, `锁和片子描述对不上：${fatal.join('；')}`);
   const lockCheck = found.length ? 'partial' : 'full';
 
   const total = film.output.frames, runs = [];
@@ -349,7 +363,7 @@ export async function runRebuildTest(options = {}) {
     const out = await renderLocked(structuredClone(film), structuredClone(lock), { run });
     const packed = isObj(out);
     // 只交帧数组就是不带交付件表；数组上挂着 deliverables 的不能当没看见
-    if (!packed && out?.deliverables !== undefined) throw new TypeError(`第 ${run} 遍的 deliverables 挂在帧数组上：要带交付件表就交回 { frames, deliverables }`);
+    if (!packed && out?.deliverables !== undefined) throw badArg(TypeError, `第 ${run} 遍的 deliverables 挂在帧数组上：要带交付件表就交回 { frames, deliverables }`);
     const given = packed ? out.deliverables : undefined;
     const deliverables = given === undefined ? {} : fileTable(given, `第 ${run} 遍`);
     const frames = frameList(packed ? out.frames : out, total, `第 ${run} 遍`);
@@ -363,7 +377,7 @@ export async function runRebuildTest(options = {}) {
     const cmp = diffFrames(runs[0].frames[f], runs[1].frames[f], diffLevel, `第 ${f} 帧`);
     // 同一块内存才算（Node 的小 Buffer 共用一个池，光看 buffer 相同会冤枉各自重渲的两遍）
     if (a === b || (ArrayBuffer.isView(a) && a.buffer === b.buffer && a.byteOffset === b.byteOffset)) {
-      throw new Error(`第 ${f} 帧两遍交回的是同一块缓冲区，不是独立重渲`);
+      throw badArg(Error, `第 ${f} 帧两遍交回的是同一块缓冲区，不是独立重渲`);
     }
     if (cmp.identical) identicalFrames++;
     if (gate.hash ? !cmp.identical : !gate.within(cmp)) failedFrames.push(f);
@@ -386,7 +400,6 @@ const ISO_TIME = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,9})?(?:Z|[+-]\d\d:\d\
 // 一行的体积上界：路径只留首尾各 4 条、每条 96 个字符，片号和作业号各 128 个字符，其余都是数和枚举。
 // 一行远小于 Node 一次 write 的块（512 KiB），追加是一次 O_APPEND 写，不会被别的写入者从中间插开
 const MAX_ROW_BYTES = 8192, MAX_NAME = 128, PATH_SAMPLES = 4, PATH_CHARS = 96, FRAME_SAMPLES = 3;
-const badArg = (Type, message, options) => Object.assign(new Type(message, options), { code: 'usage.bad-argument' });
 const headTail = (list, n) => (list.length <= 2 * n ? [...list] : [...list.slice(0, n), ...list.slice(-n)]);
 /** 实心数组：没有空洞、没有多出来的自有属性，每项过 itemOk。every 会跳过空洞，这里逐个下标查；键数先比，极长的空洞数组不用走完 */
 function dense(v, itemOk) {
@@ -458,13 +471,7 @@ function rebuildReason(r) {
  * 坏参数抛的错都带 code: 'usage.bad-argument'：读不出来的参数（报告、film 或里面的表是已撤销的 Proxy，访问器一读就抛）也算，包成 TypeError，原来的错在 cause 里。
  */
 export function buildControllabilityRow(options = {}) {
-  try {
-    return rowOf(options);
-  } catch (err) {
-    // 这里不做 I/O，抛出来的错都出自参数。认自己的错只看自有数据属性，不调对方的代码
-    if (types.isNativeError(err) && Object.getOwnPropertyDescriptor(err, 'code')?.value === 'usage.bad-argument') throw err;
-    throw badArg(TypeError, '参数读不出来：读的时候抛了错（已撤销的 Proxy、抛错的访问器），原来的错在 cause 里', { cause: err });
-  }
+  return readArgs(() => rowOf(options));
 }
 
 function rowOf(options) {
@@ -492,11 +499,7 @@ function rowOf(options) {
     rebuildReason);
   if (loc && reb && loc.totalFrames !== reb.totalFrames) throw badArg(Error, `locality 报告是 ${loc.totalFrames} 帧，rebuild 报告是 ${reb.totalFrames} 帧，不是同一份片子描述的`);
   if (film !== null) {
-    try {
-      needFilm(film);
-    } catch (err) {
-      throw Object.assign(err, { code: 'usage.bad-argument' });
-    }
+    needFilm(film);
     if (film.id !== filmId) throw badArg(Error, `这一行写的是片子 ${filmId}，film 是片子 ${film.id}`);
     for (const [name, r] of [['locality', loc], ['rebuild', reb]]) {
       if (r && r.totalFrames !== film.output.frames) throw badArg(Error, `${name} 报告是 ${r.totalFrames} 帧，片子描述的 output.frames 是 ${film.output.frames}`);
@@ -551,12 +554,14 @@ async function withLockFile(target, job) {
 
 /**
  * 把一行追加进 JSONL 文件（目录不在就建），交回这一行。只收 buildControllabilityRow 交回的行：手拼的、读回来改过的都不收。
+ * 不是它交回的行、filePath 不是不空的字符串抛带 code: 'usage.bad-argument' 的 TypeError；等锁超时和文件系统的错不带这个码。
  * 并发追加逐行完整：同一个进程里按规范化的目标路径排队，别的进程靠锁文件挡，每行又是一次不超过 MAX_ROW_BYTES 的追加写。
  */
 export async function appendControllabilityRow(filePath, row) {
-  if (!builtRows.has(row)) throw new TypeError('只收 buildControllabilityRow 交回的行');
+  if (!builtRows.has(row)) throw badArg(TypeError, '只收 buildControllabilityRow 交回的行');
+  if (typeof filePath !== 'string' || !filePath) throw badArg(TypeError, 'filePath 必须是不空的字符串');
   const line = `${JSON.stringify(row)}\n`;
-  if (Buffer.byteLength(line) > MAX_ROW_BYTES) throw new RangeError(`这一行超过 ${MAX_ROW_BYTES} 字节`);
+  if (Buffer.byteLength(line) > MAX_ROW_BYTES) throw badArg(RangeError, `这一行超过 ${MAX_ROW_BYTES} 字节`);
   await mkdir(dirname(filePath), { recursive: true });
   const target = join(await realpath(dirname(filePath)), basename(filePath));
   const mine = (appendQueues.get(target) ?? Promise.resolve()).then(() => withLockFile(target, () => appendFile(target, line)));

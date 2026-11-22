@@ -1062,24 +1062,24 @@ test('V14-21 原型链上有 Proxy 的对象先认原型再碰对象：活 Proxy
     traps.length = 0;
     for (const [run, fields] of [[runRebuildTest, rebuildOpts], [runLocalityTest, localityOpts]]) {
       calls = 0;
-      await assert.rejects(run(wrap(fields)), (e) => e instanceof TypeError && /普通对象/.test(e.message), `${run.name} ${name}`);
+      await assert.rejects(run(wrap(fields)), (e) => coded(e) && /普通对象/.test(e.message), `${run.name} ${name}`);
       assert.equal(calls, 0, `${run.name} ${name}：一遍都不渲`);
     }
     assert.throws(() => buildControllabilityRow(wrap(rowOpts)), (e) => coded(e) && /普通对象/.test(e.message), name);
     calls = 0;
-    await assert.rejects(runRebuildTest({ ...rebuildOpts, renderLocked: renderLocked(() => wrap(table)) }), (e) => e instanceof TypeError && /deliverables/.test(e.message), name);
+    await assert.rejects(runRebuildTest({ ...rebuildOpts, renderLocked: renderLocked(() => wrap(table)) }), (e) => coded(e) && /deliverables/.test(e.message), name);
     assert.equal(calls, 1, `${name}：第一遍交回就拒，不等第二遍`);
     assert.deepEqual(traps, [], `${name}：陷阱一个都不触发`);
   }
   // 自有的 Symbol.toStringTag 访问器一读就抛：照样按「不是普通对象」拒，访问器的错不漏出去
   const tagged = (fields) => Object.defineProperty({ ...fields }, Symbol.toStringTag, { get() { throw new Error('boom'); } });
-  const notPlain = (e) => e instanceof TypeError && /普通对象/.test(e.message);
+  const notPlain = (e) => coded(e) && /普通对象/.test(e.message);
   calls = 0;
   await assert.rejects(runRebuildTest(tagged(rebuildOpts)), notPlain);
   await assert.rejects(runLocalityTest(tagged(localityOpts)), notPlain);
   assert.equal(calls, 0);
-  assert.throws(() => buildControllabilityRow(tagged(rowOpts)), (e) => coded(e) && notPlain(e));
-  await assert.rejects(runRebuildTest({ ...rebuildOpts, renderLocked: renderLocked(() => tagged(table)) }), (e) => e instanceof TypeError && /deliverables/.test(e.message));
+  assert.throws(() => buildControllabilityRow(tagged(rowOpts)), notPlain);
+  await assert.rejects(runRebuildTest({ ...rebuildOpts, renderLocked: renderLocked(() => tagged(table)) }), (e) => coded(e) && /deliverables/.test(e.message));
 
   // 看板行的其他容器：报告、film 和它们里面的表是已撤销的 Proxy，或者访问器一读就抛，错都带错误码
   const boom = (base, key) => Object.defineProperty({ ...base }, key, { get() { throw new Error('boom'); }, enumerable: true });
@@ -1101,6 +1101,80 @@ test('V14-21 原型链上有 Proxy 的对象先认原型再碰对象：活 Proxy
   assert.throws(() => buildControllabilityRow(boom(rowOpts, 'filmId')), coded, '选项的访问器一读就抛');
   // 正对照：同一份选项原样给，照常出行
   assert.equal(buildControllabilityRow(rowOpts).overallPass, true);
+});
+
+test('V14-22 五个入口拒收输入时自己抛的错都带 usage.bad-argument（坏选项、坏片子描述、坏补丁、坏锁、渲染器交回的坏结果、读不出来的选项）；渲染器自己抛的错原样透出', async () => {
+  const coded = (Type) => (e) => e instanceof Type && e.code === 'usage.bad-argument';
+  const patch = patchOf(MARGIN, 0.82);
+  const loc = (over) => runLocalityTest({ film: assembly, patch, renderFilm: renderAssembly, ...over });
+  const reb = (over) => runRebuildTest({ film: assembly, lock: assemblyLock, renderLocked: twice(), ...over });
+  const boom = (base, key) => Object.defineProperty({ ...base }, key, { get() { throw new Error('boom'); }, enumerable: true });
+  const revoked = () => {
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    return proxy;
+  };
+  let cached;
+  const rejected = {
+    '局部性 选项是数组': [() => runLocalityTest([]), TypeError],
+    '局部性 缺 renderFilm': [() => loc({ renderFilm: undefined }), TypeError],
+    '局部性 allowNoOp 不是布尔': [() => loc({ allowNoOp: 1 }), TypeError],
+    '局部性 档位不认识': [() => loc({ tier: 'loose' }), RangeError],
+    '局部性 psnrMinDb 是 NaN': [() => loc({ psnrMinDb: NaN }), RangeError],
+    '局部性 片子描述不是 film/3.0': [() => loc({ film: { ...assembly, format: 'film/2.0' } }), TypeError],
+    '局部性 片子描述不过契约': [() => loc({ film: { ...assembly, shots: [] } }), Error],
+    '局部性 片子描述存不成快照': [() => loc({ film: { ...assembly, hook() {} } }), TypeError],
+    '局部性 没给补丁': [() => loc({ patch: null }), TypeError],
+    '局部性 补丁作用不上': [() => loc({ patch: patchOf('shots/s09/params/x', 1) }), Error],
+    '局部性 渲染器没交回帧数组': [() => loc({ renderFilm: async () => null }), TypeError],
+    '局部性 缺帧': [() => loc({ renderFilm: async (film) => (await renderAssembly(film)).slice(0, 299) }), Error],
+    '局部性 帧号越界': [() => loc({ renderFilm: async (film) => [...await renderAssembly(film), { frame: 300, ...flat(0) }] }), RangeError],
+    '局部性 帧里有 NaN': [() => loc({ renderFilm: tampered((out) => { out[7].color[0] = NaN; }) }), RangeError],
+    '局部性 选项的访问器一读就抛': [() => runLocalityTest(boom({ film: assembly, patch, renderFilm: renderAssembly }, 'film')), TypeError],
+    '重建 选项是 Map': [() => runRebuildTest(new Map()), TypeError],
+    '重建 缺锁': [() => reb({ lock: null }), TypeError],
+    '重建 锁不是 lock/1.0': [() => reb({ lock: assembly }), TypeError],
+    '重建 锁不过契约': [() => reb({ lock: { ...assemblyLock, seeds: undefined } }), Error],
+    '重建 锁和片子描述对不上': [() => reb({ lock: { ...assemblyLock, film: 'f_other' } }), Error],
+    '重建 修订号对不上': [() => reb({ film: applyFilmWrite(assembly, patch, { rev: 0 }).film }), Error],
+    '重建 档位不认识': [() => reb({ tier: 'exact' }), RangeError],
+    '重建 缺 renderLocked': [() => reb({ renderLocked: undefined }), TypeError],
+    '重建 allowPartialLock 不是布尔': [() => reb({ allowPartialLock: 'yes' }), TypeError],
+    '重建 缺帧': [() => reb({ renderLocked: async (...a) => (await twice()(...a)).slice(1) }), Error],
+    '重建 两遍交回同一块缓冲区': [() => reb({ renderLocked: async (...a) => (cached ??= await twice()(...a)) }), Error],
+    '重建 deliverables 挂在帧数组上': [() => reb({ renderLocked: async (...a) => Object.assign(await twice()(...a), { deliverables: {} }) }), TypeError],
+    '重建 deliverables 是 Map': [() => reb({ renderLocked: async (...a) => ({ frames: await twice()(...a), deliverables: new Map() }) }), TypeError],
+    '重建 选项的访问器一读就抛': [() => runRebuildTest(boom({ film: assembly, lock: assemblyLock, renderLocked: twice() }, 'lock')), TypeError],
+    '追加 不是 buildControllabilityRow 交回的行': [() => appendControllabilityRow(join(tmpdir(), 'v14-22-never-written.jsonl'), {}), TypeError],
+  };
+  for (const [name, [run, Type]] of Object.entries(rejected)) await assert.rejects(run, coded(Type), name);
+
+  // 同步的帧对比较：坏帧、坏门限、读不出来的帧
+  assert.throws(() => compareFramePair(null, flat(0)), coded(TypeError));
+  assert.throws(() => compareFramePair(flat(0), flat(0), { diffLevel: -1 }), coded(RangeError));
+  assert.throws(() => compareFramePair(flat(0), synthFrame(2, 2, () => [0, 0, 0])), coded(RangeError));
+  assert.throws(() => compareFramePair(revoked(), flat(0)), coded(TypeError));
+  assert.throws(() => compareFramePair(flat(0), flat(0), boom({}, 'diffLevel')), (e) => coded(TypeError)(e) && e.cause?.message === 'boom');
+
+  // 追加的目标路径不是字符串：行是真的，照样带错误码拒
+  const row = buildControllabilityRow({ filmId: assembly.id, recordedAt: '2026-11-23T00:00:00Z', rebuild: await reb() });
+  for (const badPath of [undefined, 123, '']) await assert.rejects(() => appendControllabilityRow(badPath, row), coded(TypeError), `filePath 是 ${JSON.stringify(badPath)}`);
+
+  // 渲染器自己抛的错不是坏参数：原样透出，不包、不加错误码
+  const crash = new Error('渲染器炸了');
+  const same = (e) => e === crash && !Object.hasOwn(e, 'code');
+  await assert.rejects(() => loc({ renderFilm: async () => { throw crash; } }), same);
+  await assert.rejects(() => reb({ renderLocked: async () => { throw crash; } }), same);
+  // 渲染器交回的帧上访问器抛的错也算渲染器自己的
+  const trapped = async (film) => (await renderAssembly(film)).map((frame, f) => (f === 3 ? Object.defineProperty(frame, 'width', { get() { throw crash; } }) : frame));
+  await assert.rejects(() => loc({ renderFilm: trapped }), same);
+
+  // 两项作业的选项只读一遍：访问器每个只问一次
+  let reads = 0;
+  const counted = (base) => Object.defineProperty({ ...base }, 'tier', { get() { reads++; return 'hash'; }, enumerable: true });
+  assert.equal((await runLocalityTest(counted({ film: assembly, patch, renderFilm: renderAssembly }))).pass, true);
+  assert.equal((await runRebuildTest(counted({ film: assembly, lock: assemblyLock, renderLocked: twice() }))).pass, true);
+  assert.equal(reads, 2);
 });
 
 test('V14-9 页面宿主实渲：双镜头局部性（改谁只变谁）与加锁重渲（两个帧源进程逐位相同）', async (t) => {
