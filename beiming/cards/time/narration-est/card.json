@@ -1,0 +1,57 @@
+{
+  "format": "card/0.1",
+  "id": "time.narration-est",
+  "version": "1.0.0",
+  "kind": "time",
+  "title": "旁白估时",
+  "intent": "配音还没到时，按词长和标点把旁白稿估成每段的起止和逐词时间，先把片子的时间定下来",
+  "visibleToAgent": true,
+  "livesIn": ["data"],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/time/narration-est/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/time/narration-est/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "script": { "type": "data", "unit": "none", "schema": "script.schema.json", "default": [], "coupling": "none" },
+    "wordSec": { "type": "number", "unit": "s", "range": [0, 2], "default": 0.15, "coupling": "none" },
+    "letterSec": { "type": "number", "unit": "s", "range": [0, 1], "default": 0.036, "coupling": "none" },
+    "letterCap": { "type": "integer", "unit": "none", "range": [1, 64], "default": 9, "coupling": "none" },
+    "stopSec": { "type": "number", "unit": "s", "range": [0, 5], "default": 0.34, "coupling": "none" },
+    "commaSec": { "type": "number", "unit": "s", "range": [0, 5], "default": 0.18, "coupling": "none" },
+    "segTailSec": { "type": "number", "unit": "s", "range": [0, 5], "default": 0.15, "coupling": "none" },
+    "leadInSec": { "type": "number", "unit": "s", "range": [0, 10], "default": 0.3, "coupling": "none" },
+    "firstLeadId": { "type": "string", "unit": "none", "default": "s01", "coupling": "none" },
+    "firstLeadExtraSec": { "type": "number", "unit": "s", "range": [0, 10], "default": 0.25, "coupling": "none" },
+    "tailPadSec": { "type": "number", "unit": "s", "range": [0, 10], "default": 0.36, "coupling": "none" },
+    "gapSec": { "type": "number", "unit": "s", "range": [0, 10], "default": 0, "coupling": "none" }
+  },
+  "ports": {
+    "in": [],
+    "out": [{ "name": "narration", "type": "tracks.narration" }],
+    "order": { "before": [], "after": [] },
+    "requires": ["旁白稿是拉丁字母的稿子：词按字母、数字、撇号认，别的文字切不出词"]
+  },
+  "conditions": {
+    "appliesWhen": ["讲解片的配音还没录，要先按稿子排镜头、触发点和字幕", "要一份和配音无关、哪台机器上算都一样的时间表"],
+    "notWhen": ["配音已经到了：用真实的逐词时间，不用估的", "中文、日文这类不靠空格分词的稿子：这张卡切不出词"]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "30 帧每秒、默认参数：第一段 Hi, all. 的配音从 0.55 秒起、时长 1.15 秒，整段 2.06 秒；第二个词 all 从 0.952 秒起；后面接 1.5 秒无旁白的段，全片 3.56 秒、107 帧",
+    "predicates": []
+  },
+  "pitfalls": [
+    { "symptom": "句中的缩写后面多停了一下", "fix": "停顿只看空白切出的块的最后一个字符；带句点的缩写在句中也算句末，不想停就把缩写末尾的句点去掉" },
+    { "symptom": "数字和符号估得偏短", "fix": "数字照字符个数算，不照念出来的长度；稿子里把数字写成单词" },
+    { "symptom": "估的总时长和真实配音差好几秒", "fix": "估时只用来排片；配音到了换成真实的逐词时间，再重排触发点和字幕" }
+  ],
+  "provenance": { "cases": [], "note": "整数毫秒累加的估时：每词一个底数加按字母数封顶的增量，句末和子句标点各加一个停顿；多留的那段留白按段的标识认：id 等于 firstLeadId（默认 s01）的那一段多留，不看它在稿子里排第几" },
+  "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-22" }],
+  "exams": ["cal:time.narration-est"],
+  "ext": { "exams.pending": ["NE-Y2"] }
+}
