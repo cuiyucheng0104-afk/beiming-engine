@@ -260,6 +260,14 @@ test('B8-8 隐藏题：blockedBy 原文和精确的墙钟预算不回显', async
   // 隐藏题的判分器抛错：原因里可能带指标名和阈值，不落盘
   const leaky = await runExamQuestion({ questionFile: qFile, evalRoot: root, forceExpectedFail: true, solver: async () => ({}), judge: () => { throw new Error('loop.closure-psnr 低于 41.5'); } });
   assert.deepEqual([leaky.status, leaky.error, (await readJson(leaky.resultFile)).error, dump(leaky.runDir).includes('41.5')], ['error', '判分出错', '判分出错', false]);
+  // 同一类诊断从做题这头抛出来也一样：做题函数和宿主同进程，报错里可能带私有段和隐藏题目录，三处都只留固定的一句
+  const viaSolver = await runExamQuestion({ questionFile: qFile, evalRoot: root, forceExpectedFail: true, solver: async () => { throw new Error(`controls.referencePass 读不到：${dir}`); }, judge: allPass });
+  const reasons = [viaSolver.error, (await readJson(viaSolver.resultFile)).error, (await readJson(join(viaSolver.runDir, 'observation.json'))).error];
+  assert.deepEqual([viaSolver.status, viaSolver.score, ...reasons], ['error', 0, '做题出错', '做题出错', '做题出错']);
+  assert.ok(!reasons.join().includes(dir) && !dump(viaSolver.runDir).includes('referencePass'));
+  // 命令做题的失败原因只有退出码
+  const exit7 = await runExamQuestion({ questionFile: qFile, evalRoot: root, forceExpectedFail: true, solverCmd: `"${process.execPath}" -e "process.exit(7)"`, judge: allPass });
+  assert.deepEqual([exit7.status, exit7.error, (await readJson(exit7.resultFile)).error], ['error', '做题命令 exit 7', '做题命令 exit 7']);
 });
 
 test('B8-9 做题进程：环境变量只有白名单；有系统沙箱时读不到原题、隐藏题目录、meta.json 和别的运行', async (t) => {

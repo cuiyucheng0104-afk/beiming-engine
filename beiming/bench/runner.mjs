@@ -196,7 +196,8 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
         : await solveByCommand(run, { argv, model, claude, timeoutMs: question.budget.wallMs, profile });
     } catch (e) {
       if (e instanceof EvalError) throw e;
-      error = why(e);
+      // 隐藏题的 error 只有固定的几句（再加退出码）：做题函数和宿主同进程，报错原文可能带私有段和隐藏题目录，和下面判分出错同一个口径
+      error = hidden ? '做题出错' : why(e);
     }
     wallMs = Date.now() - t0;
     // 隐藏题的预算是私有段：超时只说超了，不写数
@@ -238,7 +239,7 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
   });
   const result = {
     format: RESULT_FORMAT, questionId: question.id, level: question.level, source, model: model ?? solved.model ?? null, runId, status, score,
-    // 没出错是 null；出错时和 observation.json 的 error 是同一句（隐藏题的判分原因、预算数值在上面已经抹掉）
+    // 没出错是 null；出错时和 observation.json 的 error 是同一句（隐藏题的做题与判分原因、预算数值在上面已经抹掉）
     error,
     // 隐藏题只落总分和计数：blockedBy 的原文、逐项的指标名和断言原文都是私有段
     visibility: hidden ? 'hidden' : 'public', blockedBy: hidden && blockedBy.length ? ['[hidden]'] : blockedBy,
