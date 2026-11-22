@@ -48,7 +48,7 @@
 
 **环境变量**只传白名单，名字不分大小写：`PATH`、`HOME`、`USERPROFILE`、`SYSTEMROOT`、`COMSPEC`、`PATHEXT`、`LANG`、`LC_ALL`、`TERM`、`NODE_PATH`，加上指到运行目录里的 `TMPDIR`、`TMP`、`TEMP`、`CLAUDE_CONFIG_DIR`，以及 `PLAYWRIGHT_BROWSERS_PATH`。`--model` 时另传 `ANTHROPIC_*`、`CLAUDE_CODE_*`、`HTTP_PROXY`、`HTTPS_PROXY`、`NO_PROXY`。
 
-**怎么算没做完**（`status` 是 `error`，产物写完了也一样）：做题命令退出码不是 0；被信号杀掉（没有退出码）；超过墙钟预算被结束；做题函数抛错。没做完的运行不采信半截产物：`score` 记 0，`assertions` 是空数组，`artifacts` 照记。
+**怎么算没做完**（`status` 是 `error`，产物写完了也一样）：做题命令退出码不是 0；被信号杀掉（没有退出码）；超过墙钟预算被结束；做题函数抛错（消息是空的也算）。没做完的运行不采信半截产物，也不再调判分器：`score` 记 0，`assertions` 是空数组，`artifacts` 照记，开销里的 `gpuSeconds` 只认做题函数自己回的。做完了但判分器抛错同样落 `error`（原因记在 `observation.json` 的 `error`，隐藏题不写原因）；判分器抛的环境类错误（如缺 `ffprobe`）照常按退出码 3 报出，不落结果。
 
 ## 落盘
 

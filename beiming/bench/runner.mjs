@@ -28,6 +28,8 @@ const PROMPT = '读当前目录的 question.json，按题面做题。成片存�
 const num = (v) => (Number.isFinite(v) ? v : null);
 const inside = (p, dir) => p === dir || p.startsWith(dir + path.sep);
 const ffprobe = () => process.env.FFPROBE || 'ffprobe';
+// 异常的原因，保证不是空的：new Error() 的 message 是 ''，throw '' 连名字都没有
+const why = (e) => String(e?.message || e || '') || '原因不明';
 const noFfprobe = () => envError('env.ffmpeg-missing', '宿主上没有可用的 ffprobe，成片量不了、判不了分', '装 FFmpeg（带 ffprobe），或用环境变量 FFPROBE 指定可执行文件');
 
 // 做题进程的环境变量：只留白名单（名字不分大小写），宿主别的变量一律不传；模型的凭据和代理只在 --model 时传
@@ -194,14 +196,21 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
         : await solveByCommand(run, { argv, model, claude, timeoutMs: question.budget.wallMs, profile });
     } catch (e) {
       if (e instanceof EvalError) throw e;
-      error = String(e?.message ?? e);
+      error = why(e);
     }
     wallMs = Date.now() - t0;
     // 隐藏题的预算是私有段：超时只说超了，不写数
-    if (!error && solved.timedOut) error = hidden ? '超过墙钟预算，已结束' : `超过墙钟预算 ${question.budget.wallMs} ms，已结束`;
+    if (error === null && solved.timedOut) error = hidden ? '超过墙钟预算，已结束' : `超过墙钟预算 ${question.budget.wallMs} ms，已结束`;
     // 子进程没有退出码就是被信号杀掉的，产物写完了也不算做完
-    if (!error && sandboxed && solved.exitCode !== 0) error = solved.exitCode === null ? '做题进程异常终止（无退出码，可能被信号中断）' : `做题命令 exit ${solved.exitCode}`;
-    measured = (await (judge ?? defaultJudge)({ question, worktreeDir: run.worktree, runDir: dir })) ?? {};
+    if (error === null && sandboxed && solved.exitCode !== 0) error = solved.exitCode === null ? '做题进程异常终止（无退出码，可能被信号中断）' : `做题命令 exit ${solved.exitCode}`;
+    // 没做完就不判分：反正记 0 分，判分器读不到要的文件抛错还会把这条失败记录一起丢掉
+    if (error === null) {
+      try { measured = (await (judge ?? defaultJudge)({ question, worktreeDir: run.worktree, runDir: dir })) ?? {}; } catch (e) {
+        if (e instanceof EvalError) throw e;
+        // 判分器的报错可能带着指标名、阈值：隐藏题不写原因
+        error = hidden ? '判分出错' : `判分出错：${why(e)}`;
+      }
+    }
   }
 
   // basis 是这一项凭什么判的：host 宿主实测、unmeasured 没有量测器（一律不过）、judge 调用方自己的判分
@@ -209,15 +218,16 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
     const v = table !== null && typeof table === 'object' && Object.hasOwn(table, key) ? table[key] : null;
     return { pass: v === true || v?.pass === true, basis: v?.basis ?? (judge ? 'judge' : 'unmeasured') };
   };
-  // 没做完（出错、被杀、超时）的运行不采信半截产物：逐项不落，记 0 分
-  const assertions = skip || error ? [] : [
+  // 没做完（出错、被杀、超时）或判分出错的运行不采信半截产物：逐项不落，记 0 分。出没出错只看 error 是不是 null，不看文字
+  const failed = error !== null;
+  const assertions = skip || failed ? [] : [
     ...(question.basePredicates ?? []).map((text) => ({ kind: 'base', name: text, ...judged(measured.predicates, text) })),
     ...question.scoring.map((s) => ({ kind: 'scoring', name: s.metric, weight: s.weight, ...judged(measured.metrics, s.metric) })),
   ];
   const score = Math.round(assertions.reduce((n, a) => n + (a.kind === 'scoring' && a.pass ? a.weight : 0), 0) * 1e9) / 1e9;
   const cost = { tokens: num(solved.tokens), turns: num(solved.turns), toolCalls: num(solved.toolCalls), wallMs, gpuSeconds: skip ? 0 : num(solved.gpuSeconds ?? measured.cost?.gpuSeconds) };
   const overBudget = ['tokens', 'wallMs', 'gpuSeconds'].filter((k) => cost[k] > question.budget[k]);
-  const status = skip ? 'expected-fail' : error ? 'error' : assertions.every((a) => a.pass) && !overBudget.length ? 'pass' : 'fail';
+  const status = skip ? 'expected-fail' : failed ? 'error' : assertions.every((a) => a.pass) && !overBudget.length ? 'pass' : 'fail';
   const artifacts = walk(run.worktree).filter((e) => e.rel !== 'question.json').map((e) => ({ path: e.rel, bytes: e.size, sha256: `sha256:${sha256File(e.abs)}` }));
   const endedAt = new Date().toISOString();
 

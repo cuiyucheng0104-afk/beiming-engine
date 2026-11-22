@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { EvalError, envError } from '../../tools/eval/lib/cli.mjs';
 import { hasFfmpeg } from '../../tools/eval/lib/synth.mjs';
 import { projectPublicQuestion, runExamQuestion } from './index.mjs';
 
@@ -110,6 +111,17 @@ test('B8-4 判分：超预算、做题出错都不算过；expectedFail 默认�
   const boom = await runExamQuestion({ questionFile: qFile, evalRoot: root, solver: async () => { throw new Error('炸了'); }, judge: allPass });
   assert.equal(boom.status, 'error');
   assert.notEqual(boom.runId, over.runId, '同一秒重跑不撞目录');
+  // 出没出错不看诊断文本：抛空消息（new Error()、''）照样是 error，记下的原因不是空的
+  for (const thrown of [new Error(), '']) {
+    const res = await runExamQuestion({ questionFile: qFile, evalRoot: root, solver: async () => { throw thrown; }, judge: allPass });
+    assert.deepEqual([res.status, res.score, res.assertions], ['error', 0, []], `抛 ${JSON.stringify(String(thrown))}`);
+    assert.ok((await readJson(join(res.runDir, 'observation.json'))).error);
+  }
+  // 做完了但判分器自己抛错：照样落 error；环境类错误（EvalError）照常往上抛
+  const badJudge = await runExamQuestion({ questionFile: qFile, evalRoot: root, solver: async () => ({}), judge: () => { throw new Error('量测器坏了'); } });
+  assert.deepEqual((({ status, score, assertions }) => [status, score, assertions])(await readJson(badJudge.resultFile)), ['error', 0, []]);
+  assert.equal((await readJson(join(badJudge.runDir, 'observation.json'))).error, '判分出错：量测器坏了');
+  await assert.rejects(runExamQuestion({ questionFile: qFile, evalRoot: root, solver: async () => ({}), judge: () => { throw envError('env.ffmpeg-missing', '没有 ffprobe', '装 FFmpeg'); } }), EvalError);
 
   const xfFile = join(dir, 'xf.json');
   await writeFile(xfFile, JSON.stringify({ ...sample, flags: { hidden: false, expectedFail: true, blockedBy: ['等 B9'] } }));
@@ -207,9 +219,18 @@ test('B8-7 做题进程被信号杀掉：产物写完了也判 error，记 0 分
   assert.deepEqual([res.status, res.score, res.assertions, res.artifacts.map((a) => a.path)], ['error', 0, [], ['done.txt']], '判分全过也不采信');
   assert.deepEqual((({ status, score }) => [status, score])(await readJson(res.resultFile)), ['error', 0]);
   if (POSIX) assert.deepEqual([obs.exitCode, obs.timedOut, obs.error], [null, false, '做题进程异常终止（无退出码，可能被信号中断）']);
+  // 已经知道没做完就不再判分：判分器要的量测文件没写出来（读它抛 ENOENT），这条失败记录也照样落盘
+  const noJudge = await runExamQuestion({ questionFile: qFile, evalRoot: root, solverCmd: `"${process.execPath}" "${killer}"`, judge: ({ worktreeDir }) => JSON.parse(readFileSync(join(worktreeDir, 'measurements.json'), 'utf8')) });
+  assert.deepEqual((({ status, score, assertions }) => [status, score, assertions])(await readJson(noJudge.resultFile)), ['error', 0, []]);
+  assert.ok(existsSync(join(noJudge.runDir, 'observation.json')));
   if (!hasFfmpeg()) return;
+  const good = video(join(dir, 'good.mp4'));
+  // 做题函数交完合规的真片再抛 new Error()（消息是空的），默认判分：还是 error、0 分
+  const threw = await runExamQuestion({ questionFile: qFile, evalRoot: root, solver: ({ worktreeDir }) => { copyFileSync(good, join(worktreeDir, 'deliverable.mp4')); throw new Error(); } });
+  assert.deepEqual((({ status, score, assertions }) => [status, score, assertions])(await readJson(threw.resultFile)), ['error', 0, []]);
+  assert.deepEqual(threw.artifacts.map((a) => a.path), ['deliverable.mp4']);
   // 交完合规的真片再被杀：命令行信封和落盘都是 error、0 分
-  const killed = cli(['run', '--question', qFile, '--root', root, '--solver-cmd', `"${process.execPath}" "${killer}" "${video(join(dir, 'good.mp4'))}"`]);
+  const killed = cli(['run', '--question', qFile, '--root', root, '--solver-cmd', `"${process.execPath}" "${killer}" "${good}"`]);
   const disk = await readJson(killed.json.data.resultFile);
   assert.deepEqual([killed.code, killed.json.data.status, killed.json.data.score, disk.status, disk.score], [0, 'error', 0, 'error', 0], killed.stderr);
   assert.ok(disk.artifacts.some((a) => a.path === 'deliverable.mp4'));
@@ -231,6 +252,9 @@ test('B8-8 隐藏题：blockedBy 原文和精确的墙钟预算不回显', async
   };
   assert.deepEqual(await timeout(true), ['error', ['wallMs'], '超过墙钟预算，已结束', false]);
   assert.deepEqual(await timeout(false), ['error', ['wallMs'], '超过墙钟预算 317 ms，已结束', true]);
+  // 隐藏题的判分器抛错：原因里可能带指标名和阈值，不落盘
+  const leaky = await runExamQuestion({ questionFile: qFile, evalRoot: root, forceExpectedFail: true, solver: async () => ({}), judge: () => { throw new Error('loop.closure-psnr 低于 41.5'); } });
+  assert.deepEqual([leaky.status, (await readJson(join(leaky.runDir, 'observation.json'))).error, dump(leaky.runDir).includes('41.5')], ['error', '判分出错', false]);
 });
 
 test('B8-9 做题进程：环境变量只有白名单；有系统沙箱时读不到原题、隐藏题目录、meta.json 和别的运行', async (t) => {
