@@ -451,6 +451,24 @@ npm run film -- build films/chendu --renderer offscreen --mode fast
 
 后续性能工作的分层规格（WP0–WP5）、测量纪律与每阶段闸门见 [spec-perf-first-principles.md](spec-perf-first-principles.md)。阶段 1（WP0.1–WP0.3：异步 NVENC 探测、`--frame-hashes`、空显示层跳过；WP0.4 零拷贝试作后撤回）已合入，实测见该文 5.1。阶段 2（WP1.2 常驻守护进程 `offscreen daemon` 与 `--daemon` 客户端接入、WP1.3 驱动级着色器磁盘缓存落盘 `.cache/offscreen-shader-cache`；WP1.1 合并 Pass 试作后因 PSNR ≈ 64 dB 未过 T0f 75 dB 线，按 2026-11-22 裁定撤回）输出与 `main` 逐字节相同，实测见该文 5.2。
 
+### 7.22 WP2.1 路径 A（WGSL Compute + 共享内存）：No-Go（2026-11-22）
+
+按规格书 §3 WP2.1 的强制 Micro-benchmark 原型（基线 `51d89106`）在 4K 上实测：原型曾按需申请 `maxComputeWorkgroupStorageSize = 49152`（实测生效），`KR ≥ 8` 走 `16×16` 线程块 + `pack2x16float` 共享纹素（4K 光晕 15 时块尺寸 `46×46`、16.9 KB），`KR ≤ 7` 与共享内存不足时回退原片段路径。主人根据下述两项 No-Go 结果已决定**放弃 WP2.1、不做路径 B**，原型代码、单测与功能开关已全部撤回，只保留实测落档；阶段 3 继续 WP2.2、WP2.3 与 WP5。原片段路径与 Compute 当时用同一份代码经 `BEIMING_KUWAHARA_COMPUTE=0|1` 切换，先同帧预热一遍再逐帧读回计时。
+
+**环境**：RTX 4070 Laptop（驱动 620.73.04 / CUDA UMD 13.5），Node v26.8.2，FFmpeg n9.1，`webgpu` 0.6.2，`three-webgpu` 0.187.0；非独占 GPU——常驻 ASR 进程（pid 1301）占 2464 MiB，各测量前 `nvidia-smi` 利用率 59%–81%、显存 2538 MiB，因此按 §4.1 做交替 A/B（轮次顺序 2 为 Compute→片段，1/3 为片段→Compute），4K 帧 `0,24,48` 各测 9 帧取中位数（原始日志 `out/wp2-results/`，不入库）。
+
+| 作品 | 路径 | `kuwahara` 中位 | 轮中位区间 / 全帧区间 | 整帧 GPU 中位 | 渲+读回中位 |
+|---|---|---:|---|---:|---:|
+| 《晨渡》 | 片段（main 行为） | 8.782 ms | 8.716–10.682 / 8.192–11.665 ms | 20.972 ms | 25.408 ms |
+| 《晨渡》 | Compute+SMEM | **25.821 ms** | 24.969–25.952 / 23.003–27.197 ms | 39.387 ms | 43.619 ms |
+| 《度》 | 片段（main 行为） | 8.913 ms | 8.716–8.978 / 8.323–10.027 ms | 18.678 ms | 22.764 ms |
+| 《度》 | Compute+SMEM | **25.887 ms** | 25.297–26.673 / 23.200–28.377 ms | 36.635 ms | 40.976 ms |
+
+- **性能闸门未过**：`kuwahara` 不是下降 ≥ 20%，反而分别变慢 **194% / 190%**（约 2.9×），整帧渲+读回变慢 72% / 80%。
+- **画质闸门未过**（对同代码片段路径，`diffRgba`，4K）：六帧（两部片各 0/48/96）`bigPixels = 0`，但 `maxDelta = 1–2`、PSNR `69.94–70.97 dB`，低于 `maxDelta ≤ 1、PSNR ≥ 78 dB` 门槛（手动 `fract/mix` 双线性与硬件 TMU 的插值舍入不同）。
+- **瓶颈分析**：共享纹素确实把全局纹理加载降到每输出 8.27 次，但每个输出的 317 个采样格要 4 次共享内存读 + 3 次 mix（每帧约 105 亿次 8 B LDS 读），加 `workgroupBarrier` 与 pack/unpack；软件双线性的 LDS 读吞吐与算术成为新瓶颈，比原路径的硬件 TMU 取样更慢（未做 ISA 反汇编，寄存器溢出未单独取证）。另实测《晨渡》4×MSAA 深度必须按 `texture_multisampled_2d` 绑定，非 Dawn 限制。
+- **未验证**：16 KB 回退（`8×8` 块）只在原型布局单测里覆盖，没有 16 KB 真机；1440p、MP4 码流与 Chrome WebGPU（D12）对拍未跑——性能 No-Go 后停止测量，主人已裁定放弃路径 A 与路径 B。
+
 ## 8. 风险
 
 - three r187 的 WebGPURenderer 与 TSL 仍在快速演进，升级可能改像素；锁版本，升级时重采金标准。
