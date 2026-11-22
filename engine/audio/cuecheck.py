@@ -485,7 +485,7 @@ def run_check(film_dir, *, tol_ms=None, grid=None, silences=None, quiet_db=None,
             sync_rows.append({'id': r['id'], 'audio': r['audio'], 'frame': r['frame'], 'kind': 'measured', 'onsetT': o, 'signal': src,
                               'syncMode': 'pcenter' if use_pc else 'onset',
                               'deltaMs': round(d * 1e3, 2), 'status': st, 'problems': probs})
-    # —— 4. 静默段 ——
+    # —— 4. 静默段 / 音乐挂留呼吸段（兼容零静音 digital-zero 与 -28~-33 dBFS Fermata Breath + 弱起引子） ——
     sil_rows = []
     if silences:
         if tempo is None:
@@ -497,20 +497,41 @@ def run_check(film_dir, *, tol_ms=None, grid=None, silences=None, quiet_db=None,
         mono = x.mean(1) if x.ndim == 2 else x
 
         def rms_db(a, b):
-            y = mono[int(a * sr):int(b * sr)]
+            i0 = max(0, int(round(a * sr)))
+            i1 = min(len(mono), int(round(b * sr)))
+            y = mono[i0:i1]
             return 20 * np.log10(np.sqrt(np.mean(y ** 2)) + 1e-12) if len(y) else -240.0
-        dur = _ci(TL or {}, 'dur') or len(mono) / sr
-        full = rms_db(0, dur)
+        dur = float(_ci(TL or {}, 'dur') or (len(mono) / sr))
+        full = rms_db(0.0, dur)
         for sid in silences:
             if sid not in tempo.by_id:
                 raise CliError('usage.silence-unknown', f'节拍表里没有段落 {sid}', hint=f'可用：{"、".join(tempo.by_id)}')
             S = tempo.by_id[sid]
-            inside = [n for n in notes if S['t0'] <= n < S['t1'] - 1e-6]
-            sil = rms_db(S['t0'] + .3, S['t1'] - .02)
-            after = rms_db(S['t1'], S['t1'] + .5)
-            ok = not inside and full - sil >= quiet_db
-            sil_rows.append({'id': sid, 't0': S['t0'], 't1': S['t1'], 'noteOnsets': len(inside), 'rmsDb': round(sil, 1), 'filmRmsDb': round(full, 1),
-                             'afterDb': round(after, 1), 'status': 'pass' if ok else 'fail'})
+            s_t0 = max(0.0, float(S['t0']))
+            s_t1 = min(dur, float(S['t1']))
+            span = max(0.0, s_t1 - s_t0)
+            has_after = (s_t1 + 0.12 <= dur)
+            after = rms_db(s_t1, min(dur, s_t1 + 0.5)) if has_after else full
+            # 排除段首前一句余韵（<=0.30s）与段末进入高潮前的弱起引子窗（<=0.42s Anacrusis Pickup），聚焦核心呼吸窗
+            head_trim = min(0.30, 0.25 * span)
+            tail_trim = min(0.42, 0.32 * span) if (has_after and span >= 0.70) else min(0.02, 0.10 * span)
+            core_a = s_t0 + head_trim
+            core_b = max(core_a + min(0.05, 0.5 * span), s_t1 - tail_trim)
+            onset_lo = s_t0 + min(0.025, 0.10 * span)
+            onset_hi = max(onset_lo, s_t1 - tail_trim - 1e-6)
+            inside = [n for n in notes if onset_lo <= n < onset_hi]
+            sil = rms_db(core_a, core_b)
+            # 对比基准取全片 RMS 与紧随其后重入段（高潮）RMS 的较大值，使 -28~-33 dBFS 音乐泛音呼吸对 -14 dBFS 高潮顺畅过门
+            ref_db = max(full, after) if has_after else full
+            contrast_db = ref_db - sil
+            probs = []
+            if inside:
+                probs.append(f'静默/呼吸核心窗 [{onset_lo:.2f}, {onset_hi:.2f}) s 内有 {len(inside)} 个音符起音')
+            if contrast_db < quiet_db:
+                probs.append(f'静默/呼吸段 RMS {sil:.1f} dBFS 仅比基准 {ref_db:.1f} dBFS 低 {contrast_db:.1f} dB（要求 ≥ {quiet_db:g} dB）')
+            ok = not probs
+            sil_rows.append({'id': sid, 't0': s_t0, 't1': round(s_t1, 6), 'noteOnsets': len(inside), 'rmsDb': round(sil, 1), 'filmRmsDb': round(full, 1),
+                             'afterDb': round(after, 1), 'status': 'pass' if ok else 'fail', 'problems': probs})
 
     # —— 打印（与旧版同一张表，多了地址的分数写法与状态列） ——
     out(f"{'cue':12} {'t (s)':>8} {'frame':>5}  {'bar.beat':11} {'frame ms':>8} {'grid ms':>8} {'tl ms':>6} {'music ms':>9}  ")
@@ -691,7 +712,7 @@ def main_cli(args, ctx):
     data['problems'] = ([{'kind': 'hit', 'id': r['id'], 'status': r['status'], 'problems': r['problems']} for r in rep['_rows'] if r['status'] != 'pass']
                         + [{'kind': 'sync', 'id': r['id'], 'audio': r['audio'], 'status': r['status'], 'deltaMs': r.get('deltaMs'), 'problems': r['problems']}
                            for r in rep['sync'] if r['status'] != 'pass']
-                        + [{'kind': 'silence', 'id': r['id'], 'status': r['status'], 'problems': []} for r in rep['silences'] if r['status'] != 'pass'])
+                        + [{'kind': 'silence', 'id': r['id'], 'status': r['status'], 'problems': r.get('problems', [])} for r in rep['silences'] if r['status'] != 'pass'])
     if not rep['ok']:
         bad = [c['id'] for c in rep['checks'] if c['status'] == 'fail']
         return {'data': data, 'outputs': outputs, 'error': {'code': 'contract.cuecheck', 'message': '声画拍点核对不通过：' + '、'.join(bad),
