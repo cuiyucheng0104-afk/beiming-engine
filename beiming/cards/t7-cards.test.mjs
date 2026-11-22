@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { eventSample, filmSamples } from '../comp/audio.mjs';
 import { loadContracts } from '../kernel/contracts/validate.mjs';
 import { align, telemetry } from '../observe/index.mjs';
@@ -60,7 +60,7 @@ test('T7-2 目录、类别、落点、形状、考题和任务书的表一致；
     assert.deepEqual([card.kind, card.livesIn, card.impl.length, impl.livesIn, impl.shape, card.exams], [kind, ['comp'], 1, 'comp', 'create', exams], card.id);
     assert.deepEqual([impl.entry, impl.selftest], [`cards/${dir}/comp.mjs`, `cards/${dir}/selftest.test.mjs`], card.id);
     assert.ok(existsSync(join(BEIMING, impl.entry)) && existsSync(join(BEIMING, impl.selftest)), `${card.id} 的入口和自测文件在`);
-    assert.deepEqual(Object.keys(await import(join(BEIMING, impl.entry))), ['create'], `${card.id} 只有一个卡入口`);
+    assert.deepEqual(Object.keys(await import(pathToFileURL(join(BEIMING, impl.entry)).href)), ['create'], `${card.id} 只有一个卡入口`);
     assert.deepEqual(card.status.map((s) => s.level), ['reproduced'], card.id);
     assert.equal(registry.getCard(card.id)?.id, card.id);
     assert.ok(registry.searchCards({ kind: card.kind, livesIn: 'comp', q: card.title }).some((c) => c.id === card.id), `按标题搜不到 ${card.id}`);
