@@ -131,8 +131,8 @@ function auxChannels(rec, names, n) {
 
 /**
  * 一个镜头渲好的帧：颜色转 EXR（场景线性，comp 的输入）和 PNG（过 comp 同一条显示变换，给联系表）。
- * embed 是要一起写进 EXR 的辅助层名（delivery.layers 点名的）：有的话 EXR 由这里直接写（ZIPS，32 位），通道是 R、G、B、A 加 <层>.<分量>；
- * 颜色仍叫 R、G、B、A，comp 和预览照旧只读颜色。
+ * EXR 由 verify/exr 的写入器写（ZIPS，32 位），verify/exr 的读取器读得回来（FFmpeg 的 EXR 编码器不写 pixelAspectRatio，那边读不了）；
+ * 通道是 R、G、B、A，加上 embed（delivery.layers 点名的辅助层）的 <层>.<分量>，comp 和预览只读颜色。
  */
 function convertShot(records, shot, { dir, fps, lutPath, paperLinear, embed = [] }) {
   if (!records.length) return;
@@ -143,17 +143,10 @@ function convertShot(records, shot, { dir, fps, lutPath, paperLinear, embed = []
   mkdirSync(seq, { recursive: true });
   mkdirSync(join(dir, 'exr'), { recursive: true });
   mkdirSync(join(dir, 'png'), { recursive: true });
-  // 按不超过 256 MiB 一批分块喂给 ffmpeg 管道，避开长镜头 1080p/4K 下 libuv spawnSync 管道上限（INT32_MAX ≈ 2 GiB）并压低内存峰值。
-  const chunk = Math.max(1, Math.floor((256 * 1024 * 1024) / (w * h * 16)));
-  for (const [i, r] of (embed.length ? records : []).entries()) {
+  for (const [i, r] of records.entries()) {
     const p = planar(readFileSync(r.color), w, h, paperLinear), n = w * h;
     const [G, B, R, A] = [0, 1, 2, 3].map((at) => new Float32Array(p.buffer, p.byteOffset + at * n * 4, n));
     writeFileSync(join(seq, `${pad(i)}.exr`), writeExr({ width: w, height: h, compression: 2, channels: { R, G, B, A, ...auxChannels(r, embed, n) } }));
-  }
-  for (let offset = 0; !embed.length && offset < records.length; offset += chunk) {
-    const raw = Buffer.concat(records.slice(offset, offset + chunk).map((r) => planar(readFileSync(r.color), w, h, paperLinear)));
-    runTool(ffmpeg, ['-hide_banner', '-nostdin', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'gbrapf32le', '-s', `${w}x${h}`, '-i', '-',
-      '-c:v', 'exr', '-compression', 'zip1', '-start_number', String(offset), join(seq, '%04d.exr')], { input: raw, what: '颜色层转 EXR' });
   }
   const filter = branchFilter({ id: shot.id, colorRef: shot.colorRef, count: records.length, transfer: 'linear' }, { size: [w, h], fps: parseFps(fps), view: { lutPath, shaper: VIEW_SHAPER } });
   runTool(ffmpeg, ['-hide_banner', '-nostdin', '-v', 'error', '-y', '-f', 'image2', '-framerate', fps, '-start_number', '0', '-i', join(seq, '%04d.exr'),
@@ -203,7 +196,7 @@ const deviceOf = (source = {}) => ({ backend: String(source.backend ?? 'none'), 
  *      前面的镜头改长、这个镜头整体后移之后画面可以不一样，所以平移过的镜头重渲；
  *   ② 入口文件和它可能引用的工作区源码（shots/ 下不是别的镜头入口的文件），加上用到的资产在锁里的摘要；cards-data 镜头没有入口；
  *   ③ 镜头的 tracks 声明的摘要，没有写 'none'；④ 镜头的卡、叠加层卡和数据层的卡在锁里的版本与实现哈希；
- *   ⑤ 帧源与宿主、锁里的运行时版本与镜像、浏览器构建、显卡后端、系统与显卡；
+ *   ⑤ 帧源与宿主、锁里的运行时版本与镜像、浏览器构建、显卡后端、系统、锁里声明的出片机器（lock.machine：机器类别、显卡驱动版本）与显卡；
  *   ⑥ 档位、采样数、画幅、快门子帧相位、这一档要帧源交的层（layersOf）。colorRef 在镜头条目里，已经在 ① 里。
  * shortcut: 镜头代码写死名字去读别的镜头里的事件、或者引用别的镜头的入口文件，这里看不出来；出现这种写法时把事件表和 shots/ 全部进键。
  */
@@ -258,7 +251,7 @@ export function buildShotCacheInputs({ film, lock, shot, filmDir, tier, events =
       runtimeVersion: `${locked.version ?? 'none'} ${locked.image ?? 'none'}`,
       browserBuild: shot.source === 'three' ? browserBuild() : 'none',
       gpuBackend: `${shot.source === 'three' ? chromeArgs().join(' ') : 'auto'} ${device?.backend ?? 'unprobed'}`,
-      driver: `${process.platform} ${process.arch} ${release()} ${device?.gpu ?? 'unprobed'}`,
+      driver: `${process.platform} ${process.arch} ${release()} ${canonicalJson(lock.machine ?? null)} ${device?.gpu ?? 'unprobed'}`,
     },
     determinism: caps.determinism,
     tier,
@@ -268,6 +261,11 @@ export function buildShotCacheInputs({ film, lock, shot, filmDir, tier, events =
     layers: layersOf(film, tier),
   };
 }
+
+/** buildShotCacheInputs 的结果加镜头局部帧号 → 这一帧的缓存条目 */
+const entryFrom = ({ determinism, tier, samples, size, subs, layers, ...five }, frame) => computeFrameCacheKey({ ...five, renderSpec: { tier, samples, size, frame, subs, layers } });
+// 页面帧源的场景参考镜头每帧另交的文件（sources/three/source.js：出了颜色就有 frame.exr，要了编号层就有宽高各两倍的 objectId2x）→ 每像素字节数，null 是不定长
+const NATIVE = { 'frame.exr': null, 'objectId2x.u32': 16 };
 
 const ZERO_TIMING = Object.freeze({ stateMs: 0, renderMs: 0, readbackMs: 0 });
 const floatsOf = (buf) => new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length));
@@ -297,6 +295,7 @@ export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool
     const dir = join(outDir, shot.id);
     mkdirSync(dir, { recursive: true });
     const live = new Map(); // 这一轮真渲的帧：全片帧号 → 记录
+    const native = shot.source === 'three' && shot.colorRef === 'scene';
     const seams = new Map(); // 全片帧号 → { runId, colorFloats }，查接缝用
     let mine, session, keyed = null, device = cache ? readDevices(cache)[shot.source] : undefined, seam;
 
@@ -309,10 +308,7 @@ export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool
         keyed = null;
       }
     };
-    const entryOf = (frame) => {
-      const { determinism, tier: t, samples, size, subs, layers, ...five } = keyed;
-      return computeFrameCacheKey({ ...five, renderSpec: { tier: t, samples, size, frame: frame - shot.in, subs, layers } });
-    };
+    const entryOf = (frame) => entryFrom(keyed, frame - shot.in);
     const store = (frame, rec) => {
       const colorBytes = readFileSync(rec.color), colorFloats = seamSignature(floatsOf(colorBytes));
       const layers = Object.fromEntries(Object.entries(rec.files).map(([name, file]) => [name, readFileSync(file)]));
@@ -335,11 +331,12 @@ export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool
       live.set(frame, rec);
       return rec;
     };
-    /** 命中的帧还原成层文件和元数据；要的层缺了一个、层的大小或颜色摘要对不上元数据就当没命中 */
+    /** 命中的帧还原成层文件和元数据；要的层缺了一个、层的大小或颜色摘要对不上元数据、页面帧源场景参考镜头少了原生文件（NATIVE）就当没命中 */
     const restore = (frame, hit) => {
       const m = hit.meta, [w, h] = Array.isArray(m.size) ? m.size : [];
       if (hit.colorBytes.length !== w * h * 16 || m.hash?.color !== `sha256:${hit.colorSha256}`) return null;
       if (aux.some((name) => !AUX[name] || hit.layers?.[auxFile(name)]?.length !== w * h * 4 * AUX[name][1].length)) return null;
+      if (native && Object.entries(NATIVE).some(([name, perPixel]) => !hit.layers?.[name]?.length || (perPixel && hit.layers[name].length !== w * h * perPixel))) return null;
       const sub = join(dir, 'layers', `cache-f${pad(frame - shot.in)}`);
       mkdirSync(sub, { recursive: true });
       writeFileSync(join(sub, 'color.f32'), hit.colorBytes);
@@ -459,21 +456,30 @@ export function layerL1(film, filmDir, rev, question) {
 
 /**
  * L2：每个镜头跑纯函数门（两帧，三种出帧次序）；全部记录跑编号层包围盒核对（IoU ≥ 0.95）。
- * cache 和 versions（renderPlan 交回的）只在交付时给：这一轮全部命中、缓存里又有这一版镜头过了门的记录的镜头，照记录用（门的结论带 cached: true），
- * 不起帧源；真跑过了的门把结论记进缓存。不给就每个镜头都真跑（单独的核验作业）。
+ * cache 和 versions（renderPlan 交回的）在交付时给：这一轮全部命中、缓存里又有这一版镜头过了门的记录、记录认的帧（framesColorDigest：
+ * 这个镜头全部帧的颜色摘要按帧序连起来的摘要）就是这一轮交出的帧，照记录用（门的结论带 cached: true），不起帧源。
+ * 要真跑的镜头开跑前先把旧记录盖成未过（门跑到一半断了也不留能复用的旧记录），过了门再记下结论和帧的摘要。
+ * 门没过：这一版镜头的帧和记录当场一起作废（cache.invalidateShot），下一次交付整镜重渲、重新过门。
+ * 单独的核验作业只给 cache、不给 versions：每个镜头都真跑，不读记录、过了也不记；没过同样把终渲档这一版作废。两个都不给就只跑门。
  */
-export async function layerL2({ film, lock, filmDir, shots, records, pool, scratch, signal, onGpu, cache, versions = {} }) {
+export async function layerL2({ film, lock, filmDir, shots, records, pool, scratch, signal, onGpu, cache, versions }) {
   const diagnostics = [];
   const gates = [];
   const events = eventsTable(film);
+  // 单独核验时这一版镜头在终渲档的条目（交付只用终渲档，记录和要作废的帧都在那里）；键算不出来就没有缓存可作废
+  const finalEntry = (shot) => {
+    try { return entryFrom(buildShotCacheInputs({ film, lock, shot, filmDir, tier: 'final', events, device: readDevices(cache)[shot.source] }), 0); } catch { return undefined; }
+  };
   let gpuMs = 0;
   for (const shot of shots) {
     signal?.throwIfAborted();
     const frames = [shot.in, shot.out - 1];
     if (frames[0] === frames[1]) { gates.push({ shot: shot.id, status: 'skipped', reason: '纯函数门至少需要两帧' }); continue; }
-    const version = cache ? versions[shot.id] : undefined;
-    const known = version?.hit ? cache.getShotVerification(version.entry)?.l2 : undefined;
-    if (known?.ok === true && known.shot === shot.id) { gates.push({ ...known, cached: true }); continue; }
+    const version = cache ? versions?.[shot.id] : undefined;
+    const framesColorDigest = version && sha256(records.filter((r) => r.shot === shot.id).map((r) => r.meta.hash?.color).join());
+    const known = version?.hit ? cache.getShotVerification(version.entry) : undefined;
+    if (known?.l2?.ok === true && known.l2.shot === shot.id && known.framesColorDigest === framesColorDigest) { gates.push({ ...known.l2, cached: true }); continue; }
+    if (version) cache.putShotVerification(version.entry, { l2: { shot: shot.id, ok: false, status: 'running' } });
     const src = await pool.get(shot.source, 'cpu');
     let n = 0;
     const adapter = {
@@ -496,9 +502,12 @@ export async function layerL2({ film, lock, filmDir, shots, records, pool, scrat
       },
     };
     const g = await runPureFunctionGate(adapter, frames, { compare: 'hash', seed: 1 });
+    signal?.throwIfAborted(); // 门把出帧时的错都收成「没过」：作业被取消不是门的结论，不记、也不作废帧
     gates.push({ shot: shot.id, status: g.ok ? 'pass' : 'fail', ok: g.ok, bitExact: g.bitExact, frames: g.frames, mismatches: g.mismatches.length });
-    if (g.ok && version) cache.putShotVerification(version.entry, { l2: gates.at(-1) });
+    if (g.ok && version) cache.putShotVerification(version.entry, { l2: gates.at(-1), framesColorDigest });
     if (!g.ok) {
+      const stale = cache && (version?.entry ?? finalEntry(shot));
+      if (stale) cache.invalidateShot(stale);
       diagnostics.push(diagnostic({ code: 'contract.bad-value', layer: 'L2', at: `shots/${shot.id}`, message: `纯函数门没过：同一帧顺序渲、乱序渲、单独渲的颜色层不逐位相同（${g.mismatches.length} 处）`,
         atFrames: g.mismatches.map((m) => m.frame).filter(Number.isInteger), evidence: JSON.stringify(g.mismatches[0]).slice(0, 200), hint: '镜头里有跨帧状态或没带种子的随机：每帧只由时刻决定' }, { layer: 'L2' }));
     }

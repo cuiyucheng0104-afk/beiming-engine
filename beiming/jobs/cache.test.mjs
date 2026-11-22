@@ -2432,6 +2432,12 @@ test('A16-42 镜头这一版的核验记录：同版任一帧条目取得到，�
     assert.deepEqual(Buffer.from(cache.get(frame(0)).colorBytes), colorBytes, '记录和帧各存各的');
     assert.deepEqual(cache.getShotVerification(frame(0)), record);
 
+    // 同一版再写是原子替换：出片链路真跑 L2 之前靠它把旧的过门记录盖成未过
+    const running = { l2: { shot: 's01', ok: false, status: 'running' } };
+    cache.putShotVerification(frame(1), running);
+    assert.deepEqual(cache.getShotVerification(frame(0)), running, '后写的盖掉先写的，取不回旧的过门记录');
+    cache.putShotVerification(frame(0), record);
+
     const version = path.join(cache.root, 'final', 'shot-s01', frame(0).shotKey.slice(7));
     const file = fs.readdirSync(version).map((name) => path.join(version, name)).find((p) => !p.endsWith(`${frame(0).key.slice(7)}.frame`));
     const raw = fs.readFileSync(file);

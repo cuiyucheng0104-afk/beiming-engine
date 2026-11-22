@@ -277,7 +277,8 @@ export function createWork({ store, library, reviewer, scheduler }) {
       const records = framesOf(id, tier).records;
       const gateShots = film.shots.filter((s) => !shots?.length || shots.includes(s.id));
       const l2 = await step('l2', async () => {
-        const res = await layerL2({ film, lock, filmDir: snapshot.dir, shots: gateShots, records, pool, scratch: join(intermediateDir, 'l2'), signal, onGpu(seconds) { acc.gpuSeconds += seconds; } });
+        // 只给 cache：每个镜头都真跑、不读也不记过门记录；没过的镜头把缓存里终渲档这一版的帧和记录作废
+        const res = await layerL2({ film, lock, filmDir: snapshot.dir, shots: gateShots, records, pool, scratch: join(intermediateDir, 'l2'), signal, onGpu(seconds) { acc.gpuSeconds += seconds; }, cache: shotCache(id) });
         return res;
       });
       const done = delivered(id);
