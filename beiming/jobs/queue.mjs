@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { atomicWrite, checkJobId, checkKeep, openWorkspace, readText, safePath } from './workspace.mjs';
+import { atomicWrite, checkJobId, checkKeep, openWorkspace, processIsAlive, readText, safePath } from './workspace.mjs';
+import { appendSettlement, isPlainObject, prepareSettlement, quoteFromDraft, readJobLedger, summarizeJobLedger, withFileLock } from './ledger.mjs';
 import { defaultScheduler } from './scheduler.mjs';
 
 const terminal = new Set(['succeeded', 'failed', 'canceled', 'stopped']);
@@ -14,9 +15,8 @@ const active = new Map();
 function jsonValue(value, ancestors = new Set()) {
   if (value === null || typeof value === 'string' || typeof value === 'boolean' || Number.isFinite(value)) return value;
   if (typeof value !== 'object' || ancestors.has(value)) throw new TypeError('作业数据必须是纯 JSON 值。');
-  const prototype = Object.getPrototypeOf(value);
   const array = Array.isArray(value);
-  if (!array && prototype !== Object.prototype && prototype !== null) throw new TypeError('作业数据必须是纯 JSON 值。');
+  if (!array && !isPlainObject(value)) throw new TypeError('作业数据必须是纯 JSON 值。');
   ancestors.add(value);
   const copy = array ? Array.from(value, item => jsonValue(item, ancestors)) :
     Object.fromEntries(Object.entries(value).map(([key, item]) => [key, jsonValue(item, ancestors)]));
@@ -49,23 +49,12 @@ function message(error) {
   return error instanceof Error ? error.message || error.name : String(error);
 }
 
-function processIsAlive(pid) {
-  if (!Number.isSafeInteger(pid) || pid < 1) throw new Error('作业执行进程记录损坏。');
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    if (error.code === 'ESRCH') return false;
-    if (error.code === 'EPERM') return true;
-    throw error;
-  }
-}
-
 // dir 是工作区根目录，队列描述存放在 jobs/<id>/job.json。
 // 一个执行进程管理设备租约，交接时由新进程读盘或显式重放。
 export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, clock = () => performance.now() } = {}) {
   const workspace = openWorkspace(dir);
   const jobFile = id => workspace.resolve(`jobs/${checkJobId(id)}/job.json`);
+  const ledgerFile = () => workspace.resolve('jobs/ledger.jsonl');
   const ownerFile = (id, attempt, generation) => workspace.resolve(`jobs/${checkJobId(id)}/attempt-${attempt}.owner-${generation}`);
 
   function readJob(id) {
@@ -154,10 +143,41 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     return ids.map(readJob);
   }
 
-  function finish(job, status, details) {
+  function settlementDetails(job, status, { cost = {}, startedAt, ledgerError } = {}) {
+    if (ledgerError !== undefined) return { ledgerError };
+    try {
+      if (!isPlainObject(cost)) throw new TypeError('执行器回报的 cost 必须是普通对象。');
+      const steps = job.steps.filter(step => step.attempt === job.attempt);
+      const settlement = prepareSettlement({
+        // 中断恢复时只有已落盘的步骤耗时可用。
+        wallMs: startedAt === undefined ? steps.reduce((ms, step) => ms + (step.durationMs ?? 0), 0) : performance.now() - startedAt,
+        renderedFrames: 0,
+        deliveredFrames: 0,
+        workspaceDir: workspace.root,
+        ...cost,
+        jobId: job.id, attempt: job.attempt, kind: job.request.kind, handler: job.handler, rev: job.snapshot.rev, status,
+      });
+      return { settlement };
+    } catch (error) {
+      return { ledgerError: message(error) };
+    }
+  }
+
+  function finish(job, status, details, usage) {
+    const ledger = settlementDetails(job, status, usage);
     workspace.cleanupIntermediate(job.id, { keep: job.keep, status, attempt: job.attempt });
-    transition(job, status, details);
-    save(job);
+    transition(job, status, { ...details, ...ledger });
+    // 终态首次可见后仍可能回写追加失败的诊断。重放领取前须等这一轮写完。
+    withFileLock(jobFile(job.id), () => {
+      save(job);
+      if (!ledger.settlement) return;
+      try {
+        appendSettlement(ledgerFile(), ledger.settlement);
+      } catch (error) {
+        job.events.at(-1).ledgerError = message(error);
+        save(job);
+      }
+    });
   }
 
   async function execute(job, handler, signal) {
@@ -175,18 +195,20 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
         }
         transition(job, 'running');
         save(job);
+        const startedAt = performance.now();
         const outcome = await executeAttempt(job, handler, lease.signal);
+        const usage = { cost: outcome.cost, ledgerError: outcome.ledgerError, startedAt };
         if (signal.aborted) {
-          finish(job, 'canceled', { reason: 'canceled' });
+          finish(job, 'canceled', { reason: 'canceled' }, usage);
           return job;
         }
         if (lease.signal.reason !== 'preempted') {
           if (outcome.error !== undefined) job.error = outcome.error;
           if (outcome.result !== undefined) job.result = outcome.result;
-          finish(job, outcome.status);
+          finish(job, outcome.status, undefined, usage);
           return job;
         }
-        finish(job, 'stopped', { reason: 'preempted' });
+        finish(job, 'stopped', { reason: 'preempted' }, usage);
         claim(job, job.attempt + 1);
         nextAttempt(job);
         save(job);
@@ -256,9 +278,19 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
           return workspace.resolve(`${path.relative(workspace.root, snapshot.dir).split(path.sep).join('/')}/${relative}`);
         },
         intermediateDir });
+      if (isPlainObject(result) && Object.hasOwn(result, 'cost')) {
+        const { cost, ...rest } = result;
+        const saved = jsonValue(rest);
+        try {
+          if (cost !== undefined) saved.cost = jsonValue(cost);
+        } catch (error) {
+          return { status: 'succeeded', result: saved, ledgerError: `执行器回报的 cost 无效：${message(error)}` };
+        }
+        return { status: 'succeeded', result: saved, cost: saved.cost };
+      }
       return { status: 'succeeded', ...(result !== undefined && { result: jsonValue(result) }) };
     } catch (error) {
-      return { status: 'failed', error: message(error) };
+      return { status: 'failed', error: message(error), cost: error?.cost };
     } finally {
       acceptingSteps = false;
       await Promise.allSettled(pending);
@@ -289,7 +321,12 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
   }
 
   function replay(id) {
-    const job = readJob(id);
+    try {
+      reconcileLedger();
+    } catch {
+      // 补旧账失败不挡执行；读账仍严格报错，新轮追加失败也会在终态记录原因。
+    }
+    const job = withFileLock(jobFile(id), () => readJob(id));
     if (active.has(jobFile(id))) throw new Error('作业仍由本进程执行。');
     const handler = getHandler(job);
     scheduler.request(job.request);
@@ -352,7 +389,42 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     });
   }
 
-  return Object.freeze({ enqueue, runJob, getJob: readJob, listJobs, jobFile, waitForJob, cancelJob, replay });
+  function reconcileLedger(options) {
+    const file = ledgerFile();
+    const jobs = listJobs();
+    const rows = readJobLedger(file, options);
+    const keys = new Set(rows.filter(row => !row.legacyApiRow).map(row => `${row.jobId}/${row.attempt}`));
+    let repaired = false;
+    for (const job of jobs) {
+      for (const event of job.events) {
+        if (!terminal.has(event.type) || !event.settlement) continue;
+        const key = `${job.id}/${event.attempt}`;
+        if (keys.has(key)) continue;
+        const { settlement } = event;
+        if (settlement.jobId !== job.id || settlement.attempt !== event.attempt || settlement.status !== event.type) {
+          throw new Error(`作业 ${key} 的结算载荷与终态事件不一致。`);
+        }
+        appendSettlement(file, settlement);
+        keys.add(key);
+        repaired = true;
+      }
+    }
+    return repaired ? readJobLedger(file, options) : rows;
+  }
+
+  // 终渲前报价：给 draftJobId 就从账本取那个草稿作业最近一次成功轮次的实测（渲帧数、显卡秒、墙钟），其余参数同 quoteFromDraft。
+  function quoteJobFromDraft({ draftJobId, ...draft } = {}) {
+    if (draftJobId === undefined) return quoteFromDraft(draft);
+    let row;
+    for (const candidate of reconcileLedger()) {
+      if (candidate.jobId === draftJobId && candidate.status === 'succeeded' && candidate.gpuKnown && candidate.attempt > (row?.attempt ?? 0)) row = candidate;
+    }
+    if (!row) throw new Error(`账本里没有草稿作业 ${draftJobId} 的实测成本：它要成功跑完并回报显卡秒。`);
+    return quoteFromDraft({ ...draft, draftFrames: row.renderedFrames, draftGpuSeconds: row.gpuSeconds, draftWallMs: row.wallMs });
+  }
+
+  return Object.freeze({ enqueue, runJob, getJob: readJob, listJobs, jobFile, waitForJob, cancelJob, replay,
+    ledgerFile, reconcileLedger, readLedger: reconcileLedger, summarizeLedger: options => summarizeJobLedger(reconcileLedger(options)), quoteJobFromDraft });
 }
 
 export function replayJob(jobFile, handlers, options) {
