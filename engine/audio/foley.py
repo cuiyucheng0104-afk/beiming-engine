@@ -142,9 +142,10 @@ class ActionVariationDeck:
             self.accent_takes = [np.asarray(accent_takes, dtype=float)]
         else:
             self.accent_takes = [np.asarray(c, dtype=float) for c in accent_takes if len(c) > 0]
-        if policy not in ('uniform', 'anti_fatigue'):
-            raise ValueError(f"ActionVariationDeck：未知 policy={policy!r}（应为 'uniform' 或 'anti_fatigue'）")
+        if policy not in ('uniform', 'anti_fatigue', 'erb'):
+            raise ValueError(f"ActionVariationDeck：未知 policy={policy!r}（应为 'uniform'、'anti_fatigue' 或 'erb'）")
         self.policy = policy
+        self._erb_i = 0
         self.r = rng(seed)
         self.pitch_st = float(pitch_st)
         self.eq_db = float(eq_db)
@@ -176,6 +177,14 @@ class ActionVariationDeck:
             base = self.takes[0].copy()
             anc = sync_anchor(base, SR)
             return base, anc, {'takeIndex': 0, 'semitones': 0.0, 'accentAdded': False, 'policy': 'uniform'}
+
+        if self.policy == 'erb':
+            # takes 是 erb_foley.ErbTakes 为每个事件各渲好的一条新 take：按事件顺序取，不变调、不均衡、不叠副层，只按力度定增益
+            idx = self._erb_i % len(self.takes)
+            self._erb_i += 1
+            base = self.takes[idx].copy()
+            return base * (0.45 + 0.65 * (f_val ** 0.90)), sync_anchor(base, SR), {
+                'takeIndex': idx, 'semitones': 0.0, 'accentAdded': False, 'force': round(f_val, 3), 'policy': 'erb'}
 
         idx = self._next_take()
         x = self.takes[idx]

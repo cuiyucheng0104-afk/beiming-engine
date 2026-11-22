@@ -25,6 +25,7 @@ test('顶层与各段的字段集合和校验器的白名单相同', () => {
   assert.deepEqual(keys(P.timeline.properties), [...FILM_FIELDS.timeline].sort());
   assert.deepEqual(keys(P.tempo.items.properties), [...FILM_FIELDS.tempo].sort());
   assert.deepEqual(keys(P.audio.properties), [...FILM_FIELDS.audio].sort());
+  assert.deepEqual(keys(P.audio.properties.erb.properties), [...FILM_FIELDS.audioErb].sort());
   assert.deepEqual(keys(P.style.properties), [...FILM_FIELDS.style].sort());
   assert.deepEqual(keys(P.credits.items.properties), [...FILM_FIELDS.credit].sort());
   assert.deepEqual(keys(P.aigc.properties), [...FILM_FIELDS.aigc].sort());
@@ -71,5 +72,16 @@ test('取值表相同：路线、后端、评估方式、转场、事件域、�
   for (const k of schema.required.filter(k => !['schemaVersion'].includes(k))) {
     const f = minimalFilm(); delete f[k];
     assert.ok(validateFilm(f, { checkFiles: false }).diagnostics.some(d => d.level === 'error'), `删掉 ${k} 应当报错`);
+  }
+});
+
+test('audio.erb：enabled 登记在契约里（打开 ERB 拟音过严格校验），写错类型判错', () => {
+  const ok = minimalFilm(); ok.audio = { ...(ok.audio || { mode: 'none' }), erb: { enabled: true } };
+  assert.ok(!validateFilm(ok, { checkFiles: false }).diagnostics.some(d => d.path?.startsWith('audio.erb')));
+  const typo = minimalFilm(); typo.audio = { ...(typo.audio || { mode: 'none' }), erb: { enable: true } };
+  assert.ok(validateFilm(typo, { checkFiles: false }).diagnostics.some(d => d.code === 'unknown-field' && d.path === 'audio.erb.enable'));
+  for (const bad of [true, { enabled: 'yes' }]) {
+    const f = minimalFilm(); f.audio = { ...(f.audio || { mode: 'none' }), erb: bad };
+    assert.ok(validateFilm(f, { checkFiles: false }).diagnostics.some(d => d.code === 'audio-erb-invalid'), JSON.stringify(bad));
   }
 });
