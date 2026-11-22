@@ -16,6 +16,21 @@ const posix = process.platform !== 'win32';
 const tmp = () => mkdtempSync(join(tmpdir(), 'beiming-offscreen-'));
 const solid = (w, h, [r, g, b]) => { const buf = Buffer.alloc(w * h * 4); for (let i = 0; i < w * h; i++) buf.set([r, g, b, 255], i * 4); return buf; };
 
+test('encoderArgs：gop/timescale 缺省不加任何参数（与合入前逐字节同）；显式给才加 -g 与 -video_track_timescale，非法值拒绝', () => {
+  const plain = encoderArgs({ width: 64, height: 32, fps: 24, out: '/x/o.mp4' });
+  assert.ok(!plain.includes('-g'), '缺省不应有 -g');
+  assert.ok(!plain.includes('-video_track_timescale'), '缺省不应有 -video_track_timescale');
+  for (const encoder of ['x264', 'nvenc']) {
+    const a = encoderArgs({ width: 64, height: 32, fps: 24, out: '/x/o.mp4', encoder, gop: 240, timescale: 12288 });
+    assert.equal(a[a.indexOf('-g') + 1], '240', encoder);
+    assert.equal(a[a.indexOf('-video_track_timescale') + 1], '12288', encoder);
+    assert.equal(a.at(-1), '/x/o.mp4', 'timescale 是混流参数，必须在输出文件之前');
+    assert.ok(a.indexOf('-video_track_timescale') < a.length - 1);
+  }
+  assert.throws(() => encoderArgs({ width: 64, height: 32, fps: 24, out: '/x/o.mp4', gop: 0 }), e => e?.code === 'usage.bad-value');
+  assert.throws(() => encoderArgs({ width: 64, height: 32, fps: 24, out: '/x/o.mp4', timescale: 1.5 }), e => e?.code === 'usage.bad-value');
+});
+
 test('encoderArgs：RGBA 裸帧输入、页面渲染器同款色彩换算、四项色彩标记、High profile、输出在最后', () => {
   const a = encoderArgs({ width: 64, height: 32, fps: 24, out: '/x/o.mp4' });
   const s = a.join(' ');

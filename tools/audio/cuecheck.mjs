@@ -26,6 +26,7 @@ export const command = pythonCommand({
     keys: { type: 'string', arg: '<a,b>', describe: '关键事件集合：事件类型或 cue / id，逗号分隔（也可写在 film.json cuecheck.keys 或 timeline.json keys）' },
     silence: { type: 'string', arg: '<段,段>', describe: '要求安静的段落 id（timeline.json 的 secs），逗号分隔' },
     'quiet-db': num('<dB>', '静默段至少比全片 RMS 低多少 dB（默认 15）'),
+    breath: { type: 'boolean', describe: '静默段按作曲悬停呼吸段口径判（排除弱起引子窗，对比基准取全片与后一段的较大值；默认关）' },
     'film-json': file('film.json（默认 <作品>/film.json）'),
     events: file('events.json（默认 <作品>/events.json）'),
     timeline: file('timeline.json（默认 <作品>/timeline.json）'),
