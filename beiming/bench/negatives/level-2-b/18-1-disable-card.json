@@ -1,0 +1,40 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "18-1-disable-card",
+  "questionId": "18-1",
+  "kind": "disable-card",
+  "disabledCards": [
+    "time.narration",
+    "overlay.subs",
+    "page.det2d"
+  ],
+  "seed": null,
+  "description": "关掉旁白触发点和字幕两张卡：字幕不跟旁白起声，十块字幕每 3 秒等间隔切一块。关掉页面那张卡：场景之间硬切不淡出，画面不铺底色，只剩字幕条是底色。三处改动各打穿一条线，互不遮掩。旁白本身没动，场景首尾的留白照旧够，那一条照过。",
+  "perturbation": {
+    "subtitleTrigger": "fixed-interval",
+    "sceneFadeFrames": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "pageCanvas": false
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "narration.timing",
+      "why": "字幕离最近起声的中位数超过 1 秒，线是 0.063 秒"
+    },
+    {
+      "scoring": 1,
+      "metric": "narration.timing",
+      "why": "四处场景边界的淡出都是 0 帧，线是 3 到 4 帧"
+    },
+    {
+      "scoring": 3,
+      "metric": "color.palette",
+      "why": "五个场景的底色占比都在 17% 到 19% 之间，线是 75% 到 85%"
+    }
+  ]
+}

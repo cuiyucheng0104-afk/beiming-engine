@@ -39,6 +39,16 @@
 
 `projectPublicQuestion(question)` 回给做题方的副本，没过校验就抛错。隐藏题只留 `id`、`level`、`title`、`brief`、`deliverable`、`assets`（契约 5.5）；公开题只去掉私有的 `ext`。
 
+## 跑题器
+
+`node beiming/bench/runner.mjs run --question <题目> --root <仓库外目录> (--solver-cmd <命令> | --model <模型>)`，代码里用 `runExamQuestion()`。隔离和观测复用 `tools/eval/lib`。
+
+题目先过校验（不过 exit 4），在 `<root>/<题号>/<runId>/` 下建 `worktree/`（只放公开投影 `question.json`），判完分写 `result.json`、`meta.json`、`observation.json`。exit 0 只表示跑完落盘，及格看 `pass`（布尔）与 `status`。隐藏题只落总分；`expectedFail` 题加 `--force-expected-fail` 才跑。
+
+宿主判分（`defaultJudge`，缺 `ffprobe` exit 3）：实测做题目录的 `deliverable.mp4`，自报不算；没接量测器的项一律不过，条数记 `unmeasured`。
+
+做题进程和宿主同用户：macOS 用 `sandbox-exec` 挡原题和别的运行，别的平台没有边界（看 `observation.json` 的 `isolation`）。细则见 [DETAILS.md](DETAILS.md)。
+
 ## 已知限制
 
 - 没有指标登记表，指标名只认这道题 `scoring` 里的；卡和指标同名会被 `B1_METRIC_NAMESPACE` 拦。

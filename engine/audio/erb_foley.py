@@ -85,6 +85,17 @@ def _worst(fid):
     return max(abs(v) for v in fid.values())
 
 
+def _atomic_replace(src, dst, tries=25):
+    # Windows NTFS：别的线程正替换或打开同一目标的瞬间，os.replace 抛瞬态 PermissionError（WinError 5 / 32）
+    for attempt in range(tries):
+        try:
+            return os.replace(src, dst)
+        except PermissionError:
+            if attempt == tries - 1:
+                raise                                # 退避约 0.6 秒仍不行就是真的没权限，原样抛出
+            time.sleep(0.002 * (attempt + 1))
+
+
 class ErbTakes:
     def __init__(self, device='auto', exact=8, vary=1.0, candidates=4, tol_db=1.5, judge='foley_snap', cache_dir=None):
         if device not in ('auto', 'gpu', 'cpu'):
@@ -144,12 +155,19 @@ class ErbTakes:
         base = os.path.join(self.cache_dir, key)
         w32 = np.ascontiguousarray(wave, dtype=np.float32)
         tmp = f'{base}.{uuid.uuid4().hex}.tmp'       # 每个写入者自己的临时名：同一个键并发写也不互相踩
-        np.savez(tmp + '.npz', wave=w32, sha256=_wave_sha(w32), meta=json.dumps(meta, sort_keys=True))
-        os.replace(tmp + '.npz', base + '.npz')
-        with open(tmp + '.json', 'w', encoding='utf-8', newline='\n') as f:
-            json.dump(inputs, f, ensure_ascii=False, indent=1, sort_keys=True)
-            f.write('\n')
-        os.replace(tmp + '.json', base + '.json')
+        try:
+            np.savez(tmp + '.npz', wave=w32, sha256=_wave_sha(w32), meta=json.dumps(meta, sort_keys=True))
+            _atomic_replace(tmp + '.npz', base + '.npz')
+            with open(tmp + '.json', 'w', encoding='utf-8', newline='\n') as f:
+                json.dump(inputs, f, ensure_ascii=False, indent=1, sort_keys=True)
+                f.write('\n')
+            _atomic_replace(tmp + '.json', base + '.json')
+        finally:                                     # 半路抛错也不留本轮的临时文件；替换成功后它们已不存在
+            for ext in ('.npz', '.json'):
+                try:
+                    os.remove(tmp + ext)
+                except OSError:
+                    pass
 
     def _gate(self, wave, source):
         fid = fidelity(wave, source)

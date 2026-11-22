@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "5-1-shift-2f",
+  "questionId": "5-1",
+  "kind": "shift-2f",
+  "disabledCards": [],
+  "seed": null,
+  "description": "配乐照正对照对好之后，整条音轨相对画面晚 2 帧（1/12 秒）；画面不动，硬切还在第 624 帧。正对照离硬切最近的重击峰在第 625 帧（差 1 帧，容差内），晚 2 帧到第 627 帧。贴线说明：这道题的容差就是 2 帧，同一条音轨早 2 帧时峰在第 623 帧、差 1 帧，判得过；这份负对照拦得住，靠的是正对照本来就偏晚 1 帧。",
+  "perturbation": {
+    "audioShiftFrames": 2
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 1,
+      "metric": "beat.onset-hit",
+      "why": "离硬切最近的重击峰差 3 帧，超过 2 帧的容差"
+    }
+  ]
+}

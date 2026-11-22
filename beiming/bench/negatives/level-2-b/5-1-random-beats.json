@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "5-1-random-beats",
+  "questionId": "5-1",
+  "kind": "random-beats",
+  "disabledCards": [],
+  "seed": 20261123,
+  "description": "成片里的低频重击不跟对位后的配乐走，换成固定种子在 720 帧里取的十个随机拍点（两两至少隔 6 帧）；配乐其余的起伏照旧对着，相关和拉伸比照过。这个种子下离硬切最近的拍点在第 607 帧。",
+  "perturbation": {
+    "hitTrigger": "random-beats"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 1,
+      "metric": "beat.onset-hit",
+      "why": "离硬切最近的重击峰差 17 帧，超过 2 帧的容差"
+    }
+  ]
+}
