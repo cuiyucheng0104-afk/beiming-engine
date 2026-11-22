@@ -411,19 +411,24 @@ function de00([L1, a1, b1], [L2, a2, b2]) {
 // 每个颜色到对面色板最近色的 CIEDE2000 色差，按 share 归一加权。
 function nearest(from, to) {
   const weightSum = from.reduce((sum, c) => sum + c.share, 0);
-  let max = 0;
+  // lit 是有权重的色里最大的色差：share 为 0 的色不参与加权，它的色差再大也不进加权的算式。
+  let max = 0, lit = 0;
   const pairs = from.map(({ color, share, lab }) => {
     let best = Infinity, index = 0;
     to.forEach((other, j) => { const e = de00(lab, other.lab); if (e < best) { best = e; index = j; } });
     max = Math.max(max, best);
+    if (share > 0) lit = Math.max(lit, best);
     return { color, share: share / weightSum, nearest: to[index].color, index, de00: best };
   });
-  // 各色差先除以最大的那个再平均，最后乘回去：几个封顶的大数相加不溢出，贴着最小正数的也不会各自先除成 0。
-  let plain = 0, weighted = 0, lit = false;
-  for (const { de00: e, share } of pairs) { plain += e / max; weighted += e / max * share; lit ||= e > 0 && share > 0; }
+  // 不加权的平均：各色差先除以最大的那个再平均，最后乘回去，几个封顶的大数相加不溢出，贴着最小正数的也不会各自先除成 0。
+  // 加权的：权重不超过 1，色差乘权重直接相加（除以最大色差会把小色差除成 0，哪怕它的权重大得多）；
+  // 色差都很小时先一起乘 2 的幂 up（最大的挪到 2^-100 附近）再乘权重，亚正规数不丢位。零权重的色必须跳过：它的色差乘 up 会溢出。
+  const up = lit > 0 ? 2 ** Math.max(0, lift(lit, -100)) : 1;
+  let plain = 0, weighted = 0;
+  for (const { de00: e, share } of pairs) { plain += e / max; if (share > 0) weighted += e * up * share; }
   // 有不为 0 的色差（加权的还要那个色的 share 不为 0），平均数至少是最小正数：不同的色板不读成 0。
-  const back = (sum, any) => any ? Math.max(Number.MIN_VALUE, top(max * sum)) : 0;
-  return { meanDe00: back(plain / pairs.length, max > 0), maxDe00: max, weightedDe00: back(weighted, lit), pairs };
+  const floor = (v, any) => any ? Math.max(Number.MIN_VALUE, top(v)) : 0;
+  return { meanDe00: floor(max * (plain / pairs.length), max > 0), maxDe00: max, weightedDe00: floor(weighted / up, lit > 0), pairs };
 }
 
 // 顶层的 meanDe00、maxDe00、weightedDe00、pairs 是候选的每个主色到参考色板最近色；reverse 是参考的每个色到候选。

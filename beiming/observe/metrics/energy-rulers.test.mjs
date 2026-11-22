@@ -565,3 +565,29 @@ test('color.palette-de00：只差一个浮点步长的色照样分得开，平�
   const same = colorPaletteDe00([{ lab: [50, 0, 0] }, { lab: [60, 0, 0] }, { lab: [70, 0, 0] }], [{ lab: [50, 0, 1.5e-322] }, { lab: [60, 0, 1.5e-322] }, { lab: [70, 0, 1.5e-322] }]);
   assert.deepEqual([same.meanDe00, same.weightedDe00], [same.pairs[0].de00, same.pairs[0].de00]);
 });
+
+test('color.palette-de00：share 为 0 的色不参与加权，添上它 weightedDe00 逐位不变', () => {
+  const near = (got, want, label) => assert.ok(Math.abs(got / want - 1) < 1e-12, `${label} 读出 ${got}，应为 ${want}`);
+  // 五审反例：零权重色离参考极远（色差贴着双精度上限），唯一有权重的色只差 1.5e-16，加权读数只该是后者。
+  const ref = [{ lab: [1e308, 0, 0] }], keep = { lab: [1e308, 1e-16, 0], share: 1 }, unused = { lab: [-1e308, 0, 0], share: 0 };
+  const alone = colorPaletteDe00([keep], ref);
+  near(alone.weightedDe00, 1.5e-16, '单色加权');
+  for (const padded of [[keep, unused], [unused, keep], [unused, keep, unused, unused]]) {
+    const r = repeat5(() => colorPaletteDe00(padded, ref));
+    assert.ok(r.maxDe00 > 1e308 && r.meanDe00 > 1e307, '不加权的读数照旧把零权重色算进去');
+    assert.equal(r.weightedDe00, alone.weightedDe00);
+    assert.equal(r.reverse.weightedDe00, alone.reverse.weightedDe00);
+    // 色板放在参考一侧，反向的加权读数同样不变。
+    assert.equal(colorPaletteDe00(ref, padded).reverse.weightedDe00, alone.weightedDe00);
+  }
+  // 常规色板同理，零权重色放在哪都不改加权读数。
+  const base = [{ rgb: [200, 40, 40], share: 0.5 }, { rgb: [40, 90, 200], share: 0.3 }, { rgb: [240, 240, 235], share: 0.2 }];
+  const goal = [[190, 60, 50], [50, 80, 190], [230, 235, 240]], extra = { rgb: [20, 200, 60], share: 0 };
+  const plain = colorPaletteDe00(base, goal).weightedDe00;
+  assert.ok(plain > 1);
+  for (const padded of [[extra, ...base], [...base, extra], [base[0], extra, base[1], extra, base[2]]]) assert.equal(colorPaletteDe00(padded, goal).weightedDe00, plain);
+
+  // 权重从 0 挪到最小正数，读数只多出「权重 × 它的色差」，不跳变：极小权重乘极大色差与另一个色的小色差同量级，两项都要留住。
+  const far = colorPaletteDe00([{ ...unused, share: 1 }], ref).maxDe00;
+  near(colorPaletteDe00([keep, { ...unused, share: 5e-324 }], ref).weightedDe00, alone.weightedDe00 + far * 5e-324, '最小正数权重');
+});
