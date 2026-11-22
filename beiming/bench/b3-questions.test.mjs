@@ -565,6 +565,10 @@ test('B3-12 30-1 从工程读数：read30_1 静态扫工程目录，一张 80 BP
     const lifecycle = (hooks, top = '') => `${top}export const build = () => ({ ${hooks}, meta() { return {}; } });\n`;
     const HARD = [1, 0.6, false], SOFT = [0, 1, true];
     const GE = 'const ge = (x, min) => x >= min;\n', PAIR = 'ge(frame, view.events.m01) && ge(view.size[0], 640)', PAIR_HARD = 'ge(frame, 432) && ge(view.size[0], 640)';
+    const GE_WIDE = 'const ge = (x, min = 640) => x >= min;\n', GE_LATE = 'const ge = (x, min = 432) => x >= min;\n';
+    const ON = 'const on = ctx => ctx >= 0;\n', SUB = 'const sub = (a, b) => a - b;\n';
+    // 7 个两两互相调用的函数
+    const TANGLE = Array.from({ length: 7 }, (_, i) => `const m${i} = n => ${Array.from({ length: 7 }, (_, j) => `m${j}(n)`).join(' + ')} + n - 1;\n`).join('');
     for (const [name, code, want] of [
       // 1 派生量写在箭头工厂返回的对象里，和写在 function 里一样认两处
       ['factory-function', 'export function build() {\n  return { state(f, ctx) {\n    const local =\n      f - 1;\n    return local >= 432 && local < 648;\n  } };\n}\n', [2, 0.6, false]],
@@ -654,6 +658,91 @@ test('B3-12 30-1 从工程读数：read30_1 静态扫工程目录，一张 80 BP
       ['destructured-ctx', lifecycle('state(f, view) { const { frame: ctx } = view; return ctx >= 432; }'), HARD],
       ['called-in-place', lifecycle('state(frame, view) { return (n => n >= 0)(frame - 432); }'), HARD],
       ['called-in-place-pixels', lifecycle('state(frame, view) { return (f => f >= 640)(view.size[0]); }'), SOFT],
+      // 九审反例：两对画面逐帧相同的镜头
+      // 1 形参的默认值只在这次调用没传实参时才用：比像素宽度的那次靠默认的 640，不配到传了命名时刻那次的帧上，两处谁先谁后都一样；
+      //   真靠默认值拿帧比 432 的照样认：没传、传 undefined 或 void 0、默认值从前面的形参算出来、函数体里又赋了一次
+      ['default-explicit', lifecycle(`state(frame, view) { return ${PAIR}; }`, GE_WIDE), SOFT],
+      ['default-pixels', lifecycle('state(frame, view) { return ge(frame, view.events.m01) && ge(view.size[0]); }', GE_WIDE), SOFT],
+      ['default-pixels-swapped', lifecycle('state(frame, view) { return ge(view.size[0]) && ge(frame, view.events.m01); }', GE_WIDE), SOFT],
+      ['default-frame', lifecycle('state(frame, view) { return ge(frame); }', GE_LATE), HARD],
+      ['default-frame-undefined', lifecycle('state(frame, view) { return ge(frame, undefined); }', GE_LATE), HARD],
+      ['default-frame-void', lifecycle('state(frame, view) { return ge(frame, void 0); }', GE_LATE), HARD],
+      ['default-frame-passed', lifecycle('state(frame, view) { return ge(frame, view.events.m01); }', GE_LATE), SOFT],
+      ['default-frame-mixed', lifecycle('state(frame, view) { return ge(frame, view.events.m01) && ge(frame); }', GE_LATE), HARD],
+      ['default-from-param', lifecycle('state(frame, view) { return late(frame); }', 'const late = (x, over = x - 432) => over >= 0;\n'), HARD],
+      ['default-reassigned', lifecycle('state(frame, view) { return ge(frame, view.events.m01); }', 'const ge = (x, min = 640) => { min = 432; return x >= min; };\n'), HARD],
+      ['default-exported', lifecycle('state(n, view) { return true; }', 'export function late(f, min = 432) { return f >= min; }\n'), HARD],
+      // 2 同文件辅助函数返回的帧偏移跟着走：箭头函数直接回、function 里 return、套两层、拿返回值直接比或先赋给量，都是第 432 帧；
+      //   三元、逗号、?? 包一层也一样。同一次调用的实参照旧配成一组：sub(帧, 命名时刻) 和 sub(像素宽度, 640) 不配出帧减 640
+      ['return-offset', lifecycle('state(frame, view) { return on(offset(frame)); }', `${ON}const offset = n => n - 432;\n`), HARD],
+      ['return-offset-function', lifecycle('state(frame, view) { return on(offset(frame)); }', `${ON}function offset(n) { const back = 432; return n - back; }\n`), HARD],
+      ['return-offset-compared', lifecycle('state(frame, view) { return offset(frame) >= 0; }', 'const offset = n => n - 432;\n'), HARD],
+      ['return-offset-derived', lifecycle('state(frame, view) { const local = offset(frame); return local >= 0; }', 'const offset = n => n - 432;\n'), HARD],
+      ['return-nested', lifecycle('state(frame, view) { return on(sub(sub(frame, 400), 32)); }', `${ON}${SUB}`), HARD],
+      ['return-sub-hard', lifecycle('state(frame, view) { return on(sub(frame, 432)); }', `${ON}${SUB}`), HARD],
+      ['return-sub', lifecycle('state(frame, view) { return on(sub(frame, view.events.m01)) && on(sub(view.size[0], 640)); }', `${ON}${SUB}`), SOFT],
+      ['return-sub-swapped', lifecycle('state(frame, view) { return on(sub(view.size[0], 640)) && on(sub(frame, view.events.m01)); }', `${ON}${SUB}`), SOFT],
+      ['return-pixels', lifecycle('state(frame, view) { return wide(half(view.size[0])); }', 'const wide = w => w >= 640;\nconst half = w => w / 2;\n'), SOFT],
+      ['return-recursive', lifecycle('state(frame, view) { return on(back(frame, 2)); }', `${ON}const back = (n, k) => (k ? back(n, k - 1) : n - 432);\n`), HARD],
+      ['wrapped-conditional', lifecycle('state(frame, view) { return on(view.ready ? frame - 432 : frame - 431); }', ON), HARD],
+      ['wrapped-sequence', lifecycle('state(frame, view) { return on((view.ready, frame - 432)); }', ON), HARD],
+      ['wrapped-nullish', lifecycle('state(frame, view) { return on(view.since ?? frame - 432); }', ON), HARD],
+      ['wrapped-half-known', lifecycle('state(frame, view) { return on(view.ready ? sub(frame, view.events.m01) : sub(frame, 432)); }', `${ON}${SUB}`), HARD],
+      ['return-recursive-step', lifecycle('state(frame, view) { return on(back(frame, 2)); }', `${ON}const back = (n, k) => (k ? back(n - 216, k - 1) : n);\n`), HARD],
+      ['wrapped-relative', lifecycle('state(frame, view) { return on(view.ready ? frame - view.events.m01 : view.size[0] - 640); }', ON), SOFT],
+      // 柯里化的比较函数：外层那次调用的门槛和里层这次调用的量配成一组，里层形参叫 x 还是 f 都只看实参；先存成量再调用也一样
+      ['curried-hard', lifecycle('state(frame, view) { return ge(432)(frame); }', 'const ge = min => x => x >= min;\n'), HARD],
+      ['curried-pair', lifecycle('state(frame, view) { return ge(view.events.m01)(frame) && ge(640)(view.size[0]); }', 'const ge = min => x => x >= min;\n'), SOFT],
+      ['curried-pair-f', lifecycle('state(frame, view) { return ge(view.events.m01)(frame) && ge(640)(view.size[0]); }', 'const ge = min => f => f >= min;\n'), SOFT],
+      ['curried-hard-f', lifecycle('state(frame, view) { return ge(view.events.m01)(view.size[0]) && ge(432)(frame); }', 'const ge = min => f => f >= min;\n'), HARD],
+      ['curried-stored', lifecycle('state(frame, view) { const late = ge(432); return late(frame); }', 'const ge = min => x => x >= min;\n'), HARD],
+      ['curried-stored-pair', lifecycle('state(frame, view) { const late = ge(view.events.m01), wide = ge(640); return late(frame) && wide(view.size[0]); }', 'const ge = min => x => x >= min;\n'), SOFT],
+      ['curried-shift', lifecycle('state(frame, view) { return on(shift(432)(frame)); }', `${ON}const shift = d => n => n - d;\n`), HARD],
+      ['curried-shift-pair', lifecycle('state(frame, view) { return on(shift(view.events.m01)(frame)) && on(shift(640)(view.size[0])); }', `${ON}const shift = d => n => n - d;\n`), SOFT],
+      ['awaited', lifecycle('async state(frame, view) { return on(await offset(frame)); }', `${ON}const offset = async n => n - 432;\n`), HARD],
+      ['picked-helper', lifecycle('state(frame, view) { const test = view.ready ? late : later; return test(frame); }', 'const late = n => n >= 432;\nconst later = n => n >= 433;\n'), [2, 0.6, false]],
+      // 回出去、没人在文件里调用的函数照名字认帧，文件别处有没有拿数当实参的调用都一样；柯里化的比较函数导出去也一样
+      ['returned-f', 'export const make = () => f => f >= 432;\n', HARD],
+      ['returned-f-beside-call', 'const pad = n => n + 1;\nexport const gap = pad(2);\nexport const make = () => f => f >= 432;\n', HARD],
+      ['returned-pixels-beside-call', 'const pad = n => n + 1;\nexport const gap = pad(2);\nexport const make = () => pixels => pixels >= 640;\n', SOFT],
+      ['curried-exported', 'export const ge = min => f => f >= min;\nexport const late = ge(432);\n', HARD],
+      // 局部工厂回出来、局部对象里放着的比较函数只在文件里调用，形参叫 f、t 也只看实参
+      ['local-factory-f', lifecycle('state(frame, view) { return ge(view.events.m01)(frame) && ge(640)(view.size[0]); }', 'function ge(min) { function test(f) { return f >= min; } return test; }\n'), SOFT],
+      ['local-factory-f-hard', lifecycle('state(frame, view) { return ge(432)(frame); }', 'function ge(min) { function test(f) { return f >= min; } return test; }\n'), HARD],
+      ['local-object-t', lifecycle('state(frame, view) { const tools = { wide }; return tools.wide(view.size[0]); }', 'const wide = t => t >= 640;\n'), SOFT],
+      ['exported-in-array', 'export const late = f => f >= 432;\nexport const all = Object.freeze([late]);\n', HARD],
+      ['exported-named-expression', 'export const late = function inner(f) { return f >= 432; };\n', HARD],
+      // 交出去的回调包在三元、展开里也是交出去的，形参叫 f 不照名字认
+      ['callback-picked-f', lifecycle('state(n, view) { return view.size.some(view.strict ? (f => f >= 640) : (f => f >= 320)); }'), SOFT],
+      ['callback-spread-f', lifecycle('state(n, view) { return view.size.some(...[f => f >= 640]); }'), SOFT],
+      // 没传的实参一路传下去还是没传：中间隔一层辅助函数、先存成 undefined 的量，里头的默认值照用
+      ['default-through', lifecycle('state(frame, view) { return late(frame); }', `${GE_LATE}const late = (x, min) => ge(x, min);\n`), HARD],
+      ['default-through-mixed', lifecycle('state(frame, view) { return late(frame) && late(view.size[0], 640); }', `${GE_LATE}const late = (x, min) => ge(x, min);\n`), HARD],
+      ['default-through-passed', lifecycle('state(frame, view) { return late(frame, view.events.m01) && late(view.size[0], 640); }', `${GE_LATE}const late = (x, min) => ge(x, min);\n`), SOFT],
+      ['default-undefined-const', lifecycle('state(frame, view) { const none = undefined; return ge(frame, none); }', GE_LATE), HARD],
+      // 兜底值（??、||、??=、三元）和默认值一个口径：这次调用没传才轮到它；传了命名时刻的那次不配上像素那次的 640
+      ['fallback-nullish', lifecycle('state(frame, view) { return ge(frame, view.events.m01) && ge(view.size[0]); }', 'const ge = (x, min) => x >= (min ?? 640);\n'), SOFT],
+      ['fallback-nullish-hard', lifecycle('state(frame, view) { return ge(frame); }', 'const ge = (x, min) => x >= (min ?? 432);\n'), HARD],
+      ['fallback-assigned', lifecycle('state(frame, view) { return ge(frame, view.events.m01) && ge(view.size[0]); }', 'const ge = (x, min) => { min = min ?? 640; return x >= min; };\n'), SOFT],
+      ['fallback-assigned-hard', lifecycle('state(frame, view) { return ge(frame); }', 'const ge = (x, min) => { min = min ?? 432; return x >= min; };\n'), HARD],
+      ['fallback-nullish-assign', lifecycle('state(frame, view) { return ge(frame); }', 'const ge = (x, min) => { min ??= 432; return x >= min; };\n'), HARD],
+      ['fallback-or', lifecycle('state(frame, view) { return ge(frame); }', 'function ge(x, min) { var min = min || 432; return x >= min; }\n'), HARD],
+      ['fallback-branch', lifecycle('state(frame, view) { return ge(frame, view.events.m01, false) && ge(view.size[0], 0, true); }', 'const ge = (x, min, px) => x >= (px ? 640 : min);\n'), SOFT],
+      ['fallback-moment', lifecycle('state(frame, view) { return frame - (view.events.m02 ?? 0) >= 18; }'), SOFT],
+      ['fallback-moment-branch', lifecycle('state(frame, view) { return frame - (view.ready ? view.events.m02 : 0) >= 18; }'), SOFT],
+      ['fallback-total', lifecycle('state(frame, view) { const p = frame / (view.total ?? 2160); return p >= 0.5; }'), SOFT],
+      // 帧回调、导出的函数在文件里另有一处调用：文件外那次调用照旧算，默认值、照名字认帧都还在；文件里的两次调用照旧各配各的
+      ['hook-also-called', 'function tick(n, view, min = 432) { return n >= min; }\nexport const build = () => ({ state: tick, preview: (view) => tick(view.events.m01, view, 0) });\n', HARD],
+      ['exported-also-called', lifecycle('state(frame, view) { return late(frame, view.events.m01); }', 'export function late(f, min = 432) { return f >= min; }\n'), HARD],
+      ['exported-pair', lifecycle('state(frame, view) { return ge(frame, view.events.m01) && ge(view.size[0]); }', `export ${GE_WIDE}`), SOFT],
+      // 三元挑出来的两个比较函数出自同一个工厂，哪个写前面都认；?? 兜底的函数、逗号包着的函数名一样认
+      ['curried-picked', lifecycle('state(frame, view) { const early = ge(view.events.m01), late = ge(432); return (view.ready ? early : late)(frame); }', 'const ge = min => x => x >= min;\n'), HARD],
+      ['curried-picked-swapped', lifecycle('state(frame, view) { const early = ge(view.events.m01), late = ge(432); return (view.ready ? late : early)(frame); }', 'const ge = min => x => x >= min;\n'), HARD],
+      ['curried-fallback', lifecycle('state(frame, view) { return (view.test ?? ge(432))(frame); }', 'const ge = min => x => x >= min;\n'), HARD],
+      ['called-sequence', lifecycle('state(frame, view) { return (0, ge)(frame, 432); }', GE), HARD],
+      // 一组互相调用的函数算不完时，不相干的比较函数照旧认，写在这组函数前面还是后面都一样
+      ['tangle-before', lifecycle('state(frame, view) { return ge(frame, 432); }', `${GE}${TANGLE}`), HARD],
+      ['tangle-after', lifecycle('state(frame, view) { return ge(frame, 432); }', `${TANGLE}${GE}`), HARD],
     ]) assert.deepEqual(whole(project(name, { code: { 'shots/shot.js': code } })), want, name);
     // 从节拍常量算出来的量（beatSeconds = 60 / BPM）不是另一处定义；绕回自己的量、递归的辅助函数、一长串派生量都扫得完
     const derivedBeat = project('derived-beat', { code: { 'shots/music.js': 'const BPM = 80;\nexport const beatSeconds = 60 / BPM;\nexport const table = { tempo: BPM };\n' } });

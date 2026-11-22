@@ -266,13 +266,25 @@ export const read23_2 = orMissing(async (file, film, { jump = 0.35 } = {}) => {
 //     没人在文件里调用的函数：自己叫帧回调名字的取第一个形参，形参表是 (ctx, 名字) 的取第二个；
 //     文件里有调用点的函数（点名调用，或函数写出来当场调用）：哪个形参是帧，只看调用处传进来的实参，形参叫 ctx 也一样。
 //     同一次调用的几个实参配成一组，函数体照每一组各算一遍：ge(frame, at.m01) 和 ge(width, 640) 不会配出 frame >= 640。
-//   帧的线性式 = 帧和常数只做加减、乘除常数得来的式子，赋给变量照样跟着走（声明、赋值、形参默认值都算，定义写在用处后面也传得到）。
+//     形参的默认值只在那一次调用没传这一位时才用（没写、写 undefined 或 void 0，隔一层辅助函数原样传下来的也算没传）：
+//     ge(frame, at.m01) 和靠默认值 640 的 ge(width) 也配不到一起。函数体里的兜底值（min ?? 640、min || 640、min ??= 640）和默认值一个口径。
+//     调用回出来的函数（柯里化 ge(432)(frame)、先存成量 const late = ge(432)、三元挑出来的）带着外层那次调用的实参，和里层这次的实参配成一组。
+//     文件里有调用点、文件外也有人调用的函数（导出的、交出去的、帧回调），文件外那次调用另算一组：
+//     实参不知道，各位都可能没传，导出的照名字认帧。
+//   帧的线性式 = 帧和常数只做加减、乘除常数得来的式子，赋给变量照样跟着走（声明、赋值、形参默认值都算，定义写在用处后面也传得到）；
+//     同文件的函数回出来的也跟着走（offset(frame) 回 n - 432 就是 frame - 432），逗号、await 包一层照样算；
+//     三元两支都算得出来就都算，有一支算不出来（命名时刻）时另一支只留带着帧的式子，常数不知道配谁、不算。
 //   比较时折回帧上再看门槛：f - 432 >= 0、f / 24 >= 18、f >= 18 * 24、f >= 0x1b0 都是第 432 帧。门槛两位以上才算（x > 1 这样的
 //   归一化比较不算），式子里有名字以 frame 结尾的一位数也算。减去命名时刻（f - at('m02')）、除以总长这样带别的量的式子不是线性式，不算。
 // Python 和解析不了的 JS（语法错、Node 抹不掉的 TS 写法）先把注释、字符串抹成空格，再用正则整份文件一起认（hardcodedLines）。
 // 节拍常量的定义数 = 节拍表（有就算 1）+ 别处再给 bpm、tempo、beat* 赋数的次数；节拍表在不在看读数里有没有 bpm、beatFrames。
 // shortcut: 只扫 JS、TS、Python 源码，film.json 以外的 JSON 不看；只在上面四种写法里认帧号，拿帧做算术不比较的
-// （(f - 432) / 216、clamp(f, 432, 648)、f % 24）不认；帧经对象的方法、回调、展开实参、别的文件传进辅助函数的不跟。真片上漏了再补规则。
+// （(f - 432) / 216、clamp(f, 432, 648)、f % 24）不认；帧经对象的方法、回调、展开实参、别的文件传进辅助函数的不跟，
+// 对象的方法和别的文件的函数回出来的值（Math.max(f, 432)、tools.offset(f)）、当实参或默认值传进去的函数（run(f, n => n >= 432)）也不跟。真片上漏了再补规则。
+// shortcut: 左边算不出来的兜底常数不算（view.start ?? 432 和 at.m02 ?? 0 分不开）；解构形参里的默认值不分哪次调用；
+// 柯里化回出来的函数在文件里有调用点时，导出去的那一份（export const late = ge(432)）不另照名字认；a && b 不算；
+// 先起了名字再回出去、放进对象里的函数（const test = f => …; return test）不照名字认：分不清它出没出这个文件；
+// 实参写 null、false 不算没值（min ?? 432 配 ge(frame, null)）。镜头真这么写了再补
 // shortcut: 实参只在调用之间按组配，函数里面不分先后和分支：一个量先后赋过的几种值都算；值经外面的量带出函数的（since = v - 432）
 // 取各调用点的并集，不按组配；先声明、后来才赋成函数的量（let on; on = n => …）不算有调用点。镜头真这么写了再接数据流分析
 // shortcut: 正则那一路不解析语法：帧名按整份文件算、不分作用域，帧回调的第一个形参叫 i、w 这类名字的不认，算术里藏的帧号、
@@ -384,16 +396,56 @@ function scanTree({ ast, manager }) {
   // 绑定上的函数（function 声明，或初值是函数的量）、函数归哪个绑定；calls 是文件里对一个函数的直接调用（点名调用，或函数写出来当场调用），
   // inside 是函数和调用点各落在哪个函数里
   const functionsOf = (variable) => (variable?.defs ?? []).map((def) => (def.type === 'FunctionName' ? def.node : def.node.init)).filter((node) => FUNCTIONS.has(node?.type));
-  const owner = new Map(variables.flatMap((variable) => functionsOf(variable).map((fn) => [fn, variable]))), calls = new Map(), inside = new Map();
+  // 具名函数表达式（const late = function inner() {}）归外面那个量，不归它自己的名字
+  const owner = new Map(variables.filter((variable) => variable.scope.type !== 'function-expression-name')
+    .flatMap((variable) => functionsOf(variable).map((fn) => [fn, variable]))), calls = new Map(), inside = new Map();
+  // shortcut: 一个量最多留 LIMIT 种式子、一个函数最多留 LIMIT 个环境、一串派生量或调用最多追 DEEP 层，再多的不看；互相递归的一组函数
+  // 记不下结果、每条路都要重走，这样白算过 LIMIT 回（spent）就不再展开。正常的工程到不了，真撞到再放宽
+  const LIMIT = 10000, DEEP = 400, NONE = [];
+  // 没传的实参、undefined 记成常数 NaN：拿它做算术还是 NaN，跟谁比都不成立，传给下一层照旧是没传。CUT 是递归绕回来的那一支：不添东西，和算不出来（空表）不是一回事
+  const VOID = [{ k: 0, c: NaN }], CUT = [], isVoid = (a) => !a.k && Number.isNaN(a.c), sure = (a) => a.k || isVoid(a);
+  // 函数各回哪几个式子：箭头函数直接回的那个，或函数体里自己的 return；生成器调用回的是迭代器，不算
+  const returns = new Map();
+  each(ast, (node, within) => { if (node.type === 'ReturnStatement' && node.argument && within) returns.set(within, [...(returns.get(within) ?? []), node.argument]); });
+  const returnsOf = (fn) => (fn.body.type !== 'BlockStatement' ? [fn.body] : fn.generator ? [] : returns.get(fn) ?? []);
+  // 一个式子的值可能原样取自哪几个子式：三元的两支、?? || && 的两边、逗号的最后一个、await 等的那个
+  const parts = (node) => ({ ConditionalExpression: [node.consequent, node.alternate], LogicalExpression: [node.left, node.right],
+    SequenceExpression: node.expressions?.slice(-1), AwaitExpression: [node.argument] }[node.type]);
+  // 一个式子可能是哪几个函数：函数本身、点名的函数或初值（const late = ge(432)）、上面那几种子式、调用回出来的函数（柯里化）。
+  // 每个都带着它定义处的环境，回出来的函数带的是外层那次调用的环境；env 给 null 时只认函数、不算环境。
+  // trail 记正在看的节点，绕回来就停；同一个函数走两条路（三元两支出自同一个工厂）各算各的，一共看过 LIMIT 个节点就不再看
+  const closuresOf = (node, env, trail = { on: new Set(), steps: 0 }) => {
+    if (!node || trail.on.has(node) || trail.steps++ >= LIMIT) return [];
+    if (FUNCTIONS.has(node.type)) return [{ fn: node, env }];
+    trail.on.add(node);
+    const found = node.type === 'Identifier' ? (bound.get(node)?.defs ?? []).flatMap((def) => (def.type === 'FunctionName' ? [{ fn: def.node, env }]
+      : def.type === 'Variable' && def.node.id === def.name ? closuresOf(def.node.init, env, trail) : []))
+      : node.type === 'CallExpression' ? closuresOf(node.callee, env, trail).flatMap(({ fn, env: base }) => {
+        const made = env && bind(fn, node, env, base);
+        return returnsOf(fn).flatMap((result) => closuresOf(result, made, trail));
+      }) : (parts(node) ?? []).flatMap((part) => closuresOf(part, env, trail));
+    trail.on.delete(node);
+    return found;
+  };
   // handed 是当实参交出去的回调（直接写在调用里的函数，或点名的绑定）：收到什么由对方定，some、map 给的是数组元素
   // stepped 把 n -= 432 这样的赋值记成 n - 432，和 n = n - 432 一样算
+  // 写在实参里的函数，包在三元、?? || &&、逗号、数组、展开里也是交出去的；点名的绑定只认直接当实参的
   const handed = new Set(), stepped = new Map();
+  const give = (node) => {
+    if (FUNCTIONS.has(node.type)) handed.add(node);
+    else for (const part of parts(node) ?? { ArrayExpression: node.elements, SpreadElement: [node.argument] }[node.type] ?? []) if (part) give(part);
+  };
   each(ast, (node, within) => {
-    const called = node.type !== 'CallExpression' ? [] : FUNCTIONS.has(node.callee.type) ? [node.callee] : functionsOf(bound.get(node.callee));
+    const called = new Set(node.type === 'CallExpression' ? closuresOf(node.callee, null).map(({ fn }) => fn) : []);
     for (const fn of called) calls.set(fn, [...(calls.get(fn) ?? []), node]);
-    if (called.length || FUNCTIONS.has(node.type)) inside.set(node, within);
-    if (/^(?:Call|New)Expression$/.test(node.type)) for (const arg of node.arguments) handed.add(FUNCTIONS.has(arg.type) ? arg : bound.get(arg));
-    if (node.type === 'AssignmentExpression' && node.operator !== '=') stepped.set(node.left, { type: 'BinaryExpression', operator: node.operator.slice(0, -1), left: node.left, right: node.right });
+    if (called.size || FUNCTIONS.has(node.type)) inside.set(node, within);
+    // 实参是数、算式这些落不到绑定上的不记：记进一个 undefined，没名字的函数就全被当成交出去的了
+    if (/^(?:Call|New)Expression$/.test(node.type)) for (const arg of node.arguments) bound.has(arg) ? handed.add(bound.get(arg)) : give(arg);
+    // n ??= 432、n ||= 432 记成 n ?? 432、n || 432
+    if (node.type === 'AssignmentExpression' && node.operator !== '=') {
+      const operator = node.operator.slice(0, -1);
+      stepped.set(node.left, { type: /^(?:\?\?|\|\||&&)$/.test(operator) ? 'LogicalExpression' : 'BinaryExpression', operator, left: node.left, right: node.right });
+    }
   });
   // 导出的绑定（export 声明、export { 名字 }、export default 名字）：调用它的在别的文件
   // shortcut: 只认 ESM 的 export，module.exports = { 名字 } 不算；镜头改用 CommonJS 写时再补
@@ -408,40 +460,46 @@ function scanTree({ ast, manager }) {
     : node?.type === 'Literal' && typeof node.value === 'string' ? node.value : '');
   // 帧的线性式记成 帧 × k + c，named 是式子里有名字以 frame 结尾的；k 是 0 的是常数。一个量可能取到的几种式子都留着，
   // 局部常量（const delay = 432）和直接写数一样算
-  // shortcut: 一个量最多留 LIMIT 种式子、一个函数最多留 LIMIT 个环境、一串派生量或调用最多追 DEEP 层，再多的不看；正常的工程到不了，真撞到再放宽
-  const LIMIT = 10000, DEEP = 400, NONE = [];
   const gather = (forms, into = new Map()) => {
     for (const a of forms) if (into.size < LIMIT) into.set(`${a.k}:${a.c}:${Boolean(a.named)}`, a);
     return into;
   };
   const byName = (name) => (/[Ff]rame$/.test(name) ? [{ k: 1, c: 0, named: true }] : /^[ft]$/.test(name) ? [{ k: 1, c: 0 }] : NONE);
   const scaled = (a, by) => ({ ...a, k: a.k * by, c: a.c * by });
-  // seeds 是不看别处就认成帧的绑定，paramOf 是有调用点的函数的形参各归哪个函数。认不认帧都不看绑定自己叫什么，叫 ctx 的也一样
-  const seeds = new Map(), paramOf = new Map();
+  // seeds 是不看别处就认成帧的绑定，paramOf 是有调用点的函数的形参各归哪个函数。认不认帧都不看绑定自己叫什么，叫 ctx 的也一样。
+  // outside 是文件里有调用点、文件外也有人调用的函数（导出的、交出去的、帧回调）：文件外那次调用另算一个环境；
+  // defaults 是形参默认值里的那个形参名
+  const seeds = new Map(), paramOf = new Map(), outside = new Set(), defaults = new Set();
   const seed = (param, forms = [{ k: 1, c: 0 }]) => {
     const variable = bound.get(param?.type === 'AssignmentPattern' ? param.left : param);
     if (variable) seeds.set(variable, gather(forms, seeds.get(variable)));
   };
   each(ast, (node) => {
     const named = owner.get(node);
-    if (FUNCTIONS.has(node.type) && calls.has(node)) {
-      // 有调用点的函数，形参是什么看传进来的实参（contextsOf）
-      for (const param of node.params) if (bound.has(param.left ?? param)) paramOf.set(bound.get(param.left ?? param), node);
-    } else if (FUNCTIONS.has(node.type)) {
-      const [first, second] = node.params;
+    if (FUNCTIONS.has(node.type)) {
+      const called = calls.has(node), given = handed.has(node) || handed.has(named), [first, second] = node.params;
+      for (const param of node.params) {
+        if (param.type === 'AssignmentPattern') defaults.add(param.left);
+        // 有调用点的函数，形参是什么看传进来的实参（contextsOf）
+        if (called && bound.has(param.left ?? param)) paramOf.set(bound.get(param.left ?? param), node);
+      }
       // 调用点在别的文件的函数（导出的、对象和类里的方法、返回出去的）只能照名字认：形参叫 f、t 的是帧，形参表是 (ctx, 名字) 的取第二个。
-      // 文件里没导出的局部函数、交给别的调用的回调不照名字认，形参收到帧才是帧
-      if (!handed.has(node) && !handed.has(named) && (!named || exported.has(named))) {
+      // 文件里没导出的局部函数、交给别的调用的回调不照名字认，形参收到帧才是帧；没名字的函数在文件里有调用点（柯里化、当场调用）也只看实参
+      if (!given && (named ? exported.has(named) : !called)) {
         for (const param of node.params) seed(param, byName(nameOf(param.left ?? param)));
         if (first?.type === 'Identifier' && first.name === 'ctx' && second?.type === 'Identifier' && !NOT_FRAME.test(second.name)) seed(second);
       }
       // 自己叫帧回调名字的函数取第一个形参
-      if (HOOK.test(named?.name ?? '')) seed(first);
+      if (HOOK.test(named?.name ?? '') && (!called || exported.has(named))) seed(first);
+      if (given || exported.has(named)) outside.add(node);
     }
     // 对象、类里的帧回调（方法、属性、obj.state = …），值是函数或点名的函数：第一个形参就是帧
     const [key, value] = pair(node);
     if ((SLOT.test(node.type) || key?.type === 'MemberExpression') && HOOK.test(nameOf(key))) {
-      for (const fn of FUNCTIONS.has(value?.type) ? [value] : functionsOf(bound.get(value))) seed(fn.params[0]);
+      for (const fn of FUNCTIONS.has(value?.type) ? [value] : functionsOf(bound.get(value))) {
+        seed(fn.params[0]);
+        outside.add(fn);
+      }
     }
     // 从帧名解构改的名：const { frame: n } = ctx
     if (node.type === 'ObjectPattern') {
@@ -451,8 +509,33 @@ function scanTree({ ast, manager }) {
   // 环境 = 一次调用里各形参收到的线性式（绑定 → 式子表）。函数体照它的每个环境各算一遍，同一次调用的几个实参这才配成一组：
   // ge(frame, at.m01) 和 ge(width, 640) 是两个环境，这处的帧配不上那处的 640。没有调用点的函数用外层函数的环境，顶层是空环境
   const NO_ENV = new Map(), TOP = [NO_ENV], ids = new Map(variables.map((variable, i) => [variable, i]));
-  const contexts = new Map(), open = new Map(), states = new Map(), loops = new Set();
-  let depth = 0;
+  const contexts = new Map(), open = new Map(), states = new WeakMap(), loops = new Set();
+  // envs 让内容相同的环境共用一份，算过的不重算；sights 是每个函数看得见的作用域；results、running 是函数的返回值算过的和正在算的
+  const envs = new Map([['', NO_ENV]]), sights = new Map(), results = new Map(), running = new Map();
+  let depth = 0, spent = 0;
+  // 一次调用的环境：base（函数定义处的环境）里这个函数看得见的外层形参原样带进来，闭包里用的是外层那一次调用的实参；
+  // 形参各收到这次的实参，没传的记成 VOID，可能没传的那一位才换成默认值（默认值里看得见前面的形参）。展开实参后面的几位对不上号，当没传。
+  // site 给 null 是文件外的那次调用：实参不知道，照名字认的种子算数，各位都可能没传
+  function bind(fn, site, from, base) {
+    if (!sights.has(fn)) {
+      const visible = new Set();
+      for (let scope = manager.acquire(fn); scope; scope = scope.upper) visible.add(scope);
+      sights.set(fn, visible);
+    }
+    const env = new Map([...base].filter(([variable]) => sights.get(fn).has(variable.scope)));
+    const spread = site ? site.arguments.findIndex((arg) => arg.type === 'SpreadElement') : -1;
+    fn.params.forEach((param, i) => {
+      const variable = bound.get(param.left ?? param), arg = spread < 0 || i < spread ? site?.arguments[i] : undefined;
+      if (!variable) return;
+      const given = arg ? lin(arg, from) : [...(site ? NONE : seeds.get(variable)?.values() ?? NONE), ...VOID];
+      // 默认值在环境的抄本里算：这时后面的形参还没绑上，算到一半的不留在环境的账上
+      const forms = param.right && given.some(isVoid) ? [...given.filter((a) => !isVoid(a)), ...lin(param.right, new Map(env))] : given;
+      env.set(variable, [...gather(forms).values()]);
+    });
+    const key = Array.from(env, ([variable, forms]) => `${ids.get(variable)}=${[...gather(forms).keys()].sort()}`).sort().join(';');
+    if (!envs.has(key)) envs.set(key, env);
+    return envs.get(key);
+  }
   const contextsOf = (fn) => {
     if (!fn) return TOP;
     const sites = calls.get(fn);
@@ -462,31 +545,49 @@ function scanTree({ ast, manager }) {
       if (open.has(fn)) loops.add(fn);
       return known;
     }
-    if (depth >= DEEP) return TOP;
-    // 调用点的环境里，这个函数看得见的外层形参原样带进来（闭包里用的是外层那一次调用的实参）
-    const visible = new Set(), found = new Map();
-    for (let scope = manager.acquire(fn); scope; scope = scope.upper) visible.add(scope);
+    // 白算的回数用完以后，绕在圈里的不再往下算；圈外不相干的函数照常
+    if (depth >= DEEP || (spent >= LIMIT && open.size)) return TOP;
+    const found = new Set();
     depth++;
     // 递归的调用点拿上一遍算出的环境，展开一层就停，所以调用点谁先谁后不改结论；没人绕回来就只算一遍
     for (let pass = 0; pass < 2 && (!pass || loops.has(fn)); pass++) {
-      open.set(fn, [...found.values()]);
+      open.set(fn, [...found]);
       for (const site of sites) {
         for (const from of contextsOf(inside.get(site))) {
-          const env = new Map([...from].filter(([variable]) => visible.has(variable.scope)));
-          fn.params.forEach((param, i) => {
-            if (bound.has(param.left ?? param)) env.set(bound.get(param.left ?? param), [...gather(lin(site.arguments[i], from)).values()]);
-          });
-          const key = Array.from(env, ([variable, forms]) => `${ids.get(variable)}=${[...gather(forms).keys()].sort()}`).sort().join(';');
-          if (found.size < LIMIT && !found.has(key)) found.set(key, env.size ? env : NO_ENV);
+          for (const { fn: made, env: base } of closuresOf(site.callee, from)) if (made === fn && found.size < LIMIT) found.add(bind(fn, site, from, base));
         }
       }
+      if (outside.has(fn)) for (const from of contextsOf(inside.get(fn))) found.add(bind(fn, null, from, from));
     }
-    const all = found.size ? [...found.values()] : TOP;
+    const all = found.size ? [...found] : TOP;
     depth--;
     open.delete(fn);
     loops.delete(fn);
     if (!loops.size) contexts.set(fn, all);
+    else spent++;
     return all;
+  };
+  // 一个函数在一个环境里回的线性式。递归绕回自己时里面那一层照算，再绕回来的那一支回 CUT，展开一层就停；这时算到一半的不记
+  const returned = (fn, env) => {
+    const known = results.get(fn)?.get(env);
+    if (known) return known;
+    const outer = running.get(fn);
+    if (outer?.again) {
+      loops.add(outer);
+      return CUT;
+    }
+    if (spent >= LIMIT && running.size) return NONE;
+    if (outer) outer.again = true;
+    else running.set(fn, {});
+    const all = returnsOf(fn).map((result) => lin(result, env)), forms = all.length && all.every((made) => made === CUT) ? CUT : [...gather(all.flat()).values()];
+    if (outer) outer.again = false;
+    else {
+      loops.delete(running.get(fn));
+      running.delete(fn);
+    }
+    if (!loops.size) results.set(fn, (results.get(fn) ?? new Map()).set(env, forms));
+    else spent++;
+    return forms;
   };
   // 一个绑定在一个环境里可能取到的线性式：种子，加赋进来的值（解构、for-of 这样只拿到一部分的不算），加这个环境给它的实参；
   // 环境里没有的形参（值经外面的量带出函数：since = v - 432）取它各调用点的并集。用到才算，算完记下，定义写在用处后面也一样。
@@ -499,12 +600,14 @@ function scanTree({ ast, manager }) {
       return [...known.values()];
     }
     if (depth >= DEEP) return NONE;
-    const forms = gather(seeds.get(variable)?.values() ?? NONE);
+    // 环境里有的形参只看这次调用给的：照名字认的种子归文件外那次调用的环境（bind）
+    const forms = gather(env.has(variable) ? NONE : seeds.get(variable)?.values() ?? NONE);
     busy.set(variable, forms);
     depth++;
     // 实参先于函数体里的赋值：x = x - 432 绕回来时拿得到传进来的那个帧
     gather(env.get(variable) ?? contextsOf(paramOf.get(variable)).flatMap((other) => other.get(variable) ?? NONE), forms);
-    for (const ref of variable.references) if (ref.isWrite() && !ref.partial) gather(lin(stepped.get(ref.identifier) ?? ref.writeExpr, env), forms);
+    // 环境里有的形参，默认值用没用上那次调用已经定了（bind），这里不再并进来
+    for (const ref of variable.references) if (ref.isWrite() && !ref.partial && !(defaults.has(ref.identifier) && env.has(variable))) gather(lin(stepped.get(ref.identifier) ?? ref.writeExpr, env), forms);
     depth--;
     busy.delete(variable);
     loops.delete(forms);
@@ -515,7 +618,9 @@ function scanTree({ ast, manager }) {
   function lin(node, env) {
     if (node?.type === 'Literal') return typeof node.value === 'number' ? [{ k: 0, c: node.value }] : NONE;
     if (node?.type === 'ChainExpression') return lin(node.expression, env);
+    if (node?.type === 'AwaitExpression') return lin(node.argument, env);
     if (node?.type === 'Identifier') {
+      if (node.name === 'undefined' && !bound.has(node)) return VOID;
       // 落在文件里某个绑定上的名字，是不是帧看这个绑定；f、t 这样的短名只在没有绑定时照拼写认，名字以 frame 结尾的没收到帧也照旧是帧
       const variable = bound.get(node), forms = variable ? formsOf(variable, env) : NONE;
       return forms.some((a) => a.k) || (variable && !/[Ff]rame$/.test(node.name)) ? forms : [...byName(node.name), ...forms];
@@ -523,16 +628,42 @@ function scanTree({ ast, manager }) {
     if (node?.type === 'MemberExpression') return node.computed ? NONE : byName(node.property.name);
     if (node?.type === 'UnaryExpression') {
       const sign = { '+': 1, '-': -1 }[node.operator];
-      return sign ? lin(node.argument, env).map((a) => scaled(a, sign)) : NONE;
+      const inner = sign ? lin(node.argument, env) : NONE;
+      return inner === CUT ? CUT : sign ? inner.map((a) => scaled(a, sign)) : node.operator === 'void' ? VOID : NONE;
+    }
+    if (node?.type === 'SequenceExpression') return lin(node.expressions.at(-1), env);
+    // 三元：两支都算得出来才并起来。有一支算不出来（比如命名时刻），另一支里的常数就不知道是配谁的（px ? 640 : min、ready ? at.m02 : 0），
+    // 只留带着帧的式子和「可能没传」；递归绕回来的那一支不添东西
+    if (node?.type === 'ConditionalExpression') {
+      const [a, b] = [lin(node.consequent, env), lin(node.alternate, env)];
+      return a === CUT ? b : b === CUT ? a : a.length && b.length ? [...gather([...a, ...b]).values()] : [...a, ...b].filter(sure);
+    }
+    // a ?? b、a || b：a 可能没值（没传；|| 还算上 0）才轮到 b，和形参默认值一个口径；a 算不出来时 b 里的常数也不知道用没用上
+    // （at.m02 ?? 0），只留带着帧的式子。&& 不算
+    if (node?.type === 'LogicalExpression') {
+      if (node.operator === '&&') return NONE;
+      const left = lin(node.left, env), empty = (a) => isVoid(a) || (node.operator === '||' && !a.k && !a.c);
+      if (left === CUT || !left.some(empty)) return left.length ? left : lin(node.right, env).filter(sure);
+      return [...gather([...left.filter((a) => !empty(a)), ...lin(node.right, env)]).values()];
+    }
+    // 调用文件里的函数：实参绑成这一次调用的环境，取函数在这个环境里回的式子
+    if (node?.type === 'CallExpression') {
+      if (depth >= DEEP) return NONE;
+      depth++;
+      const all = closuresOf(node.callee, env).map(({ fn, env: base }) => returned(fn, bind(fn, node, env, base)));
+      depth--;
+      return all.length && all.every((forms) => forms === CUT) ? CUT : [...gather(all.flat()).values()];
     }
     if (node?.type !== 'BinaryExpression') return NONE;
-    const sign = { '+': 1, '-': -1 }[node.operator], right = lin(node.right, env), mixed = new Map();
-    for (const a of lin(node.left, env)) {
+    const sign = { '+': 1, '-': -1 }[node.operator], left = lin(node.left, env), right = lin(node.right, env), mixed = new Map();
+    // 递归绕回来的那一支参与的算式，也是不添东西
+    if (left === CUT || right === CUT) return CUT;
+    for (const a of left) {
       if (mixed.size >= LIMIT) break;
       gather(right.map((b) => {
         if (sign) return { k: a.k + sign * b.k, c: a.c + sign * b.c, named: a.named || b.named };
         if (node.operator === '*' && !(a.k && b.k)) return a.k ? scaled(a, b.c) : scaled(b, a.c);
-        return node.operator === '/' && !b.k ? scaled(a, 1 / b.c) : null;
+        return node.operator === '/' && !b.k && b.c ? scaled(a, 1 / b.c) : null;
       }).filter(Boolean), mixed);
     }
     return [...mixed.values()];
@@ -554,7 +685,7 @@ function scanTree({ ast, manager }) {
       for (const branch of node.cases) if (some((env) => past(lin(node.discriminant, env), lin(branch.test, env), 1))) lines.push(branch.loc.start.line);
     } else {
       // 每个「名字、值」都照写的先后算一遍并记下，一长串派生量（v1 = v0 + 1、v2 = v1 + 1……）这样才不用从末尾一路追回头
-      const [key, value] = pair(node), name = nameOf(key), fixed = envs.map((env) => lin(value, env)).filter((forms) => forms.length && !forms.some((a) => a.k));
+      const [key, value] = pair(node), name = nameOf(key), fixed = envs.map((env) => lin(value, env).filter((a) => !isVoid(a))).filter((forms) => forms.length && !forms.some((a) => a.k));
       if (!fixed.length) return;
       // 节拍常量只数直接写数的定义：从别的常量算出来的量（beatSeconds = 60 / BPM）不是另一处定义
       let literal = BEAT_NAME.test(name);
