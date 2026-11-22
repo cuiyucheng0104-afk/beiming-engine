@@ -7,6 +7,7 @@
 // 在线性光里平均之后，依次把每个通道画一遍（只跑一次）：tInput 填上一遍的输出，画到另一个同样的浮点目标，最后一遍的输出才读回；
 // 跑之前状态先回到 sub = 0（后期通道的参数也取这一刻），通道声明了 uniforms.tDepth 时填 sub = 0 的深度。辅助层不过这条链。
 //   host.now()                             单调时钟，毫秒；读数只进元数据的 timing
+// 场景参考通路（04 §4.1）：场景参考镜头的成片另落到一张 RGBA16F 目标、读回半浮点，由宿主送出浏览器落成 EXR；要了编号层时再渲一张 2 倍超采样的。
 import { renderingOf } from '../../kernel/eval/input.mjs';
 import { caps, VERSION } from './caps.mjs';
 import { planRender, SourceError } from './plan.mjs';
@@ -46,6 +47,26 @@ export function averageDisplaySrgbFrames(frames) {
   const sum = new Float64Array(frames[0].length);
   for (const px of frames) for (let i = 0; i < px.length; i++) sum[i] += i % 4 === 3 ? px[i] / 255 : SRGB_TO_LINEAR[px[i]];
   return Float32Array.from(sum, (v) => v / frames.length);
+}
+
+/** IEEE 754 binary16 的位型（0 到 65535）解成数；半浮点表示得出的数单精度都表示得出 */
+export function float16ToFloat32(bits) {
+  const e = (bits >> 10) & 0x1f, m = bits & 0x3ff;
+  const v = e === 0 ? m * 2 ** -24 : e === 31 ? (m ? NaN : Infinity) : (m + 1024) * 2 ** (e - 25);
+  return bits & 0x8000 ? -v : v;
+}
+
+/**
+ * 2 倍超采样编号层的覆盖率：id 是输出尺寸 [w, h] 的编号层（像素中心），id2x 是宽高各两倍的编号层（点采样）。
+ * 每个像素交回它的 2×2 个子样本里编号和像素中心相同的占几成。不是输出通道契约的 coverage（那个从颜色层的样本数）。
+ */
+export function coverage2x(id, id2x, [w, h]) {
+  const out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const want = id[y * w + x], at = 4 * y * w + 2 * x, below = at + 2 * w;
+    out[y * w + x] = ((id2x[at] === want) + (id2x[at + 1] === want) + (id2x[below] === want) + (id2x[below + 1] === want)) / 4;
+  }
+  return out;
 }
 
 /** 辅助层画不了的对象：看得见、会被画出来、又不是网格的（点、线、精灵） */
@@ -100,6 +121,15 @@ export function createThreeSource({ THREE, host }) {
     // 颜色层和辅助层都渲到同一个 32 位浮点目标：层文件是 32 位，渲染时不先过一道半精度
     const target = () => new THREE.WebGLRenderTarget(1, 1, { type: THREE.FloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
     const rt = target(), rtPost = post.length ? target() : null;
+    // 场景参考通路：成片另落到这张 RGBA16F 目标再读回半浮点。层文件 color 照旧取 32 位目标（帧源接口契约 3.4 的登记表），不从这里解
+    const sceneRef = shot.colorRef === 'scene';
+    const rtHalf = sceneRef ? new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false }) : null;
+    const copy = sceneRef ? new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+      uniforms: { tInput: { value: null } },
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: 'uniform sampler2D tInput; varying vec2 vUv; void main() { gl_FragColor = texture2D(tInput, vUv); }',
+      depthTest: false, depthWrite: false,
+    })) : null;
     // 后期链要深度时才建：sub = 0 的辅助层第 0 遍
     let rtDepth = null;
     const postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -145,10 +175,40 @@ export function createThreeSource({ THREE, host }) {
     }
 
     const flipRows = (raw, [w, h]) => {
-      const out = new Float32Array(raw.length);
+      const out = new raw.constructor(raw.length);
       for (let y = 0; y < h; y++) out.set(raw.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);
       return out;
     };
+
+    /** RGBA 浮点数组（GL 的行序）传成纹理，用完由调用方 dispose */
+    const upload = (raw, [w, h]) => {
+      const tex = new THREE.DataTexture(raw, w, h, THREE.RGBAFormat, THREE.FloatType);
+      tex.minFilter = tex.magFilter = THREE.NearestFilter;
+      tex.needsUpdate = true;
+      return tex;
+    };
+
+    /**
+     * 成片（raw，GL 的行序）落到 RGBA16F 目标，读回半浮点的位型，行序还是 GL 的。
+     * shortcut: 成片一律从内存再传一次纹理（不动的单子帧、过了后期链的本来就在显存里）；大画幅上这一趟显出来时改成直接拿那张纹理
+     */
+    function readHalf(raw, [w, h], timed) {
+      const tex = upload(raw, [w, h]);
+      try {
+        rtHalf.setSize(w, h);
+        copy.material.uniforms.tInput.value = tex;
+        r.setRenderTarget(rtHalf);
+        cleared(() => timed('renderMs', () => r.render(copy, postCamera)));
+        const half = new Uint16Array(w * h * 4);
+        while (gl.getError() !== gl.NO_ERROR) { /* 清掉之前留下的错误标志，下面只看这一次读回 */ }
+        timed('readbackMs', () => gl.readPixels(0, 0, w, h, gl.RGBA, gl.HALF_FLOAT, half));
+        // 读不回时 readPixels 不抛错、数组留着全 0：不能把一张黑图当成片交出去
+        if (gl.getError() !== gl.NO_ERROR) throw new Error('这台机器的 RGBA16F 目标读不回半浮点，场景参考通路出不了 EXR');
+        return half;
+      } finally {
+        tex.dispose();
+      }
+    }
 
     /** 后期链：从 input 纹理起依次过各个通道，rt、rtPost 来回倒；声明了 uniforms.tDepth 的通道拿到 depth。交回最后写的目标 */
     function drawChain([w, h], timed, chain, input, depth) {
@@ -212,7 +272,8 @@ export function createThreeSource({ THREE, host }) {
         const timing = { stateMs: 0, renderMs: 0, readbackMs: 0 };
         const timed = (key, fn) => { const t0 = host.now(); const v = fn(); timing[key] += host.now() - t0; return v; };
         const layers = {};
-        let color = null, tris = null;
+        // 场景参考镜头出了像素时另交的：rgba16f 是成片的半浮点位型，objectId2x 是 2 倍超采样的编号层
+        let color = null, tris = null, extra = null;
 
         const applyAt = (sub) => timed('stateMs', () => {
           host.apply(loaded, f, sub);
@@ -248,9 +309,7 @@ export function createThreeSource({ THREE, host }) {
               withAux(0, () => drawScene(plan.size, timed, rtDepth));
               depth = rtDepth.texture;
             }
-            const mean = new THREE.DataTexture(raw, plan.size[0], plan.size[1], THREE.RGBAFormat, THREE.FloatType);
-            mean.minFilter = mean.magFilter = THREE.NearestFilter;
-            mean.needsUpdate = true;
+            const mean = upload(raw, plan.size);
             try {
               raw = readRaw(drawChain(plan.size, timed, post, mean, depth), plan.size, timed);
             } finally {
@@ -259,6 +318,7 @@ export function createThreeSource({ THREE, host }) {
           }
           color = flipRows(raw, plan.size);
           layers.color = { type: 'f32', components: ['R', 'G', 'B', 'A'], size: plan.size, data: color };
+          if (sceneRef) extra = { rgba16f: flipRows(readHalf(raw, plan.size, timed), plan.size) };
         }
 
         // 辅助层和元数据取同一个样本：sub = 0，针孔，不累积，像素中心
@@ -274,7 +334,12 @@ export function createThreeSource({ THREE, host }) {
             layers.depth = { type: 'f32', components: ['Z'], size: plan.size, data: depth };
           }
           // shortcut: 编号经 32 位浮点目标读回，超过 16777216 会丢精度；实体多到那个量级时换整数目标
-          if (plan.layers.includes('objectId')) layers.objectId = { type: 'u32', components: ['id'], size: plan.size, data: Uint32Array.from(pick(px, [1])) };
+          if (plan.layers.includes('objectId')) {
+            layers.objectId = { type: 'u32', components: ['id'], size: plan.size, data: Uint32Array.from(pick(px, [1])) };
+            // 场景参考通路的编号层另渲一张宽高各两倍的：照样点采样、不抗锯齿，子样本落在各自的中心上，编号还是整数。
+            // 层文件 objectId 不从它来：像素中心不是它的任何一个子样本（输出通道契约 PS4 要的是像素中心）
+            if (extra) extra.objectId2x = Uint32Array.from(pick(drawAux(plan.size.map((n) => n * 2), 0, timed), [1]));
+          }
         }
         if (plan.layers.includes('normal')) {
           const px = drawAux(plan.size, 1, timed);
@@ -316,7 +381,7 @@ export function createThreeSource({ THREE, host }) {
           // id 是镜头条目顶层写的帧源，renderer 是真的出了这一帧的帧源；条目带 renderer 对象时两个可以不同
           source: { id: shot.source, renderer: CAPS.id, host: renderingOf(shot).host, version: VERSION, tier, gpu, backend: 'webgl2', samples: plan.pixelSamples },
         });
-        return { meta, layers };
+        return { meta, layers, ...(extra && { extra }) };
       },
 
       async close() {
@@ -326,6 +391,9 @@ export function createThreeSource({ THREE, host }) {
         rt.dispose();
         rtPost?.dispose();
         rtDepth?.dispose();
+        rtHalf?.dispose();
+        copy?.geometry.dispose();
+        copy?.material.dispose();
         for (const m of auxMaterials.values()) m.dispose();
       },
     };

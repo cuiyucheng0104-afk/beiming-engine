@@ -36,6 +36,23 @@ export function measureEntity(view, proj, size, points) {
   return { bbox2d: box2, bbox3d: box3, pxArea: (w * h) / (size[0] * size[1]), depth };
 }
 
+/**
+ * 锚点投到屏幕（每帧元数据契约 3.3、5.2）。pairs 是 [["实体名#锚点名", [x, y, z]], …]，世界坐标，米；names 是这个镜头的实体名。
+ * 交回 { 实体名: { 锚点名: { world, screen } } }。写法不对、实体不认识、同一个锚点交了两次、坐标不是三个有限的数都报错，不猜。
+ */
+export function placeAnchors(view, proj, size, pairs, names) {
+  const seen = new Set(), byEntity = new Map();
+  for (const [key, world] of pairs) {
+    const [entity, name, ...rest] = String(key).split('#');
+    if (!name || rest.length || !names.includes(entity)) throw new Error(`锚点 ${key} 要写成「实体名#锚点名」，实体要是这个镜头的实体`);
+    if (!Array.isArray(world) || world.length !== 3 || !world.every(Number.isFinite)) throw new Error(`锚点 ${key} 的世界坐标必须是三个有限的数`);
+    if (seen.has(key)) throw new Error(`锚点 ${key} 交了两次`);
+    seen.add(key);
+    byEntity.set(entity, [...(byEntity.get(entity) ?? []), [name, { world: [...world], screen: toScreen(view, proj, size, world).screen }]]);
+  }
+  return Object.fromEntries([...byEntity].map(([entity, list]) => [entity, Object.fromEntries(list)]));
+}
+
 /** 亮度的第 1、50、99 百分位，在颜色层的线性编码数值上算。rgba 是每像素四个数的浮点数组；亮度用 Rec.709 的权重。 */
 export function lumaStats(rgba) {
   const n = rgba.length / 4, luma = new Float32Array(n);

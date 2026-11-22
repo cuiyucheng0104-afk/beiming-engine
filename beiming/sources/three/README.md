@@ -17,12 +17,11 @@
 | `host.measure(loaded, f, facts)` | 量元数据；`facts.visible` 是渲染器数出的可见比例 |
 | `host.now()` | 单调时钟，毫秒，只进 `timing` |
 
-写层文件、交层引用是宿主在 node 一侧做。
-
 ## 怎么出一帧
 
 - 快门窗口从帧起点打开 `[f, f + 快门角 ÷ 360)`，子帧在窗口里居中分层。相位（`s4.test.mjs`）：实渲 `probe-moving-cube` 第 24 帧，180 度 8 个子帧，像素质心和解析位置差 < 0.5 px；用整帧位移（f=24 → 25）标定速度，拖影中点在 f + 0.25 附近，和 Blender START 读数一致。Metal `SUBPIXEL_BITS=4` 下用 0.25 帧短基线标定有约 0.02308 帧量化差。
-- 颜色层（04 §3.1）：每个子帧只渲后期链之前的场景，进 32 位浮点目标，在线性光里逐像素平均；不过显示变换，不截到 `[0, 1]`。显示参考、没有 HDR 目标的帧用 `averageDisplaySrgbFrames` 把 8 位 sRGB 的 RGB 先线性化再平均（透明度本来线性，只除以 255）。
+- 颜色层（04 §3.1）：每个子帧只渲后期链之前的场景，进 32 位浮点目标，在线性光里逐像素平均；不过显示变换，不截到 `[0, 1]`。显示参考、没有 HDR 目标的帧用 `averageDisplaySrgbFrames`：8 位 sRGB 先线性化再平均（透明度只除以 255）。
+- 场景参考通路（04 §4.1）：`colorRef: scene` 镜头出像素时，成片落到 RGBA16F 目标读回半浮点，要了 `objectId` 渲一张 2 倍编号层，经 `extra` 交宿主落 EXR。`color` 层文件仍是 32 位。
 - 后期链：`post` 是全屏通道网格（材质带 `uniforms.tInput`），对平均后的结果按次序只跑一次（两个浮点目标来回倒），状态和通道参数取 `sub = 0`。声明了 `uniforms.tDepth` 的通道拿到 `sub = 0` 的深度（R 平面深度米，A 为 0 表示没打到）。后期类卡的 `Handle.object` 就是这张网格，宿主放进 `post`、不放进场景。`stats.tris` 只数场景那一遍。
 - 辅助层：`sub = 0`（计划里的 `auxSub`）、针孔、像素中心，不抗锯齿，不过后期链。`depth` 平面深度米，`objectId` 叶子实体编号，`normal` 相机空间法线（背面翻向相机）。没打到：编号 0、深度 1e10、法线 `(0, 0, 0)`。不在 `entities` 里的网格编号 0。
 - 辅助材质只画网格：有可见的点、线、精灵又要辅助层或深度，报 `contract.unsupported-object`。
@@ -39,4 +38,4 @@
 - 没有场景包：实体编号按名字字节序从 1 起；类别：点云 `particles`，名下有实体的 `assembly`，其余 `part`。
 - 资产没接；叠加层要的卡还没有，都报 `contract.unsupported-input`。
 
-测试：`node --test 'beiming/sources/three/*.test.mjs'`。`render.test.mjs`、`s4.test.mjs` 起无头浏览器实渲（起不了时跳过）。「卡加数据」、后期链和可见比例另见 `beiming/cards/m1a-cards.test.mjs`。
+测试：`node --test 'beiming/sources/three/*.test.mjs'`。`render`、`s4`、`s18` 起无头浏览器实渲（起不了时跳过）。「卡加数据」、后期链和可见比例另见 `beiming/cards/m1a-cards.test.mjs`。
