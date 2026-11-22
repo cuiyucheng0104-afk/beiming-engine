@@ -23,9 +23,10 @@ const RULES = [
   member('unseededRandom', 'crypto', 'randomUUID'),
 ];
 // INV-02 只认接收对象本身，不认 ctx.performance 等同名属性；展开符 ... 不是属性访问。
-const jsClockRoot = '(?:(?<![.#$])|(?<=\\.\\.\\.))';
+const refStart = '(?:(?<![.#\\w$])|(?<=\\.\\.\\.))';
+const globalPrefixes = /\b(?:(?:globalThis|window|self|global)\s*\.\s*)+(?=Math\b|crypto\b|Date\b|performance\b)/g;
 const renderRules = [
-  ...RULES.filter((r) => r !== pythonClock).map((r) => r.kind !== 'wallClock' ? r : { ...r, re: new RegExp(jsClockRoot + r.re.source, 'g') }),
+  ...RULES.filter((r) => r !== pythonClock).map((r) => r.kind !== 'wallClock' ? r : { ...r, re: new RegExp(refStart + r.re.source, 'g') }),
   ...['randomBytes', 'randomInt', 'randomFill', 'randomFillSync'].map((name) => member('unseededRandom', 'crypto', name)),
 ];
 const matches = (source, rules) => rules.flatMap(({ kind, call, re }) => Array.from(source.matchAll(re), () => ({ kind, call })));
@@ -125,7 +126,7 @@ function bindings(code, python, implicitPython) {
   const simpleRef = new RegExp(`^${ref}$`);
   const field = `${id}(?:\\s*:\\s*${id})?`;
   const target = `${id}|\\{\\s*${field}(?:\\s*,\\s*${field})*\\s*,?\\s*\\}`;
-  const tokens = new RegExp(`(?<![.#\\w$])(?:(${target})\\s*=(?![=>])|${ref})|[(){}\\[\\];,\\r\\n]`, 'g');
+  const tokens = new RegExp(`${refStart}(?:(${target})\\s*=(?![=>])|${ref})|[(){}\\[\\];,\\r\\n]`, 'g');
   let depth = 0;
   function finish(end) {
     const reads = [];
@@ -170,7 +171,7 @@ function groupedReceivers(code) {
     out += code.slice(start, index);
     start = index + 1;
     if (paren === '(') {
-      const call = /[\w$.)\]"']\s*$/.test(out) && !/(?:^|[^\w$.])(?:return|throw|yield|await|void|typeof|delete|case)\s*$/.test(out);
+      const call = /[\w$.)\]"']\s*$/.test(out) && !/\.\.\.\s*$/.test(out) && !/(?:^|[^\w$.])(?:return|throw|yield|await|void|typeof|delete|case)\s*$/.test(out);
       opens.push(call ? -1 : out.length);
     } else {
       const at = opens.pop();
@@ -213,7 +214,7 @@ export function scanText(source, options) {
   // 星号导入本身就违规，在绑定展开、导入语句被移除之前的源码上检查。
   const hits = python
     ? Array.from(masked.replace(/\\\r?\n/g, '').matchAll(pyRandomStarImport), ([call]) => ({ kind: 'unseededRandom', call }))
-    : matches(groupedReceivers(code).replace(/\b(?:globalThis|window|self|global)\s*\.\s*(?=Math\b|crypto\b|Date\b|performance\b)/g, ''), renderRules);
+    : matches(groupedReceivers(code).replace(globalPrefixes, ''), renderRules);
   if (python || implicit) hits.push(...scanPython(code));
   return hits.concat(Array.from(code.matchAll(/(?<![.#\w$])random\s*\(\s*\)/g),
     () => ({ kind: 'unseededRandom', call: 'random()' })));

@@ -498,8 +498,12 @@ test('INV-02 区分 JS 自定义时钟、全局墙钟和 Python 时间模块', (
     'const ctx = { performance: { now: () => 42 } }; const seed = ctx.performance.now();',
     'const time = { time: () => 42 }; const seed = time.time();',
     'const seed = ctx?.["performance"]?.timeOrigin;',
+    'const seed = [...ctx.globalThis.globalThis.performance.now().toString()];',
   ]) assert.equal(check(source), true, source);
   for (const source of ['globalThis.performance.now()', 'const root = globalThis; root.performance.now()',
+    'const root = globalThis; const seed = [...root.performance.now().toString()]',
+    'const root = globalThis; const seed = [...(root).performance.now().toString()]',
+    'globalThis.globalThis.performance.now()',
     'const p = performance; p.now()', 'const seed = [...performance.now().toString()]', 'Date.now()']) {
     assert.equal(check(source), false, source);
   }
