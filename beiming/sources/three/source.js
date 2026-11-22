@@ -208,7 +208,7 @@ export function createThreeSource({ THREE, host }) {
       async render(f, opts, want) {
         if (closed) throw new Error('会话已经关了');
         if (!Number.isInteger(f) || f < 0 || f >= manifest.frames) throw new SourceError('usage.bad-argument', `镜头局部帧号必须在 [0, ${manifest.frames})，给的是 ${f}`);
-        const plan = planRender(CAPS, shot, loaded.size, tier, opts ?? {}, want, locked);
+        const plan = planRender(CAPS, shot, loaded.size, tier, opts, want, locked);
         const timing = { stateMs: 0, renderMs: 0, readbackMs: 0 };
         const timed = (key, fn) => { const t0 = host.now(); const v = fn(); timing[key] += host.now() - t0; return v; };
         const layers = {};

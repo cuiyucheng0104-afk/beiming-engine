@@ -237,8 +237,10 @@ test('实渲：匀速方块 180 度快门从帧起点开，拖影亮度质心在
     const film = await readJson(join(FIXTURES, 'film.json'));
     const session = await source.open(shotInput(film, 's01'), { lock: null, tier: 'final', workspace, filmDir: FIXTURES });
     const AUX = ['depth', 'objectId', 'normal'];
-    // 宿主两端：坏参数在页面里就报 usage.bad-argument，一个层文件都不写
-    for (const o of [{ shutter: 0n }, { shutter: { angle: { toString: 0 } } }]) await assert.rejects(session.render(24, o, ['color']), code('usage.bad-argument'));
+    // 宿主两端：坏参数没进页面就报 usage.bad-argument，一个层文件都不写
+    const badTag = { toString: 0, get [Symbol.toStringTag]() { throw new TypeError('tag-boom'); } };
+    const BAD = [{ shutter: 0n }, { shutter: { angle: { toString: 0 } } }, null, new Date(), new Map(), /re/, new Uint8Array(2), { shutter: new Date() }, { shutter: new Map() }, { shutter: { angle: badTag } }];
+    for (const o of BAD) await assert.rejects(session.render(24, o, ['color']), code('usage.bad-argument'));
     assert.deepEqual(await readdir(workspace), []);
     const blur = await session.render(24, {}, ['color', ...AUX]);
     const still0 = await session.render(24, SINGLE, ['color', ...AUX]);
@@ -284,4 +286,16 @@ test('参数容器：opts、shutter 不是普通对象，或值转不成字符�
   for (const o of [null, 0n, [], 'x']) assert.throws(() => planRender(CAPS, shot, [W, H], 'final', o, ['color']), code('usage.bad-argument'));
   assert.throws(() => planRender(CAPS, { shutter: 1n }, [W, H], 'final', {}, ['color']), code('usage.bad-argument'));
   assert.throws(() => shutterAngle(0n), code('usage.bad-argument'));
+});
+
+test('参数容器：Date、Map、RegExp、TypedArray 这类实例，和 Symbol.toStringTag 取值器会抛的对象，都报 usage.bad-argument', () => {
+  const shot = { shutter: { angleDeg: 180, samples: 4 } };
+  const badTag = { toString: 0, get [Symbol.toStringTag]() { throw new TypeError('tag-boom'); } };
+  for (const inst of [new Date(), new Map(), /re/, new Uint8Array(2), new (class Foo {})()]) {
+    assert.throws(() => planRender(CAPS, shot, [W, H], 'final', inst, ['color']), code('usage.bad-argument'));
+    assert.throws(() => planRender(CAPS, shot, [W, H], 'final', { shutter: inst }, ['color']), code('usage.bad-argument'));
+  }
+  // badTag 自己是普通对象，当容器合法；当快门角的值时报错消息要拼得出来
+  assert.throws(() => planRender(CAPS, shot, [W, H], 'final', { shutter: { angle: badTag } }, ['color']), code('usage.bad-argument'));
+  assert.equal(planRender(CAPS, shot, [W, H], 'final', Object.create(null), ['color']).shutterSamples, 4);
 });

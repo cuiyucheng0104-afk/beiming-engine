@@ -17,16 +17,19 @@ const WRITABLE_TRACKS = ['tracks.camera'];
 const bad = (message) => new SourceError('usage.bad-argument', message);
 // 报错消息里的值：{ toString: 0 }、无原型对象转不成字符串会抛原生 TypeError，丢掉 SourceError.code
 const show = (v) => {
-  try { return typeof v === 'string' ? JSON.stringify(v) : String(v); } catch { return Object.prototype.toString.call(v); }
+  try { return typeof v === 'string' ? JSON.stringify(v) : String(v); } catch { /* 转不成字符串 */ }
+  // Symbol.toStringTag 的取值器也可能抛
+  try { return Object.prototype.toString.call(v); } catch { return '<unprintable>'; }
 };
 // 显式写了 null 不能被 ?? 当成没写，悄悄退回默认值
 const given = (obj, key) => {
   if (obj != null && Object.hasOwn(obj, key) && obj[key] === null) throw bad(`${key} 不能是 null`);
   return obj?.[key];
 };
-// opts、shutter 这类参数容器：没写可以，写了就必须是普通对象（0n、字符串、数组都不行）
+// opts、shutter 这类参数容器：没写可以，写了就必须是普通对象（0n、字符串、数组、Date、Map 这类实例都不行，不然会悄悄退回默认值）
+const plain = (v) => v !== null && typeof v === 'object' && [null, Object.prototype].includes(Object.getPrototypeOf(v));
 const box = (v, name) => {
-  if (v !== undefined && (v === null || typeof v !== 'object' || Array.isArray(v))) throw bad(`${name} 必须是对象，给的是 ${show(v)}`);
+  if (v !== undefined && !plain(v)) throw bad(`${name} 必须是普通对象，给的是 ${show(v)}`);
   return v;
 };
 const used = (v) => (Array.isArray(v) ? v.length > 0 : v !== null && typeof v === 'object' && Object.keys(v).length > 0);

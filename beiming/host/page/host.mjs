@@ -9,7 +9,7 @@ import { chromium } from 'playwright-core';
 import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs';
 import { hashCardContents, validateCard } from '../../cards/index.mjs';
 import { caps } from '../../sources/three/caps.mjs';
-import { planOpen, SourceError } from '../../sources/three/plan.mjs';
+import { planOpen, planRender, SourceError } from '../../sources/three/plan.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 // 页面只拿得到这两处：本系统的代码，和 0.187.0 的 three
@@ -93,7 +93,7 @@ export async function startSource({ cards = [] } = {}) {
     // lock 必须写出来，哪怕是 null：忘了传当场报错
     const missing = ENV_KEYS.filter((k) => env?.[k] === undefined);
     if (missing.length) throw new SourceError('usage.bad-argument', `env 缺 ${missing.join('、')}`);
-    planOpen(CAPS, input, env, library);
+    const locked = planOpen(CAPS, input, env, library);
     // shortcut: 入口文件经本机静态服务进页面，片子描述所在的目录必须在放行的目录里；要装别处的片子时给静态服务加一个挂载点
     const filmDir = rel(resolve(env.filmDir));
     if (!SERVED.some((dir) => `${filmDir}/`.startsWith(dir))) throw new SourceError('usage.bad-argument', 'env.filmDir 不在页面宿主放行的目录里');
@@ -120,7 +120,9 @@ export async function startSource({ cards = [] } = {}) {
 
       /** 渲一帧：各层写到 env.workspace 下面的 r<这个会话第几次成功的 render>-f<帧号>/<通道名>.<类型>，交回元数据和层引用 */
       async render(f, opts, want) {
-        const res = await page.evaluate(([frame, o, w]) => window.__session.render(frame, o, w), [f, opts ?? {}, want]);
+        // 进页面之前先在这边判一遍：Date、Map 这类实例过序列化会变成 {}，显式 null 也不能被吞成没写
+        planRender(CAPS, input.shot, input.output.size, env.tier, opts, want, locked);
+        const res = await page.evaluate(([frame, o, w]) => window.__session.render(frame, o, w), [f, opts === undefined ? {} : opts, want]);
         if (!res.ok) throw new SourceError(res.code, res.message);
         const dir = `r${pad(renders++, 3)}-f${pad(f, 4)}`, layers = {};
         for (const [name, l] of Object.entries(res.layers)) {
