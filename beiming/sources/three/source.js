@@ -3,8 +3,9 @@
 //   host.load(shot, { THREE, renderer })   装载镜头：搭 ctx、调一次 build（「卡加数据」模式是跑固定装载脚本），交回 { object, size, post? }
 //   host.apply(loaded, f, sub)             把 (f, sub) 的状态写进场景
 //   host.measure(loaded, f, facts)         量这一帧的元数据（相机、实体、统计、哈希）
-// 后期链：loaded.post 是 post 类的卡交出的全屏通道（一张网格，材质带 uniforms.tInput），按次序排好。颜色层每个子帧渲完，
-// 依次把每个通道画一遍：tInput 填上一遍的输出，画到另一个同样的浮点目标，最后一遍的输出才读回。辅助层不过这条链。
+// 后期链：loaded.post 是 post 类的卡交出的全屏通道（一张网格，材质带 uniforms.tInput），按次序排好。各子帧只渲后期之前的场景、
+// 在线性光里平均之后，依次把每个通道画一遍（只跑一次）：tInput 填上一遍的输出，画到另一个同样的浮点目标，最后一遍的输出才读回；
+// 通道声明了 uniforms.tDepth 时填 sub = 0 的深度。辅助层不过这条链。
 //   host.now()                             单调时钟，毫秒；读数只进元数据的 timing
 import { renderingOf } from '../../kernel/eval/input.mjs';
 import { caps, VERSION } from './caps.mjs';
@@ -33,6 +34,19 @@ void main() {
   vec3 n = normalize(vNormal);
   gl_FragColor = vec4(gl_FrontFacing ? n : -n, 1.0);
 }`;
+
+const SRGB_TO_LINEAR = Float64Array.from({ length: 256 }, (_, i) => { const c = i / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+
+/**
+ * 显示参考的镜头（没有 HDR 目标）逐子帧累积：各子帧是 8 位 sRGB 编码的 RGBA，先线性化再取算术平均。
+ * 交回线性光的 RGBA 浮点；透明度本来就是线性的，只除以 255。
+ */
+export function averageDisplayFrames(frames) {
+  if (!frames.length || frames.some((x) => x.length !== frames[0].length || x.length % 4)) throw new SourceError('usage.bad-argument', '子帧必须是一样长的 RGBA 8 位数组，至少一张');
+  const sum = new Float64Array(frames[0].length);
+  for (const px of frames) for (let i = 0; i < px.length; i++) sum[i] += i % 4 === 3 ? px[i] / 255 : SRGB_TO_LINEAR[px[i]];
+  return Float32Array.from(sum, (v) => v / frames.length);
+}
 
 /** 辅助层画不了的对象：看得见、会被画出来、又不是网格的（点、线、精灵） */
 export function unrenderableInAux(scene) {
@@ -86,6 +100,8 @@ export function createThreeSource({ THREE, host }) {
     // 颜色层和辅助层都渲到同一个 32 位浮点目标：层文件是 32 位，渲染时不先过一道半精度
     const target = () => new THREE.WebGLRenderTarget(1, 1, { type: THREE.FloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
     const rt = target(), rtPost = post.length ? target() : null;
+    // 后期链要深度时才建：sub = 0 的辅助层第 0 遍
+    let rtDepth = null;
     const postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     // 最近一遍场景画了多少三角形：后期链的全屏通道不算在里面
     let sceneTris = null;
@@ -101,37 +117,65 @@ export function createThreeSource({ THREE, host }) {
       return auxMaterials.get(key);
     };
 
-    /** 渲进目标（chain 不空时再过一遍后期链）再读回成 RGBA 浮点，行序翻成画面从上到下。readPixels 会等绘制做完，所以显卡上的耗时大半记在读回里 */
-    function draw([w, h], timed, chain = []) {
-      rt.setSize(w, h);
-      r.setRenderTarget(rt);
-      // 每一遍自己定清屏值 (0, 0, 0, 0)，渲完还原，不把状态留给下一次。镜头设了背景色时渲染库改用背景色、透明度 1 清屏
+    // 每一遍自己定清屏值 (0, 0, 0, 0)，渲完还原，不把状态留给下一次。镜头设了背景色时渲染库改用背景色、透明度 1 清屏
+    function cleared(fn) {
       const clearColor = r.getClearColor(new THREE.Color()), clearAlpha = r.getClearAlpha();
       r.setClearColor(0x000000, 0);
       try {
-        timed('renderMs', () => r.render(scene, camera));
-        sceneTris = r.info.render.triangles;
-        let from = rt;
-        for (const pass of chain) {
-          const to = from === rt ? rtPost : rt;
-          to.setSize(w, h);
-          pass.material.uniforms.tInput.value = from.texture;
-          r.setRenderTarget(to);
-          timed('renderMs', () => r.render(pass, postCamera));
-          from = to;
-        }
+        return fn();
       } finally {
         r.setClearColor(clearColor, clearAlpha);
       }
+    }
+
+    /** 场景渲进目标 into（默认 rt），不过后期链 */
+    function drawScene([w, h], timed, into = rt) {
+      into.setSize(w, h);
+      r.setRenderTarget(into);
+      cleared(() => timed('renderMs', () => r.render(scene, camera)));
+      sceneTris = r.info.render.triangles;
+    }
+
+    /** 读回 from 目标成 RGBA 浮点，行序是 GL 的（从下到上）。readPixels 会等绘制做完，所以显卡上的耗时大半记在读回里 */
+    function readRaw(from, [w, h], timed) {
+      r.setRenderTarget(from);
       const raw = new Float32Array(w * h * 4);
       timed('readbackMs', () => gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, raw));
+      return raw;
+    }
+
+    const flipRows = (raw, [w, h]) => {
       const out = new Float32Array(raw.length);
       for (let y = 0; y < h; y++) out.set(raw.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);
       return out;
+    };
+
+    /** 后期链：从 input 纹理起依次过各个通道，rt、rtPost 来回倒；声明了 uniforms.tDepth 的通道拿到 depth。交回最后写的目标 */
+    function drawChain([w, h], timed, chain, input, depth) {
+      let from = input, last = null;
+      cleared(() => {
+        for (const pass of chain) {
+          const to = last === rt ? rtPost : rt;
+          to.setSize(w, h);
+          pass.material.uniforms.tInput.value = from;
+          if (pass.material.uniforms.tDepth) pass.material.uniforms.tDepth.value = depth;
+          r.setRenderTarget(to);
+          timed('renderMs', () => r.render(pass, postCamera));
+          from = to.texture;
+          last = to;
+        }
+      });
+      return last;
     }
 
-    /** 辅助层：换上辅助材质、去掉背景，渲一遍 */
-    function drawAux(size, pass, timed) {
+    /** 场景渲进 rt 再读回，行序翻成画面从上到下 */
+    const draw = (size, timed) => {
+      drawScene(size, timed);
+      return flipRows(readRaw(rt, size, timed), size);
+    };
+
+    /** 换上辅助材质、去掉背景跑 fn，跑完换回 */
+    function withAux(pass, fn) {
       const swapped = [];
       scene.traverse((o) => {
         if (!o.isMesh) return;
@@ -142,12 +186,14 @@ export function createThreeSource({ THREE, host }) {
       const background = scene.background;
       scene.background = null;
       try {
-        return draw(size, timed);
+        return fn();
       } finally {
         scene.background = background;
         for (const [o, m] of swapped) o.material = m;
       }
     }
+    /** 辅助层：换上辅助材质渲一遍，读回 */
+    const drawAux = (size, pass, timed) => withAux(pass, () => draw(size, timed));
 
     const pick = (rgba, channels) => {
       const n = rgba.length / 4, out = new Float32Array(n * channels.length);
@@ -180,20 +226,42 @@ export function createThreeSource({ THREE, host }) {
         });
 
         if (plan.layers.length) {
-          // 逐子帧累积：每个子帧渲到场景线性的浮点目标，读回后逐像素取算术平均
+          // 逐子帧累积（04 §3.1）：每个子帧只渲后期链之前的场景线性浮点目标，读回后在线性光里逐像素取算术平均
           const sum = new Float64Array(plan.size[0] * plan.size[1] * 4);
           for (const sub of plan.subs) {
             applyAt(sub);
-            const px = draw(plan.size, timed, post);
+            drawScene(plan.size, timed);
             tris = sceneTris;
+            const px = readRaw(rt, plan.size, timed);
             for (let i = 0; i < sum.length; i++) sum[i] += px[i];
           }
-          color = Float32Array.from(sum, (v) => v / plan.subs.length);
+          let raw = Float32Array.from(sum, (v) => v / plan.subs.length);
+          // 后期链对平均后的结果只跑一次；它要的深度取 sub = 0（R 是平面深度，米；A 是 0 表示没打到）
+          if (post.length) {
+            let depth = null;
+            if (post.some((p) => p.material.uniforms.tDepth)) {
+              applyAt(plan.auxSub);
+              const strangers = unrenderableInAux(scene);
+              if (strangers.length) throw new SourceError('contract.unsupported-object', `场景里有辅助层画不了的对象（${strangers.map((o) => o.name || o.type).join('、')}），后期链要的深度交不出`);
+              rtDepth ??= target();
+              withAux(0, () => drawScene(plan.size, timed, rtDepth));
+              depth = rtDepth.texture;
+            }
+            const mean = new THREE.DataTexture(raw, plan.size[0], plan.size[1], THREE.RGBAFormat, THREE.FloatType);
+            mean.minFilter = mean.magFilter = THREE.NearestFilter;
+            mean.needsUpdate = true;
+            try {
+              raw = readRaw(drawChain(plan.size, timed, post, mean, depth), plan.size, timed);
+            } finally {
+              mean.dispose();
+            }
+          }
+          color = flipRows(raw, plan.size);
           layers.color = { type: 'f32', components: ['R', 'G', 'B', 'A'], size: plan.size, data: color };
         }
 
         // 辅助层和元数据取同一个样本：sub = 0，针孔，不累积，像素中心
-        applyAt(0);
+        applyAt(plan.auxSub);
         // 辅助材质只会画网格。点、线、精灵照画就会把自己的颜色写进深度和编号，漏画又等于少交，所以有它们在就报错
         const strangers = plan.aux ? unrenderableInAux(scene) : [];
         if (strangers.length) throw new SourceError('contract.unsupported-object', `场景里有辅助层画不了的对象（${strangers.map((o) => o.name || o.type).join('、')}），交不出 ${plan.layers.filter((n) => n !== 'color').join('、')}`);
@@ -256,6 +324,7 @@ export function createThreeSource({ THREE, host }) {
         loaded.object.dispose();
         rt.dispose();
         rtPost?.dispose();
+        rtDepth?.dispose();
         for (const m of auxMaterials.values()) m.dispose();
       },
     };

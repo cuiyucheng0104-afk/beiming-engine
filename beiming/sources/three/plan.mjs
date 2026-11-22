@@ -63,9 +63,33 @@ export function planOpen(caps, input, env, library = {}) {
   return { seed, shutterSamples };
 }
 
+/** 快门角：angleDeg 是契约写法，angle 是兼容写法；两个都写又不相等报错。都没写返回 undefined */
+export function shutterAngle(shutter) {
+  if (shutter?.angle !== undefined && shutter.angleDeg !== undefined && shutter.angle !== shutter.angleDeg) throw bad(`快门角 angle（${shutter.angle}）和 angleDeg（${shutter.angleDeg}）对不上`);
+  return shutter?.angleDeg ?? shutter?.angle;
+}
+
+/**
+ * 命令行的快门参数：--shutter <快门角，度> 和 --samples <子帧采样数>，交回 RenderOpts 的 { shutter: { angleDeg?, samples? } }，
+ * 没给的不出现；别的参数不管。值域由 planRender 判（快门角 0 配多个采样报 contract.shutter-conflict）。
+ * 注意这里的 --samples 是子帧采样数，不是 RenderOpts.samples（每像素采样数）。
+ */
+export function parseShutterArgs(argv) {
+  const shutter = {};
+  for (let i = 0; i < argv.length; i++) {
+    const [flag, inline] = argv[i].split(/=(.*)/s);
+    const key = { '--shutter': 'angleDeg', '--samples': 'samples' }[flag];
+    if (!key) continue;
+    const raw = inline ?? argv[++i];
+    if (raw === undefined || raw.trim() === '' || !Number.isFinite(Number(raw))) throw bad(`${flag} 要一个数，给的是 ${raw}`);
+    shutter[key] = Number(raw);
+  }
+  return Object.keys(shutter).length ? { shutter } : {};
+}
+
 /**
  * 一次 render 的计划。shot 是镜头条目，size 是画幅 [宽, 高]，locked 是 planOpen 的返回值。
- * 返回 { angleDeg, shutterSamples, subs, size, pixelSamples, layers, aux }：layers 是这次要交的像素输出，aux 是里面有没有辅助层。
+ * 返回 { angleDeg, shutterSamples, subs, size, pixelSamples, auxSub, layers, aux }：layers 是这次要交的像素输出，aux 是里面有没有辅助层。
  * 取值次序：这次调用 → 锁文件 → 镜头条目 → 能力声明。
  */
 export function planRender(caps, shot, size, tier, opts = {}, want, locked = {}) {
@@ -73,7 +97,7 @@ export function planRender(caps, shot, size, tier, opts = {}, want, locked = {})
   const missing = want.filter((n) => !declared(caps, n));
   if (missing.length) throw new SourceError('contract.unsupported-output', `这个帧源交不出：${missing.join('、')}`);
 
-  const angleDeg = opts.shutter?.angleDeg ?? shot.shutter?.angleDeg ?? 0;
+  const angleDeg = shutterAngle(opts.shutter) ?? shutterAngle(shot.shutter) ?? 0;
   if (!(angleDeg >= 0 && angleDeg <= 360)) throw bad(`快门角必须在 [0, 360] 度，给的是 ${angleDeg}`);
   const shutterSamples = opts.shutter?.samples ?? locked.shutterSamples ?? shot.shutter?.samples ?? (angleDeg === 0 ? 1 : caps.motionBlur.samples);
   if (!Number.isInteger(shutterSamples) || shutterSamples < 1) throw bad(`子帧采样数必须是不小于 1 的整数，给的是 ${shutterSamples}`);
@@ -93,6 +117,8 @@ export function planRender(caps, shot, size, tier, opts = {}, want, locked = {})
     subs: shutterSubs(angleDeg, shutterSamples),
     size: [Math.max(1, Math.round(size[0] * scale)), Math.max(1, Math.round(size[1] * scale))],
     pixelSamples,
+    // 辅助层和元数据固定取 sub = 0（快门窗口 [f, f + angleDeg / 360) 的起点），不累积
+    auxSub: 0,
     // 没要颜色层就是「只要元数据」：不出像素
     layers: want.includes('color') ? want.filter((n) => n !== 'meta') : [],
     aux: want.includes('color') && want.some((n) => AUX.includes(n)),
