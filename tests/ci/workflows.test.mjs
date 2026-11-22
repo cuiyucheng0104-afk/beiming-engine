@@ -122,9 +122,12 @@ test('conformance-5090.yml：PR 先过轻量 filter，改到帧源且开了 5090
 
   assert.match(jobs.filter, /runs-on: ubuntu-24\.04/);
   assert.match(jobs.filter, /timeout-minutes: 5\b/);
-  // 「PR 分支」：显式 mode=pr，或直接由 pull_request 触发；workflow_call 默认 nightly，调用方是 PR 也走夜间链
-  const PR = "(inputs.mode == 'pr' || (github.event_name == 'pull_request' && !inputs.mode))";
+  // 「PR 分支」：直接由 pull_request 触发，或 workflow_call 显式 mode=pr。从 PR 调用 workflow_call 时 event_name 也是 pull_request，
+  // 只能靠 from_call 哨兵（workflow_call 下默认 true，直接触发时没有 inputs）区分；mode 传空串也要走夜间链
+  const PR = "((github.event_name == 'pull_request' && !inputs.from_call) || (inputs.from_call && inputs.mode == 'pr'))";
   assert.match(text, /workflow_call:\n {4}inputs:\n {6}mode:\n[\s\S]*?default: nightly\n/);
+  assert.match(text, /\n {6}from_call:\n(?: {8}.*\n)*? {8}type: boolean\n(?: {8}.*\n)*? {8}default: true\n/, 'workflow_call 要有布尔哨兵 from_call，默认 true');
+  assert.doesNotMatch(text, /!inputs\.mode\b/, '用 !inputs.mode 判 PR：从 PR 调用并传 mode: \'\' 会误走 PR 分支');
   assert.ok(jobs.filter.includes(`if: ${PR}\n`), 'filter 只在 PR 分支跑');
   const out = /frame_sources_changed: \$\{\{ steps\.([\w-]+)\.outputs\.frame_sources_changed \}\}/.exec(jobs.filter);
   assert.ok(out, 'filter 要把判定结果交给 jobs.filter.outputs');
@@ -155,6 +158,10 @@ test('conformance-5090.yml：PR 先过轻量 filter，改到帧源且开了 5090
     assert.ok(gpu.includes(`'${g}*.test.mjs'`), `一致性命令缺 ${g}`);
   }
   assert.match(gpu, /import\('\.\/tests\/ci\/browser\.mjs'\)[^\n]*process\.exit\(3\)/);
+  // 只有空的浏览器目录时 browserOk 也为真，render.test.mjs 起不了帧源就 t.skip、整步照绿：先真起停一次，起不来 exit 3
+  const boot = /import\('\.\/beiming\/host\/page\/host\.mjs'\)[^\n]*/.exec(gpu)?.[0] ?? '';
+  assert.match(boot, /await startSource\(\)[^\n]*await s\.stop\(\)[^\n]*process\.exit\(3\)/, '一致性前要真起停一次 three 帧源');
+  assert.ok(gpu.indexOf(boot) < gpu.indexOf("node --test 'beiming/kernel/conformance/"), '起停帧源要在跑套件之前');
 
   assert.ok(jobs.exam.includes(`!${PR}`), 'exam 只在夜间链跑');
   const nightly = jobs['nightly-rebuild'];

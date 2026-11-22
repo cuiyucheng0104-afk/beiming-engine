@@ -5,7 +5,8 @@
 #                     只认同仓分支的 PR：fork 来的 PR 不在自托管机器上跑（不受信的代码）。
 #   schedule / workflow_dispatch / workflow_call   夜间流水：exam（考试）→ conformance-5090（限 10 分钟）→ nightly-rebuild（夜间重建）。
 #                     workflow_call 默认 mode=nightly：即使调用方是 PR 也走夜间链；mode=pr 才走 PR 的 filter 分支。
-#   「PR 分支」= inputs.mode == 'pr'，或直接由 pull_request 触发（此时没有 inputs）；下面各 job 的 if 都按这个判。
+#   「PR 分支」= 直接由 pull_request 触发（没有 inputs，from_call 为假），或 workflow_call 显式传 mode=pr；
+#                     从 PR 调用 workflow_call 时 github.event_name 也是 pull_request，靠 from_call 哨兵区分，mode 传空串也走夜间链。
 # 显卡队：concurrency group gpu-5090、不取消进行中的任务。只有 conformance-5090 进这个组（同组最多一个运行、一个排队，多放会互相挤掉）。
 # exam 与 nightly-rebuild 的入口还没合入：用 hashFiles 守着，缺入口时只打一条提示。本机复现见 tests/ci/README.md。
 # actions 的哈希与 ci.yml 保持一致（tests/ci/workflows.test.mjs 核对）。
@@ -22,6 +23,11 @@ on:
         description: nightly（考试 → 一致性 → 夜间重建）或 pr（先判定是否改到帧源）
         type: string
         default: nightly
+      from_call:
+        description: 内部哨兵，调用方不要传：workflow_call 下恒为 true，直接 pull_request 触发时没有 inputs（为 false）
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   contents: read
@@ -32,7 +38,7 @@ defaults:
 
 jobs:
   filter:
-    if: (inputs.mode == 'pr' || (github.event_name == 'pull_request' && !inputs.mode))
+    if: ((github.event_name == 'pull_request' && !inputs.from_call) || (inputs.from_call && inputs.mode == 'pr'))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -51,7 +57,7 @@ jobs:
 
   exam:
     if: >-
-      !(inputs.mode == 'pr' || (github.event_name == 'pull_request' && !inputs.mode))
+      !((github.event_name == 'pull_request' && !inputs.from_call) || (inputs.from_call && inputs.mode == 'pr'))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -74,8 +80,8 @@ jobs:
     if: >-
       !cancelled() && vars.BEIMING_5090_RUNNER == 'true' &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (
-      ((inputs.mode == 'pr' || (github.event_name == 'pull_request' && !inputs.mode)) && needs.filter.outputs.frame_sources_changed == 'true') ||
-      (!(inputs.mode == 'pr' || (github.event_name == 'pull_request' && !inputs.mode)) && needs.exam.result == 'success'))
+      (((github.event_name == 'pull_request' && !inputs.from_call) || (inputs.from_call && inputs.mode == 'pr')) && needs.filter.outputs.frame_sources_changed == 'true') ||
+      (!((github.event_name == 'pull_request' && !inputs.from_call) || (inputs.from_call && inputs.mode == 'pr')) && needs.exam.result == 'success'))
     runs-on: [self-hosted, linux, x64, rtx5090]
     timeout-minutes: 10
     concurrency:
@@ -93,6 +99,8 @@ jobs:
         run: npm ci
       - name: 确认无头浏览器可用（缺了实渲测试会自己跳过，不能当绿灯）
         run: node --input-type=module -e "const { browserOk } = await import('./tests/ci/browser.mjs'); if (!browserOk) { console.error('::error::5090 运行器上没有无头浏览器'); process.exit(3); }"
+      - name: 真起停一次 three 帧源（只有空的浏览器目录时上一步也会过，render.test.mjs 起不来就跳过）
+        run: node --input-type=module -e "const { startSource } = await import('./beiming/host/page/host.mjs'); try { const s = await startSource(); await s.stop(); } catch (e) { console.error('::error::5090 运行器上起不了 three 帧源：' + e.message); process.exit(3); }"
       - name: 帧源一致性套件、校准检查与帧源实渲测试
         run: >-
           node --test 'beiming/kernel/conformance/*.test.mjs' 'beiming/calib/*.test.mjs'
@@ -101,7 +109,7 @@ jobs:
   nightly-rebuild:
     needs: conformance-5090
     if: >-
-      !(inputs.mode == 'pr' || (github.event_name == 'pull_request' && !inputs.mode)) &&
+      !((github.event_name == 'pull_request' && !inputs.from_call) || (inputs.from_call && inputs.mode == 'pr')) &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: [self-hosted, linux, x64, rtx5090]
     timeout-minutes: 60

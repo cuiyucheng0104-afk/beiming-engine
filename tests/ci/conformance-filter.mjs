@@ -17,15 +17,17 @@ export const FRAME_SOURCE_PREFIXES = [
   'beiming/calib/',
 ];
 
-export function classifyConformancePaths(paths) {
+// gitNull：输入来自 git diff -z。git 在所有平台都输出 /，这时 \ 是文件名里的普通字符（POSIX 上 beiming\sources\x 是根目录的一个文件），不能当分隔符
+export function classifyConformancePaths(paths, { gitNull = false } = {}) {
   const matched = paths
-    .map(p => String(p).replace(/\\/g, '/').replace(/^\.\//, ''))
+    .map(p => (gitNull ? String(p) : String(p).replace(/\\/g, '/')).replace(/^\.\//, ''))
     .filter(p => FRAME_SOURCE_PREFIXES.some(pre => p.startsWith(pre)));
   return { frame_sources_changed: matched.length > 0, matched };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const r = classifyConformancePaths(readFileSync(0, 'utf8').split(process.argv.includes('--null') ? '\0' : /\r?\n/));
+  const gitNull = process.argv.includes('--null');
+  const r = classifyConformancePaths(readFileSync(0, 'utf8').split(gitNull ? '\0' : /\r?\n/), { gitNull });
   for (const p of r.matched) process.stderr.write(`帧源变更：${p}\n`);
   process.stdout.write(`frame_sources_changed=${r.frame_sources_changed}\n`);
 }

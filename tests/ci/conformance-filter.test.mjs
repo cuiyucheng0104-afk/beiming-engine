@@ -94,3 +94,8 @@ test('真实 git 仓库：git diff -z --name-only --no-renames base...head | --n
   assert.equal(classify(base, head), 'frame_sources_changed=true\n');
   assert.equal(classify('HEAD~1', head), 'frame_sources_changed=false\n', '只看最后一个提交会漏判：工作流不能拿 HEAD~1 当基准');
 });
+
+
+test('I6-R3-Red: Git --null 模式下根目录字面反斜杠文件 beiming\\sources\\notes.txt 不得误判为帧源目录', () => {
+  assert.equal(classifyConformancePaths(['beiming\\sources\\notes.txt'], { gitNull: true }).frame_sources_changed, false);
+});
