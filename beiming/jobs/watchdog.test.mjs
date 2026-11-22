@@ -437,6 +437,32 @@ test('A14-3e 健康探针以 true 为原因拒绝不算报健康：check() 与 r
   assert.deepEqual([error.reason, calls], ['probe', { health: 2, task: 1 }]);
 });
 
+test('A14-3f 裸 Node 子进程仅在 guard 活跃期间保持轮询', () => {
+  const runChild = (body) => execFileSync(node, ['--input-type=module', '-e', `
+    import assert from 'node:assert/strict';
+    import { createJobWatchdog } from './watchdog.mjs';
+    ${body}
+  `], { cwd: new URL('.', import.meta.url), timeout: 5000 });
+
+  runChild('createJobWatchdog({ quotas: { pollIntervalMs: 20 } });');
+  runChild(`
+    const watchdog = createJobWatchdog({ quotas: { pollIntervalMs: 20 } });
+    assert.equal(await watchdog.guard(() => 42), 42);
+  `);
+  runChild(`
+    const never = () => new Promise(() => {});
+    let probes = 0;
+    const watchdog = createJobWatchdog({
+      quotas: { vramQuotaMB: 64, pollIntervalMs: 20, probeTimeoutMs: 50 },
+      probeVramMB: () => { probes += 1; return never(); },
+    });
+    const pending = watchdog.guard(never);
+    await watchdog.guard(() => 42);
+    await assert.rejects(pending, { code: 'failure.vram-exceeded', exitCode: 1, reason: 'probe-failed' });
+    assert.equal(probes, 1);
+  `);
+});
+
 test('A14-3 着色器挂起：有心跳不算挂，心跳一停到点零宽限 SIGKILL，报 timeout.shader-hang（124）', async (t) => {
   const watchdog = watch(t, { quotas: { shaderHangMs: 400, frameTimeoutMs: 20_000, killGraceMs: 5000 } });
   const child = watchdog.spawnManaged(node, ['-e', IDLE], { stdio: 'ignore' });

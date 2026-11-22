@@ -445,13 +445,16 @@ export function createJobWatchdog(input) {
     polling = true;
     runProbes().finally(() => { polling = false; });
   }, pollIntervalMs);
-  pollTimer.unref(); // 轮询不拖住进程退出；帧和着色器的计时器只在各自进行中才存在，照常拦住事件循环
+  pollTimer.unref(); // 空闲时允许进程退出，有工作在等 guard 时才保持轮询。
+  let activeGuards = 0;
 
   // 把一段异步工作挂到看门狗上。越线后进程被杀，工作自己多半先以「连接断了」之类的错结束，这里一律换成越线的那个错。
   async function guard(work) {
     if (typeof work !== 'function') throw bad('guard 要给一个函数。');
     if (closed) throw bad('看门狗已经关闭。');
     if (violation) await violated;
+    activeGuards += 1;
+    pollTimer.ref();
     try {
       const result = await Promise.race([Promise.resolve().then(work), violated]);
       if (violation) await violated;
@@ -459,6 +462,9 @@ export function createJobWatchdog(input) {
     } catch (error) {
       if (violation) await violated;
       throw error;
+    } finally {
+      activeGuards -= 1;
+      if (activeGuards === 0) pollTimer.unref();
     }
   }
 
