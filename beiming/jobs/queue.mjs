@@ -58,9 +58,6 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
   const ledgerFile = () => workspace.resolve('jobs/ledger.jsonl');
   const ownerFileIn = (jobDir, attempt, generation) => path.join(jobDir, `attempt-${attempt}.owner-${generation}`);
   const parseOwnerPid = text => Number(text.trim().split(/\s+/)[0]);
-  const sameJobSeed = (a, b) => a.id === b.id && a.handler === b.handler &&
-    JSON.stringify(a.payload) === JSON.stringify(b.payload) &&
-    JSON.stringify(a.snapshot) === JSON.stringify(b.snapshot);
 
   function readJob(id, file = jobFile(id)) {
     const job = JSON.parse(readText(file));
@@ -82,12 +79,51 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
         if (error?.code === 'ENOENT' && locked() !== file) continue;
         throw error;
       }
-      if (locked() === file) return { job: snap, file };
+      if (locked() === file) return snap;
     }
   }
 
   function save(job, create = false, file = jobFile(job.id)) {
     atomicWrite(file, `${JSON.stringify(job, null, 2)}\n`, { create });
+  }
+
+  function saveUnderLock(job, locked) {
+    const text = `${JSON.stringify(job, null, 2)}\n`;
+    for (;;) {
+      const baseFile = locked();
+      let published = false;
+      try {
+        atomicWrite(baseFile, text, {
+          stagingParent: path.dirname(baseFile),
+          aroundPublish: publish => {
+            if (locked() !== baseFile) return;
+            publish();
+            published = true;
+          },
+        });
+      } catch (error) {
+        if (['ENOENT', 'EXDEV'].includes(error?.code) && locked() !== baseFile) continue;
+        throw error;
+      }
+      if (published) return;
+    }
+  }
+
+  function withGenLock(gen, fn) {
+    for (;;) {
+      const target = gen.resolveFile();
+      let matched = false;
+      const out = withFileLock(target, locked => {
+        if (locked() !== gen.resolveFile()) return undefined;
+        matched = true;
+        return fn(locked);
+      });
+      if (matched) return out;
+    }
+  }
+
+  function saveGen(job, gen) {
+    withGenLock(gen, locked => saveUnderLock(job, locked));
   }
 
   function findActiveForDir(jobDir) {
@@ -99,53 +135,102 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     return undefined;
   }
 
-  // 领取文件按轮次和代号追加，并写入唯一认主令牌；后续运行态和终态回写靠 locateOwned 追随本代目录，绝不跨代覆盖。
-  function claim(job, attempt = job.attempt, file = jobFile(job.id)) {
+  // 在已持有的文件锁下领取轮次：发布点核对 locked() 未换代，确保领取文件与当前锁严格共处同一代目录。
+  function claimUnderLock(job, attempt, locked) {
     checkJobId(job.id);
-    let lastDir = path.dirname(file);
-    const token = `${process.pid} ${randomUUID()}\n`;
-    let claimedFile;
-    for (let generation = 1; ; generation += 1) {
-      claimedFile = ownerFileIn(lastDir, attempt, generation);
-      try {
-        atomicWrite(claimedFile, token, { create: true });
-        break;
-      } catch (error) {
-        if (error.code !== 'EEXIST') throw error;
-        if (processIsAlive(parseOwnerPid(readText(claimedFile))) || attempt === job.attempt) {
-          throw new Error('该作业轮次已经由执行器领取。', { cause: error });
+    for (;;) {
+      const baseFile = locked();
+      let lastDir = path.dirname(baseFile);
+      const token = `${process.pid} ${randomUUID()}\n`;
+      let claimedFile;
+      let abortedRotate = false;
+      for (let generation = 1; ; generation += 1) {
+        if (locked() !== baseFile) {
+          abortedRotate = true;
+          break;
+        }
+        claimedFile = ownerFileIn(lastDir, attempt, generation);
+        let published = false;
+        try {
+          atomicWrite(claimedFile, token, {
+            stagingParent: lastDir,
+            create: true,
+            aroundPublish: publish => {
+              if (locked() !== baseFile) return;
+              publish();
+              published = true;
+            },
+          });
+          if (!published) abortedRotate = true;
+          break;
+        } catch (error) {
+          if (['ENOENT', 'EXDEV'].includes(error?.code) && locked() !== baseFile) {
+            abortedRotate = true;
+            break;
+          }
+          if (error.code !== 'EEXIST') throw error;
+          if (locked() !== baseFile) {
+            abortedRotate = true;
+            break;
+          }
+          if (processIsAlive(parseOwnerPid(readText(claimedFile))) || attempt === job.attempt) {
+            throw new Error('该作业轮次已经由执行器领取。', { cause: error });
+          }
         }
       }
-    }
-    const ownerName = path.basename(claimedFile);
-    const resolveFile = () => {
-      const found = locateOwned(path.join(lastDir, ownerName), candidate => readText(candidate) === token, true);
-      if (!found) throw new Error('作业所属目录在执行期间丢失。');
-      lastDir = path.dirname(found);
-      return path.join(lastDir, 'job.json');
-    };
-    try {
-      const currentFile = resolveFile();
-      const disk = readJob(job.id, currentFile);
-      if (disk.events.length !== job.events.length || !sameJobSeed(disk, job)) {
-        throw new Error('作业状态已在磁盘上更新。');
+      if (abortedRotate) continue;
+      const ownerName = path.basename(claimedFile);
+      const resolveFile = () => {
+        const found = locateOwned(path.join(lastDir, ownerName), candidate => readText(candidate) === token, true);
+        if (!found) throw new Error('作业所属目录在执行期间丢失。');
+        lastDir = path.dirname(found);
+        return path.join(lastDir, 'job.json');
+      };
+      try {
+        const currentFile = resolveFile();
+        if (currentFile !== locked()) {
+          const mine = locateOwned(path.join(lastDir, ownerName), candidate => readText(candidate) === token);
+          if (mine) fs.rmSync(mine, { force: true });
+          continue;
+        }
+        const disk = readLockedJob(job.id, locked);
+        if (resolveFile() !== locked() || disk.events.length !== job.events.length) {
+          throw new Error('作业状态已在磁盘上更新。');
+        }
+      } catch (error) {
+        const mine = locateOwned(path.join(lastDir, ownerName), candidate => readText(candidate) === token);
+        if (mine) fs.rmSync(mine, { force: true });
+        throw error;
       }
-    } catch (error) {
-      const mine = locateOwned(path.join(lastDir, ownerName), candidate => readText(candidate) === token);
-      if (mine) fs.rmSync(mine, { force: true });
-      throw error;
+      return { token, resolveFile, currentDir: () => path.dirname(resolveFile()) };
     }
-    return { token, resolveFile, currentDir: () => path.dirname(resolveFile()) };
   }
 
-  function owner(job, file = jobFile(job.id)) {
+  function ownerLocked(job, locked) {
     checkJobId(job.id);
-    const jobDir = path.dirname(file);
-    let pid;
-    for (let generation = 1; ; generation += 1) {
-      const candidate = ownerFileIn(jobDir, job.attempt, generation);
-      if (!fs.lstatSync(candidate, { throwIfNoEntry: false })) return pid;
-      pid = parseOwnerPid(readText(candidate));
+    for (;;) {
+      const baseFile = locked();
+      const jobDir = path.dirname(baseFile);
+      let pid;
+      let rotated = false;
+      for (let generation = 1; ; generation += 1) {
+        if (locked() !== baseFile) {
+          rotated = true;
+          break;
+        }
+        const candidate = ownerFileIn(jobDir, job.attempt, generation);
+        if (!fs.lstatSync(candidate, { throwIfNoEntry: false })) break;
+        try {
+          pid = parseOwnerPid(readText(candidate));
+        } catch (error) {
+          if (error?.code === 'ENOENT' && locked() !== baseFile) {
+            rotated = true;
+            break;
+          }
+          throw error;
+        }
+      }
+      if (!rotated && locked() === baseFile) return pid;
     }
   }
 
@@ -215,7 +300,7 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     transition(job, status, { ...details, ...ledger });
     // 终态首次可见后仍可能回写追加失败的诊断。重放领取前须等这一轮写完。
     // 持锁期间作业目录被轮换的话，两次回写都落在锁所在的那一代目录里。
-    const write = () => save(job, false, locked());
+    const write = () => saveUnderLock(job, locked);
     write();
     if (!ledger.settlement) return;
     try {
@@ -227,8 +312,11 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
   }
 
   function finish(job, status, details, usage, gen) {
-    const target = gen ? gen.resolveFile() : jobFile(job.id);
-    withFileLock(target, locked => finishLocked(job, status, details, usage, locked));
+    if (gen) {
+      withGenLock(gen, locked => finishLocked(job, status, details, usage, locked));
+      return;
+    }
+    withFileLock(jobFile(job.id), locked => finishLocked(job, status, details, usage, locked));
   }
 
   async function execute(job, handler, signal, gen) {
@@ -246,7 +334,7 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
           return job;
         }
         transition(job, 'running');
-        save(job, false, currentGen.resolveFile());
+        saveGen(job, currentGen);
         const startedAt = performance.now();
         const outcome = await executeAttempt(job, handler, lease.signal, currentGen);
         const usage = { cost: outcome.cost, ledgerError: outcome.ledgerError, startedAt };
@@ -261,7 +349,12 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
           return job;
         }
         finish(job, 'stopped', { reason: 'preempted' }, usage, currentGen);
-        const nextGen = claim(job, job.attempt + 1, currentGen.resolveFile());
+        const nextGen = withGenLock(currentGen, locked => {
+          const claimedNext = claimUnderLock(job, job.attempt + 1, locked);
+          nextAttempt(job);
+          saveUnderLock(job, locked);
+          return claimedNext;
+        });
         const activeEntry = active.get(currentGen.token);
         if (activeEntry) {
           active.delete(currentGen.token);
@@ -269,8 +362,6 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
           active.set(nextGen.token, activeEntry);
         }
         currentGen = nextGen;
-        nextAttempt(job);
-        save(job, false, currentGen.resolveFile());
       } finally {
         lease?.release();
       }
@@ -286,7 +377,7 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
       if (typeof name !== 'string' || !name || typeof run !== 'function') throw new TypeError('步骤需要名称和执行函数。');
       const entry = { name, attempt: job.attempt, startEvent: addEvent(job, 'step-start', { name }) };
       job.steps.push(entry);
-      save(job, false, gen.resolveFile());
+      saveGen(job, gen);
       let status = 'failed';
       let durationMs;
       try {
@@ -316,7 +407,7 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
         entry.status = signal.aborted ? 'stopped' : status;
         if (durationMs !== undefined) entry.durationMs = durationMs;
         entry.endEvent = addEvent(job, 'step-end', { name, status: entry.status });
-        save(job, false, gen.resolveFile());
+        saveGen(job, gen);
       }
     }
     function step(name, run) {
@@ -373,11 +464,11 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
 
   function runJob(id) {
     const claimed = withFileLock(jobFile(id), locked => {
-      const { job, file } = readLockedJob(id, locked);
+      const job = readLockedJob(id, locked);
       if (job.status !== 'queued') throw new Error('只能启动排队中的作业。');
       const handler = getHandler(job);
       scheduler.request(job.request);
-      const gen = claim(job, job.attempt, file);
+      const gen = claimUnderLock(job, job.attempt, locked);
       return { job, handler, gen };
     });
     return launch(claimed.job, claimed.handler, claimed.gen);
@@ -390,17 +481,17 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
       // 补旧账失败不挡执行；读账仍严格报错，新轮追加失败也会在终态记录原因。
     }
     const claimed = withFileLock(jobFile(id), locked => {
-      const { job, file } = readLockedJob(id, locked);
-      if (findActiveForDir(path.dirname(file))) throw new Error('作业仍由本进程执行。');
+      const job = readLockedJob(id, locked);
+      if (findActiveForDir(path.dirname(locked()))) throw new Error('作业仍由本进程执行。');
       const handler = getHandler(job);
       scheduler.request(job.request);
-      const pid = owner(job, file);
+      const pid = ownerLocked(job, locked);
       if (job.status === 'queued' && pid === undefined) {
-        const gen = claim(job, job.attempt, file);
+        const gen = claimUnderLock(job, job.attempt, locked);
         return { job, handler, gen };
       }
       if (!terminal.has(job.status) && (pid === undefined || processIsAlive(pid))) throw new Error('作业仍由执行进程领取。');
-      const gen = claim(job, job.attempt + 1, file);
+      const gen = claimUnderLock(job, job.attempt + 1, locked);
       if (job.status === 'running') {
         for (const step of job.steps.filter(step => step.attempt === job.attempt && !step.endEvent)) {
           step.status = 'stopped';
@@ -411,7 +502,7 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
         finishLocked(job, 'canceled', { reason: 'interrupted' }, undefined, locked);
       }
       nextAttempt(job);
-      save(job, false, gen.resolveFile());
+      saveUnderLock(job, locked);
       return { job, handler, gen };
     });
     return launch(claimed.job, claimed.handler, claimed.gen);
@@ -424,12 +515,12 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
       return direct.promise.then(job => structuredClone(job));
     }
     const canceled = withFileLock(jobFile(id), locked => {
-      const { job, file } = readLockedJob(id, locked);
-      const runningEntry = findActiveForDir(path.dirname(file));
+      const job = readLockedJob(id, locked);
+      const runningEntry = findActiveForDir(path.dirname(locked()));
       if (runningEntry) return { runningEntry };
       if (job.status === 'canceled') return { job };
       if (job.status !== 'queued') throw new Error('当前作业状态不能取消。');
-      claim(job, job.attempt, file);
+      claimUnderLock(job, job.attempt, locked);
       finishLocked(job, 'canceled', { reason: 'canceled' }, undefined, locked);
       return { job };
     });

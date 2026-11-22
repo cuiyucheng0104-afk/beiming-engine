@@ -2144,3 +2144,167 @@ test('A16-37 十一审收口（Red -> Green）：缓存根 ino=0n 轮换后重�
     assert.equal(row.seq, 1);
   });
 });
+
+test('A16-38 十三审收口（Red -> Green）：领取前轮换（runJob / replay / cancelJob）与终态锁重取轮换均严格核对锁与领取令牌同代归属', async (t) => {
+  const { loadQueue, openWorkspace, Scheduler } = jobs;
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-a16-r14-'));
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+
+  function makeWs(name) {
+    const wsDir = path.join(parent, name);
+    fs.mkdirSync(path.join(wsDir, 'shots'), { recursive: true });
+    fs.writeFileSync(path.join(wsDir, 'shots', 's01.js'), 'export default {};\n');
+    fs.writeFileSync(path.join(wsDir, 'film.json'), JSON.stringify({
+      format: 'film/3.0',
+      id: 'r14-gen-test',
+      shots: [{ id: 's01', entry: 'shots/s01.js', in: 0, out: 2 }],
+    }));
+    openWorkspace(wsDir).commitRevision(0);
+    return wsDir;
+  }
+
+  for (const mode of ['runJob', 'replay']) {
+    await t.test(`1-${mode}) 持锁读完后、领取前（scheduler.request 交接点）发生目录轮换且同 ID/handler/payload/snapshot 相同时：只领取并落盘旧代，新代零污染`, async () => {
+      const ws = makeWs(`ws-preclaim-${mode}`);
+      const qSetup = loadQueue(ws, { handlers: { draft: async () => ({ ok: 1 }) } });
+      qSetup.enqueue({ id: 'job-1', kind: 'draft', handler: 'draft', payload: null, rev: 0, keep: 'none', vramMB: 1 });
+
+      const jobsDir = path.join(fs.realpathSync(ws), 'jobs');
+      const curDir = path.join(jobsDir, 'job-1');
+      const retiredDir = path.join(jobsDir, 'job-1-retired');
+      const incomingDir = path.join(jobsDir, 'job-1-incoming');
+      fs.renameSync(curDir, retiredDir);
+      qSetup.enqueue({ id: 'job-1', kind: 'draft', handler: 'draft', payload: null, rev: 0, keep: 'all', vramMB: 2 });
+      fs.renameSync(curDir, incomingDir);
+      fs.renameSync(retiredDir, curDir);
+      const newOriginalBytes = fs.readFileSync(path.join(incomingDir, 'job.json'), 'utf8');
+
+      let rotated = false;
+      const baseScheduler = new Scheduler({ totalVramMB: 64 });
+      const customScheduler = {
+        request(req) {
+          const out = baseScheduler.request(req);
+          if (!rotated && fs.existsSync(path.join(curDir, 'job.json.lock'))) {
+            rotated = true;
+            fs.renameSync(curDir, retiredDir);
+            fs.renameSync(incomingDir, curDir);
+          }
+          return out;
+        },
+        acquire(req, opts) { return baseScheduler.acquire(req, opts); },
+      };
+
+      const q = loadQueue(ws, { scheduler: customScheduler, handlers: { draft: async () => ({ done: mode }) } });
+      const res = await q[mode]('job-1');
+      assert.equal(rotated, true);
+      assert.equal(res.status, 'succeeded');
+
+      const oldDisk = JSON.parse(fs.readFileSync(path.join(retiredDir, 'job.json'), 'utf8'));
+      assert.equal(oldDisk.status, 'succeeded');
+      assert.equal(oldDisk.keep, 'none');
+      assert.equal(oldDisk.request.vramMB, 1);
+      assert.equal(fs.existsSync(path.join(retiredDir, 'attempt-1.owner-1')), true);
+
+      assert.equal(fs.readFileSync(path.join(curDir, 'job.json'), 'utf8'), newOriginalBytes);
+      assert.deepEqual(fs.readdirSync(curDir).filter(n => n.startsWith('attempt-')), []);
+    });
+  }
+
+  await t.test('2) cancelJob 在读后、创建领取暂存目录前发生目录轮换：只取消旧代，新代不留残留领取文件且可正常 runJob', async (st) => {
+    const ws = makeWs('ws-cancel-preclaim');
+    const qSetup = loadQueue(ws, { handlers: { draft: async () => ({ ran: 'new' }) } });
+    qSetup.enqueue({ id: 'job-1', kind: 'draft', handler: 'draft', payload: null, rev: 0 });
+
+    const jobsDir = path.join(fs.realpathSync(ws), 'jobs');
+    const curDir = path.join(jobsDir, 'job-1');
+    const retiredDir = path.join(jobsDir, 'job-1-retired');
+    const incomingDir = path.join(jobsDir, 'job-1-incoming');
+    fs.renameSync(curDir, retiredDir);
+    qSetup.enqueue({ id: 'job-1', kind: 'draft', handler: 'draft', payload: null, rev: 0 });
+    fs.renameSync(curDir, incomingDir);
+    fs.renameSync(retiredDir, curDir);
+    const newOriginalBytes = fs.readFileSync(path.join(incomingDir, 'job.json'), 'utf8');
+
+    const realMkdir = fs.mkdirSync;
+    const realRename = fs.renameSync;
+    let rotated = false;
+    st.mock.method(fs, 'mkdirSync', (target, opts) => {
+      // 跳过建锁自身的 .lock-* 暂存目录，精确拦截 claim 阶段首次建 .write-* 暂存目录前
+      if (!rotated && String(target).startsWith(path.join(curDir, '.write-')) && fs.existsSync(path.join(curDir, 'job.json.lock'))) {
+        rotated = true;
+        realRename(curDir, retiredDir);
+        realRename(incomingDir, curDir);
+      }
+      return realMkdir(target, opts);
+    });
+
+    const canceled = await qSetup.cancelJob('job-1');
+    st.mock.restoreAll();
+    assert.equal(rotated, true);
+    assert.equal(canceled.status, 'canceled');
+
+    const oldDisk = JSON.parse(fs.readFileSync(path.join(retiredDir, 'job.json'), 'utf8'));
+    assert.equal(oldDisk.status, 'canceled');
+    assert.equal(fs.existsSync(path.join(retiredDir, 'attempt-1.owner-1')), true);
+
+    assert.equal(fs.readFileSync(path.join(curDir, 'job.json'), 'utf8'), newOriginalBytes);
+    assert.deepEqual(fs.readdirSync(curDir).filter(n => n.startsWith('attempt-')), []);
+
+    const ranNew = await qSetup.runJob('job-1');
+    assert.equal(ranNew.status, 'succeeded');
+    assert.deepEqual(ranNew.result, { ran: 'new' });
+  });
+
+  await t.test('3) finish 重取终态锁时在硬链接成功、归属复核前发生目录轮换：终态必须写回旧代目录，绝不覆盖新代', async (st) => {
+    const ws = makeWs('ws-finish-lock-rotate');
+    const q = loadQueue(ws, {
+      handlers: {
+        old: async () => {
+          inFinishPhase = true;
+          return { side: 'old' };
+        },
+        new: async () => ({ side: 'new' }),
+      },
+    });
+    q.enqueue({ id: 'job-1', kind: 'draft', handler: 'old', payload: 'old', rev: 0 });
+
+    const jobsDir = path.join(fs.realpathSync(ws), 'jobs');
+    const curDir = path.join(jobsDir, 'job-1');
+    const retiredDir = path.join(jobsDir, 'job-1-retired');
+    const incomingDir = path.join(jobsDir, 'job-1-incoming');
+    fs.renameSync(curDir, retiredDir);
+    q.enqueue({ id: 'job-1', kind: 'draft', handler: 'new', payload: 'new', rev: 0 });
+    fs.renameSync(curDir, incomingDir);
+    fs.renameSync(retiredDir, curDir);
+    const newOriginalBytes = fs.readFileSync(path.join(incomingDir, 'job.json'), 'utf8');
+
+    const realLink = fs.linkSync;
+    const realRename = fs.renameSync;
+    let inFinishPhase = false;
+    let rotated = false;
+    st.mock.method(fs, 'linkSync', (src, dst) => {
+      const out = realLink(src, dst);
+      if (inFinishPhase && !rotated && String(dst) === path.join(curDir, 'job.json.lock')) {
+        rotated = true;
+        realRename(curDir, retiredDir);
+        realRename(incomingDir, curDir);
+      }
+      return out;
+    });
+
+    const done = await q.runJob('job-1');
+    st.mock.restoreAll();
+    assert.equal(rotated, true);
+    assert.equal(done.status, 'succeeded');
+    assert.equal(done.handler, 'old');
+
+    const oldDisk = JSON.parse(fs.readFileSync(path.join(retiredDir, 'job.json'), 'utf8'));
+    assert.equal(oldDisk.handler, 'old');
+    assert.equal(oldDisk.payload, 'old');
+    assert.equal(oldDisk.status, 'succeeded');
+    assert.equal(fs.existsSync(path.join(retiredDir, 'attempt-1.owner-1')), true);
+
+    assert.equal(fs.readFileSync(path.join(curDir, 'job.json'), 'utf8'), newOriginalBytes);
+    assert.deepEqual(fs.readdirSync(curDir).filter(n => n.startsWith('attempt-')), []);
+  });
+});
