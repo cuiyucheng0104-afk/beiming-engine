@@ -392,8 +392,15 @@ test('C9-10 检索库：过滤、读回标记、limit、深拷贝与统计不重
   assert.equal(store.get('fx.palette.warm-ember').readbackLabel, '未在我方读回');
   assert.equal(store.get('no.such'), undefined);
   const got = store.query({ unit: 'rgb-linear' })[0];
-  got.value[0] = 99;
-  got.conditions.appliesWhen.push('x');
+  assert.equal(Object.isFrozen(store), true);
+  assert.equal(Object.isFrozen(store.query()), true);
+  assert.equal(Object.isFrozen(got), true);
+  assert.equal(Object.isFrozen(got.value), true);
+  assert.equal(Object.isFrozen(got.conditions), true);
+  assert.equal(Object.isFrozen(got.conditions.appliesWhen), true);
+  assert.equal(Object.isFrozen(store.stats()), true);
+  assert.throws(() => { got.value[0] = 99; }, TypeError);
+  assert.throws(() => { got.conditions.appliesWhen.push('x'); }, TypeError);
   assert.deepEqual(store.get('fx.palette.warm-ember').value, [2.4, 0.65, 0.12]);
   assert.deepEqual(store.get('fx.palette.warm-ember').conditions.appliesWhen, ['HDR 场景参考粒子发光核']);
 });
@@ -406,4 +413,126 @@ test('C9-11 从 index.mjs 导出', async () => {
   assert.equal(index.PRIOR_UNITS, PRIOR_UNITS);
   assert.equal(index.PRIOR_EVIDENCE_LEVELS, PRIOR_EVIDENCE_LEVELS);
   assert.ok(Object.isFrozen(PRIOR_UNITS) && Object.isFrozen(PRIOR_EVIDENCE_LEVELS) && Object.isFrozen(PRIOR_DOMAINS));
+});
+
+test('C9-12 G_REV-R1 收口：全覆盖私有/本机路径且不误伤公开 URL、严格字符串类型、数组空洞附加键与保留键拒收、JSON 重复键拦截、只读色彩策略与深冻结及 M12/M13', async () => {
+  const { PRIOR_COLOR_SPACES } = await import('./priors.mjs');
+
+  // 1) 私有目录（调研资料/、北冥引擎规划/、实验室/）与本机路径（~/、独立 ~、/tmp/、file:///）在六种位置全拦，且公开 HTTPS /home/ 不误报
+  const synthLeaks = [
+    ['调研' + '资料/包/a.md', 'private-source-path'],
+    ['北冥' + '引擎规划/05.md', 'private-source-path'],
+    ['实' + '验室/truth/x', 'private-source-path'],
+    ['~' + '/Desktop/x', 'local-path'],
+    ['~', 'local-path'],
+    ['/' + 'tmp/run/out.json', 'local-path'],
+    ['file:' + '///var/tmp/a', 'local-path'],
+  ];
+  for (const [sample, expectedCode] of synthLeaks) {
+    // 位置 1: provenance.note
+    const e1 = validColorPrior();
+    e1.provenance.note = sample;
+    assert.ok(validatePriorEntry(e1).leaks.some((l) => l.code === expectedCode), `provenance.note 漏检 ${sample}`);
+
+    // 位置 2: 嵌套键名
+    const e2 = validColorPrior();
+    e2.ext = { [`cards.${sample}`]: 1 };
+    assert.ok(validatePriorEntry(e2).leaks.some((l) => l.code === expectedCode && l.field === 'key'), `嵌套键漏检 ${sample}`);
+
+    // 位置 3: 数组值
+    const e3 = validColorPrior();
+    e3.conditions = { appliesWhen: [sample] };
+    assert.ok(validatePriorEntry(e3).leaks.some((l) => l.code === expectedCode), `数组值漏检 ${sample}`);
+
+    // 位置 4: 冲突原因
+    const e4 = validAudioPrior();
+    e4.conflicts[0].reason = sample;
+    assert.ok(validatePriorEntry(e4).leaks.some((l) => l.code === expectedCode), `冲突原因漏检 ${sample}`);
+
+    // 位置 5: summaryOf（即便同时有 ID 格式错误，leaks 也必须命中！）
+    const e5 = { ...validColorPrior(), summaryOf: [sample] };
+    assert.ok(validatePriorEntry(e5).leaks.some((l) => l.code === expectedCode), `summaryOf 漏检 ${sample}`);
+
+    // 位置 6: 原始 JSON 文本扫描
+    const txt = JSON.stringify({ format: 'priors/0.1', entries: [e1] });
+    assert.ok(scanPriorLeaks(txt).some((l) => l.code === expectedCode), `文本扫描漏检 ${sample}`);
+  }
+  const publicUrl = validColorPrior();
+  publicUrl.provenance.docRef = 'https://docs.example.com/home/guide/Users/overview';
+  assert.deepEqual(validatePriorEntry(publicUrl).leaks, []);
+  assert.equal(validatePriorEntry(publicUrl).ok, true);
+
+  // 2) 严格字符串类型检查（杜绝数组或对象经正则隐式转字符串或抛原生 TypeError）
+  const arrEnv = validAudioPrior();
+  arrEnv.readbackEvidence.envKey = ['ffmpeg/8.0.1/mac-arm64'];
+  assert.deepEqual(codes(validatePriorEntry(arrEnv)), ['prior.readback@/readbackEvidence/envKey']);
+  const arrSha = validAudioPrior();
+  arrSha.readbackEvidence.reportSha256 = [`sha256:${HEX}`];
+  assert.deepEqual(codes(validatePriorEntry(arrSha)), ['prior.readback@/readbackEvidence/reportSha256']);
+  assert.deepEqual(codes(validatePriorEntry({ ...validAudioPrior(), id: ['audio.master.target-loudness'] })), ['prior.bad-value@/id']);
+  assert.deepEqual(codes(validatePriorEntry({ ...validAudioPrior(), id: { bad: 1 } })), ['prior.bad-value@/id']);
+  assert.deepEqual(codes(validatePriorEntry({ ...validAudioPrior(), topic: ['audio.master.loudness'] })), ['prior.bad-value@/topic']);
+  assert.deepEqual(codes(validatePriorEntry({ ...validAudioPrior(), summaryOf: [['audio.master.target-loudness']] })), ['prior.bad-value@/summaryOf']);
+  assert.equal(validatePriorsTable(JSON.stringify({ format: 'priors/0.1', entries: [{ ...validAudioPrior(), id: { bad: 1 } }] })).ok, false);
+
+  // 3) 数组空洞+附加属性抵消被拒、诊断绝不回显自定义键名、保留键 __proto__/constructor/prototype 拒收、已撤销 Proxy 统一诊断
+  const trickyArr = new Array(2);
+  trickyArr[0] = 'HDR 场景参考粒子发光核';
+  trickyArr.secretArrayProp = 'x';
+  const withHoleAndProp = { ...validColorPrior(), conditions: { appliesWhen: trickyArr } };
+  const holeRes = validatePriorEntry(withHoleAndProp);
+  assert.equal(holeRes.ok, false);
+  assert.equal(JSON.stringify(holeRes).includes('secretArrayProp'), false);
+
+  const customKeyErr = { ...validAudioPrior(), value: { secretUserKey: NaN } };
+  const customKeyRes = validatePriorEntry(customKeyErr);
+  assert.equal(customKeyRes.ok, false);
+  assert.equal(JSON.stringify(customKeyRes).includes('secretUserKey'), false);
+
+  const withProtoObj = JSON.parse('{"format":"priors/0.1","entries":[]}');
+  const entryWithOwnProto = { ...validColorPrior(), ext: Object.defineProperty({}, '__proto__', { value: { a: 1 }, enumerable: true, configurable: true, writable: true }) };
+  assert.equal(validatePriorEntry(entryWithOwnProto).ok, false);
+  assert.equal(validatePriorsTable('{"format":"priors/0.1","entries":[],"__proto__":{"polluted":1}}').ok, false);
+  assert.equal(validatePriorsTable(withProtoObj).ok, true);
+
+  const { proxy: revoked, revoke } = Proxy.revocable([validAudioPrior()], {});
+  revoke();
+  assert.deepEqual(codes(validatePriorEntry(revoked)), ['prior.non-json@/']);
+  assert.deepEqual(codes(validatePriorsTable(revoked)), ['prior.non-json@/']);
+  assert.throws(() => createPriorsStore(revoked), /先验表未过校验：prior\.non-json@\//);
+
+  // 4) JSON 文本重复键（含 Unicode 转义同名键）本身即报错，禁止后键静默覆盖前键
+  const badFirst = JSON.stringify({ ...validAudioPrior(), unit: 'bad-unit' });
+  const dupPlain = `{"format":"priors/0.1","entries":[${badFirst}],"entries":[]}`;
+  const dupEscaped = `{"format":"priors/0.1","\\u0065ntries":[${badFirst}],"entries":[]}`;
+  assert.ok(codes(validatePriorsTable(dupPlain)).includes('prior.duplicate-key@/'));
+  assert.ok(codes(validatePriorsTable(dupEscaped)).includes('prior.duplicate-key@/'));
+
+  // 5) PRIOR_COLOR_SPACES 不可篡改，以及 M12（rgb-display 错配线性空间）与 M13（summaryOf 重复引用同一明细）
+  assert.equal(Object.isFrozen(PRIOR_COLOR_SPACES.get('rgb-linear')), true);
+  assert.equal(Object.isFrozen(PRIOR_COLOR_SPACES.get('rgb-display')), true);
+  assert.throws(() => PRIOR_COLOR_SPACES.set('rgb-linear', ['srgb-display']), TypeError);
+  assert.throws(() => PRIOR_COLOR_SPACES.delete('rgb-linear'), TypeError);
+  assert.throws(() => PRIOR_COLOR_SPACES.clear(), TypeError);
+
+  // M12: rgb-display 配 scene-linear-rec709 必须报错
+  assert.deepEqual(
+    codes(validatePriorEntry({ ...validColorPrior(), unit: 'rgb-display', colorSpace: 'scene-linear-rec709' })),
+    ['prior.color-space@/colorSpace'],
+  );
+  // M13: summaryOf 内重复引用同一有效明细必须报错
+  const dupSummary = {
+    id: 'audio.master.dup-summary',
+    domain: 'audio-music-voice-subs',
+    topic: 'audio.master.loudness',
+    title: '重复引用汇总',
+    value: [-16, -13],
+    unit: 'LUFS',
+    conditions: { appliesWhen: ['流媒体成片'] },
+    provenance: { caseId: 'summary:dup', evidenceLevel: '实测' },
+    verifiedInOurStack: false,
+    summaryOf: ['audio.master.target-loudness', 'audio.master.target-loudness'],
+  };
+  assert.deepEqual(codes(validatePriorEntry(dupSummary)), ['prior.bad-value@/summaryOf']);
+  assert.equal(validatePriorsTable({ format: 'priors/0.1', entries: [validAudioPrior(), dupSummary] }).ok, false);
 });
