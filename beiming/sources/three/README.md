@@ -1,46 +1,42 @@
 # sources/three/：three 帧源
 
-照帧源接口契约出帧的 WebGL 帧源，渲染库是 0.187.0 的 three。帧源是渲染器加宿主的一对：这个目录是渲染器那一半和这一对共用的能力声明、计划；宿主那一半在 `beiming/host/page/`，帧源对上层的接口（`caps`、`open`，会话的 `manifest`、`render`、`query`、`close`）在它的 node 一侧。
+照帧源接口契约出帧的 WebGL 帧源（three 0.187.0）。这里是渲染器、能力声明和计划；宿主在 `beiming/host/page/`，对上层的接口（`caps`、`open`、`manifest`、`render`、`query`、`close`）在它的 node 一侧。
 
 | 文件 | 在哪跑 | 管什么 |
 |---|---|---|
-| `caps.mjs` | 页面、node | 能力声明 `caps(library)`。由帧源定的默认值都写在这里：默认的子帧采样数（8，帧源接口契约登记表里定的）、两个档位的每像素采样数和缩放。`library` 是起帧源时提供的卡：提供了卡才声明「卡加数据」模式 |
-| `plan.mjs` | 页面、node | `planOpen`：这个镜头装不装得了（出帧用的宿主和作者模式、没有锁文件时的种子、每个卡实例对不对得上提供的卡和锁文件、资产、叠加层）；`planRender`：要的输出交不交得出、生效的快门、子帧相位、输出尺寸。交不出就报带错误码的错 |
-| `source.js` | 页面 | 渲染器 `createThreeSource({ THREE, host })`：只有这个文件碰 WebGL 渲染器 |
+| `caps.mjs` | 页面、node | 能力声明 `caps(library)`，默认值都在这里（子帧采样数 8、两档的采样数和缩放） |
+| `plan.mjs` | 页面、node | `planOpen`：装不装得了；`planRender`：输出、快门、子帧相位、尺寸；`parseShutterArgs`：`--shutter <度> --samples <子帧数>` 换成 `RenderOpts.shutter`。快门角也认兼容写法 `angle` |
+| `source.js` | 页面 | 渲染器 `createThreeSource({ THREE, host })`，只有它碰 WebGL；`averageDisplaySrgbFrames` 纯函数 |
 
-## 一对里面怎么接
-
-契约不管这一段，定在这里。宿主建渲染器时交进来四个服务，渲染器在出一帧的过程里回头调它们：
+## 宿主交进来的服务
 
 | 服务 | 做什么 |
 |---|---|
-| `host.load(shot, { THREE, renderer })` | 装载镜头：有入口文件的搭 `ctx`、调一次 `build`；「卡加数据」模式的跑固定装载脚本。交回 `{ object, size, post? }`：镜头对象、画幅、后期链上的通道（按先后） |
+| `host.load(shot, { THREE, renderer })` | 装载镜头（入口文件调一次 `build`，或跑「卡加数据」固定装载脚本），交回 `{ object, size, post? }` |
 | `host.apply(loaded, f, sub)` | 把 `(f, sub)` 的状态写进场景 |
-| `host.measure(loaded, f, facts)` | 量这一帧的元数据（相机、实体、统计、颜色层的哈希）。`facts.visible` 是渲染器在编号层上数出来的可见比例 |
-| `host.now()` | 单调时钟，毫秒；读数只进元数据的 `timing` |
+| `host.measure(loaded, f, facts)` | 量元数据；`facts.visible` 是渲染器数出的可见比例 |
+| `host.now()` | 单调时钟，毫秒，只进 `timing` |
 
-渲染器交回宿主的是读回的各层（内存里的数组）和元数据；写层文件、交层引用是宿主在 node 一侧做的。
+写层文件、交层引用是宿主在 node 一侧做。
 
 ## 怎么出一帧
 
-- 颜色层：每个子帧采样渲到 32 位浮点目标，读回后在线性光里逐像素取算术平均。不过显示变换，不截到 `[0, 1]`。子帧采样在快门窗口里居中分层。
-- 辅助层：取 `sub = 0`、针孔、像素中心的一个样本，不抗锯齿。`depth` 是平面深度（米），`objectId` 是叶子实体的编号，`normal` 是相机空间插值后的着色法线、背面翻向相机。什么都没打到的像素：编号 0、深度 1e10、法线 `(0, 0, 0)`。不在 `entities` 里的网格照画：编号是 0，深度和法线是它自己的。
-- 后期链：`host.load` 交回了 `post` 时，颜色层的每个子帧采样渲完场景之后依次过各个通道，再读回。通道是一张全屏网格，材质带 `uniforms.tInput`；渲染器每一遍把上一遍的颜色写给它，渲进另一个同样大小的 32 位浮点目标（两个目标来回倒）。辅助层不过后期链。元数据的 `stats.tris` 只数场景那一遍的三角形。
-- 可见比例（元数据契约 5.3）：出了像素、镜头里有带角色（`hero`、`mustSee`）的实体时每帧都算。在四分之一分辨率的编号层上，先合渲数每个带角色的实体露出来的像素，再把别的网格藏起来单独渲它数一遍，两个数相除（不超过 1）；单独渲一个像素都没有的记 0。没出像素、没有带角色的实体、场景里有看得见的点、线、精灵时不算，写 `null`。
-- 清屏：每一遍（颜色、辅助层）自己把清屏值定成 `(0, 0, 0, 0)`，渲完还原，不留给下一次。镜头设了背景色时颜色层的背景是背景色、透明度 1；没设时是 `(0, 0, 0, 0)`。
-- 辅助材质只画网格。场景里有看得见的点、线、精灵时，要辅助层就报 `contract.unsupported-object`，不照画也不漏画；不要辅助层照常出。
-- 取值次序：这次调用的 `RenderOpts` → 锁文件 → 镜头条目 → 能力声明。没有锁文件时种子必须写在镜头条目里。
-- 镜头条目是原样收到的：带 `renderer` 对象时，出帧用的 `source`、`host`、`mode`、`entry` 取它里面的，顶层那一套只留作对照；元数据的 `source.id` 填顶层的 `source`，`source.renderer` 填 `three`。
-- 没有锁文件时，镜头条目的 `cards`、`assets` 和镜头输入里全片的 `assets`、`overlays` 有一个不空就报 `env.lock-required`：叠加层要展开成卡的实例，算用了卡。带着锁文件来时逐个卡实例核对（叠加层先照片子描述契约展开成卡的实例）：这张卡起帧源时提供了没有、主版本对不对、锁文件里有没有、版本和内容哈希对不对得上、有没有落在这个帧源或数据一侧的实现、数据卡产出的轨道这个帧源有没有地方写（现在只有 `tracks.camera`）。有一样对不上，或者带了资产，报 `contract.unsupported-input`，不少装一样照常装载。先后是：宿主或作者模式不在能力声明里先报 `contract.unsupported-mode`，没有锁文件的那几种其次，都不是才报这个码。
-- 参数出了值域（帧号越界、`want` 重复、缩放或快门角越界）报 `usage.bad-argument`。
+- 快门窗口从帧起点打开 `[f, f + 快门角 ÷ 360)`，子帧在窗口里居中分层。相位（`s4.test.mjs`）：实渲 `probe-moving-cube` 第 24 帧，180 度 8 个子帧，像素质心和解析位置差 < 0.5 px；用整帧位移（f=24 → 25）标定速度，拖影中点在 f + 0.25 附近，和 Blender START 读数一致。Metal `SUBPIXEL_BITS=4` 下用 0.25 帧短基线标定有约 0.02308 帧量化差。
+- 颜色层（04 §3.1）：每个子帧只渲后期链之前的场景，进 32 位浮点目标，在线性光里逐像素平均；不过显示变换，不截到 `[0, 1]`。显示参考、没有 HDR 目标的帧用 `averageDisplaySrgbFrames` 把 8 位 sRGB 的 RGB 先线性化再平均（透明度本来线性，只除以 255）。
+- 后期链：`post` 是全屏通道网格（材质带 `uniforms.tInput`），对平均后的结果按次序只跑一次（两个浮点目标来回倒），状态和通道参数取 `sub = 0`。声明了 `uniforms.tDepth` 的通道拿到 `sub = 0` 的深度（R 平面深度米，A 为 0 表示没打到）。后期类卡的 `Handle.object` 就是这张网格，宿主放进 `post`、不放进场景。`stats.tris` 只数场景那一遍。
+- 辅助层：`sub = 0`（计划里的 `auxSub`）、针孔、像素中心，不抗锯齿，不过后期链。`depth` 平面深度米，`objectId` 叶子实体编号，`normal` 相机空间法线（背面翻向相机）。没打到：编号 0、深度 1e10、法线 `(0, 0, 0)`。不在 `entities` 里的网格编号 0。
+- 辅助材质只画网格：有可见的点、线、精灵又要辅助层或深度，报 `contract.unsupported-object`。
+- 可见比例（元数据契约 5.3）：四分之一分辨率编号层上，带角色（`hero`、`mustSee`）的实体合渲像素数除以单独渲的（不超过 1，单独渲为 0 记 0）；没出像素、没有带角色的实体、有点线精灵时写 `null`。
+- 清屏：每一遍用 `(0, 0, 0, 0)`，渲完还原；镜头设了背景色时颜色层用背景色、透明度 1。
+- 取值次序：`RenderOpts` → 锁文件 → 镜头条目 → 能力声明。条目带 `renderer` 对象时出帧用它里面的 `source`、`host`、`mode`、`entry`；元数据 `source.id` 填顶层的，`source.renderer` 填 `three`。
+- 没有锁文件：种子必须写在条目里；条目的 `cards`、`assets` 或全片的 `assets`、`overlays` 不空报 `env.lock-required`。有锁文件时逐个卡实例（叠加层先展开）核对提供、主版本、锁里的版本和哈希、实现落点、数据卡的轨道（只有 `tracks.camera`），不对或带了资产报 `contract.unsupported-input`。先后：`contract.unsupported-mode` → 没锁文件 → 这一条。
+- 参数出值域（含显式 `null`、BigInt；`opts`、`shutter` 只收纯数据的普通对象，`Date`、多一层原型、取值器、契约外的键都不收，别的上下文造的照常收）报 `usage.bad-argument`；快门角 0 配多个子帧报 `contract.shutter-conflict`。
 
-现在的边界（能力声明里照实写了）：
+## 边界
 
-- `motion` 交不出；场景查询一种都不答；每像素只取 1 个样本，要更多报 `contract.unsupported-option`。
-- 作者模式：不提供卡时只有 `native-code`（默认的 `startSource()` 就是这样）；`startSource({ cards })` 提供了卡才多一个 `cards-data`。一致性入口还没有「卡加数据」的夹具，所以默认不开。
-- 镜头都是镜头代码或卡搭的，没有场景包：实体的编号由帧源分配，实体名按字节序排、从 1 起；0 不是任何实体的编号，编号层里的 0 表示这个样本没打到任何实体。类别从母语对象的形态推：点云是 `particles`，名下还有别的实体的是 `assembly`，其余是 `part`。
-- 资产没接；叠加层展开要用的那张卡这里还没有：带着锁文件来也装不了，报 `contract.unsupported-input`。
-- 后期链上的通道怎么交到渲染器，契约没定，现在是这一对里面的约定：后期类卡的 `Handle.object` 就是那张全屏网格，宿主把它放进 `post`，不放进场景。
-- 32 位浮点目标（含半透明混合）在页面宿主的三种后端（Metal、Vulkan、软件渲染）上都量过，读数见帧源接口契约第 6 节的登记。
+- `motion` 交不出；场景查询不答；每像素只取 1 个样本，多了报 `contract.unsupported-option`。
+- 作者模式默认只有 `native-code`；`startSource({ cards })` 提供了卡才有 `cards-data`。
+- 没有场景包：实体编号按名字字节序从 1 起；类别：点云 `particles`，名下有实体的 `assembly`，其余 `part`。
+- 资产没接；叠加层要的卡还没有，都报 `contract.unsupported-input`。
 
-测试：`node --test 'beiming/sources/three/*.test.mjs'`。`source.test.mjs` 不起浏览器；`render.test.mjs` 起无头、静音的浏览器实渲（起不了浏览器时跳过），查清屏值不跨 render 残留、没打到的像素各层的值、层引用对得上层文件。「卡加数据」模式、后期链和可见比例的实渲核对在 `beiming/cards/m1a-cards.test.mjs`。
+测试：`node --test 'beiming/sources/three/*.test.mjs'`。`render.test.mjs`、`s4.test.mjs` 起无头浏览器实渲（起不了时跳过）。「卡加数据」、后期链和可见比例另见 `beiming/cards/m1a-cards.test.mjs`。

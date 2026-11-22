@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { iou } from './compare.mjs';
-import { probeObservations } from './fixtures/v4-probe.mjs';
+import { CUBES, probeObservations } from './probe-observations.mjs';
 
 const TABLES = fileURLToPath(new URL('../../calib/table/', import.meta.url));
 const FIXTURES = fileURLToPath(new URL('fixtures/', import.meta.url));
@@ -10,7 +10,6 @@ const hash = (s) => typeof s === 'string' && /^[a-f0-9]{64}$/.test(s);
 const vector = (v, n) => Array.isArray(v) && v.length === n && Array.from(v).every(Number.isFinite);
 const range = (v, lo, hi) => Number.isFinite(v) && lo <= v && v <= hi;
 const max = (xs) => xs.length ? Math.max(...xs) : NaN;
-const min = (xs) => xs.length ? Math.min(...xs) : NaN;
 function median(xs) {
   if (!xs.length || !xs.every(Number.isFinite)) return NaN;
   const sorted = xs.toSorted((a, b) => a - b), mid = Math.floor(sorted.length / 2);
@@ -75,9 +74,17 @@ function compareRuns(seq, run, name, tier) {
 
 export function evaluateSourceConformance({ source, machine = null, conformance = 'full', determinism, readings, observations = {} }) {
   if (!['full', 'limited'].includes(conformance)) throw new RangeError('未知合规档');
+  if (conformance === 'limited' && source !== 'legacy-page' && !(typeof source === 'string' && /^ext\.[a-z0-9][a-z0-9-]*$/.test(source))) {
+    throw new RangeError('只有 legacy-page 和 ext.<名字> 可使用 limited 合规档');
+  }
   if (!['hash-same-machine', 'tolerance'].includes(determinism)) throw new RangeError('未知确定性档');
   const values = { ...readings };
   observations ??= {};
+  if (['three', 'blender'].includes(source) || Object.hasOwn(observations, 'objectIdMetaIous')) {
+    const ious = Object.hasOwn(observations, 'objectIdMetaIous') ? observations.objectIdMetaIous : readings?.objectIdMetaIous;
+    const overlaps = CUBES.map((name) => ious && Object.hasOwn(ious, name) ? ious[name] : null);
+    values.objectIdMetaMinIou = overlaps.every((v) => range(v, 0, 1)) ? Math.min(...overlaps) : NaN;
+  }
   if (Object.hasOwn(observations, 'normals')) values.normalMedianDeg = Array.isArray(observations.normals)
     ? median(Array.from(observations.normals, (v) => v ? normalAngle(v) : NaN)) : NaN;
   for (const name of ['shuffled', 'repeat']) {
@@ -146,12 +153,17 @@ function tableReadings(column, source, tier) {
     });
   }
   const planes = select('深度口径', 'probe-plane-steps').filter((r) => r.unit === 'm' && /planeDepthM|vs 平面深度/.test(r.what));
-  const occlusion = select('可见比例的成本', 'probe-occlusion');
-  // Three 保留三个单独渲的原始框。Blender 表仅记 IoU，只有最前方的方块在合渲图里完整可见。
-  const boxes = source === 'three' ? occlusion.filter((r) => r.unit === 'px' && /^cube-(near|mid|far) 单独渲编号层反算包围盒 \[/.test(r.what))
-    : occlusion.filter((r) => r.unit === 'ratio' && r.what.startsWith('cube-near ') && r.what.includes('交并比'));
-  const overlaps = boxes.map(({ expected, got }) => source === 'blender' ? got
-    : vector(expected, 4) && vector(got, 4) ? iou(expected, got) : NaN);
+  // P7 存了各方块的单独渲原始框，P8 旧表只有合渲框，单独渲须由该机的补测提供。
+  const objectIdMetaIous = {};
+  if (source === 'three') {
+    const occlusion = select('可见比例的成本', 'probe-occlusion');
+    for (const name of CUBES) {
+      const boxes = occlusion.filter((r) => r.unit === 'px' && r.what === `${name} 单独渲编号层反算包围盒 [x0, y0, x1, y1]`);
+      if (boxes.length === 1 && vector(boxes[0].expected, 4) && vector(boxes[0].got, 4)) {
+        objectIdMetaIous[name] = iou(boxes[0].expected, boxes[0].got);
+      }
+    }
+  }
   const anchors = select('坐标与相机', 'probe-axes-turntable').filter((r) => r.unit === 'px' &&
     /单独渲编号层|渲染·/.test(r.what));
   const projectionError = ({ expected, got }) => {
@@ -164,7 +176,7 @@ function tableReadings(column, source, tier) {
     colorLinearityMaxRelErr: max(relative), colorZeroMaxAbsErr: max(zero),
     depthMedianRelErr: complete(planes, 8) ? median(planes.map(({ expected, got }) =>
       Number.isFinite(expected) && expected > 0 && Number.isFinite(got) ? Math.abs((got - expected) / expected) : NaN)) : NaN,
-    objectIdMetaMinIou: complete(boxes, source === 'three' ? 3 : 1) && overlaps.every((v) => range(v, 0, 1)) ? min(overlaps) : NaN,
+    objectIdMetaIous,
     cameraAnchorMaxPx: complete(anchors, source === 'three' ? 10 : 13) ? max(anchors.map(projectionError)) : NaN,
     ...repeatReadings(select('确定性'), source, tier),
   };
@@ -177,6 +189,7 @@ function optionalJson(path) {
 
 export function loadProbeSuiteReport(source, { machine = 'mac', conformance = 'full', tableDir = TABLES } = {}) {
   if (!['three', 'blender'].includes(source) || !['mac', 'linux-5090'].includes(machine)) throw new RangeError('未知探针表或机器');
+  if (conformance !== 'full') throw new RangeError('Three 与 Blender 探针列要求 full 合规档');
   const column = optionalJson(join(tableDir, `${source}${machine === 'mac' ? '' : `.${machine}`}.json`));
   const supplement = optionalJson(join(tableDir === TABLES ? FIXTURES : tableDir, `v4-${source}.${machine}.json`));
   if (column && (column.machine !== machine || column.format !== 'probe-column/0.1' ||
