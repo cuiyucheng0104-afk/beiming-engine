@@ -878,6 +878,85 @@ test('B3-12 30-1 从工程读数：read30_1 静态扫工程目录，一张 80 BP
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('B3-15 30-1 按对象、数组的实际来源和导出入口判分', async (t) => {
+  const { read30_1, evaluate } = await evaluator();
+  const q = question('30-1'), ref = reading('30-1.reference'), dir = workdir();
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(join(dir, 'film.json'), JSON.stringify({ output: { size: [ref.width, ref.height], fps: `${ref.fps}/1`, frames: ref.frames },
+    timeline: { bpm: 80, beatFrames: 18 }, shots: ref.shots.map((shot) => ({ id: 's01', ...shot })), events: ref.moments }));
+  const ge = 'const ge = (x, min = 432) => x >= min; ';
+  const inner = `${ge}const inner = (...rest) => ge(frame, ...rest, view.events.m01); `;
+  const on = 'const on = n => n >= 0; ';
+  const patch = 'const timing = {}; timing.offset = n => n - 432; const alias = timing; ';
+  const hard = [1, 0.6, false], soft = [0, 1, true];
+  const check = (code, expected) => {
+    writeFileSync(join(dir, 'shot.mjs'), code);
+    const read = read30_1(dir), result = evaluate(q, { ...read, ...CLEAN, cuts: [] });
+    assert.deepEqual([read.timeline.hardcodedFrames, result.score, result.pass], expected, code);
+  };
+  await t.test('局部函数只按调用点的实参认帧', () => {
+    for (const code of [
+      'const h = { width: 640, check(f) { return f >= h.width; } }; h.check(view.size[0]);',
+      'const h = { check(f) { return f >= 640; } }; const { check } = h; check(view.size[0]);',
+      'const make = min => ({ check: f => f >= min }); make(640).check(view.size[0]);',
+      'const [check] = [f => f >= 640]; check(view.size[0]);',
+    ]) check(code, soft);
+  });
+  await t.test('数组经别名、属性、工厂与剩余形参传递后仍按位配对', () => {
+    for (const [array, call] of [
+      ['const rest = [view.events.m01]; const copy = rest;', 'ge(frame, ...copy)'],
+      ['const rest = [view.events.m01]; const box = { rest };', 'ge(frame, ...box.rest)'],
+    ]) check(ge + array + call, soft);
+    check(ge + 'const args = [frame, 432]; const copy = args; ge(...copy);', hard);
+    check(ge + 'const pack = x => { const a = [x, 432]; return a; }; ge(...pack(frame));', hard);
+    check(inner + 'inner(...view.extra); inner();', hard);
+    check(inner + 'inner(); inner(...view.extra);', hard);
+  });
+  await t.test('解构只在已知槽位缺失或为 undefined 时使用常数默认值', () => {
+    for (const value of ['view.events.m01', 'view.cfg.min', 'view.size[0]', '0', '5', 'null', 'undefined', 'void 0', '432']) {
+      const expected = ['undefined', 'void 0', '432'].includes(value) ? hard : soft;
+      check(`const { min = 432 } = { min: ${value} }; frame >= min;`, expected);
+      check(`const [min = 432] = [${value}]; frame >= min;`, expected);
+    }
+    check('const { min = 432 } = view.cfg; frame >= min;', soft);
+    check('const min = view.cfg.min ?? 432; frame >= min;', soft);
+    check('const { min = 432 } = {}; frame >= min;', hard);
+    check('const [min = 432] = []; frame >= min;', hard);
+    check('const { min = 432 } = { ...view.cfg }; frame >= min;', soft);
+    check('let min; ({ min = 432 } = { min: view.events.m01 }); frame >= min;', soft);
+    check('let min; [min = 432] = []; frame >= min;', hard);
+    check('const ge = (x, { min = 432 }) => x >= min; ge(frame, { min: view.events.m01 });', soft);
+    check('const ge = (x, [min = 432]) => x >= min; ge(frame, []);', hard);
+    check('const limit = 5; frame >= limit;', hard);
+  });
+  await t.test('按对象身份读取后补属性，沿导出对象找到外部可调用的函数', () => {
+    check(on + patch + 'on(alias.offset(frame));', hard);
+    check(on + patch + 'const copy = { ...alias }; on(copy.offset(frame));', hard);
+    check(on + 'const make = () => { const o = {}; o.offset = n => n - 432; return o; }; on(make().offset(frame));', hard);
+    check('const cfg = {}; const alias = cfg; alias.min = 432; frame >= cfg.min;', hard);
+    for (const declaration of [
+      'export const api = {}; api.check = f => f >= 432;',
+      'const check = f => f >= 432; export const api = { check };',
+      'const check = f => f >= 432; const api = { check }; export { api as helpers };',
+      'const check = f => f >= 432; const api = { check }; export default [{ ...api }];',
+    ]) for (const call of ['', 'api.check(view.size[0]);']) check(declaration + call, hard);
+    check('const check = f => f >= 432; register(check); check(view.size[0]);', hard);
+    check('const check = f => f >= 432; export const api = { ...{ check }, check: () => true };', soft);
+    check('export const api = {}; api.check = f => f >= 432; api.check = () => true;', soft);
+    check('const a = {min: 432}; const copy = {...a}; a.min = view.events.m01; frame >= copy.min;', hard);
+    check('const make = () => ({}); const a = make(), b = make(); a.min = view.events.m01; b.min = 640; frame >= a.min;', soft);
+    check('const make = min => ({check: f => f >= min}); export const api = make(0); make(640).check(view.size[0]);', soft);
+    check('const id = x => x; export const api = id({check: f => f >= 432}); view.size.some(api.check);', hard);
+    check('const check = f => f >= 640; function unused() { register(check); } Object.freeze({check}).check(view.size[0]);', soft);
+    check('const absent = () => {}; const {check = f => f >= 432} = {check: absent()}; export {check};', hard);
+    check('export class Cue {} Cue.prototype.check = f => f >= 432;', hard);
+    check('const invoke = (fn, x) => fn(x); invoke(f => f >= 432, frame);', hard);
+    check(ge + 'const rest = [view.events.m01]; const empty = x => x.pop(); empty(rest); ge(frame, ...rest);', hard);
+    check(ge + 'const args = [frame, 432]; view.log(...args); ge(...args);', hard);
+    check('const {min = 432} = {min: 5}; frame - min >= 0;', soft);
+  });
+});
+
 test('B3-13 机器上没有 ffmpeg：三个读真片的函数回 toolMissing 说明缺哪个工具，拿去判分是干净的不合格', async () => {
   const { evaluate, read27_1, read29_2, read23_2 } = await evaluator();
   const dir = workdir(), path = process.env.PATH;
