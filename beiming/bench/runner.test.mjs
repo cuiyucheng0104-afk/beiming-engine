@@ -1,12 +1,13 @@
 // B8：跑题器（复用 tools/eval 会话隔离与过程观测，一条命令跑完一道题并落盘）+ 默认测试不再跑 eval 域
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { hasFfmpeg } from '../../tools/eval/lib/synth.mjs';
 import { projectPublicQuestion, runExamQuestion } from './index.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -31,6 +32,19 @@ const cli = (args) => {
   const r = spawnSync(process.execPath, [RUNNER, ...args, '--json'], { encoding: 'utf8' });
   return { code: r.status, stderr: r.stderr, json: r.stdout.trim() ? JSON.parse(r.stdout) : null };
 };
+const NEED_FFMPEG = { skip: !hasFfmpeg() && '环境缺少 ffmpeg / ffprobe' };
+const POSIX = process.platform !== 'win32';
+const SEATBELT = process.platform === 'darwin' && spawnSync('/usr/bin/sandbox-exec', ['-p', '(version 1)(allow default)', '/usr/bin/true']).status === 0;
+// 用 ffmpeg 现做一条小片：默认 24 帧、1280×720、24 帧每秒、没有音轨（正好是 minimal.json 要的规格）
+function video(file, { frames = 24, cut = false, audio = false } = {}) {
+  const src = (d = '') => ['-f', 'lavfi', '-i', `testsrc=s=1280x720:r=24${d}`];
+  const args = cut
+    ? [...src(':d=0.5'), '-f', 'lavfi', '-i', 'color=c=white:s=1280x720:r=24:d=0.5', '-filter_complex', '[0:v][1:v]concat=n=2:v=1']
+    : [...src(), ...(audio ? ['-f', 'lavfi', '-i', 'sine=f=440:r=48000', '-shortest'] : []), '-frames:v', String(frames)];
+  const r = spawnSync(process.env.FFMPEG || 'ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args, '-pix_fmt', 'yuv420p', file], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  return file;
+}
 // 运行目录下全部文件的文本，用来查私有段有没有漏进去
 const dump = (dir) => readdirSync(dir, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()).map((e) => readFileSync(join(e.parentPath, e.name), 'utf8')).join('\n');
 
@@ -54,10 +68,11 @@ test('B8-2 公开题：隔离目录、公开投影题面、过程观测、标准
     questionFile: qFile,
     evalRoot: root,
     source: 'three',
+    judge: () => ({ metrics: { 'meta.bbox-limits': true } }),
     solver: async ({ worktreeDir, env }) => {
       assert.deepEqual(readdirSync(worktreeDir), ['question.json'], '做题目录里只有题面');
       assert.ok(env.CLAUDE_CONFIG_DIR.startsWith(root) && env.TMPDIR.startsWith(root), '会话配置和临时目录都在运行目录里');
-      await writeFile(join(worktreeDir, 'submission.json'), JSON.stringify({ metrics: { 'meta.bbox-limits': true }, predicates: {} }));
+      await writeFile(join(worktreeDir, 'submission.json'), '{}');
       return { tokens: 1200, turns: 1, gpuSeconds: 3 };
     },
   });
@@ -65,10 +80,12 @@ test('B8-2 公开题：隔离目录、公开投影题面、过程观测、标准
   assert.deepEqual(await readJson(join(res.runDir, 'worktree/question.json')), projectPublicQuestion(sample), '题面是公开投影，ext 已去掉');
   for (const f of ['meta.json', 'observation.json', 'session/settings.json', 'session/mcp.json', 'tmp', 'transcript']) assert.ok(existsSync(join(res.runDir, f)), f);
   const saved = await readJson(res.resultFile);
-  assert.deepEqual(Object.keys(saved), ['format', 'questionId', 'level', 'source', 'model', 'runId', 'status', 'score', 'visibility', 'blockedBy', 'assertions', 'cost', 'overBudget', 'artifacts', 'createdAt']);
+  assert.deepEqual(Object.keys(saved), ['format', 'questionId', 'level', 'source', 'model', 'runId', 'status', 'score', 'visibility', 'blockedBy', 'unmeasured', 'assertions', 'cost', 'overBudget', 'artifacts', 'createdAt']);
   assert.deepEqual([saved.format, saved.questionId, saved.level, saved.source, saved.status, saved.score, saved.visibility], ['bench-result/0.1', '28-1', 1, 'three', 'fail', 0.5, 'public']);
   assert.equal(saved.assertions.length, sample.basePredicates.length + sample.scoring.length);
   assert.deepEqual(saved.assertions.filter((a) => a.pass).map((a) => a.name), ['meta.bbox-limits']);
+  assert.deepEqual([[...new Set(saved.assertions.map((a) => a.basis))], saved.unmeasured], [['judge'], 0]);
+  assert.equal((await readJson(join(res.runDir, 'observation.json'))).isolation, 'in-process');
   assert.deepEqual({ ...saved.cost, wallMs: 0 }, { tokens: 1200, turns: 1, toolCalls: null, wallMs: 0, gpuSeconds: 3 });
   assert.deepEqual(saved.artifacts.map((a) => a.path), ['submission.json']);
   assert.match(saved.artifacts[0].sha256, /^sha256:[0-9a-f]{64}$/);
@@ -104,22 +121,37 @@ test('B8-4 判分：超预算、做题出错都不算过；expectedFail 默认�
   assert.deepEqual([forced.status, called], ['pass', 1]);
 });
 
-test('B8-5 命令行：一条命令跑完落盘（exit 0），会话记录里的用量进结果；用法错 2、环境缺 3、题目不合格 4', async (t) => {
+test('B8-5 命令行：一条命令跑完落盘（exit 0），宿主用 ffprobe 实测成片判分，自报不算', NEED_FFMPEG, async (t) => {
   const sample = example('minimal.json');
   const { qFile, root, dir } = await setup(t, sample);
+  const good = video(join(dir, 'good.mp4'));
+  const short = video(join(dir, 'short.mp4'), { frames: 23 });
+  // 做题替身：给了成片就拷成 deliverable.mp4；submission.json 里自报全过（宿主不认）；再打两行会话记录
   const solverFile = join(dir, 'solver.mjs');
   await writeFile(solverFile, `import fs from 'node:fs';
 const q = JSON.parse(fs.readFileSync('question.json', 'utf8'));
-fs.writeFileSync('submission.json', JSON.stringify({ metrics: { [q.scoring[0].metric]: { pass: true } }, predicates: { [q.basePredicates[0]]: true }, cost: { gpuSeconds: 2 } }));
+if (process.argv[2]) fs.copyFileSync(process.argv[2], 'deliverable.mp4');
+fs.writeFileSync('submission.json', JSON.stringify({ metrics: { 'delivery.spec': { pass: true } }, predicates: { 'delivery(width=1280, height=720, fps=24, frames=24)': true }, cost: { gpuSeconds: 2 } }));
 console.log(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'Write', input: {} }] } }));
 console.log(JSON.stringify({ type: 'result', subtype: 'success', num_turns: 3, usage: { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 5 } }));
 `);
-  const ok = cli(['run', '--question', qFile, '--root', root, '--solver-cmd', `"${process.execPath}" "${solverFile}"`, '--source', 'core']);
+  const solve = (file, clip, ...more) => cli(['run', '--question', file, '--root', root, '--solver-cmd', `"${process.execPath}" "${solverFile}"${clip ? ` "${clip}"` : ''}`, ...more]);
+  const ok = solve(qFile, good, '--source', 'core');
   assert.equal(ok.code, 0, ok.stderr);
-  assert.deepEqual([ok.json.ok, ok.json.data.status, ok.json.data.score, ok.json.data.source], [true, 'pass', 1, 'core']);
+  assert.deepEqual([ok.json.ok, ok.json.data.status, ok.json.data.score, ok.json.data.source, ok.json.data.unmeasured], [true, 'pass', 1, 'core', 0]);
+  assert.deepEqual(ok.json.data.assertions.map((a) => [a.kind, a.pass, a.basis]), [['base', true, 'host'], ['scoring', true, 'host']]);
   assert.deepEqual({ ...ok.json.data.cost, wallMs: 0 }, { tokens: 125, turns: 3, toolCalls: 1, wallMs: 0, gpuSeconds: 2 });
   assert.deepEqual(ok.json.outputs, [ok.json.data.resultFile]);
   assert.deepEqual((await readJson(join(ok.json.data.runDir, 'observation.json'))).transcript, ['turn-01.jsonl', 'turn-01.stderr.log']);
+
+  const few = solve(qFile, short);
+  assert.deepEqual([few.code, few.json.data.status, few.json.data.score], [0, 'fail', 0], '少一帧（题目的负对照）');
+  const none = solve(qFile, null);
+  assert.deepEqual([none.code, none.json.data.status, none.json.data.score], [0, 'fail', 0], '只写 submission.json 不交片');
+  const hiddenFile = join(dir, 'hidden.json');
+  await writeFile(hiddenFile, JSON.stringify({ ...sample, flags: { ...sample.flags, hidden: true } }));
+  const hid = solve(hiddenFile, good);
+  assert.deepEqual([hid.json.data.status, hid.json.data.score, hid.json.data.assertions], ['pass', 1, []], '隐藏题交了合规成片也得满分');
 
   // 无头 claude 那条路：桩把收到的参数打出来，核对隔离参数
   const stub = join(dir, 'claude-stub.mjs');
@@ -131,9 +163,115 @@ console.log(JSON.stringify({ type: 'result', subtype: 'success', num_turns: 3, u
   assert.match(meta.model, /--model m1 .*--setting-sources project --strict-mcp-config --mcp-config .*session[\\/]mcp\.json$/);
 
   assert.equal(cli(['run', '--question', qFile, '--root', root, '--solver-cmd', `"${process.execPath}" -e process.exit(7)`]).json.data.status, 'error');
-  const failed = cli(['run', '--question', qFile, '--root', root, '--solver-cmd', `"${process.execPath}" -e ""`]);
-  assert.deepEqual([failed.code, failed.json.data.status, failed.json.data.score], [0, 'fail', 0], '没交 submission.json：跑完了，但不及格');
+  if (POSIX) {   // 从软链启动也认得出自己是主入口
+    const link = join(dir, 'runner-link.mjs');
+    symlinkSync(RUNNER, link);
+    const r = spawnSync(process.execPath, [link, 'run', '--question', qFile, '--root', root, '--solver-cmd', `"${process.execPath}" "${solverFile}" "${good}"`, '--json'], { encoding: 'utf8' });
+    assert.deepEqual([r.status, JSON.parse(r.stdout).data.status], [0, 'pass'], r.stderr);
+  }
+  assert.doesNotMatch(readFileSync(RUNNER, 'utf8'), /tools\/lib\//, '跑题器只引 tools/eval/');
+});
 
+test('B8-6 默认判分：成片怎么找、切点实测、没有量测器的指标不采信自报', NEED_FFMPEG, async (t) => {
+  const sample = example('minimal.json');
+  const { qFile, root, dir } = await setup(t, {
+    ...sample, basePredicates: [...sample.basePredicates, 'no_cut @ all'],
+    scoring: [{ metric: 'delivery.spec', pass: '规格都对', weight: 0.5 }, { metric: 'meta.bbox-limits', pass: '全片不超限', weight: 0.5 }],
+  });
+  const clips = { good: video(join(dir, 'good.mp4')), cut: video(join(dir, 'cut.mp4'), { cut: true }), audio: video(join(dir, 'audio.mp4'), { audio: true }) };
+  const claim = { metrics: { 'delivery.spec': true, 'meta.bbox-limits': true }, predicates: { 'no_cut @ all': true } };
+  // 每个用例：solver 往做题目录里摆文件，回 [delivery, no_cut, delivery.spec, meta.bbox-limits] 四项过没过
+  const judged = async (place) => {
+    const res = await runExamQuestion({ questionFile: qFile, evalRoot: root, solver: ({ worktreeDir }) => { place(worktreeDir); } });
+    return [res.assertions.map((a) => a.pass), res];
+  };
+  const [byName, res] = await judged((w) => { copyFileSync(clips.good, join(w, 'final.mp4')); writeFileSync(join(w, 'submission.json'), JSON.stringify(claim)); });
+  assert.deepEqual(byName, [true, true, true, false], '做题目录里唯一的视频就是成片；自报的 meta.bbox-limits 不算');
+  assert.deepEqual([res.status, res.score, res.unmeasured, res.assertions.map((a) => a.basis)], ['fail', 0.5, 1, ['host', 'host', 'host', 'unmeasured']]);
+
+  const named = (w) => { mkdirSync(join(w, 'sub')); copyFileSync(clips.good, join(w, 'sub/clip.mp4')); copyFileSync(clips.cut, join(w, 'other.mp4')); };
+  assert.deepEqual((await judged((w) => { named(w); writeFileSync(join(w, 'submission.json'), JSON.stringify({ video: 'sub/clip.mp4' })); }))[0], [true, true, true, false], 'submission.json 点名的相对路径');
+  assert.deepEqual((await judged(named))[0], [false, false, false, false], '两条视频又没点名：认不出成片');
+  assert.deepEqual((await judged((w) => copyFileSync(clips.cut, join(w, 'out.mp4'))))[0], [true, false, true, false], '有切点');
+  assert.deepEqual((await judged((w) => copyFileSync(clips.audio, join(w, 'deliverable.mp4'))))[0], [false, false, false, false], '题目要无声，成片带音轨');
+  assert.deepEqual((await judged((w) => writeFileSync(join(w, 'submission.json'), JSON.stringify({ ...claim, video: clips.good }))))[0], [false, false, false, false], '点名做题目录外面的文件');
+  if (POSIX) assert.deepEqual((await judged((w) => symlinkSync(clips.good, join(w, 'deliverable.mp4'))))[0], [false, false, false, false], '软链指到做题目录外面');
+});
+
+test('B8-7 做题进程被信号杀掉：产物写完了也判 error', async (t) => {
+  const { qFile, root, dir } = await setup(t, example('minimal.json'));
+  const killer = join(dir, 'killed.mjs');
+  await writeFile(killer, `import fs from 'node:fs';\nfs.writeFileSync('done.txt', 'ok');\nprocess.kill(process.pid, 'SIGTERM');\nsetTimeout(() => {}, 30000);\n`);
+  const res = await runExamQuestion({ questionFile: qFile, evalRoot: root, solverCmd: `"${process.execPath}" "${killer}"`, judge: allPass });
+  const obs = await readJson(join(res.runDir, 'observation.json'));
+  assert.deepEqual([res.status, res.artifacts.map((a) => a.path)], ['error', ['done.txt']]);
+  if (POSIX) assert.deepEqual([obs.exitCode, obs.timedOut, obs.error], [null, false, '做题进程异常终止（无退出码，可能被信号中断）']);
+});
+
+test('B8-8 隐藏题：blockedBy 原文和精确的墙钟预算不回显', async (t) => {
+  const sample = example('minimal.json');
+  const { qFile, root, dir } = await setup(t, { ...sample, flags: { hidden: true, expectedFail: true, blockedBy: ['阈值 41.5 dB 还没校准'] } });
+  const xf = cli(['run', '--question', qFile, '--root', root]);
+  assert.deepEqual([xf.code, xf.json.data.status, xf.json.data.blockedBy], [0, 'expected-fail', ['[hidden]']]);
+  assert.ok(!JSON.stringify(xf.json).includes('还没校准') && !dump(xf.json.data.runDir).includes('还没校准'));
+
+  const slow = `"${process.execPath}" -e "setTimeout(()=>{},30000)"`;
+  const timeout = async (hidden) => {
+    const file = join(dir, `slow-${hidden}.json`);
+    await writeFile(file, JSON.stringify({ ...sample, budget: { ...sample.budget, wallMs: 317 }, flags: { ...sample.flags, hidden } }));
+    const res = await runExamQuestion({ questionFile: file, evalRoot: root, solverCmd: slow, judge: allPass });
+    return [res.status, res.overBudget, (await readJson(join(res.runDir, 'observation.json'))).error, dump(res.runDir).includes('317 ms')];
+  };
+  assert.deepEqual(await timeout(true), ['error', ['wallMs'], '超过墙钟预算，已结束', false]);
+  assert.deepEqual(await timeout(false), ['error', ['wallMs'], '超过墙钟预算 317 ms，已结束', true]);
+});
+
+test('B8-9 做题进程：环境变量只有白名单；有系统沙箱时读不到原题、隐藏题目录、meta.json 和别的运行', async (t) => {
+  const sample = example('minimal.json');
+  const { root, dir } = await setup(t, sample);
+  mkdirSync(join(dir, 'hidden'));
+  const qFile = join(dir, 'hidden/q.json');
+  const answers = join(dir, 'hidden/answers.txt');
+  await writeFile(qFile, JSON.stringify({ ...sample, flags: { ...sample.flags, hidden: true } }));
+  await writeFile(answers, 'ANSWER-KEY');
+  const saved = { B8_HOST_SECRET: process.env.B8_HOST_SECRET, ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY };
+  t.after(() => { for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
+  Object.assign(process.env, { B8_HOST_SECRET: 'host-only', ANTHROPIC_API_KEY: 'dummy' });
+
+  const prev = await runExamQuestion({ questionFile: qFile, evalRoot: root, solver: ({ worktreeDir }) => { writeFileSync(join(worktreeDir, 'prev.txt'), 'PREV'); }, judge: allPass });
+  const probe = join(dir, 'probe.mjs');
+  await writeFile(probe, `import fs from 'node:fs';
+const read = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch (e) { return 'DENIED:' + e.code; } };
+const [q, sibling, prev] = process.argv.slice(2);
+const write = (f) => { try { fs.writeFileSync(f, '{"status":"pass","score":1}'); return 'WROTE'; } catch (e) { return 'DENIED:' + e.code; } };
+fs.writeFileSync('probe.json', JSON.stringify({ env: Object.keys(process.env), own: read('question.json'), nearby: read(process.argv[1]),
+  secrets: [read(q), read(sibling), read('../meta.json'), read(prev), write('../result.json'), write('../observation.json')] }));
+`);
+  const res = await runExamQuestion({ questionFile: qFile, evalRoot: root, solverCmd: `"${process.execPath}" "${probe}" "${qFile}" "${answers}" "${join(prev.runDir, 'worktree/prev.txt')}"`, judge: allPass });
+  const seen = await readJson(join(res.runDir, 'worktree/probe.json'));
+  const allowed = ['PATH', 'HOME', 'USERPROFILE', 'SYSTEMROOT', 'COMSPEC', 'PATHEXT', 'LANG', 'LC_ALL', 'TERM', 'NODE_PATH', 'TMPDIR', 'TMP', 'TEMP', 'CLAUDE_CONFIG_DIR', 'PLAYWRIGHT_BROWSERS_PATH'];
+  // __CF_USER_TEXT_ENCODING 是 macOS 自己给每个进程补的，不是宿主传的
+  assert.deepEqual(seen.env.filter((k) => !allowed.includes(k.toUpperCase()) && k !== '__CF_USER_TEXT_ENCODING'), [], '命令做题：只有白名单里的环境变量');
+  assert.ok(seen.env.includes('TMPDIR') && seen.env.includes('CLAUDE_CONFIG_DIR'));
+  assert.deepEqual(Object.keys(JSON.parse(seen.own)), ['id', 'level', 'title', 'brief', 'deliverable', 'assets']);
+  const { isolation } = await readJson(join(res.runDir, 'observation.json'));
+  assert.equal(isolation, SEATBELT ? 'seatbelt' : 'process-cwd', '实际的隔离级别照实记');
+  assert.match(seen.nearby, /^import fs/, '不相干的文件（做题脚本自己）照常读得到');
+  assert.deepEqual([res.status, (await readJson(res.resultFile)).score], ['pass', 1], '结果文件是宿主写的那一份');
+  if (SEATBELT) assert.deepEqual(seen.secrets.map((s) => s.slice(0, 7)), Array(6).fill('DENIED:'), '原题、隐藏题目录、meta.json、别的运行读不到；结果和观测改不了');
+  else t.diagnostic('这台机器没有可用的 sandbox-exec：文件边界没测，隔离级别是 process-cwd');
+
+  // --model 那条路：模型的凭据透传，宿主别的变量照样不传
+  const stub = join(dir, 'env-stub.mjs');
+  await writeFile(stub, `console.log(JSON.stringify({ type: 'system', subtype: 'init', model: Object.keys(process.env).join(' ') }));\n`);
+  const viaModel = await runExamQuestion({ questionFile: qFile, evalRoot: root, model: 'm1', claude: stub, judge: allPass });
+  const keys = (await readJson(join(viaModel.runDir, 'transcript/turn-01.jsonl'))).model.split(' ');
+  assert.deepEqual([keys.includes('ANTHROPIC_API_KEY'), keys.includes('B8_HOST_SECRET')], [true, false]);
+});
+
+test('B8-10 命令行退出码：用法错 2、环境缺 3、题目不合格 4', async (t) => {
+  const sample = example('minimal.json');
+  const { qFile, root, dir } = await setup(t, sample);
   assert.equal(cli(['run', '--question', qFile, '--root', root]).code, 2, '没说谁来做题');
   assert.equal(cli(['run', '--question', qFile, '--root', root, '--solver-cmd', ' ']).code, 2, '做题命令是空的');
   assert.equal(cli(['run', '--question', qFile, '--root', root, '--solver-cmd', join(dir, '没有这个程序')]).code, 3);
