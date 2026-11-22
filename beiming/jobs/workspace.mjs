@@ -108,10 +108,38 @@ export function retrySharing(file, run, retries = 16, mode = fs.constants.W_OK) 
   }
 }
 
+// 建完节点立即调用取样；返回的函数给出这个节点现在的路径，找不到返回 undefined。
+// 持有期间父目录可能被改名轮换、原路径重建：原路径上已是别人的新节点，不能碰，要到改名后的兄弟目录里按 dev:ino 找回自己的那个。
+// 拿不到节点号（ino 为 0）的文件系统认不出轮换，按没轮换处理。
+export function trackNode(file) {
+  const id = target => retrySharing(target, () => fs.lstatSync(target, { bigint: true, throwIfNoEntry: false }), 12, fs.constants.R_OK);
+  const same = (a, b) => a && b && a.dev === b.dev && a.ino === b.ino;
+  const parent = path.dirname(file);
+  const snap = id(file);
+  const parentSnap = id(parent);
+  return () => {
+    if (!snap?.ino || same(id(file), snap)) return file;
+    if (!parentSnap?.ino) return undefined;
+    let siblings;
+    try {
+      siblings = fs.readdirSync(path.dirname(parent));
+    } catch {
+      return undefined; // 上一级列不出来就找不回，留给 prune 或陈旧锁清理
+    }
+    for (const name of siblings) {
+      const moved = path.join(path.dirname(parent), name);
+      if (same(id(moved), parentSnap) && same(id(path.join(moved, path.basename(file))), snap)) return path.join(moved, path.basename(file));
+    }
+    return undefined;
+  };
+}
+
 // aroundPublish 只包住最后的发布一步：写盘和刷盘在它外面做完，调用方要加锁时临界区才短。
 export function atomicWrite(file, text, { stagingParent = path.dirname(file), create = false, aroundPublish = publish => publish() } = {}) {
   const staging = fs.mkdtempSync(path.join(stagingParent, '.write-'));
+  let locate = () => staging;
   try {
+    locate = trackNode(staging);
     const pending = path.join(staging, 'pending');
     fs.writeFileSync(pending, text, { flag: 'wx', flush: true });
     aroundPublish(() => {
@@ -119,7 +147,8 @@ export function atomicWrite(file, text, { stagingParent = path.dirname(file), cr
       else retrySharing(file, () => fs.renameSync(pending, file));
     });
   } finally {
-    fs.rmSync(staging, { recursive: true, force: true, maxRetries: 5, retryDelay: 10 });
+    const mine = locate();
+    if (mine) fs.rmSync(mine, { recursive: true, force: true, maxRetries: 5, retryDelay: 10 });
   }
 }
 

@@ -1221,3 +1221,178 @@ test('A16-33 G_REV-R7 缓存根目录轮换重建后新旧句柄按当前物理�
   assert.deepEqual([...newHandle.get(entry1).colorBytes], [55]);
   assert.equal(probeBusy, false);
 });
+
+test('A16-34 八审收口：持锁发布后释放前轮换不留死锁与暂存（F1）、根取样带退避（F2）、ino=0n 区分不同根（F3）、ERR_* 参数错误不吞（F4/M7）及 M5/M6 断言', (t) => {
+  const { openShotCache, computeFrameCacheKey } = jobs;
+  const baseSpec = makeBaseSpec;
+  const sampleMeta = {};
+  const parent = tmpDir(t);
+
+  // F1: 已取得锁并完成帧 renameSync，在释放锁与回收暂存之前把 root 改名为 rotated 并在原路径重建 root（且新 root 已有新锁）
+  const root1 = path.join(parent, 'live');
+  const rotated1 = path.join(parent, 'rotated');
+  const c1 = openShotCache(root1);
+  const entryA = computeFrameCacheKey(baseSpec());
+  const realRename = fs.renameSync;
+  let rotateInFlight = true;
+  const renameHook = t.mock.method(fs, 'renameSync', (from, to) => {
+    const res = realRename(from, to);
+    if (rotateInFlight && String(to).endsWith('.frame')) {
+      rotateInFlight = false;
+      realRename(root1, rotated1);
+      fs.mkdirSync(root1, { recursive: true });
+      fs.writeFileSync(path.join(root1, '.cache.lock'), '999999\n');
+    }
+    return res;
+  });
+  c1.put(entryA, { colorBytes: Buffer.from([77]), meta: sampleMeta, runId: 'r-f1' });
+  renameHook.mock.restore();
+  // 新根的锁未被误删
+  assert.equal(fs.existsSync(path.join(root1, '.cache.lock')), true);
+  fs.rmSync(path.join(root1, '.cache.lock'), { force: true });
+  // 旧根（rotated1）零残留 .cache.lock 与 .write-*，且可立即打开执行 prune 不超时
+  const leftovers = fs.readdirSync(rotated1).filter(n => n === '.cache.lock' || n.startsWith('.write-'));
+  assert.deepEqual(leftovers, []);
+  const rotatedHandle = openShotCache(rotated1);
+  assert.deepEqual([...rotatedHandle.get(entryA).colorBytes], [77]);
+  assert.deepEqual(rotatedHandle.prune({ maxAgeMs: 86_400_000, lockTimeoutMs: 50 }), { removed: 0 });
+
+  // F2: put 路径上每一处根身份取样（bigint lstat，含 currentState 的入口与持锁后两次）各遇一次 EBUSY/EPERM/EACCES 都退避重试、当轮发布成功
+  const root2 = path.join(parent, 'f2');
+  const c2 = openShotCache(root2);
+  const realLstat = fs.lstatSync;
+  let seqByte = 10;
+  let sites = 0;
+  for (let site = 1, fired = true; fired; site += 1) {
+    for (const code of ['EBUSY', 'EPERM', 'EACCES']) {
+      seqByte += 1;
+      let seenRoot = 0;
+      const m = t.mock.method(fs, 'lstatSync', (target, opts) => {
+        if (opts?.bigint && String(target) === c2.root && (seenRoot += 1) === site) {
+          throw Object.assign(new Error(`${code}: root stamp`), { code, syscall: 'lstat' });
+        }
+        return realLstat(target, opts);
+      });
+      c2.put(entryA, { colorBytes: Buffer.from([seqByte]), meta: sampleMeta, runId: `r-${site}-${code}` });
+      m.mock.restore();
+      assert.deepEqual([...c2.get(entryA).colorBytes], [seqByte]);
+      fired = seenRoot >= site;
+    }
+    if (fired) sites = site;
+  }
+  assert.ok(sites >= 2, `currentState 的两次取样都要被打到，实际只有 ${sites} 处`);
+
+  // F3: 同设备（非零 dev）但 ino=0n 的两个不同目录不得共用锁状态，第二根重入发布必须取得自己的 .cache.lock
+  const root3A = path.join(parent, 'ino0-a');
+  const root3B = path.join(parent, 'ino0-b');
+  const c3A = openShotCache(root3A);
+  const c3B = openShotCache(root3B);
+  const real3A = fs.realpathSync.native(root3A);
+  const real3B = fs.realpathSync.native(root3B);
+  const inoMock = t.mock.method(fs, 'lstatSync', (target, opts) => {
+    const st = realLstat(target, opts);
+    const resolved = path.resolve(String(target));
+    if (st && opts?.bigint && (resolved === real3A || resolved === real3B)) {
+      return Object.assign(Object.create(Object.getPrototypeOf(st)), st, { ino: 0n });
+    }
+    return st;
+  });
+  let rootBLockObserved = false;
+  const renameSpy = t.mock.method(fs, 'renameSync', (from, to) => {
+    if (String(to).startsWith(real3A) && String(to).endsWith('.frame')) {
+      c3B.put(entryA, { colorBytes: Buffer.from([2]), meta: sampleMeta, runId: 'r-3b' });
+    }
+    if (String(to).startsWith(real3B) && String(to).endsWith('.frame')) {
+      rootBLockObserved = fs.existsSync(path.join(real3B, '.cache.lock'));
+    }
+    return realRename(from, to);
+  });
+  c3A.put(entryA, { colorBytes: Buffer.from([1]), meta: sampleMeta, runId: 'r-3a' });
+  renameSpy.mock.restore();
+  inoMock.mock.restore();
+  assert.equal(rootBLockObserved, true, 'ino=0n 时第二缓存根发布必须取得自己的 .cache.lock');
+
+  // F4 & M7: 坏帧机会性清理遇到 Node 参数/编程错误（ERR_INVALID_ARG_TYPE 或无 code TypeError）必须原样抛出，不得吞成 undefined
+  const root4 = path.join(parent, 'f4');
+  const c4 = openShotCache(root4);
+  c4.put(entryA, { colorBytes: Buffer.from([9]), meta: sampleMeta, runId: 'r-f4' });
+  const badFramePath = path.join(
+    fs.realpathSync.native(root4),
+    entryA.tier,
+    `shot-${entryA.shotId}`,
+    entryA.shotKey.slice(7),
+    `${entryA.key.slice(7)}.frame`
+  );
+  fs.writeFileSync(badFramePath, 'corrupted-header\nbytes');
+  for (const bugErr of [
+    Object.assign(new TypeError('The "prefix" argument must be of type string'), { code: 'ERR_INVALID_ARG_TYPE' }),
+    new TypeError('plain bug without code'),
+  ]) {
+    const mkMock = t.mock.method(fs, 'mkdtempSync', () => {
+      throw bugErr; // get 里只有建锁暂存目录会走到 mkdtemp
+    });
+    assert.throws(() => c4.get(entryA), err => err === bugErr);
+    mkMock.mock.restore();
+    assert.equal(fs.existsSync(badFramePath), true);
+  }
+
+  // M5: 只在等锁期间轮换重建根（入口取样时还是旧根）：拿到锁后按新根重认状态，临界区里别的句柄重入 prune 直接执行、不等自己的锁
+  const root5 = path.join(parent, 'm5');
+  const c5 = openShotCache(root5);
+  const entryB = computeFrameCacheKey(baseSpec({ shot: { ...baseSpec().shot, id: 's02' } }));
+  c5.put(entryB, { colorBytes: Buffer.from([4]), meta: sampleMeta, runId: 'r-m5-old' });
+  fs.writeFileSync(path.join(c5.root, '.cache.lock'), `${process.pid}\n`); // 活进程占着锁，逼 put 进等锁循环
+  const realExists = fs.existsSync;
+  let lockProbes = 0;
+  const existsHook = t.mock.method(fs, 'existsSync', (target) => {
+    if (String(target).endsWith('.cache.lock') && (lockProbes += 1) === 2) {
+      realRename(c5.root, path.join(parent, 'm5-retired'));
+      fs.mkdirSync(c5.root);
+      // 新根里放一帧旧的：重入的 prune 有东西可删才会真去拿锁
+      fs.cpSync(path.join(parent, 'm5-retired', entryB.tier), path.join(c5.root, entryB.tier), { recursive: true });
+    }
+    return realExists(target);
+  });
+  let reentrant;
+  const m5Rename = t.mock.method(fs, 'renameSync', (from, to) => {
+    if (!reentrant && String(to).endsWith('.frame')) {
+      try {
+        reentrant = openShotCache(root5).prune({ maxAgeMs: 0, now: Date.now() + 5000, lockTimeoutMs: 30 });
+      } catch (error) {
+        reentrant = error;
+      }
+    }
+    return realRename(from, to);
+  });
+  c5.put(entryA, { colorBytes: Buffer.from([5]), meta: sampleMeta, runId: 'r-m5' });
+  m5Rename.mock.restore();
+  existsHook.mock.restore();
+  assert.ok(lockProbes >= 2, '轮换必须发生在等锁期间');
+  assert.deepEqual(reentrant, { removed: 1 });
+  assert.equal(c5.get(entryB), undefined);
+  assert.deepEqual([...c5.get(entryA).colorBytes], [5]);
+  assert.deepEqual(fs.readdirSync(path.join(parent, 'm5-retired')).filter(n => n.startsWith('.write-')), [], '旧根里的发布暂存目录要跟着回收');
+
+  // M6: 写模式下 renameSync 遇一次 EBUSY 且 accessSync(W_OK) 也遇一次 EBUSY 时继续退避并当轮发布成功
+  let writeRenameBusy = true;
+  let writeAccessBusy = true;
+  const realAccess = fs.accessSync;
+  const mRen = t.mock.method(fs, 'renameSync', (from, to) => {
+    if (writeRenameBusy && String(to).endsWith('.frame')) {
+      writeRenameBusy = false;
+      throw Object.assign(new Error('EBUSY: rename'), { code: 'EBUSY' });
+    }
+    return realRename(from, to);
+  });
+  const mAcc = t.mock.method(fs, 'accessSync', (target, mode) => {
+    if (writeAccessBusy && mode === fs.constants.W_OK) {
+      writeAccessBusy = false;
+      throw Object.assign(new Error('EBUSY: access'), { code: 'EBUSY' });
+    }
+    return realAccess(target, mode);
+  });
+  c2.put(entryA, { colorBytes: Buffer.from([88]), meta: sampleMeta, runId: 'r-m6' });
+  mRen.mock.restore();
+  mAcc.mock.restore();
+  assert.deepEqual([...c2.get(entryA).colorBytes], [88]);
+});

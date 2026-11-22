@@ -154,9 +154,18 @@ export function openShotCache(cacheDir) {
   // 大小写不敏感的卷上同一目录有多种写法，所以按设备号与节点号认根；拿不到节点号的文件系统退回小写的真实路径。
   const stamp = file => fs.lstatSync(file, { bigint: true, throwIfNoEntry: false });
   // 状态按操作这一刻的物理根取，不在打开时固定：根目录被改名轮换、原路径重建后，新旧句柄争的是同一个 .cache.lock，必须认到同一份状态。
+  // 取样遇到共享冲突就退避重来；节点号为 0 时设备号分不出同卷的两个目录，只能用路径。
   function currentState() {
-    const now = stamp(root);
-    const lockKey = now?.dev || now?.ino ? `${now.dev}:${now.ino}` : fs.realpathSync.native(root).toLowerCase();
+    const lockKey = retrySharing(root, () => {
+      const now = stamp(root);
+      if (now && now.ino > 0n) return `${now.dev}:${now.ino}`;
+      try {
+        return fs.realpathSync.native(root).toLowerCase();
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        return root.toLowerCase(); // 根已不在：随后的建锁会报 ENOENT，由 put 补建后重来
+      }
+    }, 12, fs.constants.R_OK);
     return processLocks.get(lockKey) ?? processLocks.set(lockKey, { held: false, putSeq: 0 }).get(lockKey);
   }
   function withCacheLock(run, timeoutMs) {
@@ -265,7 +274,8 @@ export function openShotCache(cacheDir) {
       } catch (error) {
         // 已经确定是未命中：建锁或删除遇到任何文件系统错误（磁盘满、句柄用尽、只读、等锁超时）都留着坏帧，只放过非系统错误。
         // Windows 上 libuv 认不出的系统错误码是 'UNKNOWN'（errno -4094），同样算文件系统错误。
-        if (!(error?.code === 'UNKNOWN' || /^E[A-Z0-9_]+$/.test(error?.code))) throw error;
+        // 系统错误码不带下划线；带下划线的 ERR_*（Node 的参数、编程错误）和没有 code 的错误照常抛出。
+        if (!(error?.code === 'UNKNOWN' || /^E[A-Z0-9]+$/.test(error?.code))) throw error;
       }
       return undefined;
     }

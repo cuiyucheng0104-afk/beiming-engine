@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import process from 'node:process';
-import { checkJobId, processIsAlive } from './workspace.mjs';
+import { checkJobId, processIsAlive, trackNode } from './workspace.mjs';
 
 const FORMAT = 'job-ledger/0.1';
 const TIERS = ['fable', 'opus', 'sonnet', 'haiku', 'other'];
@@ -262,11 +262,15 @@ export function withFileLock(file, run, timeoutMs = 10_000, label = '账本') {
     // 短临界区先留给持锁者释放，不急着读 PID 或抢 .break。
     if (remaining >= lockGraceMs && fs.existsSync(lock)) clearStaleLock(lock);
   }
+  let locate = () => lock;
   try {
+    locate = trackNode(lock);
     removeWithRetry(staging, { recursive: true });
     return run();
   } finally {
-    removeWithRetry(lock);
+    // 持锁期间锁所在目录被轮换、原路径重建后，原路径上的 .lock 是新目录的锁：只删自己建的那个
+    const mine = locate();
+    if (mine) removeWithRetry(mine);
   }
 }
 
