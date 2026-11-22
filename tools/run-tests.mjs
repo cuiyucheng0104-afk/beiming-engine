@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 北冥仓库 · 测试总入口（npm test）：发现并运行仓库自己的测试，汇总成一份结果。只读源码，不改仓库里的任何文件。
-//   node tools/run-tests.mjs                       跑全部
+//   node tools/run-tests.mjs                       跑全部（按需运行的域除外：eval 评测要写明 --only eval）
 //   node tools/run-tests.mjs --only ci,production  只跑这几个域        --skip render   不跑某个域
 //   node tools/run-tests.mjs --list                只列出会跑什么，不执行
 //   node tools/run-tests.mjs --skip-grep <名字片段>  不跑名字含这段文字的测试（CI 用来隔离已登记的已知问题）
@@ -314,6 +314,8 @@ const SKIP_TOP = new Set(['cases', 'films']);   // 历史归档与第三方快�
 const NODE_TEST = /\.test\.(mjs|js|cjs)$/, PY_TEST = /^test_.*\.py$/;
 const isTestName = name => NODE_TEST.test(name) || PY_TEST.test(name);
 const byName = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+// 按需运行的域：默认不跑（评测不是仓库的默认测试），--only 点名才跑
+export const OPT_IN_DOMAINS = new Set(['eval']);
 
 // 相对路径（/ 分隔）是否在发现范围内
 export function inScope(rel) {
@@ -598,6 +600,7 @@ export const HELP = `北冥仓库 · 测试总入口（npm test）
       npm test -- [参数]
 
   --only <域,…>        只跑这些域（可重复）。域见下文「发现」；--list 列出现有的域
+                       eval（评测）是按需运行的域：默认不跑，写 --only eval 才跑
   --skip <域,…>        不跑这些域
   --if-present         --only / --skip 里不存在的域只提示、不报错（CI 里给尚未合入的域用）
   --require <能力,…>   这些能力必须具备，缺了直接 exit 3：python、python:<模块>、browser、ffmpeg、sh、gpu、network
@@ -673,6 +676,11 @@ export async function main(argv = process.argv.slice(2)) {
   }
   if (opts.only.length) suites = suites.filter(s => opts.only.includes(s.domain));
   if (opts.skip.length) suites = suites.filter(s => !opts.skip.includes(s.domain));
+  const optedOut = [...new Set(suites.map(s => s.domain))].filter(d => OPT_IN_DOMAINS.has(d) && !opts.only.includes(d));
+  if (optedOut.length) {
+    suites = suites.filter(s => !optedOut.includes(s.domain));
+    process.stderr.write(`默认不跑的域：${optedOut.join('、')}（按需运行，加 --only ${optedOut.join(',')}）\n`);
+  }
 
   // --require：前置能力检查
   for (const cap of opts.require) {

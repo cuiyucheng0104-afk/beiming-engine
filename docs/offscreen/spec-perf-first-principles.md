@@ -1,6 +1,6 @@
 # 离屏出片性能优化架构规格书（第一性原理版）
 
-> 读者｜引擎工程师、离线渲染维护者与执行 agent　状态｜阶段 1（WP0.1–WP0.3）与阶段 2（WP1.2–WP1.3；WP1.1 按 2026-11-22 裁定撤回）、阶段 3（WP2.2、WP2.3、WP5 落地；WP2.1 No-Go 撤回；**WP5 性能未达 ≥ 40% 闸门**）已实测回填，其余阶段仍为草案（2026-11-22）　依据｜[决定书 D03 / D08 / D12](../decisions/2026-11-10-industrial-baseline.md)、[离屏出片设计与实测记录](README.md) §7.17–7.21
+> 读者｜引擎工程师、离线渲染维护者与执行 agent　状态｜阶段 1（WP0.1–WP0.3）与阶段 2（WP1.2–WP1.3；WP1.1 按 2026-11-22 裁定撤回）、阶段 3（WP2.2、WP2.3、WP5 落地；WP2.1 No-Go 撤回；**WP5 性能未达 ≥ 40% 闸门**）与阶段 4（WP3 本机切片跑通；多机未测）已实测回填，其余阶段仍为草案（2026-11-22）　依据｜[决定书 D03 / D08 / D12](../decisions/2026-11-10-industrial-baseline.md)、[离屏出片设计与实测记录](README.md) §7.17–7.21
 
 **一句话**：在严守「画质不降」与「预览 / 出片同源（D12）」两条红线的前提下，按物理瓶颈从大到小逐层消除固定启动、无效数据搬运、显存带宽浪费与采样复杂度上限，并通过无状态帧级切片把规模吞吐解耦到多卡 / 多机。
 
@@ -232,7 +232,7 @@ $$T_{\text{total}} = T_{\text{固定启动}} + \frac{N_{\text{帧}} \times \max\
 | **阶段 1（M8）** | WP0.1 – WP0.3（WP0.4 试作后已撤回，见 §5.1） | `encode.mjs`、`cli.mjs`、`batch.mjs`、`film.mjs` | 零架构变动；1080p 144 帧冷启动 ≤ 3.3 s，稳态 CPU 余量降到 < 1 ms/帧，全项 T0 逐字节等价 |
 | **阶段 2（M9）** | WP1.2 – WP1.3（WP1.1 试作后按 2026-11-22 裁定撤回，见 §5.2） | 新增 `daemon.mjs`、`cli.mjs`、`host.mjs`、`load.mjs`、`film.mjs`、`canvas.mjs` | 4K `grade` 降 ≥ 35%（WP1.1 撤回，未达）；常驻热出片 1080p 144 帧 ≤ 1.5 s（轻/中片达标，重后期《晨渡》2.744 s 受稳态渲染限制）；20 轮无显存泄漏（达标） |
 | **阶段 3（M10）** | WP2.1 – WP2.3 + WP5 | `host.mjs`、`tsl/kuwahara.js`、`tsl/idpass.js`、`frames.mjs` | WP2.1 必须先过 Micro-benchmark 闸门（4K Kuwahara ≥ 20% 提速），不达标即停并转评估 T1 方案；`ss=1` MRT 零像素差。**实测（§5.3）**：WP2.1 No-Go 已撤回；WP2.2、WP2.3 达标；WP5 功能与 T0 达标但**性能未达 ≥ 40%**，阶段性能闸门**不算通过** |
-| **阶段 4（M11）** | WP3 | `tools/offscreen/farm.mjs`、`tools/remote/` | 多卡/多机切片 + `ffmpeg -c copy` 合并跑通，长片吞吐随卡数近线性增长 |
+| **阶段 4（M11）** | WP3 | `tools/offscreen/farm.mjs`、`tools/remote/` | 多卡/多机切片 + `ffmpeg -c copy` 合并跑通，长片吞吐随卡数近线性增长。**实测（§5.4）**：本机 `--transport local` 双槽位端到端跑通、拼接零接缝（T0 达标）；单卡双槽位无吞吐收益（符合预期）；**多机 ≥ 1.7× 未测**（无已接入工作站） |
 | **按需（M12）** | WP4 | 独立宽松许可可选 N-API 模块 | 仅当 4K 读回+Pipe 实测占比 > 15% 时立项，否则不做 |
 
 ### 5.1 阶段 1 实测回填（2026-11-21，基线 `a84819a3`）
@@ -378,3 +378,39 @@ $$T_{\text{total}} = T_{\text{固定启动}} + \frac{N_{\text{帧}} \times \max\
 - **MP4**：《晨渡》（0:4、96:100）、《度》（0:4、72:76）× 1080p / 4K × Pro / Fast 共 **16/16 组**逐字节相同（首轮实测；二轮不改 `encode.mjs` / `yuv.mjs` / 非 MRT 主路径）。
 - **确定性**：`npm run determinism -- films/chendu --renderer offscreen --size 320x180 --seams`（12 帧）二轮复测四路（新宿主、乱序、顺序流水线、同卡并发）逐像素一致。
 - **作品契约（D12）**：作品模块 `build(ctx) → { render(f) }` 不变；`stateKey` 是可选新增字段（含 `film.work({ stateKey })`），缺省时零行为变化。
+
+
+### 5.4 阶段 4 实测回填（2026-11-22，基线 `129a0a0e`）
+
+**环境**：Linux x64，RTX 4070 Laptop 8 GiB（驱动 620.73.04），Node v26.8.2，FFmpeg n9.1，`webgpu` 0.6.2，`three-webgpu` 0.187.0；32 核 / 62 GiB。非独占 GPU：常驻 ASR 进程占 2486 MiB，测量期间另有主仓库两个 Python 进程占卡（各 172 MiB），各轮前利用率 5%–65% 波动，因此按 §4.1 做交替 A/B（1080p 各 3 轮、4K 各 2 轮；偶数轮 ref→farm、奇数轮 farm→ref）。原始日志与成片在 `out/wp3-results/stage4/`（不入库）。
+
+**实现**：`npm run offscreen:farm -- render <作品.mjs> --out <成片> --frames a:b [--slots N]`（`tools/offscreen/farm.mjs`，走 `tools/lib/cli.mjs` 契约）。切片规划 `planShards` 只由区间 / 目标段数 / 切点 / 块长决定（与槽位数无关，同区间切法永远相同）：优先对齐 `film.json` 镜头切点（`--seams` 可覆盖），单镜超过 `--block`（默认 240，同时是 `-g`）按块长均分，段数不足目标平分最长段、过多就近合并（守住块长上限）。`--transport local` 每片一个独立 Node + Dawn 进程（模拟节点），统一 `--gop <block>`、`--timescale fps×512`（`offscreen render` 新增 `--gop` / `--timescale`，缺省不传、与合入前码流逐字节相同）；合并复用页面渲染器的 `concatChunks`（先核对各段编码/像素格式/画幅/帧率/时间基/色彩标记一致，`ffmpeg -f concat -safe 0 -c copy`），另核验 PTS 严格单调无空洞（按时间基整数步长）、合并前后 framemd5 逐帧连续、逐段 sha256 留痕。单块失败只重试该块（`--retries`，默认 1），已完成的切片不重跑；某片实际编码与首片不一致在拼接前拦下（`contract.shard-encode-mismatch`，退出 4）。变异检查：切点边界差一、PTS 步长放宽、重试边界多试一次，三项都被测试拦下。
+
+**复核退修（2026-11-22，PR #123 独立复核 1 P0 + 1 P1 + 2 P2）**：① `--work-dir` 原先会被整目录递归删除（用户目录里原有的文件、放在其中的成片都会丢）——改为只当父目录，每次运行在其下（缺省在系统临时目录下）用 `mkdtemp` 建独占子目录 `.offscreen-farm-*` 并写所有权标记，成功后只删带本次标记的那个子目录，用户给的目录本身与原有内容一律不动；成片不可能落进这个随机名的子目录，因此不会被删。② 两个任务共用 `--work-dir` 时切片同名覆盖、双方退出 0 却交付对方的画幅——独占子目录消除了共享；另外 `mergeAndVerify` 拼接前逐片对照本次请求的画幅、帧率（`fps` 参数此前未参与核对）、编码 `h264`、像素格式 `yuv420p` 与时间基 `1/(fps×512)`，不符报 `contract.shard-mismatch`（退出 4）。③ 失败的块全是环境错误（如缺 FFmpeg，子进程退出 3）时外层保留 `env.shards`、退出 3，不再统一报 1。④ 补容器级负例：用真实 MP4 把第二片最后一帧 PTS 5632 改成 6144，`mergeAndVerify` 报 `contract.pts`；上述三项各有回归用例，改前实现上 5 条新用例全红、改后全绿；对新逻辑的变异检查（不核帧率、环境错误降级、不建独占子目录）都被拦下，「合并后成片再核一次签名」被证明与逐片核对重复，已删掉。改后本机 GPU 短跑《晨渡》960×540 `60:84`（跨切点 72，双槽位）：切片 60:72 / 72:84，合并 24 帧、PTS 步长 512、色彩与 framemd5 核验全过，逐帧无损读回哈希与单机整段 24/24 相同，`--work-dir` 里预置的文件原样保留。上表耗时是改前实测；本次改动只动工作目录与核验，不改渲染与编码参数，未重跑整套耗时矩阵。
+
+#### 1) 本机双槽位端到端（验收 A，通过）
+
+交替 A/B：ref = `offscreen render --frames 0:192 --frame-hashes on`（单机整段），farm = `offscreen:farm --slots 2`（chendu 按镜头切点切 0:72 / 72:192，ink 无镜头表按 0:96 / 96:192 均分）。每轮核验合并成片：帧数精确 192、PTS 严格单调（步长 512 刻度）、四项 BT.709 标记完整、framemd5 与逐段连续、每片 sha256 留痕——**10/10 轮全部通过**。
+
+| 作品与档位（192 帧） | ref 单机整段中位（区间） | farm 双槽位中位（区间） | 逐帧哈希一致（无接缝） |
+|---|---:|---:|---|
+| 《晨渡》1080p | 25.0 s（22.1 / 25.3 / 25.0） | 27.1 s（28.2 / 26.7 / 27.1） | 3/3 轮 192/192 帧 |
+| `ink.mjs` 1080p | 8.2 s（8.9 / 8.2 / 8.0） | 12.2 s（12.2 / 12.3 / 11.6） | 3/3 轮 |
+| 《晨渡》4K | 104.8 / 72.9 s（两轮） | 95.7 / 90.7 s（两轮） | 2/2 轮 |
+| `ink.mjs` 4K | 25.8 / 31.6 s（两轮） | 35.5 / 40.2 s（两轮） | 2/2 轮 |
+
+- **无接缝判据（规格书 WP3 验收的「无损中间对比」）**：各片 `--frame-hashes on` 的无损读回哈希拼起来与单机整段渲染**逐帧逐字节相同**（全帧量核验，强于抽帧 `diffRgba` 的 maxDelta=0）；`determinism --seams`（12 帧四路）另证接缝两侧帧本身与分段方式无关。
+- **解码域信息性对拍**（《晨渡》1080p 边界帧 71–74，`diffRgba`）：帧 0（两版同为 IDR 起点）maxDelta=0、逐字节相同；边界帧 PSNR 39.95–42.01 dB、差值全帧分布——这是「分片边界 IDR / 整段 P 帧」两种 GOP 结构各自有效编码的固有差异（同混卡注意条款），不是接缝伪影；无接缝以无损中间对比为准。
+- **本机吞吐（信息性）**：单卡双槽位对吞吐无稳定收益（1080p 慢 8%–48%，4K 两轮一快一慢在波动内）——两张表都印证 §7.17 的判断：单卡 GPU 已满载，分片的收益在多卡 / 多机，本机模式的价值是把切片与拼接机制完整跑通并核验。
+
+#### 2) 确定性（验收 D，通过）
+
+同一提交、同一参数：《晨渡》1080p farm 3 轮与 ref 3 轮的合并成片 sha256 **各自全部相同**（其余三组 2 轮亦同）；`npm run determinism -- films/chendu --renderer offscreen --seams` 四路（新宿主、乱序、顺序流水线、同卡并发）通过。分片合流与单机整段的**码流不逐字节相同**（IDR 边界 vs P 帧，属预期）；**像素层（无损读回）逐字节相同**。
+
+#### 3) 多机实测（验收 C，未测）
+
+规格验收线「2 台以上 GPU 工作站、4K 长片端到端吞吐 ≥ 单机 1.7×」**未测**。条件核对：本机没有机器档案（`node tools/remote/cli.mjs machines` → 还没有 `~/.config/beiming/machines.json`），`BEIMING_MACHINES` 未设；按任务与 `tools/remote` 约定，接入工作站需要在其上安装 / 配置（OpenSSH 密钥登录、git、Node 22+、FFmpeg、驱动）并建档案——这些都要动远端机器，本轮不做。缺口清单：① 至少 2 台按 `docs/RTX工作站.md` 装好的 GPU 工作站；② 免密 ssh 与机器档案；③ 远端按提交建环境（`remote setup`）的首次跑通；④ farm 的 `--transport ssh`（经 `tools/remote run` 按提交分发切片，模式已在 `tools/offscreen/farm.mjs` 帮助里注明）。条件具备后按 §4.1 交替实测并回填本节。
+
+#### 4) T0 矩阵（验收 B）
+
+`node --test tests/offscreen/*.test.mjs` 189 项（187 过 / 0 挂 / 2 项既有环境跳过：本机缺 Python 3.12 锁；复核退修后，其中 `farm.test.mjs` 23 项全过）；`tools/offscreen/farm.mjs` 的契约测试（`--help` / 未知参数 / `--json`）由 `tests/cli/contract.test.mjs` 自动识别并通过；`npm run determinism -- films/chendu --renderer offscreen --seams` 通过；`npm run offscreen:compare`（《晨渡》4 帧，PSNR 62.77–66.33 dB、大差像素 ≤ 0.034%）通过；`npm run check` 与 `npm run comp:scan -- --staged` 的结果见 PR 描述；`npm run golden`（本机缺 Python 3.12 锁）按既有环境限制记录，未在本机复跑。

@@ -135,6 +135,31 @@ class InputAndMetricTests(unittest.TestCase):
         self.assertEqual(sorted(os.listdir(d)), ['k.json', 'k.npz'], '不留临时文件')
         self.assertTrue(np.array_equal(t._load('k')[0], SRCS[0]))
 
+    def test_save_retries_transient_permission_error_and_cleans_tmp(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d)
+        t = erb_foley.ErbTakes(device='cpu', cache_dir=d)
+        real_replace = os.replace
+        calls = {'n': 0}
+
+        def flaky_replace(src, dst):
+            calls['n'] += 1
+            if calls['n'] in (1, 2, 4):
+                raise PermissionError(13, 'Access is denied')
+            return real_replace(src, dst)
+
+        with mock.patch.object(erb_foley.os, 'replace', side_effect=flaky_replace), \
+             mock.patch.object(erb_foley.time, 'sleep', lambda _s: None):
+            t._save('k', {'x': 1}, SRCS[0], {'gate': 'pass'})
+        self.assertEqual(sorted(os.listdir(d)), ['k.json', 'k.npz'])
+        self.assertTrue(np.array_equal(t._load('k')[0], SRCS[0]))
+
+        with mock.patch.object(erb_foley.os, 'replace', side_effect=PermissionError(13, 'Permanent')), \
+             mock.patch.object(erb_foley.time, 'sleep', lambda _s: None):
+            with self.assertRaises(PermissionError):
+                t._save('k2', {'x': 2}, SRCS[0], {'gate': 'pass'})
+        self.assertEqual(sorted(os.listdir(d)), ['k.json', 'k.npz'], '永久权限错误也不遗留 .tmp 临时文件')
+
     def test_bad_cache_files_are_misses(self):
         d = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, d)
