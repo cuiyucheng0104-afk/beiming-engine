@@ -1,0 +1,55 @@
+{
+  "format": "card/0.1",
+  "id": "audio.align",
+  "version": "1.0.0",
+  "kind": "audio",
+  "title": "配乐对位",
+  "intent": "把一段现成的配乐对到正片上，让它的低频重击落在指定的硬切帧上：只平移、最多拉伸 3%、最多剪接一次，办不到就报错",
+  "visibleToAgent": true,
+  "livesIn": ["comp"],
+  "impl": [
+    {
+      "livesIn": "comp",
+      "entry": "cards/audio/align/comp.mjs",
+      "shape": "create",
+      "hosts": [],
+      "selftest": "cards/audio/align/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "stretchMin": { "type": "number", "unit": "none", "range": [0.97, 1], "default": 0.97, "coupling": "none" },
+    "stretchMax": { "type": "number", "unit": "none", "range": [1, 1.03], "default": 1.03, "coupling": "none" },
+    "splice": { "type": "boolean", "unit": "none", "default": false, "coupling": "none" },
+    "crossfadeMs": { "type": "number", "unit": "ms", "range": [5, 200], "default": 40, "coupling": "none" },
+    "lowHz": { "type": "number", "unit": "Hz", "range": [30, 400], "default": 120, "coupling": "none" },
+    "hitFloor": { "type": "number", "unit": "none", "range": [0.05, 1], "default": 0.3, "coupling": "none" }
+  },
+  "ports": {
+    "in": [],
+    "out": [],
+    "order": { "before": ["audio.master"], "after": [] },
+    "requires": [
+      "合成工具给的 ctx 带 fps（分子/分母）",
+      "合成工具调 Handle.object.align(channels, { frames, anchors })：channels 是一个或两个声道的 32 位浮点样本，采样率 48000 赫兹，不空、不带 NaN 或无穷，声道数组和锚点数组不能有空洞；锚点的 frame 是全片帧号，hit 是整数，sourceSec 是数值",
+      "拉伸比的界是硬的闭区间 [0.97, 1.03]，不留浮点余量；出界的拉伸比、不是有限数的 stretch 和 offsetSec、不是正整数的 frames 一律报 usage.bad-argument；align、hits 的选项里带了 windowFrames（和 audio.event-mix 共用一份选项时）只查写法，不是大于 0 的有限数也报，这张卡不用它",
+      "对完的声音还没定响度：交给 audio.master"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["配乐是现成的，画面的硬切要踩在它的低频重击上", "配乐和正片的时长只差百分之几，或者许可剪掉、重放一小段"],
+    "notWhen": ["要的拉伸比超过 3%：这张卡不做，开 splice 剪接一次或者换配乐", "要保住音高的变速：这里是线性重采样，音高跟着拉伸比变", "要对的点多于两个：一次平移加一个拉伸比只对得上两个"]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "24 帧每秒、720 帧：配乐里相隔 20 ÷ 1.009 秒的首尾两下低频重击对到第 96 和第 576 帧，拉伸比 1.009（差不超过 0.0005），对完之后两下重击离目标帧不到 1 帧；锚点要 1.05 的拉伸比时报错，直接要 0.9699999995 或 1.0300000005 也报错，偏移是 NaN 也报错；左右反相的立体声找到的重击和单声道一样；开了 splice 就剪一次、拉伸比回到 1 附近、落点照样不到 1 帧；同样的输入做两遍逐个样本相同",
+    "predicates": []
+  },
+  "pitfalls": [
+    { "symptom": "报两个锚点要的拉伸比出了界", "fix": "正片里两个切点的间隔和配乐里两下重击的间隔差了 3% 以上：换一对重击当锚点，或者把 splice 打开" },
+    { "symptom": "剪接之后中间少了一下或者多了一下重击", "fix": "剪接在两个锚点正中间剪掉或者重放一段，那一段里的重击跟着没了或者重了；换一对锚点让剪接落在没有重击的地方" },
+    { "symptom": "hits 找到的重击比听到的少", "fix": "能量不到最响那一下 hitFloor 倍的不算；调小 hitFloor，或者锚点直接写 sourceSec" }
+  ],
+  "provenance": { "cases": [], "note": "正片时刻 = 偏移 + 拉伸比 × 配乐时刻，两个锚点解出两个未知数；找重击时每个声道各自低通、平方之后再平均；重采样是线性插值；剪接的接缝在 ±20 毫秒里挑归一化互相关最大的位置再线性交叉淡化" },
+  "status": [{ "level": "reproduced", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-22" }],
+  "exams": ["5-1"]
+}
