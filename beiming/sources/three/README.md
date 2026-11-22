@@ -15,7 +15,7 @@
 | `host.load(shot, { THREE, renderer })` | 装载镜头（入口文件调一次 `build`，或跑「卡加数据」固定装载脚本），交回 `{ object, size, post? }` |
 | `host.apply(loaded, f, sub)` | 把 `(f, sub)` 的状态写进场景 |
 | `host.measure(loaded, f, facts)` | 量元数据；`facts.visible` 是渲染器数出的可见比例 |
-| `host.query(loaded, f, plan, names)` | 答场景查询；`(f, 0)` 的状态由渲染器先写好 |
+| `host.query(loaded, f, plan)` | 答场景查询；`(f, 0)` 的状态由渲染器先写好 |
 | `host.now()` | 单调时钟，毫秒，只进 `timing` |
 
 ## 怎么出一帧

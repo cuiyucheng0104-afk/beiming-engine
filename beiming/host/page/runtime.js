@@ -10,7 +10,7 @@ import { caps } from '../../sources/three/caps.mjs';
 import { planOpen } from '../../sources/three/plan.mjs';
 import { createThreeSource } from '../../sources/three/source.js';
 import { monotonicMs } from './clock.js';
-import { answerQuery, clipStats, lumaStats, measureEntity, placeAnchors } from './measure.js';
+import { answerQuery, clipStats, lumaStats, measureEntity, pickAnchors, placeAnchors } from './measure.js';
 
 const META_KEYS = ['texts', 'anchors', 'readings'];
 const CARD_ENTRIES = ['create', 'evaluate'];
@@ -297,16 +297,16 @@ export async function openSession({ input, env, filmBase, cards = {} }) {
     },
 
     /**
-     * 场景查询：渲染器已经把 (f, sub = 0) 写进场景，这里只量不改。q 是 planQuery 判过的 { kind, of: 配上的实体名, tol }，names 是全部实体名。
-     * 包围盒、最低点和元数据的 bbox3d 是同一批顶点；锚点和元数据的是同一份（镜头的 meta(f) 加各张卡的），也过同一道 placeAnchors 的检查，
-     * 所以落在相机平面上的锚点在这里同样报错。只交挂在 of 里的实体上的锚点。
+     * 场景查询：渲染器已经把 (f, sub = 0) 写进场景，这里只量不改。q 是 planQuery 判过的 { kind, of: 配上的实体名, tol }。
+     * 包围盒、最低点和元数据的 bbox3d 是同一批顶点；锚点和元数据的是同一份来源（镜头的 meta(f) 加各张卡的），但只取世界坐标、不投到屏幕：
+     * 落在相机平面上的锚点元数据交不出（那一帧报错），这里照答；只看挂在 of 里的实体上的锚点，别的实体上的写坏了也不牵连（pickAnchors）。
      */
-    query(loaded, f, q, names) {
-      const { object } = loaded, view = sync(object);
+    query(loaded, f, q) {
+      const { object } = loaded;
+      sync(object);
       if (q.kind !== 'anchor') return answerQuery(q.kind, q.of.map((name) => [name, pointsOf(object, name)]), q.tol);
       const pairs = [...Object.entries(object.meta(f)?.anchors ?? {}), ...loaded.reporters.flatMap((i) => cardAnchors(i, mergeMeta(i.as, i.handle.meta(f) ?? {})))];
-      const placed = placeAnchors(view, object.camera.projectionMatrix.elements, loaded.size, pairs, names);
-      return answerQuery('anchor', q.of.flatMap((name) => Object.entries(placed[name] ?? {}).map(([anchor, at]) => [`${name}#${anchor}`, at.world])));
+      return answerQuery('anchor', pickAnchors(pairs, q.of));
     },
   };
 
@@ -319,12 +319,20 @@ export async function openSession({ input, env, filmBase, cards = {} }) {
     });
   }
 
-  /** 一个实体全部顶点的世界坐标（先 sync）。没有几何的实体量不出包围盒，报错 */
+  /**
+   * 一个实体全部顶点的世界坐标（先 sync）。实例网格每个实例各算一遍：世界矩阵是对象的世界矩阵乘上那个实例的矩阵，一个实例都没有（count 是 0）就没有顶点。
+   * 没有几何的实体量不出包围盒，报错。
+   * shortcut: 实例网格逐实例逐顶点算，实例数乘顶点数上百万时每帧量元数据会慢，到时改成只变换几何的凸包；蒙皮、变形目标的形变不算，用到时在这里接
+   */
   function pointsOf(object, name) {
-    const points = [];
+    const points = [], v = new THREE.Vector3(), world = new THREE.Matrix4();
     object.entities[name].traverse((o) => {
       const pos = o.geometry?.attributes.position;
-      for (let i = 0; i < (pos?.count ?? 0); i++) points.push(new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).toArray());
+      if (!pos) return;
+      for (let k = 0; k < (o.isInstancedMesh ? o.count : 1); k++) {
+        if (o.isInstancedMesh) { o.getMatrixAt(k, world); world.premultiply(o.matrixWorld); } else world.copy(o.matrixWorld);
+        for (let i = 0; i < pos.count; i++) points.push(v.fromBufferAttribute(pos, i).applyMatrix4(world).toArray());
+      }
     });
     if (!points.length) throw new Error(`实体 ${name} 没有几何，量不出包围盒`);
     return points;

@@ -5,7 +5,7 @@ import { renderingOf } from '../../kernel/eval/input.mjs';
 import { shutterSubs } from '../../kernel/eval/time.mjs';
 
 export class SourceError extends Error {
-  /** next 是可选的「接下来可以怎么办」：一组可执行的替代办法 */
+  /** next 是可选的「接下来可以怎么办」：一组可执行的替代办法，每项 { verb, why }（和 API 错误信封的 next 同一个写法） */
   constructor(code, message, next) {
     super(message);
     this.code = code;
@@ -188,18 +188,29 @@ export function planFrame(frames, f) {
 const QUERY_KEYS = ['kind', 'of', 'against', 'tol'];
 // 实体名，或者「前缀.*」（帧源接口契约 5.5）；和 scene-query.schema.json 的 target 是同一个式子
 const TARGET = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*(\.\*)?$/;
-// 没声明的查询报错时带的替代办法：intersect、contact 在登记表里是别的帧源的事，这里只交得出包围盒
+// 没声明的查询报错时带的替代办法：intersect、contact 在登记表里是别的帧源的事，这里只交得出包围盒。
+// 每项 { verb, why } 照 API 错误信封的 next 写（beiming/api/envelope.mjs 只留 verb 是「方法 /v1/路径」的项，字符串会被整项滤掉）；
+// {id} 是片子工作区的编号，帧源不知道，和接口清单里的写法一样留着占位。信封挤的时候只留第一项，所以不用换帧源的办法排前面
 const QUERY_NEXT = (caps, kind) => (['intersect', 'contact'].includes(kind)
   ? [
-    `换一个声明了 ${kind} 查询的帧源出这个镜头：帧源登记表里 blender、core 的上限含这一种，现在答不答以那个帧源的 caps().sceneQuery 为准`,
-    `用 bbox3d 查询取两边实体的世界包围盒 [minX, minY, minZ, maxX, maxY, maxZ]（米），自己判包围盒有没有相交、相隔多远；只是近似，贴着包围盒的空隙看不出来`,
+    { verb: 'POST /v1/films/{id}/observe/query', why: `改问实体的三维包围盒（entities 里的 bbox3d，或者场景查询 bbox3d：[minX, minY, minZ, maxX, maxY, maxZ]，米），自己判两边的包围盒有没有相交、相隔多远；只是近似，贴着包围盒的空隙看不出来` },
+    { verb: 'PUT /v1/films/{id}/film', why: `把这个镜头的帧源换成声明了 ${kind} 查询的：帧源登记表里 blender、core 的上限含这一种，现在答不答以那个帧源的 caps().sceneQuery 为准` },
   ]
-  : [`只问这个帧源的 caps().sceneQuery 里列了的种类：${caps.sceneQuery.join('、')}`]);
+  : [{ verb: 'POST /v1/films/{id}/observe/query', why: `这个帧源的场景查询只答 caps().sceneQuery 里列了的种类：${caps.sceneQuery.join('、')}` }]);
+// of、against 的快照：数组也只认自有的、可枚举的数据属性。只读属性描述，索引上的取值器一次都不执行；原型上继承来的元素（稀疏数组的洞）、多出来的键都不认。不合的交回 null
+const snapList = (v) => {
+  if (!Array.isArray(v)) return null;
+  const d = Object.getOwnPropertyDescriptors(v), n = d.length.value;
+  // 先数键再按长度取：长度很大的稀疏数组到不了下一行
+  if (Reflect.ownKeys(v).length !== n + 1) return null;
+  const items = Array.from({ length: n }, (_, i) => d[i]);
+  return items.every((x) => x && Object.hasOwn(x, 'value') && x.enumerable) ? items.map((x) => x.value) : null;
+};
 
 /**
  * 一次场景查询的计划。q 是 SceneQuery，names 是这个镜头的实体名。先判种类：不是字符串报 usage.bad-argument，
  * 能力声明里没列的报 contract.unsupported-query（带 next：替代办法）；再照 scene-query.schema.json 判写法，不对的报 usage.bad-argument。
- * 返回 { kind, of, tol, q }：of 是配上的实体名（去重，按字节序），tol 是容差（米，没写是 0），q 是判过的纯数据快照（页面宿主拿它进页面）。
+ * 返回 { kind, of, tol, q }：of 是配上的实体名（去重，按字节序），tol 是容差（米，没写是 0），q 是判过的纯数据快照（页面宿主拿它进页面；of、against 是另抄的数组）。
  * 写了的实体名场景里必须有；「前缀.*」配名字以「前缀.」开头的全部实体，不含前缀自己，一个都没配上不算错。
  * against 这个帧源声明的三种查询都不用：写了照样判写法，不参与求值。
  */
@@ -211,10 +222,12 @@ export function planQuery(caps, q, names) {
   const s = box(q, '场景查询', QUERY_KEYS), tol = given(s, 'tol') ?? 0;
   if (typeof tol !== 'number' || !(tol >= 0 && tol < Infinity)) throw bad(`tol 必须是不小于 0 的有限的数（米），给的是 ${show(tol)}`);
   const match = (key) => {
-    let list = null;
-    // 抄一份再判：之后只读这一份
-    try { if (Array.isArray(given(s, key))) list = Array.from(s[key]); } catch (e) { if (e instanceof SourceError) throw e; }
-    if (!list?.length || list.some((t) => typeof t !== 'string' || !TARGET.test(t))) throw bad(`${key} 必须是至少一项的数组，每项是实体名或「前缀.*」，给的是 ${show(s[key])}`);
+    let list = null, isList = true;
+    // 抄一份再判：之后只读这一份。Proxy 的陷阱抛了当成不合
+    try { isList = Array.isArray(given(s, key)); list = snapList(s[key]); } catch (e) { if (e instanceof SourceError) throw e; }
+    // 报错消息也不碰调用方的数组（转成字符串会读索引）：只印抄下来的那一份
+    const got = list ? `[${list.map((t) => (typeof t === 'string' ? JSON.stringify(t) : typeof t)).join(', ')}]` : isList ? '带取值器、继承来的元素或多余的键的数组' : show(s[key]);
+    if (!list?.length || list.some((t) => typeof t !== 'string' || !TARGET.test(t))) throw bad(`${key} 必须是至少一项的数组，每项是自有的数据属性，写实体名或「前缀.*」，给的是 ${got}`);
     const hit = new Set();
     for (const t of list) {
       if (t.endsWith('.*')) names.filter((n) => n.startsWith(t.slice(0, -1))).forEach((n) => hit.add(n));

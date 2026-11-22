@@ -80,13 +80,39 @@ export function clipStats(rgba) {
 
 // 一次场景查询最多交回几项（帧源接口契约 F9）
 const QUERY_MAX = 50;
+// 按码点比，和 UTF-8 字节序是同一个次序。JS 的 < 按 UTF-16 码元比，会把 U+10000 起的字符（代理对，0xD800 打头）排到 U+E000 前面
+const byCodePoint = (x, y) => {
+  const a = [...x], b = [...y];
+  for (let i = 0; i < a.length && i < b.length; i++) if (a[i] !== b[i]) return a[i].codePointAt(0) - b[i].codePointAt(0);
+  return a.length - b.length;
+};
+
+/**
+ * 锚点查询要答的那几个锚点。pairs 同 placeAnchors；of 是问到的实体名。只收挂在 of 里的实体上的，交回 [['实体名#锚点名', [x, y, z]]]。
+ * 世界坐标原样交，不过屏幕投影：落在相机平面上的锚点照交；没问到的实体上的锚点写得对不对不管，不牵连这一次查询。
+ * 问到的实体上的锚点写法不对、交了两次、坐标不是三个有限的数，报 contract.bad-value：是镜头或卡交错了，不是查询写错了。
+ */
+export function pickAnchors(pairs, of) {
+  const bad = (message) => Object.assign(new Error(message), { code: 'contract.bad-value' });
+  const seen = new Set(), picked = [];
+  for (const [key, world] of pairs) {
+    const [entity, name, ...rest] = String(key).split('#');
+    if (!of.includes(entity)) continue;
+    if (!name || rest.length) throw bad(`锚点 ${key} 要写成「实体名#锚点名」`);
+    if (!Array.isArray(world) || world.length !== 3 || !world.every(Number.isFinite)) throw bad(`锚点 ${key} 的世界坐标必须是三个有限的数`);
+    if (seen.has(key)) throw bad(`锚点 ${key} 交了两次`);
+    seen.add(key);
+    picked.push([key, [...world]]);
+  }
+  return picked;
+}
 
 /**
  * 场景查询的结果（帧源接口契约 3.7 的 QueryResult），坐标都是世界坐标、米，Y 向上、地面是 y = 0。subjects 按种类：
  *   bbox3d       [[实体名, 顶点]]：at 是包围盒 [minX, minY, minZ, maxX, maxY, maxZ]，value 是它的对角线长度
  *   belowGround  [[实体名, 顶点]]：只交最低顶点低于 −tol 的实体，at 是那个顶点，value 是它陷在地面以下多深
  *   anchor       [['实体名#锚点名', [x, y, z]]]：at 是锚点的位置，value 是它到世界原点的距离
- * 「最严重」（契约 5.7 还没定排法，定在这里）：value 大的在前，一样大的按 a 的字节序；超过 50 项只留前 50 项，truncated 写截掉几项。
+ * 「最严重」（契约 5.7 还没定排法，定在这里）：value 大的在前，一样大的按 a 的 UTF-8 字节序（就是码点序）；超过 50 项只留前 50 项，truncated 写截掉几项。
  */
 export function answerQuery(kind, subjects, tol = 0) {
   const items = [];
@@ -104,7 +130,7 @@ export function answerQuery(kind, subjects, tol = 0) {
   // 非数和无穷进了 JSON 会变成 null
   const broken = items.find((i) => ![i.value, ...i.at].every(Number.isFinite));
   if (broken) throw new Error(`${kind} 查询里 ${broken.a} 的坐标不是有限的数`);
-  items.sort((x, y) => y.value - x.value || (x.a < y.a ? -1 : x.a > y.a ? 1 : 0));
+  items.sort((x, y) => y.value - x.value || byCodePoint(x.a, y.a));
   const cut = items.length - QUERY_MAX;
   // + 0 把 −0 归成 0
   return { kind, items: items.slice(0, QUERY_MAX).map((i) => ({ a: i.a, value: i.value + 0, unit: 'm', at: i.at.map((v) => v + 0) })), ...(cut > 0 ? { truncated: cut } : {}) };

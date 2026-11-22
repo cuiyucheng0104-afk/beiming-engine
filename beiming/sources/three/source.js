@@ -3,7 +3,7 @@
 //   host.load(shot, { THREE, renderer })   装载镜头：搭 ctx、调一次 build（「卡加数据」模式是跑固定装载脚本），交回 { object, size, post? }
 //   host.apply(loaded, f, sub)             把 (f, sub) 的状态写进场景
 //   host.measure(loaded, f, facts)         量这一帧的元数据（相机、实体、统计、哈希）
-//   host.query(loaded, f, plan, names)     答一次场景查询（包围盒、锚点、地面以下）；状态由渲染器先写好
+//   host.query(loaded, f, plan)            答一次场景查询（包围盒、锚点、地面以下）；状态由渲染器先写好
 // 后期链：loaded.post 是 post 类的卡交出的全屏通道（一张网格，材质带 uniforms.tInput），按次序排好。各子帧只渲后期之前的场景、
 // 在线性光里平均之后，依次把每个通道画一遍（只跑一次）：tInput 填上一遍的输出，画到另一个同样的浮点目标，最后一遍的输出才读回；
 // 跑之前状态先回到 sub = 0（后期通道的参数也取这一刻），通道声明了 uniforms.tDepth 时填 sub = 0 的深度。辅助层不过这条链。
@@ -422,7 +422,7 @@ export function createThreeSource({ THREE, host }) {
         planFrame(manifest.frames, f);
         const plan = planQuery(CAPS, q, names);
         host.apply(loaded, f, 0);
-        return host.query(loaded, f, plan, names);
+        return host.query(loaded, f, plan);
       },
 
       async close() {

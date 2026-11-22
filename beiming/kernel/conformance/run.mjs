@@ -47,7 +47,7 @@ function fixtureObject(scene, shot, name) {
   return { shape: 'box', sizeM: [0.1, 0.1, 0.1], positionM: scene.camera.positionM.map((p, k) => p + up[k] * (100 + i) + fwd[k] * 10) };
 }
 // 备了问法的场景查询：能力声明里列了、这里却没备的种类算没验。每一种交回「一共该有几项」：照夹具场景的规格自己算，不取帧源交回的数。
-// objects 是规格里被问到的物体，t 是问的那一帧。夹具镜头的 meta(f) 不交锚点，anchor 该有 0 项；belowGround 数最低点低于地面（y = 0）的
+// objects 是规格里被问到的物体，t 是问的那一帧。夹具镜头的 meta(f) 不交锚点，anchor 该有 0 项（非空的另由 anchorProbe 问）；belowGround 数最低点低于地面（y = 0）的
 const QUERIES = {
   bbox3d: (objects) => objects.length,
   anchor: () => 0,
@@ -327,6 +327,28 @@ async function runShot(shot) {
 const shots = [];
 for (const shot of film.shots) shots.push(await runShot(shot));
 
+// ---------- 锚点探针 ----------
+// 夹具镜头的 meta(f) 不交锚点，上面三个镜头的 anchor 都只问得到 0 项，锚点采集坏了它们看不出来。声明了 anchor 的帧源另开一个交锚点的探针镜头
+// （beiming/sources/three/s7-probe.shot.js：照校准场景 probe-plane-steps 搭，每个实体交一个 center 锚点）问一次；该交回哪几项、各在哪，照校准规格自己算
+async function anchorProbe() {
+  const scene = await readJson(join(REPO, 'beiming/calib/probe-plane-steps/scene.json'));
+  const want = scene.objects.map((o) => ({ entity: o.id.replaceAll('-', '_'), at: objectTransform(o, 0).T }));
+  const probe = { format: film.format, id: 'anchor-probe', output: { ...film.output, frames: 1 }, shots: [{ id: 'p01', in: 0, out: 1, source: 'three', host: 'page', mode: 'native-code', entry: 's7-probe.shot.js', colorRef: 'scene', seed: 1, params: { scene: 'probe-plane-steps' } }] };
+  const source = await startSource();
+  try {
+    const session = await source.open(shotInput(probe, 'p01'), { lock: null, tier: 'final', workspace: join(OUT, 'anchor-probe'), filmDir: join(REPO, 'beiming/sources/three') });
+    const res = await session.query(0, { kind: 'anchor', of: want.map((w) => w.entity) });
+    await session.close();
+    const got = new Map(res.items.map((i) => [i.a, i.at]));
+    const off = want.filter((w) => !got.get(`${w.entity}#center`)?.every((v, k) => Math.abs(v - w.at[k]) <= 1e-6)).map((w) => w.entity);
+    if (res.items.length !== want.length || off.length) throw new Error(`该交回 ${want.length} 个锚点，交回了 ${res.items.length} 个；位置对不上或没交的：${off.join('、') || '没有'}`);
+    return { asked: want.length, returned: res.items.length };
+  } finally {
+    await source.stop();
+  }
+}
+const anchors = caps.sceneQuery.includes('anchor') ? await anchorProbe().catch((e) => { problems.push(`锚点探针：${e.message}`); return null; }) : null;
+
 // ---------- 量：这些读数要进核对记录。量不出来就不写那一段，对应的门算不过 ----------
 const layerOf = (one, r, name) => readLayer(join(OUT, one.shot.id, r.session, r.refs[name].file), caps.outputs[name].type);
 const shaOf = (r, name) => r.layerRefs.find((x) => x.output === name)?.fileHash;
@@ -574,7 +596,7 @@ const gates = {
 const hashes = Object.fromEntries(all.filter((r) => r.refs).flatMap((r) => r.layerRefs.map((x) => [`${r.shot.id}/${r.session}/${r.refs[x.output].file}`, x.fileHash])));
 const summary = {
   ok: Object.values(gates).every(Boolean),
-  gates, problems, objects, quietObjects: { count: quiet.length, bad: quiet.filter((o) => !o.ok) }, expected, determinism, lockedRuns, draftRuns, metaOnly, sampleCounts, accumulations, auxMismatches, unverified, frameRows, metaBoxIou: { min: META_BOX_IOU_MIN, readings: cal('idLayer').map((x) => x.metaBoxIou) }, randomStreams: streams,
+  gates, problems, objects, quietObjects: { count: quiet.length, bad: quiet.filter((o) => !o.ok) }, expected, determinism, lockedRuns, draftRuns, metaOnly, sampleCounts, accumulations, auxMismatches, unverified, frameRows, anchorProbe: anchors, metaBoxIou: { min: META_BOX_IOU_MIN, readings: cal('idLayer').map((x) => x.metaBoxIou) }, randomStreams: streams,
   calibration,
   scan: { files: scans.path.files, wallClock: scans.path.wallClock, unseededRandom: scans.path.unseededRandom, allowedClock: scans.path.allowed },
   machine: { gpu: all.find((r) => r.meta)?.meta.source.gpu, platform: process.platform },
@@ -596,6 +618,7 @@ for (const c of calibration) {
 }
 for (const x of accumulations) console.log(x.unmeasurable ? `  ${x.shot} 第 ${x.frame} 帧 ${x.subFrames} 个子帧累积的颜色层：量不出（${x.unmeasurable}），T6 对这一帧不判` : `  ${x.shot} 第 ${x.frame} 帧 ${x.subFrames} 个子帧累积的颜色层对线性平均的预言图：边缘带之外最大差 ${sci(x.linearErr)}（进记录的数；各时刻预言不全相同的像素 ${x.moving ?? 0} 个），连边缘带的 ${x.edgePixels ?? 0} 个像素一起比是 ${sci(x.wholeFrame)}`);
 for (const x of auxMismatches) console.log(`  ${x.shot} 第 ${x.frame} 帧 编号层对 sub = 0、针孔、像素中心的预言图：${x.auxMismatch === null ? '量不出' : `边缘带之外对不上 ${x.auxMismatch} 个像素（进记录的数；连边缘带一共 ${x.idMismatch} 个，边缘带 ${x.edgeLimit} 个像素）`}`);
+if (anchors) console.log(`  锚点探针（s7-probe 镜头）：问 ${anchors.asked} 个实体的锚点，交回 ${anchors.returned} 个，位置都对上校准规格`);
 for (const x of unverified) console.log(`  没验：能力声明里列了 ${x}，这次没有夹具`);
 for (const x of frameRows.filter((y) => y.want !== y.got)) console.log(`  ${x.shot} 出了颜色层的成功 render ${x.want} 次，时间核对记录的 frames 里只有 ${x.got} 项`);
 for (const x of metaOnly) console.log(`  ${x.shot} 第 ${x.frame} 帧 只要元数据（${x.afterOtherFrame ? '排在别的帧后面' : '没排在别的帧后面'}）对整帧渲染的元数据：${x.differs === null ? '没有元数据可比' : x.differs.length ? `不一样的段 ${x.differs.join('、')}` : '去掉 stats、hash、timing 之后相同'}`);

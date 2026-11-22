@@ -68,7 +68,7 @@ node beiming/kernel/conformance/run.mjs
 
 - 每个对象（片子描述、例子锁、能力声明、事件表、镜头输入、每一份改过的镜头输入、实体清单、每份元数据、每个层引用、每份核对记录）结构合法、一条不违反。
 - 每次 `open`、`render`、`query` 和参数出值域的调用，结局和打算的一样：该成功的成功，故意造的错报的是那个错误码。场景查询的期望照能力声明算：列了的种类各问一次、该给结果，再问一种没列的、该报不答这种查询。
-- 能力声明里列了的每种场景查询、每种作者模式都验到了；哪一种没有夹具，打印「没验」，这道门不过。备了问法的查询：`bbox3d`、`anchor`、`belowGround`，另有 `intersect` 当「没列的」问；`total` 照夹具场景的规格自己算（夹具不交锚点，`anchor` 是 0 项；`belowGround` 数规格里最低点低于 y = 0 的），不取帧源交回的数。声明了查询的帧源另把 `query` 的帧号传出值域一次，该报 `usage.bad-argument`。
+- 能力声明里列了的每种场景查询、每种作者模式都验到了；哪一种没有夹具，打印「没验」，这道门不过。备了问法的查询：`bbox3d`、`anchor`、`belowGround`，另有 `intersect` 当「没列的」问；`total` 照夹具场景的规格自己算（夹具不交锚点，`anchor` 是 0 项；`belowGround` 数规格里最低点低于 y = 0 的），不取帧源交回的数。非空的锚点另问一次（锚点探针）：声明了 `anchor` 的帧源，入口另开 `beiming/sources/three/s7-probe.shot.js`（照校准场景 `probe-plane-steps` 搭，每个实体经 `meta(f)` 交一个 `center` 锚点），问全部实体的锚点，该交回几个、各在哪照校准规格自己算（差不超过 1e-6 米）；对不上记进 `problems`，「no error while measuring or comparing」这道门不过，读数在 `summary.json` 的 `anchorProbe`。它只验到镜头交的锚点，卡交的锚点没有夹具。声明了查询的帧源另把 `query` 的帧号传出值域一次，该报 `usage.bad-argument`。
 - 每次出了颜色层的成功 `render` 在时间核对记录的 `frames` 里都有一项；每次交回元数据的 `render` 都记到了 `meta(f)` 收到的帧号。
 - 同一帧的每一层在两个进程、几种渲法下逐位相同，元数据去掉 `timing` 之后相同；带着例子锁、镜头输入不写种子装载渲出的各层和不带锁的相同。
 - 草稿档每一层都照能力声明的缩放出；每个层文件的字节数等于 `shape` 各项之积乘 4。

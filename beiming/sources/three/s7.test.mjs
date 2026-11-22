@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { fail } from '../../api/envelope.mjs';
 import { startSource } from '../../host/page/host.mjs';
 import * as measure from '../../host/page/measure.js';
 import { shotInput } from '../../kernel/eval/input.mjs';
@@ -20,6 +21,12 @@ const near = (got, want, tol, what) => {
   got.forEach((v, i) => assert.ok(Math.abs(v - want[i]) <= tol, `${what}[${i}]：要 ${want[i]}，得 ${v}`));
 };
 const coded = (code, more = () => {}) => (err) => { assert.equal(err.code, code, err.message); more(err); return true; };
+/** 错上的替代办法：每项是 { verb, why }，原样过得了 API 错误信封（beiming/api/envelope.mjs 的 fail 会滤掉不合写法的项） */
+const alt = (err) => {
+  assert.ok(Array.isArray(err.next) && err.next.length >= 1, 'next 必须给出替代办法');
+  for (const n of err.next) assert.ok(typeof n.verb === 'string' && n.verb && typeof n.why === 'string' && n.why, JSON.stringify(n));
+  assert.deepEqual(fail(err.code, err.message, { next: err.next }).next, err.next, '替代办法过信封不能丢');
+};
 
 // 地面以下、超过 50 个实体的夹具：kit 在地面以上；kit.b00 到 kit.b59 是边长 0.1 米的方块，第 i 个的底面在地面以下 0.01 × (i + 1) 米；lone 在地面以上
 const CAMERA = { positionM: [0, 0, 0], lookAtM: [0, 0, -1], upDir: [0, 1, 0], yFovDeg: 40, widthPx: 640, heightPx: 360, nearM: 0.1, farM: 100 };
@@ -30,12 +37,16 @@ const CROWD = {
   backgroundLinear: [0, 0, 0],
   objects: [box('kit', [0, 1, -5]), box('lone', [1, 2, -5]), ...Array.from({ length: 60 }, (_, i) => box(`kit.b${pad2(i)}`, [(i % 10) * 0.2 - 0.9, 0.05 - 0.01 * (i + 1), -5 - Math.floor(i / 10)]))],
 };
+// 边界夹具：相机在世界原点。swarm 是一个实例网格，两个边长 1 米的方块实例平移到 (2, 3, −6)、(−2, −3, −6)；
+// kit#eye 正好在相机平面上（投不到屏幕，但世界坐标是好的）；lone#bad 的坐标写坏了
+const EDGE = { camera: CAMERA, backgroundLinear: [0, 0, 0], objects: [box('kit', [0, 1, -5]), box('lone', [1, 2, -5])] };
+const EDGE_PARAMS = { spec: EDGE, instanced: { swarm: [[2, 3, -6], [-2, -3, -6]] }, anchors: { 'kit#eye': [0, 0, 0], 'lone#bad': [0, null, 0] } };
 const shotOf = (id, frames, params) => ({ id, in: 0, out: frames, source: 'three', host: 'page', mode: 'native-code', entry: 's7-probe.shot.js', colorRef: 'scene', seed: 7, params });
 const FILM = {
   format: 'film/3.0',
   id: 's7-probe',
   output: { size: [640, 360], fps: '24/1', frames: 97 },
-  shots: [shotOf('steps', 12, { scene: 'probe-plane-steps' }), shotOf('turntable', 97, { scene: 'probe-axes-turntable' }), shotOf('crowd', 2, { spec: CROWD })],
+  shots: [shotOf('steps', 12, { scene: 'probe-plane-steps' }), shotOf('turntable', 97, { scene: 'probe-axes-turntable' }), shotOf('crowd', 2, { spec: CROWD }), shotOf('edge', 1, EDGE_PARAMS)],
 };
 
 test('S7-1 caps() 声明 bbox3d、anchor、belowGround 三种场景查询，落在登记表之内（F15）', async () => {
@@ -45,7 +56,7 @@ test('S7-1 caps() 声明 bbox3d、anchor、belowGround 三种场景查询，落�
   for (const kind of c.sceneQuery) assert.ok(registry.sources.three.sceneQuery.includes(kind), kind);
 });
 
-test('S7-2 校准场景实测 bbox3d / anchor / belowGround、通配符与 F9 截断，且 intersect 返回 contract.unsupported-query 及 next 替代办法', async (t) => {
+test('S7-2 校准场景实测 bbox3d / anchor / belowGround、通配符与 F9 截断、实例网格、相机平面上的锚点，且 intersect 返回 contract.unsupported-query 及 next 替代办法', async (t) => {
   let source;
   try { source = await startSource(); } catch (e) { t.skip(`起不了浏览器：${String(e.message).split('\n')[0]}`); return; }
   const workspace = await mkdtemp(join(tmpdir(), 'beiming-s7-'));
@@ -93,7 +104,6 @@ test('S7-2 校准场景实测 bbox3d / anchor / belowGround、通配符与 F9 �
     assert.deepEqual(await ask(steps, 0, { kind: 'bbox3d', of: ['nothing.*'] }), { kind: 'bbox3d', items: [] });
 
     // 没声明的查询：报 contract.unsupported-query，next 给出替代办法
-    const alt = (err) => assert.ok(Array.isArray(err.next) && err.next.length >= 1 && err.next.every((s) => typeof s === 'string' && s.length > 0), 'next 必须给出替代办法');
     await assert.rejects(() => steps.query(0, { kind: 'intersect', of: ['plane_1m'], against: ['plane_2m'] }), coded('contract.unsupported-query', alt));
     await assert.rejects(() => steps.query(0, { kind: 'contact', of: ['plane_1m'], against: ['plane_2m'] }), coded('contract.unsupported-query', alt));
     await assert.rejects(() => steps.query(0, { kind: 'volume', of: ['plane_1m'] }), coded('contract.unsupported-query', alt));
@@ -155,6 +165,21 @@ test('S7-2 校准场景实测 bbox3d / anchor / belowGround、通配符与 F9 �
     // 离世界原点最远的在前，一路不增
     assert.ok(anchors.items.every((i, k) => k === 0 || i.value <= anchors.items[k - 1].value));
     assert.deepEqual((await ask(crowd, 0, { kind: 'anchor', of: ['kit'] })).items.map((i) => i.a), ['kit#center']);
+
+    // ---------- 边界夹具：实例网格、相机平面上的锚点、写坏的锚点 ----------
+    const edge = await open('edge');
+    // 实例网格：每个实例的矩阵都算进去，不是只量原型方块
+    const swarm = (await ask(edge, 0, { kind: 'bbox3d', of: ['swarm'] })).items[0];
+    assert.deepEqual(swarm.at, [-2.5, -3.5, -6.5, 2.5, 3.5, -5.5]);
+    const sunkSwarm = await ask(edge, 0, { kind: 'belowGround', of: ['swarm'], tol: 1 });
+    assert.deepEqual(sunkSwarm.items.map((i) => [i.a, i.value, i.at[1]]), [['swarm', 3.5, -3.5]]);
+    // 锚点查询交的是世界坐标，不过屏幕投影：落在相机平面上的照答
+    assert.deepEqual((await ask(edge, 0, { kind: 'anchor', of: ['kit'] })).items, [{ a: 'kit#center', value: Math.hypot(1, 5), unit: 'm', at: [0, 1, -5] }, { a: 'kit#eye', value: 0, unit: 'm', at: [0, 0, 0] }]);
+    // 没问到的实体上的锚点（相机平面上的、写坏的）不牵连这一次查询
+    assert.deepEqual(await ask(edge, 0, { kind: 'anchor', of: ['nomatch.*'] }), { kind: 'anchor', items: [] });
+    assert.deepEqual((await ask(edge, 0, { kind: 'anchor', of: ['swarm'] })).items, []);
+    // 问到的实体上有写坏的锚点：带错误码报错
+    await assert.rejects(() => edge.query(0, { kind: 'anchor', of: ['lone'] }), coded('contract.bad-value'));
   } finally {
     for (const s of opened) await s.close();
     await source.stop();
@@ -168,9 +193,25 @@ test('S7-3 planQuery：先判种类再判写法，通配不含前缀自己，实
   assert.deepEqual(plan.planQuery(caps(), { kind: 'bbox3d', of: ['kit'] }, names).of, ['kit']);
   assert.equal(plan.planQuery(caps(), { kind: 'bbox3d', of: ['kit'] }, names).tol, 0);
   // 没声明的种类先报，哪怕别的字段也不对
-  assert.throws(() => plan.planQuery(caps(), { kind: 'contact', of: [], bogus: 1 }, names), coded('contract.unsupported-query', (e) => assert.ok(e.next.length >= 1)));
+  assert.throws(() => plan.planQuery(caps(), { kind: 'contact', of: [], bogus: 1 }, names), coded('contract.unsupported-query', alt));
+  for (const kind of ['intersect', 'contact', 'volume']) assert.throws(() => plan.planQuery(caps(), { kind, of: ['kit'] }, names), coded('contract.unsupported-query', alt), kind);
   assert.throws(() => plan.planQuery(caps(), { kind: 'bbox3d', of: ['ghost.x'] }, names), coded('usage.bad-argument'));
   assert.throws(() => plan.planFrame(4, 4), coded('usage.bad-argument'));
+  // of、against 的数组只认自有的、可枚举的数据属性：索引上的取值器一次都不执行，原型上继承来的元素、多出来的键都不认
+  let calls = 0;
+  const getter = Object.defineProperty(['kit'], 0, { get() { calls++; return 'kit'; }, enumerable: true });
+  const inherited = Object.setPrototypeOf(new Array(1), Object.assign(Object.create(Array.prototype), { 0: 'kit' }));
+  const hidden = Object.defineProperty(['kit'], 0, { value: 'kit', enumerable: false });
+  const extraKey = Object.assign(['kit'], { more: 1 }), symbolKey = Object.assign(['kit'], { [Symbol('s')]: 1 });
+  for (const [what, list] of Object.entries({ getter, inherited, hidden, extraKey, symbolKey, sparse: [, 'kit'] })) { // eslint-disable-line no-sparse-arrays
+    assert.throws(() => plan.planQuery(caps(), { kind: 'bbox3d', of: list }, names), coded('usage.bad-argument'), what);
+    assert.throws(() => plan.planQuery(caps(), { kind: 'bbox3d', of: ['kit'], against: list }, names), coded('usage.bad-argument'), `against ${what}`);
+  }
+  assert.equal(calls, 0, '索引上的取值器不该被执行');
+  // 快照和调用方的数组脱钩：之后改原数组不影响计划
+  const mine = ['kit'], planned = plan.planQuery(caps(), { kind: 'bbox3d', of: mine }, names);
+  mine[0] = 'lone';
+  assert.deepEqual(planned.q.of, ['kit']);
   assert.equal(plan.planFrame(4, 3), 3);
 });
 
@@ -185,4 +226,21 @@ test('S7-4 answerQuery：三种查询的算式、最严重的在前、超过 50 
   assert.deepEqual([many.items.length, many.truncated, many.items[0].a, many.items[49].a], [50, 3, 'e52', 'e3']);
   assert.ok(!('truncated' in measure.answerQuery('belowGround', Array.from({ length: 50 }, (_, i) => [`e${i}`, cube(-1 - i)]))));
   assert.throws(() => measure.answerQuery('bbox3d', [['a', [[0, Number.NaN, 0]]]]), /有限/);
+  // 一样大的按码点序（就是 UTF-8 字节序）：U+E000 在 U+10000 前面；JS 的 < 按 UTF-16 码元比会反过来
+  const tied = [['e#\u{10000}', [0, 1, 0]], ['e#\uE000', [1, 0, 0]], ...Array.from({ length: 49 }, (_, i) => [`e#far${i}`, [0, 0, 2]])];
+  const cut = measure.answerQuery('anchor', tied);
+  assert.deepEqual([cut.items.length, cut.truncated, cut.items[49].a], [50, 1, 'e#\uE000']);
+  assert.deepEqual(measure.answerQuery('anchor', [['a#\u{10000}', [1, 0, 0]], ['a#\uE000', [1, 0, 0]], ['a#z', [1, 0, 0]], ['a#', [1, 0, 0]]]).items.map((i) => i.a), ['a#', 'a#z', 'a#\uE000', 'a#\u{10000}']);
+});
+
+test('S7-5 pickAnchors：只收挂在问到的实体上的锚点，世界坐标原样交，不过屏幕投影（不起浏览器）', () => {
+  const pairs = [['hero#eye', [0, 0, 0]], ['hero#hand', [1, 2, 3]], ['prop#top', [0, 1, 0]], ['other#bad', [0, Number.NaN, 0]], ['other', [0, 0, 0]], ['ghost#x', 'junk']];
+  assert.deepEqual(measure.pickAnchors(pairs, ['hero', 'prop']), [['hero#eye', [0, 0, 0]], ['hero#hand', [1, 2, 3]], ['prop#top', [0, 1, 0]]]);
+  assert.deepEqual(measure.pickAnchors(pairs, []), []);
+  // 问到的实体上的锚点写坏了（坐标不是三个有限的数、写法不对、交了两次）：带错误码报错
+  const badValue = (err) => { assert.equal(err.code, 'contract.bad-value', err.message); return true; };
+  assert.throws(() => measure.pickAnchors(pairs, ['other']), badValue);
+  for (const world of [[0, 0], [0, 0, Infinity], [0, '0', 0], null]) assert.throws(() => measure.pickAnchors([['hero#eye', world]], ['hero']), badValue);
+  assert.throws(() => measure.pickAnchors([['hero#a#b', [0, 0, 0]]], ['hero']), badValue);
+  assert.throws(() => measure.pickAnchors([['hero#eye', [0, 0, 0]], ['hero#eye', [1, 0, 0]]], ['hero']), badValue);
 });
