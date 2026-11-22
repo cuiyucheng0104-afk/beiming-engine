@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "time.cut-grid 的拍点或镜头时长",
+  "description": "marksAre 是 cuts 时是想切的位置（全片帧号，从小到大）；是 durations 时是各镜头的时长（帧，都大于 0）。可以带小数，对到网格之后都是整数帧。",
+  "type": "array",
+  "items": { "type": "number", "minimum": 0 }
+}

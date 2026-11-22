@@ -19,7 +19,7 @@
   volume_curve(n, points, ...)                 推子音量包络曲线 [(t_s, gain_db), ...] → (n, 1) 余弦/线性平滑自动化（Fader Riding）
   sculpt_stem_eq(stems, ...)                   分轨互补 EQ 分槽（AMB <110Hz 高通与 800Hz 暖中频凹槽，Foley/FX 清低中频泥沼，VO 提咬字）
   carve_dialogue_pocket(stems, vo, ...)        对白共振峰动态频带挖槽（保护配乐 <350Hz 大提琴/低音底盘，仅在 800–4200Hz 让位）
-  ThreeStemWorkstation / FourStemWorkstation   三/四干线乐效协同工作台：set_scenes / set_music / set_dialogue / bind_actor / add_sfx / add_foley / mixdown
+  ThreeStemWorkstation / FourStemWorkstation   三/四干线乐效协同工作台：set_scenes / set_music / set_dialogue / bind_actor / add_sfx / add_sfx_series / add_foley / mixdown
 """
 import math
 import numpy as np
@@ -725,7 +725,7 @@ def build_layered_ambience(
 
 
 class ThreeStemWorkstation:
-    """三干线乐效协同混音工作台（Ambience / Hard FX & UI / Foley + Music Score）：
+    """三/四干线乐效协同混音工作台（Ambience / Hard FX & UI / Foley / Dialogue VO + Music Score）：
     面向整片交付的声明式高层混音编排器，底层驱动 director.HDRMixer 与 WORLD_PROFILES。"""
 
     def __init__(
@@ -792,6 +792,7 @@ class ThreeStemWorkstation:
         self._focus_trimmed_ids = []
         self._tonal_snaps = []
         self._ledger = []
+        self.foreground_events = []
 
     def _sync_focus_windows(self, windows: list, *, is_climax: bool = True):
         self.mixer.set_music_focus_windows(windows, is_climax=is_climax)
@@ -1250,6 +1251,260 @@ class ThreeStemWorkstation:
             )
         return scheduled
 
+    def add_sfx_series(
+        self,
+        name_prefix: str,
+        times,
+        takes=None,
+        *,
+        forces=None,
+        accent_takes=None,
+        role: str = 'accent',
+        bus: str = 'fx',
+        policy: str = 'anti_fatigue',
+        min_tail_s: float = 0.05,
+        pan=0.0,
+        screen_ratio=None,
+        ref_ratio: float = 0.30,
+        ref_dist_m: float = 1.8,
+        shot_scale: str = 'close',
+        poa: str = None,
+        gain_db=0.0,
+        target_lufs: float = None,
+        duck_db: float = None,
+        continuous_duck_db: float = None,
+        negative_space: bool = False,
+        shot: str = None,
+        audit: str = 'all',
+        seed: int = 1,
+    ) -> list:
+        """编排一串前景关键动作序列（如窗花十二剪、连续机关卡合、节奏斩击）并路由至 fx 前景干线：
+        · 经 schedule_action_series 执行防听觉疲劳演化与高密 IOI 尾音收紧；
+        · 保留 forces 力度渐强曲线并对短促近场剪切瞬态做峰值-有效值补偿；
+        · 自动将序列事件登记至 self.foreground_events，使 mixdown() 与 qa.check_masking 核验其相对同时刻配乐的 2–8 kHz 带内信噪比。"""
+        if takes is None or len(takes) == 0:
+            raise ValueError('add_sfx_series：必须提供非空 takes 样本列表')
+        hit_list = [float(t) for t in (times or [])]
+        if not hit_list:
+            return []
+
+        scheduled = schedule_action_series(
+            hit_list,
+            forces=forces,
+            takes=takes,
+            accent_takes=accent_takes,
+            policy=policy,
+            min_tail_s=min_tail_s,
+            seed=seed,
+            sr=self.sr,
+        )
+        per_hit_pan = (
+            isinstance(pan, (list, tuple))
+            and len(pan) == len(scheduled)
+            and all(isinstance(v, (int, float)) for v in pan)
+        )
+        per_hit_sr = (
+            isinstance(screen_ratio, (list, tuple))
+            and len(screen_ratio) == len(scheduled)
+            and all(isinstance(v, (int, float)) for v in screen_ratio)
+        )
+        kf_sr = (
+            isinstance(screen_ratio, (list, tuple))
+            and len(screen_ratio) > 0
+            and isinstance(screen_ratio[0], (list, tuple))
+            and len(screen_ratio[0]) >= 2
+        )
+        if kf_sr:
+            pts_sr = sorted((float(p[0]), float(p[1])) for p in screen_ratio)
+            ts_sr = np.array([p[0] for p in pts_sr], dtype=float)
+            vs_sr = np.array([p[1] for p in pts_sr], dtype=float)
+        per_hit_gain = (
+            isinstance(gain_db, (list, tuple, np.ndarray))
+            and len(gain_db) == len(scheduled)
+        )
+
+        n_sched = len(scheduled)
+        audit_mode = 'none' if audit is False or audit is None else str(audit).strip().lower()
+        if audit_mode == 'representative':
+            audit_indices = {0, n_sched // 2, max(0, n_sched - 2), n_sched - 1}
+        elif audit_mode == 'none':
+            audit_indices = set()
+        else:
+            audit_indices = set(range(n_sched))
+
+        existing_ids = {e['id'] for e in self.foreground_events}
+        eff_bus = str(bus or 'fx')
+
+        for idx, item in enumerate(scheduled):
+            cue_id = f'{name_prefix}_{idx}'
+            t_hit = float(item['t_hit'])
+            anc_s = float(item['anchor'])
+            clip_len_s = len(item['wave']) / float(self.sr)
+            p_val = float(pan[idx]) if per_hit_pan else pan
+            if per_hit_sr:
+                sr_val = float(screen_ratio[idx])
+            elif kf_sr:
+                sr_val = float(np.interp(t_hit, ts_sr, vs_sr))
+            else:
+                sr_val = screen_ratio
+            g_base = float(gain_db[idx]) if per_hit_gain else float(gain_db)
+            f_hit = float(item['meta'].get('force', 0.72))
+            force_dyn_db = float(np.clip(18.0 * math.log10(max(f_hit, 0.15) / 0.72), -7.5, 7.5))
+            # 短促近场剪切/瞬态（<160ms）在 400ms 响度窗外走峰值定标，适度补偿波峰因数确保 2–8 kHz 咬合清晰可辨
+            short_comp_db = 2.4 if (target_lufs is None and clip_len_s < 0.16 and role in ('hero', 'accent')) else 0.0
+
+            entry = self.add_sfx(
+                cue_id,
+                item['wave'],
+                t_hit,
+                anchor=anc_s,
+                role=role,
+                bus=eff_bus,
+                pan=p_val,
+                screen_ratio=sr_val,
+                ref_ratio=ref_ratio,
+                ref_dist_m=ref_dist_m,
+                shot_scale=shot_scale,
+                poa=poa,
+                gain_db=g_base + force_dyn_db + short_comp_db,
+                target_lufs=target_lufs,
+                duck_db=duck_db,
+                continuous_duck_db=continuous_duck_db,
+                negative_space=(bool(negative_space) and idx == n_sched - 1),
+                seed=seed + idx,
+            )
+
+            post_dur = max(0.025, clip_len_s - anc_s)
+            ev_doc = {
+                'id': cue_id,
+                'series': str(name_prefix),
+                'index': idx,
+                'frame': int(round(t_hit * self.fps)),
+                't': round(t_hit, 6),
+                'anchor': round(anc_s, 6),
+                'pre_s': round(max(0.015, min(0.080, anc_s + 0.010)), 4),
+                'dur': round(post_dur, 4),
+                'audio': cue_id,
+                'domain': 'sfx',
+                'bus': entry['bus'],
+                'role': role,
+            }
+            if shot is not None:
+                ev_doc['shot'] = str(shot)
+            item['event'] = ev_doc
+            if idx in audit_indices and cue_id not in existing_ids:
+                self.foreground_events.append(ev_doc)
+                existing_ids.add(cue_id)
+
+        return scheduled
+
+    def build_qa_events(self, base_events: list = None) -> list:
+        """将 film.json 基础事件表与工作台已登记的前景序列事件合并（按 id 去重），直接供 qa.check_masking / qa.analyze 审计。"""
+        merged = [dict(e) for e in (base_events or []) if isinstance(e, dict)]
+        seen = {str(e.get('id') or e.get('audio') or '') for e in merged}
+        for fg_ev in self.foreground_events:
+            if fg_ev['id'] not in seen:
+                merged.append(dict(fg_ev))
+                seen.add(fg_ev['id'])
+        return merged
+
+    def write_foreground_events(self, out_dir_or_path: str) -> str:
+        """将已登记的前景序列事件写出为 foreground_events.json（qa.check_masking 自动发现并纳入掩蔽审计）。"""
+        import json
+        import os
+        p = str(out_dir_or_path)
+        if not p.lower().endswith('.json'):
+            p = os.path.join(p, 'foreground_events.json')
+        os.makedirs(os.path.dirname(os.path.abspath(p)), exist_ok=True)
+        with open(p, 'w', encoding='utf-8') as f:
+            json.dump({'schemaVersion': 1, 'events': self.foreground_events}, f, ensure_ascii=False, indent=2)
+            f.write('\n')
+        return p
+
+    def _audit_foreground_masking(self, stems_dict: dict) -> dict:
+        """在 mixdown() 收口后实测全部已登记前景事件相对背景（music + amb）的临界频带与 2–8 kHz 带内信噪比。"""
+        mask_bands = (
+            ('80-250', 80.0, 250.0),
+            ('250-600', 250.0, 600.0),
+            ('600-1.5k', 600.0, 1500.0),
+            ('1.5k-3.5k', 1500.0, 3500.0),
+            ('3.5k-7.5k', 3500.0, 7500.0),
+            ('7.5k-14k', 7500.0, 14000.0),
+        )
+        items = []
+        worst_st = 'pass'
+        for ev in self.foreground_events:
+            bus = str(ev.get('bus') or 'fx')
+            if bus not in stems_dict:
+                bus = 'fx' if 'fx' in stems_dict else next(iter(stems_dict))
+            t = float(ev.get('t', ev['frame'] / self.fps))
+            pre_s = max(0.015, min(0.080, float(ev.get('pre_s') or ev.get('anchor') or 0.015)))
+            ev_dur = min(1.50, max(0.085, float(ev.get('dur') or 0.200) + 0.020))
+            a = max(0, int(round((t - pre_s) * self.sr)))
+            b = min(self.n, int(round((t + ev_dur) * self.sr)))
+            if b - a < 256:
+                continue
+            u = stems_dict[bus][a:b].mean(axis=1)
+            other = np.zeros_like(u)
+            for k, st_arr in stems_dict.items():
+                if k != bus:
+                    other += st_arr[a:b].mean(axis=1)
+            u_rms = float(np.sqrt(np.mean(u * u) + 1e-24))
+            is_hero = (str(ev.get('role') or '').lower() == 'hero')
+            if u_rms < 3.16e-4:
+                best_snr, best_band, snr_2k_8k = -99.0, 'silent', -99.0
+            else:
+                win = np.hanning(len(u))
+                U = np.abs(np.fft.rfft(u * win)) ** 2
+                O = np.abs(np.fft.rfft(other * win)) ** 2
+                fq = np.fft.rfftfreq(len(u), 1.0 / self.sr)
+                band_u = [(bn, lo, hi, float(U[(fq >= lo) & (fq < hi)].sum())) for bn, lo, hi in mask_bands]
+                tot_u = sum(v for _, _, _, v in band_u) + 1e-24
+                tot_o = float(O[(fq >= 80.0) & (fq < 14000.0)].sum())
+                dom_bands = [
+                    (bn, lo, hi, v)
+                    for bn, lo, hi, v in band_u
+                    if v / tot_u >= (0.28 if bn == '7.5k-14k' else 0.14)
+                ] or [max(band_u, key=lambda it: it[3])]
+                if tot_o < 1e-18:
+                    best_snr, best_band, snr_2k_8k = 60.0, dom_bands[0][0], 60.0
+                else:
+                    upward_floor = tot_o * 0.003
+                    best_snr, best_band = -99.0, dom_bands[0][0]
+                    for bn, lo, hi, vu in dom_bands:
+                        vo = max(float(O[(fq >= lo) & (fq < hi)].sum()), upward_floor if bn == '7.5k-14k' else 0.0)
+                        snr = 10.0 * np.log10((vu + 1e-24) / (vo + 1e-24))
+                        if snr > best_snr:
+                            best_snr, best_band = snr, bn
+                    m28 = (fq >= 2000.0) & (fq < 8000.0)
+                    vu_28 = float(U[m28].sum())
+                    vo_28 = max(float(O[m28].sum()), upward_floor * 0.5)
+                    snr_2k_8k = round(float(10.0 * np.log10((vu_28 + 1e-24) / (vo_28 + 1e-24))), 2)
+                best_snr = round(float(best_snr), 2)
+            soft_thr = -1.0 if is_hero else -5.0
+            hard_thr = -8.0 if is_hero else -12.0
+            st = 'fail' if best_snr < hard_thr else ('warn' if best_snr < soft_thr else 'pass')
+            items.append({
+                'id': ev['id'],
+                'series': ev.get('series'),
+                'seconds': round(t, 4),
+                'stem': bus,
+                'role': ev.get('role', 'accent'),
+                'bestBand': best_band,
+                'bestBandSnrDb': best_snr,
+                'snr2k8kDb': snr_2k_8k,
+                'status': st,
+            })
+            worst_st = 'fail' if 'fail' in (worst_st, st) else ('warn' if 'warn' in (worst_st, st) else 'pass')
+
+        return {
+            'count': len(items),
+            'status': worst_st,
+            'worstSnrDb': min((it['bestBandSnrDb'] for it in items), default=None),
+            'worstSnr2k8kDb': min((it['snr2k8kDb'] for it in items), default=None),
+            'items': items,
+        }
+
     def bind_actor(
         self,
         kin,
@@ -1452,6 +1707,7 @@ class ThreeStemWorkstation:
 
         out_lufs = integrated(master_st)
         out_tp_db = 20.0 * math.log10(max(true_peak(master_st, os=4), 1e-12))
+        fg_mask_audit = self._audit_foreground_masking(stems_dict)
         report = dict(diag)
         report.update({
             'world': self.world,
@@ -1463,6 +1719,8 @@ class ThreeStemWorkstation:
             'musicFocusTrimmedIds': list(self._focus_trimmed_ids),
             'tonalSnapped': list(self._tonal_snaps),
             'cueCount': len(self._ledger),
+            'foregroundEvents': [dict(e) for e in self.foreground_events],
+            'foregroundMasking': fg_mask_audit,
         })
         return master_st, stems_dict, report
 
