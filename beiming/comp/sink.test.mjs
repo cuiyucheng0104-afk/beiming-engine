@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { clearTimeout, setTimeout } from 'node:timers';
 import { setImmediate } from 'node:timers/promises';
-import { CompError, deliver, encode, openEncoderSink, openFileSink, runTool, tools } from './index.mjs';
+import { deliver, encode, openEncoderSink, openFileSink, runTool, tools } from './index.mjs';
 
 function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'comp-stream-'));
@@ -43,23 +43,21 @@ test('编码器消费输入并成功退出，零字节产物仍拒绝发布', as
 
 test('M05 输入 EOF 后落盘半截并退出 9，首次输出与替换旧成品均零残留', async (t) => {
   const { dir, path } = fixture(t);
+  const witness = fixture(t).path;
   const script = `const fs = require('node:fs');
+    const [witness, tmp] = process.argv.slice(1);
     const bytes = fs.readFileSync(0);
-    fs.writeFileSync(process.argv[1], bytes.subarray(0, bytes.length / 2));
-    console.error('partial=' + fs.statSync(process.argv[1]).size + ' pid=' + process.pid);
+    fs.writeFileSync(tmp, bytes.subarray(0, bytes.length / 2));
+    fs.writeFileSync(witness, JSON.stringify({ partial: fs.statSync(tmp).size, pid: process.pid }));
     process.exitCode = 9;`;
   for (const existing of [false, true]) {
     if (existing) writeFileSync(path, 'previous');
-    const sink = openEncoderSink({ path, bin: process.execPath, args: ['-e', script] });
+    const sink = openEncoderSink({ path, bin: process.execPath, args: ['-e', script, witness] });
     await sink.write(Buffer.alloc(768));
-    await assert.rejects(sink.finish(), (err) => {
-      assert.ok(err instanceof CompError);
-      assert.equal(err.code, 'failure.ffmpeg');
-      const match = /9.*partial=384 pid=(\d+)/.exec(err.message);
-      assert.ok(match, err.message);
-      assert.throws(() => process.kill(Number(match[1]), 0), { code: 'ESRCH' });
-      return true;
-    });
+    await assert.rejects(sink.finish(), { name: 'CompError', code: 'failure.ffmpeg', message: /退出.*9/ });
+    const { partial, pid } = JSON.parse(readFileSync(witness, 'utf8'));
+    assert.equal(partial, 384);
+    assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
     assert.deepEqual(readdirSync(dir), existing ? ['out.mp4'] : []);
     if (existing) assert.equal(readFileSync(path, 'utf8'), 'previous');
   }
