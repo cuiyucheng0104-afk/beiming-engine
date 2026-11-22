@@ -682,3 +682,116 @@ test('O6-12 G_REV-R2 align：退化判定与尺度、朝向无关且退化不算
   assert.ok([...wide.camera.world, ...wide.camera.proj].every(Number.isFinite));
   assert.equal(JSON.stringify(wide).includes('null'), false);
 });
+
+test('O6-13 G_REV-R3 compare：pixelDiffThreshold 按整数级差算超差像素比例并纳入判定，顶层未知选项报错', () => {
+  const gray = (v) => ({ width: 8, height: 8, rgb: new Uint8Array(192).fill(v) });
+  const run = (a, b, opts) => observe.compare(gray(a), gray(b), opts);
+  const row = (res) => res.rows.find((x) => x.metric === 'fracAboveThreshold');
+
+  // 顶层与 tolerance 里两种写法等价：差一级过，差两级与全黑对全白不过
+  for (const opts of [{ pixelDiffThreshold: 1 / 255 }, { tolerance: { pixelDiffThreshold: 1 / 255 } }]) {
+    const one = run(32, 33, opts);
+    assert.equal(one.ok, true, JSON.stringify(one));
+    assert.equal(one.pass, true, JSON.stringify(one));
+    assert.deepEqual(row(one), { metric: 'fracAboveThreshold', value: 0, threshold: 1 / 255, tolerance: 0, pass: true });
+    const two = run(32, 34, opts);
+    assert.equal(two.pass, false, JSON.stringify(two));
+    assert.deepEqual(row(two), { metric: 'fracAboveThreshold', value: 1, threshold: 1 / 255, tolerance: 0, pass: false });
+    assert.equal(run(0, 255, opts).pass, false);
+    assert.equal(run(255, 0, opts).pass, false);
+    assert.equal(one.truncated, false);
+    assert.ok(withinBudget(JSON.stringify(two), 500), `${estimateTokens(JSON.stringify(two))} token`);
+  }
+  // 255 组相邻灰阶在 1/255 下全过（方向无关）、在 0.00391 下全拒
+  for (let k = 0; k < 255; k++) {
+    assert.equal(run(k, k + 1, { pixelDiffThreshold: 1 / 255 }).pass, true, `k=${k}`);
+    assert.equal(run(k + 1, k, { pixelDiffThreshold: 1 / 255 }).pass, true, `k=${k} 反向`);
+    assert.equal(run(k, k + 1, { pixelDiffThreshold: 0.00391 }).pass, false, `k=${k}`);
+  }
+  // 阈值写成 k * (1 / 255) 时有 24 个 k 的浮点值比 k / 255 小一个尾数位：差恰为 k 级仍算没超，差 k + 1 级算超
+  for (let k = 1; k < 255; k++) {
+    assert.equal(run(0, k, { pixelDiffThreshold: k * (1 / 255) }).pass, true, `k=${k}`);
+    assert.equal(run(0, k + 1, { pixelDiffThreshold: k * (1 / 255) }).pass, false, `k=${k} 多一级`);
+  }
+  // 一个像素只有一个通道超差也算；允许的超差比例由 pixelDiffMaxRatio 给，按未舍入的比例判定
+  const base = gray(32);
+  const half = gray(32);
+  for (let i = 0; i < 32; i++) half.rgb[i * 3 + 1] = 34;
+  const at = (ratio) => observe.compare(base, half, { pixelDiffThreshold: 1 / 255, tolerance: { pixelDiffMaxRatio: ratio }, metrics: ['fracAboveThreshold'] });
+  assert.deepEqual(at(0.5).rows, [{ metric: 'fracAboveThreshold', value: 0.5, threshold: 1 / 255, tolerance: 0.5, pass: true }]);
+  assert.equal(at(0.5).pass, true);
+  assert.equal(at(0.49).pass, false);
+  assert.equal(at(0.49).rows[0].pass, false);
+  // 阈值为 0：有任何差就算超差；完全一致照过
+  assert.equal(run(32, 33, { pixelDiffThreshold: 0 }).pass, false);
+  assert.equal(run(32, 32, { pixelDiffThreshold: 0 }).pass, true);
+  // 不给阈值时没有这一行，原有判定不变
+  assert.equal(row(run(0, 255)), undefined);
+  assert.equal(run(0, 255).pass, true);
+
+  // 拼错的顶层选项、非法阈值、两处阈值打架、只给比例不给阈值：都报错
+  const bads = [
+    { pixelDiffThresold: 1 / 255 },
+    { tolerence: { maxDiff: 1 } },
+    { pixelDiffThreshold: -1 },
+    { pixelDiffThreshold: Number.NaN },
+    { pixelDiffThreshold: '0.01' },
+    { pixelDiffThreshold: 1 / 255, tolerance: { pixelDiffThreshold: 2 / 255 } },
+    { tolerance: { pixelDiffMaxRatio: 0.1 } },
+  ];
+  for (const opts of bads) {
+    const bad = run(0, 255, opts);
+    assert.equal(bad.ok, false, JSON.stringify(opts));
+    assert.equal(bad.error.code, 'usage.bad-argument');
+  }
+});
+
+test('O6-14 G_REV-R3 align：重复对应点不冒充四点、近共面判退化、深度与视轴阈值跟场景尺度走', () => {
+  const size = [1920, 1080];
+  const cube = [[-1, 0, -1], [1, 0.2, -1], [-1, 1.4, 1], [1, 1.2, 1], [0, 0.6, 0], [-0.5, 0.3, 1], [0.6, 1, -0.7], [0.2, 0.1, 0.8]];
+  const flat = [[-1, -1], [1, -1], [1, 1], [-1, 1], [0.3, 0.2], [-0.4, 0.5]];
+  const mul = (pts, s) => pts.map((p) => p.map((c) => c * s));
+  const fit = (pts) => {
+    const res = observe.align({ camera: { points: pts, size } });
+    assert.equal(res.ok, true, JSON.stringify(res));
+    return res.camera;
+  };
+
+  for (const s of [1e-5, 1, 1e5]) {
+    const solid = synthCamera(mul(cube, s), [3.6 * s, 2.4 * s, 6.8 * s], [0, 0.6 * s, 0], 38, size);
+    // [p1, p1, p2, p3]：只有 3 个独立世界点，6 个方程解不出 7 个参数
+    const dup = fit([solid[0], solid[0], solid[1], solid[2]]);
+    assert.equal(dup.degenerate, true, `重复点 s=${s}: ${JSON.stringify(dup)}`);
+    assert.equal(dup.converged, false, `重复点 s=${s}`);
+    // 同一世界点配两个略有出入的屏幕点、或世界坐标只差 1e-10 倍半径，同样只算一个
+    const jitter = fit([solid[0], { world: solid[0].world, screen: [solid[0].screen[0] + 1e-3, solid[0].screen[1]] }, solid[1], solid[2]]);
+    assert.equal(jitter.degenerate, true, `屏幕抖动 s=${s}: ${JSON.stringify(jitter)}`);
+    assert.equal(jitter.converged, false);
+    const close = fit([solid[0], { world: solid[0].world.map((c) => c + 1e-10 * s), screen: solid[0].screen }, solid[1], solid[2]]);
+    assert.equal(close.degenerate, true, `近重合 s=${s}: ${JSON.stringify(close)}`);
+    assert.equal(close.converged, false);
+    // 独立点够数时带一个重复点不误报
+    const extra = fit([...solid, solid[0]]);
+    assert.equal(extra.degenerate, false, `8 点加 1 重复 s=${s}: ${JSON.stringify(extra)}`);
+    assert.equal(extra.converged, true, `8 点加 1 重复 s=${s}: ${JSON.stringify(extra)}`);
+  }
+
+  // 变异 M23：法向起伏 3e-4 倍尺度的近共面点集正对相机，仍判退化（共面阈值 1e-6 放宽到 1e-9 就漏判）
+  for (const s of [1, 1e-5]) {
+    const nearFlat = flat.map(([a, b], i) => [a * s, b * s, (i % 2 ? 3e-4 : -3e-4) * s]);
+    const cam = fit(synthCamera(nearFlat, [0, 0, 4 * s], [0, 0, 0], 40, size));
+    assert.equal(cam.degenerate, true, `近共面 s=${s}: ${JSON.stringify(cam)}`);
+    assert.equal(cam.converged, false, `近共面 s=${s}`);
+  }
+
+  // 深度正值与视轴归一化的阈值按点集半径取，不是固定的 1e-12：整个场景小于 1e-12 也能拟合
+  // （README 写明的范围是半径 1e-12 到 1e6，上端由 O6-12 的 1e6 覆盖）
+  for (const s of [1e-13]) {
+    const pts = synthCamera(mul(cube, s), [3.6 * s, 2.4 * s, 6.8 * s], [0, 0.6 * s, 0], 38, size);
+    const res = observe.align({ camera: { points: pts, size, initial: { near: 0.01 * s, far: 1000 * s } } });
+    assert.equal(res.ok, true, JSON.stringify(res));
+    assert.equal(res.camera.degenerate, false, `s=${s}: ${JSON.stringify(res.camera)}`);
+    assert.equal(res.camera.converged, true, `s=${s}: ${JSON.stringify(res.camera)}`);
+    assert.ok(reprojectRmse(pts, res.camera.world, res.camera.proj, size) < 0.5, `s=${s}: ${JSON.stringify(res.camera)}`);
+  }
+});

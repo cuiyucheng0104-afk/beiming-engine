@@ -2,7 +2,9 @@
 //   compare(a, b, options?)
 //     a、b      { width, height, rgb | data }、PNG 路径字符串或 { path }、PNG Buffer/Uint8Array，或 { video | videoPath, frame?, fps? }；
 //               一个输入对象只能给一种来源（path、video、videoPath、rgb、data 之一），多给报错
-//     options   { tolerance?, heatmapPath?（别名 heatmapOut，不得指向输入文件）, heatmapGain?, metrics? }；未知容差键或指标名报错
+//     options   { tolerance?, pixelDiffThreshold?, heatmapPath?（别名 heatmapOut，不得指向输入文件）, heatmapGain?, metrics? }；未知选项、容差键或指标名报错
+//               pixelDiffThreshold（0..1，也可写在 tolerance 里）：逐像素取三通道最大差的整数级数除以 255，超过阈值的像素占比记为
+//               fracAboveThreshold 一行，占比超过 tolerance.pixelDiffMaxRatio（默认 0）即不通过
 //   复用白名单：tools/baseline/lib/metrics.mjs（PSNR、SSIM、maxDiff、fracAbove1/2、容差 judge、热图 diffHeatmap）
 //     与 tools/eval/lib/metrics.mjs（seamDeltaE、paletteDeltaE、lineCoverage、grainEnergy），并补 Rec.709 亮度分位差（p05/p50/p95）。
 //   成功返回 { ok: true, size, identical, pass, rows, heatmap?, truncated }；非法参数返回 { ok: false, error: { code, message } }，不抛异常。
@@ -97,6 +99,18 @@ function lumaQuantiles({ width, height, rgb }) {
   return { p05: q(0.05), p50: q(0.5), p95: q(0.95) };
 }
 
+// 超差像素占比：一个像素的差取三通道最大的整数级数（口径同白名单 compareImages），再除以 255 与阈值比；
+// 1e-12 只吸收 k/255 的浮点表示误差，相邻整数级之间隔着 1/255，不会被它抹平
+function fracAboveThreshold(a, b, threshold) {
+  const n = a.width * a.height;
+  let above = 0;
+  for (let p = 0; p < n * 3; p += 3) {
+    const m = Math.max(Math.abs(a.rgb[p] - b.rgb[p]), Math.abs(a.rgb[p + 1] - b.rgb[p + 1]), Math.abs(a.rgb[p + 2] - b.rgb[p + 2]));
+    if (m / 255 > threshold + 1e-12) above++;
+  }
+  return above / n;
+}
+
 // 白名单 SSIM 在 < 8x8 时直接回 1；小图改用整幅单窗口的标准 SSIM（逐通道再取平均）
 function globalSsim(a, b) {
   const n = a.width * a.height;
@@ -116,13 +130,14 @@ function globalSsim(a, b) {
   return r(total / 3, 6);
 }
 
+const OPT_KEYS = new Set(['tolerance', 'pixelDiffThreshold', 'heatmapPath', 'heatmapOut', 'heatmapGain', 'metrics']);
 const TOL_KEYS = new Set([
-  'psnrMin', 'ssimMin', 'maxDiff', 'maxFracAbove1', 'maxFracAbove2',
+  'psnrMin', 'ssimMin', 'maxDiff', 'maxFracAbove1', 'maxFracAbove2', 'pixelDiffThreshold', 'pixelDiffMaxRatio',
   'maxSeamDeltaE', 'seamDeltaEMax', 'maxPaletteDeltaE', 'paletteDeltaEMax',
   'maxLineCoverageDiff', 'lineCoverageDiffMax', 'maxGrainEnergyDiff', 'grainEnergyDiffMax',
   'maxLumaP05Diff', 'lumaP05DiffMax', 'maxLumaP50Diff', 'lumaP50DiffMax', 'maxLumaP95Diff', 'lumaP95DiffMax',
 ]);
-const METRICS = new Set(['psnr', 'ssim', 'maxDiff', 'fracAbove1', 'fracAbove2', 'seamDeltaE', 'paletteDeltaE', 'lineCoverage', 'grainEnergy', 'lumaP05', 'lumaP50', 'lumaP95']);
+const METRICS = new Set(['psnr', 'ssim', 'maxDiff', 'fracAbove1', 'fracAbove2', 'fracAboveThreshold', 'seamDeltaE', 'paletteDeltaE', 'lineCoverage', 'grainEnergy', 'lumaP05', 'lumaP50', 'lumaP95']);
 
 // 同一 dev+ino 即同一文件（覆盖软链、硬链与不同写法的路径）
 function sameFile(p, q) {
@@ -182,7 +197,17 @@ function fitCompare(payload) {
 export function compare(a, b, options = {}) {
   try {
     if (!isPlain(options)) throw new Error('options 必须是对象');
+    const stray = Object.keys(options).find((k) => !OPT_KEYS.has(k));
+    if (stray !== undefined) throw new Error(`options.${stray} 不是已知选项；可用 ${[...OPT_KEYS].join('、')}`);
     const tol = checkTolerance(options.tolerance);
+    const pxThreshold = options.pixelDiffThreshold ?? tol.pixelDiffThreshold;
+    if (pxThreshold !== undefined && !(typeof pxThreshold === 'number' && Number.isFinite(pxThreshold) && pxThreshold >= 0)) {
+      throw new Error('pixelDiffThreshold 必须是非负有限数');
+    }
+    if (options.pixelDiffThreshold !== undefined && tol.pixelDiffThreshold !== undefined && options.pixelDiffThreshold !== tol.pixelDiffThreshold) {
+      throw new Error('pixelDiffThreshold 在顶层与 tolerance 里给了不同的值');
+    }
+    if (pxThreshold === undefined && tol.pixelDiffMaxRatio !== undefined) throw new Error('tolerance.pixelDiffMaxRatio 需要同时给 pixelDiffThreshold');
     const gain = options.heatmapGain ?? 8;
     if (!(typeof gain === 'number' && Number.isFinite(gain) && gain > 0)) throw new Error('heatmapGain 必须是正数');
     const heatmapPath = options.heatmapPath ?? options.heatmapOut;
@@ -255,6 +280,10 @@ export function compare(a, b, options = {}) {
       };
     };
 
+    const pxFrac = pxThreshold === undefined || base.identical ? 0 : fracAboveThreshold(imgA, imgB, pxThreshold);
+    const pxMaxRatio = tol.pixelDiffMaxRatio ?? 0;
+    const pxRow = { metric: 'fracAboveThreshold', value: r(pxFrac, 5), threshold: pxThreshold, tolerance: pxMaxRatio, pass: pxFrac <= pxMaxRatio };
+
     const tSeam = pickTol(tol, 'maxSeamDeltaE', 'seamDeltaEMax');
     const tPal = pickTol(tol, 'maxPaletteDeltaE', 'paletteDeltaEMax');
     const tLine = pickTol(tol, 'maxLineCoverageDiff', 'lineCoverageDiffMax');
@@ -269,6 +298,7 @@ export function compare(a, b, options = {}) {
       valRow('maxDiff', base.maxDiff, tol.maxDiff, tol.maxDiff === undefined || base.maxDiff <= tol.maxDiff),
       valRow('fracAbove1', r(base.fracAbove1, 5), tol.maxFracAbove1, tol.maxFracAbove1 === undefined || base.fracAbove1 <= tol.maxFracAbove1),
       valRow('fracAbove2', r(base.fracAbove2, 5), tol.maxFracAbove2, tol.maxFracAbove2 === undefined || base.fracAbove2 <= tol.maxFracAbove2),
+      ...(pxThreshold === undefined ? [] : [pxRow]),
       valRow('seamDeltaE', seamDe, tSeam, tSeam === undefined || seamDe <= tSeam),
       valRow('paletteDeltaE', palDe, tPal, tPal === undefined || palDe <= tPal),
       pairRow('lineCoverage', lineA, lineB, 4, tLine),

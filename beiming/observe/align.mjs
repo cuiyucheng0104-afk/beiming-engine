@@ -6,7 +6,8 @@
 //     composition  { reference: bbox2d, actual: bbox2d, size: [w, h] } → centerShiftPx、centerShiftNorm、areaRatio、iou
 //     camera       { points: [{ world: [x,y,z], screen: [u,v] }], size: [w, h], initial?: { pos?, target?, fovY?, near?, far? } }
 //                  7 参数（pos[3] + 轴角 rotation[3] + fovY[5..140]）阻尼高斯-牛顿（LM）拟合；world/proj 4x4 列主序对齐 meta/0.1（双精度），rmsePx 由返回矩阵复算，另给 converged 与 degenerate
-//                  （点集重合、共线或共面且正对相机时不可辨识，此时 converged 恒为 false）；near/far 使 proj 溢出时报错。
+//                  （点集重合、独立世界点不足 4 个、共线或共面且正对相机时不可辨识，此时 converged 恒为 false）；near/far 使 proj 溢出时报错。
+//                  长度阈值都按点集半径（各点到质心的最大距离）取；半径 1e-12 到 1e6 有回归测试，超出不保证收敛（如实给 converged: false）。
 //   预算：返回值 JSON 严格满足 withinBudget(json, 500)；非法参数返回 { ok: false, error: { code, message } }，不抛异常。
 
 import { resolve } from 'node:path';
@@ -283,7 +284,7 @@ const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm3 = (a) => {
   const l = Math.hypot(a[0], a[1], a[2]);
-  return l > 1e-12 ? [a[0] / l, a[1] / l, a[2] / l] : [0, 0, 1];
+  return l > 0 ? [a[0] / l, a[1] / l, a[2] / l] : [0, 0, 1]; // 归一化无量纲，只有零向量才回退
 };
 
 // 3x3 旋转矩阵按行存储（长度 9）：列 0 = xAxis, 列 1 = yAxis, 列 2 = zAxis（相机到世界 R_cw）
@@ -361,7 +362,8 @@ function solve7(A, b) {
   return x.every(Number.isFinite) ? x : null;
 }
 
-function projectResiduals(points, width, height, pos, R, fovY) {
+// scale 为点集半径：深度是否为正、相机后方的罚项都按它归一，不用绝对长度
+function projectResiduals(points, width, height, pos, R, fovY, scale) {
   const aspect = width / height;
   const f = 1 / Math.tan((fovY * Math.PI) / 360);
   const fx = f / aspect;
@@ -378,9 +380,9 @@ function projectResiduals(points, width, height, pos, R, fovY) {
     const cy = R[1] * dx + R[4] * dy + R[7] * dz;
     const cz = R[2] * dx + R[5] * dy + R[8] * dz;
     const depth = -cz;
-    if (depth <= 1e-12) {
+    if (depth <= 1e-9 * scale) {
       valid = false;
-      const pen = 1e4 * (1 - depth);
+      const pen = 1e4 * (1 - depth / scale);
       res[i * 2] = pen;
       res[i * 2 + 1] = pen;
       sse += 2 * pen * pen;
@@ -402,7 +404,7 @@ function lmOptimize(points, width, height, initPos, initR, initFovY, scale) {
   let pos = [...initPos];
   let R = [...initR];
   let fovY = clamp(initFovY, 5, 140);
-  let cur = projectResiduals(points, width, height, pos, R, fovY);
+  let cur = projectResiduals(points, width, height, pos, R, fovY, scale);
   let lambda = 1e-3;
   const m = points.length * 2;
   const steps = [1e-5 * scale, 1e-5 * scale, 1e-5 * scale, 1e-5, 1e-5, 1e-5, 1e-3];
@@ -423,19 +425,19 @@ function lmOptimize(points, width, height, initPos, initR, initFovY, scale) {
       if (k < 3) {
         const p1 = [...pos]; p1[k] += h;
         const p2 = [...pos]; p2[k] -= h;
-        plus = projectResiduals(points, width, height, p1, R, fovY).res;
-        minus = projectResiduals(points, width, height, p2, R, fovY).res;
+        plus = projectResiduals(points, width, height, p1, R, fovY, scale).res;
+        minus = projectResiduals(points, width, height, p2, R, fovY, scale).res;
       } else if (k < 6) {
         const d1 = [0, 0, 0]; d1[k - 3] = h;
         const d2 = [0, 0, 0]; d2[k - 3] = -h;
-        plus = projectResiduals(points, width, height, pos, mul3(R, rodrigues(...d1)), fovY).res;
-        minus = projectResiduals(points, width, height, pos, mul3(R, rodrigues(...d2)), fovY).res;
+        plus = projectResiduals(points, width, height, pos, mul3(R, rodrigues(...d1)), fovY, scale).res;
+        minus = projectResiduals(points, width, height, pos, mul3(R, rodrigues(...d2)), fovY, scale).res;
       } else {
         const f1 = clamp(fovY + h, 5, 140);
         const f2 = clamp(fovY - h, 5, 140);
         const span = Math.max(1e-6, f1 - f2);
-        plus = projectResiduals(points, width, height, pos, R, f1).res;
-        minus = projectResiduals(points, width, height, pos, R, f2).res;
+        plus = projectResiduals(points, width, height, pos, R, f1, scale).res;
+        minus = projectResiduals(points, width, height, pos, R, f2, scale).res;
         for (let row = 0; row < m; row++) J[k][row] = (plus[row] - minus[row]) / span;
         continue;
       }
@@ -471,7 +473,7 @@ function lmOptimize(points, width, height, initPos, initR, initFovY, scale) {
       const nPos = [pos[0] + delta[0], pos[1] + delta[1], pos[2] + delta[2]];
       const nR = mul3(R, rodrigues(delta[3], delta[4], delta[5]));
       const nFov = clamp(fovY + delta[6], 5, 140);
-      const next = projectResiduals(points, width, height, nPos, nR, nFov);
+      const next = projectResiduals(points, width, height, nPos, nR, nFov, scale);
       if (next.sse < cur.sse) {
         const rel = (cur.sse - next.sse) / Math.max(cur.sse, 1e-12);
         const stepNorm = Math.hypot(delta[0] / scale, delta[1] / scale, delta[2] / scale, delta[3], delta[4], delta[5], delta[6]);
@@ -547,6 +549,13 @@ function reproject(points, world, proj, width, height) {
 // 先减质心、除以点集半径再算：阈值全落在无量纲坐标上，判定与场景尺度无关
 function isDegenerate(points, centroid, radius, R) {
   if (!(radius > 0)) return true; // 全部重合
+  // 独立世界点不足 4 个时方程少于 7 个：同一世界点重复给不增加约束，屏幕点相同或略有出入都一样，所以只按世界坐标判重
+  const eps = 1e-9 * Math.max(radius, 1e-30);
+  const uniq = [];
+  for (const p of points) {
+    if (uniq.length < 4 && !uniq.some((q) => Math.hypot(...sub3(p.world, q)) <= eps)) uniq.push(p.world);
+  }
+  if (uniq.length < 4) return true;
   const n = points.length;
   const C = new Array(9).fill(0);
   for (const p of points) {
