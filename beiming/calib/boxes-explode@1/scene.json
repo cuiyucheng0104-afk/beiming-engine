@@ -1,0 +1,658 @@
+{
+  "format": "calib-scene/0.1",
+  "id": "boxes-explode@1",
+  "title": "爆炸拆解：八个 0.3 米方块在 5 米外拼成一个 0.6 米的大方块，第 0 帧拼合，之后各自沿对角方向匀速散开到第 24 帧。靠相机的四个（near-*）每帧横竖各走 2 厘米、同时朝相机走 2 厘米；远的四个（far-*）每帧横竖各走 5 厘米、同时远离相机 2 厘米，第 0 帧被前排挡住、散开后从前排外侧露出来。名字里 l、r 是 −X、+X，d、u 是 −Y、+Y",
+  "probeRows": [
+    "时间键",
+    "坐标与相机",
+    "可见比例的成本",
+    "确定性",
+    "耗时"
+  ],
+  "colorSpace": "scene-linear-rec709",
+  "frameRange": {
+    "startFrame": 0,
+    "endFrame": 24
+  },
+  "frameRateFps": 24,
+  "camera": {
+    "positionM": [
+      0,
+      0,
+      0
+    ],
+    "lookAtM": [
+      0,
+      0,
+      -1
+    ],
+    "upDir": [
+      0,
+      1,
+      0
+    ],
+    "yFovDeg": 40,
+    "widthPx": 640,
+    "heightPx": 360,
+    "nearM": 0.1,
+    "farM": 100
+  },
+  "backgroundLinear": [
+    0,
+    0,
+    0
+  ],
+  "objects": [
+    {
+      "id": "near-ld",
+      "idIndex": 1,
+      "shape": "box",
+      "sizeM": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "positionM": [
+        -0.15,
+        -0.15,
+        -4.85
+      ],
+      "emissionLinear": [
+        0.8,
+        0.2,
+        0.2
+      ],
+      "motion": {
+        "kind": "linear",
+        "velocityMPerFrame": [
+          -0.02,
+          -0.02,
+          0.02
+        ]
+      }
+    },
+    {
+      "id": "near-rd",
+      "idIndex": 2,
+      "shape": "box",
+      "sizeM": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "positionM": [
+        0.15,
+        -0.15,
+        -4.85
+      ],
+      "emissionLinear": [
+        0.2,
+        0.8,
+        0.2
+      ],
+      "motion": {
+        "kind": "linear",
+        "velocityMPerFrame": [
+          0.02,
+          -0.02,
+          0.02
+        ]
+      }
+    },
+    {
+      "id": "near-lu",
+      "idIndex": 3,
+      "shape": "box",
+      "sizeM": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "positionM": [
+        -0.15,
+        0.15,
+        -4.85
+      ],
+      "emissionLinear": [
+        0.2,
+        0.2,
+        0.8
+      ],
+      "motion": {
+        "kind": "linear",
+        "velocityMPerFrame": [
+          -0.02,
+          0.02,
+          0.02
+        ]
+      }
+    },
+    {
+      "id": "near-ru",
+      "idIndex": 4,
+      "shape": "box",
+      "sizeM": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "positionM": [
+        0.15,
+        0.15,
+        -4.85
+      ],
+      "emissionLinear": [
+        0.8,
+        0.8,
+        0.2
+      ],
+      "motion": {
+        "kind": "linear",
+        "velocityMPerFrame": [
+          0.02,
+          0.02,
+          0.02
+        ]
+      }
+    },
+    {
+      "id": "far-ld",
+      "idIndex": 5,
+      "shape": "box",
+      "sizeM": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "positionM": [
+        -0.15,
+        -0.15,
+        -5.15
+      ],
+      "emissionLinear": [
+        0.4,
+        0.1,
+        0.1
+      ],
+      "motion": {
+        "kind": "linear",
+        "velocityMPerFrame": [
+          -0.05,
+          -0.05,
+          -0.02
+        ]
+      }
+    },
+    {
+      "id": "far-rd",
+      "idIndex": 6,
+      "shape": "box",
+      "sizeM": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "positionM": [
+        0.15,
+        -0.15,
+        -5.15
+      ],
+      "emissionLinear": [
+        0.1,
+        0.4,
+        0.1
+      ],
+      "motion": {
+        "kind": "linear",
+        "velocityMPerFrame": [
+          0.05,
+          -0.05,
+          -0.02
+        ]
+      }
+    },
+    {
+      "id": "far-lu",
+      "idIndex": 7,
+      "shape": "box",
+      "sizeM": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "positionM": [
+        -0.15,
+        0.15,
+        -5.15
+      ],
+      "emissionLinear": [
+        0.1,
+        0.1,
+        0.4
+      ],
+      "motion": {
+        "kind": "linear",
+        "velocityMPerFrame": [
+          -0.05,
+          0.05,
+          -0.02
+        ]
+      }
+    },
+    {
+      "id": "far-ru",
+      "idIndex": 8,
+      "shape": "box",
+      "sizeM": [
+        0.3,
+        0.3,
+        0.3
+      ],
+      "positionM": [
+        0.15,
+        0.15,
+        -5.15
+      ],
+      "emissionLinear": [
+        0.4,
+        0.4,
+        0.1
+      ],
+      "motion": {
+        "kind": "linear",
+        "velocityMPerFrame": [
+          0.05,
+          0.05,
+          -0.02
+        ]
+      }
+    }
+  ],
+  "expected": [
+    {
+      "kind": "projectPoint",
+      "objectId": "near-ld",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × 帧，第 24 帧（散开到头）",
+      "pixelPx": [
+        248.703904,
+        251.296096
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "near-rd",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × 帧，第 24 帧（散开到头）",
+      "pixelPx": [
+        391.296096,
+        251.296096
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "near-lu",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × 帧，第 24 帧（散开到头）",
+      "pixelPx": [
+        248.703904,
+        108.703904
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "near-ru",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × 帧，第 24 帧（散开到头）",
+      "pixelPx": [
+        391.296096,
+        108.703904
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "far-ld",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × 帧，第 24 帧（散开到头）",
+      "pixelPx": [
+        201.414385,
+        298.585615
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "far-rd",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × 帧，第 24 帧（散开到头）",
+      "pixelPx": [
+        438.585615,
+        298.585615
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "far-lu",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × 帧，第 24 帧（散开到头）",
+      "pixelPx": [
+        201.414385,
+        61.414385
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "far-ru",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × 帧，第 24 帧（散开到头）",
+      "pixelPx": [
+        438.585615,
+        61.414385
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "near-ru",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × 帧，第 0 帧（拼合）",
+      "pixelPx": [
+        335.295235,
+        164.704765
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "near-ru",
+      "atFrame": 12,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × 帧，第 12 帧",
+      "pixelPx": [
+        361.837942,
+        138.162058
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "far-ru",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × 帧，第 0 帧（拼合）",
+      "pixelPx": [
+        334.404251,
+        165.595749
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "far-ru",
+      "atFrame": 12,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × 帧，第 12 帧",
+      "pixelPx": [
+        388.81437,
+        111.18563
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "near-ru",
+      "atFrame": 12,
+      "subFrameRatio": 0.5,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × (帧 + sub)，第 12 帧，sub = 0.5",
+      "pixelPx": [
+        363.003994,
+        136.996006
+      ]
+    },
+    {
+      "kind": "projectedBox",
+      "objectId": "near-ru",
+      "atFrame": 0,
+      "minIouRatio": 0.95,
+      "source": "方块 8 个角点在第 0 帧投影的最小、最大像素坐标（不计遮挡，即元数据包围盒）",
+      "boxMinPx": [
+        320,
+        148.433238
+      ],
+      "boxMaxPx": [
+        351.566762,
+        180
+      ]
+    },
+    {
+      "kind": "projectedBox",
+      "objectId": "near-ru",
+      "atFrame": 12,
+      "minIouRatio": 0.95,
+      "source": "方块 8 个角点在第 12 帧投影的最小、最大像素坐标（不计遮挡，即元数据包围盒）",
+      "boxMinPx": [
+        344.935089,
+        120.122241
+      ],
+      "boxMaxPx": [
+        379.877759,
+        155.064911
+      ]
+    },
+    {
+      "kind": "projectedBox",
+      "objectId": "near-ru",
+      "atFrame": 24,
+      "minIouRatio": 0.95,
+      "source": "方块 8 个角点在第 24 帧投影的最小、最大像素坐标（不计遮挡，即元数据包围盒）",
+      "boxMinPx": [
+        372.518152,
+        88.591036
+      ],
+      "boxMaxPx": [
+        411.408964,
+        127.481848
+      ]
+    },
+    {
+      "kind": "projectedBox",
+      "objectId": "far-ru",
+      "atFrame": 24,
+      "minIouRatio": 0.95,
+      "source": "方块 8 个角点在第 24 帧投影的最小、最大像素坐标；这一帧它已经整个从前排外侧露出来",
+      "boxMinPx": [
+        422.673897,
+        44.631587
+      ],
+      "boxMaxPx": [
+        455.368413,
+        77.326103
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        335.5,
+        165.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "第 0 帧拼合：视线先打到前排右上的方块，再打到它正后方的那一个",
+      "intendedHitIds": [
+        "near-ru",
+        "far-ru"
+      ],
+      "hits": [
+        {
+          "objectId": "near-ru",
+          "planeDepthM": 4.7,
+          "rayDistanceM": 4.704327
+        },
+        {
+          "objectId": "far-ru",
+          "planeDepthM": 5,
+          "rayDistanceM": 5.004603
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 12,
+      "pixelPx": [
+        377.5,
+        121.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "第 12 帧散开一半：这个像素上前排右上方块的外角还挡着后排右上方块的内角",
+      "intendedHitIds": [
+        "near-ru",
+        "far-ru"
+      ],
+      "hits": [
+        {
+          "objectId": "near-ru",
+          "planeDepthM": 4.46,
+          "rayDistanceM": 4.520933
+        },
+        {
+          "objectId": "far-ru",
+          "planeDepthM": 5.24,
+          "rayDistanceM": 5.31159
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 24,
+      "pixelPx": [
+        320.5,
+        180.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "第 24 帧画面正中：方块都散开了，是背景",
+      "intendedHitIds": [],
+      "hits": []
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 24,
+      "pixelPx": [
+        248.5,
+        108.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "第 24 帧前排左上方块的中心像素：只打到它",
+      "intendedHitIds": [
+        "near-lu"
+      ],
+      "hits": [
+        {
+          "objectId": "near-lu",
+          "planeDepthM": 4.22,
+          "rayDistanceM": 4.307306
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 24,
+      "pixelPx": [
+        438.5,
+        298.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "第 24 帧后排右下方块的中心像素：只打到它",
+      "intendedHitIds": [
+        "far-rd"
+      ],
+      "hits": [
+        {
+          "objectId": "far-rd",
+          "planeDepthM": 5.48,
+          "rayDistanceM": 5.786085
+        }
+      ]
+    }
+  ]
+}
