@@ -1,0 +1,20 @@
+{
+  "question": "29-1",
+  "kind": "reference",
+  "source": "案例 29 作者原文件（1080×1350、30 帧每秒、600 帧）第 300 帧；2026-11-22 用 evaluate-b2.mjs 的 readLayout 调 layoutEdges 实测",
+  "readings": {
+    "layout.edges": {
+      "bands": [[44, 652], [673, 677], [698, 1306]],
+      "edgeErrorsPx": [0, 0, 0, 0, 0, 0],
+      "lineColorError": 1
+    }
+  },
+  "otherFrames": [
+    { "frame": 0, "edgeErrorsPx": [0, 0, 0, 0, 0, 0], "lineColorError": 7 },
+    { "frame": 60, "edgeErrorsPx": [0, 0, 0, 0, 0, 0], "lineColorError": 7 },
+    { "frame": 150, "edgeErrorsPx": [0, 0, 0, 0, 0, 0], "lineColorError": 5 },
+    { "frame": 450, "edgeErrorsPx": [0, 0, 0, 0, 0, 0], "lineColorError": 1 },
+    { "frame": 560, "edgeErrorsPx": null, "lineColorError": 248 }
+  ],
+  "note": "判分只看第 300 帧，和案例 29 版式一节的量法一致。otherFrames 是同一条片别的帧的读数，留给容差校准：第 0、60、150 帧分隔线中间两行的色差是 5 到 7 级，超过 4 级的初值；第 526 帧起片尾卡盖住中缝，分不出三段。"
+}

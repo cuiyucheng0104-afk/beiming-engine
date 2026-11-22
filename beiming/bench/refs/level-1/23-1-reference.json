@@ -1,0 +1,26 @@
+{
+  "question": "23-1",
+  "kind": "reference",
+  "source": "案例 23 的两条转台参考片（全身 720×1080、72 帧；头部 720×900、60 帧；都是 24 帧每秒）；2026-11-22 用 evaluate-b2.mjs 的 readNearest、readClosure 调 loopClosurePsnr 实测",
+  "readings": {
+    "loop.closure-psnr": {
+      "nearest": 71,
+      "closurePsnr": 29.952,
+      "adjacentPsnr": 30.012
+    }
+  },
+  "variants": [
+    {
+      "name": "头部转台",
+      "deliverable": { "size": [720, 900], "frames": 60 },
+      "readings": {
+        "loop.closure-psnr": {
+          "nearest": 59,
+          "closurePsnr": 19.683,
+          "adjacentPsnr": 19.608
+        }
+      }
+    }
+  ],
+  "note": "均方根误差之比：全身 1.007，头部 0.991，线是 1.1。案例 23 当时用灰度平均绝对差量的记录是全身 1.20 对 1.18、头部 9.21 对 9.20，结论一致。题目的交付规格只写了全身转台；头部转台当同一套判分的 60 帧变体核（帧号 71 换成 59，后半段换成第 30 到 59 帧）。"
+}
