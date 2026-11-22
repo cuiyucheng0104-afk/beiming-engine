@@ -591,6 +591,17 @@ test('B3-12 30-1 从工程读数：read30_1 静态扫工程目录，一张 80 BP
       ['folded', lifecycle('state(f, ctx) { return f >= 18 * 24; }'), HARD],
       // 相对命名时刻的偏移、归一化的进度不是写死的帧号
       ['relative', lifecycle('state(f, ctx) { const since = f - ctx.at(\'m02\'); return since >= 12 && f / ctx.total >= 0.5 && ctx.t > 1; }'), SOFT],
+      // 六审反例：三对画面逐帧相同的镜头
+      // 1 落在局部绑定上的 f 看这个绑定：有调用点的辅助函数形参叫 f，传进来的是像素宽度就不是帧；初值是像素的局部量叫 f 也不是
+      ['inner-pixels', lifecycle('state(f, view) { const wide = pixels => pixels >= 640; return wide(view.size[0]); }'), SOFT],
+      ['inner-f', lifecycle('state(f, view) { const wide = f => f >= 640; return wide(view.size[0]); }'), SOFT],
+      ['local-f-pixels', lifecycle('state(cursor, view) { const f = view.size[0]; return f >= 640; }'), SOFT],
+      // 2 同一个辅助函数在两处收到不同的帧式子，哪一处写在前面都认
+      ['calls-late-first', lifecycle('state(f, ctx) { const late = on(f - 432), early = on(f); return early && late; }', 'function on(n) { return n >= 0; }\n'), HARD],
+      ['calls-early-first', lifecycle('state(f, ctx) { const early = on(f), late = on(f - 432); return early && late; }', 'function on(n) { return n >= 0; }\n'), HARD],
+      // 3 帧回调的第一个形参叫 ctx 也是帧，写成方法还是单独的 function 都一样
+      ['hook-ctx', lifecycle('state(ctx, sub) { return ctx >= 432; }'), HARD],
+      ['hook-ctx-function', 'export function state(ctx, sub) { return ctx >= 432; }\n', HARD],
     ]) assert.deepEqual(whole(project(name, { code: { 'shots/shot.js': code } })), want, name);
     // 带类型标注的源码先抹掉类型再解析，结论和不带标注的一样（这台 Node 没有 stripTypeScriptTypes 时退回正则扫描，不在这里核）
     if (typeof nodeModule.stripTypeScriptTypes === 'function') {
