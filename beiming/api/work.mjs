@@ -360,17 +360,49 @@ export function createWork({ store, library, reviewer, scheduler }) {
     return jobId;
   }
 
+  // 委托作业：编排进程只发 HTTP、不占显存，所以不进 GPU 调度器（否则它等自己触发的 render/deliver 子作业会自死锁）。
+  // shortcut: 作业记录只在内存里，服务重启后查不到委托作业；要跨重启续跑时改成落盘 job/0.1 记录。
+  const delegates = new Map();
+
+  /** 提交委托作业：run({ signal }) 交回编排结论 { status, stoppedReason?, stoppedAt?, failedAt?, bestRev, cost, outputs }。交回作业号 */
+  function submitDelegate(id, run) {
+    const jobId = store.nextJobId(id);
+    const rec = { status: 'running', rev: store.rev(id), events: [{ seq: 1, type: 'queued' }, { seq: 2, type: 'running' }], controller: new AbortController(), start: monotonicMs() };
+    delegates.set(jobId, rec);
+    const done = (async () => {
+      let res;
+      try { res = await run({ signal: rec.controller.signal }); } catch (e) { res = { status: 'failed', message: sanitizeErrorText(e?.message) || '委托编排失败' }; }
+      if (rec.controller.signal.aborted) res = { ...res, status: 'canceled' };
+      const { status, cost = {}, outputs = [], message, ...data } = res;
+      const wallMs = Math.round(monotonicMs() - rec.start);
+      const outcome = status === 'failed'
+        ? { ok: false, code: 'contract.bad-value', message: message ?? `委托出片没有完成（${data.failedAt ?? '未知步骤'}）`, data, outputs, next: [{ verb: `GET /v1/films/${id}/ledger`, why: '看花了多少、停在哪' }] }
+        : { ok: true, data, outputs, next: [{ verb: `GET /v1/films/${id}/ledger`, why: '看这部片花了多少' }] };
+      outcome.cost = { tokens: cost.tokens ?? 0, gpuSeconds: r3(cost.gpuSeconds ?? 0), wallMs };
+      outcome.frames = 0;
+      mkdirSync(jobDir(id, jobId), { recursive: true });
+      writeFileSync(join(jobDir(id, jobId), 'outcome.json'), jsonText(outcome));
+      store.ledger(id, { step: 'job.delegate', job: jobId, rev: data.bestRev ?? rec.rev, status, ok: outcome.ok, wallMs, gpuSeconds: 0, tokens: 0, modelTokens: outcome.cost.tokens, frames: 0 });
+      rec.status = status;
+      rec.events.push({ seq: 3, type: status });
+    })();
+    running.set(jobId, done);
+    done.then(() => running.delete(jobId));
+    return jobId;
+  }
+
+  const statusOf = (id, jobId) => delegates.get(jobId)?.status ?? queue(id).getJob(jobId).status;
+
   /** 等：until 是 'done'（到终态）或 'change'（状态变了）；最多等 seconds 秒 */
   function wait(id, jobId, seconds, until = 'done') {
-    const q = queue(id);
-    const first = q.getJob(jobId).status;
+    const first = statusOf(id, jobId);
     if (TERMINAL.has(first) || !(seconds > 0)) return Promise.resolve();
     return new Promise((resolve) => {
       const stop = () => { clearTimeout(deadline); clearInterval(poll); waiters.delete(stop); resolve(); };
       const deadline = setTimeout(stop, seconds * 1000);
       // 每 40 毫秒看一次作业记录
       const poll = setInterval(() => {
-        const now = q.getJob(jobId).status;
+        const now = statusOf(id, jobId);
         if (TERMINAL.has(now) || (until === 'change' && now !== first)) stop();
       }, 40);
       waiters.add(stop);
@@ -379,6 +411,14 @@ export function createWork({ store, library, reviewer, scheduler }) {
 
   /** 作业现在的样子：{ job, terminal, base（状态、阶段、最近 5 条事件、累计成本）, outcome（结论，没有是 null） } */
   function view(id, jobId) {
+    const del = delegates.get(jobId);
+    if (del) {
+      const terminal = TERMINAL.has(del.status);
+      const file = join(jobDir(id, jobId), 'outcome.json');
+      const outcome = terminal && existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null;
+      const cost = outcome ? { ...outcome.cost, frames: 0 } : { gpuSeconds: 0, wallMs: Math.round(monotonicMs() - del.start), tokens: 0, frames: 0 };
+      return { terminal, outcome, base: { job: jobId, verb: 'delegate', status: del.status, stage: terminal ? null : 'orchestrate', rev: del.rev, events: del.events, cost } };
+    }
     const job = queue(id).getJob(jobId);
     const terminal = TERMINAL.has(job.status);
     const open = job.steps.filter((s) => s.attempt === job.attempt && !s.endEvent).at(-1);
@@ -399,6 +439,12 @@ export function createWork({ store, library, reviewer, scheduler }) {
 
   /** 取消：没到终态的发取消信号并等它停下；已经到终态的原样交回 */
   async function cancel(id, jobId) {
+    const del = delegates.get(jobId);
+    if (del) {
+      del.controller.abort();
+      await running.get(jobId);
+      return del.status;
+    }
     const q = queue(id);
     if (!TERMINAL.has(q.getJob(jobId).status)) await Promise.resolve().then(() => q.cancelJob(jobId)).catch(() => undefined);
     await running.get(jobId);
@@ -543,5 +589,5 @@ export function createWork({ store, library, reviewer, scheduler }) {
     };
   }
 
-  return { submit, view, wait, cancel, cancelAll, observeQuery, observeSheet, observeMetrics, review };
+  return { submit, submitDelegate, view, wait, cancel, cancelAll, observeQuery, observeSheet, observeMetrics, review };
 }
