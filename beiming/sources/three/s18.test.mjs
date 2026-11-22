@@ -3,7 +3,7 @@
 // 场景是 beiming/calib/ 的灰阶色卡和三个互相遮挡的方块（探针镜头 s18-probe.shot.js 照规格搭）。
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -50,6 +50,8 @@ const film = (size) => ({
     ...CUBES.map((only) => shot(`occ-${only}`, 'probe-occlusion', { params: { scene: 'probe-occlusion', only } })),
     shot('occ-moved', null, { params: { spec: MOVED } }),
     shot('strip', null, { params: { spec: STRIP } }),
+    shot('strip-fbo-fault', null, { params: { spec: STRIP, fault: 'incomplete-2x-fbo' } }),
+    shot('strip-read-fault', null, { params: { spec: STRIP, fault: 'readpixels-2x-error' } }),
   ],
 });
 
@@ -61,6 +63,7 @@ async function withSource(t, fn) {
   try {
     await fn({
       open: (id, size = [640, 360], from = film(size), filmDir = HERE) => source.open(shotInput(from, id), { lock: null, tier: 'final', workspace, filmDir }),
+      files: async () => (await readdir(workspace, { recursive: true })).sort(),
       async read(ref) {
         const bytes = await readFile(join(workspace, ref.file));
         assert.equal(ref.hash, `sha256:${createHash('sha256').update(bytes).digest('hex')}`, ref.file);
@@ -372,7 +375,7 @@ test('S18-R2-Red: 锚点投影在非单位相机位姿下精确且落在相机�
 });
 
 test('S18-R3-Red: 渲染目标超出 GPU 上限时报错，不把读不回的全零写成覆盖率 0', async (t) => {
-  await withSource(t, async ({ open, read }) => {
+  await withSource(t, async ({ open, read, files }) => {
     // 画面高 4、竖直视场角 90 度：10 米外的墙上一个像素 5 米见方，墙宽 60 米，每行正中 12 个像素的中心和它们的 2 倍子样本都打在墙上
     const render = async (w) => {
       const session = await open('strip', [w, 4]);
@@ -394,5 +397,19 @@ test('S18-R3-Red: 渲染目标超出 GPU 上限时报错，不把读不回的全
 
     // 再宽一个像素：主目标放得下，2 倍编号目标超限。以前那张目标的帧缓冲不完整，读回的全零被写成墙上覆盖率 0
     await assert.rejects(render(w + 1), new RegExp(`2 倍编号目标 ${limit + 2}×8 超出这台机器的 GPU 上限 ${limit}`));
+
+    // 尺寸合法（64×4，编号目标 128×8）时的两道检查各自要拦得住：故障由探针镜头注入。报错原文写死，
+    // 少了帧缓冲检查会落到读回那句（0x506），少了读回检查这一帧假成功、覆盖率全 0；失败的帧不往工作目录里落任何文件
+    const runFault = async (shotId, message) => {
+      const before = await files(), s = await open(shotId, [64, 4]);
+      try {
+        await assert.rejects(s.render(0, {}, ['color', 'objectId']), (e) => e.message.includes(message) || assert.fail(e.message));
+      } finally {
+        await s.close();
+      }
+      assert.deepEqual(await files(), before, `${shotId} 失败后工作目录多了文件`);
+    };
+    await runFault('strip-fbo-fault', '渲染目标 128×8 的帧缓冲不完整（checkFramebufferStatus 0x8cd7）');
+    await runFault('strip-read-fault', '渲染目标 128×8 读回报错（getError 0x500）');
   });
 });
