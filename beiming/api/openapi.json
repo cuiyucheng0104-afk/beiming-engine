@@ -958,6 +958,13 @@
                   "asset": {
                     "type": "string"
                   },
+                  "assets": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 16
+                  },
                   "text": {
                     "type": "string"
                   },
@@ -2604,6 +2611,10 @@
                     "minimum": 0,
                     "maximum": 30,
                     "description": "同步等待作业结束的秒数，超时就先交回作业号"
+                  },
+                  "deferReview": {
+                    "type": "boolean",
+                    "description": "推迟可选 L5 审片，不调用额外的模型；L1–L3 硬门不变，之后可 POST review"
                   }
                 },
                 "additionalProperties": false

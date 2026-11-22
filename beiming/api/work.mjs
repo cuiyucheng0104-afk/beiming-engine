@@ -4,8 +4,8 @@
 // 渲出来的帧按档位并进一份索引 deliver/frames-<档位>.json（只留当前修订的），观测和核验都读它。
 // 计时只用单调时钟量耗时（记成本用），不进任何产物的内容。
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { loadQueue } from '../jobs/index.mjs';
 import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, query } from '../observe/index.mjs';
 import { ApiError, diagnostic, isRegistered } from './envelope.mjs';
@@ -307,6 +307,8 @@ export function createWork({ store, library, reviewer, scheduler }) {
       }));
       const l4 = await step('l4', () => ({ status: 'not-run', reason: '未提供可量测的 ref-pack', compChecks: { pointer: '#/checks', count: bundle.report.checks.length, ok: bundle.report.ok } }));
       const l5 = await step('l5', async () => {
+        // L5 是意见而非硬门。预算委托不启动无法预先限额的外部审片，保留独立 review 动词。
+        if (job.payload.deferReview) return { status: 'not-run', reason: '可选 L5 已推迟，可另行 POST review', opinions: [], suggestedPredicates: [], overridesHardGates: false };
         const images = reviewer ? reviewMaterials({ master, fps: film.output.fps, film, outDir: join(dir, 'review') }) : [];
         return layerL5({ reviewer, brief: meta.brief ?? meta.question?.brief ?? '', images, loudness: bundle.report.loudness ?? null, film });
       });
@@ -361,37 +363,71 @@ export function createWork({ store, library, reviewer, scheduler }) {
   }
 
   // 委托作业：编排进程只发 HTTP、不占显存，所以不进 GPU 调度器（否则它等自己触发的 render/deliver 子作业会自死锁）。
-  // shortcut: 作业记录只在内存里，服务重启后查不到委托作业；要跨重启续跑时改成落盘 job/0.1 记录。
+  // 队列跑作业必经调度器，它的 stopped 也只留给抢占，所以委托作业照 job/0.1 的字段自己写 jobs/<作业号>/job.json（路径取自队列的 jobFile），
+  // 读、等、取消已停下的作业都走队列的 getJob，和普通作业一条路。内存里只留在跑的作业的取消开关，收尾就删。
+  // shortcut: 进程被杀时在跑的委托作业记录停在 running（编排闭包续不上）；要自动收尾时在启动时把它们扫成 stopped。
   const delegates = new Map();
 
   /** 提交委托作业：run({ signal }) 交回编排结论 { status, stoppedReason?, stoppedAt?, failedAt?, bestRev, cost, outputs }。交回作业号 */
   function submitDelegate(id, run) {
     const jobId = store.nextJobId(id);
-    const rec = { status: 'running', rev: store.rev(id), events: [{ seq: 1, type: 'queued' }, { seq: 2, type: 'running' }], controller: new AbortController(), start: monotonicMs() };
-    delegates.set(jobId, rec);
+    const file = queue(id).jobFile(jobId);
+    const job = { format: 'job/0.1', id: jobId, request: { kind: 'delegate', vramMB: 0 }, handler: 'delegate', payload: { film: id, rev: store.rev(id) }, keep: 'none',
+      status: 'running', attempt: 1, events: [], steps: [] };
+    const event = (type, details) => job.events.push({ seq: job.events.length + 1, attempt: 1, type, ...details });
+    const save = () => { mkdirSync(dirname(file), { recursive: true }); writeFileSync(`${file}.tmp`, jsonText(job)); renameSync(`${file}.tmp`, file); };
+    const finish = (status, reason) => {
+      const step = job.steps[0];
+      step.status = status === 'succeeded' || status === 'failed' ? status : 'stopped';
+      step.endEvent = event('step-end', { name: step.name, status: step.status });
+      job.status = status;
+      event(status, reason && { reason });
+      save();
+    };
+    event('queued');
+    event('running');
+    job.steps.push({ name: 'orchestrate', attempt: 1, startEvent: event('step-start', { name: 'orchestrate' }) });
+    save();
+    const controller = new AbortController();
+    const acc = { gpuSeconds: 0, frames: 0, tokens: 0, start: monotonicMs() };
+    delegates.set(jobId, controller);
+    progress.set(jobId, acc);
     const done = (async () => {
       let res;
-      try { res = await run({ signal: rec.controller.signal }); } catch (e) { res = { status: 'failed', message: sanitizeErrorText(e?.message) || '委托编排失败' }; }
-      if (rec.controller.signal.aborted) res = { ...res, status: 'canceled' };
-      const { status, cost = {}, outputs = [], message, ...data } = res;
-      const wallMs = Math.round(monotonicMs() - rec.start);
-      const outcome = status === 'failed'
-        ? { ok: false, code: 'contract.bad-value', message: message ?? `委托出片没有完成（${data.failedAt ?? '未知步骤'}）`, data, outputs, next: [{ verb: `GET /v1/films/${id}/ledger`, why: '看花了多少、停在哪' }] }
-        : { ok: true, data, outputs, next: [{ verb: `GET /v1/films/${id}/ledger`, why: '看这部片花了多少' }] };
-      outcome.cost = { tokens: cost.tokens ?? 0, gpuSeconds: r3(cost.gpuSeconds ?? 0), wallMs };
-      outcome.frames = 0;
-      mkdirSync(jobDir(id, jobId), { recursive: true });
-      writeFileSync(join(jobDir(id, jobId), 'outcome.json'), jsonText(outcome));
-      store.ledger(id, { step: 'job.delegate', job: jobId, rev: data.bestRev ?? rec.rev, status, ok: outcome.ok, wallMs, gpuSeconds: 0, tokens: 0, modelTokens: outcome.cost.tokens, frames: 0 });
-      rec.status = status;
-      rec.events.push({ seq: 3, type: status });
+      try { res = await run({ signal: controller.signal }); } catch (e) { res = { status: 'failed', message: sanitizeErrorText(e?.message) || '委托编排失败' }; }
+      try {
+        if (controller.signal.aborted) res = { ...res, status: 'canceled' };
+        else if (!TERMINAL.has(res?.status)) res = { status: 'failed', message: '委托编排没有交回结论' };
+        const { status, cost = {}, delegateTokens = cost.tokens ?? 0, outputs = [], message, ...data } = res;
+        const wallMs = Math.round(monotonicMs() - acc.start);
+        const outcome = status === 'failed'
+          ? { ok: false, code: 'contract.bad-value', message: message ?? `委托出片没有完成（${data.failedAt ?? '未知步骤'}）`, data, outputs, next: [{ verb: `GET /v1/films/${id}/ledger`, why: '看花了多少、停在哪' }] }
+          : { ok: true, data, outputs, next: [{ verb: `GET /v1/films/${id}/ledger`, why: '看这部片花了多少' }] };
+        outcome.cost = { tokens: cost.tokens ?? 0, gpuSeconds: r3(cost.gpuSeconds ?? 0), wallMs };
+        outcome.frames = 0;
+        mkdirSync(jobDir(id, jobId), { recursive: true });
+        writeFileSync(join(jobDir(id, jobId), 'outcome.json'), jsonText(outcome));
+        store.ledger(id, { step: 'job.delegate', job: jobId, rev: data.bestRev ?? job.payload.rev, status, ok: outcome.ok, wallMs, gpuSeconds: 0, tokens: 0, modelTokens: delegateTokens, frames: 0 });
+        if (status === 'failed') job.error = outcome.message;
+        finish(status, status === 'canceled' ? 'canceled' : data.stoppedReason);
+      } catch (e) {
+        // 结论、账本或记录写不了盘：记录尽量收在 failed，等的人才不会一直轮询。这个 promise 没人接，不能 reject。
+        try {
+          if (TERMINAL.has(job.status)) save();
+          // 结论可能已经写下、账本没写上：删掉它，免得 failed 的记录配一份说成功的结论
+          else { job.error = sanitizeErrorText(e?.message) || '委托结论落盘失败'; finish('failed'); rmSync(join(jobDir(id, jobId), 'outcome.json'), { force: true }); }
+        } catch { /* 盘还是写不了：记录留在 running */ }
+      } finally {
+        delegates.delete(jobId);
+        progress.delete(jobId);
+      }
     })();
     running.set(jobId, done);
     done.then(() => running.delete(jobId));
     return jobId;
   }
 
-  const statusOf = (id, jobId) => delegates.get(jobId)?.status ?? queue(id).getJob(jobId).status;
+  const statusOf = (id, jobId) => queue(id).getJob(jobId).status;
 
   /** 等：until 是 'done'（到终态）或 'change'（状态变了）；最多等 seconds 秒 */
   function wait(id, jobId, seconds, until = 'done') {
@@ -411,14 +447,6 @@ export function createWork({ store, library, reviewer, scheduler }) {
 
   /** 作业现在的样子：{ job, terminal, base（状态、阶段、最近 5 条事件、累计成本）, outcome（结论，没有是 null） } */
   function view(id, jobId) {
-    const del = delegates.get(jobId);
-    if (del) {
-      const terminal = TERMINAL.has(del.status);
-      const file = join(jobDir(id, jobId), 'outcome.json');
-      const outcome = terminal && existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null;
-      const cost = outcome ? { ...outcome.cost, frames: 0 } : { gpuSeconds: 0, wallMs: Math.round(monotonicMs() - del.start), tokens: 0, frames: 0 };
-      return { terminal, outcome, base: { job: jobId, verb: 'delegate', status: del.status, stage: terminal ? null : 'orchestrate', rev: del.rev, events: del.events, cost } };
-    }
     const job = queue(id).getJob(jobId);
     const terminal = TERMINAL.has(job.status);
     const open = job.steps.filter((s) => s.attempt === job.attempt && !s.endEvent).at(-1);
@@ -439,14 +467,10 @@ export function createWork({ store, library, reviewer, scheduler }) {
 
   /** 取消：没到终态的发取消信号并等它停下；已经到终态的原样交回 */
   async function cancel(id, jobId) {
-    const del = delegates.get(jobId);
-    if (del) {
-      del.controller.abort();
-      await running.get(jobId);
-      return del.status;
-    }
     const q = queue(id);
-    if (!TERMINAL.has(q.getJob(jobId).status)) await Promise.resolve().then(() => q.cancelJob(jobId)).catch(() => undefined);
+    const del = delegates.get(jobId);
+    if (del) del.abort();
+    else if (!TERMINAL.has(q.getJob(jobId).status)) await Promise.resolve().then(() => q.cancelJob(jobId)).catch(() => undefined);
     await running.get(jobId);
     return q.getJob(jobId).status;
   }

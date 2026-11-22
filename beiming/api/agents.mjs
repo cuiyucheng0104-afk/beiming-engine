@@ -57,7 +57,7 @@ function requireConfig(what, names, { endpoint, apiKey, model, ledgerPath }) {
 }
 
 /** 调一次 chat/completions：交回 { message, model, usage: { inputTokens, outputTokens } } */
-export async function chat({ endpoint, apiKey, body, signal }) {
+export async function chat({ endpoint, apiKey, body, signal, requireUsage = false }) {
   const target = /\/chat\/completions\/?$/.test(endpoint) ? endpoint : `${endpoint.replace(/\/+$/, '')}/chat/completions`;
   const res = await fetch(target, {
     method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
@@ -68,6 +68,10 @@ export async function chat({ endpoint, apiKey, body, signal }) {
   try { data = await res.json(); } catch { throw new ModelResponseError('模型接口返回的不是 JSON'); }
   const message = data?.choices?.[0]?.message;
   if (!message || typeof message !== 'object') throw new ModelResponseError('模型接口的返回里没有 choices[0].message');
+  if (requireUsage && !(Number.isSafeInteger(data.usage?.prompt_tokens) && data.usage.prompt_tokens > 0 &&
+    Number.isSafeInteger(data.usage.completion_tokens) && data.usage.completion_tokens >= 0)) {
+    throw new ModelResponseError('模型接口没有返回可核算的 token 用量');
+  }
   return { message, model: typeof data.model === 'string' ? data.model : body.model, usage: { inputTokens: count(data.usage?.prompt_tokens), outputTokens: count(data.usage?.completion_tokens) } };
 }
 

@@ -1,121 +1,186 @@
-// 委托模式的编排进程：只经 HTTP 调本服务的 /v1/* 动词（不碰数据目录、不导入服务端内部模块），按导演 → 镜头工 → 收尾三段起模型会话。
-// 每次调模型前先 GET /v1/films/{id}/ledger 查账：token（本编排已花 + 预留）、墙钟秒、显卡秒任一超了就不调模型，以 stopped 收尾并报停在哪一步。
-// render/verify/deliver 交回的异步作业由工具层自己长轮询到终态再交给模型，模型不用逐 30 秒空转轮询。
-import { performance } from 'node:perf_hooks';
-import { callApi, chat, HTTP_TOOL } from './agents.mjs';
+// 委托只通过工作区 HTTP 接口操作片子。每个角色单独维护消息，子作业在工具内等到终态。
+import { callApi, chat, familyOf, HTTP_TOOL } from './agents.mjs';
 
-/** 单片 token 硬上限：budget.tokens 给多大都钳在这里 */
 export const DELEGATE_HARD_TOKEN_CAP = 1_200_000;
-const JOB_VERB = /^\/v1\/films\/[^/]+\/(?:render|verify|deliver)(?:\?|$)/;
-
 const SYSTEM = {
   director: '你是导演。先 GET /v1/guide，再 GET 片子，照需求用补丁（patch/0.1，带 rev）调片子描述和谓词；改完用一段话说明。',
-  'shot-worker': '你是镜头工，只管这一个镜头：POST render（tier draft）出草稿，再 POST verify 核验；作业由工具等到终态才交回。过了用一段话汇报。',
-  finalizer: '你是收尾。POST deliver（tier final）出六件套，工具会等到终态；交付完用一段话汇报。',
+  'shot-worker': '你是镜头工。为指定镜头 POST render（tier draft）出草稿，再 POST verify 核验。工具会等到终态。通过后汇报。',
+  finalizer: '你是收尾。POST deliver（tier final）出六件套。工具会等到终态，交付完汇报。',
 };
 
-/**
- * 跑一次委托出片。baseUrl 本服务地址；accountToken 账户令牌（GET guide 等账户动词用）；filmId 与 workspaceToken 是建片交回的工作区；
- * budget { tokens, gpuSeconds, wallSeconds }；endpoint、apiKey、directorModel、workerModel 是模型接口；reserveTokens 是下一次调用的预留。
- * 交回 { status: succeeded | failed | stopped | canceled, stoppedReason?, stoppedAt?, bestRev, cost: { tokens, gpuSeconds, wallMs }, outputs }。
- */
+/** 模型的账户级查询只开放素材、卡和契约。片子的写入与作业等待绑定到本次工作区。 */
+function inScope(method, pathname, root) {
+  return pathname.startsWith(`${root}/`) ||
+    (method === 'GET' && (pathname === '/v1/guide' || /^\/v1\/(cards|schema)\/[^/]+$/.test(pathname))) ||
+    (method === 'POST' && ['/v1/cards/search', '/v1/assets/search'].includes(pathname));
+}
+
+/** 运行一次委托，交回终态、最后修订、累计成本以及已经验证过的交付产物。 */
 export async function runDelegateOrchestrator({
-  baseUrl, accountToken, filmId, workspaceToken, brief, budget = {}, endpoint, apiKey, directorModel, workerModel,
-  reserveTokens = 20_000, maxSteps = 12, signal,
+  baseUrl, accountToken, filmId, workspaceToken, brief, assets = [], budget = {}, endpoint, apiKey, directorModel, workerModel,
+  reserveTokens = 20_000, maxSteps = 12, signal, onUsage,
 }) {
-  if (!endpoint || !apiKey || !directorModel || !workerModel) throw new TypeError('委托模式缺模型配置：endpoint、apiKey、directorModel、workerModel');
+  if (!endpoint || !apiKey || !directorModel || !workerModel) throw new TypeError('委托模式缺模型配置');
+  if (!Number.isSafeInteger(reserveTokens) || reserveTokens < 1 || !Number.isSafeInteger(maxSteps) || maxSteps < 1) {
+    throw new RangeError('reserveTokens 和 maxSteps 必须是正整数');
+  }
+  if (!budget || !['tokens', 'gpuSeconds', 'wallSeconds'].every(k => budget[k] === undefined || (Number.isSafeInteger(budget[k]) && budget[k] > 0))) {
+    throw new RangeError('预算必须是正整数');
+  }
   const maxTokens = Math.min(budget.tokens ?? DELEGATE_HARD_TOKEN_CAP, DELEGATE_HARD_TOKEN_CAP);
+  const root = `/v1/films/${filmId}`;
   const api = { baseUrl, account: accountToken ?? workspaceToken, workspaces: { [filmId]: workspaceToken }, jobs: {}, signal };
   const start = performance.now();
-  const st = { tokens: 0, gpuSeconds: 0, bestRev: 1, outputs: [], deliveredRev: null };
-  const wallSeconds = () => (performance.now() - start) / 1000;
-  const result = (status, extra = {}) => ({ status, ...extra, bestRev: st.bestRev, cost: { tokens: st.tokens, gpuSeconds: st.gpuSeconds, wallMs: Math.round(wallSeconds() * 1000) }, outputs: st.outputs });
-
-  const http = async (method, path) => JSON.parse((await callApi(api, { method, path })).text).body;
-  /** 信封被截短时去取 outputs 里挂的全文 */
-  const full = async (env) => {
-    const ref = env?.outputs?.find((o) => o.kind === 'response');
-    return ref ? (await http('GET', ref.url)) ?? env : env;
-  };
-
+  const elapsed = () => Math.round(performance.now() - start);
+  let usedTokens = 0, serverTokens = 0, gpuSeconds = 0, bestRev = 1, deliveredRev = null, outputs = [];
+  let at = 'director:step-1', child = null, stoppedReason;
+  const result = (status, extra = {}) => ({ status, ...extra, bestRev, delegateTokens: usedTokens, cost: { tokens: usedTokens + serverTokens, gpuSeconds, wallMs: elapsed() }, outputs });
+  const http = async (method, path, client = api) => JSON.parse((await callApi(client, { method, path })).text).body;
+  async function full(env) {
+    const ref = env?.outputs?.find(o => o.kind === 'response');
+    return ref ? http('GET', ref.url) : env;
+  }
   async function readLedger() {
     const env = await full(await http('GET', `/v1/films/${filmId}/ledger`));
-    if (!env?.ok) throw new Error(`账本读不到：${env?.error?.code ?? '未知'}`);
-    st.gpuSeconds = Math.round(env.data.items.reduce((n, x) => n + (Number(x.gpuSeconds) || 0), 0) * 1000) / 1000;
+    if (!env?.ok || !Array.isArray(env.data?.items)) throw new Error('读不到工作区账本');
+    serverTokens = env.data.items.reduce((n, row) => n + (row.modelTokens ?? 0), 0);
+    gpuSeconds = Math.round(env.data.items.reduce((n, row) => n + (row.gpuSeconds ?? 0), 0) * 1000) / 1000;
+  }
+  async function readFilm() {
+    const env = await full(await http('GET', `${root}/film`));
+    if (!env?.ok || !Number.isSafeInteger(env.data?.rev) || !Array.isArray(env.data?.film?.shots)) throw new Error('读不到片子的镜头清单');
+    bestRev = env.data.rev;
+    return env.data.film;
+  }
+  function stop(reason) {
+    stoppedReason = reason;
+    throw new Error(reason);
+  }
+  function checkBudget(reserve = 0) {
+    signal?.throwIfAborted();
+    if (usedTokens + serverTokens + reserve > maxTokens) stop('tokens');
+    if (elapsed() >= budget.wallSeconds * 1000) stop('wallSeconds');
+    if (gpuSeconds >= budget.gpuSeconds) stop('gpuSeconds');
   }
 
-  /** 超了哪一项预算：tokens | wallSeconds | gpuSeconds；都没超交回 null */
-  function over() {
-    if (st.tokens + reserveTokens > maxTokens) return 'tokens';
-    if (budget.wallSeconds !== undefined && wallSeconds() >= budget.wallSeconds) return 'wallSeconds';
-    if (budget.gpuSeconds !== undefined && st.gpuSeconds >= budget.gpuSeconds) return 'gpuSeconds';
-    return null;
-  }
-
-  /** 一次工具调用：异步作业在这里等到终态；顺手记下修订号和交付产物 */
-  async function tool(args) {
-    let res = await callApi(api, args);
-    let parsed = JSON.parse(res.text);
-    const path = String(args.path ?? '');
-    while (JOB_VERB.test(path) && ['queued', 'running'].includes(parsed.body?.data?.status) && !signal?.aborted && !over()) {
-      res = await callApi(api, { method: 'GET', path: `/v1/jobs/${parsed.body.data.job}?wait=30` });
-      parsed = JSON.parse(res.text);
-      await readLedger();
+  async function tool(args, role, shot, evidence) {
+    checkBudget();
+    const method = String(args.method).toUpperCase();
+    if (typeof args.path !== 'string' || !args.path.startsWith('/v1/')) return JSON.stringify({ refused: '需要本服务的 /v1/ 路径' });
+    const target = new URL(args.path, baseUrl);
+    if (!inScope(method, target.pathname, root)) return JSON.stringify({ refused: '该动词不在本片的委托范围内' });
+    const verb = target.pathname.slice(root.length + 1);
+    const isJob = method === 'POST' && ['render', 'verify', 'deliver'].includes(verb);
+    if (target.pathname.startsWith(`${root}/`) && method !== 'GET') {
+      const allowed = (role === 'director' && method === 'PUT' && verb === 'film') ||
+        (role === 'shot-worker' && method === 'POST' && ['observe/query', 'observe/sheet', 'render', 'verify'].includes(verb)) ||
+        (role === 'finalizer' && method === 'POST' && verb === 'deliver');
+      if (!allowed) return JSON.stringify({ refused: '该动词不属于当前角色' });
     }
-    const env = parsed.body;
-    if (env?.ok && Number.isSafeInteger(env.data?.rev) && /\/film(?:\?|$)/.test(path)) st.bestRev = Math.max(st.bestRev, env.data.rev);
-    if (/\/deliver(?:\?|$)/.test(path) && env?.ok && env.data?.status === 'succeeded') {
-      const whole = await full(env);
-      st.outputs = (whole.outputs ?? []).filter((o) => o.kind !== 'response');
-      st.deliveredRev = whole.data?.rev ?? st.bestRev;
+    if (isJob) {
+      // 先拿到作业号，才能在取消或预算到期时终止自己提交的子作业。
+      target.searchParams.delete('wait');
+      args = { ...args, path: target.pathname + target.search, body: { ...args.body, wait: 0 } };
+      if (verb === 'deliver') Object.assign(args.body, { tier: 'final', deferReview: true });
+      if (shot) Object.assign(args.body, { shots: [shot.id], tier: 'draft' });
+    }
+    let res = await callApi(api, args);
+    let env = JSON.parse(res.text).body;
+    if (isJob) {
+      while (['queued', 'running'].includes(env?.data?.status)) {
+        child = env.data.job;
+        if (!child) throw new Error('子作业没有交回编号');
+        checkBudget();
+        const remaining = budget.wallSeconds === undefined ? 30 : Math.max(1, Math.ceil(budget.wallSeconds - elapsed() / 1000));
+        res = await callApi(api, { method: 'GET', path: `/v1/jobs/${child}?wait=${Math.min(30, remaining)}` });
+        env = JSON.parse(res.text).body;
+        await readLedger();
+      }
+      child = null;
+    }
+    if (env?.ok && Number.isSafeInteger(env.data?.rev)) bestRev = Math.max(bestRev, env.data.rev);
+    if (isJob && env?.ok && env.data?.status === 'succeeded') {
+      const complete = await full(env);
+      if (verb === 'deliver') {
+        outputs = complete.outputs;
+        deliveredRev = complete.data.rev;
+      } else if (evidence) {
+        evidence[verb] = complete.data.rev;
+      }
     }
     return res.text;
   }
 
-  /** 一段角色会话：交回 'done' | 'max-steps'，或 { stop: 原因, at: 停在哪一步 } */
-  async function session(role, tag, model, task) {
-    const messages = [{ role: 'system', content: `[ROLE:${tag}]\n${SYSTEM[role]}` }, { role: 'user', content: `片子 ${filmId}\n需求：${brief}\n${task}` }];
+  async function session(role, shot) {
+    const tag = shot ? `shot-worker:${shot.id}` : role;
+    const model = role === 'director' ? directorModel : workerModel;
+    const task = [`片子 ${filmId}`, `需求：${brief}`, ...(assets.length ? [`素材引用：${JSON.stringify(assets)}`] : []),
+      ...(shot ? [`镜头 ${shot.id}（帧 ${shot.in}–${shot.out}）`] : [])].join('\n');
+    const messages = [{ role: 'system', content: `[ROLE:${tag}]\n${SYSTEM[role]}` }, { role: 'user', content: task }];
+    const evidence = {};
     for (let step = 1; step <= maxSteps; step++) {
-      if (signal?.aborted) return { stop: 'canceled', at: `${tag}:step-${step}` };
+      at = `${tag}:step-${step}`;
       await readLedger();
-      const why = over();
-      if (why) return { stop: why, at: `${tag}:step-${step}` };
-      const res = await chat({ endpoint, apiKey, signal, body: { model, messages, tools: [HTTP_TOOL], tool_choice: 'auto' } });
-      st.tokens += res.usage.inputTokens + res.usage.outputTokens;
-      const calls = Array.isArray(res.message.tool_calls) ? res.message.tool_calls : [];
-      messages.push({ role: 'assistant', content: res.message.content ?? null, ...(calls.length ? { tool_calls: calls } : {}) });
-      if (!calls.length) return 'done';
+      checkBudget(reserveTokens);
+      const body = { model, messages, tools: [HTTP_TOOL], tool_choice: 'auto' };
+      // 以 UTF-8 字节为保守的输入界，预留消息封装开销；服务商同时限制输出，单次请求不能借用下一步预算。
+      const inputBound = Buffer.byteLength(JSON.stringify(body)) + 256 + 16 * messages.length;
+      body.max_tokens = Math.min(reserveTokens, maxTokens - usedTokens - serverTokens - inputBound);
+      if (body.max_tokens < 1) stop('tokens');
+      const remainingMs = budget.wallSeconds * 1000 - elapsed();
+      const deadline = Number.isFinite(remainingMs) && remainingMs < 120_000 ? AbortSignal.timeout(Math.max(1, remainingMs)) : null;
+      let res;
+      try {
+        res = await chat({ endpoint, apiKey, signal: deadline && signal ? AbortSignal.any([signal, deadline]) : deadline ?? signal, body, requireUsage: true });
+      } catch (e) {
+        if (deadline?.aborted && !signal?.aborted) stop('wallSeconds');
+        throw e;
+      }
+      usedTokens += res.usage.inputTokens + res.usage.outputTokens;
+      onUsage?.({ role: tag, step, model: res.model, family: familyOf(res.model), ...res.usage });
+      checkBudget();
+      const calls = res.message.tool_calls ?? [];
+      if (!calls.length) return !shot || (evidence.render === bestRev && evidence.verify === bestRev);
+      messages.push({ role: 'assistant', content: res.message.content ?? null, tool_calls: calls });
       for (const tc of calls) {
-        let args = null;
-        try { args = JSON.parse(tc?.function?.arguments ?? ''); } catch { /* 下面按拒绝处理 */ }
-        const content = tc?.function?.name === 'http_request' && args && typeof args === 'object' ? await tool(args) : JSON.stringify({ refused: '只有 http_request 这一个工具，arguments 要是 JSON 对象' });
+        let args;
+        try { args = JSON.parse(tc.function?.arguments); } catch { /* 把参数错误交回模型修正 */ }
+        const content = tc.function?.name === 'http_request' && args && typeof args === 'object'
+          ? await tool(args, role, shot, evidence) : JSON.stringify({ refused: 'http_request 需要 JSON 对象参数' });
         messages.push({ role: 'tool', tool_call_id: tc.id, content });
       }
     }
-    return 'max-steps';
+    await readLedger();
+    checkBudget(reserveTokens);
+    return false;
   }
 
   try {
-    const director = await session('director', 'director', directorModel, '先定片子，再交给镜头工。');
-    if (director.stop) return director.stop === 'canceled' ? result('canceled') : result('stopped', { stoppedReason: director.stop, stoppedAt: director.at });
-    const filmEnv = await http('GET', `/v1/films/${filmId}/film`);
-    if (Number.isSafeInteger(filmEnv?.data?.rev)) st.bestRev = Math.max(st.bestRev, filmEnv.data.rev);
-    for (const shot of filmEnv?.data?.film?.shots ?? []) {
-      let outcome;
-      // 一个镜头工没收住就起一个新鲜的再试一次
-      for (let attempt = 1; attempt <= 2 && outcome !== 'done'; attempt++) {
-        outcome = await session('shot-worker', `shot-worker:${shot.id}`, workerModel, `镜头 ${shot.id}（帧 ${shot.in}–${shot.out}）。`);
-        if (outcome.stop) return outcome.stop === 'canceled' ? result('canceled') : result('stopped', { stoppedReason: outcome.stop, stoppedAt: outcome.at });
+    if (!await session('director')) return result('failed', { failedAt: at });
+    const film = await readFilm();
+    for (const shot of film.shots) {
+      if (!await session('shot-worker', shot) && !await session('shot-worker', shot)) return result('failed', { failedAt: `shot-worker:${shot.id}` });
+    }
+    if (deliveredRev !== bestRev) {
+      if (!await session('finalizer')) return result('failed', { failedAt: at });
+      await readFilm();
+      if (deliveredRev !== bestRev) {
+        await readLedger();
+        await tool({ method: 'POST', path: `${root}/deliver`, body: { tier: 'final' } }, 'finalizer');
       }
-      if (outcome !== 'done') return result('failed', { failedAt: `shot-worker:${shot.id}` });
     }
-    if (st.deliveredRev === null || st.deliveredRev < st.bestRev) {
-      const fin = await session('finalizer', 'finalizer', workerModel, `最新修订 rev ${st.bestRev} 还没交付六件套。`);
-      if (fin.stop) return fin.stop === 'canceled' ? result('canceled') : result('stopped', { stoppedReason: fin.stop, stoppedAt: fin.at });
-    }
-    return st.outputs.length === 6 ? result('succeeded') : result('failed', { failedAt: 'finalizer' });
+    await readFilm();
+    await readLedger();
+    checkBudget();
+    return outputs.length === 6 && deliveredRev === bestRev ? result('succeeded') : result('failed', { failedAt: at });
   } catch (e) {
+    if (child) {
+      // 取消信号可能已触发，清理请求需要自己的信号。
+      await http('DELETE', `/v1/jobs/${child}`, { ...api, signal: AbortSignal.timeout(30_000) }).catch(() => {});
+      if (!signal?.aborted) await readLedger().catch(() => {});
+    }
     if (signal?.aborted) return result('canceled');
-    throw e;
+    if (stoppedReason) return result('stopped', { stoppedReason, stoppedAt: at });
+    return result('failed', { failedAt: at, message: e.message });
   }
 }

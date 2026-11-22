@@ -80,6 +80,8 @@ test('A12-1 纯 HTTP 零后门守卫：delegate.mjs 不导入内部状态模块�
   assert.equal(typeof apiIndex.runDelegateOrchestrator, 'function');
 
   const src = readFileSync(delegateFile, 'utf8');
+  assert.deepEqual(Array.from(src.matchAll(/\bfrom\s+['"]([^'"]+)['"]/g), m => m[1]), ['./agents.mjs']);
+  assert.doesNotMatch(src, /\b(?:require\s*\(|import\s*(?:\(|['"])|process\s*\.\s*getBuiltinModule)/);
   const forbiddenImports = [
     /\bfrom\s+['"]\.\/(?:store|work|films|pipeline|server|runtime)\.mjs['"]/,
     /\bfrom\s+['"]\.\.\/(?:jobs|sources|comp|verify|observe|cards|kernel)/,
@@ -165,6 +167,7 @@ test('A12-3 预算硬停：设 20 万 token 预算时每次调模型前查账本
       body: JSON.stringify({
         mode: 'delegate',
         brief: '一条 2 秒片名测试片 RTX 5090',
+        assets: ['asset:poster@1'],
         output: { size: [320, 180], fps: '10/1', frames: 10 },
         budget: { tokens: 200_000, gpuSeconds: 300, wallSeconds: 300 },
       }),
@@ -184,6 +187,10 @@ test('A12-3 预算硬停：设 20 万 token 预算时每次调模型前查账本
     assert.equal(mock.calls.length, 1, '第 2 次模型调用前查账本超预算，必须精确停在第 1 次调用之后');
     assert.ok(jobEnv.data.cost.tokens <= 200_000, `实际花费 ${jobEnv.data.cost.tokens} 必须在 20 万预算内`);
     assert.equal(jobEnv.data.cost.tokens, 185_000);
+    assert.equal(jobEnv.data.stoppedAt, 'director:step-2');
+    assert.equal(jobEnv.data.stoppedReason, 'tokens');
+    assert.match(JSON.stringify(mock.calls[0].body.messages), /asset:poster@1/);
+    assert.ok(mock.calls[0].body.max_tokens <= 25_000);
     assert.equal(typeof jobEnv.data.stoppedAt, 'string');
     assert.ok(jobEnv.data.stoppedAt.length > 0, '必须报出停在哪一步 stoppedAt');
     assert.equal(jobEnv.data.bestRev, 2, '必须报出已提交的最好修订号 bestRev');
@@ -279,6 +286,65 @@ test('A12-4 墙钟与显卡秒预算同样触发 stopped 并报停在哪一步',
     await mock.close();
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('直接调用也拒绝无效预算，服务端审片用量计入单片预算', async (t) => {
+  const options = { baseUrl: 'http://localhost', filmId: 'f_001', workspaceToken: 'test', endpoint: 'http://localhost/model', apiKey: 'test', directorModel: 'director', workerModel: 'worker' };
+  const paths = [];
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    paths.push(new URL(url).pathname);
+    return Response.json({ ok: true, data: { items: [{ gpuSeconds: 0, modelTokens: 195_000 }] } });
+  });
+  await assert.rejects(apiIndex.runDelegateOrchestrator({ ...options, budget: { tokens: NaN } }), RangeError);
+  const r = await apiIndex.runDelegateOrchestrator({ ...options, budget: { tokens: 200_000 } });
+  assert.deepEqual(paths, ['/v1/films/f_001/ledger']);
+  assert.equal(r.stoppedReason, 'tokens');
+  assert.equal(r.cost.tokens, 195_000);
+});
+
+test('显卡成本达到上限时第一次模型调用前即停止', async (t) => {
+  const paths = [];
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    paths.push(new URL(url).pathname);
+    return Response.json({ ok: true, data: { items: [{ gpuSeconds: 2 }] } });
+  });
+  const result = await apiIndex.runDelegateOrchestrator({
+    baseUrl: 'http://localhost', filmId: 'f_001', workspaceToken: 'test', budget: { gpuSeconds: 2 },
+    endpoint: 'http://localhost/model', apiKey: 'test', directorModel: 'director', workerModel: 'worker',
+  });
+  assert.deepEqual(paths, ['/v1/films/f_001/ledger']);
+  assert.equal(result.status, 'stopped');
+  assert.equal(result.stoppedReason, 'gpuSeconds');
+  assert.equal(result.stoppedAt, 'director:step-1');
+  assert.equal(result.cost.gpuSeconds, 2);
+});
+
+test('截短信封恢复镜头清单，未过核验的镜头只重试一次', async (t) => {
+  const sessions = [];
+  const root = '/v1/films/f_001';
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    const path = new URL(url).pathname;
+    if (path === `${root}/ledger`) return Response.json({ ok: true, data: { items: [] } });
+    if (path === `${root}/film`) return Response.json({ ok: true, data: { truncated: true, rev: 3 }, outputs: [{ kind: 'response', url: `${root}/artifacts/full.json` }] });
+    if (path === `${root}/artifacts/full.json`) return Response.json({ ok: true, data: { rev: 3, film: { shots: [{ id: 's02', in: 0, out: 3 }] } } });
+    assert.equal(path, '/model/chat/completions');
+    const { messages } = JSON.parse(init.body);
+    const role = messages[0].content.match(/\[ROLE:(.*?)\]/)[1];
+    if (messages.length === 2) sessions.push(role);
+    if (role.startsWith('shot-worker')) {
+      if (messages.length === 2) return Response.json(toolReply('test', 1, 'POST', `${root}/deliver`, {}).json);
+      assert.match(messages.at(-1).content, /不属于当前角色/);
+    }
+    return Response.json(doneReply('test', '完成').json);
+  });
+  const result = await apiIndex.runDelegateOrchestrator({
+    baseUrl: 'http://localhost', filmId: 'f_001', workspaceToken: 'test',
+    endpoint: 'http://localhost/model', apiKey: 'test', directorModel: 'director', workerModel: 'worker',
+  });
+  assert.deepEqual(sessions, ['director', 'shot-worker:s02', 'shot-worker:s02']);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.failedAt, 'shot-worker:s02');
+  assert.equal(result.bestRev, 3);
 });
 
 test('A12-5 连续 5 次委托出片不用重启服务（含工具层自动长轮询、三角色衔接与六件套真交付）', async (t) => {
@@ -380,6 +446,8 @@ test('A12-5 连续 5 次委托出片不用重启服务（含工具层自动长�
       assert.equal(report.verification.layers.L1.ok, true);
       assert.equal(report.verification.layers.L2.ok, true);
       assert.equal(report.verification.layers.L3.basePass, true);
+      assert.equal(report.verification.layers.L5.status, 'not-run');
+      assert.match(report.verification.layers.L5.reason, /推迟/);
     }
   } finally {
     await api.close();
