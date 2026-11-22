@@ -32,6 +32,7 @@ export function build({ THREE, TSL, renderer, width, height, fps, pipeline }) {
   // 建场景、材质、后期；只在这里分配资源
   return {
     render(f) { /* 按整数帧号 f 作画，画到宿主当前的渲染目标 */ },
+    stateKey(f) { /* 可选：返回 string 时，yuv420p 相邻同键复用上一帧 YUV；null 不复用 */ },
     dispose() { /* 可选：释放 build 里建的资源 */ },
   };
 }
@@ -43,6 +44,10 @@ export function build({ THREE, TSL, renderer, width, height, fps, pipeline }) {
 - `pipeline(outputNode)` 是宿主给的后期管线工厂，返回 `RenderPipeline`，已关掉管线内的色彩输出变换（见 2.3）。作品不要自己 `new RenderPipeline`。
 - 时间只从 `f` 来：不用 TSL 的 `time` / `deltaTime`，不用 `Date.now`、`performance.now`、`Math.random`；随机一律 `engine/core/math.js` 的 `mulberry(种子)` 或 TSL `hash`。
 - `render(f)` 只画，不读回、不换渲染目标；宿主负责渲染目标、帧时钟与读回。
+- `stateKey?(f)`（可选，亦可在 `createFilm().work({ ..., stateKey })` 透传）：仅在 `yuv420p` 流水线读回下生效，RGBA 路径与缺省时完全走原路径。
+  - **跳过 `render` 与帧时钟**：相邻两帧命中相同键时，`frames.mjs` 直接跳过 `renderFrameYuv`（从而跳过 `work.render(f)` 与 `clock.tick`），复用上一帧已发起的 YUV 读回。因此 `stateKey(f)` 必须完整覆盖影响该帧画面的全部状态（含镜头切点、动画、墨线沸腾、颗粒换种与显示层），建议配合 `npm run determinism -- <作品> --renderer offscreen --seams` 核验。
+  - **键值语义**：返回任何 `string`（**空字符串 `""` 同样触发复用**）且与上一帧严格相等（`===`）即复用；返回 `null` 或非 `string` 不复用并打断连续缓存。
+  - **只读缓冲区约束**：复用帧与前帧共享同一份 `Uint8Array`，`renderFrames` / `renderFrameList` 的 `onFrame(f, pixels)` 回调收到的 `pixels` 为**只读视图**，调用方不得原地修改。
 
 ### 2.2 确定性帧时钟
 
@@ -450,6 +455,36 @@ npm run film -- build films/chendu --renderer offscreen --mode fast
 ### 7.21 性能优化规格书与阶段 1 / 阶段 2
 
 后续性能工作的分层规格（WP0–WP5）、测量纪律与每阶段闸门见 [spec-perf-first-principles.md](spec-perf-first-principles.md)。阶段 1（WP0.1–WP0.3：异步 NVENC 探测、`--frame-hashes`、空显示层跳过；WP0.4 零拷贝试作后撤回）已合入，实测见该文 5.1。阶段 2（WP1.2 常驻守护进程 `offscreen daemon` 与 `--daemon` 客户端接入、WP1.3 驱动级着色器磁盘缓存落盘 `.cache/offscreen-shader-cache`；WP1.1 合并 Pass 试作后因 PSNR ≈ 64 dB 未过 T0f 75 dB 线，按 2026-11-22 裁定撤回）输出与 `main` 逐字节相同，实测见该文 5.2。
+
+### 7.22 阶段 3：WP2.1 No-Go，WP2.2 / WP2.3 / WP5 落地（2026-11-22）
+
+> **WP5 性能未达规格 ≥ 40% 闸门**：功能与 T0 逐字节零差异都通过，但 4K《晨渡》十组扫参纯渲染+读回只降 16.9%–20.4%、端到端无可测收益，**不作为阶段 3 性能闸门通过**（主人 2026-11-22 裁定保留交付、如实标注）。全部数字、环境与根因见规格书 [§5.3](spec-perf-first-principles.md)。
+
+#### WP2.1 路径 A（WGSL Compute + 共享内存）：No-Go
+
+按规格书 §3 WP2.1 的强制 Micro-benchmark 原型（基线 `51d89106`）在 4K 上实测：原型曾按需申请 `maxComputeWorkgroupStorageSize = 49152`（实测生效），`KR ≥ 8` 走 `16×16` 线程块 + `pack2x16float` 共享纹素（4K 光晕 15 时块尺寸 `46×46`、16.9 KB），`KR ≤ 7` 与共享内存不足时回退原片段路径。主人根据下述两项 No-Go 结果已决定**放弃 WP2.1、不做路径 B**，原型代码、单测与功能开关已全部撤回，只保留实测落档；阶段 3 继续 WP2.2、WP2.3 与 WP5。原片段路径与 Compute 当时用同一份代码经 `BEIMING_KUWAHARA_COMPUTE=0|1` 切换，先同帧预热一遍再逐帧读回计时。
+
+**环境**：RTX 4070 Laptop（驱动 620.73.04 / CUDA UMD 13.5），Node v26.8.2，FFmpeg n9.1，`webgpu` 0.6.2，`three-webgpu` 0.187.0；非独占 GPU——常驻 ASR 进程（pid 1301）占 2464 MiB，各测量前 `nvidia-smi` 利用率 59%–81%、显存 2538 MiB，因此按 §4.1 做交替 A/B（轮次顺序 2 为 Compute→片段，1/3 为片段→Compute），4K 帧 `0,24,48` 各测 9 帧取中位数（原始日志 `out/wp2-results/`，不入库）。
+
+| 作品 | 路径 | `kuwahara` 中位 | 轮中位区间 / 全帧区间 | 整帧 GPU 中位 | 渲+读回中位 |
+|---|---|---:|---|---:|---:|
+| 《晨渡》 | 片段（main 行为） | 8.782 ms | 8.716–10.682 / 8.192–11.665 ms | 20.972 ms | 25.408 ms |
+| 《晨渡》 | Compute+SMEM | **25.821 ms** | 24.969–25.952 / 23.003–27.197 ms | 39.387 ms | 43.619 ms |
+| 《度》 | 片段（main 行为） | 8.913 ms | 8.716–8.978 / 8.323–10.027 ms | 18.678 ms | 22.764 ms |
+| 《度》 | Compute+SMEM | **25.887 ms** | 25.297–26.673 / 23.200–28.377 ms | 36.635 ms | 40.976 ms |
+
+- **性能闸门未过**：`kuwahara` 不是下降 ≥ 20%，反而分别变慢 **194% / 190%**（约 2.9×），整帧渲+读回变慢 72% / 80%。
+- **画质闸门未过**（对同代码片段路径，`diffRgba`，4K）：六帧（两部片各 0/48/96）`bigPixels = 0`，但 `maxDelta = 1–2`、PSNR `69.94–70.97 dB`，低于 `maxDelta ≤ 1、PSNR ≥ 78 dB` 门槛（手动 `fract/mix` 双线性与硬件 TMU 的插值舍入不同）。
+- **瓶颈分析**：共享纹素确实把全局纹理加载降到每输出 8.27 次，但每个输出的 317 个采样格要 4 次共享内存读 + 3 次 mix（每帧约 105 亿次 8 B LDS 读），加 `workgroupBarrier` 与 pack/unpack；软件双线性的 LDS 读吞吐与算术成为新瓶颈，比原路径的硬件 TMU 取样更慢（未做 ISA 反汇编，寄存器溢出未单独取证）。另实测《晨渡》4×MSAA 深度必须按 `texture_multisampled_2d` 绑定，非 Dawn 限制。
+- **未验证**：16 KB 回退（`8×8` 块）只在原型布局单测里覆盖，没有 16 KB 真机；1440p、MP4 码流与 Chrome WebGPU（D12）对拍未跑——性能 No-Go 后停止测量，主人已裁定放弃路径 A 与路径 B。
+
+#### WP2.2 / WP2.3 / WP5（对 `main` `50665516`，交替 A/B 3 轮，非独占 GPU：ASR 占 2464 MiB、利用率 8%–78%）
+
+- **WP2.2 `ss=1` 主场景与 ID 通道 MRT**：只在 `ss === 1 && msaa === 0`、本帧开启墨线且场景全部物体满足与双遍等价的严格条件（不透明、`depthWrite`/`depthTest`/`LessEqualDepth`/`NormalBlending`、无本地裁剪与多边形偏移、无自定义 `fragmentNode`/`outlineVertex`、无 `soft`/`own`/`noId`、无 `overrideMaterial`/纹理背景）时，按需分配双附件目标并挂全局 `sceneMrt`（内含 `objectGroup` uniform，不改写主材质 `mrtNode`）同遍写 ID；回退或无墨线帧走单附件 `T.scene` 且不挂全局 MRT、不常驻第二附件，回退路径复用预收集计划避免重复遍历场景。`ss=1/msaa=0` 夹具 4K `ink:ids` `0.197 → 0 ms`（达标），整帧在噪声内；《晨渡》《度》是 `ss=2 / msaa=4`，不走 MRT、代码路径与 `main` 相同。MRT 对双遍的颜色、ID、边缘、笔画逐字节相同，覆盖先回退/无墨线后切 MRT、自定义 `fragmentNode` 不触发 GPU fault、`depthTest=false` 等非等价状态回退与 `InstancedMesh` 用例。
+- **WP2.3 `stateKey(f)`**：作品可选（亦支持 `film.work({ ..., stateKey })` 透传，契约见 §2.1）；`yuv420p` 下相邻帧返回相同 `string`（含 `""`）时跳过 `renderFrameYuv`（同时跳过 `work.render` 与 `clock.tick`），复用上一帧只读 YUV 缓冲；缺省、`null` / 非 `string` 与 RGBA 零变化。夹具上 YUV 与 MP4 码流与逐帧重渲逐字节相同；仓库内尚无作品实现它。
+- **WP5 lookdev 中间层快照**：`lookdev:sweep` 严格按白名单（`grade`、`fog`、`bloom`、`kuwahara`、`paper`、`vignette`、`grain`、`outline`）fail-closed 启用，出现任意白名单外键（如作品自定义键）一律禁用快照退回全量渲染（`look.js` 同步做纵深防线校验）；`--q` 按查询字符串分组重建独立宿主隔离快照，组内按外层时刻、内层参数格遍历使多时刻 sweep 也能命中同帧快照（不改变产物命名与顺序契约）；普通出片不受影响。4K《晨渡》十组：33/33 张 PNG 与 `main` 逐字节相同，后 9 组 `scene` / `ink:ids` 为 0；纯渲染+读回 `392.248 → 326.049 ms`（−16.9%），GPU −12.9%，端到端 sweep 噪声内。**未达 ≥ 40%**：可跳过的两段只占十组总 GPU 约 21%，规格范围内理论上限约 −21%。
+- **T0（二轮退修复测，对 `main` `50665516`）**：RGBA 18/18 帧（《晨渡》《度》与 MRT 夹具 1080p/4K）、普通帧序列 `outline.opacity` 0→1→0→1（4/4）、自定义 `fragmentNode`（2/2，零 GPU fault）、`depthTest=false` 重叠（1/1）、白名单外 `--look bg=0,1`（3/3 PNG）、4K 白名单内 `--t 0,0.04 --look outline.opacity=0,1`（5/5 PNG）、4K《晨渡》10 组 lookdev（11/11 PNG），共 44/44 项全部逐字节相同；前期 MP4 16/16 组逐字节相同；`npm run determinism -- films/chendu --renderer offscreen --size 320x180 --seams` 四路通过。
+- **未验证**：Windows / 5090 真机；Chrome WebGPU 下的 MRT 路径；有真实作品实现 `stateKey` 的长片。
 
 ## 8. 风险
 
