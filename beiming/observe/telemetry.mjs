@@ -14,8 +14,8 @@
 // 成功返回 { ok: true, source, fps, size, range, frames, detectedCuts, holdSpans, holdFrames, motion, motionPan, luma, contrast, lumaPercentiles?, flicker, audio?, counts, truncated }：
 //   holdSpans   [[起帧, 止帧], ...]，连续至少 2 帧静止；holdFrames 是静止帧总数
 //   motionPan   只看连续运动帧（不是硬切、不静止、不在闪烁段里）：start、end 是首末运动帧的重心，frames 是这两帧的帧号
-//   flicker     平均亮度的一阶差分正负交替且两步都超过 0.04 算一次翻转，硬切帧与它的后一帧不计；连续至少 3 次翻转成一段 spans，
-//               reversalRate 是翻转次数除以（帧数 - 2），maxAmplitude 是翻转两侧较小那一步的最大值
+//   flicker     平均亮度的一阶差分正负交替且两步都超过 0.04 算一次逐帧翻转（硬切帧与其后一帧不计）；另检隔帧频闪（步长 2 交替且跨度内无硬切）；
+//               连续至少 3 次翻转成一段 spans，reversalRate 是翻转次数除以（帧数 - 2），maxAmplitude 是翻转两侧较小那一步的最大值
 //   audio       响度、真峰值照抄；onsetOffsets 的 delta 是离事件最近的起音帧减事件帧（正数是声音晚到），maxOnsetFrameDelta 取绝对值最大的
 // 参数不对返回 { ok: false, error: { code, message } }，不抛异常；ffmpeg 的错误码同联系表（env.ffmpeg-missing、timeout.ffmpeg、failure.ffmpeg）。
 // 预算：回答序列化后 estimateTokens ≤ 600，只回统计量与截过的列表；列表被截时 truncated 为 true，counts 是截断前的总数。
@@ -209,29 +209,59 @@ export function telemetry(input, request = {}) {
     if (b >= n) throw new Error(`range 超出序列的 0 到 ${n - 1} 帧`);
     const list = Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
-    const flip = new Array(n).fill(false);
+    const flip = new Uint8Array(n);
+    const flip2 = new Uint8Array(n);
     let flips = 0, maxAmplitude = 0;
     for (let f = a + 2; f <= b; f++) {
       if (s.cut[f] || s.cut[f - 1]) continue;
       const d1 = s.luma[f] - s.luma[f - 1], d0 = s.luma[f - 1] - s.luma[f - 2];
       const amplitude = Math.min(Math.abs(d1), Math.abs(d0));
       if (d1 * d0 < 0 && amplitude > FLICKER_AMPLITUDE) {
-        flip[f] = true;
+        flip[f] = 1;
         flips++;
         maxAmplitude = Math.max(maxAmplitude, amplitude);
       }
     }
-    // 翻转帧的前一帧是第一个极值，一并算进闪烁段
-    const flickerSpans = runs(flip, FLICKER_REVERSALS).map(([x, y]) => [x - 1, y]);
-    const inFlicker = new Set(flickerSpans.flatMap(([x, y]) => Array.from({ length: y - x + 1 }, (_, i) => x + i)));
+    // 隔帧频闪（步长 2 交替，例如两帧亮两帧暗），跨度内含硬切或已被逐帧翻转覆盖时不重复计
+    for (let f = a + 4; f <= b; f++) {
+      if (s.cut[f] || s.cut[f - 1] || s.cut[f - 2] || s.cut[f - 3]) continue;
+      const d1 = s.luma[f] - s.luma[f - 2], d0 = s.luma[f - 2] - s.luma[f - 4];
+      const amplitude = Math.min(Math.abs(d1), Math.abs(d0));
+      if (d1 * d0 < 0 && amplitude > FLICKER_AMPLITUDE) {
+        flip2[f] = 1;
+        if (!flip[f]) {
+          flips++;
+          maxAmplitude = Math.max(maxAmplitude, amplitude);
+        }
+      }
+    }
+    // 翻转帧的前一帧（隔帧频闪为前两帧）是第一个极值，一并算进闪烁段并合并重叠段
+    const rawFlicker = [
+      ...runs(flip, FLICKER_REVERSALS).map(([x, y]) => [x - 1, y]),
+      ...runs(flip2, FLICKER_REVERSALS).map(([x, y]) => [x - 2, y]),
+    ].sort((x, y) => x[0] - y[0]);
+    const flickerSpans = [];
+    for (const span of rawFlicker) {
+      const prev = flickerSpans.at(-1);
+      if (prev && span[0] <= prev[1] + 1) prev[1] = Math.max(prev[1], span[1]);
+      else flickerSpans.push([...span]);
+    }
+    const inFlicker = new Uint8Array(n);
+    for (const [x, y] of flickerSpans) for (let f = Math.max(0, x); f <= Math.min(n - 1, y); f++) inFlicker[f] = 1;
     const cuts = list.filter((f) => s.cut[f]);
     const holds = runs(s.hold.map((v, f) => v && f >= a && f <= b), HOLD_SPAN_FRAMES);
-    const moving = list.filter((f) => f > 0 && !s.cut[f] && !s.hold[f] && !inFlicker.has(f));
+    const moving = list.filter((f) => f > 0 && !s.cut[f] && !s.hold[f] && !inFlicker[f]);
 
     const stat = (values, frames = list) => {
       if (!frames.length) return { min: null, max: null, mean: null };
-      const picked = frames.map((f) => values[f]);
-      return { min: round(Math.min(...picked)), max: round(Math.max(...picked)), mean: round(picked.reduce((x, y) => x + y, 0) / picked.length) };
+      let min = Infinity, max = -Infinity, sum = 0;
+      for (let i = 0; i < frames.length; i++) {
+        const v = values[frames[i]];
+        if (v < min) min = v;
+        if (v > max) max = v;
+        sum += v;
+      }
+      return { min: round(min), max: round(max), mean: round(sum / frames.length) };
     };
     const turns = (values, frames, kinds, cap) => shape(frames.map((f) => values[f])).peaks.filter((p) => kinds.includes(p.kind))
       .sort((x, y) => y.prominence - x.prominence).slice(0, cap).sort((x, y) => x.index - y.index)

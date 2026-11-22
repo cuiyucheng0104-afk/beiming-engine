@@ -1,10 +1,12 @@
 // 作业成本账本：每个作业的每一轮终态往 ledger.jsonl 追加一行（墙钟、显卡秒、按模型档位分的 token、渲帧数、交付帧数、磁盘字节），
 // 外加渲染前按草稿实测耗时的报价。数值原样落盘、不做四舍五入，汇总时逐行相加就不会累积舍入漂移。
 // 写入与读回过同一套校验：坏入参不落盘，坏行带物理行号报错，账本不静默丢行、也不静默改数。
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { atomicWrite, checkJobId, processIsAlive } from './workspace.mjs';
+import process from 'node:process';
+import { checkJobId, locateOwned, processIsAlive, retrySharing } from './workspace.mjs';
 
 const FORMAT = 'job-ledger/0.1';
 const TIERS = ['fable', 'opus', 'sonnet', 'haiku', 'other'];
@@ -88,8 +90,23 @@ function checkSettlement(row) {
   return row;
 }
 
-/** 目录里常规文件的字节数之和。符号链接不跟（防环、也不把工作区外的文件算进来）；目录不存在算 0。 */
+/** 工作区常规文件的字节数；顶层 cache/ 是跨作业缓存，不入账。符号链接不跟，目录不存在算 0。 */
 export function measureDiskBytes(dir) {
+  return directoryBytes(dir, true);
+}
+
+function isCacheDirectory(dir, name) {
+  if (name === 'cache') return true;
+  if (name.toLowerCase() !== 'cache') return false;
+  // 大小写敏感卷的 Cache/ 可以是另一份输入；不跟符号链接，只看目录身份。
+  const options = { bigint: true, throwIfNoEntry: false };
+  const cache = fs.lstatSync(path.join(dir, 'cache'), options);
+  if (!cache?.isDirectory()) return false;
+  const candidate = fs.lstatSync(path.join(dir, name), options);
+  return candidate?.dev === cache.dev && candidate.ino === cache.ino;
+}
+
+function directoryBytes(dir, topLevel) {
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -99,8 +116,9 @@ export function measureDiskBytes(dir) {
   }
   let bytes = 0;
   for (const entry of entries) {
+    if (topLevel && entry.isDirectory() && isCacheDirectory(dir, entry.name)) continue;
     const file = path.join(dir, entry.name);
-    if (entry.isDirectory()) bytes += measureDiskBytes(file);
+    if (entry.isDirectory()) bytes += directoryBytes(file, false);
     // 别的作业正在原子写入时，暂存文件会在统计途中消失，消失的算 0。
     else if (entry.isFile()) bytes += fs.lstatSync(file, { throwIfNoEntry: false })?.size ?? 0;
   }
@@ -170,46 +188,148 @@ export function readJobLedger(ledgerPath, options) {
   return load(ledgerPath, options).rows;
 }
 
-// 锁文件里是持锁进程号。只有拿到 .break 的进程才能删锁，而且删之前重读一遍进程号，所以活着的锁不会被误删。
+const lockRaceCodes = new Set(['ENOENT', 'EEXIST', 'EPERM', 'EACCES', 'EBUSY']);
+const lockGraceMs = 15;
+// 本进程已经退出临界区、却没能删掉的锁的 UUID 凭据。进程还活着，按进程号的陈旧锁清理不会碰它，靠这份登记认出来回收。
+const abandonedLocks = new Set();
+
+function isLockRace(error, lock, removingStaging = false) {
+  if (!lockRaceCodes.has(error.code) && !(removingStaging && error.code === 'ENOTEMPTY')) return false;
+  return fs.statSync(path.dirname(lock), { throwIfNoEntry: false })?.isDirectory();
+}
+
+// Windows 上另一个进程刚读过锁时，删除也可能暂时失败。不要递归删除锁路径。
+// locate 每次尝试前都重新认一遍要删的是哪个：退避期间目录可能被轮换，认不到自己的就什么都不删。
+function removeWithRetry(locate, options) {
+  for (let retry = 0; ; retry++) {
+    const file = locate();
+    if (!file) return;
+    try {
+      fs.rmSync(file, options);
+      return;
+    } catch (error) {
+      if (!isLockRace(error, file, options?.recursive)) throw error;
+      if (error.code === 'ENOENT') {
+        // 认到之后、删除之前被轮换走了：换了位置就接着删新位置上的，还在原地或找不到才算已经没了
+        const moved = locate();
+        if (!moved || moved === file) return;
+      }
+      if (retry === 5) throw error;
+      Atomics.wait(sleeper, 0, 0, lockGraceMs * (retry + 1));
+    }
+  }
+}
+
+// 锁文件第一段是持锁进程号（后面跟本次持锁的 UUID 凭据，旧格式只有进程号）。只有拿到 .break 的进程才能删陈旧锁，而且删之前重读一遍进程号，所以活着的锁不会被误删。
 // shortcut: 进程号被系统复用，或进程恰好死在持有 .break 的瞬间，陈旧锁就清不掉、追加会超时报错（不会写坏账），那时手工删掉 .lock 与 .lock.break；要无人值守恢复再换成带租期的锁。
 function clearStaleLock(lock) {
   const breaker = `${lock}.break`;
   try {
     fs.writeFileSync(breaker, '', { flag: 'wx' });
   } catch (error) {
-    if (error.code === 'EEXIST') return;
+    if (isLockRace(error, lock)) return;
     throw error;
   }
   try {
-    if (!processIsAlive(Number(fs.readFileSync(lock, 'utf8').trim()))) fs.rmSync(lock);
+    const [pid, token] = fs.readFileSync(lock, 'utf8').trim().split(/\s+/);
+    if (abandonedLocks.has(token) || !processIsAlive(Number(pid))) {
+      fs.rmSync(lock);
+      abandonedLocks.delete(token);
+    }
   } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
+    if (!isLockRace(error, lock)) throw error;
   } finally {
-    fs.rmSync(breaker, { force: true });
+    removeWithRetry(() => breaker);
   }
 }
 
-export function withFileLock(file, run, timeoutMs = 10_000) {
+// 硬链接一旦成功就已持锁，暂存目录交回给持锁者清理，不能把清理失败当作未取得锁。
+function publishLock(lock, payload) {
+  const staging = path.join(path.dirname(lock), `.write-${randomUUID()}`);
+  fs.mkdirSync(staging, { mode: 0o700 });
+  try {
+    const pending = path.join(staging, 'pending');
+    fs.writeFileSync(pending, payload, { flag: 'wx', flush: true });
+    const snap = fs.lstatSync(pending, { bigint: true }); // 硬链接出来的锁与它是同一个节点：链接之前就拿到节点号
+    fs.linkSync(pending, lock);
+    return { staging, snap };
+  } catch (error) {
+    removeWithRetry(() => locateOwned(staging), { recursive: true });
+    throw error;
+  }
+}
+
+export function withFileLock(file, run, timeoutMs = 10_000, label = '账本') {
   const lock = `${file}.lock`;
   const deadline = performance.now() + amount(timeoutMs, 'lockTimeoutMs');
-  for (let waitMs = 1; ; waitMs = Math.min(waitMs * 2, 50)) {
+  // 凭据在建锁之前就定好：进程号给陈旧锁清理看，UUID 认这一次持锁。
+  const token = randomUUID();
+  const payload = `${process.pid} ${token}\n`;
+  let held;
+  // 节点号对得上就是自己的，不用开文件，句柄耗尽时照样能放锁；拿不到节点号（为 0）或对不上再读内容按凭据认。
+  const mine = candidate => {
+    const now = fs.lstatSync(candidate, { bigint: true, throwIfNoEntry: false });
+    if (!now) return false;
+    return (held.snap.ino > 0n && now.ino === held.snap.ino && now.dev === held.snap.dev) || fs.readFileSync(candidate, 'utf8') === payload;
+  };
+  // 锁所在目录从建锁那一刻起随时可能被轮换、原路径重建，原路径上的 .lock 就是新目录的锁：只认自己建的那个，兄弟目录列不出来就报错。
+  const locate = () => locateOwned(lock, mine, true);
+  // 删不掉不能报成功：登记凭据再把错误抛出去，故障过后本进程下一次取这把锁时回收它。
+  const release = () => {
+    try {
+      removeWithRetry(locate);
+    } catch (error) {
+      abandonedLocks.add(token);
+      throw error;
+    }
+  };
+  for (let waitMs = lockGraceMs; ; waitMs = Math.min(waitMs * 2, 50)) {
     if (!fs.existsSync(lock)) {
       try {
-        atomicWrite(lock, `${process.pid}\n`, { create: true }); // 硬链接创建：要么整个锁带着进程号出现，要么已存在
-        break;
+        held = publishLock(lock, payload);
       } catch (error) {
-        if (error.code !== 'EEXIST') throw error;
+        if (!isLockRace(error, lock)) throw error;
+      }
+      if (held) {
+        // 硬链接刚成功目录就可能被轮换：自己的锁落进旧目录，原路径上是空的新目录或别人的锁。
+        // 原路径上确实是自己的锁才进临界区；不是就回收掉，按剩余时间在原路径上重新取。
+        let entered = false;
+        try {
+          removeWithRetry(() => locateOwned(held.staging), { recursive: true });
+          entered = retrySharing(lock, () => mine(lock), 12, fs.constants.R_OK);
+        } finally {
+          if (!entered) release();
+        }
+        if (entered) break;
+        held = undefined;
       }
     }
-    clearStaleLock(lock);
-    if (performance.now() >= deadline) throw new Error(`等待账本锁 ${lock} 超时，另一个进程正在记账。`);
-    Atomics.wait(sleeper, 0, 0, waitMs);
+    const remaining = deadline - performance.now();
+    if (remaining <= 0) throw Object.assign(new Error(`等待${label}锁 ${lock} 超时：另一个进程正持有它，或锁所在目录不可写。`), { code: 'ETIMEDOUT' });
+    Atomics.wait(sleeper, 0, 0, Math.min(waitMs, remaining));
+    // 短临界区先留给持锁者释放，不急着读 PID 或抢 .break。
+    if (remaining >= lockGraceMs && fs.existsSync(lock)) clearStaleLock(lock);
   }
+  // 临界区里目录还可能再被轮换：回调用它取「锁所在那一代」的目标路径，读写才落在自己锁住的目录里。
+  const locked = () => {
+    const at = locate();
+    if (!at) throw Object.assign(new Error(`${label}锁在临界区内丢失。`), { code: 'ENOENT' });
+    return at.slice(0, -'.lock'.length);
+  };
+  const ownsLock = candidate => retrySharing(candidate, () => mine(candidate), 12, fs.constants.R_OK);
+  let result;
   try {
-    return run();
-  } finally {
-    fs.rmSync(lock, { force: true });
+    result = run(locked, ownsLock);
+  } catch (error) {
+    try {
+      release();
+    } catch {
+      // 回调的错误优先；删不掉的锁已登记凭据
+    }
+    throw error;
   }
+  release();
+  return result;
 }
 
 /**
@@ -245,15 +365,21 @@ export function prepareSettlement(entry) {
 export function appendSettlement(ledgerPath, settlement, { lockTimeoutMs } = {}) {
   fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });
   // shortcut: 每次追加都在锁里重读整本账来查重、取序号，单次 O(行数)；账本到十万行级再换成尾部索引。
-  return withFileLock(ledgerPath, () => {
-    const { content, rows } = load(ledgerPath);
+  return withFileLock(ledgerPath, locked => {
+    let target;
+    let loaded;
+    do {
+      target = locked();
+      loaded = load(target);
+    } while (locked() !== target); // 读账途中目录被轮换，读到的可能是原路径上新目录的账：认回持锁的那一代重读
+    const { content, rows } = loaded;
     const settled = rows.find(existing => existing.jobId === settlement.jobId && existing.attempt === settlement.attempt);
     if (settled) return settled;
     const seq = rows.reduce((max, existing) => Math.max(max, existing.seq), 0) + 1;
     if (!Number.isSafeInteger(seq) || seq < 1) throw new RangeError('作业账本序号已达安全整数上限。');
     const row = normalizeLedgerEntry({ ...settlement, seq });
     // 上一次写入断在半行或被人手改掉了结尾换行时，先补换行，新行不会接在旧行后面。
-    fs.appendFileSync(ledgerPath, `${content && !content.endsWith('\n') ? '\n' : ''}${JSON.stringify(row)}\n`, { flush: true });
+    fs.appendFileSync(target, `${content && !content.endsWith('\n') ? '\n' : ''}${JSON.stringify(row)}\n`, { flush: true });
     return row;
   }, lockTimeoutMs);
 }
