@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 
-const inputExcluded = new Set(['rev', 'snapshots', 'intermediate', 'deliver', 'jobs']);
+const inputExcluded = new Set(['rev', 'snapshots', 'intermediate', 'deliver', 'jobs', 'cache']);
 const keepPolicies = new Set(['none', 'failed-only', 'all']);
 const filmIdPattern = /^[a-z][a-z0-9_-]*$/;
 const sha256Pattern = /^[a-f0-9]{64}$/;

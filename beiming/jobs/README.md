@@ -62,3 +62,16 @@ const sum = queue.summarizeLedger(); // { count: 2, succeeded: 2, gpuSeconds: 6,
 ```
 
 不经过队列时直接用 `appendJobLedger(file, entry)`、`readJobLedger(file)`、`summarizeJobLedger(rowsOrFile)` 与 `quoteFromDraft(draft)`，行为相同。
+
+## 镜头帧缓存（A16）
+
+`cache.mjs` 按 04 §10 的六项给每一帧算 sha256 键：① 本镜头的规范化 JSON（`in`/`out` 归一为帧数，只含这个镜头）；② 实际加载文件的哈希；③ `tracks` 哈希（没有写 `'none'`）；④ 所用卡的三段版本与实现哈希（取自 `film.lock`）；⑤ 帧源、运行时、浏览器构建、显卡后端、驱动；⑥ 档位、采样数、尺寸、镜头局部帧号、`sub` 采样集。缺一项或类型不对直接抛错，不退化成撞键。
+
+- `computeFrameCacheKey(spec)`、`canonicalJson(value)`：键与规范化 JSON；六项分哈希在返回的 `components` 里，便于看是哪一项变了。
+- `openShotCache(dir)` 返回 `{ get, put, prune }`：一个条目一个文件（头 + 颜色层，原子改名）；`get` 读回重算颜色层 sha256，对不上就删文件按未命中；`prune({ maxAgeMs = 7 天, clearDraft })` 草稿可清，终稿每镜只留最近用过的一版，过期的删。
+- `checkCacheSeams(frames, { determinism, seamFactor = 3, minSpikeFloor = 0.015 })`：只在 `tolerance` 档且旧帧与新帧相邻时查，交界帧差高于非交界帧差中位数的 `seamFactor` 倍（且不低于下限）算尖峰；NaN 按尖峰处理。
+- `renderShotsWithCache({ shots, cache, renderFrame })`：逐镜头逐帧先查缓存，没命中才调 `renderFrame` 并写回；有尖峰时默认把整个镜头重渲成同一轮。只改一个镜头时，其他镜头的 `renderedFrames` 为 0。
+
+缓存目录放在工作区里时用顶层 `cache/`（已在快照输入的排除名单里，不改快照哈希），也可以指向外部共享目录。
+
+已知局限：①写成全片帧号的事件或时刻参数会随 `in` 平移，调用方要把它们换成局部帧号后放进 `events`，或让它们进入 `tracksHash`；②接缝基准取整个镜头的中位数，快慢悬殊的镜头可能误报（多重渲一次，不会漏放）；③没有实现「元数据全留、抽样帧」，`prune` 只管颜色层文件。从仓库根目录运行 `node --test beiming/jobs/cache.test.mjs` 自检。
