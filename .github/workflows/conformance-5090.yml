@@ -2,7 +2,10 @@
 #   pull_request      filter（托管 runner，限 5 分钟）用 tests/ci/conformance-filter.mjs 判定这个 PR 改没改帧源与一致性边界
 #                     （beiming/sources、host、kernel/conformance、kernel/contracts/{source,meta}、calib）；
 #                     改了、且仓库变量 BEIMING_5090_RUNNER 为 true，才把 conformance-5090 排进显卡队；没改帧源的 PR 不占显卡。
+#                     只认同仓分支的 PR：fork 来的 PR 不在自托管机器上跑（不受信的代码）。
 #   schedule / workflow_dispatch / workflow_call   夜间流水：exam（考试）→ conformance-5090（限 10 分钟）→ nightly-rebuild（夜间重建）。
+#                     workflow_call 默认 mode=nightly：即使调用方是 PR 也走夜间链；mode=pr 才走 PR 的 filter 分支。
+#   「PR 分支」= inputs.mode == 'pr'，或直接由 pull_request 触发（此时没有 inputs）；下面各 job 的 if 都按这个判。
 # 显卡队：concurrency group gpu-5090、不取消进行中的任务。只有 conformance-5090 进这个组（同组最多一个运行、一个排队，多放会互相挤掉）。
 # exam 与 nightly-rebuild 的入口还没合入：用 hashFiles 守着，缺入口时只打一条提示。本机复现见 tests/ci/README.md。
 # actions 的哈希与 ci.yml 保持一致（tests/ci/workflows.test.mjs 核对）。
@@ -14,6 +17,11 @@ on:
     - cron: '0 18 * * *'   # 北京时间每天 02:00
   workflow_dispatch:
   workflow_call:
+    inputs:
+      mode:
+        description: nightly（考试 → 一致性 → 夜间重建）或 pr（先判定是否改到帧源）
+        type: string
+        default: nightly
 
 permissions:
   contents: read
@@ -24,7 +32,7 @@ defaults:
 
 jobs:
   filter:
-    if: github.event_name == 'pull_request'
+    if: (inputs.mode == 'pr' || (github.event_name == 'pull_request' && !inputs.mode))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -35,14 +43,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - id: classify
-        name: 判定是否改到帧源（--no-renames：移出帧源目录的旧路径也算）
+        name: 判定是否改到帧源（三点差异看整个 PR；-z 保住中文与制表符路径；--no-renames：移出帧源目录的旧路径也算）
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: git diff --name-only --no-renames "$BASE_SHA...$HEAD_SHA" | node tests/ci/conformance-filter.mjs >> "$GITHUB_OUTPUT"
+        run: git diff -z --name-only --no-renames "$BASE_SHA...$HEAD_SHA" | node tests/ci/conformance-filter.mjs --null >> "$GITHUB_OUTPUT"
 
   exam:
-    if: github.event_name != 'pull_request'
+    if: >-
+      !(inputs.mode == 'pr' || (github.event_name == 'pull_request' && !inputs.mode))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -63,9 +72,10 @@ jobs:
   conformance-5090:
     needs: [filter, exam]
     if: >-
-      !cancelled() && vars.BEIMING_5090_RUNNER == 'true' && (
-      (github.event_name == 'pull_request' && needs.filter.outputs.frame_sources_changed == 'true') ||
-      (github.event_name != 'pull_request' && needs.exam.result == 'success'))
+      !cancelled() && vars.BEIMING_5090_RUNNER == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (
+      ((inputs.mode == 'pr' || (github.event_name == 'pull_request' && !inputs.mode)) && needs.filter.outputs.frame_sources_changed == 'true') ||
+      (!(inputs.mode == 'pr' || (github.event_name == 'pull_request' && !inputs.mode)) && needs.exam.result == 'success'))
     runs-on: [self-hosted, linux, x64, rtx5090]
     timeout-minutes: 10
     concurrency:
@@ -81,18 +91,28 @@ jobs:
           cache: npm
       - name: 安装 Node 依赖（按 package-lock.json）
         run: npm ci
-      - name: 帧源一致性套件与校准检查
-        run: node --test 'beiming/kernel/conformance/*.test.mjs' 'beiming/calib/*.test.mjs'
+      - name: 确认无头浏览器可用（缺了实渲测试会自己跳过，不能当绿灯）
+        run: node --input-type=module -e "const { browserOk } = await import('./tests/ci/browser.mjs'); if (!browserOk) { console.error('::error::5090 运行器上没有无头浏览器'); process.exit(3); }"
+      - name: 帧源一致性套件、校准检查与帧源实渲测试
+        run: >-
+          node --test 'beiming/kernel/conformance/*.test.mjs' 'beiming/calib/*.test.mjs'
+          'beiming/sources/three/*.test.mjs' 'beiming/sources/blender/*.test.mjs' 'beiming/host/page/*.test.mjs'
 
   nightly-rebuild:
     needs: conformance-5090
-    if: github.event_name != 'pull_request'
+    if: >-
+      !(inputs.mode == 'pr' || (github.event_name == 'pull_request' && !inputs.mode)) &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: [self-hosted, linux, x64, rtx5090]
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
       - name: 夜间重建
         if: hashFiles('tools/nightly/rebuild.mjs') != ''
         run: npm ci && node tools/nightly/rebuild.mjs

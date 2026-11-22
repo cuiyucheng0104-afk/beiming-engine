@@ -138,13 +138,16 @@ PowerShell 调 `npm.ps1` 时会吞掉单独的 `--`，参数传不到脚本里�
 
 工作流在 `.github/workflows/conformance-5090.yml`，与 ci.yml 分开，不进 ci.yml 的必需检查。
 
-- **PR**：先跑轻量 `filter`（托管 runner，限 5 分钟），`tests/ci/conformance-filter.mjs` 判定变更路径是否触及帧源与一致性边界：`beiming/sources/`、`beiming/host/`、`beiming/kernel/conformance/`、`beiming/kernel/contracts/source/`、`beiming/kernel/contracts/meta/`、`beiming/calib/`（按整段目录匹配，`beiming/sources-notes/` 不算）。只改 `beiming/api` 等其他目录、`docs/`、`site/` 的 PR 输出 `frame_sources_changed=false`，不排显卡队。
-- **夜间**（schedule，北京时间 02:00；也可 workflow_dispatch / workflow_call）：`exam`（考试）→ `conformance-5090` → `nightly-rebuild`（夜间重建），一致性排在考试之后、夜间重建之前。考试与夜间重建的入口（`beiming/bench/exam.mjs`、`tools/nightly/rebuild.mjs`）还没合入，缺入口时只打提示。
-- **显卡队**：运行器标签 `[self-hosted, linux, x64, rtx5090]`，`concurrency: gpu-5090` 串行、不取消进行中的任务。仓库变量 `BEIMING_5090_RUNNER` 设为 `true`（运行器注册好之后由维护者设置）之前，显卡任务一律跳过，不会卡在排队里。
+- **PR**：先跑轻量 `filter`（托管 runner，限 5 分钟），`tests/ci/conformance-filter.mjs` 判定变更路径是否触及帧源与一致性边界：`beiming/sources/`、`beiming/host/`、`beiming/kernel/conformance/`、`beiming/kernel/contracts/source/`、`beiming/kernel/contracts/meta/`、`beiming/calib/`（按整段目录匹配，`beiming/sources-notes/` 不算；路径原样比较，前导空格的顶层目录 ` beiming/sources/` 不算）。差异用 `git diff -z --name-only --no-renames "$BASE_SHA...$HEAD_SHA"`：`-z` 配 `--null`，中文与制表符路径不会被 git 转义成引号串；三点差异看整个 PR，不只最后一个提交。只改 `beiming/api` 等其他目录、`docs/`、`site/` 的 PR 输出 `frame_sources_changed=false`，不排显卡队。
+- **信任边界**：显卡任务与夜间重建跑在自托管机器上，只接同仓分支的 PR（`github.event.pull_request.head.repo.full_name == github.repository`）；fork 来的 PR 只跑 `filter`，显卡任务跳过，要跑由维护者把分支推到本仓库。
+- **夜间**（schedule，北京时间 02:00；也可 workflow_dispatch / workflow_call）：`exam`（考试）→ `conformance-5090` → `nightly-rebuild`（夜间重建），一致性排在考试之后、夜间重建之前。考试与夜间重建的入口（`beiming/bench/exam.mjs`、`tools/nightly/rebuild.mjs`）还没合入，缺入口时这一步只打一条 `::notice::` 占位提示、job 照常绿，链上的下一步照跑。`workflow_call` 有输入 `mode`（默认 `nightly`）：调用方即使是 PR 也走夜间链；传 `mode: pr` 才走 `filter` 分支。
+- **显卡任务跑什么**：先确认无头浏览器可用（缺了 exit 3，否则实渲测试会自己跳过、显示成绿灯），再跑一致性套件、校准检查和帧源实渲测试（`beiming/sources/three`、`beiming/sources/blender`、`beiming/host/page`）；只读表的测试把 Three 的 `render()` 改坏也全绿，实渲测试会红。
+- **显卡队**：运行器标签 `[self-hosted, linux, x64, rtx5090]`，`concurrency: gpu-5090` 串行、不取消进行中的任务。仓库变量 `BEIMING_5090_RUNNER` 设为 `true`（运行器注册好之后由维护者设置）之前，显卡任务一律跳过，不会卡在排队里。同组最多一个在跑、一个在排（pending），再来的会顶掉排着的那个，所以只有 `conformance-5090` 进这个组。
 
 ```sh
-git diff --name-only --no-renames origin/main...HEAD | node tests/ci/conformance-filter.mjs   # 本 PR 会不会排显卡队
-node --test 'beiming/kernel/conformance/*.test.mjs' 'beiming/calib/*.test.mjs'                 # 显卡任务跑的套件
+git diff -z --name-only --no-renames origin/main...HEAD | node tests/ci/conformance-filter.mjs --null   # 本 PR 会不会排显卡队
+node --test 'beiming/kernel/conformance/*.test.mjs' 'beiming/calib/*.test.mjs' \
+  'beiming/sources/three/*.test.mjs' 'beiming/sources/blender/*.test.mjs' 'beiming/host/page/*.test.mjs'   # 显卡任务跑的套件
 ```
 
 ## 金标准首次采集

@@ -122,9 +122,19 @@ test('conformance-5090.yml：PR 先过轻量 filter，改到帧源且开了 5090
 
   assert.match(jobs.filter, /runs-on: ubuntu-24\.04/);
   assert.match(jobs.filter, /timeout-minutes: 5\b/);
-  assert.match(jobs.filter, /if: github\.event_name == 'pull_request'/);
-  assert.match(jobs.filter, /frame_sources_changed: \$\{\{ steps\.\w+\.outputs\.frame_sources_changed \}\}/);
-  assert.match(jobs.filter, /--no-renames[^\n]*\| node tests\/ci\/conformance-filter\.mjs >> "\$GITHUB_OUTPUT"/);
+  // 「PR 分支」：显式 mode=pr，或直接由 pull_request 触发；workflow_call 默认 nightly，调用方是 PR 也走夜间链
+  const PR = "(inputs.mode == 'pr' || (github.event_name == 'pull_request' && !inputs.mode))";
+  assert.match(text, /workflow_call:\n {4}inputs:\n {6}mode:\n[\s\S]*?default: nightly\n/);
+  assert.ok(jobs.filter.includes(`if: ${PR}\n`), 'filter 只在 PR 分支跑');
+  const out = /frame_sources_changed: \$\{\{ steps\.([\w-]+)\.outputs\.frame_sources_changed \}\}/.exec(jobs.filter);
+  assert.ok(out, 'filter 要把判定结果交给 jobs.filter.outputs');
+  assert.match(jobs.filter, new RegExp(`- id: ${out[1]}\\n`), `outputs 引用的步骤 id ${out[1]} 不存在`);
+  assert.match(jobs.filter, /fetch-depth: 0\b/, '三点差异要能找到合并基');
+  assert.match(jobs.filter, /BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/);
+  assert.match(jobs.filter, /HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
+  assert.doesNotMatch(text, /HEAD~1|HEAD\^/, '只比最后一个提交会漏掉前面改帧源的提交');
+  assert.match(jobs.filter, /git diff -z --name-only --no-renames "\$BASE_SHA\.\.\.\$HEAD_SHA" \| node tests\/ci\/conformance-filter\.mjs --null >> "\$GITHUB_OUTPUT"/);
+  assert.match(text, /cron: '\d+ \d+ \* \* \*'/, '夜间流水每天一次');
 
   const gpu = jobs['conformance-5090'];
   assert.match(gpu, /runs-on: \[self-hosted, linux, x64, rtx5090\]/);
@@ -134,13 +144,25 @@ test('conformance-5090.yml：PR 先过轻量 filter，改到帧源且开了 5090
   const cond = /if: >-\n([\s\S]*?)\n {4}\S/.exec(gpu)?.[1] ?? '';
   assert.match(cond, /vars\.BEIMING_5090_RUNNER == 'true'/);
   assert.match(cond, /!cancelled\(\)/, 'filter 或 exam 被跳过时不能连带跳过');
-  assert.match(cond, /github\.event_name == 'pull_request' && needs\.filter\.outputs\.frame_sources_changed == 'true'/);
-  assert.match(cond, /github\.event_name != 'pull_request' && needs\.exam\.result == 'success'/);
-  assert.match(gpu, /node --test 'beiming\/kernel\/conformance\/\*\.test\.mjs'/);
+  const flat = cond.replace(/\s+/g, ' ');
+  assert.ok(flat.includes(`(${PR} && needs.filter.outputs.frame_sources_changed == 'true')`), cond);
+  assert.ok(flat.includes(`(!${PR} && needs.exam.result == 'success')`), cond);
+  // 自托管运行器只跑同仓分支的 PR：fork 的代码不受信
+  const sameRepo = "(github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)";
+  assert.ok(flat.includes(sameRepo), 'conformance-5090 缺同仓来源守卫');
+  // 一致性要真跑帧源实渲测试（只读表的测试把 render() 改坏也全绿），且先确认浏览器在，免得实渲测试自己跳过
+  for (const g of ['beiming/kernel/conformance/', 'beiming/calib/', 'beiming/sources/three/', 'beiming/sources/blender/', 'beiming/host/page/']) {
+    assert.ok(gpu.includes(`'${g}*.test.mjs'`), `一致性命令缺 ${g}`);
+  }
+  assert.match(gpu, /import\('\.\/tests\/ci\/browser\.mjs'\)[^\n]*process\.exit\(3\)/);
 
-  assert.match(jobs.exam, /if: github\.event_name != 'pull_request'/);
-  assert.match(jobs['nightly-rebuild'], /needs: conformance-5090\b/);
-  assert.match(jobs['nightly-rebuild'], /if: github\.event_name != 'pull_request'/, 'PR 里一致性通过也不能触发夜间重建');
+  assert.ok(jobs.exam.includes(`!${PR}`), 'exam 只在夜间链跑');
+  const nightly = jobs['nightly-rebuild'];
+  assert.match(nightly, /needs: conformance-5090\b/);
+  assert.ok(nightly.replace(/\s+/g, ' ').includes(`!${PR} &&`), 'PR 里一致性通过也不能触发夜间重建');
+  assert.ok(nightly.replace(/\s+/g, ' ').includes(sameRepo), 'nightly-rebuild 缺同仓来源守卫');
+  assert.match(nightly, /uses: actions\/setup-node@/);
+  assert.match(nightly, /npm ci/);
   // 只有一致性任务进显卡队：别的 job 用了 gpu-5090 会挤掉排队中的那个
   assert.equal((text.match(/group: gpu-5090/g) || []).length, 1);
 });

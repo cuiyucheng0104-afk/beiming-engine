@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // 帧源变更分类器（I6）：PR 的变更路径是否触及帧源与一致性边界；只有触及时 conformance-5090.yml 才排 5090 显卡队。
-//   git diff --name-only --no-renames <base>...<head> | node tests/ci/conformance-filter.mjs >> "$GITHUB_OUTPUT"
+//   git diff -z --name-only --no-renames <base>...<head> | node tests/ci/conformance-filter.mjs --null >> "$GITHUB_OUTPUT"
+// 工作流一律用 -z / --null：不带 -z 时 git 会把中文、制表符等路径加引号转义（"beiming/sources/\346..."），前缀就对不上了。
+// 路径原样比较、不 trim：顶层目录可以合法地以空格开头（" beiming/sources/x" 不是帧源目录）。
 // stdout 只有一行 frame_sources_changed=true|false；命中的路径打到 stderr 供日志查看。
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -17,13 +19,13 @@ export const FRAME_SOURCE_PREFIXES = [
 
 export function classifyConformancePaths(paths) {
   const matched = paths
-    .map(p => String(p).trim().replace(/\\/g, '/').replace(/^\.\//, ''))
+    .map(p => String(p).replace(/\\/g, '/').replace(/^\.\//, ''))
     .filter(p => FRAME_SOURCE_PREFIXES.some(pre => p.startsWith(pre)));
   return { frame_sources_changed: matched.length > 0, matched };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const r = classifyConformancePaths(readFileSync(0, 'utf8').split(/\r?\n/));
+  const r = classifyConformancePaths(readFileSync(0, 'utf8').split(process.argv.includes('--null') ? '\0' : /\r?\n/));
   for (const p of r.matched) process.stderr.write(`帧源变更：${p}\n`);
   process.stdout.write(`frame_sources_changed=${r.frame_sources_changed}\n`);
 }
