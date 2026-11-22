@@ -3,3 +3,4 @@ export { openWorkspace } from './workspace.mjs';
 export { Scheduler } from './scheduler.mjs';
 export { loadQueue, replayJob } from './queue.mjs';
 export { appendJobLedger, readJobLedger, normalizeLedgerEntry, summarizeJobLedger, quoteFromDraft, measureDiskBytes } from './ledger.mjs';
+export { canonicalJson, computeFrameCacheKey, openShotCache, checkCacheSeams, renderShotsWithCache } from './cache.mjs';
