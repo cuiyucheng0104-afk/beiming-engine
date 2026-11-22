@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { test } from 'node:test';
-import { CompError } from './stitch.mjs';
+import { eventsTable } from '../kernel/eval/input.mjs';
+import { masterAudio, measureLoudness, mixEvents, VOICES } from './audio.mjs';
+import { deliver, PIECES } from './deliver.mjs';
+import { CompError, runTool, tools } from './stitch.mjs';
 
 function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'comp-sink-'));
@@ -115,4 +119,90 @@ test('合成收尾公共入口提供两种输出端和拟音库', async () => {
   assert.equal(typeof comp.openFileSink, 'function');
   assert.equal(typeof comp.openEncoderSink, 'function');
   assert.equal(typeof comp.FOLEY_VOICES, 'object');
+});
+
+for (const voice of ['foley.step', 'foley.cloth', 'foley.impact', 'foley.metal']) {
+  test(`X5 ${voice} 第 5 次触发与第 1 次的波形不同`, () => {
+    const { make, pcenter } = VOICES[voice];
+    const first = make(42, 0).left, fifth = make(42, 4).left;
+    // 分开比较接触与主体：只有音高或只有高频增益在变，整段样本也会不等。
+    for (const [layer, from, to] of [['接触', 0, 72], ['主体', 160, 600]]) {
+      let delta = 0;
+      for (let i = pcenter + from; i < pcenter + to; i++) delta = Math.max(delta, Math.abs(first[i] - fifth[i]));
+      assert.ok(delta > 1e-4, `第 1、5 次${layer}的最大采样差 ${delta}`);
+    }
+  });
+}
+
+const hasFfmpeg = Object.values(tools()).every((bin) =>
+  spawnSync(bin, ['-version'], { stdio: 'ignore', windowsHide: true, timeout: 15000 }).status === 0);
+const needFfmpeg = { skip: !hasFfmpeg && '环境缺少 ffmpeg / ffprobe' };
+const example = (name) => JSON.parse(readFileSync(new URL(`../kernel/contracts/${name}`, import.meta.url), 'utf8'));
+
+function foleyFilm(audio, count) {
+  const film = example('film/examples/minimal.json');
+  film.output = { size: [32, 16], fps: '30/1', frames: 30 + 15 * count };
+  Object.assign(film.shots[0], { out: film.output.frames, colorRef: 'display', seed: 7 });
+  film.events = Array.from({ length: count }, (_, i) => ({ id: `e${i}`, frame: 10 + 15 * i, audio, sync: 'onset' }));
+  film.audio = { mode: 'script', loudness: -14, truePeak: -1 };
+  film.delivery.web = true;
+  return film;
+}
+
+function deliveryInput(dir, voice) {
+  const film = foleyFilm(voice, 4);
+  const lock = example('lock/examples/minimal.json');
+  lock.cards['audio.master'] = example('lock/examples/check-full.json').lock.cards['audio.master'];
+  lock.seeds.s01 = film.shots[0].seed;
+  const pattern = join(dir, 'frame%03d.png');
+  runTool(tools().ffmpeg, ['-nostdin', '-v', 'error', '-f', 'lavfi', '-i', 'color=s=32x16:r=30',
+    '-frames:v', String(film.output.frames), '-start_number', '0', pattern]);
+  return { film, lock, events: eventsTable(film), frames: { s01: { pattern } } };
+}
+
+function checkLevels(t, label, { integrated, truePeak }) {
+  const measured = `${label} ${integrated} LUFS，${truePeak} dBTP`;
+  t.diagnostic(measured);
+  assert.ok(integrated >= -15 && integrated <= -13 && truePeak <= -1, measured);
+}
+
+for (const voice of ['foley.step', 'foley.cloth']) {
+  for (const count of [3, 8, 24]) {
+    test(`X5 masterAudio ${voice} ×${count} 的 WAV 响度和真峰值达标`, needFfmpeg, (t) => {
+      const events = eventsTable(foleyFilm(voice, count));
+      const master = masterAudio(mixEvents(events, { seed: 1 }), fixture(t).dir);
+      checkLevels(t, 'master.wav', measureLoudness(master.path));
+    });
+  }
+
+  test(`X5 deliver ${voice} ×4 的母版与网页 AAC 响度和真峰值达标`, needFfmpeg, (t) => {
+    const { dir } = fixture(t);
+    const input = deliveryInput(dir, voice);
+    const bundle = deliver({ ...input, outDir: join(dir, 'deliver') });
+    const run = JSON.parse(readFileSync(join(bundle.dir, PIECES.run), 'utf8'));
+    const audio = run.steps.find((step) => step.step === 'audio');
+    assert.deepEqual(audio.placements.map((p) => [p.audio, p.frame]), input.film.events.map((e) => [e.audio, e.frame]));
+    checkLevels(t, '交付记录中的 WAV 母带', audio.passes.at(-1));
+    for (const name of [PIECES.master, PIECES.web]) {
+      assert.equal(bundle.report.probes[name].audio.codec, 'aac');
+      checkLevels(t, name, measureLoudness(join(bundle.dir, name)));
+    }
+  });
+}
+
+test('X5 M19 同一种子交付的 PCM 可重放，改 film 与锁的全片种子后 PCM 改变', needFfmpeg, (t) => {
+  const { dir } = fixture(t);
+  const input = deliveryInput(dir, 'foley.metal');
+  const hashes = [1, 1, 2].map((seed, i) => {
+    input.film.seed = input.lock.seeds.film = seed;
+    const bundle = deliver({ ...input, outDir: join(dir, `deliver-${i}`) });
+    const { stdout } = runTool(tools().ffmpeg, ['-nostdin', '-v', 'error', '-i', join(bundle.dir, PIECES.master),
+      '-map', '0:a:0', '-c:a', 'pcm_f32le', '-f', 'hash', '-hash', 'sha256', 'pipe:1']);
+    const hash = stdout.toString('utf8').trim();
+    assert.match(hash, /^SHA256=[0-9a-f]{64}$/);
+    t.diagnostic(`seed=${seed} PCM ${hash}`);
+    return hash;
+  });
+  assert.equal(hashes[0], hashes[1], '同种子重放');
+  assert.notEqual(hashes[0], hashes[2], '不同全片种子');
 });

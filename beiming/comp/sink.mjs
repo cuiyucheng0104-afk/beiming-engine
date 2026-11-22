@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { createWriteStream, renameSync, rmSync } from 'node:fs';
+import { createWriteStream, renameSync, rmSync, statSync } from 'node:fs';
 import { dirname, extname, join, resolve } from 'node:path';
 import { clearTimeout, setTimeout } from 'node:timers';
 import { CompError, bad, tools } from './stitch.mjs';
@@ -19,10 +19,10 @@ export function startPipe(bin, args, direction, controller, timeoutMs = 600000) 
     if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
   };
   controller.signal.addEventListener('abort', kill, { once: true });
-  const timer = setTimeout(() => controller.abort(new CompError('timeout.ffmpeg', `管道超过 ${timeoutMs} 毫秒`)), timeoutMs);
+  const timer = setTimeout(() => controller.abort(CompError.toolTimeout(bin, timeoutMs)), timeoutMs);
   let stderr = '';
   child.stderr.setEncoding('utf8').on('data', (s) => { stderr = (stderr + s).slice(-4096); });
-  child.once('error', (e) => controller.abort(new CompError('env.ffmpeg-missing', `无法运行 ${bin}（${e.message}）`)));
+  child.once('error', (e) => controller.abort(CompError.toolUnavailable(bin, e)));
   stream.on('error', (e) => controller.abort(failure(`管道错误：${e.message}`)));
   child.once('exit', (code, signal) => {
     if (code !== 0 || (input && !stream.writableFinished)) {
@@ -52,7 +52,7 @@ function atomicSink(path, encoder) {
     signal.addEventListener('abort', () => stream.destroy(), { once: true });
     closed = new Promise((done) => stream.once('close', done));
   }
-  let finishing, drain, published = false;
+  let finishing, drain, published = false, hasInput = false;
   stream.once('close', () => {
     if (!stream.writableFinished) controller.abort(failure('输出管道提前关闭'));
   });
@@ -76,7 +76,9 @@ function atomicSink(path, encoder) {
     if (finishing) throw failure('输出正在结束');
     try {
       signal.throwIfAborted();
-      if (!stream.write(chunk)) {
+      const writable = stream.write(chunk);
+      hasInput ||= (typeof chunk === 'string' ? chunk.length : chunk.byteLength) > 0;
+      if (!writable) {
         drain ??= once(stream, 'drain', { signal }).finally(() => { drain = undefined; });
         await drain;
       }
@@ -94,6 +96,8 @@ function atomicSink(path, encoder) {
       if (!signal.aborted) stream.end();
       await reaped;
       signal.throwIfAborted();
+      // FFmpeg 在零帧时也可能成功写出容器头，须在回收进程后、替换成品前检查。
+      if (encoder && (!hasInput || statSync(tmp).size === 0)) throw new Error('编码输入或产物为空');
       renameSync(tmp, target);
       published = true;
     } catch (e) {

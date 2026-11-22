@@ -7,6 +7,7 @@
 //   film.lock   锁文件副本
 // run.json 锚定交付配置与报告正文，报告清单反向记录完整运行记录的哈希。
 // delivery.web、delivery.contact 不出现等于不出（片子描述契约 3.5），这时对应的那一件不出、清单里也不列。
+import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -96,6 +97,11 @@ function videoChecks(list, tag, p, film) {
  * 返回 { dir, files: { 名字: { bytes, sha256 } }, report }
  */
 export function deliver(opts) {
+  if (opts.sinkFactory !== undefined) return Promise.resolve().then(() => deliverBundle(opts));
+  return deliverBundle(opts);
+}
+
+function deliverBundle(opts) {
   const { film, frames, view = {}, tier = 'final', tracks = [], bed: bedKind = 'silence', timeoutMs } = opts;
   if (tier === 'final' && opts.hwEncoder !== undefined) throw bad(`终渲不收显卡编码器 ${opts.hwEncoder}`);
   checkContract(film, 'film/3.0');

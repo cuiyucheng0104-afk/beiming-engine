@@ -7,6 +7,7 @@
 //   帧文件是 PNG 且 transfer 是 srgb 时，像素已经是显示编码，display 分支直通；scene 镜头不收显示编码的帧
 // 收尾层：暗角在显示编码的 RGB 上做（镜头角 = vignette × π/3 rad），颗粒在最终 yuv420p 的亮度平面上做（ffmpeg noise，固定种子、逐帧变化，
 //   幅度 = round(grain × 100)，单位是 8 位码值的噪声强度；只加在亮度上，色度不动；种子用 all_seed，本机 FFmpeg 8 的 c0_seed 不生效）。grain、vignette 都是 0 时一个收尾滤镜都不挂，滤镜图等于分流加格式换算。
+import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { FFMPEG, FFPROBE } from '../../engine/render/lib/ffmpeg.mjs';
@@ -17,6 +18,14 @@ export class CompError extends Error {
     this.name = 'CompError';
     this.code = code;
     this.hint = hint;
+  }
+
+  static toolTimeout(what, timeoutMs) {
+    return new CompError('timeout.ffmpeg', `${what}：超过 ${timeoutMs} 毫秒没有结束，已终止`);
+  }
+
+  static toolUnavailable(bin, error, what = bin) {
+    return new CompError('env.ffmpeg-missing', `${what}：无法运行 ${bin}（${error.code ?? error.message}）`, '装 FFmpeg ≥ 7，或设 FFMPEG / FFPROBE 为完整路径');
   }
 }
 
@@ -37,8 +46,8 @@ export function runTool(bin, args, { cwd, input, timeoutMs = DEFAULT_TIMEOUT_MS,
     maxBuffer: 1 << 30, stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'],
   });
   const stderr = r.stderr ? r.stderr.toString('utf8') : '';
-  if (r.error?.code === 'ETIMEDOUT') throw new CompError('timeout.ffmpeg', `${what}：超过 ${timeoutMs} 毫秒没有结束，已终止`);
-  if (r.error) throw new CompError('env.ffmpeg-missing', `${what}：无法运行 ${bin}（${r.error.code ?? r.error.message}）`, '装 FFmpeg ≥ 7，或设 FFMPEG / FFPROBE 为完整路径');
+  if (r.error?.code === 'ETIMEDOUT') throw CompError.toolTimeout(what, timeoutMs);
+  if (r.error) throw CompError.toolUnavailable(bin, r.error, what);
   if (r.status !== 0) throw new CompError('failure.ffmpeg', `${what}：${bin} 退出码 ${r.status ?? r.signal}：${stderr.trim().split('\n').slice(-3).join(' | ')}`);
   return { stdout: r.stdout ?? Buffer.alloc(0), stderr };
 }

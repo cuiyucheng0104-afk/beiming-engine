@@ -81,6 +81,12 @@ async function encodeToSinks({ graph, outputs, audioPath, tier, hwEncoder, timeo
   const sourceArgs = rawCommand(graph);
   const sinks = [];
   let source;
+  async function distribute() {
+    for await (const chunk of source.stream) {
+      controller.signal.throwIfAborted();
+      await Promise.all(sinks.map(async (sink) => sink.write(chunk)));
+    }
+  }
   try {
     for (const output of outputs) {
       const args = ['-hide_banner', '-nostdin', '-v', 'error', '-f', 'rawvideo', '-pixel_format', 'yuv420p',
@@ -94,12 +100,15 @@ async function encodeToSinks({ graph, outputs, audioPath, tier, hwEncoder, timeo
       if (!['write', 'finish', 'abort'].every((key) => typeof sink?.[key] === 'function')) throw bad('输出端必须提供 write、finish 和 abort');
     }
     source = startPipe(tools().ffmpeg, sourceArgs, 'read', controller, timeoutMs);
-    for await (const chunk of source.stream) {
-      await Promise.all(sinks.map((sink) => sink.write(chunk)));
-    }
+    // 慢端的 write 可能要等 abort 才结束。整个分发循环共用一次中止监听。
+    const interrupted = Promise.withResolvers();
+    const onAbort = () => interrupted.reject(controller.signal.reason);
+    controller.signal.addEventListener('abort', onAbort, { once: true });
+    try { await Promise.race([distribute(), interrupted.promise]); }
+    finally { controller.signal.removeEventListener('abort', onAbort); }
     await source.closed;
     controller.signal.throwIfAborted();
-    await Promise.all(sinks.map((sink) => sink.finish()));
+    await Promise.all(sinks.map(async (sink) => sink.finish()));
     return sourceArgs;
   } catch (e) {
     const error = controller.signal.reason ?? (e instanceof CompError ? e : new CompError('failure.ffmpeg', `流式编码失败：${e.message}`));

@@ -8,17 +8,18 @@
 
 ## 流式输出
 
-`encode(opts)` 和 `deliver(opts)` 默认同步。传入 `sinkFactory` 后用 `await` 取得结果。例如 `await deliver({ ...opts, sinkFactory: openEncoderSink })` 按原预设交付母版和网页片。所有入口均从 `index.mjs` 导入。
+`encode(opts)` 和 `deliver(opts)` 默认同步。传入 `sinkFactory` 后始终返回 Promise，参数错误也通过拒绝报告。例如 `await deliver({ ...opts, sinkFactory: openEncoderSink })` 按原预设交付母版和网页片。所有入口均从 `index.mjs` 导入。
 
 每个输出调用一次 `sinkFactory({ path, preset, args, timeoutMs })`。`args` 是读 `pipe:0` 的 FFmpeg 参数，末尾留给输出文件名。工厂返回 `{ write, finish, abort }`，也可返回其 Promise。拼接器将同一份 yuv420p 字节分发给各端，块可跨帧，全部 `write(chunk)` 完成才继续读取。用于 `deliver` 的工厂须在 `finish()` 完成时将符合预设的 MP4 写到指定 `path`，整包核验通过后才发布。
 
 - `openFileSink({ path })`（`openSink`）原样保存字节，可配合 `encode` 导出裸 YUV。
-- `openEncoderSink({ path, args, timeoutMs })`（`startEncoderSink`）把字节送入 FFmpeg。两种输出端都在同目录暂存，`finish()` 关闭输入并原子重命名，编码端还会核对退出码。取消时 `await sink.abort()` 可重复调用；中途失败或取消会回收资源，已有成品会保留。
+- `openEncoderSink({ path, args, timeoutMs })`（`startEncoderSink`）把字节送入 FFmpeg。`timeoutMs` 从各管道进程启动计时，覆盖其整个生命周期（含等待背压），不随 `write` 重置，也不是整次 `deliver` 的时限。两种输出端均在目标同目录暂存，`finish()` 关闭输入后原子发布；编码端还要求有非空输入且进程成功退出。
+- 取消时 `await sink.abort()`，可重复调用。未发布的输出端失败或取消不会覆盖其原成品。多路 `encode` 按端发布，某端失败不回滚其他已发布的文件；需要整包原子发布用 `deliver`。若宿主被强杀，来不及执行清理，调用方须先确认相关进程均已退出，再清理本次运行遗留的 `.beiming-*` 文件或目录，不要删除其他正在运行的任务。
 
 ## 事件拟音
 
 在 `events/0.1` 条目里设置 `audio` 为 `foley.impact`、`foley.step`、`foley.metal` 或 `foley.cloth`，`sync` 为 `onset` 或 `pcenter`。例如 `{ "id": "step1", "kind": "named", "from": "film", "frame": 24, "sub": 0.5, "audio": "foley.step", "sync": "pcenter" }`。
 
-音色包含前导、接触瞬态、主体与余响。`mixEvents(events, { seed })` 按材质轮换音高与均衡，依 `frame + sub` 对齐起音或感知重心，返回 48 kHz 立体声。`deliver` 使用 `film.lock` 的全片种子。
+音色包含前导、接触瞬态、主体与余响。`mixEvents(events, { seed })` 依 `frame + sub` 对齐起音或接触重心，返回 48 kHz 立体声。每种材质独立轮换四个变体，每次触发再由种子与该材质的触发序号微调音高和均衡，下一轮不复读。`deliver` 使用 `film.lock` 的全片种子，同一输入可逐位重放。
 
 通用约定见[契约目录](../kernel/contracts/)、[契约写法约定](../kernel/contracts/CONVENTIONS.md)和[目录归属契约](../kernel/contracts/ownership/CONTRACT.md)。

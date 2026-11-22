@@ -33,7 +33,7 @@ for (const fps of [24, 30, 60]) {
         const replay = mixEvents(table, { seed });
         for (const ch of ['left', 'right']) assert.ok(bytes(mix[ch]).equals(bytes(replay[ch])), `${name} ${ch} 重放`);
         const mono = mix.left.map((v, i) => (v + mix.right[i]) / 2);
-        let previous;
+        const segments = [];
         for (const { frame, sub, id } of table.events) {
           const target = (frame + sub) / fps;
           const result = findOnset(mono, SAMPLE_RATE, target);
@@ -42,6 +42,20 @@ for (const fps of [24, 30, 60]) {
           assert.ok(error >= -0.25 && error <= 1, `${name} ${id} 误差 ${error} 帧`);
           errors.push(error);
           const sample = Math.round(target * SAMPLE_RATE);
+          const begin = sample - SAMPLE_RATE / 10;
+          const cue = mono.subarray(begin, sample + SAMPLE_RATE * 0.35);
+          const peak = cue.reduce((max, v) => Math.max(max, Math.abs(v)), 0);
+          for (const threshold of [0.001, peak * 0.1, peak * 0.5]) {
+            const first = cue.findIndex((v) => Math.abs(v) >= threshold);
+            assert.ok(first >= 0, `${name} ${id} 未达到阈值 ${threshold}`);
+            const lag = ((begin + first) / SAMPLE_RATE - target) * fps;
+            assert.ok(lag >= -0.25 && lag <= 1, `${name} ${id} 阈值 ${threshold} 偏差 ${lag} 帧`);
+            errors.push(lag);
+            if (threshold === 0.001 && sync === 'pcenter') {
+              const leadMs = -lag * 1000 / fps;
+              assert.ok(leadMs > 0 && leadMs < 4.1, `${name} ${id} 可闻前导 ${leadMs} ms`);
+            }
+          }
           if (sync === 'pcenter') {
             const center = findPCenter(mono, SAMPLE_RATE, target);
             assert.ok(center && Math.abs(center.t - target) <= 0.25 / fps, `${name} ${id} 感知重心须对齐`);
@@ -49,8 +63,8 @@ for (const fps of [24, 30, 60]) {
             assert.ok(pre.some((v) => Math.abs(v) > 0.001), `${name} ${id} 冲击前应有前导声`);
           }
           const segment = bytes(mono.subarray(sample, sample + 4800));
-          assert.ok(!previous || !previous.equals(segment), `${name} ${id} 相邻触发须有变化`);
-          previous = segment;
+          assert.ok(segments.every((s) => !s.equals(segment)), `${name} ${id} 不能复用本轮或前一轮的触发样本`);
+          segments.push(segment);
         }
       }
       t.diagnostic(`测得 ${errors.length} 次，误差 ${Math.min(...errors).toFixed(4)} 至 ${Math.max(...errors).toFixed(4)} 帧`);
@@ -75,6 +89,35 @@ test('从接触瞬态后的间隙量到主体首个样本，并检查余响', (t
       return lagMs;
     });
     t.diagnostic(`${name} 主体滞后 ${Math.min(...lags).toFixed(3)}–${Math.max(...lags).toFixed(3)} ms`);
+  }
+});
+
+test('金属每轮取遍四种音高，不以随机噪声冒充轮换', () => {
+  const voice = VOICES['foley.metal'];
+  for (let cycle = 0; cycle < 2; cycle++) {
+    const takes = new Set();
+    for (let slot = 0; slot < 4; slot++) {
+      const body = voice.make(seed, 4 * cycle + slot).left.subarray(voice.pcenter + 240, voice.pcenter + 4800);
+      const powers = [-0.75, -0.25, 0.25, 0.75].map((semitones) => {
+        const omega = 2 * Math.PI * 1170 * 2 ** (semitones / 12) / SAMPLE_RATE;
+        let re = 0, im = 0;
+        for (let i = 0; i < body.length; i++) { re += body[i] * Math.cos(i * omega); im += body[i] * Math.sin(i * omega); }
+        return re * re + im * im;
+      });
+      takes.add(powers.indexOf(Math.max(...powers)));
+    }
+    assert.equal(takes.size, 4, `第 ${cycle + 1} 轮缺少材质变体`);
+  }
+});
+
+test('金属尾段保有独立余响的能量', () => {
+  const voice = VOICES['foley.metal'];
+  for (let callIdx = 0; callIdx < 8; callIdx++) {
+    const { left } = voice.make(seed, callIdx);
+    // 末尾 30 至 3 ms 的腔体单独衰减到约 −68 dBFS，叠加余响后约 −64 dBFS。
+    const tail = left.subarray(left.length - 1440, left.length - 144);
+    const power = tail.reduce((sum, v) => sum + v * v, 0) / tail.length;
+    assert.ok(10 * Math.log10(power) > -66, `第 ${callIdx + 1} 次触发缺少金属余响`);
   }
 });
 

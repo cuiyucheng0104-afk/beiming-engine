@@ -108,6 +108,8 @@
 
 ### Fixed
 
+- 修复脚步与衣料拟音连续触发时母带响度不足，以及四种拟音每四次触发逐位复读的问题；原有非拟音音色与母带算法不变。流式编码不再发布空输入成片；注入输出端工厂时，参数错误也通过 Promise 返回（#84）。
+
 - `beiming/api/pipeline.mjs` 长镜头颜色层转 EXR 分批喂入 FFmpeg 管道：将单镜整段 `gbrapf32le` 浮点缓冲拼接改为按不超过 `256 MiB` 一批（`-start_number` 续接）分块送入 `spawnSync`，消除 1080p/4K 多秒长镜头超过 libuv `INT32_MAX`（约 `2 GiB`）管道上限导致的 `EINVAL` 报错并大幅降低终渲峰值内存。
 - 音频终局闭环合入后的审计修复（Refs #64）：`HDRMixer` 直调 `set_dialogue()` 时不再走 legacy 分轨导出，`vo` 分轨照常做真峰值限幅（无对白脚本逐样本不变）；`music_gen --ssh` 主机名以 `-` 开头或含空白时按 usage 错误（退出码 2）拒绝，并在 ssh 命令里 host 前加 `--`；`audio.dialogue` 检查跳过采样率不符的伴奏分轨时关闭其文件句柄；出片链 `mix` 步骤的缓存键加入档位，换响度目标档位不再复用旧 `audio/qa.json`；`_check_masking` 去掉等价的冗余条件。
 - 离屏出片的 NVENC `--cq` 被截顶：不给 `-maxrate` 时 NVENC 按分辨率自动选 Level（1080p24 是 4.0）并按它的最大码率封顶（本机约 22–25 Mbps），cq 低于约 18 全部输出相同。Fast / 显式 nvenc 现给 `-maxrate 240M -bufsize 240M`（原先 480M 超过 H.264 High@5.1 MaxCPB）并强制 `-profile:v high`，Level 升到 5.1（在 `master-1080p24` 与 `uhd-2160p24` 允许的范围内）。默认 cq18 的《化鹏闪羽》1080p 从 17.1 Mbps、VMAF 约 92.5 变为 24.9 Mbps、VMAF 94.35；cq6 为 106.9 Mbps、VMAF 97.60（x264 crf14 是 88.3 Mbps、96.58）。D 路线 `tools/film/lib/pathtrace-steps.mjs` 的 NVENC 参数是同一写法（限定 Level 4.1），没有改。

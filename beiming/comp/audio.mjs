@@ -178,25 +178,26 @@ export function mixEvents(input, { bed: bedKind = 'silence', tracks = [], mode =
   const length = filmSamples(events.frames, events.fps);
   const mix = bed(mode === 'track' ? 'silence' : bedKind, length);
   const placements = [];
-  const cache = new Map();
-  const turns = new Map();
+  const fixedTakes = new Map();
+  const calls = new Map();
   for (const e of mode === 'track' ? [] : events.events) {
     if (!e.audio) continue;
     if (!Object.hasOwn(VOICES, e.audio)) throw bad(`事件 ${e.id} 要的音色 ${e.audio} 不在音色库里：只有 ${Object.keys(VOICES).join('、')}`);
     const voice = VOICES[e.audio];
-    const turn = turns.get(e.audio) ?? 0;
-    if (voice.variants) turns.set(e.audio, (turn + 1) % voice.variants);
-    const key = `${e.audio}:${turn}`;
-    if (!cache.has(key)) {
-      const samples = voice.make(seed, turn);
+    let take = fixedTakes.get(e.audio);
+    if (!take) {
+      const callIdx = calls.get(e.audio) ?? 0;
+      const samples = voice.make(seed, callIdx);
       let peak = 0;
       if (alignment === 'peak') {
         const level = (i) => Math.max(Math.abs(samples.left[i]), Math.abs(samples.right[i]));
         for (let i = 1; i < samples.left.length; i++) if (level(i) > level(peak)) peak = i;
       }
-      cache.set(key, { samples, peak });
+      take = { samples, peak };
+      if (voice.variants) calls.set(e.audio, callIdx + 1);
+      else fixedTakes.set(e.audio, take);
     }
-    const { samples, peak } = cache.get(key);
+    const { samples, peak } = take;
     const sync = alignment ?? e.sync;
     const sample = eventSample(e.frame, e.sub, events.fps);
     const start = sample - (sync === 'peak' ? peak : voice[sync]);
