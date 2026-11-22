@@ -18,3 +18,20 @@ node beiming/api/cli.mjs serve --data-dir .beiming-api --port 8080
 `runHandsOnAgent` 通过唯一的 `http_request` 工具操作 API。用 `BEIMING_AGENT_ENDPOINT`、`BEIMING_AGENT_MODEL`、`BEIMING_AGENT_API_KEY` 配置模型，并用 `ledgerPath` 指定外部用量账本。视觉审片使用对应的 `BEIMING_REVIEW_*` 配置，服务端将其用量写入数据目录的 `external-ledger.jsonl`。
 
 合同与预算见 [OpenAPI](./openapi.json)。修改合同后运行 `node beiming/api/contract.mjs --write`，然后运行 `node --test beiming/api/api.test.mjs`。冻结信封与诊断口径见[信封契约](../kernel/contracts/envelope/CONTRACT.md)和[错误码表](../kernel/contracts/errors/CONTRACT.md)。
+
+## 命令行薄壳与 MCP 薄壳
+
+两个薄壳都由合同 `ROUTES` 生成，动词名就是 `operationId`（`guide`、`films-create`、`film-put` 等），只经 HTTP 调服务。服务地址取 `--url` 或 `BEIMING_API_URL`（默认 `http://127.0.0.1:8080`），令牌取 `--token` 或 `BEIMING_API_TOKEN`。
+
+```sh
+node beiming/api/cli.mjs --list-verbs
+node beiming/api/cli.mjs film-put --help
+node beiming/api/cli.mjs films-create --json '{"template":"turntable"}'
+node beiming/api/cli.mjs render --id f_001 --wait 30 --json '{"tier":"draft"}'
+node beiming/api/cli.mjs artifacts --id f_001 --name contact.png --out contact.png
+node beiming/api/cli.mjs mcp --url http://127.0.0.1:8080 --token <账户令牌>
+```
+
+命令行里路径参数和查询参数是同名选项，请求体用 `--json` 或 `--body-file`（`film-files` 用 `--text`，`film-assets` 可用 `--file` 直接上传网格）。标准输出是一行信封。退出码按错误码前缀取：成功 0，`usage.` 2，`env.` 3（连不上服务也算），`contract.` 与 `auth.` 4，`busy.` 5，`timeout.` 124，其余 1。
+
+`mcp` 在 stdio 上把同一组动词提供成 MCP 工具，入参是路径参数、查询参数和 `body`。建片交回的工作区令牌与作业归属会自动记住。`artifacts` 取到的 PNG、JPEG、WebP、GIF，以及 `observe-sheet` 等信封 `outputs` 里的图片，直接以图片内容返回；其他二进制只回字节数与 SHA-256。入参规则、令牌选择、图片上限与程序接口见 [DETAILS.md](./DETAILS.md)。
