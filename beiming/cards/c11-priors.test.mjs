@@ -177,7 +177,7 @@ test('可移植量的值精确出现在它的原文片段里，片段出自条�
       const pair = e.value !== null && typeof e.value === 'object' && !Array.isArray(e.value);
       if (pair) {
         assert.deepEqual(Object.keys(e.value), ['first', 'second'], e.id);
-        assert.match(piece, /[\d.]\s*[\/、]\s*[−\-.\d]/, `${e.id}：并列取值的片段里要有斜线或顿号`);
+        assert.match(piece, /[\d.]\s*[/、]\s*[−\-.\d]/, `${e.id}：并列取值的片段里要有斜线或顿号`);
       }
       const vals = pair ? Object.values(e.value) : [e.value].flat();
       for (const v of vals) {
@@ -235,7 +235,7 @@ test('零原包源码路径、文件名与内部编号：12 份 JSON 与加载�
     dataPath: /\b[\w.-]+\/[\w*.-]+\.(?:json|ya?ml|tsv|csv|txt)\b/,
     dataFile: /(?<![\w.-])(?!(?:arch-scene|motion-rig|light-cam)\.)[\w*-]+\.(?:json|ya?ml|tsv|csv|txt)\b/,
     doc: /\.md\b|下载\/|原文\/|清单\//,
-    wikilink: /\[\[(?:#|复刻|清单|指引|[^\]\[,]*\|)/,
+    wikilink: /\[\[(?:#|复刻|清单|指引|[^\][,]*\|)/,
     internalId: /\b(?:RP|TN|FX|MT|CH|AU)-\d+/,
     listId: /(?<![A-Za-z0-9_.])[gr]\d{1,2}[ab]?-[a-z]/,
     bareChapter: /§/,
