@@ -327,6 +327,19 @@ const MUTATIONS = [
   ['15-2-shift-2f', '预期没过的判分线写了两遍', (c) => { c.expectedFailedMetrics[1] = { ...c.expectedFailedMetrics[0] }; }, RangeError],
   ['18-2-shift-2f', '少一栏', (c) => { delete c.description; }, TypeError],
   ['18-2-shift-2f', '多一栏', (c) => { c.note = '多出来的'; }, RangeError],
+  // 二审的三项：每份只认登记的那组卡、那组参数，故障种类不能互相冒充
+  ['18-2-disable-card', '关的卡换成题面里另一张不相干的卡', (c) => { c.disabledCards = ['time.narration']; }, RangeError],
+  ['18-2-disable-card', '关卡的那份其实做的是错位 2 帧', (c) => { c.perturbation = { moveShiftFrames: 2 }; }, RangeError],
+  ['18-2-disable-card', '关卡的那份混进错位（把一次运镜推出片外）', (c) => { c.perturbation.moveShiftFrames = 100; }, RangeError],
+  // 同一类口子的其余写法
+  ['18-2-disable-card', '关的卡多点一张', (c) => { c.disabledCards.push('time.narration'); }, RangeError],
+  ['18-2-disable-card', '同一张卡点两遍', (c) => { c.disabledCards.push('camera.cue-kf'); }, RangeError],
+  ['18-1-disable-card', '关的卡少点一张', (c) => { c.disabledCards.pop(); }, RangeError],
+  ['5-1-disable-card', '关掉对位却还带着拉伸', (c) => { c.perturbation.stretch = 1.02; }, RangeError],
+  ['15-2-disable-card', '关卡的那份其实做的是锁机位晚生效', (c) => { c.perturbation = { lockShiftFrames: 2 }; }, RangeError],
+  ['18-2-shift-2f', '错位的方向反了（登记的是晚 2 帧）', (c) => { c.perturbation.moveShiftFrames = -2; }, RangeError],
+  ['18-2-shift-2f', '错位的那份其实做的是关卡', (c) => { c.perturbation = { moveTrigger: 'on-cue' }; }, RangeError],
+  ['18-1-random-beats', '随机拍点的那份混进错位', (c) => { c.perturbation.subtitleShiftFrames = 2; }, RangeError],
 ];
 
 test('B6-8 正式入口先验夹具再量：类型不对、缺栏、没登记的 id、空改动都直接抛错，不出 0 分也不出满分', () => {
@@ -344,6 +357,9 @@ test('B6-8 正式入口先验夹具再量：类型不对、缺栏、没登记的
     ['18-1-disable-card', (c) => { c.expectedFailedMetrics.pop(); }],
     ['18-1-shift-2f', (c) => { c.expectedFailedMetrics[0].scoring = 2; }],
     ['5-1-disable-card', (c) => { delete c.perturbation.stretch; }],
+    // 没过的判分线和夹具写的一样，但读数不是「这张卡关掉了」的样子（关得不全）：同样记 false
+    ['5-1-disable-card', (c) => { delete c.perturbation.offsetSec; }],
+    ['18-1-disable-card', (c) => { delete c.perturbation.pageCanvas; c.expectedFailedMetrics.pop(); }],
   ]) {
     const control = structuredClone(loadControl(id));
     mutate(control);
@@ -367,6 +383,30 @@ test('B6-8 正式入口先验夹具再量：类型不对、缺栏、没登记的
   // 参数类型都对、但大到把事件挪出片外：量回来是空的，不交给判分（否则「一次也没量到」会被记成「判分线拦住了」）
   assert.throws(() => evaluatePerturbedModel('18-2', { moveShiftFrames: 100000 }), RangeError);
   assert.throws(() => evaluatePerturbedModel('18-1', { subtitleShiftFrames: 100000 }), RangeError);
+});
+
+test('B6-9 每次核验互不相干：改坏一次实验回来的参数和读数、改坏导出的清单，后面的正对照和负对照照旧', () => {
+  // 二审的反例：把实验回来的淡出帧数表原地清零，正对照不能跟着掉分
+  evaluatePerturbedModel('18-1', {}).params.sceneFadeFrames.fill(0);
+  assert.equal(buildPositiveBaseline('18-1').verdict.score, 1);
+  const again = evaluateNegativeControl('18-1-disable-card');
+  assert.deepEqual([again.verdict.pass, again.failedAsDeclared], [false, true]);
+  // 四道题一个口径：回来的参数、读数每个叶子都改成 0，再量一遍正对照，读数逐字不变
+  const scribble = (value) => { for (const key of Object.keys(value)) { if (value[key] !== null && typeof value[key] === 'object') scribble(value[key]); else value[key] = 0; } };
+  for (const qid of B6_QUESTION_IDS) {
+    const { params, readings } = evaluatePerturbedModel(qid, {});
+    scribble(params); scribble(readings);
+    assert.equal(JSON.stringify(buildPositiveBaseline(qid).readings), JSON.stringify(POSITIVE[qid].readings), qid);
+  }
+  // 正式入口回来的参数是另一份：改它动不到调用方手里的夹具，也动不到下一次核验
+  const control = structuredClone(loadControl('18-1-disable-card')), judged = evaluateNegativeControl(control);
+  judged.params.sceneFadeFrames.fill(9); scribble(judged.readings);
+  assert.deepEqual(control.perturbation.sceneFadeFrames, [0, 0, 0, 0]);
+  assert.equal(JSON.stringify(evaluateNegativeControl(control).readings), JSON.stringify(resultOf('18-1-disable-card').readings));
+  // 导出的题号和种类清单改不动
+  assert.throws(() => B6_QUESTION_IDS.push('7-1'), TypeError);
+  assert.throws(() => B6_NEGATIVE_KINDS.pop(), TypeError);
+  assert.deepEqual(evaluateAllB6Negatives().map(({ control: { id } }) => id), CONTROL_IDS);
 });
 
 /* ---------------- 泄露与专名 ---------------- */

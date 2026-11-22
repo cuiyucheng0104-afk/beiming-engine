@@ -2,8 +2,9 @@
 // 每道题一个小的参数化信号模型（包络、逐帧低频电平、旁白电平、灰度帧、彩色帧、逐帧相机矩阵），都在题目自己的 deliverable 时间线上现造；
 // 读数全部从造出来的信号量回来（observe 的对位、切点、缩放平移、主色，加本文件几个照题面口径写的小检测器），不手填。
 // 正对照是模型的默认参数；负对照只把同目录夹具 <题号>-<种类>.json 里 perturbation 写的参数换掉，别的一概不动，再交给 evaluate-b4 的正式 score（不传第三个参数）。
-// 入口分两个：evaluateNegativeControl 是正式核验，夹具先过 validateNegativeControl（栏位、类型、id、改动是否有效）再量；evaluatePerturbedModel 是模型实验（撤销改动、反向错位、换种子），
+// 入口分两个：evaluateNegativeControl 是正式核验，夹具先过 validateNegativeControl（栏位、类型、id，关的卡和改的参数照 CONTROLS 逐份对）再量；evaluatePerturbedModel 是模型实验（撤销改动、反向错位、换种子），
 // 参数同样验类型。两个入口量回来的读数有空数组或非有限数时都直接抛错，不交给判分。
+// 每次核验互不相干：本文件的常量表都冻住，回给调用方的参数和读数是另拷的一份，改它动不到下一次核验。
 // 没有原片媒体和题目资产：配乐、旁白、画面都是确定性的合成信号，只用来核「判分线拦不拦得住这三种错」，不是做题。
 // 15-2 的逐帧相机矩阵是帧元数据，由模型的机位直接写出，不经检测器；别的读数都是从信号里检测出来的。
 // 「关卡」的口径：题面 needs 里的 audio.align、camera.cue-kf、camera.drift、page.det2d 四张卡还没入库，没有卡文件可对；
@@ -14,8 +15,12 @@ import { telemetry } from '../../../observe/index.mjs';
 import { parseFps } from '../../../verify/predicates.mjs';
 import { median, readBaseShare, readLock, readMoveStarts, readMusicAlign, score } from '../../questions/level-2-b/evaluate-b4.mjs';
 
-export const B6_QUESTION_IDS = ['5-1', '18-1', '18-2', '15-2'];
-export const B6_NEGATIVE_KINDS = ['disable-card', 'shift-2f', 'random-beats'];
+const deepFreeze = (value) => {
+  if (value !== null && typeof value === 'object') Object.values(value).forEach(deepFreeze);
+  return Object.freeze(value);
+};
+export const B6_QUESTION_IDS = deepFreeze(['5-1', '18-1', '18-2', '15-2']);
+export const B6_NEGATIVE_KINDS = deepFreeze(['disable-card', 'shift-2f', 'random-beats']);
 export const B6_FORMAT = 'bench-negative/0.1';
 
 const json = (relative) => JSON.parse(readFileSync(new URL(relative, import.meta.url), 'utf8'));
@@ -118,8 +123,8 @@ function changeRuns(series) {
 // 题目自带配乐的替身：30.04 秒，十下低频重击（配乐自己的时间，秒）。最后一下在 25.83 秒，原样铺上去落在第 620 帧，离第 624 帧的硬切 4 帧；
 // 拉伸 1.009、平移 −0.02 秒之后落在第 625 帧（离硬切 1 帧，和题面写的参考读数一个量级）。偏晚还是偏早是任选的：
 // 容差就是 2 帧，错位 2 帧拦不拦得住只看正对照原来偏在哪一边（正好压在硬切上时两边都拦不住），所以只有偏晚的那一份负对照。
-const TRACK = { sec: 30.04, hitsSec: [1.46, 4.18, 6.94, 9.62, 12.38, 15.14, 17.86, 20.62, 23.34, 25.83], cutFrame: 624, noise: 0.333 };
-const BASE_5_1 = { stretch: 1.009, offsetSec: -0.02, audioShiftFrames: 0, hitTrigger: 'track', seed: null };
+const TRACK = deepFreeze({ sec: 30.04, hitsSec: [1.46, 4.18, 6.94, 9.62, 12.38, 15.14, 17.86, 20.62, 23.34, 25.83], cutFrame: 624, noise: 0.333 });
+const BASE_5_1 = deepFreeze({ stretch: 1.009, offsetSec: -0.02, audioShiftFrames: 0, hitTrigger: 'track', seed: null });
 
 function measure51(q, p) {
   const fps = fpsOf(q), { frames } = q.deliverable;
@@ -156,12 +161,12 @@ function measure51(q, p) {
 /* ---------------- 18-1：旁白讲解场景的版式与字幕节奏 ---------------- */
 
 // 题目自带旁白的替身：五个场景各 6 秒，每场两句；[起声, 收声] 是离场景起点的秒。句间停顿 0.4 秒以上，场景首尾各留 0.4 秒以上
-const NARRATION = { sceneFrames: 180, sentences: [
+const NARRATION = deepFreeze({ sceneFrames: 180, sentences: [
   [[0.52, 2.71], [3.14, 5.48]], [[0.46, 2.35], [2.88, 5.55]], [[0.61, 2.93], [3.37, 5.51]], [[0.43, 2.48], [3.05, 5.44]], [[0.5, 2.8], [3.26, 5.47]],
-] };
-const PAGE = { size: [80, 45], bandRows: 9, base: '#F4F0E9', text: '#1A1714', plain: '#7F8790',
-  content: ['#3C6C9C', '#B95348', '#2F7D5B', '#8A5FA8', '#C28A2E'], contentBox: [34, 18] };
-const BASE_18_1 = { subtitleTrigger: 'narration', subtitleShiftFrames: 0, sceneFadeFrames: [3, 4, 3, 4], pageCanvas: true, seed: null };
+] });
+const PAGE = deepFreeze({ size: [80, 45], bandRows: 9, base: '#F4F0E9', text: '#1A1714', plain: '#7F8790',
+  content: ['#3C6C9C', '#B95348', '#2F7D5B', '#8A5FA8', '#C28A2E'], contentBox: [34, 18] });
+const BASE_18_1 = deepFreeze({ subtitleTrigger: 'narration', subtitleShiftFrames: 0, sceneFadeFrames: [3, 4, 3, 4], pageCanvas: true, seed: null });
 const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
 function measure181(q, p) {
@@ -221,8 +226,8 @@ function measure181(q, p) {
 /* ---------------- 18-2：旁白触发词驱动的地图快速运镜 ---------------- */
 
 // 题目自带旁白的替身：三句，后两句的起声就是两个命名触发点（第 240、546 帧）。每次快速运镜 45 帧、每帧横移 2 像素，别的时候机位不动
-const MAP = { sentences: [[1, 6.4], [8, 12.9], [18.2, 19.6]], cueSentence: { cue_a: 1, cue_b: 2 }, size: [64, 36], moveFrames: 45, pxPerFrame: 2 };
-const BASE_18_2 = { moveTrigger: 'cue-minus-lead', moveShiftFrames: 0, seed: null };
+const MAP = deepFreeze({ sentences: [[1, 6.4], [8, 12.9], [18.2, 19.6]], cueSentence: { cue_a: 1, cue_b: 2 }, size: [64, 36], moveFrames: 45, pxPerFrame: 2 });
+const BASE_18_2 = deepFreeze({ moveTrigger: 'cue-minus-lead', moveShiftFrames: 0, seed: null });
 
 function measure182(q, p) {
   const fps = fpsOf(q), { frames } = q.deliverable, args = q.scoring[0].args;
@@ -240,9 +245,9 @@ function measure182(q, p) {
 
 // 相机：平移按像素记，换进世界矩阵的平移分量；推近乘在投影矩阵的两个焦距分量上。画面照同一组数变换，画面里的东西自己在动（noise）。
 // preLockPanPx 是模型的假设：锁机位生效之前机位在别处，横向差 2 像素。锁死的机位本身整体错位几帧都看不出来，「错位 2 帧」拦得住靠的是这个假设
-const LOCK = { size: [216, 122], noise: 10, pxToWorld: 0.01, drift: { scale: 1.02, dx: -5, dy: 2 }, preLockPanPx: 2, beats: 6,
-  world: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1.2, 4, 1], proj: [1.3, 0, 0, 0, 0, 2.3, 0, 0, 0, 0, -1.002, -1, 0, 0, -0.2, 0] };
-const BASE_15_2 = { cameraPath: 'locked', lockShiftFrames: 0, seed: null };
+const LOCK = deepFreeze({ size: [216, 122], noise: 10, pxToWorld: 0.01, drift: { scale: 1.02, dx: -5, dy: 2 }, preLockPanPx: 2, beats: 6,
+  world: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1.2, 4, 1], proj: [1.3, 0, 0, 0, 0, 2.3, 0, 0, 0, 0, -1.002, -1, 0, 0, -0.2, 0] });
+const BASE_15_2 = deepFreeze({ cameraPath: 'locked', lockShiftFrames: 0, seed: null });
 
 function measure152(q, p) {
   const { frames } = q.deliverable, args = argsOf(q, (a) => a.pairs !== undefined), last = frames - 1;
@@ -270,9 +275,9 @@ function measure152(q, p) {
 /* ---------------- 正对照与负对照 ---------------- */
 
 // 几个选做法的参数只认这些值；写错的值报错，不落进哪个默认分支
-const MODES = { hitTrigger: ['track', 'random-beats'], subtitleTrigger: ['narration', 'fixed-interval', 'random-beats'],
-  moveTrigger: ['cue-minus-lead', 'on-cue', 'random-beats'], cameraPath: ['locked', 'drift', 'random-beats'] };
-const MODELS = { '5-1': [BASE_5_1, measure51], '18-1': [BASE_18_1, measure181], '18-2': [BASE_18_2, measure182], '15-2': [BASE_15_2, measure152] };
+const MODES = deepFreeze({ hitTrigger: ['track', 'random-beats'], subtitleTrigger: ['narration', 'fixed-interval', 'random-beats'],
+  moveTrigger: ['cue-minus-lead', 'on-cue', 'random-beats'], cameraPath: ['locked', 'drift', 'random-beats'] });
+const MODELS = deepFreeze({ '5-1': [BASE_5_1, measure51], '18-1': [BASE_18_1, measure181], '18-2': [BASE_18_2, measure182], '15-2': [BASE_15_2, measure152] });
 
 const isPlain = (value) => value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype;
 const typeName = (value) => (value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value);
@@ -316,8 +321,9 @@ export function measure(questionId, perturbation = {}, seed = null) {
   checkPerturbation(questionId, perturbation);
   const [base, run] = MODELS[questionId];
   checkSeed(Object.values(perturbation).includes('random-beats'), seed);
-  const params = { ...base, ...perturbation, seed };
-  return { params, readings: run(loadQuestion(questionId), params) };
+  // 参数先深拷一份再量（不和默认值、调用方的夹具共用数组），回去的参数和读数再拷一份：调用方怎么改都动不到下一次核验
+  const params = globalThis.structuredClone({ ...base, ...perturbation, seed });
+  return globalThis.structuredClone({ params, readings: run(loadQuestion(questionId), params) });
 }
 // 读数要量全了才交给判分：对象和数组都非空，叶子都是有限数。参数大到把事件挪出片外时量回来是空的，那是没量到，不能记成判分线拦住了
 function assertMeasured(value, path) {
@@ -336,6 +342,53 @@ export function evaluatePerturbedModel(questionId, perturbation = {}, seed = nul
 /** 正对照：默认参数的信号，量出读数，过正式判分 */
 export const buildPositiveBaseline = (questionId) => evaluatePerturbedModel(questionId);
 
+/* ---------------- 12 份负对照各自的口径 ---------------- */
+
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const kept = (r, base, pick) => same(pick(r), pick(base));
+const later = (frames, by) => frames.map((frame) => frame + by);
+// 随机拍点的记号：个数和正对照一样，但不是正对照整体挪了几帧（各个记号离正对照的距离不全相同）
+const scattered = (marks, baseMarks) => marks.length === baseMarks.length && new Set(marks.map((mark, i) => Math.round((mark - baseMarks[i]) * 1e6))).size > 1;
+const moved = ({ scale, dx, dy }) => scale !== 1 || dx !== 0 || dy !== 0;
+// 机位变了的帧号（和前一帧的相机矩阵不同）：缓推是每一帧，晚锁是一处，随机拍点是拍点那几处
+const steps = (cameras) => cameras.flatMap((cam, k) => (k > 0 && !same(cam, cameras[k - 1]) ? [k] : []));
+const HIT = 'beat.onset-hit', ALIGN = 'music.align', TIMING = 'narration.timing', PALETTE = 'color.palette', CAMERA = 'meta.camera-static', ZOOM = 'motion.zoom-pan';
+const cut = (x) => x[HIT].eventFrames, narration = (x) => [x[TIMING].onsetsSec, x[TIMING].leadSec, x[TIMING].tailSec], cues = (x) => x[TIMING].eventFrames;
+const scenes = (x) => [...narration(x), x[TIMING].fadeFrames];
+
+// 每份负对照登记三样，正式入口照它逐份对，故障种类不能互相冒充：
+// cards 是点名关掉的卡（另外两种不关卡），perturbation 是它改的参数和值，
+// trace(r, base, q) 是这一类故障在读数里该留下的痕迹（r 是这份的读数，base 是正对照的读数）。几种故障没过的常是同一条判分线，只对下标分不出谁是谁。
+const CONTROLS = deepFreeze({
+  '5-1-disable-card': { cards: ['audio.align'], perturbation: { stretch: 1, offsetSec: 0 },
+    trace: (r, base) => r[ALIGN].stretch === 1 && r[ALIGN].offsetSec === 0 && kept(r, base, cut) },
+  '5-1-shift-2f': { cards: [], perturbation: { audioShiftFrames: 2 },
+    trace: (r, base) => same(r[HIT].markFrames, later(base[HIT].markFrames, 2)) && kept(r, base, cut) },
+  '5-1-random-beats': { cards: [], perturbation: { hitTrigger: 'random-beats' },
+    trace: (r, base) => scattered(r[HIT].markFrames, base[HIT].markFrames) && kept(r, base, cut) && kept(r, base, (x) => x[ALIGN].stretch) },
+  // 字幕等间隔出、四处边界都不淡出、每场的底色占比都掉到线下；旁白和留白没动
+  '18-1-disable-card': { cards: ['time.narration', 'overlay.subs', 'page.det2d'], perturbation: { subtitleTrigger: 'fixed-interval', sceneFadeFrames: [0, 0, 0, 0], pageCanvas: false },
+    trace: (r, base, q) => r[TIMING].appearSec.every((at, i, all) => i < 2 || Math.abs(at - 2 * all[i - 1] + all[i - 2]) < 1e-9) && r[TIMING].fadeFrames.every((frames) => frames === 0)
+      && r[PALETTE].shares.every((share) => share < argsOf(q, (a) => a.share !== undefined).share[0]) && kept(r, base, narration) },
+  '18-1-shift-2f': { cards: [], perturbation: { subtitleShiftFrames: 2 },
+    trace: (r, base, q) => r[TIMING].appearSec.length === base[TIMING].appearSec.length && r[TIMING].appearSec.every((at, i) => Math.abs(at - base[TIMING].appearSec[i] - 2 / fpsOf(q)) < 1e-9) && kept(r, base, scenes) },
+  '18-1-random-beats': { cards: [], perturbation: { subtitleTrigger: 'random-beats' },
+    trace: (r, base) => scattered(r[TIMING].appearSec, base[TIMING].appearSec) && kept(r, base, scenes) },
+  // 两次运镜一次不少：起在触发词上、各晚 2 帧、或者换了地方；触发词没动
+  '18-2-disable-card': { cards: ['camera.cue-kf'], perturbation: { moveTrigger: 'on-cue' },
+    trace: (r, base) => same(r[TIMING].markFrames, cues(r)) && kept(r, base, cues) },
+  '18-2-shift-2f': { cards: [], perturbation: { moveShiftFrames: 2 },
+    trace: (r, base) => same(r[TIMING].markFrames, later(base[TIMING].markFrames, 2)) && kept(r, base, cues) },
+  '18-2-random-beats': { cards: [], perturbation: { moveTrigger: 'random-beats' },
+    trace: (r, base) => scattered(r[TIMING].markFrames, base[TIMING].markFrames) && !same(r[TIMING].markFrames, cues(r)) && kept(r, base, cues) },
+  '15-2-disable-card': { cards: ['camera.drift'], perturbation: { cameraPath: 'drift' },
+    trace: (r) => steps(r[CAMERA].cameras).length === r[CAMERA].cameras.length - 1 && r[ZOOM].pairs.every(moved) && r[ZOOM].pairs.at(-1).scale > 1 },
+  '15-2-shift-2f': { cards: [], perturbation: { lockShiftFrames: 2 },
+    trace: (r) => same(steps(r[CAMERA].cameras), [2]) && r[ZOOM].pairs.every(({ scale, dx, dy }) => scale === 1 && Math.abs(dx) === LOCK.preLockPanPx && dy === 0) },
+  '15-2-random-beats': { cards: [], perturbation: { cameraPath: 'random-beats' },
+    trace: (r) => steps(r[CAMERA].cameras).length === LOCK.beats && r[ZOOM].pairs.every(({ scale }) => scale === 1) && r[ZOOM].pairs.some(moved) },
+});
+
 const CONTROL_FIELDS = ['format', 'id', 'questionId', 'kind', 'disabledCards', 'seed', 'description', 'perturbation', 'expectedFailedMetrics'];
 const nonEmptyText = (value, name) => {
   if (typeof value !== 'string') throw new TypeError(`${name} 要是字符串，给的是 ${typeName(value)}`);
@@ -344,9 +397,10 @@ const nonEmptyText = (value, name) => {
 
 /**
  * 一份负对照夹具的入口校验，过了原样回夹具，不过就抛错（类型不对 TypeError，值不收 RangeError）：
- * 九栏不多不少；format、题号、种类认识，id 就是「题号-种类」；关卡的那份点名关了题面 needs 里的卡，别的不关卡；
- * perturbation 过模型的参数校验，至少改一个参数，每个都真的和正对照不同；错位的那份只改一个 ShiftFrames 参数、值是 2；
- * 随机拍点的那份只把一个做法换成随机拍点、带整数种子，别的不带种子；预期没过的判分项下标和指标名对得上题面，不重复。
+ * 九栏不多不少；format、题号、种类认识，id 就是「题号-种类」；关的卡和改的参数照 CONTROLS 里这一份登记的对：
+ * disabledCards 正好是登记的那几张（别的种类是空数组）；perturbation 过模型的参数校验，至少改一个参数，参数和值都是登记的
+ * （错位的那份就是那一个 ShiftFrames 参数晚 2 帧，随机拍点的那份就是那一个做法换成随机拍点，关卡的那份可以只带登记的一部分）；
+ * 随机拍点带整数种子，别的不带种子；预期没过的判分项下标和指标名对得上题面，不重复。
  */
 export function validateNegativeControl(control) {
   if (!isPlain(control)) throw new TypeError(`负对照夹具要是普通对象，给的是 ${typeName(control)}`);
@@ -358,17 +412,18 @@ export function validateNegativeControl(control) {
   if (!B6_QUESTION_IDS.includes(questionId) || !B6_NEGATIVE_KINDS.includes(kind) || id !== `${questionId}-${kind}`) throw new RangeError(`没有登记这份负对照：${String(id)}（题号 ${String(questionId)}，种类 ${String(kind)}）`);
   const q = loadQuestion(questionId);
   if (!Array.isArray(disabledCards) || !Array.from(disabledCards).every((card) => typeof card === 'string')) throw new TypeError(`${id} 的 disabledCards 要是字符串数组`);
-  if (kind === 'disable-card' ? !disabledCards.length || !disabledCards.every((card) => q.needs.includes(card)) : disabledCards.length) throw new RangeError(`${id} 的 disabledCards：关卡的那份要点名题面 needs 里的卡，别的种类是空数组`);
+  const rule = CONTROLS[id];
+  if (!same([...disabledCards].sort(), [...rule.cards].sort())) throw new RangeError(`${id} 的 disabledCards 只认 ${JSON.stringify(rule.cards)}：关卡的那份点名它关的卡，不多不少，别的种类是空数组`);
   nonEmptyText(description, `${id} 的 description`);
 
   checkPerturbation(questionId, perturbation);
-  const changed = Object.entries(perturbation), [base] = MODELS[questionId], usesRandomBeats = changed.some(([, value]) => value === 'random-beats');
+  const changed = Object.entries(perturbation);
   if (!changed.length) throw new RangeError(`${id} 的 perturbation 是空的，没写改了哪个参数`);
-  const unchanged = changed.filter(([key, value]) => JSON.stringify(value) === JSON.stringify(base[key])).map(([key]) => key);
-  if (unchanged.length) throw new RangeError(`${id} 的这些参数和正对照一样，等于没改：${unchanged.join('、')}`);
-  if (kind === 'shift-2f' && !(changed.length === 1 && changed[0][0].endsWith('ShiftFrames') && changed[0][1] === 2)) throw new RangeError(`${id} 只能把一个 ShiftFrames 参数改成 2`);
-  if (kind === 'random-beats' ? !(changed.length === 1 && usesRandomBeats) : usesRandomBeats) throw new RangeError(`${id}：随机拍点的那份只把一个做法换成 random-beats，别的种类不用随机拍点`);
-  checkSeed(usesRandomBeats, seed);
+  // 参数和值只认登记的那一组。错位、随机拍点各只有一个参数，必须就是它；关卡的那份可以只带其中几个（关得不全，照量照判，failedAsDeclared 是 false）
+  if (!changed.every(([key, value]) => Object.hasOwn(rule.perturbation, key) && same(value, rule.perturbation[key])) || (kind !== 'disable-card' && changed.length !== Object.keys(rule.perturbation).length)) {
+    throw new RangeError(`${id} 的 perturbation 只认 ${JSON.stringify(rule.perturbation)}${kind === 'disable-card' ? '（可以只带其中几个）' : ''}，别的参数、别的值不是这一类故障`);
+  }
+  checkSeed(kind === 'random-beats', seed);
 
   if (!Array.isArray(expectedFailedMetrics) || !Array.from(expectedFailedMetrics).every(isPlain)) throw new TypeError(`${id} 的 expectedFailedMetrics 要是对象的数组`);
   if (!expectedFailedMetrics.length) throw new RangeError(`${id} 的 expectedFailedMetrics 是空的`);
@@ -384,14 +439,16 @@ export function validateNegativeControl(control) {
 
 /**
  * 正式的负对照核验（夹具对象或登记过的 id）：先过 validateNegativeControl，再在正对照的信号上只换夹具 perturbation 里的参数，量出读数，过正式判分。
- * failedAsDeclared：没过的判分项是不是正好就是夹具 expectedFailedMetrics 写的那几条。对不上不抛错（判分线挪了、模型改了都会这样，那是要看的结果，不是坏输入），
- * 统计「拦住了几份」的调用方只数 verdict.pass === false 且 failedAsDeclared 的。
+ * failedAsDeclared：没过的判分项正好就是夹具 expectedFailedMetrics 写的那几条，而且读数里留着这一类故障的痕迹（CONTROLS 的 trace，对着同一次现量的正对照读数看）。
+ * 对不上不抛错（判分线挪了、模型改了、卡关得不全都会这样，那是要看的结果，不是坏输入），统计「拦住了几份」的调用方只数 verdict.pass === false 且 failedAsDeclared 的。
  */
 export function evaluateNegativeControl(controlOrId) {
   const control = typeof controlOrId === 'string' ? loadControl(controlOrId) : validateNegativeControl(controlOrId);
   const judged = evaluatePerturbedModel(control.questionId, control.perturbation, control.seed);
   const failed = judged.verdict.items.flatMap((item, index) => (item.pass ? [] : [index]));
-  return { control, ...judged, failedAsDeclared: failed.join() === control.expectedFailedMetrics.map(({ scoring }) => scoring).sort((a, b) => a - b).join() };
+  const failedAsDeclared = failed.join() === control.expectedFailedMetrics.map(({ scoring }) => scoring).sort((a, b) => a - b).join()
+    && CONTROLS[control.id].trace(judged.readings, measure(control.questionId).readings, loadQuestion(control.questionId));
+  return { control, ...judged, failedAsDeclared };
 }
 
 export const evaluateAllB6Negatives = () => B6_QUESTION_IDS.flatMap((id) => B6_NEGATIVE_KINDS.map((kind) => evaluateNegativeControl(`${id}-${kind}`)));
