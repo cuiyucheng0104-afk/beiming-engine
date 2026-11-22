@@ -412,3 +412,19 @@ test('audio.event-mix：前面是静音的声音从它第一个采样点起往�
   const loose = card({ onsetFloor: 0.3 }, { seed: 0 }), bed = [Float32Array.from({ length: 72000 }, (_, i) => 0.03 * Math.sin((2 * Math.PI * 600 * i) / RATE))];
   for (let d = 0; d < 240; d++) assert.equal(loose.onsets(loose.mix(events(d / 2000), { frames: 36, bed }).channels).filter((sample) => sample > 0).length, 5, `垫着底音，第二下在第 ${24000 + d} 个采样点`);
 });
+
+test('audio.event-mix：量过的采样点不量第二遍：一下声音落在步尾时，下一步接着上一个窗口的末尾量，不把同一下再量一遍、顶高全曲最大涨幅', () => {
+  // 十二审的反例：种子 6 的自带点击，门槛 1，第二下在第 24239 个采样点（那一步最后一个）。
+  // 下一步从第 24240 个采样点把同一下又量了一遍（少了点击的第一个采样点、多了第 241 个），涨幅比另外四下高出一丁点，成了全曲最大，另外四下全被门槛滤掉
+  const frames = [6, 12, 18, 24, 30];
+  for (const [audio, seed] of [['click', 6], ['click', 11], ['click', 26], ['kick', 0]]) {
+    const cards = [1, 0.99999].map((onsetFloor) => card({ onsetFloor }, { seed }));
+    for (let d = 0; d < 240; d++) {
+      const table = frames.map((frame, i) => ({ id: `c-${frame}`, frame, audio, ...(i === 1 && { sub: d / 2000 }) }));
+      const { channels, placements } = cards[0].mix(table, { frames: 36 }), name = `${audio}，种子 ${seed}，第二下在第 ${24000 + d} 个采样点`;
+      assert.equal(placements[1].sample, 24000 + d, name);
+      for (const c of cards) assert.deepEqual(c.onsets(channels), [12000, 24000, 36000, 48000, 60000], name);
+      assert.equal(cards[0].audit(channels, table.filter((_, i) => i !== 1), { frames: 36, toleranceFrames: 0 }).hits, 4, `${name}，没挪的四下一帧不差`);
+    }
+  }
+});
