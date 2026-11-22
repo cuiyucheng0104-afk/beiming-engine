@@ -32,6 +32,7 @@ export function build({ THREE, TSL, renderer, width, height, fps, pipeline }) {
   // 建场景、材质、后期；只在这里分配资源
   return {
     render(f) { /* 按整数帧号 f 作画，画到宿主当前的渲染目标 */ },
+    stateKey(f) { /* 可选：返回 string 时，yuv420p 相邻同键复用上一帧 YUV；null 不复用 */ },
     dispose() { /* 可选：释放 build 里建的资源 */ },
   };
 }
@@ -43,6 +44,10 @@ export function build({ THREE, TSL, renderer, width, height, fps, pipeline }) {
 - `pipeline(outputNode)` 是宿主给的后期管线工厂，返回 `RenderPipeline`，已关掉管线内的色彩输出变换（见 2.3）。作品不要自己 `new RenderPipeline`。
 - 时间只从 `f` 来：不用 TSL 的 `time` / `deltaTime`，不用 `Date.now`、`performance.now`、`Math.random`；随机一律 `engine/core/math.js` 的 `mulberry(种子)` 或 TSL `hash`。
 - `render(f)` 只画，不读回、不换渲染目标；宿主负责渲染目标、帧时钟与读回。
+- `stateKey?(f)`（可选，亦可在 `createFilm().work({ ..., stateKey })` 透传）：仅在 `yuv420p` 流水线读回下生效，RGBA 路径与缺省时完全走原路径。
+  - **跳过 `render` 与帧时钟**：相邻两帧命中相同键时，`frames.mjs` 直接跳过 `renderFrameYuv`（从而跳过 `work.render(f)` 与 `clock.tick`），复用上一帧已发起的 YUV 读回。因此 `stateKey(f)` 必须完整覆盖影响该帧画面的全部状态（含镜头切点、动画、墨线沸腾、颗粒换种与显示层），建议配合 `npm run determinism -- <作品> --renderer offscreen --seams` 核验。
+  - **键值语义**：返回任何 `string`（**空字符串 `""` 同样触发复用**）且与上一帧严格相等（`===`）即复用；返回 `null` 或非 `string` 不复用并打断连续缓存。
+  - **只读缓冲区约束**：复用帧与前帧共享同一份 `Uint8Array`，`renderFrames` / `renderFrameList` 的 `onFrame(f, pixels)` 回调收到的 `pixels` 为**只读视图**，调用方不得原地修改。
 
 ### 2.2 确定性帧时钟
 
@@ -475,10 +480,10 @@ npm run film -- build films/chendu --renderer offscreen --mode fast
 
 #### WP2.2 / WP2.3 / WP5（对 `main` `50665516`，交替 A/B 3 轮，非独占 GPU：ASR 占 2464 MiB、利用率 8%–78%）
 
-- **WP2.2 `ss=1` 主场景与 ID 通道 MRT**：只在 `ss === 1 && msaa === 0` 且全部是不透明写深度的 `toonKind` 网格（无 `soft` / `own`、无自定义 `outlineVertex`）时同遍写 ID，否则回退原双遍。`ss=1/msaa=0` 夹具 4K `ink:ids` `0.197 → 0 ms`（达标），整帧在噪声内；《晨渡》《度》是 `ss=2 / msaa=4`，不走 MRT、代码路径与 `main` 相同。MRT 对双遍的颜色、ID、边缘、笔画逐字节相同，四种回退变异均覆盖。
-- **WP2.3 `stateKey(f)`**：作品可选；`yuv420p` 下相邻帧 key 相同就复用上一帧 YUV，重复帧不提交 GPU；缺省、`null`、RGBA 零变化。夹具上 YUV 与 MP4 码流与逐帧重渲逐字节相同；仓库内尚无作品实现它。
-- **WP5 lookdev 中间层快照**：`lookdev:sweep` 同帧换后期参数时沿用显存里的 `T.scene`（含深度）与 ID 目标，跳过 `scene` 与 `ink:ids`；普通出片不受影响。4K《晨渡》十组：33/33 张 PNG 与 `main` 逐字节相同，后 9 组 `scene` / `ink:ids` 为 0；纯渲染+读回 `392.248 → 326.049 ms`（−16.9%），GPU −12.9%，端到端 sweep 噪声内。**未达 ≥ 40%**：可跳过的两段只占十组总 GPU 约 21%，规格范围内理论上限约 −21%。
-- **T0**：对 `main` RGBA 18/18 帧、MP4 16/16 组逐字节相同；两部实片 `npm run determinism --seams` 四路通过。
+- **WP2.2 `ss=1` 主场景与 ID 通道 MRT**：只在 `ss === 1 && msaa === 0`、本帧开启墨线且场景全部物体满足与双遍等价的严格条件（不透明、`depthWrite`/`depthTest`/`LessEqualDepth`/`NormalBlending`、无本地裁剪与多边形偏移、无自定义 `fragmentNode`/`outlineVertex`、无 `soft`/`own`/`noId`、无 `overrideMaterial`/纹理背景）时，按需分配双附件目标并挂全局 `sceneMrt`（内含 `objectGroup` uniform，不改写主材质 `mrtNode`）同遍写 ID；回退或无墨线帧走单附件 `T.scene` 且不挂全局 MRT、不常驻第二附件，回退路径复用预收集计划避免重复遍历场景。`ss=1/msaa=0` 夹具 4K `ink:ids` `0.197 → 0 ms`（达标），整帧在噪声内；《晨渡》《度》是 `ss=2 / msaa=4`，不走 MRT、代码路径与 `main` 相同。MRT 对双遍的颜色、ID、边缘、笔画逐字节相同，覆盖先回退/无墨线后切 MRT、自定义 `fragmentNode` 不触发 GPU fault、`depthTest=false` 等非等价状态回退与 `InstancedMesh` 用例。
+- **WP2.3 `stateKey(f)`**：作品可选（亦支持 `film.work({ ..., stateKey })` 透传，契约见 §2.1）；`yuv420p` 下相邻帧返回相同 `string`（含 `""`）时跳过 `renderFrameYuv`（同时跳过 `work.render` 与 `clock.tick`），复用上一帧只读 YUV 缓冲；缺省、`null` / 非 `string` 与 RGBA 零变化。夹具上 YUV 与 MP4 码流与逐帧重渲逐字节相同；仓库内尚无作品实现它。
+- **WP5 lookdev 中间层快照**：`lookdev:sweep` 严格按白名单（`grade`、`fog`、`bloom`、`kuwahara`、`paper`、`vignette`、`grain`、`outline`）fail-closed 启用，出现任意白名单外键（如作品自定义键）一律禁用快照退回全量渲染（`look.js` 同步做纵深防线校验）；`--q` 按查询字符串分组重建独立宿主隔离快照，组内按外层时刻、内层参数格遍历使多时刻 sweep 也能命中同帧快照（不改变产物命名与顺序契约）；普通出片不受影响。4K《晨渡》十组：33/33 张 PNG 与 `main` 逐字节相同，后 9 组 `scene` / `ink:ids` 为 0；纯渲染+读回 `392.248 → 326.049 ms`（−16.9%），GPU −12.9%，端到端 sweep 噪声内。**未达 ≥ 40%**：可跳过的两段只占十组总 GPU 约 21%，规格范围内理论上限约 −21%。
+- **T0（二轮退修复测，对 `main` `50665516`）**：RGBA 18/18 帧（《晨渡》《度》与 MRT 夹具 1080p/4K）、普通帧序列 `outline.opacity` 0→1→0→1（4/4）、自定义 `fragmentNode`（2/2，零 GPU fault）、`depthTest=false` 重叠（1/1）、白名单外 `--look bg=0,1`（3/3 PNG）、4K 白名单内 `--t 0,0.04 --look outline.opacity=0,1`（5/5 PNG）、4K《晨渡》10 组 lookdev（11/11 PNG），共 44/44 项全部逐字节相同；前期 MP4 16/16 组逐字节相同；`npm run determinism -- films/chendu --renderer offscreen --size 320x180 --seams` 四路通过。
 - **未验证**：Windows / 5090 真机；Chrome WebGPU 下的 MRT 路径；有真实作品实现 `stateKey` 的长片。
 
 ## 8. 风险

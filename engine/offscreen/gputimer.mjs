@@ -13,7 +13,7 @@ export const attachGpuTimer = (renderer, timer) => { timers.set(renderer, timer)
 export const detachGpuTimer = renderer => { timers.delete(renderer); };
 export function markGpu(renderer, label) { timers.get(renderer)?.mark(label); }
 // 结构上没提交任何 GPU 工作的段显式记 0，避免两个空时间戳之间的量化间隔被误报成渲染耗时
-export function markGpuZero(renderer, label) { timers.get(renderer)?.zero(label); }
+export function markGpuZero(renderer, label) { timers.get(renderer)?.zero?.(label); }
 
 /** labels[i] 那一段 = ticks[i+1] − ticks[i]（纳秒，BigInt）；labels 末尾必须是 end() 写的 null。倒退的时间戳记 0 并计数 */
 export function spansFrom(labels, ticks) {

@@ -348,15 +348,15 @@ $$T_{\text{total}} = T_{\text{固定启动}} + \frac{N_{\text{帧}} \times \max\
 
 **环境**：同上 GPU / 驱动 / Node / FFmpeg / 依赖版本。非独占 GPU：常驻 ASR 进程（pid 1301）占 2464 MiB，测量期间 `nvidia-smi` 显存 2706 MiB、利用率 8%–78%；所有对比按 §4.1 交替 A/B 3 轮（第二轮交换顺序），`main` 用 `git archive` 隔离副本。原始日志在 `out/wp3-results/`（不入库）。
 
-- **WP2.2 实现**：`tsl/idpass.js` 新增 `renderMrt` / `renderScene`；`tsl/look.js` 只在 `ss === 1 && msaa === 0` 时把 `T.scene` 建成双附件（`output` + `inkId`），其余配置保持单附件、走与 `main` 完全相同的代码。前置条件逐物体检查：全部是不透明、写深度、`isToonTslMaterial` 的网格，无 `soft` / `own` 遮挡、无自定义 `outlineVertex`、无 `noId` / 加色等特殊物体；任一不满足即回退原双遍 `idpass.render()`。共享同一卡通材质的多个物体共用一个 MRT 节点，逐物体 ID 在 `onBeforeRender` 里写 uniform。
-- **WP2.2 实测**（`ss=1/msaa=0` 夹具 `tests/offscreen/fixtures/mrt-look-work.mjs`，4K 帧 0/24/48 × 3 轮）：`ink:ids` 中位 `0.197 → 0 ms`（三轮全部 0，达标）；整帧 GPU `14.483 → 14.680 ms`、渲+读回 `18.036 → 19.130 ms`，在噪声内——该夹具 ID 遍本来只有约 0.2 ms，整帧收益不可见。**《晨渡》《度》是 `ss=2 / msaa=4`，不满足 MRT 前置条件，WP2.2 对这两部片性能零影响**（不改变代码路径）。
-- **WP2.2 T0**：单测直接比较 MRT 与双遍的主颜色、ID 附件、边缘、笔画四个缓冲，全部逐字节相同；`soft`、`own`、自定义 `outlineVertex`、非 toon 材质四种变异均验证回退。
-- **WP2.3 实现**：`frames.mjs` 中作品可选 `stateKey(f) → string | null`；只在 `yuv420p` 下、相邻帧 key 为相同非空字符串时复用上一帧已发起的 YUV 读回 Promise，不调用 `renderFrameYuv`（重复帧 GPU 提交为 0）；缺省、`null`、RGBA 路径完全不变。仓库内现有作品都未实现 `stateKey`，因此默认行为零变化。
-- **WP2.3 T0**：一拍二夹具 6 帧只渲 3 次；真实 Dawn + x264 下复用与逐帧重渲的 6 帧 YUV 与 MP4 码流逐字节相同。
+- **WP2.2 实现**：`tsl/idpass.js` 新增 `collect` 与 `renderMrt`（经 `tsl/ink.js` 的 `renderMrt` 供 `tsl/look.js` 调用）；`tsl/look.js` 将单附件 `T.scene` 与双附件 `T.sceneMrt` 分离按需分配——只有 `ss === 1 && msaa === 0`、本帧开启墨线且资格检查通过时才分配双附件目标并挂全局 `sceneMrt`（内含 `objectGroup` 级别 ID uniform，逐物体 `onBeforeRender` 写入、`onAfterRender` 归零，**绝不改写主材质 `mrtNode`**），回退与无墨线帧走单附件且不设全局 MRT（不常驻 66 MB 第二附件，回退复用 `plan` 避免二次 `collect`，单/双附件在 three `RenderContexts` 天然分桶，彻底消除切态着色器缓存失配与自定义 `fragmentNode` 的 GPU fault）。前置条件逐物体核对与双遍等价性：全部是不透明、`depthWrite`/`depthTest`/`LessEqualDepth`/`NormalBlending`、`isToonTslMaterial` 的网格，无本地 `clippingPlanes` / `polygonOffset` / `stencilWrite` / `map` / `alphaTest` / `fragmentNode` / `mrtNode`，无 `soft` / `own` / 自定义 `outlineVertex` / `noId`，且场景无 `overrideMaterial` / 纹理背景；任一不满足即回退双遍。
+- **WP2.2 实测**（`ss=1/msaa=0` 夹具 `tests/offscreen/fixtures/mrt-look-work.mjs`，4K 帧 0/24/48 × 3 轮）：`ink:ids` 中位 `0.197 → 0 ms`（三轮全部 0，达标）；整帧 GPU `14.483 → 14.680 ms`、渲+读回 `18.036 → 19.130 ms`，在噪声内——该夹具 ID 遍本来只有约 0.2 ms，整帧收益不可见。**《晨渡》《度》是 `ss=2 / msaa=4`，不满足 MRT 前置条件，WP2.2 对这两部片性能零影响**（不改变代码路径，也不分配双附件）。
+- **WP2.2 T0**：单测直接比较 MRT 与双遍的主颜色、ID 附件、边缘、笔画四个缓冲与 `InstancedMesh` 全部逐字节相同；覆盖先回退 / 先 `lineOn=false` 后切 MRT（帧序列 0→1→0→1）、自定义 `fragmentNode` 不触发 GPU fault、`depthTest=false` 重叠、非默认 `depthFunc` / `clippingPlanes` / `polygonOffset` / 非 `NormalBlending`、`soft`、`own`、自定义 `outlineVertex`、非 toon 材质回退。
+- **WP2.3 实现**：`frames.mjs` 中作品可选 `stateKey(f) → string | null`（并接入 `film.mjs` 的 `film.work({ ..., stateKey })` 透传，完整契约与只读 `pixels` 约束见 `docs/offscreen/README.md` §2.1）；只在 `yuv420p` 下、相邻帧返回相同 `string`（**含空字符串 `""`**）时跳过 `renderFrameYuv`（同时跳过 `work.render(f)` 与 `clock.tick`），复用上一帧已发起的 YUV 读回 Promise（重复帧 GPU 提交为 0）；缺省、`null` / 非 `string` 与 RGBA 路径完全不变。仓库内现有作品都未实现 `stateKey`，因此默认行为零变化。
+- **WP2.3 T0**：一拍二夹具与 `film.work({ stateKey })` 6 帧均只渲 3 次；真实 Dawn + x264 下复用与逐帧重渲的 6 帧 YUV 与 MP4 码流逐字节相同。
 
 #### 3) WP5 lookdev 中间层快照 —— 功能与 T0 达标，**性能未达 ≥ 40% 闸门**
 
-- **实现**：`tsl/look.js` 维护一份快照（帧令牌 + 场景 + 相机引用）；只有 `tools/lookdev/sweep.mjs` 显式设置 `globalThis.__OFFSCREEN_LOOKDEV_CACHE = 帧号` 时才复用：同帧换后期参数直接沿用显存里的 `T.scene`（含 `depthTexture`）与 `ink.idTarget`（或 MRT 的 `inkId` 附件），跳过 `scene` 与 `ink:ids`；换帧、换场景/相机立即重渲；普通出片令牌为 `null`，永远完整渲染。快照即现有 GPU 目标，不新增拷贝或读回。`gputimer.mjs` 新增 `markGpuZero`，结构上跳过的段显式记 0，避免空时间戳的量化间隔（实测 0.066 ms）被误报。
+- **实现**：`tsl/look.js` 维护一份快照（帧令牌 + 场景 + 相机 + 当前场景目标引用），按白名单 fail-closed 启用：`tools/lookdev/sweep.mjs` 与 `tsl/look.js` 共享纯后期安全白名单 `LOOKDEV_CACHE_KEYS`（`grade`、`fog`、`bloom`、`kuwahara`、`paper`、`vignette`、`grain`、`outline`）；只有本次 sweep 存在 `--look` 轴且全部 `--look` 顶层键落入白名单内时才设置 `globalThis.__OFFSCREEN_LOOKDEV_CACHE = 帧号`，出现任何白名单外键（如作品自定义 `bg`）一律禁用快照退回全量渲染（`look.js` 同步复检 `__LOOKDEV` 做纵深防线）。`--q` 按查询字符串分组重建独立宿主隔离快照；组内改为「外层时刻 `t`、内层参数格 `i`」遍历，使多时刻 sweep 也能命中同帧快照（保持文件名、`cells.json`、`grid.png`、`index.html` 与 `outputs` 顺序契约不变）。普通出片令牌为 `null`，永远完整渲染。快照即现有 GPU 目标，不新增拷贝或读回。`gputimer.mjs` 新增 `markGpuZero`（`timers.get(renderer)?.zero?.(label)`，兼容只实现 `mark` 的自定义计时器），结构上跳过的段显式记 0，避免空时间戳的量化间隔（实测 0.066 ms）被误报。
 - **T0**：4K《晨渡》十组（`grade.exposure` 5 档 × `fog.density` 2 档），三轮共 33/33 张 PNG（含 `grid.png`）与 `main` 逐字节相同；后 9 组 `scene` / `ink:ids` 三轮均为 0。
 - **性能（最终代码，4K《晨渡》帧 0，3 轮交替）**：
 
@@ -371,10 +371,10 @@ $$T_{\text{total}} = T_{\text{固定启动}} + \frac{N_{\text{帧}} \times \max\
 - **根因**：规格只允许跳过 `scene` 与 `ink:ids`，这两段在《晨渡》4K 十组里合计约 65 ms，只占十组总 GPU 约 21%；剩下的 `ink:edge`、`ink:stroke`、雾、bloom、调色、Kuwahara（单帧约 9–12 ms）、纸纹、合成都依赖被扫的后期参数，必须每组重跑。因此在规格允许的范围内，**理论上限约 −21%，达不到 −40%**；端到端口径里 4K PNG 编码与进程启动又占大头。按主人 2026-11-22 裁定，WP5 保留交付，但**本项性能闸门记为未达，不作为阶段 3 性能闸门通过**。
 - **未验证**：Windows / 5090 真机、Chrome WebGPU 下的 MRT 路径（离屏单测里的 Chrome 同源对拍用的是 `ss=2` 的《晨渡》，不走 MRT）、16 KB 共享内存设备（与本阶段落地代码无关）、仓库内没有实现 `stateKey` 的真实作品，WP2.3 只在夹具上验证。
 
-#### 4) 阶段 3 T0 逐字节核对（对 `main` `50665516`，最终代码）
+#### 4) 阶段 3 T0 逐字节核对（对 `main` `50665516`，二轮退修后最终代码）
 
 - **RGBA 读回**：《晨渡》《度》帧 0/48/96 与 MRT 夹具帧 0/1/2，各 1080p / 4K，共 **18/18 帧**逐字节相同（`maxDelta = 0`、`bigPixels = 0`）。
-- **MP4**：《晨渡》（0:4、96:100）、《度》（0:4、72:76）× 1080p / 4K × Pro / Fast 共 **16/16 组**逐字节相同。
-- **lookdev sweep**：见 3)，33/33 张 PNG 逐字节相同。
-- **确定性**：`npm run determinism -- films/chendu --renderer offscreen --size 320x180 --seams`（12 帧）与 `films/du`（9 帧）四路（新宿主、乱序、顺序流水线、同卡并发）逐像素一致。
-- **作品契约（D12）**：作品模块 `build(ctx) → { render(f) }` 不变；`stateKey` 是可选新增字段，缺省时零行为变化。
+- **边界切态与安全退回对拍**：`ss=1/msaa=0` 下普通帧序列 `outline.opacity` 0→1→0→1（**4/4 帧**）、自定义 `fragmentNode` 材质（**2/2 帧**、零 GPU fault）、`depthTest=false` 重叠 toon 方块（**1/1 帧**）、白名单外 `--look bg=0,1`（**3/3 PNG**）、4K 白名单内 `--t 0,0.04 --look outline.opacity=0,1`（**5/5 PNG**）、4K《晨渡》10 组 lookdev（**11/11 PNG**），连同上述 18 帧合计 **44/44 项**与 `main` 隔离副本逐字节相同。
+- **MP4**：《晨渡》（0:4、96:100）、《度》（0:4、72:76）× 1080p / 4K × Pro / Fast 共 **16/16 组**逐字节相同（首轮实测；二轮不改 `encode.mjs` / `yuv.mjs` / 非 MRT 主路径）。
+- **确定性**：`npm run determinism -- films/chendu --renderer offscreen --size 320x180 --seams`（12 帧）二轮复测四路（新宿主、乱序、顺序流水线、同卡并发）逐像素一致。
+- **作品契约（D12）**：作品模块 `build(ctx) → { render(f) }` 不变；`stateKey` 是可选新增字段（含 `film.work({ stateKey })`），缺省时零行为变化。

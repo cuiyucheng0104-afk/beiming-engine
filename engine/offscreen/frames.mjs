@@ -3,7 +3,8 @@
 //     渲 [from, to) 的每一帧，按顺序调用 onFrame(f, pixels)；format 为 'rgba'（默认）或 'yuv420p'（GPU 侧转 BT.709 tv）。
 //   renderFrameList({ host, work, frames, inflight = 3, format = 'rgba', onFrame }) → Promise<void>
 //     按离散帧号数组 frames 流水线渲染读回（给 offscreen stills 抽关键帧用）。
-//   作品可选 stateKey(f) → string | null：仅 yuv420p 下，相邻帧非 null key 相同就复用上一帧已发起的 YUV 读回；缺省、RGBA 与 null 不变。
+//   作品可选 stateKey(f) → string | null：仅 yuv420p 下，相邻帧返回相同 string（含空字符串 ""）时跳过 renderFrameYuv（同时跳过 work.render 与 clock.tick），
+//   直接复用上一帧已发起的 YUV 读回；缺省、null / 非 string 与 RGBA 路径不变。onFrame(f, pixels) 收到的 pixels 为只读视图，调用方不得原地修改。
 export async function renderFrameList({ host, work, frames, inflight = 3, format = 'rgba', onFrame }) {
   if (!(inflight >= 1)) throw new RangeError(`inflight 要 ≥ 1，收到 ${inflight}`);
   if (format !== 'rgba' && format !== 'yuv420p') throw new RangeError(`format 只能是 rgba 或 yuv420p，收到 ${format}`);

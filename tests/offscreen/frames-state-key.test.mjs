@@ -25,16 +25,80 @@ test('stateKey：相同相邻 key 跳过 YUV 渲染，字节与逐帧完整渲�
   assert.deepEqual(reused, full);
 });
 
-test('stateKey：null 不缓存、key 改变立即重渲；RGBA 与缺省契约完全走原路径', async () => {
+test('stateKey：null 不缓存、空字符串 "" 同样复用、key 改变立即重渲；RGBA 与缺省契约完全走原路径', async () => {
   for (const work of [{}, { stateKey: () => null }, { stateKey: f => String(f) }]) {
     const calls = [];
     await collect({ work, calls });
     assert.deepEqual(calls, [0, 1, 2, 3, 4, 5]);
   }
+  // 空字符串 "" 也是有效 string，相邻帧均返回 "" 时同样复用
+  {
+    const calls = [];
+    await collect({ work: { stateKey: () => '' }, calls });
+    assert.deepEqual(calls, [0]);
+  }
   const calls = [], work = { stateKey: () => { throw new Error('RGBA 不应读取 stateKey'); } };
   const out = await collect({ work, format: 'rgba', calls });
   assert.deepEqual(calls, [0, 1, 2, 3, 4, 5]);
   assert.deepEqual(out.map(x => x[0]), [0, 1, 2, 3, 4, 5]);
+});
+
+test('S2：经由 createFilm().work({ stateKey }) 透传，命中复用时跳过 render 且 YUV 逐字节一致', { timeout: 120000 }, async t => {
+  let host;
+  try {
+    const { loadGpu } = await import('../../engine/offscreen/load.mjs');
+    const { createHost } = await import('../../engine/offscreen/host.mjs');
+    const { createFilm } = await import('../../engine/offscreen/film.mjs');
+    const { createLook } = await import('../../engine/offscreen/tsl/look.js');
+    await (await import('../../engine/offscreen/canvas.mjs')).loadCanvas();
+    const gpu = await loadGpu();
+    host = await createHost({ gpu, width: 64, height: 36, fps: 24 });
+    const { THREE, TSL } = gpu;
+    const film = await createFilm({ THREE, TSL, renderer: host.renderer, pipeline: host.pipeline, width: 64, height: 36, shadows: false });
+    const makeShot = (seen) => {
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(35, 64 / 36, 0.1, 100);
+      camera.position.set(0, 0, 5); camera.lookAt(0, 0, 0);
+      return {
+        scene, camera,
+        update(_t, f) { seen.push(f); scene.background = new THREE.Color(Math.floor(f / 2) === 0 ? 0x204080 : 0x804020); },
+        look(t) { return { t, outline: false, kuwahara: false, paper: false, bloom: false, vignette: 0, grain: 0 }; },
+      };
+    };
+    const look1 = createLook({ THREE, TSL, renderer: host.renderer }, { width: 64, height: 36, ss: 1, msaa: 0 });
+    assert.throws(() => film.work({ dur: 1, fps: 24, shots: [{ in: 0, shot: makeShot([]) }], look: look1, stateKey: 123 }), TypeError);
+    const wNone = film.work({ dur: 1, fps: 24, shots: [{ in: 0, shot: makeShot([]) }], look: look1 });
+    assert.equal(wNone.stateKey, undefined, '缺省时 work 不带 stateKey');
+    wNone.dispose();
+
+    const seenReused = [], seenFull = [];
+    const look2 = createLook({ THREE, TSL, renderer: host.renderer }, { width: 64, height: 36, ss: 1, msaa: 0 });
+    const workReused = film.work({
+      dur: 1, fps: 24,
+      shots: [{ in: 0, shot: makeShot(seenReused) }],
+      look: look2,
+      stateKey: f => String(Math.floor(f / 2)),
+    });
+    assert.equal(typeof workReused.stateKey, 'function', 'film.work 应透传 stateKey');
+    const reusedPx = [];
+    await renderFrames({ host, work: workReused, from: 0, to: 6, inflight: 3, format: 'yuv420p', onFrame: (_f, px) => reusedPx.push(Buffer.from(px)) });
+    workReused.dispose();
+
+    const look3 = createLook({ THREE, TSL, renderer: host.renderer }, { width: 64, height: 36, ss: 1, msaa: 0 });
+    const workFull = film.work({ dur: 1, fps: 24, shots: [{ in: 0, shot: makeShot(seenFull) }], look: look3 });
+    const fullPx = [];
+    await renderFrames({ host, work: workFull, from: 0, to: 6, inflight: 3, format: 'yuv420p', onFrame: (_f, px) => fullPx.push(Buffer.from(px)) });
+    workFull.dispose();
+
+    assert.deepEqual(seenReused, [0, 2, 4], '复用帧跳过 work.render');
+    assert.deepEqual(seenFull, [0, 1, 2, 3, 4, 5]);
+    for (let f = 0; f < 6; f++) assert.ok(reusedPx[f].equals(fullPx[f]), `第 ${f} 帧 YUV 逐字节相同`);
+  } catch (e) {
+    if (String(e.code).startsWith('env.')) return t.skip(`离屏不可用：${e.message}`);
+    throw e;
+  } finally {
+    host?.dispose();
+  }
 });
 
 test('真实 GPU + x264：stateKey 复用与逐帧重渲的 YUV、MP4 全部逐字节相同', { timeout: 120000 }, async t => {
