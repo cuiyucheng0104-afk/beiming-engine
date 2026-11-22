@@ -27,7 +27,7 @@ import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutYd
 import { caps as blenderCaps } from '../sources/blender/caps.mjs';
 import { startSource as startBlender } from '../sources/blender/host.mjs';
 import { caps as threeCaps } from '../sources/three/caps.mjs';
-import { writeExr } from '../verify/exr/exr.mjs';
+import { readExr, writeExr } from '../verify/exr/exr.mjs';
 import {
   checkL1, evaluateAssertion, evaluateFloor, guardPredicates, IOU_MIN, runPureFunctionGate, toVerdict, verifySampledBboxes,
 } from '../verify/index.mjs';
@@ -266,6 +266,15 @@ export function buildShotCacheInputs({ film, lock, shot, filmDir, tier, events =
 const entryFrom = ({ determinism, tier, samples, size, subs, layers, ...five }, frame) => computeFrameCacheKey({ ...five, renderSpec: { tier, samples, size, frame, subs, layers } });
 // 页面帧源的场景参考镜头每帧另交的文件（sources/three/source.js：出了颜色就有 frame.exr，要了编号层就有宽高各两倍的 objectId2x）→ 每像素字节数，null 是不定长
 const NATIVE = { 'frame.exr': null, 'objectId2x.u32': 16 };
+/** 原生 frame.exr 整个解得开、是这一帧的画幅、带浮点的颜色通道（页面宿主写的名字是 color.R/G/B）。外层校验和只保证存进去的字节没变，不保证存的是个好文件 */
+function validNativeExr(bytes, w, h) {
+  try {
+    const exr = readExr(bytes);
+    return exr.width === w && exr.height === h && ['color.R', 'color.G', 'color.B'].every((name) => exr.channels[name] instanceof Float32Array && exr.channels[name].length === w * h);
+  } catch {
+    return false;
+  }
+}
 
 const ZERO_TIMING = Object.freeze({ stateMs: 0, renderMs: 0, readbackMs: 0 });
 const floatsOf = (buf) => new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length));
@@ -331,12 +340,13 @@ export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool
       live.set(frame, rec);
       return rec;
     };
-    /** 命中的帧还原成层文件和元数据；要的层缺了一个、层的大小或颜色摘要对不上元数据、页面帧源场景参考镜头少了原生文件（NATIVE）就当没命中 */
+    /** 命中的帧还原成层文件和元数据；要的层缺了一个、层的大小或颜色摘要对不上元数据、页面帧源场景参考镜头少了原生文件（NATIVE）或原生 EXR 解不开就当没命中 */
     const restore = (frame, hit) => {
       const m = hit.meta, [w, h] = Array.isArray(m.size) ? m.size : [];
       if (hit.colorBytes.length !== w * h * 16 || m.hash?.color !== `sha256:${hit.colorSha256}`) return null;
       if (aux.some((name) => !AUX[name] || hit.layers?.[auxFile(name)]?.length !== w * h * 4 * AUX[name][1].length)) return null;
       if (native && Object.entries(NATIVE).some(([name, perPixel]) => !hit.layers?.[name]?.length || (perPixel && hit.layers[name].length !== w * h * perPixel))) return null;
+      if (native && !validNativeExr(hit.layers['frame.exr'], w, h)) return null;
       const sub = join(dir, 'layers', `cache-f${pad(frame - shot.in)}`);
       mkdirSync(sub, { recursive: true });
       writeFileSync(join(sub, 'color.f32'), hit.colorBytes);
@@ -455,30 +465,54 @@ export function layerL1(film, filmDir, rev, question) {
 }
 
 /**
- * L2：每个镜头跑纯函数门（两帧，三种出帧次序）；全部记录跑编号层包围盒核对（IoU ≥ 0.95）。
+ * L2：每个镜头跑纯函数门（两帧，三种出帧次序）；全部记录跑编号层包围盒核对（IoU ≥ 0.95）。包围盒只读 records 的文件，先核，纯函数门后跑。
+ * 一个镜头过了 L2 = 纯函数门过了，并且它的帧没有一张包围盒没过（没带帧号、对不上镜头的失败项算在每个镜头头上）。
  * cache 和 versions（renderPlan 交回的）在交付时给：这一轮全部命中、缓存里又有这一版镜头过了门的记录、记录认的帧（framesColorDigest：
- * 这个镜头全部帧的颜色摘要按帧序连起来的摘要）就是这一轮交出的帧，照记录用（门的结论带 cached: true），不起帧源。
- * 要真跑的镜头开跑前先把旧记录盖成未过（门跑到一半断了也不留能复用的旧记录），过了门再记下结论和帧的摘要。
- * 门没过：这一版镜头的帧和记录当场一起作废（cache.invalidateShot），下一次交付整镜重渲、重新过门。
- * 单独的核验作业只给 cache、不给 versions：每个镜头都真跑，不读记录、过了也不记；没过同样把终渲档这一版作废。两个都不给就只跑门。
+ * 这个镜头全部帧的颜色摘要按帧序连起来的摘要）就是这一轮交出的帧，纯函数门照记录用（门的结论带 cached: true），不起帧源。
+ * 要真跑的镜头开跑前先把旧记录盖成未过（门跑到一半断了也不留能复用的旧记录），过了 L2 才记下结论和帧的摘要。
+ * 没过 L2 的镜头：这一版的帧和记录当场一起作废（cache.invalidateShot），下一次交付整镜重渲、重新过门；门照记录用的镜头有帧包围盒没过也一样。
+ * 单独的核验作业只给 cache、不给 versions：每个镜头都真跑，不读记录、过了也不记；没过同样作废终渲档这一版，再加 records 所在的那一档（tier，核验作业给）。
+ * records 里有、shots 没点名的镜头不跑纯函数门，但它的帧包围盒没过时同样作废。两个都不给就只跑门。
  */
-export async function layerL2({ film, lock, filmDir, shots, records, pool, scratch, signal, onGpu, cache, versions }) {
+export async function layerL2({ film, lock, filmDir, shots, records, pool, scratch, signal, onGpu, cache, versions, tier }) {
   const diagnostics = [];
   const gates = [];
   const events = eventsTable(film);
-  // 单独核验时这一版镜头在终渲档的条目（交付只用终渲档，记录和要作废的帧都在那里）；键算不出来就没有缓存可作废
-  const finalEntry = (shot) => {
-    try { return entryFrom(buildShotCacheInputs({ film, lock, shot, filmDir, tier: 'final', events, device: readDevices(cache)[shot.source] }), 0); } catch { return undefined; }
+  const framesData = records.map((r) => {
+    const b = readFileSync(r.objectId);
+    const [h, w] = r.shape;
+    return { frame: r.frame, meta: r.meta, objectId: { width: w, height: h, data: new Uint32Array(b.buffer.slice(b.byteOffset, b.byteOffset + w * h * 4)) } };
+  });
+  const bb = framesData.length ? verifySampledBboxes(framesData) : { ok: false, minIou: null, failures: [{ kind: 'no-samples' }] };
+  const shotOfFrame = new Map(records.map((r) => [r.frame, r.shot]));
+  const boxFailed = new Set(bb.failures.map((f) => shotOfFrame.get(f.frame))); // 归不到镜头的失败项记成 undefined
+  const boxed = (shot) => !boxFailed.has(undefined) && !boxFailed.has(shot.id);
+  // 没过 L2 的镜头要作废的条目：交付是 renderPlan 交回的这一版；单独核验时键现算（算不出来就没有缓存可作废）
+  const retire = (shot) => {
+    if (!cache) return;
+    const version = versions?.[shot.id];
+    const entries = version ? [version.entry] : [...new Set(['final', tier ?? 'final'])].map((t) => {
+      try { return entryFrom(buildShotCacheInputs({ film, lock, shot, filmDir, tier: t, events, device: readDevices(cache)[shot.source] }), 0); } catch { return undefined; }
+    });
+    for (const entry of entries) if (entry) cache.invalidateShot(entry);
   };
   let gpuMs = 0;
   for (const shot of shots) {
     signal?.throwIfAborted();
     const frames = [shot.in, shot.out - 1];
-    if (frames[0] === frames[1]) { gates.push({ shot: shot.id, status: 'skipped', reason: '纯函数门至少需要两帧' }); continue; }
+    if (frames[0] === frames[1]) {
+      gates.push({ shot: shot.id, status: 'skipped', reason: '纯函数门至少需要两帧' });
+      if (!boxed(shot)) retire(shot);
+      continue;
+    }
     const version = cache ? versions?.[shot.id] : undefined;
     const framesColorDigest = version && sha256(records.filter((r) => r.shot === shot.id).map((r) => r.meta.hash?.color).join());
     const known = version?.hit ? cache.getShotVerification(version.entry) : undefined;
-    if (known?.l2?.ok === true && known.l2.shot === shot.id && known.framesColorDigest === framesColorDigest) { gates.push({ ...known.l2, cached: true }); continue; }
+    if (known?.l2?.ok === true && known.l2.shot === shot.id && known.framesColorDigest === framesColorDigest) {
+      gates.push({ ...known.l2, cached: true });
+      if (!boxed(shot)) retire(shot);
+      continue;
+    }
     if (version) cache.putShotVerification(version.entry, { l2: { shot: shot.id, ok: false, status: 'running' } });
     const src = await pool.get(shot.source, 'cpu');
     let n = 0;
@@ -504,20 +538,14 @@ export async function layerL2({ film, lock, filmDir, shots, records, pool, scrat
     const g = await runPureFunctionGate(adapter, frames, { compare: 'hash', seed: 1 });
     signal?.throwIfAborted(); // 门把出帧时的错都收成「没过」：作业被取消不是门的结论，不记、也不作废帧
     gates.push({ shot: shot.id, status: g.ok ? 'pass' : 'fail', ok: g.ok, bitExact: g.bitExact, frames: g.frames, mismatches: g.mismatches.length });
-    if (g.ok && version) cache.putShotVerification(version.entry, { l2: gates.at(-1), framesColorDigest });
+    if (!g.ok || !boxed(shot)) retire(shot);
+    else if (version) cache.putShotVerification(version.entry, { l2: gates.at(-1), framesColorDigest });
     if (!g.ok) {
-      const stale = cache && (version?.entry ?? finalEntry(shot));
-      if (stale) cache.invalidateShot(stale);
       diagnostics.push(diagnostic({ code: 'contract.bad-value', layer: 'L2', at: `shots/${shot.id}`, message: `纯函数门没过：同一帧顺序渲、乱序渲、单独渲的颜色层不逐位相同（${g.mismatches.length} 处）`,
         atFrames: g.mismatches.map((m) => m.frame).filter(Number.isInteger), evidence: JSON.stringify(g.mismatches[0]).slice(0, 200), hint: '镜头里有跨帧状态或没带种子的随机：每帧只由时刻决定' }, { layer: 'L2' }));
     }
   }
-  const framesData = records.map((r) => {
-    const b = readFileSync(r.objectId);
-    const [h, w] = r.shape;
-    return { frame: r.frame, meta: r.meta, objectId: { width: w, height: h, data: new Uint32Array(b.buffer.slice(b.byteOffset, b.byteOffset + w * h * 4)) } };
-  });
-  const bb = framesData.length ? verifySampledBboxes(framesData) : { ok: false, minIou: null, failures: [{ kind: 'no-samples' }] };
+  for (const shot of film.shots) if (!shots.includes(shot) && boxFailed.has(shot.id)) retire(shot);
   for (const f of bb.failures.slice(0, 5)) {
     diagnostics.push(diagnostic({ code: 'contract.bad-value', layer: 'L2', message: `包围盒核对没过：${f.kind}${f.name ? `（${f.name}）` : ''}${Number.isFinite(f.iou) ? `，IoU ${r3(f.iou)} < ${IOU_MIN}` : ''}`,
       ...(Number.isInteger(f.frame) ? { atFrames: [f.frame] } : {}), expected: `元数据 bbox2d 和编号层反算的包围盒 IoU ≥ ${IOU_MIN}` }, { layer: 'L2' }));
