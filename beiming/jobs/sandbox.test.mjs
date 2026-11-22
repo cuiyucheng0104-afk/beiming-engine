@@ -57,14 +57,20 @@ const EXPECTED_ATTEMPTS = {
 };
 
 // 假沙箱：不起进程，照探针的输出格式交回「全部尝试都失败」，drop 里的子尝试不交。只用来测报告的判定。
-function fakeBlockedRun(drop = []) {
+// tamper 在交回之前改这一项的回执（attempts 可以整个换掉，code 是探针退出码）。
+function fakeBlockedRun(drop = [], tamper = () => {}) {
   return async ({ command }) => {
     const item = command[3];
-    const attempts = EXPECTED_ATTEMPTS[item]
-      .filter((id) => id !== 'warm-process-residue' && !drop.includes(id))
-      .map((id) => ({ id, payload: id, ok: false, code: 'EPERM' }));
-    const stdout = `${JSON.stringify({ sentinel: 'bm-sandbox-redteam/0.1', item, control: true, attempts })}\n`;
-    return { backend: 'darwin-seatbelt', isolation: 'seatbelt-process-policy', code: 1, stdout, stderr: '' };
+    const receipt = {
+      item,
+      code: 1,
+      attempts: EXPECTED_ATTEMPTS[item]
+        .filter((id) => id !== 'warm-process-residue' && !drop.includes(id))
+        .map((id) => ({ id, payload: id, ok: false, code: 'EPERM' })),
+    };
+    await tamper(receipt, JSON.parse(command[4]));
+    const stdout = `${JSON.stringify({ sentinel: 'bm-sandbox-redteam/0.1', item, control: true, attempts: receipt.attempts })}\n`;
+    return { backend: 'darwin-seatbelt', isolation: 'seatbelt-process-policy', code: receipt.code, stdout, stderr: '' };
   };
 }
 
@@ -501,10 +507,11 @@ test('A13-14 U8 守卫查到镜头里：shot、shot.renderer、film.shots[] 的 
   }
 });
 
-test('A13-15 U8 文件清单按工作区相对路径校验：.. 段、. 段、前导 /、反斜杠、控制字符与经过符号链接的路径都拒收', async (t) => {
+test('A13-15 U8 文件清单按工作区相对路径校验：.. 段、. 段、前导 /、反斜杠、控制字符（含 DEL）与经过符号链接的路径都拒收', async (t) => {
   const { options, own, sibling } = fixture(t);
   for (const file of ['../a.json', 'data/../../a.json', './a.json', 'data/./a.json', '/etc/a.json', 'data//a.json', 'data/a.json/',
-    'data\\a.json', 'data:a.json', 'a\r.json', 'a\n.json', 'a\u0000.json', 'nul.json']) {
+    'data\\a.json', 'data:a.json', 'a\r.json', 'a\n.json', 'a\u0000.json', 'nul.json',
+    'a\u001f.json', 'a\u007f.json', '\u007f.json', 'data\u007f/a.json', 'a.json\u007f', 'a.json\n']) {
     assert.throws(() => enforceAuthorMode({ mode: 'cards-data', files: [file] }), refuses('contract.bad-path'), JSON.stringify(file));
   }
   assert.throws(() => enforceAuthorMode(Object.assign(Object.create({ files: [] }), { mode: 'cards-data' })), refuses('contract.unsupported-mode'));
@@ -655,4 +662,119 @@ test('A13-19 红队报告的完整性：子尝试少跑一个、攻击夹具没�
   assert.deepEqual([read.conclusive, read.blocked, read.escaped], [false, false, false]);
   assert.deepEqual([report.ok, report.blocked], [false, 4]);
   assert.match(formatRedTeamReport(report), /夹具没建起来[^]*planted-symlink-file: EPERM/);
+});
+
+test('A13-20 红队回执的完整性：子尝试缺 ok、被拦却没有错误码、探针退出码与明细矛盾，这一项都判结论无效并判红', async (t) => {
+  t.mock.method(fs, 'symlinkSync', () => {});
+  const id = 'external_network';
+  const judge = async (tamper) => {
+    const report = await runSandboxRedTeam({ ...OFFLINE, run: fakeBlockedRun([], (receipt) => (receipt.item === id ? tamper(receipt) : undefined)) });
+    return { report, hit: report.items.find((item) => item.id === id) };
+  };
+  const first = (change) => (receipt) => { receipt.attempts[0] = change(receipt.attempts[0]); };
+
+  const broken = {
+    'ok 与 code 都没有': first(({ id: attempt, payload }) => ({ id: attempt, payload })),
+    '没有 ok': first(({ ok, ...rest }) => rest),
+    'ok 是字符串': first((entry) => ({ ...entry, ok: 'false' })),
+    'ok 是 0': first((entry) => ({ ...entry, ok: 0 })),
+    'ok 是 null': first((entry) => ({ ...entry, ok: null })),
+    '被拦却没有错误码': first(({ code, ...rest }) => rest),
+    '错误码是空串': first((entry) => ({ ...entry, code: '' })),
+    '错误码不是字符串': first((entry) => ({ ...entry, code: 13 })),
+    '回执是 null': first(() => null),
+    '回执是数组': first((entry) => [entry]),
+    '回执是字符串': first(() => 'loopback-tcp'),
+    'attempts 不是数组': (receipt) => { receipt.attempts = Object.fromEntries(receipt.attempts.map((entry) => [entry.id, entry])); },
+    '明细全是被拦，退出码却是 0': (receipt) => { receipt.code = 0; },
+    '退出码是 null（被信号杀掉）': (receipt) => { receipt.code = null; },
+    '退出码没给': (receipt) => { receipt.code = undefined; },
+    '退出码是 2': (receipt) => { receipt.code = 2; },
+    '退出码是字符串 1': (receipt) => { receipt.code = '1'; },
+    '有子尝试得手，退出码却是 1': first((entry) => ({ ...entry, ok: true, code: 'OK' })),
+  };
+  for (const [name, tamper] of Object.entries(broken)) {
+    const { report, hit } = await judge(tamper);
+    assert.deepEqual([hit.conclusive, hit.blocked], [false, false], name);
+    assert.ok(hit.receiptErrors.length, name);
+    assert.deepEqual([report.ok, report.blocked], [false, 4], name);
+    assert.match(formatRedTeamReport(report), /结论无效，回执不完整或自相矛盾/, name);
+    for (const other of report.items.filter((item) => item.id !== id)) assert.deepEqual([other.blocked, other.receiptErrors], [true, []], `${name}: ${other.id}`);
+  }
+
+  // 自洽的回执照旧：错误原因写在 error 里也算数；得手一次并且退出码是 0，结论有效、判逃逸。
+  const viaError = await judge(first(({ code, ...rest }) => ({ ...rest, error: code })));
+  assert.deepEqual([viaError.hit.conclusive, viaError.hit.blocked, viaError.hit.receiptErrors, viaError.report.ok], [true, true, [], true]);
+  const escaped = await judge((receipt) => {
+    receipt.attempts[0] = { ...receipt.attempts[0], ok: true, code: 'OK' };
+    receipt.code = 0;
+  });
+  assert.deepEqual([escaped.hit.conclusive, escaped.hit.escaped, escaped.hit.blocked, escaped.report.ok], [true, true, false, false]);
+});
+
+test('A13-21 进程隔离的诱饵要全程活着：起来时宿主机确认它在，探针跑完再确认一次，中途退出这一项判结论无效并判红', async (t) => {
+  t.mock.method(fs, 'symlinkSync', () => {});
+  const alive = (pid) => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const killDecoy = async (pid) => {
+    process.kill(pid, 'SIGKILL');
+    for (let tries = 0; alive(pid) && tries < 500; tries += 1) await new Promise((resolve) => { setTimeout(resolve, 10); });
+    assert.equal(alive(pid), false, '诱饵没杀掉');
+  };
+
+  // 对照：不动诱饵时，每一项开跑的时候它都活着，五项全拦。
+  const seen = [];
+  const full = await runSandboxRedTeam({ ...OFFLINE, run: fakeBlockedRun([], (receipt, cfg) => { seen.push(Number.isInteger(cfg.decoyPid) && alive(cfg.decoyPid)); }) });
+  assert.deepEqual(seen, [true, true, true, true, true]);
+  assert.equal(full.ok, true);
+
+  // 诱饵在进程隔离那一项的探针跑着的时候退出，或者更早就退出：回执照样写着全拦（signal-0 报 ESRCH 也是「失败」），不能算数。
+  // 第三种：诱饵死后进程号被别的进程顶替（0 号信号又发得出去了），宿主机手里的子进程状态照样认得出它已经退出。
+  for (const [when, pidReused] of [['cross_workspace_processes', false], ['cross_workspace_read', false], ['cross_workspace_processes', true]]) {
+    let reuse;
+    const report = await runSandboxRedTeam({
+      ...OFFLINE,
+      run: fakeBlockedRun([], async (receipt, cfg) => {
+        if (receipt.item !== when) return;
+        await killDecoy(cfg.decoyPid);
+        if (pidReused) reuse = t.mock.method(process, 'kill', () => true);
+      }),
+    }).finally(() => reuse?.mock.restore());
+    const name = `${when}${pidReused ? '，进程号被顶替' : ''}`;
+    const hit = report.items.find((item) => item.id === 'cross_workspace_processes');
+    assert.match(hit.fixtureErrors.join(), /诱饵/, name);
+    assert.deepEqual([hit.conclusive, hit.blocked], [false, false], name);
+    assert.deepEqual([report.ok, report.blocked], [false, 4], name);
+    assert.deepEqual(report.items.filter((item) => !item.blocked).map((item) => item.id), ['cross_workspace_processes'], name);
+    assert.match(formatRedTeamReport(report), /夹具没建起来[^]*诱饵/, name);
+  }
+});
+
+test('A13-22 根目录与盘符卷根（/、D:\\、D:/、D:）不得当工作区根、工作区或引擎目录：别的盘的卷根不包住家目录，也单独拒收', (t) => {
+  const { base, options } = fixture(t);
+  const volume = (code) => (error) => error.code === code && /卷根/.test(error.message);
+  for (const root of ['D:\\', 'D:/', 'D:', 'd:\\', 'z:/', 'C:\\', '/', path.parse(base).root]) {
+    assert.throws(() => buildContainerSpec({ ...options, appDir: root }), volume('usage.bad-argument'), `appDir=${root}`);
+    for (const index of [0, 1]) {
+      const spec = buildContainerSpec(options);
+      spec.mounts[index].source = root;
+      assert.ok(validateContainerSpec(spec).some((message) => /卷根/.test(message)), `mounts[${index}].source=${root}`);
+    }
+    assert.throws(() => resolveWorkspace({ workspacesRoot: options.workspacesRoot, workspaceDir: root }), volume('contract.bad-path'), `workspaceDir=${root}`);
+    assert.throws(() => resolveWorkspace({ workspacesRoot: root, workspaceDir: `${root}${/[\\/]$/.test(root) ? '' : path.sep}ws-a` }), volume('contract.bad-path'), `workspacesRoot=${root}`);
+    assert.throws(() => buildContainerSpec({ ...options, workspacesRoot: root }), volume('contract.bad-path'), `build workspacesRoot=${root}`);
+  }
+  // 换一种写法指到卷根（/private/.. 这类）：规范化之后再认一次，卷根下面的顶层目录不当工作区。
+  const real = fs.realpathSync.native(base);
+  const top = path.parse(real).root;
+  const first = path.join(top, path.relative(top, real).split(path.sep)[0]);
+  assert.throws(() => resolveWorkspace({ workspacesRoot: `${first}${path.sep}..`, workspaceDir: first }), volume('contract.bad-path'));
+  // 没被拒的照旧能用。
+  assert.deepEqual(validateContainerSpec(buildContainerSpec(options)), []);
 });

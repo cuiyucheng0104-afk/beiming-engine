@@ -82,7 +82,7 @@ const sum = queue.summarizeLedger(); // { count: 2, succeeded: 2, gpuSeconds: 6,
 - 请求、镜头、`renderer`、`film` 不是普通对象（类实例、数组、`Object.create(...)` 造的对象、字符串）；`film` 没有非空的 `shots` 数组，或者数组里有空位；
 - `files` 里有扩展名不在数据白名单里的文件（JSON、表格、字幕、图片、模型、音视频、字体之外的都不收，没有扩展名的也不收）。
 
-`files` 里的路径还要过 `workspace.mjs` 的 `safePath`，写法不对报 `contract.bad-path`：`..` 段、`.` 段、前导 `/`、空段、反斜杠、冒号、控制字符、Windows 设备名。`runInWorkspaceSandbox` 在规格生成之后带着真实工作区目录再查一遍，经过工作区里符号链接的路径也拒收。
+`files` 里的路径还要过 `workspace.mjs` 的 `safePath`，写法不对报 `contract.bad-path`：`..` 段、`.` 段、前导 `/`、空段、反斜杠、冒号、Windows 设备名，以及 ASCII 控制字符（`\x00`–`\x1f` 和 DEL `\x7f`；含控制字符的不管扩展名对不对都报这个码）。`runInWorkspaceSandbox` 在规格生成之后带着真实工作区目录再查一遍，经过工作区里符号链接的路径也拒收。
 
 调用方要保证的两件事，守卫自己查不了：
 
@@ -95,17 +95,19 @@ const sum = queue.summarizeLedger(); // { count: 2, succeeded: 2, gpuSeconds: 6,
 
 | 项 | 取值 | 校验 |
 |---|---|---|
-| 工作区 | `fs.realpathSync.native` 之后必须是工作区根的直接子目录（`path.dirname(工作区) === 工作区根`），目录名只用小写字母、数字、连字符 | 根本身、嵌套目录、根外目录、路径里的 `..` 段、符号链接（含 Windows 目录联接）、宿主机敏感目录（见下）都报 `contract.bad-path` |
+| 工作区 | `fs.realpathSync.native` 之后必须是工作区根的直接子目录（`path.dirname(工作区) === 工作区根`），目录名只用小写字母、数字、连字符 | 根本身、嵌套目录、根外目录、路径里的 `..` 段、符号链接（含 Windows 目录联接）、宿主机敏感目录（见下）都报 `contract.bad-path`；工作区根或工作区写成根目录、盘符卷根的同样报这个码 |
 | 工作区根 | 本进程里出过合格规格的工作区根与引擎目录都登记在册（规范化后） | 新的工作区根和登记过的另一个工作区根互相包含（父子任一方向），或者和登记过的引擎目录互相包含，报 `contract.bad-path` |
 | 容器名 | `bm-ws-<工作区标识>-<8 位随机十六进制>` | 每次不同，必须绑定工作区标识 |
 | 网络 | `none` | 只能是 `none` |
 | 根文件系统 | 只读，另给一个 `/tmp` 的 tmpfs（`noexec,nosuid,nodev`，256 MB） | 不能可写，不能多 tmpfs |
 | 权限 | `--cap-drop=ALL`、`--security-opt=no-new-privileges`、非 root 用户、`--pids-limit 256` | 多一条 `security-opt`、uid 是 0、进程数不设限都不合格 |
-| 挂载 | 只有两处：本工作区到 `/workspace`（读写），引擎目录到 `/app`（只读） | 多挂一处（兄弟工作区、家目录、Docker socket）、引擎目录可写、引擎目录与工作区根（含登记过的）互相包含、引擎目录是宿主机敏感目录、挂载源路径含逗号、引号或 ASCII 控制字符（`\x00`–`\x1f`、`\x7f`，含回车），都不合格 |
+| 挂载 | 只有两处：本工作区到 `/workspace`（读写），引擎目录到 `/app`（只读） | 多挂一处（兄弟工作区、家目录、Docker socket）、引擎目录可写、引擎目录与工作区根（含登记过的）互相包含、引擎目录是宿主机敏感目录、挂载源是根目录或盘符卷根、挂载源路径含逗号、引号或 ASCII 控制字符（`\x00`–`\x1f`、`\x7f`，含回车），都不合格 |
 | 环境变量 | 固定六个：`HOME=/tmp/home`、`TMPDIR=/tmp`、`LC_ALL=C`、`PATH`、`BEIMING_WORKSPACE=/workspace`、`BEIMING_APP=/app` | 不继承宿主机的任何变量，多一个就不合格 |
 | 命令 | 以 `node` 开头的字符串数组，由服务端决定 | 别的可执行文件不合格 |
 
-宿主机敏感目录有两类，工作区和引擎目录都不得是：包住家目录的目录（根目录 `/`、家目录的上级、家目录本身），和家目录下任何一段以点开头的目录（`.ssh`、`.aws`、`.config`、`.gnupg`、`.claude`、`.kube` 以及它们里面的子目录）。家目录下不带点开头段的普通目录可以用。
+宿主机敏感目录有三类，工作区和引擎目录都不得是：根目录与盘符卷根（`/`、`D:\`、`D:/`、`D:`，不分大小写）；包住家目录的目录（家目录的上级、家目录本身）；家目录下任何一段以点开头的目录（`.ssh`、`.aws`、`.config`、`.gnupg`、`.claude`、`.kube` 以及它们里面的子目录）。家目录下不带点开头段的普通目录可以用。
+
+卷根单独按写法认，不靠「包住家目录」：Windows 上另一个盘的卷根和家目录不在同一棵树里，`path.relative` 两个方向都给绝对路径。判定用 `path.parse` 加 `path.win32.parse`，所以在 POSIX 上碰到 Windows 写法也拒收；工作区根在规范化前后各认一次（`<顶层目录>/..` 这种写法规范化后才是卷根）。这一条只有路径语义上的单测，没有在真 Windows 上挂过别的盘。
 
 登记册是进程内的，先到先得，没有注销接口：换工作区根或引擎目录要重启进程。它拦的是调用配置把挂载范围越扩越大，部署时仍应由服务端写死可信的工作区根与引擎目录，不从请求里取。
 
@@ -143,9 +145,16 @@ const sum = queue.summarizeLedger(); // { count: 2, succeeded: 2, gpuSeconds: 6,
 | `cross_workspace_processes` | `ps`、`/proc/<进程号>/cmdline` 与 `environ`、0 号信号、用过的预热进程再分配后的内存残留 |
 | `readonly_image_write` | 改写与新建引擎目录里的文件、在 `/var/tmp`、兄弟工作区、模拟家目录里新建文件 |
 
-报告（`sandbox-redteam/0.1`）每项一条：`command`、`exitCode`（探针退出码：1 全部尝试失败，0 至少一次得手，3 连自己的工作区都读写不了）、`blockedBy`（拦截层）、`escaped`、`conclusive`、`blocked`、`hostEvidence`、`missingAttempts`、`fixtureErrors`，以及每次尝试的载荷与实测错误码；顶层带 `backend`、`isolation`、`boundary`（后端边界）。
+报告（`sandbox-redteam/0.1`）每项一条：`command`、`exitCode`（探针退出码：1 全部尝试失败，0 至少一次得手，3 连自己的工作区都读写不了）、`blockedBy`（拦截层）、`escaped`、`conclusive`、`blocked`、`hostEvidence`、`missingAttempts`、`receiptErrors`、`fixtureErrors`，以及每次尝试的载荷与实测错误码；顶层带 `backend`、`isolation`、`boundary`（后端边界）。
 
-一项的结论有效（`conclusive`）要四样齐：探针在自己的工作区里读写正常；退出码是 0 或 1；上表里这一项的子尝试一个不少（判定方自己留着每项的 `expectedAttempts` 清单逐个核对，少的记在 `missingAttempts`）；攻击夹具都建起来了（建不起来的记在 `fixtureErrors`，例如 Windows 上没有建符号链接的权限时，两条软链尝试没有真打到靶子上）。`blocked` 是结论有效并且没逃逸；`ok` 要五项都 `blocked`。少跑子尝试或夹具没建起来，这一项判结论无效，整份报告判红。命令行 `node beiming/jobs/sandbox-redteam.mjs [--json 文件] [--md 文件] [--backend 后端] [--image 镜像] [--allow-degraded]`：全拦 exit 0，有逃逸或结论无效 exit 4，没有可用后端 exit 3。默认的外网目标是 `1.1.1.1:443` 与 `example.com`，被拦时没有包发出去。
+一项的结论有效（`conclusive`）要四样齐，缺一样这一项就判结论无效、整份报告判红：
+
+1. 探针在自己的工作区里读写正常。
+2. 回执完整并且和退出码自洽，不合格的记在 `receiptErrors`。每条子尝试的回执要是对象，带 `id` 和自有的布尔值 `ok`；说自己被拦（`ok: false`）的还要带非空字符串的错误码（`code` 或 `error`）。探针退出码要和明细对得上：明细全是被拦应是 1，有一次得手应是 0；对不上的（明细全拦却退出 0、被信号杀掉的 `null`、别的退出码）都不算数。
+3. 上表里这一项的子尝试一个不少（判定方自己留着每项的 `expectedAttempts` 清单逐个核对，少的记在 `missingAttempts`）。
+4. 攻击夹具都建起来并且活到最后，不合格的记在 `fixtureErrors`。例如 Windows 上没有建符号链接的权限时，两条软链尝试没有真打到靶子上。诱饵进程起来后先在标准输出上应一声，宿主机确认它在才开跑；进程隔离那一项的探针跑完、清理诱饵之前，宿主机再核一次子进程状态和 0 号信号。诱饵中途退出的话，「看不到它」什么也说明不了。
+
+`blocked` 是结论有效并且没逃逸；`ok` 要五项都 `blocked`。命令行 `node beiming/jobs/sandbox-redteam.mjs [--json 文件] [--md 文件] [--backend 后端] [--image 镜像] [--allow-degraded]`：全拦 exit 0，有逃逸或结论无效 exit 4，没有可用后端 exit 3。默认的外网目标是 `1.1.1.1:443` 与 `example.com`，被拦时没有包发出去。
 
 2026-11-22 在 macOS 27.2（arm64，Node 24.13.1）上用 `darwin-seatbelt` 后端实测，5/5 被拦：
 

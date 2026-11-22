@@ -21,8 +21,8 @@
 | `queue.mjs` | `loadQueue`、`replayJob` | 持久化作业队列，到终态自动记账 |
 | `ledger.mjs` | `appendJobLedger`、`readJobLedger`、`normalizeLedgerEntry`、`summarizeJobLedger`、`quoteFromDraft`、`measureDiskBytes` | 六维成本账本与草稿报价 |
 | `cache.mjs` | `computeFrameCacheKey`、`canonicalJson`、`openShotCache`、`renderShotsWithCache`、`checkCacheSeams` | 镜头帧缓存（A16） |
-| `sandbox.mjs` | `runInWorkspaceSandbox`、`enforceAuthorMode`、`buildContainerSpec`、`validateContainerSpec`、`WarmProcessPool` 等 | 工作区沙箱（A13） |
-| `sandbox-redteam.mjs` | `runSandboxRedTeam`、`formatRedTeamReport`（不经 `index.mjs`） | 红队逃逸实测 |
+| `sandbox.mjs` | `runInWorkspaceSandbox`、`enforceAuthorMode`、`WarmProcessPool` 等 | 工作区沙箱（A13） |
+| `sandbox-redteam.mjs` | `runSandboxRedTeam`、`formatRedTeamReport`（不经 `index.mjs`） | 红队实测 |
 
 ## 作业成本账本
 
@@ -52,7 +52,7 @@
 
 ## 工作区沙箱（A13）
 
-`runInWorkspaceSandbox` 先过 U8 守卫：请求、`shot`、`film.shots[]` 及其 `renderer` 的自有 `mode` 须是 `cards-data` 且不带 `entry`（否则 `contract.unsupported-mode`），`files` 查相对路径。调用方要把出帧的镜头放进请求，并固定工作区根与引擎目录：互相包含或在家目录点目录里的拒收。沙箱无网络、根只读、非 root，只挂本工作区与只读引擎目录，环境变量走白名单。后端只认 `oci`、`darwin-seatbelt`、`portable`（无内核隔离，要 `allowDegraded: true`）。红队：`node beiming/jobs/sandbox-redteam.mjs`，子尝试全拦才 exit 0。见 [DETAILS.md](DETAILS.md)。
+`runInWorkspaceSandbox` 先过 U8 守卫：请求、`shot`、`film.shots[]` 及其 `renderer` 的自有 `mode` 须是 `cards-data` 且不带 `entry`（否则 `contract.unsupported-mode`），`files` 查相对路径。调用方把出帧的镜头放进请求并固定工作区根与引擎目录：卷根、互相包含、家目录点目录都拒收。沙箱无网络、根只读、非 root，只挂本工作区与只读引擎目录，环境变量走白名单。后端只认 `oci`、`darwin-seatbelt`、`portable`（无内核隔离，要 `allowDegraded: true`）。红队：`node beiming/jobs/sandbox-redteam.mjs`，全拦才 exit 0。
 
 ## 自检
 
@@ -62,7 +62,7 @@
 node --test "beiming/jobs/*.test.mjs"      # 全部
 node --test beiming/jobs/ledger.test.mjs   # 账本与文件锁
 node --test beiming/jobs/cache.test.mjs    # 镜头帧缓存
-node --test beiming/jobs/sandbox.test.mjs  # 工作区沙箱与红队
+node --test beiming/jobs/sandbox.test.mjs  # 沙箱与红队
 ```
 
 这里是作业层的缓存核，不代表 API 渲染路径已接入。

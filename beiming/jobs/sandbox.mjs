@@ -63,8 +63,16 @@ const overlaps = (a, b) => inside(a, b) || inside(b, a);
 const isPlain = (value) => value !== null && typeof value === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(value));
 const ownTrue = (object, key) => Object.hasOwn(object, key) && object[key] === true;
 
-// 不该挂进沙箱的宿主机目录：包住家目录的（含根目录与家目录本身），和家目录下带点开头段的（.ssh、.aws、.config 这类配置与凭据目录）。
+// 根目录与盘符卷根（/、D:\、D:/、D:）。Windows 上别的盘的卷根不包住家目录，靠「包住家目录」认不出来，按写法单独认；
+// 用 path.win32 认，在 POSIX 上碰到 Windows 写法也一样拒收。
+function isVolumeRoot(dir) {
+  return typeof dir === 'string' && dir !== ''
+    && (path.parse(dir).root === dir || path.win32.parse(dir).root.toLowerCase() === dir.toLowerCase() || /^[A-Za-z]:[\\/]?$/.test(dir));
+}
+
+// 不该挂进沙箱的宿主机目录：卷根，包住家目录的（含家目录本身），和家目录下带点开头段的（.ssh、.aws、.config 这类配置与凭据目录）。
 function hostSensitive(dir) {
+  if (isVolumeRoot(dir)) return '不得是根目录或盘符卷根';
   const home = tryReal(os.homedir());
   if (inside(dir, home)) return '不得是根目录、家目录或包住家目录的目录';
   if (inside(home, dir) && path.relative(home, dir).split(path.sep).some((segment) => segment.startsWith('.'))) {
@@ -107,6 +115,9 @@ export function enforceAuthorMode(request, workspaceDir = noWorkspace) {
   const files = Object.hasOwn(request, 'files') ? request.files : [];
   if (!Array.isArray(files)) refuse('files 必须是相对路径数组。');
   for (const file of files) {
+    // safePath 的控制字符检查到 0x1f 为止，这里连 DEL（0x7f）一起先拒。
+    // eslint-disable-next-line no-control-regex
+    if (typeof file === 'string' && /[\x00-\x1f\x7f]/.test(file)) throw codedError('contract.bad-path', 'files 里的路径不得含控制字符（含 DEL）。');
     if (typeof file !== 'string' || !dataExtensions.has(path.posix.extname(file).toLowerCase())) {
       refuse(`只收数据文件，不收脚本或可执行文件：${String(file)}`, { path: file });
     }
@@ -127,6 +138,7 @@ export function resolveWorkspace({ workspacesRoot, workspaceDir } = {}) {
   const refuse = (message) => {
     throw codedError('contract.bad-path', message);
   };
+  if (isVolumeRoot(workspacesRoot) || isVolumeRoot(workspaceDir)) refuse('工作区根与工作区都不得是根目录或盘符卷根。');
   if (workspaceDir.split(/[\\/]/).includes('..')) refuse('工作区路径不得含 .. 段。');
   // path.resolve 去掉结尾的分隔符：带着它 lstat 会跟过符号链接。
   const given = path.resolve(workspaceDir);
@@ -134,6 +146,8 @@ export function resolveWorkspace({ workspacesRoot, workspaceDir } = {}) {
   if (!stat || stat.isSymbolicLink() || !stat.isDirectory()) refuse('工作区必须是已存在的目录，不得是符号链接。');
   const root = fs.realpathSync.native(workspacesRoot);
   const dir = fs.realpathSync.native(given);
+  // 换一种写法指到卷根的（<顶层目录>/.. 这类），规范化之后再认一次。
+  if (isVolumeRoot(root)) refuse('工作区根不得是根目录或盘符卷根。');
   const workspaceId = path.relative(root, dir);
   if (path.dirname(dir) !== root || !workspaceIdPattern.test(workspaceId)) {
     refuse('工作区必须是工作区根的直接子目录，目录名只用小写字母、数字和连字符。');
@@ -177,6 +191,7 @@ export function validateContainerSpec(spec) {
   const [workspace, app] = mounts;
   // eslint-disable-next-line no-control-regex
   need(mounts.every((mount) => typeof mount.source === 'string' && !/[\x00-\x1f\x7f,"]/.test(mount.source)), '挂载源路径不得含逗号、引号或控制字符。');
+  need(!mounts.some((mount) => isVolumeRoot(mount.source)), '挂载源不得是根目录或盘符卷根。');
   try {
     const resolved = resolveWorkspace({ workspacesRoot: spec.workspacesRoot, workspaceDir: workspace.source });
     need(

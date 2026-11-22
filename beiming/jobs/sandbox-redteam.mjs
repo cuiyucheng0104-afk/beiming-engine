@@ -10,6 +10,7 @@ import dns from 'node:dns';
 import process from 'node:process';
 import { fork, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { setImmediate } from 'node:timers';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -246,6 +247,14 @@ async function warmResidue(pool, secret) {
   }
 }
 
+// 一条子尝试的回执哪里不算数：要是普通对象、带 id 和自有的布尔值 ok；说自己被拦的，还要带非空的错误码（code 或 error）。
+function receiptProblem(entry) {
+  if (entry === null || typeof entry !== 'object' || Array.isArray(entry) || typeof entry.id !== 'string' || !entry.id) return '不是带 id 的对象';
+  if (!Object.hasOwn(entry, 'ok') || typeof entry.ok !== 'boolean') return '没有布尔值 ok';
+  if (!entry.ok && ![entry.code, entry.error].some((reason) => typeof reason === 'string' && reason.length > 0)) return '说被拦却没有错误码';
+  return null;
+}
+
 function mapStrings(value, map) {
   if (typeof value === 'string') return map(value);
   if (Array.isArray(value)) return value.map((entry) => mapStrings(entry, map));
@@ -314,9 +323,26 @@ export async function runSandboxRedTeam({
       connections += 1;
     });
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-    decoy = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)', DECOY_TAG, canary.decoyArg], {
-      cwd: sibling, env: { ...bareEnv(), BM_DECOY_SECRET: canary.decoyEnv }, stdio: 'ignore',
+    // 诱饵起来先在标准输出上说一声，宿主机听到并确认进程在，才算就绪。
+    decoy = spawn(process.execPath, ['-e', "process.stdout.write('ready');setInterval(() => {}, 1000)", DECOY_TAG, canary.decoyArg], {
+      cwd: sibling, env: { ...bareEnv(), BM_DECOY_SECRET: canary.decoyEnv }, stdio: ['ignore', 'pipe', 'ignore'],
     });
+    const decoyAlive = () => {
+      if (decoy.exitCode !== null || decoy.signalCode !== null) return false;
+      try {
+        process.kill(decoy.pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const decoyGone = (when) => fixtureErrors.push({ item: 'cross_workspace_processes', text: `诱饵进程${when}` });
+    const ready = await new Promise((resolve) => {
+      decoy.stdout.once('data', () => resolve(true));
+      decoy.once('error', () => resolve(false));
+      decoy.once('exit', () => resolve(false));
+    });
+    if (!ready || !decoyAlive()) decoyGone('没起来');
     Object.assign(process.env, hostEnv);
 
     const [externalHost, externalPort] = externalTarget.split(':');
@@ -352,10 +378,21 @@ export async function runSandboxRedTeam({
       } catch {
         parsed = null;
       }
-      const attempts = (parsed?.attempts ?? []).map((entry) => ({
-        id: entry.id, payload: entry.payload, code: entry.code, escaped: entry.ok === true || leaked(entry.data),
-      }));
+      const receipts = Array.isArray(parsed?.attempts) ? parsed.attempts : [];
+      const receiptErrors = [];
+      if (parsed && !Array.isArray(parsed.attempts)) receiptErrors.push('attempts 不是数组');
+      const attempts = receipts.map((entry, index) => {
+        const problem = receiptProblem(entry);
+        if (problem) receiptErrors.push(`${typeof entry?.id === 'string' && entry.id ? entry.id : `第 ${index + 1} 条`}: ${problem}`);
+        return { id: entry?.id, payload: entry?.payload, code: entry?.code ?? entry?.error, escaped: entry?.ok === true || leaked(entry?.data) };
+      });
+      // 探针的约定：全被拦退出 1，有一次得手退出 0。退出码和明细对不上（含被信号杀掉的 null），这份回执不可信。
+      const expectedExit = receipts.some((entry) => entry?.ok === true) ? 0 : 1;
+      if (parsed?.control === true && result.code !== expectedExit) receiptErrors.push(`探针退出码 ${result.code} 与明细矛盾（按明细应是 ${expectedExit}）`);
       if (id === 'cross_workspace_processes') {
+        // 探针跑完、清理之前再确认一次：诱饵中途退出的话，「看不到它」什么也说明不了。先让出一轮事件循环，收掉已经到了的退出事件。
+        await new Promise((resolve) => setImmediate(resolve));
+        if (!decoyAlive() && !fixtureErrors.some((entry) => entry.item === id)) decoyGone('在探针跑完之前就退出了');
         const memory = await warmResidue(pool, canary.residue);
         attempts.push({
           id: 'warm-process-residue', payload: '工作区 B 用过的预热进程再分给工作区 A，读它内存里留下的数据',
@@ -365,8 +402,8 @@ export async function runSandboxRedTeam({
       const hostEvidence = evidence[id]?.() ?? null;
       const missingAttempts = expectedAttempts.filter((expected) => !attempts.some((entry) => entry.id === expected));
       const failedFixtures = fixtureErrors.filter((entry) => entry.item === id).map((entry) => entry.text);
-      // 结论有效要四样齐：探针在自己的工作区里读写正常、退出码是 0 或 1、预期的子尝试一个不少、攻击夹具都建起来了。
-      const conclusive = parsed?.control === true && parsed.item === id && (result.code === 0 || result.code === 1)
+      // 结论有效要四样齐：探针在自己的工作区里读写正常、每条回执完整并且和退出码自洽、预期的子尝试一个不少、攻击夹具都建起来并且活到最后。
+      const conclusive = parsed?.control === true && parsed.item === id && !receiptErrors.length
         && !missingAttempts.length && !failedFixtures.length;
       const escaped = attempts.some((entry) => entry.escaped) || hostEvidence !== null;
       items.push({
@@ -379,6 +416,7 @@ export async function runSandboxRedTeam({
         blockedBy: backendInfo(result.backend).layers[id],
         hostEvidence,
         missingAttempts,
+        receiptErrors,
         fixtureErrors: failedFixtures,
         attempts,
       });
@@ -424,7 +462,7 @@ export function formatRedTeamReport(report) {
     `- 时间：${report.generatedAt}`,
     `- 后端边界：${report.boundary}`,
     '- 探针退出码：1 是全部尝试失败，0 是至少一次得手，3 是沙箱里连自己的工作区都读写不了（结论无效）。',
-    '- 一项算拦住，要它预期的子尝试全部跑到并且全部失败；少跑一个，或者攻击夹具没建起来，都是结论无效。',
+    '- 一项算拦住，要它预期的子尝试全部跑到并且全部失败；少跑一个、回执不完整或与退出码矛盾、攻击夹具没建起来或没活到最后，都是结论无效。',
     '',
     '| # | 逃逸尝试 | 命令 | 退出码 | 拦截层 | 逃逸 |',
     '|---|---|---|---|---|---|',
@@ -435,6 +473,7 @@ export function formatRedTeamReport(report) {
     for (const entry of item.attempts) lines.push(`| ${entry.payload}（\`${entry.id}\`） | \`${entry.code}\` | ${entry.escaped ? '是' : '否'} |`);
     lines.push('', `宿主机一侧的核对：${item.hostEvidence ?? '没有发现逃逸痕迹'}。`);
     if (item.missingAttempts?.length) lines.push('', `结论无效，少跑了子尝试：${item.missingAttempts.map((id) => `\`${id}\``).join('、')}。`);
+    if (item.receiptErrors?.length) lines.push('', `结论无效，回执不完整或自相矛盾：${item.receiptErrors.map((text) => `\`${text}\``).join('、')}。`);
     if (item.fixtureErrors?.length) lines.push('', `结论无效，攻击夹具没建起来：${item.fixtureErrors.map((text) => `\`${text}\``).join('、')}。`);
   }
   return `${lines.join('\n')}\n`;
