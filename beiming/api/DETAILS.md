@@ -1,4 +1,4 @@
-# 薄壳细则
+# 细则：薄壳与镜头帧缓存
 
 命令行薄壳（`cli-shell.mjs`）和 MCP 薄壳（`mcp.mjs`）共用 `client.mjs`。三个文件都只读合同 `ROUTES`，不抄路由；合同增删改动词后，工具表、命令表、选项和请求跟着变。旧的 `tools/film` 命令不受影响。
 
@@ -51,3 +51,31 @@ node beiming/api/cli.mjs render --id f_001 --wait 30 --json '{"tier":"draft"}'
 `index.mjs` 导出 `buildMcpTools(routes)`、`createMcpSession({ baseUrl, token, workspaceTokens, fetchImpl, routes })`、`serveMcpStdio(选项)`、`buildCliCommands(routes)`、`exitCodeForEnvelope(信封)`、`runApiCli(argv, { env, fetchImpl, stdout, routes })`。`routes` 默认是合同的 `ROUTES`，测试可以传加了动词的表。
 
 改动后运行 `node --test beiming/api/shells.test.mjs`。
+
+## 镜头帧缓存（A16）
+
+`render`、`verify` 的补渲和 `deliver` 的终渲都经 `pipeline.mjs` 的 `renderPlan`。每部片的缓存在工作区 `deliver/.shot-cache/`（`jobs/cache.mjs` 的 `openShotCache`）：不进修订快照，跨修订、跨作业复用。每帧先按 04 §10 的六项键查缓存，命中的帧把 `color.f32`、`objectId.u32` 还原到 `<作业>/frames/<镜头>/layers/cache-f<局部帧号>/`，不调帧源；一个镜头全部命中就不为它起 Blender 或浏览器会话。只改 `s02` 再交付，`s01` 的渲帧数是 0。
+
+`buildShotCacheInputs({ film, lock, shot, filmDir, tier, events, device })` 交出一个镜头的键输入：
+
+| 项 | 进键的内容 |
+|---|---|
+| ① 镜头 | 镜头条目和它的起始帧；本镜头看得到的事件：落在镜头里的、`shot` 点名这个镜头的、镜头条目或入口文件里按名字引用的；片级参数 `output.fps`、`style.tokens`、`assets` 表、贴在这个镜头的 `overlays`、锁里的镜头种子 |
+| ② 文件 | 入口文件，加上 `shots/` 下不是别的镜头入口的源码（共用模块）；用到的资产在锁里的摘要。`cards-data` 镜头没有入口 |
+| ③ 轨道 | 镜头 `tracks` 声明的摘要，没有写 `'none'` |
+| ④ 卡 | 镜头的卡、叠加层卡和数据层（`impl` 含 `data`）的卡在锁里的 `version` 与 `sha256`。合成的卡不进键：缓存存的是合成之前的层 |
+| ⑤ 环境 | 帧源与宿主、锁里的运行时版本与镜像、浏览器可执行文件的指纹、浏览器的显卡参数、系统版本，加上帧源上次出帧时报的 `backend` 与 `gpu` |
+| ⑥ 规格 | 档位、采样数、`output.size`、局部帧号、快门子帧相位 |
+
+- **别的镜头改参数、改事件不影响本镜头；镜头整体后移要重渲**：起始帧在键里。镜头代码和卡拿得到 `ctx.shot.in`（[镜头契约](../kernel/contracts/shot/CONTRACT.md) S10，`time.timeline` 用它算全片时间），`time` 类型的卡参数写整数是全片帧号（转台模板片名卡的 `enter: 0`），后移之后同一个局部帧号的画面可以不一样。前一个镜头改长，后面的镜头都重渲；只改长最后一个镜头，前面的照常命中。`jobs/cache.mjs` 的键本身不含起始帧，由这里放进 `film.at`。
+- 命中的元数据 `timing` 记 0，其余原样，`hash.color` 与还原出的颜色层一致。
+- **读回校验**：文件头、颜色层、编号层各验 SHA-256，层的字节数要对上 `meta.size`，`meta.hash.color` 要对上颜色层。任一项不对就丢掉这一帧重渲。没带编号层的条目不当命中。
+- **环境记录**：显卡后端和型号要帧源出过帧才知道，记在 `deliver/.shot-cache/devices.json`。全部命中的镜头照记录算键。真渲的帧报的不一样时改记录，这个镜头照旧环境查到的命中作废，照新环境整镜重渲。局限：换了显卡或驱动而系统版本没变时，全部命中的镜头发现不了，等到任一个同帧源的镜头真渲一帧才纠正；要立刻生效就删掉 `deliver/.shot-cache/`。
+- **接缝检查**：容差档帧源（`blender`）出的一段连续帧里混了几轮的帧时跑 `checkCacheSeams`。有尖峰就 `invalidateShot`，旧帧在同一个会话里重渲，结果里这个镜头带 `seam: 'rerendered'`。抽样帧不连续，不查。
+- **记账**：作业结论的 `data.renderedFrames`、`data.cachedFrames`、`data.shots[]`，账本行的 `frames`（等于 `renderedFrames`）与 `cachedFrames`。`frames` 和 `gpuSeconds` 只数真调了帧源的帧；交付另带 `deliveredFrames`。
+- **L2 纯函数门不走缓存**：交付时每个镜头仍用 CPU 草稿档探两帧，它的耗时进 `gpuSeconds`、不进 `frames`。缓存的前提是「帧只由六项决定」，这道门守的就是这个前提，所以不缓存它的结论。
+- **保留**：交付成功后 `prune()`：终稿每个镜头只留最近用过的一版，放了七天的条目清掉。草稿档的帧也进缓存，七天后清。
+- **键算不出来**（镜头条目里有帧源才判得出的错）时这个镜头不走缓存，帧源照常出帧或报它自己的错。
+- 测「重新渲染」（重复性、重建）时每次用新片子，或先删 `deliver/.shot-cache/`，否则测到的是命中。`renderPlan` 不传 `cache` 就每帧都渲。
+
+改动后运行 `node --test beiming/api/shot-cache-api.test.mjs`：前半用记数的假帧源（只要 FFmpeg），最后一条用真 Blender 和无头浏览器交付两次，缺工具时跳过。

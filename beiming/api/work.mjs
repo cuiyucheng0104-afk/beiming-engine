@@ -2,11 +2,12 @@
 // 作业经 jobs 的队列和调度器跑：执行器从这个修订的快照读 film.json、film.lock 和镜头文件，产物写进工作区 deliver/<作业号>/。
 // 作业的结论写成 deliver/<作业号>/outcome.json（队列自己只留一句失败原因，错误码留不住），服务端照它拼信封。
 // 渲出来的帧按档位并进一份索引 deliver/frames-<档位>.json（只留当前修订的），观测和核验都读它。
+// 镜头帧缓存在 deliver/.shot-cache（不进修订快照，跨修订、跨作业复用）：没改的镜头再渲、再交付时不调帧源。
 // 计时只用单调时钟量耗时（记成本用），不进任何产物的内容。
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { loadQueue } from '../jobs/index.mjs';
+import { loadQueue, openShotCache } from '../jobs/index.mjs';
 import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, query } from '../observe/index.mjs';
 import { artifactUrl } from './client.mjs';
 import { ROUTES } from './contract.mjs';
@@ -92,6 +93,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
   const deliverDir = (id) => join(store.filmDir(id), 'deliver');
   const jobDir = (id, jobId) => join(deliverDir(id), jobId);
   const output = (id, kind, rel) => ({ kind, url: url(id, rel), sha256: sha256File(join(deliverDir(id), rel)) });
+  const shotCache = (id) => openShotCache(join(deliverDir(id), '.shot-cache'));
 
   /* ---------------- 帧的索引 ---------------- */
 
@@ -143,7 +145,8 @@ export function createWork({ store, library, reviewer, scheduler }) {
     const dir = jobDir(id, job.id);
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
-    const acc = { gpuSeconds: 0, frames: 0, tokens: 0, start: monotonicMs() };
+    // frames 只数真调了帧源的帧，cachedFrames 数缓存命中的帧
+    const acc = { gpuSeconds: 0, frames: 0, cachedFrames: 0, tokens: 0, start: monotonicMs() };
     progress.set(job.id, acc);
     const pool = sourcePool({ library, workspace: snapshot.dir, blenderBin: blenderInfo()?.bin });
     let outcome, crash;
@@ -209,8 +212,9 @@ export function createWork({ store, library, reviewer, scheduler }) {
     if (signal.aborted) outcome = { ok: true, data: { canceled: true } };
     outcome.cost = { tokens: acc.tokens, gpuSeconds: r3(acc.gpuSeconds), wallMs };
     outcome.frames = acc.frames;
+    outcome.cachedFrames = acc.cachedFrames;
     writeFileSync(join(dir, 'outcome.json'), jsonText(outcome));
-    store.ledger(id, { step: `job.${name}`, job: job.id, rev, status: signal.aborted ? (signal.reason === 'preempted' ? 'stopped' : 'canceled') : crash ? 'failed' : 'succeeded', ok: !signal.aborted && outcome.ok, wallMs, gpuSeconds: r3(acc.gpuSeconds), tokens: 0, modelTokens: acc.tokens, frames: acc.frames });
+    store.ledger(id, { step: `job.${name}`, job: job.id, rev, status: signal.aborted ? (signal.reason === 'preempted' ? 'stopped' : 'canceled') : crash ? 'failed' : 'succeeded', ok: !signal.aborted && outcome.ok, wallMs, gpuSeconds: r3(acc.gpuSeconds), tokens: 0, modelTokens: acc.tokens, frames: acc.frames, renderedFrames: acc.frames, cachedFrames: acc.cachedFrames });
     progress.delete(job.id);
     if (crash && !signal.aborted) throw new Error(outcome.message);
     return { ok: outcome.ok };
@@ -218,14 +222,16 @@ export function createWork({ store, library, reviewer, scheduler }) {
 
   const shotsOf = (film, plan) => plan.map((p) => ({ shot: film.shots.find((s) => s.id === p.shot), frames: p.frames }));
 
-  /** 渲一批帧并进索引，记显卡秒和帧数 */
+  /** 渲一批帧并进索引，记显卡秒和帧数。交回 { records, cache }：cache 是这一批的缓存账 { renderedFrames, cachedFrames, shots } */
   async function renderInto(cx, tier, plan, sub) {
     const { film, lock, snapshot, dir, pool, signal, lutPath, acc, id, rev } = cx;
-    const res = await renderPlan({ film, lock, filmDir: snapshot.dir, tier, plan: shotsOf(film, plan), outDir: join(dir, sub), pool, signal, lutPath,
+    const { records, gpuSeconds, ...cache } = await renderPlan({ film, lock, filmDir: snapshot.dir, tier, plan: shotsOf(film, plan), outDir: join(dir, sub), pool, signal, lutPath,
+      cache: shotCache(id),
       onFrame(seconds) { acc.gpuSeconds += seconds; acc.frames++; },
     });
-    mergeFrames(id, tier, rev, res.records);
-    return res.records;
+    acc.cachedFrames += cache.cachedFrames;
+    mergeFrames(id, tier, rev, records);
+    return { records, cache };
   }
 
   const gatesOf = (l1, l2, l3) => ({
@@ -242,12 +248,12 @@ export function createWork({ store, library, reviewer, scheduler }) {
     render: handler('render', async (cx) => {
       const { job, step, film, id, rev } = cx;
       const { tier, plan } = job.payload;
-      const records = await step('render', () => renderInto(cx, tier, plan, 'frames'));
+      const { records, cache } = await step('render', () => renderInto(cx, tier, plan, 'frames'));
       const expected = plan.reduce((n, p) => n + p.frames.length, 0);
       const items = records.map((r) => frameSummary(r, film.shots.find((s) => s.id === r.shot)));
       return {
         ok: true,
-        data: { rev, tier, expectedCount: expected, actualCount: items.length, items, png: `${job.id}/frames/<镜头>/png/f<四位帧号>.png` },
+        data: { rev, tier, expectedCount: expected, actualCount: items.length, ...cache, items, png: `${job.id}/frames/<镜头>/png/f<四位帧号>.png` },
         outputs: [{ kind: 'frames-index', url: url(id, `frames-${tier}.json`) }],
         next: [{ verb: `POST /v1/films/${id}/observe/query`, why: '问主角在画面里的位置和留白' }, { verb: `POST /v1/films/${id}/verify`, why: '跑 L1–L3' }],
       };
@@ -296,7 +302,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
     deliver: handler('deliver', async (cx) => {
       const { job, step, film, lock, lockFile, snapshot, pool, signal, id, rev, dir, lutPath, meta, intermediateDir, acc } = cx;
       const plan = film.shots.map((s) => ({ shot: s.id, frames: span(s.in, s.out) }));
-      const records = await step('render', () => renderInto(cx, 'final', plan, 'frames'));
+      const { records, cache } = await step('render', () => renderInto(cx, 'final', plan, 'frames'));
       const bundle = await step('comp', () => deliverBundle({ film, lock: lockFile, records, lutPath, outDir: join(dir, 'bundle') }));
       const master = join(bundle.dir, 'master.mp4');
       const l1 = layerL1(film, snapshot.dir, rev, meta.question);
@@ -325,6 +331,8 @@ export function createWork({ store, library, reviewer, scheduler }) {
         throw new ApiError('contract.delivery-mismatch', '交付产物没有齐备六件');
       }
       store.updateMeta(id, (m) => { m.lastDeliver = { job: job.id, rev, dir: `deliver/${job.id}/bundle`, ok: pass }; });
+      // 保留策略：终稿每个镜头只留最近用过的一版，放了七天的条目清掉；清不动不影响已经出齐的六件套
+      try { shotCache(id).prune(); } catch { /* 下一次交付再清 */ }
       // 收获钩子：基础谓词全过才触发；M1a 的收获不出候选，只在账本和记录里留一笔
       let harvest = { triggered: false, reason: '基础谓词没有全过' };
       if (pass && l3.basePass) {
@@ -333,7 +341,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
         store.ledger(id, { step: 'harvest-hook', job: job.id, rev, ok: true, wallMs: 0, gpuSeconds: 0, tokens: 0, modelTokens: 0, frames: 0 });
       }
       const data = {
-        rev, expectedCount: 6, actualCount: names.length, items: names, layers: gatesOf(l1, l2, l3),
+        rev, expectedCount: 6, actualCount: names.length, items: names, deliveredFrames: records.length, ...cache, layers: gatesOf(l1, l2, l3),
         failed: l3.verdicts.filter((v) => v.status === 'fail').map((v) => v.id), review: { status: l5.status, ...(l5.reason ? { reason: l5.reason } : {}) }, harvest,
       };
       const outputs = names.map((n) => ({ kind: kinds[n] ?? 'file', url: url(id, `${job.id}/bundle/${n}`), sha256: verified.files[n].sha256 }));
