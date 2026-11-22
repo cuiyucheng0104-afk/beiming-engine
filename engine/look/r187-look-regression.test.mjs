@@ -323,13 +323,16 @@ test('FX22-2b 登记口：同一个 patch.js 带上 #片段 导入是另一个�
   (await sink.read('s6-key')).length = 0;
   // 合成的冒充不了：直接塞读出口（单塞、配上真的 patch.js 地址）不收；自造的报错模块（data: / blob:）内容不是 patch.js 的原文，不读，
   // 页面事后把 fetch 换成「问什么都回原文」也没用；页面没加载过的 …/shade/patch.js 地址不读（渲染器不去 import）；
-  // patch.js 的地址换个 #片段 读到的是一个没出过错的新实例。内容是原文的 blob: / data: 认；取不到内容的（注销了的 blob:）核不了，照认
+  // patch.js 的地址换个 #片段 读到的是一个没出过错的新实例。注销后仍按创建时的 Blob 正文核验。
   const FAKE = { fn: 'inject', anchor: 'A', message: `${PATCH_TAG} QA synthetic, no shader call` }, fakeCode = `export const inject = { patchErrors: () => [${JSON.stringify(FAKE)}] };`;
   const data = code => 'data:text/javascript,' + encodeURIComponent(code), blob = code => URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
   assert.deepEqual((await import(data(fakeCode))).inject.patchErrors(), [FAKE], '这个自造模块 import 得到、也报得出合成记录');
-  const gone = blob(fakeCode), fakes = [data(fakeCode), data(fakeCode + '///shade/patch.js'), blob(fakeCode)], genuine = [data(source), blob(source), gone];
+  const gone = blob(fakeCode), revokedSource = blob(source), unknown = 'blob:' + crypto.randomUUID();
+  const fakes = [data(fakeCode), data(fakeCode + '///shade/patch.js'), blob(fakeCode), gone, unknown, 'data:text/javascript;base64,!'];
+  const genuine = [data(source), 'data:text/javascript;base64,' + Buffer.from(source).toString('base64') + '#instance', blob(source), revokedSource + '#instance'];
   const unloaded = ['http://127.0.0.1:1/copy/shade/patch.js#alias', new URL('./no-such/shade/patch.js', import.meta.url).href, '不是地址'];
   URL.revokeObjectURL(gone);
+  URL.revokeObjectURL(revokedSource);
   globalThis.fetch = async () => new Response(source);
   try {
     for (const args of [[() => [FAKE]], [() => [FAKE], frag], [null], [here + '#s6-forge'], ...[...fakes, ...genuine, ...unloaded].map(u => [u])]) sink.register(...args);
@@ -431,6 +434,27 @@ test('FX22-4 构建命令：夹具影片不改时正常出图；改错一段片�
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('FX22-6 原始投影锚点与 CSP 正文核验，两版在单采样和四倍采样下都执行正式出图命令', async t => {
+  if ((await run()).skipped) return t.skip((await run()).skipped);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 's6-fx22-')), still = stillIn(dir);
+  try {
+    for (const rev of [170, 187]) for (const samples of [1, 4]) {
+      const render = (name, query) => still(`${rev}-${samples}-${name}`, `three=${rev}&${query}`, '--samples', String(samples));
+      await t.test(`r${rev} ×${samples} 唯一锚点在死分支`, () => {
+        const miss = render('dead', 'pars=dead-only&when=swallow&mute=1');
+        assert.deepEqual([miss.status, miss.png], [1, false], miss.stderr);
+        assert.match(miss.stderr, /错误\[failure\.shader-error\]：.*着色器锚点缺失「#include <shadowmap_pars_fragment>」/);
+      });
+      await t.test(`r${rev} ×${samples} CSP 下的健康页`, () => {
+        const clean = render('clean', ''), forge = render('forge', 'csp=1&forge=1');
+        assert.deepEqual([clean.status, clean.png], [0, true], clean.stderr);
+        assert.deepEqual([forge.status, forge.png], [0, true], forge.stderr);
+        assert.ok(fs.readFileSync(clean.file).equals(fs.readFileSync(forge.file)), '与同版本、同采样的正常 PNG 逐字节相等');
+      });
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('FX22-5 构建命令（四审两项与交付前红队四项）：材质参数里的注释、假锚点不把补丁引到不生效的地方；空消息的读出口挡不住真的补丁错，合成的读出口冒充不了补丁错；页面挡住 fetch、换地址加载 patch.js 也读得到', async t => {
   if ((await run()).skipped) return t.skip((await run()).skipped);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 's6-fx22-')), still = stillIn(dir), same = (a, b) => a.png && fs.readFileSync(a.file).equals(fs.readFileSync(b.file));
@@ -460,10 +484,9 @@ test('FX22-5 构建命令（四审两项与交付前红队四项）：材质参�
       }
       // 生效的那条被注释掉：没有可打的地方，构建失败
       fails(still(`pars-off-${rev}`, `${three}pars=off&when=swallow&mute=1`), /着色器锚点缺失「#include <shadowmap_pars_fragment>」/, `r${rev} pars=off`);
-      // 页面用 CSP 挡住 fetch（页面里取不到任何地址的源码）：patch.js 换个地址另起的实例记的错照样读到（渲染器在自己这边按路径、按响应内容认模块；
-      // //patch.js 按路径认不出，blob: 渲染器收不到响应、页面里又取不到内容，照认）
-      for (const addr of ['/engine/shade/patch.js%23calibration', '/engine/shade//patch.js', 'blob'])
-        fails(still(`csp-${rev}-${addr.length}`, `${three}csp=1&probe=id-callback&when=swallow&mute=1&patch=${addr}`), ID_MISS, `r${rev} csp ${addr}`);
+      // HTTP 模块由宿主核验，blob: 和 data: 的源码在页面内核验。三条路径均可在 connect-src 'none' 下读取真实错误。
+      for (const addr of ['/engine/shade/patch.js%23calibration', '/engine/shade//patch.js', 'blob', 'data'])
+        fails(still(`csp-${rev}-${encodeURIComponent(addr)}`, `${three}csp=1&probe=id-callback&when=swallow&mute=1&patch=${addr}`), ID_MISS, `r${rev} csp ${addr}`);
       for (const more of [[], ['--samples', '4']]) {
         // 页面先往登记口塞只回空消息的读出口，真的补丁错记在 patch.js#calibration 那个实例里，页面接住、静音、画回退帧：照样判失败，只数真的
         const junk = still(`junk-${rev}-${more.length}`, `${three}junk=1&probe=id-callback&when=swallow&mute=1&patch=/engine/shade/patch.js%23calibration`, ...more);

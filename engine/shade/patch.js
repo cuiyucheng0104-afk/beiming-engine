@@ -51,12 +51,43 @@ class ShaderPatchError extends Error {   // 不导出：别的模块按 name 认
 // 生效的那一条原样留着、画面错了却没有任何报错。所以 // 与 /* */ 注释里的不算（GLSL 没有字符串，注释按先后认；GLSL ES 3.00 先把
 // 「反斜杠 + 换行」接起来再认注释，注释记号中间、行注释末尾夹着行续接的照它的规矩认）；
 // #include 照 three 展开它的正则认（WebGLProgram.js 的 includePattern：顶着行首，前面只许空格 / 制表符，include 后可以不止一个空格）。
-// 预处理死分支（#if 0）里的照样算一处：哪个分支生效按文本猜不准，由 inject 按「不唯一」报错
 const COMMENT = /\/(?:\\\r?\n)*\/(?:\\\r?\n|[^\n])*|\/(?:\\\r?\n)*\*[\s\S]*?(?:\*(?:\\\r?\n)*\/|$)/g, literal = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// 只排除能由常量确定的分支。宏值要到编译时才知道，未知条件两边都保留。
+function deadPreprocessorSpans(masked) {
+  const stack = [], spans = [];
+  let dead = false;
+  for (const line of masked.matchAll(/(?:\\\r?\n|[^\n])+/g)) {
+    const logical = line[0].replace(/\\\r?\n/g, '');
+    const directive = /^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)/.exec(logical);
+    if (!directive) {
+      if (dead) spans.push([line.index, line.index + line[0].length]);
+      continue;
+    }
+    const [, op, rest] = directive;
+    if (op === 'endif') {
+      dead = stack.pop()?.parentDead ?? false;
+      continue;
+    }
+    if (op === 'if' || op === 'ifdef' || op === 'ifndef') stack.push({ parentDead: dead, taken: false });
+    const branch = stack.at(-1);
+    if (!branch) continue;
+    const condition = op === 'if' || op === 'elif' ? rest.trim() : '';
+    dead = branch.parentDead || branch.taken || /^(?:0+|false)$/.test(condition);
+    if (op === 'else' || /^(?:1|true)$/.test(condition)) branch.taken = true;
+  }
+  return spans;
+}
+
 function activeAnchors(src, anchor) {
-  const inc = /^#include <([\w./]+)>$/.exec(anchor), dead = [...src.matchAll(COMMENT)].map(m => [m.index, m.index + m[0].length]);
+  const inc = /^#include <([\w./]+)>$/.exec(anchor), dead = [];
+  const masked = src.replace(COMMENT, (comment, start) => {
+    dead.push([start, start + comment.length]);
+    return comment.replace(/\\\r?\n|[^\r\n]/g, c => c.endsWith('\n') ? c : ' ');
+  });
+  const excluded = dead.concat(deadPreprocessorSpans(masked));
   const re = inc ? new RegExp(`(?<=^[ \\t]*)#include +<${literal(inc[1])}>`, 'gm') : new RegExp(literal(anchor), 'g');
-  return [...src.matchAll(re)].filter(m => !dead.some(([a, b]) => m.index > a && m.index < b));   // 起点落在注释里面的不算
+  return [...src.matchAll(re)].filter(m => !excluded.some(([a, b]) => a <= m.index && m.index < b));
 }
 
 // 以前的 inject 交出去的文本 → 里面哪些区间是补丁插进去的 [[起, 止), …]。接着它再打补丁时这些区间里不找锚点：材质钩子的文本是调用方给的，

@@ -12,11 +12,11 @@
        ID 图不能把这个错吞掉。
      ?patch=<模块地址> probe 用的 inject 改从这个地址导入（默认 /engine/shade/patch.js）。地址带 #片段、或是同一个文件的另一种写法
        （patch%2Ejs）时，浏览器另起一个模块实例，错记在那个实例里：渲染器照样要读到。?patch=blob 把 patch.js 的原文装进一个 blob: 地址再导入。
-     ?pars=<block | line | dead | hide-splice | hide-unroll | off> 材质的片元参数（fragmentPars）里先提到投影块的 #include：block 写在块注释里、
+     ?pars=<block | line | dead | hide-splice | hide-unroll | off | dead-only> 材质的片元参数（fragmentPars）里先提到投影块的 #include：block 写在块注释里、
        line 写在行注释里、dead 写在预处理死分支里（补丁照样要落在原来那一条上，出的图与不带参数时一样）；
        hide-splice / hide-unroll 在死分支里把片元补丁要找的几处原文全写一遍，再把后面原来的那几处盖住（前者用一段带行续接的合法注释
        「/* *\换行/」，后者把「/*」放进 three 会整段删掉的 0 次循环里）：补丁不能落进死分支，要么构建失败、要么图与正常帧相同；
-       off 不加参数，把着色器里生效的那一条注释掉（没有可打的地方：构建失败）。
+       off 把着色器里生效的那一条注释掉。dead-only 把唯一的投影锚点放进 #if 0，#else 中展开原始投影块，两种都应使构建失败。
      ?junk=1 赶在 patch.js 之前往渲染器的登记口塞只回空消息的读出口（直接塞函数、塞一个自造模块的地址）：挡不住后面真的补丁错。
      ?csp=1 页面给自己加一条 CSP（connect-src 'none'，在取好 ?patch=blob 的原文之后）：页面里取不到任何地址的源码，patch.js 换个地址
        （#片段、//patch.js、blob:）另起的实例记的错照样要读到（渲染器在自己这边按响应内容认模块）。
@@ -45,11 +45,17 @@ import { build, corrupt, P_BASE } from '/engine/look/r187-look-regression.scene.
 const q = new URLSearchParams(location.search), when = q.get('when') || 'load';
 const sink = globalThis.__bmShadePatchSink, INC = '#include <shadowmap_pars_fragment>';
 const FAKE = { fn: 'inject', anchor: '#include <color_fragment>', message: '[BEIMING_SHADER_PATCH_ERROR] QA synthetic, no shader call' };
-const fakeModule = recs => 'data:text/javascript,' + encodeURIComponent(`export const inject = { patchErrors: () => ${JSON.stringify(recs)} };`);
-const patchUrl = q.get('patch') === 'blob' ? URL.createObjectURL(new Blob([await (await fetch('/engine/shade/patch.js')).text()], { type: 'text/javascript' })) : q.get('patch') ?? '/engine/shade/patch.js';
+const fakeCode = recs => `export const inject = { patchErrors: () => ${JSON.stringify(recs)} };`;
+const fakeModule = recs => 'data:text/javascript,' + encodeURIComponent(fakeCode(recs));
+let patchUrl = q.get('patch') ?? '/engine/shade/patch.js';
+if (patchUrl === 'blob' || patchUrl === 'data') {
+  const source = await (await fetch('/engine/shade/patch.js')).text();
+  patchUrl = patchUrl === 'blob' ? URL.createObjectURL(new Blob([source], { type: 'text/javascript' })) : 'data:text/javascript,' + encodeURIComponent(source);
+}
 if (q.get('csp')) document.head.append(Object.assign(document.createElement('meta'), { httpEquiv: 'Content-Security-Policy', content: "connect-src 'none'" }));
 if (q.get('junk')) { sink?.register(() => [{ message: '' }]); sink?.register(() => [{ message: '' }], location.href); sink?.register(fakeModule([{ message: '' }])); }
 const { inject } = await import(patchUrl);
+if (q.get('patch') === 'blob') URL.revokeObjectURL(patchUrl);
 const W = innerWidth, H = innerHeight;
 if (q.get('mute')) console.error = () => {};
 if (q.get('forge')) (globalThis[Symbol.for('beiming.shaderPatchErrors')] ??= []).push({ fn: 'inject', anchor: '#include <color_fragment>', message: '[BEIMING_SHADER_PATCH_ERROR] QA synthetic, no shader call' });
@@ -57,11 +63,13 @@ if (q.get('forge')) console.error('[BEIMING_SHADER_PATCH_ERROR] QA synthetic, no
 if (q.get('forge')) {
   const fake = () => [FAKE], real = new URL('/engine/shade/patch.js#forge', location).href;
   sink?.register(fake); sink?.register(fake, 'http://127.0.0.1:1/engine/shade/patch.js'); sink?.register(fake, real); sink?.register(real); sink?.register(fakeModule([FAKE]));
+  sink?.register(URL.createObjectURL(new Blob([fakeCode([FAKE])], { type: 'text/javascript' })));
   sink?.register(new URL('./shade/patch.js#never-loaded', location).href); sink?.register('http://example.com/shade/patch.js');   // 页面没加载过的地址：渲染器不去 import，不多发请求
 }
 const FAKES = `#if 0\n${INC}\n#include <color_fragment>\n#include <normal_fragment_maps>\nvec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;\n#include <dithering_fragment>\n#endif\n`;
 const PARS = { block: `/* ${INC} */\n`, line: `// ${INC}\n`, dead: `#if 0\n${INC}\n#endif\n`, 'hide-splice': FAKES + '/* *\\\n/\n',
   'hide-unroll': FAKES + '#pragma unroll_loop_start\nfor ( int i = 0; i < 0; i ++ ) {\n/*\n}\n#pragma unroll_loop_end\n' }[q.get('pars')];
+if (q.get('pars') === 'dead-only') THREE.ShaderLib.toon.fragmentShader = THREE.ShaderLib.toon.fragmentShader.replace(INC, () => `#if 0\n${INC}\n#else\n${THREE.ShaderChunk.shadowmap_pars_fragment}\n#endif`);
 if (q.get('pars') === 'off') THREE.ShaderLib.toon.fragmentShader = THREE.ShaderLib.toon.fragmentShader.replace(INC, '// ' + INC);
 const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;

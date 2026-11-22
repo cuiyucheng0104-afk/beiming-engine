@@ -12,8 +12,8 @@
 //     登记过的删不掉、换不掉，取出来要这一页的随机口令（只有渲染器有）。谁都能调登记口，所以登记的东西不直接信：只收地址（塞函数的不收：
 //     页面自造一个读出口，回空消息挡不住真记录、回合成消息也冒充不了），而且去掉 #片段 之后要是 ① ② 认下来的地址才读；页面登记一个自己没加载过的
 //     地址，渲染器不去 import。patch.js 的地址换个 #片段 再登记一次，读到的只是一个没出过错的新实例。
-//   ④ 登记的 blob: / data: 地址（渲染器这边收不到它们的响应）：登记时在页面里取它的内容（用放登记口那一刻取好的 fetch：页面事后改 fetch 没用），
-//     与原文逐字相同才读，自造的报错模块不是原文。取不到内容的（页面用 CSP 挡住了 fetch、blob: 已经注销）核不了，照认：宁可错判失败，不放行。
+//   ④ 登记的 blob: / data: 地址只按正文核验。创建 Blob 地址时在内存中读取并缓存比对结果，data: 直接解码。
+//     即使页面设置 connect-src 'none' 或随即注销 Blob 地址，也只读取正文与引擎源码相同的模块。
 //   没有登记口的页面（不是 watchPatchModules 开的）只有按资源加载记录找的 ① 。
 //   出帧都是经 page.evaluate 驱动 render(t) 的（page.mjs 的 renderFrame 与收尾、lib/yuv.mjs 的 GPU 直出 / 超采样、工具自己调的），
 //   所以读法只装在一处：watchPatchModules 给这一页的 page.evaluate 加一道守卫，每次把结果交回调用方之前先读一遍，各出帧路径不用
@@ -28,7 +28,7 @@
 // shortcut: 不防页面改写运行环境：内建原型（Array.prototype.push 之类，patch.js 自己记录也靠它）、静态方法与全局（Promise.allSettled、URL…）；要防得把记录与读法挪出页面的执行环境。
 // shortcut: 不防页面用 import map 把某个 patch.js 地址改指到别的模块：同样的手法能把引擎的 patch.js 整个换成不抛错的，页面里怎么读都拦不住。
 // shortcut: 作品自己在一个路径以 /shade/patch.js 结尾的地址上放一个模块并加载它，等于自称是引擎的 patch.js：它报的带机器前缀的记录照认（① 的口径，
-//   为的是别的版本的 engine 副本记的错不漏）；页面先用 CSP 挡住 fetch、再往登记口塞一个自造的 blob: / data: 模块，也照认（④）。都是页面自己让构建失败，不会让该失败的放行。
+//   为的是别的版本的 engine 副本记的错不漏）。
 //   改过的 patch.js 副本放在别的路径上（或装进 blob:）时都不认，它记的错读不到；真有作品这样用时把那一版的原文也拿来比。
 //
 //   PATCH_TAG                         与 engine/shade/patch.js 里的字面量一致（那是页面端模块，不从这里导入）
@@ -53,7 +53,8 @@ export const isPatchModule = url => PATCH_MODULE.test(String(url));
 // 同一个地址再 import 一次拿到的是页面模块表里的同一个实例；加载失败的（404）页面自己也没加载成，不会有记录
 // shortcut: urls 为 null 时靠 performance 的资源记录找模块，页面资源超过缓冲（默认 250 条）或自己清过记录就找不全；出片入口都走 watchPatchModules，自己开页面出片的调用方多起来时也改成先 watch。
 export const readPatchErrors = async ({ urls, re, secret }) => {
-  const found = urls ?? performance.getEntriesByType('resource').map(e => e.name).filter(n => new RegExp(re).test(n)), known = new Set(found);
+  const requested = urls ?? performance.getEntriesByType('resource').map(e => e.name).filter(n => new RegExp(re).test(n));
+  const found = requested.filter(url => !/^(?:blob|data):/i.test(url)), known = new Set(found);
   const more = (await globalThis.__bmShadePatchSink?.read(secret) ?? []).filter(r => r.genuine ?? known.has(r.url.split('#')[0])).map(r => r.url);   // 登记口只补 #片段，外加核过的 blob: / data:
   const mods = await Promise.allSettled([...new Set([...found, ...more])].map(u => import(u)));
   return [...new Set(mods.map(m => m.value?.inject?.patchErrors))].flatMap(read => read?.() ?? [])   // Set：两个地址落到同一个实例的只读一次
@@ -61,9 +62,34 @@ export const readPatchErrors = async ({ urls, re, secret }) => {
 };
 
 export function patchSink({ secret, source }) {
-  const seen = new Map(), get = globalThis.fetch.bind(globalThis);   // 地址 → null，或 Promise<认不认>（blob: / data:：内容是不是 patch.js 的原文，取不到的照认）
+  const seen = new Map(), blobs = new Map();
+  const { apply } = Reflect, create = URL.createObjectURL, text = Blob.prototype.text;
+  const size = Object.getOwnPropertyDescriptor(Blob.prototype, 'size').get;
+  const sourceSize = source === null ? -1 : new TextEncoder().encode(source).length;
+  URL.createObjectURL = function (obj) {
+    const url = apply(create, this, arguments);
+    try {
+      // 只读与源码等长的 Blob，只保留核验结果。立即注销地址也不影响已开始的内存读取。
+      if (apply(size, obj, []) === sourceSize) blobs.set(url, apply(text, obj, []).then(body => body === source, () => false));
+    } catch { /* MediaSource 等非 Blob 对象也可创建地址。 */ }
+    return url;
+  };
+  function genuine(url) {
+    if (!/^(?:blob|data):/i.test(url)) return null;
+    try {
+      const addr = new URL(url);
+      addr.hash = '';
+      if (addr.protocol === 'blob:') return blobs.get(addr.href) ?? false;
+      const comma = addr.href.indexOf(',');
+      if (comma < 0 || source === null) return false;
+      const body = decodeURIComponent(addr.href.slice(comma + 1).replace(/%(?![\da-f]{2})/gi, '%25'));
+      if (!/;\s*base64\s*$/i.test(addr.href.slice(5, comma))) return body === source;
+      const bytes = Uint8Array.from(atob(body), c => c.charCodeAt(0));
+      return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes) === source;
+    } catch { return false; }
+  }
   Object.defineProperty(globalThis, '__bmShadePatchSink', { value: Object.freeze({   // defineProperty 默认不可写、不可重配、不可枚举
-    register(url) { if (typeof url === 'string' && !seen.has(url)) seen.set(url, /^(blob|data):/i.test(url) ? get(url).then(r => r.text()).then(text => text === source, () => true) : null); },
+    register(url) { if (typeof url === 'string' && !seen.has(url)) seen.set(url, genuine(url)); },
     read: async key => key === secret ? Promise.all([...seen].map(async ([url, genuine]) => ({ url, genuine: await genuine }))) : [],
   }) });
 }
