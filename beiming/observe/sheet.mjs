@@ -277,7 +277,7 @@ function ffmpegBin() {
   return v || 'ffmpeg';
 }
 
-function runFfmpeg(args, maxBuffer) {
+export function runFfmpeg(args, maxBuffer) {
   const r = spawnSync(ffmpegBin(), args, { shell: false, windowsHide: true, timeout: FFMPEG_TIMEOUT_MS, maxBuffer, killSignal: 'SIGKILL' });
   if (r.error?.code === 'ENOENT') throw new SheetError('env.ffmpeg-missing', '找不到 ffmpeg；装 FFmpeg 或设 FFMPEG 为可执行文件路径');
   if (r.error?.code === 'ETIMEDOUT') throw new SheetError('timeout.ffmpeg', `ffmpeg 超过 ${FFMPEG_TIMEOUT_MS / 1000} 秒没跑完`);
