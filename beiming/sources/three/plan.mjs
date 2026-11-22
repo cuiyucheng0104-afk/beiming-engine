@@ -15,6 +15,13 @@ const AUX = ['depth', 'objectId', 'normal', 'motion'];
 // 数据层的卡产出的轨道里，这个帧源有地方写的只有相机轨道
 const WRITABLE_TRACKS = ['tracks.camera'];
 const bad = (message) => new SourceError('usage.bad-argument', message);
+// 报错消息里的值：BigInt、Symbol 进 JSON.stringify 或模板字符串会抛原生 TypeError
+const show = (v) => (typeof v === 'string' ? JSON.stringify(v) : typeof v === 'symbol' || typeof v === 'bigint' ? String(v) : `${v}`);
+// 显式写了 null 不能被 ?? 当成没写，悄悄退回默认值
+const given = (obj, key) => {
+  if (obj != null && Object.hasOwn(obj, key) && obj[key] === null) throw bad(`${key} 不能是 null`);
+  return obj?.[key];
+};
 const used = (v) => (Array.isArray(v) ? v.length > 0 : v !== null && typeof v === 'object' && Object.keys(v).length > 0);
 
 /** 声明过的输出：outputs 里出现并且取值不是 false；lightgroup:<名> 看 lightgroup:* 这个键 */
@@ -65,8 +72,9 @@ export function planOpen(caps, input, env, library = {}) {
 
 /** 快门角：angleDeg 是契约写法，angle 是兼容写法；两个都写又不相等报错。都没写返回 undefined */
 export function shutterAngle(shutter) {
-  if (shutter?.angle !== undefined && shutter.angleDeg !== undefined && shutter.angle !== shutter.angleDeg) throw bad(`快门角 angle（${shutter.angle}）和 angleDeg（${shutter.angleDeg}）对不上`);
-  return shutter?.angleDeg ?? shutter?.angle;
+  const angleDeg = given(shutter, 'angleDeg'), angle = given(shutter, 'angle');
+  if (angle !== undefined && angleDeg !== undefined && angle !== angleDeg) throw bad(`快门角 angle（${show(angle)}）和 angleDeg（${show(angleDeg)}）对不上`);
+  return angleDeg ?? angle;
 }
 
 /**
@@ -74,11 +82,12 @@ export function shutterAngle(shutter) {
  * 没给的不出现；别的参数不管。值域由 planRender 判（快门角 0 配多个采样报 contract.shutter-conflict）。
  * 注意这里的 --samples 是子帧采样数，不是 RenderOpts.samples（每像素采样数）。
  */
+const FLAGS = new Map([['--shutter', 'angleDeg'], ['--samples', 'samples']]);
 export function parseShutterArgs(argv) {
   const shutter = {};
   for (let i = 0; i < argv.length; i++) {
     const [flag, inline] = argv[i].split(/=(.*)/s);
-    const key = { '--shutter': 'angleDeg', '--samples': 'samples' }[flag];
+    const key = FLAGS.get(flag);
     if (!key) continue;
     const raw = inline ?? argv[++i];
     if (raw === undefined || raw.trim() === '' || !Number.isFinite(Number(raw))) throw bad(`${flag} 要一个数，给的是 ${raw}`);
@@ -97,11 +106,12 @@ export function planRender(caps, shot, size, tier, opts = {}, want, locked = {})
   const missing = want.filter((n) => !declared(caps, n));
   if (missing.length) throw new SourceError('contract.unsupported-output', `这个帧源交不出：${missing.join('、')}`);
 
-  const angleDeg = shutterAngle(opts.shutter) ?? shutterAngle(shot.shutter) ?? 0;
+  const optShutter = given(opts, 'shutter'), shotShutter = given(shot, 'shutter');
+  const angleDeg = shutterAngle(optShutter) ?? shutterAngle(shotShutter) ?? 0;
   // 只认有限的 number：'0'、false 这类会被 >= 隐式转换放过去
-  if (typeof angleDeg !== 'number' || !(angleDeg >= 0 && angleDeg <= 360)) throw bad(`快门角必须是 [0, 360] 里的数（度），给的是 ${JSON.stringify(angleDeg)}`);
-  const shutterSamples = opts.shutter?.samples ?? locked.shutterSamples ?? shot.shutter?.samples ?? (angleDeg === 0 ? 1 : caps.motionBlur.samples);
-  if (!Number.isInteger(shutterSamples) || shutterSamples < 1) throw bad(`子帧采样数必须是不小于 1 的整数，给的是 ${shutterSamples}`);
+  if (typeof angleDeg !== 'number' || !(angleDeg >= 0 && angleDeg <= 360)) throw bad(`快门角必须是 [0, 360] 里的数（度），给的是 ${show(angleDeg)}`);
+  const shutterSamples = given(optShutter, 'samples') ?? locked.shutterSamples ?? given(shotShutter, 'samples') ?? (angleDeg === 0 ? 1 : caps.motionBlur.samples);
+  if (!Number.isInteger(shutterSamples) || shutterSamples < 1) throw bad(`子帧采样数必须是不小于 1 的整数，给的是 ${show(shutterSamples)}`);
   if (angleDeg === 0 && shutterSamples > 1) throw new SourceError('contract.shutter-conflict', `快门角是 0，子帧采样数却是 ${shutterSamples}`);
 
   const preset = shot.tiers?.[tier] ?? {};

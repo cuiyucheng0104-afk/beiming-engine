@@ -264,3 +264,11 @@ test('实渲：匀速方块 180 度快门从帧起点开，拖影亮度质心在
   }
 });
 
+test('快门参数：显式 null、BigInt 报 usage.bad-argument，不退回默认；命令行里原型属性名当普通位置参数', () => {
+  const shot = { shutter: { angleDeg: 180, samples: 4 } };
+  for (const shutter of [null, { angle: null }, { angleDeg: null }, { samples: null }, { angle: 0n }, { angleDeg: 180n }, { samples: 1n }]) {
+    assert.throws(() => planRender(CAPS, shot, [W, H], 'final', { shutter }, ['color']), code('usage.bad-argument'), String(shutter && Object.values(shutter)[0]));
+  }
+  for (const s of [null, { angleDeg: null }, { samples: null }]) assert.throws(() => planRender(CAPS, { shutter: s }, [W, H], 'final', {}, ['color']), code('usage.bad-argument'));
+  for (const junk of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) assert.deepEqual(parseShutterArgs([junk, '--shutter', '180']), { shutter: { angleDeg: 180 } }, junk);
+});
