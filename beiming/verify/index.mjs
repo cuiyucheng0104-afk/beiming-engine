@@ -2,3 +2,4 @@
 export { checkL1, scanShot, scanSource, estimateCost, GPU_SECONDS_PER_MEGAPIXEL_SAMPLE, MONOTONIC_CLOCK } from './l1.mjs';
 export * from './l2.mjs';
 export * from './predicates.mjs';
+export { hdrFlip } from './hdrflip.mjs';
