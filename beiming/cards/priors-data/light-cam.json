@@ -1,0 +1,5745 @@
+{
+  "format": "priors/0.1",
+  "entries": [
+    {
+      "id": "light-cam.d002.sun-elevation",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "太阳 DirectionalLight（午后太阳高度角）",
+      "value": 38.4,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光：太阳 DirectionalLight"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d002；出处类别：源码拆解·太阳与主方向光",
+        "note": "原证据：源码；原验证：清单未列。太阳 DirectionalLight：方向 仰角 38.4°、方位角 −144.9°（storm 21° / −126.9°，victory 9° / −136.9°）；向量 ≈ (−0.451, 0.621, −0.641)（推断）；颜色 afternoon 0xfff6ea / storm 0xffcf94 / victory 0xffd6a6；强度 = 最大通道 3.0 / 2.7 / 2.85（推断）；位置 = 近级联焦点 + sunDir×90 m。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "仰角 38.4°",
+        "c11.sourceId": "d002"
+      }
+    },
+    {
+      "id": "light-cam.d002.sun-azimuth",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-azimuth",
+      "title": "太阳 DirectionalLight（午后太阳方位角）",
+      "value": -144.9,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光：太阳 DirectionalLight"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d002；出处类别：源码拆解·太阳与主方向光",
+        "note": "原证据：源码；原验证：清单未列。太阳 DirectionalLight：方向 仰角 38.4°、方位角 −144.9°（storm 21° / −126.9°，victory 9° / −136.9°）；向量 ≈ (−0.451, 0.621, −0.641)（推断）；颜色 afternoon 0xfff6ea / storm 0xffcf94 / victory 0xffd6a6；强度 = 最大通道 3.0 / 2.7 / 2.85（推断）；位置 = 近级联焦点 + sunDir×90 m。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "方位角 −144.9°",
+        "c11.sourceId": "d002"
+      }
+    },
+    {
+      "id": "light-cam.d002.storm-sun-elevation",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.storm-sun-elevation",
+      "title": "太阳 DirectionalLight（风暴太阳高度角）",
+      "value": 21,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光：太阳 DirectionalLight"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d002；出处类别：源码拆解·太阳与主方向光",
+        "note": "原证据：源码；原验证：清单未列。太阳 DirectionalLight：方向 仰角 38.4°、方位角 −144.9°（storm 21° / −126.9°，victory 9° / −136.9°）；向量 ≈ (−0.451, 0.621, −0.641)（推断）；颜色 afternoon 0xfff6ea / storm 0xffcf94 / victory 0xffd6a6；强度 = 最大通道 3.0 / 2.7 / 2.85（推断）；位置 = 近级联焦点 + sunDir×90 m。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "storm 21°",
+        "c11.sourceId": "d002"
+      }
+    },
+    {
+      "id": "light-cam.d002.storm-sun-azimuth",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.storm-sun-azimuth",
+      "title": "太阳 DirectionalLight（风暴太阳方位角）",
+      "value": -126.9,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光：太阳 DirectionalLight"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d002；出处类别：源码拆解·太阳与主方向光",
+        "note": "原证据：源码；原验证：清单未列。太阳 DirectionalLight：方向 仰角 38.4°、方位角 −144.9°（storm 21° / −126.9°，victory 9° / −136.9°）；向量 ≈ (−0.451, 0.621, −0.641)（推断）；颜色 afternoon 0xfff6ea / storm 0xffcf94 / victory 0xffd6a6；强度 = 最大通道 3.0 / 2.7 / 2.85（推断）；位置 = 近级联焦点 + sunDir×90 m。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "storm 21° / −126.9°",
+        "c11.sourceId": "d002"
+      }
+    },
+    {
+      "id": "light-cam.d002.victory-sun-elevation",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.victory-sun-elevation",
+      "title": "太阳 DirectionalLight（胜利太阳高度角）",
+      "value": 9,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光：太阳 DirectionalLight"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d002；出处类别：源码拆解·太阳与主方向光",
+        "note": "原证据：源码；原验证：清单未列。太阳 DirectionalLight：方向 仰角 38.4°、方位角 −144.9°（storm 21° / −126.9°，victory 9° / −136.9°）；向量 ≈ (−0.451, 0.621, −0.641)（推断）；颜色 afternoon 0xfff6ea / storm 0xffcf94 / victory 0xffd6a6；强度 = 最大通道 3.0 / 2.7 / 2.85（推断）；位置 = 近级联焦点 + sunDir×90 m。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "victory 9°",
+        "c11.sourceId": "d002"
+      }
+    },
+    {
+      "id": "light-cam.d002.victory-sun-azimuth",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.victory-sun-azimuth",
+      "title": "太阳 DirectionalLight（胜利太阳方位角）",
+      "value": -136.9,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光：太阳 DirectionalLight"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d002；出处类别：源码拆解·太阳与主方向光",
+        "note": "原证据：源码；原验证：清单未列。太阳 DirectionalLight：方向 仰角 38.4°、方位角 −144.9°（storm 21° / −126.9°，victory 9° / −136.9°）；向量 ≈ (−0.451, 0.621, −0.641)（推断）；颜色 afternoon 0xfff6ea / storm 0xffcf94 / victory 0xffd6a6；强度 = 最大通道 3.0 / 2.7 / 2.85（推断）；位置 = 近级联焦点 + sunDir×90 m。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "victory 9° / −136.9°",
+        "c11.sourceId": "d002"
+      }
+    },
+    {
+      "id": "light-cam.d011.sun-elevation",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "餐馆太阳（黎明太阳高度角）",
+      "value": 9,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光：餐馆太阳"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d011；出处类别：原文陈述·太阳与主方向光",
+        "note": "原证据：原文陈述；原验证：C。高度 +9°（大厅内设定），黎明；物理大气含瑞利、米氏、臭氧，多次散射"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "高度 +9°",
+        "c11.sourceId": "d011"
+      }
+    },
+    {
+      "id": "light-cam.d012.sun-elevation",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "墨西哥城早市光线（早市侧光太阳高度角）",
+      "value": 22,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光：墨西哥城早市光线"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-21",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d012；出处类别：原文陈述·太阳与主方向光",
+        "note": "原证据：原文陈述；原验证：只是原文说法。7:40 侧光太阳高度22°,深蓝高海拔天空,彩光透过遮阳篷"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "太阳高度22°",
+        "c11.sourceId": "d012"
+      }
+    },
+    {
+      "id": "light-cam.d013.sun-azimuth",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-azimuth",
+      "title": "案例 25 太阳定位（清晨太阳方位角）",
+      "value": 106,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光：案例 25 太阳定位"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-25",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d013；出处类别：原文陈述·太阳与主方向光",
+        "note": "原证据：原文陈述；原验证：只是原文说法。WebGPU 追踪器新增材料(耐候钢/层状砂岩/锌/CLT/光伏/河)与有限大小太阳,每帧重建运动几何使零件带真实阴影;太阳由坐标+日期计算:10月12日07:20,方位106°、高度9°;“Light”光标把太阳从50°拖到9°,天空每帧重算"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "方位106°",
+        "c11.sourceId": "d013"
+      }
+    },
+    {
+      "id": "light-cam.d013.sun-elevation",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "案例 25 太阳定位（清晨太阳高度角）",
+      "value": 9,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光：案例 25 太阳定位"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-25",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d013；出处类别：原文陈述·太阳与主方向光",
+        "note": "原证据：原文陈述；原验证：只是原文说法。WebGPU 追踪器新增材料(耐候钢/层状砂岩/锌/CLT/光伏/河)与有限大小太阳,每帧重建运动几何使零件带真实阴影;太阳由坐标+日期计算:10月12日07:20,方位106°、高度9°;“Light”光标把太阳从50°拖到9°,天空每帧重算"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "高度9°",
+        "c11.sourceId": "d013"
+      }
+    },
+    {
+      "id": "light-cam.d014.sun-elevation",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "纽约黄金时刻太阳（案例 22，合并 5 处）（黄金时刻太阳高度角）",
+      "value": 33,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光：纽约黄金时刻太阳（案例 22，合并 5 处）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d014；出处类别：原文陈述·太阳与主方向光",
+        "note": "原证据：原文陈述；原验证：只是原文说法（成片只看到方向：逆光、长影）。唯一光源是暖太阳。颜色 RGB (1.0, 0.83, 0.60)，强度 8 W/m²，太阳圆盘 1.5°，高度角 33°，方位在主相机前方偏左（三分之三逆光），长影朝镜头方向。引擎 Blender Cycles，色调映射 AgX Medium High Contrast。官方称提示词里的数值与项目相同。官方原话大意：只学一个想法就学这个，一轮低太阳加一个软雾，比任何多余细节都有效。证据：原文陈述。验证：只是原文说法（成片只看到方向：逆光、长影）。出处： L9、A10； 原实现源码 + Light and haze； Agents Step 4；原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "高度角 33°",
+        "c11.sourceId": "d014"
+      }
+    },
+    {
+      "id": "light-cam.d014.sun-disc-angle",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-disc-angle",
+      "title": "纽约黄金时刻太阳（案例 22，合并 5 处）（太阳圆盘角径）",
+      "value": 1.5,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光：纽约黄金时刻太阳（案例 22，合并 5 处）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d014；出处类别：原文陈述·太阳与主方向光",
+        "note": "原证据：原文陈述；原验证：只是原文说法（成片只看到方向：逆光、长影）。唯一光源是暖太阳。颜色 RGB (1.0, 0.83, 0.60)，强度 8 W/m²，太阳圆盘 1.5°，高度角 33°，方位在主相机前方偏左（三分之三逆光），长影朝镜头方向。引擎 Blender Cycles，色调映射 AgX Medium High Contrast。官方称提示词里的数值与项目相同。官方原话大意：只学一个想法就学这个，一轮低太阳加一个软雾，比任何多余细节都有效。证据：原文陈述。验证：只是原文说法（成片只看到方向：逆光、长影）。出处： L9、A10； 原实现源码 + Light and haze； Agents Step 4；原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "太阳圆盘 1.5°",
+        "c11.sourceId": "d014"
+      }
+    },
+    {
+      "id": "light-cam.d249.cloud-ring-rotation-period",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-2-2.cloud-ring-rotation-period",
+      "title": "巨树城堡积云环转速（积云环转一圈的周期）",
+      "value": 3480,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 2.2 节 云（积云、卷云、云海、体积云）：巨树城堡积云环转速"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "光照天空大气与相机汇编 第 2.2 节 d249；出处类别：推断与说明·云（积云、卷云、云海、体积云）",
+        "note": "原证据：推断；原验证：没验证。驱动量 tt=uTime，真实约 58 分钟一圈（笔记原写约 2 小时，已按 2 倍速改）；校正后 .0018 rad/s，风暴时再×3.5；uTreeClouds.z 取 1 时，该值未核"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "约 58 分钟一圈",
+        "c11.sourceId": "d249"
+      }
+    },
+    {
+      "id": "light-cam.d249.cloud-ring-angular-speed",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-2-2.cloud-ring-angular-speed",
+      "title": "巨树城堡积云环转速（积云环转动角速度）",
+      "value": 0.0018,
+      "unit": "rad/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 2.2 节 云（积云、卷云、云海、体积云）：巨树城堡积云环转速"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "光照天空大气与相机汇编 第 2.2 节 d249；出处类别：推断与说明·云（积云、卷云、云海、体积云）",
+        "note": "原证据：推断；原验证：没验证。驱动量 tt=uTime，真实约 58 分钟一圈（笔记原写约 2 小时，已按 2 倍速改）；校正后 .0018 rad/s，风暴时再×3.5；uTreeClouds.z 取 1 时，该值未核"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": ".0018 rad/s",
+        "c11.sourceId": "d249"
+      }
+    },
+    {
+      "id": "light-cam.d304.egret-wingspan",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-2-6.egret-wingspan",
+      "title": "鸟：192 三角（鹭的翼展（原文未写单位，按上下文是米））",
+      "value": 1.35,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 2.6 节 氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣）：鸟：192 三角"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "推断",
+        "docRef": "光照天空大气与相机汇编 第 2.6 节 d304；出处类别：推断与说明·氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣）",
+        "note": "原证据：清单未列；原验证：清单未列。鸟：192 三角/只，最多 183 只；翼展鹭 1.35/鹤 2.3/雁 6.2/燕 0.46；拍频鹭 2.75–3.0、鹤 1.9、燕 7.5；朝向用前后 0.20 s 差分，侧倾 `atan(a_右/9.8)*0.9`；羽色白鹭 (0.93,0.92,0.88)，喙 (0.92,0.62,0.08)，燕背 (0.030,0.036,0.065)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "翼展鹭 1.35",
+        "c11.sourceId": "d304"
+      }
+    },
+    {
+      "id": "light-cam.d304.crane-wingspan",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-2-6.crane-wingspan",
+      "title": "鸟：192 三角（鹤的翼展（原文未写单位，按上下文是米））",
+      "value": 2.3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 2.6 节 氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣）：鸟：192 三角"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "推断",
+        "docRef": "光照天空大气与相机汇编 第 2.6 节 d304；出处类别：推断与说明·氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣）",
+        "note": "原证据：清单未列；原验证：清单未列。鸟：192 三角/只，最多 183 只；翼展鹭 1.35/鹤 2.3/雁 6.2/燕 0.46；拍频鹭 2.75–3.0、鹤 1.9、燕 7.5；朝向用前后 0.20 s 差分，侧倾 `atan(a_右/9.8)*0.9`；羽色白鹭 (0.93,0.92,0.88)，喙 (0.92,0.62,0.08)，燕背 (0.030,0.036,0.065)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "鹤 2.3",
+        "c11.sourceId": "d304"
+      }
+    },
+    {
+      "id": "light-cam.d304.swallow-wingspan",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-2-6.swallow-wingspan",
+      "title": "鸟：192 三角（燕的翼展（原文未写单位，按上下文是米））",
+      "value": 0.46,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 2.6 节 氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣）：鸟：192 三角"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "推断",
+        "docRef": "光照天空大气与相机汇编 第 2.6 节 d304；出处类别：推断与说明·氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣）",
+        "note": "原证据：清单未列；原验证：清单未列。鸟：192 三角/只，最多 183 只；翼展鹭 1.35/鹤 2.3/雁 6.2/燕 0.46；拍频鹭 2.75–3.0、鹤 1.9、燕 7.5；朝向用前后 0.20 s 差分，侧倾 `atan(a_右/9.8)*0.9`；羽色白鹭 (0.93,0.92,0.88)，喙 (0.92,0.62,0.08)，燕背 (0.030,0.036,0.065)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "燕 0.46",
+        "c11.sourceId": "d304"
+      }
+    },
+    {
+      "id": "light-cam.d304.egret-flap-frequency",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-2-6.egret-flap-frequency",
+      "title": "鸟：192 三角（鹭的拍翼频率（原文未写单位，按上下文是每秒次数））",
+      "value": [
+        2.75,
+        3
+      ],
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 2.6 节 氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣）：鸟：192 三角"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "推断",
+        "docRef": "光照天空大气与相机汇编 第 2.6 节 d304；出处类别：推断与说明·氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣）",
+        "note": "原证据：清单未列；原验证：清单未列。鸟：192 三角/只，最多 183 只；翼展鹭 1.35/鹤 2.3/雁 6.2/燕 0.46；拍频鹭 2.75–3.0、鹤 1.9、燕 7.5；朝向用前后 0.20 s 差分，侧倾 `atan(a_右/9.8)*0.9`；羽色白鹭 (0.93,0.92,0.88)，喙 (0.92,0.62,0.08)，燕背 (0.030,0.036,0.065)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "拍频鹭 2.75–3.0",
+        "c11.sourceId": "d304"
+      }
+    },
+    {
+      "id": "light-cam.d304.crane-flap-frequency",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-2-6.crane-flap-frequency",
+      "title": "鸟：192 三角（鹤的拍翼频率（原文未写单位，按上下文是每秒次数））",
+      "value": 1.9,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 2.6 节 氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣）：鸟：192 三角"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "推断",
+        "docRef": "光照天空大气与相机汇编 第 2.6 节 d304；出处类别：推断与说明·氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣）",
+        "note": "原证据：清单未列；原验证：清单未列。鸟：192 三角/只，最多 183 只；翼展鹭 1.35/鹤 2.3/雁 6.2/燕 0.46；拍频鹭 2.75–3.0、鹤 1.9、燕 7.5；朝向用前后 0.20 s 差分，侧倾 `atan(a_右/9.8)*0.9`；羽色白鹭 (0.93,0.92,0.88)，喙 (0.92,0.62,0.08)，燕背 (0.030,0.036,0.065)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "鹤 1.9",
+        "c11.sourceId": "d304"
+      }
+    },
+    {
+      "id": "light-cam.d304.swallow-flap-frequency",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-2-6.swallow-flap-frequency",
+      "title": "鸟：192 三角（燕的拍翼频率（原文未写单位，按上下文是每秒次数））",
+      "value": 7.5,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 2.6 节 氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣）：鸟：192 三角"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "推断",
+        "docRef": "光照天空大气与相机汇编 第 2.6 节 d304；出处类别：推断与说明·氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣）",
+        "note": "原证据：清单未列；原验证：清单未列。鸟：192 三角/只，最多 183 只；翼展鹭 1.35/鹤 2.3/雁 6.2/燕 0.46；拍频鹭 2.75–3.0、鹤 1.9、燕 7.5；朝向用前后 0.20 s 差分，侧倾 `atan(a_右/9.8)*0.9`；羽色白鹭 (0.93,0.92,0.88)，喙 (0.92,0.62,0.08)，燕背 (0.030,0.036,0.065)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "燕 7.5",
+        "c11.sourceId": "d304"
+      }
+    },
+    {
+      "id": "light-cam.d322.fov-range",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.fov-range",
+      "title": "相机基础（关键帧视场角范围）",
+      "value": [
+        24,
+        62
+      ],
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：相机基础"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d322；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
+        "note": "原证据：源码 + 实测（范围）；原验证：清单未列。PerspectiveCamera(58,16/9,0.5,6000)，视场被关键帧覆盖；视角范围 24°–62°，高度 6.3–31 m；首尾同一点 (−12.6,6.3,85.6)、fov 50 → 循环无缝"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "视角范围 24°–62°",
+        "c11.sourceId": "d322"
+      }
+    },
+    {
+      "id": "light-cam.d322.camera-height",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.camera-height",
+      "title": "相机基础（机位高度范围）",
+      "value": [
+        6.3,
+        31
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：相机基础"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d322；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
+        "note": "原证据：源码 + 实测（范围）；原验证：清单未列。PerspectiveCamera(58,16/9,0.5,6000)，视场被关键帧覆盖；视角范围 24°–62°，高度 6.3–31 m；首尾同一点 (−12.6,6.3,85.6)、fov 50 → 循环无缝"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "高度 6.3–31 m",
+        "c11.sourceId": "d322"
+      }
+    },
+    {
+      "id": "light-cam.d322.loop-endpoint-fov",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.loop-endpoint-fov",
+      "title": "相机基础（循环首尾帧视场角（原文未写单位，按上下文是度））",
+      "value": 50,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：相机基础"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d322；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
+        "note": "原证据：源码 + 实测（范围）；原验证：清单未列。PerspectiveCamera(58,16/9,0.5,6000)，视场被关键帧覆盖；视角范围 24°–62°，高度 6.3–31 m；首尾同一点 (−12.6,6.3,85.6)、fov 50 → 循环无缝"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "fov 50",
+        "c11.sourceId": "d322"
+      }
+    },
+    {
+      "id": "light-cam.d323.cruise-fov",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.cruise-fov",
+      "title": "视场角（巡航视场角）",
+      "value": 62,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：视场角"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d323；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
+        "note": "原证据：源码；原验证：清单未列。视场角：巡航 62°、高速 74°（36→72 m/s）、加速追加 +4°、悬停 57°、悬停 TPS 60°、骑手视角 78→88°、巨型头目靠近 +5×bossK、特技 +3°、贴面 +4°、拍照 18–95°；FOV 平滑速率变宽 5 /s、变窄 1.25 /s（注释 τ 0.2 s / 0.8 s）。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "巡航 62°",
+        "c11.sourceId": "d323"
+      }
+    },
+    {
+      "id": "light-cam.d323.high-speed-fov",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.high-speed-fov",
+      "title": "视场角（高速视场角）",
+      "value": 74,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：视场角"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d323；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
+        "note": "原证据：源码；原验证：清单未列。视场角：巡航 62°、高速 74°（36→72 m/s）、加速追加 +4°、悬停 57°、悬停 TPS 60°、骑手视角 78→88°、巨型头目靠近 +5×bossK、特技 +3°、贴面 +4°、拍照 18–95°；FOV 平滑速率变宽 5 /s、变窄 1.25 /s（注释 τ 0.2 s / 0.8 s）。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "高速 74°",
+        "c11.sourceId": "d323"
+      }
+    },
+    {
+      "id": "light-cam.d323.high-speed-range",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.high-speed-range",
+      "title": "视场角（高速视场过渡对应的速度区间）",
+      "value": [
+        36,
+        72
+      ],
+      "unit": "m/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：视场角"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d323；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
+        "note": "原证据：源码；原验证：清单未列。视场角：巡航 62°、高速 74°（36→72 m/s）、加速追加 +4°、悬停 57°、悬停 TPS 60°、骑手视角 78→88°、巨型头目靠近 +5×bossK、特技 +3°、贴面 +4°、拍照 18–95°；FOV 平滑速率变宽 5 /s、变窄 1.25 /s（注释 τ 0.2 s / 0.8 s）。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "36→72 m/s",
+        "c11.sourceId": "d323"
+      }
+    },
+    {
+      "id": "light-cam.d323.hover-fov",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.hover-fov",
+      "title": "视场角（悬停视场角）",
+      "value": 57,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：视场角"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d323；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
+        "note": "原证据：源码；原验证：清单未列。视场角：巡航 62°、高速 74°（36→72 m/s）、加速追加 +4°、悬停 57°、悬停 TPS 60°、骑手视角 78→88°、巨型头目靠近 +5×bossK、特技 +3°、贴面 +4°、拍照 18–95°；FOV 平滑速率变宽 5 /s、变窄 1.25 /s（注释 τ 0.2 s / 0.8 s）。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "悬停 57°",
+        "c11.sourceId": "d323"
+      }
+    },
+    {
+      "id": "light-cam.d323.rider-view-fov",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.rider-view-fov",
+      "title": "视场角（骑手视角视场角范围）",
+      "value": [
+        78,
+        88
+      ],
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：视场角"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d323；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
+        "note": "原证据：源码；原验证：清单未列。视场角：巡航 62°、高速 74°（36→72 m/s）、加速追加 +4°、悬停 57°、悬停 TPS 60°、骑手视角 78→88°、巨型头目靠近 +5×bossK、特技 +3°、贴面 +4°、拍照 18–95°；FOV 平滑速率变宽 5 /s、变窄 1.25 /s（注释 τ 0.2 s / 0.8 s）。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "骑手视角 78→88°",
+        "c11.sourceId": "d323"
+      }
+    },
+    {
+      "id": "light-cam.d323.photo-mode-fov",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.photo-mode-fov",
+      "title": "视场角（拍照模式视场角范围）",
+      "value": [
+        18,
+        95
+      ],
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：视场角"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d323；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
+        "note": "原证据：源码；原验证：清单未列。视场角：巡航 62°、高速 74°（36→72 m/s）、加速追加 +4°、悬停 57°、悬停 TPS 60°、骑手视角 78→88°、巨型头目靠近 +5×bossK、特技 +3°、贴面 +4°、拍照 18–95°；FOV 平滑速率变宽 5 /s、变窄 1.25 /s（注释 τ 0.2 s / 0.8 s）。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "拍照 18–95°",
+        "c11.sourceId": "d323"
+      }
+    },
+    {
+      "id": "light-cam.d325.f-number",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.f-number",
+      "title": "相机本体（重制版）（景深光圈 f 值范围（焦距与孔径之比））",
+      "value": [
+        4,
+        22
+      ],
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：相机本体（重制版）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d325；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
+        "note": "原证据：源码 + 实测；原验证：清单未列。景深全程开，光圈 f/4–f/22，对焦距离 = 机位到目标点的直线距离（每帧写）；水平视场角 = 2·atan(18/焦段)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "光圈 f/4–f/22",
+        "c11.sourceId": "d325"
+      }
+    },
+    {
+      "id": "light-cam.d327.focal-length-wide",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.focal-length-wide",
+      "title": "焦段（穿行镜头焦段）",
+      "value": 18,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：焦段"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d327；出处类别：原文陈述·相机本体、焦段、视场角与画幅",
+        "note": "原证据：原文陈述；原验证：无。穿行 18 mm，定妆 50 mm；景深有、带跟焦，光圈未公开；运动模糊快门 180°、位置 START"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "穿行 18 mm",
+        "c11.sourceId": "d327"
+      }
+    },
+    {
+      "id": "light-cam.d327.focal-length-portrait",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.focal-length-portrait",
+      "title": "焦段（定妆镜头焦段）",
+      "value": 50,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：焦段"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d327；出处类别：原文陈述·相机本体、焦段、视场角与画幅",
+        "note": "原证据：原文陈述；原验证：无。穿行 18 mm，定妆 50 mm；景深有、带跟焦，光圈未公开；运动模糊快门 180°、位置 START"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "定妆 50 mm",
+        "c11.sourceId": "d327"
+      }
+    },
+    {
+      "id": "light-cam.d327.shutter-angle",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.shutter-angle",
+      "title": "焦段（运动模糊快门角）",
+      "value": 180,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：焦段"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d327；出处类别：原文陈述·相机本体、焦段、视场角与画幅",
+        "note": "原证据：原文陈述；原验证：无。穿行 18 mm，定妆 50 mm；景深有、带跟焦，光圈未公开；运动模糊快门 180°、位置 START"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "快门 180°",
+        "c11.sourceId": "d327"
+      }
+    },
+    {
+      "id": "light-cam.d328.field-of-view",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.field-of-view",
+      "title": "案例 10 相机（透视相机视场角）",
+      "value": 50,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅：案例 10 相机"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-10",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节 d328；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
+        "note": "原证据：源码；原验证：A。透视 FOV 50°，近裁面 0.12，远裁面 900"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "FOV 50°",
+        "c11.sourceId": "d328"
+      }
+    },
+    {
+      "id": "light-cam.d344.focal-length-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-start",
+      "title": "lens（镜头 A 起始焦段）",
+      "value": 40,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d344；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。A（帧 0–192）： lens: (0,40) (72,45) (144,38) (192,28)；fstop: (0,4.0) (72,11) (150,8.0) (172,16) (192,22)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "lens: (0,40)",
+        "c11.sourceId": "d344"
+      }
+    },
+    {
+      "id": "light-cam.d344.focal-length-max",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-max",
+      "title": "lens（镜头 A 最长焦段）",
+      "value": 45,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d344；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。A（帧 0–192）： lens: (0,40) (72,45) (144,38) (192,28)；fstop: (0,4.0) (72,11) (150,8.0) (172,16) (192,22)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(72,45)",
+        "c11.sourceId": "d344"
+      }
+    },
+    {
+      "id": "light-cam.d344.focal-length-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-end",
+      "title": "lens（镜头 A 结束焦段）",
+      "value": 28,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d344；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。A（帧 0–192）： lens: (0,40) (72,45) (144,38) (192,28)；fstop: (0,4.0) (72,11) (150,8.0) (172,16) (192,22)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(192,28)",
+        "c11.sourceId": "d344"
+      }
+    },
+    {
+      "id": "light-cam.d344.f-number-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.f-number-start",
+      "title": "lens（镜头 A 起始光圈 f 值）",
+      "value": 4,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d344；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。A（帧 0–192）： lens: (0,40) (72,45) (144,38) (192,28)；fstop: (0,4.0) (72,11) (150,8.0) (172,16) (192,22)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "fstop: (0,4.0)",
+        "c11.sourceId": "d344"
+      }
+    },
+    {
+      "id": "light-cam.d344.f-number-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.f-number-end",
+      "title": "lens（镜头 A 结束光圈 f 值）",
+      "value": 22,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d344；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。A（帧 0–192）： lens: (0,40) (72,45) (144,38) (192,28)；fstop: (0,4.0) (72,11) (150,8.0) (172,16) (192,22)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(192,22)",
+        "c11.sourceId": "d344"
+      }
+    },
+    {
+      "id": "light-cam.d347.focal-length-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-start",
+      "title": "lens（镜头 B 起始焦段）",
+      "value": 30,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens〔d347〕"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d347；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。B（192–384）： lens: (192,30) (216,40) (288,56) (312,58) (372,58) (384,40)；fstop: (192,4.0) (216,11) (384,11)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "lens: (192,30)",
+        "c11.sourceId": "d347"
+      }
+    },
+    {
+      "id": "light-cam.d347.focal-length-max",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-max",
+      "title": "lens（镜头 B 最长焦段）",
+      "value": 58,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens〔d347〕"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d347；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。B（192–384）： lens: (192,30) (216,40) (288,56) (312,58) (372,58) (384,40)；fstop: (192,4.0) (216,11) (384,11)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(312,58)",
+        "c11.sourceId": "d347"
+      }
+    },
+    {
+      "id": "light-cam.d347.focal-length-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-end",
+      "title": "lens（镜头 B 结束焦段）",
+      "value": 40,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens〔d347〕"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d347；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。B（192–384）： lens: (192,30) (216,40) (288,56) (312,58) (372,58) (384,40)；fstop: (192,4.0) (216,11) (384,11)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(384,40)",
+        "c11.sourceId": "d347"
+      }
+    },
+    {
+      "id": "light-cam.d347.f-number-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.f-number-start",
+      "title": "lens（镜头 B 起始光圈 f 值）",
+      "value": 4,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens〔d347〕"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d347；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。B（192–384）： lens: (192,30) (216,40) (288,56) (312,58) (372,58) (384,40)；fstop: (192,4.0) (216,11) (384,11)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "fstop: (192,4.0)",
+        "c11.sourceId": "d347"
+      }
+    },
+    {
+      "id": "light-cam.d347.f-number-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.f-number-end",
+      "title": "lens（镜头 B 结束光圈 f 值）",
+      "value": 11,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens〔d347〕"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d347；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。B（192–384）： lens: (192,30) (216,40) (288,56) (312,58) (372,58) (384,40)；fstop: (192,4.0) (216,11) (384,11)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(384,11)",
+        "c11.sourceId": "d347"
+      }
+    },
+    {
+      "id": "light-cam.d350.focal-length-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-start",
+      "title": "up（镜头 C 起始焦段）",
+      "value": 24,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：up"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d350；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。C（384–576）： up: (384,(0,-1,0)) (444,(0,-1,0)) (480,(0,0,1))；lens: (384,24) (456,30) (480,35) (552,45) (576,35)；fstop: (384,16) (456,11) (480,8.0) (576,8.0)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "lens: (384,24)",
+        "c11.sourceId": "d350"
+      }
+    },
+    {
+      "id": "light-cam.d350.focal-length-max",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-max",
+      "title": "up（镜头 C 最长焦段）",
+      "value": 45,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：up"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d350；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。C（384–576）： up: (384,(0,-1,0)) (444,(0,-1,0)) (480,(0,0,1))；lens: (384,24) (456,30) (480,35) (552,45) (576,35)；fstop: (384,16) (456,11) (480,8.0) (576,8.0)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(552,45)",
+        "c11.sourceId": "d350"
+      }
+    },
+    {
+      "id": "light-cam.d350.focal-length-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-end",
+      "title": "up（镜头 C 结束焦段）",
+      "value": 35,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：up"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d350；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。C（384–576）： up: (384,(0,-1,0)) (444,(0,-1,0)) (480,(0,0,1))；lens: (384,24) (456,30) (480,35) (552,45) (576,35)；fstop: (384,16) (456,11) (480,8.0) (576,8.0)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(576,35)",
+        "c11.sourceId": "d350"
+      }
+    },
+    {
+      "id": "light-cam.d350.f-number-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.f-number-start",
+      "title": "up（镜头 C 起始光圈 f 值）",
+      "value": 16,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：up"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d350；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。C（384–576）： up: (384,(0,-1,0)) (444,(0,-1,0)) (480,(0,0,1))；lens: (384,24) (456,30) (480,35) (552,45) (576,35)；fstop: (384,16) (456,11) (480,8.0) (576,8.0)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "fstop: (384,16)",
+        "c11.sourceId": "d350"
+      }
+    },
+    {
+      "id": "light-cam.d350.f-number-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.f-number-end",
+      "title": "up（镜头 C 结束光圈 f 值）",
+      "value": 8,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：up"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d350；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。C（384–576）： up: (384,(0,-1,0)) (444,(0,-1,0)) (480,(0,0,1))；lens: (384,24) (456,30) (480,35) (552,45) (576,35)；fstop: (384,16) (456,11) (480,8.0) (576,8.0)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(576,8.0)",
+        "c11.sourceId": "d350"
+      }
+    },
+    {
+      "id": "light-cam.d353.focal-length-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-start",
+      "title": "lens（镜头 D 起始焦段）",
+      "value": 35,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens〔d353〕"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d353；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。D（576–768）： lens: (576,35) (612,50) (768,50)；fstop: (576,4.0) (612,11) (768,11)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "lens: (576,35)",
+        "c11.sourceId": "d353"
+      }
+    },
+    {
+      "id": "light-cam.d353.focal-length-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-end",
+      "title": "lens（镜头 D 结束焦段）",
+      "value": 50,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens〔d353〕"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d353；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。D（576–768）： lens: (576,35) (612,50) (768,50)；fstop: (576,4.0) (612,11) (768,11)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(768,50)",
+        "c11.sourceId": "d353"
+      }
+    },
+    {
+      "id": "light-cam.d353.f-number-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.f-number-start",
+      "title": "lens（镜头 D 起始光圈 f 值）",
+      "value": 4,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens〔d353〕"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d353；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。D（576–768）： lens: (576,35) (612,50) (768,50)；fstop: (576,4.0) (612,11) (768,11)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "fstop: (576,4.0)",
+        "c11.sourceId": "d353"
+      }
+    },
+    {
+      "id": "light-cam.d353.f-number-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.f-number-end",
+      "title": "lens（镜头 D 结束光圈 f 值）",
+      "value": 11,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：lens〔d353〕"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d353；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码 + 实测（/4.5 逐帧求值表读回，如帧 100 焦段 43.45、f/10.1、对焦 0.2378 m）；原验证：清单未列。D（576–768）： lens: (576,35) (612,50) (768,50)；fstop: (576,4.0) (612,11) (768,11)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(768,11)",
+        "c11.sourceId": "d353"
+      }
+    },
+    {
+      "id": "light-cam.d366.focal-length-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-start",
+      "title": "长镜头A(0–192,S1+S2)（长镜头 A 起始焦段）",
+      "value": 40,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头A(0–192,S1+S2)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d366；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段40→45→38→28mm;光圈f/4→f/11→f/16→f/22;贴左风扇15cm起→后拉到60cm的3/4→甩到顶边上方→沿45°扎到供电口面前3mm"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "焦段40",
+        "c11.sourceId": "d366"
+      }
+    },
+    {
+      "id": "light-cam.d366.focal-length-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-end",
+      "title": "长镜头A(0–192,S1+S2)（长镜头 A 结束焦段）",
+      "value": 28,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头A(0–192,S1+S2)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d366；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段40→45→38→28mm;光圈f/4→f/11→f/16→f/22;贴左风扇15cm起→后拉到60cm的3/4→甩到顶边上方→沿45°扎到供电口面前3mm"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "28mm",
+        "c11.sourceId": "d366"
+      }
+    },
+    {
+      "id": "light-cam.d366.start-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.start-distance",
+      "title": "长镜头A(0–192,S1+S2)（起始贴近风扇的机位距离）",
+      "value": 0.15,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头A(0–192,S1+S2)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d366；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段40→45→38→28mm;光圈f/4→f/11→f/16→f/22;贴左风扇15cm起→后拉到60cm的3/4→甩到顶边上方→沿45°扎到供电口面前3mm"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "15cm",
+        "c11.sourceId": "d366"
+      }
+    },
+    {
+      "id": "light-cam.d366.pullback-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.pullback-distance",
+      "title": "长镜头A(0–192,S1+S2)（后拉后的机位距离）",
+      "value": 0.6,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头A(0–192,S1+S2)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d366；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段40→45→38→28mm;光圈f/4→f/11→f/16→f/22;贴左风扇15cm起→后拉到60cm的3/4→甩到顶边上方→沿45°扎到供电口面前3mm"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "60cm",
+        "c11.sourceId": "d366"
+      }
+    },
+    {
+      "id": "light-cam.d366.dive-angle",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.dive-angle",
+      "title": "长镜头A(0–192,S1+S2)（扎向供电口的俯冲角）",
+      "value": 45,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头A(0–192,S1+S2)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d366；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段40→45→38→28mm;光圈f/4→f/11→f/16→f/22;贴左风扇15cm起→后拉到60cm的3/4→甩到顶边上方→沿45°扎到供电口面前3mm"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "45°",
+        "c11.sourceId": "d366"
+      }
+    },
+    {
+      "id": "light-cam.d366.end-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.end-distance",
+      "title": "长镜头A(0–192,S1+S2)（结束时距供电口距离）",
+      "value": 0.003,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头A(0–192,S1+S2)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d366；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段40→45→38→28mm;光圈f/4→f/11→f/16→f/22;贴左风扇15cm起→后拉到60cm的3/4→甩到顶边上方→沿45°扎到供电口面前3mm"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "3mm",
+        "c11.sourceId": "d366"
+      }
+    },
+    {
+      "id": "light-cam.d367.focal-length-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-start",
+      "title": "长镜头B(192–384,S3+S4)（长镜头 B 起始焦段）",
+      "value": 30,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头B(192–384,S3+S4)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d367；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段30→40→56→58→40mm;f/4→f/11;贴背面鳍片3cm起→绕爆炸视图→退到86cm正面→扎到右风扇轮毂前12mm;288帧焦段关键帧从50改56牵动样条使192–216焦段变化(m_0204 焦段35.6→35.4)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "焦段30",
+        "c11.sourceId": "d367"
+      }
+    },
+    {
+      "id": "light-cam.d367.focal-length-max",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-max",
+      "title": "长镜头B(192–384,S3+S4)（长镜头 B 最长焦段）",
+      "value": 58,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头B(192–384,S3+S4)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d367；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段30→40→56→58→40mm;f/4→f/11;贴背面鳍片3cm起→绕爆炸视图→退到86cm正面→扎到右风扇轮毂前12mm;288帧焦段关键帧从50改56牵动样条使192–216焦段变化(m_0204 焦段35.6→35.4)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "56→58→40mm",
+        "c11.sourceId": "d367"
+      }
+    },
+    {
+      "id": "light-cam.d367.start-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.start-distance",
+      "title": "长镜头B(192–384,S3+S4)（起始贴近背面鳍片的距离）",
+      "value": 0.03,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头B(192–384,S3+S4)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d367；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段30→40→56→58→40mm;f/4→f/11;贴背面鳍片3cm起→绕爆炸视图→退到86cm正面→扎到右风扇轮毂前12mm;288帧焦段关键帧从50改56牵动样条使192–216焦段变化(m_0204 焦段35.6→35.4)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "3cm",
+        "c11.sourceId": "d367"
+      }
+    },
+    {
+      "id": "light-cam.d367.pullback-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.pullback-distance",
+      "title": "长镜头B(192–384,S3+S4)（退到正面的机位距离）",
+      "value": 0.86,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头B(192–384,S3+S4)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d367；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段30→40→56→58→40mm;f/4→f/11;贴背面鳍片3cm起→绕爆炸视图→退到86cm正面→扎到右风扇轮毂前12mm;288帧焦段关键帧从50改56牵动样条使192–216焦段变化(m_0204 焦段35.6→35.4)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "86cm",
+        "c11.sourceId": "d367"
+      }
+    },
+    {
+      "id": "light-cam.d367.end-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.end-distance",
+      "title": "长镜头B(192–384,S3+S4)（结束时距风扇轮毂距离）",
+      "value": 0.012,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头B(192–384,S3+S4)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d367；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段30→40→56→58→40mm;f/4→f/11;贴背面鳍片3cm起→绕爆炸视图→退到86cm正面→扎到右风扇轮毂前12mm;288帧焦段关键帧从50改56牵动样条使192–216焦段变化(m_0204 焦段35.6→35.4)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "12mm",
+        "c11.sourceId": "d367"
+      }
+    },
+    {
+      "id": "light-cam.d368.focal-length-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-start",
+      "title": "长镜头C(384–576,S5+S6)（长镜头 C 起始焦段）",
+      "value": 24,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头C(384–576,S5+S6)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d368；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段24→30→35→45→35mm;光圈f/16→f/11→f/8;在风扇与均热板之间沿-X穿行→俯视GPU/显存/供电,距主板6–9cm;快门0.25;424–448均热板缓抬、558–574从侧面滑入盖满画面"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "焦段24",
+        "c11.sourceId": "d368"
+      }
+    },
+    {
+      "id": "light-cam.d368.focal-length-max",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-max",
+      "title": "长镜头C(384–576,S5+S6)（长镜头 C 最长焦段）",
+      "value": 45,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头C(384–576,S5+S6)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d368；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段24→30→35→45→35mm;光圈f/16→f/11→f/8;在风扇与均热板之间沿-X穿行→俯视GPU/显存/供电,距主板6–9cm;快门0.25;424–448均热板缓抬、558–574从侧面滑入盖满画面"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "45→35mm",
+        "c11.sourceId": "d368"
+      }
+    },
+    {
+      "id": "light-cam.d368.board-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.board-distance",
+      "title": "长镜头C(384–576,S5+S6)（俯视时距主板的距离）",
+      "value": [
+        0.06,
+        0.09
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头C(384–576,S5+S6)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d368；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段24→30→35→45→35mm;光圈f/16→f/11→f/8;在风扇与均热板之间沿-X穿行→俯视GPU/显存/供电,距主板6–9cm;快门0.25;424–448均热板缓抬、558–574从侧面滑入盖满画面"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "6–9cm",
+        "c11.sourceId": "d368"
+      }
+    },
+    {
+      "id": "light-cam.d369.focal-length-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-start",
+      "title": "长镜头D(576–768,S7)（长镜头 D 起始焦段）",
+      "value": 35,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头D(576–768,S7)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d369；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段35→50mm;f/4→f/11;骨架中心前6.5cm起→拉开到60cm→696帧推近3cm→缓推到最后一帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "焦段35",
+        "c11.sourceId": "d369"
+      }
+    },
+    {
+      "id": "light-cam.d369.focal-length-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-end",
+      "title": "长镜头D(576–768,S7)（长镜头 D 结束焦段）",
+      "value": 50,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头D(576–768,S7)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d369；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段35→50mm;f/4→f/11;骨架中心前6.5cm起→拉开到60cm→696帧推近3cm→缓推到最后一帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "50mm",
+        "c11.sourceId": "d369"
+      }
+    },
+    {
+      "id": "light-cam.d369.start-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.start-distance",
+      "title": "长镜头D(576–768,S7)（起始距骨架中心的距离）",
+      "value": 0.065,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头D(576–768,S7)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d369；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段35→50mm;f/4→f/11;骨架中心前6.5cm起→拉开到60cm→696帧推近3cm→缓推到最后一帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "6.5cm",
+        "c11.sourceId": "d369"
+      }
+    },
+    {
+      "id": "light-cam.d369.pullback-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.pullback-distance",
+      "title": "长镜头D(576–768,S7)（拉开后的机位距离）",
+      "value": 0.6,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头D(576–768,S7)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d369；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段35→50mm;f/4→f/11;骨架中心前6.5cm起→拉开到60cm→696帧推近3cm→缓推到最后一帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "60cm",
+        "c11.sourceId": "d369"
+      }
+    },
+    {
+      "id": "light-cam.d369.push-in-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.push-in-distance",
+      "title": "长镜头D(576–768,S7)（推近的位移）",
+      "value": 0.03,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：长镜头D(576–768,S7)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d369；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：作者成片用过。焦段35→50mm;f/4→f/11;骨架中心前6.5cm起→拉开到60cm→696帧推近3cm→缓推到最后一帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "推近3cm",
+        "c11.sourceId": "d369"
+      }
+    },
+    {
+      "id": "light-cam.d372.focal-length",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length",
+      "title": "03G 相机（透视相机焦段）",
+      "value": 85,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：03G 相机"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d372；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：同上。透视 85 mm，距 1.25 m，仰角 8°；视图 iso 28°、isoR −40°/14°、p114 −9°/3°、b2 58°/16°、hero 32°/8°、isoback 152°/12°；正交相机 front/side/back 取景 1 像素 = 0.379 mm（h17 为 0.63 mm）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "透视 85 mm",
+        "c11.sourceId": "d372"
+      }
+    },
+    {
+      "id": "light-cam.d372.camera-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.camera-distance",
+      "title": "03G 相机（机位到主体的距离）",
+      "value": 1.25,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：03G 相机"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d372；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：同上。透视 85 mm，距 1.25 m，仰角 8°；视图 iso 28°、isoR −40°/14°、p114 −9°/3°、b2 58°/16°、hero 32°/8°、isoback 152°/12°；正交相机 front/side/back 取景 1 像素 = 0.379 mm（h17 为 0.63 mm）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "距 1.25 m",
+        "c11.sourceId": "d372"
+      }
+    },
+    {
+      "id": "light-cam.d372.camera-elevation",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.camera-elevation",
+      "title": "03G 相机（机位仰角）",
+      "value": 8,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：03G 相机"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d372；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：同上。透视 85 mm，距 1.25 m，仰角 8°；视图 iso 28°、isoR −40°/14°、p114 −9°/3°、b2 58°/16°、hero 32°/8°、isoback 152°/12°；正交相机 front/side/back 取景 1 像素 = 0.379 mm（h17 为 0.63 mm）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "仰角 8°",
+        "c11.sourceId": "d372"
+      }
+    },
+    {
+      "id": "light-cam.d373.focal-length",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length",
+      "title": "03B 镜头（镜头焦段）",
+      "value": 70,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：03B 镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d373；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：我们自己渲染读回过。70mm焦段;距离从7.6倍机高推到4.4倍;方位角-42°→+2°→+36°"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "70mm焦段",
+        "c11.sourceId": "d373"
+      }
+    },
+    {
+      "id": "light-cam.d373.distance-ratio-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.distance-ratio-start",
+      "title": "03B 镜头（起始机位距离与机高之比）",
+      "value": 7.6,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：03B 镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d373；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：我们自己渲染读回过。70mm焦段;距离从7.6倍机高推到4.4倍;方位角-42°→+2°→+36°"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "7.6倍机高",
+        "c11.sourceId": "d373"
+      }
+    },
+    {
+      "id": "light-cam.d373.distance-ratio-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.distance-ratio-end",
+      "title": "03B 镜头（推近后机位距离与机高之比）",
+      "value": 4.4,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：03B 镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d373；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：我们自己渲染读回过。70mm焦段;距离从7.6倍机高推到4.4倍;方位角-42°→+2°→+36°"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "4.4倍",
+        "c11.sourceId": "d373"
+      }
+    },
+    {
+      "id": "light-cam.d373.azimuth-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.azimuth-start",
+      "title": "03B 镜头（起始方位角）",
+      "value": -42,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：03B 镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d373；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：我们自己渲染读回过。70mm焦段;距离从7.6倍机高推到4.4倍;方位角-42°→+2°→+36°"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "方位角-42°",
+        "c11.sourceId": "d373"
+      }
+    },
+    {
+      "id": "light-cam.d373.azimuth-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.azimuth-end",
+      "title": "03B 镜头（结束方位角）",
+      "value": 36,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位）：03B 镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节 d373；出处类别：源码拆解·逐镜头关键帧与路径表（可照搬的机位）",
+        "note": "原证据：源码；原验证：我们自己渲染读回过。70mm焦段;距离从7.6倍机高推到4.4倍;方位角-42°→+2°→+36°"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "+36°",
+        "c11.sourceId": "d373"
+      }
+    },
+    {
+      "id": "light-cam.d383.hitstop-boss-hit",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-5.hitstop-boss-hit",
+      "title": "顿帧（巨型头目击中玩家的顿帧时长）",
+      "value": 0.1,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.5 节 手持、震屏、冲量与顿帧：顿帧"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.5 节 d383；出处类别：源码拆解·手持、震屏、冲量与顿帧",
+        "note": "原证据：源码；原验证：清单未列。顿帧：巨型头目击中玩家 0.1 s、空爆 0.08、砸击 0.1、死亡瞬间 0.2；模拟 dt ×0.05；无慢动作。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "击中玩家 0.1 s",
+        "c11.sourceId": "d383"
+      }
+    },
+    {
+      "id": "light-cam.d383.hitstop-airburst",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-5.hitstop-airburst",
+      "title": "顿帧（空爆顿帧时长（原文未写单位，按上下文是秒））",
+      "value": 0.08,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.5 节 手持、震屏、冲量与顿帧：顿帧"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.5 节 d383；出处类别：源码拆解·手持、震屏、冲量与顿帧",
+        "note": "原证据：源码；原验证：清单未列。顿帧：巨型头目击中玩家 0.1 s、空爆 0.08、砸击 0.1、死亡瞬间 0.2；模拟 dt ×0.05；无慢动作。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "空爆 0.08",
+        "c11.sourceId": "d383"
+      }
+    },
+    {
+      "id": "light-cam.d383.hitstop-slam",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-5.hitstop-slam",
+      "title": "顿帧（砸击顿帧时长（原文未写单位，按上下文是秒））",
+      "value": 0.1,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.5 节 手持、震屏、冲量与顿帧：顿帧"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.5 节 d383；出处类别：源码拆解·手持、震屏、冲量与顿帧",
+        "note": "原证据：源码；原验证：清单未列。顿帧：巨型头目击中玩家 0.1 s、空爆 0.08、砸击 0.1、死亡瞬间 0.2；模拟 dt ×0.05；无慢动作。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "砸击 0.1",
+        "c11.sourceId": "d383"
+      }
+    },
+    {
+      "id": "light-cam.d383.hitstop-death",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-5.hitstop-death",
+      "title": "顿帧（死亡瞬间顿帧时长（原文未写单位，按上下文是秒））",
+      "value": 0.2,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.5 节 手持、震屏、冲量与顿帧：顿帧"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.5 节 d383；出处类别：源码拆解·手持、震屏、冲量与顿帧",
+        "note": "原证据：源码；原验证：清单未列。顿帧：巨型头目击中玩家 0.1 s、空爆 0.08、砸击 0.1、死亡瞬间 0.2；模拟 dt ×0.05；无慢动作。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "死亡瞬间 0.2",
+        "c11.sourceId": "d383"
+      }
+    },
+    {
+      "id": "light-cam.d417.cut-time",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.cut-time",
+      "title": "苏醒过场第一镜（过场第一镜切入时刻）",
+      "value": 0,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：苏醒过场第一镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d417；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。0 秒切镜：离头目 6.8/5.2/4 米三档找无遮挡位，侧移 -2.4，高 1.3，时长 1.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "0 秒切镜",
+        "c11.sourceId": "d417"
+      }
+    },
+    {
+      "id": "light-cam.d417.camera-distance-far",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.camera-distance-far",
+      "title": "苏醒过场第一镜（机位离头目距离最远档）",
+      "value": 6.8,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：苏醒过场第一镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d417；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。0 秒切镜：离头目 6.8/5.2/4 米三档找无遮挡位，侧移 -2.4，高 1.3，时长 1.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "离头目 6.8/5.2/4 米",
+        "c11.sourceId": "d417"
+      }
+    },
+    {
+      "id": "light-cam.d417.camera-distance-near",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.camera-distance-near",
+      "title": "苏醒过场第一镜（机位离头目距离最近档）",
+      "value": 4,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：苏醒过场第一镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d417；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。0 秒切镜：离头目 6.8/5.2/4 米三档找无遮挡位，侧移 -2.4，高 1.3，时长 1.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "6.8/5.2/4 米",
+        "c11.sourceId": "d417"
+      }
+    },
+    {
+      "id": "light-cam.d417.lateral-offset",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.lateral-offset",
+      "title": "苏醒过场第一镜（机位侧移（原文未写单位，按上下文是米））",
+      "value": -2.4,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：苏醒过场第一镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d417；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。0 秒切镜：离头目 6.8/5.2/4 米三档找无遮挡位，侧移 -2.4，高 1.3，时长 1.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "侧移 -2.4",
+        "c11.sourceId": "d417"
+      }
+    },
+    {
+      "id": "light-cam.d417.camera-height",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.camera-height",
+      "title": "苏醒过场第一镜（机位高度（原文未写单位，按上下文是米））",
+      "value": 1.3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：苏醒过场第一镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d417；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。0 秒切镜：离头目 6.8/5.2/4 米三档找无遮挡位，侧移 -2.4，高 1.3，时长 1.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "高 1.3",
+        "c11.sourceId": "d417"
+      }
+    },
+    {
+      "id": "light-cam.d417.shot-duration",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.shot-duration",
+      "title": "苏醒过场第一镜（镜头时长）",
+      "value": 1.4,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：苏醒过场第一镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d417；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。0 秒切镜：离头目 6.8/5.2/4 米三档找无遮挡位，侧移 -2.4，高 1.3，时长 1.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "时长 1.4 秒",
+        "c11.sourceId": "d417"
+      }
+    },
+    {
+      "id": "light-cam.d418.cut-time",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.cut-time",
+      "title": "苏醒过场第二镜（过场第二镜切入时刻）",
+      "value": 1.35,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：苏醒过场第二镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d418；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。1.35 秒切镜：11.5/8.5/6 米三档，侧移 4.2，高 2.2，时长 1.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "1.35 秒切镜",
+        "c11.sourceId": "d418"
+      }
+    },
+    {
+      "id": "light-cam.d418.camera-distance-far",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.camera-distance-far",
+      "title": "苏醒过场第二镜（机位距离最远档）",
+      "value": 11.5,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：苏醒过场第二镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d418；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。1.35 秒切镜：11.5/8.5/6 米三档，侧移 4.2，高 2.2，时长 1.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "11.5/8.5/6 米",
+        "c11.sourceId": "d418"
+      }
+    },
+    {
+      "id": "light-cam.d418.camera-distance-near",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.camera-distance-near",
+      "title": "苏醒过场第二镜（机位距离最近档）",
+      "value": 6,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：苏醒过场第二镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d418；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。1.35 秒切镜：11.5/8.5/6 米三档，侧移 4.2，高 2.2，时长 1.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "8.5/6 米",
+        "c11.sourceId": "d418"
+      }
+    },
+    {
+      "id": "light-cam.d418.lateral-offset",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.lateral-offset",
+      "title": "苏醒过场第二镜（机位侧移（原文未写单位，按上下文是米））",
+      "value": 4.2,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：苏醒过场第二镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d418；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。1.35 秒切镜：11.5/8.5/6 米三档，侧移 4.2，高 2.2，时长 1.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "侧移 4.2",
+        "c11.sourceId": "d418"
+      }
+    },
+    {
+      "id": "light-cam.d418.camera-height",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.camera-height",
+      "title": "苏醒过场第二镜（机位高度（原文未写单位，按上下文是米））",
+      "value": 2.2,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：苏醒过场第二镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d418；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。1.35 秒切镜：11.5/8.5/6 米三档，侧移 4.2，高 2.2，时长 1.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "高 2.2",
+        "c11.sourceId": "d418"
+      }
+    },
+    {
+      "id": "light-cam.d418.shot-duration",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.shot-duration",
+      "title": "苏醒过场第二镜（镜头时长）",
+      "value": 1.4,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：苏醒过场第二镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d418；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。1.35 秒切镜：11.5/8.5/6 米三档，侧移 4.2，高 2.2，时长 1.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "时长 1.4 秒",
+        "c11.sourceId": "d418"
+      }
+    },
+    {
+      "id": "light-cam.d419.shot-duration",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.shot-duration",
+      "title": "死亡过场镜头（死亡过场镜头时长）",
+      "value": 7.6,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：死亡过场镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d419；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成片用过。切 7.6 秒过场镜头"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "切 7.6 秒过场镜头",
+        "c11.sourceId": "d419"
+      }
+    },
+    {
+      "id": "light-cam.d422.crane-fov",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.crane-fov",
+      "title": "北门镜头数据 shots（摇臂镜头视场角范围（原文未写单位，按上下文是度））",
+      "value": [
+        46,
+        48
+      ],
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：北门镜头数据 shots"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d422；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成品用过。crane：fov 48→46，3 s；notch：fov 14→12，3 s，看向巨树；follow：fov 52→38，3 s，拉升到 pt(AW+34,0,FLOOR+36)；每个有起止位姿"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "fov 48→46",
+        "c11.sourceId": "d422"
+      }
+    },
+    {
+      "id": "light-cam.d422.notch-fov",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.notch-fov",
+      "title": "北门镜头数据 shots（长焦镜头视场角范围（原文未写单位，按上下文是度））",
+      "value": [
+        12,
+        14
+      ],
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：北门镜头数据 shots"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d422；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成品用过。crane：fov 48→46，3 s；notch：fov 14→12，3 s，看向巨树；follow：fov 52→38，3 s，拉升到 pt(AW+34,0,FLOOR+36)；每个有起止位姿"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "fov 14→12",
+        "c11.sourceId": "d422"
+      }
+    },
+    {
+      "id": "light-cam.d422.follow-fov",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.follow-fov",
+      "title": "北门镜头数据 shots（跟随镜头视场角范围（原文未写单位，按上下文是度））",
+      "value": [
+        38,
+        52
+      ],
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：北门镜头数据 shots"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d422；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成品用过。crane：fov 48→46，3 s；notch：fov 14→12，3 s，看向巨树；follow：fov 52→38，3 s，拉升到 pt(AW+34,0,FLOOR+36)；每个有起止位姿"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "fov 52→38",
+        "c11.sourceId": "d422"
+      }
+    },
+    {
+      "id": "light-cam.d422.shot-duration",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.shot-duration",
+      "title": "北门镜头数据 shots（每个镜头时长）",
+      "value": 3,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：北门镜头数据 shots"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d422；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码；原验证：作者成品用过。crane：fov 48→46，3 s；notch：fov 14→12，3 s，看向巨树；follow：fov 52→38，3 s，拉升到 pt(AW+34,0,FLOOR+36)；每个有起止位姿"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "3 s",
+        "c11.sourceId": "d422"
+      }
+    },
+    {
+      "id": "light-cam.d424.shot-time-mark",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.shot-time-mark",
+      "title": "案例 02 过场补充（并入 g5，r07 02 案例 02）（头目登场镜头的取样时刻）",
+      "value": 3.6,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：案例 02 过场补充（并入 g5，r07 02 案例 02）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d424；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码（原实现源码）；原验证：作者成片用过。巨型头目登场镜头 3.6 s 处机位 230 m、FOV 34°；胜利绕飞设计 8 s，第 5.8 s 被结算截断（推断）；时间先整体过一次三次缓入缓出，机位走 Catmull-Rom；顿帧：模拟时间 ×0.05，无慢动作。证据：源码（原实现源码）。验证：作者成片用过。出处：，原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "登场镜头 3.6 s",
+        "c11.sourceId": "d424"
+      }
+    },
+    {
+      "id": "light-cam.d424.camera-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.camera-distance",
+      "title": "案例 02 过场补充（并入 g5，r07 02 案例 02）（头目登场镜头机位距离）",
+      "value": 230,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：案例 02 过场补充（并入 g5，r07 02 案例 02）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d424；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码（原实现源码）；原验证：作者成片用过。巨型头目登场镜头 3.6 s 处机位 230 m、FOV 34°；胜利绕飞设计 8 s，第 5.8 s 被结算截断（推断）；时间先整体过一次三次缓入缓出，机位走 Catmull-Rom；顿帧：模拟时间 ×0.05，无慢动作。证据：源码（原实现源码）。验证：作者成片用过。出处：，原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "机位 230 m",
+        "c11.sourceId": "d424"
+      }
+    },
+    {
+      "id": "light-cam.d424.fov",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.fov",
+      "title": "案例 02 过场补充（并入 g5，r07 02 案例 02）（头目登场镜头视场角）",
+      "value": 34,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：案例 02 过场补充（并入 g5，r07 02 案例 02）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d424；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码（原实现源码）；原验证：作者成片用过。巨型头目登场镜头 3.6 s 处机位 230 m、FOV 34°；胜利绕飞设计 8 s，第 5.8 s 被结算截断（推断）；时间先整体过一次三次缓入缓出，机位走 Catmull-Rom；顿帧：模拟时间 ×0.05，无慢动作。证据：源码（原实现源码）。验证：作者成片用过。出处：，原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "FOV 34°",
+        "c11.sourceId": "d424"
+      }
+    },
+    {
+      "id": "light-cam.d424.orbit-duration",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.orbit-duration",
+      "title": "案例 02 过场补充（并入 g5，r07 02 案例 02）（胜利绕飞设计时长）",
+      "value": 8,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：案例 02 过场补充（并入 g5，r07 02 案例 02）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d424；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码（原实现源码）；原验证：作者成片用过。巨型头目登场镜头 3.6 s 处机位 230 m、FOV 34°；胜利绕飞设计 8 s，第 5.8 s 被结算截断（推断）；时间先整体过一次三次缓入缓出，机位走 Catmull-Rom；顿帧：模拟时间 ×0.05，无慢动作。证据：源码（原实现源码）。验证：作者成片用过。出处：，原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "胜利绕飞设计 8 s",
+        "c11.sourceId": "d424"
+      }
+    },
+    {
+      "id": "light-cam.d424.orbit-cutoff-time",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.orbit-cutoff-time",
+      "title": "案例 02 过场补充（并入 g5，r07 02 案例 02）（胜利绕飞被结算截断的时刻）",
+      "value": 5.8,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜：案例 02 过场补充（并入 g5，r07 02 案例 02）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节 d424；出处类别：源码拆解·过场、事件镜头与导演切镜",
+        "note": "原证据：源码（原实现源码）；原验证：作者成片用过。巨型头目登场镜头 3.6 s 处机位 230 m、FOV 34°；胜利绕飞设计 8 s，第 5.8 s 被结算截断（推断）；时间先整体过一次三次缓入缓出，机位走 Catmull-Rom；顿帧：模拟时间 ×0.05，无慢动作。证据：源码（原实现源码）。验证：作者成片用过。出处：，原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "第 5.8 s",
+        "c11.sourceId": "d424"
+      }
+    },
+    {
+      "id": "light-cam.d426.orbit-duration",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.orbit-duration",
+      "title": "环绕相机（相机环绕一圈时长）",
+      "value": 12,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：环绕相机"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-28",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d426；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述（提示词）+ 实测（规格）；原验证：实测规格；成片未回到起点（PSNR 27.7 dB）。相机在资产半高、水平瞄准，俯仰和滚转 0；高度、半径、焦距、角速度恒定；12 秒顺时针一圈；关景深、运动模糊、镜头光效；21:9 1920×824 24 fps 289 帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "12 秒顺时针一圈",
+        "c11.sourceId": "d426"
+      }
+    },
+    {
+      "id": "light-cam.d426.frame-rate",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.frame-rate",
+      "title": "环绕相机（成片帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：环绕相机"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-28",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d426；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述（提示词）+ 实测（规格）；原验证：实测规格；成片未回到起点（PSNR 27.7 dB）。相机在资产半高、水平瞄准，俯仰和滚转 0；高度、半径、焦距、角速度恒定；12 秒顺时针一圈；关景深、运动模糊、镜头光效；21:9 1920×824 24 fps 289 帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "24 fps",
+        "c11.sourceId": "d426"
+      }
+    },
+    {
+      "id": "light-cam.d426.frame-count",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.frame-count",
+      "title": "环绕相机（成片总帧数）",
+      "value": 289,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：环绕相机"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-28",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d426；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述（提示词）+ 实测（规格）；原验证：实测规格；成片未回到起点（PSNR 27.7 dB）。相机在资产半高、水平瞄准，俯仰和滚转 0；高度、半径、焦距、角速度恒定；12 秒顺时针一圈；关景深、运动模糊、镜头光效；21:9 1920×824 24 fps 289 帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "289 帧",
+        "c11.sourceId": "d426"
+      }
+    },
+    {
+      "id": "light-cam.d426.frame-width",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.frame-width",
+      "title": "环绕相机（画面宽）",
+      "value": 1920,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：环绕相机"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-28",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d426；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述（提示词）+ 实测（规格）；原验证：实测规格；成片未回到起点（PSNR 27.7 dB）。相机在资产半高、水平瞄准，俯仰和滚转 0；高度、半径、焦距、角速度恒定；12 秒顺时针一圈；关景深、运动模糊、镜头光效；21:9 1920×824 24 fps 289 帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "1920×824",
+        "c11.sourceId": "d426"
+      }
+    },
+    {
+      "id": "light-cam.d426.frame-height",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.frame-height",
+      "title": "环绕相机（画面高）",
+      "value": 824,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：环绕相机"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-28",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d426；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述（提示词）+ 实测（规格）；原验证：实测规格；成片未回到起点（PSNR 27.7 dB）。相机在资产半高、水平瞄准，俯仰和滚转 0；高度、半径、焦距、角速度恒定；12 秒顺时针一圈；关景深、运动模糊、镜头光效；21:9 1920×824 24 fps 289 帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "×824",
+        "c11.sourceId": "d426"
+      }
+    },
+    {
+      "id": "light-cam.d427.shot-count",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.shot-count",
+      "title": "镜头节拍（镜头数）",
+      "value": 14,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：镜头节拍"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-27",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d427；出处类别：实测读数·逐案例镜头表与运镜节奏",
+        "note": "原证据：实测；原验证：实测。14 个镜头，换镜头帧 96、144、168、192、240、252、264、276、288、336、384、432、456 全是 12 的整数倍；镜头时长只用 1/2/4/8 拍；中段第 20–23 拍四个 1 拍特写；点击发生在切换前约 9 帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "14 个镜头",
+        "c11.sourceId": "d427"
+      }
+    },
+    {
+      "id": "light-cam.d427.beat-length",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.beat-length",
+      "title": "镜头节拍（切点所在拍点网格的帧距）",
+      "value": 12,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：镜头节拍"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-27",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d427；出处类别：实测读数·逐案例镜头表与运镜节奏",
+        "note": "原证据：实测；原验证：实测。14 个镜头，换镜头帧 96、144、168、192、240、252、264、276、288、336、384、432、456 全是 12 的整数倍；镜头时长只用 1/2/4/8 拍；中段第 20–23 拍四个 1 拍特写；点击发生在切换前约 9 帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "全是 12 的整数倍",
+        "c11.sourceId": "d427"
+      }
+    },
+    {
+      "id": "light-cam.d427.first-cut-frame",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.first-cut-frame",
+      "title": "镜头节拍（第一个换镜头帧）",
+      "value": 96,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：镜头节拍"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-27",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d427；出处类别：实测读数·逐案例镜头表与运镜节奏",
+        "note": "原证据：实测；原验证：实测。14 个镜头，换镜头帧 96、144、168、192、240、252、264、276、288、336、384、432、456 全是 12 的整数倍；镜头时长只用 1/2/4/8 拍；中段第 20–23 拍四个 1 拍特写；点击发生在切换前约 9 帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "换镜头帧 96",
+        "c11.sourceId": "d427"
+      }
+    },
+    {
+      "id": "light-cam.d427.click-lead",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.click-lead",
+      "title": "镜头节拍（点击早于切换的帧数）",
+      "value": 9,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：镜头节拍"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-27",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d427；出处类别：实测读数·逐案例镜头表与运镜节奏",
+        "note": "原证据：实测；原验证：实测。14 个镜头，换镜头帧 96、144、168、192、240、252、264、276、288、336、384、432、456 全是 12 的整数倍；镜头时长只用 1/2/4/8 拍；中段第 20–23 拍四个 1 拍特写；点击发生在切换前约 9 帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "切换前约 9 帧",
+        "c11.sourceId": "d427"
+      }
+    },
+    {
+      "id": "light-cam.d429.turntable-step-body",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.turntable-step-body",
+      "title": "转台相机（全身转台每帧转角）",
+      "value": 5,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：转台相机"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-23",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d429；出处类别：实测读数·逐案例镜头表与运镜节奏",
+        "note": "原证据：画面读数 + 实测；原验证：实测。全身 5°/帧、头部 6°/帧，米黄到墨绿渐变背景、带地平线；姿势表中灰底棚拍"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "全身 5°/帧",
+        "c11.sourceId": "d429"
+      }
+    },
+    {
+      "id": "light-cam.d429.turntable-step-head",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.turntable-step-head",
+      "title": "转台相机（头部转台每帧转角）",
+      "value": 6,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：转台相机"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-23",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d429；出处类别：实测读数·逐案例镜头表与运镜节奏",
+        "note": "原证据：画面读数 + 实测；原验证：实测。全身 5°/帧、头部 6°/帧，米黄到墨绿渐变背景、带地平线；姿势表中灰底棚拍"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "头部 6°/帧",
+        "c11.sourceId": "d429"
+      }
+    },
+    {
+      "id": "light-cam.d430.focal-length-wide",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-wide",
+      "title": "东京五镜（镜 1 焦段）",
+      "value": 16,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：东京五镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d430；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述（焦段）+ 实测（切点、摇速）；原验证：C/D。帧范围/焦段：1 帧 0–83，16 mm，向上俯仰；2 帧 84–161，85 mm f/2.8 离水洼 17 cm；3 帧 162–221 长焦，向右摇灯笼中心 60 帧内左移约 340 px（1080p），约 5.8 px/帧；4 帧 222–299，75 mm，向右摇；5 帧 300–359，向下俯仰。切点 3.5/6.75/9.25/12.5 s"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "16 mm",
+        "c11.sourceId": "d430"
+      }
+    },
+    {
+      "id": "light-cam.d430.focal-length-puddle",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-puddle",
+      "title": "东京五镜（镜 2 焦段）",
+      "value": 85,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：东京五镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d430；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述（焦段）+ 实测（切点、摇速）；原验证：C/D。帧范围/焦段：1 帧 0–83，16 mm，向上俯仰；2 帧 84–161，85 mm f/2.8 离水洼 17 cm；3 帧 162–221 长焦，向右摇灯笼中心 60 帧内左移约 340 px（1080p），约 5.8 px/帧；4 帧 222–299，75 mm，向右摇；5 帧 300–359，向下俯仰。切点 3.5/6.75/9.25/12.5 s"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "85 mm",
+        "c11.sourceId": "d430"
+      }
+    },
+    {
+      "id": "light-cam.d430.focal-length-mirror",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-mirror",
+      "title": "东京五镜（镜 4 焦段）",
+      "value": 75,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：东京五镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d430；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述（焦段）+ 实测（切点、摇速）；原验证：C/D。帧范围/焦段：1 帧 0–83，16 mm，向上俯仰；2 帧 84–161，85 mm f/2.8 离水洼 17 cm；3 帧 162–221 长焦，向右摇灯笼中心 60 帧内左移约 340 px（1080p），约 5.8 px/帧；4 帧 222–299，75 mm，向右摇；5 帧 300–359，向下俯仰。切点 3.5/6.75/9.25/12.5 s"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "75 mm",
+        "c11.sourceId": "d430"
+      }
+    },
+    {
+      "id": "light-cam.d430.camera-height-above-water",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.camera-height-above-water",
+      "title": "东京五镜（镜 2 机位离水洼高度）",
+      "value": 0.17,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：东京五镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d430；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述（焦段）+ 实测（切点、摇速）；原验证：C/D。帧范围/焦段：1 帧 0–83，16 mm，向上俯仰；2 帧 84–161，85 mm f/2.8 离水洼 17 cm；3 帧 162–221 长焦，向右摇灯笼中心 60 帧内左移约 340 px（1080p），约 5.8 px/帧；4 帧 222–299，75 mm，向右摇；5 帧 300–359，向下俯仰。切点 3.5/6.75/9.25/12.5 s"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "离水洼 17 cm",
+        "c11.sourceId": "d430"
+      }
+    },
+    {
+      "id": "light-cam.d430.pan-shift",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.pan-shift",
+      "title": "东京五镜（镜 3 摇镜 60 帧内画面位移（1080p））",
+      "value": 340,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：东京五镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d430；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述（焦段）+ 实测（切点、摇速）；原验证：C/D。帧范围/焦段：1 帧 0–83，16 mm，向上俯仰；2 帧 84–161，85 mm f/2.8 离水洼 17 cm；3 帧 162–221 长焦，向右摇灯笼中心 60 帧内左移约 340 px（1080p），约 5.8 px/帧；4 帧 222–299，75 mm，向右摇；5 帧 300–359，向下俯仰。切点 3.5/6.75/9.25/12.5 s"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "左移约 340 px",
+        "c11.sourceId": "d430"
+      }
+    },
+    {
+      "id": "light-cam.d430.pan-step-per-frame",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.pan-step-per-frame",
+      "title": "东京五镜（镜 3 摇镜每帧画面位移）",
+      "value": 5.8,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：东京五镜"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d430；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述（焦段）+ 实测（切点、摇速）；原验证：C/D。帧范围/焦段：1 帧 0–83，16 mm，向上俯仰；2 帧 84–161，85 mm f/2.8 离水洼 17 cm；3 帧 162–221 长焦，向右摇灯笼中心 60 帧内左移约 340 px（1080p），约 5.8 px/帧；4 帧 222–299，75 mm，向右摇；5 帧 300–359，向下俯仰。切点 3.5/6.75/9.25/12.5 s"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "约 5.8 px/帧",
+        "c11.sourceId": "d430"
+      }
+    },
+    {
+      "id": "light-cam.d432.shot-frame-count",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.shot-frame-count",
+      "title": "餐馆六镜运动速度（六个镜头的帧数范围（原文并列了几个取值，这里记最小到最大））",
+      "value": [
+        72,
+        96
+      ],
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：餐馆六镜运动速度"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d432；出处类别：实测读数·逐案例镜头表与运镜节奏",
+        "note": "原证据：实测；原验证：D。每帧位移（1080 宽）：镜1 (−0.62,−1.33)；镜2 (+1.18,0)；镜3 (−3.33,0)最快；镜4 (0,−2.00)；镜5 (+0.67,0)最慢；镜6 (−1.02,−0.53)收尾减速到 0；镜头帧数 82/84/72/72/72/96；每镜匀速无缓入"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "82/84/72/72/72/96",
+        "c11.sourceId": "d432"
+      }
+    },
+    {
+      "id": "light-cam.d432.pan-step-fastest",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.pan-step-fastest",
+      "title": "餐馆六镜运动速度（最快一镜每帧横向位移（1080 宽））",
+      "value": -3.33,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：餐馆六镜运动速度"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d432；出处类别：实测读数·逐案例镜头表与运镜节奏",
+        "note": "原证据：实测；原验证：D。每帧位移（1080 宽）：镜1 (−0.62,−1.33)；镜2 (+1.18,0)；镜3 (−3.33,0)最快；镜4 (0,−2.00)；镜5 (+0.67,0)最慢；镜6 (−1.02,−0.53)收尾减速到 0；镜头帧数 82/84/72/72/72/96；每镜匀速无缓入"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(−3.33,0)最快",
+        "c11.sourceId": "d432"
+      }
+    },
+    {
+      "id": "light-cam.d432.pan-step-slowest",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.pan-step-slowest",
+      "title": "餐馆六镜运动速度（最慢一镜每帧横向位移（1080 宽））",
+      "value": 0.67,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：餐馆六镜运动速度"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d432；出处类别：实测读数·逐案例镜头表与运镜节奏",
+        "note": "原证据：实测；原验证：D。每帧位移（1080 宽）：镜1 (−0.62,−1.33)；镜2 (+1.18,0)；镜3 (−3.33,0)最快；镜4 (0,−2.00)；镜5 (+0.67,0)最慢；镜6 (−1.02,−0.53)收尾减速到 0；镜头帧数 82/84/72/72/72/96；每镜匀速无缓入"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(+0.67,0)最慢",
+        "c11.sourceId": "d432"
+      }
+    },
+    {
+      "id": "light-cam.d433.focal-length",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length",
+      "title": "案例 07定格镜头（定格镜头焦段）",
+      "value": 32,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：案例 07定格镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-07",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d433；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：C。32 mm，f/2；之前一次穿过定格稻草的飞入；定格前相机穿行约 12 米；相机有关键帧位置/目标/焦距/光圈/对焦点，每镜头前后多算几帧使第 0 帧已在运动"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "32 mm",
+        "c11.sourceId": "d433"
+      }
+    },
+    {
+      "id": "light-cam.d433.camera-travel",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.camera-travel",
+      "title": "案例 07定格镜头（定格前相机穿行距离）",
+      "value": 12,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：案例 07定格镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-07",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d433；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：C。32 mm，f/2；之前一次穿过定格稻草的飞入；定格前相机穿行约 12 米；相机有关键帧位置/目标/焦距/光圈/对焦点，每镜头前后多算几帧使第 0 帧已在运动"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "穿行约 12 米",
+        "c11.sourceId": "d433"
+      }
+    },
+    {
+      "id": "light-cam.d434.shot-count",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.shot-count",
+      "title": "案例 15节奏（镜头数）",
+      "value": 3,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：案例 15节奏"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d434；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：实测 + 原文陈述；原验证：D。3 镜：0–3.5 s 远景、3.5–6.5 s 中景、6.5–10.0 s 近景；硬切；原始 24 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "3 镜",
+        "c11.sourceId": "d434"
+      }
+    },
+    {
+      "id": "light-cam.d434.wide-shot-window",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.wide-shot-window",
+      "title": "案例 15节奏（远景镜头范围时刻）",
+      "value": [
+        0,
+        3.5
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：案例 15节奏"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d434；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：实测 + 原文陈述；原验证：D。3 镜：0–3.5 s 远景、3.5–6.5 s 中景、6.5–10.0 s 近景；硬切；原始 24 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "0–3.5 s",
+        "c11.sourceId": "d434"
+      }
+    },
+    {
+      "id": "light-cam.d434.mid-shot-window",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.mid-shot-window",
+      "title": "案例 15节奏（中景镜头范围时刻）",
+      "value": [
+        3.5,
+        6.5
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：案例 15节奏"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d434；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：实测 + 原文陈述；原验证：D。3 镜：0–3.5 s 远景、3.5–6.5 s 中景、6.5–10.0 s 近景；硬切；原始 24 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "3.5–6.5 s",
+        "c11.sourceId": "d434"
+      }
+    },
+    {
+      "id": "light-cam.d434.close-shot-window",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.close-shot-window",
+      "title": "案例 15节奏（近景镜头范围时刻）",
+      "value": [
+        6.5,
+        10
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：案例 15节奏"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d434；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：实测 + 原文陈述；原验证：D。3 镜：0–3.5 s 远景、3.5–6.5 s 中景、6.5–10.0 s 近景；硬切；原始 24 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "6.5–10.0 s",
+        "c11.sourceId": "d434"
+      }
+    },
+    {
+      "id": "light-cam.d434.frame-rate",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.frame-rate",
+      "title": "案例 15节奏（原始帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：案例 15节奏"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d434；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：实测 + 原文陈述；原验证：D。3 镜：0–3.5 s 远景、3.5–6.5 s 中景、6.5–10.0 s 近景；硬切；原始 24 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "24 fps",
+        "c11.sourceId": "d434"
+      }
+    },
+    {
+      "id": "light-cam.d439.focal-length-tele",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-tele",
+      "title": "五镜头结构（剪纸串对太阳镜头焦段）",
+      "value": 62,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：五镜头结构"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-21",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d439；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。宽→剪纸串对太阳(62 mm,f/2.8)→沿摊位近看(对焦 1.3 m)→piñata 英雄镜头(28 mm,太阳在相机后,摆动旋转)→下摇到水坑,一女子从后走过;8 串剪纸与 piñata 每帧都动;城市名最后一秒左下角,与招牌同一笔画字体;全片 15.0 s,1920×1080,24 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "62 mm",
+        "c11.sourceId": "d439"
+      }
+    },
+    {
+      "id": "light-cam.d439.f-number",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.f-number",
+      "title": "五镜头结构（剪纸串对太阳镜头光圈 f 值）",
+      "value": 2.8,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：五镜头结构"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-21",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d439；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。宽→剪纸串对太阳(62 mm,f/2.8)→沿摊位近看(对焦 1.3 m)→piñata 英雄镜头(28 mm,太阳在相机后,摆动旋转)→下摇到水坑,一女子从后走过;8 串剪纸与 piñata 每帧都动;城市名最后一秒左下角,与招牌同一笔画字体;全片 15.0 s,1920×1080,24 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "f/2.8",
+        "c11.sourceId": "d439"
+      }
+    },
+    {
+      "id": "light-cam.d439.focus-distance",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focus-distance",
+      "title": "五镜头结构（沿摊位近看镜头对焦距离）",
+      "value": 1.3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：五镜头结构"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-21",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d439；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。宽→剪纸串对太阳(62 mm,f/2.8)→沿摊位近看(对焦 1.3 m)→piñata 英雄镜头(28 mm,太阳在相机后,摆动旋转)→下摇到水坑,一女子从后走过;8 串剪纸与 piñata 每帧都动;城市名最后一秒左下角,与招牌同一笔画字体;全片 15.0 s,1920×1080,24 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "对焦 1.3 m",
+        "c11.sourceId": "d439"
+      }
+    },
+    {
+      "id": "light-cam.d439.focal-length-wide",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-wide",
+      "title": "五镜头结构（英雄镜头焦段）",
+      "value": 28,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：五镜头结构"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-21",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d439；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。宽→剪纸串对太阳(62 mm,f/2.8)→沿摊位近看(对焦 1.3 m)→piñata 英雄镜头(28 mm,太阳在相机后,摆动旋转)→下摇到水坑,一女子从后走过;8 串剪纸与 piñata 每帧都动;城市名最后一秒左下角,与招牌同一笔画字体;全片 15.0 s,1920×1080,24 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "28 mm",
+        "c11.sourceId": "d439"
+      }
+    },
+    {
+      "id": "light-cam.d439.film-duration",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.film-duration",
+      "title": "五镜头结构（全片时长）",
+      "value": 15,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：五镜头结构"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-21",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d439；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。宽→剪纸串对太阳(62 mm,f/2.8)→沿摊位近看(对焦 1.3 m)→piñata 英雄镜头(28 mm,太阳在相机后,摆动旋转)→下摇到水坑,一女子从后走过;8 串剪纸与 piñata 每帧都动;城市名最后一秒左下角,与招牌同一笔画字体;全片 15.0 s,1920×1080,24 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "全片 15.0 s",
+        "c11.sourceId": "d439"
+      }
+    },
+    {
+      "id": "light-cam.d439.frame-rate",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.frame-rate",
+      "title": "五镜头结构（成片帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：五镜头结构"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-21",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d439；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。宽→剪纸串对太阳(62 mm,f/2.8)→沿摊位近看(对焦 1.3 m)→piñata 英雄镜头(28 mm,太阳在相机后,摆动旋转)→下摇到水坑,一女子从后走过;8 串剪纸与 piñata 每帧都动;城市名最后一秒左下角,与招牌同一笔画字体;全片 15.0 s,1920×1080,24 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "24 fps",
+        "c11.sourceId": "d439"
+      }
+    },
+    {
+      "id": "light-cam.d442.focal-length-master",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-master",
+      "title": "东京五镜头自下而上（开场主镜头焦段）",
+      "value": 16,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：东京五镜头自下而上"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d442；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。16 mm master 从湿路面上摇到巷子→相机降到水坑上 17 cm,85 mm,f/2.8:水圈、透视中的 STOP 标线、灯笼与自动贩卖机成焦外光斑、黑伞路人的腿→长焦拍灯笼招牌→75 mm 拍凸面路镜(镜中是相机身后的巷子与一位撑透明伞走近的女子)→巷尾自动贩卖机;城市名最后一秒左下角用自有笔画字母表"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "16 mm master",
+        "c11.sourceId": "d442"
+      }
+    },
+    {
+      "id": "light-cam.d442.camera-height",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.camera-height",
+      "title": "东京五镜头自下而上（水坑镜头机位离水面高度）",
+      "value": 0.17,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：东京五镜头自下而上"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d442；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。16 mm master 从湿路面上摇到巷子→相机降到水坑上 17 cm,85 mm,f/2.8:水圈、透视中的 STOP 标线、灯笼与自动贩卖机成焦外光斑、黑伞路人的腿→长焦拍灯笼招牌→75 mm 拍凸面路镜(镜中是相机身后的巷子与一位撑透明伞走近的女子)→巷尾自动贩卖机;城市名最后一秒左下角用自有笔画字母表"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "水坑上 17 cm",
+        "c11.sourceId": "d442"
+      }
+    },
+    {
+      "id": "light-cam.d442.focal-length-low-shot",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-low-shot",
+      "title": "东京五镜头自下而上（水坑低机位镜头焦段）",
+      "value": 85,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：东京五镜头自下而上"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d442；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。16 mm master 从湿路面上摇到巷子→相机降到水坑上 17 cm,85 mm,f/2.8:水圈、透视中的 STOP 标线、灯笼与自动贩卖机成焦外光斑、黑伞路人的腿→长焦拍灯笼招牌→75 mm 拍凸面路镜(镜中是相机身后的巷子与一位撑透明伞走近的女子)→巷尾自动贩卖机;城市名最后一秒左下角用自有笔画字母表"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "85 mm",
+        "c11.sourceId": "d442"
+      }
+    },
+    {
+      "id": "light-cam.d442.f-number",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.f-number",
+      "title": "东京五镜头自下而上（水坑低机位镜头光圈 f 值）",
+      "value": 2.8,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：东京五镜头自下而上"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d442；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。16 mm master 从湿路面上摇到巷子→相机降到水坑上 17 cm,85 mm,f/2.8:水圈、透视中的 STOP 标线、灯笼与自动贩卖机成焦外光斑、黑伞路人的腿→长焦拍灯笼招牌→75 mm 拍凸面路镜(镜中是相机身后的巷子与一位撑透明伞走近的女子)→巷尾自动贩卖机;城市名最后一秒左下角用自有笔画字母表"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "f/2.8",
+        "c11.sourceId": "d442"
+      }
+    },
+    {
+      "id": "light-cam.d442.focal-length-mirror-shot",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-mirror-shot",
+      "title": "东京五镜头自下而上（凸面路镜镜头焦段）",
+      "value": 75,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：东京五镜头自下而上"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d442；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。16 mm master 从湿路面上摇到巷子→相机降到水坑上 17 cm,85 mm,f/2.8:水圈、透视中的 STOP 标线、灯笼与自动贩卖机成焦外光斑、黑伞路人的腿→长焦拍灯笼招牌→75 mm 拍凸面路镜(镜中是相机身后的巷子与一位撑透明伞走近的女子)→巷尾自动贩卖机;城市名最后一秒左下角用自有笔画字母表"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "75 mm 拍凸面路镜",
+        "c11.sourceId": "d442"
+      }
+    },
+    {
+      "id": "light-cam.d446.shot-duration",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.shot-duration",
+      "title": "蜂巢拉远镜头（拉远镜头总时长）",
+      "value": 8,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：蜂巢拉远镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-05",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d446；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。8 s 一镜到底的 pull-back+微升;开头约 50mm 等效紧景,渐宽到约 35mm 等效;全程深焦(无景深虚化,符合低多边形规则);0–2 s 紧景、2–5 s 渐宽、5–7 s 近最宽、7–8 s 定格"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "8 s",
+        "c11.sourceId": "d446"
+      }
+    },
+    {
+      "id": "light-cam.d446.focal-length-start",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-start",
+      "title": "蜂巢拉远镜头（开头等效焦段）",
+      "value": 50,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：蜂巢拉远镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-05",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d446；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。8 s 一镜到底的 pull-back+微升;开头约 50mm 等效紧景,渐宽到约 35mm 等效;全程深焦(无景深虚化,符合低多边形规则);0–2 s 紧景、2–5 s 渐宽、5–7 s 近最宽、7–8 s 定格"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "约 50mm",
+        "c11.sourceId": "d446"
+      }
+    },
+    {
+      "id": "light-cam.d446.focal-length-end",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-end",
+      "title": "蜂巢拉远镜头（结尾等效焦段）",
+      "value": 35,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：蜂巢拉远镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-05",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d446；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。8 s 一镜到底的 pull-back+微升;开头约 50mm 等效紧景,渐宽到约 35mm 等效;全程深焦(无景深虚化,符合低多边形规则);0–2 s 紧景、2–5 s 渐宽、5–7 s 近最宽、7–8 s 定格"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "约 35mm",
+        "c11.sourceId": "d446"
+      }
+    },
+    {
+      "id": "light-cam.d446.tight-phase-window",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.tight-phase-window",
+      "title": "蜂巢拉远镜头（紧景阶段范围时刻）",
+      "value": [
+        0,
+        2
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：蜂巢拉远镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-05",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d446；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。8 s 一镜到底的 pull-back+微升;开头约 50mm 等效紧景,渐宽到约 35mm 等效;全程深焦(无景深虚化,符合低多边形规则);0–2 s 紧景、2–5 s 渐宽、5–7 s 近最宽、7–8 s 定格"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "0–2 s",
+        "c11.sourceId": "d446"
+      }
+    },
+    {
+      "id": "light-cam.d446.widen-phase-window",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.widen-phase-window",
+      "title": "蜂巢拉远镜头（渐宽阶段范围时刻）",
+      "value": [
+        2,
+        5
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：蜂巢拉远镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-05",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d446；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。8 s 一镜到底的 pull-back+微升;开头约 50mm 等效紧景,渐宽到约 35mm 等效;全程深焦(无景深虚化,符合低多边形规则);0–2 s 紧景、2–5 s 渐宽、5–7 s 近最宽、7–8 s 定格"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "2–5 s",
+        "c11.sourceId": "d446"
+      }
+    },
+    {
+      "id": "light-cam.d446.hold-phase-window",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.hold-phase-window",
+      "title": "蜂巢拉远镜头（定格阶段范围时刻）",
+      "value": [
+        7,
+        8
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：蜂巢拉远镜头"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-05",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d446；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：作者成片用过。8 s 一镜到底的 pull-back+微升;开头约 50mm 等效紧景,渐宽到约 35mm 等效;全程深焦(无景深虚化,符合低多边形规则);0–2 s 紧景、2–5 s 渐宽、5–7 s 近最宽、7–8 s 定格"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "7–8 s",
+        "c11.sourceId": "d446"
+      }
+    },
+    {
+      "id": "light-cam.d450.camera-height",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.camera-height",
+      "title": "纽约电影城市相机（案例 22，合并 6 处）（主镜头机位高度）",
+      "value": 160,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：纽约电影城市相机（案例 22，合并 6 处）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d450；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：只是原文说法（比例我们量过）。主镜头约 160 m 高缓推陡俯沿曼哈顿式大街向下，黄金时刻，左侧深色玻璃塔、右侧战前砖楼和水塔、中间广告牌；31.5 mm；2.39:1（1920×804；官方图十一张 1920×804，1920÷804=2.388；打包片 1440×604，1440÷604=2.384）；太阳高度角 33° 在相机前方偏左三分之三逆光。七个机位：飞越大街、低摇臂贴车流、掠过屋顶、仰望主塔（摇臂升）、反向俯拍、正上方俯拍、135 mm 长焦；40 秒 960 帧；景深开；运动模糊 180°；暖调色；约束：实体离每条相机路径至少 3 米；各镜曝光自动匹配主镜。证据：原文陈述。验证：只是原文说法（比例我们量过）。出处： K5； 原实现源码、Phase 2/Step 5； Agents；原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "约 160 m",
+        "c11.sourceId": "d450"
+      }
+    },
+    {
+      "id": "light-cam.d450.focal-length",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length",
+      "title": "纽约电影城市相机（案例 22，合并 6 处）（主镜头焦段）",
+      "value": 31.5,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：纽约电影城市相机（案例 22，合并 6 处）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d450；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：只是原文说法（比例我们量过）。主镜头约 160 m 高缓推陡俯沿曼哈顿式大街向下，黄金时刻，左侧深色玻璃塔、右侧战前砖楼和水塔、中间广告牌；31.5 mm；2.39:1（1920×804；官方图十一张 1920×804，1920÷804=2.388；打包片 1440×604，1440÷604=2.384）；太阳高度角 33° 在相机前方偏左三分之三逆光。七个机位：飞越大街、低摇臂贴车流、掠过屋顶、仰望主塔（摇臂升）、反向俯拍、正上方俯拍、135 mm 长焦；40 秒 960 帧；景深开；运动模糊 180°；暖调色；约束：实体离每条相机路径至少 3 米；各镜曝光自动匹配主镜。证据：原文陈述。验证：只是原文说法（比例我们量过）。出处： K5； 原实现源码、Phase 2/Step 5； Agents；原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "31.5 mm",
+        "c11.sourceId": "d450"
+      }
+    },
+    {
+      "id": "light-cam.d450.sun-elevation",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.sun-elevation",
+      "title": "纽约电影城市相机（案例 22，合并 6 处）（太阳高度角）",
+      "value": 33,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：纽约电影城市相机（案例 22，合并 6 处）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d450；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：只是原文说法（比例我们量过）。主镜头约 160 m 高缓推陡俯沿曼哈顿式大街向下，黄金时刻，左侧深色玻璃塔、右侧战前砖楼和水塔、中间广告牌；31.5 mm；2.39:1（1920×804；官方图十一张 1920×804，1920÷804=2.388；打包片 1440×604，1440÷604=2.384）；太阳高度角 33° 在相机前方偏左三分之三逆光。七个机位：飞越大街、低摇臂贴车流、掠过屋顶、仰望主塔（摇臂升）、反向俯拍、正上方俯拍、135 mm 长焦；40 秒 960 帧；景深开；运动模糊 180°；暖调色；约束：实体离每条相机路径至少 3 米；各镜曝光自动匹配主镜。证据：原文陈述。验证：只是原文说法（比例我们量过）。出处： K5； 原实现源码、Phase 2/Step 5； Agents；原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "太阳高度角 33°",
+        "c11.sourceId": "d450"
+      }
+    },
+    {
+      "id": "light-cam.d450.focal-length-tele",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-tele",
+      "title": "纽约电影城市相机（案例 22，合并 6 处）（长焦机位焦段）",
+      "value": 135,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：纽约电影城市相机（案例 22，合并 6 处）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d450；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：只是原文说法（比例我们量过）。主镜头约 160 m 高缓推陡俯沿曼哈顿式大街向下，黄金时刻，左侧深色玻璃塔、右侧战前砖楼和水塔、中间广告牌；31.5 mm；2.39:1（1920×804；官方图十一张 1920×804，1920÷804=2.388；打包片 1440×604，1440÷604=2.384）；太阳高度角 33° 在相机前方偏左三分之三逆光。七个机位：飞越大街、低摇臂贴车流、掠过屋顶、仰望主塔（摇臂升）、反向俯拍、正上方俯拍、135 mm 长焦；40 秒 960 帧；景深开；运动模糊 180°；暖调色；约束：实体离每条相机路径至少 3 米；各镜曝光自动匹配主镜。证据：原文陈述。验证：只是原文说法（比例我们量过）。出处： K5； 原实现源码、Phase 2/Step 5； Agents；原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "135 mm",
+        "c11.sourceId": "d450"
+      }
+    },
+    {
+      "id": "light-cam.d450.film-duration",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.film-duration",
+      "title": "纽约电影城市相机（案例 22，合并 6 处）（全片时长）",
+      "value": 40,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：纽约电影城市相机（案例 22，合并 6 处）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d450；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：只是原文说法（比例我们量过）。主镜头约 160 m 高缓推陡俯沿曼哈顿式大街向下，黄金时刻，左侧深色玻璃塔、右侧战前砖楼和水塔、中间广告牌；31.5 mm；2.39:1（1920×804；官方图十一张 1920×804，1920÷804=2.388；打包片 1440×604，1440÷604=2.384）；太阳高度角 33° 在相机前方偏左三分之三逆光。七个机位：飞越大街、低摇臂贴车流、掠过屋顶、仰望主塔（摇臂升）、反向俯拍、正上方俯拍、135 mm 长焦；40 秒 960 帧；景深开；运动模糊 180°；暖调色；约束：实体离每条相机路径至少 3 米；各镜曝光自动匹配主镜。证据：原文陈述。验证：只是原文说法（比例我们量过）。出处： K5； 原实现源码、Phase 2/Step 5； Agents；原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "40 秒",
+        "c11.sourceId": "d450"
+      }
+    },
+    {
+      "id": "light-cam.d450.shutter-angle",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.shutter-angle",
+      "title": "纽约电影城市相机（案例 22，合并 6 处）（运动模糊快门角）",
+      "value": 180,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏：纽约电影城市相机（案例 22，合并 6 处）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节 d450；出处类别：原文陈述·逐案例镜头表与运镜节奏",
+        "note": "原证据：原文陈述；原验证：只是原文说法（比例我们量过）。主镜头约 160 m 高缓推陡俯沿曼哈顿式大街向下，黄金时刻，左侧深色玻璃塔、右侧战前砖楼和水塔、中间广告牌；31.5 mm；2.39:1（1920×804；官方图十一张 1920×804，1920÷804=2.388；打包片 1440×604，1440÷604=2.384）；太阳高度角 33° 在相机前方偏左三分之三逆光。七个机位：飞越大街、低摇臂贴车流、掠过屋顶、仰望主塔（摇臂升）、反向俯拍、正上方俯拍、135 mm 长焦；40 秒 960 帧；景深开；运动模糊 180°；暖调色；约束：实体离每条相机路径至少 3 米；各镜曝光自动匹配主镜。证据：原文陈述。验证：只是原文说法（比例我们量过）。出处： K5； 原实现源码、Phase 2/Step 5； Agents；原始笔记。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "运动模糊 180°",
+        "c11.sourceId": "d450"
+      }
+    },
+    {
+      "id": "light-cam.d458.frame-rate",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-9.frame-rate",
+      "title": "地产蓝图→实景一镜到底（成片帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.9 节 景深、运动模糊、曝光与镜头光学：地产蓝图→实景一镜到底"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-03",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.9 节 d458；出处类别：原文陈述·景深、运动模糊、曝光与镜头光学",
+        "note": "原证据：原文陈述；原验证：作者成片用过。16:9、30fps、15.0 s、一镜到底、无剪切/溶解/淡出;84° 对角视场、15 秒镜头不变焦;强变形宽银幕质感(横向挤压、椭圆焦外、桶形畸变、边缘色差,无光斑/光条/漂浮光斑圆);文字/尺寸/图签留在中央 70% 画面内避开畸变"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "30fps",
+        "c11.sourceId": "d458"
+      }
+    },
+    {
+      "id": "light-cam.d458.shot-duration",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-9.shot-duration",
+      "title": "地产蓝图→实景一镜到底（一镜到底镜头时长）",
+      "value": 15,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.9 节 景深、运动模糊、曝光与镜头光学：地产蓝图→实景一镜到底"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-03",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.9 节 d458；出处类别：原文陈述·景深、运动模糊、曝光与镜头光学",
+        "note": "原证据：原文陈述；原验证：作者成片用过。16:9、30fps、15.0 s、一镜到底、无剪切/溶解/淡出;84° 对角视场、15 秒镜头不变焦;强变形宽银幕质感(横向挤压、椭圆焦外、桶形畸变、边缘色差,无光斑/光条/漂浮光斑圆);文字/尺寸/图签留在中央 70% 画面内避开畸变"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "15.0 s",
+        "c11.sourceId": "d458"
+      }
+    },
+    {
+      "id": "light-cam.d458.diagonal-fov",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-9.diagonal-fov",
+      "title": "地产蓝图→实景一镜到底（对角视场角）",
+      "value": 84,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.9 节 景深、运动模糊、曝光与镜头光学：地产蓝图→实景一镜到底"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-03",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.9 节 d458；出处类别：原文陈述·景深、运动模糊、曝光与镜头光学",
+        "note": "原证据：原文陈述；原验证：作者成片用过。16:9、30fps、15.0 s、一镜到底、无剪切/溶解/淡出;84° 对角视场、15 秒镜头不变焦;强变形宽银幕质感(横向挤压、椭圆焦外、桶形畸变、边缘色差,无光斑/光条/漂浮光斑圆);文字/尺寸/图签留在中央 70% 画面内避开畸变"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "84° 对角视场",
+        "c11.sourceId": "d458"
+      }
+    },
+    {
+      "id": "light-cam.d458.title-safe-fraction",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-9.title-safe-fraction",
+      "title": "地产蓝图→实景一镜到底（文字安全区占画面比例）",
+      "value": 0.7,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.9 节 景深、运动模糊、曝光与镜头光学：地产蓝图→实景一镜到底"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-03",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.9 节 d458；出处类别：原文陈述·景深、运动模糊、曝光与镜头光学",
+        "note": "原证据：原文陈述；原验证：作者成片用过。16:9、30fps、15.0 s、一镜到底、无剪切/溶解/淡出;84° 对角视场、15 秒镜头不变焦;强变形宽银幕质感(横向挤压、椭圆焦外、桶形畸变、边缘色差,无光斑/光条/漂浮光斑圆);文字/尺寸/图签留在中央 70% 画面内避开畸变"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "中央 70% 画面内",
+        "c11.sourceId": "d458"
+      }
+    },
+    {
+      "id": "light-cam.d467.zoom-scale-shot1",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.zoom-scale-shot1",
+      "title": "机位实测（水粉镜头 1 实测缩放倍率）",
+      "value": 1.02,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：机位实测"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d467；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：我们自己量过。波斯三镜头缩放 1.00、平移 0（不动即最优，误差 2.18/4.30/7.72）；水粉镜头1 缩放 1.02、横移 −44 px、竖移 +18 px（折算 1920 宽），镜头2 1.03、−18、+9，镜头3 1.02、−9、0；推近速度约 0.58%/s、1.0%/s、0.58%（±0.5%）；迷幻水彩误差只降 3–6%，判断不了"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "镜头1 缩放 1.02",
+        "c11.sourceId": "d467"
+      }
+    },
+    {
+      "id": "light-cam.d467.pan-x-shot1",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.pan-x-shot1",
+      "title": "机位实测（水粉镜头 1 横向位移（折算 1920 宽））",
+      "value": -44,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：机位实测"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d467；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：我们自己量过。波斯三镜头缩放 1.00、平移 0（不动即最优，误差 2.18/4.30/7.72）；水粉镜头1 缩放 1.02、横移 −44 px、竖移 +18 px（折算 1920 宽），镜头2 1.03、−18、+9，镜头3 1.02、−9、0；推近速度约 0.58%/s、1.0%/s、0.58%（±0.5%）；迷幻水彩误差只降 3–6%，判断不了"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "横移 −44 px",
+        "c11.sourceId": "d467"
+      }
+    },
+    {
+      "id": "light-cam.d467.pan-y-shot1",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.pan-y-shot1",
+      "title": "机位实测（水粉镜头 1 竖向位移（折算 1920 宽））",
+      "value": 18,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：机位实测"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d467；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：我们自己量过。波斯三镜头缩放 1.00、平移 0（不动即最优，误差 2.18/4.30/7.72）；水粉镜头1 缩放 1.02、横移 −44 px、竖移 +18 px（折算 1920 宽），镜头2 1.03、−18、+9，镜头3 1.02、−9、0；推近速度约 0.58%/s、1.0%/s、0.58%（±0.5%）；迷幻水彩误差只降 3–6%，判断不了"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "竖移 +18 px",
+        "c11.sourceId": "d467"
+      }
+    },
+    {
+      "id": "light-cam.d467.zoom-scale-shot2",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.zoom-scale-shot2",
+      "title": "机位实测（水粉镜头 2 实测缩放倍率）",
+      "value": 1.03,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：机位实测"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d467；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：我们自己量过。波斯三镜头缩放 1.00、平移 0（不动即最优，误差 2.18/4.30/7.72）；水粉镜头1 缩放 1.02、横移 −44 px、竖移 +18 px（折算 1920 宽），镜头2 1.03、−18、+9，镜头3 1.02、−9、0；推近速度约 0.58%/s、1.0%/s、0.58%（±0.5%）；迷幻水彩误差只降 3–6%，判断不了"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "镜头2 1.03",
+        "c11.sourceId": "d467"
+      }
+    },
+    {
+      "id": "light-cam.d467.reference-width",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.reference-width",
+      "title": "机位实测（像素位移折算的画面宽度）",
+      "value": 1920,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：机位实测"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d467；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：我们自己量过。波斯三镜头缩放 1.00、平移 0（不动即最优，误差 2.18/4.30/7.72）；水粉镜头1 缩放 1.02、横移 −44 px、竖移 +18 px（折算 1920 宽），镜头2 1.03、−18、+9，镜头3 1.02、−9、0；推近速度约 0.58%/s、1.0%/s、0.58%（±0.5%）；迷幻水彩误差只降 3–6%，判断不了"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "折算 1920 宽",
+        "c11.sourceId": "d467"
+      }
+    },
+    {
+      "id": "light-cam.d469.push-frames-living",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.push-frames-living",
+      "title": "公寓推近（客厅推近帧数）",
+      "value": 28,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：公寓推近"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d469；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：D。三段 4K 静帧推近：客厅 28 帧（0.933 s）、玄关 16 帧（0.533 s）、走廊 29 帧（0.967 s）；拟合缩放约 1.06、1.07（玄关拟合 0.94 未能确认）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "28 帧",
+        "c11.sourceId": "d469"
+      }
+    },
+    {
+      "id": "light-cam.d469.push-duration-living",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.push-duration-living",
+      "title": "公寓推近（客厅推近时长）",
+      "value": 0.933,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：公寓推近"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d469；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：D。三段 4K 静帧推近：客厅 28 帧（0.933 s）、玄关 16 帧（0.533 s）、走廊 29 帧（0.967 s）；拟合缩放约 1.06、1.07（玄关拟合 0.94 未能确认）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "0.933 s",
+        "c11.sourceId": "d469"
+      }
+    },
+    {
+      "id": "light-cam.d469.push-frames-entry",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.push-frames-entry",
+      "title": "公寓推近（玄关推近帧数）",
+      "value": 16,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：公寓推近"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d469；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：D。三段 4K 静帧推近：客厅 28 帧（0.933 s）、玄关 16 帧（0.533 s）、走廊 29 帧（0.967 s）；拟合缩放约 1.06、1.07（玄关拟合 0.94 未能确认）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "16 帧",
+        "c11.sourceId": "d469"
+      }
+    },
+    {
+      "id": "light-cam.d469.push-frames-corridor",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.push-frames-corridor",
+      "title": "公寓推近（走廊推近帧数）",
+      "value": 29,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：公寓推近"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d469；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：D。三段 4K 静帧推近：客厅 28 帧（0.933 s）、玄关 16 帧（0.533 s）、走廊 29 帧（0.967 s）；拟合缩放约 1.06、1.07（玄关拟合 0.94 未能确认）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "29 帧",
+        "c11.sourceId": "d469"
+      }
+    },
+    {
+      "id": "light-cam.d469.push-duration-corridor",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.push-duration-corridor",
+      "title": "公寓推近（走廊推近时长）",
+      "value": 0.967,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：公寓推近"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d469；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：D。三段 4K 静帧推近：客厅 28 帧（0.933 s）、玄关 16 帧（0.533 s）、走廊 29 帧（0.967 s）；拟合缩放约 1.06、1.07（玄关拟合 0.94 未能确认）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "0.967 s",
+        "c11.sourceId": "d469"
+      }
+    },
+    {
+      "id": "light-cam.d469.push-zoom-scale",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.push-zoom-scale",
+      "title": "公寓推近（推近拟合缩放（两个并列取值，照原文先后））",
+      "value": {
+        "first": 1.06,
+        "second": 1.07
+      },
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：公寓推近"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d469；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：D。三段 4K 静帧推近：客厅 28 帧（0.933 s）、玄关 16 帧（0.533 s）、走廊 29 帧（0.967 s）；拟合缩放约 1.06、1.07（玄关拟合 0.94 未能确认）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "约 1.06、1.07",
+        "c11.sourceId": "d469"
+      }
+    },
+    {
+      "id": "light-cam.d471.fade-out-frames",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.fade-out-frames",
+      "title": "新闻片场景交接（旧场景淡出帧数）",
+      "value": [
+        3,
+        4
+      ],
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：新闻片场景交接"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d471；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：D。旧场景淡出 3–4 帧 + 新场景从空白起画；仅一次硬切（133.83 s，前有 17 帧淡出）；字幕块之间空 3–4 帧；35% 的帧与前一帧几乎不变，最长静止 89 帧（2.97 s）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "淡出 3–4 帧",
+        "c11.sourceId": "d471"
+      }
+    },
+    {
+      "id": "light-cam.d471.hard-cut-time",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.hard-cut-time",
+      "title": "新闻片场景交接（唯一硬切的时刻）",
+      "value": 133.83,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：新闻片场景交接"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d471；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：D。旧场景淡出 3–4 帧 + 新场景从空白起画；仅一次硬切（133.83 s，前有 17 帧淡出）；字幕块之间空 3–4 帧；35% 的帧与前一帧几乎不变，最长静止 89 帧（2.97 s）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "133.83 s",
+        "c11.sourceId": "d471"
+      }
+    },
+    {
+      "id": "light-cam.d471.pre-cut-fade-frames",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.pre-cut-fade-frames",
+      "title": "新闻片场景交接（硬切前淡出帧数）",
+      "value": 17,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：新闻片场景交接"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d471；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：D。旧场景淡出 3–4 帧 + 新场景从空白起画；仅一次硬切（133.83 s，前有 17 帧淡出）；字幕块之间空 3–4 帧；35% 的帧与前一帧几乎不变，最长静止 89 帧（2.97 s）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "17 帧淡出",
+        "c11.sourceId": "d471"
+      }
+    },
+    {
+      "id": "light-cam.d471.static-frame-fraction",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.static-frame-fraction",
+      "title": "新闻片场景交接（与前一帧几乎不变的帧占比）",
+      "value": 0.35,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：新闻片场景交接"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d471；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：D。旧场景淡出 3–4 帧 + 新场景从空白起画；仅一次硬切（133.83 s，前有 17 帧淡出）；字幕块之间空 3–4 帧；35% 的帧与前一帧几乎不变，最长静止 89 帧（2.97 s）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "35% 的帧",
+        "c11.sourceId": "d471"
+      }
+    },
+    {
+      "id": "light-cam.d471.longest-hold-frames",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.longest-hold-frames",
+      "title": "新闻片场景交接（最长静止帧数）",
+      "value": 89,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法：新闻片场景交接"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节 d471；出处类别：实测读数·实测机位与量测方法",
+        "note": "原证据：实测；原验证：D。旧场景淡出 3–4 帧 + 新场景从空白起画；仅一次硬切（133.83 s，前有 17 帧淡出）；字幕块之间空 3–4 帧；35% 的帧与前一帧几乎不变，最长静止 89 帧（2.97 s）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "最长静止 89 帧",
+        "c11.sourceId": "d471"
+      }
+    },
+    {
+      "id": "light-cam.d480.focal-length-open",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.focal-length-open",
+      "title": "打斗镜头焦段表（开场极浅焦镜头焦段）",
+      "value": 85,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇：打斗镜头焦段表"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-04",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节 d480；出处类别：原文陈述·提示词里的镜头写法与词汇",
+        "note": "原证据：原文陈述；原验证：作者成片用过。0–1.2 s 85mm T2.0 极浅焦+缓推+手持呼吸;1.2–2.4 s 24mm T4 快速后拉出;2.4–4.4 s 32mm T2.8 横向飞行、每次刀击硬 punch-in;4.4–5.4 s 24mm T4 广角水平;5.4–7.2 s 35mm T2.8 推入肩后过肩;7.2–10 s 35→28mm 环绕后低位落在败者肩后"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "85mm",
+        "c11.sourceId": "d480"
+      }
+    },
+    {
+      "id": "light-cam.d480.focal-length-pullout",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.focal-length-pullout",
+      "title": "打斗镜头焦段表（快速后拉镜头焦段）",
+      "value": 24,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇：打斗镜头焦段表"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-04",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节 d480；出处类别：原文陈述·提示词里的镜头写法与词汇",
+        "note": "原证据：原文陈述；原验证：作者成片用过。0–1.2 s 85mm T2.0 极浅焦+缓推+手持呼吸;1.2–2.4 s 24mm T4 快速后拉出;2.4–4.4 s 32mm T2.8 横向飞行、每次刀击硬 punch-in;4.4–5.4 s 24mm T4 广角水平;5.4–7.2 s 35mm T2.8 推入肩后过肩;7.2–10 s 35→28mm 环绕后低位落在败者肩后"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "24mm",
+        "c11.sourceId": "d480"
+      }
+    },
+    {
+      "id": "light-cam.d480.focal-length-fly",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.focal-length-fly",
+      "title": "打斗镜头焦段表（横向飞行镜头焦段）",
+      "value": 32,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇：打斗镜头焦段表"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-04",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节 d480；出处类别：原文陈述·提示词里的镜头写法与词汇",
+        "note": "原证据：原文陈述；原验证：作者成片用过。0–1.2 s 85mm T2.0 极浅焦+缓推+手持呼吸;1.2–2.4 s 24mm T4 快速后拉出;2.4–4.4 s 32mm T2.8 横向飞行、每次刀击硬 punch-in;4.4–5.4 s 24mm T4 广角水平;5.4–7.2 s 35mm T2.8 推入肩后过肩;7.2–10 s 35→28mm 环绕后低位落在败者肩后"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "32mm",
+        "c11.sourceId": "d480"
+      }
+    },
+    {
+      "id": "light-cam.d480.focal-length-ots",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.focal-length-ots",
+      "title": "打斗镜头焦段表（推入过肩镜头焦段）",
+      "value": 35,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇：打斗镜头焦段表"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-04",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节 d480；出处类别：原文陈述·提示词里的镜头写法与词汇",
+        "note": "原证据：原文陈述；原验证：作者成片用过。0–1.2 s 85mm T2.0 极浅焦+缓推+手持呼吸;1.2–2.4 s 24mm T4 快速后拉出;2.4–4.4 s 32mm T2.8 横向飞行、每次刀击硬 punch-in;4.4–5.4 s 24mm T4 广角水平;5.4–7.2 s 35mm T2.8 推入肩后过肩;7.2–10 s 35→28mm 环绕后低位落在败者肩后"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "35mm T2.8",
+        "c11.sourceId": "d480"
+      }
+    },
+    {
+      "id": "light-cam.d480.focal-length-orbit",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.focal-length-orbit",
+      "title": "打斗镜头焦段表（收尾环绕镜头焦段变化）",
+      "value": [
+        28,
+        35
+      ],
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇：打斗镜头焦段表"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-04",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节 d480；出处类别：原文陈述·提示词里的镜头写法与词汇",
+        "note": "原证据：原文陈述；原验证：作者成片用过。0–1.2 s 85mm T2.0 极浅焦+缓推+手持呼吸;1.2–2.4 s 24mm T4 快速后拉出;2.4–4.4 s 32mm T2.8 横向飞行、每次刀击硬 punch-in;4.4–5.4 s 24mm T4 广角水平;5.4–7.2 s 35mm T2.8 推入肩后过肩;7.2–10 s 35→28mm 环绕后低位落在败者肩后"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "35→28mm",
+        "c11.sourceId": "d480"
+      }
+    },
+    {
+      "id": "light-cam.d480.orbit-window",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.orbit-window",
+      "title": "打斗镜头焦段表（收尾环绕范围时刻）",
+      "value": [
+        7.2,
+        10
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇：打斗镜头焦段表"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-04",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节 d480；出处类别：原文陈述·提示词里的镜头写法与词汇",
+        "note": "原证据：原文陈述；原验证：作者成片用过。0–1.2 s 85mm T2.0 极浅焦+缓推+手持呼吸;1.2–2.4 s 24mm T4 快速后拉出;2.4–4.4 s 32mm T2.8 横向飞行、每次刀击硬 punch-in;4.4–5.4 s 24mm T4 广角水平;5.4–7.2 s 35mm T2.8 推入肩后过肩;7.2–10 s 35→28mm 环绕后低位落在败者肩后"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "7.2–10 s",
+        "c11.sourceId": "d480"
+      }
+    },
+    {
+      "id": "light-cam.d481.fov-wide",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.fov-wide",
+      "title": "库外来源 02 镜头焦段与手持档位（全身编舞默认视场角）",
+      "value": 84,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇：库外来源 02 镜头焦段与手持档位"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-02",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节 d481；出处类别：原文陈述·提示词里的镜头写法与词汇",
+        "note": "原证据：原文陈述；原验证：作者成片用过。LENS LOCK 度数优先、mm括号：84°(22mm)经典广角默认(全身编舞)；63°(30mm)近跟单人；47°(50mm)上半身；29°(80mm)远距压缩观察；全程不变焦，靠摄影师步行改变景别；手持档：慢/优雅/情绪=温和手持 倾斜3–10°；日常/中能量舞=重手持 12–25°；高能/打斗=暴力手持 15–45°；精确对称编舞=固定或慢推 0°；Form3 相机写成与身体动作挂钩的具体动作(猛冲近景再撕回双人镜、降到脚踝再摇升、绕近一人透过缝隙拍另一人、横扫过冲回弹、贴近细节再回广角)，每帧都在动但连续可读，不绕完美圆，倾斜摆动不经过水平"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "84°(22mm)",
+        "c11.sourceId": "d481"
+      }
+    },
+    {
+      "id": "light-cam.d481.fov-close-follow",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.fov-close-follow",
+      "title": "库外来源 02 镜头焦段与手持档位（近跟单人视场角）",
+      "value": 63,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇：库外来源 02 镜头焦段与手持档位"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-02",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节 d481；出处类别：原文陈述·提示词里的镜头写法与词汇",
+        "note": "原证据：原文陈述；原验证：作者成片用过。LENS LOCK 度数优先、mm括号：84°(22mm)经典广角默认(全身编舞)；63°(30mm)近跟单人；47°(50mm)上半身；29°(80mm)远距压缩观察；全程不变焦，靠摄影师步行改变景别；手持档：慢/优雅/情绪=温和手持 倾斜3–10°；日常/中能量舞=重手持 12–25°；高能/打斗=暴力手持 15–45°；精确对称编舞=固定或慢推 0°；Form3 相机写成与身体动作挂钩的具体动作(猛冲近景再撕回双人镜、降到脚踝再摇升、绕近一人透过缝隙拍另一人、横扫过冲回弹、贴近细节再回广角)，每帧都在动但连续可读，不绕完美圆，倾斜摆动不经过水平"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "63°(30mm)",
+        "c11.sourceId": "d481"
+      }
+    },
+    {
+      "id": "light-cam.d481.fov-upper-body",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.fov-upper-body",
+      "title": "库外来源 02 镜头焦段与手持档位（上半身视场角）",
+      "value": 47,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇：库外来源 02 镜头焦段与手持档位"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-02",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节 d481；出处类别：原文陈述·提示词里的镜头写法与词汇",
+        "note": "原证据：原文陈述；原验证：作者成片用过。LENS LOCK 度数优先、mm括号：84°(22mm)经典广角默认(全身编舞)；63°(30mm)近跟单人；47°(50mm)上半身；29°(80mm)远距压缩观察；全程不变焦，靠摄影师步行改变景别；手持档：慢/优雅/情绪=温和手持 倾斜3–10°；日常/中能量舞=重手持 12–25°；高能/打斗=暴力手持 15–45°；精确对称编舞=固定或慢推 0°；Form3 相机写成与身体动作挂钩的具体动作(猛冲近景再撕回双人镜、降到脚踝再摇升、绕近一人透过缝隙拍另一人、横扫过冲回弹、贴近细节再回广角)，每帧都在动但连续可读，不绕完美圆，倾斜摆动不经过水平"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "47°(50mm)",
+        "c11.sourceId": "d481"
+      }
+    },
+    {
+      "id": "light-cam.d481.fov-tele",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.fov-tele",
+      "title": "库外来源 02 镜头焦段与手持档位（远距压缩视场角）",
+      "value": 29,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇：库外来源 02 镜头焦段与手持档位"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-02",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节 d481；出处类别：原文陈述·提示词里的镜头写法与词汇",
+        "note": "原证据：原文陈述；原验证：作者成片用过。LENS LOCK 度数优先、mm括号：84°(22mm)经典广角默认(全身编舞)；63°(30mm)近跟单人；47°(50mm)上半身；29°(80mm)远距压缩观察；全程不变焦，靠摄影师步行改变景别；手持档：慢/优雅/情绪=温和手持 倾斜3–10°；日常/中能量舞=重手持 12–25°；高能/打斗=暴力手持 15–45°；精确对称编舞=固定或慢推 0°；Form3 相机写成与身体动作挂钩的具体动作(猛冲近景再撕回双人镜、降到脚踝再摇升、绕近一人透过缝隙拍另一人、横扫过冲回弹、贴近细节再回广角)，每帧都在动但连续可读，不绕完美圆，倾斜摆动不经过水平"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "29°(80mm)",
+        "c11.sourceId": "d481"
+      }
+    },
+    {
+      "id": "light-cam.d481.handheld-tilt-gentle",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.handheld-tilt-gentle",
+      "title": "库外来源 02 镜头焦段与手持档位（温和手持倾斜角）",
+      "value": [
+        3,
+        10
+      ],
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇：库外来源 02 镜头焦段与手持档位"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-02",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节 d481；出处类别：原文陈述·提示词里的镜头写法与词汇",
+        "note": "原证据：原文陈述；原验证：作者成片用过。LENS LOCK 度数优先、mm括号：84°(22mm)经典广角默认(全身编舞)；63°(30mm)近跟单人；47°(50mm)上半身；29°(80mm)远距压缩观察；全程不变焦，靠摄影师步行改变景别；手持档：慢/优雅/情绪=温和手持 倾斜3–10°；日常/中能量舞=重手持 12–25°；高能/打斗=暴力手持 15–45°；精确对称编舞=固定或慢推 0°；Form3 相机写成与身体动作挂钩的具体动作(猛冲近景再撕回双人镜、降到脚踝再摇升、绕近一人透过缝隙拍另一人、横扫过冲回弹、贴近细节再回广角)，每帧都在动但连续可读，不绕完美圆，倾斜摆动不经过水平"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "倾斜3–10°",
+        "c11.sourceId": "d481"
+      }
+    },
+    {
+      "id": "light-cam.d481.handheld-tilt-violent",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.handheld-tilt-violent",
+      "title": "库外来源 02 镜头焦段与手持档位（暴力手持倾斜角）",
+      "value": [
+        15,
+        45
+      ],
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇：库外来源 02 镜头焦段与手持档位"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-02",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节 d481；出处类别：原文陈述·提示词里的镜头写法与词汇",
+        "note": "原证据：原文陈述；原验证：作者成片用过。LENS LOCK 度数优先、mm括号：84°(22mm)经典广角默认(全身编舞)；63°(30mm)近跟单人；47°(50mm)上半身；29°(80mm)远距压缩观察；全程不变焦，靠摄影师步行改变景别；手持档：慢/优雅/情绪=温和手持 倾斜3–10°；日常/中能量舞=重手持 12–25°；高能/打斗=暴力手持 15–45°；精确对称编舞=固定或慢推 0°；Form3 相机写成与身体动作挂钩的具体动作(猛冲近景再撕回双人镜、降到脚踝再摇升、绕近一人透过缝隙拍另一人、横扫过冲回弹、贴近细节再回广角)，每帧都在动但连续可读，不绕完美圆，倾斜摆动不经过水平"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "15–45°",
+        "c11.sourceId": "d481"
+      }
+    },
+    {
+      "id": "light-cam.sum.s007",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "跨案例对照：唯一光源是太阳（case-22）",
+      "value": 33,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.1 节 灯的构成与总则 跨案例对照：唯一光源是太阳"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.1 节对照表行 s007 → d014",
+        "note": "原证据：原文陈述；原验证：只是原文说法。唯一光源是太阳"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d014.sun-elevation",
+        "light-cam.d014.sun-disc-angle"
+      ],
+      "ext": {
+        "c11.sourceId": "s007",
+        "c11.valueFrom": "light-cam.d014.sun-elevation"
+      }
+    },
+    {
+      "id": "light-cam.sum.s012",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "跨案例对照：afternoon 0xfff6ea（case-02）",
+      "value": 38.4,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光 跨案例对照：afternoon 0xfff6ea"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "推断",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节对照表行 s012 → d002",
+        "note": "原证据：源码（强度是推断：取最大通道）；原验证：作者成片用过。afternoon 0xfff6ea 强度 3.0，仰角 38.4°，方位 −144.9°；storm 0xffcf94，2.7，21° / −126.9°；victory 0xffd6a6，2.85，9° / −136.9°；位置 = 近级联焦点 + sunDir×90 m"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d002.sun-elevation",
+        "light-cam.d002.sun-azimuth",
+        "light-cam.d002.storm-sun-elevation",
+        "light-cam.d002.storm-sun-azimuth",
+        "light-cam.d002.victory-sun-elevation",
+        "light-cam.d002.victory-sun-azimuth"
+      ],
+      "ext": {
+        "c11.sourceId": "s012",
+        "c11.valueFrom": "light-cam.d002.sun-elevation"
+      }
+    },
+    {
+      "id": "light-cam.sum.s014",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "跨案例对照：RGB (1.0,0.83,0.60（case-22）",
+      "value": 33,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光 跨案例对照：RGB (1.0,0.83,0.60"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节对照表行 s014 → d014",
+        "note": "原证据：原文陈述；原验证：只是原文说法。RGB (1.0,0.83,0.60)，8 W/m²，圆盘 1.5°，高度 33°，前方偏左三分之三逆光"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d014.sun-elevation",
+        "light-cam.d014.sun-disc-angle"
+      ],
+      "ext": {
+        "c11.sourceId": "s014",
+        "c11.valueFrom": "light-cam.d014.sun-elevation"
+      }
+    },
+    {
+      "id": "light-cam.sum.s015",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "跨案例对照：高度 +9°，黎明；物理大气含瑞利（case-26）",
+      "value": 9,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光 跨案例对照：高度 +9°，黎明；物理大气含瑞利"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节对照表行 s015 → d011",
+        "note": "原证据：原文陈述；原验证：只是原文说法。高度 +9°，黎明；物理大气含瑞利、米氏、臭氧"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d011.sun-elevation"
+      ],
+      "ext": {
+        "c11.sourceId": "s015",
+        "c11.valueFrom": "light-cam.d011.sun-elevation"
+      }
+    },
+    {
+      "id": "light-cam.sum.s016",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "跨案例对照：高度 22°，早上 7:40 侧光（case-21）",
+      "value": 22,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光 跨案例对照：高度 22°，早上 7:40 侧光"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-21",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节对照表行 s016 → d012",
+        "note": "原证据：原文陈述；原验证：只是原文说法。高度 22°，早上 7:40 侧光"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d012.sun-elevation"
+      ],
+      "ext": {
+        "c11.sourceId": "s016",
+        "c11.valueFrom": "light-cam.d012.sun-elevation"
+      }
+    },
+    {
+      "id": "light-cam.sum.s017",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-azimuth",
+      "title": "跨案例对照：月 12 日 07:20，方位（case-25）",
+      "value": 106,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.2 节 太阳与主方向光 跨案例对照：月 12 日 07:20，方位"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-25",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节对照表行 s017 → d013",
+        "note": "原证据：原文陈述；原验证：只是原文说法。10 月 12 日 07:20，方位 106°，高度 9°；滑块把太阳从 50° 拖到 9°"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d013.sun-azimuth",
+        "light-cam.d013.sun-elevation"
+      ],
+      "ext": {
+        "c11.sourceId": "s017",
+        "c11.valueFrom": "light-cam.d013.sun-azimuth"
+      }
+    },
+    {
+      "id": "light-cam.sum.s061",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "跨案例对照：预设：案例 02 afterno（case-02）",
+      "value": 38.4,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.8 节 天气与时间预设（案例 13、案例 02） 跨案例对照：预设：案例 02 afterno"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 1.8 节对照表行 s061 → d002",
+        "note": "原证据：源码；原验证：作者成片用过。预设：案例 02 afternoon；太阳方位/仰角：−144.9° / 38.4°；太阳色：0xfff6ea；强度：3.0；曝光：未列；环境强度：半球 ×1.15；阴影补光色 shadeCol：角色 skyUp 0x243a70；近处投影补光：未列；体积光：未列"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d002.sun-elevation",
+        "light-cam.d002.sun-azimuth",
+        "light-cam.d002.victory-sun-elevation"
+      ],
+      "ext": {
+        "c11.sourceId": "s061",
+        "c11.valueFrom": "light-cam.d002.sun-elevation"
+      }
+    },
+    {
+      "id": "light-cam.sum.s062",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.storm-sun-elevation",
+      "title": "跨案例对照：预设：案例 02 storm；太（case-02）",
+      "value": 21,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.8 节 天气与时间预设（案例 13、案例 02） 跨案例对照：预设：案例 02 storm；太"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 1.8 节对照表行 s062 → d002",
+        "note": "原证据：源码；原验证：同上。预设：案例 02 storm；太阳方位/仰角：−126.9° / 21°；太阳色：0xffcf94；强度：2.7；曝光：未列；环境强度：半球 ×1.0；阴影补光色 shadeCol：skyUp 0x1a2238；近处投影补光：未列；体积光：未列"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d002.storm-sun-elevation",
+        "light-cam.d002.storm-sun-azimuth"
+      ],
+      "ext": {
+        "c11.sourceId": "s062",
+        "c11.valueFrom": "light-cam.d002.storm-sun-elevation"
+      }
+    },
+    {
+      "id": "light-cam.sum.s063",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.victory-sun-elevation",
+      "title": "跨案例对照：预设：案例 02 victory（case-02）",
+      "value": 9,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.8 节 天气与时间预设（案例 13、案例 02） 跨案例对照：预设：案例 02 victory"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 1.8 节对照表行 s063 → d002",
+        "note": "原证据：源码；原验证：同上。预设：案例 02 victory；太阳方位/仰角：−136.9° / 9°；太阳色：0xffd6a6；强度：2.85；曝光：未列；环境强度：半球 ×1.05；阴影补光色 shadeCol：skyUp 0x1c2448；近处投影补光：未列；体积光：未列"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d002.victory-sun-elevation",
+        "light-cam.d002.victory-sun-azimuth"
+      ],
+      "ext": {
+        "c11.sourceId": "s063",
+        "c11.valueFrom": "light-cam.d002.victory-sun-elevation"
+      }
+    },
+    {
+      "id": "light-cam.sum.s125",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-2-6.egret-wingspan",
+      "title": "跨案例对照：192 三角/只，最多 183 只（ext-01）",
+      "value": 1.35,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 2.6 节 氛围粒子与生物（尘、萤火虫、鸟、速度线、花瓣） 跨案例对照：192 三角/只，最多 183 只"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 2.6 节对照表行 s125 → d304",
+        "note": "原证据：源码；原验证：作者成片用过。192 三角/只，最多 183 只；翼展 鹭 1.35 / 鹤 2.3 / 雁 6.2 / 燕 0.46；拍频 鹭 2.75 到 3.0，鹤 1.9，燕 7.5"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d304.egret-wingspan",
+        "light-cam.d304.crane-wingspan",
+        "light-cam.d304.swallow-wingspan",
+        "light-cam.d304.egret-flap-frequency",
+        "light-cam.d304.crane-flap-frequency",
+        "light-cam.d304.swallow-flap-frequency"
+      ],
+      "ext": {
+        "c11.sourceId": "s125",
+        "c11.valueFrom": "light-cam.d304.egret-wingspan"
+      }
+    },
+    {
+      "id": "light-cam.sum.s136",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.fov-range",
+      "title": "跨案例对照：PerspectiveCamera(（ext-01）",
+      "value": [
+        24,
+        62
+      ],
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅 跨案例对照：PerspectiveCamera("
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节对照表行 s136 → d322",
+        "note": "原证据：源码 + 实测（范围）；原验证：作者成片用过。PerspectiveCamera(58,16/9,0.5,6000)，视场被关键帧覆盖，24° 到 62°，高度 6.3 到 31 m；首尾同一点 (−12.6,6.3,85.6)、fov 50，循环无缝"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d322.fov-range",
+        "light-cam.d322.camera-height",
+        "light-cam.d322.loop-endpoint-fov"
+      ],
+      "ext": {
+        "c11.sourceId": "s136",
+        "c11.valueFrom": "light-cam.d322.fov-range"
+      }
+    },
+    {
+      "id": "light-cam.sum.s137",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.cruise-fov",
+      "title": "跨案例对照：巡航 62°，高速 74°（36→7（case-02）",
+      "value": 62,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅 跨案例对照：巡航 62°，高速 74°（36→7"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节对照表行 s137 → d323",
+        "note": "原证据：源码；原验证：作者成片用过。巡航 62°，高速 74°（36→72 m/s），加速 +4°，悬停 57°，悬停 TPS 60°，骑手 78→88°，巨型头目靠近 +5×bossK，特技 +3°，贴面 +4°，拍照 18 到 95°；近/远裁面 0.5 m / 60,000 m"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d323.cruise-fov",
+        "light-cam.d323.high-speed-fov",
+        "light-cam.d323.high-speed-range",
+        "light-cam.d323.hover-fov",
+        "light-cam.d323.rider-view-fov",
+        "light-cam.d323.photo-mode-fov"
+      ],
+      "ext": {
+        "c11.sourceId": "s137",
+        "c11.valueFrom": "light-cam.d323.cruise-fov"
+      }
+    },
+    {
+      "id": "light-cam.sum.s139",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.field-of-view",
+      "title": "跨案例对照：透视 FOV 50°，近裁面 0.1（case-10）",
+      "value": 50,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅 跨案例对照：透视 FOV 50°，近裁面 0.1"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-10",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节对照表行 s139 → d328",
+        "note": "原证据：源码；原验证：没运行。透视 FOV 50°，近裁面 0.12，远裁面 900"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d328.field-of-view"
+      ],
+      "ext": {
+        "c11.sourceId": "s139",
+        "c11.valueFrom": "light-cam.d328.field-of-view"
+      }
+    },
+    {
+      "id": "light-cam.sum.s142",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.focal-length-wide",
+      "title": "跨案例对照：穿行 18 mm，定妆 50 mm（case-05）",
+      "value": 18,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅 跨案例对照：穿行 18 mm，定妆 50 mm"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节对照表行 s142 → d327",
+        "note": "原证据：原文陈述；原验证：作者成片用过。穿行 18 mm，定妆 50 mm；运动模糊快门 180°，位置 START"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d327.focal-length-wide",
+        "light-cam.d327.focal-length-portrait",
+        "light-cam.d327.shutter-angle"
+      ],
+      "ext": {
+        "c11.sourceId": "s142",
+        "c11.valueFrom": "light-cam.d327.focal-length-wide"
+      }
+    },
+    {
+      "id": "light-cam.sum.s143",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length",
+      "title": "跨案例对照：03B 70 mm；03G 透视 8（case-03）",
+      "value": 85,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅 跨案例对照：03B 70 mm；03G 透视 8"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节对照表行 s143 → d372",
+        "note": "原证据：源码；原验证：我们渲染过。03B 70 mm；03G 透视 85 mm，距 1.25 m，仰角 8°"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d372.focal-length",
+        "light-cam.d372.camera-distance",
+        "light-cam.d372.camera-elevation"
+      ],
+      "ext": {
+        "c11.sourceId": "s143",
+        "c11.valueFrom": "light-cam.d372.focal-length"
+      }
+    },
+    {
+      "id": "light-cam.sum.s144",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length",
+      "title": "跨案例对照：主镜头 31.5 mm，2.39:1（case-22）",
+      "value": 31.5,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅 跨案例对照：主镜头 31.5 mm，2.39:1"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节对照表行 s144 → d450",
+        "note": "原证据：原文陈述；原验证：只是原文说法（比例我们量过）。主镜头 31.5 mm，2.39:1（1920×804），135 mm 长焦镜"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d450.focal-length",
+        "light-cam.d450.focal-length-tele"
+      ],
+      "ext": {
+        "c11.sourceId": "s144",
+        "c11.valueFrom": "light-cam.d450.focal-length"
+      }
+    },
+    {
+      "id": "light-cam.sum.s145",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-wide",
+      "title": "跨案例对照：mm / 85 mm f/2.（case-14）",
+      "value": 16,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅 跨案例对照：mm / 85 mm f/2."
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节对照表行 s145 → d430",
+        "note": "原证据：原文陈述 + 实测（切点）；原验证：同左。16 mm / 85 mm f/2.8 / 75 mm"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d430.focal-length-wide",
+        "light-cam.d430.focal-length-puddle",
+        "light-cam.d430.focal-length-mirror",
+        "light-cam.d430.camera-height-above-water"
+      ],
+      "ext": {
+        "c11.sourceId": "s145",
+        "c11.valueFrom": "light-cam.d430.focal-length-wide"
+      }
+    },
+    {
+      "id": "light-cam.sum.s146",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.fov-wide",
+      "title": "跨案例对照：84°（22 mm）/ 63°（30（ext-02）",
+      "value": 84,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.1 节 相机本体、焦段、视场角与画幅 跨案例对照：84°（22 mm）/ 63°（30"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-02",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.1 节对照表行 s146 → d481",
+        "note": "原证据：原文陈述；原验证：作者成片用过。84°（22 mm）/ 63°（30 mm）/ 47°（50 mm）/ 29°（80 mm）；全程不变焦"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d481.fov-wide",
+        "light-cam.d481.fov-close-follow",
+        "light-cam.d481.fov-upper-body",
+        "light-cam.d481.fov-tele"
+      ],
+      "ext": {
+        "c11.sourceId": "s146",
+        "c11.valueFrom": "light-cam.d481.fov-wide"
+      }
+    },
+    {
+      "id": "light-cam.sum.s153",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-start",
+      "title": "跨案例对照：镜头：A（0 到 192）；焦段：4（case-01）",
+      "value": 40,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位） 跨案例对照：镜头：A（0 到 192）；焦段：4"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节对照表行 s153 → d366",
+        "note": "原证据：源码；原验证：作者成片用过。镜头：A（0 到 192）；焦段：40→45→38→28 mm；光圈：f/4→11→8→16→22；路径摘要：贴左风扇 15 cm 起 → 后拉到 60 cm 的 3/4 → 甩到顶边上方 → 沿 45° 扎到供电口面前 3 mm"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d366.focal-length-start",
+        "light-cam.d366.focal-length-end",
+        "light-cam.d366.start-distance",
+        "light-cam.d366.pullback-distance",
+        "light-cam.d366.dive-angle",
+        "light-cam.d366.end-distance"
+      ],
+      "ext": {
+        "c11.sourceId": "s153",
+        "c11.valueFrom": "light-cam.d366.focal-length-start"
+      }
+    },
+    {
+      "id": "light-cam.sum.s154",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-start",
+      "title": "跨案例对照：镜头：B（192 到 384）；焦段（case-01）",
+      "value": 30,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位） 跨案例对照：镜头：B（192 到 384）；焦段"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节对照表行 s154 → d367",
+        "note": "原证据：源码；原验证：同上。镜头：B（192 到 384）；焦段：30→40→56→58→40；光圈：f/4→11；路径摘要：贴背面鳍片 3 cm 起 → 绕爆炸视图 → 退到 86 cm 正面 → 扎到右风扇轮毂前 12 mm"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d367.focal-length-start",
+        "light-cam.d367.focal-length-max",
+        "light-cam.d367.start-distance",
+        "light-cam.d367.pullback-distance",
+        "light-cam.d367.end-distance"
+      ],
+      "ext": {
+        "c11.sourceId": "s154",
+        "c11.valueFrom": "light-cam.d367.focal-length-start"
+      }
+    },
+    {
+      "id": "light-cam.sum.s155",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-start",
+      "title": "跨案例对照：镜头：C（384 到 576）；焦段（case-01）",
+      "value": 24,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位） 跨案例对照：镜头：C（384 到 576）；焦段"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节对照表行 s155 → d368",
+        "note": "原证据：源码；原验证：同上。镜头：C（384 到 576）；焦段：24→30→35→45→35；光圈：f/16→11→8；路径摘要：风扇与均热板之间沿 −X 穿行 → 俯视 GPU/显存/供电，距主板 6 到 9 cm；快门 0.25"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d368.focal-length-start",
+        "light-cam.d368.focal-length-max",
+        "light-cam.d368.board-distance"
+      ],
+      "ext": {
+        "c11.sourceId": "s155",
+        "c11.valueFrom": "light-cam.d368.focal-length-start"
+      }
+    },
+    {
+      "id": "light-cam.sum.s156",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length-start",
+      "title": "跨案例对照：镜头：D（576 到 768）；焦段（case-01）",
+      "value": 35,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位） 跨案例对照：镜头：D（576 到 768）；焦段"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节对照表行 s156 → d369",
+        "note": "原证据：源码；原验证：同上。镜头：D（576 到 768）；焦段：35→50；光圈：f/4→11；路径摘要：骨架中心前 6.5 cm 起 → 拉开到 60 cm → 696 帧推近 3 cm → 缓推到末帧"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d369.focal-length-start",
+        "light-cam.d369.focal-length-end",
+        "light-cam.d369.start-distance",
+        "light-cam.d369.pullback-distance",
+        "light-cam.d369.push-in-distance"
+      ],
+      "ext": {
+        "c11.sourceId": "s156",
+        "c11.valueFrom": "light-cam.d369.focal-length-start"
+      }
+    },
+    {
+      "id": "light-cam.sum.s159",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length",
+      "title": "跨案例对照：镜头：整机装配；焦段：70 mm；光（case-03）",
+      "value": 70,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位） 跨案例对照：镜头：整机装配；焦段：70 mm；光"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节对照表行 s159 → d373",
+        "note": "原证据：源码；原验证：我们自己渲染读回过。镜头：整机装配；焦段：70 mm；光圈：未列；路径摘要：距离从 7.6 倍机高推到 4.4 倍；方位角 −42°→+2°→+36°"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d373.focal-length",
+        "light-cam.d373.distance-ratio-start",
+        "light-cam.d373.distance-ratio-end",
+        "light-cam.d373.azimuth-start",
+        "light-cam.d373.azimuth-end"
+      ],
+      "ext": {
+        "c11.sourceId": "s159",
+        "c11.valueFrom": "light-cam.d373.focal-length"
+      }
+    },
+    {
+      "id": "light-cam.sum.s160",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-3.focal-length",
+      "title": "跨案例对照：镜头：视图表；焦段：85 mm；光圈（case-03）",
+      "value": 85,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.3 节 逐镜头关键帧与路径表（可照搬的机位） 跨案例对照：镜头：视图表；焦段：85 mm；光圈"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.3 节对照表行 s160 → d372",
+        "note": "原证据：源码；原验证：我们渲染过。镜头：视图表；焦段：85 mm；光圈：未列；路径摘要：iso 28°，isoR −40°/14°，p114 −9°/3°，b2 58°/16°，hero 32°/8°，isoback 152°/12°；正交 front/side/back 1 像素 = 0.379 mm"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d372.focal-length",
+        "light-cam.d372.camera-distance",
+        "light-cam.d372.camera-elevation"
+      ],
+      "ext": {
+        "c11.sourceId": "s160",
+        "c11.valueFrom": "light-cam.d372.focal-length"
+      }
+    },
+    {
+      "id": "light-cam.sum.s169",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-5.hitstop-boss-hit",
+      "title": "跨案例对照：巨型头目击中玩家 0.1 s，空爆 0.（case-02）",
+      "value": 0.1,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.5 节 手持、震屏、冲量与顿帧 跨案例对照：巨型头目击中玩家 0.1 s，空爆 0."
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.5 节对照表行 s169 → d383",
+        "note": "原证据：源码；原验证：作者成片用过。巨型头目击中玩家 0.1 s，空爆 0.08，砸击 0.1，死亡瞬间 0.2；模拟 dt ×0.05；无慢动作"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d383.hitstop-boss-hit",
+        "light-cam.d383.hitstop-airburst",
+        "light-cam.d383.hitstop-slam",
+        "light-cam.d383.hitstop-death"
+      ],
+      "ext": {
+        "c11.sourceId": "s169",
+        "c11.valueFrom": "light-cam.d383.hitstop-boss-hit"
+      }
+    },
+    {
+      "id": "light-cam.sum.s178",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-7.cut-time",
+      "title": "跨案例对照：第一镜 0 s：6.8/5.2/4（case-13）",
+      "value": 1.35,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.7 节 过场、事件镜头与导演切镜 跨案例对照：第一镜 0 s：6.8/5.2/4"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "光照天空大气与相机汇编 第 3.7 节对照表行 s178 → d418",
+        "note": "原证据：源码；原验证：作者成片用过。第一镜 0 s：6.8/5.2/4 m 三档找无遮挡位，侧移 −2.4，高 1.3，时长 1.4 s；第二镜 1.35 s：11.5/8.5/6 m，侧移 4.2，高 2.2"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d418.cut-time",
+        "light-cam.d418.camera-distance-far",
+        "light-cam.d418.camera-distance-near",
+        "light-cam.d418.lateral-offset",
+        "light-cam.d418.camera-height",
+        "light-cam.d418.shot-duration"
+      ],
+      "ext": {
+        "c11.sourceId": "s178",
+        "c11.valueFrom": "light-cam.d418.cut-time"
+      }
+    },
+    {
+      "id": "light-cam.sum.s180",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length-wide",
+      "title": "跨案例对照：镜头数：5；帧数与节奏：帧 0–83（case-14）",
+      "value": 16,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏 跨案例对照：镜头数：5；帧数与节奏：帧 0–83"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节对照表行 s180 → d430",
+        "note": "原证据：原文陈述（焦段）+ 实测（切点、摇速）；原验证：实测切点。镜头数：5；帧数与节奏：帧 0–83、84–161、162–221、222–299、300–359；切点 3.5/6.75/9.25/12.5 s；焦段：16 / 85 f/2.8 / 长焦 / 75 / 俯仰"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d430.focal-length-wide",
+        "light-cam.d430.focal-length-puddle",
+        "light-cam.d430.focal-length-mirror",
+        "light-cam.d430.camera-height-above-water",
+        "light-cam.d430.pan-step-per-frame"
+      ],
+      "ext": {
+        "c11.sourceId": "s180",
+        "c11.valueFrom": "light-cam.d430.focal-length-wide"
+      }
+    },
+    {
+      "id": "light-cam.sum.s181",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.shot-frame-count",
+      "title": "跨案例对照：镜头数：6；帧数与节奏：镜头帧数 8（case-26）",
+      "value": [
+        72,
+        96
+      ],
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏 跨案例对照：镜头数：6；帧数与节奏：镜头帧数 8"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节对照表行 s181 → d432",
+        "note": "原证据：实测；原验证：我们量过。镜头数：6；帧数与节奏：镜头帧数 82/84/72/72/72/96；每镜匀速无缓入；焦段：母帧重投影平移/俯仰"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d432.shot-frame-count"
+      ],
+      "ext": {
+        "c11.sourceId": "s181",
+        "c11.valueFrom": "light-cam.d432.shot-frame-count"
+      }
+    },
+    {
+      "id": "light-cam.sum.s182",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length",
+      "title": "跨案例对照：镜头数：7；帧数与节奏：40 秒 9（case-22）",
+      "value": 31.5,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏 跨案例对照：镜头数：7；帧数与节奏：40 秒 9"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节对照表行 s182 → d450",
+        "note": "原证据：原文陈述；原验证：只是原文说法。镜头数：7；帧数与节奏：40 秒 960 帧；焦段：31.5 / 135"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d450.focal-length",
+        "light-cam.d450.sun-elevation",
+        "light-cam.d450.focal-length-tele",
+        "light-cam.d450.film-duration"
+      ],
+      "ext": {
+        "c11.sourceId": "s182",
+        "c11.valueFrom": "light-cam.d450.focal-length"
+      }
+    },
+    {
+      "id": "light-cam.sum.s184",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.shot-count",
+      "title": "跨案例对照：镜头数：14；帧数与节奏：换镜头帧（case-27）",
+      "value": 14,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏 跨案例对照：镜头数：14；帧数与节奏：换镜头帧"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-27",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节对照表行 s184 → d427",
+        "note": "原证据：实测；原验证：实测。镜头数：14；帧数与节奏：换镜头帧 96、144、168、192、240、252、264、276、288、336、384、432、456 全是 12 的整数倍；镜头时长只用 1/2/4/8 拍；中段第 20 到 23 拍四个 1 拍特写；点击发生在切换前约 9 帧；焦段：未公开"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d427.shot-count",
+        "light-cam.d427.beat-length",
+        "light-cam.d427.first-cut-frame",
+        "light-cam.d427.click-lead"
+      ],
+      "ext": {
+        "c11.sourceId": "s184",
+        "c11.valueFrom": "light-cam.d427.shot-count"
+      }
+    },
+    {
+      "id": "light-cam.sum.s185",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.shot-count",
+      "title": "跨案例对照：镜头数：3；帧数与节奏：0–3.5（case-15）",
+      "value": 3,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏 跨案例对照：镜头数：3；帧数与节奏：0–3.5"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节对照表行 s185 → d434",
+        "note": "原证据：实测 + 原文陈述；原验证：我们量过。镜头数：3；帧数与节奏：0–3.5 s 远景、3.5–6.5 s 中景、6.5–10.0 s 近景；硬切；24 fps；焦段：缩放 1.00 到 1.03"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d434.shot-count",
+        "light-cam.d434.wide-shot-window",
+        "light-cam.d434.mid-shot-window",
+        "light-cam.d434.close-shot-window",
+        "light-cam.d434.frame-rate"
+      ],
+      "ext": {
+        "c11.sourceId": "s185",
+        "c11.valueFrom": "light-cam.d434.shot-count"
+      }
+    },
+    {
+      "id": "light-cam.sum.s186",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.focal-length",
+      "title": "跨案例对照：镜头数：多镜头；帧数与节奏：定格前相（case-07）",
+      "value": 32,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.8 节 逐案例镜头表与运镜节奏 跨案例对照：镜头数：多镜头；帧数与节奏：定格前相"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-07",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.8 节对照表行 s186 → d433",
+        "note": "原证据：原文陈述；原验证：作者成片用过。镜头数：多镜头；帧数与节奏：定格前相机穿行约 12 m；焦段：32 mm f/2"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d433.focal-length",
+        "light-cam.d433.camera-travel"
+      ],
+      "ext": {
+        "c11.sourceId": "s186",
+        "c11.valueFrom": "light-cam.d433.focal-length"
+      }
+    },
+    {
+      "id": "light-cam.sum.s190",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-1.shutter-angle",
+      "title": "跨案例对照：有景深、带跟焦，光圈未公开；运动模糊（case-05）",
+      "value": 180,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.9 节 景深、运动模糊、曝光与镜头光学 跨案例对照：有景深、带跟焦，光圈未公开；运动模糊"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.9 节对照表行 s190 → d327",
+        "note": "原证据：原文陈述；原验证：作者成片用过。有景深、带跟焦，光圈未公开；运动模糊快门 180°；镜头近距穿过亮零件时锁住曝光"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d327.shutter-angle"
+      ],
+      "ext": {
+        "c11.sourceId": "s190",
+        "c11.valueFrom": "light-cam.d327.shutter-angle"
+      }
+    },
+    {
+      "id": "light-cam.sum.s191",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.shutter-angle",
+      "title": "跨案例对照：景深开；运动模糊 180°（case-22）",
+      "value": 180,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.9 节 景深、运动模糊、曝光与镜头光学 跨案例对照：景深开；运动模糊 180°"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.9 节对照表行 s191 → d450",
+        "note": "原证据：原文陈述；原验证：只是原文说法。景深开；运动模糊 180°"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d450.shutter-angle"
+      ],
+      "ext": {
+        "c11.sourceId": "s191",
+        "c11.valueFrom": "light-cam.d450.shutter-angle"
+      }
+    },
+    {
+      "id": "light-cam.sum.s192",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-8.orbit-duration",
+      "title": "跨案例对照：关景深、运动模糊、镜头光效；蜂（case-28）",
+      "value": 12,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.9 节 景深、运动模糊、曝光与镜头光学 跨案例对照：关景深、运动模糊、镜头光效；蜂"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-28",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.9 节对照表行 s192 → d426",
+        "note": "原证据：原文陈述；原验证：作者成片用过。28 关景深、运动模糊、镜头光效；蜂巢全程深焦"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d426.orbit-duration",
+        "light-cam.d426.frame-rate",
+        "light-cam.d426.frame-count",
+        "light-cam.d426.frame-width",
+        "light-cam.d426.frame-height"
+      ],
+      "ext": {
+        "c11.sourceId": "s192",
+        "c11.valueFrom": "light-cam.d426.orbit-duration"
+      }
+    },
+    {
+      "id": "light-cam.sum.s200",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.zoom-scale-shot1",
+      "title": "跨案例对照：波斯三镜头缩放 1.00、平移 0（（case-15）",
+      "value": 1.02,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法 跨案例对照：波斯三镜头缩放 1.00、平移 0（"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节对照表行 s200 → d467",
+        "note": "原证据：实测；原验证：我们量过。波斯三镜头缩放 1.00、平移 0（误差 2.18 / 4.30 / 7.72）；水粉镜头 1 缩放 1.02、−44 px、+18 px；镜头 2 1.03、−18、+9；镜头 3 1.02、−9、0；速度约 0.58%/s、1.0%/s、0.58%（±0.5%）"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d467.zoom-scale-shot1",
+        "light-cam.d467.pan-x-shot1",
+        "light-cam.d467.pan-y-shot1",
+        "light-cam.d467.zoom-scale-shot2"
+      ],
+      "ext": {
+        "c11.sourceId": "s200",
+        "c11.valueFrom": "light-cam.d467.zoom-scale-shot1"
+      }
+    },
+    {
+      "id": "light-cam.sum.s202",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-11.push-frames-living",
+      "title": "跨案例对照：三段 4K 静帧推近：客厅 28 帧（case-29）",
+      "value": 28,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.11 节 实测机位与量测方法 跨案例对照：三段 4K 静帧推近：客厅 28 帧"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "实测",
+        "docRef": "光照天空大气与相机汇编 第 3.11 节对照表行 s202 → d469",
+        "note": "原证据：实测；原验证：D。三段 4K 静帧推近：客厅 28 帧、玄关 16 帧、走廊 29 帧；拟合缩放约 1.06、1.07"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d469.push-frames-living",
+        "light-cam.d469.push-frames-entry",
+        "light-cam.d469.push-frames-corridor",
+        "light-cam.d469.push-zoom-scale"
+      ],
+      "ext": {
+        "c11.sourceId": "s202",
+        "c11.valueFrom": "light-cam.d469.push-frames-living"
+      }
+    },
+    {
+      "id": "light-cam.sum.s205",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.handheld-tilt-gentle",
+      "title": "跨案例对照：温和手持倾斜 3 到 10°；重手持（ext-02）",
+      "value": [
+        3,
+        10
+      ],
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇 跨案例对照：温和手持倾斜 3 到 10°；重手持"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-02",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节对照表行 s205 → d481",
+        "note": "原证据：原文陈述；原验证：作者成片用过。温和手持倾斜 3 到 10°；重手持 12 到 25°；暴力手持 15 到 45°；固定或慢推 0°"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d481.handheld-tilt-gentle",
+        "light-cam.d481.handheld-tilt-violent"
+      ],
+      "ext": {
+        "c11.sourceId": "s205",
+        "c11.valueFrom": "light-cam.d481.handheld-tilt-gentle"
+      }
+    },
+    {
+      "id": "light-cam.sum.s206",
+      "domain": "camera-lens-motion",
+      "topic": "light-cam.sec-3-12.focal-length-open",
+      "title": "跨案例对照：85mm T2.0 → 24mm T（ext-04）",
+      "value": 85,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3.12 节 提示词里的镜头写法与词汇 跨案例对照：85mm T2.0 → 24mm T"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-04",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 3.12 节对照表行 s206 → d480",
+        "note": "原证据：原文陈述；原验证：作者成片用过。85mm T2.0 → 24mm T4 → 32mm T2.8 → 24mm T4 → 35mm T2.8 → 35→28mm"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d480.focal-length-open",
+        "light-cam.d480.focal-length-pullout",
+        "light-cam.d480.focal-length-fly",
+        "light-cam.d480.focal-length-ots",
+        "light-cam.d480.focal-length-orbit"
+      ],
+      "ext": {
+        "c11.sourceId": "s206",
+        "c11.valueFrom": "light-cam.d480.focal-length-open"
+      }
+    }
+  ]
+}

@@ -1,0 +1,1228 @@
+{
+  "format": "practices/0.1",
+  "entries": [
+    {
+      "id": "arch-scene.d005.practice",
+      "sourceId": "d005",
+      "section": "1.2",
+      "caseId": "ext-01",
+      "title": "树/岩石视线保护",
+      "text": "镜头起终点 (−5.5,8,81)/(−1.5,13.2,64)；保护目标 6 个如 (−26.5,30,−5,r7)；落入锥内的点法线压为 n.y=0.58，不种树",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "主体是视线锥内不种树的做法，坐标只是示例",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
+      "docRef": "建筑场景地形与水汇编 第 1.2 节 d005；出处类别：源码拆解·布局、摆位与放置规则"
+    },
+    {
+      "id": "arch-scene.d006.practice",
+      "sourceId": "d006",
+      "section": "1.2",
+      "caseId": "case-22",
+      "title": "纽约规则",
+      "text": "实体离每条相机路径至少 3 米；每个模块 30 秒内能从镜头角度预览（带 clay 模式）",
+      "quantities": [
+        {
+          "value": 3,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 30,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "相机路径留空与模块预览的通用规则",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C",
+      "docRef": "建筑场景地形与水汇编 第 1.2 节 d006；出处类别：原文陈述·布局、摆位与放置规则"
+    },
+    {
+      "id": "arch-scene.d009.practice",
+      "sourceId": "d009",
+      "section": "1.2",
+      "caseId": "case-13",
+      "title": "案例 13 布景摆放四道门",
+      "text": "【布景摆放四道门】allowed(x,z,r)：①禁摆区keepHit(采样圆周8点，半径>1.2时12点，外扩0.3 m)②已有碰撞体colliderHit(半径+0.25)③镜头视线viewBlocked(86条[相机x,z,看向x,z]，每条挡相机3.5 m半径+视线前6 m侧向±0.6 m长条)；阻挡体block只对可玩半径+1 m内登记，失败不放；摆好后登记清草圆盘(半径max(.35,r·.9))、AO斑(r≥0.9半径×1.5)；禁摆区keepClearspan：台阶矩形(x±7 z-130→-73.5)、桥矩形(x-5.3…4.5 桥z±20.5)、道路1.5 m内、竞技场半径26、出生点6、哨站6、敌人出生点8、巡逻线半宽4、NPC站位5、传送点r+3、北门4、回声点3\n【布景四道门】禁摆区、碰撞体、镜头视线、阻挡体，任一失败就不放；每台固定相机保护 3.5 m + 视线前 6 m ×±0.6 m",
+      "quantities": [
+        {
+          "value": 0.3,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 3.5,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 6,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": [
+            -0.6,
+            0.6
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 1,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 1.5,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 3.5,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 6,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": [
+            -0.6,
+            0.6
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "四道门任一失败不放的摆放流程，阈值是附带",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过 / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.2 节 d009；出处类别：源码拆解·布局、摆位与放置规则（案例 13 第 20 章）"
+    },
+    {
+      "id": "arch-scene.d010.practice",
+      "sourceId": "d010",
+      "section": "1.2",
+      "caseId": "case-13",
+      "title": "干砌墙“空跑旧随机序列”技巧",
+      "text": "r16 finish-3：旧版dryStoneWallV1用圆石经rock旋转后站起来像麦田上一排面包，改扁平层叠石；先用空壳NOOP_RB把旧版随机数序列整个空跑一遍，再用独立随机流mulberry32(o.seed??16311)画新墙，使后续所有布景点位置与旧版完全一致(“every later site keeps its exact v1 placement”)；墙段2.4 m缺口宽±1.4默认缺口在72%处，塌陷系数距缺口<1.2为0.2，<2.2为0.55，其余1",
+      "quantities": [
+        {
+          "value": 2.4,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.72,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "空跑旧随机序列再换独立流，保旧布局不变",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "建筑场景地形与水汇编 第 1.2 节 d010；出处类别：源码拆解·布局、摆位与放置规则（案例 13 第 20 章）"
+    },
+    {
+      "id": "arch-scene.d011.practice",
+      "sourceId": "d011",
+      "section": "1.2",
+      "caseId": "case-13",
+      "title": "案例 13 碰撞与渲染共用数据（JS 仿写着色器哈希）",
+      "text": "【JS 仿写着色器哈希】hash22 用 Math.fround 模拟 32 位浮点，使 JS 抬高/裂开的第 i 块石板与着色器同一块(原注释：\"emulated in float32 (so the geometry and the shader agree on every flag)\")\n【碰撞与渲染共用数据】wall 同时出网格和碰撞盒；JS 里用 Math.fround 仿着色器哈希使几何与花纹对同一石板一致",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "几何与着色器用同一哈希，碰撞渲染共用数据",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过 / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.2 节 d011；出处类别：源码拆解·布局、摆位与放置规则（案例 13 第 24 章）"
+    },
+    {
+      "id": "arch-scene.d012.practice",
+      "sourceId": "d012",
+      "section": "1.2",
+      "caseId": "case-13",
+      "title": "布景自检",
+      "text": "hamlet.validate 查存档点 3.6 m 内是否被挡、主街三条线是否通畅；propsPer100m、storiesPer100m",
+      "quantities": [
+        {
+          "value": 3.6,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "布景自检：查存档点遮挡与主街通畅",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.2 节 d012；出处类别：源码拆解·布局、摆位与放置规则"
+    },
+    {
+      "id": "arch-scene.d017.practice",
+      "sourceId": "d017",
+      "section": "1.4",
+      "caseId": "case-13",
+      "title": "案例 13 构件库 RuinBuilder 与 pbox",
+      "text": "【建筑构件库】一切是 24 顶点/12 三角的盒子 pbox，按材质分桶合并，绘制次数只跟材质数有关；整座村镇每种材质 1–2 个网格；石材 512² 画布贴图+着色器叠脏污、潮湿、青苔、烟熏（64 个烟源）\n【 RuinBuilder】 RuinBuilder [源码 原实现源码][A]：pbox 24 顶点 12 面，UV 用所属局部坐标平面投影让石缝对齐；按材质桶合并；小件放无阴影桶；mergeSmall=6000 三角；TINT_FOLD ashlarWarm ×[1.047,.976,.891]，ashlarDark ×[.39,.385,.39]，rubbleWarm ×[1,.9,.8]；默认种子 9127，村镇 1117/2029，武器库 6607，路尽头 7301/7302；HASH_KEYS 镜像±1、25% 旋转 90°、平移 h·4。",
+      "quantities": [
+        {
+          "value": 0.25,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 90,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "盒子构件按材质分桶合并的做法为主",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码 + 源码 原实现源码",
+      "verificationLabel": "作者成片用过(未运行) / 清单未列（源码值，按库规我们未渲染读回）",
+      "docRef": "建筑场景地形与水汇编 第 1.4 节 d017；出处类别：源码拆解·石构通用：构件库、墙工厂、废墟墙与风化（案例 13 第 17 章）"
+    },
+    {
+      "id": "arch-scene.d019.practice",
+      "sourceId": "d019",
+      "section": "1.4",
+      "caseId": "case-13",
+      "title": "案例 13 废墟墙：顶线加洞过滤加单次挤出（含分层随机破损）",
+      "text": "【废墟墙=顶线+洞过滤+单次挤出】topProfile 每段 {s0,s1,y∣yA→yB,amp,step[min,max]}，步长缺省 0.45–1.35 m，目标高=线性插值+(rnd-0.5)·amp；60% 概率先竖降再斜 ±0.125 m，40% 直接斜到。elevation(L,yBottom,segs,holes,rnd,margin=0.45)：丢弃 x0<margin、x1>L-margin、y0<yBottom+0.1、或洞左右各延 0.2 m 内最低顶线<洞顶+margin 的洞；ExtrudeGeometry curveSegments:1 steps:1 bevelEnabled:false，沿 z 居中；一面墙一个网格\n【破损靠分层随机】墙按 0.55 m 切段，顶部 2–5 节点折线断口，一个 ruin∈[0,1] 同时驱动缺口、屋顶洞、碎石数\n【废墟墙】残破顶线+洞；顶线每 0.45–1.35 m 一个台阶；离顶线不足 0.45 m 的窗洞直接丢",
+      "quantities": [
+        {
+          "value": [
+            0.45,
+            1.35
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": [
+            -0.5,
+            0.5
+          ],
+          "unit": "ratio",
+          "rawUnit": "原文未写单位",
+          "base": -0.5,
+          "jitter": 1,
+          "scaleBy": "amp",
+          "expr": "(rnd-0.5)·amp",
+          "label": "废墟墙顶线目标高的随机偏移（加在线性插值上，再乘幅度 amp）"
+        },
+        {
+          "value": 0.6,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": [
+            -0.125,
+            0.125
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.4,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.2,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.55,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": [
+            0.45,
+            1.35
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.45,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "顶线加洞过滤加单次挤出的造墙算法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过 / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.4 节 d019；出处类别：源码拆解·石构通用：构件库、墙工厂、废墟墙与风化（案例 13 第 18 章）"
+    },
+    {
+      "id": "arch-scene.d023.practice",
+      "sourceId": "d023",
+      "section": "1.4",
+      "caseId": "case-13",
+      "title": "世界坐标风化",
+      "text": "苔藓、雨痕、烟熏、地衣按位置和朝向在着色器算，贴图只管底色：离地 0.3–3 m 湿脚、基座缝 1.2 m、64 个雨痕源、12 个烟熏源，教堂贴图 1024²；古墓朝上面苔藓 smoothstep(.55,.9,n.y)×.8，灰石底色 256×256，2000+ 物件各自长出不同苔藓；地衣圆斑 13 cm 与 32 cm 两种格子",
+      "quantities": [
+        {
+          "value": [
+            0.3,
+            3
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 1.2,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.13,
+          "unit": "m",
+          "rawUnit": "cm"
+        },
+        {
+          "value": 0.32,
+          "unit": "m",
+          "rawUnit": "cm"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "风化在着色器按位置朝向算，贴图只管底色",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.4 节 d023；出处类别：源码拆解·石构通用：构件库、墙工厂、废墟墙与风化"
+    },
+    {
+      "id": "arch-scene.d040.practice",
+      "sourceId": "d040",
+      "section": "1.6",
+      "caseId": "case-13",
+      "title": "台阶脚",
+      "text": "第1级比地面高 diff>0.4 时补 min(3,ceil(diff/0.3)-1) 级过渡台阶，每级深 FOOT.run=0.46",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "首级过高时补过渡台阶的规则，数字附带",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d040；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）"
+    },
+    {
+      "id": "arch-scene.d062.practice",
+      "sourceId": "d062",
+      "section": "1.7",
+      "caseId": "case-13",
+      "title": "案例 13 彩色玻璃是着色器公式",
+      "text": "【彩色玻璃=着色器公式】无贴图：cgLancetGlass/cgRoseGlass 用“离最近铅条距离 cgLd”和“每块编号 cgPH”画5色古玻璃；同组公式复用于窗面、地板石头上的彩色光斑(cGlassTint)、体积光柱颜色；缺块 miss=step(clus+(cgPH-0.5)·0.22, cgHoleAt(块中心))，clus=cgN(c·0.62)·0.7+cgN(c·1.9)·0.3（1.5 m 级噪声）\n【彩色玻璃公式】窗面、地上彩色光斑、体积光柱颜色三处用同一个「离铅条距离」函数；中殿光尘盒 240 帧后登记",
+      "quantities": [
+        {
+          "value": 1.5,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 240,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "无贴图玻璃公式三处复用的做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过 / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.7 节 d062；出处类别：源码拆解·彩色玻璃、窗与窗里的房间（案例 13 第 18 章）"
+    },
+    {
+      "id": "arch-scene.d069.practice",
+      "sourceId": "d069",
+      "section": "1.7",
+      "caseId": "case-13",
+      "title": "窗里的房间不建模",
+      "text": "窗卡片片元沿视线与假房间盒求交，房间格宽 4.2 m，75% 亮灯",
+      "quantities": [
+        {
+          "value": 4.2,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.75,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "窗内房间不建模，片元与假房间盒求交",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.7 节 d069；出处类别：源码拆解·彩色玻璃、窗与窗里的房间"
+    },
+    {
+      "id": "arch-scene.d070.practice",
+      "sourceId": "d070",
+      "section": "1.8",
+      "caseId": "case-13",
+      "title": "案例 13 古墓区总览",
+      "text": "【古墓区总览】60×112 m 墓地荒原：五座带墓门土丘、两座可开启地穴、一尊倒下巨像骑士、两千多把插地剑、石碑立石、雾、夜哨点(watchpost)；另有散在地图的瞭望塔/石圈/马车/拱门/神龛；全部由代码盒子+噪声、圆柱+噪声、放样拼成，无模型文件；入口 原实现源码 G.mounds=claimStatic(=>new mounds(scene,fields,colliders,ao))\n【古墓区】盒体+噪声；放样剑；多层网格雾；岩石 24–398 顶点；石头贴图 256²（高度 16 位存 R、G）；「一个盒子加噪声」函数造全场石头：噪声幅度 amp×最小边×2，角上收缩做倒角",
+      "quantities": [
+        {
+          "value": 112,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "全场石头用一个盒子加噪声函数拼出，无模型",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过 / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.8 节 d070；出处类别：源码拆解·古墓区与野外遗迹"
+    },
+    {
+      "id": "arch-scene.d090.practice",
+      "sourceId": "d090",
+      "section": "1.8",
+      "caseId": "case-13",
+      "title": "野外遗迹清草与小径",
+      "text": "clearMask 按距离函数把草/芒草/花乘 keep(d)，按 trod 抬 road 层；troddenPath 沿道路距离场梯度一步0.7 m走回最近道路，每步半径w=.9内擦草，最多60步",
+      "quantities": [
+        {
+          "value": 0.7,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "沿道路距离场梯度步进回路并擦草的做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "建筑场景地形与水汇编 第 1.8 节 d090；出处类别：源码拆解·古墓区与野外遗迹（案例 13 第 19 章）"
+    },
+    {
+      "id": "arch-scene.d114.practice",
+      "sourceId": "d114",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "案例 13 22 段角度区间路",
+      "text": "【路=角度区间表】22 段 SEGS，每段 {a,b,h0,h1,r0,r1,kind}；kind 四种：deck 平台/ramp 坡/steps 台阶(每级 0.25 米)/bridge 绳桥；高度、碰撞、网格、灯、路线全从表算出\n【22 段角度区间路】一张角度区间表描述环绕的路：22 段，高度、碰撞、网格、灯位全从表算；大枝把网格俯拍成 0.5 m 高度图求坡度（可走面和可见网格同一张表）",
+      "quantities": [
+        {
+          "value": 0.25,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.5,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "一张角度区间表驱动高度、碰撞、网格与灯位",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过 / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d114；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
+    },
+    {
+      "id": "arch-scene.d117.practice",
+      "sourceId": "d117",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "折返「之」字",
+      "text": "F1→T1→F2→T2→F3 在同一 22° 扇区叠三层，路在 θ=161 折回、沿 139 往回、再折向 163，共升 66→110(43.75 米)",
+      "quantities": [
+        {
+          "value": 22,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 43.75,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "同一扇区内折返叠三层来升高的布路做法",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断(依据三段θ重叠、高度各加约14.5)",
+      "verificationLabel": "没验证",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d117；出处类别：推断与说明·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
+    },
+    {
+      "id": "arch-scene.d118.practice",
+      "sourceId": "d118",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "(表头缺失)",
+      "text": "台阶高度公式 | n=round(\\ | h1−h0\\ | /0.25)；高度 = h0+(h1−h0)·ceil(u·n)/n，u=(θ−a)/(b−a)；一行公式得到可走台阶 | 源码 | 作者成片用过 |；原实现源码 | 13 案例 13",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "线性高度按级数取整得可走台阶的通用算法",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "清单未列",
+      "verificationLabel": "清单未列",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d118；出处类别：推断与说明·巨树：路、台阶、桥、平台、大枝与根"
+    },
+    {
+      "id": "arch-scene.d120.practice",
+      "sourceId": "d120",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "站上某段判定",
+      "text": "半径在[r0,r1]内(内缘 r0≤80.51 的段放宽到 79.4)；角度用 unwrapIn 加减 360° 匹配超一圈区间；升降井口开 5×5 米洞",
+      "quantities": [
+        {
+          "value": 360,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 5,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "按半径区间加角度展开匹配判定站在哪段",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d120；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
+    },
+    {
+      "id": "arch-scene.d121.practice",
+      "sourceId": "d121",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "导航折线 ROUTE",
+      "text": "24 个手摆结点[θ,r,段id]，每 1 米一采样点，高度由 segPick 取当前段，取不到取下一段再取全局最高；ROUTE_LEN 运行时累加，无常量",
+      "quantities": [
+        {
+          "value": 1,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "手摆结点连成导航折线再逐米采样取段高",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d121；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
+    },
+    {
+      "id": "arch-scene.d123.practice",
+      "sourceId": "d123",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "路缘 sweep",
+      "text": "通用扫掠：沿角度每 dth 度取截面(截面=一串[半径,高度,明暗]点)，相邻截面连四边形，法线用相邻点叉积；墙面贴树皮 80.15+凸起、10 个高度点，凸起 max(0,plate)；地板 5 点(内缘+0.2、内缘+1.4、中线、外缘−1.2、外缘+0.1)",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "沿角度取截面再连四边形的通用扫掠做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d123；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
+    },
+    {
+      "id": "arch-scene.d135.practice",
+      "sourceId": "d135",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "(表头缺失)",
+      "text": "大枝可走面：俯拍高度图 | bakeTop：边界 x∈[−222,−36]，z∈[−152,6]，格 0.5 米→372×316 格；逐三角形丢 \\ | Ny\\ | /\\ | N\\ | <0.12，包围盒内对格心求重心坐标，同格取最高 | 源码 | 作者成片用过 |；原实现源码 | 13 案例 13",
+      "quantities": [
+        {
+          "value": 0.5,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "把网格俯拍光栅化成高度图、同格取最高",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "清单未列",
+      "verificationLabel": "清单未列",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d135；出处类别：推断与说明·巨树：路、台阶、桥、平台、大枝与根"
+    },
+    {
+      "id": "arch-scene.d136.practice",
+      "sourceId": "d136",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "大枝可走掩膜",
+      "text": "4 邻有高；梯度>0.72(MAX_SLOPE≈36°)排除、平坦豁免；排除半径<80.4 与冠幕入口侧 r<101.5 且 40°<θ<133.2°；从巢旁(nest.x+14,nest.z+6)洪水填充去孤岛；外洪水再重算内部凹洞；两遍腐蚀(邻居≤1去掉)；另生成外扩 2 格的 skirt 供 heightAt",
+      "quantities": [
+        {
+          "value": 36,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 40,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 133.2,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "坡度筛除、洪水填充去孤岛再腐蚀的掩膜工序",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d136；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
+    },
+    {
+      "id": "arch-scene.d137.practice",
+      "sourceId": "d137",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "大枝轮廓与缘石",
+      "text": "marching squares(阈值 0.5)+Douglas–Peucker(公差 0.3 米)；每线段放 0.3 米半宽、高 h−2.5 到 h+3 的碰撞盒；r<81.6 垂直径向部分与入口缺口 133.2°±1.1° 跳过",
+      "quantities": [
+        {
+          "value": 0.3,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.3,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 133.2,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": [
+            -1.1,
+            1.1
+          ],
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "等值线提取加折线简化后沿线放碰撞盒",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d137；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
+    },
+    {
+      "id": "arch-scene.d138.practice",
+      "sourceId": "d138",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "替身网格重合",
+      "text": "管子未加载时用公式\"替身管\"，与可见管子在 0.5 米内重合；偏差>0.5 米 console.info(rebakeDrift)",
+      "quantities": [
+        {
+          "value": 0.5,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.5,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "未加载时用公式替身并检查与可见网格的偏差",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d138；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
+    },
+    {
+      "id": "arch-scene.d150.practice",
+      "sourceId": "d150",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "摆件合并",
+      "text": "合并为 4–5 个网格(moss/props/iron/dead)，matrixAutoUpdate=false",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "静态摆件按类合并成少数网格并关矩阵更新",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d150；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
+    },
+    {
+      "id": "arch-scene.d155.practice",
+      "sourceId": "d155",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "(表头缺失)",
+      "text": "根可走判定 | 空间格 8 米查四条根最近点；\\ | d\\ | ≤hw 在背上；并拢\"鞍\"取较高者，条件 best≥minBack−4.5(SADDLE_DROP)且斜率≤SADDLE_SLOPE=1.1 | 源码 | 作者成片用过 |；原实现源码 | 13 案例 13",
+      "quantities": [
+        {
+          "value": 8,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "空间格查最近根、鞍部取较高者的可走判定",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "清单未列",
+      "verificationLabel": "清单未列",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d155；出处类别：推断与说明·巨树：路、台阶、桥、平台、大枝与根"
+    },
+    {
+      "id": "arch-scene.d164.practice",
+      "sourceId": "d164",
+      "section": "1.12",
+      "caseId": "case-13",
+      "title": "案例 13 一张坐标表管整关",
+      "text": "【一张坐标表管整关】原实现源码 给：树干中心(0,−190)、可玩多边形 23 顶点(x∈[−228,228],z∈[−314,292]，面积 178 156 m²)、盘山路参数、zone_17折线、6 存档点、14 回声点、46 出生点；原实现源码 登记 54+4 地面故事、26 盘山路故事、20+27+66 条第二轮补充；改位置只改数字不动建模\n【一份坐标表管整关】原实现源码 里 46 个出生点、14 个回声点、6 个存档点，布景只查表",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "一张坐标表管整关，改位置只改数字",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过 / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.12 节 d164；出处类别：源码拆解·巨树：坐标表、地图与区域判定（案例 13 第 24 章）"
+    },
+    {
+      "id": "arch-scene.d167.practice",
+      "sourceId": "d167",
+      "section": "1.12",
+      "caseId": "case-13",
+      "title": "弧长—角度查表",
+      "text": "路按 256 段累加弧长(257 点)，zone_15At(s) 二分查表返回{x,z,h,yaw,r,theta}；zone_15AtDeg(θ°,r) 直接算；出生点 R 包装按\"θ°+半径偏移+高度偏移\"生成坐标",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "路按分段累加弧长建表，二分查位置朝向",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.12 节 d167；出处类别：源码拆解·巨树：坐标表、地图与区域判定（案例 13 第 24 章）"
+    },
+    {
+      "id": "arch-scene.d176.practice",
+      "sourceId": "d176",
+      "section": "1.13",
+      "caseId": "case-13",
+      "title": "回廊搭建顺序",
+      "text": "6 样东西(zone_21/大厅/树根拱门/电梯脚/小镇/小镇二三层)都往同一 RuinBuilder 容器 RB 加盒子，最后一次 finalize 按材质合并；rng=mulberry32(14302)；RB.finalize(group,\"arcade\",{shadows:true,mergeSmall:6e3})(某材质阴影/无阴影桶较小者≤6000 三角形并入另一桶)",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "多件同容器加盒，最后一次按材质合并",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.13 节 d176；出处类别：源码拆解·zone_12：zone_21、大厅、拱门与小镇（案例 13 第 24 章）"
+    },
+    {
+      "id": "arch-scene.d178.practice",
+      "sourceId": "d178",
+      "section": "1.13",
+      "caseId": "case-13",
+      "title": "回廊远景替身",
+      "text": "farMerge(…,\"arcade-far\") 平时 visible=false；farSet(true) 隐近景显替身，窗内房间网格与灯笼发光网格 keepFar 始终可见；lightSpots：大厅上 2.5/拱门上 3/电梯脚上 4 米各一光点",
+      "quantities": [
+        {
+          "value": 4,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "远景替身切换，发光网格始终可见",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.13 节 d178；出处类别：源码拆解·zone_12：zone_21、大厅、拱门与小镇（案例 13 第 24 章）"
+    },
+    {
+      "id": "arch-scene.d200.practice",
+      "sourceId": "d200",
+      "section": "1.14",
+      "caseId": "case-13",
+      "title": "(表头缺失)",
+      "text": "布景落点算法 _settle/_clear | 以故事坐标为心向外 9 圈，每圈半径 ring×2.2 米、10 个角度(相位 ring×0.7)，第一个通过 _clear 的点为落点；path>0 还要离关键路径足够远(默认 2.5，冠枝 10)；_clear：在可玩多边形内→通过禁区 keepClear→脚下表面不比目标高 2.2 以上→不与周边碰撞体(圆/旋转盒)重叠→坡度 max( | ΔH_x | , | ΔH_z | )/(2e)<0.55(e=max(1,r·0.7)) | 源码 | 作者成片用过 |；原实现源码 | 13 案例 13",
+      "quantities": [
+        {
+          "value": 2.2,
+          "unit": "m",
+          "rawUnit": "米",
+          "scaleBy": "ring"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "向外逐圈试点，首个通过检查的为落点",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "清单未列",
+      "verificationLabel": "清单未列",
+      "docRef": "建筑场景地形与水汇编 第 1.14 节 d200；出处类别：推断与说明·巨树布景系统"
+    },
+    {
+      "id": "arch-scene.d201.practice",
+      "sourceId": "d201",
+      "section": "1.14",
+      "caseId": "case-13",
+      "title": "放置器 _placer",
+      "text": "at(dx,dz,dyaw,fn,{sink,tilt,dy})：局部转世界，取地面高，按坡度倾斜 rx=atan(gz·c+gx·s)·tilt，rz=−atan(gx·c−gz·s)·tilt(默认 tilt 0.6)，再抬 0.04(z≤40)或 0.1(z>40)防陷；盘山路上不倾斜",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "放置器取地高、按坡度部分倾斜再抬高防陷",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.14 节 d201；出处类别：源码拆解·巨树布景系统（案例 13 第 24 章）"
+    },
+    {
+      "id": "arch-scene.d202.practice",
+      "sourceId": "d202",
+      "section": "1.14",
+      "caseId": "case-13",
+      "title": "布景合并/可见性",
+      "text": "finalize(…,{shadows:true,fold:false,mergeSmall:1e9,foldMore:{daub:[\"timber\",[1.3,1.2,1.02]]}}) 灰泥折进 timber 并按倍率烘进顶点色，只有 timber 投影；布网格单独一个 Mesh(clothMat + 自定义深度材质 clothDepth 让镂空布也投对影)；每 0.25 秒判一次可见，摄像机到区中心距离−区半径<D 才显，D=移动 110/其它 220 米，远景模式地面区全隐；整组 userData.gpuOnly=true；区半径=所有点到中心最大距离+其范围",
+      "quantities": [
+        {
+          "value": 0.25,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 220,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "材质折叠合并、布单独投影、按区距离判可见",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.14 节 d202；出处类别：源码拆解·巨树布景系统（案例 13 第 24 章）"
+    },
+    {
+      "id": "arch-scene.d207.practice",
+      "sourceId": "d207",
+      "section": "1.14",
+      "caseId": "case-13",
+      "title": "(表头缺失)",
+      "text": "相机避让 VIEW_CAMS16 | 固定镜头 66 条[x,y(abs) | null(地面相对),z,lookX,lookZ]，来自外部 原实现数据文件(Tree，non-dynamic)；规则：离相机<e+4 米不放；点到\"相机→看向点\"前 10 米射线<e+2.5 米不放(原注释：a bar view must not be blind) | 源码 | 作者成片用过 |；原实现源码 | 13 案例 13",
+      "quantities": [
+        {
+          "value": 4,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 10,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 2.5,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "离固定机位太近或挡视线射线的不放",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "清单未列",
+      "verificationLabel": "清单未列",
+      "docRef": "建筑场景地形与水汇编 第 1.14 节 d207；出处类别：推断与说明·巨树布景系统"
+    },
+    {
+      "id": "arch-scene.d209.practice",
+      "sourceId": "d209",
+      "section": "1.14",
+      "caseId": "case-13",
+      "title": "案例 13 先干跑再真建",
+      "text": "【干跑→查遮罩→真建 attempt】先看离漂叶 R16 集合够远(clearOfzone_11)、避开相机视线(viewClear)；在 scratch 假容器里用 recorder 假碰撞器收集所有碰撞盒；每个碰撞体取 12 个圆周点(旋转矩形 8 点+中心)测 mask.test(遮罩来自 原实现源码 的 keepClear(\"tree\"))，全通过才用同一种子真建，真建时碰撞体走 queue(addDressBlocker，由 commitDressBlockers 统一提交)\n【先干跑再真建】在草稿容器里摆一遍，碰撞体全过禁区检查，再用同一个种子真建；改道具外形时先把旧函数空跑一遍消耗随机数，其他摆件位置不变",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "先干跑过禁区检查，再用同种子真建",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过 / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.14 节 d209；出处类别：源码拆解·巨树布景系统（案例 13 第 24 章）"
+    },
+    {
+      "id": "arch-scene.d228.practice",
+      "sourceId": "d228",
+      "section": "1.15",
+      "caseId": "case-13",
+      "title": "摆件占位检查",
+      "text": "place(id,shapes,build)：shapes 为圆形/旋转矩形；落在玩区多边形内须通过 clear——外扩 0.6 米 12 点/8 点采样均不得落入 keepClear(\"tree\")；通过后 addDressBlocker；失败登记 skipped；?r16cues=0 或 r16(\"detailPx\")≤0 整个返回空；种子 16077(主)/19003(巨叶)/19006(簇)/19004(桥枝)/19005(拱枝)/16161(路标)",
+      "quantities": [
+        {
+          "value": 0.6,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "摆件外形外扩采样，全不入禁区才放",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.15 节 d228；出处类别：源码拆解·zone_11：路标、盾牌、推车、废墟与巨叶（案例 13 第 25 章）"
+    },
+    {
+      "id": "arch-scene.d243.practice",
+      "sourceId": "d243",
+      "section": "1.16",
+      "caseId": "case-13",
+      "title": "洞窟可见性切换",
+      "text": "interior 组仅当相机在洞内(caveSdf<2 且 y<16)或距楼梯口<55 米(SAP.interiorR)且 y<30、或距井口<12 米且 y<57 时可见；outside(罩子/木件)在相机深入洞内时隐藏；farSet(on) 极高飞行整体关内景",
+      "quantities": [
+        {
+          "value": 12,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "按相机所在区域切内外景可见性，阈值只是附带",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.16 节 d243；出处类别：源码拆解·zone_13洞穴（案例 13 第 25 章）"
+    },
+    {
+      "id": "arch-scene.d255.practice",
+      "sourceId": "d255",
+      "section": "1.19",
+      "caseId": "case-22",
+      "title": "纽约 布局文件",
+      "text": "【S1 纽约布局文件】一个文件（单位米）存街宽、楼脚印与高度、太阳、相机；所有脚本导入不复制\n【布局文件】一个，单位米：街道、人行道、楼脚印和高度、太阳、相机；所有脚本导入不复制数字；验收建议用脚本检查各模块没有写死的相同数字（推断）",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "单一布局文件存全部数字、脚本只导入",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "原文陈述 + 原文陈述+推断",
+      "verificationLabel": "C / 作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d255；出处类别：推断与说明·写实与工程类场景（逐案例）"
+    },
+    {
+      "id": "arch-scene.d258.practice",
+      "sourceId": "d258",
+      "section": "1.19",
+      "caseId": "case-22",
+      "title": "纽约主镜头构图",
+      "text": "约 160 米高缓推俯拍，沿曼哈顿式大街向下，黄金时刻；左侧深色玻璃塔、右侧战前砖楼和水塔、中间广告牌",
+      "quantities": [
+        {
+          "value": 160,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "主镜头的机位与左右中构图编排",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d258；出处类别：原文陈述·写实与工程类场景（逐案例）"
+    },
+    {
+      "id": "arch-scene.d270.practice",
+      "sourceId": "d270",
+      "section": "1.19",
+      "caseId": "case-07",
+      "title": "场景风格",
+      "text": "笔触纹理只在受光处、绘制天空、层层雾气；当天放弃 Blender 对比版此后画面 100% 浏览器代码",
+      "quantities": [
+        {
+          "value": 1,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "笔触只在受光处、弃用对比版的取舍",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d270；出处类别：原文陈述·写实与工程类场景（逐案例）"
+    },
+    {
+      "id": "arch-scene.d271.practice",
+      "sourceId": "d271",
+      "section": "1.19",
+      "caseId": "case-22",
+      "title": "纽约 五个「让它真」的决定",
+      "text": "【五个“让它真”的决定】1 真 3D 细节（窗深嵌墙，低太阳才有真阴影）；2 很多小东西；3 不完美（每扇窗略偏、屋瓦缺失、雨水污渍）；4 光和空气；5 胶片相机（宽银幕、背景虚化、运动模糊、暖调色）\n【“为什么真”的五个决定】①真 3D 细节(窗深陷墙里,低太阳投下真阴影)②大量小物件(水箱、消防梯、空调、通风口、招牌、垃圾)③不完美(每扇窗略偏、屋瓦缺失、雨水污渍)④光与空气(低太阳+柔雾)⑤电影相机(宽画幅、背景虚化、运动模糊、暖调);渲染设置本身“没什么特别”",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "让画面显真的五个决定",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d271；出处类别：原文陈述·写实与工程类场景（逐案例）"
+    },
+    {
+      "id": "arch-scene.d272.practice",
+      "sourceId": "d272",
+      "section": "1.19",
+      "caseId": "case-22",
+      "title": "纽约 细节按屏幕像素分配（远景是盒子）",
+      "text": "【细节按屏幕像素分配】主区域每面精细，远处楼只是画窗户的盒子；<2 像素细节不做\n【T6 远景建筑】远处建筑是画了窗户的盒子；细节按屏幕像素分配，屏幕上小于 2 像素的细节是浪费",
+      "quantities": [
+        {
+          "value": 2,
+          "unit": "px",
+          "rawUnit": "像素"
+        },
+        {
+          "value": 2,
+          "unit": "px",
+          "rawUnit": "像素"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "细节按屏幕像素分配、远景用盒子",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过 / C",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d272；出处类别：原文陈述·写实与工程类场景（逐案例）"
+    },
+    {
+      "id": "arch-scene.d273.practice",
+      "sourceId": "d273",
+      "section": "1.19",
+      "caseId": "case-22",
+      "title": "因果污渍",
+      "text": "锈在钢下、条纹在窗台下、烟灰在通风口上",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "污渍按成因摆放的做法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d273；出处类别：原文陈述·写实与工程类场景（逐案例）"
+    },
+    {
+      "id": "arch-scene.d300.practice",
+      "sourceId": "d300",
+      "section": "2.2",
+      "caseId": "case-13",
+      "title": "地穴挖空/新坟挖坑",
+      "text": "地穴矩形内每格 H=min(原高-丘高(raise),门前地面-0.02)，同时清零草/芒草/花，再用 ch.origH 与 ch.newH 差决定盖在地穴顶的碎石堆；新坟：坑周围一圈格最低点 ringMin，坑内(ni=2,nj=1，外加边界共3×2格)先四周线性插值重建，再统一压到 ringMin-sink，sink=1.25",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "挖空高度图再按高差盖碎石的工序",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "建筑场景地形与水汇编 第 2.2 节 d300；出处类别：源码拆解·地形生成管线与地表形态（案例 13 第 19 章）"
+    },
+    {
+      "id": "arch-scene.d311.practice",
+      "sourceId": "d311",
+      "section": "2.2",
+      "caseId": "case-13",
+      "title": "去「等高线山丘」",
+      "text": "评审 r5 #7「等高线地图一样的山」→ 第 6/7 轮加崖壁结构 50–650 m（环坡 slope 0.28–0.54）；宏观反照率扰动；砂岩层理 7 rad/m（原笔记 M7）；落叶各有色调（M9）",
+      "quantities": [
+        {
+          "value": [
+            50,
+            650
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 7,
+          "unit": "rad/m",
+          "rawUnit": "rad/m"
+        }
+      ],
+      "kind": "fix",
+      "routeNote": "按评审意见消除等高线山丘的修法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 2.2 节 d311；出处类别：源码拆解·地形生成管线与地表形态"
+    },
+    {
+      "id": "arch-scene.d328.practice",
+      "sourceId": "d328",
+      "section": "2.3",
+      "caseId": "case-13",
+      "title": "碎石坡标记 aTalus",
+      "text": "每顶点取周围 5×3 邻域最大坡度，smoothstep(.8,.3,本地坡)×smoothstep(.7,1.15,邻域最大)，标\"陡崖脚下缓坡\"给着色器画石屑扇",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "用邻域最大坡度标记崖脚缓坡的算法思路",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 2.3 节 d328；出处类别：源码拆解·山岩、崖壁与远景山体（案例 13 第 25 章）"
+    },
+    {
+      "id": "arch-scene.d353.practice",
+      "sourceId": "d353",
+      "section": "2.5",
+      "caseId": "ext-01",
+      "title": "水的可照搬做法",
+      "text": "经过预算成每实例 (t0, dur, 推x, 推z)，用 wkStep(τ)−wkStep(τ−dur)；冲击波有限速度外扩高斯壳，壳厚 7 m、速度 55 或 85 m/s、强度 30·S·ref/(ref+dist) m/s；平面镜 Lengyel 斜裁剪 pe[10]=clip.z+1−0.003；倒影弯曲乘到被反射物距离（夹 0.3–140 m）；像素大于波纹时 smoothstep(0.90, 0.10, 每像素米数)；势流行程时间贴图；飞溅闭式抛物线 e=(1−e^{−kτ})/k，k=2.5–8.5/s；小粒子按 1/60 s 快门拉条，长=宽+屏幕速度×0.0085；瀑布按离唇秒数参数化 y=y0−4.9τ²；涌浪取深水色散 ω=√(gk)，k=0.9106→ω=2.99；近水 9 m 内且 y<46 进替身",
+      "quantities": [
+        {
+          "value": 7,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 85,
+          "unit": "m/s",
+          "rawUnit": "m/s"
+        },
+        {
+          "value": [
+            0.3,
+            140
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.016667,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 9,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "水面与飞溅的可照搬做法汇总",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 2.5 节 d353；出处类别：源码拆解·水面事件：入水、尾迹、水花与抛水"
+    },
+    {
+      "id": "arch-scene.d360.practice",
+      "sourceId": "d360",
+      "section": "2.7",
+      "caseId": "case-14",
+      "title": "东京雨夜 雨、水洼、涟漪与镜面",
+      "text": "【T3 水洼与涟漪】水洼和雨滴涟漪由一个与墨西哥城共用的水模块生成；沥青湿膜由片状几何组成；涟漪镜头面数 22–31 万三角\n【T4 雨】每镜 5,600 条，是真实几何体（每条面数未记录）；这样雨会被灯照亮、会进景深\n【东京雨夜 水面与镜面】湿路、凸面镜取景、水面倒影；23:10东京酒馆小巷；日文招牌逐笔构造；镜头无视差，雨不与伞交互",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "雨用真实几何体以受光并进景深的做法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C / 作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 2.7 节 d360；出处类别：原文陈述·雨、水洼与涟漪"
+    },
+    {
+      "id": "arch-scene.d363.practice",
+      "sourceId": "d363",
+      "section": "2.8",
+      "caseId": "case-13",
+      "title": "案例 13 无限草地（一块砖滚动）",
+      "text": "【F4 草跟镜头滚动的无限砖】每层一块方砖用mod折回镜头；实例按格分桶、桶内按 aRand.x 排序，CPU 二分取前n根；multiDrawElementsInstanced 最多128段\n【无限草地/远近切换】一块砖+mod 绕镜头折回，每格实例按出现密度预排序，CPU 二分截断；地形 150 m 切远、135 m 切回（滞回）",
+      "quantities": [
+        {
+          "value": 150,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 135,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "一块砖取模绕镜头滚动的无限草地做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码 原实现源码 + 源码",
+      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回） / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 2.8 节 d363；出处类别：源码拆解·草与地表植被（案例 13 第 3 章）"
+    },
+    {
+      "id": "arch-scene.d387.practice",
+      "sourceId": "d387",
+      "section": "2.9",
+      "caseId": "case-02",
+      "title": "植被稀疏化",
+      "text": "植被稀疏化：保留率 `clamp(1−0.85×smoothstep(D0, 0.7×DMAX, 距离), 0.15, 1)`，放大 `1/√保留率`，抖动图案淡入淡出（无台阶）。源码 原实现源码。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "按距离稀疏并放大补偿、抖动淡入的做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码（条目文字内带出处）",
+      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
+      "docRef": "建筑场景地形与水汇编 第 2.9 节 d387；出处类别：源码拆解·树木与森林"
+    },
+    {
+      "id": "arch-scene.d392.practice",
+      "sourceId": "d392",
+      "section": "2.11",
+      "caseId": "case-16",
+      "title": "案例 16 世界做法",
+      "text": "地形在 web worker 由单一地图文件生成;岩石/树皮/石墙/灰泥/屋顶用 CC0 某开放素材库 扫描材质(“没有一张手绘贴图”)",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "地形由单一地图文件生成、材质用扫描库",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 2.11 节 d392；出处类别：原文陈述·区域规模与世界生成"
+    },
+    {
+      "id": "arch-scene.d394.practice",
+      "sourceId": "d394",
+      "section": "2.11",
+      "caseId": "case-13",
+      "title": "案例 13 世界生成",
+      "text": "地形/风吹草/树/天气/天空/光束全由数学构建并由着色器绘制;「几何由数学构建、纹理程序化绘制、首次启动烘焙并缓存」;黄金时刻、起伏地形、随风摆动的高金草、秋树、带城门与路的废石村;八片地域(zone_01/zone_02/zone_04/zone_07…);第二世界 zone_22:金叶堆、碎石、穿过巨大林冠的光束",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "全程序化构建、首次启动烘焙并缓存的做法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 2.11 节 d394；出处类别：原文陈述·区域规模与世界生成"
+    }
+  ]
+}

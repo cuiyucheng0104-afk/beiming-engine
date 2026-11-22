@@ -1,0 +1,2319 @@
+{
+  "format": "practices/0.1",
+  "entries": [
+    {
+      "id": "light-cam.d001.practice",
+      "sourceId": "d001",
+      "section": "1.1",
+      "caseId": "case-13",
+      "title": "灯光构成（反直觉）",
+      "text": "全工程只有1盏 SunLight + 点光池，无 AmbientLight/HemisphereLight/SpotLight/RectAreaLight；暗部靠 IBL 补光瓣+着色器注入的反弹/冷补光",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "只用一盏太阳加点光池、暗部靠补光的取舍",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码（全文检索构造函数）",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.1 节 d001；出处类别：源码拆解·灯的构成与总则"
+    },
+    {
+      "id": "light-cam.d003.practice",
+      "sourceId": "d003",
+      "section": "1.2",
+      "caseId": "case-02",
+      "title": "远级联太阳",
+      "text": "远级联太阳：同向，强度 0，只为出阴影图。源码 原实现源码。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "另放零强度同向光只为出远级联阴影图",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.2 节 d003；出处类别：源码拆解·太阳与主方向光"
+    },
+    {
+      "id": "light-cam.d007.practice",
+      "sourceId": "d007",
+      "section": "1.2",
+      "caseId": "case-10",
+      "title": "从天空图里挖太阳",
+      "text": "阈值=max(最大亮度×0.3, 60)；超阈值像素按\"亮度×纬度余弦\"加权求方向重心；整图横向平移到指定方位；太阳区压到亮度 30 以下；再用强度 16 的平行光补回",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "从天空图分离太阳的算法步骤，数字附带",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "A",
+      "docRef": "光照天空大气与相机汇编 第 1.2 节 d007；出处类别：源码拆解·太阳与主方向光"
+    },
+    {
+      "id": "light-cam.d010.practice",
+      "sourceId": "d010",
+      "section": "1.2",
+      "caseId": "case-02",
+      "title": "主光作弊",
+      "text": "逆光镜头把主光掰向 (0,0.62,0.78)，角色永远有亮面，投影仍按真太阳算(原实现源码)",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "逆光镜头掰主光、投影仍按真太阳的做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "脚本取值",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.2 节 d010；出处类别：源码拆解·太阳与主方向光"
+    },
+    {
+      "id": "light-cam.d015.practice",
+      "sourceId": "d015",
+      "section": "1.2",
+      "caseId": "case-10",
+      "title": "写法提醒",
+      "text": "写法提醒：L2 的算法是阈值 = max(最大亮度×0.3, 60)，超阈值像素按「亮度×纬度余弦」加权求方向重心，整图横向平移到指定方位，太阳区压到亮度 30 以下，再用强度 16 的平行光补回。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "复述分离太阳的算法步骤，可照做",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "清单未列",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.2 节 d015；出处类别：推断与说明·太阳与主方向光"
+    },
+    {
+      "id": "light-cam.d037.practice",
+      "sourceId": "d037",
+      "section": "1.4",
+      "caseId": "case-13",
+      "title": "光照小实验：三步补暗部",
+      "text": "一盏方向光+一个角色站草地；依次加「太阳色×0.65×草地反照率」暖反弹、背光冷补光、远景雾色向冷灰混 55%，每加一样截一张比较暗部",
+      "quantities": [
+        {
+          "value": 0.55,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "三步补暗部的对比实验工序",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "没验证",
+      "docRef": "光照天空大气与相机汇编 第 1.4 节 d037；出处类别：推断与说明·补光、反弹与轮廓光"
+    },
+    {
+      "id": "light-cam.d038.practice",
+      "sourceId": "d038",
+      "section": "1.4",
+      "caseId": "case-13",
+      "title": "小实验（推断，没验证）：分组清单 建议",
+      "text": "小实验（推断，没验证）：分组清单 建议一盏方向光加一个角色站草地，依次加「太阳色×0.65×草地反照率」暖反弹、背光冷补光、远景雾色向冷灰混 55%，每加一样截一张比较暗部。已放在明细末条。",
+      "quantities": [
+        {
+          "value": 0.55,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "逐项加补光并截图对比暗部的实验步骤",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "清单未列",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.4 节 d038；出处类别：推断与说明·补光、反弹与轮廓光"
+    },
+    {
+      "id": "light-cam.d051.practice",
+      "sourceId": "d051",
+      "section": "1.5",
+      "caseId": "case-02",
+      "title": "纹素对齐",
+      "text": "纹素对齐：焦点在光空间右、上两轴取整到 `2×半宽/贴图边长`。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "阴影焦点按纹素取整防闪的做法",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "清单未列",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.5 节 d051；出处类别：推断与说明·阴影（级联、PCF、PCSS、云影）"
+    },
+    {
+      "id": "light-cam.d053.practice",
+      "sourceId": "d053",
+      "section": "1.5",
+      "caseId": "case-02",
+      "title": "谁投影",
+      "text": "谁投影：角色、巨型头目、玩家附近大道具；地形、植被、粒子不投。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "只让角色与近处大道具投影的取舍",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "清单未列",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.5 节 d053；出处类别：推断与说明·阴影（级联、PCF、PCSS、云影）"
+    },
+    {
+      "id": "light-cam.d055.practice",
+      "sourceId": "d055",
+      "section": "1.5",
+      "caseId": "case-10",
+      "title": "阴影用替身地形",
+      "text": "投阴影用 3.2 米网格、下沉 0.5 米的粗地形，每级阴影少画 50 万个三角面",
+      "quantities": [
+        {
+          "value": 3.2,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.5,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "用下沉粗地形替身投阴影省面数",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "A",
+      "docRef": "光照天空大气与相机汇编 第 1.5 节 d055；出处类别：源码拆解·阴影（级联、PCF、PCSS、云影）"
+    },
+    {
+      "id": "light-cam.d056.practice",
+      "sourceId": "d056",
+      "section": "1.5",
+      "caseId": "case-13",
+      "title": "路缘树皮直射光",
+      "text": "直射光乘 tbSunVis(浮雕自阴影)；见材质区 POM",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "直射光乘浮雕自阴影，是可照做的做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.5 节 d056；出处类别：源码拆解·阴影（级联、PCF、PCSS、云影）"
+    },
+    {
+      "id": "light-cam.d059.practice",
+      "sourceId": "d059",
+      "section": "1.6",
+      "caseId": "ext-01",
+      "title": "本组没有场景主光、环境光、曝光、色调映射、阴影分辨率的数值（在 01/02 章，不在本组）。能用的只有：",
+      "text": "全片只有一盏特效点光【源码】：`PointLight(颜色(1.0,0.38,0.10), 强度0, 距离150, 衰减1.7)`；所有发光体用 `lit(I,p,r,g,b,dist)` 累加，帧末按强度加权平均位置/颜色/距离，强度取总和。注释：多一盏灯让山谷每个受光像素全片多付一次代价。",
+      "lead": "本组没有场景主光、环境光、曝光、色调映射、阴影分辨率的数值（在 01/02 章，不在本组）。能用的只有：",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "发光体累加合成一盏点光的做法与理由",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.6 节 d059；出处类别：源码拆解·点光与动态灯"
+    },
+    {
+      "id": "light-cam.d086.practice",
+      "sourceId": "d086",
+      "section": "1.8",
+      "caseId": "case-13",
+      "title": "9 套天气预设（第一世界5/树关卡4）",
+      "text": "见下 D4-D5；切换4s smoothstep，太阳走方位角最短弧+仰角线性，颜色逐项lerp；环境光贴图在 t≥.5 切换",
+      "quantities": [
+        {
+          "value": 4,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "预设切换做法：最短弧加逐项插值",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码 原实现源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.8 节 d086；出处类别：源码拆解·天气与时间预设（案例 13、案例 02）"
+    },
+    {
+      "id": "light-cam.d100.practice",
+      "sourceId": "d100",
+      "section": "1.9",
+      "caseId": "case-01",
+      "title": "重制版灯光总则（原实现源码）",
+      "text": "思路（文件头）：黑场产品光，深色金属靠大面积/长条柔光灯的反射显形，世界只给一点底光；透明底渲染，无地面。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "黑场产品光思路：柔光反射显形",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码 + 实测",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.9 节 d100；出处类别：源码拆解·影棚与面光布光（Blender 与硬表面）"
+    },
+    {
+      "id": "light-cam.d101.practice",
+      "sourceId": "d101",
+      "section": "1.9",
+      "caseId": "case-01",
+      "title": "重制版灯光总则（原实现源码）",
+      "text": "28 盏 AREA（RECTANGLE）灯，6 套方案，`rig(镜头名)` 每帧只改开关和功率：实际 energy = watts × 镜头倍数，倍数 ≤ 0 的灯 hide。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "固定灯组按镜头只改开关与功率倍数的做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码 + 实测",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.9 节 d101；出处类别：源码拆解·影棚与面光布光（Blender 与硬表面）"
+    },
+    {
+      "id": "light-cam.d102.practice",
+      "sourceId": "d102",
+      "section": "1.9",
+      "caseId": "case-01",
+      "title": "重制版灯光总则（原实现源码）",
+      "text": "每盏灯对相机不可见（visible_camera = False），只出现在反射里。灯固定在世界坐标，整卡转动时灯不跟着转。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "灯对相机不可见只进反射，固定世界",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码 + 实测",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.9 节 d102；出处类别：源码拆解·影棚与面光布光（Blender 与硬表面）"
+    },
+    {
+      "id": "light-cam.d105.practice",
+      "sourceId": "d105",
+      "section": "1.9",
+      "caseId": "case-01",
+      "title": "朝向算法",
+      "text": "朝向算法：z = normalize(位置 − 朝向点)；x = 指定长边方向（无则取 (0,0,1)×z）去掉 z 分量后归一；y = z×x。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "面光灯朝向基向量的求法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码 + 实测",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.9 节 d105；出处类别：源码拆解·影棚与面光布光（Blender 与硬表面）"
+    },
+    {
+      "id": "light-cam.d134.practice",
+      "sourceId": "d134",
+      "section": "1.9",
+      "caseId": "case-01",
+      "title": "逐盏参数（位置/朝向点单位 m；尺寸 长×宽 m；功率 W）·S1_hook {\"hero\":1.0}；S7_final {\"hero\":1.0}；S2_edge {\"hero\":1.0, \"hero.top\":0.22, \"hero.rim_l\":0.35, \"edge\":1.0}；S3_explode {\"explode\":1.0}；S4_poster {\"poster\":1.0, \"poster.side_l\":0.5, \"poster.side_r\":0.5}（注释：两侧竖条减半，否则拉丝轮毂盖整片反白）；S5/S6 {\"through\":1.0, \"core\":1.0}。",
+      "text": "换灯发生在镜头边界那一帧，无渐变；S1→S2 在同一长镜头内换灯，靠故障帧遮，未连续播放验证（笔记自认）。",
+      "lead": "S1_hook {\"hero\":1.0}；S7_final {\"hero\":1.0}；S2_edge {\"hero\":1.0, \"hero.top\":0.22, \"hero.rim_l\":0.35, \"edge\":1.0}；S3_explode {\"explode\":1.0}；S4_poster {\"poster\":1.0, \"poster.side_l\":0.5, \"poster.side_r\":0.5}（注释：两侧竖条减半，否则拉丝轮毂盖整片反白）；S5/S6 {\"through\":1.0, \"core\":1.0}。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "换灯放在镜头边界帧并用故障帧遮",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码 + 实测",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.9 节 d134；出处类别：源码拆解·影棚与面光布光（Blender 与硬表面）"
+    },
+    {
+      "id": "light-cam.d135.practice",
+      "sourceId": "d135",
+      "section": "1.9",
+      "caseId": "case-01",
+      "title": "证据",
+      "text": "证据：源码 + 实测。依赖这个模型的尺度（几厘米到几十厘米），换尺度必须按距离平方重标定。可借的是「方案结构」：主光 + 顶条 + 冷色轮廓 + 暖补光 + 底光，冷暖分离。",
+      "lead": "S1_hook {\"hero\":1.0}；S7_final {\"hero\":1.0}；S2_edge {\"hero\":1.0, \"hero.top\":0.22, \"hero.rim_l\":0.35, \"edge\":1.0}；S3_explode {\"explode\":1.0}；S4_poster {\"poster\":1.0, \"poster.side_l\":0.5, \"poster.side_r\":0.5}（注释：两侧竖条减半，否则拉丝轮毂盖整片反白）；S5/S6 {\"through\":1.0, \"core\":1.0}。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "可借方案结构，换尺度按距离平方重标",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码 + 实测",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 1.9 节 d135；出处类别：源码拆解·影棚与面光布光（Blender 与硬表面）"
+    },
+    {
+      "id": "light-cam.d147.practice",
+      "sourceId": "d147",
+      "section": "1.9",
+      "caseId": "case-28",
+      "title": "环绕视频要求",
+      "text": "固定柔和影棚光；曝光、对比、白平衡稳定；无雾无粒子；中性灰背景和不反射地面",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "环绕视频的固定棚光与稳定曝光要求",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述（提示词）",
+      "verificationLabel": "成片是否做到只量了取景，没量光",
+      "docRef": "光照天空大气与相机汇编 第 1.9 节 d147；出处类别：原文陈述·影棚与面光布光（Blender 与硬表面）"
+    },
+    {
+      "id": "light-cam.d148.practice",
+      "sourceId": "d148",
+      "section": "1.9",
+      "caseId": "case-03",
+      "title": "03T 发布片布光",
+      "text": "灯光架跟着相机转，每个镜头布光关系一致；每镜头焦段、灯光、色彩配置写在提示词里（未抄出数值）；提示词要求指示灯加 Glare（Fog Glow）",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "灯架随相机转保持各镜布光一致",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "原文陈述 + 推断",
+      "verificationLabel": "数值未公开",
+      "docRef": "光照天空大气与相机汇编 第 1.9 节 d148；出处类别：推断与说明·影棚与面光布光（Blender 与硬表面）"
+    },
+    {
+      "id": "light-cam.d151.practice",
+      "sourceId": "d151",
+      "section": "1.9",
+      "caseId": "case-24",
+      "title": "僵尸手布光",
+      "text": "深板岩地面+细哑光石纹+每指清晰接触阴影;三点光:强冷青蓝轮廓光(上后方,勾出指/钉/伤口)+45° 柔暖主光+柔和补光;Cycles 或 EEVEE Next;第一版前景手指失焦、第二版地平线有刺眼发光线,自查修正,第三版才入片",
+      "quantities": [
+        {
+          "value": 45,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "三点布光做法与多版自查修正",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.9 节 d151；出处类别：原文陈述·影棚与面光布光（Blender 与硬表面）"
+    },
+    {
+      "id": "light-cam.d152.practice",
+      "sourceId": "d152",
+      "section": "1.9",
+      "caseId": "case-28",
+      "title": "机械头棚光与后期",
+      "text": "无缝棚(中灰→深石墨渐变+地面接触反射);顶部大柔光箱做聚碳酸酯长高光,两侧窄条/轮廓灯透过半透明蓝塑料照出肋骨,局部眼内反光点;运动模糊 shutter 0.5;景深动画(微距跟随活动部件、中景跟随眼睛);合成器:太阳穴与眼指示灯微 Glare(Fog Glow)+AgX Medium High Contrast",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "无缝棚布光与后期合成做法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "docRef": "光照天空大气与相机汇编 第 1.9 节 d152；出处类别：原文陈述·影棚与面光布光（Blender 与硬表面）"
+    },
+    {
+      "id": "light-cam.d153.practice",
+      "sourceId": "d153",
+      "section": "1.9",
+      "caseId": "case-05",
+      "title": "案例 05 影棚光（案例 05，合并 4 处）",
+      "text": "大柔光箱 + 一盏硬轮廓光 + 黑旗；深色背景，地面有倒影；结构骨架冷灰色底漆；色彩管理 AgX。每盏灯的类型、位置、尺寸、功率、色温未公开。证据：原文陈述。验证：作者成片用过（原文陈述，无数值）。出处： 05 影棚； 原实现源码 Task； 原包下载件；原始笔记。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "柔光箱加硬轮廓光加黑旗的棚光方案",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过（原文陈述，无数值）",
+      "docRef": "光照天空大气与相机汇编 第 1.9 节 d153；出处类别：原文陈述·影棚与面光布光（Blender 与硬表面）"
+    },
+    {
+      "id": "light-cam.d166.practice",
+      "sourceId": "d166",
+      "section": "1.10",
+      "caseId": "case-13",
+      "title": "巨树树冠光斑",
+      "text": "地面像素向太阳反推到树冠底面查开口度；6 个大缺口从地面光池目标点反向打上去；树冠半径 590 m；镂空板 256²、每 150 m 重复；叶子挡住处仍透 crownTrans（.045–.3）",
+      "quantities": [
+        {
+          "value": 590,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 150,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "从地面向太阳反推树冠开口的做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "光照天空大气与相机汇编 第 1.10 节 d166；出处类别：源码拆解·光柱、透光、树冠光斑与彩窗"
+    },
+    {
+      "id": "light-cam.d167.practice",
+      "sourceId": "d167",
+      "section": "1.10",
+      "caseId": "case-13",
+      "title": "光柱落在设计位置",
+      "text": "从地面目标点沿太阳反推到遮挡层得缺口位置；天窗/叶片卡/光柱用同一套窗口，三层天花板缩放 1/0.76/0.56",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "由地面目标点反推缺口位置的做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "光照天空大气与相机汇编 第 1.10 节 d167；出处类别：源码拆解·光柱、透光、树冠光斑与彩窗"
+    },
+    {
+      "id": "light-cam.d168.practice",
+      "sourceId": "d168",
+      "section": "1.10",
+      "caseId": "case-10",
+      "title": "叶片透光",
+      "text": "叶片背光时翻转法线并染成黄绿色模拟透光",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "背光翻转法线并染色模拟透光",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "没验证",
+      "docRef": "光照天空大气与相机汇编 第 1.10 节 d168；出处类别：源码拆解·光柱、透光、树冠光斑与彩窗"
+    },
+    {
+      "id": "light-cam.d176.practice",
+      "sourceId": "d176",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "夜光折叠",
+      "text": "窗内房间只靠片元算暖光与 uIgN，无光源对象；烛簇登记\"小镇溢光\"addTownSpill(c,.32,3.2)；大厅 lightSpots 三个光点",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "窗内暖光只在片元里算、不建光源",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.11 节 d176；出处类别：源码拆解·自发光、夜光、闪烁与限幅"
+    },
+    {
+      "id": "light-cam.d177.practice",
+      "sourceId": "d177",
+      "section": "1.11",
+      "caseId": "case-26",
+      "title": "霓虹亮度",
+      "text": "霓虹和灯的亮度调得比物理值高，为了在黎明里看得见",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "霓虹亮度高于物理值的取舍",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述（自报）",
+      "verificationLabel": "C",
+      "docRef": "光照天空大气与相机汇编 第 1.11 节 d177；出处类别：原文陈述·自发光、夜光、闪烁与限幅"
+    },
+    {
+      "id": "light-cam.d178.practice",
+      "sourceId": "d178",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "效果限幅一览（防烧白）",
+      "text": "轮廓光软膝；体积光扣雾纱+软肩；泛光 Reinhard 软上限 6/曝光；火焰每通道封顶 (2.4,1.45,0.5)，最热用饱和黄不用白；16 张火焰广告牌叠加每张×0.22–0.55；调大参数也不失控",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "各效果防烧白的限幅做法汇总",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "光照天空大气与相机汇编 第 1.11 节 d178；出处类别：源码拆解·自发光、夜光、闪烁与限幅"
+    },
+    {
+      "id": "light-cam.d179.practice",
+      "sourceId": "d179",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "自发光穿雾",
+      "text": "自发光项乘 √(1−雾) 而不是 (1−雾)，3 km 外仍可见",
+      "quantities": [
+        {
+          "value": 3000,
+          "unit": "m",
+          "rawUnit": "km"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "自发光穿雾改用根号衰减，换实现可照做",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "光照天空大气与相机汇编 第 1.11 节 d179；出处类别：源码拆解·自发光、夜光、闪烁与限幅"
+    },
+    {
+      "id": "light-cam.d185.practice",
+      "sourceId": "d185",
+      "section": "1.12",
+      "caseId": "case-10",
+      "title": "环境遮蔽",
+      "text": "在被直射的亮处减弱",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "环境遮蔽在直射亮处减弱",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "没验证",
+      "docRef": "光照天空大气与相机汇编 第 1.12 节 d185；出处类别：源码拆解·环境遮蔽、反弹与假全局光照（含焦散）"
+    },
+    {
+      "id": "light-cam.d186.practice",
+      "sourceId": "d186",
+      "section": "1.13",
+      "caseId": "case-26",
+      "title": "光组分离",
+      "text": "餐馆分 5 组单独存：太阳、天空、灯、霓虹 A、霓虹 B；闪烁、熄灭在合成里调，不重渲；孟买\"分离光组（可调太阳与灯的比例）\"",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "光组分离存储、合成里调不重渲",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C",
+      "docRef": "光照天空大气与相机汇编 第 1.13 节 d186；出处类别：原文陈述·路径追踪与物理光（光组、光采样、光照缓存）"
+    },
+    {
+      "id": "light-cam.d187.practice",
+      "sourceId": "d187",
+      "section": "1.13",
+      "caseId": "case-26",
+      "title": "光采样",
+      "text": "多重重要性采样覆盖太阳圆盘、天空、自发光三角形；Sobol 序列加 Owen 打乱；天空只通过 7 扇窗采样；62 个灯组按功率和距离选",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "多重重要性采样与灯组选择做法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C",
+      "docRef": "光照天空大气与相机汇编 第 1.13 节 d187；出处类别：原文陈述·路径追踪与物理光（光组、光采样、光照缓存）"
+    },
+    {
+      "id": "light-cam.d188.practice",
+      "sourceId": "d188",
+      "section": "1.13",
+      "caseId": "case-29",
+      "title": "逐顶点光照缓存",
+      "text": "几何细分到约 5 cm；300 万顶点各 2048 条完整路径，共 61 亿条，某款旗舰显卡 上 142 s；出帧时直射、天空、灯、第一次漫反射用真实光线，更深反弹读缓存",
+      "quantities": [
+        {
+          "value": 0.05,
+          "unit": "m",
+          "rawUnit": "cm"
+        },
+        {
+          "value": 142,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "逐顶点光照缓存的烘焙与取用做法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C",
+      "docRef": "光照天空大气与相机汇编 第 1.13 节 d188；出处类别：原文陈述·路径追踪与物理光（光组、光采样、光照缓存）"
+    },
+    {
+      "id": "light-cam.d189.practice",
+      "sourceId": "d189",
+      "section": "1.14",
+      "caseId": "case-14",
+      "title": "东京夜景光",
+      "text": "23:10；只靠招牌、灯笼、窗户和一台售货机；每盏灯位置、尺寸、功率、色温未记录",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "只靠场景内实际光源照明的方案",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d189；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d190.practice",
+      "sourceId": "d190",
+      "section": "1.14",
+      "caseId": "case-19",
+      "title": "孟买光",
+      "text": "一盏低角度落日（朝镜头）+ 天空 + 灯泡；长影；逐镜头灯参数未公开",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "低角度落日加天空加灯泡的方案",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d190；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d192.practice",
+      "sourceId": "d192",
+      "section": "1.14",
+      "caseId": "case-04",
+      "title": "案例 04 光照迭代结果",
+      "text": "白天日光、长阴影(约 240 m 远)、高度雾、光柱、调色;草地与背景被压暗让角色先被读到",
+      "quantities": [
+        {
+          "value": 240,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "压暗草地与背景让角色先被读到",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d192；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d193.practice",
+      "sourceId": "d193",
+      "section": "1.14",
+      "caseId": "case-04",
+      "title": "光照用户纠错语句",
+      "text": "「背景太亮、树在发光,把整体亮度调低、角色除外」「太阳在右上、光感却像来自左下」「站角色旁阴影像日落,远处像正午」「草再暗、亮处植被再暗」—— 逐条+截图",
+      "quantities": [],
+      "kind": "fix",
+      "routeNote": "用户逐条纠错光照的教训语句",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d193；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d194.practice",
+      "sourceId": "d194",
+      "section": "1.14",
+      "caseId": "ext-03",
+      "title": "食品广告光",
+      "text": "餐厅暖硬方向主光、高光强、锐阴影、蒸汽轮廓光;虚空段硬轮廓光+湿润高光、隧道出口暖光;尾版平匀海报光;转场处「连续曝光逻辑,无亮度跳变」;180° 快门、零颗粒",
+      "quantities": [
+        {
+          "value": 180,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "食品广告各段光照的提示词写法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d194；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d195.practice",
+      "sourceId": "d195",
+      "section": "1.14",
+      "caseId": "ext-03",
+      "title": "产品片光与大气",
+      "text": "头顶硬金光穿丛林树冠、体积光柱、30% 湿雾、花粉点、湿火山岩、背光半透明叶;「Must NOT appear」清单:屏幕文字、橡胶塑料 CGI 感、胶片颗粒叠加、暗角、镜头光斑、光条、漂浮光斑圆、色差、水印",
+      "quantities": [
+        {
+          "value": 0.3,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "产品片光与大气及禁用清单写法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d195；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d196.practice",
+      "sourceId": "d196",
+      "section": "1.14",
+      "caseId": "ext-03",
+      "title": "地产光线演变",
+      "text": "蓝图段平匀纸面光零辉光;点燃上升段正午定向日光、阴影逐层变长;室内为全高玻璃日光;自叠加段起连续变暖到黄金时刻(无突兀调色跳变),栏杆黄绿色相保持",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "地产片光线随段落演变的写法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d196；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d197.practice",
+      "sourceId": "d197",
+      "section": "1.14",
+      "caseId": "ext-05",
+      "title": "蜂巢「自内发光」光",
+      "text": "无外部光源,蜂蜜与金蜡自发暖光,靠近蜂窝最亮、向穹顶渐暗(动机性衰减而非镜头暗角);蜜面光斑「slow glossy highlight loop」缓慢漂移;不做倒蜜/滴落/涟漪",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "无外部光源自内发光的光方案",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d197；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d198.practice",
+      "sourceId": "d198",
+      "section": "1.14",
+      "caseId": "ext-04",
+      "title": "写实静帧光线",
+      "text": "低冬日在右骑士身后地平线之上、强逆光把画面右侧吹成暖雾、硬轮廓光、相机侧深冷蓝灰阴影、雪地仅弱反弹、高动态范围带真实高光滚降、长掠影;雪粒逐片被阳光捕捉、斑驳地面雾呈破碎带状而非均匀雾",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "写实静帧逆光冬日的光线写法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d198；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d199.practice",
+      "sourceId": "d199",
+      "section": "1.14",
+      "caseId": "ext-04",
+      "title": "打斗光线色温",
+      "text": "风暴冬日午后+强烈云隙阳光:右上低角度硬金白主光(约 5000K 暖主光)、左侧深云提供冷灰填充(约 7000K 冷阴影)、面甲内深冷阴影、雪地反弹提亮板甲下沿;逆光雪片成「白色帘幕」,体积光束(god rays)穿雪;强调「MORE SUN」「MORE SNOW」两条加强句",
+      "quantities": [
+        {
+          "value": 5000,
+          "unit": "K",
+          "rawUnit": "K"
+        },
+        {
+          "value": 7000,
+          "unit": "K",
+          "rawUnit": "K"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "主体是布光方案写法，色温只带两个数",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d199；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d200.practice",
+      "sourceId": "d200",
+      "section": "1.14",
+      "caseId": "case-19",
+      "title": "孟买光线要点",
+      "text": "低太阳在巷尾朝镜头、尘雾散射形成光柱、路面长阴影、逆光毛发边缘光、「dusty sunset light」",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "低太阳朝镜头逆光的光线写法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d200；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d201.practice",
+      "sourceId": "d201",
+      "section": "1.14",
+      "caseId": "case-08",
+      "title": "案例 08 轨道城市视觉",
+      "text": "青绿金星云+带环气态巨行星之上;珍珠白板/拉丝金与钛/青色能量管/虹彩晶体/玻璃金属巨构;两颗恒星强阳光、锐利阴影、大气光柱、受控镜头光斑;强光下仍保表面与敌人轮廓可读",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "强光下保轮廓可读的光方案写法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d201；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d202.practice",
+      "sourceId": "d202",
+      "section": "1.14",
+      "caseId": "ext-02",
+      "title": "库外来源 02 光色写法",
+      "text": "按方向、质感、色温写，不写灯具；色带各绑定光源并给占比(参考例：约60%暖金与浅石、25%海蓝绿与浅天、15%来自背光悬崖的冷蓝灰)；低暖午后太阳近平行海岸线掠射、长而软的影子、阴面冷蓝灰、湿石与海面高光、镜头朝太阳时炫光；无补光无灯架",
+      "quantities": [
+        {
+          "value": 0.6,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.25,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.15,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "按方向质感色温写光并给色带占比",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d202；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d203.practice",
+      "sourceId": "d203",
+      "section": "1.14",
+      "caseId": "case-07",
+      "title": "案例 07光与色彩脚本（案例 07，合并 6 处）",
+      "text": "每镜头一盏「有来由」的主光；笔触纹理只出现在受光处；阴影是平涂有色块；绘制的天空层层雾气；角色保持干净：两个色调、明暗交界软边加轮廓线；发光只出现在真实光源上；脸部明暗借自一个光滑头部形状，故只有一条干净明暗分界线。四套色彩脚本：紫色傍晚加一扇琥珀窗；更冷更灰去饱和的时间定格；倒带时扫过正午；青色早晨加金色稻草。每盏灯的类型、位置、功率、色温未公开。证据：原文陈述。验证：作者成片用过（原文陈述，无数值）。出处： L19、L20； 原文；原始笔记。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "每镜一盏有来由主光与色彩脚本",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过（原文陈述，无数值）",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d203；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "id": "light-cam.d212.practice",
+      "sourceId": "d212",
+      "section": "2.1",
+      "caseId": "case-02",
+      "title": "主视觉对色",
+      "text": "主视觉对色：注释里记下从主视觉图取的色值（地平线 #9ecde3、远山 #afccd7 等），逐项对照调色。源码注释 原实现源码.2。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "从主视觉图取色逐项对照调色",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 2.1 节 d212；出处类别：源码拆解·天穹、太阳盘、月亮与日晕"
+    },
+    {
+      "id": "light-cam.d213.practice",
+      "sourceId": "d213",
+      "section": "2.1",
+      "caseId": "case-07",
+      "title": "案例 07天空",
+      "text": "绘制的天空，层层雾气；天空一帧内从琥珀翻海军蓝（光线角度越过 180° 回绕，解法：角度从镜头首帧起量）",
+      "quantities": [
+        {
+          "value": 180,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "fix",
+      "routeNote": "角度回绕致天空翻色，从首帧起量",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C",
+      "docRef": "光照天空大气与相机汇编 第 2.1 节 d213；出处类别：原文陈述·天穹、太阳盘、月亮与日晕"
+    },
+    {
+      "id": "light-cam.d217.practice",
+      "sourceId": "d217",
+      "section": "2.2",
+      "caseId": "ext-01",
+      "title": "云不存颜色存三份占比",
+      "text": "直射/补光/雾三份 + 透光率，半浮点；显示时乘当前调色板，一次烘焙服务三种天色",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "云烘焙存光照占比不存颜色",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 2.2 节 d217；出处类别：源码拆解·云（积云、卷云、云海、体积云）"
+    },
+    {
+      "id": "light-cam.d254.practice",
+      "sourceId": "d254",
+      "section": "2.2",
+      "caseId": "ext-01",
+      "title": "云烘焙做法",
+      "text": "12 簇积云塔光线步进画进 4 张鱼眼贴图（2304²、2176²、3072²、2304²），光照存成三份占比（r 直射 g 补光 b 雾）加一张流场；播放时每层只转矩阵（0.27–2.0 度/秒），沿流场采同一张图三次，相位差 1/3，权重 (1−cos 2πp)/3，采样点 uv−fl×(p−0.5)；等距鱼眼 uv=0.5+r.xz×(θ/sinθ)×0.5/θmax，256² 分块；窗口贴图 0.0496°/像素（全天层 0.0786°/像素）；炮塔权重 sm(0,0.10,u)×(1−sm(0.78,1,u))（周期 11/14/15/21 s）；闪电 exp(−70a2) 核心+exp(−5.5a2) 光晕；三份占比显示时乘 14 行调色板",
+      "quantities": [
+        {
+          "value": [
+            0.27,
+            2
+          ],
+          "unit": "deg/s",
+          "rawUnit": "度/秒"
+        },
+        {
+          "value": 11,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 14,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 15,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 21,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "云烘焙成鱼眼贴图再转层播放的做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 2.2 节 d254；出处类别：源码拆解·云（积云、卷云、云海、体积云）"
+    },
+    {
+      "id": "light-cam.d264.practice",
+      "sourceId": "d264",
+      "section": "2.3",
+      "caseId": "case-13",
+      "title": "雾色与天穹分家",
+      "text": "雾地平线色=天穹地平线色向fogTint混fogTintMix(黄昏.55)；太阳侧按 1-fogSun(黄昏.48)拉回；使远景比天空更灰冷",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "雾色与天穹分开调的做法，权重只是附带",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码 原实现源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 2.3 节 d264；出处类别：源码拆解·雾（高度雾、谷雾、地面雾、雾带、雾面片）"
+    },
+    {
+      "id": "light-cam.d269.practice",
+      "sourceId": "d269",
+      "section": "2.3",
+      "caseId": "case-13",
+      "title": "本组基本没有：天空/雾/体积光归第 02 块。只有",
+      "text": "森林远景去饱和 70-260 米（见 1.1），算大气透视的手工替代。",
+      "lead": "本组基本没有：天空/雾/体积光归第 02 块。只有",
+      "quantities": [
+        {
+          "value": [
+            70,
+            260
+          ],
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "远景去饱和当大气透视的手工替代",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "清单未列",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 2.3 节 d269；出处类别：推断与说明·雾（高度雾、谷雾、地面雾、雾带、雾面片）"
+    },
+    {
+      "id": "light-cam.d288.practice",
+      "sourceId": "d288",
+      "section": "2.3",
+      "caseId": "case-13",
+      "title": "天气 R15 修正",
+      "text": "「往上看时雾把整棵树抹掉了」→ 每条光线光学深度加上限（hazeCap）；「峡谷雾顶是一块笔直的玻璃板」→ 雾池顶面做起伏",
+      "quantities": [],
+      "kind": "fix",
+      "routeNote": "雾抹掉主体与雾顶平直的两条修法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "光照天空大气与相机汇编 第 2.3 节 d288；出处类别：源码拆解·雾（高度雾、谷雾、地面雾、雾带、雾面片）"
+    },
+    {
+      "id": "light-cam.d294.practice",
+      "sourceId": "d294",
+      "section": "2.4",
+      "caseId": "case-10",
+      "title": "体积光（实时）",
+      "text": "沿视线 28 步（high 档），每步查一次太阳阴影图；半分辨率算；起点每像素每帧抖动，64 帧一循环；横竖各一遍按深度保边模糊；放大回全分辨率时 4 邻点按深度加权",
+      "quantities": [
+        {
+          "value": 64,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "半分辨率步进体积光加抖动与保边模糊",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "A",
+      "docRef": "光照天空大气与相机汇编 第 2.4 节 d294；出处类别：源码拆解·体积光（屏幕空间步进与径向光束）"
+    },
+    {
+      "id": "light-cam.d314.practice",
+      "sourceId": "d314",
+      "section": "2.7",
+      "caseId": "case-19",
+      "title": "孟买灰尘",
+      "text": "灰尘对太阳的单次散射画光束；返修把灰尘降到 0.18 倍；牛镜头最暗部 65→29（0–255 刻度）；炭炉烟雾=随时间变化的程序化密度，自己投影，返修后变薄成缕",
+      "quantities": [],
+      "kind": "fix",
+      "routeNote": "灰尘过浓压暗部的返修教训",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C",
+      "docRef": "光照天空大气与相机汇编 第 2.7 节 d314；出处类别：原文陈述·物理大气与路径追踪天空（纽约、餐馆、孟买）"
+    },
+    {
+      "id": "light-cam.d316.practice",
+      "sourceId": "d316",
+      "section": "2.7",
+      "caseId": "case-26",
+      "title": "物理大气",
+      "text": "Rayleigh+Mie+臭氧多次散射,按太阳高度计算:厅内太阳高度角 +9°;外景「first light」:餐厅处在山丘冷影里而远山已发橙光、山谷有雾、水坑映霓虹、亮着的电话亭与院灯",
+      "quantities": [
+        {
+          "value": 9,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "按太阳高度算大气加光景编排，仅带一个数",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 2.7 节 d316；出处类别：原文陈述·物理大气与路径追踪天空（纽约、餐馆、孟买）"
+    },
+    {
+      "id": "light-cam.d318.practice",
+      "sourceId": "d318",
+      "section": "2.8",
+      "caseId": "case-02",
+      "title": "预设切换",
+      "text": "预设切换：默认 3 s，`smoothstep(0,1,t/dur)`，用真实时间；一份大气数据喂天空、雾、角色光、调色。源码 原实现源码。",
+      "quantities": [
+        {
+          "value": 3,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "一份大气数据喂各模块，预设平滑切换",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 2.8 节 d318；出处类别：源码拆解·天气切换与大气数据组织"
+    },
+    {
+      "id": "light-cam.d319.practice",
+      "sourceId": "d319",
+      "section": "2.8",
+      "caseId": "case-13",
+      "title": "自动化钉死天气",
+      "text": "navigator.webdriver 时钉住云影和湿度，同步烘焙探针，等 DBG.settled",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "自动化时钉住天气状态再取帧",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "光照天空大气与相机汇编 第 2.8 节 d319；出处类别：源码拆解·天气切换与大气数据组织"
+    },
+    {
+      "id": "light-cam.d320.practice",
+      "sourceId": "d320",
+      "section": "2.9",
+      "caseId": "case-04",
+      "title": "氛围指令",
+      "text": "「light shafts, fog…so you can't always see everything so sharply」→ 结果含高度雾+光柱",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "提示词写法对应出高度雾与光柱的经验",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 2.9 节 d320；出处类别：原文陈述·提示词里的大气写法"
+    },
+    {
+      "id": "light-cam.d321.practice",
+      "sourceId": "d321",
+      "section": "2.9",
+      "caseId": "ext-02",
+      "title": "库外来源 02 大气写法",
+      "text": "大气=全画面密度：从镜头到远平面连续散射渐变，各平面黑位抬起，远景融入天空，低宏观对比+高微观对比使近景皮肤/针织/石头保持锐利；风贯穿画面并说明具体带动什么(长发横拖过脸、袖子鼓起、纱裤波动、悬崖灌木)；每步踩踏扬起碎石即散；禁用 fog/mist/smoke/shafts/god rays/plumes/banks/swirls",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "提示词把大气写成全画面密度的写法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 2.9 节 d321；出处类别：原文陈述·提示词里的大气写法"
+    },
+    {
+      "id": "light-cam.d330.practice",
+      "sourceId": "d330",
+      "section": "3.1",
+      "caseId": "ext-01",
+      "title": "视场适配",
+      "text": "宽高比≥16/9 用关键帧竖直视场；更窄时保持 16:9 水平视场：fov=min(2·atan(tan(base/2)·(16/9)/aspect), max(base,100))",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "宽屏用竖直视场、窄屏保水平视场的做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.1 节 d330；出处类别：源码拆解·相机本体、焦段、视场角与画幅"
+    },
+    {
+      "id": "light-cam.d331.practice",
+      "sourceId": "d331",
+      "section": "3.1",
+      "caseId": "ext-06",
+      "title": "案例 08 相机参数",
+      "text": "相机装在胸口(低于常规 FPS 眼高);水平 FOV 115°–125°;鱼眼/桶形畸变;周边拉伸;轻微周边暗角;边缘橙/青色色差;受控曝光适应;传感器颗粒+强微对比度;可调运动模糊;脚步同步的垂直/横向脉冲;惯性 pitch/roll;加减速响应;落地冲击;弹簧式回正;相机系统与碰撞胶囊分离;防穿墙;FOV/抖动/畸变/运动模糊/色差可设置",
+      "quantities": [
+        {
+          "value": [
+            115,
+            125
+          ],
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "胸口机位广角畸变的第一人称镜头配方",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.1 节 d331；出处类别：原文陈述·相机本体、焦段、视场角与画幅"
+    },
+    {
+      "id": "light-cam.d332.practice",
+      "sourceId": "d332",
+      "section": "3.2",
+      "caseId": "case-01",
+      "title": "取段",
+      "text": "取段：f ≤ 首帧返回首值，f ≥ 末帧返回末值（两端夹住）；否则取 keys[i].帧 ≤ f 的最大 i，段 [f1,f2]。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "关键帧取段与两端夹住的算法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 3.2 节 d332；出处类别：源码拆解·路径插值算法（Hermite、单调三次、Catmull-Rom、弹簧）"
+    },
+    {
+      "id": "light-cam.d333.practice",
+      "sourceId": "d333",
+      "section": "3.2",
+      "caseId": "case-01",
+      "title": "相机插值：过关键帧的分段三次 Hermite（film.spline）",
+      "text": "切线（已乘本段时长）：m1 = (p2 − p0)/(f2 − f0)·(f2 − f1)，首段 m1 = p2 − p1；m2 = (p3 − p1)/(f3 − f1)·(f2 − f1)，末段 m2 = p2 − p1。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "分段三次 Hermite 切线算法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 3.2 节 d333；出处类别：源码拆解·路径插值算法（Hermite、单调三次、Catmull-Rom、弹簧）"
+    },
+    {
+      "id": "light-cam.d334.practice",
+      "sourceId": "d334",
+      "section": "3.2",
+      "caseId": "case-01",
+      "title": "求值",
+      "text": "求值：t = (f − f1)/(f2 − f1)；out = (2t³−3t²+1)·p1 + (t³−2t²+t)·m1 + (−2t³+3t²)·p2 + (t³−t²)·m2。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "Hermite 基函数求值算法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 3.2 节 d334；出处类别：源码拆解·路径插值算法（Hermite、单调三次、Catmull-Rom、弹簧）"
+    },
+    {
+      "id": "light-cam.d335.practice",
+      "sourceId": "d335",
+      "section": "3.2",
+      "caseId": "case-01",
+      "title": "相机插值：过关键帧的分段三次 Hermite（film.spline）",
+      "text": "无单调限制，会过冲（实测例：take B 焦段关键帧 30→40→56→58→58→40，帧 348 求值 60.3 mm；take D 光圈帧 660 求值 11.84）。照着重做必须用同一个样条。",
+      "quantities": [
+        {
+          "value": 60.3,
+          "unit": "mm",
+          "rawUnit": "mm"
+        }
+      ],
+      "kind": "fix",
+      "routeNote": "无单调限制会过冲，重做须用同一样条",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 3.2 节 d335；出处类别：源码拆解·路径插值算法（Hermite、单调三次、Catmull-Rom、弹簧）"
+    },
+    {
+      "id": "light-cam.d336.practice",
+      "sourceId": "d336",
+      "section": "3.2",
+      "caseId": "case-01",
+      "title": "缓动",
+      "text": "缓动：ease_out(t, p=3) = 1 − (1 − t)^p；ease_in(t, p=3) = t^p；smooth(t) = t²(3 − 2t)；t 先夹到 [0,1]。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "通用缓动函数写法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 3.2 节 d336；出处类别：源码拆解·路径插值算法（Hermite、单调三次、Catmull-Rom、弹簧）"
+    },
+    {
+      "id": "light-cam.d337.practice",
+      "sourceId": "d337",
+      "section": "3.2",
+      "caseId": "case-01",
+      "title": "朝向",
+      "text": "朝向：f = normalize(tgt − loc)；r = normalize(f × up)；u = r × f；旋转矩阵三列 (r, u, −f)，转四元数；与上次点积 < 0 取反。滚转完全由 up 轨决定。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "由目标与上向量求相机朝向的算法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 3.2 节 d337；出处类别：源码拆解·路径插值算法（Hermite、单调三次、Catmull-Rom、弹簧）"
+    },
+    {
+      "id": "light-cam.d340.practice",
+      "sourceId": "d340",
+      "section": "3.2",
+      "caseId": "ext-01",
+      "title": "单调三次插值 mono",
+      "text": "端点斜率取首末段差商；中间点若相邻两段斜率异号或为 0 取 0，否则取调和平均 2·d0·d1/(d0+d1)；区间内用三次 Hermite；CAM、LOOK、AIM、PK 都用",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "保单调三次插值的斜率取法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.2 节 d340；出处类别：源码拆解·路径插值算法（Hermite、单调三次、Catmull-Rom、弹簧）"
+    },
+    {
+      "id": "light-cam.d341.practice",
+      "sourceId": "d341",
+      "section": "3.2",
+      "caseId": "case-25",
+      "title": "点击缩放弹簧参数",
+      "text": "跳到每次点击的缩放是弹簧(stiffness 200、damping 40、mass 2.25),移动的是相机的瞄准点与焦距而非裁切,故放大后仍清晰;光标/选择框/标签是 2D 层,把模型点经搭建相机投影,所以光标真能「搬」桁架段",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "动瞄准点与焦距而非裁切、2D 层投影的做法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "源码(原文贴出)",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.2 节 d341；出处类别：原文陈述·路径插值算法（Hermite、单调三次、Catmull-Rom、弹簧）"
+    },
+    {
+      "id": "light-cam.d356.practice",
+      "sourceId": "d356",
+      "section": "3.3",
+      "caseId": "case-01",
+      "title": "制作日志",
+      "text": "制作日志：成片试渲发现镜头 A 景深过浅、整卡发糊，光圈 2.8 改 11（原文陈述）。",
+      "quantities": [],
+      "kind": "fix",
+      "routeNote": "景深过浅整卡发糊，收小光圈修正",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "源码 + 原文陈述",
+      "verificationLabel": "清单未列",
+      "docRef": "光照天空大气与相机汇编 第 3.3 节 d356；出处类别：原文陈述·逐镜头关键帧与路径表（可照搬的机位）"
+    },
+    {
+      "id": "light-cam.d361.practice",
+      "sourceId": "d361",
+      "section": "3.3",
+      "caseId": "ext-01",
+      "title": "开场运镜意图",
+      "text": "注释：0–9 秒摇臂从岸边一米高的草和黄灌木后升起，向右移到湖面上，让草、岸、亭、殿、峰彼此错动；84.2–87.2 秒回到开场位置，龙尾入云后黄昏山谷停留 3 秒再淡出",
+      "quantities": [
+        {
+          "value": [
+            0,
+            9
+          ],
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": [
+            84.2,
+            87.2
+          ],
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 3,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "摇臂升起让前中后景错动的开场编排",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.3 节 d361；出处类别：原文陈述·逐镜头关键帧与路径表（可照搬的机位）"
+    },
+    {
+      "id": "light-cam.d374.practice",
+      "sourceId": "d374",
+      "section": "3.4",
+      "caseId": "ext-01",
+      "title": "相机路径 + 加权注视 + 构图偏移",
+      "text": "位置用 53 个关键帧的保单调三次插值（不在关键帧停死）；注视是 8 个目标（基准点、红龙头、白龙头、裂口、湖、光束交点、龙珠、落雷点）按 52 行权重表混合；龙头先做 7 点时间平滑（窗口 w=0.17 s 总宽 1.02 s）再看；最后按 AIM 表把镜头偏开目标几度（吼叫时偏右 14°、偏上 6.5°）；LOOK 光束交点列 52 行全 0",
+      "quantities": [
+        {
+          "value": 0.17,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 1.02,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 14,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 6.5,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "保单调插值、加权注视、平滑再偏构图的工序",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.4 节 d374；出处类别：源码拆解·注视、构图偏移与跟随目标"
+    },
+    {
+      "id": "light-cam.d379.practice",
+      "sourceId": "d379",
+      "section": "3.4",
+      "caseId": "ext-01",
+      "title": "龙头平滑 follow",
+      "text": "取 t+k·w（k=−3..3）七个时刻头位置，权重 (4−abs(k))/16 即 1,2,3,4,3,2,1 /16；w 由 followW 表给；龙没准备好时只看基准点；构图偏移以相机为原点把目标绕竖轴转 yaw、抬 pitch，距离不变",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "多时刻加权平滑目标再绕相机偏构图",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.4 节 d379；出处类别：源码拆解·注视、构图偏移与跟随目标"
+    },
+    {
+      "id": "light-cam.d402.practice",
+      "sourceId": "d402",
+      "section": "3.6",
+      "caseId": "case-13",
+      "title": "锁定空间不足处理",
+      "text": "d<min(2.2,dist×.6)依次试RAISE_TRY=[[0,1],[.15,.5],[.3,.2]](俯仰加/肩偏移乘)选能走最远的，新选项须比当前远0.3米才换；持续0.15秒仍被墙挡侧转0.2/0.4/0.6/0.8弧度，墙后空了0.6秒再转回",
+      "quantities": [
+        {
+          "value": 0.3,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.15,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 0.2,
+          "unit": "rad",
+          "rawUnit": "弧度"
+        },
+        {
+          "value": 0.4,
+          "unit": "rad",
+          "rawUnit": "弧度"
+        },
+        {
+          "value": 0.6,
+          "unit": "rad",
+          "rawUnit": "弧度"
+        },
+        {
+          "value": 0.8,
+          "unit": "rad",
+          "rawUnit": "弧度"
+        },
+        {
+          "value": 0.6,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "空间不足逐项试探再侧转（判例）",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.6 节 d402；出处类别：源码拆解·游戏相机：跟随、锁定、避障与碰撞（案例 13、案例 02）"
+    },
+    {
+      "id": "light-cam.d403.practice",
+      "sourceId": "d403",
+      "section": "3.6",
+      "caseId": "case-13",
+      "title": "敌人遮挡回避_occAvoid",
+      "text": "判定：镜头到骑士0.6/1.1/1.6米三高度各连线，两条被敌人(半径+.1)挡住或镜头贴敌(_lensFoe≥.3)；遮挡持续0.2秒(镜头已拉近到60%以下0.08秒)后依次试偏航.15/.3/.45/.6/.8/1.0/1.2弧度先上次方向找到不遮挡的转过去再多转.12；转速min(2.4,.9+",
+      "quantities": [
+        {
+          "value": 0.6,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 1.1,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 1.6,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.6,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.08,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 1.2,
+          "unit": "rad",
+          "rawUnit": "弧度"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "多高度连线判遮挡后逐档试偏航",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "目标",
+      "verificationLabel": "×3.2)；冷却.5+",
+      "docRef": "光照天空大气与相机汇编 第 3.6 节 d403；出处类别：推断与说明·游戏相机：跟随、锁定、避障与碰撞（案例 13、案例 02）"
+    },
+    {
+      "id": "light-cam.d404.practice",
+      "sourceId": "d404",
+      "section": "3.6",
+      "caseId": "case-13",
+      "title": "瞄准辅助ASSIST",
+      "text": "仅触屏默认开(手柄键鼠为0)；镜头静止0.9秒后在11米偏离1.35弧度内挑分数(角度+距离×.04)最低且视线通畅敌人每0.2秒重选；偏离>0.36弧度部分以0.95弧度/秒×强度转回；骑士正远离目标不辅助",
+      "quantities": [
+        {
+          "value": 0.9,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 11,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 1.35,
+          "unit": "rad",
+          "rawUnit": "弧度"
+        },
+        {
+          "value": 0.2,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 0.36,
+          "unit": "rad",
+          "rawUnit": "弧度"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "阈值加逻辑的瞄准辅助算法，数字是附带",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.6 节 d404；出处类别：源码拆解·游戏相机：跟随、锁定、避障与碰撞（案例 13、案例 02）"
+    },
+    {
+      "id": "light-cam.d405.practice",
+      "sourceId": "d405",
+      "section": "3.6",
+      "caseId": "case-13",
+      "title": "碰撞：抬升越障_liftNeed",
+      "text": "仅自由镜头且lockW<.5；前1米(minT)内障碍抬基点最多0.7(maxB)高出障碍顶0.3(clear)；1米外障碍/地面沿射线抬高需要量按距离/t放大最多1.3，超2.4(veto)放弃返回-1；抬升速率8回落2，碰撞仍不通以30追上；先抬高越矮墙不拉近视野更好",
+      "quantities": [
+        {
+          "value": 1,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "先抬高越障再拉近的避障算法与取舍",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.6 节 d405；出处类别：源码拆解·游戏相机：跟随、锁定、避障与碰撞（案例 13、案例 02）"
+    },
+    {
+      "id": "light-cam.d406.practice",
+      "sourceId": "d406",
+      "section": "3.6",
+      "caseId": "case-13",
+      "title": "碰撞：步进检测_march",
+      "text": "沿镜头方向20采样点；低于地面+.35、出场地圆环、碰半径≥.7碰撞体(外扩.22)、碰敌人(半径+.35头目+.45)在该点前0.35停下，最近≥0.7米；忽略标签kerb birch twig litter membrane及尺寸<4米的upright；CAM_RINGS火葬场院子半径LAMP_R-.85额外2.4米余量留门洞；头目膜翼最近1.6米(MEM_MIN)；敌人贴脸镜头前1.2米(LENS_NEAR)内按敌人位置拉近",
+      "quantities": [
+        {
+          "value": 0.7,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 4,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 2.4,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "沿镜头方向步进检测、提前停下的做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.6 节 d406；出处类别：源码拆解·游戏相机：跟随、锁定、避障与碰撞（案例 13、案例 02）"
+    },
+    {
+      "id": "light-cam.d428.practice",
+      "sourceId": "d428",
+      "section": "3.8",
+      "caseId": "case-27",
+      "title": "镜头原则（量不出）",
+      "text": "镜头和身体走同一乐句，跟着领先手臂倾斜、顺旋转方向甩、沿指出手臂爬升；相机焦段机位运动曲线未公开",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "镜头跟肢体同乐句的运镜原则",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "无",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d428；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d431.practice",
+      "sourceId": "d431",
+      "section": "3.8",
+      "caseId": "case-14",
+      "title": "只摇和俯仰、无视差",
+      "text": "014/019/021/026 共同限制；孟买镜头 6 例外（真推进，逐帧渲，128 spp，带视差和拉焦）",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "多数镜头只摇与俯仰，例外才真推进逐帧渲",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d431；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d435.practice",
+      "sourceId": "d435",
+      "section": "3.8",
+      "caseId": "case-01",
+      "title": "旧版6镜头分镜(120BPM,每拍15帧,每小节60帧)",
+      "text": "S1钩子0–119正面低机位推进左风扇轮毂遮满画面=转场;S2顶边120–239掠过发光字与12V-2x6标签POWER 575 W;S3爆炸240–359全部件拆开侧后环绕6引线标签计数36/36;S4海报360–479钴蓝底卡在右“32GB”在卡后465–479军鼓滚奏每4帧卡顿;S5拆壳480–599外壳上弹风扇左右飞出镜头冲向铜均热板“某铭牌字样”;S6定版600–719卡在上方下方打字“某款旗舰显卡”690帧大击",
+      "quantities": [
+        {
+          "value": 575,
+          "unit": "W",
+          "rawUnit": "W"
+        },
+        {
+          "value": 4,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 690,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "按拍点网格分六镜的镜头编排，帧段只是索引",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d435；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d436.practice",
+      "sourceId": "d436",
+      "section": "3.8",
+      "caseId": "case-15",
+      "title": "简报镜头约束",
+      "text": "镜头锁定或缓慢平滑漂移，不抖、不快推；镜头1 远景（草坡、大天空、坡顶一棵树，女孩左下往树跑）、镜头2 中景（树下喘气、风里按帽子、四下看）、镜头3 近双人（精灵从树干后探头→她看见脸亮起→精灵害羞飘出落帽檐→她笑）",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "运镜约束加三镜头编排，无数值",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d436；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d437.practice",
+      "sourceId": "d437",
+      "section": "3.8",
+      "caseId": "case-07",
+      "title": "切镜表",
+      "text": "所有相机登记在切镜表里，每个镜头有关键帧的位置、目标点、焦距、光圈、对焦点；共用求值器变平滑曲线；机位数值未公开",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "相机登记进切镜表、共用求值器平滑",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d437；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d438.practice",
+      "sourceId": "d438",
+      "section": "3.8",
+      "caseId": "case-14",
+      "title": "把相机放到光所在的地方",
+      "text": "贴水面和凸面镜两镜没有新增布景，只新增相机与两个行人",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "不加布景，只把相机挪到有光的位置",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d438；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d440.practice",
+      "sourceId": "d440",
+      "section": "3.8",
+      "caseId": "case-28",
+      "title": "360° 资产轨道视频(给建模当参考)",
+      "text": "Seedance 12 s、21:9、一次顺时针完整 360° 轨道,最后一帧回到起始前三分之四视角;相机在资产中高度、水平瞄准、pitch/roll=0;高度/半径/焦距/角速度恒定;无畸变直线透视;资产占宽 ≤ 60%、高 ≤ 70%,左右至少各留 20% 宽、上下各 15% 高空白;按整圈最大投影轮廓定距;“STATIC ASSET”:只有相机动",
+      "quantities": [
+        {
+          "value": 12,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 360,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 0.6,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.7,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.2,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.15,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "参考用轨道视频的拍法约束，去数仍可照做",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过(12 s 视频)",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d440；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d441.practice",
+      "sourceId": "d441",
+      "section": "3.8",
+      "caseId": "case-03",
+      "title": "360° 轨道提示词(玻璃头版)",
+      "text": "front→right profile→rear→opposite profile→front;同样 60% 宽/70% 高、左右各留≥20% 宽、上下≥15% 高;相机在资产中高度,pitch/roll=0;高度/半径/焦距/角速度恒定;无畸变直线透视;“Retain the reference’s regional opacity, transparency, translucency and emission”;被遮挡部件须在同位置重新出现,无消失/重复/几何闪烁;关闭景深与运动模糊;灰色无反射地板+固定柔光;无字幕界面,静音",
+      "quantities": [
+        {
+          "value": 0.6,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.7,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.2,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.15,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "整圈轨道提示词的约束写法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d441；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d444.practice",
+      "sourceId": "d444",
+      "section": "3.8",
+      "caseId": "ext-03",
+      "title": "地产镜头时间轴",
+      "text": "0–1.8 剖面线稿绘制;1.8–3.6 轴测自建;3.6–5.8 点燃上升+慢速上升顺时针环绕;SEAM C 倾转垂直俯视→平面;5.8–7.8 穿过天花下降进入公寓、转眼高度前进;SEAM D 穿过玻璃到露台;7.8–9.6 露台、开始长回拉;9.6–11.4 线稿叠加到实景上(PROOF OVERLAY)后沉入表面、光渐暖入黄金时刻;11.4–13.2 黄金时刻全景;13.2–15.0 回拉到楼居中、尾牌,hold 1.0 s 后整帧反向「un-plot」",
+      "quantities": [
+        {
+          "value": 1,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "一镜到底的分段运镜编排",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d444；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d445.practice",
+      "sourceId": "d445",
+      "section": "3.8",
+      "caseId": "ext-05",
+      "title": "产品片:单一垂直上升",
+      "text": "扁平粉彩赛璐璐 3D 城市、一镜到底(无剪切)从地面慢速垂直上升到天空;0–3 草地→3–6 经过单轨桥看到巨型蜂蜜罐地标→6–9 沿罐上升穿过纸片般滑开的云层→9–12 云上出现气球字 logo 轻晃定格;层间轻视差",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "单一垂直上升一镜到底的编排",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d445；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d447.practice",
+      "sourceId": "d447",
+      "section": "3.8",
+      "caseId": "case-28",
+      "title": "机械头30秒两幕镜头表",
+      "text": "30fps、900帧、16:9;Act I 装配 0–15秒:S1 0–4s 颈脊与液压微距自下而上 85 mm 浅景深/S2 4–8s 内骨架与眼光学 3/4 环绕/S3 8–11s 粉色颌座与糖果牙瀑布(相隔2–3帧)/S4 11–15s 蓝壳分解合拢与螺丝(14.5s 最后一颗额头螺丝锁定);Act II 唤醒 15–30s:S5 开机眼校准/S6 侧与后四分之三跟拍展示颈/液压/齿轮/S7 23–26.5s 下颌发音测试英雄镜/S8 26.5–30s 缓慢拉出正面英雄镜与轮廓光扫过;曲线=精调 Bezier 带轻微机械过冲回稳,禁线性",
+      "quantities": [
+        {
+          "value": 30,
+          "unit": "fps",
+          "rawUnit": "fps"
+        },
+        {
+          "value": 900,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": [
+            0,
+            15
+          ],
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": [
+            0,
+            4
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 85,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": [
+            4,
+            8
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": [
+            8,
+            11
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": [
+            2,
+            3
+          ],
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": [
+            11,
+            15
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": [
+            15,
+            30
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": [
+            23,
+            26.5
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": [
+            26.5,
+            30
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "两幕八镜的镜头编排，时间段只是索引",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d447；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d448.practice",
+      "sourceId": "d448",
+      "section": "3.8",
+      "caseId": "case-26",
+      "title": "餐馆六镜与“精确重投影”平移",
+      "text": "六镜:外景/窗口OPEN招牌/大厅/沿吧台/菜单与出餐口/杯子;每镜在同一场景里放一台相机并有各自干净4K母版;三脚架平移与俯仰由对该母版的精确重投影计算,无采样噪点;钩子:前半秒 两块霓虹招牌全暗三次(帧2–4、7–8、11),声音同帧断续,因画面与声音读同一张逐帧表;前两镜母版 3840×2160、1024 spp,单块工作站 GPU 耗时56秒与131秒",
+      "quantities": [
+        {
+          "value": 56,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 131,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "每镜一张干净母版，摇移靠重投影",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d448；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d449.practice",
+      "sourceId": "d449",
+      "section": "3.8",
+      "caseId": "case-06",
+      "title": "案例 06 改画幅逐镜重构图",
+      "text": "43 个镜头各自重新取景（4:3），不裁切",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "改画幅时逐镜重新取景而不裁切",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.8 节 d449；出处类别：原文陈述·逐案例镜头表与运镜节奏"
+    },
+    {
+      "id": "light-cam.d457.practice",
+      "sourceId": "d457",
+      "section": "3.9",
+      "caseId": "case-13",
+      "title": "景深用于过场",
+      "text": "对话双人镜头与关键镜头才开 DOF，见「后期」",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "只在对话与关键镜头开景深的取舍",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "光照天空大气与相机汇编 第 3.9 节 d457；出处类别：源码拆解·景深、运动模糊、曝光与镜头光学"
+    },
+    {
+      "id": "light-cam.d459.practice",
+      "sourceId": "d459",
+      "section": "3.9",
+      "caseId": "ext-04",
+      "title": "写实静帧相机句",
+      "text": "「35mm film with an anamorphic 50mm lens, low camera at knee height, f/2.8, sharp focus on the crossed blades…subtle lens breathing and mild chromatic aberration on the backlit edges, natural halation around the sun, visible film grain, handheld micro shake, no post sharpening」",
+      "quantities": [
+        {
+          "value": 35,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 50,
+          "unit": "mm",
+          "rawUnit": "mm"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "写实静帧提示词里的相机句写法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.9 节 d459；出处类别：原文陈述·景深、运动模糊、曝光与镜头光学"
+    },
+    {
+      "id": "light-cam.d460.practice",
+      "sourceId": "d460",
+      "section": "3.9",
+      "caseId": "case-05",
+      "title": "曝光",
+      "text": "镜头近距离穿过亮零件时锁住曝光，否则这一帧读起来像闪光",
+      "quantities": [],
+      "kind": "fix",
+      "routeNote": "近距穿过亮件要锁曝光，否则闪白",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.9 节 d460；出处类别：原文陈述·景深、运动模糊、曝光与镜头光学"
+    },
+    {
+      "id": "light-cam.d461.practice",
+      "sourceId": "d461",
+      "section": "3.10",
+      "caseId": "case-05",
+      "title": "镜头规矩",
+      "text": "细长件径向靠近；零件离镜头不近于约 1 m；近镜头零件 10 帧以上到位；镜头近距穿过亮零件时锁曝光；相机不抖；正片 720 帧 = 624 帧连续镜头 + 1 次硬切（成片第 756 帧）+ 96 帧定妆",
+      "quantities": [
+        {
+          "value": 1,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 10,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 720,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 624,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 96,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "近镜头安全规矩与连续镜头编排",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述 + 实测（切点）",
+      "verificationLabel": "实测切点",
+      "docRef": "光照天空大气与相机汇编 第 3.10 节 d461；出处类别：原文陈述·镜头安全规则（近镜头、转场、重影与关键帧陷阱）"
+    },
+    {
+      "id": "light-cam.d462.practice",
+      "sourceId": "d462",
+      "section": "3.10",
+      "caseId": "case-07",
+      "title": "案例 07切镜重影修复",
+      "text": "镜头第一帧运动模糊采样会伸进上一镜头，所有采样钳在本镜头内；修复前后差 f624 19.4、f1080 11.3、f1324 12.0（mean abs diff，含义是推断）",
+      "quantities": [],
+      "kind": "fix",
+      "routeNote": "切镜首帧模糊采样钳在本镜头内",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述 + 画面读数",
+      "verificationLabel": "C/D",
+      "docRef": "光照天空大气与相机汇编 第 3.10 节 d462；出处类别：原文陈述·镜头安全规则（近镜头、转场、重影与关键帧陷阱）"
+    },
+    {
+      "id": "light-cam.d463.practice",
+      "sourceId": "d463",
+      "section": "3.10",
+      "caseId": "case-05",
+      "title": "近镜头三条规则(两次事故换来)",
+      "text": "①细长零件径向接近镜头,绝不沿相机轴飞(沿轴时出现隔帧闪烁);②任何东西不得出现在距镜头约 1 m 以内(曾有面板出现在 0.7 m 并 9 帧到达,造成一帧白帧);③镜头附近零件至少 10 帧以上到达;经过亮零件时锁定曝光",
+      "quantities": [
+        {
+          "value": 1,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.7,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 9,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 10,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "fix",
+      "routeNote": "两次事故换来的近镜头三条规则",
+      "evidenceLevel": "实测",
+      "evidenceLabel": "实测",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.10 节 d463；出处类别：实测读数·镜头安全规则（近镜头、转场、重影与关键帧陷阱）"
+    },
+    {
+      "id": "light-cam.d464.practice",
+      "sourceId": "d464",
+      "section": "3.10",
+      "caseId": "case-01",
+      "title": "转场=物体盖满画面",
+      "text": "四个长镜头之间(192/384/576)靠“部件盖满画面”衔接;不用硬切/白闪/黑场;S4末尾380–383放真实帧扎进右风扇轮毂",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "用部件盖满画面做转场，不用硬切",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.10 节 d464；出处类别：原文陈述·镜头安全规则（近镜头、转场、重影与关键帧陷阱）"
+    },
+    {
+      "id": "light-cam.d465.practice",
+      "sourceId": "d465",
+      "section": "3.10",
+      "caseId": "case-01",
+      "title": "审片后机位修订",
+      "text": "S2跟焦收光圈贴到插座面;S3起点更快拉开;S4末尾扎进轮毂;S7整卡入画;微距段快门0.25;近景光圈f/16–f/22 且对焦距跟目标走",
+      "quantities": [],
+      "kind": "fix",
+      "routeNote": "审片后逐镜的机位与光圈修订",
+      "evidenceLevel": "实测",
+      "evidenceLabel": "实测",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.10 节 d465；出处类别：实测读数·镜头安全规则（近镜头、转场、重影与关键帧陷阱）"
+    },
+    {
+      "id": "light-cam.d466.practice",
+      "sourceId": "d466",
+      "section": "3.10",
+      "caseId": "case-01",
+      "title": "改关键帧牵动前一段陷阱",
+      "text": "288帧焦段50→56使样条切线牵动192–216;补渲从216开始漏23帧;改关键帧后按样条影响范围重算补渲区间(Hermite切线依赖相邻关键帧)",
+      "quantities": [
+        {
+          "value": 288,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 23,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "fix",
+      "routeNote": "改关键帧要按样条影响范围补渲",
+      "evidenceLevel": "实测",
+      "evidenceLabel": "实测",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.10 节 d466；出处类别：实测读数·镜头安全规则（近镜头、转场、重影与关键帧陷阱）"
+    },
+    {
+      "id": "light-cam.d468.practice",
+      "sourceId": "d468",
+      "section": "3.11",
+      "caseId": "case-15",
+      "title": "机位量测方法",
+      "text": "每镜头首尾帧缩到 216×122 灰度，在尾帧上搜缩放 0.96–1.04（步长 1%）和平移 ±8/±5 px，找与首帧最像组合；误差降 30% 以上才算数；像素按 216 宽，×8.89 换算 1920 宽",
+      "quantities": [
+        {
+          "value": 0.01,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": [
+            -5,
+            5
+          ],
+          "unit": "px",
+          "rawUnit": "px"
+        },
+        {
+          "value": 0.3,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "首尾帧缩小后搜缩放平移的量测法",
+      "evidenceLevel": "实测",
+      "evidenceLabel": "实测",
+      "verificationLabel": "我们自己量过",
+      "docRef": "光照天空大气与相机汇编 第 3.11 节 d468；出处类别：实测读数·实测机位与量测方法"
+    },
+    {
+      "id": "light-cam.d472.practice",
+      "sourceId": "d472",
+      "section": "3.11",
+      "caseId": "case-13",
+      "title": "定点截图相机表",
+      "text": "固定机位表入源码、每轮从同一组机位截图：VIEW_CAMS_span 86 条、ROAD_VIEW_CAMS 23 条、VIEW_CAMS16 66 条（来自 原实现数据文件）、龙 STILLS 38 个、巡检 tour 编号最大 74、机位名形如 gall_d40@p2（区域_d距离@p档位）；定点截图前先剔除会入镜的飘动件",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "固定机位表入库，每轮同机位截图比对",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "光照天空大气与相机汇编 第 3.11 节 d472；出处类别：源码拆解·实测机位与量测方法"
+    },
+    {
+      "id": "light-cam.d473.practice",
+      "sourceId": "d473",
+      "section": "3.12",
+      "caseId": "case-27",
+      "title": "相机与肢体同乐句",
+      "text": "相机跟随主导手臂倾斜、顺着旋转方向甩、随指向的手臂爬升",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "相机跟主导肢体同乐句运动",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.12 节 d473；出处类别：原文陈述·提示词里的镜头写法与词汇"
+    },
+    {
+      "id": "light-cam.d474.practice",
+      "sourceId": "d474",
+      "section": "3.12",
+      "caseId": "ext-07",
+      "title": "跟拍视角",
+      "text": "镜头始终在主角身后几英尺处,灵感来自 某部电影(某导演)",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "镜头始终贴在主角身后的跟拍写法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.12 节 d474；出处类别：原文陈述·提示词里的镜头写法与词汇"
+    },
+    {
+      "id": "light-cam.d475.practice",
+      "sourceId": "d475",
+      "section": "3.12",
+      "caseId": "ext-03",
+      "title": "发布片镜头词汇",
+      "text": "trucks right、rightward arc about thirty degrees、push in small amplitude、pulls out close-up to medium to wide、tracks right alongside、arcs left、locked-off static;统一写「幅度 large/medium/small + 速度 fast」;运动模糊仅在位移期间;标题叠层保持清晰平面、不随物体旋转",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "提示词里镜头运动的词汇与写法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.12 节 d475；出处类别：原文陈述·提示词里的镜头写法与词汇"
+    },
+    {
+      "id": "light-cam.d476.practice",
+      "sourceId": "d476",
+      "section": "3.12",
+      "caseId": "ext-03",
+      "title": "真人素材换机位",
+      "text": "镜2 在 00:05.000 硬切到素材里不存在的「CAMERA B」:35mm 中近景、距人左侧约 45°、手持轻微摇摆;文字屏幕锁定、对手持运动稳如磐石;一个大词「INVENTED.」位于人物身后(头肩遮挡字母)",
+      "quantities": [
+        {
+          "value": 35,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 45,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "提示词里硬切到虚构机位的写法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.12 节 d476；出处类别：原文陈述·提示词里的镜头写法与词汇"
+    },
+    {
+      "id": "light-cam.d477.practice",
+      "sourceId": "d477",
+      "section": "3.12",
+      "caseId": "ext-03",
+      "title": "食品广告相机",
+      "text": "永不静止一帧、非纯正面;三层视差;虚空段摄影机穿过旋转食材隧道;回餐厅后「反向环绕」(镜头顺时针,食材逆时针弧入、每次过镜头);转场靠继承运动向量;结尾 snap wipe 入尾版",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "永不静止、反向环绕等运镜做法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.12 节 d477；出处类别：原文陈述·提示词里的镜头写法与词汇"
+    },
+    {
+      "id": "light-cam.d478.practice",
+      "sourceId": "d478",
+      "section": "3.12",
+      "caseId": "ext-03",
+      "title": "产品片相机规矩",
+      "text": "允许:慢速电动 boom-up、横向 dolly+rack focus、一次半圆环绕、缓慢轨道微距倾斜、一次慢动作落果;禁止:手持抖动、whip pan、crash zoom、溶解、变形、除末尾冲击外的变速",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "产品片允许与禁止的运镜清单",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.12 节 d478；出处类别：原文陈述·提示词里的镜头写法与词汇"
+    },
+    {
+      "id": "light-cam.d479.practice",
+      "sourceId": "d479",
+      "section": "3.12",
+      "caseId": "ext-03",
+      "title": "机械表分解 FPV",
+      "text": "黑底一镜到底、无地面;开场推镜头 small amplitude fast;00:01.500 速度坡降入极慢动作,手表沿单一竖轴爆炸分解(蓝宝石、三指针、表盘、骨架桥、游丝摆轮、擒纵、四轮系、发条盒、底板、后盖);00:03.500 回正常速度 FPV 穿层、每个关键零件减速滑入极端微距再甩出;00:10.000 拉出侧视、同轴反序重装",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "一镜到底分解重装的镜头编排",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 3.12 节 d479；出处类别：原文陈述·提示词里的镜头写法与词汇"
+    }
+  ]
+}
