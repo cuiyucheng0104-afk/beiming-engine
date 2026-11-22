@@ -20,8 +20,9 @@ const leakPatterns = [
   ['bare-sha256', /(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])/i],
 ];
 // 先做 NFKC、去掉零宽字符：全角的冒号、斜杠、字母数字（中文输入法下容易打出来）和夹了零宽字符的写法照样认
+// 规范写法的哈希（约定第 5 节：sha256: 加 64 位小写十六进制）不算裸哈希：在原文上先摘掉摘要再归一，全角、夹零宽字符、大写的写法摘不掉，照拦
 function leakCodes(text) {
-  const plain = text.normalize('NFKC').replace(/\p{Cf}/gu, '');
+  const plain = text.replace(/sha256:[0-9a-f]{64}(?![0-9a-f])/g, 'sha256:').normalize('NFKC').replace(/\p{Cf}/gu, '');
   return leakPatterns.filter(([, pattern]) => pattern.test(plain)).map(([code]) => code);
 }
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -51,10 +52,14 @@ function scanObject(root) {
     if (typeof value === 'string') leaks.push(...leakCodes(value).map((code) => ({ code, path: path || '/' })));
     if (value === null || typeof value !== 'object' || active.has(value)) return;
     active.add(value);
-    for (const [key, item] of Object.entries(value)) {
+    // 和 toJsonData 一个读法：只看自有属性的描述符，取值器不调（它的值扫不到，记一条）；Symbol 键不是 JSON 数据，也记
+    if (Object.getOwnPropertySymbols(value).length) leaks.push({ code: 'symbol-key', path: path || '/' });
+    for (const [key, slot] of Object.entries(Object.getOwnPropertyDescriptors(value))) {
       const bad = leakCodes(key);
       leaks.push(...bad.map((code) => ({ code, path: path || '/', field: 'key' })));
-      visit(item, `${path}/${bad.length ? '[redacted]' : key.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+      const at = `${path}/${bad.length ? '[redacted]' : key.replaceAll('~', '~0').replaceAll('/', '~1')}`;
+      if ('value' in slot) visit(slot.value, at);
+      else leaks.push({ code: 'accessor-property', path: at });
     }
     active.delete(value);
   })(root, '');
@@ -94,6 +99,7 @@ function scanText(text) {
 /**
  * 只回泄露的类型和位置，不回显命中的内容。
  * 给对象回 { code, path, field? }（键命中时 field 是 'key'，路径里那一段写成 [redacted]）；给原文回 { code, line }（行号从 1 起）。
+ * 对象里扫不到的地方也记：取值器（不调它）是 accessor-property，Symbol 键是 symbol-key。
  */
 export const scanQuestionLeaks = (input) => (typeof input === 'string' ? scanText(input).leaks : scanObject(input));
 
@@ -115,14 +121,19 @@ function toJsonData(value, path = '', active = new Set()) {
   // 根原型（别的上下文造的普通对象也算）或没有原型；多一层原型的是类实例
   if (!array && proto !== null && Object.getPrototypeOf(proto) !== null) return bad('不是普通对象');
   active.add(value);
+  // 只看描述符，不调取值器；不可枚举的属性 JSON 里写不出来，一并不收
+  const slots = Object.getOwnPropertyDescriptors(value);
   const read = (key) => {
-    const slot = Reflect.getOwnPropertyDescriptor(value, key);
-    if (!slot || !('value' in slot)) return bad(`的 ${key} 不是数据属性`);
+    const slot = slots[key];
+    if (!slot || !('value' in slot) || !slot.enumerable) return bad(`的 ${key} 不是数据属性`);
     return toJsonData(slot.value, `${path}/${key}`, active);
   };
+  if (Object.getOwnPropertySymbols(value).length) return bad('带了 Symbol 键');
   const copy = array
     ? Array.from({ length: value.length }, (_, i) => read(String(i)))
-    : Object.fromEntries(Object.keys(value).map((key) => [key, read(key)]));
+    : Object.fromEntries(Object.keys(slots).map((key) => [key, read(key)]));
+  // 下标 0 到 length-1 都读到了，再多出来的自有键（length 以外）就是挂在数组上的附加属性
+  if (array && Object.keys(slots).length !== value.length + 1) return bad('带了下标以外的属性');
   active.delete(value);
   return copy;
 }
@@ -138,7 +149,7 @@ function dropComparisonUnit(text) {
 const textFields = (q) => [
   ['title', q.title],
   ['brief', q.brief],
-  ...q.scoring.map((item, i) => [`scoring/${i}/pass`, item.pass]),
+  ...q.scoring.flatMap((item, i) => [[`scoring/${i}/pass`, item.pass], ...(item.source ? [[`scoring/${i}/source`, item.source]] : [])]),
   ...Object.entries(q.controls).map(([key, text]) => [`controls/${key}`, text]),
   ['calibration/source', q.calibration.source],
   ...q.flags.blockedBy.map((text, i) => [`flags/blockedBy/${i}`, text]),
@@ -162,6 +173,9 @@ const rules = {
         .map((metric) => `${path} 里单独提到指标 ${metric}，要写成 ${METRIC_PREFIX}${metric}`)),
     ];
   },
+  // 约定第 5 节的路径口径里结构定义的 pattern 没管到的几条。不回显内容：隐藏题的 refs 是私有的
+  B1_REF_PATH: (q) => (q.refs ?? []).flatMap((ref, i) => (ref.includes(':') || /\p{Cc}/u.test(ref) || ref.split('/').some((seg) => seg === '' || seg === '.' || seg === '..')
+    ? [`refs 第 ${i + 1} 项不是合规的相对路径：不含冒号和控制字符，不以 / 开头或结尾，没有空段和 . 段`] : [])),
   // 时间键契约 3.2：分子分母互质，结构定义的 pattern 查不了这一条
   B1_FPS: ({ deliverable }) => (parseFps(deliverable.fps) ? [] : [`deliverable.fps 是 ${deliverable.fps}，分子分母必须互质`]),
   // 05 第 6.4 节：预期失败题靠 blockedBy 的变化决定重不重跑
@@ -174,7 +188,7 @@ function inspect(input) {
     return check(input);
   } catch (error) {
     // toJsonData 的拒收是 TypeError；别的（超长词元让正则爆栈之类）也按拒收回，不抛给调用方
-    return { result: { ok: false, schemaErrors: [error instanceof TypeError ? error.message : `/ 校验不了：${error.message}`], violations: {}, leaks: [] } };
+    return { result: { ok: false, schemaErrors: [error instanceof TypeError ? error.message : `/ 校验不了：${error.name}`], violations: {}, leaks: [] } };
   }
 }
 
@@ -188,7 +202,9 @@ function check(input) {
     try {
       data = JSON.parse(input);
     } catch (error) {
-      return stop({ parseError: error.message, schemaErrors: ['/ 不是有效的 JSON'] });
+      // V8 的消息会回显出错处的原文（隐藏题的判分细则可能就在那儿），只取位置
+      const at = /position (\d+)/.exec(error.message);
+      return stop({ parseError: `无效的 JSON 语法${at ? `（位置 ${at[1]}）` : ''}`, schemaErrors: ['/ 不是有效的 JSON'] });
     }
     if (duplicates.length) return stop({ schemaErrors: duplicates });
   }

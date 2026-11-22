@@ -411,3 +411,59 @@ test('B1-17: 公开题的投影留全部字段、去掉 ext；没过校验的题
   const leaky = variant((q) => { q.flags.hidden = true; q.brief = 'lab://synthetic/0'; });
   assert.throws(() => projectPublicQuestion(leaky), (error) => error instanceof TypeError && /lab-url/.test(error.message) && !error.message.includes('synthetic'));
 });
+
+test('B1-R2-Red 一审收口：规范 sha256: 摘要放行、JSON 语法诊断不回显原文、不执行自有 getter、拒绝数组附加属性与含冒号 refs 及裸指标 source，并锁死 QF1 两侧容差与重复参数', () => {
+  const validSha = `sha256:${'a1b2c3d4'.repeat(8)}`;
+  const bareSha = 'e5f60718'.repeat(8);
+  // 1) 规范小写 sha256: 放行，同串混入裸哈希仍拦截
+  assert.equal(validateQuestion(variant((q) => { q.ext = { 'bench.digest': validSha }; })).ok, true);
+  assert.equal(validateQuestion(JSON.stringify(variant((q) => { q.ext = { 'bench.digest': validSha }; }))).ok, true);
+  assert.equal(validateQuestion(variant((q) => { q.ext = { 'bench.digest': `${validSha} ${bareSha}` }; })).ok, false);
+
+  // 2) JSON 语法错误诊断脱敏：隐藏题原文含未加引号的秘密评分词 SECRET_SCORE_TOKEN 时，返回结果绝不回显该词
+  const badJson = '{"format":"question/0.1","flags":{"hidden":true},"scoring":[{"pass":SECRET_SCORE_TOKEN}]}';
+  const badRes = validateQuestion(badJson);
+  assert.equal(badRes.ok, false);
+  assert.equal(JSON.stringify(badRes).includes('SECRET_SCORE_TOKEN'), false);
+
+  // 3) 自有 getter 零调用且两个入口一致拒收；数组附加可枚举属性一致拒收
+  let getterCalls = 0;
+  const withGetter = variant(() => {});
+  Object.defineProperty(withGetter, 'brief', { enumerable: true, get() { getterCalls += 1; return 'boom'; } });
+  assert.ok(scanQuestionLeaks(withGetter).length > 0);
+  assert.equal(validateQuestion(withGetter).ok, false);
+  assert.equal(getterCalls, 0);
+
+  const arrProp = variant(() => {});
+  arrProp.needs.extraNote = 'clean';
+  assert.equal(validateQuestion(arrProp).ok, false);
+
+  // 4) refs 含冒号被拒，正常相对路径通过；scoring[].source 裸写已知指标名被拒，带 metric: 或 frame-meta 通过
+  assert.equal(validateQuestion(variant((q) => { q.refs = ['bench/refs/note-en.txt']; })).ok, true);
+  assert.equal(validateQuestion(variant((q) => { q.refs = ['bench/refs/note:en.txt']; })).ok, false);
+  assert.equal(validateQuestion(variant((q) => { q.scoring[0].source = 'pixel.bbox'; })).ok, false);
+  assert.equal(validateQuestion(variant((q) => { q.scoring[0].source = 'metric:pixel.bbox'; })).ok, true);
+  assert.equal(validateQuestion(variant((q) => { q.scoring[0].source = 'frame-meta'; })).ok, true);
+
+  // 5) 杀灭 M01/M15（QF1 1e-9 两侧）、M10（重复参数绑定）、M14（直接调 scanQuestionLeaks(rawJson)）
+  assert.equal(validateQuestion(variant((q) => { q.scoring[0].weight += 1e-6; })).ok, false);
+  assert.equal(validateQuestion(variant((q) => { q.scoring[0].weight += 5e-10; })).ok, true);
+  assert.equal(validateQuestion(variant((q) => { q.basePredicates[0] = 'delivery(width=1920, width=1920)'; })).ok, false);
+  // 6) 补边界：全角或夹零宽字符的 sha256: 写法照拦；扫描给取值器记 accessor-property、给 Symbol 键记 symbol-key；不可枚举属性、refs 的空段和 . 段不收
+  for (const sneaky of [`ｓｈａ２５６：${'a1b2c3d4'.repeat(8)}`, `sha256:${'a1b2'}\u200b${'c3d4a1b2'.repeat(7)}c3d4`, `SHA256:${'a1b2c3d4'.repeat(8)}`]) {
+    assert.deepEqual(validateQuestion(variant((q) => { q.ext = { 'bench.digest': sneaky }; })).leaks.map((leak) => leak.code), ['bare-sha256']);
+  }
+  assert.deepEqual(scanQuestionLeaks(withGetter).filter((leak) => leak.code === 'accessor-property'), [{ code: 'accessor-property', path: '/brief' }]);
+  const withSymbol = variant((q) => { q.ext = { 'bench.x': { [Symbol('s')]: 1 } }; });
+  assert.deepEqual(scanQuestionLeaks(withSymbol), [{ code: 'symbol-key', path: '/ext/bench.x' }]);
+  assert.deepEqual(validateQuestion(withSymbol).schemaErrors, ['/ext/bench.x 带了 Symbol 键']);
+  assert.deepEqual(validateQuestion(arrProp).schemaErrors, ['/needs 带了下标以外的属性']);
+  const hiddenProp = variant((q) => { Object.defineProperty(q, 'note', { value: 'x', enumerable: false }); });
+  assert.deepEqual(validateQuestion(hiddenProp).schemaErrors, ['/ 的 note 不是数据属性']);
+  for (const ref of ['bench/refs/', 'bench//refs', './bench', 'bench/./refs', 'bench/re\u0007fs']) {
+    assert.deepEqual(Object.keys(validateQuestion(variant((q) => { q.refs = [ref]; })).violations), ['B1_REF_PATH'], ref);
+  }
+  assert.match(validateQuestion('{"id": SECRET}').parseError, /^无效的 JSON 语法(（位置 \d+）)?$/);
+  const directLeaks = scanQuestionLeaks('{"id":"28-1","refs":["cards-overlay/secret.yaml"],"refs":["bench/ok.txt"]}');
+  assert.ok(directLeaks.length > 0 && !JSON.stringify(directLeaks).includes('secret'));
+});

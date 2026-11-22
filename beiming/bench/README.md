@@ -14,15 +14,16 @@
 
 `validateQuestion(input)` 收题目对象或 JSON 原文，回 `{ ok, schemaErrors, violations: { 规则编号: [问题] }, leaks, parseError? }`，不抛错。重复的键和里面夹带的泄露只有原文查得出。按顺序查，不过就停：
 
-1. **泄露门禁**（`scanQuestionLeaks`）：`lab://`、原包源码与私有覆盖层、`复刻/` 路径、`exams-hidden`、本机路径、64 位十六进制哈希，全角、夹零宽字符的也认。只回类型和位置（对象回 `path`，原文回 `line`），不回显内容。
-2. **结构**：[`question.schema.json`](../kernel/contracts/question-file/schema/question.schema.json)。类实例、取值器、非有限数、环、原文里重复的键直接拒。
+1. **泄露门禁**（`scanQuestionLeaks`）：`lab://`、原包源码与私有覆盖层、`复刻/` 路径、`exams-hidden`、本机路径、裸的 64 位十六进制哈希（规范写法 `sha256:` 加 64 位小写十六进制放行），全角、夹零宽字符的也认。只回类型和位置（对象回 `path`，原文回 `line`），不回显内容；对象里的取值器不调，记 `accessor-property`，Symbol 键记 `symbol-key`。
+2. **结构**：[`question.schema.json`](../kernel/contracts/question-file/schema/question.schema.json)。类实例、取值器、Symbol 键、不可枚举属性、数组的空洞和附加属性、非有限数、环、原文里重复的键直接拒。`parseError` 只写位置，不回显原文。
 3. **规则**，违反的记在 `violations`；`B1_*` 是契约不变量之外的增补：
 
 | 编号 | 查什么 |
 |---|---|
 | `QF1`、`QF2` | 契约的不变量：权重和为 1；一项一条断言，谓词名登记过 |
 | `B1_PREDICATE_SYNTAX` | 断言的语法和实参对登记表核（复用 `verify/predicates.mjs`）；`planned` 的谓词可以先写 |
-| `B1_METRIC_NAMESPACE` | 这道题的指标名不得出现在 `needs` 里；在 `title`、`brief`、`pass`、`controls`、`calibration.source`、`blockedBy` 里单独提到要带 `metric:` 前缀 |
+| `B1_METRIC_NAMESPACE` | 这道题的指标名不得出现在 `needs` 里；在 `title`、`brief`、`pass`、`source`、`controls`、`calibration.source`、`blockedBy` 里单独提到要带 `metric:` 前缀 |
+| `B1_REF_PATH` | `refs` 照通用路径口径：不含 `:` 和控制字符，不以 `/` 开头或结尾，没有空段和 `.` 段 |
 | `B1_FPS` | `deliverable.fps` 的分子分母互质（时间键契约 3.2） |
 | `B1_BLOCKED_BY` | `expectedFail` 是 `true` 时 `blockedBy` 不空，是 `false` 时为空 |
 
