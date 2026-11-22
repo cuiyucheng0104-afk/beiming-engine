@@ -4,7 +4,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
+import { syncBuiltinESMExports } from 'node:module';
 import {
   buildContainerSpec,
   detectSandboxBackend,
@@ -75,6 +77,9 @@ function fakeBlockedRun(drop = [], tamper = () => {}) {
     return { backend: 'darwin-seatbelt', isolation: 'seatbelt-process-policy', code: receipt.code, stdout, stderr: '' };
   };
 }
+
+// 宿主机环境里此刻挂着的红队诱饵：键以 BEIMING_REDTEAM_ 开头、值是夹具埋的随机标记。
+const canaries = () => Object.entries(process.env).filter(([key, value]) => key.startsWith('BEIMING_REDTEAM_') && value.startsWith('bm-canary-')).sort();
 
 // 把家目录换成夹具里的假家目录（os.homedir() 在 POSIX 上读 HOME，在 Windows 上读 USERPROFILE）。
 function fakeHome(t, base) {
@@ -849,8 +854,6 @@ test('A13-23 环境变量诱饵每轮一套专属键：两轮重叠互不踩踏�
     }
   });
   Object.assign(process.env, preset);
-  // 宿主机环境里此刻挂着的红队诱饵：键以 BEIMING_REDTEAM_ 开头、值是夹具埋的随机标记。
-  const canaries = () => Object.entries(process.env).filter(([key, value]) => key.startsWith('BEIMING_REDTEAM_') && value.startsWith('bm-canary-')).sort();
   const presetIntact = () => assert.deepEqual(Object.fromEntries(Object.keys(preset).map((key) => [key, process.env[key]])), preset);
 
   // 六审的复现：A 建好夹具，B 整轮跑完并清理，再回到 A 跑 host_home_and_secrets。
@@ -901,5 +904,68 @@ test('A13-23 环境变量诱饵每轮一套专属键：两轮重叠互不踩踏�
     assert.match(formatRedTeamReport(report), /夹具没建起来[^]*环境变量诱饵/, name);
     assert.deepEqual(canaries(), [], `${name}：收尾后不留诱饵`);
     presetIntact();
+  }
+});
+
+test('A13-24 两轮交错（A 建夹具、B 建夹具、A 先收尾、B 再核对并收尾）：UUID 前 8 位相同乃至整个相同，两轮的诱饵键与夹具名也不相交', async (t) => {
+  t.mock.method(fs, 'symlinkSync', () => {});
+  // 只顶掉每轮取的第一个 UUID（本轮标记），金丝雀照旧各取各的随机值。
+  const real = crypto.randomUUID;
+  let forced;
+  t.mock.method(crypto, 'randomUUID', (...args) => {
+    const value = forced ?? real(...args);
+    forced = undefined;
+    return value;
+  });
+  syncBuiltinESMExports();
+  t.after(() => {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  });
+  const first = 'cross_workspace_read';
+  const hex = (uuid) => uuid.replaceAll('-', '').toUpperCase();
+  const prefix = ['deadbeef-1111-4111-8111-111111111111', 'deadbeef-2222-4222-8222-222222222222'];
+
+  for (const [name, uuidA, uuidB] of [['七审的复现：前 8 位相同', ...prefix], ['randomUUID 被桩成同一个值', prefix[0], prefix[0]]]) {
+    let builtB;
+    const bBuilt = new Promise((resolve) => { builtB = resolve; });
+    let runB;
+    let mineA;
+    let both;
+    let afterA;
+    const nonces = [];
+    forced = uuidA;
+    const runA = runSandboxRedTeam({
+      ...OFFLINE,
+      run: fakeBlockedRun([], async (receipt, cfg) => {
+        if (receipt.item !== first) return;
+        nonces.push(cfg.nonce);
+        mineA = canaries();
+        forced = uuidB;
+        runB = runSandboxRedTeam({
+          ...OFFLINE,
+          run: fakeBlockedRun([], async (inner, cfgB) => {
+            if (inner.item !== first) return;
+            nonces.push(cfgB.nonce);
+            both = canaries();
+            builtB();
+            // A 先整轮跑完并收尾，B 才接着往下实测。
+            await runA;
+            afterA = canaries();
+          }),
+        });
+        await Promise.race([bBuilt, runB]);
+      }),
+    });
+    const reportA = await runA;
+    const reportB = await runB;
+
+    const mineB = both.filter(([key]) => !mineA.some(([taken]) => taken === key));
+    assert.deepEqual([mineA.length, mineB.length, both.length], [2, 2, 4], `${name}：两轮在途时各有两个键，互不相同`);
+    assert.ok(mineA.every(([key]) => key.includes(hex(uuidA))) && mineB.every(([key]) => key.includes(hex(uuidB))), `${name}：键名带完整的本轮 UUID`);
+    assert.deepEqual(afterA, mineB, `${name}：A 收尾之后 B 的两个在途诱饵原样还在`);
+    assert.deepEqual([reportA.ok, reportA.blocked, reportB.ok, reportB.blocked], [true, 5, true, 5], name);
+    assert.equal(new Set(nonces).size, 2, `${name}：夹具目录与探测文件用的本轮标记也不相同`);
+    assert.deepEqual(canaries(), [], `${name}：两轮都结束后宿主环境不留诱饵`);
   }
 });
