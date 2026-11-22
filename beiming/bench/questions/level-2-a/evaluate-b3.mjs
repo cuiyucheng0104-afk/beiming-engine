@@ -373,7 +373,10 @@ function parse(text) {
     for (const sourceType of ['module', 'script']) {
       let ast;
       // range 是作用域分析要的
-      try { ast = espree.parse(source, { ecmaVersion: 'latest', sourceType, loc: true, range: true, ecmaFeatures: { jsx: true } }); } catch { continue; }
+      try { ast = espree.parse(source, { ecmaVersion: 'latest', sourceType, loc: true, range: true, ecmaFeatures: { jsx: true } }); } catch (error) {
+        if (error instanceof SyntaxError) continue;
+        throw error;
+      }
       return { ast, manager: analyze(ast, { ecmaVersion: espree.latestEcmaVersion, sourceType, childVisitorKeys: espree.VisitorKeys }) };
     }
     return null;
@@ -389,8 +392,10 @@ const FUNCTIONS = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFu
 const COMPARES = new Set(['<', '<=', '>', '>=', '==', '===', '!=', '!==']);
 const HOOK = new RegExp(`^(?:${HOOKS})$`), BEAT_NAME = /^(?:bpm|tempo|beat\w*)$/i, SLOT = /^(?:Property|MethodDefinition|PropertyDefinition)$/;
 // 一棵语法树里写死的帧号各在第几行、给节拍常量赋数有几处
-function scanTree({ ast, manager }) {
-  const { VisitorKeys } = parser().espree;
+export function scanTree(text) {
+  const tree = parse(text);
+  if (!tree) return null;
+  const { ast, manager } = tree, { VisitorKeys } = parser().espree;
   // visit 的第二个参数是这个节点落在哪个函数里，顶层是 null
   const each = (node, visit, within = null) => {
     visit(node, within);
@@ -491,7 +496,9 @@ function scanTree({ ast, manager }) {
     if (node.type === 'SlotDefault') {
       const { slot, fallback } = node;
       const values = valuesOf(slot.node, slot.env, trail);
-      if (slot === missing || values.some((value) => value.absent) || (!isShape(env) && lin(slot.node, slot.env).some(isVoid))) values.push(...valuesOf(fallback, env, trail));
+      if (slot === missing || values.some((value) => value.absent) || (!isShape(env) && lin(slot.node, slot.env).some(isVoid))) {
+        return [...values.filter((value) => !value.absent), ...valuesOf(fallback, env, trail)];
+      }
       return values;
     }
     if (node.operator === 'void' || (node.name === 'undefined' && !bound.has(node))) return [{ absent: true }];
@@ -502,7 +509,9 @@ function scanTree({ ast, manager }) {
     let found;
     if (variable) {
       const entry = env?.get(variable);
-      const slots = entry?.input ? [entry.input] : [...(isShape(env) ? inputSites.get(variable) ?? [] : [])];
+      const inputs = entry?.input ? valuesOf(entry.input.node, entry.input.env, trail) : [];
+      const slots = [...(isShape(env) && !entry?.input ? inputSites.get(variable) ?? [] : [])];
+      if (entry?.fallback) slots.push({ node: entry.fallback, env });
       for (const def of variable.defs) {
         if (def.type === 'Variable') slots.push(...sourcesOf(def, env, trail));
         if (def.type === 'FunctionName' || def.type === 'ClassName') slots.push({ node: def.node, env });
@@ -513,7 +522,7 @@ function scanTree({ ast, manager }) {
         if (projection && ref.partial) slots.push(...project({ node: projection.input, env }, projection.path, env, trail));
         else if (!projection && !ref.partial) slots.push({ node: ref.writeExpr, env });
       }
-      found = slots.flatMap((slot) => valuesOf(slot.node, slot.env, trail));
+      found = [...(entry?.fallback ? inputs.filter((value) => !value.absent) : inputs), ...slots.flatMap((slot) => valuesOf(slot.node, slot.env, trail))];
       if (entry?.rest && !changedRest.has(variable)) found.push({ row: entry.rest });
     } else if (node.type === 'NewExpression') {
       found = valuesOf(node.callee, env, trail).flatMap((value) => valuesOf(value.record?.prototype, value.env, trail));
@@ -558,7 +567,7 @@ function scanTree({ ast, manager }) {
     return rows;
   };
   // 空槽和来源不明的槽必须分开。展开时只有空槽继续向前找；取值时空槽读作 undefined。
-  const missing = { node: VOID_NODE }, unknown = { node: null };
+  const missing = { node: VOID_NODE }, unknown = { node: null }, externalArg = { node: null };
   const slotsOf = (object, key, env, trail = fresh()) => {
     const values = key === null ? [] : valuesOf(object, env, trail);
     return values.length ? values.flatMap((value) => readSlot(value, key, trail, object)) : [unknown];
@@ -612,8 +621,8 @@ function scanTree({ ast, manager }) {
     }
   });
   const project = (slot, path, env, trail) => path.reduce((slots, step) => typeof step === 'string'
-    ? slots.flatMap((one) => slotsOf(one.node, step, one.env, trail))
-    : slots.map((one) => ({ node: { type: 'SlotDefault', slot: one, fallback: step }, env })), [slot]);
+    ? slots.flatMap((one) => one === externalArg ? [externalArg, missing] : slotsOf(one.node, step, one.env, trail))
+    : slots.map((one) => one === externalArg ? one : { node: { type: 'SlotDefault', slot: one, fallback: step }, env }), [slot]);
   const sourcesOf = (def, env, trail = fresh()) => project({ node: def.node.init, env }, projections.get(def.name)?.path ?? [], env, trail);
   // 把赋值连到接收对象上。左边可能经过另一次赋值（如 api.group.check = fn），直到没有新的属性边为止。
   let changed;
@@ -720,14 +729,16 @@ function scanTree({ ast, manager }) {
       if (called.size || isFreeze(site)) continue;
       const member = site.callee.type === 'MemberExpression' && site.callee;
       const method = member && keyOf(member.property, member.computed);
-      const elements = /^(?:some|every|map|filter|forEach|find|findIndex|reduce|reduceRight|flatMap)$/.test(method);
-      if (member && !elements && !/^\d+$/.test(method)) {
+      const elements = /^(?:some|every|map|filter|forEach|find|findIndex|findLast|findLastIndex|reduce|reduceRight|flatMap|sort|toSorted)$/.test(method);
+      const arrayFrom = method === 'from' && member.object.name === 'Array' && !bound.has(member.object);
+      if (member && (!elements || method === 'sort') && !arrayFrom && !/^\d+$/.test(method)) {
         if (bound.has(member.object)) changedRest.add(bound.get(member.object));
         for (const { record } of valuesOf(member.object, null)) if (record?.kind === 'array') record.mutable = true;
       }
-      const args = rowsOf(site.arguments, null, fresh()).flatMap((row) => row.map((slot) => slot.node));
+      const callbackIndex = elements ? 0 : arrayFrom ? 1 : -1;
+      const args = rowsOf(site.arguments, null, fresh()).flatMap((row) => (callbackIndex < 0 ? row : row.slice(callbackIndex, callbackIndex + 1)).map((slot) => slot.node));
       for (const fn of reachableFrom(args, true)) {
-        (elements ? elementCallbacks : externalCallbacks).add(fn);
+        (callbackIndex < 0 ? externalCallbacks : elementCallbacks).add(fn);
         executable.add(fn);
       }
     }
@@ -749,12 +760,10 @@ function scanTree({ ast, manager }) {
   // 帧的线性式记成 帧 × k + c，named 是式子里有名字以 frame 结尾的；k 是 0 的是常数。一个量可能取到的几种式子都留着，
   // 局部常量（const delay = 432）和直接写数一样算
   const gather = (forms, into = new Map()) => {
-    for (const a of forms) if (into.size < LIMIT) into.set(`${a.k}:${a.c}:${Boolean(a.named)}:${Boolean(a.slot)}`, a);
+    for (const a of forms) if (into.size < LIMIT) into.set(`${a.k}:${a.c}:${Boolean(a.named)}`, a);
     return into;
   };
   const byName = (name) => (/[Ff]rame$/.test(name) ? [{ k: 1, c: 0, named: true }] : /^[ft]$/.test(name) ? [{ k: 1, c: 0 }] : NONE);
-  // 读到的配置值保留来源，一位数配置本身不足以认定为时间门槛。
-  const fromSlot = (a) => !a.k && a.c > 0 && a.c < 10 ? { ...a, slot: true } : a;
   const scaled = (a, by) => ({ ...a, k: a.k * by, c: a.c * by });
   // seeds 是不看别处就认成帧的绑定，paramOf 是有调用点的函数的形参各归哪个函数。认不认帧都不看绑定自己叫什么，叫 ctx 的也一样。
   // outside 是文件里有调用点、文件外也有人调用的函数（导出的、交出去的、帧回调）：文件外那次调用另算一个环境；
@@ -827,8 +836,9 @@ function scanTree({ ast, manager }) {
         if (parameters.has(param)) {
           for (const { id, path } of parameters.get(param)) {
             const scope = new Map(env);
-            const slots = project(row[i] ?? (site ? missing : unknown), path, scope, trail ?? fresh());
-            env.set(bound.get(id), [...gather(slots.flatMap((slot) => lin(slot.node, slot.env).map(fromSlot))).values()]);
+            const slots = project(row[i] ?? missing, path, scope, trail ?? fresh());
+            if (!site) slots.push(...project(externalArg, path, scope, trail ?? fresh()));
+            env.set(bound.get(id), [...gather(slots.flatMap((slot) => lin(slot.node, slot.env))).values()]);
           }
           return;
         }
@@ -837,12 +847,14 @@ function scanTree({ ast, manager }) {
         const given = rest ? Object.assign([], { rest: Object.assign(row.slice(i), { cut: row.cut }) })
           : row[i] ? lin(row[i].node, row[i].env) : [...(site ? NONE : seeds.get(variable)?.values() ?? NONE), ...VOID];
         // 默认值在环境的抄本里算：这时后面的形参还没绑上，算到一半的不留在环境的账上
-        const forms = param.right && given.some(isVoid) ? [...given.filter((a) => !isVoid(a)), ...lin(param.right, new Map(env))] : given;
+        const fallback = param.right && given.some(isVoid) ? param.right : null;
+        const forms = fallback ? [...given.filter((a) => !isVoid(a)), ...lin(fallback, new Map(env))] : given;
         const entry = rest ? given : [...gather(forms).values()];
+        if (fallback) entry.fallback = fallback;
         if (!rest && structuralInputs.has(row[i]?.node)) entry.input = row[i];
         env.set(variable, entry);
       });
-      const key = Array.from(env, ([variable, forms]) => `${ids.get(variable)}=${forms.rest ? `[${forms.rest.map(tag)}]${forms.rest.cut ? '?' : ''}` : [...gather(forms).keys()].sort()}${forms.input ? `@${tag(forms.input)}` : ''}`).sort().join(';');
+      const key = Array.from(env, ([variable, forms]) => `${ids.get(variable)}=${forms.rest ? `[${forms.rest.map(tag)}]${forms.rest.cut ? '?' : ''}` : [...gather(forms).keys()].sort()}${forms.input ? `@${tag(forms.input)}` : ''}${forms.fallback ? '?' : ''}`).sort().join(';');
       if (!envs.has(key)) envs.set(key, env);
       return envs.get(key);
     });
@@ -851,7 +863,7 @@ function scanTree({ ast, manager }) {
   const contextsOf = (fn) => {
     if (!fn) return TOP;
     const sites = calls.get(fn);
-    if (!sites && !exportBases.has(fn)) return contextsOf(inside.get(fn));
+    if (!sites && !outside.has(fn)) return contextsOf(inside.get(fn));
     const known = contexts.get(fn) ?? open.get(fn);
     if (known) {
       if (open.has(fn)) loops.add(fn);
@@ -934,7 +946,7 @@ function scanTree({ ast, manager }) {
       if (outer?.again) { loops.add(outer.forms); continue; }
       if (outer) outer.again = true;
       else unpacking.set(id, { forms });
-      for (const slot of project({ node: input, env }, path, env, fresh())) gather(lin(slot.node, slot.env).map(fromSlot), forms);
+      for (const slot of project({ node: input, env }, path, env, fresh())) gather(lin(slot.node, slot.env), forms);
       if (outer) outer.again = false;
       else unpacking.delete(id);
     }
@@ -965,7 +977,7 @@ function scanTree({ ast, manager }) {
       const forms = slotsOf(node.object, keyOf(node.property, node.computed), env).flatMap((slot) => lin(slot.node, slot.env));
       depth--;
       digging.delete(node);
-      return forms.length ? [...gather([...named, ...forms.map(fromSlot)]).values()] : named;
+      return forms.length ? [...gather([...named, ...forms]).values()] : named;
     }
     if (node?.type === 'UnaryExpression') {
       const sign = { '+': 1, '-': -1 }[node.operator];
@@ -991,9 +1003,14 @@ function scanTree({ ast, manager }) {
     }
     // 调用文件里的函数：实参绑成这一次调用的环境，取函数在这个环境里回的式子
     if (node?.type === 'CallExpression') {
+      // 解析实参会经 valuesOf → bind 再次遇到同一个调用，返回值递归则由 returned 按环境展开。
+      if (digging.has(node)) return CUT;
       if (depth >= DEEP) return NONE;
       depth++;
-      const all = closuresOf(node.callee, env).flatMap(({ fn, env: base }) => bind(fn, node, env, base).map((made) => returned(fn, made)));
+      digging.add(node);
+      const targets = closuresOf(node.callee, env).flatMap(({ fn, env: base }) => bind(fn, node, env, base).map((made) => ({ fn, made })));
+      digging.delete(node);
+      const all = targets.map(({ fn, made }) => returned(fn, made));
       depth--;
       return all.length && all.every((forms) => forms === CUT) ? CUT : [...gather(all.flat()).values()];
     }
@@ -1004,8 +1021,8 @@ function scanTree({ ast, manager }) {
     for (const a of left) {
       if (mixed.size >= LIMIT) break;
       gather(right.map((b) => {
-        if (sign) return { k: a.k + sign * b.k, c: a.c + sign * b.c, named: a.named || b.named, slot: a.slot || b.slot };
-        if (node.operator === '*' && !(a.k && b.k)) return { ...scaled(a.k ? a : b, a.k ? b.c : a.c), slot: a.slot || b.slot };
+        if (sign) return { k: a.k + sign * b.k, c: a.c + sign * b.c, named: a.named || b.named };
+        if (node.operator === '*' && !(a.k && b.k)) return scaled(a.k ? a : b, a.k ? b.c : a.c);
         return node.operator === '/' && !b.k && b.c ? scaled(a, 1 / b.c) : null;
       }).filter(Boolean), mixed);
     }
@@ -1019,7 +1036,7 @@ function scanTree({ ast, manager }) {
   const lines = [];
   let beatDefs = 0;
   // 帧的线性式跟常数比，折回帧上的门槛够不够大；一边有几种式子时，有一对够就算
-  const past = (moving, fixed, least) => moving.some((a) => a.k && fixed.some((b) => !b.k && (b.c - a.c) / a.k >= (least ?? (a.named && !a.slot && !b.slot ? 1 : 10))));
+  const past = (moving, fixed, least) => moving.some((a) => a.k && fixed.some((b) => !b.k && (b.c - a.c) / a.k >= (least ?? (a.named ? 1 : 10))));
   each(ast, (node, within) => {
     // 两边在同一个环境里算了再比；所在函数有几个环境，有一个认出来就算这一处
     const envs = contextsOf(within), some = (test) => envs.some(test);
@@ -1076,13 +1093,12 @@ export function read30_1(root) {
     .filter((file) => /\.(?:[cm]?[jt]sx?|py)$/.test(file) && !/(?:^|\/)(?:node_modules|out|\.[^/]*)\//.test(file)).sort();
   for (const file of sources) {
     const text = readFileSync(join(root, file), 'utf8'), py = file.endsWith('.py');
-    let tree;
-    // 没装 eslint 就没有解析器：和缺 ffmpeg 一样回 toolMissing，不悄悄换成正则那一路
-    try { tree = py ? null : parse(text); } catch (error) {
-      if (!error.toolMissing) throw error;
-      return { toolMissing: error.toolMissing };
+    let scan;
+    try { scan = py ? null : scanTree(text); } catch (error) {
+      if (error.toolMissing) return { toolMissing: error.toolMissing };
+      return { unreadable: file };
     }
-    const { lines, beatDefs } = tree ? scanTree(tree) : scanText(codeOf(text, py));
+    const { lines, beatDefs } = scan ?? scanText(codeOf(text, py));
     for (const line of lines) found.push(`${file}:${line}`);
     beatConstantDefs += beatDefs;
   }

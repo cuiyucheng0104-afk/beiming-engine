@@ -914,7 +914,7 @@ test('B3-15 30-1 按对象、数组的实际来源和导出入口判分', async 
   });
   await t.test('解构只在已知槽位缺失或为 undefined 时使用常数默认值', () => {
     for (const value of ['view.events.m01', 'view.cfg.min', 'view.size[0]', '0', '5', 'null', 'undefined', 'void 0', '432']) {
-      const expected = ['undefined', 'void 0', '432'].includes(value) ? hard : soft;
+      const expected = ['5', 'undefined', 'void 0', '432'].includes(value) ? hard : soft;
       check(`const { min = 432 } = { min: ${value} }; frame >= min;`, expected);
       check(`const [min = 432] = [${value}]; frame >= min;`, expected);
     }
@@ -953,8 +953,72 @@ test('B3-15 30-1 按对象、数组的实际来源和导出入口判分', async 
     check('const invoke = (fn, x) => fn(x); invoke(f => f >= 432, frame);', hard);
     check(ge + 'const rest = [view.events.m01]; const empty = x => x.pop(); empty(rest); ge(frame, ...rest);', hard);
     check(ge + 'const args = [frame, 432]; view.log(...args); ge(...args);', hard);
-    check('const {min = 432} = {min: 5}; frame - min >= 0;', soft);
+    check('const {min = 432} = {min: 5}; frame - min >= 0;', hard);
   });
+  await t.test('自引用的调用正常出读数，同一文件的帧门槛仍能检出', async () => {
+    const { scanTree } = await evaluator();
+    for (const body of [
+      'let x = view.pos; x = h(x.clone());', 'let x = view.text; x = h(x.trim());',
+      'let x = view.pos; x = await h(x.json());', 'let x = view.pos; x = h(x.clone().add(1));',
+      'let x = view.pos; while (view.more) x = h(x.next());', 'view = h(view.m());',
+      'let a = view.pos, b = view.dir; a = h(b.m()); b = h(a.m());',
+    ]) {
+      const shot = `const h = v => v; export const build = () => ({ async state(frame, view) { ${body} return frame >= 432; } });`;
+      check(shot, hard);
+      check(shot.replace('432', 'view.events.m01'), soft);
+      assert.deepEqual(scanTree(shot).lines, [1], body);
+    }
+  });
+  await t.test('解析器内部异常返回不可读文件，整题不通过', (t) => {
+    const load = nodeModule.createRequire(nodeModule.createRequire(import.meta.url).resolve('eslint/package.json'));
+    writeFileSync(join(dir, 'shot.mjs'), 'export const late = frame => frame >= 432;');
+    t.mock.method(load('espree'), 'parse', () => { throw new RangeError('测试扫描异常'); });
+    const read = read30_1(dir);
+    assert.deepEqual(read, { unreadable: 'shot.mjs' });
+    assert.equal(evaluate(q, { ...read, ...CLEAN, cuts: [] }).pass, false);
+  });
+  await t.test('文件外入口、帧回调和本地调用按实参决定形参的容器默认值', () => {
+    check('export const build = ({ start = 432, end = 648 } = {}) => ({ state(frame) { return frame >= start && frame < end; } });', [2, 0.6, false]);
+    check('export const late = (f, { min = 432 } = {}) => f >= min;', hard);
+    check('export const hook = { state(frame, { start = 432 } = {}) { return frame >= start; } };', hard);
+    check('const hook = { state(frame, { start = 432 } = {}) { return frame >= start; } };', hard);
+    check('export const late = (f, { min = 432 } = { min: view.events.m01 }) => f >= min;', hard);
+    for (const body of ['const { min = 432 } = opts; return f >= min;', 'return f >= (opts.min ?? 432);']) {
+      const mk = `const mk = (f, opts = {}) => { ${body} };`;
+      check(`export ${mk}`, hard);
+      for (const arg of ['', ', undefined', ', void 0', ', {}', ', ok ? { min: view.events.m01 } : undefined']) check(`${mk} mk(frame${arg});`, hard);
+      check(`${mk} mk(frame, { min: view.events.m01 }); mk(view.size[0]);`, soft);
+    }
+  });
+  await t.test('一位数存在对象或数组里也按帧名的门槛判', () => {
+    check('const cfg = { fadeIn: 6 }; frame < cfg.fadeIn;', hard);
+    check('const cues = [8]; frame >= cues[0];', hard);
+    check('const cfg = { hold: 5 }; frame - cfg.hold >= 3;', hard);
+    check('const cfg = { fadeIn: 6 }; f < cfg.fadeIn;', soft);
+  });
+  await t.test('数组回调按位置识别，像素比较换形参名也得同分', () => {
+    for (const method of ['every', 'some', 'map', 'flatMap', 'filter', 'forEach', 'find', 'findIndex', 'findLast', 'findLastIndex', 'reduce', 'reduceRight', 'sort', 'toSorted']) {
+      for (const name of ['f', 'pixels']) check(`const wide = ${name} => ${name} >= 640; view.size.${method}(wide);`, soft);
+    }
+    check('Array.from(view.size, f => f >= 640);', soft);
+    check('const wide = f => f >= 640; Array.from(view.size, wide); register(wide);', hard);
+    check('const Array = view.api; Array.from(view.size, f => f >= 640);', hard);
+    check('const args = [view.events.m01, frame]; args.sort(); const ge = (x, min = 432) => x >= min; ge(frame, ...args);', hard);
+  });
+});
+
+test('B3-16 语法树扫描真实仓库源码，逐文件正常返回行号和节拍计数', async (t) => {
+  const { scanTree } = await evaluator();
+  const files = readdirSync(HERE, { recursive: true }).filter((file) => /\.[cm]?js$/.test(file)).map((file) => join(HERE, file));
+  files.push(join(ROOT, 'tools/site-qa.mjs'));
+  const start = performance.now();
+  for (const file of files) {
+    const scan = scanTree(readFileSync(file, 'utf8'));
+    assert.ok(Array.isArray(scan?.lines) && Number.isInteger(scan.beatDefs), file);
+  }
+  const elapsed = performance.now() - start;
+  t.diagnostic(`${files.length} 个文件，${Math.round(elapsed)} ms`);
+  assert.ok(elapsed < 30000, `扫描耗时 ${elapsed} ms`);
 });
 
 test('B3-13 机器上没有 ffmpeg：三个读真片的函数回 toolMissing 说明缺哪个工具，拿去判分是干净的不合格', async () => {
