@@ -62,21 +62,41 @@ test('真实 git 仓库：git diff -z --name-only --no-renames base...head | --n
     assert.equal(r.status, 0, r.stderr);
     return r.stdout.trim();
   };
-  const hashBlob = content => {
-    const r = spawnSync('git', ['hash-object', '-w', '--stdin'], { cwd: dir, input: content, encoding: 'utf8' });
-    assert.equal(r.status, 0, r.stderr);
-    return r.stdout.trim();
+  const hashObj = (type, input) => {
+    const r = spawnSync('git', ['hash-object', '-t', type, '-w', '--stdin'], { cwd: dir, input });
+    assert.equal(r.status, 0, String(r.stderr));
+    return String(r.stdout).trim();
   };
-  // 直接写 Git 索引与对象库生成真实 commit（Windows NTFS 工作树不允许文件名含 \t 或字面 \，而 Git 树对象全平台原生支持）
+  // 直接用 git hash-object -t tree 写原始树对象（绕过工作树与 git update-index 的 core.protectNTFS 路径拦截，在默认 Git for Windows 上同样原生支持 \t 与字面 \）
+  const writeTree = entriesMap => {
+    const sub = new Map();
+    const leaves = [];
+    for (const [relPath, blobHex] of entriesMap) {
+      const slash = relPath.indexOf('/');
+      if (slash === -1) leaves.push({ mode: '100644', name: relPath, isDir: false, shaHex: blobHex });
+      else {
+        const head = relPath.slice(0, slash);
+        if (!sub.has(head)) sub.set(head, new Map());
+        sub.get(head).set(relPath.slice(slash + 1), blobHex);
+      }
+    }
+    for (const [dirName, childMap] of sub) {
+      leaves.push({ mode: '40000', name: dirName, isDir: true, shaHex: writeTree(childMap) });
+    }
+    leaves.sort((a, b) => Buffer.compare(Buffer.from(a.isDir ? `${a.name}/` : a.name), Buffer.from(b.isDir ? `${b.name}/` : b.name)));
+    const rawTree = Buffer.concat(leaves.map(e => Buffer.concat([Buffer.from(`${e.mode} ${e.name}\0`, 'utf8'), Buffer.from(e.shaHex, 'hex')])));
+    return hashObj('tree', rawTree);
+  };
+  const treeState = new Map(); // commitSha -> Map<path, blobHex>
   const commit = (files, msg) => {
     const hasHead = spawnSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: dir, encoding: 'utf8' });
-    if (hasHead.status === 0) git('read-tree', 'HEAD');
-    else git('read-tree', '--empty');
-    const blob = hashBlob(`${msg}\n`);
-    for (const f of files) git('update-index', '--add', '--cacheinfo', `100644,${blob},${f}`);
-    const tree = git('write-tree');
-    const commitArgs = ['commit-tree', tree, ...(hasHead.status === 0 ? ['-p', hasHead.stdout.trim()] : []), '-m', msg];
-    const sha = git(...commitArgs);
+    const parentSha = hasHead.status === 0 ? hasHead.stdout.trim() : null;
+    const nextFiles = new Map(parentSha ? treeState.get(parentSha) : []);
+    const blob = hashObj('blob', Buffer.from(`${msg}\n`, 'utf8'));
+    for (const f of files) nextFiles.set(f, blob);
+    const tree = writeTree(nextFiles);
+    const sha = git('commit-tree', tree, ...(parentSha ? ['-p', parentSha] : []), '-m', msg);
+    treeState.set(sha, nextFiles);
     git('update-ref', 'HEAD', sha);
     return sha;
   };
