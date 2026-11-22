@@ -2,14 +2,16 @@
 // 扩展名用 .mjs：这是回归夹具，不是 engine 的公开模块（不进 tests/engine 的 API 快照）。
 // 只依赖 three（页面的 import map 指到哪一版就是哪一版）与 engine/shade；场景完全确定：不用时间、不用随机数。
 //
-//   QW / QH / REGIONS     整帧 = 2 × 2 个子区（每个 QW × QH）；REGIONS 的 x / y 是 GL 视口坐标（左下原点），读回的像素也是自下而上
+//   QW / QH / REGIONS     整帧 = 2 × 2 个子区（每个 QW × QH）；REGIONS 的 x / y 是 GL 视口坐标（左下原点），读回的像素也是自下而上；
+//                         ids = 这个子区的法线 / ID 通道里应当出现的 [物体 ID, 实例数]（每族材质的物体 ID 从 1 起编，表面层四个物体各是自己那一族的 1 号）
 //   VARIANTS              base（标定场景）与故意改坏的变体：只渲、只读回它所属的那个子区（pass: 'id' 的读法线 / ID 通道）
 //                           kind: 'negative'   负对照：大幅扰动，PSNR 必须明显跌破门限
 //                           kind: 'ablation'   逐特性消融：只关掉一项特性，必须过不了门（证明这项特性在画面里、门看得见）
 //                           kind: 'identity'   正对照：什么都不改，必须过门（证明变体这条路的裁剪、通道与金标准对得上；排在最后，顺带查残留像素）
 //                           mat: { 材质名: 覆盖的参数 }（all = 这个场景的全部材质）；depthDeform: false = 摘掉阴影深度材质
-//   renderSuite(names) → { revision, gpu, frames: { base: { color, id }, 变体名: { crop } } }   都是 RGBA8 的 base64；
-//                         color / id 是整帧（id = 旧的 uToonPass = 1 通道：视空间法线 + 物体 / 实例 ID 写在 alpha），crop 是一个子区
+//   renderSuite(names) → { revision, gpu, frames: { base: { color, id }, idref: { 子区名 }, 变体名: { crop } } }   都是 RGBA8 的 base64；
+//                         color / id 是整帧（id = 旧的 uToonPass = 1 通道：视空间法线 + 物体 / 实例 ID 写在 alpha），crop 是一个子区；
+//                         idref 是每个场景单独渲的 QW × QH 法线 / ID 参照（不走拼图的视口 / 裁剪），执行器拿它核拼图里的子区位置与内容
 //
 // 子区覆盖：bands-rim-fill-sky   三档分档 + 羽化 + edgeNoise + 双色亮芯撕边边缘光（rimCore / rimBreak）+ 两档下方补光 + 天空冷光
 //           shadow-deform        平行光量化投影 + 顶点形变钩子 vertexBegin + bind 挂的 makeDepthMaterial（投影跟着形体弯）
@@ -21,8 +23,8 @@ import { patchLayer, paintLayer, muralLayer } from './surface.js';
 
 export const QW = 320, QH = 240;
 export const REGIONS = [
-  { id: 'bands-rim-fill-sky', x: 0, y: QH }, { id: 'shadow-deform', x: QW, y: QH },
-  { id: 'surface-layers', x: 0, y: 0 }, { id: 'instanced-tints', x: QW, y: 0 },
+  { id: 'bands-rim-fill-sky', x: 0, y: QH, ids: [[1, 1], [2, 1]] }, { id: 'shadow-deform', x: QW, y: QH, ids: [[1, 1], [2, 1], [3, 1], [4, 1]] },
+  { id: 'surface-layers', x: 0, y: 0, ids: [[1, 1]] }, { id: 'instanced-tints', x: QW, y: 0, ids: [[1, 1], [2, 12]] },
 ];
 const A = 'bands-rim-fill-sky', B = 'shadow-deform', C = 'surface-layers', D = 'instanced-tints';
 const neg = (region, what, v) => ({ kind: 'negative', region, what, ...v }), abl = (region, what, v) => ({ kind: 'ablation', region, what, ...v });
@@ -146,12 +148,21 @@ export function renderSuite(names = ['base']) {
     if (idPass) renderer.readRenderTargetPixels(rt, x, y, w, h, px); else { renderer.setRenderTarget(null); gl.readPixels(x, y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px); }
     return b64(px);
   }
+  // 独立参照：自己的 QW × QH 渲染目标、默认的整幅视口、不开裁剪，不经过上面的 draw
+  function idRef(part) {
+    const one = new THREE.WebGLRenderTarget(QW, QH), px = new Uint8Array(QW * QH * 4);
+    part.shared.forEach(S => setToonShared(S, { pass: 1 }));
+    renderer.setRenderTarget(one); renderer.render(part.scene, part.cam); renderer.readRenderTargetPixels(one, 0, 0, QW, QH, px);
+    one.dispose();
+    return b64(px);
+  }
   const frames = {};
   for (const name of names) {
     const v = VARIANTS[name];
     if (name === 'base') {
       const parts = BUILD.map(f => f(v)); frames.base = {};
       for (const idPass of [false, true]) { parts.forEach((p, i) => draw(p, REGIONS[i], idPass)); frames.base[idPass ? 'id' : 'color'] = read(idPass, 0, 0, W, H); }
+      frames.idref = Object.fromEntries(parts.map((p, i) => [REGIONS[i].id, idRef(p)]));
     } else {
       const i = REGIONS.findIndex(r => r.id === v.region), r = REGIONS[i], idPass = v.pass === 'id';
       draw(BUILD[i](v), r, idPass); frames[name] = { crop: read(idPass, r.x, r.y, QW, QH) };

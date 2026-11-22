@@ -149,15 +149,150 @@
       "pass": true
     }
   ],
+  "layoutChecks": [
+    {
+      "id": "r170:bands-rim-fill-sky",
+      "what": "拼图里的法线 / ID 子区对单独渲的参照",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true,
+      "idsExpected": 2,
+      "idsMissing": []
+    },
+    {
+      "id": "r170:shadow-deform",
+      "what": "拼图里的法线 / ID 子区对单独渲的参照",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true,
+      "idsExpected": 4,
+      "idsMissing": []
+    },
+    {
+      "id": "r170:surface-layers",
+      "what": "拼图里的法线 / ID 子区对单独渲的参照",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true,
+      "idsExpected": 1,
+      "idsMissing": []
+    },
+    {
+      "id": "r170:instanced-tints",
+      "what": "拼图里的法线 / ID 子区对单独渲的参照",
+      "psnrDb": 98.99,
+      "exactMatch": false,
+      "maxAbsDiff": 1,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true,
+      "idsExpected": 13,
+      "idsMissing": []
+    },
+    {
+      "id": "r187:bands-rim-fill-sky",
+      "what": "拼图里的法线 / ID 子区对单独渲的参照",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true,
+      "idsExpected": 2,
+      "idsMissing": []
+    },
+    {
+      "id": "r187:shadow-deform",
+      "what": "拼图里的法线 / ID 子区对单独渲的参照",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true,
+      "idsExpected": 4,
+      "idsMissing": []
+    },
+    {
+      "id": "r187:surface-layers",
+      "what": "拼图里的法线 / ID 子区对单独渲的参照",
+      "psnrDb": 99,
+      "exactMatch": true,
+      "maxAbsDiff": 0,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true,
+      "idsExpected": 1,
+      "idsMissing": []
+    },
+    {
+      "id": "r187:instanced-tints",
+      "what": "拼图里的法线 / ID 子区对单独渲的参照",
+      "psnrDb": 98.99,
+      "exactMatch": false,
+      "maxAbsDiff": 1,
+      "fracGt1": 0,
+      "fracGt5": 0,
+      "pass": true,
+      "idsExpected": 13,
+      "idsMissing": []
+    }
+  ],
+  "goldenAnchor": {
+    "baseline": "b5f463e",
+    "backend": "swiftshader：ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "shaders": 64,
+    "shadersChanged": [],
+    "gate": {
+      "maxBlockDiff": 12,
+      "meanBlockDiff": 0.15
+    },
+    "regions": [
+      {
+        "id": "bands-rim-fill-sky",
+        "maxBlockDiff": 2,
+        "meanBlockDiff": 0.077,
+        "pass": true
+      },
+      {
+        "id": "shadow-deform",
+        "maxBlockDiff": 6,
+        "meanBlockDiff": 0.06,
+        "pass": true
+      },
+      {
+        "id": "surface-layers",
+        "maxBlockDiff": 1,
+        "meanBlockDiff": 0.07,
+        "pass": true
+      },
+      {
+        "id": "instanced-tints",
+        "maxBlockDiff": 1,
+        "meanBlockDiff": 0.053,
+        "pass": true
+      }
+    ],
+    "pass": true
+  },
   "negativeControls": [
     {
       "id": "neg-step1",
       "what": "分档阈值 step1 整体 +0.12",
       "region": "bands-rim-fill-sky",
-      "psnrDb": 30.66,
+      "psnrDb": 30.65,
       "exactMatch": false,
       "maxAbsDiff": 78,
-      "fracGt1": 0.107083,
+      "fracGt1": 0.107084,
       "fracGt5": 0.092904,
       "pass": false,
       "caught": true
@@ -166,7 +301,7 @@
       "id": "neg-shadow-quant",
       "what": "投影量化窗口放开到 0..1（等于不量化）",
       "region": "shadow-deform",
-      "psnrDb": 32.6,
+      "psnrDb": 32.59,
       "exactMatch": false,
       "maxAbsDiff": 77,
       "fracGt1": 0.04543,
@@ -181,7 +316,7 @@
       "psnrDb": 22.79,
       "exactMatch": false,
       "maxAbsDiff": 235,
-      "fracGt1": 0.034518,
+      "fracGt1": 0.034519,
       "fracGt5": 0.033724,
       "pass": false,
       "caught": true
@@ -194,7 +329,7 @@
       "exactMatch": false,
       "maxAbsDiff": 135,
       "fracGt1": 0.019193,
-      "fracGt5": 0.018815,
+      "fracGt5": 0.018816,
       "pass": false,
       "caught": true
     }
@@ -207,8 +342,8 @@
       "psnrDb": 35.43,
       "exactMatch": false,
       "maxAbsDiff": 64,
-      "fracGt1": 0.065195,
-      "fracGt5": 0.051953,
+      "fracGt1": 0.065196,
+      "fracGt5": 0.051954,
       "pass": false,
       "caught": true
     },
@@ -228,11 +363,11 @@
       "id": "abl-edge-noise",
       "what": "关掉明暗交界线噪声 edgeNoise",
       "region": "bands-rim-fill-sky",
-      "psnrDb": 38.7,
+      "psnrDb": 38.69,
       "exactMatch": false,
       "maxAbsDiff": 146,
-      "fracGt1": 0.033984,
-      "fracGt5": 0.022096,
+      "fracGt1": 0.033985,
+      "fracGt5": 0.022097,
       "pass": false,
       "caught": true
     },
@@ -243,8 +378,8 @@
       "psnrDb": 39.93,
       "exactMatch": false,
       "maxAbsDiff": 100,
-      "fracGt1": 0.010078,
-      "fracGt5": 0.009531,
+      "fracGt1": 0.010079,
+      "fracGt5": 0.009532,
       "pass": false,
       "caught": true
     },
@@ -252,7 +387,7 @@
       "id": "abl-rim-core-lit",
       "what": "关掉受光侧边缘光亮芯（球的 rimLitColor2）",
       "region": "bands-rim-fill-sky",
-      "psnrDb": 37.27,
+      "psnrDb": 37.26,
       "exactMatch": false,
       "maxAbsDiff": 65,
       "fracGt1": 0.016081,
@@ -264,10 +399,10 @@
       "id": "abl-rim-break",
       "what": "关掉边缘光撕边 rimBreak",
       "region": "bands-rim-fill-sky",
-      "psnrDb": 33.66,
+      "psnrDb": 33.65,
       "exactMatch": false,
       "maxAbsDiff": 148,
-      "fracGt1": 0.022695,
+      "fracGt1": 0.022696,
       "fracGt5": 0.017227,
       "pass": false,
       "caught": true
@@ -279,8 +414,8 @@
       "psnrDb": 23.35,
       "exactMatch": false,
       "maxAbsDiff": 189,
-      "fracGt1": 0.141289,
-      "fracGt5": 0.136341,
+      "fracGt1": 0.14129,
+      "fracGt5": 0.136342,
       "pass": false,
       "caught": true
     },
@@ -288,11 +423,11 @@
       "id": "abl-sky",
       "what": "关掉天空冷光",
       "region": "bands-rim-fill-sky",
-      "psnrDb": 31.65,
+      "psnrDb": 31.64,
       "exactMatch": false,
       "maxAbsDiff": 69,
       "fracGt1": 0.061211,
-      "fracGt5": 0.053958,
+      "fracGt5": 0.053959,
       "pass": false,
       "caught": true
     },
@@ -303,7 +438,7 @@
       "psnrDb": 26.53,
       "exactMatch": false,
       "maxAbsDiff": 130,
-      "fracGt1": 0.125703,
+      "fracGt1": 0.125704,
       "fracGt5": 0.11724,
       "pass": false,
       "caught": true
@@ -340,7 +475,7 @@
       "exactMatch": false,
       "maxAbsDiff": 97,
       "fracGt1": 0.062448,
-      "fracGt5": 0.059609,
+      "fracGt5": 0.05961,
       "pass": false,
       "caught": true
     },
@@ -360,7 +495,7 @@
       "id": "abl-inst-tint",
       "what": "实例的两档阴影色调抹平成同一档",
       "region": "instanced-tints",
-      "psnrDb": 41.72,
+      "psnrDb": 41.71,
       "exactMatch": false,
       "maxAbsDiff": 46,
       "fracGt1": 0.031159,
@@ -384,11 +519,11 @@
       "id": "abl-id-instance",
       "what": "法线 / ID 通道：关掉实例 ID（整批实例同一个 ID）",
       "region": "instanced-tints",
-      "psnrDb": 23.99,
+      "psnrDb": 23.98,
       "exactMatch": false,
       "maxAbsDiff": 148,
       "fracGt1": 0.181732,
-      "fracGt5": 0.163164,
+      "fracGt5": 0.163165,
       "pass": false,
       "caught": true
     }
