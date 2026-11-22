@@ -492,6 +492,20 @@ test('V4 一审回归：私有字段、auth 前缀与不变量漏项', () => {
   assert.equal(runInvariantSuite([{ id: 'INV-01', fixture: makeValidInvariantFixture('INV-01') }]).ok, false);
 });
 
+test('INV-02 区分 JS 自定义时钟、全局墙钟和 Python 时间模块', () => {
+  const check = (source, language = 'js') => checkInvariant('INV-02', { seed: 42, language, source }).ok;
+  for (const source of [
+    'const ctx = { performance: { now: () => 42 } }; const seed = ctx.performance.now();',
+    'const time = { time: () => 42 }; const seed = time.time();',
+    'const seed = ctx?.["performance"]?.timeOrigin;',
+  ]) assert.equal(check(source), true, source);
+  for (const source of ['globalThis.performance.now()', 'const root = globalThis; root.performance.now()',
+    'const p = performance; p.now()', 'const seed = [...performance.now().toString()]', 'Date.now()']) {
+    assert.equal(check(source), false, source);
+  }
+  assert.equal(check('import time\nseed = time.time()', 'python'), false);
+});
+
 for (const module of ['random', 'numpy.random']) {
   test(`INV-02 在导入处拒绝 from ${module} import *`, () => {
     const statement = `from ${module} import *`;

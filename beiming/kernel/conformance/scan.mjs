@@ -8,6 +8,7 @@ const member = (kind, object, prop) => ({
   kind, call: `${object}.${prop}`,
   re: new RegExp(`\\b${object}\\s*(?:\\??\\.\\s*${prop}\\b|(?:\\?\\.)?\\s*\\[\\s*(['"\`])${prop}\\1\\s*\\])`, 'g'),
 });
+const pythonClock = { kind: 'wallClock', call: ['time', 'time'].join('.'), re: /\btime\s*\.\s*time\s*\(/g };
 const RULES = [
   member('wallClock', 'Date', 'now'),
   member('wallClock', 'performance', 'now'),
@@ -16,12 +17,17 @@ const RULES = [
   { kind: 'wallClock', call: `new ${'Date'}`, re: /\bnew\s+Date\b(?!\s*\(\s*[^)\s])/g },
   // 不带 new 当函数调：不管传什么，交回的都是当前时刻
   { kind: 'wallClock', call: `${'Date'}()`, re: /(?<!\bnew\s+)(?<![.\w$])Date\s*\(/g },
-  { kind: 'wallClock', call: ['time', 'time'].join('.'), re: /\btime\s*\.\s*time\s*\(/g },
+  pythonClock,
   member('unseededRandom', 'Math', 'random'),
   member('unseededRandom', 'crypto', 'getRandomValues'),
   member('unseededRandom', 'crypto', 'randomUUID'),
 ];
-const renderRules = [...RULES, ...['randomBytes', 'randomInt', 'randomFill', 'randomFillSync'].map((name) => member('unseededRandom', 'crypto', name))];
+// INV-02 只认接收对象本身，不认 ctx.performance 等同名属性；展开符 ... 不是属性访问。
+const jsClockRoot = '(?:(?<![.#$])|(?<=\\.\\.\\.))';
+const renderRules = [
+  ...RULES.filter((r) => r !== pythonClock).map((r) => r.kind !== 'wallClock' ? r : { ...r, re: new RegExp(jsClockRoot + r.re.source, 'g') }),
+  ...['randomBytes', 'randomInt', 'randomFill', 'randomFillSync'].map((name) => member('unseededRandom', 'crypto', name)),
+];
 const matches = (source, rules) => rules.flatMap(({ kind, call, re }) => Array.from(source.matchAll(re), () => ({ kind, call })));
 
 // 只保留静态成员名、模块名和模板插值。字符串内部的源码示例不能产生绑定或命中。
@@ -111,7 +117,6 @@ function bindings(code, python, implicitPython) {
       (_, local) => { names.set(local, 'crypto'); return ';'; });
     code = code.replace(/\b(?:require|await\s+import)\s*\(\s*"(?:node:)?crypto"\s*\)/g, 'crypto');
     code = code.replace(/(?:\?\.)?\s*\[\s*"([\w$]+)"\s*\]/g, '.$1').replace(/\s*\?\.\s*(?=[\w$])/g, '.');
-    code = code.replace(/\b(?:globalThis|window|self|global)\s*\.\s*(?=Math\b|crypto\b|Date\b|performance\b)/g, '');
   }
   // 此后用不到字符串内容；保留实参占位，不把带参构造误认作无参。
   code = code.replace(/"[^"\n]*"/g, '""').replace(/\s*\.\s*(?=[A-Za-z_$])/g, '.');
@@ -131,7 +136,7 @@ function bindings(code, python, implicitPython) {
       pending.pop();
       while (value.startsWith('(') && value.endsWith(')')) value = value.slice(1, -1).trim();
       const object = simpleRef.test(value) ? resolveName(value) : '';
-      const known = /^(?:Math|crypto|Date|performance|random|numpy|time)(?:\.|$)/.test(object);
+      const known = /^(?:Math|crypto|Date|performance|random|numpy|time|globalThis|window|self|global)(?:\.|$)/.test(object);
       if (target[0] === '{') {
         for (const item of target.slice(1, -1).split(',').filter((s) => s.trim())) {
           const [key, local = key] = item.trim().split(/\s*:\s*/);
@@ -208,7 +213,7 @@ export function scanText(source, options) {
   // 星号导入本身就违规，在绑定展开、导入语句被移除之前的源码上检查。
   const hits = python
     ? Array.from(masked.replace(/\\\r?\n/g, '').matchAll(pyRandomStarImport), ([call]) => ({ kind: 'unseededRandom', call }))
-    : matches(groupedReceivers(code), renderRules);
+    : matches(groupedReceivers(code).replace(/\b(?:globalThis|window|self|global)\s*\.\s*(?=Math\b|crypto\b|Date\b|performance\b)/g, ''), renderRules);
   if (python || implicit) hits.push(...scanPython(code));
   return hits.concat(Array.from(code.matchAll(/(?<![.#\w$])random\s*\(\s*\)/g),
     () => ({ kind: 'unseededRandom', call: 'random()' })));
