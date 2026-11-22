@@ -238,6 +238,8 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
   });
   const result = {
     format: RESULT_FORMAT, questionId: question.id, level: question.level, source, model: model ?? solved.model ?? null, runId, status, score,
+    // 没出错是 null；出错时和 observation.json 的 error 是同一句（隐藏题的判分原因、预算数值在上面已经抹掉）
+    error,
     // 隐藏题只落总分和计数：blockedBy 的原文、逐项的指标名和断言原文都是私有段
     visibility: hidden ? 'hidden' : 'public', blockedBy: hidden && blockedBy.length ? ['[hidden]'] : blockedBy,
     unmeasured: assertions.filter((a) => a.basis === 'unmeasured').length,
