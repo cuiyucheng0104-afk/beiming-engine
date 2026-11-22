@@ -1,4 +1,4 @@
-// .github/workflows 的 ci.yml、release.yml 与 .github/dependabot.yml 的静态核对（逐行扫描，不依赖 YAML 库）：
+// .github/workflows 的 ci.yml、release.yml、conformance-5090.yml 与 .github/dependabot.yml 的静态核对（逐行扫描，不依赖 YAML 库）：
 // actions 固定到 40 位提交哈希并注明版本、每个 job 有时限、run 里不直接展开外部输入（防脚本注入）、
 // 引用的仓库脚本都存在、必需的 job 都在、dependabot 覆盖 npm / pip（仅 tests/ci）/ GitHub Actions。
 import test from 'node:test';
@@ -8,7 +8,7 @@ import path from 'node:path';
 import { REPO } from './helpers.mjs';
 
 const read = rel => fs.readFileSync(path.join(REPO, rel), 'utf8');
-const WORKFLOWS = ['.github/workflows/ci.yml', '.github/workflows/release.yml'];
+const WORKFLOWS = ['.github/workflows/ci.yml', '.github/workflows/release.yml', '.github/workflows/conformance-5090.yml'];
 
 // 取出全部 run 脚本：{ file, line, text }（块标量按缩进收集）
 export function runBlocks(text, file) {
@@ -110,6 +110,39 @@ test('release.yml：标签触发、复用 ci.yml、只有建草稿的 job 有写
   assert.match(jobs.publish, /--draft/);
   assert.doesNotMatch(text, /gh release edit [^\n]*--draft=false/);
   assert.match(jobs.notes, /changelog\.mjs notes "\$TAG" --package package\.json/);
+});
+
+test('conformance-5090.yml：PR 先过轻量 filter，改到帧源且开了 5090 才排显卡队；夜间 exam → 一致性（限 10 分钟）→ 夜间重建', () => {
+  const text = read('.github/workflows/conformance-5090.yml'), jobs = jobsOf(text);
+  assert.deepEqual(Object.keys(jobs), ['filter', 'exam', 'conformance-5090', 'nightly-rebuild']);
+  for (const t of ['pull_request:', 'schedule:', 'workflow_dispatch:', 'workflow_call:']) assert.ok(text.includes(`\n  ${t}`), `缺触发 ${t}`);
+  assert.match(text, /^permissions:\n {2}contents: read$/m);
+  assert.doesNotMatch(text, /contents: write|write-all/);
+  for (const [k, v] of Object.entries(jobs)) assert.match(v, /timeout-minutes:\s*\d+/, `${k} 没有 timeout-minutes`);
+
+  assert.match(jobs.filter, /runs-on: ubuntu-24\.04/);
+  assert.match(jobs.filter, /timeout-minutes: 5\b/);
+  assert.match(jobs.filter, /if: github\.event_name == 'pull_request'/);
+  assert.match(jobs.filter, /frame_sources_changed: \$\{\{ steps\.\w+\.outputs\.frame_sources_changed \}\}/);
+  assert.match(jobs.filter, /--no-renames[^\n]*\| node tests\/ci\/conformance-filter\.mjs >> "\$GITHUB_OUTPUT"/);
+
+  const gpu = jobs['conformance-5090'];
+  assert.match(gpu, /runs-on: \[self-hosted, linux, x64, rtx5090\]/);
+  assert.match(gpu, /timeout-minutes: 10\b/);
+  assert.match(gpu, /needs: \[filter, exam\]/);
+  assert.match(gpu, /concurrency:\n\s+group: gpu-5090\n\s+cancel-in-progress: false/);
+  const cond = /if: >-\n([\s\S]*?)\n {4}\S/.exec(gpu)?.[1] ?? '';
+  assert.match(cond, /vars\.BEIMING_5090_RUNNER == 'true'/);
+  assert.match(cond, /!cancelled\(\)/, 'filter 或 exam 被跳过时不能连带跳过');
+  assert.match(cond, /github\.event_name == 'pull_request' && needs\.filter\.outputs\.frame_sources_changed == 'true'/);
+  assert.match(cond, /github\.event_name != 'pull_request' && needs\.exam\.result == 'success'/);
+  assert.match(gpu, /node --test 'beiming\/kernel\/conformance\/\*\.test\.mjs'/);
+
+  assert.match(jobs.exam, /if: github\.event_name != 'pull_request'/);
+  assert.match(jobs['nightly-rebuild'], /needs: conformance-5090\b/);
+  assert.match(jobs['nightly-rebuild'], /if: github\.event_name != 'pull_request'/, 'PR 里一致性通过也不能触发夜间重建');
+  // 只有一致性任务进显卡队：别的 job 用了 gpu-5090 会挤掉排队中的那个
+  assert.equal((text.match(/group: gpu-5090/g) || []).length, 1);
 });
 
 test('run 脚本里不直接展开外部输入（标签名、PR 标题、inputs 都先进 env 再用）', () => {

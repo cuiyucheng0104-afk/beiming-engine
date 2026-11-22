@@ -134,6 +134,19 @@ node tests/ci/windows-paths.mjs
 
 PowerShell 调 `npm.ps1` 时会吞掉单独的 `--`，参数传不到脚本里，所以要传参数时直接用 `node` 调入口。`windows-paths.mjs` 在 macOS 和 Linux 上也能跑，别名用符号链接代替目录联接。
 
+### conformance-5090（帧源一致性，RTX 5090 自托管运行器，限 10 分钟）
+
+工作流在 `.github/workflows/conformance-5090.yml`，与 ci.yml 分开，不进 ci.yml 的必需检查。
+
+- **PR**：先跑轻量 `filter`（托管 runner，限 5 分钟），`tests/ci/conformance-filter.mjs` 判定变更路径是否触及帧源与一致性边界：`beiming/sources/`、`beiming/host/`、`beiming/kernel/conformance/`、`beiming/kernel/contracts/source/`、`beiming/kernel/contracts/meta/`、`beiming/calib/`（按整段目录匹配，`beiming/sources-notes/` 不算）。只改 `beiming/api` 等其他目录、`docs/`、`site/` 的 PR 输出 `frame_sources_changed=false`，不排显卡队。
+- **夜间**（schedule，北京时间 02:00；也可 workflow_dispatch / workflow_call）：`exam`（考试）→ `conformance-5090` → `nightly-rebuild`（夜间重建），一致性排在考试之后、夜间重建之前。考试与夜间重建的入口（`beiming/bench/exam.mjs`、`tools/nightly/rebuild.mjs`）还没合入，缺入口时只打提示。
+- **显卡队**：运行器标签 `[self-hosted, linux, x64, rtx5090]`，`concurrency: gpu-5090` 串行、不取消进行中的任务。仓库变量 `BEIMING_5090_RUNNER` 设为 `true`（运行器注册好之后由维护者设置）之前，显卡任务一律跳过，不会卡在排队里。
+
+```sh
+git diff --name-only --no-renames origin/main...HEAD | node tests/ci/conformance-filter.mjs   # 本 PR 会不会排显卡队
+node --test 'beiming/kernel/conformance/*.test.mjs' 'beiming/calib/*.test.mjs'                 # 显卡任务跑的套件
+```
+
 ## 金标准首次采集
 
 smoke-render 在 SwiftShader 下的平台键是 `linux-swiftshader`（本机用 SwiftShader 模拟时是 `<系统>-swiftshader`）。比对工具与清单格式归 `tools/baseline/`、`docs/style-baselines/POLICY.md`（基线工作包）。还没有 `tests/golden/linux-swiftshader/manifest.json` 时，CI 会运行采集，把结果上传为工件 `golden-capture-linux-swiftshader`，这一次不做比对，在 summary 里给出提示。提交清单的步骤：
