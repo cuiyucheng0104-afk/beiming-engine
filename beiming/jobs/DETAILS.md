@@ -125,7 +125,7 @@ const sum = queue.summarizeLedger(); // { count: 2, succeeded: 2, gpuSeconds: 6,
 | `darwin-seatbelt` | `/usr/bin/sandbox-exec -p <策略>`：`(deny default)`，只许执行 node，文件读只放行系统库、本工作区、引擎目录与专属临时目录，写只放行本工作区与专属临时目录，`(deny network*)`，`signal` 与 `process-info` 只对自己 | `seatbelt-process-policy` | 进程策略，不是容器：没有 PID、挂载、网络命名空间，`pids-limit` 与 tmpfs 大小不生效；`/` 下的目录名可以列出；凭进程号能分辨别的进程在不在（`EPERM` 对 `ESRCH`），读不到它的命令行与环境变量；超时只杀主进程，作业另起会话的后台进程不会被回收（仍受同一份策略约束，容器后端没有这个问题）。`sandbox-exec` 已被系统标为弃用 |
 | `portable` | 直接起 node 子进程，只换环境变量和工作目录 | `needs-oci-runtime` | 没有内核级隔离，文件、网络、进程都拦不住。默认拒跑（`env.missing-tool`），自有的 `allowDegraded: true` 只给本机调试用，不得用于对外服务 |
 
-宿主机后端（后两种）没有挂载命名空间：规格里的 `/workspace`、`/app`、`/tmp` 在命令参数、环境变量和工作目录里换成本机真实路径，`/tmp` 换成每次新建、跑完即删的专属临时目录。作业代码从 `BEIMING_WORKSPACE`、`BEIMING_APP`、`TMPDIR` 取路径，三种后端写法相同。Windows 的 `portable` 后端另带 `SystemRoot`（node 起得来要它，不是凭据），并把 libuv 会自动从父进程补的变量（`deps/uv/src/win/process.c` 的 `required_vars`）逐个盖掉：`USERPROFILE`、`HOMEDRIVE` 加 `HOMEPATH` 指向沙箱的 `HOME`，`TEMP`、`TMP` 指向专属临时目录，`USERNAME`、`USERDOMAIN`、`LOGONSERVER` 给中性值，`WINDIR`、`SYSTEMDRIVE` 照宿主机的（系统目录，不是凭据）。不盖的话宿主机的家目录和用户名会进作业的环境变量。这一条的渲染结果有单测，真 Windows 上只在 CI 里跑。
+宿主机后端（后两种）没有挂载命名空间：规格里的 `/workspace`、`/app`、`/tmp` 在命令参数、环境变量和工作目录里换成本机真实路径，`/tmp` 换成每次新建、跑完即删的专属临时目录。作业代码从 `BEIMING_WORKSPACE`、`BEIMING_APP`、`TMPDIR` 取路径，三种后端写法相同。Windows 的 `portable` 后端另带 `SystemRoot`（node 起得来要它，不是凭据），并把 libuv 会自动从父进程补的变量（`deps/uv/src/win/process.c` 的 `required_vars`）逐个盖掉：`USERPROFILE`、`HOMEDRIVE` 加 `HOMEPATH` 指向沙箱的 `HOME`，`TEMP`、`TMP` 指向专属临时目录，`USERNAME`、`USERDOMAIN`、`LOGONSERVER` 给中性值，`WINDIR`、`SYSTEMDRIVE` 照宿主机的（系统目录，不是凭据）。不盖的话宿主机的家目录和用户名会进作业的环境变量。盖掉的是变量的原值，不是路径前缀：专属临时目录建在宿主机的 `os.tmpdir()` 下面，宿主机临时目录在用户配置目录里时（Windows 默认是 `%LOCALAPPDATA%\Temp`，在用户配置目录下面），沙箱的 `HOME` 也建在它里面，作业从 `HOME`、`USERPROFILE`、`HOMEPATH`、`TEMP`、`TMP`、`TMPDIR` 的路径前缀里仍然看得到宿主机的目录结构和用户名。`portable` 只给本机调试用，对外服务一律走容器后端，容器里这些路径是 `/tmp`。这一条的渲染结果有单测，真 Windows 上只在 CI 里跑。
 
 `runInWorkspaceSandbox` 交回 `{ backend, isolation, workspaceId, containerName, code, signal, timedOut, stdout, stderr }`。默认 10 分钟超时；标准输出与标准错误各只留前 8 Mi 个字符，多的丢掉。已经跑在别的 seatbelt 沙箱里时 `sandbox-exec` 起不来，探测会落到 `portable`。
 
@@ -152,7 +152,7 @@ const sum = queue.summarizeLedger(); // { count: 2, succeeded: 2, gpuSeconds: 6,
 1. 探针在自己的工作区里读写正常。
 2. 回执完整并且和退出码自洽，不合格的记在 `receiptErrors`。每条子尝试的回执要是对象，带 `id` 和自有的布尔值 `ok`；说自己被拦（`ok: false`）的还要带非空字符串的错误码（`code` 或 `error`）。探针退出码要和明细对得上：明细全是被拦应是 1，有一次得手应是 0；对不上的（明细全拦却退出 0、被信号杀掉的 `null`、别的退出码）都不算数。
 3. 上表里这一项的子尝试一个不少（判定方自己留着每项的 `expectedAttempts` 清单逐个核对，少的记在 `missingAttempts`）。
-4. 攻击夹具都建起来并且活到最后，不合格的记在 `fixtureErrors`。例如 Windows 上没有建符号链接的权限时，两条软链尝试没有真打到靶子上。诱饵进程起来后先在标准输出上应一声，宿主机确认它在才开跑；进程隔离那一项的探针跑完、清理诱饵之前，宿主机再核一次子进程状态和 0 号信号。诱饵中途退出的话，「看不到它」什么也说明不了。
+4. 攻击夹具都建起来并且活到最后，不合格的记在 `fixtureErrors`。例如 Windows 上没有建符号链接的权限时，两条软链尝试没有真打到靶子上。诱饵进程起来后先在标准输出上应一声 `ready`，宿主机确认它在才开跑；进程隔离那一项的探针跑完、清理诱饵之前，宿主机先看子进程状态和 0 号信号，再往诱饵的标准输入写一行 `ping`，等它回一行带本轮随机标记的 `pong`（最多等 2 秒）。写不进去、标准输出断了、收到退出事件、超时，哪一种都记成夹具失效。不靠等退出通知：Windows 上通知由线程池异步投回，等多久都有时间窗，进程号还可能被别的进程顶替；已经退出的、卡死的或顶替它的进程回不出这一行。诱饵中途退出的话，「看不到它」什么也说明不了。
 
 `blocked` 是结论有效并且没逃逸；`ok` 要五项都 `blocked`。命令行 `node beiming/jobs/sandbox-redteam.mjs [--json 文件] [--md 文件] [--backend 后端] [--image 镜像] [--allow-degraded]`：全拦 exit 0，有逃逸或结论无效 exit 4，没有可用后端 exit 3。默认的外网目标是 `1.1.1.1:443` 与 `example.com`，被拦时没有包发出去。
 

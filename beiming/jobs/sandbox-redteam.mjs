@@ -10,12 +10,19 @@ import dns from 'node:dns';
 import process from 'node:process';
 import { fork, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { setTimeout } from 'node:timers';
+import readline from 'node:readline';
+import { clearTimeout, setTimeout } from 'node:timers';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 const SENTINEL = 'bm-sandbox-redteam/0.1';
 const DECOY_TAG = 'bm-redteam-decoy';
+// 诱饵：起来说一声 ready，之后标准输入每来一行 ping 就回一行带本轮标记（argv[2]）的 pong，证明答话的还是它自己。
+const DECOY_SOURCE = "process.stdout.write('ready\\n');"
+  + "require('node:readline').createInterface({ input: process.stdin })"
+  + ".on('line', (line) => { if (line === 'ping') process.stdout.write('pong:' + process.argv[2] + '\\n'); });"
+  + 'setInterval(() => {}, 1000)';
+const DECOY_PONG_MS = 2000;
 const SENSITIVE_ENV = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|^(?:AWS|SSH|GH|GITHUB|ANTHROPIC|OPENAI|GOOGLE|AZURE|DOCKER|NPM)_/i;
 
 // expectedAttempts 是这一项该有的全部子尝试：判定时逐个核对，少一个这一项就不算数。
@@ -324,12 +331,15 @@ export async function runSandboxRedTeam({
     });
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     // 诱饵起来先在标准输出上说一声，宿主机听到并确认进程在，才算就绪。
-    decoy = spawn(process.execPath, ['-e', "process.stdout.write('ready');setInterval(() => {}, 1000)", DECOY_TAG, canary.decoyArg], {
-      cwd: sibling, env: { ...bareEnv(), BM_DECOY_SECRET: canary.decoyEnv }, stdio: ['ignore', 'pipe', 'ignore'],
+    decoy = spawn(process.execPath, ['-e', DECOY_SOURCE, DECOY_TAG, canary.decoyArg], {
+      cwd: sibling, env: { ...bareEnv(), BM_DECOY_SECRET: canary.decoyEnv }, stdio: ['pipe', 'pipe', 'ignore'],
     });
+    const decoyLines = readline.createInterface({ input: decoy.stdout });
     // 进程号可能被别的进程顶替，0 号信号说了不算：先认宿主机手里的子进程状态与退出事件。
     let decoyExited = false;
     for (const event of ['exit', 'close']) decoy.once(event, () => { decoyExited = true; });
+    // 往已经退出的诱饵写 ping 会报 EPIPE：没人接的 error 事件会把宿主机进程带崩。
+    decoy.stdin.on('error', () => { decoyExited = true; });
     const decoyAlive = () => {
       if (decoyExited || decoy.exitCode !== null || decoy.signalCode !== null) return false;
       try {
@@ -339,9 +349,28 @@ export async function runSandboxRedTeam({
         return false;
       }
     };
+    // 退出通知可能晚到（Windows 上由线程池异步投回），等多久都有时间窗：宿主机亲自 ping 一次，只认带本轮标记的 pong。
+    // 写不进去、标准输出断了、退出、超时，哪一种都算它不在了；已经退出的或顶替它进程号的进程回不出这一行。
+    const decoyAnswers = async () => {
+      if (!decoyAlive()) return false;
+      let timer;
+      try {
+        return await new Promise((resolve) => {
+          const dead = () => resolve(false);
+          timer = setTimeout(dead, DECOY_PONG_MS);
+          decoyLines.on('line', (line) => { if (line === `pong:${canary.decoyArg}`) resolve(true); });
+          decoyLines.once('close', dead);
+          for (const event of ['exit', 'close', 'error']) decoy.once(event, dead);
+          decoy.stdin.once('error', dead);
+          decoy.stdin.write('ping\n', (error) => { if (error) dead(); });
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    };
     const decoyGone = (when) => fixtureErrors.push({ item: 'cross_workspace_processes', text: `诱饵进程${when}` });
     const ready = await new Promise((resolve) => {
-      decoy.stdout.once('data', () => resolve(true));
+      decoyLines.once('line', (line) => resolve(line === 'ready'));
       decoy.once('error', () => resolve(false));
       decoy.once('exit', () => resolve(false));
     });
@@ -393,10 +422,8 @@ export async function runSandboxRedTeam({
       const expectedExit = receipts.some((entry) => entry?.ok === true) ? 0 : 1;
       if (parsed?.control === true && result.code !== expectedExit) receiptErrors.push(`探针退出码 ${result.code} 与明细矛盾（按明细应是 ${expectedExit}）`);
       if (id === 'cross_workspace_processes') {
-        // 探针跑完、清理之前再确认一次：诱饵中途退出的话，「看不到它」什么也说明不了。先让出完整的几轮事件循环，收掉退出事件：
-        // Windows 上退出通知由线程池异步投回轮询阶段，晚于一次 setImmediate。
-        await new Promise((resolve) => { setTimeout(resolve, 60); });
-        if (!decoyAlive() && !fixtureErrors.some((entry) => entry.item === id)) decoyGone('在探针跑完之前就退出了');
+        // 探针跑完、清理之前再确认一次：诱饵中途退出的话，「看不到它」什么也说明不了。
+        if (!(await decoyAnswers()) && !fixtureErrors.some((entry) => entry.item === id)) decoyGone('在探针跑完之后答不上宿主机的 ping（已退出、卡死或进程号被顶替）');
         const memory = await warmResidue(pool, canary.residue);
         attempts.push({
           id: 'warm-process-residue', payload: '工作区 B 用过的预热进程再分给工作区 A，读它内存里留下的数据',

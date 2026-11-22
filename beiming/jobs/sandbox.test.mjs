@@ -758,8 +758,17 @@ test('A13-21 进程隔离的诱饵要全程活着：起来时宿主机确认它�
     process.kill(pid, 'SIGKILL');
     for (let tries = 0; alive(pid) && tries < 500; tries += 1) await new Promise((resolve) => { setTimeout(resolve, 10); });
     assert.equal(alive(pid), false, '诱饵没杀掉');
-    // Windows 上退出通知由线程池异步投回事件循环，晚于进程真正结束：多等一拍，让宿主机手里的子进程状态收敛。
-    await new Promise((resolve) => { setTimeout(resolve, 60); });
+  };
+  // 宿主机这边认不出来的三种失效：退出通知还没投递、进程号检查恒真（被顶替），或者进程还在却已经卡死。只有答不上 ping 这一条露馅。
+  const silence = {
+    killed: killDecoy,
+    // 刚杀掉就返回，不等退出通知投递；从这一刻起进程号检查恒真。
+    pidReused: (pid) => {
+      process.kill(pid, 'SIGKILL');
+      return t.mock.method(process, 'kill', () => true);
+    },
+    // 冻住：退出事件永远不来，0 号信号照样发得出去（Windows 没有 SIGSTOP）。
+    frozen: (pid) => { process.kill(pid, 'SIGSTOP'); },
   };
 
   // 对照：不动诱饵时，每一项开跑的时候它都活着，五项全拦。
@@ -769,18 +778,19 @@ test('A13-21 进程隔离的诱饵要全程活着：起来时宿主机确认它�
   assert.equal(full.ok, true);
 
   // 诱饵在进程隔离那一项的探针跑着的时候退出，或者更早就退出：回执照样写着全拦（signal-0 报 ESRCH 也是「失败」），不能算数。
-  // 第三种：诱饵死后进程号被别的进程顶替（0 号信号又发得出去了），宿主机手里的子进程状态照样认得出它已经退出。
-  for (const [when, pidReused] of [['cross_workspace_processes', false], ['cross_workspace_read', false], ['cross_workspace_processes', true]]) {
+  // 后两种宿主机手里的子进程状态和 0 号信号都说它还在：探针跑完宿主机亲自 ping 它，回不出带本轮标记的 pong 就不算数。
+  for (const [when, how] of [
+    ['cross_workspace_processes', 'killed'], ['cross_workspace_read', 'killed'], ['cross_workspace_processes', 'pidReused'],
+    ...(process.platform === 'win32' ? [] : [['cross_workspace_processes', 'frozen']]),
+  ]) {
     let reuse;
     const report = await runSandboxRedTeam({
       ...OFFLINE,
       run: fakeBlockedRun([], async (receipt, cfg) => {
-        if (receipt.item !== when) return;
-        await killDecoy(cfg.decoyPid);
-        if (pidReused) reuse = t.mock.method(process, 'kill', () => true);
+        if (receipt.item === when) reuse = await silence[how](cfg.decoyPid);
       }),
     }).finally(() => reuse?.mock.restore());
-    const name = `${when}${pidReused ? '，进程号被顶替' : ''}`;
+    const name = `${when}，${how}`;
     const hit = report.items.find((item) => item.id === 'cross_workspace_processes');
     assert.match(hit.fixtureErrors.join(), /诱饵/, name);
     assert.deepEqual([hit.conclusive, hit.blocked], [false, false], name);
