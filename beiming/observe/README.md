@@ -17,6 +17,16 @@
 
 字段口径见 [curves.mjs](curves.mjs) 与 [telemetry.mjs](telemetry.mjs) 的文件头。
 
+## 画面能量尺子与小指标
+
+均从 [index.mjs](index.mjs) 导出，同步纯函数，同一输入重复读数逐位一致；8 位数组按显示码值、浮点数组按场景线性值量；参数不对抛 `code: 'usage.bad-argument'` 的 `RangeError`。按标准名调用用 `runEnergyMetric('metric:<名>', ...)` 或查 `ENERGY_METRICS`。口径与局限见 [DETAILS.md](DETAILS.md)。
+
+- `clipHighlightRatio(frame, { threshold?, roi?, alphaMask? })`：`clip.highlight-ratio`，高光溢出占比。
+- `noiseResidual(frames, { roi?, block?, motionThreshold?, maxShift? })`：`noise.residual`，静止区帧间高频残差，无静止区回 `status: 'no-static-region'`。
+- `aliasEdge(frame | frames, { roi?, edgeThreshold? })`：`alias.edge`，边缘锯齿度 `jaggedness`，三帧起另报 `flicker`。
+- `colorPaletteDe00(candidate, reference, { k? })`：`color.palette-de00`，主色色板 CIEDE2000 色差。
+- `shapeIou(a, b, { roi?, threshold?, id?, background?, tol?, emptyValue? })`：`shape.iou`，掩码交并比。
+
 ## 画面比对与对齐拟合
 
 均从 [index.mjs](index.mjs) 按名导出，同步执行，回答序列化后不超过 500 token，超限时按优先级截断并置 `truncated: true`；参数不对返回 `{ ok: false, error: { code: 'usage.bad-argument', message } }`，不抛异常。完整参数、容差与退化判定口径见 [DETAILS.md](DETAILS.md)。

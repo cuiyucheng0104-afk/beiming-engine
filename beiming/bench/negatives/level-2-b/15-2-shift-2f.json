@@ -1,0 +1,24 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "15-2-shift-2f",
+  "questionId": "15-2",
+  "kind": "shift-2f",
+  "disabledCards": [],
+  "seed": null,
+  "description": "锁机位晚 2 帧生效：第 0、1 帧机位还在锁定前的位置（横向差 2 像素），第 2 帧起才锁死。模型假设说明：锁死的机位本身整体错位几帧都看不出来，这份拦得住，靠的是模型假设锁定前的机位在别处（差 2 像素）；晚 1 帧生效同样判不过，和「2 帧」这个数无关。",
+  "perturbation": {
+    "lockShiftFrames": 2
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "meta.camera-static",
+      "why": "相机矩阵在第 2 帧变了"
+    },
+    {
+      "scoring": 1,
+      "metric": "motion.zoom-pan",
+      "why": "第 0 帧对第 150、299 帧都量出 2 像素的平移，线是 0 像素"
+    }
+  ]
+}

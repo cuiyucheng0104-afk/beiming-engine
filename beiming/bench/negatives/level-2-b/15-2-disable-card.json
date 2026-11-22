@@ -1,0 +1,26 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "15-2-disable-card",
+  "questionId": "15-2",
+  "kind": "disable-card",
+  "disabledCards": [
+    "camera.drift"
+  ],
+  "seed": null,
+  "description": "关掉管机位的那张卡（这道题要它把漂移压成零）：相机像普通镜头那样一路缓推带摇移，推近和平移的量照题面写的反例取，到末帧推近 1.02 倍、横移 −5 像素、纵移 2 像素，逐帧相机矩阵跟着变。",
+  "perturbation": {
+    "cameraPath": "drift"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "meta.camera-static",
+      "why": "相机矩阵从第 1 帧起就和第 0 帧不同"
+    },
+    {
+      "scoring": 1,
+      "metric": "motion.zoom-pan",
+      "why": "第 0 帧对第 150、299 帧都量出平移，末帧还量出推近"
+    }
+  ]
+}
