@@ -12,30 +12,44 @@ HOLE.length = 2;
 const FONT = new URL('../../../fonts/NotoSansSC-var.woff2', import.meta.url).href;
 const DRAWN = { kind: 'canvas2d', name: 'c', rect: [1, 1, 20, 20], draw() {} }, GONE = Proxy.revocable([DRAWN], {});
 GONE.revoke();
+const TRAPS = ['apply', 'construct', 'defineProperty', 'deleteProperty', 'get', 'getOwnPropertyDescriptor', 'getPrototypeOf', 'has', 'isExtensible', 'ownKeys', 'preventExtensions', 'set', 'setPrototypeOf'];
+/** 包一层 13 种陷阱全转发并计数的活 Proxy，hit() 记一次触发 */
+const liveProxy = (target, hit) => new Proxy(target, Object.fromEntries(TRAPS.map((k) => [k, (...a) => { hit(); return Reflect[k](...a); }])));
 /** 带空槽的数组：只有 entries 里的下标有值 */
 const sparse = (length, entries) => Object.assign(Array(length), entries);
 const sized = (size) => (ctx) => ({ ...ctx, size });
-// 名字: [该报的错误码, opts, ctx（不写就用真的；写成函数是从真的改出来的）]。font、dup 装到一半才查得出、该经 Promise 报，fine 是写对了的对照，其余都该在调用当场抛
+/** 在 size、THREE 之前加一个可枚举 diagnostic 访问器的普通 ctx */
+const diagCtx = (ctx, hit) => {
+  const out = {};
+  Object.defineProperty(out, 'diagnostic', { enumerable: true, get: () => { hit(); return 1; } });
+  return Object.assign(out, { size: ctx.size, THREE: ctx.THREE });
+};
+// 名字: [该报的错误码, opts（写成 (hit) => ... 时按次现造并计陷阱/访问器次数）, ctx（不写就用真的；写成 (ctx, hit) => ... 是从真的改出来的）]。
+// font、dup 装到一半才查得出、该经 Promise 报，fine、ctxDiagOk 是写对了的对照，其余都该在调用当场抛
 const TRIALS = {
   slot: ['usage.bad-argument', { elements: Array(1) }],
   hole: ['usage.bad-argument', { elements: HOLE }],
   getter: ['usage.bad-argument', { elements: Object.defineProperty([], 0, { get: () => ONE, enumerable: true }) }],
   noCtx: ['usage.bad-argument', { elements: [ONE] }, null],
   noOpts: ['usage.bad-argument', null],
-  // Proxy：原样转发的、读下标时换一份声明的、查描述符时抛错的、撤销了的、元素自己是 Proxy 的
-  proxy: ['usage.bad-argument', { elements: new Proxy([DRAWN], {}) }],
+  // 活 Proxy（七个位置，全挂 13 种 Reflect 转发陷阱）：调用当场抛且陷阱计数严格为 0
+  proxy: ['usage.bad-argument', (hit) => ({ elements: liveProxy([DRAWN], hit) })],
   swap: ['usage.bad-argument', { elements: new Proxy([DRAWN], { get: (t, k, r) => (k === '0' ? { ...DRAWN, name: 'second' } : Reflect.get(t, k, r)) }) }],
   trap: ['usage.bad-argument', { elements: new Proxy([DRAWN], { getOwnPropertyDescriptor() { throw new Error('陷阱里抛的'); } }) }],
   revoked: ['usage.bad-argument', { elements: GONE.proxy }],
-  item: ['usage.bad-argument', { elements: [new Proxy(DRAWN, {})] }],
+  item: ['usage.bad-argument', (hit) => ({ elements: [liveProxy(DRAWN, hit)] })],
+  rectProxy: ['usage.bad-argument', (hit) => ({ elements: [{ ...DRAWN, rect: liveProxy([1, 1, 20, 20], hit) }] })],
   rectHole: ['usage.bad-argument', { elements: [{ ...DRAWN, rect: sparse(4, { 1: 1, 2: 20, 3: 20 }) }] }],
-  // 画幅：缺宽、缺高、高是访问器、是 Proxy；ctx、opts 自己是 Proxy
+  fontsProxy: ['usage.bad-argument', (hit) => ({ elements: [DRAWN], fonts: liveProxy([{ family: 'Probe', url: FONT }], hit) })],
+  // 画幅：缺宽、缺高、高是访问器、是活 Proxy；ctx、opts 自己是活 Proxy；普通 ctx 带前置 diagnostic 访问器
   sizeHole: ['usage.bad-argument', { elements: [DRAWN] }, sized(sparse(2, { 1: 160 }))],
   sizeTail: ['usage.bad-argument', { elements: [DRAWN] }, sized(sparse(2, { 0: 320 }))],
   sizeGetter: ['usage.bad-argument', { elements: [DRAWN] }, sized(Object.defineProperty([320], 1, { get: () => 160, enumerable: true }))],
-  sizeProxy: ['usage.bad-argument', { elements: [DRAWN] }, sized(new Proxy([320, 160], {}))],
-  ctxProxy: ['usage.bad-argument', { elements: [DRAWN] }, (ctx) => new Proxy(ctx, {})],
-  optsProxy: ['usage.bad-argument', new Proxy({ elements: [DRAWN] }, {})],
+  sizeProxy: ['usage.bad-argument', { elements: [DRAWN] }, (ctx, hit) => ({ ...ctx, size: liveProxy([320, 160], hit) })],
+  ctxProxy: ['usage.bad-argument', { elements: [DRAWN] }, (ctx, hit) => liveProxy(ctx, hit)],
+  optsProxy: ['usage.bad-argument', (hit) => liveProxy({ elements: [DRAWN] }, hit)],
+  ctxDiagNull: ['usage.bad-argument', null, diagCtx],
+  ctxDiagOk: [null, { elements: [DRAWN] }, diagCtx],
   fine: [null, { elements: [DRAWN] }],
   // 第一款字体登记上了，第二款取不到
   font: ['usage.bad-argument', { elements: [ONE], fonts: [{ family: 'Probe', url: FONT }, { family: 'Gone', url: `${FONT}.gone.woff2` }] }],
@@ -43,17 +57,20 @@ const TRIALS = {
   dup: ['contract.bad-value', { elements: [ONE, ONE], fonts: [{ family: 'Probe', url: FONT }] }],
 };
 
-/** 把 TRIALS 各试一遍。每种四个读数：sync 调用当场抛的（1 是该报的错误码，-1 是别的，0 没抛）、late 交回的 Promise 失败带的（同上）、nodes 和 fonts 事后页面多出来的节点数、字体数 */
+/** 把 TRIALS 各试一遍。每种五个读数：sync 调用当场抛的（1 是该报的错误码，-1 是别的，0 没抛）、late 交回的 Promise 失败带的（同上）、nodes 和 fonts 事后页面多出来的节点数、字体数，traps 陷阱/无关访问器被触发的次数 */
 async function runTrials(ctx) {
   const readings = {}, count = () => [document.querySelectorAll('*').length, document.fonts.size];
   for (const [name, [code, opts, at = ctx]] of Object.entries(TRIALS)) {
     const before = count(), hit = (err) => (err.code === code ? 1 : -1);
-    let sync = 0, late = 0;
+    let sync = 0, late = 0, traps = 0;
+    const bump = () => { traps++; };
     try {
-      await createTwoDStage(typeof at === 'function' ? at(ctx) : at, opts).then((stage) => stage.dispose(), (err) => { late = hit(err); });
+      const targetCtx = typeof at === 'function' ? at(ctx, bump) : at;
+      const targetOpts = typeof opts === 'function' ? opts(bump) : opts;
+      await createTwoDStage(targetCtx, targetOpts).then((stage) => stage.dispose(), (err) => { late = hit(err); });
     } catch (err) { sync = hit(err); }
     const after = count();
-    Object.assign(readings, { [`${name}.sync`]: sync, [`${name}.late`]: late, [`${name}.nodes`]: after[0] - before[0], [`${name}.fonts`]: after[1] - before[1] });
+    Object.assign(readings, { [`${name}.sync`]: sync, [`${name}.late`]: late, [`${name}.nodes`]: after[0] - before[0], [`${name}.fonts`]: after[1] - before[1], [`${name}.traps`]: traps });
   }
   return readings;
 }

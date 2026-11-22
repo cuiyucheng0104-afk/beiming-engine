@@ -19,7 +19,7 @@ const INK_PAD = 32;
 const UNPAINTED = ['defs', 'symbol', 'clippath', 'mask', 'pattern', 'marker', 'lineargradient', 'radialgradient', 'filter'];
 const coded = (code, message) => Object.assign(new Error(message), { code });
 const bad = (message) => coded('usage.bad-argument', message);
-const show = (v) => JSON.stringify(v) ?? String(v);
+const show = (v) => (typeof v === 'function' ? '[function]' : JSON.stringify(v) ?? String(v));
 
 // ---- 声明只收直接写出来的 ----
 /** 跑一段读声明的同步代码：里面抛出来的不管是什么（陷阱里抛的、撤销了的 Proxy、套成环的对象），都报成 usage.bad-argument */
@@ -33,10 +33,35 @@ function declared(read) {
   }
 }
 
+const nodeIsProxy = globalThis.process?.getBuiltinModule?.('node:util/types')?.isProxy;
+const captureTrace = Error.captureStackTrace;
+const TRACE_PROXY_ERR = typeof captureTrace === 'function' ? (() => {
+  try { captureTrace(new Proxy({}, {})); return null; } catch (err) { return String(err.message); }
+})() : null;
+
 /**
- * v 自己过不过得了结构化克隆的第一关：Proxy 和克隆不了的内建对象（页面节点、模块这类）过不了。脚本里认得出 Proxy 的只有它：见到 Proxy 当场报错、一个陷阱都不碰。
+ * 零陷阱、零访问器地判断对象或数组 v 是不是 Proxy（活的和撤销了的都认）：
+ * - Node 直接用 node:util/types 的 isProxy（V8 C++ 内部槽判定，不碰任何陷阱或属性）；
+ * - 浏览器（V8）走 Error.captureStackTrace（V8 C++ 先查 IsJSObject，见任何 JSProxy——对象、数组、套层或撤销的——直接抛 invalid_argument、零陷阱；真对象若可扩展则立刻删掉临时写的 stack）。
+ * shortcut: 浏览器里对象或数组若自带可配置的自有属性 stack，captureStackTrace 会盖掉再被删掉（ctx、opts、元素、字体、画幅、矩形里都没有 stack 字段；没有 captureStackTrace 的引擎退回 opaque）。
+ */
+function isProxy(v) {
+  if (v === null || typeof v !== 'object') return false;
+  if (nodeIsProxy) return nodeIsProxy(v);
+  if (TRACE_PROXY_ERR === null) return false;
+  try {
+    captureTrace(v, isProxy);
+    delete v.stack;
+    return false;
+  } catch (err) {
+    return String(err.message) === TRACE_PROXY_ERR;
+  }
+}
+
+/**
+ * v 自己过不过得了结构化克隆的第一关：克隆不了的内建对象（页面节点、模块这类）过不了（Proxy 已由 isProxy 在读描述符前零陷阱拦下）。
  * 带函数的真对象也克隆不了，但报的是里面那个函数；v 自己过不了时报的是 v。所以拿 v 的报错去对「套了一层 Proxy 的 v」的报错（那个一定是报 v 自己）：一样就是没过。
- * 克隆会往 v 里面走，所以里面的要先查完（见 copy）。
+ * 克隆会往 v 里面走，所以里面的访问器要先查完（见 copy）。
  * shortcut: 靠的是 V8 的报错里写着克隆不了的是哪个值；报错千篇一律的引擎里带函数的真声明也会被拒掉（宁可错拒），到那时得另找判法。
  */
 function opaque(v) {
@@ -47,10 +72,11 @@ function opaque(v) {
 
 /**
  * 抄一份声明交回，之后查的、用的都是抄的这份：调用方那份之后怎么变、读一次给一个样，都碰不到舞台。对象和数组逐层照自有属性的描述符抄，基本值和函数原样。
- * 不收的：访问器（一次都不读它）、Proxy 和克隆不了的内建对象（见 opaque）、有空槽的数组、带着下标以外属性的数组。what 是报错时怎么称呼它。
+ * 不收的：Proxy（在读任何描述符前零陷阱拒收，见 isProxy）、访问器（一次都不读它）、克隆不了的内建对象（见 opaque）、有空槽的数组、带着下标以外属性的数组。what 是报错时怎么称呼它。
  */
 function copy(what, v) {
   if (v === null || typeof v !== 'object') return v;
+  if (isProxy(v)) throw bad(`${what} 不是直接写出来的（是 Proxy）`);
   const array = Array.isArray(v), props = Object.getOwnPropertyDescriptors(v), keys = Reflect.ownKeys(props), out = array ? [] : {};
   if (array) {
     const n = props.length.value;
@@ -177,7 +203,7 @@ function checkItems(size, elements) {
   if (!Array.isArray(elements) || !elements.length) throw bad('elements 必须是不空的数组');
   const taken = new Set();
   return elements.map((e, i) => {
-    if (!e || !KINDS.includes(e.kind)) throw bad(`第 ${i} 个元素的种类 ${show(e?.kind)} 不认识，只有 ${KINDS.join('、')}`);
+    if (!e || typeof e !== 'object' || !KINDS.includes(e.kind)) throw bad(`第 ${i} 个元素的种类 ${typeof e === 'object' && e ? show(e.kind) : show(e)} 不认识，只有 ${KINDS.join('、')}`);
     if (e.opacity !== undefined && typeof e.opacity !== 'function') throw bad(`第 ${i} 个元素的 opacity 必须是函数 (f, sub) => [0, 1] 里的数`);
     if (e.kind === 'dom') {
       if (typeof e.html !== 'string' || !e.html.trim()) throw bad(`第 ${i} 个元素（dom）缺 html`);
@@ -201,7 +227,8 @@ function base64(bytes) {
 function checkFonts(fonts) {
   if (!Array.isArray(fonts)) throw bad(`fonts 必须是数组，给的是 ${show(fonts)}`);
   return fonts.map((font) => {
-    const { family, url, weight = 'normal', style = 'normal' } = font ?? {};
+    if (!font || typeof font !== 'object') throw bad(`字体声明 ${show(font)} 写法不对：family、weight、style 只含字母、数字、下划线、空格、连字符，url 是字符串`);
+    const { family, url, weight = 'normal', style = 'normal' } = font;
     if (![family, weight, style].every((v) => typeof v === 'string' && FONT_WORD.test(v)) || typeof url !== 'string') throw bad(`字体声明 ${show(font)} 写法不对：family、weight、style 只含字母、数字、下划线、空格、连字符，url 是字符串`);
     return { family, url, weight, style };
   });
@@ -260,14 +287,15 @@ export function createTwoDStage(ctx, opts = {}) {
   // 声明不对当场抛，不放进交回的 Promise 里：调用处不带 await 的 try/catch 也接得住，页面一个节点都还没动
   const [at, look, items, fonts] = declared(() => {
     if (!ctx || typeof ctx !== 'object') throw bad('ctx 必须是 build(ctx) 收到的那个');
-    // ctx 是宿主的东西，不整份抄：只照描述符读 size、THREE 这两个（访问器不收），自己不能是 Proxy
+    if (isProxy(ctx)) throw bad('ctx 是 Proxy，必须是 build(ctx) 收到的那个');
+    // ctx 是宿主的东西，不整份抄：只照描述符读 size、THREE 这两个（访问器不收），不碰 ctx 上的其他属性
     const [raw, THREE] = ['size', 'THREE'].map((k) => {
       const p = Object.getOwnPropertyDescriptor(ctx, k);
       if (p && !Object.hasOwn(p, 'value')) throw bad(`ctx.${k} 是访问器，ctx 必须是 build(ctx) 收到的那个`);
       return p?.value;
     });
     const size = checkSize('ctx 必须是 build(ctx) 收到的那个，ctx.size', copy('ctx.size', raw));
-    if (opaque(ctx)) throw bad('ctx 是 Proxy，必须是 build(ctx) 收到的那个');
+    if (!nodeIsProxy && TRACE_PROXY_ERR === null && opaque(ctx)) throw bad('ctx 是 Proxy，必须是 build(ctx) 收到的那个');
     if (!opts || typeof opts !== 'object') throw bad('opts 必须是对象');
     const given = copy('opts', opts), css = given.css ?? '', background = given.background ?? STAGE.paper;
     if (typeof css !== 'string') throw bad('css 必须是字符串');

@@ -187,6 +187,30 @@ test('声明只收直接写出来的：Proxy、访问器、数组空槽、数组
   };
   for (const [k, [ctx, opts]] of Object.entries(badCalls)) assert.throws(() => createTwoDStage(ctx, opts), coded('usage.bad-argument'), k);
   assert.equal(read, 0, '访问器被执行了');
+  // 活 Proxy 挂满 13 种 Reflect 计数转发陷阱：七个位置同步拒收，且每个位置的陷阱触发次数严格为 0；普通 ctx 的前置 diagnostic 访问器在拒收前也不得执行
+  const TRAPS = ['apply', 'construct', 'defineProperty', 'deleteProperty', 'get', 'getOwnPropertyDescriptor', 'getPrototypeOf', 'has', 'isExtensible', 'ownKeys', 'preventExtensions', 'set', 'setPrototypeOf'];
+  const liveProxy = (target, hit) => new Proxy(target, Object.fromEntries(TRAPS.map((k) => [k, (...a) => { hit(); return Reflect[k](...a); }])));
+  const seven = {
+    ctx: (hit) => [liveProxy({ size }, hit), { elements: [canvas] }],
+    'ctx.size': (hit) => [{ size: liveProxy([...size], hit) }, { elements: [canvas] }],
+    opts: (hit) => [{ size }, liveProxy({ elements: [canvas] }, hit)],
+    elements: (hit) => [{ size }, { elements: liveProxy([canvas], hit) }],
+    item: (hit) => [{ size }, { elements: [liveProxy({ ...canvas }, hit)] }],
+    rect: (hit) => [{ size }, { elements: [{ ...canvas, rect: liveProxy([...rect], hit) }] }],
+    fonts: (hit) => [{ size }, { elements: [canvas], fonts: liveProxy([font], hit) }],
+    fontItem: (hit) => [{ size }, { elements: [canvas], fonts: [liveProxy({ ...font }, hit)] }],
+    fnItem: (hit) => [{ size }, { elements: [liveProxy(() => {}, hit)] }],
+  };
+  for (const [where, make] of Object.entries(seven)) {
+    let traps = 0;
+    const [ctx, opts] = make(() => { traps++; });
+    assert.throws(() => createTwoDStage(ctx, opts), coded('usage.bad-argument'), `liveProxy ${where}`);
+    assert.equal(traps, 0, `liveProxy ${where} 触发了 ${traps} 次陷阱`);
+  }
+  let diagRead = 0;
+  const diagCtx = Object.assign(Object.defineProperty({}, 'diagnostic', { enumerable: true, get: () => { diagRead++; return 1; } }), { size, THREE: {} });
+  assert.throws(() => createTwoDStage(diagCtx, null), coded('usage.bad-argument'), 'plain ctx with diagnostic getter');
+  assert.equal(diagRead, 0, `普通 ctx 的 diagnostic 访问器被执行了 ${diagRead} 次`);
   // 照样收的：冻结的声明、带着别的字段的元素（字段里的对象一样逐层抄，舞台不用）
   const frozen = Object.freeze([Object.freeze({ ...canvas, rect: Object.freeze([...rect]), note: 'x', more: { deep: [1] } })]);
   assert.deepEqual(checkElements(Object.freeze([...size]), frozen).map((e) => [e.name, e.rect]), [['plot', rect]]);
@@ -581,11 +605,11 @@ test('探针：过不了 JSON 的坏声明（数组空槽、访问器、Proxy、
   await withSource(t, async ({ open }) => {
     const session = await open(probeFilm([probeShot('trials', [PROBE[1]], { trials: true })]), 'trials');
     const { readings } = (await session.render(0, {}, ['color'])).meta;
-    // 每种：[调用当场抛了该抛的错误码, 交回的 Promise 带着该报的错误码失败, 事后页面多出来的节点数, 多登记的字体数]
-    const sync = ['slot', 'hole', 'getter', 'noCtx', 'noOpts', 'proxy', 'swap', 'trap', 'revoked', 'item', 'rectHole', 'sizeHole', 'sizeTail', 'sizeGetter', 'sizeProxy', 'ctxProxy', 'optsProxy'];
-    // fine 是对照：写对了的 Canvas 2D 声明在页面里照常装上（没抛、没失败），撤掉之后页面不多东西
-    const want = { ...Object.fromEntries(sync.map((k) => [k, [1, 0, 0, 0]])), font: [0, 1, 0, 0], dup: [0, 1, 0, 0], fine: [0, 0, 0, 0] };
-    assert.deepEqual(Object.fromEntries(Object.keys(want).map((k) => [k, ['sync', 'late', 'nodes', 'fonts'].map((x) => readings?.[`${k}.${x}`])])), want);
+    // 每种：[调用当场抛了该抛的错误码, 交回的 Promise 带着该报的错误码失败, 事后页面多出来的节点数, 多登记的字体数, 陷阱/无关访问器触发次数]
+    const sync = ['slot', 'hole', 'getter', 'noCtx', 'noOpts', 'proxy', 'swap', 'trap', 'revoked', 'item', 'rectProxy', 'rectHole', 'fontsProxy', 'sizeHole', 'sizeTail', 'sizeGetter', 'sizeProxy', 'ctxProxy', 'optsProxy', 'ctxDiagNull'];
+    // fine、ctxDiagOk 是对照：写对了的 Canvas 2D 声明在页面里照常装上（没抛、没失败），撤掉之后页面不多东西，diagnostic 访问器一次不碰
+    const want = { ...Object.fromEntries(sync.map((k) => [k, [1, 0, 0, 0, 0]])), font: [0, 1, 0, 0, 0], dup: [0, 1, 0, 0, 0], fine: [0, 0, 0, 0, 0], ctxDiagOk: [0, 0, 0, 0, 0] };
+    assert.deepEqual(Object.fromEntries(Object.keys(want).map((k) => [k, ['sync', 'late', 'nodes', 'fonts', 'traps'].map((x) => readings?.[`${k}.${x}`])])), want);
     await session.close();
   });
 });
