@@ -78,7 +78,7 @@ const filmFrames = (opts, events, fromSound) => {
  *       audio 先在 samples（{ 名字: 单声道样本或 [左, 右] }）里找，再在自带音色里找，都没有报错。bed 是垫在下面的配乐（一个或两个声道），比全片长的截掉。
  *       每段音效乘 gainDb，尾巴 fadeMs 毫秒线性收到 0（被片尾截断的也收）；混完峰值超过 ceilingDb 时整体降增益到正好压线，不做限幅。
  *       返回 { channels: [左, 右], placements: [{ id, audio, frame, sub, sample, clippedTail }], peakDb, scaleDb }。
- *   onsets(channels)       起音的采样点下标：5 毫秒一步的能量（两个声道各自平方再平均，左右反相也不会抵消），比上一步涨得最多的那一步；涨幅是每个采样点的平均能量涨了多少，不到全曲最大涨幅的 onsetFloor 倍的不算，50 毫秒内只认一个。准到一步（5 毫秒）；声音末尾不满一步的那一段也算一步，它和前两步里最响的同样长的一段比：垫着底音的点击找得到，一直响着的长音不多出起音。
+ *   onsets(channels)       起音的采样点下标：5 毫秒一步的能量（两个声道各自平方再平均，左右反相也不会抵消），比上一步涨得最多的那一步；涨幅是每个采样点的平均能量涨了多少，不到全曲最大涨幅的 onsetFloor 倍的不算，50 毫秒内只认一个。准到一步（5 毫秒）；声音末尾连着的 0（两个声道都是 0）先剥掉，后面多几帧少几帧静音找到的是同一批起音；剩下的声音末尾不满一步的那一段也算一步，它和紧邻前一步里最响的同样长的一段比：垫着底音的点击找得到，一直响着的长音不多出起音。
  *   snap(frames, channels, { frames, windowFrames, sampleRate })
  *       把每个帧号换成离它最近的起音所在的帧（四舍五入到整数帧，起音在最后半帧里的收在最后一帧）；交回的帧号都在全片里，可以直接交给同一片长的 mix、audit。
  *       给了 windowFrames 时，要挪的帧数超过它的帧号留在原地；选项里的 frames 是全片帧数。
@@ -144,12 +144,16 @@ export function create(ctx, params) {
     // 涨幅一律除以这一步的采样数，是「每个采样点的平均能量涨了多少」：80 个采样点的片尾和 240 个的整步才能放在同一个门槛下比
     // 不满的那一步不和前一整步比（长短不一样，长音的瞬时起伏会变成假起音）：和紧邻前一步里任何一段同样长的采样比，
     // 比其中最响的那段还多出来的才算涨。长音的起伏前一步里都出现过，多不出来；只看前一步，和整步的参照是同一段，不越过静音去拿更早的声音
-    // shortcut: 一个采样点的脉冲落在不满的片尾里，平均下来比落在整步里重 240 ÷ 片尾采样数 倍；要脉冲不分位置一样重时改成滑动的整步窗
-    const [l, r] = stereoOf(channels, 'channels'), steps = Math.ceil(l.length / HOP), rise = new Float64Array(steps);
+    // 末尾连着的 0 先剥掉再分步：同一段声音后面接多少静音，分出来的步都一样（不然静音把最后一步凑满，平均涨幅被摊薄，门槛边上的起音时有时无）
+    // shortcut: 最后一步不满时（片尾切在一步中间，或者最后一个声音停在一步中间、后面只剩 0），落在里面的短声音平均下来比落在整步里重 240 ÷ 这一步采样数 倍；要不分位置一样重时改成滑动的整步窗
+    const [l, r] = stereoOf(channels, 'channels');
+    let total = l.length;
+    while (total > 0 && l[total - 1] === 0 && r[total - 1] === 0) total--;
+    const steps = Math.ceil(total / HOP), rise = new Float64Array(steps);
     const power = (i) => (l[i] * l[i] + r[i] * r[i]) / 2;
     let before = 0, top = 0;
     for (let k = 0; k < steps; k++) {
-      const start = k * HOP, end = Math.min(start + HOP, l.length), n = end - start;
+      const start = k * HOP, end = Math.min(start + HOP, total), n = end - start;
       let energy = 0;
       for (let i = start; i < end; i++) energy += power(i);
       if (n < HOP && k > 0) {

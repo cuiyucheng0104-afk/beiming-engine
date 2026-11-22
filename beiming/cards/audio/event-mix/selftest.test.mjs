@@ -303,7 +303,8 @@ test('audio.event-mix：不满一步的片尾和整步照每个采样点的平�
 
 test('audio.event-mix：随机基线和逐条审计是同一个判据：全片每个整数帧各放一个事件，命中率就是 baseline，分数帧率、一帧不差也一样', () => {
   const every = (frames) => Array.from({ length: frames }, (_, frame) => ({ id: `f-${frame}`, frame, audio: 'click' }));
-  const pulse = (length, ...at) => { const pcm = new Float32Array(length); for (const sample of at) pcm[sample] = 0.5; return [pcm]; };
+  // 每下 1 毫秒（48 个采样点）：声音末尾的 0 会剥掉，最后一下只有一个采样点时平均下来比前面几下重 240 倍，把它们全压到门槛下面，基线就只剩一个起音可验
+  const pulse = (length, ...at) => { const pcm = new Float32Array(length); for (const sample of at) pcm.fill(0.5, sample, sample + 48); return [pcm]; };
   // 七审的两个反例：60000/1001 帧每秒，唯一的起音在第 300 帧（第 240240 个采样点），容差 2 帧时第 298、302 帧差 2.0005 帧，不算；
   // 120000/1001 帧每秒，第 199 帧的落点四舍五入正好是起音所在的第 79680 个采样点，一帧不差也算命中
   for (const [fps, frames, at, toleranceFrames, hits] of [['60000/1001', 305, 240240, 2, 3], ['120000/1001', 201, 79680, 0, 1]]) {
@@ -315,6 +316,7 @@ test('audio.event-mix：随机基线和逐条审计是同一个判据：全片�
   // 换几种帧率、容差和起音位置，两个数始终是同一个；正片比声音长、比声音短都算
   for (const fps of ['24/1', '24000/1001', '30000/1001', '60000/1001', '120000/1001', '25/1']) {
     const c = card({}, { fps }), pcm = pulse(c.mix([], { frames: 120 }).channels[0].length, 240, 24000, 30240, 60000, 62400);
+    assert.ok(c.onsets(pcm).length >= 3, `${fps}：基线要在好几个起音上验，找到的是 ${c.onsets(pcm)}`);
     for (const frames of [90, 120, 150]) for (const toleranceFrames of [0, 0.5, 1, 2, 2.5, 7, 40]) {
       const seen = c.audit(pcm, every(frames), { frames, toleranceFrames });
       assert.equal(seen.baseline, seen.hitRate, `${fps}，全片 ${frames} 帧，容差 ${toleranceFrames} 帧`);
@@ -335,4 +337,29 @@ test('audio.event-mix：不满一步的片尾只和紧邻的前一步比：隔�
       assert.deepEqual([c.audit([pcm], at, { frames, toleranceFrames: 0 }).hits, c.snap([25], [pcm], { frames })], [1, [snapped]], name);
     }
   }
+});
+
+test('audio.event-mix：声音末尾的静音先剥掉再找起音：后面多几帧静音，门槛边上的起音找到的也是同一下', () => {
+  // 九审的反例：八审那段声音，重新起来的 160 个采样点降到门槛边上（门槛 0.6 配 0.09，默认门槛 0.1 配 0.036）。
+  // 正片 26 帧时这 160 个采样点自成一步，每个采样点涨 0.00405；27 帧起后面的静音把这一步凑满 240 个，平均下来只剩 0.0027，掉到门槛下面。
+  // 末尾的 0 不是声音，先剥掉：三种片长找的是同一段采样，结果只能一样
+  const at = [{ id: 'x', frame: 25, sub: 0.92, audio: 'click' }];
+  for (const [onsetFloor, level] of [[0.6, 0.09], [0.1, 0.036]]) {
+    const c = card({ onsetFloor });
+    const pcm = Float32Array.from({ length: 60000 }, (_, i) => (i < 51520 ? 0.1 : i >= 51840 && i < 52000 ? level : 0) * Math.sin((2 * Math.PI * 600 * i) / RATE));
+    for (const [frames, snapped] of [[26, 25], [27, 26], [30, 26]]) {
+      const name = `门槛 ${onsetFloor}、重新起来的声音 ${level}，正片 ${frames} 帧`;
+      assert.deepEqual(c.onsets([pcm.subarray(0, frames * 2000)]), [0, 51840], name);
+      assert.deepEqual([c.audit([pcm], at, { frames, toleranceFrames: 0 }).hits, c.snap([25], [pcm], { frames })], [1, [snapped]], name);
+    }
+  }
+  // 任何声音后面接多少个 0 都一样（接 80 个正好凑满一步、接不满一步、接好几帧），两个声道都是 0 才算静音
+  const c = card(), body = Float32Array.from({ length: 24160 }, (_, i) => (i < 12000 ? 0 : 0.3) * Math.sin((2 * Math.PI * 440 * i) / RATE));
+  body[24100] += 0.9;
+  const padded = (extra) => { const out = new Float32Array(body.length + extra); out.set(body); return out; };
+  for (const extra of [1, 80, 239, 240, 4000]) assert.deepEqual(c.onsets([padded(extra)]), c.onsets([body]), `后面接 ${extra} 个 0`);
+  assert.deepEqual(c.onsets([new Float32Array(4000)]), []);
+  const right = new Float32Array(body.length + 6000);
+  right[30000] = 0.9;
+  assert.equal(c.onsets([padded(6000), right]).at(-1), 30000, '左声道末尾是 0、右声道还响着，不剥');
 });
