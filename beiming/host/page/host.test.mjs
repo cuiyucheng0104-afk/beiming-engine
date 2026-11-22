@@ -9,7 +9,7 @@ const PROJ = [0.5, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1.002002, -1, 0, 0, -0.2002002, 0
 const SIZE = [200, 100];
 
 test('投到屏幕：原点在左上角，y 向下，深度是沿 −Z 的分量', () => {
-  assert.deepEqual(toScreen(VIEW, PROJ, SIZE, [0, 0, -5]), { screen: [100, 50], depth: 5 });
+  assert.deepEqual(toScreen(VIEW, PROJ, SIZE, [0, 0, -5]), { screen: [100, 50], depth: 5, w: 5 });
   const up = toScreen(VIEW, PROJ, SIZE, [0, 5, -5]);
   assert.ok(Math.abs(up.screen[1]) < 1e-9 && up.screen[0] === 100);
   const right = toScreen(VIEW, PROJ, SIZE, [2.5, 0, -5]);

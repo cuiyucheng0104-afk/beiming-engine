@@ -50,9 +50,10 @@ test('不设背景的镜头：同一帧先渲和后渲颜色层逐位相同，�
   assert.deepEqual(first.layers.color.shape, [360, 640, 4]);
   assert.deepEqual([...layers.first.subarray(0, 4)], [0, 0, 0, 0]);
   assert.deepEqual([layers.objectId[0], layers.depth[0], ...layers.normal.subarray(0, 3)], [0, 1e10, 0, 0, 0]);
-  // 画面正中是方块：32 位浮点目标读回的就是规格里的 0.18 取单精度，没有先过一道半精度
+  // 画面正中是方块：这是场景参考镜头，场景画进 RGBA16F 目标（04 §4.1），读回的是规格里的 0.18 两边的半浮点数之一
+  // （1474 或 1475 个 2 的 −13 次方，往哪边舍看显卡后端），不是 0.18 取单精度
   const center = 180 * 640 + 320;
-  assert.equal(layers.first[center * 4], Math.fround(0.18));
+  assert.ok([1474, 1475].includes(layers.first[center * 4] * 2 ** 13), `方块的颜色 ${layers.first[center * 4]}`);
   assert.ok(layers.objectId[center] > 0 && layers.depth[center] < 10 && layers.normal[center * 3 + 2] === 1);
 });
 
