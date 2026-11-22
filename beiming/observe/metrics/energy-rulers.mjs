@@ -362,10 +362,8 @@ function palette(input, k, label) {
     need(rgb ? triple(rgb, c => Number.isInteger(c) && c >= 0 && c <= 255) : triple(lab), `${label}色板的色值无效`);
     return { color: [...(rgb ?? lab)], share: number(share, 'share'), lab: lab ? [...lab] : srgbToLab(...rgb) };
   });
-  const top = colors.reduce((most, c) => Math.max(most, c.share), 0);
-  need(top > 0, `${label}色板的 share 不能全为 0`);
-  // share 只看比例，先除以最大的那个：极大的 share 直接求和、乘色差会溢出成 Infinity。
-  for (const c of colors) c.share /= top;
+  // share 只看比例，原样留着（不先除成占比：极小的会除成 0），到 nearest 里拆成尾数与指数再算。
+  need(colors.some(c => c.share > 0), `${label}色板的 share 不能全为 0`);
   return colors;
 }
 
@@ -408,27 +406,48 @@ function de00([L1, a1, b1], [L2, a2, b2]) {
   return Math.max(Number.MIN_VALUE, top(2 * Math.hypot(halfL, (tC + Rt / 2 * tH) / 2, Math.sqrt(1 - Rt * Rt / 4) * tH / 2)));
 }
 
+const word = new DataView(new ArrayBuffer(8));
+// 正的有限数拆成 m·2^e，m 在 [0.5, 1)，没有舍入；亚正规数先乘 2^54 挪进正规范围再读指数位。
+function frexp(x) {
+  const sub = x < 2 ** -1022 ? 54 : 0;
+  word.setFloat64(0, x * 2 ** sub);
+  const hi = word.getUint32(0);
+  word.setUint32(0, hi & 0xfffff | 0x3fe00000);
+  return [word.getFloat64(0), (hi >>> 20) - 1022 - sub];
+}
+// m·2^e（m 为正），只在结果落进亚正规数时舍入一次；超出双精度得 Infinity，不到最小正数得 0。
+function ldexp(m, e) {
+  const [f, shift] = frexp(m), t = shift + e;
+  return t > 1024 ? Infinity : t < -1073 ? 0 : t > -1000 ? f * 2 * 2 ** (t - 1) : f * 2 ** t;
+}
+
 // 每个颜色到对面色板最近色的 CIEDE2000 色差，按 share 归一加权。
 function nearest(from, to) {
-  const weightSum = from.reduce((sum, c) => sum + c.share, 0);
-  // lit 是有权重的色里最大的色差：share 为 0 的色不参与加权，它的色差再大也不进加权的算式。
-  let max = 0, lit = 0;
-  const pairs = from.map(({ color, share, lab }) => {
+  // 权重、色差都拆成尾数与 2 的指数，指数单独加减：2^-75 对 2^1000 的占比写成一个数是 0，乘上 1e308 的色差却读得出；
+  // 贴着上限的 share 相加、相乘也不溢出。share 为 0 的色不进这两个和，添上它加权读数逐位不变。
+  const parts = from.map(c => c.share > 0 ? frexp(c.share) : [0, -Infinity]);
+  const eDen = parts.reduce((most, p) => Math.max(most, p[1]), -Infinity);
+  const den = parts.reduce((sum, [m, e]) => sum + m * 2 ** (e - eDen), 0);
+  let max = 0, low = Infinity, high = 0, eNum = -Infinity;
+  const terms = [];
+  const pairs = from.map(({ color, lab }, i) => {
     let best = Infinity, index = 0;
     to.forEach((other, j) => { const e = de00(lab, other.lab); if (e < best) { best = e; index = j; } });
     max = Math.max(max, best);
-    if (share > 0) lit = Math.max(lit, best);
-    return { color, share: share / weightSum, nearest: to[index].color, index, de00: best };
+    // 占比是 m·2^e：留给调用方看的 share 写成一个数，小于最小正数的读 0，加权仍按 m、e 算。
+    const m = parts[i][0] / den, e = parts[i][1] - eDen;
+    if (m > 0) { low = Math.min(low, best); high = Math.max(high, best); }
+    if (m > 0 && best > 0) { const [f, shift] = frexp(best); terms.push([m * f, e + shift]); eNum = Math.max(eNum, e + shift); }
+    return { color, share: m * 2 ** e, nearest: to[index].color, index, de00: best };
   });
   // 不加权的平均：各色差先除以最大的那个再平均，最后乘回去，几个封顶的大数相加不溢出，贴着最小正数的也不会各自先除成 0。
-  // 加权的：权重不超过 1，色差乘权重直接相加（除以最大色差会把小色差除成 0，哪怕它的权重大得多）；
-  // 色差都很小时先一起乘 2 的幂 up（最大的挪到 2^-100 附近）再乘权重，亚正规数不丢位。零权重的色必须跳过：它的色差乘 up 会溢出。
-  const up = lit > 0 ? 2 ** Math.max(0, lift(lit, -100)) : 1;
-  let plain = 0, weighted = 0;
-  for (const { de00: e, share } of pairs) { plain += e / max; if (share > 0) weighted += e * up * share; }
-  // 有不为 0 的色差（加权的还要那个色的 share 不为 0），平均数至少是最小正数：不同的色板不读成 0。
-  const floor = (v, any) => any ? Math.max(Number.MIN_VALUE, top(v)) : 0;
-  return { meanDe00: floor(max * (plain / pairs.length), max > 0), maxDe00: max, weightedDe00: floor(weighted / up, lit > 0), pairs };
+  let plain = 0;
+  for (const { de00: e } of pairs) plain += e / max;
+  // 加权的：各项对齐到最大的指数再相加（差出 1074 位以上的项本来就进不了和），最后把指数乘回去。
+  // 夹回有权重的色差的最小、最大之间：各色色差相同就读它本身；有不为 0 的项就至少读最小正数，不同的色板不读成 0。
+  const weighted = terms.length ? ldexp(terms.reduce((sum, [m, e]) => sum + m * 2 ** (e - eNum), 0), eNum) : 0;
+  return { meanDe00: max > 0 ? Math.max(Number.MIN_VALUE, top(max * (plain / pairs.length))) : 0, maxDe00: max,
+    weightedDe00: terms.length ? Math.min(high, Math.max(low, weighted, Number.MIN_VALUE)) : 0, pairs };
 }
 
 // 顶层的 meanDe00、maxDe00、weightedDe00、pairs 是候选的每个主色到参考色板最近色；reverse 是参考的每个色到候选。

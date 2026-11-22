@@ -591,3 +591,41 @@ test('color.palette-de00：share 为 0 的色不参与加权，添上它 weighte
   const far = colorPaletteDe00([{ ...unused, share: 1 }], ref).maxDe00;
   near(colorPaletteDe00([keep, { ...unused, share: 5e-324 }], ref).weightedDe00, alone.weightedDe00 + far * 5e-324, '最小正数权重');
 });
+
+test('color.palette-de00：极小的正 share 不先归一成 0，乘上极大的色差照样读得出', () => {
+  // 六审反例：Q 离参考极远（色差 1.14e308），占比小到 2^-1075，两者相乘是 2.8e-16，读得出也必须读出来。
+  const P = [1e308, 0, 0], Q = [-1e308, 0, 0], ref = [{ lab: P }], want = 2.8280514542037095e-16;
+  const tail = [{ lab: P, share: 1 }, { lab: P, share: 1 }, { lab: Q, share: Number.MIN_VALUE }];
+  const wide = [{ lab: P, share: 2 ** 1000 }, { lab: Q, share: 2 ** -75 }];
+  assert.equal(colorPaletteDe00([{ lab: Q }], ref).weightedDe00, 1.1448079735996947e308);
+  for (const colors of [tail, wide, [...wide].reverse(), [{ lab: P, share: 0 }, ...tail]]) {
+    assert.equal(repeat5(() => colorPaletteDe00(colors, ref)).weightedDe00, want);
+    assert.equal(colorPaletteDe00(ref, colors).reverse.weightedDe00, want);
+  }
+  // share 只看比例：整板同乘 2 的幂（一直乘到亚正规数、乘到贴着上限），加权读数逐位不变。
+  const base = [{ rgb: [200, 40, 40], share: 3 }, { rgb: [40, 90, 200], share: 5 }, { rgb: [240, 240, 235], share: 7 }];
+  const goal = [[190, 60, 50], [50, 80, 190], [230, 235, 240]], unit = colorPaletteDe00(base, goal);
+  for (const power of [-1074, -1000, -75, 900, 1021]) {
+    const scaled = colorPaletteDe00(base.map(c => ({ ...c, share: c.share * 2 ** power })), goal);
+    assert.equal(scaled.weightedDe00, unit.weightedDe00, `2^${power}`);
+    assert.deepEqual(scaled.pairs, unit.pairs, `2^${power}`);
+  }
+  // 加权平均夹在有权重的色差之间：只有一个色有权重、或各色色差相同，读数就是那个色差本身，share 取什么都一样。
+  for (const share of [0.7, 1e-300, 3e200, Number.MIN_VALUE, Number.MAX_VALUE]) {
+    const one = colorPaletteDe00([{ rgb: [200, 40, 40], share }, { rgb: [0, 0, 0], share: 0 }], goal);
+    assert.equal(one.weightedDe00, one.pairs[0].de00, `share ${share}`);
+  }
+  const even = colorPaletteDe00([0.1, 0.2, 0.7].map(share => ({ lab: [50, 3, 0], share })), [{ lab: [50, 0, 0] }]);
+  assert.equal(even.weightedDe00, even.maxDe00);
+  // 权重、色差都贴着最小正数：乘积小于最小正数，仍读最小正数，不读成 0。
+  const faint = colorPaletteDe00([{ lab: [50, 0, 0], share: 1 }, { lab: [60, 0, 0], share: 5e-324 }], [{ lab: [50, 0, 0] }, { lab: [60, 0, 5e-324] }]);
+  assert.equal(faint.weightedDe00, 5e-324);
+  // 两个贴着上限的权重相加不溢出，占比各半。
+  const heavy = colorPaletteDe00([{ lab: P, share: Number.MAX_VALUE }, { lab: Q, share: Number.MAX_VALUE }], ref);
+  assert.equal(heavy.weightedDe00, 1.1448079735996947e308 / 2);
+  assert.deepEqual(heavy.pairs.map(p => p.share), [0.5, 0.5]);
+  // share 全为 0 没有比例可言，照旧报错。
+  for (const run of [() => colorPaletteDe00([{ lab: P, share: 0 }, { lab: Q, share: 0 }], ref), () => colorPaletteDe00(ref, [{ lab: P, share: 0 }])]) {
+    assert.throws(run, { name: 'RangeError', code: 'usage.bad-argument' });
+  }
+});
