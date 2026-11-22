@@ -789,7 +789,7 @@ test('O6-14 G_REV-R3 align：重复对应点不冒充四点、近共面判退化
   }
 
   // 深度正值与视轴归一化的阈值按点集半径取，不是固定的 1e-12：整个场景小于 1e-12 也能拟合
-  // （README 写明的范围是半径 1e-12 到 1e6，上端由 O6-12 的 1e6 覆盖）
+  // （README 写明有回归测试的范围是半径 1e-9 到 1e9，由 O6-16 覆盖；这里的 1e-13 是范围外的额外抽查）
   for (const s of [1e-13]) {
     const pts = synthCamera(mul(cube, s), [3.6 * s, 2.4 * s, 6.8 * s], [0, 0.6 * s, 0], 38, size);
     const res = observe.align({ camera: { points: pts, size, initial: { near: 0.01 * s, far: 1000 * s } } });
@@ -876,4 +876,55 @@ test('O6-16 G_REV-R4 align：解处雅可比条件数判 7 参数不可辨识（
     // 非共面点集在任何尺度都不误报（判重阈值跟半径走，没有绝对下限）
     assert.equal(gate(cube.map((p) => p.map((v) => v * s))), false, `非共面 s=${s}`);
   }
+});
+
+
+test('O6-17 G_REV-R5 align：世界坐标刚性大平移不误判退化，公开 pos/rotation/fovY 不截断、可直接重建', () => {
+  const size = [640, 360];
+  const tz = 262144;
+  const raw = [[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0], [0.6, 0.1, 1]];
+  // 只用公开的七个参数重建相机（不看 world/proj）：rotation 是相机到世界的轴角向量
+  const rmseFromSeven = (pts, cam) => {
+    const th = Math.hypot(...cam.rotation);
+    const k = th > 0 ? cam.rotation.map((v) => v / th) : [0, 0, 1];
+    const f = size[1] / 2 / Math.tan((cam.fovY * Math.PI) / 360);
+    let sse = 0;
+    for (const { world, screen } of pts) {
+      const d = world.map((v, i) => v - cam.pos[i]);
+      // 逆旋转（角度取负的 Rodrigues）把世界向量转进相机系
+      const kd = k[0] * d[0] + k[1] * d[1] + k[2] * d[2];
+      const cr = [k[1] * d[2] - k[2] * d[1], k[2] * d[0] - k[0] * d[2], k[0] * d[1] - k[1] * d[0]];
+      const c = d.map((v, i) => v * Math.cos(th) - cr[i] * Math.sin(th) + k[i] * kd * (1 - Math.cos(th)));
+      sse += (size[0] / 2 + (c[0] / -c[2]) * f - screen[0]) ** 2 + (size[1] / 2 - (c[1] / -c[2]) * f - screen[1]) ** 2;
+    }
+    return Math.sqrt(sse / pts.length);
+  };
+  for (const s of [2 ** -20, 2 ** -10, 1]) {
+    // 屏幕点按未平移的精确几何生成，再把世界点与相机一起沿 z 平移 262144
+    const pts = synthCamera(raw.map((p) => p.map((v) => v * s)), [0, 0, 5 * s], [0, 0, 0], 45, size)
+      .map((p) => ({ world: [p.world[0], p.world[1], p.world[2] + tz], screen: p.screen }));
+    const initial = { near: 0.01 * s, far: 1000 * s };
+    for (const init of [initial, { ...initial, pos: [0, 0, 5 * s + tz], target: [0, 0, tz], fovY: 45 }]) {
+      const res = observe.align({ camera: { points: pts, size, initial: init } });
+      assert.equal(res.ok, true, JSON.stringify(res));
+      const cam = res.camera;
+      assert.equal(cam.degenerate, false, `s=${s}: ${JSON.stringify(cam)}`);
+      assert.equal(cam.converged, true, `s=${s}: ${JSON.stringify(cam)}`);
+      assert.ok(reprojectRmse(pts, cam.world, cam.proj, size) < 0.5, `world/proj s=${s}`);
+      const seven = rmseFromSeven(pts, cam);
+      assert.ok(seven < 0.5, `公开 pos/rotation/fovY 重建 s=${s}: ${seven} px`);
+      assert.deepEqual(cam.pos, cam.world.slice(12, 15));
+      assert.ok(withinBudget(JSON.stringify(res), observe.ALIGN_TOKEN_LIMIT), `预算 s=${s}`);
+    }
+  }
+
+  // initial.pos / initial.target 也按世界坐标读（内部一并转到质心局部坐标）：光轴点反例有一族等价解，
+  // 初值本身就是零误差解时应原样返回它，而不是落到别的种子找到的另一个解
+  const fov8 = (Math.atan((5 / 8) * Math.tan(Math.PI / 8)) * 360) / Math.PI;
+  const axis = synthCamera([...raw.slice(0, 4), [0, 0, 1]], [0, 0, 5], [0, 0, 0], 45, size)
+    .map((p) => ({ world: [p.world[0], p.world[1], p.world[2] + tz], screen: p.screen }));
+  const amb = observe.align({ camera: { points: axis, size, initial: { pos: [0, 0, 8 + tz], target: [0, 0, tz], fovY: fov8 } } }).camera;
+  assert.equal(amb.degenerate, true, JSON.stringify(amb));
+  assert.equal(amb.converged, false);
+  assert.ok(Math.abs(amb.pos[2] - tz - 8) < 1e-6 && Math.abs(amb.fovY - fov8) < 1e-6, JSON.stringify(amb));
 });

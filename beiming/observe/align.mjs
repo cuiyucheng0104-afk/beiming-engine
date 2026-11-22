@@ -665,18 +665,23 @@ function alignCamera(spec) {
   centroid[0] /= points.length;
   centroid[1] /= points.length;
   centroid[2] /= points.length;
+  // 求解与两道门都在质心局部坐标里做：世界坐标整体平移很大时（如 z≈262144、半径 1e-6），
+  // 绝对坐标上的差分步长 1e-5*半径 会被双精度尾数吞掉，位置导数列变成全 0 而误判退化；最后再把质心加回 pos
+  const local = points.map((p) => ({ world: sub3(p.world, centroid), screen: p.screen }));
+  const origin = [0, 0, 0];
+  const vec3 = (v) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
 
   let radius = 0;
-  for (const p of points) {
-    const d = Math.hypot(p.world[0] - centroid[0], p.world[1] - centroid[1], p.world[2] - centroid[2]);
+  for (const p of local) {
+    const d = Math.hypot(...p.world);
     if (d > radius) radius = d;
   }
   const scale = radius > 0 ? radius : 1;
   const dist = radius * 4 || 2.0;
   const seeds = [];
   if (initial.pos || initial.target || initial.fovY !== undefined) {
-    const t = Array.isArray(initial.target) && initial.target.length === 3 && initial.target.every(Number.isFinite) ? initial.target : centroid;
-    const p = Array.isArray(initial.pos) && initial.pos.length === 3 && initial.pos.every(Number.isFinite) ? initial.pos : [t[0], t[1] + dist * 0.3, t[2] + dist];
+    const t = vec3(initial.target) ? sub3(initial.target, centroid) : origin;
+    const p = vec3(initial.pos) ? sub3(initial.pos, centroid) : [t[0], t[1] + dist * 0.3, t[2] + dist];
     const fv = typeof initial.fovY === 'number' && Number.isFinite(initial.fovY) ? clamp(initial.fovY, 5, 140) : 40;
     seeds.push({ pos: p, R: lookAtR(p, t), fovY: fv });
   }
@@ -687,13 +692,13 @@ function alignCamera(spec) {
   ];
   for (const d of dirs) {
     const u = norm3(d);
-    const p = [centroid[0] + u[0] * dist, centroid[1] + u[1] * dist, centroid[2] + u[2] * dist];
-    seeds.push({ pos: p, R: lookAtR(p, centroid), fovY: 40 });
+    const p = [u[0] * dist, u[1] * dist, u[2] * dist];
+    seeds.push({ pos: p, R: lookAtR(p, origin), fovY: 40 });
   }
 
   let best = null;
   for (const s of seeds) {
-    const cand = lmOptimize(points, width, height, s.pos, s.R, s.fovY, scale);
+    const cand = lmOptimize(local, width, height, s.pos, s.R, s.fovY, scale);
     if (!best || (cand.valid && !best.valid) || (cand.valid === best.valid && cand.rmsePx < best.rmsePx)) {
       best = cand;
     }
@@ -701,26 +706,26 @@ function alignCamera(spec) {
   }
   if (best && (!best.valid || best.rmsePx >= 0.5)) {
     for (const fv of [25, 65]) {
-      const cand = lmOptimize(points, width, height, best.pos, best.R, fv, scale);
+      const cand = lmOptimize(local, width, height, best.pos, best.R, fv, scale);
       if (cand.valid && cand.rmsePx < best.rmsePx) best = cand;
     }
   }
 
-  // 不按固定小数位截断：world/proj 保留双精度，误差由返回矩阵复算，微小尺度场景不被放大
-  const p9 = (v) => Number(v.toPrecision(9));
-  const fovY = p9(best.fovY);
-  const { world, proj } = buildCameraMatrices(best.pos, best.R, fovY, width, height, near, far);
+  // 公开的 pos/rotation/fovY 与 world/proj 一样保留双精度、不截断有效位：
+  // 大平移下截到 9 位有效数字会丢掉相对点集的位移（262144.0048828125 -> 262144.005，重建误差数像素）
+  const pos = [best.pos[0] + centroid[0], best.pos[1] + centroid[1], best.pos[2] + centroid[2]];
+  const { world, proj } = buildCameraMatrices(pos, best.R, best.fovY, width, height, near, far);
   const rep = reproject(points, world, proj, width, height);
   // 不把 Infinity/NaN（JSON 里是 null）放进 ok: true 的回答
   if (!proj.every(Number.isFinite)) throw new Error('相机裁剪参数超出可表示浮点范围');
   if (!world.every(Number.isFinite)) throw new Error('相机点坐标超出可表示浮点范围');
   // 两道门：点集协方差（重合、重复、共线、近共面正对）与解处的雅可比条件数（7 个自由度是否局部可唯一辨识）
-  const degenerate = isDegenerate(points, centroid, radius, best.R)
-    || (best.valid && unidentifiable(points, width, height, best.pos, best.R, best.fovY, scale));
+  const degenerate = isDegenerate(local, origin, radius, best.R)
+    || (best.valid && unidentifiable(local, width, height, best.pos, best.R, best.fovY, scale));
   return {
-    pos: best.pos.map(p9),
-    rotation: matToAxisAngle(best.R).map(p9),
-    fovY,
+    pos,
+    rotation: matToAxisAngle(best.R),
+    fovY: best.fovY,
     world,
     proj,
     rmsePx: r(rep.rmse, 4),
