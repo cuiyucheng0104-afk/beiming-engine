@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { scanQuestionLeaks } from './index.mjs';
-import { median, readCameraStatic, readHits, readSubtitleLag, score } from './questions/level-2-b/evaluate-b4.mjs';
+import { median, readCameraStatic, readHits, readSubtitleLag } from './questions/level-2-b/evaluate-b4.mjs';
 import {
   B6_FORMAT,
   B6_QUESTION_IDS,
@@ -15,9 +15,11 @@ import {
   buildPositiveBaseline,
   evaluateAllB6Negatives,
   evaluateNegativeControl,
+  evaluatePerturbedModel,
   loadControl,
   loadQuestion,
   measure,
+  validateNegativeControl,
 } from './negatives/level-2-b/run-b6.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -50,6 +52,7 @@ test('B6-2 12 份夹具齐全，字段完整，种类和题面的 needs、种子
   assert.deepEqual(readdirSync(NEGATIVES).sort(), [...CONTROL_IDS.map((id) => `${id}.json`), 'run-b6.mjs'].sort(), '目录里正好 12 份夹具和 1 个核验模块');
   for (const qid of B6_QUESTION_IDS) for (const kind of B6_NEGATIVE_KINDS) {
     const id = `${qid}-${kind}`, control = loadControl(id), q = loadQuestion(qid);
+    assert.equal(validateNegativeControl(control), control, `${id} 过得了入口校验`);
     assert.deepEqual(Object.keys(control), ['format', 'id', 'questionId', 'kind', 'disabledCards', 'seed', 'description', 'perturbation', 'expectedFailedMetrics'], id);
     assert.deepEqual([control.format, control.id, control.questionId, control.kind], [B6_FORMAT, id, qid, kind]);
     assert.ok(typeof control.description === 'string' && control.description.length >= 10, `${id} 要写清故意做错了什么`);
@@ -203,8 +206,9 @@ const MECHANISM = {
 
 test('B6-4 击穿的判分项和夹具写的一一对应，得分是剩下几项的权重；读数里留着故障的痕迹', () => {
   assert.deepEqual(Object.keys(MECHANISM), CONTROL_IDS);
-  for (const { control, questionId, readings, verdict } of RESULTS) {
+  for (const { control, questionId, readings, verdict, failedAsDeclared } of RESULTS) {
     const q = loadQuestion(questionId);
+    assert.equal(failedAsDeclared, true, `${control.id} 入口自己也报「没过的就是夹具写的那几条」`);
     assert.deepEqual(failedAt(verdict), control.expectedFailedMetrics.map(({ scoring }) => scoring), `${control.id} 没过的判分项`);
     assert.deepEqual(verdict.items.filter((item) => !item.pass).map((item) => item.metric), control.expectedFailedMetrics.map(({ metric }) => metric), control.id);
     const kept = q.scoring.reduce((sum, { weight }, index) => sum + (failedAt(verdict).includes(index) ? 0 : weight), 0);
@@ -222,11 +226,16 @@ test('B6-4 击穿的判分项和夹具写的一一对应，得分是剩下几项
 });
 
 test('B6-5 一份负对照一类故障：读数只跟着夹具里写的参数变，去掉就是正对照；关卡带几个参数的逐个拆开各打穿各的线；随机拍点真的跟种子走', () => {
+  // 去掉改动走模型实验入口（正式入口不收空的 perturbation）：零改动重跑就是正对照
+  for (const qid of B6_QUESTION_IDS) {
+    const undone = evaluatePerturbedModel(qid, {});
+    assert.equal(JSON.stringify(undone.readings), JSON.stringify(POSITIVE[qid].readings), `${qid} 去掉改动就是正对照的读数`);
+    assert.equal(undone.verdict.pass, true, qid);
+  }
   for (const id of CONTROL_IDS) {
-    const control = loadControl(id), undone = evaluateNegativeControl({ ...control, perturbation: {}, seed: null });
-    assert.equal(JSON.stringify(undone.readings), JSON.stringify(POSITIVE[control.questionId].readings), `${id} 去掉改动就是正对照的读数`);
-    assert.equal(undone.verdict.pass, true, id);
-    assert.equal(JSON.stringify(evaluateNegativeControl(id).readings), JSON.stringify(resultOf(id).readings), `${id} 重跑逐字相同`);
+    const control = loadControl(id);
+    // 正式入口的读数只由夹具的 perturbation 和种子决定：同样的参数直接喂给模型，重跑逐字相同
+    assert.equal(JSON.stringify(evaluatePerturbedModel(control.questionId, control.perturbation, control.seed).readings), JSON.stringify(resultOf(id).readings), `${id} 读数只跟着 perturbation 和种子走`);
     if (control.kind === 'random-beats') {
       const reseeded = evaluateNegativeControl({ ...control, seed: control.seed + 1 });
       assert.notEqual(JSON.stringify(reseeded.readings), JSON.stringify(resultOf(id).readings), `${id} 换种子读数跟着变`);
@@ -234,7 +243,7 @@ test('B6-5 一份负对照一类故障：读数只跟着夹具里写的参数变
     } else assert.throws(() => evaluateNegativeControl({ ...control, seed: 7 }), RangeError, `${id} 不是随机拍点，不带种子`);
   }
   // 关卡的那几份可以带不止一个参数（一张卡管的事对着几个参数，或者一次关几张卡）；逐个拆开单独施加，各自打穿的线合起来正好是整份打穿的线
-  const alone = (qid, perturbation) => failedAt(score(loadQuestion(qid), measure(qid, perturbation).readings));
+  const alone = (qid, perturbation) => failedAt(evaluatePerturbedModel(qid, perturbation).verdict);
   assert.deepEqual(Object.entries(loadControl('18-1-disable-card').perturbation).map(([key, value]) => alone('18-1', { [key]: value })), [[0], [1], [3]]);
   // 5-1：不拉伸单独就够让重击落空；不平移（正对照只平移了 0.02 秒，不到一帧）单独不起作用，两个一起才是「没对位」
   assert.deepEqual(Object.entries(loadControl('5-1-disable-card').perturbation).map(([key, value]) => alone('5-1', { [key]: value })), [[1], []]);
@@ -249,7 +258,7 @@ test('B6-5 一份负对照一类故障：读数只跟着夹具里写的参数变
 });
 
 test('B6-6 贴线和靠模型假设的如实记下：5-1、18-1 的 2 帧错位只在偏晚的方向判不过，18-2 两个方向都判不过，15-2 判不过和「2 帧」无关', () => {
-  const verdict = (id, perturbation) => score(loadQuestion(id), measure(id, perturbation).readings);
+  const verdict = (id, perturbation) => evaluatePerturbedModel(id, perturbation).verdict;
   // 5-1 的容差就是 2 帧：正对照的重击峰偏晚 1 帧，再晚 2 帧出界，早 2 帧还在界内
   assert.equal(verdict('5-1', { audioShiftFrames: -2 }).pass, true);
   assert.equal(verdict('5-1', { audioShiftFrames: 3 }).pass, false);
@@ -263,6 +272,101 @@ test('B6-6 贴线和靠模型假设的如实记下：5-1、18-1 的 2 帧错位�
   // 15-2：锁死的机位整体错位本身看不出来；这份靠模型假设的「锁定前机位在别处」，晚 1 帧生效一样判不过
   assert.equal(verdict('15-2', { lockShiftFrames: 1 }).pass, false);
   assert.match(loadControl('15-2-shift-2f').description, /模型假设说明/, '夹具里写明了这一点');
+});
+
+/* ---------------- 夹具入口的严格校验 ---------------- */
+
+// 每条：从哪份合法夹具出发、只改哪一处、该抛哪种错。类型不对抛 TypeError，类型对但值不收抛 RangeError
+const MUTATIONS = [
+  // 首审的五项
+  ['18-2-shift-2f', '帧数写成字符串', (c) => { c.perturbation.moveShiftFrames = '2'; }, TypeError],
+  ['5-1-disable-card', '拉伸比写成字符串 1', (c) => { c.perturbation.stretch = '1'; }, TypeError],
+  ['5-1-disable-card', '拉伸比写成字符串 1.05', (c) => { c.perturbation.stretch = '1.05'; }, TypeError],
+  ['18-2-shift-2f', '删掉 perturbation', (c) => { delete c.perturbation; }, TypeError],
+  ['18-2-shift-2f', 'perturbation 是空对象', (c) => { c.perturbation = {}; }, RangeError],
+  ['18-2-shift-2f', 'id 没登记', (c) => { c.id = '18-2-shift-3f'; }, RangeError],
+  ['18-2-shift-2f', 'id 和题号、种类对不上', (c) => { c.id = '18-1-shift-2f'; }, RangeError],
+  ['18-2-shift-2f', 'format 被改', (c) => { c.format = 'bench-negative/0.2'; }, RangeError],
+  ['18-2-shift-2f', 'expectedFailedMetrics 清空', (c) => { c.expectedFailedMetrics = []; }, RangeError],
+  ['18-2-shift-2f', '不是随机拍点却带字符串种子', (c) => { c.seed = '7'; }, TypeError],
+  // 同一类口子的其余写法
+  ['5-1-shift-2f', '不是随机拍点却带 NaN 种子', (c) => { c.seed = NaN; }, RangeError],
+  ['15-2-random-beats', '随机拍点的种子是字符串', (c) => { c.seed = '20261123'; }, TypeError],
+  ['15-2-random-beats', '随机拍点的种子不是整数', (c) => { c.seed = 1.5; }, RangeError],
+  ['18-2-shift-2f', 'perturbation 是数组', (c) => { c.perturbation = [2]; }, TypeError],
+  ['18-2-shift-2f', 'perturbation 是 null', (c) => { c.perturbation = null; }, TypeError],
+  ['18-2-shift-2f', '帧数是 NaN', (c) => { c.perturbation.moveShiftFrames = NaN; }, RangeError],
+  ['18-2-shift-2f', '帧数不是整数', (c) => { c.perturbation.moveShiftFrames = 2.5; }, RangeError],
+  ['18-2-shift-2f', '错位不是 2 帧', (c) => { c.perturbation.moveShiftFrames = 3; }, RangeError],
+  ['18-2-shift-2f', '错位写了 0 帧，等于没改', (c) => { c.perturbation.moveShiftFrames = 0; }, RangeError],
+  ['18-2-shift-2f', '错位的那份多带一个参数', (c) => { c.perturbation.moveTrigger = 'on-cue'; }, RangeError],
+  ['18-2-shift-2f', '多了模型没有的参数', (c) => { c.perturbation.frameShift = 2; }, RangeError],
+  ['5-1-disable-card', '拉伸比是无穷大', (c) => { c.perturbation.stretch = Infinity; }, RangeError],
+  ['5-1-disable-card', '拉伸比是零', (c) => { c.perturbation.stretch = 0; }, RangeError],
+  ['5-1-disable-card', '拉伸比是负数', (c) => { c.perturbation.stretch = -1; }, RangeError],
+  ['5-1-disable-card', '参数和正对照一样，等于没改', (c) => { c.perturbation = { audioShiftFrames: 0 }; }, RangeError],
+  ['18-1-disable-card', '布尔参数写成数', (c) => { c.perturbation.pageCanvas = 0; }, TypeError],
+  ['18-1-disable-card', '淡出帧数少一场', (c) => { c.perturbation.sceneFadeFrames = [0, 0, 0]; }, RangeError],
+  ['18-1-disable-card', '淡出帧数里混进字符串', (c) => { c.perturbation.sceneFadeFrames = [0, '0', 0, 0]; }, TypeError],
+  ['18-1-disable-card', '淡出帧数不是数组', (c) => { c.perturbation.sceneFadeFrames = 0; }, TypeError],
+  ['18-1-disable-card', '选做法的参数写成数', (c) => { c.perturbation.subtitleTrigger = 1; }, TypeError],
+  ['18-1-disable-card', '关卡的那份混进随机拍点', (c) => { c.perturbation.subtitleTrigger = 'random-beats'; }, RangeError],
+  ['18-1-random-beats', '随机拍点的那份没换成随机拍点', (c) => { c.perturbation.subtitleTrigger = 'fixed-interval'; }, RangeError],
+  ['18-2-disable-card', '关卡的那份没点名关哪张卡', (c) => { c.disabledCards = []; }, RangeError],
+  ['18-2-disable-card', '关的卡不在题面的 needs 里', (c) => { c.disabledCards = ['camera.nope']; }, RangeError],
+  ['18-2-disable-card', 'disabledCards 不是数组', (c) => { c.disabledCards = 'camera.cue-kf'; }, TypeError],
+  ['18-2-shift-2f', '不是关卡却点名关了卡', (c) => { c.disabledCards = ['camera.cue-kf']; }, RangeError],
+  ['18-2-shift-2f', 'kind 不认识', (c) => { c.kind = 'shift-3f'; c.id = '18-2-shift-3f'; }, RangeError],
+  ['18-2-shift-2f', '题号不认识', (c) => { c.questionId = '7-1'; c.id = '7-1-shift-2f'; }, RangeError],
+  ['18-2-shift-2f', 'description 是空的', (c) => { c.description = ' '; }, RangeError],
+  ['18-2-shift-2f', 'description 不是字符串', (c) => { c.description = 2; }, TypeError],
+  ['18-2-shift-2f', 'expectedFailedMetrics 不是数组', (c) => { c.expectedFailedMetrics = 'narration.timing'; }, TypeError],
+  ['18-2-shift-2f', '预期没过的指标名对不上题面', (c) => { c.expectedFailedMetrics[0].metric = 'beat.onset-hit'; }, RangeError],
+  ['18-2-shift-2f', '预期没过的判分线下标出界', (c) => { c.expectedFailedMetrics[0].scoring = 1; }, RangeError],
+  ['18-2-shift-2f', '预期没过的判分线下标是字符串', (c) => { c.expectedFailedMetrics[0].scoring = '0'; }, TypeError],
+  ['15-2-shift-2f', '预期没过的判分线写了两遍', (c) => { c.expectedFailedMetrics[1] = { ...c.expectedFailedMetrics[0] }; }, RangeError],
+  ['18-2-shift-2f', '少一栏', (c) => { delete c.description; }, TypeError],
+  ['18-2-shift-2f', '多一栏', (c) => { c.note = '多出来的'; }, RangeError],
+];
+
+test('B6-8 正式入口先验夹具再量：类型不对、缺栏、没登记的 id、空改动都直接抛错，不出 0 分也不出满分', () => {
+  for (const [id, what, mutate, Kind] of MUTATIONS) {
+    const control = structuredClone(loadControl(id));
+    assert.equal(validateNegativeControl(control), control, `${id} 没动之前是合法的`);
+    mutate(control);
+    for (const entry of [validateNegativeControl, evaluateNegativeControl]) {
+      assert.throws(() => entry(control), (error) => error.constructor === Kind, `${id} ${what}：${entry.name} 要抛 ${Kind.name}`);
+    }
+  }
+  // 夹具合法、但写的预期和实际没过的判分项对不上：照量照判，不抛错，入口报 failedAsDeclared === false，调用方不会把它数成「照预期拦住了」
+  for (const [id, mutate] of [
+    ['18-1-disable-card', (c) => { delete c.perturbation.pageCanvas; }],
+    ['18-1-disable-card', (c) => { c.expectedFailedMetrics.pop(); }],
+    ['18-1-shift-2f', (c) => { c.expectedFailedMetrics[0].scoring = 2; }],
+    ['5-1-disable-card', (c) => { delete c.perturbation.stretch; }],
+  ]) {
+    const control = structuredClone(loadControl(id));
+    mutate(control);
+    assert.equal(evaluateNegativeControl(control).failedAsDeclared, false, `${id} 预期和实际对不上`);
+  }
+  // 整份不是普通对象
+  for (const bad of [null, undefined, 7, [], [loadControl('5-1-shift-2f')], new Map()]) assert.throws(() => evaluateNegativeControl(bad), TypeError, String(bad));
+  // 字符串入口和对象入口一个口径：没登记的 id 抛 RangeError，不去读盘，也不能借路径读到别的文件
+  for (const id of ['18-2-shift-3f', '7-1-shift-2f', '', '../../questions/level-2-b/5-1', '5-1-shift-2f.json']) {
+    assert.throws(() => evaluateNegativeControl(id), RangeError, id);
+    assert.throws(() => loadControl(id), RangeError, id);
+  }
+  // 模型实验入口同样不收写错类型的参数，也不收错类型的种子
+  assert.throws(() => evaluatePerturbedModel('18-2', { moveShiftFrames: '2' }), TypeError);
+  assert.throws(() => evaluatePerturbedModel('5-1', { stretch: '1' }), TypeError);
+  assert.throws(() => evaluatePerturbedModel('5-1', { audioShiftFrames: 0.5 }), RangeError);
+  assert.throws(() => evaluatePerturbedModel('5-1', null), TypeError);
+  assert.throws(() => evaluatePerturbedModel('5-1', {}, '7'), TypeError);
+  assert.throws(() => evaluatePerturbedModel('5-1', {}, NaN), RangeError);
+  assert.throws(() => measure('15-2', { lockShiftFrames: '2' }), TypeError);
+  // 参数类型都对、但大到把事件挪出片外：量回来是空的，不交给判分（否则「一次也没量到」会被记成「判分线拦住了」）
+  assert.throws(() => evaluatePerturbedModel('18-2', { moveShiftFrames: 100000 }), RangeError);
+  assert.throws(() => evaluatePerturbedModel('18-1', { subtitleShiftFrames: 100000 }), RangeError);
 });
 
 /* ---------------- 泄露与专名 ---------------- */

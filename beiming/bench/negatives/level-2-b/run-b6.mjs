@@ -2,6 +2,8 @@
 // 每道题一个小的参数化信号模型（包络、逐帧低频电平、旁白电平、灰度帧、彩色帧、逐帧相机矩阵），都在题目自己的 deliverable 时间线上现造；
 // 读数全部从造出来的信号量回来（observe 的对位、切点、缩放平移、主色，加本文件几个照题面口径写的小检测器），不手填。
 // 正对照是模型的默认参数；负对照只把同目录夹具 <题号>-<种类>.json 里 perturbation 写的参数换掉，别的一概不动，再交给 evaluate-b4 的正式 score（不传第三个参数）。
+// 入口分两个：evaluateNegativeControl 是正式核验，夹具先过 validateNegativeControl（栏位、类型、id、改动是否有效）再量；evaluatePerturbedModel 是模型实验（撤销改动、反向错位、换种子），
+// 参数同样验类型。两个入口量回来的读数有空数组或非有限数时都直接抛错，不交给判分。
 // 没有原片媒体和题目资产：配乐、旁白、画面都是确定性的合成信号，只用来核「判分线拦不拦得住这三种错」，不是做题。
 // 15-2 的逐帧相机矩阵是帧元数据，由模型的机位直接写出，不经检测器；别的读数都是从信号里检测出来的。
 // 「关卡」的口径：题面 needs 里的 audio.align、camera.cue-kf、camera.drift、page.det2d 四张卡还没入库，没有卡文件可对；
@@ -18,7 +20,13 @@ export const B6_FORMAT = 'bench-negative/0.1';
 
 const json = (relative) => JSON.parse(readFileSync(new URL(relative, import.meta.url), 'utf8'));
 export const loadQuestion = (id) => json(`../../questions/level-2-b/${id}.json`);
-export const loadControl = (id) => json(`./${id}.json`);
+// 只读登记过的 12 份；别的 id 不去读盘（字符串入口和对象入口一个口径，也不让 id 当路径用）
+export function loadControl(id) {
+  if (!B6_QUESTION_IDS.some((qid) => B6_NEGATIVE_KINDS.some((kind) => id === `${qid}-${kind}`))) throw new RangeError(`没有登记这份负对照：${id}`);
+  const control = validateNegativeControl(json(`./${id}.json`));
+  if (control.id !== id) throw new RangeError(`${id}.json 里写的 id 是 ${control.id}`);
+  return control;
+}
 const argsOf = (q, pick) => q.scoring.find(({ args }) => pick(args)).args;
 const fpsOf = (q) => { const { num, den } = parseFps(q.deliverable.fps); return Number(num) / Number(den); };
 
@@ -266,30 +274,124 @@ const MODES = { hitTrigger: ['track', 'random-beats'], subtitleTrigger: ['narrat
   moveTrigger: ['cue-minus-lead', 'on-cue', 'random-beats'], cameraPath: ['locked', 'drift', 'random-beats'] };
 const MODELS = { '5-1': [BASE_5_1, measure51], '18-1': [BASE_18_1, measure181], '18-2': [BASE_18_2, measure182], '15-2': [BASE_15_2, measure152] };
 
+const isPlain = (value) => value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype;
+const typeName = (value) => (value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value);
+
+// perturbation 只能改模型已有的参数，类型照正对照的默认值认：数要是有限数（名字以 Frames 结尾的是整数帧），选做法的只认 MODES 里的值，
+// 布尔就是布尔，逐场的帧数表要一样长、都是非负整数。类型不对抛 TypeError，值不收抛 RangeError；不做隐式转换（"2" 加到帧号上会变成字符串拼接）
+function checkPerturbation(questionId, perturbation) {
+  if (!Object.hasOwn(MODELS, questionId)) throw new RangeError(`没有这道题的信号模型：${String(questionId)}`);
+  if (!isPlain(perturbation)) throw new TypeError(`${questionId} 的 perturbation 要是普通对象，给的是 ${typeName(perturbation)}`);
+  const [base] = MODELS[questionId];
+  for (const [key, value] of Object.entries(perturbation)) {
+    if (key === 'seed' || !Object.hasOwn(base, key)) throw new RangeError(`${questionId} 的信号模型没有这个参数：${key}`);
+    const want = base[key], reject = (Kind, rule) => { throw new Kind(`${questionId} 的参数 ${key} ${rule}，给的是 ${typeName(value)} ${JSON.stringify(value) ?? String(value)}`); };
+    if (typeof want === 'string') {
+      if (typeof value !== 'string') reject(TypeError, '要是字符串');
+      if (!MODES[key].includes(value)) reject(RangeError, `只认 ${MODES[key].join('、')}`);
+    } else if (typeof want === 'boolean') {
+      if (typeof value !== 'boolean') reject(TypeError, '要是布尔值');
+    } else if (Array.isArray(want)) {
+      // Array.from 把空洞摊成 undefined，稀疏数组过不了下面这一行
+      if (!Array.isArray(value) || !Array.from(value).every((item) => typeof item === 'number')) reject(TypeError, '要是数的数组');
+      if (value.length !== want.length || !value.every((item) => Number.isSafeInteger(item) && item >= 0)) reject(RangeError, `要是 ${want.length} 个非负整数`);
+    } else {
+      if (typeof value !== 'number') reject(TypeError, '要是数');
+      if (!(key.endsWith('Frames') ? Number.isSafeInteger(value) : Number.isFinite(value))) reject(RangeError, key.endsWith('Frames') ? '要是整数帧' : '要是有限数');
+      // 拉伸比是除数：零和负数没有对应的信号
+      if (key === 'stretch' && value <= 0) reject(RangeError, '要是正数');
+    }
+  }
+}
+// 种子只有随机拍点用：用了随机拍点必须给整数种子，没用就只能是 null
+function checkSeed(usesRandomBeats, seed) {
+  if (seed !== null && typeof seed !== 'number') throw new TypeError(`种子要是整数或 null，给的是 ${typeName(seed)}`);
+  if (usesRandomBeats ? !Number.isSafeInteger(seed) : seed !== null) throw new RangeError('随机拍点要整数种子，别的做法不带种子');
+}
+
 /**
- * 一道题的信号模型照参数造信号、量读数。perturbation 只能改模型已有的参数：参数名不认识、选做法的参数值不认识都报错（不让写错的夹具悄悄退回正对照）。
- * 种子只有随机拍点用：用了随机拍点必须给整数种子，没用就不能给。
+ * 一道题的信号模型照参数造信号、量读数。perturbation 和种子先过上面两道校验（不让写错的参数悄悄退回正对照，或者靠隐式转换混出别的读数）。
  */
 export function measure(questionId, perturbation = {}, seed = null) {
-  if (!Object.hasOwn(MODELS, questionId)) throw new RangeError(`没有这道题的信号模型：${questionId}`);
+  checkPerturbation(questionId, perturbation);
   const [base, run] = MODELS[questionId];
-  const unknown = Object.keys(perturbation).filter((key) => !Object.hasOwn(base, key) || key === 'seed');
-  if (unknown.length) throw new RangeError(`${questionId} 的信号模型没有这些参数：${unknown.join('、')}`);
+  checkSeed(Object.values(perturbation).includes('random-beats'), seed);
   const params = { ...base, ...perturbation, seed };
-  const badMode = Object.keys(MODES).filter((key) => Object.hasOwn(params, key) && !MODES[key].includes(params[key]));
-  if (badMode.length) throw new RangeError(`${questionId} 的信号模型不认这些参数的值：${badMode.join('、')}`);
-  if (Object.values(params).includes('random-beats') !== Number.isSafeInteger(seed)) throw new RangeError('随机拍点要整数种子，别的做法不带种子');
   return { params, readings: run(loadQuestion(questionId), params) };
 }
-const judged = (questionId, measured) => ({ questionId, ...measured, verdict: score(loadQuestion(questionId), measured.readings) });
+// 读数要量全了才交给判分：对象和数组都非空，叶子都是有限数。参数大到把事件挪出片外时量回来是空的，那是没量到，不能记成判分线拦住了
+function assertMeasured(value, path) {
+  const entries = Array.isArray(value) ? Object.entries(Array.from(value)) : isPlain(value) ? Object.entries(value) : null;
+  if (entries === null ? !Number.isFinite(value) : entries.length === 0) throw new RangeError(`读数 ${path} ${entries ? '是空的' : '不是有限数'}，没量到东西，不交给判分`);
+  for (const [key, item] of entries ?? []) assertMeasured(item, `${path}.${key}`);
+}
+
+/** 模型实验入口：正对照的信号上换几个参数（可以一个都不换），量出读数，过正式判分。撤销改动、反向错位、换种子这类实验走这里 */
+export function evaluatePerturbedModel(questionId, perturbation = {}, seed = null) {
+  const measured = measure(questionId, perturbation, seed);
+  assertMeasured(measured.readings, questionId);
+  return { questionId, ...measured, verdict: score(loadQuestion(questionId), measured.readings) };
+}
 
 /** 正对照：默认参数的信号，量出读数，过正式判分 */
-export const buildPositiveBaseline = (questionId) => judged(questionId, measure(questionId));
+export const buildPositiveBaseline = (questionId) => evaluatePerturbedModel(questionId);
 
-/** 一份负对照（夹具对象或它的 id）：正对照的信号上只换夹具 perturbation 里的参数，量出读数，过正式判分 */
+const CONTROL_FIELDS = ['format', 'id', 'questionId', 'kind', 'disabledCards', 'seed', 'description', 'perturbation', 'expectedFailedMetrics'];
+const nonEmptyText = (value, name) => {
+  if (typeof value !== 'string') throw new TypeError(`${name} 要是字符串，给的是 ${typeName(value)}`);
+  if (!value.trim()) throw new RangeError(`${name} 是空的`);
+};
+
+/**
+ * 一份负对照夹具的入口校验，过了原样回夹具，不过就抛错（类型不对 TypeError，值不收 RangeError）：
+ * 九栏不多不少；format、题号、种类认识，id 就是「题号-种类」；关卡的那份点名关了题面 needs 里的卡，别的不关卡；
+ * perturbation 过模型的参数校验，至少改一个参数，每个都真的和正对照不同；错位的那份只改一个 ShiftFrames 参数、值是 2；
+ * 随机拍点的那份只把一个做法换成随机拍点、带整数种子，别的不带种子；预期没过的判分项下标和指标名对得上题面，不重复。
+ */
+export function validateNegativeControl(control) {
+  if (!isPlain(control)) throw new TypeError(`负对照夹具要是普通对象，给的是 ${typeName(control)}`);
+  const missing = CONTROL_FIELDS.filter((field) => !Object.hasOwn(control, field)), extra = Object.keys(control).filter((field) => !CONTROL_FIELDS.includes(field));
+  if (missing.length) throw new TypeError(`负对照夹具少了这几栏：${missing.join('、')}`);
+  if (extra.length) throw new RangeError(`负对照夹具多了这几栏：${extra.join('、')}`);
+  const { format, id, questionId, kind, disabledCards, seed, description, perturbation, expectedFailedMetrics } = control;
+  if (format !== B6_FORMAT) throw new RangeError(`format 只认 ${B6_FORMAT}`);
+  if (!B6_QUESTION_IDS.includes(questionId) || !B6_NEGATIVE_KINDS.includes(kind) || id !== `${questionId}-${kind}`) throw new RangeError(`没有登记这份负对照：${String(id)}（题号 ${String(questionId)}，种类 ${String(kind)}）`);
+  const q = loadQuestion(questionId);
+  if (!Array.isArray(disabledCards) || !Array.from(disabledCards).every((card) => typeof card === 'string')) throw new TypeError(`${id} 的 disabledCards 要是字符串数组`);
+  if (kind === 'disable-card' ? !disabledCards.length || !disabledCards.every((card) => q.needs.includes(card)) : disabledCards.length) throw new RangeError(`${id} 的 disabledCards：关卡的那份要点名题面 needs 里的卡，别的种类是空数组`);
+  nonEmptyText(description, `${id} 的 description`);
+
+  checkPerturbation(questionId, perturbation);
+  const changed = Object.entries(perturbation), [base] = MODELS[questionId], usesRandomBeats = changed.some(([, value]) => value === 'random-beats');
+  if (!changed.length) throw new RangeError(`${id} 的 perturbation 是空的，没写改了哪个参数`);
+  const unchanged = changed.filter(([key, value]) => JSON.stringify(value) === JSON.stringify(base[key])).map(([key]) => key);
+  if (unchanged.length) throw new RangeError(`${id} 的这些参数和正对照一样，等于没改：${unchanged.join('、')}`);
+  if (kind === 'shift-2f' && !(changed.length === 1 && changed[0][0].endsWith('ShiftFrames') && changed[0][1] === 2)) throw new RangeError(`${id} 只能把一个 ShiftFrames 参数改成 2`);
+  if (kind === 'random-beats' ? !(changed.length === 1 && usesRandomBeats) : usesRandomBeats) throw new RangeError(`${id}：随机拍点的那份只把一个做法换成 random-beats，别的种类不用随机拍点`);
+  checkSeed(usesRandomBeats, seed);
+
+  if (!Array.isArray(expectedFailedMetrics) || !Array.from(expectedFailedMetrics).every(isPlain)) throw new TypeError(`${id} 的 expectedFailedMetrics 要是对象的数组`);
+  if (!expectedFailedMetrics.length) throw new RangeError(`${id} 的 expectedFailedMetrics 是空的`);
+  for (const expected of expectedFailedMetrics) {
+    if (Object.keys(expected).sort().join() !== 'metric,scoring,why') throw new RangeError(`${id} 的 expectedFailedMetrics 每项正好是 scoring、metric、why 三栏`);
+    if (typeof expected.scoring !== 'number') throw new TypeError(`${id} 的 expectedFailedMetrics.scoring 要是判分线的下标，给的是 ${typeName(expected.scoring)}`);
+    if (!Number.isSafeInteger(expected.scoring) || !Object.hasOwn(q.scoring, expected.scoring) || q.scoring[expected.scoring].metric !== expected.metric) throw new RangeError(`${id} 的 expectedFailedMetrics：题面第 ${expected.scoring} 条判分线不是 ${String(expected.metric)}`);
+    nonEmptyText(expected.why, `${id} 的 expectedFailedMetrics.why`);
+  }
+  if (new Set(expectedFailedMetrics.map(({ scoring }) => scoring)).size !== expectedFailedMetrics.length) throw new RangeError(`${id} 的 expectedFailedMetrics 同一条判分线写了两遍`);
+  return control;
+}
+
+/**
+ * 正式的负对照核验（夹具对象或登记过的 id）：先过 validateNegativeControl，再在正对照的信号上只换夹具 perturbation 里的参数，量出读数，过正式判分。
+ * failedAsDeclared：没过的判分项是不是正好就是夹具 expectedFailedMetrics 写的那几条。对不上不抛错（判分线挪了、模型改了都会这样，那是要看的结果，不是坏输入），
+ * 统计「拦住了几份」的调用方只数 verdict.pass === false 且 failedAsDeclared 的。
+ */
 export function evaluateNegativeControl(controlOrId) {
-  const control = typeof controlOrId === 'string' ? loadControl(controlOrId) : controlOrId;
-  return { control, ...judged(control.questionId, measure(control.questionId, control.perturbation, control.seed)) };
+  const control = typeof controlOrId === 'string' ? loadControl(controlOrId) : validateNegativeControl(controlOrId);
+  const judged = evaluatePerturbedModel(control.questionId, control.perturbation, control.seed);
+  const failed = judged.verdict.items.flatMap((item, index) => (item.pass ? [] : [index]));
+  return { control, ...judged, failedAsDeclared: failed.join() === control.expectedFailedMetrics.map(({ scoring }) => scoring).sort((a, b) => a - b).join() };
 }
 
 export const evaluateAllB6Negatives = () => B6_QUESTION_IDS.flatMap((id) => B6_NEGATIVE_KINDS.map((kind) => evaluateNegativeControl(`${id}-${kind}`)));
