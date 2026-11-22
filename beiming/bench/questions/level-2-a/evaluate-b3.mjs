@@ -259,12 +259,13 @@ export const read23_2 = orMissing(async (file, film, { jump = 0.35 } = {}) => {
 // 镜头的出入点、转场的 at、刻意区间契约只许写整数，不算）。镜头代码先把注释、字符串抹成空格，再整份文件一起认，换行不改结论：
 //   帧表达式跟整数比（数在哪边都算）、switch 帧表达式里的 case、名字以 frame 结尾的量赋成整数、对象里时间键写成两位以上的整数。
 //   帧表达式是整条取值链（a.b.c），末段是这几种名字：以 frame 结尾的（frame、localFrame、ctx.frame，一位数也认）；f、t；
-//   帧形参（render、state、meta、apply、evaluate 的形参，ctx 后面那个形参，赋给名字或属性的单形参箭头函数的形参）；
-//   从帧表达式只做加减得来的 const、let、var。后三种只认两位以上的整数，x > 1 这样的归一化比较不算。
-//   ctx.size[0] 这样末段是下标的、width、height、循环下标都不是帧表达式。
+//   帧形参（帧回调 render、state、meta、apply、evaluate 的第一个形参，写成方法、属性、同名函数或对象里点名的函数 state: tick 都算；
+//   ctx 后面那个形参）；从帧表达式只做加减得来的 const、let、var（初值换行照认）。后三种只认两位以上的整数，x > 1 这样的归一化比较不算。
+//   ctx.size[0] 这样末段是下标的、width、height、循环下标、别的辅助函数的形参（const wide = pixels => pixels >= 640）都不是帧表达式。
 // 节拍常量的定义数 = 节拍表（有就算 1）+ 别处再给 bpm、tempo、beat* 赋数的次数；节拍表在不在看读数里有没有 bpm、beatFrames。
 // shortcut: 用正则认，不解析语法，只扫 JS、TS、Python 源码，film.json 以外的 JSON 不看；帧名按整份文件算，不分作用域；
-// 帧号先做算术再比（f - 432 >= 0）、先赋给名字不带 frame 的常量再比、形参名不在上面几种里的、十六进制写的，都认不出；
+// 帧号先做算术再比（f - 432 >= 0）、先赋给名字不带 frame 的常量再比、帧传进辅助函数换了形参名再比（on(f) 里的 n >= 432）、
+// 不经声明直接赋值得来的派生量、十六进制写的，都认不出；
 // 模板字符串的 ${} 里再套花括号或模板、正则字面量里带引号的那一行、switch 里第一个右花括号之后的 case 会认错。要更准就换成语法树
 const TIME_KEYS = ['in', 'out', 'frame', 'at', 'start', 'end', 'f', 'enter', 'exit'];
 // 比较号：不是箭头、移位的一半
@@ -279,22 +280,32 @@ const NOISE = {
 const codeOf = (text, py) => text.replace(py ? NOISE.py : NOISE.js, (noise) => (/^(["'])\w+\1$/.test(noise) ? noise
   : noise[0] === '`' ? noise.replace(/(\$\{[^}]*\})|[^\n]/g, (char, kept) => kept ?? ' ') : noise.replace(/[^\n]/g, ' ')));
 const FRAME_NAMED = String.raw`[\w$]*[Ff]rame`;
-// 叫这些名字的形参是像素、下标，不当帧
-const NOT_FRAME = /^(?:w|h|x|y|z|i|j|width|height|size|aspect|index|count)$/;
+// 叫这些名字的形参是上下文、像素、下标，不当帧
+const NOT_FRAME = /^(?:ctx|w|h|x|y|z|i|j|width|height|size|aspect|index|count)$/;
 // 整条取值链，末段是 names 里的名字；后面跟着 . [ ( 的是没取完的链，不算
 const chain = (names) => String.raw`(?<![\w$.\])])(?:[\w$]+\.)*(?:${names})(?![\w$.\[(])`;
-// 这份代码里哪些名字是帧：固定的几种加帧形参，再加从它们只做加减得来的量（照书写顺序认一遍）
+// 帧回调叫这几个名字
+const HOOKS = 'render|state|meta|apply|evaluate';
+// 对象里点名当帧回调的函数：state: tick
+const HOOK_ALIAS = new RegExp(String.raw`\b(?:${HOOKS})\s*:\s*(?!(?:null|undefined|true|false)\b)([A-Za-z_$][\w$]*)\s*[,}]`, 'g');
+// 一个量的声明和初值（const 后面逗号连着的也算）。初值到分号、花括号、括号外的逗号为止；
+// 换行只在算式没写完时接着读：等号后面、上一行以 + - ( , 结尾、下一行以 + - ) 开头
+const DECLARED = /(?:\b(?:const|let|var)\s+|,\s*)([\w$]+)\s*(?::[^=;\n]*)?(?<![<>!=])=(?![=>])\s*((?:[^;{},()\n]|\((?:[^()]|\([^()]*\))*\)|(?<=[-+(,]\s*)\n|\n(?=\s*[-+)]))*)/g;
+// 这份代码里哪些名字是帧：固定的几种加帧形参，再加从它们只做加减得来的量（一遍遍认到不再多出来，定义写在用处后面也传得到）
 function frameNames(code) {
   const names = new Set(['f', 't']);
-  const add = (name) => { if (!NOT_FRAME.test(name)) names.add(name.replaceAll('$', String.raw`\$`)); };
-  for (const [, list] of code.matchAll(/\b(?:render|state|meta|apply|evaluate)\s*(?:[:=]\s*(?:async\s+)?(?:function\b\s*[\w$]*\s*)?)?\(([^)]*)\)\s*(?:=>|[{:])/g)) {
-    for (const [, name] of list.matchAll(/(?:^|,)\s*([\w$]+)/g)) add(name);
-  }
+  const escaped = (name) => name.replaceAll('$', String.raw`\$`);
+  const add = (name) => { if (!NOT_FRAME.test(name)) names.add(escaped(name)); };
+  // 帧形参只取帧回调的第一个形参。随手赋给一个名字的箭头函数（const wide = pixels => pixels >= 640）不是帧回调
+  const hooks = [HOOKS, ...Array.from(code.matchAll(HOOK_ALIAS), ([, name]) => escaped(name))].join('|');
+  const entry = new RegExp(String.raw`(?<![\w$])(?:${hooks})\s*(?:(?:[:=]\s*(?:async\s+)?(?:function\b\s*[\w$]*\s*)?)?\(\s*([\w$]+)[^)]*\)\s*(?:=>|[{:])|[:=]\s*(?:async\s+)?([\w$]+)\s*=>)`, 'g');
+  for (const [, first, bare] of code.matchAll(entry)) add(first ?? bare);
   for (const [, name] of code.matchAll(/\(\s*ctx\s*,\s*([\w$]+)/g)) add(name);
-  for (const [, name] of code.matchAll(/[=:]\s*(?:async\s+)?\(?\s*([\w$]+)\s*\)?\s*=>/g)) add(name);
   const all = () => [FRAME_NAMED, ...names].join('|');
-  for (const [, name, init] of code.matchAll(/\b(?:const|let|var)\s+([\w$]+)\s*=([^;\n]*)/g)) {
-    if (!/[*/%?<>=!&|]/.test(init) && new RegExp(chain(all())).test(init)) add(name);
+  for (let known = -1; known !== names.size;) {
+    known = names.size;
+    const framed = new RegExp(chain(all()));
+    for (const [, name, init] of code.matchAll(DECLARED)) if (!/[*/%?<>=!&|]/.test(init) && framed.test(init)) add(name);
   }
   return all();
 }

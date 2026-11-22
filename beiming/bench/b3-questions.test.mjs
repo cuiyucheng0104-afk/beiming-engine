@@ -538,6 +538,28 @@ test('B3-12 30-1 从工程读数：read30_1 静态扫工程目录，一张 80 BP
       + 'export function state(n, sub) {\n  const local = n - 96;\n  return local >= 24 && n < 648;\n}\n' } });
     assert.deepEqual(sly.timeline.found, ['shots/fx.js:1', 'shots/fx.js:4', 'shots/fx.js:4']);
     assert.deepEqual(judged(sly), [[true, false], false]);
+    // 下面几组补上成片这一头再判，结论只跟源码扫描走：[写死的帧号数, 得分, 整题合格]
+    const whole = (read) => { const all = evaluate(q, { ...read, ...CLEAN, cuts: [] }); return [read.timeline.hardcodedFrames, all.score, all.pass]; };
+    const shot = (name, body) => project(name, { code: { 'shots/shot.js': `export function build(ctx, mesh) {\n  return { state(f, sub) {\n${body}\n  }, meta() { return {}; } };\n}\n` } });
+    // 四审反例：派生量的初值换到等号下一行，和写成一行一样认两处；不写分号、算式中间换行、一条 const 连着声明两个量、带类型标注也一样
+    for (const [name, init] of Object.entries({ 'local-one-line': 'const local = f - 1;', 'local-wrapped': 'const local =\n  f - 1;', 'local-no-semicolon': 'const local =\n  f -\n  1',
+      'local-second': 'const zero = 0, local = f\n  - 1;', 'local-typed': 'const local: number = f - 1;' })) {
+      assert.deepEqual(whole(shot(name, `${init}\n  mesh.visible = local >= 432 && local < 648;`)), [2, 0.6, false], name);
+    }
+    // 派生量的定义写在用处后面（闭包里先用），多认几遍照样传到
+    assert.deepEqual(whole(shot('local-later', '  const show = () => { const late = local + 6; return late >= 432; };\n  const local = f - 1;\n  mesh.visible = show();')), [1, 0.6, false]);
+    // 四审反例：比像素宽度的辅助函数写成 function 还是箭头函数都不是帧回调，形参不当帧，整题照样满分
+    for (const [name, wide] of Object.entries({ 'wide-function': 'function wide(pixels) { return pixels >= 640; }', 'wide-arrow': 'const wide = pixels => pixels >= 640;',
+      'wide-arrow-parens': 'const wide = (pixels) => pixels >= 640;' })) {
+      assert.deepEqual(whole(project(name, { code: { 'shots/fit.js': `${wide}\nexport const fit = (ctx, mesh) => { mesh.scale.x = wide(ctx.size[0]) ? 1 : 0.5; };\n` } })), [0, 1, true], name);
+    }
+    // 帧回调的第一个形参不管叫什么都是帧：写成方法、属性上的箭头函数、对象里点名的函数（state: tick）都认
+    for (const [name, code] of Object.entries({ 'hook-method': 'export const build = () => ({ state(n, sub) { return n >= 432; } });',
+      'hook-arrow': 'export const build = () => ({ state: n => n >= 432 });',
+      'hook-named': 'const tick = n => n >= 432;\nexport function build() {\n  return { state: tick, meta() { return {}; } };\n}',
+      'hook-named-function': 'function tick(n, sub) { return n >= 432; }\nexport const build = () => ({ meta: () => ({}), state: tick });' })) {
+      assert.deepEqual(whole(project(name, { code: { 'shots/shot.js': `${code}\n` } })), [1, 0.6, false], name);
+    }
     // 片子描述里叠加层的出入点写死帧号
     const pinned = project('pinned-overlay', { film: { overlays: [{ id: 'name', shot: 's01', in: 240, out: 'event(m03) + 12', text: '对决' }] } });
     assert.deepEqual([pinned.timeline.hardcodedFrames, pinned.timeline.found], [1, ['film.json:overlays/name/in']]);
