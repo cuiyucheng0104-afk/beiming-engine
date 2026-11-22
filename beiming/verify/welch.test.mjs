@@ -1,0 +1,238 @@
+// V18 单测（Red -> Green）：双样本 Welch t 检验、Benjamini-Hochberg 多重比较校正、p 值直方图平坦性与 1.01 倍微偏检出
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import * as verify from './index.mjs';
+
+// 确定性 Mulberry32 + Box-Muller 高斯噪声生成器，供可复现蒙特卡洛测试使用
+function makeRng(seed) {
+  let s = seed >>> 0;
+  const nextU = () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  return {
+    normal(mean = 0, std = 1) {
+      const u1 = Math.max(1e-12, nextU());
+      const u2 = nextU();
+      return mean + std * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    },
+  };
+}
+
+function renderNoisyGroup(k, width, height, baseSeed, scale = 1.0, noiseStd = 0.015) {
+  const frames = [];
+  for (let i = 0; i < k; i++) {
+    const rng = makeRng(baseSeed + i * 7919);
+    const data = new Float32Array(width * height * 3);
+    for (let p = 0; p < width * height; p++) {
+      const trueVal = (0.5 + 0.3 * ((p % width) / width)) * scale;
+      data[p * 3] = Math.max(0, rng.normal(trueVal, noiseStd));
+      data[p * 3 + 1] = Math.max(0, rng.normal(trueVal, noiseStd));
+      data[p * 3 + 2] = Math.max(0, rng.normal(trueVal, noiseStd));
+    }
+    frames.push({ width, height, data, channels: 3 });
+  }
+  return frames;
+}
+
+test('V18-1 同一渲染器换种子两组 (K=16)：BH 显著像素比例不超过显著性水平，p 值直方图平坦', () => {
+  assert.equal(typeof verify.welchTest, 'function', 'verify 应导出 welchTest');
+
+  const groupA = renderNoisyGroup(16, 64, 64, 1000, 1.0, 0.02);
+  const groupB = renderNoisyGroup(16, 64, 64, 50000, 1.0, 0.02);
+
+  const resPx = verify.welchTest(groupA, groupB, { alpha: 0.05, blockSize: 1 });
+  assert.ok(resPx.significantRatio <= 0.05, `零假设下 BH 显著比例应 <= 0.05，实得 ${resPx.significantRatio}`);
+  assert.equal(resPx.pHistogram.flat, true, `零假设下 p 值直方图应平坦，实得 ${JSON.stringify(resPx.pHistogram)}`);
+  assert.equal(resPx.pass, true);
+  assert.equal(resPx.biasMap.length, 64 * 64);
+  assert.equal(resPx.pHistogram.counts.reduce((sum, n) => sum + n, 0), 64 * 64);
+
+  // lowTailP 是 p <= alpha 的单元数对 Binomial(n, alpha) 的单侧精确尾概率，用逐项求和对照
+  const n = resPx.testedUnits;
+  const low = Math.round(resPx.rawSignificantRatio * n);
+  let pmf = 0.95 ** n;
+  let tail = low === 0 ? pmf : 0;
+  for (let i = 0; i < n; i++) {
+    pmf *= (n - i) / (i + 1) * (0.05 / 0.95);
+    if (i + 1 >= low) tail += pmf;
+  }
+  assert.ok(Math.abs(resPx.pHistogram.lowTailP - tail) < 1e-9, `${resPx.pHistogram.lowTailP} 对 ${tail}`);
+
+  // 两边是同一批样本：p 全堆在 1，这是检验没有分辨力，不是偏差，不判不过
+  const self = verify.welchTest(groupA, groupA);
+  assert.deepEqual([self.significantCount, self.rawSignificantRatio, self.pHistogram.counts[19], self.pass], [0, 0, 64 * 64, true]);
+
+  const resBlock = verify.welchTest(groupA, groupB, { alpha: 0.05, blockSize: 8 });
+  assert.deepEqual(resBlock.gridSize, [8, 8]);
+  assert.ok(resBlock.significantRatio <= 0.05);
+  assert.equal(resBlock.pass, true);
+});
+
+test('V18-2 一边亮度乘 1.01（+1% 微偏，K=16）：在低采样噪声下被 Welch + BH 可靠检出', () => {
+  const groupA = renderNoisyGroup(16, 64, 64, 2000, 1.0, 0.012);
+  const groupB = renderNoisyGroup(16, 64, 64, 90000, 1.01, 0.012);
+
+  // 逐像素与 8x8 块均应检出 1.01 倍整体亮度偏移
+  const resBlock = verify.welchTest(groupA, groupB, { alpha: 0.05, blockSize: 8 });
+  assert.equal(resBlock.pass, false, '亮度乘 1.01 必须判不过');
+  assert.ok(resBlock.significantRatio > 0.5, `8x8 块应大面积显著，实得 ${resBlock.significantRatio}`);
+
+  const resPx = verify.welchTest(groupA, groupB, { alpha: 0.05, blockSize: 1 });
+  assert.equal(resPx.pass, false, '逐像素检验对 1.01 倍偏移也必须判不过');
+  assert.equal(resPx.pHistogram.flat, false, '有偏分布的 p 值直方图不应平坦');
+  assert.ok(resPx.significantCount > 0);
+  // 偏差位置图给出方向和量级：A 比 B 暗约 1%（均值 0.65 的 1%）
+  const meanBias = resBlock.biasMap.reduce((sum, v) => sum + v, 0) / resBlock.biasMap.length;
+  assert.ok(Math.abs(meanBias + 0.0065) < 0.001, `平均偏差应约为 -0.0065，实得 ${meanBias}`);
+});
+
+test('V18-3 双侧 p 值对照 Student t 闭式与临界值表，含非整数自由度', () => {
+  const p = verify.studentTwoSidedP;
+  for (const t of [1e-9, 0.1, 0.7, 2, 12.706204736174694, 500, 1e8]) {
+    const closed = {
+      1: 1 - 2 / Math.PI * Math.atan(t),
+      2: 1 - t / Math.sqrt(2 + t * t),
+      3: 1 - 2 / Math.PI * (Math.atan(t / Math.sqrt(3)) + (t / Math.sqrt(3)) / (1 + t * t / 3)),
+    };
+    for (const [df, expected] of Object.entries(closed)) {
+      // 闭式本身在 p 极小时有相消误差，所以大 t 只按绝对误差比
+      assert.ok(Math.abs(p(t, Number(df)) - expected) < 1e-12, `t=${t} df=${df}: ${p(t, Number(df))} 对 ${expected}`);
+      assert.equal(p(-t, Number(df)), p(t, Number(df)));
+    }
+  }
+  // 尾部用渐近式查相对精度：df=1 时 p -> 2/(pi t)
+  assert.ok(Math.abs(p(1e8, 1) / (2 / (Math.PI * 1e8)) - 1) < 1e-12);
+  // 临界值表（双侧）
+  for (const [t, df, expected] of [[2.2281388519649385, 10, 0.05], [2.946712883338615, 15, 0.01], [2.0422724563012373, 30, 0.05], [1.959963984540054, 1e9, 0.05]]) {
+    assert.ok(Math.abs(p(t, df) - expected) < 1e-7, `t=${t} df=${df}: ${p(t, df)}`);
+  }
+  // 非整数自由度夹在相邻整数自由度之间（自由度越大尾部越薄）
+  assert.ok(p(2.1, 15) > p(2.1, 15.5) && p(2.1, 15.5) > p(2.1, 16));
+  assert.equal(p(0, 7), 1);
+  assert.equal(p(Infinity, 7), 0);
+  assert.throws(() => p(NaN, 7), /welch/);
+});
+
+test('V18-4 Benjamini-Hochberg：调整后 p 值、步升判定与输入校验', () => {
+  const res = verify.benjaminiHochberg([0.9, 0.001, 0.041, 0.008, 0.039], 0.05);
+  const expected = [0.9, 0.005, 0.05125, 0.02, 0.05125];
+  res.qValues.forEach((q, i) => assert.ok(Math.abs(q - expected[i]) < 1e-12, `q[${i}]=${q}`));
+  assert.deepEqual([...res.significant], [0, 1, 0, 1, 0]);
+  assert.equal(res.significantCount, 2);
+  // 步升：最小的 p 自己过不了 alpha/m，但全体过得了 alpha
+  assert.equal(verify.benjaminiHochberg([0.03, 0.03, 0.03, 0.03], 0.05).significantCount, 4);
+  assert.equal(verify.benjaminiHochberg([], 0.05).significantCount, 0);
+  assert.throws(() => verify.benjaminiHochberg([0.5, NaN]), /p 值须在/);
+  assert.throws(() => verify.benjaminiHochberg([0.5], 1), /alpha/);
+});
+
+test('V18-5 大片无噪背景加局部带噪前景：确定性单元单列，不进校正和直方图', () => {
+  const width = 32, height = 32;
+  const group = (baseSeed, background = 0) => Array.from({ length: 16 }, (_, i) => {
+    const rng = makeRng(baseSeed + i * 104729);
+    const data = new Float32Array(width * height).fill(background);
+    for (let y = 8; y < 24; y++) for (let x = 8; x < 24; x++) data[y * width + x] = rng.normal(0.4, 0.05);
+    return { width, height, data };
+  });
+  const same = verify.welchTest(group(11), group(77777));
+  assert.equal(same.deterministicUnits, 32 * 32 - 16 * 16);
+  assert.equal(same.testedUnits, 16 * 16);
+  assert.equal(same.pHistogram.counts.reduce((sum, n) => sum + n, 0), 16 * 16);
+  assert.equal(same.pHistogram.flat, true, JSON.stringify(same.pHistogram));
+  assert.equal(same.pass, true);
+
+  // 背景两边都无噪声但差一个常数：p 为 0，全部检出
+  const shifted = verify.welchTest(group(11), group(77777, 0.001));
+  assert.equal(shifted.deterministicUnits, 0);
+  assert.ok(shifted.significantCount >= 32 * 32 - 16 * 16);
+  assert.equal(shifted.pMap[0], 0);
+  assert.equal(shifted.significantMask[0], 1);
+  assert.equal(shifted.pass, false);
+
+  // 全图无噪且相等：没有可检验的单元，判过
+  const flatFrames = Array.from({ length: 2 }, () => ({ width: 4, height: 4, data: new Float32Array(16).fill(0.25) }));
+  const constant = verify.welchTest(flatFrames, flatFrames);
+  assert.deepEqual([constant.testedUnits, constant.significantRatio, constant.pass], [0, 0, true]);
+
+  // 只有一边有噪声：自由度退化为有噪一边的 K-1，p 与单样本 t 检验一致
+  const noisy = [0.1, 0.3, 0.2, 0.6].map(v => ({ width: 1, height: 1, data: Float32Array.of(v) }));
+  const fixed = [0.2, 0.2, 0.2].map(v => ({ width: 1, height: 1, data: Float32Array.of(v) }));
+  const values = noisy.map(f => f.data[0]);
+  const mean = values.reduce((s, v) => s + v, 0) / 4;
+  const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / 3;
+  const oneSided = verify.welchTest(noisy, fixed);
+  const expected = verify.studentTwoSidedP((mean - fixed[0].data[0]) / Math.sqrt(variance / 4), 3);
+  assert.ok(Math.abs(oneSided.pMap[0] - expected) < 1e-12);
+  assert.deepEqual([oneSided.kA, oneSided.kB], [4, 3]);
+});
+
+test('V18-6 EXR 字节、路径与帧对象三种输入结果一致；尾块按实际像素数平均', async () => {
+  const { writeExr } = await import('./exr/exr.mjs');
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const width = 20, height = 12;
+  const framesA = renderNoisyGroup(4, width, height, 31);
+  const framesB = renderNoisyGroup(4, width, height, 4242, 1.2);
+  const toExr = (frame, prefix) => writeExr({ width, height, compression: 2, channels: {
+    ...Object.fromEntries(['R', 'G', 'B'].map((c, k) => [prefix + c, Float32Array.from({ length: width * height }, (_, p) => frame.data[p * 3 + k])])),
+    'depth.Z': new Float32Array(width * height).fill(7),
+    'objectId.id': new Uint32Array(width * height),
+  } });
+  const reference = verify.welchTest(framesA, framesB, { blockSize: 8 });
+  assert.deepEqual(reference.gridSize, [3, 2]);
+  assert.equal(reference.biasMap.length, 6);
+  // 右下尾块是 4x4 像素：偏差应等于这 16 个像素亮度均值之差
+  const lumaMean = frames => frames.reduce((sum, f) => {
+    let acc = 0;
+    for (let y = 8; y < 12; y++) for (let x = 16; x < 20; x++) {
+      const p = (y * width + x) * 3;
+      acc += 0.2126 * f.data[p] + 0.7152 * f.data[p + 1] + 0.0722 * f.data[p + 2];
+    }
+    return sum + acc / 16;
+  }, 0) / frames.length;
+  assert.ok(Math.abs(reference.biasMap[5] - (lumaMean(framesA) - lumaMean(framesB))) < 1e-12);
+
+  const dir = mkdtempSync(join(tmpdir(), 'welch-'));
+  try {
+    const paths = framesB.map((frame, i) => {
+      const file = join(dir, `b${i}.exr`);
+      writeFileSync(file, toExr(frame, ''));
+      return file;
+    });
+    const viaExr = verify.welchTest(framesA.map(f => toExr(f, 'color.')), paths, { blockSize: 8 });
+    assert.deepEqual([...viaExr.pMap], [...reference.pMap]);
+    assert.deepEqual([...viaExr.biasMap], [...reference.biasMap]);
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
+
+  // 按通道序号检验：只动红色时，红通道检出而蓝通道不受影响
+  const red = renderNoisyGroup(16, 16, 16, 5);
+  const redder = renderNoisyGroup(16, 16, 16, 5).map(f => ({ ...f, data: f.data.map((v, i) => (i % 3 === 0 ? v * 1.1 : v)) }));
+  assert.equal(verify.welchTest(red, redder, { channel: 0 }).significantRatio, 1);
+  assert.equal(verify.welchTest(red, redder, { channel: 2 }).significantCount, 0);
+});
+
+test('V18-7 非法输入一律抛错', () => {
+  const frame = (width = 2, height = 2, fill = 0.5) => ({ width, height, data: new Float32Array(width * height).fill(fill) });
+  const pair = [frame(), frame()];
+  assert.throws(() => verify.welchTest([frame()], pair), /至少要 2 个/);
+  assert.throws(() => verify.welchTest(pair, 'not-a-group'), /至少要 2 个/);
+  assert.throws(() => verify.welchTest(pair, [frame(), frame(3, 2)]), /尺寸不一致/);
+  assert.throws(() => verify.welchTest(pair, [frame(), frame(2, 2, NaN)]), /非有限值/);
+  assert.throws(() => verify.welchTest(pair, [frame(), frame(2, 2, Infinity)]), /非有限值/);
+  assert.throws(() => verify.welchTest(pair, [frame(), { width: 2, height: 2, data: new Float32Array(5) }]), /数据长度/);
+  assert.throws(() => verify.welchTest(pair, [frame(), { width: 2, height: 2, channels: 3, data: new Float32Array(4) }]), /数据长度/);
+  assert.throws(() => verify.welchTest(pair, [frame(), { width: 0, height: 2, data: new Float32Array(0) }]), /无效尺寸/);
+  assert.throws(() => verify.welchTest(pair, [frame(), null]), /样本须为/);
+  assert.throws(() => verify.welchTest(pair, pair, { channel: 1 }), /无效通道/);
+  for (const options of [{ alpha: 0 }, { alpha: 1 }, { alpha: NaN }, { histogramAlpha: 2 }, { blockSize: 0 }, { blockSize: 1.5 }, { bins: 0 }]) {
+    assert.throws(() => verify.welchTest(pair, pair, options), /welch/, JSON.stringify(options));
+  }
+  assert.throws(() => verify.welchTest(pair, [frame(), Buffer.from('not an exr file')]), /EXR/);
+  assert.throws(() => verify.welchTest(pair, [frame(), { width: 2, height: 2, channels: { 'normal.X': new Float32Array(4), 'normal.Y': new Float32Array(4) } }]), /EXR 须含/);
+});
