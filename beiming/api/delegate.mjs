@@ -32,7 +32,7 @@ export async function runDelegateOrchestrator({
   const api = { baseUrl, account: accountToken ?? workspaceToken, workspaces: { [filmId]: workspaceToken }, jobs: {}, signal };
   const start = performance.now();
   const elapsed = () => Math.round(performance.now() - start);
-  let usedTokens = 0, serverTokens = 0, gpuSeconds = 0, bestRev = 1, deliveredRev = null, outputs = [];
+  let usedTokens = 0, serverTokens = 0, gpuSeconds = 0, liveGpu = 0, bestRev = 1, deliveredRev = null, outputs = [];
   let at = 'director:step-1', child = null, stoppedReason;
   const result = (status, extra = {}) => ({ status, ...extra, bestRev, delegateTokens: usedTokens, cost: { tokens: usedTokens + serverTokens, gpuSeconds, wallMs: elapsed() }, outputs });
   const http = async (method, path, client = api) => JSON.parse((await callApi(client, { method, path })).text).body;
@@ -56,11 +56,12 @@ export async function runDelegateOrchestrator({
     stoppedReason = reason;
     throw new Error(reason);
   }
+  const delivered = () => outputs.length === 6 && deliveredRev === bestRev;
   function checkBudget(reserve = 0) {
     signal?.throwIfAborted();
     if (usedTokens + serverTokens + reserve > maxTokens) stop('tokens');
     if (elapsed() >= budget.wallSeconds * 1000) stop('wallSeconds');
-    if (gpuSeconds >= budget.gpuSeconds) stop('gpuSeconds');
+    if (gpuSeconds + liveGpu >= budget.gpuSeconds) stop('gpuSeconds');
   }
 
   async function tool(args, role, shot, evidence) {
@@ -90,13 +91,17 @@ export async function runDelegateOrchestrator({
       while (['queued', 'running'].includes(env?.data?.status)) {
         child = env.data.job;
         if (!child) throw new Error('子作业没有交回编号');
+        // 子作业跑完才入账；先读账本再轮询，在跑作业的实时显卡秒就不会和账本重复计。
+        liveGpu = env.data.cost?.gpuSeconds ?? 0;
         checkBudget();
         const remaining = budget.wallSeconds === undefined ? 30 : Math.max(1, Math.ceil(budget.wallSeconds - elapsed() / 1000));
+        await readLedger();
         res = await callApi(api, { method: 'GET', path: `/v1/jobs/${child}?wait=${Math.min(30, remaining)}` });
         env = JSON.parse(res.text).body;
-        await readLedger();
       }
+      if (child) await readLedger();
       child = null;
+      liveGpu = 0;
     }
     if (env?.ok && Number.isSafeInteger(env.data?.rev)) bestRev = Math.max(bestRev, env.data.rev);
     if (isJob && env?.ok && env.data?.status === 'succeeded') {
@@ -120,6 +125,8 @@ export async function runDelegateOrchestrator({
     const evidence = {};
     for (let step = 1; step <= maxSteps; step++) {
       at = `${tag}:step-${step}`;
+      // 六件套已交到最新修订，不再为汇报调模型，免得预算触线把已交付的片子收成 stopped。
+      if (role === 'finalizer' && delivered()) return true;
       await readLedger();
       checkBudget(reserveTokens);
       const body = { model, messages, tools: [HTTP_TOOL], tool_choice: 'auto' };
@@ -171,8 +178,7 @@ export async function runDelegateOrchestrator({
     }
     await readFilm();
     await readLedger();
-    checkBudget();
-    return outputs.length === 6 && deliveredRev === bestRev ? result('succeeded') : result('failed', { failedAt: at });
+    return delivered() ? result('succeeded') : result('failed', { failedAt: at });
   } catch (e) {
     if (child) {
       // 取消信号可能已触发，清理请求需要自己的信号。
@@ -180,7 +186,7 @@ export async function runDelegateOrchestrator({
       if (!signal?.aborted) await readLedger().catch(() => {});
     }
     if (signal?.aborted) return result('canceled');
-    if (stoppedReason) return result('stopped', { stoppedReason, stoppedAt: at });
+    if (stoppedReason) return delivered() ? result('succeeded') : result('stopped', { stoppedReason, stoppedAt: at });
     return result('failed', { failedAt: at, message: e.message });
   }
 }

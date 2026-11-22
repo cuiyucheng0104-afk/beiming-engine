@@ -319,6 +319,61 @@ test('显卡成本达到上限时第一次模型调用前即停止', async (t) =
   assert.equal(result.cost.gpuSeconds, 2);
 });
 
+test('子作业还没入账时，实时显卡秒超限也会停下并撤掉子作业', async (t) => {
+  const root = '/v1/films/f_001';
+  const seen = [];
+  let polls = 0;
+  t.mock.method(globalThis, 'fetch', async (url, init = {}) => {
+    const path = new URL(url).pathname;
+    seen.push(`${init.method ?? 'GET'} ${path}`);
+    if (path === `${root}/ledger`) return Response.json({ ok: true, data: { items: [] } });
+    if (path === `${root}/film`) return Response.json({ ok: true, data: { rev: 1, film: { shots: [{ id: 's01', in: 0, out: 3 }] } } });
+    if (path === `${root}/render`) return Response.json({ ok: true, data: { status: 'queued', job: 'j1', cost: { gpuSeconds: 0 } } });
+    if (path === '/v1/jobs/j1') {
+      if (init.method === 'DELETE') return Response.json({ ok: true, data: { status: 'canceled', job: 'j1' } });
+      polls++;
+      return Response.json({ ok: true, data: { status: polls < 4 ? 'running' : 'succeeded', job: 'j1', rev: 1, cost: { gpuSeconds: 50 * polls } } });
+    }
+    const { messages } = JSON.parse(init.body);
+    return Response.json(messages[0].content.includes('shot-worker') && messages.length === 2
+      ? toolReply('test', 1, 'POST', `${root}/render`, {}).json : doneReply('test', '完成').json);
+  });
+  const result = await apiIndex.runDelegateOrchestrator({
+    baseUrl: 'http://localhost', filmId: 'f_001', workspaceToken: 'test', budget: { gpuSeconds: 10 },
+    endpoint: 'http://localhost/model', apiKey: 'test', directorModel: 'director', workerModel: 'worker',
+  });
+  assert.equal(result.status, 'stopped');
+  assert.equal(result.stoppedReason, 'gpuSeconds');
+  assert.equal(result.stoppedAt, 'shot-worker:s01:step-1');
+  assert.equal(polls, 1, '第一次轮询看到 50 显卡秒就该停');
+  assert.ok(seen.includes('DELETE /v1/jobs/j1'));
+});
+
+test('收尾交付六件套后预算触线，仍按 succeeded 收尾且不再为汇报调模型', async (t) => {
+  const root = '/v1/films/f_001';
+  let delivered = false, modelCalls = 0;
+  t.mock.method(globalThis, 'fetch', async (url, init = {}) => {
+    const path = new URL(url).pathname;
+    if (path === `${root}/ledger`) return Response.json({ ok: true, data: { items: delivered ? [{ gpuSeconds: 0, modelTokens: 199_000 }] : [] } });
+    if (path === `${root}/film`) return Response.json({ ok: true, data: { rev: 1, film: { shots: [] } } });
+    if (path === `${root}/deliver`) {
+      delivered = true;
+      return Response.json({ ok: true, data: { status: 'succeeded', rev: 1 }, outputs: Array.from({ length: 6 }, (_, i) => ({ kind: 'file', url: `${root}/artifacts/${i}` })) });
+    }
+    modelCalls++;
+    const { messages } = JSON.parse(init.body);
+    return Response.json(messages[0].content.includes('finalizer')
+      ? toolReply('test', 1, 'POST', `${root}/deliver`, {}).json : doneReply('test', '完成').json);
+  });
+  const result = await apiIndex.runDelegateOrchestrator({
+    baseUrl: 'http://localhost', filmId: 'f_001', workspaceToken: 'test', budget: { tokens: 200_000 },
+    endpoint: 'http://localhost/model', apiKey: 'test', directorModel: 'director', workerModel: 'worker',
+  });
+  assert.equal(result.status, 'succeeded');
+  assert.equal(result.outputs.length, 6);
+  assert.equal(modelCalls, 2, '导演一次、收尾一次，交付后不再调模型');
+});
+
 test('截短信封恢复镜头清单，未过核验的镜头只重试一次', async (t) => {
   const sessions = [];
   const root = '/v1/films/f_001';

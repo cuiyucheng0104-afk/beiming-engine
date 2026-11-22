@@ -37,7 +37,7 @@ export const ROUTES = Object.freeze([
     request: obj({ mode: str({ enum: ['hands-on', 'delegate'] }), template: str({ enum: ['title', 'turntable'] }), exam: str({ pattern: '^[1-9][0-9]*-[1-9][0-9]*$' }),
       question: looseObj(), title: str(), brief: str(), asset: str(), assets: arr(str(), { maxItems: 16 }), text: str(),
       output: obj({ size: arr(int({ minimum: 2 }), { minItems: 2, maxItems: 2 }), fps: str(), frames: int({ minimum: 2 }) }),
-      budget: obj({ tokens: int({ minimum: 1, maximum: 1200000, description: '委托模式单片 token 硬上限 120 万' }), gpuSeconds: int({ minimum: 1 }), wallSeconds: int({ minimum: 1 }) }) }),
+      budget: obj({ tokens: int({ minimum: 1, maximum: 1200000, description: '委托模式单片 token 硬上限 120 万' }), gpuSeconds: int({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }), wallSeconds: int({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }) }) }),
     response: looseObj({ film: str(), token: str(), rev: int(), scaffold: str(), base: arr(str()), job: str({ description: '委托模式的编排作业号' }) }, ['film', 'token', 'rev', 'base']) },
   { id: 'film-assets', method: 'POST', path: '/v1/films/{id}/assets', auth: 'workspace', tokens: 300, summary: '上传 .glb / .stl 网格资产到工作区 assets/',
     params: { id: str() }, bodyRequired: true, request: obj({ name: str({ pattern: '^[A-Za-z0-9_-]+\\.(glb|stl)$' }), data: str({ contentEncoding: 'base64' }) }, ['name', 'data']),
