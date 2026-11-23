@@ -12,21 +12,21 @@
   },
   "order": "rows 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "一条 = 一个表格数据行（含跨案例对照表行），或一个顶层列表条目连同它缩进的续行；目录、案例索引、用法、没收进来的、以「并入说明、冲突、合并、说明」开头的说明行不算。对照表行的去向随它指回的明细，不另算一条明细",
-  "portableCount": 2,
-  "cardCoupledCount": 493,
-  "practiceCount": 14,
-  "excludedOrConflictCount": 17,
+  "portableCount": 72,
+  "cardCoupledCount": 414,
+  "practiceCount": 22,
+  "excludedOrConflictCount": 18,
   "detailRouteCounts": {
-    "card-coupled": 372,
-    "practice": 11,
-    "skipped-or-conflict": 16,
-    "portable": 1
+    "card-coupled": 328,
+    "practice": 19,
+    "portable": 36,
+    "skipped-or-conflict": 17
   },
   "summaryRouteCounts": {
-    "card-coupled": 121,
+    "card-coupled": 86,
     "practice": 3,
     "skipped-or-conflict": 1,
-    "portable": 1
+    "portable": 36
   },
   "files": {
     "priors": "arch-scene.json",
@@ -68,13 +68,13 @@
     "appendix": "文末说明（冲突对账、合并记录、待核问题）"
   },
   "rules": {
-    "method": "逐条读原文按 05 第 8.1 节 判去向，四问依次问、先命中的为准（顺序照 C10 终审）：有没有可迁的东西（没有则不迁）；主体是不是跨作品通用的带单位参考量（是则可移植，严格准入）；主体是不是「这个实现里取了哪些值、怎么搭的」（带源码标识符加取值、五个以上专属配置数字、非通用单位，是则挂卡；带函数名与一串阈值常量的算法条目也在这里）；其余用话讲做法的归做法。主判与独立盲判（两个不同的模型）各判一遍，一致的直接收；不一致的交第三名独立判定员裁决。挂卡与做法边界上的条目另由三名不同模型的判定员复判取多数（见 audit.boundaryRejudge）。混合条目按主体判",
+    "method": "逐条按主体分流。沿用历史裁决，二审后按通用量与可照搬工序复核边界，改判依据见 routeOverrides。对照表行随同案例明细，独立盲判使用修改前固定的分层随机样本。",
     "valueShapes": "可移植先验的 value：一个数；两元数组 [小, 大] 是范围（不带方向）；{ first, second } 是原文用斜线或顿号并列的两个取值，照原文先后",
-    "portable": "只收脱离具体实现与某一部片的布景之后仍然通用的带单位参考量：成片读数（从成片、画面量出来或成片自报的时长、帧数、切点、速度、角度），以及真实世界、人体与摄影光学的通用先验（标准构件尺寸、步频、呼吸周期、焦段、视场角、快门角、色温、光比）。条目的主体是某段程序、函数、着色器、生成器、骨架，或某一部片专属的布景与镜头参数表的，哪怕带米、秒、度，也不进这里。每条明细列 1 到 6 个主要的量，每个量一条先验；ext 里的 c11.raw 是它在原文里的片段",
-    "cardCoupled": "主体是某个具体实现的函数、接口、程序化生成器、骨架绑定参数、着色器公式与常量、大气与水面与地形的生成配置；某部作品写死的布景尺寸表、区域配置表、世界规模、面数与实例预算；某镜头或某一招写死的时刻表、机位与关键帧。带源码标识符的取值、五个以上某片专属配置数字堆在一起的条目、单位不是通用先验单位的量都归这里。挂到 05 第 5 节对应的技术卡上，不当默认值",
-    "practice": "没被挂卡那一问命中的做法条目：用话讲怎么做、为什么这样做，拿掉标识符和这部片写死的数字后仍是一条完整可照做的建模、绑定、布光、运镜工序、算法思路、判断方法或修法。没有任何带单位的量、只讲通用做法的条目必归这里；含避坑与教训的标 fix",
+    "portable": "标准构件和自然物尺度、步幅步频、呼吸拍翼与动作阶段时长、摄影光学与机位角度、成片规格和读数，能脱离实现单独解释的量进入先验表。证据按来源保留，源码、实测及原文陈述均可作为出处。每项只抽取有原文支持的通用量。 场景完成后的网格、物件和材质计数按对象、统计范围和来源分别出量；原文自报的上限与视口终点读数分别标明。",
+    "cardCoupled": "主体是某个具体实现的函数、接口、程序化生成器、骨架绑定参数、着色器公式与常量、大气与水面与地形的生成配置；某部作品写死的布景尺寸表、区域配置表、世界布局、生成器或设备分档的面数与实例预算；某镜头或某一招写死的时刻表、机位与关键帧。带源码标识符的取值、五个以上某片专属配置数字堆在一起的条目、单位不是通用先验单位的量都归这里。挂到 05 第 5 节对应的技术卡上，不当默认值",
+    "practice": "可照搬的建模、绑定、布光、运镜步骤、算法与修法进入做法库。按主体判断，举例的标识符与参数不改变工序的用途。",
     "skippedOrConflict": "没有步骤、判据、参数的一句话空泛概述；纯世界坐标摆放表（05 第 8.1 节：坐标表不迁）；只说未公开或无数据、且没有可学做法的陈述；读数冲突对账行；合并记录与编排说明",
-    "summary": "对照表行指回它真正摘自的那条同案例明细（summaryOf）：机器先按两边出处栏的章号、小节号与源码行号，再按共有的数字与用词挑候选，独立核对员逐行对照正文定下，候选里没有的再全表搜；一行摘了几条明细的，其余记在 alsoSummarizes（并列了别的案例的也记在这里）。去向与目标卡随 summaryOf 那条明细。link=values 表示行里照抄了那条明细的数，gist 表示行是它的概括。只有行里自己写着那条可移植明细的量（同一个数）时才另出一条汇总先验，值取行里写着的第一个量，它的 summaryOf 只列行里写着、且与它同单位的那几条明细先验；别的行只记账，不借别的量",
+    "summary": "对照表行指回它真正摘自的那条同案例明细（summaryOf）：机器先按两边出处栏的章号、小节号与源码行号，再按共有的数字与用词挑候选，独立核对员逐行对照正文定下，候选里没有的再全表搜；一行摘了几条明细的，其余记在 alsoSummarizes（并列了别的案例的也记在这里）。去向与目标卡随 summaryOf 那条明细。link=values 表示行里照抄了那条明细的数，gist 表示行是它的概括。汇总先验引用同案例、同对象、同计量口径的明细量，按本行的比较主题选主值。分级公式中的参考级高与实际踏步高分别标明。其余汇总只记账。detailRefs 与汇总先验的 summaryOf 一致。",
     "bareVariableRandom": {
       "note": "把单个字母 r 当随机数用的算式（宽=h·(.26+r·.08)、floor(r·2.6)）正则认不出来：机器先找出所有「数字紧贴 r」「r 夹在运算符之间」的条目，独立核对员逐条读上下文，是随机数的出结构化区间（量上带 randomVar: \"r\"），r 是半径、进度、距离或函数参数的列在 notRandom",
       "reviewed": 35,
@@ -385,42 +385,35 @@
       "inSpec": false,
       "exists": false,
       "covers": "石构建筑（墙工厂、构件库、废墟墙、风化、拱、台阶、教堂、城防、民居）的程序化造型",
-      "count": 50
+      "count": 41
     },
     {
       "cardId": "form.arch-timber",
       "inSpec": false,
       "exists": false,
       "covers": "木构建筑（山门、殿、亭、屋顶、斗拱、日式建筑）的程序化造型",
-      "count": 12
+      "count": 9
     },
     {
       "cardId": "form.grass",
       "inSpec": false,
       "exists": false,
       "covers": "草与地表植被的实例化、密度与着色",
-      "count": 16
+      "count": 15
     },
     {
       "cardId": "form.interior-arch",
       "inSpec": false,
       "exists": false,
       "covers": "写实或工程类建筑与室内（住宅、餐馆、城市街区、结构计算）的建模参数",
-      "count": 9
+      "count": 7
     },
     {
       "cardId": "form.megatree",
       "inSpec": false,
       "exists": false,
       "covers": "巨型树场景的路、阶梯、桥、平台、枝根等程序化结构",
-      "count": 41
-    },
-    {
-      "cardId": "form.primitives",
-      "inSpec": true,
-      "exists": false,
-      "covers": "硬表面原语（倒角、布尔、挤出构件）",
-      "count": 1
+      "count": 38
     },
     {
       "cardId": "form.rock",
@@ -434,14 +427,14 @@
       "inSpec": false,
       "exists": false,
       "covers": "场景规模、面数、对象数、材质数预算",
-      "count": 16
+      "count": 5
     },
     {
       "cardId": "form.scene-layout",
       "inSpec": false,
       "exists": false,
       "covers": "布局、摆位、禁入圈、视线避让、建造顺序、区域判定与坐标数据",
-      "count": 28
+      "count": 24
     },
     {
       "cardId": "form.sdf-nets",
@@ -455,49 +448,49 @@
       "inSpec": false,
       "exists": false,
       "covers": "布景小件：雕像、遗迹、路标、推车、盾牌、旗布、灯笼、悬挂物的造型与摆放",
-      "count": 66
+      "count": 64
     },
     {
       "cardId": "form.terrain",
       "inSpec": false,
       "exists": false,
       "covers": "地形高度场、格距、生成管线、地表形态",
-      "count": 17
+      "count": 16
     },
     {
       "cardId": "form.trees",
       "inSpec": false,
       "exists": false,
       "covers": "树木与森林的造型、分布与密度",
-      "count": 16
+      "count": 15
     },
     {
       "cardId": "form.world-gen",
       "inSpec": false,
       "exists": false,
       "covers": "区域规模与世界生成（大地图、区块、聚落生成）",
-      "count": 8
+      "count": 6
     },
     {
       "cardId": "particle.water-events",
       "inSpec": false,
       "exists": false,
       "covers": "入水、尾迹、水花、抛水、涟漪、雨滴等水面事件粒子",
-      "count": 9
+      "count": 8
     },
     {
       "cardId": "shade.px-lod",
       "inSpec": true,
       "exists": false,
       "covers": "按屏幕像素或距离分级淡出、LOD 与合并缓存",
-      "count": 11
+      "count": 10
     },
     {
       "cardId": "shade.water",
       "inSpec": false,
       "exists": false,
       "covers": "湖面、河面、瀑布、水洼的水面着色与几何",
-      "count": 17
+      "count": 16
     },
     {
       "cardId": "time.bake",
@@ -511,7 +504,7 @@
       "inSpec": true,
       "exists": true,
       "covers": "独立随机流、固定随机种子、可复现布局",
-      "count": 2
+      "count": 1
     },
     {
       "cardId": "wind.gust-wake",
@@ -650,14 +643,288 @@
     },
     {
       "issue": "scale-variable-not-seconds",
-      "description": "条目里把 s 当体型缩放系数用（s 等于角色的缩放倍率）时，「.29s」「.27s」这种贴着数字的 s 是乘数，不是秒；提取器在这些条目里把 s 认成变量，不出秒数",
-      "sourceIds": [],
-      "checked": []
+      "description": "尖塔锥体半径和高度乘几何缩放变量 s，均按几何倍率解释。",
+      "sourceIds": [
+        "d048"
+      ],
+      "checked": [
+        {
+          "sourceId": "d048",
+          "route": "card-coupled",
+          "scaleExpression": "cone(0.78s,3.4s)",
+          "secondsExtractedFromScaleSuffix": 0
+        }
+      ]
     }
   ],
-  "routeOverrides": [],
+  "routeOverrides": [
+    {
+      "sourceId": "d001",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：建筑网格合计三角面数、场景网格总数、岩石网格顶点数、岩石网格三角面数、场景灯笼总数、统计表所列串绳灯笼数、布片数、草的根数、种植点数",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d002",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：关卡物体数、关卡三角面数",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d010",
+      "route": "practice",
+      "reason": "替换道具生成器时，先空跑旧生成器消耗原随机序列，再用独立随机流生成新外形，保留后续摆件的位置。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d013",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：主殿檐高、偏殿檐高、山门柱半径、匾额宽、匾额高",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d014",
+      "route": "portable",
+      "reason": "通用参考量：殿柱半径、亭柱半径、梁枋高、梁枋厚、椽距、栏杆立柱高",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d024",
+      "route": "portable",
+      "reason": "通用参考量：民居墙厚、两层民居首层层高、单层民居层高、民居二层层高、门宽、门高（两种取值）",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d025",
+      "route": "portable",
+      "reason": "通用参考量：房排宽度、房排面宽目标范围",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d026",
+      "route": "portable",
+      "reason": "通用参考量：城墙厚、城墙高、城墙扶壁间距、圆塔半径、圆塔高、方塔高",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d027",
+      "route": "portable",
+      "reason": "通用参考量：小教堂墙厚、小教堂墙高",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d029",
+      "route": "portable",
+      "reason": "通用参考量：城墙厚、城墙高",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d034",
+      "route": "portable",
+      "reason": "通用参考量：朝圣台阶踏步高、普通踏面进深、相邻平台间级数、中间平台进深",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d040",
+      "route": "portable",
+      "reason": "通用参考量：过渡台阶踏面进深、过渡台阶分级用参考级高",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d053",
+      "route": "practice",
+      "reason": "按净跨与矢高确定圆心，构造半拱轮廓，再用两条偏移弧生成拱圈。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d054",
+      "route": "practice",
+      "reason": "将外轮廓与反向内孔一起挤出，再沿厚度方向平移半个深度，使带孔构件居中。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d060",
+      "route": "portable",
+      "reason": "通用参考量：门前台阶踏面进深、门前台阶踏步高、拱门半宽、拱门起拱高、门扇厚",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d074",
+      "route": "portable",
+      "reason": "通用参考量：前厅壁厚、前厅高、前厅净宽、前厅过渡台阶踏面进深、前厅过渡台阶分级用参考级高",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d139",
+      "route": "portable",
+      "reason": "通用参考量：根阶梯的参考级高",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d144",
+      "route": "portable",
+      "reason": "通用参考量：钟楼阶梯宽、钟楼阶梯踏步高",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d156",
+      "route": "portable",
+      "reason": "通用参考量：木坡道折返梯参考级高（约）、木坡道踏面进深、每跑水平长度、每跑最大落差、最大落差对应的坡角（约）",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d171",
+      "route": "skipped-or-conflict",
+      "reason": "只有该实例小地图的数据目录（轮廓、道路和等高线的数量），没有点位、可重建的形状或绘制步骤；不把索引条数当成布局参数。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d194",
+      "route": "portable",
+      "reason": "通用参考量：壁龛台阶分级用参考级高、壁龛台阶总升高范围",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d195",
+      "route": "portable",
+      "reason": "通用参考量：木骨架门洞高、二层层高、三层层高、木骨架端柱截面尺寸、木骨架中柱截面尺寸",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d209",
+      "route": "practice",
+      "reason": "先在临时容器试摆并收集碰撞体，逐个检查禁摆遮罩，全部通过后用同一种子重建并提交碰撞体。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d244",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：场景灯笼总数、灯笼直径（约）、灯笼高、灯笼鼓腹最大半径",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d251",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：聚落房屋数、地标数、湖泊数、本案例湖面标高范围、本案例河面标高范围",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d256",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：终点视口显示的三角面数、终点视口显示的对象数",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d257",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：主塔独立玻璃块数、每座木水塔的木板数、每座木水塔的金属箍数、屋顶道具种数、城区车辆总数、城区行人总数、屋顶瓦片缺失比例",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d258",
+      "route": "portable",
+      "reason": "通用参考量：主镜头俯拍机位高度（约）",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d260",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：静态街景三角面数（约）、每镜头运动物体三角面数上限、街头杂物三角面数、街景材质种数、外文招牌块数",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d261",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：晾衣绳数、晾晒衣物件数、旗帜面数、街景人物总数、行走人物数",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d262",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：静态巷景三角面数（约）、运动物体三角面数上限、逐笔绘制的表意字字数、每镜头几何雨丝条数、原验证标签所记片长、原验证标签所记帧率",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d265",
+      "route": "portable",
+      "reason": "通用参考量：公寓房间层高、门厅与卫生间层高",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d266",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：公寓三维场景三角面数、公寓程序材质种数",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d275",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：场景规格中的招牌与价签种数（约）、场景数据所述招牌与价签个数（约）、镂空剪纸旗张数、远景人物数、静态街景三角面数（约）、运动物体三角面数上限",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d277",
+      "route": "portable",
+      "reason": "通用参考量：栅栏单段长（约）、木栅墙单段长（约）、废弃圆塔高（约）、河驳船长（约）、砂岩城墙单段长（约）、砂岩城墙高",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d282",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：城市变电站数、城市场景建筑数（约）",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d284",
+      "route": "portable",
+      "reason": "通用参考量：成片时长（约）、成片帧率、成片镜头数、正文自报成片帧数",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d285",
+      "route": "portable",
+      "reason": "通用参考量：成片时长、成片帧率、成片总帧数、成片切点数",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d311",
+      "route": "practice",
+      "reason": "在连续环坡中加入崖壁，打散大尺度地表明暗，再叠加砂岩层理，削弱等高线状山形。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d353",
+      "route": "practice",
+      "reason": "把入水扰动预先记成带起点和持续时间的事件，让波前向外传播，并按像素覆盖范围淡出细波纹。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d360",
+      "route": "portable",
+      "reason": "原文可直接解释的参考量：水洼涟漪镜头的三角面数（此记录取整至万）、每镜头几何雨丝条数",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d363",
+      "route": "practice",
+      "reason": "让一块草地方砖随镜头循环平移。先按格给草实例分桶并按出现密度排序，再按所需密度二分截取每格要画的实例。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d384",
+      "route": "portable",
+      "reason": "通用参考量：植被基准树高（约）",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d387",
+      "route": "practice",
+      "reason": "随视距增大逐渐稀疏植被，按保留率平方根的倒数放大留下的植被，用抖动淡出过渡。",
+      "previousRoute": "card-coupled"
+    }
+  ],
   "audit": {
-    "method": "四步。一：主判与独立判定员（不同的模型）按判据各自全量判一遍，不一致的交第三人裁决（rubric=v4-tiebreak，两人原判留在 primaryRoute 与 blindRoute）。二：终验第一轮暴露判据初稿的顺序问题后改正判据，挂卡与做法边界上的条目由三名判定员复判取多数（rubric=v4-boundary）。三：按改正后的判据另起一轮全量独立盲判，与前两步的共识不一致的交第三人裁决（rubric=v4-final-tiebreak，共识与盲判原判留在 consensusRoute 与 finalBlindRoute）。四：换新样本终验抽检。这里的 independentRoute 是最后的去向，等于总账；终版盲判员没被替换过的原始判定与它和总账的分歧在 blindAudit",
+    "method": "以下是第四版判据的历史全量裁决和复核。sample 中的 independentRoute 是当时的裁决去向，previousBlindAudit 保存当时独立盲判的原票及分歧。本轮只改 routeOverrides 指明的明细及其汇总，独立抽样见 blindAudit。",
     "sampleSize": 400,
     "firstRoundDisagreements": 9,
     "rejudgedCount": 9,
@@ -3867,2145 +4134,2429 @@
           "why": "清单验证口径差异的编排说明与待核记录，无可迁移内容"
         }
       ]
+    },
+    "previousBlindAudit": {
+      "method": "判据顺序改正、边界条目复判之后另起的一轮：独立盲判员只读脱敏后的源条目与改正后的判据（v4），不看任何既有判定、生成脚本与产物，对全部明细全量盲判；对照表行的盲判去向随它指回的明细。这里记的是盲判员的原始判定，没有用裁决结果替换；它与当时共识不一致的条目交第三人裁决后定稿，裁决没采纳盲判的那些就是这里的 disagreements。判据初稿下的那一轮盲判（顺序与终版不同）只在 audit.sample 的 blindRoute 里留底",
+      "rubric": "v4",
+      "judgedDetails": 400,
+      "summaryRowsFollowing": 126,
+      "disagreements": [
+        "d170",
+        "d209",
+        "d276",
+        "d278",
+        "d283"
+      ],
+      "disagreementRate": {
+        "details": 0.0125,
+        "summaries": 0,
+        "all": 0.0095
+      },
+      "rows": [
+        {
+          "sourceId": "s001",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s002",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s003",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s004",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s005",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s006",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s007",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s008",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s009",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s010",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s011",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s012",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s013",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s014",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s015",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d001",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d002",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s016",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s017",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s018",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s019",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s020",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s021",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "s022",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s023",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s024",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s025",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s026",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s027",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s028",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s029",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s030",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s031",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s032",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s033",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s034",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s035",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s036",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s037",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s038",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s039",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s040",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s041",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s042",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s043",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s044",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s045",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s046",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s047",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s048",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d003",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d004",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d005",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d006",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d007",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d008",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d009",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d010",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d011",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d012",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s049",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s050",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s051",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d013",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d014",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d015",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d016",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s052",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s053",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s054",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s055",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s056",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s057",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s058",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s059",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s060",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s061",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s062",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s063",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d017",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d018",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d019",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d020",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d021",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d022",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d023",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s064",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s065",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s066",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s067",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d024",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d025",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d026",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d027",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d028",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d029",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s068",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s069",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s070",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s071",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s072",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s073",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s074",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s075",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s076",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s077",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s078",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d030",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d031",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d032",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d033",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d034",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d035",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d036",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d037",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d038",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d039",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d040",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d041",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d042",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d043",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d044",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d045",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d046",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d047",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d048",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d049",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d050",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d051",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d052",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d053",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d054",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d055",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d056",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d057",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d058",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d059",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d060",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d061",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d062",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d063",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d064",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d065",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d066",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d067",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d068",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d069",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d070",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d071",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d072",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d073",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d074",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d075",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d076",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d077",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d078",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d079",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d080",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d081",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d082",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d083",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d084",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d085",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d086",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d087",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d088",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d089",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d090",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d091",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d092",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d093",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d094",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d095",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d096",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d097",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d098",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d099",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d100",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d101",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d102",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d103",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d104",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d105",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d106",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d107",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d108",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d109",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d110",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d111",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d112",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d113",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d114",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d115",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d116",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d117",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d118",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d119",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d120",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d121",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d122",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d123",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d124",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d125",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d126",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d127",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d128",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d129",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d130",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d131",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d132",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d133",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d134",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d135",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d136",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d137",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d138",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d139",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d140",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d141",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d142",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d143",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d144",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d145",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d146",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d147",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d148",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d149",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d150",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d151",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d152",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d153",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d154",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d155",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d156",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d157",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d158",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d159",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d160",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d161",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d162",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d163",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d164",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d165",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d166",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d167",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d168",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d169",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d170",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d171",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d172",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d173",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d174",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d175",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d176",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d177",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d178",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d179",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d180",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d181",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d182",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d183",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d184",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d185",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d186",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d187",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d188",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d189",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d190",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d191",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d192",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d193",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d194",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d195",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d196",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d197",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d198",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d199",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d200",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d201",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d202",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d203",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d204",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d205",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d206",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d207",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d208",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d209",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d210",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d211",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d212",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d213",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d214",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d215",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d216",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d217",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d218",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d219",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d220",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d221",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d222",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d223",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d224",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d225",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d226",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d227",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d228",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d229",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d230",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d231",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d232",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d233",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d234",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d235",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d236",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d237",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d238",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d239",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d240",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d241",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d242",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d243",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s079",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s080",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "s081",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s082",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s083",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s084",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s085",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d244",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d245",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d246",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d247",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d248",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d249",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d250",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d251",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d252",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d253",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d254",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s086",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s087",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s088",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s089",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s090",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s091",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s092",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d255",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d256",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d257",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d258",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d259",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d260",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d261",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d262",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d263",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d264",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d265",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d266",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d267",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d268",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d269",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d270",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d271",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d272",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d273",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d274",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d275",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d276",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d277",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d278",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d279",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d280",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d281",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d282",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d283",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d284",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d285",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d286",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d287",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s093",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s094",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s095",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s096",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s097",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s098",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d288",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d289",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d290",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d291",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d292",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d293",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d294",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d295",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d296",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d297",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d298",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d299",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d300",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d301",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d302",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d303",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d304",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d305",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d306",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d307",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d308",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d309",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d310",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d311",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d312",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d313",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d314",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d315",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d316",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d317",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d318",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d319",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d320",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d321",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d322",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d323",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d324",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d325",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d326",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d327",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d328",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d329",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d330",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d331",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d332",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d333",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d334",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s099",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s100",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s101",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d335",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d336",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d337",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d338",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d339",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d340",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d341",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d342",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d343",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d344",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d345",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d346",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d347",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s102",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s103",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s104",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s105",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d348",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d349",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d350",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d351",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d352",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d353",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d354",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d355",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d356",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d357",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d358",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d359",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d360",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s106",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s107",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s108",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s109",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s110",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s111",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s112",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s113",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d361",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d362",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d363",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d364",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d365",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d366",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d367",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d368",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d369",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d370",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d371",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d372",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s114",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s115",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s116",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s117",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s118",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s119",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s120",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d373",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d374",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d375",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d376",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d377",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d378",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d379",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d380",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d381",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d382",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d383",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d384",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d385",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d386",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d387",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s121",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s122",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s123",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s124",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s125",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s126",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d388",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d389",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d390",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d391",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d392",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d393",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d394",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d395",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d396",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d397",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d398",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d399",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d400",
+          "blindRoute": "skipped-or-conflict"
+        }
+      ]
     }
   },
   "blindAudit": {
-    "method": "判据顺序改正、边界条目复判之后另起的一轮：独立盲判员只读脱敏后的源条目与改正后的判据（v4），不看任何既有判定、生成脚本与产物，对全部明细全量盲判；对照表行的盲判去向随它指回的明细。这里记的是盲判员的原始判定，没有用裁决结果替换；它与当时共识不一致的条目交第三人裁决后定稿，裁决没采纳盲判的那些就是这里的 disagreements。判据初稿下的那一轮盲判（顺序与终版不同）只在 audit.sample 的 blindRoute 里留底",
-    "rubric": "v4",
-    "judgedDetails": 400,
-    "summaryRowsFollowing": 126,
-    "disagreements": [
-      "d170",
-      "d209",
-      "d276",
-      "d278",
-      "d283"
-    ],
-    "disagreementRate": {
-      "details": 0.0125,
-      "summaries": 0,
-      "all": 0.0095
-    },
+    "rubric": "r2",
+    "method": "在修复前固定种子，按集合与明细、汇总两层分别对源 ID 做 SHA-256 排序，无放回取各层前一成（向上取整）。独立判定员逐条只读脱敏源文和判据，汇总另附所指明细。先冻结唯一路由，再与修复后的总账比较。",
+    "sampleSize": 53,
+    "judgedDetails": 40,
+    "judgedSummaries": 13,
     "rows": [
       {
-        "sourceId": "s001",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s002",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s003",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s004",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s005",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s006",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s007",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s008",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s009",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s010",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s011",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s012",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s013",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s014",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s015",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d001",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d002",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s016",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s017",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s018",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s019",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s020",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s021",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "s022",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s023",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s024",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s025",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s026",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s027",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s028",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s029",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s030",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s031",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s032",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s033",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s034",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s035",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s036",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s037",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s038",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s039",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s040",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s041",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s042",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s043",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s044",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s045",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s046",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s047",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s048",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d003",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d004",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d005",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d006",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d007",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d008",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d009",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d010",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d011",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d012",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s049",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s050",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s051",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d013",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d014",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d015",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d016",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s052",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s053",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s054",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s055",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s056",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s057",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s058",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s059",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s060",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s061",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s062",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s063",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d017",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d018",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d019",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d020",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d021",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d022",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d023",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s064",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s065",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s066",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s067",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d024",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d025",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d026",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d027",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d028",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d029",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s068",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s069",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s070",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s071",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s072",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s073",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s074",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s075",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s076",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s077",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s078",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d030",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d031",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d032",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d033",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d034",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d035",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d036",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d037",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d038",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d039",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d040",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d041",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d042",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d043",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d044",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d045",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d046",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d047",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d048",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d049",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d050",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d051",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d052",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d053",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d054",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d055",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d056",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d057",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d058",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d059",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d060",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d061",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d062",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d063",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d064",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d065",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d066",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d067",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d068",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d069",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d070",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d071",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d072",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d073",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d074",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d075",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d076",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d077",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d078",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d079",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d080",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d081",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d082",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d083",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d084",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d085",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d086",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d087",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d088",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d089",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d090",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d091",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d092",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d093",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d094",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d095",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d096",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d097",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d098",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d099",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d100",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d101",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d102",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d103",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d104",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d105",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d106",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d107",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d108",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d109",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d110",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d111",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d112",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d113",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d114",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d115",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d116",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d117",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d118",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d119",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d120",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d121",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d122",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d123",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d124",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d125",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d126",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d127",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d128",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d129",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d130",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d131",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d132",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d133",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d134",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d135",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d136",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d137",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d138",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d139",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d140",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d141",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d142",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d143",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d144",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d145",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d146",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d147",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d148",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d149",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d150",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d151",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d152",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d153",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d154",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d155",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d156",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d157",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d158",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d159",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d160",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d161",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d162",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d163",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d164",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d165",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d166",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d167",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d168",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d169",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d170",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d171",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d172",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d173",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d174",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d175",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d176",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d177",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d178",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d179",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d180",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d181",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d182",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d183",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d184",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d185",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d186",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d187",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d188",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d189",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d190",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d191",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d192",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d193",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d194",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d195",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d196",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d197",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d198",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d199",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d200",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d201",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d202",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d203",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d204",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d205",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d206",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d207",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d208",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d209",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d210",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d211",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d212",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d213",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d214",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d215",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d216",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d217",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d218",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d219",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d220",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d221",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d222",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d223",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d224",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d225",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d226",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d227",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d228",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d229",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d230",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d231",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d232",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d233",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d234",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d235",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d236",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d237",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d238",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d239",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d240",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d241",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d242",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d243",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s079",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s080",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "s081",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s082",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s083",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s084",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s085",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d244",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d245",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d246",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d247",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d248",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d249",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d250",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "d251",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d252",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d253",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d254",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s086",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s087",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s088",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s089",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s090",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s091",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s092",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d255",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d256",
-        "blindRoute": "card-coupled"
-      },
-      {
         "sourceId": "d257",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d258",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d259",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d260",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d261",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d262",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d263",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d264",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d265",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d266",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d267",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d268",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d269",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d270",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d271",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d272",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d273",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d274",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d275",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d276",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d277",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d278",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d279",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d280",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d281",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d282",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d283",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d284",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d285",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d286",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d287",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s093",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s094",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s095",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s096",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s097",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s098",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d288",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d289",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d290",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d291",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d292",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d293",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d294",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d295",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d296",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d297",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d298",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d299",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d300",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d301",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d302",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d303",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d304",
-        "blindRoute": "card-coupled"
+        "blindRoute": "portable",
+        "why": "主体为成片细节计数与几何规模报告。"
       },
       {
         "sourceId": "d305",
-        "blindRoute": "card-coupled"
+        "blindRoute": "card-coupled",
+        "why": "特定地形的公式链与压平参数配置。"
       },
       {
-        "sourceId": "d306",
-        "blindRoute": "card-coupled"
+        "sourceId": "d180",
+        "blindRoute": "card-coupled",
+        "why": "环形铺装专用尺寸与分圈算法配置。"
       },
       {
-        "sourceId": "d307",
-        "blindRoute": "card-coupled"
+        "sourceId": "d181",
+        "blindRoute": "card-coupled",
+        "why": "石板破损概率与扰动常量配置。"
       },
       {
-        "sourceId": "d308",
-        "blindRoute": "card-coupled"
+        "sourceId": "d249",
+        "blindRoute": "card-coupled",
+        "why": "多种布件的网格及着色公式常量。"
       },
       {
-        "sourceId": "d309",
-        "blindRoute": "card-coupled"
+        "sourceId": "d280",
+        "blindRoute": "card-coupled",
+        "why": "单一住宅的成组工程布局规格。"
       },
       {
-        "sourceId": "d310",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d311",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d312",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d313",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d314",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d315",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d316",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d317",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d318",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d319",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d320",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d321",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d322",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d323",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d324",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d325",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d326",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d327",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d328",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d329",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d330",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d331",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d332",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d333",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d334",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s099",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s100",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s101",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d335",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d336",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d337",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d338",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d339",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d340",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d341",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d342",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d343",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d344",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d345",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d346",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d347",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s102",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s103",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s104",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s105",
-        "blindRoute": "card-coupled"
+        "sourceId": "d140",
+        "blindRoute": "card-coupled",
+        "why": "立木位置表及树冠生成参数配置。"
       },
       {
         "sourceId": "d348",
-        "blindRoute": "card-coupled"
+        "blindRoute": "card-coupled",
+        "why": "水面事件编码及专用波形公式。"
       },
       {
-        "sourceId": "d349",
-        "blindRoute": "card-coupled"
+        "sourceId": "d120",
+        "blindRoute": "card-coupled",
+        "why": "特定路径站立判定与井口配置。"
       },
       {
-        "sourceId": "d350",
-        "blindRoute": "card-coupled"
+        "sourceId": "d263",
+        "blindRoute": "portable",
+        "why": "主体为成片几何规模及建模成果报告。"
       },
       {
-        "sourceId": "d351",
-        "blindRoute": "card-coupled"
+        "sourceId": "d062",
+        "blindRoute": "card-coupled",
+        "why": "彩窗及投光共用的专用着色公式。"
       },
       {
-        "sourceId": "d352",
-        "blindRoute": "card-coupled"
+        "sourceId": "d275",
+        "blindRoute": "portable",
+        "why": "主体为成片物件计数和三角面规模报告。"
       },
       {
-        "sourceId": "d353",
-        "blindRoute": "card-coupled"
+        "sourceId": "d177",
+        "blindRoute": "skipped-or-conflict",
+        "why": "仅列场景避让位置与禁区范围。"
       },
       {
-        "sourceId": "d354",
-        "blindRoute": "card-coupled"
+        "sourceId": "d016",
+        "blindRoute": "card-coupled",
+        "why": "材质细节按像素裁剪的阈值表。"
       },
       {
-        "sourceId": "d355",
-        "blindRoute": "card-coupled"
+        "sourceId": "d346",
+        "blindRoute": "card-coupled",
+        "why": "折射吸收与菲涅耳的实现公式组合。"
       },
       {
-        "sourceId": "d356",
-        "blindRoute": "card-coupled"
+        "sourceId": "d128",
+        "blindRoute": "card-coupled",
+        "why": "木屋位置与构件灯光的成组配置。"
       },
       {
-        "sourceId": "d357",
-        "blindRoute": "card-coupled"
+        "sourceId": "d066",
+        "blindRoute": "card-coupled",
+        "why": "成组窗位尺寸和缺块概率配置。"
       },
       {
-        "sourceId": "d358",
-        "blindRoute": "card-coupled"
+        "sourceId": "d058",
+        "blindRoute": "card-coupled",
+        "why": "雾门网格着色交互及碰撞的专用配置。"
       },
       {
-        "sourceId": "d359",
-        "blindRoute": "card-coupled"
+        "sourceId": "d308",
+        "blindRoute": "card-coupled",
+        "why": "沉坑位置表附带专用减速判定。"
       },
       {
-        "sourceId": "d360",
-        "blindRoute": "card-coupled"
+        "sourceId": "d071",
+        "blindRoute": "card-coupled",
+        "why": "边石生成比例及随机缺失的实现配置。"
       },
       {
-        "sourceId": "s106",
-        "blindRoute": "card-coupled"
+        "sourceId": "d065",
+        "blindRoute": "card-coupled",
+        "why": "单个花窗的分环图案与缺损配置。"
       },
       {
-        "sourceId": "s107",
-        "blindRoute": "card-coupled"
+        "sourceId": "d258",
+        "blindRoute": "portable",
+        "why": "可理解的高位俯拍机位与构图示例。"
       },
       {
-        "sourceId": "s108",
-        "blindRoute": "card-coupled"
+        "sourceId": "d315",
+        "blindRoute": "card-coupled",
+        "why": "岩面位移叠加公式及调节常量。"
       },
       {
-        "sourceId": "s109",
-        "blindRoute": "card-coupled"
+        "sourceId": "d250",
+        "blindRoute": "portable",
+        "why": "主体为实测摆动幅度和画面事件时间计数。"
       },
       {
-        "sourceId": "s110",
-        "blindRoute": "card-coupled"
+        "sourceId": "d085",
+        "blindRoute": "card-coupled",
+        "why": "立石造型与场景布置生成的成组配置。"
       },
       {
-        "sourceId": "s111",
-        "blindRoute": "card-coupled"
+        "sourceId": "d208",
+        "blindRoute": "card-coupled",
+        "why": "布景配方尺寸表及补放规则配置。"
       },
       {
-        "sourceId": "s112",
-        "blindRoute": "card-coupled"
+        "sourceId": "d328",
+        "blindRoute": "card-coupled",
+        "why": "碎石坡顶点标记的专用判定公式。"
       },
       {
-        "sourceId": "s113",
-        "blindRoute": "card-coupled"
+        "sourceId": "d196",
+        "blindRoute": "card-coupled",
+        "why": "桥绳阳台及晾衣布的成组生成配置。"
       },
       {
-        "sourceId": "d361",
-        "blindRoute": "card-coupled"
+        "sourceId": "d051",
+        "blindRoute": "card-coupled",
+        "why": "后殿墙体破损与构件生成配置。"
       },
       {
-        "sourceId": "d362",
-        "blindRoute": "card-coupled"
+        "sourceId": "d312",
+        "blindRoute": "card-coupled",
+        "why": "落石尘团粒子上限及运动外观参数表。"
       },
       {
-        "sourceId": "d363",
-        "blindRoute": "card-coupled"
+        "sourceId": "d061",
+        "blindRoute": "card-coupled",
+        "why": "落叶路径与雾面片的专用动画配置。"
       },
       {
-        "sourceId": "d364",
-        "blindRoute": "card-coupled"
+        "sourceId": "d297",
+        "blindRoute": "card-coupled",
+        "why": "高度图土丘生成公式与网格参数。"
       },
       {
-        "sourceId": "d365",
-        "blindRoute": "card-coupled"
+        "sourceId": "d101",
+        "blindRoute": "card-coupled",
+        "why": "提灯几何材质及铭牌图集的成组配置。"
       },
       {
-        "sourceId": "d366",
-        "blindRoute": "card-coupled"
+        "sourceId": "d068",
+        "blindRoute": "card-coupled",
+        "why": "碎玻璃数量位置与着色生成配置。"
       },
       {
-        "sourceId": "d367",
-        "blindRoute": "card-coupled"
+        "sourceId": "d049",
+        "blindRoute": "card-coupled",
+        "why": "单面墙窗的成组几何尺寸配置。"
       },
       {
-        "sourceId": "d368",
-        "blindRoute": "card-coupled"
+        "sourceId": "d159",
+        "blindRoute": "card-coupled",
+        "why": "两套升降装置的场景尺寸位置配置。"
       },
       {
-        "sourceId": "d369",
-        "blindRoute": "card-coupled"
+        "sourceId": "d283",
+        "blindRoute": "skipped-or-conflict",
+        "why": "制作范围与画质要求的编排说明。"
       },
       {
-        "sourceId": "d370",
-        "blindRoute": "card-coupled"
+        "sourceId": "d160",
+        "blindRoute": "card-coupled",
+        "why": "叶帘网格粒子及碰撞的成组配置。"
       },
       {
-        "sourceId": "d371",
-        "blindRoute": "card-coupled"
+        "sourceId": "d171",
+        "blindRoute": "skipped-or-conflict",
+        "why": "仅列地图数据项与点数清单。"
       },
       {
-        "sourceId": "d372",
-        "blindRoute": "card-coupled"
+        "sourceId": "d232",
+        "blindRoute": "card-coupled",
+        "why": "洞穴楼梯的离散高度公式及网格配置。"
       },
       {
-        "sourceId": "s114",
-        "blindRoute": "card-coupled"
+        "sourceId": "s065",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为城防整体构件配置。"
       },
       {
-        "sourceId": "s115",
-        "blindRoute": "card-coupled"
+        "sourceId": "s086",
+        "blindRoute": "portable",
+        "why": "附带明细主体为成片计数与几何规模报告。"
       },
       {
-        "sourceId": "s116",
-        "blindRoute": "card-coupled"
+        "sourceId": "s045",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为叙事摆件配置；摘要另列种子无明细支持。"
       },
       {
-        "sourceId": "s117",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s118",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s119",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s120",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d373",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d374",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d375",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d376",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d377",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d378",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d379",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d380",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d381",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d382",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d383",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d384",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d385",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d386",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d387",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s121",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s122",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s123",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s124",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s125",
-        "blindRoute": "card-coupled"
+        "sourceId": "s063",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为多处废墟的成组生成配置；摘要圆塔未见对应。"
       },
       {
         "sourceId": "s126",
-        "blindRoute": "card-coupled"
+        "blindRoute": "card-coupled",
+        "why": "附带明细主体为摆动预积分及风力常量表。"
       },
       {
-        "sourceId": "d388",
-        "blindRoute": "card-coupled"
+        "sourceId": "s075",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为杂物与建筑配置；摘要章节错指教堂。"
       },
       {
-        "sourceId": "d389",
-        "blindRoute": "card-coupled"
+        "sourceId": "s064",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为整镇尺寸及塔楼数量配置。"
       },
       {
-        "sourceId": "d390",
-        "blindRoute": "card-coupled"
+        "sourceId": "s026",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为构件容器接口与分桶配置。"
       },
       {
-        "sourceId": "d391",
-        "blindRoute": "card-coupled"
+        "sourceId": "s056",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为后殿几何与坐标配置。"
       },
       {
-        "sourceId": "d392",
-        "blindRoute": "practice"
+        "sourceId": "s054",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为整面墙窗的几何配置。"
       },
       {
-        "sourceId": "d393",
-        "blindRoute": "card-coupled"
+        "sourceId": "s116",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为树种生成常量表。"
       },
       {
-        "sourceId": "d394",
-        "blindRoute": "card-coupled"
+        "sourceId": "s050",
+        "blindRoute": "portable",
+        "why": "附带明细是可独立理解的木构构件尺度。"
       },
       {
-        "sourceId": "d395",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d396",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d397",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d398",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d399",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d400",
-        "blindRoute": "skipped-or-conflict"
+        "sourceId": "s092",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为提灯材质几何及铭牌图集配置。"
       }
-    ]
+    ],
+    "disagreements": [
+      "d263",
+      "d177",
+      "s065",
+      "s075",
+      "s064"
+    ],
+    "disagreementRate": 0.09433962264150944,
+    "seedRef": "a6a83be:E3-C11"
   },
   "conflicts": [
     {
       "sourceId": "d001",
       "caseId": "ext-01",
-      "route": "card-coupled",
-      "text": "见 A11 串灯。本条合并的 分组清单 行写 54 盏挂串绳，A11 四根串灯合计 58 盏。",
-      "attachedTo": [],
-      "note": "没有和该条先验同单位的可比量，或该条不是可移植量，冲突原文只留在清单"
+      "route": "portable",
+      "text": "见串灯明细。本条合并的 分组清单 行写 54 盏挂串绳，串灯明细的四根串灯合计 58 盏。",
+      "attachedTo": [
+        "arch-scene.d001.strung-lantern-count"
+      ]
     },
     {
       "sourceId": "d029",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "text": "（口径）镇区 88×132 m（TOWN）与城墙 x∈[−42,42] z∈[−79.5,50]（约 84×129.5 m）不同，一个是镇区含墙外，一个是墙中线，未核对。",
       "attachedTo": [],
       "note": "没有和该条先验同单位的可比量，或该条不是可移植量，冲突原文只留在清单"
@@ -6102,7 +6653,7 @@
       "sourceId": "d330",
       "caseId": "case-13",
       "route": "card-coupled",
-      "text": "（口径）山口平面 z 198→302（25 章）；区域判定 zone_10 为 z∈(200,290]（24 章，见 1.12）。",
+      "text": "（口径）山口平面 z 198→302（原文章节）；区域判定 zone_10 为 z∈(200,290]（原文章节，见 1.12）。",
       "attachedTo": [],
       "note": "没有和该条先验同单位的可比量，或该条不是可移植量，冲突原文只留在清单"
     },
@@ -6110,7 +6661,7 @@
       "sourceId": "d343",
       "caseId": "case-13",
       "route": "card-coupled",
-      "text": "河半宽。分组清单 F12 写「河面 1400 m×20 m，半宽 10 m」，分组清单 写「半宽 6.5」。水面高度 1.45 与中线公式 riverZ(x)=71+8·sin(0.017x+0.6)+3.5·sin(0.051x+2) 两处一致。可能是水面网格宽与逻辑河宽之别，未核对原文。",
+      "text": "河半宽。分组清单写「河面 1400 m×20 m，半宽 10 m」，分组清单 写「半宽 6.5」。水面高度 1.45 与中线公式 riverZ(x)=71+8·sin(0.017x+0.6)+3.5·sin(0.051x+2) 两处一致。可能是水面网格宽与逻辑河宽之别，未核对原文。",
       "attachedTo": [],
       "note": "没有和该条先验同单位的可比量，或该条不是可移植量，冲突原文只留在清单"
     },
@@ -6126,7 +6677,7 @@
       "sourceId": "d356",
       "caseId": "ext-01",
       "route": "card-coupled",
-      "text": "主瀑布宽。T9 写半宽 2.7（全宽 5.4）；4.3 写 w0=宽−0.1（实际 4.5 m）、w1=7.0。可能是不同量（水帘起点宽与水汽带），未核对。",
+      "text": "主瀑布宽。原文写半宽 2.7（全宽 5.4）；4.3 写 w0=宽−0.1（实际 4.5 m）、w1=7.0。可能是不同量（水帘起点宽与水汽带），未核对。",
       "attachedTo": [],
       "note": "没有和该条先验同单位的可比量，或该条不是可移植量，冲突原文只留在清单"
     },
@@ -6184,6 +6735,16 @@
       "reason": "纯场景实例坐标或摆放流水账（05 第 8.1 节：坐标表不迁）：存档点与地标的实例坐标清单",
       "evidenceLabel": "源码",
       "docRef": "建筑场景地形与水汇编 第 1.12 节 d169；出处类别：源码拆解·巨树：坐标表、地图与区域判定（案例 13 第 24 章）"
+    },
+    {
+      "sourceId": "d171",
+      "section": "1.12",
+      "caseId": "case-13",
+      "title": "小地图数据",
+      "evidenceLabel": "源码",
+      "docRef": "建筑场景地形与水汇编 第 1.12 节 d171；出处类别：源码拆解·巨树：坐标表、地图与区域判定（案例 13 第 24 章）",
+      "reason": "只有该实例小地图的数据目录（轮廓、道路和等高线的数量），没有点位、可重建的形状或绘制步骤；不把索引条数当成布局参数。",
+      "text": "外轮廓 23 点；5 区域多边形；2 条路(盘山路 24 点 spiral:true、朝圣路 7 点)；8 沉坑；6 等高线(2 rim 高 26、4 dune 高 9.5)"
     },
     {
       "sourceId": "d173",
@@ -6292,11 +6853,15 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "ext-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d001",
       "link": "values",
-      "target": "form.scene-budget",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s001"
+      ],
+      "detailRefs": [
+        "arch-scene.d001.building-triangles"
+      ]
     },
     {
       "sourceLine": 59,
@@ -6320,14 +6885,18 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "ext-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d001",
       "alsoSummarizes": [
         "d244"
       ],
       "link": "values",
-      "target": "form.scene-budget",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s003"
+      ],
+      "detailRefs": [
+        "arch-scene.d001.scene-meshes"
+      ]
     },
     {
       "sourceLine": 61,
@@ -6405,14 +6974,18 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-22",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d256",
       "alsoSummarizes": [
         "d257"
       ],
       "link": "values",
-      "target": "form.scene-budget",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s009"
+      ],
+      "detailRefs": [
+        "arch-scene.d256.viewport-triangles"
+      ]
     },
     {
       "sourceLine": 67,
@@ -6420,11 +6993,15 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-19",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d260",
       "link": "values",
-      "target": "form.scene-budget",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s010"
+      ],
+      "detailRefs": [
+        "arch-scene.d260.static-street-triangles"
+      ]
     },
     {
       "sourceLine": 68,
@@ -6432,14 +7009,18 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-14",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d262",
       "alsoSummarizes": [
         "d360"
       ],
       "link": "values",
-      "target": "form.scene-budget",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s011"
+      ],
+      "detailRefs": [
+        "arch-scene.d262.static-alley-triangles"
+      ]
     },
     {
       "sourceLine": 69,
@@ -6447,11 +7028,15 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-21",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d275",
       "link": "values",
-      "target": "form.scene-budget",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s012"
+      ],
+      "detailRefs": [
+        "arch-scene.d275.static-street-triangles"
+      ]
     },
     {
       "sourceLine": 70,
@@ -6459,14 +7044,18 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-26",
-      "route": "card-coupled",
-      "summaryOf": "d263",
+      "route": "portable",
+      "summaryOf": "d284",
       "alsoSummarizes": [
-        "d284"
+        "d263"
       ],
       "link": "values",
-      "target": "form.interior-arch",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s013"
+      ],
+      "detailRefs": [
+        "arch-scene.d284.scene-triangles"
+      ]
     },
     {
       "sourceLine": 71,
@@ -6474,11 +7063,15 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-29",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d266",
       "link": "values",
-      "target": "form.scene-budget",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s014"
+      ],
+      "detailRefs": [
+        "arch-scene.d266.scene-triangles"
+      ]
     },
     {
       "sourceLine": 72,
@@ -6486,11 +7079,15 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-08",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d002",
       "link": "values",
-      "target": "form.scene-budget",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s015"
+      ],
+      "detailRefs": [
+        "arch-scene.d002.scene-objects"
+      ]
     },
     {
       "sourceLine": 76,
@@ -6498,10 +7095,17 @@
       "recordKind": "detail",
       "section": "1.1",
       "caseId": "ext-01",
-      "route": "card-coupled",
-      "target": "form.scene-budget",
+      "route": "portable",
       "targets": [
-        "arch-scene.d001.card"
+        "arch-scene.d001.building-triangles",
+        "arch-scene.d001.scene-meshes",
+        "arch-scene.d001.rock-vertices",
+        "arch-scene.d001.rock-triangles",
+        "arch-scene.d001.lantern-count",
+        "arch-scene.d001.strung-lantern-count",
+        "arch-scene.d001.cloth-pieces",
+        "arch-scene.d001.grass-blades",
+        "arch-scene.d001.planting-points"
       ]
     },
     {
@@ -6510,10 +7114,10 @@
       "recordKind": "detail",
       "section": "1.1",
       "caseId": "case-08",
-      "route": "card-coupled",
-      "target": "form.scene-budget",
+      "route": "portable",
       "targets": [
-        "arch-scene.d002.card"
+        "arch-scene.d002.scene-objects",
+        "arch-scene.d002.scene-triangles"
       ]
     },
     {
@@ -6638,11 +7242,11 @@
       "recordKind": "summary",
       "section": "1.2",
       "caseId": "case-29",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d285",
       "link": "gist",
-      "target": "form.interior-arch",
-      "targets": []
+      "targets": [],
+      "detailRefs": []
     },
     {
       "sourceLine": 121,
@@ -6695,14 +7299,14 @@
       "recordKind": "summary",
       "section": "1.2",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d060",
       "alsoSummarizes": [
         "d007"
       ],
       "link": "values",
-      "target": "form.arch-masonry",
-      "targets": []
+      "targets": [],
+      "detailRefs": []
     },
     {
       "sourceLine": 125,
@@ -6812,14 +7416,14 @@
       "recordKind": "summary",
       "section": "1.2",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d195",
       "alsoSummarizes": [
         "d188"
       ],
       "link": "values",
-      "target": "form.arch-timber",
-      "targets": []
+      "targets": [],
+      "detailRefs": []
     },
     {
       "sourceLine": 134,
@@ -7040,10 +7644,9 @@
       "recordKind": "detail",
       "section": "1.2",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "time.seeded",
+      "route": "practice",
       "targets": [
-        "arch-scene.d010.card"
+        "arch-scene.d010.practice"
       ]
     },
     {
@@ -7075,11 +7678,15 @@
       "recordKind": "summary",
       "section": "1.3",
       "caseId": "ext-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d013",
       "link": "values",
-      "target": "form.arch-timber",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s049"
+      ],
+      "detailRefs": [
+        "arch-scene.d013.main-eave-height"
+      ]
     },
     {
       "sourceLine": 212,
@@ -7087,11 +7694,15 @@
       "recordKind": "summary",
       "section": "1.3",
       "caseId": "ext-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d014",
       "link": "values",
-      "target": "form.arch-timber",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s050"
+      ],
+      "detailRefs": [
+        "arch-scene.d014.hall-column-radius"
+      ]
     },
     {
       "sourceLine": 213,
@@ -7111,10 +7722,13 @@
       "recordKind": "detail",
       "section": "1.3",
       "caseId": "ext-01",
-      "route": "card-coupled",
-      "target": "form.arch-timber",
+      "route": "portable",
       "targets": [
-        "arch-scene.d013.card"
+        "arch-scene.d013.main-eave-height",
+        "arch-scene.d013.side-eave-height",
+        "arch-scene.d013.gate-column-radius",
+        "arch-scene.d013.sign-width",
+        "arch-scene.d013.sign-height"
       ]
     },
     {
@@ -7123,10 +7737,14 @@
       "recordKind": "detail",
       "section": "1.3",
       "caseId": "ext-01",
-      "route": "card-coupled",
-      "target": "form.arch-timber",
+      "route": "portable",
       "targets": [
-        "arch-scene.d014.card"
+        "arch-scene.d014.hall-column-radius",
+        "arch-scene.d014.pavilion-column-radius",
+        "arch-scene.d014.beam-height",
+        "arch-scene.d014.beam-thickness",
+        "arch-scene.d014.rafter-spacing",
+        "arch-scene.d014.railing-post-height"
       ]
     },
     {
@@ -7163,7 +7781,10 @@
       "summaryOf": "d032",
       "link": "values",
       "target": "form.arch-masonry",
-      "targets": []
+      "targets": [],
+      "alsoSummarizes": [
+        "d045"
+      ]
     },
     {
       "sourceLine": 243,
@@ -7222,11 +7843,15 @@
       "recordKind": "summary",
       "section": "1.4",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d026",
       "link": "values",
-      "target": "form.arch-masonry",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s057"
+      ],
+      "detailRefs": [
+        "arch-scene.d026.wall-thickness"
+      ]
     },
     {
       "sourceLine": 248,
@@ -7234,11 +7859,15 @@
       "recordKind": "summary",
       "section": "1.4",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d024",
       "link": "values",
-      "target": "form.arch-masonry",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s058"
+      ],
+      "detailRefs": [
+        "arch-scene.d024.wall-thickness"
+      ]
     },
     {
       "sourceLine": 249,
@@ -7246,11 +7875,15 @@
       "recordKind": "summary",
       "section": "1.4",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d027",
       "link": "values",
-      "target": "form.arch-masonry",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s059"
+      ],
+      "detailRefs": [
+        "arch-scene.d027.wall-thickness"
+      ]
     },
     {
       "sourceLine": 250,
@@ -7258,14 +7891,18 @@
       "recordKind": "summary",
       "section": "1.4",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d074",
       "alsoSummarizes": [
         "d076"
       ],
       "link": "values",
-      "target": "form.arch-masonry",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s060"
+      ],
+      "detailRefs": [
+        "arch-scene.d074.wall-thickness"
+      ]
     },
     {
       "sourceLine": 251,
@@ -7289,7 +7926,10 @@
       "summaryOf": "d193",
       "link": "values",
       "target": "form.arch-masonry",
-      "targets": []
+      "targets": [],
+      "alsoSummarizes": [
+        "d187"
+      ]
     },
     {
       "sourceLine": 253,
@@ -7396,14 +8036,18 @@
       "recordKind": "summary",
       "section": "1.5",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d029",
       "alsoSummarizes": [
         "d294"
       ],
       "link": "values",
-      "target": "form.world-gen",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s064"
+      ],
+      "detailRefs": [
+        "arch-scene.d029.wall-thickness"
+      ]
     },
     {
       "sourceLine": 314,
@@ -7411,11 +8055,11 @@
       "recordKind": "summary",
       "section": "1.5",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d026",
       "link": "values",
-      "target": "form.arch-masonry",
-      "targets": []
+      "targets": [],
+      "detailRefs": []
     },
     {
       "sourceLine": 315,
@@ -7423,11 +8067,15 @@
       "recordKind": "summary",
       "section": "1.5",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d025",
       "link": "values",
-      "target": "form.arch-masonry",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s066"
+      ],
+      "detailRefs": [
+        "arch-scene.d025.house-frontage-width"
+      ]
     },
     {
       "sourceLine": 316,
@@ -7450,10 +8098,14 @@
       "recordKind": "detail",
       "section": "1.5",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.arch-masonry",
+      "route": "portable",
       "targets": [
-        "arch-scene.d024.card"
+        "arch-scene.d024.wall-thickness",
+        "arch-scene.d024.ground-storey-height",
+        "arch-scene.d024.single-storey-height",
+        "arch-scene.d024.upper-storey-height",
+        "arch-scene.d024.door-width",
+        "arch-scene.d024.door-height"
       ]
     },
     {
@@ -7462,10 +8114,10 @@
       "recordKind": "detail",
       "section": "1.5",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.arch-masonry",
+      "route": "portable",
       "targets": [
-        "arch-scene.d025.card"
+        "arch-scene.d025.house-frontage-width",
+        "arch-scene.d025.house-frontage-target"
       ]
     },
     {
@@ -7474,10 +8126,14 @@
       "recordKind": "detail",
       "section": "1.5",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.arch-masonry",
+      "route": "portable",
       "targets": [
-        "arch-scene.d026.card"
+        "arch-scene.d026.wall-thickness",
+        "arch-scene.d026.wall-height",
+        "arch-scene.d026.buttress-spacing",
+        "arch-scene.d026.round-tower-radius",
+        "arch-scene.d026.round-tower-height",
+        "arch-scene.d026.square-tower-height"
       ]
     },
     {
@@ -7486,10 +8142,10 @@
       "recordKind": "detail",
       "section": "1.5",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.arch-masonry",
+      "route": "portable",
       "targets": [
-        "arch-scene.d027.card"
+        "arch-scene.d027.wall-thickness",
+        "arch-scene.d027.wall-height"
       ]
     },
     {
@@ -7510,10 +8166,10 @@
       "recordKind": "detail",
       "section": "1.5",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.world-gen",
+      "route": "portable",
       "targets": [
-        "arch-scene.d029.card"
+        "arch-scene.d029.wall-thickness",
+        "arch-scene.d029.wall-height"
       ]
     },
     {
@@ -7522,11 +8178,15 @@
       "recordKind": "summary",
       "section": "1.6",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d034",
       "link": "values",
-      "target": "form.arch-masonry",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s068"
+      ],
+      "detailRefs": [
+        "arch-scene.d034.step-rise"
+      ]
     },
     {
       "sourceLine": 355,
@@ -7534,11 +8194,15 @@
       "recordKind": "summary",
       "section": "1.6",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d040",
       "link": "values",
-      "target": "form.arch-masonry",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s069"
+      ],
+      "detailRefs": [
+        "arch-scene.d040.step-rise-reference"
+      ]
     },
     {
       "sourceLine": 356,
@@ -7546,11 +8210,15 @@
       "recordKind": "summary",
       "section": "1.6",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d060",
       "link": "values",
-      "target": "form.arch-masonry",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s070"
+      ],
+      "detailRefs": [
+        "arch-scene.d060.step-rise"
+      ]
     },
     {
       "sourceLine": 357,
@@ -7558,11 +8226,15 @@
       "recordKind": "summary",
       "section": "1.6",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d074",
       "link": "values",
-      "target": "form.arch-masonry",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s071"
+      ],
+      "detailRefs": [
+        "arch-scene.d074.step-rise-reference"
+      ]
     },
     {
       "sourceLine": 358,
@@ -7582,11 +8254,18 @@
       "recordKind": "summary",
       "section": "1.6",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d139",
       "link": "values",
-      "target": "form.megatree",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s073"
+      ],
+      "detailRefs": [
+        "arch-scene.d139.step-rise"
+      ],
+      "alsoSummarizes": [
+        "d144"
+      ]
     },
     {
       "sourceLine": 360,
@@ -7594,11 +8273,15 @@
       "recordKind": "summary",
       "section": "1.6",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d156",
       "link": "values",
-      "target": "form.megatree",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s074"
+      ],
+      "detailRefs": [
+        "arch-scene.d156.step-rise"
+      ]
     },
     {
       "sourceLine": 361,
@@ -7606,11 +8289,15 @@
       "recordKind": "summary",
       "section": "1.6",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d194",
       "link": "values",
-      "target": "form.set-dressing",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s075"
+      ],
+      "detailRefs": [
+        "arch-scene.d194.step-rise-reference"
+      ]
     },
     {
       "sourceLine": 362,
@@ -7705,10 +8392,12 @@
       "recordKind": "detail",
       "section": "1.6",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.arch-masonry",
+      "route": "portable",
       "targets": [
-        "arch-scene.d034.card"
+        "arch-scene.d034.step-rise",
+        "arch-scene.d034.step-run",
+        "arch-scene.d034.steps-per-flight",
+        "arch-scene.d034.landing-length"
       ]
     },
     {
@@ -7777,10 +8466,10 @@
       "recordKind": "detail",
       "section": "1.6",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.arch-masonry",
+      "route": "portable",
       "targets": [
-        "arch-scene.d040.card"
+        "arch-scene.d040.step-depth",
+        "arch-scene.d040.step-rise-reference"
       ]
     },
     {
@@ -7933,10 +8622,9 @@
       "recordKind": "detail",
       "section": "1.6",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.arch-masonry",
+      "route": "practice",
       "targets": [
-        "arch-scene.d053.card"
+        "arch-scene.d053.practice"
       ]
     },
     {
@@ -7945,10 +8633,9 @@
       "recordKind": "detail",
       "section": "1.6",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.primitives",
+      "route": "practice",
       "targets": [
-        "arch-scene.d054.card"
+        "arch-scene.d054.practice"
       ]
     },
     {
@@ -8017,10 +8704,13 @@
       "recordKind": "detail",
       "section": "1.6",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.arch-masonry",
+      "route": "portable",
       "targets": [
-        "arch-scene.d060.card"
+        "arch-scene.d060.step-depth",
+        "arch-scene.d060.step-rise",
+        "arch-scene.d060.door-half-width",
+        "arch-scene.d060.spring-height",
+        "arch-scene.d060.door-leaf-thickness"
       ]
     },
     {
@@ -8185,10 +8875,13 @@
       "recordKind": "detail",
       "section": "1.8",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.arch-masonry",
+      "route": "portable",
       "targets": [
-        "arch-scene.d074.card"
+        "arch-scene.d074.wall-thickness",
+        "arch-scene.d074.chamber-height",
+        "arch-scene.d074.chamber-clear-width",
+        "arch-scene.d074.step-depth",
+        "arch-scene.d074.step-rise-reference"
       ]
     },
     {
@@ -8958,10 +9651,9 @@
       "recordKind": "detail",
       "section": "1.11",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.megatree",
+      "route": "portable",
       "targets": [
-        "arch-scene.d139.card"
+        "arch-scene.d139.step-rise"
       ]
     },
     {
@@ -9018,10 +9710,10 @@
       "recordKind": "detail",
       "section": "1.11",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.megatree",
+      "route": "portable",
       "targets": [
-        "arch-scene.d144.card"
+        "arch-scene.d144.step-width",
+        "arch-scene.d144.step-rise"
       ]
     },
     {
@@ -9158,10 +9850,13 @@
       "recordKind": "detail",
       "section": "1.11",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.megatree",
+      "route": "portable",
       "targets": [
-        "arch-scene.d156.card"
+        "arch-scene.d156.step-rise",
+        "arch-scene.d156.tread-depth",
+        "arch-scene.d156.ramp-run-length",
+        "arch-scene.d156.ramp-max-rise",
+        "arch-scene.d156.ramp-slope-angle"
       ]
     },
     {
@@ -9332,11 +10027,8 @@
       "recordKind": "detail",
       "section": "1.12",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.scene-layout",
-      "targets": [
-        "arch-scene.d171.card"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceLine": 1018,
@@ -9605,10 +10297,10 @@
       "recordKind": "detail",
       "section": "1.13",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.set-dressing",
+      "route": "portable",
       "targets": [
-        "arch-scene.d194.card"
+        "arch-scene.d194.step-rise-reference",
+        "arch-scene.d194.step-total-rise"
       ]
     },
     {
@@ -9617,10 +10309,13 @@
       "recordKind": "detail",
       "section": "1.13",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.arch-timber",
+      "route": "portable",
       "targets": [
-        "arch-scene.d195.card"
+        "arch-scene.d195.door-height",
+        "arch-scene.d195.second-storey-height",
+        "arch-scene.d195.third-storey-height",
+        "arch-scene.d195.end-post-size",
+        "arch-scene.d195.mid-post-size"
       ]
     },
     {
@@ -9785,10 +10480,9 @@
       "recordKind": "detail",
       "section": "1.14",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.scene-layout",
+      "route": "practice",
       "targets": [
-        "arch-scene.d209.card"
+        "arch-scene.d209.practice"
       ]
     },
     {
@@ -10222,6 +10916,9 @@
       "link": "values",
       "targets": [
         "arch-scene.sum.s080"
+      ],
+      "detailRefs": [
+        "arch-scene.d250.lantern-max-angle"
       ]
     },
     {
@@ -10290,10 +10987,12 @@
       "recordKind": "detail",
       "section": "1.17",
       "caseId": "ext-01",
-      "route": "card-coupled",
-      "target": "form.set-dressing",
+      "route": "portable",
       "targets": [
-        "arch-scene.d244.card"
+        "arch-scene.d244.lantern-count",
+        "arch-scene.d244.lantern-diameter",
+        "arch-scene.d244.lantern-height",
+        "arch-scene.d244.lantern-body-radius"
       ]
     },
     {
@@ -10378,10 +11077,13 @@
       "recordKind": "detail",
       "section": "1.18",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "target": "form.world-gen",
+      "route": "portable",
       "targets": [
-        "arch-scene.d251.card"
+        "arch-scene.d251.settlement-houses",
+        "arch-scene.d251.settlement-landmarks",
+        "arch-scene.d251.lake-count",
+        "arch-scene.d251.lake-surface-elevation",
+        "arch-scene.d251.river-surface-elevation"
       ]
     },
     {
@@ -10426,11 +11128,15 @@
       "recordKind": "summary",
       "section": "1.19",
       "caseId": "case-21",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d275",
       "link": "values",
-      "target": "form.scene-budget",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s086"
+      ],
+      "detailRefs": [
+        "arch-scene.d275.sign-types"
+      ]
     },
     {
       "sourceLine": 1437,
@@ -10438,11 +11144,15 @@
       "recordKind": "summary",
       "section": "1.19",
       "caseId": "case-14",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d262",
       "link": "values",
-      "target": "form.scene-budget",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s087"
+      ],
+      "detailRefs": [
+        "arch-scene.d262.drawn-ideographs"
+      ]
     },
     {
       "sourceLine": 1438,
@@ -10450,11 +11160,15 @@
       "recordKind": "summary",
       "section": "1.19",
       "caseId": "case-19",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d260",
       "link": "values",
-      "target": "form.scene-budget",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s088"
+      ],
+      "detailRefs": [
+        "arch-scene.d260.sign-count"
+      ]
     },
     {
       "sourceLine": 1439,
@@ -10465,8 +11179,8 @@
       "route": "card-coupled",
       "summaryOf": "d263",
       "link": "gist",
-      "target": "form.interior-arch",
-      "targets": []
+      "targets": [],
+      "target": "form.interior-arch"
     },
     {
       "sourceLine": 1440,
@@ -10474,14 +11188,18 @@
       "recordKind": "summary",
       "section": "1.19",
       "caseId": "ext-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d013",
       "alsoSummarizes": [
         "d398"
       ],
       "link": "values",
-      "target": "form.arch-timber",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s090"
+      ],
+      "detailRefs": [
+        "arch-scene.d013.sign-width"
+      ]
     },
     {
       "sourceLine": 1441,
@@ -10523,10 +11241,10 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-22",
-      "route": "card-coupled",
-      "target": "form.scene-budget",
+      "route": "portable",
       "targets": [
-        "arch-scene.d256.card"
+        "arch-scene.d256.viewport-triangles",
+        "arch-scene.d256.viewport-objects"
       ]
     },
     {
@@ -10535,10 +11253,15 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-22",
-      "route": "card-coupled",
-      "target": "form.scene-budget",
+      "route": "portable",
       "targets": [
-        "arch-scene.d257.card"
+        "arch-scene.d257.tower-glass-panels",
+        "arch-scene.d257.boards-per-tank",
+        "arch-scene.d257.hoops-per-tank",
+        "arch-scene.d257.rooftop-prop-types",
+        "arch-scene.d257.vehicles",
+        "arch-scene.d257.pedestrians",
+        "arch-scene.d257.missing-tile-share"
       ]
     },
     {
@@ -10547,10 +11270,9 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-22",
-      "route": "card-coupled",
-      "target": "form.scene-layout",
+      "route": "portable",
       "targets": [
-        "arch-scene.d258.card"
+        "arch-scene.d258.camera-height"
       ]
     },
     {
@@ -10571,10 +11293,13 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-19",
-      "route": "card-coupled",
-      "target": "form.scene-budget",
+      "route": "portable",
       "targets": [
-        "arch-scene.d260.card"
+        "arch-scene.d260.static-street-triangles",
+        "arch-scene.d260.moving-triangle-limit",
+        "arch-scene.d260.clutter-triangles",
+        "arch-scene.d260.material-types",
+        "arch-scene.d260.sign-count"
       ]
     },
     {
@@ -10583,10 +11308,13 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-19",
-      "route": "card-coupled",
-      "target": "form.scene-budget",
+      "route": "portable",
       "targets": [
-        "arch-scene.d261.card"
+        "arch-scene.d261.clotheslines",
+        "arch-scene.d261.hanging-garments",
+        "arch-scene.d261.flags",
+        "arch-scene.d261.people",
+        "arch-scene.d261.walking-people"
       ]
     },
     {
@@ -10595,10 +11323,14 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-14",
-      "route": "card-coupled",
-      "target": "form.scene-budget",
+      "route": "portable",
       "targets": [
-        "arch-scene.d262.card"
+        "arch-scene.d262.static-alley-triangles",
+        "arch-scene.d262.moving-triangle-limit",
+        "arch-scene.d262.drawn-ideographs",
+        "arch-scene.d262.rain-streaks-per-shot",
+        "arch-scene.d262.film-duration",
+        "arch-scene.d262.frame-rate"
       ]
     },
     {
@@ -10608,10 +11340,10 @@
       "section": "1.19",
       "caseId": "case-26",
       "route": "card-coupled",
-      "target": "form.interior-arch",
       "targets": [
         "arch-scene.d263.card"
-      ]
+      ],
+      "target": "form.interior-arch"
     },
     {
       "sourceLine": 1545,
@@ -10631,10 +11363,10 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-29",
-      "route": "card-coupled",
-      "target": "form.interior-arch",
+      "route": "portable",
       "targets": [
-        "arch-scene.d265.card"
+        "arch-scene.d265.room-ceiling-height",
+        "arch-scene.d265.foyer-bath-ceiling-height"
       ]
     },
     {
@@ -10643,10 +11375,10 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-29",
-      "route": "card-coupled",
-      "target": "form.scene-budget",
+      "route": "portable",
       "targets": [
-        "arch-scene.d266.card"
+        "arch-scene.d266.scene-triangles",
+        "arch-scene.d266.material-types"
       ]
     },
     {
@@ -10746,10 +11478,14 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-21",
-      "route": "card-coupled",
-      "target": "form.scene-budget",
+      "route": "portable",
       "targets": [
-        "arch-scene.d275.card"
+        "arch-scene.d275.sign-types",
+        "arch-scene.d275.sign-count",
+        "arch-scene.d275.paper-flags",
+        "arch-scene.d275.background-people",
+        "arch-scene.d275.static-street-triangles",
+        "arch-scene.d275.moving-triangle-limit"
       ]
     },
     {
@@ -10767,10 +11503,14 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-04",
-      "route": "card-coupled",
-      "target": "form.scene-layout",
+      "route": "portable",
       "targets": [
-        "arch-scene.d277.card"
+        "arch-scene.d277.fence-section-length",
+        "arch-scene.d277.palisade-section-length",
+        "arch-scene.d277.ruined-tower-height",
+        "arch-scene.d277.barge-length",
+        "arch-scene.d277.city-wall-section-length",
+        "arch-scene.d277.city-wall-height"
       ]
     },
     {
@@ -10824,10 +11564,10 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-12",
-      "route": "card-coupled",
-      "target": "form.scene-budget",
+      "route": "portable",
       "targets": [
-        "arch-scene.d282.card"
+        "arch-scene.d282.substations",
+        "arch-scene.d282.buildings"
       ]
     },
     {
@@ -10845,10 +11585,14 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-26",
-      "route": "card-coupled",
-      "target": "form.scene-budget",
+      "route": "portable",
       "targets": [
-        "arch-scene.d284.card"
+        "arch-scene.d284.film-duration",
+        "arch-scene.d284.frame-rate",
+        "arch-scene.d284.shot-count",
+        "arch-scene.d284.frame-count",
+        "arch-scene.d284.scene-triangles",
+        "arch-scene.d284.material-types"
       ]
     },
     {
@@ -10857,10 +11601,12 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-29",
-      "route": "card-coupled",
-      "target": "form.interior-arch",
+      "route": "portable",
       "targets": [
-        "arch-scene.d285.card"
+        "arch-scene.d285.film-duration",
+        "arch-scene.d285.frame-rate",
+        "arch-scene.d285.frame-count",
+        "arch-scene.d285.cut-count"
       ]
     },
     {
@@ -11248,10 +11994,9 @@
       "recordKind": "detail",
       "section": "2.2",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.terrain",
+      "route": "practice",
       "targets": [
-        "arch-scene.d311.card"
+        "arch-scene.d311.practice"
       ]
     },
     {
@@ -11849,10 +12594,9 @@
       "recordKind": "detail",
       "section": "2.5",
       "caseId": "ext-01",
-      "route": "card-coupled",
-      "target": "particle.water-events",
+      "route": "practice",
       "targets": [
-        "arch-scene.d353.card"
+        "arch-scene.d353.practice"
       ]
     },
     {
@@ -11933,10 +12677,10 @@
       "recordKind": "detail",
       "section": "2.7",
       "caseId": "case-14",
-      "route": "card-coupled",
-      "target": "shade.water",
+      "route": "portable",
       "targets": [
-        "arch-scene.d360.card"
+        "arch-scene.d360.ripple-shot-triangles",
+        "arch-scene.d360.rain-streaks-per-shot"
       ]
     },
     {
@@ -12026,11 +12770,11 @@
       "recordKind": "summary",
       "section": "2.8",
       "caseId": "case-02",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d384",
       "link": "values",
-      "target": "form.trees",
-      "targets": []
+      "targets": [],
+      "detailRefs": []
     },
     {
       "sourceLine": 2192,
@@ -12038,11 +12782,15 @@
       "recordKind": "summary",
       "section": "2.8",
       "caseId": "ext-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d001",
       "link": "values",
-      "target": "form.scene-budget",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s113"
+      ],
+      "detailRefs": [
+        "arch-scene.d001.grass-blades"
+      ]
     },
     {
       "sourceLine": 2196,
@@ -12074,10 +12822,9 @@
       "recordKind": "detail",
       "section": "2.8",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.grass",
+      "route": "practice",
       "targets": [
-        "arch-scene.d363.card"
+        "arch-scene.d363.practice"
       ]
     },
     {
@@ -12266,11 +13013,15 @@
       "recordKind": "summary",
       "section": "2.9",
       "caseId": "case-02",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d384",
       "link": "values",
-      "target": "form.trees",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s120"
+      ],
+      "detailRefs": [
+        "arch-scene.d384.base-tree-height"
+      ]
     },
     {
       "sourceLine": 2268,
@@ -12410,10 +13161,9 @@
       "recordKind": "detail",
       "section": "2.9",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "target": "form.trees",
+      "route": "portable",
       "targets": [
-        "arch-scene.d384.card"
+        "arch-scene.d384.base-tree-height"
       ]
     },
     {
@@ -12446,10 +13196,9 @@
       "recordKind": "detail",
       "section": "2.9",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "target": "shade.px-lod",
+      "route": "practice",
       "targets": [
-        "arch-scene.d387.card"
+        "arch-scene.d387.practice"
       ]
     },
     {

@@ -12,18 +12,20 @@
   },
   "order": "rows 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "一条 = 一个表格数据行（含跨案例对照表行），或一个顶层列表条目连同它缩进的续行；目录、案例索引、用法、没收进来的、以「并入说明、冲突、合并、说明」开头的说明行不算。对照表行的去向随它指回的明细，不另算一条明细",
-  "portableCount": 2,
-  "cardCoupledCount": 555,
-  "practiceCount": 27,
-  "excludedOrConflictCount": 25,
+  "portableCount": 29,
+  "cardCoupledCount": 515,
+  "practiceCount": 41,
+  "excludedOrConflictCount": 24,
   "detailRouteCounts": {
-    "card-coupled": 495,
-    "skipped-or-conflict": 25,
-    "practice": 27,
-    "portable": 2
+    "card-coupled": 465,
+    "skipped-or-conflict": 24,
+    "practice": 39,
+    "portable": 21
   },
   "summaryRouteCounts": {
-    "card-coupled": 60
+    "card-coupled": 50,
+    "practice": 2,
+    "portable": 8
   },
   "files": {
     "priors": "motion-rig.json",
@@ -58,13 +60,13 @@
     "appendix": "文末说明（冲突对账、合并记录、待核问题）"
   },
   "rules": {
-    "method": "逐条读原文按 05 第 8.1 节 判去向，四问依次问、先命中的为准（顺序照 C10 终审）：有没有可迁的东西（没有则不迁）；主体是不是跨作品通用的带单位参考量（是则可移植，严格准入）；主体是不是「这个实现里取了哪些值、怎么搭的」（带源码标识符加取值、五个以上专属配置数字、非通用单位，是则挂卡；带函数名与一串阈值常量的算法条目也在这里）；其余用话讲做法的归做法。主判与独立盲判（两个不同的模型）各判一遍，一致的直接收；不一致的交第三名独立判定员裁决。挂卡与做法边界上的条目另由三名不同模型的判定员复判取多数（见 audit.boundaryRejudge）。混合条目按主体判",
+    "method": "逐条按主体分流。沿用历史裁决，二审后按通用量与可照搬工序复核边界，改判依据见 routeOverrides。对照表行随同案例明细，独立盲判使用修改前固定的分层随机样本。",
     "valueShapes": "可移植先验的 value：一个数；两元数组 [小, 大] 是范围（不带方向）；{ first, second } 是原文用斜线或顿号并列的两个取值，照原文先后",
-    "portable": "只收脱离具体实现与某一部片的布景之后仍然通用的带单位参考量：成片读数（从成片、画面量出来或成片自报的时长、帧数、切点、速度、角度），以及真实世界、人体与摄影光学的通用先验（标准构件尺寸、步频、呼吸周期、焦段、视场角、快门角、色温、光比）。条目的主体是某段程序、函数、着色器、生成器、骨架，或某一部片专属的布景与镜头参数表的，哪怕带米、秒、度，也不进这里。每条明细列 1 到 6 个主要的量，每个量一条先验；ext 里的 c11.raw 是它在原文里的片段",
+    "portable": "标准构件和自然物尺度、步幅步频、呼吸拍翼与动作阶段时长、摄影光学与机位角度、成片规格和读数，能脱离实现单独解释的量进入先验表。证据按来源保留，源码、实测及原文陈述均可作为出处。每项只抽取有原文支持的通用量。",
     "cardCoupled": "主体是某个具体实现的函数、接口、程序化生成器、骨架绑定参数、着色器公式与常量、大气与水面与地形的生成配置；某部作品写死的布景尺寸表、区域配置表、世界规模、面数与实例预算；某镜头或某一招写死的时刻表、机位与关键帧。带源码标识符的取值、五个以上某片专属配置数字堆在一起的条目、单位不是通用先验单位的量都归这里。挂到 05 第 5 节对应的技术卡上，不当默认值",
-    "practice": "没被挂卡那一问命中的做法条目：用话讲怎么做、为什么这样做，拿掉标识符和这部片写死的数字后仍是一条完整可照做的建模、绑定、布光、运镜工序、算法思路、判断方法或修法。没有任何带单位的量、只讲通用做法的条目必归这里；含避坑与教训的标 fix",
+    "practice": "可照搬的建模、绑定、布光、运镜步骤、算法与修法进入做法库。按主体判断，举例的标识符与参数不改变工序的用途。",
     "skippedOrConflict": "没有步骤、判据、参数的一句话空泛概述；纯世界坐标摆放表（05 第 8.1 节：坐标表不迁）；只说未公开或无数据、且没有可学做法的陈述；读数冲突对账行；合并记录与编排说明",
-    "summary": "对照表行指回它真正摘自的那条同案例明细（summaryOf）：机器先按两边出处栏的章号、小节号与源码行号，再按共有的数字与用词挑候选，独立核对员逐行对照正文定下，候选里没有的再全表搜；一行摘了几条明细的，其余记在 alsoSummarizes（并列了别的案例的也记在这里）。去向与目标卡随 summaryOf 那条明细。link=values 表示行里照抄了那条明细的数，gist 表示行是它的概括。只有行里自己写着那条可移植明细的量（同一个数）时才另出一条汇总先验，值取行里写着的第一个量，它的 summaryOf 只列行里写着、且与它同单位的那几条明细先验；别的行只记账，不借别的量",
+    "summary": "对照表行指回它真正摘自的那条同案例明细（summaryOf）：机器先按两边出处栏的章号、小节号与源码行号，再按共有的数字与用词挑候选，独立核对员逐行对照正文定下，候选里没有的再全表搜；一行摘了几条明细的，其余记在 alsoSummarizes（并列了别的案例的也记在这里）。去向与目标卡随 summaryOf 那条明细。link=values 表示行里照抄了那条明细的数，gist 表示行是它的概括。只有行里自己写着那条可移植明细的量（同一个数）时才另出一条汇总先验，值取行里写着的第一个量，它的 summaryOf 只列行里写着、且与它同单位的那几条明细先验；别的行只记账，不借别的量 便携汇总行在总账另记 detailRefs，逐项对应其汇总先验的 summaryOf。",
     "bareVariableRandom": {
       "note": "把单个字母 r 当随机数用的算式（宽=h·(.26+r·.08)、floor(r·2.6)）正则认不出来：机器先找出所有「数字紧贴 r」「r 夹在运算符之间」的条目，独立核对员逐条读上下文，是随机数的出结构化区间（量上带 randomVar: \"r\"），r 是半径、进度、距离或函数参数的列在 notRandom",
       "reviewed": 8,
@@ -222,7 +224,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "逐角色的动作表、招式表、片段关键帧数值（骑士、头目、敌人、龙、NPC）",
-      "count": 73
+      "count": 69
     },
     {
       "cardId": "motion.controller",
@@ -243,7 +245,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "步态相位、落脚规划、贴地、跑动层",
-      "count": 39
+      "count": 37
     },
     {
       "cardId": "motion.gaze",
@@ -257,7 +259,7 @@
       "inSpec": true,
       "exists": false,
       "covers": "解析双骨反解（手臂、腿 IK）",
-      "count": 17
+      "count": 11
     },
     {
       "cardId": "motion.impulse",
@@ -271,7 +273,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "关键帧构造、轨道采样、插值、时间重映射、片段混合",
-      "count": 22
+      "count": 21
     },
     {
       "cardId": "motion.pose-vector",
@@ -292,7 +294,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "受击、倒地、死亡演出与布娃娃",
-      "count": 27
+      "count": 25
     },
     {
       "cardId": "motion.retarget",
@@ -313,7 +315,7 @@
       "inSpec": true,
       "exists": false,
       "covers": "轨道扫掠身体（长身龙沿轨道）",
-      "count": 17
+      "count": 15
     },
     {
       "cardId": "motion.swim",
@@ -327,7 +329,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "躯干叠加、呼吸、惯性倾斜、待机与休息姿",
-      "count": 28
+      "count": 20
     },
     {
       "cardId": "motion.weapon-track",
@@ -348,14 +350,14 @@
       "inSpec": true,
       "exists": false,
       "covers": "扑翼相位函数与飞行",
-      "count": 31
+      "count": 27
     },
     {
       "cardId": "rig.skeleton",
       "inSpec": false,
       "exists": false,
       "covers": "绑定规格：骨骼数、权重、形态键、动作库 id",
-      "count": 13
+      "count": 12
     },
     {
       "cardId": "time.envelope",
@@ -424,22 +426,212 @@
     },
     {
       "issue": "scale-variable-not-seconds",
-      "description": "条目里把 s 当体型缩放系数用（s 等于角色的缩放倍率）时，「.29s」「.27s」这种贴着数字的 s 是乘数，不是秒；提取器在这些条目里把 s 认成变量，不出秒数",
-      "sourceIds": [
-        "d113"
-      ],
-      "checked": [
-        {
-          "sourceId": "d113",
-          "route": "card-coupled",
-          "secondsExtractedFromScaleSuffix": 0
-        }
-      ]
+      "description": "建筑汇编 d048 的尖塔几何参数用 s 表示体型倍率，不是秒。动作汇编 d113 的跑动支撑与摆动标注的是真实秒数，和后文的步位移变量 s 分别解读。",
+      "sourceIds": [],
+      "checked": [],
+      "timing": {
+        "sourceId": "d113",
+        "stanceSeconds": 0.168,
+        "swingSeconds": 0.546
+      }
     }
   ],
-  "routeOverrides": [],
+  "routeOverrides": [
+    {
+      "sourceId": "d059",
+      "route": "practice",
+      "reason": "将目标限制在两骨可达范围内，按余弦定理求肘位，用极向量确定弯曲平面，再将两段朝向混入父骨局部姿势。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d071",
+      "route": "practice",
+      "reason": "钳住手脚目标距离，按余弦定理和极向量求两段骨的弯曲，再按权重混合旋转。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d077",
+      "route": "portable",
+      "reason": "通用参考量：行走步频（双脚合计）、行走时每整周期步幅、跑步步频（双脚合计）、跑步时每整周期步幅、冲刺步频（双脚合计）、冲刺时每整周期步幅",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d087",
+      "route": "practice",
+      "reason": "限制目标距离并剔除极向量沿连线的分量，按余弦定理定位肘或膝，再分别给两段骨定向。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d094",
+      "route": "practice",
+      "reason": "先裁剪目标距离，再用余弦定理和膝极向量解出中间关节位置。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d098",
+      "route": "practice",
+      "reason": "把极向量投影到弯曲平面，求取肘部与末端位置，再从静止方向旋转两段骨到目标方向。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d099",
+      "route": "practice",
+      "reason": "用余弦定理直接定位肘膝，为末端保留伸展余量，并随手高调整肘的偏向。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d101",
+      "route": "portable",
+      "reason": "通用参考量：基础呼吸周期（约）、基础呼吸角频率、叹气间隔、单次叹气时长",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d107",
+      "route": "portable",
+      "reason": "通用参考量：骑士呼吸周期",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d110",
+      "route": "portable",
+      "reason": "通用参考量：久站呼吸周期、久站换重心脚间隔",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d149",
+      "route": "practice",
+      "reason": "交接时用连续两帧的关节位置初始化质点，使物理继承动画速度；限制异常初速，再短暂混合到物理姿势。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d155",
+      "route": "practice",
+      "reason": "以交接时刻为参考，从质点连线恢复肢段朝向，分别建髋与胸的局部标架，在两者间插值得到脊柱旋转。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d190",
+      "route": "practice",
+      "reason": "按弧长重采样轨道并单调映射时间，用多点加权定注视方向，再迭代校准咬合。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d211",
+      "route": "portable",
+      "reason": "通用参考量：睡醒段呼吸周期、呼吸鼓包沿身体传播速度（约）",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d245",
+      "route": "portable",
+      "reason": "通用参考量：挥动过渡键间隔、轻击起手阶段时长、轻击挥动阶段时长、重击到达蓄力停顿键的时刻、重击劈下阶段时长",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d256",
+      "route": "portable",
+      "reason": "通用参考量：平时呼吸周期、疲惫时呼吸周期",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d269",
+      "route": "portable",
+      "reason": "通用参考量：常速拍翼周期、爬升拍翼周期、常速下扑时长、常速上挥时长、常速下扑占周期比例、肩仰角全行程摆幅",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d289",
+      "route": "portable",
+      "reason": "通用参考量：常速拍翼周期、起飞后重扇周期、常速下扑时长、常速上挥时长、近景、远景下扑占比（依次）、前臂、手相对拍翼周期的滞后（依次）",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d354",
+      "route": "practice",
+      "reason": "连续两键重复同一姿势并保持到第二键，再加速进入下一姿势；改键距即可调停顿。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d420",
+      "route": "portable",
+      "reason": "通用参考量：重劈前摇时长、盾击前摇时长、拉至满弓用时、满弓至释放的等待时长",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d442",
+      "route": "portable",
+      "reason": "通用参考量：守望者呼吸周期范围",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d447",
+      "route": "portable",
+      "reason": "通用参考量：甲角色呼吸周期",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d448",
+      "route": "portable",
+      "reason": "通用参考量：乙角色呼吸周期",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d469",
+      "route": "practice",
+      "reason": "起步时从后脚的支撑位置反推相位，转身时按落点和朝向误差选脚补步，跑动时调整摆腿曲线。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d484",
+      "route": "portable",
+      "reason": "通用参考量：巡航力度从零至一的拍翼频率范围、实飞悬停拍翼频率、小翼龙常速拍翼频率范围",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d489",
+      "route": "portable",
+      "reason": "通用参考量：机身呼吸频率（约）",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d499",
+      "route": "practice",
+      "reason": "重映射周期相位形成不对称扑翼，沿肢体延迟采样，用指数追踪切换状态，再叠加受载弯曲和颈尾随动。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d515",
+      "route": "practice",
+      "reason": "先给每个角色绑骨，再从动作库为同一骨架配齐移动、战斗反应、游泳和交谈动作。",
+      "previousRoute": "skipped-or-conflict"
+    },
+    {
+      "sourceId": "d524",
+      "route": "portable",
+      "reason": "通用参考量：修正前、后行进速度（依次）、修正前、后单步长度（依次）、修正前、后双脚合计步频（依次）、修正前、后双脚离地占比（依次）、修正前、后骨盆上下起伏（依次）、修正后落地脚滑移",
+      "previousRoute": "practice"
+    },
+    {
+      "sourceId": "d526",
+      "route": "portable",
+      "reason": "通用参考量：成片帧率、成片时长、成片总帧数、爬行段步数、曲线润色的交叠滞后帧数",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d527",
+      "route": "portable",
+      "reason": "通用参考量：成片帧率、成片时长、成片总帧数",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d529",
+      "route": "portable",
+      "reason": "通用参考量：成片帧率、成片时长、成片总帧数、爬行段步数、曲线润色的交叠滞后帧数",
+      "previousRoute": "card-coupled"
+    }
+  ],
   "audit": {
-    "method": "四步。一：主判与独立判定员（不同的模型）按判据各自全量判一遍，不一致的交第三人裁决（rubric=v4-tiebreak，两人原判留在 primaryRoute 与 blindRoute）。二：终验第一轮暴露判据初稿的顺序问题后改正判据，挂卡与做法边界上的条目由三名判定员复判取多数（rubric=v4-boundary）。三：按改正后的判据另起一轮全量独立盲判，与前两步的共识不一致的交第三人裁决（rubric=v4-final-tiebreak，共识与盲判原判留在 consensusRoute 与 finalBlindRoute）。四：换新样本终验抽检。这里的 independentRoute 是最后的去向，等于总账；终版盲判员没被替换过的原始判定与它和总账的分歧在 blindAudit",
+    "method": "以下是第四版判据的历史全量裁决和复核。sample 中的 independentRoute 是当时的裁决去向，previousBlindAudit 保存当时独立盲判的原票及分歧。本轮只改 routeOverrides 指明的明细及其汇总，独立抽样见 blindAudit。",
     "sampleSize": 549,
     "firstRoundDisagreements": 22,
     "rejudgedCount": 22,
@@ -4841,2462 +5033,2785 @@
           "why": "合并记录汇总行"
         }
       ]
+    },
+    "previousBlindAudit": {
+      "method": "判据顺序改正、边界条目复判之后另起的一轮：独立盲判员只读脱敏后的源条目与改正后的判据（v4），不看任何既有判定、生成脚本与产物，对全部明细全量盲判；对照表行的盲判去向随它指回的明细。这里记的是盲判员的原始判定，没有用裁决结果替换；它与当时共识不一致的条目交第三人裁决后定稿，裁决没采纳盲判的那些就是这里的 disagreements。判据初稿下的那一轮盲判（顺序与终版不同）只在 audit.sample 的 blindRoute 里留底",
+      "rubric": "v4",
+      "judgedDetails": 549,
+      "summaryRowsFollowing": 60,
+      "disagreements": [
+        "d028",
+        "d251",
+        "d479",
+        "d498"
+      ],
+      "disagreementRate": {
+        "details": 0.0073,
+        "summaries": 0,
+        "all": 0.0066
+      },
+      "rows": [
+        {
+          "sourceId": "s001",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s002",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s003",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s004",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s005",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s006",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d001",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d002",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d003",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d004",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d005",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d006",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d007",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d008",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d009",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d010",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d011",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d012",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d013",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d014",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s007",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s008",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s009",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s010",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s011",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s012",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d015",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d016",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d017",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d018",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d019",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d020",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d021",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d022",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d023",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d024",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d025",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d026",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d027",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d028",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s013",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s014",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s015",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s016",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s017",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s018",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s019",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d029",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d030",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d031",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d032",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d033",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d034",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d035",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d036",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d037",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d038",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d039",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d040",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d041",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d042",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d043",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d044",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d045",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d046",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d047",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d048",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d049",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d050",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d051",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d052",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d053",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d054",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d055",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d056",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d057",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d058",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s020",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s021",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s022",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s023",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s024",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s025",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d059",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d060",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d061",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d062",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d063",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d064",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d065",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d066",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d067",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d068",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d069",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d070",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d071",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d072",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d073",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d074",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d075",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d076",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d077",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d078",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d079",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d080",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d081",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d082",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d083",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d084",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d085",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d086",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d087",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d088",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d089",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d090",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d091",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d092",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d093",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d094",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d095",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d096",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d097",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d098",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d099",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d100",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s026",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s027",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s028",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s029",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s030",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s031",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s032",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s033",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d101",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d102",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d103",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d104",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d105",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d106",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d107",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d108",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d109",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d110",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d111",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d112",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d113",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d114",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d115",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d116",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d117",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d118",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s034",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s035",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s036",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s037",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d119",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d120",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d121",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d122",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d123",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d124",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d125",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d126",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d127",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d128",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d129",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d130",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d131",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d132",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d133",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d134",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s038",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s039",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s040",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s041",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s042",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s043",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d135",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d136",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d137",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d138",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d139",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d140",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d141",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d142",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d143",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d144",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d145",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d146",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d147",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d148",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d149",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d150",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d151",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d152",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d153",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d154",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d155",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d156",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d157",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d158",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d159",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d160",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d161",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d162",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d163",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d164",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d165",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d166",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d167",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d168",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s044",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s045",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s046",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s047",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d169",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d170",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d171",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d172",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d173",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d174",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d175",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d176",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d177",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d178",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d179",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d180",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d181",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d182",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d183",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d184",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d185",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d186",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d187",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d188",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s048",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s049",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d189",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d190",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d191",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d192",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d193",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d194",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d195",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d196",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d197",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d198",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d199",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d200",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d201",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d202",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d203",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d204",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d205",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d206",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d207",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d208",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d209",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d210",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d211",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d212",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d213",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d214",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d215",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d216",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d217",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d218",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d219",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d220",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s050",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s051",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s052",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s053",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s054",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d221",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d222",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d223",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d224",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d225",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d226",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d227",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d228",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s055",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d229",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d230",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d231",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d232",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d233",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d234",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d235",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d236",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d237",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d238",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d239",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d240",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d241",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d242",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d243",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d244",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d245",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d246",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d247",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s056",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s057",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s058",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d248",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d249",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d250",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d251",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d252",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d253",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d254",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d255",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d256",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d257",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d258",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d259",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d260",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d261",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d262",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d263",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d264",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d265",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d266",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d267",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d268",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d269",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d270",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d271",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d272",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d273",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d274",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d275",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d276",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d277",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d278",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d279",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d280",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d281",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d282",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d283",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d284",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d285",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d286",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d287",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d288",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d289",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d290",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d291",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d292",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d293",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d294",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d295",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d296",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d297",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d298",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d299",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d300",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d301",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d302",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d303",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d304",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d305",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d306",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d307",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d308",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d309",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d310",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d311",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d312",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d313",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d314",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d315",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d316",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d317",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d318",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d319",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d320",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d321",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d322",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d323",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d324",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d325",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d326",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d327",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d328",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d329",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d330",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d331",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d332",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d333",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d334",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d335",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d336",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d337",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d338",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d339",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d340",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d341",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d342",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d343",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d344",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d345",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d346",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d347",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d348",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d349",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d350",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d351",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d352",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d353",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d354",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d355",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d356",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d357",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d358",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d359",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d360",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d361",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d362",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d363",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d364",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d365",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d366",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d367",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d368",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d369",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d370",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d371",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d372",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d373",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d374",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d375",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d376",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d377",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d378",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d379",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d380",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d381",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d382",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d383",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d384",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d385",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d386",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d387",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d388",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d389",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d390",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d391",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d392",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d393",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d394",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d395",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d396",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d397",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d398",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d399",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d400",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d401",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d402",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d403",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d404",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d405",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d406",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d407",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d408",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d409",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d410",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d411",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d412",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d413",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d414",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d415",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d416",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d417",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d418",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d419",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d420",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d421",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d422",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d423",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d424",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d425",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d426",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d427",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d428",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d429",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d430",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d431",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d432",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d433",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d434",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d435",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d436",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d437",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d438",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d439",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d440",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d441",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d442",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d443",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d444",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d445",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d446",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d447",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d448",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d449",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s059",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s060",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d450",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d451",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d452",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d453",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d454",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d455",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d456",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d457",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d458",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d459",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d460",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d461",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d462",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d463",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d464",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d465",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d466",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d467",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d468",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d469",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d470",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d471",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d472",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d473",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d474",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d475",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d476",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d477",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d478",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d479",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d480",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d481",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d482",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d483",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d484",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d485",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d486",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d487",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d488",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d489",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d490",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d491",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d492",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d493",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d494",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d495",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d496",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d497",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d498",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d499",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d500",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d501",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d502",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d503",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d504",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d505",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d506",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d507",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d508",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d509",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d510",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d511",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d512",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d513",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d514",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d515",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d516",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d517",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d518",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d519",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d520",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d521",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d522",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d523",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d524",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d525",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d526",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d527",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d528",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d529",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d530",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d531",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d532",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d533",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d534",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d535",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d536",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d537",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d538",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d539",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d540",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d541",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d542",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d543",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d544",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d545",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d546",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d547",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d548",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d549",
+          "blindRoute": "skipped-or-conflict"
+        }
+      ]
     }
   },
   "blindAudit": {
-    "method": "判据顺序改正、边界条目复判之后另起的一轮：独立盲判员只读脱敏后的源条目与改正后的判据（v4），不看任何既有判定、生成脚本与产物，对全部明细全量盲判；对照表行的盲判去向随它指回的明细。这里记的是盲判员的原始判定，没有用裁决结果替换；它与当时共识不一致的条目交第三人裁决后定稿，裁决没采纳盲判的那些就是这里的 disagreements。判据初稿下的那一轮盲判（顺序与终版不同）只在 audit.sample 的 blindRoute 里留底",
-    "rubric": "v4",
-    "judgedDetails": 549,
-    "summaryRowsFollowing": 60,
-    "disagreements": [
-      "d028",
-      "d251",
-      "d479",
-      "d498"
-    ],
-    "disagreementRate": {
-      "details": 0.0073,
-      "summaries": 0,
-      "all": 0.0066
-    },
+    "rubric": "r2",
+    "method": "在修复前固定种子，按集合与明细、汇总两层分别对源 ID 做 SHA-256 排序，无放回取各层前一成（向上取整）。独立判定员逐条只读脱敏源文和判据，汇总另附所指明细。先冻结唯一路由，再与修复后的总账比较。",
+    "seedRef": "a6a83be:E3-C11",
+    "sampleSize": 61,
+    "judgedDetails": 55,
+    "judgedSummaries": 6,
     "rows": [
       {
-        "sourceId": "s001",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s002",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s003",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s004",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s005",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s006",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d001",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d002",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d003",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d004",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d005",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d006",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d007",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d008",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d009",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d010",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d011",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d012",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d013",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d014",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s007",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s008",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s009",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s010",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s011",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s012",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d015",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d016",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d017",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d018",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d019",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d020",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d021",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d022",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d023",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d024",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d025",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d026",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d027",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d028",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s013",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s014",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s015",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s016",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s017",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s018",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s019",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d029",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d030",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d031",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d032",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d033",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d034",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d035",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d036",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d037",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d038",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d039",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d040",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d041",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d042",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d043",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d044",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d045",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d046",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d047",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d048",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d049",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d050",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d051",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d052",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d053",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d054",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d055",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d056",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d057",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d058",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s020",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s021",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s022",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s023",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s024",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s025",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d059",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d060",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d061",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d062",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d063",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d064",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d065",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d066",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d067",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d068",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d069",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d070",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d071",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d072",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d073",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d074",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d075",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d076",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d077",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d078",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d079",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d080",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d081",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d082",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d083",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d084",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d085",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d086",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d087",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d088",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d089",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d090",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d091",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d092",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d093",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d094",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d095",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d096",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d097",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d098",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d099",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d100",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s026",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s027",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s028",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s029",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s030",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s031",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s032",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s033",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d101",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d102",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d103",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d104",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d105",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d106",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d107",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d108",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d109",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d110",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d111",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d112",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d113",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d114",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d115",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d116",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d117",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d118",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s034",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s035",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s036",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s037",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d119",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d120",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d121",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d122",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d123",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d124",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d125",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d126",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d127",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d128",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d129",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d130",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d131",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d132",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d133",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d134",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s038",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s039",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s040",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s041",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s042",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s043",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d135",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d136",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d137",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d138",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d139",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d140",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d141",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d142",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d143",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d144",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d145",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d146",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d147",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d148",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d149",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d150",
-        "blindRoute": "card-coupled"
-      },
-      {
         "sourceId": "d151",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d152",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d153",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d154",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d155",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d156",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d157",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d158",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d159",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d160",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d161",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d162",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d163",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d164",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d165",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d166",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d167",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d168",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s044",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s045",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s046",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s047",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d169",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d170",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d171",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d172",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d173",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d174",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d175",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d176",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d177",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d178",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d179",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d180",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d181",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d182",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d183",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d184",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d185",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d186",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d187",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d188",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s048",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s049",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d189",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d190",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d191",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "d192",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d193",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d194",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d195",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d196",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d197",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d198",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d199",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d200",
-        "blindRoute": "card-coupled"
+        "blindRoute": "card-coupled",
+        "why": "布娃娃专用约束数量及限距配置。"
       },
       {
         "sourceId": "d201",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d202",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d203",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d204",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d205",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d206",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d207",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d208",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d209",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d210",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d211",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d212",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d213",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d214",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d215",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d216",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d217",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d218",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d219",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d220",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s050",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s051",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s052",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s053",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s054",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d221",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d222",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d223",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d224",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d225",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d226",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d227",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d228",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s055",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d229",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d230",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d231",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d232",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d233",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d234",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d235",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d236",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d237",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d238",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d239",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d240",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d241",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d242",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d243",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d244",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d245",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d246",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d247",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s056",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s057",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s058",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d248",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d249",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d250",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d251",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d252",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d253",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d254",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d255",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d256",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d257",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d258",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d259",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d260",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d261",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d262",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d263",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d264",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d265",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d266",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d267",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d268",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d269",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d270",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d271",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d272",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d273",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d274",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d275",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d276",
-        "blindRoute": "card-coupled"
+        "blindRoute": "skipped-or-conflict",
+        "why": "单段演出的实例航点与时间坐标。"
       },
       {
         "sourceId": "d277",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d278",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d279",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d280",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d281",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d282",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d283",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d284",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d285",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d286",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d287",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d288",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d289",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d290",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d291",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d292",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d293",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d294",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d295",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d296",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d297",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d298",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d299",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d300",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d301",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d302",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d303",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d304",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d305",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d306",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d307",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d308",
-        "blindRoute": "card-coupled"
+        "blindRoute": "card-coupled",
+        "why": "展开收拢姿态的骨架方向与权重常量。"
       },
       {
         "sourceId": "d309",
-        "blindRoute": "card-coupled"
+        "blindRoute": "card-coupled",
+        "why": "特定动作系统的通道布局和叠加配置。"
       },
       {
-        "sourceId": "d310",
-        "blindRoute": "card-coupled"
+        "sourceId": "d073",
+        "blindRoute": "card-coupled",
+        "why": "骨盆修正及脚部旋转的实现公式。"
       },
       {
-        "sourceId": "d311",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d312",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d313",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d314",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d315",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d316",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d317",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d318",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d319",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d320",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d321",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d322",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d323",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d324",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d325",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d326",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d327",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d328",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d329",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d330",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d331",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d332",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d333",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d334",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d335",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d336",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d337",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d338",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d339",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d340",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d341",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d342",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d343",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d344",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d345",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d346",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d347",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d348",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d349",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d350",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d351",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d352",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d353",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d354",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d355",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d356",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d357",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d358",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d359",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d360",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d361",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d362",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d363",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d364",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d365",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d366",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d367",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d368",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d369",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d370",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d371",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d372",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d373",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d374",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d375",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d376",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d377",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d378",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d379",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d380",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d381",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d382",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d383",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d384",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d385",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d386",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d387",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d388",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d389",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d390",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d391",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d392",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d393",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d394",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d395",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d396",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d397",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d398",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d399",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d400",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d401",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d402",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d403",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d404",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d405",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d406",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d407",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d408",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d409",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d410",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d411",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d412",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d413",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d414",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d415",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d416",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d417",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d418",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d419",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d420",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d421",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d422",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d423",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d424",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d425",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d426",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d427",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d428",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d429",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d430",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d431",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d432",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d433",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d434",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d435",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d436",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d437",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d438",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d439",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d440",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d441",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d442",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d443",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d444",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d445",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d446",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d447",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d448",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d449",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s059",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s060",
-        "blindRoute": "card-coupled"
+        "sourceId": "d198",
+        "blindRoute": "skipped-or-conflict",
+        "why": "仅有单段跳跃的实例坐标时间表。"
       },
       {
         "sourceId": "d450",
-        "blindRoute": "card-coupled"
+        "blindRoute": "card-coupled",
+        "why": "机关门的运动公式与状态时长配置。"
       },
       {
-        "sourceId": "d451",
-        "blindRoute": "card-coupled"
+        "sourceId": "d131",
+        "blindRoute": "card-coupled",
+        "why": "攻击修饰窗口与骨盆脚部常量表。"
       },
       {
-        "sourceId": "d452",
-        "blindRoute": "card-coupled"
+        "sourceId": "d128",
+        "blindRoute": "card-coupled",
+        "why": "重击蓄势及回弹的通道增量公式。"
       },
       {
-        "sourceId": "d453",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d454",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d455",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d456",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d457",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d458",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d459",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d460",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d461",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d462",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d463",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d464",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d465",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d466",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d467",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d468",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d469",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d470",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d471",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d472",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d473",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d474",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d475",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d476",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d477",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d478",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d479",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d480",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d481",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d482",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d483",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d484",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d485",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d486",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d487",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d488",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d489",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d490",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d491",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d492",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d493",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d494",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d495",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d496",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d497",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d498",
-        "blindRoute": "practice"
+        "sourceId": "d020",
+        "blindRoute": "card-coupled",
+        "why": "自动过冲插帧的专用规则常量。"
       },
       {
         "sourceId": "d499",
-        "blindRoute": "card-coupled"
+        "blindRoute": "practice",
+        "why": "主体为可直接照搬的动画实现做法清单。"
       },
       {
-        "sourceId": "d500",
-        "blindRoute": "card-coupled"
+        "sourceId": "d006",
+        "blindRoute": "card-coupled",
+        "why": "特定姿势数组的通道布局与偏移设计。"
       },
       {
-        "sourceId": "d501",
-        "blindRoute": "skipped-or-conflict"
+        "sourceId": "d076",
+        "blindRoute": "card-coupled",
+        "why": "步态规划器的参数化输出公式。"
       },
       {
-        "sourceId": "d502",
-        "blindRoute": "practice"
+        "sourceId": "d364",
+        "blindRoute": "card-coupled",
+        "why": "站姿及跪姿的骨架通道数值配置。"
       },
       {
-        "sourceId": "d503",
-        "blindRoute": "card-coupled"
+        "sourceId": "d010",
+        "blindRoute": "card-coupled",
+        "why": "姿势通道到骨架的专用映射公式。"
       },
       {
-        "sourceId": "d504",
-        "blindRoute": "card-coupled"
+        "sourceId": "d253",
+        "blindRoute": "card-coupled",
+        "why": "片段状态切换镜像与过渡的实现配置。"
       },
       {
-        "sourceId": "d505",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "d506",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d507",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d508",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d509",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d510",
-        "blindRoute": "practice"
+        "sourceId": "d129",
+        "blindRoute": "card-coupled",
+        "why": "通用挥砍的通道修饰公式和常量。"
       },
       {
         "sourceId": "d511",
-        "blindRoute": "practice"
+        "blindRoute": "practice",
+        "why": "以武器关键帧驱动手臂的可迁移制作步骤。"
       },
       {
-        "sourceId": "d512",
-        "blindRoute": "card-coupled"
+        "sourceId": "d097",
+        "blindRoute": "card-coupled",
+        "why": "各角色步态与身体姿态的成组配置表。"
       },
       {
-        "sourceId": "d513",
-        "blindRoute": "skipped-or-conflict"
+        "sourceId": "d357",
+        "blindRoute": "card-coupled",
+        "why": "长杆姿势通道和握点映射的实现约定。"
       },
       {
-        "sourceId": "d514",
-        "blindRoute": "card-coupled"
+        "sourceId": "d122",
+        "blindRoute": "card-coupled",
+        "why": "轻受击通道包络及退步推力公式。"
       },
       {
-        "sourceId": "d515",
-        "blindRoute": "skipped-or-conflict"
+        "sourceId": "d009",
+        "blindRoute": "card-coupled",
+        "why": "特定站姿库与继承接口的实现清单。"
       },
       {
-        "sourceId": "d516",
-        "blindRoute": "practice"
+        "sourceId": "d285",
+        "blindRoute": "card-coupled",
+        "why": "远景飞行演出航点及拼接算法配置。"
       },
       {
-        "sourceId": "d517",
-        "blindRoute": "practice"
+        "sourceId": "d388",
+        "blindRoute": "skipped-or-conflict",
+        "why": "主体为重复条目的合并对账说明。"
       },
       {
-        "sourceId": "d518",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d519",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d520",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d521",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d522",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d523",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d524",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d525",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d526",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d527",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d528",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d529",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d530",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d531",
-        "blindRoute": "practice"
+        "sourceId": "d486",
+        "blindRoute": "card-coupled",
+        "why": "翼骨架绑定坐标及质量分配配置。"
       },
       {
         "sourceId": "d532",
-        "blindRoute": "practice"
+        "blindRoute": "practice",
+        "why": "装配动画的阶段做法及音画对齐步骤。"
+      },
+      {
+        "sourceId": "d218",
+        "blindRoute": "card-coupled",
+        "why": "演出注视目标与时间包络的权重表。"
+      },
+      {
+        "sourceId": "d036",
+        "blindRoute": "card-coupled",
+        "why": "不同对象的弹簧调参常量表。"
+      },
+      {
+        "sourceId": "d385",
+        "blindRoute": "card-coupled",
+        "why": "成组招式的姿势关键帧时间配置。"
+      },
+      {
+        "sourceId": "d216",
+        "blindRoute": "card-coupled",
+        "why": "脚本推力的时间包络与强度配置。"
+      },
+      {
+        "sourceId": "d085",
+        "blindRoute": "card-coupled",
+        "why": "步态补位阈值及状态控制常量表。"
+      },
+      {
+        "sourceId": "d305",
+        "blindRoute": "card-coupled",
+        "why": "两套飞行姿态的骨架通道配置。"
+      },
+      {
+        "sourceId": "d019",
+        "blindRoute": "card-coupled",
+        "why": "自动预备帧的插入公式与通道增量。"
+      },
+      {
+        "sourceId": "d031",
+        "blindRoute": "card-coupled",
+        "why": "挂件骨链的方向阻尼及限角常量表。"
+      },
+      {
+        "sourceId": "d056",
+        "blindRoute": "card-coupled",
+        "why": "斗篷质点约束求解及碰撞的实现配置。"
+      },
+      {
+        "sourceId": "d489",
+        "blindRoute": "card-coupled",
+        "why": "机身视觉叠加层的公式与限幅常量。"
+      },
+      {
+        "sourceId": "d325",
+        "blindRoute": "card-coupled",
+        "why": "跪起吼叫姿势的成组通道配置。"
+      },
+      {
+        "sourceId": "d462",
+        "blindRoute": "card-coupled",
+        "why": "多个实现的姿势通道与动作库结构对照。"
+      },
+      {
+        "sourceId": "d390",
+        "blindRoute": "card-coupled",
+        "why": "自动加重的插帧公式与缓动配置。"
+      },
+      {
+        "sourceId": "d180",
+        "blindRoute": "card-coupled",
+        "why": "单类生物碰撞与动作行为常量表。"
+      },
+      {
+        "sourceId": "d490",
+        "blindRoute": "card-coupled",
+        "why": "颈尾弹簧骨链的实现公式与权重配置。"
+      },
+      {
+        "sourceId": "d005",
+        "blindRoute": "skipped-or-conflict",
+        "why": "仅为特定实现的单位推断说明。"
+      },
+      {
+        "sourceId": "d177",
+        "blindRoute": "card-coupled",
+        "why": "单类飞虫的飞行行为与碰撞配置。"
+      },
+      {
+        "sourceId": "d429",
+        "blindRoute": "card-coupled",
+        "why": "专属招式关键帧事件和位移公式配置。"
+      },
+      {
+        "sourceId": "d317",
+        "blindRoute": "card-coupled",
+        "why": "砸击姿态的成组骨架通道配置。"
+      },
+      {
+        "sourceId": "d434",
+        "blindRoute": "card-coupled",
+        "why": "角色姿势步态及碰撞的成组配置。"
+      },
+      {
+        "sourceId": "d054",
+        "blindRoute": "card-coupled",
+        "why": "鞭骨卷曲与行波的专用动画公式。"
+      },
+      {
+        "sourceId": "d485",
+        "blindRoute": "card-coupled",
+        "why": "翼行程及各骨通道的分配常量表。"
+      },
+      {
+        "sourceId": "d149",
+        "blindRoute": "practice",
+        "why": "动画速度连续交接给物理的操作做法。"
+      },
+      {
+        "sourceId": "d084",
+        "blindRoute": "card-coupled",
+        "why": "摆臂重心及起伏的步态输出公式。"
+      },
+      {
+        "sourceId": "d165",
+        "blindRoute": "card-coupled",
+        "why": "不同角色死亡速率质量与动作池配置。"
+      },
+      {
+        "sourceId": "d044",
+        "blindRoute": "card-coupled",
+        "why": "披风模拟钉点风力及求解常量表。"
       },
       {
         "sourceId": "d533",
-        "blindRoute": "practice"
+        "blindRoute": "card-coupled",
+        "why": "特定装配对象的零件层序与动画配置。"
       },
       {
-        "sourceId": "d534",
-        "blindRoute": "practice"
+        "sourceId": "d235",
+        "blindRoute": "practice",
+        "why": "同轨采样根位移以同步画面前冲的做法。"
       },
       {
-        "sourceId": "d535",
-        "blindRoute": "practice"
+        "sourceId": "d331",
+        "blindRoute": "card-coupled",
+        "why": "单个招式的姿势关键帧及缓动表。"
       },
       {
-        "sourceId": "d536",
-        "blindRoute": "practice"
+        "sourceId": "s056",
+        "blindRoute": "portable",
+        "why": "附带明细主体为拍翼周期阶段时长及摆幅。"
       },
       {
-        "sourceId": "d537",
-        "blindRoute": "skipped-or-conflict"
+        "sourceId": "s054",
+        "blindRoute": "card-coupled",
+        "why": "附带明细含注视随机规则及颈骨权重配置。"
       },
       {
-        "sourceId": "d538",
-        "blindRoute": "skipped-or-conflict"
+        "sourceId": "s013",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为惯性弹簧公式；摘要多项参数未见对应。"
       },
       {
-        "sourceId": "d539",
-        "blindRoute": "skipped-or-conflict"
+        "sourceId": "s044",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为单类飞鸟的行为常量表。"
       },
       {
-        "sourceId": "d540",
-        "blindRoute": "skipped-or-conflict"
+        "sourceId": "s005",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为姿势向量的骨架通道布局。"
       },
       {
-        "sourceId": "d541",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d542",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d543",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d544",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d545",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d546",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d547",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d548",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d549",
-        "blindRoute": "skipped-or-conflict"
+        "sourceId": "s025",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为解析求解器的钳制及极向量配置。"
       }
-    ]
+    ],
+    "disagreements": [
+      "d201",
+      "d198",
+      "d489",
+      "d533",
+      "s025"
+    ],
+    "disagreementRate": 0.08196721311475409
   },
   "conflicts": [
     {
@@ -7312,8 +7827,9 @@
       "caseId": "case-01",
       "route": "skipped-or-conflict",
       "text": "冲突内容：Blender 重制片片长；一方：重制版 768 帧 = 25.6 秒；另一方：某代码模型 写「36.8 秒」；以谁为准：25.6 秒是重制版；36.8 秒含过程片 336 帧的全片",
-      "attachedTo": [],
-      "note": "没有和该条先验同单位的可比量，或该条不是可移植量，冲突原文只留在清单"
+      "attachedTo": [
+        "motion-rig.d505.film-duration"
+      ]
     },
     {
       "sourceId": "d539",
@@ -7328,8 +7844,10 @@
       "caseId": "case-13",
       "route": "skipped-or-conflict",
       "text": "冲突内容：龙下扑占比；一方：近景 .42（战斗 .42）；另一方：远景 .45；以谁为准：原文自己写「两套节奏不一致」；近景用 .42，远景用 .45",
-      "attachedTo": [],
-      "note": "没有和该条先验同单位的可比量，或该条不是可移植量，冲突原文只留在清单"
+      "attachedTo": [
+        "motion-rig.d289.near-downstroke-share",
+        "motion-rig.d289.far-downstroke-share"
+      ]
     },
     {
       "sourceId": "d541",
@@ -7352,8 +7870,9 @@
       "caseId": "case-02",
       "route": "skipped-or-conflict",
       "text": "冲突内容：案例 02 悬停拍幅；一方：旧表 hover 1.5 Hz / 46°；另一方：HOVER 常量 2.1 Hz / 48°（另有「实飞悬停 2.1 Hz/46°/机身仰 31°」）；以谁为准：原文说以常量为准",
-      "attachedTo": [],
-      "note": "没有和该条先验同单位的可比量，或该条不是可移植量，冲突原文只留在清单"
+      "attachedTo": [
+        "motion-rig.d484.hover-flap-frequency"
+      ]
     },
     {
       "sourceId": "d544",
@@ -7396,7 +7915,7 @@
       "sourceId": "d189",
       "section": "9",
       "caseId": "ext-01",
-      "title": "外部案例 01：动作可迁移方法（g1 注）",
+      "title": "外部案例 01：动作可迁移方法",
       "reason": "合并记录、编排说明、指路或待核问题：仅指向其他小节及说明本组范围",
       "evidenceLabel": "原文陈述",
       "docRef": "动作与骨骼汇编 第 9 节 d189；出处类别：原文陈述·外部案例 01：可迁移的方法"
@@ -7463,15 +7982,6 @@
       "reason": "没有数值也没有步骤的概述：仅概括两案例动画片段数为0或用关键帧加IK，无具体步骤与参数",
       "evidenceLabel": "实测+源码",
       "docRef": "动作与骨骼汇编 第 23 节 d513；出处类别：源码拆解·绑定规格、动作库与其他案例的动作做法"
-    },
-    {
-      "sourceId": "d515",
-      "section": "23",
-      "caseId": "case-04",
-      "title": "动画指令",
-      "reason": "没有数值也没有步骤的概述：仅罗列平台绑骨与常规动作名，无具体步骤、判据或参数",
-      "evidenceLabel": "原文陈述",
-      "docRef": "动作与骨骼汇编 第 23 节 d515；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
     },
     {
       "sourceId": "d537",
@@ -8618,7 +9128,7 @@
       "recordKind": "summary",
       "section": "4",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d099",
       "alsoSummarizes": [
         "d097",
@@ -8626,7 +9136,6 @@
         "d431"
       ],
       "link": "values",
-      "target": "motion.ik2",
       "targets": []
     },
     {
@@ -8635,10 +9144,9 @@
       "recordKind": "detail",
       "section": "4",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.ik2",
+      "route": "practice",
       "targets": [
-        "motion-rig.d059.card"
+        "motion-rig.d059.practice"
       ]
     },
     {
@@ -8779,10 +9287,9 @@
       "recordKind": "detail",
       "section": "4",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.ik2",
+      "route": "practice",
       "targets": [
-        "motion-rig.d071.card"
+        "motion-rig.d071.practice"
       ]
     },
     {
@@ -8851,10 +9358,20 @@
       "recordKind": "detail",
       "section": "4",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.gait",
+      "route": "portable",
       "targets": [
-        "motion-rig.d077.card"
+        "motion-rig.d077.walk-cadence",
+        "motion-rig.d077.walk-stride",
+        "motion-rig.d077.run-cadence",
+        "motion-rig.d077.run-stride",
+        "motion-rig.d077.sprint-cadence",
+        "motion-rig.d077.sprint-stride",
+        "motion-rig.d077.lock-cadence",
+        "motion-rig.d077.lock-stride",
+        "motion-rig.d077.walk-stance",
+        "motion-rig.d077.walk-swing",
+        "motion-rig.d077.run-stance",
+        "motion-rig.d077.run-swing"
       ]
     },
     {
@@ -8971,10 +9488,9 @@
       "recordKind": "detail",
       "section": "4",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.ik2",
+      "route": "practice",
       "targets": [
-        "motion-rig.d087.card"
+        "motion-rig.d087.practice"
       ]
     },
     {
@@ -9055,10 +9571,9 @@
       "recordKind": "detail",
       "section": "4",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.ik2",
+      "route": "practice",
       "targets": [
-        "motion-rig.d094.card"
+        "motion-rig.d094.practice"
       ]
     },
     {
@@ -9103,10 +9618,9 @@
       "recordKind": "detail",
       "section": "4",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.ik2",
+      "route": "practice",
       "targets": [
-        "motion-rig.d098.card"
+        "motion-rig.d098.practice"
       ]
     },
     {
@@ -9115,10 +9629,9 @@
       "recordKind": "detail",
       "section": "4",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.ik2",
+      "route": "practice",
       "targets": [
-        "motion-rig.d099.card"
+        "motion-rig.d099.practice"
       ]
     },
     {
@@ -9138,11 +9651,16 @@
       "recordKind": "summary",
       "section": "5",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d101",
       "link": "values",
-      "target": "motion.torso-layer",
-      "targets": []
+      "targets": [
+        "motion-rig.sum.s026"
+      ],
+      "detailRefs": [
+        "motion-rig.d101.breath-cycle",
+        "motion-rig.d101.sigh-interval"
+      ]
     },
     {
       "sourceLine": 219,
@@ -9150,14 +9668,20 @@
       "recordKind": "summary",
       "section": "5",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d107",
       "alsoSummarizes": [
         "d110"
       ],
       "link": "values",
-      "target": "motion.torso-layer",
-      "targets": []
+      "targets": [
+        "motion-rig.sum.s027"
+      ],
+      "detailRefs": [
+        "motion-rig.d107.breath-cycle",
+        "motion-rig.d110.breath-cycle",
+        "motion-rig.d110.weight-shift-interval"
+      ]
     },
     {
       "sourceLine": 220,
@@ -9189,11 +9713,16 @@
       "recordKind": "summary",
       "section": "5",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d256",
       "link": "values",
-      "target": "motion.torso-layer",
-      "targets": []
+      "targets": [
+        "motion-rig.sum.s030"
+      ],
+      "detailRefs": [
+        "motion-rig.d256.breath-cycle",
+        "motion-rig.d256.tired-breath-cycle"
+      ]
     },
     {
       "sourceLine": 223,
@@ -9201,15 +9730,21 @@
       "recordKind": "summary",
       "section": "5",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d442",
       "alsoSummarizes": [
         "d447",
         "d448"
       ],
       "link": "values",
-      "target": "motion.torso-layer",
-      "targets": []
+      "targets": [
+        "motion-rig.sum.s031"
+      ],
+      "detailRefs": [
+        "motion-rig.d442.breath-cycle",
+        "motion-rig.d447.breath-cycle",
+        "motion-rig.d448.breath-cycle"
+      ]
     },
     {
       "sourceLine": 224,
@@ -9217,11 +9752,15 @@
       "recordKind": "summary",
       "section": "5",
       "caseId": "case-02",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d489",
       "link": "values",
-      "target": "motion.torso-layer",
-      "targets": []
+      "targets": [
+        "motion-rig.sum.s032"
+      ],
+      "detailRefs": [
+        "motion-rig.d489.breath-frequency"
+      ]
     },
     {
       "sourceLine": 225,
@@ -9229,14 +9768,18 @@
       "recordKind": "summary",
       "section": "5",
       "caseId": "ext-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d211",
       "alsoSummarizes": [
         "d190"
       ],
       "link": "values",
-      "target": "motion.sweep-body",
-      "targets": []
+      "targets": [
+        "motion-rig.sum.s033"
+      ],
+      "detailRefs": [
+        "motion-rig.d211.breath-cycle"
+      ]
     },
     {
       "sourceLine": 229,
@@ -9244,10 +9787,12 @@
       "recordKind": "detail",
       "section": "5",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.torso-layer",
+      "route": "portable",
       "targets": [
-        "motion-rig.d101.card"
+        "motion-rig.d101.breath-cycle",
+        "motion-rig.d101.breath-angular-frequency",
+        "motion-rig.d101.sigh-interval",
+        "motion-rig.d101.sigh-duration"
       ]
     },
     {
@@ -9316,10 +9861,9 @@
       "recordKind": "detail",
       "section": "5",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.torso-layer",
+      "route": "portable",
       "targets": [
-        "motion-rig.d107.card"
+        "motion-rig.d107.breath-cycle"
       ]
     },
     {
@@ -9352,10 +9896,10 @@
       "recordKind": "detail",
       "section": "5",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.torso-layer",
+      "route": "portable",
       "targets": [
-        "motion-rig.d110.card"
+        "motion-rig.d110.breath-cycle",
+        "motion-rig.d110.weight-shift-interval"
       ]
     },
     {
@@ -9967,10 +10511,9 @@
       "recordKind": "detail",
       "section": "7",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.ragdoll",
+      "route": "practice",
       "targets": [
-        "motion-rig.d149.card"
+        "motion-rig.d149.practice"
       ]
     },
     {
@@ -10039,10 +10582,9 @@
       "recordKind": "detail",
       "section": "7",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.ragdoll",
+      "route": "practice",
       "targets": [
-        "motion-rig.d155.card"
+        "motion-rig.d155.practice"
       ]
     },
     {
@@ -10505,14 +11047,13 @@
       "recordKind": "summary",
       "section": "9",
       "caseId": "ext-01",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d190",
       "alsoSummarizes": [
         "d211",
         "d220"
       ],
       "link": "values",
-      "target": "motion.sweep-body",
       "targets": []
     },
     {
@@ -10542,10 +11083,9 @@
       "recordKind": "detail",
       "section": "9",
       "caseId": "ext-01",
-      "route": "card-coupled",
-      "target": "motion.sweep-body",
+      "route": "practice",
       "targets": [
-        "motion-rig.d190.card"
+        "motion-rig.d190.practice"
       ]
     },
     {
@@ -10790,10 +11330,10 @@
       "recordKind": "detail",
       "section": "9",
       "caseId": "ext-01",
-      "route": "card-coupled",
-      "target": "motion.sweep-body",
+      "route": "portable",
       "targets": [
-        "motion-rig.d211.card"
+        "motion-rig.d211.breath-cycle",
+        "motion-rig.d211.breath-wave-speed"
       ]
     },
     {
@@ -11274,10 +11814,13 @@
       "recordKind": "detail",
       "section": "13",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.clip-table",
+      "route": "portable",
       "targets": [
-        "motion-rig.d245.card"
+        "motion-rig.d245.transition-key-interval",
+        "motion-rig.d245.light-raise-duration",
+        "motion-rig.d245.light-swing-duration",
+        "motion-rig.d245.heavy-windup-hold-time",
+        "motion-rig.d245.heavy-downstroke-duration"
       ]
     },
     {
@@ -11310,14 +11853,19 @@
       "recordKind": "summary",
       "section": "14",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d269",
       "alsoSummarizes": [
         "d289"
       ],
       "link": "values",
-      "target": "motion.wing",
-      "targets": []
+      "targets": [
+        "motion-rig.sum.s056"
+      ],
+      "detailRefs": [
+        "motion-rig.d269.flap-period",
+        "motion-rig.d269.climb-flap-period"
+      ]
     },
     {
       "sourceLine": 493,
@@ -11341,15 +11889,19 @@
       "recordKind": "summary",
       "section": "14",
       "caseId": "case-02",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d484",
       "alsoSummarizes": [
         "d483",
         "d482"
       ],
       "link": "values",
-      "target": "motion.wing",
-      "targets": []
+      "targets": [
+        "motion-rig.sum.s058"
+      ],
+      "detailRefs": [
+        "motion-rig.d484.cruise-flap-frequency"
+      ]
     },
     {
       "sourceLine": 498,
@@ -11453,10 +12005,10 @@
       "recordKind": "detail",
       "section": "14",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.torso-layer",
+      "route": "portable",
       "targets": [
-        "motion-rig.d256.card"
+        "motion-rig.d256.breath-cycle",
+        "motion-rig.d256.tired-breath-cycle"
       ]
     },
     {
@@ -11609,10 +12161,14 @@
       "recordKind": "detail",
       "section": "14",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.wing",
+      "route": "portable",
       "targets": [
-        "motion-rig.d269.card"
+        "motion-rig.d269.flap-period",
+        "motion-rig.d269.climb-flap-period",
+        "motion-rig.d269.downstroke-duration",
+        "motion-rig.d269.upstroke-duration",
+        "motion-rig.d269.downstroke-share",
+        "motion-rig.d269.wing-angular-excursion"
       ]
     },
     {
@@ -11849,10 +12405,16 @@
       "recordKind": "detail",
       "section": "14",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.wing",
+      "route": "portable",
       "targets": [
-        "motion-rig.d289.card"
+        "motion-rig.d289.flap-period",
+        "motion-rig.d289.heavy-flap-period",
+        "motion-rig.d289.downstroke-duration",
+        "motion-rig.d289.upstroke-duration",
+        "motion-rig.d289.near-downstroke-share",
+        "motion-rig.d289.far-downstroke-share",
+        "motion-rig.d289.forearm-phase-lag",
+        "motion-rig.d289.hand-phase-lag"
       ]
     },
     {
@@ -12626,10 +13188,9 @@
       "recordKind": "detail",
       "section": "16",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.keyframe",
+      "route": "practice",
       "targets": [
-        "motion-rig.d354.card"
+        "motion-rig.d354.practice"
       ]
     },
     {
@@ -13411,10 +13972,12 @@
       "recordKind": "detail",
       "section": "17",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.clip-table",
+      "route": "portable",
       "targets": [
-        "motion-rig.d420.card"
+        "motion-rig.d420.heavy-chop-windup",
+        "motion-rig.d420.bash-windup",
+        "motion-rig.d420.full-draw-time",
+        "motion-rig.d420.full-draw-hold"
       ]
     },
     {
@@ -13674,10 +14237,9 @@
       "recordKind": "detail",
       "section": "18",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.torso-layer",
+      "route": "portable",
       "targets": [
-        "motion-rig.d442.card"
+        "motion-rig.d442.breath-cycle"
       ]
     },
     {
@@ -13734,10 +14296,9 @@
       "recordKind": "detail",
       "section": "18",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.torso-layer",
+      "route": "portable",
       "targets": [
-        "motion-rig.d447.card"
+        "motion-rig.d447.breath-cycle"
       ]
     },
     {
@@ -13746,10 +14307,9 @@
       "recordKind": "detail",
       "section": "18",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.torso-layer",
+      "route": "portable",
       "targets": [
-        "motion-rig.d448.card"
+        "motion-rig.d448.breath-cycle"
       ]
     },
     {
@@ -14029,10 +14589,9 @@
       "recordKind": "detail",
       "section": "20",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.gait",
+      "route": "practice",
       "targets": [
-        "motion-rig.d469.card"
+        "motion-rig.d469.practice"
       ]
     },
     {
@@ -14207,10 +14766,11 @@
       "recordKind": "detail",
       "section": "21",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "target": "motion.wing",
+      "route": "portable",
       "targets": [
-        "motion-rig.d484.card"
+        "motion-rig.d484.cruise-flap-frequency",
+        "motion-rig.d484.hover-flap-frequency",
+        "motion-rig.d484.small-flier-frequency"
       ]
     },
     {
@@ -14267,10 +14827,9 @@
       "recordKind": "detail",
       "section": "21",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "target": "motion.torso-layer",
+      "route": "portable",
       "targets": [
-        "motion-rig.d489.card"
+        "motion-rig.d489.breath-frequency"
       ]
     },
     {
@@ -14387,10 +14946,9 @@
       "recordKind": "detail",
       "section": "21",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "target": "motion.wing",
+      "route": "practice",
       "targets": [
-        "motion-rig.d499.card"
+        "motion-rig.d499.practice"
       ]
     },
     {
@@ -14571,8 +15129,10 @@
       "recordKind": "detail",
       "section": "23",
       "caseId": "case-04",
-      "route": "skipped-or-conflict",
-      "targets": []
+      "route": "practice",
+      "targets": [
+        "motion-rig.d515.practice"
+      ]
     },
     {
       "sourceLine": 831,
@@ -14671,9 +15231,19 @@
       "recordKind": "detail",
       "section": "23",
       "caseId": "case-06",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "motion-rig.d524.practice"
+        "motion-rig.d524.walk-speed-before",
+        "motion-rig.d524.walk-speed-after",
+        "motion-rig.d524.step-length-before",
+        "motion-rig.d524.step-length-after",
+        "motion-rig.d524.step-cadence-before",
+        "motion-rig.d524.step-cadence-after",
+        "motion-rig.d524.flight-share-before",
+        "motion-rig.d524.flight-share-after",
+        "motion-rig.d524.pelvis-bob-before",
+        "motion-rig.d524.pelvis-bob-after",
+        "motion-rig.d524.planted-foot-slide"
       ]
     },
     {
@@ -14693,10 +15263,13 @@
       "recordKind": "detail",
       "section": "23",
       "caseId": "case-24",
-      "route": "card-coupled",
-      "target": "motion.clip-table",
+      "route": "portable",
       "targets": [
-        "motion-rig.d526.card"
+        "motion-rig.d526.frame-rate",
+        "motion-rig.d526.film-duration",
+        "motion-rig.d526.film-frame-count",
+        "motion-rig.d526.crawl-step-count",
+        "motion-rig.d526.overlap-delay"
       ]
     },
     {
@@ -14705,10 +15278,11 @@
       "recordKind": "detail",
       "section": "23",
       "caseId": "case-24",
-      "route": "card-coupled",
-      "target": "rig.skeleton",
+      "route": "portable",
       "targets": [
-        "motion-rig.d527.card"
+        "motion-rig.d527.frame-rate",
+        "motion-rig.d527.film-duration",
+        "motion-rig.d527.film-frame-count"
       ]
     },
     {
@@ -14728,10 +15302,13 @@
       "recordKind": "detail",
       "section": "23",
       "caseId": "case-24",
-      "route": "card-coupled",
-      "target": "motion.clip-table",
+      "route": "portable",
       "targets": [
-        "motion-rig.d529.card"
+        "motion-rig.d529.frame-rate",
+        "motion-rig.d529.film-duration",
+        "motion-rig.d529.film-frame-count",
+        "motion-rig.d529.crawl-step-count",
+        "motion-rig.d529.overlap-delay"
       ]
     },
     {

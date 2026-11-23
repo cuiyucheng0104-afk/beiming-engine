@@ -12,21 +12,21 @@
   },
   "order": "rows 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "一条 = 一个表格数据行（含跨案例对照表行），或一个顶层列表条目连同它缩进的续行；目录、案例索引、用法、没收进来的、以「并入说明、冲突、合并、说明」开头的说明行不算。对照表行的去向随它指回的明细，不另算一条明细",
-  "portableCount": 18,
-  "cardCoupledCount": 544,
-  "practiceCount": 86,
-  "excludedOrConflictCount": 39,
+  "portableCount": 83,
+  "cardCoupledCount": 460,
+  "practiceCount": 104,
+  "excludedOrConflictCount": 40,
   "detailRouteCounts": {
-    "practice": 62,
-    "card-coupled": 374,
-    "skipped-or-conflict": 36,
-    "portable": 9
+    "practice": 74,
+    "card-coupled": 326,
+    "portable": 44,
+    "skipped-or-conflict": 37
   },
   "summaryRouteCounts": {
-    "card-coupled": 170,
-    "practice": 24,
-    "skipped-or-conflict": 3,
-    "portable": 9
+    "card-coupled": 134,
+    "practice": 30,
+    "portable": 39,
+    "skipped-or-conflict": 3
   },
   "files": {
     "priors": "light-cam.json",
@@ -71,13 +71,13 @@
     "3.12": "提示词里的镜头写法与词汇"
   },
   "rules": {
-    "method": "逐条读原文按 05 第 8.1 节 判去向，四问依次问、先命中的为准（顺序照 C10 终审）：有没有可迁的东西（没有则不迁）；主体是不是跨作品通用的带单位参考量（是则可移植，严格准入）；主体是不是「这个实现里取了哪些值、怎么搭的」（带源码标识符加取值、五个以上专属配置数字、非通用单位，是则挂卡；带函数名与一串阈值常量的算法条目也在这里）；其余用话讲做法的归做法。主判与独立盲判（两个不同的模型）各判一遍，一致的直接收；不一致的交第三名独立判定员裁决。挂卡与做法边界上的条目另由三名不同模型的判定员复判取多数（见 audit.boundaryRejudge）。混合条目按主体判",
+    "method": "逐条按主体分流。沿用历史裁决，二审后按通用量与可照搬工序复核边界，改判依据见 routeOverrides。对照表行随同案例明细，独立盲判使用修改前固定的分层随机样本。",
     "valueShapes": "可移植先验的 value：一个数；两元数组 [小, 大] 是范围（不带方向）；{ first, second } 是原文用斜线或顿号并列的两个取值，照原文先后",
-    "portable": "只收脱离具体实现与某一部片的布景之后仍然通用的带单位参考量：成片读数（从成片、画面量出来或成片自报的时长、帧数、切点、速度、角度），以及真实世界、人体与摄影光学的通用先验（标准构件尺寸、步频、呼吸周期、焦段、视场角、快门角、色温、光比）。条目的主体是某段程序、函数、着色器、生成器、骨架，或某一部片专属的布景与镜头参数表的，哪怕带米、秒、度，也不进这里。每条明细列 1 到 6 个主要的量，每个量一条先验；ext 里的 c11.raw 是它在原文里的片段",
-    "cardCoupled": "主体是某个具体实现的函数、接口、程序化生成器、骨架绑定参数、着色器公式与常量、大气与水面与地形的生成配置；某部作品写死的布景尺寸表、区域配置表、世界规模、面数与实例预算；某镜头或某一招写死的时刻表、机位与关键帧。带源码标识符的取值、五个以上某片专属配置数字堆在一起的条目、单位不是通用先验单位的量都归这里。挂到 05 第 5 节对应的技术卡上，不当默认值",
-    "practice": "没被挂卡那一问命中的做法条目：用话讲怎么做、为什么这样做，拿掉标识符和这部片写死的数字后仍是一条完整可照做的建模、绑定、布光、运镜工序、算法思路、判断方法或修法。没有任何带单位的量、只讲通用做法的条目必归这里；含避坑与教训的标 fix",
-    "skippedOrConflict": "没有步骤、判据、参数的一句话空泛概述；纯世界坐标摆放表（05 第 8.1 节：坐标表不迁）；只说未公开或无数据、且没有可学做法的陈述；读数冲突对账行；合并记录与编排说明",
-    "summary": "对照表行指回它真正摘自的那条同案例明细（summaryOf）：机器先按两边出处栏的章号、小节号与源码行号，再按共有的数字与用词挑候选，独立核对员逐行对照正文定下，候选里没有的再全表搜；一行摘了几条明细的，其余记在 alsoSummarizes（并列了别的案例的也记在这里）。去向与目标卡随 summaryOf 那条明细。link=values 表示行里照抄了那条明细的数，gist 表示行是它的概括。只有行里自己写着那条可移植明细的量（同一个数）时才另出一条汇总先验，值取行里写着的第一个量，它的 summaryOf 只列行里写着、且与它同单位的那几条明细先验；别的行只记账，不借别的量",
+    "portable": "标准构件和自然物尺度、步幅步频、呼吸拍翼与动作阶段时长、摄影光学与机位角度、成片规格和读数，能脱离实现单独解释的量进入先验表。证据按来源保留，源码、实测及原文陈述均可作为出处。每项只抽取有原文支持的通用量。",
+    "cardCoupled": "主体是源实现的专用常量、函数配置、坐标轨道、灯具与关键帧参数表的，挂到相应技术卡，使用前重新标定。带标识符的原文也可以记录通用量或给出完整可复用的算法，按条目主体分流。",
+    "practice": "可照搬的建模、绑定、布光、运镜步骤、算法与修法进入做法库。按主体判断，举例的标识符与参数不改变工序的用途。",
+    "skippedOrConflict": "没有步骤、判据或参数的概述，只有世界地点与事件锚点的摆放清单，未公开且没有可学做法的陈述，以及冲突对账、合并与编排说明归入此类。带帧号的机位与目标坐标属于可供相机卡复查的关键帧轨道。 逐镜截图的主观意见如未记录修复工序，仅保留在不迁清单；给出复用步骤的光向、遮挡与曝光修法仍归做法。",
+    "summary": "对照表行以 summaryOf 指回同案例的主明细，其余出处列在 alsoSummarizes。去向和目标卡随主明细。link 为 values 表示重述了数值，gist 表示概括。可移植摘要选取该行与主明细都明确给出的同一对象、同一物理量；主值取自 c11.valueFrom。summaryOf 与总账 detailRefs 仅列本行确实重述、与主值同类且同单位的明细先验。行里没有这样的量时只记账。",
     "bareVariableRandom": {
       "note": "把单个字母 r 当随机数用的算式（宽=h·(.26+r·.08)、floor(r·2.6)）正则认不出来：机器先找出所有「数字紧贴 r」「r 夹在运算符之间」的条目，独立核对员逐条读上下文，是随机数的出结构化区间（量上带 randomVar: \"r\"），r 是半径、进度、距离或函数参数的列在 notRandom",
       "reviewed": 9,
@@ -126,7 +126,7 @@
         }
       ]
     },
-    "domain": "第三部分（相机）记 camera-lens-motion，其余记 lighting-exposure",
+    "domain": "光照和云层旋转归 lighting-exposure，镜头焦段、视场角和机位角度归 camera-lens-motion，成片时长、节奏和运镜触发时刻归 time-rhythm-editing。",
     "evidence": "证据标签取最弱一级映射：实测/画面读数→实测，源码→源码，原文陈述→文档，推断/未列→推断；原标签照抄在 note 或 evidenceLabel",
     "units": "厘米、千米换成 m，百分数换成 ratio，分钟换成 s，帧记 frame，度记 deg，弧度记 rad，面数与个数记 count。色值不进可移植表（源文没写色彩空间），留在挂卡条目的原文里",
     "quantities": "挂卡与做法条目的 quantities 只收数字后面写明单位的量；s、m 在该条里当变量用（s= 缩放系数、·s、m3）时贴着数字的不算单位。场景单位按米的长度只在原文写了「米」或 m 时才出量",
@@ -280,14 +280,14 @@
       "inSpec": true,
       "exists": false,
       "covers": "关键帧绑触发点的运镜、过场镜头表",
-      "count": 15
+      "count": 13
     },
     {
       "cardId": "camera.drift",
       "inSpec": true,
       "exists": false,
       "covers": "锁机位与缓推",
-      "count": 2
+      "count": 1
     },
     {
       "cardId": "camera.fit",
@@ -301,21 +301,14 @@
       "inSpec": false,
       "exists": false,
       "covers": "镜头参数：焦段、视场、光圈、景深、传感器、快门",
-      "count": 10
-    },
-    {
-      "cardId": "camera.orbit",
-      "inSpec": true,
-      "exists": false,
-      "covers": "环绕与转台",
-      "count": 5
+      "count": 2
     },
     {
       "cardId": "camera.relative",
       "inSpec": true,
       "exists": false,
       "covers": "主体相对机位：追尾、跟随、避障、锁定",
-      "count": 22
+      "count": 20
     },
     {
       "cardId": "camera.shake",
@@ -329,14 +322,14 @@
       "inSpec": false,
       "exists": false,
       "covers": "逐案例的镜头表、机位清单、镜头语言词汇",
-      "count": 21
+      "count": 7
     },
     {
       "cardId": "camera.spline",
       "inSpec": true,
       "exists": true,
       "covers": "样条相机与关键帧轨迹",
-      "count": 27
+      "count": 21
     },
     {
       "cardId": "light.bounce-fake",
@@ -350,7 +343,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "逐案例的光方案与提示词里的光照写法",
-      "count": 5
+      "count": 1
     },
     {
       "cardId": "light.emissive",
@@ -365,13 +358,6 @@
       "exists": false,
       "covers": "点光池、动态灯、发光体合成点光",
       "count": 13
-    },
-    {
-      "cardId": "light.hdri-sun",
-      "inSpec": true,
-      "exists": false,
-      "covers": "从环境图里分离太阳",
-      "count": 2
     },
     {
       "cardId": "light.ibl",
@@ -399,7 +385,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "天气与时间预设表、随时间与事件变化的光",
-      "count": 22
+      "count": 21
     },
     {
       "cardId": "light.studio",
@@ -441,21 +427,21 @@
       "inSpec": true,
       "exists": false,
       "covers": "体积光、光柱、径向光束",
-      "count": 12
+      "count": 11
     },
     {
       "cardId": "sky.cloud-toon",
       "inSpec": true,
       "exists": false,
       "covers": "云：积云、卷云、云海、体积云",
-      "count": 39
+      "count": 38
     },
     {
       "cardId": "sky.dome",
       "inSpec": false,
       "exists": false,
       "covers": "天穹、太阳盘、月亮、日晕、星空",
-      "count": 10
+      "count": 9
     }
   ],
   "knownFixes": [
@@ -541,14 +527,333 @@
     },
     {
       "issue": "scale-variable-not-seconds",
-      "description": "条目里把 s 当体型缩放系数用（s 等于角色的缩放倍率）时，「.29s」「.27s」这种贴着数字的 s 是乘数，不是秒；提取器在这些条目里把 s 认成变量，不出秒数",
+      "description": "本集合没有该项几何倍率勘误。",
       "sourceIds": [],
       "checked": []
     }
   ],
-  "routeOverrides": [],
+  "routeOverrides": [
+    {
+      "sourceId": "d007",
+      "route": "practice",
+      "reason": "从环境图中按亮度筛出太阳，按亮度和像素立体角求方向，旋转并压暗原日面，再用平行光补回直射。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d011",
+      "route": "portable",
+      "reason": "通用参考量：黎明室内布光的太阳高度角",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d012",
+      "route": "portable",
+      "reason": "通用参考量：早市侧光的太阳高度角",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d014",
+      "route": "practice",
+      "reason": "用一轮低位暖太阳从相机前侧逆光照明，再加软雾，让长影朝向镜头。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d015",
+      "route": "practice",
+      "reason": "由环境图的超阈值像素估计太阳方向，平移图像对准方位，再压低日面并补回直射光。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d193",
+      "route": "skipped-or-conflict",
+      "previousRoute": "practice",
+      "reason": "单个画面的美术反馈与截图索引，只记录所见亮度、方向矛盾和期望效果，没有记录实际修改的灯光设置、排查顺序或验证结果。"
+    },
+    {
+      "sourceId": "d194",
+      "route": "portable",
+      "reason": "通用参考量：广告镜头的快门角",
+      "previousRoute": "practice"
+    },
+    {
+      "sourceId": "d199",
+      "route": "portable",
+      "reason": "通用参考量：暖主光色温、冷阴影的填充光色温",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d249",
+      "route": "portable",
+      "reason": "积云环在二倍速时钟下的实际转速和一圈用时均有单位。按原文保留未验证的推断，只取订正后的基准速度与周期。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d294",
+      "route": "practice",
+      "reason": "在半分辨率沿视线步进并查询太阳阴影，逐像素逐帧抖动起点，随后按深度保边滤波并上采样。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d316",
+      "route": "portable",
+      "reason": "通用参考量：黎明室内布光的太阳高度角",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d318",
+      "route": "practice",
+      "reason": "用真实时间平滑插值天气预设，让天空、雾、角色光和调色同步读取同一份过渡数据。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d322",
+      "route": "portable",
+      "reason": "通用参考量：全片视场角范围、全片机位高度范围、循环首尾视场角",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d323",
+      "route": "portable",
+      "reason": "通用参考量：巡航视场角、高速视场角、悬停视场角、第三人称悬停视场角、骑手视角变化范围、拍照视场角范围",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d325",
+      "route": "practice",
+      "reason": "逐帧用机位至目标的直线距离设定跟焦，并由传感器半宽和焦段求水平视场角。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d328",
+      "route": "portable",
+      "reason": "通用参考量：透视视场角",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d329",
+      "route": "portable",
+      "reason": "通用参考量：基础竖直视场角、瞄准视场角",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d330",
+      "route": "practice",
+      "reason": "宽屏取关键帧的竖直视场，窄屏从参考画幅的水平视场反算竖直视场并限幅。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d331",
+      "route": "portable",
+      "reason": "通用参考量：水平视场角",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d333",
+      "route": "practice",
+      "reason": "按相邻关键帧的位置差和帧差计算端点切线，再按本段时长缩放切线。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d334",
+      "route": "practice",
+      "reason": "将帧号归一化为局部时间，用 Hermite 基函数组合两端位置和已按段长缩放的切线。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d335",
+      "route": "practice",
+      "reason": "重建镜头时沿用原样条，在关键帧之间检查焦段和光圈是否过冲。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d336",
+      "route": "practice",
+      "reason": "先将时间夹到单位区间，再按所需缓动方向选择幂函数或平滑三次曲线。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d337",
+      "route": "practice",
+      "reason": "由视向和上方向建正交基，转换为四元数，按与上一帧的点积校正符号以保持旋转连续。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d340",
+      "route": "practice",
+      "reason": "端点取单侧差商，内部关键帧在相邻斜率异号或为零时置零，同号时取调和平均，再逐段做三次插值。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d366",
+      "route": "portable",
+      "reason": "通用参考量：开场焦段、第二段焦段、第三段焦段、收尾焦段",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d367",
+      "route": "portable",
+      "reason": "通用参考量：开场焦段、第二段及收尾焦段、第三段焦段、最远摄阶段的焦段",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d368",
+      "route": "portable",
+      "reason": "通用参考量：开场焦段、第二段焦段、第三段及收尾焦段、最远摄阶段的焦段、运动模糊快门占一帧的比例",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d369",
+      "route": "portable",
+      "reason": "通用参考量：开场焦段、拉开后焦段",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d371",
+      "route": "portable",
+      "reason": "通用参考量：整机装配焦段、主展示视图方位角、主展示视图仰角、侧视方位角、后视方位角、俯视机位的仰角",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d372",
+      "route": "portable",
+      "reason": "通用参考量：透视镜头焦段、透视拍摄距离、透视机位仰角、右斜视的方位角、仰角、展示视图的方位角、仰角、后斜视的方位角、仰角",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d373",
+      "route": "portable",
+      "reason": "通用参考量：整机展示焦段、初始方位角、中间方位角、终止方位角、初始机距相对机高、结束机距相对机高",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d379",
+      "route": "practice",
+      "reason": "对注视目标前后的轨迹样本作三角加权平均，再绕机位旋转平滑后的视线，保持目标距离以调整构图。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d392",
+      "route": "portable",
+      "reason": "通用参考量：追尾机位默认臂长、默认追尾机位仰角、短臂机位仰角、长臂机位仰角、构图角度偏置、侧向偏航角",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d426",
+      "route": "portable",
+      "reason": "通用参考量：整圈环绕时长、成片帧率、成片总帧数、画面宽度、画面高度、水平环绕的俯仰与滚转角（两轴均为零）",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d431",
+      "route": "practice",
+      "reason": "纯摇摄和俯仰可复用一张母帧，推进产生视差和拉焦时逐帧渲染。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d433",
+      "route": "portable",
+      "reason": "通用参考量：定格穿行镜头焦段、定格镜头光圈数、定格前相机行程",
+      "previousRoute": "practice"
+    },
+    {
+      "sourceId": "d439",
+      "route": "portable",
+      "reason": "通用参考量：对日近摄焦段、对日近摄光圈数、近看镜头对焦距离、展示镜头焦段、成片时长、成片帧率",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d440",
+      "route": "portable",
+      "reason": "通用参考量：完整环绕时长、顺时针环绕角、水平环绕的俯仰与滚转角（两轴均为零）",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d441",
+      "route": "portable",
+      "reason": "通用参考量：资产参考视图整圈环绕角、水平环绕的俯仰与滚转角（两轴均为零）",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d442",
+      "route": "portable",
+      "reason": "通用参考量：主镜头焦段、贴水镜头焦段、贴水镜头光圈数、贴水机位距水面高度、路镜镜头焦段",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d446",
+      "route": "portable",
+      "reason": "通用参考量：一镜到底时长、紧景等效焦段、渐宽后的等效焦段、尾部定格时间窗",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d447",
+      "route": "portable",
+      "reason": "通用参考量：成片帧率、成片总帧数、全片时长、装配微距焦段、按镜头编号计的两幕镜头总数、装配段时间窗",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d448",
+      "route": "practice",
+      "reason": "先为各机位渲染干净母版，再以重投影生成平移和俯仰，画面闪断与声音共用逐帧表。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d450",
+      "route": "portable",
+      "reason": "通用参考量：主镜头焦段、长焦镜头焦段、成片时长、成片总帧数、运动模糊快门角、标称画幅宽高比",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d458",
+      "route": "portable",
+      "reason": "通用参考量：固定对角视场角、成片帧率、单镜成片时长、避免边缘畸变的中央安全区占比",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d459",
+      "route": "portable",
+      "reason": "通用参考量：变形镜头焦段、低机位镜头光圈数、胶片规格",
+      "previousRoute": "practice"
+    },
+    {
+      "sourceId": "d461",
+      "route": "portable",
+      "reason": "通用参考量：正片总帧数、连续镜头帧数、成片硬切次数、成片硬切帧号、定妆镜头帧数",
+      "previousRoute": "practice"
+    },
+    {
+      "sourceId": "d464",
+      "route": "practice",
+      "reason": "让前镜末段的实体部件遮满画面，在遮挡时衔接下一段运镜。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d470",
+      "route": "portable",
+      "reason": "成片两次快速运镜的起始时刻与关键帧推算的误差可用秒比较。字幕相对词起点的提前量也有独立的时间基准。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d476",
+      "route": "portable",
+      "reason": "通用参考量：中近景焦段、相对于人物的左侧机位角",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d480",
+      "route": "portable",
+      "reason": "通用参考量：浅焦开场焦段（T2.0）、快速后拉及广角平拍焦段（T4）、横移镜头焦段（T2.8）、过肩镜头焦段（T2.8）、末段环绕结束焦段、末段环绕时间窗",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d481",
+      "route": "portable",
+      "reason": "镜头视场角和对应焦段随取景目的成组给出，手持倾斜角随动作强度分档，可分别按角度与毫米复用。",
+      "previousRoute": "card-coupled"
+    }
+  ],
   "audit": {
-    "method": "四步。一：主判与独立判定员（不同的模型）按判据各自全量判一遍，不一致的交第三人裁决（rubric=v4-tiebreak，两人原判留在 primaryRoute 与 blindRoute）。二：终验第一轮暴露判据初稿的顺序问题后改正判据，挂卡与做法边界上的条目由三名判定员复判取多数（rubric=v4-boundary）。三：按改正后的判据另起一轮全量独立盲判，与前两步的共识不一致的交第三人裁决（rubric=v4-final-tiebreak，共识与盲判原判留在 consensusRoute 与 finalBlindRoute）。四：换新样本终验抽检。这里的 independentRoute 是最后的去向，等于总账；终版盲判员没被替换过的原始判定与它和总账的分歧在 blindAudit",
+    "method": "以下是第四版判据的历史全量裁决和复核。sample 中的 independentRoute 是当时的裁决去向，previousBlindAudit 保存当时独立盲判的原票及分歧。本轮只改 routeOverrides 指明的明细及其汇总，独立抽样见 blindAudit。",
     "sampleSize": 481,
     "firstRoundDisagreements": 11,
     "rejudgedCount": 11,
@@ -4449,2795 +4754,3165 @@
           "why": "用部件盖满画面衔接长镜头的做法"
         }
       ]
+    },
+    "previousBlindAudit": {
+      "method": "判据顺序改正、边界条目复判之后另起的一轮：独立盲判员只读脱敏后的源条目与改正后的判据（v4），不看任何既有判定、生成脚本与产物，对全部明细全量盲判；对照表行的盲判去向随它指回的明细。这里记的是盲判员的原始判定，没有用裁决结果替换；它与当时共识不一致的条目交第三人裁决后定稿，裁决没采纳盲判的那些就是这里的 disagreements。判据初稿下的那一轮盲判（顺序与终版不同）只在 audit.sample 的 blindRoute 里留底",
+      "rubric": "v4",
+      "judgedDetails": 481,
+      "summaryRowsFollowing": 206,
+      "disagreements": [
+        "s003",
+        "d003",
+        "d010",
+        "d015",
+        "d038",
+        "d055",
+        "d102",
+        "d146",
+        "s094",
+        "d195",
+        "d199",
+        "d215",
+        "s146",
+        "d426",
+        "d431",
+        "d436",
+        "d440",
+        "d441",
+        "s192",
+        "d458",
+        "s198",
+        "d464",
+        "s205",
+        "d476",
+        "d481"
+      ],
+      "disagreementRate": {
+        "details": 0.0395,
+        "summaries": 0.0291,
+        "all": 0.0364
+      },
+      "rows": [
+        {
+          "sourceId": "s001",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s002",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s003",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s004",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s005",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s006",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s007",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s008",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s009",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d001",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s010",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s011",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s012",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s013",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s014",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s015",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s016",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s017",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s018",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d002",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d003",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d004",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d005",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d006",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d007",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d008",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d009",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d010",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d011",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d012",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d013",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d014",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d015",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "s019",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s020",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s021",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s022",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s023",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s024",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s025",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d016",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d017",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d018",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d019",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d020",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d021",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d022",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d023",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d024",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d025",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d026",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d027",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "s026",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s027",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s028",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s029",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s030",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s031",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d028",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d029",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d030",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d031",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d032",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d033",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d034",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d035",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d036",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d037",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d038",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "s032",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s033",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s034",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s035",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s036",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s037",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s038",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d039",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d040",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d041",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d042",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d043",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d044",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d045",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d046",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d047",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d048",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d049",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d050",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d051",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d052",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d053",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d054",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d055",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d056",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d057",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d058",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s039",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s040",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s041",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s042",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s043",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s044",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s045",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s046",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d059",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d060",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d061",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d062",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d063",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d064",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d065",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d066",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d067",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d068",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d069",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d070",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d071",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d072",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d073",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d074",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d075",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d076",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d077",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d078",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d079",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "s047",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s048",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s049",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s050",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s051",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d080",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d081",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d082",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d083",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d084",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d085",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s052",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s053",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s054",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s055",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s056",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s057",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s058",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s059",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s060",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s061",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s062",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s063",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d086",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d087",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d088",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d089",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d090",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d091",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d092",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d093",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d094",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d095",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d096",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d097",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d098",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d099",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "s064",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s065",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s066",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s067",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s068",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s069",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s070",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s071",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d100",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d101",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d102",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d103",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d104",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d105",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d106",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d107",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d108",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d109",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d110",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d111",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d112",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d113",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d114",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d115",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d116",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d117",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d118",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d119",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d120",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d121",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d122",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d123",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d124",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d125",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d126",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d127",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d128",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d129",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d130",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d131",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d132",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d133",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d134",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d135",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d136",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d137",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d138",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d139",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d140",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d141",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d142",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d143",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d144",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d145",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d146",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d147",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d148",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d149",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d150",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d151",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d152",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d153",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s072",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s073",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s074",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s075",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s076",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d154",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d155",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d156",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d157",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d158",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d159",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d160",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d161",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d162",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d163",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d164",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d165",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d166",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d167",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d168",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d169",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d170",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s077",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s078",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s079",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s080",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s081",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s082",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d171",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d172",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d173",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d174",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d175",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d176",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d177",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d178",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d179",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d180",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "s083",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s084",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s085",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s086",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d181",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d182",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d183",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d184",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d185",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s087",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s088",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s089",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d186",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d187",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d188",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s090",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s091",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "s092",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s093",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s094",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s095",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d189",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d190",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d191",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d192",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d193",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d194",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d195",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d196",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d197",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d198",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d199",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d200",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d201",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d202",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d203",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s096",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s097",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s098",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s099",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s100",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d204",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d205",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d206",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d207",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d208",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d209",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d210",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d211",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d212",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d213",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d214",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d215",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s101",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s102",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s103",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s104",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s105",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d216",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d217",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d218",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d219",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d220",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d221",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d222",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d223",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d224",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d225",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d226",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d227",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d228",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d229",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d230",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d231",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d232",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d233",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d234",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d235",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d236",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d237",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d238",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d239",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d240",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d241",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d242",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d243",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d244",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d245",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d246",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d247",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d248",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d249",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d250",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d251",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d252",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d253",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d254",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d255",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "s106",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s107",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s108",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s109",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s110",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s111",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s112",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d256",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d257",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d258",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d259",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d260",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d261",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d262",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d263",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d264",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d265",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d266",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d267",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d268",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d269",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d270",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d271",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d272",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d273",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d274",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d275",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d276",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d277",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d278",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d279",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d280",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d281",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d282",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d283",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d284",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d285",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d286",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d287",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d288",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s113",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s114",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s115",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s116",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d289",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d290",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d291",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d292",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d293",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d294",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s117",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s118",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s119",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s120",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s121",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s122",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d295",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d296",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d297",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d298",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d299",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d300",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d301",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d302",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s123",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s124",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s125",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s126",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s127",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d303",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d304",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d305",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d306",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d307",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d308",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d309",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d310",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s128",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s129",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s130",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s131",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d311",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d312",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d313",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d314",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d315",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d316",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d317",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s132",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s133",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d318",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d319",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s134",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s135",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d320",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d321",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s136",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s137",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s138",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s139",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s140",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s141",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s142",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "s143",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s144",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s145",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "s146",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d322",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d323",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d324",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d325",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d326",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d327",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d328",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d329",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d330",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d331",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s147",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s148",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s149",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s150",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s151",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s152",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d332",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d333",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d334",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d335",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d336",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d337",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d338",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d339",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d340",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d341",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s153",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s154",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s155",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s156",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s157",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s158",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s159",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s160",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d342",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d343",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d344",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d345",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d346",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d347",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d348",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d349",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d350",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d351",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d352",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d353",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d354",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d355",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d356",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d357",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d358",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d359",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d360",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d361",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d362",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d363",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d364",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d365",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d366",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d367",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d368",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d369",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d370",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d371",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d372",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d373",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s161",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s162",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s163",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d374",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d375",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d376",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d377",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d378",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d379",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s164",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s165",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s166",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s167",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s168",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s169",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d380",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d381",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d382",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d383",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d384",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d385",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d386",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d387",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d388",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d389",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d390",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d391",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s170",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s171",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s172",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s173",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s174",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d392",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d393",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d394",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d395",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d396",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d397",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d398",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d399",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d400",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d401",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d402",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d403",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d404",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d405",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d406",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d407",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d408",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d409",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d410",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d411",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d412",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "s175",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s176",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s177",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s178",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s179",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d413",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d414",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d415",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d416",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d417",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d418",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d419",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d420",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d421",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d422",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d423",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d424",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s180",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "s181",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "s182",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s183",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s184",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "s185",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "s186",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s187",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s188",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d425",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d426",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d427",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d428",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d429",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d430",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d431",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d432",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d433",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d434",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d435",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d436",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d437",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d438",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d439",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d440",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d441",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d442",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d443",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d444",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d445",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d446",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d447",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d448",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d449",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d450",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s189",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s190",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "s191",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s192",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s193",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "s194",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d451",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d452",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d453",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d454",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d455",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d456",
+          "blindRoute": "skipped-or-conflict"
+        },
+        {
+          "sourceId": "d457",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d458",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d459",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d460",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s195",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s196",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s197",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s198",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d461",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d462",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d463",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d464",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d465",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d466",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s199",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s200",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "s201",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s202",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d467",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d468",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d469",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d470",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d471",
+          "blindRoute": "portable"
+        },
+        {
+          "sourceId": "d472",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "s203",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s204",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s205",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "s206",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d473",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d474",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d475",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d476",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d477",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d478",
+          "blindRoute": "practice"
+        },
+        {
+          "sourceId": "d479",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d480",
+          "blindRoute": "card-coupled"
+        },
+        {
+          "sourceId": "d481",
+          "blindRoute": "practice"
+        }
+      ]
     }
   },
   "blindAudit": {
-    "method": "判据顺序改正、边界条目复判之后另起的一轮：独立盲判员只读脱敏后的源条目与改正后的判据（v4），不看任何既有判定、生成脚本与产物，对全部明细全量盲判；对照表行的盲判去向随它指回的明细。这里记的是盲判员的原始判定，没有用裁决结果替换；它与当时共识不一致的条目交第三人裁决后定稿，裁决没采纳盲判的那些就是这里的 disagreements。判据初稿下的那一轮盲判（顺序与终版不同）只在 audit.sample 的 blindRoute 里留底",
-    "rubric": "v4",
-    "judgedDetails": 481,
-    "summaryRowsFollowing": 206,
-    "disagreements": [
-      "s003",
-      "d003",
-      "d010",
-      "d015",
-      "d038",
-      "d055",
-      "d102",
-      "d146",
-      "s094",
-      "d195",
-      "d199",
-      "d215",
-      "s146",
-      "d426",
-      "d431",
-      "d436",
-      "d440",
-      "d441",
-      "s192",
-      "d458",
-      "s198",
-      "d464",
-      "s205",
-      "d476",
-      "d481"
-    ],
-    "disagreementRate": {
-      "details": 0.0395,
-      "summaries": 0.0291,
-      "all": 0.0364
-    },
+    "rubric": "r2",
+    "method": "在修复前固定种子，按集合与明细、汇总两层分别对源 ID 做 SHA-256 排序，无放回取各层前一成（向上取整）。独立判定员逐条只读脱敏源文和判据，汇总另附所指明细。先冻结唯一路由，再与修复后的总账比较。",
+    "sampleSize": 70,
+    "judgedDetails": 49,
+    "judgedSummaries": 21,
     "rows": [
       {
-        "sourceId": "s001",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s002",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s003",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s004",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s005",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s006",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s007",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s008",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s009",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d001",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s010",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s011",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s012",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s013",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s014",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s015",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s016",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s017",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s018",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d002",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d003",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d004",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d005",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d006",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d007",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d008",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d009",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d010",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d011",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d012",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d013",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d014",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d015",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "s019",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s020",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s021",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s022",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s023",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s024",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s025",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d016",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d017",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d018",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d019",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d020",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d021",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d022",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d023",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d024",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d025",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d026",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d027",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "s026",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s027",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s028",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s029",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s030",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s031",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d028",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d029",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d030",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d031",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d032",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d033",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d034",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d035",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d036",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d037",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d038",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "s032",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s033",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s034",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s035",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s036",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s037",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s038",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d039",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d040",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d041",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d042",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d043",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d044",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d045",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d046",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d047",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d048",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d049",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d050",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d051",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d052",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d053",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d054",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d055",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d056",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d057",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d058",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s039",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s040",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s041",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s042",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s043",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s044",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s045",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s046",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d059",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d060",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d061",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d062",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d063",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d064",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d065",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d066",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d067",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d068",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d069",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d070",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d071",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d072",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d073",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d074",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d075",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d076",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d077",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d078",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d079",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "s047",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s048",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s049",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s050",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s051",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d080",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d081",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d082",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d083",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d084",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d085",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s052",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s053",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s054",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s055",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s056",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s057",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s058",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s059",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s060",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s061",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s062",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s063",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d086",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d087",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d088",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d089",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d090",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d091",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d092",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d093",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d094",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d095",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d096",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d097",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d098",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d099",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "s064",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s065",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s066",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s067",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s068",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s069",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s070",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s071",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d100",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d101",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d102",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d103",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d104",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d105",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d106",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d107",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d108",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d109",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d110",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d111",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d112",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d113",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d114",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d115",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d116",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d117",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d118",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d119",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d120",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d121",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d122",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d123",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d124",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d125",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d126",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d127",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d128",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d129",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d130",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d131",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d132",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d133",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d134",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d135",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d136",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d137",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d138",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d139",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d140",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d141",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d142",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d143",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d144",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d145",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d146",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d147",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d148",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d149",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d150",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d151",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d152",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d153",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s072",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s073",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s074",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s075",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s076",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d154",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d155",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d156",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d157",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d158",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d159",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d160",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d161",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d162",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d163",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d164",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d165",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d166",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d167",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d168",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d169",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d170",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s077",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s078",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s079",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s080",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s081",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s082",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d171",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d172",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d173",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d174",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d175",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d176",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d177",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d178",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d179",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d180",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "s083",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s084",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s085",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s086",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d181",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d182",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d183",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d184",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d185",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s087",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s088",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s089",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d186",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d187",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d188",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s090",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s091",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "s092",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s093",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s094",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s095",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d189",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d190",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d191",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d192",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d193",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d194",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d195",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d196",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d197",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d198",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d199",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d200",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d201",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d202",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d203",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s096",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s097",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s098",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s099",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s100",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d204",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d205",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d206",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d207",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d208",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d209",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d210",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d211",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d212",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d213",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d214",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d215",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s101",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s102",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s103",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s104",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s105",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d216",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d217",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d218",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d219",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d220",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d221",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d222",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d223",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d224",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d225",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d226",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d227",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d228",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d229",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d230",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d231",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d232",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d233",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d234",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d235",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d236",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d237",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d238",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d239",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d240",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d241",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d242",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d243",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d244",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d245",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d246",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d247",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d248",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d249",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d250",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d251",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d252",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d253",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d254",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d255",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "s106",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s107",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s108",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s109",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s110",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s111",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s112",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d256",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d257",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d258",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d259",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d260",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d261",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d262",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d263",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d264",
-        "blindRoute": "card-coupled"
+        "sourceId": "d303",
+        "blindRoute": "card-coupled",
+        "why": "粒子数量颜色及时间驱动公式配置。"
       },
       {
         "sourceId": "d265",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d266",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d267",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d268",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d269",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d270",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d271",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d272",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d273",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d274",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d275",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d276",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d277",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d278",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d279",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d280",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d281",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d282",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d283",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d284",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d285",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d286",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d287",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d288",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s113",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s114",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s115",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s116",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d289",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d290",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d291",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d292",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d293",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d294",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s117",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s118",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s119",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s120",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s121",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s122",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d295",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d296",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d297",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d298",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d299",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d300",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d301",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d302",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s123",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s124",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s125",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s126",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s127",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d303",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d304",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d305",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d306",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d307",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d308",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d309",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d310",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s128",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s129",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s130",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s131",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d311",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d312",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d313",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d314",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d315",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d316",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d317",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s132",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s133",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d318",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d319",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s134",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s135",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d320",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d321",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s136",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s137",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s138",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s139",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s140",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s141",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s142",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "s143",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s144",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s145",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "s146",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d322",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d323",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d324",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d325",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d326",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d327",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "d328",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d329",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d330",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d331",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s147",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s148",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s149",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s150",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s151",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s152",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d332",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d333",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d334",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d335",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d336",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d337",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d338",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d339",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d340",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d341",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s153",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s154",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s155",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s156",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s157",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s158",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s159",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s160",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d342",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d343",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d344",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d345",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d346",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d347",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d348",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d349",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d350",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d351",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d352",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d353",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d354",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d355",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d356",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d357",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d358",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d359",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d360",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d361",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d362",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d363",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d364",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d365",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d366",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d367",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d368",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d369",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d370",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d371",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d372",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d373",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s161",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s162",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s163",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d374",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d375",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d376",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d377",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d378",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d379",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s164",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s165",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s166",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s167",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s168",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s169",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d380",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d381",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d382",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d383",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d384",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d385",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d386",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d387",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d388",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d389",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d390",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d391",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s170",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s171",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s172",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s173",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s174",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d392",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d393",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d394",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d395",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d396",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d397",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d398",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d399",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d400",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d401",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d402",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d403",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d404",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d405",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d406",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d407",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d408",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d409",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d410",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d411",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d412",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "s175",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s176",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s177",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s178",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s179",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d413",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d414",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d415",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d416",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d417",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d418",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d419",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d420",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d421",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d422",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d423",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d424",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s180",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "s181",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "s182",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s183",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s184",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "s185",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "s186",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s187",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s188",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d425",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d426",
-        "blindRoute": "practice"
+        "blindRoute": "card-coupled",
+        "why": "地面雾密度采样与衰减的实现常量。"
       },
       {
         "sourceId": "d427",
-        "blindRoute": "portable"
+        "blindRoute": "portable",
+        "why": "实测剪辑镜头数切点与节拍时长报告。"
       },
       {
-        "sourceId": "d428",
-        "blindRoute": "practice"
+        "sourceId": "d010",
+        "blindRoute": "card-coupled",
+        "why": "特定实现的主光方向及投影分离配置。"
       },
       {
-        "sourceId": "d429",
-        "blindRoute": "portable"
+        "sourceId": "d389",
+        "blindRoute": "card-coupled",
+        "why": "相机手感层各弹簧冲量及幅度常量表。"
       },
       {
-        "sourceId": "d430",
-        "blindRoute": "portable"
+        "sourceId": "d279",
+        "blindRoute": "card-coupled",
+        "why": "雾面片透明度形状颜色的着色公式。"
       },
       {
-        "sourceId": "d431",
-        "blindRoute": "practice"
+        "sourceId": "d342",
+        "blindRoute": "skipped-or-conflict",
+        "why": "仅有实例相机位置关键帧坐标表。"
       },
       {
-        "sourceId": "d432",
-        "blindRoute": "portable"
+        "sourceId": "d133",
+        "blindRoute": "card-coupled",
+        "why": "分镜灯组权重与点亮功率的配套配置。"
       },
       {
-        "sourceId": "d433",
-        "blindRoute": "practice"
+        "sourceId": "d375",
+        "blindRoute": "card-coupled",
+        "why": "注视采样权重及颈头转动公式。"
       },
       {
-        "sourceId": "d434",
-        "blindRoute": "portable"
+        "sourceId": "d293",
+        "blindRoute": "card-coupled",
+        "why": "径向光束步进衰减及强度公式配置。"
       },
       {
-        "sourceId": "d435",
-        "blindRoute": "card-coupled"
+        "sourceId": "d121",
+        "blindRoute": "card-coupled",
+        "why": "单盏棚灯的位置尺寸功率配套配置。"
       },
       {
-        "sourceId": "d436",
-        "blindRoute": "practice"
+        "sourceId": "d175",
+        "blindRoute": "card-coupled",
+        "why": "夜间各材质自发光强度的实现公式。"
       },
       {
-        "sourceId": "d437",
-        "blindRoute": "practice"
+        "sourceId": "d074",
+        "blindRoute": "card-coupled",
+        "why": "场景灯带类型尺寸与挂装配置。"
       },
       {
-        "sourceId": "d438",
-        "blindRoute": "practice"
+        "sourceId": "d100",
+        "blindRoute": "practice",
+        "why": "用柔光反射塑造深色金属的布光做法。"
       },
       {
-        "sourceId": "d439",
-        "blindRoute": "card-coupled"
+        "sourceId": "d061",
+        "blindRoute": "skipped-or-conflict",
+        "why": "参数缺项和需重调的说明无具体做法。"
       },
       {
-        "sourceId": "d440",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d441",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d442",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d443",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d444",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d445",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d446",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d447",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d448",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d449",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d450",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s189",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s190",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "s191",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s192",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s193",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "s194",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d451",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d452",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d453",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d454",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d455",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d456",
-        "blindRoute": "skipped-or-conflict"
-      },
-      {
-        "sourceId": "d457",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d458",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d459",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d460",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s195",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s196",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s197",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s198",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "d461",
-        "blindRoute": "practice"
+        "sourceId": "d192",
+        "blindRoute": "practice",
+        "why": "压暗草地背景以突出角色的布光做法。"
       },
       {
         "sourceId": "d462",
-        "blindRoute": "practice"
+        "blindRoute": "practice",
+        "why": "将运动模糊采样钳在当前镜头内的修法。"
       },
       {
-        "sourceId": "d463",
-        "blindRoute": "practice"
+        "sourceId": "d086",
+        "blindRoute": "card-coupled",
+        "why": "天气状态切换及贴图更换的实现配置。"
       },
       {
-        "sourceId": "d464",
-        "blindRoute": "practice"
+        "sourceId": "d354",
+        "blindRoute": "skipped-or-conflict",
+        "why": "参数适用范围及来源说明无具体可学内容。"
       },
       {
-        "sourceId": "d465",
-        "blindRoute": "practice"
+        "sourceId": "d045",
+        "blindRoute": "card-coupled",
+        "why": "不同天气的阴影柔和度与浓度常量表。"
       },
       {
-        "sourceId": "d466",
-        "blindRoute": "practice"
+        "sourceId": "d440",
+        "blindRoute": "portable",
+        "why": "可独立理解的环绕机位构图及拍摄规格。"
       },
       {
-        "sourceId": "s199",
-        "blindRoute": "practice"
+        "sourceId": "d235",
+        "blindRoute": "card-coupled",
+        "why": "云噪声烘焙通道与函数权重配置。"
       },
       {
-        "sourceId": "s200",
-        "blindRoute": "portable"
+        "sourceId": "d240",
+        "blindRoute": "card-coupled",
+        "why": "云海网格贴图编码与形状生成公式。"
       },
       {
-        "sourceId": "s201",
-        "blindRoute": "card-coupled"
+        "sourceId": "d224",
+        "blindRoute": "card-coupled",
+        "why": "风暴裂口闪电的形状与配色公式配置。"
       },
       {
-        "sourceId": "s202",
-        "blindRoute": "portable"
+        "sourceId": "d161",
+        "blindRoute": "card-coupled",
+        "why": "树冠近景洞形与光照的专用着色公式。"
       },
       {
-        "sourceId": "d467",
-        "blindRoute": "portable"
+        "sourceId": "d102",
+        "blindRoute": "practice",
+        "why": "让灯只参与反射并固定世界位置的做法。"
       },
       {
-        "sourceId": "d468",
-        "blindRoute": "practice"
+        "sourceId": "d111",
+        "blindRoute": "card-coupled",
+        "why": "单盏补灯的位置尺寸功率成组配置。"
       },
       {
-        "sourceId": "d469",
-        "blindRoute": "portable"
+        "sourceId": "d390",
+        "blindRoute": "card-coupled",
+        "why": "相机冲量换算及各通道限幅配置。"
+      },
+      {
+        "sourceId": "d062",
+        "blindRoute": "card-coupled",
+        "why": "灯位强度及假点光着色公式的配套配置。"
+      },
+      {
+        "sourceId": "d372",
+        "blindRoute": "portable",
+        "why": "可独立理解的焦距距离机位角及取景尺度。"
+      },
+      {
+        "sourceId": "d426",
+        "blindRoute": "portable",
+        "why": "环绕摄影的机位与成片时长帧数规格。"
+      },
+      {
+        "sourceId": "d197",
+        "blindRoute": "practice",
+        "why": "以内部发光和动机衰减塑造照明的做法。"
+      },
+      {
+        "sourceId": "d344",
+        "blindRoute": "card-coupled",
+        "why": "单镜头焦距及光圈的逐帧关键配置。"
       },
       {
         "sourceId": "d470",
-        "blindRoute": "card-coupled"
+        "blindRoute": "portable",
+        "why": "主体为实测运镜触发时间及公式误差报告。"
       },
       {
-        "sourceId": "d471",
-        "blindRoute": "portable"
-      },
-      {
-        "sourceId": "d472",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "s203",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s204",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s205",
-        "blindRoute": "practice"
-      },
-      {
-        "sourceId": "s206",
-        "blindRoute": "card-coupled"
-      },
-      {
-        "sourceId": "d473",
-        "blindRoute": "practice"
+        "sourceId": "d034",
+        "blindRoute": "card-coupled",
+        "why": "缺失大气系统时的配色与主光常量配置。"
       },
       {
         "sourceId": "d474",
-        "blindRoute": "practice"
+        "blindRoute": "portable",
+        "why": "可直接理解的身后跟拍机位距离。"
       },
       {
-        "sourceId": "d475",
-        "blindRoute": "practice"
+        "sourceId": "d249",
+        "blindRoute": "portable",
+        "why": "主体为实际旋转速率与周期的修正报告。"
       },
       {
-        "sourceId": "d476",
-        "blindRoute": "practice"
+        "sourceId": "d070",
+        "blindRoute": "card-coupled",
+        "why": "打击闪光的数量颜色及衰减常量配置。"
       },
       {
-        "sourceId": "d477",
-        "blindRoute": "practice"
+        "sourceId": "d343",
+        "blindRoute": "skipped-or-conflict",
+        "why": "仅有实例相机目标关键帧坐标表。"
       },
       {
-        "sourceId": "d478",
-        "blindRoute": "practice"
+        "sourceId": "d026",
+        "blindRoute": "card-coupled",
+        "why": "反射探针分配对象及更新周期配置。"
       },
       {
-        "sourceId": "d479",
-        "blindRoute": "card-coupled"
+        "sourceId": "d468",
+        "blindRoute": "practice",
+        "why": "缩放平移搜索并设误差门限的量测步骤。"
       },
       {
-        "sourceId": "d480",
-        "blindRoute": "card-coupled"
+        "sourceId": "d212",
+        "blindRoute": "practice",
+        "why": "从参照图取色并逐项对照调色的做法。"
       },
       {
-        "sourceId": "d481",
-        "blindRoute": "practice"
+        "sourceId": "d441",
+        "blindRoute": "portable",
+        "why": "主体为环绕相机角度留白和摄影规格。"
+      },
+      {
+        "sourceId": "d297",
+        "blindRoute": "card-coupled",
+        "why": "阵风事件槽及软物受风的公式配置。"
+      },
+      {
+        "sourceId": "d294",
+        "blindRoute": "practice",
+        "why": "半分辨率步进抖动及深度保边重建做法。"
+      },
+      {
+        "sourceId": "d281",
+        "blindRoute": "card-coupled",
+        "why": "场景雾密度距离裁剪及移动端调度配置。"
+      },
+      {
+        "sourceId": "d193",
+        "blindRoute": "skipped-or-conflict",
+        "why": "主体为特定画面反馈与光照矛盾对账。"
+      },
+      {
+        "sourceId": "d365",
+        "blindRoute": "card-coupled",
+        "why": "相机轨迹附加正弦偏移的实现公式。"
+      },
+      {
+        "sourceId": "d380",
+        "blindRoute": "card-coupled",
+        "why": "手持震动及鼠标微调的专用通道公式。"
+      },
+      {
+        "sourceId": "s046",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为打击闪光的实现常量。"
+      },
+      {
+        "sourceId": "s174",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为越障阈值配置；摘要步进拉近参数未见对应。"
+      },
+      {
+        "sourceId": "s106",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为解析雾的积分与散射公式配置。"
+      },
+      {
+        "sourceId": "s146",
+        "blindRoute": "practice",
+        "why": "附带明细主体为按动作选择镜头和手持方式的做法。"
+      },
+      {
+        "sourceId": "s156",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为特定镜头的焦距光圈及路径配置。"
+      },
+      {
+        "sourceId": "s161",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为场景注视权重配置；摘要可变窗口未见对应。"
+      },
+      {
+        "sourceId": "s128",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为特定场景的大气与雾盒参数配置。"
+      },
+      {
+        "sourceId": "s013",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为太阳及阴影参数；摘要挖太阳未见对应。"
+      },
+      {
+        "sourceId": "s103",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为云海生成实现；摘要步进及层高未见对应。"
+      },
+      {
+        "sourceId": "s004",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为太阳配置；摘要环境补光等并无对应明细。"
+      },
+      {
+        "sourceId": "s084",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为弹光贴图编码及采样公式。"
+      },
+      {
+        "sourceId": "s067",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为六盏棚灯的成组位置功率配置。"
+      },
+      {
+        "sourceId": "s203",
+        "blindRoute": "practice",
+        "why": "附带明细为运镜表达及模糊叠层的做法清单。"
+      },
+      {
+        "sourceId": "s200",
+        "blindRoute": "portable",
+        "why": "附带明细为成片缩放平移与速率量测报告。"
+      },
+      {
+        "sourceId": "s039",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为灯光配套配置；摘要另加特效灯无对应。"
+      },
+      {
+        "sourceId": "s061",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为天气太阳配置；摘要环境强度无对应。"
+      },
+      {
+        "sourceId": "s019",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为半球光配色公式；摘要环境常量无对应。"
+      },
+      {
+        "sourceId": "s164",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为手持震动的通道公式。"
+      },
+      {
+        "sourceId": "s169",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为打击事件顿帧与模拟倍率配置。"
+      },
+      {
+        "sourceId": "s173",
+        "blindRoute": "card-coupled",
+        "why": "附带明细为锁定取景公式；摘要距离及加宽未见对应。"
+      },
+      {
+        "sourceId": "s183",
+        "blindRoute": "practice",
+        "why": "附带明细主体为近镜头安全做法；摘要焦段无对应。"
       }
-    ]
+    ],
+    "disagreements": [
+      "d010",
+      "d342",
+      "d474",
+      "d343",
+      "s146",
+      "s156",
+      "s183"
+    ],
+    "disagreementRate": 0.1,
+    "seedRef": "a6a83be:E3-C11"
   },
   "conflicts": [],
   "excluded": [
@@ -7263,7 +7938,7 @@
       "sourceId": "d061",
       "section": "1.6",
       "caseId": "ext-01",
-      "title": "本组没有场景主光、环境光、曝光、色调映射、阴影分辨率的数值（在 01/02 章，不在本组）。能用的只有：",
+      "title": "本组没有场景主光、环境光、曝光、色调映射、阴影分辨率的数值（在 原文章节，不在本组）。能用的只有：",
       "reason": "合并记录、编排说明、指路或待核问题：只说数值不在本组并提示重调，无可学内容",
       "evidenceLabel": "清单未列",
       "docRef": "光照天空大气与相机汇编 第 1.6 节 d061；出处类别：推断与说明·点光与动态灯"
@@ -7393,6 +8068,16 @@
       "reason": "没有数值也没有步骤的概述：仅罗列案例开启的画面效果名词清单，无参数、判据或实现步骤",
       "evidenceLabel": "原文陈述",
       "docRef": "光照天空大气与相机汇编 第 1.14 节 d191；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
+      "sourceId": "d193",
+      "section": "1.14",
+      "caseId": "case-04",
+      "title": "光照用户纠错语句",
+      "reason": "单个画面的美术反馈与截图索引，只记录所见亮度、方向矛盾和期望效果，没有记录实际修改的灯光设置、排查顺序或验证结果。",
+      "evidenceLabel": "原文陈述",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d193；出处类别：原文陈述·逐案例光方案与提示词里的光照写法",
+      "text": "「背景太亮、树在发光,把整体亮度调低、角色除外」「太阳在右上、光感却像来自左下」「站角色旁阴影像日落,远处像正午」「草再暗、亮处植被再暗」—— 逐条+截图"
     },
     {
       "sourceId": "d201",
@@ -7660,10 +8345,9 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-22",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d014",
       "link": "gist",
-      "target": "light.case-scheme",
       "targets": []
     },
     {
@@ -7759,13 +8443,12 @@
       "recordKind": "summary",
       "section": "1.2",
       "caseId": "case-22",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d014",
       "alsoSummarizes": [
         "d450"
       ],
       "link": "values",
-      "target": "light.case-scheme",
       "targets": []
     },
     {
@@ -7774,11 +8457,15 @@
       "recordKind": "summary",
       "section": "1.2",
       "caseId": "case-26",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d011",
       "link": "values",
-      "target": "light.case-scheme",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s015"
+      ],
+      "detailRefs": [
+        "light-cam.d011.sun-elevation"
+      ]
     },
     {
       "sourceLine": 123,
@@ -7786,11 +8473,15 @@
       "recordKind": "summary",
       "section": "1.2",
       "caseId": "case-21",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d012",
       "link": "values",
-      "target": "light.case-scheme",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s016"
+      ],
+      "detailRefs": [
+        "light-cam.d012.sun-elevation"
+      ]
     },
     {
       "sourceLine": 124,
@@ -7880,10 +8571,9 @@
       "recordKind": "detail",
       "section": "1.2",
       "caseId": "case-10",
-      "route": "card-coupled",
-      "target": "light.hdri-sun",
+      "route": "practice",
       "targets": [
-        "light-cam.d007.card"
+        "light-cam.d007.practice"
       ]
     },
     {
@@ -7927,10 +8617,9 @@
       "recordKind": "detail",
       "section": "1.2",
       "caseId": "case-26",
-      "route": "card-coupled",
-      "target": "light.case-scheme",
+      "route": "portable",
       "targets": [
-        "light-cam.d011.card"
+        "light-cam.d011.sun-elevation"
       ]
     },
     {
@@ -7939,10 +8628,9 @@
       "recordKind": "detail",
       "section": "1.2",
       "caseId": "case-21",
-      "route": "card-coupled",
-      "target": "light.case-scheme",
+      "route": "portable",
       "targets": [
-        "light-cam.d012.card"
+        "light-cam.d012.sun-elevation"
       ]
     },
     {
@@ -7963,10 +8651,9 @@
       "recordKind": "detail",
       "section": "1.2",
       "caseId": "case-22",
-      "route": "card-coupled",
-      "target": "light.case-scheme",
+      "route": "practice",
       "targets": [
-        "light-cam.d014.card"
+        "light-cam.d014.practice"
       ]
     },
     {
@@ -7975,10 +8662,9 @@
       "recordKind": "detail",
       "section": "1.2",
       "caseId": "case-10",
-      "route": "card-coupled",
-      "target": "light.hdri-sun",
+      "route": "practice",
       "targets": [
-        "light-cam.d015.card"
+        "light-cam.d015.practice"
       ]
     },
     {
@@ -10998,11 +11684,16 @@
       "recordKind": "summary",
       "section": "1.14",
       "caseId": "ext-04",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d199",
       "link": "values",
-      "target": "light.case-scheme",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s094"
+      ],
+      "detailRefs": [
+        "light-cam.d199.key-color-temperature",
+        "light-cam.d199.shade-color-temperature"
+      ]
     },
     {
       "sourceLine": 967,
@@ -11059,10 +11750,8 @@
       "recordKind": "detail",
       "section": "1.14",
       "caseId": "case-04",
-      "route": "practice",
-      "targets": [
-        "light-cam.d193.practice"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceLine": 992,
@@ -11070,9 +11759,9 @@
       "recordKind": "detail",
       "section": "1.14",
       "caseId": "ext-03",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "light-cam.d194.practice"
+        "light-cam.d194.shutter-angle"
       ]
     },
     {
@@ -11126,10 +11815,10 @@
       "recordKind": "detail",
       "section": "1.14",
       "caseId": "ext-04",
-      "route": "card-coupled",
-      "target": "light.case-scheme",
+      "route": "portable",
       "targets": [
-        "light-cam.d199.card"
+        "light-cam.d199.key-color-temperature",
+        "light-cam.d199.shade-color-temperature"
       ]
     },
     {
@@ -11862,10 +12551,10 @@
       "recordKind": "detail",
       "section": "2.2",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "sky.cloud-toon",
+      "route": "portable",
       "targets": [
-        "light-cam.d249.card"
+        "light-cam.d249.cloud-ring-angular-speed",
+        "light-cam.d249.cloud-ring-period"
       ]
     },
     {
@@ -12469,10 +13158,9 @@
       "recordKind": "summary",
       "section": "2.4",
       "caseId": "case-10",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d294",
       "link": "values",
-      "target": "post.volumetric",
       "targets": []
     },
     {
@@ -12541,10 +13229,9 @@
       "recordKind": "detail",
       "section": "2.4",
       "caseId": "case-10",
-      "route": "card-coupled",
-      "target": "post.volumetric",
+      "route": "practice",
       "targets": [
-        "light-cam.d294.card"
+        "light-cam.d294.practice"
       ]
     },
     {
@@ -12897,14 +13584,18 @@
       "recordKind": "summary",
       "section": "2.7",
       "caseId": "case-26",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d316",
       "alsoSummarizes": [
         "d011"
       ],
       "link": "values",
-      "target": "sky.dome",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s129"
+      ],
+      "detailRefs": [
+        "light-cam.d316.sun-elevation"
+      ]
     },
     {
       "sourceLine": 1470,
@@ -12987,10 +13678,9 @@
       "recordKind": "detail",
       "section": "2.7",
       "caseId": "case-26",
-      "route": "card-coupled",
-      "target": "sky.dome",
+      "route": "portable",
       "targets": [
-        "light-cam.d316.card"
+        "light-cam.d316.sun-elevation"
       ]
     },
     {
@@ -13026,10 +13716,9 @@
       "recordKind": "summary",
       "section": "2.8",
       "caseId": "case-02",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d318",
       "link": "values",
-      "target": "light.presets",
       "targets": []
     },
     {
@@ -13038,10 +13727,9 @@
       "recordKind": "detail",
       "section": "2.8",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "target": "light.presets",
+      "route": "practice",
       "targets": [
-        "light-cam.d318.card"
+        "light-cam.d318.practice"
       ]
     },
     {
@@ -13105,11 +13793,15 @@
       "recordKind": "summary",
       "section": "3.1",
       "caseId": "ext-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d322",
       "link": "values",
-      "target": "camera.lens",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s136"
+      ],
+      "detailRefs": [
+        "light-cam.d322.fov-range"
+      ]
     },
     {
       "sourceLine": 1581,
@@ -13117,11 +13809,20 @@
       "recordKind": "summary",
       "section": "3.1",
       "caseId": "case-02",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d323",
       "link": "values",
-      "target": "camera.lens",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s137"
+      ],
+      "detailRefs": [
+        "light-cam.d323.cruise-fov",
+        "light-cam.d323.high-speed-fov",
+        "light-cam.d323.hover-fov",
+        "light-cam.d323.third-person-hover-fov",
+        "light-cam.d323.rider-fov-range",
+        "light-cam.d323.photo-mode-fov"
+      ]
     },
     {
       "sourceLine": 1582,
@@ -13129,14 +13830,19 @@
       "recordKind": "summary",
       "section": "3.1",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d329",
       "alsoSummarizes": [
         "d416"
       ],
       "link": "values",
-      "target": "camera.lens",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s138"
+      ],
+      "detailRefs": [
+        "light-cam.d329.base-vertical-fov",
+        "light-cam.d329.aim-fov"
+      ]
     },
     {
       "sourceLine": 1583,
@@ -13144,11 +13850,15 @@
       "recordKind": "summary",
       "section": "3.1",
       "caseId": "case-10",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d328",
       "link": "values",
-      "target": "camera.lens",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s139"
+      ],
+      "detailRefs": [
+        "light-cam.d328.field-of-view"
+      ]
     },
     {
       "sourceLine": 1584,
@@ -13156,11 +13866,15 @@
       "recordKind": "summary",
       "section": "3.1",
       "caseId": "case-08",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d331",
       "link": "values",
-      "target": "camera.lens",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s140"
+      ],
+      "detailRefs": [
+        "light-cam.d331.horizontal-fov"
+      ]
     },
     {
       "sourceLine": 1585,
@@ -13190,6 +13904,10 @@
       "link": "values",
       "targets": [
         "light-cam.sum.s142"
+      ],
+      "detailRefs": [
+        "light-cam.d327.travel-focal-length",
+        "light-cam.d327.portrait-focal-length"
       ]
     },
     {
@@ -13198,15 +13916,19 @@
       "recordKind": "summary",
       "section": "3.1",
       "caseId": "case-03",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d372",
       "alsoSummarizes": [
         "d371",
         "d373"
       ],
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s143"
+      ],
+      "detailRefs": [
+        "light-cam.d372.focal-length"
+      ]
     },
     {
       "sourceLine": 1588,
@@ -13214,11 +13936,16 @@
       "recordKind": "summary",
       "section": "3.1",
       "caseId": "case-22",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d450",
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s144"
+      ],
+      "detailRefs": [
+        "light-cam.d450.focal-length",
+        "light-cam.d450.focal-length-tele"
+      ]
     },
     {
       "sourceLine": 1589,
@@ -13234,6 +13961,11 @@
       "link": "values",
       "targets": [
         "light-cam.sum.s145"
+      ],
+      "detailRefs": [
+        "light-cam.d430.wide-focal-length",
+        "light-cam.d430.close-focal-length",
+        "light-cam.d430.pan-focal-length"
       ]
     },
     {
@@ -13242,11 +13974,18 @@
       "recordKind": "summary",
       "section": "3.1",
       "caseId": "ext-02",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d481",
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s146"
+      ],
+      "detailRefs": [
+        "light-cam.d481.fov-wide",
+        "light-cam.d481.fov-close-follow",
+        "light-cam.d481.fov-upper-body",
+        "light-cam.d481.fov-tele"
+      ]
     },
     {
       "sourceLine": 1600,
@@ -13254,10 +13993,11 @@
       "recordKind": "detail",
       "section": "3.1",
       "caseId": "ext-01",
-      "route": "card-coupled",
-      "target": "camera.lens",
+      "route": "portable",
       "targets": [
-        "light-cam.d322.card"
+        "light-cam.d322.fov-range",
+        "light-cam.d322.camera-height",
+        "light-cam.d322.loop-endpoint-fov"
       ]
     },
     {
@@ -13266,10 +14006,14 @@
       "recordKind": "detail",
       "section": "3.1",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "target": "camera.lens",
+      "route": "portable",
       "targets": [
-        "light-cam.d323.card"
+        "light-cam.d323.cruise-fov",
+        "light-cam.d323.high-speed-fov",
+        "light-cam.d323.hover-fov",
+        "light-cam.d323.third-person-hover-fov",
+        "light-cam.d323.rider-fov-range",
+        "light-cam.d323.photo-mode-fov"
       ]
     },
     {
@@ -13290,10 +14034,9 @@
       "recordKind": "detail",
       "section": "3.1",
       "caseId": "case-01",
-      "route": "card-coupled",
-      "target": "camera.lens",
+      "route": "practice",
       "targets": [
-        "light-cam.d325.card"
+        "light-cam.d325.practice"
       ]
     },
     {
@@ -13324,10 +14067,9 @@
       "recordKind": "detail",
       "section": "3.1",
       "caseId": "case-10",
-      "route": "card-coupled",
-      "target": "camera.lens",
+      "route": "portable",
       "targets": [
-        "light-cam.d328.card"
+        "light-cam.d328.field-of-view"
       ]
     },
     {
@@ -13336,10 +14078,10 @@
       "recordKind": "detail",
       "section": "3.1",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "camera.lens",
+      "route": "portable",
       "targets": [
-        "light-cam.d329.card"
+        "light-cam.d329.base-vertical-fov",
+        "light-cam.d329.aim-fov"
       ]
     },
     {
@@ -13348,10 +14090,9 @@
       "recordKind": "detail",
       "section": "3.1",
       "caseId": "ext-01",
-      "route": "card-coupled",
-      "target": "camera.lens",
+      "route": "practice",
       "targets": [
-        "light-cam.d330.card"
+        "light-cam.d330.practice"
       ]
     },
     {
@@ -13360,10 +14101,9 @@
       "recordKind": "detail",
       "section": "3.1",
       "caseId": "case-08",
-      "route": "card-coupled",
-      "target": "camera.lens",
+      "route": "portable",
       "targets": [
-        "light-cam.d331.card"
+        "light-cam.d331.horizontal-fov"
       ]
     },
     {
@@ -13372,10 +14112,9 @@
       "recordKind": "summary",
       "section": "3.2",
       "caseId": "case-01",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d335",
       "link": "values",
-      "target": "camera.spline",
       "targets": []
     },
     {
@@ -13384,10 +14123,9 @@
       "recordKind": "summary",
       "section": "3.2",
       "caseId": "ext-01",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d340",
       "link": "gist",
-      "target": "camera.spline",
       "targets": []
     },
     {
@@ -13458,10 +14196,9 @@
       "recordKind": "detail",
       "section": "3.2",
       "caseId": "case-01",
-      "route": "card-coupled",
-      "target": "camera.spline",
+      "route": "practice",
       "targets": [
-        "light-cam.d333.card"
+        "light-cam.d333.practice"
       ]
     },
     {
@@ -13470,10 +14207,9 @@
       "recordKind": "detail",
       "section": "3.2",
       "caseId": "case-01",
-      "route": "card-coupled",
-      "target": "camera.spline",
+      "route": "practice",
       "targets": [
-        "light-cam.d334.card"
+        "light-cam.d334.practice"
       ]
     },
     {
@@ -13482,10 +14218,9 @@
       "recordKind": "detail",
       "section": "3.2",
       "caseId": "case-01",
-      "route": "card-coupled",
-      "target": "camera.spline",
+      "route": "practice",
       "targets": [
-        "light-cam.d335.card"
+        "light-cam.d335.practice"
       ]
     },
     {
@@ -13494,10 +14229,9 @@
       "recordKind": "detail",
       "section": "3.2",
       "caseId": "case-01",
-      "route": "card-coupled",
-      "target": "camera.spline",
+      "route": "practice",
       "targets": [
-        "light-cam.d336.card"
+        "light-cam.d336.practice"
       ]
     },
     {
@@ -13506,10 +14240,9 @@
       "recordKind": "detail",
       "section": "3.2",
       "caseId": "case-01",
-      "route": "card-coupled",
-      "target": "camera.spline",
+      "route": "practice",
       "targets": [
-        "light-cam.d337.card"
+        "light-cam.d337.practice"
       ]
     },
     {
@@ -13539,10 +14272,9 @@
       "recordKind": "detail",
       "section": "3.2",
       "caseId": "ext-01",
-      "route": "card-coupled",
-      "target": "camera.spline",
+      "route": "practice",
       "targets": [
-        "light-cam.d340.card"
+        "light-cam.d340.practice"
       ]
     },
     {
@@ -13563,11 +14295,18 @@
       "recordKind": "summary",
       "section": "3.3",
       "caseId": "case-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d366",
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s153"
+      ],
+      "detailRefs": [
+        "light-cam.d366.focal-length-start",
+        "light-cam.d366.focal-length-second",
+        "light-cam.d366.focal-length-third",
+        "light-cam.d366.focal-length-end"
+      ]
     },
     {
       "sourceLine": 1723,
@@ -13575,11 +14314,18 @@
       "recordKind": "summary",
       "section": "3.3",
       "caseId": "case-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d367",
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s154"
+      ],
+      "detailRefs": [
+        "light-cam.d367.focal-length-start",
+        "light-cam.d367.focal-length-return",
+        "light-cam.d367.focal-length-third",
+        "light-cam.d367.focal-length-peak"
+      ]
     },
     {
       "sourceLine": 1724,
@@ -13587,11 +14333,18 @@
       "recordKind": "summary",
       "section": "3.3",
       "caseId": "case-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d368",
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s155"
+      ],
+      "detailRefs": [
+        "light-cam.d368.focal-length-start",
+        "light-cam.d368.focal-length-second",
+        "light-cam.d368.focal-length-return",
+        "light-cam.d368.focal-length-peak"
+      ]
     },
     {
       "sourceLine": 1725,
@@ -13599,11 +14352,16 @@
       "recordKind": "summary",
       "section": "3.3",
       "caseId": "case-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d369",
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s156"
+      ],
+      "detailRefs": [
+        "light-cam.d369.focal-length-start",
+        "light-cam.d369.focal-length-end"
+      ]
     },
     {
       "sourceLine": 1726,
@@ -13611,7 +14369,7 @@
       "recordKind": "summary",
       "section": "3.3",
       "caseId": "ext-01",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d322",
       "alsoSummarizes": [
         "d358",
@@ -13619,8 +14377,12 @@
         "d374"
       ],
       "link": "values",
-      "target": "camera.lens",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s157"
+      ],
+      "detailRefs": [
+        "light-cam.d322.fov-range"
+      ]
     },
     {
       "sourceLine": 1727,
@@ -13628,11 +14390,15 @@
       "recordKind": "summary",
       "section": "3.3",
       "caseId": "case-03",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d371",
       "link": "values",
-      "target": "camera.orbit",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s158"
+      ],
+      "detailRefs": [
+        "light-cam.d371.focal-length"
+      ]
     },
     {
       "sourceLine": 1728,
@@ -13640,11 +14406,15 @@
       "recordKind": "summary",
       "section": "3.3",
       "caseId": "case-03",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d373",
       "link": "values",
-      "target": "camera.orbit",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s159"
+      ],
+      "detailRefs": [
+        "light-cam.d373.focal-length"
+      ]
     },
     {
       "sourceLine": 1729,
@@ -13652,11 +14422,17 @@
       "recordKind": "summary",
       "section": "3.3",
       "caseId": "case-03",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d372",
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s160"
+      ],
+      "detailRefs": [
+        "light-cam.d372.right-view-azimuth",
+        "light-cam.d372.hero-view-azimuth",
+        "light-cam.d372.rear-view-azimuth"
+      ]
     },
     {
       "sourceLine": 1740,
@@ -13942,10 +14718,12 @@
       "recordKind": "detail",
       "section": "3.3",
       "caseId": "case-01",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "portable",
       "targets": [
-        "light-cam.d366.card"
+        "light-cam.d366.focal-length-start",
+        "light-cam.d366.focal-length-second",
+        "light-cam.d366.focal-length-third",
+        "light-cam.d366.focal-length-end"
       ]
     },
     {
@@ -13954,10 +14732,12 @@
       "recordKind": "detail",
       "section": "3.3",
       "caseId": "case-01",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "portable",
       "targets": [
-        "light-cam.d367.card"
+        "light-cam.d367.focal-length-start",
+        "light-cam.d367.focal-length-return",
+        "light-cam.d367.focal-length-third",
+        "light-cam.d367.focal-length-peak"
       ]
     },
     {
@@ -13966,10 +14746,13 @@
       "recordKind": "detail",
       "section": "3.3",
       "caseId": "case-01",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "portable",
       "targets": [
-        "light-cam.d368.card"
+        "light-cam.d368.focal-length-start",
+        "light-cam.d368.focal-length-second",
+        "light-cam.d368.focal-length-return",
+        "light-cam.d368.focal-length-peak",
+        "light-cam.d368.shutter-fraction"
       ]
     },
     {
@@ -13978,10 +14761,10 @@
       "recordKind": "detail",
       "section": "3.3",
       "caseId": "case-01",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "portable",
       "targets": [
-        "light-cam.d369.card"
+        "light-cam.d369.focal-length-start",
+        "light-cam.d369.focal-length-end"
       ]
     },
     {
@@ -14002,10 +14785,14 @@
       "recordKind": "detail",
       "section": "3.3",
       "caseId": "case-03",
-      "route": "card-coupled",
-      "target": "camera.orbit",
+      "route": "portable",
       "targets": [
-        "light-cam.d371.card"
+        "light-cam.d371.focal-length",
+        "light-cam.d371.hero-azimuth",
+        "light-cam.d371.hero-elevation",
+        "light-cam.d371.side-azimuth",
+        "light-cam.d371.rear-azimuth",
+        "light-cam.d371.top-elevation"
       ]
     },
     {
@@ -14014,10 +14801,17 @@
       "recordKind": "detail",
       "section": "3.3",
       "caseId": "case-03",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "portable",
       "targets": [
-        "light-cam.d372.card"
+        "light-cam.d372.focal-length",
+        "light-cam.d372.camera-distance",
+        "light-cam.d372.camera-elevation",
+        "light-cam.d372.right-view-azimuth",
+        "light-cam.d372.right-view-elevation",
+        "light-cam.d372.hero-view-azimuth",
+        "light-cam.d372.hero-view-elevation",
+        "light-cam.d372.rear-view-azimuth",
+        "light-cam.d372.rear-view-elevation"
       ]
     },
     {
@@ -14026,10 +14820,14 @@
       "recordKind": "detail",
       "section": "3.3",
       "caseId": "case-03",
-      "route": "card-coupled",
-      "target": "camera.orbit",
+      "route": "portable",
       "targets": [
-        "light-cam.d373.card"
+        "light-cam.d373.focal-length",
+        "light-cam.d373.start-azimuth",
+        "light-cam.d373.mid-azimuth",
+        "light-cam.d373.end-azimuth",
+        "light-cam.d373.start-distance-ratio",
+        "light-cam.d373.end-distance-ratio"
       ]
     },
     {
@@ -14139,10 +14937,9 @@
       "recordKind": "detail",
       "section": "3.4",
       "caseId": "ext-01",
-      "route": "card-coupled",
-      "target": "camera.relative",
+      "route": "practice",
       "targets": [
-        "light-cam.d379.card"
+        "light-cam.d379.practice"
       ]
     },
     {
@@ -14374,14 +15171,18 @@
       "recordKind": "summary",
       "section": "3.6",
       "caseId": "case-02",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d392",
       "alsoSummarizes": [
         "d393"
       ],
       "link": "values",
-      "target": "camera.relative",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s170"
+      ],
+      "detailRefs": [
+        "light-cam.d392.default-arm-length"
+      ]
     },
     {
       "sourceLine": 1910,
@@ -14444,10 +15245,14 @@
       "recordKind": "detail",
       "section": "3.6",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "target": "camera.relative",
+      "route": "portable",
       "targets": [
-        "light-cam.d392.card"
+        "light-cam.d392.default-arm-length",
+        "light-cam.d392.camera-elevation",
+        "light-cam.d392.near-elevation",
+        "light-cam.d392.far-elevation",
+        "light-cam.d392.view-bias",
+        "light-cam.d392.side-yaw"
       ]
     },
     {
@@ -14902,6 +15707,11 @@
       "link": "values",
       "targets": [
         "light-cam.sum.s180"
+      ],
+      "detailRefs": [
+        "light-cam.d430.wide-focal-length",
+        "light-cam.d430.close-focal-length",
+        "light-cam.d430.pan-focal-length"
       ]
     },
     {
@@ -14918,6 +15728,14 @@
       "link": "values",
       "targets": [
         "light-cam.sum.s181"
+      ],
+      "detailRefs": [
+        "light-cam.d432.shot-one-frames",
+        "light-cam.d432.shot-two-frames",
+        "light-cam.d432.shot-three-frames",
+        "light-cam.d432.shot-four-frames",
+        "light-cam.d432.shot-five-frames",
+        "light-cam.d432.shot-six-frames"
       ]
     },
     {
@@ -14926,11 +15744,16 @@
       "recordKind": "summary",
       "section": "3.8",
       "caseId": "case-22",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d450",
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s182"
+      ],
+      "detailRefs": [
+        "light-cam.d450.focal-length",
+        "light-cam.d450.focal-length-tele"
+      ]
     },
     {
       "sourceLine": 2025,
@@ -14938,10 +15761,20 @@
       "recordKind": "summary",
       "section": "3.8",
       "caseId": "case-05",
-      "route": "practice",
+      "route": "portable",
       "summaryOf": "d461",
       "link": "values",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s183"
+      ],
+      "detailRefs": [
+        "light-cam.d461.frame-count",
+        "light-cam.d461.continuous-shot-frames",
+        "light-cam.d461.portrait-hold-frames"
+      ],
+      "alsoSummarizes": [
+        "d327"
+      ]
     },
     {
       "sourceLine": 2026,
@@ -14954,6 +15787,9 @@
       "link": "values",
       "targets": [
         "light-cam.sum.s184"
+      ],
+      "detailRefs": [
+        "light-cam.d427.shot-count"
       ]
     },
     {
@@ -14970,6 +15806,9 @@
       "link": "values",
       "targets": [
         "light-cam.sum.s185"
+      ],
+      "detailRefs": [
+        "light-cam.d434.shot-count"
       ]
     },
     {
@@ -14978,10 +15817,15 @@
       "recordKind": "summary",
       "section": "3.8",
       "caseId": "case-07",
-      "route": "practice",
+      "route": "portable",
       "summaryOf": "d433",
       "link": "values",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s186"
+      ],
+      "detailRefs": [
+        "light-cam.d433.camera-travel"
+      ]
     },
     {
       "sourceLine": 2029,
@@ -15001,11 +15845,15 @@
       "recordKind": "summary",
       "section": "3.8",
       "caseId": "case-28",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d447",
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s188"
+      ],
+      "detailRefs": [
+        "light-cam.d447.shot-count"
+      ]
     },
     {
       "sourceLine": 2040,
@@ -15025,10 +15873,14 @@
       "recordKind": "detail",
       "section": "3.8",
       "caseId": "case-28",
-      "route": "card-coupled",
-      "target": "camera.orbit",
+      "route": "portable",
       "targets": [
-        "light-cam.d426.card"
+        "light-cam.d426.orbit-duration",
+        "light-cam.d426.frame-rate",
+        "light-cam.d426.frame-count",
+        "light-cam.d426.frame-width",
+        "light-cam.d426.frame-height",
+        "light-cam.d426.level-pitch-roll"
       ]
     },
     {
@@ -15090,10 +15942,9 @@
       "recordKind": "detail",
       "section": "3.8",
       "caseId": "case-14",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "practice",
       "targets": [
-        "light-cam.d431.card"
+        "light-cam.d431.practice"
       ]
     },
     {
@@ -15118,9 +15969,11 @@
       "recordKind": "detail",
       "section": "3.8",
       "caseId": "case-07",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "light-cam.d433.practice"
+        "light-cam.d433.focal-length",
+        "light-cam.d433.f-number",
+        "light-cam.d433.camera-travel"
       ]
     },
     {
@@ -15190,10 +16043,14 @@
       "recordKind": "detail",
       "section": "3.8",
       "caseId": "case-21",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "portable",
       "targets": [
-        "light-cam.d439.card"
+        "light-cam.d439.focal-length-tele",
+        "light-cam.d439.f-number",
+        "light-cam.d439.focus-distance",
+        "light-cam.d439.focal-length-wide",
+        "light-cam.d439.film-duration",
+        "light-cam.d439.frame-rate"
       ]
     },
     {
@@ -15202,10 +16059,11 @@
       "recordKind": "detail",
       "section": "3.8",
       "caseId": "case-28",
-      "route": "card-coupled",
-      "target": "camera.orbit",
+      "route": "portable",
       "targets": [
-        "light-cam.d440.card"
+        "light-cam.d440.orbit-duration",
+        "light-cam.d440.orbit-angle",
+        "light-cam.d440.level-pitch-roll"
       ]
     },
     {
@@ -15214,10 +16072,10 @@
       "recordKind": "detail",
       "section": "3.8",
       "caseId": "case-03",
-      "route": "card-coupled",
-      "target": "camera.orbit",
+      "route": "portable",
       "targets": [
-        "light-cam.d441.card"
+        "light-cam.d441.orbit-angle",
+        "light-cam.d441.level-pitch-roll"
       ]
     },
     {
@@ -15226,10 +16084,13 @@
       "recordKind": "detail",
       "section": "3.8",
       "caseId": "case-14",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "portable",
       "targets": [
-        "light-cam.d442.card"
+        "light-cam.d442.focal-length-master",
+        "light-cam.d442.focal-length-low-shot",
+        "light-cam.d442.f-number",
+        "light-cam.d442.camera-height",
+        "light-cam.d442.focal-length-mirror-shot"
       ]
     },
     {
@@ -15271,10 +16132,12 @@
       "recordKind": "detail",
       "section": "3.8",
       "caseId": "ext-05",
-      "route": "card-coupled",
-      "target": "camera.drift",
+      "route": "portable",
       "targets": [
-        "light-cam.d446.card"
+        "light-cam.d446.shot-duration",
+        "light-cam.d446.focal-length-start",
+        "light-cam.d446.focal-length-end",
+        "light-cam.d446.hold-window"
       ]
     },
     {
@@ -15283,10 +16146,14 @@
       "recordKind": "detail",
       "section": "3.8",
       "caseId": "case-28",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "portable",
       "targets": [
-        "light-cam.d447.card"
+        "light-cam.d447.frame-rate",
+        "light-cam.d447.frame-count",
+        "light-cam.d447.film-duration",
+        "light-cam.d447.focal-length-macro",
+        "light-cam.d447.shot-count",
+        "light-cam.d447.assembly-window"
       ]
     },
     {
@@ -15295,10 +16162,9 @@
       "recordKind": "detail",
       "section": "3.8",
       "caseId": "case-26",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "practice",
       "targets": [
-        "light-cam.d448.card"
+        "light-cam.d448.practice"
       ]
     },
     {
@@ -15318,10 +16184,14 @@
       "recordKind": "detail",
       "section": "3.8",
       "caseId": "case-22",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "portable",
       "targets": [
-        "light-cam.d450.card"
+        "light-cam.d450.focal-length",
+        "light-cam.d450.focal-length-tele",
+        "light-cam.d450.film-duration",
+        "light-cam.d450.frame-count",
+        "light-cam.d450.shutter-angle",
+        "light-cam.d450.aspect-ratio"
       ]
     },
     {
@@ -15330,10 +16200,9 @@
       "recordKind": "summary",
       "section": "3.9",
       "caseId": "case-01",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d325",
       "link": "values",
-      "target": "camera.lens",
       "targets": []
     },
     {
@@ -15350,6 +16219,9 @@
       "link": "values",
       "targets": [
         "light-cam.sum.s190"
+      ],
+      "detailRefs": [
+        "light-cam.d327.shutter-angle"
       ]
     },
     {
@@ -15358,11 +16230,15 @@
       "recordKind": "summary",
       "section": "3.9",
       "caseId": "case-22",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d450",
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s191"
+      ],
+      "detailRefs": [
+        "light-cam.d450.shutter-angle"
+      ]
     },
     {
       "sourceLine": 2134,
@@ -15370,11 +16246,11 @@
       "recordKind": "summary",
       "section": "3.9",
       "caseId": "case-28",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d426",
       "link": "gist",
-      "target": "camera.orbit",
-      "targets": []
+      "targets": [],
+      "detailRefs": []
     },
     {
       "sourceLine": 2135,
@@ -15475,10 +16351,12 @@
       "recordKind": "detail",
       "section": "3.9",
       "caseId": "ext-03",
-      "route": "card-coupled",
-      "target": "camera.lens",
+      "route": "portable",
       "targets": [
-        "light-cam.d458.card"
+        "light-cam.d458.diagonal-fov",
+        "light-cam.d458.frame-rate",
+        "light-cam.d458.film-duration",
+        "light-cam.d458.title-safe-fraction"
       ]
     },
     {
@@ -15487,9 +16365,11 @@
       "recordKind": "detail",
       "section": "3.9",
       "caseId": "ext-04",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "light-cam.d459.practice"
+        "light-cam.d459.focal-length",
+        "light-cam.d459.f-number",
+        "light-cam.d459.film-gauge"
       ]
     },
     {
@@ -15548,10 +16428,9 @@
       "recordKind": "summary",
       "section": "3.10",
       "caseId": "case-01",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d464",
       "link": "gist",
-      "target": "camera.cue-kf",
       "targets": []
     },
     {
@@ -15560,9 +16439,13 @@
       "recordKind": "detail",
       "section": "3.10",
       "caseId": "case-05",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "light-cam.d461.practice"
+        "light-cam.d461.frame-count",
+        "light-cam.d461.continuous-shot-frames",
+        "light-cam.d461.hard-cut-count",
+        "light-cam.d461.hard-cut-frame",
+        "light-cam.d461.portrait-hold-frames"
       ]
     },
     {
@@ -15593,10 +16476,9 @@
       "recordKind": "detail",
       "section": "3.10",
       "caseId": "case-01",
-      "route": "card-coupled",
-      "target": "camera.cue-kf",
+      "route": "practice",
       "targets": [
-        "light-cam.d464.card"
+        "light-cam.d464.practice"
       ]
     },
     {
@@ -15643,6 +16525,12 @@
       "link": "values",
       "targets": [
         "light-cam.sum.s200"
+      ],
+      "detailRefs": [
+        "light-cam.d467.static-scale",
+        "light-cam.d467.first-shot-scale",
+        "light-cam.d467.second-shot-scale",
+        "light-cam.d467.third-shot-scale"
       ]
     },
     {
@@ -15651,11 +16539,16 @@
       "recordKind": "summary",
       "section": "3.11",
       "caseId": "case-18",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d470",
       "link": "values",
-      "target": "camera.cue-kf",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s201"
+      ],
+      "detailRefs": [
+        "light-cam.d470.first-move-onset",
+        "light-cam.d470.second-move-onset"
+      ]
     },
     {
       "sourceLine": 2247,
@@ -15668,6 +16561,11 @@
       "link": "values",
       "targets": [
         "light-cam.sum.s202"
+      ],
+      "detailRefs": [
+        "light-cam.d469.living-room-frames",
+        "light-cam.d469.entrance-frames",
+        "light-cam.d469.corridor-frames"
       ]
     },
     {
@@ -15719,10 +16617,12 @@
       "recordKind": "detail",
       "section": "3.11",
       "caseId": "case-18",
-      "route": "card-coupled",
-      "target": "camera.cue-kf",
+      "route": "portable",
       "targets": [
-        "light-cam.d470.card"
+        "light-cam.d470.first-move-onset",
+        "light-cam.d470.second-move-onset",
+        "light-cam.d470.onset-timing-error",
+        "light-cam.d470.subtitle-lead"
       ]
     },
     {
@@ -15781,11 +16681,18 @@
       "recordKind": "summary",
       "section": "3.12",
       "caseId": "ext-02",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d481",
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s205"
+      ],
+      "detailRefs": [
+        "light-cam.d481.gentle-handheld-tilt",
+        "light-cam.d481.heavy-handheld-tilt",
+        "light-cam.d481.intense-handheld-tilt",
+        "light-cam.d481.locked-camera-tilt"
+      ]
     },
     {
       "sourceLine": 2292,
@@ -15793,11 +16700,19 @@
       "recordKind": "summary",
       "section": "3.12",
       "caseId": "ext-04",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d480",
       "link": "values",
-      "target": "camera.shot-list",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s206"
+      ],
+      "detailRefs": [
+        "light-cam.d480.focal-length-open",
+        "light-cam.d480.focal-length-wide",
+        "light-cam.d480.focal-length-fly",
+        "light-cam.d480.focal-length-ots",
+        "light-cam.d480.focal-length-orbit-end"
+      ]
     },
     {
       "sourceLine": 2301,
@@ -15838,10 +16753,10 @@
       "recordKind": "detail",
       "section": "3.12",
       "caseId": "ext-03",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "portable",
       "targets": [
-        "light-cam.d476.card"
+        "light-cam.d476.focal-length",
+        "light-cam.d476.camera-azimuth"
       ]
     },
     {
@@ -15884,10 +16799,14 @@
       "recordKind": "detail",
       "section": "3.12",
       "caseId": "ext-04",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "portable",
       "targets": [
-        "light-cam.d480.card"
+        "light-cam.d480.focal-length-open",
+        "light-cam.d480.focal-length-wide",
+        "light-cam.d480.focal-length-fly",
+        "light-cam.d480.focal-length-ots",
+        "light-cam.d480.focal-length-orbit-end",
+        "light-cam.d480.orbit-window"
       ]
     },
     {
@@ -15896,10 +16815,20 @@
       "recordKind": "detail",
       "section": "3.12",
       "caseId": "ext-02",
-      "route": "card-coupled",
-      "target": "camera.shot-list",
+      "route": "portable",
       "targets": [
-        "light-cam.d481.card"
+        "light-cam.d481.fov-wide",
+        "light-cam.d481.fov-close-follow",
+        "light-cam.d481.fov-upper-body",
+        "light-cam.d481.fov-tele",
+        "light-cam.d481.focal-length-wide",
+        "light-cam.d481.focal-length-close-follow",
+        "light-cam.d481.focal-length-upper-body",
+        "light-cam.d481.focal-length-tele",
+        "light-cam.d481.gentle-handheld-tilt",
+        "light-cam.d481.heavy-handheld-tilt",
+        "light-cam.d481.intense-handheld-tilt",
+        "light-cam.d481.locked-camera-tilt"
       ]
     }
   ]

@@ -131,7 +131,8 @@ test('汇总行 100% 指回同案例、同去向的真实明细，stats 不重�
     for (const e of sums) {
       const row = byId.get(e.ext['c11.sourceId']);
       assert.deepEqual(row.targets, [e.id]);
-      const mine = new Set(byId.get(row.summaryOf).targets);
+      const mine = new Set([row.summaryOf, ...(row.alsoSummarizes ?? [])].flatMap((id) => byId.get(id).targets));
+      assert.ok(byId.get(row.summaryOf).targets.includes(e.ext['c11.valueFrom']), `${e.id} 主值来自主明细`);
       for (const id of e.summaryOf) {
         assert.ok(mine.has(id) && !isSummary(pById.get(id)), `${e.id} → ${id}`);
         assert.equal(pById.get(id).provenance.caseId, e.provenance.caseId, e.id);
@@ -139,16 +140,20 @@ test('汇总行 100% 指回同案例、同去向的真实明细，stats 不重�
       const from = pById.get(e.ext['c11.valueFrom']);
       assert.ok(e.summaryOf.includes(from.id), e.id);
       assert.deepEqual([e.value, e.unit, e.topic], [from.value, from.unit, from.topic], e.id);
-      // 语义一致：汇总条目与它引用的每条明细先验同案例、同单位；它的值就写在这一行的原文里，不是借来的。
-      for (const id of e.summaryOf) assert.deepEqual([pById.get(id).unit, pById.get(id).provenance.caseId], [e.unit, e.provenance.caseId], `${e.id} → ${id}`);
+      // 语义一致：引用主明细或同案例的并列明细，单位相同，摘要里能找到每个被引用的量。
+      assert.deepEqual(row.detailRefs, e.summaryOf, `${e.id} 总账的明细引用`);
       const rowText = e.provenance.note.replace(/^原证据：[^。]*。/, '');
+      const endpoints = [...rowText.matchAll(/(\d+(?:\.\d+)?)\s*±\s*(\d*\.?\d+)/g)].flatMap(([, mid, delta]) => [Number(mid) - Number(delta), Number(mid) + Number(delta)]);
       const inRow = (rowText.match(/[−-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|[−-]?\.\d+/g) ?? []).map((x) => Math.abs(Number(x.replace('−', '-').replaceAll(',', '').replace(/^(-?)\./, '$10.'))));
-      const vals = e.value !== null && typeof e.value === 'object' && !Array.isArray(e.value) ? Object.values(e.value) : [e.value].flat();
-      for (const v of vals) assert.ok(inRow.some((n) => [1, 0.01, 0.001, 1000, 60, 1e4, 1e6].some((f) => Math.abs(n * f - Math.abs(v)) <= 1e-9 + 1e-6 * Math.abs(v))), `${e.id} 的值 ${v} 不在这一行里`);
+      for (const id of e.summaryOf) {
+        const detail = pById.get(id);
+        assert.equal(detail.unit, e.unit, `${e.id} → ${id} 单位不同`);
+        const vals = typeof detail.value === 'object' ? Object.values(detail.value) : [detail.value];
+        for (const v of vals) assert.ok([...inRow, ...endpoints].some((n) => [1, 0.01, 0.001, 1000, 60, 1e4, 1e6].some((f) => Math.abs(n * f - Math.abs(v)) <= 1e-9 + 1e-6 * Math.abs(v))), `${e.id} 引用 ${id} 的值 ${v} 不在这一行里`);
+      }
     }
     const stats = loadBatch2PriorsStore(c).stats();
-    // 可移植严格准入：只收成片读数与跨作品通用先验，占比不超过 C10 的 15.4%。
-    assert.ok(m.portableCount / m.rows.length <= 0.154, `${c} 可移植 ${m.portableCount}/${m.rows.length}`);
+    for (const r of summaries.filter((s) => s.route === 'portable' && !s.targets.length)) assert.deepEqual(r.detailRefs, [], r.sourceId);
     assert.deepEqual([stats.totalEntries, stats.summaryCount, stats.detailCount, stats.verifiedCount], [priors.length, sums.length, priors.length - sums.length, 0], c);
     assert.equal(loadBatch2PriorsStore(c).query({}).length, stats.detailCount, `${c} 默认检索不含汇总`);
   });
@@ -170,12 +175,69 @@ test('首审点名的三条错引：汇总行指回讲同一个对象、同一�
   assert.match(linked[0], /4\.6/);
   assert.ok(linked.some((t) => /4\.4 ?s/.test(t)) && linked.some((t) => /5\.2/.test(t)), 's031 三个周期各有出处');
   assert.ok(!linked.some((t) => /周期 4\.0 秒/.test(t)), 's031 不再指久站呼吸那条');
-  assert.equal(D['motion-rig'].priors.some((e) => e.id === 'motion-rig.sum.s031'), false);
+  assert.equal(b.route, 'portable');
+  assert.deepEqual(b.detailRefs, ['d442', 'd447', 'd448'].map((id) => `motion-rig.${id}.breath-cycle`));
   // 光照 s140（胸前机位，水平视场 115° 到 125°）：指回写着这个视场的相机参数明细，两边同案例。
   const l = row('light-cam', 's140');
   assert.match(textOf('light-cam', l.summaryOf), /115°[–-]125°/);
   assert.equal(l.caseId, row('light-cam', l.summaryOf).caseId);
-  assert.equal(D['light-cam'].priors.some((e) => e.id === 'light-cam.sum.s140'), false);
+  const fov = D['light-cam'].priors.find((e) => e.id === 'light-cam.sum.s140');
+  assert.deepEqual([fov.value, fov.unit], [[115, 125], 'deg']);
+  assert.deepEqual(l.detailRefs, fov.summaryOf);
+});
+
+test('公开检索能取到构件尺寸、动作周期与阶段时长、焦段与视场及快门角', () => {
+  const visible = new Map(C11_COLLECTIONS.map((c) => [c, loadBatch2PriorsStore(c).query({})]));
+  const matches = (c, source, unit, value, subject) => {
+    assert.ok(visible.get(c).some((e) => e.ext['c11.sourceId'] === source && e.unit === unit &&
+      JSON.stringify(e.value) === JSON.stringify(value) && subject.test(e.title)), `${c} ${source} ${subject} ${JSON.stringify(value)} ${unit}`);
+  };
+  matches('arch-scene', 'd026', 'm', 2, /墙.*厚/);
+  matches('arch-scene', 'd026', 'm', 7.2, /墙.*高/);
+  matches('motion-rig', 'd448', 's', 4.4, /呼吸/);
+  matches('motion-rig', 'd484', 'Hz', [1.1, 1.6], /拍/);
+  matches('motion-rig', 'd420', 's', 1.14, /前摇/);
+  matches('motion-rig', 'd289', 'ratio', 0.42, /近景下扑占比/);
+  matches('motion-rig', 'd289', 'ratio', 0.45, /远景下扑占比/);
+  matches('motion-rig', 'd524', 'Hz', 3.2, /修正前步频/);
+  matches('motion-rig', 'd524', 'Hz', 2, /修正后步频/);
+  assert.ok(loadMotionRigPriorsStore().query({}).some((e) => e.unit === 'Hz' && /步频/.test(e.title)), '步频可检索');
+  matches('light-cam', 'd450', 'mm', 31.5, /焦/);
+  matches('light-cam', 'd331', 'deg', [115, 125], /视场|FOV/);
+  matches('light-cam', 'd450', 'deg', 180, /快门/);
+  for (const [c, ids] of Object.entries({ 'arch-scene': ['d053', 'd311', 'd353'], 'motion-rig': ['d059', 'd499'], 'light-cam': ['d014', 'd325', 'd448'] })) {
+    const methods = new Set(getBatch2Practices(c).map((e) => e.sourceId));
+    for (const sid of ids) assert.ok(methods.has(sid), `${c} ${sid} 可照搬工序`);
+  }
+});
+
+test('成片规格和镜头参数在三份源账与公开先验库中采用同一分流口径', () => {
+  const examples = {
+    'arch-scene': ['d265', 'd284', 'd285'],
+    'motion-rig': ['d505', 'd526', 'd527', 'd529'],
+    'light-cam': ['d323', 'd327', 'd331', 'd369', 'd372', 'd426', 'd429', 'd430', 'd434', 'd439', 'd442', 'd446', 'd447', 'd450'],
+  };
+  each((c, { priors, cardPriors, practices, manifest }) => {
+    const expected = new Set(examples[c]);
+    const checkText = (id, evidence, title, text) => {
+      if (!['实测', '文档'].includes(evidence)) return;
+      // 按物理量和上下文识别，不要求原文把标题恰好写成「焦段」或同时给出 fps 和时长。
+      const subject = `${title} ${text}`;
+      const frameRate = /\d\s*(?:fps\b|帧\s*\/\s*秒)/i.test(text);
+      const duration = /(?:片长|总时长|成片时长|全片)\s*[:：约为=]?\s*\d+(?:\.\d+)?\s*(?:秒|s\b|帧)/i.test(subject);
+      const focal = /(?:镜头|相机|摄影|焦段|焦距|广角|长焦|lens)/i.test(subject) && /\d\s*mm\b/i.test(text);
+      const angle = /(?:视场角?|FOV|快门角?)[^，。；;\n]{0,18}\d\s*(?:°|度)|\d\s*(?:°|度)\s*(?:[水平垂直对角]*视场|快门)/i.test(subject);
+      if (frameRate || duration || focal || angle) expected.add(id);
+    };
+    for (const e of [...cardPriors, ...practices]) checkText(e.sourceId, e.evidenceLevel, e.title, e.text);
+    for (const e of priors.filter((p) => !isSummary(p))) checkText(e.ext['c11.sourceId'], e.provenance.evidenceLevel, e.title.split('（')[0], e.provenance.note);
+    const portable = new Set(priors.filter((e) => !isSummary(e)).map((e) => e.ext['c11.sourceId']));
+    const coupled = new Set(cardPriors.map((e) => e.sourceId));
+    for (const id of expected) {
+      assert.equal(manifest.rows.find((r) => r.sourceId === id)?.route, 'portable', `${c} ${id}`);
+      assert.ok(portable.has(id) && !coupled.has(id), `${c} ${id} 的量只在可移植库`);
+    }
+  });
 });
 
 test('三份可移植表以 JSON 原文过 C9：0 错误、0 泄露、单位合法、全部未读回', () => {
@@ -212,6 +274,7 @@ test('可移植量的值精确出现在它的原文片段里，片段出自条�
       assert.ok(typeof piece === 'string' && piece.length > 0, e.id);
       assert.ok(squash(`${e.title} ${e.provenance.note}`).includes(squash(piece)), `${e.id} 的片段「${piece}」不在原文里`);
       const found = nums(piece);
+      for (const m of piece.matchAll(/([一二三四五六七八九])(?:个)?镜头/g)) found.push('一二三四五六七八九'.indexOf(m[1]) + 1);
       // value 的三种形状：一个数；[小, 大] 范围；{ first, second } 是原文并列的两个取值。
       const pair = e.value !== null && typeof e.value === 'object' && !Array.isArray(e.value);
       if (pair) {
@@ -219,11 +282,12 @@ test('可移植量的值精确出现在它的原文片段里，片段出自条�
         assert.match(piece, /[\d.]\s*[/、]\s*[−\-.\d]/, `${e.id}：并列取值的片段里要有斜线或顿号`);
       }
       const vals = pair ? Object.values(e.value) : [e.value].flat();
+      // 只有原文写成 a±b 才可用其端点；不能拿片段里任意两个无关数字相加凑值。
+      const endpoints = [...piece.matchAll(/([−-]?\d*\.?\d+)\s*±\s*(\d*\.?\d+)/g)]
+        .flatMap(([, mid, delta]) => [Number(mid.replace('−', '-')) - Number(delta), Number(mid.replace('−', '-')) + Number(delta)]);
       for (const v of vals) {
         assert.equal(typeof v, 'number', e.id);
-        const single = found.some((n) => factors.some((f) => close(Math.abs(n) * f, Math.abs(v))));
-        const pm = found.some((a) => found.some((b) => factors.some((f) => close((Math.abs(a) + Math.abs(b)) * f, Math.abs(v)) || close((Math.abs(a) - Math.abs(b)) * f, v))));
-        assert.ok(single || pm, `${e.id} 的值 ${v} 不在「${piece}」里`);
+        assert.ok([...found, ...endpoints].some((n) => factors.some((f) => close(Math.abs(n) * f, Math.abs(v)))), `${e.id} 的值 ${v} 不在「${piece}」里`);
       }
       if (Array.isArray(e.value)) assert.ok(e.value.length === 2 && e.value[0] <= e.value[1], e.id);
       if (['s', 'ms', 'frame', 'count', 'fps', 'Hz', 'mm', 'K', 'spp'].includes(e.unit) && !/offset|delta|shift|bias|drop|lead|lag/.test(e.id)) {
@@ -303,7 +367,7 @@ test('零原包源码路径、文件名与内部编号：12 份 JSON 与加载�
     doc: /\.md\b|下载\/|原文\/|清单\//,
     wikilink: /\[\[(?:#|复刻|清单|指引|[^\][,]*\|)/,
     internalId: /\b(?:RP|TN|FX|MT|CH|AU)-\d+/,
-    listId: /(?<![A-Za-z0-9_.])[gr]\d{1,2}[ab]?-[a-z]/,
+    listId: /(?<![A-Za-z0-9_.])[gr]\d{1,2}[ab]?-[a-z]|【[A-Z]{1,2}\d{1,2}[a-z]?\s|（并入\s*[gr]\d+|（g\d+(?:\s*注)?）/,
     bareChapter: /§/,
     caseLabel: /案例：\s*\d+\s|来自案例/,
     hashName: /(?<![0-9a-zA-Z#x])(?=[0-9a-f]*[a-f])(?=[0-9a-f]*[0-9])[0-9a-f]{12,}(?![0-9a-zA-Z])/,
@@ -424,17 +488,19 @@ test('05 §8.1 修复三：案例 10 竹林风摆 0.85 / 1.9 / 0.33 的单位从
   for (const c of ['motion-rig', 'light-cam']) assert.deepEqual(D[c].manifest.knownFixes.find((f) => f.issue === 'wind-sway-angular-frequency').sourceIds, []);
 });
 
-test('体型缩放变量不当秒：s 当缩放系数用的条目里，「.29s」这类写法不出秒数', () => {
-  const fix = D['motion-rig'].manifest.knownFixes.find((f) => f.issue === 'scale-variable-not-seconds');
-  assert.ok(fix.sourceIds.length >= 1, '动作那份至少有一条');
-  assert.deepEqual(fix.checked.map((x) => x.sourceId), fix.sourceIds);
-  for (const x of fix.checked) assert.equal(x.secondsExtractedFromScaleSuffix, 0, x.sourceId);
-  // 不靠清单自报：直接在产物里复核，省略前导零贴着 s 的数没有一个被记成秒。
-  for (const sid of fix.sourceIds) {
-    const e = [...D['motion-rig'].cardPriors, ...D['motion-rig'].practices].find((x) => x.sourceId === sid);
-    assert.match(e.text, /(?<![\d.])\.\d+s(?![A-Za-z0-9_/²³])/, sid);
-    for (const mm of e.text.matchAll(/(?<![\d.])\.(\d+)s(?![A-Za-z0-9_/²³])/g)) assert.ok(!e.quantities.some((q) => q.unit === 's' && q.value === Number(`0.${mm[1]}`)), `${sid} ${mm[0]}`);
-  }
+test('尖塔半径和高度使用几何倍率，跑动的支撑与摆动使用秒', () => {
+  const scale = D['arch-scene'].manifest.knownFixes.find((f) => f.issue === 'scale-variable-not-seconds');
+  const cone = D['arch-scene'].cardPriors.find((e) => e.sourceId === 'd048');
+  assert.deepEqual(scale.sourceIds, [cone.sourceId]);
+  assert.deepEqual(scale.checked.map((x) => [x.sourceId, x.scaleExpression, x.secondsExtractedFromScaleSuffix]), [[cone.sourceId, 'cone(0.78s,3.4s)', 0]]);
+  assert.ok(cone.text.includes(scale.checked[0].scaleExpression));
+  assert.ok(!cone.quantities.some((q) => q.unit === 's' && [0.78, 3.4].includes(q.value)));
+  const { timing, sourceIds } = D['motion-rig'].manifest.knownFixes.find((f) => f.issue === 'scale-variable-not-seconds');
+  assert.deepEqual(timing, { sourceId: 'd113', stanceSeconds: 0.168, swingSeconds: 0.546 });
+  assert.ok(!sourceIds.includes(timing.sourceId));
+  const run = D['motion-rig'].cardPriors.find((e) => e.sourceId === timing.sourceId);
+  assert.match(run.text, /支撑\.168s摆动\.546s/);
+  for (const v of [timing.stanceSeconds, timing.swingSeconds]) assert.ok(run.quantities.some((q) => q.unit === 's' && q.value === v));
 });
 
 test('挂卡行在总账与挂卡表里都带直读的目标卡 ID，按卡从公开入口查得到', () => {
@@ -651,9 +717,11 @@ test('量提取口径：变量后缀不当单位、指数与乘式里的数不�
           assert.ok(!e.quantities.some((x) => x.unit === unit && x.rawUnit === ch && x.value === Number(mm[1])), `${e.id} 把变量后缀「${mm[0]}」当成 ${unit}`);
         }
       }
-      // 省略前导零、贴着单字母的写法（.29s、.4m）出自代码，一律不当秒和米。
+      // 参数表里的小数后缀需要物理语境，如「支撑.168s」和「摆动.546s」。
       for (const mm of e.text.matchAll(/(?<![\d.])\.(\d+)([sm])(?![A-Za-z0-9_/²³])/g)) {
-        assert.ok(!e.quantities.some((x) => x.rawUnit === mm[2] && x.value === Number(`0.${mm[1]}`)), `${e.id} 把「${mm[0]}」当成量`);
+        const value = Number(`0.${mm[1]}`);
+        if (!e.quantities.some((x) => x.rawUnit === mm[2] && x.value === value)) continue;
+        assert.ok(mm[2] === 's' && /(?:支撑|摆动)$/.test(e.text.slice(0, mm.index)), `${e.id} 的「${mm[0]}」缺少单位语境`);
       }
     }
   });
@@ -723,10 +791,22 @@ const draw = (pool, n, rand) => {
   return a.slice(0, n);
 };
 
-test('独立盲判覆盖全部 1,822 行；盲判员的原始判定与总账的分歧：每份全表 < 8%，任取随机种子抽 ≥ 10% 都不超一成', (t) => {
+// 二审前的全量裁决、盲票和两轮抽检作为历史观测保留。仅回放有改判记录的明细和关联汇总。
+function previousRows(m) {
+  const before = new Map(m.routeOverrides.map((x) => [x.sourceId, x.previousRoute]));
+  for (const x of m.routeOverrides) {
+    assert.ok(ROUTES.includes(x.previousRoute) && x.previousRoute !== x.route, x.sourceId);
+    assert.equal(m.rows.find((r) => r.sourceId === x.sourceId)?.route, x.route);
+  }
+  return m.rows.map((r) => ({ ...r, route: before.get(r.summaryOf ?? r.sourceId) ?? r.route }));
+}
+
+test('第四版历史审计可回放：1,822 行原始盲票、当时的分歧及 200 组固定种子的抽样', (t) => {
   const merged = { details: [], summaries: [], differs: new Map() };
   each((c, { manifest: m }) => {
-    const { audit, blindAudit, rows } = m;
+    const { audit } = m;
+    const blindAudit = audit.previousBlindAudit;
+    const rows = previousRows(m);
     const details = rows.filter((r) => r.recordKind === 'detail');
     const summaries = rows.filter((r) => r.recordKind === 'summary');
     // 裁决记录：每条明细一条，主判与盲判不一致的两人原判都在，条数与清单记的一致；边界复判的三票都在。
@@ -801,13 +881,13 @@ test('独立盲判覆盖全部 1,822 行；盲判员的原始判定与总账的�
   t.diagnostic(`三份合并：200 组种子里最差一组 ${worst}/${nd + ns}`);
 });
 
-test('定稿后的独立终验抽检：每份随机抽 ≥ 10% 明细再判一遍，与总账的分歧 ≤ 10%，照实列出', (t) => {
+test('第四版的两轮独立终验抽检保留当时的样本和分歧', (t) => {
   let all = 0;
   let bad = 0;
   each((c, { manifest: m }) => {
     const v = m.audit.verification;
     assert.ok(v, `${c} 要有终验抽检`);
-    const route = new Map(m.rows.filter((r) => r.recordKind === 'detail').map((r) => [r.sourceId, r.route]));
+    const route = new Map(previousRows(m).filter((r) => r.recordKind === 'detail').map((r) => [r.sourceId, r.route]));
     assert.equal(v.sample.length, v.sampleSize);
     assert.equal(new Set(v.sample.map((s) => s.sourceId)).size, v.sample.length);
     assert.ok(v.sample.length >= Math.ceil(m.detailEntries * 0.1), `${c} 抽 ${v.sample.length}/${m.detailEntries}`);
@@ -825,7 +905,7 @@ test('定稿后的独立终验抽检：每份随机抽 ≥ 10% 明细再判一�
   let firstBad = 0;
   each((c, { manifest: m }) => {
     const v1 = m.audit.verificationFirstPass;
-    const route = new Map(m.rows.map((r) => [r.sourceId, r.route]));
+    const route = new Map(previousRows(m).map((r) => [r.sourceId, r.route]));
     assert.ok(v1 && v1.sample.length === v1.sampleSize && v1.sample.length >= Math.ceil(m.detailEntries * 0.1), c);
     assert.deepEqual(v1.disagreementsAgainstFinalLedger, v1.sample.filter((x) => route.get(x.sourceId) !== x.independentRoute).map((x) => x.sourceId), c);
     const again = new Set(m.audit.verification.sample.map((x) => x.sourceId));
@@ -834,4 +914,37 @@ test('定稿后的独立终验抽检：每份随机抽 ≥ 10% 明细再判一�
     firstBad += v1.disagreementsAtThatTime;
   });
   assert.ok(firstBad / first > 0.1, `第一轮终验当时的分歧 ${firstBad}/${first}`);
+});
+
+test('二审修复后的三份源账分别及合并与冻结盲样比较，抽样至少一成、分歧至多一成', (t) => {
+  const seed = 'a6a83be34504d62140610f39920296f478937eb6:E3-C11';
+  const fingerprints = { 'arch-scene': '79df00a2cdaa7175', 'motion-rig': '313c5e1f63aaa48b', 'light-cam': '16ed308776b5ebd0' };
+  const letters = { portable: 'P', 'card-coupled': 'C', practice: 'M', 'skipped-or-conflict': 'X' };
+  let picked = 0;
+  let different = 0;
+  each((c, { manifest: m }) => {
+    const b = m.blindAudit;
+    // 公开清单只存可读的短版本引用；排序仍用冻结时的完整种子，不依赖本机 Git 历史。
+    assert.equal(b.seedRef, `${seed.slice(0, 7)}:E3-C11`);
+    const score = (r) => createHash('sha256').update(`${seed}/${c}/${r.sourceId}`).digest('hex');
+    const strata = ['detail', 'summary'].map((kind) => {
+      const a = m.rows.filter((r) => r.recordKind === kind);
+      return a.sort((x, y) => score(x).localeCompare(score(y))).slice(0, Math.ceil(a.length / 10));
+    });
+    const source = strata.flat();
+    assert.deepEqual([b.judgedDetails, b.judgedSummaries], strata.map((s) => s.length));
+    assert.deepEqual(b.rows.map((r) => r.sourceId), source.map((r) => r.sourceId));
+    assert.equal(b.sampleSize, source.length);
+    assert.ok(b.rows.every((r) => Object.hasOwn(letters, r.blindRoute) && r.why.length >= 4));
+    assert.equal(sha16(b.rows.map((r) => `${r.sourceId}=${letters[r.blindRoute]}`).join('\n')), fingerprints[c]);
+    const disagreements = source.filter((r, i) => r.route !== b.rows[i].blindRoute).map((r) => r.sourceId);
+    assert.deepEqual(b.disagreements, disagreements);
+    assert.equal(b.disagreementRate, disagreements.length / source.length);
+    assert.ok(source.length >= m.rows.length / 10 && b.disagreementRate <= 0.1, `${c} ${disagreements.length}/${source.length}`);
+    picked += source.length;
+    different += disagreements.length;
+    t.diagnostic(`${c} 分歧 ${disagreements.length}/${source.length}`);
+  });
+  assert.ok(picked >= 183 && different / picked <= 0.1, `三份合并 ${different}/${picked}`);
+  t.diagnostic(`三份合并分歧 ${different}/${picked}`);
 });

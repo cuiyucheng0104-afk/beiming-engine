@@ -2,46 +2,6 @@
   "format": "card-priors/0.1",
   "entries": [
     {
-      "id": "arch-scene.d001.card",
-      "sourceId": "d001",
-      "section": "1.1",
-      "caseId": "ext-01",
-      "title": "外部案例 01 场景网格统计（建筑三角、灯笼、布、草、岩石、云等）",
-      "cardId": "form.scene-budget",
-      "target": "form.scene-budget",
-      "text": "【A5 建筑网格总量】183,214 三角面（实测）：木 106,324、石 25,108、瓦 50,462、纸窗 424、绳 896；5 个共用缓冲区，每顶点 31 字节（P 12 B+N 3 B+C 4 B+U 8 B+X 4 B）\n【外部案例 01场景网格统计】网格总数255(实体场景150+柔和特效层105)，实例化83；岩石 684,672顶点/1,352,336三角(镜子替身187,077三角)；建筑三角 木106,324、石25,108、瓦50,462、纸窗424、绳896，合计183,214，布6,588；灯笼105盏(54盏挂串绳)；摆动表2701×185，布26块；枫树/松树/灌木 84/560/4,100；草227,175根(草丛三档5,760/8,685/5,210)；种植点55,936(11,505个因被岩石埋住重抽)；云387块画338块(284 MiB)；雾/鸟/落叶 310/183/2,760；抛水 绳884 珠3,785 雾团161；甩落水滴三组上限22,000/6,000/6,000",
-      "quantities": [],
-      "routeNote": "主体为单场景网格与实例规模预算",
-      "coupling": "数值是第 1.1 节 场景规模与面数预算里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "实测",
-      "evidenceLabel": "实测",
-      "verificationLabel": "清单未列 / 我们自己渲染读回过",
-      "docRef": "建筑场景地形与水汇编 第 1.1 节 d001；出处类别：实测读数·场景规模与面数预算",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d002.card",
-      "sourceId": "d002",
-      "section": "1.1",
-      "caseId": "case-08",
-      "title": "08 太空站关卡规模",
-      "cardId": "form.scene-budget",
-      "target": "form.scene-budget",
-      "text": "35 个物体、56,976 三角面；ENV_walkway 12 三角面；ENV_ramp 累计 10,350；ENV_courtyard 12,930；ENV_relay_A 约 16,210（相减，最重单件）；漂浮碎片每块 36 顶点、66 三角面；ENV_float_debris 编号 01/05/11/16 采到",
-      "quantities": [],
-      "routeNote": "关卡对象与三角面预算依赖具体场景",
-      "coupling": "数值是第 1.1 节 场景规模与面数预算里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "实测（累计值）+ 推断（相减）",
-      "verificationLabel": "没重建",
-      "docRef": "建筑场景地形与水汇编 第 1.1 节 d002；出处类别：推断与说明·场景规模与面数预算",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d003.card",
       "sourceId": "d003",
       "section": "1.2",
@@ -214,37 +174,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d010.card",
-      "sourceId": "d010",
-      "section": "1.2",
-      "caseId": "case-13",
-      "title": "干砌墙“空跑旧随机序列”技巧",
-      "cardId": "time.seeded",
-      "target": "time.seeded",
-      "text": "r16 finish-3：旧版dryStoneWallV1用圆石经rock旋转后站起来像麦田上一排面包，改扁平层叠石；先用空壳NOOP_RB把旧版随机数序列整个空跑一遍，再用独立随机流mulberry32(o.seed??16311)画新墙，使后续所有布景点位置与旧版完全一致(“every later site keeps its exact v1 placement”)；墙段2.4 m缺口宽±1.4默认缺口在72%处，塌陷系数距缺口<1.2为0.2，<2.2为0.55，其余1",
-      "quantities": [
-        {
-          "value": 2.4,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 0.72,
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "routeNote": "带函数名、种子与一串墙段阈值",
-      "coupling": "数值是第 1.2 节 布局、摆位与放置规则里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.2 节 d010；出处类别：源码拆解·布局、摆位与放置规则（案例 13 第 20 章）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d012.card",
       "sourceId": "d012",
       "section": "1.2",
@@ -268,63 +197,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过(未运行)",
       "docRef": "建筑场景地形与水汇编 第 1.2 节 d012；出处类别：源码拆解·布局、摆位与放置规则",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d013.card",
-      "sourceId": "d013",
-      "section": "1.3",
-      "caseId": "ext-01",
-      "title": "山门尺寸",
-      "cardId": "form.arch-timber",
-      "target": "form.arch-timber",
-      "text": "台基 31×9.5；主殿屋顶 15.5×8.6 檐高 13.75；偏殿屋顶 11.2×7.4 檐高 10.35；柱半径 0.52；柱列 [−11.6,8.6][−4.7,11.8][4.7,11.8][11.6,8.6]；匾额 4.5×2.16 m，黑底金字，512×232 画布，字号 190 px",
-      "quantities": [
-        {
-          "value": 2.16,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 190,
-          "unit": "px",
-          "rawUnit": "px"
-        }
-      ],
-      "routeNote": "山门与匾额尺寸为专属布景配置",
-      "coupling": "数值是第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
-      "docRef": "建筑场景地形与水汇编 第 1.3 节 d013；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d014.card",
-      "sourceId": "d014",
-      "section": "1.3",
-      "caseId": "ext-01",
-      "title": "大殿构件尺寸",
-      "cardId": "form.arch-timber",
-      "target": "form.arch-timber",
-      "text": "柱半径 殿 0.26/亭 0.22，收分 1→0.985→0.955→0.925；梁枋高 0.44 厚 0.30；斗拱底斗 0.34×0.20×0.34；椽距 0.33 m（飞椽方 0.084，圆椽半径 0.054）；台基宽 +0.34、挑出 +0.40；栏杆立柱间距 1.45、高 1.25",
-      "quantities": [
-        {
-          "value": 0.33,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "柱梁斗拱等程序化构件尺寸表",
-      "coupling": "数值是第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
-      "docRef": "建筑场景地形与水汇编 第 1.3 节 d014；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
       "verifiedInOurStack": false
     },
     {
@@ -673,144 +545,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d024.card",
-      "sourceId": "d024",
-      "section": "1.5",
-      "caseId": "case-13",
-      "title": "民居",
-      "cardId": "form.arch-masonry",
-      "target": "form.arch-masonry",
-      "text": "民居 [源码 原实现源码]：墙厚 0.55；一层高 两层 3.05-3.9 / 单层 3.5-4.5；二层高 2.3-3.0；悬挑 0.25-0.8；坡度 pitch=0.7+r·0.38 rad，屋脊高 R=半跨·tan(pitch)·0.82；门宽 1.15-1.35 高 2.35/2.75；窗宽 0.85-1.0 窗台 1.05 顶 2.3；铺面窗宽 2.3-2.8；半木骨架 开间 1.15，横梁 0.22/0.2，立柱 0.2×0.24；椽 0.62；茅草厚 0.34，屋脊半径 0.34；72% 石板瓦 28% 茅草；14% 烧毁；主街 82% 两层。",
-      "quantities": [
-        {
-          "value": [
-            0.7,
-            1.08
-          ],
-          "unit": "rad",
-          "rawUnit": "原文未写单位",
-          "base": 0.7,
-          "jitter": 0.38,
-          "expr": "0.7+r·0.38",
-          "label": "屋顶坡度",
-          "randomVar": "r"
-        },
-        {
-          "value": 0.72,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.28,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.14,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.82,
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "routeNote": "民居生成器尺寸概率及屋顶公式表",
-      "coupling": "数值是第 1.5 节 村镇、民居与城防里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码 原实现源码",
-      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
-      "docRef": "建筑场景地形与水汇编 第 1.5 节 d024；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d025.card",
-      "sourceId": "d025",
-      "section": "1.5",
-      "caseId": "case-13",
-      "title": "房排",
-      "cardId": "form.arch-masonry",
-      "target": "form.arch-masonry",
-      "text": "房排 [源码 原实现源码]：宽 6-9 m（目标 7.4±0.8），主街 FRONT=4.7，进深 D=o.D+r·o.Dr。",
-      "quantities": [
-        {
-          "value": [
-            6,
-            9
-          ],
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "房排宽度及进深公式属于实现配置",
-      "coupling": "数值是第 1.5 节 村镇、民居与城防里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码 原实现源码",
-      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
-      "docRef": "建筑场景地形与水汇编 第 1.5 节 d025；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d026.card",
-      "sourceId": "d026",
-      "section": "1.5",
-      "caseId": "case-13",
-      "title": "城防",
-      "cardId": "form.arch-masonry",
-      "target": "form.arch-masonry",
-      "text": "城防：WALL 厚 2 高 7.2，x∈[-42,42]，z∈[-79.5,50]；幕墙 course 0.6 段宽 0.8，扶壁间隔 11-14 m（1.3×h×0.9）；圆塔 r=3.7 高 15.2-17（22 段圆柱，垛口数 round(2πr/1.7)，箭孔 3 层×4）；方塔 5.6×4.8 高 10.5-13；正门楼 7.8×7×10.2，尖拱宽 6 顶 6.9，吊闸 13×11；西门 9×6.4×9.5。",
-      "quantities": [
-        {
-          "value": [
-            11,
-            14
-          ],
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "城墙塔楼与门楼具体造型尺寸表",
-      "coupling": "数值是第 1.5 节 村镇、民居与城防里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "清单未列",
-      "verificationLabel": "清单未列",
-      "docRef": "建筑场景地形与水汇编 第 1.5 节 d026；出处类别：推断与说明·村镇、民居与城防（案例 13 第 17 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d027.card",
-      "sourceId": "d027",
-      "section": "1.5",
-      "caseId": "case-13",
-      "title": "（无题）",
-      "cardId": "form.arch-masonry",
-      "target": "form.arch-masonry",
-      "text": "：小教堂 15.5×8.4，墙厚 0.8 高 6.4，扶壁 6 对，蜡烛 12+6；墓碑 14 块高 0.6-1.2；瞭望塔 4.6×4.6 高 19.5 倾斜 0.075 rad；钟 LatheGeometry 11 点半径 0.18+0.12t^2.5 高 0.62；石桥 半长 13.2 面宽半宽 2.9 拱高 1.85，3 孔（中孔宽 5.6 矢高 2.05，边孔 4.1/1.6），桥墩 z=±3.5。",
-      "quantities": [
-        {
-          "value": 0.075,
-          "unit": "rad",
-          "rawUnit": "rad"
-        }
-      ],
-      "routeNote": "教堂桥塔等布景生成尺寸与公式",
-      "coupling": "数值是第 1.5 节 村镇、民居与城防里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "清单未列",
-      "verificationLabel": "清单未列",
-      "docRef": "建筑场景地形与水汇编 第 1.5 节 d027；出处类别：推断与说明·村镇、民居与城防（案例 13 第 17 章）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d028.card",
       "sourceId": "d028",
       "section": "1.5",
@@ -847,42 +581,6 @@
       "evidenceLabel": "清单未列",
       "verificationLabel": "清单未列",
       "docRef": "建筑场景地形与水汇编 第 1.5 节 d028；出处类别：推断与说明·村镇、民居与城防（案例 13 第 17 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d029.card",
-      "sourceId": "d029",
-      "section": "1.5",
-      "caseId": "case-13",
-      "title": "村镇尺寸",
-      "cardId": "form.world-gen",
-      "target": "form.world-gen",
-      "text": "镇区 88×132 m；城墙厚 2 m、高 7.2 m；4 座圆塔、8 座方塔",
-      "quantities": [
-        {
-          "value": 132,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 2,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 7.2,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "镇区规模与塔楼数量属于专属配置",
-      "coupling": "数值是第 1.5 节 村镇、民居与城防里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过(未运行)",
-      "docRef": "建筑场景地形与水汇编 第 1.5 节 d029；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17、20 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1000,67 +698,6 @@
       "evidenceLabel": "源码+推断（代入算出）",
       "verificationLabel": "推断·未复测",
       "docRef": "建筑场景地形与水汇编 第 1.6 节 d033；出处类别：推断与说明·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d034.card",
-      "sourceId": "d034",
-      "section": "1.6",
-      "caseId": "case-13",
-      "title": "级朝圣台阶计算表",
-      "cardId": "form.arch-masonry",
-      "target": "form.arch-masonry",
-      "text": "steps={x:0,hw:1.9,z0:-80,z1:-126,steps:70}；rise=21/70=0.3；FL=14 级一平台，L=2.4 m；普通踏面进深 rs=(14·0.3/(21/46)-2.4)/13=0.5231 m；高度 h=3+i·0.3（第1级3.3，第70级24）；水平总长43.6 m（65×0.5231+4×2.4），zTop=-123.6；平台第14/28/42/56级=7.2/11.4/15.6/19.8 m，zc=-88.0/-97.2/-106.4/-115.6，左右交替 -1/+1/-1/+1；每段6.8 m，每段 6 栏板格；顶平台 z-123.6→-126.2（深2.6，半宽5.4，标高24）",
-      "quantities": [
-        {
-          "value": 2.4,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 0.5231,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 43.6,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 7.2,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 11.4,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 15.6,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 19.8,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 6.8,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "专属朝圣台阶尺寸与平台计算表",
-      "coupling": "数值是第 1.6 节 哥特大教堂（案例 13 第 18 章）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "源码（算式代入为推断）",
-      "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d034；出处类别：推断与说明·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1244,26 +881,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
       "docRef": "建筑场景地形与水汇编 第 1.6 节 d039；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d040.card",
-      "sourceId": "d040",
-      "section": "1.6",
-      "caseId": "case-13",
-      "title": "台阶脚",
-      "cardId": "form.arch-masonry",
-      "target": "form.arch-masonry",
-      "text": "第1级比地面高 diff>0.4 时补 min(3,ceil(diff/0.3)-1) 级过渡台阶，每级深 FOOT.run=0.46",
-      "quantities": [],
-      "routeNote": "补台阶公式与 FOOT.run 常量",
-      "coupling": "数值是第 1.6 节 哥特大教堂（案例 13 第 18 章）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d040；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1587,46 +1204,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d053.card",
-      "sourceId": "d053",
-      "section": "1.6",
-      "caseId": "case-13",
-      "title": "尖拱函数 archHalf",
-      "cardId": "form.arch-masonry",
-      "target": "form.arch-masonry",
-      "text": "archHalf(w,R,n,off)：若 R≥w/2 圆心偏出 e=(R²-w²/4)/w、u=0（尖拱）；否则 e=0,u=(w²/4-R²)/(2R)（圆拱抬高）；r0=hypot(w/2+e,u)；off 外扩做拱圈厚；u=0 时 R 即拱顶高出起拱线的高度；代入：ARC 5/4.33→r0=5.00(等边拱)，CLR 3.4/3.9→r0=5.32(柳叶窗)，PORTAL 5.8/5.02→r0=5.79；archBand(w,R,o0,o1,…,leg) 取两条偏移弧环带，archOpening 取窗洞轮廓",
-      "quantities": [],
-      "routeNote": "尖拱函数接口及几何公式",
-      "coupling": "数值是第 1.6 节 哥特大教堂（案例 13 第 18 章）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "源码+推断",
-      "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d053；出处类别：推断与说明·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d054.card",
-      "sourceId": "d054",
-      "section": "1.6",
-      "caseId": "case-13",
-      "title": "挤出工具",
-      "cardId": "form.primitives",
-      "target": "form.primitives",
-      "text": "extrudeGeo(outline,holes,depth) 用 ExtrudeGeometry curveSegments:1 steps:1 bevelEnabled:false 并 translate(0,0,-depth/2)；ringShapeGeo 圆环板整圈=外轮廓+反向内孔，段数默认48",
-      "quantities": [],
-      "routeNote": "挤出工具的接口与细分配置",
-      "coupling": "数值是第 1.6 节 哥特大教堂（案例 13 第 18 章）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d054；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d055.card",
       "sourceId": "d055",
       "section": "1.6",
@@ -1824,47 +1401,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
       "docRef": "建筑场景地形与水汇编 第 1.6 节 d059；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d060.card",
-      "sourceId": "d060",
-      "section": "1.6",
-      "caseId": "case-13",
-      "title": "北门造型",
-      "cardId": "form.arch-masonry",
-      "target": "form.arch-masonry",
-      "text": "DOOR：半宽1.55，起拱3.3，R1.75（拱顶3.3+1.737=5.037），深1.9，门框1.0，门扇厚0.16，leafZ 0.84，门缝0.07，开门角1.72 rad≈98.5°，openS=4 s；前方平台[0.95,3.9]、栈道[3.9,13.5]、12级台阶(踏面0.6级高0.17)、hwWay1.7；位置 AW=6+APSE_R·cos(π/10)=13.989；每侧基础块0.34+0.5 m一层交错长短块；拱圈 archBand(3.1,1.75,0,0.72,16)；外框山花五点轮廓顶高 spring+rise0+1.05；orders=[[.04,.24,.045],[.24,.46,.09],[.46,.72,.15]]（内径,外径,进深）；种子 mulberry32(19981)/(53263)",
-      "quantities": [
-        {
-          "value": 1.72,
-          "unit": "rad",
-          "rawUnit": "rad"
-        },
-        {
-          "value": 98.5,
-          "unit": "deg",
-          "rawUnit": "°"
-        },
-        {
-          "value": 4,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.5,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "北门及附属通道的专属尺寸表",
-      "coupling": "数值是第 1.6 节 哥特大教堂（案例 13 第 18 章）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d060；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -2318,53 +1854,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
       "docRef": "建筑场景地形与水汇编 第 1.8 节 d073；出处类别：源码拆解·古墓区与野外遗迹（案例 13 第 19 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d074.card",
-      "sourceId": "d074",
-      "section": "1.8",
-      "caseId": "case-13",
-      "title": "前厅 antechamber",
-      "cardId": "form.arch-masonry",
-      "target": "form.arch-masonry",
-      "text": "PD=2.3，净宽2·hwI=1.36(hwI=.68)，壁厚wt=.62，高WH=2.05；两侧墙逐层逐块：块高.24+r·.16，块长.45+r·.45，厚wt·(.92–1.04)；内衬3暗板；3顶板(PD/3·1.04)×.38×((hwI+wt)·2+.35) 位于 gF+WH+.15；顶上5块碎石；台阶 drop>.24时 nS=min(3,ceil(drop/.2)-1)级，每级深SD=.36，台阶高度函数交 addSurface；厅内5骨1骷髅1锈短剑(.9×.018×.05)1锈圆盘Cyl(.28,.24,.035,9)4蜡烛1罐",
-      "quantities": [
-        {
-          "value": [
-            0.24,
-            0.4
-          ],
-          "unit": "m",
-          "rawUnit": "原文未写单位（场景长度，该案例按米）",
-          "base": 0.24,
-          "jitter": 0.16,
-          "expr": ".24+r·.16",
-          "label": "前厅墙块高度",
-          "randomVar": "r"
-        },
-        {
-          "value": [
-            0.45,
-            0.9
-          ],
-          "unit": "m",
-          "rawUnit": "原文未写单位（场景长度，该案例按米）",
-          "base": 0.45,
-          "jitter": 0.45,
-          "expr": ".45+r·.45",
-          "label": "前厅墙块长度",
-          "randomVar": "r"
-        }
-      ],
-      "routeNote": "前厅砌法尺寸与内部陈设配置",
-      "coupling": "数值是第 1.8 节 古墓区与野外遗迹里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.8 节 d074；出处类别：源码拆解·古墓区与野外遗迹（案例 13 第 19 章）",
       "verifiedInOurStack": false
     },
     {
@@ -4778,42 +4267,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d139.card",
-      "sourceId": "d139",
-      "section": "1.11",
-      "caseId": "case-13",
-      "title": "根阶梯",
-      "cardId": "form.megatree",
-      "target": "form.megatree",
-      "text": "冠幕台阶顶(θ=493.2°≡133.2°，r 84.5→94，高 192.75)到树皮面，每级 0.25 米，级数 round((stepsTop−192.75)/0.25)，stepsTop=max(193.25,取样,195.6)；θ 493.2→497.6",
-      "quantities": [
-        {
-          "value": 493.2,
-          "unit": "deg",
-          "rawUnit": "°"
-        },
-        {
-          "value": 133.2,
-          "unit": "deg",
-          "rawUnit": "°"
-        },
-        {
-          "value": 0.25,
-          "unit": "m",
-          "rawUnit": "米"
-        }
-      ],
-      "routeNote": "根阶梯起止高度角度与级数配置",
-      "coupling": "数值是第 1.11 节 巨树：路、台阶、桥、平台、大枝与根里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 1.11 节 d139；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d140.card",
       "sourceId": "d140",
       "section": "1.11",
@@ -4997,32 +4450,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "建筑场景地形与水汇编 第 1.11 节 d143；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d144.card",
-      "sourceId": "d144",
-      "section": "1.11",
-      "caseId": "case-13",
-      "title": "钟楼阶梯",
-      "cardId": "form.megatree",
-      "target": "form.megatree",
-      "text": "θ=138.4°，r 101.1→84.3，宽 2.2(半宽 1.1)，每级 0.25，扶手柱 0.14、栏杆 0.07",
-      "quantities": [
-        {
-          "value": 138.4,
-          "unit": "deg",
-          "rawUnit": "°"
-        }
-      ],
-      "routeNote": "钟楼阶梯宽度踏高及栏杆尺寸配置",
-      "coupling": "数值是第 1.11 节 巨树：路、台阶、桥、平台、大枝与根里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 1.11 节 d144；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
       "verifiedInOurStack": false
     },
     {
@@ -5327,45 +4754,6 @@
       "evidenceLabel": "清单未列",
       "verificationLabel": "清单未列",
       "docRef": "建筑场景地形与水汇编 第 1.11 节 d155；出处类别：推断与说明·巨树：路、台阶、桥、平台、大枝与根",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d156.card",
-      "sourceId": "d156",
-      "section": "1.11",
-      "caseId": "case-13",
-      "title": "木坡道",
-      "cardId": "form.megatree",
-      "target": "form.megatree",
-      "text": "scribes(R2)与 gate(R3)两座；RAMP={run 24,maxRise 5.6,tread 0.8,w 2.6,lane 3.2,land 4.2}；折返 nFl=max(2,ceil((top−g−0.1)/5.6))；每跑 24 米落差最多 5.6 米(≈13°)；踏步高≈0.19，steps=max(2,round(rise/0.19))；台阶下\"木笼\"UNDER_H=5.8(踏步离地 0.9–5.8 米时填实心木盒)",
-      "quantities": [
-        {
-          "value": 24,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 13,
-          "unit": "deg",
-          "rawUnit": "°"
-        },
-        {
-          "value": [
-            0.9,
-            5.8
-          ],
-          "unit": "m",
-          "rawUnit": "米"
-        }
-      ],
-      "routeNote": "木坡道生成器尺寸与折返公式",
-      "coupling": "数值是第 1.11 节 巨树：路、台阶、桥、平台、大枝与根里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 1.11 节 d156；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
       "verifiedInOurStack": false
     },
     {
@@ -5859,26 +5247,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "建筑场景地形与水汇编 第 1.12 节 d170；出处类别：源码拆解·巨树：坐标表、地图与区域判定（案例 13 第 24 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d171.card",
-      "sourceId": "d171",
-      "section": "1.12",
-      "caseId": "case-13",
-      "title": "小地图数据",
-      "cardId": "form.scene-layout",
-      "target": "form.scene-layout",
-      "text": "外轮廓 23 点；5 区域多边形；2 条路(盘山路 24 点 spiral:true、朝圣路 7 点)；8 沉坑；6 等高线(2 rim 高 26、4 dune 高 9.5)",
-      "quantities": [],
-      "routeNote": "小地图轮廓道路与等高线构成配置",
-      "coupling": "数值是第 1.12 节 巨树：坐标表、地图与区域判定里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 1.12 节 d171；出处类别：源码拆解·巨树：坐标表、地图与区域判定（案例 13 第 24 章）",
       "verifiedInOurStack": false
     },
     {
@@ -6561,88 +5929,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d194.card",
-      "sourceId": "d194",
-      "section": "1.13",
-      "caseId": "case-13",
-      "title": "门前杂物/壁龛/拱门/灯桩",
-      "cardId": "form.set-dressing",
-      "target": "form.set-dressing",
-      "text": "门前(非移动)：70% 橡木桶 60% 木箱 50% 条凳 40% 碎石堆 5 块小石，地面落叶卡 round(w×5)；壁龛每 13–19 米(移动 30–44)，距房>w/2+3.5，台阶 min(6,ceil(up/0.3)) 级(up 1.4–3.0)→台面→立柱→过梁→圆柱横梁，interior 卡 nw 1.1–1.6 nh 1.8–2.4，灯笼+3 蜡烛；峡谷拱门沿 plan.routes.canyon 每 6 个点一座，奇数个塌(整座宽 7 高 8.2 厚 1.3 开 4.4 宽 y1 6.6 尖拱；塌的剩 1.6×5.4 与 1.4×3 两段残墙+16 碎石)；路旁石堆+灯桩每 10 个路径点：6 堆石+1.8 米木桩+横梁+悬挂灯笼",
-      "quantities": [
-        {
-          "value": 0.7,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.6,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.5,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.4,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 1.8,
-          "unit": "m",
-          "rawUnit": "米"
-        }
-      ],
-      "routeNote": "门前杂物壁龛拱门的生成尺寸概率",
-      "coupling": "数值是第 1.13 节 zone_12：zone_21、大厅、拱门与小镇里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 1.13 节 d194；出处类别：源码拆解·zone_12：zone_21、大厅、拱门与小镇（案例 13 第 24 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d195.card",
-      "sourceId": "d195",
-      "section": "1.13",
-      "caseId": "case-13",
-      "title": "小镇二三层木骨架",
-      "cardId": "form.arch-timber",
-      "target": "form.arch-timber",
-      "text": "timberStorey：上下横梁、立柱按 W/(1.15–1.5) 分(端柱 0.24 中柱 0.17)、两端斜撑、灰泥板(7 种石灰色 LIME)、门洞高 2.05、窗洞≤0.95、木百叶，山墙回退 returns 默认 3；88% 加二层(12% 跳过)，宽 uw=clamp(W0·(0.55–0.67)+0.5,3.6,W0)，层高 2.9–3.4，有檐前屋 zf=0.12 无檐外凸−0.7(下斜撑)；45% 再加三层(uw>5)层高 2.5–2.9 退后 0.7 屋顶覆瓦(倾−0.44)；rng=mulberry32(16022)，v19 种子 19022；移动端整体 return null",
-      "quantities": [
-        {
-          "value": 0.88,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.12,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.45,
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "routeNote": "小镇木骨架楼层构件与生成概率",
-      "coupling": "数值是第 1.13 节 zone_12：zone_21、大厅、拱门与小镇里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 1.13 节 d195；出处类别：源码拆解·zone_12：zone_21、大厅、拱门与小镇（案例 13 第 24 章）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d196.card",
       "sourceId": "d196",
       "section": "1.13",
@@ -7104,26 +6390,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "建筑场景地形与水汇编 第 1.14 节 d208；出处类别：源码拆解·巨树布景系统（案例 13 第 24 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d209.card",
-      "sourceId": "d209",
-      "section": "1.14",
-      "caseId": "case-13",
-      "title": "案例 13 先干跑再真建",
-      "cardId": "form.scene-layout",
-      "target": "form.scene-layout",
-      "text": "【干跑→查遮罩→真建 attempt】先看离漂叶 R16 集合够远(clearOfzone_11)、避开相机视线(viewClear)；在 scratch 假容器里用 recorder 假碰撞器收集所有碰撞盒；每个碰撞体取 12 个圆周点(旋转矩形 8 点+中心)测 mask.test(遮罩来自 原实现源码 的 keepClear(\"tree\"))，全通过才用同一种子真建，真建时碰撞体走 queue(addDressBlocker，由 commitDressBlockers 统一提交)\n【先干跑再真建】在草稿容器里摆一遍，碰撞体全过禁区检查，再用同一个种子真建；改道具外形时先把旧函数空跑一遍消耗随机数，其他摆件位置不变",
-      "quantities": [],
-      "routeNote": "虽讲先干跑再真建，但带源码标识符与12采样点等实现细节",
-      "coupling": "数值是第 1.14 节 巨树布景系统里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过 / 作者成片用过(未运行)",
-      "docRef": "建筑场景地形与水汇编 第 1.14 节 d209；出处类别：源码拆解·巨树布景系统（案例 13 第 24 章）",
       "verifiedInOurStack": false
     },
     {
@@ -8239,42 +7505,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d244.card",
-      "sourceId": "d244",
-      "section": "1.17",
-      "caseId": "ext-01",
-      "title": "灯笼",
-      "cardId": "form.set-dressing",
-      "target": "form.set-dressing",
-      "text": "105 盏（实测），共用一个 338 顶点/494 三角形网格；直径约 0.5 m、高 0.54 m、鼓腹最大半径 0.25 m；悬绳 y 0.32…1.32；流苏 y −0.90…−0.385",
-      "quantities": [
-        {
-          "value": 0.5,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 0.54,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 0.25,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "灯笼实例预算与专用网格尺寸",
-      "coupling": "数值是第 1.17 节 悬挂物、旗布与灯笼里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "实测 + 源码",
-      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
-      "docRef": "建筑场景地形与水汇编 第 1.17 节 d244；出处类别：源码拆解·悬挂物、旗布与灯笼",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d245.card",
       "sourceId": "d245",
       "section": "1.17",
@@ -8302,7 +7532,7 @@
       "title": "(表头缺失)",
       "cardId": "time.bake",
       "target": "time.bake",
-      "text": "A8 | 悬挂物摆动预积分 | 表 2701×185（实测，90 s×30 Hz，约 7.6 MiB）；阻力 kd=0.088（6 m/s 偏 17.9°，11 m/s 偏 47.3°，笔记自查与注释吻合）；灯体偏角软限 44°→56°；流苏低通 0.085 s、旗风低通 0.14 s；预热 6 s；风速饱和 11.5·tanh( | w | /11.5)；子步 dt=1/60；基础风 u0=2.3 m/s、慢涌 u1=2.9、湍流 0.7；阵风换算 uf=5.5、ug=8.5 | 源码 + 实测（表尺寸） | 依赖特定算法（思路可借） |",
+      "text": "悬挂物摆动预积分 | 表 2701×185（实测，90 s×30 Hz，约 7.6 MiB）；阻力 kd=0.088（6 m/s 偏 17.9°，11 m/s 偏 47.3°，笔记自查与注释吻合）；灯体偏角软限 44°→56°；流苏低通 0.085 s、旗风低通 0.14 s；预热 6 s；风速饱和 11.5·tanh( | w | /11.5)；子步 dt=1/60；基础风 u0=2.3 m/s、慢涌 u1=2.9、湍流 0.7；阵风换算 uf=5.5、ug=8.5 | 源码 + 实测（表尺寸） | 依赖特定算法（思路可借） |",
       "quantities": [
         {
           "value": 30,
@@ -8458,43 +7688,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d251.card",
-      "sourceId": "d251",
-      "section": "1.18",
-      "caseId": "case-02",
-      "title": "聚落",
-      "cardId": "form.world-gen",
-      "target": "form.world-gen",
-      "text": "聚落：房屋 4028 栋，8 个地标（1 桥、3 塔、1 神社、3 鸟居），30 个湖；湖面高度 70.87–215.06 m；河面高度 0.4–425.66 m。实测 原实现数据文件。",
-      "quantities": [
-        {
-          "value": [
-            70.87,
-            215.06
-          ],
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": [
-            0.4,
-            425.66
-          ],
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "聚落对象规模与水面高度属该世界配置",
-      "coupling": "数值是第 1.18 节 案例 02 村落与日式建筑里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "清单未列",
-      "verificationLabel": "清单未列",
-      "docRef": "建筑场景地形与水汇编 第 1.18 节 d251；出处类别：推断与说明·案例 02 村落与日式建筑",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d252.card",
       "sourceId": "d252",
       "section": "1.18",
@@ -8615,94 +7808,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d256.card",
-      "sourceId": "d256",
-      "section": "1.19",
-      "caseId": "case-22",
-      "title": "案例 22 三角预算与模块合同",
-      "cardId": "form.scene-budget",
-      "target": "form.scene-budget",
-      "text": "【S2 案例 22规模】三角形预算：第一轮约 1,200 万（带实例化），第二轮约 2,000 万；视口读数终点 12,121,208 三角形、11,963 对象\n【模块合同】一个 Python 文件、一个 `build`、创建自己的集合、返回屋顶区域和蒸汽点；共用材质名；三角形预算：第一轮约 1,200 万（带实例化）、第二轮约 2,000 万；“屏幕上小于 2 像素的细节是浪费”；离镜头多远与哪些面朝太阳写进简报；十个部分第一次合在一起就对上",
-      "quantities": [
-        {
-          "value": 2,
-          "unit": "px",
-          "rawUnit": "像素"
-        }
-      ],
-      "routeNote": "三角面与对象数预算读数为主体",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述 + 画面读数 + 原文陈述",
-      "verificationLabel": "C（预算）/D（读数） / 作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d256；出处类别：原文陈述·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d257.card",
-      "sourceId": "d257",
-      "section": "1.19",
-      "caseId": "case-22",
-      "title": "案例 22 细节数字与「为什么真」规模",
-      "cardId": "form.scene-budget",
-      "target": "form.scene-budget",
-      "text": "【S3 案例 22细节计数】主塔玻璃 4,560 块；木水塔每个 52 块木板+14 个金属箍；屋顶道具 88 种；车辆 858；行人 2,259；缺失屋瓦 5%\n【细节数字】主塔玻璃 4,560 块独立玻璃（偏移几毫米）；木水塔每个 52 块木板+14 个金属箍；屋顶道具 88 种自动摆放；缺失屋瓦 5%；部分窗封死；车辆 858 辆有交通模拟红灯停；行人 2,259 人会走会过街；每棵树数千片真实叶子；远处建筑为画了窗户的盒子；污渍（钢下的锈、窗台下条纹、通风口烟灰、水坑、垃圾）全由代码生成无照片贴图\n【城市规模数字】塔有 4,560 块独立玻璃;每个木水箱由 52 块板+14 个金属环构成;屋顶 88 种自动摆放道具;858 辆车、2,259 个行人;树有数千真叶;车辆跟随交通模拟并在红灯停;三角面预算:第一轮约 12 million(带实例),第二轮约 20 million;远处建筑是带贴画窗的简单盒子,主街区周边四面细节\n【电影城市“为什么真”与规模】五决策:真3D细节(窗深嵌墙使低太阳投真阴影)/大量小物(水塔/消防梯/空调/通风口/招牌/垃圾)/不完美(窗错位几毫米、5%屋顶瓦缺失、有的窗被砖封、雨水污痕;“直线完美才让3D显假”)/光与空气(一盏低太阳+柔雾)/电影相机;污渍随成因(窗台下污痕/钢下锈/通风口上烟灰/水坑/垃圾),无任何照片纹理;规模:塔4,560块独立玻璃、每水塔52块板+14个金属环、屋顶88种道具自动摆放、858辆车(交通模拟停红灯)、2,259人、树数千真叶、远景盒子+绘制窗户;虚构品牌 三个虚构品牌\n【T5 案例 22树】每棵树数千片真实叶子",
-      "quantities": [
-        {
-          "value": 0.05,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.05,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.05,
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "routeNote": "主体为城市细节数量与场景规模",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "C / 只是原文说法（均无法独立数） / 作者成片用过 / 只是原文说法",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d257；出处类别：原文陈述·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d258.card",
-      "sourceId": "d258",
-      "section": "1.19",
-      "caseId": "case-22",
-      "title": "案例 22主镜头构图",
-      "cardId": "form.scene-layout",
-      "target": "form.scene-layout",
-      "text": "约 160 米高缓推俯拍，沿现代都市棋盘大街向下，黄金时刻；左侧深色玻璃塔、右侧战前砖楼和水塔、中间广告牌",
-      "quantities": [
-        {
-          "value": 160,
-          "unit": "m",
-          "rawUnit": "米"
-        }
-      ],
-      "routeNote": "某镜头机位高度与该片布景构成",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "C",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d258；出处类别：原文陈述·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d259.card",
       "sourceId": "d259",
       "section": "1.19",
@@ -8710,7 +7815,7 @@
       "title": "案例 22 十个模块",
       "cardId": "form.interior-arch",
       "target": "form.interior-arch",
-      "text": "【S5 案例 22模块分工】十个模块（主塔、砖楼、屋顶道具、广告牌、其余城市、街道、交通、大气、相机调色、材质）；对象名前缀 ST_/HT_/CF_/RK_/VH_/AT_\n【十个模块】主塔（深色玻璃塔）、砖楼群（战前砖楼、消防梯、店铺）、屋顶道具（水塔、空调、通风口）、广告牌（招牌、屏幕、大圆广告牌）、其余城市（到地平线）、街道（路、人行道、树、长椅、垃圾）、交通（车、公交、出租车、人）、大气（太阳、天空、雾、蒸汽、鸟）、相机与调色、材质",
+      "text": "【案例 22模块分工】十个模块（主塔、砖楼、屋顶道具、广告牌、其余城市、街道、交通、大气、相机调色、材质）；对象名前缀 ST_/HT_/CF_/RK_/VH_/AT_\n【十个模块】主塔（深色玻璃塔）、砖楼群（战前砖楼、消防梯、店铺）、屋顶道具（水塔、空调、通风口）、广告牌（招牌、屏幕、大圆广告牌）、其余城市（到地平线）、街道（路、人行道、树、长椅、垃圾）、交通（车、公交、出租车、人）、大气（太阳、天空、雾、蒸汽、鸟）、相机与调色、材质",
       "quantities": [],
       "routeNote": "本片模块分工附命名前缀与模块计数",
       "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
@@ -8723,66 +7828,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d260.card",
-      "sourceId": "d260",
-      "section": "1.19",
-      "caseId": "case-19",
-      "title": "热带高密度滨海城区 静态街规模",
-      "cardId": "form.scene-budget",
-      "target": "form.scene-budget",
-      "text": "【S7 热带高密度滨海城区街道】静态约 316 万三角；街道杂物 319 千三角；运动物体最多 190 万；招牌 33 块；每镜头上限 3.16+1.9=5.06 百万（推断）\n【热带高密度滨海城区静态街规模】静态街约 3.16 百万三角面、383 种材质:带真实洞口与室内的房屋、百叶窗/阳台/廊/波纹雨棚、带货架与灯泡的店铺、电线杆与电线团、带铜秤的果香料推车、万寿菊花环摊、三轮车、31.9 万三角的街头杂物、33 块外文招牌(模型自己的笔画,部分双语);店名一律虚构;每镜头另加约 1.9 百万运动三角面\n【热带高密度滨海城区场景规模】静态街约3.16百万三角形、383种材质;房屋有真实开口与室内、百叶/阳台/回廊/波纹篷;店铺货架灯泡;线团;带黄铜秤的果香料车;万寿菊花环摊;三轮车与31.9万三角形街头杂物;33个外文招牌(自写笔画,部分双语,店名全部虚构);每镜另加1.9百万运动三角形",
-      "quantities": [],
-      "routeNote": "特定街景的三角面材质与招牌预算",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "原文陈述 / 推断 + 原文陈述",
-      "verificationLabel": "C / 作者成片用过 / 只是原文说法",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d260；出处类别：推断与说明·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d261.card",
-      "sourceId": "d261",
-      "section": "1.19",
-      "caseId": "case-19",
-      "title": "热带高密度滨海城区布置",
-      "cardId": "form.scene-budget",
-      "target": "form.scene-budget",
-      "text": "晾衣 12 根绳 86 件；旗 78 面；人物 53（19 在走）；每人 20 根骨；毛 43 万根；真实开口带房间、百叶窗、阳台、波纹铁皮雨棚",
-      "quantities": [],
-      "routeNote": "街景布置对象与角色细节数量配置",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "C",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d261；出处类别：原文陈述·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d262.card",
-      "sourceId": "d262",
-      "section": "1.19",
-      "caseId": "case-14",
-      "title": "高密度霓虹雨夜街景小巷 规格",
-      "cardId": "form.scene-budget",
-      "target": "form.scene-budget",
-      "text": "【S9 案例 14小巷】静态约 40 万三角 + 运动最多 16 万；招牌用假名+19 个汉字逐笔构造，系统字体只当尺子\n【高密度霓虹雨夜街景小巷规格】23:10,窄巷小酒馆,仅被招牌/灯笼/窗/自动贩卖机照亮,湿路面;文字=两套表音字符加 19 个表意字(拉面/烤鸡串/酒/STOP 路面标线/街区号码)逐笔画自绘,每个字形与系统字体叠加比对,画面里不出现系统字体;红灯笼、招牌箱、暖帘 noren、啤酒箱、电缆、凸面路镜、雨伞;静态巷约 0.4 million triangles,最多 0.16 million 运动,水面镜头水圈单独达 220–312 thousand\n【霓虹雨夜小巷场景数据】23:10雨夜窄巷仅由招牌/灯笼/窗/贩卖机照明;文字=两套表音字符加 19 个表意字(拉面/烧鸟/酒/STOP/街区号)逐笔绘制并与系统字体叠图核对,画面无系统字体;雨=每镜5,600条真实几何雨丝+屋檐滴水+水面涟漪;静态巷约0.4百万三角形、运动最多0.16百万;水位镜头涟漪环22万–31.2万",
-      "quantities": [],
-      "routeNote": "小巷文字雨丝与三角面为场景配置",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "C / 作者成片用过(15 s, 1920x1080, 24 fps) / 只是原文说法",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d262；出处类别：原文陈述·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d263.card",
       "sourceId": "d263",
       "section": "1.19",
@@ -8790,7 +7835,7 @@
       "title": "写实餐馆 场景规模",
       "cardId": "form.interior-arch",
       "target": "form.interior-arch",
-      "text": "【S10 餐馆】约 380 万三角面；车削、扫掠、圆角盒；杯、勺、烟灰缸由 SDF 网格化，杯子网格单元约 0.5 mm；笔画字体画霓虹、菜单、钟、日历\n【餐厅几何与材质】全部几何生成:车削/扫掠体、圆角盒、由有符号距离场出网格的杯(含柄)、勺、烟灰缸;为任务写的笔画字体画霓虹/菜单板/钟/日历;场景约 380 万三角面;28 种程序材质各带磨损(亚麻纹层压板含咖啡圈、乙烯基、有指纹的铬、边缘不齐的瓷砖、带绿条与咖啡渍的瓷、带路标线的裂缝沥青);室内柜台/凳/卡座/百叶(织带)/吧台/厨房,室外立面/招牌/停车场/公路/电杆/沙漠方山/仙人掌/灌木\n【餐馆场景数据】全程序几何:车削/扫掠形、圆角盒、SDF 网格(杯与把手、匙、烟灰缸);自写笔画字体画霓虹/菜单板/钟/日历;吧台、凳、卡座、带织带百叶、吧、厨房;外有立面/招牌/停车场/公路/电线杆/沙漠孤山/仙人掌/灌木;最终场景约3.8百万三角形;28种程序材质各带磨损(亚麻纹层压板带咖啡环、乙烯基、带指纹的铬、边缘不齐的瓷砖、带绿条与咖啡渍的瓷器、有裂缝带路标的沥青)\n【T7 餐馆室外】立面、招牌、停车场、公路、电线杆、远处平顶山、巨人柱仙人掌、灌木",
+      "text": "【餐馆】约 380 万三角面；车削、扫掠、圆角盒；杯、勺、烟灰缸由 SDF 网格化，杯子网格单元约 0.5 mm；笔画字体画霓虹、菜单、钟、日历\n【餐厅几何与材质】全部几何生成:车削/扫掠体、圆角盒、由有符号距离场出网格的杯(含柄)、勺、烟灰缸;为任务写的笔画字体画霓虹/菜单板/钟/日历;场景约 380 万三角面;28 种程序材质各带磨损(亚麻纹层压板含咖啡圈、乙烯基、有指纹的铬、边缘不齐的瓷砖、带绿条与咖啡渍的瓷、带路标线的裂缝沥青);室内柜台/凳/卡座/百叶(织带)/吧台/厨房,室外立面/招牌/停车场/公路/电杆/沙漠方山/仙人掌/灌木\n【餐馆场景数据】全程序几何:车削/扫掠形、圆角盒、SDF 网格(杯与把手、匙、烟灰缸);自写笔画字体画霓虹/菜单板/钟/日历;吧台、凳、卡座、带织带百叶、吧、厨房;外有立面/招牌/停车场/公路/电线杆/沙漠孤山/仙人掌/灌木;最终场景约3.8百万三角形;28种程序材质各带磨损(亚麻纹层压板带咖啡环、乙烯基、带指纹的铬、边缘不齐的瓷砖、带绿条与咖啡渍的瓷器、有裂缝带路标的沥青)\n【餐馆室外】立面、招牌、停车场、公路、电线杆、远处平顶山、巨人柱仙人掌、灌木",
       "quantities": [
         {
           "value": 0.5,
@@ -8816,7 +7861,7 @@
       "title": "写实餐馆 杯身杯柄 SDF",
       "cardId": "form.sdf-nets",
       "target": "form.sdf-nets",
-      "text": "【S11 杯身杯柄接法】`sdCurve(hp, hr, 1.5)` + `sd.smin(body, handle, 0.0055)`；出现在 原实现源码 cupMesh` 第 60–61 行\n【SDF 小物件再网格化】杯身加杯柄用 smin 平滑并，半径 0.0055；画面读到 原实现源码 的 cupMesh 第 60 行 const handle = sdCurve(hp, hr, 1.5); 第 61 行 const f = (x, y, z) => sd.smin(body(x, y, z), handle(x, y, z), 0.0055)；杯子/勺/烟灰缸由 SDF 网格化(原文)",
+      "text": "【杯身杯柄接法】`sdCurve(hp, hr, 1.5)` + `sd.smin(body, handle, 0.0055)`；出现在 原实现源码 cupMesh` 第 60–61 行\n【SDF 小物件再网格化】杯身加杯柄用 smin 平滑并，半径 0.0055；画面读到 原实现源码 的 cupMesh 第 60 行 const handle = sdCurve(hp, hr, 1.5); 第 61 行 const f = (x, y, z) => sd.smin(body(x, y, z), handle(x, y, z), 0.0055)；杯子/勺/烟灰缸由 SDF 网格化(原文)",
       "quantities": [],
       "routeNote": "sdCurve 与 smin 的参数取值",
       "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
@@ -8829,87 +7874,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d265.card",
-      "sourceId": "d265",
-      "section": "1.19",
-      "caseId": "case-29",
-      "title": "案例 29 单一模型",
-      "cardId": "form.interior-arch",
-      "target": "form.interior-arch",
-      "text": "【S12 案例 29 房间】9 层角部，15.0×10.0 m，129.86 m²；16 面墙、3 立管井、12 房间、19 洞口、80 件家具设备、53 灯具；层高 2740 mm，门厅和卫生间 2440 mm\n【公寓基本量】新建公寓楼 9 层角部；15.0×10.0 m，129.86 m²；单毫米模型文件；16 面墙、3 个立管井、12 房间、19 洞口、80 件家具设备、53 套灯具；层高房间 2740 mm（9 ft），门厅卫生间 2440 mm（风管走这里）；风格暖调现代：漂白橡木、暖色灰泥、胡桃木、亚麻、石灰华、青铜\n【案例 29 单一模型】整套公寓在一个毫米单位的模型文件里:16 面墙(类型+厚度)、3 个竖井、12 个房间、19 个洞口(门含铰链侧与开向、门洞、窗)、饰面目录、80 件家具设备、53 个灯具与工程锚点;层高 2740 mm(房间)/2440 mm(门厅与浴室,管道经过处);15.0 × 10.0 m、129.86 m²;风格 warm modern(漂白橡木/暖灰泥/胡桃/亚麻/洞石/青铜)\n【案例 29 单一模型(毫米)】角落公寓第9层(新建公寓楼)15.0×10.0 m、129.86 m²;单模型文件(毫米):16堵墙(含类型厚度)、3个管井、12个房间、19个开口(门含铰链侧与开向/洞口/窗)、饰面目录、80件家具设备、53个灯具、工程锚点;层高房间2740 mm(9 ft)、门厅与卫生间2440 mm(走管);风格 warm modern:漂白橡木/暖灰泥/胡桃/亚麻/洞石/青铜",
-      "quantities": [
-        {
-          "value": 10,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 2740,
-          "unit": "mm",
-          "rawUnit": "mm"
-        },
-        {
-          "value": 2440,
-          "unit": "mm",
-          "rawUnit": "mm"
-        },
-        {
-          "value": 10,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 2740,
-          "unit": "mm",
-          "rawUnit": "mm"
-        },
-        {
-          "value": 2440,
-          "unit": "mm",
-          "rawUnit": "mm"
-        },
-        {
-          "value": 10,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 10,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "公寓专属尺寸构件数量与层高表",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "C / 只是原文说法 / 作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d265；出处类别：原文陈述·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d266.card",
-      "sourceId": "d266",
-      "section": "1.19",
-      "caseId": "case-29",
-      "title": "公寓三维场景",
-      "cardId": "form.scene-budget",
-      "target": "form.scene-budget",
-      "text": "118 万三角面，102 种程序材质",
-      "quantities": [],
-      "routeNote": "面数与材质数规模",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "C",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d266；出处类别：原文陈述·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d267.card",
       "sourceId": "d267",
       "section": "1.19",
@@ -8917,7 +7881,7 @@
       "title": "案例 29 房间画面与配色",
       "cardId": "form.interior-arch",
       "target": "form.interior-arch",
-      "text": "【S14 公寓配色】暖调现代；客厅米白沙发、焦糖皮椅、白石茶几；卧室墙灰绿；书房深色书架\n【房间画面所见】客厅米白三人沙发、两把焦糖皮扶手椅、白色石材茶几、落地灯盆栽、三面落地窗外城市楼群；卧室墙灰绿；书房整面深色书架；玄关圆镜木边几；厨房浅木橱柜岛台三把高脚凳",
+      "text": "【公寓配色】暖调现代；客厅米白沙发、焦糖皮椅、白石茶几；卧室墙灰绿；书房深色书架\n【房间画面所见】客厅米白三人沙发、两把焦糖皮扶手椅、白色石材茶几、落地灯盆栽、三面落地窗外城市楼群；卧室墙灰绿；书房整面深色书架；玄关圆镜木边几；厨房浅木橱柜岛台三把高脚凳",
       "quantities": [],
       "routeNote": "该片房间构成、数量与配色设定",
       "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
@@ -8937,7 +7901,7 @@
       "title": "案例 07 三座房子",
       "cardId": "form.set-dressing",
       "target": "form.set-dressing",
-      "text": "【S15 案例 07房子】草屋/木棍屋/砖房；片名三个词分别用捆扎稻草、木棍、砖拼成，字母在重拍上拼成\n【三座房子】小猪甲 草屋（牌子 “小猪甲 PLACE built in 9 min!”）；小猪乙 木棍屋（牌子 “小猪乙 PAD load-bearing (i read it)”，有吊床）；小猪丙 砖房（带塔砖楼）",
+      "text": "【案例 07房子】草屋/木棍屋/砖房；片名三个词分别用捆扎稻草、木棍、砖拼成，字母在重拍上拼成\n【三座房子】小猪甲 草屋（牌子 “小猪甲 PLACE built in 9 min!”）；小猪乙 木棍屋（牌子 “小猪乙 PAD load-bearing (i read it)”，有吊床）；小猪丙 砖房（带塔砖楼）",
       "quantities": [],
       "routeNote": "三座房屋及标题材质对应为作品设定",
       "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
@@ -9038,83 +8002,6 @@
       "evidenceLabel": "原文陈述+推断算术 + 原文陈述 + 实测",
       "verificationLabel": "只是原文说法 / 作者成片用过 / 作者成片用过(规则检查为作者代码) / 没验证",
       "docRef": "建筑场景地形与水汇编 第 1.19 节 d269；出处类别：推断与说明·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d275.card",
-      "sourceId": "d275",
-      "section": "1.19",
-      "caseId": "case-21",
-      "title": "暖调高密度城区晨市 规格",
-      "cardId": "form.scene-budget",
-      "target": "form.scene-budget",
-      "text": "【暖调高密度城区市集场景规格】早 7:40,侧向太阳高度 22 度,深蓝高海拔天空,彩色光透过雨棚;约 50 块外文招牌/价签,用自有笔画字母表加重音与波浪符;115 张镂空剪纸旗(带镂空图案);雨棚、农产品箱、彩纸挂饰、万寿菊、蒸锅;远景 28 个行走/站立人物;静态街约 2.9 million triangles,最多 0.2 million 运动\n【暖调高密度城区早市场景数据】约 50 块外文招牌/价签(自写笔画字母表+重音与波浪符);115张镂空剪纸旗;遮阳篷/农产品箱/彩纸挂饰/万寿菊/玉米粽蒸锅;广角28人;静态街约2.9百万三角形、运动最多0.2百万",
-      "quantities": [
-        {
-          "value": 22,
-          "unit": "deg",
-          "rawUnit": "度"
-        }
-      ],
-      "routeNote": "早市场景时刻照明与对象数量配置",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "作者成片用过 / 只是原文说法",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d275；出处类别：原文陈述·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d277.card",
-      "sourceId": "d277",
-      "section": "1.19",
-      "caseId": "case-04",
-      "title": "建筑尺寸文字锚点",
-      "cardId": "form.scene-layout",
-      "target": "form.scene-layout",
-      "text": "提示词里写真实尺寸:栅栏一段约 3 m;木栅墙一段约 8 m;废弃圆塔约 15 m 高;河驳船约 15 m 长;砂岩城墙一段约 12 m 长 10 m 高;用于后续 Blender 定尺寸",
-      "quantities": [
-        {
-          "value": 3,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 8,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 15,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 15,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 12,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 10,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "特定建筑道具的提示词尺寸配置表",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d277；出处类别：原文陈述·写实与工程类场景（逐案例）",
       "verifiedInOurStack": false
     },
     {
@@ -9300,93 +8187,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d282.card",
-      "sourceId": "d282",
-      "section": "1.19",
-      "caseId": "case-12",
-      "title": "闪电片城市规模",
-      "cardId": "form.scene-budget",
-      "target": "form.scene-budget",
-      "text": "程序化城市:街道、带桥的河、公园、16 个变电站、约 15,600 栋建筑(亮窗/店面/车流/路灯);分模块并行子代理:主塔与广场、街区、带反射的街道层;lead 持有共享引擎(时间线/闪电/灯光/后处理)",
-      "quantities": [],
-      "routeNote": "该片城市规模与对象数",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d282；出处类别：原文陈述·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d284.card",
-      "sourceId": "d284",
-      "section": "1.19",
-      "caseId": "case-26",
-      "title": "写实餐馆 规格",
-      "cardId": "form.scene-budget",
-      "target": "form.scene-budget",
-      "text": "约380万三角面、28种程序材质；约20秒、24fps、六镜头；正文另记478帧；1080×1210，CRF 16；自写WebGPU路径追踪器→程序场景→4K母帧→摇镜与俯仰重投影→网格分屏→代码音效；无平移视差、不模拟焦散；上方真实三角网格、下方完成渲染同机位",
-      "quantities": [
-        {
-          "value": 20,
-          "unit": "s",
-          "rawUnit": "秒"
-        },
-        {
-          "value": 24,
-          "unit": "fps",
-          "rawUnit": "fps"
-        },
-        {
-          "value": 478,
-          "unit": "frame",
-          "rawUnit": "帧"
-        }
-      ],
-      "routeNote": "主体为该片场景预算与制作链路配置",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "实测+原文陈述",
-      "verificationLabel": "我们自己读回过",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d284；出处类别：原文陈述·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d285.card",
-      "sourceId": "d285",
-      "section": "1.19",
-      "caseId": "case-29",
-      "title": "案例 29 单一模型驱动",
-      "cardId": "form.interior-arch",
-      "target": "form.interior-arch",
-      "text": "毫米级单一模型→图纸、工程检查、三维场景→路径追踪静帧→光标建造与分屏合成；15×10m外框、129.86㎡；16墙、12房间、19开口、80家具设备、53灯具；20秒、1080×1350、30fps、600帧(CRF 16)；11个切点；部分镜头静帧推近无视差",
-      "quantities": [
-        {
-          "value": 20,
-          "unit": "s",
-          "rawUnit": "秒"
-        },
-        {
-          "value": 30,
-          "unit": "fps",
-          "rawUnit": "fps"
-        }
-      ],
-      "routeNote": "单一模型制作链与该公寓规格耦合",
-      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "实测+原文陈述",
-      "verificationLabel": "我们自己读回过（版式像素、切点）",
-      "docRef": "建筑场景地形与水汇编 第 1.19 节 d285；出处类别：原文陈述·写实与工程类场景（逐案例）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d286.card",
       "sourceId": "d286",
       "section": "1.20",
@@ -9440,7 +8240,7 @@
       "title": "案例 13 地形网格（高度场分块、LOD、阴影代理）",
       "cardId": "form.terrain",
       "target": "form.terrain",
-      "text": "【F1 地形网格】640×640m，513×513点，格距1.25m；分4×4=16块，每块129²顶点，全精度32768三角（共524288）；远处索引1/4三角；LOD切换距离桌面150m/手机90m，回差0.9；阴影代理257²取5×5邻域最低高度-.25m\n【地形网格】高度场 16 块，266256 顶点/524288 三角；阴影代理 131072 三角；远山 8 扇 284672 三角（手机 103 环×641 列）；标准材质+顶点色，粗糙度 0.93，无贴图",
+      "text": "【地形网格】640×640m，513×513点，格距1.25m；分4×4=16块，每块129²顶点，全精度32768三角（共524288）；远处索引1/4三角；LOD切换距离桌面150m/手机90m，回差0.9；阴影代理257²取5×5邻域最低高度-.25m\n【地形网格】高度场 16 块，266256 顶点/524288 三角；阴影代理 131072 三角；远山 8 扇 284672 三角（手机 103 环×641 列）；标准材质+顶点色，粗糙度 0.93，无贴图",
       "quantities": [
         {
           "value": 1.25,
@@ -9574,7 +8374,7 @@
       "title": "地形网格 CDLOD",
       "cardId": "form.terrain",
       "target": "form.terrain",
-      "text": "地形网格 CDLOD：根节点 262,144 m、叶节点 64 m、每节点 32×32 格，2 次绘制调用。源码 原实现源码（A2 3.3 未读）。",
+      "text": "地形网格 CDLOD：根节点 262,144 m、叶节点 64 m、每节点 32×32 格，2 次绘制调用。源码 原实现源码（对应小节未读）。",
       "quantities": [
         {
           "value": 262144,
@@ -10219,40 +9019,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d311.card",
-      "sourceId": "d311",
-      "section": "2.2",
-      "caseId": "case-13",
-      "title": "去「等高线山丘」",
-      "cardId": "form.terrain",
-      "target": "form.terrain",
-      "text": "评审 r5 #7「等高线地图一样的山」→ 第 6/7 轮加崖壁结构 50–650 m（环坡 slope 0.28–0.54）；宏观反照率扰动；砂岩层理 7 rad/m（原笔记 M7）；落叶各有色调（M9）",
-      "quantities": [
-        {
-          "value": [
-            50,
-            650
-          ],
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 7,
-          "unit": "rad/m",
-          "rawUnit": "rad/m"
-        }
-      ],
-      "routeNote": "山丘修法附崖壁尺度、坡度和层理参数",
-      "coupling": "数值是第 2.2 节 地形生成管线与地表形态里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过(未运行)",
-      "docRef": "建筑场景地形与水汇编 第 2.2 节 d311；出处类别：源码拆解·地形生成管线与地表形态",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d312.card",
       "sourceId": "d312",
       "section": "2.3",
@@ -10566,7 +9332,7 @@
       "title": "外部案例 01 岩石网格总量与分件三角表（54 件）",
       "cardId": "form.scene-budget",
       "target": "form.scene-budget",
-      "text": "【T8 岩石网格总量】54 件合并一个网格：684,672 顶点、1,352,336 三角面；约 39.2 MiB 顶点 + 15.5 MiB 索引；renderOrder 3 最后画\n【岩石网格顶点/三角面表（54 件）】顶点=(nu+1)(nv+1)，三角面=2·nu·nv：主峰 290×390=113,781/226,200；峰2 180×270=49,051/97,200；峰3 130×190=25,021/49,400；峰4 160×240=38,801/76,800；峰5 150×230=34,881/69,000；远峰 56×80×14 件=64,638/125,440；左墙 470×260=122,931/244,400；右墙 390×220=86,411/171,600；门台 300×170=51,471/102,000；左台 240×120=29,161/57,600；右台 240×110=26,751/52,800；岸 170×90=15,561/30,600；岛 90×56=5,187/10,080；root 同；pad 60×40=2,501/4,800；小岸石 26×18×26 件=13,338/24,336；合计 684,672 / 1,352,336；属性 position/normal/color/aB/aN 各 3 浮点=60 字节/顶点=41,080,320 字节≈39.2 MiB，索引 Uint32 16,228,032 字节≈15.5 MiB",
+      "text": "【岩石网格总量】54 件合并一个网格：684,672 顶点、1,352,336 三角面；约 39.2 MiB 顶点 + 15.5 MiB 索引；renderOrder 3 最后画\n【岩石网格顶点/三角面表（54 件）】顶点=(nu+1)(nv+1)，三角面=2·nu·nv：主峰 290×390=113,781/226,200；峰2 180×270=49,051/97,200；峰3 130×190=25,021/49,400；峰4 160×240=38,801/76,800；峰5 150×230=34,881/69,000；远峰 56×80×14 件=64,638/125,440；左墙 470×260=122,931/244,400；右墙 390×220=86,411/171,600；门台 300×170=51,471/102,000；左台 240×120=29,161/57,600；右台 240×110=26,751/52,800；岸 170×90=15,561/30,600；岛 90×56=5,187/10,080；root 同；pad 60×40=2,501/4,800；小岸石 26×18×26 件=13,338/24,336；合计 684,672 / 1,352,336；属性 position/normal/color/aB/aN 各 3 浮点=60 字节/顶点=41,080,320 字节≈39.2 MiB，索引 Uint32 16,228,032 字节≈15.5 MiB",
       "quantities": [],
       "routeNote": "岩石分件网格规模与显存预算绑定场景",
       "coupling": "数值是第 2.3 节 山岩、崖壁与远景山体里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
@@ -10586,7 +9352,7 @@
       "title": "案例 13 岩石（二十面体细分加平面切削）",
       "cardId": "form.rock",
       "target": "form.rock",
-      "text": "【F14 岩石】二十面体细分3级642顶点1280三角；鼓包 1+.22(fbm3(1.3p)-.5)·2+.05(vnoise3(6p)-.5)；9-13随机平面切削退回96%；类型缩放 片岩[1.4,.45,1]等；折角阈值.44rad(25°)\n【岩石】平面切削：球被 9–13 个随机平面切掉边角再细分；每块细分前 642 顶点/1280 三角（3 级）；顶点色 AO×程序化石灰岩",
+      "text": "【岩石】二十面体细分3级642顶点1280三角；鼓包 1+.22(fbm3(1.3p)-.5)·2+.05(vnoise3(6p)-.5)；9-13随机平面切削退回96%；类型缩放 片岩[1.4,.45,1]等；折角阈值.44rad(25°)\n【岩石】平面切削：球被 9–13 个随机平面切掉边角再细分；每块细分前 642 顶点/1280 三角（3 级）；顶点色 AO×程序化石灰岩",
       "quantities": [
         {
           "value": 0.96,
@@ -11014,7 +9780,7 @@
       "title": "外部案例 01 湖面镜子（平面反射）",
       "cardId": "shade.water",
       "target": "shade.water",
-      "text": "【T11 湖面镜子】把场景关于水面翻转再画一遍，分辨率为画面的 0.42 倍（引自 09，细节在 06 章未读）\n【镜面反射】镜面反射（依赖算法）：把镜头关于 y=0.05 翻转，Lengyel 斜裁剪 `pe[10]=clip.z+1-0.003`，分辨率 `MSCALE=0.42`，`k=clamp(1.3-2*top,0.55,1)`，只画湖面可见行（scissor）；反射采样按被反射物距离弯曲，距离夹 0.3–140 m，26 m 内手写双线性；半浮点 RT 带 mipmap 与深度纹理；实时隔帧（≥2 帧或时间跳 >0.09 s）。大实例网格用替身（≥6000 三角、保留 ≤85%；近水 9 m 内且 y<46，或 30 m 内且高出水面 <5+0.75d）；岩石替身 ≥200,000 三角，高于 16 m 合并 4×4，高于 3.2 m 合并 2×2。",
+      "text": "【湖面镜子】把场景关于水面翻转再画一遍，分辨率为画面的 0.42 倍（引自 09，细节在 原文章节未读）\n【镜面反射】镜面反射（依赖算法）：把镜头关于 y=0.05 翻转，Lengyel 斜裁剪 `pe[10]=clip.z+1-0.003`，分辨率 `MSCALE=0.42`，`k=clamp(1.3-2*top,0.55,1)`，只画湖面可见行（scissor）；反射采样按被反射物距离弯曲，距离夹 0.3–140 m，26 m 内手写双线性；半浮点 RT 带 mipmap 与深度纹理；实时隔帧（≥2 帧或时间跳 >0.09 s）。大实例网格用替身（≥6000 三角、保留 ≤85%；近水 9 m 内且 y<46，或 30 m 内且高出水面 <5+0.75d）；岩石替身 ≥200,000 三角，高于 16 m 合并 4×4，高于 3.2 m 合并 2×2。",
       "quantities": [
         {
           "value": [
@@ -11383,7 +10149,7 @@
       "title": "案例 13 河（几何、位置与半宽）",
       "cardId": "shade.water",
       "target": "shade.water",
-      "text": "【F12 河流几何与位置】河面1400m×20m，560×12段，高度1.45m；河中线 z=71+8sin(.017x+.6)+3.5sin(.051x+2)；半宽10m\n【河】riverZ(x)=71+8·sin(0.017x+0.6)+3.5·sin(0.051x+2)；半宽6.5 水面高1.45 河床0.55 岸高2.3；桥位 BRIDGE_Z=riverZ(0)≈78.70",
+      "text": "【河流几何与位置】河面1400m×20m，560×12段，高度1.45m；河中线 z=71+8sin(.017x+.6)+3.5sin(.051x+2)；半宽10m\n【河】riverZ(x)=71+8·sin(0.017x+0.6)+3.5·sin(0.051x+2)；半宽6.5 水面高1.45 河床0.55 岸高2.3；桥位 BRIDGE_Z=riverZ(0)≈78.70",
       "quantities": [
         {
           "value": 1.45,
@@ -11860,55 +10626,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d353.card",
-      "sourceId": "d353",
-      "section": "2.5",
-      "caseId": "ext-01",
-      "title": "水的可照搬做法",
-      "cardId": "particle.water-events",
-      "target": "particle.water-events",
-      "text": "经过预算成每实例 (t0, dur, 推x, 推z)，用 wkStep(τ)−wkStep(τ−dur)；冲击波有限速度外扩高斯壳，壳厚 7 m、速度 55 或 85 m/s、强度 30·S·ref/(ref+dist) m/s；平面镜 Lengyel 斜裁剪 pe[10]=clip.z+1−0.003；倒影弯曲乘到被反射物距离（夹 0.3–140 m）；像素大于波纹时 smoothstep(0.90, 0.10, 每像素米数)；势流行程时间贴图；飞溅闭式抛物线 e=(1−e^{−kτ})/k，k=2.5–8.5/s；小粒子按 1/60 s 快门拉条，长=宽+屏幕速度×0.0085；瀑布按离唇秒数参数化 y=y0−4.9τ²；涌浪取深水色散 ω=√(gk)，k=0.9106→ω=2.99；近水 9 m 内且 y<46 进替身",
-      "quantities": [
-        {
-          "value": 7,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 85,
-          "unit": "m/s",
-          "rawUnit": "m/s"
-        },
-        {
-          "value": [
-            0.3,
-            140
-          ],
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 0.016667,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 9,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "成串水面事件公式与常量",
-      "coupling": "数值是第 2.5 节 水面事件：入水、尾迹、水花与抛水里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 2.5 节 d353；出处类别：源码拆解·水面事件：入水、尾迹、水花与抛水",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d354.card",
       "sourceId": "d354",
       "section": "2.5",
@@ -11980,7 +10697,7 @@
       "title": "外部案例 01 主瀑布（位置、唇口与参数）",
       "cardId": "shade.water",
       "target": "shade.water",
-      "text": "【T9 瀑布】4 道：主瀑布 x=0、唇口高 18.4、半宽 2.7、z 中心 −6.5；水汽带宽 hw=半宽×1.3+0.7+(0.03+0.065×半宽)×落差\n【主瀑布 】主瀑布：`v0=2.6` m/s，`w0=宽-0.1`（实际 4.5 m），`w1=7.0`，`k=1.0`；3 层、每层 22×46 格；落时 `T=√(2*(18.40-0.05)/9.8)=1.935 s`；`y=y0+0.16-0.03ly-4.9τ²`；水滴 `round(2000k*w0/4.5+200)`，溅 `round(800k*w1/7+80)`；色 玻璃舌 (0.030,0.052,0.042)+(0.20,0.155,0.16)*…，白水 (0.93,0.93,0.92)。",
+      "text": "【瀑布】4 道：主瀑布 x=0、唇口高 18.4、半宽 2.7、z 中心 −6.5；水汽带宽 hw=半宽×1.3+0.7+(0.03+0.065×半宽)×落差\n【主瀑布 】主瀑布：`v0=2.6` m/s，`w0=宽-0.1`（实际 4.5 m），`w1=7.0`，`k=1.0`；3 层、每层 22×46 格；落时 `T=√(2*(18.40-0.05)/9.8)=1.935 s`；`y=y0+0.16-0.03ly-4.9τ²`；水滴 `round(2000k*w0/4.5+200)`，溅 `round(800k*w1/7+80)`；色 玻璃舌 (0.030,0.052,0.042)+(0.20,0.155,0.16)*…，白水 (0.93,0.93,0.92)。",
       "quantities": [
         {
           "value": 4.5,
@@ -12138,26 +10855,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d360.card",
-      "sourceId": "d360",
-      "section": "2.7",
-      "caseId": "case-14",
-      "title": "高密度霓虹雨夜街景 雨、水洼、涟漪与镜面",
-      "cardId": "shade.water",
-      "target": "shade.water",
-      "text": "【T3 水洼与涟漪】水洼和雨滴涟漪由一个与暖调高密度城区共用的水模块生成；沥青湿膜由片状几何组成；涟漪镜头面数 22–31 万三角\n【T4 雨】每镜 5,600 条，是真实几何体（每条面数未记录）；这样雨会被灯照亮、会进景深\n【高密度霓虹雨夜街景 水面与镜面】湿路、凸面镜取景、水面倒影；23:10酒馆小巷；外文招牌逐笔构造；镜头无视差，雨不与伞交互",
-      "quantities": [],
-      "routeNote": "特定街景的水雨模块与几何数量配置",
-      "coupling": "数值是第 2.7 节 雨、水洼与涟漪里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "C / 作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 2.7 节 d360；出处类别：原文陈述·雨、水洼与涟漪",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d361.card",
       "sourceId": "d361",
       "section": "2.8",
@@ -12195,37 +10892,6 @@
       "evidenceLabel": "源码 原实现源码",
       "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
       "docRef": "建筑场景地形与水汇编 第 2.8 节 d362；出处类别：源码拆解·草与地表植被（案例 13 第 3 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d363.card",
-      "sourceId": "d363",
-      "section": "2.8",
-      "caseId": "case-13",
-      "title": "案例 13 无限草地（一块砖滚动）",
-      "cardId": "form.grass",
-      "target": "form.grass",
-      "text": "【F4 草跟镜头滚动的无限砖】每层一块方砖用mod折回镜头；实例按格分桶、桶内按 aRand.x 排序，CPU 二分取前n根；multiDrawElementsInstanced 最多128段\n【无限草地/远近切换】一块砖+mod 绕镜头折回，每格实例按出现密度预排序，CPU 二分截断；地形 150 m 切远、135 m 切回（滞回）",
-      "quantities": [
-        {
-          "value": 150,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 135,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "滚动草砖算法附绘制段数与切换阈值",
-      "coupling": "数值是第 2.8 节 草与地表植被里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码 原实现源码 + 源码",
-      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回） / 作者成片用过(未运行)",
-      "docRef": "建筑场景地形与水汇编 第 2.8 节 d363；出处类别：源码拆解·草与地表植被（案例 13 第 3 章）",
       "verifiedInOurStack": false
     },
     {
@@ -12391,7 +11057,7 @@
       "title": "(表头缺失)",
       "cardId": "form.grass",
       "target": "form.grass",
-      "text": "F10 | 远景草壳 | 2.5m 步长网格，两层抬高.35/.7m；淡入72-100m淡出215-250m；只在掠射角出现 graze=1-smoothstep(.1,.42, | V.y | /d)；覆盖率阈值 IGN 55%+格哈希45%；下层颜色×.62；阵风上层亮22% | 源码 原实现源码 | 依赖特定算法 |",
+      "text": "远景草壳 | 2.5m 步长网格，两层抬高.35/.7m；淡入72-100m淡出215-250m；只在掠射角出现 graze=1-smoothstep(.1,.42, | V.y | /d)；覆盖率阈值 IGN 55%+格哈希45%；下层颜色×.62；阵风上层亮22% | 源码 原实现源码 | 依赖特定算法 |",
       "quantities": [
         {
           "value": 2.5,
@@ -12887,47 +11553,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d384.card",
-      "sourceId": "d384",
-      "section": "2.9",
-      "caseId": "case-02",
-      "title": "植被",
-      "cardId": "form.trees",
-      "target": "form.trees",
-      "text": "植被：瓦片 512 m；候选点间距 10/√q（高档 10 m，每瓦片 2704 点）；最远 4200×√q m；近远切换 460×min(1.25,√q) m；交叉淡化半宽 45 m；近模上限 24000q+4000、远模 90000q+10000；芦苇 38000q+4000、灌木 16000q+2000；3 种树×2 级 = 6 次绘制调用；基准树高 ~12 m；树缩放 阔叶 1.05+sv×0.65 / 针叶 1.0+sv×0.7 / 樱花 0.95+sv×0.5。源码 原实现源码。",
-      "quantities": [
-        {
-          "value": 512,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 10,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 45,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 12,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "植被瓦片、分级距离及实例上限配置",
-      "coupling": "数值是第 2.9 节 树木与森林里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码（条目文字内带出处）",
-      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
-      "docRef": "建筑场景地形与水汇编 第 2.9 节 d384；出处类别：源码拆解·树木与森林",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d385.card",
       "sourceId": "d385",
       "section": "2.9",
@@ -12971,26 +11596,6 @@
       "evidenceLabel": "源码（条目文字内带出处）",
       "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
       "docRef": "建筑场景地形与水汇编 第 2.9 节 d386；出处类别：源码拆解·树木与森林",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d387.card",
-      "sourceId": "d387",
-      "section": "2.9",
-      "caseId": "case-02",
-      "title": "植被稀疏化",
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
-      "text": "植被稀疏化：保留率 `clamp(1−0.85×smoothstep(D0, 0.7×DMAX, 距离), 0.15, 1)`，放大 `1/√保留率`，抖动图案淡入淡出（无台阶）。源码 原实现源码。",
-      "quantities": [],
-      "routeNote": "保留率公式与常量",
-      "coupling": "数值是第 2.9 节 树木与森林里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码（条目文字内带出处）",
-      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
-      "docRef": "建筑场景地形与水汇编 第 2.9 节 d387；出处类别：源码拆解·树木与森林",
       "verifiedInOurStack": false
     },
     {
