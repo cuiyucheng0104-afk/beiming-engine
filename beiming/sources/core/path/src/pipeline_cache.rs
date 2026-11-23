@@ -1,4 +1,4 @@
-// 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/src/pipeline_cache.rs，MIT 许可，版权人 Meshy LLC（2026）；北冥改过。来源与改动见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
+// 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/src/pipeline_cache.rs，MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
 //! Compiled pipelines kept on disk between runs (`gpu::GpuOptions::pipeline_cache`; THREERT_PIPELINE_CACHE=<directory>).
 //! A phone's driver compiles a kernel for seconds (Adreno 740: ten), and every variant a game uses again each time it
 //! is opened; with the cache the second opening reads what the first compiled (docs/RUNTIME.md "Android"). Off unless

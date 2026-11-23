@@ -1,4 +1,4 @@
-// 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/src/denoise.rs，MIT 许可，版权人 Meshy LLC（2026）；北冥改过。来源与改动见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
+// 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/src/denoise.rs，MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
 //! Edge-avoiding a-trous wavelet denoiser (Dammertz et al. 2010) guided by first-hit albedo / normal and
 //! per-pixel luminance variance of the mean. Operates on demodulated irradiance so texture detail survives.
 //! The luminance edge-stopping width comes from the variance filtered over 3 x 3 pixels (SVGF, Schied et al. 2017):

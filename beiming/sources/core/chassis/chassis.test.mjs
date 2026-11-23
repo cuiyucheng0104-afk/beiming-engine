@@ -62,7 +62,7 @@ test('内核源码的来源：来源说明写了上游与固定提交，上游�
   assert.equal(sources.length, 25);
   for (const f of sources) {
     const first = read(f).split('\n', 1)[0];
-    assert.ok(first.startsWith('// 源自 ThreeRT') && first.includes(COMMIT) && first.includes(`renderer/${f}`) && first.includes('MIT') && first.includes('Meshy LLC') && first.includes('北冥改过'), f);
+    assert.ok(first.startsWith('// 源自 ThreeRT') && first.includes(COMMIT) && first.includes(`renderer/${f}`) && first.includes('MIT') && first.includes('Meshy LLC') && first.includes('PROVENANCE.md'), f);
     assert.ok(prov.includes(`\`${f}\``), `来源说明的文件对照里没有 ${f}`);
     assert.doesNotMatch(read(f), /\/Users\/|\/home\/[a-z]|192\.168\./, f);
   }

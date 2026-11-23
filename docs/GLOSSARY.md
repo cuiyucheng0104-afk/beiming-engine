@@ -79,3 +79,4 @@
 | 集成负责人 | 统一改根文档、注册文件与工程计划状态的角色；单代理会话默认兼任 | 内部 | [AGENTS.md](../AGENTS.md#多代理与集成负责人) |
 | T / H 编号 | 引擎工程待办里的任务编号：T 是早先拆出的工程任务，H 是工业级加固的工作包；做作品不用它们 | 内部 | [work-breakdown.md](routes/work-breakdown.md) |
 | D01–D13 | 决定书里的十三项决定（四条路线、FSL 边界、命名、交付档位、创作闸门、运行时版本、存储、AI 标识、A/C 离屏出片、D 路线物理光追等） | 内部 | [决定书](decisions/2026-11-10-industrial-baseline.md) |
+| D14 | 核心帧源的源码边界：路径追踪内核从 ThreeRT 固定提交分叉后的源码放在 `beiming/sources/core/path/`，进 git | 内部 | [核心帧源的源码边界](decisions/2026-11-23-core-source-boundary.md) |

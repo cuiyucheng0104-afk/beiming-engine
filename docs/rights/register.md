@@ -452,7 +452,7 @@
 - **授权范围**：MIT 许可：允许商业与非商业使用、复制、修改、合并、发布与分发，须在软件副本或重要部分保留版权与许可声明；若外部运行包启用 --features oidn，动态链接的 Intel Open Image Denoise 按 Apache-2.0 履行许可与 NOTICE 义务
 - **期限**：公开开源许可，无期限
 - **书面证据存放位置**：公开许可，以上游固定提交（记录于 engine/pathtrace/runtime.lock.json）的 MIT LICENSE 与仓库 LICENSES/MIT.txt 为准
-- **状态**：公开许可，按许可义务使用；按 D10 与 D13 分层：D 路线的可执行文件不入 git 仓库，存放于本地缓存或由 BEIMING_PT_BIN 指向；D 路线的两个目录（engine/pathtrace/、routes/d-pathtrace/）内不放上游 Rust / WESL / WGSL 源码，仅含自有的 MIT 调用与场景封装层，成片与管线可商业使用。核心帧源的路径追踪内核从同一固定提交分叉，源码在 beiming/sources/core/path/，源码边界见 docs/decisions/2026-11-23-core-source-boundary.md（D14，草案，待用户确认）
+- **状态**：公开许可，按许可义务使用；按 D10 与 D13 分层：D 路线的可执行文件不入 git 仓库，存放于本地缓存或由 BEIMING_PT_BIN 指向；D 路线的两个目录（engine/pathtrace/、routes/d-pathtrace/）内不放上游 Rust / WESL / WGSL 源码，仅含自有的 MIT 调用与场景封装层，成片与管线可商业使用。核心帧源的路径追踪内核从同一固定提交分叉，源码在 beiming/sources/core/path/，源码边界见 docs/decisions/2026-11-23-core-source-boundary.md（D14）
 - **证据位置**：
   - docs/decisions/2026-11-10-industrial-baseline.md D04、D10、D13
   - docs/decisions/2026-11-23-core-source-boundary.md D14

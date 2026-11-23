@@ -1,4 +1,4 @@
-// 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/src/sky.rs，MIT 许可，版权人 Meshy LLC（2026）；北冥改过。来源与改动见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
+// 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/src/sky.rs，MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
 //! Physical sky matching UE5's SkyAtmosphere (Hillaire 2020): Earth defaults from
 //! SkyAtmosphereComponent.cpp, transmittance + multiple-scattering LUTs, radiance baked into an
 //! equirectangular environment map (Y-up, upper hemisphere; lower hemisphere black like UE's SkyLight, with its

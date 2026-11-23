@@ -1,4 +1,4 @@
-// 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/src/gpu.rs，MIT 许可，版权人 Meshy LLC（2026）；北冥改过。来源与改动见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
+// 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/src/gpu.rs，MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
 //! Headless wgpu backend: uploads the flattened scene once, accumulates path-traced samples, reads back HDR.
 
 use crate::heap::{Heap, Live, Section, Stream, Table};

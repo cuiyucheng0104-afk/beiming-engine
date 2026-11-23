@@ -70,7 +70,8 @@ export function ensureUpstream({ allowFetch = true } = {}) {
     }
   }
   // 不是 git 目录时 git -C 会找到外层仓库，提交号同样对不上，一样拒绝
-  const head = git('rev-parse', 'HEAD').trim();
+  let head;
+  try { head = git('rev-parse', 'HEAD').trim(); } catch (e) { throw new Error(`拒绝使用：${UPSTREAM} 不是一份完整的检出（${e.message}）；删掉这个目录重取`, { cause: e }); }
   if (head !== COMMIT) throw new Error(`拒绝使用：${UPSTREAM} 的提交是 ${head}，不是固定的 ${COMMIT}；删掉这个目录重取`);
   if (git('status', '--porcelain', '--untracked-files=no').trim()) throw new Error(`拒绝使用：${UPSTREAM} 里上游的文件被改过；删掉这个目录重取`);
   return UPSTREAM;

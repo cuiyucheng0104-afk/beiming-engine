@@ -1,4 +1,4 @@
-// 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/src/heap.rs，MIT 许可，版权人 Meshy LLC（2026）；北冥改过。来源与改动见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
+// 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/src/heap.rs，MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
 //! The scene's read-only data as the kernel binds it: two buffers, each a row of named sections.
 //!
 //! `Table`s (pathtrace.wgsl `tables`, an array of vec4s): the scene's records. `Stream`s (`words`, an array of

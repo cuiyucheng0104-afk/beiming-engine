@@ -22,7 +22,7 @@ export const GATES = { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3 };
 // 上游自带的漫反射白炉，画面中央的全精度均值，按显卡各记一个。同一台机器上渲染是确定的，记过的显卡要逐位相等。
 // 换显卡或驱动，着色器编出来的浮点运算次序不同，均值会差在第 8 位上（这两台之间差 1.1e-8），所以没记过的显卡
 // 按相对 1e-6 比。记法：在那台机器上跑一遍本脚本，把报告里 diffuseFurnace.mean 填进来。
-export const DIFFUSE = { tolerance: 1e-6, recorded: { 'Apple M5 Pro': 0.9999757122248412, 'NVIDIA GeForce RTX 5090': 0.9999757010489703 } };
+export const DIFFUSE = { tolerance: 1e-6, recorded: { 'Apple M5 Pro|Metal': 0.9999757122248412, 'NVIDIA GeForce RTX 5090|Vulkan': 0.9999757010489703 } };
 const WORK = path.join(OUT, 'level2');
 const ROUGHNESS = Object.keys(CYCLES.GGX);
 const lum = (px, i) => 0.2126 * px[3 * i] + 0.7152 * px[3 * i + 1] + 0.0722 * px[3 * i + 2];
@@ -274,12 +274,13 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
     return s / ((x1 - x0) * (y1 - y0));
   };
   const mean = center(new Float32Array(diffuse.raw.buffer, diffuse.raw.byteOffset, diffuse.raw.length / 4));
-  const recorded = DIFFUSE.recorded[gpu.adapter] ?? null;
+  const recorded = DIFFUSE.recorded[`${gpu.adapter}|${gpu.backend}`] ?? null;
   const diffuseFurnace = {
     status: diffuse.status, measured: diffuse.measured, mean, adapter: gpu.adapter, backend: gpu.backend, recorded,
-    // 记过的显卡逐位相等；没记过的按容差对已有的记录比
-    matches: recorded === null ? Object.values(DIFFUSE.recorded).some(v => Math.abs(mean / v - 1) < DIFFUSE.tolerance) : mean === recorded,
-    rule: recorded === null ? `这块显卡没记过，按相对 ${DIFFUSE.tolerance} 比` : '逐位相等',
+    // 按「显卡加后端」记数。记过的应当逐位相等；换了驱动或着色器编译器会差在末位，那时只要还在容差内就算过，并提示重新登记。没记过的按容差对已有的记录比
+    exact: recorded !== null && mean === recorded,
+    matches: (recorded === null ? Object.values(DIFFUSE.recorded) : [recorded]).some(v => Math.abs(mean / v - 1) < DIFFUSE.tolerance),
+    rule: recorded === null ? `这块显卡与后端没记过，按相对 ${DIFFUSE.tolerance} 比` : mean === recorded ? '逐位相等' : `与记录不再逐位相等，仍在相对 ${DIFFUSE.tolerance} 之内；请重新登记这块显卡的数`,
   };
 
   say('金属白炉');

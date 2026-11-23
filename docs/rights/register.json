@@ -536,7 +536,7 @@
       "term": "公开开源许可，无期限",
       "writtenEvidence": "公开许可，以上游固定提交（记录于 engine/pathtrace/runtime.lock.json）的 MIT LICENSE 与仓库 LICENSES/MIT.txt 为准",
       "status": "license-known",
-      "statusNote": "按 D10 与 D13 分层：D 路线的可执行文件不入 git 仓库，存放于本地缓存或由 BEIMING_PT_BIN 指向；D 路线的两个目录（engine/pathtrace/、routes/d-pathtrace/）内不放上游 Rust / WESL / WGSL 源码，仅含自有的 MIT 调用与场景封装层，成片与管线可商业使用。核心帧源的路径追踪内核从同一固定提交分叉，源码在 beiming/sources/core/path/，源码边界见 docs/decisions/2026-11-23-core-source-boundary.md（D14，草案，待用户确认）",
+      "statusNote": "按 D10 与 D13 分层：D 路线的可执行文件不入 git 仓库，存放于本地缓存或由 BEIMING_PT_BIN 指向；D 路线的两个目录（engine/pathtrace/、routes/d-pathtrace/）内不放上游 Rust / WESL / WGSL 源码，仅含自有的 MIT 调用与场景封装层，成片与管线可商业使用。核心帧源的路径追踪内核从同一固定提交分叉，源码在 beiming/sources/core/path/，源码边界见 docs/decisions/2026-11-23-core-source-boundary.md（D14）",
       "evidence": [
         "docs/decisions/2026-11-10-industrial-baseline.md D04、D10、D13",
         "docs/decisions/2026-11-23-core-source-boundary.md D14",

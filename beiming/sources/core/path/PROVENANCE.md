@@ -65,7 +65,7 @@
 | `shaders/trace_hw.wgsl` | `renderer/shaders/trace_hw.wgsl` | 没改 |
 | `shaders/records.wgsl` | `renderer/shaders/records.wgsl` | 没改 |
 | `presets/cinematic.json`、`presets/preview.json` | `presets/` 下同名文件 | 没改 |
-| `tests/render/data/panel-decal.glb` | `tests/render/data/panel-decal.glb` | 没改。库测试里一个实例拍平的用例要读它，644 字节，是上游测试自己生成的模型 |
+| `tests/render/data/panel-decal.glb` | `tests/render/data/panel-decal.glb` | 没改。库测试里一个实例拍平的用例要读它，3232 字节，是上游仓库 `tests/render/data/` 下的测试素材 |
 | `Cargo.toml` | `renderer/Cargo.toml` | 包名、程序名、说明；去掉切掉的几类的依赖与特性 |
 | `Cargo.lock` | `renderer/Cargo.lock` | 本包改名并按字母序挪到该在的位置；去掉不再需要的箱 |
 | `rust-toolchain.toml` | `rust-toolchain.toml` | Rust 版本不变（1.100.0）；去掉只给浏览器构建用的 wasm32 目标，注释重写 |
