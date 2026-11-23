@@ -2,6 +2,114 @@
   "format": "card-priors/0.1",
   "entries": [
     {
+      "id": "arch-scene.d001.card",
+      "sourceId": "d001",
+      "section": "1.1",
+      "caseId": "ext-01",
+      "title": "外部案例 01 场景网格统计（建筑三角、灯笼、布、草、岩石、云等）",
+      "cardId": "form.scene-budget",
+      "target": "form.scene-budget",
+      "text": "【建筑网格总量】183,214 三角面（实测）：木 106,324、石 25,108、瓦 50,462、纸窗 424、绳 896；5 个共用缓冲区，每顶点 31 字节（P 12 B+N 3 B+C 4 B+U 8 B+X 4 B）\n【外部案例 01场景网格统计】网格总数255(实体场景150+柔和特效层105)，实例化83；岩石 684,672顶点/1,352,336三角(镜子替身187,077三角)；建筑三角 木106,324、石25,108、瓦50,462、纸窗424、绳896，合计183,214，布6,588；灯笼105盏(54盏挂串绳)；摆动表2701×185，布26块；枫树/松树/灌木 84/560/4,100；草227,175根(草丛三档5,760/8,685/5,210)；种植点55,936(11,505个因被岩石埋住重抽)；云387块画338块(284 MiB)；雾/鸟/落叶 310/183/2,760；抛水 绳884 珠3,785 雾团161；甩落水滴三组上限22,000/6,000/6,000",
+      "quantities": [
+        {
+          "value": 183214,
+          "unit": "count",
+          "label": "建筑网格合计三角面数",
+          "raw": "183,214 三角面（实测）"
+        },
+        {
+          "value": 255,
+          "unit": "count",
+          "label": "场景网格总数",
+          "raw": "网格总数255"
+        },
+        {
+          "value": 684672,
+          "unit": "count",
+          "label": "岩石网格顶点数",
+          "raw": "岩石 684,672顶点"
+        },
+        {
+          "value": 1352336,
+          "unit": "count",
+          "label": "岩石网格三角面数",
+          "raw": "岩石 684,672顶点/1,352,336三角"
+        },
+        {
+          "value": 105,
+          "unit": "count",
+          "label": "场景灯笼总数",
+          "raw": "灯笼105盏"
+        },
+        {
+          "value": 54,
+          "unit": "count",
+          "label": "统计表所列串绳灯笼数",
+          "raw": "54盏挂串绳"
+        },
+        {
+          "value": 26,
+          "unit": "count",
+          "label": "布片数",
+          "raw": "布26块"
+        },
+        {
+          "value": 227175,
+          "unit": "count",
+          "label": "草的根数",
+          "raw": "草227,175根"
+        },
+        {
+          "value": 55936,
+          "unit": "count",
+          "label": "种植点数",
+          "raw": "种植点55,936"
+        }
+      ],
+      "routeNote": "主体为单场景网格与实例规模预算",
+      "coupling": "数值是第 1.1 节 场景规模与面数预算里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "实测",
+      "evidenceLabel": "实测",
+      "verificationLabel": "清单未列 / 我们自己渲染读回过",
+      "docRef": "建筑场景地形与水汇编 第 1.1 节 d001；出处类别：实测读数·场景规模与面数预算",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "arch-scene.d002.card",
+      "sourceId": "d002",
+      "section": "1.1",
+      "caseId": "case-08",
+      "title": "08 太空站关卡规模",
+      "cardId": "form.scene-budget",
+      "target": "form.scene-budget",
+      "text": "35 个物体、56,976 三角面；ENV_walkway 12 三角面；ENV_ramp 累计 10,350；ENV_courtyard 12,930；ENV_relay_A 约 16,210（相减，最重单件）；漂浮碎片每块 36 顶点、66 三角面；ENV_float_debris 编号 01/05/11/16 采到",
+      "quantities": [
+        {
+          "value": 35,
+          "unit": "count",
+          "label": "关卡物体数",
+          "raw": "35 个物体"
+        },
+        {
+          "value": 56976,
+          "unit": "count",
+          "label": "关卡三角面数",
+          "raw": "56,976 三角面"
+        }
+      ],
+      "routeNote": "关卡对象与三角面预算依赖具体场景",
+      "coupling": "数值是第 1.1 节 场景规模与面数预算里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "推断",
+      "evidenceLabel": "实测（累计值）+ 推断（相减）",
+      "verificationLabel": "没重建",
+      "docRef": "建筑场景地形与水汇编 第 1.1 节 d002；出处类别：推断与说明·场景规模与面数预算",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "arch-scene.d003.card",
       "sourceId": "d003",
       "section": "1.2",
@@ -631,7 +739,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过 / 公式推算,未运行",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d030；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d030；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -657,7 +765,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d031；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d031；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -677,7 +785,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d032；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d032；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -697,7 +805,7 @@
       "evidenceLevel": "推断",
       "evidenceLabel": "源码+推断（代入算出）",
       "verificationLabel": "推断·未复测",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d033；出处类别：推断与说明·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d033；出处类别：推断与说明·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -728,7 +836,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d035；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d035；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -782,7 +890,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d036；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d036；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -808,7 +916,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d037；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d037；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -839,7 +947,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d038；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d038；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -880,7 +988,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d039；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d039；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -900,7 +1008,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d041；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d041；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -931,7 +1039,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d042；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d042；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -963,7 +1071,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d043；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d043；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -989,7 +1097,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d044；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d044；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1015,7 +1123,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d045；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d045；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1035,7 +1143,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d046；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d046；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1061,7 +1169,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d047；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d047；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1081,7 +1189,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d048；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d048；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1101,7 +1209,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d049；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d049；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1142,7 +1250,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d050；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d050；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1162,7 +1270,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d051；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d051；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1200,7 +1308,7 @@
       "evidenceLevel": "推断",
       "evidenceLabel": "源码+推断",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d052；出处类别：推断与说明·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d052；出处类别：推断与说明·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1265,7 +1373,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d055；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d055；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1309,7 +1417,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d056；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d056；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1335,7 +1443,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d057；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d057；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1380,7 +1488,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d058；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d058；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1400,7 +1508,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d059；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d059；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -1434,7 +1542,7 @@
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.6 节 d061；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d061；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
       "verifiedInOurStack": false
     },
     {
@@ -7788,6 +7896,128 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "arch-scene.d256.card",
+      "sourceId": "d256",
+      "section": "1.19",
+      "caseId": "case-22",
+      "title": "案例 22 三角预算与模块合同",
+      "cardId": "form.scene-budget",
+      "target": "form.scene-budget",
+      "text": "【案例 22规模】三角形预算：第一轮约 1,200 万（带实例化），第二轮约 2,000 万；视口读数终点 12,121,208 三角形、11,963 对象\n【模块合同】一个 Python 文件、一个 `build`、创建自己的集合、返回屋顶区域和蒸汽点；共用材质名；三角形预算：第一轮约 1,200 万（带实例化）、第二轮约 2,000 万；“屏幕上小于 2 像素的细节是浪费”；离镜头多远与哪些面朝太阳写进简报；十个部分第一次合在一起就对上",
+      "quantities": [
+        {
+          "value": 2,
+          "unit": "px",
+          "rawUnit": "像素"
+        },
+        {
+          "value": 12121208,
+          "unit": "count",
+          "label": "终点视口显示的三角面数",
+          "raw": "视口读数终点 12,121,208 三角形"
+        },
+        {
+          "value": 11963,
+          "unit": "count",
+          "label": "终点视口显示的对象数",
+          "raw": "视口读数终点 12,121,208 三角形、11,963 对象"
+        },
+        {
+          "value": 12000000,
+          "unit": "count",
+          "label": "第一轮城市场景三角面预算（约，含实例化）",
+          "raw": "第一轮约 1,200 万（带实例化）"
+        },
+        {
+          "value": 20000000,
+          "unit": "count",
+          "label": "第二轮城市场景三角面预算（约）",
+          "raw": "第二轮约 2,000 万"
+        }
+      ],
+      "routeNote": "三角面与对象数预算读数为主体",
+      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述 + 画面读数 + 原文陈述",
+      "verificationLabel": "C（预算）/D（读数） / 作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d256；出处类别：原文陈述·写实与工程类场景（逐案例）",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "arch-scene.d257.card",
+      "sourceId": "d257",
+      "section": "1.19",
+      "caseId": "case-22",
+      "title": "案例 22 细节数字与「为什么真」规模",
+      "cardId": "form.scene-budget",
+      "target": "form.scene-budget",
+      "text": "【案例 22细节计数】主塔玻璃 4,560 块；木水塔每个 52 块木板+14 个金属箍；屋顶道具 88 种；车辆 858；行人 2,259；缺失屋瓦 5%\n【细节数字】主塔玻璃 4,560 块独立玻璃（偏移几毫米）；木水塔每个 52 块木板+14 个金属箍；屋顶道具 88 种自动摆放；缺失屋瓦 5%；部分窗封死；车辆 858 辆有交通模拟红灯停；行人 2,259 人会走会过街；每棵树数千片真实叶子；远处建筑为画了窗户的盒子；污渍（钢下的锈、窗台下条纹、通风口烟灰、水坑、垃圾）全由代码生成无照片贴图\n【城市规模数字】塔有 4,560 块独立玻璃;每个木水箱由 52 块板+14 个金属环构成;屋顶 88 种自动摆放道具;858 辆车、2,259 个行人;树有数千真叶;车辆跟随交通模拟并在红灯停;三角面预算:第一轮约 12 million(带实例),第二轮约 20 million;远处建筑是带贴画窗的简单盒子,主街区周边四面细节\n【电影城市“为什么真”与规模】五决策:真3D细节(窗深嵌墙使低太阳投真阴影)/大量小物(水塔/消防梯/空调/通风口/招牌/垃圾)/不完美(窗错位几毫米、5%屋顶瓦缺失、有的窗被砖封、雨水污痕;“直线完美才让3D显假”)/光与空气(一盏低太阳+柔雾)/电影相机;污渍随成因(窗台下污痕/钢下锈/通风口上烟灰/水坑/垃圾),无任何照片纹理;规模:塔4,560块独立玻璃、每水塔52块板+14个金属环、屋顶88种道具自动摆放、858辆车(交通模拟停红灯)、2,259人、树数千真叶、远景盒子+绘制窗户;虚构品牌 三个虚构品牌\n【案例 22树】每棵树数千片真实叶子",
+      "quantities": [
+        {
+          "value": 0.05,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.05,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.05,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 4560,
+          "unit": "count",
+          "label": "主塔独立玻璃块数",
+          "raw": "主塔玻璃 4,560 块"
+        },
+        {
+          "value": 52,
+          "unit": "count",
+          "label": "每座木水塔的木板数",
+          "raw": "木水塔每个 52 块木板"
+        },
+        {
+          "value": 14,
+          "unit": "count",
+          "label": "每座木水塔的金属箍数",
+          "raw": "木水塔每个 52 块木板+14 个金属箍"
+        },
+        {
+          "value": 88,
+          "unit": "count",
+          "label": "屋顶道具种数",
+          "raw": "屋顶道具 88 种"
+        },
+        {
+          "value": 858,
+          "unit": "count",
+          "label": "城区车辆总数",
+          "raw": "车辆 858 辆"
+        },
+        {
+          "value": 2259,
+          "unit": "count",
+          "label": "城区行人总数",
+          "raw": "行人 2,259 人"
+        }
+      ],
+      "routeNote": "主体为城市细节数量与场景规模",
+      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C / 只是原文说法（均无法独立数） / 作者成片用过 / 只是原文说法",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d257；出处类别：原文陈述·写实与工程类场景（逐案例）",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "arch-scene.d259.card",
       "sourceId": "d259",
       "section": "1.19",
@@ -7805,6 +8035,108 @@
       "evidenceLabel": "原文陈述 + 画面读数 + 原文陈述",
       "verificationLabel": "C / 作者成片用过",
       "docRef": "建筑场景地形与水汇编 第 1.19 节 d259；出处类别：原文陈述·写实与工程类场景（逐案例）",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "arch-scene.d260.card",
+      "sourceId": "d260",
+      "section": "1.19",
+      "caseId": "case-19",
+      "title": "热带高密度滨海城区 静态街规模",
+      "cardId": "form.scene-budget",
+      "target": "form.scene-budget",
+      "text": "【热带高密度滨海城区街道】静态约 316 万三角；街道杂物 319 千三角；运动物体最多 190 万；招牌 33 块；每镜头上限 3.16+1.9=5.06 百万（推断）\n【热带高密度滨海城区静态街规模】静态街约 3.16 百万三角面、383 种材质:带真实洞口与室内的房屋、百叶窗/阳台/廊/波纹雨棚、带货架与灯泡的店铺、电线杆与电线团、带铜秤的果香料推车、万寿菊花环摊、三轮车、31.9 万三角的街头杂物、33 块外文招牌(模型自己的笔画,部分双语);店名一律虚构;每镜头另加约 1.9 百万运动三角面\n【热带高密度滨海城区场景规模】静态街约3.16百万三角形、383种材质;房屋有真实开口与室内、百叶/阳台/回廊/波纹篷;店铺货架灯泡;线团;带黄铜秤的果香料车;万寿菊花环摊;三轮车与31.9万三角形街头杂物;33个外文招牌(自写笔画,部分双语,店名全部虚构);每镜另加1.9百万运动三角形",
+      "quantities": [
+        {
+          "value": 3160000,
+          "unit": "count",
+          "label": "静态街景三角面数（约）",
+          "raw": "静态约 316 万三角"
+        },
+        {
+          "value": 1900000,
+          "unit": "count",
+          "label": "每镜头运动物体三角面数上限",
+          "raw": "静态约 316 万三角；街道杂物 319 千三角；运动物体最多 190 万"
+        },
+        {
+          "value": 319000,
+          "unit": "count",
+          "label": "街头杂物三角面数",
+          "raw": "31.9 万三角的街头杂物"
+        },
+        {
+          "value": 383,
+          "unit": "count",
+          "label": "街景材质种数",
+          "raw": "383 种材质"
+        },
+        {
+          "value": 33,
+          "unit": "count",
+          "label": "外文招牌块数",
+          "raw": "33 块外文招牌"
+        }
+      ],
+      "routeNote": "特定街景的三角面材质与招牌预算",
+      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "推断",
+      "evidenceLabel": "原文陈述 / 推断 + 原文陈述",
+      "verificationLabel": "C / 作者成片用过 / 只是原文说法",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d260；出处类别：推断与说明·写实与工程类场景（逐案例）",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "arch-scene.d261.card",
+      "sourceId": "d261",
+      "section": "1.19",
+      "caseId": "case-19",
+      "title": "热带高密度滨海城区布置",
+      "cardId": "form.scene-budget",
+      "target": "form.scene-budget",
+      "text": "晾衣 12 根绳 86 件；旗 78 面；人物 53（19 在走）；每人 20 根骨；毛 43 万根；真实开口带房间、百叶窗、阳台、波纹铁皮雨棚",
+      "quantities": [
+        {
+          "value": 12,
+          "unit": "count",
+          "label": "晾衣绳数",
+          "raw": "晾衣 12 根绳"
+        },
+        {
+          "value": 86,
+          "unit": "count",
+          "label": "晾晒衣物件数",
+          "raw": "晾衣 12 根绳 86 件"
+        },
+        {
+          "value": 78,
+          "unit": "count",
+          "label": "旗帜面数",
+          "raw": "旗 78 面"
+        },
+        {
+          "value": 53,
+          "unit": "count",
+          "label": "街景人物总数",
+          "raw": "人物 53"
+        },
+        {
+          "value": 19,
+          "unit": "count",
+          "label": "行走人物数",
+          "raw": "人物 53（19 在走）"
+        }
+      ],
+      "routeNote": "街景布置对象与角色细节数量配置",
+      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d261；出处类别：原文陈述·写实与工程类场景（逐案例）",
       "verifiedInOurStack": false
     },
     {
@@ -7851,6 +8183,39 @@
       "evidenceLabel": "画面读数（成片上两行源码） + 画面读数",
       "verificationLabel": "D（成片画面读到） / 我们读回过画面两行，其余没验证",
       "docRef": "建筑场景地形与水汇编 第 1.19 节 d264；出处类别：源码拆解·写实与工程类场景（逐案例）",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "arch-scene.d266.card",
+      "sourceId": "d266",
+      "section": "1.19",
+      "caseId": "case-29",
+      "title": "公寓三维场景",
+      "cardId": "form.scene-budget",
+      "target": "form.scene-budget",
+      "text": "118 万三角面，102 种程序材质",
+      "quantities": [
+        {
+          "value": 1180000,
+          "unit": "count",
+          "label": "公寓三维场景三角面数",
+          "raw": "118 万三角面"
+        },
+        {
+          "value": 102,
+          "unit": "count",
+          "label": "公寓程序材质种数",
+          "raw": "102 种程序材质"
+        }
+      ],
+      "routeNote": "面数与材质数规模",
+      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d266；出处类别：原文陈述·写实与工程类场景（逐案例）",
       "verifiedInOurStack": false
     },
     {
@@ -7982,6 +8347,68 @@
       "evidenceLabel": "原文陈述+推断算术 + 原文陈述 + 实测",
       "verificationLabel": "只是原文说法 / 作者成片用过 / 作者成片用过(规则检查为作者代码) / 没验证",
       "docRef": "建筑场景地形与水汇编 第 1.19 节 d269；出处类别：推断与说明·写实与工程类场景（逐案例）",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "arch-scene.d275.card",
+      "sourceId": "d275",
+      "section": "1.19",
+      "caseId": "case-21",
+      "title": "暖调高密度城区晨市 规格",
+      "cardId": "form.scene-budget",
+      "target": "form.scene-budget",
+      "text": "【暖调高密度城区市集场景规格】早 7:40,侧向太阳高度 22 度,深蓝高海拔天空,彩色光透过雨棚;约 50 种外文招牌/价签,用自有笔画字母表加重音与波浪符;115 张镂空剪纸旗(带镂空图案);雨棚、农产品箱、彩纸挂饰、万寿菊、蒸锅;远景 28 个行走/站立人物;静态街约 2.9 million triangles,最多 0.2 million 运动\n【暖调高密度城区早市场景数据】约 50 个外文招牌/价签(自写笔画字母表+重音与波浪符);115张镂空剪纸旗;遮阳篷/农产品箱/彩纸挂饰/万寿菊/玉米粽蒸锅;广角28人;静态街约2.9百万三角形、运动最多0.2百万",
+      "quantities": [
+        {
+          "value": 22,
+          "unit": "deg",
+          "rawUnit": "度"
+        },
+        {
+          "value": 50,
+          "unit": "count",
+          "label": "场景规格中的招牌与价签种数（约）",
+          "raw": "约 50 种外文招牌/价签"
+        },
+        {
+          "value": 50,
+          "unit": "count",
+          "label": "场景数据所述招牌与价签个数（约）",
+          "raw": "约 50 个外文招牌/价签"
+        },
+        {
+          "value": 115,
+          "unit": "count",
+          "label": "镂空剪纸旗张数",
+          "raw": "115 张镂空剪纸旗"
+        },
+        {
+          "value": 28,
+          "unit": "count",
+          "label": "远景人物数",
+          "raw": "远景 28 个行走/站立人物"
+        },
+        {
+          "value": 2900000,
+          "unit": "count",
+          "label": "静态街景三角面数（约）",
+          "raw": "静态街约2.9百万三角形"
+        },
+        {
+          "value": 200000,
+          "unit": "count",
+          "label": "运动物体三角面数上限",
+          "raw": "静态街约2.9百万三角形、运动最多0.2百万"
+        }
+      ],
+      "routeNote": "早市场景时刻照明与对象数量配置",
+      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过 / 只是原文说法",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d275；出处类别：原文陈述·写实与工程类场景（逐案例）",
       "verifiedInOurStack": false
     },
     {
@@ -8164,6 +8591,39 @@
       "evidenceLabel": "原文陈述 + 实测",
       "verificationLabel": "作者成片用过 / 作者成片用过(自校验)",
       "docRef": "建筑场景地形与水汇编 第 1.19 节 d281；出处类别：原文陈述·写实与工程类场景（逐案例）",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "arch-scene.d282.card",
+      "sourceId": "d282",
+      "section": "1.19",
+      "caseId": "case-12",
+      "title": "闪电片城市规模",
+      "cardId": "form.scene-budget",
+      "target": "form.scene-budget",
+      "text": "程序化城市:街道、带桥的河、公园、16 个变电站、约 15,600 栋建筑(亮窗/店面/车流/路灯);分模块并行子代理:主塔与广场、街区、带反射的街道层;lead 持有共享引擎(时间线/闪电/灯光/后处理)",
+      "quantities": [
+        {
+          "value": 16,
+          "unit": "count",
+          "label": "城市变电站数",
+          "raw": "16 个变电站"
+        },
+        {
+          "value": 15600,
+          "unit": "count",
+          "label": "城市场景建筑数（约）",
+          "raw": "约 15,600 栋建筑"
+        }
+      ],
+      "routeNote": "该片城市规模与对象数",
+      "coupling": "数值是第 1.19 节 写实与工程类场景（逐案例）里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d282；出处类别：原文陈述·写实与工程类场景（逐案例）",
       "verifiedInOurStack": false
     },
     {
@@ -10832,6 +11292,42 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "建筑场景地形与水汇编 第 2.6 节 d359；出处类别：源码拆解·瀑布、水线与落叶",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "arch-scene.d360.card",
+      "sourceId": "d360",
+      "section": "2.7",
+      "caseId": "case-14",
+      "title": "高密度霓虹雨夜街景 雨、水洼、涟漪与镜面",
+      "cardId": "shade.water",
+      "target": "shade.water",
+      "text": "【水洼与涟漪】水洼和雨滴涟漪由一个与暖调高密度城区共用的水模块生成；沥青湿膜由片状几何组成；涟漪镜头面数 22–31 万三角\n【雨】每镜 5,600 条，是真实几何体（每条面数未记录）；这样雨会被灯照亮、会进景深\n【高密度霓虹雨夜街景 水面与镜面】湿路、凸面镜取景、水面倒影；23:10酒馆小巷；外文招牌逐笔构造；镜头无视差，雨不与伞交互",
+      "quantities": [
+        {
+          "value": [
+            220000,
+            310000
+          ],
+          "unit": "count",
+          "label": "水洼涟漪镜头的三角面数（此记录取整至万）",
+          "raw": "涟漪镜头面数 22–31 万三角"
+        },
+        {
+          "value": 5600,
+          "unit": "count",
+          "label": "每镜头几何雨丝条数",
+          "raw": "【雨】每镜 5,600 条，是真实几何体"
+        }
+      ],
+      "routeNote": "特定街景的水雨模块与几何数量配置",
+      "coupling": "数值是第 2.7 节 雨、水洼与涟漪里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "C / 作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 2.7 节 d360；出处类别：原文陈述·雨、水洼与涟漪",
       "verifiedInOurStack": false
     },
     {

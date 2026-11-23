@@ -201,21 +201,6 @@
       "docRef": "光照天空大气与相机汇编 第 1.5 节 d055；出处类别：源码拆解·阴影（级联、PCF、PCSS、云影）"
     },
     {
-      "id": "light-cam.d056.practice",
-      "sourceId": "d056",
-      "section": "1.5",
-      "caseId": "case-13",
-      "title": "路缘树皮直射光",
-      "text": "直射光乘 tbSunVis(浮雕自阴影)；见材质区 POM",
-      "quantities": [],
-      "kind": "method",
-      "routeNote": "直射光乘浮雕自阴影可见度",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "光照天空大气与相机汇编 第 1.5 节 d056；出处类别：源码拆解·阴影（级联、PCF、PCSS、云影）"
-    },
-    {
       "id": "light-cam.d100.practice",
       "sourceId": "d100",
       "section": "1.9",

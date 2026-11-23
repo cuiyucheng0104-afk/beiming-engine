@@ -219,6 +219,59 @@ test('公开检索能取到构件尺寸、动作周期与阶段时长、焦段�
   }
 });
 
+test('建筑场景预算随明细挂卡，构件尺寸和成片规格仍能单独检索', () => {
+  const { priors, cardPriors, manifest } = D['arch-scene'];
+  const row = new Map(manifest.rows.map((r) => [r.sourceId, r]));
+  for (const id of 'd001 d002 d256 d257 d260 d261 d266 d275 d282 d360'.split(' ')) {
+    assert.equal(row.get(id).route, 'card-coupled', id);
+    const card = cardPriors.find((e) => e.sourceId === id);
+    assert.equal(card.target, row.get(id).target, id);
+    assert.ok(card.quantities.some((q) => q.unit === 'count'), `${id} 挂卡保留场景计数`);
+  }
+  for (const id of 's001 s003 s009 s010 s011 s012 s013 s014 s015 s086 s087 s088 s113'.split(' ')) {
+    assert.equal(row.get(id).route, 'card-coupled', id);
+    assert.deepEqual(row.get(id).targets, [], id);
+  }
+  const cardFor = (id) => cardPriors.find((e) => e.sourceId === row.get(id).summaryOf);
+  assert.match(cardFor('s011').text, /涟漪镜头面数/);
+  assert.match(cardFor('s013').text, /380 万三角面/);
+  assert.match(cardFor('s087').text, /招牌逐笔构造/);
+  assert.ok(row.get('s087').alsoSummarizes.some((id) => /19 个汉字逐笔构造/.test(row.get(id).sourceExcerpt)));
+  // count 还用于单段台阶级数、动作事件、镜头与切点。仅这些计数可作为独立参考量。
+  for (const p of priors.filter((e) => e.unit === 'count')) {
+    assert.match(p.topic, /\.(?:steps-per-flight|wing-event-count|shore-event-count|shot-count|cut-count)$/, p.id);
+  }
+  const expected = {
+    d244: [['m', 0.5], ['m', 0.54], ['m', 0.25]],
+    d251: [['m', [70.87, 215.06]], ['m', [0.4, 425.66]]],
+    d262: [['s', 15], ['fps', 24]],
+    d284: [['s', 20], ['fps', 24], ['count', 6], ['frame', 478]],
+  };
+  for (const [id, values] of Object.entries(expected)) {
+    const entries = priors.filter((p) => p.ext['c11.sourceId'] === id);
+    assert.deepEqual(entries.map((p) => [p.unit, p.value]), values, id);
+  }
+});
+
+test('三份汇编的出处均只标一次同一章号', () => {
+  for (const f of files) {
+    JSON.parse(raw(f), (key, value) => {
+      if (key === 'docRef') {
+        const chapters = value.match(/（案例\s*\d+\s*第\s*[\d、]+\s*章）/g) ?? [];
+        assert.equal(new Set(chapters).size, chapters.length, `${f} ${value}`);
+      }
+      return value;
+    });
+  }
+});
+
+test('光照 d056 的着色器交叉引用只留在不迁清单', () => {
+  const { manifest, practices } = D['light-cam'];
+  assert.equal(manifest.rows.find((r) => r.sourceId === 'd056').route, 'skipped-or-conflict');
+  assert.match(manifest.excluded.find((r) => r.sourceId === 'd056').reason, /交叉引用/);
+  assert.ok(!practices.some((e) => e.sourceId === 'd056'));
+});
+
 test('成片规格和镜头参数在三份源账与公开先验库中采用同一分流口径', () => {
   const examples = {
     'arch-scene': ['d265', 'd284', 'd285'],
@@ -944,14 +997,15 @@ test('第四版的两轮独立终验抽检保留当时的样本和分歧', (t) =
   assert.ok(firstBad / first > 0.1, `第一轮终验当时的分歧 ${firstBad}/${first}`);
 });
 
-test('二审修复后的三份源账分别及合并与冻结盲样比较，抽样至少一成、分歧至多一成', (t) => {
+test('R2 冻结盲票逐行对账，三审改判的场景预算保留原票和新增分歧', (t) => {
   const seed = 'a6a83be34504d62140610f39920296f478937eb6:E3-C11';
   const fingerprints = { 'arch-scene': '79df00a2cdaa7175', 'motion-rig': '313c5e1f63aaa48b', 'light-cam': '16ed308776b5ebd0' };
   const letters = { portable: 'P', 'card-coupled': 'C', practice: 'M', 'skipped-or-conflict': 'X' };
   let picked = 0;
-  let different = 0;
+  let historicalDifferences = 0;
   each((c, { manifest: m }) => {
-    const b = m.blindAudit;
+    const b = m.audit.r2BlindAudit ?? m.blindAudit;
+    assert.equal(b.rubric, 'r2');
     // 公开清单只存可读的短版本引用；排序仍用冻结时的完整种子，不依赖本机 Git 历史。
     assert.equal(b.seedRef, `${seed.slice(0, 7)}:E3-C11`);
     const score = (r) => createHash('sha256').update(`${seed}/${c}/${r.sourceId}`).digest('hex');
@@ -968,13 +1022,20 @@ test('二审修复后的三份源账分别及合并与冻结盲样比较，抽�
     const disagreements = source.filter((r, i) => r.route !== b.rows[i].blindRoute).map((r) => r.sourceId);
     assert.deepEqual(b.disagreements, disagreements);
     assert.equal(b.disagreementRate, disagreements.length / source.length);
-    assert.ok(source.length >= m.rows.length / 10 && b.disagreementRate <= 0.1, `${c} ${disagreements.length}/${source.length}`);
+    assert.ok(source.length >= m.rows.length / 10);
+    // 74d2ac8 的 R2 样本中仅这三票把场景物件数当可移植量；按当时去向回放历史门限。
+    const movedBudgets = c === 'arch-scene' ? ['d257', 'd275', 's086'] : [];
+    for (const id of movedBudgets) {
+      assert.equal(b.rows.find((r) => r.sourceId === id).blindRoute, 'portable', id);
+      assert.equal(source.find((r) => r.sourceId === id).route, 'card-coupled', id);
+    }
+    const atReview = disagreements.filter((id) => !movedBudgets.includes(id));
+    assert.ok(atReview.length / source.length <= 0.1, `${c} R2 历史分歧 ${atReview.length}/${source.length}`);
     picked += source.length;
-    different += disagreements.length;
-    t.diagnostic(`${c} 分歧 ${disagreements.length}/${source.length}`);
+    historicalDifferences += atReview.length;
+    t.diagnostic(`${c} R2 历史分歧 ${atReview.length}/${source.length}，对当前源账 ${disagreements.length}/${source.length}`);
   });
-  assert.ok(picked >= 183 && different / picked <= 0.1, `三份合并 ${different}/${picked}`);
-  t.diagnostic(`三份合并分歧 ${different}/${picked}`);
+  assert.ok(picked >= 183 && historicalDifferences / picked <= 0.1);
 });
 
 test('按源行重抽 bfd69fb 终审的冻结样本，用原始判票回归边界修复', (t) => {
@@ -1021,4 +1082,52 @@ test('按源行重抽 bfd69fb 终审的冻结样本，用原始判票回归边�
   assert.equal(total, 184);
   assert.ok(differences / total <= 0.1);
   t.diagnostic(`三份合并原票回归 ${differences}/${total}`);
+});
+
+test('三审冻结的 184 张独立票按原算法重抽，各份与合并分歧均至多一成', (t) => {
+  const revision = '74d2ac86dc87b61dc81d206bcb4af6f46c21317e';
+  const routes = { C: 'card-coupled', P: 'portable', R: 'practice', X: 'skipped-or-conflict' };
+  // 三审原判按 sourceId 排序。指纹覆盖每个 sourceId 及其完整路由，和被测账本的当前去向无关。
+  const ballot = {
+    'arch-scene': ['CCCCCCCCCCCCCCCCCCCCCCCCCCRCXCCCCRCCCCCCCCCCCCCCCCCCC', 'b0773ea6c00082e1'],
+    'motion-rig': ['CRCCCCXCCCCCCCCCCCCCCCPCCCCCCPCCCCCCCCCCCCCCCCCRRCCRRXXRCCCCC', 'd46d7e549617bf94'],
+    'light-cam': ['CPCRCXCCCRCCXCRCCCCCPCCCCXCXCCCCCCRRCCCCCPCPPRPRPCCCCCCCRCCCCCRPPRRCPR', '8ff6541456939426'],
+  };
+  let total = 0;
+  let differences = 0;
+  each((c, { manifest }) => {
+    const seed = createHash('sha256').update(`G_REV-R3-C11:${revision}:${c}`).digest().readUInt32BE();
+    const rand = rng(seed);
+    const sample = ['detail', 'summary'].flatMap((kind) => {
+      const rows = manifest.rows.filter((r) => r.recordKind === kind);
+      // 原盲包用同一随机流连续完成两层的逆序 Fisher–Yates 洗牌。
+      for (let i = rows.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [rows[i], rows[j]] = [rows[j], rows[i]];
+      }
+      return rows.slice(0, Math.ceil(rows.length / 10));
+    }).sort((a, b) => a.sourceId.localeCompare(b.sourceId));
+    const [votes, fingerprint] = ballot[c];
+    assert.equal(votes.length, sample.length, c);
+    const trace = sample.map((r, i) => `${r.sourceId}=${routes[votes[i]]}`).join('\n');
+    assert.equal(sha16(trace), fingerprint, `${c} 冻结样本与原票`);
+    const diff = sample.filter((r, i) => r.route !== routes[votes[i]]);
+    const active = manifest.blindAudit;
+    assert.ok(active.sampleSize >= manifest.rows.length / 10 && active.disagreementRate <= 0.1, `${c} 当前清单盲审`);
+    if (c !== 'motion-rig') {
+      assert.deepEqual([active.rubric, active.seedRef], ['r3', 'G_REV-R3-C11:74d2ac8']);
+      assert.deepEqual(active.rows, sample.map((r, i) => ({ sourceId: r.sourceId, blindRoute: routes[votes[i]] })));
+      assert.deepEqual([active.judgedDetails, active.judgedSummaries], ['detail', 'summary'].map((kind) => sample.filter((r) => r.recordKind === kind).length));
+      assert.equal(active.sampleSize, sample.length);
+      assert.deepEqual(active.disagreements, diff.map((r) => r.sourceId));
+      assert.equal(active.disagreementRate, diff.length / sample.length);
+    }
+    assert.ok(sample.length >= manifest.rows.length / 10 && diff.length / sample.length <= 0.1, `${c} ${diff.map((r) => r.sourceId).join(' ')}`);
+    t.diagnostic(`${c} 三审原票分歧 ${diff.length}/${sample.length}（${diff.map((r) => r.sourceId).join(' ')}）`);
+    total += sample.length;
+    differences += diff.length;
+  });
+  assert.equal(total, 184);
+  assert.ok(differences / total <= 0.1, `合并 ${differences}/${total}`);
+  t.diagnostic(`三份合并三审原票分歧 ${differences}/${total}`);
 });

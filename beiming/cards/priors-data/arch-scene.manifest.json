@@ -12,21 +12,21 @@
   },
   "order": "rows 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "一条 = 一个表格数据行（含跨案例对照表行），或一个顶层列表条目连同它缩进的续行；目录、案例索引、用法、没收进来的、以「并入说明、冲突、合并、说明」开头的说明行不算。对照表行的去向随它指回的明细，不另算一条明细",
-  "portableCount": 75,
-  "cardCoupledCount": 413,
+  "portableCount": 52,
+  "cardCoupledCount": 436,
   "practiceCount": 20,
   "excludedOrConflictCount": 18,
   "detailRouteCounts": {
-    "card-coupled": 326,
+    "card-coupled": 336,
     "practice": 18,
-    "portable": 39,
+    "portable": 29,
     "skipped-or-conflict": 17
   },
   "summaryRouteCounts": {
-    "card-coupled": 87,
+    "card-coupled": 100,
     "practice": 2,
     "skipped-or-conflict": 1,
-    "portable": 36
+    "portable": 23
   },
   "files": {
     "priors": "arch-scene.json",
@@ -70,7 +70,7 @@
   "rules": {
     "method": "逐条按主体分流。沿用历史裁决，二审后按通用量与可照搬工序复核边界，改判依据见 routeOverrides。对照表行随同案例明细，独立盲判使用修改前固定的分层随机样本。",
     "valueShapes": "可移植先验的 value：一个数；两元数组 [小, 大] 是范围（不带方向）；{ first, second } 是原文用斜线或顿号并列的两个取值，照原文先后；rgb-linear 的三元数组按 R、G、B 原序记录，不表示范围。",
-    "portable": "标准构件和自然物尺度、步幅步频、呼吸拍翼与动作阶段时长、摄影光学与机位角度、成片规格和读数，能脱离实现单独解释的量进入先验表。证据按来源保留，源码、实测及原文陈述均可作为出处。每项只抽取有原文支持的通用量。 场景完成后的网格、物件和材质计数按对象、统计范围和来源分别出量；原文自报的上限与视口终点读数分别标明。",
+    "portable": "标准构件和自然物尺度、步幅步频、呼吸拍翼与动作阶段时长、摄影光学与机位角度、成片规格和读数，能脱离实现单独解释的量进入先验表。证据按来源保留，源码、实测及原文陈述均可作为出处。每项只抽取有原文支持的通用量。",
     "cardCoupled": "主体是某个具体实现的函数、接口、程序化生成器、骨架绑定参数、着色器公式与常量、大气与水面与地形的生成配置；某部作品写死的布景尺寸表、区域配置表、世界布局、生成器或设备分档的面数与实例预算；某镜头或某一招写死的时刻表、机位与关键帧。带源码标识符的取值、五个以上某片专属配置数字堆在一起的条目、单位不是通用先验单位的量都归这里。挂到 05 第 5 节对应的技术卡上，不当默认值",
     "practice": "可照搬的建模、绑定、布光、运镜步骤、算法与修法进入做法库。按主体判断，举例的标识符与参数不改变工序的用途。",
     "skippedOrConflict": "没有步骤、判据、参数的一句话空泛概述；纯世界坐标摆放表（05 第 8.1 节：坐标表不迁）；只说未公开或无数据、且没有可学做法的陈述；读数冲突对账行；合并记录与编排说明",
@@ -427,7 +427,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "场景规模、面数、对象数、材质数预算",
-      "count": 5
+      "count": 14
     },
     {
       "cardId": "form.scene-layout",
@@ -490,7 +490,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "湖面、河面、瀑布、水洼的水面着色与几何",
-      "count": 16
+      "count": 17
     },
     {
       "cardId": "time.bake",
@@ -659,18 +659,6 @@
   ],
   "routeOverrides": [
     {
-      "sourceId": "d001",
-      "route": "portable",
-      "reason": "原文可直接解释的参考量：建筑网格合计三角面数、场景网格总数、岩石网格顶点数、岩石网格三角面数、场景灯笼总数、统计表所列串绳灯笼数、布片数、草的根数、种植点数",
-      "previousRoute": "card-coupled"
-    },
-    {
-      "sourceId": "d002",
-      "route": "portable",
-      "reason": "原文可直接解释的参考量：关卡物体数、关卡三角面数",
-      "previousRoute": "card-coupled"
-    },
-    {
       "sourceId": "d006",
       "route": "portable",
       "reason": "原文给出两个可单独核对的验收条件：实体与每条相机路径的最小净距，以及从镜头角度预览单个模块的最长等待时间；两项均为本案例的要求，不是实测读数。",
@@ -823,25 +811,13 @@
     {
       "sourceId": "d244",
       "route": "portable",
-      "reason": "原文可直接解释的参考量：场景灯笼总数、灯笼直径（约）、灯笼高、灯笼鼓腹最大半径",
+      "reason": "灯笼直径、高度与鼓腹半径是构件尺寸。",
       "previousRoute": "card-coupled"
     },
     {
       "sourceId": "d251",
       "route": "portable",
-      "reason": "原文可直接解释的参考量：聚落房屋数、地标数、湖泊数、本案例湖面标高范围、本案例河面标高范围",
-      "previousRoute": "card-coupled"
-    },
-    {
-      "sourceId": "d256",
-      "route": "portable",
-      "reason": "规模读数落实到终点视口的三角面数、对象数；模块合同也重复给出两轮三角面预算。分轮预算与视口读数分别登记，不把交付接口当成通用要求。",
-      "previousRoute": "card-coupled"
-    },
-    {
-      "sourceId": "d257",
-      "route": "portable",
-      "reason": "原文可直接解释的参考量：主塔独立玻璃块数、每座木水塔的木板数、每座木水塔的金属箍数、屋顶道具种数、城区车辆总数、城区行人总数、屋顶瓦片缺失比例",
+      "reason": "摘录湖面与河面标高范围。",
       "previousRoute": "card-coupled"
     },
     {
@@ -851,21 +827,9 @@
       "previousRoute": "card-coupled"
     },
     {
-      "sourceId": "d260",
-      "route": "portable",
-      "reason": "原文可直接解释的参考量：静态街景三角面数（约）、每镜头运动物体三角面数上限、街头杂物三角面数、街景材质种数、外文招牌块数",
-      "previousRoute": "card-coupled"
-    },
-    {
-      "sourceId": "d261",
-      "route": "portable",
-      "reason": "原文可直接解释的参考量：晾衣绳数、晾晒衣物件数、旗帜面数、街景人物总数、行走人物数",
-      "previousRoute": "card-coupled"
-    },
-    {
       "sourceId": "d262",
       "route": "portable",
-      "reason": "原文可直接解释的参考量：静态巷景三角面数（约）、运动物体三角面数上限、逐笔绘制的表意字字数、每镜头几何雨丝条数、原验证标签所记片长、原验证标签所记帧率",
+      "reason": "原验证标签给出成片时长 15 s 与帧率 24 fps。",
       "previousRoute": "card-coupled"
     },
     {
@@ -875,33 +839,15 @@
       "previousRoute": "card-coupled"
     },
     {
-      "sourceId": "d266",
-      "route": "portable",
-      "reason": "原文可直接解释的参考量：公寓三维场景三角面数、公寓程序材质种数",
-      "previousRoute": "card-coupled"
-    },
-    {
-      "sourceId": "d275",
-      "route": "portable",
-      "reason": "原文可直接解释的参考量：场景规格中的招牌与价签种数（约）、场景数据所述招牌与价签个数（约）、镂空剪纸旗张数、远景人物数、静态街景三角面数（约）、运动物体三角面数上限",
-      "previousRoute": "card-coupled"
-    },
-    {
       "sourceId": "d277",
       "route": "portable",
       "reason": "通用参考量：栅栏单段长（约）、木栅墙单段长（约）、废弃圆塔高（约）、河驳船长（约）、砂岩城墙单段长（约）、砂岩城墙高",
       "previousRoute": "card-coupled"
     },
     {
-      "sourceId": "d282",
-      "route": "portable",
-      "reason": "原文可直接解释的参考量：城市变电站数、城市场景建筑数（约）",
-      "previousRoute": "card-coupled"
-    },
-    {
       "sourceId": "d284",
       "route": "portable",
-      "reason": "通用参考量：成片时长（约）、成片帧率、成片镜头数、正文自报成片帧数",
+      "reason": "摘录成片时长、帧率、镜头数和总帧数。",
       "previousRoute": "card-coupled"
     },
     {
@@ -920,12 +866,6 @@
       "sourceId": "d353",
       "route": "practice",
       "reason": "把入水扰动预先记成带起点和持续时间的事件，让波前向外传播，并按像素覆盖范围淡出细波纹。",
-      "previousRoute": "card-coupled"
-    },
-    {
-      "sourceId": "d360",
-      "route": "portable",
-      "reason": "原文可直接解释的参考量：水洼涟漪镜头的三角面数（此记录取整至万）、每镜头几何雨丝条数",
       "previousRoute": "card-coupled"
     },
     {
@@ -955,10 +895,10 @@
   ],
   "summaryLinkOverrides": [
     {
-      "sourceId": "s013",
-      "previousSummaryOf": "d263",
+      "sourceId": "s011",
+      "previousSummaryOf": "d262",
       "previousAlsoSummarizes": [
-        "d284"
+        "d360"
       ]
     },
     {
@@ -1014,6 +954,11 @@
     {
       "sourceId": "s073",
       "previousSummaryOf": "d139",
+      "previousAlsoSummarizes": []
+    },
+    {
+      "sourceId": "s087",
+      "previousSummaryOf": "d262",
       "previousAlsoSummarizes": []
     }
   ],
@@ -6352,300 +6297,532 @@
           "blindRoute": "skipped-or-conflict"
         }
       ]
+    },
+    "r2BlindAudit": {
+      "rubric": "r2",
+      "method": "在修复前固定种子，按集合与明细、汇总两层分别对源 ID 做 SHA-256 排序，无放回取各层前一成（向上取整）。独立判定员逐条只读脱敏源文和判据，汇总另附所指明细。先冻结唯一路由，再与修复后的总账比较。",
+      "sampleSize": 53,
+      "judgedDetails": 40,
+      "judgedSummaries": 13,
+      "rows": [
+        {
+          "sourceId": "d257",
+          "blindRoute": "portable",
+          "why": "主体为成片细节计数与几何规模报告。"
+        },
+        {
+          "sourceId": "d305",
+          "blindRoute": "card-coupled",
+          "why": "特定地形的公式链与压平参数配置。"
+        },
+        {
+          "sourceId": "d180",
+          "blindRoute": "card-coupled",
+          "why": "环形铺装专用尺寸与分圈算法配置。"
+        },
+        {
+          "sourceId": "d181",
+          "blindRoute": "card-coupled",
+          "why": "石板破损概率与扰动常量配置。"
+        },
+        {
+          "sourceId": "d249",
+          "blindRoute": "card-coupled",
+          "why": "多种布件的网格及着色公式常量。"
+        },
+        {
+          "sourceId": "d280",
+          "blindRoute": "card-coupled",
+          "why": "单一住宅的成组工程布局规格。"
+        },
+        {
+          "sourceId": "d140",
+          "blindRoute": "card-coupled",
+          "why": "立木位置表及树冠生成参数配置。"
+        },
+        {
+          "sourceId": "d348",
+          "blindRoute": "card-coupled",
+          "why": "水面事件编码及专用波形公式。"
+        },
+        {
+          "sourceId": "d120",
+          "blindRoute": "card-coupled",
+          "why": "特定路径站立判定与井口配置。"
+        },
+        {
+          "sourceId": "d263",
+          "blindRoute": "portable",
+          "why": "主体为成片几何规模及建模成果报告。"
+        },
+        {
+          "sourceId": "d062",
+          "blindRoute": "card-coupled",
+          "why": "彩窗及投光共用的专用着色公式。"
+        },
+        {
+          "sourceId": "d275",
+          "blindRoute": "portable",
+          "why": "主体为成片物件计数和三角面规模报告。"
+        },
+        {
+          "sourceId": "d177",
+          "blindRoute": "skipped-or-conflict",
+          "why": "仅列场景避让位置与禁区范围。"
+        },
+        {
+          "sourceId": "d016",
+          "blindRoute": "card-coupled",
+          "why": "材质细节按像素裁剪的阈值表。"
+        },
+        {
+          "sourceId": "d346",
+          "blindRoute": "card-coupled",
+          "why": "折射吸收与菲涅耳的实现公式组合。"
+        },
+        {
+          "sourceId": "d128",
+          "blindRoute": "card-coupled",
+          "why": "木屋位置与构件灯光的成组配置。"
+        },
+        {
+          "sourceId": "d066",
+          "blindRoute": "card-coupled",
+          "why": "成组窗位尺寸和缺块概率配置。"
+        },
+        {
+          "sourceId": "d058",
+          "blindRoute": "card-coupled",
+          "why": "雾门网格着色交互及碰撞的专用配置。"
+        },
+        {
+          "sourceId": "d308",
+          "blindRoute": "card-coupled",
+          "why": "沉坑位置表附带专用减速判定。"
+        },
+        {
+          "sourceId": "d071",
+          "blindRoute": "card-coupled",
+          "why": "边石生成比例及随机缺失的实现配置。"
+        },
+        {
+          "sourceId": "d065",
+          "blindRoute": "card-coupled",
+          "why": "单个花窗的分环图案与缺损配置。"
+        },
+        {
+          "sourceId": "d258",
+          "blindRoute": "portable",
+          "why": "可理解的高位俯拍机位与构图示例。"
+        },
+        {
+          "sourceId": "d315",
+          "blindRoute": "card-coupled",
+          "why": "岩面位移叠加公式及调节常量。"
+        },
+        {
+          "sourceId": "d250",
+          "blindRoute": "portable",
+          "why": "主体为实测摆动幅度和画面事件时间计数。"
+        },
+        {
+          "sourceId": "d085",
+          "blindRoute": "card-coupled",
+          "why": "立石造型与场景布置生成的成组配置。"
+        },
+        {
+          "sourceId": "d208",
+          "blindRoute": "card-coupled",
+          "why": "布景配方尺寸表及补放规则配置。"
+        },
+        {
+          "sourceId": "d328",
+          "blindRoute": "card-coupled",
+          "why": "碎石坡顶点标记的专用判定公式。"
+        },
+        {
+          "sourceId": "d196",
+          "blindRoute": "card-coupled",
+          "why": "桥绳阳台及晾衣布的成组生成配置。"
+        },
+        {
+          "sourceId": "d051",
+          "blindRoute": "card-coupled",
+          "why": "后殿墙体破损与构件生成配置。"
+        },
+        {
+          "sourceId": "d312",
+          "blindRoute": "card-coupled",
+          "why": "落石尘团粒子上限及运动外观参数表。"
+        },
+        {
+          "sourceId": "d061",
+          "blindRoute": "card-coupled",
+          "why": "落叶路径与雾面片的专用动画配置。"
+        },
+        {
+          "sourceId": "d297",
+          "blindRoute": "card-coupled",
+          "why": "高度图土丘生成公式与网格参数。"
+        },
+        {
+          "sourceId": "d101",
+          "blindRoute": "card-coupled",
+          "why": "提灯几何材质及铭牌图集的成组配置。"
+        },
+        {
+          "sourceId": "d068",
+          "blindRoute": "card-coupled",
+          "why": "碎玻璃数量位置与着色生成配置。"
+        },
+        {
+          "sourceId": "d049",
+          "blindRoute": "card-coupled",
+          "why": "单面墙窗的成组几何尺寸配置。"
+        },
+        {
+          "sourceId": "d159",
+          "blindRoute": "card-coupled",
+          "why": "两套升降装置的场景尺寸位置配置。"
+        },
+        {
+          "sourceId": "d283",
+          "blindRoute": "skipped-or-conflict",
+          "why": "制作范围与画质要求的编排说明。"
+        },
+        {
+          "sourceId": "d160",
+          "blindRoute": "card-coupled",
+          "why": "叶帘网格粒子及碰撞的成组配置。"
+        },
+        {
+          "sourceId": "d171",
+          "blindRoute": "skipped-or-conflict",
+          "why": "仅列地图数据项与点数清单。"
+        },
+        {
+          "sourceId": "d232",
+          "blindRoute": "card-coupled",
+          "why": "洞穴楼梯的离散高度公式及网格配置。"
+        },
+        {
+          "sourceId": "s065",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为城防整体构件配置。"
+        },
+        {
+          "sourceId": "s086",
+          "blindRoute": "portable",
+          "why": "附带明细主体为成片计数与几何规模报告。"
+        },
+        {
+          "sourceId": "s045",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为叙事摆件配置；摘要另列种子无明细支持。"
+        },
+        {
+          "sourceId": "s063",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为多处废墟的成组生成配置；摘要圆塔未见对应。"
+        },
+        {
+          "sourceId": "s126",
+          "blindRoute": "card-coupled",
+          "why": "附带明细主体为摆动预积分及风力常量表。"
+        },
+        {
+          "sourceId": "s075",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为杂物与建筑配置；摘要章节错指教堂。"
+        },
+        {
+          "sourceId": "s064",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为整镇尺寸及塔楼数量配置。"
+        },
+        {
+          "sourceId": "s026",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为构件容器接口与分桶配置。"
+        },
+        {
+          "sourceId": "s056",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为后殿几何与坐标配置。"
+        },
+        {
+          "sourceId": "s054",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为整面墙窗的几何配置。"
+        },
+        {
+          "sourceId": "s116",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为树种生成常量表。"
+        },
+        {
+          "sourceId": "s050",
+          "blindRoute": "portable",
+          "why": "附带明细是可独立理解的木构构件尺度。"
+        },
+        {
+          "sourceId": "s092",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为提灯材质几何及铭牌图集配置。"
+        }
+      ],
+      "disagreements": [
+        "d257",
+        "d263",
+        "d275",
+        "d177",
+        "s065",
+        "s086",
+        "s075",
+        "s064"
+      ],
+      "disagreementRate": 0.1509433962264151,
+      "seedRef": "a6a83be:E3-C11"
     }
   },
   "blindAudit": {
-    "rubric": "r2",
-    "method": "在修复前固定种子，按集合与明细、汇总两层分别对源 ID 做 SHA-256 排序，无放回取各层前一成（向上取整）。独立判定员逐条只读脱敏源文和判据，汇总另附所指明细。先冻结唯一路由，再与修复后的总账比较。",
+    "rubric": "r3",
+    "method": "三审按集合取种子摘要，用同一随机流先洗明细、再洗汇总，各取前一成（向上取整）。去向按冻结的源行原票重放。",
     "sampleSize": 53,
     "judgedDetails": 40,
     "judgedSummaries": 13,
     "rows": [
       {
-        "sourceId": "d257",
-        "blindRoute": "portable",
-        "why": "主体为成片细节计数与几何规模报告。"
-      },
-      {
-        "sourceId": "d305",
-        "blindRoute": "card-coupled",
-        "why": "特定地形的公式链与压平参数配置。"
-      },
-      {
-        "sourceId": "d180",
-        "blindRoute": "card-coupled",
-        "why": "环形铺装专用尺寸与分圈算法配置。"
-      },
-      {
-        "sourceId": "d181",
-        "blindRoute": "card-coupled",
-        "why": "石板破损概率与扰动常量配置。"
-      },
-      {
-        "sourceId": "d249",
-        "blindRoute": "card-coupled",
-        "why": "多种布件的网格及着色公式常量。"
-      },
-      {
-        "sourceId": "d280",
-        "blindRoute": "card-coupled",
-        "why": "单一住宅的成组工程布局规格。"
-      },
-      {
-        "sourceId": "d140",
-        "blindRoute": "card-coupled",
-        "why": "立木位置表及树冠生成参数配置。"
-      },
-      {
-        "sourceId": "d348",
-        "blindRoute": "card-coupled",
-        "why": "水面事件编码及专用波形公式。"
-      },
-      {
-        "sourceId": "d120",
-        "blindRoute": "card-coupled",
-        "why": "特定路径站立判定与井口配置。"
-      },
-      {
-        "sourceId": "d263",
-        "blindRoute": "portable",
-        "why": "主体为成片几何规模及建模成果报告。"
-      },
-      {
-        "sourceId": "d062",
-        "blindRoute": "card-coupled",
-        "why": "彩窗及投光共用的专用着色公式。"
-      },
-      {
-        "sourceId": "d275",
-        "blindRoute": "portable",
-        "why": "主体为成片物件计数和三角面规模报告。"
-      },
-      {
-        "sourceId": "d177",
-        "blindRoute": "skipped-or-conflict",
-        "why": "仅列场景避让位置与禁区范围。"
+        "sourceId": "d004",
+        "blindRoute": "card-coupled"
       },
       {
         "sourceId": "d016",
-        "blindRoute": "card-coupled",
-        "why": "材质细节按像素裁剪的阈值表。"
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d346",
-        "blindRoute": "card-coupled",
-        "why": "折射吸收与菲涅耳的实现公式组合。"
+        "sourceId": "d021",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d128",
-        "blindRoute": "card-coupled",
-        "why": "木屋位置与构件灯光的成组配置。"
+        "sourceId": "d040",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d066",
-        "blindRoute": "card-coupled",
-        "why": "成组窗位尺寸和缺块概率配置。"
+        "sourceId": "d048",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "d056",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "d057",
+        "blindRoute": "card-coupled"
       },
       {
         "sourceId": "d058",
-        "blindRoute": "card-coupled",
-        "why": "雾门网格着色交互及碰撞的专用配置。"
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d308",
-        "blindRoute": "card-coupled",
-        "why": "沉坑位置表附带专用减速判定。"
+        "sourceId": "d064",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d071",
-        "blindRoute": "card-coupled",
-        "why": "边石生成比例及随机缺失的实现配置。"
+        "sourceId": "d072",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d065",
-        "blindRoute": "card-coupled",
-        "why": "单个花窗的分环图案与缺损配置。"
+        "sourceId": "d073",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d258",
-        "blindRoute": "portable",
-        "why": "可理解的高位俯拍机位与构图示例。"
+        "sourceId": "d100",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d315",
-        "blindRoute": "card-coupled",
-        "why": "岩面位移叠加公式及调节常量。"
+        "sourceId": "d108",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d250",
-        "blindRoute": "portable",
-        "why": "主体为实测摆动幅度和画面事件时间计数。"
+        "sourceId": "d116",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d085",
-        "blindRoute": "card-coupled",
-        "why": "立石造型与场景布置生成的成组配置。"
+        "sourceId": "d121",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d208",
-        "blindRoute": "card-coupled",
-        "why": "布景配方尺寸表及补放规则配置。"
+        "sourceId": "d122",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d328",
-        "blindRoute": "card-coupled",
-        "why": "碎石坡顶点标记的专用判定公式。"
+        "sourceId": "d125",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d196",
-        "blindRoute": "card-coupled",
-        "why": "桥绳阳台及晾衣布的成组生成配置。"
+        "sourceId": "d176",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d051",
-        "blindRoute": "card-coupled",
-        "why": "后殿墙体破损与构件生成配置。"
+        "sourceId": "d189",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d312",
-        "blindRoute": "card-coupled",
-        "why": "落石尘团粒子上限及运动外观参数表。"
+        "sourceId": "d199",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d061",
-        "blindRoute": "card-coupled",
-        "why": "落叶路径与雾面片的专用动画配置。"
+        "sourceId": "d200",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d297",
-        "blindRoute": "card-coupled",
-        "why": "高度图土丘生成公式与网格参数。"
+        "sourceId": "d201",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d101",
-        "blindRoute": "card-coupled",
-        "why": "提灯几何材质及铭牌图集的成组配置。"
+        "sourceId": "d211",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d068",
-        "blindRoute": "card-coupled",
-        "why": "碎玻璃数量位置与着色生成配置。"
+        "sourceId": "d216",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d049",
-        "blindRoute": "card-coupled",
-        "why": "单面墙窗的成组几何尺寸配置。"
+        "sourceId": "d235",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d159",
-        "blindRoute": "card-coupled",
-        "why": "两套升降装置的场景尺寸位置配置。"
+        "sourceId": "d254",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d283",
-        "blindRoute": "skipped-or-conflict",
-        "why": "制作范围与画质要求的编排说明。"
+        "sourceId": "d259",
+        "blindRoute": "practice"
       },
       {
-        "sourceId": "d160",
-        "blindRoute": "card-coupled",
-        "why": "叶帘网格粒子及碰撞的成组配置。"
+        "sourceId": "d262",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d171",
-        "blindRoute": "skipped-or-conflict",
-        "why": "仅列地图数据项与点数清单。"
+        "sourceId": "d278",
+        "blindRoute": "skipped-or-conflict"
       },
       {
-        "sourceId": "d232",
-        "blindRoute": "card-coupled",
-        "why": "洞穴楼梯的离散高度公式及网格配置。"
+        "sourceId": "d281",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s065",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为城防整体构件配置。"
+        "sourceId": "d290",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s086",
-        "blindRoute": "portable",
-        "why": "附带明细主体为成片计数与几何规模报告。"
+        "sourceId": "d302",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s045",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为叙事摆件配置；摘要另列种子无明细支持。"
+        "sourceId": "d309",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s063",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为多处废墟的成组生成配置；摘要圆塔未见对应。"
+        "sourceId": "d311",
+        "blindRoute": "practice"
       },
       {
-        "sourceId": "s126",
-        "blindRoute": "card-coupled",
-        "why": "附带明细主体为摆动预积分及风力常量表。"
+        "sourceId": "d314",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s075",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为杂物与建筑配置；摘要章节错指教堂。"
+        "sourceId": "d323",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s064",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为整镇尺寸及塔楼数量配置。"
+        "sourceId": "d332",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "d365",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "d382",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "d387",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "s015",
+        "blindRoute": "card-coupled"
       },
       {
         "sourceId": "s026",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为构件容器接口与分桶配置。"
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s056",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为后殿几何与坐标配置。"
+        "sourceId": "s040",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s054",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为整面墙窗的几何配置。"
+        "sourceId": "s051",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s116",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为树种生成常量表。"
+        "sourceId": "s067",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s050",
-        "blindRoute": "portable",
-        "why": "附带明细是可独立理解的木构构件尺度。"
+        "sourceId": "s076",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s092",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为提灯材质几何及铭牌图集配置。"
+        "sourceId": "s088",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "s094",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "s098",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "s106",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "s119",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "s122",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "s124",
+        "blindRoute": "card-coupled"
       }
     ],
     "disagreements": [
-      "d263",
-      "d177",
-      "s065",
-      "s075",
-      "s064"
+      "d040",
+      "d122",
+      "d259",
+      "d262",
+      "d387"
     ],
     "disagreementRate": 0.09433962264150944,
-    "seedRef": "a6a83be:E3-C11"
+    "seedRef": "G_REV-R3-C11:74d2ac8"
   },
   "conflicts": [
     {
       "sourceId": "d001",
       "caseId": "ext-01",
-      "route": "portable",
+      "route": "card-coupled",
       "text": "见串灯明细。本条合并的 分组清单 行写 54 盏挂串绳，串灯明细的四根串灯合计 58 盏。",
-      "attachedTo": [
-        "arch-scene.d001.strung-lantern-count"
-      ]
+      "attachedTo": [],
+      "note": "串绳灯笼两种统计口径随场景预算挂卡，原文同时保留 54 盏与 58 盏。"
     },
     {
       "sourceId": "d029",
@@ -6947,15 +7124,11 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "ext-01",
-      "route": "portable",
+      "route": "card-coupled",
       "summaryOf": "d001",
       "link": "values",
-      "targets": [
-        "arch-scene.sum.s001"
-      ],
-      "detailRefs": [
-        "arch-scene.d001.building-triangles"
-      ]
+      "targets": [],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 59,
@@ -6979,18 +7152,14 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "ext-01",
-      "route": "portable",
+      "route": "card-coupled",
       "summaryOf": "d001",
       "alsoSummarizes": [
         "d244"
       ],
       "link": "values",
-      "targets": [
-        "arch-scene.sum.s003"
-      ],
-      "detailRefs": [
-        "arch-scene.d001.scene-meshes"
-      ]
+      "targets": [],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 61,
@@ -7068,18 +7237,14 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-22",
-      "route": "portable",
+      "route": "card-coupled",
       "summaryOf": "d256",
       "alsoSummarizes": [
         "d257"
       ],
       "link": "values",
-      "targets": [
-        "arch-scene.sum.s009"
-      ],
-      "detailRefs": [
-        "arch-scene.d256.viewport-triangles"
-      ]
+      "targets": [],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 67,
@@ -7087,15 +7252,11 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-19",
-      "route": "portable",
+      "route": "card-coupled",
       "summaryOf": "d260",
       "link": "values",
-      "targets": [
-        "arch-scene.sum.s010"
-      ],
-      "detailRefs": [
-        "arch-scene.d260.static-street-triangles"
-      ]
+      "targets": [],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 68,
@@ -7103,18 +7264,14 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-14",
-      "route": "portable",
-      "summaryOf": "d262",
+      "route": "card-coupled",
+      "summaryOf": "d360",
       "alsoSummarizes": [
-        "d360"
+        "d262"
       ],
       "link": "values",
-      "targets": [
-        "arch-scene.sum.s011"
-      ],
-      "detailRefs": [
-        "arch-scene.d262.static-alley-triangles"
-      ]
+      "targets": [],
+      "target": "shade.water"
     },
     {
       "sourceLine": 69,
@@ -7122,15 +7279,11 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-21",
-      "route": "portable",
+      "route": "card-coupled",
       "summaryOf": "d275",
       "link": "values",
-      "targets": [
-        "arch-scene.sum.s012"
-      ],
-      "detailRefs": [
-        "arch-scene.d275.static-street-triangles"
-      ]
+      "targets": [],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 70,
@@ -7138,18 +7291,14 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-26",
-      "route": "portable",
-      "summaryOf": "d284",
+      "route": "card-coupled",
+      "summaryOf": "d263",
       "alsoSummarizes": [
-        "d263"
+        "d284"
       ],
       "link": "values",
-      "targets": [
-        "arch-scene.sum.s013"
-      ],
-      "detailRefs": [
-        "arch-scene.d284.scene-triangles"
-      ]
+      "targets": [],
+      "target": "form.interior-arch"
     },
     {
       "sourceLine": 71,
@@ -7157,15 +7306,11 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-29",
-      "route": "portable",
+      "route": "card-coupled",
       "summaryOf": "d266",
       "link": "values",
-      "targets": [
-        "arch-scene.sum.s014"
-      ],
-      "detailRefs": [
-        "arch-scene.d266.scene-triangles"
-      ]
+      "targets": [],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 72,
@@ -7173,15 +7318,11 @@
       "recordKind": "summary",
       "section": "1.1",
       "caseId": "case-08",
-      "route": "portable",
+      "route": "card-coupled",
       "summaryOf": "d002",
       "link": "values",
-      "targets": [
-        "arch-scene.sum.s015"
-      ],
-      "detailRefs": [
-        "arch-scene.d002.scene-objects"
-      ]
+      "targets": [],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 76,
@@ -7189,18 +7330,11 @@
       "recordKind": "detail",
       "section": "1.1",
       "caseId": "ext-01",
-      "route": "portable",
+      "route": "card-coupled",
       "targets": [
-        "arch-scene.d001.building-triangles",
-        "arch-scene.d001.scene-meshes",
-        "arch-scene.d001.rock-vertices",
-        "arch-scene.d001.rock-triangles",
-        "arch-scene.d001.lantern-count",
-        "arch-scene.d001.strung-lantern-count",
-        "arch-scene.d001.cloth-pieces",
-        "arch-scene.d001.grass-blades",
-        "arch-scene.d001.planting-points"
-      ]
+        "arch-scene.d001.card"
+      ],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 86,
@@ -7208,11 +7342,11 @@
       "recordKind": "detail",
       "section": "1.1",
       "caseId": "case-08",
-      "route": "portable",
+      "route": "card-coupled",
       "targets": [
-        "arch-scene.d002.scene-objects",
-        "arch-scene.d002.scene-triangles"
-      ]
+        "arch-scene.d002.card"
+      ],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 101,
@@ -11095,7 +11229,6 @@
       "caseId": "ext-01",
       "route": "portable",
       "targets": [
-        "arch-scene.d244.lantern-count",
         "arch-scene.d244.lantern-diameter",
         "arch-scene.d244.lantern-height",
         "arch-scene.d244.lantern-body-radius"
@@ -11185,9 +11318,6 @@
       "caseId": "case-02",
       "route": "portable",
       "targets": [
-        "arch-scene.d251.settlement-houses",
-        "arch-scene.d251.settlement-landmarks",
-        "arch-scene.d251.lake-count",
         "arch-scene.d251.lake-surface-elevation",
         "arch-scene.d251.river-surface-elevation"
       ]
@@ -11234,15 +11364,11 @@
       "recordKind": "summary",
       "section": "1.19",
       "caseId": "case-21",
-      "route": "portable",
+      "route": "card-coupled",
       "summaryOf": "d275",
       "link": "values",
-      "targets": [
-        "arch-scene.sum.s086"
-      ],
-      "detailRefs": [
-        "arch-scene.d275.sign-types"
-      ]
+      "targets": [],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 1437,
@@ -11250,15 +11376,14 @@
       "recordKind": "summary",
       "section": "1.19",
       "caseId": "case-14",
-      "route": "portable",
-      "summaryOf": "d262",
-      "link": "values",
-      "targets": [
-        "arch-scene.sum.s087"
+      "route": "card-coupled",
+      "summaryOf": "d360",
+      "link": "gist",
+      "targets": [],
+      "alsoSummarizes": [
+        "d262"
       ],
-      "detailRefs": [
-        "arch-scene.d262.drawn-ideographs"
-      ]
+      "target": "shade.water"
     },
     {
       "sourceLine": 1438,
@@ -11266,15 +11391,11 @@
       "recordKind": "summary",
       "section": "1.19",
       "caseId": "case-19",
-      "route": "portable",
+      "route": "card-coupled",
       "summaryOf": "d260",
       "link": "values",
-      "targets": [
-        "arch-scene.sum.s088"
-      ],
-      "detailRefs": [
-        "arch-scene.d260.sign-count"
-      ]
+      "targets": [],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 1439,
@@ -11347,13 +11468,11 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-22",
-      "route": "portable",
+      "route": "card-coupled",
       "targets": [
-        "arch-scene.d256.viewport-triangles",
-        "arch-scene.d256.viewport-objects",
-        "arch-scene.d256.round-one-triangle-budget",
-        "arch-scene.d256.round-two-triangle-budget"
-      ]
+        "arch-scene.d256.card"
+      ],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 1464,
@@ -11361,16 +11480,11 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-22",
-      "route": "portable",
+      "route": "card-coupled",
       "targets": [
-        "arch-scene.d257.tower-glass-panels",
-        "arch-scene.d257.boards-per-tank",
-        "arch-scene.d257.hoops-per-tank",
-        "arch-scene.d257.rooftop-prop-types",
-        "arch-scene.d257.vehicles",
-        "arch-scene.d257.pedestrians",
-        "arch-scene.d257.missing-tile-share"
-      ]
+        "arch-scene.d257.card"
+      ],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 1485,
@@ -11401,14 +11515,11 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-19",
-      "route": "portable",
+      "route": "card-coupled",
       "targets": [
-        "arch-scene.d260.static-street-triangles",
-        "arch-scene.d260.moving-triangle-limit",
-        "arch-scene.d260.clutter-triangles",
-        "arch-scene.d260.material-types",
-        "arch-scene.d260.sign-count"
-      ]
+        "arch-scene.d260.card"
+      ],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 1511,
@@ -11416,14 +11527,11 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-19",
-      "route": "portable",
+      "route": "card-coupled",
       "targets": [
-        "arch-scene.d261.clotheslines",
-        "arch-scene.d261.hanging-garments",
-        "arch-scene.d261.flags",
-        "arch-scene.d261.people",
-        "arch-scene.d261.walking-people"
-      ]
+        "arch-scene.d261.card"
+      ],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 1515,
@@ -11433,13 +11541,10 @@
       "caseId": "case-14",
       "route": "portable",
       "targets": [
-        "arch-scene.d262.static-alley-triangles",
-        "arch-scene.d262.moving-triangle-limit",
-        "arch-scene.d262.drawn-ideographs",
-        "arch-scene.d262.rain-streaks-per-shot",
         "arch-scene.d262.film-duration",
         "arch-scene.d262.frame-rate"
-      ]
+      ],
+      "sourceExcerpt": "静态约 40 万三角 + 运动最多 16 万；招牌用假名+19 个汉字逐笔构造，系统字体只当尺子"
     },
     {
       "sourceLine": 1528,
@@ -11483,11 +11588,11 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-29",
-      "route": "portable",
+      "route": "card-coupled",
       "targets": [
-        "arch-scene.d266.scene-triangles",
-        "arch-scene.d266.material-types"
-      ]
+        "arch-scene.d266.card"
+      ],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 1575,
@@ -11586,15 +11691,11 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-21",
-      "route": "portable",
+      "route": "card-coupled",
       "targets": [
-        "arch-scene.d275.sign-types",
-        "arch-scene.d275.sign-count",
-        "arch-scene.d275.paper-flags",
-        "arch-scene.d275.background-people",
-        "arch-scene.d275.static-street-triangles",
-        "arch-scene.d275.moving-triangle-limit"
-      ]
+        "arch-scene.d275.card"
+      ],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 1649,
@@ -11672,11 +11773,11 @@
       "recordKind": "detail",
       "section": "1.19",
       "caseId": "case-12",
-      "route": "portable",
+      "route": "card-coupled",
       "targets": [
-        "arch-scene.d282.substations",
-        "arch-scene.d282.buildings"
-      ]
+        "arch-scene.d282.card"
+      ],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 1687,
@@ -11698,9 +11799,7 @@
         "arch-scene.d284.film-duration",
         "arch-scene.d284.frame-rate",
         "arch-scene.d284.shot-count",
-        "arch-scene.d284.frame-count",
-        "arch-scene.d284.scene-triangles",
-        "arch-scene.d284.material-types"
+        "arch-scene.d284.frame-count"
       ]
     },
     {
@@ -12785,11 +12884,11 @@
       "recordKind": "detail",
       "section": "2.7",
       "caseId": "case-14",
-      "route": "portable",
+      "route": "card-coupled",
       "targets": [
-        "arch-scene.d360.ripple-shot-triangles",
-        "arch-scene.d360.rain-streaks-per-shot"
-      ]
+        "arch-scene.d360.card"
+      ],
+      "target": "shade.water"
     },
     {
       "sourceLine": 2185,
@@ -12890,15 +12989,11 @@
       "recordKind": "summary",
       "section": "2.8",
       "caseId": "ext-01",
-      "route": "portable",
+      "route": "card-coupled",
       "summaryOf": "d001",
       "link": "values",
-      "targets": [
-        "arch-scene.sum.s113"
-      ],
-      "detailRefs": [
-        "arch-scene.d001.grass-blades"
-      ]
+      "targets": [],
+      "target": "form.scene-budget"
     },
     {
       "sourceLine": 2196,

@@ -14,13 +14,13 @@
   "counting": "一条 = 一个表格数据行（含跨案例对照表行），或一个顶层列表条目连同它缩进的续行；目录、案例索引、用法、没收进来的、以「并入说明、冲突、合并、说明」开头的说明行不算。对照表行的去向随它指回的明细，不另算一条明细",
   "portableCount": 82,
   "cardCoupledCount": 460,
-  "practiceCount": 106,
-  "excludedOrConflictCount": 39,
+  "practiceCount": 105,
+  "excludedOrConflictCount": 40,
   "detailRouteCounts": {
-    "practice": 76,
+    "practice": 75,
     "card-coupled": 326,
     "portable": 43,
-    "skipped-or-conflict": 36
+    "skipped-or-conflict": 37
   },
   "summaryRouteCounts": {
     "card-coupled": 134,
@@ -568,6 +568,12 @@
       "route": "practice",
       "reason": "由环境图的超阈值像素估计太阳方向，平移图像对准方位，再压低日面并补回直射光。",
       "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d056",
+      "route": "skipped-or-conflict",
+      "reason": "原实现的材质自阴影着色器交叉引用，缺少独立的工序或参数。",
+      "previousRoute": "practice"
     },
     {
       "sourceId": "d193",
@@ -7568,377 +7574,676 @@
           "blindRoute": "practice"
         }
       ]
+    },
+    "r2BlindAudit": {
+      "rubric": "r2",
+      "method": "在修复前固定种子，按集合与明细、汇总两层分别对源 ID 做 SHA-256 排序，无放回取各层前一成（向上取整）。独立判定员逐条只读脱敏源文和判据，汇总另附所指明细。先冻结唯一路由，再与修复后的总账比较。",
+      "sampleSize": 70,
+      "judgedDetails": 49,
+      "judgedSummaries": 21,
+      "rows": [
+        {
+          "sourceId": "d303",
+          "blindRoute": "card-coupled",
+          "why": "粒子数量颜色及时间驱动公式配置。"
+        },
+        {
+          "sourceId": "d265",
+          "blindRoute": "card-coupled",
+          "why": "地面雾密度采样与衰减的实现常量。"
+        },
+        {
+          "sourceId": "d427",
+          "blindRoute": "portable",
+          "why": "实测剪辑镜头数切点与节拍时长报告。"
+        },
+        {
+          "sourceId": "d010",
+          "blindRoute": "card-coupled",
+          "why": "特定实现的主光方向及投影分离配置。"
+        },
+        {
+          "sourceId": "d389",
+          "blindRoute": "card-coupled",
+          "why": "相机手感层各弹簧冲量及幅度常量表。"
+        },
+        {
+          "sourceId": "d279",
+          "blindRoute": "card-coupled",
+          "why": "雾面片透明度形状颜色的着色公式。"
+        },
+        {
+          "sourceId": "d342",
+          "blindRoute": "skipped-or-conflict",
+          "why": "仅有实例相机位置关键帧坐标表。"
+        },
+        {
+          "sourceId": "d133",
+          "blindRoute": "card-coupled",
+          "why": "分镜灯组权重与点亮功率的配套配置。"
+        },
+        {
+          "sourceId": "d375",
+          "blindRoute": "card-coupled",
+          "why": "注视采样权重及颈头转动公式。"
+        },
+        {
+          "sourceId": "d293",
+          "blindRoute": "card-coupled",
+          "why": "径向光束步进衰减及强度公式配置。"
+        },
+        {
+          "sourceId": "d121",
+          "blindRoute": "card-coupled",
+          "why": "单盏棚灯的位置尺寸功率配套配置。"
+        },
+        {
+          "sourceId": "d175",
+          "blindRoute": "card-coupled",
+          "why": "夜间各材质自发光强度的实现公式。"
+        },
+        {
+          "sourceId": "d074",
+          "blindRoute": "card-coupled",
+          "why": "场景灯带类型尺寸与挂装配置。"
+        },
+        {
+          "sourceId": "d100",
+          "blindRoute": "practice",
+          "why": "用柔光反射塑造深色金属的布光做法。"
+        },
+        {
+          "sourceId": "d061",
+          "blindRoute": "skipped-or-conflict",
+          "why": "参数缺项和需重调的说明无具体做法。"
+        },
+        {
+          "sourceId": "d192",
+          "blindRoute": "practice",
+          "why": "压暗草地背景以突出角色的布光做法。"
+        },
+        {
+          "sourceId": "d462",
+          "blindRoute": "practice",
+          "why": "将运动模糊采样钳在当前镜头内的修法。"
+        },
+        {
+          "sourceId": "d086",
+          "blindRoute": "card-coupled",
+          "why": "天气状态切换及贴图更换的实现配置。"
+        },
+        {
+          "sourceId": "d354",
+          "blindRoute": "skipped-or-conflict",
+          "why": "参数适用范围及来源说明无具体可学内容。"
+        },
+        {
+          "sourceId": "d045",
+          "blindRoute": "card-coupled",
+          "why": "不同天气的阴影柔和度与浓度常量表。"
+        },
+        {
+          "sourceId": "d440",
+          "blindRoute": "portable",
+          "why": "可独立理解的环绕机位构图及拍摄规格。"
+        },
+        {
+          "sourceId": "d235",
+          "blindRoute": "card-coupled",
+          "why": "云噪声烘焙通道与函数权重配置。"
+        },
+        {
+          "sourceId": "d240",
+          "blindRoute": "card-coupled",
+          "why": "云海网格贴图编码与形状生成公式。"
+        },
+        {
+          "sourceId": "d224",
+          "blindRoute": "card-coupled",
+          "why": "风暴裂口闪电的形状与配色公式配置。"
+        },
+        {
+          "sourceId": "d161",
+          "blindRoute": "card-coupled",
+          "why": "树冠近景洞形与光照的专用着色公式。"
+        },
+        {
+          "sourceId": "d102",
+          "blindRoute": "practice",
+          "why": "让灯只参与反射并固定世界位置的做法。"
+        },
+        {
+          "sourceId": "d111",
+          "blindRoute": "card-coupled",
+          "why": "单盏补灯的位置尺寸功率成组配置。"
+        },
+        {
+          "sourceId": "d390",
+          "blindRoute": "card-coupled",
+          "why": "相机冲量换算及各通道限幅配置。"
+        },
+        {
+          "sourceId": "d062",
+          "blindRoute": "card-coupled",
+          "why": "灯位强度及假点光着色公式的配套配置。"
+        },
+        {
+          "sourceId": "d372",
+          "blindRoute": "portable",
+          "why": "可独立理解的焦距距离机位角及取景尺度。"
+        },
+        {
+          "sourceId": "d426",
+          "blindRoute": "portable",
+          "why": "环绕摄影的机位与成片时长帧数规格。"
+        },
+        {
+          "sourceId": "d197",
+          "blindRoute": "practice",
+          "why": "以内部发光和动机衰减塑造照明的做法。"
+        },
+        {
+          "sourceId": "d344",
+          "blindRoute": "card-coupled",
+          "why": "单镜头焦距及光圈的逐帧关键配置。"
+        },
+        {
+          "sourceId": "d470",
+          "blindRoute": "portable",
+          "why": "主体为实测运镜触发时间及公式误差报告。"
+        },
+        {
+          "sourceId": "d034",
+          "blindRoute": "card-coupled",
+          "why": "缺失大气系统时的配色与主光常量配置。"
+        },
+        {
+          "sourceId": "d474",
+          "blindRoute": "portable",
+          "why": "可直接理解的身后跟拍机位距离。"
+        },
+        {
+          "sourceId": "d249",
+          "blindRoute": "portable",
+          "why": "主体为实际旋转速率与周期的修正报告。"
+        },
+        {
+          "sourceId": "d070",
+          "blindRoute": "card-coupled",
+          "why": "打击闪光的数量颜色及衰减常量配置。"
+        },
+        {
+          "sourceId": "d343",
+          "blindRoute": "skipped-or-conflict",
+          "why": "仅有实例相机目标关键帧坐标表。"
+        },
+        {
+          "sourceId": "d026",
+          "blindRoute": "card-coupled",
+          "why": "反射探针分配对象及更新周期配置。"
+        },
+        {
+          "sourceId": "d468",
+          "blindRoute": "practice",
+          "why": "缩放平移搜索并设误差门限的量测步骤。"
+        },
+        {
+          "sourceId": "d212",
+          "blindRoute": "practice",
+          "why": "从参照图取色并逐项对照调色的做法。"
+        },
+        {
+          "sourceId": "d441",
+          "blindRoute": "portable",
+          "why": "主体为环绕相机角度留白和摄影规格。"
+        },
+        {
+          "sourceId": "d297",
+          "blindRoute": "card-coupled",
+          "why": "阵风事件槽及软物受风的公式配置。"
+        },
+        {
+          "sourceId": "d294",
+          "blindRoute": "practice",
+          "why": "半分辨率步进抖动及深度保边重建做法。"
+        },
+        {
+          "sourceId": "d281",
+          "blindRoute": "card-coupled",
+          "why": "场景雾密度距离裁剪及移动端调度配置。"
+        },
+        {
+          "sourceId": "d193",
+          "blindRoute": "skipped-or-conflict",
+          "why": "主体为特定画面反馈与光照矛盾对账。"
+        },
+        {
+          "sourceId": "d365",
+          "blindRoute": "card-coupled",
+          "why": "相机轨迹附加正弦偏移的实现公式。"
+        },
+        {
+          "sourceId": "d380",
+          "blindRoute": "card-coupled",
+          "why": "手持震动及鼠标微调的专用通道公式。"
+        },
+        {
+          "sourceId": "s046",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为打击闪光的实现常量。"
+        },
+        {
+          "sourceId": "s174",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为越障阈值配置；摘要步进拉近参数未见对应。"
+        },
+        {
+          "sourceId": "s106",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为解析雾的积分与散射公式配置。"
+        },
+        {
+          "sourceId": "s146",
+          "blindRoute": "practice",
+          "why": "附带明细主体为按动作选择镜头和手持方式的做法。"
+        },
+        {
+          "sourceId": "s156",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为特定镜头的焦距光圈及路径配置。"
+        },
+        {
+          "sourceId": "s161",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为场景注视权重配置；摘要可变窗口未见对应。"
+        },
+        {
+          "sourceId": "s128",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为特定场景的大气与雾盒参数配置。"
+        },
+        {
+          "sourceId": "s013",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为太阳及阴影参数；摘要挖太阳未见对应。"
+        },
+        {
+          "sourceId": "s103",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为云海生成实现；摘要步进及层高未见对应。"
+        },
+        {
+          "sourceId": "s004",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为太阳配置；摘要环境补光等并无对应明细。"
+        },
+        {
+          "sourceId": "s084",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为弹光贴图编码及采样公式。"
+        },
+        {
+          "sourceId": "s067",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为六盏棚灯的成组位置功率配置。"
+        },
+        {
+          "sourceId": "s203",
+          "blindRoute": "practice",
+          "why": "附带明细为运镜表达及模糊叠层的做法清单。"
+        },
+        {
+          "sourceId": "s200",
+          "blindRoute": "portable",
+          "why": "附带明细为成片缩放平移与速率量测报告。"
+        },
+        {
+          "sourceId": "s039",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为灯光配套配置；摘要另加特效灯无对应。"
+        },
+        {
+          "sourceId": "s061",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为天气太阳配置；摘要环境强度无对应。"
+        },
+        {
+          "sourceId": "s019",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为半球光配色公式；摘要环境常量无对应。"
+        },
+        {
+          "sourceId": "s164",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为手持震动的通道公式。"
+        },
+        {
+          "sourceId": "s169",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为打击事件顿帧与模拟倍率配置。"
+        },
+        {
+          "sourceId": "s173",
+          "blindRoute": "card-coupled",
+          "why": "附带明细为锁定取景公式；摘要距离及加宽未见对应。"
+        },
+        {
+          "sourceId": "s183",
+          "blindRoute": "practice",
+          "why": "附带明细主体为近镜头安全做法；摘要焦段无对应。"
+        }
+      ],
+      "disagreements": [
+        "d010",
+        "d342",
+        "d474",
+        "d343",
+        "s146",
+        "s156",
+        "s183"
+      ],
+      "disagreementRate": 0.1,
+      "seedRef": "a6a83be:E3-C11"
     }
   },
   "blindAudit": {
-    "rubric": "r2",
-    "method": "在修复前固定种子，按集合与明细、汇总两层分别对源 ID 做 SHA-256 排序，无放回取各层前一成（向上取整）。独立判定员逐条只读脱敏源文和判据，汇总另附所指明细。先冻结唯一路由，再与修复后的总账比较。",
+    "rubric": "r3",
+    "method": "三审按集合取种子摘要，用同一随机流先洗明细、再洗汇总，各取前一成（向上取整）。去向按冻结的源行原票重放。",
     "sampleSize": 70,
     "judgedDetails": 49,
     "judgedSummaries": 21,
     "rows": [
       {
-        "sourceId": "d303",
-        "blindRoute": "card-coupled",
-        "why": "粒子数量颜色及时间驱动公式配置。"
+        "sourceId": "d005",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d265",
-        "blindRoute": "card-coupled",
-        "why": "地面雾密度采样与衰减的实现常量。"
-      },
-      {
-        "sourceId": "d427",
-        "blindRoute": "portable",
-        "why": "实测剪辑镜头数切点与节拍时长报告。"
-      },
-      {
-        "sourceId": "d010",
-        "blindRoute": "card-coupled",
-        "why": "特定实现的主光方向及投影分离配置。"
-      },
-      {
-        "sourceId": "d389",
-        "blindRoute": "card-coupled",
-        "why": "相机手感层各弹簧冲量及幅度常量表。"
-      },
-      {
-        "sourceId": "d279",
-        "blindRoute": "card-coupled",
-        "why": "雾面片透明度形状颜色的着色公式。"
-      },
-      {
-        "sourceId": "d342",
-        "blindRoute": "skipped-or-conflict",
-        "why": "仅有实例相机位置关键帧坐标表。"
-      },
-      {
-        "sourceId": "d133",
-        "blindRoute": "card-coupled",
-        "why": "分镜灯组权重与点亮功率的配套配置。"
-      },
-      {
-        "sourceId": "d375",
-        "blindRoute": "card-coupled",
-        "why": "注视采样权重及颈头转动公式。"
-      },
-      {
-        "sourceId": "d293",
-        "blindRoute": "card-coupled",
-        "why": "径向光束步进衰减及强度公式配置。"
-      },
-      {
-        "sourceId": "d121",
-        "blindRoute": "card-coupled",
-        "why": "单盏棚灯的位置尺寸功率配套配置。"
-      },
-      {
-        "sourceId": "d175",
-        "blindRoute": "card-coupled",
-        "why": "夜间各材质自发光强度的实现公式。"
-      },
-      {
-        "sourceId": "d074",
-        "blindRoute": "card-coupled",
-        "why": "场景灯带类型尺寸与挂装配置。"
-      },
-      {
-        "sourceId": "d100",
-        "blindRoute": "practice",
-        "why": "用柔光反射塑造深色金属的布光做法。"
-      },
-      {
-        "sourceId": "d061",
-        "blindRoute": "skipped-or-conflict",
-        "why": "参数缺项和需重调的说明无具体做法。"
-      },
-      {
-        "sourceId": "d192",
-        "blindRoute": "practice",
-        "why": "压暗草地背景以突出角色的布光做法。"
-      },
-      {
-        "sourceId": "d462",
-        "blindRoute": "practice",
-        "why": "将运动模糊采样钳在当前镜头内的修法。"
-      },
-      {
-        "sourceId": "d086",
-        "blindRoute": "card-coupled",
-        "why": "天气状态切换及贴图更换的实现配置。"
-      },
-      {
-        "sourceId": "d354",
-        "blindRoute": "skipped-or-conflict",
-        "why": "参数适用范围及来源说明无具体可学内容。"
+        "sourceId": "d014",
+        "blindRoute": "portable"
       },
       {
         "sourceId": "d045",
-        "blindRoute": "card-coupled",
-        "why": "不同天气的阴影柔和度与浓度常量表。"
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d440",
-        "blindRoute": "portable",
-        "why": "可独立理解的环绕机位构图及拍摄规格。"
+        "sourceId": "d051",
+        "blindRoute": "practice"
       },
       {
-        "sourceId": "d235",
-        "blindRoute": "card-coupled",
-        "why": "云噪声烘焙通道与函数权重配置。"
+        "sourceId": "d055",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d240",
-        "blindRoute": "card-coupled",
-        "why": "云海网格贴图编码与形状生成公式。"
+        "sourceId": "d056",
+        "blindRoute": "skipped-or-conflict"
       },
       {
-        "sourceId": "d224",
-        "blindRoute": "card-coupled",
-        "why": "风暴裂口闪电的形状与配色公式配置。"
+        "sourceId": "d065",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "d066",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "d082",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "d100",
+        "blindRoute": "practice"
+      },
+      {
+        "sourceId": "d126",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "d132",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "d149",
+        "blindRoute": "skipped-or-conflict"
+      },
+      {
+        "sourceId": "d150",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "d152",
+        "blindRoute": "practice"
+      },
+      {
+        "sourceId": "d157",
+        "blindRoute": "card-coupled"
       },
       {
         "sourceId": "d161",
-        "blindRoute": "card-coupled",
-        "why": "树冠近景洞形与光照的专用着色公式。"
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d102",
-        "blindRoute": "practice",
-        "why": "让灯只参与反射并固定世界位置的做法。"
+        "sourceId": "d162",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d111",
-        "blindRoute": "card-coupled",
-        "why": "单盏补灯的位置尺寸功率成组配置。"
+        "sourceId": "d171",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d390",
-        "blindRoute": "card-coupled",
-        "why": "相机冲量换算及各通道限幅配置。"
+        "sourceId": "d182",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d062",
-        "blindRoute": "card-coupled",
-        "why": "灯位强度及假点光着色公式的配套配置。"
+        "sourceId": "d199",
+        "blindRoute": "portable"
       },
       {
-        "sourceId": "d372",
-        "blindRoute": "portable",
-        "why": "可独立理解的焦距距离机位角及取景尺度。"
+        "sourceId": "d211",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d426",
-        "blindRoute": "portable",
-        "why": "环绕摄影的机位与成片时长帧数规格。"
+        "sourceId": "d218",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d197",
-        "blindRoute": "practice",
-        "why": "以内部发光和动机衰减塑造照明的做法。"
+        "sourceId": "d222",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d344",
-        "blindRoute": "card-coupled",
-        "why": "单镜头焦距及光圈的逐帧关键配置。"
+        "sourceId": "d227",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d470",
-        "blindRoute": "portable",
-        "why": "主体为实测运镜触发时间及公式误差报告。"
+        "sourceId": "d255",
+        "blindRoute": "skipped-or-conflict"
       },
       {
-        "sourceId": "d034",
-        "blindRoute": "card-coupled",
-        "why": "缺失大气系统时的配色与主光常量配置。"
+        "sourceId": "d260",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d474",
-        "blindRoute": "portable",
-        "why": "可直接理解的身后跟拍机位距离。"
+        "sourceId": "d268",
+        "blindRoute": "skipped-or-conflict"
       },
       {
-        "sourceId": "d249",
-        "blindRoute": "portable",
-        "why": "主体为实际旋转速率与周期的修正报告。"
+        "sourceId": "d269",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d070",
-        "blindRoute": "card-coupled",
-        "why": "打击闪光的数量颜色及衰减常量配置。"
-      },
-      {
-        "sourceId": "d343",
-        "blindRoute": "skipped-or-conflict",
-        "why": "仅有实例相机目标关键帧坐标表。"
-      },
-      {
-        "sourceId": "d026",
-        "blindRoute": "card-coupled",
-        "why": "反射探针分配对象及更新周期配置。"
-      },
-      {
-        "sourceId": "d468",
-        "blindRoute": "practice",
-        "why": "缩放平移搜索并设误差门限的量测步骤。"
-      },
-      {
-        "sourceId": "d212",
-        "blindRoute": "practice",
-        "why": "从参照图取色并逐项对照调色的做法。"
-      },
-      {
-        "sourceId": "d441",
-        "blindRoute": "portable",
-        "why": "主体为环绕相机角度留白和摄影规格。"
-      },
-      {
-        "sourceId": "d297",
-        "blindRoute": "card-coupled",
-        "why": "阵风事件槽及软物受风的公式配置。"
-      },
-      {
-        "sourceId": "d294",
-        "blindRoute": "practice",
-        "why": "半分辨率步进抖动及深度保边重建做法。"
+        "sourceId": "d275",
+        "blindRoute": "card-coupled"
       },
       {
         "sourceId": "d281",
-        "blindRoute": "card-coupled",
-        "why": "场景雾密度距离裁剪及移动端调度配置。"
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d193",
-        "blindRoute": "skipped-or-conflict",
-        "why": "主体为特定画面反馈与光照矛盾对账。"
+        "sourceId": "d285",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d365",
-        "blindRoute": "card-coupled",
-        "why": "相机轨迹附加正弦偏移的实现公式。"
+        "sourceId": "d293",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "d380",
-        "blindRoute": "card-coupled",
-        "why": "手持震动及鼠标微调的专用通道公式。"
+        "sourceId": "d314",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s046",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为打击闪光的实现常量。"
+        "sourceId": "d334",
+        "blindRoute": "practice"
       },
       {
-        "sourceId": "s174",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为越障阈值配置；摘要步进拉近参数未见对应。"
+        "sourceId": "d336",
+        "blindRoute": "practice"
       },
       {
-        "sourceId": "s106",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为解析雾的积分与散射公式配置。"
+        "sourceId": "d342",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s146",
-        "blindRoute": "practice",
-        "why": "附带明细主体为按动作选择镜头和手持方式的做法。"
+        "sourceId": "d346",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s156",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为特定镜头的焦距光圈及路径配置。"
+        "sourceId": "d352",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s161",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为场景注视权重配置；摘要可变窗口未见对应。"
+        "sourceId": "d353",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s128",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为特定场景的大气与雾盒参数配置。"
+        "sourceId": "d371",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s013",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为太阳及阴影参数；摘要挖太阳未见对应。"
+        "sourceId": "d383",
+        "blindRoute": "portable"
       },
       {
-        "sourceId": "s103",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为云海生成实现；摘要步进及层高未见对应。"
+        "sourceId": "d403",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "d432",
+        "blindRoute": "portable"
+      },
+      {
+        "sourceId": "d446",
+        "blindRoute": "portable"
+      },
+      {
+        "sourceId": "d448",
+        "blindRoute": "practice"
+      },
+      {
+        "sourceId": "d458",
+        "blindRoute": "portable"
+      },
+      {
+        "sourceId": "d463",
+        "blindRoute": "practice"
+      },
+      {
+        "sourceId": "d467",
+        "blindRoute": "portable"
       },
       {
         "sourceId": "s004",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为太阳配置；摘要环境补光等并无对应明细。"
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s084",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为弹光贴图编码及采样公式。"
+        "sourceId": "s013",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s067",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为六盏棚灯的成组位置功率配置。"
+        "sourceId": "s026",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s203",
-        "blindRoute": "practice",
-        "why": "附带明细为运镜表达及模糊叠层的做法清单。"
+        "sourceId": "s034",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s200",
-        "blindRoute": "portable",
-        "why": "附带明细为成片缩放平移与速率量测报告。"
+        "sourceId": "s045",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s039",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为灯光配套配置；摘要另加特效灯无对应。"
+        "sourceId": "s051",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s061",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为天气太阳配置；摘要环境强度无对应。"
+        "sourceId": "s053",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s019",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为半球光配色公式；摘要环境常量无对应。"
+        "sourceId": "s071",
+        "blindRoute": "practice"
       },
       {
-        "sourceId": "s164",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为手持震动的通道公式。"
+        "sourceId": "s072",
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s169",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为打击事件顿帧与模拟倍率配置。"
+        "sourceId": "s074",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "s088",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "s102",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "s119",
+        "blindRoute": "card-coupled"
+      },
+      {
+        "sourceId": "s134",
+        "blindRoute": "practice"
+      },
+      {
+        "sourceId": "s137",
+        "blindRoute": "portable"
+      },
+      {
+        "sourceId": "s138",
+        "blindRoute": "portable"
+      },
+      {
+        "sourceId": "s147",
+        "blindRoute": "practice"
+      },
+      {
+        "sourceId": "s148",
+        "blindRoute": "practice"
       },
       {
         "sourceId": "s173",
-        "blindRoute": "card-coupled",
-        "why": "附带明细为锁定取景公式；摘要距离及加宽未见对应。"
+        "blindRoute": "card-coupled"
       },
       {
-        "sourceId": "s183",
-        "blindRoute": "practice",
-        "why": "附带明细主体为近镜头安全做法；摘要焦段无对应。"
+        "sourceId": "s181",
+        "blindRoute": "portable"
+      },
+      {
+        "sourceId": "s199",
+        "blindRoute": "practice"
       }
     ],
     "disagreements": [
-      "d010",
-      "d342",
-      "d474",
-      "d343",
-      "s146",
-      "s156",
-      "s183"
+      "d014",
+      "d055",
+      "d152",
+      "d371",
+      "d383",
+      "s138"
     ],
-    "disagreementRate": 0.1,
-    "seedRef": "a6a83be:E3-C11"
+    "disagreementRate": 0.08571428571428572,
+    "seedRef": "G_REV-R3-C11:74d2ac8"
   },
   "conflicts": [],
   "excluded": [
@@ -7959,6 +8264,15 @@
       "reason": "合并记录、编排说明、指路或待核问题：仅源码出处说明没有技术内容",
       "evidenceLabel": "源码",
       "docRef": "光照天空大气与相机汇编 第 1.5 节 d054；出处类别：源码拆解·阴影（级联、PCF、PCSS、云影）"
+    },
+    {
+      "sourceId": "d056",
+      "section": "1.5",
+      "caseId": "case-13",
+      "title": "路缘树皮直射光",
+      "reason": "原实现的材质自阴影着色器交叉引用，缺少独立的工序或参数。",
+      "evidenceLabel": "源码",
+      "docRef": "光照天空大气与相机汇编 第 1.5 节 d056；出处类别：源码拆解·阴影（级联、PCF、PCSS、云影）"
     },
     {
       "sourceId": "d061",
@@ -9444,10 +9758,8 @@
       "recordKind": "detail",
       "section": "1.5",
       "caseId": "case-13",
-      "route": "practice",
-      "targets": [
-        "light-cam.d056.practice"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceLine": 417,
