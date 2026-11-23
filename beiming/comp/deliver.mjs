@@ -11,8 +11,10 @@ import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
-import { checkContract, masterAudio, measureAac, measureLoudness, mixEvents, readEvents } from './audio.mjs';
+import { types } from 'node:util';
+import { checkContract, masterAudio, measureAac, measureLoudness, mixEvents, readEvents, writeWav } from './audio.mjs';
 import { encode, isFaststart, probeMedia } from './encode.mjs';
+import { assertNoTraps, assertPlainObject, runAudioScript } from './script-audio.mjs';
 import { CompError, bad, escapeFilterValue, parseFps, runTool, stitchGraph, tools } from './stitch.mjs';
 
 export const PIECES = Object.freeze({
@@ -94,15 +96,50 @@ function videoChecks(list, tag, p, film) {
  *   tier      'final'（默认）| 'draft' | 'preview'
  *   颗粒使用已校验锁内的逐镜头种子。
  *   tracks    外部 WAV 音轨 [{ path, at, gainDb }]；bed：'silence' | 'room'
+ *   audioScript 事件表驱动的 Python 程序化声音脚本 { script, events?, args?, python?, cwd?, env?, at?, gainDb?, mastered?, timeoutMs? }
  * 返回 { dir, files: { 名字: { bytes, sha256 } }, report }
  */
 export function deliver(opts) {
-  if (opts.sinkFactory !== undefined) return Promise.resolve().then(() => deliverBundle(opts));
+  if (opts !== null && typeof opts === 'object' && !types.isProxy(opts)
+    && !Object.getOwnPropertyDescriptor(opts, 'sinkFactory')?.get
+    && opts.sinkFactory !== undefined) {
+    return Promise.resolve().then(() => deliverBundle(opts));
+  }
   return deliverBundle(opts);
 }
 
+function validateAudioScriptConfig(audioScript) {
+  assertPlainObject(audioScript, 'audioScript');
+  if (typeof audioScript.script !== 'string' || audioScript.script.trim().length === 0 || audioScript.script.includes('\0')) {
+    throw bad('audioScript.script 必须是不含空字节的非空字符串');
+  }
+  if (!/\.py$/i.test(audioScript.script.trim())) {
+    throw bad(`audioScript.script 必须是 .py 文件：${audioScript.script}`);
+  }
+  if (audioScript.at !== undefined && (!Number.isSafeInteger(audioScript.at) || audioScript.at < 0)) {
+    throw bad('audioScript.at 必须是非负整数帧号');
+  }
+  if (audioScript.gainDb !== undefined && (typeof audioScript.gainDb !== 'number' || !Number.isFinite(audioScript.gainDb))) {
+    throw bad('audioScript.gainDb 必须是有限数');
+  }
+  if (audioScript.mastered !== undefined && typeof audioScript.mastered !== 'boolean') {
+    throw bad('audioScript.mastered 必须是布尔值');
+  }
+  if (audioScript.timeoutMs !== undefined && (!Number.isSafeInteger(audioScript.timeoutMs) || audioScript.timeoutMs <= 0)) {
+    throw bad('audioScript.timeoutMs 必须是有限正整数');
+  }
+}
+
 function deliverBundle(opts) {
-  const { film, frames, view = {}, tier = 'final', tracks = [], bed: bedKind = 'silence', timeoutMs } = opts;
+  if (opts === null || typeof opts !== 'object' || Array.isArray(opts) || types.isProxy(opts)) {
+    throw bad('deliver 选项必须是非空纯对象');
+  }
+  for (const [k, d] of Object.entries(Object.getOwnPropertyDescriptors(opts))) {
+    if (d.get || d.set) throw bad(`deliver 选项 ${k} 不允许使用 getter/setter`);
+  }
+  const { film, frames, view = {}, tier = 'final', tracks = [], bed: bedKind = 'silence', audioScript, timeoutMs } = opts;
+  if (audioScript !== undefined) validateAudioScriptConfig(audioScript);
+  if (tracks !== undefined) assertNoTraps(tracks, 'tracks');
   if (tier === 'final' && opts.hwEncoder !== undefined) throw bad(`终渲不收显卡编码器 ${opts.hwEncoder}`);
   checkContract(film, 'film/3.0');
   const events = readEvents(opts.events, film);
@@ -137,6 +174,14 @@ function deliverBundle(opts) {
     shots, size: film.output.size, fps: film.output.fps, view, finish: film.style?.finish, transitions: film.transitions ?? [], shotSeeds: lock.seeds,
   });
 
+  const audioCfg = film.audio;
+  const mode = audioCfg ? (audioCfg.mode ?? 'script') : 'none';
+  if (mode === 'none' && audioScript !== undefined) throw bad('无声片（audio.mode 是 none）不收 audioScript');
+  if (mode === 'track' && tracks.length === 0 && !audioScript) throw bad('audio.mode 是 track，要传外部音轨 tracks');
+
+  if (typeof opts.outDir !== 'string' || opts.outDir.trim().length === 0 || opts.outDir.includes('\0')) {
+    throw bad('outDir 必须是不含空字节的非空路径');
+  }
   const destination = resolve(opts.outDir);
   if (existsSync(destination) && readdirSync(destination).length) throw bad('交付输出目录必须为空');
   mkdirSync(dirname(destination), { recursive: true });
@@ -147,13 +192,70 @@ function deliverBundle(opts) {
     mkdirSync(dir);
     const steps = [];
     // 1. 声音
-    const audioCfg = film.audio;
-    const mode = audioCfg ? (audioCfg.mode ?? 'script') : 'none';
-    if (mode === 'track' && tracks.length === 0) throw bad('audio.mode 是 track，要传外部音轨 tracks');
     let mastered = null;
     if (mode !== 'none') {
-      const mix = mixEvents(events, { mode, bed: bedKind, tracks, seed });
-      mastered = masterAudio(mix, work, { loudness: audioCfg.loudness ?? -14, truePeak: audioCfg.truePeak ?? -1, timeoutMs });
+      let allTracks = tracks;
+      let preMastered = false;
+      let scriptGainDb = 0;
+      if (audioScript) {
+        const at = audioScript.at ?? 0;
+        scriptGainDb = audioScript.gainDb ?? 0;
+        preMastered = audioScript.mastered === true;
+        const scriptWork = join(work, 'audio-script');
+        const scriptOut = join(scriptWork, 'script-audio.wav');
+        const scriptRes = runAudioScript({
+          script: audioScript.script,
+          events: audioScript.events ?? events,
+          workDir: scriptWork,
+          outPath: scriptOut,
+          args: audioScript.args,
+          python: audioScript.python,
+          cwd: audioScript.cwd,
+          env: audioScript.env,
+          timeoutMs: audioScript.timeoutMs ?? timeoutMs,
+          expectedFrames: at === 0 ? film.output.frames : undefined,
+          fps: film.output.fps,
+        });
+        const scriptSubst = [
+          [scriptRes.args[0], '<script>'],
+          [scriptRes.args[2], '<events>'],
+          [dir, '<out>'],
+          [work, '<work>'],
+        ];
+        steps.push({
+          step: 'audio-script',
+          script: '<script>',
+          scriptSha256: scriptRes.scriptSha256,
+          eventsSha256: scriptRes.eventsSha256,
+          sampleRate: scriptRes.sampleRate,
+          channels: scriptRes.channels,
+          samples: scriptRes.samples,
+          sha256: scriptRes.sha256,
+          mastered: preMastered,
+          ...(scriptRes.stems.length ? { stems: scriptRes.stems.map((s) => basename(s)) } : {}),
+          args: placeholders(scriptRes.args, scriptSubst),
+        });
+        allTracks = [...tracks, { path: scriptRes.path, at, gainDb: scriptGainDb }];
+      }
+      const mix = mixEvents(events, { mode, bed: bedKind, tracks: allTracks, seed });
+      const targetLoudness = audioCfg.loudness ?? -14;
+      const targetPeak = audioCfg.truePeak ?? -1;
+      if (preMastered) {
+        if (!Number.isFinite(targetLoudness) || !Number.isFinite(targetPeak)) {
+          throw bad('audio.loudness、audio.truePeak 必须是有限数');
+        }
+        const masterPath = join(work, 'master.wav');
+        writeFileSync(masterPath, writeWav(mix));
+        const measured = measureLoudness(masterPath, { timeoutMs });
+        const silent = measured.truePeak === -Infinity;
+        if (!silent && (Math.abs(measured.integrated - targetLoudness) > 1 || measured.truePeak > targetPeak)) {
+          throw mismatch(`母带不达标：集成响度 ${measured.integrated} LUFS（目标 ${targetLoudness} ± 1），真峰值 ${measured.truePeak} dBTP（上限 ${targetPeak}）`);
+        }
+        const passes = [{ step: 'script-mastered', gainDb: scriptGainDb, ...measured }];
+        mastered = { path: masterPath, passes, ...measured, silent, ceilingDb: targetPeak };
+      } else {
+        mastered = masterAudio(mix, work, { loudness: targetLoudness, truePeak: targetPeak, timeoutMs });
+      }
       steps.push({ step: 'audio', mode, bed: mode === 'track' ? 'silence' : bedKind, sampleRate: 48000, channels: 2, samples: mix.length, placements: mix.placements,
         passes: mastered.passes, ceilingDbtp: mastered.ceilingDb, silent: mastered.silent });
     } else {

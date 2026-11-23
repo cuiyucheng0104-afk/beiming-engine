@@ -19,3 +19,13 @@
 `mixEvents(events, { seed })` 输出 48 kHz 立体声。前导、接触、主体与余响按 `frame + sub` 对齐起音（`onset`）或接触重心（`pcenter`）。每种材质轮换四个变体，每次独立微调噪声、音高和均衡；`deliver` 使用锁定的全片种子，同一输入可逐位重放。
 
 非静音母带按 320k 母版与 192k 网页预设试编 AAC。真峰值超标或集成响度偏离目标超过 0.9 LU（距 ±1 LU 窗口边缘不足 0.1 LU）时，从原混音重限幅并补偿响度；`deliver` 还会在发布前复量实际成片。运行 `node --test --test-name-pattern=X5-R4-Red beiming/comp/x5.test.mjs` 复测四种材质；设 `X5_FULL_MATRIX=1` 可展开间隔与衣料全矩阵。
+
+## Python 程序化声音脚本
+
+`runAudioScript({ script, events, outPath, workDir, args, python, cwd, env, timeoutMs, expectedFrames, fps })` 不经 shell 调用事件表驱动的 `.py` 声音脚本（如 numpy 程序化合成的 `sound.py`）：
+
+- `resolvePython(explicitPython?)` 按 `explicitPython` → `BEIMING_PYTHON` → `BEIMING_PY` → `PYTHON` → 仓库 `.venv` → 系统 `python3` 解析解释器（优先选含 `numpy` 的环境）。
+- 向脚本传入 `--events <events.json> --out <out.wav>`（以及可选附加 `args`），并设置 `BEIMING_EVENTS`、`BEIMING_AUDIO_OUT`、`BEIMING_FRAMES`、`BEIMING_FPS`。`events` 可传 JSON 路径或内存事件表对象。
+- 校验退出码为 0，输出为 48 kHz 单声道或立体声 WAV、样本有限且与 `expectedFrames` 对齐，并自动收集同目录伴随的 `report.json` 与 `stems/*.wav`。
+- `deliver({ ...opts, audioScript: { script, events?, args?, python?, at?, gainDb?, mastered?, timeoutMs? } })` 将脚本作为第一阶段声音工序并写入 `run.json` 的 `audio-script` 步骤（路径脱敏为 `<script>`、`<events>`、`<work>`）。`mastered: true` 时跳过二次 `masterAudio` 限幅以保留脚本自带母带，但仍执行成片 `measureLoudness` 与 `measureAac` 交付核验。
+
