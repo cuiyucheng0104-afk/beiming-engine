@@ -26,10 +26,58 @@ const METRICS = { deliverSpec, audioLoudness, blackFreezeDup, cutYdif, cutScene 
 const CUT_BEFORE = 3, CUT_AFTER = 2;
 // 一张联系表的格宽（像素）
 const SHEET_CELL = 160;
+const MAX_REVIEW_KEYFRAMES = 4;
 
 const jsonText = (v) => `${JSON.stringify(v, null, 2)}\n`;
 const sha256File = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
 const span = (a, b) => Array.from({ length: b - a }, (_, i) => a + i);
+
+function resolveBrief(...candidates) {
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate;
+  }
+  return '';
+}
+
+function pickKeyframesFromRecords(film, records, maxCount = MAX_REVIEW_KEYFRAMES) {
+  const valid = (records ?? [])
+    .filter((r) => r && Number.isSafeInteger(r.frame) && typeof r.png === 'string' && existsSync(r.png))
+    .sort((a, b) => a.frame - b.frame);
+  if (!valid.length) return [];
+  const chosen = [];
+  const seen = new Set();
+  for (const shot of film?.shots ?? []) {
+    if (!Number.isSafeInteger(shot?.in) || !Number.isSafeInteger(shot?.out) || shot.out <= shot.in) continue;
+    const mine = valid.filter((r) => r.shot === shot.id || (r.frame >= shot.in && r.frame < shot.out));
+    if (!mine.length) continue;
+    const mid = Math.floor((shot.in + shot.out - 1) / 2);
+    let best = mine[0];
+    let bestDist = Math.abs(best.frame - mid);
+    for (const r of mine.slice(1)) {
+      const d = Math.abs(r.frame - mid);
+      if (d < bestDist || (d === bestDist && r.frame < best.frame)) {
+        best = r;
+        bestDist = d;
+      }
+    }
+    if (!seen.has(best.frame)) {
+      seen.add(best.frame);
+      chosen.push(best);
+    }
+  }
+  const pool = chosen.length ? chosen : valid;
+  const selected = pool.length <= maxCount
+    ? pool
+    : Array.from({ length: maxCount }, (_, i) => pool[Math.round((i * (pool.length - 1)) / (maxCount - 1))]);
+  const deduped = [];
+  const outSeen = new Set();
+  for (const r of selected) {
+    if (outSeen.has(r.frame)) continue;
+    outSeen.add(r.frame);
+    deduped.push({ name: `keyframe-f${r.frame}`, path: r.png });
+  }
+  return deduped;
+}
 
 const bad = (message, extra) => new ApiError('usage.bad-argument', message, extra);
 const r3 = (v) => (Number.isFinite(v) ? Math.round(v * 1000) / 1000 : v ?? null);
@@ -455,7 +503,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
         try {
           res = await layerL5({
             reviewer,
-            brief: meta.brief ?? meta.question?.brief ?? '',
+            brief: resolveBrief(meta.brief, meta.question?.brief, film.title),
             images,
             loudness: bundle.report.loudness ?? null,
             film,
@@ -490,10 +538,12 @@ export function createWork({ store, library, reviewer, scheduler }) {
         store.updateMeta(id, (m) => { m.harvest = { job: job.id, rev, candidates: [] }; });
         store.ledger(id, { step: 'harvest-hook', job: job.id, rev, ok: true, wallMs: 0, gpuSeconds: 0, tokens: 0, modelTokens: 0, frames: 0 });
       }
+      const unresolvedReviewOpinions = Array.isArray(l5?.opinions) ? l5.opinions.length : 0;
       const data = {
         rev, expectedCount: 6, actualCount: names.length, items: names, deliveredFrames: records.length, ...cache, layers: gatesOf(l1, l2, l3),
         failed: l3.verdicts.filter((v) => v.status === 'fail').map((v) => v.id),
         review: { status: l5.status, ...(l5.reason ? { reason: l5.reason } : {}), ...(l5.stoppedReason ? { stoppedReason: l5.stoppedReason } : {}) },
+        unresolvedReviewOpinions,
         harvest,
       };
       const outputs = names.map((n) => ({ kind: kinds[n] ?? 'file', url: url(id, `${job.id}/bundle/${n}`), sha256: verified.files[n].sha256 }));
@@ -804,9 +854,13 @@ export function createWork({ store, library, reviewer, scheduler }) {
         loudness = JSON.parse(readFileSync(join(done.dir, 'report.json'), 'utf8')).loudness ?? null;
         material = 'master';
       } else {
-        const renderedRev = pickFrames(id).rev;
+        const picked = pickFrames(id);
+        const renderedRev = picked.rev;
         if (renderedRev !== rev) throw bad('审片材料已过期，请先重渲当前修订', { data: { renderedRev, rev }, hint: '先 POST render，再 POST review' });
-        images = observeSheet(id, { cuts: true, count: 12 }).images;
+        images = [
+          ...observeSheet(id, { cuts: true, count: 12 }).images,
+          ...pickKeyframesFromRecords(film, picked.records),
+        ];
         material = 'frames';
       }
     }
@@ -821,7 +875,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
     try {
       l5 = await layerL5({
         reviewer,
-        brief: brief ?? meta.brief ?? meta.question?.brief ?? '',
+        brief: resolveBrief(brief, meta.brief, meta.question?.brief, film.title),
         images,
         loudness,
         film,

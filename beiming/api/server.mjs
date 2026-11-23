@@ -135,7 +135,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
     store.writeMeta(id, {
       template: chosenTemplate,
       ...(selected ? { templateSelectedBy: selected.selectedBy } : {}),
-      brief: body.brief,
+      ...(typeof body.brief === 'string' && body.brief.trim() ? { brief: body.brief } : {}),
       ...(body.budget ? { budget: body.budget } : {}),
       question,
       assets: question?.assets ?? {},
@@ -398,7 +398,16 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
           const file = store.workspace(id).resolve(`deliver/${match.params.name}`);
           const stat = statSync(file, { throwIfNoEntry: false });
           if (!stat?.isFile()) throw missing('产物文件不存在');
-          res.writeHead(200, { 'content-type': /\.(json|lock)$/i.test(file) ? 'application/json; charset=utf-8' : 'application/octet-stream', 'content-length': stat.size, 'cache-control': 'private, no-store' });
+          const contentType = /\.(json|lock)$/i.test(file)
+            ? 'application/json; charset=utf-8'
+            : /\.png$/i.test(file)
+              ? 'image/png'
+              : /\.jpe?g$/i.test(file)
+                ? 'image/jpeg'
+                : /\.webp$/i.test(file)
+                  ? 'image/webp'
+                  : 'application/octet-stream';
+          res.writeHead(200, { 'content-type': contentType, 'content-length': stat.size, 'cache-control': 'private, no-store' });
           await pipeline(createReadStream(file), res);
           return;
         }

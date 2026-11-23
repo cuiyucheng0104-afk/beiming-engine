@@ -43,6 +43,9 @@ const METHODS = ['GET', 'POST', 'PUT', 'DELETE'];
 // 一次模型调用最多等多久（毫秒）
 const MODEL_TIMEOUT_MS = 120000;
 const SEVERITIES = ['low', 'medium', 'high', 'info', 'warn', 'error'];
+const AGENT_IMAGE_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const AGENT_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+const DATA_IMAGE_PREFIX_RE = /^data:image\/[a-z0-9.+-]+;base64,/i;
 // 单张 L5 视觉审片选票的默认输出 token 上限（每次请求必带 max_tokens，用于可执行上界与防失控输出）
 export const DEFAULT_REVIEW_MAX_OUTPUT_TOKENS = 1_024;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -92,6 +95,69 @@ function estimateImageTokens(buf, model = '') {
 /** 估算单张 L5 选票纯文本输入的保守 token 上界（UTF-8 字节数 + 消息封装开销，永不为 0） */
 function estimateReviewTextInputTokens(systemContent, userText) {
   return Buffer.byteLength(systemContent, 'utf8') + Buffer.byteLength(userText, 'utf8') + 256;
+}
+
+/** 把工具调用返回的一组图像产物封装为紧随 tool 消息之后的多模态 user 消息，供视觉代理观察画面。 */
+export function buildToolImageMessage(images) {
+  return {
+    role: 'user',
+    content: images.flatMap((img) => [
+      {
+        type: 'text',
+        text: `以上工具调用返回的图像产物（${img.path}，${img.mimeType}，${img.bytes} 字节），请直接观察画面内容后再决定下一步。`,
+      },
+      {
+        type: 'image_url',
+        image_url: { url: `data:${img.mimeType};base64,${img.base64}` },
+      },
+    ]),
+  };
+}
+
+/** 估算含可选 image_url 的 Chat Completions 请求体输入 token 保守上界（图像按分辨率估算，不按 base64 字节膨胀）。 */
+export function estimateChatBodyInputTokens(body, model = '') {
+  let imageTokens = 0;
+  const messages = Array.isArray(body?.messages)
+    ? body.messages.map((msg) => {
+      if (!msg || !Array.isArray(msg.content)) return msg;
+      let changed = false;
+      const content = msg.content.map((part) => {
+        const url = part?.type === 'image_url' ? part?.image_url?.url : null;
+        if (typeof url === 'string' && DATA_IMAGE_PREFIX_RE.test(url)) {
+          changed = true;
+          const comma = url.indexOf(',');
+          const headB64 = url.slice(comma + 1, comma + 65).replace(/\s+/g, '').slice(0, 48);
+          imageTokens += estimateImageTokens(Buffer.from(headB64, 'base64'), model);
+          return { ...part, image_url: { ...part.image_url, url: '[image_url]' } };
+        }
+        return part;
+      });
+      return changed ? { ...msg, content } : msg;
+    })
+    : body?.messages;
+  const sanitized = JSON.stringify({ ...body, messages });
+  const msgCount = Array.isArray(body?.messages) ? body.messages.length : 0;
+  return Buffer.byteLength(sanitized) + imageTokens + 256 + 16 * msgCount;
+}
+
+async function readBinaryResponse(res, keepUpTo = 0) {
+  const contentLength = Number(res.headers.get('content-length'));
+  const keep = keepUpTo > 0 && !(Number.isFinite(contentLength) && contentLength > keepUpTo) ? keepUpTo : 0;
+  if (!res.body) {
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { bytes: buf.byteLength, buffer: keep > 0 && buf.byteLength <= keep ? buf : null };
+  }
+  let bytes = 0;
+  let chunks = keep > 0 ? [] : null;
+  for await (const chunk of res.body) {
+    const piece = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    bytes += piece.byteLength;
+    if (chunks) {
+      if (bytes <= keep) chunks.push(piece);
+      else chunks = null;
+    }
+  }
+  return { bytes, buffer: chunks ? Buffer.concat(chunks, bytes) : null };
 }
 
 const AGENT_SYSTEM = [
@@ -196,8 +262,22 @@ export async function callApi({ baseUrl, account, workspaces, jobs, signal }, ar
     ...(hasBody ? { body: text ? args.body : JSON.stringify(args.body) } : {}), signal,
   });
   const call = { method, path, status: res.status, ok: res.ok };
-  if (!/json/.test(res.headers.get('content-type') ?? '')) {
-    const bytes = (await res.arrayBuffer()).byteLength;
+  const rawContentType = res.headers.get('content-type') ?? '';
+  if (!/json/i.test(rawContentType)) {
+    const mimeType = rawContentType.split(';')[0].trim().toLowerCase();
+    const isSupportedImage = res.ok && AGENT_IMAGE_MIMES.has(mimeType);
+    const { bytes, buffer } = await readBinaryResponse(res, isSupportedImage ? AGENT_IMAGE_MAX_BYTES : 0);
+    if (isSupportedImage) {
+      const imageAttached = bytes > 0 && buffer !== null;
+      const out = {
+        text: JSON.stringify({ status: res.status, contentType: res.headers.get('content-type'), bytes, imageAttached }),
+        call: { ...call, bytes, imageAttached },
+      };
+      if (imageAttached) {
+        out.image = { mimeType, base64: buffer.toString('base64'), bytes, path };
+      }
+      return out;
+    }
     return { text: JSON.stringify({ status: res.status, contentType: res.headers.get('content-type'), bytes }), call: { ...call, bytes } };
   }
   const envelope = await res.json();
@@ -240,6 +320,7 @@ export async function runHandsOnAgent({
     const toolCalls = Array.isArray(res.message.tool_calls) ? res.message.tool_calls : [];
     messages.push({ role: 'assistant', content: res.message.content ?? null, ...(toolCalls.length ? { tool_calls: toolCalls } : {}) });
     if (!toolCalls.length) return done('done', step, typeof res.message.content === 'string' ? res.message.content : null);
+    const attachedImages = [];
     for (const tc of toolCalls) {
       let result;
       if (tc?.function?.name !== 'http_request') result = { text: JSON.stringify({ refused: '只有 http_request 这一个工具' }), call: { method: '', path: '', status: 0, ok: false, refused: `没有工具 ${tc?.function?.name}` } };
@@ -250,6 +331,10 @@ export async function runHandsOnAgent({
       }
       calls.push({ step, ...result.call });
       messages.push({ role: 'tool', tool_call_id: tc.id, content: result.text });
+      if (result.image) attachedImages.push(result.image);
+    }
+    if (attachedImages.length) {
+      messages.push(buildToolImageMessage(attachedImages));
     }
   }
   return done('max-steps', maxSteps);
@@ -455,7 +540,7 @@ export function createOpenAiVisionReviewer({
             ...(orderedCandidates.length
               ? [`候选展示顺序（已按种子打乱）：${JSON.stringify(orderedCandidates)}`]
               : []),
-            `图：${images.map((img, i) => `第 ${i + 1} 张 ${img.name}`).join('；') || '（没有图）'}。联系表每格左上角是全片帧号；切点条带是切点前 3 帧到后 2 帧，红线是切口。`,
+            `图：${images.map((img, i) => `第 ${i + 1} 张 ${img.name}`).join('；') || '（没有图）'}。联系表（contact）每格左上角是全片帧号；切点条带（cut）是切点前 3 帧到后 2 帧，红线是切口；keyframe-f<帧号> 为未缩放的原尺寸关键帧，请直接据以检查构图细节、主体清晰度与文字可读性。`,
           ].join('\n');
           const content = [{ type: 'text', text }, ...imageParts];
           const systemContent = `[ROLE:reviewer][PERSPECTIVE:${p.id}][VOTE:${voteIndex + 1}]\n${DELEGATE_ROLES.reviewer.systemPrompt}`;
