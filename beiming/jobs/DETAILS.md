@@ -124,13 +124,13 @@ const sum = queue.summarizeLedger(); // { count: 2, succeeded: 2, gpuSeconds: 6,
 
 | 后端 | 怎么起 | `isolation` | 边界 |
 |---|---|---|---|
-| `oci` | `docker run`（或 `podman run`）加上表的全部选项；要给带 node 的 `image` | `oci-container` | Linux 命名空间容器，和宿主机共用内核；用户命名空间与 seccomp 沿用运行时默认值。超时后另发 `kill` 停容器 |
-| `darwin-seatbelt` | `/usr/bin/sandbox-exec -p <策略>`：`(deny default)`，只许执行 node，文件读只放行系统库、本工作区、引擎目录与专属临时目录，写只放行本工作区与专属临时目录，`(deny network*)`，`signal` 与 `process-info` 只对自己 | `seatbelt-process-policy` | 进程策略，不是容器：没有 PID、挂载、网络命名空间，`pids-limit` 与 tmpfs 大小不生效；`/` 下的目录名可以列出；凭进程号能分辨别的进程在不在（`EPERM` 对 `ESRCH`），读不到它的命令行与环境变量；超时只杀主进程，作业另起会话的后台进程不会被回收（仍受同一份策略约束，容器后端没有这个问题）。`sandbox-exec` 已被系统标为弃用 |
+| `oci` | `docker run`（或 `podman run`）加上表的全部选项；要给带 node 的 `image` | `oci-container` | Linux 命名空间容器，和宿主机共用内核；用户命名空间与 seccomp 沿用运行时默认值。超时或异常退出收尾时按容器名发 `kill` 与 `rm -f` 清理容器 |
+| `darwin-seatbelt` | `/usr/bin/sandbox-exec -p <策略>`：`(deny default)`，只许执行 node 且不放行 `process-fork`（`worker_threads` 照常运行），文件读只放行系统库、本工作区、引擎目录与专属临时目录，写只放行本工作区与专属临时目录，`(deny network*)`，`signal` 与 `process-info` 只对自己 | `seatbelt-process-policy` | 进程策略，不是容器：没有 PID、挂载、网络命名空间，`pids-limit` 与 tmpfs 大小不生效；`/` 下的目录名可以列出；凭进程号能分辨别的进程在不在（`EPERM` 对 `ESRCH`），读不到它的命令行与环境变量；策略禁止派生子进程，超时与退出收尾时一并清理进程组及残留后代并关闭管道。`sandbox-exec` 已被系统标为弃用 |
 | `portable` | 直接起 node 子进程，只换环境变量和工作目录 | `needs-oci-runtime` | 没有内核级隔离，文件、网络、进程都拦不住。默认拒跑（`env.missing-tool`），自有的 `allowDegraded: true` 只给本机调试用，不得用于对外服务 |
 
 宿主机后端（后两种）没有挂载命名空间：规格里的 `/workspace`、`/app`、`/tmp` 在命令参数、环境变量和工作目录里换成本机真实路径，`/tmp` 换成每次新建、跑完即删的专属临时目录。作业代码从 `BEIMING_WORKSPACE`、`BEIMING_APP`、`TMPDIR` 取路径，三种后端写法相同。Windows 的 `portable` 后端另带 `SystemRoot`（node 起得来要它，不是凭据），并把 libuv 会自动从父进程补的变量（`deps/uv/src/win/process.c` 的 `required_vars`）逐个盖掉：`USERPROFILE`、`HOMEDRIVE` 加 `HOMEPATH` 指向沙箱的 `HOME`，`TEMP`、`TMP` 指向专属临时目录，`USERNAME`、`USERDOMAIN`、`LOGONSERVER` 给中性值，`WINDIR`、`SYSTEMDRIVE` 照宿主机的（系统目录，不是凭据）。不盖的话宿主机的家目录和用户名会进作业的环境变量。盖掉的是变量的原值，不是路径前缀：专属临时目录建在宿主机的 `os.tmpdir()` 下面，宿主机临时目录在用户配置目录里时（Windows 默认是 `%LOCALAPPDATA%\Temp`，在用户配置目录下面），沙箱的 `HOME` 也建在它里面，作业从 `HOME`、`USERPROFILE`、`HOMEPATH`、`TEMP`、`TMP`、`TMPDIR` 的路径前缀里仍然看得到宿主机的目录结构和用户名。`portable` 只给本机调试用，对外服务一律走容器后端，容器里这些路径是 `/tmp`。这一条的渲染结果有单测，真 Windows 上只在 CI 里跑。
 
-`runInWorkspaceSandbox` 交回 `{ backend, isolation, workspaceId, containerName, code, signal, timedOut, stdout, stderr }`。默认 10 分钟超时；标准输出与标准错误各只留前 8 Mi 个字符，多的丢掉。已经跑在别的 seatbelt 沙箱里时 `sandbox-exec` 起不来，探测会落到 `portable`。
+`runInWorkspaceSandbox` 交回 `{ backend, isolation, workspaceId, containerName, code, signal, timedOut, stdout, stderr }`。默认 10 分钟超时；标准输出与标准错误各只留前 8 Mi 个字符，多的丢掉。超时触发后立刻销毁标准输出与标准错误管道并终止进程树（容器后端按容器名强制停止清理）；主进程退出后也会回收同组与滞留后代进程（POSIX 上以独立进程组启动，并结合本次作业专属临时目录标记清理；Windows 上结合 `taskkill /T` 与父进程关系清理），并在短暂排空已缓冲输出后关闭管道返回，不因后代进程占用管道句柄而阻塞。已经跑在别的 seatbelt 沙箱里时 `sandbox-exec` 起不来，探测会落到 `portable`。
 
 ### 预热池
 
