@@ -47,7 +47,7 @@ test('越界文件拦截，且输出 FAILED / EXPECTED / SAW', t => {
   const repo = mkRepo(t);
   put(repo, 'src/a.js', '2\n'); put(repo, 'other.txt');
   const r = fence(repo, ...ARGS);
-  assert.equal(r.code, 1);
+  assert.equal(r.code, 4);
   assert.match(r.out, /FAILED {3}fence\nEXPECTED .*\nSAW {6}other\.txt {2}← 不在 fence 内/);
   assert.doesNotMatch(r.out, /src\/a\.js {2}←/);
 });
@@ -56,7 +56,7 @@ test('forbidden 优先于 fence（fence 的通配也匹配它）', t => {
   const repo = mkRepo(t);
   put(repo, 'migrations/说明.md');
   const r = fence(repo, ...ARGS);
-  assert.equal(r.code, 1);
+  assert.equal(r.code, 4);
   assert.match(r.out, /migrations\/说明\.md {2}← forbidden: migrations\//);
 });
 
@@ -64,7 +64,7 @@ test('把文件移出 forbidden 目录也算碰了它（--no-renames）', t => {
   const repo = mkRepo(t);
   git(repo, 'mv', 'migrations/001.sql', 'src/001.sql');
   const r = fence(repo, ...ARGS);
-  assert.equal(r.code, 1);
+  assert.equal(r.code, 4);
   assert.match(r.out, /migrations\/001\.sql {2}← forbidden/);
 });
 
@@ -73,10 +73,10 @@ test('未跟踪文件越界拦截；子目录里执行仍抓到仓库别处的�
   put(repo, 'src/a.js', '2\n'); put(repo, 'other.txt');
   for (const cwd of [repo, join(repo, 'src')]) {
     const r = fence(cwd, ...ARGS);
-    assert.equal(r.code, 1, cwd);
+    assert.equal(r.code, 4, cwd);
     assert.match(r.out, /other\.txt/);
   }
-  assert.equal(fence(repo, ...ARGS, '--repo', join(repo, 'src')).code, 1);
+  assert.equal(fence(repo, ...ARGS, '--repo', join(repo, 'src')).code, 4);
 });
 
 test('dir/ 只匹配目录之下，不误伤同级文件：src/*/ 禁子目录、放过 src/a.js', t => {
@@ -85,14 +85,14 @@ test('dir/ 只匹配目录之下，不误伤同级文件：src/*/ 禁子目录�
   assert.equal(fence(repo, ...ARGS).code, 0);
   put(repo, 'src/vendor/v.js');
   const r = fence(repo, ...ARGS);
-  assert.equal(r.code, 1);
+  assert.equal(r.code, 4);
   assert.match(r.out, /src\/vendor\/v\.js {2}← forbidden: src\/\*\//);
 });
 
 test('零改动（HEAD 当 base）不能当作通过', t => {
   const repo = mkRepo(t);
   const r = fence(repo, ...ARGS.map(a => (a === 'base' ? 'HEAD' : a)));
-  assert.equal(r.code, 1);
+  assert.equal(r.code, 4);
   assert.match(r.out, /0 个改动/);
 });
 
@@ -101,7 +101,7 @@ test('空 fence、没给围栏、⏳ 占位符都拦', t => {
   put(repo, 'src/a.js', '2\n');
   for (const args of [['--base', 'base'], ['--base', 'base', '--forbidden', 'migrations/'], ['--base', 'base', '--fence', '⏳ 待填'], ['--base', 'base', '--fence', 'src/', '--fence', '⏳ 待填']]) {
     const r = fence(repo, ...args);
-    assert.equal(r.code, 1, args.join(' '));
+    assert.equal(r.code, 4, args.join(' '));
     assert.match(r.out, /FAILED {3}fence/);
   }
 });
@@ -125,7 +125,7 @@ test('契约文件模式：块状列表通过、越界拦截；与 CLI 参数取
   put(repo, 'other.txt');
   assert.match(fence(repo, '--base', 'base', '--contract', contract).out, /other\.txt/);
   assert.equal(fence(repo, '--base', 'base', '--contract', contract, '--fence', 'other.txt').code, 0);
-  assert.equal(fence(repo, '--base', 'base', '--contract', contract, '--fence', 'other.txt', '--forbidden', 'other.txt').code, 1);
+  assert.equal(fence(repo, '--base', 'base', '--contract', contract, '--fence', 'other.txt', '--forbidden', 'other.txt').code, 4);
 });
 
 test('契约文件：缺失、空 fence、⏳、行内列表写法都拦（行内写法不让 forbidden 静默失效）', t => {
@@ -145,27 +145,80 @@ test('契约文件：缺失、空 fence、⏳、行内列表写法都拦（行�
   for (const [name, body] of Object.entries(cases)) {
     writeFileSync(c, body);
     const r = fence(repo, '--base', 'base', '--contract', c);
-    assert.equal(r.code, 1, name);
+    assert.equal(r.code, 4, name);
   }
   writeFileSync(c, cases.行内);
   assert.match(fence(repo, '--base', 'base', '--contract', c).out, /行内写法/);
 });
 
-test('--json：失败时信封 ok:false、exitCode 1，成功时 data 里有改动列表', t => {
+test('assume-unchanged / skip-worktree 藏起来的 forbidden 改动也拦，解除后按正常规则判定', t => {
+  for (const [flag, undo, label] of [['--assume-unchanged', '--no-assume-unchanged', 'assume-unchanged'], ['--skip-worktree', '--no-skip-worktree', 'skip-worktree']]) {
+    const repo = mkRepo(t);
+    put(repo, 'src/a.js', '2\n'); put(repo, 'migrations/001.sql', '2\n');
+    git(repo, 'update-index', flag, 'migrations/001.sql');
+    const r = fence(repo, ...ARGS);
+    assert.equal(r.code, 4, label);
+    assert.match(r.out, new RegExp(`migrations/001\\.sql {2}← ${label}`));
+    assert.match(r.out, /git update-index --no-assume-unchanged/);
+    git(repo, 'update-index', undo, 'migrations/001.sql');
+    const r2 = fence(repo, ...ARGS);
+    assert.equal(r2.code, 4, label);
+    assert.match(r2.out, /migrations\/001\.sql {2}← forbidden/);
+    assert.doesNotMatch(r2.out, /assume-unchanged|skip-worktree/);
+    git(repo, 'checkout', '--', 'migrations/001.sql');
+    assert.equal(fence(repo, ...ARGS).code, 0, label);
+  }
+});
+
+test('git 输出的路径不替换反斜杠：字面文件名 docs\\evil.sh 不会被 --fence docs/ 放行', { skip: process.platform === 'win32' ? 'Windows 文件名不能含反斜杠' : false }, t => {
+  const repo = mkRepo(t);
+  writeFileSync(join(repo, 'docs\\evil.sh'), 'x\n');
+  const r = fence(repo, '--base', 'base', '--fence', 'docs/');
+  assert.equal(r.code, 4);
+  assert.match(r.out, /docs\\evil\.sh {2}← 不在 fence 内/);
+});
+
+test('契约写法不对一律退出 4：键名大写或带引号、`-` 后漏空格、非法转义、非法通配', t => {
+  const repo = mkRepo(t);
+  put(repo, 'src/a.js', '2\n');
+  const dir = mkdtempSync(join(tmpdir(), 'check-fence-c-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const c = join(dir, 'c.yaml');
+  const cases = {
+    大写键: ['fence:\n  - "src/"\nForbidden:\n  - "migrations/"\n', /小写无引号/],
+    引号键: ['fence:\n  - "src/"\n"forbidden":\n  - "migrations/"\n', /小写无引号/],
+    漏空格: ['fence:\n  - "src/"\nforbidden:\n  -"migrations/"\n', /短横后面跟空格/],
+    非法转义: ['fence:\n  - "src\\a"\n', /非法转义/],
+    反向区间: ['fence:\n  - "src/"\nforbidden:\n  - "x[z-a]"\n', /合法的路径模式/],
+  };
+  for (const [name, [body, re]] of Object.entries(cases)) {
+    writeFileSync(c, body);
+    const r = fence(repo, '--base', 'base', '--contract', c);
+    assert.equal(r.code, 4, name);
+    assert.match(r.out, re, name);
+    assert.doesNotMatch(r.out, /内部错误/, name);
+  }
+  // CLI 参数里的非法通配同样退出 4，哪怕前面的模式已经让文件放行
+  const r = fence(repo, '--base', 'base', '--fence', 'src/', '--fence', 'x[z-a]');
+  assert.equal(r.code, 4);
+  assert.match(r.out, /合法的路径模式/);
+});
+
+test('--json：失败时信封 ok:false、exitCode 4，成功时 data 里有改动列表', t => {
   const repo = mkRepo(t);
   put(repo, 'src/a.js', '2\n');
   const ok = JSON.parse(fence(repo, ...ARGS, '--json').stdout);
   assert.deepEqual([ok.ok, ok.data.changed], [true, ['src/a.js']]);
   put(repo, 'other.txt');
   const bad = JSON.parse(fence(repo, ...ARGS, '--json').stdout);
-  assert.deepEqual([bad.ok, bad.exitCode, bad.error.code], [false, 1, 'failure.fence']);
+  assert.deepEqual([bad.ok, bad.exitCode, bad.error.code], [false, 4, 'contract.fence']);
 });
 
 // ───── 纯函数 ─────
 test('matches：通配、dir/、反斜杠路径与模式规范化', () => {
   const yes = [['src/a/b.js', 'src/'], ['src/a/b.js', 'src'], ['src/a.js', 'src/*.js'], ['a/b/c.md', '*.md'], ['a/b/c.md', '**/c.md'],
-    ['x1.js', 'x?.js'], ['x1.js', 'x[0-9].js'], ['x1.js', 'x[!a-z].js'], ['src\\a\\b.js', 'src/'], ['src/a/b.js', 'src\\'], ['src/a.js', './src/'], ['a.b', 'a.b'], ['a[1.js', 'a[1.js']];
-  const no = [['src/a.js', 'src/*/'], ['pkgs/list.tsv', 'pkgs/*/'], ['srcx/a.js', 'src/'], ['src', 'src/'], ['axb', 'a.b'], ['x1.js', 'x[a-z].js'], ['x1.js', 'x[!0-9].js'], ['dir/a.js', 'src/']];
+    ['x1.js', 'x?.js'], ['x1.js', 'x[0-9].js'], ['x1.js', 'x[!a-z].js'], ['src/a/b.js', 'src\\'], ['src/a.js', './src/'], ['a.b', 'a.b'], ['a[1.js', 'a[1.js']];
+  const no = [['src/a.js', 'src/*/'], ['pkgs/list.tsv', 'pkgs/*/'], ['srcx/a.js', 'src/'], ['src', 'src/'], ['axb', 'a.b'], ['x1.js', 'x[a-z].js'], ['x1.js', 'x[!0-9].js'], ['dir/a.js', 'src/'], ['src\\a\\b.js', 'src/']];
   for (const [f, p] of yes) assert.ok(matches(f, p), `${f} ~ ${p}`);
   for (const [f, p] of no) assert.ok(!matches(f, p), `${f} !~ ${p}`);
   assert.ok(matches('pkgs/x/list.tsv', 'pkgs/*/'));
@@ -178,5 +231,8 @@ test('parseContract：双引号转义、单引号、裸项、逗号拆分、同�
   assert.deepEqual(c.forbidden, ['f/']);
   assert.throws(() => parseContract('forbidden: [a/]\n'), /行内写法/);
   assert.throws(() => parseContract('fence: a/\n'), /行内写法/);
+  assert.throws(() => parseContract('FENCE:\n  - a/\n'), /小写无引号/);
+  assert.throws(() => parseContract("fence:\n  -'a/'\n"), /短横后面跟空格/);
+  assert.deepEqual(parseContract('other:\n  -x\nfence:\n  - a/\n'), { fence: ['a/'], forbidden: [] });
   assert.deepEqual(parseContract('fence:  # 空\n'), { fence: [], forbidden: [] });
 });

@@ -59,7 +59,7 @@ npm run check                                 # 全部检查：仓库规范、�
 ## 多代理与集成负责人
 
 - **单代理会话默认兼任集成负责人**：需要时可以改根文档、注册文件（`package.json`、`.gitignore`）与工程计划的状态，改完跑 `npm run check:repo`。
-- **改动围栏自检**：开 PR 前跑 `npm run check:fence -- --base origin/main --fence '<允许的路径>/' --forbidden '<禁区>/'`（也可 `--contract <文件>`，只认块状 YAML 列表）。已提交、未提交与未跟踪的改动都查，越界、围栏没填、零改动都退出 1；`.gitignore` 忽略的文件 git 看不到，查不了。用法见 `tools/check-fence.mjs` 文件头。
+- **改动围栏自检**：开 PR 前跑 `npm run check:fence -- --base origin/main --fence '<允许的路径>/' --forbidden '<禁区>/'`（也可 `--contract <文件>`，只认块状 YAML 列表）。已提交、未提交与未跟踪的改动都查，越界、围栏没填或契约写法不对、零改动、有 `--assume-unchanged` / `--skip-worktree` 隐藏的文件都退出 4（git 执行失败退出 1）；`.gitignore` 忽略的文件 git 看不到，查不了。用法见 `tools/check-fence.mjs` 文件头。
 - 用户要求多代理时，按[工作分解](docs/routes/work-breakdown.md)给每个代理分互不重叠的写入范围（某个 `films/<名字>/`、某条路线的 `routes/<路线>/`、`engine/` 下的某个新模块）；共享契约、根文档与工作状态由集成负责人统一改，代理在汇报里写修改建议。子代理汇报基线提交、实际改动、运行命令与结果、产物、未完成项，集成负责人复核后再更新状态。
 
 ## 检索范围

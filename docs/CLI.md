@@ -106,7 +106,7 @@
 |---|---|---|---|
 | `new` | `tools/new-film.mjs` | 治理骨架 | 已接入（支持 `--backend webgpu` 生成 A/C 同源离屏作品，D12） |
 | `check:repo` | `tools/repo-check.mjs` | 治理骨架 | 已接入 |
-| `check:fence` | `tools/check-fence.mjs` | 治理骨架 | 已接入（改动围栏硬门禁：自 `--base` 以来已提交、未提交、未跟踪的改动都要在 `--fence` 内、`--forbidden` 外；围栏越界等失败退出 1；不接进 `check`，PR 作者自检用） |
+| `check:fence` | `tools/check-fence.mjs` | 治理骨架 | 已接入（改动围栏硬门禁：自 `--base` 以来已提交、未提交、未跟踪的改动都要在 `--fence` 内、`--forbidden` 外；围栏越界、碰 forbidden、围栏没填或契约写法不对、零改动、有 assume-unchanged / skip-worktree 隐藏改动退出 4，git 执行失败退出 1；不接进 `check`，PR 作者自检用） |
 | `plan:check`、`plan:next` | `tools/work-plan.mjs --check`、`--ready` | 治理骨架 | 已接入；旧名 `routes:check`、`routes:next` 已接入，保留一个版本，调用时提示改名 |
 | `setup` | `tools/env/setup.mjs` | 环境 | 已接入 |
 | `env:doctor`、`env:preflight`、`env:lock`、`env:large-files` | `tools/env/doctor.mjs`、`preflight.mjs`、`lock.mjs`、`large-files.mjs` | 环境 | 已接入 |
