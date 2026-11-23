@@ -1,0 +1,21 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "18-2-disable-card",
+  "questionId": "18-2",
+  "kind": "disable-card",
+  "disabledCards": [
+    "camera.cue-kf"
+  ],
+  "seed": null,
+  "description": "关掉把关键帧写成「触发点减提前量」的那张卡：两次快速运镜还在，但起在触发词出声的那一帧（第 240、546 帧），没有提前。旁白触发点那张卡没关，触发词的帧号照量。",
+  "perturbation": {
+    "moveTrigger": "on-cue"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "narration.timing",
+      "why": "两次运镜的起点离应起帧（第 225、519 帧）差 15 帧和 27 帧，容差是 1 帧"
+    }
+  ]
+}
