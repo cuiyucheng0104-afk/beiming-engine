@@ -8,7 +8,7 @@
 #   「PR 分支」= 直接由 pull_request 触发（没有 inputs，from_call 为假），或 workflow_call 显式传 mode=pr；
 #                     从 PR 调用 workflow_call 时 github.event_name 也是 pull_request，靠 from_call 哨兵区分，mode 传空串也走夜间链。
 # 显卡队：concurrency group gpu-5090、不取消进行中的任务。只有 conformance-5090 进这个组（同组最多一个运行、一个排队，多放会互相挤掉）。
-# exam 与 nightly-rebuild 的入口还没合入：用 hashFiles 守着，缺入口时只打一条提示。本机复现见 tests/ci/README.md。
+# exam（beiming/bench/exam.mjs）与 nightly-rebuild（tools/nightly/rebuild.mjs）无条件真实执行，缺入口或非零退出直接失败。本机复现见 tests/ci/README.md。
 # actions 的哈希与 ci.yml 保持一致（tests/ci/workflows.test.mjs 核对）。
 name: conformance-5090
 
@@ -69,11 +69,7 @@ jobs:
           node-version: '24'
           cache: npm
       - name: 考试
-        if: hashFiles('beiming/bench/exam.mjs') != ''
         run: npm ci && node beiming/bench/exam.mjs
-      - name: 考试入口未合入
-        if: hashFiles('beiming/bench/exam.mjs') == ''
-        run: echo "::notice::beiming/bench/exam.mjs 还没有合入，考试这一步跳过"
 
   conformance-5090:
     needs: [filter, exam]
@@ -130,8 +126,4 @@ jobs:
           node-version: '24'
           cache: npm
       - name: 夜间重建
-        if: hashFiles('tools/nightly/rebuild.mjs') != ''
         run: npm ci && node tools/nightly/rebuild.mjs
-      - name: 夜间重建入口未合入
-        if: hashFiles('tools/nightly/rebuild.mjs') == ''
-        run: echo "::notice::tools/nightly/rebuild.mjs 还没有合入，夜间重建这一步跳过"

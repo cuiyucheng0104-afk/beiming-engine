@@ -11,14 +11,13 @@ import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs
 import { hashCardContents, validateCard } from '../../cards/index.mjs';
 import { caps } from '../../sources/three/caps.mjs';
 import { planFrame, planOpen, planQuery, planRender, SourceError } from '../../sources/three/plan.mjs';
-import { installProxyRegistry } from '../../sources/three/proxy-registry.js';
 import { coverage2x, HALF_FLOATS } from '../../sources/three/source.js';
 import { writeExr } from '../../verify/exr/exr.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-// 页面只拿得到这两处：本系统的代码，和 0.187.0 的 three；另外只读放行仓库锁定的字体子集（fonts/ 下的 woff2，许可和锁文件拿不到）
+// 页面只拿得到这两处：本系统的代码，和 0.187.0 的 three；另外只读放行仓库锁定的字体子集（fonts/ 下的 woff2，以及 routes/c-style/fonts/ 下的 woff2 与 fonts.json，许可和脚本拿不到）
 const SERVED = ['beiming/', 'node_modules/three-webgpu/build/'];
-const FONTS = 'fonts/';
+const FONTS = 'fonts/', TITLE_FONTS = 'routes/c-style/fonts/';
 const MIME = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.woff2': 'font/woff2' };
 // 带错误码的错在页面里换成普通对象再过来：错误码过不了页面和 node 之间的序列化
 const PAGE = `<!doctype html><meta charset="utf-8">
@@ -59,11 +58,15 @@ export function resolveServed(urlPath, repo = REPO) {
   try { path = decodeURIComponent(urlPath.split('?')[0]).replace(/^\/+/, ''); } catch { return null; }
   const abs = resolve(repo, path);
   const at = relative(repo, abs).split(sep).join('/'), ext = extname(abs);
-  const dir = (MIME[ext] && SERVED.find((d) => at.startsWith(d))) || (ext === '.woff2' && at.startsWith(FONTS) && FONTS);
+  const dir = (MIME[ext] && SERVED.find((d) => at.startsWith(d)))
+    || (ext === '.woff2' && at.startsWith(FONTS) && FONTS)
+    || ((ext === '.woff2' || at === `${TITLE_FONTS}fonts.json`) && at.startsWith(TITLE_FONTS) && TITLE_FONTS);
   if (!dir) return null;
   try {
     const real = realpathSync.native(abs);
-    return real.startsWith(realpathSync.native(resolve(repo, dir)) + sep) && extname(real) === ext ? real : null;
+    if (!real.startsWith(realpathSync.native(resolve(repo, dir)) + sep) || extname(real) !== ext) return null;
+    if (dir === TITLE_FONTS && ext === '.json' && !real.endsWith(`${sep}fonts.json`)) return null;
+    return real;
   } catch { return null; }
 }
 
@@ -129,7 +132,6 @@ export async function startSource({ cards = [] } = {}) {
     try {
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
-      await page.addInitScript(installProxyRegistry);
       await page.goto(`${server.origin}/`);
       await page.waitForFunction(() => window.__open, null, { timeout: 30000 }).catch(() => { throw new Error(`页面运行时没装起来：${errors.join('；') || '超时'}`); });
       const opened = await page.evaluate((cfg) => window.__open(cfg), { input, env: { lock: env.lock, tier: env.tier }, filmBase: `${server.origin}/${filmDir}/`, cards: library });

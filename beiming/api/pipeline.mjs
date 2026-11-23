@@ -16,7 +16,7 @@ import { basename, join, relative, sep } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { chromium } from 'playwright-core';
 import { chromeArgs, chromeExecutable } from '../../engine/render/lib/gpu.mjs';
-import { validateReview, reviewFailure } from './agents.mjs';
+import { aggregateL5Votes, filterL5SuggestedPredicates, reviewFailure, validateReview } from './agents.mjs';
 import { assetPaths } from './assets.mjs';
 import { branchFilter, deliver as compDeliver, parseFps, runTool, tools as compTools, verifyDeliveryBundle } from '../comp/index.mjs';
 import { parseCardRef, OVERLAY_CARD } from '../cards/runtime.mjs';
@@ -692,13 +692,118 @@ export const entitiesOf = (records) => {
  * 审片的输入：需求原文、联系表、切点条带、声音量测表。reviewer 没配置时 status 是 not-run，写明原因；
  * 配置了就交给它，意见原样带回；L5 只是意见，不改硬门的判定。
  */
-export async function layerL5({ reviewer, brief, images, loudness, film }) {
+export async function layerL5({
+  reviewer,
+  brief,
+  images,
+  loudness,
+  film,
+  filmId = null,
+  candidates = [],
+  question = null,
+  budgetCheck = null,
+  maxTokens = null,
+  signal = null,
+}) {
   if (!reviewer) return { status: 'not-run', reason: '服务器没有配置异族视觉审片模型（BEIMING_REVIEW_ENDPOINT、BEIMING_REVIEW_API_KEY、BEIMING_REVIEW_MODEL）', opinions: [], suggestedPredicates: [], overridesHardGates: false };
+  const resolvedFilmId = filmId ?? film?.id ?? null;
+  let res = null;
   try {
-    const res = await reviewer.review({ brief, images, loudness, film: { id: film.id, output: film.output, shots: film.shots.map((s) => ({ id: s.id, in: s.in, out: s.out })) } });
-    return { status: 'ok', model: res.model, ...validateReview(res, film.output.frames), usage: res.usage ?? null, overridesHardGates: false };
+    res = await reviewer.review({
+      brief,
+      images,
+      loudness,
+      film: { id: resolvedFilmId ?? film?.id, output: film.output, shots: (film.shots ?? []).map((s) => ({ id: s.id, in: s.in, out: s.out })) },
+      filmId: resolvedFilmId,
+      candidates,
+      ...(typeof budgetCheck === 'function' ? { budgetCheck } : {}),
+      ...(maxTokens !== null && maxTokens !== undefined ? { maxTokens } : {}),
+      ...(signal ? { signal } : {}),
+    });
+    if (Array.isArray(res?.ballots)) {
+      const invalidBallots = Array.isArray(res.invalidBallots) ? res.invalidBallots : [];
+      if (res.ballots.length === 0) {
+        if (invalidBallots.length === 0 && res.stoppedReason && res.stoppedReason !== 'budget.check-error') {
+          return {
+            status: 'not-run',
+            reason: `审片因预算或中止条件未发票（${res.stoppedReason}）`,
+            stoppedReason: res.stoppedReason,
+            ...(res.model ? { model: res.model } : {}),
+            totalBallots: 0,
+            ...(Number.isSafeInteger(res.plannedBallots) ? { plannedBallots: res.plannedBallots } : {}),
+            opinions: [],
+            suggestedPredicates: [],
+            usage: res.usage ?? null,
+            overridesHardGates: false,
+          };
+        }
+        return {
+          status: 'failed',
+          reason: invalidBallots[0]?.reason || (res.stoppedReason ? `审片已停止（${res.stoppedReason}），未获得有效选票` : '所有审片选票均无效'),
+          ...(res.stoppedReason ? { stoppedReason: res.stoppedReason } : {}),
+          ...(res.model ? { model: res.model } : {}),
+          totalBallots: 0,
+          ...(Number.isSafeInteger(res.plannedBallots) ? { plannedBallots: res.plannedBallots } : {}),
+          ...(invalidBallots.length ? { invalidBallots } : {}),
+          opinions: [],
+          suggestedPredicates: [],
+          usage: res.usage ?? null,
+          overridesHardGates: false,
+        };
+      }
+      const aggregated = aggregateL5Votes(res.ballots, {
+        totalFrames: film?.output?.frames,
+        film,
+        question,
+        candidates,
+      });
+      return {
+        status: 'ok',
+        model: res.model,
+        ...aggregated,
+        ...(Number.isSafeInteger(res.plannedBallots) ? { plannedBallots: res.plannedBallots } : {}),
+        ...(invalidBallots.length ? { invalidBallots } : {}),
+        ...(res.stoppedReason ? { stoppedReason: res.stoppedReason } : {}),
+        usage: res.usage ?? null,
+        overridesHardGates: false,
+      };
+    }
+    const validated = validateReview(res, film?.output?.frames);
+    const filtered = filterL5SuggestedPredicates(validated.suggestedPredicates, {
+      film,
+      question,
+      ...(Number.isSafeInteger(film?.output?.frames) ? { totalFrames: film.output.frames } : {}),
+    });
+    return {
+      status: 'ok',
+      model: res.model,
+      ...validated,
+      suggestedPredicates: filtered.suggestedPredicates,
+      validatedExtraPredicates: filtered.validatedExtraPredicates,
+      rejectedPredicates: filtered.rejectedPredicates,
+      usage: res.usage ?? null,
+      overridesHardGates: false,
+    };
   } catch (e) {
-    return { status: 'failed', reason: reviewFailure(e), opinions: [], suggestedPredicates: [], overridesHardGates: false };
+    const rawUsage = res?.usage ?? e?.usage ?? null;
+    const usage = rawUsage && typeof rawUsage === 'object'
+      ? {
+        inputTokens: rawUsage.inputTokens ?? 0,
+        outputTokens: rawUsage.outputTokens ?? 0,
+        totalTokens: rawUsage.totalTokens ?? ((rawUsage.inputTokens ?? 0) + (rawUsage.outputTokens ?? 0)),
+      }
+      : null;
+    const invalidBallots = Array.isArray(res?.invalidBallots) && res.invalidBallots.length ? res.invalidBallots : null;
+    return {
+      status: 'failed',
+      reason: reviewFailure(e),
+      ...(res?.stoppedReason ? { stoppedReason: res.stoppedReason } : {}),
+      ...(invalidBallots ? { invalidBallots } : {}),
+      opinions: [],
+      suggestedPredicates: [],
+      ...(usage ? { usage } : {}),
+      overridesHardGates: false,
+    };
   }
 }
 
