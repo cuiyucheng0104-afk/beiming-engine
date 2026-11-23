@@ -15,7 +15,7 @@
 | 北冥光追 · 物理路径追踪（D） | D 路线：基于硬件光追与 Compute BVH 回退的确定性物理三维出片路线（MIT，商业可用） | 可以；产品名不带 RTX，技术说明写「基于 ThreeRT 路径追踪运行时（MIT）」 | [D 手册](../routes/d-pathtrace/README.md) |
 | 86 式 | 两套第三方 MIT 风格库固定快照合起来的风格索引：86 式 = Lemo 66 + SY 20。是索引，不是我方原创的画法 | 可以；说明来源时带上两套库的署名 | [STYLES.md](../routes/c-style/STYLES.md) |
 | 离屏出片（offscreen） | A、C 新作品可选的 WebGPU + TSL 同源离屏出片（Chrome WebGPU 预览，Node + Dawn 出片，D12）；不叫「原生」（「原生」专指 B 路线） | 内部 | [offscreen/README.md](offscreen/README.md) |
-| ThreeRT | 上游路径追踪运行时（meshy-dev/ThreeRT，MIT）；不随仓库提交二进制或源码，由 `BEIMING_PT_BIN` 或本地缓存指向 | 限定 | [THIRD-PARTY.md](../THIRD-PARTY.md) |
+| ThreeRT | 上游路径追踪运行时（meshy-dev/ThreeRT，MIT）。D 路线调用它的运行包，运行包不随仓库提交，由 `BEIMING_PT_BIN` 或本地缓存指向；核心帧源的路径追踪内核是它一个固定提交的分叉，源码在 `beiming/sources/core/path/`（D14） | 限定 | [THIRD-PARTY.md](../THIRD-PARTY.md) |
 | Lemo / lemo-opuscar | 第三方风格库（LemoLab，MIT），快照在 `cases/vendor/lemo-opuscar`，固定提交 `bebbbe1`；66 种风格 | 限定 | [THIRD-PARTY.md](../THIRD-PARTY.md) |
 | SY / sy-style-100 | 第三方风格库（肖雄 XIAOXIONG，MIT），快照在 `cases/vendor/sy-style-100`，固定提交 `e41dee3`；20 种风格 | 限定 | [THIRD-PARTY.md](../THIRD-PARTY.md) |
 | RAEA | 上游原生 GPU 运行时（shinyobjectz/raea，FSL-1.1-ALv2，版权人 Shane Murphy）；不随仓库分发，B 路线只把它当内部制作层 | 限定 | [fsl-boundary.md](rights/fsl-boundary.md) |

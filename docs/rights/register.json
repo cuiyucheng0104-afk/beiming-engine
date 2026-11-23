@@ -536,20 +536,23 @@
       "term": "公开开源许可，无期限",
       "writtenEvidence": "公开许可，以上游固定提交（记录于 engine/pathtrace/runtime.lock.json）的 MIT LICENSE 与仓库 LICENSES/MIT.txt 为准",
       "status": "license-known",
-      "statusNote": "按 D10 与 D13 分层：可执行文件与上游 Rust / WESL / WGSL 源码不入 git 仓库，存放于本地缓存或由 BEIMING_PT_BIN 指向；主仓仅含自有的 MIT 调用与场景封装层（engine/pathtrace/、routes/d-pathtrace/），成片与管线可商业使用",
+      "statusNote": "按 D10 与 D13 分层：D 路线的可执行文件不入 git 仓库，存放于本地缓存或由 BEIMING_PT_BIN 指向；D 路线的两个目录（engine/pathtrace/、routes/d-pathtrace/）内不放上游 Rust / WESL / WGSL 源码，仅含自有的 MIT 调用与场景封装层，成片与管线可商业使用。核心帧源的路径追踪内核从同一固定提交分叉，源码在 beiming/sources/core/path/，源码边界见 docs/decisions/2026-11-23-core-source-boundary.md（D14，草案，待用户确认）",
       "evidence": [
         "docs/decisions/2026-11-10-industrial-baseline.md D04、D10、D13",
+        "docs/decisions/2026-11-23-core-source-boundary.md D14",
+        "beiming/sources/core/path/PROVENANCE.md 与 LICENSE-upstream.txt（核心帧源分叉源码的来源说明与上游许可全文）",
         "engine/pathtrace/runtime.lock.json（固定 40 位提交哈希、运行包版本与各平台二进制 sha256）",
         "docs/routes/pathtrace.md（直通出片架构、运行时锁与源码边界）",
         "THIRD-PARTY.md 第 1 节与第 9 节"
       ],
-      "obligations": "保留上游 MIT 版权与许可声明；主仓不提交运行时二进制、OIDN 动态库或上游 Rust / WESL / WGSL 源码；若对外分发含 OIDN 的预编译运行包，随附 MIT 与 Apache-2.0 许可及 NOTICE；对外命名遵守 D04（不用上游项目名当我方产品名、路线名或目录名）",
-      "agentRule": "D 路线只写调用公开接口的自有 .js / .ts 模块（自定义材质以 WGSL 字符串内联在自有模块中），不把 threert-render 二进制或 .rs / .wesl / .wgsl / Cargo.toml 提交进 git（route-d.runtime-and-template 把关）",
-      "distribution": "不随 git 仓库分发（本机缓存 ~/.cache/beiming/pathtrace/<版本>/ 或由 BEIMING_PT_BIN 指向）",
+      "obligations": "保留上游 MIT 版权与许可声明；主仓不提交运行时二进制与 OIDN 动态库，D 路线的两个目录内不放上游 Rust / WESL / WGSL 源码；核心帧源的源码边界见 docs/decisions/2026-11-23-core-source-boundary.md（分叉的源码随附上游许可全文与来源说明，每个源文件注明来源与改过）；若对外分发含 OIDN 的预编译运行包，随附 MIT 与 Apache-2.0 许可及 NOTICE；对外命名遵守 D04（不用上游项目名当我方产品名、路线名或目录名）",
+      "agentRule": "D 路线只写调用公开接口的自有 .js / .ts 模块（自定义材质以 WGSL 字符串内联在自有模块中），不把 threert-render 二进制提交进 git，不在 engine/pathtrace/ 与 routes/d-pathtrace/ 两个目录里放 .rs / .wesl / .wgsl / Cargo.toml（route-d.runtime-and-template 把关）；核心帧源的内核源码只在 beiming/sources/core/path/ 里，改动时保留每个文件第一行的来源注释",
+      "distribution": "D 路线的运行包不随 git 仓库分发（本机缓存 ~/.cache/beiming/pathtrace/<版本>/ 或由 BEIMING_PT_BIN 指向）；核心帧源的分叉源码随本仓库以 MIT 公开，随附上游许可全文",
       "gitPaths": [
         "routes/d-pathtrace/**",
         "docs/routes/pathtrace.md",
-        "tools/repo-check/rules/route-d/**"
+        "tools/repo-check/rules/route-d/**",
+        "beiming/sources/core/path/**"
       ]
     }
   ],
