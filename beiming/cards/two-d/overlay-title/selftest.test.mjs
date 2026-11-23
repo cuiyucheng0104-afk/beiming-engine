@@ -82,6 +82,46 @@ test('overlay.title：入场前不画也不交文字框；入场支持 rise/sett
   assert.deepEqual(pose(mounted({ motion: 'fade' }), 36), settled);
 });
 
+test('overlay.title：settle-drift 入场阶段与 settle 一致且单调，落定后确定性连续微漂移不静止且文字框始终在安全画幅内', () => {
+  const m = mounted({ motion: 'settle-drift' });
+  const ref = mounted({ motion: 'settle' });
+  assert.equal(pose(m, 12).visible, false);
+  assert.deepEqual(m.handle.meta(12), { texts: [] });
+
+  let prev = pose(m, 13);
+  assert.deepEqual(prev, pose(ref, 13));
+  for (let f = 14; f <= 36; f++) {
+    const cur = pose(m, f);
+    assert.deepEqual(cur, pose(ref, f), `入场帧 ${f} 应与 settle 完全一致`);
+    assert.ok(cur.opacity > prev.opacity && cur.scale[0] > prev.scale[0] && cur.position[1] > prev.position[1]);
+    prev = cur;
+  }
+
+  const baseH = prev.scale[0];
+  for (let f = 37; f <= 120; f++) {
+    const cur = pose(m, f);
+    assert.equal(cur.visible, true);
+    assert.equal(cur.opacity, 1);
+    assert.ok(cur.scale[0] !== prev.scale[0] || cur.position[1] !== prev.position[1], `落定后相邻帧 ${f - 1}->${f} 不得静止`);
+    assert.ok(Math.abs(cur.scale[0] - baseH) <= 0.03 * baseH + 1e-12);
+    assert.ok(cur.position[1] >= -1e-12 && cur.position[1] <= 0.08 * baseH + 1e-12);
+    const [x0, y0, x1, y1] = m.handle.meta(f).texts[0].bbox2d;
+    assert.ok(x0 >= SIZE[0] * 0.05 && x1 <= SIZE[0] * 0.95 && y0 >= SIZE[1] * 0.05 && y1 <= SIZE[1] * 0.95);
+    prev = cur;
+  }
+
+  // 纯函数：打乱顺序求值再回到同一时刻，结果逐位一致
+  const target = pose(m, 53, 0.25);
+  const targetMeta = m.handle.meta(53);
+  pose(m, 105, 0.75);
+  pose(m, 14, 0.5);
+  pose(m, 8);
+  assert.deepEqual(pose(m, 53, 0.25), target);
+  assert.deepEqual(m.handle.meta(53), targetMeta);
+  m.handle.dispose();
+  ref.handle.dispose();
+});
+
 test('overlay.title：摆法只由时刻定：先摆别的帧再回来，结果相同', () => {
   const m = mounted(), first = pose(m, 20, 0.25);
   pose(m, 90);

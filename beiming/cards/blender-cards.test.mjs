@@ -251,12 +251,13 @@ describe('Blender 实跑 film-min 的 s01', { concurrency: false }, () => {
         ]);
       } finally { await session.close(); }
 
-      // 终稿档：每像素采样数取镜头的 tiers.final.samples，不降噪
+      // 终稿档：每像素采样数取镜头的 tiers.final.samples，默认启用 OIDN 降噪
       const final = await src.open(input, env('final'));
       try {
         const { meta } = await final.render(90, { scale: 0.25 }, ['color', 'meta']);
         assert.deepEqual(judged(meta), CLEAN);
-        assert.deepEqual([meta.source.tier, meta.source.samples, meta.source.denoise], ['final', S01.tiers.final.samples, undefined]);
+        assert.deepEqual([meta.source.tier, meta.source.samples], ['final', S01.tiers.final.samples]);
+        assert.match(meta.source.denoise ?? '', /^oidn-(gpu|cpu)$/);
       } finally { await final.close(); }
     } finally {
       await src.stop();

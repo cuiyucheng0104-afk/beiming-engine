@@ -151,7 +151,7 @@ test('两级令牌隔离、冻结字段、并发修订与资产写入', async ()
   const cardPath = `${path}/explain?path=shots/s01/cards/title/params/`;
   assert.equal((await call('GET', cardPath + 'ink', a.token)).data.value, '#F4F0E9');
   const settle = (await call('GET', cardPath + 'settleFrames', a.token)).data;
-  assert.deepEqual(settle.layers.map(l => l.value), [24, 0]);
+  assert.deepEqual(settle.layers.map(l => l.value), [24, 12]);
   assert.deepEqual(settle.coupling, ['fps']);
   assert.deepEqual(readFileSync(join(root, 'films', a.film, 'assets', 'mesh.stl')), mesh);
   const review = await call('POST', `${path}/review`, a.token, {});
