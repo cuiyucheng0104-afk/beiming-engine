@@ -53,7 +53,7 @@
 
 ## 工作区沙箱（A13）
 
-`runInWorkspaceSandbox` 先过 U8 守卫：请求、`shot`、`film.shots[]` 及其 `renderer` 的自有 `mode` 须是 `cards-data` 且不带 `entry`（否则 `contract.unsupported-mode`），`files` 查相对路径。调用方把出帧的镜头放进请求并固定工作区根与引擎目录：卷根、互相包含、家目录点目录都拒收。沙箱无网络、根只读、非 root，只挂本工作区与只读引擎目录，环境变量走白名单。后端只认 `oci`、`darwin-seatbelt`、`portable`（无内核隔离，要 `allowDegraded: true`）。红队：`node beiming/jobs/sandbox-redteam.mjs`，全拦才 exit 0。
+`runInWorkspaceSandbox` 先过 U8 守卫：请求、`shot`、`film.shots[]` 及其 `renderer` 的自有 `mode` 须是 `cards-data` 且不带 `entry`（否则 `contract.unsupported-mode`），`files` 查相对路径。调用方把出帧的镜头放进请求并固定工作区根与引擎目录：卷根、互相包含、家目录点目录都拒收。沙箱无网络、根只读、非 root，只挂本工作区与只读引擎目录，环境变量走白名单，超时或退出后回收后代进程并关管道。后端只认 `oci`、`darwin-seatbelt`、`portable`（无内核隔离，要 `allowDegraded: true`）。红队：`node beiming/jobs/sandbox-redteam.mjs`，全拦才 exit 0。
 
 ## 配额看门狗（A14）
 

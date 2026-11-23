@@ -36,6 +36,10 @@ const result = welchTest(seedsA, seedsB, { blockSize: 8 }); // 门只看 result.
 - **`compareFramePair(a, b)`**：一对帧的字节摘要、MSE、PSNR 与超差像素比例。
 - **`buildControllabilityRow`、`appendControllabilityRow`**：把两份报告并成看板「可控与可复现」栏的一行（先复核报告自洽，带上 `film` 再照镜头表核预测，对不上拒收），追加进 JSONL，并发追加逐行完整。
 
+## 多档曝光感知误差：HDR-FLIP
+
+`hdrflip.mjs` 从 `index.mjs` 导出 `hdrFlip(reference, test, options)`，收线性 sRGB 浮点帧 `{ width, height, data, channels }` 或 EXR 字节/路径，对齐 NVIDIA flip-evaluator 1.7（ACES 色调映射）返回均值 `value`、逐像素 `errorMap` 及曝光区间与分位数。
+
 ```sh
 node --test "beiming/verify/**/*.test.mjs"
 ```

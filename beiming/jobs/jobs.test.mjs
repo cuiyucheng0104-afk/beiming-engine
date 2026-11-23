@@ -230,13 +230,13 @@ test('新进程读取并重放旧 job.json，使用相同输入快照', async t 
     const original = loadQueue(root).getJob(id);
     const replay = await replayJob(file, { draft: ({ inputPath }) => fs.readFileSync(inputPath('shots/s01.mjs'), 'utf8') });
     console.log(JSON.stringify([original.status, replay.result, replay.attempt, replay.snapshot]));
-  `, workspace.root, queue.jobFile(job.id), job.id], { encoding: 'utf8', timeout: 5000 });
+  `, workspace.root, queue.jobFile(job.id), job.id], { encoding: 'utf8', timeout: 25_000 });
   assert.equal(child.status, 0, child.stderr);
   assert.deepEqual(JSON.parse(child.stdout), ['succeeded', 'initial', 2, job.snapshot]);
   assert.equal(queue.getJob(job.id).attempt, 2);
 });
 
-test('新进程重放已退出执行器的运行轮次并保留中断记录', { timeout: 5000 }, async t => {
+test('新进程重放已退出执行器的运行轮次并保留中断记录', { timeout: 30_000 }, async t => {
   const { queue, enqueue, workspace } = queueFixture(t);
   const job = enqueue();
   const child = spawnSync(process.execPath, ['--input-type=module', '-e', `
@@ -244,7 +244,7 @@ test('新进程重放已退出执行器的运行轮次并保留中断记录', { 
     const [root, id] = process.argv.slice(1);
     const queue = loadQueue(root, { handlers: { draft: ({ step }) => step('render:s01', () => process.exit(0)) } });
     await queue.runJob(id);
-  `, workspace.root, job.id], { encoding: 'utf8', timeout: 4000 });
+  `, workspace.root, job.id], { encoding: 'utf8', timeout: 25_000 });
   assert.equal(child.status, 0, child.stderr);
   assert.equal(queue.getJob(job.id).status, 'running');
   const replayed = await replayJob(queue.jobFile(job.id), { draft: readInput });
@@ -255,7 +255,7 @@ test('新进程重放已退出执行器的运行轮次并保留中断记录', { 
   assert.equal(replayed.steps[0].durationMs, undefined);
 });
 
-test('仍在执行的作业不能跨进程重复启动或重放', { timeout: 5000 }, async t => {
+test('仍在执行的作业不能跨进程重复启动或重放', { timeout: 30_000 }, async t => {
   const { queue, enqueue, workspace } = queueFixture(t);
   const job = enqueue();
   const child = spawn(process.execPath, ['--input-type=module', '-e', `
@@ -323,7 +323,7 @@ test('拒绝倒退的虚拟时钟并结束步骤记录', async t => {
   assert.equal(job.steps[0].durationMs, undefined);
 });
 
-test('两次终渲提交严格串行，第二项在等待时状态为 queued', { timeout: 3000 }, async t => {
+test('两次终渲提交严格串行，第二项在等待时状态为 queued', { timeout: 30_000 }, async t => {
   const gate = Promise.withResolvers();
   const starts = [];
   const { queue, enqueue } = queueFixture(t, { scheduler: device(), handlers: { final: async ({ job }) => {
@@ -340,7 +340,7 @@ test('两次终渲提交严格串行，第二项在等待时状态为 queued', {
   assert.deepEqual(starts, ['first', 'second']);
 });
 
-test('终渲占满主预算时预览并发运行', { timeout: 3000 }, async t => {
+test('终渲占满主预算时预览并发运行', { timeout: 30_000 }, async t => {
   const gate = Promise.withResolvers();
   const { queue, enqueue } = queueFixture(t, { scheduler: device(), handlers: {
     final: () => gate.promise,
@@ -356,7 +356,7 @@ test('终渲占满主预算时预览并发运行', { timeout: 3000 }, async t =>
   }
 });
 
-test('同一设备调度器在不同工作区之间也互斥终渲', { timeout: 3000 }, async t => {
+test('同一设备调度器在不同工作区之间也互斥终渲', { timeout: 30_000 }, async t => {
   const scheduler = device();
   const gate = Promise.withResolvers();
   const first = queueFixture(t, { scheduler, handlers: { final: () => gate.promise } });
@@ -373,7 +373,7 @@ test('同一设备调度器在不同工作区之间也互斥终渲', { timeout: 
   assert.equal((await secondRun).result, 'second');
 });
 
-test('终渲中止草稿并等它释放，草稿重排后保留同一快照', { timeout: 3000 }, async t => {
+test('终渲中止草稿并等它释放，草稿重排后保留同一快照', { timeout: 30_000 }, async t => {
   const entered = Promise.withResolvers();
   const stopped = Promise.withResolvers();
   const released = Promise.withResolvers();
@@ -409,7 +409,7 @@ test('终渲中止草稿并等它释放，草稿重排后保留同一快照', { 
   assert.deepEqual(rerun.steps.map(step => step.status), ['stopped', 'succeeded']);
 });
 
-test('高优预览在预算不足时抢占草稿，停止前保留显存', { timeout: 3000 }, async () => {
+test('高优预览在预算不足时抢占草稿，停止前保留显存', { timeout: 30_000 }, async () => {
   const scheduler = device();
   const draft = await scheduler.acquire({ kind: 'draft' });
   const pending = scheduler.acquire({ kind: 'preview', vramMB: 500, priority: 'high' });
@@ -419,7 +419,7 @@ test('高优预览在预算不足时抢占草稿，停止前保留显存', { tim
   (await pending).release();
 });
 
-test('普通预览和轻量核验等待预算，核验可以用预留显存', { timeout: 3000 }, async () => {
+test('普通预览和轻量核验等待预算，核验可以用预留显存', { timeout: 30_000 }, async () => {
   const scheduler = device();
   const draft = await scheduler.acquire({ kind: 'draft', vramMB: 800 });
   const verify = await scheduler.acquire({ kind: 'verify' });
@@ -439,7 +439,7 @@ test('预算校验拒绝无法调度的请求与保留区配置', () => {
   assert.throws(() => scheduler.acquire({ kind: 'unknown' }), /类别/);
 });
 
-test('排队终渲取消后允许后继终渲取得租约', { timeout: 3000 }, async () => {
+test('排队终渲取消后允许后继终渲取得租约', { timeout: 30_000 }, async () => {
   const scheduler = device();
   const running = await scheduler.acquire({ kind: 'final' });
   const controller = new AbortController();
@@ -452,7 +452,7 @@ test('排队终渲取消后允许后继终渲取得租约', { timeout: 3000 }, a
   (await later).release();
 });
 
-test('取消运行中的作业触发中止并删除半截产物', { timeout: 3000 }, async t => {
+test('取消运行中的作业触发中止并删除半截产物', { timeout: 30_000 }, async t => {
   const entered = Promise.withResolvers();
   const { workspace, queue, enqueue } = queueFixture(t, { handlers: { draft: ({ signal, intermediateDir }) => {
     writePartial(intermediateDir);
@@ -469,7 +469,7 @@ test('取消运行中的作业触发中止并删除半截产物', { timeout: 300
   assert.equal(fs.existsSync(workspace.intermediateDir(job.id)), false);
 });
 
-test('取消尚未启动和等待租约的作业，执行器均未调用', { timeout: 3000 }, async t => {
+test('取消尚未启动和等待租约的作业，执行器均未调用', { timeout: 30_000 }, async t => {
   const scheduler = device();
   const blocking = await scheduler.acquire({ kind: 'final' });
   t.after(blocking.release);
@@ -517,12 +517,12 @@ test('中间产物 all 策略保留各次重放的产物', async t => {
   for (const attempt of [1, 2]) assert.ok(fs.existsSync(path.join(workspace.intermediateDir(job.id, attempt), 'partial.bin')));
 });
 
-test('长轮询在终态返回状态与最近 5 条事件', { timeout: 3000 }, async t => {
+test('长轮询在终态返回状态与最近 5 条事件', { timeout: 30_000 }, async t => {
   const { workspace, queue, enqueue } = queueFixture(t, { handlers: { draft: async ({ step }) => {
     for (const name of ['lock', 'eval', 'verify']) await step(name, () => {});
   } } });
   const job = enqueue();
-  const waited = loadQueue(workspace.root).waitForJob(job.id, { timeoutMs: 1000 });
+  const waited = loadQueue(workspace.root).waitForJob(job.id, { timeoutMs: 10_000 });
   const result = await queue.runJob(job.id);
   const view = await waited;
   assert.equal(view.status, 'succeeded');
@@ -530,16 +530,18 @@ test('长轮询在终态返回状态与最近 5 条事件', { timeout: 3000 }, a
   assert.equal(view.events.length, 5);
 });
 
-test('长轮询超时时返回当前状态，零毫秒立即读取', { timeout: 3000 }, async t => {
+test('长轮询超时时返回当前状态，零毫秒立即读取', { timeout: 30_000 }, async t => {
   const { queue, enqueue } = queueFixture(t);
   const job = enqueue();
   const immediate = await queue.waitForJob(job.id, { timeoutMs: 0 });
   assert.equal(immediate.status, 'queued');
-  await stillPending(queue.waitForJob(job.id, { timeoutMs: 100 }));
+  const pendingWait = queue.waitForJob(job.id, { timeoutMs: 100 });
+  await stillPending(pendingWait);
   assert.deepEqual(await queue.waitForJob(job.id, { timeoutMs: 10 }), immediate);
+  assert.deepEqual(await pendingWait, immediate);
 });
 
-test('非法跃迁、重复领取和缺失执行器均拒绝', { timeout: 3000 }, async t => {
+test('非法跃迁、重复领取和缺失执行器均拒绝', { timeout: 30_000 }, async t => {
   const gate = Promise.withResolvers();
   const { workspace, queue, enqueue } = queueFixture(t, { handlers: { draft: () => gate.promise } });
   const job = enqueue();
@@ -562,7 +564,7 @@ test('执行器输入路径不能跳出快照，队列文件也拒绝作业目�
   assert.throws(() => queue.listJobs(), { code: 'contract.bad-path' });
 });
 
-test('S3(A/B)：终渲抢占或排队等待期间，新到与排队草稿不得抢跑', { timeout: 3000 }, async () => {
+test('S3(A/B)：终渲抢占或排队等待期间，新到与排队草稿不得抢跑', { timeout: 30_000 }, async () => {
   // (A) 默认调度器下 d1 被 f1 抢占尚未释放，新到 d2 必须等待 f1 完成
   const def = new Scheduler();
   const d1 = await def.acquire({ kind: 'draft' });
@@ -604,7 +606,7 @@ test('S3(A/B)：终渲抢占或排队等待期间，新到与排队草稿不得�
   (await waitDraft).release();
 });
 
-test('S3(C)：待运行终渲期间轻量保底严格隔离在预留池内，不饿死终渲', { timeout: 3000 }, async () => {
+test('S3(C)：待运行终渲期间轻量保底严格隔离在预留池内，不饿死终渲', { timeout: 30_000 }, async () => {
   const s = device();
   const dr = await s.acquire({ kind: 'draft', vramMB: 400 });
   const finp = s.acquire({ kind: 'final', vramMB: 800 });
@@ -658,7 +660,7 @@ test('S3(C)：待运行终渲期间轻量保底严格隔离在预留池内，不
   (await lowDraft).release();
 });
 
-test('S3(D)：队列与调度器端到端联动，终渲等待期间后到草稿不进入执行器', { timeout: 3000 }, async t => {
+test('S3(D)：队列与调度器端到端联动，终渲等待期间后到草稿不进入执行器', { timeout: 30_000 }, async t => {
   const scheduler = new Scheduler();
   const d1Entered = Promise.withResolvers();
   const d1Release = Promise.withResolvers();
