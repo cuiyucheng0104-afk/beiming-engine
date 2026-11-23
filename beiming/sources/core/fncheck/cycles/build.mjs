@@ -1,4 +1,5 @@
-// 标准答案一侧：按固定标签取 Cycles 源码到被忽略的 out/ 缓存（只取内核与 util 两个目录），核对提交号，
+// 标准答案一侧：按固定标签取 Cycles 源码到被忽略的 out/ 缓存（只取内核与 util 两个目录，加宿主侧的预计算表
+// scene/shader.tables 一个文件），核对提交号，
 // 再把 ref.cpp 编成本机小程序。Cycles 源码（Apache-2.0，其中闭包文件是 BSD-3-Clause）只在缓存里，不进仓库。
 // 缺工具（git、编译器、网络）时抛出的错误带 .missing，测试据此跳过。
 import { Buffer } from 'node:buffer';
@@ -15,6 +16,8 @@ export const TAG = 'v5.2.3';
 export const COMMIT = 'e13b728c6880d3084d9d57c30031ed5df8b39dee';
 const REPO = 'https://projects.blender.org/blender/blender.git';
 const SRC = path.join(OUT, `blender-${TAG}`);
+// 稀疏检出的范围（非锥形模式，才能只取单个文件）。改了这里，旧缓存缺的文件在下次 allowFetch 时补取
+const SPARSE = ['/intern/cycles/kernel/', '/intern/cycles/util/', '/intern/cycles/scene/shader.tables'];
 
 export const missing = what => Object.assign(new Error(what), { missing: what });
 
@@ -39,7 +42,7 @@ export function ensureSource({ allowFetch = true } = {}) {
     try {
       git('init', '-q');
       git('remote', 'add', 'origin', REPO);
-      git('sparse-checkout', 'set', '--cone', 'intern/cycles/kernel', 'intern/cycles/util');
+      git('sparse-checkout', 'set', '--no-cone', ...SPARSE);
       try { git('fetch', '-q', '--depth', '1', '--filter=blob:none', 'origin', `refs/tags/${TAG}`); } catch (e) { throw missing(`取不到 Cycles 源码：${e.message}`); }
       git('checkout', '-q', 'FETCH_HEAD');
     } catch (e) {
@@ -49,6 +52,10 @@ export function ensureSource({ allowFetch = true } = {}) {
   }
   // 不是 git 目录时 git -C 会找到外层仓库，提交号同样对不上，一样拒绝
   const head = git('rev-parse', 'HEAD');
+  if (head === COMMIT && !SPARSE.every(p => fs.existsSync(path.join(SRC, p)))) {
+    if (!allowFetch) throw missing(`Cycles 源码缓存缺 ${SPARSE.join('、')} 里的文件：先运行一次 run.mjs，或设 BEIMING_FNCHECK_E2E=1`);
+    try { git('sparse-checkout', 'set', '--no-cone', ...SPARSE); } catch (e) { throw missing(`补取 Cycles 源码失败：${e.message}`); }
+  }
   if (head !== COMMIT) throw new Error(`拒绝编译：${SRC} 的提交是 ${head}，不是 ${TAG} 应有的 ${COMMIT}；删掉这个目录重取`);
   if (git('status', '--porcelain')) throw new Error(`拒绝编译：${SRC} 里的 Cycles 源码被改过；删掉这个目录重取`);
   return SRC;
