@@ -1089,3 +1089,276 @@ test('A13-27 调用方自己占着下一个候选序号的键名：红队让出�
   assert.deepEqual(canaries(), [], '收尾后不留诱饵');
   assert.equal(fs.existsSync(path.join(os.tmpdir(), `bm-redteam-claims-${process.pid}`)), false, '让出的序号和本轮的序号都不留占位目录');
 });
+
+function isPidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 1) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === 'EPERM';
+  }
+}
+
+function forceKillPid(pid) {
+  if (!Number.isInteger(pid) || pid <= 1) return;
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch {
+    // 已退出则忽略
+  }
+}
+
+const pause = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+const promptLimitMs = process.platform === 'win32' ? 3900 : 3000;
+
+test('A13-28 超时收尾：子进程继承标准输出与标准错误阻塞时，仍按 timeoutMs 及时返回并清理子进程', async (t) => {
+  const { options, app } = fixture(t);
+  let childPid = null;
+  t.after(() => forceKillPid(childPid));
+  fs.writeFileSync(path.join(app, 'job.mjs'), [
+    "import { spawn } from 'node:child_process';",
+    "const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 6000)'], { stdio: ['ignore', 'inherit', 'inherit'] });",
+    'console.log(JSON.stringify({ pid: child.pid }));',
+    'setTimeout(() => {}, 60000);',
+  ].join('\n'));
+
+  const start = Date.now();
+  const result = await runInWorkspaceSandbox({
+    ...options,
+    request: { mode: 'cards-data' },
+    backend: 'portable',
+    allowDegraded: true,
+    timeoutMs: 1500,
+  });
+  const elapsed = Date.now() - start;
+  const line = result.stdout.trim().split('\n')[0];
+  childPid = line ? JSON.parse(line).pid : null;
+
+  assert.equal(result.timedOut, true);
+  assert.ok(elapsed < promptLimitMs, `超时收尾耗时 ${elapsed}ms，超过上限 ${promptLimitMs}ms`);
+  assert.ok(Number.isInteger(childPid) && childPid > 1, `应记录子进程号，实得：${result.stdout}`);
+  assert.equal(isPidAlive(childPid), false, `超时后子进程 ${childPid} 应已终止`);
+});
+
+test('A13-29 超时收尾：独立会话后代进程继承标准输出与标准错误时，仍按 timeoutMs 及时返回并终止后代进程', async (t) => {
+  const { options, app } = fixture(t);
+  let grandchildPid = null;
+  t.after(() => forceKillPid(grandchildPid));
+  fs.writeFileSync(path.join(app, 'job.mjs'), [
+    "import { spawn } from 'node:child_process';",
+    "const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 12000)'], { detached: true, stdio: ['ignore', 'inherit', 'inherit'] });",
+    'child.unref();',
+    'console.log(JSON.stringify({ pid: child.pid }));',
+    'setTimeout(() => {}, 60000);',
+  ].join('\n'));
+
+  const start = Date.now();
+  const result = await runInWorkspaceSandbox({
+    ...options,
+    request: { mode: 'cards-data' },
+    backend: 'portable',
+    allowDegraded: true,
+    timeoutMs: 1500,
+  });
+  const elapsed = Date.now() - start;
+  const line = result.stdout.trim().split('\n')[0];
+  grandchildPid = line ? JSON.parse(line).pid : null;
+
+  assert.equal(result.timedOut, true);
+  assert.ok(elapsed < promptLimitMs, `超时收尾耗时 ${elapsed}ms，超过上限 ${promptLimitMs}ms`);
+  assert.ok(Number.isInteger(grandchildPid) && grandchildPid > 1, `应记录后代进程号，实得：${result.stdout}`);
+  assert.equal(isPidAlive(grandchildPid), false, `超时后独立会话后代进程 ${grandchildPid} 应已终止`);
+});
+
+test('A13-30 退出后清理：正常退出前派生的独立会话后台进程不会滞留或在返回后继续写入工作区（portable 与 darwin-seatbelt）', async (t) => {
+  const cases = [{ backend: 'portable', allowDegraded: true }];
+  if (seatbelt) cases.push({ backend: 'darwin-seatbelt' });
+
+  for (const cfg of cases) {
+    const { options, app, own } = fixture(t);
+    let backgroundPid = null;
+    t.after(() => forceKillPid(backgroundPid));
+    fs.writeFileSync(path.join(app, 'job.mjs'), [
+      "import path from 'node:path';",
+      "import { spawn } from 'node:child_process';",
+      "const target = path.join(process.env.BEIMING_WORKSPACE, 'delayed.txt');",
+      'const code = `setTimeout(() => { require("node:fs").writeFileSync(${JSON.stringify(target)}, "delayed"); }, 1500); setTimeout(() => {}, 8000);`;',
+      'try {',
+      "  const child = spawn(process.execPath, ['-e', code], { detached: true, stdio: 'ignore' });",
+      '  child.unref();',
+      '  console.log(JSON.stringify({ spawned: true, pid: child.pid }));',
+      '} catch (error) {',
+      '  console.log(JSON.stringify({ spawned: false, code: error.code }));',
+      '}',
+    ].join('\n'));
+
+    const result = await runInWorkspaceSandbox({
+      ...options,
+      request: { mode: 'cards-data' },
+      timeoutMs: 10000,
+      ...cfg,
+    });
+    assert.equal(result.code, 0, `${cfg.backend}: ${result.stderr}`);
+    assert.equal(result.timedOut, false, cfg.backend);
+    const info = JSON.parse(result.stdout.trim());
+    backgroundPid = info.pid ?? null;
+
+    if (cfg.backend === 'darwin-seatbelt') {
+      assert.equal(info.spawned, false, 'darwin-seatbelt 不应允许派生后台子进程');
+      assert.equal(info.code, 'EPERM');
+    } else {
+      assert.equal(info.spawned, true, 'portable 夹具应能拉起后台进程以验证回收');
+      assert.ok(Number.isInteger(backgroundPid) && backgroundPid > 1);
+    }
+
+    await pause(2500);
+    assert.equal(fs.existsSync(path.join(own, 'delayed.txt')), false, `${cfg.backend}: 返回后工作区不应出现延迟写入文件`);
+    if (backgroundPid !== null) {
+      assert.equal(isPidAlive(backgroundPid), false, `${cfg.backend}: 返回后后台进程 ${backgroundPid} 应已终止`);
+    }
+  }
+});
+
+test('A13-31 退出后管道收尾：主进程正常退出而子进程仍占用标准输出时，保留主进程输出并及时返回、清理子进程', async (t) => {
+  const { options, app } = fixture(t);
+  let childPid = null;
+  t.after(() => forceKillPid(childPid));
+  fs.writeFileSync(path.join(app, 'job.mjs'), [
+    "import { spawn } from 'node:child_process';",
+    "const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 6000)'], { stdio: ['ignore', 'inherit', 'inherit'] });",
+    'child.unref();',
+    'console.log(JSON.stringify({ ok: true, pid: child.pid }));',
+  ].join('\n'));
+
+  const start = Date.now();
+  const result = await runInWorkspaceSandbox({
+    ...options,
+    request: { mode: 'cards-data' },
+    backend: 'portable',
+    allowDegraded: true,
+    timeoutMs: 10000,
+  });
+  const elapsed = Date.now() - start;
+  const info = JSON.parse(result.stdout.trim());
+  childPid = info.pid;
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.timedOut, false);
+  assert.equal(info.ok, true);
+  assert.ok(elapsed < promptLimitMs, `正常退出收尾耗时 ${elapsed}ms，超过上限 ${promptLimitMs}ms`);
+  assert.equal(isPidAlive(childPid), false, `主进程退出后子进程 ${childPid} 应已终止`);
+});
+
+test('A13-32 macOS seatbelt 超时收尾与工作线程兼容：超时按时结束且 worker_threads 正常运行', seatbeltOnly, async (t) => {
+  const { options, app } = fixture(t);
+  fs.writeFileSync(path.join(app, 'hang.mjs'), 'setTimeout(() => {}, 60000);\n');
+  const start = Date.now();
+  const timed = await runInWorkspaceSandbox({
+    ...options,
+    command: ['node', '/app/hang.mjs'],
+    request: { mode: 'cards-data' },
+    backend: 'darwin-seatbelt',
+    timeoutMs: 1500,
+  });
+  const elapsed = Date.now() - start;
+  assert.equal(timed.timedOut, true);
+  assert.ok(elapsed < promptLimitMs, `seatbelt 超时耗时 ${elapsed}ms，超过上限 ${promptLimitMs}ms`);
+
+  fs.writeFileSync(path.join(app, 'worker.mjs'), [
+    "import { Worker } from 'node:worker_threads';",
+    "const worker = new Worker('require(\"node:worker_threads\").parentPort.postMessage(42)', { eval: true });",
+    "worker.on('message', (value) => console.log(JSON.stringify({ value })));",
+  ].join('\n'));
+  const ok = await runInWorkspaceSandbox({
+    ...options,
+    command: ['node', '/app/worker.mjs'],
+    request: { mode: 'cards-data' },
+    backend: 'darwin-seatbelt',
+    timeoutMs: 10000,
+  });
+  assert.equal(ok.code, 0, ok.stderr);
+  assert.equal(ok.timedOut, false);
+  assert.deepEqual(JSON.parse(ok.stdout.trim()), { value: 42 });
+});
+
+test('A13-33 并发清理隔离与大输出保真：超时作业的清理不波及并行正常作业，且大块标准输出完整保留', async (t) => {
+  const { options, app } = fixture(t);
+  let detachedPid = null;
+  t.after(() => forceKillPid(detachedPid));
+
+  fs.writeFileSync(path.join(app, 'timeout-job.mjs'), [
+    "import { spawn } from 'node:child_process';",
+    "const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], { detached: true, stdio: ['ignore', 'inherit', 'inherit'] });",
+    'child.unref();',
+    'console.log(JSON.stringify({ pid: child.pid }));',
+    'setTimeout(() => {}, 60000);',
+  ].join('\n'));
+  const expectedPayload = 'B'.repeat(512 * 1024);
+  fs.writeFileSync(path.join(app, 'normal-job.mjs'), [
+    'setTimeout(() => {',
+    `  process.stdout.write(${JSON.stringify(expectedPayload)});`,
+    '}, 1800);',
+  ].join('\n'));
+
+  const [timed, normal] = await Promise.all([
+    runInWorkspaceSandbox({
+      ...options,
+      command: ['node', '/app/timeout-job.mjs'],
+      request: { mode: 'cards-data' },
+      backend: 'portable',
+      allowDegraded: true,
+      timeoutMs: 1200,
+    }),
+    runInWorkspaceSandbox({
+      ...options,
+      command: ['node', '/app/normal-job.mjs'],
+      request: { mode: 'cards-data' },
+      backend: 'portable',
+      allowDegraded: true,
+      timeoutMs: 10000,
+    }),
+  ]);
+
+  const line = timed.stdout.trim().split('\n')[0];
+  detachedPid = line ? JSON.parse(line).pid : null;
+  assert.equal(timed.timedOut, true);
+  assert.ok(Number.isInteger(detachedPid) && detachedPid > 1);
+  assert.equal(isPidAlive(detachedPid), false, `超时作业的后代 ${detachedPid} 应已终止`);
+
+  assert.equal(normal.code, 0, normal.stderr);
+  assert.equal(normal.timedOut, false);
+  assert.equal(normal.stdout.length, expectedPayload.length, '正常作业的大块标准输出不应被截断');
+  assert.ok(normal.stdout === expectedPayload, '正常作业的大块标准输出内容应完整一致');
+});
+
+test('A13-34 POSIX 跨代独立会话后代清理：中间进程先退出后，第三代后台进程仍被按专属临时目录标记回收', {
+  skip: process.platform === 'win32' ? '仅 POSIX 按作业专属临时目录环境变量回收跨代孤儿进程' : false,
+}, async (t) => {
+  const { options, app } = fixture(t);
+  let leafPid = null;
+  t.after(() => forceKillPid(leafPid));
+
+  fs.writeFileSync(path.join(app, 'double-fork.mjs'), [
+    "import { spawnSync } from 'node:child_process';",
+    "const mid = `const { spawn } = require('node:child_process'); const g = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], { detached: true, stdio: 'ignore' }); g.unref(); process.stdout.write(String(g.pid));`;",
+    "const res = spawnSync(process.execPath, ['-e', mid], { encoding: 'utf8' });",
+    'console.log(JSON.stringify({ pid: Number(res.stdout.trim()) }));',
+  ].join('\n'));
+
+  const result = await runInWorkspaceSandbox({
+    ...options,
+    command: ['node', '/app/double-fork.mjs'],
+    request: { mode: 'cards-data' },
+    backend: 'portable',
+    allowDegraded: true,
+    timeoutMs: 10000,
+  });
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.timedOut, false);
+  leafPid = JSON.parse(result.stdout.trim()).pid;
+  assert.ok(Number.isInteger(leafPid) && leafPid > 1);
+  assert.equal(isPidAlive(leafPid), false, `跨代独立会话后台进程 ${leafPid} 应已终止`);
+});
+
+

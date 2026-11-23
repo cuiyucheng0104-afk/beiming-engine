@@ -154,6 +154,8 @@
 
 ### Fixed
 
+- 完善一次性作业执行器 `beiming/jobs/sandbox.mjs` 的超时收尾与进程生命周期清理：`collect()` 改为同时监听 `exit` 与 `timeout`，超时后立即终止进程树并销毁标准输出/标准错误管道，主进程退出后在清理后代并短暂排空已缓冲输出后及时关闭管道返回，不再因后代进程继承管道句柄导致 `timeoutMs` 延迟或挂起；POSIX 宿主机后端以独立进程组启动子进程，并结合本次作业专属临时目录标记清理退出或超时后滞留的后代进程（`darwin-seatbelt` 策略同时收敛为不放行 `process-fork`，`worker_threads` 照常工作；Windows 宿主机后端结合 `taskkill /T` 与父进程关系清理残留后代；`oci` 后端在超时或异常退出收尾时强制停止并清理容器）。配套 `beiming/jobs/sandbox.test.mjs` 新增 `A13-28`–`A13-34` 生命周期与并发清理回归测试，不改公开接口与作品画面。
+
 - 治理 `beiming/jobs/` 三条在 Windows 高负载下易触发的计时抖动测试：`beiming/jobs/cache.test.mjs` 的 `A16-29` 跨进程 `prune`/`put` 互斥实测改为确定性互斥窗口压测加无拦截自由并发轮次，不再依赖 20 秒墙钟内靠调度运气撞够 20 次删除；`beiming/jobs/jobs.test.mjs` 放宽长轮询终态测试的 `waitForJob` 超时（`1000` → `10000` ms）及含磁盘队列 I/O / 子进程的测试超时（`3000`/`4000`/`5000` → `15000`/`20000` ms），不改生产逻辑，也不削弱互斥或短超时断言。
 
 - 先验库清单加载器（`beiming/cards/priors-batch2.mjs`、`beiming/cards/priors-audio-subs.mjs`）改为在加载时实时检查 `beiming/cards/<域>/<名>/card.json` 生成 `manifest.cards[].exists`，不再依赖静态 JSON 快照，避免后续新增技术卡后造成 `c11-priors.test.mjs` 失配。
