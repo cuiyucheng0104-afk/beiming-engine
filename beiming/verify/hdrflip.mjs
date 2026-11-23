@@ -9,7 +9,9 @@
 // 保留下面的版权声明、条件与免责声明；其余部分（输入读取、统计与返回结构）为本项目原创。
 // SPDX-License-Identifier: MIT AND BSD-3-Clause
 // SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
-// SPDX-FileCopyrightText: 2020-2024 NVIDIA CORPORATION & AFFILIATES
+// SPDX-FileCopyrightText: Copyright (c) 2020-2025 NVIDIA CORPORATION & AFFILIATES
+//
+// Copyright (c) 2020-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -236,10 +238,14 @@ export function hdrFlip(reference, test, options = {}) {
       errorMap[i] = Math.max(errorMap[i], color ** (1 - feature));
     }
   }
+  // 均值按行主序用单精度累加再除以单精度像素数，与 v1.7 FLIP.h 一致（百万像素级图像上单双精度累加可差到 1e-3）。
+  let total = 0;
+  for (let i = 0; i < n; i++) total = Math.fround(total + errorMap[i]);
+  const value = Math.fround(total / Math.fround(n));
   const sorted = Float32Array.from(errorMap).sort();
   const quantile = (f) => sorted[Math.max(Math.ceil(f * n) - 1, 0)]; // 最近秩
   return {
-    metric: 'metric:image.hdrflip', unit: 'flip', value: sum(errorMap) / n,
+    metric: 'metric:image.hdrflip', unit: 'flip', value,
     details: { ppd, tonemapper, startExposure, stopExposure, numExposures, min: sorted[0], max: sorted[n - 1], p50: quantile(0.5), p95: quantile(0.95) },
     errorMap,
   };

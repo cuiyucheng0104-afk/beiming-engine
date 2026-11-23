@@ -13,7 +13,7 @@
 
 ### Added
 
-- 新系统 `beiming/verify/` HDR-FLIP 多档曝光感知误差指标 `image.hdrflip`（#73）：新增零外部依赖的 `hdrflip.mjs` 并从 `index.mjs` 导出 `hdrFlip(reference, test)`，输入是线性 sRGB 原色的浮点像素数组或 EXR（字节、文件路径，取 `color.R/G/B` 或 `R/G/B`），返回平均值、逐像素误差图与曝光区间、分位数；数值对齐 NVIDIA flip-evaluator 1.7（ACES 色调映射、默认每度 67.02 像素，含参考图中位亮度为 0 的分支），三组官方真值的平均值偏差在 1e-6 以内，两张相同的图得 0。算法按 BSD-3-Clause 改写自 NVlabs/flip，文件头保留版权声明并补齐 `LICENSES/BSD-3-Clause.txt`。全黑参考图官方会报错退出，这里把曝光区间退化成一档后照常给值；只支持 ACES；1080p 每档曝光约 4 秒。不影响现有路线与作品，配套 6 项单测。
+- 新系统 `beiming/verify/` HDR-FLIP 多档曝光感知误差指标 `image.hdrflip`（#73）：新增零外部依赖的 `hdrflip.mjs` 并从 `index.mjs` 导出 `hdrFlip(reference, test)`，输入是线性 sRGB 原色的浮点像素数组或 EXR（字节、文件路径，取 `color.R/G/B` 或 `R/G/B`），返回平均值、逐像素误差图与曝光区间、分位数；数值对齐 NVIDIA flip-evaluator 1.7（ACES 色调映射、默认每度 67.02 像素，含参考图中位亮度为 0 的分支），三组官方真值的平均值偏差在 1e-6 以内，两张相同的图得 0。算法按 BSD-3-Clause 改写自 NVlabs/flip，文件头保留版权声明并补齐 `LICENSES/BSD-3-Clause.txt`。全黑参考图官方会报错退出，这里把曝光区间退化成一档后照常给值；只支持 ACES；1080p 每档曝光约 4 秒。不影响现有路线与作品，配套 7 项单测。
 - 感知组件新增 `flow.field` 与 `image.flip`（O10，#161）：前者从相邻帧量亚像素稠密光流、方向和速度幅值频谱，后者按观看条件计算 LDR-FLIP 误差图及分位数。对 agent：用 `runFlowFlipMetric` 按名调用，可用已校准的均值阈值判跨机画面回归，不改渲染及既有验收门。
 - Blender 构建脚本新增 `ctx.runtime`（S11，#159）。镜头可用命名时间线编排动作，按序号设置材质插口，用纯函数生成运动模糊所需的三帧关键帧，并通过帧元数据交出文字框、实体锚点和读数。
 - 新增两张讲解片技术卡（T8，#155）：`page.det2d` 在 three 页面宿主上锁定 sRGB、纸色 `#F4F0E9` 和本地字体，供二维镜头按帧重复求值；它是机制卡，不出现在默认卡搜索中。`camera.cue-kf` 把地图的平移、缩放绑到 `time.narration` 或事件表里的命名触发点，可按帧提前或延后。换配音后不必重写相机关键帧；不使用新卡的镜头不变。

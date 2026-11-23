@@ -155,3 +155,27 @@ test('V17-6 全黑参考图对非黑图给出有限的大误差，异常入参�
   const depthOnly = writeExr({ width: w, height: h, channels: { 'depth.Z': new Float32Array(n) } });
   bad(depthOnly, depthOnly);
 });
+
+test('V17-7 对齐官方 flip-evaluator v1.7 单精度均值累加与自定义 ppd（512×512 常量帧及 ppd=12）', () => {
+  const frame = (v) => ({ width: 512, height: 512, data: new Float32Array(512 * 512 * 3).fill(v) });
+  const flat = verify.hdrFlip(frame(0.66), frame(0.12));
+  assert.ok(Math.abs(flat.value - 0.5987067222595215) <= 1e-4, `512x512 constant mean=${flat.value}, expected=0.5987067222595215`);
+
+  const w = 256, h = 192;
+  const ref = new Float32Array(w * h * 3), tst = new Float32Array(w * h * 3);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const idx = (y * w + x) * 3;
+    const inDisk = (x - 128) ** 2 + (y - 96) ** 2 <= 400;
+    const r = inDisk ? 6.0 : (x / (w - 1)) * 3.0;
+    const g = inDisk ? 4.0 : (y / (h - 1)) * 1.5;
+    const b = inDisk ? 2.0 : 0.2;
+    ref[idx] = r; ref[idx + 1] = g; ref[idx + 2] = b;
+    tst[idx] = Math.fround(r * Math.fround(0.75));
+    tst[idx + 1] = Math.fround(g * Math.fround(0.75));
+    tst[idx + 2] = Math.fround(Math.fround(b * Math.fround(0.75)) + Math.fround(0.1));
+  }
+  const lowPpd = verify.hdrFlip({ width: w, height: h, data: ref }, { width: w, height: h, data: tst }, { ppd: 12 });
+  assert.equal(lowPpd.details.ppd, 12);
+  assert.equal(lowPpd.details.numExposures, 3);
+  assert.ok(Math.abs(lowPpd.value - 0.43776294589042664) <= 1e-4, `256x192 ppd=12 mean=${lowPpd.value}, expected=0.43776294589042664`);
+});
