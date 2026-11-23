@@ -195,10 +195,23 @@ test('M1b-4 真实渲染与交付端到端：默认 60f/30fps title、24f/24fps 
   };
 
   try {
-    // 1. 默认 POST /v1/films { template: 'title' }（1280x720, 60f/30fps）与 320x180 60f/30fps -> POST /deliver ok: true
+    // 1. 默认 POST /v1/films { template: 'title' }（省略 output -> 1280x720, 60f/30fps）：
+    //    在全尺寸 1280x720 验证终渲关键帧与 L2/L3 核验，并用 320x180（小画幅对冻结检测更严）跑满 60 帧 deliver 零冻结
     const defaultTitle = (await call('POST', '/v1/films', account, { template: 'title' })).data;
-    const defaultDeliver = await runJob(defaultTitle.film, defaultTitle.token, 'deliver');
-    await assertCleanDeliver(defaultTitle.film, defaultDeliver);
+    const defaultFilm = (await call('GET', `/v1/films/${defaultTitle.film}/film`, defaultTitle.token)).data.film;
+    assert.deepEqual(defaultFilm.output, DEFAULT_OUTPUT);
+    const defaultRender = await runJob(defaultTitle.film, defaultTitle.token, 'render', {
+      tier: 'final',
+      frames: [0, 11, 23, 35, 47],
+    });
+    assert.equal(defaultRender.data.actualCount, 5);
+    const defaultVerify = await runJob(defaultTitle.film, defaultTitle.token, 'verify', { tier: 'final' });
+    assert.equal(defaultVerify.data.layers.L2.ok, true);
+    assert.ok(defaultVerify.data.layers.L2.bbox.minIou >= 0.95);
+    assert.equal(defaultVerify.data.layers.L3.ok, true);
+    const defDir = join(root, 'films', defaultTitle.film, 'deliver', defaultRender.data.job, 'frames', 's01');
+    const defHashes = [0, 11, 23, 35, 47].map((f) => JSON.parse(readFileSync(join(defDir, `f${String(f).padStart(4, '0')}.meta.json`), 'utf8')).hash.color);
+    assert.equal(new Set(defHashes).size, 5, '默认 1280x720 60f title 在入场与落定后抽样帧必须逐帧变化');
 
     const smallTitle = (await call('POST', '/v1/films', account, {
       template: 'title',
@@ -207,10 +220,10 @@ test('M1b-4 真实渲染与交付端到端：默认 60f/30fps title、24f/24fps 
     const smallDeliver = await runJob(smallTitle.film, smallTitle.token, 'deliver');
     await assertCleanDeliver(smallTitle.film, smallDeliver);
 
-    // 2. POST /v1/films { template: 'title', output: { size: [640, 360], fps: '24/1', frames: 24 } } -> POST /deliver ok: true
+    // 2. POST /v1/films { template: 'title', output: { size: [320, 180], fps: '24/1', frames: 24 } } -> POST /deliver ok: true
     const title24 = (await call('POST', '/v1/films', account, {
       template: 'title',
-      output: { size: [640, 360], fps: '24/1', frames: 24 },
+      output: { size: [320, 180], fps: '24/1', frames: 24 },
     })).data;
     const deliver24 = await runJob(title24.film, title24.token, 'deliver');
     await assertCleanDeliver(title24.film, deliver24);
@@ -234,15 +247,15 @@ test('M1b-4 真实渲染与交付端到端：默认 60f/30fps title、24f/24fps 
     const sampleIdx = lines.findIndex((l) => l.startsWith('## 样例 three'));
     assert.ok(sampleIdx >= 0, 'guide 中必须包含 ## 样例 three');
     const threeSample = JSON.parse(lines[sampleIdx + 1]);
-    const currentFilm = (await call('GET', `/v1/films/${defaultTitle.film}/film`, defaultTitle.token)).data;
-    assert.deepEqual(currentFilm.film.shots, [threeSample]);
-    await call('PUT', `/v1/films/${defaultTitle.film}/film`, defaultTitle.token, {
-      ...currentFilm.film,
+    assert.deepEqual(defaultFilm.shots, [threeSample]);
+    const currentSmall = (await call('GET', `/v1/films/${smallTitle.film}/film`, smallTitle.token)).data;
+    await call('PUT', `/v1/films/${smallTitle.film}/film`, smallTitle.token, {
+      ...currentSmall.film,
       shots: [threeSample],
-      rev: currentFilm.rev,
+      rev: currentSmall.rev,
     });
-    const guideDeliver = await runJob(defaultTitle.film, defaultTitle.token, 'deliver');
-    await assertCleanDeliver(defaultTitle.film, guideDeliver);
+    const guideDeliver = await runJob(smallTitle.film, smallTitle.token, 'deliver');
+    await assertCleanDeliver(smallTitle.film, guideDeliver);
   } finally {
     await api.close();
     if (prevTemp === undefined) delete process.env[tempVar];
