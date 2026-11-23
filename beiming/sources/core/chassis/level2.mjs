@@ -247,7 +247,7 @@ const NEGATIVE = [
   },
   {
     target: 'mis', name: '接线：材质采样打到矩形纯光时不取光（多重重要性采样只剩光源一侧的权重）',
-    inject: { file: 'path/shaders/pathtrace.wgsl', from: 'if (!LIVE && bm_surf) {', to: 'if (false && bm_surf) {' },
+    inject: { file: 'path/shaders/integrator.wgsl', from: 'if (!LIVE && bm_surf) {', to: 'if (false && bm_surf) {' },
     run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel,
   },
 ];

@@ -60,7 +60,7 @@
 | `src/sky.rs` | `renderer/src/sky.rs` | 没改 |
 | `src/texpack.rs` | `renderer/src/texpack.rs` | 删去切掉的几类 |
 | `src/world.rs` | `renderer/src/world.rs` | 删去切掉的几类 |
-| `shaders/pathtrace.wgsl` | `renderer/shaders/pathtrace.wgsl` | 删去只有实时才走的段；加了北冥的接线（见下一节） |
+| `shaders/pathtrace.wgsl`、`intersect.wgsl`、`shader.wgsl`、`closure.wgsl`、`light.wgsl`、`volume.wgsl`、`integrator.wgsl`、`film.wgsl` | `renderer/shaders/pathtrace.wgsl` | 删去只有实时才走的段；加了北冥的接线（见下一节）；按阶段分成八个文件（见下一节末） |
 | `shaders/sample.wgsl` | `renderer/shaders/sample.wgsl` | 少两个只给辐射缓存用的采样维度常量 |
 | `shaders/trace_hw.wgsl` | `renderer/shaders/trace_hw.wgsl` | 没改 |
 | `shaders/records.wgsl` | `renderer/shaders/records.wgsl` | 没改 |
@@ -78,11 +78,13 @@
 把照 Cycles 逐行移植的 GGX 金属闭包与矩形面光接进内核。闭包与面光本身在 [../shaders/](../shaders/)（`microfacet.wgsl`、`util.wgsl`、`area_light.wgsl`、`ggx_tables.wgsl`，源自 Blender Cycles，许可与版权写在各自的文件头），仓库里只有那一份；内核用 `include_str!` 直接读它们，本目录不放副本。
 
 - `src/gpu.rs`：内核的文件列表里加上面四个着色器，别的没动。
-- `shaders/pathtrace.wgsl`，以「北冥」开头的注释标出，一百行上下：
+- `shaders/closure.wgsl`、`shaders/light.wgsl`、`shaders/integrator.wgsl`（分文件之前都在 `shaders/pathtrace.wgsl` 里），以「北冥」开头的注释标出，一百行上下：
   - 金属（metallic 为 1）的基础高光层改走移植的闭包：`bm_closure`、`bm_eval`，以及求值、概率密度、采样三处的分支。菲涅耳用 F82-tint，底色当 F0，边缘色取白；alpha 取粗糙度的平方；能量补偿由场景选项 `energyCompensation` 开关。
   - 不画卡片的矩形纯光改走移植的球面矩形采样，并与材质采样做多重重要性采样：`bm_rect`、`bm_rect_le`、`bm_rect_sample`、`bm_rect_hits`，以及光源一侧与主循环里的几处调用。
 
 已知的一处简化：矩形纯光的高光倍率不是默认的 1 时，光源一侧的高光乘了倍率、材质一侧没乘，两侧权重配不上。要支持非 1 的倍率时，把材质一侧的贡献按高光与漫反射拆开再乘。
+
+上游的 `pathtrace.wgsl` 是一个三千多行的文件。这里把它按阶段分成了八个文件，只搬位置：`pathtrace.wgsl` 留下开头（编译开关、常数、全局参数、各张表的绑定与读法）和各阶段共用的小函数，其余按求交、材质求值、闭包、灯光、体积、积分主循环、输出各一个文件，哪个函数去了哪里写在 `pathtrace.wgsl` 的开头。上游的注释原样跟着代码走。入口函数 `main` 末尾写累加缓冲的一段，因为一个函数不能跨文件，抽成了函数（`film.wgsl` 的 `accum_write_sample`），语句没动。开头生成相机光线的一段留在 `main` 里：试过同样抽成函数，苹果显卡上相机三个轴都不贴坐标轴的场景，像素值的末位会变（相对差 2e-6，运算次序不同），所以没有单独的相机文件。`src/gpu.rs` 的文件列表与 `src/bvh.rs` 里一条读着色器源码的测试跟着改了文件名。Rust 源码的英文注释里仍写着「pathtrace.wgsl 的某某函数」，没有逐条改，按 `pathtrace.wgsl` 开头的对照表去找。从上游挑改动进来时，上游对 `pathtrace.wgsl` 的改动要按这张表落到对应的文件。
 
 ## 沿用上游名字的地方
 

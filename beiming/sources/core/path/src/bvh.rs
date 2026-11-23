@@ -360,9 +360,10 @@ mod tests {
 
     /// `walk` is the kernel's loop: the lines of pathtrace.wgsl it transcribes are still there, in this order. (A
     /// change to the kernel's traversal fails here, and `walk` is to follow it.)
+    /// 北冥：`trace` 现在在 intersect.wgsl，常数 `INF` 还在 pathtrace.wgsl，两个文件一起读。
     #[test]
     fn the_walk_is_the_kernels_loop() {
-        let src = include_str!("../shaders/pathtrace.wgsl");
+        let src = concat!(include_str!("../shaders/pathtrace.wgsl"), include_str!("../shaders/intersect.wgsl"));
         let (_, rest) = src.split_once("fn trace(o: vec3<f32>, d: vec3<f32>, tmax_in: f32, mode: u32) -> Hit {").expect("the kernel's trace");
         let (body, _) = rest.split_once("if (has(F_PROC)) { return trace_procs(o, d, hit, mode); }").expect("the end of the triangles' loop");
         let lines = [

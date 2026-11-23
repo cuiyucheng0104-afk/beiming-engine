@@ -421,11 +421,19 @@ pub fn instance_mask(cast_shadow: bool, hidden: bool) -> u8 {
 const RECORDS: &str = include_str!("../shaders/records.wgsl");
 
 /// (pathtrace.wgsl first: a module's imports and directives come before its declarations.)
-const KERNEL_FILES: [&str; 8] = [
+/// 北冥：内核主体按阶段分成了几个文件（pathtrace.wgsl 的开头列着哪个阶段在哪个文件）。
+const KERNEL_FILES: [&str; 15] = [
     include_str!("../shaders/pathtrace.wgsl"),
     RECORDS,
     include_str!("../shaders/sample.wgsl"),
+    include_str!("../shaders/intersect.wgsl"),
     include_str!("../shaders/trace_hw.wgsl"),
+    include_str!("../shaders/shader.wgsl"),
+    include_str!("../shaders/closure.wgsl"),
+    include_str!("../shaders/light.wgsl"),
+    include_str!("../shaders/volume.wgsl"),
+    include_str!("../shaders/integrator.wgsl"),
+    include_str!("../shaders/film.wgsl"),
     // 北冥：照 Cycles 移植的 GGX 金属闭包与矩形面光采样（原文件在 beiming/sources/core/shaders/，仓库里只此一份）
     include_str!("../../shaders/microfacet.wgsl"),
     include_str!("../../shaders/util.wgsl"),
