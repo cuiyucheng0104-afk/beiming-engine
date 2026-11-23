@@ -1167,4 +1167,164 @@ test('B7 省略 seed 时生成不可预测的随机种子，绝不退回公开 s
   assert.ok(!JSON.stringify(r1.publicSession).includes(r1.answerKey.seed));
 });
 
+/* ---------------- G_REV-R2 回归测试（R2-1 / R2-2 / R2-3 / R2-4） ---------------- */
 
+test('R2-1 判定目标不同的答案键不能改判同一张票，且公开承诺不泄露来源名或种子', () => {
+  const target = '银杏组';
+  const other = '松柏组';
+  const opts = {
+    sessionId: 'nov-23',
+    createdAt: '2026-11-23T08:00:00Z',
+    seed: 'R1.31',
+    decisionLine: { targetSource: target, minWinsOrTies: 7, committedAt: '2026-11-23T07:00:00Z' },
+    pairs: Array.from({ length: 10 }, (_, i) => ({
+      candidateA: { source: target, mediaUrl: `media/${2 * i + 1}.png` },
+      candidateB: { source: other, mediaUrl: `media/${2 * i + 2}.png` },
+    })),
+  };
+  const first = createBlindSession(opts);
+  const second = createBlindSession({
+    ...opts,
+    decisionLine: { ...opts.decisionLine, targetSource: other },
+  });
+  assert.notEqual(first.publicSession.decisionCommitment, second.publicSession.decisionCommitment);
+  assert.notEqual(JSON.stringify(first.publicSession), JSON.stringify(second.publicSession));
+  for (const leak of [target, other, opts.seed]) {
+    assert.ok(!JSON.stringify(first.publicSession).includes(leak));
+    assert.ok(!JSON.stringify(second.publicSession).includes(leak));
+  }
+
+  const allForFirst = {
+    voter: 'director',
+    submittedAt: '2026-11-23T10:00:00Z',
+    votes: Object.fromEntries(first.answerKey.pairs.map((p) => [p.pairId, p.leftSource === target ? 'left' : 'right'])),
+  };
+  const vote = recordBlindBallot([], first.publicSession, allForFirst);
+  const okReport = unblindBlindSession(first.publicSession, first.answerKey, vote);
+  assert.deepEqual([okReport.targetWins, okReport.passed], [10, true]);
+
+  // 换用另一判定目标的 answerKey 必须以 usage.bad-argument 拒绝
+  assert.throws(() => unblindBlindSession(first.publicSession, second.answerKey, vote), isBadArg);
+  assert.throws(() => unblindBlindSession(second.publicSession, second.answerKey, vote), isBadArg);
+  assert.throws(() => recordBlindBallot([], second.publicSession, vote), isBadArg);
+});
+
+test('R2-2 缺少 layoutDigest 或 decisionCommitment 的前版落盘选票不得按新排布重新盖章或直接计分', () => {
+  const target = '银杏组';
+  const other = '松柏组';
+  const opts = {
+    sessionId: 'nov-23',
+    createdAt: '2026-11-23T08:00:00Z',
+    seed: 'R1.32',
+    decisionLine: { targetSource: target, minWinsOrTies: 7, committedAt: '2026-11-23T07:00:00Z' },
+    pairs: Array.from({ length: 10 }, (_, i) => ({
+      candidateA: { source: target, mediaUrl: `media/${2 * i + 1}.png` },
+      candidateB: { source: other, mediaUrl: `media/${2 * i + 2}.png` },
+    })),
+  };
+  const second = createBlindSession(opts);
+  const votes = Object.fromEntries(second.publicSession.pairs.map((p) => [p.pairId, 'left']));
+
+  // 模拟前版（无 layoutDigest / 无 decisionCommitment）落盘的 bench-blind-ballot/0.1 选票
+  const legacySavedWithoutDigest = {
+    format: BLIND_BALLOT_FORMAT,
+    sessionId: 'nov-23',
+    voter: 'director',
+    submittedAt: '2026-11-23T10:00:00Z',
+    votes,
+  };
+  const legacySavedWithoutCommitment = {
+    ...legacySavedWithoutDigest,
+    layoutDigest: second.publicSession.layoutDigest,
+  };
+
+  for (const saved of [legacySavedWithoutDigest, legacySavedWithoutCommitment]) {
+    const store = [];
+    assert.throws(() => recordBlindBallot(store, second.publicSession, saved), isBadArg);
+    assert.equal(store.length, 0);
+    assert.throws(() => unblindBlindSession(second.publicSession, second.answerKey, saved), isBadArg);
+  }
+});
+
+test('R2-3 无盲选成绩但同时有考题成绩与能量尺时，成片墙画面上限与 HTML 均展示能量尺读数', () => {
+  const date = '2026-11-23';
+  const board = buildBoard({
+    asOf: date,
+    results: [{
+      format: 'bench-result/0.1',
+      questionId: '9-1',
+      level: 1,
+      source: 'three',
+      model: 'm',
+      status: 'pass',
+      pass: true,
+      score: 1,
+    }],
+    energy: [{ metric: 'noise.residual', value: 0.125 }],
+    rebuild: { tolerance: { passed: 3, total: 4 } },
+  });
+  const wall = buildFilmWall({
+    date,
+    films: [{ filmId: 'cut-0', template: 'turntable', mediaUrl: 'cut.png' }],
+    scoreboard: board,
+  });
+  const html = renderFilmWallHtml(wall);
+  assert.match(wall.fourIndicators.ceiling.display, /考题通过 1\/1（100\.0%）/);
+  assert.match(wall.fourIndicators.ceiling.display, /noise\.residual=0\.125/);
+  assert.match(html, /跨机容差 3\/4（75\.0%）/);
+  assert.ok(html.includes('noise.residual=0.125'));
+});
+
+test('R2-4 成片墙点击一句话打回前严格校验 frameEnd >= frameStart，非法区间不标已打回且不导出非法回执', () => {
+  const wall = buildFilmWall({
+    date: '2026-11-23',
+    films: [{ filmId: 'cut-0', template: 'turntable', mediaUrl: 'cut.png' }],
+  });
+  const html = renderFilmWallHtml(wall);
+  const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(scriptMatch);
+
+  let clickHandler = null;
+  const statusEl = { textContent: '待看' };
+  const outBox = { textContent: '{}' };
+  const fields = {
+    '[name="frameStart"]': { value: '12' },
+    '[name="frameEnd"]': { value: '0' }, // 保留页面初始值 0 < 12
+    '[name="category"]': { value: '' },
+    '[name="verbatim"]': { value: '从这里开始反光跳动' },
+    '[data-role="status-label"]': statusEl,
+  };
+  const card = {
+    getAttribute: (k) => (k === 'data-film-id' ? 'cut-0' : k === 'data-film-template' ? 'turntable' : null),
+    querySelector: (sel) => fields[sel] ?? null,
+  };
+  const rejectBtn = {
+    getAttribute: (k) => (k === 'data-wall-action' ? 'reject' : null),
+    closest: (sel) => (sel === 'button[data-wall-action]' ? rejectBtn : sel === '[data-film-id]' ? card : null),
+  };
+  const sandbox = {
+    window: {},
+    document: {
+      addEventListener: (type, fn) => { if (type === 'click') clickHandler = fn; },
+      getElementById: (id) => (id === 'wall-decisions-json' ? outBox : null),
+    },
+    Date,
+  };
+  vm.runInNewContext(scriptMatch[1], sandbox);
+  clickHandler({ target: rejectBtn });
+
+  // 结束帧 0 < 起始帧 12：绝不能标为「已打回」，也不得写入回执
+  assert.notEqual(statusEl.textContent, '已打回');
+  assert.match(statusEl.textContent, /帧区间无效/);
+  assert.equal(JSON.parse(outBox.textContent)['cut-0'], undefined);
+
+  // 更正结束帧为 15 后再次点击：标为「已打回」且导出回执可原样入账
+  fields['[name="frameEnd"]'].value = '15';
+  clickHandler({ target: rejectBtn });
+  assert.equal(statusEl.textContent, '已打回');
+  const receipt = JSON.parse(outBox.textContent)['cut-0'];
+  assert.deepEqual(receipt.frames, [12, 15]);
+  withTmpDir((ledgerDir) => {
+    assert.doesNotThrow(() => recordRejection(ledgerDir, receipt));
+  });
+});

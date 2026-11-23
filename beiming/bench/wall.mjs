@@ -417,11 +417,9 @@ function normalizeIndicator(raw, kind) {
     const parts = [];
     if (levelRate !== null) parts.push(`考题通过 ${passed}/${total}（${pct(levelRate)}）`);
     if (blindRate !== null) parts.push(`盲选赢或平 ${pct(blindRate)}`);
-    if (levelRate === null && blindRate === null) {
-      if (parityVal !== null) parts.push(`对拍最小余量 ${fmtMetric(parityVal, 4)}`);
-      if (rulerEntries.length > 0) {
-        parts.push(`能量尺 ${rulerEntries.map((r) => `${r.name}=${fmtMetric(r.mean, 4)}`).join(' / ')}`);
-      }
+    if (parityVal !== null) parts.push(`对拍最小余量 ${fmtMetric(parityVal, 4)}`);
+    if (rulerEntries.length > 0) {
+      parts.push(`能量尺 ${rulerEntries.map((r) => `${r.name}=${fmtMetric(r.mean, 4)}`).join(' / ')}`);
     }
     if (!parts.length) return { value: null, display: '暂无', detail: o };
     return { value: primary, display: parts.join(' · '), detail: o };
@@ -669,9 +667,22 @@ document.addEventListener('click', function (ev) {
     var catInput = card.querySelector('[name="category"]');
     var verbInput = card.querySelector('[name="verbatim"]');
     var verbatim = verbInput ? verbInput.value : '';
-    if (!verbatim || !verbatim.trim()) return;
-    var s = Number(startInput && startInput.value ? startInput.value : 0);
-    var e = Number(endInput && endInput.value ? endInput.value : s);
+    if (!verbatim || !verbatim.trim()) {
+      delete window.__wallDecisions[filmId];
+      if (statusEl) statusEl.textContent = '请填写打回原话';
+      if (outBox) outBox.textContent = JSON.stringify(window.__wallDecisions, null, 2);
+      return;
+    }
+    var rawStart = startInput && startInput.value !== undefined ? String(startInput.value).trim() : '';
+    var rawEnd = endInput && endInput.value !== undefined ? String(endInput.value).trim() : '';
+    var s = rawStart === '' ? 0 : Number(rawStart);
+    var e = rawEnd === '' ? s : Number(rawEnd);
+    if (!Number.isSafeInteger(s) || !Number.isSafeInteger(e) || s < 0 || e < s) {
+      delete window.__wallDecisions[filmId];
+      if (statusEl) statusEl.textContent = '帧区间无效（结束帧须 ≥ 起始帧）';
+      if (outBox) outBox.textContent = JSON.stringify(window.__wallDecisions, null, 2);
+      return;
+    }
     var rawCat = catInput && catInput.value ? catInput.value.trim() : '';
     window.__wallDecisions[filmId] = {
       filmId: filmId,
@@ -1395,6 +1406,25 @@ function computeBlindLayoutDigest(session) {
   return `sha256:${sha256Hex(JSON.stringify(canonical))}`;
 }
 
+function computeBlindDecisionCommitment({ seed, sessionId, createdAt, layoutDigest, targetSource, decisionLine, pairs }) {
+  const canonical = {
+    seed,
+    sessionId,
+    createdAt,
+    layoutDigest,
+    targetSource,
+    minWinsOrTies: decisionLine.minWinsOrTies,
+    totalPairs: decisionLine.totalPairs,
+    committedAt: decisionLine.committedAt,
+    pairs: pairs.map((p) => ({
+      pairId: p.pairId,
+      leftSource: p.leftSource,
+      rightSource: p.rightSource,
+    })),
+  };
+  return `sha256:${sha256Hex(JSON.stringify(canonical))}`;
+}
+
 /**
  * 创建确定性左右随机的盲选会话：
  * 返回严格信息隔离的 `{ publicSession, answerKey }`。
@@ -1545,6 +1575,16 @@ export function createBlindSession(options) {
     pairs: publicPairs,
   });
 
+  const decisionCommitment = computeBlindDecisionCommitment({
+    seed,
+    sessionId,
+    createdAt: createdTs.raw,
+    layoutDigest,
+    targetSource,
+    decisionLine: publicDecisionLine,
+    pairs: keyPairs,
+  });
+
   const publicSession = freezeDeep({
     format: BLIND_PUBLIC_FORMAT,
     sessionId,
@@ -1552,6 +1592,7 @@ export function createBlindSession(options) {
     createdAt: createdTs.raw,
     decisionLine: publicDecisionLine,
     layoutDigest,
+    decisionCommitment,
     pairs: publicPairs,
   });
 
@@ -1561,6 +1602,7 @@ export function createBlindSession(options) {
     seed,
     createdAt: createdTs.raw,
     layoutDigest,
+    decisionCommitment,
     decisionLine: {
       ...publicDecisionLine,
       targetSource,
@@ -1574,7 +1616,7 @@ export function createBlindSession(options) {
 function validatePublicBlindSession(sessionInput) {
   const s = plainObj(sessionInput, 'publicSession');
   if (s.format !== BLIND_PUBLIC_FORMAT) bad(`publicSession.format 必须是 ${BLIND_PUBLIC_FORMAT}`);
-  const allowedTop = ['format', 'sessionId', 'purpose', 'createdAt', 'decisionLine', 'layoutDigest', 'pairs'];
+  const allowedTop = ['format', 'sessionId', 'purpose', 'createdAt', 'decisionLine', 'layoutDigest', 'decisionCommitment', 'pairs'];
   if (!Object.keys(s).every((k) => allowedTop.includes(k))) {
     bad('publicSession 含有未授权字段（严禁混入答案或来源键）');
   }
@@ -1624,7 +1666,14 @@ function validatePublicBlindSession(sessionInput) {
       bad('publicSession.layoutDigest 与公开槽位排布不一致');
     }
   }
-  return { session: s, committedTs, layoutDigest };
+  let decisionCommitment = null;
+  if (s.decisionCommitment !== undefined) {
+    decisionCommitment = nonEmptyText(s.decisionCommitment, 'publicSession.decisionCommitment');
+    if (!/^sha256:[0-9a-f]{64}$/.test(decisionCommitment)) {
+      bad('publicSession.decisionCommitment 格式非法');
+    }
+  }
+  return { session: s, committedTs, layoutDigest, decisionCommitment };
 }
 
 // 盲选页纯静态脚本：零插值，仅收集 left/right/tie 投票供离线导出。
@@ -1648,6 +1697,8 @@ function updateBlindBallot() {
     };
     var digest = sessionEl.getAttribute('data-blind-layout-digest');
     if (digest) payload.layoutDigest = digest;
+    var commitment = sessionEl.getAttribute('data-blind-decision-commitment');
+    if (commitment) payload.decisionCommitment = commitment;
     out.textContent = JSON.stringify(payload, null, 2);
   }
 }
@@ -1657,7 +1708,7 @@ document.addEventListener('input', updateBlindBallot);
 
 /** 渲染盲选页离线单页 HTML（绝对零来源标识、零答案泄露、零外链）。 */
 export function renderBlindPageHtml(publicSessionInput) {
-  const { session, layoutDigest } = validatePublicBlindSession(publicSessionInput);
+  const { session, layoutDigest, decisionCommitment } = validatePublicBlindSession(publicSessionInput);
   const dl = session.decisionLine;
 
   const pairCards = session.pairs.map((p) => html`<article class="pair-card">
@@ -1688,7 +1739,7 @@ export function renderBlindPageHtml(publicSessionInput) {
 <title>盲选页 ${session.sessionId}</title>
 <style>${rawHtml(BASE_STYLE)}</style>
 </head>
-<body data-blind-session-id="${session.sessionId}" data-blind-layout-digest="${layoutDigest}">
+<body data-blind-session-id="${session.sessionId}" data-blind-layout-digest="${layoutDigest}" data-blind-decision-commitment="${decisionCommitment ?? ''}">
 <header>
   <h1>双盲对比页</h1>
   <p class="note">会话 <code>${session.sessionId}</code> · 共 ${session.pairs.length} 组 · 左右位置随机分配且不标来源 · 前置判定线锁定于 <time>${dl.committedAt}</time>（需赢或平至少 ${dl.minWinsOrTies} / ${dl.totalPairs} 组）</p>
@@ -1738,13 +1789,25 @@ function normalizeVotes(votesInput, expectedPairIds) {
  * - `ballotStore` 支持传受控磁盘目录路径（追加写入 `ballots.jsonl`）或内存数组。
  */
 export function recordBlindBallot(ballotStore, publicSessionInput, ballotInput) {
-  const { session, committedTs, layoutDigest } = validatePublicBlindSession(publicSessionInput);
+  const { session, committedTs, layoutDigest, decisionCommitment } = validatePublicBlindSession(publicSessionInput);
   const b = plainObj(ballotInput, 'ballot');
+  if (b.format !== undefined) {
+    if (b.format !== BLIND_BALLOT_FORMAT) bad(`ballot.format 必须是 ${BLIND_BALLOT_FORMAT}`);
+    if (typeof b.layoutDigest !== 'string' || b.layoutDigest.trim().length === 0) {
+      bad('已落盘选票缺少 layoutDigest，禁止将未绑定排布摘要的旧版选票重新导入当前会话');
+    }
+    if (typeof b.decisionCommitment !== 'string' || b.decisionCommitment.trim().length === 0) {
+      bad('已落盘选票缺少 decisionCommitment，禁止将未绑定判定承诺的旧版选票重新导入当前会话');
+    }
+  }
   if (b.sessionId !== undefined && b.sessionId !== session.sessionId) {
     bad('ballot.sessionId 与盲选会话不匹配');
   }
   if (b.layoutDigest !== undefined && b.layoutDigest !== layoutDigest) {
     bad('ballot.layoutDigest 与盲选会话槽位排布不匹配');
+  }
+  if (b.decisionCommitment !== undefined && decisionCommitment !== null && b.decisionCommitment !== decisionCommitment) {
+    bad('ballot.decisionCommitment 与盲选会话前置判定承诺不匹配');
   }
   const voter = nonEmptyText(b.voter, 'voter');
   const submittedTs = parseIsoTimestamp(b.submittedAt, 'submittedAt');
@@ -1758,6 +1821,7 @@ export function recordBlindBallot(ballotStore, publicSessionInput, ballotInput) 
     format: BLIND_BALLOT_FORMAT,
     sessionId: session.sessionId,
     layoutDigest,
+    ...(decisionCommitment !== null ? { decisionCommitment } : {}),
     voter,
     submittedAt: submittedTs.raw,
     votes,
@@ -1786,7 +1850,10 @@ export function recordBlindBallot(ballotStore, publicSessionInput, ballotInput) 
  * - 统计审片模型与人类的一致率 `agreementRate`，当 `< 0.6` 时置 `disablePerspective: true`（06 §8.2）。
  */
 export function unblindBlindSession(publicSessionInput, answerKeyInput, ballotInput) {
-  const { session, committedTs, layoutDigest } = validatePublicBlindSession(publicSessionInput);
+  const { session, committedTs, layoutDigest, decisionCommitment } = validatePublicBlindSession(publicSessionInput);
+  if (!decisionCommitment) {
+    bad('publicSession 缺少 decisionCommitment 判定承诺摘要');
+  }
   const key = plainObj(answerKeyInput, 'answerKey');
   if (key.format !== BLIND_KEY_FORMAT) bad(`answerKey.format 必须是 ${BLIND_KEY_FORMAT}`);
   if (key.sessionId !== session.sessionId) bad('answerKey.sessionId 与 publicSession.sessionId 不匹配');
@@ -1804,13 +1871,49 @@ export function unblindBlindSession(publicSessionInput, answerKeyInput, ballotIn
   if (!Array.isArray(key.pairs) || key.pairs.length !== session.pairs.length) {
     bad('answerKey.pairs 数量与 publicSession.pairs 不一致');
   }
+  const keySeed = nonEmptyText(key.seed, 'answerKey.seed');
+  const keyCreatedAt = nonEmptyText(key.createdAt, 'answerKey.createdAt');
+  const expectedCommitment = computeBlindDecisionCommitment({
+    seed: keySeed,
+    sessionId: key.sessionId,
+    createdAt: keyCreatedAt,
+    layoutDigest,
+    targetSource,
+    decisionLine: session.decisionLine,
+    pairs: key.pairs.map((rawPair, i) => {
+      const kp = plainObj(rawPair, `answerKey.pairs[${i}]`);
+      return {
+        pairId: nonEmptyText(kp.pairId, `answerKey.pairs[${i}].pairId`),
+        leftSource: nonEmptyText(kp.leftSource, `answerKey.pairs[${i}].leftSource`),
+        rightSource: nonEmptyText(kp.rightSource, `answerKey.pairs[${i}].rightSource`),
+      };
+    }),
+  });
+  if (key.decisionCommitment !== undefined && key.decisionCommitment !== expectedCommitment) {
+    bad('answerKey.decisionCommitment 与答案键内容不一致');
+  }
+  if (decisionCommitment !== expectedCommitment) {
+    bad('answerKey 与 publicSession 的前置判定承诺不一致（禁止更换判定目标或答案键）');
+  }
 
   const b = plainObj(ballotInput, 'ballot');
+  if (b.format !== undefined) {
+    if (b.format !== BLIND_BALLOT_FORMAT) bad(`ballot.format 必须是 ${BLIND_BALLOT_FORMAT}`);
+    if (typeof b.layoutDigest !== 'string' || b.layoutDigest.trim().length === 0) {
+      bad('已落盘选票缺少 layoutDigest，禁止对未绑定排布摘要的旧版选票揭盲');
+    }
+    if (typeof b.decisionCommitment !== 'string' || b.decisionCommitment.trim().length === 0) {
+      bad('已落盘选票缺少 decisionCommitment，禁止对未绑定判定承诺的旧版选票揭盲');
+    }
+  }
   if (b.sessionId !== undefined && b.sessionId !== session.sessionId) {
     bad('ballot.sessionId 与盲选会话不匹配');
   }
   if (b.layoutDigest !== undefined && b.layoutDigest !== layoutDigest) {
     bad('ballot.layoutDigest 与盲选会话槽位排布不匹配');
+  }
+  if (b.decisionCommitment !== undefined && b.decisionCommitment !== expectedCommitment) {
+    bad('ballot.decisionCommitment 与盲选会话前置判定承诺不匹配');
   }
   const voter = nonEmptyText(b.voter, 'ballot.voter');
   const submittedTs = parseIsoTimestamp(b.submittedAt, 'ballot.submittedAt');
