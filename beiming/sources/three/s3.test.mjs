@@ -30,6 +30,9 @@ const coded = (code) => (err) => { assert.equal(err.code, code, err.message); re
 const typed = (T, bytes) => new T(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length));
 const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 const worst = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+// 非 MSAA 编号层按像素中心采样，整数外沿距中心 0.5 px。4 位亚像素网格上，边界量化到中心时，
+// top-left 填充规则决定该像素的归属。给量化留一格（1/16 px），给浮点投影留 1e-3 px。
+const OBJECT_ID_EDGE_TOLERANCE = 0.5 + 1 / 16 + 1e-3;
 /** 报错时怎么写出一个值：带空槽、访问器的数组也写得出（JSON 会把空槽写成 null，访问器会被它调一遍） */
 const show = (v) => inspect(v, { depth: 3, getters: false, breakLength: Infinity });
 
@@ -354,7 +357,8 @@ const CARD = '<div data-entity="card" style="position:absolute;left:60.25px;top:
 const PILLS = '<div style="position:absolute;left:400px;top:200px;width:200px;display:flex;gap:20px"><div data-entity="pill_a" style="flex:1;height:50px;background:#5FA8A0"></div><div data-entity="pill_b" style="flex:2;height:50px;background:#D9654B"></div></div>';
 const MARK = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 100"><rect width="80" height="100" fill="#D9654B"/><rect x="80" width="80" height="100" fill="#5FA8A0"/></svg>';
 const PROBE = [
-  { kind: 'canvas2d', name: 'plot', rect: [40.25, 30.5, 240.75, 150], fill: ['#FFFFFF', '#E0B050'], label: { id: 'plot.label', text: '2026', font: '700 36px sans-serif', at: [110, 110] } },
+  // 右边在像素中心右侧 1/64 px，正好覆盖 4 位亚像素光栅化的舍入边界。
+  { kind: 'canvas2d', name: 'plot', rect: [40.25, 30.5, 240.515625, 150], fill: ['#FFFFFF', '#E0B050'], label: { id: 'plot.label', text: '2026', font: '700 36px sans-serif', at: [110, 110] } },
   { kind: 'svg', name: 'mark', rect: [300, 40, 460, 140], svg: MARK },
   { kind: 'dom', html: CARD + PILLS },
   // 第 0 帧在、第 1 帧不透明度是 0、第 2 帧交了不是数的不透明度
@@ -378,8 +382,7 @@ test('探针：三种元素同台，逐元素的 bbox2d 对真实像素框不超
     const ids = typed(Uint32Array, await read(r.layers.objectId));
     const boxes = verifySampledBboxes([{ frame: 0, meta: r.meta, objectId: { width: w, height: h, data: ids } }]);
     assert.ok(boxes.ok && boxes.frames[0].entities.length === 6, JSON.stringify(boxes.failures));
-    // 编号层反算的外沿是独立的像素证据：每条边离 bbox2d 不超过半个像素（外沿落在整数上，小数矩形最多差半个）
-    for (const e of boxes.frames[0].entities) assert.ok(worst(e.computed, e.reported) <= 0.5 + 1e-9, `${e.name}：编号层 ${e.computed}，元数据 ${e.reported}`);
+    for (const e of boxes.frames[0].entities) assert.ok(worst(e.computed, e.reported) <= OBJECT_ID_EDGE_TOLERANCE, `${e.name}：编号层 ${e.computed}，元数据 ${e.reported}`);
     // 深度层：后登记的更近；法线朝相机
     const depth = typed(Float32Array, await read(r.layers.depth)), normal = typed(Float32Array, await read(r.layers.normal));
     assert.ok(depth[100 * w + 100] > depth[90 * w + 400] && depth[90 * w + 400] > depth[300 * w + 550] && depth[5 * w + 5] === 1e10);
@@ -749,7 +752,7 @@ test('18-1：三场讲解实渲，元数据过 M1–M20、帧源过 F 各条，�
     for (const s of SCENES) for (const k of ['badge', 'title', 'sub_0', 'sub_1']) assert.ok(names.includes(`${s.id}_${k}`), `${s.id}_${k}`);
     assert.ok(names.includes('s2_flow') && names.includes('s3_chart') && names.filter((n) => n.includes('card')).length >= 5);
 
-    // 逐元素：编号层反算的包围盒对 bbox2d，交并比过 L2；四边各差不超过半个像素；声明了矩形的（Canvas 2D、SVG）四边差不超过万分之一像素
+    // 编号层按 L2 交并比和光栅化外沿核验；Canvas 2D、SVG 的声明矩形另与宿主量得的浮点框直接比较。
     const sampled = withIds.map((f) => ({ frame: f, meta: shots.get(f).meta, objectId: { width: w, height: h, data: shots.get(f).ids } }));
     const boxes = verifySampledBboxes(sampled);
     assert.ok(boxes.ok && boxes.minIou >= 0.95, JSON.stringify(boxes.failures.slice(0, 3)));
@@ -760,7 +763,7 @@ test('18-1：三场讲解实渲，元数据过 M1–M20、帧源过 F 各条，�
       assert.deepEqual(seen.map((e) => e.name.split('_')[0]).filter((p) => p !== s.id), [], `第 ${row.frame} 帧`);
       assert.ok(seen.length >= 4, `第 ${row.frame} 帧只看见 ${seen.length} 个实体`);
       for (const e of seen) {
-        assert.ok(worst(e.computed, e.reported) <= 0.5 + 1e-9, `第 ${row.frame} 帧 ${e.name}：编号层 ${e.computed}，元数据 ${e.reported}`);
+        assert.ok(worst(e.computed, e.reported) <= OBJECT_ID_EDGE_TOLERANCE, `第 ${row.frame} 帧 ${e.name}：编号层 ${e.computed}，元数据 ${e.reported}`);
         if (RECTS[e.name]) assert.ok(worst(e.reported, RECTS[e.name]) <= 1e-4, `${e.name} 的 bbox2d ${e.reported} 对声明的 ${RECTS[e.name]}`);
       }
     }
