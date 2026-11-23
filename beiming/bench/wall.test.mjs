@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import vm from 'node:vm';
 import * as bench from './index.mjs';
 import { buildBoard } from './board.mjs';
 import {
@@ -803,4 +804,367 @@ test('盲选页扩展与边界：30 组核心接管套件、一致率 >= 0.6 保
   assert.equal(mpReport.reviewerAgreement.byPerspective.motion.agreementRate, 0.5);
   assert.equal(mpReport.reviewerAgreement.byPerspective.motion.disablePerspective, true);
 });
+
+/* ---------------- G_REV-R1 回归测试（B3–B7 / U1–U2 / W3–W4） ---------------- */
+
+test('W3 媒体 URL 拒绝查询参数与 hash 中的父目录 .. 段（含百分号编码与全角点），正常查询参数放行', () => {
+  const baseFilm = {
+    filmId: 'w3-film',
+    template: 'turntable',
+    mediaUrl: 'media/sample.png',
+    reference: { mediaUrl: 'refs/ref.png' },
+  };
+  const badQueryUrls = [
+    'media/sample.png?file=../sample.png',
+    'media/sample.png?file=..',
+    'media/sample.png?a=1&file=../sample.png',
+    'media/sample.png?file=sub/../sample.png',
+    'media/sample.png?file=%2e%2e%2fsample.png',
+    'media/sample.png?file=%2e%2e%5csample.png',
+    'media/sample.png?%2e%2e=1',
+    'media/sample.png#../sample.png',
+    'media/sample.png#file=../sample.png',
+    'media/sample.png?file=．．/sample.png',
+  ];
+  const wall = buildFilmWall({ date: '2026-11-23', films: [baseFilm] });
+  const blindBase = createBlindSession({
+    sessionId: 'w3-blind',
+    createdAt: '2026-11-23T08:00:00Z',
+    decisionLine: { targetSource: 'src-a', minWinsOrTies: 1, committedAt: '2026-11-23T07:00:00Z' },
+    pairs: [{ candidateA: { source: 'src-a', mediaUrl: 'media/a.png' }, candidateB: { source: 'src-b', mediaUrl: 'media/b.png' } }],
+    seed: 'w3-seed',
+  });
+  for (const badUrl of badQueryUrls) {
+    assert.throws(() => buildFilmWall({ date: '2026-11-23', films: [{ ...baseFilm, mediaUrl: badUrl }] }), isBadArg, `buildFilmWall 未拦截 ${badUrl}`);
+    assert.throws(() => renderFilmWallHtml({ ...wall, films: [{ ...wall.films[0], mediaUrl: badUrl }] }), isBadArg, `renderFilmWallHtml 未拦截 ${badUrl}`);
+    assert.throws(() => createBlindSession({
+      sessionId: 'w3-blind-bad',
+      createdAt: '2026-11-23T08:00:00Z',
+      decisionLine: { targetSource: 'src-a', minWinsOrTies: 1, committedAt: '2026-11-23T07:00:00Z' },
+      pairs: [{ candidateA: { source: 'src-a', mediaUrl: badUrl }, candidateB: { source: 'src-b', mediaUrl: 'media/b.png' } }],
+      seed: 'w3-seed',
+    }), isBadArg, `createBlindSession 未拦截 ${badUrl}`);
+    const mutated = structuredClone(blindBase.publicSession);
+    mutated.pairs[0].left.mediaUrl = badUrl;
+    assert.throws(() => renderBlindPageHtml(mutated), isBadArg, `renderBlindPageHtml 未拦截 ${badUrl}`);
+  }
+  // 合法查询串与版本号小数点应放行
+  assert.doesNotThrow(() => buildFilmWall({
+    date: '2026-11-23',
+    films: [{ ...baseFilm, mediaUrl: 'media/sample.png?v=1.2.3&frame=0#t=0.5' }],
+  }));
+});
+
+test('W4 成片墙准确提取正式 buildBoard 的 energyRulers 与 rebuild.tolerance 读数并展示', () => {
+  const board = buildBoard({
+    asOf: '2026-11-23',
+    energy: [{ metric: 'noise.residual', value: 0.125 }],
+    rebuild: { tolerance: { passed: 3, total: 4 } },
+  });
+  const wall = buildFilmWall({
+    date: '2026-11-23',
+    films: [{ filmId: 'w4-1', template: 'turntable', mediaUrl: 'films/w4.png' }],
+    scoreboard: board,
+  });
+  assert.notEqual(wall.fourIndicators.ceiling.display, '暂无');
+  assert.match(wall.fourIndicators.ceiling.display, /0\.125/);
+  assert.equal(wall.fourIndicators.ceiling.value, 0.125);
+  assert.notEqual(wall.fourIndicators.controllability.display, '暂无');
+  assert.match(wall.fourIndicators.controllability.display, /75\.0%|3\/4/);
+  assert.equal(wall.fourIndicators.controllability.value, 0.75);
+
+  const html = renderFilmWallHtml(wall);
+  assert.match(html, /0\.125/);
+  assert.match(html, /75\.0%/);
+
+  // 空 energy 与未跑 rebuild 仍保持 null / 暂无
+  const emptyBoard = buildBoard({ asOf: '2026-11-23', energy: [] });
+  const emptyWall = buildFilmWall({
+    date: '2026-11-23',
+    films: [{ filmId: 'w4-2', template: 'turntable', mediaUrl: 'films/w4.png' }],
+    scoreboard: emptyBoard,
+  });
+  assert.equal(emptyWall.fourIndicators.ceiling.value, null);
+  assert.equal(emptyWall.fourIndicators.ceiling.display, '暂无');
+  assert.equal(emptyWall.fourIndicators.controllability.value, null);
+  assert.equal(emptyWall.fourIndicators.controllability.display, '暂无');
+});
+
+test('U1 成片墙页面打回脚本导出的回执自带 ISO-8601 at，可直接原样入原话账本', () => {
+  const wall = buildFilmWall({
+    date: '2026-11-23',
+    films: [{ filmId: 'cut-0', template: 'turntable', mediaUrl: 'films/cut-0.png' }],
+  });
+  const html = renderFilmWallHtml(wall);
+  const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(scriptMatch, '成片墙应包含内联脚本');
+
+  let clickHandler = null;
+  const statusEl = { textContent: '待看' };
+  const outBox = { textContent: '{}' };
+  const exactText = `  画幅 & 反光 '<script>样例</script>"  `;
+  const fields = {
+    '[name="frameStart"]': { value: '3' },
+    '[name="frameEnd"]': { value: '7' },
+    '[name="category"]': { value: '' },
+    '[name="verbatim"]': { value: exactText },
+    '[data-role="status-label"]': statusEl,
+  };
+  const card = {
+    getAttribute: (k) => (k === 'data-film-id' ? 'cut-0' : k === 'data-film-template' ? 'turntable' : null),
+    querySelector: (sel) => fields[sel] ?? null,
+  };
+  const rejectBtn = {
+    getAttribute: (k) => (k === 'data-wall-action' ? 'reject' : null),
+    closest: (sel) => (sel === 'button[data-wall-action]' ? rejectBtn : sel === '[data-film-id]' ? card : null),
+  };
+  const sandbox = {
+    window: {},
+    document: {
+      addEventListener: (type, fn) => { if (type === 'click') clickHandler = fn; },
+      getElementById: (id) => (id === 'wall-decisions-json' ? outBox : null),
+    },
+    Date,
+  };
+  vm.runInNewContext(scriptMatch[1], sandbox);
+  assert.equal(typeof clickHandler, 'function');
+  clickHandler({ target: rejectBtn });
+
+  const receipt = JSON.parse(outBox.textContent)['cut-0'];
+  assert.equal(receipt.filmId, 'cut-0');
+  assert.equal(receipt.template, 'turntable');
+  assert.deepEqual(receipt.frames, [3, 7]);
+  assert.equal(receipt.verbatim, exactText);
+  assert.equal(typeof receipt.at, 'string');
+  assert.match(receipt.at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+
+  withTmpDir((ledgerDir) => {
+    const entry = recordRejection(ledgerDir, receipt);
+    assert.equal(entry.filmId, 'cut-0');
+    assert.equal(entry.verbatim, exactText);
+    assert.equal(entry.at, receipt.at);
+  });
+});
+
+test('B3 盲选页标题与正文完全中性（即使候选来源名就是「北冥」，公开 JSON 与 HTML 均零命中）', () => {
+  const pairs = Array.from({ length: 10 }, (_, i) => ({
+    id: `p-${i}`,
+    kind: 'still',
+    candidateA: { source: '北冥', mediaUrl: `media/a-${i}.png` },
+    candidateB: { source: '松柏组', mediaUrl: `media/b-${i}.png` },
+  }));
+  const { publicSession } = createBlindSession({
+    sessionId: 'nov-23',
+    createdAt: '2026-11-23T08:00:00Z',
+    decisionLine: { targetSource: '北冥', minWinsOrTies: 7, committedAt: '2026-11-23T07:00:00Z' },
+    pairs,
+    seed: 'b3-seed',
+  });
+  assert.ok(!JSON.stringify(publicSession).includes('北冥'));
+  const html = renderBlindPageHtml(publicSession);
+  assert.ok(!html.includes('北冥'), '盲选 HTML 不得包含「北冥」');
+  assert.match(html, /<title>盲选页 nov-23<\/title>/);
+  assert.match(html, /<h1>双盲对比页<\/h1>/);
+});
+
+test('B4 拦截 URL 编码的来源名通过 mediaUrl 泄入盲选公开面，并容错合法 note 中的裸 %', () => {
+  const target = '银杏组';
+  const baseOpts = {
+    sessionId: 'b4-session',
+    createdAt: '2026-11-23T08:00:00Z',
+    decisionLine: { targetSource: target, minWinsOrTies: 1, committedAt: '2026-11-23T07:00:00Z', note: '至少 70% 胜平率' },
+    pairs: [{
+      candidateA: { source: target, mediaUrl: 'media/neutral-a.png' },
+      candidateB: { source: '松柏组', mediaUrl: 'media/neutral-b.png' },
+    }],
+    seed: 'b4-seed',
+  };
+  // 合法 note 含裸 % 不抛错
+  assert.doesNotThrow(() => createBlindSession(baseOpts));
+
+  // encodeURI 编码后的中文来源名、ASCII 百分号编码内置敏感词、查询参数编码来源名一律拒绝
+  for (const leakedUrl of [
+    encodeURI(`media/${target}/frame.png`),
+    `media/${encodeURIComponent(encodeURIComponent(target))}/frame.png`,
+    'media/%62%65%69%6d%69%6e%67/frame.png',
+    'media/%E5%8C%97%E5%86%A5/frame.png',
+    `media/frame.png?src=${encodeURIComponent(target)}`,
+  ]) {
+    const badOpts = structuredClone(baseOpts);
+    badOpts.pairs[0].candidateA.mediaUrl = leakedUrl;
+    assert.throws(() => createBlindSession(badOpts), isBadArg, `createBlindSession 未拦截编码泄源: ${leakedUrl}`);
+  }
+
+  // renderBlindPageHtml 同样拦截编码后的内置敏感词
+  const { publicSession } = createBlindSession(baseOpts);
+  for (const leakedUrl of ['media/%62%65%69%6d%69%6e%67/frame.png', 'media/%E5%8C%97%E5%86%A5/frame.png']) {
+    const tampered = structuredClone(publicSession);
+    tampered.pairs[0].left.mediaUrl = leakedUrl;
+    delete tampered.layoutDigest;
+    assert.throws(() => renderBlindPageHtml(tampered), isBadArg, `renderBlindPageHtml 未拦截编码泄源: ${leakedUrl}`);
+  }
+});
+
+test('B5 跨会话选票回执不得被静默覆盖 sessionId；U2 盲选前端脚本导出的选票带 submittedAt 可直接入库', () => {
+  const mkPairs = () => Array.from({ length: 10 }, (_, i) => ({
+    candidateA: { source: '银杏组', mediaUrl: `media/p${i}-a.png` },
+    candidateB: { source: '松柏组', mediaUrl: `media/p${i}-b.png` },
+  }));
+  const baseOpts = {
+    sessionId: 'nov-23',
+    createdAt: '2026-11-23T08:00:00Z',
+    decisionLine: { targetSource: '银杏组', minWinsOrTies: 7, committedAt: '2026-11-23T07:00:00Z' },
+    pairs: mkPairs(),
+    seed: 'b5-seed',
+  };
+  const sA = createBlindSession(baseOpts);
+  const sB = createBlindSession({ ...baseOpts, sessionId: 'nov-24' });
+  const votes = Object.fromEntries(sA.publicSession.pairs.map((p) => [p.pairId, 'left']));
+
+  // B5: sessionId 不匹配必须硬拒且不得写入 store
+  const store = [];
+  assert.throws(() => recordBlindBallot(store, sB.publicSession, {
+    sessionId: 'nov-23',
+    voter: 'director',
+    submittedAt: '2026-11-23T10:00:00Z',
+    votes,
+  }), isBadArg);
+  assert.equal(store.length, 0);
+  assert.throws(() => recordBlindBallot(store, sB.publicSession, {
+    sessionId: null,
+    voter: 'director',
+    submittedAt: '2026-11-23T10:00:00Z',
+    votes,
+  }), isBadArg);
+  assert.equal(store.length, 0);
+
+  // U2: 执行 renderBlindPageHtml 内联脚本，产出的回执带 ISO-8601 submittedAt，可直接传给 recordBlindBallot
+  const html = renderBlindPageHtml(sA.publicSession);
+  const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(scriptMatch, '盲选页应包含内联脚本');
+  const digestMatch = html.match(/data-blind-layout-digest="([^"]+)"/);
+  const handlers = {};
+  const outBox = { textContent: '{}' };
+  const radios = sA.publicSession.pairs.map((p) => ({
+    getAttribute: (k) => (k === 'data-pair-id' ? p.pairId : null),
+    value: 'left',
+  }));
+  const sessionEl = {
+    getAttribute: (k) => (k === 'data-blind-session-id' ? sA.publicSession.sessionId : k === 'data-blind-layout-digest' ? (digestMatch?.[1] ?? null) : null),
+  };
+  const sandbox = {
+    document: {
+      addEventListener: (type, fn) => { handlers[type] = fn; },
+      querySelector: (sel) => (sel === '[data-blind-session-id]' ? sessionEl : null),
+      querySelectorAll: () => radios,
+      getElementById: (id) => (id === 'blind-voter' ? { value: 'director' } : id === 'blind-ballot-json' ? outBox : null),
+    },
+    Date,
+  };
+  vm.runInNewContext(scriptMatch[1], sandbox);
+  assert.equal(typeof handlers.change, 'function');
+  handlers.change();
+
+  const receipt = JSON.parse(outBox.textContent);
+  assert.equal(receipt.sessionId, 'nov-23');
+  assert.equal(receipt.voter, 'director');
+  assert.equal(typeof receipt.submittedAt, 'string');
+  assert.match(receipt.submittedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  assert.deepEqual(receipt.votes, votes);
+
+  // 使用 committedAt 早于当前时刻的会话验证 receipt 原样可入库
+  const liveSession = createBlindSession({
+    ...baseOpts,
+    createdAt: '2026-01-01T08:00:00Z',
+    decisionLine: { targetSource: '银杏组', minWinsOrTies: 7, committedAt: '2026-01-01T07:00:00Z' },
+  });
+  const liveReceipt = { ...receipt, layoutDigest: liveSession.publicSession.layoutDigest };
+  const savedStore = [];
+  const recorded = recordBlindBallot(savedStore, liveSession.publicSession, liveReceipt);
+  assert.equal(savedStore.length, 1);
+  assert.equal(recorded.submittedAt, receipt.submittedAt);
+});
+
+test('B6 同场重排后旧 answerKey 与篡改排布均被 layoutDigest 硬拒，同排布只改审片视角可正常揭盲', () => {
+  const pairs = Array.from({ length: 10 }, (_, i) => ({
+    id: `p-${i}`,
+    kind: 'still',
+    reviewerChoice: 'A',
+    candidateA: { source: '银杏组', mediaUrl: `media/g-${i}-1.png` },
+    candidateB: { source: '松柏组', mediaUrl: `media/g-${i}-2.png` },
+  }));
+  const opts = {
+    sessionId: 'nov-23',
+    createdAt: '2026-11-23T08:00:00Z',
+    decisionLine: { targetSource: '银杏组', minWinsOrTies: 7, committedAt: '2026-11-23T07:00:00Z' },
+    pairs,
+    seed: 'R1.31',
+  };
+  const s1 = createBlindSession(opts);
+  const s2 = createBlindSession({ ...opts, seed: 'R1.32' });
+
+  assert.equal(typeof s1.publicSession.layoutDigest, 'string');
+  assert.match(s1.publicSession.layoutDigest, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(s1.publicSession.layoutDigest, s1.answerKey.layoutDigest);
+  assert.notEqual(s1.publicSession.layoutDigest, s2.publicSession.layoutDigest);
+
+  const votesForS2 = Object.fromEntries(
+    s2.answerKey.pairs.map((k) => [k.pairId, k.leftSource === '银杏组' ? 'left' : 'right']),
+  );
+  const ballot2 = recordBlindBallot([], s2.publicSession, {
+    sessionId: opts.sessionId,
+    voter: 'director',
+    submittedAt: '2026-11-23T10:00:00Z',
+    votes: votesForS2,
+  });
+  const okReport = unblindBlindSession(s2.publicSession, s2.answerKey, ballot2);
+  assert.equal(okReport.targetWins, 10);
+  assert.equal(okReport.passed, true);
+
+  // 旧答案键 s1.answerKey 绝不能静默揭盲 s2.publicSession
+  assert.throws(() => unblindBlindSession(s2.publicSession, s1.answerKey, ballot2), isBadArg);
+  // 缺 layoutDigest 的旧格式答案键同样拒绝
+  const keyWithoutDigest = structuredClone(s2.answerKey);
+  delete keyWithoutDigest.layoutDigest;
+  assert.throws(() => unblindBlindSession(s2.publicSession, keyWithoutDigest, ballot2), isBadArg);
+  // 篡改 publicSession 排布而保留旧 layoutDigest 被拒绝
+  const tamperedPub = structuredClone(s2.publicSession);
+  [tamperedPub.pairs[0].left.mediaUrl, tamperedPub.pairs[0].right.mediaUrl] = [
+    tamperedPub.pairs[0].right.mediaUrl,
+    tamperedPub.pairs[0].left.mediaUrl,
+  ];
+  assert.throws(() => renderBlindPageHtml(tamperedPub), isBadArg);
+  assert.throws(() => unblindBlindSession(tamperedPub, s2.answerKey, ballot2), isBadArg);
+  // 同排布仅改审片视角（layoutDigest 相同）正常揭盲
+  const altReviewerOpts = structuredClone(opts);
+  altReviewerOpts.seed = 'R1.32';
+  altReviewerOpts.pairs[0].reviewerChoice = 'B';
+  const s2Alt = createBlindSession(altReviewerOpts);
+  assert.equal(s2Alt.publicSession.layoutDigest, s2.publicSession.layoutDigest);
+  const altReport = unblindBlindSession(s2Alt.publicSession, s2Alt.answerKey, ballot2);
+  assert.equal(altReport.targetWins, 10);
+  assert.equal(altReport.agreementRate, 0.9);
+});
+
+test('B7 省略 seed 时生成不可预测的随机种子，绝不退回公开 sessionId 且不泄入 publicSession', () => {
+  const pairs = Array.from({ length: 10 }, (_, i) => ({
+    candidateA: { source: '银杏组', mediaUrl: `media/r-${i}-1.png` },
+    candidateB: { source: '松柏组', mediaUrl: `media/r-${i}-2.png` },
+  }));
+  const opts = {
+    sessionId: 'nov-23',
+    createdAt: '2026-11-23T08:00:00Z',
+    decisionLine: { targetSource: '银杏组', minWinsOrTies: 7, committedAt: '2026-11-23T07:00:00Z' },
+    pairs,
+  };
+  const r1 = createBlindSession(opts);
+  const r2 = createBlindSession(opts);
+  assert.equal(typeof r1.answerKey.seed, 'string');
+  assert.ok(r1.answerKey.seed.length >= 16);
+  assert.notEqual(r1.answerKey.seed, r1.publicSession.sessionId);
+  assert.notEqual(r1.answerKey.seed, r2.answerKey.seed);
+  assert.equal(Object.hasOwn(r1.publicSession, 'seed'), false);
+  assert.ok(!JSON.stringify(r1.publicSession).includes(r1.answerKey.seed));
+});
+
 

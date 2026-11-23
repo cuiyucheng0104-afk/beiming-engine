@@ -6,7 +6,7 @@
 //   3. 盲选页（Blind A/B Page）：createBlindSession / renderBlindPageHtml / recordBlindBallot / unblindBlindSession
 // 口径约定：纯构建与计分函数不读墙钟、不调 Math.random；入参须为普通 JSON 对象与数组（不防调用方自造的 Proxy/getter），
 // 严格防御丙类外部输入的 HTML XSS、媒体路径穿越与宿主绝对路径、非法候选谓词入模板及盲选来源标签泄露。细则见 DETAILS.md。
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -32,6 +32,7 @@ const VIDEO_EXT_RE = /\.(?:mp4|webm|mov|mkv)(?:[?#].*)?$/i;
 const ISO_TS_RE = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|([+-])(\d{2}):(\d{2}))$/;
 const FORBIDDEN_BLIND_WORDS = [
   'beiming',
+  '北冥',
   'cycles',
   'blender',
   'reference',
@@ -145,10 +146,36 @@ function normalizeSeed(seed, fallback) {
 
 const hasPrivateMarker = (s) => scanQuestionLeaks(String(s)).some((l) => l.code !== 'local-path');
 
+function safeDecodePercentOnce(str) {
+  try {
+    return decodeURIComponent(str);
+  } catch {
+    // 容错非法 % 序列：逐段解码合法的 UTF-8 百分号编码字节串，保留非法裸 %
+    return str.replace(/(?:%[0-9a-fA-F]{2})+/g, (seq) => {
+      try {
+        return decodeURIComponent(seq);
+      } catch {
+        return seq;
+      }
+    });
+  }
+}
+
+function hasParentSegment(part) {
+  if (!part) return false;
+  for (const token of part.split(/[&;]/)) {
+    for (const piece of token.split('=')) {
+      const decoded = safeDecodePercentOnce(piece).normalize('NFKC');
+      if (decoded.split(/[\\/]/).some((seg) => seg === '..')) return true;
+    }
+  }
+  return false;
+}
+
 /**
  * 校验只读媒体路径：
  * - 允许相对路径（如 films/01/deliver.mp4）或受控站点路由前缀（/api/、/artifacts/、/media/、/blind/、/wall/、/films/、/refs/）；
- * - 严拒 `..` 穿越（含百分号编码）、反斜杠、控制字符、空白、任意协议头（http/https/javascript/data/file 等）、`//` 外链、宿主系统绝对路径与盘符。
+ * - 严拒 `..` 穿越（含百分号编码、查询串与片段参数）、反斜杠、控制字符、空白、任意协议头（http/https/javascript/data/file 等）、`//` 外链、宿主系统绝对路径与盘符。
  */
 export function checkSafeMediaUrl(url, at = 'mediaUrl') {
   if (typeof url !== 'string' || !url.isWellFormed() || url.length === 0) bad(`${at} 必须是非空字符串`);
@@ -172,28 +199,39 @@ export function checkSafeMediaUrl(url, at = 'mediaUrl') {
   if (cur.includes('%')) bad(`${at} 不得多重百分号编码`);
 
   for (const candidate of variants) {
-    if (/[\p{Cc}\s\\:]/u.test(candidate) || candidate.includes('//') || candidate === '~' || candidate.startsWith('~/')) {
-      bad(`${at} 解码后含有非法路径字符或协议`);
-    }
-    if (hasPrivateMarker(candidate)) {
-      bad(`${at} 含有受限私有标记`);
-    }
-    if (/(?:^|[/?#&])\.{2}(?:[/?#&]|$)/.test(candidate)) {
-      bad(`${at} 含有路径穿越段`);
-    }
-    const cleanPath = candidate.split(/[?#]/, 1)[0];
-    if (!cleanPath || cleanPath.endsWith('/')) bad(`${at} 必须指向具体媒体文件`);
-    if (cleanPath.startsWith('/')) {
-      if (!CONTROLLED_ROUTE_PREFIX.test(cleanPath)) {
-        bad(`${at} 不得使用未受控的宿主绝对路径`);
+    const normalized = candidate.normalize('NFKC');
+    for (const text of [candidate, normalized]) {
+      if (/[\p{Cc}\s\\:]/u.test(text) || text.includes('//') || text === '~' || text.startsWith('~/')) {
+        bad(`${at} 解码后含有非法路径字符或协议`);
       }
-      const segs = cleanPath.slice(1).split('/');
-      if (segs.some((seg) => seg === '' || seg === '.' || seg === '..')) bad(`${at} 含有非法路径段`);
-    } else {
-      const segs = cleanPath.split('/');
-      const rest = segs[0] === '.' ? segs.slice(1) : segs;
-      if (rest.length === 0 || rest.some((seg) => seg === '' || seg === '.' || seg === '..')) {
-        bad(`${at} 含有路径穿越或空路径段`);
+      if (hasPrivateMarker(text)) {
+        bad(`${at} 含有受限私有标记`);
+      }
+      if (/(?:^|[/?#&=;,])\.{2}(?:[/?#&=;,]|$)/.test(text)) {
+        bad(`${at} 含有路径穿越段`);
+      }
+      const hashIdx = text.indexOf('#');
+      const beforeHash = hashIdx >= 0 ? text.slice(0, hashIdx) : text;
+      const hashPart = hashIdx >= 0 ? text.slice(hashIdx + 1) : '';
+      const queryIdx = beforeHash.indexOf('?');
+      const queryPart = queryIdx >= 0 ? beforeHash.slice(queryIdx + 1) : '';
+      if (hasParentSegment(queryPart) || hasParentSegment(hashPart)) {
+        bad(`${at} 查询参数或片段含有路径穿越段`);
+      }
+      const cleanPath = beforeHash.slice(0, queryIdx >= 0 ? queryIdx : beforeHash.length);
+      if (!cleanPath || cleanPath.endsWith('/')) bad(`${at} 必须指向具体媒体文件`);
+      if (cleanPath.startsWith('/')) {
+        if (!CONTROLLED_ROUTE_PREFIX.test(cleanPath)) {
+          bad(`${at} 不得使用未受控的宿主绝对路径`);
+        }
+        const segs = cleanPath.slice(1).split('/');
+        if (segs.some((seg) => seg === '' || seg === '.' || seg === '..')) bad(`${at} 含有非法路径段`);
+      } else {
+        const segs = cleanPath.split('/');
+        const rest = segs[0] === '.' ? segs.slice(1) : segs;
+        if (rest.length === 0 || rest.some((seg) => seg === '' || seg === '.' || seg === '..')) {
+          bad(`${at} 含有路径穿越或空路径段`);
+        }
       }
     }
   }
@@ -279,6 +317,11 @@ function html(strings, ...values) {
 
 const pct = (v) => (typeof v === 'number' && Number.isFinite(v) ? `${(v * 100).toFixed(1)}%` : '暂无');
 const num = (v, digits = 2) => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(digits) : '暂无');
+const fmtMetric = (v, digits = 4) => {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return '暂无';
+  const scaled = Math.round(v * 10 ** digits) / 10 ** digits;
+  return String(Number.isFinite(scaled) ? scaled : v);
+};
 
 const BASE_STYLE = `
 :root{color-scheme:light dark;--line:#8885;--soft:#8882;--accent:#2563eb;--bad:#dc2626;--ok:#16a34a}
@@ -316,6 +359,21 @@ function mediaElement(mediaUrl, kind, altText) {
 
 /* ---------------- 1. 成片墙（Daily Film Wall） ---------------- */
 
+function extractTallyRate(t) {
+  if (!isPlainObject(t)) return null;
+  if (typeof t.rate === 'number' && Number.isFinite(t.rate)) {
+    return {
+      rate: t.rate,
+      passed: Number.isSafeInteger(t.passed) ? t.passed : null,
+      total: Number.isSafeInteger(t.total) ? t.total : null,
+    };
+  }
+  if (Number.isSafeInteger(t.passed) && Number.isSafeInteger(t.total) && t.total > 0) {
+    return { rate: t.passed / t.total, passed: t.passed, total: t.total };
+  }
+  return null;
+}
+
 function normalizeIndicator(raw, kind) {
   if (raw === undefined || raw === null) return { value: null, display: '暂无', detail: null };
   if (typeof raw === 'number') {
@@ -339,18 +397,34 @@ function normalizeIndicator(raw, kind) {
       }
     }
     const levelRate = total > 0 ? passed / total : null;
-    const blindRate = isPlainObject(o.blindPick) && typeof o.blindPick.rate === 'number' ? o.blindPick.rate : null;
-    const primary = levelRate ?? blindRate;
-    if (primary === null && o.parityHeadroom === null && o.energyRulers === null) {
-      return { value: null, display: '暂无', detail: o };
+    const blindRate = isPlainObject(o.blindPick) && typeof o.blindPick.rate === 'number' && Number.isFinite(o.blindPick.rate)
+      ? o.blindPick.rate
+      : null;
+    const parityVal = isPlainObject(o.parityHeadroom) && typeof o.parityHeadroom.minMargin === 'number' && Number.isFinite(o.parityHeadroom.minMargin)
+      ? o.parityHeadroom.minMargin
+      : null;
+    const rulerEntries = [];
+    if (isPlainObject(o.energyRulers)) {
+      for (const [name, ruler] of Object.entries(o.energyRulers)) {
+        if (typeof ruler === 'number' && Number.isFinite(ruler)) {
+          rulerEntries.push({ name, mean: ruler });
+        } else if (isPlainObject(ruler) && typeof ruler.mean === 'number' && Number.isFinite(ruler.mean)) {
+          rulerEntries.push({ name, mean: ruler.mean });
+        }
+      }
     }
+    const primary = levelRate ?? blindRate ?? parityVal ?? (rulerEntries.length ? rulerEntries[0].mean : null);
     const parts = [];
     if (levelRate !== null) parts.push(`考题通过 ${passed}/${total}（${pct(levelRate)}）`);
     if (blindRate !== null) parts.push(`盲选赢或平 ${pct(blindRate)}`);
-    if (!parts.length && isPlainObject(o.parityHeadroom) && typeof o.parityHeadroom.minMargin === 'number') {
-      parts.push(`对拍最小余量 ${num(o.parityHeadroom.minMargin, 4)}`);
+    if (levelRate === null && blindRate === null) {
+      if (parityVal !== null) parts.push(`对拍最小余量 ${fmtMetric(parityVal, 4)}`);
+      if (rulerEntries.length > 0) {
+        parts.push(`能量尺 ${rulerEntries.map((r) => `${r.name}=${fmtMetric(r.mean, 4)}`).join(' / ')}`);
+      }
     }
-    return { value: primary, display: parts.join(' · ') || '暂无', detail: o };
+    if (!parts.length) return { value: null, display: '暂无', detail: o };
+    return { value: primary, display: parts.join(' · '), detail: o };
   }
   if (kind === 'unattended') {
     const rate = typeof o.rate === 'number' && Number.isFinite(o.rate) ? o.rate : null;
@@ -370,16 +444,26 @@ function normalizeIndicator(raw, kind) {
     return { value: wallSec ?? gpuSec ?? tokens, display: parts.join(' · '), detail: o };
   }
   if (kind === 'controllability') {
-    const gateRate = isPlainObject(o.pureFunctionGate) && typeof o.pureFunctionGate.rate === 'number' ? o.pureFunctionGate.rate : null;
-    const locRate = isPlainObject(o.locality) && typeof o.locality.rate === 'number' ? o.locality.rate : null;
-    const exactRate = isPlainObject(o.rebuild) && isPlainObject(o.rebuild.exact) && typeof o.rebuild.exact.rate === 'number' ? o.rebuild.exact.rate : null;
-    const rates = [gateRate, locRate, exactRate].filter((r) => r !== null);
+    const gate = extractTallyRate(o.pureFunctionGate);
+    const loc = extractTallyRate(o.locality);
+    const exact = isPlainObject(o.rebuild) ? extractTallyRate(o.rebuild.exact) : null;
+    const tol = isPlainObject(o.rebuild) ? extractTallyRate(o.rebuild.tolerance) : null;
+    const legacy = isPlainObject(o.rebuild) ? extractTallyRate(o.rebuild.nightlyLegacy) : null;
+    const rates = [gate, loc, exact, tol, legacy].filter((r) => r !== null).map((r) => r.rate);
     if (!rates.length) return { value: null, display: '暂无', detail: o };
     const avg = rates.reduce((a, b) => a + b, 0) / rates.length;
     const parts = [];
-    if (gateRate !== null) parts.push(`纯函数门 ${pct(gateRate)}`);
-    if (locRate !== null) parts.push(`局部性 ${pct(locRate)}`);
-    if (exactRate !== null) parts.push(`同机重建 ${pct(exactRate)}`);
+    if (gate !== null) parts.push(`纯函数门 ${pct(gate.rate)}`);
+    if (loc !== null) parts.push(`局部性 ${pct(loc.rate)}`);
+    if (exact !== null) parts.push(`同机重建 ${pct(exact.rate)}`);
+    if (tol !== null) {
+      parts.push(
+        tol.passed !== null && tol.total !== null
+          ? `跨机容差 ${tol.passed}/${tol.total}（${pct(tol.rate)}）`
+          : `跨机容差 ${pct(tol.rate)}`,
+      );
+    }
+    if (legacy !== null) parts.push(`旧作品夜间重建 ${pct(legacy.rate)}`);
     return { value: avg, display: parts.join(' · '), detail: o };
   }
   return { value: null, display: '暂无', detail: null };
@@ -575,8 +659,9 @@ document.addEventListener('click', function (ev) {
   var statusEl = card.querySelector('[data-role="status-label"]');
   var outBox = document.getElementById('wall-decisions-json');
   window.__wallDecisions = window.__wallDecisions || {};
+  var now = new Date().toISOString();
   if (action === 'approve') {
-    window.__wallDecisions[filmId] = { filmId: filmId, template: template, decision: 'approved' };
+    window.__wallDecisions[filmId] = { filmId: filmId, template: template, decision: 'approved', at: now };
     if (statusEl) statusEl.textContent = '过';
   } else if (action === 'reject') {
     var startInput = card.querySelector('[name="frameStart"]');
@@ -587,13 +672,15 @@ document.addEventListener('click', function (ev) {
     if (!verbatim || !verbatim.trim()) return;
     var s = Number(startInput && startInput.value ? startInput.value : 0);
     var e = Number(endInput && endInput.value ? endInput.value : s);
+    var rawCat = catInput && catInput.value ? catInput.value.trim() : '';
     window.__wallDecisions[filmId] = {
       filmId: filmId,
       template: template,
       decision: 'rejected',
       frames: [s, e],
-      category: catInput && catInput.value ? catInput.value : null,
-      verbatim: verbatim
+      category: rawCat ? rawCat : null,
+      verbatim: verbatim,
+      at: now
     };
     if (statusEl) statusEl.textContent = '已打回';
   }
@@ -1257,14 +1344,55 @@ function normalizeLeakText(s) {
   return String(s).normalize('NFKC').replace(/\p{Cf}/gu, '').toLowerCase();
 }
 
+function expandLeakVariants(value) {
+  const str = String(value);
+  const variants = [str];
+  let cur = str;
+  for (let round = 0; round < 5 && cur.includes('%'); round += 1) {
+    const next = safeDecodePercentOnce(cur);
+    if (next === cur) break;
+    variants.push(next);
+    cur = next;
+  }
+  const extra = [];
+  for (const v of variants) {
+    if (v.includes('+')) extra.push(v.replace(/\+/g, ' '));
+  }
+  return extra.length ? [...variants, ...extra] : variants;
+}
+
 function checkZeroBlindLeak(value, sensitiveTokens, at) {
   if (value === null || value === undefined) return;
-  const lower = normalizeLeakText(value);
-  for (const token of sensitiveTokens) {
-    if (token && lower.includes(token)) {
-      bad(`${at} 含有可能泄露盲选来源的标识，请使用已脱敏的中立名称`);
+  for (const variant of expandLeakVariants(value)) {
+    const lower = normalizeLeakText(variant);
+    for (const token of sensitiveTokens) {
+      if (token && lower.includes(token)) {
+        bad(`${at} 含有可能泄露盲选来源的标识，请使用已脱敏的中立名称`);
+      }
     }
   }
+}
+
+function computeBlindLayoutDigest(session) {
+  const dl = session.decisionLine;
+  const canonical = {
+    sessionId: session.sessionId,
+    decisionLine: {
+      minWinsOrTies: dl.minWinsOrTies,
+      totalPairs: dl.totalPairs,
+      committedAt: dl.committedAt,
+      ...(dl.alpha !== undefined ? { alpha: dl.alpha } : {}),
+      ...(dl.beta !== undefined ? { beta: dl.beta } : {}),
+      ...(dl.note !== undefined ? { note: dl.note } : {}),
+    },
+    pairs: session.pairs.map((p) => ({
+      pairId: p.pairId,
+      kind: p.kind,
+      left: p.left.mediaUrl,
+      right: p.right.mediaUrl,
+    })),
+  };
+  return `sha256:${sha256Hex(JSON.stringify(canonical))}`;
 }
 
 /**
@@ -1276,7 +1404,7 @@ export function createBlindSession(options) {
   const sessionId = nonEmptyText(opts.sessionId, 'sessionId');
   const purpose = opts.purpose === undefined ? 'equivalence' : nonEmptyText(opts.purpose, 'purpose');
   const createdTs = parseIsoTimestamp(opts.createdAt, 'createdAt');
-  const seed = normalizeSeed(opts.seed, sessionId);
+  const seed = opts.seed === undefined ? randomBytes(16).toString('hex') : normalizeSeed(opts.seed);
 
   if (!Array.isArray(opts.pairs) || opts.pairs.length === 0) {
     bad('pairs 必须是非空数组');
@@ -1411,12 +1539,19 @@ export function createBlindSession(options) {
     ...(note !== null ? { note } : {}),
   };
 
+  const layoutDigest = computeBlindLayoutDigest({
+    sessionId,
+    decisionLine: publicDecisionLine,
+    pairs: publicPairs,
+  });
+
   const publicSession = freezeDeep({
     format: BLIND_PUBLIC_FORMAT,
     sessionId,
     purpose,
     createdAt: createdTs.raw,
     decisionLine: publicDecisionLine,
+    layoutDigest,
     pairs: publicPairs,
   });
 
@@ -1425,6 +1560,7 @@ export function createBlindSession(options) {
     sessionId,
     seed,
     createdAt: createdTs.raw,
+    layoutDigest,
     decisionLine: {
       ...publicDecisionLine,
       targetSource,
@@ -1438,7 +1574,7 @@ export function createBlindSession(options) {
 function validatePublicBlindSession(sessionInput) {
   const s = plainObj(sessionInput, 'publicSession');
   if (s.format !== BLIND_PUBLIC_FORMAT) bad(`publicSession.format 必须是 ${BLIND_PUBLIC_FORMAT}`);
-  const allowedTop = ['format', 'sessionId', 'purpose', 'createdAt', 'decisionLine', 'pairs'];
+  const allowedTop = ['format', 'sessionId', 'purpose', 'createdAt', 'decisionLine', 'layoutDigest', 'pairs'];
   if (!Object.keys(s).every((k) => allowedTop.includes(k))) {
     bad('publicSession 含有未授权字段（严禁混入答案或来源键）');
   }
@@ -1481,12 +1617,19 @@ function validatePublicBlindSession(sessionInput) {
       checkZeroBlindLeak(slot.mediaUrl, leakSet, `publicSession.pairs[${i}].${side}.mediaUrl`);
     }
   });
-  return { session: s, committedTs };
+  const layoutDigest = computeBlindLayoutDigest(s);
+  if (s.layoutDigest !== undefined) {
+    const givenDigest = nonEmptyText(s.layoutDigest, 'publicSession.layoutDigest');
+    if (givenDigest !== layoutDigest) {
+      bad('publicSession.layoutDigest 与公开槽位排布不一致');
+    }
+  }
+  return { session: s, committedTs, layoutDigest };
 }
 
 // 盲选页纯静态脚本：零插值，仅收集 left/right/tie 投票供离线导出。
 const BLIND_UI_SCRIPT = `
-document.addEventListener('change', function () {
+function updateBlindBallot() {
   var sessionEl = document.querySelector('[data-blind-session-id]');
   if (!sessionEl) return;
   var voterEl = document.getElementById('blind-voter');
@@ -1497,18 +1640,24 @@ document.addEventListener('change', function () {
   }
   var out = document.getElementById('blind-ballot-json');
   if (out) {
-    out.textContent = JSON.stringify({
+    var payload = {
       sessionId: sessionEl.getAttribute('data-blind-session-id'),
       voter: voterEl ? voterEl.value : '',
+      submittedAt: new Date().toISOString(),
       votes: votes
-    }, null, 2);
+    };
+    var digest = sessionEl.getAttribute('data-blind-layout-digest');
+    if (digest) payload.layoutDigest = digest;
+    out.textContent = JSON.stringify(payload, null, 2);
   }
-});
+}
+document.addEventListener('change', updateBlindBallot);
+document.addEventListener('input', updateBlindBallot);
 `;
 
 /** 渲染盲选页离线单页 HTML（绝对零来源标识、零答案泄露、零外链）。 */
 export function renderBlindPageHtml(publicSessionInput) {
-  const { session } = validatePublicBlindSession(publicSessionInput);
+  const { session, layoutDigest } = validatePublicBlindSession(publicSessionInput);
   const dl = session.decisionLine;
 
   const pairCards = session.pairs.map((p) => html`<article class="pair-card">
@@ -1536,12 +1685,12 @@ export function renderBlindPageHtml(publicSessionInput) {
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>北冥盲选页 ${session.sessionId}</title>
+<title>盲选页 ${session.sessionId}</title>
 <style>${rawHtml(BASE_STYLE)}</style>
 </head>
-<body data-blind-session-id="${session.sessionId}">
+<body data-blind-session-id="${session.sessionId}" data-blind-layout-digest="${layoutDigest}">
 <header>
-  <h1>北冥双盲对比页</h1>
+  <h1>双盲对比页</h1>
   <p class="note">会话 <code>${session.sessionId}</code> · 共 ${session.pairs.length} 组 · 左右位置随机分配且不标来源 · 前置判定线锁定于 <time>${dl.committedAt}</time>（需赢或平至少 ${dl.minWinsOrTies} / ${dl.totalPairs} 组）</p>
   ${dl.note ? html`<p class="note">${dl.note}</p>` : rawHtml('')}
 </header>
@@ -1589,8 +1738,14 @@ function normalizeVotes(votesInput, expectedPairIds) {
  * - `ballotStore` 支持传受控磁盘目录路径（追加写入 `ballots.jsonl`）或内存数组。
  */
 export function recordBlindBallot(ballotStore, publicSessionInput, ballotInput) {
-  const { session, committedTs } = validatePublicBlindSession(publicSessionInput);
+  const { session, committedTs, layoutDigest } = validatePublicBlindSession(publicSessionInput);
   const b = plainObj(ballotInput, 'ballot');
+  if (b.sessionId !== undefined && b.sessionId !== session.sessionId) {
+    bad('ballot.sessionId 与盲选会话不匹配');
+  }
+  if (b.layoutDigest !== undefined && b.layoutDigest !== layoutDigest) {
+    bad('ballot.layoutDigest 与盲选会话槽位排布不匹配');
+  }
   const voter = nonEmptyText(b.voter, 'voter');
   const submittedTs = parseIsoTimestamp(b.submittedAt, 'submittedAt');
   if (submittedTs.epochNs < committedTs.epochNs) {
@@ -1602,6 +1757,7 @@ export function recordBlindBallot(ballotStore, publicSessionInput, ballotInput) 
   const ballot = freezeDeep({
     format: BLIND_BALLOT_FORMAT,
     sessionId: session.sessionId,
+    layoutDigest,
     voter,
     submittedAt: submittedTs.raw,
     votes,
@@ -1630,10 +1786,14 @@ export function recordBlindBallot(ballotStore, publicSessionInput, ballotInput) 
  * - 统计审片模型与人类的一致率 `agreementRate`，当 `< 0.6` 时置 `disablePerspective: true`（06 §8.2）。
  */
 export function unblindBlindSession(publicSessionInput, answerKeyInput, ballotInput) {
-  const { session, committedTs } = validatePublicBlindSession(publicSessionInput);
+  const { session, committedTs, layoutDigest } = validatePublicBlindSession(publicSessionInput);
   const key = plainObj(answerKeyInput, 'answerKey');
   if (key.format !== BLIND_KEY_FORMAT) bad(`answerKey.format 必须是 ${BLIND_KEY_FORMAT}`);
   if (key.sessionId !== session.sessionId) bad('answerKey.sessionId 与 publicSession.sessionId 不匹配');
+  const keyDigest = nonEmptyText(key.layoutDigest, 'answerKey.layoutDigest');
+  if (keyDigest !== layoutDigest) {
+    bad('answerKey.layoutDigest 与 publicSession 槽位排布不一致（禁止使用重排前的旧答案键揭盲）');
+  }
 
   const keyDl = plainObj(key.decisionLine, 'answerKey.decisionLine');
   const keyCommittedTs = parseIsoTimestamp(keyDl.committedAt, 'answerKey.decisionLine.committedAt');
@@ -1648,6 +1808,9 @@ export function unblindBlindSession(publicSessionInput, answerKeyInput, ballotIn
   const b = plainObj(ballotInput, 'ballot');
   if (b.sessionId !== undefined && b.sessionId !== session.sessionId) {
     bad('ballot.sessionId 与盲选会话不匹配');
+  }
+  if (b.layoutDigest !== undefined && b.layoutDigest !== layoutDigest) {
+    bad('ballot.layoutDigest 与盲选会话槽位排布不匹配');
   }
   const voter = nonEmptyText(b.voter, 'ballot.voter');
   const submittedTs = parseIsoTimestamp(b.submittedAt, 'ballot.submittedAt');

@@ -26,7 +26,7 @@ const SCORED = ['pass', 'fail', 'error', 'timeout', 'failed', 'expected-fail'];
 const CARD_STATUS = { read: 'read-only', 'read-only': 'read-only', candidate: 'candidate', reproduced: 'reproduced', measured: 'verified', verified: 'verified', 'film-verified': 'production-proven', 'production-proven': 'production-proven' };
 const STATUS_ORDER = ['read-only', 'candidate', 'reproduced', 'verified', 'production-proven'];
 const RULERS = ['noise.residual', 'clip.highlight-ratio', 'alias.edge'];
-const INPUT_KEYS = ['asOf', 'questions', 'results', 'cards', 'sourceCapabilities', 'ledger', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'priors', 'packParity', 'harvest', 'history'];
+const INPUT_KEYS = ['asOf', 'questions', 'results', 'cards', 'sourceCapabilities', 'ledger', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'priors', 'packParity', 'harvest', 'history', 'scoreboardMetric'];
 
 /* ---------------- 入参门禁 ---------------- */
 
@@ -561,6 +561,44 @@ function staleReproducedCards(cards, asOf) {
   return { count: ids.length, thresholdDays: STALE_DAYS, ids, undated: stuck.filter((card) => card.since === null).map((card) => card.id).sort(cmp) };
 }
 
+/** B11 第 5 步原话账本自然周重复打回率指标（computeWeeklyRejectionStats 产出的 scoreboardMetric）。 */
+function readScoreboardMetric(input, at = '/scoreboardMetric') {
+  if (input === undefined) return null;
+  const m = only(obj(input, at), ['firstTimeCount', 'repeatCount', 'total', 'repeatRate', 'weekStart', 'weekEnd'], at);
+  const total = count(m.total, `${at}/total`);
+  const repeatCount = count(m.repeatCount, `${at}/repeatCount`);
+  const firstTimeCount = count(m.firstTimeCount, `${at}/firstTimeCount`);
+  if (repeatCount > total) bad(`${at} 的 repeatCount 不能超过 total`, RangeError);
+  if (firstTimeCount + repeatCount !== total) bad(`${at} 的 firstTimeCount + repeatCount 必须等于 total`, RangeError);
+  let repeatRate;
+  if (total === 0) {
+    if (m.repeatRate !== undefined && m.repeatRate !== null) bad(`${at}/repeatRate 在 total 为 0 时必须是 null`, RangeError);
+    repeatRate = null;
+  } else {
+    const expected = repeatCount / total;
+    if (m.repeatRate !== undefined) {
+      if (m.repeatRate === null) bad(`${at}/repeatRate 在 total 大于 0 时不能为 null`, RangeError);
+      const given = amount(m.repeatRate, `${at}/repeatRate`);
+      if (given > 1) bad(`${at}/repeatRate 不能超过 1`, RangeError);
+      if (Math.abs(given - expected) > 1e-9) bad(`${at}/repeatRate 与 repeatCount / total 不一致`, RangeError);
+    }
+    repeatRate = expected;
+  }
+  const weekStart = m.weekStart === undefined ? undefined : day(m.weekStart, `${at}/weekStart`);
+  const weekEnd = m.weekEnd === undefined ? undefined : day(m.weekEnd, `${at}/weekEnd`);
+  if (weekStart !== undefined && weekEnd !== undefined && weekStart > weekEnd) {
+    bad(`${at}/weekStart 不能晚于 weekEnd`, RangeError);
+  }
+  return {
+    firstTimeCount,
+    repeatCount,
+    total,
+    repeatRate,
+    ...(weekStart !== undefined ? { weekStart } : {}),
+    ...(weekEnd !== undefined ? { weekEnd } : {}),
+  };
+}
+
 /* ---------------- 历史 ---------------- */
 
 function historyRow(board, datedIds = new Set()) {
@@ -652,6 +690,7 @@ export function buildBoard(inputs) {
   const previous = earlier.filter((row) => row.asOf < asOf).sort((a, b) => cmp(a.asOf, b.asOf)).at(-1);
   const { matrix, sorted, calibrationChanges } = buildMatrix({ asOf, questions: readQuestions(input.questions), results: readResults(input.results), cards, caps: readCapabilities(input.sourceCapabilities), previous });
   const rebuild = input.rebuild === undefined ? emptyObj() : only(obj(input.rebuild, '/rebuild'), ['exact', 'tolerance', 'nightlyLegacy'], '/rebuild');
+  const scoreboardMetric = readScoreboardMetric(input.scoreboardMetric);
   const board = {
     format: BOARD_FORMAT,
     asOf,
@@ -672,6 +711,7 @@ export function buildBoard(inputs) {
       staleReproducedCards: staleReproducedCards(cards, asOf),
     },
     calibrationChanges,
+    ...(scoreboardMetric ? { scoreboardMetric } : {}),
   };
   const datedIds = new Set(sorted.filter((q) => q.calibration?.updatedAt === asOf).map((q) => q.id));
   return freezeOut({ ...board, history: upsert(earlier, historyRow(board, datedIds)) });
@@ -802,9 +842,20 @@ ${facts([
 <tbody>${cards.distribution.map((d) => h`<tr><td>${d.category}</td><td>${d.livesIn}</td><td>${label(CARD_LABEL, d.status)}</td><td>${fmt(d.count, 0)}</td></tr>`)}</tbody></table></div>`;
 
   const { expectedFailQuestions: expected, staleReproducedCards: stale } = reverse;
+  const repeatMetric = board.scoreboardMetric === undefined ? null : readScoreboardMetric(board.scoreboardMetric, '看板的 scoreboardMetric');
+  const repeatRows = repeatMetric
+    ? [
+      ...(repeatMetric.weekStart && repeatMetric.weekEnd ? [['统计自然周', `${repeatMetric.weekStart} 至 ${repeatMetric.weekEnd}`]] : []),
+      ['重复打回率（应当下降）', pct(repeatMetric.repeatRate)],
+      ['重复打回 / 总打回', `${fmt(repeatMetric.repeatCount, 0)} / ${fmt(repeatMetric.total, 0)}`],
+      ['首次打回', fmt(repeatMetric.firstTimeCount, 0)],
+    ]
+    : [];
+  const repeatHtml = repeatMetric ? h`<article><h3>周重复打回率</h3>${facts(repeatRows)}</article>` : h``;
   const reverseHtml = h`<div class="cards">
 <article><h3>预期失败的题</h3>${facts([['数量（应当先涨后跌）', fmt(expected.count, 0)], ['题号', expected.ids.join('、') || '没有']])}</article>
 <article><h3>停在复现过超过 ${fmt(stale.thresholdDays, 0)} 天的卡</h3>${facts([['数量（应当接近 0）', fmt(stale.count, 0)], ['卡', stale.ids.join('、') || '没有'], ['没写日期、算不了的', stale.undated.join('、') || '没有']])}<p class="note">只读过的占位卡和候选卡不算欠账。</p></article>
+${repeatHtml}
 </div>`;
 
   const trend = h`<div class="scroll"><table><caption>每天一行；同一天重跑覆盖当天那行。</caption>
@@ -845,7 +896,7 @@ export function renderBoardHtml(board) {
 // 做题目录等是做题方能写的地方，里面的 JSON 不当成绩读
 const RUN_PRIVATE_DIRS = new Set(['worktree', 'session', 'tmp', 'transcript', '.git', 'node_modules']);
 const CARD_SKIP_DIRS = new Set(['.git', 'node_modules', 'priors-data']);
-const EXTRA_KEYS = ['sourceCapabilities', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'packParity', 'harvest'];
+const EXTRA_KEYS = ['sourceCapabilities', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'packParity', 'harvest', 'scoreboardMetric'];
 const hasPrivateMarker = (s) => scanQuestionLeaks(String(s)).some((l) => l.code !== 'local-path');
 function shownPath(s) {
   return /^(?:[\\/]|file:|~[\\/]|[a-z]:[\\/])/i.test(s) || hasPrivateText(s) ? '<路径已隐去>' : s;
