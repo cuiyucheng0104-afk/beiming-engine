@@ -192,7 +192,7 @@ mod tests {
         // 种子进缓冲的是过一次哈希之后的值；掩码是上游写死的那一个；只定义的字段是 0。
         let i = KernelIntegrator::new(0x5eed);
         assert_eq!(i, KernelIntegrator { seed: crate::sample::hash_hp(0x5eed), sobol_index_mask: SOBOL_INDEX_MASK, ..Default::default() });
-        assert_eq!((SOBOL_INDEX_MASK, constant(&m, "SOBOL_INDEX_MASK"), constant(&m, "PASS_KIND_COLOR"), constant(&m, "PASS_KIND_AUX")), (0xffff_0000, 0xffff_0000, 0, 1));
+        assert_eq!((SOBOL_INDEX_MASK, constant(&m, "PASS_KIND_COLOR"), constant(&m, "PASS_KIND_AUX")), (0xffff_0000, 0, 1));
         // 输出缓冲的形状：灯组从固定部分之后开始，步长是固定部分加请求的灯组数。
         assert_eq!(KernelFilm::new(0), KernelFilm { film_stride: 12, film_lightgroup_first: FILM_FIXED, num_lightgroups: 0, reserved: 0 });
         assert_eq!(KernelFilm::new(2), KernelFilm { film_stride: 12, film_lightgroup_first: FILM_FIXED, num_lightgroups: 2, reserved: 0 });

@@ -94,17 +94,18 @@ pub struct KernelIntegrator {
     pub sample_clamp_indirect: f32,
     pub filter_glossy: f32,
     pub light_inv_rr_threshold: f32,
-    /// 用户种子过一次 `sample::hash_hp` 之后的值（`KernelIntegrator::new`）。内核现在还从 `Params::size[3]` 读同一个数。
+    /// 用户种子过一次 `sample::hash_hp` 之后的值（`KernelIntegrator::new`）。内核的像素种子从这里来（sample.wgsl 的
+    /// `rng_start`）。
     pub seed: u32,
-    /// Sobol 打乱后的索引取哪几位。为 0 时每个样本取同一个点：`Gpu::render` 开渲前报错。内核现在还用 sample.wgsl 里
-    /// 同值的常数（库测试比着）。
+    /// Sobol 打乱后的索引取哪几位（sample.wgsl 的 `rng_index_at` 读它）。为 0 时每个样本取同一个点：`Gpu::render` 开渲前
+    /// 报错。
     pub sobol_index_mask: u32,
     /// 0 颜色样本，1 辅助样本。
     pub pass_kind: u32,
     pub background_transparent: u32,
 }
 
-/// 上游写死的 Sobol 索引掩码：打乱后的索引取高 16 位（65536 个样本之后重复）。sample.wgsl 里同名同值。
+/// 上游写死的 Sobol 索引掩码：打乱后的索引取高 16 位（65536 个样本之后重复）。经 `KernelIntegrator::new` 进全局参数。
 pub const SOBOL_INDEX_MASK: u32 = 0xffff_0000;
 
 impl KernelIntegrator {
@@ -520,10 +521,12 @@ const RECORDS: &str = include_str!("../shaders/records.wgsl");
 
 /// (pathtrace.wgsl first: a module's imports and directives come before its declarations.)
 /// 北冥：内核主体按阶段分成了几个文件（pathtrace.wgsl 的开头列着哪个阶段在哪个文件）。
-const KERNEL_FILES: [&str; 15] = [
+const KERNEL_FILES: [&str; 16] = [
     include_str!("../shaders/pathtrace.wgsl"),
     RECORDS,
     include_str!("../shaders/sample.wgsl"),
+    // 北冥：照 Cycles 移植的哈希函数（像素种子用）
+    include_str!("../shaders/hash.wgsl"),
     include_str!("../shaders/intersect.wgsl"),
     include_str!("../shaders/trace_hw.wgsl"),
     include_str!("../shaders/shader.wgsl"),
@@ -2121,10 +2124,6 @@ impl Gpu {
         // 北冥：掩码为 0 时每个样本取的是同一个点，画面不收敛而不报错，所以开渲前拦住。
         if base.integrator.sobol_index_mask == 0 {
             return Err(anyhow!("全局参数的 integrator.sobol_index_mask 是 0：每个样本会取同一个点。用 KernelIntegrator::new 填"));
-        }
-        // （种子现在有两处：内核还读 size[3]。两处对不上就是有人只改了一处。）
-        if base.size[3] != base.integrator.seed {
-            return Err(anyhow!("全局参数里的种子两处不一样：size[3] 是 {:#x}，integrator.seed 是 {:#x}", base.size[3], base.integrator.seed));
         }
         let up = self.upload(scene, &self.film_buffer(w, h, &base.film)?, tri_verts, groups, nodes, emitters, emitter_tris, light_tree, env, env_cdf, energy, timings)?;
         let pipeline = self.pipeline(&up.kernel);

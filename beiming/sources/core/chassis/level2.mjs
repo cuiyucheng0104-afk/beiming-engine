@@ -24,9 +24,9 @@ export const CYCLES = JSON.parse(fs.readFileSync(new URL('./cycles-furnace-metal
 export const GATES = { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3, analyticFloor: 1e-5 };
 export const analyticOk = a => Math.abs(a.rel) <= GATES.analyticRel && (Math.abs(a.z) <= GATES.analyticSE || Math.abs(a.rel) <= GATES.analyticFloor);
 // 上游自带的漫反射白炉，画面中央的全精度均值，按显卡各记一个。同一台机器上渲染是确定的，记过的显卡要逐位相等。
-// 换显卡或驱动，着色器编出来的浮点运算次序不同，均值会差在第 8 位上（这两台之间差 1.1e-8），所以没记过的显卡
+// 换显卡或驱动，着色器编出来的浮点运算次序不同，均值会差在第 8 位上（这两台之间差 0.9e-8），所以没记过的显卡
 // 按相对 1e-6 比。记法：在那台机器上跑一遍本脚本，把报告里 diffuseFurnace.mean 填进来。
-export const DIFFUSE = { tolerance: 1e-6, recorded: { 'Apple M5 Pro|Metal': 0.9999757122248412, 'NVIDIA GeForce RTX 5090|Vulkan': 0.9999757010489703 } };
+export const DIFFUSE = { tolerance: 1e-6, recorded: { 'Apple M5 Pro|Metal': 1.0007596142590045, 'NVIDIA GeForce RTX 5090|Vulkan': 1.0007596049457788 } };
 const WORK = path.join(OUT, 'level2');
 const ROUGHNESS = Object.keys(CYCLES.GGX);
 const lum = (px, i) => 0.2126 * px[3 * i] + 0.7152 * px[3 * i + 1] + 0.0722 * px[3 * i + 2];

@@ -104,17 +104,27 @@ fn sobol_owen(rev_index: u32, dim: u32, seed: u32) -> f32 {
 // A path's sample: its index in the pixel's sequence, the pixel's seed, which path of the invocation it is.
 // 北冥：这三个量现在在路径状态里（integrator.wgsl 的 PathState）：state.sample、state.rng_pixel、state.legacy.rng_path。
 
-// The id of decision `slot` at the path's current vertex (`state.bounce`); `rng_sub` the k-th part of decision `d` (a
-// loop's iteration, a light).
-// 北冥：上游的 rng_dim 改名 rng_legacy：还没有照 Cycles 移植的决定都从这里取编号，新写的代码不许用。眼下它原样返回
-// 上游的编号。
-fn rng_legacy(slot: u32) -> u32 { return (state.legacy.rng_path << 28u) ^ (state.bounce << 20u) ^ slot; }
-fn rng_sub(d: u32, k: u32) -> u32 { return hash_hp(d ^ hash_hp(k + 0x9e3779b9u)) | 0x80000000u; }
+// 北冥：「哪个决定用哪一维」的编号（传给 rng1 到 rng4、rng_hash 的那个 `d`）。编号进种子之前还要过一次哈希
+// （rng_seed），所以编号本身只要互不相同。三个名字空间按最高两位分开，按构造互不相撞：
+//   最高位 0     照 Cycles 编号：state.rng_offset + PRNG_*（下面的 path_rng_*），相机的两个直接用 PRNG_FILTER、
+//                PRNG_LENS_TIME。数都很小。
+//   最高两位 10  rng_legacy：还没有照 Cycles 移植的决定（上游的灯、雾、介质，上游顶替闭包自己的选瓣与方向）。
+//                新写的代码不许用；哪个决定照 Cycles 移植完了，就把它的槽位从这里删掉、改用 PRNG_*。
+//   最高两位 11  rng_sub：一个决定里再分的子流（循环的第几次、第几盏灯）。上游的写法原样保留，包括对父编号异或
+//                0x40000000、0x80000000 派生兄弟流（它们只当 rng_sub 的输入用）。介质跟踪用的白噪声（rng_hash）
+//                的编号也都从 rng_sub 来。
+// 后两个空间里的编号是哈希出来的（各 30 位），同一空间里互不相同靠枚举来保：src/sample.rs 的测试
+// `the_dimension_ids_are_distinct` 照下面各函数的用法枚举弹射 0 到 64 的全部编号。加槽位、加子流序号的区段都要
+// 同步改那条测试里的登记表。
+// `slot`：下面的 D_*，必须小于 PRNG_BOUNCE_NUM（state.rng_offset 每次弹射加这么多，偏移加槽位才不重复）。
+fn rng_legacy(slot: u32) -> u32 { return (hash_hp(state.rng_offset + slot) & 0x3fffffffu) | 0x80000000u; }
+// The k-th part of decision `d` (a loop's iteration, a light).
+fn rng_sub(d: u32, k: u32) -> u32 { return hash_hp(d ^ hash_hp(k + 0x9e3779b9u)) | 0xc0000000u; }
 
 // A path vertex's decisions (`rng_legacy`).
-const D_CAMERA: u32 = 0u;    // pixel jitter, lens (4D)
+// 北冥：槽位 0（相机）与 2（俄罗斯轮盘）已经改照 Cycles 编号（PRNG_FILTER、PRNG_LENS_TIME、PRNG_TERMINATE），退役，
+// 这两个号不再给别的决定用。
 const D_BSDF: u32 = 1u;      // lobe, specular or not, direction (4D)
-const D_RR: u32 = 2u;        // Russian roulette
 const D_PICK: u32 = 3u;      // light_pick's kind of light
 const D_SUN: u32 = 4u;       // a directional light's cone (2D a light)
 const D_SUN_VIS: u32 = 5u;   // its shadow ray
@@ -141,12 +151,11 @@ fn rng_hash3(d: u32) -> vec3<f32> { return vec3<f32>(white(d, 0u), white(d, 1u),
 
 // Dimension id `d`'s scramble seed; the shuffled index, 16 bits (65,536 samples, then it repeats; Cycles' index mask).
 fn rng_seed(d: u32) -> u32 { return state.rng_pixel ^ hash_hp(d); }
-// 北冥：掩码起了名字，数值没变。全局参数里也有一份（P.integrator.sobol_index_mask，同一个数，库测试比着），内核现在
-// 还用这里的常数：试过改成读全局参数，苹果显卡上五个带介质的场景像素末位会变（最大相对差 4.5e-4）。换掩码算法的人改读它。
-const SOBOL_INDEX_MASK: u32 = 0xffff0000u;
-fn rng_index(salt: u32) -> u32 { return owen_rev(reverseBits(state.sample), salt) & SOBOL_INDEX_MASK; }
+// 北冥：掩码从全局参数读（P.integrator.sobol_index_mask；现在固定是上游写死的 0xffff0000，为 0 时开渲前报错）。
+// 换掩码算法的人只改 CPU 上填它的那一处。
+fn rng_index(salt: u32) -> u32 { return rng_index_at(state.sample, salt); }
 // 北冥：同上，样本号由调用方给（分支版取数用）。
-fn rng_index_at(index: u32, salt: u32) -> u32 { return owen_rev(reverseBits(index), salt) & SOBOL_INDEX_MASK; }
+fn rng_index_at(index: u32, salt: u32) -> u32 { return owen_rev(reverseBits(index), salt) & P.integrator.sobol_index_mask; }
 
 fn rng1(d: u32) -> f32 {
     if (rng_white(d)) { return white(d, 0u); }
@@ -176,8 +185,8 @@ fn rng4(d: u32) -> vec4<f32> {
 // 哪个决定用哪一维，是「路径状态里的偏移加枚举」：编号 = state.rng_offset + 维度，像素种子与样本号也读路径状态。
 // 发生器就是上面的 rng1 到 rng3（与 Cycles 的 sobol_burley_sample_1D 到 3D 盐值逐个相同）。
 // 维度的枚举，数值照 Cycles 的 PathTraceDimension（kernel/types.h）。相机光线的两个不加偏移，直接当编号用。
-const PRNG_FILTER: u32 = 0u;            // 相机：像素滤波，2 维
-const PRNG_LENS_TIME: u32 = 1u;         // 相机：时刻、镜头 x、镜头 y，3 维
+const PRNG_FILTER: u32 = 0u;            // 相机：像素滤波，2 维（rng2(PRNG_FILTER)）
+const PRNG_LENS_TIME: u32 = 1u;         // 相机：时刻、镜头 x、镜头 y，3 维（rng3(PRNG_LENS_TIME)；时刻现在不用）
 // 以下每次弹射各一份（加 state.rng_offset；每次弹射占 PRNG_BOUNCE_NUM 个位置，见 integrator.wgsl）
 const PRNG_TERMINATE: u32 = 0u;         // 俄罗斯轮盘，1 维
 const PRNG_LIGHT: u32 = 1u;             // 选灯与灯上的点，3 维。已定义（做灯的人用）
@@ -201,10 +210,11 @@ fn path_branched_rng_2D(branch: u32, num_branches: u32, dimension: u32) -> vec2<
 
 // Starts sample `index` of a pixel (the sample offline, the frame live) on path `path`; `seed`: the render's
 // (THREERT_SEED offline) and the stream's.
-// 北冥：`seed` 是用户种子过一次 hash_hp 之后的值：原来在这里现算的那一次哈希挪到了 CPU 上（gpu.rs 的
-// KernelIntegrator::new），像素种子与原来逐位相同。
+// 北冥：像素种子照 Cycles 的 path_rng_pixel_init（kernel/sample/pattern.h）：像素坐标的二维哈希异或全局种子，不再是上游
+// 的三重哈希。`seed` 传 P.integrator.seed：用户种子在 CPU 上过一次 hash_hp 之后的值（gpu.rs 的 KernelIntegrator::new），
+// 所以只差低位的用户种子（1、2、3）给出的序列也互不相干。
 fn rng_start(pix: vec2<u32>, index: u32, seed: u32, path: u32) {
-    state.rng_pixel = hash_hp(pix.x ^ hash_hp(pix.y ^ seed));
+    state.rng_pixel = hash_iqnt2d(pix.x, pix.y) ^ seed;
     state.sample = index;
     state.legacy.rng_path = path;
 }

@@ -128,10 +128,9 @@ struct KernelIntegrator {
     filter_glossy: f32,             // 已定义，0
     light_inv_rr_threshold: f32,    // 已定义，0
     seed: u32,                      // 随机数的全局种子。放的是用户种子过一次 hash_hp 之后的值（sample.wgsl 的 rng_start 要的那个）。
-                                    // 已写未读：内核现在还从上游的位置 P.size.w 读同一个数。试过改读这里，苹果显卡上一个场景
-                                    // （相机三个轴都不贴坐标轴的那个）像素末位会变，留给换随机数编号办法的那一步一起改
-    sobol_index_mask: u32,          // Sobol 打乱后的索引取哪几位（sample.wgsl 的 rng_index）。现在固定是 0xffff0000；为 0 时
-                                    // 每个样本取同一个点，开渲前报错。已写未读：内核现在还用 sample.wgsl 里同值的常数
+                                    // 已落地
+    sobol_index_mask: u32,          // Sobol 打乱后的索引取哪几位（sample.wgsl 的 rng_index_at）。现在固定是 0xffff0000；为 0 时
+                                    // 每个样本取同一个点，开渲前报错。已落地
     pass_kind: u32,                 // 这一趟调度写什么：0 颜色样本，1 辅助样本。已定义，恒 0（辅助那一趟还没有）
     background_transparent: u32,    // 背景对相机不可见。已定义，恒 0
 };
@@ -150,8 +149,8 @@ struct Params {
     cam_fwd: vec4<f32>,   // w = aspect
     cam_right: vec4<f32>, // w = lens radius
     cam_up: vec4<f32>,    // w = focus distance
-    size: vec4<u32>,      // width, height, sample index, seed（北冥：过一次哈希之后的种子，与 integrator.seed 是同一个数。
-                          // 内核现在还从这一格读；改读 integrator.seed 之后这一格改标预留）
+    size: vec4<u32>,      // width, height, sample index, 预留（北冥：上游在这一格放种子；种子挪到了 integrator.seed，
+                          // 这一格停写，恒 0）
     counts: vec4<u32>,    // lights, emitters, max bounces, rr depth
     env: vec4<f32>,       // has env map, env width, env height, sun light index (-1 none)
     misc: vec4<f32>,      // clamp (absolute radiance), emitter total weight, env total weight, _

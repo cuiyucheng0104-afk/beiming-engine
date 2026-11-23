@@ -11,7 +11,7 @@
 | 项目 | ThreeRT，<https://github.com/meshy-dev/ThreeRT> |
 | 固定提交 | `c946cc96bdb08979224e851a7fc67a066b1b456b` |
 | 许可 | MIT，版权人 Meshy LLC（2026）。许可全文原样放在 [LICENSE-upstream.txt](LICENSE-upstream.txt) |
-| 本目录的许可 | MIT。上游的部分版权归 Meshy LLC，北冥改写与新增的部分版权归北冥引擎；逐路径登记在仓库根的 `REUSE.toml` |
+| 本目录的许可 | MIT。上游的部分版权归 Meshy LLC，北冥改写与新增的部分版权归北冥引擎；逐路径登记在仓库根的 `REUSE.toml`。两个文件例外：`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 是照 Blender Cycles 的 `util/hash.h` 移植的，Apache-2.0，版权与许可写在各自的文件头 |
 
 每个源自上游的 `.rs` 与 `.wgsl` 文件第一行都写了它对应上游的哪个路径。
 
@@ -61,7 +61,7 @@
 | `src/texpack.rs` | `renderer/src/texpack.rs` | 删去切掉的几类 |
 | `src/world.rs` | `renderer/src/world.rs` | 删去切掉的几类 |
 | `shaders/pathtrace.wgsl`、`intersect.wgsl`、`shader.wgsl`、`closure.wgsl`、`light.wgsl`、`volume.wgsl`、`integrator.wgsl`、`film.wgsl` | `renderer/shaders/pathtrace.wgsl` | 删去只有实时才走的段；加了北冥的接线（见下一节）；按阶段分成八个文件（见下一节末） |
-| `shaders/sample.wgsl` | `renderer/shaders/sample.wgsl` | 少两个只给辐射缓存用的采样维度常量；随机数的状态换成读路径状态；种子的第一次哈希挪到 CPU 上；索引掩码起了名字；加了照 Cycles 的取数接口与维度枚举，上游的 `rng_dim` 改名 `rng_legacy`（见下一节「随机维度」） |
+| `shaders/sample.wgsl` | `renderer/shaders/sample.wgsl` | 少两个只给辐射缓存用的采样维度常量；随机数的状态换成读路径状态；种子的第一次哈希挪到 CPU 上；加了照 Cycles 的取数接口与维度枚举；编号办法、像素种子的算法换成 Cycles 的，上游的 `rng_dim` 换成 `rng_legacy`，索引掩码改读全局参数（见下一节「随机维度」） |
 | `shaders/trace_hw.wgsl` | `renderer/shaders/trace_hw.wgsl` | 没改 |
 | `shaders/records.wgsl` | `renderer/shaders/records.wgsl` | 去掉每个像素的输出结构 `Pixel`（换成了 `film.wgsl` 的输出缓冲，见下一节末） |
 | `presets/cinematic.json`、`presets/preview.json` | `presets/` 下同名文件 | 没改 |
@@ -71,7 +71,7 @@
 | `rust-toolchain.toml` | `rust-toolchain.toml` | Rust 版本不变（1.100.0）；去掉只给浏览器构建用的 wasm32 目标，注释重写 |
 | `LICENSE-upstream.txt` | `LICENSE` | 原样 |
 
-`PROVENANCE.md`、`README.md`、`.gitignore` 是北冥新写的。
+`PROVENANCE.md`、`README.md`、`.gitignore` 是北冥新写的。`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 也不是上游的文件：照 Cycles 移植的哈希函数，见下一节「随机维度」。
 
 ## 北冥加了什么
 
@@ -141,7 +141,7 @@
 
 - `integrator`（`KernelIntegrator`，4 个 vec4）：字段名照 Cycles 的 `KernelIntegrator`，四类弹射上限、透明弹射的上下限、`min_bounce`、`sampling_pattern`、两个夹取、`filter_glossy`、`light_inv_rr_threshold`、`seed`、`sobol_index_mask`，外加 `pass_kind`（0 颜色样本、1 辅助样本）与 `background_transparent`。只定义、内核还没读的字段是 0。
 - `seed` 里放的是用户种子过一次哈希之后的值：原来着色器里对种子现算的那一次哈希挪到了 CPU 上（`KernelIntegrator::new`），像素种子与原来逐位相同。`sobol_index_mask` 是上游写死的 `0xffff0000`，为 0 时开渲前报错。
-- 这两个数现在是「已写未读」：内核还从上游的位置 `size.w` 读同一个种子（两处不一样时开渲前报错），掩码还用 `sample.wgsl` 里同值的具名常数 `SOBOL_INDEX_MASK`（库测试比着）。试过改读新位置，苹果显卡上像素末位会变：改读种子时一个场景（`shadow/emitter-no-cast`，最大相对差 1.9e-6；在入口读、在 `rng_start` 里读、放在嵌套结构里还是平铺的 vec4 里，四种写法都一样），改读掩码时五个带介质的场景（最大相对差 4.5e-4）。整数的读法不该改变浮点结果，变的是编译器对旁边浮点式子的排法。留给换随机数编号办法的那一步（它本来就允许结果变化）一起改，改完 `size.w` 标预留。
+- 这两个数起初是「已写未读」（内核还从上游的位置 `size.w` 读种子、掩码用着色器里的具名常数），因为单改读的位置在苹果显卡上会让别处的像素末位变化。换随机数编号办法的那一步（见「随机维度」，它本来就允许结果变化）把内核改成了读这两个字段；`size.w` 停写，标预留，恒 0。
 - `film`（`KernelFilm`，1 个 vec4）：输出缓冲每个像素的步长 `film_stride`、灯组的起点 `film_lightgroup_first`、这次渲染请求的灯组数 `num_lightgroups`。
 - `table_first_ext`（2 个 vec4、8 格）：北冥加的表的首地址（上游的 `table_first` 12 格已经占满）。登记了四个去向：物体扩展表、图案节点表、广义 Schlick 的两张能量表；后四格空闲。
 - 库测试 `the_parameters_are_the_kernels`（`src/merged.rs`）逐字段比 `Params`、`KernelIntegrator`、`KernelFilm` 两侧的名字、偏移与总长度。
@@ -160,10 +160,21 @@
 
 ### 随机维度
 
-发生器没有换（打乱索引加 Owen 扰动的 Sobol，上游与 Cycles 的盐值逐个相同）。要换的是「哪个决定用哪一维」的编号办法：从上游的「路径号、顶点号、槽位拼成一个数」换成 Cycles 的「路径状态里的偏移加枚举」。分两步做，这里是第一步，渲染结果不变（逐位）。
+发生器没有换（打乱索引加 Owen 扰动的 Sobol，上游与 Cycles 的盐值逐个相同）。换的是「哪个决定用哪一维」的编号办法、每个像素的种子，以及哪几个决定照 Cycles 取数。分两步做。
 
-- `shaders/sample.wgsl` 新增取数接口 `path_rng_1D`、`path_rng_2D`、`path_rng_3D`（编号 = `state.rng_offset` 加维度，像素种子与样本号读路径状态；对应 Cycles 的 `path_state_rng_1D` 到 `3D`）与分支版 `path_branched_rng_2D`（样本号换成 `state.sample × 分支数 + 第几支`）。维度的枚举 `PRNG_*` 数值照 Cycles 的 `PathTraceDimension`。这一步它们还没有调用者。
-- 上游的 `rng_dim` 改名 `rng_legacy`：还没有照 Cycles 移植的决定都从它取编号，新写的代码不许用。这一步它原样返回上游的编号，相机、俄罗斯轮盘、金属闭包也还经它取。
+第一步只引入接口，渲染结果不变（逐位）：`shaders/sample.wgsl` 新增 `path_rng_1D`、`path_rng_2D`、`path_rng_3D`（对应 Cycles 的 `path_state_rng_1D` 到 `3D`）、分支版 `path_branched_rng_2D` 与维度的枚举 `PRNG_*`；上游的 `rng_dim` 改名 `rng_legacy`，原样返回旧编号。
+
+第二步真正换，渲染结果随之改变（每个像素拿到的是另一串随机数；期望不变，按多个种子的均值判）：
+
+- **编号**。上游是「路径号、顶点号、槽位拼成一个数」。现在照 Cycles 是「偏移加枚举」：路径状态里的 `rng_offset` 初值 16，每弹射一次加 16（`PRNG_BOUNCE_NUM`；介质里散射一次也加），编号 = `rng_offset` 加 `PRNG_*`。相机的两个决定不加偏移，直接用 `PRNG_FILTER`（0）与 `PRNG_LENS_TIME`（1）。枚举的数值照 Cycles 的 `PathTraceDimension`；每次弹射的 16 个位置里，0 到 5 有名字，6、10、11 是 Cycles 给路径引导的（这里不做、也不另作他用），7、8、9、12 到 15 空闲，取用须登记。
+- **照 Cycles 取数的决定**：相机的像素滤波（`PRNG_FILTER` 的 2 维）与镜头（`PRNG_LENS_TIME` 的 3 维里后两个；第一个是时刻，现在不用）、俄罗斯轮盘（`PRNG_TERMINATE`）、表面散射（`PRNG_SURFACE_BSDF` 的 3 维：前两个定方向，第三个选闭包并复用；现在只有纯金属的微表面闭包用它，上游顶替闭包仍从上游的随机数里取）。镜头的两个数仍按上游的办法映到圆盘上。Cycles 在样本号为 0 时把像素滤波固定在像素中心，这里不照搬。
+- **三个名字空间按编号的最高两位分开**，按构造互不相撞：照 Cycles 编号的最高位是 0；`rng_legacy(槽位)`（`rng_offset` 加槽位过一次哈希）最高两位是 10；上游在一个决定里再分子流的 `rng_sub` 最高两位改成 11。上游还没有照 Cycles 移植的决定（方向光、本地灯、发光体、环境光、雾、介质，上游顶替闭包自己的选瓣与方向）全部走 `rng_legacy`，新写的代码不许用它；哪个决定移植完了，就把它的槽位删掉、改用 `PRNG_*`。上游对父编号异或 `0x40000000`、`0x80000000` 派生兄弟流的写法原样保留（只当 `rng_sub` 的输入）。介质跟踪用的白噪声（`rng_hash`）的编号都从 `rng_sub` 来，种子与样本号读路径状态。相机与俄罗斯轮盘原来的两个槽位（0 与 2）退役，不再给别的决定用。
+- **像素种子**照 Cycles 的 `path_rng_pixel_init`：像素坐标的二维哈希 `hash_iqnt2d` 异或全局种子，不再是上游的三重哈希。`hash_iqnt2d` 照 Cycles 的 `util/hash.h` 移植，放在新文件 `shaders/hash.wgsl`（Apache-2.0，CPU 上的同一份在 `src/cycles_hash.rs`）。全局种子读 `P.integrator.seed`（用户种子在 CPU 上过一次哈希之后的值）。
+- **索引掩码**仍是上游写死的 `0xffff0000`，改从 `P.integrator.sobol_index_mask` 读；着色器里那个同值的常数删了。分支版取数把样本号乘以分支数，所以它的有效样本数是 65536 除以分支数，超过后重复同一批点；换掩码算法的人一并处理。
+- `src/sample.rs`（发生器在 CPU 上的镜像）跟着加了 `rng1`、`rng3`、`rng_pixel`、`rng_legacy`、`rng_sub`；测试 `the_shader_is_this` 在显卡上把 `rng_legacy`、`rng_sub`、像素种子、`path_rng_*` 与分支版都对了一遍。
+- 新测试 `the_dimension_ids_are_distinct`（纯 CPU）：照各着色器里的用法枚举弹射 0 到 64 的编号（照 Cycles 的每次弹射 16 个位置加相机 2 个；16 个上游槽位；各槽位之下登记过的子流序号区段），断言照 Cycles 的编号都小于 2^31、三个名字空间的最高两位各是各的、全部编号互不相同。测试里的常数就是子流序号区段的登记表（方向光 8 盏、本地灯 64 盏、本地灯候选 8 个加灯光瓦片候选 16 个、发光体候选 16 个），加槽位、加子流都要同步改它。
+
+**这条测试管不到的一块**：介质跟踪每一步的白噪声编号（`media_tr` 与 `media_track` 里按步数 `rng_sub` 出来的）。它们挂在每一条阴影射线的编号之下，照上面的区段枚举约有八十万个（6,240 条阴影射线，每条 4 个介质各 32 步），而 `rng_sub` 的编号只有 30 位，「全部互不相同」按生日界做不到。实际试过把区段缩到方向光 4 盏、本地灯 16 盏、介质 2 个、每条射线 4 步，连跟踪步一共 23,098 个编号，就已经有一处：第 3 次与第 55 次弹射的两条阴影射线各有两步互相撞号。所以测试对它们只查「同一条射线之内互不相同」（介质 4 个、每个 32 步），不同射线的跟踪步之间每一对相撞的概率是 2^-30，没有保证。这不是换编号带来的：上游的子流编号原来是 31 位，同样没有这个保证。
 
 ## 沿用上游名字的地方
 

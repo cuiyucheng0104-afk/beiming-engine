@@ -91,7 +91,7 @@ struct PathLegacy {
     // `direct_light` without the sky: a surface seen in a reflection lights itself from the lights, the sky's light
     // there is the radiance cache's.
     lights_only: bool,
-    // 上游随机数编号里的「这次调用的第几条路径」（sample.wgsl `rng_legacy`），离线恒为 0
+    // 上游随机数编号里的「这次调用的第几条路径」，离线恒为 0。编号换成按 rng_offset 之后只剩实时那一支的 rng_white 读它
     rng_path: u32,
 };
 
@@ -104,8 +104,8 @@ struct PathState {
     transmission_bounce: u32,
     transparent_bounce: u32,
     rng_pixel: u32,                 // 随机数的像素种子（上游的 RNG_SEED）。已落地
-    rng_offset: u32,                // 当前弹射的随机维度偏移：初值 PRNG_BOUNCE_NUM，每弹射一次加一个。已写未读
-                                    // （上游的取数还按 bounce 编号，换成「偏移加枚举」之后读它）
+    rng_offset: u32,                // 当前弹射的随机维度偏移：初值 PRNG_BOUNCE_NUM，每弹射一次加一个（sample.wgsl 的
+                                    // path_rng_* 与 rng_legacy 都按它编号）。已落地
     flag: u32,                      // 路径标志位（PATH_RAY_*）
     mis_ray_pdf: f32,               // 上一个散射点采样的概率密度：下一次打到灯时算多重重要性采样的权重。已落地
     min_ray_pdf: f32,               // 这条路径上最小的采样概率密度，初值为浮点最大值（滤光泽与倒角的早退用）。已写未读
@@ -166,7 +166,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let pix = gid.y * w + gid.x;
     state.render_pixel_index = pix;
     if (has(F_LISTS)) { lt_fb = LT_NONE; }
-    rng_start(gid.xy, P.size.z, P.size.w, 0u);
+    rng_start(gid.xy, P.size.z, P.integrator.seed, 0u);
     state.bounce = 0u;
     state.rng_offset = PRNG_BOUNCE_NUM;
     state.min_ray_pdf = 3.4028235e38;
@@ -175,18 +175,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     state.mis_ray_object = OBJECT_NONE;
     // 北冥：相机光线。这一段留在 main 里：试过抽成单独的函数，Metal 上相机三个轴都不贴坐标轴的场景末位会变（运算次序），
     // 所以没有单独的相机文件。
-    let cam = rng4(rng_legacy(D_CAMERA));
+    // 相机的两个决定照 Cycles 编号（kernel/integrator/init_from_camera.h）：像素滤波取 PRNG_FILTER 的 2 维，镜头取
+    // PRNG_LENS_TIME 的 3 维里的后两个（第一个是时刻，现在不用）；这两个编号不加弹射的偏移。Cycles 在样本号为 0 时把
+    // 像素滤波固定在像素中心，这里不照搬：每个样本都抖动。
+    let rand_filter = rng2(PRNG_FILTER);
 
     // (Every sample draws its own sub-pixel jitter.)
-    var jx = cam.x;
-    var jy = cam.y;
+    var jx = rand_filter.x;
+    var jy = rand_filter.y;
     let ndc = vec2<f32>((f32(gid.x) + jx) / f32(w) * 2.0 - 1.0, 1.0 - (f32(gid.y) + jy) / f32(h) * 2.0);
     var d = normalize(P.cam_fwd.xyz + P.cam_right.xyz * (ndc.x * P.cam_pos.w * P.cam_fwd.w) + P.cam_up.xyz * (ndc.y * P.cam_pos.w));
     var o = P.cam_pos.xyz;
     if (P.cam_right.w > 0.0) {
         let focus = o + d * (P.cam_up.w / dot(d, P.cam_fwd.xyz));
-        let r = sqrt(cam.z) * P.cam_right.w;
-        let phi = 2.0 * PI * cam.w;
+        let rand_time_lens = rng3(PRNG_LENS_TIME);
+        let r = sqrt(rand_time_lens.y) * P.cam_right.w;
+        let phi = 2.0 * PI * rand_time_lens.z;
         o += P.cam_right.xyz * (r * cos(phi)) + P.cam_up.xyz * (r * sin(phi));
         d = normalize(focus - o);
     }
@@ -316,7 +320,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 state.continuation_probability = 1.0;
                 if (depth >= P.counts.w) {
                     state.continuation_probability = min(max(state.throughput.x, max(state.throughput.y, state.throughput.z)), 0.95);
-                    if (rng1(rng_legacy(D_RR)) > state.continuation_probability) { break; }
+                    if (path_rng_1D(PRNG_TERMINATE) > state.continuation_probability) { break; }
                     state.throughput /= state.continuation_probability;
                 }
                 ray.P = x;
@@ -408,9 +412,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             if (lum > clamp_v) { dl *= clamp_v / lum; }
         }
         film_add_light(dl, depth, LIGHTGROUP_NONE);
-        // 北冥：选一个闭包，在它上面采样方向。照 Cycles 编号的三个随机数还没接（等换取数接口的那一步）；
-        // 上游顶替自己从上游的随机数里取，不用这三个。
-        let rand_bsdf = vec3<f32>(0.0);
+        // 北冥：选一个闭包，在它上面采样方向。三个随机数照 Cycles 编号（PRNG_SURFACE_BSDF）：前两个定方向，第三个选闭包
+        // 并复用。上游顶替自己从上游的随机数里取（rng_legacy(D_BSDF)），不用这三个。
+        let rand_bsdf = path_rng_3D(PRNG_SURFACE_BSDF);
         let pick = surface_shader_bsdf_bssrdf_pick(sd, rand_bsdf);
         let bs = surface_shader_bsdf_sample_closure(sd, pick.closure, pick.rand);
         let l = bs.wo;
@@ -464,7 +468,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         state.continuation_probability = 1.0;
         if (depth >= P.counts.w) {
             state.continuation_probability = min(max(state.throughput.x, max(state.throughput.y, state.throughput.z)), 0.95);
-            if (rng1(rng_legacy(D_RR)) > state.continuation_probability) { break; }
+            if (path_rng_1D(PRNG_TERMINATE) > state.continuation_probability) { break; }
             state.throughput /= state.continuation_probability;
         }
         ray.P = offset_origin(sd.P, select(sd.Ng, -sd.Ng, dot(l, sd.Ng) < 0.0));

@@ -89,15 +89,12 @@ fn surface_shader_bsdf_bssrdf_pick(sd: ShadingPoint, rand: vec3<f32>) -> BsdfPic
 
 // 在第 `k` 个闭包上采样方向：用 `rand` 的前两个定方向；有多个闭包时把其余闭包的贡献并进 eval 与 pdf。
 // 上游顶替不用 `rand`：它自己从上游的随机数里取（sample_bsdf）。要先调过 surface_shader_prepare_closures。
-// 微表面闭包眼下也不用 `rand`：方向的两个随机数仍取上游给材质采样的那一组里的后两维（与改走闭包之前同一对数），
-// 等取数接口换成照 Cycles 编号之后改用 `rand` 的前两个。
 fn surface_shader_bsdf_sample_closure(sd: ShadingPoint, k: u32, rand: vec3<f32>) -> BsdfSample {
     let c = sd.closure[k];
     if (c.kind == CLOSURE_LEGACY) { return surface_shader_bsdf_sample_legacy(sd); }
     var bs = BsdfSample();
     if (c.kind != CLOSURE_BSDF_MICROFACET_GGX) { return bs; }
-    let r = rng4(rng_legacy(D_BSDF));
-    let m = bsdf_microfacet_ggx_sample(c.N, sd.Ng, sd.wi, c.alpha_x, c.f0, c.f90_or_b, c.energy_scale, r.zw);
+    let m = bsdf_microfacet_ggx_sample(c.N, sd.Ng, sd.wi, c.alpha_x, c.f0, c.f90_or_b, c.energy_scale, rand.xy);
     // （没采到：label 为 LABEL_NONE，其余全 0，积分器看到密度为 0 就结束这条路径。）
     bs.wo = m.wo;
     bs.label = m.label;
