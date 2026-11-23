@@ -191,7 +191,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         d = normalize(focus - o);
     }
 
-    var radiance = vec3<f32>(0.0);
     var first_t = 0.0;
     state.throughput = vec3<f32>(1.0);
     var albedo = vec3<f32>(0.0);
@@ -267,15 +266,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 let fl = luminance(fs);
                 let fmax = 0.02 * clamp_v;
                 if (fl > fmax) { fs *= fmax / fl; }
-                radiance += state.throughput * fs;
+                film_add_light(state.throughput * fs, depth, LIGHTGROUP_NONE);
             }
-            radiance += state.throughput * (1.0 - tr) * P.fog_color.rgb;
+            film_add_light(state.throughput * (1.0 - tr) * P.fog_color.rgb, depth, LIGHTGROUP_NONE);
             state.throughput *= tr;
         }
         if (has(F_AERIAL) && hit.tri != 0xffffffffu) {
             let ta = aerial_tr(ray.P, ray.D, hit.t);
             let haze = state.throughput * (1.0 - ta) * aerial_light(ray.D);
-            radiance += haze;
+            film_add_light(haze, depth, LIGHTGROUP_NONE);
             // Live: the camera ray's haze is light the camera sees directly, not the surface's: it joins the emission
             // signal (left out of the diffuse one, which the denoiser divides by the albedo).
             if (depth == 0u) { e0 += haze; }
@@ -285,7 +284,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (!LIVE && has(F_MEDIA) && P.time.w > 0.5) {
             // Media on this segment: emission on the way; a real collision scatters the path there.
             let tk = media_track(ray.P, ray.D, select(hit.t, 1.0e30, hit.tri == 0xffffffffu), rng_dim(D_MEDIA));
-            radiance += state.throughput * tk.emission;
+            film_add_light(state.throughput * tk.emission, depth, LIGHTGROUP_NONE);
             if (tk.t >= 0.0) {
                 let x = ray.P + ray.D * tk.t;
                 state.throughput *= tk.albedo;
@@ -299,7 +298,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     let lum = luminance(c);
                     if (lum > clamp_v) { c *= clamp_v / lum; }
                 }
-                radiance += c;
+                film_add_light(c, depth, LIGHTGROUP_NONE);
                 if (depth == P.counts.z) { break; }
                 let nd = sample_hg(ray.D, tk.g);
                 state.mis_ray_pdf = hg_phase(tk.g, dot(nd, ray.D));
@@ -331,7 +330,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 let lum = luminance(c);
                 if (lum > clamp_v) { c *= clamp_v / lum; }
             }
-            radiance += c;
+            film_add_light(c, depth, LIGHTGROUP_NONE);
         }
         if (hit.tri == 0xffffffffu) {
             var c = state.throughput * sky_mis(ray.D, select(0.0, state.mis_ray_pdf, depth > 0u && !state.legacy.bent));
@@ -341,7 +340,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             }
             if (depth == 0u) { e0 += c; }
             if (depth == 1u && spec_lobe) { spec_t = 1.0e4; }
-            radiance += c;
+            film_add_light(c, depth, LIGHTGROUP_NONE);
             break;
         }
         let width = ray.cone_w + ray.cone_a * hit.t;
@@ -375,7 +374,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 if (lum > clamp_v) { c *= clamp_v / lum; }
             }
             if (depth == 0u) { e0 += c; }
-            radiance += c;
+            film_add_light(c, depth, LIGHTGROUP_NONE);
         }
         // （没有闭包的面只发光、不散射：上游的发光卡片。）
         if (sd.num_closure == 0u) { break; }
@@ -387,7 +386,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 var dz = state.throughput * sun_light(sd);
                 let lum = luminance(dz);
                 if (lum > clamp_v && !state.legacy.straight) { dz *= clamp_v / lum; }
-                radiance += dz;
+                film_add_light(dz, depth, LIGHTGROUP_NONE);
             }
             break;
         }
@@ -398,7 +397,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 var dz = state.throughput * direct_light(sd);
                 let lum = luminance(dz);
                 if (lum > clamp_v && !state.legacy.straight) { dz *= clamp_v / lum; }
-                radiance += dz;
+                film_add_light(dz, depth, LIGHTGROUP_NONE);
             }
             break;
         }
@@ -408,7 +407,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             let lum = luminance(dl);
             if (lum > clamp_v) { dl *= clamp_v / lum; }
         }
-        radiance += dl;
+        film_add_light(dl, depth, LIGHTGROUP_NONE);
         // 北冥：选一个闭包，在它上面采样方向。照 Cycles 编号的三个随机数还没接（等换取数接口的那一步）；
         // 上游顶替自己从上游的随机数里取，不用这三个。
         let rand_bsdf = vec3<f32>(0.0);
@@ -424,7 +423,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (depth == 0u) {
             spec0 = state.throughput * state.legacy.dl_spec;
             k_spec = state.legacy.split_frac;
-            rad0 = radiance;
+            rad0 = film_sample.L;
             split = true;
             spec_lobe = glossy;
             through0 = through;
@@ -473,6 +472,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
 
     if (non_finite(vec3<f32>(first_t))) { first_t = 0.0; }
-    // 北冥：写进 accum 的那一段在 film.wgsl
-    accum_write_sample(state.render_pixel_index, radiance, albedo, normal, e0, spec0, split, rad0, k_spec);
+    // 北冥：样本结束，其余通道在 film.wgsl 的 film_write_sample 里写（颜色已经由各处的 film_add_light 加进 film_sample.L）
+    film_sample.albedo = albedo;
+    film_sample.normal = normal;
+    film_sample.legacy.split = split;
+    film_sample.legacy.e0 = e0;
+    film_sample.legacy.spec0 = spec0;
+    film_sample.legacy.rad0 = rad0;
+    film_sample.legacy.k_spec = k_spec;
+    film_write_sample(film_sample);
 }

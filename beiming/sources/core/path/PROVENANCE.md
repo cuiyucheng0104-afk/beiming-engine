@@ -44,7 +44,7 @@
 | `src/denoise.rs` | `renderer/src/denoise.rs` | 没改 |
 | `src/desc.rs` | `renderer/src/desc.rs` | 删去切掉的几类 |
 | `src/files.rs` | `renderer/src/files.rs` | 删去切掉的几类；预设的内嵌路径改指本目录的 `presets/` |
-| `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的四个着色器（见下一节）；全局参数追加三块、材质表与物体扩展表的上传（见下一节末） |
+| `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的四个着色器（见下一节）；全局参数追加三块、材质表与物体扩展表的上传、输出缓冲的分配与读回（见下一节末） |
 | `src/heap.rs` | `renderer/src/heap.rs` | 删去切掉的几类；多一张物体扩展表（见下一节末） |
 | `src/lib.rs` | `renderer/src/lib.rs` | 删去切掉的几类；文档里的程序名；填全局参数追加的三块 |
 | `src/ltree.rs` | `renderer/src/ltree.rs` | 删去切掉的几类 |
@@ -63,7 +63,7 @@
 | `shaders/pathtrace.wgsl`、`intersect.wgsl`、`shader.wgsl`、`closure.wgsl`、`light.wgsl`、`volume.wgsl`、`integrator.wgsl`、`film.wgsl` | `renderer/shaders/pathtrace.wgsl` | 删去只有实时才走的段；加了北冥的接线（见下一节）；按阶段分成八个文件（见下一节末） |
 | `shaders/sample.wgsl` | `renderer/shaders/sample.wgsl` | 少两个只给辐射缓存用的采样维度常量；随机数的状态换成读路径状态；种子的第一次哈希挪到 CPU 上；索引掩码起了名字 |
 | `shaders/trace_hw.wgsl` | `renderer/shaders/trace_hw.wgsl` | 没改 |
-| `shaders/records.wgsl` | `renderer/shaders/records.wgsl` | 没改 |
+| `shaders/records.wgsl` | `renderer/shaders/records.wgsl` | 去掉每个像素的输出结构 `Pixel`（换成了 `film.wgsl` 的输出缓冲，见下一节末） |
 | `presets/cinematic.json`、`presets/preview.json` | `presets/` 下同名文件 | 没改 |
 | `tests/render/data/panel-decal.glb` | `tests/render/data/panel-decal.glb` | 没改。库测试里一个实例拍平的用例要读它，3232 字节，是上游仓库 `tests/render/data/` 下的测试素材 |
 | `Cargo.toml` | `renderer/Cargo.toml` | 包名、程序名、说明；去掉切掉的几类的依赖与特性 |
@@ -84,7 +84,7 @@
 
 已知的一处简化：矩形纯光的高光倍率不是默认的 1 时，光源一侧的高光乘了倍率、材质一侧没乘，两侧权重配不上。要支持非 1 的倍率时，把材质一侧的贡献按高光与漫反射拆开再乘。
 
-上游的 `pathtrace.wgsl` 是一个三千多行的文件。这里把它按阶段分成了八个文件，只搬位置：`pathtrace.wgsl` 留下开头（编译开关、常数、全局参数、各张表的绑定与读法）和各阶段共用的小函数，其余按求交、材质求值、闭包、灯光、体积、积分主循环、输出各一个文件，哪个函数去了哪里写在 `pathtrace.wgsl` 的开头。上游的注释原样跟着代码走。入口函数 `main` 末尾写累加缓冲的一段，因为一个函数不能跨文件，抽成了函数（`film.wgsl` 的 `accum_write_sample`），语句没动。开头生成相机光线的一段留在 `main` 里：试过同样抽成函数，苹果显卡上相机三个轴都不贴坐标轴的场景，像素值的末位会变（相对差 2e-6，运算次序不同），所以没有单独的相机文件。`src/gpu.rs` 的文件列表与 `src/bvh.rs` 里一条读着色器源码的测试跟着改了文件名。Rust 源码的英文注释里仍写着「pathtrace.wgsl 的某某函数」，没有逐条改，按 `pathtrace.wgsl` 开头的对照表去找。从上游挑改动进来时，上游对 `pathtrace.wgsl` 的改动要按这张表落到对应的文件。
+上游的 `pathtrace.wgsl` 是一个三千多行的文件。这里把它按阶段分成了八个文件，只搬位置：`pathtrace.wgsl` 留下开头（编译开关、常数、全局参数、各张表的绑定与读法）和各阶段共用的小函数，其余按求交、材质求值、闭包、灯光、体积、积分主循环、输出各一个文件，哪个函数去了哪里写在 `pathtrace.wgsl` 的开头。上游的注释原样跟着代码走。入口函数 `main` 末尾写累加缓冲的一段，因为一个函数不能跨文件，抽成了函数（`film.wgsl` 的 `accum_write_sample`，后来成了 `film_write_sample`，见本节末），语句没动。开头生成相机光线的一段留在 `main` 里：试过同样抽成函数，苹果显卡上相机三个轴都不贴坐标轴的场景，像素值的末位会变（相对差 2e-6，运算次序不同），所以没有单独的相机文件。`src/gpu.rs` 的文件列表与 `src/bvh.rs` 里一条读着色器源码的测试跟着改了文件名。Rust 源码的英文注释里仍写着「pathtrace.wgsl 的某某函数」，没有逐条改，按 `pathtrace.wgsl` 开头的对照表去找。从上游挑改动进来时，上游对 `pathtrace.wgsl` 的改动要按这张表落到对应的文件。
 
 ### 着色点与闭包
 
@@ -147,6 +147,16 @@
 - 库测试 `the_parameters_are_the_kernels`（`src/merged.rs`）逐字段比 `Params`、`KernelIntegrator`、`KernelFilm` 两侧的名字、偏移与总长度。
 
 **物体扩展表**（`shaders/pathtrace.wgsl` 的 `ObjectExt` 与 `object_ext_at`，Rust 一侧 `scene::GpuObjectExt`，`heap::Table::ObjectExt`）：每个物体 2 个 vec4，与上游的物体表同下标、定长，首地址在 `table_first_ext` 的第一格。第 0 个 vec4 是实体编号 `entity_id`（存成浮点数值，小于 2^24）、物体标志 `object_flag`（位照 Cycles，第 3 位镜像）、接收者集合号 `receiver_light_set`、所属灯组 `lightgroup`；第 1 个是两个阴影终止偏移与两格预留。现在全是 0，还没有读者；各家以后只填自己的格子。
+
+**输出缓冲 film**（`shaders/film.wgsl`，Rust 一侧 `src/gpu.rs` 的 `FILM_*`、`film_bytes`、`Gpu::film_buffer` 与读回）换掉了上游每个像素一个写死的结构（`records.wgsl` 的 `Pixel`，5 个 vec4）。
+
+- 一块 vec4 的数组，每个像素占 `P.film.film_stride` 个。固定部分 10 个：0 颜色与样本数，1 降噪用的反照率（w 留给不透明度），2 降噪用的法线（w 留给覆盖率计数），3 上游降噪用的两个方差量（亮度的和、亮度平方的和；原来挤在反照率与法线的 w 里），4、5 上游 `--signals` 的两组，6、7 辅助样本的两格（深度、实体编号、运动矢量；法线），8、9 预留。灯组排在固定部分之后，从 `P.film.film_lightgroup_first` 起。步长与灯组的起点两侧都从全局参数读，不写死。
+- film 只经三个函数读写：`film_add_light(L, bounce, 灯组槽位)` 每一次贡献调一次，把值加进这个样本的颜色（模块级私有变量 `film_sample` 的 `L`），槽位不是「无」时同一个值直接加进那个灯组；`film_write_aux(AuxSample)` 写辅助样本的两格，只定义，辅助那一趟调度还没有；`film_write_sample(SampleResult)` 在样本结束时写其余通道，语句是上游 `main` 末尾那一段，次序没动。主循环里原来的 11 处 `radiance += …` 改成调 `film_add_light`，槽位全填「无」，累加的次序不变。
+- 灯组数是这次渲染请求的灯组数（`KernelFilm::new(组数)`），不是场景里的。开渲前按 `步长 × 16 × 宽 × 高` 算缓冲大小，超过显卡单个缓冲绑定的上限就报错，并写明这个分辨率下这次最多能要几组。`Frame` 多了 `lightgroups`（每组一层）。请求灯组的路是通的：库测试 `requested_lightgroups_leave_the_picture_alone` 把同一个场景不请求、请求 2 组各渲一遍，颜色、反照率、法线、方差逐位相同，两个灯组全 0。
+- 步长由 Rust 一侧向上取到 4 的倍数（64 字节）：不请求灯组时是 12，不是 10。这是量出来的：苹果显卡上步长 10、11 的稳态比步长 12、16 慢 5%（同样只写前四格），每个像素的记录对不齐 64 字节时写起来就慢。多出来的格子没人读写；代价是缓冲大两成，个别分辨率下能请求的灯组数少至多 3 个（4K 下不变，仍是 6 个）。
+- `film_write_sample` 里四格先都读出来再写回去（读一格写一格地交替，苹果显卡上稳态慢约 1%）。
+- 降噪、`--hdr`、图像输出、`--signals` 读的还是颜色、反照率、法线、两个方差量与那两组，结果不变（三个场景开、关降噪各渲一遍，图像、`--hdr` 与三份 `--signals` 输出逐字节相同）。
+- 库测试 `the_film_layout_is_the_kernels`（`src/merged.rs`）逐个比两侧的位置常数，查 film 只在 `film.wgsl` 里下标、步长只在一处乘，并锁住缓冲大小的算法与报错。
 
 ## 沿用上游名字的地方
 

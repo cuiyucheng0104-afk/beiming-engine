@@ -194,8 +194,47 @@ mod tests {
         assert_eq!(i, KernelIntegrator { seed: crate::sample::hash_hp(0x5eed), sobol_index_mask: SOBOL_INDEX_MASK, ..Default::default() });
         assert_eq!((SOBOL_INDEX_MASK, constant(&m, "SOBOL_INDEX_MASK"), constant(&m, "PASS_KIND_COLOR"), constant(&m, "PASS_KIND_AUX")), (0xffff_0000, 0xffff_0000, 0, 1));
         // 输出缓冲的形状：灯组从固定部分之后开始，步长是固定部分加请求的灯组数。
-        assert_eq!(KernelFilm::new(0), KernelFilm { film_stride: FILM_FIXED, film_lightgroup_first: FILM_FIXED, num_lightgroups: 0, reserved: 0 });
-        assert_eq!(KernelFilm::new(2), KernelFilm { film_stride: FILM_FIXED + 2, film_lightgroup_first: FILM_FIXED, num_lightgroups: 2, reserved: 0 });
+        assert_eq!(KernelFilm::new(0), KernelFilm { film_stride: 12, film_lightgroup_first: FILM_FIXED, num_lightgroups: 0, reserved: 0 });
+        assert_eq!(KernelFilm::new(2), KernelFilm { film_stride: 12, film_lightgroup_first: FILM_FIXED, num_lightgroups: 2, reserved: 0 });
+        assert_eq!(KernelFilm::new(3), KernelFilm { film_stride: 16, film_lightgroup_first: FILM_FIXED, num_lightgroups: 3, reserved: 0 });
+    }
+
+    /// 北冥：输出缓冲 film 两侧是同一个布局：固定部分各通道的位置与固定部分的长度两侧各一份，数值逐个相同；
+    /// 内核里步长与灯组的起点只从全局参数读（源码里除了定义那一行，不出现固定部分的长度）。开渲前按显卡的上限
+    /// 算缓冲大小：超过就报错并说这次最多能要几组。
+    #[test]
+    fn the_film_layout_is_the_kernels() {
+        use crate::gpu::{self, film_bytes, KernelFilm};
+        let (m, _) = parse(&variant(0, false));
+        for (name, value) in [
+            ("FILM_COMBINED", gpu::FILM_COMBINED),
+            ("FILM_DENOISE_ALBEDO", gpu::FILM_DENOISE_ALBEDO),
+            ("FILM_DENOISE_NORMAL", gpu::FILM_DENOISE_NORMAL),
+            ("FILM_LEGACY_VARIANCE", gpu::FILM_LEGACY_VARIANCE),
+            ("FILM_LEGACY_EMIT", gpu::FILM_LEGACY_EMIT),
+            ("FILM_LEGACY_SPEC", gpu::FILM_LEGACY_SPEC),
+            ("FILM_AUX_DATA", gpu::FILM_AUX_DATA),
+            ("FILM_AUX_NORMAL", gpu::FILM_AUX_NORMAL),
+            ("FILM_FIXED", gpu::FILM_FIXED),
+        ] {
+            assert_eq!(constant(&m, name), value, "{name}");
+        }
+        assert_eq!([gpu::FILM_COMBINED, gpu::FILM_DENOISE_ALBEDO, gpu::FILM_DENOISE_NORMAL, gpu::FILM_LEGACY_VARIANCE, gpu::FILM_LEGACY_EMIT, gpu::FILM_LEGACY_SPEC, gpu::FILM_AUX_DATA, gpu::FILM_AUX_NORMAL, gpu::FILM_FIXED], [0, 1, 2, 3, 4, 5, 6, 7, 10]);
+        // film 只在 film.wgsl 里下标，内核别处不碰；固定部分的长度只出现在定义那一行。
+        let template = kernel_template();
+        let film = include_str!("../shaders/film.wgsl");
+        assert_eq!(template.matches("film[").count(), film.matches("film[").count());
+        assert_eq!(template.matches("FILM_FIXED").count(), 1);
+        assert_eq!(template.matches("* P.film.film_stride").count(), 1, "步长只在 film_pixel_first 里乘");
+        // 缓冲大小。4K 下每个 vec4 是 132,710,400 字节，2 GiB 的上限放得下 16 个：固定 10 个加 6 个灯组。
+        let limit = (1u64 << 31) - 1;
+        assert_eq!(film_bytes(1920, 1080, &KernelFilm::new(0), limit).unwrap(), 1920 * 1080 * 12 * 16);
+        assert_eq!(film_bytes(3840, 2160, &KernelFilm::new(6), limit).unwrap(), 3840 * 2160 * 16 * 16);
+        let e = film_bytes(3840, 2160, &KernelFilm::new(7), limit).unwrap_err().to_string();
+        assert!(e.contains("最多能要 6 个灯组") && e.contains("请求了 7 个"), "{e}");
+        // 形状不是 KernelFilm::new 填的：全 0、步长放不下灯组。
+        assert!(film_bytes(64, 36, &KernelFilm::default(), limit).is_err());
+        assert!(film_bytes(64, 36, &KernelFilm { film_stride: 11, film_lightgroup_first: 10, num_lightgroups: 2, reserved: 0 }, limit).is_err());
     }
 
     /// Kernel variants in the merged layout: valid WGSL, no entry point with more than eight storage buffers, none

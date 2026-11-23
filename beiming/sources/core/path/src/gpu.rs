@@ -127,13 +127,46 @@ pub struct KernelFilm {
     pub reserved: u32,
 }
 
+/// 北冥：输出缓冲 film 固定部分各通道的位置（film.wgsl 里同名，库测试逐个比数值）：颜色与样本数、降噪用的反照率
+/// 与法线、上游降噪用的两个方差量、上游 `--signals` 的两组、辅助样本的两格。第 8、9 格预留。
+pub const FILM_COMBINED: u32 = 0;
+pub const FILM_DENOISE_ALBEDO: u32 = 1;
+pub const FILM_DENOISE_NORMAL: u32 = 2;
+pub const FILM_LEGACY_VARIANCE: u32 = 3;
+pub const FILM_LEGACY_EMIT: u32 = 4;
+pub const FILM_LEGACY_SPEC: u32 = 5;
+pub const FILM_AUX_DATA: u32 = 6;
+pub const FILM_AUX_NORMAL: u32 = 7;
 /// 输出缓冲里每个像素固定部分的长度（vec4 个数）：灯组排在它后面。内核不写死这个数，从 `KernelFilm` 读。
 pub const FILM_FIXED: u32 = 10;
+/// 每个像素的步长向上取到这个数的倍数（4 个 vec4 是 64 字节）。量出来的：苹果显卡上步长 10、11 比步长 12、16 的
+/// 稳态慢 5%（同样只写前四格），每个像素的记录对不齐 64 字节时写起来就慢。多出来的格子没人读写。
+pub const FILM_STRIDE_ALIGN: u32 = 4;
+
+/// 输出缓冲的字节数：每个像素 `film_stride` 个 vec4。`limit` 是显卡单个缓冲绑定的上限（也不许超过单个缓冲的上限）：
+/// 超过就报错，并写明这个分辨率下这次最多能要几个灯组。形状对不上（不是 `KernelFilm::new` 填的）也报错。
+pub fn film_bytes(w: u32, h: u32, film: &KernelFilm, limit: u64) -> Result<u64> {
+    if film.film_lightgroup_first < FILM_FIXED || film.film_stride < film.film_lightgroup_first + film.num_lightgroups {
+        return Err(anyhow!("全局参数的 film 一块形状不对（{film:?}）：用 KernelFilm::new 填"));
+    }
+    let per_vec4 = w as u64 * h as u64 * 16;
+    let bytes = per_vec4 * film.film_stride as u64;
+    if bytes > limit {
+        // （步长是 FILM_STRIDE_ALIGN 的倍数：放得下的最大步长先向下取整，再减去固定部分。）
+        let most = (limit / per_vec4.max(1) / FILM_STRIDE_ALIGN as u64 * FILM_STRIDE_ALIGN as u64).saturating_sub(film.film_lightgroup_first as u64);
+        return Err(anyhow!(
+            "输出缓冲要 {bytes} 字节（{w}×{h}，每个像素 {} 个 vec4），超过这块显卡单个缓冲绑定的上限 {limit} 字节：这个分辨率下这次最多能要 {most} 个灯组（请求了 {} 个），多出来的分几次渲",
+            film.film_stride,
+            film.num_lightgroups
+        ));
+    }
+    Ok(bytes)
+}
 
 impl KernelFilm {
     /// 请求 `num_lightgroups` 个灯组的一次渲染的输出缓冲形状。
     pub fn new(num_lightgroups: u32) -> KernelFilm {
-        KernelFilm { film_stride: FILM_FIXED + num_lightgroups, film_lightgroup_first: FILM_FIXED, num_lightgroups, reserved: 0 }
+        KernelFilm { film_stride: (FILM_FIXED + num_lightgroups).next_multiple_of(FILM_STRIDE_ALIGN), film_lightgroup_first: FILM_FIXED, num_lightgroups, reserved: 0 }
     }
 }
 
@@ -361,7 +394,7 @@ struct SceneBuffers<'a> {
     heap: &'a Heap<Table>,
     words: &'a Heap<Stream>,
     prev_verts: &'a wgpu::Buffer,
-    accum: &'a wgpu::Buffer,
+    film: &'a wgpu::Buffer,
     parts: &'a BindParts,
     accel: Option<&'a Accel>,
     uniform: Option<&'a [wgpu::Buffer; 4]>,
@@ -381,9 +414,8 @@ pub struct Uploaded {
     /// `UNIFORM_TABLES`' order; `Gpu::sync_tables` copies their sections there each frame).
     pub uniform: Option<[wgpu::Buffer; 4]>,
     /// The trace's samples, a `Pixel` a pixel: the view's buffer (a live view's targets', an offline render's own:
-    /// `accum_buffer`). A handle of it here, for the scene's bind group, where the kernel's layout has it;
-    /// `Gpu::set_accum` gives it another (a view of another size).
-    pub accum: wgpu::Buffer,
+    /// `film_buffer`). A handle of it here, for the scene's bind group, where the kernel's layout has it.
+    pub film: wgpu::Buffer,
     pub params: wgpu::Buffer,
     /// Kernel specialisation for this scene (`Gpu::pipeline`).
     pub kernel: Kernel,
@@ -896,8 +928,6 @@ pub const CACHE_SIZE: u64 = 1 << 18;
 /// The kernel's `finish` pass (pathtrace.wgsl): a record's bytes (DEFERRED_VECS vec4s) after the 16 of their count,
 /// and the invocations of a dispatch row (DEFERRED_ROW).
 pub const DEFERRED_BYTES: u64 = 96;
-/// The bytes of a traced pixel's samples (records.wgsl `Pixel`), in a view's buffer of them (`Gpu::accum_buffer`).
-pub const SAMPLE_BYTES: u64 = 80;
 
 /// A buffer, or a range of one: in the merged layout (merged.rs) several of the engine's buffers are ranges of the one
 /// buffer a binding holds.
@@ -1325,6 +1355,8 @@ pub struct Frame {
     pub specular: Vec<[f32; 3]>,
     /// Variance of the per-pixel mean luminance.
     pub variance: Vec<f32>,
+    /// 北冥：这次渲染请求的每个灯组一层（每个像素的均值），没请求就是空的。现在还没有贡献写进灯组：全 0。
+    pub lightgroups: Vec<Vec<[f32; 3]>>,
     pub samples: u32,
 }
 
@@ -1502,10 +1534,13 @@ impl Gpu {
             .clone()
     }
 
-    /// A view's buffer of the trace's samples (`Uploaded::accum`): a `Pixel` a pixel, the largest buffer a view holds
+    /// A view's buffer of the trace's samples (`Uploaded::film`; film.wgsl `film`): `film.film_stride` vec4s a pixel
+    /// (北冥：开渲前先按显卡的上限算大小，`film_bytes`), the largest buffer a view holds
     /// (`view_fits`).
-    pub fn accum_buffer(&self, w: u32, h: u32) -> wgpu::Buffer {
-        self.device.create_buffer(&wgpu::BufferDescriptor { label: Some("accum"), size: w as u64 * h as u64 * SAMPLE_BYTES, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })
+    pub fn film_buffer(&self, w: u32, h: u32, film: &KernelFilm) -> Result<wgpu::Buffer> {
+        let limits = self.device.limits();
+        let size = film_bytes(w, h, film, (limits.max_storage_buffer_binding_size as u64).min(limits.max_buffer_size))?;
+        Ok(self.device.create_buffer(&wgpu::BufferDescriptor { label: Some("film"), size, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false }))
     }
 
     /// Texture pages for the scene's texture set (see `texpack`), cached across uploads of the same set.
@@ -1549,9 +1584,9 @@ impl Gpu {
     }
 
     /// Uploads a prepared scene (geometry, materials, textures, environment, acceleration structures) and returns the
-    /// bind group used by both the offline and the live kernels. `accum` holds one 80-byte Pixel per output pixel.
+    /// bind group used by both the offline and the live kernels. `film` is the output buffer (`film_buffer`).
     #[allow(clippy::too_many_arguments)]
-    pub fn upload(&self, scene: &Scene, accum: &wgpu::Buffer, tri_verts: &[[f32; 4]], groups: [usize; GROUPS], nodes: &[u8], emitters: &[[f32; 4]], emitter_tris: &[crate::GpuEmitterTri], light_tree: &[[f32; 4]], env: &EnvMap, env_cdf: &[f32], energy: &[[f32; 4]], timings: &mut Vec<(String, f64)>) -> Result<Uploaded> {
+    pub fn upload(&self, scene: &Scene, film: &wgpu::Buffer, tri_verts: &[[f32; 4]], groups: [usize; GROUPS], nodes: &[u8], emitters: &[[f32; 4]], emitter_tris: &[crate::GpuEmitterTri], light_tree: &[[f32; 4]], env: &EnvMap, env_cdf: &[f32], energy: &[[f32; 4]], timings: &mut Vec<(String, f64)>) -> Result<Uploaded> {
         let d = &self.device;
         let t0 = Instant::now();
         // (The vertices too: the kernel's tree over no triangle is a leaf of triangle 0, which these zeros make a
@@ -1604,7 +1639,7 @@ impl Gpu {
             GridsGpu { atlas }
         });
         let grid_view = grids.as_ref().map_or_else(|| self.no_grid_view.clone(), |g| g.atlas.create_view(&Default::default()));
-        let b_accum = accum.clone();
+        let b_film = film.clone();
         let b_params = d.create_buffer(&wgpu::BufferDescriptor { label: Some("params"), size: std::mem::size_of::<Params>() as u64, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
 
         let (tex_view, tex_info) = self.texture_pages(scene, timings);
@@ -1837,12 +1872,12 @@ impl Gpu {
             self.uniform_copies(&heap)
         });
         let bg_parts = BindParts { nodes: b_nodes, tex_view, env_view, sampler, grid_view };
-        let bg = self.scene_bind_group(&SceneBuffers { params: &b_params, verts: &b_verts, attrs: &b_attrs, heap: &heap, words: &words, prev_verts: &b_prev, accum: &b_accum, parts: &bg_parts, accel: accel.as_ref(), uniform: uniform.as_ref() });
+        let bg = self.scene_bind_group(&SceneBuffers { params: &b_params, verts: &b_verts, attrs: &b_attrs, heap: &heap, words: &words, prev_verts: &b_prev, film: &b_film, parts: &bg_parts, accel: accel.as_ref(), uniform: uniform.as_ref() });
         let kernel = Kernel::new(scene, groups);
         self.queue.submit([]);
         self.device.poll(wgpu::PollType::wait_indefinitely())?;
         timings.push(("upload_ms".into(), t0.elapsed().as_secs_f64() * 1000.0));
-        Ok(Uploaded { bg, bg_parts, heap, uniform, accum: b_accum, params: b_params, kernel, verts: b_verts, attrs: b_attrs, prev_verts: b_prev, dynamic_first, accel, grids, vcolors: !scene.gpu_vcolors.is_empty(), media_nodes: scene.media_nodes.clone(), media_hidden: std::cell::RefCell::new(scene.media.iter().map(|m| m.a[1] == crate::scene::MEDIUM_HIDDEN).collect()), room, words, cdf_words: env_cdf.len(), region_words, env_tex })
+        Ok(Uploaded { bg, bg_parts, heap, uniform, film: b_film, params: b_params, kernel, verts: b_verts, attrs: b_attrs, prev_verts: b_prev, dynamic_first, accel, grids, vcolors: !scene.gpu_vcolors.is_empty(), media_nodes: scene.media_nodes.clone(), media_hidden: std::cell::RefCell::new(scene.media.iter().map(|m| m.a[1] == crate::scene::MEDIUM_HIDDEN).collect()), room, words, cdf_words: env_cdf.len(), region_words, env_tex })
     }
 
     /// Bytes Metal allocates for an AABB BLAS over `count` boxes in `boxes` (its own size query through wgpu-hal; None
@@ -2014,7 +2049,7 @@ impl Gpu {
             wgpu::BindGroupEntry { binding: 8, resource: wgpu::BindingResource::Sampler(&p.sampler) },
             view(9, &p.env_view),
             view(10, &p.grid_view),
-            buffer_entry(11, b.accum),
+            buffer_entry(11, b.film),
         ];
         if !self.hwrt {
             entries.push(buffer_entry(3, &p.nodes));
@@ -2091,16 +2126,16 @@ impl Gpu {
         if base.size[3] != base.integrator.seed {
             return Err(anyhow!("全局参数里的种子两处不一样：size[3] 是 {:#x}，integrator.seed 是 {:#x}", base.size[3], base.integrator.seed));
         }
-        let up = self.upload(scene, &self.accum_buffer(w, h), tri_verts, groups, nodes, emitters, emitter_tris, light_tree, env, env_cdf, energy, timings)?;
+        let up = self.upload(scene, &self.film_buffer(w, h, &base.film)?, tri_verts, groups, nodes, emitters, emitter_tris, light_tree, env, env_cdf, energy, timings)?;
         let pipeline = self.pipeline(&up.kernel);
-        let (b_accum, b_params, bg) = (&up.accum, &up.params, &up.bg);
-        let accum_size = b_accum.size();
+        let (b_film, b_params, bg) = (&up.film, &up.params, &up.bg);
+        let film_size = b_film.size();
         let stopped_before = self.guard_trips(&self.no_vis_bufs)?;
 
 
         let t1 = Instant::now();
         let mut enc = d.create_command_encoder(&Default::default());
-        enc.clear_buffer(b_accum, 0, None);
+        enc.clear_buffer(b_film, 0, None);
         self.sync_tables(&up, &mut enc);
         self.queue.submit([enc.finish()]);
         // One dispatch per sample; params are rewritten between submissions. Batch a few per submit.
@@ -2134,26 +2169,33 @@ impl Gpu {
             }
         }
         let t2 = Instant::now();
-        let readback = d.create_buffer(&wgpu::BufferDescriptor { label: Some("readback"), size: accum_size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let readback = d.create_buffer(&wgpu::BufferDescriptor { label: Some("readback"), size: film_size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let mut enc = d.create_command_encoder(&Default::default());
-        enc.copy_buffer_to_buffer(b_accum, 0, &readback, 0, accum_size);
+        enc.copy_buffer_to_buffer(b_film, 0, &readback, 0, film_size);
         self.queue.submit([enc.finish()]);
         readback.slice(..).map_async(wgpu::MapMode::Read, |_| {});
         self.device.poll(wgpu::PollType::wait_indefinitely())?;
         let data = readback.slice(..).get_mapped_range()?;
-        let px: &[[f32; 20]] = bytemuck::cast_slice(&data); // color, albedo, normal, live-only emission + specular
+        // 北冥：每个像素 film_stride 个 vec4，各通道按 FILM_* 的位置取，灯组从 film_lightgroup_first 起。步长与起点
+        // 是这次渲染写进全局参数的那两个数，不写死。
+        let floats: &[f32] = bytemuck::cast_slice(&data);
         let n = (w * h) as usize;
-        let mut frame = Frame { width: w, height: h, color: Vec::with_capacity(n), albedo: Vec::with_capacity(n), normal: Vec::with_capacity(n), emission: Vec::with_capacity(n), specular: Vec::with_capacity(n), variance: Vec::with_capacity(n), samples: spp };
-        for p in px {
-            let c = p[3].max(1.0);
-            let p: [f32; 20] = p.map(|v| if v.is_finite() { v } else { 0.0 });
-            frame.color.push([p[0] / c, p[1] / c, p[2] / c]);
-            frame.albedo.push([p[4] / c, p[5] / c, p[6] / c]);
-            frame.normal.push([p[8] / c, p[9] / c, p[10] / c]);
-            frame.emission.push([p[12] / c, p[13] / c, p[14] / c]);
-            frame.specular.push([p[16] / c, p[17] / c, p[18] / c]);
-            let mean = p[7] / c;
-            frame.variance.push(((p[11] / c - mean * mean).max(0.0)) / c);
+        let (stride, groups) = (base.film.film_stride as usize * 4, base.film.num_lightgroups as usize);
+        let mut frame = Frame { width: w, height: h, color: Vec::with_capacity(n), albedo: Vec::with_capacity(n), normal: Vec::with_capacity(n), emission: Vec::with_capacity(n), specular: Vec::with_capacity(n), variance: Vec::with_capacity(n), lightgroups: vec![Vec::with_capacity(n); groups], samples: spp };
+        for p in floats.chunks_exact(stride) {
+            let c = p[FILM_COMBINED as usize * 4 + 3].max(1.0);
+            let at = |slot: u32, k: usize| Some(p[slot as usize * 4 + k]).filter(|v| v.is_finite()).unwrap_or(0.0);
+            let rgb = |slot: u32| [at(slot, 0) / c, at(slot, 1) / c, at(slot, 2) / c];
+            frame.color.push(rgb(FILM_COMBINED));
+            frame.albedo.push(rgb(FILM_DENOISE_ALBEDO));
+            frame.normal.push(rgb(FILM_DENOISE_NORMAL));
+            frame.emission.push(rgb(FILM_LEGACY_EMIT));
+            frame.specular.push(rgb(FILM_LEGACY_SPEC));
+            let mean = at(FILM_LEGACY_VARIANCE, 0) / c;
+            frame.variance.push(((at(FILM_LEGACY_VARIANCE, 1) / c - mean * mean).max(0.0)) / c);
+            for (g, group) in frame.lightgroups.iter_mut().enumerate() {
+                group.push(rgb(base.film.film_lightgroup_first + g as u32));
+            }
         }
         drop(data);
         readback.unmap();
@@ -2393,6 +2435,68 @@ mod tests {
         assert!(said.contains("is not cached"), "崩的不是预期的那一处：{said}");
     }
 
+    /// 北冥：请求灯组的那条路是通的。同一个场景渲两遍，一遍不请求灯组、一遍请求 2 个（现在还没有任何贡献写进
+    /// 灯组）：颜色、反照率、法线、方差逐位相同；读回的灯组是 2 层、每层一个像素一项、全是 0；不请求时没有灯组层。
+    /// 请求得太多（缓冲超过这块显卡的上限）在开渲前报错。（没有显卡时跳过。）
+    #[test]
+    fn requested_lightgroups_leave_the_picture_alone() {
+        const GAME: &str = r#"
+            const tri = (id, p) => __engine.geometry(id, new Float32Array(p), new Float32Array([0,0,1, 0,0,1, 0,0,1]), new Float32Array([0,0, 1,0, 0,1]), new Uint32Array([0,1,2]));
+            globalThis.__threert = {
+                describe: () => JSON.stringify({ handlers: [], frame: false, keys: {} }),
+                setup: (room, seed) => {
+                    tri(1, [-1,0,0, 0,0,0, -1,1,0]);
+                    tri(2, [0,-1,0, 2,-1,0, 0,1,0]);
+                    __engine.material(3, { name: "lamp", color: [1, 1, 1], opacity: 1, metalness: 0, roughness: 0.5, emissive: [1, 0.5, 0.25], emissiveIntensity: 10, doubleSided: true });
+                    __engine.material(4, { name: "wall", color: [0.8, 0.8, 0.8], opacity: 1, metalness: 0, roughness: 0.5, emissive: [0, 0, 0], emissiveIntensity: 0, doubleSided: true });
+                    __engine.object(5, { name: "lamp", parent: null, castShadow: true, kind: "mesh", geometry: 1, material: 3 });
+                    __engine.object(6, { name: "wall", parent: null, castShadow: true, kind: "mesh", geometry: 2, material: 4 });
+                    __engine.object(7, { name: "cam", parent: null, castShadow: false, kind: "camera", camera: { fov: 50, near: 0.1, far: 100, exposure: { mode: "manual", ev100: 0 } } });
+                    __engine.transform(7, new Float32Array([0, 0, 5, 0, 0, 0, 1, 1, 1, 1]));
+                    __engine.environment({ sky: { type: "color", color: [0.2, 0.3, 0.4], intensity: 1, skyLightIntensity: 1 } });
+                    __engine.settings({ name: "lightgroups", preset: "preview", width: 32, height: 18, time: 0, camera: 7 });
+                    return "{}";
+                },
+                event: () => "{}", commit: () => {}, setState: () => {}, frame: () => {}, outline: () => "[]", inspect: () => "{}", edit: () => {},
+            };
+        "#;
+        let g = match Gpu::new_with(GpuOptions::default()) {
+            Ok(g) => g,
+            Err(e) => return eprintln!("skipped: {e}"),
+        };
+        let host = crate::script::ScriptHost::new(GAME).unwrap();
+        host.setup("room", None).unwrap();
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut sc = crate::scene::build(&host.world.borrow(), root, &root.join("presets"), None).unwrap();
+        let mut timings = vec![];
+        let prep = crate::prepare(&g, &mut sc, &mut timings);
+        let mut render = |film: KernelFilm| {
+            let params = Params { film, ..prep.params };
+            g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, crate::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, 4, &mut timings)
+        };
+        let plain = render(prep.params.film).unwrap();
+        let with = render(KernelFilm::new(2)).unwrap();
+        let n = (sc.width * sc.height) as usize;
+        let bits = |v: &[[f32; 3]]| v.iter().flatten().map(|x| x.to_bits()).collect::<Vec<u32>>();
+        assert_eq!((plain.color.len(), with.color.len()), (n, n));
+        assert!(plain.color.iter().flatten().any(|x| *x > 0.0), "场景是黑的，比不出东西");
+        assert_eq!(bits(&plain.color), bits(&with.color), "颜色");
+        assert_eq!(bits(&plain.albedo), bits(&with.albedo), "反照率");
+        assert_eq!(bits(&plain.normal), bits(&with.normal), "法线");
+        assert_eq!(plain.variance.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), with.variance.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), "方差");
+        assert!(plain.lightgroups.is_empty());
+        assert_eq!(with.lightgroups.len(), 2);
+        for group in &with.lightgroups {
+            assert_eq!(group.len(), n);
+            assert!(bits(group).iter().all(|b| *b == 0), "还没有贡献写进灯组，应当全是 0");
+        }
+        // 请求得太多：开渲前报错，并说最多能要几组。
+        let limits = g.device.limits();
+        let too_many = ((limits.max_storage_buffer_binding_size as u64).min(limits.max_buffer_size) / (n as u64 * 16)) as u32;
+        let e = render(KernelFilm::new(too_many)).err().expect("超过显卡上限的请求应当报错").to_string();
+        assert!(e.contains("最多能要"), "{e}");
+    }
+
     /// 北冥：路径状态与光线（shaders/integrator.wgsl 的 PathState、Ray）的字段名单，与「已写未读」的几项写入。
     /// 字段名照 Cycles 的 IntegratorState.path 与 Ray：改名、删字段要先改这里（加字段只要在名单里补上）。
     /// 最小概率密度、上一个散射点的物体、可见类、随机维度偏移这四项现在只写不读，着色器里没有别处能发现它们被
@@ -2510,10 +2614,10 @@ mod tests {
             assert_eq!(strict.matches("fn ray_bad(").count(), hwrt as usize);
             assert!(!strict.contains("env_cdf_at(y - 1u)") && !strict.contains("env_cdf_at(base + x - 1u)") && plain.contains("env_cdf_at(y - 1u)"));
             let lit = v(hwrt, KernelSwitches { strict: true, cutout_lite: 2, last_direct: true, last_sun: false, light_pick: true });
-            assert_eq!(lit.matches("radiance += dz;").count(), 1);
+            assert_eq!(lit.matches("film_add_light(dz, depth, LIGHTGROUP_NONE);").count(), 1);
             assert!(!lit.contains("fn sun_light("), "last_direct takes the directional lights already");
             let sun = v(hwrt, KernelSwitches { last_sun: true, ..Default::default() });
-            assert_eq!((sun.matches("radiance += dz;").count(), sun.matches("fn sun_light(").count(), sun.matches("state.throughput * sun_light(sd)").count()), (1, 1, 1));
+            assert_eq!((sun.matches("film_add_light(dz, depth, LIGHTGROUP_NONE);").count(), sun.matches("fn sun_light(").count(), sun.matches("state.throughput * sun_light(sd)").count()), (1, 1, 1));
             assert!(!plain.contains("sun_light"));
             assert_eq!(lit.matches("env_on = take_env && has_env && !state.legacy.lights_only;").count(), 1);
             assert_eq!(lit.contains("let steps = 4u;"), hwrt);

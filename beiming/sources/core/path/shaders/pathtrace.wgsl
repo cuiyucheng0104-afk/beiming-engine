@@ -1,5 +1,5 @@
 // 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/shaders/pathtrace.wgsl，MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
-// ThreeRT native path tracer. One sample per pixel per dispatch, accumulated in `accum`.
+// ThreeRT native path tracer. One sample per pixel per dispatch, accumulated in `film` (film.wgsl).
 // Shading model mirrors UE5 DefaultLit: Lambert diffuse + GGX / Smith-joint-approx / Schlick(F90 = saturate(50 F0.g)),
 // with UE's GGX multi-scattering energy conservation and diffuse energy preservation.
 // Material / atmosphere extensions (docs/PARITY.md): texture pages with ray-cone LOD, alpha cutout, world mapping,
@@ -34,7 +34,7 @@
 //   volume.wgsl      体积：大气透视、高度雾、有界介质
 //   integrator.wgsl  路径状态 PathState（模块级的私有变量 state，上游原来散在各处的私有全局都并在里面）、光线 Ray、
 //                    积分主循环（main，相机光线也在里面）
-//   film.wgsl        输出：第 1 组的缓冲与写 accum 的那一段（accum_write_sample）
+//   film.wgsl        输出：输出缓冲 film 与读写它的一组函数（film_add_light、film_write_aux、film_write_sample）；第 1 组的缓冲
 // 拼接次序见 gpu.rs 的 `KERNEL_FILES`；本文件必须排第一个（模块的 import 与 enable 要在声明之前）。
 @if(uniform_tables) import constants::{UT_TEX_INFO, UT_OBJECTS, UT_INSTANCES, UT_MEDIA};
 @if(merged || guard) import constants::GUARD_WORDS;
@@ -189,7 +189,7 @@ struct Params {
     table_first_ext: array<vec4<u32>, 2>,
 };
 
-// (`TriAttr`, a triangle's attributes, and `Pixel`, a sample in `accum`: records.wgsl.)
+// (`TriAttr`, a triangle's attributes: records.wgsl.)
 struct Node { bmin: vec3<f32>, left_or_first: u32, bmax: vec3<f32>, count: u32 };
 // See scene::GpuMaterial for the field layout.
 // 北冥：材质记录是进缓冲的格式，26 个 vec4。总长度冻结：以后只能往预留格（reserved）里填，不许追加。前 18 个是上游
@@ -239,7 +239,7 @@ struct Light { pos: vec4<f32>, dir: vec4<f32>, color: vec4<f32>, ext: vec4<f32>,
 @group(0) @binding(5) var<storage, read> words: array<u32>;
 // (The CDF is the buffer's first section: from word 0, no offset to read.)
 fn env_cdf_at(i: u32) -> f32 { return bitcast<f32>(words[i]); }
-@group(0) @binding(11) var<storage, read_write> accum: array<Pixel>;
+// （北冥：绑定 11 是输出缓冲 film，声明在 film.wgsl。）
 // The dynamic triangles' vertices (kernel layout, from triangle P.group_first[1].x on) as they were the previous frame.
 @group(0) @binding(6) var<storage, read> prev_verts: array<vec4<f32>>;
 // Model instances (scene::GpuInstance): world matrix rows, normal matrix rows, (first triangle, object, LOD offset bits, -).
