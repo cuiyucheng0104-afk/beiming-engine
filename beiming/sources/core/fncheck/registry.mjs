@@ -5,13 +5,15 @@
 // out：输出分量数（函数返回 f32、向量或 array<f32, N>），或 { 字段名: 分量数 } 依次取返回结构体的字段。
 // file：WGSL 函数所在的文件；比对时 SHADERS 里的文件全部拼进一个着色器，所以函数可以调用别的文件里的函数。
 // call：可选，(实参 WGSL 表达式数组) => 调用表达式，给要补常量实参的函数用（例如查表函数的表偏移）。
+// gen：可选，(next: () => [0,1) 均匀数) => { 输入名: 数或数组 }，逐组生成彼此相关的输入（正交基、相对灯面的位置）；有它时 inputs 不写范围。
+// branch：可选，(一组输入) => 分支名，只用来在报告里数各分支的比例。
 // skip：可选，(标准答案的一组输出, 被测的一组输出) => 真时这一组不比、只计数。只给登记处写明了理由的病态区域用。
 // 合格：|被测−标准| ≤ rel·|标准| + abs。rel 一律 1e-4。
 // abs 只给有相减抵消的函数：两个 O(1) 的数相减得到接近 0 的结果时，两边哪怕只差 1 ULP 的舍入（WGSL 的 sqrt、
 // 除法不保证正确舍入，编译器还可能合成 FMA），相对误差也会大到几十个百分点。这类函数的 abs 取「抵消发生处的
 // 量级上 4 个 ULP」，再乘上相减之后的放大系数；实测的最大差值都在它的一半以内。
-export const SHADERS = ['shaders/microfacet.wgsl', 'shaders/util.wgsl', 'shaders/ggx_tables.wgsl'];
-const BSD = SHADERS[0], APACHE = SHADERS[1];
+export const SHADERS = ['shaders/microfacet.wgsl', 'shaders/util.wgsl', 'shaders/ggx_tables.wgsl', 'shaders/area_light.wgsl'];
+const BSD = SHADERS[0], APACHE = SHADERS[1], LIGHT = SHADERS[3];
 const entry = (name, inputs, out, abs = 0, more = {}) => ({ name, file: BSD, wgsl: name, ref: name, inputs, out, rel: 1e-4, abs, ...more });
 
 // alpha2 = 粗糙度 alpha 的平方。Cycles 在 alpha_x·alpha_y ≤ 2e-10 时才当成纯镜面、不再求值，所以下限取到它上面一点；
@@ -119,4 +121,136 @@ FUNCTIONS.push(
   // 纯镜面：半向量就是法线，概率密度与求值乘 1e6
   entry('bsdf_microfacet_sample_ggx_singular', [...SAMPLE_IN(ALPHA_SINGULAR), ['rand', 'vec2f', UNIT]], SAMPLE_OUT, 4 * ULP1, { wgsl: 'bsdf_microfacet_sample_ggx', ref: 'bsdf_microfacet_sample_ggx' }),
   entry('bsdf_microfacet_ggx_sample', [...SAMPLE_IN(ALPHA_CLOSURE), ['energy_scale', 'f32', [1, 2]], ['rand', 'vec2f', RAND]], SAMPLE_OUT, SAMPLE_ABS, { skip: GRAZING }),
+);
+
+// 下面是矩形面光（只移矩形、无聚拢那一条路）与它用到的工具函数，来源都是 Apache-2.0 的文件。
+// 面光几何要正交基和相对灯面的位置，各分量不能各自独立取，所以这些项用 gen(next) 逐组生成，按 inputs 的名字依次写入：
+// 灯心 co 在 [-1, 1]³，灯面朝向是均匀随机旋转（Shoemake 四元数）给出的 axis_u、axis_v，dir = axis_u × axis_v，
+// invarea = 1/(len_u·len_v)（宿主侧这样填是【推断】，内核只把它乘进 eval_fac）。着色点 P 按「离灯心的距离 t、看灯心的仰角」取：
+// 仰角的正弦 e = |dot(P − co, dir)|/t，方位角均匀，正反两面各半（反面在灯背后）。全部用双精度算完再存成 float32。
+//
+// 逐组对拍只放在 float32 条件良好的区域：仰角正弦 e ≥ 0.1（看灯心的仰角约 5.7° 以上）。理由【实测】：e < 0.1 时
+// 立体角 S 是四个量级 π/2 的 asin 相加抵消出来的小数，asin 的参数又贴着 ±1（导数无界），Cycles 原式在 float32 下本身就不准：
+// 在本机 100 万组里，拿双精度照原式算真值，e < 0.1 的组 Cycles 一侧离真值的相对误差最大到 6.7e-2，显卡一侧 6.1e-2，
+// 不合格组里两边谁离真值更近各占一半；e ≥ 0.1 的组两边离真值都在 4e-5 以内（诊断脚本没有入库）。
+// e < 0.1 的「立体角」一支由 χ² 与辐照度裁判在掠射几何上从统计上覆盖；平面近似的掠射一支（e ≤ 1e-3）概率密度是闭式，
+// 改在灯的局部坐标里单独对拍（见 _grazing 一项）。
+const logU = (next, [lo, hi]) => lo * (hi / lo) ** next();
+const linU = (next, [lo, hi]) => lo + (hi - lo) * next();
+const add = (a, b, s = 1) => a.map((x, k) => x + s * b[k]);
+const mul = (a, s) => a.map(x => x * s);
+export const dot3 = (a, b) => a.reduce((s, x, k) => s + x * b[k], 0);
+export const crs = ([ax, ay, az], [bx, by, bz]) => [ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx];
+function rotation(next) {
+  const u1 = next(), a = 2 * Math.PI * next(), b = 2 * Math.PI * next();
+  const [x, y, z, w] = [Math.sqrt(1 - u1) * Math.sin(a), Math.sqrt(1 - u1) * Math.cos(a), Math.sqrt(u1) * Math.sin(b), Math.sqrt(u1) * Math.cos(b)];
+  return [[1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w)], [2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w)]];
+}
+/** len：两边长的对数范围（给了 aspect 时 len_v = len_u 乘上 [1/aspect, aspect] 里对数均匀的比）；dist：t 的对数范围（以较长边为单位）；elev：e 的范围（第三项 'log' 时对数均匀）；
+ *  local：灯放在原点、轴对齐（axis_u = x 轴，axis_v = y 轴），灯面坐标的点积与叉积没有舍入；front：只取正面 */
+function lightGeom(next, { len, aspect, dist, elev, local = false, front = false }) {
+  const [axis_u, axis_v] = local ? [[1, 0, 0], [0, 1, 0]] : rotation(next), dir = crs(axis_u, axis_v);
+  const co = local ? [0, 0, 0] : [linU(next, [-1, 1]), linU(next, [-1, 1]), linU(next, [-1, 1])];
+  const len_u = logU(next, len), len_v = aspect ? len_u * logU(next, [1 / aspect, aspect]) : logU(next, len);
+  const t = logU(next, dist) * Math.max(len_u, len_v), e = (elev[2] ? logU : linU)(next, elev), phi = 2 * Math.PI * next();
+  const side = front || next() < 0.5 ? 1 : -1, r = Math.sqrt(1 - e * e);
+  const P = add(co, add(add(mul(axis_u, r * Math.cos(phi)), mul(axis_v, r * Math.sin(phi))), mul(dir, side * e)), t);
+  return { P, co, light_p: co, axis_u, len_u, axis_v, len_v, dir, invarea: 1 / (len_u * len_v), rand: [next(), next()] };
+}
+/** 灯面上一点（a、b 以半边长为单位）与从 P 指向它的方向、距离 */
+function towards(next, g, ab) {
+  const target = add(add(g.co, g.axis_u, linU(next, ab) * g.len_u / 2), g.axis_v, linU(next, ab) * g.len_v / 2);
+  const d = add(target, g.P, -1), t = Math.hypot(...d);
+  return { ray_P: g.P, ray_D: mul(d, 1 / t), t };
+}
+
+/** 报告用：在双精度里按 Cycles 的条件判 area_light_rect_sample 返回概率密度走哪一支（kernel/light/area.h:89）。
+ *  只用来统计各分支的比例，不参与比对 */
+function rectBranch(P, co, u, lu, v, lv) {
+  const d = add(co, P, -1), z0 = -Math.abs(dot3(d, crs(u, v))), xc = dot3(d, u), yc = dot3(d, v);
+  const nz = [-(yc - lv / 2), xc + lu / 2, yc + lv / 2, -(xc - lu / 2)].map(c => c / Math.hypot(c, z0));
+  const S = -[0, 1, 2, 3].reduce((s, k) => s + Math.asin(-nz[k] * nz[(k + 1) % 4]), 0);
+  // 两个条件都成立时 Cycles 走的是同一支，报告里按掠射计
+  if (Math.min(...nz.map(c => c * c)) > 0.99999) return '平面近似（掠射）';
+  if (S < 1e-5) return '平面近似（立体角小于 1e-5）';
+  return S > 1 ? '立体角（大于 1 sr）' : '立体角';
+}
+const at = (inp, k, n = 3) => [...inp.subarray(k, k + n)];
+
+const LIGHT_IN = [['co', 'vec3f'], ['axis_u', 'vec3f'], ['len_u', 'f32'], ['axis_v', 'vec3f'], ['len_v', 'f32'], ['dir', 'vec3f'], ['invarea', 'f32']];
+const RECT_IN = [['P', 'vec3f'], ['light_p', 'vec3f'], ['axis_u', 'vec3f'], ['len_u', 'f32'], ['axis_v', 'vec3f'], ['len_v', 'f32'], ['rand', 'vec2f']];
+const light = (name, inputs, out, abs, more) => entry(name, inputs, out, abs, { file: LIGHT, ...more });
+const rectBranchOf = i => rectBranch(at(i, 0), at(i, 3), at(i, 6), i[9], at(i, 10), i[13]);
+// 场景（dist 以较长边为单位）。MAIN：离灯心 0.02 到 20 倍边长，近处的大灯立体角接近 2π，远处的灯立体角到 1e-6 以下；
+// WELL：离开不超过 1 倍边长、长宽比不超过 3、仰角正弦 0.3 以上，立体角都在 0.1 sr 以上；TINY：边长 1e-4 到 3e-3、离开 1000 到
+// 1 万倍边长，立体角不到 1e-6，稳走平面近似；GRAZE 见 grazingGeom
+const MAIN = { len: [0.05, 5], dist: [0.02, 20], elev: [0.1, 1] };
+const WELL = { len: [0.1, 5], aspect: 3, dist: [0.1, 1], elev: [0.3, 1] };
+const RAY = { len: [0.3, 5], aspect: 3, dist: [0.1, 3], elev: [0.1, 1] };
+const TINY = { len: [1e-4, 3e-3], dist: [1e3, 1e4], elev: [0.1, 1] };
+/** 掠射：灯在原点、轴对齐，着色点在灯所在平面外 1e-7 到 1e-3 倍「到最近的边所在直线的距离」，横向在矩形外 0.1 到 4 倍边长。
+ *  四个 nz² 都大于 1 − 1e-6，稳走掠射的平面近似（阈值 0.99999）；灯心坐标为 0，dir = light_p − P 与 z0 都没有舍入 */
+function grazingGeom(next) {
+  const g = lightGeom(next, { len: [0.1, 2], dist: [1, 1], elev: [0.5, 0.5], local: true });
+  const ax = g.len_u * (0.5 + logU(next, [0.1, 4])), ay = g.len_v * (0.5 + logU(next, [0.1, 4]));
+  const c = Math.min(ax - g.len_u / 2, ay - g.len_v / 2);
+  g.P = [next() < 0.5 ? -ax : ax, next() < 0.5 ? -ay : ay, (next() < 0.5 ? -1 : 1) * c * logU(next, [1e-7, 1e-3])];
+  return g;
+}
+// 采样点与方向只在 WELL 里逐组比：立体角小时 au = rand.x·S + g2 + g3 里 rand.x·S 掉到 g2 + g3 的 ULP 以下，采样点基本由舍入决定
+// （小灯上仍落在矩形内，Cycles 本机一侧同样如此）；随机数贴近 0、1 时采样点贴着矩形的边，xu、yv 的式子（area.h:74、82）
+// 在那里斜率无界。【实测】MAIN 里不论立体角大小，都有超过 1e-6 倍坐标尺度的点差，立体角 1e-4 sr 一档有约 30% 的组超过。
+// 这一部分由 χ²、矩形内检查与辐照度裁判覆盖
+const RAND_WELL = [1e-2, 1 - 1e-2];
+// WELL 里采样点（世界坐标，量级到 7）与方向的分量：采样映射在矩形边附近斜率大，显卡 cos、sin 约 2e-7 的绝对误差被放大，
+// 方向 D = (Q − P)/t 还要再乘 1/t（t ≥ 0.01）。【实测】所需 abs 最大 1.1e-5（方向分量），取 2.4e-5
+const ABS_SAMPLE = 2.4e-5;
+// 立体角 S = −(g0 + g1 + g2 + g3) 是四个量级到 π/2 的 asin 相加抵消（area.h:53-57）。概率密度 1/S 的比对改在 S 上做，
+// abs 给在 S 上：【实测】MAIN 里超出 1e-4·S 的差最大 2.1e-6，取 48 个 π/2 处的 ULP（约 5.7e-6）
+const ABS_S = 48 * 2 ** -23;
+FUNCTIONS.push(
+  // asin 在 ±1 附近导数无界，取在 clamp 两侧各外延 0.2，覆盖截断那一支
+  entry('safe_asinf', [['a', 'f32', [-1.2, 1.2]]], 1, 0, { file: APACHE }),
+  // 概率密度在 WELL 里直接比，abs 只为采样点
+  light('area_light_rect_sample', RECT_IN, { pdf: 1, P: 3 }, ABS_SAMPLE, {
+    gen: next => ({ ...lightGeom(next, WELL), rand: [linU(next, RAND_WELL), linU(next, RAND_WELL)] }), branch: rectBranchOf,
+    call: a => `area_light_rect_sample(${a.join(', ')}, true)`,
+  }),
+  // 立体角：MAIN 的全部几何（近、远、大、小，含两边在 1e-5 阈值两侧各走一支的组），比 1/pdf
+  light('area_light_rect_sample_solid_angle', RECT_IN, 1, ABS_S, {
+    wgsl: 'area_light_rect_sample', gen: next => lightGeom(next, MAIN), branch: rectBranchOf,
+    call: a => `1.0 / area_light_rect_sample(${a.join(', ')}, false).pdf`,
+  }),
+  // 平面近似的两支（area.h:89-100）：概率密度是闭式 −t³/(z0·len_u·len_v)，直接比
+  light('area_light_rect_sample_tiny', RECT_IN, 1, 0, {
+    wgsl: 'area_light_rect_sample', ref: 'area_light_rect_sample_pdf', gen: next => lightGeom(next, TINY), branch: rectBranchOf,
+    call: a => `area_light_rect_sample(${a.join(', ')}, false).pdf`,
+  }),
+  light('area_light_rect_sample_grazing', RECT_IN, 1, 0, {
+    wgsl: 'area_light_rect_sample', ref: 'area_light_rect_sample_pdf', gen: grazingGeom, branch: rectBranchOf,
+    call: a => `area_light_rect_sample(${a.join(', ')}, false).pdf`,
+  }),
+  // 正反两面各半；abs 只为采样点与方向
+  light('area_light_sample', [['rand', 'vec2f'], ['P', 'vec3f'], ...LIGHT_IN], { ok: 1, P: 3, D: 3, t: 1, pdf: 1, eval_fac: 1 }, ABS_SAMPLE, {
+    gen: next => ({ ...lightGeom(next, WELL), rand: [linU(next, RAND_WELL), linU(next, RAND_WELL)] }),
+    branch: i => (dot3(add(at(i, 5), at(i, 2), -1), at(i, 16)) > 0 ? '灯背面' : rectBranch(at(i, 2), at(i, 5), at(i, 8), i[11], at(i, 12), i[15])),
+  }),
+  // 射线打中灯面的那一侧：方向指向灯面上的一点，t 是到那一点的距离
+  light('area_light_eval_from_intersection', [['ray_P', 'vec3f'], ['ray_D', 'vec3f'], ['t', 'f32'], ...LIGHT_IN], { eval_fac: 1, pdf: 1 }, 0, {
+    gen: next => { const g = lightGeom(next, { ...WELL, front: true }); return { ...g, ...towards(next, g, [-1, 1]) }; },
+    branch: i => rectBranch(at(i, 0), at(i, 7), at(i, 10), i[13], at(i, 14), i[17]),
+  }),
+  // 方向指向灯面外扩 1.5 倍的范围（有中有不中），tmax 取到交点距离的 0.5 到 2 倍（有被 tmax 截掉的），正反两面都有
+  light('area_light_intersect', [['ray_P', 'vec3f'], ['ray_D', 'vec3f'], ['tmin', 'f32'], ['tmax', 'f32'], ...LIGHT_IN], { hit: 1, t: 1 }, 0, {
+    gen: next => { const g = lightGeom(next, RAY), r = towards(next, g, [-1.5, 1.5]); return { ...g, ...r, tmin: 0, tmax: r.t * linU(next, [0.5, 2]) }; },
+  }),
+  // 交点 hit = P + t·D 的分量是量级到 16 的数（离开到 3 倍边长，边长到 5）相加抵消，u、v 再由 hit − quad_P 乘上 inv_quad（到 1/0.3）；
+  // abs 给 8 个 ULP(16)
+  entry('ray_quad_intersect', [['ray_P', 'vec3f'], ['ray_D', 'vec3f'], ['ray_tmin', 'f32'], ['ray_tmax', 'f32'], ['quad_P', 'vec3f'], ['inv_quad_u', 'vec3f'], ['inv_quad_v', 'vec3f'], ['quad_n', 'vec3f']], { hit: 1, P: 3, t: 1, u: 1, v: 1 }, 8 * 16 * ULP1, {
+    file: APACHE, call: a => `ray_quad_intersect(${a.join(', ')}, false)`,
+    gen: next => {
+      const g = lightGeom(next, RAY), r = towards(next, g, [-1.5, 1.5]);
+      return { ...r, ray_tmin: 0, ray_tmax: r.t * linU(next, [0.5, 2]), quad_P: g.co, inv_quad_u: mul(g.axis_u, 1 / g.len_u), inv_quad_v: mul(g.axis_v, 1 / g.len_v), quad_n: g.dir };
+    },
+  }),
 );

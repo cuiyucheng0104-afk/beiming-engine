@@ -3,9 +3,9 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
-import { chi2Test, directionChi2, gammaQ, ggxAlbedo } from './checks.mjs';
+import { chi2Test, directionChi2, gammaQ, ggxAlbedo, gridChi2, mcMean } from './checks.mjs';
 import { compare } from './compare.mjs';
-import { FUNCTIONS, outWidth, width } from './registry.mjs';
+import { FUNCTIONS, crs, dot3, outWidth, width } from './registry.mjs';
 import { CORE, check, makeInputs, shaderSource } from './run.mjs';
 
 const E2E = process.env.BEIMING_FNCHECK_E2E === '1';
@@ -62,7 +62,8 @@ test('登记表里每个函数在它的 WGSL 文件和标准答案程序里都�
     // 有 call 的项由它拼出调用（补常量实参），参数个数不必与输入个数相同
     if (!f.call) assert.equal(m[1].split(',').filter(s => s.trim()).length, f.inputs.length, f.name);
     assert.ok(cpp.includes(`{"${f.ref}", ${width(f)}, ${outWidth(f)},`), `ref.cpp 里没有 ${f.ref}（${width(f)} 进 ${outWidth(f)} 出）`);
-    for (const [, type, r] of f.inputs) {
+    // gen 逐组生成的项不写范围，由下面的面光几何测试核对
+    for (const [, type, r] of f.gen ? [] : f.inputs) {
       // dir 的 z 范围可以退化成一点：[1, 1] 就是 (0, 0, 1)
       for (const [lo, hi] of Array.isArray(r[0]) ? r : [r]) assert.ok(Number.isFinite(lo) && Number.isFinite(hi) && (type === 'dir' ? lo <= hi : lo < hi), f.name);
       if (type === 'dir') assert.ok(r[0] >= -1 && r[1] <= 1, f.name);
@@ -86,6 +87,23 @@ test('方向输入：由均匀数确定地生成，是单位向量，z 落在登
   }
 });
 
+test('面光几何输入：正交基、invarea 与着色点的位置按场景生成，确定且可复现', () => {
+  const dot = (p, q) => dot3([...p], [...q]);
+  for (const [name, elev] of [['area_light_rect_sample', [0.3, 1]], ['area_light_rect_sample_solid_angle', [0.1, 1]], ['area_light_rect_sample_grazing', [0, 1e-3]]]) {
+    const f = byName(name), w = width(f), a = makeInputs(f, 2000, 5);
+    assert.deepEqual(Buffer.from(a.buffer), Buffer.from(makeInputs(f, 2000, 5).buffer));
+    for (let g = 0; g < 2000; g++) {
+      const i = a.subarray(g * w, (g + 1) * w);
+      const [P, co, u, v] = [i.subarray(0, 3), i.subarray(3, 6), i.subarray(6, 9), i.subarray(10, 13)];
+      assert.ok(Math.abs(dot(u, u) - 1) < 1e-6 && Math.abs(dot(v, v) - 1) < 1e-6 && Math.abs(dot(u, v)) < 1e-6, `${name} 第 ${g} 组不是正交基`);
+      const d = [0, 1, 2].map(k => P[k] - co[k]), e = Math.abs(dot(d, crs([...u], [...v]))) / Math.hypot(...d);
+      assert.ok(e >= elev[0] * 0.999 && e <= elev[1] * 1.001, `${name} 第 ${g} 组仰角正弦 ${e} 不在 [${elev}]`);
+    }
+  }
+  const s = byName('area_light_sample'), b = makeInputs(s, 100, 5), w = width(s);
+  for (let g = 0; g < 100; g++) assert.ok(Math.abs(b[g * w + 19] * b[g * w + 11] * b[g * w + 15] - 1) < 1e-5, 'invarea 应为 1/(len_u·len_v)');
+});
+
 test('χ² 检验：p 值与已知值一致，期望过小的箱合并，期望为 0 却有样本时判不过', () => {
   // 卡方分布上分位：dof=1 时 3.841 对应 p=0.05；dof=10 时 23.209 对应 p=0.01
   assert.ok(Math.abs(gammaQ(0.5, 3.841 / 2) - 0.05) < 1e-4);
@@ -104,6 +122,8 @@ const NEW = [
   'sample_uniform_disk', 'microfacet_ggx_sample_vndf', 'microfacet_fresnel_f82', 'microfacet_ggx_preserve_energy',
   'bsdf_microfacet_setup_fresnel_f82_tint', 'bsdf_microfacet_eval_ggx', 'bsdf_microfacet_ggx_eval',
   'bsdf_microfacet_sample_ggx', 'bsdf_microfacet_ggx_sample',
+  'safe_asinf', 'ray_quad_intersect', 'area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_rect_sample_tiny', 'area_light_rect_sample_grazing',
+  'area_light_sample', 'area_light_eval_from_intersection', 'area_light_intersect',
 ];
 
 /** 端到端测试的公共前置：缺工具链时跳过（E2E=1 时抛出），返回 null */
@@ -118,7 +138,7 @@ test('端到端：每个登记的函数 100 万组随机输入，WGSL 与 Cycles
   const a = await e2e(t, { n: 1_000_000, seed: 1 });
   if (!a) return;
   for (const r of a.results) {
-    t.diagnostic(`${r.name}: groups=${r.groups} maxRel=${r.maxRel.toExponential(3)} maxRelNonTiny=${r.maxRelNonTiny.toExponential(3)} abs=${r.abs.toExponential(2)} fails=${r.fails} nonFinite=${r.nonFinite} 标准全零的组=${(r.zeroRef / r.groups * 100).toFixed(2)}% 不比的组=${(r.skipped / r.groups * 100).toFixed(3)}% 所需abs=${r.needAbs.toExponential(2)}`);
+    t.diagnostic(`${r.name}: groups=${r.groups} maxRel=${r.maxRel.toExponential(3)} maxRelNonTiny=${r.maxRelNonTiny.toExponential(3)} abs=${r.abs.toExponential(2)} fails=${r.fails} nonFinite=${r.nonFinite} 标准全零的组=${(r.zeroRef / r.groups * 100).toFixed(2)}% 不比的组=${(r.skipped / r.groups * 100).toFixed(3)}% 所需abs=${r.needAbs.toExponential(2)}${r.branches ? ` 分支=${Object.entries(r.branches).map(([b, c]) => `${b}:${(c / r.groups * 100).toFixed(2)}%`).join('，')}` : ''}`);
     // 实测差值要在 abs 的一半以内
     assert.ok(r.needAbs <= r.abs / 2, `${r.name} 所需 abs ${r.needAbs} 超过登记的 abs 的一半`);
     assert.equal(r.groups, 1_000_000, r.name);
@@ -141,6 +161,17 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
     // 新移植的闭包求值：反射的公共因子 0.25 改成 0.26，只有求值与它的包装不合格
     ['let common_ = D / cos_NI * 0.25;', 'let common_ = D / cos_NI * 0.26;', ['bsdf_microfacet_eval_ggx', 'bsdf_microfacet_ggx_eval'], 16, 4],
   ]) {
+    await breakOne(t, file, src, from, to, expect, nIn, nOut);
+  }
+  const light = 'shaders/area_light.wgsl', lsrc = await readFile(`${CORE}/${light}`, 'utf8');
+  // 面光：矩形右边界的 0.5 改成 0.51，走立体角那一支的四项不合格；平面近似的两项（tiny、grazing）概率密度不用 x1，照旧合格
+  await breakOne(t, light, lsrc, 'let x1 = xc + 0.5 * len_u;', 'let x1 = xc + 0.51 * len_u;', ['area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_sample', 'area_light_eval_from_intersection'], 16, 4);
+  // 辐射通量换成辐射亮度的 1/π 改成 0.32，只有带 eval_fac 的两项不合格
+  await breakOne(t, light, lsrc, 'M_1_PI_F * invarea', '0.32 * invarea', ['area_light_sample', 'area_light_eval_from_intersection'], 20, 10);
+});
+
+async function breakOne(t, file, src, from, to, expect, nIn, nOut) {
+  {
     const broken = src.replace(from, to);
     assert.notEqual(broken, src, `要改的那一项在 WGSL 里找不到了：${from}`);
     const r = await e2e(t, { n: 100_000, seed: 3, wgsl: { [file]: broken } });
@@ -152,7 +183,7 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
     assert.ok(Number.isInteger(w.index) && w.input.length === nIn && w.ref.length === nOut && w.test.length === nOut);
     assert.ok(w.relErr > 1e-4);
   }
-});
+}
 
 /** 显卡上的检验缺工具链时跳过（E2E=1 时抛出） */
 async function gpuOnly(t, fn) {
@@ -224,3 +255,102 @@ test('端到端反照率：F0=1、B=0 时对出射半球积分求值结果，不
 
 /** Cycles 金属节点里 alpha = sqr(roughness)（kernel/svm/closure.h） */
 function roughness_to_alpha(r) { return r * r; }
+
+// 面光的检验几何：着色点在原点，灯心 co、灯面朝向 dir（朝着原点）、两边长。axis_u、axis_v 由 dir 补成正交基，
+// 使 axis_u × axis_v = dir（与比对输入的约定相同）。灯都放在 +y 方向附近，远离 χ² 分箱的两极和 φ 的接缝
+const v3 = { dot: dot3, cross: crs, norm: a => { const l = Math.hypot(...a); return a.map(x => x / l); }, sub: (a, b) => a.map((x, k) => x - b[k]) };
+function rectLight({ co, dir, len_u, len_v }) {
+  const n = v3.norm(dir);
+  const axis_u = v3.norm(v3.cross(Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], n));
+  const axis_v = v3.cross(n, axis_u);
+  const f = a => `vec3f(${a.map(x => x.toPrecision(9)).join(', ')})`;
+  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => co.map((c, k) => c + a * len_u / 2 * axis_u[k] + b * len_v / 2 * axis_v[k]));
+  return { co, axis_u, axis_v, n, len_u, len_v, corners, wgsl: `${f(co)}, ${f(axis_u)}, ${len_u}, ${f(axis_v)}, ${len_v}, ${f(n)}, ${1 / (len_u * len_v)}` };
+}
+const LIGHTS = {
+  近处大灯: rectLight({ co: [0, 0.4, 0], dir: [0, -1, 0], len_u: 1.5, len_v: 1 }),
+  远处小灯: rectLight({ co: [0.2, 6, -0.3], dir: [0, -1, 0], len_u: 0.6, len_v: 0.4 }),
+  掠射: rectLight({ co: [0, 2, 0], dir: [1, -0.1, 0], len_u: 1, len_v: 1 }),
+  斜向: rectLight({ co: [0.5, 1.5, 0.3], dir: [-0.6, -0.5, 0.4], len_u: 0.8, len_v: 1.3 }),
+  // 立体角约 1e-6，走平面近似那一支
+  极小灯: rectLight({ co: [0, 1, 0], dir: [0, -1, 0.2], len_u: 1e-3, len_v: 1e-3 }),
+};
+const LIGHT_HELPERS = `
+// 采样方向打在灯面所在平面上的局部坐标 (x, y) ∈ [0, 1]²。采样点 P 与方向打到的点都要落在矩形内（局部坐标不超过半边长，
+// 留 1e-5 的相对余量：随机数贴着 0、1 时采样点正好在边上，舍入一下就出界一点）；有一条不满足就记作被拒，测试要求被拒为 0
+fn chi2_light_sample(u: vec3f, co: vec3f, axis_u: vec3f, len_u: f32, axis_v: vec3f, len_v: f32, dir: vec3f, invarea: f32) -> vec3f {
+  let s = area_light_sample(u.xy, vec3f(0.0), co, axis_u, len_u, axis_v, len_v, dir, invarea);
+  let q = s.P - co;
+  let w = dot(co, dir) / dot(s.D, dir) * s.D - co;
+  let x = dot(w, axis_u) / len_u;
+  let y = dot(w, axis_v) / len_v;
+  let m = 0.5 + 1e-5;
+  let inside = abs(dot(q, axis_u)) <= m * len_u && abs(dot(q, axis_v)) <= m * len_v && abs(x) <= m && abs(y) <= m;
+  return vec3f(x + 0.5, y + 0.5, f32(s.ok && inside));
+}
+// 灯面局部坐标 p 上的概率密度：立体角概率密度照 Cycles 在射线打中灯时的做法取（多重重要性采样那一侧用的就是它），
+// 再乘上换到面积测度的 |cos|/t² 与灯面积。density_light 可以是另一盏灯（反例），p 始终是采样那盏灯的局部坐标
+fn chi2_light_density(p: vec2f, co: vec3f, axis_u: vec3f, len_u: f32, axis_v: vec3f, len_v: f32, dir: vec3f, pdf_len_u: f32) -> f32 {
+  let X = co + (p.x - 0.5) * len_u * axis_u + (p.y - 0.5) * len_v * axis_v;
+  let t = length(X);
+  let D = X / t;
+  let pdf = area_light_eval_from_intersection(vec3f(0.0), D, t, co, axis_u, pdf_len_u, axis_v, len_v, dir, 1.0 / (pdf_len_u * len_v)).pdf;
+  return pdf * abs(dot(D, dir)) / (t * t) * len_u * len_v;
+}
+fn irradiance_sample(u: vec3f, N: vec3f, co: vec3f, axis_u: vec3f, len_u: f32, axis_v: vec3f, len_v: f32, dir: vec3f, invarea: f32) -> f32 {
+  let s = area_light_sample(u.xy, vec3f(0.0), co, axis_u, len_u, axis_v, len_v, dir, invarea);
+  if (!s.ok) { return 0.0; }
+  return max(dot(N, s.D), 0.0) / s.pdf;
+}
+`;
+
+test('端到端 χ²：面光采样的方向分布与立体角概率密度配对，采样点都落在矩形内；故意不配对时检验不过', { timeout: 600_000 }, async t => {
+  const names = ['近处大灯', '远处小灯', '掠射', '斜向', '极小灯'];
+  const level = 1 - (1 - 0.01) ** (1 / names.length);
+  const cases = names.flatMap(name => {
+    const L = LIGHTS[name], geom = L.wgsl.split(', ').slice(0, -1).join(', ');
+    return [
+      { name, sample: `chi2_light_sample(u, ${L.wgsl})`, density: `chi2_light_density(p, ${geom}, ${L.len_u})` },
+      // 反例：采样用这盏灯，概率密度用 axis_u 方向长 10% 的灯
+      { name: `反例 ${name}`, bad: true, sample: `chi2_light_sample(u, ${L.wgsl})`, density: `chi2_light_density(p, ${geom}, ${L.len_u * 1.1})` },
+      // 反例二：支撑集与归一化都不变，只把第二个随机数换成它的平方，分布沿 axis_v 变形
+      { name: `反例（只变形） ${name}`, bad: true, sample: `chi2_light_sample(vec3f(u.x, u.y * u.y, u.z), ${L.wgsl})`, density: `chi2_light_density(p, ${geom}, ${L.len_u})` },
+    ];
+  });
+  const r = await gpuOnly(t, () => gridChi2({ source: shaderSource() + LIGHT_HELPERS, cases, n: 1_000_000, seed: 1, nx: 64, ny: 64, sub: 8 }));
+  if (!r) return;
+  for (const c of r) {
+    t.diagnostic(`${c.name}: χ²=${c.chi2.toFixed(1)} dof=${c.dof} p=${c.p.toExponential(3)} 被拒（打不中灯或采样点在矩形外）${c.lost.observed}（期望 ${c.lost.expected.toFixed(1)}）`);
+    if (c.bad) { assert.ok(c.p < level, `${c.name} 应当不过，p=${c.p}`); continue; }
+    assert.ok(c.p >= level, `${c.name} 不过：p=${c.p} < ${level}`);
+    assert.equal(c.lost.observed, 0, `${c.name} 有采样方向打不中灯或采样点落在矩形外`);
+  }
+});
+
+/** 均匀亮度 L = 1 的多边形对朝向 N 的小面元的辐照度 ∫cosθ dω（解析）：Lambert 的边求和，E = ½ Σ Θ_i·(N·n̂_i)，
+ *  Θ_i 是相邻两个顶点方向的夹角，n̂_i 是它们张成的平面的单位法向。要求多边形整个在面元的地平线以上。双精度 */
+function polygonIrradiance(P, N, corners) {
+  const r = corners.map(c => v3.sub(c, P));
+  let e = 0;
+  for (let k = 0; k < r.length; k++) {
+    const a = r[k], b = r[(k + 1) % r.length], c = v3.cross(a, b), lc = Math.hypot(...c);
+    e += Math.atan2(lc, v3.dot(a, b)) * v3.dot(N, c) / lc;
+  }
+  return Math.abs(e) / 2;
+}
+
+test('端到端数学裁判：均匀矩形面光照小面元，采样估计的辐照度对解析形状因子在 0.2% 以内（不依赖 Cycles）', { timeout: 600_000 }, async t => {
+  const cases = [
+    ['近处大灯', [0, 1, 0]], ['近处大灯', v3.norm([0.3, 1, 0.2])], ['远处小灯', [0, 1, 0]], ['掠射', [0, 1, 0]], ['斜向', v3.norm([0.4, 1, 0.1])], ['极小灯', [0, 1, 0]],
+  ].map(([name, N]) => ({ name, N, exact: polygonIrradiance([0, 0, 0], N, LIGHTS[name].corners), expr: `irradiance_sample(u, vec3f(${N.join(', ')}), ${LIGHTS[name].wgsl})` }));
+  const n = 2_000_000;
+  const r = await gpuOnly(t, () => mcMean({ source: shaderSource() + LIGHT_HELPERS, cases, n, seed: 1 }));
+  if (!r) return;
+  cases.forEach((c, k) => {
+    const rel = r[k].mean / c.exact - 1;
+    t.diagnostic(`${c.name} N=[${c.N.map(x => x.toFixed(3))}]: 估计 ${r[k].mean.toExponential(6)} ± ${r[k].stderr.toExponential(2)}  解析 ${c.exact.toExponential(6)}  相对差 ${rel.toExponential(2)}`);
+    assert.ok(Math.abs(rel) <= 2e-3, `${c.name} 相对差 ${rel}`);
+    // 样本数给够：标准误差不到容差的四分之一
+    assert.ok(r[k].stderr / c.exact < 5e-4, `${c.name} 标准误差 ${r[k].stderr}`);
+  });
+});

@@ -1,11 +1,12 @@
 // 标准答案程序：直接包含 Cycles 内核的真实头文件、调用真实函数（不抄函数体），按函数标识分发。
 // 用法：ref <函数标识> < 输入 > 输出。输入是小端 float32 流，每组 n_in 个；输出每组 n_out 个。
 // 退出码：0 成功；1 函数标识不认识；2 最后一组不完整。
-// 要闭包结构体或查找表的函数，在这里填好真的 MicrofacetBsdf、FresnelF82Tint 和内核全局数据，再调真函数。
+// 要闭包结构体或查找表的函数，在这里填好真的 MicrofacetBsdf、FresnelF82Tint 和内核全局数据，再调真函数；面光填真的 KernelLight 与 Ray。
 #include "kernel/device/cpu/compat.h"
 #include "kernel/device/cpu/globals.h"
 #include "kernel/types.h"
 #include "kernel/closure/bsdf_microfacet.h"
+#include "kernel/light/area.h"
 #include "util/projection.h"
 #include "util/transform.h"
 
@@ -96,6 +97,34 @@ static void sample_out(float *o, const int label, const Spectrum eval, const flo
   o[7] = label == LABEL_NONE ? 0.0f : pdf;
 }
 
+/* 矩形面光：输入依次是 co、axis_u、len_u、axis_v、len_v、dir、invarea（15 个 float），无聚拢（normalize_spread = 0），
+ * tan_half_spread 只在椭圆那一支读，取 0。KernelLight 里有联合体，先整块清零 */
+static KernelLight area_light(const float *i)
+{
+  KernelLight k;
+  memset(&k, 0, sizeof(k));
+  k.type = LIGHT_AREA;
+  k.co = get3(i);
+  k.area.axis_u = get3(i + 3);
+  k.area.len_u = i[6];
+  k.area.axis_v = get3(i + 7);
+  k.area.len_v = i[10];
+  k.area.dir = get3(i + 11);
+  k.area.invarea = i[14];
+  return k;
+}
+
+/* 采样：返回 false 时 Cycles 只写了一部分字段（ls->P 已是灯心），这里一律写 0 */
+static void light_sample_out(float *o, const bool ok, const LightSample &ls)
+{
+  o[0] = float(ok);
+  put3(o + 1, ok ? float3(ls.P) : zero_float3());
+  put3(o + 4, ok ? ls.D : zero_float3());
+  o[7] = ok ? ls.t : 0.0f;
+  o[8] = ok ? ls.pdf : 0.0f;
+  o[9] = ok ? ls.eval_fac : 0.0f;
+}
+
 static const Entry table[] = {
     {"bsdf_lambda_from_sqr_alpha_tan_n_ggx", 1, 1, [](const float *i, float *o) { o[0] = bsdf_lambda_from_sqr_alpha_tan_n<MicrofacetType::GGX>(i[0]); }},
     {"bsdf_lambda_ggx", 2, 1, [](const float *i, float *o) { o[0] = bsdf_lambda<MicrofacetType::GGX>(i[0], i[1]); }},
@@ -168,6 +197,54 @@ static const Entry table[] = {
        float2 rough;
        const int label = bsdf_microfacet_ggx_sample(kg, &m.sc, get3(i + 3), get3(i + 6), make_float3(i[17], i[18], 0.0f), &eval, &wo, &pdf, &rough, &eta);
        sample_out(o, label, eval, wo, pdf);
+     }},
+    {"safe_asinf", 1, 1, [](const float *i, float *o) { o[0] = safe_asinf(i[0]); }},
+    {"ray_quad_intersect", 20, 7, [](const float *i, float *o) {
+       float3 P = zero_float3();
+       float t = 0.0f, u = 0.0f, v = 0.0f;
+       const bool hit = ray_quad_intersect(get3(i), get3(i + 3), i[6], i[7], get3(i + 8), get3(i + 11), get3(i + 14), get3(i + 17), &P, &t, &u, &v, false);
+       o[0] = float(hit);
+       put3(o + 1, P);
+       o[4] = t;
+       o[5] = u;
+       o[6] = v;
+     }},
+    {"area_light_rect_sample", 16, 4, [](const float *i, float *o) {
+       float3 light_p = get3(i + 3);
+       o[0] = area_light_rect_sample(get3(i), &light_p, get3(i + 6), i[9], get3(i + 10), i[13], get2(i + 14), true);
+       put3(o + 1, light_p);
+     }},
+    {"area_light_rect_sample_pdf", 16, 1, [](const float *i, float *o) {
+       float3 light_p = get3(i + 3);
+       o[0] = area_light_rect_sample(get3(i), &light_p, get3(i + 6), i[9], get3(i + 10), i[13], get2(i + 14), false);
+     }},
+    {"area_light_rect_sample_solid_angle", 16, 1, [](const float *i, float *o) {
+       float3 light_p = get3(i + 3);
+       o[0] = 1.0f / area_light_rect_sample(get3(i), &light_p, get3(i + 6), i[9], get3(i + 10), i[13], get2(i + 14), false);
+     }},
+    {"area_light_sample", 20, 10, [](const float *i, float *o) {
+       const KernelLight k = area_light(i + 5);
+       LightSample ls{};
+       const bool ok = area_light_sample<false>(&k, get2(i), get3(i + 2), &ls);
+       light_sample_out(o, ok, ls);
+     }},
+    {"area_light_eval_from_intersection", 22, 2, [](const float *i, float *o) {
+       const KernelLight k = area_light(i + 7);
+       const LightEval e = area_light_eval_from_intersection(&k, get3(i), get3(i + 3), i[6]);
+       o[0] = e.eval_fac;
+       o[1] = e.pdf;
+     }},
+    {"area_light_intersect", 23, 2, [](const float *i, float *o) {
+       const KernelLight k = area_light(i + 8);
+       Ray ray{};
+       ray.P = get3(i);
+       ray.D = get3(i + 3);
+       ray.tmin = i[6];
+       ray.tmax = i[7];
+       float t = 0.0f;
+       const bool hit = area_light_intersect(&k, &ray, &t);
+       o[0] = float(hit);
+       o[1] = hit ? t : 0.0f;
      }},
 };
 

@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 // SPDX-License-Identifier: Apache-2.0
 //
-// 闭包与采样用到的工具函数，照 Cycles（Blender v5.2.3）的 util 与内核源码逐行移植；这些源文件都是 Apache-2.0。
+// 闭包、采样与面光用到的工具函数，照 Cycles（Blender v5.2.3）的 util 与内核源码逐行移植；这些源文件都是 Apache-2.0。
 // 行号指 intern/cycles/ 下的文件。Cycles 的 normalize、len 与 WGSL 内建的舍入不同（内建 normalize 用 inverseSqrt），
 // 所以照原式写成 normalize_ccl、len_ccl。查表函数读 ggx_tables.wgsl 里的 LOOKUP_TABLE。
 
@@ -25,6 +25,16 @@ fn safe_sqrtf(f: f32) -> f32 {
 // util/math_base.h:543-550: inversesqrtf（CPU 那一支；Metal 那一支用 rsqrt，精度不同）
 fn inversesqrtf(f: f32) -> f32 {
   return select(0.0, 1.0 / sqrt(f), f > 0.0);
+}
+
+// util/math_base.h:552-555: safe_asinf
+fn safe_asinf(a: f32) -> f32 {
+  return asin(clamp(a, -1.0, 1.0));
+}
+
+// C 标准库的 copysignf（Cycles 在 CPU 上直接用它）：WGSL 没有，按位取 b 的符号位，±0 与 NaN 的符号也照搬
+fn copysignf(a: f32, b: f32) -> f32 {
+  return bitcast<f32>((bitcast<u32>(a) & 0x7fffffffu) | (bitcast<u32>(b) & 0x80000000u));
 }
 
 // util/math_base.h:594: safe_divide(float, float)
@@ -117,4 +127,37 @@ fn lookup_table_read_2D(x: f32, y_in: f32, offset: i32, xsize: i32, ysize: i32) 
 
   let data1 = lookup_table_read(x, offset + xsize * nindex, xsize);
   return (1.0 - t) * data0 + t * data1;
+}
+
+// util/math_intersect.h:288-338: ray_quad_intersect 的输出。没打中时 Cycles 不写输出指针，这里其余字段为 0
+struct QuadHit {
+  hit: bool,
+  P: vec3f,
+  t: f32,
+  u: f32,
+  v: f32,
+}
+
+// util/math_intersect.h:288-338: ray_quad_intersect（isect_P、isect_t、isect_u、isect_v 四个输出指针都不为空的情形）
+fn ray_quad_intersect(ray_P: vec3f, ray_D: vec3f, ray_tmin: f32, ray_tmax: f32, quad_P: vec3f, inv_quad_u: vec3f, inv_quad_v: vec3f, quad_n: vec3f, ellipse: bool) -> QuadHit {
+  // Perform intersection test.
+  let t = -(dot(ray_P, quad_n) - dot(quad_P, quad_n)) / dot(ray_D, quad_n);
+  if (!(t > ray_tmin && t < ray_tmax)) {
+    return QuadHit();
+  }
+  let hit = ray_P + t * ray_D;
+  let inplane = hit - quad_P;
+  let u = dot(inplane, inv_quad_u);
+  if (u < -0.5 || u > 0.5) {
+    return QuadHit();
+  }
+  let v = dot(inplane, inv_quad_v);
+  if (v < -0.5 || v > 0.5) {
+    return QuadHit();
+  }
+  if (ellipse && (u * u + v * v > 0.25)) {
+    return QuadHit();
+  }
+  // NOTE: Return barycentric coordinates in the same notation as Embree and OptiX.
+  return QuadHit(true, hit, t, v + 0.5, -u - v);
 }

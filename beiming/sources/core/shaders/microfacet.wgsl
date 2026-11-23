@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
 // GGX 微表面与 F82 菲涅耳：叶子函数，加上金属反射闭包的建立、求值与采样，照 Cycles（Blender v5.2.3）内核源码逐行移植。
-// 纯函数，不带绑定；用到 util.wgsl 的工具函数与 ggx_tables.wgsl 的查找表，三个文件拼在一起编译。
+// 纯函数，不带绑定；用到 util.wgsl 的工具函数与 ggx_tables.wgsl 的查找表，与同目录的 WGSL 文件拼在一起编译。
 // 闭包只移金属反射这一条路：GGX、F82-tint 菲涅耳、无薄膜、无折射、各向同性（alpha_x == alpha_y，所以只传一个 alpha）。
 // Cycles 里闭包参数放在 MicrofacetBsdf 结构体里，这里一律改成显式参数：N、alpha（已 saturate）、f0、b（F82 的 B 项）、energy_scale。
 // Cycles 的模板参数 MicrofacetType 在这里固定为 GGX，函数名带 _ggx；同名的 float 与 Spectrum 重载分成两个名字，

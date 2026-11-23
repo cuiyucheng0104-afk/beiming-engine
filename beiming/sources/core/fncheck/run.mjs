@@ -29,7 +29,7 @@ function fnv1a(s) {
 
 /** 确定性输入：mulberry32 取 24 位均匀数，按登记的类型与范围逐组生成后存成 float32。标量与向量每个分量用一个均匀数；
  *  dir 用两个：z 在范围里均匀、方位角在 [0, 2π) 里均匀，即在那一圈球带上按面积均匀。对数范围与 dir 用到 Math.pow、cos、sin，
- *  跨机器是否逐字节相同以报告里的 inputSha256 为准 */
+ *  跨机器是否逐字节相同以报告里的 inputSha256 为准。登记了 gen(next) 的项由它给出一组 { 输入名: 值 }，按 inputs 的次序写入 */
 export function makeInputs(f, n, seed) {
   let s = (fnv1a(f.name) ^ seed) >>> 0;
   const next = () => {
@@ -41,6 +41,11 @@ export function makeInputs(f, n, seed) {
   const out = new Float32Array(n * width(f));
   let i = 0;
   for (let g = 0; g < n; g++) {
+    if (f.gen) {
+      const v = f.gen(next);
+      for (const [name] of f.inputs) for (const x of [v[name]].flat()) out[i++] = x;
+      continue;
+    }
     for (const [, type, r] of f.inputs) {
       if (type === 'dir') {
         const z = r[0] + (r[1] - r[0]) * next(), phi = 2 * Math.PI * next(), rho = Math.sqrt(1 - z * z);
@@ -57,6 +62,13 @@ export function makeInputs(f, n, seed) {
   return out;
 }
 
+/** 按登记的 branch(一组输入) 数各分支的组数 */
+function branchCounts(f, input, n) {
+  const w = width(f), counts = {};
+  for (let g = 0; g < n; g++) { const b = f.branch(input.subarray(g * w, (g + 1) * w)); counts[b] = (counts[b] ?? 0) + 1; }
+  return counts;
+}
+
 /** 跑一遍比对，返回报告。wgsl 是 { 文件名: 原文 }，代替那几个 WGSL 文件（测试用来故意改错一项） */
 export async function check({ names = FUNCTIONS.map(f => f.name), n = 1_000_000, seed = 1, wgsl, allowFetch = true } = {}) {
   const fns = names.map(name => FUNCTIONS.find(f => f.name === name) ?? (() => { throw usageError('unknown-function', `登记表里没有函数 ${name}`, `可用：${FUNCTIONS.map(f => f.name).join(' ')}`); })());
@@ -69,6 +81,7 @@ export async function check({ names = FUNCTIONS.map(f => f.name), n = 1_000_000,
     rel: j.f.rel,
     abs: j.f.abs,
     inputSha256: createHash('sha256').update(j.input).digest('hex'),
+    ...(j.f.branch && { branches: branchCounts(j.f, j.input, n) }),
     ...compare({ input: j.input, nIn: width(j.f), ref: runRef(bin, j.f.ref, j.input, n * outWidth(j.f)), test: gpu.outputs[k], nOut: outWidth(j.f), rel: j.f.rel, abs: j.f.abs, skip: j.f.skip }),
   }));
   return { ok: results.every(r => r.fails === 0), n, seed, cycles: { tag: TAG, commit: COMMIT }, platform: `${process.platform}-${process.arch}`, adapter: gpu.adapter, results };
@@ -96,6 +109,7 @@ export const command = defineCommand({
     fs.writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
     for (const r of report.results) {
       ctx.out(`${r.fails ? '✗' : '✓'} ${r.name.padEnd(38)} 组数 ${r.groups}  最大相对误差 ${r.maxRel.toExponential(2)}（abs 不兜底处 ${r.maxRelNonTiny.toExponential(2)}）  不合格 ${r.fails}  非有限 ${r.nonFinite}  标准全零 ${r.zeroRef}  不比 ${r.skipped}  所需 abs ${r.needAbs.toExponential(2)}`);
+      if (r.branches) ctx.out(`    分支：${Object.entries(r.branches).map(([b, c]) => `${b} ${(c / r.groups * 100).toFixed(2)}%`).join('，')}`);
       if (r.fails) ctx.out(`    最差一组：下标 ${r.worst[0].index}  输入 [${r.worst[0].input}]  标准 [${r.worst[0].ref}]  被测 [${r.worst[0].test}]  相对误差 ${r.worst[0].relErr}`);
     }
     ctx.out(`报告：${file}`);

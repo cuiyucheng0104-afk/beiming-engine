@@ -1,6 +1,8 @@
 // 采样一类函数的统计检验，被测函数都在显卡上算（WGSL 原文由调用方拼好）。
 //   directionChi2：采样出的方向分箱，与概率密度在各箱上的数值积分比，做 χ² 检验（采样与概率密度配不配对）。
 //   ggxAlbedo：对出射半球数值积分求值结果，得到方向反照率（能量守恒）。
+//   gridChi2：样本先映射到单位正方形上（例如面光：采样方向打在灯面上的局部坐标），按网格分箱做 χ² 检验。
+//   mcMean：一个采样估计量在显卡上逐样本算、回到 JS 用双精度求平均（面光辐照度对解析形状因子）。
 // 两者都不依赖 Cycles：比的是我方采样函数与我方概率密度函数彼此是否一致，以及求值的积分是否不超过 1。
 import { makeInputs } from './run.mjs';
 import { runGpu } from './gpu.mjs';
@@ -123,6 +125,47 @@ export async function directionChi2({ source, cases, n = 1_000_000, seed = 1, nT
 }
 
 /**
+ * 单位正方形上的 χ² 检验，用于支撑集是一块有界区域的采样（面光）：在球面 θ、φ 箱上，指示函数形状的概率密度在区域边上
+ * 被中点法积成 0 的细条里仍会落样本，误判为采样到了概率密度为零的地方；映射到区域自己的坐标上，箱的边界与支撑集的边界重合。
+ * cases: [{ name, sample, density, ...其余原样带回 }]：sample 是用变量 u（vec3f，[0,1) 均匀数）写的 WGSL 表达式，给出
+ * vec3f(x, y, 1 有效 | 0 被拒)，x、y ∈ [0, 1]；density 是用变量 p（vec2f）写的 WGSL 表达式，给出对 dx·dy 的概率密度。
+ * nx×ny 个箱，每箱 sub×sub 个点的中点法，另加一箱「被拒」，期望 n·(1 − 全部箱的积分)。返回同 directionChi2。
+ */
+export async function gridChi2({ source, cases, n = 1_000_000, seed = 1, nx = 64, ny = 64, sub = 8 }) {
+  const u = makeInputs({ name: 'gridChi2', inputs: [['u', 'vec3f', [0, 1]]] }, n, seed);
+  const nb = nx * ny;
+  const jobs = cases.flatMap((c, k) => [
+    { name: `s${k}`, input: u, n, nOut: 3, code: job(source, `fn grid_sample(u: vec3f) -> vec3f { return ${c.sample}; }`, `
+  if (i >= ${n}u) { return; }
+  let r = grid_sample(vec3f(inp[i * 3u], inp[i * 3u + 1u], inp[i * 3u + 2u]));
+  outp[i * 3u] = r.x; outp[i * 3u + 1u] = r.y; outp[i * 3u + 2u] = r.z;`) },
+    { name: `p${k}`, input: new Float32Array(1), n: nb, nOut: 1, code: job(source, `fn grid_density(p: vec2f) -> f32 { return ${c.density}; }`, `
+  if (i >= ${nb}u) { return; }
+  var sum = 0.0;
+  for (var a = 0u; a < ${sub}u; a++) {
+    for (var b = 0u; b < ${sub}u; b++) {
+      sum += grid_density(vec2f((f32((i % ${nx}u) * ${sub}u + a) + 0.5) / ${nx * sub}.0, (f32((i / ${nx}u) * ${sub}u + b) + 0.5) / ${ny * sub}.0));
+    }
+  }
+  outp[i] = sum / ${nx * ny * sub * sub}.0;`) },
+  ]);
+  const { outputs } = await runGpu(jobs);
+  return cases.map((c, k) => {
+    const s = outputs[2 * k], integral = outputs[2 * k + 1];
+    const observed = new Float64Array(nb + 1), expected = new Float64Array(nb + 1);
+    for (let i = 0; i < n; i++) {
+      if (s[3 * i + 2] === 0) { observed[nb]++; continue; }
+      const x = Math.min(nx - 1, Math.max(0, Math.floor(s[3 * i] * nx))), y = Math.min(ny - 1, Math.max(0, Math.floor(s[3 * i + 1] * ny)));
+      observed[y * nx + x]++;
+    }
+    let total = 0;
+    for (let b = 0; b < nb; b++) total += (expected[b] = n * integral[b]);
+    expected[nb] = Math.max(0, n - total);
+    return { ...c, ...chi2Test(observed, expected), lost: { observed: observed[nb], expected: expected[nb] } };
+  });
+}
+
+/**
  * GGX 一类闭包的方向反照率 ∫ eval(wi, wo) dωo（eval 是 Cycles 约定的求值结果，已含出射方向的余弦，不再乘）。
  * cases: [{ alpha, cosI, eval }]，eval 是 WGSL 表达式，可用 N = (0,0,1)、wi = (sinθi, 0, cosθi)、wo、alpha（各向同性）。
  * 积分换到半向量 h 上：∫ f(wo) dωo = ∫_{wi·h>0} f(wo(h))·4(wi·h) dωh。h 按 GGX 的 D(h)·cos θh 做确定的分层：
@@ -154,4 +197,19 @@ export async function ggxAlbedo({ source, cases, m = 1024 }) {
   outp[i] = sum;`) }));
   const { outputs } = await runGpu(jobs);
   return outputs.map(rows => rows.reduce((s, v) => s + v, 0) / (m * m));
+}
+
+/** 蒙特卡洛均值。cases: [{ expr }]，expr 是用变量 u（vec3f，[0,1) 均匀数）写的 WGSL 表达式，给出一个样本的估计值。
+ *  所有 case 共用同一串 u。返回每个 case 的 { mean, stderr }（标准误差 = 样本标准差 / √n） */
+export async function mcMean({ source, cases, n = 1_000_000, seed = 1 }) {
+  const u = makeInputs({ name: 'mcMean', inputs: [['u', 'vec3f', [0, 1]]] }, n, seed);
+  const { outputs } = await runGpu(cases.map((c, k) => ({ name: `m${k}`, input: u, n, nOut: 1, code: job(source, `fn mc_sample(u: vec3f) -> f32 { return ${c.expr}; }`, `
+  if (i >= ${n}u) { return; }
+  outp[i] = mc_sample(vec3f(inp[i * 3u], inp[i * 3u + 1u], inp[i * 3u + 2u]));`) })));
+  return outputs.map(o => {
+    let s = 0, s2 = 0;
+    for (const v of o) { s += v; s2 += v * v; }
+    const mean = s / n;
+    return { mean, stderr: Math.sqrt(Math.max(0, s2 / n - mean * mean) / n) };
+  });
 }
