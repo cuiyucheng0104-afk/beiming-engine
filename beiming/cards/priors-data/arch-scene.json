@@ -1,0 +1,3291 @@
+{
+  "format": "priors/0.1",
+  "entries": [
+    {
+      "id": "arch-scene.d006.camera-path-min-clearance",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-2.camera-path-min-clearance",
+      "title": "高密度街区网格规则：实体与相机路径的最小净距",
+      "value": 3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "在街区镜头布局中检查实体是否让开每条相机路径；3 米是本案例采用的下限。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.2 节 d006；出处类别：原文陈述·布局、摆位与放置规则",
+        "note": "原证据：原文陈述；原验证：C。实体离每条相机路径至少 3 米；每个模块 30 秒内能从镜头角度预览（带 clay 模式）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "实体离每条相机路径至少 3 米",
+        "c11.sourceId": "d006"
+      }
+    },
+    {
+      "id": "arch-scene.d006.module-preview-time-limit",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-2.module-preview-time-limit",
+      "title": "单模块从镜头角度预览的等待时限",
+      "value": 30,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "从镜头角度预览一个街区模块时，工具支持灰模模式；30 秒是案例的等待上限，不是片长或实测渲染时间。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.2 节 d006；出处类别：原文陈述·布局、摆位与放置规则",
+        "note": "原证据：原文陈述；原验证：C。实体离每条相机路径至少 3 米；每个模块 30 秒内能从镜头角度预览（带 clay 模式）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "每个模块 30 秒内能从镜头角度预览",
+        "c11.sourceId": "d006"
+      }
+    },
+    {
+      "id": "arch-scene.d013.main-eave-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.main-eave-height",
+      "title": "山门尺寸（主殿檐高）",
+      "value": 13.75,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶：山门尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节 d013；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
+        "note": "原证据：源码；原验证：清单未列（源码值，按库规我们未渲染读回）。台基 31×9.5；主殿屋顶 15.5×8.6 檐高 13.75；偏殿屋顶 11.2×7.4 檐高 10.35；柱半径 0.52；柱列 [−11.6,8.6][−4.7,11.8][4.7,11.8][11.6,8.6]；匾额 4.5×2.16 m，黑底金字，512×232 画布，字号 190 px"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "主殿屋顶 15.5×8.6 檐高 13.75",
+        "c11.sourceId": "d013"
+      }
+    },
+    {
+      "id": "arch-scene.d013.side-eave-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.side-eave-height",
+      "title": "山门尺寸（偏殿檐高）",
+      "value": 10.35,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶：山门尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节 d013；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
+        "note": "原证据：源码；原验证：清单未列（源码值，按库规我们未渲染读回）。台基 31×9.5；主殿屋顶 15.5×8.6 檐高 13.75；偏殿屋顶 11.2×7.4 檐高 10.35；柱半径 0.52；柱列 [−11.6,8.6][−4.7,11.8][4.7,11.8][11.6,8.6]；匾额 4.5×2.16 m，黑底金字，512×232 画布，字号 190 px"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "偏殿屋顶 11.2×7.4 檐高 10.35",
+        "c11.sourceId": "d013"
+      }
+    },
+    {
+      "id": "arch-scene.d013.gate-column-radius",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.gate-column-radius",
+      "title": "山门尺寸（山门柱半径）",
+      "value": 0.52,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶：山门尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节 d013；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
+        "note": "原证据：源码；原验证：清单未列（源码值，按库规我们未渲染读回）。台基 31×9.5；主殿屋顶 15.5×8.6 檐高 13.75；偏殿屋顶 11.2×7.4 檐高 10.35；柱半径 0.52；柱列 [−11.6,8.6][−4.7,11.8][4.7,11.8][11.6,8.6]；匾额 4.5×2.16 m，黑底金字，512×232 画布，字号 190 px"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "柱半径 0.52",
+        "c11.sourceId": "d013"
+      }
+    },
+    {
+      "id": "arch-scene.d013.sign-width",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.sign-width",
+      "title": "山门尺寸（匾额宽）",
+      "value": 4.5,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶：山门尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节 d013；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
+        "note": "原证据：源码；原验证：清单未列（源码值，按库规我们未渲染读回）。台基 31×9.5；主殿屋顶 15.5×8.6 檐高 13.75；偏殿屋顶 11.2×7.4 檐高 10.35；柱半径 0.52；柱列 [−11.6,8.6][−4.7,11.8][4.7,11.8][11.6,8.6]；匾额 4.5×2.16 m，黑底金字，512×232 画布，字号 190 px"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "匾额 4.5×2.16 m",
+        "c11.sourceId": "d013"
+      }
+    },
+    {
+      "id": "arch-scene.d013.sign-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.sign-height",
+      "title": "山门尺寸（匾额高）",
+      "value": 2.16,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶：山门尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节 d013；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
+        "note": "原证据：源码；原验证：清单未列（源码值，按库规我们未渲染读回）。台基 31×9.5；主殿屋顶 15.5×8.6 檐高 13.75；偏殿屋顶 11.2×7.4 檐高 10.35；柱半径 0.52；柱列 [−11.6,8.6][−4.7,11.8][4.7,11.8][11.6,8.6]；匾额 4.5×2.16 m，黑底金字，512×232 画布，字号 190 px"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "匾额 4.5×2.16 m",
+        "c11.sourceId": "d013"
+      }
+    },
+    {
+      "id": "arch-scene.d014.hall-column-radius",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.hall-column-radius",
+      "title": "大殿构件尺寸（殿柱半径）",
+      "value": 0.26,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶：大殿构件尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节 d014；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
+        "note": "原证据：源码；原验证：清单未列（源码值，按库规我们未渲染读回）。柱半径 殿 0.26/亭 0.22，收分 1→0.985→0.955→0.925；梁枋高 0.44 厚 0.30；斗拱底斗 0.34×0.20×0.34；椽距 0.33 m（飞椽方 0.084，圆椽半径 0.054）；台基宽 +0.34、挑出 +0.40；栏杆立柱间距 1.45、高 1.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "柱半径 殿 0.26",
+        "c11.sourceId": "d014"
+      }
+    },
+    {
+      "id": "arch-scene.d014.pavilion-column-radius",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.pavilion-column-radius",
+      "title": "大殿构件尺寸（亭柱半径）",
+      "value": 0.22,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶：大殿构件尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节 d014；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
+        "note": "原证据：源码；原验证：清单未列（源码值，按库规我们未渲染读回）。柱半径 殿 0.26/亭 0.22，收分 1→0.985→0.955→0.925；梁枋高 0.44 厚 0.30；斗拱底斗 0.34×0.20×0.34；椽距 0.33 m（飞椽方 0.084，圆椽半径 0.054）；台基宽 +0.34、挑出 +0.40；栏杆立柱间距 1.45、高 1.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "柱半径 殿 0.26/亭 0.22",
+        "c11.sourceId": "d014"
+      }
+    },
+    {
+      "id": "arch-scene.d014.beam-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.beam-height",
+      "title": "大殿构件尺寸（梁枋高）",
+      "value": 0.44,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶：大殿构件尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节 d014；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
+        "note": "原证据：源码；原验证：清单未列（源码值，按库规我们未渲染读回）。柱半径 殿 0.26/亭 0.22，收分 1→0.985→0.955→0.925；梁枋高 0.44 厚 0.30；斗拱底斗 0.34×0.20×0.34；椽距 0.33 m（飞椽方 0.084，圆椽半径 0.054）；台基宽 +0.34、挑出 +0.40；栏杆立柱间距 1.45、高 1.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "梁枋高 0.44",
+        "c11.sourceId": "d014"
+      }
+    },
+    {
+      "id": "arch-scene.d014.beam-thickness",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.beam-thickness",
+      "title": "大殿构件尺寸（梁枋厚）",
+      "value": 0.3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶：大殿构件尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节 d014；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
+        "note": "原证据：源码；原验证：清单未列（源码值，按库规我们未渲染读回）。柱半径 殿 0.26/亭 0.22，收分 1→0.985→0.955→0.925；梁枋高 0.44 厚 0.30；斗拱底斗 0.34×0.20×0.34；椽距 0.33 m（飞椽方 0.084，圆椽半径 0.054）；台基宽 +0.34、挑出 +0.40；栏杆立柱间距 1.45、高 1.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "梁枋高 0.44 厚 0.30",
+        "c11.sourceId": "d014"
+      }
+    },
+    {
+      "id": "arch-scene.d014.rafter-spacing",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.rafter-spacing",
+      "title": "大殿构件尺寸（椽距）",
+      "value": 0.33,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶：大殿构件尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节 d014；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
+        "note": "原证据：源码；原验证：清单未列（源码值，按库规我们未渲染读回）。柱半径 殿 0.26/亭 0.22，收分 1→0.985→0.955→0.925；梁枋高 0.44 厚 0.30；斗拱底斗 0.34×0.20×0.34；椽距 0.33 m（飞椽方 0.084，圆椽半径 0.054）；台基宽 +0.34、挑出 +0.40；栏杆立柱间距 1.45、高 1.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "椽距 0.33 m",
+        "c11.sourceId": "d014"
+      }
+    },
+    {
+      "id": "arch-scene.d014.railing-post-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.railing-post-height",
+      "title": "大殿构件尺寸（栏杆立柱高）",
+      "value": 1.25,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节 中式木构：外部案例 01山门、大殿与屋顶：大殿构件尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节 d014；出处类别：源码拆解·中式木构：外部案例 01山门、大殿与屋顶",
+        "note": "原证据：源码；原验证：清单未列（源码值，按库规我们未渲染读回）。柱半径 殿 0.26/亭 0.22，收分 1→0.985→0.955→0.925；梁枋高 0.44 厚 0.30；斗拱底斗 0.34×0.20×0.34；椽距 0.33 m（飞椽方 0.084，圆椽半径 0.054）；台基宽 +0.34、挑出 +0.40；栏杆立柱间距 1.45、高 1.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "栏杆立柱间距 1.45、高 1.25",
+        "c11.sourceId": "d014"
+      }
+    },
+    {
+      "id": "arch-scene.d024.wall-thickness",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.wall-thickness",
+      "title": "民居（民居墙厚）",
+      "value": 0.55,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：民居"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d024；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。民居 [源码 原实现源码]：墙厚 0.55；一层高 两层 3.05-3.9 / 单层 3.5-4.5；二层高 2.3-3.0；悬挑 0.25-0.8；坡度 pitch=0.7+r·0.38 rad，屋脊高 R=半跨·tan(pitch)·0.82；门宽 1.15-1.35 高 2.35/2.75；窗宽 0.85-1.0 窗台 1.05 顶 2.3；铺面窗宽 2.3-2.8；半木骨架 开间 1.15，横梁 0.22/0.2，立柱 0.2×0.24；椽 0.62；茅草厚 0.34，屋脊半径 0.34；72% 石板瓦 28% 茅草；14% 烧毁；主街 82% 两层。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "墙厚 0.55",
+        "c11.sourceId": "d024",
+        "c11.randomRanges": [
+          {
+            "value": [
+              0.7,
+              1.08
+            ],
+            "unit": "rad",
+            "rawUnit": "原文未写单位",
+            "base": 0.7,
+            "jitter": 0.38,
+            "expr": "0.7+r·0.38",
+            "label": "屋顶坡度",
+            "randomVar": "r"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arch-scene.d024.ground-storey-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.ground-storey-height",
+      "title": "民居（两层民居首层层高）",
+      "value": [
+        3.05,
+        3.9
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：民居"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d024；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。民居 [源码 原实现源码]：墙厚 0.55；一层高 两层 3.05-3.9 / 单层 3.5-4.5；二层高 2.3-3.0；悬挑 0.25-0.8；坡度 pitch=0.7+r·0.38 rad，屋脊高 R=半跨·tan(pitch)·0.82；门宽 1.15-1.35 高 2.35/2.75；窗宽 0.85-1.0 窗台 1.05 顶 2.3；铺面窗宽 2.3-2.8；半木骨架 开间 1.15，横梁 0.22/0.2，立柱 0.2×0.24；椽 0.62；茅草厚 0.34，屋脊半径 0.34；72% 石板瓦 28% 茅草；14% 烧毁；主街 82% 两层。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "一层高 两层 3.05-3.9",
+        "c11.sourceId": "d024"
+      }
+    },
+    {
+      "id": "arch-scene.d024.single-storey-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.single-storey-height",
+      "title": "民居（单层民居层高）",
+      "value": [
+        3.5,
+        4.5
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：民居"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d024；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。民居 [源码 原实现源码]：墙厚 0.55；一层高 两层 3.05-3.9 / 单层 3.5-4.5；二层高 2.3-3.0；悬挑 0.25-0.8；坡度 pitch=0.7+r·0.38 rad，屋脊高 R=半跨·tan(pitch)·0.82；门宽 1.15-1.35 高 2.35/2.75；窗宽 0.85-1.0 窗台 1.05 顶 2.3；铺面窗宽 2.3-2.8；半木骨架 开间 1.15，横梁 0.22/0.2，立柱 0.2×0.24；椽 0.62；茅草厚 0.34，屋脊半径 0.34；72% 石板瓦 28% 茅草；14% 烧毁；主街 82% 两层。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "单层 3.5-4.5",
+        "c11.sourceId": "d024"
+      }
+    },
+    {
+      "id": "arch-scene.d024.upper-storey-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.upper-storey-height",
+      "title": "民居（民居二层层高）",
+      "value": [
+        2.3,
+        3
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：民居"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d024；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。民居 [源码 原实现源码]：墙厚 0.55；一层高 两层 3.05-3.9 / 单层 3.5-4.5；二层高 2.3-3.0；悬挑 0.25-0.8；坡度 pitch=0.7+r·0.38 rad，屋脊高 R=半跨·tan(pitch)·0.82；门宽 1.15-1.35 高 2.35/2.75；窗宽 0.85-1.0 窗台 1.05 顶 2.3；铺面窗宽 2.3-2.8；半木骨架 开间 1.15，横梁 0.22/0.2，立柱 0.2×0.24；椽 0.62；茅草厚 0.34，屋脊半径 0.34；72% 石板瓦 28% 茅草；14% 烧毁；主街 82% 两层。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "二层高 2.3-3.0",
+        "c11.sourceId": "d024"
+      }
+    },
+    {
+      "id": "arch-scene.d024.door-width",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.door-width",
+      "title": "民居（门宽）",
+      "value": [
+        1.15,
+        1.35
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：民居"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d024；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。民居 [源码 原实现源码]：墙厚 0.55；一层高 两层 3.05-3.9 / 单层 3.5-4.5；二层高 2.3-3.0；悬挑 0.25-0.8；坡度 pitch=0.7+r·0.38 rad，屋脊高 R=半跨·tan(pitch)·0.82；门宽 1.15-1.35 高 2.35/2.75；窗宽 0.85-1.0 窗台 1.05 顶 2.3；铺面窗宽 2.3-2.8；半木骨架 开间 1.15，横梁 0.22/0.2，立柱 0.2×0.24；椽 0.62；茅草厚 0.34，屋脊半径 0.34；72% 石板瓦 28% 茅草；14% 烧毁；主街 82% 两层。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "门宽 1.15-1.35",
+        "c11.sourceId": "d024"
+      }
+    },
+    {
+      "id": "arch-scene.d024.door-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.door-height",
+      "title": "民居（门高（两种取值））",
+      "value": {
+        "first": 2.35,
+        "second": 2.75
+      },
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：民居"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d024；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。民居 [源码 原实现源码]：墙厚 0.55；一层高 两层 3.05-3.9 / 单层 3.5-4.5；二层高 2.3-3.0；悬挑 0.25-0.8；坡度 pitch=0.7+r·0.38 rad，屋脊高 R=半跨·tan(pitch)·0.82；门宽 1.15-1.35 高 2.35/2.75；窗宽 0.85-1.0 窗台 1.05 顶 2.3；铺面窗宽 2.3-2.8；半木骨架 开间 1.15，横梁 0.22/0.2，立柱 0.2×0.24；椽 0.62；茅草厚 0.34，屋脊半径 0.34；72% 石板瓦 28% 茅草；14% 烧毁；主街 82% 两层。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "门宽 1.15-1.35 高 2.35/2.75",
+        "c11.sourceId": "d024"
+      }
+    },
+    {
+      "id": "arch-scene.d025.house-frontage-width",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.house-frontage-width",
+      "title": "房排（房排宽度）",
+      "value": [
+        6,
+        9
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：房排"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d025；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。房排 [源码 原实现源码]：宽 6-9 m（目标 7.4±0.8），主街 FRONT=4.7，进深 D=o.D+r·o.Dr。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "宽 6-9 m",
+        "c11.sourceId": "d025"
+      }
+    },
+    {
+      "id": "arch-scene.d025.house-frontage-target",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.house-frontage-target",
+      "title": "房排（房排面宽目标范围）",
+      "value": [
+        6.6,
+        8.2
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：房排"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d025；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。房排 [源码 原实现源码]：宽 6-9 m（目标 7.4±0.8），主街 FRONT=4.7，进深 D=o.D+r·o.Dr。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "宽 6-9 m（目标 7.4±0.8）",
+        "c11.sourceId": "d025"
+      }
+    },
+    {
+      "id": "arch-scene.d026.wall-thickness",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.wall-thickness",
+      "title": "城防（城墙厚）",
+      "value": 2,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：城防"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d026；出处类别：推断与说明·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：清单未列；原验证：清单未列。城防：WALL 厚 2 高 7.2，x∈[-42,42]，z∈[-79.5,50]；幕墙 course 0.6 段宽 0.8，扶壁间隔 11-14 m（1.3×h×0.9）；圆塔 r=3.7 高 15.2-17（22 段圆柱，垛口数 round(2πr/1.7)，箭孔 3 层×4）；方塔 5.6×4.8 高 10.5-13；正门楼 7.8×7×10.2，尖拱宽 6 顶 6.9，吊闸 13×11；西门 9×6.4×9.5。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "WALL 厚 2 高 7.2",
+        "c11.sourceId": "d026"
+      }
+    },
+    {
+      "id": "arch-scene.d026.wall-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.wall-height",
+      "title": "城防（城墙高）",
+      "value": 7.2,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：城防"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d026；出处类别：推断与说明·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：清单未列；原验证：清单未列。城防：WALL 厚 2 高 7.2，x∈[-42,42]，z∈[-79.5,50]；幕墙 course 0.6 段宽 0.8，扶壁间隔 11-14 m（1.3×h×0.9）；圆塔 r=3.7 高 15.2-17（22 段圆柱，垛口数 round(2πr/1.7)，箭孔 3 层×4）；方塔 5.6×4.8 高 10.5-13；正门楼 7.8×7×10.2，尖拱宽 6 顶 6.9，吊闸 13×11；西门 9×6.4×9.5。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "WALL 厚 2 高 7.2",
+        "c11.sourceId": "d026"
+      }
+    },
+    {
+      "id": "arch-scene.d026.buttress-spacing",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.buttress-spacing",
+      "title": "城防（城墙扶壁间距）",
+      "value": [
+        11,
+        14
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：城防"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d026；出处类别：推断与说明·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：清单未列；原验证：清单未列。城防：WALL 厚 2 高 7.2，x∈[-42,42]，z∈[-79.5,50]；幕墙 course 0.6 段宽 0.8，扶壁间隔 11-14 m（1.3×h×0.9）；圆塔 r=3.7 高 15.2-17（22 段圆柱，垛口数 round(2πr/1.7)，箭孔 3 层×4）；方塔 5.6×4.8 高 10.5-13；正门楼 7.8×7×10.2，尖拱宽 6 顶 6.9，吊闸 13×11；西门 9×6.4×9.5。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "扶壁间隔 11-14 m",
+        "c11.sourceId": "d026"
+      }
+    },
+    {
+      "id": "arch-scene.d026.round-tower-radius",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.round-tower-radius",
+      "title": "城防（圆塔半径）",
+      "value": 3.7,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：城防"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d026；出处类别：推断与说明·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：清单未列；原验证：清单未列。城防：WALL 厚 2 高 7.2，x∈[-42,42]，z∈[-79.5,50]；幕墙 course 0.6 段宽 0.8，扶壁间隔 11-14 m（1.3×h×0.9）；圆塔 r=3.7 高 15.2-17（22 段圆柱，垛口数 round(2πr/1.7)，箭孔 3 层×4）；方塔 5.6×4.8 高 10.5-13；正门楼 7.8×7×10.2，尖拱宽 6 顶 6.9，吊闸 13×11；西门 9×6.4×9.5。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "圆塔 r=3.7",
+        "c11.sourceId": "d026"
+      }
+    },
+    {
+      "id": "arch-scene.d026.round-tower-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.round-tower-height",
+      "title": "城防（圆塔高）",
+      "value": [
+        15.2,
+        17
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：城防"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d026；出处类别：推断与说明·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：清单未列；原验证：清单未列。城防：WALL 厚 2 高 7.2，x∈[-42,42]，z∈[-79.5,50]；幕墙 course 0.6 段宽 0.8，扶壁间隔 11-14 m（1.3×h×0.9）；圆塔 r=3.7 高 15.2-17（22 段圆柱，垛口数 round(2πr/1.7)，箭孔 3 层×4）；方塔 5.6×4.8 高 10.5-13；正门楼 7.8×7×10.2，尖拱宽 6 顶 6.9，吊闸 13×11；西门 9×6.4×9.5。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "圆塔 r=3.7 高 15.2-17",
+        "c11.sourceId": "d026"
+      }
+    },
+    {
+      "id": "arch-scene.d026.square-tower-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.square-tower-height",
+      "title": "城防（方塔高）",
+      "value": [
+        10.5,
+        13
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：城防"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d026；出处类别：推断与说明·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：清单未列；原验证：清单未列。城防：WALL 厚 2 高 7.2，x∈[-42,42]，z∈[-79.5,50]；幕墙 course 0.6 段宽 0.8，扶壁间隔 11-14 m（1.3×h×0.9）；圆塔 r=3.7 高 15.2-17（22 段圆柱，垛口数 round(2πr/1.7)，箭孔 3 层×4）；方塔 5.6×4.8 高 10.5-13；正门楼 7.8×7×10.2，尖拱宽 6 顶 6.9，吊闸 13×11；西门 9×6.4×9.5。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "方塔 5.6×4.8 高 10.5-13",
+        "c11.sourceId": "d026"
+      }
+    },
+    {
+      "id": "arch-scene.d027.wall-thickness",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.wall-thickness",
+      "title": "小教堂（小教堂墙厚）",
+      "value": 0.8,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：小教堂"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d027；出处类别：推断与说明·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：清单未列；原验证：清单未列。：小教堂 15.5×8.4，墙厚 0.8 高 6.4，扶壁 6 对，蜡烛 12+6；墓碑 14 块高 0.6-1.2；瞭望塔 4.6×4.6 高 19.5 倾斜 0.075 rad；钟 LatheGeometry 11 点半径 0.18+0.12t^2.5 高 0.62；石桥 半长 13.2 面宽半宽 2.9 拱高 1.85，3 孔（中孔宽 5.6 矢高 2.05，边孔 4.1/1.6），桥墩 z=±3.5。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "墙厚 0.8 高 6.4",
+        "c11.sourceId": "d027"
+      }
+    },
+    {
+      "id": "arch-scene.d027.wall-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.wall-height",
+      "title": "小教堂（小教堂墙高）",
+      "value": 6.4,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：小教堂"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d027；出处类别：推断与说明·村镇、民居与城防（案例 13 第 17 章）",
+        "note": "原证据：清单未列；原验证：清单未列。：小教堂 15.5×8.4，墙厚 0.8 高 6.4，扶壁 6 对，蜡烛 12+6；墓碑 14 块高 0.6-1.2；瞭望塔 4.6×4.6 高 19.5 倾斜 0.075 rad；钟 LatheGeometry 11 点半径 0.18+0.12t^2.5 高 0.62；石桥 半长 13.2 面宽半宽 2.9 拱高 1.85，3 孔（中孔宽 5.6 矢高 2.05，边孔 4.1/1.6），桥墩 z=±3.5。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "墙厚 0.8 高 6.4",
+        "c11.sourceId": "d027"
+      }
+    },
+    {
+      "id": "arch-scene.d029.wall-thickness",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.wall-thickness",
+      "title": "村镇尺寸（城墙厚）",
+      "value": 2,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：村镇尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d029；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17、20 章）",
+        "note": "原证据：源码；原验证：作者成片用过(未运行)。镇区 88×132 m；城墙厚 2 m、高 7.2 m；4 座圆塔、8 座方塔"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "城墙厚 2 m",
+        "c11.sourceId": "d029"
+      }
+    },
+    {
+      "id": "arch-scene.d029.wall-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.wall-height",
+      "title": "村镇尺寸（城墙高）",
+      "value": 7.2,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节 村镇、民居与城防：村镇尺寸"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节 d029；出处类别：源码拆解·村镇、民居与城防（案例 13 第 17、20 章）",
+        "note": "原证据：源码；原验证：作者成片用过(未运行)。镇区 88×132 m；城墙厚 2 m、高 7.2 m；4 座圆塔、8 座方塔"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "城墙厚 2 m、高 7.2 m",
+        "c11.sourceId": "d029"
+      }
+    },
+    {
+      "id": "arch-scene.d034.step-rise",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.step-rise",
+      "title": "70 级朝圣台阶计算表（朝圣台阶踏步高）",
+      "value": 0.3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节 哥特大教堂（案例 13 第 18 章）：70 级朝圣台阶计算表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节 d034；出处类别：推断与说明·哥特大教堂（案例 13 第 18 章）",
+        "note": "原证据：源码（算式代入为推断）；原验证：作者成品用过。steps={x:0,hw:1.9,z0:-80,z1:-126,steps:70}；rise=21/70=0.3；FL=14 级一平台，L=2.4 m；普通踏面进深 rs=(14·0.3/(21/46)-2.4)/13=0.5231 m；高度 h=3+i·0.3（第1级3.3，第70级24）；水平总长43.6 m（65×0.5231+4×2.4），zTop=-123.6；平台第14/28/42/56级=7.2/11.4/15.6/19.8 m，zc=-88.0/-97.2/-106.4/-115.6，左右交替 -1/+1/-1/+1；每段6.8 m，每段 6 栏板格；顶平台 z-123.6→-126.2（深2.6，半宽5.4，标高24）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "rise=21/70=0.3",
+        "c11.sourceId": "d034"
+      }
+    },
+    {
+      "id": "arch-scene.d034.step-run",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.step-run",
+      "title": "70 级朝圣台阶计算表（普通踏面进深）",
+      "value": 0.5231,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节 哥特大教堂（案例 13 第 18 章）：70 级朝圣台阶计算表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节 d034；出处类别：推断与说明·哥特大教堂（案例 13 第 18 章）",
+        "note": "原证据：源码（算式代入为推断）；原验证：作者成品用过。steps={x:0,hw:1.9,z0:-80,z1:-126,steps:70}；rise=21/70=0.3；FL=14 级一平台，L=2.4 m；普通踏面进深 rs=(14·0.3/(21/46)-2.4)/13=0.5231 m；高度 h=3+i·0.3（第1级3.3，第70级24）；水平总长43.6 m（65×0.5231+4×2.4），zTop=-123.6；平台第14/28/42/56级=7.2/11.4/15.6/19.8 m，zc=-88.0/-97.2/-106.4/-115.6，左右交替 -1/+1/-1/+1；每段6.8 m，每段 6 栏板格；顶平台 z-123.6→-126.2（深2.6，半宽5.4，标高24）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "普通踏面进深 rs=(14·0.3/(21/46)-2.4)/13=0.5231 m",
+        "c11.sourceId": "d034"
+      }
+    },
+    {
+      "id": "arch-scene.d034.steps-per-flight",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.steps-per-flight",
+      "title": "70 级朝圣台阶计算表（相邻平台间级数）",
+      "value": 14,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节 哥特大教堂（案例 13 第 18 章）：70 级朝圣台阶计算表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节 d034；出处类别：推断与说明·哥特大教堂（案例 13 第 18 章）",
+        "note": "原证据：源码（算式代入为推断）；原验证：作者成品用过。steps={x:0,hw:1.9,z0:-80,z1:-126,steps:70}；rise=21/70=0.3；FL=14 级一平台，L=2.4 m；普通踏面进深 rs=(14·0.3/(21/46)-2.4)/13=0.5231 m；高度 h=3+i·0.3（第1级3.3，第70级24）；水平总长43.6 m（65×0.5231+4×2.4），zTop=-123.6；平台第14/28/42/56级=7.2/11.4/15.6/19.8 m，zc=-88.0/-97.2/-106.4/-115.6，左右交替 -1/+1/-1/+1；每段6.8 m，每段 6 栏板格；顶平台 z-123.6→-126.2（深2.6，半宽5.4，标高24）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "FL=14 级一平台",
+        "c11.sourceId": "d034"
+      }
+    },
+    {
+      "id": "arch-scene.d034.landing-length",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.landing-length",
+      "title": "70 级朝圣台阶计算表（中间平台进深）",
+      "value": 2.4,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节 哥特大教堂（案例 13 第 18 章）：70 级朝圣台阶计算表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节 d034；出处类别：推断与说明·哥特大教堂（案例 13 第 18 章）",
+        "note": "原证据：源码（算式代入为推断）；原验证：作者成品用过。steps={x:0,hw:1.9,z0:-80,z1:-126,steps:70}；rise=21/70=0.3；FL=14 级一平台，L=2.4 m；普通踏面进深 rs=(14·0.3/(21/46)-2.4)/13=0.5231 m；高度 h=3+i·0.3（第1级3.3，第70级24）；水平总长43.6 m（65×0.5231+4×2.4），zTop=-123.6；平台第14/28/42/56级=7.2/11.4/15.6/19.8 m，zc=-88.0/-97.2/-106.4/-115.6，左右交替 -1/+1/-1/+1；每段6.8 m，每段 6 栏板格；顶平台 z-123.6→-126.2（深2.6，半宽5.4，标高24）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "FL=14 级一平台，L=2.4 m",
+        "c11.sourceId": "d034"
+      }
+    },
+    {
+      "id": "arch-scene.d040.step-depth",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.step-depth",
+      "title": "台阶脚（过渡台阶踏面进深）",
+      "value": 0.46,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节 哥特大教堂（案例 13 第 18 章）：台阶脚"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节 d040；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。第1级比地面高 diff>0.4 时补 min(3,ceil(diff/0.3)-1) 级过渡台阶，每级深 FOOT.run=0.46"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "每级深 FOOT.run=0.46",
+        "c11.sourceId": "d040"
+      }
+    },
+    {
+      "id": "arch-scene.d040.step-rise-reference",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.step-rise-reference",
+      "title": "台阶脚（过渡台阶分级用参考级高）",
+      "value": 0.3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节 哥特大教堂（案例 13 第 18 章）：台阶脚"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节 d040；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。第1级比地面高 diff>0.4 时补 min(3,ceil(diff/0.3)-1) 级过渡台阶，每级深 FOOT.run=0.46"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "ceil(diff/0.3)-1",
+        "c11.sourceId": "d040"
+      }
+    },
+    {
+      "id": "arch-scene.d060.step-depth",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.step-depth",
+      "title": "北门造型（门前台阶踏面进深）",
+      "value": 0.6,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节 哥特大教堂（案例 13 第 18 章）：北门造型"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节 d060；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。DOOR：半宽1.55，起拱3.3，R1.75（拱顶3.3+1.737=5.037），深1.9，门框1.0，门扇厚0.16，leafZ 0.84，门缝0.07，开门角1.72 rad≈98.5°，openS=4 s；前方平台[0.95,3.9]、栈道[3.9,13.5]、12级台阶(踏面0.6级高0.17)、hwWay1.7；位置 AW=6+APSE_R·cos(π/10)=13.989；每侧基础块0.34+0.5 m一层交错长短块；拱圈 archBand(3.1,1.75,0,0.72,16)；外框山花五点轮廓顶高 spring+rise0+1.05；orders=[[.04,.24,.045],[.24,.46,.09],[.46,.72,.15]]（内径,外径,进深）；种子 mulberry32(19981)/(53263)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "踏面0.6级高0.17",
+        "c11.sourceId": "d060"
+      }
+    },
+    {
+      "id": "arch-scene.d060.step-rise",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.step-rise",
+      "title": "北门造型（门前台阶踏步高）",
+      "value": 0.17,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节 哥特大教堂（案例 13 第 18 章）：北门造型"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节 d060；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。DOOR：半宽1.55，起拱3.3，R1.75（拱顶3.3+1.737=5.037），深1.9，门框1.0，门扇厚0.16，leafZ 0.84，门缝0.07，开门角1.72 rad≈98.5°，openS=4 s；前方平台[0.95,3.9]、栈道[3.9,13.5]、12级台阶(踏面0.6级高0.17)、hwWay1.7；位置 AW=6+APSE_R·cos(π/10)=13.989；每侧基础块0.34+0.5 m一层交错长短块；拱圈 archBand(3.1,1.75,0,0.72,16)；外框山花五点轮廓顶高 spring+rise0+1.05；orders=[[.04,.24,.045],[.24,.46,.09],[.46,.72,.15]]（内径,外径,进深）；种子 mulberry32(19981)/(53263)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "踏面0.6级高0.17",
+        "c11.sourceId": "d060"
+      }
+    },
+    {
+      "id": "arch-scene.d060.door-half-width",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.door-half-width",
+      "title": "北门造型（拱门半宽）",
+      "value": 1.55,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节 哥特大教堂（案例 13 第 18 章）：北门造型"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节 d060；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。DOOR：半宽1.55，起拱3.3，R1.75（拱顶3.3+1.737=5.037），深1.9，门框1.0，门扇厚0.16，leafZ 0.84，门缝0.07，开门角1.72 rad≈98.5°，openS=4 s；前方平台[0.95,3.9]、栈道[3.9,13.5]、12级台阶(踏面0.6级高0.17)、hwWay1.7；位置 AW=6+APSE_R·cos(π/10)=13.989；每侧基础块0.34+0.5 m一层交错长短块；拱圈 archBand(3.1,1.75,0,0.72,16)；外框山花五点轮廓顶高 spring+rise0+1.05；orders=[[.04,.24,.045],[.24,.46,.09],[.46,.72,.15]]（内径,外径,进深）；种子 mulberry32(19981)/(53263)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "DOOR：半宽1.55",
+        "c11.sourceId": "d060"
+      }
+    },
+    {
+      "id": "arch-scene.d060.spring-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.spring-height",
+      "title": "北门造型（拱门起拱高）",
+      "value": 3.3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节 哥特大教堂（案例 13 第 18 章）：北门造型"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节 d060；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。DOOR：半宽1.55，起拱3.3，R1.75（拱顶3.3+1.737=5.037），深1.9，门框1.0，门扇厚0.16，leafZ 0.84，门缝0.07，开门角1.72 rad≈98.5°，openS=4 s；前方平台[0.95,3.9]、栈道[3.9,13.5]、12级台阶(踏面0.6级高0.17)、hwWay1.7；位置 AW=6+APSE_R·cos(π/10)=13.989；每侧基础块0.34+0.5 m一层交错长短块；拱圈 archBand(3.1,1.75,0,0.72,16)；外框山花五点轮廓顶高 spring+rise0+1.05；orders=[[.04,.24,.045],[.24,.46,.09],[.46,.72,.15]]（内径,外径,进深）；种子 mulberry32(19981)/(53263)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "起拱3.3",
+        "c11.sourceId": "d060"
+      }
+    },
+    {
+      "id": "arch-scene.d060.door-leaf-thickness",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.door-leaf-thickness",
+      "title": "北门造型（门扇厚）",
+      "value": 0.16,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节 哥特大教堂（案例 13 第 18 章）：北门造型"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节 d060；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。DOOR：半宽1.55，起拱3.3，R1.75（拱顶3.3+1.737=5.037），深1.9，门框1.0，门扇厚0.16，leafZ 0.84，门缝0.07，开门角1.72 rad≈98.5°，openS=4 s；前方平台[0.95,3.9]、栈道[3.9,13.5]、12级台阶(踏面0.6级高0.17)、hwWay1.7；位置 AW=6+APSE_R·cos(π/10)=13.989；每侧基础块0.34+0.5 m一层交错长短块；拱圈 archBand(3.1,1.75,0,0.72,16)；外框山花五点轮廓顶高 spring+rise0+1.05；orders=[[.04,.24,.045],[.24,.46,.09],[.46,.72,.15]]（内径,外径,进深）；种子 mulberry32(19981)/(53263)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "门扇厚0.16",
+        "c11.sourceId": "d060"
+      }
+    },
+    {
+      "id": "arch-scene.d063.glass-deep-blue",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-1-7.glass-deep-blue",
+      "title": "古玻璃线性透射基色：深蓝",
+      "value": [
+        0.042,
+        0.094,
+        0.205
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间设置古玻璃的基础透射色，尚未乘单片密度或照明。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.7 节 d063；出处类别：源码拆解·彩色玻璃、窗与窗里的房间（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。线性透射色 cgPal：深蓝(0.042,.094,.205)、红宝石(0.370,.058,.048)、琥珀(0.630,.385,.105)、绿(0.125,.225,.095)、灰白(0.545,.525,.440)；每块再乘 0.72+0.36·cgPH。玻璃着色器把这组线性透射色与密度、照明相乘后直接写到材质的 diffuseColor；中间没有输入色域转换。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(0.042,.094,.205)",
+        "c11.sourceId": "d063"
+      }
+    },
+    {
+      "id": "arch-scene.d063.glass-ruby",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-1-7.glass-ruby",
+      "title": "古玻璃线性透射基色：红宝石",
+      "value": [
+        0.37,
+        0.058,
+        0.048
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间设置古玻璃的基础透射色，尚未乘单片密度或照明。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.7 节 d063；出处类别：源码拆解·彩色玻璃、窗与窗里的房间（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。线性透射色 cgPal：深蓝(0.042,.094,.205)、红宝石(0.370,.058,.048)、琥珀(0.630,.385,.105)、绿(0.125,.225,.095)、灰白(0.545,.525,.440)；每块再乘 0.72+0.36·cgPH。玻璃着色器把这组线性透射色与密度、照明相乘后直接写到材质的 diffuseColor；中间没有输入色域转换。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(0.370,.058,.048)",
+        "c11.sourceId": "d063"
+      }
+    },
+    {
+      "id": "arch-scene.d063.glass-amber",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-1-7.glass-amber",
+      "title": "古玻璃线性透射基色：琥珀",
+      "value": [
+        0.63,
+        0.385,
+        0.105
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间设置古玻璃的基础透射色，尚未乘单片密度或照明。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.7 节 d063；出处类别：源码拆解·彩色玻璃、窗与窗里的房间（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。线性透射色 cgPal：深蓝(0.042,.094,.205)、红宝石(0.370,.058,.048)、琥珀(0.630,.385,.105)、绿(0.125,.225,.095)、灰白(0.545,.525,.440)；每块再乘 0.72+0.36·cgPH。玻璃着色器把这组线性透射色与密度、照明相乘后直接写到材质的 diffuseColor；中间没有输入色域转换。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(0.630,.385,.105)",
+        "c11.sourceId": "d063"
+      }
+    },
+    {
+      "id": "arch-scene.d063.glass-green",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-1-7.glass-green",
+      "title": "古玻璃线性透射基色：绿",
+      "value": [
+        0.125,
+        0.225,
+        0.095
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间设置古玻璃的基础透射色，尚未乘单片密度或照明。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.7 节 d063；出处类别：源码拆解·彩色玻璃、窗与窗里的房间（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。线性透射色 cgPal：深蓝(0.042,.094,.205)、红宝石(0.370,.058,.048)、琥珀(0.630,.385,.105)、绿(0.125,.225,.095)、灰白(0.545,.525,.440)；每块再乘 0.72+0.36·cgPH。玻璃着色器把这组线性透射色与密度、照明相乘后直接写到材质的 diffuseColor；中间没有输入色域转换。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(0.125,.225,.095)",
+        "c11.sourceId": "d063"
+      }
+    },
+    {
+      "id": "arch-scene.d063.glass-grisaille",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-1-7.glass-grisaille",
+      "title": "古玻璃线性透射基色：灰白",
+      "value": [
+        0.545,
+        0.525,
+        0.44
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间设置古玻璃的基础透射色，尚未乘单片密度或照明。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.7 节 d063；出处类别：源码拆解·彩色玻璃、窗与窗里的房间（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。线性透射色 cgPal：深蓝(0.042,.094,.205)、红宝石(0.370,.058,.048)、琥珀(0.630,.385,.105)、绿(0.125,.225,.095)、灰白(0.545,.525,.440)；每块再乘 0.72+0.36·cgPH。玻璃着色器把这组线性透射色与密度、照明相乘后直接写到材质的 diffuseColor；中间没有输入色域转换。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(0.545,.525,.440)",
+        "c11.sourceId": "d063"
+      }
+    },
+    {
+      "id": "arch-scene.d074.wall-thickness",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-8.wall-thickness",
+      "title": "前厅 antechamber（前厅壁厚）",
+      "value": 0.62,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.8 节 古墓区与野外遗迹：前厅 antechamber"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.8 节 d074；出处类别：源码拆解·古墓区与野外遗迹（案例 13 第 19 章）",
+        "note": "原证据：源码；原验证：作者成品用过。PD=2.3，净宽2·hwI=1.36(hwI=.68)，壁厚wt=.62，高WH=2.05；两侧墙逐层逐块：块高.24+r·.16，块长.45+r·.45，厚wt·(.92–1.04)；内衬3暗板；3顶板(PD/3·1.04)×.38×((hwI+wt)·2+.35) 位于 gF+WH+.15；顶上5块碎石；台阶 drop>.24时 nS=min(3,ceil(drop/.2)-1)级，每级深SD=.36，台阶高度函数交 addSurface；厅内5骨1骷髅1锈短剑(.9×.018×.05)1锈圆盘Cyl(.28,.24,.035,9)4蜡烛1罐"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "壁厚wt=.62",
+        "c11.sourceId": "d074",
+        "c11.randomRanges": [
+          {
+            "value": [
+              0.24,
+              0.4
+            ],
+            "unit": "m",
+            "rawUnit": "原文未写单位（场景长度，该案例按米）",
+            "base": 0.24,
+            "jitter": 0.16,
+            "expr": ".24+r·.16",
+            "label": "前厅墙块高度",
+            "randomVar": "r"
+          },
+          {
+            "value": [
+              0.45,
+              0.9
+            ],
+            "unit": "m",
+            "rawUnit": "原文未写单位（场景长度，该案例按米）",
+            "base": 0.45,
+            "jitter": 0.45,
+            "expr": ".45+r·.45",
+            "label": "前厅墙块长度",
+            "randomVar": "r"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arch-scene.d074.chamber-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-8.chamber-height",
+      "title": "前厅 antechamber（前厅高）",
+      "value": 2.05,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.8 节 古墓区与野外遗迹：前厅 antechamber"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.8 节 d074；出处类别：源码拆解·古墓区与野外遗迹（案例 13 第 19 章）",
+        "note": "原证据：源码；原验证：作者成品用过。PD=2.3，净宽2·hwI=1.36(hwI=.68)，壁厚wt=.62，高WH=2.05；两侧墙逐层逐块：块高.24+r·.16，块长.45+r·.45，厚wt·(.92–1.04)；内衬3暗板；3顶板(PD/3·1.04)×.38×((hwI+wt)·2+.35) 位于 gF+WH+.15；顶上5块碎石；台阶 drop>.24时 nS=min(3,ceil(drop/.2)-1)级，每级深SD=.36，台阶高度函数交 addSurface；厅内5骨1骷髅1锈短剑(.9×.018×.05)1锈圆盘Cyl(.28,.24,.035,9)4蜡烛1罐"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "高WH=2.05",
+        "c11.sourceId": "d074"
+      }
+    },
+    {
+      "id": "arch-scene.d074.chamber-clear-width",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-8.chamber-clear-width",
+      "title": "前厅 antechamber（前厅净宽）",
+      "value": 1.36,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.8 节 古墓区与野外遗迹：前厅 antechamber"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.8 节 d074；出处类别：源码拆解·古墓区与野外遗迹（案例 13 第 19 章）",
+        "note": "原证据：源码；原验证：作者成品用过。PD=2.3，净宽2·hwI=1.36(hwI=.68)，壁厚wt=.62，高WH=2.05；两侧墙逐层逐块：块高.24+r·.16，块长.45+r·.45，厚wt·(.92–1.04)；内衬3暗板；3顶板(PD/3·1.04)×.38×((hwI+wt)·2+.35) 位于 gF+WH+.15；顶上5块碎石；台阶 drop>.24时 nS=min(3,ceil(drop/.2)-1)级，每级深SD=.36，台阶高度函数交 addSurface；厅内5骨1骷髅1锈短剑(.9×.018×.05)1锈圆盘Cyl(.28,.24,.035,9)4蜡烛1罐"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "净宽2·hwI=1.36",
+        "c11.sourceId": "d074"
+      }
+    },
+    {
+      "id": "arch-scene.d074.step-depth",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-8.step-depth",
+      "title": "前厅 antechamber（前厅过渡台阶踏面进深）",
+      "value": 0.36,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.8 节 古墓区与野外遗迹：前厅 antechamber"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.8 节 d074；出处类别：源码拆解·古墓区与野外遗迹（案例 13 第 19 章）",
+        "note": "原证据：源码；原验证：作者成品用过。PD=2.3，净宽2·hwI=1.36(hwI=.68)，壁厚wt=.62，高WH=2.05；两侧墙逐层逐块：块高.24+r·.16，块长.45+r·.45，厚wt·(.92–1.04)；内衬3暗板；3顶板(PD/3·1.04)×.38×((hwI+wt)·2+.35) 位于 gF+WH+.15；顶上5块碎石；台阶 drop>.24时 nS=min(3,ceil(drop/.2)-1)级，每级深SD=.36，台阶高度函数交 addSurface；厅内5骨1骷髅1锈短剑(.9×.018×.05)1锈圆盘Cyl(.28,.24,.035,9)4蜡烛1罐"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "每级深SD=.36",
+        "c11.sourceId": "d074"
+      }
+    },
+    {
+      "id": "arch-scene.d074.step-rise-reference",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-8.step-rise-reference",
+      "title": "前厅 antechamber（前厅过渡台阶分级用参考级高）",
+      "value": 0.2,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.8 节 古墓区与野外遗迹：前厅 antechamber"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.8 节 d074；出处类别：源码拆解·古墓区与野外遗迹（案例 13 第 19 章）",
+        "note": "原证据：源码；原验证：作者成品用过。PD=2.3，净宽2·hwI=1.36(hwI=.68)，壁厚wt=.62，高WH=2.05；两侧墙逐层逐块：块高.24+r·.16，块长.45+r·.45，厚wt·(.92–1.04)；内衬3暗板；3顶板(PD/3·1.04)×.38×((hwI+wt)·2+.35) 位于 gF+WH+.15；顶上5块碎石；台阶 drop>.24时 nS=min(3,ceil(drop/.2)-1)级，每级深SD=.36，台阶高度函数交 addSurface；厅内5骨1骷髅1锈短剑(.9×.018×.05)1锈圆盘Cyl(.28,.24,.035,9)4蜡烛1罐"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "ceil(drop/.2)-1",
+        "c11.sourceId": "d074"
+      }
+    },
+    {
+      "id": "arch-scene.d139.step-rise",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-11.step-rise",
+      "title": "根阶梯（根阶梯的参考级高）",
+      "value": 0.25,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.11 节 巨树：路、台阶、桥、平台、大枝与根：根阶梯"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.11 节 d139；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
+        "note": "原证据：源码；原验证：作者成片用过。冠幕台阶顶(θ=493.2°≡133.2°，r 84.5→94，高 192.75)到树皮面，每级 0.25 米，级数 round((stepsTop−192.75)/0.25)，stepsTop=max(193.25,取样,195.6)；θ 493.2→497.6"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "每级 0.25 米",
+        "c11.sourceId": "d139"
+      }
+    },
+    {
+      "id": "arch-scene.d144.step-width",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-11.step-width",
+      "title": "钟楼阶梯（钟楼阶梯宽）",
+      "value": 2.2,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.11 节 巨树：路、台阶、桥、平台、大枝与根：钟楼阶梯"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.11 节 d144；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
+        "note": "原证据：源码；原验证：作者成片用过。θ=138.4°，r 101.1→84.3，宽 2.2(半宽 1.1)，每级 0.25，扶手柱 0.14、栏杆 0.07"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "宽 2.2(半宽 1.1)",
+        "c11.sourceId": "d144"
+      }
+    },
+    {
+      "id": "arch-scene.d144.step-rise",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-11.step-rise",
+      "title": "钟楼阶梯（钟楼阶梯踏步高）",
+      "value": 0.25,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.11 节 巨树：路、台阶、桥、平台、大枝与根：钟楼阶梯"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.11 节 d144；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
+        "note": "原证据：源码；原验证：作者成片用过。θ=138.4°，r 101.1→84.3，宽 2.2(半宽 1.1)，每级 0.25，扶手柱 0.14、栏杆 0.07"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "每级 0.25",
+        "c11.sourceId": "d144"
+      }
+    },
+    {
+      "id": "arch-scene.d156.step-rise",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-11.step-rise",
+      "title": "木坡道（木坡道折返梯参考级高（约））",
+      "value": 0.19,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.11 节 巨树：路、台阶、桥、平台、大枝与根：木坡道"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.11 节 d156；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
+        "note": "原证据：源码；原验证：作者成片用过。scribes(R2)与 gate(R3)两座；RAMP={run 24,maxRise 5.6,tread 0.8,w 2.6,lane 3.2,land 4.2}；折返 nFl=max(2,ceil((top−g−0.1)/5.6))；每跑 24 米落差最多 5.6 米(≈13°)；踏步高≈0.19，steps=max(2,round(rise/0.19))；台阶下\"木笼\"UNDER_H=5.8(踏步离地 0.9–5.8 米时填实心木盒)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "踏步高≈0.19",
+        "c11.sourceId": "d156"
+      }
+    },
+    {
+      "id": "arch-scene.d156.tread-depth",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-11.tread-depth",
+      "title": "木坡道（木坡道踏面进深）",
+      "value": 0.8,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.11 节 巨树：路、台阶、桥、平台、大枝与根：木坡道"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.11 节 d156；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
+        "note": "原证据：源码；原验证：作者成片用过。scribes(R2)与 gate(R3)两座；RAMP={run 24,maxRise 5.6,tread 0.8,w 2.6,lane 3.2,land 4.2}；折返 nFl=max(2,ceil((top−g−0.1)/5.6))；每跑 24 米落差最多 5.6 米(≈13°)；踏步高≈0.19，steps=max(2,round(rise/0.19))；台阶下\"木笼\"UNDER_H=5.8(踏步离地 0.9–5.8 米时填实心木盒)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "tread 0.8",
+        "c11.sourceId": "d156"
+      }
+    },
+    {
+      "id": "arch-scene.d156.ramp-run-length",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-11.ramp-run-length",
+      "title": "木坡道（每跑水平长度）",
+      "value": 24,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.11 节 巨树：路、台阶、桥、平台、大枝与根：木坡道"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.11 节 d156；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
+        "note": "原证据：源码；原验证：作者成片用过。scribes(R2)与 gate(R3)两座；RAMP={run 24,maxRise 5.6,tread 0.8,w 2.6,lane 3.2,land 4.2}；折返 nFl=max(2,ceil((top−g−0.1)/5.6))；每跑 24 米落差最多 5.6 米(≈13°)；踏步高≈0.19，steps=max(2,round(rise/0.19))；台阶下\"木笼\"UNDER_H=5.8(踏步离地 0.9–5.8 米时填实心木盒)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "每跑 24 米",
+        "c11.sourceId": "d156"
+      }
+    },
+    {
+      "id": "arch-scene.d156.ramp-max-rise",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-11.ramp-max-rise",
+      "title": "木坡道（每跑最大落差）",
+      "value": 5.6,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.11 节 巨树：路、台阶、桥、平台、大枝与根：木坡道"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.11 节 d156；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
+        "note": "原证据：源码；原验证：作者成片用过。scribes(R2)与 gate(R3)两座；RAMP={run 24,maxRise 5.6,tread 0.8,w 2.6,lane 3.2,land 4.2}；折返 nFl=max(2,ceil((top−g−0.1)/5.6))；每跑 24 米落差最多 5.6 米(≈13°)；踏步高≈0.19，steps=max(2,round(rise/0.19))；台阶下\"木笼\"UNDER_H=5.8(踏步离地 0.9–5.8 米时填实心木盒)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "落差最多 5.6 米",
+        "c11.sourceId": "d156"
+      }
+    },
+    {
+      "id": "arch-scene.d156.ramp-slope-angle",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-11.ramp-slope-angle",
+      "title": "木坡道（最大落差对应的坡角（约））",
+      "value": 13,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.11 节 巨树：路、台阶、桥、平台、大枝与根：木坡道"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.11 节 d156；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
+        "note": "原证据：源码；原验证：作者成片用过。scribes(R2)与 gate(R3)两座；RAMP={run 24,maxRise 5.6,tread 0.8,w 2.6,lane 3.2,land 4.2}；折返 nFl=max(2,ceil((top−g−0.1)/5.6))；每跑 24 米落差最多 5.6 米(≈13°)；踏步高≈0.19，steps=max(2,round(rise/0.19))；台阶下\"木笼\"UNDER_H=5.8(踏步离地 0.9–5.8 米时填实心木盒)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "落差最多 5.6 米(≈13°)",
+        "c11.sourceId": "d156"
+      }
+    },
+    {
+      "id": "arch-scene.d194.step-rise-reference",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-13.step-rise-reference",
+      "title": "门前杂物/壁龛/拱门/灯桩（壁龛台阶分级用参考级高）",
+      "value": 0.3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.13 节 zone_12：zone_21、大厅、拱门与小镇：门前杂物/壁龛/拱门/灯桩"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.13 节 d194；出处类别：源码拆解·zone_12：zone_21、大厅、拱门与小镇（案例 13 第 24 章）",
+        "note": "原证据：源码；原验证：作者成片用过。门前(非移动)：70% 橡木桶 60% 木箱 50% 条凳 40% 碎石堆 5 块小石，地面落叶卡 round(w×5)；壁龛每 13–19 米(移动 30–44)，距房>w/2+3.5，台阶 min(6,ceil(up/0.3)) 级(up 1.4–3.0)→台面→立柱→过梁→圆柱横梁，interior 卡 nw 1.1–1.6 nh 1.8–2.4，灯笼+3 蜡烛；峡谷拱门沿 plan.routes.canyon 每 6 个点一座，奇数个塌(整座宽 7 高 8.2 厚 1.3 开 4.4 宽 y1 6.6 尖拱；塌的剩 1.6×5.4 与 1.4×3 两段残墙+16 碎石)；路旁石堆+灯桩每 10 个路径点：6 堆石+1.8 米木桩+横梁+悬挂灯笼"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "台阶 min(6,ceil(up/0.3)) 级",
+        "c11.sourceId": "d194"
+      }
+    },
+    {
+      "id": "arch-scene.d194.step-total-rise",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-13.step-total-rise",
+      "title": "门前杂物/壁龛/拱门/灯桩（壁龛台阶总升高范围）",
+      "value": [
+        1.4,
+        3
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.13 节 zone_12：zone_21、大厅、拱门与小镇：门前杂物/壁龛/拱门/灯桩"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.13 节 d194；出处类别：源码拆解·zone_12：zone_21、大厅、拱门与小镇（案例 13 第 24 章）",
+        "note": "原证据：源码；原验证：作者成片用过。门前(非移动)：70% 橡木桶 60% 木箱 50% 条凳 40% 碎石堆 5 块小石，地面落叶卡 round(w×5)；壁龛每 13–19 米(移动 30–44)，距房>w/2+3.5，台阶 min(6,ceil(up/0.3)) 级(up 1.4–3.0)→台面→立柱→过梁→圆柱横梁，interior 卡 nw 1.1–1.6 nh 1.8–2.4，灯笼+3 蜡烛；峡谷拱门沿 plan.routes.canyon 每 6 个点一座，奇数个塌(整座宽 7 高 8.2 厚 1.3 开 4.4 宽 y1 6.6 尖拱；塌的剩 1.6×5.4 与 1.4×3 两段残墙+16 碎石)；路旁石堆+灯桩每 10 个路径点：6 堆石+1.8 米木桩+横梁+悬挂灯笼"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "级(up 1.4–3.0)",
+        "c11.sourceId": "d194"
+      }
+    },
+    {
+      "id": "arch-scene.d195.door-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-13.door-height",
+      "title": "小镇二三层木骨架（木骨架门洞高）",
+      "value": 2.05,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.13 节 zone_12：zone_21、大厅、拱门与小镇：小镇二三层木骨架"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.13 节 d195；出处类别：源码拆解·zone_12：zone_21、大厅、拱门与小镇（案例 13 第 24 章）",
+        "note": "原证据：源码；原验证：作者成片用过。timberStorey：上下横梁、立柱按 W/(1.15–1.5) 分(端柱 0.24 中柱 0.17)、两端斜撑、灰泥板(7 种石灰色 LIME)、门洞高 2.05、窗洞≤0.95、木百叶，山墙回退 returns 默认 3；88% 加二层(12% 跳过)，宽 uw=clamp(W0·(0.55–0.67)+0.5,3.6,W0)，层高 2.9–3.4，有檐前屋 zf=0.12 无檐外凸−0.7(下斜撑)；45% 再加三层(uw>5)层高 2.5–2.9 退后 0.7 屋顶覆瓦(倾−0.44)；rng=mulberry32(16022)，v19 种子 19022；移动端整体 return null"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "门洞高 2.05",
+        "c11.sourceId": "d195"
+      }
+    },
+    {
+      "id": "arch-scene.d195.second-storey-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-13.second-storey-height",
+      "title": "小镇二三层木骨架（二层层高）",
+      "value": [
+        2.9,
+        3.4
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.13 节 zone_12：zone_21、大厅、拱门与小镇：小镇二三层木骨架"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.13 节 d195；出处类别：源码拆解·zone_12：zone_21、大厅、拱门与小镇（案例 13 第 24 章）",
+        "note": "原证据：源码；原验证：作者成片用过。timberStorey：上下横梁、立柱按 W/(1.15–1.5) 分(端柱 0.24 中柱 0.17)、两端斜撑、灰泥板(7 种石灰色 LIME)、门洞高 2.05、窗洞≤0.95、木百叶，山墙回退 returns 默认 3；88% 加二层(12% 跳过)，宽 uw=clamp(W0·(0.55–0.67)+0.5,3.6,W0)，层高 2.9–3.4，有檐前屋 zf=0.12 无檐外凸−0.7(下斜撑)；45% 再加三层(uw>5)层高 2.5–2.9 退后 0.7 屋顶覆瓦(倾−0.44)；rng=mulberry32(16022)，v19 种子 19022；移动端整体 return null"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "层高 2.9–3.4",
+        "c11.sourceId": "d195"
+      }
+    },
+    {
+      "id": "arch-scene.d195.third-storey-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-13.third-storey-height",
+      "title": "小镇二三层木骨架（三层层高）",
+      "value": [
+        2.5,
+        2.9
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.13 节 zone_12：zone_21、大厅、拱门与小镇：小镇二三层木骨架"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.13 节 d195；出处类别：源码拆解·zone_12：zone_21、大厅、拱门与小镇（案例 13 第 24 章）",
+        "note": "原证据：源码；原验证：作者成片用过。timberStorey：上下横梁、立柱按 W/(1.15–1.5) 分(端柱 0.24 中柱 0.17)、两端斜撑、灰泥板(7 种石灰色 LIME)、门洞高 2.05、窗洞≤0.95、木百叶，山墙回退 returns 默认 3；88% 加二层(12% 跳过)，宽 uw=clamp(W0·(0.55–0.67)+0.5,3.6,W0)，层高 2.9–3.4，有檐前屋 zf=0.12 无檐外凸−0.7(下斜撑)；45% 再加三层(uw>5)层高 2.5–2.9 退后 0.7 屋顶覆瓦(倾−0.44)；rng=mulberry32(16022)，v19 种子 19022；移动端整体 return null"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "层高 2.5–2.9",
+        "c11.sourceId": "d195"
+      }
+    },
+    {
+      "id": "arch-scene.d195.end-post-size",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-13.end-post-size",
+      "title": "小镇二三层木骨架（木骨架端柱截面尺寸）",
+      "value": 0.24,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.13 节 zone_12：zone_21、大厅、拱门与小镇：小镇二三层木骨架"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.13 节 d195；出处类别：源码拆解·zone_12：zone_21、大厅、拱门与小镇（案例 13 第 24 章）",
+        "note": "原证据：源码；原验证：作者成片用过。timberStorey：上下横梁、立柱按 W/(1.15–1.5) 分(端柱 0.24 中柱 0.17)、两端斜撑、灰泥板(7 种石灰色 LIME)、门洞高 2.05、窗洞≤0.95、木百叶，山墙回退 returns 默认 3；88% 加二层(12% 跳过)，宽 uw=clamp(W0·(0.55–0.67)+0.5,3.6,W0)，层高 2.9–3.4，有檐前屋 zf=0.12 无檐外凸−0.7(下斜撑)；45% 再加三层(uw>5)层高 2.5–2.9 退后 0.7 屋顶覆瓦(倾−0.44)；rng=mulberry32(16022)，v19 种子 19022；移动端整体 return null"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "端柱 0.24 中柱 0.17",
+        "c11.sourceId": "d195"
+      }
+    },
+    {
+      "id": "arch-scene.d195.mid-post-size",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-13.mid-post-size",
+      "title": "小镇二三层木骨架（木骨架中柱截面尺寸）",
+      "value": 0.17,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.13 节 zone_12：zone_21、大厅、拱门与小镇：小镇二三层木骨架"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.13 节 d195；出处类别：源码拆解·zone_12：zone_21、大厅、拱门与小镇（案例 13 第 24 章）",
+        "note": "原证据：源码；原验证：作者成片用过。timberStorey：上下横梁、立柱按 W/(1.15–1.5) 分(端柱 0.24 中柱 0.17)、两端斜撑、灰泥板(7 种石灰色 LIME)、门洞高 2.05、窗洞≤0.95、木百叶，山墙回退 returns 默认 3；88% 加二层(12% 跳过)，宽 uw=clamp(W0·(0.55–0.67)+0.5,3.6,W0)，层高 2.9–3.4，有檐前屋 zf=0.12 无檐外凸−0.7(下斜撑)；45% 再加三层(uw>5)层高 2.5–2.9 退后 0.7 屋顶覆瓦(倾−0.44)；rng=mulberry32(16022)，v19 种子 19022；移动端整体 return null"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "端柱 0.24 中柱 0.17",
+        "c11.sourceId": "d195"
+      }
+    },
+    {
+      "id": "arch-scene.d244.lantern-diameter",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-17.lantern-diameter",
+      "title": "灯笼（灯笼直径（约））",
+      "value": 0.5,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.17 节 悬挂物、旗布与灯笼：灯笼"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.17 节 d244；出处类别：源码拆解·悬挂物、旗布与灯笼",
+        "note": "原证据：实测 + 源码；原验证：清单未列（源码值，按库规我们未渲染读回）。直径约 0.5 m、高 0.54 m、鼓腹最大半径 0.25 m"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "直径约 0.5 m",
+        "c11.sourceId": "d244"
+      }
+    },
+    {
+      "id": "arch-scene.d244.lantern-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-17.lantern-height",
+      "title": "灯笼（灯笼高）",
+      "value": 0.54,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.17 节 悬挂物、旗布与灯笼：灯笼"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.17 节 d244；出处类别：源码拆解·悬挂物、旗布与灯笼",
+        "note": "原证据：实测 + 源码；原验证：清单未列（源码值，按库规我们未渲染读回）。直径约 0.5 m、高 0.54 m、鼓腹最大半径 0.25 m"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "高 0.54 m",
+        "c11.sourceId": "d244"
+      }
+    },
+    {
+      "id": "arch-scene.d244.lantern-body-radius",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-17.lantern-body-radius",
+      "title": "灯笼（灯笼鼓腹最大半径）",
+      "value": 0.25,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.17 节 悬挂物、旗布与灯笼：灯笼"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.17 节 d244；出处类别：源码拆解·悬挂物、旗布与灯笼",
+        "note": "原证据：实测 + 源码；原验证：清单未列（源码值，按库规我们未渲染读回）。直径约 0.5 m、高 0.54 m、鼓腹最大半径 0.25 m"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "鼓腹最大半径 0.25 m",
+        "c11.sourceId": "d244"
+      }
+    },
+    {
+      "id": "arch-scene.d250.lantern-max-angle",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-17.lantern-max-angle",
+      "title": "外部案例 01灯笼最大摆角与事件计数（灯笼最大摆角）",
+      "value": 54.9,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.17 节 悬挂物、旗布与灯笼：外部案例 01灯笼最大摆角与事件计数"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "实测",
+        "docRef": "建筑场景地形与水汇编 第 1.17 节 d250；出处类别：实测读数·悬挂物、旗布与灯笼",
+        "note": "原证据：实测；原验证：我们自己渲染读回过。灯笼最大摆角 54.9°，最大角速度 266°/s；配乐读画面得到事件：起跳17.16s、立起19.84s；翅膀4,030次、拍岸260次、灯笼撞柱420次、布113次；落雷点 boltHit(-56.09,78.6,2.5)；抛水时间窗 19.5–26.1、26.9–29.9、30.3–33.5、56.9–63.1 秒；红龙身体湿区间(头/中/尾) 19.58–19.71&56.96–57.67；23.04–23.46&58.63–59.42；31.75–31.96&60.71–68.75 秒，白龙 56.92–57.67；58.58–59.00；59.92–60.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "灯笼最大摆角 54.9°",
+        "c11.sourceId": "d250"
+      }
+    },
+    {
+      "id": "arch-scene.d250.lantern-max-angular-speed",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-17.lantern-max-angular-speed",
+      "title": "外部案例 01灯笼最大摆角与事件计数（灯笼最大角速度）",
+      "value": 266,
+      "unit": "deg/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.17 节 悬挂物、旗布与灯笼：外部案例 01灯笼最大摆角与事件计数"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "实测",
+        "docRef": "建筑场景地形与水汇编 第 1.17 节 d250；出处类别：实测读数·悬挂物、旗布与灯笼",
+        "note": "原证据：实测；原验证：我们自己渲染读回过。灯笼最大摆角 54.9°，最大角速度 266°/s；配乐读画面得到事件：起跳17.16s、立起19.84s；翅膀4,030次、拍岸260次、灯笼撞柱420次、布113次；落雷点 boltHit(-56.09,78.6,2.5)；抛水时间窗 19.5–26.1、26.9–29.9、30.3–33.5、56.9–63.1 秒；红龙身体湿区间(头/中/尾) 19.58–19.71&56.96–57.67；23.04–23.46&58.63–59.42；31.75–31.96&60.71–68.75 秒，白龙 56.92–57.67；58.58–59.00；59.92–60.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "最大角速度 266°/s",
+        "c11.sourceId": "d250"
+      }
+    },
+    {
+      "id": "arch-scene.d250.jump-time",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-17.jump-time",
+      "title": "外部案例 01灯笼最大摆角与事件计数（起跳时刻）",
+      "value": 17.16,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.17 节 悬挂物、旗布与灯笼：外部案例 01灯笼最大摆角与事件计数"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "实测",
+        "docRef": "建筑场景地形与水汇编 第 1.17 节 d250；出处类别：实测读数·悬挂物、旗布与灯笼",
+        "note": "原证据：实测；原验证：我们自己渲染读回过。灯笼最大摆角 54.9°，最大角速度 266°/s；配乐读画面得到事件：起跳17.16s、立起19.84s；翅膀4,030次、拍岸260次、灯笼撞柱420次、布113次；落雷点 boltHit(-56.09,78.6,2.5)；抛水时间窗 19.5–26.1、26.9–29.9、30.3–33.5、56.9–63.1 秒；红龙身体湿区间(头/中/尾) 19.58–19.71&56.96–57.67；23.04–23.46&58.63–59.42；31.75–31.96&60.71–68.75 秒，白龙 56.92–57.67；58.58–59.00；59.92–60.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "起跳17.16s",
+        "c11.sourceId": "d250"
+      }
+    },
+    {
+      "id": "arch-scene.d250.stand-time",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-17.stand-time",
+      "title": "外部案例 01灯笼最大摆角与事件计数（立起时刻）",
+      "value": 19.84,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.17 节 悬挂物、旗布与灯笼：外部案例 01灯笼最大摆角与事件计数"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "实测",
+        "docRef": "建筑场景地形与水汇编 第 1.17 节 d250；出处类别：实测读数·悬挂物、旗布与灯笼",
+        "note": "原证据：实测；原验证：我们自己渲染读回过。灯笼最大摆角 54.9°，最大角速度 266°/s；配乐读画面得到事件：起跳17.16s、立起19.84s；翅膀4,030次、拍岸260次、灯笼撞柱420次、布113次；落雷点 boltHit(-56.09,78.6,2.5)；抛水时间窗 19.5–26.1、26.9–29.9、30.3–33.5、56.9–63.1 秒；红龙身体湿区间(头/中/尾) 19.58–19.71&56.96–57.67；23.04–23.46&58.63–59.42；31.75–31.96&60.71–68.75 秒，白龙 56.92–57.67；58.58–59.00；59.92–60.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "立起19.84s",
+        "c11.sourceId": "d250"
+      }
+    },
+    {
+      "id": "arch-scene.d250.wing-event-count",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-17.wing-event-count",
+      "title": "外部案例 01灯笼最大摆角与事件计数（翅膀事件次数）",
+      "value": 4030,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.17 节 悬挂物、旗布与灯笼：外部案例 01灯笼最大摆角与事件计数"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "实测",
+        "docRef": "建筑场景地形与水汇编 第 1.17 节 d250；出处类别：实测读数·悬挂物、旗布与灯笼",
+        "note": "原证据：实测；原验证：我们自己渲染读回过。灯笼最大摆角 54.9°，最大角速度 266°/s；配乐读画面得到事件：起跳17.16s、立起19.84s；翅膀4,030次、拍岸260次、灯笼撞柱420次、布113次；落雷点 boltHit(-56.09,78.6,2.5)；抛水时间窗 19.5–26.1、26.9–29.9、30.3–33.5、56.9–63.1 秒；红龙身体湿区间(头/中/尾) 19.58–19.71&56.96–57.67；23.04–23.46&58.63–59.42；31.75–31.96&60.71–68.75 秒，白龙 56.92–57.67；58.58–59.00；59.92–60.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "翅膀4,030次",
+        "c11.sourceId": "d250"
+      }
+    },
+    {
+      "id": "arch-scene.d250.shore-event-count",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-17.shore-event-count",
+      "title": "外部案例 01灯笼最大摆角与事件计数（拍岸事件次数）",
+      "value": 260,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.17 节 悬挂物、旗布与灯笼：外部案例 01灯笼最大摆角与事件计数"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "实测",
+        "docRef": "建筑场景地形与水汇编 第 1.17 节 d250；出处类别：实测读数·悬挂物、旗布与灯笼",
+        "note": "原证据：实测；原验证：我们自己渲染读回过。灯笼最大摆角 54.9°，最大角速度 266°/s；配乐读画面得到事件：起跳17.16s、立起19.84s；翅膀4,030次、拍岸260次、灯笼撞柱420次、布113次；落雷点 boltHit(-56.09,78.6,2.5)；抛水时间窗 19.5–26.1、26.9–29.9、30.3–33.5、56.9–63.1 秒；红龙身体湿区间(头/中/尾) 19.58–19.71&56.96–57.67；23.04–23.46&58.63–59.42；31.75–31.96&60.71–68.75 秒，白龙 56.92–57.67；58.58–59.00；59.92–60.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "拍岸260次",
+        "c11.sourceId": "d250"
+      }
+    },
+    {
+      "id": "arch-scene.d251.lake-surface-elevation",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-18.lake-surface-elevation",
+      "title": "聚落（本案例湖面标高范围）",
+      "value": [
+        70.87,
+        215.06
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.18 节 案例 02 村落与日式建筑：聚落"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.18 节 d251；出处类别：推断与说明·案例 02 村落与日式建筑",
+        "note": "原证据：清单未列；原验证：清单未列。湖面高度 70.87–215.06 m；河面高度 0.4–425.66 m。实测 原实现数据文件。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "湖面高度 70.87–215.06 m",
+        "c11.sourceId": "d251"
+      }
+    },
+    {
+      "id": "arch-scene.d251.river-surface-elevation",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-18.river-surface-elevation",
+      "title": "聚落（本案例河面标高范围）",
+      "value": [
+        0.4,
+        425.66
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.18 节 案例 02 村落与日式建筑：聚落"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.18 节 d251；出处类别：推断与说明·案例 02 村落与日式建筑",
+        "note": "原证据：清单未列；原验证：清单未列。湖面高度 70.87–215.06 m；河面高度 0.4–425.66 m。实测 原实现数据文件。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "河面高度 0.4–425.66 m",
+        "c11.sourceId": "d251"
+      }
+    },
+    {
+      "id": "arch-scene.d258.camera-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.camera-height",
+      "title": "案例 22主镜头构图（主镜头俯拍机位高度（约））",
+      "value": 160,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：案例 22主镜头构图"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d258；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述；原验证：C。约 160 米高缓推俯拍，沿现代都市棋盘大街向下，黄金时刻；左侧深色玻璃塔、右侧战前砖楼和水塔、中间广告牌"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "约 160 米高缓推俯拍",
+        "c11.sourceId": "d258"
+      }
+    },
+    {
+      "id": "arch-scene.d262.film-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-19.film-duration",
+      "title": "高密度霓虹雨夜街景小巷 规格（原验证标签所记片长）",
+      "value": 15,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：高密度霓虹雨夜街景小巷 规格"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d262；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述；原验证：C / 作者成片用过(15 s, 1920x1080, 24 fps) / 只是原文说法。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "15 s",
+        "c11.sourceId": "d262"
+      }
+    },
+    {
+      "id": "arch-scene.d262.frame-rate",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-19.frame-rate",
+      "title": "高密度霓虹雨夜街景小巷 规格（原验证标签所记帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：高密度霓虹雨夜街景小巷 规格"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d262；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述；原验证：C / 作者成片用过(15 s, 1920x1080, 24 fps) / 只是原文说法。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "24 fps",
+        "c11.sourceId": "d262"
+      }
+    },
+    {
+      "id": "arch-scene.d265.room-ceiling-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.room-ceiling-height",
+      "title": "案例 29 单一模型（公寓房间层高）",
+      "value": 2740,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：案例 29 单一模型"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d265；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述；原验证：C / 只是原文说法 / 作者成片用过。【案例 29 房间】9 层角部，15.0×10.0 m，129.86 m²；16 面墙、3 立管井、12 房间、19 洞口、80 件家具设备、53 灯具；层高 2740 mm，门厅和卫生间 2440 mm\n【公寓基本量】新建公寓楼 9 层角部；15.0×10.0 m，129.86 m²；单毫米模型文件；16 面墙、3 个立管井、12 房间、19 洞口、80 件家具设备、53 套灯具；层高房间 2740 mm（9 ft），门厅卫生间 2440 mm（风管走这里）；风格暖调现代：漂白橡木、暖色灰泥、胡桃木、亚麻、石灰华、青铜\n【案例 29 单一模型】整套公寓在一个毫米单位的模型文件里:16 面墙(类型+厚度)、3 个竖井、12 个房间、19 个洞口(门含铰链侧与开向、门洞、窗)、饰面目录、80 件家具设备、53 个灯具与工程锚点;层高 2740 mm(房间)/2440 mm(门厅与浴室,管道经过处);15.0 × 10.0 m、129.86 m²;风格 warm modern(漂白橡木/暖灰泥/胡桃/亚麻/洞石/青铜)\n【案例 29 单一模型(毫米)】角落公寓第9层(新建公寓楼)15.0×10.0 m、129.86 m²;单模型文件(毫米):16堵墙(含类型厚度)、3个管井、12个房间、19个开口(门含铰链侧与开向/洞口/窗)、饰面目录、80件家具设备、53个灯具、工程锚点;层高房间2740 mm(9 ft)、门厅与卫生间2440 mm(走管);风格 warm modern:漂白橡木/暖灰泥/胡桃/亚麻/洞石/青铜"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "层高 2740 mm",
+        "c11.sourceId": "d265"
+      }
+    },
+    {
+      "id": "arch-scene.d265.foyer-bath-ceiling-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.foyer-bath-ceiling-height",
+      "title": "案例 29 单一模型（门厅与卫生间层高）",
+      "value": 2440,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：案例 29 单一模型"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d265；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述；原验证：C / 只是原文说法 / 作者成片用过。【案例 29 房间】9 层角部，15.0×10.0 m，129.86 m²；16 面墙、3 立管井、12 房间、19 洞口、80 件家具设备、53 灯具；层高 2740 mm，门厅和卫生间 2440 mm\n【公寓基本量】新建公寓楼 9 层角部；15.0×10.0 m，129.86 m²；单毫米模型文件；16 面墙、3 个立管井、12 房间、19 洞口、80 件家具设备、53 套灯具；层高房间 2740 mm（9 ft），门厅卫生间 2440 mm（风管走这里）；风格暖调现代：漂白橡木、暖色灰泥、胡桃木、亚麻、石灰华、青铜\n【案例 29 单一模型】整套公寓在一个毫米单位的模型文件里:16 面墙(类型+厚度)、3 个竖井、12 个房间、19 个洞口(门含铰链侧与开向、门洞、窗)、饰面目录、80 件家具设备、53 个灯具与工程锚点;层高 2740 mm(房间)/2440 mm(门厅与浴室,管道经过处);15.0 × 10.0 m、129.86 m²;风格 warm modern(漂白橡木/暖灰泥/胡桃/亚麻/洞石/青铜)\n【案例 29 单一模型(毫米)】角落公寓第9层(新建公寓楼)15.0×10.0 m、129.86 m²;单模型文件(毫米):16堵墙(含类型厚度)、3个管井、12个房间、19个开口(门含铰链侧与开向/洞口/窗)、饰面目录、80件家具设备、53个灯具、工程锚点;层高房间2740 mm(9 ft)、门厅与卫生间2440 mm(走管);风格 warm modern:漂白橡木/暖灰泥/胡桃/亚麻/洞石/青铜"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "门厅和卫生间 2440 mm",
+        "c11.sourceId": "d265"
+      }
+    },
+    {
+      "id": "arch-scene.d277.fence-section-length",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.fence-section-length",
+      "title": "建筑尺寸文字锚点（栅栏单段长（约））",
+      "value": 3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：建筑尺寸文字锚点"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-04",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d277；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述；原验证：作者成片用过。提示词里写真实尺寸:栅栏一段约 3 m;木栅墙一段约 8 m;废弃圆塔约 15 m 高;河驳船约 15 m 长;砂岩城墙一段约 12 m 长 10 m 高;用于后续 Blender 定尺寸"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "栅栏一段约 3 m",
+        "c11.sourceId": "d277"
+      }
+    },
+    {
+      "id": "arch-scene.d277.palisade-section-length",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.palisade-section-length",
+      "title": "建筑尺寸文字锚点（木栅墙单段长（约））",
+      "value": 8,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：建筑尺寸文字锚点"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-04",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d277；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述；原验证：作者成片用过。提示词里写真实尺寸:栅栏一段约 3 m;木栅墙一段约 8 m;废弃圆塔约 15 m 高;河驳船约 15 m 长;砂岩城墙一段约 12 m 长 10 m 高;用于后续 Blender 定尺寸"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "木栅墙一段约 8 m",
+        "c11.sourceId": "d277"
+      }
+    },
+    {
+      "id": "arch-scene.d277.ruined-tower-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.ruined-tower-height",
+      "title": "建筑尺寸文字锚点（废弃圆塔高（约））",
+      "value": 15,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：建筑尺寸文字锚点"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-04",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d277；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述；原验证：作者成片用过。提示词里写真实尺寸:栅栏一段约 3 m;木栅墙一段约 8 m;废弃圆塔约 15 m 高;河驳船约 15 m 长;砂岩城墙一段约 12 m 长 10 m 高;用于后续 Blender 定尺寸"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "废弃圆塔约 15 m 高",
+        "c11.sourceId": "d277"
+      }
+    },
+    {
+      "id": "arch-scene.d277.barge-length",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.barge-length",
+      "title": "建筑尺寸文字锚点（河驳船长（约））",
+      "value": 15,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：建筑尺寸文字锚点"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-04",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d277；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述；原验证：作者成片用过。提示词里写真实尺寸:栅栏一段约 3 m;木栅墙一段约 8 m;废弃圆塔约 15 m 高;河驳船约 15 m 长;砂岩城墙一段约 12 m 长 10 m 高;用于后续 Blender 定尺寸"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "河驳船约 15 m 长",
+        "c11.sourceId": "d277"
+      }
+    },
+    {
+      "id": "arch-scene.d277.city-wall-section-length",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.city-wall-section-length",
+      "title": "建筑尺寸文字锚点（砂岩城墙单段长（约））",
+      "value": 12,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：建筑尺寸文字锚点"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-04",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d277；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述；原验证：作者成片用过。提示词里写真实尺寸:栅栏一段约 3 m;木栅墙一段约 8 m;废弃圆塔约 15 m 高;河驳船约 15 m 长;砂岩城墙一段约 12 m 长 10 m 高;用于后续 Blender 定尺寸"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "砂岩城墙一段约 12 m 长",
+        "c11.sourceId": "d277"
+      }
+    },
+    {
+      "id": "arch-scene.d277.city-wall-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.city-wall-height",
+      "title": "建筑尺寸文字锚点（砂岩城墙高）",
+      "value": 10,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：建筑尺寸文字锚点"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-04",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d277；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述；原验证：作者成片用过。提示词里写真实尺寸:栅栏一段约 3 m;木栅墙一段约 8 m;废弃圆塔约 15 m 高;河驳船约 15 m 长;砂岩城墙一段约 12 m 长 10 m 高;用于后续 Blender 定尺寸"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "砂岩城墙一段约 12 m 长 10 m 高",
+        "c11.sourceId": "d277"
+      }
+    },
+    {
+      "id": "arch-scene.d284.film-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-19.film-duration",
+      "title": "写实餐馆 规格（成片时长（约））",
+      "value": 20,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：写实餐馆 规格"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d284；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：实测+原文陈述；原验证：我们自己读回过。约20秒、24fps、六镜头；正文另记478帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "约20秒",
+        "c11.sourceId": "d284"
+      }
+    },
+    {
+      "id": "arch-scene.d284.frame-rate",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-19.frame-rate",
+      "title": "写实餐馆 规格（成片帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：写实餐馆 规格"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d284；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：实测+原文陈述；原验证：我们自己读回过。约20秒、24fps、六镜头；正文另记478帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "24fps",
+        "c11.sourceId": "d284"
+      }
+    },
+    {
+      "id": "arch-scene.d284.shot-count",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.shot-count",
+      "title": "写实餐馆 规格（成片镜头数）",
+      "value": 6,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：写实餐馆 规格"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d284；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：实测+原文陈述；原验证：我们自己读回过。约20秒、24fps、六镜头；正文另记478帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "六镜头",
+        "c11.sourceId": "d284"
+      }
+    },
+    {
+      "id": "arch-scene.d284.frame-count",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-19.frame-count",
+      "title": "写实餐馆 规格（正文自报成片帧数）",
+      "value": 478,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：写实餐馆 规格"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d284；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：实测+原文陈述；原验证：我们自己读回过。约20秒、24fps、六镜头；正文另记478帧"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "正文另记478帧",
+        "c11.sourceId": "d284"
+      }
+    },
+    {
+      "id": "arch-scene.d285.film-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-19.film-duration",
+      "title": "案例 29 单一模型驱动（成片时长）",
+      "value": 20,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：案例 29 单一模型驱动"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d285；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：实测+原文陈述；原验证：我们自己读回过（版式像素、切点）。毫米级单一模型→图纸、工程检查、三维场景→路径追踪静帧→光标建造与分屏合成；15×10m外框、129.86㎡；16墙、12房间、19开口、80家具设备、53灯具；20秒、1080×1350、30fps、600帧(CRF 16)；11个切点；部分镜头静帧推近无视差"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "20秒",
+        "c11.sourceId": "d285"
+      }
+    },
+    {
+      "id": "arch-scene.d285.frame-rate",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-19.frame-rate",
+      "title": "案例 29 单一模型驱动（成片帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：案例 29 单一模型驱动"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d285；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：实测+原文陈述；原验证：我们自己读回过（版式像素、切点）。毫米级单一模型→图纸、工程检查、三维场景→路径追踪静帧→光标建造与分屏合成；15×10m外框、129.86㎡；16墙、12房间、19开口、80家具设备、53灯具；20秒、1080×1350、30fps、600帧(CRF 16)；11个切点；部分镜头静帧推近无视差"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "30fps",
+        "c11.sourceId": "d285"
+      }
+    },
+    {
+      "id": "arch-scene.d285.frame-count",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-19.frame-count",
+      "title": "案例 29 单一模型驱动（成片总帧数）",
+      "value": 600,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：案例 29 单一模型驱动"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d285；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：实测+原文陈述；原验证：我们自己读回过（版式像素、切点）。毫米级单一模型→图纸、工程检查、三维场景→路径追踪静帧→光标建造与分屏合成；15×10m外框、129.86㎡；16墙、12房间、19开口、80家具设备、53灯具；20秒、1080×1350、30fps、600帧(CRF 16)；11个切点；部分镜头静帧推近无视差"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "600帧",
+        "c11.sourceId": "d285"
+      }
+    },
+    {
+      "id": "arch-scene.d285.cut-count",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.cut-count",
+      "title": "案例 29 单一模型驱动（成片切点数）",
+      "value": 11,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节 写实与工程类场景（逐案例）：案例 29 单一模型驱动"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d285；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：实测+原文陈述；原验证：我们自己读回过（版式像素、切点）。毫米级单一模型→图纸、工程检查、三维场景→路径追踪静帧→光标建造与分屏合成；15×10m外框、129.86㎡；16墙、12房间、19开口、80家具设备、53灯具；20秒、1080×1350、30fps、600帧(CRF 16)；11个切点；部分镜头静帧推近无视差"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "11个切点",
+        "c11.sourceId": "d285"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-gold",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-gold",
+      "title": "草地线性材质调色板：金色",
+      "value": [
+        0.66,
+        0.45,
+        0.12
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.66,.45,.12)",
+        "c11.sourceId": "d364",
+        "c11.randomRanges": [
+          {
+            "value": [
+              0.8,
+              1.2
+            ],
+            "unit": "ratio",
+            "rawUnit": "原文未写单位",
+            "base": 0.8,
+            "jitter": 0.4,
+            "expr": ".8+.4r",
+            "label": "单根草颜色倍率",
+            "randomVar": "r"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-gild",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-gild",
+      "title": "草地线性材质调色板：亮金色",
+      "value": [
+        0.8,
+        0.6,
+        0.19
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.80,.60,.19)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-olive",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-olive",
+      "title": "草地线性材质调色板：橄榄色",
+      "value": [
+        0.34,
+        0.33,
+        0.12
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.34,.33,.12)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-amber",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-amber",
+      "title": "草地线性材质调色板：琥珀色",
+      "value": [
+        0.6,
+        0.3,
+        0.07
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.60,.30,.07)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-straw",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-straw",
+      "title": "草地线性材质调色板：麦秆色",
+      "value": [
+        0.76,
+        0.66,
+        0.42
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.76,.66,.42)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-ash",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-ash",
+      "title": "草地线性材质调色板：灰色",
+      "value": [
+        0.45,
+        0.42,
+        0.37
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.45,.42,.37)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-wet-bank-start",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-wet-bank-start",
+      "title": "草地线性材质调色板：湿岸插值起色",
+      "value": [
+        0.11,
+        0.15,
+        0.06
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.11,.15,.06)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-wet-bank-end",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-wet-bank-end",
+      "title": "草地线性材质调色板：湿岸插值止色",
+      "value": [
+        0.2,
+        0.21,
+        0.08
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.2,.21,.08)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-dead-start",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-dead-start",
+      "title": "草地线性材质调色板：枯草插值起色",
+      "value": [
+        0.26,
+        0.245,
+        0.22
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.26,.245,.22)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-dead-end",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-dead-end",
+      "title": "草地线性材质调色板：枯草插值止色",
+      "value": [
+        0.36,
+        0.33,
+        0.28
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.36,.33,.28)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d384.base-tree-height",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-2-9.base-tree-height",
+      "title": "植被（植被基准树高（约））",
+      "value": 12,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 2.9 节 树木与森林：植被"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.9 节 d384；出处类别：源码拆解·树木与森林",
+        "note": "原证据：源码（条目文字内带出处）；原验证：清单未列（源码值，按库规我们未渲染读回）。植被：瓦片 512 m；候选点间距 10/√q（高档 10 m，每瓦片 2704 点）；最远 4200×√q m；近远切换 460×min(1.25,√q) m；交叉淡化半宽 45 m；近模上限 24000q+4000、远模 90000q+10000；芦苇 38000q+4000、灌木 16000q+2000；3 种树×2 级 = 6 次绘制调用；基准树高 ~12 m；树缩放 阔叶 1.05+sv×0.65 / 针叶 1.0+sv×0.7 / 樱花 0.95+sv×0.5。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "基准树高 ~12 m",
+        "c11.sourceId": "d384"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s019",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-2.camera-path-min-clearance",
+      "title": "相机与视线避让：实体与相机路径的最小净距",
+      "value": 3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "在街区的相机路径旁布置实体时，按本案例的最小净距检查。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.2 节对照表行 s019 → d006",
+        "note": "原证据：原文陈述；原验证：只是原文说法。实体离每条相机路径至少 3 m；每个模块 30 秒内能从镜头角度预览。"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d006.camera-path-min-clearance"
+      ],
+      "ext": {
+        "c11.sourceId": "s019",
+        "c11.valueFrom": "arch-scene.d006.camera-path-min-clearance"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s049",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.main-eave-height",
+      "title": "中式木构尺寸速查（外部案例 01）（山门主殿）：主殿檐高",
+      "value": 13.75,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节对照表「中式木构尺寸速查（外部案例 01）」中的山门主殿"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节对照表行 s049 → d013",
+        "note": "原证据：源码；原验证：作者成片用过（未运行）。山门主殿：台基 31×9.5；主殿屋顶 15.5×8.6 檐高 13.75；偏殿屋顶 11.2×7.4 檐高 10.35；柱半径 0.52"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d013.main-eave-height"
+      ],
+      "ext": {
+        "c11.sourceId": "s049",
+        "c11.valueFrom": "arch-scene.d013.main-eave-height"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s050",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.hall-column-radius",
+      "title": "中式木构尺寸速查（外部案例 01）（大殿）：殿柱半径",
+      "value": 0.26,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.3 节对照表「中式木构尺寸速查（外部案例 01）」中的大殿"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.3 节对照表行 s050 → d014",
+        "note": "原证据：源码；原验证：作者成片用过（未运行）。大殿：柱半径 殿 0.26/亭 0.22，收分 1→0.985→0.955→0.925；梁枋高 0.44 厚 0.30；椽距 0.33 m；栏杆立柱间距 1.45、高 1.25"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d014.hall-column-radius"
+      ],
+      "ext": {
+        "c11.sourceId": "s050",
+        "c11.valueFrom": "arch-scene.d014.hall-column-radius"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s057",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.wall-thickness",
+      "title": "石构墙厚、墙高与构件尺寸对照（案例 13）（村镇城墙）：城墙厚",
+      "value": 2,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.4 节对照表「石构墙厚、墙高与构件尺寸对照（案例 13）」中的村镇城墙"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.4 节对照表行 s057 → d026",
+        "note": "原证据：源码；原验证：作者成片用过（未运行）。村镇城墙：厚 2、高 7.2；圆塔 r=3.7 高 15.2–17；方塔 5.6×4.8 高 10.5–13"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d026.wall-thickness"
+      ],
+      "ext": {
+        "c11.sourceId": "s057",
+        "c11.valueFrom": "arch-scene.d026.wall-thickness"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s058",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.wall-thickness",
+      "title": "石构墙厚、墙高与构件尺寸对照（案例 13）（村镇民居）：民居墙厚",
+      "value": 0.55,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.4 节对照表「石构墙厚、墙高与构件尺寸对照（案例 13）」中的村镇民居"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.4 节对照表行 s058 → d024",
+        "note": "原证据：源码；原验证：作者成片用过（未运行）。村镇民居：墙厚 0.55；两层一层高 3.05–3.9、单层 3.5–4.5"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d024.wall-thickness"
+      ],
+      "ext": {
+        "c11.sourceId": "s058",
+        "c11.valueFrom": "arch-scene.d024.wall-thickness"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s059",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.wall-thickness",
+      "title": "石构墙厚、墙高与构件尺寸对照（案例 13）（小教堂）：墙厚",
+      "value": 0.8,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.4 节对照表「石构墙厚、墙高与构件尺寸对照（案例 13）」中的小教堂"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.4 节对照表行 s059 → d027",
+        "note": "原证据：源码；原验证：作者成片用过（未运行）。小教堂：15.5×8.4，墙厚 0.8、高 6.4"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d027.wall-thickness"
+      ],
+      "ext": {
+        "c11.sourceId": "s059",
+        "c11.valueFrom": "arch-scene.d027.wall-thickness"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s060",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-8.wall-thickness",
+      "title": "石构墙厚、墙高与构件尺寸对照（案例 13）（古墓前厅）：壁厚",
+      "value": 0.62,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.4 节对照表「石构墙厚、墙高与构件尺寸对照（案例 13）」中的古墓前厅"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.4 节对照表行 s060 → d074",
+        "note": "原证据：源码；原验证：作者成片用过。古墓前厅：前厅壁厚 wt=0.62 高 2.05；地穴墙厚 0.5 高 2.25"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d074.wall-thickness"
+      ],
+      "ext": {
+        "c11.sourceId": "s060",
+        "c11.valueFrom": "arch-scene.d074.wall-thickness"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s064",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.wall-thickness",
+      "title": "村镇尺度对照（镇区城墙）：城墙厚",
+      "value": 2,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节对照表「村镇尺度对照」中的镇区城墙"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节对照表行 s064 → d029",
+        "note": "原证据：源码；原验证：作者成片用过（未运行）。镇区城墙：镇区 88×132 m（TOWN x −44…44，z −80…52）；城墙厚 2 高 7.2，4 圆塔 8 方塔"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d029.wall-thickness"
+      ],
+      "ext": {
+        "c11.sourceId": "s064",
+        "c11.valueFrom": "arch-scene.d029.wall-thickness"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s066",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-5.house-frontage-width",
+      "title": "村镇尺度对照（村镇房排）：房排宽度",
+      "value": [
+        6,
+        9
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.5 节对照表「村镇尺度对照」中的村镇房排"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.5 节对照表行 s066 → d025",
+        "note": "原证据：源码；原验证：作者成片用过（未运行）。村镇房排：宽 6–9 m（目标 7.4±0.8），主街 FRONT=4.7"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d025.house-frontage-width"
+      ],
+      "ext": {
+        "c11.sourceId": "s066",
+        "c11.valueFrom": "arch-scene.d025.house-frontage-width"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s068",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.step-rise",
+      "title": "台阶踏步高对照（大教堂朝圣台阶）：朝圣台阶踏步高",
+      "value": 0.3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节对照表「台阶踏步高对照」中的大教堂朝圣台阶"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节对照表行 s068 → d034",
+        "note": "原证据：源码（算式代入为推断）；原验证：作者成片用过。大教堂朝圣台阶：70 级，每级 0.3 m（21/70），高 3→24；每 14 级一平台 L=2.4 m；踏面 0.5231 m；坡度 21/46≈0.457（24.5°）"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d034.step-rise"
+      ],
+      "ext": {
+        "c11.sourceId": "s068",
+        "c11.valueFrom": "arch-scene.d034.step-rise"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s069",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.step-rise-reference",
+      "title": "台阶踏步高对照（大教堂台阶脚过渡）：分级用参考级高",
+      "value": 0.3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节对照表「台阶踏步高对照」中的大教堂台阶脚过渡"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节对照表行 s069 → d040",
+        "note": "原证据：源码；原验证：作者成片用过。大教堂台阶脚过渡：第 1 级比地面高 >0.4 时补 min(3,ceil(diff/0.3)−1) 级，每级深 0.46"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d040.step-rise-reference"
+      ],
+      "ext": {
+        "c11.sourceId": "s069",
+        "c11.valueFrom": "arch-scene.d040.step-rise-reference"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s070",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-6.step-rise",
+      "title": "台阶踏步高对照（大教堂北门台阶）：门前台阶踏步高",
+      "value": 0.17,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节对照表「台阶踏步高对照」中的大教堂北门台阶"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节对照表行 s070 → d060",
+        "note": "原证据：源码；原验证：作者成片用过。大教堂北门台阶：12 级，踏面 0.6、级高 0.17"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d060.step-rise"
+      ],
+      "ext": {
+        "c11.sourceId": "s070",
+        "c11.valueFrom": "arch-scene.d060.step-rise"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s071",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-8.step-rise-reference",
+      "title": "台阶踏步高对照（古墓前厅台阶）：分级用参考级高",
+      "value": 0.2,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节对照表「台阶踏步高对照」中的古墓前厅台阶"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节对照表行 s071 → d074",
+        "note": "原证据：源码；原验证：作者成片用过。古墓前厅台阶：drop>0.24 时 nS=min(3,ceil(drop/0.2)−1) 级，每级深 0.36"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d074.step-rise-reference"
+      ],
+      "ext": {
+        "c11.sourceId": "s071",
+        "c11.valueFrom": "arch-scene.d074.step-rise-reference"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s073",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-11.step-rise",
+      "title": "台阶踏步高对照（巨树根阶梯）：根阶梯的参考级高",
+      "value": 0.25,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节对照表「台阶踏步高对照」中的巨树根阶梯"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节对照表行 s073 → d139",
+        "note": "原证据：源码；原验证：作者成片用过。巨树根阶梯：每级 0.25 m"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d139.step-rise"
+      ],
+      "ext": {
+        "c11.sourceId": "s073",
+        "c11.valueFrom": "arch-scene.d139.step-rise"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s074",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-11.step-rise",
+      "title": "台阶踏步高对照（巨树木坡道）：木坡道折返梯参考级高（约）",
+      "value": 0.19,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节对照表「台阶踏步高对照」中的巨树木坡道"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节对照表行 s074 → d156",
+        "note": "原证据：源码；原验证：作者成片用过。巨树木坡道：踏步高≈0.19；steps=max(2,round(rise/0.19))；每跑 24 m 落差最多 5.6 m（≈13°）；tread 0.8"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d156.step-rise"
+      ],
+      "ext": {
+        "c11.sourceId": "s074",
+        "c11.valueFrom": "arch-scene.d156.step-rise"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s075",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-13.step-rise-reference",
+      "title": "台阶踏步高对照（树体场景的回廊壁龛）：分级用参考级高",
+      "value": 0.3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.6 节对照表「台阶踏步高对照」中的树体场景的回廊壁龛"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.6 节对照表行 s075 → d194",
+        "note": "原证据：源码；原验证：作者成片用过。树体场景的回廊壁龛：min(6,ceil(up/0.3)) 级，up 1.4–3.0"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d194.step-rise-reference"
+      ],
+      "ext": {
+        "c11.sourceId": "s075",
+        "c11.valueFrom": "arch-scene.d194.step-rise-reference"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s080",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-17.lantern-max-angle",
+      "title": "悬挂物与布摆动对照（悬挂灯笼）：灯笼最大摆角",
+      "value": 54.9,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.17 节对照表「悬挂物与布摆动对照」中的悬挂灯笼"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "实测",
+        "docRef": "建筑场景地形与水汇编 第 1.17 节对照表行 s080 → d250",
+        "note": "原证据：实测；原验证：清单标「我们自己渲染读回过」，见末节问题。悬挂灯笼：灯笼最大摆角 54.9°，最大角速度 266°/s"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d250.lantern-max-angle"
+      ],
+      "ext": {
+        "c11.sourceId": "s080",
+        "c11.valueFrom": "arch-scene.d250.lantern-max-angle"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s090",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-3.sign-width",
+      "title": "文字与招牌对照（山门匾额）：匾额宽",
+      "value": 4.5,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1.19 节对照表「文字与招牌对照」中的山门匾额"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节对照表行 s090 → d013",
+        "note": "原证据：源码；原验证：作者成片用过（未运行）。山门匾额：4.5×2.16 m，黑底金字，512×232 画布，字号 190 px，用系统宋体（非自带资源）"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d013.sign-width"
+      ],
+      "ext": {
+        "c11.sourceId": "s090",
+        "c11.valueFrom": "arch-scene.d013.sign-width"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s120",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-2-9.base-tree-height",
+      "title": "树种与树高对照（案例 02 植被）：植被基准树高（约）",
+      "value": 12,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 2.9 节对照表「树种与树高对照」中的案例 02 植被"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.9 节对照表行 s120 → d384",
+        "note": "原证据：源码；原验证：没验证。案例 02 植被：基准树高约 12 m；缩放 阔叶 1.05+sv×0.65 / 针叶 1.0+sv×0.7 / 樱花 0.95+sv×0.5"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d384.base-tree-height"
+      ],
+      "ext": {
+        "c11.sourceId": "s120",
+        "c11.valueFrom": "arch-scene.d384.base-tree-height"
+      }
+    }
+  ]
+}

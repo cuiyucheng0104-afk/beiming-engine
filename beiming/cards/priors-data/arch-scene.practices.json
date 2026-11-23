@@ -1,0 +1,368 @@
+{
+  "format": "practices/0.1",
+  "entries": [
+    {
+      "id": "arch-scene.d010.practice",
+      "sourceId": "d010",
+      "section": "1.2",
+      "caseId": "case-13",
+      "title": "干砌墙“空跑旧随机序列”技巧",
+      "text": "r16 finish-3：旧版dryStoneWallV1用圆石经rock旋转后站起来像麦田上一排面包，改扁平层叠石；先用空壳NOOP_RB把旧版随机数序列整个空跑一遍，再用独立随机流mulberry32(o.seed??16311)画新墙，使后续所有布景点位置与旧版完全一致(“every later site keeps its exact v1 placement”)；墙段2.4 m缺口宽±1.4默认缺口在72%处，塌陷系数距缺口<1.2为0.2，<2.2为0.55，其余1",
+      "quantities": [
+        {
+          "value": 2.4,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.72,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "fix",
+      "routeNote": "替换道具生成器时，先空跑旧生成器消耗原随机序列，再用独立随机流生成新外形，保留后续摆件的位置。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "建筑场景地形与水汇编 第 1.2 节 d010；出处类别：源码拆解·布局、摆位与放置规则（案例 13 第 20 章）"
+    },
+    {
+      "id": "arch-scene.d011.practice",
+      "sourceId": "d011",
+      "section": "1.2",
+      "caseId": "case-13",
+      "title": "案例 13 碰撞与渲染共用数据（JS 仿写着色器哈希）",
+      "text": "【JS 仿写着色器哈希】hash22 用 Math.fround 模拟 32 位浮点，使 JS 抬高/裂开的第 i 块石板与着色器同一块(原注释：\"emulated in float32 (so the geometry and the shader agree on every flag)\")\n【碰撞与渲染共用数据】wall 同时出网格和碰撞盒；JS 里用 Math.fround 仿着色器哈希使几何与花纹对同一石板一致",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "用话讲几何与着色器共用哈希，无取值",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过 / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.2 节 d011；出处类别：源码拆解·布局、摆位与放置规则（案例 13 第 24 章）"
+    },
+    {
+      "id": "arch-scene.d053.practice",
+      "sourceId": "d053",
+      "section": "1.6",
+      "caseId": "case-13",
+      "title": "尖拱函数 archHalf",
+      "text": "archHalf(w,R,n,off)：若 R≥w/2 圆心偏出 e=(R²-w²/4)/w、u=0（尖拱）；否则 e=0,u=(w²/4-R²)/(2R)（圆拱抬高）；r0=hypot(w/2+e,u)；off 外扩做拱圈厚；u=0 时 R 即拱顶高出起拱线的高度；代入：ARC 5/4.33→r0=5.00(等边拱)，CLR 3.4/3.9→r0=5.32(柳叶窗)，PORTAL 5.8/5.02→r0=5.79；archBand(w,R,o0,o1,…,leg) 取两条偏移弧环带，archOpening 取窗洞轮廓",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "按净跨与矢高确定圆心，构造半拱轮廓，再用两条偏移弧生成拱圈。",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "源码+推断",
+      "verificationLabel": "作者成品用过",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d053；出处类别：推断与说明·哥特大教堂（案例 13 第 18 章）"
+    },
+    {
+      "id": "arch-scene.d054.practice",
+      "sourceId": "d054",
+      "section": "1.6",
+      "caseId": "case-13",
+      "title": "挤出工具",
+      "text": "extrudeGeo(outline,holes,depth) 用 ExtrudeGeometry curveSegments:1 steps:1 bevelEnabled:false 并 translate(0,0,-depth/2)；ringShapeGeo 圆环板整圈=外轮廓+反向内孔，段数默认48",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "将外轮廓与反向内孔一起挤出，再沿厚度方向平移半个深度，使带孔构件居中。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "建筑场景地形与水汇编 第 1.6 节 d054；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）"
+    },
+    {
+      "id": "arch-scene.d114.practice",
+      "sourceId": "d114",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "用同一张路段表生成路面、碰撞与灯位",
+      "text": "【路=角度区间表】22 段 SEGS，每段 {a,b,h0,h1,r0,r1,kind}；kind 四种：deck 平台/ramp 坡/steps 台阶(每级 0.25 米)/bridge 绳桥；高度、碰撞、网格、灯、路线全从表算出\n【22 段角度区间路】一张角度区间表描述环绕的路：22 段，高度、碰撞、网格、灯位全从表算；大枝把网格俯拍成 0.5 m 高度图求坡度（可走面和可见网格同一张表）",
+      "quantities": [
+        {
+          "value": 0.25,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.5,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "将各路段的角度区间、起止高度和半径、路面类型写入一张表。依表生成可见网格，再用同一组路段数据计算可走高度、碰撞、灯位和路线，避免几套表示各自偏移。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过 / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d114；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
+    },
+    {
+      "id": "arch-scene.d150.practice",
+      "sourceId": "d150",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "摆件合并",
+      "text": "合并为 4–5 个网格(moss/props/iron/dead)，matrixAutoUpdate=false",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "静态摆件合并为少数网格并关掉矩阵自动更新的通用做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d150；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
+    },
+    {
+      "id": "arch-scene.d209.practice",
+      "sourceId": "d209",
+      "section": "1.14",
+      "caseId": "case-13",
+      "title": "案例 13 先干跑再真建",
+      "text": "【干跑→查遮罩→真建 attempt】先看离漂叶 R16 集合够远(clearOfzone_11)、避开相机视线(viewClear)；在 scratch 假容器里用 recorder 假碰撞器收集所有碰撞盒；每个碰撞体取 12 个圆周点(旋转矩形 8 点+中心)测 mask.test(遮罩来自 原实现源码 的 keepClear(\"tree\"))，全通过才用同一种子真建，真建时碰撞体走 queue(addDressBlocker，由 commitDressBlockers 统一提交)\n【先干跑再真建】在草稿容器里摆一遍，碰撞体全过禁区检查，再用同一个种子真建；改道具外形时先把旧函数空跑一遍消耗随机数，其他摆件位置不变",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "先在临时容器试摆并收集碰撞体，逐个检查禁摆遮罩，全部通过后用同一种子重建并提交碰撞体。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过 / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.14 节 d209；出处类别：源码拆解·巨树布景系统（案例 13 第 24 章）"
+    },
+    {
+      "id": "arch-scene.d255.practice",
+      "sourceId": "d255",
+      "section": "1.19",
+      "caseId": "case-22",
+      "title": "案例 22 布局文件",
+      "text": "【案例 22布局文件】一个文件（单位米）存街宽、楼脚印与高度、太阳、相机；所有脚本导入不复制\n【布局文件】一个，单位米：街道、人行道、楼脚印和高度、太阳、相机；所有脚本导入不复制数字；验收建议用脚本检查各模块没有写死的相同数字（推断）",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "布局数据集中存储并由各脚本共享",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "原文陈述 + 原文陈述+推断",
+      "verificationLabel": "C / 作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d255；出处类别：推断与说明·写实与工程类场景（逐案例）"
+    },
+    {
+      "id": "arch-scene.d270.practice",
+      "sourceId": "d270",
+      "section": "1.19",
+      "caseId": "case-07",
+      "title": "场景风格",
+      "text": "笔触纹理只在受光处、绘制天空、层层雾气；当天放弃 Blender 对比版此后画面 100% 浏览器代码",
+      "quantities": [
+        {
+          "value": 1,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "只在受光区域施加笔触纹理可照做",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d270；出处类别：原文陈述·写实与工程类场景（逐案例）"
+    },
+    {
+      "id": "arch-scene.d271.practice",
+      "sourceId": "d271",
+      "section": "1.19",
+      "caseId": "case-22",
+      "title": "案例 22 五个「让它真」的决定",
+      "text": "【五个“让它真”的决定】1 真 3D 细节（窗深嵌墙，低太阳才有真阴影）；2 很多小东西；3 不完美（每扇窗略偏、屋瓦缺失、雨水污渍）；4 光和空气；5 胶片相机（宽银幕、背景虚化、运动模糊、暖调色）\n【“为什么真”的五个决定】①真 3D 细节(窗深陷墙里,低太阳投下真阴影)②大量小物件(水箱、消防梯、空调、通风口、招牌、垃圾)③不完美(每扇窗略偏、屋瓦缺失、雨水污渍)④光与空气(低太阳+柔雾)⑤电影相机(宽画幅、背景虚化、运动模糊、暖调);渲染设置本身“没什么特别”",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "五条让画面真实的通用取舍，无量",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d271；出处类别：原文陈述·写实与工程类场景（逐案例）"
+    },
+    {
+      "id": "arch-scene.d272.practice",
+      "sourceId": "d272",
+      "section": "1.19",
+      "caseId": "case-22",
+      "title": "案例 22 细节按屏幕像素分配（远景是盒子）",
+      "text": "【细节按屏幕像素分配】主区域每面精细，远处楼只是画窗户的盒子；<2 像素细节不做\n【远景建筑】远处建筑是画了窗户的盒子；细节按屏幕像素分配，屏幕上小于 2 像素的细节是浪费",
+      "quantities": [
+        {
+          "value": 2,
+          "unit": "px",
+          "rawUnit": "像素"
+        },
+        {
+          "value": 2,
+          "unit": "px",
+          "rawUnit": "像素"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "按屏幕像素分配细节并简化远景",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过 / C",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d272；出处类别：原文陈述·写实与工程类场景（逐案例）"
+    },
+    {
+      "id": "arch-scene.d273.practice",
+      "sourceId": "d273",
+      "section": "1.19",
+      "caseId": "case-22",
+      "title": "因果污渍",
+      "text": "锈在钢下、条纹在窗台下、烟灰在通风口上",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "按污渍成因决定锈迹条纹烟灰位置",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d273；出处类别：原文陈述·写实与工程类场景（逐案例）"
+    },
+    {
+      "id": "arch-scene.d274.practice",
+      "sourceId": "d274",
+      "section": "1.19",
+      "caseId": "case-22",
+      "title": "无现成资产",
+      "text": "无下载模型、无贴图、无 HDRI；广告图案也是代码画；最终画面不用图像/视频生成式模型",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "纯程序化生成、全流程不用外部资产与生成式模型的制作取舍",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.19 节 d274；出处类别：原文陈述·写实与工程类场景（逐案例）"
+    },
+    {
+      "id": "arch-scene.d311.practice",
+      "sourceId": "d311",
+      "section": "2.2",
+      "caseId": "case-13",
+      "title": "去「等高线山丘」",
+      "text": "评审意见「等高线地图一样的山」→ 第 6/7 轮加崖壁结构 50–650 m（环坡 slope 0.28–0.54）；宏观反照率扰动；砂岩层理 7 rad/m；落叶各有色调",
+      "quantities": [
+        {
+          "value": [
+            50,
+            650
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 7,
+          "unit": "rad/m",
+          "rawUnit": "rad/m"
+        }
+      ],
+      "kind": "fix",
+      "routeNote": "在连续环坡中加入崖壁，打散大尺度地表明暗，再叠加砂岩层理，削弱等高线状山形。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 2.2 节 d311；出处类别：源码拆解·地形生成管线与地表形态"
+    },
+    {
+      "id": "arch-scene.d353.practice",
+      "sourceId": "d353",
+      "section": "2.5",
+      "caseId": "ext-01",
+      "title": "水的可照搬做法",
+      "text": "经过预算成每实例 (t0, dur, 推x, 推z)，用 wkStep(τ)−wkStep(τ−dur)；冲击波有限速度外扩高斯壳，壳厚 7 m、速度 55 或 85 m/s、强度 30·S·ref/(ref+dist) m/s；平面镜 Lengyel 斜裁剪 pe[10]=clip.z+1−0.003；倒影弯曲乘到被反射物距离（夹 0.3–140 m）；像素大于波纹时 smoothstep(0.90, 0.10, 每像素米数)；势流行程时间贴图；飞溅闭式抛物线 e=(1−e^{−kτ})/k，k=2.5–8.5/s；小粒子按 1/60 s 快门拉条，长=宽+屏幕速度×0.0085；瀑布按离唇秒数参数化 y=y0−4.9τ²；涌浪取深水色散 ω=√(gk)，k=0.9106→ω=2.99；近水 9 m 内且 y<46 进替身",
+      "quantities": [
+        {
+          "value": 7,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 85,
+          "unit": "m/s",
+          "rawUnit": "m/s"
+        },
+        {
+          "value": [
+            0.3,
+            140
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.016667,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 9,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "把入水扰动预先记成带起点和持续时间的事件，让波前向外传播，并按像素覆盖范围淡出细波纹。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 2.5 节 d353；出处类别：源码拆解·水面事件：入水、尾迹、水花与抛水"
+    },
+    {
+      "id": "arch-scene.d363.practice",
+      "sourceId": "d363",
+      "section": "2.8",
+      "caseId": "case-13",
+      "title": "案例 13 无限草地（一块砖滚动）",
+      "text": "【草跟镜头滚动的无限砖】每层一块方砖用mod折回镜头；实例按格分桶、桶内按 aRand.x 排序，CPU 二分取前n根；multiDrawElementsInstanced 最多128段\n【无限草地/远近切换】一块砖+mod 绕镜头折回，每格实例按出现密度预排序，CPU 二分截断；地形 150 m 切远、135 m 切回（滞回）",
+      "quantities": [
+        {
+          "value": 150,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 135,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "让一块草地方砖随镜头循环平移。先按格给草实例分桶并按出现密度排序，再按所需密度二分截取每格要画的实例。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码 原实现源码 + 源码",
+      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回） / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 2.8 节 d363；出处类别：源码拆解·草与地表植被（案例 13 第 3 章）"
+    },
+    {
+      "id": "arch-scene.d387.practice",
+      "sourceId": "d387",
+      "section": "2.9",
+      "caseId": "case-02",
+      "title": "植被稀疏化",
+      "text": "植被稀疏化：保留率 `clamp(1−0.85×smoothstep(D0, 0.7×DMAX, 距离), 0.15, 1)`，放大 `1/√保留率`，抖动图案淡入淡出（无台阶）。源码 原实现源码。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "随视距增大逐渐稀疏植被，按保留率平方根的倒数放大留下的植被，用抖动淡出过渡。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码（条目文字内带出处）",
+      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
+      "docRef": "建筑场景地形与水汇编 第 2.9 节 d387；出处类别：源码拆解·树木与森林"
+    },
+    {
+      "id": "arch-scene.d392.practice",
+      "sourceId": "d392",
+      "section": "2.11",
+      "caseId": "case-16",
+      "title": "案例 16 世界做法",
+      "text": "地形在 web worker 由单一地图文件生成;岩石/树皮/石墙/灰泥/屋顶用 CC0 某开放素材库 扫描材质(“没有一张手绘贴图”)",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "单一地图在后台生成并用开放扫描材质",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 2.11 节 d392；出处类别：原文陈述·区域规模与世界生成"
+    }
+  ]
+}

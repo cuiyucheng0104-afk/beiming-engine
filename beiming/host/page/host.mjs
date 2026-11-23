@@ -62,8 +62,8 @@ export function resolveServed(urlPath, repo = REPO) {
   const dir = (MIME[ext] && SERVED.find((d) => at.startsWith(d))) || (ext === '.woff2' && at.startsWith(FONTS) && FONTS);
   if (!dir) return null;
   try {
-    const real = realpathSync(abs);
-    return real.startsWith(realpathSync(resolve(repo, dir)) + sep) && extname(real) === ext ? real : null;
+    const real = realpathSync.native(abs);
+    return real.startsWith(realpathSync.native(resolve(repo, dir)) + sep) && extname(real) === ext ? real : null;
   } catch { return null; }
 }
 

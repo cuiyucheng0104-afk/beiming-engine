@@ -33,7 +33,7 @@
 
 ## 起草形态
 
-`normalizeQuestionDraft(draft)` 把起草写法（YAML 读成的对象）换成 `question/0.1`，只换不校验：下划线键改小驼峰（到 `scoring[].args` 第一层为止，`assets`、`ext` 里的不动），`width`、`height` 并成 `size`，整数 `fps` 写成 `"n/1"`，`wall_s`（秒）换成 `wallMs`，`gpu_s` 换成 `gpuSeconds`，`初值未校准` 换成 `uncalibrated`，`metric:` 前缀去掉。新旧键并存（`size` 和 `width`）不覆盖，留给校验报错；一个键两种拼法并存或草稿不是纯数据抛 `TypeError`。
+`normalizeQuestionDraft(draft)` 把起草写法换成 `question/0.1`，只换不校验，细则见 [DETAILS.md](DETAILS.md#起草形态)。
 
 ## 隐藏题
 
@@ -41,13 +41,17 @@
 
 ## 跑题器
 
-`node beiming/bench/runner.mjs run --question <题目> --root <仓库外目录> (--solver-cmd <命令> | --model <模型>)`，代码里用 `runExamQuestion()`。隔离和观测复用 `tools/eval/lib`。
+`node beiming/bench/runner.mjs run --question <题目> --root <仓库外目录> (--solver-cmd <命令> | --model <模型>)`，代码里用 `runExamQuestion()`。
 
 题目先过校验（不过 exit 4），在 `<root>/<题号>/<runId>/` 下建 `worktree/`（只放公开投影 `question.json`），判完分写 `result.json`、`meta.json`、`observation.json`。exit 0 只表示跑完落盘，及格看 `pass`（布尔）与 `status`。隐藏题只落总分；`expectedFail` 题加 `--force-expected-fail` 才跑。
 
 宿主判分（`defaultJudge`，缺 `ffprobe` exit 3）：实测做题目录的 `deliverable.mp4`，自报不算；没接量测器的项一律不过，条数记 `unmeasured`。
 
 做题进程和宿主同用户：macOS 用 `sandbox-exec` 挡原题和别的运行，别的平台没有边界（看 `observation.json` 的 `isolation`）。细则见 [DETAILS.md](DETAILS.md)。
+
+## 看板
+
+`node beiming/bench/board.mjs build --out-dir <目录>` 把结果、账本、卡和先验汇成 `board.json`（`bench-board/0.1`）、每天一行的 `history.json` 和离线的 `index.html`；代码里用纯函数 `buildBoard`、`renderBoardHtml`、`appendBoardHistory`。帧源缺能力的格写「这个帧源没有这项能力」，不进均分；隐藏题只落总分。细则见 [DETAILS.md](DETAILS.md#看板)。
 
 ## 已知限制
 
