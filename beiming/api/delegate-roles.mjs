@@ -683,12 +683,15 @@ export function shuffleCandidatesForBallot(candidates, options) {
   for (let idx = 0; idx < list.length; idx++) {
     const item = list[idx];
     const cid = typeof item === 'string'
-      ? item
-      : (item && typeof item === 'object' && typeof own(item, 'id') === 'string' ? own(item, 'id') : String(idx));
+      ? item.trim()
+      : own(item, 'id').trim();
+    const normalized = typeof item === 'string'
+      ? cid
+      : { ...item, id: cid };
     const score = createHash('sha256')
       .update(`${filmId}:${perspective}:${voteIndex}:${cid}:${idx}`)
       .digest('hex');
-    decorated.push({ item, score });
+    decorated.push({ item: normalized, score });
   }
   decorated.sort((a, b) => (a.score < b.score ? -1 : a.score > b.score ? 1 : 0));
   return decorated.map((x) => x.item);

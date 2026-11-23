@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -1754,3 +1754,448 @@ test('A19-13 [R2-删镜重试] 镜头工重试前最新修订已删除原镜头�
     await new Promise((r) => mockModel.close(r));
   }
 });
+
+test('A19-14 [R3-B1] 高倍率视觉模型图像输入预估：gpt-4o-mini 与 gpt-4.1-mini/nano/o4-mini 首票防超支且不回归其他模型', async () => {
+  const { film } = scaffold({ id: 'f_001', template: 'title', output: { size: [320, 180], fps: '10/1', frames: 10 } });
+  const dir = mkdtempSync(join(tmpdir(), 'bm-a19-r3-b1-'));
+  const img180 = join(dir, 'icon-180.png');
+  const img512 = join(dir, 'icon-512.png');
+  const imgContact = join(dir, 'contact-326x186.png');
+  const imgSq1024 = join(dir, 'sq-1024.png');
+  const imgHd = join(dir, 'hd-1920x1080.png');
+  const imgCorrupt = join(dir, 'corrupt.bin');
+  writeFileSync(img180, fakePngHeader(180, 180));
+  writeFileSync(img512, fakePngHeader(512, 512));
+  writeFileSync(imgContact, fakePngHeader(326, 186));
+  writeFileSync(imgSq1024, fakePngHeader(1024, 1024));
+  writeFileSync(imgHd, fakePngHeader(1920, 1080));
+  writeFileSync(imgCorrupt, Buffer.from('not-a-valid-png-image'));
+
+  const origFetch = globalThis.fetch;
+  try {
+    const runProbe = async ({ model, images, maxTokens = null, rejectOnBudget = false }) => {
+      const ledgerPath = join(dir, `${model.replace(/[^a-z0-9]/gi, '_')}-${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`);
+      const reviewer = createOpenAiVisionReviewer({
+        endpoint: 'https://fixture.invalid',
+        apiKey: 'test-key',
+        model,
+        ledgerPath,
+      });
+      let calls = 0;
+      let firstInfo = null;
+      globalThis.fetch = async () => {
+        calls++;
+        return Response.json({
+          model,
+          choices: [{ message: { content: JSON.stringify({ grade: '好', opinions: [], suggestedPredicates: [] }) } }],
+          usage: { prompt_tokens: 8500, completion_tokens: 8 },
+        });
+      };
+      const r = await layerL5({
+        reviewer,
+        brief: '高倍率图像预估测试',
+        images,
+        film,
+        filmId: 'f_001',
+        ...(maxTokens !== null ? { maxTokens } : {}),
+        budgetCheck(info) {
+          firstInfo ??= info;
+          return !rejectOnBudget;
+        },
+      });
+      return { r, calls, firstInfo, ledgerExists: existsSync(ledgerPath) };
+    };
+
+    // 1) R3 复现：3 张图 + gpt-4o-mini + maxTokens: 8000 -> 预估 > 8000，首票前停下且 0 次上游调用
+    const threeImages = [
+      { name: 'contact', path: img180 },
+      { name: 'cut1', path: img512 },
+      { name: 'cut2', path: imgContact },
+    ];
+    const threeProbeEstimate = await runProbe({ model: 'gpt-4o-mini', images: threeImages, rejectOnBudget: true });
+    assert.equal(threeProbeEstimate.calls, 0);
+    assert.ok(
+      threeProbeEstimate.firstInfo.estimatedInputTokens >= 3 * (2833 + 5667),
+      `3 张图 gpt-4o-mini 输入预估应 >= 25500，实际 ${threeProbeEstimate.firstInfo.estimatedInputTokens}`,
+    );
+    assert.ok(threeProbeEstimate.firstInfo.estimatedNextTokens > 8_000);
+
+    const threeCapped = await runProbe({ model: 'gpt-4o-mini', images: threeImages, maxTokens: 8_000 });
+    assert.equal(threeCapped.calls, 0, '3 张图 + gpt-4o-mini + maxTokens=8000 必须 0 调用拦停');
+    assert.equal(threeCapped.r.status, 'not-run');
+    assert.equal(threeCapped.r.stoppedReason, 'budget.tokens');
+
+    // 2) R3 复现：单张 326x186 联系表 + gpt-4o-mini（含供应商前缀与日期后缀）+ maxTokens: 6500 -> 首票前拦停 0 调用
+    for (const modelName of ['gpt-4o-mini', 'openai/gpt-4o-mini', 'OpenRouter/OpenAI/GPT-4O-MINI-2024-07-18']) {
+      const singleCapped = await runProbe({
+        model: modelName,
+        images: [{ name: 'contact', path: imgContact }],
+        maxTokens: 6_500,
+      });
+      assert.equal(singleCapped.calls, 0, `${modelName} 单张联系表 6500 预算必须 0 调用拦停`);
+      assert.equal(singleCapped.r.status, 'not-run');
+      assert.equal(singleCapped.r.stoppedReason, 'budget.tokens');
+    }
+
+    // 3) 不可解析图像字节在 gpt-4o-mini 下回退至少 2833 + 5667 = 8500
+    const corruptCapped = await runProbe({
+      model: 'gpt-4o-mini',
+      images: [{ name: 'contact', path: imgCorrupt }],
+      maxTokens: 8_000,
+    });
+    assert.equal(corruptCapped.calls, 0, 'gpt-4o-mini 不可解析图回退至少 8500，8000 预算必须 0 调用拦停');
+    assert.equal(corruptCapped.r.stoppedReason, 'budget.tokens');
+
+    // 4) gpt-4.1-mini / gpt-4.1-nano / o4-mini 官方倍率与非高倍率基线对照（同图同 prompt 文本，精确验证图像估算差值）
+    const imgStrip = join(dir, 'strip-513x1537.png');
+    writeFileSync(imgStrip, fakePngHeader(513, 1537));
+    const stripTiles = Math.ceil(513 / 512) * Math.ceil(1537 / 512); // 8
+    const stripBaseImg = Math.max(1024, stripTiles * 256 + 256, Math.ceil((513 * 1537) / 512)); // 2304
+
+    const sqBase = await runProbe({ model: 'gemini-vision-r2', images: [{ name: 'sq', path: imgSq1024 }], rejectOnBudget: true });
+    const sqNano = await runProbe({ model: 'openai/gpt-4.1-nano-2025-04-14', images: [{ name: 'sq', path: imgSq1024 }], rejectOnBudget: true });
+    assert.equal(
+      sqNano.firstInfo.estimatedInputTokens - sqBase.firstInfo.estimatedInputTokens,
+      Math.ceil(1024 * 2.46) - 2048,
+      '1024x1024 gpt-4.1-nano 图像输入估算应覆盖 32px 补丁倍率',
+    );
+
+    const stripBase = await runProbe({ model: 'gpt-4o', images: [{ name: 'strip', path: imgStrip }], rejectOnBudget: true });
+    const stripMini41 = await runProbe({ model: 'gpt-4.1-mini', images: [{ name: 'strip', path: imgStrip }], rejectOnBudget: true });
+    const stripO4Mini = await runProbe({ model: 'o4-mini', images: [{ name: 'strip', path: imgStrip }], rejectOnBudget: true });
+    const stripNano41 = await runProbe({ model: 'gpt-4.1-nano', images: [{ name: 'strip', path: imgStrip }], rejectOnBudget: true });
+    assert.equal(
+      stripMini41.firstInfo.estimatedInputTokens - stripBase.firstInfo.estimatedInputTokens,
+      Math.ceil((85 + 170 * stripTiles) * 1.62) - stripBaseImg,
+    );
+    assert.equal(
+      stripO4Mini.firstInfo.estimatedInputTokens - stripBase.firstInfo.estimatedInputTokens,
+      Math.ceil((85 + 170 * stripTiles) * 1.72) - stripBaseImg,
+    );
+    assert.equal(
+      stripNano41.firstInfo.estimatedInputTokens - stripBase.firstInfo.estimatedInputTokens,
+      Math.ceil((85 + 170 * stripTiles) * 2.46) - stripBaseImg,
+    );
+
+    const hdBase = await runProbe({ model: 'gpt-4o', images: [{ name: 'hd', path: imgHd }], rejectOnBudget: true });
+    const hdNano41 = await runProbe({ model: 'gpt-4.1-nano', images: [{ name: 'hd', path: imgHd }], rejectOnBudget: true });
+    const hdTiles = Math.ceil(1920 / 512) * Math.ceil(1080 / 512); // 12
+    assert.equal(
+      hdNano41.firstInfo.estimatedInputTokens - hdBase.firstInfo.estimatedInputTokens,
+      Math.ceil((85 + 170 * hdTiles) * 2.46) - Math.ceil((1920 * 1080) / 512),
+    );
+
+    // 非高倍率模型（gemini-vision-r2）单张 326x186 + maxTokens: 6500 仍可正常发首票（零回归）
+    const nonHighOk = await runProbe({
+      model: 'gemini-vision-r2',
+      images: [{ name: 'contact', path: imgContact }],
+      maxTokens: 6_500,
+    });
+    assert.equal(nonHighOk.calls, 1, '非高倍率模型原有保守估算保持不变');
+
+    // 5) 端到端 POST /review：真实渲染 326x186 联系表 + gpt-4o-mini + 单片 6,500 预算 -> 首票前零调用停下
+    if (!threeMediaSkip()) {
+      globalThis.fetch = origFetch;
+      const srvDir = mkdtempSync(join(tmpdir(), 'bm-a19-r3-b1-srv-'));
+      const srvLedger = join(srvDir, 'external-ledger.jsonl');
+      let upstreamCalls = 0;
+      const mockVision = createServer(async (req, res) => {
+        for await (const chunk of req) void chunk;
+        upstreamCalls++;
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({
+          model: 'gpt-4o-mini',
+          choices: [{ message: { content: '{"opinions":[]}' } }],
+          usage: { prompt_tokens: 8500, completion_tokens: 8 },
+        }));
+      });
+      await new Promise((r) => mockVision.listen(0, '127.0.0.1', r));
+      const token = issueAccountToken(srvDir);
+      const api = await startServer({
+        dataDir: srvDir,
+        port: 0,
+        reviewer: createOpenAiVisionReviewer({
+          endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+          apiKey: 'test-key',
+          model: 'gpt-4o-mini',
+          ledgerPath: srvLedger,
+        }),
+      });
+      try {
+        const created = await (await fetch(`${api.url}/v1/films`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            template: 'title',
+            text: 'MINI',
+            output: { size: [320, 180], fps: '10/1', frames: 6 },
+            budget: { tokens: 6_500 },
+          }),
+        })).json();
+        assert.equal(created.ok, true);
+        const filmId = created.data.film;
+        const wsToken = created.data.token;
+        const rendered = await (await fetch(`${api.url}/v1/films/${filmId}/render?wait=30`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ tier: 'draft' }),
+        })).json();
+        assert.equal(rendered.ok, true);
+        assert.equal(rendered.data.status, 'succeeded');
+
+        const reviewed = await (await fetch(`${api.url}/v1/films/${filmId}/review`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ brief: 'gpt-4o-mini 单片 6500 预算守卫' }),
+        })).json();
+        assert.equal(reviewed.ok, true);
+        assert.equal(reviewed.data.status, 'not-run');
+        assert.equal(reviewed.data.stoppedReason, 'budget.tokens');
+        assert.equal(upstreamCalls, 0, 'POST /review 在 gpt-4o-mini + 6500 预算下必须 0 次上游调用');
+        assert.equal(existsSync(srvLedger), false, '未发出任何上游调用时外部账本不应有扣费记录');
+        const ledger = await (await fetch(`${api.url}/v1/films/${filmId}/ledger`, {
+          headers: { authorization: `Bearer ${wsToken}` },
+        })).json();
+        const wsTotal = ledger.data.items.reduce((s, x) => s + (x.modelTokens ?? 0), 0);
+        assert.equal(wsTotal, 0);
+      } finally {
+        await api.close();
+        await new Promise((r) => mockVision.close(r));
+        rmSync(srvDir, { recursive: true, force: true });
+      }
+    }
+  } finally {
+    globalThis.fetch = origFetch;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('A19-15 [R3-B2] 坏信封省略 completion_tokens 但含 total_tokens 时全额补足差额入账（L5 与外部/工作区三账一致）', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bm-a19-r3-b2-'));
+  const origFetch = globalThis.fetch;
+  try {
+    // 1) R3 精确复现：第 5 票 choices: [] + { prompt_tokens: 105, total_tokens: 145 } -> 合计 1305 不丢 40
+    const ledgerPath = join(dir, 'r3-b2.jsonl');
+    let calls = 0;
+    globalThis.fetch = async () => {
+      const n = ++calls;
+      return Response.json({
+        choices: n === 5 ? [] : [{ message: { content: JSON.stringify({ opinions: [] }) } }],
+        usage: n === 5
+          ? { prompt_tokens: 105, total_tokens: 145 }
+          : { prompt_tokens: 100 + n, completion_tokens: 40 },
+      });
+    };
+    const reviewer = createOpenAiVisionReviewer({
+      endpoint: 'https://fixture.invalid',
+      apiKey: 'test-key',
+      model: 'fixture',
+      ledgerPath,
+    });
+    const r = await layerL5({
+      film: { id: 'f', output: { frames: 40 }, shots: [] },
+      images: [],
+      reviewer,
+    });
+    assert.equal(r.status, 'ok');
+    assert.equal(r.totalBallots, 8);
+    assert.equal(r.invalidBallots?.length, 1);
+    const ledgerRows = readFileSync(ledgerPath, 'utf8').trim().split('\n').map(JSON.parse);
+    assert.equal(ledgerRows.length, 9);
+    assert.equal(ledgerRows[4].inputTokens, 105);
+    assert.equal(ledgerRows[4].outputTokens, 40);
+    const extTotal = ledgerRows.reduce((sum, x) => sum + x.inputTokens + x.outputTokens, 0);
+    assert.deepEqual([r.usage?.totalTokens, extTotal], [1305, 1305]);
+
+    // 2) chat() 各种 total_tokens 差额补足与 requireUsage 严格模式守卫
+    const cases = [
+      { usage: { prompt_tokens: 105, total_tokens: 145 }, expect: { inputTokens: 105, outputTokens: 40 } },
+      { usage: { completion_tokens: 40, total_tokens: 145 }, expect: { inputTokens: 105, outputTokens: 40 } },
+      { usage: { total_tokens: 145 }, expect: { inputTokens: 145, outputTokens: 0 } },
+      { usage: { prompt_tokens: 100, completion_tokens: 30, total_tokens: 145 }, expect: { inputTokens: 115, outputTokens: 30 } },
+      { usage: { prompt_tokens: 100, completion_tokens: 40, total_tokens: 120 }, expect: { inputTokens: 100, outputTokens: 40 } },
+    ];
+    for (const c of cases) {
+      globalThis.fetch = async () => Response.json({
+        model: 'fixture-m',
+        choices: [{ message: { role: 'assistant', content: 'ok' } }],
+        usage: c.usage,
+      });
+      const res = await chat({ endpoint: 'https://fixture.invalid', apiKey: 'test-key', body: { model: 'fixture-m', messages: [] } });
+      assert.deepEqual(res.usage, c.expect, `usage=${JSON.stringify(c.usage)}`);
+    }
+    globalThis.fetch = async () => Response.json({
+      model: 'fixture-m',
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+      usage: { prompt_tokens: 105, total_tokens: 145 },
+    });
+    await assert.rejects(
+      () => chat({ endpoint: 'https://fixture.invalid', apiKey: 'test-key', body: { model: 'fixture-m', messages: [] }, requireUsage: true }),
+      /没有返回可核算的 token 用量/,
+    );
+
+    // 3) 端到端 POST /review：第 5 票坏信封省略 completion_tokens，审片报告、工作区账本与外部账本三者均为 1305
+    if (!threeMediaSkip()) {
+      globalThis.fetch = origFetch;
+      const srvDir = mkdtempSync(join(tmpdir(), 'bm-a19-r3-b2-srv-'));
+      const srvLedger = join(srvDir, 'external-ledger.jsonl');
+      let ballotCalls = 0;
+      const mockVision = createServer(async (req, res) => {
+        for await (const chunk of req) void chunk;
+        const n = ++ballotCalls;
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({
+          model: 'fixture-review',
+          choices: n === 5 ? [] : [{ message: { content: JSON.stringify({ opinions: [] }) } }],
+          usage: n === 5
+            ? { prompt_tokens: 105, total_tokens: 145 }
+            : { prompt_tokens: 100 + n, completion_tokens: 40 },
+        }));
+      });
+      await new Promise((r) => mockVision.listen(0, '127.0.0.1', r));
+      const token = issueAccountToken(srvDir);
+      const api = await startServer({
+        dataDir: srvDir,
+        port: 0,
+        reviewer: createOpenAiVisionReviewer({
+          endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+          apiKey: 'test-key',
+          model: 'fixture-review',
+          ledgerPath: srvLedger,
+        }),
+      });
+      try {
+        const created = await (await fetch(`${api.url}/v1/films`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            template: 'title',
+            text: 'B2',
+            output: { size: [320, 180], fps: '10/1', frames: 6 },
+            budget: { tokens: 60_000 },
+          }),
+        })).json();
+        assert.equal(created.ok, true);
+        const filmId = created.data.film;
+        const wsToken = created.data.token;
+        const rendered = await (await fetch(`${api.url}/v1/films/${filmId}/render?wait=30`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ tier: 'draft' }),
+        })).json();
+        assert.equal(rendered.ok, true);
+        assert.equal(rendered.data.status, 'succeeded');
+
+        const reviewed = await (await fetch(`${api.url}/v1/films/${filmId}/review`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ brief: 'B2 坏信封三账一致测试' }),
+        })).json();
+        assert.equal(reviewed.ok, true);
+        assert.equal(reviewed.data.status, 'ok');
+        assert.equal(reviewed.data.invalidBallots?.length, 1);
+        const reviewArtifact = reviewed.outputs.find((o) => o.kind === 'review');
+        assert.ok(reviewArtifact, 'POST /review 必须返回 review.json 报告产物');
+        const reviewReport = await (await fetch(`${api.url}${reviewArtifact.url}`, {
+          headers: { authorization: `Bearer ${wsToken}` },
+        })).json();
+        assert.equal(reviewReport.totalBallots, 8);
+        assert.equal(reviewReport.invalidBallots?.length, 1);
+        assert.equal(reviewReport.usage?.totalTokens, 1305);
+
+        const wsLedger = await (await fetch(`${api.url}/v1/films/${filmId}/ledger`, {
+          headers: { authorization: `Bearer ${wsToken}` },
+        })).json();
+        const wsTotal = wsLedger.data.items.reduce((s, x) => s + (x.modelTokens ?? 0), 0);
+        const srvExtRows = readFileSync(srvLedger, 'utf8').trim().split('\n').map(JSON.parse);
+        const srvExtTotal = srvExtRows.reduce((s, x) => s + x.inputTokens + x.outputTokens, 0);
+        assert.deepEqual([reviewReport.usage?.totalTokens, wsTotal, srvExtTotal], [1305, 1305, 1305]);
+      } finally {
+        await api.close();
+        await new Promise((r) => mockVision.close(r));
+        rmSync(srvDir, { recursive: true, force: true });
+      }
+    }
+  } finally {
+    globalThis.fetch = origFetch;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('A19-16 [R3-B3] 候选 ID 首尾空白一致规范化：展示目录、逐票允许集合与回票解析完全对齐', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bm-a19-r3-b3-'));
+  const origFetch = globalThis.fetch;
+  try {
+    // 1) shuffleCandidatesForBallot 规范化空白、保持元数据、不修改原输入且与已去空格输入产生同序
+    const rawObjects = [{ id: ' a ', label: '方案A' }, { id: 'b', label: '方案B' }];
+    const cleanObjects = [{ id: 'a', label: '方案A' }, { id: 'b', label: '方案B' }];
+    const shuffledRaw = shuffleCandidatesForBallot(rawObjects, { filmId: 'f', perspective: 'composition-readability', voteIndex: 0 });
+    const shuffledClean = shuffleCandidatesForBallot(cleanObjects, { filmId: 'f', perspective: 'composition-readability', voteIndex: 0 });
+    assert.deepEqual(shuffledRaw, shuffledClean, '带空白候选 ID 打乱结果必须与去空白版完全一致');
+    assert.equal(rawObjects[0].id, ' a ', 'shuffleCandidatesForBallot 不得原地修改调用方入参');
+
+    const shuffledStrings = shuffleCandidatesForBallot([' a ', ' b '], { filmId: 'f', perspective: 'motion-rhythm', voteIndex: 1 });
+    assert.ok(shuffledStrings.every((id) => id === id.trim()), '字符串候选列表也应统一 trim');
+
+    // 2) R3 精确复现：对象候选 [{ id: ' a ' }, { id: 'b' }]，模型原样回填展示顺序的 ID，9 票全部有效
+    const ledgerPath = join(dir, 'r3-b3-obj.jsonl');
+    const seenDisplayed = [];
+    globalThis.fetch = async (_, { body }) => {
+      const req = JSON.parse(body);
+      const text = req.messages[1].content[0].text;
+      const ordered = JSON.parse(text.split('\n').find((x) => x.startsWith('候选展示顺序')).split('：').slice(1).join('：'));
+      seenDisplayed.push(ordered);
+      return Response.json({
+        choices: [{ message: { content: JSON.stringify({ opinions: [], candidateGrades: ordered.map(({ id }) => ({ id, grade: '好' })) }) } }],
+        usage: { prompt_tokens: 100, completion_tokens: 40 },
+      });
+    };
+    const reviewer = createOpenAiVisionReviewer({
+      endpoint: 'https://fixture.invalid',
+      apiKey: 'test-key',
+      model: 'fixture',
+      ledgerPath,
+    });
+    const r = await layerL5({
+      film: { id: 'f', output: { frames: 40 }, shots: [] },
+      images: [],
+      reviewer,
+      candidates: [{ id: ' a ' }, { id: 'b' }],
+    });
+    assert.equal(r.status, 'ok');
+    assert.equal(r.totalBallots, 9);
+    assert.equal(r.invalidBallots, undefined);
+    assert.equal(seenDisplayed.length, 9);
+    assert.ok(seenDisplayed.every((list) => list.every((item) => item.id === item.id.trim())));
+    assert.equal(r.candidateGrades.a.grade, '好');
+    assert.equal(r.candidateGrades.b.grade, '好');
+
+    // 3) 字符串候选 [' a ', 'b'] 且模型回填含空白 ID ' a ' 时同样 9 票有效
+    const ledgerPath2 = join(dir, 'r3-b3-str.jsonl');
+    globalThis.fetch = async () => Response.json({
+      choices: [{ message: { content: JSON.stringify({ opinions: [], candidateGrades: [{ id: ' a ', grade: '一般' }, { id: 'b', grade: '好' }] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 40 },
+    });
+    const reviewer2 = createOpenAiVisionReviewer({
+      endpoint: 'https://fixture.invalid',
+      apiKey: 'test-key',
+      model: 'fixture',
+      ledgerPath: ledgerPath2,
+    });
+    const r2 = await layerL5({
+      film: { id: 'f', output: { frames: 40 }, shots: [] },
+      images: [],
+      reviewer: reviewer2,
+      candidates: [' a ', 'b'],
+    });
+    assert.equal(r2.status, 'ok');
+    assert.equal(r2.totalBallots, 9);
+    assert.equal(r2.invalidBallots, undefined);
+    assert.equal(r2.candidateGrades.a.grade, '一般');
+    assert.equal(r2.candidateGrades.b.grade, '好');
+  } finally {
+    globalThis.fetch = origFetch;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+

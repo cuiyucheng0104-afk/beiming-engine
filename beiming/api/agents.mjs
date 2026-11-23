@@ -48,20 +48,45 @@ export const DEFAULT_REVIEW_MAX_OUTPUT_TOKENS = 1_024;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const REVIEW_MIN_IMAGE_TOKENS = 1_024;
 const REVIEW_FALLBACK_IMAGE_TOKENS = 2_048;
+const GPT_4O_MINI_RE = /^(?:[^:]+:)?gpt-4o-mini(?:$|[-_:@.])/;
+const HIGH_MULT_VISION_MODELS = [
+  [/^(?:[^:]+:)?gpt-4\.1-mini(?:$|[-_:@.])/, 1.62],
+  [/^(?:[^:]+:)?gpt-4\.1-nano(?:$|[-_:@.])/, 2.46],
+  [/^(?:[^:]+:)?o4-mini(?:$|[-_:@.])/, 1.72],
+  [/^(?:[^:]+:)?gpt-5-mini(?:$|[-_:@.])/, 1.62],
+  [/^(?:[^:]+:)?gpt-5-nano(?:$|[-_:@.])/, 2.46],
+];
 
-/** 估算单张视觉图像的保守输入 token 上界（覆盖 OpenAI 512px 分块、Claude 面积与 Gemini 视觉计费） */
-function estimateImageTokens(buf) {
+/** 估算单张视觉图像的保守输入 token 上界（覆盖 OpenAI 高倍率/分块/补丁计费、Claude 面积与 Gemini 视觉计费） */
+function estimateImageTokens(buf, model = '') {
+  const modelName = String(model ?? '').trim().toLowerCase().split('/').pop() ?? '';
+  const isGpt4oMini = GPT_4O_MINI_RE.test(modelName);
+  const highMult = HIGH_MULT_VISION_MODELS.find(([re]) => re.test(modelName))?.[1] ?? 0;
+
   if (!Buffer.isBuffer(buf) || buf.length < 24 || !buf.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    if (isGpt4oMini) return Math.max(REVIEW_FALLBACK_IMAGE_TOKENS, 2833 + 5667);
+    if (highMult > 0) return Math.max(REVIEW_FALLBACK_IMAGE_TOKENS, Math.ceil(1536 * highMult));
     return REVIEW_FALLBACK_IMAGE_TOKENS;
   }
   const width = buf.readUInt32BE(16);
   const height = buf.readUInt32BE(20);
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
+    if (isGpt4oMini) return Math.max(REVIEW_FALLBACK_IMAGE_TOKENS, 2833 + 5667);
+    if (highMult > 0) return Math.max(REVIEW_FALLBACK_IMAGE_TOKENS, Math.ceil(1536 * highMult));
     return REVIEW_FALLBACK_IMAGE_TOKENS;
   }
   const tiles = Math.ceil(width / 512) * Math.ceil(height / 512);
   const areaBound = Math.ceil((width * height) / 512);
-  return Math.max(REVIEW_MIN_IMAGE_TOKENS, tiles * 256 + 256, areaBound);
+  const baseBound = Math.max(REVIEW_MIN_IMAGE_TOKENS, tiles * 256 + 256, areaBound);
+  if (isGpt4oMini) {
+    return Math.max(baseBound, 2833 + 5667 * tiles);
+  }
+  if (highMult > 0) {
+    const tileBound = Math.ceil((85 + 170 * tiles) * highMult);
+    const patchBound = Math.ceil(Math.min(1536, Math.ceil(width / 32) * Math.ceil(height / 32)) * highMult);
+    return Math.max(baseBound, tileBound, patchBound);
+  }
+  return baseBound;
 }
 
 /** 估算单张 L5 选票纯文本输入的保守 token 上界（UTF-8 字节数 + 消息封装开销，永不为 0） */
@@ -120,9 +145,17 @@ export async function chat({ endpoint, apiKey, body, signal, requireUsage = fals
   const hasUsageObj = Boolean(data?.usage && typeof data.usage === 'object');
   let inputTokens = count(data?.usage?.prompt_tokens ?? data?.usage?.input_tokens);
   let outputTokens = count(data?.usage?.completion_tokens ?? data?.usage?.output_tokens);
-  if (!requireUsage && inputTokens === 0 && outputTokens === 0) {
+  if (!requireUsage) {
     const total = count(data?.usage?.total_tokens);
-    if (total > 0) inputTokens = total;
+    if (total > inputTokens + outputTokens) {
+      if (inputTokens > 0 && outputTokens === 0) {
+        outputTokens = total - inputTokens;
+      } else if (inputTokens === 0 && outputTokens > 0) {
+        inputTokens = total - outputTokens;
+      } else {
+        inputTokens += total - inputTokens - outputTokens;
+      }
+    }
   }
   const usage = { inputTokens, outputTokens };
   const withUsage = (err) => {
@@ -344,7 +377,7 @@ export function createOpenAiVisionReviewer({
       let imageInputBound = 0;
       const imageParts = images.map((img) => {
         const buf = readFileSync(img.path);
-        imageInputBound += estimateImageTokens(buf);
+        imageInputBound += estimateImageTokens(buf, model);
         return {
           type: 'image_url',
           image_url: { url: `data:image/png;base64,${buf.toString('base64')}` },
@@ -409,7 +442,7 @@ export function createOpenAiVisionReviewer({
             voteIndex,
           });
           const candidateOrder = orderedCandidates.map((c, idx) =>
-            typeof c === 'string' ? c : String(c?.id ?? idx),
+            (typeof c === 'string' ? c : String(c?.id ?? idx)).trim(),
           );
           const text = [
             `审片视角：${p.title}（${p.id}）· 第 ${voteIndex + 1}/${votes} 票`,
