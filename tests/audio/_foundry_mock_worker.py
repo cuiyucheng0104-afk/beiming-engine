@@ -15,6 +15,8 @@ import time
 import numpy as np
 
 mode = os.environ.get('FOUNDRY_MOCK_MODE', 'ok')
+sys.stdin.reconfigure(encoding='utf-8')     # Windows 管道默认本地编码，协议一律 UTF-8
+sys.stdout.reconfigure(encoding='utf-8', newline='\n')
 proto = sys.stdout
 
 

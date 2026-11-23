@@ -122,7 +122,7 @@ def check_host(host):
 
 # ───── 缓存 ─────
 
-def _replace(src, dst, tries=25):
+def _replace(src, dst, tries=100):
     # Windows NTFS：别的线程正替换或打开同一目标的瞬间，os.replace 抛瞬态 PermissionError
     for attempt in range(tries):
         try:
@@ -130,7 +130,7 @@ def _replace(src, dst, tries=25):
         except PermissionError:
             if attempt == tries - 1:
                 raise
-            time.sleep(0.002 * (attempt + 1))
+            time.sleep(min(0.002 * (attempt + 1), 0.02))
 
 
 def _clean(o):

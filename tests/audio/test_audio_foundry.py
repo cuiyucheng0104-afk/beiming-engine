@@ -209,6 +209,7 @@ class FoundryTest(Base):
                 m = f.cache.load(k, request)
                 if m is not None and m['wav']['frames'] != 24000:
                     errors.append(AssertionError('读到半成品'))
+                time.sleep(0.002)                 # 让出时间片：死循环开文件会让 Windows 的 os.replace 一直抢不到
         rs = [threading.Thread(target=reader) for _ in range(2)]
         ws = [threading.Thread(target=writer) for _ in range(4)]
         for t in rs + ws:
