@@ -1,0 +1,430 @@
+// audio.event-mix 的自测：算得出标准答案的小例子上看采样点位置、防削波、起音检测和命中率审计。
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { create } from './comp.mjs';
+
+const RATE = 48000;
+const DEFAULTS = { gainDb: 0, ceilingDb: -1, fadeMs: 2, toleranceFrames: 2, onsetFloor: 0.1 };
+const card = (params = {}, ctx = {}) => create({ fps: '24/1', seed: 7, ...ctx }, { ...DEFAULTS, ...params }).object;
+const ones = (n) => new Float32Array(n).fill(1);
+/** 大数组不交给 deepEqual：不等时它要把两边整个打印出来 */
+const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+const within = (a, b, tol) => assert.ok(Math.abs(a - b) <= tol, `${a} 应在 ${b} ± ${tol}`);
+/** 每秒两下的鼓点（正好 12 帧一下），从第 6 帧起 */
+const BEATS = Array.from({ length: 9 }, (_, k) => ({ id: `beat-${k}`, frame: 6 + 12 * k, audio: 'kick' }));
+
+test('audio.event-mix：事件时刻精确到采样点：24 帧每秒第 10 帧、子帧相位 0.5 落在第 21000 个采样点，那之前全是 0', () => {
+  const out = card({ gainDb: -6 }).mix([{ id: 'tap', frame: 10, sub: 0.5, audio: 'unit' }, { id: 'note', frame: 3 }], { frames: 24, samples: { unit: ones(480) } });
+  assert.deepEqual(out.placements, [{ id: 'tap', audio: 'unit', frame: 10, sub: 0.5, sample: 21000, clippedTail: 0 }]);
+  const [left, right] = out.channels;
+  assert.equal(left.length, RATE);
+  assert.ok(left.subarray(0, 21000).every((v) => v === 0) && left.subarray(21480).every((v) => v === 0));
+  within(left[21000], 10 ** (-6 / 20), 1e-6);
+  assert.ok(same(left, right));
+  // 尾巴 2 毫秒（96 个采样点）线性收到 0
+  within(left[21000 + 479] / left[21000], 1 / 96, 1e-6);
+  within(left[21000 + 432] / left[21000], 0.5, 1e-6);
+  // 30000/1001 帧每秒：第 30 帧是 48048 个采样点
+  assert.equal(card({}, { fps: '30000/1001' }).mix([{ id: 'tap', frame: 30, audio: 'click' }], { frames: 60 }).placements[0].sample, 48048);
+});
+
+test('audio.event-mix：分数帧率下正好半个采样点的时刻进一，不被中间的浮点数带偏：30000/1001、第 20 帧、子帧相位 0.3125 是第 32533 个采样点', () => {
+  // 精确值 20.3125 × 48000 × 1001 ÷ 30000 = 32532.5；先算每帧多少采样点再乘会得到 32532.499…
+  const out = card({ fadeMs: 0 }, { fps: '30000/1001' }).mix([{ id: 'tap', frame: 20, sub: 0.3125, audio: 'pulse' }], { frames: 60, samples: { pulse: ones(1) } });
+  assert.equal(out.placements[0].sample, 32533);
+  assert.equal(out.channels[0].findIndex((v) => v !== 0), 32533);
+  assert.equal(out.channels[0].length, Math.round((60 * RATE * 1001) / 30000));
+});
+
+test('audio.event-mix：两声道的声音和配乐各走各的声道；被片尾截断的声音照样收尾；事件表可以整张交进来', () => {
+  const c = card({ fadeMs: 0 }), bed = [new Float32Array(RATE).fill(0.1), new Float32Array(RATE).fill(-0.1)];
+  const table = { format: 'events/0.1', film: 'f_demo', fps: '24/1', frames: 24, events: [{ id: 'cut.12', frame: 12, sub: 0, kind: 'cut', from: 'film' }, { id: 'pan', frame: 23, sub: 0, kind: 'named', from: 'film', audio: 'wide', sync: 'onset' }] };
+  const out = c.mix(table, { bed, samples: { wide: [ones(4000).fill(0.5), ones(4000).fill(0.25)] } });
+  assert.deepEqual(out.placements, [{ id: 'pan', audio: 'wide', frame: 23, sub: 0, sample: 46000, clippedTail: 2000 }]);
+  within(out.channels[0][46000], 0.6, 1e-6);
+  within(out.channels[1][46000], 0.15, 1e-6);
+  within(out.channels[0][100], 0.1, 1e-6);
+  within(card().mix(table, { samples: { wide: ones(4000) } }).channels[0][RATE - 1], 1 / 96 * 10 ** (-1 / 20), 1e-6);
+});
+
+test('audio.event-mix：混完峰值超过上限时整体降到正好压线，没超就不动', () => {
+  const loud = card().mix([{ id: 'a', frame: 1, audio: 'unit' }, { id: 'b', frame: 1, audio: 'unit' }], { frames: 12, samples: { unit: ones(480) } });
+  within(loud.peakDb, -1, 1e-6);
+  within(loud.scaleDb, -1 - 20 * Math.log10(2), 1e-6);
+  within(Math.max(...loud.channels[0]), 10 ** (-1 / 20), 1e-6);
+  const quiet = card({ gainDb: -12 }).mix([{ id: 'a', frame: 1, audio: 'unit' }], { frames: 12, samples: { unit: ones(480) } });
+  assert.equal(quiet.scaleDb, 0);
+  within(quiet.peakDb, -12, 1e-6);
+});
+
+test('audio.event-mix：起音检测：每秒两下的鼓点垫着长音，量出的起音离真值不到 5 毫秒，一下不多一下不少', () => {
+  const c = card(), pad = Float32Array.from({ length: 5 * RATE }, (_, i) => 0.05 * Math.sin((2 * Math.PI * 220 * i) / RATE));
+  const bed = c.mix(BEATS, { frames: 120, bed: [pad] }).channels, found = c.onsets(bed);
+  assert.equal(found.length, BEATS.length);
+  found.forEach((s, k) => within(s / RATE, (6 + 12 * k) / 24, 0.005));
+  assert.deepEqual(c.onsets([new Float32Array(RATE)]), []);
+});
+
+test('audio.event-mix：左右反相的立体声不会互相抵消：起音、吸附和命中率都和单声道、同相的一样', () => {
+  const c = card(), [left] = c.mix(BEATS, { frames: 120 }).channels, flipped = left.map((v) => -v);
+  const found = c.onsets([left]);
+  assert.equal(found.length, BEATS.length);
+  assert.deepEqual(c.onsets([left, flipped]), found);
+  assert.deepEqual(c.onsets([left, left]), found);
+  assert.deepEqual(c.snap([0, 50], [left, flipped]), [6, 54]);
+  assert.equal(c.audit([left, flipped], [{ id: 'on', frame: 18, audio: 'click' }]).hitRate, 1);
+  // 只有一个声道有声音也找得到
+  assert.deepEqual(c.onsets([left, new Float32Array(left.length)]), found);
+});
+
+test('audio.event-mix：snap 把帧号吸到最近的起音上；audit 量命中率，随机基线是全片离起音不超过 2 帧的帧所占的比例', () => {
+  const c = card(), bed = c.mix(BEATS, { frames: 120 }).channels;
+  assert.deepEqual(c.snap([0, 11, 13, 50, 119], bed), [6, 6, 18, 54, 102]);
+  const on = c.audit(bed, [18, 54, 102].map((frame) => ({ id: `on-${frame}`, frame, audio: 'click' })));
+  assert.deepEqual([on.total, on.hits, on.hitRate], [3, 3, 1]);
+  on.rows.forEach((r) => within(r.delta, 0, 0.12));
+  // 9 个起音各占 5 帧（前后各 2 帧），全片 120 帧
+  within(on.baseline, 45 / 120, 1e-9);
+  const off = c.audit(bed, [12, 21, 56, 60].map((frame) => ({ id: `off-${frame}`, frame, audio: 'click' })));
+  assert.deepEqual([off.total, off.hits, off.hitRate], [4, 1, 0.25]);
+  // 第 12、60 帧正好夹在两个起音正中间，各差 6 帧
+  assert.deepEqual(off.rows.map((r) => Math.abs(Math.round(r.delta))), [6, 3, 2, 6]);
+  assert.deepEqual(card({ toleranceFrames: 6 }).audit(bed, [{ id: 'far', frame: 12, audio: 'click' }]).hits, 1);
+});
+
+test('audio.event-mix：同样的输入混两遍逐个样本相同；换种子只换点击音色的噪声', () => {
+  const run = (seed) => card({}, { seed }).mix([...BEATS, { id: 'tap', frame: 30, audio: 'click' }], { frames: 120 }).channels[0];
+  assert.ok(same(run(7), run(7)));
+  assert.ok(!same(run(7), run(8)));
+  assert.ok(same(card({}, { seed: 7 }).voices.kick, card({}, { seed: 8 }).voices.kick));
+});
+
+test('audio.event-mix：没有的声音、帧号出了全片或者不是有限的整数、没给总帧数、声道不一样长、空的或者带非有限数的样本、采样率不是 48000、帧率写法不对、没有起音可吸都报 usage.bad-argument', () => {
+  const c = card(), bad = (fn) => assert.throws(fn, { name: 'RangeError', code: 'usage.bad-argument' });
+  const one = (event, opts) => () => c.mix([{ id: 'x', frame: 1, audio: 'click', ...event }], { frames: 12, ...opts });
+  bad(one({ audio: 'gong' }));
+  for (const frame of [12, -1, 1.5, NaN, Infinity, '1']) bad(one({ frame }));
+  for (const sub of [1, -0.1, NaN, Infinity]) bad(one({ sub }));
+  for (const gainDb of [NaN, Infinity]) bad(one({ gainDb }));
+  for (const frames of [undefined, 0, 1.5, NaN, 2 ** 53]) bad(one({}, { frames }));
+  bad(one({ audio: 'odd' }, { samples: { odd: [ones(10), ones(11)] } }));
+  bad(() => c.mix([], { frames: 12, bed: [[0, 1, 2]] }));
+  // 空样本、带 NaN 或无穷的样本：音效、配乐、拿去找起音的声音都一样
+  for (const dud of [new Float32Array(0), Float32Array.of(0, NaN, 0), Float32Array.of(0, Infinity)]) {
+    bad(one({ audio: 'probe' }, { samples: { probe: dud } }));
+    bad(one({ audio: 'probe' }, { samples: { probe: [ones(dud.length), dud] } }));
+    bad(one({}, { bed: [dud] }));
+    bad(() => c.onsets([dud]));
+    bad(() => c.audit([dud], []));
+  }
+  // 这张卡只做 48000 赫兹：采样率可以不写，写了就得是 48000
+  for (const sampleRate of [44100, 0, -48000, NaN, '48000']) {
+    bad(one({}, { sampleRate }));
+    bad(() => card({}, { sampleRate }));
+  }
+  assert.equal(one({}, { sampleRate: 48000 })().placements[0].sample, 2000);
+  assert.equal(card({}, { sampleRate: 48000 }).mix([{ id: 'x', frame: 1, audio: 'click' }], { frames: 12 }).placements[0].sample, 2000);
+  for (const fps of ['24', '0/1', '24/0', 'abc', undefined]) bad(() => card({}, { fps }));
+  bad(() => c.snap([3], [new Float32Array(RATE)]));
+});
+
+test('audio.event-mix：mix、snap、audit 用同一套事件校验：字符串、null、布尔的 sub，片头之前、片尾之后、不是安全整数的帧号，有空洞的数组、不是对象的条目，三个入口都报 usage.bad-argument', () => {
+  const c = card({ fadeMs: 0 }), bad = (fn, what) => assert.throws(fn, { name: 'RangeError', code: 'usage.bad-argument' }, what);
+  const bed = c.mix(BEATS, { frames: 120 }).channels, pulse = { samples: { pulse: ones(1) } };
+  // 数值 0.5 落在第 3000 个采样点；字符串 "0.5" 以前会拼成 "10.5"，晚 18000 个采样点
+  assert.equal(c.mix([{ id: 'x', frame: 1, sub: 0.5, audio: 'pulse' }], { frames: 24, ...pulse }).channels[0].findIndex((v) => v !== 0), 3000);
+  for (const sub of ['0.5', '0', '', null, true, false, [0.5], NaN, Infinity, 1, -0.1]) {
+    bad(() => c.mix([{ id: 'x', frame: 1, sub, audio: 'pulse' }], { frames: 24, ...pulse }), `mix 的 sub ${JSON.stringify(sub)}`);
+    bad(() => c.audit(bed, [{ id: 'x', frame: 18, sub, audio: 'click' }]), `audit 的 sub ${JSON.stringify(sub)}`);
+  }
+  // 片头之前的事件以前被 audit 按距离算成命中；全片 120 帧，第 120 帧已经出了片尾
+  for (const frame of [-1, 120, 1.5, NaN, Infinity, 2 ** 53, '18', null, true, undefined]) {
+    bad(() => c.mix([{ id: 'x', frame, audio: 'click' }], { frames: 120 }), `mix 的帧号 ${frame}`);
+    bad(() => c.audit(bed, [{ id: 'x', frame, audio: 'click' }]), `audit 的帧号 ${frame}`);
+    bad(() => c.snap([frame], bed), `snap 的帧号 ${frame}`);
+  }
+  // 不带 audio 的条目不出声，写错了照样拒
+  bad(() => c.mix([{ id: 'note', frame: -1 }], { frames: 120 }));
+  bad(() => c.audit(bed, [{ id: 'note', frame: 5, sub: '0.5' }]));
+  const holes = [{ id: 'a', frame: 6, audio: 'click' }, , { id: 'b', frame: 18, audio: 'click' }]; // eslint-disable-line no-sparse-arrays
+  for (const events of [holes, [null], [18], ['x'], [[]], null, undefined, 18, 'x', {}, { events: null }, { frames: 120, events: holes }]) {
+    bad(() => c.mix(events, { frames: 120 }), `mix 的事件 ${JSON.stringify(events)}`);
+    bad(() => c.audit(bed, events), `audit 的事件 ${JSON.stringify(events)}`);
+  }
+  for (const frames of [[6, , 18], null, undefined, 18, { length: 1, 0: 6 }]) bad(() => c.snap(frames, bed), `snap 的帧号表 ${JSON.stringify(frames)}`); // eslint-disable-line no-sparse-arrays
+  // 采样率：snap、audit 也可以不写，写了就得是 48000
+  for (const sampleRate of [44100, 0, NaN, '48000']) {
+    bad(() => c.snap([6], bed, { sampleRate }));
+    bad(() => c.audit(bed, [], { sampleRate }));
+  }
+  // 合法的照常：片头第 0 帧、片尾最后一帧、sub 不写或写 0
+  assert.deepEqual(c.snap([0, 119], bed, { sampleRate: 48000 }), [6, 102]);
+  assert.deepEqual(c.audit(bed, [{ id: 'a', frame: 6, audio: 'click' }, { id: 'b', frame: 119, sub: 0, audio: 'click' }, { id: 'cut.8', frame: 8 }], { sampleRate: 48000 }).rows.map((r) => r.frame), [6, 119]);
+});
+
+test('audio.event-mix：建卡时参数不是有限的数、容差或收尾是负数、起音门槛不是正数都报 usage.bad-argument，不让无穷大的容差把命中率刷满', () => {
+  const bad = (params) => assert.throws(() => card(params), { name: 'RangeError', code: 'usage.bad-argument' }, JSON.stringify(params));
+  for (const key of Object.keys(DEFAULTS)) for (const value of [NaN, Infinity, '2', null]) bad({ [key]: value });
+  for (const params of [{ toleranceFrames: -1 }, { fadeMs: -1 }, { onsetFloor: 0 }, { onsetFloor: -0.1 }]) bad(params);
+  assert.ok(card({ toleranceFrames: 0, fadeMs: 0 }));
+});
+
+test('audio.event-mix：片尾、空洞和选项：audit、snap 和 mix 认同一个全片帧数，snap 交出的帧号都在全片里，声道数组有空洞、选项写法不对三个入口都报 usage.bad-argument', () => {
+  const c = card({ fadeMs: 0 }), bad = (fn, what) => assert.throws(fn, { name: 'RangeError', code: 'usage.bad-argument' }, what);
+  // 48 帧的配乐，鼓点在第 12 和第 24 帧；正片可以比配乐短
+  const pcm = c.mix([12, 24].map((frame) => ({ id: `k-${frame}`, frame, audio: 'kick' })), { frames: 48 }).channels;
+  const at12 = [{ id: 'x', frame: 12, audio: 'click' }], at23 = [{ id: 'y', frame: 23, audio: 'click' }];
+  assert.equal(c.audit(pcm, { frames: 24, events: at12 }).hitRate, 1);
+  assert.equal(c.mix({ frames: 24, events: at12 }).placements[0].sample, 24000);
+  // 全片只有 12 帧：第 12 帧在片外，mix 和 audit 一起拒；全片帧数写在事件表里、选项里都算，选项的优先
+  for (const [events, opts] of [[{ frames: 12, events: at12 }, undefined], [at12, { frames: 12 }], [{ frames: 24, events: at12 }, { frames: 12 }]]) {
+    bad(() => c.mix(events, opts), `mix 全片 12 帧 ${JSON.stringify(opts)}`);
+    bad(() => c.audit(pcm, events, opts), `audit 全片 12 帧 ${JSON.stringify(opts)}`);
+  }
+  bad(() => c.snap([12], pcm, { frames: 12 }));
+  // 全片 24 帧：片尾之后（第 24 帧）的那下鼓点不算起音，随机基线的分母是 24 不是 48
+  const short = c.audit(pcm, { frames: 24, events: at23 });
+  assert.deepEqual([short.hits, short.baseline], [0, 5 / 24]);
+  assert.equal(c.audit(pcm, at23).hits, 1);
+  assert.deepEqual(c.snap([23], pcm, { frames: 24 }), [12]);
+  assert.deepEqual(c.snap([23], pcm), [24]);
+  // 事件表、选项里的全片帧数写了就得是正的安全整数，被选项盖掉的也查
+  for (const frames of [0, -1, 1.5, NaN, Infinity, 2 ** 53, '24', null, true]) {
+    bad(() => c.mix(at12, { frames }), `mix 的 frames ${frames}`);
+    bad(() => c.audit(pcm, at12, { frames }), `audit 的 frames ${frames}`);
+    bad(() => c.snap([12], pcm, { frames }), `snap 的 frames ${frames}`);
+    bad(() => c.mix({ frames, events: at12 }, { frames: 24 }), `mix 的事件表 frames ${frames}`);
+    bad(() => c.audit(pcm, { frames, events: at12 }, { frames: 24 }), `audit 的事件表 frames ${frames}`);
+  }
+
+  // 全片帧数大得离谱：mix 开不出缓冲，报带 code 的错；snap、audit 不逐帧扫，照常交结果
+  bad(() => c.mix(at12, { frames: Number.MAX_SAFE_INTEGER }), 'mix 的全片帧数开不出缓冲');
+  assert.deepEqual(c.snap([Number.MAX_SAFE_INTEGER - 1], pcm, { frames: Number.MAX_SAFE_INTEGER }), [24]);
+  assert.deepEqual([c.audit(pcm, at12, { frames: Number.MAX_SAFE_INTEGER }).baseline, c.audit(pcm, at12, { frames: 1e9, toleranceFrames: 1e300 }).baseline], [10 / Number.MAX_SAFE_INTEGER, 1]);
+  bad(() => create(null, DEFAULTS));
+  bad(() => create({ fps: '24/1' }, null));
+
+  // 24 帧的配乐，唯一的起音在第 47760 个采样点（第 23.88 帧）：四舍五入是第 24 帧，已经出了片尾，收回第 23 帧
+  const tail = new Float32Array(RATE).fill(1, 47760);
+  assert.deepEqual(c.onsets([tail]), [47760]);
+  const snapped = c.snap([23, 0], [tail]);
+  assert.deepEqual(snapped, [23, 23]);
+  assert.equal(c.mix(snapped.map((frame) => ({ id: 'x', frame, audio: 'click' })), { frames: 24 }).placements.length, 2);
+  assert.equal(c.audit([tail], snapped.map((frame) => ({ id: 'x', frame, audio: 'click' }))).hitRate, 1);
+  // windowFrames：吸过去要挪的帧数超过它的留在原地；toleranceFrames：这一次审计换一个容差
+  assert.deepEqual(c.snap([20, 19, 0], [tail], { windowFrames: 3 }), [23, 19, 0]);
+  assert.deepEqual(c.snap([23, 22], [tail], { windowFrames: 0.01 }), [23, 22]);
+  bad(() => c.snap([23, 22], [tail], { windowFrames: 0 }), '零窗口');
+  assert.deepEqual([undefined, { toleranceFrames: 0 }, { toleranceFrames: 3 }].map((opts) => c.audit([tail], [{ id: 'x', frame: 21, audio: 'click' }], opts).hits), [0, 0, 1]);
+
+  // 声道数组有空洞：some、every 会跳过空位，以前 mix 悄悄丢掉右声道，snap、audit 抛不带 code 的 TypeError
+  const one = pcm[0], noRight = [one], noLeft = [, one]; // eslint-disable-line no-sparse-arrays
+  noRight.length = 2;
+  for (const holed of [noRight, noLeft]) {
+    bad(() => c.mix(at12, { frames: 24, bed: holed }), 'mix 的配乐有空洞');
+    bad(() => c.mix([{ id: 'x', frame: 1, audio: 'wide' }], { frames: 24, samples: { wide: holed } }), 'mix 的音效有空洞');
+    bad(() => c.onsets(holed), 'onsets 的声道有空洞');
+    bad(() => c.snap([12], holed), 'snap 的声道有空洞');
+    bad(() => c.audit(holed, at12), 'audit 的声道有空洞');
+  }
+  for (const bed of [null, 0, '', false, {}]) bad(() => c.mix(at12, { frames: 24, bed }), `mix 的配乐 ${JSON.stringify(bed)}`);
+
+  // 选项：要是普通对象；windowFrames 写了就得是正的有限数（0 也不收），toleranceFrames 是不小于 0 的有限数，哪个入口都查
+  const entries = { mix: (opts) => c.mix(at12, opts), snap: (opts) => c.snap([12], pcm, opts), audit: (opts) => c.audit(pcm, at12, opts) };
+  for (const [name, call] of Object.entries(entries)) {
+    for (const opts of [null, 5, 'x', true, [], new Map()]) bad(() => call(opts), `${name} 的选项 ${JSON.stringify(opts)}`);
+    for (const key of ['windowFrames', 'toleranceFrames']) for (const value of [-1, NaN, Infinity, '2', null, true]) bad(() => call({ frames: 24, [key]: value }), `${name} 的 ${key} ${value}`);
+    bad(() => call({ frames: 24, windowFrames: 0 }), `${name} 的 windowFrames 0`);
+    for (const samples of [null, 5, 'x', []]) bad(() => call({ frames: 24, samples }), `${name} 的 samples ${JSON.stringify(samples)}`);
+    assert.ok(call({ frames: 24, sampleRate: 48000, windowFrames: 0.01, toleranceFrames: 0 }), `${name} 收合法的选项`);
+  }
+});
+
+test('audio.event-mix：正片比声音短时，起音只在正片那一段里找：片尾之后再响也压不掉片内的起音', () => {
+  const c = card(), at12 = { frames: 24, events: [{ id: 'x', frame: 12, audio: 'click' }] };
+  // 60 帧的声音、24 帧的正片，第 12 帧一下 0.2 的脉冲；两段只差片尾之后第 30 帧的一个采样
+  const quiet = new Float32Array(60 * 2000), loud = new Float32Array(60 * 2000);
+  quiet[24000] = loud[24000] = 0.2;
+  loud[60000] = 1;
+  // 整段找的话门槛跟着那一下强音走，片内的脉冲不到它的 onsetFloor 倍
+  assert.deepEqual([c.onsets([quiet]), c.onsets([loud])], [[24000], [60000]]);
+  for (const pcm of [quiet, loud]) {
+    const seen = c.audit([pcm], at12);
+    assert.deepEqual([seen.hits, seen.hitRate, seen.rows[0].delta, seen.baseline], [1, 1, 0, 5 / 24]);
+    assert.deepEqual(c.snap([12, 0], [pcm], { frames: 24 }), [12, 12]);
+  }
+  // 不给全片帧数就是整段声音：强音算数
+  assert.deepEqual(c.snap([12], [loud]), [30]);
+  // 正片 25 帧是 50000 个采样点，最后一步只有 80 个（49920 起）：这一步里的起音算数，片外第一个采样点（50000）的不算
+  const at = (sample) => { const pcm = new Float32Array(60 * 2000); pcm[sample] = 0.2; return [pcm]; }, at24 = [{ id: 'x', frame: 24, audio: 'click' }];
+  assert.deepEqual(c.onsets([at(49920)[0].subarray(0, 50000)]), [49920]);
+  assert.deepEqual([c.audit(at(49920), at24, { frames: 25 }).hits, c.snap([24], at(49920), { frames: 25 })], [1, [24]]);
+  assert.equal(c.audit(at(50000), at24, { frames: 25 }).hits, 0);
+  assert.throws(() => c.snap([24], at(50000), { frames: 25 }), { name: 'RangeError', code: 'usage.bad-argument' });
+  // 最后不满的那一步不折成整步来比：一直响着的长音，不管片尾停在一步里的哪儿，都只有开头那一个起音
+  const sine = (hz, level, length) => Float32Array.from({ length }, (_, i) => level * Math.sin((2 * Math.PI * hz * i) / RATE));
+  for (const hz of [110, 220, 440]) {
+    const tone = sine(hz, 0.3, 24240);
+    for (let length = 24000; length <= 24240; length++) assert.deepEqual(c.onsets([tone.subarray(0, length)]), [0], `${hz} 赫兹的长音 ${length} 个采样点`);
+  }
+  // 六审的反例：0.1 的 600 赫兹底音上，第 49920 个采样点一下 0.8 的点击。最后那 80 个采样点的能量比前一整步的少，照样是起音：正片 25 帧和 26 帧找到的是同一下
+  const bed = sine(600, 0.1, 60 * 2000), last = [{ id: 'x', frame: 24, sub: 0.96, audio: 'click' }];
+  bed[49920] += 0.8;
+  assert.deepEqual([c.onsets([bed.subarray(0, 52000)]), c.onsets([bed.subarray(0, 50000)])], [[0, 49920], [0, 49920]]);
+  assert.deepEqual([c.audit([bed], last, { frames: 26 }).hits, c.snap([23], [bed], { frames: 26 })], [1, [25]]);
+  assert.deepEqual([c.audit([bed], last, { frames: 25 }).hits, c.snap([23], [bed], { frames: 25 })], [1, [24]]);
+  // 六审的反例：自带的点击混在第 24 帧、子帧相位 0.96，落点和量出的起音是同一个采样点，一帧不差（toleranceFrames 是 0）也要算命中，差值正好是 0
+  const mixed = c.mix(last, { frames: 25 }), exact = c.audit(mixed.channels, last, { frames: 25, toleranceFrames: 0 });
+  assert.deepEqual([mixed.placements[0].sample, c.onsets(mixed.channels)], [49920, [49920]]);
+  assert.deepEqual([exact.hits, exact.rows[0].delta], [1, 0]);
+});
+
+test('audio.event-mix：不满一步的片尾和整步照每个采样点的平均能量比涨幅：门槛调高、前面有更响的一步，片尾的点击照样找到', () => {
+  const sine = (level, length) => Float32Array.from({ length }, (_, i) => level * Math.sin((2 * Math.PI * 600 * i) / RATE));
+  const last = [{ id: 'x', frame: 24, sub: 0.96, audio: 'click' }], film25 = { frames: 25 };
+  // 七审的反例之一：0.1 的 600 赫兹底音，第 49920 个采样点一下 0.8 的点击，正片 25 帧。片头每个采样点涨 0.005，片尾 80 个采样点里每个涨 0.008，是全片最大的，门槛 0.6 也留得下
+  const bed = sine(0.1, 60 * 2000);
+  bed[49920] += 0.8;
+  for (const onsetFloor of [0.1, 0.6]) {
+    const c = card({ onsetFloor });
+    assert.deepEqual(c.onsets([bed.subarray(0, 50000)]), [0, 49920], `onsetFloor ${onsetFloor}`);
+    assert.deepEqual([c.audit([bed], last, film25).hits, c.snap([23], [bed], film25)], [1, [24]], `onsetFloor ${onsetFloor}`);
+  }
+  // 七审的反例之二：第 24000 到 24240 个采样点那一步的底音响到 0.26，门槛跟着抬到每个采样点 0.00288，片尾的 0.008 还在门槛上面
+  const c = card(), bump = sine(0.1, 60 * 2000);
+  bump.set(sine(0.26, 24240).subarray(24000), 24000);
+  bump[49920] += 0.8;
+  assert.deepEqual(c.onsets([bump.subarray(0, 50000)]), [0, 24000, 49920]);
+  assert.deepEqual([c.audit([bump], last, film25).hits, c.snap([23], [bump], film25)], [1, [24]]);
+  // 只有底音、没有点击：片尾停在一步里的哪儿、门槛调到多低，都只有开头那一个起音
+  const plain = sine(0.1, 50400), low = card({ onsetFloor: 0.01 });
+  for (let length = 49920; length <= 50400; length++) assert.deepEqual(low.onsets([plain.subarray(0, length)]), [0], `600 赫兹的底音 ${length} 个采样点`);
+});
+
+test('audio.event-mix：随机基线和逐条审计是同一个判据：全片每个整数帧各放一个事件，命中率就是 baseline，分数帧率、一帧不差也一样', () => {
+  const every = (frames) => Array.from({ length: frames }, (_, frame) => ({ id: `f-${frame}`, frame, audio: 'click' }));
+  const pulse = (length, ...at) => { const pcm = new Float32Array(length); for (const sample of at) if (sample < length) pcm[sample] = 0.5; return [pcm]; };
+  // 七审的两个反例：60000/1001 帧每秒，唯一的起音在第 300 帧（第 240240 个采样点），容差 2 帧时第 298、302 帧差 2.0005 帧，不算；
+  // 120000/1001 帧每秒，第 199 帧的落点四舍五入正好是起音所在的第 79680 个采样点，一帧不差也算命中
+  for (const [fps, frames, at, toleranceFrames, hits] of [['60000/1001', 305, 240240, 2, 3], ['120000/1001', 201, 79680, 0, 1]]) {
+    const c = card({}, { fps }), pcm = pulse(c.mix([], { frames }).channels[0].length, at);
+    assert.deepEqual(c.onsets(pcm), [at], fps);
+    const seen = c.audit(pcm, every(frames), { frames, toleranceFrames });
+    assert.deepEqual([seen.hits, seen.hitRate, seen.baseline], [hits, hits / frames, hits / frames], fps);
+  }
+  // 换几种帧率、容差和起音位置，两个数始终是同一个；正片比声音长、比声音短都算
+  for (const fps of ['24/1', '24000/1001', '30000/1001', '60000/1001', '120000/1001', '25/1']) {
+    const c = card({}, { fps }), pcm = pulse(c.mix([], { frames: 120 }).channels[0].length, 240, 24000, 30240, 60000, 62400);
+    // 一样响的几下一下不少，基线是在好几个起音上验的：第 62400 个离第 60000 个正好 50 毫秒，一样响只认前一个；120000/1001 帧每秒的 120 帧只有 48048 个采样点，后两下在声音外面
+    assert.deepEqual(c.onsets(pcm), [240, 24000, 30240, 60000].filter((sample) => sample < pcm[0].length), fps);
+    for (const frames of [90, 120, 150]) for (const toleranceFrames of [0, 0.5, 1, 2, 2.5, 7, 40]) {
+      const seen = c.audit(pcm, every(frames), { frames, toleranceFrames });
+      assert.equal(seen.baseline, seen.hitRate, `${fps}，全片 ${frames} 帧，容差 ${toleranceFrames} 帧`);
+    }
+  }
+});
+
+test('audio.event-mix：不满一步的片尾只和紧邻的前一步比：隔着静音的底音不算进参照，片尾多一帧少一帧静音找到的是同一下', () => {
+  // 八审的反例：0.1 的 600 赫兹底音停在第 51520 个采样点，静音 320 个采样点，第 51840 个采样点起 160 个采样点的 0.12，之后全是 0，门槛 0.6。
+  // 正片 27 帧时这一下在整步里，前一步全是静音；26 帧时落在 160 个采样点的片尾里，参照也只到前一步为止，不越过静音去拿更早的底音。
+  // 底音停在第 51600 个采样点（静音正好一步）时也一样
+  const c = card({ onsetFloor: 0.6 }), at = [{ id: 'x', frame: 25, sub: 0.92, audio: 'click' }];
+  for (const quiet of [51520, 51600]) {
+    const pcm = Float32Array.from({ length: 54000 }, (_, i) => (i < quiet ? 0.1 : i >= 51840 && i < 52000 ? 0.12 : 0) * Math.sin((2 * Math.PI * 600 * i) / RATE));
+    for (const [frames, snapped] of [[26, 25], [27, 26]]) {
+      const name = `底音停在第 ${quiet} 个采样点，正片 ${frames} 帧`;
+      assert.deepEqual(c.onsets([pcm.subarray(0, frames * 2000)]), [0, 51840], name);
+      assert.deepEqual([c.audit([pcm], at, { frames, toleranceFrames: 0 }).hits, c.snap([25], [pcm], { frames })], [1, [snapped]], name);
+    }
+  }
+});
+
+test('audio.event-mix：声音末尾的静音先剥掉再找起音：后面多几帧静音，门槛边上的起音找到的也是同一下', () => {
+  // 九审的反例：八审那段声音，重新起来的 160 个采样点降到门槛边上（门槛 0.6 配 0.09，默认门槛 0.1 配 0.036）。
+  // 正片 26 帧时这 160 个采样点自成一步，每个采样点涨 0.00405；27 帧起后面的静音把这一步凑满 240 个，平均下来只剩 0.0027，掉到门槛下面。
+  // 末尾的 0 不是声音，先剥掉：三种片长找的是同一段采样，结果只能一样
+  const at = [{ id: 'x', frame: 25, sub: 0.92, audio: 'click' }];
+  for (const [onsetFloor, level] of [[0.6, 0.09], [0.1, 0.036]]) {
+    const c = card({ onsetFloor });
+    const pcm = Float32Array.from({ length: 60000 }, (_, i) => (i < 51520 ? 0.1 : i >= 51840 && i < 52000 ? level : 0) * Math.sin((2 * Math.PI * 600 * i) / RATE));
+    for (const [frames, snapped] of [[26, 25], [27, 26], [30, 26]]) {
+      const name = `门槛 ${onsetFloor}、重新起来的声音 ${level}，正片 ${frames} 帧`;
+      assert.deepEqual(c.onsets([pcm.subarray(0, frames * 2000)]), [0, 51840], name);
+      assert.deepEqual([c.audit([pcm], at, { frames, toleranceFrames: 0 }).hits, c.snap([25], [pcm], { frames })], [1, [snapped]], name);
+    }
+  }
+  // 任何声音后面接多少个 0 都一样（接 80 个正好凑满一步、接不满一步、接好几帧），两个声道都是 0 才算静音
+  const c = card(), body = Float32Array.from({ length: 24160 }, (_, i) => (i < 12000 ? 0 : 0.3) * Math.sin((2 * Math.PI * 440 * i) / RATE));
+  body[24100] += 0.9;
+  const padded = (extra) => { const out = new Float32Array(body.length + extra); out.set(body); return out; };
+  for (const extra of [1, 80, 239, 240, 4000]) assert.deepEqual(c.onsets([padded(extra)]), c.onsets([body]), `后面接 ${extra} 个 0`);
+  assert.deepEqual(c.onsets([new Float32Array(4000)]), []);
+  const right = new Float32Array(body.length + 6000);
+  right[30000] = 0.9;
+  assert.equal(c.onsets([padded(6000), right]).at(-1), 30000, '左声道末尾是 0、右声道还响着，不剥');
+});
+
+test('audio.event-mix：每一步从第一个不是 0 的采样点量起、剥掉末尾的 0 再比涨幅：一样响的几下点击落在第几步、落在一步里的哪儿、后面还有没有声音，都一样重', () => {
+  // 十审的反例：240000 个采样点，第 12000、24000、36000、48000、60000 个各一下 0.5，其余全是 0。
+  // 只剥整段声音末尾的 0 时，最后一下照 1 个采样点平均、前四下照 240 个，最后一下重 240 倍，把前四下全压到门槛下面，五下只剩一下
+  const at = [12000, 24000, 36000, 48000, 60000], frames = at.map((sample) => sample / 2000);
+  const events = frames.map((frame) => ({ id: `c-${frame}`, frame, audio: 'click' }));
+  const clicks = (width, shift = [0, 0, 0, 0, 0], length = 240000) => {
+    const pcm = new Float32Array(length);
+    at.forEach((sample, i) => pcm.fill(0.5, sample + shift[i], sample + shift[i] + width));
+    return pcm;
+  };
+  for (const [width, onsetFloor] of [[1, 0.1], [12, 0.1], [48, 0.6]]) {
+    const c = card({ onsetFloor }), pcm = clicks(width), name = `每下 ${width} 个采样点，门槛 ${onsetFloor}`;
+    assert.deepEqual(c.onsets([pcm]), at, name);
+    assert.deepEqual([c.audit([pcm], events, { frames: 120, toleranceFrames: 0 }).hits, c.snap(frames, [pcm], { frames: 120 })], [5, frames], name);
+    // 最后一下之后正好没有采样了（没有 0 可剥）、后面接多少 0，都是这五下
+    for (const length of [60000 + width, 60240, 61000]) assert.deepEqual(c.onsets([clicks(width, undefined, length)]), at, `${name}，声音长 ${length}`);
+    // 不在一步开头的也一样重：五下各自往后挪得不一样多（都没出自己那一步），起音还是那五步
+    assert.deepEqual(c.onsets([clicks(width, [0, 100, 37, 191, 5])]), at, `${name}，各自挪开`);
+  }
+  // 一下跨在两步中间（前一步 20 个采样点、后一步 28 个）：只认前一步，不多出一个起音
+  assert.deepEqual(card().onsets([clicks(48, [0, 220, 0, 0, 0])]), at);
+});
+
+test('audio.event-mix：前面是静音的声音从它第一个采样点起往后看满一步：自带的点击（越往后越轻）落在一步里的哪个采样点、离步尾多近，都一样重', () => {
+  // 十一审的反例：第 6、12、18、24、30 帧各一下自带的点击，门槛 0.6；第二下的子帧相位从 0.12（第 24240 个采样点）改成 0.1195，提前 1 个采样点，成了那一步的最后一个采样点。
+  // 窗口截在步尾时这一下只剩 1 个采样点，照 1 个采样点平均正好是点击最响的开头，比照整步平均的另外四下重一倍，把它们全压到门槛下面，五下只剩一下
+  const frames = [6, 12, 18, 24, 30], strict = card({ onsetFloor: 0.6 }, { seed: 0 }), equal = card({ onsetFloor: 1 }, { seed: 0 });
+  const events = (sub) => frames.map((frame, i) => ({ id: `c-${frame}`, frame, audio: 'click', ...(i === 1 && { sub }) }));
+  const check = (sub, sample) => {
+    const table = events(sub), mixed = strict.mix(table, { frames: 36 }), name = `第二下在第 ${sample} 个采样点`;
+    assert.equal(mixed.placements[1].sample, sample, name);
+    // 起音准到一步：第二下算在它落进去的那一步（第 24000 或 24240 个采样点起）
+    const steps = [12000, sample - (sample % 240), 36000, 48000, 60000];
+    assert.deepEqual(strict.onsets(mixed.channels), steps, name);
+    // 门槛调到 1 也是五下：五下的涨幅是同一个数，不只是差不多
+    assert.deepEqual(equal.onsets(mixed.channels), steps, `${name}，门槛 1`);
+    assert.deepEqual(strict.snap(frames, mixed.channels, { frames: 36 }), frames, name);
+    assert.equal(strict.audit(mixed.channels, table, { frames: 36 }).hits, 5, name);
+    assert.equal(strict.audit(mixed.channels, table.filter((_, i) => i !== 1), { frames: 36, toleranceFrames: 0 }).hits, 4, `${name}，没挪的四下一帧不差`);
+  };
+  check(0.12, 24240);
+  check(0.1195, 24239);
+  // 第二下挪遍第 24000 到 24239 个采样点（那一步里的每一个位置）
+  for (let d = 0; d < 240; d++) check(d / 2000, 24000 + d);
+  // 垫着底音（步头不是 0）时窗口对着网格，跨在两步中间的点击能量分到两步，底音比点击轻得多时最轻约剩三分之一：0.03 的底音、门槛 0.3 时 240 个位置五下都还在（底音自己的开头另算一个）
+  const loose = card({ onsetFloor: 0.3 }, { seed: 0 }), bed = [Float32Array.from({ length: 72000 }, (_, i) => 0.03 * Math.sin((2 * Math.PI * 600 * i) / RATE))];
+  for (let d = 0; d < 240; d++) assert.equal(loose.onsets(loose.mix(events(d / 2000), { frames: 36, bed }).channels).filter((sample) => sample > 0).length, 5, `垫着底音，第二下在第 ${24000 + d} 个采样点`);
+});
+
+test('audio.event-mix：量过的采样点不量第二遍：一下声音落在步尾时，下一步接着上一个窗口的末尾量，不把同一下再量一遍、顶高全曲最大涨幅', () => {
+  // 十二审的反例：种子 6 的自带点击，门槛 1，第二下在第 24239 个采样点（那一步最后一个）。
+  // 下一步从第 24240 个采样点把同一下又量了一遍（少了点击的第一个采样点、多了第 241 个），涨幅比另外四下高出一丁点，成了全曲最大，另外四下全被门槛滤掉
+  const frames = [6, 12, 18, 24, 30];
+  for (const [audio, seed] of [['click', 6], ['click', 11], ['click', 26], ['kick', 0]]) {
+    const cards = [1, 0.99999].map((onsetFloor) => card({ onsetFloor }, { seed }));
+    for (let d = 0; d < 240; d++) {
+      const table = frames.map((frame, i) => ({ id: `c-${frame}`, frame, audio, ...(i === 1 && { sub: d / 2000 }) }));
+      const { channels, placements } = cards[0].mix(table, { frames: 36 }), name = `${audio}，种子 ${seed}，第二下在第 ${24000 + d} 个采样点`;
+      assert.equal(placements[1].sample, 24000 + d, name);
+      for (const c of cards) assert.deepEqual(c.onsets(channels), [12000, 24000, 36000, 48000, 60000], name);
+      assert.equal(cards[0].audit(channels, table.filter((_, i) => i !== 1), { frames: 36, toleranceFrames: 0 }).hits, 4, `${name}，没挪的四下一帧不差`);
+    }
+  }
+});
