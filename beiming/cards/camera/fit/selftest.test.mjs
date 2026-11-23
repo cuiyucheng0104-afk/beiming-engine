@@ -53,6 +53,25 @@ test('camera.fit：数值不变的设置跨帧结果相同，改掉输出不会�
   assert.ok(evaluate({}, p, 0).distance > fresh.distance);
 });
 
+test('camera.fit：与视线共线的线段没有最小正深度解，侧视线段仍能精确取景', () => {
+  const x = { min: [-1, 0, 0], max: [1, 0, 0] };
+  const y = { min: [0, -1, 0], max: [0, 1, 0] };
+  const z = { min: [0, 0, -1], max: [0, 0, 1] };
+  const rejects = p => assert.throws(() => evaluate({}, p, 0), { code: 'usage.bad-argument' });
+  for (const sign of [-1, 1]) {
+    for (const view of ['fixed', 'orbit']) rejects({ bbox: y, elevationDeg: sign * 90, view });
+    rejects({ bbox: z, azimuthDeg: sign * 180 });
+    rejects({ bbox: x, azimuthDeg: sign * 90, fovYDeg: 20 });
+  }
+  rejects({ bbox: z, azimuthDeg: 1e-12 }); // 近端深度只剩舍入量级
+  const side = { bbox: z, azimuthDeg: 90, aspect: 1, margin: 0.8 };
+  assert.ok(Math.abs(occupancy(evaluate({}, side, 0), side) - side.margin) < 1e-12);
+  const tiny = { min: [0, 0, -1e-15], max: [0, 0, 1e-15] };
+  const unit = evaluate({}, side, 0).distance;
+  const scaled = evaluate({}, { ...side, bbox: tiny }, 0).distance;
+  assert.ok(Math.abs(scaled / 1e-15 - unit) < 1e-12);
+});
+
 test('camera.fit：无最小正深度解、盒轴反向、参数越界、代理、访问器、空槽、未知键全拒且陷阱零调用', () => {
   let calls = 0;
   const trap = () => { calls++; throw Error('不该调用'); };

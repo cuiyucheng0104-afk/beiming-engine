@@ -66,12 +66,12 @@ test('四张卡：C1、全目录零泄漏、自测与唯一入口、校准场景
 const source = (width, height, level) => ({ width, height, rgba: new Uint8ClampedArray(width * height * 4).fill(level) });
 
 test('L2：顺序、乱序、隔离单帧取相同姿态或相同的合成字节；含子帧和运动', () => {
-  const ctx = freeze(shot([32, 24], 8));
+  const ctx = freeze({ ...shot([32, 24], 8), fps: '30/1', seed: 1, events: [] });
   const moments = [[0, 0], [1, 0.25], [3, 0.75], [4, 0], [7, 0]];
   const data = (fn, id, p) => () => { const resolved = freeze(params(id, p)); return (f, sub) => fn(ctx, resolved, f, sub); };
   const runners = [
     data(orbit, 'camera.orbit', { frames: 8 }), data(drift, 'camera.drift', { mode: 'linear', pushMeters: 0.25 }), data(fit, 'camera.fit', {}),
-    () => { const h = layout({ size: ctx.size }, freeze(params('layout.panels', { direction: 'vertical', margin: 2, gap: 2, dividerPx: 2 })));
+    () => { const h = layout(ctx, freeze(params('layout.panels', { direction: 'vertical', margin: 2, gap: 2, dividerPx: 2 })));
       return (f, sub) => hash(h.object.compose(h.object.panels.map(([, , w, h], i) => source(w, h, 20 + 30 * i + f * 10 + sub * 4)))); },
   ];
   for (const make of runners) {

@@ -27,6 +27,10 @@ test('camera.orbit：60、72 帧含首尾的每一步都等长，完整转一圈
   }
 });
 
+test('camera.orbit：零方位和零仰角的四元数使用正零', () => {
+  assert.deepEqual(evaluate({}, { startAzimuthDeg: 0, elevationDeg: 0 }, 0).camera.quat, [0, 0, 0, 1]);
+});
+
 test('camera.orbit：直接调用拒收未声明参数、不合法时刻、稀疏向量、访问器、代理；陷阱调用次数为零', () => {
   let calls = 0;
   const trap = () => { calls++; throw Error('不该调用'); };

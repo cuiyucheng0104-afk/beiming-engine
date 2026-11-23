@@ -50,6 +50,32 @@ test('左右分屏不缩放：按字节偏移居中裁切，保留直通透明�
   assert.equal(bytes[40], 40);
 });
 
+test('共享合成上下文可直接创建分屏，忽略的宿主字段不执行', () => {
+  const ctx = Object.assign(Object.create(null), {
+    size: [4, 4], fps: '30/1', shot: { id: 'split', in: 0, frames: 8 }, seed: 1, frames: 8,
+    rng() { assert.fail('排版不应取随机数'); }, events: [], tokens: {}, params: {}, assets: {}, tracks: {}, cards: {},
+  });
+  const { object } = create(Object.freeze(ctx), {});
+  assert.deepEqual(object.panels, [[0, 0, 4, 2], [0, 2, 4, 2]]);
+  const frames = [source(4, 2, 50), source(4, 2, 100)];
+  assert.deepEqual(object.compose(frames), layout(ctx.size, {}).compose(frames));
+});
+
+test('分屏配置和片源只接受可枚举字段与数组元素', () => {
+  const hidden = (obj, key, value) => Object.defineProperty(obj, key, { value, enumerable: false });
+  assert.throws(() => create(hidden({}, 'size', [4, 4]), {}), bad);
+  assert.throws(() => layout([4, 4], hidden({}, 'gap', 0)), bad);
+  assert.throws(() => layout(hidden([4, 4], 0, 4), {}), bad);
+  const c = layout([4, 4], {}), frame = source(4, 2, 10);
+  assert.throws(() => c.compose([hidden({ ...frame }, 'rgba', frame.rgba), frame]), bad);
+  assert.throws(() => c.compose(hidden([frame, frame], 1, frame)), bad);
+});
+
+test('网格的零边距在两个方向都输出正零坐标', () => {
+  const c = layout([6, 6], { direction: 'grid', margin: -0, gap: 2, dividerPx: 2 });
+  assert.deepEqual(c.dividers, [[0, 2, 6, 2], [2, 0, 2, 6]]);
+});
+
 test('拒绝无效尺寸、超宽线、空格子、错误的片源与颜色；不运行输入代码', () => {
   let hits = 0;
   const trap = () => { hits++; throw new Error('输入运行了代码'); };
@@ -58,6 +84,8 @@ test('拒绝无效尺寸、超宽线、空格子、错误的片源与颜色；�
   const sparse = (first) => { const a = [first]; a.length = 2; return a; };
   for (const call of [
     () => create(proxy, {}), () => create({ get size() { return trap(); } }, {}), () => layout(proxy, {}),
+    () => create({ size: [2, 2], get rng() { return trap(); } }, {}), () => create({ size: [2, 2], assets: proxy }, {}),
+    () => create(Object.create({ size: [2, 2] }), {}), () => create({}, {}),
     () => layout(sparse(2), {}), () => layout([2, NaN], {}), () => layout([32768, 32768], {}),
     () => layout([2, 2], proxy), () => layout([2, 2], { get gap() { return trap(); } }),
     () => layout([2, 2], { unknown: 1 }), () => layout([2, 2], { direction: proxy }),

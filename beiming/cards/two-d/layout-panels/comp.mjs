@@ -10,7 +10,8 @@ function record(value, keys, name) {
   const copy = Object.create(null);
   for (const key of Reflect.ownKeys(value)) {
     const desc = Object.getOwnPropertyDescriptor(value, key);
-    if (!keys.includes(key) || !Object.hasOwn(desc, 'value')) fail(`${name} 有未知字段或取值器`);
+    if (keys && !keys.includes(key)) fail(`${name} 有未知字段`);
+    if (!desc.enumerable || !Object.hasOwn(desc, 'value') || types.isProxy(desc.value)) fail(`${name} 只收可枚举的非代理数据属性`);
     copy[key] = desc.value;
   }
   return copy;
@@ -19,7 +20,7 @@ function list(value, count, name) {
   if (types.isProxy(value) || !Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length !== count || Reflect.ownKeys(value).length !== count + 1) fail(`${name} 要是 ${count} 项的稠密数组`);
   return Array.from({ length: count }, (_, i) => {
     const desc = Object.getOwnPropertyDescriptor(value, i);
-    if (!desc || !Object.hasOwn(desc, 'value')) fail(`${name} 有空位或取值器`);
+    if (!desc?.enumerable || !Object.hasOwn(desc, 'value')) fail(`${name} 各项要是自有可枚举数据属性`);
     return desc.value;
   });
 }
@@ -44,7 +45,7 @@ function split(length, count, margin, gap) {
   const whole = Math.floor(available / count), remainder = available % count;
   return Array.from({ length: count }, (_, i) => [margin + i * (whole + gap) + Math.min(i, remainder), whole + Number(i < remainder)]);
 }
-const rect = (x, y, w, h) => Object.freeze([x, y, w, h]);
+const rect = (x, y, w, h) => Object.freeze([x + 0, y + 0, w, h]);
 
 // rgba 是不透明的二进制载荷，不把它当配置对象：只取内置槽，绝不调输入上的 length、buffer、subarray 或 species。
 const typed = Object.getPrototypeOf(Uint8Array.prototype);
@@ -62,7 +63,8 @@ function pixelBytes(rgba, expected) {
 }
 
 export function create(ctx, params = {}) {
-  const [width, height] = list(record(ctx, ['size'], 'ctx').size, 2, 'size');
+  // 多张合成卡共享宿主上下文，字段由宿主扩展；排版只消费 size。
+  const [width, height] = list(record(ctx, null, 'ctx').size, 2, 'size');
   frameSize(width, height);
   const p = { ...defaults, ...record(params, Object.keys(defaults), 'params') };
   for (const [name, field] of Object.entries(card.params)) if (field.range) integer(p[name], ...field.range, name);

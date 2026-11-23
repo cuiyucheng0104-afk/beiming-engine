@@ -35,6 +35,25 @@ test('线性推进、平移沿相机局部轴，焦距线性，末帧与单帧�
   assert.deepEqual(evaluate({ ...inputs, shot: { frames: 1 } }, { ...origin, ...p }, 0, 0.5).camera, first);
 });
 
+test('零角度的世界矩阵和四元数使用正零', () => {
+  const camera = evaluate(inputs, { pos: [-0, 0, 0] }, 0).camera;
+  assert.deepEqual(camera.world, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+  assert.deepEqual(camera.quat, [0, 0, 0, 1]);
+});
+
+test('共享输入中的嵌套字段只接受纯数据，跳过的镜头元数据也要检查', () => {
+  let calls = 0;
+  const trap = () => { calls++; throw Error('不应调用'); };
+  const proxy = new Proxy({}, { ownKeys: trap, get: trap, getPrototypeOf: trap, getOwnPropertyDescriptor: trap });
+  for (const fields of [
+    { events: [proxy] }, { events: [{ get f() { return trap(); } }] }, { events: [1, , 3] },
+    { bbox: { a: proxy } }, { fps: NaN }, { seed: Infinity }, { shot: { ...inputs.shot, in: NaN } },
+  ]) assert.throws(() => evaluate({ ...inputs, ...fields }, {}, 0), { code: 'usage.bad-argument' });
+  assert.equal(calls, 0);
+  const event = Object.assign(Object.create(null), { tags: ['cut', 1, true, null] });
+  assert.deepEqual(evaluate({ ...inputs, events: [event] }, {}, 0), evaluate(inputs, {}, 0));
+});
+
 test('不合法的入参报 usage.bad-argument，取值器和 Proxy 陷阱均未执行', () => {
   let calls = 0;
   const trap = () => { calls++; throw new Error('不应调用'); };

@@ -10,5 +10,6 @@ export function evaluate(inputs, params, f, sub = 0) {
   const e = p.elevationDeg * Math.PI / 180, h = p.distance * Math.cos(e);
   const pos = [target[0] + h * Math.sin(a), target[1] + p.distance * Math.sin(e), target[2] + h * Math.cos(a)];
   const sa = Math.sin(a / 2), ca = Math.cos(a / 2), se = Math.sin(e / 2), ce = Math.cos(e / 2);
-  return { camera: { pos, quat: [-ca * se, sa * ce, sa * se, ca * ce], fovDeg: p.fovYDeg } };
+  const quat = [-ca * se, sa * ce, sa * se, ca * ce].map(v => v + 0);
+  return { camera: { pos, quat, fovDeg: p.fovYDeg } };
 }
