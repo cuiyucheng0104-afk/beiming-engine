@@ -1,0 +1,130 @@
+{
+  "format": "card/0.1",
+  "id": "asset.glb-bridge",
+  "version": "1.0.0",
+  "kind": "asset",
+  "title": "GLB 资产零件桥",
+  "intent": "校验 GLB 二进制与节点树并装进 three 场景，核对零件命名、网格与右手 Y 向上米制",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:three"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "cards/asset/glb-bridge/index.mjs",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "page",
+          "version": "0.187.0"
+        }
+      ],
+      "selftest": "cards/asset/glb-bridge/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "spec": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": {
+        "alias": "gpu",
+        "expectedParts": [
+          "body",
+          "fan_L",
+          "fan_R"
+        ],
+        "upAxis": "Y",
+        "unitScale": 1
+      },
+      "coupling": "asset-batch"
+    },
+    "strictParts": {
+      "type": "boolean",
+      "unit": "none",
+      "default": true,
+      "coupling": "none"
+    },
+    "allowExtraParts": {
+      "type": "boolean",
+      "unit": "none",
+      "default": false,
+      "coupling": "none"
+    },
+    "scale": {
+      "type": "number",
+      "unit": "none",
+      "range": [
+        0.001,
+        1000
+      ],
+      "default": 1,
+      "coupling": "scene-scale"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "bbox",
+        "type": "bbox-world"
+      },
+      {
+        "name": "readings",
+        "type": "frame-meta"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "输入是 glTF 2.0 二进制（.glb，魔数 0x46546C67、版本 2）或与之等价的节点声明，坐标系遵循右手系、+Y 向上、1 单位等于 1 米",
+      "每个期望零件（如 body、fan_L、fan_R）在节点树里必须有唯一对应的网格节点；允许带 <alias>. 前缀并在装载时归一到零件名",
+      "存在缺零件、重名零件、无名网格节点或非米制/非 Y 向上约定时，create 与严格校验一律报 usage.bad-argument",
+      "Handle.object 是装进 three 场景的根 Group，Handle.entities 交出根实体与各命名零件实体，供宿主登记成 <as> 与 <as>.<partName>"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "把 Blender 或套件规格产出的多零件硬表面资产（如显卡拆解的壳体与左右风扇）按 GLB 桥接进 three 帧源，并要求零件级独立运动与屏幕锚点追踪"
+    ],
+    "notWhen": [
+      "资产不需要拆分零件，也不需要按零件名查包围盒或绑动画",
+      "带骨骼蒙皮或变形目标的角色资产：这张卡只校验刚体零件层级与静态网格"
+    ]
+  },
+  "calibration": "probe-axes-turntable",
+  "verify": {
+    "selftest": "合成含 body、fan_L、fan_R 的 GLB 二进制（魔数 glTF、版本 2、JSON 与 BIN 双块 4 字节对齐），解析并装载进 three 场景后零件名 100% 保留、包围盒与 Y 向上米制一致；缺零件、重名节点、无名网格节点、损坏魔数与 Proxy/取值器陷阱输入全部以 usage.bad-argument 拒绝且零触发陷阱",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "Blender 导出后零件名变成了无名网格或带了 .001 后缀导致核对失败",
+      "fix": "导出前照 kit-spec 把各零件命名成合法标识符（字母、数字、下划线），并确保不重名"
+    },
+    {
+      "symptom": "装进 three 后模型躺倒或尺寸差了 100 倍",
+      "fix": "导出 GLB 时固定勾选 +Y 向上、单位缩放 1.0（1 单位 = 1 米），不要用厘米或 Z 向上"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "直接按 glTF 2.0 二进制规范解析 12 字节文件头与 JSON/BIN 块，抽出节点层级、网格访问器包围盒与右手 Y 向上米制元数据，映射为 three 的 Group 与子 Mesh 实体"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-23"
+    }
+  ],
+  "exams": [
+    "1-2",
+    "cal:asset.glb-bridge"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cards/mechanism/blur-subframe/schema.json",
+  "title": "子帧运动模糊快门边界策略",
+  "type": "object",
+  "required": [
+    "alignment",
+    "clampToShot"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "alignment": {
+      "type": "string",
+      "enum": [
+        "centered",
+        "forward",
+        "backward"
+      ]
+    },
+    "clampToShot": {
+      "type": "boolean"
+    }
+  }
+}
