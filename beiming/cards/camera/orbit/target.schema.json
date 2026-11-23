@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "环绕中心的世界坐标（米）",
+  "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" }
+}

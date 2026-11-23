@@ -29,3 +29,17 @@ createPriorsStore(table).query({ unit: 'LUFS', onlyVerified: true });
 - `verifiedInOurStack: true` 必须带 `readbackEvidence` 对象（含字符串 `envKey`、`reportSha256`），`false` 不得带；`false` 的值没在我方读回，不能当默认值。`get`/`query` 返回条目带 `readbackLabel`，`get`/`query`/`stats` 返回深冻结只读视图。
 - 汇总行用无重复的字符串 ID 数组 `summaryOf` 指回明细，默认不进查询，`stats().detailCount` 不计。同子题、同案例、同适用条件只收一条。
 - 拒收私有路径（`复刻/`、`调研资料/`、`北冥引擎规划/`、`实验室/`、`原包源码`、`cards-overlay`、`exams-hidden`）、`lab://`、本机路径（含 `~`、`/tmp/`、`file:///`，公开 `http(s)` 路由不误伤）、不带规范小写 `sha256:` 前缀的 64 位十六进制，以及非纯 JSON、保留键、重复 JSON 键、超安全整数、孤立代理码元。自检：`node --test beiming/cards/priors.test.mjs`。
+
+## 第二批先验（C11）
+
+`priors-batch2.mjs` 载入三份参数汇编迁入的数据：`arch-scene`（建筑、场景、地形与水，526 条）、`motion-rig`（动作与骨骼，609 条）、`light-cam`（光照、天空大气与相机，687 条）。
+
+```js
+import { loadBatch2PriorsStore, getBatch2CardPriors } from './index.mjs';
+loadBatch2PriorsStore('light-cam').query({ unit: 'mm' });
+getBatch2CardPriors('camera.shake'); // 三份都查；第二参限定某一份
+```
+
+- `loadBatch2PriorsStore(collection)`（另有 `loadArchScenePriorsStore` 等三个别名）回可移植量的检索库，条目全部「未在我方读回」。
+- `getBatch2CardPriors(cardId, collection?)` 回挂卡先验（`useAsDefault: false`，卡在目标帧源重新标定读回前只作参考）；`getBatch2Practices(collection?)` 回做法与修法。
+- `getBatch2MigrationManifest(collection)` 回总账：`rows` 逐条记去向 `route`、案例 `caseId`、挂卡行的目标卡 `target`、汇总行指回的明细 `summaryOf`。有可移植量的汇总行用 `detailRefs` 列出明细先验 ID。`routeOverrides` 记改判理由，`summaryLinkOverrides` 在改过汇总关联时保留原主明细和并列明细。`blindAudit` 记当前采用的冻结票与分歧（建筑、光照用 R3，动作用 R2）。前两份的 R2 原票在 `audit.r2BlindAudit`。单测另按三审原种子回放三份共 184 票。已知源文修复见 `knownFixes`。集合名见 `C11_COLLECTIONS`，写错抛 `TypeError`。自检：`node --test beiming/cards/c11-priors.test.mjs`。

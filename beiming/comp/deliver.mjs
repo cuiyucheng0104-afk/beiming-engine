@@ -11,8 +11,10 @@ import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
-import { checkContract, masterAudio, measureAac, measureLoudness, mixEvents, readEvents } from './audio.mjs';
+import { types } from 'node:util';
+import { checkContract, masterAudio, measureAac, measureLoudness, mixEvents, readEvents, writeWav } from './audio.mjs';
 import { encode, isFaststart, probeMedia } from './encode.mjs';
+import { assertNoTraps, assertPlainObject, runAudioScript } from './script-audio.mjs';
 import { CompError, bad, escapeFilterValue, parseFps, runTool, stitchGraph, tools } from './stitch.mjs';
 
 export const PIECES = Object.freeze({
@@ -57,9 +59,46 @@ function pngSize(buf) {
 function placeholders(args, map) {
   return args.map((a) => {
     let s = String(a);
-    for (const [from, to] of map) if (from) s = s.split(from).join(to);
+    for (const [from, to] of map) {
+      if (!from) continue;
+      s = s.split(from).join(to);
+      const posixFrom = from.replace(/\\/g, '/');
+      if (posixFrom !== from) s = s.split(posixFrom).join(to);
+      const winFrom = from.replace(/\//g, '\\');
+      if (winFrom !== from) s = s.split(winFrom).join(to);
+    }
+    if (/(?:^|=)(?:<work>|<out>|<script>|<events>)/.test(s)) {
+      s = s.replace(/\\/g, '/');
+    }
     return s;
   });
+}
+
+function isAbsolutePathToken(token) {
+  return /^([/\\]|[a-zA-Z]:[/\\])/.test(token);
+}
+
+function sanitizeScriptArgs(rawArgs, subst) {
+  const head = placeholders(rawArgs.slice(0, 5), subst);
+  let argPathIndex = 0;
+  const tail = rawArgs.slice(5).map((raw) => {
+    const s = String(raw);
+    const replaced = placeholders([s], subst)[0];
+    if (replaced !== s) return replaced;
+    if (isAbsolutePathToken(s)) {
+      return `<arg-path:${argPathIndex++}>`;
+    }
+    const eqMatch = /^(--?[^=\s]+=)(.+)$/.exec(s);
+    if (eqMatch) {
+      const valReplaced = placeholders([eqMatch[2]], subst)[0];
+      if (valReplaced !== eqMatch[2]) return `${eqMatch[1]}${valReplaced}`;
+      if (isAbsolutePathToken(eqMatch[2])) {
+        return `${eqMatch[1]}<arg-path:${argPathIndex++}>`;
+      }
+    }
+    return s;
+  });
+  return [...head, ...tail];
 }
 
 function check(list, id, ok, expected, actual) {
@@ -94,15 +133,60 @@ function videoChecks(list, tag, p, film) {
  *   tier      'final'（默认）| 'draft' | 'preview'
  *   颗粒使用已校验锁内的逐镜头种子。
  *   tracks    外部 WAV 音轨 [{ path, at, gainDb }]；bed：'silence' | 'room'
+ *   audioScript 事件表驱动的 Python 程序化声音脚本 { script, events?, args?, python?, cwd?, env?, at?, gainDb?, mastered?, timeoutMs? }
  * 返回 { dir, files: { 名字: { bytes, sha256 } }, report }
  */
 export function deliver(opts) {
-  if (opts.sinkFactory !== undefined) return Promise.resolve().then(() => deliverBundle(opts));
+  if (!types.isProxy(opts) && opts !== null && typeof opts === 'object') {
+    const proto = Object.getPrototypeOf(opts);
+    if (proto === Object.prototype || proto === null) {
+      const sinkDesc = Object.getOwnPropertyDescriptor(opts, 'sinkFactory');
+      if (sinkDesc && !sinkDesc.get && !sinkDesc.set && sinkDesc.value !== undefined) {
+        return Promise.resolve().then(() => deliverBundle(opts));
+      }
+    }
+  }
   return deliverBundle(opts);
 }
 
+function validateAudioScriptConfig(audioScript) {
+  assertPlainObject(audioScript, 'audioScript');
+  if (typeof audioScript.script !== 'string' || audioScript.script.trim().length === 0 || audioScript.script.includes('\0')) {
+    throw bad('audioScript.script 必须是不含空字节的非空字符串');
+  }
+  if (!/\.py$/i.test(audioScript.script.trim())) {
+    throw bad(`audioScript.script 必须是 .py 文件：${audioScript.script}`);
+  }
+  if (audioScript.args !== undefined) {
+    if (!Array.isArray(audioScript.args)) throw bad('audioScript.args 必须是字符串数组');
+    assertNoTraps(audioScript.args, 'audioScript.args');
+    for (let i = 0; i < audioScript.args.length; i++) {
+      if (!Object.hasOwn(audioScript.args, i)) throw bad(`audioScript.args[${i}] 缺失（不允许稀疏数组）`);
+      const a = audioScript.args[i];
+      if (typeof a !== 'string' || a.trim().length === 0 || a.includes('\0')) {
+        throw bad(`audioScript.args[${i}] 必须是不含空字节的非空字符串`);
+      }
+    }
+  }
+  if (audioScript.at !== undefined && (!Number.isSafeInteger(audioScript.at) || audioScript.at < 0)) {
+    throw bad('audioScript.at 必须是非负整数帧号');
+  }
+  if (audioScript.gainDb !== undefined && (typeof audioScript.gainDb !== 'number' || !Number.isFinite(audioScript.gainDb))) {
+    throw bad('audioScript.gainDb 必须是有限数');
+  }
+  if (audioScript.mastered !== undefined && typeof audioScript.mastered !== 'boolean') {
+    throw bad('audioScript.mastered 必须是布尔值');
+  }
+  if (audioScript.timeoutMs !== undefined && (!Number.isSafeInteger(audioScript.timeoutMs) || audioScript.timeoutMs <= 0)) {
+    throw bad('audioScript.timeoutMs 必须是有限正整数');
+  }
+}
+
 function deliverBundle(opts) {
-  const { film, frames, view = {}, tier = 'final', tracks = [], bed: bedKind = 'silence', timeoutMs } = opts;
+  assertPlainObject(opts, 'deliver 选项');
+  const { film, frames, view = {}, tier = 'final', tracks = [], bed: bedKind = 'silence', audioScript, timeoutMs } = opts;
+  if (audioScript !== undefined) validateAudioScriptConfig(audioScript);
+  if (tracks !== undefined) assertNoTraps(tracks, 'tracks');
   if (tier === 'final' && opts.hwEncoder !== undefined) throw bad(`终渲不收显卡编码器 ${opts.hwEncoder}`);
   checkContract(film, 'film/3.0');
   const events = readEvents(opts.events, film);
@@ -137,6 +221,14 @@ function deliverBundle(opts) {
     shots, size: film.output.size, fps: film.output.fps, view, finish: film.style?.finish, transitions: film.transitions ?? [], shotSeeds: lock.seeds,
   });
 
+  const audioCfg = film.audio;
+  const mode = audioCfg ? (audioCfg.mode ?? 'script') : 'none';
+  if (mode === 'none' && audioScript !== undefined) throw bad('无声片（audio.mode 是 none）不收 audioScript');
+  if (mode === 'track' && tracks.length === 0 && !audioScript) throw bad('audio.mode 是 track，要传外部音轨 tracks');
+
+  if (typeof opts.outDir !== 'string' || opts.outDir.trim().length === 0 || opts.outDir.includes('\0')) {
+    throw bad('outDir 必须是不含空字节的非空路径');
+  }
   const destination = resolve(opts.outDir);
   if (existsSync(destination) && readdirSync(destination).length) throw bad('交付输出目录必须为空');
   mkdirSync(dirname(destination), { recursive: true });
@@ -147,13 +239,96 @@ function deliverBundle(opts) {
     mkdirSync(dir);
     const steps = [];
     // 1. 声音
-    const audioCfg = film.audio;
-    const mode = audioCfg ? (audioCfg.mode ?? 'script') : 'none';
-    if (mode === 'track' && tracks.length === 0) throw bad('audio.mode 是 track，要传外部音轨 tracks');
     let mastered = null;
     if (mode !== 'none') {
-      const mix = mixEvents(events, { mode, bed: bedKind, tracks, seed });
-      mastered = masterAudio(mix, work, { loudness: audioCfg.loudness ?? -14, truePeak: audioCfg.truePeak ?? -1, timeoutMs });
+      let allTracks = tracks;
+      let preMastered = false;
+      let scriptGainDb = 0;
+      if (audioScript) {
+        const at = audioScript.at ?? 0;
+        scriptGainDb = audioScript.gainDb ?? 0;
+        preMastered = audioScript.mastered === true;
+        const scriptWork = join(work, 'audio-script');
+        const scriptOut = join(scriptWork, 'script-audio.wav');
+        const scriptRes = runAudioScript({
+          script: audioScript.script,
+          events: audioScript.events ?? events,
+          workDir: scriptWork,
+          outPath: scriptOut,
+          args: audioScript.args,
+          python: audioScript.python,
+          cwd: audioScript.cwd,
+          env: audioScript.env,
+          timeoutMs: audioScript.timeoutMs ?? timeoutMs,
+          expectedFrames: at === 0 ? film.output.frames : undefined,
+          fps: film.output.fps,
+        });
+        let scriptPeak = 0;
+        for (let i = 0; i < scriptRes.samples; i++) {
+          const al = Math.abs(scriptRes.wav.left[i]);
+          const ar = Math.abs(scriptRes.wav.right[i]);
+          if (al > scriptPeak) scriptPeak = al;
+          if (ar > scriptPeak) scriptPeak = ar;
+        }
+        if (scriptPeak === 0) {
+          throw mismatch('声音脚本产出的音轨为全零静音，无法交付母带');
+        }
+        if (preMastered) {
+          const targetLoudness = audioCfg.loudness ?? -14;
+          const targetPeak = audioCfg.truePeak ?? -1;
+          if (!Number.isFinite(targetLoudness) || !Number.isFinite(targetPeak)) {
+            throw bad('audio.loudness、audio.truePeak 必须是有限数');
+          }
+          const scriptLoud = measureLoudness(scriptRes.path, { timeoutMs });
+          if (!Number.isFinite(scriptLoud.integrated) || !Number.isFinite(scriptLoud.truePeak)
+            || Math.abs((scriptLoud.integrated + scriptGainDb) - targetLoudness) > 1
+            || (scriptLoud.truePeak + scriptGainDb) > targetPeak) {
+            throw mismatch(`声音脚本母带不达标：集成响度 ${scriptLoud.integrated} LUFS（目标 ${targetLoudness} ± 1），真峰值 ${scriptLoud.truePeak} dBTP（上限 ${targetPeak}）`);
+          }
+        }
+        const scriptSubst = [
+          [scriptRes.args[0], '<script>'],
+          [scriptRes.args[2], '<events>'],
+          [dir, '<out>'],
+          [work, '<work>'],
+        ];
+        steps.push({
+          step: 'audio-script',
+          script: '<script>',
+          scriptSha256: scriptRes.scriptSha256,
+          eventsSha256: scriptRes.eventsSha256,
+          sampleRate: scriptRes.sampleRate,
+          channels: scriptRes.channels,
+          samples: scriptRes.samples,
+          sha256: scriptRes.sha256,
+          mastered: preMastered,
+          ...(scriptRes.stems.length ? { stems: scriptRes.stems.map((s) => basename(s)) } : {}),
+          args: sanitizeScriptArgs(scriptRes.args, scriptSubst),
+        });
+        allTracks = [...tracks, { path: scriptRes.path, at, gainDb: scriptGainDb }];
+      }
+      const mix = mixEvents(events, { mode, bed: bedKind, tracks: allTracks, seed });
+      const targetLoudness = audioCfg.loudness ?? -14;
+      const targetPeak = audioCfg.truePeak ?? -1;
+      if (preMastered) {
+        if (!Number.isFinite(targetLoudness) || !Number.isFinite(targetPeak)) {
+          throw bad('audio.loudness、audio.truePeak 必须是有限数');
+        }
+        const masterPath = join(work, 'master.wav');
+        writeFileSync(masterPath, writeWav(mix));
+        const measured = measureLoudness(masterPath, { timeoutMs });
+        if (!Number.isFinite(measured.integrated) || !Number.isFinite(measured.truePeak)
+          || Math.abs(measured.integrated - targetLoudness) > 1 || measured.truePeak > targetPeak) {
+          throw mismatch(`母带不达标：集成响度 ${measured.integrated} LUFS（目标 ${targetLoudness} ± 1），真峰值 ${measured.truePeak} dBTP（上限 ${targetPeak}）`);
+        }
+        const passes = [{ step: 'script-mastered', gainDb: scriptGainDb, ...measured }];
+        mastered = { path: masterPath, passes, ...measured, silent: false, ceilingDb: targetPeak };
+      } else {
+        mastered = masterAudio(mix, work, { loudness: targetLoudness, truePeak: targetPeak, timeoutMs });
+        if (audioScript && (mastered.silent || !Number.isFinite(mastered.integrated) || !Number.isFinite(mastered.truePeak))) {
+          throw mismatch(`声音脚本产出的音轨为全零静音，无法交付母带（真峰值 ${mastered.truePeak} dBTP）`);
+        }
+      }
       steps.push({ step: 'audio', mode, bed: mode === 'track' ? 'silence' : bedKind, sampleRate: 48000, channels: 2, samples: mix.length, placements: mix.placements,
         passes: mastered.passes, ceilingDbtp: mastered.ceilingDb, silent: mastered.silent });
     } else {

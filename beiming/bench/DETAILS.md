@@ -1,6 +1,6 @@
 # 考题：细则
 
-[README.md](README.md) 是索引；这里放跑题器的判分口径、隔离边界和落盘字段。代码 [runner.mjs](runner.mjs)，测试 `node --test beiming/bench/runner.test.mjs`（要真片的两条在没有 FFmpeg 的机器上跳过）。
+[README.md](README.md) 是索引；这里放跑题器的判分口径、隔离边界和落盘字段，以及[看板](#看板)的输入与口径。代码 [runner.mjs](runner.mjs)（隔离和观测复用 `tools/eval/lib`），测试 `node --test beiming/bench/runner.test.mjs`（要真片的两条在没有 FFmpeg 的机器上跳过）。
 
 ## 默认判分 `defaultJudge`
 
@@ -73,3 +73,79 @@
 `observation.json` 记做题方式、`isolation`、退出码、是否超时、出错原因、开销和会话记录的文件名；`meta.json` 记题号、原题哈希、平台和开始时刻。运行目录里不放原题、原题路径和判分细节。
 
 隐藏题另外不回显：逐项的指标名和断言原文、`blockedBy` 的原文、超时信息里的预算数值。校验不过的报错只说类别和处数。
+
+## 看板
+
+代码 [board.mjs](board.mjs)，测试 `node --test beiming/bench/board.test.mjs`。三个公开函数都是纯函数：不读墙钟、不读文件，日期由调用方给；回的是深冻结的新数据，不改入参。
+
+```sh
+node beiming/bench/board.mjs build --out-dir <目录> [--as-of <YYYY-MM-DD>] [--questions-dir <目录>] [--results-dir <目录>] [--ledger <ledger.jsonl>] [--cards-dir <目录>] [--priors <文件,…>] [--extra <文件>]
+```
+
+写出 `<目录>/board.json`（`bench-board/0.1`）、`history.json`（每天一行，目录里已有的接着记）、`index.html`，标准输出是一行 JSON 摘要。三份都算出来才落盘；入参不合规 exit 2，题目没过 `validateQuestion` exit 4，都不写文件。`--as-of` 不写时只有命令行外壳取一次 UTC 当天。`--results-dir` 递归找 `bench-result/0.1`，跳过做题方能写的 `worktree/`、`session/`、`tmp/`、`transcript/`，每份结果连同报错原文、产物清单、逐项断言一起过泄露门禁，再提取看板字段。`--cards-dir` 接受 `card.json` 和声明 `card/0.1` 的 JSON 文件。`--extra` 是一个 JSON 对象，放下表里没有专门参数的那几项。
+
+### 入参 `buildBoard(inputs)`
+
+只有 `asOf` 必填，其余没给就是没有数据。不认识的顶层键拒收。
+
+| 键 | 内容 |
+|---|---|
+| `asOf` | 看板是哪一天的，`YYYY-MM-DD` |
+| `questions` | 题目文件（`question/0.1`）。读 `id`、`level`、`title`、`needs`、`flags.hidden`、`flags.expectedFail`、`calibration` 的 `version`、`status`、`updatedAt` |
+| `results` | `bench-result/0.1`。读 `questionId`、`level`、`source`、`model`、`status`、`score`、`visibility`、`unmeasured`、`createdAt`，另认 `unsupported: true` |
+| `cards` | 卡文件：`id`、`kind`、`livesIn`、`exams`、逐环境的 `status`（`level`、`date`）。也收写好的 `status` 字符串加 `reproducedAt` 或 `statusUpdatedAt` |
+| `sourceCapabilities` | `{ 帧源: { unsupportedQuestions: [题号], unsupportedCards: [卡名] } }` |
+| `ledger` | A15 账本的行（`job-ledger/0.1`） |
+| `jobs` | 作业记录 `{ jobId, basePass, interventions, filmDurationSec?, templateOrigin?, mode?, selfSelectedTemplate? }` |
+| `parity` | 对拍读数 `{ id, margin }`，或 `{ id, value, threshold, direction: 'at-least' \| 'at-most' }` |
+| `energy` | 能量尺子读数 `{ metric, value }`，只认 `noise.residual`、`clip.highlight-ratio`、`alias.edge` |
+| `blindPicks` | 盲选记录 `{ outcome: 'win' \| 'tie' \| 'loss' }` |
+| `pureFunctionGate`、`locality`、`rebuild.exact`、`rebuild.tolerance`、`rebuild.nightlyLegacy` | 逐条的 `[{ pass }]`，或数好的 `{ passed, total }`；没给记 `not-run` |
+| `priors` | 先验表（`priors/0.1`，带 `entries`）或单条先验 |
+| `packParity` | `{ verifiedPacks, ablatedSwitches }`（分母固定为 5 和 56；若写 `totalPacks`、`totalSwitches` 必须等于 5 和 56） |
+| `harvest` | `{ drafted, promoted, archived, reproducedPromotions }` |
+| `history` | 之前的每日行（`history.json` 的内容） |
+
+### 矩阵
+
+行按等级、题号升序排列。列是结果里出现过的（帧源，做题模型）组合，省略的帧源或模型记为 `unspecified`。同一格跑过多次时取 `createdAt` 最新的结果。时间戳须含时区（`Z` 或 `±HH:MM`），比较时保留小数秒精度。有时间戳的结果优先于缺省时间的旧记录，时刻相同或都缺省时取输入中靠后的记录。
+
+| `kind` | 什么时候 | 进均分 |
+|---|---|---|
+| `unsupported-capability` | 结果的 `status` 是它或带 `unsupported: true`；能力表点了这道题或它要的卡；`needs` 里有一张卡只落在别的帧源上（`livesIn` 全是 `source:` 开头且没有这个帧源，`data`、`comp` 这类落点算跨帧源） | 不进 |
+| `unrun` | 这一格没有结果 | 不进 |
+| `scored` | 其余。做题出错、超时、判分失败、预期失败、0 分都在这里 | 进 |
+
+缺能力的格 `display` 和 `unsupportedReason` 字面是「这个帧源没有这项能力」，`score`、`pass` 是 `null`，哪怕那一格有成绩。行均分 `rowMean`、列均分 `columns[].mean`、`sourceMeans`、`modelMeans`、`overallMean` 和按等级的通过率只数 `scored` 的格，分子分母都不含另外两种；一格都没有时是 `null`。
+
+隐藏题（题面或结果任一处标了隐藏）的行只有题号、等级、各格的总分和状态，`title` 写成「隐藏题 题号」；题面、`needs`、`refs`、`blockedBy`、逐项都不出，也不进「考题覆盖」的逐题表。预期失败的题行上 `expectedFail: true`，没强跑的那格 `status` 是 `expected-fail`、记 0 分。题目的 `calibration.updatedAt` 等于 `asOf`，或版本、状态和前一天历史里记的不一样，行上 `calibrationChanged: true`，并记进 `calibrationChanges`。
+
+### 四个指标 `fourIndicators`
+
+- `ceiling`：`passRateByLevel`（1 到 5 级，`{ passed, total, rate }`）、`parityHeadroom`（余量是实测值离门限多远，正的在门限内；交最小余量和门限外的项数）、`energyRulers`（每把尺子的读数个数、均值、最差值）、`blindPick`（赢、平、负与赢或平的占比）。没给的是 `null`。
+- `unattended`：基础谓词全过且人工介入 0 次的作业占比。`templateOrigin` 是 `self-selected`，或 `mode` 是 `hand` 且 `selfSelectedTemplate` 是 `true` 的片单列在 `selfSelected`，不进主统计。
+- `speedAndCost`：账本先过 A15 的 `summarizeJobLedger`。出了成片的作业是有一轮 `succeeded` 且成片时长大于 0 的（时长取作业记录的 `filmDurationSec`，账本行自己带了也认）；它的每一轮都摊在成片秒数上，得 `wallSecPerFilmSec`、`gpuSecPerFilmSec`、`tokensPerFilmSec`、`tokensByTierPerFilmSec`。`renderedPerDelivered` 是全账本的渲帧数除以交付帧数，`meanRounds` 是每个作业平均几行。没有成片时比率是 `null`；有的行显卡秒不是实测时 `gpuIsLowerBound` 是 `true`。
+- `controllability`：`pureFunctionGate`、`locality`、`rebuild` 的 `exact`（同机比哈希）、`tolerance`（跨机容差）、`nightlyLegacy`（旧作品夜间重建）。
+
+### 整合进度 `integrationProgress` 与反向指标 `reverseIndicators`
+
+卡的状态取各环境里最高的一级，对到看板的叫法：`read` 是 `read-only`（只读过），`reproduced`，`measured` 是 `verified`，`film-verified` 是 `production-proven`；`ext` 的 `registry.candidate` 是 `true` 的记 `candidate`。
+
+- `cards`：`distribution` 按类别 × 落点 × 状态（一张卡有几个落点数几次）；`reproducedOrAbove`、`verifiedOrAbove`、`productionProven` 不含只读过的占位卡和候选卡，这两种单独记在 `readOnlyPlaceholders`、`candidates`。
+- `examCoverage`：`perQuestion` 是每道公开题 `needs` 里到 `verified` 及以上的比例（不要卡的题标 `noCardNeeds`）；`cardsWithExam` 是 `reproduced` 及以上的卡里挂了题的占比；`scorableQuestions` 是没登记成预期失败、也没有缺量测器的项的题数。
+- `priorsVerified`：`verifiedInOurStack` 是 `true` 的明细条数除以 4452（`TOTAL_PRIORS_BASELINE`）。带 `summaryOf` 的汇总行不数，同一个 `id` 只数一次。
+- `packParity`：过了确定性验收的包数比 5，跑过消融的开关数比 56。`harvest`：起草、晋升、归档、走到复现过的候选数。
+- `expectedFailQuestions`：预期失败题的数量和题号。
+- `staleReproducedCards`：停在 `reproduced` 且从到这一级最早那天到 `asOf` 超过 14 天的卡（正好 14 天不算）。只读过的占位卡和候选卡放多久都不算；没写日期的列在 `undated`。
+
+### 历史、静态页与门禁
+
+`history` 每天一行（计分格数、总均分、各级通过率、无人值守率、每秒成片墙钟秒、卡数、参数验证比例、两个反向指标、当天各题的校准），同一天重跑覆盖当天那行，按日期升序。`appendBoardHistory(history, board)` 做同一件事，回新数组。
+
+`renderBoardHtml(board)` 回一份自包含的 HTML：样式内联，没有脚本、外链和网络资源，带 `default-src 'none'` 的内容安全策略；插进去的文字全部转义 `& < > " '`。
+
+三个函数的入参先抄成纯数据再用：Proxy、取值器、Symbol 键、不可枚举属性、类实例、`__proto__` 键、有空洞或带附加属性的数组、非有限数、环一律抛 `code` 是 `usage.bad-argument`（`exitCode` 2）的 `TypeError` 或 `RangeError`，校验时不调取值器、不触发 Proxy 陷阱。抄好的数据整份过 `scanQuestionLeaks`（看板不读的字段也扫），命中同样拒，报错只带类型和位置。
+
+## 起草形态
+
+`normalizeQuestionDraft(draft)` 把起草写法（YAML 读成的对象）换成 `question/0.1`，只换不校验：下划线键改小驼峰（到 `scoring[].args` 第一层为止，`assets`、`ext` 里的不动），`width`、`height` 并成 `size`，整数 `fps` 写成 `"n/1"`，`wall_s`（秒）换成 `wallMs`，`gpu_s` 换成 `gpuSeconds`，`初值未校准` 换成 `uncalibrated`，`metric:` 前缀去掉。新旧键并存（`size` 和 `width`）不覆盖，留给校验报错；一个键两种拼法并存或草稿不是纯数据抛 `TypeError`。
