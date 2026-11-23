@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { resolveServed, startServer } from './host.mjs';
+import { fileURLToPath } from 'node:url';
+import { resolveServed, startServer, startSource } from './host.mjs';
 import { clipStats, lumaStats, measureEntity, toScreen } from './measure.js';
 
 // 相机在原点看向 −Z，竖直视场角 90 度，画面 200 × 100：投影矩阵第 6 个数是 1，第 1 个数是 高 ÷ 宽
@@ -100,4 +101,65 @@ test('静态服务照真实路径再判一遍：放行目录里的符号链接�
   const get = async (url) => { const res = await fetch(server.origin + url); return [res.status, await res.text()]; };
   assert.deepEqual(await get('/fonts/alias.woff2'), [200, 'ok']);
   for (const url of bad) assert.deepEqual(await get(url), [404, ''], url);
+});
+
+test('页面宿主保留浏览器原生的全局 Proxy，不注入 beiming.three.isProxy 全局标记', async (t) => {
+  let source;
+  try { source = await startSource(); } catch (e) { t.skip(`起不了浏览器：${String(e.message).split('\n')[0]}`); return; }
+  const workspace = await mkdtemp(join(tmpdir(), 'beiming-host-proxy-'));
+  t.after(async () => {
+    await source.stop();
+    await rm(workspace, { recursive: true, force: true });
+  });
+  const entry = `data:text/javascript,${encodeURIComponent(`
+    export function build(ctx) {
+      const { THREE } = ctx;
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(40, ctx.size[0] / ctx.size[1], 0.1, 100);
+      scene.add(camera);
+      let proxySrc = '';
+      try { proxySrc = Function.prototype.toString.call(globalThis.Proxy); } catch (e) { proxySrc = 'THREW:' + e.message; }
+      let revocableSrc = '';
+      try { revocableSrc = Function.prototype.toString.call(globalThis.Proxy.revocable); } catch (e) { revocableSrc = 'THREW:' + e.message; }
+      const desc = Object.getOwnPropertyDescriptor(globalThis, Symbol.for('beiming.three.isProxy'));
+      const proxied = new Proxy({ x: 7 }, { get(o, k, r) { return k === 'x' ? o.x + 1 : Reflect.get(o, k, r); } });
+      return {
+        scene,
+        camera,
+        entities: {},
+        state() {},
+        meta() {
+          return {
+            texts: [
+              { id: 'proxy.src', text: proxySrc, bbox2d: [0, 0, 1, 1] },
+              { id: 'revocable.src', text: revocableSrc, bbox2d: [0, 0, 1, 1] },
+            ],
+            readings: {
+              hasProxySymbol: desc === undefined ? 0 : 1,
+              proxyWorks: proxied.x,
+            },
+          };
+        },
+        dispose() {},
+      };
+    }
+  `)}`;
+  const session = await source.open(
+    {
+      film: 'host-proxy-probe',
+      output: { size: [64, 64], fps: '24/1' },
+      shot: { id: 's01', in: 0, out: 1, source: 'three', host: 'page', mode: 'native-code', entry, colorRef: 'display', seed: 1 },
+    },
+    { lock: null, tier: 'final', workspace, filmDir: dirname(fileURLToPath(import.meta.url)) },
+  );
+  try {
+    const { meta } = await session.render(0, {}, ['color']);
+    const texts = Object.fromEntries(meta.texts.map((x) => [x.id, x.text]));
+    assert.match(texts['proxy.src'], /^function Proxy\(\) \{ \[native code\] \}$/);
+    assert.match(texts['revocable.src'], /^function revocable\(\) \{ \[native code\] \}$/);
+    assert.equal(meta.readings.hasProxySymbol, 0);
+    assert.equal(meta.readings.proxyWorks, 8);
+  } finally {
+    await session.close();
+  }
 });
