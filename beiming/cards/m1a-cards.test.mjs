@@ -772,6 +772,72 @@ test('实渲：片名镜头零手写镜头脚本出帧，探针片子的三个�
         }
       }
 
+      // 小字号合法下限 heightFrac=0.02：文字框按像素中心命中与实测墨迹外框精确一致；透明底白色 ink="#ffffff" 半透明边缘严格满足线性预乘 R=G=B=A
+      for (const [sIdx, sText] of ['Hello World', 'RTX 5090', '北冥'].entries()) {
+        const smallFilm = {
+          ...PROBE_FILM,
+          id: `t4-small-${sIdx}`,
+          output: { ...PROBE_FILM.output, size: [640, 360], frames: 24 },
+          shots: [probeShot('ts', 0, {
+            mode: 'cards-data',
+            cards: [{ as: 'title', use: 'overlay.title@1', params: { text: sText, enter: 2, settleFrames: 6, heightFrac: 0.02 } }],
+            roles: { hero: 'title' },
+          })],
+          events: [],
+        };
+        const sSmall = await source.open(shotInput(smallFilm, 'ts', eventsTable(smallFilm)), {
+          lock: localLock(smallFilm, { ts: 8860 + sIdx }, threeLib), tier: 'final', workspace: root, filmDir: PROBE_DIR,
+        });
+        try {
+          const r = await sSmall.render(8, {}, ['color', 'objectId', 'meta']);
+          const bytes = await readFile(join(root, r.layers.color.file));
+          const idBytes = await readFile(join(root, r.layers.objectId.file));
+          const ink = inkBox(bytes, r.layers.color.shape);
+          const titleId = r.meta.entities.find((e) => e.name === 'title').id;
+          assert.ok(ink.count > 0);
+          assert.deepEqual(r.meta.texts[0].bbox2d.map(Math.round), ink.box, `小字号 ${sText} 文字框匹配实测墨迹外框`);
+          assert.deepEqual(idBox(idBytes, r.layers.objectId.shape, titleId), ink);
+        } finally {
+          await sSmall.close();
+        }
+      }
+
+      const whiteFilm = {
+        ...PROBE_FILM,
+        id: 't4-white-premul',
+        output: { ...PROBE_FILM.output, size: [640, 360], frames: 24 },
+        shots: [probeShot('tw', 0, {
+          mode: 'cards-data',
+          cards: [{ as: 'title', use: 'overlay.title@1', params: { text: 'RTX 5090', enter: 2, settleFrames: 6, ink: '#ffffff' } }],
+          roles: { hero: 'title' },
+        })],
+        events: [],
+      };
+      const sWhite = await source.open(shotInput(whiteFilm, 'tw', eventsTable(whiteFilm)), {
+        lock: localLock(whiteFilm, { tw: 8870 }, threeLib), tier: 'final', workspace: root, filmDir: PROBE_DIR,
+      });
+      try {
+        let sampled = 0, wrong = 0;
+        for (const f of [4, 8]) {
+          const r = await sWhite.render(f, {}, ['color']);
+          const rgba = await readFile(join(root, r.layers.color.file));
+          for (let i = 0; i < 640 * 360; i++) {
+            const a = rgba.readFloatLE(16 * i + 12);
+            if (a <= 0.04 || a >= 0.95) continue;
+            sampled++;
+            if (
+              Math.abs(rgba.readFloatLE(16 * i) - a) > 0.01
+              || Math.abs(rgba.readFloatLE(16 * i + 4) - a) > 0.01
+              || Math.abs(rgba.readFloatLE(16 * i + 8) - a) > 0.01
+            ) wrong++;
+          }
+        }
+        assert.ok(sampled > 1000, `半透明抗锯齿样本数 ${sampled}`);
+        assert.equal(wrong, 0, '透明底白色 ink 半透明边缘不应变暗');
+      } finally {
+        await sWhite.close();
+      }
+
       // 与 page.det2d@1 同镜头并存：临时装卸 FontFace 不污染 document.fonts
       const dualDirs = ['cards/two-d/overlay-title', 'cards/mechanism/page-det2d'];
       const dualLib = await loadCards(dualDirs);

@@ -97,3 +97,82 @@ test('overlay.title：锁定字体覆盖外的生僻字或表情报错；空白�
   const loose = create({ THREE, size: SIZE }, params);
   assert.throws(() => loose.apply(0, 0), /透视相机/);
 });
+
+test('overlay.title：光栅化纹理全幅填充纯白 RGB 保预乘边缘色，小字号按像素中心命中过滤游程且不污染字体集', async () => {
+  const { readFileSync } = await import('node:fs');
+  const fontsDir = new URL('../../../../routes/c-style/fonts/', import.meta.url);
+  const saved = Object.fromEntries(['window', 'document', 'FontFace', 'location', 'fetch'].map((k) => [k, globalThis[k]]));
+  const fontSet = new Set();
+  globalThis.window = {};
+  globalThis.location = new URL('http://127.0.0.1/');
+  globalThis.FontFace = class MockFontFace {
+    constructor(family, bytes, desc) { this.family = family; this.bytes = bytes; this.desc = desc; }
+    async load() { return this; }
+  };
+  globalThis.fetch = async (url) => {
+    const name = new URL(url).pathname.split('/').pop();
+    const buf = readFileSync(new URL(name, fontsDir));
+    return {
+      ok: true,
+      json: async () => JSON.parse(buf.toString('utf8')),
+      arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
+    };
+  };
+  globalThis.document = {
+    fonts: { add: (f) => fontSet.add(f), delete: (f) => fontSet.delete(f), get size() { return fontSet.size; }, ready: Promise.resolve() },
+    createElement(tag) {
+      assert.equal(tag, 'canvas');
+      const canvas = {
+        width: 1,
+        height: 1,
+        getContext() {
+          let buf = null;
+          const ensure = () => { buf ??= new Uint8ClampedArray(canvas.width * canvas.height * 4); return buf; };
+          return {
+            measureText: () => ({ width: 40 }),
+            fillText(ch, cx) {
+              if (ch === ' ') return;
+              const d = ensure(), w = canvas.width;
+              for (let dy = 0; dy < 72; dy++) {
+                for (let dx = 0; dx < 36; dx++) {
+                  const k = ((20 + dy) * w + cx + dx) * 4;
+                  d[k] = 255; d[k + 1] = 255; d[k + 2] = 255; d[k + 3] = dx === 0 ? 64 : 220;
+                }
+              }
+              // 最底第 79 行放一条仅落入 [183.51, 183.60]、不命中任何像素中心 (y+0.5) 的亚像素墨迹尖
+              for (let dx = 0; dx < 36; dx++) {
+                const k = ((20 + 79) * w + cx + dx) * 4;
+                d[k] = 255; d[k + 1] = 255; d[k + 2] = 255; d[k + 3] = 96;
+              }
+            },
+            getImageData: () => ({ data: ensure() }),
+          };
+        },
+      };
+      return canvas;
+    },
+  };
+  try {
+    const { create: createBrowser } = await import(new URL('./three.js?browser-mock', import.meta.url));
+    const cam = new THREE.PerspectiveCamera(40, 640 / 360, 0.1, 100);
+    const h = createBrowser({ THREE, size: [640, 360] }, { ...params, text: 'Hello World', enter: 2, settleFrames: 6, ink: '#ffffff', heightFrac: 0.02 });
+    assert.equal(fontSet.size, 0);
+    cam.add(h.object);
+    h.apply(8, 0);
+    const texData = h.object.material.map.image.data;
+    let zeroAlpha = 0, inkAlpha = 0;
+    for (let i = 0; i < texData.length; i += 4) {
+      assert.deepEqual([texData[i], texData[i + 1], texData[i + 2]], [255, 255, 255]);
+      if (texData[i + 3] === 0) zeroAlpha++; else inkAlpha++;
+    }
+    assert.ok(zeroAlpha > 0 && inkAlpha > 0);
+    assert.deepEqual(h.object.material.color.toArray(), [1, 1, 1]);
+    const [, y0, , y1] = h.meta(8).texts[0].bbox2d.map(Math.round);
+    assert.deepEqual([y0, y1], [176, 183]);
+    h.dispose();
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete globalThis[k]; else globalThis[k] = v;
+    }
+  }
+});

@@ -79,7 +79,7 @@ function rasterizeTitle(THREE, chars, height, heightFrac) {
   const tracking = Math.round(fontPx * 0.22);
   const pad = fontPx;
   for (const face of FONT_ENV.faces) document.fonts.add(face);
-  let stageW = 0, stageH = 0, src;
+  let stageW, stageH, src;
   try {
     const probe = document.createElement('canvas').getContext('2d');
     probe.font = fontSpec;
@@ -118,35 +118,30 @@ function rasterizeTitle(THREE, chars, height, heightFrac) {
   }
   if (ix1 <= ix0 || iy1 <= iy0) throw new Error('overlay.title 的 text 里没有可见墨迹（没有一个亮点）');
   const cropW = ix1 - ix0, cropH = iy1 - iy0;
-  const crop = document.createElement('canvas');
-  crop.width = cropW;
-  crop.height = cropH;
-  const cropCtx = crop.getContext('2d');
-  const outImg = cropCtx.createImageData(cropW, cropH);
-  const dst = outImg.data;
+  const dst = new Uint8Array(cropW * cropH * 4);
+  dst.fill(255);
   const runs = [];
   for (let y = 0; y < cropH; y++) {
+    const rowOff = (cropH - 1 - y) * cropW * 4;
     let runStart = -1;
     for (let x = 0; x < cropW; x++) {
       const a = src[((iy0 + y) * stageW + (ix0 + x)) * 4 + 3];
       if (a >= ALPHA_MIN) {
-        const k = (y * cropW + x) * 4;
-        dst[k] = 255;
-        dst[k + 1] = 255;
-        dst[k + 2] = 255;
-        dst[k + 3] = a;
+        dst[rowOff + x * 4 + 3] = a;
         if (runStart < 0) runStart = x;
-      } else if (runStart >= 0) {
-        runs.push({ u0: runStart / cropW, u1: x / cropW, v0: 1 - (y + 1) / cropH, v1: 1 - y / cropH });
-        runStart = -1;
+      } else {
+        dst[rowOff + x * 4 + 3] = 0;
+        if (runStart >= 0) {
+          runs.push({ u0: runStart / cropW, u1: x / cropW, v0: 1 - (y + 1) / cropH, v1: 1 - y / cropH });
+          runStart = -1;
+        }
       }
     }
     if (runStart >= 0) {
       runs.push({ u0: runStart / cropW, u1: 1, v0: 1 - (y + 1) / cropH, v1: 1 - y / cropH });
     }
   }
-  cropCtx.putImageData(outImg, 0, 0);
-  const texture = new THREE.CanvasTexture(crop);
+  const texture = new THREE.DataTexture(dst, cropW, cropH, THREE.RGBAFormat, THREE.UnsignedByteType);
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.generateMipmaps = false;
@@ -257,23 +252,38 @@ export function create(ctx, params) {
       const halfW = 0.5 * aspect * s.h, halfH = 0.5 * s.h;
       const fullX0 = sx(-halfW), fullY0 = sy(halfH + s.lift), fullX1 = sx(halfW), fullY1 = sy(-halfH + s.lift);
       const spanX = fullX1 - fullX0, spanY = fullY1 - fullY0;
+      if (!FONT_ENV.browser) {
+        const bx0 = Math.max(0, fullX0), by0 = Math.max(0, fullY0);
+        const bx1 = Math.min(width, fullX1), by1 = Math.min(height, fullY1);
+        if (!(bx0 < bx1 && by0 < by1)) return { texts: [] };
+        return { texts: [{ id: 'line', text: params.text, bbox2d: [bx0, by0, bx1, by1] }] };
+      }
+      const snap = (v) => Math.round(v * 256) / 256;
       let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+      let pxMin0 = Infinity, pyMin0 = Infinity, pxMax1 = -Infinity, pyMax1 = -Infinity;
       for (const { u0, u1, v0, v1 } of runs) {
         const rx0 = Math.max(0, fullX0 + u0 * spanX), rx1 = Math.min(width, fullX0 + u1 * spanX);
         const ry0 = Math.max(0, fullY0 + (1 - v1) * spanY), ry1 = Math.min(height, fullY0 + (1 - v0) * spanY);
-        if (rx0 < rx1 && ry0 < ry1) {
+        const px0 = Math.max(0, Math.ceil(snap(rx0) - 0.5)), px1 = Math.min(width, Math.ceil(snap(rx1) - 0.5));
+        const py0 = Math.max(0, Math.floor(snap(ry0) + 0.5)), py1 = Math.min(height, Math.floor(snap(ry1) + 0.5));
+        if (px1 > px0 && py1 > py0) {
           if (rx0 < bx0) bx0 = rx0;
           if (ry0 < by0) by0 = ry0;
           if (rx1 > bx1) bx1 = rx1;
           if (ry1 > by1) by1 = ry1;
+          if (px0 < pxMin0) pxMin0 = px0;
+          if (py0 < pyMin0) pyMin0 = py0;
+          if (px1 > pxMax1) pxMax1 = px1;
+          if (py1 > pyMax1) pyMax1 = py1;
         }
       }
-      if (!(bx0 < bx1 && by0 < by1)) return { texts: [] };
+      if (!(pxMin0 < pxMax1 && pyMin0 < pyMax1)) return { texts: [] };
+      const align = (b, p) => (Math.round(b) === p ? b : p);
       return {
         texts: [{
           id: 'line',
           text: params.text,
-          bbox2d: [bx0, by0, bx1, by1],
+          bbox2d: [align(bx0, pxMin0), align(by0, pyMin0), align(bx1, pxMax1), align(by1, pyMax1)],
         }],
       };
     },
