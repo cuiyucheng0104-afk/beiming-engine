@@ -192,7 +192,7 @@
 
 | 管线阶段 | 核心工程模块与入口函数 | 解决的创作与工程问题 |
 |---|---|---|
-| **阶段 1 · 逐镜盘点与三层锁池** | `sfx_vocab.WORLD_PALETTES`、`SCENE_AMBIENCE_LAYERS`、`decompose_scene_ambience`、`classify_stem`、`search_by_world`、`plan_film_sound_pool`；`tools/fetch_sfx.py --world / --plan`；`sfx_judge.extract_metrics`、`judge_wave`、`judge_ontology`；`library.load_slice` | 按画面源码与静帧把复合外景拆成「远景底床 + 主纹理 + 生机点缀」三层，锁定 `amb / fx / foley` 候选池，拦截电机污染、低 `raw_pk` 高噪切片及高频周期颗粒电嗡声（`hf_envelope_buzz`）与窄带哨音尖刺（`hf_whistle_db`） |
+| **阶段 1 · 逐镜盘点与三层锁池** | `sfx_vocab.WORLD_PALETTES`、`SCENE_AMBIENCE_LAYERS`、`decompose_scene_ambience`、`classify_stem`、`search_by_world`、`plan_film_sound_pool`；`tools/fetch_sfx.py --world / --plan`；`tools/sfx_library.py search`（rog-5090 商用库索引检索）；`sfx_judge.extract_metrics`、`judge_wave`、`judge_ontology`；`library.load_slice` | 按画面源码与静帧把复合外景拆成「远景底床 + 主纹理 + 生机点缀」三层，锁定 `amb / fx / foley` 候选池（CC0 与商用库并列），拦截电机污染、低 `raw_pk` 高噪切片及高频周期颗粒电嗡声（`hf_envelope_buzz`）与窄带哨音尖刺（`hf_whistle_db`） |
 | **阶段 2 · 实录复合与物理合成** | `foley.composite_mechanism`、`precision_gear_turn`、`layer_event`、`shift_material`；`procedural.modal_impact`（含 `radiation='accel'`）、`phisem_particles`、`aerodynamic_whoosh`、`minnaert_bubbles`、`stylized_cartoon`、`thunder_strike`、`pouring_vessel`、`bouncing_disc`、`shock_blast`；`director.hitech_laser_trace`、`hitech_micro_beep` | 有实录走四层超真实复合；缺精确匹配或需运动连续耦合/非写实夸张时走「激励 × 共振 × 耦合」确定性全带宽（`0–20 kHz`）物理因果与卡通合成 |
 | **阶段 3 · 时值精裁与防疲劳编排** | `editorial.smart_edit_clip`、`editorial.schedule_action_series`、`foley.ActionVariationDeck`、`director.fit_to_span` | 过程音贴合画面时长且零死循环；冲击余韵不在硬切后穿帮；连拳/蹬踏按三级防疲劳演化并随 IOI 自动紧尾、末击放尾 |
 | **阶段 4 · 锚点同步与远近声像贴合** | `library.sync_anchor`、`foley.place_anchored`、`director.screen_scale_to_distance`、`depth_gain_db`、`editorial.couple_motion_trajectory`、`editorial.build_layered_ambience`、`director.SHOT_PAN_CAP` | P-Center 精确咬合结果帧；由画高占比 `screen_ratio` 自动拉开远近 `8–16 dB` 纵深、空气高频吸收、混响干湿比、多普勒与三层立体声环境轨 |
@@ -212,6 +212,8 @@
 - **搜认知锚点（Identity）**：搜具体物件原词，如 `ballpoint pen click`、`retractable pen button`、`sword unsheath`；
 - **搜高频精密层（Detail）**：跨品类借用微型精密机械，关键词带 `camera shutter dial`、`pocket watch escapement`、`micrometer ratchet`、`micro switch click`、`safe combination dial`（无源机械词会自动触发 `fetch_sfx.py` 的 `_PASSIVE_MECH_QUERY_RE` 电机污染过滤【仓库实证·代码】`tools/fetch_sfx.py:42-49`）；
 - **搜高科技界面层（HUD / UI）**：关键词显式带上 `hitech`、`telemetry`、`hud`、`micro beep`、`laser scan`（触发 `is_hitech_query` 上下文放行【仓库实证·代码】`tools/fetch_sfx.py:52-55`，不会误伤有机拟音的电子合成器禁令）。
+
+CC0 检索之外，商用音效库（rog-5090 已购 63 G：BOOM Library / SoundMorph / Pro Sound Effects）是并列候选池：`node tools/env/py.mjs tools/sfx_library.py search "怪兽吼叫" --dur-max 3` 中英关键词 + 子库 / 时长过滤，候选 `path` 用 `BEIMING_SFX_ROOT` 指向库根后经 `library.load(sfx_library.abs_path(...))` 进混音；索引随仓库分发、检索离线可跑，未设库根时照旧走程序化合成。哪些子库能进对外成片看 [sfx-library.md](../../../docs/rights/sfx-library.md) 的红标清单，拿不准先问主人。
 
 ### 2.4 第四步：零训练物理初筛（Stage 1 Judge）
 下载候选素材或校验程序化合成波形后先跑 `python -m engine.audio.sfx_judge <目录> --manifest sfx_manifest.json`（或调 `sfx_judge.extract_metrics` / `judge_wave`）：
