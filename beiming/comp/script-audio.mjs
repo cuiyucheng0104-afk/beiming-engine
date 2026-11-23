@@ -3,7 +3,7 @@
 // 校验产出的 48 kHz WAV（声道、有限样本、与片长帧数一致）及可选伴随产物（report.json、stems/*.wav）。
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -49,18 +49,25 @@ export function assertNoTraps(value, label = 'options', seen = new Set()) {
   }
 
   if (isArr) {
+    const ownKeys = Object.keys( Object.getOwnPropertyDescriptors(value));
+    if (ownKeys.length !== value.length + 1) {
+      throw bad(`${label} 包含稀疏数组空洞或多余属性`);
+    }
     for (let i = 0; i < value.length; i++) {
+      if (!Object.hasOwn(value, i)) throw bad(`${label}[${i}] 缺失（不允许稀疏数组）`);
       assertNoTraps(value[i], `${label}[${i}]`, seen);
     }
   } else {
-    for (const k of Object.keys(value)) {
-      assertNoTraps(value[k], `${label}.${k}`, seen);
+    const descs = Object.getOwnPropertyDescriptors(value);
+    for (const [k, d] of Object.entries(descs)) {
+      assertNoTraps(d.value, `${label}.${k}`, seen);
     }
   }
   seen.delete(value);
 }
 
 export function assertPlainObject(value, label = 'options') {
+  if (types.isProxy(value)) throw bad(`${label} 不能是 Proxy`);
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw bad(`${label} 必须是非空纯对象`);
   }
@@ -77,11 +84,18 @@ function assertNonEmptyString(value, label) {
 function parseFpsRatio(fps, label = 'fps') {
   if (typeof fps === 'number') {
     if (!Number.isFinite(fps) || fps <= 0) throw bad(`${label} 必须是正有限数或 "分子/分母"`);
-    return { num: fps, den: 1, scalar: fps };
+    return { num: fps, den: 1, scalar: fps, exactRatio: Number.isSafeInteger(fps) };
   }
   if (typeof fps === 'string') {
     const { num, den } = parseFps(fps);
-    return { num, den, scalar: num / den };
+    if (!Number.isSafeInteger(num) || !Number.isSafeInteger(den) || num <= 0 || den <= 0) {
+      throw bad(`${label} 的分子与分母必须是正安全整数：${fps}`);
+    }
+    const scalar = num / den;
+    if (!Number.isFinite(scalar) || scalar <= 0) {
+      throw bad(`${label} 比值越界：${fps}`);
+    }
+    return { num, den, scalar, exactRatio: true };
   }
   throw bad(`${label} 必须是正有限数或 "分子/分母"`);
 }
@@ -196,23 +210,36 @@ function parseWavHeader(buf) {
   if (buf.length < 44 || buf.toString('latin1', 0, 4) !== 'RIFF' || buf.toString('latin1', 8, 12) !== 'WAVE') {
     throw new CompError('failure.audio-script', '声音脚本产出的文件不是有效的 RIFF WAVE');
   }
+  const riffSize = buf.readUInt32LE(4);
+  if (riffSize < 36 || 8 + riffSize > buf.length) {
+    throw new CompError('failure.audio-script', `WAV RIFF 声明长度（${8 + riffSize}）超出文件实际字节数（${buf.length}），文件已截断`);
+  }
+  const riffEnd = 8 + riffSize;
   let at = 12, fmt = null, data = null;
-  while (at + 8 <= buf.length) {
+  while (at < riffEnd) {
+    if (at + 8 > riffEnd || at + 8 > buf.length) {
+      throw new CompError('failure.audio-script', 'WAV 子块头部不完整，文件已截断');
+    }
     const id = buf.toString('latin1', at, at + 4);
     const size = buf.readUInt32LE(at + 4);
     const body = at + 8;
+    if (body + size > riffEnd || body + size > buf.length) {
+      throw new CompError('failure.audio-script', `WAV ${id.trim()} 数据块截断：声明 ${size} 字节，实际仅余 ${buf.length - body} 字节`);
+    }
     if (id === 'fmt ') {
-      if (size < 16 || body + 16 > buf.length) throw new CompError('failure.audio-script', 'WAV fmt 段损坏');
+      if (size < 16) throw new CompError('failure.audio-script', 'WAV fmt 段损坏');
       let format = buf.readUInt16LE(body);
-      if (format === 0xfffe && size >= 40 && body + 26 <= buf.length) format = buf.readUInt16LE(body + 24);
-      fmt = {
-        format,
-        channels: buf.readUInt16LE(body + 2),
-        sampleRate: buf.readUInt32LE(body + 4),
-        bits: buf.readUInt16LE(body + 14),
-      };
+      const channels = buf.readUInt16LE(body + 2);
+      const sampleRate = buf.readUInt32LE(body + 4);
+      const blockAlign = buf.readUInt16LE(body + 12);
+      const bits = buf.readUInt16LE(body + 14);
+      if (format === 0xfffe) {
+        if (size < 40) throw new CompError('failure.audio-script', 'WAV extensible fmt 段损坏');
+        format = buf.readUInt16LE(body + 24);
+      }
+      fmt = { format, channels, sampleRate, blockAlign, bits };
     } else if (id === 'data') {
-      data = buf.subarray(body, Math.min(buf.length, body + size));
+      data = buf.subarray(body, body + size);
     }
     at = body + size + (size & 1);
   }
@@ -223,7 +250,30 @@ function parseWavHeader(buf) {
   if (fmt.channels !== 1 && fmt.channels !== 2) {
     throw new CompError('failure.audio-script', `声音脚本产出的 WAV 声道数是 ${fmt.channels}，只收 1 或 2 声道`);
   }
+  const supported = (fmt.format === 1 && (fmt.bits === 16 || fmt.bits === 24 || fmt.bits === 32))
+    || (fmt.format === 3 && fmt.bits === 32);
+  if (!supported) {
+    throw new CompError('failure.audio-script', `WAV 的样本格式不支持（格式码 ${fmt.format}，${fmt.bits} 位）`);
+  }
+  const frameBytes = fmt.channels * (fmt.bits / 8);
+  if (fmt.blockAlign !== frameBytes) {
+    throw new CompError('failure.audio-script', `WAV blockAlign (${fmt.blockAlign}) 与声道×位深 (${frameBytes}) 不符`);
+  }
+  if (data.length <= 0 || data.length % frameBytes !== 0) {
+    throw new CompError('failure.audio-script', `WAV data 段字节数（${data.length}）不是完整采样帧（${frameBytes} 字节）的整数倍或为空`);
+  }
   return fmt;
+}
+
+function atomicWriteFile(destPath, bytes) {
+  const dir = dirname(destPath);
+  mkdirSync(dir, { recursive: true });
+  const tmpPath = join(
+    dir,
+    `.beiming-tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
+  writeFileSync(tmpPath, bytes);
+  renameSync(tmpPath, destPath);
 }
 
 /**
@@ -253,6 +303,15 @@ export function runAudioScript(opts) {
   let scriptStat;
   try { scriptStat = statSync(scriptPath); } catch (err) { throw bad(`无法访问声音脚本 ${rawScript}：${err.message}`); }
   if (!scriptStat.isFile()) throw bad(`声音脚本路径不是普通文件：${rawScript}`);
+  if (process.platform !== 'win32' && (scriptStat.mode & 0o444) === 0) {
+    throw bad(`声音脚本无读取权限：${rawScript}`);
+  }
+  let scriptBytes;
+  try {
+    scriptBytes = readFileSync(scriptPath);
+  } catch (err) {
+    throw bad(`无法读取声音脚本 ${rawScript}：${err.message}`);
+  }
 
   if (opts.events === undefined || opts.events === null) {
     throw bad('events 必须提供事件表对象或 JSON 路径');
@@ -272,11 +331,14 @@ export function runAudioScript(opts) {
     throw bad('runAudioScript 需要提供 outPath 或 workDir');
   }
 
-  let extraArgs = [];
+  const extraArgs = [];
   if (opts.args !== undefined) {
     if (!Array.isArray(opts.args)) throw bad('args 必须是字符串数组');
     assertNoTraps(opts.args, 'args');
-    extraArgs = opts.args.map((a, i) => assertNonEmptyString(a, `args[${i}]`));
+    for (let i = 0; i < opts.args.length; i++) {
+      if (!Object.hasOwn(opts.args, i)) throw bad(`args[${i}] 缺失（不允许稀疏数组）`);
+      extraArgs.push(assertNonEmptyString(opts.args[i], `args[${i}]`));
+    }
   }
 
   if (opts.python !== undefined) assertNonEmptyString(opts.python, 'python');
@@ -289,7 +351,7 @@ export function runAudioScript(opts) {
     }
   }
 
-  let customEnv = {};
+  const customEnv = {};
   if (opts.env !== undefined) {
     assertPlainObject(opts.env, 'env');
     for (const [k, v] of Object.entries(opts.env)) {
@@ -318,20 +380,24 @@ export function runAudioScript(opts) {
     explicitFps = parseFpsRatio(opts.fps, 'fps');
   }
 
-  mkdirSync(workDir, { recursive: true });
-  mkdirSync(dirname(outWavPath), { recursive: true });
-
-  let eventsPath;
+  let externalEventsPath = null;
   let eventsObj;
   let eventsBytes;
   if (typeof opts.events === 'string') {
     const rawEvents = assertNonEmptyString(opts.events, 'events');
-    eventsPath = resolve(rawEvents);
-    if (!existsSync(eventsPath) || !statSync(eventsPath).isFile()) {
+    externalEventsPath = resolve(rawEvents);
+    let eventsStat;
+    try { eventsStat = statSync(externalEventsPath); } catch {
       throw bad(`事件表文件不存在：${rawEvents}`);
     }
+    if (!eventsStat.isFile()) {
+      throw bad(`事件表路径不是普通文件：${rawEvents}`);
+    }
+    if (process.platform !== 'win32' && (eventsStat.mode & 0o444) === 0) {
+      throw bad(`事件表文件无读取权限：${rawEvents}`);
+    }
     try {
-      eventsBytes = readFileSync(eventsPath);
+      eventsBytes = readFileSync(externalEventsPath);
       eventsObj = JSON.parse(eventsBytes.toString('utf8'));
     } catch (err) {
       throw bad(`无法解析事件表 JSON ${rawEvents}：${err.message}`);
@@ -349,127 +415,172 @@ export function runAudioScript(opts) {
       throw bad(`事件表无法序列化为 JSON：${err.message}`);
     }
     eventsBytes = Buffer.from(serialized, 'utf8');
-    eventsPath = join(workDir, 'script-events.json');
-    writeFileSync(eventsPath, eventsBytes);
   } else {
     throw bad('events 必须是事件表纯对象或 JSON 文件路径');
   }
 
   const resolvedFps = explicitFps ?? (eventsObj.fps !== undefined ? parseFpsRatio(eventsObj.fps, 'events.fps') : null);
   let expectedSamples = null;
+  let sampleTolerance = 0;
   if (expectedFrames !== undefined) {
     if (!resolvedFps) throw bad('指定 expectedFrames 时必须提供 fps');
-    expectedSamples = Math.round((expectedFrames * SAMPLE_RATE * resolvedFps.den) / resolvedFps.num);
+    const rawExpected = (expectedFrames * SAMPLE_RATE * resolvedFps.den) / resolvedFps.num;
+    if (!Number.isFinite(rawExpected) || rawExpected <= 0) {
+      throw bad(`根据 expectedFrames (${expectedFrames}) 与 fps 计算出的预期样本数非法`);
+    }
+    expectedSamples = Math.round(rawExpected);
+    if (!Number.isSafeInteger(expectedSamples) || expectedSamples <= 0) {
+      throw bad(`预期样本数越界：${expectedSamples}`);
+    }
+    if (resolvedFps.exactRatio) {
+      const exactNum = BigInt(expectedFrames) * BigInt(SAMPLE_RATE) * BigInt(resolvedFps.den);
+      sampleTolerance = exactNum % BigInt(resolvedFps.num) === 0n ? 0 : 1;
+    } else {
+      sampleTolerance = Math.abs(rawExpected - expectedSamples) < 1e-9 ? 0 : 1;
+    }
   }
 
   const framesForEnv = expectedFrames ?? eventsObj.frames ?? eventsObj.total_frames;
   const fpsForEnv = opts.fps ?? eventsObj.fps;
 
   const python = resolvePython({ python: opts.python, env: customEnv });
-  const scriptBytes = readFileSync(scriptPath);
   const scriptSha256 = sha256(scriptBytes);
   const eventsSha256 = sha256(eventsBytes);
 
-  if (existsSync(outWavPath)) rmSync(outWavPath, { force: true });
-
   const outDir = dirname(outWavPath);
-  const siblingReportPath = join(outDir, 'report.json');
-  const prevReportSha = existsSync(siblingReportPath) && statSync(siblingReportPath).isFile()
-    ? sha256(readFileSync(siblingReportPath))
-    : null;
+  mkdirSync(workDir, { recursive: true });
+  mkdirSync(outDir, { recursive: true });
 
-  const cliArgs = [scriptPath, '--events', eventsPath, '--out', outWavPath, ...extraArgs];
-  const childEnv = {
-    ...process.env,
-    ...customEnv,
-    PYTHONUTF8: '1',
-    PYTHONIOENCODING: 'utf-8',
-    PYTHONDONTWRITEBYTECODE: '1',
-    BEIMING_EVENTS: eventsPath,
-    BEIMING_AUDIO_OUT: outWavPath,
-    ...(framesForEnv !== undefined ? { BEIMING_FRAMES: String(framesForEnv) } : {}),
-    ...(fpsForEnv !== undefined ? { BEIMING_FPS: String(fpsForEnv) } : {}),
-  };
-
-  const r = spawnSync(python, cliArgs, {
-    cwd,
-    env: childEnv,
-    shell: false,
-    windowsHide: true,
-    timeout: timeoutMs,
-    killSignal: 'SIGKILL',
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-
-  const stderr = r.stderr ? r.stderr.toString('utf8') : '';
-  if (r.error?.code === 'ETIMEDOUT') {
-    throw new CompError('timeout.audio-script', `声音脚本超过 ${timeoutMs} 毫秒未结束，已终止：${basename(scriptPath)}`);
-  }
-  if (r.error) {
-    throw new CompError('env.python-missing', `无法运行 Python（${python}）：${r.error.code ?? r.error.message}`);
-  }
-  if (r.status !== 0) {
-    const tail = stderr.trim().split('\n').slice(-5).join(' | ');
-    throw new CompError('failure.audio-script', `声音脚本 ${basename(scriptPath)} 退出码 ${r.status ?? r.signal}${tail ? `：${tail}` : ''}`);
-  }
-
-  if (!existsSync(outWavPath) || !statSync(outWavPath).isFile()) {
-    throw new CompError('failure.audio-script', `声音脚本 ${basename(scriptPath)} 退出码为 0 但未生成输出 WAV`);
-  }
-
-  const wavBytes = readFileSync(outWavPath);
-  const fmt = parseWavHeader(wavBytes);
-  let wav;
+  const stagingDir = mkdtempSync(join(workDir, '.beiming-audio-script-'));
   try {
-    wav = readWav(wavBytes);
-  } catch (err) {
-    throw new CompError('failure.audio-script', `声音脚本产出的 WAV 解析失败：${err.message}`);
-  }
-
-  const samples = wav.left.length;
-  if (samples <= 0) {
-    throw new CompError('failure.audio-script', '声音脚本产出的 WAV 样本数为 0');
-  }
-  for (let i = 0; i < samples; i++) {
-    if (!Number.isFinite(wav.left[i]) || !Number.isFinite(wav.right[i])) {
-      throw new CompError('failure.audio-script', `声音脚本产出的 WAV 在样本 ${i} 处含非有限值（NaN / Infinity）`);
+    let eventsPath = externalEventsPath;
+    if (!eventsPath) {
+      eventsPath = join(stagingDir, 'script-events.json');
+      writeFileSync(eventsPath, eventsBytes);
     }
-  }
-  if (expectedSamples !== null && Math.abs(samples - expectedSamples) > 1) {
-    throw new CompError(
-      'failure.audio-script',
-      `声音脚本产出的 WAV 样本数 ${samples} 与片长预期 ${expectedSamples} 不符（帧数 ${expectedFrames}）`,
-    );
-  }
+    const stagedOutWav = join(stagingDir, basename(outWavPath));
+    const spawnArgs = [scriptPath, '--events', eventsPath, '--out', stagedOutWav, ...extraArgs];
+    const recordedArgs = [
+      scriptPath,
+      '--events',
+      externalEventsPath ?? join(workDir, 'script-events.json'),
+      '--out',
+      outWavPath,
+      ...extraArgs,
+    ];
+    const childEnv = {
+      ...process.env,
+      ...customEnv,
+      PYTHONUTF8: '1',
+      PYTHONIOENCODING: 'utf-8',
+      PYTHONDONTWRITEBYTECODE: '1',
+      BEIMING_EVENTS: eventsPath,
+      BEIMING_AUDIO_OUT: stagedOutWav,
+      ...(framesForEnv !== undefined ? { BEIMING_FRAMES: String(framesForEnv) } : {}),
+      ...(fpsForEnv !== undefined ? { BEIMING_FPS: String(fpsForEnv) } : {}),
+    };
 
-  let report = null;
-  if (existsSync(siblingReportPath) && statSync(siblingReportPath).isFile()) {
-    const curBytes = readFileSync(siblingReportPath);
-    if (prevReportSha === null || sha256(curBytes) !== prevReportSha) {
-      try { report = JSON.parse(curBytes.toString('utf8')); } catch { report = null; }
+    const r = spawnSync(python, spawnArgs, {
+      cwd,
+      env: childEnv,
+      shell: false,
+      windowsHide: true,
+      timeout: timeoutMs,
+      killSignal: 'SIGKILL',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    const stderr = r.stderr ? r.stderr.toString('utf8') : '';
+    if (r.error?.code === 'ETIMEDOUT') {
+      throw new CompError('failure.audio-script', `声音脚本超时（超过 ${timeoutMs} 毫秒未结束，已终止）：${basename(scriptPath)}`);
     }
+    if (r.error) {
+      throw new CompError('env.python-missing', `无法运行 Python（${python}）：${r.error.code ?? r.error.message}`);
+    }
+    if (r.status !== 0) {
+      const tail = stderr.trim().split('\n').slice(-5).join(' | ');
+      throw new CompError('failure.audio-script', `声音脚本 ${basename(scriptPath)} 退出码 ${r.status ?? r.signal}${tail ? `：${tail}` : ''}`);
+    }
+
+    if (!existsSync(stagedOutWav) || !statSync(stagedOutWav).isFile()) {
+      throw new CompError('failure.audio-script', `声音脚本 ${basename(scriptPath)} 退出码为 0 但未生成输出 WAV`);
+    }
+
+    const wavBytes = readFileSync(stagedOutWav);
+    const fmt = parseWavHeader(wavBytes);
+    let wav;
+    try {
+      wav = readWav(wavBytes);
+    } catch (err) {
+      throw new CompError('failure.audio-script', `声音脚本产出的 WAV 解析失败：${err.message}`);
+    }
+
+    const samples = wav.left.length;
+    if (samples <= 0) {
+      throw new CompError('failure.audio-script', '声音脚本产出的 WAV 样本数为 0');
+    }
+    for (let i = 0; i < samples; i++) {
+      if (!Number.isFinite(wav.left[i]) || !Number.isFinite(wav.right[i])) {
+        throw new CompError('failure.audio-script', `声音脚本产出的 WAV 在样本 ${i} 处含非有限值（NaN / Infinity）`);
+      }
+    }
+    if (expectedSamples !== null && Math.abs(samples - expectedSamples) > sampleTolerance) {
+      throw new CompError(
+        'failure.audio-script',
+        `声音脚本产出的 WAV 样本数 ${samples} 与片长预期 ${expectedSamples} 不符（帧数 ${expectedFrames}）`,
+      );
+    }
+
+    atomicWriteFile(outWavPath, wavBytes);
+
+    let report = null;
+    const stagedReportPath = join(stagingDir, 'report.json');
+    if (existsSync(stagedReportPath) && statSync(stagedReportPath).isFile()) {
+      const curBytes = readFileSync(stagedReportPath);
+      try {
+        report = JSON.parse(curBytes.toString('utf8'));
+        atomicWriteFile(join(outDir, 'report.json'), curBytes);
+      } catch {
+        report = null;
+      }
+    }
+
+    const stagedStemsDir = join(stagingDir, 'stems');
+    const stems = [];
+    if (existsSync(stagedStemsDir) && statSync(stagedStemsDir).isDirectory()) {
+      const stemFiles = readdirSync(stagedStemsDir)
+        .filter((f) => f.toLowerCase().endsWith('.wav'))
+        .sort();
+      if (stemFiles.length > 0) {
+        const targetStemsDir = join(outDir, 'stems');
+        mkdirSync(targetStemsDir, { recursive: true });
+        for (const f of stemFiles) {
+          const stemBytes = readFileSync(join(stagedStemsDir, f));
+          const destStem = join(targetStemsDir, f);
+          atomicWriteFile(destStem, stemBytes);
+          stems.push(destStem);
+        }
+      }
+    }
+
+    return {
+      path: outWavPath,
+      sha256: sha256(wavBytes),
+      bytes: wavBytes.length,
+      sampleRate: SAMPLE_RATE,
+      channels: fmt.channels,
+      samples,
+      durationSec: samples / SAMPLE_RATE,
+      wav,
+      report,
+      stems,
+      python,
+      scriptSha256,
+      eventsSha256,
+      args: recordedArgs,
+    };
+  } finally {
+    rmSync(stagingDir, { recursive: true, force: true });
   }
-
-  const stemsDir = join(outDir, 'stems');
-  const stems = existsSync(stemsDir) && statSync(stemsDir).isDirectory()
-    ? readdirSync(stemsDir).filter((f) => f.toLowerCase().endsWith('.wav')).sort().map((f) => join(stemsDir, f))
-    : [];
-
-  return {
-    path: outWavPath,
-    sha256: sha256(wavBytes),
-    bytes: wavBytes.length,
-    sampleRate: SAMPLE_RATE,
-    channels: fmt.channels,
-    samples,
-    durationSec: samples / SAMPLE_RATE,
-    wav,
-    report,
-    stems,
-    python,
-    scriptSha256,
-    eventsSha256,
-    args: cliArgs,
-  };
 }

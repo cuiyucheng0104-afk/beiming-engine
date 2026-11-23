@@ -59,9 +59,46 @@ function pngSize(buf) {
 function placeholders(args, map) {
   return args.map((a) => {
     let s = String(a);
-    for (const [from, to] of map) if (from) s = s.split(from).join(to);
+    for (const [from, to] of map) {
+      if (!from) continue;
+      s = s.split(from).join(to);
+      const posixFrom = from.replace(/\\/g, '/');
+      if (posixFrom !== from) s = s.split(posixFrom).join(to);
+      const winFrom = from.replace(/\//g, '\\');
+      if (winFrom !== from) s = s.split(winFrom).join(to);
+    }
+    if (s.startsWith('<work>') || s.startsWith('<out>') || s.startsWith('<script>') || s.startsWith('<events>')) {
+      s = s.replace(/\\/g, '/');
+    }
     return s;
   });
+}
+
+function isAbsolutePathToken(token) {
+  return /^(\/|\\\\|[a-zA-Z]:[\\/])/.test(token);
+}
+
+function sanitizeScriptArgs(rawArgs, subst) {
+  const head = placeholders(rawArgs.slice(0, 5), subst);
+  let argPathIndex = 0;
+  const tail = rawArgs.slice(5).map((raw) => {
+    const s = String(raw);
+    const replaced = placeholders([s], subst)[0];
+    if (replaced !== s) return replaced;
+    if (isAbsolutePathToken(s)) {
+      return `<arg-path:${argPathIndex++}>`;
+    }
+    const eqMatch = /^(--?[^=\s]+=)(.+)$/.exec(s);
+    if (eqMatch) {
+      const valReplaced = placeholders([eqMatch[2]], subst)[0];
+      if (valReplaced !== eqMatch[2]) return `${eqMatch[1]}${valReplaced}`;
+      if (isAbsolutePathToken(eqMatch[2])) {
+        return `${eqMatch[1]}<arg-path:${argPathIndex++}>`;
+      }
+    }
+    return s;
+  });
+  return [...head, ...tail];
 }
 
 function check(list, id, ok, expected, actual) {
@@ -100,10 +137,14 @@ function videoChecks(list, tag, p, film) {
  * 返回 { dir, files: { 名字: { bytes, sha256 } }, report }
  */
 export function deliver(opts) {
-  if (opts !== null && typeof opts === 'object' && !types.isProxy(opts)
-    && !Object.getOwnPropertyDescriptor(opts, 'sinkFactory')?.get
-    && opts.sinkFactory !== undefined) {
-    return Promise.resolve().then(() => deliverBundle(opts));
+  if (!types.isProxy(opts) && opts !== null && typeof opts === 'object') {
+    const proto = Object.getPrototypeOf(opts);
+    if (proto === Object.prototype || proto === null) {
+      const sinkDesc = Object.getOwnPropertyDescriptor(opts, 'sinkFactory');
+      if (sinkDesc && !sinkDesc.get && !sinkDesc.set && sinkDesc.value !== undefined) {
+        return Promise.resolve().then(() => deliverBundle(opts));
+      }
+    }
   }
   return deliverBundle(opts);
 }
@@ -115,6 +156,17 @@ function validateAudioScriptConfig(audioScript) {
   }
   if (!/\.py$/i.test(audioScript.script.trim())) {
     throw bad(`audioScript.script 必须是 .py 文件：${audioScript.script}`);
+  }
+  if (audioScript.args !== undefined) {
+    if (!Array.isArray(audioScript.args)) throw bad('audioScript.args 必须是字符串数组');
+    assertNoTraps(audioScript.args, 'audioScript.args');
+    for (let i = 0; i < audioScript.args.length; i++) {
+      if (!Object.hasOwn(audioScript.args, i)) throw bad(`audioScript.args[${i}] 缺失（不允许稀疏数组）`);
+      const a = audioScript.args[i];
+      if (typeof a !== 'string' || a.trim().length === 0 || a.includes('\0')) {
+        throw bad(`audioScript.args[${i}] 必须是不含空字节的非空字符串`);
+      }
+    }
   }
   if (audioScript.at !== undefined && (!Number.isSafeInteger(audioScript.at) || audioScript.at < 0)) {
     throw bad('audioScript.at 必须是非负整数帧号');
@@ -131,12 +183,7 @@ function validateAudioScriptConfig(audioScript) {
 }
 
 function deliverBundle(opts) {
-  if (opts === null || typeof opts !== 'object' || Array.isArray(opts) || types.isProxy(opts)) {
-    throw bad('deliver 选项必须是非空纯对象');
-  }
-  for (const [k, d] of Object.entries(Object.getOwnPropertyDescriptors(opts))) {
-    if (d.get || d.set) throw bad(`deliver 选项 ${k} 不允许使用 getter/setter`);
-  }
+  assertPlainObject(opts, 'deliver 选项');
   const { film, frames, view = {}, tier = 'final', tracks = [], bed: bedKind = 'silence', audioScript, timeoutMs } = opts;
   if (audioScript !== undefined) validateAudioScriptConfig(audioScript);
   if (tracks !== undefined) assertNoTraps(tracks, 'tracks');
@@ -233,7 +280,7 @@ function deliverBundle(opts) {
           sha256: scriptRes.sha256,
           mastered: preMastered,
           ...(scriptRes.stems.length ? { stems: scriptRes.stems.map((s) => basename(s)) } : {}),
-          args: placeholders(scriptRes.args, scriptSubst),
+          args: sanitizeScriptArgs(scriptRes.args, scriptSubst),
         });
         allTracks = [...tracks, { path: scriptRes.path, at, gainDb: scriptGainDb }];
       }
@@ -247,14 +294,17 @@ function deliverBundle(opts) {
         const masterPath = join(work, 'master.wav');
         writeFileSync(masterPath, writeWav(mix));
         const measured = measureLoudness(masterPath, { timeoutMs });
-        const silent = measured.truePeak === -Infinity;
-        if (!silent && (Math.abs(measured.integrated - targetLoudness) > 1 || measured.truePeak > targetPeak)) {
+        if (!Number.isFinite(measured.integrated) || !Number.isFinite(measured.truePeak)
+          || Math.abs(measured.integrated - targetLoudness) > 1 || measured.truePeak > targetPeak) {
           throw mismatch(`母带不达标：集成响度 ${measured.integrated} LUFS（目标 ${targetLoudness} ± 1），真峰值 ${measured.truePeak} dBTP（上限 ${targetPeak}）`);
         }
         const passes = [{ step: 'script-mastered', gainDb: scriptGainDb, ...measured }];
-        mastered = { path: masterPath, passes, ...measured, silent, ceilingDb: targetPeak };
+        mastered = { path: masterPath, passes, ...measured, silent: false, ceilingDb: targetPeak };
       } else {
         mastered = masterAudio(mix, work, { loudness: targetLoudness, truePeak: targetPeak, timeoutMs });
+        if (audioScript && (mastered.silent || !Number.isFinite(mastered.integrated) || !Number.isFinite(mastered.truePeak))) {
+          throw mismatch(`声音脚本产出的音轨为全零静音，无法交付母带（真峰值 ${mastered.truePeak} dBTP）`);
+        }
       }
       steps.push({ step: 'audio', mode, bed: mode === 'track' ? 'silence' : bedKind, sampleRate: 48000, channels: 2, samples: mix.length, placements: mix.placements,
         passes: mastered.passes, ceilingDbtp: mastered.ceilingDb, silent: mastered.silent });

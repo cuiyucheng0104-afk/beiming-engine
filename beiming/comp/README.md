@@ -27,5 +27,5 @@
 - `resolvePython(explicitPython?)` 按 `explicitPython` → `BEIMING_PYTHON` → `BEIMING_PY` → `PYTHON` → 仓库 `.venv` → 系统 `python3` 解析解释器（优先选含 `numpy` 的环境）。
 - 向脚本传入 `--events <events.json> --out <out.wav>`（以及可选附加 `args`），并设置 `BEIMING_EVENTS`、`BEIMING_AUDIO_OUT`、`BEIMING_FRAMES`、`BEIMING_FPS`。`events` 可传 JSON 路径或内存事件表对象。
 - 校验退出码为 0，输出为 48 kHz 单声道或立体声 WAV、样本有限且与 `expectedFrames` 对齐，并自动收集同目录伴随的 `report.json` 与 `stems/*.wav`。
-- `deliver({ ...opts, audioScript: { script, events?, args?, python?, at?, gainDb?, mastered?, timeoutMs? } })` 将脚本作为第一阶段声音工序并写入 `run.json` 的 `audio-script` 步骤（路径脱敏为 `<script>`、`<events>`、`<work>`）。`mastered: true` 时跳过二次 `masterAudio` 限幅以保留脚本自带母带，但仍执行成片 `measureLoudness` 与 `measureAac` 交付核验。
+- `deliver({ ...opts, audioScript: { script, events?, args?, python?, at?, gainDb?, mastered?, timeoutMs? } })` 将脚本作为第一阶段声音工序并写入 `run.json` 的 `audio-script` 步骤（路径脱敏为 `<script>`、`<events>`、`<work>`、`<arg-path:i>`，分隔符统一为 `/`）。`mastered: true` 时跳过二次 `masterAudio` 限幅以保留脚本自带母带（拒绝全零静音与响度/峰值越界），并执行成片 `measureLoudness` 与 `measureAac` 交付核验。
 
