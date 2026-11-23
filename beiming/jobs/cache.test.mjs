@@ -988,7 +988,8 @@ test('A16-29 G_REV-R4 最终身份检查之后至 unlink 之前的窗口内同�
   let removed = 0;
   let alive = true;
   writer.once('exit', () => { alive = false; });
-  for (const deadline = Date.now() + 20_000; alive && removed < 20 && Date.now() < deadline;) {
+  // 够 20 次就收手；上限只是防死循环。Windows 上文件锁与改名慢，每秒只压到约 1 次，20 秒不够（实测 12–17 次），所以放宽到 90 秒
+  for (const deadline = Date.now() + 90_000; alive && removed < 20 && Date.now() < deadline;) {
     removed += cache.prune({ maxAgeMs: 3600_000 }).removed;
     cache.get(entry);
     await new Promise((resolve) => setImmediate(resolve));

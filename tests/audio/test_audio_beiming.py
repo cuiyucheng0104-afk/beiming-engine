@@ -232,9 +232,9 @@ class Interrupt(unittest.TestCase):
         out = subprocess.run(['ps', '-A', '-o', 'pid=,command='], capture_output=True, text=True).stdout
         return [int(ln.split(None, 1)[0]) for ln in out.splitlines() if any(k in ln for k in keys) and int(ln.split(None, 1)[0]) != os.getpid()]
 
-    def start(self, argv, until, timeout=90):
+    def start(self, argv, until, timeout=90, **env):
         """起命令（自成一组，测试失败时好收拾），等 until() 为真（子进程真的跑起来）再返回"""
-        p = subprocess.Popen(argv, cwd=self.td, env=H.env(PYTHON=sys.executable, TMPDIR=self.tmp), stdout=subprocess.DEVNULL,
+        p = subprocess.Popen(argv, cwd=self.td, env=H.env(PYTHON=sys.executable, TMPDIR=self.tmp, **env), stdout=subprocess.DEVNULL,
                              stderr=self.log, start_new_session=True)
         t0 = time.time()
         while not until():
@@ -246,6 +246,14 @@ class Interrupt(unittest.TestCase):
 
     def mixing(self):
         return any('mix.py' in c for c in self.cmdlines())
+
+    def imported(self):
+        """mix.py 的最后一个导入（score）已经完成：PYTHONPROFILEIMPORTTIME=1 时每个导入完成都往 stderr 写一行 `| score`。
+        信号落在 scipy 等 C 扩展的初始化中途会被包成 ImportError 并打堆栈，那不是这条测试要测的 Ctrl+C；
+        只看进程在不在不够（负载高时导入要好几秒），要等导入真的完成"""
+        self.log.flush()
+        with open(self.log.name, encoding='utf-8', errors='replace') as f:
+            return any(ln.rstrip().endswith('| score') for ln in f)
 
     def cmdlines(self):
         keys = {self.td, os.path.realpath(self.td)}
@@ -278,7 +286,7 @@ class Interrupt(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(self.td, 'out', 'mix.wav')))
 
     def test_ctrl_c_to_callers_group_exits_130_without_traceback(self):
-        p = self.start([sys.executable, 'audio/build.py'], self.mixing)
+        p = self.start([sys.executable, 'audio/build.py'], lambda: self.mixing() and self.imported(), PYTHONPROFILEIMPORTTIME='1')
         time.sleep(0.5)
         os.killpg(p.pid, signal.SIGINT)   # 终端 Ctrl+C：build.py 与同组的 mix.py 一起收到
         self.assert_clean_exit(p, 130)
