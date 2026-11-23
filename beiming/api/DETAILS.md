@@ -81,3 +81,25 @@ node beiming/api/cli.mjs render --id f_001 --wait 30 --json '{"tier":"draft"}'
 - 测「重新渲染」（重复性、重建）时每次用新片子，或先删 `deliver/.shot-cache/`，否则测到的是命中。`renderPlan` 不传 `cache` 就每帧都渲。
 
 改动后运行 `node --test beiming/api/shot-cache-api.test.mjs`：前半用记数的假帧源（只要 FFmpeg），最后两条用真 Blender 和无头浏览器：一条经 HTTP 把双镜头片交付二十来次（改一个镜头、原样再交付、换三组 `delivery.layers`、把页面镜头改成场景参考，各冷热对照；从一帧的缓存条目里抽掉原生 `frame.exr`、把它截成前 16 字节、只去掉它里面的 `normal.Z`，看它只重渲这一帧补齐；往一帧的编号层点坏两个像素让包围盒不过，看交付和单独核验都报 422 并作废这一版，原样再交付重渲后 200），另一条用单镜头的场景参考页面片，把 288 × 200、180 × 320、同画幅另一帧和改片名之前那一版的整条真实载荷（还有只换原生 EXR 的）写进 320 × 180 一帧的键，看交付照样 200、只重渲这一帧，草稿档缩半的帧照常命中。帧源调用次数读账本行的 `sourceRenders`，缺工具时跳过。
+
+## 委托三角色、镜头工五段任务书、服务端模板判定与 L5 三视角九票规程
+
+`beiming/api/delegate-roles.mjs` 定义委托模式与 L5 审片的角色边界、任务书模板与投票聚合器，由 `index.mjs` 统一导出：
+
+- **三角色配置（`DELEGATE_ROLES`）**：
+  - `director`（导演）：读取 `GET /v1/guide`、服务端已判定的片子脚手架与检索到的技术卡（`POST /v1/cards/search`），先把需求转化为可核验的 `predicates.extra` 断言（严禁削弱 `predicates.base` 的 `floor@1` 底线），再排定镜头表与文案，用 `PUT /v1/films/{id}/film`（`patch/0.1` 带 `rev`）提交。
+  - `shot-worker`（镜头工）：每个镜头启动全新独立会话（`freshSessionPerShot: true`），只允许修改本镜头 `shots/<shotId>/*` 的 `patch/0.1` 并执行草稿渲染与核验。起始上下文（`system` + 首条 `user` 任务书 + `HTTP_TOOL`）按 `measureStartContextTokens`（`ceil(utf8Bytes / 3.5)`）核验，硬上限 `SHOT_WORKER_MAX_START_TOKENS = 15,000`。
+  - `reviewer`（异族视觉审片人）：执行 L5 三视角 × 3 票审片，输出只做参考（`overridesHardGates: false`）。
+- **固定五段镜头工任务书（`buildShotWorkerBrief` / `buildShotWorkerMessages`）**：
+  - 按顺序固定输出五段标题：`## 1. 镜头条目`（紧凑单行镜头 JSON、帧区间 `[in, out)`、当前 `rev` 与 `shots/<shotId>/` 路径边界）、`## 2. 基础谓词`（`floor@1` 展开项与导演追加的 `predicates.extra`）、`## 3. 可用的卡`（已绑卡实例与候选卡摘要）、`## 4. 预算`（可用 `tokens`、`gpuSeconds`、`wallSeconds`、`maxSteps`）、`## 5. 汇报格式`（状态、修订号、草稿渲染与核验摘要、遗留问题）。
+  - 镜头条目先紧凑 JSON 序列化再按预算安全截断（不切出残缺 JSON）；`budget.tokens` 校验与 HTTP 契约一致（`0..1,200,000`）。当候选卡库或需求原文超长时，按三级确定性配置自动折叠非核心摘要，保证五段结构完整且起始上下文严格 `<= 15,000` token。委托编排器在镜头工首次未过触发重试前，会重新读取最新片子与镜头条目，使第二次任务书拿到最新 `rev` 与改动后的镜头 JSON；若最新修订已删除该镜头，则跳过该镜头并记入 `skippedRemovedShots`，不再回退旧镜头派工。
+- **委托片服务端确定性模板判定（`selectDelegateTemplate({ brief, assets })`）**：
+  - 零随机、零墙钟、零外部状态：当 `POST /v1/films` 指定 `mode: "delegate"` 且非考题片时，服务端忽略客户端传入的 `template`，按需求原文与资产引用确定性判出 `turntable` 或 `title` 及默认资产引用，并在工作区 `meta` 记录 `templateSelectedBy: "server"`（同时持久化单片 `budget` 供 L5 与交付查账）。
+- **L5 三视角九票审片规程（`L5_PERSPECTIVES`、`L5_ISSUE_KEYS`、`L5_GRADES`、`normalizeIssueKey`、`aggregateL5Votes`、`filterL5SuggestedPredicates`）**：
+  - 三个冻结视角：`composition-readability`（构图与可读）、`motion-rhythm`（动作与节奏）、`look-consistency`（质感与一致性），每个视角独立投 3 票，共 9 张选票；等级词固定为 `L5_GRADES = ['好', '一般', '差']`；每个视角冻结封闭 `L5_ISSUE_KEYS` 类别表，由 `normalizeIssueKey(rawKey, perspective)` 规范化并拒绝表外或跨视角键（如泛化键 `issue`）。
+  - **每票前可执行上界、原子预留与异常零丢账**：`createOpenAiVisionReviewer` 每次视觉请求显式带上 `max_tokens`（默认 `DEFAULT_REVIEW_MAX_OUTPUT_TOKENS = 1,024`，不超过剩余预算），发票前按文本字节、PNG 图像尺寸、输出上限与已观测高水位计算可执行保守上界（首票绝不为 `0`），并通过 `work.mjs` 按 `filmId` 维护进程内原子预留租约（同片并发 `review` / `deliver` 共享预留并在响应或异常 `finally` 时用实耗替换释放，服务端 `review` 落账后才释放租约）；`chat()` 先提取 `usage` 再校验 `choices[0].message`（坏信封亦附带已提取 `usage` 照常累加并写带 `film` 的外部账本），`budgetCheck()` 抛错时停票并保留已投有效票、累计 `usage` 与 `stoppedReason: 'budget.check-error'`。
+  - 含候选对比列表 `candidates` 时，`shuffleCandidatesForBallot` 按 `sha256(filmId:perspective:voteIndex:candidateId:idx)` 确定性打乱每票候选展示顺序，再汇总各候选等级词得票；拒绝重复 `(perspective, voteIndex)` 选票、候选目录重复 ID 与未知/重复候选评分。
+  - 每条意见必须含合法全片帧区间 `frames: [start, end]`（`0 <= start <= end < totalFrames`）、严重度、非空证据 `evidence`、非空意见 `comment` 与本视角封闭 `issueKey`。按 `(perspective, issueKey, 重叠或相邻帧段)` 做输入顺序无关的连通分量聚类，**得票数 `>= 2`（`quorum: 2`）才成立进入 `opinions`**；1 票孤立意见计入 `discardedOpinionCount`，表外或缺失 `issueKey` 的意见计入 `rejectedOpinions`，逐票明细保留在 `ballots`。当 `opinions` 为空但存在 `discardedOpinionCount > 0` 或 `rejectedOpinions.length > 0` 时，总评保守封顶为 `一般`（不落回 `好`），平票按 `差 > 一般 > 好` 取保守一档。
+  - 仅得票 `>= quorum` 的建议谓词经 `filterL5SuggestedPredicates` 逐条过 `checkExtra`、帧域/上下文作用域（无 `film` 时亦校验已知 `totalFrames` 并拒绝缺上下文的 `shot`/`event` 作用域）、`enforcePredicateFloor` 与与正式 `layerL1` 一致的考题基线分离 `checkL1`：通过 L1 的合法谓词记入 `suggestedPredicates` / `validatedExtraPredicates`（不会自动改写片子 `predicates.extra`），未登记谓词、越界帧域或削弱 `floor@1` 底线的建议谓词一律拦截在 `rejectedPredicates`。
+  - 所有公开导出函数在解构入参前执行零陷阱纯数据校验（拒绝 Proxy、getter/setter 访问器、稀疏/附键数组、非纯对象原型、循环引用、越界数值等），统一抛出 `code: 'usage.bad-argument'`。
+  - 改动后运行 `node --test beiming/api/a19-delegate-roles.test.mjs`。
