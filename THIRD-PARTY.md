@@ -88,6 +88,7 @@ B 路线调用的原生运行时 RAEA 以 FSL-1.1-ALv2 发布：每个版本发�
 | `tools/rtx/gpucheck.mjs` | WebGL 全屏三角形的编译与绑定写法改写自 `styles/urban-sketch/demo/engine.js` |
 
 - 其他来源：`engine/shade/noise.glsl.js` 的 toonHash33、toonHash13 公式取自 David Hoskins「Hash without Sine」（2014，MIT，<https://www.shadertoy.com/view/4djSRW>），版权与许可原文写在文件头。
+- 其他来源：`beiming/sources/core/shaders/microfacet.wgsl` 逐行移植自 Blender Cycles 内核（标签 `v5.2.3`，提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee`）的 `intern/cycles/kernel/closure/bsdf_microfacet.h` 与 `bsdf_util.h`（BSD-3-Clause，Copyright 2009-2010 Sony Pictures Imageworks Inc., et al.；2011-2022 Blender Foundation；改编自 Open Shading Language）。版权与许可写在文件头，许可全文 [LICENSES/BSD-3-Clause.txt](LICENSES/BSD-3-Clause.txt)。核对工具在编译时包含的 Cycles 源码不随本仓库分发。
 - 只借做法、没有搬代码（不列入上表）：`engine/core/stroke.js` 只借用了 perfect-freehand（Steve Ruiz，MIT）的参数约定和三条默认公式，文件头已注明；`engine/render/lib/lock.mjs`、`engine/render/lib/slots.mjs` 的输出锁与渲染槽位借鉴 lemo-opuscar `core/render/video.mjs`、`core/render/slot.mjs` 的做法，代码是独立实现。
 - 新增派生文件时在上表加一行；判定办法见 [docs/rights/licensing.md](docs/rights/licensing.md)。
 

@@ -15,10 +15,17 @@
   spotting   自动画面打点与空间轨迹提取：spot_from_kinematics（从页面遥测 kinematics.json 提取切点/静置段/动作峰与角色轨迹）与 spot_from_video（FFmpeg 管道流式 MP4 运动分析）
   editorial  智能剪辑、运动声像贴合与四干线混音工作台：过程/冲击时值精裁、连击 IOI 防疲劳编排、三维轨迹耦合、角色遥测绑定 bind_actor 与 FourStemWorkstation（兼容 ThreeStemWorkstation）
   director   导演声学谱与感知 HDR 混音层：听觉视角 POA、峰值前负空间抽空、分轨互补 EQ（sculpt_stem_eq）、对白共振峰零相位挖槽（carve_dialogue_pocket，保配乐 < 350 Hz 厚度）与 HDRMixer
-  sfx_judge  音效物理形态与取证判定（Stage 1，零训练 Timbre Toolbox 描述符：筛伪升频、削波、电源哼声、动作包络错配、
-             口技/合成器谐波污染，以及 >6 kHz 周期颗粒调制电嗡声 hf_envelope_buzz 与 4–16 kHz 窄带金属哨音尖刺 hf_whistle_db）
+  sfx_judge  音效物理形态与取证判定（Stage 1 + L3 纯 CPU 取证，零训练：筛伪升频、削波、电源哼声、动作包络错配、
+             口技/合成器谐波污染、hf_envelope_buzz / hf_whistle_db，以及 B1 数字咔嗒、B3 奈奎斯特折叠混叠、
+             B4 2–8 kHz 去包络峭度与不可翻转状态机 combine_physics_gate）
+  sync_kernel 纯 CPU 运动学对冲击同步核（替代 Synchformer：kinematics.json actor → screen.motion → ffmpeg 视频帧差 d1/d2+，
+             内置一拍二 12 Hz 零相移守卫 [0.25, 0.5, 0.25] 与 12 fps / 24 fps 分档门限）
   sfx_vocab  音效库检索词表与世界观三干线锁池（UCS v8.2.1 82 大类 / 753 子类 ucs_vocab.json、24 类复合配方、六种世界观加权与全片音效池规划）
-  music_gen  情绪导引乐谱与配乐生成管线：按镜头事件推导能量弧线（plan_sections_from_film）、确定性合成导引乐谱（build_guide_score）与 ACE-Step 1.5 Cover 生成缓存（python -m engine.audio.music_gen；tools/audio/music.mjs）
+  composer   通用算法电影作曲与零跑调导引合成内核：6 类风格原型（COMPOSER_STYLES）、功能/调式和声与终止式语法（plan_harmonic_arc）、
+             Viterbi 四声部最小运动连接（solve_voice_leading）、单主题动机变形发展（MotifEngine / compose_film_score）、
+             悬停泛音呼吸（Fermata Breath）+ 弱起引子（Anacrusis Pickup）、100% 440Hz 声学导引合成与标准 SMF Type-1 MIDI 导出（export_midi）
+  music_gen  情绪导引乐谱与配乐生成管线：按镜头事件推导能量弧线（plan_sections_from_film）、确定性合成导引乐谱（build_guide_score）、
+             零跑调锁相声码器 Cover 对齐（align_cover_pitch_locked）与 ACE-Step 1.5 / Suno v6 Cover 生成缓存（python -m engine.audio.music_gen；tools/audio/music.mjs）
   orchestra  编配：两层力度交叉淡化的长音、拨奏
   mixing     混音：时间轴摆放、镜头窗、让路、按目标响度定电平、SSL 总线粘合压缩与母带收口（master_chain）
   meter      测量：BS.1770 响度、真峰值、频段能量、起音、ffmpeg 旁证
@@ -26,7 +33,7 @@
   stream     长片：float32 稀疏总线（Bus.place 只写元素覆盖的那一段）、分段长底层、分块测量与跨块保状态流式粘合母带（stream.bus_glue_compress / stream.master_chain，十分钟混音峰值内存 < 1.0 GB）
   cues       节拍表与事件表（与 engine/core/tempo.js 同一公式）、起音登记 Onsets、页面遥测 Kinematics、按事件类型分派拟音
   filmspec   声音侧读 film.json（v1 / v2）与交付档位；event_times / shot_spans 给声音脚本取同源时间
-  qa         声音 QA 门（python -m engine.audio.qa；Node 入口 tools/audio/qa.mjs；film build 的 mix 步骤自动前置拦截）：含响度、真峰值、左右平衡、分轨掩蔽（music_dominance / music_buried）与对白清晰度（audio.dialogue），硬项不达标退出 4
+  qa         声音 QA 门（python -m engine.audio.qa；Node 入口 tools/audio/qa.mjs；film build 的 mix 步骤自动前置拦截）：含响度、真峰值、左右平衡、分轨掩蔽（music_dominance / music_buried）、对白清晰度（audio.dialogue）与可选纯 CPU 运动学音画同步（audio.sync），硬项不达标退出 4
   cuecheck   声画拍点核对（python -m engine.audio.cuecheck；tools/audio/cuecheck.mjs）：三条路线通用的事件表（页面导出的 events.json，
              或 film.json v2 的 events[].beat / audio，timeline 三种写法），超差退出 4
   scorecache 配乐缓存的输入键：乐谱、时长、采样清单变了就拒绝静默沿用旧配乐

@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "18-2-random-beats",
+  "questionId": "18-2",
+  "kind": "random-beats",
+  "disabledCards": [],
+  "seed": 20261123,
+  "description": "两次快速运镜不跟触发点走，换成固定种子取的两个随机拍点（两次互不重叠）。这个种子下起在第 262、499 帧。",
+  "perturbation": {
+    "moveTrigger": "random-beats"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "narration.timing",
+      "why": "两次运镜的起点离应起帧差 37 帧和 20 帧，容差是 1 帧"
+    }
+  ]
+}

@@ -1,30 +1,38 @@
 # -*- coding: utf-8 -*-
-"""北冥引擎 · 情绪导引乐谱与 ACE-Step 1.5 Cover 配乐生成（python -m engine.audio.music_gen，Node 入口 tools/audio/music.mjs）。
+"""北冥引擎 · 情绪导引乐谱与 ACE-Step 1.5 / Suno v6 Cover 配乐生成（python -m engine.audio.music_gen，Node 入口 tools/audio/music.mjs）。
 
-为什么采用「程序化导引轨（Guide Score）+ ACE-Step 1.5 Cover 模式」双层架构：
+为什么采用「程序化导引轨（Guide Score）+ Cover 模式（ACE-Step 1.5 / Suno v6）」双层架构：
   纯文生音乐（Text-to-Music）容易在中段断片或结尾提前塌陷；先依据 film.json 的镜头切点与事件帧合成一条精确对齐画面时间轴的
   48 kHz 立体声导引乐谱（guide.wav：大提琴/弦乐温暖和声铺底 + 锁拍竖琴分解琶音 + 切镜前呼吸渐强引子 + 终章高八度辉煌抬升），
-  再送入 ACE-Step 1.5 Cover 模式（task_type='cover', src_audio, audio_cover_strength），即可把和声换挡、切镜推浪、留白呼吸与终章高潮
-  牢牢锁死在影片的精确整数帧时间轴上，同时支持 --provider guide 纯本机确定性预演（动态预演与离线 CI 用）。
+  再送入 ACE-Step 1.5 Cover 模式（task_type='cover', src_audio, audio_cover_strength）或本地 Magpie Suno MCP（Suno v6 Cover），
+  即可把和声换挡、切镜推浪、留白呼吸与终章高潮牢牢锁死在影片的精确整数帧时间轴上，同时支持 --provider guide 纯本机确定性预演。
 
 公开接口：
   plan_sections_from_film(film_or_dir) -> dict
       读取 film.json（及可选 music.json / audio.music 配置），从镜头表与事件表推导叙事配乐分段：
       {'dur', 'fps', 'key', 'scale', 'bpm', 'sections': [{'id', 't0', 't1', 'energy', 'mood', 'chord_deg'}]}
-  build_guide_score(spec_or_sections, *, dur=None, fps=24, key='D', scale='major', bpm=96.0, sr=48000, seed=42) -> (guide_st, meta_dict)
-      确定性合成 48 kHz（或指定 sr）立体声导引配乐，峰值归一至 -3.0 dBFS，首尾严格归零无爆音，终章能量与织体显著高于开场
+  build_guide_score(spec_or_sections, *, dur=None, fps=24, key='D', scale='major', bpm=96.0, style=None,
+                    prompt='', world=None, events=None, midi_out=None, pad_tail_s=0.0, sr=48000, seed=42) -> (guide_st, meta_dict)
+      调用 engine.audio.composer（功能/调式和声 + Viterbi 四声部最小运动连接 + 单一 4–6 音核心动机变形 + 挂留呼吸与弱起引子）
+      确定性合成 100% 440Hz 标准音高立体声导引配乐（及可选 SMF Type-1 .mid），峰值归一至 -3.0 dBFS，首尾严格归零无爆音
+  align_cover_pitch_locked(cover_st, guide_st, *, sr=48000, max_shift_ms=140.0, allow_uniform_stretch=True, max_stretch_pct=2.5) -> (aligned_st, info_dict)
+      零跑调（0.0 cents）Cover 拍点对齐：严禁非保调变速重采样，仅做样本级恒定偏移校正或立体声锁相 STFT 相位声码器均匀微伸缩
   generate_cover(guide_wav_or_arr, *, prompt, lyrics='[inst]', dur=None, endpoint=None, ssh_host=None, remote_port=8001,
-                 cover_strength=0.45, steps=8, guidance_scale=4.5, seed=42, provider='acestep', cache_dir=None,
-                 out_wav=None, offline=False, timeout_s=300.0, sr=48000) -> dict
-      调用 ACE-Step 1.5 HTTP API（支持本地/远端 URL 或免密 SSH 临时端口转发，try/finally 零残留清理）或 guide 离线确定性模式，
-      按输入键 sha256 读写磁盘缓存，重采样至精确 N(dur) 立体声样本（15 ms 淡入 / 120 ms 淡出，PCM_24），并附带 D11 AIGC 标识元数据
+                 cover_strength=0.45, steps=8, guidance_scale=4.5, seed=42, provider='acestep', model='v6',
+                 negative_style=None, prefer_wav_download=False, align_guide=True, pad_tail_s=0.0,
+                 cache_dir=None, out_wav=None, offline=False, timeout_s=300.0, sr=48000) -> dict
+      调用 ACE-Step 1.5 HTTP API、本地 Magpie Suno MCP（Suno v6 Cover）或 guide 离线确定性模式，
+      按输入键 sha256 读写磁盘缓存，零跑调对齐并精裁至精确 N(dur) 立体声样本（15 ms 淡入 / 120 ms 淡出，PCM_24），附带 D11 AIGC 标识元数据
+  probe_endpoint(*, endpoint=None, ssh_host=None, remote_port=8001, provider='acestep', timeout_s=10.0) -> dict
+      探测 ACE-Step 1.5 HTTP 服务或 Suno MCP（initialize + account-usage）连通性与配额
 
 命令行：
   python -m engine.audio.music_gen guide [film] [--out <guide.wav>] [--key D] [--scale major] [--bpm 96] [--seed 42]
   python -m engine.audio.music_gen build [film] [--prompt <str>] [--lyrics <str>] [--guide <wav>] [--out <music.wav>]
-      [--cache <dir>] [--provider acestep|guide] [--endpoint <url>] [--ssh <ssh-alias>] [--remote-port 8001]
-      [--cover-strength 0.45] [--steps 8] [--guidance-scale 4.5] [--seed 42] [--timeout 300] [--offline]
-  python -m engine.audio.music_gen probe [--endpoint <url>] [--ssh <ssh-alias>] [--remote-port 8001] [--timeout 10]
+      [--cache <dir>] [--provider acestep|suno|guide] [--model v6] [--negative-style <str>] [--endpoint <url>]
+      [--ssh <ssh-alias>] [--remote-port 8001] [--cover-strength 0.45] [--steps 8] [--guidance-scale 4.5]
+      [--seed 42] [--timeout 300] [--offline]
+  python -m engine.audio.music_gen probe [--provider acestep|suno] [--endpoint <url>] [--ssh <ssh-alias>] [--remote-port 8001] [--timeout 10]
 """
 from __future__ import annotations
 
@@ -51,30 +59,47 @@ import soxr
 
 from ._cli import ArgumentParser, CliError, rel, run, sha256_file
 from . import _env
-from .dsp import SR, fade, make_ir, pan_lr, rng, smoothstep, undb
+from . import composer as COMP
+from .dsp import SR, fade, rng, undb
 from . import filmspec as FS
 from .meter import integrated
 
 __all__ = [
     'SCALES',
     'NOTE_OFFSETS',
+    'COMPOSER_STYLES',
+    'DEFAULT_SUNO_MCP_URL',
     'AIGC_ACESTEP',
+    'AIGC_SUNO',
     'AIGC_GUIDE',
     'plan_sections_from_film',
     'build_guide_score',
+    'align_cover_pitch_locked',
     'generate_cover',
     'probe_endpoint',
     'make_parser',
     'main',
 ]
 
+COMPOSER_STYLES = COMP.COMPOSER_STYLES
+
 CACHE_SCHEMA = 'beiming.music-cache/1'
+
+DEFAULT_SUNO_MCP_URL = 'http://127.0.0.1:3425/mcp/suno'
+SUNO_MCP_USER_AGENT = 'beiming-music-gen/1.0'
 
 AIGC_ACESTEP = {
     'contains': True,
     'kinds': ['music'],
     'tools': ['ACE-Step-1.5'],
     'note': '配乐由 ACE-Step 1.5 Cover 模式依据程序化导引轨生成',
+}
+
+AIGC_SUNO = {
+    'contains': True,
+    'kinds': ['music'],
+    'tools': ['Suno'],
+    'note': '配乐由 Suno Cover 模式依据程序化导引轨生成',
 }
 
 AIGC_GUIDE = {
@@ -470,7 +495,7 @@ def plan_sections_from_film(film_or_dir) -> dict:
 
     sections[0]['t0'] = 0.0
     sections[-1]['t1'] = dur
-    return {
+    out_plan = {
         'dur': dur,
         'fps': fps,
         'key': key,
@@ -478,85 +503,11 @@ def plan_sections_from_film(film_or_dir) -> dict:
         'bpm': bpm,
         'sections': sections,
     }
-
-
-def _synth_warm_pad_voice(freq_hz: float, n: int, sr: int, r: np.random.Generator,
-                          bright: float = 0.5, vibrato: float = 0.0) -> np.ndarray:
-    """合成温暖饱满的立体声弓弦/大提琴铺底单音（双声道微失谐合唱，保证高单声道相关性且无相位抵消）。"""
-    if n <= 0 or freq_hz <= 20.0 or freq_hz >= 0.44 * sr:
-        return np.zeros((max(0, n), 2), dtype=np.float64)
-    t = np.arange(n, dtype=np.float64) / float(sr)
-    vib = vibrato * np.sin(2.0 * math.pi * 5.2 * t + float(r.uniform(0.0, 2.0 * math.pi))) if vibrato > 0 else 0.0
-    left = np.zeros(n, dtype=np.float64)
-    right = np.zeros(n, dtype=np.float64)
-    tilt = 1.32 - 0.42 * float(np.clip(bright, 0.0, 1.0))
-    max_h = 10 if bright >= 0.65 else 7
-    for k in range(1, max_h + 1):
-        fk = freq_hz * k
-        if fk >= 0.43 * sr:
-            break
-        amp = (1.0 / (k ** tilt)) * (1.18 if k in (2, 3) else 1.0)
-        det = 0.0016 * (1.0 + 0.15 * k)
-        ph_l = float(r.uniform(0.0, 2.0 * math.pi))
-        ph_r = ph_l + float(r.uniform(-0.22, 0.22))
-        if vibrato > 0:
-            inst_l = fk * (1.0 - det + vib)
-            inst_r = fk * (1.0 + det + vib)
-            left += amp * np.sin(2.0 * math.pi * np.cumsum(inst_l) / float(sr) + ph_l)
-            right += amp * np.sin(2.0 * math.pi * np.cumsum(inst_r) / float(sr) + ph_r)
-        else:
-            left += amp * np.sin(2.0 * math.pi * (fk * (1.0 - det)) * t + ph_l)
-            right += amp * np.sin(2.0 * math.pi * (fk * (1.0 + det)) * t + ph_r)
-    cutoff = min(0.42 * sr, 880.0 + 3600.0 * (float(np.clip(bright, 0.0, 1.0)) ** 1.25))
-    sos = butter(2, cutoff, 'low', fs=float(sr), output='sos')
-    st = np.stack([left, right], axis=1)
-    return sosfilt(sos, st, axis=0) * 0.42
-
-
-def _synth_pluck_note(freq_hz: float, dur_s: float, sr: int, r: np.random.Generator,
-                      vel: float = 0.7, sparkle: float = 0.0) -> np.ndarray:
-    """合成音乐会竖琴/拨弦脉冲音粒（高次谐波先衰减，圆润无毛刺）。"""
-    n = max(16, int(round(dur_s * sr)))
-    if freq_hz <= 25.0 or freq_hz >= 0.44 * sr:
-        return np.zeros(n, dtype=np.float64)
-    t = np.arange(n, dtype=np.float64) / float(sr)
-    atk = smoothstep(0.0, min(0.0022, 0.15 * dur_s), t)
-    rel_tail = 1.0 - smoothstep(max(0.0, dur_s - 0.025), dur_s, t)
-    out = np.zeros(n, dtype=np.float64)
-    base_tau = max(0.09, min(1.25, dur_s * 0.72))
-    n_harm = 7 if sparkle > 0.25 else 5
-    for k in range(1, n_harm + 1):
-        fk = freq_hz * k
-        if fk >= 0.43 * sr:
-            break
-        tau_k = base_tau / (1.0 + 0.55 * (k - 1))
-        amp_k = (vel ** (1.0 + 0.15 * (k - 1))) / (k ** (1.08 - 0.22 * sparkle))
-        ph = float(r.uniform(0.0, 0.35))
-        out += amp_k * np.exp(-t / tau_k) * np.sin(2.0 * math.pi * fk * t + ph)
-    if sparkle > 0.35 and freq_hz * 2.0 < 0.42 * sr:
-        # 高潮段叠加清透钢片琴/竖琴八度泛音星芒
-        out += 0.22 * sparkle * vel * np.exp(-t / (0.35 * base_tau)) * np.sin(2.0 * math.pi * (freq_hz * 2.0) * t)
-    return out * atk * rel_tail * 0.38
-
-
-def _place_stereo(buf: np.ndarray, sig: np.ndarray, start_idx: int, gain: float = 1.0, pan: float = 0.0) -> None:
-    if len(sig) == 0 or start_idx >= len(buf) or start_idx + len(sig) <= 0:
-        return
-    s0 = start_idx
-    x = sig
-    if s0 < 0:
-        x = x[-s0:]
-        s0 = 0
-    e0 = min(len(buf), s0 + len(x))
-    if e0 <= s0:
-        return
-    seg = x[:e0 - s0]
-    if seg.ndim == 1:
-        gl, gr = pan_lr(float(np.clip(pan, -0.45, 0.45)))
-        buf[s0:e0, 0] += seg * (gain * gl)
-        buf[s0:e0, 1] += seg * (gain * gr)
-    else:
-        buf[s0:e0] += seg * gain
+    if ev_times:
+        out_plan['events'] = ev_times
+    if mcfg.get('style'):
+        out_plan['style'] = str(mcfg['style'])
+    return out_plan
 
 
 def build_guide_score(
@@ -567,13 +518,25 @@ def build_guide_score(
     key: str = 'D',
     scale: str = 'major',
     bpm: float = 96.0,
+    style: str = None,
+    prompt: str = '',
+    world: str = None,
+    events: list = None,
+    midi_out: str = None,
+    pad_tail_s: float = 0.0,
     sr: int = 48000,
     seed: int = 42,
 ) -> tuple[np.ndarray, dict]:
-    """确定性合成 48 kHz（或指定 sr）立体声情绪导引乐谱，峰值归一至 -3.0 dBFS，首尾归零无爆音。"""
+    """基于通用算法作曲引擎（engine.audio.composer）合成 100% 标准音高立体声情绪导引乐谱（及可选标准 MIDI）。"""
     sr_out = int(sr)
     if sr_out < 8000:
         raise CliError('usage.bad-value', f'采样率 sr 过低：{sr_out}')
+    if style is not None and str(style).strip() and str(style).strip() not in COMP.COMPOSER_STYLES:
+        raise CliError(
+            'usage.bad-value',
+            f'不认识的作曲风格 {style!r}',
+            hint=f'可选：{" / ".join(COMP.COMPOSER_STYLES)}',
+        )
 
     if isinstance(spec_or_sections, (str, os.PathLike)):
         plan = plan_sections_from_film(spec_or_sections)
@@ -597,230 +560,42 @@ def build_guide_score(
     if eff_dur <= 0.0:
         raise CliError('usage.bad-value', f'导引轨时长必须大于 0，收到 {eff_dur!r}')
 
-    if not raw_secs:
-        raw_secs = [{
-            'id': 'S1_intro', 't0': 0.0, 't1': 0.45 * eff_dur, 'energy': 0.35,
-            'mood': 'establishing', 'chord_deg': _progression_for('establishing', eff_scale),
-        }, {
-            'id': 'S2_finale', 't0': 0.45 * eff_dur, 't1': eff_dur, 'energy': 0.92,
-            'mood': 'climax', 'chord_deg': _progression_for('climax', eff_scale),
-        }]
+    eff_style = (
+        str(style).strip()
+        if (style and str(style).strip())
+        else (plan.get('style') if plan.get('style') in COMP.COMPOSER_STYLES else None)
+    )
+    score = COMP.compose_film_score(
+        plan,
+        dur=eff_dur,
+        fps=eff_fps,
+        key=eff_key,
+        scale=eff_scale,
+        bpm=eff_bpm,
+        style=eff_style,
+        prompt=prompt or str(plan.get('prompt') or ''),
+        world=world or plan.get('world'),
+        events=events if events is not None else plan.get('events'),
+        seed=int(seed),
+    )
 
-    # 归一化分段边界以覆盖完整 [0, eff_dur]，绝不留静音断档
-    secs = []
-    for idx, s in enumerate(raw_secs):
-        t0 = float(s.get('t0', 0.0 if idx == 0 else secs[-1]['t1']))
-        t1 = float(s.get('t1', eff_dur))
-        t0 = max(0.0, min(eff_dur, t0))
-        t1 = max(t0, min(eff_dur, t1))
-        if t1 <= t0 + 1e-6:
-            continue
-        mood = str(s.get('mood') or 'development')
-        degs = [int(d) for d in (s.get('chord_deg') or _progression_for(mood, eff_scale))]
-        secs.append({
-            'id': str(s.get('id') or f'sec_{idx + 1}'),
-            't0': t0,
-            't1': t1,
-            'energy': float(np.clip(s.get('energy', 0.55), 0.15, 1.0)),
-            'mood': mood,
-            'chord_deg': degs or [1, 5],
-        })
-    if not secs:
-        secs = [{
-            'id': 'S1', 't0': 0.0, 't1': eff_dur, 'energy': 0.65,
-            'mood': 'development', 'chord_deg': _progression_for('development', eff_scale),
-        }]
-    secs[0]['t0'] = 0.0
-    for i in range(len(secs) - 1):
-        secs[i]['t1'] = secs[i + 1]['t0']
-    secs[-1]['t1'] = eff_dur
+    guide_st = COMP.render_score_wav(
+        score,
+        sr=sr_out,
+        pad_tail_s=max(0.0, float(pad_tail_s)),
+        peak_dbfs=-3.0,
+        seed=int(seed),
+    )
 
-    # 内部统一按 48 kHz 高精度合成，若调用方要求其它采样率最后用 soxr 精确转换
-    synth_sr = SR
-    n_synth = max(2, int(round(eff_dur * synth_sr)))
-    r = rng(int(seed))
-    root_semi = NOTE_OFFSETS[eff_key.upper()]
-    scale_iv = SCALES[eff_scale]
-    spb = 60.0 / max(20.0, eff_bpm)
+    midi_path_out = None
+    if midi_out:
+        midi_path_out = COMP.export_midi(score, str(midi_out))
 
-    pad_bus = np.zeros((n_synth, 2), dtype=np.float64)
-    arp_bus = np.zeros((n_synth, 2), dtype=np.float64)
-    riser_bus = np.zeros((n_synth, 2), dtype=np.float64)
-
-    for s_idx, sec in enumerate(secs):
-        t0, t1 = sec['t0'], sec['t1']
-        sec_dur = t1 - t0
-        energy = sec['energy']
-        degs = sec['chord_deg']
-        is_high = energy >= 0.75
-        is_breath = sec['mood'] == 'suspension' or energy < 0.45
-
-        # 分段宏观振幅曲线：保证高能量终章相比低能量开场拥有显著的动态与织体抬升（+6~+9 dB）
-        sec_amp = 0.17 + 0.83 * (energy ** 1.50)
-
-        # 将本段按拍长切分为和弦槽位（每槽约 2 拍，短段至少走完核心和弦）
-        target_slot = max(0.45, 2.0 * spb)
-        n_slots = max(1, min(max(len(degs), int(round(sec_dur / target_slot))), max(1, int(sec_dur / 0.30))))
-        slot_dur = sec_dur / float(n_slots)
-
-        for k_slot in range(n_slots):
-            ct0 = t0 + k_slot * slot_dur
-            ct1 = t0 + (k_slot + 1) * slot_dur
-            deg = degs[k_slot % len(degs)]
-
-            # 跨和弦与跨段落重叠余韵（消除一切切点硬断或中段死寂）
-            ov_in = 0.0 if (s_idx == 0 and k_slot == 0) else min(0.28, 0.35 * slot_dur)
-            ov_out = 0.0 if (s_idx == len(secs) - 1 and k_slot == n_slots - 1) else min(0.34, 0.42 * slot_dur)
-            wt0 = max(0.0, ct0 - ov_in)
-            wt1 = min(eff_dur, ct1 + ov_out)
-            i0 = int(round(wt0 * synth_sr))
-            i1 = min(n_synth, int(round(wt1 * synth_sr)))
-            m = i1 - i0
-            if m <= 16:
-                continue
-
-            tw = np.arange(m, dtype=np.float64) / float(synth_sr)
-            w_dur = m / float(synth_sr)
-            atk_s = 0.025 if (s_idx == 0 and k_slot == 0) else max(0.05, ov_in + 0.08)
-            rel_s = 0.05 if (s_idx == len(secs) - 1 and k_slot == n_slots - 1) else max(0.06, ov_out + 0.08)
-            env = smoothstep(0.0, min(atk_s, 0.48 * w_dur), tw) * (1.0 - smoothstep(max(0.0, w_dur - rel_s), w_dur, tw))
-
-            # 和弦声部构建：低音大提琴根音 + 中提琴五音 + 三音和声（呼吸段改挂留二度/四度保温暖悬停）
-            m_root_bass = _degree_midi(root_semi, scale_iv, deg, base_octave=2)
-            m_root_mid = _degree_midi(root_semi, scale_iv, deg, base_octave=3)
-            m_fifth = _degree_midi(root_semi, scale_iv, deg + 4, base_octave=3)
-            m_color = _degree_midi(root_semi, scale_iv, deg + (1 if sec['mood'] == 'suspension' else 2), base_octave=4)
-
-            chord_st = np.zeros((m, 2), dtype=np.float64)
-            bass_gain = 0.52 if sec['mood'] == 'suspension' else (0.85 + 0.30 * energy)
-            chord_st += _synth_warm_pad_voice(_midi_to_hz(m_root_bass), m, synth_sr, r, bright=0.35 * energy) * bass_gain
-            chord_st += _synth_warm_pad_voice(_midi_to_hz(m_root_mid), m, synth_sr, r, bright=0.55 * energy) * 0.78
-            chord_st += _synth_warm_pad_voice(_midi_to_hz(m_fifth), m, synth_sr, r, bright=0.65 * energy) * 0.66
-            chord_st += _synth_warm_pad_voice(
-                _midi_to_hz(m_color), m, synth_sr, r,
-                bright=0.75 * energy, vibrato=0.0025 if energy >= 0.5 else 0.0,
-            ) * 0.56
-
-            # 高能量终章（>= 0.75）：叠加辉煌高八度主音弦乐歌唱声部 + 高五度圆号/小提琴泛音抬升！
-            if is_high:
-                m_oct_hi = _degree_midi(root_semi, scale_iv, deg, base_octave=5)
-                m_fifth_hi = _degree_midi(root_semi, scale_iv, deg + 4, base_octave=4)
-                m_ninth_hi = _degree_midi(root_semi, scale_iv, deg + 1, base_octave=5)
-                # 终章内部渐次攀升推力
-                slot_lift = 1.0 + 0.18 * (k_slot / float(max(1, n_slots - 1)))
-                chord_st += _synth_warm_pad_voice(
-                    _midi_to_hz(m_oct_hi), m, synth_sr, r, bright=0.95, vibrato=0.0038,
-                ) * (0.76 * slot_lift)
-                chord_st += _synth_warm_pad_voice(
-                    _midi_to_hz(m_fifth_hi), m, synth_sr, r, bright=0.88, vibrato=0.0028,
-                ) * (0.64 * slot_lift)
-                chord_st += _synth_warm_pad_voice(
-                    _midi_to_hz(m_ninth_hi), m, synth_sr, r, bright=0.85,
-                ) * 0.34
-                sec_slot_amp = sec_amp * slot_lift
-            else:
-                sec_slot_amp = sec_amp
-
-            pad_bus[i0:i1] += chord_st * (env[:, None] * sec_slot_amp)
-
-            # 锁拍琶音脉冲（Arpeggio / Pluck Pulse）：细分密度与力度严格跟随段落 energy
-            subdiv = 4 if is_high else (1 if is_breath else 2)
-            step_s = spb / float(subdiv)
-            arp_degs = (
-                [deg, deg + 2, deg + 4, deg + 7, deg + 9, deg + 11, deg + 9, deg + 7]
-                if is_high
-                else ([deg, deg + 4, deg + 7, deg + 4] if not is_breath else [deg + 4, deg + 7])
-            )
-            # 对齐到全局节拍网格
-            first_step = int(math.ceil((ct0 - 1e-6) / step_s))
-            last_step = int(math.floor((ct1 - 1e-6) / step_s))
-            for st_i in range(first_step, last_step + 1):
-                bt = st_i * step_s
-                if bt < ct0 - 1e-6 or bt >= ct1 - 1e-6:
-                    continue
-                a_deg = arp_degs[st_i % len(arp_degs)]
-                oct_b = 4 if (is_high and (st_i % 4 >= 2)) else 3
-                hz = _midi_to_hz(_degree_midi(root_semi, scale_iv, a_deg, base_octave=oct_b))
-                accent = 1.15 if (st_i % subdiv == 0) else 0.82
-                vel = float(np.clip((0.36 + 0.56 * energy) * accent, 0.20, 0.98))
-                ring_s = min(eff_dur - bt, step_s * (2.4 if is_breath else 1.85))
-                if ring_s <= 0.02:
-                    continue
-                plk = _synth_pluck_note(hz, ring_s, synth_sr, r, vel=vel, sparkle=max(0.0, energy - 0.45))
-                pan_pos = 0.22 * math.sin(0.85 * st_i)
-                _place_stereo(arp_bus, plk, int(round(bt * synth_sr)), gain=sec_amp * 0.88, pan=pan_pos)
-
-                # 高潮段正拍叠加温暖定音鼓/低音大提琴拨奏根音重拍锁定节拍锚点
-                if is_high and (st_i % subdiv == 0):
-                    low_hz = _midi_to_hz(_degree_midi(root_semi, scale_iv, deg, base_octave=2))
-                    low_hit = _synth_pluck_note(low_hz, min(eff_dur - bt, spb * 0.95), synth_sr, r, vel=0.90, sparkle=0.0)
-                    _place_stereo(arp_bus, low_hit, int(round(bt * synth_sr)), gain=sec_amp * 0.72, pan=0.0)
-
-        # 切镜前预示推浪与呼吸引子（Pre-Cut Anticipatory Riser / Pickup Swell）
-        if s_idx > 0:
-            prev_e = secs[s_idx - 1]['energy']
-            delta_e = energy - prev_e
-            lead_s = min(0.55, 0.45 * (secs[s_idx - 1]['t1'] - secs[s_idx - 1]['t0']), t0)
-            if lead_s >= 0.14 and delta_e > 0.05:
-                r_n = int(round(lead_s * synth_sr))
-                r_i0 = max(0, int(round(t0 * synth_sr)) - r_n)
-                r_m = int(round(t0 * synth_sr)) - r_i0
-                if r_m > 16:
-                    u_r = np.linspace(0.0, 1.0, r_m, dtype=np.float64)
-                    swell_env = (u_r ** 2.1) * (1.0 - smoothstep(0.92, 1.0, u_r) * 0.25)
-                    # 上行竖琴刮奏（Pickup Glissando）+ 柔和铜管/吊镲气息渐强
-                    gliss_steps = 6 if delta_e >= 0.25 else 4
-                    target_deg = degs[0]
-                    for g_k in range(gliss_steps):
-                        gt = (t0 - lead_s) + g_k * (0.85 * lead_s / gliss_steps)
-                        g_hz = _midi_to_hz(_degree_midi(root_semi, scale_iv, target_deg - gliss_steps + g_k + 1, base_octave=4))
-                        g_note = _synth_pluck_note(g_hz, min(eff_dur - gt, 0.55), synth_sr, r, vel=0.45 + 0.08 * g_k, sparkle=0.5)
-                        _place_stereo(riser_bus, g_note, int(round(gt * synth_sr)), gain=0.42 + 0.45 * max(0.0, delta_e), pan=-0.20 + 0.08 * g_k)
-                    shimmer_noise = r.standard_normal(r_m)
-                    sos_bp = butter(2, [1200.0, 6800.0], 'band', fs=float(synth_sr), output='sos')
-                    shimmer = sosfilt(sos_bp, shimmer_noise) * swell_env * (0.045 + 0.075 * max(0.0, delta_e))
-                    _place_stereo(riser_bus, shimmer, r_i0, gain=1.0, pan=0.08)
-
-    dry_mix = pad_bus + arp_bus + riser_bus
-
-    # 温暖音乐厅早期反射与混响融合（高通 150 Hz 保持低频紧致，绝不糊低频，截断到精确样本数）
-    ir = make_ir(rt=1.55, pre=0.018, er=8, seed=int(seed) + 7, length=1.8)
-    src_hp = sosfilt(butter(2, 150.0, 'high', fs=float(synth_sr), output='sos'), dry_mix, axis=0)
-    wet_l = fftconvolve(0.75 * src_hp[:, 0] + 0.25 * src_hp[:, 1], ir[:, 0])[:n_synth]
-    wet_r = fftconvolve(0.75 * src_hp[:, 1] + 0.25 * src_hp[:, 0], ir[:, 1])[:n_synth]
-    guide_st = dry_mix + 0.24 * np.stack([wet_l, wet_r], axis=1)
-
-    # 清理次声波与直流分量
-    guide_st = sosfilt(butter(2, 30.0, 'high', fs=float(synth_sr), output='sos'), guide_st, axis=0)
-    guide_st = guide_st - np.mean(guide_st, axis=0, keepdims=True)
-
-    n_out = max(2, int(round(eff_dur * sr_out)))
-    if sr_out != synth_sr:
-        guide_st = soxr.resample(guide_st, synth_sr, sr_out)
-        if len(guide_st) < n_out:
-            guide_st = np.vstack([guide_st, np.zeros((n_out - len(guide_st), 2), dtype=np.float64)])
-        else:
-            guide_st = guide_st[:n_out].copy()
-
-    # 首尾平滑淡入淡出（10 ms 淡入 / 75 ms 淡出）并峰值归一至 -3.0 dBFS
-    fin_s = min(0.010, 0.15 * eff_dur)
-    fout_s = min(0.075, 0.20 * eff_dur)
-    guide_st = fade(guide_st, fin=fin_s, fout=fout_s)
-    guide_st[0] = 0.0
-    guide_st[-1] = 0.0
-
-    target_peak = float(undb(-3.0))
-    cur_peak = float(np.max(np.abs(guide_st)))
-    if cur_peak > 1e-12:
-        guide_st = guide_st * (target_peak / cur_peak)
-    guide_st = np.nan_to_num(guide_st, nan=0.0, posinf=0.0, neginf=0.0)
-    guide_st[0] = 0.0
-    guide_st[-1] = 0.0
-
+    n_film = max(2, int(round(eff_dur * sr_out)))
     sec_metrics = []
-    for sec in secs:
-        a = max(0, min(n_out, int(round(sec['t0'] * sr_out))))
-        b = max(a + 1, min(n_out, int(round(sec['t1'] * sr_out))))
+    for sec in score['sections']:
+        a = max(0, min(n_film, int(round(sec['t0'] * sr_out))))
+        b = max(a + 1, min(n_film, int(round(sec['t1'] * sr_out))))
         seg_rms = float(np.sqrt(np.mean(guide_st[a:b] ** 2) + 1e-24))
         sec_metrics.append({
             'id': sec['id'],
@@ -838,18 +613,327 @@ def build_guide_score(
 
     meta = {
         'dur': eff_dur,
+        'pad_tail_s': round(max(0.0, float(pad_tail_s)), 4),
         'fps': eff_fps,
         'sr': sr_out,
-        'samples': n_out,
+        'samples': len(guide_st),
         'key': eff_key,
         'scale': eff_scale,
         'bpm': eff_bpm,
+        'style': score['style'],
         'seed': int(seed),
         'peak_dbfs': round(final_peak_db, 2),
         'lufs': round(float(lufs_val), 2) if math.isfinite(lufs_val) else None,
+        'motif': {
+            'archetype': score['motif']['archetype'],
+            'degrees': list(score['motif']['degrees']),
+            'intervals': list(score['motif']['intervals']),
+        },
+        'voice_leading': score['voice_leading'],
         'sections': sec_metrics,
     }
+    if midi_path_out:
+        meta['midi_path'] = rel(midi_path_out)
     return guide_st, meta
+
+
+def _onset_flux_envelope(st: np.ndarray, sr: int, hop: int) -> np.ndarray:
+    """提取双频带（低频节拍底盘 + 中高频起音瞬态）半波整流能量斜率包络，用于 Cover 与导引轨拍点互相关对齐。"""
+    mono = np.mean(np.asarray(st, dtype=np.float64), axis=1) if st.ndim == 2 else np.asarray(st, dtype=np.float64)
+    if len(mono) < hop * 4:
+        return np.zeros(1, dtype=np.float64)
+    lo = sosfilt(butter(2, [55.0, min(750.0, 0.40 * sr)], 'band', fs=float(sr), output='sos'), mono)
+    hi = sosfilt(butter(2, [750.0, min(8500.0, 0.44 * sr)], 'band', fs=float(sr), output='sos'), mono)
+
+    win = 2 * hop
+    m = max(1, (len(mono) - win) // hop + 1)
+    cs_lo = np.concatenate([[0.0], np.cumsum(lo * lo)])
+    cs_hi = np.concatenate([[0.0], np.cumsum(hi * hi)])
+    idx = np.arange(m) * hop
+    e_lo = np.log1p(30.0 * np.maximum(0.0, cs_lo[idx + win] - cs_lo[idx]) / float(win))
+    e_hi = np.log1p(45.0 * np.maximum(0.0, cs_hi[idx + win] - cs_hi[idx]) / float(win))
+    flux = 0.45 * np.maximum(0.0, np.diff(e_lo, prepend=e_lo[0])) + 0.55 * np.maximum(0.0, np.diff(e_hi, prepend=e_hi[0]))
+    if len(flux) >= 3:
+        flux = np.convolve(flux, np.array([0.25, 0.50, 0.25], dtype=np.float64), mode='same')
+    return flux
+
+
+def _phase_vocoder_pitch_locked_stereo(st: np.ndarray, stretch_ratio: float, sr: int) -> np.ndarray:
+    """Laroche-Dolson 立体声身份锁相（Identity Phase-Locked）STFT 相位声码器 + 新生瞬态相位重置。
+
+    硬保证：
+      · 严格在频域按合成步长重排时间轴，绝不调用任何非保调时域重采样（基频偏移 0.00 cents！）；
+      · 局部谱峰邻域整体共享同一复数旋转因子，左右声道同步旋转以 100% 保持立体声声像相位差与电平比；
+      · 仅对通量突增的新生瞬态频点重置相位凝聚度，持续乐音基频连续锁相零跳变。
+    """
+    x = np.asarray(st, dtype=np.float64)
+    n_in = len(x)
+    if n_in <= 4 or abs(float(stretch_ratio) - 1.0) < 1e-6:
+        return x.copy()
+
+    n_out = max(2, int(round(n_in * float(stretch_ratio))))
+    n_fft = 4096 if sr >= 32000 else 2048
+    if n_in < n_fft:
+        n_fft = max(256, 1 << int(math.floor(math.log2(max(256, n_in)))))
+    hop_s = n_fft // 8
+    hop_a = hop_s / float(stretch_ratio)
+    win = np.hanning(n_fft + 1)[:-1]
+
+    pad = n_fft
+    x_pad = np.zeros((n_in + 2 * pad, 2), dtype=np.float64)
+    x_pad[pad:pad + n_in] = x
+
+    y_len = n_out + 2 * pad + n_fft
+    y_pad = np.zeros((y_len, 2), dtype=np.float64)
+    w_sum = np.zeros(y_len, dtype=np.float64)
+
+    n_bins = n_fft // 2 + 1
+    omega_bin = (2.0 * math.pi * np.arange(n_bins, dtype=np.float64)) / float(n_fft)
+    bin_idx = np.arange(n_bins, dtype=np.int32)
+
+    n_frames = int(math.ceil((n_out + pad) / float(hop_s))) + 1
+    max_pos_a = len(x_pad) - n_fft
+
+    prev_phi_l = np.zeros(n_bins, dtype=np.float64)
+    psi_l = np.zeros(n_bins, dtype=np.float64)
+    prev_mag = np.zeros(n_bins, dtype=np.float64)
+    prev_pos_a = 0
+
+    for m in range(n_frames):
+        pos_s = m * hop_s
+        if pos_s + n_fft > y_len:
+            break
+        pos_a = min(max_pos_a, max(0, int(round(m * hop_a))))
+        seg_l = x_pad[pos_a:pos_a + n_fft, 0] * win
+        seg_r = x_pad[pos_a:pos_a + n_fft, 1] * win
+        X_l = np.fft.rfft(seg_l)
+        X_r = np.fft.rfft(seg_r)
+        phi_l = np.angle(X_l)
+        mag = np.hypot(np.abs(X_l), np.abs(X_r))
+
+        if m == 0:
+            Y_l, Y_r = X_l, X_r
+            psi_l = phi_l.copy()
+        else:
+            d_a = pos_a - prev_pos_a
+            if d_a > 0:
+                dp = (phi_l - prev_phi_l) - omega_bin * d_a
+                dp = (dp + math.pi) % (2.0 * math.pi) - math.pi
+                omega_inst = omega_bin + dp / float(d_a)
+            else:
+                omega_inst = omega_bin
+
+            is_pk = np.zeros(n_bins, dtype=bool)
+            is_pk[1:-1] = (mag[1:-1] >= mag[:-2]) & (mag[1:-1] >= mag[2:])
+            is_pk[0] = mag[0] >= mag[1]
+            is_pk[-1] = mag[-1] >= mag[-2]
+            pk_indices = np.flatnonzero(is_pk)
+            if len(pk_indices) == 0:
+                pk_indices = np.array([0], dtype=np.int32)
+
+            if len(pk_indices) == 1:
+                nearest_pk = np.full(n_bins, pk_indices[0], dtype=np.int32)
+            else:
+                mids = (pk_indices[:-1] + pk_indices[1:]) // 2
+                region = np.searchsorted(mids, bin_idx, side='right')
+                nearest_pk = pk_indices[region]
+
+            psi_pk = psi_l[pk_indices] + omega_inst[pk_indices] * hop_s
+
+            # 仅对通量显著突增的新生打击瞬态频点做局部相位对齐，持续谐波峰 100% 连续锁相
+            flux_ratio = float(np.sum(np.maximum(0.0, mag - prev_mag))) / (float(np.sum(prev_mag)) + 1e-9)
+            if flux_ratio > 0.58:
+                transient_pks = mag[pk_indices] > 2.35 * (prev_mag[pk_indices] + 1e-6)
+                if np.any(transient_pks):
+                    psi_pk = np.where(transient_pks, phi_l[pk_indices], psi_pk)
+
+            rot_pk = psi_pk - phi_l[pk_indices]
+            rot_all = np.zeros(n_bins, dtype=np.float64)
+            rot_all[pk_indices] = rot_pk
+            rot = rot_all[nearest_pk]
+            psi_l = ((phi_l + rot + math.pi) % (2.0 * math.pi)) - math.pi
+
+            phasor = np.exp(1j * rot)
+            Y_l = X_l * phasor
+            Y_r = X_r * phasor
+
+        y_pad[pos_s:pos_s + n_fft, 0] += np.fft.irfft(Y_l, n=n_fft) * win
+        y_pad[pos_s:pos_s + n_fft, 1] += np.fft.irfft(Y_r, n=n_fft) * win
+        w_sum[pos_s:pos_s + n_fft] += win * win
+
+        prev_phi_l = phi_l
+        prev_mag = mag
+        prev_pos_a = pos_a
+
+    norm_w = np.maximum(w_sum, 1e-8)[:, None]
+    y_rec = y_pad / norm_w
+    return y_rec[pad:pad + n_out].copy()
+
+
+def _shift_stereo_constant_offset(st: np.ndarray, shift_samples: int, sr: int) -> np.ndarray:
+    """样本级恒定时间平移（shift_samples > 0 表示将迟到的 Cover 向前拉齐；< 0 表示向后推迟并平滑前导）。"""
+    x = np.asarray(st, dtype=np.float64)
+    n = len(x)
+    if shift_samples == 0 or n == 0:
+        return x.copy()
+    if shift_samples > 0:
+        if shift_samples >= n:
+            return np.zeros_like(x)
+        out = np.zeros_like(x)
+        rem = n - shift_samples
+        out[:rem] = x[shift_samples:]
+        return _fit_stereo_duration(out[:rem], n, sr)
+    delay = -shift_samples
+    if delay >= n:
+        return np.zeros_like(x)
+    out = np.zeros((n + delay, 2), dtype=np.float64)
+    out[delay:] = x
+    fin_n = min(int(round(0.012 * sr)), len(x) // 4)
+    if fin_n > 2:
+        ramp = (np.sin(np.linspace(0.0, 0.5 * math.pi, fin_n, dtype=np.float64)) ** 2)[:, None]
+        out[delay:delay + fin_n] *= ramp
+    return out[:n]
+
+
+def align_cover_pitch_locked(
+    cover_st: np.ndarray,
+    guide_st: np.ndarray,
+    *,
+    sr: int = 48000,
+    max_shift_ms: float = 140.0,
+    allow_uniform_stretch: bool = True,
+    max_stretch_pct: float = 2.5,
+) -> tuple[np.ndarray, dict]:
+    """零跑调（0.0 cents）Cover 音轨与导引乐谱拍点对齐。
+
+    硬护栏：
+      · 严禁调用任何时域变速重采样（如 PCHIP / 线性插值重采样）扭曲乐团音高！
+      · 第一步：估计 ±max_shift_ms 内的恒定起音包络滞后；
+      · 第二步：若 allow_uniform_stretch=True 且 ±max_stretch_pct% 内的微小全局均匀伸缩能显著提升全片节拍锁定度，
+        仅通过立体声身份锁相 STFT 相位声码器（0.0 cents 音高漂移）执行均匀时间伸缩，否则仅执行样本级恒定平移（0% 伸缩）。
+    """
+    sr_i = int(sr)
+    cov = np.asarray(cover_st, dtype=np.float64)
+    gui = np.asarray(guide_st, dtype=np.float64)
+    if cov.ndim == 1:
+        cov = np.stack([cov, cov], axis=1)
+    elif cov.shape[1] == 1:
+        cov = np.concatenate([cov, cov], axis=1)
+    else:
+        cov = cov[:, :2].copy()
+
+    if gui.ndim == 1:
+        gui = np.stack([gui, gui], axis=1)
+    elif gui.shape[1] == 1:
+        gui = np.concatenate([gui, gui], axis=1)
+    else:
+        gui = gui[:, :2]
+
+    hop = max(16, int(round(0.004 * sr_i)))  # 4 ms 包络帧率
+    env_g = _onset_flux_envelope(gui, sr_i, hop)
+    env_c = _onset_flux_envelope(cov, sr_i, hop)
+
+    n_common = min(len(env_g), len(env_c))
+    if n_common < 24 or float(np.std(env_g[:n_common])) < 1e-5 or float(np.std(env_c[:n_common])) < 1e-5:
+        return cov, {
+            'method': 'identity',
+            'shift_ms': 0.0,
+            'stretch_ratio': 1.0,
+            'pitch_drift_cents': 0.0,
+            'corr_before': 0.0,
+            'corr_after': 0.0,
+        }
+
+    def _norm_vec(v: np.ndarray) -> np.ndarray:
+        z = v - float(np.mean(v))
+        nrm = float(np.linalg.norm(z))
+        return z / nrm if nrm > 1e-12 else np.zeros_like(z)
+
+    max_lag = max(1, int(round((max(0.0, float(max_shift_ms)) * 1e-3 * sr_i) / float(hop))))
+
+    def _best_lag_corr(eg: np.ndarray, ec: np.ndarray) -> tuple[float, float, float]:
+        m_len = min(len(eg), len(ec))
+        if m_len < 16:
+            return 0.0, 0.0, 0.0
+        g0 = _norm_vec(eg[:m_len])
+        c0 = _norm_vec(ec[:m_len])
+        zero_c = float(np.dot(g0, c0))
+        lags = range(-min(max_lag, m_len // 4), min(max_lag, m_len // 4) + 1)
+        scores = []
+        lag_list = list(lags)
+        for lg in lag_list:
+            if lg >= 0:
+                a_g = eg[:m_len - lg]
+                a_c = ec[lg:lg + len(a_g)]
+            else:
+                d = -lg
+                a_g = eg[d:m_len]
+                a_c = ec[:len(a_g)]
+            if len(a_g) < 12:
+                scores.append(-1.0)
+                continue
+            scores.append(float(np.dot(_norm_vec(a_g), _norm_vec(a_c))))
+        sc_arr = np.asarray(scores, dtype=np.float64)
+        best_i = int(np.argmax(sc_arr))
+        best_sc = float(sc_arr[best_i])
+        frac = 0.0
+        if 0 < best_i < len(sc_arr) - 1:
+            y0, y1, y2 = sc_arr[best_i - 1], sc_arr[best_i], sc_arr[best_i + 1]
+            denom = y0 - 2.0 * y1 + y2
+            if abs(denom) > 1e-12:
+                frac = float(np.clip(0.5 * (y0 - y2) / denom, -0.5, 0.5))
+        return float(lag_list[best_i]) + frac, best_sc, zero_c
+
+    best_lag_f, corr_shift, corr_zero = _best_lag_corr(env_g, env_c)
+    chosen_ratio = 1.0
+    chosen_lag_f = best_lag_f if (corr_shift > corr_zero + 0.012) else 0.0
+    chosen_corr = corr_shift if (corr_shift > corr_zero + 0.012) else corr_zero
+    method = 'offset_shift' if abs(chosen_lag_f) > 0.12 else 'identity'
+
+    max_pct = float(np.clip(max_stretch_pct, 0.0, 5.0))
+    if allow_uniform_stretch and max_pct > 0.05 and (n_common * hop / float(sr_i)) >= 1.8:
+        ratios = np.linspace(1.0 - max_pct / 100.0, 1.0 + max_pct / 100.0, 33)
+        best_r = 1.0
+        best_r_lag = chosen_lag_f
+        best_r_sc = chosen_corr
+        src_x = np.arange(len(env_c), dtype=np.float64)
+        for r_cand in ratios:
+            if abs(r_cand - 1.0) <= 0.002:
+                continue
+            out_m = max(16, int(round(len(env_c) * r_cand)))
+            q_x = np.arange(out_m, dtype=np.float64) / float(r_cand)
+            ec_stretched = np.interp(q_x, src_x, env_c, left=0.0, right=0.0)
+            lg_r, sc_r, _ = _best_lag_corr(env_g, ec_stretched)
+            if sc_r > best_r_sc:
+                best_r_sc = sc_r
+                best_r = float(r_cand)
+                best_r_lag = lg_r
+
+        # 仅当均匀微伸缩明显优于纯常量偏移时才启用锁相声码器
+        if abs(best_r - 1.0) > 0.002 and best_r_sc > max(corr_zero, corr_shift) + 0.045 and best_r_sc >= 0.20:
+            chosen_ratio = best_r
+            chosen_lag_f = best_r_lag
+            chosen_corr = best_r_sc
+            method = 'phase_vocoder_locked'
+
+    out_st = cov
+    if method == 'phase_vocoder_locked':
+        out_st = _phase_vocoder_pitch_locked_stereo(out_st, chosen_ratio, sr_i)
+
+    shift_samples = int(round(chosen_lag_f * hop))
+    if shift_samples != 0:
+        out_st = _shift_stereo_constant_offset(out_st, shift_samples, sr_i)
+
+    shift_ms_val = round((shift_samples / float(sr_i)) * 1000.0, 3)
+    return out_st, {
+        'method': method,
+        'shift_ms': shift_ms_val,
+        'shift_samples': int(shift_samples),
+        'stretch_ratio': round(float(chosen_ratio), 6),
+        'pitch_drift_cents': 0.0,
+        'corr_before': round(float(corr_zero), 4),
+        'corr_after': round(float(chosen_corr), 4),
+    }
 
 
 def _fit_stereo_duration(arr: np.ndarray, n_target: int, sr: int) -> np.ndarray:
@@ -1094,13 +1178,607 @@ def _build_http_opener(url: str):
 
 def _http_request(url: str, *, method: str = 'GET', body: bytes | None = None,
                   headers: dict | None = None, timeout_s: float = 30.0) -> tuple[int, bytes, dict]:
-    req = urllib.request.Request(url, data=body, headers=headers or {}, method=method)
+    merged_hdrs = dict(headers or {})
+    if not any(k.lower() == 'user-agent' for k in merged_hdrs):
+        merged_hdrs['User-Agent'] = SUNO_MCP_USER_AGENT
+    req = urllib.request.Request(url, data=body, headers=merged_hdrs, method=method)
     opener = _build_http_opener(url)
     with opener.open(req, timeout=max(0.5, float(timeout_s))) as resp:
         status = int(getattr(resp, 'status', 200))
         raw = resp.read()
         hdrs = dict(resp.headers.items())
         return status, raw, hdrs
+
+
+def _decode_audio_bytes(raw_bytes: bytes) -> tuple[np.ndarray, int]:
+    """解码音频字节流（WAV / FLAC / OGG / MP3），soundfile 失败时可选经 ffmpeg 回退解码。"""
+    try:
+        arr, sr_in = sf.read(io.BytesIO(raw_bytes), always_2d=True, dtype='float64')
+        return arr, int(sr_in)
+    except Exception as sf_exc:
+        ffmpeg_bin = _env.find_ffmpeg() if hasattr(_env, 'find_ffmpeg') else shutil.which('ffmpeg')
+        if isinstance(ffmpeg_bin, dict):
+            ffmpeg_bin = ffmpeg_bin.get('path')
+        if ffmpeg_bin:
+            proc = subprocess.run(
+                [str(ffmpeg_bin), '-v', 'error', '-i', 'pipe:0', '-f', 'wav', '-acodec', 'pcm_f32le', 'pipe:1'],
+                input=raw_bytes,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            if proc.returncode == 0 and proc.stdout:
+                arr, sr_in = sf.read(io.BytesIO(proc.stdout), always_2d=True, dtype='float64')
+                return arr, int(sr_in)
+        raise sf_exc
+
+
+def _resolve_suno_mcp_url(endpoint: str | None) -> str:
+    """按优先级解析 Suno MCP 服务地址：--endpoint → BEIMING_SUNO_MCP_URL → DEFAULT_SUNO_MCP_URL。"""
+    env_url = (os.environ.get('BEIMING_SUNO_MCP_URL') or '').strip()
+    chosen = (endpoint or '').strip() or env_url or DEFAULT_SUNO_MCP_URL
+    parsed = urllib.parse.urlparse(chosen)
+    if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+        raise CliError(
+            'usage.bad-value',
+            f'Suno MCP 服务地址格式不合法：{chosen!r}',
+            hint=f'应以 http:// 或 https:// 开头，默认 {DEFAULT_SUNO_MCP_URL}',
+        )
+    return chosen
+
+
+def _parse_mcp_rpc_response(raw: bytes, headers: dict, req_id: int) -> dict:
+    """解析 MCP HTTP JSON-RPC 响应，同时兼容 application/json 与 text/event-stream（SSE data: {...}）。"""
+    text = raw.decode('utf-8', errors='replace').strip()
+    if not text:
+        return {}
+    ctype = ''
+    for k, v in (headers or {}).items():
+        if k.lower() == 'content-type':
+            ctype = str(v).lower()
+            break
+
+    is_sse = ('text/event-stream' in ctype) or text.startswith(('event:', 'data:'))
+    if not is_sse:
+        try:
+            doc = json.loads(text)
+            if isinstance(doc, dict):
+                return doc
+        except ValueError as exc:
+            raise CliError('failure.suno-mcp', f'Suno MCP 返回非合法 JSON 响应：{exc}') from None
+        raise CliError('failure.suno-mcp', f'Suno MCP 顶层 JSON 不是对象：{type(doc).__name__}')
+
+    # 解析 SSE 事件块（兼容单行与多行 data: 帧）
+    events: list[dict] = []
+    cur_data: list[str] = []
+    for line in text.splitlines() + ['']:
+        if not line.strip():
+            if cur_data:
+                joined = '\n'.join(cur_data).strip()
+                cur_data = []
+                if joined:
+                    try:
+                        obj = json.loads(joined)
+                        if isinstance(obj, dict):
+                            events.append(obj)
+                    except ValueError:
+                        pass
+            continue
+        if line.startswith('data:'):
+            cur_data.append(line[5:].lstrip())
+
+    for ev in events:
+        if ev.get('id') == req_id and ('result' in ev or 'error' in ev):
+            return ev
+    for ev in reversed(events):
+        if 'result' in ev or 'error' in ev:
+            return ev
+    if events:
+        return events[-1]
+    raise CliError('failure.suno-mcp', f'Suno MCP SSE 响应中未找到有效 JSON-RPC data 帧：{text[:200]!r}')
+
+
+def _parse_mcp_text_blocks(texts: list[str]):
+    """从 MCP content[].text 文本块列表中提取 JSON 载荷（兼容 [json_str, hint_text] 多段返回与 JSON 后缀提示语）。"""
+    joined = '\n'.join(texts).strip()
+    if not joined:
+        return ''
+    try:
+        return json.loads(joined)
+    except ValueError:
+        pass
+
+    decoder = json.JSONDecoder()
+    for blk in texts:
+        s = blk.strip()
+        if not s:
+            continue
+        try:
+            parsed = json.loads(s)
+            if isinstance(parsed, (dict, list)):
+                return parsed
+        except ValueError:
+            pass
+        if s.startswith(('{', '[')):
+            try:
+                parsed, _ = decoder.raw_decode(s)
+                if isinstance(parsed, (dict, list)):
+                    return parsed
+            except ValueError:
+                pass
+
+    stripped = joined.lstrip()
+    if stripped.startswith(('{', '[')):
+        try:
+            parsed, _ = decoder.raw_decode(stripped)
+            if isinstance(parsed, (dict, list)):
+                return parsed
+        except ValueError:
+            pass
+    return joined
+
+
+def _unwrap_mcp_tool_result(rpc_doc: dict, tool_name: str):
+    """解包 MCP tools/call 返回结构（兼容 structuredContent、单块与多块 [json_str, hint_text] content[].text）。"""
+    if not isinstance(rpc_doc, dict):
+        raise CliError('failure.suno-mcp', f'Suno MCP {tool_name} 响应格式异常')
+    if rpc_doc.get('error'):
+        err = rpc_doc['error']
+        msg = err.get('message') if isinstance(err, dict) else str(err)
+        raise CliError('failure.suno-mcp', f'Suno MCP {tool_name} 调用报错：{msg}')
+
+    res = rpc_doc.get('result')
+    if not isinstance(res, dict):
+        return res
+
+    is_err = bool(res.get('isError'))
+    payload = None
+    if isinstance(res.get('structuredContent'), dict):
+        payload = res['structuredContent']
+    elif isinstance(res.get('content'), list):
+        texts = [
+            str(item.get('text'))
+            for item in res['content']
+            if isinstance(item, dict) and item.get('type') == 'text' and item.get('text') is not None
+        ]
+        if texts:
+            payload = _parse_mcp_text_blocks(texts)
+    if payload is None:
+        payload = res
+
+    if is_err:
+        detail = payload.get('error') or payload.get('message') if isinstance(payload, dict) else payload
+        raise CliError('failure.suno-mcp', f'Suno MCP 工具 {tool_name} 返回错误：{detail}')
+    if isinstance(payload, dict) and payload.get('error') and not any(
+        k in payload for k in ('id', 'clips', 'clip_ids', 'items', 'allowed_models', 'suno_account', 'url', 'upload_url')
+    ):
+        reason = payload.get('reason') or payload.get('code') or ''
+        suffix = f'（{reason}）' if reason else ''
+        raise CliError('failure.suno-mcp', f'Suno MCP {tool_name} 被拒绝{suffix}：{payload.get("error")}')
+    return payload
+
+
+class _SunoMcpSession:
+    """轻量级本地 Magpie Suno MCP JSON-RPC 会话客户端（强制显式 User-Agent，兼容 JSON / SSE 与 Mcp-Session-Id）。"""
+
+    def __init__(self, mcp_url: str, *, timeout_s: float = 30.0):
+        self.mcp_url = mcp_url
+        self.timeout_s = max(1.0, float(timeout_s))
+        self.session_id: str | None = None
+        self.server_info: dict | None = None
+        self._next_id = 1
+
+    def _rpc(self, method: str, params: dict, *, timeout_s: float | None = None, unreachable_exit3: bool = False) -> dict:
+        req_id = self._next_id
+        self._next_id += 1
+        body = json.dumps({
+            'jsonrpc': '2.0',
+            'id': req_id,
+            'method': method,
+            'params': params,
+        }, ensure_ascii=False).encode('utf-8')
+        hdrs = {
+            'User-Agent': SUNO_MCP_USER_AGENT,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json, text/event-stream',
+        }
+        if self.session_id:
+            hdrs['Mcp-Session-Id'] = self.session_id
+
+        eff_timeout = max(0.5, float(timeout_s if timeout_s is not None else self.timeout_s))
+        try:
+            _, raw, resp_hdrs = _http_request(
+                self.mcp_url,
+                method='POST',
+                body=body,
+                headers=hdrs,
+                timeout_s=eff_timeout,
+            )
+        except urllib.error.HTTPError as exc:
+            err_body = ''
+            try:
+                err_body = exc.read().decode('utf-8', errors='replace').strip()[:240]
+            except OSError:
+                pass
+            detail = f'HTTP {exc.code}' + (f' ({err_body})' if err_body else '')
+            if unreachable_exit3:
+                raise CliError(
+                    'env.music-unreachable',
+                    f'Suno MCP 服务返回错误（{self.mcp_url}）：{detail}',
+                    hint='确认本地 Magpie Suno MCP（http://127.0.0.1:3425/mcp/suno）在线且已登录，或改用 --provider guide',
+                    exit_code=3,
+                ) from None
+            raise CliError('failure.suno-mcp', f'Suno MCP {method} 请求失败：{detail}') from None
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            if unreachable_exit3:
+                raise CliError(
+                    'env.music-unreachable',
+                    f'连接 Suno MCP 服务失败（{self.mcp_url}）：{exc}',
+                    hint='确认本地 Magpie Suno MCP 已启动，或改用 --provider guide 走离线导引轨模式',
+                    exit_code=3,
+                ) from None
+            raise CliError('failure.suno-mcp', f'Suno MCP {method} 网络异常：{exc}') from None
+
+        for hk, hv in resp_hdrs.items():
+            if hk.lower() == 'mcp-session-id' and str(hv).strip():
+                self.session_id = str(hv).strip()
+                break
+
+        return _parse_mcp_rpc_response(raw, resp_hdrs, req_id)
+
+    def initialize(self, *, timeout_s: float | None = None) -> dict:
+        doc = self._rpc(
+            'initialize',
+            {
+                'protocolVersion': '2025-03-26',
+                'capabilities': {},
+                'clientInfo': {'name': 'beiming-music-gen', 'version': '1.0'},
+            },
+            timeout_s=timeout_s,
+            unreachable_exit3=True,
+        )
+        if doc.get('error'):
+            err = doc['error']
+            msg = err.get('message') if isinstance(err, dict) else str(err)
+            raise CliError('env.music-unreachable', f'Suno MCP initialize 失败：{msg}', exit_code=3)
+        res = doc.get('result') if isinstance(doc.get('result'), dict) else {}
+        if isinstance(res.get('serverInfo'), dict):
+            self.server_info = dict(res['serverInfo'])
+        return res
+
+    def call_tool(self, name: str, arguments: dict | None = None, *, timeout_s: float | None = None,
+                  unreachable_exit3: bool = False):
+        doc = self._rpc(
+            'tools/call',
+            {'name': name, 'arguments': dict(arguments or {})},
+            timeout_s=timeout_s,
+            unreachable_exit3=unreachable_exit3,
+        )
+        return _unwrap_mcp_tool_result(doc, name)
+
+
+def _pad_guide_for_suno(guide_st: np.ndarray, sr: int, min_dur_s: float = 16.0) -> np.ndarray:
+    """Suno 要求导引上传与生成时长 >= 15s；当导引轨短于 15.5s 时在尾部平滑交叉淡化延展温暖余韵至 min_dur_s。"""
+    x = np.asarray(guide_st, dtype=np.float64)
+    min_check = int(round(15.5 * sr))
+    if len(x) >= min_check:
+        return x
+
+    n_pad = max(int(round(float(min_dur_s) * sr)), min_check + int(round(0.5 * sr)))
+    out = np.zeros((n_pad, 2), dtype=np.float64)
+    if len(x) == 0:
+        return out
+
+    n_orig = len(x)
+    out[:n_orig] = x
+
+    # 取导引轨末尾温暖和弦余韵窗口做镜像交替交叉淡化慢衰减，杜绝硬截断台阶与全零静音被服务端截短
+    win_len = min(n_orig, max(64, int(round(1.8 * sr))))
+    tail_win = x[n_orig - win_len:].copy()
+    tail_rev = tail_win[::-1].copy()
+    xf = min(max(8, int(round(0.035 * sr))), win_len // 3)
+    step = max(16, win_len - xf)
+
+    pos = n_orig - xf if n_orig > xf else n_orig
+    seg_idx = 0
+    while pos < n_pad:
+        chunk = tail_rev if (seg_idx % 2 == 0) else tail_win
+        avail = min(len(chunk), n_pad - pos)
+        if avail <= 0:
+            break
+        prog0 = max(0.0, (pos - n_orig) / float(max(1, n_pad - n_orig)))
+        prog1 = max(0.0, (pos + avail - n_orig) / float(max(1, n_pad - n_orig)))
+        env = np.linspace(
+            0.42 * math.exp(-2.1 * prog0),
+            0.42 * math.exp(-2.1 * prog1),
+            avail,
+            dtype=np.float64,
+        )[:, None]
+        seg = chunk[:avail] * env
+        ov = min(xf, avail) if pos >= max(0, n_orig - xf) else 0
+        if ov > 2 and pos + ov <= n_pad:
+            u = np.linspace(0.0, 1.0, ov, dtype=np.float64)[:, None]
+            out[pos:pos + ov] = out[pos:pos + ov] * (1.0 - u) + seg[:ov] * u
+            if avail > ov:
+                out[pos + ov:pos + avail] = seg[ov:avail]
+        else:
+            out[pos:pos + avail] = seg
+        pos += step
+        seg_idx += 1
+
+    fout_n = min(int(round(0.25 * sr)), n_pad - n_orig)
+    if fout_n > 2:
+        fade_curve = 0.5 * (1.0 + np.cos(math.pi * np.linspace(0.0, 1.0, fout_n, dtype=np.float64)))[:, None]
+        out[n_pad - fout_n:] *= fade_curve
+    out[0] = 0.0
+    out[-1] = 0.0
+    return out
+
+
+def _extract_suno_clips(doc) -> list[dict]:
+    if isinstance(doc, list):
+        return [c for c in doc if isinstance(c, dict)]
+    if not isinstance(doc, dict):
+        return []
+    if isinstance(doc.get('clips'), list) and doc['clips']:
+        return [c for c in doc['clips'] if isinstance(c, dict)]
+    if isinstance(doc.get('items'), list) and doc['items']:
+        return [c for c in doc['items'] if isinstance(c, dict)]
+    if doc.get('id'):
+        return [doc]
+    return []
+
+
+def _extract_suno_clip_ids(doc) -> list[str]:
+    ids: list[str] = []
+    if isinstance(doc, dict) and isinstance(doc.get('clip_ids'), list):
+        ids.extend(str(x).strip() for x in doc['clip_ids'] if str(x).strip())
+    for c in _extract_suno_clips(doc):
+        cid = str(c.get('id') or '').strip()
+        if cid and cid not in ids:
+            ids.append(cid)
+    return ids
+
+
+def _extract_suno_download_url(dl_doc) -> str | None:
+    if not isinstance(dl_doc, dict):
+        return None
+    for key in ('download_url', 'url', 'audio_url', 'file_url'):
+        val = dl_doc.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    return None
+
+
+def _request_suno_audio_download(
+    sess: _SunoMcpSession,
+    clip_id: str,
+    *,
+    fmt: str = 'wav',
+    confirm: bool = True,
+    rem_fn,
+) -> str | None:
+    """调用 Suno MCP audio-download 获取下载链接；遇到 processing 时严格遵守 >=1 req/s 限速轮询。"""
+    while True:
+        dl_doc = sess.call_tool(
+            'audio-download',
+            {'id': clip_id, 'format': fmt, 'confirm': bool(confirm)},
+            timeout_s=rem_fn(60.0),
+        )
+        dl_url = _extract_suno_download_url(dl_doc)
+        if dl_url:
+            return dl_url
+        if isinstance(dl_doc, dict) and str(dl_doc.get('status') or '').lower() == 'processing':
+            rem_fn(5.0)
+            time.sleep(1.05)
+            continue
+        return None
+
+
+def _extract_suno_audio_url(clip: dict) -> str | None:
+    if not isinstance(clip, dict):
+        return None
+    for key in ('audio_url', 'stream_url', 'file_url', 'url'):
+        val = clip.get(key)
+        if not isinstance(val, str) or not val.strip():
+            continue
+        u = val.strip()
+        lower_u = u.lower().split('?', 1)[0]
+        if lower_u.endswith(('.jpg', '.jpeg', '.png', '.webp', '.gif')):
+            continue
+        if 'suno.com/song/' in lower_u:
+            continue
+        return u
+    return None
+
+
+def _call_suno_cover_mcp(
+    mcp_url: str,
+    *,
+    guide_fitted: np.ndarray,
+    guide_digest: str,
+    prompt: str,
+    lyrics: str,
+    negative_style: str | None,
+    model: str,
+    dur: float,
+    cover_strength: float,
+    idempotency_key: str,
+    prefer_wav_download: bool,
+    sr_out: int,
+    timeout_s: float,
+) -> bytes:
+    deadline = time.monotonic() + max(5.0, float(timeout_s))
+
+    def _rem(cap: float = 65.0) -> float:
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise CliError(
+                'timeout.suno',
+                f'等待 Suno Cover 生成超时（>{timeout_s:.1f}s）',
+                hint='调大 --timeout 后重试（相同输入会自动携带相同 idempotency_key 防重复扣费）',
+            )
+        return min(cap, max(1.0, left))
+
+    suno_duration = min(360, max(15, int(math.ceil(float(dur)))))
+    upload_st = _pad_guide_for_suno(guide_fitted, sr_out, min_dur_s=16.0)
+    upload_wav_bytes = _encode_wav_pcm16_bytes(upload_st, sr_out)
+
+    sess = _SunoMcpSession(mcp_url, timeout_s=min(30.0, max(5.0, float(timeout_s))))
+    sess.initialize(timeout_s=_rem(20.0))
+
+    # 1) 创建上传会话 -> HTTP PUT 原始音频字节 -> complete -> 等待上传音频状态 complete
+    up_title = f'beiming-guide-{guide_digest[:12]}.wav'
+    up_init = sess.call_tool('audio-upload-create', {'title': up_title}, timeout_s=_rem(30.0))
+    if not isinstance(up_init, dict):
+        raise CliError('failure.suno-upload', f'audio-upload-create 返回异常：{up_init!r}')
+    upload_id = str(up_init.get('id') or up_init.get('upload_id') or up_init.get('clip_id') or '').strip()
+    upload_url = str(up_init.get('upload_url') or '').strip()
+    if not upload_id or not upload_url:
+        raise CliError('failure.suno-upload', f'audio-upload-create 缺少 id 或 upload_url：{up_init!r}')
+
+    put_qs = urllib.parse.parse_qs(urllib.parse.urlparse(upload_url).query)
+    signed_ctype = (put_qs.get('Content-Type') or put_qs.get('content-type') or [None])[0]
+    put_headers = {
+        'User-Agent': SUNO_MCP_USER_AGENT,
+        'Content-Type': signed_ctype or 'audio/wav',
+    }
+    try:
+        put_status, _, _ = _http_request(
+            upload_url,
+            method='PUT',
+            body=upload_wav_bytes,
+            headers=put_headers,
+            timeout_s=_rem(60.0),
+        )
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise CliError('failure.suno-upload', f'PUT 导引音轨至 upload_url 失败：{exc}') from None
+    if not (200 <= put_status < 300):
+        raise CliError('failure.suno-upload', f'PUT 导引音轨返回非 2xx 状态码：HTTP {put_status}')
+
+    sess.call_tool('audio-upload-complete', {'id': upload_id}, timeout_s=_rem(30.0))
+
+    up_wait = sess.call_tool('audio-wait', {'ids': [upload_id], 'until': 'complete'}, timeout_s=_rem(65.0))
+    up_clips = _extract_suno_clips(up_wait)
+    up_status = str((up_clips[0].get('status') if up_clips else (up_wait.get('status') if isinstance(up_wait, dict) else '')) or '').lower()
+    poll_idx = 0
+    while up_status != 'complete':
+        if up_status in ('error', 'failed', 'cancelled'):
+            err_detail = up_clips[0].get('error') if up_clips else up_wait
+            raise CliError('failure.suno-upload', f'Suno 导引音轨上传处理失败（id={upload_id}）：{err_detail}')
+        _rem(10.0)
+        time.sleep(min(1.0, 0.05 * (1.4 ** min(poll_idx, 8))))
+        poll_idx += 1
+        up_ret = sess.call_tool('audio-retrieve', {'id': upload_id}, timeout_s=_rem(25.0))
+        if isinstance(up_ret, dict):
+            up_clips = [up_ret]
+            up_status = str(up_ret.get('status') or '').lower()
+
+    # 2) 调用 audio-covers-create（纯器乐时严格省略 lyrics，且绝不设置 max_mode=True！）
+    audio_inf = round(float(np.clip(cover_strength, 0.0, 1.0)), 2)
+    cover_args: dict = {
+        'id': upload_id,
+        'model': str(model or 'v6').strip() or 'v6',
+        'style': str(prompt or '').strip()[:1000],
+        'controls': {
+            'audio_influence': audio_inf,
+            'style_influence': 0.80,
+        },
+        'duration': int(suno_duration),
+        'idempotency_key': str(idempotency_key).strip()[:255],
+    }
+    raw_lyr = str(lyrics or '').strip()
+    if raw_lyr and raw_lyr.lower() not in ('[inst]', '[instrumental]', 'instrumental'):
+        cover_args['lyrics'] = raw_lyr[:5000]
+    norm_neg = str(negative_style or '').strip()
+    if norm_neg:
+        cover_args['negative_style'] = norm_neg[:1000]
+    if 'max_mode' in cover_args:
+        del cover_args['max_mode']
+
+    cov_res = sess.call_tool('audio-covers-create', cover_args, timeout_s=_rem(45.0))
+    clip_ids = _extract_suno_clip_ids(cov_res)
+    if not clip_ids:
+        raise CliError('failure.suno-submit', f'audio-covers-create 未返回 clip_ids：{cov_res!r}')
+
+    # 3) audio-wait 等待生成完成 -> audio-retrieve 核验状态与音频链接 -> 下载解码
+    wait_res = sess.call_tool('audio-wait', {'ids': clip_ids[:12], 'until': 'complete'}, timeout_s=_rem(65.0))
+    wait_by_id = {str(c.get('id')): c for c in _extract_suno_clips(wait_res) if c.get('id')}
+
+    chosen_clip: dict | None = None
+    poll_cov = 0
+    while chosen_clip is None:
+        _rem(10.0)
+        errors_seen: list[str] = []
+        pending_ids: list[str] = []
+        for cid in clip_ids:
+            ret_doc = sess.call_tool('audio-retrieve', {'id': cid}, timeout_s=_rem(25.0))
+            if not isinstance(ret_doc, dict):
+                continue
+            # 合并 audio-wait 已返回的附加字段（若 audio-retrieve 省略了部分链接）
+            merged_clip = dict(wait_by_id.get(cid) or {})
+            merged_clip.update(ret_doc)
+            st_str = str(merged_clip.get('status') or '').lower()
+            if st_str == 'complete':
+                chosen_clip = merged_clip
+                break
+            if st_str in ('error', 'failed', 'cancelled'):
+                errors_seen.append(f"{cid}:{merged_clip.get('error') or st_str}")
+            else:
+                pending_ids.append(cid)
+
+        if chosen_clip is not None:
+            break
+        if not pending_ids and errors_seen:
+            raise CliError('failure.suno-task', f'Suno Cover 生成失败：{"; ".join(errors_seen)}')
+
+        time.sleep(min(1.2, 0.06 * (1.45 ** min(poll_cov, 8))))
+        poll_cov += 1
+        wait_res = sess.call_tool('audio-wait', {'ids': pending_ids[:12], 'until': 'complete'}, timeout_s=_rem(65.0))
+        for c in _extract_suno_clips(wait_res):
+            if c.get('id'):
+                wait_by_id[str(c['id'])] = c
+
+    chosen_id = str(chosen_clip['id'])
+    download_url: str | None = None
+
+    # 1) 前向兼容：若 clip 已直接附带免积分 audio_url 且未强制要求无损 WAV，优先直连拉取
+    if not prefer_wav_download:
+        download_url = _extract_suno_audio_url(chosen_clip)
+
+    # 2) 真实 Magpie Suno MCP 路径（audio-retrieve/audio-wait 仅返 song_url 无 audio_url）或显式 prefer_wav_download：
+    #    仅对首个 complete 曲目调用一次 audio-download(format='wav', confirm=True) 拉取无损 WAV（遵守 1 req/s 限流）
+    if not download_url:
+        download_url = _request_suno_audio_download(
+            sess,
+            chosen_id,
+            fmt='wav',
+            confirm=True,
+            rem_fn=_rem,
+        )
+
+    if not download_url:
+        download_url = _extract_suno_audio_url(chosen_clip)
+
+    if not download_url:
+        raise CliError(
+            'failure.suno-download',
+            f'Suno 曲目 {chosen_id} 已完成，但未能从 audio_url 或 audio-download 获取音频下载链接',
+            hint='确认当前 Suno 账号具备 audio.download 权限且剩余下载配额充足',
+        )
+
+    try:
+        dl_status, audio_bytes, _ = _http_request(
+            download_url,
+            method='GET',
+            headers={'User-Agent': SUNO_MCP_USER_AGENT},
+            timeout_s=_rem(60.0),
+        )
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise CliError('failure.suno-download', f'下载 Suno Cover 音频失败（{download_url!r}）：{exc}') from None
+    if not (200 <= dl_status < 300) or not audio_bytes:
+        raise CliError('failure.suno-download', f'下载 Suno Cover 音频返回异常（HTTP {dl_status}，字节数={len(audio_bytes)}）')
+    return audio_bytes
 
 
 def _encode_multipart(fields: dict[str, str], files: list[tuple[str, str, str, bytes]]) -> tuple[bytes, str]:
@@ -1330,19 +2008,24 @@ def generate_cover(
     guidance_scale: float = 4.5,
     seed: int = 42,
     provider: str = 'acestep',
+    model: str = 'v6',
+    negative_style: str = None,
+    prefer_wav_download: bool = False,
+    align_guide: bool = True,
+    pad_tail_s: float = 0.0,
     cache_dir: str = None,
     out_wav: str = None,
     offline: bool = False,
     timeout_s: float = 300.0,
     sr: int = 48000,
 ) -> dict:
-    """将导引音轨送入 ACE-Step 1.5 Cover 模式（或离线确定性 guide 模式），输出精确 N(dur) 立体声 PCM_24 配乐。"""
+    """将导引音轨送入 ACE-Step 1.5 / Suno Cover 模式（或离线确定性 guide 模式），输出精确 N(dur) 立体声 PCM_24 配乐。"""
     prov = (provider or 'acestep').strip().lower()
-    if prov not in ('acestep', 'guide'):
+    if prov not in ('acestep', 'suno', 'guide'):
         raise CliError(
             'usage.bad-value',
             f'不认识的配乐生成服务 {provider!r}',
-            hint='可选：acestep（ACE-Step 1.5 Cover 模式）或 guide（离线确定性导引轨）',
+            hint='可选：acestep（ACE-Step 1.5 Cover）、suno（本地 Magpie Suno MCP Cover）或 guide（离线确定性导引轨）',
         )
     sr_out = int(sr)
     if sr_out < 8000:
@@ -1384,11 +2067,22 @@ def generate_cover(
     if eff_dur <= 0.0:
         raise CliError('usage.bad-value', f'配乐时长 dur 必须为正数，收到 {eff_dur!r}')
     n_target = max(2, int(round(eff_dur * sr_out)))
+    eff_pad_tail = max(0.0, float(pad_tail_s))
+    n_upload = max(n_target, int(round((eff_dur + eff_pad_tail) * sr_out)))
 
     guide_fitted = _fit_stereo_duration(g_arr, n_target, sr_out)
+    if eff_pad_tail > 0.0:
+        if len(g_arr) >= n_upload:
+            guide_upload = g_arr[:n_upload].copy()
+        else:
+            guide_upload = _pad_guide_for_suno(guide_fitted, sr_out, min_dur_s=eff_dur + eff_pad_tail)
+    else:
+        guide_upload = guide_fitted
     guide_digest = _pcm16_digest(guide_fitted)
     norm_prompt = str(prompt or '').strip()
     norm_lyrics = str(lyrics or '[inst]').strip() or '[inst]'
+    suno_model = str(model or 'v6').strip() or 'v6'
+    norm_neg = str(negative_style or '').strip()
 
     if prov == 'guide':
         guide_final = _finalize_music_wave(guide_fitted, n_target, sr_out)
@@ -1408,20 +2102,38 @@ def generate_cover(
             'aigc': dict(AIGC_GUIDE),
         }
 
-    # provider == 'acestep'：计算确定性缓存键
-    key_tuple = [
-        guide_digest,
-        norm_prompt,
-        norm_lyrics,
-        round(float(cover_strength), 4),
-        int(steps),
-        round(float(guidance_scale), 3),
-        int(seed),
-        round(eff_dur, 4),
-        'acestep-1.5',
-    ]
+    # provider in ('acestep', 'suno')：计算确定性缓存键
+    if prov == 'suno':
+        suno_lyr_key = '' if norm_lyrics.lower() in ('', '[inst]', '[instrumental]', 'instrumental') else norm_lyrics
+        key_tuple = [
+            guide_digest,
+            norm_prompt,
+            suno_lyr_key,
+            norm_neg,
+            round(float(cover_strength), 2),
+            int(seed),
+            round(eff_dur, 4),
+            f'suno:{suno_model}',
+        ]
+        default_aigc = AIGC_SUNO
+    else:
+        key_tuple = [
+            guide_digest,
+            norm_prompt,
+            norm_lyrics,
+            round(float(cover_strength), 4),
+            int(steps),
+            round(float(guidance_scale), 3),
+            int(seed),
+            round(eff_dur, 4),
+            'acestep-1.5',
+        ]
+        default_aigc = AIGC_ACESTEP
+
     if sr_out != SR:
         key_tuple.append(sr_out)
+    if eff_pad_tail > 0.0:
+        key_tuple.append(f'pad:{round(eff_pad_tail, 2)}')
     cache_key = hashlib.sha256(
         json.dumps(key_tuple, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
     ).hexdigest()
@@ -1451,45 +2163,90 @@ def generate_cover(
                     'duration': eff_dur,
                     'samples': n_target,
                     'lufs': lufs_cached,
-                    'aigc': dict(meta_doc.get('aigc') or AIGC_ACESTEP),
+                    'aigc': dict(meta_doc.get('aigc') or default_aigc),
                 }
         except Exception:
             # 缓存损坏时按未命中处理（离线模式报错，在线模式重算覆盖）
             pass
 
     if offline:
+        prov_label = 'Suno MCP' if prov == 'suno' else 'ACE-Step 1.5'
         raise CliError(
             'env.music-offline',
             f'离线模式（--offline）下配乐缓存未命中：{cache_key[:12]}',
-            hint='去掉 --offline 连接 ACE-Step 1.5 生成一次写入缓存，或临时改用 --provider guide 合成导引轨',
+            hint=f'去掉 --offline 连接 {prov_label} 生成一次写入缓存，或临时改用 --provider guide 合成导引轨',
             exit_code=3,
         )
 
-    guide_wav_bytes = _encode_wav_pcm16_bytes(guide_fitted, sr_out)
-    with _resolve_acestep_base_url(
-        endpoint,
-        ssh_host,
-        remote_port=int(remote_port),
-        connect_timeout_s=min(15.0, max(2.0, float(timeout_s))),
-    ) as (base_url, via_tunnel):
-        gen_bytes = _call_acestep_cover_api(
-            base_url,
-            via_tunnel,
-            guide_wav_bytes=guide_wav_bytes,
+    if prov == 'suno':
+        mcp_url = _resolve_suno_mcp_url(endpoint)
+        gen_bytes = _call_suno_cover_mcp(
+            mcp_url,
+            guide_fitted=guide_upload,
+            guide_digest=guide_digest,
             prompt=norm_prompt,
             lyrics=norm_lyrics,
-            dur=eff_dur,
+            negative_style=norm_neg,
+            model=suno_model,
+            dur=eff_dur + eff_pad_tail,
             cover_strength=float(cover_strength),
-            steps=int(steps),
-            guidance_scale=float(guidance_scale),
-            seed=int(seed),
+            idempotency_key=f'beiming-suno-{cache_key[:40]}',
+            prefer_wav_download=bool(prefer_wav_download),
+            sr_out=sr_out,
             timeout_s=float(timeout_s),
         )
-
-    try:
-        raw_gen, gen_sr = sf.read(io.BytesIO(gen_bytes), always_2d=True, dtype='float64')
-    except Exception as exc:
-        raise CliError('failure.acestep-decode', f'解码 ACE-Step 返回音频失败：{exc}') from None
+        try:
+            raw_gen, gen_sr = _decode_audio_bytes(gen_bytes)
+        except Exception as exc:
+            raise CliError('failure.suno-decode', f'解码 Suno 返回音频失败：{exc}') from None
+        cache_params = {
+            'guide_pcm16_sha256': guide_digest,
+            'prompt': norm_prompt,
+            'lyrics': '' if norm_lyrics.lower() in ('', '[inst]', '[instrumental]', 'instrumental') else norm_lyrics,
+            'negative_style': norm_neg,
+            'cover_strength': round(float(cover_strength), 2),
+            'seed': int(seed),
+            'dur': round(eff_dur, 4),
+            'suno_duration': min(360, max(15, int(math.ceil(eff_dur + eff_pad_tail)))),
+            'model': suno_model,
+            'provider': 'suno',
+        }
+    else:
+        guide_wav_bytes = _encode_wav_pcm16_bytes(guide_upload, sr_out)
+        with _resolve_acestep_base_url(
+            endpoint,
+            ssh_host,
+            remote_port=int(remote_port),
+            connect_timeout_s=min(15.0, max(2.0, float(timeout_s))),
+        ) as (base_url, via_tunnel):
+            gen_bytes = _call_acestep_cover_api(
+                base_url,
+                via_tunnel,
+                guide_wav_bytes=guide_wav_bytes,
+                prompt=norm_prompt,
+                lyrics=norm_lyrics,
+                dur=eff_dur + eff_pad_tail,
+                cover_strength=float(cover_strength),
+                steps=int(steps),
+                guidance_scale=float(guidance_scale),
+                seed=int(seed),
+                timeout_s=float(timeout_s),
+            )
+        try:
+            raw_gen, gen_sr = sf.read(io.BytesIO(gen_bytes), always_2d=True, dtype='float64')
+        except Exception as exc:
+            raise CliError('failure.acestep-decode', f'解码 ACE-Step 返回音频失败：{exc}') from None
+        cache_params = {
+            'guide_pcm16_sha256': guide_digest,
+            'prompt': norm_prompt,
+            'lyrics': norm_lyrics,
+            'cover_strength': round(float(cover_strength), 4),
+            'steps': int(steps),
+            'guidance_scale': round(float(guidance_scale), 3),
+            'seed': int(seed),
+            'dur': round(eff_dur, 4),
+            'model': 'acestep-1.5',
+        }
 
     if raw_gen.shape[1] == 1:
         raw_gen = np.concatenate([raw_gen, raw_gen], axis=1)
@@ -1497,6 +2254,11 @@ def generate_cover(
         raw_gen = raw_gen[:, :2]
     if int(gen_sr) != sr_out and len(raw_gen) > 0:
         raw_gen = soxr.resample(raw_gen, int(gen_sr), sr_out)
+
+    align_info = None
+    if align_guide and len(raw_gen) > 0:
+        raw_gen, align_info = align_cover_pitch_locked(raw_gen, guide_fitted, sr=sr_out)
+        cache_params['alignment'] = align_info
 
     final_st = _finalize_music_wave(raw_gen, n_target, sr_out)
     lufs_val = _measure_lufs(final_st, sr_out)
@@ -1512,18 +2274,8 @@ def generate_cover(
             'samples': n_target,
             'duration': eff_dur,
             'lufs': lufs_val,
-            'params': {
-                'guide_pcm16_sha256': guide_digest,
-                'prompt': norm_prompt,
-                'lyrics': norm_lyrics,
-                'cover_strength': round(float(cover_strength), 4),
-                'steps': int(steps),
-                'guidance_scale': round(float(guidance_scale), 3),
-                'seed': int(seed),
-                'dur': round(eff_dur, 4),
-                'model': 'acestep-1.5',
-            },
-            'aigc': dict(AIGC_ACESTEP),
+            'params': cache_params,
+            'aigc': dict(default_aigc),
         })
         if target_out:
             _copy_atomic(cache_wav, target_out)
@@ -1533,20 +2285,66 @@ def generate_cover(
             _write_wav_atomic(target_out, final_st, sr_out)
         final_path = target_out
 
-    return {
+    ret_doc = {
         'path': final_path,
         'cache': 'miss',
         'key': cache_key,
         'duration': eff_dur,
         'samples': n_target,
         'lufs': lufs_val,
-        'aigc': dict(AIGC_ACESTEP),
+        'aigc': dict(default_aigc),
     }
+    if align_info is not None:
+        ret_doc['alignment'] = align_info
+    return ret_doc
 
 
-def probe_endpoint(*, endpoint: str = None, ssh_host: str = None, remote_port: int = 8001, timeout_s: float = 10.0) -> dict:
-    """探测 ACE-Step 1.5 服务端（/health 或 /v1/stats）是否在线可达；不可达时抛退出码 3 的 CliError。"""
+def probe_endpoint(
+    *,
+    endpoint: str = None,
+    ssh_host: str = None,
+    remote_port: int = 8001,
+    provider: str = 'acestep',
+    timeout_s: float = 10.0,
+) -> dict:
+    """探测 ACE-Step 1.5 或 Suno MCP 服务端是否在线可达；不可达时抛退出码 3 的 CliError。"""
+    prov = (provider or 'acestep').strip().lower()
+    if prov not in ('acestep', 'suno'):
+        raise CliError(
+            'usage.bad-value',
+            f'probe 不支持服务类型 {provider!r}',
+            hint='可选：acestep 或 suno',
+        )
+
     t_budget = max(1.0, float(timeout_s))
+    if prov == 'suno':
+        mcp_url = _resolve_suno_mcp_url(endpoint)
+        sess = _SunoMcpSession(mcp_url, timeout_s=min(12.0, t_budget))
+        init_res = sess.initialize(timeout_s=min(10.0, t_budget))
+        usage = sess.call_tool('account-usage', {}, timeout_s=min(10.0, t_budget), unreachable_exit3=True)
+        usage_doc = usage if isinstance(usage, dict) else {}
+        acct = usage_doc.get('suno_account') if isinstance(usage_doc.get('suno_account'), dict) else {}
+        allowed_models = list(usage_doc.get('allowed_models') or acct.get('allowed_models') or [])
+        credits_remaining = usage_doc.get('credits_remaining')
+        if credits_remaining is None:
+            credits_remaining = acct.get('credits_remaining')
+        download_credits_remaining = usage_doc.get('download_credits_remaining')
+        if download_credits_remaining is None:
+            download_credits_remaining = acct.get('download_credits_remaining')
+        plan = usage_doc.get('plan') if usage_doc.get('plan') is not None else acct.get('plan')
+        server_info = sess.server_info or (init_res.get('serverInfo') if isinstance(init_res, dict) else None)
+        return {
+            'ok': True,
+            'online': True,
+            'provider': 'suno',
+            'endpoint': mcp_url,
+            'serverInfo': server_info,
+            'allowed_models': allowed_models,
+            'credits_remaining': credits_remaining,
+            'download_credits_remaining': download_credits_remaining,
+            'plan': plan,
+        }
+
     with _resolve_acestep_base_url(
         endpoint,
         ssh_host,
@@ -1591,11 +2389,18 @@ def _default_prompt_from_plan(plan: dict) -> str:
     key = plan.get('key', 'D')
     scale = plan.get('scale', 'major')
     bpm = int(round(float(plan.get('bpm', 96.0))))
+    style = plan.get('style') or COMP.infer_composer_style('', scale=scale)
     moods = ' -> '.join(dict.fromkeys(s['mood'] for s in (plan.get('sections') or [])))
+    style_desc = {
+        'chinese_chamber': f'Chinese traditional chamber ensemble in {key} {scale}, {bpm} BPM, expressive dizi bamboo flute, solo guzheng, warm pipa and sheng',
+        'ink_poetic': f'Poetic Eastern ink-wash chamber score in {key} {scale}, {bpm} BPM, silk-string guqin, warm xiao flute, spacious acoustic resonance',
+        'anime_nostalgic': f'Nostalgic anime film soundtrack in {key} {scale}, {bpm} BPM, felt acoustic piano, lush orchestral strings, concert harp',
+        'hitech_minimal': f'Modern minimalist precision film score in {key} {scale}, {bpm} BPM, felt piano, warm cello, marimba pulse, clean studio acoustics',
+        'playful_folk': f'Playful acoustic folk chamber soundtrack in {key} {scale}, {bpm} BPM, warm marimba, pizzicato strings, concert flute and harp',
+    }.get(style, f'cinematic orchestral soundtrack in {key} {scale}, {bpm} BPM, warm cello and string ensemble, concert harp arpeggios')
     return (
-        f'cinematic orchestral soundtrack in {key} {scale}, {bpm} BPM, '
-        f'warm cello and string ensemble, concert harp arpeggios, expressive narrative arc ({moods}) '
-        f'building to soaring finale, high-fidelity studio orchestral recording, instrumental only, no vocals'
+        f'{style_desc}, expressive narrative arc ({moods}) '
+        f'building to soaring finale, high-fidelity studio acoustic recording, instrumental only, no vocals'
     )
 
 
@@ -1603,23 +2408,29 @@ def make_parser() -> ArgumentParser:
     p = ArgumentParser(
         prog='python -m engine.audio.music_gen',
         description=(
-            '情绪导引乐谱与 ACE-Step 1.5 Cover 配乐生成：'
+            '情绪导引乐谱与 ACE-Step 1.5 / Suno v6 Cover 配乐生成：'
             'guide 合成程序化导引轨；build 生成 Cover 配乐（或 guide 离线确定性轨）；probe 探测服务连通性。'
         ),
     )
-    p.add_argument('action', choices=['guide', 'build', 'probe'], help='guide 合成导引轨；build 生成配乐；probe 探测 ACE-Step 连通性')
+    p.add_argument('action', choices=['guide', 'build', 'probe'], help='guide 合成导引轨；build 生成配乐；probe 探测 ACE-Step / Suno MCP 连通性')
     p.add_argument('film', nargs='?', help='作品目录或 film.json（probe 可省略；build 给了 --guide 时也可省略）')
     p.add_argument('--out', help='输出 WAV 路径（默认 <作品>/out/music/guide.wav 或 music.wav）')
+    p.add_argument('--midi-out', default=None, help='可选导出标准 SMF Type-1 多轨 MIDI 文件路径（.mid）')
     p.add_argument('--key', help='调性主音（默认读作品配置，缺省 D）')
     p.add_argument('--scale', help='音阶类型（major / minor / dorian / mixolydian / lydian / pentatonic / minor-pentatonic，默认 major）')
     p.add_argument('--bpm', type=float, help='节拍速度 BPM（默认读作品配置，缺省 96）')
+    p.add_argument('--style', choices=list(COMP.COMPOSER_STYLES), default=None, help='作曲风格原型（cinematic_orchestral / chinese_chamber / anime_nostalgic / hitech_minimal / ink_poetic / playful_folk）')
     p.add_argument('--dur', type=float, help='显式指定配乐时长（秒；没有 film.json 时使用）')
-    p.add_argument('--prompt', help='ACE-Step 1.5 音乐风格与配器提示词（省略时按作品调性与叙事段落自动生成纯器乐提示词）')
-    p.add_argument('--lyrics', default='[inst]', help='歌词或纯器乐标记（默认 [inst]）')
+    p.add_argument('--pad-tail', type=float, default=0.0, help='Cover 上传前延续片尾主和弦余韵的秒数（如 4.0，防 AI Cover 提前淡出，下载后精裁回片长）')
+    p.add_argument('--align-guide', action='store_true', help='显式启用零跑调（0.0 cents）锁相声码器 Cover 拍点对齐')
+    p.add_argument('--prompt', help='音乐风格与配器提示词（省略时按作品调性与叙事段落自动生成纯器乐提示词）')
+    p.add_argument('--lyrics', default='[inst]', help='歌词或纯器乐标记（默认 [inst]；Suno 纯器乐自动省略 lyrics）')
     p.add_argument('--guide', help='build 使用的外部导引轨 WAV（省略时自动从 film.json 合成导引轨）')
-    p.add_argument('--cache', help='ACE-Step 缓存目录（默认 <作品>/out/cache/music）')
-    p.add_argument('--provider', choices=['acestep', 'guide'], default='acestep', help='生成服务：acestep（ACE-Step 1.5 Cover）或 guide（离线确定性导引轨）')
-    p.add_argument('--endpoint', help='ACE-Step 1.5 HTTP 服务地址（例：https://example.invalid；未设时读 BEIMING_ACESTEP_URL）')
+    p.add_argument('--cache', help='配乐缓存目录（默认 <作品>/out/cache/music）')
+    p.add_argument('--provider', choices=['acestep', 'suno', 'guide'], default='acestep', help='生成服务：acestep（ACE-Step 1.5 Cover）、suno（本地 Magpie Suno MCP Cover）或 guide（离线确定性导引轨）')
+    p.add_argument('--model', default=None, help='Suno 生成模型标签（默认 v6；仅 --provider suno 使用）')
+    p.add_argument('--negative-style', default=None, help='Suno 反向排除风格标签（仅 --provider suno 使用）')
+    p.add_argument('--endpoint', help='服务端地址（acestep 读 BEIMING_ACESTEP_URL；suno 默认 http://127.0.0.1:3425/mcp/suno 或读 BEIMING_SUNO_MCP_URL）')
     p.add_argument('--ssh', help='SSH 免密主机别名（例：<ssh-alias>；自动建立临时本地端口转发并在退出时清理）')
     p.add_argument('--remote-port', type=int, default=8001, help='SSH 转发的远端 ACE-Step 端口（默认 8001）')
     p.add_argument('--cover-strength', type=float, default=0.45, help='Cover 导引强度 0..1（默认 0.45）')
@@ -1645,9 +2456,15 @@ def main(args, ctx):
             endpoint=args.endpoint,
             ssh_host=args.ssh,
             remote_port=args.remote_port,
+            provider=args.provider,
             timeout_s=t_probe,
         )
-        ctx.out(f"ACE-Step 1.5 在线可达（{res['probePath']} → HTTP {res['status']}）")
+        if args.provider == 'suno':
+            srv_name = (res.get('serverInfo') or {}).get('name') or 'Suno'
+            models = ','.join(res.get('allowed_models') or []) or '-'
+            ctx.out(f"Suno MCP 在线可达（{srv_name}，模型={models}，剩余积分={res.get('credits_remaining')}）")
+        else:
+            ctx.out(f"ACE-Step 1.5 在线可达（{res['probePath']} → HTTP {res['status']}）")
         return {'data': res}
 
     if args.action == 'guide':
@@ -1669,6 +2486,10 @@ def main(args, ctx):
             key=args.key or plan['key'],
             scale=args.scale or plan['scale'],
             bpm=args.bpm if args.bpm is not None else plan['bpm'],
+            style=args.style,
+            prompt=args.prompt or '',
+            midi_out=args.midi_out,
+            pad_tail_s=args.pad_tail,
             sr=SR,
             seed=args.seed,
         )
@@ -1678,12 +2499,15 @@ def main(args, ctx):
         wav_sha = sha256_file(out_path)
         ctx.out(
             f"导引乐谱已生成：{rel(out_path)}（{meta['dur']:.3f}s，{meta['samples']} 样本，{meta['key']} {meta['scale']}，"
-            f"{meta['bpm']:.0f} BPM，{len(meta['sections'])} 段）"
+            f"风格={meta['style']}，{meta['bpm']:.0f} BPM，{len(meta['sections'])} 段）"
         )
+        outputs = [{'path': rel(out_path), 'sha256': wav_sha, 'kind': 'audio'}]
+        if args.midi_out and os.path.isfile(args.midi_out):
+            outputs.append({'path': rel(os.path.abspath(args.midi_out)), 'sha256': sha256_file(args.midi_out), 'kind': 'midi'})
         data = dict(meta, path=rel(out_path))
         return {
             'data': data,
-            'outputs': [{'path': rel(out_path), 'sha256': wav_sha, 'kind': 'audio'}],
+            'outputs': outputs,
         }
 
     # action == 'build'
@@ -1706,6 +2530,7 @@ def main(args, ctx):
 
     outputs = []
     guide_meta = None
+    eff_pad_tail = float(args.pad_tail if args.pad_tail else (music_cfg.get('pad_tail_s') or 0.0))
     if args.guide:
         guide_src = args.guide
         target_dur = args.dur if args.dur is not None else (plan['dur'] if plan else None)
@@ -1717,18 +2542,27 @@ def main(args, ctx):
             key=args.key or plan['key'],
             scale=args.scale or plan['scale'],
             bpm=args.bpm if args.bpm is not None else plan['bpm'],
+            style=args.style or music_cfg.get('style'),
+            prompt=args.prompt or str(music_cfg.get('prompt') or ''),
+            midi_out=args.midi_out,
+            pad_tail_s=eff_pad_tail if args.provider in ('suno', 'acestep') else 0.0,
             sr=SR,
             seed=args.seed,
         )
         guide_out = os.path.join(os.path.dirname(out_path), 'guide.wav')
         if os.path.abspath(guide_out) != out_path:
-            _write_wav_atomic(guide_out, guide_st, SR)
+            n_base = max(2, int(round(guide_meta['dur'] * SR)))
+            _write_wav_atomic(guide_out, guide_st[:n_base], SR)
             outputs.append({'path': rel(guide_out), 'sha256': sha256_file(guide_out), 'kind': 'guide'})
+        if args.midi_out and os.path.isfile(args.midi_out):
+            outputs.append({'path': rel(os.path.abspath(args.midi_out)), 'sha256': sha256_file(args.midi_out), 'kind': 'midi'})
         guide_src = guide_st
         target_dur = guide_meta['dur']
 
     eff_prompt = args.prompt or music_cfg.get('prompt') or (_default_prompt_from_plan(guide_meta or plan) if (guide_meta or plan) else 'cinematic instrumental soundtrack, warm strings and harp, no vocals')
     eff_lyrics = args.lyrics if args.lyrics != '[inst]' or not music_cfg.get('lyrics') else str(music_cfg['lyrics'])
+    eff_model = args.model or music_cfg.get('model') or 'v6'
+    eff_neg = args.negative_style if args.negative_style is not None else music_cfg.get('negative_style')
 
     res = generate_cover(
         guide_src,
@@ -1743,6 +2577,10 @@ def main(args, ctx):
         guidance_scale=args.guidance_scale,
         seed=args.seed,
         provider=args.provider,
+        model=eff_model,
+        negative_style=eff_neg,
+        align_guide=True if args.align_guide else True,
+        pad_tail_s=eff_pad_tail if args.provider in ('suno', 'acestep') else 0.0,
         cache_dir=cache_dir,
         out_wav=out_path,
         offline=args.offline,
