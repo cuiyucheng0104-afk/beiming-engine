@@ -1469,26 +1469,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d063.card",
-      "sourceId": "d063",
-      "section": "1.7",
-      "caseId": "case-13",
-      "title": "5色古玻璃色板",
-      "cardId": "form.arch-glazing",
-      "target": "form.arch-glazing",
-      "text": "线性透射色 cgPal：深蓝(0.042,.094,.205)、红宝石(0.370,.058,.048)、琥珀(0.630,.385,.105)、绿(0.125,.225,.095)、灰白(0.545,.525,.440)；每块再乘 0.72+0.36·cgPH",
-      "quantities": [],
-      "routeNote": "玻璃透射色板与亮度公式",
-      "coupling": "数值是第 1.7 节 彩色玻璃、窗与窗里的房间里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "建筑场景地形与水汇编 第 1.7 节 d063；出处类别：源码拆解·彩色玻璃、窗与窗里的房间（案例 13 第 18 章）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d064.card",
       "sourceId": "d064",
       "section": "1.7",
@@ -3424,37 +3404,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "arch-scene.d114.card",
-      "sourceId": "d114",
-      "section": "1.11",
-      "caseId": "case-13",
-      "title": "案例 13 22 段角度区间路",
-      "cardId": "form.megatree",
-      "target": "form.megatree",
-      "text": "【路=角度区间表】22 段 SEGS，每段 {a,b,h0,h1,r0,r1,kind}；kind 四种：deck 平台/ramp 坡/steps 台阶(每级 0.25 米)/bridge 绳桥；高度、碰撞、网格、灯、路线全从表算出\n【22 段角度区间路】一张角度区间表描述环绕的路：22 段，高度、碰撞、网格、灯位全从表算；大枝把网格俯拍成 0.5 m 高度图求坡度（可走面和可见网格同一张表）",
-      "quantities": [
-        {
-          "value": 0.25,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 0.5,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "区间表架构绑定段数、枚举与采样规格",
-      "coupling": "数值是第 1.11 节 巨树：路、台阶、桥、平台、大枝与根里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过 / 作者成片用过(未运行)",
-      "docRef": "建筑场景地形与水汇编 第 1.11 节 d114；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "arch-scene.d115.card",
       "sourceId": "d115",
       "section": "1.11",
@@ -3632,19 +3581,19 @@
       "sourceId": "d118",
       "section": "1.11",
       "caseId": "case-13",
-      "title": "(表头缺失)",
+      "title": "环路台阶段的高度公式",
       "cardId": "form.megatree",
       "target": "form.megatree",
-      "text": "台阶高度公式 | n=round(\\ | h1−h0\\ | /0.25)；高度 = h0+(h1−h0)·ceil(u·n)/n，u=(θ−a)/(b−a)；一行公式得到可走台阶 | 源码 | 作者成片用过 |；原实现源码 | 13 案例 13",
+      "text": "台阶高度公式：n=round(|h1−h0|/0.25)；高度 = h0+(h1−h0)·ceil(u·n)/n，u=(θ−a)/(b−a)；一行公式得到可走台阶。",
       "quantities": [],
-      "routeNote": "台阶生成公式含固定踏高与取整规则",
+      "routeNote": "按区间端点与高差取整求级数，再按角度计算踏面高度；0.25 米是本实现的分级参考级高。",
       "coupling": "数值是第 1.11 节 巨树：路、台阶、桥、平台、大枝与根里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
       "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
       "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "清单未列",
-      "verificationLabel": "清单未列",
-      "docRef": "建筑场景地形与水汇编 第 1.11 节 d118；出处类别：推断与说明·巨树：路、台阶、桥、平台、大枝与根",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d118；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
       "verifiedInOurStack": false
     },
     {
@@ -4264,6 +4213,37 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "建筑场景地形与水汇编 第 1.11 节 d137；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "arch-scene.d138.card",
+      "sourceId": "d138",
+      "section": "1.11",
+      "caseId": "case-13",
+      "title": "替身网格重合",
+      "cardId": "asset.bbox-proxy",
+      "target": "asset.bbox-proxy",
+      "text": "管子未加载时用公式\"替身管\"，与可见管子在 0.5 米内重合；偏差>0.5 米 console.info(rebakeDrift)",
+      "quantities": [
+        {
+          "value": 0.5,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.5,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "routeNote": "0.5 米是该大枝替身与可见网格之间的漂移日志阈值。载入后总会用可见网格更新高度；超过阈值才输出提示，不是通用建模公差。",
+      "coupling": "监测的是这一场景的替身管与载入后的可见几何；阈值用于打印偏差提示，不控制高度更新。",
+      "recalibrate": "换资产后根据代理网格的采样间距和可接受偏差另定提示阈值。",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d138；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）",
       "verifiedInOurStack": false
     },
     {
@@ -10892,40 +10872,6 @@
       "evidenceLabel": "源码 原实现源码",
       "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
       "docRef": "建筑场景地形与水汇编 第 2.8 节 d362；出处类别：源码拆解·草与地表植被（案例 13 第 3 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "arch-scene.d364.card",
-      "sourceId": "d364",
-      "section": "2.8",
-      "caseId": "case-13",
-      "title": "草色调色板（线性RGB）",
-      "cardId": "form.grass",
-      "target": "form.grass",
-      "text": "gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)",
-      "quantities": [
-        {
-          "value": [
-            0.8,
-            1.2
-          ],
-          "unit": "ratio",
-          "rawUnit": "原文未写单位",
-          "base": 0.8,
-          "jitter": 0.4,
-          "expr": ".8+.4r",
-          "label": "单根草颜色倍率",
-          "randomVar": "r"
-        }
-      ],
-      "routeNote": "草色调色板与噪声频率的实现取值",
-      "coupling": "数值是第 2.8 节 草与地表植被里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码 原实现源码",
-      "verificationLabel": "清单未列（源码值，按库规我们未渲染读回）",
-      "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
       "verifiedInOurStack": false
     },
     {

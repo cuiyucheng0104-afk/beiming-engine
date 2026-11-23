@@ -284,26 +284,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "motion-rig.d015.card",
-      "sourceId": "d015",
-      "section": "2",
-      "caseId": "case-13",
-      "title": "缓动 6 种",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
-      "text": "io=u²(3-2u)（默认）；lin=u；in=u³；out=1-(1-u)³；snap=1-(1-u)⁵；hold=恒 0。缓动挂在目标帧上，描述\"从上一帧走到这一帧\"的速度。",
-      "quantities": [],
-      "routeNote": "六类缓动函数公式及接口约定",
-      "coupling": "数值是第 2 节 关键帧、缓动与时间采样里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "动作与骨骼汇编 第 2 节 d015；出处类别：源码拆解·关键帧、缓动与时间采样",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "motion-rig.d016.card",
       "sourceId": "d016",
       "section": "2",
@@ -430,32 +410,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "motion-rig.d022.card",
-      "sourceId": "d022",
-      "section": "2",
-      "caseId": "case-13",
-      "title": "关键帧采样=带 hold 的三次埃尔米特",
-      "cardId": "motion.keyframe",
-      "target": "motion.keyframe",
-      "text": "基函数 h00=2u³-3u²+1，h10=u³-2u²+u，h01=-2u³+3u²，h11=u³-u²；切线 m1=(k2-k0)·h/(t2-t0)，m2=(k3-k1)·h/(t3-t1)（非均匀 Catmull-Rom）；首/末键与 hold 键切线为 0（刹停再出发）；对 79 数逐个算。攻击=起手停顿→三四个快速过渡键（间隔 0.06 秒）→收招停顿→恢复；停顿键给蓄力和收势留时间。",
-      "quantities": [
-        {
-          "value": 0.06,
-          "unit": "s",
-          "rawUnit": "秒"
-        }
-      ],
-      "routeNote": "埃尔米特切线公式与键间隔取值",
-      "coupling": "数值是第 2 节 关键帧、缓动与时间采样里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "动作与骨骼汇编 第 2 节 d022；出处类别：源码拆解·关键帧、缓动与时间采样",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "motion-rig.d023.card",
       "sourceId": "d023",
       "section": "2",
@@ -550,52 +504,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "动作与骨骼汇编 第 2 节 d026；出处类别：源码拆解·关键帧、缓动与时间采样",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "motion-rig.d027.card",
-      "sourceId": "d027",
-      "section": "2",
-      "caseId": "case-13",
-      "title": "停顿键用法",
-      "cardId": "motion.keyframe",
-      "target": "motion.keyframe",
-      "text": "攻击蓄—爆—收节奏=停顿键之间夹快速过渡键；一招在起手 0.2 s 与收刀 0.46 s 各放停顿键，中间每 0.06 s 一个过渡键；重击在 0.68、0.72 s 连放两个停顿键「砸住」；试验：1 s 挥臂 5 键，第 1、4 键置停顿，导出手腕速度应见两个速度为 0 的平台。",
-      "quantities": [
-        {
-          "value": 0.2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.46,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.06,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.72,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "逐招式停顿键时刻成堆",
-      "coupling": "数值是第 2 节 关键帧、缓动与时间采样里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过(未运行)",
-      "docRef": "动作与骨骼汇编 第 2 节 d027；出处类别：源码拆解·关键帧、缓动与时间采样",
       "verifiedInOurStack": false
     },
     {
@@ -696,52 +604,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "动作与骨骼汇编 第 3 节 d033；出处类别：源码拆解·弹簧、挂件、锁链与布料",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "motion-rig.d034.card",
-      "sourceId": "d034",
-      "section": "3",
-      "caseId": "case-13",
-      "title": "二阶弹簧Spring(ω,ζ)",
-      "cardId": "motion.spring-chain",
-      "target": "motion.spring-chain",
-      "text": "a=ω²(目标-x)-2ζωv半隐式欧拉，单步>0.02秒自动细分，数值发散直接跳目标。",
-      "quantities": [
-        {
-          "value": 0.02,
-          "unit": "s",
-          "rawUnit": "秒"
-        }
-      ],
-      "routeNote": "Spring 函数公式与细分阈值",
-      "coupling": "数值是第 3 节 弹簧、挂件、锁链与布料里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "动作与骨骼汇编 第 3 节 d034；出处类别：源码拆解·弹簧、挂件、锁链与布料（案例 13 第 9 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "motion-rig.d035.card",
-      "sourceId": "d035",
-      "section": "3",
-      "caseId": "case-13",
-      "title": "隐式弹簧与指数滞后",
-      "cardId": "motion.spring-chain",
-      "target": "motion.spring-chain",
-      "text": "spring：f=1+2·dt·ζ·ω,hoo=dt·ω²,hhoo=dt·hoo,det=1/(f+hhoo),x=(f·s.x+dt·s.v+hhoo·target)·det,v=(s.v+hoo(target-s.x))·det，无条件稳定；lagK(dt,τ)=1-e^(-dt/τ)帧率无关。",
-      "quantities": [],
-      "routeNote": "隐式弹簧与 lagK 的实现公式",
-      "coupling": "数值是第 3 节 弹簧、挂件、锁链与布料里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "动作与骨骼汇编 第 3 节 d035；出处类别：源码拆解·弹簧、挂件、锁链与布料（案例 13 第 11 章）",
       "verifiedInOurStack": false
     },
     {
@@ -2650,79 +2512,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "动作与骨骼汇编 第 5 节 d117；出处类别：源码拆解·躯干叠加、呼吸、惯性与待机（案例 13 第 14 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "motion-rig.d118.card",
-      "sourceId": "d118",
-      "section": "5",
-      "caseId": "case-13",
-      "title": "待机/二级运动试验",
-      "cardId": "motion.torso-layer",
-      "target": "motion.torso-layer",
-      "text": "重心换脚间隔 6~11 s 弹簧 w2.3 z.62 幅度 2.5 cm（守望者）；骑士换重心脚每 7–12 s；敌人叹气每 7–13 s、呼吸 1.6 rad/s；龙抖翅每 6.5 s、吐舌每 6–10 s；试验：站立角色只加呼吸正弦（两个不同周期叠加）、换脚弹簧、头部注视弹簧，录 60 s 看是否有可察觉循环。",
-      "quantities": [
-        {
-          "value": [
-            6,
-            11
-          ],
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.025,
-          "unit": "m",
-          "rawUnit": "cm"
-        },
-        {
-          "value": [
-            7,
-            12
-          ],
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": [
-            7,
-            13
-          ],
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.6,
-          "unit": "rad/s",
-          "rawUnit": "rad/s"
-        },
-        {
-          "value": 6.5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": [
-            6,
-            10
-          ],
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 60,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "主体为各角色待机次级运动参数表",
-      "coupling": "数值是第 5 节 躯干叠加、呼吸、惯性与待机里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过(未运行)",
-      "docRef": "动作与骨骼汇编 第 5 节 d118；出处类别：源码拆解·躯干叠加、呼吸、惯性与待机",
       "verifiedInOurStack": false
     },
     {
@@ -5810,26 +5599,6 @@
       "evidenceLabel": "源码/推断",
       "verificationLabel": "作者成片用过",
       "docRef": "动作与骨骼汇编 第 10 节 d223；出处类别：推断与说明·视线与头部（案例 13 第 9 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "motion-rig.d224.card",
-      "sourceId": "d224",
-      "section": "10",
-      "caseId": "case-13",
-      "title": "骨盆高度防拉直",
-      "cardId": "motion.gait",
-      "target": "motion.gait",
-      "text": "hy=standH(stilt)+姿势.hip.y+stepY；对每条腿 hor=脚目标到髋水平距，span=(THIGH+SHIN+SOLE+liftOf(st))·.997；若 hor<span 则 hy=min(hy,脚目标y+√(span²-hor²))。",
-      "quantities": [],
-      "routeNote": "带标识符的骨盆高度公式与系数",
-      "coupling": "数值是第 10 节 视线与头部里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "动作与骨骼汇编 第 10 节 d224；出处类别：源码拆解·视线与头部（案例 13 第 14 章）",
       "verifiedInOurStack": false
     },
     {
@@ -9017,26 +8786,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "motion-rig.d311.card",
-      "sourceId": "d311",
-      "section": "15",
-      "caseId": "case-13",
-      "title": "缓动表",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
-      "text": "lin t；io t²(3-2t)；in t²；in3 t³；out 1-(1-t)²；out3 1-(1-t)³；hold 0；evalTimeline 在相邻键间按后一键缓动(缺省 io)对 41 数线性插值。",
-      "quantities": [],
-      "routeNote": "缓动公式表与时间轴插值约定",
-      "coupling": "数值是第 15 节 头目一（戟）姿势与招式里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "动作与骨骼汇编 第 15 节 d311；出处类别：源码拆解·头目一（戟）姿势与招式（案例 13 第 13 章）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "motion-rig.d312.card",
       "sourceId": "d312",
       "section": "15",
@@ -10037,26 +9786,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "动作与骨骼汇编 第 16 节 d352；出处类别：源码拆解·头目二（高跷）姿势与招式（案例 13 第 14 章）",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "motion-rig.d353.card",
-      "sourceId": "d353",
-      "section": "16",
-      "caseId": "case-13",
-      "title": "缓动表",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
-      "text": "lin t；io t²(3-2t) 默认；in t²；in3 t³；out 1-(1-t)²；out3 1-(1-t)³；snap 1-(1-t)⁵；hold 0（停上一姿势到点跳变）。",
-      "quantities": [],
-      "routeNote": "缓动函数公式及默认选项表",
-      "coupling": "数值是第 16 节 头目二（高跷）姿势与招式里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "动作与骨骼汇编 第 16 节 d353；出处类别：源码拆解·头目二（高跷）姿势与招式（案例 13 第 14 章）",
       "verifiedInOurStack": false
     },
     {
@@ -12721,46 +12450,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "motion-rig.d463.card",
-      "sourceId": "d463",
-      "section": "20",
-      "caseId": "case-13",
-      "title": "同名缓动不同公式(易踩坑)",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
-      "text": "原实现源码的in=u³ out=1-(1-u)³；头目一/头目二/龙的in=t²、out=1-(1-t)²，三次方另叫in3/out3；照搬按文件区分。",
-      "quantities": [],
-      "routeNote": "各实现缓动名对应的公式取值",
-      "coupling": "数值是第 20 节 五套系统对照与方法总结里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "只是原文说法",
-      "docRef": "动作与骨骼汇编 第 20 节 d463；出处类别：源码拆解·五套系统对照与方法总结",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "motion-rig.d464.card",
-      "sourceId": "d464",
-      "section": "20",
-      "caseId": "case-13",
-      "title": "五套系统共同点",
-      "cardId": "motion.controller",
-      "target": "motion.controller",
-      "text": "一行定长浮点数=一个姿势混合=逐数线性插值；都用两骨解析IK余弦定理目标距离留余量(骑士.001-.002米/敌人.002米/头目一与龙×.9995)；换动作\"快照+平滑阶梯\"(骑士淡入.1淡出.2；头目一.22；龙.22空地.5)；姿势上叠弹簧呼吸招式数据不写这些；骨骼动画用真实秒dt，仅着色器uTime是真实时间2倍(clock.t+=dt×2，原实现源码)。",
-      "quantities": [],
-      "routeNote": "五套系统共有结构与实现常量汇总",
-      "coupling": "数值是第 20 节 五套系统对照与方法总结里该案例原实现的取值，和它的着色器、骨架、场景尺度或引擎绑定",
-      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "只是原文说法",
-      "docRef": "动作与骨骼汇编 第 20 节 d464；出处类别：源码拆解·五套系统对照与方法总结",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "motion-rig.d465.card",
       "sourceId": "d465",
       "section": "20",
@@ -14737,6 +14426,26 @@
       "evidenceLabel": "原文陈述",
       "verificationLabel": "作者成片用过",
       "docRef": "动作与骨骼汇编 第 23 节 d523；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "motion-rig.d528.card",
+      "sourceId": "d528",
+      "section": "23",
+      "caseId": "case-24",
+      "title": "僵尸手 骨骼与控制器规格",
+      "text": "Root(全局位移+空中旋转)；Wrist_Stump、Bone_Core(断腕弯曲/扭转+骨头独立抖动)；Palm_L、Palm_Center、Palm_R(掌拱)；五指链 Metacarpal→Proximal_01→Intermediate_02→Distal_03→Tip；控制器用 pose_bone.custom_shape(Circle/Square/Cone 不渲染网格，按组着色绿/青/黄)；每指IK/FK开关+curl滑条面板；Floor约束或 Z>=0 检查保证指尖不穿地；权重：Automatic Weights 后脚本逐段清理。",
+      "quantities": [],
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过（附 Blender 工程 zip）",
+      "docRef": "动作与骨骼汇编 第 23 节 d528；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法",
+      "cardId": "rig.skeleton",
+      "target": "rig.skeleton",
+      "routeNote": "手指骨链、腕掌控制器、形状和约束按该模型的关节层级配置。",
+      "coupling": "骨名、掌拱控制和断腕结构依赖该手部模型。",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
       "verifiedInOurStack": false
     }
   ]

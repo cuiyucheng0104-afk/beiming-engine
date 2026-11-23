@@ -50,6 +50,54 @@
       }
     },
     {
+      "id": "light-cam.d013.sun-azimuth",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-azimuth",
+      "title": "案例 25 太阳定位（太阳方位角）",
+      "value": 106,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "案例 25 的太阳定位，10 月 12 日 07:20，按案例坐标计算"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-25",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d013；出处类别：原文陈述·太阳与主方向光",
+        "note": "原证据：原文陈述；原验证：只是原文说法。WebGPU 追踪器新增材料(耐候钢/层状砂岩/锌/CLT/光伏/河)与有限大小太阳,每帧重建运动几何使零件带真实阴影;太阳由坐标+日期计算:10月12日07:20,方位106°、高度9°;“Light”光标把太阳从50°拖到9°,天空每帧重算"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "方位106°",
+        "c11.sourceId": "d013"
+      }
+    },
+    {
+      "id": "light-cam.d013.sun-elevation",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "案例 25 太阳定位（太阳高度角）",
+      "value": 9,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "案例 25 的太阳定位，10 月 12 日 07:20，按案例坐标计算"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-25",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节 d013；出处类别：原文陈述·太阳与主方向光",
+        "note": "原证据：原文陈述；原验证：只是原文说法。WebGPU 追踪器新增材料(耐候钢/层状砂岩/锌/CLT/光伏/河)与有限大小太阳,每帧重建运动几何使零件带真实阴影;太阳由坐标+日期计算:10月12日07:20,方位106°、高度9°;“Light”光标把太阳从50°拖到9°,天空每帧重算"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "高度9°",
+        "c11.sourceId": "d013"
+      }
+    },
+    {
       "id": "light-cam.d194.shutter-angle",
       "domain": "lighting-exposure",
       "topic": "light-cam.sec-1-14.shutter-angle",
@@ -167,30 +215,6 @@
       "ext": {
         "c11.raw": "真实约 58 分钟一圈",
         "c11.sourceId": "d249"
-      }
-    },
-    {
-      "id": "light-cam.d316.sun-elevation",
-      "domain": "lighting-exposure",
-      "topic": "light-cam.sec-2-7.sun-elevation",
-      "title": "物理大气（黎明室内布光的太阳高度角）",
-      "value": 9,
-      "unit": "deg",
-      "conditions": {
-        "appliesWhen": [
-          "第 2.7 节 物理大气与路径追踪天空（案例 22、餐馆、热带高密度滨海城区）：物理大气"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-26",
-        "evidenceLevel": "文档",
-        "docRef": "光照天空大气与相机汇编 第 2.7 节 d316；出处类别：原文陈述·物理大气与路径追踪天空（案例 22、餐馆、热带高密度滨海城区）",
-        "note": "原证据：原文陈述；原验证：作者成片用过。Rayleigh+Mie+臭氧多次散射,按太阳高度计算:厅内太阳高度角 +9°;外景「first light」:餐厅处在山丘冷影里而远山已发橙光、山谷有雾、水坑映霓虹、亮着的电话亭与院灯"
-      },
-      "verifiedInOurStack": false,
-      "ext": {
-        "c11.raw": "厅内太阳高度角 +9°",
-        "c11.sourceId": "d316"
       }
     },
     {
@@ -515,54 +539,6 @@
       "ext": {
         "c11.raw": "透视 FOV 50°",
         "c11.sourceId": "d328"
-      }
-    },
-    {
-      "id": "light-cam.d329.base-vertical-fov",
-      "domain": "camera-lens-motion",
-      "topic": "light-cam.sec-3-1.base-vertical-fov",
-      "title": "视野角计算（基础竖直视场角）",
-      "value": 55,
-      "unit": "deg",
-      "conditions": {
-        "appliesWhen": [
-          "第 3.1 节 相机本体、焦段、视场角与画幅：视野角计算"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "光照天空大气与相机汇编 第 3.1 节 d329；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
-        "note": "原证据：源码；原验证：作者成片用过。目标=基础55°+头目锁定5°-格挡3°-蓄力×4°；关手感冲刺另加最多7°(速度5.5-8)；锁定镜头拉到45%以下且距离<1.8-3.4米最多加宽10°；龙空中+8°；瞄准47.7°；主视野速率3(瞄准9过场12)平滑；冲刺视野升3降12；最终=主视野+冲刺视野+clamp(视野弹跳+冲量视野,±8)"
-      },
-      "verifiedInOurStack": false,
-      "ext": {
-        "c11.raw": "目标=基础55°",
-        "c11.sourceId": "d329"
-      }
-    },
-    {
-      "id": "light-cam.d329.aim-fov",
-      "domain": "camera-lens-motion",
-      "topic": "light-cam.sec-3-1.aim-fov",
-      "title": "视野角计算（瞄准视场角）",
-      "value": 47.7,
-      "unit": "deg",
-      "conditions": {
-        "appliesWhen": [
-          "第 3.1 节 相机本体、焦段、视场角与画幅：视野角计算"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "光照天空大气与相机汇编 第 3.1 节 d329；出处类别：源码拆解·相机本体、焦段、视场角与画幅",
-        "note": "原证据：源码；原验证：作者成片用过。目标=基础55°+头目锁定5°-格挡3°-蓄力×4°；关手感冲刺另加最多7°(速度5.5-8)；锁定镜头拉到45%以下且距离<1.8-3.4米最多加宽10°；龙空中+8°；瞄准47.7°；主视野速率3(瞄准9过场12)平滑；冲刺视野升3降12；最终=主视野+冲刺视野+clamp(视野弹跳+冲量视野,±8)"
-      },
-      "verifiedInOurStack": false,
-      "ext": {
-        "c11.raw": "瞄准47.7°",
-        "c11.sourceId": "d329"
       }
     },
     {
@@ -4511,6 +4487,34 @@
       }
     },
     {
+      "id": "light-cam.sum.s017",
+      "domain": "lighting-exposure",
+      "topic": "light-cam.sec-1-2.sun-azimuth",
+      "title": "跨案例对照：10 月 12 日 07:20 的太阳方位角 106°、高度角 9°（case-25）",
+      "value": 106,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "案例 25 的太阳定位，10 月 12 日 07:20，按案例坐标计算"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-25",
+        "evidenceLevel": "文档",
+        "docRef": "光照天空大气与相机汇编 第 1.2 节对照表行 s017 → d013",
+        "note": "原证据：原文陈述；原验证：只是原文说法。10 月 12 日 07:20，方位 106°，高度 9°；滑块把太阳从 50° 拖到 9°"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "light-cam.d013.sun-azimuth",
+        "light-cam.d013.sun-elevation"
+      ],
+      "ext": {
+        "c11.sourceId": "s017",
+        "c11.valueFrom": "light-cam.d013.sun-azimuth"
+      }
+    },
+    {
       "id": "light-cam.sum.s094",
       "domain": "lighting-exposure",
       "topic": "light-cam.sec-1-14.key-color-temperature",
@@ -4541,28 +4545,28 @@
     {
       "id": "light-cam.sum.s129",
       "domain": "lighting-exposure",
-      "topic": "light-cam.sec-2-7.sun-elevation",
-      "title": "跨案例对照：瑞利 + 米氏 + 臭氧多次散射，按（case-26）",
+      "topic": "light-cam.sec-1-2.sun-elevation",
+      "title": "跨案例对照：黎明大厅布光的太阳高度角（case-26）",
       "value": 9,
       "unit": "deg",
       "conditions": {
         "appliesWhen": [
-          "第 2.7 节 物理大气与路径追踪天空（案例 22、餐馆、热带高密度滨海城区） 跨案例对照：瑞利 + 米氏 + 臭氧多次散射，按"
+          "第 2.7 节物理大气，案例 26 黎明大厅内的太阳设定"
         ]
       },
       "provenance": {
         "caseId": "case-26",
         "evidenceLevel": "文档",
-        "docRef": "光照天空大气与相机汇编 第 2.7 节对照表行 s129 → d316",
+        "docRef": "光照天空大气与相机汇编 第 2.7 节对照表行 s129 → d011（厅内太阳高度）、d316（多次散射与外景冷影）",
         "note": "原证据：原文陈述；原验证：作者成片用过。瑞利 + 米氏 + 臭氧多次散射，按太阳高度算；厅内太阳高度 +9°；外景 first light：餐厅处在山丘冷影里而远山已发橙光，山谷有雾，水坑映霓虹"
       },
       "verifiedInOurStack": false,
       "summaryOf": [
-        "light-cam.d316.sun-elevation"
+        "light-cam.d011.sun-elevation"
       ],
       "ext": {
         "c11.sourceId": "s129",
-        "c11.valueFrom": "light-cam.d316.sun-elevation"
+        "c11.valueFrom": "light-cam.d011.sun-elevation"
       }
     },
     {
@@ -4625,34 +4629,6 @@
       "ext": {
         "c11.sourceId": "s137",
         "c11.valueFrom": "light-cam.d323.cruise-fov"
-      }
-    },
-    {
-      "id": "light-cam.sum.s138",
-      "domain": "camera-lens-motion",
-      "topic": "light-cam.sec-3-1.base-vertical-fov",
-      "title": "跨案例对照：基础竖直视场角和瞄准视场角（case-13）",
-      "value": 55,
-      "unit": "deg",
-      "conditions": {
-        "appliesWhen": [
-          "第 3.1 节 相机本体、焦段、视场角与画幅：基础竖直视场角和瞄准视场角"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "光照天空大气与相机汇编 第 3.1 节对照表行 s138 → d329",
-        "note": "原证据：源码；原验证：作者成片用过（未运行）。基础竖直 55°；头目锁定 +5°；格挡 −3°；蓄力 −蓄力量×4°；瞄准 47.7°；龙空中 +8°；冲刺最多 +7°"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "light-cam.d329.base-vertical-fov",
-        "light-cam.d329.aim-fov"
-      ],
-      "ext": {
-        "c11.sourceId": "s138",
-        "c11.valueFrom": "light-cam.d329.base-vertical-fov"
       }
     },
     {

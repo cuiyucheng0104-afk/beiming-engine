@@ -2,32 +2,6 @@
   "format": "practices/0.1",
   "entries": [
     {
-      "id": "arch-scene.d006.practice",
-      "sourceId": "d006",
-      "section": "1.2",
-      "caseId": "case-22",
-      "title": "高密度街区网格规则",
-      "text": "实体离每条相机路径至少 3 米；每个模块 30 秒内能从镜头角度预览（带 clay 模式）",
-      "quantities": [
-        {
-          "value": 3,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 30,
-          "unit": "s",
-          "rawUnit": "秒"
-        }
-      ],
-      "kind": "method",
-      "routeNote": "避让相机路径并提供模块快速预览",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "C",
-      "docRef": "建筑场景地形与水汇编 第 1.2 节 d006；出处类别：原文陈述·布局、摆位与放置规则"
-    },
-    {
       "id": "arch-scene.d010.practice",
       "sourceId": "d010",
       "section": "1.2",
@@ -99,30 +73,30 @@
       "docRef": "建筑场景地形与水汇编 第 1.6 节 d054；出处类别：源码拆解·哥特大教堂（案例 13 第 18 章）（案例 13 第 18 章）"
     },
     {
-      "id": "arch-scene.d138.practice",
-      "sourceId": "d138",
+      "id": "arch-scene.d114.practice",
+      "sourceId": "d114",
       "section": "1.11",
       "caseId": "case-13",
-      "title": "替身网格重合",
-      "text": "管子未加载时用公式\"替身管\"，与可见管子在 0.5 米内重合；偏差>0.5 米 console.info(rebakeDrift)",
+      "title": "用同一张路段表生成路面、碰撞与灯位",
+      "text": "【路=角度区间表】22 段 SEGS，每段 {a,b,h0,h1,r0,r1,kind}；kind 四种：deck 平台/ramp 坡/steps 台阶(每级 0.25 米)/bridge 绳桥；高度、碰撞、网格、灯、路线全从表算出\n【22 段角度区间路】一张角度区间表描述环绕的路：22 段，高度、碰撞、网格、灯位全从表算；大枝把网格俯拍成 0.5 m 高度图求坡度（可走面和可见网格同一张表）",
       "quantities": [
         {
-          "value": 0.5,
+          "value": 0.25,
           "unit": "m",
           "rawUnit": "米"
         },
         {
           "value": 0.5,
           "unit": "m",
-          "rawUnit": "米"
+          "rawUnit": "m"
         }
       ],
       "kind": "method",
-      "routeNote": "判例：公式替身加偏差超限就报",
+      "routeNote": "将各路段的角度区间、起止高度和半径、路面类型写入一张表。依表生成可见网格，再用同一组路段数据计算可走高度、碰撞、灯位和路线，避免几套表示各自偏移。",
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "建筑场景地形与水汇编 第 1.11 节 d138；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
+      "verificationLabel": "作者成片用过 / 作者成片用过(未运行)",
+      "docRef": "建筑场景地形与水汇编 第 1.11 节 d114；出处类别：源码拆解·巨树：路、台阶、桥、平台、大枝与根（案例 13 第 23 章）"
     },
     {
       "id": "arch-scene.d150.practice",

@@ -42,4 +42,4 @@ getBatch2CardPriors('camera.shake'); // 三份都查；第二参限定某一份
 
 - `loadBatch2PriorsStore(collection)`（另有 `loadArchScenePriorsStore` 等三个别名）回可移植量的检索库，条目全部「未在我方读回」。
 - `getBatch2CardPriors(cardId, collection?)` 回挂卡先验（`useAsDefault: false`，卡在目标帧源重新标定读回前只作参考）；`getBatch2Practices(collection?)` 回做法与修法。
-- `getBatch2MigrationManifest(collection)` 回总账：`rows` 逐条记去向 `route`、案例 `caseId`、挂卡行的目标卡 `target`、汇总行指回的明细 `summaryOf`。有可移植量的汇总行用 `detailRefs` 列出明细先验 ID。`routeOverrides` 记二审改判理由，`audit` 保留旧裁决，`blindAudit` 记新冻结盲样及其实际分歧；已知源文修复见 `knownFixes`。集合名见 `C11_COLLECTIONS`，写错抛 `TypeError`。自检：`node --test beiming/cards/c11-priors.test.mjs`。
+- `getBatch2MigrationManifest(collection)` 回总账：`rows` 逐条记去向 `route`、案例 `caseId`、挂卡行的目标卡 `target`、汇总行指回的明细 `summaryOf`。有可移植量的汇总行用 `detailRefs` 列出明细先验 ID。`routeOverrides` 记改判理由，`summaryLinkOverrides` 在改过汇总关联时保留原主明细和并列明细。`audit` 保留旧裁决，`blindAudit` 记 R2 冻结样本及其当前分歧。已知源文修复见 `knownFixes`。集合名见 `C11_COLLECTIONS`，写错抛 `TypeError`。自检：`node --test beiming/cards/c11-priors.test.mjs`。

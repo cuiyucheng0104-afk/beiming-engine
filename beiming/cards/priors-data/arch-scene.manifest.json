@@ -12,19 +12,19 @@
   },
   "order": "rows 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "一条 = 一个表格数据行（含跨案例对照表行），或一个顶层列表条目连同它缩进的续行；目录、案例索引、用法、没收进来的、以「并入说明、冲突、合并、说明」开头的说明行不算。对照表行的去向随它指回的明细，不另算一条明细",
-  "portableCount": 72,
-  "cardCoupledCount": 414,
-  "practiceCount": 22,
+  "portableCount": 75,
+  "cardCoupledCount": 413,
+  "practiceCount": 20,
   "excludedOrConflictCount": 18,
   "detailRouteCounts": {
-    "card-coupled": 328,
-    "practice": 19,
-    "portable": 36,
+    "card-coupled": 326,
+    "practice": 18,
+    "portable": 39,
     "skipped-or-conflict": 17
   },
   "summaryRouteCounts": {
-    "card-coupled": 86,
-    "practice": 3,
+    "card-coupled": 87,
+    "practice": 2,
     "skipped-or-conflict": 1,
     "portable": 36
   },
@@ -69,12 +69,12 @@
   },
   "rules": {
     "method": "逐条按主体分流。沿用历史裁决，二审后按通用量与可照搬工序复核边界，改判依据见 routeOverrides。对照表行随同案例明细，独立盲判使用修改前固定的分层随机样本。",
-    "valueShapes": "可移植先验的 value：一个数；两元数组 [小, 大] 是范围（不带方向）；{ first, second } 是原文用斜线或顿号并列的两个取值，照原文先后",
+    "valueShapes": "可移植先验的 value：一个数；两元数组 [小, 大] 是范围（不带方向）；{ first, second } 是原文用斜线或顿号并列的两个取值，照原文先后；rgb-linear 的三元数组按 R、G、B 原序记录，不表示范围。",
     "portable": "标准构件和自然物尺度、步幅步频、呼吸拍翼与动作阶段时长、摄影光学与机位角度、成片规格和读数，能脱离实现单独解释的量进入先验表。证据按来源保留，源码、实测及原文陈述均可作为出处。每项只抽取有原文支持的通用量。 场景完成后的网格、物件和材质计数按对象、统计范围和来源分别出量；原文自报的上限与视口终点读数分别标明。",
     "cardCoupled": "主体是某个具体实现的函数、接口、程序化生成器、骨架绑定参数、着色器公式与常量、大气与水面与地形的生成配置；某部作品写死的布景尺寸表、区域配置表、世界布局、生成器或设备分档的面数与实例预算；某镜头或某一招写死的时刻表、机位与关键帧。带源码标识符的取值、五个以上某片专属配置数字堆在一起的条目、单位不是通用先验单位的量都归这里。挂到 05 第 5 节对应的技术卡上，不当默认值",
     "practice": "可照搬的建模、绑定、布光、运镜步骤、算法与修法进入做法库。按主体判断，举例的标识符与参数不改变工序的用途。",
     "skippedOrConflict": "没有步骤、判据、参数的一句话空泛概述；纯世界坐标摆放表（05 第 8.1 节：坐标表不迁）；只说未公开或无数据、且没有可学做法的陈述；读数冲突对账行；合并记录与编排说明",
-    "summary": "对照表行指回它真正摘自的那条同案例明细（summaryOf）：机器先按两边出处栏的章号、小节号与源码行号，再按共有的数字与用词挑候选，独立核对员逐行对照正文定下，候选里没有的再全表搜；一行摘了几条明细的，其余记在 alsoSummarizes（并列了别的案例的也记在这里）。去向与目标卡随 summaryOf 那条明细。link=values 表示行里照抄了那条明细的数，gist 表示行是它的概括。汇总先验引用同案例、同对象、同计量口径的明细量，按本行的比较主题选主值。分级公式中的参考级高与实际踏步高分别标明。其余汇总只记账。detailRefs 与汇总先验的 summaryOf 一致。",
+    "summary": "对照表行指回它真正摘自的那条同案例明细（summaryOf）：机器先按两边出处栏的章号、小节号与源码行号，再按共有的数字与用词挑候选，独立核对员逐行对照正文定下，候选里没有的再全表搜；一行摘了几条明细的，其余记在 alsoSummarizes（并列了别的案例的也记在这里）。去向与目标卡随 summaryOf 那条明细。link=values 表示行里照抄了那条明细的数，gist 表示行是它的概括。汇总先验引用同案例、同对象、同计量口径的明细量，按本行的比较主题选主值。分级公式中的参考级高与实际踏步高分别标明。其余汇总只记账。detailRefs 与汇总先验的 summaryOf 一致。 种子对照行优先关联同案例同用途的种子表，几何或装饰用到该种子的明细并列留存。相对 a6a83be 的历史主、并列关联记在 summaryLinkOverrides。",
     "bareVariableRandom": {
       "note": "把单个字母 r 当随机数用的算式（宽=h·(.26+r·.08)、floor(r·2.6)）正则认不出来：机器先找出所有「数字紧贴 r」「r 夹在运算符之间」的条目，独立核对员逐条读上下文，是随机数的出结构化区间（量上带 randomVar: \"r\"），r 是半径、进度、距离或函数参数的列在 notRandom",
       "reviewed": 35,
@@ -264,9 +264,9 @@
         }
       ]
     },
-    "domain": "时间、频率、速度类单位记 time-rhythm-editing，长度、角度、比例、个数记 geometry-layout-scale",
+    "domain": "时间、频率、速度类单位记 time-rhythm-editing，长度、角度、比例、个数记 geometry-layout-scale；线性材质基色记 material-shading",
     "evidence": "证据标签取最弱一级映射：实测/画面读数→实测，源码→源码，原文陈述→文档，推断/未列→推断；原标签照抄在 note 或 evidenceLabel",
-    "units": "厘米、千米换成 m，百分数换成 ratio，分钟换成 s，帧记 frame，度记 deg，弧度记 rad，面数与个数记 count。色值不进可移植表（源文没写色彩空间），留在挂卡条目的原文里",
+    "units": "厘米、千米换成 m，百分数换成 ratio，分钟换成 s，帧记 frame，度记 deg，弧度记 rad，面数与个数记 count。色值仅在原文或原引擎能证实工作色彩空间时收录；线性 Rec.709 基色用 rgb-linear、scene-linear-rec709，其余色值留在挂卡原文里",
     "quantities": "挂卡与做法条目的 quantities 只收数字后面写明单位的量；s、m 在该条里当变量用（s= 缩放系数、·s、m3）时贴着数字的不算单位。场景单位按米的长度只在原文写了「米」或 m 时才出量",
     "portableRandom": "可移植明细的原文里若有随机算式，结构化区间写在该明细第一条先验的 ext[\"c11.randomRanges\"]，口径与挂卡条目的 quantities 相同",
     "quantityFields": "base、jitter：随机算式的基础量与随机跨度，value = [随机数取 0 的值, 取 1 的值]（减号写法取小的一端当 base；幂次只改分布不改两端）；scaleBy 是外层变量乘数，实际值 = value × scaleBy；expr 是算式原文，label 说明它是什么；step 是取整后离散取值的间距（floor(r·2.6) 记 [0, 2]、step 1，即 0、1、2）；randomVar 标出把哪个裸变量当随机数",
@@ -371,14 +371,14 @@
       "inSpec": true,
       "exists": false,
       "covers": "包围盒、代理占位与碰撞代理",
-      "count": 3
+      "count": 4
     },
     {
       "cardId": "form.arch-glazing",
       "inSpec": false,
       "exists": false,
       "covers": "窗、彩色玻璃、窗内假房间",
-      "count": 9
+      "count": 8
     },
     {
       "cardId": "form.arch-masonry",
@@ -399,7 +399,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "草与地表植被的实例化、密度与着色",
-      "count": 15
+      "count": 14
     },
     {
       "cardId": "form.interior-arch",
@@ -413,7 +413,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "巨型树场景的路、阶梯、桥、平台、枝根等程序化结构",
-      "count": 38
+      "count": 37
     },
     {
       "cardId": "form.rock",
@@ -671,6 +671,12 @@
       "previousRoute": "card-coupled"
     },
     {
+      "sourceId": "d006",
+      "route": "portable",
+      "reason": "原文给出两个可单独核对的验收条件：实体与每条相机路径的最小净距，以及从镜头角度预览单个模块的最长等待时间；两项均为本案例的要求，不是实测读数。",
+      "previousRoute": "practice"
+    },
+    {
       "sourceId": "d010",
       "route": "practice",
       "reason": "替换道具生成器时，先空跑旧生成器消耗原随机序列，再用独立随机流生成新外形，保留后续摆件的位置。",
@@ -749,10 +755,28 @@
       "previousRoute": "card-coupled"
     },
     {
+      "sourceId": "d063",
+      "route": "portable",
+      "reason": "古玻璃线性透射基色有可核对的线性工作空间。只收原文明确给出的 RGB 三通道基色，不把附带的着色参数当作默认值。",
+      "previousRoute": "card-coupled"
+    },
+    {
       "sourceId": "d074",
       "route": "portable",
       "reason": "通用参考量：前厅壁厚、前厅高、前厅净宽、前厅过渡台阶踏面进深、前厅过渡台阶分级用参考级高",
       "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d114",
+      "route": "practice",
+      "reason": "将各路段的角度区间、起止高度和半径、路面类型写入一张表。依表生成可见网格，再用同一组路段数据计算可走高度、碰撞、灯位和路线，避免几套表示各自偏移。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d138",
+      "route": "card-coupled",
+      "reason": "0.5 米是该大枝替身与可见网格之间的漂移日志阈值。载入后总会用可见网格更新高度；超过阈值才输出提示，不是通用建模公差。",
+      "previousRoute": "practice"
     },
     {
       "sourceId": "d139",
@@ -811,7 +835,7 @@
     {
       "sourceId": "d256",
       "route": "portable",
-      "reason": "原文可直接解释的参考量：终点视口显示的三角面数、终点视口显示的对象数",
+      "reason": "规模读数落实到终点视口的三角面数、对象数；模块合同也重复给出两轮三角面预算。分轮预算与视口读数分别登记，不把交付接口当成通用要求。",
       "previousRoute": "card-coupled"
     },
     {
@@ -911,6 +935,12 @@
       "previousRoute": "card-coupled"
     },
     {
+      "sourceId": "d364",
+      "route": "portable",
+      "reason": "草地线性材质调色板有可核对的线性工作空间。只收原文明确给出的 RGB 三通道基色，不把附带的着色参数当作默认值。",
+      "previousRoute": "card-coupled"
+    },
+    {
       "sourceId": "d384",
       "route": "portable",
       "reason": "通用参考量：植被基准树高（约）",
@@ -921,6 +951,70 @@
       "route": "practice",
       "reason": "随视距增大逐渐稀疏植被，按保留率平方根的倒数放大留下的植被，用抖动淡出过渡。",
       "previousRoute": "card-coupled"
+    }
+  ],
+  "summaryLinkOverrides": [
+    {
+      "sourceId": "s013",
+      "previousSummaryOf": "d263",
+      "previousAlsoSummarizes": [
+        "d284"
+      ]
+    },
+    {
+      "sourceId": "s026",
+      "previousSummaryOf": "d020",
+      "previousAlsoSummarizes": [
+        "d007"
+      ]
+    },
+    {
+      "sourceId": "s027",
+      "previousSummaryOf": "d047",
+      "previousAlsoSummarizes": [
+        "d007"
+      ]
+    },
+    {
+      "sourceId": "s028",
+      "previousSummaryOf": "d055",
+      "previousAlsoSummarizes": [
+        "d007"
+      ]
+    },
+    {
+      "sourceId": "s029",
+      "previousSummaryOf": "d060",
+      "previousAlsoSummarizes": [
+        "d007"
+      ]
+    },
+    {
+      "sourceId": "s030",
+      "previousSummaryOf": "d059",
+      "previousAlsoSummarizes": [
+        "d007"
+      ]
+    },
+    {
+      "sourceId": "s052",
+      "previousSummaryOf": "d032",
+      "previousAlsoSummarizes": []
+    },
+    {
+      "sourceId": "s062",
+      "previousSummaryOf": "d193",
+      "previousAlsoSummarizes": []
+    },
+    {
+      "sourceId": "s072",
+      "previousSummaryOf": "d114",
+      "previousAlsoSummarizes": []
+    },
+    {
+      "sourceId": "s073",
+      "previousSummaryOf": "d139",
+      "previousAlsoSummarizes": []
     }
   ],
   "audit": {
@@ -7165,10 +7259,15 @@
       "recordKind": "summary",
       "section": "1.2",
       "caseId": "case-22",
-      "route": "practice",
+      "route": "portable",
       "summaryOf": "d006",
       "link": "values",
-      "targets": []
+      "targets": [
+        "arch-scene.sum.s019"
+      ],
+      "detailRefs": [
+        "arch-scene.d006.camera-path-min-clearance"
+      ]
     },
     {
       "sourceLine": 110,
@@ -7255,12 +7354,12 @@
       "section": "1.2",
       "caseId": "case-13",
       "route": "card-coupled",
-      "summaryOf": "d020",
+      "summaryOf": "d007",
       "alsoSummarizes": [
-        "d007"
+        "d020"
       ],
       "link": "values",
-      "target": "form.arch-masonry",
+      "target": "time.seeded",
       "targets": []
     },
     {
@@ -7270,12 +7369,12 @@
       "section": "1.2",
       "caseId": "case-13",
       "route": "card-coupled",
-      "summaryOf": "d047",
+      "summaryOf": "d007",
       "alsoSummarizes": [
-        "d007"
+        "d047"
       ],
       "link": "values",
-      "target": "form.set-dressing",
+      "target": "time.seeded",
       "targets": []
     },
     {
@@ -7285,12 +7384,12 @@
       "section": "1.2",
       "caseId": "case-13",
       "route": "card-coupled",
-      "summaryOf": "d055",
+      "summaryOf": "d007",
       "alsoSummarizes": [
-        "d007"
+        "d055"
       ],
       "link": "values",
-      "target": "form.set-dressing",
+      "target": "time.seeded",
       "targets": []
     },
     {
@@ -7299,14 +7398,14 @@
       "recordKind": "summary",
       "section": "1.2",
       "caseId": "case-13",
-      "route": "portable",
-      "summaryOf": "d060",
+      "route": "card-coupled",
+      "summaryOf": "d007",
       "alsoSummarizes": [
-        "d007"
+        "d060"
       ],
       "link": "values",
       "targets": [],
-      "detailRefs": []
+      "target": "time.seeded"
     },
     {
       "sourceLine": 125,
@@ -7315,12 +7414,12 @@
       "section": "1.2",
       "caseId": "case-13",
       "route": "card-coupled",
-      "summaryOf": "d059",
+      "summaryOf": "d007",
       "alsoSummarizes": [
-        "d007"
+        "d059"
       ],
       "link": "values",
-      "target": "form.arch-masonry",
+      "target": "time.seeded",
       "targets": []
     },
     {
@@ -7597,9 +7696,10 @@
       "recordKind": "detail",
       "section": "1.2",
       "caseId": "case-22",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "arch-scene.d006.practice"
+        "arch-scene.d006.camera-path-min-clearance",
+        "arch-scene.d006.module-preview-time-limit"
       ]
     },
     {
@@ -8243,10 +8343,13 @@
       "section": "1.6",
       "caseId": "case-13",
       "route": "card-coupled",
-      "summaryOf": "d114",
+      "summaryOf": "d118",
       "link": "values",
       "target": "form.megatree",
-      "targets": []
+      "targets": [],
+      "alsoSummarizes": [
+        "d114"
+      ]
     },
     {
       "sourceLine": 359,
@@ -8743,10 +8846,13 @@
       "recordKind": "detail",
       "section": "1.7",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.arch-glazing",
+      "route": "portable",
       "targets": [
-        "arch-scene.d063.card"
+        "arch-scene.d063.glass-deep-blue",
+        "arch-scene.d063.glass-ruby",
+        "arch-scene.d063.glass-amber",
+        "arch-scene.d063.glass-green",
+        "arch-scene.d063.glass-grisaille"
       ]
     },
     {
@@ -9355,10 +9461,9 @@
       "recordKind": "detail",
       "section": "1.11",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.megatree",
+      "route": "practice",
       "targets": [
-        "arch-scene.d114.card"
+        "arch-scene.d114.practice"
       ]
     },
     {
@@ -9640,10 +9745,11 @@
       "recordKind": "detail",
       "section": "1.11",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "arch-scene.d138.practice"
-      ]
+        "arch-scene.d138.card"
+      ],
+      "target": "asset.bbox-proxy"
     },
     {
       "sourceLine": 867,
@@ -11244,7 +11350,9 @@
       "route": "portable",
       "targets": [
         "arch-scene.d256.viewport-triangles",
-        "arch-scene.d256.viewport-objects"
+        "arch-scene.d256.viewport-objects",
+        "arch-scene.d256.round-one-triangle-budget",
+        "arch-scene.d256.round-two-triangle-budget"
       ]
     },
     {
@@ -12833,10 +12941,18 @@
       "recordKind": "detail",
       "section": "2.8",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "form.grass",
+      "route": "portable",
       "targets": [
-        "arch-scene.d364.card"
+        "arch-scene.d364.grass-gold",
+        "arch-scene.d364.grass-gild",
+        "arch-scene.d364.grass-olive",
+        "arch-scene.d364.grass-amber",
+        "arch-scene.d364.grass-straw",
+        "arch-scene.d364.grass-ash",
+        "arch-scene.d364.grass-wet-bank-start",
+        "arch-scene.d364.grass-wet-bank-end",
+        "arch-scene.d364.grass-dead-start",
+        "arch-scene.d364.grass-dead-end"
       ]
     },
     {

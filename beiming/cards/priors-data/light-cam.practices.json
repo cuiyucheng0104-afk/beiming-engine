@@ -475,6 +475,27 @@
       "docRef": "光照天空大气与相机汇编 第 1.14 节 d192；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
     },
     {
+      "id": "light-cam.d195.practice",
+      "sourceId": "d195",
+      "section": "1.14",
+      "caseId": "ext-03",
+      "title": "产品片光与大气",
+      "text": "头顶硬金光穿丛林树冠、体积光柱、30% 湿雾、花粉点、湿火山岩、背光半透明叶;「Must NOT appear」清单:屏幕文字、橡胶塑料 CGI 感、胶片颗粒叠加、暗角、镜头光斑、光条、漂浮光斑圆、色差、水印",
+      "quantities": [
+        {
+          "value": 0.3,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "从树冠上方打硬金光，用湿雾显出光柱并给叶片背光。成片逐项检查屏幕文字、水印、暗角、镜头光斑和色差等禁用效果。",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 1.14 节 d195；出处类别：原文陈述·逐案例光方案与提示词里的光照写法"
+    },
+    {
       "id": "light-cam.d196.practice",
       "sourceId": "d196",
       "section": "1.14",
@@ -681,6 +702,27 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过(未运行)",
       "docRef": "光照天空大气与相机汇编 第 2.5 节 d301；出处类别：源码拆解·雨、风与闪电"
+    },
+    {
+      "id": "light-cam.d316.practice",
+      "sourceId": "d316",
+      "section": "2.7",
+      "caseId": "case-26",
+      "title": "物理大气",
+      "text": "Rayleigh+Mie+臭氧多次散射,按太阳高度计算:厅内太阳高度角 +9°;外景「first light」:餐厅处在山丘冷影里而远山已发橙光、山谷有雾、水坑映霓虹、亮着的电话亭与院灯",
+      "quantities": [
+        {
+          "value": 9,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "按太阳高度计算瑞利、米氏和臭氧参与的多次散射。清晨外景让近处餐厅留在山丘冷影中，以远山受光发橙、谷地有雾作为明暗层次的判据。",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "光照天空大气与相机汇编 第 2.7 节 d316；出处类别：原文陈述·物理大气与路径追踪天空（案例 22、餐馆、热带高密度滨海城区）"
     },
     {
       "id": "light-cam.d318.practice",

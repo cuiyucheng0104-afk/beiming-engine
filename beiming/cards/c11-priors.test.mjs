@@ -194,6 +194,9 @@ test('公开检索能取到构件尺寸、动作周期与阶段时长、焦段�
   };
   matches('arch-scene', 'd026', 'm', 2, /墙.*厚/);
   matches('arch-scene', 'd026', 'm', 7.2, /墙.*高/);
+  const palette = loadArchScenePriorsStore().query({ unit: 'rgb-linear' });
+  assert.deepEqual(palette.find((e) => e.id === 'arch-scene.d063.glass-ruby')?.value, [0.370, 0.058, 0.048]);
+  assert.deepEqual(palette.find((e) => e.id === 'arch-scene.d364.grass-gold')?.value, [0.66, 0.45, 0.12]);
   matches('motion-rig', 'd448', 's', 4.4, /呼吸/);
   matches('motion-rig', 'd484', 'Hz', [1.1, 1.6], /拍/);
   matches('motion-rig', 'd420', 's', 1.14, /前摇/);
@@ -205,7 +208,12 @@ test('公开检索能取到构件尺寸、动作周期与阶段时长、焦段�
   matches('light-cam', 'd450', 'mm', 31.5, /焦/);
   matches('light-cam', 'd331', 'deg', [115, 125], /视场|FOV/);
   matches('light-cam', 'd450', 'deg', 180, /快门/);
-  for (const [c, ids] of Object.entries({ 'arch-scene': ['d053', 'd311', 'd353'], 'motion-rig': ['d059', 'd499'], 'light-cam': ['d014', 'd325', 'd448'] })) {
+  const methodsByCollection = {
+    'arch-scene': ['d053', 'd311', 'd353'],
+    'motion-rig': ['d034', 'd035', 'd059', 'd118', 'd224', 'd464', 'd499'],
+    'light-cam': ['d014', 'd325', 'd448'],
+  };
+  for (const [c, ids] of Object.entries(methodsByCollection)) {
     const methods = new Set(getBatch2Practices(c).map((e) => e.sourceId));
     for (const sid of ids) assert.ok(methods.has(sid), `${c} ${sid} 可照搬工序`);
   }
@@ -251,8 +259,11 @@ test('三份可移植表以 JSON 原文过 C9：0 错误、0 泄露、单位合�
       assert.ok(PRIOR_UNITS.includes(e.unit), e.id);
       assert.equal(e.verifiedInOurStack, false, e.id);
       assert.equal(Object.hasOwn(e, 'readbackEvidence'), false, e.id);
-      assert.equal(Object.hasOwn(e, 'colorSpace'), false, `${e.id}：色值不进可移植表`);
-      assert.ok(!['rgb-linear', 'rgb-display'].includes(e.unit), e.id);
+      if (['rgb-linear', 'rgb-display'].includes(e.unit)) {
+        assert.equal(c, 'arch-scene', e.id);
+        assert.ok(['d063', 'd364'].includes(e.ext['c11.sourceId']), `${e.id} 需要确认工作色域的原文出处`);
+        assert.deepEqual([e.unit, e.colorSpace], ['rgb-linear', 'scene-linear-rec709'], e.id);
+      } else assert.equal(Object.hasOwn(e, 'colorSpace'), false, e.id);
       assert.ok(e.id.startsWith(`${c}.`) && e.topic.startsWith(`${c}.`), e.id);
       assert.match(e.provenance.caseId, /^(?:case-\d\d|ext-\d\d)$/, e.id);
     }
@@ -274,6 +285,11 @@ test('可移植量的值精确出现在它的原文片段里，片段出自条�
       assert.ok(typeof piece === 'string' && piece.length > 0, e.id);
       assert.ok(squash(`${e.title} ${e.provenance.note}`).includes(squash(piece)), `${e.id} 的片段「${piece}」不在原文里`);
       const found = nums(piece);
+      if (e.unit === 'rgb-linear') {
+        assert.match(piece, /^\(\s*\d*\.\d+\s*,\s*\d*\.\d+\s*,\s*\d*\.\d+\s*\)$/, e.id);
+        assert.deepEqual(e.value, found, `${e.id} 按原文 R、G、B 顺序`);
+        continue;
+      }
       for (const m of piece.matchAll(/([一二三四五六七八九])(?:个)?镜头/g)) found.push('一二三四五六七八九'.indexOf(m[1]) + 1);
       // value 的三种形状：一个数；[小, 大] 范围；{ first, second } 是原文并列的两个取值。
       const pair = e.value !== null && typeof e.value === 'object' && !Array.isArray(e.value);
@@ -798,7 +814,19 @@ function previousRows(m) {
     assert.ok(ROUTES.includes(x.previousRoute) && x.previousRoute !== x.route, x.sourceId);
     assert.equal(m.rows.find((r) => r.sourceId === x.sourceId)?.route, x.route);
   }
-  return m.rows.map((r) => ({ ...r, route: before.get(r.summaryOf ?? r.sourceId) ?? r.route }));
+  const byId = new Map(m.rows.map((r) => [r.sourceId, r]));
+  const links = new Map((m.summaryLinkOverrides ?? []).map((x) => [x.sourceId, x]));
+  const rows = m.rows.map((r) => {
+    const old = links.get(r.sourceId);
+    const restored = old ? { ...r, summaryOf: old.previousSummaryOf, alsoSummarizes: old.previousAlsoSummarizes } : r;
+    const detail = byId.get(restored.summaryOf ?? r.sourceId);
+    return { ...restored, route: before.get(detail.sourceId) ?? detail.route };
+  });
+  // a6a83be 的源行、原去向与摘要链接共同入指纹，防止改链后误用当前主明细回放历史。
+  const baseline = { 'arch-scene': '905fc1e0492cfc33', 'motion-rig': '00c351bf8c32cd2f', 'light-cam': 'bd5136b6cb8ae84d' };
+  const trace = rows.map((r) => [r.sourceId, r.route, r.summaryOf ?? '', ...(r.alsoSummarizes ?? [])].join('/')).join('\n');
+  assert.equal(sha16(trace), baseline[m.collection], m.collection);
+  return rows;
 }
 
 test('第四版历史审计可回放：1,822 行原始盲票、当时的分歧及 200 组固定种子的抽样', (t) => {
@@ -947,4 +975,50 @@ test('二审修复后的三份源账分别及合并与冻结盲样比较，抽�
   });
   assert.ok(picked >= 183 && different / picked <= 0.1, `三份合并 ${different}/${picked}`);
   t.diagnostic(`三份合并分歧 ${different}/${picked}`);
+});
+
+test('按源行重抽 bfd69fb 终审的冻结样本，用原始判票回归边界修复', (t) => {
+  const seed = 'c11-independent-freeze-20261123-7f39c2b8';
+  const votes = {
+    'arch-scene': {
+      portable: 'd063 d138 s019 s050',
+      'card-coupled': 'd009 d015 d018 d021 d039 d051 d057 d082 d091 d108 d127 d137 d141 d147 d160 d201 d211 d231 d232 d239 d264 d290 d295 d301 d308 d331 d374 d380 d382 d389 d391 s017 s026 s029 s030 s037 s043 s048 s075 s077 s097 s113',
+      practice: 'd114 d256 d270',
+      'skipped-or-conflict': 'd278 d395 d396 d399',
+    },
+    'motion-rig': {
+      portable: 's054 s058',
+      'card-coupled': 'd007 d008 d018 d020 d051 d067 d081 d085 d093 d101 d102 d107 d111 d117 d119 d133 d148 d159 d161 d173 d182 d192 d210 d229 d244 d272 d281 d282 d313 d323 d340 d355 d357 d358 d359 d389 d412 d437 d446 d483 d528 s006 s013 s022',
+      practice: 'd001 d015 d034 d035 d118 d224 d464 d469 d508 d511 s011',
+      'skipped-or-conflict': 'd463 d538 d541 d546',
+    },
+    'light-cam': {
+      portable: 'd012 s017 s146 s182 s191',
+      'card-coupled': 'd015 d034 d042 d055 d074 d075 d080 d093 d095 d121 d125 d128 d137 d165 d172 d188 d220 d221 d222 d231 d249 d260 d271 d274 d280 d295 d306 d343 d350 d358 d360 d395 d400 d417 d421 d452 d454 s028 s033 s065 s078 s097 s107 s128 s130 s138 s156 s161 s176 s178',
+      practice: 'd195 d197 d202 d316 d321 d433 d448 d465 d476 s133 s134 s189',
+      'skipped-or-conflict': 'd098 d326 s193',
+    },
+  };
+  let total = 0;
+  let differences = 0;
+  each((c, { manifest: m }) => {
+    const frozen = Object.entries(votes[c]).flatMap(([route, ids]) => ids.split(' ').map((id) => [id, route]));
+    const byId = new Map(frozen);
+    assert.equal(byId.size, frozen.length, `${c} 原票一行一判`);
+    const sample = ['detail', 'summary'].flatMap((kind) => {
+      const stratum = m.rows.filter((r) => r.recordKind === kind).map((r) => ({
+        row: r, score: createHash('sha256').update(`${seed}|${c}|${kind}|${r.sourceLine}`).digest('hex'),
+      }));
+      return stratum.sort((a, b) => a.score.localeCompare(b.score)).slice(0, Math.ceil(stratum.length / 10)).map((x) => x.row);
+    });
+    assert.deepEqual([...byId.keys()].sort(), sample.map((r) => r.sourceId).sort(), `${c} 重抽与原票覆盖相同源行`);
+    const diff = sample.filter((r) => byId.get(r.sourceId) !== r.route);
+    t.diagnostic(`${c} 原票回归 ${diff.length}/${sample.length}`);
+    assert.ok(diff.length / sample.length <= 0.1, `${c} ${diff.map((r) => r.sourceId).join(' ')}`);
+    total += sample.length;
+    differences += diff.length;
+  });
+  assert.equal(total, 184);
+  assert.ok(differences / total <= 0.1);
+  t.diagnostic(`三份合并原票回归 ${differences}/${total}`);
 });

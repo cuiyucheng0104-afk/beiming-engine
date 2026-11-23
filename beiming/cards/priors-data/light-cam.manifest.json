@@ -12,15 +12,15 @@
   },
   "order": "rows 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "一条 = 一个表格数据行（含跨案例对照表行），或一个顶层列表条目连同它缩进的续行；目录、案例索引、用法、没收进来的、以「并入说明、冲突、合并、说明」开头的说明行不算。对照表行的去向随它指回的明细，不另算一条明细",
-  "portableCount": 83,
+  "portableCount": 82,
   "cardCoupledCount": 460,
-  "practiceCount": 104,
-  "excludedOrConflictCount": 40,
+  "practiceCount": 106,
+  "excludedOrConflictCount": 39,
   "detailRouteCounts": {
-    "practice": 74,
+    "practice": 76,
     "card-coupled": 326,
-    "portable": 44,
-    "skipped-or-conflict": 37
+    "portable": 43,
+    "skipped-or-conflict": 36
   },
   "summaryRouteCounts": {
     "card-coupled": 134,
@@ -301,7 +301,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "镜头参数：焦段、视场、光圈、景深、传感器、快门",
-      "count": 2
+      "count": 3
     },
     {
       "cardId": "camera.relative",
@@ -339,13 +339,6 @@
       "count": 5
     },
     {
-      "cardId": "light.case-scheme",
-      "inSpec": false,
-      "exists": false,
-      "covers": "逐案例的光方案与提示词里的光照写法",
-      "count": 1
-    },
-    {
       "cardId": "light.emissive",
       "inSpec": false,
       "exists": false,
@@ -371,7 +364,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "路径追踪里的光组、光采样、光照缓存",
-      "count": 2
+      "count": 1
     },
     {
       "cardId": "light.pcss",
@@ -442,6 +435,13 @@
       "exists": false,
       "covers": "天穹、太阳盘、月亮、日晕、星空",
       "count": 9
+    },
+    {
+      "cardId": "time.envelope",
+      "inSpec": true,
+      "exists": true,
+      "covers": "包络与缓动函数库",
+      "count": 1
     }
   ],
   "knownFixes": [
@@ -552,6 +552,12 @@
       "previousRoute": "card-coupled"
     },
     {
+      "sourceId": "d013",
+      "route": "portable",
+      "reason": "按案例坐标、10 月 12 日 07:20 计算的太阳方位角与高度角都有原文读数。滑块拖动的起始角仅记在来源说明。",
+      "previousRoute": "card-coupled"
+    },
+    {
       "sourceId": "d014",
       "route": "practice",
       "reason": "用一轮低位暖太阳从相机前侧逆光照明，再加软雾，让长影朝向镜头。",
@@ -576,6 +582,12 @@
       "previousRoute": "practice"
     },
     {
+      "sourceId": "d195",
+      "route": "practice",
+      "reason": "从树冠上方打硬金光，用湿雾显出光柱并给叶片背光。成片逐项检查屏幕文字、水印、暗角、镜头光斑和色差等禁用效果。",
+      "previousRoute": "card-coupled"
+    },
+    {
       "sourceId": "d199",
       "route": "portable",
       "reason": "通用参考量：暖主光色温、冷阴影的填充光色温",
@@ -595,8 +607,8 @@
     },
     {
       "sourceId": "d316",
-      "route": "portable",
-      "reason": "通用参考量：黎明室内布光的太阳高度角",
+      "route": "practice",
+      "reason": "按太阳高度计算瑞利、米氏和臭氧参与的多次散射。清晨外景让近处餐厅留在山丘冷影中，以远山受光发橙、谷地有雾作为明暗层次的判据。对照行 s129 原主引本条，其厅内 +9° 读数由同案例太阳定位明细 d011 承接。",
       "previousRoute": "card-coupled"
     },
     {
@@ -627,12 +639,6 @@
       "sourceId": "d328",
       "route": "portable",
       "reason": "通用参考量：透视视场角",
-      "previousRoute": "card-coupled"
-    },
-    {
-      "sourceId": "d329",
-      "route": "portable",
-      "reason": "通用参考量：基础竖直视场角、瞄准视场角",
       "previousRoute": "card-coupled"
     },
     {
@@ -804,6 +810,12 @@
       "previousRoute": "card-coupled"
     },
     {
+      "sourceId": "d454",
+      "route": "card-coupled",
+      "reason": "原文指向同案例的时间曲线表，15 个时间键逐项给出翻背权重，接触段关闭有明确说明。",
+      "previousRoute": "skipped-or-conflict"
+    },
+    {
       "sourceId": "d458",
       "route": "portable",
       "reason": "通用参考量：固定对角视场角、成片帧率、单镜成片时长、避免边缘畸变的中央安全区占比",
@@ -850,6 +862,20 @@
       "route": "portable",
       "reason": "镜头视场角和对应焦段随取景目的成组给出，手持倾斜角随动作强度分档，可分别按角度与毫米复用。",
       "previousRoute": "card-coupled"
+    }
+  ],
+  "summaryLinkOverrides": [
+    {
+      "sourceId": "s129",
+      "previousSummaryOf": "d316",
+      "previousAlsoSummarizes": [
+        "d011"
+      ]
+    },
+    {
+      "sourceId": "s183",
+      "previousSummaryOf": "d461",
+      "previousAlsoSummarizes": []
     }
   ],
   "audit": {
@@ -8224,15 +8250,6 @@
       "docRef": "光照天空大气与相机汇编 第 3.9 节 d451；出处类别：推断与说明·景深、运动模糊、曝光与镜头光学"
     },
     {
-      "sourceId": "d454",
-      "section": "3.9",
-      "caseId": "ext-01",
-      "title": "朝镜头翻背 `lensRoll` 开",
-      "reason": "合并记录、编排说明、指路或待核问题：只提翻背开关表而未提供内容",
-      "evidenceLabel": "清单未列",
-      "docRef": "光照天空大气与相机汇编 第 3.9 节 d454；出处类别：推断与说明·景深、运动模糊、曝光与镜头光学"
-    },
-    {
       "sourceId": "d455",
       "section": "3.9",
       "caseId": "case-02",
@@ -8489,11 +8506,16 @@
       "recordKind": "summary",
       "section": "1.2",
       "caseId": "case-25",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "d013",
       "link": "values",
-      "target": "light.pathtrace",
-      "targets": []
+      "targets": [
+        "light-cam.sum.s017"
+      ],
+      "detailRefs": [
+        "light-cam.d013.sun-azimuth",
+        "light-cam.d013.sun-elevation"
+      ]
     },
     {
       "sourceLine": 125,
@@ -8639,10 +8661,10 @@
       "recordKind": "detail",
       "section": "1.2",
       "caseId": "case-25",
-      "route": "card-coupled",
-      "target": "light.pathtrace",
+      "route": "portable",
       "targets": [
-        "light-cam.d013.card"
+        "light-cam.d013.sun-azimuth",
+        "light-cam.d013.sun-elevation"
       ]
     },
     {
@@ -11770,10 +11792,9 @@
       "recordKind": "detail",
       "section": "1.14",
       "caseId": "ext-03",
-      "route": "card-coupled",
-      "target": "light.case-scheme",
+      "route": "practice",
       "targets": [
-        "light-cam.d195.card"
+        "light-cam.d195.practice"
       ]
     },
     {
@@ -13585,16 +13606,16 @@
       "section": "2.7",
       "caseId": "case-26",
       "route": "portable",
-      "summaryOf": "d316",
+      "summaryOf": "d011",
       "alsoSummarizes": [
-        "d011"
+        "d316"
       ],
       "link": "values",
       "targets": [
         "light-cam.sum.s129"
       ],
       "detailRefs": [
-        "light-cam.d316.sun-elevation"
+        "light-cam.d011.sun-elevation"
       ]
     },
     {
@@ -13678,9 +13699,9 @@
       "recordKind": "detail",
       "section": "2.7",
       "caseId": "case-26",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "light-cam.d316.sun-elevation"
+        "light-cam.d316.practice"
       ]
     },
     {
@@ -13830,19 +13851,14 @@
       "recordKind": "summary",
       "section": "3.1",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
       "summaryOf": "d329",
       "alsoSummarizes": [
         "d416"
       ],
       "link": "values",
-      "targets": [
-        "light-cam.sum.s138"
-      ],
-      "detailRefs": [
-        "light-cam.d329.base-vertical-fov",
-        "light-cam.d329.aim-fov"
-      ]
+      "target": "camera.lens",
+      "targets": []
     },
     {
       "sourceLine": 1583,
@@ -14078,10 +14094,10 @@
       "recordKind": "detail",
       "section": "3.1",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "target": "camera.lens",
       "targets": [
-        "light-cam.d329.base-vertical-fov",
-        "light-cam.d329.aim-fov"
+        "light-cam.d329.card"
       ]
     },
     {
@@ -16313,8 +16329,11 @@
       "recordKind": "detail",
       "section": "3.9",
       "caseId": "ext-01",
-      "route": "skipped-or-conflict",
-      "targets": []
+      "route": "card-coupled",
+      "target": "time.envelope",
+      "targets": [
+        "light-cam.d454.card"
+      ]
     },
     {
       "sourceLine": 2152,

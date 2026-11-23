@@ -275,6 +275,54 @@
       }
     },
     {
+      "id": "arch-scene.d006.camera-path-min-clearance",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-2.camera-path-min-clearance",
+      "title": "高密度街区网格规则：实体与相机路径的最小净距",
+      "value": 3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "在街区镜头布局中检查实体是否让开每条相机路径；3 米是本案例采用的下限。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.2 节 d006；出处类别：原文陈述·布局、摆位与放置规则",
+        "note": "原证据：原文陈述；原验证：C。实体离每条相机路径至少 3 米；每个模块 30 秒内能从镜头角度预览（带 clay 模式）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "实体离每条相机路径至少 3 米",
+        "c11.sourceId": "d006"
+      }
+    },
+    {
+      "id": "arch-scene.d006.module-preview-time-limit",
+      "domain": "time-rhythm-editing",
+      "topic": "arch-scene.sec-1-2.module-preview-time-limit",
+      "title": "单模块从镜头角度预览的等待时限",
+      "value": 30,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "从镜头角度预览一个街区模块时，工具支持灰模模式；30 秒是案例的等待上限，不是片长或实测渲染时间。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.2 节 d006；出处类别：原文陈述·布局、摆位与放置规则",
+        "note": "原证据：原文陈述；原验证：C。实体离每条相机路径至少 3 米；每个模块 30 秒内能从镜头角度预览（带 clay 模式）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "每个模块 30 秒内能从镜头角度预览",
+        "c11.sourceId": "d006"
+      }
+    },
+    {
       "id": "arch-scene.d013.main-eave-height",
       "domain": "geometry-layout-scale",
       "topic": "arch-scene.sec-1-3.main-eave-height",
@@ -1280,6 +1328,151 @@
       }
     },
     {
+      "id": "arch-scene.d063.glass-deep-blue",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-1-7.glass-deep-blue",
+      "title": "古玻璃线性透射基色：深蓝",
+      "value": [
+        0.042,
+        0.094,
+        0.205
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间设置古玻璃的基础透射色，尚未乘单片密度或照明。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.7 节 d063；出处类别：源码拆解·彩色玻璃、窗与窗里的房间（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。线性透射色 cgPal：深蓝(0.042,.094,.205)、红宝石(0.370,.058,.048)、琥珀(0.630,.385,.105)、绿(0.125,.225,.095)、灰白(0.545,.525,.440)；每块再乘 0.72+0.36·cgPH。玻璃着色器把这组线性透射色与密度、照明相乘后直接写到材质的 diffuseColor；中间没有输入色域转换。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(0.042,.094,.205)",
+        "c11.sourceId": "d063"
+      }
+    },
+    {
+      "id": "arch-scene.d063.glass-ruby",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-1-7.glass-ruby",
+      "title": "古玻璃线性透射基色：红宝石",
+      "value": [
+        0.37,
+        0.058,
+        0.048
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间设置古玻璃的基础透射色，尚未乘单片密度或照明。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.7 节 d063；出处类别：源码拆解·彩色玻璃、窗与窗里的房间（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。线性透射色 cgPal：深蓝(0.042,.094,.205)、红宝石(0.370,.058,.048)、琥珀(0.630,.385,.105)、绿(0.125,.225,.095)、灰白(0.545,.525,.440)；每块再乘 0.72+0.36·cgPH。玻璃着色器把这组线性透射色与密度、照明相乘后直接写到材质的 diffuseColor；中间没有输入色域转换。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(0.370,.058,.048)",
+        "c11.sourceId": "d063"
+      }
+    },
+    {
+      "id": "arch-scene.d063.glass-amber",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-1-7.glass-amber",
+      "title": "古玻璃线性透射基色：琥珀",
+      "value": [
+        0.63,
+        0.385,
+        0.105
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间设置古玻璃的基础透射色，尚未乘单片密度或照明。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.7 节 d063；出处类别：源码拆解·彩色玻璃、窗与窗里的房间（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。线性透射色 cgPal：深蓝(0.042,.094,.205)、红宝石(0.370,.058,.048)、琥珀(0.630,.385,.105)、绿(0.125,.225,.095)、灰白(0.545,.525,.440)；每块再乘 0.72+0.36·cgPH。玻璃着色器把这组线性透射色与密度、照明相乘后直接写到材质的 diffuseColor；中间没有输入色域转换。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(0.630,.385,.105)",
+        "c11.sourceId": "d063"
+      }
+    },
+    {
+      "id": "arch-scene.d063.glass-green",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-1-7.glass-green",
+      "title": "古玻璃线性透射基色：绿",
+      "value": [
+        0.125,
+        0.225,
+        0.095
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间设置古玻璃的基础透射色，尚未乘单片密度或照明。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.7 节 d063；出处类别：源码拆解·彩色玻璃、窗与窗里的房间（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。线性透射色 cgPal：深蓝(0.042,.094,.205)、红宝石(0.370,.058,.048)、琥珀(0.630,.385,.105)、绿(0.125,.225,.095)、灰白(0.545,.525,.440)；每块再乘 0.72+0.36·cgPH。玻璃着色器把这组线性透射色与密度、照明相乘后直接写到材质的 diffuseColor；中间没有输入色域转换。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(0.125,.225,.095)",
+        "c11.sourceId": "d063"
+      }
+    },
+    {
+      "id": "arch-scene.d063.glass-grisaille",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-1-7.glass-grisaille",
+      "title": "古玻璃线性透射基色：灰白",
+      "value": [
+        0.545,
+        0.525,
+        0.44
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间设置古玻璃的基础透射色，尚未乘单片密度或照明。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 1.7 节 d063；出处类别：源码拆解·彩色玻璃、窗与窗里的房间（案例 13 第 18 章）",
+        "note": "原证据：源码；原验证：作者成品用过。线性透射色 cgPal：深蓝(0.042,.094,.205)、红宝石(0.370,.058,.048)、琥珀(0.630,.385,.105)、绿(0.125,.225,.095)、灰白(0.545,.525,.440)；每块再乘 0.72+0.36·cgPH。玻璃着色器把这组线性透射色与密度、照明相乘后直接写到材质的 diffuseColor；中间没有输入色域转换。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(0.545,.525,.440)",
+        "c11.sourceId": "d063"
+      }
+    },
+    {
       "id": "arch-scene.d074.wall-thickness",
       "domain": "geometry-layout-scale",
       "topic": "arch-scene.sec-1-8.wall-thickness",
@@ -2207,6 +2400,54 @@
       "verifiedInOurStack": false,
       "ext": {
         "c11.raw": "视口读数终点 12,121,208 三角形、11,963 对象",
+        "c11.sourceId": "d256"
+      }
+    },
+    {
+      "id": "arch-scene.d256.round-one-triangle-budget",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.round-one-triangle-budget",
+      "title": "第一轮城市场景三角面预算（约，含实例化）",
+      "value": 12000000,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "按含实例化的第一轮预算估算整个案例的三角面规模，不是视口实测。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d256；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述 + 画面读数 + 原文陈述；原验证：C（预算）/D（读数） / 作者成片用过。【案例 22规模】三角形预算：第一轮约 1,200 万（带实例化），第二轮约 2,000 万；视口读数终点 12,121,208 三角形、11,963 对象\n【模块合同】一个 Python 文件、一个 `build`、创建自己的集合、返回屋顶区域和蒸汽点；共用材质名；三角形预算：第一轮约 1,200 万（带实例化）、第二轮约 2,000 万；“屏幕上小于 2 像素的细节是浪费”；离镜头多远与哪些面朝太阳写进简报；十个部分第一次合在一起就对上"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "第一轮约 1,200 万（带实例化）",
+        "c11.sourceId": "d256"
+      }
+    },
+    {
+      "id": "arch-scene.d256.round-two-triangle-budget",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-19.round-two-triangle-budget",
+      "title": "第二轮城市场景三角面预算（约）",
+      "value": 20000000,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "按第二轮预算估算整个案例的三角面规模，不能作为终点读数。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.19 节 d256；出处类别：原文陈述·写实与工程类场景（逐案例）",
+        "note": "原证据：原文陈述 + 画面读数 + 原文陈述；原验证：C（预算）/D（读数） / 作者成片用过。【案例 22规模】三角形预算：第一轮约 1,200 万（带实例化），第二轮约 2,000 万；视口读数终点 12,121,208 三角形、11,963 对象\n【模块合同】一个 Python 文件、一个 `build`、创建自己的集合、返回屋顶区域和蒸汽点；共用材质名；三角形预算：第一轮约 1,200 万（带实例化）、第二轮约 2,000 万；“屏幕上小于 2 像素的细节是浪费”；离镜头多远与哪些面朝太阳写进简报；十个部分第一次合在一起就对上"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "第二轮约 2,000 万",
         "c11.sourceId": "d256"
       }
     },
@@ -3510,6 +3751,311 @@
       }
     },
     {
+      "id": "arch-scene.d364.grass-gold",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-gold",
+      "title": "草地线性材质调色板：金色",
+      "value": [
+        0.66,
+        0.45,
+        0.12
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.66,.45,.12)",
+        "c11.sourceId": "d364",
+        "c11.randomRanges": [
+          {
+            "value": [
+              0.8,
+              1.2
+            ],
+            "unit": "ratio",
+            "rawUnit": "原文未写单位",
+            "base": 0.8,
+            "jitter": 0.4,
+            "expr": ".8+.4r",
+            "label": "单根草颜色倍率",
+            "randomVar": "r"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-gild",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-gild",
+      "title": "草地线性材质调色板：亮金色",
+      "value": [
+        0.8,
+        0.6,
+        0.19
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.80,.60,.19)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-olive",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-olive",
+      "title": "草地线性材质调色板：橄榄色",
+      "value": [
+        0.34,
+        0.33,
+        0.12
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.34,.33,.12)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-amber",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-amber",
+      "title": "草地线性材质调色板：琥珀色",
+      "value": [
+        0.6,
+        0.3,
+        0.07
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.60,.30,.07)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-straw",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-straw",
+      "title": "草地线性材质调色板：麦秆色",
+      "value": [
+        0.76,
+        0.66,
+        0.42
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.76,.66,.42)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-ash",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-ash",
+      "title": "草地线性材质调色板：灰色",
+      "value": [
+        0.45,
+        0.42,
+        0.37
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.45,.42,.37)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-wet-bank-start",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-wet-bank-start",
+      "title": "草地线性材质调色板：湿岸插值起色",
+      "value": [
+        0.11,
+        0.15,
+        0.06
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.11,.15,.06)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-wet-bank-end",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-wet-bank-end",
+      "title": "草地线性材质调色板：湿岸插值止色",
+      "value": [
+        0.2,
+        0.21,
+        0.08
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.2,.21,.08)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-dead-start",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-dead-start",
+      "title": "草地线性材质调色板：枯草插值起色",
+      "value": [
+        0.26,
+        0.245,
+        0.22
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.26,.245,.22)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
+      "id": "arch-scene.d364.grass-dead-end",
+      "domain": "material-shading",
+      "topic": "arch-scene.sec-2-8.grass-dead-end",
+      "title": "草地线性材质调色板：枯草插值止色",
+      "value": [
+        0.36,
+        0.33,
+        0.28
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "在线性 Rec.709 工作空间选择草叶材质基色或湿岸、枯草的混色端点，尚未叠加噪声、叶片倍率或光照。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "建筑场景地形与水汇编 第 2.8 节 d364；出处类别：源码拆解·草与地表植被（案例 13 第 1、3 章）",
+        "note": "原证据：源码 原实现源码；原验证：清单未列（源码值，按库规我们未渲染读回）。gold(.66,.45,.12) gild(.80,.60,.19) olive(.34,.33,.12) amber(.60,.30,.07) straw(.76,.66,.42) ash(.45,.42,.37)；湿岸(.11,.15,.06)-(.2,.21,.08)；枯草(.26,.245,.22)-(.36,.33,.28)；噪声频率 .016+.055/.04/.09/.022；每根×(.8+.4r)。草叶着色器按线性 RGB 混合色板，计算叶色再写入材质的 diffuseColor；没有把这些常量当作显示色解码。该案例锁定的 Three 0.186.0 默认工作空间为 LinearSRGBColorSpace，使用 Rec.709 原色、D65 白点和线性传递；案例未覆盖工作空间。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "(.36,.33,.28)",
+        "c11.sourceId": "d364"
+      }
+    },
+    {
       "id": "arch-scene.d384.base-tree-height",
       "domain": "geometry-layout-scale",
       "topic": "arch-scene.sec-2-9.base-tree-height",
@@ -3774,6 +4320,33 @@
       "ext": {
         "c11.sourceId": "s015",
         "c11.valueFrom": "arch-scene.d002.scene-objects"
+      }
+    },
+    {
+      "id": "arch-scene.sum.s019",
+      "domain": "geometry-layout-scale",
+      "topic": "arch-scene.sec-1-2.camera-path-min-clearance",
+      "title": "相机与视线避让：实体与相机路径的最小净距",
+      "value": 3,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "在街区的相机路径旁布置实体时，按本案例的最小净距检查。"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "建筑场景地形与水汇编 第 1.2 节对照表行 s019 → d006",
+        "note": "原证据：原文陈述；原验证：只是原文说法。实体离每条相机路径至少 3 m；每个模块 30 秒内能从镜头角度预览。"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "arch-scene.d006.camera-path-min-clearance"
+      ],
+      "ext": {
+        "c11.sourceId": "s019",
+        "c11.valueFrom": "arch-scene.d006.camera-path-min-clearance"
       }
     },
     {

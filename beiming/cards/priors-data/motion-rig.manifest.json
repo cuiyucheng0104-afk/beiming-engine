@@ -13,18 +13,18 @@
   "order": "rows 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "一条 = 一个表格数据行（含跨案例对照表行），或一个顶层列表条目连同它缩进的续行；目录、案例索引、用法、没收进来的、以「并入说明、冲突、合并、说明」开头的说明行不算。对照表行的去向随它指回的明细，不另算一条明细",
   "portableCount": 29,
-  "cardCoupledCount": 515,
-  "practiceCount": 41,
-  "excludedOrConflictCount": 24,
+  "cardCoupledCount": 501,
+  "practiceCount": 54,
+  "excludedOrConflictCount": 25,
   "detailRouteCounts": {
-    "card-coupled": 465,
-    "skipped-or-conflict": 24,
-    "practice": 39,
+    "card-coupled": 455,
+    "skipped-or-conflict": 25,
+    "practice": 48,
     "portable": 21
   },
   "summaryRouteCounts": {
-    "card-coupled": 50,
-    "practice": 2,
+    "card-coupled": 46,
+    "practice": 6,
     "portable": 8
   },
   "files": {
@@ -231,7 +231,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "角色控制器、根运动、输入手感、状态机",
-      "count": 24
+      "count": 23
     },
     {
       "cardId": "motion.flock",
@@ -245,7 +245,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "步态相位、落脚规划、贴地、跑动层",
-      "count": 37
+      "count": 36
     },
     {
       "cardId": "motion.gaze",
@@ -273,7 +273,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "关键帧构造、轨道采样、插值、时间重映射、片段混合",
-      "count": 21
+      "count": 19
     },
     {
       "cardId": "motion.pose-vector",
@@ -308,7 +308,7 @@
       "inSpec": true,
       "exists": false,
       "covers": "弹簧链与次级运动（挂件、锁链、布料、惯性滞后）",
-      "count": 38
+      "count": 36
     },
     {
       "cardId": "motion.sweep-body",
@@ -329,7 +329,7 @@
       "inSpec": false,
       "exists": false,
       "covers": "躯干叠加、呼吸、惯性倾斜、待机与休息姿",
-      "count": 20
+      "count": 19
     },
     {
       "cardId": "motion.weapon-track",
@@ -357,14 +357,14 @@
       "inSpec": false,
       "exists": false,
       "covers": "绑定规格：骨骼数、权重、形态键、动作库 id",
-      "count": 12
+      "count": 13
     },
     {
       "cardId": "time.envelope",
       "inSpec": true,
       "exists": true,
       "covers": "包络与缓动函数库",
-      "count": 8
+      "count": 4
     }
   ],
   "knownFixes": [
@@ -438,6 +438,36 @@
   ],
   "routeOverrides": [
     {
+      "sourceId": "d015",
+      "route": "practice",
+      "reason": "将段内进度代入缓动函数，再按目标键指定的缓动从上一键插到目标键。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d022",
+      "route": "practice",
+      "reason": "用非均匀键间隔计算三次埃尔米特切线，在端点与停顿键把切线归零，得到停住再出发的轨道。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d027",
+      "route": "practice",
+      "reason": "在快速过渡的两侧放停顿键，导出手腕速度曲线，用两个零速平台检验停顿。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d034",
+      "route": "practice",
+      "reason": "用半隐式欧拉积分二阶弹簧，遇长帧分成子步，发散时重置到目标。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d035",
+      "route": "practice",
+      "reason": "用隐式更新积分阻尼弹簧，对一阶滞后按时间常数计算每帧指数混合权重。",
+      "previousRoute": "card-coupled"
+    },
+    {
       "sourceId": "d059",
       "route": "practice",
       "reason": "将目标限制在两骨可达范围内，按余弦定理求肘位，用极向量确定弯曲平面，再将两段朝向混入父骨局部姿势。",
@@ -498,6 +528,12 @@
       "previousRoute": "card-coupled"
     },
     {
+      "sourceId": "d118",
+      "route": "practice",
+      "reason": "叠加两个周期的呼吸、换脚与注视弹簧，录制一分钟站姿并检查能否看出重复循环。",
+      "previousRoute": "card-coupled"
+    },
+    {
       "sourceId": "d149",
       "route": "practice",
       "reason": "交接时用连续两帧的关节位置初始化质点，使物理继承动画速度；限制异常初速，再短暂混合到物理姿势。",
@@ -522,6 +558,12 @@
       "previousRoute": "card-coupled"
     },
     {
+      "sourceId": "d224",
+      "route": "practice",
+      "reason": "逐腿根据足髋水平距和可达腿长求髋部高度上界，降低骨盆以避免膝盖锁直。",
+      "previousRoute": "card-coupled"
+    },
+    {
       "sourceId": "d245",
       "route": "portable",
       "reason": "通用参考量：挥动过渡键间隔、轻击起手阶段时长、轻击挥动阶段时长、重击到达蓄力停顿键的时刻、重击劈下阶段时长",
@@ -543,6 +585,18 @@
       "sourceId": "d289",
       "route": "portable",
       "reason": "通用参考量：常速拍翼周期、起飞后重扇周期、常速下扑时长、常速上挥时长、近景、远景下扑占比（依次）、前臂、手相对拍翼周期的滞后（依次）",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d311",
+      "route": "practice",
+      "reason": "取后一关键帧的缓动函数映射段内进度，按结果逐分量线性插值。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d353",
+      "route": "practice",
+      "reason": "将归一化进度映射为线性、缓入、缓出或停顿；停顿时保持上一姿势直至到键。",
       "previousRoute": "card-coupled"
     },
     {
@@ -573,6 +627,18 @@
       "sourceId": "d448",
       "route": "portable",
       "reason": "通用参考量：乙角色呼吸周期",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d463",
+      "route": "skipped-or-conflict",
+      "reason": "记录同名缓动在不同实现中的公式差异，完整对账见 d537。",
+      "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d464",
+      "route": "practice",
+      "reason": "逐分量混合姿势，为双骨反解保留伸展余量，从当前姿势快照平滑过渡，最后叠加呼吸与弹簧。",
       "previousRoute": "card-coupled"
     },
     {
@@ -622,6 +688,12 @@
       "route": "portable",
       "reason": "通用参考量：成片帧率、成片时长、成片总帧数",
       "previousRoute": "card-coupled"
+    },
+    {
+      "sourceId": "d528",
+      "route": "card-coupled",
+      "reason": "手指骨链、腕掌控制器、形状和约束按该模型的关节层级配置。",
+      "previousRoute": "practice"
     },
     {
       "sourceId": "d529",
@@ -7966,6 +8038,16 @@
       "docRef": "动作与骨骼汇编 第 17 节 d388；出处类别：推断与说明·通用敌人、普通敌人与幽影（案例 13）"
     },
     {
+      "sourceId": "d463",
+      "section": "20",
+      "caseId": "case-13",
+      "title": "同名缓动不同公式(易踩坑)",
+      "text": "原实现源码的in=u³ out=1-(1-u)³；头目一/头目二/龙的in=t²、out=1-(1-t)²，三次方另叫in3/out3；照搬按文件区分。",
+      "reason": "记录同名缓动在不同实现中的公式差异，完整对账见 d537。",
+      "evidenceLabel": "源码",
+      "docRef": "动作与骨骼汇编 第 20 节 d463；出处类别：源码拆解·五套系统对照与方法总结"
+    },
+    {
       "sourceId": "d501",
       "section": "22",
       "caseId": "case-01",
@@ -8357,10 +8439,9 @@
       "recordKind": "summary",
       "section": "2",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d022",
       "link": "gist",
-      "target": "motion.keyframe",
       "targets": []
     },
     {
@@ -8369,13 +8450,12 @@
       "recordKind": "summary",
       "section": "2",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d015",
       "alsoSummarizes": [
         "d016"
       ],
       "link": "values",
-      "target": "time.envelope",
       "targets": []
     },
     {
@@ -8384,10 +8464,9 @@
       "recordKind": "summary",
       "section": "2",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d311",
       "link": "values",
-      "target": "time.envelope",
       "targets": []
     },
     {
@@ -8396,10 +8475,9 @@
       "recordKind": "summary",
       "section": "2",
       "caseId": "case-13",
-      "route": "card-coupled",
+      "route": "practice",
       "summaryOf": "d353",
       "link": "gist",
-      "target": "time.envelope",
       "targets": []
     },
     {
@@ -8432,10 +8510,9 @@
       "recordKind": "detail",
       "section": "2",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "time.envelope",
+      "route": "practice",
       "targets": [
-        "motion-rig.d015.card"
+        "motion-rig.d015.practice"
       ]
     },
     {
@@ -8516,10 +8593,9 @@
       "recordKind": "detail",
       "section": "2",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.keyframe",
+      "route": "practice",
       "targets": [
-        "motion-rig.d022.card"
+        "motion-rig.d022.practice"
       ]
     },
     {
@@ -8576,10 +8652,9 @@
       "recordKind": "detail",
       "section": "2",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.keyframe",
+      "route": "practice",
       "targets": [
-        "motion-rig.d027.card"
+        "motion-rig.d027.practice"
       ]
     },
     {
@@ -8765,10 +8840,9 @@
       "recordKind": "detail",
       "section": "3",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.spring-chain",
+      "route": "practice",
       "targets": [
-        "motion-rig.d034.card"
+        "motion-rig.d034.practice"
       ]
     },
     {
@@ -8777,10 +8851,9 @@
       "recordKind": "detail",
       "section": "3",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.spring-chain",
+      "route": "practice",
       "targets": [
-        "motion-rig.d035.card"
+        "motion-rig.d035.practice"
       ]
     },
     {
@@ -9992,10 +10065,9 @@
       "recordKind": "detail",
       "section": "5",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.torso-layer",
+      "route": "practice",
       "targets": [
-        "motion-rig.d118.card"
+        "motion-rig.d118.practice"
       ]
     },
     {
@@ -11546,10 +11618,9 @@
       "recordKind": "detail",
       "section": "10",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.gait",
+      "route": "practice",
       "targets": [
-        "motion-rig.d224.card"
+        "motion-rig.d224.practice"
       ]
     },
     {
@@ -12675,10 +12746,9 @@
       "recordKind": "detail",
       "section": "15",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "time.envelope",
+      "route": "practice",
       "targets": [
-        "motion-rig.d311.card"
+        "motion-rig.d311.practice"
       ]
     },
     {
@@ -13176,10 +13246,9 @@
       "recordKind": "detail",
       "section": "16",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "time.envelope",
+      "route": "practice",
       "targets": [
-        "motion-rig.d353.card"
+        "motion-rig.d353.practice"
       ]
     },
     {
@@ -14517,11 +14586,8 @@
       "recordKind": "detail",
       "section": "20",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "time.envelope",
-      "targets": [
-        "motion-rig.d463.card"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceLine": 760,
@@ -14529,10 +14595,9 @@
       "recordKind": "detail",
       "section": "20",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "target": "motion.controller",
+      "route": "practice",
       "targets": [
-        "motion-rig.d464.card"
+        "motion-rig.d464.practice"
       ]
     },
     {
@@ -15291,10 +15356,11 @@
       "recordKind": "detail",
       "section": "23",
       "caseId": "case-24",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "motion-rig.d528.practice"
-      ]
+        "motion-rig.d528.card"
+      ],
+      "target": "rig.skeleton"
     },
     {
       "sourceLine": 844,
