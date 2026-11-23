@@ -34,22 +34,25 @@ const emptyObj = () => Object.create(null);
 
 function bad(message, Type = TypeError, extra) {
   // 位置里的键名会进报错：整句命中泄露规则就不回显
-  const safe = scanQuestionLeaks(String(message)).length ? '入参不合规（位置里有私有内容，不回显）' : message;
-  const err = new Type(safe);
+  const err = new Type(safeMsg(message));
   for (const [k, v] of Object.entries({ code: 'usage.bad-argument', exitCode: 2, ...extra })) {
     Object.defineProperty(err, k, { __proto__: null, value: v, enumerable: true, writable: true, configurable: true });
   }
   throw err;
 }
 
-// 补足题面扫描器以外的本机绝对路径、家目录和文件 URL。位置也可能是私有键。
+// 题面和先验表里常用斜杠表示除法或分隔选项；正文中的 POSIX 路径按系统根目录识别。
+function hasLocalPath(value) {
+  const plain = value.normalize('NFKC').replace(/\p{Cf}/gu, '');
+  return /file:\/|~[\\/]|(?<![a-z0-9])[a-z]:[\\/]|\\\\[^\\/\s]+[\\/][^\\/\s]+/i.test(plain)
+    || /(?<![\p{L}\p{N}_.])(?<!https?:\/)\/(?:Users|home|tmp|var|private|etc|opt|Volumes|mnt|root|usr|proc|dev|bin|sbin|lib|Library|System|Applications)(?:[\\/]|$)/iu.test(plain);
+}
+
+const hasPrivateText = (s) => hasLocalPath(s) || scanQuestionLeaks(s).length > 0;
+const safeMsg = (message) => hasPrivateText(message) ? '输入或路径含有私有内容，不回显' : message;
+
 function checkLocalPath(value) {
-  // 先验表里有用 / 分隔的一串 Markdown 粗体读数，去掉数值两边的 ** 再认词界。
-  const plain = value.normalize('NFKC').replace(/\p{Cf}/gu, '').replace(/\*\*([−+-]?\d+(?:\.\d+)?)\*\*/gu, '$1');
-  // 路径可嵌在方括号、中文引号等标点之后。不把相对引用、URI 的双斜线或 HTML 闭标签当作绝对路径。
-  if (/file:\/\/|(?<![\p{L}\p{M}\p{N}_./%<\\-])(?:~[\\/]|\\\\[^\\/\s]|\/[^/\s<>]+)/iu.test(plain)) {
-    bad('输入含有本机路径', TypeError, { leaks: [{ code: 'local-path' }] });
-  }
+  if (hasLocalPath(value)) bad('输入含有本机路径', TypeError, { leaks: [{ code: 'local-path' }] });
 }
 
 /** 抄成一份纯 JSON 数据（对象用 null 原型，隔断 Object.prototype 上的继承取值器/设值器）。只看自有属性描述符，零陷阱调用。 */
@@ -169,6 +172,16 @@ function readQuestions(input) {
   }), 'id', '/questions');
 }
 
+// 用显式时区折到同一秒，小数部分保留原精度。没有日期的旧结果排在有日期的结果前面。
+function resultTime(value, at) {
+  if (value === undefined) return { second: -Infinity, fraction: '' };
+  const match = /^(\d{4}-\d\d-\d\d)T([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.(\d+))?(?:Z|([+-])([01]\d|2[0-3]):([0-5]\d))$/i.exec(text(value, at));
+  if (!match || !isCalendarDate(match[1])) bad(`${at} 必须是带时区的 ISO 时间戳`, RangeError);
+  const [, date, hour, minute, second, fraction = '', sign, offsetHour = 0, offsetMinute = 0] = match;
+  const offset = (sign === '-' ? -1 : 1) * (offsetHour * 60 + Number(offsetMinute));
+  return { second: dayNumber(date) * 86400 + hour * 3600 + (minute - offset) * 60 + Number(second), fraction: fraction.replace(/0+$/, '') };
+}
+
 function readResults(input) {
   return list(input, '/results').map((raw, i) => {
     const at = `/results/${i}`;
@@ -189,7 +202,7 @@ function readResults(input) {
       hidden: [r.visibility === 'hidden', flag(r.hidden, `${at}/hidden`)].includes(true),
       unsupported, expectedFail: flag(r.expectedFail, `${at}/expectedFail`),
       unmeasured: r.unmeasured === undefined ? 0 : count(r.unmeasured, `${at}/unmeasured`),
-      createdAt: r.createdAt === undefined ? '' : text(r.createdAt, `${at}/createdAt`),
+      createdAt: resultTime(r.createdAt, `${at}/createdAt`),
     };
   });
 }
@@ -293,7 +306,9 @@ function buildMatrix({ asOf, questions, results, cards, caps, previous }) {
   for (const r of results) {
     const at = tupleKey(r.questionId, r.source, r.model);
     const seen = latest.get(at);
-    latest.set(at, { runs: (seen?.runs ?? 0) + 1, pick: seen && seen.pick.createdAt > r.createdAt ? seen.pick : r });
+    const prior = seen?.pick.createdAt;
+    const order = prior ? cmp(prior.second, r.createdAt.second) || cmp(prior.fraction, r.createdAt.fraction) : 0;
+    latest.set(at, { runs: (seen?.runs ?? 0) + 1, pick: order > 0 ? seen.pick : r });
   }
   const cardById = new Map(cards.map((c) => [c.id, c]));
   // 帧源缺这道题要的能力：能力表点了名；或 needs 里有一张卡只落在别的帧源上（data、comp、bake 是跨帧源的落点）
@@ -313,13 +328,13 @@ function buildMatrix({ asOf, questions, results, cards, caps, previous }) {
   const rows = sorted.map((row) => {
     const cells = columns.map(({ source, model }) => {
       const hit = latest.get(tupleKey(row.id, source, model));
-      const runs = hit?.runs ?? 0;
-      if (hit?.pick.unsupported || lacks(row, source)) return { kind: UNSUPPORTED, status: UNSUPPORTED, pass: null, score: null, display: UNSUPPORTED_REASON, unsupportedReason: UNSUPPORTED_REASON, runs };
-      if (!hit) return { kind: 'unrun', status: 'unrun', pass: null, score: null, display: '未跑', runs };
+      const runCount = row.hidden ? {} : { runs: hit?.runs ?? 0 };
+      if (hit?.pick.unsupported || lacks(row, source)) return { kind: UNSUPPORTED, status: UNSUPPORTED, pass: null, score: null, display: UNSUPPORTED_REASON, unsupportedReason: UNSUPPORTED_REASON, ...runCount };
+      if (!hit) return { kind: 'unrun', status: 'unrun', pass: null, score: null, display: '未跑', ...runCount };
       const { status, score, unmeasured } = hit.pick;
       // 在公开投影前登记覆盖缺口，只认参与计分的最新结果。row 是内部的题目副本。
       if (unmeasured > 0) row.hasUnmeasured = true;
-      return { kind: 'scored', status, pass: status === 'pass', score, display: String(Math.round(score * 1000) / 1000), ...(row.hidden ? {} : { unmeasured, runs }) };
+      return { kind: 'scored', status, pass: status === 'pass', score, display: String(Math.round(score * 1000) / 1000), ...(row.hidden ? {} : { unmeasured }), ...runCount };
     });
     const calibration = row.calibration && { version: row.calibration.version, status: row.calibration.status };
     const old = before.get(row.id);
@@ -832,11 +847,9 @@ const RUN_PRIVATE_DIRS = new Set(['worktree', 'session', 'tmp', 'transcript', '.
 const CARD_SKIP_DIRS = new Set(['.git', 'node_modules', 'priors-data']);
 const EXTRA_KEYS = ['sourceCapabilities', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'packParity', 'harvest'];
 const hasPrivateMarker = (s) => scanQuestionLeaks(String(s)).some((l) => l.code !== 'local-path');
-const shownPath = (p) => {
-  const s = String(p);
-  return /^(?:~[\\/]|file:\/\/)/i.test(s) || /(?:^|[\\/])(?:Users|home)[\\/]/i.test(s) || scanQuestionLeaks(s).length ? '<路径已隐去>' : s;
-};
-const safeMsg = (m) => (scanQuestionLeaks(String(m)).length ? '输入或路径含有私有内容，不回显' : String(m));
+function shownPath(s) {
+  return /^(?:[\\/]|file:|~[\\/]|[a-z]:[\\/])/i.test(s) || hasPrivateText(s) ? '<路径已隐去>' : s;
+}
 const wrong = (message) => usageError(safeMsg(message), '加 --help 查看用法', 'usage.bad-argument');
 function cliPath(p, what) {
   if (hasPrivateMarker(p)) throw wrong(`${what}路径含有私有目录或标记，不读写`);
@@ -1035,7 +1048,14 @@ const BUILD = {
 
 function sanitizeArgv(rawArgv) {
   const valueOpts = new Set(Object.keys(BUILD.spec.options));
-  const redactArg = (a) => (shownPath(a) !== a ? (a.startsWith('--') ? '--<已隐去>' : '<已隐去>') : a);
+  const redactArg = (arg) => {
+    const value = arg.startsWith('--') ? arg.slice(2) : arg;
+    const eq = value.indexOf('=');
+    if (shownPath(value) !== value || (eq >= 0 && shownPath(value.slice(eq + 1)) !== value.slice(eq + 1))) {
+      return arg.startsWith('--') ? '--<已隐去>' : '<已隐去>';
+    }
+    return arg;
+  };
   const out = [];
   let rest = false;
   for (let i = 0; i < rawArgv.length; i += 1) {

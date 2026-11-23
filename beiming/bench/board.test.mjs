@@ -154,6 +154,24 @@ test('矩阵：同一格跑了几次取最新一次；没注明帧源的结果�
   assert.deepEqual([matrix.rows[0].cells[0].score, matrix.rows[0].cells[0].runs], [0.25, 3]);
 });
 
+test('同格结果按实际时刻排序，支持不等长小数、时区偏移、并列和缺省时间', () => {
+  const pick = (times) => {
+    const results = times.map((createdAt, i) =>
+      result('1-1', 'three', 'm', 'fail', i / 10, createdAt === undefined ? {} : { createdAt }));
+    return buildBoard({ asOf: AS_OF, questions: [question('1-1', 1)], results }).matrix.rows[0].cells[0].score;
+  };
+  const whole = '2026-11-23T00:00:00Z', half = '2026-11-23T00:00:00.500Z';
+  assert.equal(pick([whole, half]), 0.1);
+  assert.equal(pick([half, whole]), 0);
+  assert.equal(pick([half, '2026-11-22T19:00:00.5-05:00']), 0.1);
+  assert.equal(pick(['2026-11-23T00:00:00.500001Z', half]), 0);
+  assert.equal(pick([undefined, '1960-01-01T00:00:00Z', undefined]), 0.1);
+  assert.equal(pick([undefined, undefined]), 0.1);
+  for (const invalid of ['today', '2026-11-23T00:00:00', '2026-02-30T12:00:00Z', '2026-11-23T00:00:00+24:00']) {
+    assert.throws(() => pick([invalid]), isBadArgument);
+  }
+});
+
 /* ---------------- 隐藏题 ---------------- */
 
 test('隐藏题只落总分和状态：board.json 和 index.html 里没有题面、标题、阻塞原因、逐项、needs、refs', () => {
@@ -203,6 +221,47 @@ test('即使绝对路径位于说明文字的标点内，也要拒绝；公开�
     assert.throws(() => snapshot(title), isBadArgument);
   }
   assert.doesNotThrow(() => snapshot('参考 [refs/public-reading.json] 与 {bench-result/0.1}'));
+});
+
+test('隐藏题在计分、缺能力、未跑三种格都隐去运行次数，公开题保留次数', () => {
+  const input = matrixInputs();
+  input.results.push(result('5-1', 'blender', 'model-a', 'unsupported-capability', 0));
+  for (const hidden of [false, true]) {
+    input.questions[2].flags.hidden = hidden;
+    const row = buildBoard(input).matrix.rows.find((r) => r.questionId === '5-1');
+    assert.deepEqual(row.cells.map((c) => c.kind), ['unsupported-capability', 'scored', 'unrun']);
+    if (hidden) assert.ok(row.cells.every((c) => !Object.hasOwn(c, 'runs') && !Object.hasOwn(c, 'unmeasured')));
+    else assert.deepEqual(row.cells.map((c) => c.runs), [1, 1, 0]);
+  }
+});
+
+test('系统根目录、盘符、UNC、文件 URL 和家目录在值或键里都拒收且错误不回显', () => {
+  const unc = String.raw`\\fileserver\share\board-canary.txt`;
+  const paths = [
+    ...['etc', 'private/var', 'tmp', 'var/log', 'opt', 'Volumes'].map((root) => `//${root}/board-canary`),
+    ...['-/etc', '-/var', '-/tmp', '</etc', '「///Library', 'file:/local', 'file://local', '~/local'].map((prefix) => `${prefix}/board-canary`),
+    String.raw`foo_C:\ProgramData\board-canary`, ...['-', '.', 'a'].map((prefix) => prefix + unc),
+  ];
+  for (const path of paths) {
+    for (const field of [{ title: path }, { ext: { [path]: 1 } }]) {
+      assert.throws(() => buildBoard({ asOf: AS_OF, questions: [question('1-1', 1, field)] }), (e) =>
+        isBadArgument(e) && e.leaks?.some((l) => l.code === 'local-path') && !(e.message + JSON.stringify(e)).includes('board-canary'), path);
+    }
+  }
+  // 两个各自合法的键拼成报错位置时才出现系统根目录。
+  const ext = { '-': { opt: Object.defineProperty({}, 'board-canary', { value: 0 }) } };
+  assert.throws(() => buildBoard({ asOf: AS_OF, questions: [question('1-1', 1, { ext })] }),
+    (e) => isBadArgument(e) && !e.message.includes('board-canary'));
+});
+
+test('合法考题保留公式、引号后的斜杠及公开引用', () => {
+  const q = JSON.parse(readFileSync(join(HERE, 'questions/level-1/01-1.json'), 'utf8'));
+  q.title = '「黑场」/切点、(a+b)/c、std(x)/mean(x)、30°/s、**高**/低';
+  q.brief += ' 参考 refs/public.json 和 https://dev/reference。';
+  assert.ok(bench.validateQuestion(q).ok);
+  const board = buildBoard({ asOf: AS_OF, questions: [q] });
+  assert.equal(board.matrix.rows[0].title, q.title);
+  assert.ok(renderBoardHtml(board).includes(escapeHtml(q.title)));
 });
 
 test('可判分总数只看实际量测，隐藏题不发布量测细项或逐题原因', () => {
@@ -425,11 +484,13 @@ test('两个反向指标：预期失败题；停在复现过超过 14 天的卡�
 test('真实入库数据：仓库里的卡、公开题、先验表直接喂进去能出看板', () => {
   const cards = jsonFiles(join(REPO, 'beiming/cards'), 'card.json');
   const questions = jsonFiles(join(REPO, 'beiming/bench/questions'));
-  const priors = [JSON.parse(readFileSync(join(REPO, 'beiming/cards/priors-data/audio-subs.json'), 'utf8'))];
+  const priors = ['audio-subs.json', 'audio-subs.card-priors.json'].map((name) =>
+    JSON.parse(readFileSync(join(REPO, 'beiming/cards/priors-data', name), 'utf8')));
   const board = buildBoard({ asOf: AS_OF, cards, questions, priors });
   assert.equal(board.integrationProgress.cards.total, cards.length);
   assert.equal(board.matrix.rows.length, questions.length);
-  assert.equal(board.integrationProgress.priorsVerified.detailCount, priors[0].entries.filter((e) => !Object.hasOwn(e, 'summaryOf')).length);
+  const detailIds = new Set(priors.flatMap((p) => p.entries.filter((e) => !Object.hasOwn(e, 'summaryOf')).map((e) => e.id)));
+  assert.equal(board.integrationProgress.priorsVerified.detailCount, detailIds.size);
   assert.ok(renderBoardHtml(board).includes('北冥看板'));
 });
 
@@ -730,6 +791,27 @@ const run = (args) => {
   const r = spawnSync(process.execPath, [BOARD, ...args], { encoding: 'utf8' });
   return { code: r.status, stdout: r.stdout, stderr: r.stderr };
 };
+
+test('命令行在文件读取、参数解析和历史损坏时报错都隐去本机路径', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'b9-board-canary-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const paths = ['/private/var', '/var/folders', '/opt', '/custom-mount'].map((root) => `${root}/board-canary/ledger.jsonl`);
+  paths.push(String.raw`\\fileserver\share\board-canary.jsonl`);
+  const check = (args) => {
+    const { code, stderr, stdout } = run(args);
+    assert.equal(code, 2);
+    assert.ok(!(stderr + stdout).includes('board-canary'), stderr + stdout);
+  };
+  for (const path of paths) {
+    check(['build', '--out-dir', dir, '--ledger', path]);
+    check(['build', path, '--out-dir', dir, '--json']);
+  }
+  check(['build', '--out-dir', dir, '--', '--unknown=/custom-mount/board-canary']);
+  assert.deepEqual(readdirSync(dir), []);
+  writeFileSync(join(dir, 'history.json'), '{');
+  check(['build', '--out-dir', dir]);
+  assert.deepEqual(readdirSync(dir), ['history.json']);
+});
 
 test('命令行：从题目、结果、账本、卡、先验的真实文件端到端出 board.json、history.json、index.html', (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'beiming-b9-'));
