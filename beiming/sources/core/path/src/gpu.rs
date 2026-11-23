@@ -2145,6 +2145,23 @@ mod tests {
         naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::all()).validate(&m).unwrap_or_else(|e| panic!("{}", e.emit_to_string(src)));
     }
 
+    /// 北冥：`src` 过 naga 的校验之后，再过 SPIR-V（Vulkan）与 MSL（Metal）两个后端的代码生成。
+    /// 校验过了不等于生成得出来：把结构成员或数组元素的指针当函数实参（`f(&sd.N)`、`f(&sd.closure[1])`），校验放行，
+    /// MSL 后端照常生成，SPIR-V 后端在生成时崩（进程退出，不是报错）。只在苹果显卡上跑是发现不了的，所以每台机器
+    /// 两个后端都生成一遍。只生成、不交给驱动编译；绑定号用假的。
+    pub(crate) fn codegen_valid(src: &str) {
+        let m = naga::front::wgsl::parse_str(src).unwrap_or_else(|e| panic!("{}", e.emit_to_string(src)));
+        let info = naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::all()).validate(&m).unwrap_or_else(|e| panic!("{}", e.emit_to_string(src)));
+        // （内核有一个管线常数 FEAT：后端要它先定成值，这里取它的默认值。）
+        let (m, info) = naga::back::pipeline_constants::process_overrides(&m, &info, None, &Default::default()).expect("管线常数取默认值");
+        let spv = naga::back::spv::Options { fake_missing_bindings: true, ..Default::default() };
+        let words = naga::back::spv::write_vec(&m, &info, &spv, None).unwrap_or_else(|e| panic!("SPIR-V 后端生成不出来：{e}"));
+        assert!(!words.is_empty());
+        let msl = naga::back::msl::Options { lang_version: (2, 4), fake_missing_bindings: true, ..Default::default() };
+        let (text, _) = naga::back::msl::write_string(&m, &info, &msl, &Default::default()).unwrap_or_else(|e| panic!("MSL 后端生成不出来：{e}"));
+        assert!(!text.is_empty());
+    }
+
     /// The kernel's bind group layouts are what its source declares, in every layout and traversal: a variant's
     /// bindings are the layout's, each of its kind (a storage buffer's access too), but for the loop guard's count,
     /// which a layout as written has room for and a kernel without the guard does not name.
@@ -2244,6 +2261,49 @@ mod tests {
                 naga_valid(&kernel_wgsl(&template, &KernelVariant { guard: Some(1 << 16), ..all_features }));
             }
         }
+    }
+
+    /// 北冥：内核的每个变体（上一条测试校验的那些，加合并布局的）都过 SPIR-V 与 MSL 两个后端的代码生成，见
+    /// `codegen_valid`。末尾是这条测试自己的对照：一段成员指针当实参的着色器，校验放行，SPIR-V 后端必须生成不出来；
+    /// 哪天后端修好了这段，这条断言会红，那时内核里的这条禁令（shaders/shader.wgsl 开头）才可以放开。
+    #[test]
+    fn every_kernel_variant_generates_spirv_and_msl() {
+        if std::env::var("THREERT_LOOP_GUARD").is_ok() {
+            return;
+        }
+        let template = kernel_template();
+        let all = KernelSwitches { strict: true, cutout_lite: 2, last_direct: true, last_sun: false, light_pick: true };
+        let switches = [
+            KernelSwitches::default(),
+            KernelSwitches { strict: true, ..Default::default() },
+            KernelSwitches { cutout_lite: 1, ..Default::default() },
+            KernelSwitches { cutout_lite: 2, ..Default::default() },
+            KernelSwitches { last_direct: true, ..Default::default() },
+            KernelSwitches { last_sun: true, ..Default::default() },
+            KernelSwitches { light_pick: true, ..Default::default() },
+            all,
+        ];
+        let mut n = 0;
+        for hwrt in [false, true] {
+            for &k in &switches {
+                let plain = KernelVariant::new(hwrt, k, 0);
+                let all_features = KernelVariant::new(hwrt, k, F_SOURCE);
+                for v in [plain, KernelVariant { uniform_tables: true, ..all_features }, KernelVariant { whole_tables: true, ..all_features }, KernelVariant { guard: Some(1 << 16), ..all_features }, KernelVariant { merged: true, ..plain }, KernelVariant { merged: true, guard: Some(1 << 16), ..all_features }] {
+                    // （合并布局是浏览器的，那里没有硬件求交。）
+                    if v.merged && v.hwrt {
+                        continue;
+                    }
+                    codegen_valid(&kernel_wgsl(&template, &v));
+                    n += 1;
+                }
+            }
+        }
+        assert_eq!(n, 8 * 6 + 8 * 4);
+        let bad = "struct S { a: vec3<f32>, b: f32 };\nfn half(p: ptr<function, vec3<f32>>) { *p = *p * 0.5; }\n@group(0) @binding(0) var<storage, read_write> out: array<vec4<f32>>;\n@compute @workgroup_size(1) fn main() {\n    var s = S();\n    s.a = vec3<f32>(1.0);\n    half(&s.a);\n    out[0] = vec4<f32>(s.a, s.b);\n}\n";
+        naga_valid(bad);
+        let crash = std::panic::catch_unwind(|| codegen_valid(bad)).expect_err("成员指针当实参：SPIR-V 后端现在生成得出来了");
+        let said = crash.downcast_ref::<String>().cloned().unwrap_or_default();
+        assert!(said.contains("is not cached"), "崩的不是预期的那一处：{said}");
     }
 
     /// 北冥：路径状态与光线（shaders/integrator.wgsl 的 PathState、Ray）的字段名单，与「已写未读」的几项写入。
