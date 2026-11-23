@@ -11,6 +11,7 @@ import { planFrame, planOpen, planRender, SourceError } from '../../sources/thre
 
 const bad = (message) => new SourceError('usage.bad-argument', message);
 const isPlainObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const hasExam = (v) => v === true || (typeof v === 'string' && v.trim().length > 0) || (isPlainObj(v) && Object.keys(v).length > 0);
 
 function createFrameClock() {
   const queue = new Map();
@@ -146,7 +147,7 @@ export function compareHostFrames(pageRgba, offscreenRgba, opts = {}) {
  */
 export async function openOffscreenHost(opts = {}) {
   if (opts !== undefined && !isPlainObj(opts)) throw bad('openOffscreenHost 的 opts 必须是普通对象');
-  if (opts?.mainline === true || opts?.mainlineAcceptance === true || opts?.exam === true) {
+  if (opts?.mainline === true || opts?.mainlineAcceptance === true || hasExam(opts?.exam)) {
     throw new SourceError('contract.unsupported-mode', 'three 离屏实验宿主（offscreen）严禁用于主线验收或基准考题');
   }
 
@@ -167,7 +168,8 @@ export async function openOffscreenHost(opts = {}) {
       throw bad('input 必须是包含 shot 与 output 的普通对象');
     }
     if (!isPlainObj(env)) throw bad('env 必须是普通对象');
-    if (env.mainline === true || env.mainlineAcceptance === true || env.exam === true || input.exam === true || input.shot.exam === true) {
+    const inExam = hasExam(env.exam) || hasExam(input.exam) || hasExam(input.shot.exam);
+    if (env.mainline === true || env.mainlineAcceptance === true || inExam) {
       throw new SourceError('contract.unsupported-mode', 'three 离屏实验宿主（offscreen）严禁用于主线验收或基准考题');
     }
     if (typeof env.filmDir !== 'string' || !env.filmDir.trim()) {
@@ -177,7 +179,7 @@ export async function openOffscreenHost(opts = {}) {
     const resolvedHosts = resolveThreeHost(input.shot, {
       allowExperimental: true,
       mainline: Boolean(env.mainline || env.mainlineAcceptance),
-      exam: Boolean(env.exam || input.exam || input.shot.exam),
+      exam: inExam,
     });
     const allowed = Array.isArray(resolvedHosts) ? resolvedHosts : [resolvedHosts];
     if (!allowed.includes('offscreen')) {
@@ -234,7 +236,7 @@ export async function openOffscreenHost(opts = {}) {
       shot: Object.freeze({ id: input.shot.id, in: input.shot.in, frames }),
       tokens: structuredClone(input.tokens ?? {}),
       events: Object.freeze(Object.fromEntries(events.map((e) => [e.id, e.frame - input.shot.in]))),
-      tracks: {},
+      tracks: { apply() {} },
       cards: { use() { throw new SourceError('contract.unsupported-mode', '离屏实验宿主 native-code 探针不接卡'); } },
       assets: { load(ref) { throw new Error(`资产 ${ref} 未装载`); } },
       anchor(entity, name) { throw new Error(`没有锚点 ${entity}#${name}`); },
@@ -289,6 +291,8 @@ export async function openOffscreenHost(opts = {}) {
 
         const colorF32 = Float32Array.from(sum, (v) => v / plan.subs.length);
         const rgba = linearRgbaToUint8(colorF32);
+        const shotMeta = typeof loaded.meta === 'function' ? (loaded.meta(f) ?? {}) : {};
+        const readings = isPlainObj(shotMeta.readings) ? shotMeta.readings : {};
         return {
           width: w,
           height: h,
@@ -300,6 +304,7 @@ export async function openOffscreenHost(opts = {}) {
             shot: input.shot.id,
             shotFrame: f,
             size: [w, h],
+            ...(Object.keys(readings).length ? { readings } : {}),
             source: {
               id: input.shot.source,
               renderer: CAPS.id,

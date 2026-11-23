@@ -34,6 +34,7 @@ export const THREE_HOSTS = Object.freeze({
 const HOST_OPTS_KEYS = ['allowExperimental', 'mainline', 'mainlineAcceptance', 'exam'];
 const bad = (message) => new SourceError('usage.bad-argument', message);
 const isPlainObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const hasExam = (v) => v === true || (typeof v === 'string' && v.trim().length > 0) || (isPlainObj(v) && Object.keys(v).length > 0);
 
 function parseHostOpts(opts, label = 'opts') {
   if (opts === undefined) return { allowExperimental: false, mainline: false, exam: false };
@@ -86,7 +87,7 @@ export function resolveThreeHost(shot, opts = {}) {
     throw bad(`three 帧源不认识宿主 ${host}（只支持 page、offscreen 或 any）`);
   }
 
-  const inExam = exam || shot.exam === true || rawShot.exam === true;
+  const inExam = exam || hasExam(shot.exam) || hasExam(rawShot.exam);
   const experimentalAllowed = allowExperimental && !mainline && !inExam;
 
   if (!experimentalAllowed) {

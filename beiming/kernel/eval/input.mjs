@@ -37,5 +37,6 @@ export function shotInput(film, shotId, events) {
     ...(events ? { events } : {}),
     ...(overlays.length ? { overlays } : {}),
     ...(film.style?.tokens ? { tokens: film.style.tokens } : {}),
+    ...(film.exam ? { exam: film.exam } : {}),
   });
 }

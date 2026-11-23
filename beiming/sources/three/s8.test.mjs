@@ -1,10 +1,13 @@
 // S8：three 离屏实验宿主注册（严禁进入主线验收与考题）、host:'any' 解析与页面/离屏双宿主像素对拍（PSNR ≥ 50 dB 且差 > 5 级像素 ≤ 0.1%）
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { scaffold } from '../../api/films.mjs';
 import {
   compareHostFrames,
   linearRgbaToUint8,
@@ -12,14 +15,39 @@ import {
   probeOffscreenGpu,
 } from '../../host/offscreen/host.mjs';
 import { startSource } from '../../host/page/host.mjs';
+import { checks as lockChecks } from '../../kernel/contracts/lock/check.mjs';
 import { loadContracts } from '../../kernel/contracts/validate.mjs';
 import { shotInput } from '../../kernel/eval/input.mjs';
+import { applyFilmWrite } from '../../kernel/patch-apply.mjs';
 import { caps } from './caps.mjs';
 import { listThreeHosts, resolveThreeHost, SourceError, THREE_HOSTS } from './hosts.mjs';
 import { planOpen } from './plan.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const isCode = (code) => (err) => err instanceof SourceError && err.code === code;
+
+function isChromiumInstalled() {
+  if (process.env.BEIMING_CHROME) return existsSync(process.env.BEIMING_CHROME);
+  try {
+    const root = resolve(HERE, '../../..');
+    const bj = JSON.parse(readFileSync(join(root, 'node_modules/playwright-core/browsers.json'), 'utf8'));
+    const rev = bj.browsers.find((b) => b.name === 'chromium-headless-shell')?.revision;
+    if (!rev) return false;
+    const env = process.env.PLAYWRIGHT_BROWSERS_PATH;
+    const base = env === '0'
+      ? join(root, 'node_modules/playwright-core/.local-browsers')
+      : env
+        ? env
+        : process.platform === 'darwin'
+          ? join(homedir(), 'Library/Caches/ms-playwright')
+          : process.platform === 'win32'
+            ? join(process.env.LOCALAPPDATA || join(homedir(), 'AppData/Local'), 'ms-playwright')
+            : join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'ms-playwright');
+    return existsSync(join(base, `chromium_headless_shell-${rev}`));
+  } catch {
+    return false;
+  }
+}
 
 test('S8-1 THREE_HOSTS 注册表结构与默认 caps() 契约隔离：offscreen 仅作为实验宿主条目，不进默认 hosts、主线验收与考题', async () => {
   const hostMod = await import(pathToFileURL(join(HERE, 'hosts.mjs')).href);
@@ -109,9 +137,31 @@ test('S8-2 resolveThreeHost 与 planOpen：主线/考题/默认只落 page 并�
     assert.throws(() => resolveThreeHost(offShot, ctx), isCode('contract.unsupported-mode'));
     assert.throws(() => resolveThreeHost(rendererOffShot, ctx), isCode('contract.unsupported-mode'));
   }
-  // 镜头或片子自身带 exam: true 标记时同样严禁进入 offscreen
+  // 镜头或片子自身带 exam: true 或题号字符串（如 '1-1'）时同样严禁进入 offscreen
   assert.equal(resolveThreeHost({ ...anyShot, exam: true }, { allowExperimental: true }), 'page');
   assert.throws(() => resolveThreeHost({ ...offShot, exam: true }, { allowExperimental: true }), isCode('contract.unsupported-mode'));
+  assert.equal(resolveThreeHost({ ...anyShot, exam: '1-1' }, { allowExperimental: true }), 'page');
+  assert.throws(() => resolveThreeHost({ ...offShot, exam: '1-1' }, { allowExperimental: true }), isCode('contract.unsupported-mode'));
+
+  // 正式写片补丁（applyFilmWrite）与 shotInput 考题上下文保留：普通片与考题片写 shots/*/host = 'any' 均通过 D11，写 'offscreen' 均被拒
+  const question = JSON.parse(readFileSync(resolve(HERE, '../../kernel/contracts/question-file/examples/minimal.json'), 'utf8'));
+  for (const q of [undefined, question]) {
+    const { film } = scaffold({ id: 'review', question: q });
+    const put = (value) => applyFilmWrite(
+      film,
+      { format: 'patch/0.1', rev: 1, ops: [{ op: 'set', path: 'shots/s01/host', value }] },
+      { rev: 1 },
+    );
+    assert.equal(put('page').ok, true);
+    assert.equal(put('offscreen').ok, false);
+    const rAny = put('any');
+    assert.equal(rAny.ok, true, `${q?.id ?? '普通片'} 写 host:'any' 应通过 D11，实际: ${rAny.code} ${rAny.message}`);
+  }
+  const { film: examFilm } = scaffold({ id: 'review', question });
+  examFilm.shots = [{ ...anyShot }];
+  const examInput = shotInput(examFilm, 's01');
+  assert.equal(examInput.exam, question.id);
+  assert.equal(resolveThreeHost(examInput, { allowExperimental: true }), 'page');
 
   // 2. 实验对拍模式（allowExperimental: true 且非主线/非考题）：host:'any' 展开为 ['page', 'offscreen']
   assert.deepEqual(resolveThreeHost(anyShot, { allowExperimental: true }), ['page', 'offscreen']);
@@ -271,25 +321,39 @@ test('S8-4 host:any 镜头真实双宿主对拍（Chromium page WebGL2 vs Node+D
     t.skip(`跳过真实 GPU 双宿主对拍（Dawn WebGPU 不可用：${gpuProbe.reason}）`);
     return;
   }
+  if (!isChromiumInstalled()) {
+    t.skip('跳过真实 GPU 双宿主对拍（Chromium 页面宿主未安装）');
+    return;
+  }
 
   let pageSource;
   try {
     pageSource = await startSource();
   } catch (e) {
-    t.skip(`跳过真实 GPU 双宿主对拍（Chromium 页面宿主不可用：${String(e?.message ?? e).split('\n')[0]}）`);
-    return;
+    if (/Executable doesn't exist/i.test(String(e?.message ?? e))) {
+      t.skip(`跳过真实 GPU 双宿主对拍（Chromium 可执行文件不存在：${String(e?.message ?? e).split('\n')[0]}）`);
+      return;
+    }
+    throw e;
   }
 
   const offscreenSource = await openOffscreenHost();
   const workspace = await mkdtemp(join(tmpdir(), 'beiming-s8-'));
   try {
-    // 离屏实验宿主在 open 阶段同样拒收 mainline / exam
+    // 离屏实验宿主在 open 阶段同样拒收 mainline / exam（含通过标准 shotInput 传入的考题片）
     await assert.rejects(
       () => offscreenSource.open(input, { lock: null, tier: 'final', workspace, filmDir: HERE, mainline: true }),
       isCode('contract.unsupported-mode'),
     );
     await assert.rejects(
       () => offscreenSource.open(input, { lock: null, tier: 'final', workspace, filmDir: HERE, exam: true }),
+      isCode('contract.unsupported-mode'),
+    );
+    const question = JSON.parse(readFileSync(resolve(HERE, '../../kernel/contracts/question-file/examples/minimal.json'), 'utf8'));
+    const { film: examFilm } = scaffold({ id: 'review', question });
+    examFilm.shots = [{ ...FILM.shots[0], id: 's01' }];
+    await assert.rejects(
+      () => offscreenSource.open(shotInput(examFilm, 's01'), { lock: null, tier: 'final', workspace, filmDir: HERE }),
       isCode('contract.unsupported-mode'),
     );
 
@@ -300,6 +364,17 @@ test('S8-4 host:any 镜头真实双宿主对拍（Chromium page WebGL2 vs Node+D
 
       for (const frame of [0, 4]) {
         const pageRes = await pageSession.render(frame, {}, ['color', 'meta']);
+        assert.equal(pageRes.meta.source.host, 'page');
+        const lock = {
+          film: FILM.id,
+          seeds: { parity: 19 },
+          shots: { parity: { shutterSamples: 4 } },
+          sources: { three: { host: 'page', version: pageSource.caps().version } },
+        };
+        assert.deepEqual(
+          lockChecks.LK6({ format: 'lock-check/0.1', lock, renders: [pageRes.meta.source] }),
+          [],
+        );
         const pageBytes = await readFile(join(workspace, pageRes.layers.color.file));
         const pageF32 = new Float32Array(pageBytes.buffer, pageBytes.byteOffset, pageBytes.byteLength / 4);
         const pageRgba = linearRgbaToUint8(pageF32);
@@ -335,9 +410,55 @@ test('S8-4 host:any 镜头真实双宿主对拍（Chromium page WebGL2 vs Node+D
       await pageSession.close();
       await offscreenSession.close();
     }
+
+    // 既有原生镜头（如 cards-probe.shot.js 调用 ctx.tracks.apply(f, sub)）在双宿主下均正常出帧对拍
+    const probeInput = {
+      film: 'f_tracks_probe',
+      shot: {
+        id: 's_probe',
+        in: 0,
+        out: 2,
+        seed: 19,
+        source: 'three',
+        host: 'any',
+        mode: 'native-code',
+        entry: 'cards-probe.shot.js',
+        colorRef: 'display',
+      },
+      output: { size: [W, H], fps: '24/1' },
+    };
+    const pageHostDir = resolve(HERE, '../../host/page');
+    const pageProbeSession = await pageSource.open(probeInput, { lock: null, tier: 'final', workspace, filmDir: pageHostDir });
+    const offProbeSession = await offscreenSource.open(probeInput, { lock: null, tier: 'final', workspace, filmDir: pageHostDir });
+    try {
+      const pageProbeRes = await pageProbeSession.render(0, {}, ['color', 'meta']);
+      const offProbeRes = await offProbeSession.render(0, {}, ['color', 'meta']);
+      assert.deepEqual(pageProbeRes.layers.color.shape, [H, W, 4]);
+      assert.equal(offProbeRes.rgba.length, W * H * 4);
+      assert.equal(offProbeRes.meta.readings?.['probe.hasTracksCamera'], 0);
+    } finally {
+      await pageProbeSession.close();
+      await offProbeSession.close();
+    }
   } finally {
     await offscreenSource.stop();
     await pageSource.stop();
     await rm(workspace, { recursive: true, force: true });
   }
+});
+
+test('S8-5 严格跳过条件：仅在真实缺少 Dawn 或 Chromium 时跳过，双宿主均已安装时运行时故障（如 TMPDIR 非目录）必须失败不得假绿', async (t) => {
+  const gpuProbe = await probeOffscreenGpu();
+  if (!gpuProbe.available || !isChromiumInstalled()) {
+    t.skip('当前环境缺少 Dawn 或 Chromium，跳过双宿主就绪下的故障不静默跳过断言');
+    return;
+  }
+  const { NODE_TEST_CONTEXT: _ignored, ...baseEnv } = process.env;
+  const r = spawnSync(
+    process.execPath,
+    ['--test', '--test-reporter=tap', '--test-name-pattern=S8-4', fileURLToPath(import.meta.url)],
+    { encoding: 'utf8', env: { ...baseEnv, TMPDIR: '/dev/null' } },
+  );
+  assert.notEqual(r.status, 0, '两个宿主均已安装，临时目录故障应使真实对拍失败');
+  assert.ok(!r.stdout.includes('# SKIP'), '两个宿主均已安装时，临时目录故障不得标为 # SKIP');
 });

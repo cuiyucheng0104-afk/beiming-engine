@@ -410,8 +410,8 @@ export function createThreeSource({ THREE, host }) {
           timing,
           manifest,
           visible,
-          // id 是镜头条目顶层写的帧源，renderer 是真的出了这一帧的帧源；条目带 renderer 对象时两个可以不同
-          source: { id: shot.source, renderer: CAPS.id, host: renderingOf(shot).host, version: VERSION, tier, gpu, backend: 'webgl2', samples: plan.pixelSamples },
+          // id 是镜头条目顶层写的帧源，renderer 是真的出了这一帧的帧源；条目带 renderer 对象时两个可以不同；host 记录实际出帧宿主（声明 any 时落 page）
+          source: { id: shot.source, renderer: CAPS.id, host: renderingOf(shot).host === 'any' ? 'page' : renderingOf(shot).host, version: VERSION, tier, gpu, backend: 'webgl2', samples: plan.pixelSamples },
         });
         return { meta, layers, ...(extra && { extra }) };
       },
