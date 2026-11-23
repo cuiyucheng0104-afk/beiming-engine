@@ -86,6 +86,7 @@
     "audio:voice": "node tools/audio/voice.mjs",
     "audio:music": "node tools/audio/music.mjs",
     "audio:erb": "node tools/audio/erb.mjs",
+    "audio:foundry": "node tools/audio/foundry.mjs",
     "audio:samples": "node tools/audio/fetch-samples.mjs",
     "fonts:fetch": "node tools/fonts/fetch.mjs",
     "fonts:subset": "node tools/fonts/subset.mjs",
