@@ -53,7 +53,7 @@ test('补丁：只改 ThreeRT 的内核着色器与拼接着色器的 gpu.rs；�
   assert.deepEqual([...new Set(files)].sort(), ['renderer/shaders/pathtrace.wgsl', 'renderer/src/gpu.rs']);
   const head = text.slice(0, text.indexOf('diff --git'));
   assert.match(head, /Meshy LLC/);
-  assert.match(head, /SPDX-License-Identifier: MIT/);
+  assert.ok(head.includes('SPDX-License-' + 'Identifier: MIT')); // 拆开写：许可扫描会把连着写的标签当成本文件的许可
   assert.doesNotMatch(text, /\/Users\/|\/home\/|192\.168\./);
 });
 
@@ -65,7 +65,7 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
     if (e.missing && !E2E) { t.skip(`缺工具链：${e.missing}`); return; }
     throw e;
   }
-  await t.test('D2 构建：提交号对、我方着色器逐字节相同、ThreeRT 自带的漫反射白炉读数不变', () => {
+  await t.test('构建：提交号对、我方着色器逐字节相同、ThreeRT 自带的漫反射白炉读数不变', () => {
     assert.equal(rep.threert.commit, 'c946cc96bdb08979224e851a7fc67a066b1b456b');
     assert.equal(rep.threert.shaders.length, 4);
     for (const s of rep.threert.shaders) assert.equal(s.copied, s.repo, s.file);
@@ -75,7 +75,7 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
     assert.equal(d.status, 'pass');
     assert.ok(Math.abs(d.after / d.before - 1) < 1e-6);
   });
-  await t.test('D3 白炉：22 个读数都在 Cycles 的 ±0.5% 之内，噪声远小于门限，换相机距离读数不变', () => {
+  await t.test('白炉：22 个读数都在 Cycles 的 ±0.5% 之内，噪声远小于门限，换相机距离读数不变', () => {
     assert.equal(rep.furnace.rows.length, 22);
     for (const r of rep.furnace.rows) {
       t.diagnostic(`${r.distribution} ${r.roughness}: 我方 ${r.ours.toFixed(6)} ± ${r.se.toExponential(1)}  Cycles ${r.cycles.toFixed(6)}  相对差 ${r.rel.toExponential(2)}`);
@@ -84,7 +84,7 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
     }
     assert.ok(rep.furnace.camera.maxRelChange < GATES.furnaceRel / 10, `换相机距离的最大变化 ${rep.furnace.camera.maxRelChange}`);
   });
-  await t.test('D4 解析场景：正对与斜向两种几何，像素均值对解析值 0.2% 以内且在 3 个标准误之内', () => {
+  await t.test('解析场景：正对与斜向两种几何，像素均值对解析值 0.2% 以内且在 3 个标准误之内', () => {
     assert.deepEqual(rep.analytic.map(a => a.name), ['正对', '斜向']);
     for (const a of rep.analytic) {
       t.diagnostic(`${a.name}: 我方 ${a.mean.toExponential(6)} ± ${a.se.toExponential(2)}（${a.seeds} 个种子）  解析 ${a.exact.toExponential(6)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
@@ -92,14 +92,14 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
       assert.ok(Math.abs(a.z) <= GATES.analyticSE, `${a.name} 差 ${a.z} 个标准误`);
     }
   });
-  await t.test('D5 负对照：闭包、面光、补丁里的多重重要性采样各故意改错一项，对应读数必须超出门限', () => {
+  await t.test('负对照：闭包、面光、补丁里的多重重要性采样各故意改错一项，对应读数必须超出门限', () => {
     assert.deepEqual(rep.negative.map(n => n.target), ['closure', 'area_light', 'mis']);
     for (const n of rep.negative) {
       t.diagnostic(`${n.name}: 最大相对差 ${n.worstRel.toExponential(2)}（门限 ${n.gate}）`);
       assert.ok(Math.abs(n.worstRel) > n.gate, n.name);
     }
   });
-  await t.test('D6 确定性：同一种子渲两遍，输出逐字节相同', () => {
+  await t.test('确定性：同一种子渲两遍，输出逐字节相同', () => {
     assert.equal(rep.determinism.identical, true, `最大差 ${rep.determinism.maxAbsDiff}`);
   });
 });

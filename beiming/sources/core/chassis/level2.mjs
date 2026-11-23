@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 北冥 · 对拍阶梯第 2 级：我方 GGX 金属闭包与矩形面光接进 ThreeRT（build.mjs 编出的 threert-render）后渲图对答案。
-//   D2 ThreeRT 自带的漫反射白炉在打补丁前后读数不变；D3 金属白炉 22 个读数对 Cycles（±0.5%）；
-//   D4 矩形面光照漫反射平面对解析值（0.2% 且 3 个标准误以内）；D5 闭包、面光各故意改错一项必须不过；D6 同种子两遍逐字节相同。
+//   ThreeRT 自带的漫反射白炉在打补丁前后读数不变；金属白炉 22 个读数对 Cycles（±0.5%）；
+//   矩形面光照漫反射平面对解析值（0.2% 且 3 个标准误以内）；闭包、面光各故意改错一项必须不过；同种子两遍逐字节相同。
 //   node beiming/sources/core/chassis/level2.mjs [--out 报告.json]
 // 退出码：0 全部过；4 有一项不过；3 缺工具链（git、cargo、npm、网络、显卡）。
 // 渲染一律取 ThreeRT 的线性浮点原始输出（--hdr，曝光与后期之前），不降噪，萤火虫钳制放到不起作用。
@@ -256,7 +256,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   const ours = buildRenderer({ allowFetch });
   ensureNodeModules();
 
-  say('D2：ThreeRT 自带的漫反射白炉，补丁前后各跑一遍');
+  say('ThreeRT 自带的漫反射白炉，补丁前后各跑一遍');
   const before = await threertTest(base.bin, 'before'), after = await threertTest(ours.bin, 'after');
   // 它自己报的读数只留 4 位有效数字，这里另从原始输出按它的取样区域（画面中央 10%）算全精度均值，并逐像素比
   const f32 = b => new Float32Array(b.buffer, b.byteOffset, b.length / 4);
@@ -272,15 +272,15 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
     identical: before.raw.equals(after.raw), maxAbsDiff: pa.reduce((m, v, i) => Math.max(m, Math.abs(v - pb[i])), 0),
   };
 
-  say('D3：金属白炉');
+  say('金属白炉');
   const main = await furnace(ours.bin);
   const near = await furnace(ours.bin, { D: FURNACE.D[1], seeds: [1] });
   const camera = { D: FURNACE.D, fovNote: '过球心平面上的半高 1.25（正交 ortho_scale 2.5 的一半）', maxRelChange: Math.max(...main.rows.map((r, k) => Math.abs(near.rows[k].ours / r.ours - 1))) };
 
-  say('D4：矩形面光照漫反射平面');
+  say('矩形面光照漫反射平面');
   const ana = await analytic(ours.bin);
 
-  say('D5：负对照');
+  say('负对照');
   const negative = [];
   for (const n of NEGATIVE) {
     const b = buildRenderer({ allowFetch, inject: [n.inject] });
@@ -288,7 +288,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
     negative.push({ target: n.target, name: n.name, inject: n.inject, gate: n.gate, rows, worstRel: rows.reduce((w, r) => (Math.abs(r.rel) > Math.abs(w) ? r.rel : w), 0) });
   }
 
-  say('D6：同一种子渲两遍');
+  say('同一种子渲两遍');
   const det = {};
   const one = async () => {
     const s = await serve(ours.bin, 7);
@@ -305,11 +305,11 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   det.cases = ['白炉 粗糙度 0.5 开补偿 256 采样', '斜向面光 256 采样'];
 
   const checks = {
-    D2: diffuseFurnace.status === 'pass' && Math.abs(diffuseFurnace.after / diffuseFurnace.before - 1) < 1e-6 && ours.shaders.every(s => s.copied === s.repo),
-    D3: main.rows.every(r => Math.abs(r.rel) <= GATES.furnaceRel && r.se / r.cycles < GATES.furnaceRel / 10) && camera.maxRelChange < GATES.furnaceRel / 10,
-    D4: ana.every(x => Math.abs(x.rel) <= GATES.analyticRel && Math.abs(x.z) <= GATES.analyticSE),
-    D5: negative.every(n => Math.abs(n.worstRel) > n.gate),
-    D6: det.identical,
+    构建: diffuseFurnace.status === 'pass' && Math.abs(diffuseFurnace.after / diffuseFurnace.before - 1) < 1e-6 && ours.shaders.every(s => s.copied === s.repo),
+    白炉: main.rows.every(r => Math.abs(r.rel) <= GATES.furnaceRel && r.se / r.cycles < GATES.furnaceRel / 10) && camera.maxRelChange < GATES.furnaceRel / 10,
+    解析场景: ana.every(x => Math.abs(x.rel) <= GATES.analyticRel && Math.abs(x.z) <= GATES.analyticSE),
+    负对照: negative.every(n => Math.abs(n.worstRel) > n.gate),
+    确定性: det.identical,
   };
   say('完成');
   return {

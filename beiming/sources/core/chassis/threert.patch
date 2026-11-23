@@ -6,6 +6,8 @@
 # ThreeRT 以 MIT 许可发布，版权人 Meshy LLC（见它的 LICENSE）；补丁里的上下文行与删除行出自 ThreeRT，照它的许可使用，
 # 增加的行是北冥的。构建脚本 build.mjs 取固定提交、打上本补丁、把 ../shaders/ 下的四个着色器原样拷到
 # renderer/shaders/beiming/ 再编译。怎么接的见 build.mjs 与补丁里「北冥」开头的注释。
+# shortcut: 矩形纯光的高光倍率（specular scale）不是默认的 1 时，光源一侧的高光乘了倍率、材质一侧没乘，两侧权重配不上；
+#   要支持非 1 的倍率时，把材质一侧的贡献按高光与漫反射拆开再乘。
 # git apply 跳过第一个 diff 之前的文字。
 
 diff --git a/renderer/shaders/pathtrace.wgsl b/renderer/shaders/pathtrace.wgsl
