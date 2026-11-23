@@ -16,6 +16,20 @@
       "docRef": "渲染管线采样后期性能汇编 · 第 2 节 · d025"
     },
     {
+      "id": "render-pipe.d045.practice",
+      "sourceId": "d045",
+      "section": "4",
+      "caseId": "case-multi",
+      "title": "各家对照",
+      "text": "餐馆（026）：GPU 非局部均值，反照率、法线、深度引导；案例 14/案例 21「引导式降噪」；019 降噪有类型未写，真实光圈与景深；014 光圈与景深、引导式降噪；021 真实镜头、引导式降噪。对应北冥硬件光追后端的颜色/深度/法线分层图。同一引擎四案例镜头对照：026 薄透镜/光圈叶片/猫眼散景/畸变/移轴/快门运动模糊；光组：026 5 组，019 分离光组（可调太阳与灯比例），021/014 未写。",
+      "quantities": [],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d045"
+    },
+    {
       "id": "render-pipe.d046.practice",
       "sourceId": "d046",
       "section": "4",
@@ -57,9 +71,9 @@
           "rawUnit": "帧"
         },
         {
-          "value": 56,
+          "value": 176,
           "unit": "s",
-          "rawUnit": "秒"
+          "rawUnit": "分秒"
         },
         {
           "value": 24,
@@ -163,7 +177,7 @@
       "section": "13",
       "caseId": "case-07",
       "title": "风格后处理与色彩脚本",
-      "text": "两个色调、明暗交界软边、加轮廓线；笔触纹理只出现在受光处；脸部明暗借自一个光滑头部形状（只有一条干净分界线）；衣服区域材质交界处有干净描边。色彩脚本：每个段落一套调色板：紫色傍晚 + 一扇琥珀窗、更冷更低饱和的时间冻结、倒带时扫过正午、青蓝清晨 + 金色稻草；标题由实物搭成：「THE THREE」稻草捆、「LITTLE」捆扎树枝、「PIGS」砖，字母在音乐强拍上组装。",
+      "text": "两个色调、明暗交界软边、加轮廓线；笔触纹理只出现在受光处；脸部明暗借自一个光滑头部形状（只有一条干净分界线）；衣服区域材质交界处有干净描边。色彩脚本：每个段落一套调色板：紫色傍晚 + 一扇琥珀窗、更冷更低饱和的时间冻结、倒带时扫过正午、青蓝清晨 + 金色稻草；标题由实物搭成：「首段标题词」稻草捆、「中段标题词」捆扎树枝、「末段标题词」砖，字母在音乐强拍上组装。",
       "quantities": [],
       "kind": "method",
       "evidenceLevel": "源码",
@@ -184,20 +198,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d108"
-    },
-    {
-      "id": "render-pipe.d133.practice",
-      "sourceId": "d133",
-      "section": "15",
-      "caseId": "case-13",
-      "title": "大教堂、古墓、zone_19、发光巨树、幽灵、主角（18–22）的分档",
-      "text": "见 到 （内容较长，按条目保留）。（指针条目）",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 15 节 · d133"
     },
     {
       "id": "render-pipe.d167.practice",
@@ -237,20 +237,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 21 节 · d181"
-    },
-    {
-      "id": "render-pipe.d182.practice",
-      "sourceId": "d182",
-      "section": "21",
-      "caseId": "case-13",
-      "title": "调试 URL 开关与验收手段（案例 13）",
-      "text": "?q= ?r16=off ?lut=0 ?mblur=0 ?cath16=0 ?bossgap=0 ?sdf=0 等；第 01 章渲染部分列 36 个；每个新效果都能单独关掉。其他：?occl=0、?cathshell=0、?bdetail=0/1、?cathtex=、?audio=lite、substep 1–4。同类：案例 02 `?view=`、`?msaa=N`、案例 10 自检入口、外部案例 01 `?dpr ?q ?fast ?nomsaa ?pools ?capture`",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 21 节 · d182"
     },
     {
       "id": "render-pipe.d183.practice",

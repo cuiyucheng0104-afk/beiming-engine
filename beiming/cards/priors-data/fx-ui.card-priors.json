@@ -525,7 +525,13 @@
       "caseId": "case-13",
       "title": "发光 10 种形状",
       "text": "0 柔光 exp(−4.5d²)(1−smoothstep(0.8,1,d))；1 火花条 渐细胶囊头部热 半径 mix(0.1,0.5,tp)，核心 exp(−9dd²/r²)，头部提亮 0.7+0.6tp；2 星芒 十字 exp(−34·轴)+斜 45°(系数 46 权重 0.45)+核心 1.6exp(−22d²)+外晕 0.18exp(−4d²)；3 细冲击环 exp(−((d−0.8)/0.03)²)+内侧 0.07exp(−40(d−0.74)²)；4 光雾 两层噪声(0.65/0.35)拉成条 smoothstep(0.32,0.78,n)×1.7 随 uTime 滚动；5 光柱 横向高斯 exp(−7x²) 底亮顶灭 exp(−3.2y)(1−smoothstep(0.55,0.95,y)) 竖向 6 频闪烁 0.72+0.28noise 总系数 1.35；6 闪烁十字(系数 26 另一轴 2.6)+核心 1.2exp(−20d²)；7 光点 1.4exp(−26d²)+0.28exp(−5d²)；8 金叶 杏仁形 宽 0.42(1−y²)(1−0.25y) 叶脉 0.5exp(−40|x|)；≥9 软团(1−d)³",
-      "quantities": [],
+      "quantities": [
+        {
+          "value": 45,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
       "routeNote": "含着色器/节点公式或特定渲染器 API 常量，须在目标帧源重新标定，挂卡",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
@@ -1178,7 +1184,7 @@
       "target": "layout.panels",
       "section": "2",
       "caseId": "case-13",
-      "title": "火环 NameRing 网格",
+      "title": "火环 火环网格 网格",
       "text": "两部分各 (N+1)×2 顶点（N=128 高档/72 手机），共 516 顶点/512 三角：“墙”（环形火墙）+“地”（余烬带）；顶点在 GPU 里按 uniform uRing(中心x,地高,中心z,前沿半径) 计算",
       "quantities": [],
       "routeNote": "场景面数/粒子/实例/材质预算与具体作品规模强绑定（C11 终审铁律），挂卡",
@@ -1437,6 +1443,11 @@
           "rawUnit": "%"
         },
         {
+          "value": 10,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
           "value": 20,
           "unit": "m",
           "rawUnit": "m"
@@ -1466,6 +1477,11 @@
           "value": 1,
           "unit": "px",
           "rawUnit": "px"
+        },
+        {
+          "value": 70,
+          "unit": "m",
+          "rawUnit": "m"
         },
         {
           "value": 40,
@@ -1505,6 +1521,11 @@
           "value": 14.6,
           "unit": "rad/s",
           "rawUnit": "rad/s"
+        },
+        {
+          "value": 4.9,
+          "unit": "m",
+          "rawUnit": "m"
         }
       ],
       "routeNote": "含着色器/节点公式或特定渲染器 API 常量，须在目标帧源重新标定，挂卡",
@@ -1945,7 +1966,7 @@
       "section": "3",
       "caseId": "case-13",
       "title": "贴花 WARN 警示圈",
-      "text": "暗斑 dark=inside·(.52+.1·grain)；从圆边向内渗琥珀 creep=smoothstep(1-.85·prog,1,rn)；亮线 lfBand(rn-1,.04·uTele)，prog>.75 时从 P_WARN·1.2 过渡到 P_CORE·3.2；prog≥.999 熄灭；QPAD=1.25（实际四边形半径/逻辑半径，给外圈亮线留边）；外圈亮线半径从 1.2 缩到 1.0 同时内圈渗入琥珀（倒计时）",
+      "text": "暗斑 dark=inside·(.52+.1·grain)；从圆边向内渗琥珀 creep=smoothstep(1-.85·prog,1,rn)；亮线 bandFn(rn-1,.04·uTele)，prog>.75 时从 P_WARN·1.2 过渡到 P_CORE·3.2；prog≥.999 熄灭；QPAD=1.25（实际四边形半径/逻辑半径，给外圈亮线留边）；外圈亮线半径从 1.2 缩到 1.0 同时内圈渗入琥珀（倒计时）",
       "quantities": [],
       "routeNote": "含着色器/节点公式或特定渲染器 API 常量，须在目标帧源重新标定，挂卡",
       "coupling": "与第 3 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
@@ -1965,7 +1986,7 @@
       "section": "3",
       "caseId": "case-13",
       "title": "贴花 FLOOR 整场预警",
-      "text": "暗灰地毯+向外奔跑的金白涟漪；rip=lfBand(fract(rm/1.8-t·3.2)-.5,…)，涟漪周期 1.8 米，速度 5.76 米/秒（3.2 周期/秒×1.8，t=uTime·0.5 为 1 倍速，已校正）；前沿缓出 1-(1-u)² 在预警时间前段跑到墙；树荫扇形留空并用亚麻白描边",
+      "text": "暗灰地毯+向外奔跑的金白涟漪；rip=bandFn(fract(rm/1.8-t·3.2)-.5,…)，涟漪周期 1.8 米，速度 5.76 米/秒（3.2 周期/秒×1.8，t=uTime·0.5 为 1 倍速，已校正）；前沿缓出 1-(1-u)² 在预警时间前段跑到墙；树荫扇形留空并用亚麻白描边",
       "quantities": [
         {
           "value": 1.8,
@@ -2604,6 +2625,11 @@
           "value": 0.033333,
           "unit": "s",
           "rawUnit": "s"
+        },
+        {
+          "value": -2.4,
+          "unit": "m/s",
+          "rawUnit": "m/s"
         },
         {
           "value": [
@@ -3377,6 +3403,12 @@
           "rawUnit": "s"
         },
         {
+          "value": 24,
+          "unit": "m",
+          "rawUnit": "m",
+          "scaleBy": "tt"
+        },
+        {
           "value": 120,
           "unit": "m",
           "rawUnit": "m"
@@ -3575,6 +3607,14 @@
         },
         {
           "value": [
+            1.5,
+            2.2
+          ],
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": [
             1.3,
             1.9
           ],
@@ -3625,6 +3665,11 @@
         },
         {
           "value": 3.4,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 2.6,
           "unit": "m",
           "rawUnit": "米"
         },
@@ -3722,7 +3767,7 @@
       "section": "5",
       "caseId": "case-13",
       "title": "烟位置/光照公式",
-      "text": "高度 h=rise·life·(age−0.28age²)(age=1 最高=rise·life·0.72：烟囱 5.51 米/火盆 3.17/柴堆 8.75/烟柱 51.8/蒸汽 1.73)；风漂移 风敏感×(0.35+风强)×寿命×0.35×age²；侧向卷曲 散布×√age，方向 sin(5.3age+seed·21+t·0.21)；大小 mix(s0,s1,√age)×(0.8+0.4·fract(seed·7.13))；公告板绕视线轴随机旋转 seed·2π+age·(…)·2.4；透明度 a×强度因子×smoothstep(0,0.12,age)×(1−smoothstep(0.5,1,age))×近距淡出 smoothstep(0.6,2.2,距离)(蒸汽 smoothstep(1.8,5.5)避免整屏白雾)；底色 mix((0.30,0.29,0.28),(0.46,0.45,0.43),age)×(天空辐照 uSmokeAmb×(0.75+0.35age)+太阳 uSmokeSun×sunUp×(0.28+1.6前向散射))；树关用树冠遮光函数调制太阳(LF_SMOKE19)；热源烟加橘色(1,0.62,0.26)×热量×(0.35+1.1夜)×0.6 仅 age<0.3；源可带 visible() 回调每 0.25 s 查询",
+      "text": "高度 h=rise·life·(age−0.28age²)(age=1 最高=rise·life·0.72：烟囱 5.51 米/火盆 3.17/柴堆 8.75/烟柱 51.8/蒸汽 1.73)；风漂移 风敏感×(0.35+风强)×寿命×0.35×age²；侧向卷曲 散布×√age，方向 sin(5.3age+seed·21+t·0.21)；大小 mix(s0,s1,√age)×(0.8+0.4·fract(seed·7.13))；公告板绕视线轴随机旋转 seed·2π+age·(…)·2.4；透明度 a×强度因子×smoothstep(0,0.12,age)×(1−smoothstep(0.5,1,age))×近距淡出 smoothstep(0.6,2.2,距离)(蒸汽 smoothstep(1.8,5.5)避免整屏白雾)；底色 mix((0.30,0.29,0.28),(0.46,0.45,0.43),age)×(天空辐照 uSmokeAmb×(0.75+0.35age)+太阳 uSmokeSun×sunUp×(0.28+1.6前向散射))；树关用树冠遮光函数调制太阳(烟雾调光分支)；热源烟加橘色(1,0.62,0.26)×热量×(0.35+1.1夜)×0.6 仅 age<0.3；源可带 visible() 回调每 0.25 s 查询",
       "quantities": [
         {
           "value": 0.25,
@@ -3933,6 +3978,11 @@
           "rawUnit": "米"
         },
         {
+          "value": 0.55,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
           "value": [
             6,
             10
@@ -3985,7 +4035,7 @@
       "section": "5",
       "caseId": "case-13",
       "title": "树关落叶 createTreeLeaves",
-      "text": "实例数 base=round(count×2.3)(V19_ATMOS)，金风再加 round(base×1.25)；高档 5520+6900=12 420；手机 base=min(round(500×1.5),650)=650，total=650+390=1040；叶片几何 4 行×3 列=12 顶点 12 三角形，可弯折(折痕 fold=0.1+0.28seed，卷曲 0.08+0.3…，宽 0.56×(0.8+0.4…))；图集 lumenLeafAtlas 2×2 四种叶形(金叶/桦/余烬/橡，桌面每格 128 px 手机 64)；两种姿态 tumbler=step(0.66,seed2.y)+金风·step(0.3,seed2.y)(约 34% 翻滚者，绕宽度轴端过端，角速度 4+5seed rad/uTime 秒=真实 8+10seed)，滑翔者平躺沿缓转航向钟摆 sin(ph)·振幅，角频率 w=1.5+1.5seed(真实 3-6 rad/s，来回 1.05-2.1 s)，转折抬头 0.8sin(ph)+小颤动；金风时钟摆振幅降 70%，下落速度降 72%，叶顺风流；盒子 46×26×46 米以相机上 6 米为中心；大小 0.2×(0.6+0.9seed)=12-30 cm，约 9% 放大 1.7-2.3 倍，约 20% 缩到 0.6 倍；近处淡入 2.2-4.4 米(离地高大时 5-10)，r16Tier() 高/超高起点 3.0 米；任何叶屏幕上不超约 40 像素(p_light crit light #9)；亮度防爆软压缩 kk=mix(1.5,0.9,uNightK)，超出部分按 1/(1+2·超出量)；材质粗糙 0.5 金属 0 alphaTest 0.45",
+      "text": "实例数 base=round(count×2.3)(大气密度配置)，金风再加 round(base×1.25)；高档 5520+6900=12 420；手机 base=min(round(500×1.5),650)=650，total=650+390=1040；叶片几何 4 行×3 列=12 顶点 12 三角形，可弯折(折痕 fold=0.1+0.28seed，卷曲 0.08+0.3…，宽 0.56×(0.8+0.4…))；图集 lumenLeafAtlas 2×2 四种叶形(金叶/桦/余烬/橡，桌面每格 128 px 手机 64)；两种姿态 tumbler=step(0.66,seed2.y)+金风·step(0.3,seed2.y)(约 34% 翻滚者，绕宽度轴端过端，角速度 4+5seed rad/uTime 秒=真实 8+10seed)，滑翔者平躺沿缓转航向钟摆 sin(ph)·振幅，角频率 w=1.5+1.5seed(真实 3-6 rad/s，来回 1.05-2.1 s)，转折抬头 0.8sin(ph)+小颤动；金风时钟摆振幅降 70%，下落速度降 72%，叶顺风流；盒子 46×26×46 米以相机上 6 米为中心；大小 0.2×(0.6+0.9seed)=12-30 cm，约 9% 放大 1.7-2.3 倍，约 20% 缩到 0.6 倍；近处淡入 2.2-4.4 米(离地高大时 5-10)，r16Tier() 高/超高起点 3.0 米；任何叶屏幕上不超约 40 像素(p_light crit light #9)；亮度防爆软压缩 kk=mix(1.5,0.9,uNightK)，超出部分按 1/(1+2·超出量)；材质粗糙 0.5 金属 0 alphaTest 0.45",
       "quantities": [
         {
           "value": 128,
@@ -4052,9 +4102,22 @@
           "rawUnit": "%"
         },
         {
+          "value": [
+            2.2,
+            4.4
+          ],
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
           "value": 3,
           "unit": "m",
           "rawUnit": "米"
+        },
+        {
+          "value": 40,
+          "unit": "px",
+          "rawUnit": "像素"
         }
       ],
       "routeNote": "含着色器/节点公式或特定渲染器 API 常量，须在目标帧源重新标定，挂卡",
@@ -4081,6 +4144,11 @@
           "value": 360,
           "unit": "m",
           "rawUnit": "米"
+        },
+        {
+          "value": 1.8,
+          "unit": "px",
+          "rawUnit": "像素"
         },
         {
           "value": 70,
@@ -4168,6 +4236,24 @@
           ],
           "unit": "m",
           "rawUnit": "米"
+        },
+        {
+          "value": [
+            0.5,
+            2.3
+          ],
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.28,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 12,
+          "unit": "m",
+          "rawUnit": "米"
         }
       ],
       "routeNote": "含着色器/节点公式或特定渲染器 API 常量，须在目标帧源重新标定，挂卡",
@@ -4212,6 +4298,14 @@
           "value": [
             0.24,
             0.74
+          ],
+          "unit": "m/s",
+          "rawUnit": "m/s"
+        },
+        {
+          "value": [
+            1.1,
+            1.9
           ],
           "unit": "m/s",
           "rawUnit": "m/s"
@@ -4285,6 +4379,11 @@
           "value": 4,
           "unit": "ms",
           "rawUnit": "ms"
+        },
+        {
+          "value": 1.2,
+          "unit": "s",
+          "rawUnit": "s"
         }
       ],
       "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
@@ -4304,7 +4403,7 @@
       "target": "fx.streak-ring",
       "section": "5",
       "caseId": "case-13",
-      "title": "叶子时间钟 FloraHooks",
+      "title": "叶子时间钟 植被时间钩子",
       "text": "着色器 t=uTime−uLeafHold；uTime 增速是真实秒 2 倍(原实现源码 clock.t+=dt×2)，故偏移增速(1−rate)·dt·2；rate=1 正常；holdLeaves(sec≤30)目标速率 0 偏移与 uTime 同速增长 t 冻结；reverseLeaves(dur≤60)目标速率 −1 偏移增速 4dt 大于 uTime 的 2dt，t 以 −2/s 倒走；速率趋近目标：停止时常数 16/s 其余 4.5/s；driftLeaves(dir,mul,dur) 同时通过 G.wind.override 改风向；sapling 最多 40 个树苗位置，litterAt() 恒为 0",
       "quantities": [],
       "routeNote": "含着色器/节点公式或特定渲染器 API 常量，须在目标帧源重新标定，挂卡",
@@ -4824,7 +4923,7 @@
       "section": "6",
       "caseId": "case-13",
       "title": "回声（地面发光符印）",
-      "text": "图集1024²(移动512²)分2×2四个512变体，RGB三通道分三层：红=外环+符文(旋转层)绿=内环+刻度+图腾(静止层)蓝=径向光晕；外环符文数nR=18+2v，28种符文mulberry32(777)随机(竖线+1–3笔格点连线格点3×4)；四图腾0树(根枝+7颗果)1剑(十字剑+火焰)2八芒星+烛火3断环+三滴泪；贴花13×13顶点(G=12)边长2R(R=radius∣∣.95)逐点贴地+.035共288面；片元外环rot=t·(.035+near·.18)+seed·2π转(真实×2)内环不转，磨损smoothstep(.25,.65,噪声)，扫光pow(.5+.5sin(角度-t·(.9+near·1.5)+seed·9),8)，脉动.72+.28sin(1.6t+seed·20)，gold(1,.66,.26) hot(1,.88,.6)，光照×(1+uLumenPulse·1.5)，边缘14%渐隐，加法混合polygonOffset(-2,-4)；火星26点/回声(种子99)寿命1/(.12+.14r)按2倍速≈1.9–4.2 s沿螺旋上升.05+life·(1.2+.9r)点大小uPx·(.022+.018r)/d夹[1,24]；光柱每回声一张朝向相机竖向广告牌宽.64高1.9仅3–9 m渐显，uColGain=.07+.12夜，横向剖面exp(-30x²)·.55+exp(-6x²)·.2，纵向(1-smoothstep(0,1,y))^2.2叠流动sin(14y-2.4t+3x)；亮度逻辑vis开启+.62/s关闭-2/s，near距离<2.6 m为1 2.6–6 m线性降到0，已读目标亮度.34(平滑1.5)，flash每秒减.8，EA.x=(bright·(.85+.3夜)+flash²·1.5+near·.12)·gain·vis²，gain=1+(e.gain-1)(1-.5夜)，uGain=1.15+.35夜；uEA[26]数组第一世界25个巨树14个",
+      "text": "图集1024²(移动512²)分2×2四个512变体，RGB三通道分三层：红=外环+符文(旋转层)绿=内环+刻度+图腾(静止层)蓝=径向光晕；外环符文数nR=18+2v，28种符文mulberry32(777)随机(竖线+1–3笔格点连线格点3×4)；四图腾0树(根枝+7颗果)1剑(十字剑+火焰)2八芒星+烛火3断环+三滴泪；贴花13×13顶点(G=12)边长2R(R=radius∣∣.95)逐点贴地+.035共288面；片元外环rot=t·(.035+near·.18)+seed·2π转(真实×2)内环不转，磨损smoothstep(.25,.65,噪声)，扫光pow(.5+.5sin(角度-t·(.9+near·1.5)+seed·9),8)，脉动.72+.28sin(1.6t+seed·20)，gold(1,.66,.26) hot(1,.88,.6)，光照×(1+uGlowPulse·1.5)，边缘14%渐隐，加法混合polygonOffset(-2,-4)；火星26点/回声(种子99)寿命1/(.12+.14r)按2倍速≈1.9–4.2 s沿螺旋上升.05+life·(1.2+.9r)点大小uPx·(.022+.018r)/d夹[1,24]；光柱每回声一张朝向相机竖向广告牌宽.64高1.9仅3–9 m渐显，uColGain=.07+.12夜，横向剖面exp(-30x²)·.55+exp(-6x²)·.2，纵向(1-smoothstep(0,1,y))^2.2叠流动sin(14y-2.4t+3x)；亮度逻辑vis开启+.62/s关闭-2/s，near距离<2.6 m为1 2.6–6 m线性降到0，已读目标亮度.34(平滑1.5)，flash每秒减.8，EA.x=(bright·(.85+.3夜)+flash²·1.5+near·.12)·gain·vis²，gain=1+(e.gain-1)(1-.5夜)，uGain=1.15+.35夜；uEA[26]数组第一世界25个巨树14个",
       "quantities": [
         {
           "value": 0.14,
@@ -5506,12 +5605,12 @@
     {
       "id": "fx-ui.d176.card",
       "sourceId": "d176",
-      "cardId": "fx.streak-ring",
-      "target": "fx.streak-ring",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "section": "8",
       "caseId": "case-13",
       "title": "危险区视觉 ring/burst",
-      "text": "ring：驱动 NameRing，强度 min(1,t/.08)·max(0,1-tail)·min(1,(t1-t)/.2)，每秒 90 火花沿环，借全局冲击波 uShockwave2（半径 r0+speed·t·1.15，强度 .6，出界后 .85 渐灭）；burst：BURST 贴花 .5 秒+40 个环形外喷光点（速度 5–9）+点光闪 .7",
+      "text": "ring：驱动 火环网格，强度 min(1,t/.08)·max(0,1-tail)·min(1,(t1-t)/.2)，每秒 90 火花沿环，借全局冲击波 uShockwave2（半径 r0+speed·t·1.15，强度 .6，出界后 .85 渐灭）；burst：BURST 贴花 .5 秒+40 个环形外喷光点（速度 5–9）+点光闪 .7",
       "quantities": [
         {
           "value": 0.5,
@@ -5739,6 +5838,11 @@
       "text": "stroke 事件：笔画方向=玩家方向，三条笔画侧向偏移[0,+2.6,-2.6]，每条长 9 米(中心±4.5)，数量随机 1–3；glyph 事件：从书盾骨(0,0,.2)发出，方向绕 y 转(i-1)·.55 弧度（三叶扇形）",
       "quantities": [
         {
+          "value": 9,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
           "value": 0.55,
           "unit": "rad",
           "rawUnit": "弧度"
@@ -5772,26 +5876,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 8 节 · d183",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d184.card",
-      "sourceId": "d184",
-      "cardId": "wind.gust-wake",
-      "target": "wind.gust-wake",
-      "section": "9",
-      "caseId": "case-13",
-      "title": "液滴+池涟漪同步",
-      "text": "液滴动画全在顶点着色器，落点处池面涟漪读同一套 aDrop 参数保持同步",
-      "quantities": [],
-      "routeNote": "场景面数/粒子/实例/材质预算与具体作品规模强绑定（C11 终审铁律），挂卡",
-      "coupling": "与第 9 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 9 节 · d184",
       "verifiedInOurStack": false
     },
     {
@@ -6102,6 +6186,26 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "fx-ui.d203.card",
+      "sourceId": "d203",
+      "cardId": "page.det2d",
+      "target": "page.det2d",
+      "section": "12",
+      "caseId": "case-13",
+      "title": "body类驱动界面变体",
+      "text": "body.touch/pad/kbm/cinema/photo/boss-on/menu-open/hud-off，所有CSS据此换样子JS只切类；CSS变量传尺寸：箭袋右边缘写--ui-quiver-r头目条用calc(100vw−2×var(--ui-quiver-r)−2.8rem)让位；will-change:transform与translate3d；body.reduce-motion与prefers-reduced-motion关掉引路叶浮动/光点/余烬与结算卡上升光点(reduce-motion写入点未找到)",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "特效粒子界面二维汇编 · 第 12 节 · d203",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "fx-ui.d204.card",
       "sourceId": "d204",
       "cardId": "page.det2d",
@@ -6119,26 +6223,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 12 节 · d204",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d206.card",
-      "sourceId": "d206",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
-      "section": "13",
-      "caseId": "case-13",
-      "title": "配色与缓动",
-      "text": "--gold #ffd27a；--gold-2 #e2bb72(分享卡金同值)；--gold-3 #c9a45c；--gold-dim #8a6d3c；--bone #e6dcc6；--bone-2 #bfb49c；--ash #8a8478；--ember #ff7a2a；--blood #6e1a12；--red #b3261b；--plate rgba(9,8,7,.78)；--plate-2 rgba(16,13,10,.9)；--line rgba(201,164,92,.42)；--line-soft rgba(201,164,92,.18)；--ease-out cubic-bezier(.16,.84,.3,1)；--ease-io cubic-bezier(.65,0,.35,1)；主题色#0c0906；龙专用色(--dr-*)板岩#5a6470 深板岩#3b434d 象牙#e3dccb 铜绿#4f7a6e 琥珀#ffc36b 囊白#fff3d0 囊金#ffd27a。色规则：金色必须带暗描边才能在发光背景上看清；龙条不能是木头不能红不能红黑；\"灯\"条全程不出现红色；补充：显示字体 Cinzel 400–700、正文 Cormorant Garamond 400–600（含斜体）均 网络字体服务 外链，回退 Big Caslon、Hoefler Text、常规衬线体；头目二「灯」条无红：灰烬灰板+灰金填充+白金火；龙条禁红、禁黑红配。字体条见下一条。；并列出处（重复条已合并）：「字体与配色」A；原实现源码，案例 13；该出处标：证据 源码，验证 作者成片用过(未运行)",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 13 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 13 节 · d206",
       "verifiedInOurStack": false
     },
     {
@@ -6208,77 +6292,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "fx-ui.d209.card",
-      "sourceId": "d209",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
-      "section": "13",
-      "caseId": "case-13",
-      "title": "设计地板（可读性）",
-      "text": "第 6 轮 复查记录：根字号不低于 15 px（1280×720 曾 13 px 使 .6–.72 rem 大写标签低于 10 px），Cinzel 大写标签 max(.8rem,13px) 字距≤.28em，值≥15 px，暗金标签抬到约 4.5:1；第 2 轮 11 px 地板；第 4 轮 12.5 px 微标签；触屏点击目标 44 px、短屏 ≤540 px 高时字号地板 ≥12 px；设置/控制页拆分页",
-      "quantities": [
-        {
-          "value": 15,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 13,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 10,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 13,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 15,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 11,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 12.5,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 44,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 540,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 12,
-          "unit": "px",
-          "rawUnit": "px"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 13 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 13 节 · d209",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "fx-ui.d210.card",
       "sourceId": "d210",
       "cardId": "layout.panels",
@@ -6332,46 +6345,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 13 节 · d211",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d212.card",
-      "sourceId": "d212",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
-      "section": "13",
-      "caseId": "case-02",
-      "title": "五元素配色（e1 主/e2 亮/e3 深/ea 半透明/eg 辉光）",
-      "text": "ember #ff8a2a/#ffd27a/#b8261a/rgba(255,120,40,.55)/rgba(255,140,60,.85)（1–2 级）；azure #3fa2ff/#c4e8ff/#163fa8/rgba(60,150,255,.55)/rgba(90,175,255,.9)（3–4）；radiant #ffcf4a/#fffbe6/#b8700c/rgba(255,214,110,.55)/rgba(255,236,170,.95)（5–6）；lightning #62e2ff/#effdff/#1d58c4/rgba(100,220,255,.55)/rgba(150,235,255,.95)（7–8）；storm #ffcc3a/#e6fbff/#1b4aa8/rgba(110,205,255,.5)/rgba(255,214,110,.9)（9–10）；每 2 级换一种；触屏 INFERNO 色 ember #ffc870/azure #6fc8ff/radiant #fff2b0/lightning #c9b8ff/storm #b8dcff",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 13 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 13 节 · d212",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d213.card",
-      "sourceId": "d213",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
-      "section": "13",
-      "caseId": "case-02",
-      "title": "触屏层变量",
-      "text": "--tch-fill rgba(9,18,46,.46)；--tch-fill-down rgba(34,58,128,.66)；--tch-line rgba(255,246,225,.74)；--tch-ink #fffaf0；--tch-track rgba(255,246,225,.16)；--tch-gold #ffc870/--tch-amber #f08a2a；--tch-heat #ffc94a/--tch-hot #ff4a3a；--tch-stam #7fe3ff",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 13 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 13 节 · d213",
       "verifiedInOurStack": false
     },
     {
@@ -6730,6 +6703,11 @@
       "text": "血条宽=clamp(最大值×0.0385,9,38)rem；体力条clamp(最大值×0.128,7,30)rem；宽度过渡0.6 s(--ease-out)升级后\"长长\"；单次掉血>血上限6%触发hit(抖动0.35 s bar-hit左右−3,+2,−1 px亮度1.8)；单次回血>5%触发heal(光晕0.9 s)；血量<25%持续脉动low(1.1 s low-hp)；体力从>0.5降到≤0.5触发empty(橙红闪0.7 s)；HUD位置左上left2.6rem top2.3rem；头目条bottom7.2vh宽min(60rem,64vw)",
       "quantities": [
         {
+          "value": 0.6,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": 0.06,
           "unit": "ratio",
           "rawUnit": "%"
@@ -6789,7 +6767,18 @@
       "caseId": "case-13",
       "title": "微光(货币)计数",
       "text": "数字不跳而是滚动：每帧步长max(abs(差)×min(1,dt×3.2), dt×24)即至少每秒24；获得浮出\"+N\"累计保持2.2 s(gainT)；失去红色\"−N\"保持1.6 s(lossT)并给计数器加drain类",
-      "quantities": [],
+      "quantities": [
+        {
+          "value": 2.2,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 1.6,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
       "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
       "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
@@ -6901,6 +6890,11 @@
       "text": "对象池4条；位置=敌人锁定点+0.45单位高经相机投影成屏幕坐标；被打后显示6 s(now−r.hitT<6e3)锁定目标总在最前；残影停0.55 s后按(0.3+差×3)×dt收缩；伤害数累积1.6 s；退场冷却320 ms；没被外部驱动时HUD自己根据G.enemies.list血量变化推算伤害(_autoEnemyBars)",
       "quantities": [
         {
+          "value": 6,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": 0.55,
           "unit": "s",
           "rawUnit": "s"
@@ -6927,129 +6921,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "fx-ui.d227.card",
-      "sourceId": "d227",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
-      "section": "15",
-      "caseId": "case-13",
-      "title": "横幅时序表",
-      "text": "种类 淡入/停留/淡出/总计 s/独占/暗角：area 1.2/3/1.7/5.9/否/无；夜哨点 0.9/2.5/1.8/5.2/否/无；death 1.6/2.6/1.4/5.6/是/红；victory 1.5/4.6/2.2/8.3/是/金；item 0.45/2.8/0.8/4.05/否/无；title 2.4/5.2/2.6/10.2/是/金；returned 1.4/5.6/2.4/9.4/是/金；ending2 2.2/6.4/2.6/11.2/是/金；退场后outT×0.55 s即允许下一条开始；暗角过渡2.4 s；同种互斥清队列；area 8 s内同名不重播",
-      "quantities": [
-        {
-          "value": 0.55,
-          "unit": "s",
-          "rawUnit": "s",
-          "scaleBy": "outT"
-        },
-        {
-          "value": 2.4,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 8,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 15 节 · d227",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d228.card",
-      "sourceId": "d228",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
-      "section": "15",
-      "caseId": "case-13",
-      "title": "提示卡/通知/字幕参数",
-      "text": "提示卡默认5.5 s(最少1.5)切换淡出260 ms底部金色计时线scaleX线性；通知条默认3.6 s同屏上限3条淡出650 ms进入0.35/0.5 s退出0.6 s，\"Picked up — Amber Seed\"按破折号拆小标题与正文并按正则猜图标；字幕默认4 s，说话人正则 ^(\\p{Lu}[\\p{L}\\p{M}'’ .-]{1,40}):\\s+(.+)$ 识别\"名字: 台词\"，旁白在对话期间排队最多等6 s；字幕大小S1.2rem/M1.4rem/L1.7rem；字幕位置bottom15.5vh(有头目条7.2vh+5.6rem)；准星呼吸1.6 s ret-breathe缩放1→0.88，弹出0.35 s ret-pop(2.2倍转45°→正位)；黑边摄影9vh/过场11vh过渡0.8 s；黑场fadeBlack速度=abs(目标−当前)/秒数线性；点按提示伪键保持140 ms；补充：body.photo 时上下黑边高 9vh，body.cinema 高 11vh，过渡 0.8 s。；并列出处（重复条已合并）：「摄影模式」 (原实现源码)，案例 13",
-      "quantities": [
-        {
-          "value": 260,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 3.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 650,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 0.5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 4,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.35,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 45,
-          "unit": "deg",
-          "rawUnit": "°"
-        },
-        {
-          "value": 0.8,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 140,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 0.8,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 15 节 · d228",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "fx-ui.d229.card",
       "sourceId": "d229",
       "cardId": "page.det2d",
@@ -7057,7 +6928,7 @@
       "section": "15",
       "caseId": "case-13",
       "title": "弓界面 bowhud",
-      "text": "拉弓圆环半径R_MIN=9 R_MAX=52(视口单位)，r=9+散布像素/单位像素+前摇×25(前摇=起弓/搭箭阶段1否则1−拉满比例)，\"真\"阶段锁9；散布像素=散布角度×屏幕高/相机视角；拉弓圆弧circle pathLength=100 stroke-dasharray=\"百分比 100\"起点旋转−90°；颤抖阶段位置叠加sin/cos幅度0.35×每度像素相位17×dt；阶段类st-raise/nock/half/steady/tremble/full/true/release；落点圆点landingDot auto/on/off(auto仅触屏/手柄/简单难度)连线用旋转+scaleX(长度)；部位括号盒=部位矩形外扩4 px最小18(触屏40)换目标触发hop弹跳，其他可锁部位小菱形最多24个；命中标记weak四角星+环0.62 s/body四短斜线0.36 s/armour斜线加横杠0.42 s/membrane撕裂叶0.7 s(随机倾斜±15°)池上限8；箭袋芯片三种箭羽色 traveler #e9e0cc/iron #7f8a92/lumen #ffd98a(带径向渐变光点)箭SVG视口24×40旋转35°，芯片右边缘px写CSS变量--lf-quiver-r头目条据此让位",
+      "text": "拉弓圆环半径R_MIN=9 R_MAX=52(视口单位)，r=9+散布像素/单位像素+前摇×25(前摇=起弓/搭箭阶段1否则1−拉满比例)，\"真\"阶段锁9；散布像素=散布角度×屏幕高/相机视角；拉弓圆弧circle pathLength=100 stroke-dasharray=\"百分比 100\"起点旋转−90°；颤抖阶段位置叠加sin/cos幅度0.35×每度像素相位17×dt；阶段类st-raise/nock/half/steady/tremble/full/true/release；落点圆点landingDot auto/on/off(auto仅触屏/手柄/简单难度)连线用旋转+scaleX(长度)；部位括号盒=部位矩形外扩4 px最小18(触屏40)换目标触发hop弹跳，其他可锁部位小菱形最多24个；命中标记weak四角星+环0.62 s/body四短斜线0.36 s/armour斜线加横杠0.42 s/membrane撕裂叶0.7 s(随机倾斜±15°)池上限8；箭袋芯片三种箭羽色 traveler #e9e0cc/iron #7f8a92/lumen #ffd98a(带径向渐变光点)箭SVG视口24×40旋转35°，芯片右边缘px写CSS变量--ui-quiver-r头目条据此让位",
       "quantities": [
         {
           "value": -90,
@@ -7068,6 +6939,11 @@
           "value": 4,
           "unit": "px",
           "rawUnit": "px"
+        },
+        {
+          "value": 0.7,
+          "unit": "s",
+          "rawUnit": "s"
         },
         {
           "value": [
@@ -7864,193 +7740,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "fx-ui.d238.card",
-      "sourceId": "d238",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
-      "section": "16",
-      "caseId": "case-02",
-      "title": "命中字规则 HIT_RULES",
-      "text": "confirmEvery 0.9 s；闪断保护 0.45 s；flavourEvery 1.2 s；burstGap 0.35 s；critMult 1.5；directBase 30；直击判定 基础伤害≥弹体伤害×0.98；chargedAt 0.2；multiWindow 0.25 s（打中 2 条以上龙合并成 MULTI HIT! ×N）；keepFrac 0.6；maxAlive 4 组；池 词组 6/准星爆裂 3；flash 1.2 s；fastFade 0.12 s；minShow 0.3 s；offMargin 40 px；nearCam 12 m；xpWindow 0.8 s",
-      "quantities": [
-        {
-          "value": 0.9,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.45,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.35,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.25,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.12,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.3,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 40,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 12,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 0.8,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 16 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 16 节 · d238",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d239.card",
-      "sourceId": "d239",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
-      "section": "16",
-      "caseId": "case-02",
-      "title": "命中字动画时间线",
-      "text": "0 s scale 0.35 opacity 0.3 缓动 cubic-bezier(.2,.9,.4,1)；0.06 s scale 1.2 opacity 1 ease-out；0.12 s scale 1；crit/kill 0.15/0.18/0.21 s 横移 −4/+3/0 px；L−0.3 s 开始消失 ease-in；L scale 0.96 opacity 0（停留 hit 0.38/direct 0.48/charged,crit 0.53/kill 0.73 s，推断）；上飘 停留期线性升 6 px 最后 0.3 s 再升 24 px；拟声词 寿命比例 0–0.08 隐藏 0.16 scale1.25 0.24 scale1；连击行 0–0.13 隐藏 0.2 scale1.3 rotate −4° 0.27 scale1 rotate −2°；经验行 0–0.17 隐藏 0.25 scale1.35 rotate 3° 0.32 scale1；闪星 560 ms 两颗 0.05 s/0.13 s 起；速度楔 440 ms；集中线 440 ms（kill 620）；爆炸气球 520 ms（kill 760）；再弹 220 ms scale 1.3→.94→1；动画全部 pause()，每帧设 currentTime=(组时间−起点)×1000，卡帧不吃寿命；减弱动效仅 opacity",
-      "quantities": [
-        {
-          "value": 0,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.06,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.12,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.21,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 0.73,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 6,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 0.3,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 24,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": -4,
-          "unit": "deg",
-          "rawUnit": "°"
-        },
-        {
-          "value": -2,
-          "unit": "deg",
-          "rawUnit": "°"
-        },
-        {
-          "value": 3,
-          "unit": "deg",
-          "rawUnit": "°"
-        },
-        {
-          "value": 560,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 0.13,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 440,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 440,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 520,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 220,
-          "unit": "ms",
-          "rawUnit": "ms"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 16 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 16 节 · d239",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "fx-ui.d240.card",
       "sourceId": "d240",
       "cardId": "overlay.anchored",
@@ -8463,6 +8152,11 @@
           "rawUnit": "px"
         },
         {
+          "value": 0.45,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": 8,
           "unit": "px",
           "rawUnit": "px"
@@ -8721,208 +8415,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "fx-ui.d249.card",
-      "sourceId": "d249",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
-      "section": "17",
-      "caseId": "case-13",
-      "title": "页面级过渡与关键帧(主要)",
-      "text": "#loading 1.4 s；#title 1.6 s；.title-center位移1.6 s --ease-out；.title-logo位移1.3 s透明1 s；#hud透明0.8 s；#banners 0.6 s；.bn-vignette 2.4 s；.banner .bl缩放1.4 s；.letterbox高度0.8 s；.prompt透明0.3位移0.4；.reticle 0.15 s；sigil-breathe 5 s(缩放0.985→1.015透明0.82→1)；core-pulse 5 s光核0.55→1；leaf-fall 6 s(淡入15%位移(14,46))；obj-upd 2.2 s(从左滑入10 px先亮后归位)；mk-pulse 2.2 s罗盘目标标记光晕",
-      "quantities": [
-        {
-          "value": 1.4,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.3,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.8,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 2.4,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.4,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.8,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.15,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.15,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 10,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 2.2,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 17 节 · d249",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d250.card",
-      "sourceId": "d250",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
-      "section": "17",
-      "caseId": "case-13",
-      "title": "界面动效时长缓动",
-      "text": "缓动 --ease-out=cubic-bezier(.16,.84,.3,1)，--ease-io=cubic-bezier(.65,0,.35,1)；加载画面淡出 1.4 s/标题淡入 1.6 s ease；徽记呼吸 5 s/外环自转 90 s/落叶 6 s（无限）；片名高光扫过 7.5 s 延迟 1.2 s；「按任意键」脉动 2.8 s；加载条填充 0.45 s、菜单下划线 0.45 s、确认闪 0.5 s；血条宽度 0.6/受击抖 0.35/回血光晕 0.9/低血脉动 1.1 s；头目条出场 1.4 s（三次方缓出 1−(1−t)³）/第二阶段流光 2.4 s 线性无限；横幅 地名 1.2+3+1.7 s、胜利 1.5+4.6+2.2 s、片名卡 2.4+5.2+2.6 s（淡入+停留+淡出）；提示卡 5.5 s/通知条 3.6 s/字幕 4 s/黑边 0.8 s；引路叶浮动 2.4 s/光晕 2.4 s/脉冲 0.9 s，方向弹簧刚度 100 阻尼 20（临界）；地图飞行 0.55 s/北展 1.2 s；威胁箭头脉动 1.15−0.7×紧急度 s；另有 99 个 @keyframes",
-      "quantities": [
-        {
-          "value": 1.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 7.5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 2.8,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.45,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.45,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.1,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.4,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 2.4,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.7,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 2.2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 2.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.8,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.9,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.2,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 17 节 · d250",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "fx-ui.d252.card",
       "sourceId": "d252",
       "cardId": "time.envelope",
@@ -9029,6 +8521,16 @@
         },
         {
           "value": 31,
+          "unit": "px",
+          "rawUnit": "px"
+        },
+        {
+          "value": 1,
+          "unit": "px",
+          "rawUnit": "px"
+        },
+        {
+          "value": 2,
           "unit": "px",
           "rawUnit": "px"
         },
@@ -9424,7 +8926,17 @@
           "rawUnit": "s"
         },
         {
+          "value": 2.4,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
           "value": 0.9,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 1.7,
           "unit": "s",
           "rawUnit": "s"
         },
@@ -9501,6 +9013,11 @@
       "text": "分片：每次定时回调最多算6 ms(while performance.now()−t0<6 this._rows(8))每次8行回调间隔16 ms，1320行最少165次，菜单加载完2.5 s后预建；光照：对513×513高度场算坡面明暗SH与坡度GM，法线(−dx×1.6,1,−dz×1.6)光方向(−0.62,0.72,−0.62)除以平坦面明度归一；着色：每像素对高度/草/路/镇/岩/铺石6张场双线性插值(bil4)，基色低处土色(80,66,48)草地混到(104,84,50)高度7–70过渡到(90,78,62)70–155过渡到(132,122,104)；岩(112,104,90)强度0.55镇(94,82,62)0.55铺石(128,116,96)0.85路(150,130,94)0.82；明暗系数s=clamp(0.3+0.7×明度,0.18,1.45)；等高线每8单位一条(f=h/8)每5条(40单位)加粗，线深0.34普通0.17线宽按坡度换算；河流水深WATER_Y+0.04−h岸边加深55%水色(24,36,40)加一点亮光；纸面质感颗粒±3.5%大尺度污渍±8%小尺度污渍±3%(pm=1+grain×0.07+stain×0.16+stain2×0.06,grain/stain都减0.5)，边缘3–20单位向暗褐(22,17,11)过渡6单位处再加55%烧边，边线噪声扰动±8单位；原实现源码",
       "quantities": [
         {
+          "value": 6,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
           "value": 16,
           "unit": "ms",
           "rawUnit": "ms"
@@ -9532,6 +9049,14 @@
           "rawUnit": "%"
         },
         {
+          "value": [
+            -0.03,
+            0.03
+          ],
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
           "value": 0.55,
           "unit": "ratio",
           "rawUnit": "%"
@@ -9557,6 +9082,11 @@
       "title": "世界地图：墨迹与雾遮罩",
       "text": "墨迹buildInk：建筑旋转矩形、树圆(桦树半径1.6普通1.2+hash×0.9)、石头圆(半径≥0.7)、剑十字、石柱圆、河流两条虚线(偏移−2.6与+1.9)，先做成Path2D重绘只stroke/fill；缩放>1.6加描边>2.2剑从实心变线条。雾遮罩buildFogMask：300×300像素(FN×2每像素2单位)把0/1/2映射0/0.5/1双线性放大，两遍5抽头横竖盒式模糊，边缘叠两层噪声(频率0.07与0.26幅度±0.21与±0.08)，alpha=smoothstep(.2,.3,v)×.45+smoothstep(.66,.76,v)×.55(隐约区擦45%看过区擦全部)，绘制用destination-out擦在暗褐噪声贴图上",
       "quantities": [
+        {
+          "value": 300,
+          "unit": "px",
+          "rawUnit": "像素"
+        },
         {
           "value": 0.45,
           "unit": "ratio",
@@ -9973,26 +9503,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "fx-ui.d276.card",
-      "sourceId": "d276",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
-      "section": "20",
-      "caseId": "case-01r",
-      "title": "12角色光标色",
-      "text": "LEAD #EFEBE1,REF #FFD60A,SHROUD #7FE3FF,FANS #78FFAA,COOLER #5AAAFF,PCB #3CDC78,IO #C8A0FF,LOOK #FF78C8,MUSIC #FFBE5A,TYPE #FFFFFF,SWARM #FF6E6E,REVIEW #BEFF3C",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 20 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 20 节 · d276",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "fx-ui.d277.card",
       "sourceId": "d277",
       "cardId": "overlay.cursor",
@@ -10053,37 +9563,17 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "fx-ui.d281.card",
-      "sourceId": "d281",
+      "id": "fx-ui.d280.card",
+      "sourceId": "d280",
       "cardId": "overlay.anchored",
       "target": "overlay.anchored",
       "section": "20",
       "caseId": "case-01r",
-      "title": "标注与引线系统",
-      "text": "标签尺寸按完整文字算(打字不抖);3轮垂直避让(外扩水平10px/垂直6px);引线折线锚点→(x±18)→标签中线,线宽2,4帧长出(ease_out);锚点画10×10空心方框;标签age≥1才画,黑底段age=1,2两帧为HEAT落拍重音;文字每帧显示5字符;选择框外扩 g=16+70×(1-ease_out((lf-born+1)/3)) 3帧收拢,四角L形34px线宽3",
+      "title": "图层顺序(成片)",
+      "text": "背景网格(格距120px,每帧漂移 ox=int(lf×0.75)%120 oy=int(lf×0.25)%120)→暗角(k0.6黑底/0.22橙底)→边缘刻度→橙底段(288–383)卡体后大字“32GB”→投影(橙)/辉光(黑)→3D帧paste→镜头前景→标注引线与标签→hud→故障→颗粒；补充：分组清单 清单把图层顺序简写为 背景 → 卡体后大字 → 3D 帧（alpha）→ 标注/选择框/片名/角标 → 故障与颗粒，与本条一致。",
       "quantities": [
         {
-          "value": 10,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 6,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 4,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": 3,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": 34,
+          "value": 120,
           "unit": "px",
           "rawUnit": "px"
         }
@@ -10095,7 +9585,7 @@
       "evidenceLevel": "文档",
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 20 节 · d281",
+      "docRef": "特效粒子界面二维汇编 · 第 20 节 · d280",
       "verifiedInOurStack": false
     },
     {
@@ -10165,65 +9655,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "fx-ui.d286.card",
-      "sourceId": "d286",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
-      "section": "20",
-      "caseId": "case-01r",
-      "title": "图纸段参数",
-      "text": "SS=2(2倍画再LANCZOS缩);MM=3.2(1mm=3.2px);卡体中心(960,412);CARD(473.6,215.2,1446.4,608.8);圆角38.4px;片名wide150字距-4宽764;PXF=1.5036px/帧;图纸网格20px线宽0.5(每100px加深);12光标在0–96帧各自画自己的部分,第0帧不空场、第12帧片名拼好",
-      "quantities": [
-        {
-          "value": 1,
-          "unit": "mm",
-          "rawUnit": "mm"
-        },
-        {
-          "value": 3.2,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 38.4,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 1.5036,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 20,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 100,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": [
-            0,
-            96
-          ],
-          "unit": "frame",
-          "rawUnit": "帧"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 20 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 20 节 · d286",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "fx-ui.d287.card",
       "sourceId": "d287",
       "cardId": "overlay.title",
@@ -10249,9 +9680,19 @@
           "rawUnit": "帧"
         },
         {
+          "value": 0.0431,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
           "value": 118,
           "unit": "frame",
           "rawUnit": "帧"
+        },
+        {
+          "value": 0.0703,
+          "unit": "ratio",
+          "rawUnit": "%"
         },
         {
           "value": 96,
@@ -10379,7 +9820,7 @@
       "section": "21",
       "caseId": "case-18",
       "title": "来源行",
-      "text": "每个图表下方一行小号灰字，如 “Sources: AP race calls via 某新闻媒体 results feed, Fri. Nov. 6, 10:25 p.m. ET; 某新闻源 (4:45 p.m. count)…”；任务书要求每个屏幕数字带小来源标签，片尾来源卡",
+      "text": "每个图表下方一行小号灰字，如 “Sources: 某通讯社 race calls via 某新闻媒体 results feed, Fri. Nov. 6, 10:25 p.m. ET; 某新闻源 (4:45 p.m. count)…”；任务书要求每个屏幕数字带小来源标签，片尾来源卡",
       "quantities": [],
       "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
       "coupling": "与第 21 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
@@ -10575,7 +10016,7 @@
       "section": "21",
       "caseId": "case-22",
       "title": "对象名前缀",
-      "text": "`ST_` 街道（Litter、InfoKiosk、Tree、Broadway_Surface、Signpost）、`HT_` 主塔（Tower_Frame、ExhaustFan、Condenser）、`CF_` 城市填充（CF_W1_2_14、CF_mid_E1_0_2、CF_E1_7_08）、`RK_` 屋顶（prx_tank、vent_stack、reel_flat、bulkhead、vent_turbine、skylight、cond_vrf、prx_hatch）、`VH_` 车和人（VH_P_#### 行人、VH_T_####_truck_White_… 卡车）、`AT_` 大气（AT_Bird_21）；VH_P_2204≤2,259 人，VH_T_0843≤858 辆（只说明编号不越界）",
+      "text": "`ST_` 街道（Litter、信息亭、Tree、主干道路面、路标）、`HT_` 主塔（塔架主体、排风扇、Condenser）、`CF_` 城市填充（分区填充体）、`RK_` 屋顶（代理水箱、排气管、平放线盘、bulkhead、涡轮风口、skylight、空调外机、代理检修口）、`VH_` 车和人（行人编号 行人、卡车编号 卡车）、`AT_` 大气（飞鸟实例）；行人编号上限≤2,259 人，卡车编号上限≤858 辆（只说明编号不越界）",
       "quantities": [],
       "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
       "coupling": "与第 21 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
@@ -10605,52 +10046,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 21 节 · d314",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d315.card",
-      "sourceId": "d315",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
-      "section": "21",
-      "caseId": "case-12",
-      "title": "屏上数字=由时间线算出",
-      "text": "片中仅四条事实文字、在所测事物在屏时出现;慢放倍数由影片自己的时间线计算:先导屏上约 634 m/s 对自然约 150 km/s、世界时钟 1/250→「250× slow motion」;回击 2.5 s 胶片爬 3 km 通道对现实约 0.00003 s→「80,000× slow motion」;另两条 300 million volts、30,000 °C(太阳表面五倍热)·30,000 amps;片开始接近实时(雨按正常速度)随后世界减速;无任何屏上界面框/计数器/技术标签",
-      "quantities": [
-        {
-          "value": 634,
-          "unit": "m/s",
-          "rawUnit": "m/s"
-        },
-        {
-          "value": 150000,
-          "unit": "m",
-          "rawUnit": "km"
-        },
-        {
-          "value": 2.5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 3000,
-          "unit": "m",
-          "rawUnit": "km"
-        },
-        {
-          "value": 0.00003,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 21 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 21 节 · d315",
       "verifiedInOurStack": false
     },
     {
@@ -10831,234 +10226,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "fx-ui.d329.card",
-      "sourceId": "d329",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
-      "section": "22",
-      "caseId": "case-23",
-      "title": "与 005 同路数",
-      "text": "多个带名字光标一起装配的界面写法与 案例 05 片头界面（10 个带人名光标、爆炸进度、顶点/面数状态栏）同一路数",
-      "quantities": [],
-      "routeNote": "场景面数/粒子/实例/材质预算与具体作品规模强绑定（C11 终审铁律），挂卡",
-      "coupling": "与第 22 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 22 节 · d329",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d330.card",
-      "sourceId": "d330",
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
-      "section": "22",
-      "caseId": "case-05",
-      "title": "像素图层实现",
-      "text": "无头浏览器 Canvas2D 画透明 PNG；每部件轮廓由其点经相机从 Blender 投影算出；格子 96×54；不透明度约 0.6；5–6% 的格子填充其余细轮廓；颜色压暗；不放文字；图层不透明度量不出（无干净底片对照）；冲突：官方说格子「填充 5–6%」，实测官方剧照约 0.98%、成片 27 帧平均 0.62%（最多 1.87%）。两者分母不同，见下面「图层密度实测」条。；补充：保留一份无叠层无颗粒的干净 ProRes 母带（CLEAN PLATE），以后改叠层、调色、声音只需分钟级重合成，不需重渲；首版曾 25–30% 填满且带标签，交付后被要求去掉，所以第一版就不放文字；除了 96×54 网格，还有对焦框、十字、底部标尺；标注、计数、标题被观众删除。；并列出处（重复条已合并）：「安静数字层(像素数字化)」原实现源码，案例 05；该出处标：证据 实测，验证 作者成片用过；并列出处（重复条已合并）：「案例 05 数字层(安静版)」，案例 05；该出处标：证据 原文陈述，验证 只是原文说法；并列出处（重复条已合并）：「装配片 数码叠层要安静」原包下载件，案例 05；该出处标：证据 原文陈述，验证 作者成片用过",
-      "quantities": [
-        {
-          "value": [
-            0.05,
-            0.06
-          ],
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": [
-            0.05,
-            0.06
-          ],
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.0098,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 27,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": 0.0062,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.0187,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": [
-            0.25,
-            0.3
-          ],
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 22 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 22 节 · d330",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d331.card",
-      "sourceId": "d331",
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
-      "section": "22",
-      "caseId": "case-05",
-      "title": "格子几何",
-      "text": "格子 20×20 px（1920÷96，1080÷54）；方格 16×16 px 占格内第 2–17 像素四周各留 2 px；边线两层：外层 1 px 暗底上亮度约 145，内层 1 px 约 95–100；黄绿边线约 RGB(144,145,88)（6 像素，含 JPEG 压缩）；实心方格内部比底色亮约 60",
-      "quantities": [
-        {
-          "value": 20,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 16,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 2,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 1,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 1,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 6,
-          "unit": "px",
-          "rawUnit": "像素"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 22 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 22 节 · d331",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d333.card",
-      "sourceId": "d333",
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
-      "section": "22",
-      "caseId": "case-05",
-      "title": "图层密度实测",
-      "text": "全部格子 5,184 个（扣水印区）：官方剧照 xray_skin 空心 32+实心 19=51 个 0.98%（含小点 59、1.14%，黄绿 29）；fuselage_18mm 方格 0（小点 48 实为隔框减重孔误报）；成片正片每 24 帧取一帧共 27 帧：方格平均 32.3 个=0.62%，最多 97 个=1.87%（第 156 帧空心 72 实心 25）；27 帧里 4 帧零方格（第 324、588、684、756），第 132 帧只 1 个；检测偏保守（HEVC 抹淡 1 px 线），为下限；官方“5–6%”分母应是“部件轮廓覆盖到的格子”而非全部格子，照做须按轮廓内格子算；冲突：官方「5–6%」对实测 0.62% 平均、1.87% 最高（按全部 5,184 个格子算）。笔记判断官方分母应是「部件轮廓覆盖到的格子」，照做时按轮廓内格子算；未用轮廓内格子数重算。",
-      "quantities": [
-        {
-          "value": 0.0098,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.0114,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 24,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": 27,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": 0.0062,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.0187,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 27,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": 4,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": 1,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": [
-            0.05,
-            0.06
-          ],
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": [
-            0.05,
-            0.06
-          ],
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.0062,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.0187,
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 22 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 22 节 · d333",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "fx-ui.d334.card",
       "sourceId": "d334",
       "cardId": "overlay.anchored",
@@ -11127,37 +10294,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "fx-ui.d336.card",
-      "sourceId": "d336",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
-      "section": "22",
-      "caseId": "case-05",
-      "title": "片头界面零件参数",
-      "text": "每 12 帧读属性面板（零件名/光标名/位置 XYZ m/尺寸 m/炸开偏移 m/关键帧）：INLET L mika −13.386/1.350/0.300 0.620×1.704×1.704 偏移 0.752 0/2；COWL LOWER L ravi −9.273/1.351/0.122 2.946×1.781×0.978 1.368 0/4；PYLON L theo −8.875/−1.148/0.027 2.950×1.321×0.380 0.002 2/2；SPINNER L kit −12.850/1.350/0.300 0.390×0.386×0.386 0.155 0/2；FAN BLADE 04 L juno −10.568/1.027/0.701 0.230×0.512×0.280 0.810 2/44；FAN BLADE 08 L juno −10.536/0.909/0.207 0.230×0.448×0.541 0.884 9/44；ENG OGV L lena −9.384/1.350/0.300 0.890×1.412×1.412 0.001 2/2；FAN HUB L ines −11.445/1.350/0.300 0.320×0.372×0.372 0.005 2/2；ENG BEARING 3 L ada −8.246/1.350/0.300 0.033×0.306×0.306 0.043 1/8（第 108 帧 X=−8.289，偏移 0.000，8/8）；固定项：Exploded View Parent=Powerplant Axis=Engine Axis；修改器 Mirror 轴 Y；Weld 距离 0.001 m",
-      "quantities": [
-        {
-          "value": 12,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": 0.001,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 22 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 22 节 · d336",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "fx-ui.d337.card",
       "sourceId": "d337",
       "cardId": "overlay.anchored",
@@ -11223,7 +10359,7 @@
           "rawUnit": "fps"
         }
       ],
-      "routeNote": "场景面数/粒子/实例/材质预算与具体作品规模强绑定（C11 终审铁律），挂卡",
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
       "coupling": "与第 22 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -11251,190 +10387,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 22 节 · d338",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d340.card",
-      "sourceId": "d340",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
-      "section": "23",
-      "caseId": "case-ext03",
-      "title": "参考复刻:动态字幕广告",
-      "text": "2D 平面动图、16:9、一镜到底;底色 #EAEAE3 骨白+左上 #F3DDEB 淡紫粉雾+右下 #E2E7B4 黄绿雾+细胶片颗粒;字体单一粗几何无衬线 Bold、紧字距、句首大写、居中、近黑 #1A1A18;字高约占画面 7%,小标签 2.5%,卡片圆角 20 px、倾斜 2°",
-      "quantities": [
-        {
-          "value": 0.07,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.025,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 20,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 2,
-          "unit": "deg",
-          "rawUnit": "°"
-        }
-      ],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 23 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d340",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d342.card",
-      "sourceId": "d342",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
-      "section": "23",
-      "caseId": "case-ext03",
-      "title": "动态字幕强调色",
-      "text": "#8C0F45 酒红、#C87D3E 琥珀、#E33966 覆盆子粉、#ADC50D 橄榄黄绿;灰字 #C2C3B4;列表滚动:非中心项浅暖灰、中心带项近黑,两侧固定箭头;滚动减速停在「Create without limits」",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 23 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d342",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d344.card",
-      "sourceId": "d344",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
-      "section": "23",
-      "caseId": "case-ext03",
-      "title": "真人叠字:元素词汇",
-      "text": "Image 1 作图形设计系统参考(只抄字形与元素,不抄版面);TYPE A=粗大写 Space Grotesk;OUTLINE TYPE 描边字;PILL 绿胶囊;STRIKE 删除线;BRACKETS 四角括号;BADGE 勾选圆角方块;UNDERLINE 圆角下划线;色规=仅 #D1FE17 + #FFFFFF,#111111 仅作胶囊内字与勾；冲突：本条色规 #D1FE17，蓝图与 2D+3D 两条写 #D1EF17（见 V 节），未核实。",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 23 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d344",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d346.card",
-      "sourceId": "d346",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
-      "section": "23",
-      "caseId": "case-ext03",
-      "title": "运动跟踪标注",
-      "text": "每个标注为两层:巨大特粗白色数字+下方宽字距小号全大写标签;细白引线钉在零件锚点,标注随零件视差运动「as if attached in 3D space」;屏上同一时刻只有一个标注;硬切入/硬切出;全白 #FFFFFF 无描边无发光;时间:00:04.500「28,800 BEATS PER HOUR」、00:06.000「100% MECHANICAL. NO BATTERY」、00:07.500「72H POWER RESERVE」、00:09.000「9H SCRATCH-PROOF SAPPHIRE」(到 00:10.000 前退出)",
-      "quantities": [
-        {
-          "value": 1,
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 23 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d346",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d347.card",
-      "sourceId": "d347",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
-      "section": "23",
-      "caseId": "case-ext03",
-      "title": "蓝图图形语言",
-      "text": "蓝图纸 #16233F、毫米网格 rgba(234,242,255,0.12)、线稿白 #EAF2FF、强调黄绿 #D1EF17(冷黄绿偏绿,任何光下不变);1px 矢量线、带刻度的尺寸箭头、剖面线、标高标记、图签盖章、零辉光;标题逐笔画出每行 400 ms,每标题仅一词用强调色；冲突：强调黄绿写 #D1EF17，案例 29、水印牌、真人叠字条写 #D1FE17。未核实哪个是笔误。",
-      "quantities": [
-        {
-          "value": 1,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 400,
-          "unit": "ms",
-          "rawUnit": "ms"
-        }
-      ],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 23 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d347",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d348.card",
-      "sourceId": "d348",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
-      "section": "23",
-      "caseId": "case-ext03",
-      "title": "2D+3D 混合风格规则",
-      "text": "3D 层永远全光照 PBR+柔和接触阴影+真实物理;2D 层永远纯色平涂、零渐变零描边、不受光不投影(仅可在 3D 玻璃/铬上有镜像反射);两层可发生物理互动(角色跳书使 3D 书倾斜 2°)但不交换渲染属性;强调色 #D1EF17 两层必须完全一致作为桥；冲突：两层必须完全一致的强调色写 #D1EF17，其余多处为 #D1FE17。未核实。",
-      "quantities": [
-        {
-          "value": 2,
-          "unit": "deg",
-          "rawUnit": "°"
-        }
-      ],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 23 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d348",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d350.card",
-      "sourceId": "d350",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
-      "section": "23",
-      "caseId": "case-ext03",
-      "title": "纸拼贴科普:视觉系统",
-      "text": "钴蓝 #2252FF、橙 #FF6728、黄 #FFE14A 为主,纯黑与奶油作字和印刷照片;每个构图一个强主色底;黑白半调人像剪影+撕纸白边;真实纸纹/印刷网点/少量胶带/左上光源的小纸层阴影;哑光,「no glow, no neon, no bloom, no light halos」;高能量来自尺度变化/轮廓匹配/纸张动作/字体构图而非相机抖动",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 23 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d350",
       "verifiedInOurStack": false
     },
     {
@@ -11506,26 +10458,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 24 节 · d355",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d356.card",
-      "sourceId": "d356",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
-      "section": "24",
-      "caseId": "case-18",
-      "title": "角标",
-      "text": "右上约 x1594–1862、y96–202 “某生成平台 某代码模型”，任务书没要，推断是平台叠加；冲突：右上角「某生成平台 某代码模型」角标，本条推断为平台叠加；见下面「水印位置」与「角标不能当重压证据」两条，作者原文件里确有，且 026 请求原文写明是制作代理按请求自己加的。019/原复盘写「平台叠加」，未改，冲突未解。",
-      "quantities": [],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 24 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 24 节 · d356",
       "verifiedInOurStack": false
     },
     {
@@ -11618,70 +10550,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 24 节 · d368",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d371.card",
-      "sourceId": "d371",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
-      "section": "24",
-      "caseId": "case-multi",
-      "title": "“某生成平台 某代码模型”角标不能当重压证据",
-      "text": "023、026 作者原文件都带它，026 请求原文写明是代理自己加的；019 复盘写“平台叠加”与此冲突，没改；冲突：023、026 作者原文件都带角标，026 请求原文写明是代理自己加的；019 复盘写「平台叠加」与此冲突，没改。",
-      "quantities": [],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 24 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 24 节 · d371",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "fx-ui.d374.card",
-      "sourceId": "d374",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
-      "section": "24",
-      "caseId": "case-25",
-      "title": "光标搭建分屏",
-      "text": "上=完成的路径追踪成片全程播放(开场结尾在屋内玻璃后看峡谷;约 9–15 s 与下方同一航拍角),下=黏土模式路径追踪的光标搭建;两个 16:9 叠放,成片 1080×1214(或 4:5 1080×1350 / 1:1);细线酸橙绿分隔、右上约 26% 宽 × 10% 高留给水印;唯一文字=光标标签 Site/Steel A/Steel B/Facade/Light;删除所有「像幻灯片」的大标题与结尾擦除对比；补充：光标、选框、标签是二维图，位置由三维模型上的点经搭建镜头投影得到，光标和零件不错位；画面只留光标短标签，阶段大标题和对比字样全删；强调色只用一种青柠，分隔线约 #C3FC0B、6 像素高（与 案例 29 实测 #CBFB03、4 行不同，是不同案例）。；并列出处（重复条已合并）：「案例 25 光标层投影」,6/实测，案例 25；该出处标：证据 原文陈述，验证 我们自己读回过（分隔线色值/高度为实测）",
-      "quantities": [
-        {
-          "value": [
-            9,
-            15
-          ],
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.26,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.1,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 6,
-          "unit": "px",
-          "rawUnit": "像素"
-        }
-      ],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 24 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 24 节 · d374",
       "verifiedInOurStack": false
     }
   ]

@@ -7,29 +7,29 @@
   "summaryRows": 103,
   "order": "ledger 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "源总数 = 明细条目 + 跨案例对照表汇总行；汇总行去向随所指同案例真实明细，不另算明细",
-  "portableCount": 101,
-  "cardCoupledCount": 529,
-  "practiceCount": 84,
-  "excludedOrConflictCount": 45,
+  "portableCount": 124,
+  "cardCoupledCount": 521,
+  "practiceCount": 68,
+  "excludedOrConflictCount": 46,
   "detailRouteCounts": {
-    "portable": 79,
-    "card-coupled": 454,
-    "practice": 81,
-    "skipped-or-conflict": 42
+    "portable": 89,
+    "card-coupled": 459,
+    "practice": 65,
+    "skipped-or-conflict": 43
   },
   "summaryRouteCounts": {
-    "portable": 22,
-    "card-coupled": 75,
+    "portable": 35,
+    "card-coupled": 62,
     "practice": 3,
     "skipped-or-conflict": 3
   },
   "emittedCounts": {
-    "priorsTotal": 213,
-    "priorsDetail": 191,
-    "priorsSummary": 22,
-    "cardPriors": 454,
-    "practices": 81,
-    "excludedDetails": 42
+    "priorsTotal": 241,
+    "priorsDetail": 210,
+    "priorsSummary": 31,
+    "cardPriors": 459,
+    "practices": 65,
+    "excludedDetails": 43
   },
   "files": {
     "priors": "mat-hardsurf.json",
@@ -198,10 +198,6 @@
       "label": "案例 19：落日集市（路径追踪）"
     },
     {
-      "caseId": "case-20",
-      "label": "案例 20：代码合成歌声短片"
-    },
-    {
       "caseId": "case-22",
       "label": "案例 22：代理搭建的电影城市"
     },
@@ -259,61 +255,61 @@
       "cardId": "mat.library",
       "target": "mat.library",
       "inSpec": true,
-      "count": 182
+      "count": 175
     },
     {
       "cardId": "shade.scales",
       "target": "shade.scales",
       "inSpec": true,
-      "count": 59
-    },
-    {
-      "cardId": "three.patch",
-      "target": "three.patch",
-      "inSpec": true,
-      "count": 51
-    },
-    {
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
-      "inSpec": true,
-      "count": 38
+      "count": 58
     },
     {
       "cardId": "form.primitives",
       "target": "form.primitives",
       "inSpec": true,
-      "count": 36
+      "count": 50
+    },
+    {
+      "cardId": "three.patch",
+      "target": "three.patch",
+      "inSpec": true,
+      "count": 50
+    },
+    {
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "inSpec": true,
+      "count": 41
     },
     {
       "cardId": "shade.toon-kit",
       "target": "shade.toon-kit",
       "inSpec": true,
-      "count": 27
+      "count": 26
     },
     {
       "cardId": "form.superloft",
       "target": "form.superloft",
       "inSpec": true,
-      "count": 17
+      "count": 18
     },
     {
       "cardId": "asset.bbox-proxy",
       "target": "asset.bbox-proxy",
       "inSpec": true,
-      "count": 12
+      "count": 11
     },
     {
       "cardId": "shade.hull-outline",
       "target": "shade.hull-outline",
       "inSpec": true,
-      "count": 10
+      "count": 9
     },
     {
       "cardId": "form.sdf-nets",
       "target": "form.sdf-nets",
       "inSpec": true,
-      "count": 7
+      "count": 6
     },
     {
       "cardId": "shade.shell-fur",
@@ -328,16 +324,10 @@
       "count": 4
     },
     {
-      "cardId": "shade.thin-line",
-      "target": "shade.thin-line",
-      "inSpec": true,
-      "count": 2
-    },
-    {
       "cardId": "assembly.schedule",
       "target": "assembly.schedule",
       "inSpec": true,
-      "count": 1
+      "count": 2
     },
     {
       "cardId": "asset.glb-bridge",
@@ -348,6 +338,12 @@
     {
       "cardId": "mat.ao-ink",
       "target": "mat.ao-ink",
+      "inSpec": true,
+      "count": 1
+    },
+    {
+      "cardId": "shade.thin-line",
+      "target": "shade.thin-line",
       "inSpec": true,
       "count": 1
     }
@@ -673,6 +669,14 @@
       "reason": "纯证据/验收状态注记，无参数亦无步骤"
     },
     {
+      "sourceId": "d635",
+      "sourceLine": 1919,
+      "section": "H7",
+      "caseId": "case-03",
+      "title": "代码规模推断",
+      "reason": "纯脚本代码行数规模估算，无可用参数亦无做法"
+    },
+    {
       "sourceId": "d641",
       "sourceLine": 1942,
       "section": "conflict",
@@ -809,15 +813,15 @@
     "sampleSize": 77,
     "disagreeCount": 0,
     "disagreeRate": 0,
-    "fullPopulationDisagreeCount": 14,
-    "fullPopulationDisagreeRate": 0.018445,
+    "fullPopulationDisagreeCount": 12,
+    "fullPopulationDisagreeRate": 0.01581,
     "seed200Verified": true,
     "seed200PassCount": 200,
     "seed200Worst": {
-      "seed": 5,
-      "disagreeCount": 4,
+      "seed": 78,
+      "disagreeCount": 5,
       "sampleSize": 77,
-      "disagreeRate": 0.051948
+      "disagreeRate": 0.064935
     },
     "sample": [
       {
@@ -951,10 +955,10 @@
       {
         "sourceId": "d056",
         "kind": "detail",
-        "ledgerRoute": "practice",
-        "blindRoute": "practice",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "剥离源码标识与片名后仍可跨实现复用的做法、工序或踩坑修法"
+        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
       },
       {
         "sourceId": "d518",
@@ -970,7 +974,7 @@
         "ledgerRoute": "skipped-or-conflict",
         "blindRoute": "skipped-or-conflict",
         "agree": true,
-        "reason": "纯指针/未公开/未量/受限读回/纯注记或纯坐标清单，不迁"
+        "reason": "纯指针/未公开/未量/受限读回/纯注记/纯行数估算或纯坐标清单，不迁"
       },
       {
         "sourceId": "d099",
@@ -983,10 +987,10 @@
       {
         "sourceId": "d486",
         "kind": "detail",
-        "ledgerRoute": "practice",
-        "blindRoute": "practice",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "剥离源码标识与片名后仍可跨实现复用的做法、工序或踩坑修法"
+        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
       },
       {
         "sourceId": "d219",
@@ -994,7 +998,7 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "跨引擎材质 PBR 物理参数（金属度/粗糙度/IOR/各向异性）"
+        "reason": "跨引擎材质 PBR 物理参数（金属度/粗糙度/IOR/透射/清漆/光泽）"
       },
       {
         "sourceId": "d092",
@@ -1023,10 +1027,10 @@
       {
         "sourceId": "d224",
         "kind": "detail",
-        "ledgerRoute": "practice",
-        "blindRoute": "practice",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "剥离源码标识与片名后仍可跨实现复用的做法、工序或踩坑修法"
+        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
       },
       {
         "sourceId": "d038",
@@ -1042,7 +1046,7 @@
         "ledgerRoute": "skipped-or-conflict",
         "blindRoute": "skipped-or-conflict",
         "agree": true,
-        "reason": "纯指针/未公开/未量/受限读回/纯注记或纯坐标清单，不迁"
+        "reason": "纯指针/未公开/未量/受限读回/纯注记/纯行数估算或纯坐标清单，不迁"
       },
       {
         "sourceId": "d267",
@@ -1079,10 +1083,10 @@
       {
         "sourceId": "d382",
         "kind": "detail",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "跨引擎材质 PBR 物理参数（金属度/粗糙度/IOR/透射/清漆/光泽）"
       },
       {
         "sourceId": "d222",
@@ -1146,7 +1150,7 @@
         "ledgerRoute": "skipped-or-conflict",
         "blindRoute": "skipped-or-conflict",
         "agree": true,
-        "reason": "纯指针/未公开/未量/受限读回/纯注记或纯坐标清单，不迁"
+        "reason": "纯指针/未公开/未量/受限读回/纯注记/纯行数估算或纯坐标清单，不迁"
       },
       {
         "sourceId": "d616",
@@ -1159,10 +1163,10 @@
       {
         "sourceId": "d627",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "硬表面构件物理尺寸/角度量，脱离脚本可复用"
+        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
       },
       {
         "sourceId": "d068",
@@ -1255,10 +1259,10 @@
       {
         "sourceId": "d344",
         "kind": "detail",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "跨实现可复用的植被/建筑/材质显示空间色板"
       },
       {
         "sourceId": "d358",
@@ -1279,10 +1283,10 @@
       {
         "sourceId": "d461",
         "kind": "detail",
-        "ledgerRoute": "practice",
-        "blindRoute": "practice",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "剥离源码标识与片名后仍可跨实现复用的做法、工序或踩坑修法"
+        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
       },
       {
         "sourceId": "d058",
@@ -1327,10 +1331,10 @@
       {
         "sourceId": "d211",
         "kind": "detail",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "跨引擎材质 PBR 物理参数（金属度/粗糙度/IOR/透射/清漆/光泽）"
       },
       {
         "sourceId": "d253",
@@ -1359,10 +1363,10 @@
       {
         "sourceId": "s054",
         "kind": "summary",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d002：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d002：跨引擎材质 PBR 物理参数（金属度/粗糙度/IOR/透射/清漆/光泽）"
       },
       {
         "sourceId": "s044",
@@ -1378,7 +1382,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d218：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d066：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
       },
       {
         "sourceId": "s100",
@@ -1394,7 +1398,7 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d070：跨引擎材质 PBR 物理参数（金属度/粗糙度/IOR/各向异性）"
+        "reason": "汇总随所指明细 d070：跨引擎材质 PBR 物理参数（金属度/粗糙度/IOR/透射/清漆/光泽）"
       },
       {
         "sourceId": "s069",
@@ -1415,10 +1419,10 @@
       {
         "sourceId": "s046",
         "kind": "summary",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d002：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d002：跨引擎材质 PBR 物理参数（金属度/粗糙度/IOR/透射/清漆/光泽）"
       },
       {
         "sourceId": "s073",
@@ -1448,7 +1452,11 @@
       "summaryOf": "d005",
       "alsoSummarizes": [
         "d006",
-        "d021"
+        "d021",
+        "d023",
+        "d014",
+        "d016",
+        "d017"
       ],
       "link": "values",
       "route": "portable",
@@ -1464,9 +1472,9 @@
       "caseId": "case-01r",
       "summaryOf": "d019",
       "alsoSummarizes": [
+        "d015",
         "d007",
-        "d013",
-        "d015"
+        "d013"
       ],
       "link": "values",
       "route": "portable",
@@ -1481,6 +1489,9 @@
       "kind": "summary",
       "caseId": "case-01r",
       "summaryOf": "d018",
+      "alsoSummarizes": [
+        "d015"
+      ],
       "link": "values",
       "route": "portable",
       "targets": [
@@ -1511,7 +1522,8 @@
       "caseId": "case-01r",
       "summaryOf": "d012",
       "alsoSummarizes": [
-        "d013"
+        "d013",
+        "d020"
       ],
       "link": "values",
       "route": "portable",
@@ -1526,6 +1538,9 @@
       "kind": "summary",
       "caseId": "case-01r",
       "summaryOf": "d008",
+      "alsoSummarizes": [
+        "d010"
+      ],
       "link": "values",
       "route": "portable",
       "targets": [
@@ -1580,14 +1595,14 @@
       "section": "1",
       "kind": "summary",
       "caseId": "case-03",
-      "summaryOf": "d218",
+      "summaryOf": "d066",
       "alsoSummarizes": [
         "d647"
       ],
       "link": "values",
       "route": "card-coupled",
-      "cardId": "shade.shell-fur",
-      "target": "shade.shell-fur",
+      "cardId": "mat.library",
+      "target": "mat.library",
       "targets": []
     },
     {
@@ -1635,31 +1650,16 @@
       "section": "1",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d101",
-      "alsoSummarizes": [
-        "d001",
-        "d104",
-        "d221",
-        "d078"
-      ],
-      "link": "values",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "targets": []
-    },
-    {
-      "sourceId": "s015",
-      "sourceLine": 67,
-      "section": "1",
-      "kind": "summary",
-      "caseId": "case-13",
       "summaryOf": "d001",
       "alsoSummarizes": [
+        "d101",
         "d002",
-        "d187",
         "d102",
-        "d456"
+        "d185",
+        "d137",
+        "d380",
+        "d238",
+        "d220"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1668,12 +1668,45 @@
       "targets": []
     },
     {
+      "sourceId": "s015",
+      "sourceLine": 67,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d002",
+      "alsoSummarizes": [
+        "d001",
+        "d187",
+        "d431",
+        "d102",
+        "d456",
+        "d095",
+        "d103",
+        "d101"
+      ],
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "mat-hardsurf.sum.s015"
+      ]
+    },
+    {
       "sourceId": "s016",
       "sourceLine": 68,
       "section": "1",
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d094",
+      "alsoSummarizes": [
+        "d001",
+        "d093",
+        "d002",
+        "d092",
+        "d456",
+        "d431",
+        "d648",
+        "d101"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "mat.library",
@@ -1687,11 +1720,21 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d118",
+      "alsoSummarizes": [
+        "d002",
+        "d103",
+        "d238",
+        "d102",
+        "d137",
+        "d380",
+        "d101",
+        "d003"
+      ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "mat-hardsurf.sum.s017"
+      ]
     },
     {
       "sourceId": "d001",
@@ -1712,11 +1755,11 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "shade.toon-kit",
-      "target": "shade.toon-kit",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d002.card"
+        "mat-hardsurf.d002.metallic",
+        "mat-hardsurf.d002.roughness",
+        "mat-hardsurf.d002.display-color"
       ]
     },
     {
@@ -2038,11 +2081,10 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "card-coupled",
-      "cardId": "form.sdf-nets",
-      "target": "form.sdf-nets",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d027.card"
+        "mat-hardsurf.d027.metallic",
+        "mat-hardsurf.d027.roughness"
       ]
     },
     {
@@ -2405,9 +2447,11 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-01-legacy",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
       "targets": [
-        "mat-hardsurf.d056.practice"
+        "mat-hardsurf.d056.card"
       ]
     },
     {
@@ -2507,11 +2551,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-03",
-      "route": "card-coupled",
-      "cardId": "shade.thin-line",
-      "target": "shade.thin-line",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d065.card"
+        "mat-hardsurf.d065.roughness"
       ]
     },
     {
@@ -2519,7 +2561,7 @@
       "sourceLine": 206,
       "section": "1",
       "kind": "detail",
-      "caseId": "case-20",
+      "caseId": "case-03",
       "route": "card-coupled",
       "cardId": "mat.library",
       "target": "mat.library",
@@ -2559,11 +2601,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-03",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d069.card"
+        "mat-hardsurf.d069.roughness"
       ]
     },
     {
@@ -2813,9 +2853,11 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
       "targets": [
-        "mat-hardsurf.d089.practice"
+        "mat-hardsurf.d089.card"
       ]
     },
     {
@@ -3068,11 +3110,14 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d118",
+      "alsoSummarizes": [
+        "d132"
+      ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "mat-hardsurf.sum.s020"
+      ]
     },
     {
       "sourceId": "s021",
@@ -3082,10 +3127,14 @@
       "caseId": "case-13",
       "summaryOf": "d123",
       "alsoSummarizes": [
+        "d140",
+        "d136",
         "d380",
         "d002",
-        "d136",
-        "d152"
+        "d137",
+        "d152",
+        "d153",
+        "d178"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3101,10 +3150,10 @@
       "caseId": "case-13",
       "summaryOf": "d126",
       "alsoSummarizes": [
-        "d136",
         "d181",
+        "d136",
         "d102",
-        "d230"
+        "d236"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3118,11 +3167,12 @@
       "section": "2",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d131",
+      "summaryOf": "d132",
       "alsoSummarizes": [
+        "d131",
         "d118",
-        "d132",
-        "d352"
+        "d456",
+        "d002"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3137,6 +3187,10 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d357",
+      "alsoSummarizes": [
+        "d137",
+        "d207"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "three.patch",
@@ -3151,10 +3205,10 @@
       "caseId": "case-02",
       "summaryOf": "d346",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "mat-hardsurf.sum.s025"
+      ]
     },
     {
       "sourceId": "d107",
@@ -3305,11 +3359,11 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d118.card"
+        "mat-hardsurf.d118.metallic",
+        "mat-hardsurf.d118.roughness",
+        "mat-hardsurf.d118.display-color"
       ]
     },
     {
@@ -3591,11 +3645,11 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d140.card"
+        "mat-hardsurf.d140.roughness",
+        "mat-hardsurf.d140.resolution",
+        "mat-hardsurf.d140.surface-ratio"
       ]
     },
     {
@@ -3656,15 +3710,20 @@
       "caseId": "case-13",
       "summaryOf": "d146",
       "alsoSummarizes": [
-        "d381",
-        "d119",
-        "d450"
+        "d154",
+        "d152",
+        "d002",
+        "d324",
+        "d157",
+        "d150",
+        "d166",
+        "d102"
       ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "mat-hardsurf.sum.s028"
+      ]
     },
     {
       "sourceId": "s029",
@@ -3703,10 +3762,14 @@
       "caseId": "case-13",
       "summaryOf": "d152",
       "alsoSummarizes": [
+        "d153",
+        "d181",
         "d001",
         "d102",
-        "d238",
-        "d299"
+        "d140",
+        "d223",
+        "d236",
+        "d238"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3772,11 +3835,9 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d146.card"
+        "mat-hardsurf.d146.roughness"
       ]
     },
     {
@@ -4326,8 +4387,12 @@
       "alsoSummarizes": [
         "d207",
         "d204",
-        "d155",
-        "d231"
+        "d001",
+        "d380",
+        "d102",
+        "d408",
+        "d137",
+        "d206"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4343,16 +4408,20 @@
       "caseId": "case-13",
       "summaryOf": "d197",
       "alsoSummarizes": [
-        "d324",
-        "d232",
         "d207",
-        "d153"
+        "d188",
+        "d324",
+        "d223",
+        "d102",
+        "d137",
+        "d306",
+        "d157"
       ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "mat-hardsurf.sum.s036"
+      ]
     },
     {
       "sourceId": "s037",
@@ -4362,10 +4431,13 @@
       "caseId": "case-13",
       "summaryOf": "d203",
       "alsoSummarizes": [
+        "d456",
+        "d207",
         "d002",
-        "d153",
         "d431",
-        "d221"
+        "d153",
+        "d101",
+        "d452"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4380,6 +4452,14 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d187",
+      "alsoSummarizes": [
+        "d207",
+        "d356",
+        "d188",
+        "d099",
+        "d354",
+        "d204"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "mat.library",
@@ -4543,11 +4623,11 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d197.card"
+        "mat-hardsurf.d197.metallic",
+        "mat-hardsurf.d197.roughness",
+        "mat-hardsurf.d197.sheen"
       ]
     },
     {
@@ -4725,11 +4805,10 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d211.card"
+        "mat-hardsurf.d211.sheen",
+        "mat-hardsurf.d211.grid-px"
       ]
     },
     {
@@ -4777,10 +4856,10 @@
       "caseId": "case-03",
       "summaryOf": "d218",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "shade.shell-fur",
-      "target": "shade.shell-fur",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "mat-hardsurf.sum.s040"
+      ]
     },
     {
       "sourceId": "s041",
@@ -4802,6 +4881,9 @@
       "kind": "summary",
       "caseId": "case-03",
       "summaryOf": "d322",
+      "alsoSummarizes": [
+        "d323"
+      ],
       "link": "values",
       "route": "portable",
       "targets": [
@@ -4840,8 +4922,12 @@
       "caseId": "case-13",
       "summaryOf": "d220",
       "alsoSummarizes": [
+        "d238",
         "d233",
         "d380",
+        "d234",
+        "d223",
+        "d341",
         "d207",
         "d324"
       ],
@@ -4861,13 +4947,15 @@
       "alsoSummarizes": [
         "d226",
         "d238",
+        "d185",
+        "d236",
+        "d102",
+        "d220",
         "d356",
         "d381"
       ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "shade.toon-kit",
-      "target": "shade.toon-kit",
+      "route": "portable",
       "targets": []
     },
     {
@@ -4915,11 +5003,12 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-03",
-      "route": "card-coupled",
-      "cardId": "shade.shell-fur",
-      "target": "shade.shell-fur",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d218.card"
+        "mat-hardsurf.d218.roughness",
+        "mat-hardsurf.d218.ior",
+        "mat-hardsurf.d218.transmission",
+        "mat-hardsurf.d218.clearcoat"
       ]
     },
     {
@@ -4930,7 +5019,8 @@
       "caseId": "case-03",
       "route": "portable",
       "targets": [
-        "mat-hardsurf.d219.ior"
+        "mat-hardsurf.d219.ior",
+        "mat-hardsurf.d219.transmission"
       ]
     },
     {
@@ -4991,9 +5081,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
       "targets": [
-        "mat-hardsurf.d224.practice"
+        "mat-hardsurf.d224.card"
       ]
     },
     {
@@ -5195,7 +5287,7 @@
       "caseId": "case-01r",
       "summaryOf": "d025",
       "alsoSummarizes": [
-        "d016"
+        "d645"
       ],
       "link": "values",
       "route": "portable",
@@ -5223,6 +5315,9 @@
       "kind": "summary",
       "caseId": "case-03",
       "summaryOf": "d246",
+      "alsoSummarizes": [
+        "d067"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "shade.scales",
@@ -5235,10 +5330,7 @@
       "section": "6",
       "kind": "summary",
       "caseId": "case-03",
-      "summaryOf": "d067",
-      "alsoSummarizes": [
-        "d063"
-      ],
+      "summaryOf": "d066",
       "link": "values",
       "route": "card-coupled",
       "cardId": "mat.library",
@@ -5252,6 +5344,9 @@
       "kind": "summary",
       "caseId": "case-ext01",
       "summaryOf": "d240",
+      "alsoSummarizes": [
+        "d241"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "mat.library",
@@ -5267,7 +5362,11 @@
       "summaryOf": "d282",
       "alsoSummarizes": [
         "d296",
-        "d240"
+        "d240",
+        "d283",
+        "d111",
+        "d115",
+        "d186"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -5282,10 +5381,18 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d263",
+      "alsoSummarizes": [
+        "d138",
+        "d380",
+        "d236",
+        "d381",
+        "d140",
+        "d153",
+        "d001",
+        "d419"
+      ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "three.patch",
-      "target": "three.patch",
+      "route": "portable",
       "targets": []
     },
     {
@@ -5296,12 +5403,17 @@
       "caseId": "case-13",
       "summaryOf": "d002",
       "alsoSummarizes": [
-        "d208"
+        "d208",
+        "d258",
+        "d223",
+        "d242",
+        "d350",
+        "d137",
+        "d207",
+        "d381"
       ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "shade.toon-kit",
-      "target": "shade.toon-kit",
+      "route": "portable",
       "targets": []
     },
     {
@@ -5436,9 +5548,11 @@
       "section": "6",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
       "targets": [
-        "mat-hardsurf.d249.practice"
+        "mat-hardsurf.d249.card"
       ]
     },
     {
@@ -5603,11 +5717,9 @@
       "section": "6",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d262.card"
+        "mat-hardsurf.d262.roughness"
       ]
     },
     {
@@ -5616,11 +5728,9 @@
       "section": "6",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "three.patch",
-      "target": "three.patch",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d263.card"
+        "mat-hardsurf.d263.roughness"
       ]
     },
     {
@@ -5643,6 +5753,9 @@
       "kind": "summary",
       "caseId": "case-ext01",
       "summaryOf": "d275",
+      "alsoSummarizes": [
+        "d282"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "shade.scales",
@@ -5656,6 +5769,13 @@
       "kind": "summary",
       "caseId": "case-ext01",
       "summaryOf": "d265",
+      "alsoSummarizes": [
+        "d282",
+        "d298",
+        "d292",
+        "d294",
+        "d295"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "shade.scales",
@@ -5670,10 +5790,14 @@
       "caseId": "case-13",
       "summaryOf": "d304",
       "alsoSummarizes": [
-        "d381",
-        "d354",
-        "d613",
-        "d617"
+        "d324",
+        "d314",
+        "d308",
+        "d102",
+        "d299",
+        "d236",
+        "d380",
+        "d188"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -5687,17 +5811,21 @@
       "section": "7",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d232",
+      "summaryOf": "d314",
       "alsoSummarizes": [
+        "d306",
+        "d324",
+        "d102",
+        "d312",
         "d188",
-        "d314",
-        "d153",
-        "d184"
+        "d137",
+        "d356",
+        "d153"
       ],
       "link": "values",
       "route": "card-coupled",
-      "cardId": "three.patch",
-      "target": "three.patch",
+      "cardId": "shade.scales",
+      "target": "shade.scales",
       "targets": []
     },
     {
@@ -5720,6 +5848,10 @@
       "kind": "summary",
       "caseId": "case-03",
       "summaryOf": "d323",
+      "alsoSummarizes": [
+        "d322",
+        "d218"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "shade.scales",
@@ -6384,11 +6516,9 @@
       "section": "7",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "shade.hull-outline",
-      "target": "shade.hull-outline",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d316.card"
+        "mat-hardsurf.d316.display-color"
       ]
     },
     {
@@ -6410,11 +6540,9 @@
       "section": "7",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "shade.scales",
-      "target": "shade.scales",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d318.card"
+        "mat-hardsurf.d318.display-color"
       ]
     },
     {
@@ -6466,6 +6594,8 @@
       "targets": [
         "mat-hardsurf.d322.roughness",
         "mat-hardsurf.d322.ior",
+        "mat-hardsurf.d322.transmission",
+        "mat-hardsurf.d322.clearcoat",
         "mat-hardsurf.d322.anisotropic"
       ]
     },
@@ -6501,11 +6631,10 @@
       "section": "7",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "shade.scales",
-      "target": "shade.scales",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d325.card"
+        "mat-hardsurf.d325.roughness",
+        "mat-hardsurf.d325.display-color"
       ]
     },
     {
@@ -6552,6 +6681,11 @@
       "kind": "summary",
       "caseId": "case-ext01",
       "summaryOf": "d329",
+      "alsoSummarizes": [
+        "d282",
+        "d283",
+        "d330"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "mat.library",
@@ -6564,17 +6698,21 @@
       "section": "8",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d207",
+      "summaryOf": "d340",
       "alsoSummarizes": [
-        "d340",
+        "d207",
         "d332",
+        "d102",
         "d188",
-        "d234"
+        "d407",
+        "d137",
+        "d350",
+        "d356"
       ],
       "link": "values",
       "route": "card-coupled",
-      "cardId": "three.patch",
-      "target": "three.patch",
+      "cardId": "mat.library",
+      "target": "mat.library",
       "targets": []
     },
     {
@@ -6584,6 +6722,10 @@
       "kind": "summary",
       "caseId": "case-10",
       "summaryOf": "d348",
+      "alsoSummarizes": [
+        "d349",
+        "d192"
+      ],
       "link": "values",
       "route": "portable",
       "targets": [
@@ -6598,7 +6740,10 @@
       "caseId": "case-02",
       "summaryOf": "d343",
       "alsoSummarizes": [
-        "d345"
+        "d345",
+        "d366",
+        "d400",
+        "d368"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -6729,11 +6874,10 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d338.card"
+        "mat-hardsurf.d338.display-color",
+        "mat-hardsurf.d338.pixels"
       ]
     },
     {
@@ -6811,11 +6955,9 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d344.card"
+        "mat-hardsurf.d344.display-color"
       ]
     },
     {
@@ -6837,11 +6979,9 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "mat.library",
-      "target": "mat.library",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d346.card"
+        "mat-hardsurf.d346.display-color"
       ]
     },
     {
@@ -6979,6 +7119,13 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d360",
+      "alsoSummarizes": [
+        "d380",
+        "d381",
+        "d456",
+        "d102",
+        "d236"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "mat.library",
@@ -6993,10 +7140,10 @@
       "caseId": "case-10",
       "summaryOf": "d377",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "three.patch",
-      "target": "three.patch",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "mat-hardsurf.sum.s067"
+      ]
     },
     {
       "sourceId": "s068",
@@ -7006,10 +7153,14 @@
       "caseId": "case-02",
       "summaryOf": "d374",
       "alsoSummarizes": [
+        "d373",
+        "d367",
+        "d366",
         "d343",
         "d438",
-        "d373",
-        "d367"
+        "d365",
+        "d370",
+        "d368"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -7025,8 +7176,7 @@
       "caseId": "case-13",
       "summaryOf": "d358",
       "alsoSummarizes": [
-        "d380",
-        "d381"
+        "d380"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -7313,11 +7463,9 @@
       "section": "9",
       "kind": "detail",
       "caseId": "case-10",
-      "route": "card-coupled",
-      "cardId": "three.patch",
-      "target": "three.patch",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d377.card"
+        "mat-hardsurf.d377.roughness"
       ]
     },
     {
@@ -7378,11 +7526,9 @@
       "section": "9",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "three.patch",
-      "target": "three.patch",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d382.card"
+        "mat-hardsurf.d382.roughness"
       ]
     },
     {
@@ -7404,12 +7550,16 @@
       "section": "10",
       "kind": "summary",
       "caseId": "case-02",
-      "summaryOf": "d321",
+      "summaryOf": "d385",
       "alsoSummarizes": [
-        "d385",
-        "d393",
+        "d321",
         "d387",
-        "d438"
+        "d393",
+        "d384",
+        "d400",
+        "d401",
+        "d366",
+        "d368"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -7437,6 +7587,10 @@
       "kind": "summary",
       "caseId": "case-02",
       "summaryOf": "d396",
+      "alsoSummarizes": [
+        "d401",
+        "d399"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "shade.hull-outline",
@@ -7450,6 +7604,9 @@
       "kind": "summary",
       "caseId": "case-02",
       "summaryOf": "d397",
+      "alsoSummarizes": [
+        "d399"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "shade.hull-outline",
@@ -7464,10 +7621,10 @@
       "caseId": "case-03",
       "summaryOf": "d065",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "shade.thin-line",
-      "target": "shade.thin-line",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "mat-hardsurf.sum.s075"
+      ]
     },
     {
       "sourceId": "d384",
@@ -7514,11 +7671,9 @@
       "section": "10",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "shade.toon-kit",
-      "target": "shade.toon-kit",
+      "route": "portable",
       "targets": [
-        "mat-hardsurf.d387.card"
+        "mat-hardsurf.d387.display-color"
       ]
     },
     {
@@ -7744,9 +7899,13 @@
       "caseId": "case-13",
       "summaryOf": "d405",
       "alsoSummarizes": [
+        "d380",
+        "d418",
         "d238",
         "d207",
-        "d380"
+        "d419",
+        "d223",
+        "d431"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -7761,6 +7920,9 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d411",
+      "alsoSummarizes": [
+        "d418"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "mat.library",
@@ -7776,9 +7938,13 @@
       "summaryOf": "d407",
       "alsoSummarizes": [
         "d207",
-        "d136",
-        "d133",
-        "d234"
+        "d102",
+        "d223",
+        "d185",
+        "d234",
+        "d418",
+        "d002",
+        "d137"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -8011,9 +8177,14 @@
       "caseId": "case-13",
       "summaryOf": "d432",
       "alsoSummarizes": [
-        "d182",
         "d453",
-        "d437"
+        "d437",
+        "d452",
+        "d456",
+        "d455",
+        "d182",
+        "d178",
+        "d140"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -8027,12 +8198,15 @@
       "section": "12",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d453",
+      "summaryOf": "d427",
       "alsoSummarizes": [
-        "d354",
+        "d453",
         "d452",
-        "d427",
-        "d140"
+        "d437",
+        "d456",
+        "d102",
+        "d354",
+        "d156"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -8075,12 +8249,12 @@
       "section": "12",
       "kind": "summary",
       "caseId": "case-01r",
-      "summaryOf": "d005",
+      "summaryOf": "d030",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "mat-hardsurf.sum.s084"
-      ]
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": []
     },
     {
       "sourceId": "s085",
@@ -8091,13 +8265,10 @@
       "summaryOf": "d218",
       "alsoSummarizes": [
         "d063",
-        "d067",
-        "d597"
+        "d065"
       ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "shade.shell-fur",
-      "target": "shade.shell-fur",
+      "route": "portable",
       "targets": []
     },
     {
@@ -8488,9 +8659,11 @@
       "section": "12",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
       "targets": [
-        "mat-hardsurf.d451.practice"
+        "mat-hardsurf.d451.card"
       ]
     },
     {
@@ -8603,9 +8776,11 @@
       "section": "12",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
       "targets": [
-        "mat-hardsurf.d460.practice"
+        "mat-hardsurf.d460.card"
       ]
     },
     {
@@ -8614,9 +8789,11 @@
       "section": "12",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "three.patch",
+      "target": "three.patch",
       "targets": [
-        "mat-hardsurf.d461.practice"
+        "mat-hardsurf.d461.card"
       ]
     },
     {
@@ -8625,9 +8802,11 @@
       "section": "12",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "three.patch",
+      "target": "three.patch",
       "targets": [
-        "mat-hardsurf.d462.practice"
+        "mat-hardsurf.d462.card"
       ]
     },
     {
@@ -8636,9 +8815,11 @@
       "section": "12",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
       "targets": [
-        "mat-hardsurf.d463.practice"
+        "mat-hardsurf.d463.card"
       ]
     },
     {
@@ -8697,9 +8878,11 @@
       "section": "12",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "shade.scales",
+      "target": "shade.scales",
       "targets": [
-        "mat-hardsurf.d468.practice"
+        "mat-hardsurf.d468.card"
       ]
     },
     {
@@ -8907,9 +9090,11 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-072",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "shade.toon-kit",
+      "target": "shade.toon-kit",
       "targets": [
-        "mat-hardsurf.d486.practice"
+        "mat-hardsurf.d486.card"
       ]
     },
     {
@@ -9083,10 +9268,8 @@
       "caseId": "case-13",
       "summaryOf": "d520",
       "alsoSummarizes": [
-        "d136",
-        "d617",
-        "d354",
-        "d356"
+        "d609",
+        "d617"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -9100,14 +9283,11 @@
       "section": "H1",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d499",
-      "alsoSummarizes": [
-        "d225"
-      ],
+      "summaryOf": "d502",
       "link": "values",
       "route": "card-coupled",
-      "cardId": "form.sdf-nets",
-      "target": "form.sdf-nets",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": []
     },
     {
@@ -9286,9 +9466,11 @@
       "section": "H1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d508.practice"
+        "mat-hardsurf.d508.card"
       ]
     },
     {
@@ -9297,9 +9479,11 @@
       "section": "H1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d509.practice"
+        "mat-hardsurf.d509.card"
       ]
     },
     {
@@ -9308,9 +9492,11 @@
       "section": "H1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d510.practice"
+        "mat-hardsurf.d510.card"
       ]
     },
     {
@@ -9319,9 +9505,11 @@
       "section": "H1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d511.practice"
+        "mat-hardsurf.d511.card"
       ]
     },
     {
@@ -9502,9 +9690,11 @@
       "section": "H1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d526.practice"
+        "mat-hardsurf.d526.card"
       ]
     },
     {
@@ -9584,13 +9774,7 @@
       "section": "H2",
       "kind": "summary",
       "caseId": "case-01r",
-      "summaryOf": "d005",
-      "alsoSummarizes": [
-        "d536",
-        "d006",
-        "d014",
-        "d017"
-      ],
+      "summaryOf": "d536",
       "link": "values",
       "route": "portable",
       "targets": [
@@ -9604,10 +9788,6 @@
       "kind": "summary",
       "caseId": "case-01r",
       "summaryOf": "d539",
-      "alsoSummarizes": [
-        "d013",
-        "d020"
-      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "form.primitives",
@@ -9681,9 +9861,11 @@
       "section": "H2",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d535.practice"
+        "mat-hardsurf.d535.card"
       ]
     },
     {
@@ -9772,9 +9954,11 @@
       "section": "H2",
       "kind": "detail",
       "caseId": "case-03",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d543.practice"
+        "mat-hardsurf.d543.card"
       ]
     },
     {
@@ -9812,16 +9996,15 @@
       "section": "H3",
       "kind": "summary",
       "caseId": "case-03",
-      "summaryOf": "d563",
+      "summaryOf": "d562",
       "alsoSummarizes": [
-        "d562",
-        "d604"
+        "d563"
       ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "asset.bbox-proxy",
-      "target": "asset.bbox-proxy",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "mat-hardsurf.sum.s101"
+      ]
     },
     {
       "sourceId": "s102",
@@ -9831,7 +10014,7 @@
       "caseId": "case-03",
       "summaryOf": "d606",
       "alsoSummarizes": [
-        "d323"
+        "d595"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -10337,9 +10520,9 @@
       "caseId": "case-01r",
       "route": "portable",
       "targets": [
+        "mat-hardsurf.d586.diameter",
         "mat-hardsurf.d586.pixels",
         "mat-hardsurf.d586.dimension",
-        "mat-hardsurf.d586.diameter",
         "mat-hardsurf.d586.angle"
       ]
     },
@@ -10349,10 +10532,11 @@
       "section": "H4",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d587.dimension",
-        "mat-hardsurf.d587.radius"
+        "mat-hardsurf.d587.card"
       ]
     },
     {
@@ -10368,8 +10552,8 @@
       ],
       "route": "portable",
       "targets": [
-        "mat-hardsurf.d588.pixels",
         "mat-hardsurf.d588.distance",
+        "mat-hardsurf.d588.pixels",
         "mat-hardsurf.d588.length"
       ]
     },
@@ -10392,11 +10576,11 @@
       "section": "H4",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d590.size-mm",
-        "mat-hardsurf.d590.length",
-        "mat-hardsurf.d590.dimension"
+        "mat-hardsurf.d590.card"
       ]
     },
     {
@@ -10405,9 +10589,11 @@
       "section": "H4",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d591.length"
+        "mat-hardsurf.d591.card"
       ]
     },
     {
@@ -10416,10 +10602,11 @@
       "section": "H4",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d592.angle",
-        "mat-hardsurf.d592.dimension"
+        "mat-hardsurf.d592.card"
       ]
     },
     {
@@ -10443,9 +10630,11 @@
       "section": "H4",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d594.angle"
+        "mat-hardsurf.d594.card"
       ]
     },
     {
@@ -10581,10 +10770,9 @@
       "section": "H5",
       "kind": "detail",
       "caseId": "case-03",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "mat-hardsurf.d605.dimension",
-        "mat-hardsurf.d605.thickness"
+        "mat-hardsurf.d605.practice"
       ]
     },
     {
@@ -10606,11 +10794,11 @@
       "section": "H5",
       "kind": "detail",
       "caseId": "case-03",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
       "targets": [
-        "mat-hardsurf.d607.angle",
-        "mat-hardsurf.d607.length",
-        "mat-hardsurf.d607.dimension"
+        "mat-hardsurf.d607.card"
       ]
     },
     {
@@ -10619,9 +10807,9 @@
       "section": "H5",
       "kind": "detail",
       "caseId": "case-03",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "mat-hardsurf.d608.length"
+        "mat-hardsurf.d608.practice"
       ]
     },
     {
@@ -10858,10 +11046,11 @@
       "section": "H6",
       "kind": "detail",
       "caseId": "case-28",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d627.duration",
-        "mat-hardsurf.d627.angle"
+        "mat-hardsurf.d627.card"
       ]
     },
     {
@@ -10870,9 +11059,11 @@
       "section": "H6",
       "kind": "detail",
       "caseId": "case-24",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
       "targets": [
-        "mat-hardsurf.d628.angle"
+        "mat-hardsurf.d628.card"
       ]
     },
     {
@@ -10881,10 +11072,11 @@
       "section": "H7",
       "kind": "detail",
       "caseId": "case-03",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "assembly.schedule",
+      "target": "assembly.schedule",
       "targets": [
-        "mat-hardsurf.d629.angle",
-        "mat-hardsurf.d629.length"
+        "mat-hardsurf.d629.card"
       ]
     },
     {
@@ -10954,12 +11146,8 @@
       "section": "H7",
       "kind": "detail",
       "caseId": "case-03",
-      "route": "card-coupled",
-      "cardId": "asset.bbox-proxy",
-      "target": "asset.bbox-proxy",
-      "targets": [
-        "mat-hardsurf.d635.card"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceId": "d636",

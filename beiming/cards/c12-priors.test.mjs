@@ -29,18 +29,18 @@ const EXPECTED_TOTALS = Object.freeze({
 });
 
 const EXPECTED_SHA256 = Object.freeze({
-  'fx-ui.json': 'ccbf199238b4ea1aafdfa32bfc0d8a707330643f9a58e1986ec825de4c37f0ab',
-  'fx-ui.card-priors.json': '018ecd90ec657435edb004816883ce49c20a438fb7d26ea4c16c756380290e70',
-  'fx-ui.practices.json': '16c7e6e911db890133313116e35a6f9466e8cbd4909513508cfcc4bf7443bfb0',
-  'fx-ui.manifest.json': 'b7641254de9ad8508be81e1a453b5a0fdd06a4f6836c967323df33078c6151a3',
-  'mat-hardsurf.json': '7acb3bc145ad78eeaf00eaf43b65040eba058d056da67bed5c73ba57c557c274',
-  'mat-hardsurf.card-priors.json': '762c3c8a0fd87de4d9af80da47330ac0712d516431a704c2790febcfc3ed19ec',
-  'mat-hardsurf.practices.json': '4b45fb71a2a6441e214a66b7132c55749f2b8aac874ffccec633a8e7f77fc71a',
-  'mat-hardsurf.manifest.json': '002dc1d1d56859d72678a3f7f24ba4641c7b0ec80b87cb976fcb2836bb598005',
-  'render-pipe.json': '77c74d80376243d28044073726e84bd41e550be0096c6fe38ec136336605fd95',
-  'render-pipe.card-priors.json': '1e124637a52af64e7711e992390187c783cb13b95b05bc1fea65b754f7a79831',
-  'render-pipe.practices.json': 'c6d54b574250d22c8b4794ac8c3e3eaef62db14ff289e0547cceea4888b146ac',
-  'render-pipe.manifest.json': '3a4c082f6bd2be829aaf52ec5f6955bb0cdf64aac64acb50696bc025fd3f3a1b',
+  'fx-ui.json': '7fe8f991fc5bfb79ec6f54adb507374108343135d8ad74736d40cd681b572087',
+  'fx-ui.card-priors.json': 'ef20966db6750a4be68c8ea0172fd0f1845c8385af64a08c5383155184ab13f6',
+  'fx-ui.practices.json': 'fbe88f1b7d60db2625e4c84e42a48ba80269ad2d98a5f7395bc8b653cf8673f7',
+  'fx-ui.manifest.json': 'c25e0d25afd4bc3c47c267d5f42ec5eeb8e9e8044807f780691046c6e420c5fa',
+  'mat-hardsurf.json': '21c26bcf7114890c30ab4866649d14590e9dfdc24ec6ee84beeaf3046accc137',
+  'mat-hardsurf.card-priors.json': 'c4af0632094802b7e7da303ae972c0860531b5248f2a399e481d27cceaeb84c1',
+  'mat-hardsurf.practices.json': '87f5d239eb980673b97c7f8765ff4dc788a9473f87ddbc661eebb3cd62565912',
+  'mat-hardsurf.manifest.json': '892d0d266d282e6f2978bd47cd826213d36c9bf00e7aa36d5d02f18a84a63d51',
+  'render-pipe.json': 'aeca1bd4692ab723a5a1b6e44bafc3587291e6667c0ae63c800157af018d3678',
+  'render-pipe.card-priors.json': '71b525313a22aeb3feacfa216124353406049d35dbdacb0dca5546c22416d6ab',
+  'render-pipe.practices.json': 'e4ee872d35c7ec4f543382c42cbed8ead4c792e50f120875463db926ac59d5a8',
+  'render-pipe.manifest.json': '9109309d0460abb4676c03e3c261286b1a049721c4a93e5a58bd0baa8ae11d8c',
 });
 
 // 05 §5 全部 92 张正式技术卡清单（挂卡 target/cardId 必须严格落在此集合内）
@@ -66,47 +66,53 @@ const OFFICIAL_92_SET = new Set([
   'audio.scene-events', 'sky.cloud-toon',
 ]);
 
-// 脱敏黑名单（作品名、角色名、品牌/硬件型号、真实地名等）的小写词元 SHA-256 前 16 位；明文不入库
+// 脱敏黑名单（作品名、角色名、品牌/硬件型号、真实地名、街名、硬件媒体、原包对象名等）的小写词元 SHA-256 前 16 位；明文不入库
 const IP_HASHES = new Set([
-  '016c4a54bc4b3103', '033fddb8853a1ad0', '049667efe4e69d1c', '0871d655983efd56',
-  '089dd4929e658cdb', '09cf980b5ff304ac', '0a450f78e4551525', '0a7e404732db8f48',
-  '0b2058635ba3d17f', '0c60185839ff2327', '0e377aac3a660698', '1351704cdc4d32f8',
-  '13d00b4f50b002bf', '1472950b8ae0b5cd', '14e59f423e87958e', '15fc0e2c60b40ae1',
-  '180bd8604df67b59', '18cc32c921b8e0be', '1ae0552a12823c54', '1c18bc2214f67ae1',
+  '016c4a54bc4b3103', '033fddb8853a1ad0', '03d5a010337526ed', '049667efe4e69d1c',
+  '0871d655983efd56', '089dd4929e658cdb', '09cf980b5ff304ac', '0a450f78e4551525',
+  '0a7e404732db8f48', '0b2058635ba3d17f', '0c60185839ff2327', '0e377aac3a660698',
+  '109c2afd18c973f3', '1351704cdc4d32f8', '13d00b4f50b002bf', '1472950b8ae0b5cd',
+  '14e59f423e87958e', '15fc0e2c60b40ae1', '180bd8604df67b59', '18cc32c921b8e0be',
+  '19d34132ba6106ab', '1aa2826e159ef031', '1ae0552a12823c54', '1c18bc2214f67ae1',
   '1f25b77eea9b8db1', '1fe8ba945043480d', '20b836be6317bc4c', '21f9f830edf15d42',
-  '234330834c41105a', '241c1e30ed886aa4', '249993eec332cb78', '25d3e422e9a0730c',
-  '2648b1fece5ca102', '2780b8eef998d6ea', '2bf84b0ad08b23b8', '2c5ed0922cc21476',
-  '2d94fe98376d814d', '2f55b64c59eec8e5', '34bb03e8d85ab74a', '374eebfb2bae1290',
-  '39fabf3d2bf91ace', '3a7bd3e2360a3d29', '3b54664e8163d36a', '3cb95ec0c6cc1835',
-  '3f4a09b92ccf3382', '3f8f01ea269b6cfe', '400e436ed3eb0252', '40a7e9acb06295d6',
-  '419a4461434283fd', '41bc72708c799dbc', '4ed91096f08e52f6', '4f594364d6326c96',
+  '234330834c41105a', '241c1e30ed886aa4', '2480291db84906d7', '249993eec332cb78',
+  '25d3e422e9a0730c', '2648b1fece5ca102', '2780b8eef998d6ea', '2bf84b0ad08b23b8',
+  '2c5ed0922cc21476', '2d94fe98376d814d', '2f55b64c59eec8e5', '34bb03e8d85ab74a',
+  '374eebfb2bae1290', '37acdfae5f696258', '39fabf3d2bf91ace', '3a7bd3e2360a3d29',
+  '3b54664e8163d36a', '3cb95ec0c6cc1835', '3f4a09b92ccf3382', '3f8f01ea269b6cfe',
+  '400e436ed3eb0252', '40a7e9acb06295d6', '419a4461434283fd', '41bc72708c799dbc',
+  '41bc73ef509c33d8', '4ed91096f08e52f6', '4f594364d6326c96', '4f887efc101541c3',
   '5017133fdc0a9bbb', '501d5acb4acc06d8', '5032f1bea2401f8f', '50537dab76505dfc',
   '50b2676afbe30c83', '515f3f510efacd0b', '5873102fa0951713', '58857e5318f3090b',
   '58d07b8a69516695', '58e8d9ca391c1ea9', '599917fb5a47d4ba', '59ee9ed12f7822d8',
-  '5b79d0d574eedd09', '5f226262ba09e0ec', '5f6e7773915655fc', '60eb33388f4e0888',
-  '64168e1ca791c61b', '65db8c764322e4f5', '6df977461d522f10', '75d28e035320c596',
-  '75ff6821b8f8a31f', '7827e8eb2cb3b95f', '7c27b222a1dfa422', '7edbff10b5f7627e',
-  '81678972842d4663', '8318900ae631b424', '8534cd0426607ce6', '8540d5ac82d1cc90',
-  '857689a99bb12c62', '85ef3bae7236215b', '86663a1dd8f6b661', '89e1ed6c1d606797',
-  '8b567a9cad647151', '8bdb247a2a76e166', '8be2978e343799a3', '8c6e8e8b9a0eb983',
-  '8d4321d936320802', '8d6546721a1d106c', '91826add52a73308', '924493ee15e2a68c',
-  '930eaf1684b953a9', '95a84911801a7130', '95b3ec132e6e5bfc', '963cd73004547f84',
-  '98162a1e33275f16', '9eebe6aa942221a6', 'a0c0485eff9c817d', 'a309ac16ce1299ea',
-  'a38188f3bafbcb73', 'a4c745facd3a9215', 'a590c43e71d44866', 'a6c0db788b589b10',
-  'a7a4ded2d5035adb', 'aa416dab2cc47c86', 'ac13a8b534df4a28', 'acef2270f1204c8f',
-  'afe04579004049cc', 'b05a020b94ff9f43', 'b2a4e476bb0cf3df', 'b41e6560a4467aa4',
-  'b4832b04946a62a9', 'b6f6732db83b899a', 'bb1d46105bd704dc', 'bbdefa2950f49882',
-  'bd732730bd39834d', 'bdf4949a46682dc3', 'c2326100129a9f9d', 'c26804e0eaf84a96',
-  'c6661966bce79f30', 'c83c91fa43a37540', 'c857d09db23e6822', 'c99c21d86b0e1e4b',
-  'cc37957cb6ba0e57', 'ceb6e5e5dab9b0f4', 'cf2abf0c5be326cb', 'd055c3998f13e70e',
-  'd0b3b3d6c6c14f17', 'd14a7310bdf55b8f', 'd209bcc17778fd19', 'd4c58781c552db46',
-  'd544b0316e19a87b', 'd8e60ebbbb2b1a9d', 'd9bb8452ecaf5a05', 'dbd7eae813c1dc02',
-  'dc7a4a2cc7e36000', 'dd415e6f13d54a9b', 'dd9ab072bf740423', 'de0ba1b766697343',
-  'e16702398a9a3929', 'e3f341fd8cb7a18c', 'e410993439c435f9', 'e5993ec06c2e0d77',
-  'e6deb10a6558650a', 'e708e75b162e33f3', 'ecc9bddb65dc4451', 'ed818ec233248ae6',
-  'ede9a01d7031cce4', 'f09bfa2c3c7042e4', 'f27354a69b790eda', 'f333c862259bb361',
-  'f4a6923996dbeb19', 'f5b984831b2d99e5', 'fceb694b3d7420f9', 'fd41ccf562904e20',
-  'fd8ecd2d4d814e68', 'fdb827d1a99796cd', 'ff627719813c923a', 'ff7b676cdada9bca',
+  '5b79d0d574eedd09', '5f226262ba09e0ec', '5f6e7773915655fc', '60228d83d71aa6cc',
+  '60eb33388f4e0888', '62afcc8a21cff830', '636bff608c5a4515', '64168e1ca791c61b',
+  '65db8c764322e4f5', '6a720c6b07c104d1', '6df977461d522f10', '6e09326129d94c67',
+  '754716239f6e53d5', '75d28e035320c596', '75ff6821b8f8a31f', '7827e8eb2cb3b95f',
+  '79adeb502224ec51', '7c27b222a1dfa422', '7ca803c7fc3f8d5f', '7e5f91ff438d70fe',
+  '7edbff10b5f7627e', '809dfb47e977b19b', '81678972842d4663', '8318900ae631b424',
+  '8534cd0426607ce6', '8540d5ac82d1cc90', '857689a99bb12c62', '85ef3bae7236215b',
+  '86663a1dd8f6b661', '89e1ed6c1d606797', '8b567a9cad647151', '8bdb247a2a76e166',
+  '8be2978e343799a3', '8c6e8e8b9a0eb983', '8d4321d936320802', '8d6546721a1d106c',
+  '91826add52a73308', '924493ee15e2a68c', '930eaf1684b953a9', '95a84911801a7130',
+  '95b3ec132e6e5bfc', '963cd73004547f84', '97053182260d36cc', '98162a1e33275f16',
+  '9eebe6aa942221a6', 'a0c0485eff9c817d', 'a309ac16ce1299ea', 'a38188f3bafbcb73',
+  'a4c745facd3a9215', 'a590c43e71d44866', 'a6c0db788b589b10', 'a7a4ded2d5035adb',
+  'aa416dab2cc47c86', 'ac13a8b534df4a28', 'acef2270f1204c8f', 'ad2f8c9aa6f433b2',
+  'af74b31242d8d1dd', 'afe04579004049cc', 'b055e3a6947a2cac', 'b05a020b94ff9f43',
+  'b2a4e476bb0cf3df', 'b41e6560a4467aa4', 'b4832b04946a62a9', 'b6f6732db83b899a',
+  'bb1d46105bd704dc', 'bbdefa2950f49882', 'bd732730bd39834d', 'bdf4949a46682dc3',
+  'c2326100129a9f9d', 'c26804e0eaf84a96', 'c6661966bce79f30', 'c83c91fa43a37540',
+  'c857d09db23e6822', 'c99c21d86b0e1e4b', 'cc37957cb6ba0e57', 'ceb6e5e5dab9b0f4',
+  'cf2abf0c5be326cb', 'd055c3998f13e70e', 'd0b3b3d6c6c14f17', 'd14a7310bdf55b8f',
+  'd209bcc17778fd19', 'd4c58781c552db46', 'd544b0316e19a87b', 'd8e60ebbbb2b1a9d',
+  'd9bb8452ecaf5a05', 'dbd7eae813c1dc02', 'dc7a4a2cc7e36000', 'dd415e6f13d54a9b',
+  'dd9ab072bf740423', 'de0ba1b766697343', 'e16702398a9a3929', 'e3f341fd8cb7a18c',
+  'e410993439c435f9', 'e5993ec06c2e0d77', 'e6deb10a6558650a', 'e708e75b162e33f3',
+  'ecc9bddb65dc4451', 'ed818ec233248ae6', 'ede9a01d7031cce4', 'f09bfa2c3c7042e4',
+  'f1b470e855f1afc9', 'f27354a69b790eda', 'f333c862259bb361', 'f4a6923996dbeb19',
+  'f5b984831b2d99e5', 'fceb694b3d7420f9', 'fd41ccf562904e20', 'fd8ecd2d4d814e68',
+  'fdb827d1a99796cd', 'ff627719813c923a', 'ff7b676cdada9bca',
 ]);
 
 // 分区与源项目内部专名键的 SHA-256 前 16 位；明文不入库
@@ -199,11 +205,23 @@ function hexToRgbDisplay(hex) {
 function verifyValueInNote(value, note, unit, ext) {
   if (unit === 'rgb-display') {
     const hex = ext?.['c12.hex'];
-    if (typeof hex !== 'string' || !note.toUpperCase().includes(hex.toUpperCase())) return false;
+    if (typeof hex !== 'string') return false;
+    const upper = note.toUpperCase();
+    const hex6 = hex.replace(/^#/, '').toUpperCase();
+    if (!upper.includes(`#${hex6}`) && !upper.includes(`0X${hex6}`)) return false;
     const expected = hexToRgbDisplay(hex);
     return Array.isArray(value) && value.length === 3 && value.every((v, i) => close(v, expected[i]));
   }
   const found = extractNumbersFromText(note);
+  if (unit === 's') {
+    for (const m of String(note || '').matchAll(/(\d+)\s*分\s*(\d+(?:\.\d+)?)\s*秒/g)) {
+      const mins = Number(m[1]);
+      const secs = Number(m[2]);
+      if (Number.isFinite(mins) && Number.isFinite(secs) && secs < 60) {
+        found.push(Math.round((mins * 60 + secs) * 1e6) / 1e6);
+      }
+    }
+  }
   const vals = typeof value === 'number'
     ? [value]
     : Array.isArray(value)
@@ -646,7 +664,7 @@ test('彻底脱敏：12 份 JSON 与本测试文件经 SHA-256 前缀扫描零�
 });
 
 test('数值忠实度、色彩空间、千分位、省略前导零与随机算式回归校验', () => {
-  // 全部 444 条可移植先验的 value 必须能在 provenance.note 里逐项核回
+  // 全部可移植先验的 value 必须能在 provenance.note 里逐项核回
   for (const col of C12_COLLECTIONS) {
     for (const e of DATA[col].priors) {
       assert.equal(
@@ -696,6 +714,59 @@ test('数值忠实度、色彩空间、千分位、省略前导零与随机算�
   const d447Noise = matCardBySrc.get('d447').quantities.find((q) => q.expr === '-.08·rnd()');
   assert.deepEqual(d447Noise.value, [-0.08, 0]);
   assert.equal(d447Noise.jitter, 0.08);
+});
+
+test('R1 公开 API 回归：合成时长、语义邻近过渡时间、同量同子案例汇总、脱敏与分流口径', () => {
+  const fx = loadFxUiPriorsStore();
+  const mat = loadMatHardsurfPriorsStore();
+  const rp = loadRenderPipePriorsStore();
+  const row = (col, sid) => getBatch3MigrationManifest(col).ledger.find((r) => r.sourceId === sid);
+
+  // 1. 引路卡显示时长（7.5 s）与出现/消失过渡时长（0.35 s / 0.8 s）严格区分
+  const d257Transition = fx.get('fx-ui.d257.transition-time');
+  assert.ok(d257Transition, 'fx-ui.d257.transition-time 应存在');
+  assert.ok([0.35, 0.8].includes(d257Transition.value), `过渡时长误值：${d257Transition.value}`);
+  assert.equal(fx.get('fx-ui.d257.duration').value, 7.5);
+
+  // 2. 合成「2 分 56 秒」时长正确折算为 176 s
+  assert.equal(rp.get('render-pipe.d122.duration').value, 176);
+
+  // 3. 倒角汇总 s095 指回同量倒角明细 d536，随距衰减凹凸汇总 s084 指回 d030（绝不误指 d005 金属度）
+  const s095Sum = mat.get('mat-hardsurf.sum.s095');
+  assert.ok(s095Sum, 'mat-hardsurf.sum.s095 应存在');
+  assert.ok(s095Sum.summaryOf.some((id) => id.startsWith('mat-hardsurf.d536.')), JSON.stringify(s095Sum.summaryOf));
+  assert.equal(row('mat-hardsurf', 's084').summaryOf, 'd030');
+
+  // 4. 案例 03-B 无声编码汇总 s074 指回同子案例主出处 d113（不跨子案例串到 03-T 的 d121）
+  const s074Row = row('render-pipe', 's074');
+  assert.equal(s074Row.summaryOf, 'd113');
+  assert.equal(s074Row.route, 'portable');
+  assert.deepEqual(rp.get('render-pipe.sum.s074').summaryOf, ['render-pipe.d113.resolution']);
+
+  // 5. 七个热度色带端点汇总 s022 指回真实包含端点的色带明细 d036 及 d039–d043
+  const s022Row = row('fx-ui', 's022');
+  const s022Ids = [s022Row.summaryOf, ...(s022Row.alsoSummarizes ?? [])];
+  for (const expectedId of ['d036', 'd039', 'd040', 'd041', 'd042', 'd043']) {
+    assert.ok(s022Ids.includes(expectedId), `s022 缺少端点明细 ${expectedId}: ${JSON.stringify(s022Ids)}`);
+  }
+
+  // 6. 街道对象名与第三方硬件媒体简称经哈希黑名单扫描零残余（测试内不写明文专名）
+  const d309 = getBatch3CardPriors('layout.panels', 'fx-ui').find((e) => e.sourceId === 'd309');
+  assert.ok(d309, 'fx-ui d309 应存在于 layout.panels 挂卡先验');
+  for (const g of collectNgrams(d309.text)) {
+    assert.equal(IP_HASHES.has(sha16(g)), false, `fx-ui d309 仍含未脱敏专名哈希：${sha16(g)}`);
+  }
+  const d591 = DATA['mat-hardsurf'].cardPriors.find((e) => e.sourceId === 'd591');
+  assert.ok(d591, 'mat-hardsurf d591 应归挂卡先验');
+  for (const g of collectNgrams(d591.text)) {
+    assert.equal(IP_HASHES.has(sha16(g)), false, `mat-hardsurf d591 仍含未脱敏专名哈希：${sha16(g)}`);
+  }
+
+  // 7. 四路分流代表性口径：光标显示色进 portable，具体挤出参数归 card-coupled，纯指针条目归 skipped-or-conflict
+  assert.equal(row('fx-ui', 'd276').route, 'portable');
+  assert.equal(fx.get('fx-ui.d276.display-color').unit, 'rgb-display');
+  assert.equal(row('mat-hardsurf', 'd510').route, 'card-coupled');
+  assert.equal(row('render-pipe', 'd133').route, 'skipped-or-conflict');
 });
 
 test('独立盲审记录完备，canonical 种子 42 抽样可复现且 200 种子全过 <= 10%', () => {

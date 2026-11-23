@@ -7,28 +7,28 @@
   "summaryRows": 140,
   "order": "ledger 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "源总数 = 明细条目 + 跨案例对照表汇总行；汇总行去向随所指同案例真实明细，不另算明细",
-  "portableCount": 44,
-  "cardCoupledCount": 415,
-  "practiceCount": 52,
+  "portableCount": 75,
+  "cardCoupledCount": 378,
+  "practiceCount": 58,
   "excludedOrConflictCount": 17,
   "detailRouteCounts": {
-    "portable": 34,
-    "card-coupled": 296,
-    "practice": 41,
+    "portable": 56,
+    "card-coupled": 268,
+    "practice": 47,
     "skipped-or-conflict": 17
   },
   "summaryRouteCounts": {
-    "portable": 10,
-    "card-coupled": 119,
+    "portable": 19,
+    "card-coupled": 110,
     "practice": 11,
     "skipped-or-conflict": 0
   },
   "emittedCounts": {
-    "priorsTotal": 70,
-    "priorsDetail": 63,
-    "priorsSummary": 7,
-    "cardPriors": 296,
-    "practices": 41,
+    "priorsTotal": 135,
+    "priorsDetail": 122,
+    "priorsSummary": 13,
+    "cardPriors": 268,
+    "practices": 47,
     "excludedDetails": 17
   },
   "files": {
@@ -283,19 +283,19 @@
       "cardId": "fx.streak-ring",
       "target": "fx.streak-ring",
       "inSpec": true,
-      "count": 54
+      "count": 53
     },
     {
       "cardId": "particle.ballistic",
       "target": "particle.ballistic",
       "inSpec": true,
-      "count": 37
+      "count": 36
     },
     {
       "cardId": "layout.panels",
       "target": "layout.panels",
       "inSpec": true,
-      "count": 32
+      "count": 31
     },
     {
       "cardId": "fx.breath",
@@ -307,25 +307,13 @@
       "cardId": "time.envelope",
       "target": "time.envelope",
       "inSpec": true,
-      "count": 22
+      "count": 20
     },
     {
       "cardId": "wind.gust-wake",
       "target": "wind.gust-wake",
       "inSpec": true,
-      "count": 18
-    },
-    {
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
-      "inSpec": true,
-      "count": 16
-    },
-    {
-      "cardId": "overlay.title",
-      "target": "overlay.title",
-      "inSpec": true,
-      "count": 16
+      "count": 17
     },
     {
       "cardId": "post.bloom",
@@ -334,16 +322,28 @@
       "count": 16
     },
     {
+      "cardId": "overlay.anchored",
+      "target": "overlay.anchored",
+      "inSpec": true,
+      "count": 13
+    },
+    {
       "cardId": "overlay.cursor",
       "target": "overlay.cursor",
       "inSpec": true,
-      "count": 15
+      "count": 10
     },
     {
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "cardId": "overlay.title",
+      "target": "overlay.title",
       "inSpec": true,
-      "count": 11
+      "count": 10
+    },
+    {
+      "cardId": "page.det2d",
+      "target": "page.det2d",
+      "inSpec": true,
+      "count": 10
     },
     {
       "cardId": "post.volumetric",
@@ -352,16 +352,16 @@
       "count": 10
     },
     {
-      "cardId": "page.det2d",
-      "target": "page.det2d",
-      "inSpec": true,
-      "count": 9
-    },
-    {
       "cardId": "particle.premult",
       "target": "particle.premult",
       "inSpec": true,
       "count": 8
+    },
+    {
+      "cardId": "overlay.subs",
+      "target": "overlay.subs",
+      "inSpec": true,
+      "count": 2
     },
     {
       "cardId": "camera.shake",
@@ -665,10 +665,10 @@
     "seed200Verified": true,
     "seed200PassCount": 200,
     "seed200Worst": {
-      "seed": 12,
-      "disagreeCount": 3,
+      "seed": 1,
+      "disagreeCount": 4,
       "sampleSize": 53,
-      "disagreeRate": 0.056604
+      "disagreeRate": 0.075472
     },
     "sample": [
       {
@@ -691,9 +691,9 @@
         "sourceId": "d368",
         "kind": "detail",
         "ledgerRoute": "card-coupled",
-        "blindRoute": "portable",
-        "agree": false,
-        "reason": "二维界面分辨率、字号、安全区比例、转场或字幕时长量"
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
       },
       {
         "sourceId": "d231",
@@ -706,10 +706,10 @@
       {
         "sourceId": "d272",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
         "agree": true,
-        "reason": "二维界面分辨率、字号、安全区比例、转场或字幕时长量"
+        "reason": "剥离源码标识与片名后仍可跨实现复用的做法、工序或踩坑修法"
       },
       {
         "sourceId": "d308",
@@ -778,10 +778,10 @@
       {
         "sourceId": "d227",
         "kind": "detail",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "二维界面分辨率、像素几何、字号、安全区比例、转场或字幕时长量"
       },
       {
         "sourceId": "d179",
@@ -818,10 +818,10 @@
       {
         "sourceId": "d331",
         "kind": "detail",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "二维界面分辨率、像素几何、字号、安全区比例、转场或字幕时长量"
       },
       {
         "sourceId": "d066",
@@ -954,10 +954,10 @@
       {
         "sourceId": "d340",
         "kind": "detail",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "独立可复用的界面 sRGB 配色与主色规格（rgb-display）"
       },
       {
         "sourceId": "d129",
@@ -997,22 +997,22 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d361：界面显式 sRGB 主色规格（rgb-display）"
+        "reason": "汇总随所指明细 d361：独立可复用的界面 sRGB 配色与主色规格（rgb-display）"
       },
       {
         "sourceId": "s131",
         "kind": "summary",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d347：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d347：独立可复用的界面 sRGB 配色与主色规格（rgb-display）"
       },
       {
         "sourceId": "s134",
         "kind": "summary",
-        "ledgerRoute": "card-coupled",
+        "ledgerRoute": "portable",
         "blindRoute": "card-coupled",
-        "agree": true,
+        "agree": false,
         "reason": "汇总随所指明细 d346：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
       },
       {
@@ -1026,10 +1026,10 @@
       {
         "sourceId": "s128",
         "kind": "summary",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d330：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d330：二维界面分辨率、像素几何、字号、安全区比例、转场或字幕时长量"
       },
       {
         "sourceId": "s006",
@@ -1050,10 +1050,10 @@
       {
         "sourceId": "s107",
         "kind": "summary",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d227：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d227：二维界面分辨率、像素几何、字号、安全区比例、转场或字幕时长量"
       },
       {
         "sourceId": "s075",
@@ -1077,7 +1077,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d044：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d043：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
       },
       {
         "sourceId": "s085",
@@ -1107,9 +1107,10 @@
       "summaryOf": "d030",
       "alsoSummarizes": [
         "d029",
-        "d002",
         "d068",
-        "d086"
+        "d086",
+        "d090",
+        "d089"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1123,17 +1124,18 @@
       "section": "1",
       "kind": "summary",
       "caseId": "case-02",
-      "summaryOf": "d071",
+      "summaryOf": "d003",
       "alsoSummarizes": [
-        "d003",
         "d007",
-        "d254",
-        "d239"
+        "d071",
+        "d232",
+        "d234",
+        "d254"
       ],
       "link": "values",
       "route": "card-coupled",
-      "cardId": "fx.breath",
-      "target": "fx.breath",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "targets": []
     },
     {
@@ -1145,7 +1147,8 @@
       "summaryOf": "d014",
       "alsoSummarizes": [
         "d015",
-        "d016"
+        "d016",
+        "d010"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1159,17 +1162,20 @@
       "section": "1",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d016",
+      "summaryOf": "d010",
       "alsoSummarizes": [
+        "d015",
+        "d016",
+        "d126",
+        "d158",
         "d098",
         "d120",
-        "d217",
-        "d248"
+        "d217"
       ],
       "link": "values",
       "route": "card-coupled",
-      "cardId": "fx.streak-ring",
-      "target": "fx.streak-ring",
+      "cardId": "post.volumetric",
+      "target": "post.volumetric",
       "targets": []
     },
     {
@@ -1181,9 +1187,13 @@
       "summaryOf": "d010",
       "alsoSummarizes": [
         "d016",
+        "d015",
+        "d126",
+        "d115",
         "d098",
         "d248",
-        "d095"
+        "d014",
+        "d045"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1199,6 +1209,7 @@
       "caseId": "case-13",
       "summaryOf": "d013",
       "alsoSummarizes": [
+        "d093",
         "d117"
       ],
       "link": "values",
@@ -1216,9 +1227,13 @@
       "summaryOf": "d128",
       "alsoSummarizes": [
         "d126",
+        "d155",
         "d016",
         "d248",
-        "d121"
+        "d121",
+        "d098",
+        "d095",
+        "d093"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1289,17 +1304,21 @@
       "section": "1",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d099",
+      "summaryOf": "d019",
       "alsoSummarizes": [
-        "d019",
+        "d024",
+        "d099",
+        "d122",
+        "d106",
         "d228",
         "d084",
-        "d096"
+        "d096",
+        "d121"
       ],
       "link": "values",
       "route": "card-coupled",
-      "cardId": "wind.gust-wake",
-      "target": "wind.gust-wake",
+      "cardId": "overlay.anchored",
+      "target": "overlay.anchored",
       "targets": []
     },
     {
@@ -1696,7 +1715,10 @@
       "caseId": "case-02",
       "summaryOf": "d034",
       "alsoSummarizes": [
-        "d033"
+        "d033",
+        "d237",
+        "d238",
+        "d035"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1725,7 +1747,9 @@
       "caseId": "case-13",
       "summaryOf": "d057",
       "alsoSummarizes": [
-        "d185"
+        "d053",
+        "d054",
+        "d049"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1753,6 +1777,10 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d048",
+      "alsoSummarizes": [
+        "d058",
+        "d052"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "fx.streak-ring",
@@ -1766,6 +1794,9 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d062",
+      "alsoSummarizes": [
+        "d061"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "particle.premult",
@@ -1780,8 +1811,7 @@
       "caseId": "case-ext01",
       "summaryOf": "d029",
       "alsoSummarizes": [
-        "d031",
-        "d068"
+        "d031"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1795,8 +1825,18 @@
       "section": "2",
       "kind": "summary",
       "caseId": "case-02",
-      "summaryOf": "d044",
-      "link": "gist",
+      "summaryOf": "d043",
+      "alsoSummarizes": [
+        "d039",
+        "d036",
+        "d041",
+        "d042",
+        "d232",
+        "d233",
+        "d040",
+        "d241"
+      ],
+      "link": "values",
       "route": "card-coupled",
       "cardId": "particle.ballistic",
       "target": "particle.ballistic",
@@ -1808,17 +1848,21 @@
       "section": "2",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d084",
+      "summaryOf": "d061",
       "alsoSummarizes": [
-        "d095",
-        "d098",
+        "d126",
+        "d155",
+        "d080",
         "d151",
-        "d061"
+        "d016",
+        "d248",
+        "d023",
+        "d128"
       ],
       "link": "values",
       "route": "card-coupled",
-      "cardId": "post.volumetric",
-      "target": "post.volumetric",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "targets": []
     },
     {
@@ -1829,10 +1873,14 @@
       "caseId": "case-13",
       "summaryOf": "d054",
       "alsoSummarizes": [
+        "d052",
+        "d151",
+        "d053",
+        "d259",
+        "d058",
         "d051",
         "d155",
-        "d259",
-        "d119"
+        "d099"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1848,10 +1896,8 @@
       "caseId": "case-13",
       "summaryOf": "d058",
       "alsoSummarizes": [
-        "d057",
-        "d054",
-        "d056",
-        "d259"
+        "d259",
+        "d155"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1880,7 +1926,8 @@
       "caseId": "case-ext01",
       "summaryOf": "d066",
       "alsoSummarizes": [
-        "d031"
+        "d031",
+        "d030"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1896,7 +1943,9 @@
       "caseId": "case-ext01",
       "summaryOf": "d090",
       "alsoSummarizes": [
-        "d027"
+        "d027",
+        "d030",
+        "d029"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1912,6 +1961,7 @@
       "caseId": "case-02",
       "summaryOf": "d034",
       "alsoSummarizes": [
+        "d036",
         "d007"
       ],
       "link": "values",
@@ -1929,9 +1979,10 @@
       "summaryOf": "d056",
       "alsoSummarizes": [
         "d084",
-        "d098",
-        "d082",
-        "d095"
+        "d053",
+        "d095",
+        "d093",
+        "d117"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -1949,8 +2000,7 @@
       "alsoSummarizes": [
         "d084",
         "d093",
-        "d099",
-        "d155"
+        "d099"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -2420,8 +2470,7 @@
       "summaryOf": "d065",
       "alsoSummarizes": [
         "d086",
-        "d066",
-        "d137"
+        "d066"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -2448,15 +2497,15 @@
       "section": "3",
       "kind": "summary",
       "caseId": "case-ext01",
-      "summaryOf": "d089",
+      "summaryOf": "d069",
       "alsoSummarizes": [
-        "d069",
+        "d089",
         "d377"
       ],
       "link": "values",
       "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": []
     },
     {
@@ -2468,7 +2517,8 @@
       "summaryOf": "d035",
       "alsoSummarizes": [
         "d214",
-        "d237"
+        "d237",
+        "d238"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -2485,9 +2535,13 @@
       "summaryOf": "d082",
       "alsoSummarizes": [
         "d084",
+        "d098",
+        "d095",
         "d023",
         "d093",
-        "d128"
+        "d128",
+        "d083",
+        "d120"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -2501,17 +2555,21 @@
       "section": "3",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d120",
+      "summaryOf": "d080",
       "alsoSummarizes": [
         "d262",
         "d084",
+        "d095",
+        "d120",
+        "d168",
+        "d255",
         "d016",
         "d057"
       ],
       "link": "values",
       "route": "card-coupled",
-      "cardId": "fx.breath",
-      "target": "fx.breath",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
       "targets": []
     },
     {
@@ -2520,10 +2578,13 @@
       "section": "3",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d016",
+      "summaryOf": "d082",
       "alsoSummarizes": [
-        "d132",
         "d080",
+        "d074",
+        "d084",
+        "d016",
+        "d132",
         "d098",
         "d115"
       ],
@@ -2905,10 +2966,13 @@
       "caseId": "case-13",
       "summaryOf": "d096",
       "alsoSummarizes": [
+        "d095",
         "d098",
         "d099",
         "d084",
-        "d095"
+        "d228",
+        "d093",
+        "d120"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -2923,6 +2987,9 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d098",
+      "alsoSummarizes": [
+        "d095"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "fx.streak-ring",
@@ -2937,8 +3004,10 @@
       "caseId": "case-13",
       "summaryOf": "d098",
       "alsoSummarizes": [
+        "d095",
+        "d093",
         "d150",
-        "d093"
+        "d099"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -2952,12 +3021,16 @@
       "section": "4",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d100",
+      "summaryOf": "d093",
       "alsoSummarizes": [
+        "d100",
         "d098",
-        "d093",
-        "d084",
-        "d128"
+        "d097",
+        "d058",
+        "d155",
+        "d151",
+        "d099",
+        "d125"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3128,9 +3201,13 @@
       "summaryOf": "d121",
       "alsoSummarizes": [
         "d126",
-        "d099",
         "d119",
-        "d120"
+        "d120",
+        "d110",
+        "d099",
+        "d058",
+        "d125",
+        "d153"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3146,10 +3223,14 @@
       "caseId": "case-13",
       "summaryOf": "d121",
       "alsoSummarizes": [
+        "d130",
         "d117",
+        "d122",
+        "d132",
         "d228",
         "d095",
-        "d250"
+        "d250",
+        "d116"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3165,10 +3246,14 @@
       "caseId": "case-13",
       "summaryOf": "d121",
       "alsoSummarizes": [
-        "d120",
         "d126",
+        "d120",
         "d093",
-        "d217"
+        "d098",
+        "d114",
+        "d130",
+        "d115",
+        "d125"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3184,10 +3269,14 @@
       "caseId": "case-13",
       "summaryOf": "d121",
       "alsoSummarizes": [
+        "d126",
         "d132",
         "d093",
-        "d126",
-        "d217"
+        "d130",
+        "d133",
+        "d120",
+        "d124",
+        "d128"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3203,10 +3292,14 @@
       "caseId": "case-13",
       "summaryOf": "d121",
       "alsoSummarizes": [
-        "d098",
         "d120",
+        "d098",
+        "d130",
+        "d128",
         "d093",
-        "d128"
+        "d155",
+        "d115",
+        "d125"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3225,7 +3318,10 @@
         "d124",
         "d126",
         "d120",
-        "d093"
+        "d093",
+        "d121",
+        "d132",
+        "d128"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3241,10 +3337,10 @@
       "caseId": "case-02",
       "summaryOf": "d102",
       "alsoSummarizes": [
+        "d039",
+        "d214",
         "d232",
-        "d253",
-        "d212",
-        "d241"
+        "d253"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3260,9 +3356,13 @@
       "caseId": "case-13",
       "summaryOf": "d106",
       "alsoSummarizes": [
-        "d185",
         "d117",
         "d121",
+        "d108",
+        "d185",
+        "d126",
+        "d124",
+        "d122",
         "d093"
       ],
       "link": "values",
@@ -3280,9 +3380,13 @@
       "summaryOf": "d126",
       "alsoSummarizes": [
         "d128",
+        "d130",
         "d098",
-        "d016",
-        "d130"
+        "d155",
+        "d117",
+        "d121",
+        "d132",
+        "d131"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3298,10 +3402,14 @@
       "caseId": "case-13",
       "summaryOf": "d128",
       "alsoSummarizes": [
-        "d098",
+        "d126",
         "d099",
-        "d023",
-        "d120"
+        "d120",
+        "d122",
+        "d124",
+        "d155",
+        "d132",
+        "d098"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3316,6 +3424,12 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d129",
+      "alsoSummarizes": [
+        "d126",
+        "d120",
+        "d122",
+        "d117"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "wind.gust-wake",
@@ -3330,10 +3444,14 @@
       "caseId": "case-13",
       "summaryOf": "d130",
       "alsoSummarizes": [
-        "d080",
+        "d126",
         "d121",
+        "d128",
+        "d080",
+        "d120",
         "d248",
-        "d128"
+        "d098",
+        "d132"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3350,9 +3468,13 @@
       "summaryOf": "d131",
       "alsoSummarizes": [
         "d126",
-        "d016",
         "d120",
-        "d098"
+        "d114",
+        "d117",
+        "d130",
+        "d016",
+        "d132",
+        "d116"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3369,8 +3491,13 @@
       "summaryOf": "d132",
       "alsoSummarizes": [
         "d120",
-        "d248",
-        "d116"
+        "d116",
+        "d126",
+        "d131",
+        "d124",
+        "d128",
+        "d127",
+        "d248"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3385,6 +3512,16 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d114",
+      "alsoSummarizes": [
+        "d126",
+        "d121",
+        "d122",
+        "d132",
+        "d112",
+        "d116",
+        "d117",
+        "d128"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "fx.streak-ring",
@@ -3885,7 +4022,8 @@
       "caseId": "case-13",
       "summaryOf": "d145",
       "alsoSummarizes": [
-        "d149"
+        "d149",
+        "d151"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -3900,6 +4038,9 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d149",
+      "alsoSummarizes": [
+        "d151"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "fx.streak-ring",
@@ -3916,7 +4057,8 @@
       "alsoSummarizes": [
         "d115",
         "d023",
-        "d120"
+        "d120",
+        "d153"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4166,10 +4308,14 @@
       "caseId": "case-13",
       "summaryOf": "d157",
       "alsoSummarizes": [
-        "d156",
-        "d117",
         "d120",
-        "d082"
+        "d156",
+        "d058",
+        "d117",
+        "d159",
+        "d248",
+        "d084",
+        "d132"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4185,10 +4331,8 @@
       "caseId": "case-13",
       "summaryOf": "d159",
       "alsoSummarizes": [
-        "d132",
         "d120",
-        "d153",
-        "d099"
+        "d132"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4204,6 +4348,7 @@
       "caseId": "case-13",
       "summaryOf": "d156",
       "alsoSummarizes": [
+        "d161",
         "d121"
       ],
       "link": "values",
@@ -4221,9 +4366,13 @@
       "summaryOf": "d161",
       "alsoSummarizes": [
         "d128",
-        "d098",
         "d084",
-        "d095"
+        "d095",
+        "d098",
+        "d132",
+        "d155",
+        "d126",
+        "d185"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4240,9 +4389,13 @@
       "summaryOf": "d162",
       "alsoSummarizes": [
         "d120",
-        "d217",
         "d093",
-        "d150"
+        "d217",
+        "d161",
+        "d150",
+        "d155",
+        "d185",
+        "d159"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4387,9 +4540,6 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d168",
-      "alsoSummarizes": [
-        "d120"
-      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "camera.shake",
@@ -4405,9 +4555,13 @@
       "summaryOf": "d171",
       "alsoSummarizes": [
         "d098",
+        "d155",
+        "d061",
+        "d093",
         "d116",
         "d121",
-        "d126"
+        "d126",
+        "d132"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4423,10 +4577,14 @@
       "caseId": "case-13",
       "summaryOf": "d167",
       "alsoSummarizes": [
+        "d178",
         "d165",
+        "d098",
+        "d171",
         "d120",
         "d084",
-        "d178"
+        "d099",
+        "d172"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4445,7 +4603,8 @@
         "d177",
         "d178",
         "d180",
-        "d084"
+        "d084",
+        "d206"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4462,9 +4621,12 @@
       "summaryOf": "d177",
       "alsoSummarizes": [
         "d179",
+        "d175",
+        "d180",
+        "d120",
         "d155",
-        "d051",
-        "d175"
+        "d172",
+        "d051"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4607,8 +4769,8 @@
       "kind": "detail",
       "caseId": "case-13",
       "route": "card-coupled",
-      "cardId": "fx.streak-ring",
-      "target": "fx.streak-ring",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
         "fx-ui.d176.card"
       ]
@@ -4713,6 +4875,7 @@
       "summaryOf": "d185",
       "alsoSummarizes": [
         "d099",
+        "d126",
         "d120",
         "d119",
         "d230"
@@ -4731,9 +4894,13 @@
       "caseId": "case-13",
       "summaryOf": "d186",
       "alsoSummarizes": [
+        "d185",
         "d084",
         "d095",
-        "d248"
+        "d248",
+        "d259",
+        "d079",
+        "d128"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4750,6 +4917,11 @@
       "summaryOf": "d081",
       "alsoSummarizes": [
         "d250",
+        "d185",
+        "d125",
+        "d181",
+        "d126",
+        "d093",
         "d248",
         "d099"
       ],
@@ -4778,11 +4950,9 @@
       "section": "9",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "wind.gust-wake",
-      "target": "wind.gust-wake",
+      "route": "practice",
       "targets": [
-        "fx-ui.d184.card"
+        "fx-ui.d184.practice"
       ]
     },
     {
@@ -4830,12 +5000,16 @@
       "section": "10",
       "kind": "summary",
       "caseId": "case-02",
-      "summaryOf": "d237",
+      "summaryOf": "d035",
       "alsoSummarizes": [
-        "d035",
         "d238",
+        "d237",
+        "d239",
+        "d007",
         "d233",
-        "d239"
+        "d044",
+        "d241",
+        "d243"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4851,10 +5025,12 @@
       "caseId": "case-13",
       "summaryOf": "d187",
       "alsoSummarizes": [
+        "d188",
+        "d120",
         "d084",
         "d095",
         "d098",
-        "d188"
+        "d122"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4870,9 +5046,8 @@
       "caseId": "case-13",
       "summaryOf": "d188",
       "alsoSummarizes": [
-        "d099",
-        "d150",
-        "d172"
+        "d120",
+        "d150"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4888,7 +5063,8 @@
       "caseId": "case-13",
       "summaryOf": "d193",
       "alsoSummarizes": [
-        "d120"
+        "d120",
+        "d187"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -4903,6 +5079,13 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d190",
+      "alsoSummarizes": [
+        "d083",
+        "d084",
+        "d096",
+        "d120",
+        "d165"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "post.bloom",
@@ -5025,9 +5208,6 @@
       "kind": "summary",
       "caseId": "case-17",
       "summaryOf": "d197",
-      "alsoSummarizes": [
-        "d316"
-      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "fx.streak-ring",
@@ -5207,9 +5387,11 @@
       "section": "12",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "page.det2d",
+      "target": "page.det2d",
       "targets": [
-        "fx-ui.d203.practice"
+        "fx-ui.d203.card"
       ]
     },
     {
@@ -5244,6 +5426,9 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d208",
+      "alsoSummarizes": [
+        "d209"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "page.det2d",
@@ -5295,9 +5480,7 @@
       "caseId": "case-ext03",
       "summaryOf": "d340",
       "link": "gist",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "portable",
       "targets": []
     },
     {
@@ -5308,10 +5491,10 @@
       "caseId": "case-13",
       "summaryOf": "d206",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "fx-ui.sum.s098"
+      ]
     },
     {
       "sourceId": "s099",
@@ -5387,11 +5570,9 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
+      "route": "portable",
       "targets": [
-        "fx-ui.d206.card"
+        "fx-ui.d206.display-color"
       ]
     },
     {
@@ -5426,11 +5607,11 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
+      "route": "portable",
       "targets": [
-        "fx-ui.d209.card"
+        "fx-ui.d209.resolution",
+        "fx-ui.d209.font-size",
+        "fx-ui.d209.pixels"
       ]
     },
     {
@@ -5465,11 +5646,9 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
+      "route": "portable",
       "targets": [
-        "fx-ui.d212.card"
+        "fx-ui.d212.display-color"
       ]
     },
     {
@@ -5478,11 +5657,9 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
+      "route": "portable",
       "targets": [
-        "fx-ui.d213.card"
+        "fx-ui.d213.display-color"
       ]
     },
     {
@@ -5521,8 +5698,7 @@
       "alsoSummarizes": [
         "d261",
         "d084",
-        "d230",
-        "d120"
+        "d230"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -5584,12 +5760,11 @@
       "section": "15",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d220",
+      "summaryOf": "d221",
       "alsoSummarizes": [
-        "d221",
-        "d250",
-        "d057",
-        "d099"
+        "d220",
+        "d228",
+        "d155"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -5605,8 +5780,7 @@
       "caseId": "case-02",
       "summaryOf": "d231",
       "alsoSummarizes": [
-        "d239",
-        "d253"
+        "d233"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -5624,13 +5798,14 @@
       "alsoSummarizes": [
         "d250",
         "d228",
+        "d217",
         "d120"
       ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "fx-ui.sum.s107"
+      ]
     },
     {
       "sourceId": "s108",
@@ -5705,7 +5880,6 @@
       "caseId": "case-13",
       "route": "portable",
       "targets": [
-        "fx-ui.d224.interval",
         "fx-ui.d224.duration",
         "fx-ui.d224.pixels"
       ]
@@ -5741,11 +5915,10 @@
       "section": "15",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
+      "route": "portable",
       "targets": [
-        "fx-ui.d227.card"
+        "fx-ui.d227.duration",
+        "fx-ui.d227.transition-time"
       ]
     },
     {
@@ -5754,11 +5927,11 @@
       "section": "15",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "portable",
       "targets": [
-        "fx-ui.d228.card"
+        "fx-ui.d228.duration",
+        "fx-ui.d228.transition-time",
+        "fx-ui.d228.angle"
       ]
     },
     {
@@ -5847,7 +6020,12 @@
       "caseId": "case-02",
       "summaryOf": "d237",
       "alsoSummarizes": [
-        "d214"
+        "d214",
+        "d238",
+        "d236",
+        "d239",
+        "d241",
+        "d252"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -5863,7 +6041,9 @@
       "caseId": "case-02",
       "summaryOf": "d237",
       "alsoSummarizes": [
-        "d214"
+        "d239",
+        "d214",
+        "d236"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -5879,9 +6059,7 @@
       "caseId": "case-02",
       "summaryOf": "d239",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
+      "route": "portable",
       "targets": []
     },
     {
@@ -5892,7 +6070,8 @@
       "caseId": "case-02",
       "summaryOf": "d237",
       "alsoSummarizes": [
-        "d239"
+        "d239",
+        "d241"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -5908,7 +6087,8 @@
       "caseId": "case-02",
       "summaryOf": "d237",
       "alsoSummarizes": [
-        "d239"
+        "d239",
+        "d243"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -5959,11 +6139,11 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "portable",
       "targets": [
-        "fx-ui.d238.card"
+        "fx-ui.d238.duration",
+        "fx-ui.d238.pixels",
+        "fx-ui.d238.length"
       ]
     },
     {
@@ -5972,11 +6152,13 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
+      "route": "portable",
       "targets": [
-        "fx-ui.d239.card"
+        "fx-ui.d239.duration",
+        "fx-ui.d239.grid-px",
+        "fx-ui.d239.pixels",
+        "fx-ui.d239.angle",
+        "fx-ui.d239.event-time"
       ]
     },
     {
@@ -6051,11 +6233,15 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d250",
+      "alsoSummarizes": [
+        "d247",
+        "d245"
+      ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "fx-ui.sum.s114"
+      ]
     },
     {
       "sourceId": "s115",
@@ -6079,11 +6265,11 @@
       "section": "17",
       "kind": "summary",
       "caseId": "case-01r",
-      "summaryOf": "d288",
+      "summaryOf": "d287",
       "link": "values",
       "route": "card-coupled",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
+      "cardId": "overlay.title",
+      "target": "overlay.title",
       "targets": []
     },
     {
@@ -6144,11 +6330,11 @@
       "section": "17",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
+      "route": "portable",
       "targets": [
-        "fx-ui.d249.card"
+        "fx-ui.d249.transition-time",
+        "fx-ui.d249.ratio",
+        "fx-ui.d249.pixels"
       ]
     },
     {
@@ -6157,11 +6343,10 @@
       "section": "17",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "portable",
       "targets": [
-        "fx-ui.d250.card"
+        "fx-ui.d250.transition-time",
+        "fx-ui.d250.duration"
       ]
     },
     {
@@ -6223,9 +6408,13 @@
       "summaryOf": "d258",
       "alsoSummarizes": [
         "d259",
+        "d261",
         "d155",
         "d217",
-        "d128"
+        "d128",
+        "d132",
+        "d057",
+        "d228"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -6254,9 +6443,13 @@
       "caseId": "case-13",
       "summaryOf": "d266",
       "alsoSummarizes": [
+        "d260",
+        "d259",
         "d132",
+        "d269",
         "d080",
         "d120",
+        "d151",
         "d250"
       ],
       "link": "values",
@@ -6299,6 +6492,7 @@
       "caseId": "case-13",
       "route": "portable",
       "targets": [
+        "fx-ui.d257.duration",
         "fx-ui.d257.transition-time",
         "fx-ui.d257.grid-px",
         "fx-ui.d257.angle"
@@ -6426,6 +6620,9 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d267",
+      "alsoSummarizes": [
+        "d259"
+      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "layout.panels",
@@ -6513,10 +6710,9 @@
       "section": "19",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d272.pixels",
-        "fx-ui.d272.duration"
+        "fx-ui.d272.practice"
       ]
     },
     {
@@ -6588,11 +6784,9 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "card-coupled",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
+      "route": "portable",
       "targets": [
-        "fx-ui.d276.card"
+        "fx-ui.d276.display-color"
       ]
     },
     {
@@ -6640,9 +6834,11 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.anchored",
+      "target": "overlay.anchored",
       "targets": [
-        "fx-ui.d280.grid-px"
+        "fx-ui.d280.card"
       ]
     },
     {
@@ -6651,11 +6847,10 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "card-coupled",
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
+      "route": "portable",
       "targets": [
-        "fx-ui.d281.card"
+        "fx-ui.d281.pixels",
+        "fx-ui.d281.frame-count"
       ]
     },
     {
@@ -6716,11 +6911,12 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "card-coupled",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
+      "route": "portable",
       "targets": [
-        "fx-ui.d286.card"
+        "fx-ui.d286.length",
+        "fx-ui.d286.pixels",
+        "fx-ui.d286.corner-radius",
+        "fx-ui.d286.grid-px"
       ]
     },
     {
@@ -7109,11 +7305,11 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-12",
-      "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
+      "route": "portable",
       "targets": [
-        "fx-ui.d315.card"
+        "fx-ui.d315.speed",
+        "fx-ui.d315.length",
+        "fx-ui.d315.duration"
       ]
     },
     {
@@ -7146,9 +7342,9 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-32",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d318.resolution"
+        "fx-ui.d318.practice"
       ]
     },
     {
@@ -7159,14 +7355,16 @@
       "caseId": "case-05",
       "summaryOf": "d330",
       "alsoSummarizes": [
+        "d331",
+        "d333",
         "d334",
-        "d331"
+        "d335"
       ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "fx-ui.sum.s128"
+      ]
     },
     {
       "sourceId": "s129",
@@ -7190,8 +7388,9 @@
       "summaryOf": "d327",
       "alsoSummarizes": [
         "d324",
+        "d328",
         "d325",
-        "d328"
+        "d326"
       ],
       "link": "values",
       "route": "card-coupled",
@@ -7325,11 +7524,9 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-23",
-      "route": "card-coupled",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
+      "route": "practice",
       "targets": [
-        "fx-ui.d329.card"
+        "fx-ui.d329.practice"
       ]
     },
     {
@@ -7338,11 +7535,11 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-05",
-      "route": "card-coupled",
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
+      "route": "portable",
       "targets": [
-        "fx-ui.d330.card"
+        "fx-ui.d330.fill-ratio",
+        "fx-ui.d330.frame-count",
+        "fx-ui.d330.ratio"
       ]
     },
     {
@@ -7351,11 +7548,11 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-05",
-      "route": "card-coupled",
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
+      "route": "portable",
       "targets": [
-        "fx-ui.d331.card"
+        "fx-ui.d331.grid-cell",
+        "fx-ui.d331.grid-px",
+        "fx-ui.d331.pixels"
       ]
     },
     {
@@ -7377,11 +7574,11 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-05",
-      "route": "card-coupled",
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
+      "route": "portable",
       "targets": [
-        "fx-ui.d333.card"
+        "fx-ui.d333.fill-ratio",
+        "fx-ui.d333.frame-count",
+        "fx-ui.d333.pixels"
       ]
     },
     {
@@ -7416,11 +7613,10 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-05",
-      "route": "card-coupled",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
+      "route": "portable",
       "targets": [
-        "fx-ui.d336.card"
+        "fx-ui.d336.frame-count",
+        "fx-ui.d336.distance"
       ]
     },
     {
@@ -7457,10 +7653,10 @@
       "caseId": "case-ext03",
       "summaryOf": "d347",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "fx-ui.sum.s131"
+      ]
     },
     {
       "sourceId": "s132",
@@ -7494,9 +7690,7 @@
       "caseId": "case-ext03",
       "summaryOf": "d346",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "portable",
       "targets": []
     },
     {
@@ -7516,11 +7710,12 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "portable",
       "targets": [
-        "fx-ui.d340.card"
+        "fx-ui.d340.display-color",
+        "fx-ui.d340.area-ratio",
+        "fx-ui.d340.corner-radius",
+        "fx-ui.d340.angle"
       ]
     },
     {
@@ -7540,11 +7735,9 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "portable",
       "targets": [
-        "fx-ui.d342.card"
+        "fx-ui.d342.display-color"
       ]
     },
     {
@@ -7564,11 +7757,9 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "portable",
       "targets": [
-        "fx-ui.d344.card"
+        "fx-ui.d344.display-color"
       ]
     },
     {
@@ -7588,11 +7779,10 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "portable",
       "targets": [
-        "fx-ui.d346.card"
+        "fx-ui.d346.display-color",
+        "fx-ui.d346.ratio"
       ]
     },
     {
@@ -7601,11 +7791,11 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "portable",
       "targets": [
-        "fx-ui.d347.card"
+        "fx-ui.d347.display-color",
+        "fx-ui.d347.pixels",
+        "fx-ui.d347.duration"
       ]
     },
     {
@@ -7614,11 +7804,9 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "practice",
       "targets": [
-        "fx-ui.d348.card"
+        "fx-ui.d348.practice"
       ]
     },
     {
@@ -7631,6 +7819,7 @@
       "targets": [
         "fx-ui.d349.ratio",
         "fx-ui.d349.frame-count",
+        "fx-ui.d349.interval",
         "fx-ui.d349.duration"
       ]
     },
@@ -7640,11 +7829,9 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "portable",
       "targets": [
-        "fx-ui.d350.card"
+        "fx-ui.d350.display-color"
       ]
     },
     {
@@ -7713,6 +7900,10 @@
       "kind": "summary",
       "caseId": "case-29",
       "summaryOf": "d363",
+      "alsoSummarizes": [
+        "d364",
+        "d368"
+      ],
       "link": "values",
       "route": "portable",
       "targets": [
@@ -7727,10 +7918,10 @@
       "caseId": "case-25",
       "summaryOf": "d374",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "fx-ui.sum.s138"
+      ]
     },
     {
       "sourceId": "s139",
@@ -7788,11 +7979,9 @@
       "section": "24",
       "kind": "detail",
       "caseId": "case-18",
-      "route": "card-coupled",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
+      "route": "practice",
       "targets": [
-        "fx-ui.d356.card"
+        "fx-ui.d356.practice"
       ]
     },
     {
@@ -7851,8 +8040,8 @@
       "targets": [
         "fx-ui.d361.display-color",
         "fx-ui.d361.resolution",
-        "fx-ui.d361.margin-px",
-        "fx-ui.d361.corner-radius"
+        "fx-ui.d361.corner-radius",
+        "fx-ui.d361.pixels"
       ]
     },
     {
@@ -7967,11 +8156,9 @@
       "section": "24",
       "kind": "detail",
       "caseId": "case-multi",
-      "route": "card-coupled",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
+      "route": "practice",
       "targets": [
-        "fx-ui.d371.card"
+        "fx-ui.d371.practice"
       ]
     },
     {
@@ -8004,11 +8191,13 @@
       "section": "24",
       "kind": "detail",
       "caseId": "case-25",
-      "route": "card-coupled",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
+      "route": "portable",
       "targets": [
-        "fx-ui.d374.card"
+        "fx-ui.d374.display-color",
+        "fx-ui.d374.resolution",
+        "fx-ui.d374.duration",
+        "fx-ui.d374.area-ratio",
+        "fx-ui.d374.grid-px"
       ]
     },
     {

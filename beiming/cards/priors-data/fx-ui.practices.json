@@ -114,6 +114,20 @@
       "docRef": "特效粒子界面二维汇编 · 第 8 节 · d170"
     },
     {
+      "id": "fx-ui.d184.practice",
+      "sourceId": "d184",
+      "section": "9",
+      "caseId": "case-13",
+      "title": "液滴+池涟漪同步",
+      "text": "液滴动画全在顶点着色器，落点处池面涟漪读同一套 aDrop 参数保持同步",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "特效粒子界面二维汇编 · 第 9 节 · d184"
+    },
+    {
       "id": "fx-ui.d194.practice",
       "sourceId": "d194",
       "section": "11",
@@ -212,20 +226,6 @@
       "docRef": "特效粒子界面二维汇编 · 第 11 节 · d201"
     },
     {
-      "id": "fx-ui.d203.practice",
-      "sourceId": "d203",
-      "section": "12",
-      "caseId": "case-13",
-      "title": "body类驱动界面变体",
-      "text": "body.touch/pad/kbm/cinema/photo/boss-on/menu-open/hud-off，所有CSS据此换样子JS只切类；CSS变量传尺寸：箭袋右边缘写--lf-quiver-r头目条用calc(100vw−2×var(--lf-quiver-r)−2.8rem)让位；will-change:transform与translate3d；body.reduce-motion与prefers-reduced-motion关掉引路叶浮动/光点/余烬与结算卡上升光点(reduce-motion写入点未找到)",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 12 节 · d203"
-    },
-    {
       "id": "fx-ui.d216.practice",
       "sourceId": "d216",
       "section": "14",
@@ -289,6 +289,31 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 17 节 · d251"
+    },
+    {
+      "id": "fx-ui.d272.practice",
+      "sourceId": "d272",
+      "section": "19",
+      "caseId": "case-13",
+      "title": "输入统一",
+      "text": "游戏逻辑只认默认键码；手柄和触屏往同一按键集合塞伪造键盘事件（ev.__padEv=true）；改键在 window 捕获阶段拦截真实键盘事件按映射表重发新 KeyboardEvent（__mapEv=true）并吞掉原事件，新键被占用时两键互换；提示用 data-pad/data-touch 两属性由 body.pad/body.touch 决定；设备判定：触摸→touch，鼠标真实移动>4 px 且距上次触摸>900 ms→kbm，手柄经 input-device 事件，启动默认 (pointer: coarse) 且无悬停→touch",
+      "quantities": [
+        {
+          "value": 4,
+          "unit": "px",
+          "rawUnit": "px"
+        },
+        {
+          "value": 900,
+          "unit": "ms",
+          "rawUnit": "ms"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "特效粒子界面二维汇编 · 第 19 节 · d272"
     },
     {
       "id": "fx-ui.d292.practice",
@@ -442,6 +467,20 @@
       "docRef": "特效粒子界面二维汇编 · 第 21 节 · d317"
     },
     {
+      "id": "fx-ui.d318.practice",
+      "sourceId": "d318",
+      "section": "21",
+      "caseId": "case-32",
+      "title": "静态广告多语言本地化",
+      "text": "某虚构配色主题广告改写多语种；处理措辞、换行、版式容纳；参考图1080×1080",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "特效粒子界面二维汇编 · 第 21 节 · d318"
+    },
+    {
       "id": "fx-ui.d320.practice",
       "sourceId": "d320",
       "section": "22",
@@ -482,6 +521,20 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 22 节 · d322"
+    },
+    {
+      "id": "fx-ui.d329.practice",
+      "sourceId": "d329",
+      "section": "22",
+      "caseId": "case-23",
+      "title": "与 005 同路数",
+      "text": "多个带名字光标一起装配的界面写法与 案例 05 片头界面（10 个带人名光标、爆炸进度、顶点/面数状态栏）同一路数",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "特效粒子界面二维汇编 · 第 22 节 · d329"
     },
     {
       "id": "fx-ui.d339.practice",
@@ -551,6 +604,26 @@
       "docRef": "特效粒子界面二维汇编 · 第 23 节 · d345"
     },
     {
+      "id": "fx-ui.d348.practice",
+      "sourceId": "d348",
+      "section": "23",
+      "caseId": "case-ext03",
+      "title": "2D+3D 混合风格规则",
+      "text": "3D 层永远全光照 PBR+柔和接触阴影+真实物理;2D 层永远纯色平涂、零渐变零描边、不受光不投影(仅可在 3D 玻璃/铬上有镜像反射);两层可发生物理互动(角色跳书使 3D 书倾斜 2°)但不交换渲染属性;强调色 #D1EF17 两层必须完全一致作为桥；冲突：两层必须完全一致的强调色写 #D1EF17，其余多处为 #D1FE17。未核实。",
+      "quantities": [
+        {
+          "value": 2,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d348"
+    },
+    {
       "id": "fx-ui.d351.practice",
       "sourceId": "d351",
       "section": "23",
@@ -577,6 +650,20 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 23 节 · d353"
+    },
+    {
+      "id": "fx-ui.d356.practice",
+      "sourceId": "d356",
+      "section": "24",
+      "caseId": "case-18",
+      "title": "角标",
+      "text": "右上约 x1594–1862、y96–202 “某生成平台 某代码模型”，任务书没要，推断是平台叠加；冲突：右上角「某生成平台 某代码模型」角标，本条推断为平台叠加；见下面「水印位置」与「角标不能当重压证据」两条，作者原文件里确有，且 026 请求原文写明是制作代理按请求自己加的。019/原复盘写「平台叠加」，未改，冲突未解。",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "特效粒子界面二维汇编 · 第 24 节 · d356"
     },
     {
       "id": "fx-ui.d362.practice",
@@ -611,6 +698,20 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 24 节 · d366"
+    },
+    {
+      "id": "fx-ui.d371.practice",
+      "sourceId": "d371",
+      "section": "24",
+      "caseId": "case-multi",
+      "title": "“某生成平台 某代码模型”角标不能当重压证据",
+      "text": "023、026 作者原文件都带它，026 请求原文写明是代理自己加的；019 复盘写“平台叠加”与此冲突，没改；冲突：023、026 作者原文件都带角标，026 请求原文写明是代理自己加的；019 复盘写「平台叠加」与此冲突，没改。",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "特效粒子界面二维汇编 · 第 24 节 · d371"
     }
   ]
 }

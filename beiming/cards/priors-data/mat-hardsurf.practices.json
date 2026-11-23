@@ -44,20 +44,6 @@
       "docRef": "材质与硬表面建模汇编 · 第 1 节 · d032"
     },
     {
-      "id": "mat-hardsurf.d056.practice",
-      "sourceId": "d056",
-      "section": "1",
-      "caseId": "case-01-legacy",
-      "title": "通用凹凸（v3）",
-      "text": "Noise Detail 6，Bump Distance 0.0002，Strength=bump 值。",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 1 节 · d056"
-    },
-    {
       "id": "mat-hardsurf.d058.practice",
       "sourceId": "d058",
       "section": "1",
@@ -126,20 +112,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 1 节 · d071"
-    },
-    {
-      "id": "mat-hardsurf.d089.practice",
-      "sourceId": "d089",
-      "section": "1",
-      "caseId": "case-13",
-      "title": "specularF90",
-      "text": "铁件（非镶嵌）降到 0.4，金件×0.78",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 1 节 · d089"
     },
     {
       "id": "mat-hardsurf.d097.practice",
@@ -212,20 +184,6 @@
       "docRef": "材质与硬表面建模汇编 · 第 4 节 · d213"
     },
     {
-      "id": "mat-hardsurf.d224.practice",
-      "sourceId": "d224",
-      "section": "5",
-      "caseId": "case-13",
-      "title": "琥珀材质开关",
-      "text": "transparent:true depthWrite:true noShadow:true 缓存键后缀 -shell3；amberMesh.renderOrder=2；着色器“unrolled, no loops/fetches”，4 个命中点手写展开",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 5 节 · d224（案例 13 第 15 章）"
-    },
-    {
       "id": "mat-hardsurf.d229.practice",
       "sourceId": "d229",
       "section": "5",
@@ -266,20 +224,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 6 节 · d247"
-    },
-    {
-      "id": "mat-hardsurf.d249.practice",
-      "sourceId": "d249",
-      "section": "6",
-      "caseId": "case-13",
-      "title": "热标记含义",
-      "text": "热标记 1=笼/铃/高跷脚的灰金热边，2=火笼铁",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 6 节 · d249（案例 13 第 14 章）"
     },
     {
       "id": "mat-hardsurf.d281.practice",
@@ -433,76 +377,6 @@
       "docRef": "材质与硬表面建模汇编 · 第 12 节 · d443"
     },
     {
-      "id": "mat-hardsurf.d451.practice",
-      "sourceId": "d451",
-      "section": "12",
-      "caseId": "case-13",
-      "title": "共享材质与缓存键",
-      "text": "oak/charred/iron/rust/bronze/wax/gold 来自 getKitMaterials()；缓存键 cath-stone-v5/-v5p(proc)/-lite/-gl、cath-floor-v5-lite/-v5-gl、cath-glass-v4、cath-gate-v1、cath-grille-v1、cath-tuft-v1、lf-northdoor-hinge",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 12 节 · d451"
-    },
-    {
-      "id": "mat-hardsurf.d460.practice",
-      "sourceId": "d460",
-      "section": "12",
-      "caseId": "case-13",
-      "title": "贴图缓存键",
-      "text": "tree.trunk.bark|h|v1、floor|h|v1、scar|h|v1、tick|h|v2、hide|h|v2；plank|{W}|v2；tree.roots.bark|high|v6、|mobile|v6；tree.zone_13 .amber|{tier}|{aw}|v2——键内写尺寸档+版本号，改算法就升版本",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 12 节 · d460"
-    },
-    {
-      "id": "mat-hardsurf.d461.practice",
-      "sourceId": "d461",
-      "section": "12",
-      "caseId": "case-13",
-      "title": "贴图缓存键",
-      "text": "tree.roots.hallLeaves|{mobile|high}|v3；tree.roots.oathStone|high|v4 / mobile|v2；tree.town.daubT|256|21|v2；着色器键 cloister-weather-v2、arcade-hall-ribbon-v19t、arcade-interior-room-v19、arcade-hallLeaves-v19t、tree-oath-stone-pom-v19、tree-zone_21 -floor-v19t",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 12 节 · d461"
-    },
-    {
-      "id": "mat-hardsurf.d462.practice",
-      "sourceId": "d462",
-      "section": "12",
-      "caseId": "case-13",
-      "title": "着色器缓存键清单",
-      "text": "lf-drift-rock、lf-shield-wood、lf-giant-leaf-v19d-{0|1}、lf-tree-far-v19(-m)、lf-sap-wood-v19|{N}、lf-sap-floor-v19|{N}、lf-sap-liquid-v19|{N}、lf-sap-knights-v19d、lf-sap-drop-v1、lf-sap-story-v3",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 12 节 · d462"
-    },
-    {
-      "id": "mat-hardsurf.d463.practice",
-      "sourceId": "d463",
-      "section": "12",
-      "caseId": "case-13",
-      "title": "三向投影不用 UV",
-      "text": "盔甲用局部坐标三向投影 uTexScale=1/0.42；一张 RGBA 当四种遮罩；蒙皮角色花纹用静止姿势（绑定姿势空间 space:\"rest\"）坐标做噪声输入，动起来花纹不滑",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 12 节 · d463"
-    },
-    {
       "id": "mat-hardsurf.d464.practice",
       "sourceId": "d464",
       "section": "12",
@@ -515,20 +389,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 12 节 · d464"
-    },
-    {
-      "id": "mat-hardsurf.d468.practice",
-      "sourceId": "d468",
-      "section": "12",
-      "caseId": "case-01r",
-      "title": "材质名单契约",
-      "text": "建模助手只能 mats.get(\"名字\");21个名字固定(frame_dark,fin_black,fan_blade,pcb_black,copper,die,fan_hub,pad_white,frame_black,frame_edge…);未登记名字显示品红一眼可见;spec.MATERIALS前6个为frame_dark,frame_black,frame_edge,fin_black,fan_blade,fan_hub",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 12 节 · d468"
     },
     {
       "id": "mat-hardsurf.d469.practice",
@@ -724,41 +584,6 @@
       "docRef": "材质与硬表面建模汇编 · 第 13 节 · d485"
     },
     {
-      "id": "mat-hardsurf.d486.practice",
-      "sourceId": "d486",
-      "section": "13",
-      "caseId": "case-072",
-      "title": "库外来源 072 胶片质感前缀",
-      "text": "Style：8K、photorealism、真实有机胶片颗粒与halation、HDR、大画幅胶片拍摄，NOT 3D render/game engine/cartoon/anime cel-shading；Texture：哑光非反射表面、使用感材质、有机65mm颗粒、无数码光泽无塑料感；Skin：毛孔级真实、细汗毛、自然不对称、无磨皮；Technical：real-time 24fps、真180度快门(1/48秒曝光)、真实摄影运动模糊，无闪烁/形变/插帧/帧混合/鬼影；手持抖动来自真实扛机操作员而非破碎帧",
-      "quantities": [
-        {
-          "value": 65,
-          "unit": "mm",
-          "rawUnit": "mm"
-        },
-        {
-          "value": 24,
-          "unit": "fps",
-          "rawUnit": "fps"
-        },
-        {
-          "value": 180,
-          "unit": "deg",
-          "rawUnit": "度"
-        },
-        {
-          "value": 0.020833,
-          "unit": "s",
-          "rawUnit": "秒"
-        }
-      ],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 13 节 · d486"
-    },
-    {
       "id": "mat-hardsurf.d488.practice",
       "sourceId": "d488",
       "section": "13",
@@ -821,62 +646,6 @@
       "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d501"
     },
     {
-      "id": "mat-hardsurf.d508.practice",
-      "sourceId": "d508",
-      "section": "H1",
-      "caseId": "case-13",
-      "title": "lathe 车削规则",
-      "text": "剖面点先 Catmull-Rom 平滑(crProfile)；纵向分段=(剖面点数-1)×sub(默认 3)，横向 seg 默认 28；可只车一段角度(phi0/phiLen)、横向压扁(sx/sz)、传 deform(o,θ,v) 逐点变形",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d508"
-    },
-    {
-      "id": "mat-hardsurf.d509.practice",
-      "sourceId": "d509",
-      "section": "H1",
-      "caseId": "case-13",
-      "title": "latheRim",
-      "text": "沿车削体某一高度 v 绕一圈的管子作包边，40 段",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d509"
-    },
-    {
-      "id": "mat-hardsurf.d510.practice",
-      "sourceId": "d510",
-      "section": "H1",
-      "caseId": "case-13",
-      "title": "extrude 参数",
-      "text": "倒角 2 段、曲线 10 段，可带 holes",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d510"
-    },
-    {
-      "id": "mat-hardsurf.d511.practice",
-      "sourceId": "d511",
-      "section": "H1",
-      "caseId": "case-13",
-      "title": "rivetM",
-      "text": "半球铆钉按法线朝向，高度压成 0.55（h=.55）",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d511"
-    },
-    {
       "id": "mat-hardsurf.d513.practice",
       "sourceId": "d513",
       "section": "H1",
@@ -917,20 +686,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d521（案例 13 第 15 章）"
-    },
-    {
-      "id": "mat-hardsurf.d526.practice",
-      "sourceId": "d526",
-      "section": "H1",
-      "caseId": "case-13",
-      "title": "车削",
-      "text": "画侧面轮廓线绕竖轴转一圈：头目一胸甲前片 112×21、铃铛、行者长袍、钟",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d526"
     },
     {
       "id": "mat-hardsurf.d527.practice",
@@ -975,20 +730,6 @@
       "docRef": "材质与硬表面建模汇编 · 第 H2 节 · d533"
     },
     {
-      "id": "mat-hardsurf.d535.practice",
-      "sourceId": "d535",
-      "section": "H2",
-      "caseId": "case-01r",
-      "title": "`box`",
-      "text": "bmesh create_cube，倒角 segments=2、profile=0.5。",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 H2 节 · d535"
-    },
-    {
       "id": "mat-hardsurf.d540.practice",
       "sourceId": "d540",
       "section": "H2",
@@ -1015,20 +756,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 H2 节 · d542"
-    },
-    {
-      "id": "mat-hardsurf.d543.practice",
-      "sourceId": "d543",
-      "section": "H2",
-      "caseId": "case-03",
-      "title": "线缆是曲线",
-      "text": "3D 贝塞尔路径上按偏移排多根平行线，带抖动和扎带 bundle(..., ties=, spread=None, jitter=0.25)",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 H2 节 · d543"
     },
     {
       "id": "mat-hardsurf.d544.practice",
@@ -1101,6 +828,56 @@
       "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d603"
     },
     {
+      "id": "mat-hardsurf.d605.practice",
+      "sourceId": "d605",
+      "section": "H5",
+      "caseId": "case-03",
+      "title": "03 建模方法(头盔)",
+      "text": "逐层超椭圆放样(两张轮廓表)+布尔挖脸部凹腔/散热口台阶/5条横槽/后脑刻线;鸡冠=侧视轮廓拉成梯形体;V字天线/额头红件=凸包(天线5mm厚板根部弦长37mm下缘宽倒角);火神炮=圆柱+布尔(水滴形炮座向后收进圆顶,前端凹坑金色环+圆台炮口+黑膛);面罩/下巴/脸颊用凸包+布尔;原实现源码含材质/凸包/多边形拉伸/放样保形插值/布尔烘焙;建模原则:只建外面看得见的表面,头盔实心只挖脸凹腔和散热口,内骨架深色填充,脖子只做露出段和两根活塞",
+      "quantities": [
+        {
+          "value": 5,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 37,
+          "unit": "mm",
+          "rawUnit": "mm"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d605"
+    },
+    {
+      "id": "mat-hardsurf.d608.practice",
+      "sourceId": "d608",
+      "section": "H5",
+      "caseId": "case-03",
+      "title": "03 渲染对齐方法",
+      "text": "front/side/back正交相机取景与线稿裁切逐像素对齐;原实现源码线稿/渲染/叠图三联;原实现源码三个透视视图与实拍并排;原实现源码 --views front,side,back,p114,b2,isoback --samples 96 --tag v2;用已知3D尖点拟合照片相机再反投影轮廓,正面零件位置对到5px(约3mm)以内,但脸看起来仍不像(提取只含可见部分,眼片被阴影和红件遮)",
+      "quantities": [
+        {
+          "value": 5,
+          "unit": "px",
+          "rawUnit": "px"
+        },
+        {
+          "value": 3,
+          "unit": "mm",
+          "rawUnit": "mm"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d608"
+    },
+    {
       "id": "mat-hardsurf.d623.practice",
       "sourceId": "d623",
       "section": "H6",
@@ -1162,7 +939,7 @@
       "section": "H7",
       "caseId": "case-03",
       "title": "机械骨架规范(刚体不用蒙皮)",
-      "text": "“Don't deform rigid metal and plastic parts with smooth skinning”:颈三轴(Neck_Base, Neck_Mid, Head_Pivot);活塞用 Damped Track / Stretch To 或刚性活塞-缸连接,使每次倾头活塞真实伸缩;彩色线束随颈弹性弯曲但固定在黑色扎带下;下颌铰链(Jaw_Bone)带侧连杆与后阻尼同步;眼睛 Eye_L/Eye_R Track To 共享 Eye_LookAt_Target + 微扫视;Focus_Ring_L/R 旋转、光圈开合、镜片对焦前后微移(autofocus breathing);太阳穴大齿轮由头部转动和下颌开合经 Driver 驱动;脉冲白色传感指示灯与眼窝蓝环",
+      "text": "“Don't deform rigid metal and plastic parts with smooth skinning”:颈三轴(颈基骨, 颈中骨, 头枢轴);活塞用 Damped Track / Stretch To 或刚性活塞-缸连接,使每次倾头活塞真实伸缩;彩色线束随颈弹性弯曲但固定在黑色扎带下;下颌铰链(下颌骨)带侧连杆与后阻尼同步;眼睛 Eye_L/Eye_R Track To 共享 眼球注视目标 + 微扫视;左聚焦环/R 旋转、光圈开合、镜片对焦前后微移(autofocus breathing);太阳穴大齿轮由头部转动和下颌开合经 Driver 驱动;脉冲白色传感指示灯与眼窝蓝环",
       "quantities": [],
       "kind": "method",
       "evidenceLevel": "文档",

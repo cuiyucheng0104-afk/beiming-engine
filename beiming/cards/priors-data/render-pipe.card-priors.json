@@ -692,57 +692,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "render-pipe.d042.card",
-      "sourceId": "d042",
-      "cardId": "blender.cycles",
-      "target": "blender.cycles",
-      "section": "4",
-      "caseId": "case-26",
-      "title": "1024 spp 与精确重投影",
-      "text": "开场两镜（外景/窗）4K 母帧 3840×2160，每像素 1024 采样，一块工作站显卡分别 56 s 与 131 s；算术：3840×2160×1024=8,493,465,600 像素采样，约 1.52 亿/s 与 6,480 万/s（推断）。镜头运动是对该母帧精确重投影的三脚架平移/俯仰，无采样噪点且无叠加；六个镜头（外景/带 OPEN 招牌的窗/大厅/沿吧台/菜单与出餐口/杯）各为同一场景里放一台相机、各出干净 4K 母帧。网格 CPU 光线投射：478 帧由光线投射器 CPU 版 4 个进程 4 分 7 秒（247 s÷478≈0.52 s/帧，单进程约 2.07 s/帧）；场景约 380 万三角面、28 种程序材质。",
-      "quantities": [
-        {
-          "value": 56,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 131,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 8493465600,
-          "unit": "px",
-          "rawUnit": "像素"
-        },
-        {
-          "value": 478,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": 7,
-          "unit": "s",
-          "rawUnit": "秒"
-        },
-        {
-          "value": 247,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "场景面数/粒子/实例/材质预算与具体作品规模强绑定（C11 终审铁律），挂卡",
-      "coupling": "与第 4 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d042",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "render-pipe.d043.card",
       "sourceId": "d043",
       "cardId": "blender.cycles",
@@ -845,26 +794,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "render-pipe.d045.card",
-      "sourceId": "d045",
-      "cardId": "blender.cycles",
-      "target": "blender.cycles",
-      "section": "4",
-      "caseId": "case-multi",
-      "title": "各家对照",
-      "text": "餐馆（026）：GPU 非局部均值，反照率、法线、深度引导；案例 14/案例 21「引导式降噪」；019 降噪有类型未写，真实光圈与景深；014 光圈与景深、引导式降噪；021 真实镜头、引导式降噪。对应北冥硬件光追后端的颜色/深度/法线分层图。同一引擎四案例镜头对照：026 薄透镜/光圈叶片/猫眼散景/畸变/移轴/快门运动模糊；光组：026 5 组，019 分离光组（可调太阳与灯比例），021/014 未写。",
-      "quantities": [],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 4 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d045",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "render-pipe.d047.card",
       "sourceId": "d047",
       "cardId": "blender.cycles",
@@ -880,9 +809,9 @@
           "rawUnit": "s"
         },
         {
-          "value": 7,
+          "value": 247,
           "unit": "s",
-          "rawUnit": "秒"
+          "rawUnit": "分秒"
         },
         {
           "value": 9,
@@ -1418,8 +1347,8 @@
       "target": "comp.finish",
       "section": "9",
       "caseId": "case-13",
-      "title": "调色查找表与 lfGrade",
-      "text": "烘进 32³ 查找表：21 个调色参数先烘进 32×32×32 颜色表（摊成 1024×32 条带，半浮点贴图），最终着色器每像素只查一次（双线性+层间插值）；任一参数变化才重烘（原实现源码）。Canvas/WebGL 都能用。；lfGrade（显示空间，色调映射之后）：对比 clamp((c-.45)·对比+.45)，混 S 曲线 c²(3-2c)，量 (对比-1)·1.2；暗部加 (-.022,.006,.03)·uTeal；亮部加 (.034,.014,-.03)·(uWarm×8)；阴影冷化混向亮度×钢灰 (.8,.97,1.3)（强度可推向 (.68,.94,1.44)）；提亮目标 (.1,.11,.13)；饱和 mix(l,c,sat)；压黑 c*=1-强度(1-黑点)(1-smoothstep(0,膝,l))（原实现源码）。默认值：uWarm 0.1, uSat 1.1, uContrast 1.05, uTeal 1, uLift 0, uVignette 0.55, uGrain 0.03, uCA 1（色差基值 0.0035）（原实现源码）。作者另给的 3D 表 1.2 s 淡入；巨树 grade.toe 比出厂 0.02 更硬。",
+      "title": "调色查找表与 gradeTable",
+      "text": "烘进 32³ 查找表：21 个调色参数先烘进 32×32×32 颜色表（摊成 1024×32 条带，半浮点贴图），最终着色器每像素只查一次（双线性+层间插值）；任一参数变化才重烘（原实现源码）。Canvas/WebGL 都能用。；gradeTable（显示空间，色调映射之后）：对比 clamp((c-.45)·对比+.45)，混 S 曲线 c²(3-2c)，量 (对比-1)·1.2；暗部加 (-.022,.006,.03)·uTeal；亮部加 (.034,.014,-.03)·(uWarm×8)；阴影冷化混向亮度×钢灰 (.8,.97,1.3)（强度可推向 (.68,.94,1.44)）；提亮目标 (.1,.11,.13)；饱和 mix(l,c,sat)；压黑 c*=1-强度(1-黑点)(1-smoothstep(0,膝,l))（原实现源码）。默认值：uWarm 0.1, uSat 1.1, uContrast 1.05, uTeal 1, uLift 0, uVignette 0.55, uGrain 0.03, uCA 1（色差基值 0.0035）（原实现源码）。作者另给的 3D 表 1.2 s 淡入；巨树 grade.toe 比出厂 0.02 更硬。",
       "quantities": [
         {
           "value": 1.2,
@@ -2344,26 +2273,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "render-pipe.d113.card",
-      "sourceId": "d113",
-      "cardId": "deliver.encode",
-      "target": "deliver.encode",
-      "section": "14",
-      "caseId": "case-03",
-      "title": "案例 03-B 无声编码命令与 QA",
-      "text": "`ffmpeg -framerate 30 -i 原包素材 -vf \"scale=1920:1080:in_range=pc:out_range=tv:out_color_matrix=bt709:flags=lanczos+accurate_rnd+full_chroma_int,format=yuv420p\" -r 30 -c:v libx264 -preset slow -crf 14 -profile:v high -g 60 -bf 2 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709:range=tv -an -movflags +faststart`；另出 1280 宽 crf23 预览；已存在版本报错不覆盖；QA 含 `blackdetect=d=0.1:pix_th=0.10` 与 `freezedetect=n=0.001:d=0.5`",
-      "quantities": [],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 14 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d113",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "render-pipe.d123.card",
       "sourceId": "d123",
       "cardId": "light.pcss",
@@ -2559,8 +2468,8 @@
       "target": "shade.px-lod",
       "section": "15",
       "caseId": "case-13",
-      "title": "手机精简档 LF_LITE / C_LITE",
-      "text": "LF_LITE：去掉色差、运动模糊、景深、AO、宽光晕、热浪；雾和金色空气 CPU 置 0；FXAA 3 步 [2,4,8]（原实现源码）；去地面雾；反弹光 + 冷补光/光场关；天穹 SKY_LITE（云 3 层）；贴图长宽减半；复音/声像池减半。C_LITE（大教堂，?q=mobile 或 G.quality===\"mobile\" 判移动；cathlite 可强制 0/1）：去 STONE_MICRO、去 patchSunTint、污渍源 64→24、落叶格关闭只留染色、玻璃光斑不做、cFbm 2 倍频（church:62-64,100-102；mats:9-17,96,478,555,648；veil:4）。手机倍率降级：放样环数×0.7 并关细分（0.6 m 肢体三角数 960→112）、头目特效×0.5、碎片上限 72；头目二布裙段数 16→10。",
+      "title": "手机精简档 轻量化宏 / C_LITE",
+      "text": "轻量化宏：去掉色差、运动模糊、景深、AO、宽光晕、热浪；雾和金色空气 CPU 置 0；FXAA 3 步 [2,4,8]（原实现源码）；去地面雾；反弹光 + 冷补光/光场关；天穹 SKY_LITE（云 3 层）；贴图长宽减半；复音/声像池减半。C_LITE（大教堂，?q=mobile 或 G.quality===\"mobile\" 判移动；cathlite 可强制 0/1）：去 STONE_MICRO、去 patchSunTint、污渍源 64→24、落叶格关闭只留染色、玻璃光斑不做、cFbm 2 倍频（church:62-64,100-102；mats:9-17,96,478,555,648；veil:4）。手机倍率降级：放样环数×0.7 并关细分（0.6 m 肢体三角数 960→112）、头目特效×0.5、碎片上限 72；头目二布裙段数 16→10。",
       "quantities": [
         {
           "value": 0.6,
@@ -2626,7 +2535,7 @@
       "section": "15",
       "caseId": "case-13",
       "title": "巨树分档（23、24、25）",
-      "text": "树皮/贴图分档：树皮细节 uBarkDetail=1（13 层）↔手机 detailK<=0（2 次噪声）；贴图 512²↔256²；木板 512×2048↔256×1024；近处淡出透明渐显↔硬截断 0.58 米（WAY_FADE a 0.32 b 0.7 solid 0.58；<0.32 米丢弃，0.32→0.7 渐显 alphaToCoverage）（原实现源码）。根网格分档：高档每 1 米一环 107 点/环（背 6/崖缘 5/肩 22/扶壁 20/埋入 1，两侧 54+53）；手机每 2 米一环 35 点/环（4+5+5+3+1=18，两侧 18+17）；远景每 4 米；根材质桌面实时树皮↔手机烘焙贴图（quality===\"mobile\"）（原实现源码）。根网格顶点估算（推断）：以 R1 估弦长 75.0+72.1+47.2=194.3 米，加尾 46、头 26，样条长≥266 米→约 267 环×107=28 569 顶点，三角形 266×106×2=56 392（没验证）。其它分档：冠幕叶 3000↔420；雾带/附生物 开↔不生成；附生物中档 层孔菌 34、苔蕨×0.6；琥珀 2 层杂质 AMBER_DEEP=2↔1 层 1，图集 512×256；大枝摆件苔卡 1.5↔2.6 米步，层孔菌概率 0.09↔0.05，手机不放第二个矛架。合并与阴影：小件（<6000 顶点）合并 all.finalize(group,\"trunk\",{shadows:true,mergeSmall:6000})；名字含 bark|floor|scar 的合并网格不投影；烘焙贴图全走 getOrBakeTextures 缓存（原实现源码）。根碰撞/遮蔽开销：每 3 米一组，中心带 + 两侧各 2 条带（[0,0.55][0.55,0.85][0.85,1.1] 倍 r），顶部 = 本带最低剖面高 −1.3；缘石≤3 米连成一块盒半宽 0.32；地面 AO 贴片每 9 米一个（半径 7 强度 0.32）（原实现源码）。；质量档位表（24）：叶墙/叶卡纹理 512（高/中低）↔256（移动）；叶墙着色器升级/POM/飘带/烛火 开↔移动关；小镇步长 17/19/27↔26/28/40；房屋附加物（烟囱/门前杂物/落叶卡）开↔关；二三层+高脚屋+桥 开↔整体不做；窗内房间着色器 开↔关（v19town=!mobile&&…）；大厅追加叶片卡/地板石板/装饰 开↔关；zone_21火盆/白桦 开↔关；立誓石碎石 6↔3；布景显示距离 220↔110 米；散布系数 1/0.6/0；旗布纹理 128×256↔64×128；低模 lowTier 高关/中低开/移动开（原实现源码 等）。低模机制 B.__lo：低模构建器把≥0.4 大小的岩石换成 80 三角低面数卵石（rockLoGeo，最多 6 种卵石之一）；clutter(B,k,keep=2) 只建每第 2 件散件其余送吞一切几何的 NULLB 代理，调用者仍花同样的随机数抽取，保证「同一种子主件位置不变」（原实现源码）。；分级表（25，桌面↔手机）：远景网格 512×96+384×12 ↔ 288×72+224×9；远景着色器完整 ↔ LF_FAR_MOBILE 跳壁棱凹凸×0.7；云海网格 160×48 ↔ 96×24（含 quality \"phone\"/\"low\"）；云海步数/自阴影 16/开 ↔ 7/关；云朵 默认关 ↔ 不建；洞顶/洞底/罩子格距 0.9/1.25/1.5 ↔ 1.4/2.0/2.2；琥珀柱 5 ↔ 3；琥珀丘/滴挂 26/30 ↔ 12/14；骑士 ≤30 ↔ ≤18；焦散光源 8 ↔ 4；垂帘 11 个 10 行 ↔ 7 个 8 行；弹光贴图 256×128 ↔ 128×64；材质贴图 512² ↔ 256²；水井内衬 20 段 ↔ 12 段；叶子凹凸 开 ↔ 关；大石周围碎石 开 ↔ 关。一次绘制策略：zone_11盒子按材质合并（finalize）；叶子合并 2 个网格；盾牌木/铁各一个网格；骑士一个 BatchedMesh；液滴一个 InstancedMesh；纹理用 getOrBakeTextures 带版本键缓存。三角形预算探针：zone_13 .trisReport() 遍历场景统计每网格三角形（实例网格乘数量），含 flowstoneTris/drapeTris，作者在 r16 轮次监控预算；本章未运行代码无实测数值（原实现源码）。山口乱石/岩石几何参考：boulderGeometry/blockGeometry 实例，细分 1~4，尺寸 0.35~3.4；地层岩台深 2.6~5.6 厚 1.6~4 细分 2 色 1.2~1.55；巨叶 465 顶点/840 三角形；云海 15456 顶点/30080 三角形（手机 4656/8832）；远景带 53760 顶点/105728 三角形（手机 22752/44480）（源码 + 推断，没验证）。几何参考（24，本章自写）：zone_21地面顶点上限 29 141；飞根 (N+1)×23 顶点；叶片卡 9 顶点/8 三角形每张；叶墙面板 4 顶点/2 三角形；彩带 20 顶点/18 三角形每条；挂绳 25×5=125 顶点；冠枝管 510 顶点（len44）；旗 63 顶点/48 四边形；RuinBuilder 一个 pbox 24 顶点 12 三角形（第 17 章数）（源码 + 推断，没验证）。每帧/加载预算（24）：布景 update 只调 flames.update，其余 0.25 秒才跑一次；回廊 update() 空函数；窗内房间/zone_21地面/叶墙全是片元开销无 CPU 预算；加载：每重模块切进度点 await step() 让帧，目标 \"no single ≈0.6 s(desktop)/≈2.5 s(phone CPU×4) task\"（针对龙骨架，prepareDragon 现为空函数）（原实现源码）。",
+      "text": "树皮/贴图分档：树皮细节 uBarkDetail=1（13 层）↔手机 detailK<=0（2 次噪声）；贴图 512²↔256²；木板 512×2048↔256×1024；近处淡出透明渐显↔硬截断 0.58 米（WAY_FADE a 0.32 b 0.7 solid 0.58；<0.32 米丢弃，0.32→0.7 渐显 alphaToCoverage）（原实现源码）。根网格分档：高档每 1 米一环 107 点/环（背 6/崖缘 5/肩 22/扶壁 20/埋入 1，两侧 54+53）；手机每 2 米一环 35 点/环（4+5+5+3+1=18，两侧 18+17）；远景每 4 米；根材质桌面实时树皮↔手机烘焙贴图（quality===\"mobile\"）（原实现源码）。根网格顶点估算（推断）：以 R1 估弦长 75.0+72.1+47.2=194.3 米，加尾 46、头 26，样条长≥266 米→约 267 环×107=28 569 顶点，三角形 266×106×2=56 392（没验证）。其它分档：冠幕叶 3000↔420；雾带/附生物 开↔不生成；附生物中档 层孔菌 34、苔蕨×0.6；琥珀 2 层杂质 AMBER_DEEP=2↔1 层 1，图集 512×256；大枝摆件苔卡 1.5↔2.6 米步，层孔菌概率 0.09↔0.05，手机不放第二个矛架。合并与阴影：小件（<6000 顶点）合并 all.finalize(group,\"trunk\",{shadows:true,mergeSmall:6000})；名字含 bark|floor|scar 的合并网格不投影；烘焙贴图全走 getOrBakeTextures 缓存（原实现源码）。根碰撞/遮蔽开销：每 3 米一组，中心带 + 两侧各 2 条带（[0,0.55][0.55,0.85][0.85,1.1] 倍 r），顶部 = 本带最低剖面高 −1.3；缘石≤3 米连成一块盒半宽 0.32；地面 AO 贴片每 9 米一个（半径 7 强度 0.32）（原实现源码）。；质量档位表（24）：叶墙/叶卡纹理 512（高/中低）↔256（移动）；叶墙着色器升级/POM/飘带/烛火 开↔移动关；小镇步长 17/19/27↔26/28/40；房屋附加物（烟囱/门前杂物/落叶卡）开↔关；二三层+高脚屋+桥 开↔整体不做；窗内房间着色器 开↔关（v19town=!mobile&&…）；大厅追加叶片卡/地板石板/装饰 开↔关；zone_21火盆/白桦 开↔关；立誓石碎石 6↔3；布景显示距离 220↔110 米；散布系数 1/0.6/0；旗布纹理 128×256↔64×128；低模 lowTier 高关/中低开/移动开（原实现源码 等）。低模机制 B.__lo：低模构建器把≥0.4 大小的岩石换成 80 三角低面数卵石（rockLoGeo，最多 6 种卵石之一）；clutter(B,k,keep=2) 只建每第 2 件散件其余送吞一切几何的 NULLB 代理，调用者仍花同样的随机数抽取，保证「同一种子主件位置不变」（原实现源码）。；分级表（25，桌面↔手机）：远景网格 512×96+384×12 ↔ 288×72+224×9；远景着色器完整 ↔ 移动远景宏 跳壁棱凹凸×0.7；云海网格 160×48 ↔ 96×24（含 quality \"phone\"/\"low\"）；云海步数/自阴影 16/开 ↔ 7/关；云朵 默认关 ↔ 不建；洞顶/洞底/罩子格距 0.9/1.25/1.5 ↔ 1.4/2.0/2.2；琥珀柱 5 ↔ 3；琥珀丘/滴挂 26/30 ↔ 12/14；骑士 ≤30 ↔ ≤18；焦散光源 8 ↔ 4；垂帘 11 个 10 行 ↔ 7 个 8 行；弹光贴图 256×128 ↔ 128×64；材质贴图 512² ↔ 256²；水井内衬 20 段 ↔ 12 段；叶子凹凸 开 ↔ 关；大石周围碎石 开 ↔ 关。一次绘制策略：zone_11盒子按材质合并（finalize）；叶子合并 2 个网格；盾牌木/铁各一个网格；骑士一个 BatchedMesh；液滴一个 InstancedMesh；纹理用 getOrBakeTextures 带版本键缓存。三角形预算探针：zone_13 .trisReport() 遍历场景统计每网格三角形（实例网格乘数量），含 flowstoneTris/drapeTris，作者在 r16 轮次监控预算；本章未运行代码无实测数值（原实现源码）。山口乱石/岩石几何参考：boulderGeometry/blockGeometry 实例，细分 1~4，尺寸 0.35~3.4；地层岩台深 2.6~5.6 厚 1.6~4 细分 2 色 1.2~1.55；巨叶 465 顶点/840 三角形；云海 15456 顶点/30080 三角形（手机 4656/8832）；远景带 53760 顶点/105728 三角形（手机 22752/44480）（源码 + 推断，没验证）。几何参考（24，本章自写）：zone_21地面顶点上限 29 141；飞根 (N+1)×23 顶点；叶片卡 9 顶点/8 三角形每张；叶墙面板 4 顶点/2 三角形；彩带 20 顶点/18 三角形每条；挂绳 25×5=125 顶点；冠枝管 510 顶点（len44）；旗 63 顶点/48 四边形；遗迹生成器 一个 pbox 24 顶点 12 三角形（第 17 章数）（源码 + 推断，没验证）。每帧/加载预算（24）：布景 update 只调 flames.update，其余 0.25 秒才跑一次；回廊 update() 空函数；窗内房间/zone_21地面/叶墙全是片元开销无 CPU 预算；加载：每重模块切进度点 await step() 让帧，目标 \"no single ≈0.6 s(desktop)/≈2.5 s(phone CPU×4) task\"（针对龙骨架，prepareDragon 现为空函数）（原实现源码）。",
       "quantities": [
         {
           "value": 0.58,
@@ -2692,6 +2601,16 @@
           "value": 0.25,
           "unit": "s",
           "rawUnit": "秒"
+        },
+        {
+          "value": 0.6,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 2.5,
+          "unit": "s",
+          "rawUnit": "s"
         }
       ],
       "routeNote": "含着色器/节点公式或特定渲染器 API 常量，须在目标帧源重新标定，挂卡",
@@ -3258,7 +3177,7 @@
       "section": "17",
       "caseId": "case-13",
       "title": "龙动画 LOD",
-      "text": "LOD2：关全部弹簧（springs=false）尾端物理复位更新降 30Hz；LOD3 再关前摇差分（每帧省两次 evalKeys）；屏幕外降 30Hz 不发尘土；LOD 来自骨架 lodCtl.update(cam,dt,{occluded}) 或 lodFor(距离)；无弹簧时颈尾逐节直接取目标（k=1）尾摆幅度×.5；零分配预分配 Float32Array(74)；stats.ms（.05 平滑）maxMs（.995 衰减）；quality 参数只存不用；动画层面无移动端专门降级（仅 dragon_tears 分辨率减半）（原实现源码）",
+      "text": "LOD2：关全部弹簧（springs=false）尾端物理复位更新降 30Hz；LOD3 再关前摇差分（每帧省两次 evalKeys）；屏幕外降 30Hz 不发尘土；LOD 来自骨架 lodCtl.update(cam,dt,{occluded}) 或 lodFor(距离)；无弹簧时颈尾逐节直接取目标（k=1）尾摆幅度×.5；零分配预分配 Float32Array(74)；stats.ms（.05 平滑）maxMs（.995 衰减）；quality 参数只存不用；动画层面无移动端专门降级（仅 泪滴特效 分辨率减半）（原实现源码）",
       "quantities": [
         {
           "value": 30,
@@ -3591,7 +3510,7 @@
       "section": "17",
       "caseId": "case-13",
       "title": "细节着色器分级、插地剑、武器实例化调度、其他",
-      "text": "细节着色器分级：DETAIL.defines：mobile/low 关 BDETAIL；high 开 BDETAIL；ultra 另开 BDETAIL_FAR（淡出距离×1.5/×1.6）；?bdetail=0/1 覆盖；近距细节淡出 石 5→16 m、骨 1.2→6 m、剑 2.5→11 m、草皮 4→14 m、巨像 7→26 m（util:459-498）。插地剑数量与放置：目标 mobile1100/low1300/高2300；拒绝采样 x∈[G.x0-18,G.x1+8] z∈[G.z0-8,G.z1+8] 最多 90000 次；密度=inside（墓地边缘 -9…7 m 软边）×(.1+.55·簇噪声+巨像环+土丘环+小径边)；簇噪声 smoothstep(.42,.72,vnoise(x·.045+11,z·.045-4)·.7+vnoise(x·.13,z·.13)·.3)；巨像环 exp(-(sd-1.45)²/.09)·.85；土丘环 exp(-(d-1.2)²/.02)·.5；排除路<.8 m、小径<1.15 m、巨像墓门前院夜哨点 5.2 m、枯树 1.3 m、门柱 1.6 m；剑间距≥.52 m（.62 m 格子哈希）；款式权重长剑 .33 断剑 .22 巨剑 .12 弯刀 .10 长矛 .14 斧 .09；lean 16% 重倾 .28–.58 rad 其余三随机数和×.14（≈0–0.2 rad，矛×.6）；bury 断剑 .08–.28 其余 .14–.44 乘剑身长；scale 1–1.3 sx .92–1.12 tint 暖/冷两组亮度 .72–1.10；实心剑 高>1.3 m 距小径>3.4 m 间距≥1.5 m（2.25=1.5²）碰撞圆 r.09；新坟范围剑被埋（斧缩 .001 其余 bury=14）（原实现源码）。武器实例化调度：按款式×墓地质心 4 象限建 InstancedMesh（mounds-weapons-<款>-<象限>）+ 全体合并版；每帧视锥剔除回调按「可见象限数≥2 且可见实例≥50% 总数」决定画哪组（MERGE_FRAC=.5）；小件款式超 150 m 不画（FAR_SMALL=150）；仅巨剑与长矛投影且相机 80 m 内（FAR_SHADOW=80）；intersectsFrustum 覆盖成自定义判定，用 8 个视锥签名缓存结果；推手槽 8（swords:839-944,1036-1038）。其他分级与合并：武器数 2300/1300/1100，坟头概率×1/.6/.45，坟头小兵器每侧 2–3/2–3/1，新坟土堆 24×12/24×12/16×8，新坟碎石 16/16/8；雾手机 2 层+60 雾团+MIST_LITE+密度×1.22；野外遗迹「-ns」网格 90 m（手机 65 m）外隐藏；RuinBuilder.finalize mergeSmall:4000（<4000 顶点材质桶并入大的），foldMore 把 charred 并入 rust（色×(.5,.45,.45)）、dark 并入 stoneDark（色×.03）；阴影：剑仅巨剑/长矛，草皮石缘蜡烛棺盖不投影；材质 customProgramCacheKey 区分着色器；贴图/材质模块级单例缓存（BSTONE,BSTONE_MAT,STATUE_TEX,BONE_MAT,TURF_MAT）",
+      "text": "细节着色器分级：DETAIL.defines：mobile/low 关 BDETAIL；high 开 BDETAIL；ultra 另开 BDETAIL_FAR（淡出距离×1.5/×1.6）；?bdetail=0/1 覆盖；近距细节淡出 石 5→16 m、骨 1.2→6 m、剑 2.5→11 m、草皮 4→14 m、巨像 7→26 m（util:459-498）。插地剑数量与放置：目标 mobile1100/low1300/高2300；拒绝采样 x∈[G.x0-18,G.x1+8] z∈[G.z0-8,G.z1+8] 最多 90000 次；密度=inside（墓地边缘 -9…7 m 软边）×(.1+.55·簇噪声+巨像环+土丘环+小径边)；簇噪声 smoothstep(.42,.72,vnoise(x·.045+11,z·.045-4)·.7+vnoise(x·.13,z·.13)·.3)；巨像环 exp(-(sd-1.45)²/.09)·.85；土丘环 exp(-(d-1.2)²/.02)·.5；排除路<.8 m、小径<1.15 m、巨像墓门前院夜哨点 5.2 m、枯树 1.3 m、门柱 1.6 m；剑间距≥.52 m（.62 m 格子哈希）；款式权重长剑 .33 断剑 .22 巨剑 .12 弯刀 .10 长矛 .14 斧 .09；lean 16% 重倾 .28–.58 rad 其余三随机数和×.14（≈0–0.2 rad，矛×.6）；bury 断剑 .08–.28 其余 .14–.44 乘剑身长；scale 1–1.3 sx .92–1.12 tint 暖/冷两组亮度 .72–1.10；实心剑 高>1.3 m 距小径>3.4 m 间距≥1.5 m（2.25=1.5²）碰撞圆 r.09；新坟范围剑被埋（斧缩 .001 其余 bury=14）（原实现源码）。武器实例化调度：按款式×墓地质心 4 象限建 InstancedMesh（mounds-weapons-<款>-<象限>）+ 全体合并版；每帧视锥剔除回调按「可见象限数≥2 且可见实例≥50% 总数」决定画哪组（MERGE_FRAC=.5）；小件款式超 150 m 不画（FAR_SMALL=150）；仅巨剑与长矛投影且相机 80 m 内（FAR_SHADOW=80）；intersectsFrustum 覆盖成自定义判定，用 8 个视锥签名缓存结果；推手槽 8（swords:839-944,1036-1038）。其他分级与合并：武器数 2300/1300/1100，坟头概率×1/.6/.45，坟头小兵器每侧 2–3/2–3/1，新坟土堆 24×12/24×12/16×8，新坟碎石 16/16/8；雾手机 2 层+60 雾团+MIST_LITE+密度×1.22；野外遗迹「-ns」网格 90 m（手机 65 m）外隐藏；遗迹生成器.finalize mergeSmall:4000（<4000 顶点材质桶并入大的），foldMore 把 charred 并入 rust（色×(.5,.45,.45)）、dark 并入 stoneDark（色×.03）；阴影：剑仅巨剑/长矛，草皮石缘蜡烛棺盖不投影；材质 customProgramCacheKey 区分着色器；贴图/材质模块级单例缓存（BSTONE,BSTONE_MAT,STATUE_TEX,BONE_MAT,TURF_MAT）",
       "quantities": [
         {
           "value": 16,
@@ -3758,7 +3677,7 @@
       "section": "17",
       "caseId": "case-13",
       "title": "性能项与远近版共存",
-      "text": "远景树 6 个网格（树干/冠卡/落叶/光晕/光柱/雾云）；近景额外 drawCount=(mobile?4:5)+zone_17网格数+垂须 1+冠沿 1；手动设 boundingSphere（冠卡中心 (0,.76·BUILD_H,0) 半径 1.9·Rc；落叶 (0,.5·BUILD_H,0) 半径 .95·BUILD_H；光晕 1.6× 光柱 1.9×），层云 frustumCulled=false；创建后 updateMatrixWorld 一次所有部件 matrixAutoUpdate=false；所有部件 castShadow=false receiveShadow=false；抗锯齿 alpha-to-coverage，无 MSAA 用抖动丢弃或硬裁剪（uHardCut,uMsaa）；近景版 import(\"原实现源码\") 动态加载失败只 warn；手机：detail=0、冠卡密度 0.36/0.55/0.3、侧枝分段 5 不建二级枝、树皮墙 256×177、天花板 30×120 仅 1 层、垂帘不加入、zone_17细分减半、uMsaa=0 uFine=0；着色器预算：板块>200 m 才开，视差/阴影~10 m 外不执行，二级沟 12–25 m 外不执行，径流噪声只在径流区算。远近版共存：near:true 时着色器加宏 LF_NEAR，LF_CV19 开 v1.9 树皮束与限幅，光晕隐藏，层云不建；冠卡在近景变小而暗：vLitM=smoothstep(.36,.74,.75·kNoise(wp.xz·.0042+(3.1,-7.7))+.25·kNoise(wp.xz·.011-(5.3,1.9)))（约 250 m 亮团），亮团内卡放大 2.4 倍保留，团间卡放大 1.1 倍 88% 丢弃 keepC=step(fract(seed·173.13+.37),.12+.88vLitM)；cullFarTrunk(S.trunk,(520-Y)/k)：近景剔除所有 kind==2 三角形和 kind∈{0,1} 且最大 y<(520-20)/.875=571.4 的三角形（只保留 y>520 m 辫股与大枝），树皮墙到 628 m，两者在 520–628 m 重叠 108 m 不闪面（glowTree:91-102,194,383；shaders:361-377）",
+      "text": "远景树 6 个网格（树干/冠卡/落叶/光晕/光柱/雾云）；近景额外 drawCount=(mobile?4:5)+zone_17网格数+垂须 1+冠沿 1；手动设 boundingSphere（冠卡中心 (0,.76·BUILD_H,0) 半径 1.9·Rc；落叶 (0,.5·BUILD_H,0) 半径 .95·BUILD_H；光晕 1.6× 光柱 1.9×），层云 frustumCulled=false；创建后 updateMatrixWorld 一次所有部件 matrixAutoUpdate=false；所有部件 castShadow=false receiveShadow=false；抗锯齿 alpha-to-coverage，无 MSAA 用抖动丢弃或硬裁剪（uHardCut,uMsaa）；近景版 import(\"原实现源码\") 动态加载失败只 warn；手机：detail=0、冠卡密度 0.36/0.55/0.3、侧枝分段 5 不建二级枝、树皮墙 256×177、天花板 30×120 仅 1 层、垂帘不加入、zone_17细分减半、uMsaa=0 uFine=0；着色器预算：板块>200 m 才开，视差/阴影~10 m 外不执行，二级沟 12–25 m 外不执行，径流噪声只在径流区算。远近版共存：near:true 时着色器加宏 近景宏，树冠遮光宏 开 v1.9 树皮束与限幅，光晕隐藏，层云不建；冠卡在近景变小而暗：vLitM=smoothstep(.36,.74,.75·kNoise(wp.xz·.0042+(3.1,-7.7))+.25·kNoise(wp.xz·.011-(5.3,1.9)))（约 250 m 亮团），亮团内卡放大 2.4 倍保留，团间卡放大 1.1 倍 88% 丢弃 keepC=step(fract(seed·173.13+.37),.12+.88vLitM)；cullFarTrunk(S.trunk,(520-Y)/k)：近景剔除所有 kind==2 三角形和 kind∈{0,1} 且最大 y<(520-20)/.875=571.4 的三角形（只保留 y>520 m 辫股与大枝），树皮墙到 628 m，两者在 520–628 m 重叠 108 m 不闪面（glowTree:91-102,194,383；shaders:361-377）",
       "quantities": [
         {
           "value": 200,
@@ -3830,7 +3749,7 @@
       "section": "17",
       "caseId": "case-13",
       "title": "幽灵三层绘制与剔除、主角与其他（22）",
-      "text": "幽灵：三个 mesh 共用一套几何（本体+远景 .42 版）；DEPTH_NEAR=40 LOD_FAR=60 FAR_CUT=152：cls0 <40 m 深度预通（depthWrite:true colorWrite:false）+彩色通（depthFunc LessEqual depthWrite:false）；cls1 40–60 m 只彩色通全精度；cls2 >60 m 远景网彩色通亮度×.56（无深度预通自身层叠约亮 1.8 倍）；>152 m 目标为 0；_cullGhosts 在 onBeforeRender 按视锥逐幽灵判断，把可见幽灵索引区间合并成一个 [lo,hi) 设 setDrawRange（按 geoOrder 把同区域幽灵排一起 GEO_REGIONS）；剔除半径 ghostR=.55·高+.8；uniform 槽位 20（实际 16），每槽三个 vec4（位置+朝向/淡入淡出+相位/尺寸+距离档）（spectres:481-608）。其他性能项：主角 4 次绘制（1 SkinnedMesh+光晕+地面光+粒子）；乌鸦实例化近/远两模型，栖息且远处降频（70 m 外 4 Hz 即每 .25 s 更新），190 m 外整群不画；PerchProbe（budgetMs=350）实例化物体 budgetMs·1.6 超时标记 complete=false；NPC 150 m 剔除 26 m 低模 40 m 阴影远处 15 Hz；移动端图集 512² NPC 贴图×.5 分段叶片肋骨头发减半主角褶皱凹凸关闭；点精灵屏幕尺寸夹 [1,9][1,16][2,360][1,24]；NPC 几何模块级 GEO 缓存；乌鸦缓存键 某地-crow-r4；主角 mesh.boundingSphere 中心 (0,1.25,.2) 半径 1.9；uKDetail 桌面 1/mobile low 0",
+      "text": "幽灵：三个 mesh 共用一套几何（本体+远景 .42 版）；DEPTH_NEAR=40 LOD_FAR=60 FAR_CUT=152：cls0 <40 m 深度预通（depthWrite:true colorWrite:false）+彩色通（depthFunc LessEqual depthWrite:false）；cls1 40–60 m 只彩色通全精度；cls2 >60 m 远景网彩色通亮度×.56（无深度预通自身层叠约亮 1.8 倍）；>152 m 目标为 0；_cullGhosts 在 onBeforeRender 按视锥逐幽灵判断，把可见幽灵索引区间合并成一个 [lo,hi) 设 setDrawRange（按 geoOrder 把同区域幽灵排一起 GEO_REGIONS）；剔除半径 ghostR=.55·高+.8；uniform 槽位 20（实际 16），每槽三个 vec4（位置+朝向/淡入淡出+相位/尺寸+距离档）（spectres:481-608）。其他性能项：主角 4 次绘制（1 SkinnedMesh+光晕+地面光+粒子）；乌鸦实例化近/远两模型，栖息且远处降频（70 m 外 4 Hz 即每 .25 s 更新），190 m 外整群不画；栖息探针（budgetMs=350）实例化物体 budgetMs·1.6 超时标记 complete=false；NPC 150 m 剔除 26 m 低模 40 m 阴影远处 15 Hz；移动端图集 512² NPC 贴图×.5 分段叶片肋骨头发减半主角褶皱凹凸关闭；点精灵屏幕尺寸夹 [1,9][1,16][2,360][1,24]；NPC 几何模块级 GEO 缓存；乌鸦缓存键 某地-crow-r4；主角 mesh.boundingSphere 中心 (0,1.25,.2) 半径 1.9；uKDetail 桌面 1/mobile low 0",
       "quantities": [
         {
           "value": 40,
@@ -4663,6 +4582,26 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 20 节 · d180",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "render-pipe.d182.card",
+      "sourceId": "d182",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "section": "21",
+      "caseId": "case-13",
+      "title": "调试 URL 开关与验收手段（案例 13）",
+      "text": "?q= ?r16=off ?lut=0 ?mblur=0 ?cath16=0 ?bossgap=0 ?sdf=0 等；第 01 章渲染部分列 36 个；每个新效果都能单独关掉。其他：?occl=0、?cathshell=0、?bdetail=0/1、?cathtex=、?audio=lite、substep 1–4。同类：案例 02 `?view=`、`?msaa=N`、案例 10 自检入口、外部案例 01 `?dpr ?q ?fast ?nomsaa ?pools ?capture`",
+      "quantities": [],
+      "routeNote": "场景面数/粒子/实例/材质预算与具体作品规模强绑定（C11 终审铁律），挂卡",
+      "coupling": "与第 21 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 21 节 · d182",
       "verifiedInOurStack": false
     }
   ]

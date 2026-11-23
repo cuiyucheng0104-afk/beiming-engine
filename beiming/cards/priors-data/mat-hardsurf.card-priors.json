@@ -44,26 +44,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "mat-hardsurf.d002.card",
-      "sourceId": "d002",
-      "cardId": "shade.toon-kit",
-      "target": "shade.toon-kit",
-      "section": "1",
-      "caseId": "case-13",
-      "title": "其余材质",
-      "text": "chain #9A9894 rough 0.48 metal 0.92，法线 1.1；leather rough 0.66 法线 0.8；cloth rough 0.93，alphaTest 0.5，透光色 #8A4A2E 权重 0.3 厚度 0.45；blade #8C9096 metal 1，自发光 (1,0.72,0.32)，初始 0.35；glass #D9B27A rough 0.08 metal 0.1 透明 0.38 envMap 1.6；amber #4A2400 自发光 (1,0.55,0.12)×2.4；glow (2.6,0.95,0.3)；眼光 (2.4,0.9,0.28)·k；夜边缘光 chain (0.32,0.40,0.54)×0.26，leather (0.30,0.36,0.46)×0.14，沙 (0.5,0.58,0.72)。",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 1 节 · d002",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "mat-hardsurf.d003.card",
       "sourceId": "d003",
       "cardId": "mat.library",
@@ -115,26 +95,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 1 节 · d004",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "mat-hardsurf.d027.card",
-      "sourceId": "d027",
-      "cardId": "form.sdf-nets",
-      "target": "form.sdf-nets",
-      "section": "1",
-      "caseId": "case-01r",
-      "title": "名单外材质兜底",
-      "text": "基色 (0.8, 0.0, 0.8) 品红、金属度 0、粗糙度 0.5，便于发现漏登记。",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 1 节 · d027",
       "verifiedInOurStack": false
     },
     {
@@ -271,23 +231,23 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "mat-hardsurf.d065.card",
-      "sourceId": "d065",
-      "cardId": "shade.thin-line",
-      "target": "shade.thin-line",
+      "id": "mat-hardsurf.d056.card",
+      "sourceId": "d056",
+      "cardId": "mat.library",
+      "target": "mat.library",
       "section": "1",
-      "caseId": "case-03",
-      "title": "灰模 Clay（检查用）",
-      "text": "基色 (0.42, 0.42, 0.42)，粗糙度 0.45；线框模式按像素 0.6 宽，亮色 (0.55, 0.57, 0.6)、线色 (0.02, 0.02, 0.02)（可借性：纯参数，可作三渲二的\"线稿预览\"参考）",
+      "caseId": "case-01-legacy",
+      "title": "通用凹凸（v3）",
+      "text": "Noise Detail 6，Bump Distance 0.0002，Strength=bump 值。",
       "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
       "evidenceLevel": "文档",
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 1 节 · d065",
+      "docRef": "材质与硬表面建模汇编 · 第 1 节 · d056",
       "verifiedInOurStack": false
     },
     {
@@ -296,7 +256,7 @@
       "cardId": "mat.library",
       "target": "mat.library",
       "section": "1",
-      "caseId": "case-20",
+      "caseId": "case-03",
       "title": "头部材质表（基色, 金属度, 粗糙度, 自发光）",
       "text": "white (0.74,0.75,0.76) 0.0 0.40；red (0.42,0.018,0.016) 0.0 0.38；frame (0.045,0.047,0.052) 0.0 0.50；black (0.008,0.008,0.009) 0.0 0.60；gold (0.52,0.34,0.09) 1.0 0.42；chrome (0.78,0.79,0.80) 1.0 0.12；eye (0.50,0.44,0.04) 0.0 0.05 自发光 0.18；sensor (0.80,0.02,0.015) 0.0 0.08 自发光 0.6（可借性：纯参数（Principled 值，三渲二需换成档位色））",
       "quantities": [],
@@ -354,26 +314,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 1 节 · d068",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "mat-hardsurf.d069.card",
-      "sourceId": "d069",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "section": "1",
-      "caseId": "case-03",
-      "title": "地面材质",
-      "text": "基色 (0.012,0.013,0.016)，粗糙度 0.22（可借性：纯参数）",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 1 节 · d069",
       "verifiedInOurStack": false
     },
     {
@@ -720,6 +660,26 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "mat-hardsurf.d089.card",
+      "sourceId": "d089",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "section": "1",
+      "caseId": "case-13",
+      "title": "specularF90",
+      "text": "铁件（非镶嵌）降到 0.4，金件×0.78",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 1 节 · d089",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "mat-hardsurf.d090.card",
       "sourceId": "d090",
       "cardId": "mat.library",
@@ -767,7 +727,7 @@
       "section": "1",
       "caseId": "case-13",
       "title": "守卫敌兵 makeMats",
-      "text": "metal：rustTextures map+orm+bump，粗糙1金属1 bumpScale1.4；steel 色#B8BCC2 粗糙0.3 金属0.92 bump0.25；mail 新 rustedMailTextures 粗糙1 金属1 bump2.2 / 旧 mailTextures 粗糙0.52 金属0.78 bump2；cloth clothTextures(true) alphaTest.5 双面 粗糙0.96 金属0 cloth:true trans:.8；hide 新 leatherTextures 粗糙0.8/旧 脏污贴图 0.84 bump0.85；shieldM shieldTextures 粗糙0.8 bump1.2；glow 眼睛 颜色0 自发光#FF6A1E 强度7",
+      "text": "metal：rustTextures map+orm+bump，粗糙1金属1 bumpScale1.4；steel 色#B8BCC2 粗糙0.3 金属0.92 bump0.25；mail 新 rustedMailTextures 粗糙1 金属1 bump2.2 / 旧 mailTextures 粗糙0.52 金属0.78 bump2；cloth clothTextures(true) alphaTest.5 双面 粗糙0.96 金属0 cloth:true trans:.8；hide 新 leatherTextures 粗糙0.8/旧 脏污贴图 0.84 bump0.85；shieldM 盾牌贴图集 粗糙0.8 bump1.2；glow 眼睛 颜色0 自发光#FF6A1E 强度7",
       "quantities": [],
       "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
@@ -807,7 +767,7 @@
       "section": "1",
       "caseId": "case-13",
       "title": "队长敌兵 材质",
-      "text": "gild #B88A3C 粗糙.42→新路径.34 金属.9；metal #8A8784；steel #9A9CA0→新#B4B6BA 粗糙.4→.24；mail #8E98A6；herald(罩袍披风内衬) 某村镇Textures alphaTest.5 双面 粗糙.96 trans:.8；shieldM 某村镇ShieldTextures bump1.2；plume 布料半透色#8A160C 权重.3 厚度.25",
+      "text": "gild #B88A3C 粗糙.42→新路径.34 金属.9；metal #8A8784；steel #9A9CA0→新#B4B6BA 粗糙.4→.24；mail #8E98A6；herald(罩袍披风内衬) 某村镇Textures alphaTest.5 双面 粗糙.96 trans:.8；shieldM 某村镇盾牌贴图集 bump1.2；plume 布料半透色#8A160C 权重.3 厚度.25",
       "quantities": [],
       "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
@@ -992,7 +952,7 @@
       "title": "其它材质",
       "text": "limb-dress-iron 粗糙 0.5/金属 0.8(着色器按红蓝差判锈：粗糙 0.34→0.86，金属 0.85→0.3)；limb-leaf #fff2dc 粗糙 0.7 emissive #8a6234×0.32；moss alphaTest 0.5 粗糙 0.95 色 #d8d8d8；props 顶点色粗糙 0.86；附生物 层孔菌/苔/蕨 粗糙 0.78/0.9/0.9",
       "quantities": [],
-      "routeNote": "场景面数/粒子/实例/材质预算与具体作品规模强绑定（C11 终审铁律），挂卡",
+      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1031,7 +991,13 @@
       "caseId": "case-03",
       "title": "案例 03-B 上色方式",
       "text": "按零件:10种颜色名(white/blue/red/yellow/frame/dark/gold/eye/sensor/saber)写在cfg的color;按面:原实现数据文件共120条“盒子+朝向”规则处理与白外壳一体的部位(头部眼睛/下巴/额头红块/火神炮/摄像头/腰部V标/胸口蓝红分界);材质Principled BSDF,法线接Bevel节点半径3.5mm(场景单位)让硬棱有高光",
-      "quantities": [],
+      "quantities": [
+        {
+          "value": 3.5,
+          "unit": "mm",
+          "rawUnit": "mm"
+        }
+      ],
       "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
@@ -1313,26 +1279,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 2 节 · d117",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "mat-hardsurf.d118.card",
-      "sourceId": "d118",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "section": "2",
-      "caseId": "case-13",
-      "title": "材质表",
-      "text": "stone lime[150,144,132] rough 0.93；stoneDark[96,92,88] 0.95；mossStone[118,120,100] 0.97；cobble[120,112,100] 0.95；oak 0.82；iron #2B2B2E metal 0.8 rough 0.5；rust #5A3322 0.45/0.8；bronze #6F5A36 0.85/0.38；gold #D6A84A 1/0.3；ember #2A1408 自发光 #FF7A2A×1.2；wax #E8DCC0 自发光 #FFC070×0.15；slate rough 0.62 metal 0.05；thatch rough 1。",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 2 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 2 节 · d118",
       "verifiedInOurStack": false
     },
     {
@@ -1710,7 +1656,7 @@
       "section": "2",
       "caseId": "case-13",
       "title": "三种石头底色",
-      "text": "lime(石灰岩)RGB(150,145,134) bed.03 speck.10 用于stone/mossStone；grit(粗砂岩更暗)(118,113,104) bed.06 speck.16 用于stoneDark；夜哨点(152,146,136) bed.02 speck.08 夜哨点台座；usemoundsStones 把 RuinBuilder 的 stone/mossStone 换 lime、stoneDark 换 grit",
+      "text": "lime(石灰岩)RGB(150,145,134) bed.03 speck.10 用于stone/mossStone；grit(粗砂岩更暗)(118,113,104) bed.06 speck.16 用于stoneDark；夜哨点(152,146,136) bed.02 speck.08 夜哨点台座；usemoundsStones 把 遗迹生成器 的 stone/mossStone 换 lime、stoneDark 换 grit",
       "quantities": [],
       "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
       "coupling": "与第 2 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
@@ -1969,6 +1915,11 @@
       "text": "ltH 凹凸：沟深 0.028(苔填缝×(1−0.6mossJ))，铺石顶凸 0.003，坑 0.003，罗盘凸点 0.006；法线用屏幕导数从高度场重构；缝小阴影：向太阳采样邻居 2 次(距离 0.015 与 0.04)，邻板边比射线高就遮挡，最多暗 80%(原注释 a 2.8 cm groove throws a 1–6 cm shadow at the low sun)；抗锯齿 farK=smoothstep(0.02,0.11,fwm)，fwm=length(fwidth(xz))(joints melt into the mean past ≈40 m)；走踏路 半径 11.3 宽 σ0.85 的磨亮环+辐条；缓存键 tree-zone_21 -floor-v19t(+-ring)；lfDetail=\"zone_21 -floor-own\"",
       "quantities": [
         {
+          "value": 0.8,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
           "value": 0.028,
           "unit": "m",
           "rawUnit": "cm"
@@ -1995,32 +1946,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 2 节 · d139",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "mat-hardsurf.d140.card",
-      "sourceId": "d140",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "section": "2",
-      "caseId": "case-13",
-      "title": "立誓石贴图",
-      "text": "画布 S×2S(高 512→512×1024，移动 128→128×256)；左半刻字面板(5 列，行距 1.1 单元，每行 3–7 字符，行间隔 2–4 行；符号 8 种：弧/圆带钩/S 形/折线/椭圆十字/双点/螺旋/分叉；36% 的行以印章圆符开头)，右半素石；输出 4 张：反照率(基色(150,145,134)±噪声，刻痕处×(1−0.55cut)(第二轮×0.54)，金线混(205,160,70))、法线(高度场中心差分，强度 S/90(第二轮 S/42)；先画刻痕黑线再 3×3 盒滤，亮度=1−刻痕)、orm(R=ao 0.55+0.45B(第二轮 0.35+0.65B)，G=粗糙 0.84+0.1lich−0.5gl+0.06(1−hgt)，B=金属=金线)、自发光(256×512 半尺寸，金线 gl×(1,0.7,0.3))；材质法线强度 1.4 ao 强度 0.7 自发光色 16761962 强度 0.05 vertexColors；缓存键 tree.roots.oathStone|high|v4、mobile|v2；种子 7331",
-      "quantities": [
-        {
-          "value": 0.36,
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 2 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 2 节 · d140",
       "verifiedInOurStack": false
     },
     {
@@ -2129,26 +2054,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 3 节 · d145",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "mat-hardsurf.d146.card",
-      "sourceId": "d146",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "section": "3",
-      "caseId": "case-13",
-      "title": "近景材质",
-      "text": "白桦皮 bump 1.4 rough 0.8；深皮 bump 2.6 rough 0.95；叶 rough 0.72 alphaTest .42；BARK_TINT birch (.6,.585,.56)，deadoak (.5,.49,.5)，amberoak (.92,.8,.7)，ember (.8,.58,.54)。",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 3 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 3 节 · d146",
       "verifiedInOurStack": false
     },
     {
@@ -2633,6 +2538,11 @@
           "rawUnit": "米"
         },
         {
+          "value": 4.4,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
           "value": 1.5,
           "unit": "m",
           "rawUnit": "米"
@@ -2915,6 +2825,11 @@
       "quantities": [
         {
           "value": 10,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.14,
           "unit": "m",
           "rawUnit": "米"
         },
@@ -3289,7 +3204,13 @@
       "caseId": "case-13",
       "title": "盾牌材质",
       "text": "木盾 MeshStandardMaterial 粗糙 0.8，aLow(离地高度)近地变暗 28%(mix(0.72,1,smoothstep(0,0.4,low)))，叠 applyDetail 的 bark 族强度 0.7；铁件 粗糙 0.5 金属 0.88，世界坐标三层噪声(9.0/3.1/41.0 倍)算锈 rust=smoothstep(.5,.8,n2·.65+n1·.35+(1−smoothstep(0,.55,低))·.3)，锈色(0.19,0.1,0.052)，锈处金属降 0.18 粗糙 0.86，混合上限 0.9；driftIron() 底色(0.4,0.385,0.37)给推车与船体铁件",
-      "quantities": [],
+      "quantities": [
+        {
+          "value": 0.28,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
       "routeNote": "含着色器/节点公式或特定渲染器 API 常量，须在目标帧源重新标定，挂卡",
       "coupling": "与第 3 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
@@ -3328,7 +3249,7 @@
       "section": "3",
       "caseId": "case-13",
       "title": "树根木材质 caveWoodMaterial",
-      "text": "世界三平面映射，尺度 0.11(楼梯 0.2，罩子 0.06)，第二层 4.3 倍放大(×0.23+11.3)以 0.38 混入防重复，再乘 3 米大斑块 0.72+0.56桌面工作站；颜色 diffuse×albedo×(1−0.45·潮湿)×1.6，潮湿 uWet·(1−smoothstep(−5.6,−3.4,y))；树脂缝 diffuse=mix(…,(0.16,0.07,0.015),sapD.r·0.7)，seamOn=smoothstep(.42,.78,sapM.r+.35·sap桌面工作站)；自发光：缝光(1,0.48,0.1)·sapD.r^1.5·(0.06+0.5seamOn)·uSeam·uAmberGlow、潮湿(0.5,0.2,0.03)·0.05、焦散、弹光；粗糙 clamp(mix(G,0.22,max(R·0.8,潮·0.7)),0.08,1)；envMapIntensity 0.18；缓存键 lf-sap-wood-v19|{CAUS_N}；楼梯用 tint #D8C8B0",
+      "text": "世界三平面映射，尺度 0.11(楼梯 0.2，罩子 0.06)，第二层 4.3 倍放大(×0.23+11.3)以 0.38 混入防重复，再乘 3 米大斑块 0.72+0.56桌面工作站；颜色 diffuse×albedo×(1−0.45·潮湿)×1.6，潮湿 uWet·(1−smoothstep(−5.6,−3.4,y))；树脂缝 diffuse=mix(…,(0.16,0.07,0.015),sapD.r·0.7)，seamOn=smoothstep(.42,.78,sapM.r+.35·sap桌面工作站)；自发光：缝光(1,0.48,0.1)·sapD.r^1.5·(0.06+0.5seamOn)·uSeam·uAmberGlow、潮湿(0.5,0.2,0.03)·0.05、焦散、弹光；粗糙 clamp(mix(G,0.22,max(R·0.8,潮·0.7)),0.08,1)；envMapIntensity 0.18；缓存键 $1|{CAUS_N}；楼梯用 tint #D8C8B0",
       "quantities": [
         {
           "value": 3,
@@ -3540,26 +3461,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 4 节 · d196",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "mat-hardsurf.d197.card",
-      "sourceId": "d197",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "section": "4",
-      "caseId": "case-13",
-      "title": "披风材质",
-      "text": "粗糙 0.82、金属 0、光泽 0.55（手机 0）、光泽色 (0.62,0.3,0.2)、光泽粗糙 0.55、透明裁切 0.5、双面",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 4 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 4 节 · d197",
       "verifiedInOurStack": false
     },
     {
@@ -3829,32 +3730,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "mat-hardsurf.d211.card",
-      "sourceId": "d211",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "section": "4",
-      "caseId": "case-13",
-      "title": "编织法线",
-      "text": "128²(移动 64²)高度场，线宽 T=8 像素，经纬交错(cx+cy)%2，每格粗细 slub 0.75–1.25；法线强度 1.6；repeat(9,20)；材质 normalScale 0.7，sheen 0.6，albedoFloor 0.09；种子 1609",
-      "quantities": [
-        {
-          "value": 8,
-          "unit": "px",
-          "rawUnit": "像素"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 4 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 4 节 · d211",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "mat-hardsurf.d212.card",
       "sourceId": "d212",
       "cardId": "mat.library",
@@ -3970,26 +3845,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "mat-hardsurf.d218.card",
-      "sourceId": "d218",
-      "cardId": "shade.shell-fur",
-      "target": "shade.shell-fur",
-      "section": "5",
-      "caseId": "case-03",
-      "title": "蓝色亚克力外壳 M_Shell_BlueAcrylic",
-      "text": "基色 (0.62, 0.90, 0.95)；折射率 1.49；透射 0.985；清漆 1.0、清漆粗糙度 0.03、清漆折射率 1.5；高光 0.5；粗糙度由程序纹理在 0.04–0.115 间变化（纹理缩放 38.0，凹凸 0.015，凹凸缩放 420.0）；体积吸收色 (0.09, 0.67, 0.78)、密度 300.0；阴影光线改走透明着色器（让内部零件被照亮）（可借性：纯参数可借思路；\"阴影光线走透明\"依赖 Cycles 的 light path 技巧，WebGL 需另做）",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 5 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 5 节 · d218",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "mat-hardsurf.d220.card",
       "sourceId": "d220",
       "cardId": "three.patch",
@@ -4093,6 +3948,26 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 5 节 · d223（案例 13 第 15 章）",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d224.card",
+      "sourceId": "d224",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
+      "section": "5",
+      "caseId": "case-13",
+      "title": "琥珀材质开关",
+      "text": "transparent:true depthWrite:true noShadow:true 缓存键后缀 -shell3；amberMesh.renderOrder=2；着色器“unrolled, no loops/fetches”，4 个命中点手写展开",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 5 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 5 节 · d224（案例 13 第 15 章）",
       "verifiedInOurStack": false
     },
     {
@@ -4735,6 +4610,26 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "mat-hardsurf.d249.card",
+      "sourceId": "d249",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "section": "6",
+      "caseId": "case-13",
+      "title": "热标记含义",
+      "text": "热标记 1=笼/铃/高跷脚的灰金热边，2=火笼铁",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 6 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 6 节 · d249（案例 13 第 14 章）",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "mat-hardsurf.d250.card",
       "sourceId": "d250",
       "cardId": "mat.library",
@@ -4999,6 +4894,14 @@
           "value": 18,
           "unit": "rad/s",
           "rawUnit": "rad/s"
+        },
+        {
+          "value": [
+            0.35,
+            1
+          ],
+          "unit": "s",
+          "rawUnit": "s"
         }
       ],
       "routeNote": "含着色器/节点公式或特定渲染器 API 常量，须在目标帧源重新标定，挂卡",
@@ -5009,46 +4912,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 6 节 · d261",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "mat-hardsurf.d262.card",
-      "sourceId": "d262",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "section": "6",
-      "caseId": "case-13",
-      "title": "其它材质色值",
-      "text": "lanternGlow color 3811860 emissive 16761962 强度 0.6 粗糙 0.6(十进制原值未换十六进制)；flameMat color 0 emissive 16754760 强度 1.4 粗糙 1；布景 GLOW 顶点色 color 15257760 emissive 16757588 强度 0.9 粗糙 0.55(夜光 0.7+1.5·night)；birchLeaf color 14200910 emissive 3811336 强度 0.25 粗糙 0.72；hallRibbon 双面顶点色粗糙 0.82",
-      "quantities": [],
-      "routeNote": "场景面数/粒子/实例/材质预算与具体作品规模强绑定（C11 终审铁律），挂卡",
-      "coupling": "与第 6 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 6 节 · d262",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "mat-hardsurf.d263.card",
-      "sourceId": "d263",
-      "cardId": "three.patch",
-      "target": "three.patch",
-      "section": "6",
-      "caseId": "case-13",
-      "title": "故事摆件火焰色技巧",
-      "text": "顶点色火焰写 flame=[7,3.6,1.1](超过 1)，着色器 sapFlame=max(diffuse−1,0)×1.6 取出作自发光，同时 diffuse 截到≤1，环境反射×0.25，弹光项 diffuse·sapStoryBounce·0.22；材质粗糙 0.82，缓存键 lf-sap-story-v3；一个网格既有固体又有火苗",
-      "quantities": [],
-      "routeNote": "场景面数/粒子/实例/材质预算与具体作品规模强绑定（C11 终审铁律），挂卡",
-      "coupling": "与第 6 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 6 节 · d263",
       "verifiedInOurStack": false
     },
     {
@@ -6153,26 +6016,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "mat-hardsurf.d316.card",
-      "sourceId": "d316",
-      "cardId": "shade.hull-outline",
-      "target": "shade.hull-outline",
-      "section": "7",
-      "caseId": "case-02",
-      "title": "三套调色板 hero / crimson / onyx",
-      "text": "body #c8281e / #1b1a22 / #2d3244；dorsal #a51d18 / #121118 / #1f2330；flank #d8392a / #26242f / #373d52；belly #f0c890 / #3a2a30 / #414865；bellyLine #d89a58 / #5a2c34 / #5a6384；limb #b8241c / #211f29 / #2b3040；horn hero [#9c6c28,#dcb465,#f7e8b8]；iris #ffc23a / #ffae2a / #d77cff；eyeGlow 1.2 / 2.6 / 2.4；翼膜 spar/mid/light/vein/ink hero #b8401a/#f08a2a/#ffc870/#c05a1c/#5a1e08，crimson #3a1668/#7a3fc4/#a878f0/#34125e/#12061f，onyx #1c2a6e/#3f5fd0/#7a9cff/#18245e/#080c22；glow #ffd08a / #c9a0ff / #a8c0ff，glowStrength 1.35 / 1.2 / 1.25，glowMix 0.5 / 0.3 / 0.3；outline #3a1414 / #07060a / #0a0a12；鞍 #6e452a、strap #43291a、metal #d8b060；mouth #8c2b3c；teeth #fbf6ea。源码 原实现源码。",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 7 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 7 节 · d316",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "mat-hardsurf.d317.card",
       "sourceId": "d317",
       "cardId": "shade.scales",
@@ -6190,26 +6033,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 7 节 · d317",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "mat-hardsurf.d318.card",
-      "sourceId": "d318",
-      "cardId": "shade.scales",
-      "target": "shade.scales",
-      "section": "7",
-      "caseId": "case-02",
-      "title": "敌方紫色轮廓光 shade",
-      "text": "aura #9a62ff（auraK [0.55,1.5]）、vein #a070ff ×1.25、self 0.07、eye #e6ccff ×3.2、ink [0.075,0.03,0.17,0.8]、trail #a878ff ×1.1。源码 原实现源码。",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 7 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 7 节 · d318",
       "verifiedInOurStack": false
     },
     {
@@ -6324,26 +6147,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "mat-hardsurf.d325.card",
-      "sourceId": "d325",
-      "cardId": "shade.scales",
-      "target": "shade.scales",
-      "section": "7",
-      "caseId": "case-13",
-      "title": "趋光飞蛾材质",
-      "text": "roughness .92 alphaTest .45 emissive 0xFFC777 emissiveIntensity 1 emissiveMap；flockMaterial sweep 1.25 wrist .5 twist 1.2 tuck .35 hindLag -.22 neck[0,.03,.12] segs{at:[.36,.7],len:[.62,.41],k:[.9,1.3,.04,.16],blend:.09}；glowBase .3 glowK 2.2（亮度=.3+glow×2.2）；透光 trans{col:0xFFC98A,w:.45,thick:.9}",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 7 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 7 节 · d325（案例 13 第 16 章）",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "mat-hardsurf.d326.card",
       "sourceId": "d326",
       "cardId": "three.patch",
@@ -6373,7 +6176,7 @@
       "title": "僵尸手材质值",
       "text": "僵尸皮:饱和卡通腐绿 #5E8C42 渐入 #3D5E2A + 柔和次表面散射(黄绿半径,指逆光发亮);关节折痕/伤口周围/指甲下用病态梅紫 #4A2C56(Pointiness 或 AO 加顶点色/程序遮罩);伤口与断面湿润紫红 Roughness=0.25;骨哑光奶白 #E6DEC8;订书钉 Metallic=0.9、Roughness=0.2;指甲脏黄半光泽、甲根深色",
       "quantities": [],
-      "routeNote": "场景面数/粒子/实例/材质预算与具体作品规模强绑定（C11 终审铁律），挂卡",
+      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
       "coupling": "与第 7 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -6573,32 +6376,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "mat-hardsurf.d338.card",
-      "sourceId": "d338",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "section": "8",
-      "caseId": "case-13",
-      "title": "叶配色",
-      "text": "birch #f7d65e #efc242 #e2ab2c #fae184 #d8982a #fbeaa4 #c7891e #f3cd50；oak #c96c1c #dc8626 #b25614 #e59d36 #a24a12 #d27c2a #8b3c10 #e9ad48；ember #9e1b12 #bb2a16 #d4481a #e57824 #f0a438 #f7c552 #7a140e #c93a18。叶大小 birch 15.08px，oak 17.4，mass 13.2。叶团 shade=.62+.3distN+.14up±.06。",
-      "quantities": [
-        {
-          "value": 15.08,
-          "unit": "px",
-          "rawUnit": "px"
-        }
-      ],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 8 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 8 节 · d338",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "mat-hardsurf.d339.card",
       "sourceId": "d339",
       "cardId": "mat.library",
@@ -6734,26 +6511,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "mat-hardsurf.d344.card",
-      "sourceId": "d344",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "section": "8",
-      "caseId": "case-02",
-      "title": "树色",
-      "text": "阔叶 0x4f9a4c/0x3f8446/0x6aa84e/0x2f6e44；针叶 0x2f6a44/0x255a3e/0x3a7a48/0x2a5a52；樱花 0xf7b7cc/0xf4a7c1/0xffd6e4/0xe89ab8；芦苇 0x98b44c/0x6fa046/0xc2bc62/0x5f9058；灌木 0x4f8e46/0x3c7642/0x66a04c/0x2f6c4a；树干 0x4a433c（樱花 0x4a3c3e）。源码 原实现源码。",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 8 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 8 节 · d344",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "mat-hardsurf.d345.card",
       "sourceId": "d345",
       "cardId": "mat.library",
@@ -6771,26 +6528,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 8 节 · d345",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "mat-hardsurf.d346.card",
-      "sourceId": "d346",
-      "cardId": "mat.library",
-      "target": "mat.library",
-      "section": "8",
-      "caseId": "case-02",
-      "title": "建筑调色（顶点色，无贴图）",
-      "text": "PLASTER 0xece2cc、WOOD 0x6a4a36、WOOD_DARK 0x4a3428、STONE 0xb9b3a8、VERMILION 0xe4472f、TILE 0x3d4a63、TILE_EDGE 0x6b7a96、GOLD 0xffd36a；屋顶 4 色 0xe0703a/0x4a6aa8/0x3d4a63/0xb0503a。源码 原实现源码。",
-      "quantities": [],
-      "routeNote": "场景面数/粒子/实例/材质预算与具体作品规模强绑定（C11 终审铁律），挂卡",
-      "coupling": "与第 8 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 8 节 · d346",
       "verifiedInOurStack": false
     },
     {
@@ -7088,6 +6825,14 @@
       "title": "叶墙着色器升级",
       "text": "平铺打破：同一 uv 两次偏移采样，smoothstep(0.3,0.7,wA/(wA+wB)) 混合，偏移由格哈希给(lfLeafTex)；墙乘 mix((0.5,0.44,0.4),(1.2,1.1,0.94),pn)，地脚 0.4–1.6 米(+噪声)渐暗到(0.55,0.5,0.42)，顶部 4.2–5.6 米变亮；自发光只留 1/4 金叶 smoothstep(0.58,0.74,噪声)(原注释：the wall is not one wallpaper — 2–3 m patches of tarnish/bleach/damp, and only ≈1 in 4 gilt leaves keeps its gilt)；法线用高度图贴图导数重建 lh=高度×0.018；ao 0.35+0.65·smoothstep(0.1,0.55,高度)；叶墙材质 emissive 白 强度 0.08 粗糙 0.75 金属 0.15；着色器缓存键 arcade-hallLeaves-v19t",
       "quantities": [
+        {
+          "value": [
+            0.4,
+            1.6
+          ],
+          "unit": "m",
+          "rawUnit": "米"
+        },
         {
           "value": [
             4.2,
@@ -7648,26 +7393,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "mat-hardsurf.d377.card",
-      "sourceId": "d377",
-      "cardId": "three.patch",
-      "target": "three.patch",
-      "section": "9",
-      "caseId": "case-10",
-      "title": "水面材质",
-      "text": "颜色 (0.012, 0.03, 0.022)，粗糙度 0.04，环境反射强度 2.2，岸边按水深淡出并加泡沫（可借性：纯参数）",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 9 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 9 节 · d377",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "mat-hardsurf.d378.card",
       "sourceId": "d378",
       "cardId": "three.patch",
@@ -7737,6 +7462,11 @@
           "value": 0.2,
           "unit": "ratio",
           "rawUnit": "%"
+        },
+        {
+          "value": 0.011,
+          "unit": "m",
+          "rawUnit": "m"
         },
         {
           "value": 0.3,
@@ -7860,26 +7590,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "mat-hardsurf.d382.card",
-      "sourceId": "d382",
-      "cardId": "three.patch",
-      "target": "three.patch",
-      "section": "9",
-      "caseId": "case-13",
-      "title": "洞底 floorMaps",
-      "text": "种子 61696；26 颗\"树脂珠\"半径 0.003~0.009 UV；亮度(0.32+0.3n1+0.18n2)(1−0.4·径流)；底色(0.2,0.14,0.09)，珠区(0.2,0.085,0.02)；data：R 径流/珠，G 粗糙 0.85−0.45run−0.5bead，B 细噪声；缓存键 tree.zone_13 .floor|{tier}|{n}|v2",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 9 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 9 节 · d382",
-      "verifiedInOurStack": false
-    },
-    {
       "id": "mat-hardsurf.d383.card",
       "sourceId": "d383",
       "cardId": "three.patch",
@@ -7968,26 +7678,6 @@
       "evidenceLabel": "推断",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 10 节 · d386",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "mat-hardsurf.d387.card",
-      "sourceId": "d387",
-      "cardId": "shade.toon-kit",
-      "target": "shade.toon-kit",
-      "section": "10",
-      "caseId": "case-02",
-      "title": "暗部色 = 反照率 × shade 色调再提饱和 shadeSat 1.2；角色暗部再 ×sha",
-      "text": "暗部色 = 反照率 × shade 色调再提饱和 shadeSat 1.2；角色暗部再 ×shadeDeep 0.82；shade 色调 afternoon 0xb8bde8 / storm 0x9098b8 / victory 0xa8a0d0。源码 原实现源码。",
-      "quantities": [],
-      "routeNote": "未标定或片内配色/自发光色板与参数配置，挂卡",
-      "coupling": "与第 10 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 10 节 · d387",
       "verifiedInOurStack": false
     },
     {
@@ -8644,6 +8334,14 @@
       "title": "世界坐标风化叠层",
       "text": "坑洞场(贴图G通道)阈值cPitT开洞，密度随迎风面WSW/低层/大尺度团簇；湿脚 damp 0.3–3 m(+1.4n)；基座线离地1.2 m；上层漂白 smoothstep(37.02,56.02,y)=FLOOR+13→+32；64个雨痕源(uStA/uStB，C_NST=64，移动24)沿墙面投污带 宽 hw·(1+0.3t)+0.1；苔藓色(.11,.14,.05)→(.3,.29,.09)；地衣圆斑5–30 cm成群，仅迎风面/平台，色lerp([.42,.34,.2],[.47,.47,.4])；长雨痕+烟熏大块 cFbm(al·0.085,y·0.07)+墙脚藻膜(高1.2+2.3·fbm≤3.5 m)；烟熏混合色(.3,.28,.26)最大混合0.82",
       "quantities": [
+        {
+          "value": [
+            0.3,
+            3
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        },
         {
           "value": 1.2,
           "unit": "m",
@@ -9567,6 +9265,26 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "mat-hardsurf.d451.card",
+      "sourceId": "d451",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "section": "12",
+      "caseId": "case-13",
+      "title": "共享材质与缓存键",
+      "text": "oak/charred/iron/rust/bronze/wax/gold 来自 getKitMaterials()；缓存键 hall-$1-v5/-v5p(proc)/-lite/-gl、hall-$1-v5-lite/-v5-gl、hall-$1-v4、hall-$1-v1、hall-$1-v1、hall-$1-v1、northdoor-hinge",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 12 节 · d451",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "mat-hardsurf.d452.card",
       "sourceId": "d452",
       "cardId": "shade.px-lod",
@@ -9854,6 +9572,86 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "mat-hardsurf.d460.card",
+      "sourceId": "d460",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "section": "12",
+      "caseId": "case-13",
+      "title": "贴图缓存键",
+      "text": "tree.trunk.bark|h|v1、floor|h|v1、scar|h|v1、tick|h|v2、hide|h|v2；plank|{W}|v2；tree.roots.bark|high|v6、|mobile|v6；tree.zone_13 .amber|{tier}|{aw}|v2——键内写尺寸档+版本号，改算法就升版本",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 12 节 · d460",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d461.card",
+      "sourceId": "d461",
+      "cardId": "three.patch",
+      "target": "three.patch",
+      "section": "12",
+      "caseId": "case-13",
+      "title": "贴图缓存键",
+      "text": "tree.roots.hallLeaves|{mobile|high}|v3；tree.roots.oathStone|high|v4 / mobile|v2；tree.town.daubT|256|21|v2；着色器键 cloister-weather-v2、arcade-hall-ribbon-v19t、arcade-interior-room-v19、arcade-hallLeaves-v19t、tree-oath-stone-pom-v19、tree-zone_21 -floor-v19t",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 12 节 · d461",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d462.card",
+      "sourceId": "d462",
+      "cardId": "three.patch",
+      "target": "three.patch",
+      "section": "12",
+      "caseId": "case-13",
+      "title": "着色器缓存键清单",
+      "text": "$1、$1、$1-{0|1}、$1(-m)、$1|{N}、$1|{N}、$1|{N}、lf-sap-knights-v19d、lf-sap-drop-v1、lf-sap-story-v3",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 12 节 · d462",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d463.card",
+      "sourceId": "d463",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "section": "12",
+      "caseId": "case-13",
+      "title": "三向投影不用 UV",
+      "text": "盔甲用局部坐标三向投影 uTexScale=1/0.42；一张 RGBA 当四种遮罩；蒙皮角色花纹用静止姿势（绑定姿势空间 space:\"rest\"）坐标做噪声输入，动起来花纹不滑",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 12 节 · d463",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "mat-hardsurf.d465.card",
       "sourceId": "d465",
       "cardId": "shade.px-lod",
@@ -9952,6 +9750,26 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "mat-hardsurf.d468.card",
+      "sourceId": "d468",
+      "cardId": "shade.scales",
+      "target": "shade.scales",
+      "section": "12",
+      "caseId": "case-01r",
+      "title": "材质名单契约",
+      "text": "建模助手只能 mats.get(\"名字\");21个名字固定(frame_dark,fin_black,fan_blade,pcb_black,copper,die,fan_hub,pad_white,frame_black,frame_edge…);未登记名字显示品红一眼可见;spec.MATERIALS前6个为frame_dark,frame_black,frame_edge,fin_black,fan_blade,fan_hub",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 12 节 · d468",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "mat-hardsurf.d478.card",
       "sourceId": "d478",
       "cardId": "mat.library",
@@ -10009,6 +9827,47 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 13 节 · d480",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d486.card",
+      "sourceId": "d486",
+      "cardId": "shade.toon-kit",
+      "target": "shade.toon-kit",
+      "section": "13",
+      "caseId": "case-072",
+      "title": "库外来源 072 胶片质感前缀",
+      "text": "Style：8K、photorealism、真实有机胶片颗粒与halation、HDR、大画幅胶片拍摄，NOT 3D render/game engine/cartoon/anime cel-shading；Texture：哑光非反射表面、使用感材质、有机65mm颗粒、无数码光泽无塑料感；Skin：毛孔级真实、细汗毛、自然不对称、无磨皮；Technical：real-time 24fps、真180度快门(1/48秒曝光)、真实摄影运动模糊，无闪烁/形变/插帧/帧混合/鬼影；手持抖动来自真实扛机操作员而非破碎帧",
+      "quantities": [
+        {
+          "value": 65,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 24,
+          "unit": "fps",
+          "rawUnit": "fps"
+        },
+        {
+          "value": 180,
+          "unit": "deg",
+          "rawUnit": "度"
+        },
+        {
+          "value": 0.020833,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 13 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 13 节 · d486",
       "verifiedInOurStack": false
     },
     {
@@ -10302,6 +10161,86 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "mat-hardsurf.d508.card",
+      "sourceId": "d508",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H1",
+      "caseId": "case-13",
+      "title": "lathe 车削规则",
+      "text": "剖面点先 Catmull-Rom 平滑(crProfile)；纵向分段=(剖面点数-1)×sub(默认 3)，横向 seg 默认 28；可只车一段角度(phi0/phiLen)、横向压扁(sx/sz)、传 deform(o,θ,v) 逐点变形",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d508",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d509.card",
+      "sourceId": "d509",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H1",
+      "caseId": "case-13",
+      "title": "latheRim",
+      "text": "沿车削体某一高度 v 绕一圈的管子作包边，40 段",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d509",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d510.card",
+      "sourceId": "d510",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H1",
+      "caseId": "case-13",
+      "title": "extrude 参数",
+      "text": "倒角 2 段、曲线 10 段，可带 holes",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d510",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d511.card",
+      "sourceId": "d511",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H1",
+      "caseId": "case-13",
+      "title": "rivetM",
+      "text": "半球铆钉按法线朝向，高度压成 0.55（h=.55）",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d511",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "mat-hardsurf.d512.card",
       "sourceId": "d512",
       "cardId": "form.primitives",
@@ -10430,7 +10369,7 @@
       "target": "form.primitives",
       "section": "H1",
       "caseId": "case-13",
-      "title": "PartBuilder 选项语义",
+      "title": "部件生成器 选项语义",
       "text": "B.add(材质键,几何,骨头,矩阵,选项)；big:false=近景才画，bigOnly:true=远景低面数替身（推断：精细版与低面数版成对出现）",
       "quantities": [],
       "routeNote": "场景面数/粒子/实例/材质预算与具体作品规模强绑定（C11 终审铁律），挂卡",
@@ -10524,6 +10463,26 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "mat-hardsurf.d526.card",
+      "sourceId": "d526",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H1",
+      "caseId": "case-13",
+      "title": "车削",
+      "text": "画侧面轮廓线绕竖轴转一圈：头目一胸甲前片 112×21、铃铛、行者长袍、钟",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d526",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "mat-hardsurf.d528.card",
       "sourceId": "d528",
       "cardId": "form.superloft",
@@ -10561,6 +10520,26 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d532",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d535.card",
+      "sourceId": "d535",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H2",
+      "caseId": "case-01r",
+      "title": "`box`",
+      "text": "bmesh create_cube，倒角 segments=2、profile=0.5。",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H2 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H2 节 · d535",
       "verifiedInOurStack": false
     },
     {
@@ -10624,6 +10603,26 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 H2 节 · d541",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d543.card",
+      "sourceId": "d543",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H2",
+      "caseId": "case-03",
+      "title": "线缆是曲线",
+      "text": "3D 贝塞尔路径上按偏移排多根平行线，带抖动和扎带 bundle(..., ties=, spread=None, jitter=0.25)",
+      "quantities": [],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H2 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H2 节 · d543",
       "verifiedInOurStack": false
     },
     {
@@ -11116,6 +11115,47 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "mat-hardsurf.d587.card",
+      "sourceId": "d587",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H4",
+      "caseId": "case-01r",
+      "title": "正面骨架尺寸",
+      "text": "X形骨架四条斜臂汇到中心腰宽15mm(x790→865);上盖板沿顶边X-57…+61;斜臂和外圈枪灰倒角条宽约2.5mm,盖板深灰哑光阳极氧化,风扇窗内黑色;外圈金属带四角圆角半径约12mm;尾端+X整面封闭仅2颗小螺丝;背面窗:左窗外缘X-145,上下边到X-56后斜收到尖点X-7.5 Z0,窗高Z±59,上下各留边约2.6mm,右窗镜像",
+      "quantities": [
+        {
+          "value": 15,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 2.5,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 12,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 2.6,
+          "unit": "mm",
+          "rawUnit": "mm"
+        }
+      ],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H4 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d587",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "mat-hardsurf.d589.card",
       "sourceId": "d589",
       "cardId": "form.primitives",
@@ -11125,6 +11165,11 @@
       "title": "主板公版板号实测",
       "text": "约115×115mm(±3)方板,+X/+Z角切45°装供电口,-Z边右段向下凸;GPU封装63×55.5mm中心相对板中心X-6.6 Z-1;裸片约25.5×32.4(含边缘胶偏大;报道裸片面积744–750mm²折合24.5×30.5);主板厚1.6(假定);显存GDDR7 14×12×1.1mm共16颗5+4+5+2;电感34颗(顶边一排11、右侧两列共9、底边右段8、零散2、背面GPU正后方4)每颗内侧紧挨方形DrMOS;约7,800颗贴片、约370颗小电容",
       "quantities": [
+        {
+          "value": 115,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
         {
           "value": 45,
           "unit": "deg",
@@ -11157,6 +11202,150 @@
       "evidenceLabel": "推断",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d589",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d590.card",
+      "sourceId": "d590",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H4",
+      "caseId": "case-01r",
+      "title": "I/O挡板与PCIe",
+      "text": "接口单排沿Z从+Z到-Z为DP,DP,DP,HDMI(HDMI最靠PCIe侧;某硬件媒体正文“3×HDMI+1×DP”是笔误);挡板实心无散热孔;接口在下沉约1mm的圆角矩形小板,四角梅花螺丝;顶折耳在金手指底以上100.4mm,本体顶比折耳高约30mm;挡板下端两舌尖伸到金手指底以下约19mm;挡板Z-88.5…+31.5(折耳到-165.4mm);金手指X-105…-18(实测-99…-20);I/O排线宽约25mm沿-Z边走向I/O端;PCIe小板X-110…-5约112×20mm;两面各82位金手指",
+      "quantities": [
+        {
+          "value": 1,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 100.4,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 30,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 19,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": -165.4,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 25,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 20,
+          "unit": "mm",
+          "rawUnit": "mm"
+        }
+      ],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H4 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "实测",
+      "evidenceLabel": "实测",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d590",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d591.card",
+      "sourceId": "d591",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H4",
+      "caseId": "case-01r",
+      "title": "均热板与热管",
+      "text": "均热板在主板正面一侧(-Y),接触面镍色,中间略大于GPU封装的矩形,四周黑色压框贴白色导热垫(31–35块);热管左右各5根沿X直伸Z向一字排开(Z=40,20,0,-20,-40mm),8mm铜管,某硬件媒体称5根贯穿(两侧各露5头),某硬件媒体写10根;GPU与均热板间液态金属(报道);热管压扁到Y-5.9…-0.1;未做折弯汇聚段;均热板/热管正面改黑色涂层",
+      "quantities": [
+        {
+          "value": -40,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 8,
+          "unit": "mm",
+          "rawUnit": "mm"
+        }
+      ],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H4 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d591",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d592.card",
+      "sourceId": "d592",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H4",
+      "caseId": "case-01r",
+      "title": "供电口12V-2x6",
+      "text": "在主板+X/+Z角斜45°骑切角,针排沿Y横跨卡厚;包围盒X+24…+48(+50) Z+38(+40)…+60;真插座宽20.6mm;顶边凹坑在中段+X端X+28…+54,斜壁;顶边中段X-57…+61下沉一级有两条平行长槽沿X",
+      "quantities": [
+        {
+          "value": 45,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 20.6,
+          "unit": "mm",
+          "rawUnit": "mm"
+        }
+      ],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H4 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d592",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d594.card",
+      "sourceId": "d594",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H4",
+      "caseId": "case-01r",
+      "title": "01 重制风扇量到的事实",
+      "text": "叶片中线随半径逆时针后掠约 35°；每片叶顺时针一侧是厚而圆的前缘在最前面(-Y)，逆时针一侧薄后缘在最里面→真实转向是正视顺时针，即 rotation_euler.y 取正值；叶片轮廓角度在正视图 原包素材 沿圆周采样量；PCB 元件位置量自 原包素材、原包素材(叠毫米网格读数)；分组约定 pcb 组 Y 范围+2.0…+6.5，正面只有高度≤0.28 的小件(0201/0402/焊盘/过孔)归 pcb 组，其余正面元件归 vrm 组，背面元件全归 pcb 组；GPU 面朝-Y，正面元件从 Y=+2.0 往-Y 长，背面从 Y=+3.6 往+Y 长",
+      "quantities": [
+        {
+          "value": 35,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H4 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "实测",
+      "evidenceLabel": "实测",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d594",
       "verifiedInOurStack": false
     },
     {
@@ -11370,6 +11559,11 @@
           "rawUnit": "px"
         },
         {
+          "value": 0.379,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
           "value": 250,
           "unit": "mm",
           "rawUnit": "mm"
@@ -11406,6 +11600,42 @@
       "evidenceLabel": "实测",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d606",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d607.card",
+      "sourceId": "d607",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "section": "H5",
+      "caseId": "case-03",
+      "title": "03 v2→v3 形状纠错表",
+      "text": "鸡冠:方块→长条(顶面平后略升,后段45°斜下末端像檐罩后摄像头);前额:眉檐→独立前额盖正中向前伸尖角(尖端比脸靠前约20mm)两翼后掠;火神炮:朝前短圆筒炮口y≈-112→贴圆顶两侧水平长水滴炮口y≈-79(比脸靠后约60mm);脸颊在前,退一步才是朝正前方散热口面,下面3条槽;侧面:一圈刻线→五边形耳盖(可开舱盖)后缘深色长缝;圆顶与后壳之间有缝露深色骨架",
+      "quantities": [
+        {
+          "value": 45,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 20,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 60,
+          "unit": "mm",
+          "rawUnit": "mm"
+        }
+      ],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H5 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d607",
       "verifiedInOurStack": false
     },
     {
@@ -11756,6 +11986,99 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "mat-hardsurf.d627.card",
+      "sourceId": "d627",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H6",
+      "caseId": "case-28",
+      "title": "案例 28 多角度约束",
+      "text": "三视图+绕头12秒视频(21:9,360°)约束正面侧面后脑颈部→Blender分层建模(面甲、线缆、头颅)→多角度对照；需要Blender 5.2+；页面约29秒建模演示",
+      "quantities": [
+        {
+          "value": 12,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 360,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 29,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H6 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H6 节 · d627",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d628.card",
+      "sourceId": "d628",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "section": "H6",
+      "caseId": "case-24",
+      "title": "僵尸手 动画友好拓扑",
+      "text": "每个手指关节与指节处3条平行边环，使手指弯90°网格不塌；Subdivision Surface+受控 crease/bevel 保持卡通棱面感；宽厚手背、饱满掌垫、略大指节、三段手指、两段拇指粗根部、卡通指甲带三角缺口；断面台阶状紫洋红肉+奶白圆头骨",
+      "quantities": [
+        {
+          "value": 90,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H6 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H6 节 · d628",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "mat-hardsurf.d629.card",
+      "sourceId": "d629",
+      "cardId": "assembly.schedule",
+      "target": "assembly.schedule",
+      "section": "H7",
+      "caseId": "case-03",
+      "title": "案例 03-B 自动拼装算法",
+      "text": "按包围盒推父件和拉开方向，按零件局部轴（面法线按面积聚类，3° 容差 cos>0.9986）推回，BVH 碰撞二分到 0.01 mm；允许 push 额外推进；零件只做平移（可借性：依赖一段特定算法（BVH 碰撞回推），算法可自写；不依赖 STL 许可，但 STL 来源授权未核实）",
+      "quantities": [
+        {
+          "value": 3,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 0.01,
+          "unit": "mm",
+          "rawUnit": "mm"
+        }
+      ],
+      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
+      "coupling": "与第 H7 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "材质与硬表面建模汇编 · 第 H7 节 · d629",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "mat-hardsurf.d631.card",
       "sourceId": "d631",
       "cardId": "asset.bbox-proxy",
@@ -11859,32 +12182,6 @@
       "evidenceLabel": "推断",
       "verificationLabel": "见出处",
       "docRef": "材质与硬表面建模汇编 · 第 H7 节 · d634",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "mat-hardsurf.d635.card",
-      "sourceId": "d635",
-      "cardId": "asset.bbox-proxy",
-      "target": "asset.bbox-proxy",
-      "section": "H7",
-      "caseId": "case-03",
-      "title": "代码规模推断",
-      "text": "建模脚本≥2,818 行，绑定与动画脚本≥1,125 行，合计≥3,943 行；画面只露出约 300 行(约 8%)；集合 Neck/Chassis/Wires/Eyes/Shell/Fasteners/Studio",
-      "quantities": [
-        {
-          "value": 0.08,
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "routeNote": "含特定实现参数、常数配置或单片数据表，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 H7 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "材质与硬表面建模汇编 · 第 H7 节 · d635",
       "verifiedInOurStack": false
     },
     {

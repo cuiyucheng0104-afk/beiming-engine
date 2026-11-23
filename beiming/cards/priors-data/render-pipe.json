@@ -766,35 +766,11 @@
       }
     },
     {
-      "id": "render-pipe.d031.render-time",
-      "domain": "render-sampling-denoise",
-      "topic": "render-pipe.s3.render-time",
-      "title": "Blender 渲染设置与分段（渲染耗时）",
-      "value": 100,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "第 3 节：Blender 渲染设置与分段（渲染耗时）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-multi",
-        "evidenceLevel": "推断",
-        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d031",
-        "note": "Blender 5.2 Cycles；某生成平台 GPU 约 12 块显卡；OptiX；1920×1080（预览 720p）；24 fps；720 帧；采样 256；自适应阈值 0.02；降噪 OIDN 带反照率和法线通道；运动模糊快门 180° 位置 START；景深带跟焦（光圈未公开）；焦段穿行 18 mm、定妆 50 mm；色彩管理 AgX（Look、曝光未公开）；输出干净底片 ProRes（档位位深未公开）；反弹次数未公开。预览 720p、终渲 1080p；预览分辨率比例 600×338 小样。；每帧耗时与分段：1080p 每帧约 9–10 s；每块显卡第一帧约 100 s（OptiX 编译）；60 帧一段共 12 段；局部缺陷只重渲那一段按帧拼回（局部重渲每段约 11 分钟，总计 1.9 显卡小时，我们核算）；测试渲染也送 GPU（本地共享队列曾等 15 分钟）；不上传缓存和助手 `out/` 目录（用忽略文件挡）。推算：720×9.5 s=6,840 s=1.9 显卡小时，12 段并行每段 60×9.5+100=670 s≈11 min，官方说「整片约 1 小时」差的时间未说明；段太小会被首帧编译吃掉。；干净底片：ProRes 不带图层和颗粒，是合成源头；改图层、调色、声音只重合成不重渲。工程流程：不保留 工程文件，从代码重建约 15 秒；`原文档:integration-audit`；五道关口：三张最终画质测试帧→分镜→预览→终渲→质检。"
-      },
-      "verifiedInOurStack": false,
-      "ext": {
-        "c12.sourceId": "d031",
-        "c12.section": "3"
-      }
-    },
-    {
       "id": "render-pipe.d031.duration",
       "domain": "render-sampling-denoise",
       "topic": "render-pipe.s3.duration",
       "title": "Blender 渲染设置与分段（时长）",
-      "value": 9.5,
+      "value": 100,
       "unit": "s",
       "conditions": {
         "appliesWhen": [
@@ -1495,6 +1471,105 @@
       }
     },
     {
+      "id": "render-pipe.d042.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.resolution",
+      "title": "1024 spp 与精确重投影（画面分辨率）",
+      "value": {
+        "width": 3840,
+        "height": 2160
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：1024 spp 与精确重投影（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d042",
+        "note": "开场两镜（外景/窗）4K 母帧 3840×2160，每像素 1024 采样，一块工作站显卡分别 56 s 与 131 s；算术：3840×2160×1024=8,493,465,600 像素采样，约 1.52 亿/s 与 6,480 万/s（推断）。镜头运动是对该母帧精确重投影的三脚架平移/俯仰，无采样噪点且无叠加；六个镜头（外景/带 OPEN 招牌的窗/大厅/沿吧台/菜单与出餐口/杯）各为同一场景里放一台相机、各出干净 4K 母帧。网格 CPU 光线投射：478 帧由光线投射器 CPU 版 4 个进程 4 分 7 秒（247 s÷478≈0.52 s/帧，单进程约 2.07 s/帧）；场景约 380 万三角面、28 种程序材质。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d042",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.d042.samples",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.samples",
+      "title": "1024 spp 与精确重投影（每像素采样数）",
+      "value": 1024,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：1024 spp 与精确重投影（每像素采样数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d042",
+        "note": "开场两镜（外景/窗）4K 母帧 3840×2160，每像素 1024 采样，一块工作站显卡分别 56 s 与 131 s；算术：3840×2160×1024=8,493,465,600 像素采样，约 1.52 亿/s 与 6,480 万/s（推断）。镜头运动是对该母帧精确重投影的三脚架平移/俯仰，无采样噪点且无叠加；六个镜头（外景/带 OPEN 招牌的窗/大厅/沿吧台/菜单与出餐口/杯）各为同一场景里放一台相机、各出干净 4K 母帧。网格 CPU 光线投射：478 帧由光线投射器 CPU 版 4 个进程 4 分 7 秒（247 s÷478≈0.52 s/帧，单进程约 2.07 s/帧）；场景约 380 万三角面、28 种程序材质。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d042",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.d042.duration",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.duration",
+      "title": "1024 spp 与精确重投影（时长）",
+      "value": 56,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：1024 spp 与精确重投影（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d042",
+        "note": "开场两镜（外景/窗）4K 母帧 3840×2160，每像素 1024 采样，一块工作站显卡分别 56 s 与 131 s；算术：3840×2160×1024=8,493,465,600 像素采样，约 1.52 亿/s 与 6,480 万/s（推断）。镜头运动是对该母帧精确重投影的三脚架平移/俯仰，无采样噪点且无叠加；六个镜头（外景/带 OPEN 招牌的窗/大厅/沿吧台/菜单与出餐口/杯）各为同一场景里放一台相机、各出干净 4K 母帧。网格 CPU 光线投射：478 帧由光线投射器 CPU 版 4 个进程 4 分 7 秒（247 s÷478≈0.52 s/帧，单进程约 2.07 s/帧）；场景约 380 万三角面、28 种程序材质。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d042",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.d042.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.frame-count",
+      "title": "1024 spp 与精确重投影（帧数）",
+      "value": 478,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：1024 spp 与精确重投影（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d042",
+        "note": "开场两镜（外景/窗）4K 母帧 3840×2160，每像素 1024 采样，一块工作站显卡分别 56 s 与 131 s；算术：3840×2160×1024=8,493,465,600 像素采样，约 1.52 亿/s 与 6,480 万/s（推断）。镜头运动是对该母帧精确重投影的三脚架平移/俯仰，无采样噪点且无叠加；六个镜头（外景/带 OPEN 招牌的窗/大厅/沿吧台/菜单与出餐口/杯）各为同一场景里放一台相机、各出干净 4K 母帧。网格 CPU 光线投射：478 帧由光线投射器 CPU 版 4 个进程 4 分 7 秒（247 s÷478≈0.52 s/帧，单进程约 2.07 s/帧）；场景约 380 万三角面、28 种程序材质。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d042",
+        "c12.section": "4"
+      }
+    },
+    {
       "id": "render-pipe.d049.resolution",
       "domain": "render-sampling-denoise",
       "topic": "render-pipe.s5.resolution",
@@ -1987,35 +2062,11 @@
       }
     },
     {
-      "id": "render-pipe.d068.event-time",
-      "domain": "color-grade-delivery",
-      "topic": "render-pipe.s8.event-time",
-      "title": "泛光 7 级减到 4 级（事件时刻）",
-      "value": 24,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "第 8 节：泛光 7 级减到 4 级（事件时刻）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-ext01",
-        "evidenceLevel": "源码",
-        "docRef": "渲染管线采样后期性能汇编 · 第 8 节 · d068",
-        "note": "4 级（原 7 级，作者量过：最小 3 级只占光晕 15%、花 6 遍（74 到 18 像素），去掉后没有一帧看得出）；注释「was 7: the three smallest … no frame shows them missing」（原实现源码）；首级按 1/(1+最大分量) 加权压萤火虫；上采样 3×3 帐篷核混合 0.62；uBloom 实际 0.06 起 + 脉冲（24 s +0.05，67.5 s +0.22）。泛光 4 下 3 上。"
-      },
-      "verifiedInOurStack": false,
-      "ext": {
-        "c12.sourceId": "d068",
-        "c12.section": "8"
-      }
-    },
-    {
       "id": "render-pipe.d068.duration",
       "domain": "color-grade-delivery",
       "topic": "render-pipe.s8.duration",
       "title": "泛光 7 级减到 4 级（时长）",
-      "value": 67.5,
+      "value": 24,
       "unit": "s",
       "conditions": {
         "appliesWhen": [
@@ -2080,7 +2131,7 @@
         "caseId": "case-05",
         "evidenceLevel": "实测",
         "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
-        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 xray_skin 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 透视外壳 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
       },
       "verifiedInOurStack": false,
       "ext": {
@@ -2104,7 +2155,34 @@
         "caseId": "case-05",
         "evidenceLevel": "实测",
         "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
-        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 xray_skin 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 透视外壳 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d107",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "render-pipe.d107.fill-ratio",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s13.fill-ratio",
+      "title": "像素图层（Canvas2D 叠层）与闪烁判据（填充占比）",
+      "value": [
+        0.05,
+        0.06
+      ],
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：像素图层（Canvas2D 叠层）与闪烁判据（填充占比）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "实测",
+        "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 透视外壳 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
       },
       "verifiedInOurStack": false,
       "ext": {
@@ -2118,8 +2196,8 @@
       "topic": "render-pipe.s13.area-ratio",
       "title": "像素图层（Canvas2D 叠层）与闪烁判据（版面占比）",
       "value": [
-        0.05,
-        0.06
+        0.0062,
+        0.0187
       ],
       "unit": "ratio",
       "conditions": {
@@ -2131,7 +2209,7 @@
         "caseId": "case-05",
         "evidenceLevel": "实测",
         "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
-        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 xray_skin 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 透视外壳 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
       },
       "verifiedInOurStack": false,
       "ext": {
@@ -2155,7 +2233,7 @@
         "caseId": "case-05",
         "evidenceLevel": "实测",
         "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
-        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 xray_skin 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 透视外壳 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
       },
       "verifiedInOurStack": false,
       "ext": {
@@ -2179,7 +2257,7 @@
         "caseId": "case-05",
         "evidenceLevel": "实测",
         "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
-        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 xray_skin 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 透视外壳 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
       },
       "verifiedInOurStack": false,
       "ext": {
@@ -2203,12 +2281,63 @@
         "caseId": "case-05",
         "evidenceLevel": "实测",
         "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
-        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 xray_skin 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 透视外壳 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
       },
       "verifiedInOurStack": false,
       "ext": {
         "c12.sourceId": "d107",
         "c12.section": "13"
+      }
+    },
+    {
+      "id": "render-pipe.d110.resolution",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "案例 01 重制版 重制终版编码（成片与过程片）（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 01 重制版 重制终版编码（成片与过程片）（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d110",
+        "note": "`ffmpeg -framerate 30 -i 原包素材 -framerate 30 -i 原包素材 -i 原包素材 -filter_complex \"[0:v][1:v]concat=n=2:v=1:a=0,scale=1920:1080:in_range=pc:out_range=tv:out_color_matrix=bt709:flags=lanczos+accurate_rnd+full_chroma_int,format=yuv420p[v]\" -map \"[v]\" -map 2:a -r 30 -c:v libx264 -preset slow -crf 14 -profile:v high -g 60 -bf 2 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709:range=tv -c:a aac -b:a 320k -ar 48000 -movflags +faststart`；过程片 336 帧 p_%04d + 成片 768 帧 f_%04d；已存在成品则报错不覆盖（已交付文件换版本号）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d110",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d110.fps",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.fps",
+      "title": "案例 01 重制版 重制终版编码（成片与过程片）（帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 01 重制版 重制终版编码（成片与过程片）（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d110",
+        "note": "`ffmpeg -framerate 30 -i 原包素材 -framerate 30 -i 原包素材 -i 原包素材 -filter_complex \"[0:v][1:v]concat=n=2:v=1:a=0,scale=1920:1080:in_range=pc:out_range=tv:out_color_matrix=bt709:flags=lanczos+accurate_rnd+full_chroma_int,format=yuv420p[v]\" -map \"[v]\" -map 2:a -r 30 -c:v libx264 -preset slow -crf 14 -profile:v high -g 60 -bf 2 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709:range=tv -c:a aac -b:a 320k -ar 48000 -movflags +faststart`；过程片 336 帧 p_%04d + 成片 768 帧 f_%04d；已存在成品则报错不覆盖（已交付文件换版本号）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d110",
+        "c12.section": "14"
       }
     },
     {
@@ -2508,6 +2637,57 @@
       "verifiedInOurStack": false,
       "ext": {
         "c12.sourceId": "d112",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d113.resolution",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "案例 03-B 无声编码命令与 QA（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 03-B 无声编码命令与 QA（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d113",
+        "note": "`ffmpeg -framerate 30 -i 原包素材 -vf \"scale=1920:1080:in_range=pc:out_range=tv:out_color_matrix=bt709:flags=lanczos+accurate_rnd+full_chroma_int,format=yuv420p\" -r 30 -c:v libx264 -preset slow -crf 14 -profile:v high -g 60 -bf 2 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709:range=tv -an -movflags +faststart`；另出 1280 宽 crf23 预览；已存在版本报错不覆盖；QA 含 `blackdetect=d=0.1:pix_th=0.10` 与 `freezedetect=n=0.001:d=0.5`"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d113",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d113.fps",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.fps",
+      "title": "案例 03-B 无声编码命令与 QA（帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 03-B 无声编码命令与 QA（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d113",
+        "note": "`ffmpeg -framerate 30 -i 原包素材 -vf \"scale=1920:1080:in_range=pc:out_range=tv:out_color_matrix=bt709:flags=lanczos+accurate_rnd+full_chroma_int,format=yuv420p\" -r 30 -c:v libx264 -preset slow -crf 14 -profile:v high -g 60 -bf 2 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709:range=tv -an -movflags +faststart`；另出 1280 宽 crf23 预览；已存在版本报错不覆盖；QA 含 `blackdetect=d=0.1:pix_th=0.10` 与 `freezedetect=n=0.001:d=0.5`"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d113",
         "c12.section": "14"
       }
     },
@@ -3284,7 +3464,7 @@
       "domain": "color-grade-delivery",
       "topic": "render-pipe.s14.duration",
       "title": "07 / 12 / 案例 03-T 等交付规格（作者原文）（时长）",
-      "value": 56,
+      "value": 176,
       "unit": "s",
       "conditions": {
         "appliesWhen": [
@@ -3601,32 +3781,32 @@
       }
     },
     {
-      "id": "render-pipe.sum.s027",
+      "id": "render-pipe.sum.s028",
       "domain": "render-sampling-denoise",
-      "topic": "render-pipe.s4.samples",
-      "title": "路径追踪器（WebGPU）、母帧加窗口、降噪、光组对照（案例 21）（汇总）",
-      "value": [
-        448,
-        640
-      ],
-      "unit": "spp",
+      "topic": "render-pipe.s4.resolution",
+      "title": "路径追踪器（WebGPU）、母帧加窗口、降噪、光组对照（026 写实餐馆）（汇总）",
+      "value": {
+        "width": 3840,
+        "height": 2160
+      },
+      "unit": "px",
       "conditions": {
         "appliesWhen": [
-          "第 4 节跨案例对照汇总：路径追踪器（WebGPU）、母帧加窗口、降噪、光组对照（案例 21）"
+          "第 4 节跨案例对照汇总：路径追踪器（WebGPU）、母帧加窗口、降噪、光组对照（026 写实餐馆）"
         ]
       },
       "provenance": {
-        "caseId": "case-21",
+        "caseId": "case-26",
         "evidenceLevel": "文档",
-        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · s027",
-        "note": "案例 21：渲染器：同家族；母帧：4K 448–640（新镜头 448）；窗口：32–48（新镜头 32，78 窗口）；镜头运动：仅摇和俯仰；耗时：新两镜+案例 14新两镜约 30 分钟"
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · s028",
+        "note": "026 写实餐馆：渲染器：同家族；母帧：4K 3840×2160，1024 spp（开场两镜）；窗口：不重渲，精确重投影；镜头运动：三脚架平移/俯仰；耗时：母帧 56 s 与 131 s（一块工作站显卡）"
       },
       "verifiedInOurStack": false,
       "summaryOf": [
-        "render-pipe.d040.samples"
+        "render-pipe.d042.resolution"
       ],
       "ext": {
-        "c12.sourceId": "s027",
+        "c12.sourceId": "s028",
         "c12.section": "4"
       }
     },
@@ -3823,6 +4003,60 @@
       }
     },
     {
+      "id": "render-pipe.sum.s044",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.samples",
+      "title": "云渲染、并行与耗时对照（案例 22）（汇总）",
+      "value": 300,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节跨案例对照汇总：云渲染、并行与耗时对照（案例 22）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · s044",
+        "note": "案例 22：设置：300 spp；每帧：桌面工作站 约 2 min，云 GPU <0.5 min；合计：两块 GPU 约 4 小时，总工时约 20 小时；设备：桌面工作站 / 云"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d032.samples"
+      ],
+      "ext": {
+        "c12.sourceId": "s044",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s045",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.samples",
+      "title": "云渲染、并行与耗时对照（026 餐馆）（汇总）",
+      "value": 1024,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节跨案例对照汇总：云渲染、并行与耗时对照（026 餐馆）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · s045",
+        "note": "026 餐馆：设置：1024 spp 母帧；每帧：56 s / 131 s；设备：一块工作站显卡"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d042.samples"
+      ],
+      "ext": {
+        "c12.sourceId": "s045",
+        "c12.section": "6"
+      }
+    },
+    {
       "id": "render-pipe.sum.s057",
       "domain": "color-grade-delivery",
       "topic": "render-pipe.s8.area-ratio",
@@ -3850,12 +4084,42 @@
       }
     },
     {
+      "id": "render-pipe.sum.s072",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.shutter-angle",
+      "title": "运动模糊与景深对照（Cycles 各案例）（汇总）",
+      "value": 180,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 11 节跨案例对照汇总：运动模糊与景深对照（Cycles 各案例）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 11 节 · s072",
+        "note": "Cycles 各案例：运动模糊：快门 0.5 / 180° / 0.25；景深：光圈 f/2.8–f/22"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d031.shutter-angle"
+      ],
+      "ext": {
+        "c12.sourceId": "s072",
+        "c12.section": "11"
+      }
+    },
+    {
       "id": "render-pipe.sum.s073",
       "domain": "color-grade-delivery",
-      "topic": "render-pipe.s14.frame-count",
+      "topic": "render-pipe.s14.resolution",
       "title": "编码与成片规格对照（案例 01 重制版 重制终版）（汇总）",
-      "value": 336,
-      "unit": "frame",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
       "conditions": {
         "appliesWhen": [
           "第 14 节跨案例对照汇总：编码与成片规格对照（案例 01 重制版 重制终版）"
@@ -3869,7 +4133,7 @@
       },
       "verifiedInOurStack": false,
       "summaryOf": [
-        "render-pipe.d110.frame-count"
+        "render-pipe.d110.resolution"
       ],
       "ext": {
         "c12.sourceId": "s073",
@@ -3899,7 +4163,7 @@
       },
       "verifiedInOurStack": false,
       "summaryOf": [
-        "render-pipe.d121.resolution"
+        "render-pipe.d113.resolution"
       ],
       "ext": {
         "c12.sourceId": "s074",
