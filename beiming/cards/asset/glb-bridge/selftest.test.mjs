@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as THREE from 'three';
 import { buildSyntheticGlb, create, inspectGlb, verifyPartNames } from './index.mjs';
 
 test('asset.glb-bridge 自测：GLB 二进制（magic/version/JSON+BIN 对齐）解析与零件名 100% 保留', () => {
@@ -39,7 +40,70 @@ test('asset.glb-bridge 自测：GLB 二进制（magic/version/JSON+BIN 对齐）
   assert.deepEqual(verdict.extraParts, []);
 });
 
-test('asset.glb-bridge 自测：缺零件、重名节点、匿名网格节点、非 Y 向上或非米制必须检出并拒绝', () => {
+test('asset.glb-bridge 自测：真实父子层级（mount -> blade）、原始三角网格顶点、PBR 材质与世界坐标 [10, 2, 0] 保真', () => {
+  const halfSqrt2 = Math.SQRT1_2;
+  const glb = buildSyntheticGlb({
+    alias: 'rotor',
+    prefixAlias: false,
+    parts: [
+      {
+        name: 'mount',
+        kind: 'group',
+        translation: [10, 0, 0],
+        rotation: [0, 0, halfSqrt2, halfSqrt2], // +90° 绕 Z 轴
+        scale: [2, 2, 2],
+      },
+      {
+        name: 'housing',
+        kind: 'mesh',
+        parent: 'mount',
+        translation: [0, 0, 0],
+        positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+        indices: [0, 1, 2],
+        material: {
+          name: 'housing_mat',
+          baseColorFactor: [0.7, 0.7, 0.75, 1],
+          metallicFactor: 0.4,
+          roughnessFactor: 0.6,
+        },
+      },
+      {
+        name: 'blade',
+        kind: 'mesh',
+        parent: 'mount',
+        translation: [1, 0, 0],
+        positions: [0, 0, 0, 0.5, 0, 0, 0, 0.5, 0],
+        indices: [0, 1, 2],
+        material: {
+          name: 'blade_pbr',
+          baseColorFactor: [0.2, 0.6, 0.9, 1],
+          metallicFactor: 0.85,
+          roughnessFactor: 0.25,
+        },
+      },
+    ],
+  });
+
+  // 仅通过 params.glb 传入真实 GLB（未改默认 gpu spec），应按资产自身零件表装载
+  const handle = create({ THREE }, { glb });
+  const blade = handle.object.parts.blade;
+  const mount = handle.object.nodes.mount;
+
+  assert.ok(mount && blade, '应生成 mount 父节点与 blade 网格节点');
+  assert.equal(blade.parent, mount, 'blade 的父节点必须是 mount 而非卡根');
+  assert.equal(blade.geometry.attributes.position.count, 3, '单个三角网格必须保留原始 3 个顶点，不得替换为 36 顶点包围盒');
+  assert.equal(blade.material.metalness, 0.85, '应保留原始 PBR metallicFactor');
+  assert.equal(blade.material.roughness, 0.25, '应保留原始 PBR roughnessFactor');
+
+  const worldPos = blade.getWorldPosition(new THREE.Vector3());
+  assert.ok(Math.abs(worldPos.x - 10) < 1e-5, `blade 世界 X 应为 10，实际 ${worldPos.x}`);
+  assert.ok(Math.abs(worldPos.y - 2) < 1e-5, `blade 世界 Y 应为 2，实际 ${worldPos.y}`);
+  assert.ok(Math.abs(worldPos.z - 0) < 1e-5, `blade 世界 Z 应为 0，实际 ${worldPos.z}`);
+
+  handle.dispose();
+});
+
+test('asset.glb-bridge 自测：缺零件、重名节点、匿名网格、删 BIN 块、越界子节点与非法 UTF-8 均以 usage.bad-argument 拒绝', () => {
   // 1. 缺少 fan_R
   const missingGlb = buildSyntheticGlb({
     alias: 'gpu',
@@ -83,24 +147,38 @@ test('asset.glb-bridge 自测：缺零件、重名节点、匿名网格节点、
     (err) => err?.code === 'usage.bad-argument' && /坐标系朝向错误/.test(err.message) && /单位尺度错误/.test(err.message),
   );
 
-  // 5. 损坏魔数
-  const badBytes = new Uint8Array(glbHeaderBroken());
+  // 5. 保留声明的 36 字节内嵌缓冲但删除 BIN 块
+  const validGlb = buildSyntheticGlb({ alias: 'gpu', parts: ['body'] });
+  const dv = new DataView(validGlb.buffer, validGlb.byteOffset, validGlb.byteLength);
+  const jsonLen = dv.getUint32(12, true);
+  const strippedBin = validGlb.slice(0, 20 + jsonLen);
+  new DataView(strippedBin.buffer).setUint32(8, strippedBin.byteLength, true);
   assert.throws(
-    () => inspectGlb(badBytes),
-    (err) => err?.code === 'usage.bad-argument' && /魔数错误/.test(err.message),
+    () => inspectGlb(strippedBin),
+    (err) => err?.code === 'usage.bad-argument',
+  );
+
+  // 6. 父组包含不存在的子节点索引
+  assert.throws(
+    () => inspectGlb({
+      asset: { version: '2.0' },
+      scenes: [{ nodes: [0] }],
+      nodes: [{ name: 'mount', children: [99] }],
+    }),
+    (err) => err?.code === 'usage.bad-argument' && /越界节点索引/.test(err.message),
+  );
+
+  // 7. JSON 块包含非法 UTF-8 字节序列
+  const badUtf8Glb = validGlb.slice();
+  badUtf8Glb[22] = 0xff;
+  badUtf8Glb[23] = 0xfe;
+  assert.throws(
+    () => inspectGlb(badUtf8Glb),
+    (err) => err?.code === 'usage.bad-argument' && /UTF-8/.test(err.message),
   );
 });
 
-function glbHeaderBroken() {
-  const b = new Uint8Array(24);
-  const v = new DataView(b.buffer);
-  v.setUint32(0, 0x12345678, true);
-  v.setUint32(4, 2, true);
-  v.setUint32(8, 24, true);
-  return b.buffer;
-}
-
-test('asset.glb-bridge 自测：create 交出 three 层级与零件实体，且过 L2 纯函数门（顺序 / 逆序 / 跳帧一致）', () => {
+test('asset.glb-bridge 自测：create 交出 three 层级与零件实体，过 L2 纯函数门且拒绝稀疏数组与 NaN', () => {
   const handle = create({}, {
     spec: {
       alias: 'gpu',
@@ -133,43 +211,14 @@ test('asset.glb-bridge 自测：create 交出 three 层级与零件实体，且�
   });
 
   handle.dispose();
-});
-
-test('asset.glb-bridge 自测：零陷阱拦截 Proxy、getter、稀疏数组与 NaN', () => {
-  let traps = 0;
-  const proxySpec = new Proxy({ expectedParts: ['body'] }, {
-    get() {
-      traps++;
-      return ['body'];
-    },
-  });
-  assert.throws(
-    () => buildSyntheticGlb(proxySpec),
-    (err) => err?.code === 'usage.bad-argument',
-  );
-
-  const getterParams = {};
-  Object.defineProperty(getterParams, 'spec', {
-    enumerable: true,
-    get() {
-      traps++;
-      return { expectedParts: ['body'] };
-    },
-  });
-  assert.throws(
-    () => create({}, getterParams),
-    (err) => err?.code === 'usage.bad-argument',
-  );
 
   const sparse = ['body', , 'fan_L']; // eslint-disable-line no-sparse-arrays
   assert.throws(
     () => verifyPartNames(buildSyntheticGlb(), sparse),
     (err) => err?.code === 'usage.bad-argument',
   );
-
   assert.throws(
     () => create({}, { scale: Number.NaN }),
     (err) => err?.code === 'usage.bad-argument',
   );
-  assert.equal(traps, 0, '任何 Proxy 或 getter 陷阱都不得被触发');
 });

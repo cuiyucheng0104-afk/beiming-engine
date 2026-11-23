@@ -55,7 +55,7 @@
       "unit": "none",
       "schema": "schema.json",
       "default": {
-        "alignment": "centered",
+        "alignment": "forward",
         "clampToShot": true
       },
       "coupling": "fps"
@@ -88,7 +88,7 @@
       "这张卡是帧源底层机制卡（visibleToAgent 为 false，由宿主或引擎按镜头 shutterAngleDeg 与档位采样数自动挂接，不对做题代理暴露）",
       "所有子帧必须在色调映射之前的场景线性光空间（32 位浮点 RGBA）中等权或按核权重求平均，绝不能在 sRGB 8 位显示空间里平均",
       "镜头边界硬钳制（clampToShot=true）：无论采用居中快门（centered）还是前向快门（forward），任何子帧采样时刻 t 一律钳制在当前镜头区间 [shot.in, shot.in + shot.frames) 内；切点后首帧（f = shot.in）绝不向前跨切点采样上一镜头（零跨切点重影）",
-      "快门角越界、子帧数非 [1, 64] 整数、线性缓冲带 NaN/无穷或 Proxy/取值器陷阱输入，一律报 usage.bad-argument"
+      "快门角越界、子帧数非 [1, 64] 整数、线性缓冲长度不一致或带 NaN/无穷输入，一律报 usage.bad-argument"
     ]
   },
   "conditions": {

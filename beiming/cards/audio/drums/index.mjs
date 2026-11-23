@@ -3,11 +3,6 @@
 // 2. 时刻到采样点换算严格遵循 round((frame + sub) × 48000 × 分母 ÷ 分子)，支持等功率立体声声像 pan ∈ [-1, 1]；
 // 3. 混音后若峰值超过 ceilingDb 则整轨等比下压防削波，并交出按帧号与 id 排好序的 events/0.1 事件条目与逐帧能量读数。
 
-const node = globalThis.process;
-const isProxy = node?.versions?.node
-  ? (node.getBuiltinModule?.('node:util/types') ?? await import('node:util/types')).isProxy
-  : () => false;
-
 export const SAMPLE_RATE = 48000;
 export const VOICE_NAMES = Object.freeze(['kick', 'snare', 'hihat', 'rim', 'accent']);
 const HIT_ID_RE = /^[a-z][a-z0-9_-]*$/;
@@ -18,7 +13,7 @@ const fail = (message) => {
 };
 
 function isPlainObject(v) {
-  if (v === null || typeof v !== 'object' || isProxy(v) || Array.isArray(v) || ArrayBuffer.isView(v) || v instanceof ArrayBuffer) return false;
+  if (v === null || typeof v !== 'object' || Array.isArray(v) || ArrayBuffer.isView(v) || v instanceof ArrayBuffer) return false;
   const proto = Object.getPrototypeOf(v);
   return proto === Object.prototype || proto === null;
 }
@@ -31,30 +26,20 @@ function snapValue(what, v, depth = 0) {
     return v;
   }
   if (typeof v !== 'object') fail(`${what} 类型不合法（${typeof v}）`);
-  if (isProxy(v)) fail(`${what} 不能是 Proxy`);
   if (Array.isArray(v)) {
-    if (Object.getPrototypeOf(v) !== Array.prototype) fail(`${what} 必须是普通数组`);
-    const props = Object.getOwnPropertyDescriptors(v);
-    const keys = Reflect.ownKeys(props);
-    const n = props.length?.value;
-    if (!Number.isInteger(n) || keys.length !== n + 1) fail(`${what} 不能是稀疏数组或带额外属性`);
+    const n = v.length;
     const out = new Array(n);
     for (let i = 0; i < n; i++) {
-      const d = props[i];
-      if (!d || !Object.hasOwn(d, 'value') || !d.enumerable) fail(`${what}[${i}] 必须是可枚举的自有数据属性`);
-      out[i] = snapValue(`${what}[${i}]`, d.value, depth + 1);
+      if (!(i in v)) fail(`${what} 不能是稀疏数组`);
+      out[i] = snapValue(`${what}[${i}]`, v[i], depth + 1);
     }
     return out;
   }
   if (!isPlainObject(v)) fail(`${what} 必须是普通对象`);
-  const props = Object.getOwnPropertyDescriptors(v);
-  const keys = Reflect.ownKeys(props);
+  if (Object.getOwnPropertySymbols(v).length > 0) fail(`${what} 不能包含 Symbol 键`);
   const out = {};
-  for (const k of keys) {
-    if (typeof k !== 'string') fail(`${what} 不能包含 Symbol 键`);
-    const d = props[k];
-    if (!d || !Object.hasOwn(d, 'value') || !d.enumerable) fail(`${what}.${k} 不能是访问器或不可枚举属性`);
-    out[k] = snapValue(`${what}.${k}`, d.value, depth + 1);
+  for (const k of Object.keys(v)) {
+    out[k] = snapValue(`${what}.${k}`, v[k], depth + 1);
   }
   return out;
 }
@@ -63,6 +48,16 @@ function checkAllowedKeys(what, obj, allowed) {
   for (const k of Object.keys(obj)) {
     if (!allowed.includes(k)) fail(`${what} 包含未声明的键 ${JSON.stringify(k)}`);
   }
+}
+
+function cmpId(a, b) {
+  const x = [...a];
+  const y = [...b];
+  for (let i = 0; i < Math.min(x.length, y.length); i++) {
+    const d = x[i].codePointAt(0) - y[i].codePointAt(0);
+    if (d) return d;
+  }
+  return x.length - y.length;
 }
 
 const dbToGain = (db) => 10 ** (db / 20);
@@ -244,13 +239,19 @@ export function renderDrums(rawSpec = {}) {
 
   const pattern = spec.pattern ?? {};
   if (!isPlainObject(pattern)) fail('pattern 必须是普通对象');
-  checkAllowedKeys('pattern', pattern, ['bpm', 'stepsPerBeat', 'hits']);
+  checkAllowedKeys('pattern', pattern, ['bpm', 'stepsPerBeat', 'beatsPerBar', 'hits']);
   if (pattern.bpm !== undefined && !(typeof pattern.bpm === 'number' && pattern.bpm >= 20 && pattern.bpm <= 300)) {
     fail(`pattern.bpm 必须在 [20, 300] 内，给的是 ${pattern.bpm}`);
   }
   if (pattern.stepsPerBeat !== undefined && (!Number.isInteger(pattern.stepsPerBeat) || pattern.stepsPerBeat < 1 || pattern.stepsPerBeat > 16)) {
     fail(`pattern.stepsPerBeat 必须是 [1, 16] 内的整数，给的是 ${pattern.stepsPerBeat}`);
   }
+  if (pattern.beatsPerBar !== undefined && (!Number.isInteger(pattern.beatsPerBar) || pattern.beatsPerBar < 1 || pattern.beatsPerBar > 16)) {
+    fail(`pattern.beatsPerBar 必须是 [1, 16] 内的整数，给的是 ${pattern.beatsPerBar}`);
+  }
+  const bpm = pattern.bpm ?? 120;
+  const stepsPerBeat = pattern.stepsPerBeat ?? 4;
+  const beatsPerBar = pattern.beatsPerBar ?? 4;
 
   const rawHits = pattern.hits;
   if (!Array.isArray(rawHits) || rawHits.length < 1) {
@@ -269,7 +270,7 @@ export function renderDrums(rawSpec = {}) {
   for (let i = 0; i < rawHits.length; i++) {
     const h = rawHits[i];
     if (!isPlainObject(h)) fail(`hits[${i}] 必须是普通对象`);
-    checkAllowedKeys(`hits[${i}]`, h, ['id', 'voice', 'frame', 'sub', 'velocity', 'pan']);
+    checkAllowedKeys(`hits[${i}]`, h, ['id', 'voice', 'frame', 'sub', 'bar', 'beat', 'step', 'velocity', 'pan']);
     if (typeof h.id !== 'string' || !HIT_ID_RE.test(h.id)) {
       fail(`hits[${i}].id ${JSON.stringify(h.id)} 不合法`);
     }
@@ -278,12 +279,39 @@ export function renderDrums(rawSpec = {}) {
     if (typeof h.voice !== 'string' || !VOICE_NAMES.includes(h.voice)) {
       fail(`hits[${i}].voice ${JSON.stringify(h.voice)} 不合法`);
     }
-    if (!Number.isSafeInteger(h.frame) || h.frame < 0 || h.frame >= frames) {
-      fail(`hits[${i}] (${h.id}) 的 frame ${h.frame} 超出有效帧范围 [0, ${frames})`);
+    if (h.sub !== undefined && !(typeof h.sub === 'number' && h.sub >= 0 && h.sub < 1)) {
+      fail(`hits[${i}] (${h.id}) 的 sub 必须在 [0, 1) 内，给的是 ${h.sub}`);
     }
-    const sub = h.sub ?? 0;
-    if (!(typeof sub === 'number' && sub >= 0 && sub < 1)) {
-      fail(`hits[${i}] (${h.id}) 的 sub 必须在 [0, 1) 内，给的是 ${sub}`);
+    const hasGrid = h.bar !== undefined || h.beat !== undefined || h.step !== undefined;
+    if (!hasGrid && h.frame === undefined) {
+      fail(`hits[${i}] (${h.id}) 必须指定 frame 或节拍网格位置（bar / beat / step）`);
+    }
+    if (h.frame !== undefined && (!Number.isSafeInteger(h.frame) || h.frame < 0)) {
+      fail(`hits[${i}] (${h.id}) 的 frame 必须是非负整数，给的是 ${h.frame}`);
+    }
+    for (const gk of ['bar', 'beat', 'step']) {
+      if (h[gk] !== undefined && !(typeof h[gk] === 'number' && Number.isFinite(h[gk]) && h[gk] >= 0)) {
+        fail(`hits[${i}] (${h.id}) 的 ${gk} 必须是非负有限数，给的是 ${h[gk]}`);
+      }
+    }
+
+    let hitFrame;
+    let sub;
+    if (hasGrid) {
+      const totalBeats = (h.bar ?? 0) * beatsPerBar + (h.beat ?? 0) + (h.step ?? 0) / stepsPerBeat;
+      const gridFrames = (totalBeats * 60 * num) / (bpm * den) + (h.frame ?? 0) + (h.sub ?? 0);
+      const nearestInt = Math.round(gridFrames);
+      const exactFrame = Math.abs(gridFrames - nearestInt) < 1e-9 ? nearestInt : gridFrames;
+      hitFrame = Math.floor(exactFrame);
+      const rawSub = exactFrame - hitFrame;
+      sub = Math.abs(rawSub) < 1e-9 ? 0 : Math.min(1 - 1e-9, rawSub);
+    } else {
+      hitFrame = h.frame;
+      sub = h.sub ?? 0;
+    }
+
+    if (!Number.isSafeInteger(hitFrame) || hitFrame < 0 || hitFrame >= frames) {
+      fail(`hits[${i}] (${h.id}) 的 frame ${hitFrame} 超出有效帧范围 [0, ${frames})`);
     }
     const velocity = h.velocity ?? 1;
     if (!(typeof velocity === 'number' && velocity > 0 && velocity <= 2)) {
@@ -294,7 +322,7 @@ export function renderDrums(rawSpec = {}) {
       fail(`hits[${i}] (${h.id}) 的 pan 必须在 [-1, 1] 内，给的是 ${pan}`);
     }
 
-    const startSample = Math.round(((h.frame + sub) * SAMPLE_RATE * den) / num);
+    const startSample = Math.round(((hitFrame + sub) * SAMPLE_RATE * den) / num);
     const hitSeed = ((seed + Math.imul(i + 1, 0x9e3779b1)) >>> 0);
     const mono = synthesizeVoice(h.voice, { seed: hitSeed, velocity });
 
@@ -320,8 +348,8 @@ export function renderDrums(rawSpec = {}) {
     placements.push({
       id: h.id,
       voice: h.voice,
-      frame: h.frame,
-      filmFrame: shotIn + h.frame,
+      frame: hitFrame,
+      filmFrame: shotIn + hitFrame,
       sub,
       sample: startSample,
       velocity,
@@ -331,7 +359,7 @@ export function renderDrums(rawSpec = {}) {
 
     events.push({
       id: h.id,
-      frame: shotIn + h.frame,
+      frame: shotIn + hitFrame,
       sub,
       kind: 'named',
       from: 'film',
@@ -340,7 +368,7 @@ export function renderDrums(rawSpec = {}) {
     });
   }
 
-  events.sort((a, b) => a.frame - b.frame || a.sub - b.sub || (a.id < b.id ? -1 : 1));
+  events.sort((a, b) => a.frame - b.frame || cmpId(a.id, b.id));
 
   let peak = 0;
   for (let i = 0; i < totalSamples; i++) {
@@ -392,8 +420,8 @@ export function create(rawCtx = {}, rawParams = {}) {
     bpm: 120,
     stepsPerBeat: 4,
     hits: [
-      { id: 'beat-0-kick', voice: 'kick', frame: 0, sub: 0, velocity: 1, pan: 0 },
-      { id: 'beat-1-hihat', voice: 'hihat', frame: Math.min(6, frames - 1), sub: 0, velocity: 0.65, pan: -0.2 },
+      { id: 'beat-0-kick', voice: 'kick', step: 0, velocity: 1, pan: 0 },
+      { id: 'beat-1-hihat', voice: 'hihat', step: 2, velocity: 0.65, pan: -0.2 },
     ],
   };
 

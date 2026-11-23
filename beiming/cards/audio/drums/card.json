@@ -30,32 +30,28 @@
           {
             "id": "beat-0-kick",
             "voice": "kick",
-            "frame": 0,
-            "sub": 0,
+            "step": 0,
             "velocity": 1,
             "pan": 0
           },
           {
             "id": "beat-1-hihat",
             "voice": "hihat",
-            "frame": 6,
-            "sub": 0,
+            "step": 2,
             "velocity": 0.65,
             "pan": -0.2
           },
           {
             "id": "beat-2-snare",
             "voice": "snare",
-            "frame": 12,
-            "sub": 0,
+            "step": 4,
             "velocity": 0.9,
             "pan": 0.1
           },
           {
             "id": "beat-3-rim",
             "voice": "rim",
-            "frame": 18,
-            "sub": 0,
+            "step": 6,
             "velocity": 0.75,
             "pan": 0.25
           }
@@ -111,8 +107,8 @@
     "requires": [
       "合成工具给的 ctx 带 fps（\"分子/分母\"）、frames（全片或镜头总帧数）和 seed（无符号 32 位整数噪声种子）；带 sampleRate 时必须是 48000",
       "所有音色（kick 底鼓、snare 军鼓、hihat 踩镲、rim 机械敲击、accent 工业重音）全部由纯数学振荡器与带种子确定性伪随机噪声在 48000 Hz 下逐采样合成，不读任何外部音频文件",
-      "时刻换算采样点固定为 round((frame + sub) × 48000 × 分母 ÷ 分子)；混音完成后峰值超过 ceilingDb 时整体按比例压回 ceilingDb，输出双声道 Float32Array 绝不含 NaN、Infinity 或越界样本",
-      "未知音色、越界帧号、非 48000 采样率或 Proxy/取值器陷阱输入，一律报 usage.bad-argument"
+      "时刻换算采样点固定为 round((frame + sub) × 48000 × 分母 ÷ 分子)，亦支持按节拍网格（bpm + stepsPerBeat + bar/beat/step）自动换算精确帧号与采样点；混音完成后峰值超过 ceilingDb 时整体按比例压回 ceilingDb，导出事件表严格按 EV1 (frame, id) 排序",
+      "未知音色、越界帧号、缺失落点或非 48000 采样率输入，一律报 usage.bad-argument"
     ]
   },
   "conditions": {
@@ -126,7 +122,7 @@
   },
   "calibration": "probe-moving-cube",
   "verify": {
-    "selftest": "48000 Hz 立体声：五种音色（kick/snare/hihat/rim/accent）各自能量集中在预期频段与时长内；同一 seed 与 pattern 重复合成或跨帧乱序读取 meta(f) 逐位一致，换 seed 后带噪音色波形改变而纯正弦底鼓保持稳定；峰值严格不超 ceilingDb（-1 dBFS）；非法采样率、越界帧、未知音色与 Proxy/getter 输入全部以 usage.bad-argument 拒绝",
+    "selftest": "48000 Hz 立体声：五种音色（kick/snare/hihat/rim/accent）各自能量集中在预期频段与时长内；同一 seed 与 pattern 重复合成或跨帧乱序读取 meta(f) 逐位一致，改变 bpm 或 stepsPerBeat 时网格落点与波形同步变化，导出事件表通过 EV1 (frame, id) 校验；峰值严格不超 ceilingDb（-1 dBFS）；非法采样率、越界帧与未知音色全部以 usage.bad-argument 拒绝",
     "predicates": []
   },
   "pitfalls": [

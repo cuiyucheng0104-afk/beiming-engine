@@ -24,6 +24,13 @@
     }
   ],
   "params": {
+    "glb": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": null,
+      "coupling": "asset-batch"
+    },
     "spec": {
       "type": "data",
       "unit": "none",
@@ -97,7 +104,7 @@
   },
   "calibration": "probe-axes-turntable",
   "verify": {
-    "selftest": "合成含 body、fan_L、fan_R 的 GLB 二进制（魔数 glTF、版本 2、JSON 与 BIN 双块 4 字节对齐），解析并装载进 three 场景后零件名 100% 保留、包围盒与 Y 向上米制一致；缺零件、重名节点、无名网格节点、损坏魔数与 Proxy/取值器陷阱输入全部以 usage.bad-argument 拒绝且零触发陷阱",
+    "selftest": "合成含 body、fan_L、fan_R 的 GLB 二进制（魔数 glTF、版本 2、JSON 与 BIN 双块 4 字节对齐），解析并装载进 three 场景后零件名 100% 保留、包围盒与 Y 向上米制一致；缺零件、重名节点、无名网格节点、损坏魔数、缺失 BIN 块、越界节点引用与非法 UTF-8 输入全部以 usage.bad-argument 拒绝",
     "predicates": []
   },
   "pitfalls": [

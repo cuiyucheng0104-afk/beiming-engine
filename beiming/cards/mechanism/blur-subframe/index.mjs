@@ -1,24 +1,44 @@
 // blur.subframe 在 three 帧源里的底层机制实现（visibleToAgent = false）：
-// 1. 按 shutterAngleDeg（0..360°）与子帧数 samples（1..64）生成分层中点采样时刻表；
+// 1. 按 shutterAngleDeg（0..360°）与子帧数 samples（1..64）生成分层中点采样时刻表，默认前向快门严格对齐 T5/T14 shutterSubs 契约；
 // 2. 开启 clampToShot（默认 true）时，把快门采样区间严格钳制在当前镜头 [shot.in, shot.in + shot.frames) 内，
 //    确保切点后首帧（f = shot.in）绝不向前跨切点采样上一镜头，从根源上消除切点重影（O9 cut.ghost = 0）；
-// 3. 在色调映射之前的场景线性光空间（32 位浮点 Float32Array RGBA）中做逐子帧加权平均。
-
-const node = globalThis.process;
-const isProxy = node?.versions?.node
-  ? (node.getBuiltinModule?.('node:util/types') ?? await import('node:util/types')).isProxy
-  : () => false;
+// 3. 在色调映射之前的场景线性光空间（32 位浮点 Float32Array RGBA）中即时消费并做逐子帧加权平均。
 
 const ALIGNMENTS = Object.freeze(['centered', 'forward', 'backward']);
+const HOST_CTX_KEYS = Object.freeze([
+  'tracks',
+  'cards',
+  'params',
+  'seed',
+  'rng',
+  'assets',
+  'anchor',
+  'tokens',
+  'size',
+  'fps',
+  'frames',
+  'shot',
+  'events',
+  'THREE',
+  'renderer',
+]);
 
 const fail = (message) => {
   throw Object.assign(new RangeError(`blur.subframe：${message}`), { code: 'usage.bad-argument' });
 };
 
 function isPlainObject(v) {
-  if (v === null || typeof v !== 'object' || isProxy(v) || Array.isArray(v) || ArrayBuffer.isView(v) || v instanceof ArrayBuffer) return false;
+  if (v === null || typeof v !== 'object' || Array.isArray(v) || ArrayBuffer.isView(v) || v instanceof ArrayBuffer) return false;
   const proto = Object.getPrototypeOf(v);
   return proto === Object.prototype || proto === null;
+}
+
+function cloneAndValidateFloat32(what, v) {
+  if (!(v instanceof Float32Array)) fail(`${what} 必须是 Float32Array`);
+  for (let i = 0; i < v.length; i++) {
+    if (!Number.isFinite(v[i])) fail(`${what}[${i}] 不能是 NaN 或 Infinity`);
+  }
+  return new Float32Array(v);
 }
 
 function snapValue(what, v, depth = 0) {
@@ -29,37 +49,23 @@ function snapValue(what, v, depth = 0) {
     return v;
   }
   if (typeof v !== 'object') fail(`${what} 类型不合法（${typeof v}）`);
-  if (isProxy(v)) fail(`${what} 不能是 Proxy`);
   if (v instanceof Float32Array) {
-    if (isProxy(v.buffer) || Object.getPrototypeOf(v) !== Float32Array.prototype) fail(`${what} 必须是原生 Float32Array`);
-    for (let i = 0; i < v.length; i++) {
-      if (!Number.isFinite(v[i])) fail(`${what}[${i}] 不能是 NaN 或 Infinity`);
-    }
-    return new Float32Array(v);
+    return cloneAndValidateFloat32(what, v);
   }
   if (Array.isArray(v)) {
-    if (Object.getPrototypeOf(v) !== Array.prototype) fail(`${what} 必须是普通数组`);
-    const props = Object.getOwnPropertyDescriptors(v);
-    const keys = Reflect.ownKeys(props);
-    const n = props.length?.value;
-    if (!Number.isInteger(n) || keys.length !== n + 1) fail(`${what} 不能是稀疏数组或带额外属性`);
+    const n = v.length;
     const out = new Array(n);
     for (let i = 0; i < n; i++) {
-      const d = props[i];
-      if (!d || !Object.hasOwn(d, 'value') || !d.enumerable) fail(`${what}[${i}] 必须是可枚举的自有数据属性`);
-      out[i] = snapValue(`${what}[${i}]`, d.value, depth + 1);
+      if (!(i in v)) fail(`${what} 不能是稀疏数组`);
+      out[i] = snapValue(`${what}[${i}]`, v[i], depth + 1);
     }
     return out;
   }
   if (!isPlainObject(v)) fail(`${what} 必须是普通对象`);
-  const props = Object.getOwnPropertyDescriptors(v);
-  const keys = Reflect.ownKeys(props);
+  if (Object.getOwnPropertySymbols(v).length > 0) fail(`${what} 不能包含 Symbol 键`);
   const out = {};
-  for (const k of keys) {
-    if (typeof k !== 'string') fail(`${what} 不能包含 Symbol 键`);
-    const d = props[k];
-    if (!d || !Object.hasOwn(d, 'value') || !d.enumerable) fail(`${what}.${k} 不能是访问器或不可枚举属性`);
-    out[k] = snapValue(`${what}.${k}`, d.value, depth + 1);
+  for (const k of Object.keys(v)) {
+    out[k] = snapValue(`${what}.${k}`, v[k], depth + 1);
   }
   return out;
 }
@@ -82,9 +88,9 @@ export function subframeTimes(rawFrame, rawShot = { in: 0, frames: 48 }, rawOpts
     fail(`frame 必须是非负整数帧号，给的是 ${frame}`);
   }
   if (!isPlainObject(shot)) fail('shot 必须是 { in, frames } 普通对象');
-  checkAllowedKeys('shot', shot, ['in', 'frames', 'id']);
+  checkAllowedKeys('shot', shot, ['in', 'frames', 'id', 'out']);
   const shotIn = shot.in ?? 0;
-  const shotFrames = shot.frames ?? 48;
+  const shotFrames = shot.frames ?? (Number.isSafeInteger(shot.out) ? shot.out - shotIn : 48);
   if (!Number.isSafeInteger(shotIn) || shotIn < 0) fail(`shot.in 必须是非负整数，给的是 ${shotIn}`);
   if (!Number.isSafeInteger(shotFrames) || shotFrames < 1) fail(`shot.frames 必须是正整数，给的是 ${shotFrames}`);
   const shotOut = shotIn + shotFrames;
@@ -99,7 +105,8 @@ export function subframeTimes(rawFrame, rawShot = { in: 0, frames: 48 }, rawOpts
   const shutterAngleDeg = opts.shutterAngleDeg ?? 180;
   const samples = opts.samples ?? 8;
   const clampToShot = opts.clampToShot ?? true;
-  const alignment = opts.alignment ?? 'centered';
+  if (typeof clampToShot !== 'boolean') fail('clampToShot 必须是布尔值');
+  const alignment = opts.alignment ?? (clampToShot ? 'forward' : 'centered');
 
   if (!(typeof shutterAngleDeg === 'number' && shutterAngleDeg >= 0 && shutterAngleDeg <= 360)) {
     fail(`shutterAngleDeg 必须在 [0, 360] 内，给的是 ${shutterAngleDeg}`);
@@ -107,7 +114,6 @@ export function subframeTimes(rawFrame, rawShot = { in: 0, frames: 48 }, rawOpts
   if (!Number.isInteger(samples) || samples < 1 || samples > 64) {
     fail(`samples 必须是 [1, 64] 内的整数，给的是 ${samples}`);
   }
-  if (typeof clampToShot !== 'boolean') fail('clampToShot 必须是布尔值');
   if (!ALIGNMENTS.includes(alignment)) {
     fail(`alignment 只能是 ${ALIGNMENTS.join('/')}，给的是 ${JSON.stringify(alignment)}`);
   }
@@ -127,12 +133,30 @@ export function subframeTimes(rawFrame, rawShot = { in: 0, frames: 48 }, rawOpts
     ];
   }
 
+  const weight = 1 / samples;
+  const out = [];
+
+  if (alignment === 'forward') {
+    for (let i = 0; i < samples; i++) {
+      // 严格遵循 T5/T14 运算顺序：((i + 0.5) / N) * (shutterAngleDeg / 360)
+      const sub = ((i + 0.5) / samples) * (shutterAngleDeg / 360);
+      const t = frame + sub;
+      out.push({
+        index: i,
+        t,
+        frame,
+        sub,
+        weight,
+        clamped: false,
+        inShot: t >= shotIn && t < shotOut,
+      });
+    }
+    return out;
+  }
+
   let rawStart;
   let rawEnd;
-  if (alignment === 'forward') {
-    rawStart = frame;
-    rawEnd = frame + span;
-  } else if (alignment === 'backward') {
+  if (alignment === 'backward') {
     rawStart = frame - span;
     rawEnd = frame;
   } else {
@@ -141,9 +165,6 @@ export function subframeTimes(rawFrame, rawShot = { in: 0, frames: 48 }, rawOpts
   }
 
   const maxValidTime = shotOut - 1e-6;
-  const weight = 1 / samples;
-  const out = [];
-
   for (let i = 0; i < samples; i++) {
     const u = (i + 0.5) / samples;
     const rawT = rawStart + u * (rawEnd - rawStart);
@@ -151,8 +172,6 @@ export function subframeTimes(rawFrame, rawShot = { in: 0, frames: 48 }, rawOpts
     let clamped = false;
 
     if (clampToShot) {
-      // 若快门窗口越过镜头起点 shotIn 或终点 shotOut，将快门窗口平移钳制在 [shotIn, shotOut) 内，
-      // 既保证所有子帧严格落在当前镜头内（零跨切点采样），又保留子帧在窗口内的分层展开。
       let winStart = rawStart;
       let winEnd = rawEnd;
       if (winStart < shotIn) {
@@ -269,17 +288,21 @@ export function measureCutGhosting(rawBlended, rawPrevShot, rawCurrShot) {
 }
 
 /**
- * 按子帧时刻表调用 renderAtTime(t, sample) 并在场景线性光空间求平均。
+ * 按子帧时刻表调用 renderAtTime(t, sample) 并在场景线性光空间即时消费求平均（兼容复用同一读回缓冲）。
  */
 export function renderSubframeBlur(rawFrame, rawShot, renderAtTime, rawOpts = {}) {
   if (typeof renderAtTime !== 'function') {
     fail('renderAtTime 必须是渲染回调函数');
   }
   const schedule = subframeTimes(rawFrame, rawShot, rawOpts);
-  const buffers = schedule.map((s) => {
-    const buf = renderAtTime(s.t, s);
-    return { rgba: buf, weight: s.weight };
-  });
+  const buffers = [];
+  for (let i = 0; i < schedule.length; i++) {
+    const s = schedule[i];
+    const rawBuf = renderAtTime(s.t, s);
+    // 在下一次回调覆写前立即校验并拷贝消费当前样本
+    const snapBuf = cloneAndValidateFloat32(`subframes[${i}]`, rawBuf);
+    buffers.push({ rgba: snapBuf, weight: s.weight });
+  }
   const rgba = accumulateLinear(buffers);
   const clampedCount = schedule.filter((s) => s.clamped).length;
   const outOfShotCount = schedule.filter((s) => !s.inShot).length;
@@ -296,32 +319,73 @@ export function renderSubframeBlur(rawFrame, rawShot, renderAtTime, rawOpts = {}
  * 卡主入口 create(ctx, params)
  */
 export function create(rawCtx = {}, rawParams = {}) {
-  const ctx = snapValue('ctx', rawCtx);
+  if (!isPlainObject(rawCtx)) fail('ctx 必须是普通对象');
+  if (Object.getOwnPropertySymbols(rawCtx).length > 0) fail('ctx 不能包含 Symbol 键');
+  checkAllowedKeys('ctx', rawCtx, HOST_CTX_KEYS);
+
+  const shot = rawCtx.shot !== undefined ? snapValue('ctx.shot', rawCtx.shot) : { in: 0, frames: 48 };
+  if (rawCtx.fps !== undefined) {
+    const fps = snapValue('ctx.fps', rawCtx.fps);
+    if (typeof fps !== 'string' || !/^[1-9][0-9]*\/[1-9][0-9]*$/.test(fps)) fail('ctx.fps 格式不合法');
+  }
+  if (rawCtx.size !== undefined) {
+    const size = snapValue('ctx.size', rawCtx.size);
+    if (!Array.isArray(size) || size.length !== 2 || !Number.isInteger(size[0]) || !Number.isInteger(size[1]) || size[0] < 1 || size[1] < 1) {
+      fail('ctx.size 必须是 [width, height] 正整数对');
+    }
+  }
+
   const params = snapValue('params', rawParams);
-  if (!isPlainObject(ctx)) fail('ctx 必须是普通对象');
-  checkAllowedKeys('ctx', ctx, ['shot', 'fps', 'size']);
   if (!isPlainObject(params)) fail('params 必须是普通对象');
   checkAllowedKeys('params', params, ['shutterAngleDeg', 'samples', 'clampToShot', 'policy']);
 
-  const shot = ctx.shot ?? { in: 0, frames: 48 };
+  if (!isPlainObject(shot)) fail('ctx.shot 必须是 { in, frames } 普通对象');
+  checkAllowedKeys('ctx.shot', shot, ['in', 'frames', 'id', 'out']);
+  const shotIn = shot.in ?? 0;
+  const shotFrames = shot.frames ?? (Number.isSafeInteger(shot.out) ? shot.out - shotIn : 48);
+  const normalizedShot = { in: shotIn, frames: shotFrames };
+
   const shutterAngleDeg = params.shutterAngleDeg ?? 180;
   const samples = params.samples ?? 8;
-  const policy = params.policy ?? { alignment: 'centered', clampToShot: params.clampToShot ?? true };
+  const hasExplicitPolicy = params.policy !== undefined;
+  const policy = hasExplicitPolicy ? params.policy : { alignment: 'forward', clampToShot: params.clampToShot ?? true };
   if (!isPlainObject(policy)) fail('params.policy 必须是普通对象');
   checkAllowedKeys('params.policy', policy, ['alignment', 'clampToShot']);
 
   const clampToShot = params.clampToShot ?? policy.clampToShot ?? true;
-  const alignment = policy.alignment ?? 'centered';
+  const alignment = (!clampToShot && (!hasExplicitPolicy || policy.clampToShot === true))
+    ? 'centered'
+    : (policy.alignment ?? (clampToShot ? 'forward' : 'centered'));
 
   // 先预校验一次镜头首帧时刻表以尽早拦截非法参数
-  subframeTimes(shot.in ?? 0, shot, { shutterAngleDeg, samples, clampToShot, alignment });
+  subframeTimes(shotIn, normalizedShot, { shutterAngleDeg, samples, clampToShot, alignment });
+
+  /**
+   * 统一将 Handle 边界收到的镜头局部帧号 f ∈ [0, shotFrames) 换算为全片帧号 shotIn + f；
+   * 若调用方直接传入了不与局部区间重叠的全片帧号 f ∈ [shotIn, shotIn + shotFrames)，亦保持兼容。
+   */
+  function toGlobalFrame(rawF) {
+    const f = snapValue('frame', rawF);
+    if (!Number.isSafeInteger(f) || f < 0) {
+      fail(`帧号 f 必须是非负整数，给的是 ${f}`);
+    }
+    if (f >= 0 && f < shotFrames) {
+      return shotIn + f;
+    }
+    if (f >= shotIn && f < shotIn + shotFrames) {
+      return f;
+    }
+    fail(`帧号 ${f} 超出镜头局部区间 [0, ${shotFrames}) 与全片区间 [${shotIn}, ${shotIn + shotFrames})`);
+  }
 
   function scheduleFor(f) {
-    return subframeTimes(f, shot, { shutterAngleDeg, samples, clampToShot, alignment });
+    const globalF = toGlobalFrame(f);
+    return subframeTimes(globalF, normalizedShot, { shutterAngleDeg, samples, clampToShot, alignment });
   }
 
   function renderFrame(f, renderAtTime) {
-    return renderSubframeBlur(f, shot, renderAtTime, { shutterAngleDeg, samples, clampToShot, alignment });
+    const globalF = toGlobalFrame(f);
+    return renderSubframeBlur(globalF, normalizedShot, renderAtTime, { shutterAngleDeg, samples, clampToShot, alignment });
   }
 
   return {
@@ -336,11 +400,14 @@ export function create(rawCtx = {}, rawParams = {}) {
       renderFrame,
     },
     apply(f, sub = 0) {
-      if (!Number.isSafeInteger(f) || f < 0) fail(`帧号 f 必须是非负整数，给的是 ${f}`);
-      if (!(typeof sub === 'number' && sub >= 0 && sub < 1)) fail(`子帧相位 sub 必须在 [0, 1) 内，给的是 ${sub}`);
-      const sched = scheduleFor(f);
+      const globalF = toGlobalFrame(f);
+      if (!(typeof sub === 'number' && Number.isFinite(sub) && sub >= 0 && sub < 1)) {
+        fail(`子帧相位 sub 必须在 [0, 1) 内，给的是 ${sub}`);
+      }
+      const sched = subframeTimes(globalF, normalizedShot, { shutterAngleDeg, samples, clampToShot, alignment });
       return {
         frame: f,
+        filmFrame: globalF,
         sub,
         samples: sched.length,
         minTime: sched[0].t,

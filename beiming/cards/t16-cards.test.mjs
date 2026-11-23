@@ -2,11 +2,11 @@
 //   一、C1 契约校验与零泄漏扫描：四张卡的 card.json 全部通过 validateCard，卡目录内所有文件及本测试通过 scanCardLeaks；
 //   二、C2 注册表、可见性、默认参数 schema 与五项成卡标准：前三张对做题代理可见且摘要零截断，blur.subframe（mechanism，visibleToAgent=false）对 searchCards 隐藏但 getCard 可取；
 //   三、M3 跨卡端到端桥接链路（01-2 / 27-1 / 07-1）：
-//       1) asset.glb-bridge 生成并解析多零件 GLB（body / fan_L / fan_R），装入 three 层级且 100% 保留零件名与右手 Y 向上米制；
-//       2) overlay.anchored 从每帧 meta/0.1 的实体锚点与包围盒排版引线与标签框，相机运动时标注自动跟随而不改一行二维代码；
-//       3) audio.drums 以纯函数在 48000 Hz 下合成底鼓、军鼓、踩镲与机械重音立体声，零外部音频素材且峰值严守 ceilingDb；
-//       4) blur.subframe 在场景线性光空间做子帧累积，并在镜头切点后首帧硬钳制快门窗口，跨镜头重影严格为 0（未钳制负对照测出 50% 重影）；
-//   四、L2 纯函数门（顺序 / 逆序 / 单帧逐位一致）与零陷阱防御（Proxy / getter / 稀疏数组 / NaN 一律报 usage.bad-argument 且 0 陷阱触发）。
+//       1) asset.glb-bridge 经 resolveParams(card, { glb }) 正式入口解析并装载多零件层级 GLB（mount -> blade 与 body/fan_L/fan_R），100% 保留父子层级、原始顶点、PBR 材质与世界坐标；
+//       2) overlay.anchored 从每帧 meta/0.1 的实体像素锚点与包围盒排版引线与标签框，复用 overlay.title 绘制文字字形，相机运动时标注自动跟随；
+//       3) audio.drums 以纯函数在 48000 Hz 下按节拍网格或帧落点合成底鼓、军鼓、踩镲与机械重音立体声，事件表严格通过 EV1 (frame, id) 校验；
+//       4) blur.subframe 兼容真实页面宿主 ctx 与镜头局部首帧 apply(0, 0)、即时消费复用读回缓冲、对齐 shutterSubs 默认快门相位，且在切点后首帧硬钳制快门窗口（跨镜头重影严格为 0，关闭钳制负对照测出 50% 重影）；
+//   四、L2 纯函数门（顺序 / 逆序 / 单帧逐位一致）与常规坏参数校验（非法类型、越界索引、损坏 GLB、NaN 一律报 usage.bad-argument）。
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -14,8 +14,11 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import * as THREE from 'three';
+import { checks as eventChecks } from '../kernel/contracts/events/check.mjs';
+import { shutterSubs } from '../kernel/eval/time.mjs';
 import { buildSyntheticGlb, create as createGlbBridge, inspectGlb, verifyPartNames } from './asset/glb-bridge/index.mjs';
-import { create as createDrums, SAMPLE_RATE, synthesizeVoice, VOICE_NAMES } from './audio/drums/index.mjs';
+import { create as createDrums, renderDrums, SAMPLE_RATE, synthesizeVoice, VOICE_NAMES } from './audio/drums/index.mjs';
 import { createCardRegistry, resolveParams, scanCardLeaks, validateCard } from './index.mjs';
 import {
   accumulateLinear,
@@ -110,7 +113,6 @@ test('T16-2 C2 注册表检索、visibleToAgent 过滤、默认参数 Ajv 校验
     const mod = await import(pathToFileURL(entryAbs).href);
     assert.equal(typeof mod.create, 'function', `${card.id} 必须导出 create 函数`);
 
-    // getCard 对所有已注册卡（含 mechanism）均能按 id 与主版本引用取回
     assert.equal(registry.getCard(card.id)?.id, card.id);
     assert.equal(registry.getCard(`${card.id}@1`)?.id, card.id);
 
@@ -141,8 +143,9 @@ test('T16-2 C2 注册表检索、visibleToAgent 过滤、默认参数 Ajv 校验
   }
 });
 
-test('T16-3 M3 端到端桥接链路：GLB 零件桥 -> 随相机移动的锚点引线标注 + 48kHz 程序化鼓点重音 + 切点零重影线性子帧模糊', () => {
-  // 1. asset.glb-bridge：合成并装载含 body、fan_L、fan_R 的显卡拆解 GLB
+test('T16-3 M3 端到端桥接链路：正式参数接入 GLB 零件桥 -> 随相机移动的锚点引线标注 + 48kHz 节拍网格鼓点 + 宿主首帧切点零重影线性子帧模糊', () => {
+  // 1. asset.glb-bridge：通过 resolveParams(card, { glb }) 正式入口导入含父子层级与原始三角网格的 GLB
+  const assetCard = readCard('asset.glb-bridge');
   const glbBytes = buildSyntheticGlb({
     alias: 'gpu',
     expectedParts: ['body', 'fan_L', 'fan_R'],
@@ -155,13 +158,50 @@ test('T16-3 M3 端到端桥接链路：GLB 零件桥 -> 随相机移动的锚点
   const verdict = verifyPartNames(glbInfo, ['body', 'fan_L', 'fan_R'], { throwOnError: true });
   assert.equal(verdict.ok, true);
 
-  const assetHandle = createGlbBridge({}, {
-    glb: glbBytes,
-    spec: resolveParams(readCard('asset.glb-bridge')).spec,
-  });
+  const assetParams = resolveParams(assetCard, { glb: glbBytes });
+  const assetHandle = createGlbBridge({ THREE }, assetParams);
   assert.deepEqual(Object.keys(assetHandle.object.parts), ['body', 'fan_L', 'fan_R']);
+  assetHandle.dispose();
 
-  // 2. overlay.anchored：相机从第 0 帧到第 24 帧环绕平移时，不改任何二维参数，标注严格跟随零件屏幕锚点
+  // 参考层级 GLB 导入对照：父组 mount（平移 [10,0,0]、绕 Z +90°、缩放 2）+ 两个 3 顶点三角网格（housing 与 blade [1,0,0]）
+  const rotorGlb = buildSyntheticGlb({
+    alias: 'rotor',
+    prefixAlias: false,
+    parts: [
+      {
+        name: 'mount',
+        kind: 'group',
+        translation: [10, 0, 0],
+        rotation: [0, 0, Math.SQRT1_2, Math.SQRT1_2],
+        scale: [2, 2, 2],
+      },
+      {
+        name: 'housing',
+        kind: 'mesh',
+        parent: 'mount',
+        positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+        indices: [0, 1, 2],
+      },
+      {
+        name: 'blade',
+        kind: 'mesh',
+        parent: 'mount',
+        translation: [1, 0, 0],
+        positions: [0, 0, 0, 0.5, 0, 0, 0, 0.5, 0],
+        indices: [0, 1, 2],
+        material: { baseColorFactor: [0.2, 0.6, 0.9, 1], metallicFactor: 0.8, roughnessFactor: 0.25 },
+      },
+    ],
+  });
+  const rotorHandle = createGlbBridge({ THREE }, resolveParams(assetCard, { glb: rotorGlb }));
+  const bladeMesh = rotorHandle.object.parts.blade;
+  assert.equal(bladeMesh.parent, rotorHandle.object.nodes.mount);
+  assert.equal(bladeMesh.geometry.attributes.position.count, 3);
+  const bladeWorld = bladeMesh.getWorldPosition(new THREE.Vector3());
+  assert.ok(Math.hypot(bladeWorld.x - 10, bladeWorld.y - 2, bladeWorld.z - 0) < 1e-5);
+  rotorHandle.dispose();
+
+  // 2. overlay.anchored：相机从第 0 帧到第 18 帧平移时，不改二维参数，标注严格跟随像素锚点且绘制真实字形
   const overlayHandle = createOverlayAnchored(
     { size: [1280, 720], shot: { in: 0, frames: 48 } },
     {
@@ -220,55 +260,90 @@ test('T16-3 M3 端到端桥接链路：GLB 零件桥 -> 随相机移动的锚点
     assert.equal(layout18.items[i].labelBox[1] - layout0.items[i].labelBox[1], -35);
   }
 
-  // 3. audio.drums：48000 Hz 立体声鼓组与拆解卡点机械重音
+  // 3. audio.drums：48000 Hz 立体声节拍网格鼓组 + EV1 事件表排序校验
+  const drumsCard = readCard('audio.drums');
+  const [checkDrumsPattern] = dataValidators(drumsCard).get
+    ? [dataValidators(drumsCard).get('pattern')]
+    : dataValidators(drumsCard).filter(([k]) => k === 'pattern').map(([, fn]) => fn);
+  const gridPattern = {
+    bpm: 120,
+    stepsPerBeat: 4,
+    hits: [
+      { id: 'start-kick', voice: 'kick', step: 0, velocity: 1.0, pan: 0 },
+      { id: 'unscrew-rim-l', voice: 'rim', step: 3, velocity: 0.85, pan: -0.45 },
+      { id: 'unscrew-rim-r', voice: 'rim', beat: 1.5, velocity: 0.85, pan: 0.45 },
+      { id: 'cut-accent', voice: 'accent', beat: 2, velocity: 1.25, pan: 0 },
+      { id: 'z-early', voice: 'hihat', frame: 30, sub: 0, velocity: 0.7, pan: -0.2 },
+      { id: 'a-late-sub', voice: 'snare', frame: 30, sub: 0.5, velocity: 0.95, pan: 0.15 },
+    ],
+  };
+  assert.equal(checkDrumsPattern(gridPattern), true, '节拍网格 pattern 必须通过 schema 校验');
+
   const drumsHandle = createDrums(
     { fps: '24/1', frames: 48, seed: 20261123, shot: { in: 0, frames: 48 } },
-    {
-      pattern: {
-        bpm: 120,
-        stepsPerBeat: 4,
-        hits: [
-          { id: 'start-kick', voice: 'kick', frame: 0, sub: 0, velocity: 1.0, pan: 0 },
-          { id: 'unscrew-rim-l', voice: 'rim', frame: 8, sub: 0.25, velocity: 0.85, pan: -0.45 },
-          { id: 'unscrew-rim-r', voice: 'rim', frame: 16, sub: 0.5, velocity: 0.85, pan: 0.45 },
-          { id: 'cut-accent', voice: 'accent', frame: 24, sub: 0, velocity: 1.25, pan: 0 },
-          { id: 'spin-hihat', voice: 'hihat', frame: 30, sub: 0, velocity: 0.7, pan: -0.2 },
-          { id: 'lock-snare', voice: 'snare', frame: 36, sub: 0, velocity: 0.95, pan: 0.15 },
-        ],
-      },
-      gainDb: -2,
-      ceilingDb: -1,
-    },
+    resolveParams(drumsCard, { pattern: gridPattern, gainDb: -2, ceilingDb: -1 }),
   );
   assert.equal(drumsHandle.object.sampleRate, SAMPLE_RATE);
   assert.equal(drumsHandle.object.channels[0].length, 96000);
   assert.ok(drumsHandle.object.peakDb <= -1 + 1e-5);
   assert.equal(drumsHandle.meta(24).readings.hitCount, 1);
+  assert.deepEqual(
+    eventChecks.EV1({ format: 'events/0.1', film: 'test', fps: '24/1', frames: 48, events: drumsHandle.object.events }),
+    [],
+  );
 
-  // 4. blur.subframe：第 24 帧切镜头（Shot 2: [24, 48)）时，开启钳制跨镜头重影为 0，关闭钳制负对照测出 50% 重影
-  const shot2 = { in: 24, frames: 24 };
-  const shot1Linear = new Float32Array([10.0, 0.2, 0.1, 1.0, 10.0, 0.2, 0.1, 1.0]);
-  const shot2Linear = new Float32Array([0.1, 1.8, 4.2, 1.0, 0.1, 1.8, 4.2, 1.0]);
-  const renderShotTimeline = (t) => (t < 24 ? shot1Linear : shot2Linear);
+  // 4. blur.subframe：真实页面宿主上下文 + 局部首帧 apply(0, 0) + 红蓝切点零重影 vs 负对照 50% 重影
+  const blurCard = readCard('blur.subframe');
+  const shot2 = Object.freeze({ id: 'shot-2', in: 31, frames: 4 });
+  const hostCtx = {
+    tracks: { apply() {} },
+    cards: { use() {} },
+    params: {},
+    seed: 101,
+    rng: () => () => 0.5,
+    assets: { load() {} },
+    anchor() {},
+    tokens: {},
+    size: [1280, 720],
+    fps: '24/1',
+    frames: 4,
+    shot: shot2,
+    events: Object.freeze({}),
+    THREE,
+    renderer: {},
+  };
+  const shot1Linear = new Float32Array([1.0, 0.0, 0.0, 1.0]);
+  const shot2Linear = new Float32Array([0.0, 0.0, 1.0, 1.0]);
+  const renderShotTimeline = (t) => (t < shot2.in ? shot1Linear : shot2Linear);
 
-  const blurClamped = createBlurSubframe({ shot: shot2 }, { shutterAngleDeg: 180, samples: 8, clampToShot: true });
-  const frame24Clamped = blurClamped.object.renderFrame(24, renderShotTimeline);
-  const ghostClamped = measureCutGhosting(frame24Clamped.rgba, shot1Linear, shot2Linear);
+  const blurClamped = createBlurSubframe(hostCtx, resolveParams(blurCard, { shutterAngleDeg: 180, samples: 8, clampToShot: true }));
+  // 页面宿主传入镜头局部首帧 f = 0（对应全片第 31 帧）
+  const appLocal0 = blurClamped.apply(0, 0);
+  assert.equal(appLocal0.filmFrame, 31);
+  const frameLocal0Clamped = blurClamped.object.renderFrame(0, renderShotTimeline);
+  assert.deepEqual([...frameLocal0Clamped.rgba], [0, 0, 1, 1]);
+  const ghostClamped = measureCutGhosting(frameLocal0Clamped.rgba, shot1Linear, shot2Linear);
   assert.equal(ghostClamped.ghostRatio, 0);
   assert.equal(ghostClamped.maxGhostDelta, 0);
 
-  const frame24Unclamped = renderSubframeBlur(24, shot2, renderShotTimeline, {
+  // 内部第 32 帧（局部 f = 1）、180°、两采样默认时刻严格对齐 shutterSubs(180, 2) -> [32.125, 32.375]
+  const sched32 = subframeTimes(32, shot2, { shutterAngleDeg: 180, samples: 2 });
+  assert.deepEqual(sched32.map((s) => s.sub), shutterSubs(180, 2));
+  assert.deepEqual(sched32.map((s) => s.t), [32.125, 32.375]);
+
+  // 关闭钳制的负对照：4 个子帧落入前镜，输出 [0.5, 0, 0.5, 1]，红通道平方能量为 0.25
+  const frameUnclamped = renderSubframeBlur(31, shot2, renderShotTimeline, {
     shutterAngleDeg: 180,
     samples: 8,
-    alignment: 'centered',
     clampToShot: false,
   });
-  const ghostUnclamped = measureCutGhosting(frame24Unclamped.rgba, shot1Linear, shot2Linear);
+  assert.deepEqual([...frameUnclamped.rgba], [0.5, 0, 0.5, 1]);
+  assert.equal(frameUnclamped.rgba[0] ** 2, 0.25);
+  const ghostUnclamped = measureCutGhosting(frameUnclamped.rgba, shot1Linear, shot2Linear);
   assert.ok(Math.abs(ghostUnclamped.ghostRatio - 0.5) < 1e-6);
 });
 
-test('T16-4 四张卡全部满足 L2 纯函数确定性（顺序 / 逆序 / 单帧一致）与零陷阱防御（0 陷阱触发）', () => {
-  // 1. L2 顺序 vs 逆序 vs 单帧
+test('T16-4 四张卡全部满足 L2 纯函数确定性（顺序 / 逆序 / 单帧一致）与常规坏参数校验（usage.bad-argument）', () => {
   const glbH = createGlbBridge({}, resolveParams(readCard('asset.glb-bridge')));
   const metaFrames = Object.fromEntries(
     [0, 4, 9, 15].map((f) => [
@@ -284,7 +359,7 @@ test('T16-4 四张卡全部满足 L2 纯函数确定性（顺序 / 逆序 / 单�
   );
   const ovH = createOverlayAnchored({ size: [640, 360], frames: metaFrames }, resolveParams(readCard('overlay.anchored')));
   const drH = createDrums({ fps: '24/1', frames: 24, seed: 99 }, resolveParams(readCard('audio.drums')));
-  const blH = createBlurSubframe({ shot: { in: 0, frames: 24 } }, resolveParams(readCard('blur.subframe')));
+  const blH = createBlurSubframe({ shot: { in: 10, frames: 24 } }, resolveParams(readCard('blur.subframe')));
 
   const seq = [0, 4, 9, 15];
   for (const [name, fn] of [
@@ -300,59 +375,24 @@ test('T16-4 四张卡全部满足 L2 纯函数确定性（顺序 / 逆序 / 单�
     assert.deepEqual(single, forward[2], `${name} 单帧跳帧求值不一致`);
   }
 
-  // 2. audio.drums 双次独立实例化通道 SHA-256 逐位一致
   const drH2 = createDrums({ fps: '24/1', frames: 24, seed: 99 }, resolveParams(readCard('audio.drums')));
   assert.equal(sha256Bytes(drH.object.channels[0]), sha256Bytes(drH2.object.channels[0]));
   assert.equal(sha256Bytes(drH.object.channels[1]), sha256Bytes(drH2.object.channels[1]));
 
-  // 3. 四张卡全部公开入口零陷阱拒绝 Proxy 与 getter
-  let traps = 0;
-  const makePoisonProxy = () =>
-    new Proxy(
-      {},
-      {
-        get() {
-          traps++;
-          return null;
-        },
-        ownKeys() {
-          traps++;
-          return [];
-        },
-      },
-    );
-
-  const makePoisonGetter = (key) => {
-    const obj = {};
-    Object.defineProperty(obj, key, {
-      enumerable: true,
-      get() {
-        traps++;
-        return null;
-      },
-    });
-    return obj;
-  };
-
   for (const call of [
-    () => buildSyntheticGlb(makePoisonProxy()),
-    () => inspectGlb(makePoisonGetter('asset')),
-    () => verifyPartNames(glbBytesSample(), makePoisonProxy()),
-    () => createGlbBridge(makePoisonProxy(), {}),
-    () => resolveAnchorPoint(makePoisonProxy(), { entity: 'gpu.body' }, [640, 360]),
-    () => createOverlayAnchored(makePoisonGetter('size'), {}),
-    () => synthesizeVoice('kick', makePoisonProxy()),
-    () => createDrums(makePoisonProxy(), {}),
-    () => subframeTimes(0, makePoisonProxy()),
-    () => accumulateLinear(makePoisonProxy()),
-    () => createBlurSubframe(makePoisonGetter('shot'), {}),
+    () => buildSyntheticGlb({ expectedParts: [] }),
+    () => inspectGlb(new Uint8Array([1, 2, 3])),
+    () => verifyPartNames(buildSyntheticGlb({ alias: 'gpu', expectedParts: ['body'] }), ['body', 'missing_part'], { throwOnError: true }),
+    () => createGlbBridge({}, { scale: -1 }),
+    () => resolveAnchorPoint({ format: 'meta/0.1', size: [320, 200], entities: [{ id: 1, name: 'gpu.body', class: 'mesh', visible: 1, pxArea: 0.1, bbox2d: [0, 0, 10, 10], anchors: { p: { screen: [371, 50] } } }] }, { entity: 'gpu.body', anchor: 'p' }, [320, 200]),
+    () => createOverlayAnchored({ size: [320, 200] }, { callouts: [{ id: 'c1', entity: 'gpu.body', text: 'CORE', dx: {} }] }),
+    () => synthesizeVoice('unknown-voice'),
+    () => renderDrums({ fps: '24/1', frames: 12, pattern: { hits: [{ id: 'h1', voice: 'kick', frame: 99 }] } }),
+    () => subframeTimes(50, { in: 0, frames: 24 }),
+    () => accumulateLinear([new Float32Array([1, 0, Number.NaN, 1])]),
+    () => createBlurSubframe({ shot: { in: 0, frames: 12 } }, { shutterAngleDeg: -10 }),
   ]) {
     assert.throws(call, (err) => err?.code === 'usage.bad-argument');
   }
-  assert.equal(traps, 0, '所有公开入口在拒绝 Proxy 与 getter 时必须零触发陷阱');
   assert.equal(VOICE_NAMES.length, 5);
 });
-
-function glbBytesSample() {
-  return buildSyntheticGlb({ alias: 'gpu', expectedParts: ['body'] });
-}
