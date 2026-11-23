@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "静止主体的世界轴对齐包围盒（米），min 各轴不大于 max",
+  "type": "object", "required": ["min", "max"], "additionalProperties": false,
+  "properties": { "min": { "$ref": "#/$defs/point" }, "max": { "$ref": "#/$defs/point" } },
+  "$defs": { "point": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } } }
+}
