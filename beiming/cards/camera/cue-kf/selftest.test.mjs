@@ -112,17 +112,20 @@ test('camera.cue-kf：拒绝无名/写死起点、歧义/重叠、稀疏数组�
   for (const [f, sub] of [[-1, 0], [NaN, 0], [0, Infinity], [0, 1], [0, -0.1]]) bad(() => evaluate({}, { moves: [] }, f, sub));
 });
 
-test('camera.cue-kf：边界各层拒收 Proxy（含已撤销）和访问器，不执行一次陷阱或 getter', () => {
+test('camera.cue-kf：边界各层拒收非普通对象、已撤销或抛错的 Proxy 和访问器，不执行一次 getter 或隐式格式化', () => {
   let calls = 0;
   const trap = () => { calls++; throw Error('不得调用'); };
-  const proxy = new Proxy({}, { get: trap, getPrototypeOf: trap, ownKeys: trap, getOwnPropertyDescriptor: trap, has: trap });
   const accessor = (obj, key) => Object.defineProperty(obj, key, { enumerable: true, get: trap });
-  const rev = Proxy.revocable([], {}); rev.revoke();
+  const rev = Proxy.revocable([], { get: trap, ownKeys: trap, getPrototypeOf: trap, getOwnPropertyDescriptor: trap });
+  rev.revoke();
+  const poison = new Proxy({}, { getPrototypeOf() { throw new Error('陷阱异常'); } });
+  const unformatted = { toString: trap, valueOf: trap };
   const p = { moves: [a] }, i = { events };
-  for (const input of [proxy, { shot: proxy }, { events: proxy }, { events: [proxy] }, { events: [rev.proxy] }, { events: { cue_a: proxy } },
+  for (const input of [new Date(), Object.create({}), rev.proxy, poison, { shot: new Map() }, { events: new Set() },
+    { events: [Object.create({})] }, { events: [rev.proxy] }, { events: { cue_a: unformatted } },
     { events: accessor({}, 'cue_a') }, { events: [accessor({ kind: 'named', f: 7, sub: 0 }, 'id')] }, accessor({}, 'events')]) bad(() => evaluate(input, p, 0, 0));
-  for (const params of [proxy, accessor({}, 'moves'), { moves: rev.proxy }, { moves: [proxy] }, { moves: [accessor({ ...a }, 'cue')] },
-    { moves: [{ ...a, from: proxy }] }, { moves: [{ ...a, to: accessor([1, 2], '1') }] }, { moves: [{ ...a, zoomFrom: proxy }] }]) bad(() => evaluate(i, params, 0, 0));
-  bad(() => evaluate(i, p, proxy, 0));
+  for (const params of [new Date(), poison, accessor({}, 'moves'), { moves: rev.proxy }, { moves: [Object.create(a)] }, { moves: [accessor({ ...a }, 'cue')] },
+    { moves: [{ ...a, from: new Float64Array([0, 0]) }] }, { moves: [{ ...a, to: accessor([1, 2], '1') }] }, { moves: [{ ...a, zoomFrom: unformatted }] }]) bad(() => evaluate(i, params, 0, 0));
+  bad(() => evaluate(i, p, unformatted, 0));
   assert.equal(calls, 0);
 });
