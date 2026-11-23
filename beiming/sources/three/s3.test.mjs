@@ -2,7 +2,6 @@
 // 宿主照常从网格顶点量 entities[].bbox2d，文字框经 meta(f).texts 交。纯函数部分不起浏览器；实渲部分起无头浏览器（起不了时跳过）：
 // 探针镜头 s3-probe.shot.js 照 params 搭任意元素，样板镜头 s3-18-1.shot.js 是考题 18-1 的三场讲解。
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -21,7 +20,6 @@ import { shotInput } from '../../kernel/eval/input.mjs';
 import { verifySampledBboxes } from '../../verify/l2.mjs';
 import { caps } from './caps.mjs';
 import { FADE, FPS, FRAMES, INK, LEAD, PAPER, RECTS, SCENES, SIZE, TAIL } from './s3-18-1.shot.js';
-import { installProxyRegistry } from './proxy-registry.js';
 import { declarationReadings } from './s3-probe.shot.js';
 import { checkElements, createTwoDStage, rectToPlane, STAGE } from './two-d.js';
 
@@ -147,7 +145,7 @@ test('元素声明不对当场报 usage.bad-argument：种类不认识、矩形�
   }
 });
 
-test('声明只收直接写出来的：Proxy、访问器、数组空槽、数组上下标以外的属性，在 ctx、ctx.size、opts、elements、元素、rect、fonts 哪一层都当场报 usage.bad-argument，访问器一次都不执行', () => {
+test('声明只收直接写出来的纯数据：非普通对象、访问器、数组空槽、数组上下标以外的属性、已撤销或陷阱抛错的 Proxy，在各层都当场报 usage.bad-argument，访问器一次都不执行', () => {
   const size = [640, 360], draw = () => {}, canvas = { kind: 'canvas2d', name: 'plot', rect: [1, 1, 20, 20], draw }, font = { family: 'Probe', url: '/fonts/a.woff2' };
   let read = 0;
   /** target 上加一个读一次记一次的访问器 */
@@ -158,19 +156,18 @@ test('声明只收直接写出来的：Proxy、访问器、数组空槽、数组
   revoked.revoke();
   const { rect, ...noRect } = canvas, { kind, ...noKind } = canvas;
   const badElements = {
-    proxy: new Proxy([canvas], {}),
-    // 调用方读到 second，舞台照描述符拿到的是 plot
-    swap: new Proxy([canvas], { get: (t, k, r) => (k === '0' ? { ...canvas, name: 'second' } : Reflect.get(t, k, r)) }),
+    nonPlain: new Set([canvas]),
     trap: new Proxy([canvas], { getOwnPropertyDescriptor() { throw new Error('陷阱里抛的'); } }),
     revoked: revoked.proxy,
     extra: Object.assign([canvas], { more: {} }),
     // 空槽加一个多出来的属性：自有属性的个数对得上，下标对不上
     holeExtra: Object.assign(sparse(2, { 1: canvas }), { more: 1 }),
-    item: [new Proxy(canvas, {})],
+    itemNonPlain: [Object.assign(new Date(), canvas)],
+    itemSymbol: [Object.assign({ [Symbol('extra')]: 1 }, canvas)],
     itemGetter: [getter({ ...noRect }, 'rect', rect)],
     kindGetter: [getter({ ...noKind }, 'kind', kind)],
     rectHole: [{ ...canvas, rect: sparse(4, { 1: 1, 2: 20, 3: 20 }) }],
-    rectProxy: [{ ...canvas, rect: new Proxy([1, 1, 20, 20], {}) }],
+    rectTyped: [{ ...canvas, rect: new Float64Array([1, 1, 20, 20]) }],
     rectGetter: [{ ...canvas, rect: getter([1, 1, 20], 3, 20) }],
     rectExtra: [{ ...canvas, rect: Object.assign([1, 1, 20, 20], { more: 1 }) }],
   };
@@ -178,48 +175,36 @@ test('声明只收直接写出来的：Proxy、访问器、数组空槽、数组
     assert.throws(() => checkElements(size, elements), coded('usage.bad-argument'), k);
     assert.throws(() => createTwoDStage({ size }, { elements }), coded('usage.bad-argument'), k);
   }
-  const badSize = { hole: sparse(2, { 1: 160 }), tail: sparse(2, { 0: 320 }), getter: getter([320], 1, 160), proxy: new Proxy([320, 160], {}), extra: Object.assign([320, 160], { more: 1 }), holeExtra: Object.assign(sparse(2, { 1: 160 }), { more: 1 }), long: [320, 160, 1], text: ['320', 160] };
+  const badSize = { hole: sparse(2, { 1: 160 }), tail: sparse(2, { 0: 320 }), getter: getter([320], 1, 160), typed: new Uint32Array([320, 160]), extra: Object.assign([320, 160], { more: 1 }), holeExtra: Object.assign(sparse(2, { 1: 160 }), { more: 1 }), long: [320, 160, 1], text: ['320', 160] };
   for (const [k, at] of Object.entries(badSize)) {
     assert.throws(() => checkElements(at, [canvas]), coded('usage.bad-argument'), `size ${k}`);
     assert.throws(() => createTwoDStage({ size: at }, { elements: [canvas] }), coded('usage.bad-argument'), `ctx.size ${k}`);
   }
+  const cyclic = { elements: [canvas] };
+  cyclic.self = cyclic;
   const badCalls = {
-    ctxProxy: [new Proxy({ size }, {}), { elements: [canvas] }],
+    ctxArray: [Object.assign([], { size }), { elements: [canvas] }],
+    ctxRevoked: [revoked.proxy, { elements: [canvas] }],
     ctxGetter: [getter({}, 'size', size), { elements: [canvas] }],
-    optsProxy: [{ size }, new Proxy({ elements: [canvas] }, {})],
+    optsDate: [{ size }, Object.assign(new Date(), { elements: [canvas] })],
+    optsCyclic: [{ size }, cyclic],
     optsGetter: [{ size }, getter({}, 'elements', [canvas])],
     // 读一次一个样的 css：查的那次和用的那次可以不是同一段
     cssObject: [{ size }, { elements: [canvas], css: { toString: () => '' } }],
-    fontsProxy: [{ size }, { elements: [canvas], fonts: new Proxy([font], {}) }],
-    fontProxy: [{ size }, { elements: [canvas], fonts: [new Proxy(font, {})] }],
+    fontsMap: [{ size }, { elements: [canvas], fonts: new Map() }],
+    fontDate: [{ size }, { elements: [canvas], fonts: [Object.assign(new Date(), font)] }],
     fontGetter: [{ size }, { elements: [canvas], fonts: [getter({ url: font.url }, 'family', 'Probe')] }],
   };
   for (const [k, [ctx, opts]] of Object.entries(badCalls)) assert.throws(() => createTwoDStage(ctx, opts), coded('usage.bad-argument'), k);
   assert.equal(read, 0, '访问器被执行了');
-  // 活 Proxy 挂满 13 种 Reflect 计数转发陷阱：七个位置同步拒收，且每个位置的陷阱触发次数严格为 0；普通 ctx 的前置 diagnostic 访问器在拒收前也不得执行
-  const TRAPS = ['apply', 'construct', 'defineProperty', 'deleteProperty', 'get', 'getOwnPropertyDescriptor', 'getPrototypeOf', 'has', 'isExtensible', 'ownKeys', 'preventExtensions', 'set', 'setPrototypeOf'];
-  const liveProxy = (target, hit) => new Proxy(target, Object.fromEntries(TRAPS.map((k) => [k, (...a) => { hit(); return Reflect[k](...a); }])));
-  const seven = {
-    ctx: (hit) => [liveProxy({ size }, hit), { elements: [canvas] }],
-    'ctx.size': (hit) => [{ size: liveProxy([...size], hit) }, { elements: [canvas] }],
-    opts: (hit) => [{ size }, liveProxy({ elements: [canvas] }, hit)],
-    elements: (hit) => [{ size }, { elements: liveProxy([canvas], hit) }],
-    item: (hit) => [{ size }, { elements: [liveProxy({ ...canvas }, hit)] }],
-    rect: (hit) => [{ size }, { elements: [{ ...canvas, rect: liveProxy([...rect], hit) }] }],
-    fonts: (hit) => [{ size }, { elements: [canvas], fonts: liveProxy([font], hit) }],
-    fontItem: (hit) => [{ size }, { elements: [canvas], fonts: [liveProxy({ ...font }, hit)] }],
-    fnItem: (hit) => [{ size }, { elements: [liveProxy(() => {}, hit)] }],
-  };
-  for (const [where, make] of Object.entries(seven)) {
-    let traps = 0;
-    const [ctx, opts] = make(() => { traps++; });
-    assert.throws(() => createTwoDStage(ctx, opts), coded('usage.bad-argument'), `liveProxy ${where}`);
-    assert.equal(traps, 0, `liveProxy ${where} 触发了 ${traps} 次陷阱`);
-  }
   let diagRead = 0;
   const diagCtx = Object.assign(Object.defineProperty({}, 'diagnostic', { enumerable: true, get: () => { diagRead++; return 1; } }), { size, THREE: {} });
   assert.throws(() => createTwoDStage(diagCtx, null), coded('usage.bad-argument'), 'plain ctx with diagnostic getter');
   assert.equal(diagRead, 0, `普通 ctx 的 diagnostic 访问器被执行了 ${diagRead} 次`);
+  // 跨上下文的普通对象/数组照收，跨上下文的非普通对象拒收
+  const foreignOk = runInNewContext('([{ kind: "dom", html: "<p data-entity=\\"a\\">x</p>" }])');
+  assert.equal(checkElements(runInNewContext('[640, 360]'), foreignOk).length, 1);
+  assert.throws(() => checkElements(size, runInNewContext('[Object.assign(new Date(), { kind: "dom", html: "<p data-entity=\\"a\\">x</p>" })]')), coded('usage.bad-argument'));
   // 照样收的：冻结的声明、带着别的字段的元素（字段里的对象一样逐层抄，舞台不用）
   const frozen = Object.freeze([Object.freeze({ ...canvas, rect: Object.freeze([...rect]), note: 'x', more: { deep: [1] } })]);
   assert.deepEqual(checkElements(Object.freeze([...size]), frozen).map((e) => [e.name, e.rect]), [['plot', rect]]);
@@ -241,27 +226,12 @@ function assertDeclarationReadings(readings, browser) {
     for (const form of ['data', 'accessor', 'fixed', 'inherited']) {
       check(`${place}.${form}`, place !== 'ctx' && form !== 'inherited' && (form === 'accessor' || arrays.includes(place)));
     }
-    if (place !== 'font') for (const form of ['live', 'revoked']) check(`${place}.${form}`, true);
+    if (place !== 'font') check(`${place}.revoked`, true);
   }
   check('ctx.accessor.badOpts', true);
 }
 
-test('登记器在初始化时报告标记冲突，不把无关全局值当作判定函数', () => {
-  for (const value of ['{}', '() => false']) {
-    assert.throws(() => runInNewContext(`Object.defineProperty(globalThis, Symbol.for('beiming.three.isProxy'), {value:${value}}); (${installProxyRegistry})()`), /登记标记冲突/);
-  }
-});
-
-test('早期 Node 22 没有 getBuiltinModule 也不替换全局 Proxy，导入前创建的 ctx 同步拒收', () => {
-  const preload = 'process.getBuiltinModule = undefined; globalThis.original = Proxy; globalThis.at = new Proxy({ size: [32, 32] }, {});';
-  const check = `import assert from 'node:assert/strict';
-    import { createTwoDStage } from ${JSON.stringify(new URL('./two-d.js', import.meta.url).href)};
-    assert.equal(Proxy, globalThis.original);
-    assert.throws(() => createTwoDStage(globalThis.at, { elements: [{ kind: 'dom', html: '<p>x</p>' }] }), {code: 'usage.bad-argument'});`;
-  execFileSync(process.execPath, ['--import', `data:text/javascript,${encodeURIComponent(preload)}`, '--input-type=module', '-e', check]);
-});
-
-test('Node：33 种 stack 声明保留属性，七处活 Proxy 和已撤销 Proxy 零陷阱同步拒收', async () => {
+test('Node：33 种 stack 声明保留属性，访问器零触发，七处已撤销 Proxy 同步拒收', async () => {
   assertDeclarationReadings(await declarationReadings({ size: [320, 160], THREE: {} }), false);
 });
 
@@ -322,7 +292,7 @@ test('页面宿主只多放行 fonts/ 下的 woff2：许可文件、锁文件、
   for (const bad of ['/fonts/LICENSE.md', '/fonts/fonts.lock.json', '/fonts/../package.json', '/engine/x.woff2']) assert.equal(resolveServed(bad), null, bad);
 });
 
-test('裸页面直接加载舞台后登记 Proxy，导入前的声明对象仍经克隆校验', async (t) => {
+test('裸页面直接加载舞台也不改写全局 Proxy，声明校验在页面中同样保留属性且不触发访问器', async (t) => {
   let browser;
   try { browser = await chromium.launch({ executablePath: chromeExecutable(), args: chromeArgs() }); }
   catch (err) { t.skip(`起不了浏览器：${err.message.split('\n')[0]}`); return; }
@@ -331,20 +301,29 @@ test('裸页面直接加载舞台后登记 Proxy，导入前的声明对象仍�
   t.after(() => server.close());
   const page = await browser.newPage();
   await page.goto(server.origin);
-  // 静态服务只提供模块；这个页面没有宿主的 addInitScript。
   await page.addScriptTag({ type: 'module', content: `
-    import { earlyOptions } from '/beiming/sources/three/s3-proxy.probe.js';
-    import { declarationReadings } from '/beiming/sources/three/s3-probe.shot.js';
-    import { createTwoDStage } from '/beiming/sources/three/two-d.js';
-    import * as THREE from 'three';
-    const ctx = { size: [320, 160], THREE };
-    window.probe = declarationReadings(ctx);
-    try { createTwoDStage(ctx, earlyOptions).then(stage => stage.dispose(), () => {}); }
-    catch (err) { window.earlyCode = err.code; }
+    const beforeProxy = globalThis.Proxy, beforeRevocable = globalThis.Proxy.revocable;
+    import('/beiming/sources/three/two-d.js').then(async ({ createTwoDStage }) => {
+      const { declarationReadings } = await import('/beiming/sources/three/s3-probe.shot.js');
+      const THREE = await import('three');
+      const ctx = { size: [320, 160], THREE };
+      let domErr = '';
+      try { createTwoDStage(ctx, Object.assign(document.createElement('div'), { elements: [{ kind: 'dom', html: '<p data-entity="a">x</p>' }] })); }
+      catch (err) { domErr = err.code; }
+      window.probe = {
+        readings: await declarationReadings(ctx),
+        sameProxy: globalThis.Proxy === beforeProxy && globalThis.Proxy.revocable === beforeRevocable,
+        proxySrc: Function.prototype.toString.call(globalThis.Proxy),
+        domErr,
+      };
+    });
   ` });
   await page.waitForFunction(() => window.probe);
-  assertDeclarationReadings(await page.evaluate(() => window.probe), true);
-  assert.equal(await page.evaluate(() => window.earlyCode), 'usage.bad-argument');
+  const probe = await page.evaluate(() => window.probe);
+  assertDeclarationReadings(probe.readings, true);
+  assert.equal(probe.sameProxy, true);
+  assert.match(probe.proxySrc, /\[native code\]/);
+  assert.equal(probe.domErr, 'usage.bad-argument');
 });
 
 // ---------- 实渲：探针镜头 ----------
@@ -670,17 +649,17 @@ test('探针：文字自己的盒不作数（display: contents 没有盒、盒�
   });
 });
 
-test('探针：过不了 JSON 的坏声明（数组空槽、访问器、Proxy、不对的 ctx 和画幅）调用当场抛，装到一半才失败的（字体取不到、实体重名）经 Promise 报；哪一种事后页面都不多一个节点、一款字体', async (t) => {
+test('探针：过不了 JSON 的坏声明（数组空槽、访问器、失效或抛错的 Proxy、不对的 ctx 和画幅）调用当场抛，装到一半才失败的（字体取不到、实体重名）经 Promise 报；哪一种事后页面都不多一个节点、一款字体', async (t) => {
   await withSource(t, async ({ open }) => {
     const session = await open(probeFilm([probeShot('trials', [PROBE[1]], { trials: true })]), 'trials');
     const { readings } = (await session.render(0, {}, ['color'])).meta;
     assertDeclarationReadings(readings, true);
-    // 每种：[调用当场抛了该抛的错误码, 交回的 Promise 带着该报的错误码失败, 事后页面多出来的节点数, 多登记的字体数, 陷阱/无关访问器触发次数]
-    assert.equal(readings.earlyHits, 0, '宿主应在镜头的依赖模块执行之前登记 Proxy');
-    const sync = ['early', 'slot', 'hole', 'getter', 'noCtx', 'noOpts', 'proxy', 'swap', 'trap', 'revoked', 'item', 'rectProxy', 'rectHole', 'fontsProxy', 'sizeHole', 'sizeTail', 'sizeGetter', 'sizeProxy', 'ctxProxy', 'optsProxy', 'ctxDiagNull'];
+    // 每种：[调用当场抛了该抛的错误码, 交回的 Promise 带着该报的错误码失败, 事后页面多出来的节点数, 多登记的字体数, 无关访问器触发次数]
+    const sync = ['slot', 'hole', 'getter', 'noCtx', 'noOpts', 'trap', 'revoked', 'rectHole', 'sizeHole', 'sizeTail', 'sizeGetter', 'ctxDiagNull'];
     // fine、ctxDiagOk 是对照：写对了的 Canvas 2D 声明在页面里照常装上（没抛、没失败），撤掉之后页面不多东西，diagnostic 访问器一次不碰
     const want = { ...Object.fromEntries(sync.map((k) => [k, [1, 0, 0, 0, 0]])), font: [0, 1, 0, 0, 0], dup: [0, 1, 0, 0, 0], fine: [0, 0, 0, 0, 0], ctxDiagOk: [0, 0, 0, 0, 0] };
     assert.deepEqual(Object.fromEntries(Object.keys(want).map((k) => [k, ['sync', 'late', 'nodes', 'fonts', 'traps'].map((x) => readings?.[`${k}.${x}`])])), want);
+    for (const [k, v] of Object.entries(readings)) if (k.endsWith('.nodes') || k.endsWith('.fonts')) assert.equal(v, 0, `${k} 残留 ${v}`);
     await session.close();
   });
 });

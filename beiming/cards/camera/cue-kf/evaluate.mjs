@@ -1,8 +1,19 @@
 // camera.cue-kf：时间来自命名事件，帧间不存状态。页面宿主和 Node 求值核共用此入口。
-import { installProxyRegistry } from '../../../sources/three/proxy-registry.js';
-
-const isProxy = globalThis.process?.versions?.node ? (await import('node:util/types')).isProxy : installProxyRegistry();
 const bad = (why) => { throw Object.assign(new TypeError(`camera.cue-kf：${why}`), { code: 'usage.bad-argument' }); };
+const fnToStr = Function.prototype.toString;
+const rootProto = (proto, kind = 'Object') => {
+  if (proto === null) return kind === 'Object';
+  const C = Object.getOwnPropertyDescriptor(proto, 'constructor')?.value;
+  return typeof C === 'function' && fnToStr.call(C) === `function ${kind}() { [native code] }` && Object.getOwnPropertyDescriptor(C, 'prototype')?.value === proto;
+};
+function readDeclared(fn) {
+  try { return fn(); } catch (err) {
+    if (err && typeof err === 'object' && err.code === 'usage.bad-argument') throw err;
+    let why = '声明不可读';
+    try { if (err?.message) why = String(err.message); } catch { /* 留空 */ }
+    bad(why);
+  }
+}
 const int = Number.isSafeInteger;
 const positiveInt = (x) => int(x) && x > 0;
 const phase = (x) => Number.isFinite(x) && x >= 0 && x < 1;
@@ -11,23 +22,23 @@ const fps = (x) => typeof x === 'string' && /^[1-9]\d*\/[1-9]\d*$/.test(x);
 const zoomValue = (x) => Number.isFinite(x) && x >= 1 / 1024 && x <= 1024;
 const optional = (obj, key, fallback) => Object.hasOwn(obj, key) ? obj[key] : fallback;
 
-// 在任何反射前查 Proxy，只取自有数据描述符，不读取访问器，也不对传入的值做字符串转换。
+// 只取普通对象与稠密数组的自有数据描述符，不读取访问器，也不对传入的值做字符串转换。
 function record(v, fields, label) {
-  if (v === null || typeof v !== 'object' || isProxy(v)) bad(label);
-  const proto = Object.getPrototypeOf(v);
-  if (proto !== Object.prototype && proto !== null || Array.isArray(v)) bad(label);
+  if (v === null || typeof v !== 'object' || Array.isArray(v) || !rootProto(Object.getPrototypeOf(v), 'Object')) bad(label);
   const out = Object.create(null);
   for (const k of Reflect.ownKeys(v)) {
     const d = Object.getOwnPropertyDescriptor(v, k);
-    if (typeof k !== 'string' || fields && !fields.includes(k) || !d.enumerable || !Object.hasOwn(d, 'value')) bad(label);
+    if (typeof k !== 'string' || fields && !fields.includes(k) || !d?.enumerable || !Object.hasOwn(d, 'value')) bad(label);
     out[k] = d.value;
   }
   return out;
 }
 function list(v, label) {
-  if (isProxy(v) || !Array.isArray(v) || Object.getPrototypeOf(v) !== Array.prototype || Reflect.ownKeys(v).length !== v.length + 1) bad(label);
+  if (!Array.isArray(v) || !rootProto(Object.getPrototypeOf(v), 'Array')) bad(label);
+  const n = Object.getOwnPropertyDescriptor(v, 'length')?.value;
+  if (!int(n) || Reflect.ownKeys(v).length !== n + 1) bad(label);
   const out = [];
-  for (let i = 0; i < v.length; i++) {
+  for (let i = 0; i < n; i++) {
     const d = Object.getOwnPropertyDescriptor(v, i);
     if (!d?.enumerable || !Object.hasOwn(d, 'value')) bad(label);
     out.push(d.value);
@@ -46,7 +57,6 @@ const EVENT_KEYS = ['id', 'kind', 'frame', 'f', 'sub', 'from', 'shot', 'entity',
 // 局部 f 可以在镜头之外；全片 frame 只减一次镜头起始帧。保留 sub，不把触发点偷偷舍入到别的帧。
 function namedEvents(raw, shotIn) {
   const cues = new Map(), seen = new Set();
-  if (isProxy(raw)) bad('无效事件表');
   let limit;
   if (!Array.isArray(raw)) {
     const doc = record(raw, null, '无效事件表');
@@ -116,20 +126,22 @@ function pose(panX, panY, zoom, speed, height) {
  * 起帧指第一对有运动的相邻帧中较早的一帧，不是位移已达某个百分比的帧。区间之外保持端点姿态，速度为 0。
  */
 export function evaluate(inputs, params, f, sub) {
-  if (!int(f) || f < 0 || !phase(sub)) bad('无效的局部帧或子帧');
-  const i = record(inputs, ['fps', 'size', 'seed', 'shot', 'events'], '无效 inputs'), p = record(params, ['moves'], '无效 params');
-  if (Object.hasOwn(i, 'fps') && !fps(i.fps) || Object.hasOwn(i, 'seed') && !int(i.seed)) bad('无效帧率或种子');
-  const height = Object.hasOwn(i, 'size') ? pair(i.size, positiveInt, '无效画幅')[1] : 1080;
-  const shot = record(optional(i, 'shot', { in: 0 }), ['id', 'in', 'frames'], '无效镜头');
-  if (!int(shot.in) || shot.in < 0 || Object.hasOwn(shot, 'id') && !name(shot.id) || Object.hasOwn(shot, 'frames') && !positiveInt(shot.frames)) bad('无效镜头');
-  const segments = trajectory(p.moves, namedEvents(optional(i, 'events', []), shot.in)), t = f + sub;
-  if (!segments.length) return pose(0, 0, 1, 0, height);
-  const s = segments.findLast((segment) => segment.start <= t);
-  if (!s) return pose(...segments[0].from, segments[0].z0, 0, height);
-  if (t >= s.end) return pose(...s.to, s.z1, 0, height);
-  // 线性和 smoothstep 各一半。首尾以平均速度的一半起收，中段更快；不让长运镜开头数帧都挤在同一像素内。
-  const u = (t - s.start) / s.duration, w = u * (0.5 + u * (1.5 - u)), slope = (0.5 + 3 * u * (1 - u)) / s.duration;
-  const dx = s.to[0] - s.from[0], dy = s.to[1] - s.from[1], dz = s.z1 - s.z0, zoom = s.z0 + dz * w;
-  const speed = slope * Math.hypot(dx * zoom, dy * zoom, dz * height / 2);
-  return pose(s.from[0] + dx * w, s.from[1] + dy * w, zoom, speed, height);
+  return readDeclared(() => {
+    if (!int(f) || f < 0 || !phase(sub)) bad('无效的局部帧或子帧');
+    const i = record(inputs, ['fps', 'size', 'seed', 'shot', 'events'], '无效 inputs'), p = record(params, ['moves'], '无效 params');
+    if (Object.hasOwn(i, 'fps') && !fps(i.fps) || Object.hasOwn(i, 'seed') && !int(i.seed)) bad('无效帧率或种子');
+    const height = Object.hasOwn(i, 'size') ? pair(i.size, positiveInt, '无效画幅')[1] : 1080;
+    const shot = record(optional(i, 'shot', { in: 0 }), ['id', 'in', 'frames'], '无效镜头');
+    if (!int(shot.in) || shot.in < 0 || Object.hasOwn(shot, 'id') && !name(shot.id) || Object.hasOwn(shot, 'frames') && !positiveInt(shot.frames)) bad('无效镜头');
+    const segments = trajectory(p.moves, namedEvents(optional(i, 'events', []), shot.in)), t = f + sub;
+    if (!segments.length) return pose(0, 0, 1, 0, height);
+    const s = segments.findLast((segment) => segment.start <= t);
+    if (!s) return pose(...segments[0].from, segments[0].z0, 0, height);
+    if (t >= s.end) return pose(...s.to, s.z1, 0, height);
+    // 线性和 smoothstep 各一半。首尾以平均速度的一半起收，中段更快；不让长运镜开头数帧都挤在同一像素内。
+    const u = (t - s.start) / s.duration, w = u * (0.5 + u * (1.5 - u)), slope = (0.5 + 3 * u * (1 - u)) / s.duration;
+    const dx = s.to[0] - s.from[0], dy = s.to[1] - s.from[1], dz = s.z1 - s.z0, zoom = s.z0 + dz * w;
+    const speed = slope * Math.hypot(dx * zoom, dy * zoom, dz * height / 2);
+    return pose(s.from[0] + dx * w, s.from[1] + dy * w, zoom, speed, height);
+  });
 }

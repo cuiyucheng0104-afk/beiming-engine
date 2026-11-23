@@ -35,20 +35,20 @@ test('声明按值快照，只收整数矩形、登记字形、有限帧窗；�
   reject(() => create(ctx, {})); // 没有对应 page 宿主与就绪字体时不返回伪 Handle
 });
 
-test('Proxy（含已撤销）、访问器、稀疏数组和未知键逐层拒收；不执行陷阱也不格式化对象', () => {
+test('非普通对象、已撤销或抛错的 Proxy、访问器、稀疏数组和未知键逐层拒收；不执行访问器也不格式化对象', () => {
   let hits = 0;
   const trap = () => { hits++; throw Error('不应触发'); };
   const handler = Object.fromEntries(['get', 'set', 'ownKeys', 'getPrototypeOf', 'getOwnPropertyDescriptor', 'has', 'apply'].map((k) => [k, trap]));
-  const proxy = (target) => new Proxy(target, handler);
   const pair = Proxy.revocable({}, handler); pair.revoke();
-  for (const value of [proxy({}), pair.proxy, Object.defineProperty({}, 'font', { get: trap }), { bad: 1 }]) reject(() => create(ctx, value));
-  for (const host of [proxy(ctx), { size: proxy(ctx.size) }, { size: Array(2) }, { ...ctx, extra: true },
-    { ...ctx, get rng() { return trap(); } }, { get size() { return trap(); } }, { ...ctx, THREE: proxy({}), renderer: {} },
-    { ...ctx, THREE: {}, renderer: proxy({}) }]) reject(() => create(host, {}));
-  for (const panels of [proxy([panel]), [], Array(1), [proxy(panel)], [pair.proxy], [{ ...panel, rect: proxy(panel.rect) }],
+  const poison = new Proxy({}, { getPrototypeOf() { throw new Error('陷阱异常'); } });
+  const unformatted = { toString: trap, valueOf: trap };
+  for (const value of [new Date(), Object.create({}), pair.proxy, poison, Object.defineProperty({}, 'font', { get: trap }), { bad: 1 }]) reject(() => create(ctx, value));
+  for (const host of [new Map(), pair.proxy, { size: new Uint32Array(ctx.size) }, { size: Array(2) }, { ...ctx, extra: true },
+    { ...ctx, get rng() { return trap(); } }, { get size() { return trap(); } }, { ...ctx, THREE: {}, renderer: {} }]) reject(() => create(host, {}));
+  for (const panels of [new Set([panel]), [], Array(1), [Object.create(panel)], [pair.proxy], [poison], [{ ...panel, rect: new Int32Array(panel.rect) }],
     [Object.defineProperty({ ...panel }, 'text', { get: trap })], [Object.defineProperty({ ...panel }, 'unknown', { get: trap })],
     [{ ...panel, rect: Object.defineProperty([...panel.rect], 1, { get: trap }) }], [{ ...panel, rect: Array(4) }],
     [{ ...panel, rect: Object.assign([...panel.rect], { invalid: true }) }], [Object.defineProperty({ ...panel }, 'draw', { value: trap })],
-    [{ ...panel, text: proxy(trap) }]]) reject(() => stagePlan(ctx, panels));
+    [{ ...panel, text: unformatted }]]) reject(() => stagePlan(ctx, panels));
   assert.equal(hits, 0);
 });

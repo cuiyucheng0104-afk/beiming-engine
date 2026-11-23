@@ -1,0 +1,73 @@
+{
+  "format": "question/0.1",
+  "id": "27-1",
+  "level": 2,
+  "title": "网格拍点剪辑",
+  "brief": "做一条 17 秒、30 帧每秒、1080×1080 的角色短片，共 510 帧，配 150 BPM 的音乐（一拍 12 帧）。所有换镜头都落在 12 帧的整数倍上；镜头长度只用 1、2、4、8 拍，片尾不足一拍的 6 帧算最后一个镜头的收尾，不计拍数；第一个换镜头在第 8 拍（第 96 帧），从灰模切到彩色。整片响度 -14 LUFS，上下不超过 1；真峰值不高于 -1 dBTP。",
+  "deliverable": {
+    "size": [1080, 1080],
+    "fps": "30/1",
+    "frames": 510,
+    "audio": "required"
+  },
+  "assets": {},
+  "refs": [
+    "beiming/bench/refs/level-2-a/27-1.reference.json",
+    "beiming/bench/refs/level-2-a/27-1.original.json"
+  ],
+  "basePredicates": [
+    "delivery(width=1080, height=1080, fps=30, frames=510)",
+    "cut_at(shots)",
+    "cut_at(96)",
+    "loudness(film) in [-15,-13]",
+    "true_peak(film) <= -1"
+  ],
+  "scoring": [
+    {
+      "metric": "cut.ydif",
+      "source": "film",
+      "args": {
+        "gridFrames": 12,
+        "firstCut": 96,
+        "shotBeats": [1, 2, 4, 8]
+      },
+      "pass": "第一个换镜头在第 96 帧；检出的换镜头帧 100% 是 12 的整数倍；镜头长度只用 1、2、4、8 拍",
+      "weight": 0.6
+    },
+    {
+      "metric": "audio.loudness",
+      "source": "film-audio",
+      "args": {
+        "rangeLufs": [-15, -13],
+        "maxTruePeakDbtp": -1
+      },
+      "pass": "整片响度在 -15 到 -13 LUFS 之间（两端都算），真峰值不高于 -1 dBTP",
+      "weight": 0.4
+    }
+  ],
+  "controls": {
+    "referencePass": "合规参考读数必须得满分：13 个换镜头帧全是 12 的整数倍，响度 -14.0 LUFS，真峰值 -1.5 dBTP",
+    "negative": "原作成片读数必须判不合格：13 个换镜头帧虽然全是 12 的整数倍，但响度 -8.7 LUFS、真峰值 +2.1 dBTP 都超限",
+    "random": "随机对照：任取一帧正好是 12 的整数倍的概率是 1/12（8.3%），随机切点必须判不合格"
+  },
+  "needs": [
+    "time.cut-grid",
+    "time.timeline"
+  ],
+  "budget": {
+    "tokens": 300000,
+    "wallMs": 900000,
+    "gpuSeconds": 180
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": false,
+    "blockedBy": []
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "案例量测与考题设计调研第 6 节给的初值，还没试跑",
+    "noiseFloor": null,
+    "version": 0
+  }
+}

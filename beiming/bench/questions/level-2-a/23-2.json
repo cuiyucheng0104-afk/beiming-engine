@@ -1,0 +1,72 @@
+{
+  "format": "question/0.1",
+  "id": "23-2",
+  "level": 2,
+  "title": "章节落拍",
+  "brief": "做一条 28 秒、24 帧每秒、1920×1080 的角色分解展示片，共 672 帧，配 120 BPM 的音乐（一拍 12 帧）。成片带章节元数据，正好 6 个章节；6 个章节的起点都落在拍点上，离最近的拍点不超过 1 帧。配乐的强起音压在拍上：离拍点 30 毫秒以内的强起音不少于 80%。",
+  "deliverable": {
+    "size": [1920, 1080],
+    "fps": "24/1",
+    "frames": 672,
+    "audio": "required"
+  },
+  "assets": {},
+  "refs": [
+    "beiming/bench/refs/level-2-a/23-2.reference.json",
+    "beiming/bench/refs/level-2-a/23-2.original.json"
+  ],
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=24, frames=672)",
+    "cut_at(shots)"
+  ],
+  "scoring": [
+    {
+      "metric": "beat.onset-hit",
+      "source": "章节元数据、film-audio",
+      "args": {
+        "event": "chapter",
+        "count": 6,
+        "bpm": 120,
+        "tolFrames": 1
+      },
+      "pass": "配乐是 120 BPM；章节正好 6 个；每个章节起点离最近拍点不超过 1 帧",
+      "weight": 0.6
+    },
+    {
+      "metric": "beat.onset-hit",
+      "source": "film-audio",
+      "args": {
+        "event": "strong-onset",
+        "bpm": 120,
+        "tolMs": 30,
+        "minHitRate": 0.8
+      },
+      "pass": "强起音离拍点 30 毫秒以内的比例不低于 80%",
+      "weight": 0.4
+    }
+  ],
+  "controls": {
+    "referencePass": "合规参考读数必须得满分：6 个章节起点离拍点都不超过 1 帧，强起音 55 个里 47 个在拍点 30 毫秒以内（85.5%）",
+    "negative": "负对照必须判不合格：原作成片读数的第 3 个章节起点比拍点晚 103 毫秒（2.5 帧）；章节整体错开半拍也必须判不合格",
+    "random": "随机对照：任取一帧离最近拍点不超过 1 帧的概率不高于 3/12（25%）；任取一个时刻落在拍点 30 毫秒以内的概率是 12%"
+  },
+  "needs": [
+    "time.cut-grid"
+  ],
+  "budget": {
+    "tokens": 300000,
+    "wallMs": 1200000,
+    "gpuSeconds": 240
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": false,
+    "blockedBy": []
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "案例量测与考题设计调研第 6 节给的初值，还没试跑",
+    "noiseFloor": null,
+    "version": 0
+  }
+}
