@@ -1,7 +1,7 @@
 // C11：参数库第二批的先验库（priors-data/{arch-scene,motion-rig,light-cam}.*.json）。
 // 可移植量走 C9 priors/0.1 检索库；挂卡先验与做法只读返回，不当默认值。分流口径见各份 manifest 的 rules。
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { URL } from 'node:url';
 import { createPriorsStore } from './priors.mjs';
 
@@ -26,10 +26,17 @@ function known(collection) {
 const cache = new Map();
 function data(collection) {
   if (!cache.has(known(collection))) {
+    const manifest = read(`${collection}.manifest.json`);
+    if (Array.isArray(manifest.cards)) {
+      manifest.cards = manifest.cards.map((card) => ({
+        ...card,
+        exists: existsSync(new URL(`./${card.cardId.replace('.', '/')}/card.json`, import.meta.url)),
+      }));
+    }
     cache.set(collection, deepFreeze({
       cardPriors: read(`${collection}.card-priors.json`).entries,
       practices: read(`${collection}.practices.json`).entries,
-      manifest: read(`${collection}.manifest.json`),
+      manifest,
     }));
   }
   return cache.get(collection);

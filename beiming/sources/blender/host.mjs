@@ -18,6 +18,7 @@ import { hashCardContents, validateCard } from '../../cards/index.mjs';
 import { checkInstanceNames, expandOverlays, implFor, orderPairs, parseCardRef, resolveParams, unfitReason } from '../../cards/runtime.mjs';
 import { caps, DRAFT_MAX_SIZE } from './caps.mjs';
 
+const { structuredClone } = globalThis;
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WORKER = join(HERE, 'worker.py');
 const BEIMING = resolve(HERE, '../..');
@@ -414,6 +415,8 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
   }
   const { version, ...device } = hello;
   const CAPS = caps(version, library);
+  // build-script 的 meta(f) 可以提供文字框，texts 只在本帧没有文字时为 null。
+  CAPS.metaNull = CAPS.metaNull.filter((field) => field !== 'texts');
   let current = null;
 
   async function open(input, env) {
@@ -460,7 +463,12 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
         // 第 5 步要的轨道值：出第 f 帧交 f − 1、f、f + 1 三个整帧，原生运动模糊的快门窗口落在这里面
         const tracks = prepared?.filming ? [f - 1, f, f + 1].map((t) => prepared.segmentAt(inputs, t)) : [];
         const res = await worker.call('render', { f, plan, workspace: resolve(env.workspace), dir, ...(prepared ? { tracks } : {}) });
-        const readings = res.readings && Object.keys(res.readings).length ? res.readings : undefined;
+        const texts = Array.isArray(res.texts) && res.texts.length ? res.texts : null;
+        const readings = used(res.readings) ? res.readings : undefined;
+        const shotFields = [];
+        if (res.entities.some((e) => used(e.anchors))) shotFields.push('entities.*.anchors');
+        if (texts) shotFields.push('texts');
+        if (readings) shotFields.push('readings');
         const pixels = plan.layers.length > 0;
         const meta = {
           format: 'meta/0.1',
@@ -477,7 +485,7 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
           entities: res.entities,
           lights: null,
           events: timeline.filter((e) => e.frame === shot.in + f).map((e) => ({ id: e.id, frame: e.frame })),
-          texts: null,
+          texts,
           ...(readings ? { readings } : {}),
           stats: res.stats,
           source: {
@@ -486,7 +494,7 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
             ...(pixels ? { samples: res.samples } : {}), ...(res.denoise ? { denoise: res.denoise } : {}),
           },
           timing: res.timing,
-          origin: { host: ['camera', 'entities', 'lights', 'stats', 'source', 'timing'], shot: readings ? ['readings'] : [], kernel: ['events'] },
+          origin: { host: ['camera', 'entities', 'lights', 'stats', 'source', 'timing'], shot: shotFields, kernel: ['events'] },
           hash: { color: pixels ? res.layers.color.hash : null },
           // 固定装载脚本记的账：做了哪几步、各种次序、相机从哪来、每个卡实例是谁调的、并进镜头之后叫什么
           ...(res.load ? { ext: { 'blender.load': res.load } } : {}),
@@ -507,5 +515,5 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
     });
   }
 
-  return { caps: () => caps(version, library), open, stop, device };
+  return { caps: () => structuredClone(CAPS), open, stop, device };
 }
