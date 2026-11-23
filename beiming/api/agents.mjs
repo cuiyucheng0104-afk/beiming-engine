@@ -10,6 +10,7 @@ import { dirname } from 'node:path';
 import {
   DELEGATE_ROLES,
   L5_GRADES,
+  L5_ISSUE_KEYS,
   L5_PERSPECTIVES,
   SHOT_WORKER_MAX_START_TOKENS,
   aggregateL5Votes,
@@ -17,6 +18,7 @@ import {
   buildShotWorkerMessages,
   filterL5SuggestedPredicates,
   measureStartContextTokens,
+  normalizeIssueKey,
   selectDelegateTemplate,
   shuffleCandidatesForBallot,
 } from './delegate-roles.mjs';
@@ -24,6 +26,7 @@ import {
 export {
   DELEGATE_ROLES,
   L5_GRADES,
+  L5_ISSUE_KEYS,
   L5_PERSPECTIVES,
   SHOT_WORKER_MAX_START_TOKENS,
   aggregateL5Votes,
@@ -31,6 +34,7 @@ export {
   buildShotWorkerMessages,
   filterL5SuggestedPredicates,
   measureStartContextTokens,
+  normalizeIssueKey,
   selectDelegateTemplate,
   shuffleCandidatesForBallot,
 };
@@ -44,12 +48,6 @@ const AGENT_SYSTEM = [
   '你是一个只通过 HTTP 接口做片子的代理。你手里只有一个工具 http_request，只能调本服务 /v1/ 开头的动词；令牌由工具替你带。',
   '先 GET /v1/guide，照里面的闭环做：建片、改片（补丁带 rev）、看诊断（能机器修的用 ?applyFixes=machine）、渲、观测、核验、交付。',
   '每一步先看响应信封的 ok、error.code、diagnostics、next。做完用一段话汇报做了什么、卡在哪。',
-].join('\n');
-
-const REVIEW_SYSTEM = [
-  '你是审片人。看需求原文、联系表、切点条带和声音量测表，指出成片不合需求的地方。',
-  '只回一个 JSON 对象：{"opinions":[{"frames":[起帧,止帧],"severity":"low|medium|high","evidence":"在哪张图的哪一格看到了什么","comment":"意见"}],"suggestedPredicates":["谓词断言"]}。',
-  '没有意见时 opinions 是空数组。不要回 JSON 以外的字。',
 ].join('\n');
 
 export const HTTP_TOOL = {
@@ -198,6 +196,12 @@ export function validateReview(parsed, frames = Infinity) {
       || o.frames[0] > o.frames[1] || !SEVERITIES.includes(o.severity) || !text(o.evidence) || !text(o.comment)) {
       throw new ModelResponseError(`审片意见 opinions[${i}] 的帧段、严重度、证据或意见不合法`);
     }
+    if (o.issueKey !== undefined && !text(o.issueKey)) {
+      throw new ModelResponseError(`审片意见 opinions[${i}] 的 issueKey 必须是非空字符串`);
+    }
+    if (o.suggestedPredicate !== undefined && !text(o.suggestedPredicate)) {
+      throw new ModelResponseError(`审片意见 opinions[${i}] 的 suggestedPredicate 必须是非空字符串`);
+    }
     return {
       ...(text(o.issueKey) ? { issueKey: o.issueKey.trim() } : {}),
       frames: o.frames,
@@ -235,8 +239,11 @@ function parseReview(text, frames) {
 
 /**
  * 异族视觉审片客户端（L5 三视角 × 3 票 = 9 票完整规程）。
- * 交回 { model, perspectives, votesPerPerspective, review({ brief, images, loudness, film, candidates }) }；
- * review 按三个视角各投 3 票（共 9 票），每票独立校验并写外部用量账本，返回 { model, ballots, usage } 供 layerL5 聚合与 L1 过滤。
+ * 交回 { model, perspectives, votesPerPerspective, review({ brief, images, loudness, film, filmId, candidates, budgetCheck, maxTokens, signal }) }；
+ * review 按三个视角各投 3 票（共 9 票）：
+ * - 每票调用模型前先执行 budgetCheck / maxTokens 预算闸检查，超限时立即停票并保留已投票与 stoppedReason；
+ * - 收到响应后先累计 usage 并写入带 film 字段的外部用量账本，再解析校验单票；
+ * - 单张坏票或上游失败仅隔离记入 invalidBallots，不中断其余选票，也不丢失已花 token。
  */
 export function createOpenAiVisionReviewer({
   endpoint,
@@ -245,27 +252,95 @@ export function createOpenAiVisionReviewer({
   ledgerPath,
   perspectives = L5_PERSPECTIVES,
   votesPerPerspective = 3,
+  maxTokens = null,
 } = {}) {
   requireConfig('审片客户端', { endpoint: 'BEIMING_REVIEW_ENDPOINT', apiKey: 'BEIMING_REVIEW_API_KEY', model: 'BEIMING_REVIEW_MODEL' }, { endpoint, apiKey, model, ledgerPath });
+  if (!Number.isSafeInteger(votesPerPerspective) || votesPerPerspective < 1) {
+    throw Object.assign(new Error('votesPerPerspective 必须是正安全整数'), { code: 'usage.bad-argument' });
+  }
+  if (maxTokens !== null && maxTokens !== undefined && (!Number.isSafeInteger(maxTokens) || maxTokens < 0)) {
+    throw Object.assign(new Error('maxTokens 必须是非负安全整数'), { code: 'usage.bad-argument' });
+  }
   return {
     model,
     perspectives,
     votesPerPerspective,
-    async review({ brief, images = [], loudness = null, film = null, candidates = [] }) {
+    async review({
+      brief,
+      images = [],
+      loudness = null,
+      film = null,
+      filmId = null,
+      candidates = [],
+      budgetCheck = null,
+      maxTokens: reqMaxTokens = null,
+      signal = null,
+    } = {}) {
+      if (reqMaxTokens !== null && reqMaxTokens !== undefined && (!Number.isSafeInteger(reqMaxTokens) || reqMaxTokens < 0)) {
+        throw Object.assign(new Error('maxTokens 必须是非负安全整数'), { code: 'usage.bad-argument' });
+      }
       const imageParts = images.map((img) => ({
         type: 'image_url',
         image_url: { url: `data:image/png;base64,${readFileSync(img.path).toString('base64')}` },
       }));
+      const resolvedFilmId = typeof filmId === 'string' && filmId.trim()
+        ? filmId.trim()
+        : (typeof film?.id === 'string' && film.id.trim() ? film.id.trim() : null);
+      const planned = perspectives.map((p) => ({
+        p,
+        votes: Number.isSafeInteger(p.votes) && p.votes > 0 ? p.votes : votesPerPerspective,
+      }));
+      const totalBallots = planned.reduce((n, item) => n + item.votes, 0);
+      const effectiveMaxTokens = [maxTokens, reqMaxTokens]
+        .filter((v) => Number.isSafeInteger(v) && v >= 0)
+        .reduce((min, v) => Math.min(min, v), Infinity);
+
       const ballots = [];
+      const invalidBallots = [];
       let inputTokens = 0;
       let outputTokens = 0;
       let lastModel = model;
+      let ballotIndex = 0;
+      let executedBallots = 0;
+      let stoppedReason = null;
 
-      for (const p of perspectives) {
-        const votes = Number.isSafeInteger(p.votes) && p.votes > 0 ? p.votes : votesPerPerspective;
+      for (const { p, votes } of planned) {
+        if (stoppedReason) break;
+        const issueKeys = Array.isArray(p.issueKeys) && p.issueKeys.length
+          ? p.issueKeys
+          : (L5_ISSUE_KEYS[p.id] ?? []);
         for (let voteIndex = 0; voteIndex < votes; voteIndex++) {
+          if (signal?.aborted) {
+            stoppedReason = 'canceled';
+            break;
+          }
+          const spentTokens = inputTokens + outputTokens;
+          const estimatedNextTokens = executedBallots > 0 ? Math.ceil(spentTokens / executedBallots) : 0;
+          if (Number.isFinite(effectiveMaxTokens)) {
+            if (spentTokens >= effectiveMaxTokens || (executedBallots > 0 && spentTokens + estimatedNextTokens > effectiveMaxTokens)) {
+              stoppedReason = 'budget.tokens';
+              break;
+            }
+          }
+          if (typeof budgetCheck === 'function') {
+            const decision = await budgetCheck({
+              ballotIndex,
+              totalBallots,
+              spentTokens,
+              estimatedNextTokens,
+              perspective: p.id,
+              voteIndex,
+            });
+            if (decision === false || (decision && typeof decision === 'object' && (decision.ok === false || decision.allow === false))) {
+              stoppedReason = (decision && typeof decision === 'object' && typeof decision.reason === 'string' && decision.reason.trim())
+                ? decision.reason.trim()
+                : 'budget.tokens';
+              break;
+            }
+          }
+
           const orderedCandidates = shuffleCandidatesForBallot(candidates, {
-            filmId: film?.id ?? 'film',
+            filmId: resolvedFilmId ?? 'film',
             perspective: p.id,
             voteIndex,
           });
@@ -275,6 +350,7 @@ export function createOpenAiVisionReviewer({
           const text = [
             `审片视角：${p.title}（${p.id}）· 第 ${voteIndex + 1}/${votes} 票`,
             `视角关注点：${p.focus}`,
+            `本视角封闭 issueKey 枚举（每条意见必填且仅限此表）：${issueKeys.join(', ')}`,
             `等级词枚举：${L5_GRADES.join(' / ')}`,
             `需求原文：${brief || '（没有给）'}`,
             `片子：${JSON.stringify(film)}`,
@@ -285,22 +361,42 @@ export function createOpenAiVisionReviewer({
             `图：${images.map((img, i) => `第 ${i + 1} 张 ${img.name}`).join('；') || '（没有图）'}。联系表每格左上角是全片帧号；切点条带是切点前 3 帧到后 2 帧，红线是切口。`,
           ].join('\n');
           const content = [{ type: 'text', text }, ...imageParts];
-          const systemContent = `[ROLE:reviewer][PERSPECTIVE:${p.id}][VOTE:${voteIndex + 1}]\n${DELEGATE_ROLES.reviewer.systemPrompt}\n${REVIEW_SYSTEM}`;
-          const res = await chat({
-            endpoint,
-            apiKey,
-            body: {
-              model,
-              messages: [
-                { role: 'system', content: systemContent },
-                { role: 'user', content },
-              ],
-            },
-          });
+          const systemContent = `[ROLE:reviewer][PERSPECTIVE:${p.id}][VOTE:${voteIndex + 1}]\n${DELEGATE_ROLES.reviewer.systemPrompt}`;
+
+          let res;
+          try {
+            res = await chat({
+              endpoint,
+              apiKey,
+              ...(signal ? { signal } : {}),
+              body: {
+                model,
+                messages: [
+                  { role: 'system', content: systemContent },
+                  { role: 'user', content },
+                ],
+              },
+            });
+          } catch (err) {
+            if (signal?.aborted) {
+              stoppedReason = 'canceled';
+              break;
+            }
+            invalidBallots.push({
+              perspective: p.id,
+              voteIndex,
+              reason: reviewFailure(err),
+            });
+            ballotIndex++;
+            continue;
+          }
+
           lastModel = res.model;
           inputTokens += res.usage.inputTokens;
           outputTokens += res.usage.outputTokens;
+          executedBallots++;
           appendExternalLedger(ledgerPath, {
+            ...(resolvedFilmId ? { film: resolvedFilmId } : {}),
             role: 'reviewer',
             perspective: p.id,
             voteIndex,
@@ -309,22 +405,45 @@ export function createOpenAiVisionReviewer({
             inputTokens: res.usage.inputTokens,
             outputTokens: res.usage.outputTokens,
           });
+
           const answer = typeof res.message.content === 'string'
             ? res.message.content
             : (Array.isArray(res.message.content) ? res.message.content.map((part) => part?.text ?? '').join('') : '');
-          const parsedBallot = parseReview(answer, film?.output?.frames);
-          ballots.push({
-            perspective: p.id,
-            voteIndex,
-            ...(candidateOrder.length ? { candidateOrder } : {}),
-            ...parsedBallot,
-          });
+          try {
+            const parsedBallot = parseReview(answer, film?.output?.frames);
+            if (parsedBallot.candidateGrades) {
+              const allowed = new Set(candidateOrder);
+              const seen = new Set();
+              for (const cg of parsedBallot.candidateGrades) {
+                if (!allowed.has(cg.id)) throw new ModelResponseError(`审片选票包含未知候选 ID：${cg.id}`);
+                if (seen.has(cg.id)) throw new ModelResponseError(`审片选票包含重复候选 ID：${cg.id}`);
+                seen.add(cg.id);
+              }
+            }
+            ballots.push({
+              perspective: p.id,
+              voteIndex,
+              ...(candidateOrder.length ? { candidateOrder } : {}),
+              ...parsedBallot,
+            });
+          } catch (err) {
+            invalidBallots.push({
+              perspective: p.id,
+              voteIndex,
+              reason: reviewFailure(err),
+            });
+          }
+          ballotIndex++;
         }
       }
 
       return {
         model: lastModel,
         ballots,
+        invalidBallots,
+        plannedBallots: totalBallots,
+        executedBallots,
+        ...(stoppedReason ? { stoppedReason } : {}),
         usage: {
           inputTokens,
           outputTokens,

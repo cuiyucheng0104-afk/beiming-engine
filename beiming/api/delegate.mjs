@@ -219,9 +219,23 @@ export async function runDelegateOrchestrator({
 
   try {
     if (!await session('director')) return result('failed', { failedAt: at });
-    const film = await readFilm();
-    for (const shot of film.shots) {
-      if (!await session('shot-worker', shot, film) && !await session('shot-worker', shot, film)) return result('failed', { failedAt: `shot-worker:${shot.id}` });
+    let film = await readFilm();
+    let filmRev = bestRev;
+    const shotIds = film.shots.map((s) => s.id);
+    for (const shotId of shotIds) {
+      if (bestRev !== filmRev) {
+        film = await readFilm();
+        filmRev = bestRev;
+      }
+      let shot = film.shots.find((s) => s.id === shotId);
+      if (!shot) continue;
+      if (!await session('shot-worker', shot, film)) {
+        // 重试前重新读取最新片子与镜头条目，确保第二次任务书拿到最新 rev 与改动后的镜头 JSON
+        film = await readFilm();
+        filmRev = bestRev;
+        shot = film.shots.find((s) => s.id === shotId) ?? shot;
+        if (!await session('shot-worker', shot, film)) return result('failed', { failedAt: `shot-worker:${shotId}` });
+      }
     }
     if (deliveredRev !== bestRev) {
       if (!await session('finalizer')) return result('failed', { failedAt: at });

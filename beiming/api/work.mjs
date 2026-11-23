@@ -12,6 +12,7 @@ import { loadQueue, openShotCache } from '../jobs/index.mjs';
 import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, query } from '../observe/index.mjs';
 import { artifactUrl } from './client.mjs';
 import { ROUTES } from './contract.mjs';
+import { DELEGATE_HARD_TOKEN_CAP } from './delegate.mjs';
 import { ApiError, diagnostic, isRegistered } from './envelope.mjs';
 import {
   deliverBundle, entitiesOf, frameSummary, layerL1, layerL2, layerL3, layerL5, measureMaster, readIndex, renderPlan, reviewMaterials,
@@ -95,6 +96,33 @@ export function createWork({ store, library, reviewer, scheduler }) {
   const jobDir = (id, jobId) => join(deliverDir(id), jobId);
   const output = (id, kind, rel) => ({ kind, url: url(id, rel), sha256: sha256File(join(deliverDir(id), rel)) });
   const shotCache = (id) => openShotCache(join(deliverDir(id), '.shot-cache'));
+
+  /**
+   * 构造单片实时 token 预算闸回调（供 L5 九票循环每票前检查）：
+   * 实时把账本已入账的 modelTokens、同片在跑委托/作业的实时进度 token 与本次 L5 已累计 spentTokens 相加，
+   * 与单片 budget.tokens 和 120 万硬上限的较小值比对，超限或不足下一票预计开销即返回停票。
+   */
+  function filmTokenBudgetCheck(id, currentJobId = null) {
+    const meta = store.readMeta(id);
+    const rawCap = meta?.budget?.tokens;
+    const cap = Number.isSafeInteger(rawCap) && rawCap > 0
+      ? Math.min(rawCap, DELEGATE_HARD_TOKEN_CAP)
+      : DELEGATE_HARD_TOKEN_CAP;
+    return ({ spentTokens = 0, estimatedNextTokens = 0 } = {}) => {
+      const ledgerTokens = store.readLedger(id).reduce((n, row) => n + (row.modelTokens ?? 0), 0);
+      let liveTokens = 0;
+      for (const [jid, p] of progress.entries()) {
+        if (jid === currentJobId) continue;
+        if (store.filmOfJob(jid) === id) liveTokens += p.tokens ?? 0;
+      }
+      const used = ledgerTokens + liveTokens + spentTokens;
+      const remaining = cap - used;
+      if (remaining <= 0 || (estimatedNextTokens > 0 && remaining < estimatedNextTokens)) {
+        return { ok: false, reason: 'budget.tokens', remaining: Math.max(0, remaining), cap, used };
+      }
+      return { ok: true, remaining, cap, used };
+    };
+  }
 
   /* ---------------- 帧的索引 ---------------- */
 
@@ -322,9 +350,20 @@ export function createWork({ store, library, reviewer, scheduler }) {
       const l4 = await step('l4', () => ({ status: 'not-run', reason: '未提供可量测的 ref-pack', compChecks: { pointer: '#/checks', count: bundle.report.checks.length, ok: bundle.report.ok } }));
       const l5 = await step('l5', async () => {
         const images = reviewer ? reviewMaterials({ master, fps: film.output.fps, film, outDir: join(dir, 'review') }) : [];
-        return layerL5({ reviewer, brief: meta.brief ?? meta.question?.brief ?? '', images, loudness: bundle.report.loudness ?? null, film });
+        const res = await layerL5({
+          reviewer,
+          brief: meta.brief ?? meta.question?.brief ?? '',
+          images,
+          loudness: bundle.report.loudness ?? null,
+          film,
+          filmId: id,
+          question: meta.question ?? null,
+          budgetCheck: filmTokenBudgetCheck(id, job.id),
+          signal,
+        });
+        acc.tokens += res.usage?.totalTokens ?? 0;
+        return res;
       });
-      acc.tokens += l5.usage?.totalTokens ?? 0;
       const pass = l1.ok && l2.ok && l3.ok;
       const diagnostics = ordered([...l1.diagnostics, ...l2.diagnostics, ...l3.diagnostics]);
       const verified = await step('report', () => writeVerification(bundle.dir, {
@@ -347,7 +386,9 @@ export function createWork({ store, library, reviewer, scheduler }) {
       }
       const data = {
         rev, expectedCount: 6, actualCount: names.length, items: names, deliveredFrames: records.length, ...cache, layers: gatesOf(l1, l2, l3),
-        failed: l3.verdicts.filter((v) => v.status === 'fail').map((v) => v.id), review: { status: l5.status, ...(l5.reason ? { reason: l5.reason } : {}) }, harvest,
+        failed: l3.verdicts.filter((v) => v.status === 'fail').map((v) => v.id),
+        review: { status: l5.status, ...(l5.reason ? { reason: l5.reason } : {}), ...(l5.stoppedReason ? { stoppedReason: l5.stoppedReason } : {}) },
+        harvest,
       };
       const outputs = names.map((n) => ({ kind: kinds[n] ?? 'file', url: url(id, `${job.id}/bundle/${n}`), sha256: verified.files[n].sha256 }));
       if (!pass) {
@@ -663,14 +704,24 @@ export function createWork({ store, library, reviewer, scheduler }) {
         material = 'frames';
       }
     }
-    const l5 = await layerL5({ reviewer, brief: brief ?? meta.brief ?? meta.question?.brief ?? '', images, loudness, film });
+    const l5 = await layerL5({
+      reviewer,
+      brief: brief ?? meta.brief ?? meta.question?.brief ?? '',
+      images,
+      loudness,
+      film,
+      filmId: id,
+      question: meta.question ?? null,
+      budgetCheck: filmTokenBudgetCheck(id),
+    });
     const record = { format: 'api-review/0.1', film: id, rev, material, images: images.map((i) => i.name), ...l5 };
     writeFileSync(join(outDir, 'review.json'), jsonText(record));
     const opinions = l5.opinions ?? [];
     return {
       data: {
-        status: l5.status, ...(l5.reason ? { reason: l5.reason } : {}), ...(l5.model ? { model: l5.model } : {}), rev, material, overridesHardGates: false,
+        status: l5.status, ...(l5.reason ? { reason: l5.reason } : {}), ...(l5.stoppedReason ? { stoppedReason: l5.stoppedReason } : {}), ...(l5.model ? { model: l5.model } : {}), ...(l5.grade ? { grade: l5.grade } : {}), rev, material, overridesHardGates: false,
         expectedCount: opinions.length, actualCount: opinions.length, items: opinions, suggestedPredicates: l5.suggestedPredicates ?? [],
+        ...(l5.invalidBallots?.length ? { invalidBallots: l5.invalidBallots } : {}),
       },
       outputs: [output(id, 'review', `${relDir}/review.json`)],
       tokens: l5.usage?.totalTokens ?? 0,

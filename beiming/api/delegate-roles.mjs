@@ -14,6 +14,30 @@ import { HTTP_TOOL } from './agents.mjs';
 export const SHOT_WORKER_MAX_START_TOKENS = 15_000;
 
 export const L5_GRADES = Object.freeze(['好', '一般', '差']);
+const CONSERVATIVE_GRADE_ORDER = Object.freeze(['差', '一般', '好']);
+
+export const L5_ISSUE_KEYS = Object.freeze({
+  'composition-readability': Object.freeze([
+    'hero-framing',
+    'margin-clipping',
+    'title-readability',
+    'visual-balance',
+  ]),
+  'motion-rhythm': Object.freeze([
+    'camera-jitter',
+    'motion-pacing',
+    'cut-timing',
+    'unintended-freeze',
+    'av-sync',
+  ]),
+  'look-consistency': Object.freeze([
+    'cut-seam',
+    'lighting-contrast',
+    'material-specularity',
+    'color-consistency',
+    'render-artifact',
+  ]),
+});
 
 export const L5_PERSPECTIVES = Object.freeze([
   Object.freeze({
@@ -21,20 +45,29 @@ export const L5_PERSPECTIVES = Object.freeze([
     title: '构图与可读',
     votes: 3,
     focus: '检查主体位置、屏占比、四边留白余量、片名与字幕可读性及视觉重心。',
+    issueKeys: L5_ISSUE_KEYS['composition-readability'],
   }),
   Object.freeze({
     id: 'motion-rhythm',
     title: '动作与节奏',
     votes: 3,
     focus: '检查相机与主体运动平滑度、速度曲线、切点时机、刻意冻结段合理性与音画同步。',
+    issueKeys: L5_ISSUE_KEYS['motion-rhythm'],
   }),
   Object.freeze({
     id: 'look-consistency',
     title: '质感与一致性',
     votes: 3,
     focus: '检查材质高光、布光对比、色彩基调一致性、切点前后亮度跳变与画面伪影。',
+    issueKeys: L5_ISSUE_KEYS['look-consistency'],
   }),
 ]);
+
+const PERSPECTIVE_INDEX = new Map(L5_PERSPECTIVES.map((p, i) => [p.id, i]));
+const PERSPECTIVE_ISSUE_KEY_SET = new Map(
+  L5_PERSPECTIVES.map((p) => [p.id, new Set(L5_ISSUE_KEYS[p.id])]),
+);
+const ALL_ISSUE_KEYS = new Set(Object.values(L5_ISSUE_KEYS).flat());
 
 export const DELEGATE_ROLES = Object.freeze({
   director: Object.freeze({
@@ -85,55 +118,134 @@ export const DELEGATE_ROLES = Object.freeze({
     role: 'reviewer',
     title: '异族视觉审片人',
     perspectives: L5_PERSPECTIVES,
+    issueKeys: L5_ISSUE_KEYS,
     votesPerPerspective: 3,
     totalBallots: 9,
     quorum: 2,
     grades: L5_GRADES,
     overridesHardGates: false,
     systemPrompt: [
-      '你是北冥 L5 异族视觉审片人（reviewer）。按当前指定视角审视需求原文、联系表、切点条带与声音量测表，给出等级词评价（好 / 一般 / 差）与具体问题意见。',
-      '每条意见必须指明全片整数帧区间 frames: [start, end]、严重度 severity（info|warn|error 或 low|medium|high）、画面或量测证据 evidence 与改进建议 comment；可选附带 issueKey 与建议谓词 suggestedPredicates。',
-      '只回一个合法 JSON 对象：{"grade":"好|一般|差","candidateGrades":[{"id":"候选ID","grade":"好|一般|差"}],"opinions":[{"issueKey":"问题标识","frames":[起帧,止帧],"severity":"info|warn|error","evidence":"具体画面证据","comment":"改进意见","suggestedPredicate":"可选建议断言"}],"suggestedPredicates":["谓词断言"]}。',
+      '你是北冥 L5 异族视觉审片人（reviewer）。按当前指定视角审视需求原文、联系表、切点条带与声音量测表，给出等级词评价（仅限 好 / 一般 / 差，严禁百分制）与具体问题意见。',
+      '每条意见必须指明所属视角的封闭 issueKey、全片整数帧区间 frames: [start, end]、严重度 severity（info|warn|error 或 low|medium|high）、画面或量测证据 evidence 与改进建议 comment；可选附带 suggestedPredicate。',
+      `各视角封闭 issueKey 枚举表：composition-readability=[${L5_ISSUE_KEYS['composition-readability'].join(', ')}]；motion-rhythm=[${L5_ISSUE_KEYS['motion-rhythm'].join(', ')}]；look-consistency=[${L5_ISSUE_KEYS['look-consistency'].join(', ')}]。表外或泛化键（如 issue）将作废。`,
+      '只回一个合法 JSON 对象：{"grade":"好|一般|差","candidateGrades":[{"id":"候选ID","grade":"好|一般|差"}],"opinions":[{"issueKey":"本视角封闭枚举值","frames":[起帧,止帧],"severity":"info|warn|error","evidence":"具体画面证据","comment":"改进意见","suggestedPredicate":"可选建议断言"}],"suggestedPredicates":["谓词断言"]}。',
       '没有意见时 opinions 是空数组。不要回 JSON 以外的字。L5 审片结论仅供参考，绝不推翻 L1–L4 硬门结论。',
     ].join('\n'),
   }),
 });
 
-const VALID_SEVERITIES = ['low', 'medium', 'high', 'info', 'warn', 'error'];
-const SEVERITY_RANK = { info: 1, low: 1, warn: 2, medium: 2, error: 3, high: 3 };
+const VALID_SEVERITIES = Object.freeze(['low', 'medium', 'high', 'info', 'warn', 'error']);
+const SEVERITY_RANK = Object.freeze({ info: 1, low: 1, warn: 2, medium: 2, error: 3, high: 3 });
+const MAX_SAFE_DEPTH = 64;
+const MAX_ID_CHARS = 128;
 
 function badArg(message) {
   return Object.assign(new Error(message), { code: 'usage.bad-argument' });
 }
 
-/** 递归校验纯数据入参：拦截 Proxy 与 getter/setter 访问器属性，防止触发副作用陷阱。 */
-export function assertSafeData(value, label = 'input', seen = new Set()) {
-  if (value === null || value === undefined || typeof value !== 'object') return value;
+function own(obj, key) {
+  return obj && typeof obj === 'object' && Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined;
+}
+
+function safeLabel(v) {
+  if (typeof v === 'string') return v;
+  if (v === null || v === undefined || typeof v === 'number' || typeof v === 'boolean') return String(v);
+  try { return JSON.stringify(v); } catch { return '[object]'; }
+}
+
+function isCanonicalIndex(key, length) {
+  if (typeof key !== 'string' || !/^(?:0|[1-9]\d*)$/.test(key)) return false;
+  const idx = Number(key);
+  return Number.isSafeInteger(idx) && idx >= 0 && idx < length;
+}
+
+/**
+ * 递归校验纯数据入参（零陷阱防御）：
+ * - 拦截 Proxy、getter/setter 访问器属性、Symbol 属性、函数与 BigInt；
+ * - 数组强制要求原型为 Array.prototype、无稀疏空洞、无附加非下标键；
+ * - 对象强制要求原型为 Object.prototype 或 null，且拒绝循环引用。
+ */
+function assertSafeData(value, label = 'input', ancestors = new Set(), visited = new Set(), depth = 0) {
+  if (value === null || value === undefined) return value;
+  const t = typeof value;
+  if (t === 'boolean' || t === 'string' || t === 'number') return value;
+  if (t === 'function' || t === 'symbol' || t === 'bigint') {
+    throw badArg(`${label} 不接受 ${t} 类型值`);
+  }
   if (isProxy(value)) throw badArg(`${label} 不接受 Proxy 对象`);
-  if (seen.has(value)) return value;
-  seen.add(value);
+  if (depth > MAX_SAFE_DEPTH) throw badArg(`${label} 嵌套层级过深`);
+  if (ancestors.has(value)) throw badArg(`${label} 包含循环引用`);
+  if (visited.has(value)) return value;
 
-  if (Array.isArray(value)) {
-    const descs = Object.getOwnPropertyDescriptors(value);
-    for (const [k, d] of Object.entries(descs)) {
-      if (d.get || d.set) throw badArg(`${label}[${k}] 不接受 getter/setter 访问器属性`);
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      if (Object.getPrototypeOf(value) !== Array.prototype) {
+        throw badArg(`${label} 必须是标准 Array.prototype 数组`);
+      }
+      const keys = Reflect.ownKeys(value);
+      let indexCount = 0;
+      const lenDesc = Object.getOwnPropertyDescriptor(value, 'length');
+      if (!lenDesc || lenDesc.get || lenDesc.set || !Object.hasOwn(lenDesc, 'value') || !Number.isSafeInteger(lenDesc.value) || lenDesc.value < 0) {
+        throw badArg(`${label} 的数组长度属性不合法`);
+      }
+      const len = lenDesc.value;
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
+        if (typeof k === 'symbol') {
+          throw badArg(`${label} 数组不接受 Symbol 属性`);
+        }
+        if (k === 'length') continue;
+        if (!isCanonicalIndex(k, len)) {
+          throw badArg(`${label} 数组不接受附加非下标属性 ${k}`);
+        }
+        const d = Object.getOwnPropertyDescriptor(value, k);
+        if (!d || d.get || d.set || !Object.hasOwn(d, 'value')) {
+          throw badArg(`${label}[${k}] 不接受 getter/setter 访问器属性`);
+        }
+        indexCount++;
+        assertSafeData(d.value, `${label}[${k}]`, ancestors, visited, depth + 1);
+      }
+      if (indexCount !== len) {
+        throw badArg(`${label} 不接受含空洞的稀疏数组`);
+      }
+      return value;
     }
-    for (let i = 0; i < value.length; i++) assertSafeData(value[i], `${label}[${i}]`, seen);
+
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) {
+      throw badArg(`${label} 必须是纯数据对象`);
+    }
+    const keys = Reflect.ownKeys(value);
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      if (typeof k === 'symbol') {
+        throw badArg(`${label} 不接受 Symbol 属性`);
+      }
+      const d = Object.getOwnPropertyDescriptor(value, k);
+      if (!d || d.get || d.set || !Object.hasOwn(d, 'value')) {
+        throw badArg(`${label}.${k} 不接受 getter/setter 访问器属性`);
+      }
+      assertSafeData(d.value, `${label}.${k}`, ancestors, visited, depth + 1);
+    }
     return value;
+  } finally {
+    ancestors.delete(value);
+    visited.add(value);
   }
+}
 
-  const proto = Object.getPrototypeOf(value);
-  if (proto !== Object.prototype && proto !== null) {
-    throw badArg(`${label} 必须是纯数据对象`);
-  }
-  const descs = Object.getOwnPropertyDescriptors(value);
-  for (const [k, d] of Object.entries(descs)) {
-    if (d.get || d.set || !Object.hasOwn(d, 'value')) {
-      throw badArg(`${label}.${k} 不接受 getter/setter 访问器属性`);
-    }
-    assertSafeData(d.value, `${label}.${k}`, seen);
+function assertPlainObject(value, label) {
+  assertSafeData(value, label);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw badArg(`${label} 必须是纯对象`);
   }
   return value;
+}
+
+function assertOptionalPlainObject(value, label) {
+  if (value === undefined) return {};
+  return assertPlainObject(value, label);
 }
 
 function clipText(text, maxChars) {
@@ -143,31 +255,79 @@ function clipText(text, maxChars) {
 }
 
 /** 按仓库统一的保守口径 ceil(utf8Bytes / 3.5) 计量镜头工会话起始上下文 token 数。 */
-export function measureStartContextTokens({ system = '', user = '', tools = [HTTP_TOOL] } = {}) {
-  assertSafeData({ system, user, tools }, 'measureStartContextTokens');
+export function measureStartContextTokens(input) {
+  const opts = assertOptionalPlainObject(input, 'measureStartContextTokens');
+  const system = own(opts, 'system');
+  const user = own(opts, 'user');
+  const tools = own(opts, 'tools');
+  if (system !== undefined && typeof system !== 'string') {
+    throw badArg('measureStartContextTokens.system 必须是字符串');
+  }
+  if (user !== undefined && typeof user !== 'string') {
+    throw badArg('measureStartContextTokens.user 必须是字符串');
+  }
+  if (tools !== undefined && !Array.isArray(tools)) {
+    throw badArg('measureStartContextTokens.tools 必须是数组');
+  }
   const serialized = JSON.stringify({
-    system: String(system ?? ''),
-    user: String(user ?? ''),
-    tools: Array.isArray(tools) ? tools : [HTTP_TOOL],
+    system: system ?? '',
+    user: user ?? '',
+    tools: tools ?? [HTTP_TOOL],
   });
   return Math.ceil(Buffer.byteLength(serialized, 'utf8') / 3.5);
 }
 
 function summarizeCard(card, { titleLimit, intentLimit, paramLimit }) {
-  if (!card || typeof card !== 'object') return null;
-  const id = typeof card.id === 'string' ? card.id : (typeof card.use === 'string' ? card.use : 'unknown');
-  const major = typeof card.version === 'string' ? card.version.split('.')[0] : '1';
-  const ref = id.includes('@') ? id : `${id}@${major}`;
-  const title = card.title ? clipText(card.title, titleLimit) : '';
-  const intent = card.intent ? clipText(card.intent, intentLimit) : '';
-  const paramKeys = card.params && typeof card.params === 'object'
-    ? Object.keys(card.params).slice(0, paramLimit)
+  if (!card || typeof card !== 'object' || Array.isArray(card)) return null;
+  const rawId = own(card, 'id');
+  const rawUse = own(card, 'use');
+  const id = typeof rawId === 'string' ? rawId : (typeof rawUse === 'string' ? rawUse : 'unknown');
+  const rawVer = own(card, 'version');
+  const major = typeof rawVer === 'string' ? rawVer.split('.')[0] : '1';
+  const ref = clipText(id.includes('@') ? id : `${id}@${major}`, 120);
+  const rawTitle = own(card, 'title');
+  const rawIntent = own(card, 'intent');
+  const rawParams = own(card, 'params');
+  const title = typeof rawTitle === 'string' && rawTitle ? clipText(rawTitle, titleLimit) : '';
+  const intent = typeof rawIntent === 'string' && rawIntent ? clipText(rawIntent, intentLimit) : '';
+  const paramKeys = rawParams && typeof rawParams === 'object' && !Array.isArray(rawParams)
+    ? Object.keys(rawParams).slice(0, paramLimit).map((k) => clipText(k, 40))
     : [];
   const parts = [`- \`${ref}\``];
   if (title) parts.push(title);
   if (intent) parts.push(`用途：${intent}`);
   if (paramKeys.length) parts.push(`参数：${paramKeys.join(', ')}`);
   return parts.join(' | ');
+}
+
+function serializeShotEntry(compactShot, maxShotJsonChars) {
+  const compactJson = JSON.stringify(compactShot);
+  if (compactJson.length <= maxShotJsonChars) return compactJson;
+
+  const slimShot = {
+    id: compactShot.id,
+    in: compactShot.in,
+    out: compactShot.out,
+    ...(compactShot.source !== undefined ? { source: compactShot.source } : {}),
+    ...(compactShot.host !== undefined ? { host: compactShot.host } : {}),
+    ...(compactShot.mode !== undefined ? { mode: compactShot.mode } : {}),
+    ...(compactShot.colorRef !== undefined ? { colorRef: compactShot.colorRef } : {}),
+    ...(compactShot.seed !== undefined ? { seed: compactShot.seed } : {}),
+    ...(Array.isArray(compactShot.cards)
+      ? { cards: compactShot.cards.map((c) => ({ as: own(c, 'as'), use: own(c, 'use'), _paramsOmitted: true })) }
+      : {}),
+    _truncated: true,
+  };
+  const slimJson = JSON.stringify(slimShot);
+  if (slimJson.length <= maxShotJsonChars) return slimJson;
+
+  return JSON.stringify({
+    id: compactShot.id,
+    in: compactShot.in,
+    out: compactShot.out,
+    ...(compactShot.source !== undefined ? { source: compactShot.source } : {}),
+    _truncated: true,
+  });
 }
 
 function formatShotWorkerSections({
@@ -183,33 +343,20 @@ function formatShotWorkerSections({
   profile,
 }) {
   const shotId = shot.id;
+  const shotCards = own(shot, 'cards');
   const compactShot = {
-    id: shot.id,
-    in: shot.in,
-    out: shot.out,
-    source: shot.source,
-    host: shot.host,
-    mode: shot.mode,
-    colorRef: shot.colorRef,
-    ...(shot.seed !== undefined ? { seed: shot.seed } : {}),
-    ...(shot.assets ? { assets: shot.assets } : {}),
-    ...(shot.roles ? { roles: shot.roles } : {}),
-    ...(Array.isArray(shot.cards)
+    ...shot,
+    ...(Array.isArray(shotCards)
       ? {
-          cards: shot.cards.slice(0, profile.maxShotCards).map((c) => ({
-            as: c.as,
-            use: c.use,
-            params: c.params,
+          cards: shotCards.slice(0, profile.maxShotCards).map((c) => ({
+            as: own(c, 'as'),
+            use: own(c, 'use'),
+            params: own(c, 'params'),
           })),
         }
       : {}),
-    ...(shot.tiers ? { tiers: shot.tiers } : {}),
-    ...(shot.deliberate ? { deliberate: shot.deliberate } : {}),
   };
-  let shotJson = JSON.stringify(compactShot, null, 2);
-  if (shotJson.length > profile.maxShotJsonChars) {
-    shotJson = `${shotJson.slice(0, profile.maxShotJsonChars)}\n  /* ...已截断长参数... */\n}`;
-  }
+  const shotJson = serializeShotEntry(compactShot, profile.maxShotJsonChars);
 
   const baseRefs = Array.isArray(basePredicates) && basePredicates.length ? basePredicates : ['floor@1'];
   const floorExprs = FLOOR?.items?.map((it) => `  - \`${it.expr}\``) ?? [];
@@ -219,9 +366,18 @@ function formatShotWorkerSections({
     shownExtras.push(`  - （其余 ${extras.length - shownExtras.length} 条追加断言已折叠）`);
   }
 
-  const boundCards = Array.isArray(shot.cards)
-    ? shot.cards.map((c) => `- 已绑定实例 \`${c.as}\` → \`${c.use}\``)
+  const boundCards = Array.isArray(shotCards)
+    ? shotCards.slice(0, profile.maxBoundCards).map((c) => {
+        const rawAs = own(c, 'as');
+        const rawUse = own(c, 'use');
+        const asText = typeof rawAs === 'string' && rawAs.trim() ? clipText(rawAs, 80) : 'unnamed';
+        const useText = typeof rawUse === 'string' && rawUse.trim() ? clipText(rawUse, 120) : 'unknown';
+        return `- 已绑定实例 \`${asText}\` → \`${useText}\``;
+      })
     : [];
+  if (Array.isArray(shotCards) && shotCards.length > boundCards.length) {
+    boundCards.push(`- （其余 ${shotCards.length - boundCards.length} 个已绑定卡实例已折叠）`);
+  }
   const candidateCards = (Array.isArray(cards) ? cards : [])
     .slice(0, profile.maxCards)
     .map((c) => summarizeCard(c, profile))
@@ -230,18 +386,21 @@ function formatShotWorkerSections({
     ? [`- （其余 ${cards.length - profile.maxCards} 张候选卡已按 15,000 token 预算裁剪，可按需调 POST /v1/cards/search）`]
     : [];
 
-  const b = budget && typeof budget === 'object' ? budget : {};
-  const tokensText = Number.isFinite(b.tokens) ? b.tokens : 1_200_000;
-  const gpuText = Number.isFinite(b.gpuSeconds) ? `${b.gpuSeconds}s` : '未限（受整片配额约束）';
-  const wallText = Number.isFinite(b.wallSeconds) ? `${b.wallSeconds}s` : '未限（受整片配额约束）';
-  const stepsText = Number.isFinite(b.maxSteps) ? b.maxSteps : 12;
+  const tokensVal = own(budget, 'tokens');
+  const gpuVal = own(budget, 'gpuSeconds');
+  const wallVal = own(budget, 'wallSeconds');
+  const stepsVal = own(budget, 'maxSteps');
+  const tokensText = tokensVal !== undefined ? tokensVal : 1_200_000;
+  const gpuText = gpuVal !== undefined ? `${gpuVal}s` : '未限（受整片配额约束）';
+  const wallText = wallVal !== undefined ? `${wallVal}s` : '未限（受整片配额约束）';
+  const stepsText = stepsVal !== undefined ? stepsVal : 12;
 
   return [
     `# 镜头工任务书（片子 ${filmId} · 镜头 ${shotId}）`,
     '',
     '## 1. 镜头条目',
     `- 片子标识：\`${filmId}\`（当前修订 \`rev=${rev}\`）`,
-    `- 镜头标识：\`${shotId}\`，全片帧区间：\`[${shot.in}, ${shot.out})\`（共 ${Math.max(0, (shot.out ?? 0) - (shot.in ?? 0))} 帧）`,
+    `- 镜头标识：\`${shotId}\`，全片帧区间：\`[${shot.in}, ${shot.out})\`（共 ${shot.out - shot.in} 帧）`,
     `- 写入权限边界：只允许用 \`patch/0.1\`（带最新 \`rev\`）修改 \`shots/${shotId}/\` 下的路径，禁止改动其他镜头或全片只读字段`,
     `- 需求摘要：${clipText(brief || '按片子描述完成本镜头渲染与核验', profile.maxBriefChars)}`,
     ...(Array.isArray(assets) && assets.length ? [`- 素材引用：${clipText(JSON.stringify(assets), 300)}`] : []),
@@ -250,7 +409,7 @@ function formatShotWorkerSections({
     '```',
     '',
     '## 2. 基础谓词',
-    `- 基础谓词引用（\`predicates.base\`，只读）：${baseRefs.map((r) => `\`${r}\``).join('、')}`,
+    `- 基础谓词引用（\`predicates.base\`，只读）：${baseRefs.slice(0, profile.maxBaseRefs).map((r) => `\`${clipText(r, 80)}\``).join('、')}`,
     ...floorExprs,
     `- 导演追加谓词（\`predicates.extra\`）：${shownExtras.length ? '' : '（无）'}`,
     ...shownExtras,
@@ -277,31 +436,118 @@ function formatShotWorkerSections({
 }
 
 const COMPACTION_PROFILES = [
-  { maxBriefChars: 1200, maxShotJsonChars: 4000, maxShotCards: 12, maxExtras: 24, maxPredChars: 160, maxCards: 16, titleLimit: 60, intentLimit: 120, paramLimit: 10 },
-  { maxBriefChars: 500, maxShotJsonChars: 1800, maxShotCards: 6, maxExtras: 12, maxPredChars: 100, maxCards: 8, titleLimit: 36, intentLimit: 60, paramLimit: 6 },
-  { maxBriefChars: 200, maxShotJsonChars: 800, maxShotCards: 3, maxExtras: 5, maxPredChars: 80, maxCards: 4, titleLimit: 24, intentLimit: 36, paramLimit: 4 },
+  { maxBriefChars: 1200, maxShotJsonChars: 12000, maxShotCards: 16, maxBoundCards: 24, maxBaseRefs: 16, maxExtras: 24, maxPredChars: 160, maxCards: 16, titleLimit: 60, intentLimit: 120, paramLimit: 10 },
+  { maxBriefChars: 500, maxShotJsonChars: 4000, maxShotCards: 8, maxBoundCards: 12, maxBaseRefs: 8, maxExtras: 12, maxPredChars: 100, maxCards: 8, titleLimit: 36, intentLimit: 60, paramLimit: 6 },
+  { maxBriefChars: 200, maxShotJsonChars: 1200, maxShotCards: 3, maxBoundCards: 4, maxBaseRefs: 4, maxExtras: 5, maxPredChars: 80, maxCards: 4, titleLimit: 24, intentLimit: 36, paramLimit: 4 },
 ];
 
+function validateShotWorkerOptions(options) {
+  const opts = assertPlainObject(options, 'buildShotWorkerBrief');
+  const filmId = own(opts, 'filmId') === undefined ? 'f_001' : own(opts, 'filmId');
+  const rev = own(opts, 'rev') === undefined ? 1 : own(opts, 'rev');
+  const brief = own(opts, 'brief') === undefined ? '' : own(opts, 'brief');
+  const assets = own(opts, 'assets') === undefined ? [] : own(opts, 'assets');
+  const shot = own(opts, 'shot');
+  const basePredicates = own(opts, 'basePredicates') === undefined ? ['floor@1'] : own(opts, 'basePredicates');
+  const extraPredicates = own(opts, 'extraPredicates') === undefined ? [] : own(opts, 'extraPredicates');
+  const cards = own(opts, 'cards') === undefined ? [] : own(opts, 'cards');
+  const budget = own(opts, 'budget') === undefined ? {} : own(opts, 'budget');
+
+  if (typeof filmId !== 'string' || !filmId.trim() || filmId.length > MAX_ID_CHARS) {
+    throw badArg(`filmId 必须是 1..${MAX_ID_CHARS} 字符的非空字符串`);
+  }
+  if (!Number.isSafeInteger(rev) || rev < 0) {
+    throw badArg('rev 必须是非负安全整数');
+  }
+  if (typeof brief !== 'string') {
+    throw badArg('brief 必须是字符串');
+  }
+  if (!Array.isArray(assets)) {
+    throw badArg('assets 必须是字符串数组');
+  }
+  for (let i = 0; i < assets.length; i++) {
+    if (typeof assets[i] !== 'string') throw badArg(`assets[${i}] 必须是字符串`);
+  }
+  if (!shot || typeof shot !== 'object' || Array.isArray(shot)) {
+    throw badArg('buildShotWorkerBrief 需要纯对象 shot');
+  }
+  const shotId = own(shot, 'id');
+  const shotIn = own(shot, 'in');
+  const shotOut = own(shot, 'out');
+  if (typeof shotId !== 'string' || !shotId.trim() || shotId.length > MAX_ID_CHARS) {
+    throw badArg(`shot.id 必须是 1..${MAX_ID_CHARS} 字符的非空字符串`);
+  }
+  if (!Number.isSafeInteger(shotIn) || shotIn < 0) {
+    throw badArg('shot.in 必须是非负安全整数');
+  }
+  if (!Number.isSafeInteger(shotOut) || shotOut <= shotIn) {
+    throw badArg('shot.out 必须是大于 shot.in 的安全整数');
+  }
+  const shotCards = own(shot, 'cards');
+  if (shotCards !== undefined) {
+    if (!Array.isArray(shotCards)) throw badArg('shot.cards 必须是数组');
+    for (let i = 0; i < shotCards.length; i++) {
+      if (!shotCards[i] || typeof shotCards[i] !== 'object' || Array.isArray(shotCards[i])) {
+        throw badArg(`shot.cards[${i}] 必须是纯对象`);
+      }
+    }
+  }
+  if (!Array.isArray(basePredicates)) {
+    throw badArg('basePredicates 必须是字符串数组');
+  }
+  for (let i = 0; i < basePredicates.length; i++) {
+    if (typeof basePredicates[i] !== 'string') throw badArg(`basePredicates[${i}] 必须是字符串`);
+  }
+  if (!Array.isArray(extraPredicates)) {
+    throw badArg('extraPredicates 必须是字符串数组');
+  }
+  for (let i = 0; i < extraPredicates.length; i++) {
+    if (typeof extraPredicates[i] !== 'string') throw badArg(`extraPredicates[${i}] 必须是字符串`);
+  }
+  if (!Array.isArray(cards)) {
+    throw badArg('cards 必须是对象数组');
+  }
+  for (let i = 0; i < cards.length; i++) {
+    if (!cards[i] || typeof cards[i] !== 'object' || Array.isArray(cards[i])) {
+      throw badArg(`cards[${i}] 必须是纯对象`);
+    }
+  }
+  if (!budget || typeof budget !== 'object' || Array.isArray(budget)) {
+    throw badArg('budget 必须是纯对象');
+  }
+  const bTokens = own(budget, 'tokens');
+  const bGpu = own(budget, 'gpuSeconds');
+  const bWall = own(budget, 'wallSeconds');
+  const bSteps = own(budget, 'maxSteps');
+  if (bTokens !== undefined && (!Number.isSafeInteger(bTokens) || bTokens < 0)) {
+    throw badArg('budget.tokens 必须是非负安全整数');
+  }
+  if (bGpu !== undefined && (typeof bGpu !== 'number' || !Number.isFinite(bGpu) || bGpu < 0)) {
+    throw badArg('budget.gpuSeconds 必须是非负有限数字');
+  }
+  if (bWall !== undefined && (typeof bWall !== 'number' || !Number.isFinite(bWall) || bWall < 0)) {
+    throw badArg('budget.wallSeconds 必须是非负有限数字');
+  }
+  if (bSteps !== undefined && (!Number.isSafeInteger(bSteps) || bSteps < 1)) {
+    throw badArg('budget.maxSteps 必须是正安全整数');
+  }
+
+  return { filmId, rev, brief, assets, shot, basePredicates, extraPredicates, cards, budget };
+}
+
 /** 构造固定五段结构的镜头工任务书，确保在任意卡库与长输入下总起始上下文严格 <= 15,000 token。 */
-export function buildShotWorkerBrief(options = {}) {
-  assertSafeData(options, 'buildShotWorkerBrief');
-  if (!options || typeof options !== 'object' || Array.isArray(options)) {
-    throw badArg('buildShotWorkerBrief 需要对象入参');
-  }
+export function buildShotWorkerBrief(options) {
   const {
-    filmId = 'f_001',
-    rev = 1,
-    brief = '',
-    assets = [],
+    filmId,
+    rev,
+    brief,
+    assets,
     shot,
-    basePredicates = ['floor@1'],
-    extraPredicates = [],
-    cards = [],
-    budget = {},
-  } = options;
-  if (!shot || typeof shot !== 'object' || Array.isArray(shot) || typeof shot.id !== 'string' || !shot.id.trim()) {
-    throw badArg('buildShotWorkerBrief 需要带合法 id 的 shot 对象');
-  }
+    basePredicates,
+    extraPredicates,
+    cards,
+    budget,
+  } = validateShotWorkerOptions(options);
 
   const system = `[ROLE:shot-worker:${shot.id}]\n${DELEGATE_ROLES['shot-worker'].systemPrompt}`;
   for (const profile of COMPACTION_PROFILES) {
@@ -326,20 +572,32 @@ export function buildShotWorkerBrief(options = {}) {
     rev,
     brief,
     assets: [],
-    shot: { id: shot.id, in: shot.in ?? 0, out: shot.out ?? 1, source: shot.source ?? 'three', host: shot.host ?? 'page', mode: shot.mode ?? 'cards-data', colorRef: shot.colorRef ?? 'display' },
+    shot: {
+      id: shot.id,
+      in: shot.in,
+      out: shot.out,
+      source: own(shot, 'source') ?? 'three',
+      host: own(shot, 'host') ?? 'page',
+      mode: own(shot, 'mode') ?? 'cards-data',
+      colorRef: own(shot, 'colorRef') ?? 'display',
+    },
     basePredicates: ['floor@1'],
-    extraPredicates: (Array.isArray(extraPredicates) ? extraPredicates : []).slice(0, 2),
+    extraPredicates: extraPredicates.slice(0, 2),
     cards: [],
     budget,
     profile: COMPACTION_PROFILES[2],
   });
+  const fallbackTokens = measureStartContextTokens({ system, user: fallback, tools: [HTTP_TOOL] });
+  if (fallbackTokens > SHOT_WORKER_MAX_START_TOKENS) {
+    throw badArg(`镜头工起始上下文 ${fallbackTokens} token 超过上限 ${SHOT_WORKER_MAX_START_TOKENS}`);
+  }
   return fallback;
 }
 
 /** 构造镜头工全新会话的起始消息对（system + 五段 user 任务书）并返回实测 startTokens。 */
-export function buildShotWorkerMessages(options = {}) {
+export function buildShotWorkerMessages(options) {
   const user = buildShotWorkerBrief(options);
-  const shotId = options.shot.id;
+  const shotId = own(own(options, 'shot'), 'id');
   const system = `[ROLE:shot-worker:${shotId}]\n${DELEGATE_ROLES['shot-worker'].systemPrompt}`;
   const startTokens = measureStartContextTokens({ system, user, tools: [HTTP_TOOL] });
   if (startTokens > SHOT_WORKER_MAX_START_TOKENS) {
@@ -363,22 +621,25 @@ export function buildShotWorkerMessages(options = {}) {
  * 返回 { template: 'turntable' | 'title', asset: string | null, selectedBy: 'server' }。
  */
 export function selectDelegateTemplate(input) {
-  assertSafeData(input, 'selectDelegateTemplate');
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    throw badArg('selectDelegateTemplate 需要对象入参');
-  }
-  const { brief, assets = [] } = input;
+  const obj = assertPlainObject(input, 'selectDelegateTemplate');
+  const brief = own(obj, 'brief');
+  const assets = own(obj, 'assets') === undefined ? [] : own(obj, 'assets');
   if (typeof brief !== 'string' || !brief.trim()) {
     throw badArg('委托模式需要非空字符串 brief');
   }
-  if (!Array.isArray(assets) || !assets.every((a) => typeof a === 'string')) {
+  if (!Array.isArray(assets)) {
     throw badArg('assets 必须是字符串数组');
+  }
+  let hasMechAsset = false;
+  let hasRtxAsset = false;
+  for (let i = 0; i < assets.length; i++) {
+    const a = assets[i];
+    if (typeof a !== 'string') throw badArg('assets 必须是字符串数组');
+    if (a === 'asset:mech-head-proxy@1' || a === 'calib/mech-head-proxy@1') hasMechAsset = true;
+    if (a === 'asset:rtx-card@1') hasRtxAsset = true;
   }
 
   const text = brief.trim();
-  const hasMechAsset = assets.includes('asset:mech-head-proxy@1') || assets.includes('calib/mech-head-proxy@1');
-  const hasRtxAsset = assets.includes('asset:rtx-card@1');
-
   const mechRe = /头雕|mech-head|机械头|校准几何|装配环绕/i;
   const turntableRe = /转台|turntable|硬表面|三维|3d|环绕展示|绕.*(?:旋转|推|缓推)|产品.*展示|显卡.*(?:展示|转台|绕|硬表面)/i;
   const pureTitleRe = /纯片名|片名落版|片名短片|片名测试片|只显示片名/i;
@@ -393,39 +654,122 @@ export function selectDelegateTemplate(input) {
 }
 
 /** 基于 (filmId, perspective, voteIndex) 确定性打乱候选列表顺序，消除位置偏置且完全可复现。 */
-export function shuffleCandidatesForBallot(candidates = [], { filmId = 'film', perspective = 'composition-readability', voteIndex = 0 } = {}) {
-  assertSafeData(candidates, 'candidates');
-  if (!Array.isArray(candidates) || candidates.length === 0) return [];
-  return [...candidates]
-    .map((item, idx) => {
-      const cid = typeof item === 'string' ? item : String(item?.id ?? idx);
-      const score = createHash('sha256')
-        .update(`${filmId}:${perspective}:${voteIndex}:${cid}:${idx}`)
-        .digest('hex');
-      return { item, score };
-    })
-    .sort((a, b) => (a.score < b.score ? -1 : a.score > b.score ? 1 : 0))
-    .map((x) => x.item);
+export function shuffleCandidatesForBallot(candidates, options) {
+  const list = candidates === undefined ? [] : candidates;
+  assertSafeData(list, 'candidates');
+  if (!Array.isArray(list)) {
+    throw badArg('candidates 必须是数组');
+  }
+  const opts = assertOptionalPlainObject(options, 'shuffleCandidatesForBallot.options');
+  const filmId = own(opts, 'filmId') === undefined ? 'film' : own(opts, 'filmId');
+  const perspective = own(opts, 'perspective') === undefined ? 'composition-readability' : own(opts, 'perspective');
+  const voteIndex = own(opts, 'voteIndex') === undefined ? 0 : own(opts, 'voteIndex');
+  if (typeof filmId !== 'string' || !filmId.trim()) {
+    throw badArg('filmId 必须是非空字符串');
+  }
+  if (typeof perspective !== 'string' || !perspective.trim()) {
+    throw badArg('perspective 必须是非空字符串');
+  }
+  if (!Number.isSafeInteger(voteIndex) || voteIndex < 0) {
+    throw badArg('voteIndex 必须是非负安全整数');
+  }
+  if (list.length === 0) return [];
+
+  const decorated = [];
+  for (let idx = 0; idx < list.length; idx++) {
+    const item = list[idx];
+    const cid = typeof item === 'string'
+      ? item
+      : (item && typeof item === 'object' && typeof own(item, 'id') === 'string' ? own(item, 'id') : String(idx));
+    const score = createHash('sha256')
+      .update(`${filmId}:${perspective}:${voteIndex}:${cid}:${idx}`)
+      .digest('hex');
+    decorated.push({ item, score });
+  }
+  decorated.sort((a, b) => (a.score < b.score ? -1 : a.score > b.score ? 1 : 0));
+  return decorated.map((x) => x.item);
+}
+
+/**
+ * 规范化 L5 问题类别码（连字符/下划线/空白/大小写归一化），仅接受本视角封闭表内的合法键。
+ * 不在封闭表内（如泛化键 issue 或跨视角键）返回 null。
+ */
+export function normalizeIssueKey(rawKey, perspective) {
+  assertSafeData(rawKey, 'issueKey');
+  assertSafeData(perspective, 'perspective');
+  if (perspective !== undefined && typeof perspective !== 'string') {
+    throw badArg('perspective 必须是字符串');
+  }
+  if (typeof rawKey !== 'string') return null;
+  const canonical = rawKey
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  if (!canonical) return null;
+
+  if (perspective !== undefined) {
+    const allowed = PERSPECTIVE_ISSUE_KEY_SET.get(perspective);
+    if (!allowed) return null;
+    return allowed.has(canonical) ? canonical : null;
+  }
+  return ALL_ISSUE_KEYS.has(canonical) ? canonical : null;
 }
 
 /**
  * 校验并过滤 L5 建议谓词：逐条过 parseAssertion / checkExtra + scopeRange + enforcePredicateFloor + checkL1。
  * 只有完全通过 L1 的谓词才进入 suggestedPredicates / validatedExtraPredicates，其余归入 rejectedPredicates。
  */
-export function filterL5SuggestedPredicates(predicates, { film = null, question = null } = {}) {
+export function filterL5SuggestedPredicates(predicates, options) {
   assertSafeData(predicates, 'predicates');
-  assertSafeData({ film, question }, 'filterL5SuggestedPredicates.options');
   if (!Array.isArray(predicates)) {
     throw badArg('suggestedPredicates 必须是数组');
+  }
+  const opts = assertOptionalPlainObject(options, 'filterL5SuggestedPredicates.options');
+  const film = own(opts, 'film') === undefined ? null : own(opts, 'film');
+  const question = own(opts, 'question') === undefined ? null : own(opts, 'question');
+  if (film !== null && (typeof film !== 'object' || Array.isArray(film))) {
+    throw badArg('film 必须是纯对象或 null');
+  }
+  if (film !== null) {
+    const outObj = own(film, 'output');
+    if (outObj !== undefined) {
+      if (!outObj || typeof outObj !== 'object' || Array.isArray(outObj)) {
+        throw badArg('film.output 必须是纯对象');
+      }
+      const f = own(outObj, 'frames');
+      if (f !== undefined && (!Number.isSafeInteger(f) || f < 1)) {
+        throw badArg('film.output.frames 必须是正整数');
+      }
+    }
+    const shotsVal = own(film, 'shots');
+    if (shotsVal !== undefined && !Array.isArray(shotsVal)) {
+      throw badArg('film.shots 必须是数组');
+    }
+    const predsVal = own(film, 'predicates');
+    if (predsVal !== undefined && (!predsVal || typeof predsVal !== 'object' || Array.isArray(predsVal))) {
+      throw badArg('film.predicates 必须是纯对象');
+    }
+  }
+  if (question !== null && (typeof question !== 'object' || Array.isArray(question))) {
+    throw badArg('question 必须是纯对象或 null');
+  }
+  if (question !== null) {
+    const qBase = own(question, 'basePredicates');
+    if (qBase !== undefined && !Array.isArray(qBase)) {
+      throw badArg('question.basePredicates 必须是数组');
+    }
   }
 
   const validatedExtraPredicates = [];
   const rejectedPredicates = [];
   const seen = new Set();
 
-  for (const raw of predicates) {
+  for (let i = 0; i < predicates.length; i++) {
+    const raw = predicates[i];
     if (typeof raw !== 'string' || !raw.trim()) {
-      rejectedPredicates.push({ predicate: String(raw), reason: '断言必须是非空字符串' });
+      rejectedPredicates.push({ predicate: safeLabel(raw), reason: '断言必须是非空字符串' });
       continue;
     }
     const pred = raw.trim();
@@ -441,8 +785,9 @@ export function filterL5SuggestedPredicates(predicates, { film = null, question 
       continue;
     }
 
-    if (film && typeof film === 'object') {
-      const totalFrames = film?.output?.frames;
+    if (film) {
+      const outputObj = own(film, 'output');
+      const totalFrames = outputObj && typeof outputObj === 'object' ? own(outputObj, 'frames') : undefined;
       const range = scopeRange(extraCheck.assertion.scope, film);
       if (
         range === null ||
@@ -455,18 +800,22 @@ export function filterL5SuggestedPredicates(predicates, { film = null, question 
         continue;
       }
 
-      const existingExtra = Array.isArray(film.predicates?.extra) ? film.predicates.extra : [];
+      const filmPreds = own(film, 'predicates');
+      const existingExtra = filmPreds && Array.isArray(own(filmPreds, 'extra')) ? own(filmPreds, 'extra') : [];
+      const existingBase = filmPreds && Array.isArray(own(filmPreds, 'base')) && own(filmPreds, 'base').length
+        ? own(filmPreds, 'base')
+        : ['floor@1'];
       const candidateFilm = {
         ...film,
         predicates: {
-          base: Array.isArray(film.predicates?.base) && film.predicates.base.length ? film.predicates.base : ['floor@1'],
+          base: existingBase,
           extra: [...existingExtra, pred],
         },
       };
 
       const floorCheck = enforcePredicateFloor(
         candidateFilm,
-        question ? { base: question.basePredicates } : null,
+        question ? { base: own(question, 'basePredicates') } : null,
       );
       const loose = floorCheck.violations.find((v) => v.code === 'threshold-loosened' || v.path === 'predicates/extra');
       if (loose) {
@@ -480,6 +829,18 @@ export function filterL5SuggestedPredicates(predicates, { film = null, question 
       );
       if (l1Err) {
         rejectedPredicates.push({ predicate: pred, reason: l1Err.message });
+        continue;
+      }
+    } else {
+      // 未传 film 时仍须执行 floor@1 防削弱校验，防止放宽底线断言绕过
+      const syntheticFilm = { predicates: { base: ['floor@1'], extra: [pred] } };
+      const floorCheck = enforcePredicateFloor(
+        syntheticFilm,
+        question ? { base: own(question, 'basePredicates') } : null,
+      );
+      const loose = floorCheck.violations.find((v) => v.code === 'threshold-loosened' || v.path === 'predicates/extra');
+      if (loose) {
+        rejectedPredicates.push({ predicate: pred, reason: loose.message });
         continue;
       }
     }
@@ -498,43 +859,61 @@ function validateBallotOpinion(o, idx, totalFrames) {
   if (!o || typeof o !== 'object' || Array.isArray(o)) {
     throw badArg(`审片意见 opinions[${idx}] 必须是对象`);
   }
+  const frames = own(o, 'frames');
   if (
-    !Array.isArray(o.frames) ||
-    o.frames.length !== 2 ||
-    !o.frames.every((f) => Number.isSafeInteger(f) && f >= 0 && f < totalFrames) ||
-    o.frames[0] > o.frames[1]
+    !Array.isArray(frames) ||
+    frames.length !== 2 ||
+    !Number.isSafeInteger(frames[0]) ||
+    !Number.isSafeInteger(frames[1]) ||
+    frames[0] < 0 ||
+    frames[1] < 0 ||
+    frames[0] >= totalFrames ||
+    frames[1] >= totalFrames ||
+    frames[0] > frames[1]
   ) {
     throw badArg(`审片意见 opinions[${idx}] 的帧区间不合法或越界`);
   }
-  if (typeof o.severity !== 'string' || !VALID_SEVERITIES.includes(o.severity)) {
+  const severity = own(o, 'severity');
+  if (typeof severity !== 'string' || !VALID_SEVERITIES.includes(severity)) {
     throw badArg(`审片意见 opinions[${idx}] 的严重度不合法`);
   }
-  if (typeof o.evidence !== 'string' || !o.evidence.trim()) {
+  const evidence = own(o, 'evidence');
+  if (typeof evidence !== 'string' || !evidence.trim()) {
     throw badArg(`审片意见 opinions[${idx}] 的证据不能为空`);
   }
-  if (typeof o.comment !== 'string' || !o.comment.trim()) {
+  const comment = own(o, 'comment');
+  if (typeof comment !== 'string' || !comment.trim()) {
     throw badArg(`审片意见 opinions[${idx}] 的意见不能为空`);
   }
+  const rawIssueKey = own(o, 'issueKey');
+  if (rawIssueKey !== undefined && typeof rawIssueKey !== 'string') {
+    throw badArg(`审片意见 opinions[${idx}] 的 issueKey 必须是字符串`);
+  }
+  const rawPred = own(o, 'suggestedPredicate');
+  if (rawPred !== undefined && (typeof rawPred !== 'string' || !rawPred.trim())) {
+    throw badArg(`审片意见 opinions[${idx}] 的 suggestedPredicate 必须是非空字符串`);
+  }
   return {
-    ...(typeof o.issueKey === 'string' && o.issueKey.trim() ? { issueKey: o.issueKey.trim() } : {}),
-    frames: [o.frames[0], o.frames[1]],
-    severity: o.severity,
-    evidence: o.evidence.trim(),
-    comment: o.comment.trim(),
-    ...(typeof o.suggestedPredicate === 'string' && o.suggestedPredicate.trim()
-      ? { suggestedPredicate: o.suggestedPredicate.trim() }
-      : {}),
+    ...(typeof rawIssueKey === 'string' && rawIssueKey.trim() ? { rawIssueKey: rawIssueKey.trim() } : {}),
+    frames: [frames[0], frames[1]],
+    severity,
+    evidence: evidence.trim(),
+    comment: comment.trim(),
+    ...(typeof rawPred === 'string' && rawPred.trim() ? { suggestedPredicate: rawPred.trim() } : {}),
   };
 }
 
+/** 多数决等级词；平票时严格按保守顺序（差 > 一般 > 好）取更保守一档。 */
 function pickMajorityGrade(grades) {
   const counts = { 好: 0, 一般: 0, 差: 0 };
-  for (const g of grades) {
+  for (let i = 0; i < grades.length; i++) {
+    const g = grades[i];
     if (L5_GRADES.includes(g)) counts[g]++;
   }
   let best = '一般';
-  let bestCount = -1;
-  for (const g of L5_GRADES) {
+  let bestCount = 0;
+  for (let i = 0; i < CONSERVATIVE_GRADE_ORDER.length; i++) {
+    const g = CONSERVATIVE_GRADE_ORDER[i];
     if (counts[g] > bestCount) {
       bestCount = counts[g];
       best = g;
@@ -543,151 +922,425 @@ function pickMajorityGrade(grades) {
   return { grade: best, counts };
 }
 
+function compareStrings(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function extractKnownCandidates(candidates) {
+  if (candidates === undefined) return null;
+  if (!Array.isArray(candidates)) {
+    throw badArg('candidates 必须是数组');
+  }
+  const ids = new Set();
+  for (let i = 0; i < candidates.length; i++) {
+    const c = candidates[i];
+    const id = typeof c === 'string'
+      ? c.trim()
+      : (c && typeof c === 'object' && !Array.isArray(c) && typeof own(c, 'id') === 'string' ? own(c, 'id').trim() : '');
+    if (!id) throw badArg(`candidates[${i}] 缺少合法候选 ID`);
+    ids.add(id);
+  }
+  return ids;
+}
+
 /**
  * 聚合 L5 三视角九票选票：
- * - 校验每张选票每条意见的帧区间 [start, end]、严重度、非空证据与非空意见；
- * - 同一问题（按 issueKey 或规范化摘要 + 帧区间重叠聚类）得票 >= 2（quorum = 2）才成立；
- * - 仅 1 票的孤立意见丢弃并计入 discardedOpinionCount；
- * - 候选建议谓词过 filterL5SuggestedPredicates（L1 + 防削弱）才进入 suggestedPredicates / validatedExtraPredicates。
+ * - 校验每张选票与每条意见的帧区间 [start, end]、严重度、非空证据、非空意见、封闭 issueKey、重复 (perspective, voteIndex) 与未知候选 ID；
+ * - 按 (perspective, normalizedIssueKey, 重叠或相邻帧段) 做与选票输入顺序完全无关的连通分量聚类；
+ * - 同一问题得票 >= quorum（默认 2）才成立进入 opinions；单票孤立与表外 issueKey 意见归入 discardedOpinionCount；
+ * - 当票面存在未成立/作废意见且 opinions 为空时，总评不得落成「好」（最高不超过「一般」，平票取更保守一档）；
+ * - 保留逐票摘要明细 ballots，并将建议谓词过 filterL5SuggestedPredicates（L1 + 防削弱）。
  */
-export function aggregateL5Votes(ballots, { totalFrames = Infinity, film = null, question = null, quorum = 2 } = {}) {
+export function aggregateL5Votes(ballots, options) {
   assertSafeData(ballots, 'ballots');
-  assertSafeData({ totalFrames, film, question, quorum }, 'aggregateL5Votes.options');
   if (!Array.isArray(ballots) || ballots.length === 0) {
     throw badArg('ballots 必须是非空选票数组');
   }
-  const maxFrames = Number.isSafeInteger(totalFrames)
-    ? totalFrames
-    : (Number.isSafeInteger(film?.output?.frames) ? film.output.frames : Infinity);
+  const opts = assertOptionalPlainObject(options, 'aggregateL5Votes.options');
+  const rawTotalFrames = own(opts, 'totalFrames');
+  const film = own(opts, 'film') === undefined ? null : own(opts, 'film');
+  const question = own(opts, 'question') === undefined ? null : own(opts, 'question');
+  const rawQuorum = own(opts, 'quorum');
+  const rawCandidates = own(opts, 'candidates');
 
-  const clusters = [];
+  if (film !== null && (typeof film !== 'object' || Array.isArray(film))) {
+    throw badArg('film 必须是纯对象或 null');
+  }
+  if (film !== null) {
+    const outObj = own(film, 'output');
+    if (outObj !== undefined) {
+      if (!outObj || typeof outObj !== 'object' || Array.isArray(outObj)) {
+        throw badArg('film.output 必须是纯对象');
+      }
+      const f = own(outObj, 'frames');
+      if (f !== undefined && (!Number.isSafeInteger(f) || f < 1)) {
+        throw badArg('film.output.frames 必须是正整数');
+      }
+    }
+    const shotsVal = own(film, 'shots');
+    if (shotsVal !== undefined && !Array.isArray(shotsVal)) {
+      throw badArg('film.shots 必须是数组');
+    }
+    const predsVal = own(film, 'predicates');
+    if (predsVal !== undefined && (!predsVal || typeof predsVal !== 'object' || Array.isArray(predsVal))) {
+      throw badArg('film.predicates 必须是纯对象');
+    }
+  }
+  if (question !== null && (typeof question !== 'object' || Array.isArray(question))) {
+    throw badArg('question 必须是纯对象或 null');
+  }
+  if (question !== null) {
+    const qBase = own(question, 'basePredicates');
+    if (qBase !== undefined && !Array.isArray(qBase)) {
+      throw badArg('question.basePredicates 必须是数组');
+    }
+  }
+
+  let maxFrames;
+  if (rawTotalFrames !== undefined) {
+    if (!Number.isSafeInteger(rawTotalFrames) || rawTotalFrames < 1) {
+      throw badArg('totalFrames 必须是正整数');
+    }
+    maxFrames = rawTotalFrames;
+  } else if (film && own(film, 'output') && typeof own(film, 'output') === 'object' && own(own(film, 'output'), 'frames') !== undefined) {
+    const f = own(own(film, 'output'), 'frames');
+    if (!Number.isSafeInteger(f) || f < 1) {
+      throw badArg('film.output.frames 必须是正整数');
+    }
+    maxFrames = f;
+  } else {
+    maxFrames = Infinity;
+  }
+
+  let quorum = 2;
+  if (rawQuorum !== undefined) {
+    if (!Number.isSafeInteger(rawQuorum) || rawQuorum < 2) {
+      throw badArg('quorum 必须是 >= 2 的整数');
+    }
+    quorum = rawQuorum;
+  }
+
+  const knownCandidates = extractKnownCandidates(rawCandidates);
+  const seenSlots = new Set();
+  const implicitVoteCounter = new Map();
+  const groupedOpinions = new Map();
+  const rejectedOpinions = [];
   const ballotGrades = [];
   const candidateVoteMap = new Map();
-  const candidateOrderings = [];
   const predicateVoteCounts = new Map();
+  const ballotEntries = [];
 
-  ballots.forEach((ballot, bIdx) => {
+  for (let bIdx = 0; bIdx < ballots.length; bIdx++) {
+    const ballot = ballots[bIdx];
     if (!ballot || typeof ballot !== 'object' || Array.isArray(ballot)) {
       throw badArg(`选票 ballots[${bIdx}] 必须是对象`);
     }
-    const perspective = typeof ballot.perspective === 'string' ? ballot.perspective : 'composition-readability';
-    if (ballot.grade !== undefined) {
-      if (!L5_GRADES.includes(ballot.grade)) throw badArg(`选票 ballots[${bIdx}] 的等级词 ${ballot.grade} 不合法`);
-      ballotGrades.push(ballot.grade);
+
+    const rawPerspective = own(ballot, 'perspective');
+    let perspective = 'composition-readability';
+    if (rawPerspective !== undefined) {
+      if (typeof rawPerspective !== 'string' || !PERSPECTIVE_INDEX.has(rawPerspective)) {
+        throw badArg(`选票 ballots[${bIdx}] 的视角 ${safeLabel(rawPerspective)} 不合法`);
+      }
+      perspective = rawPerspective;
     }
-    const ordering = ballot.candidateOrdering ?? ballot.candidateOrder;
-    if (Array.isArray(ordering)) {
-      candidateOrderings.push(ordering);
+
+    const rawVoteIndex = own(ballot, 'voteIndex');
+    let voteIndex;
+    if (rawVoteIndex !== undefined) {
+      if (!Number.isSafeInteger(rawVoteIndex) || rawVoteIndex < 0) {
+        throw badArg(`选票 ballots[${bIdx}] 的 voteIndex 必须是非负安全整数`);
+      }
+      voteIndex = rawVoteIndex;
+      const slotKey = `${perspective}:${voteIndex}`;
+      if (seenSlots.has(slotKey)) {
+        throw badArg(`选票重复：视角 ${perspective} 的第 ${voteIndex} 票重复出现`);
+      }
+      seenSlots.add(slotKey);
+    } else {
+      let nextIdx = implicitVoteCounter.get(perspective) ?? 0;
+      while (seenSlots.has(`${perspective}:${nextIdx}`)) nextIdx++;
+      voteIndex = nextIdx;
+      implicitVoteCounter.set(perspective, nextIdx + 1);
+      seenSlots.add(`${perspective}:${voteIndex}`);
     }
-    if (Array.isArray(ballot.candidateGrades)) {
-      for (const cg of ballot.candidateGrades) {
-        if (!cg || typeof cg.id !== 'string' || !L5_GRADES.includes(cg.grade)) {
-          throw badArg(`选票 ballots[${bIdx}] 的 candidateGrades 项不合法`);
+
+    const grade = own(ballot, 'grade');
+    if (grade !== undefined) {
+      if (typeof grade !== 'string' || !L5_GRADES.includes(grade)) {
+        throw badArg(`选票 ballots[${bIdx}] 的等级词 ${safeLabel(grade)} 不合法`);
+      }
+      ballotGrades.push(grade);
+    }
+
+    const ordering = own(ballot, 'candidateOrdering') !== undefined
+      ? own(ballot, 'candidateOrdering')
+      : own(ballot, 'candidateOrder');
+    let validatedOrdering = null;
+    if (ordering !== undefined) {
+      if (!Array.isArray(ordering)) {
+        throw badArg(`选票 ballots[${bIdx}] 的 candidateOrder 必须是字符串数组`);
+      }
+      const orderSet = new Set();
+      validatedOrdering = [];
+      for (let i = 0; i < ordering.length; i++) {
+        const cid = ordering[i];
+        if (typeof cid !== 'string' || !cid.trim()) {
+          throw badArg(`选票 ballots[${bIdx}] 的 candidateOrder[${i}] 必须是非空字符串`);
         }
-        if (!candidateVoteMap.has(cg.id)) candidateVoteMap.set(cg.id, []);
-        candidateVoteMap.get(cg.id).push(cg.grade);
+        const trimmed = cid.trim();
+        if (orderSet.has(trimmed)) {
+          throw badArg(`选票 ballots[${bIdx}] 的 candidateOrder 包含重复候选 ID：${trimmed}`);
+        }
+        if (knownCandidates && !knownCandidates.has(trimmed)) {
+          throw badArg(`选票 ballots[${bIdx}] 的 candidateOrder 包含未知候选 ID：${trimmed}`);
+        }
+        orderSet.add(trimmed);
+        validatedOrdering.push(trimmed);
       }
     }
 
-    if (!Array.isArray(ballot.opinions)) {
+    const allowedBallotCandidates = knownCandidates ?? (validatedOrdering ? new Set(validatedOrdering) : null);
+    const rawCandidateGrades = own(ballot, 'candidateGrades');
+    let validatedCandidateGrades;
+    if (rawCandidateGrades !== undefined) {
+      if (!Array.isArray(rawCandidateGrades)) {
+        throw badArg(`选票 ballots[${bIdx}] 的 candidateGrades 必须是数组`);
+      }
+      const seenCandidateIds = new Set();
+      validatedCandidateGrades = [];
+      for (let i = 0; i < rawCandidateGrades.length; i++) {
+        const cg = rawCandidateGrades[i];
+        const cgId = cg && typeof cg === 'object' && !Array.isArray(cg) ? own(cg, 'id') : undefined;
+        const cgGrade = cg && typeof cg === 'object' && !Array.isArray(cg) ? own(cg, 'grade') : undefined;
+        if (typeof cgId !== 'string' || !cgId.trim() || typeof cgGrade !== 'string' || !L5_GRADES.includes(cgGrade)) {
+          throw badArg(`选票 ballots[${bIdx}] 的 candidateGrades[${i}] 项不合法`);
+        }
+        const trimmedId = cgId.trim();
+        if (seenCandidateIds.has(trimmedId)) {
+          throw badArg(`选票 ballots[${bIdx}] 的 candidateGrades 存在重复候选 ID：${trimmedId}`);
+        }
+        if (allowedBallotCandidates && !allowedBallotCandidates.has(trimmedId)) {
+          throw badArg(`选票 ballots[${bIdx}] 包含未知候选 ID：${trimmedId}`);
+        }
+        seenCandidateIds.add(trimmedId);
+        validatedCandidateGrades.push({ id: trimmedId, grade: cgGrade });
+        if (!candidateVoteMap.has(trimmedId)) candidateVoteMap.set(trimmedId, []);
+        candidateVoteMap.get(trimmedId).push(cgGrade);
+      }
+    }
+
+    const ballotOpinions = own(ballot, 'opinions');
+    if (!Array.isArray(ballotOpinions)) {
       throw badArg(`选票 ballots[${bIdx}] 缺少 opinions 数组`);
     }
 
     const ballotPredicates = new Set();
-    if (Array.isArray(ballot.suggestedPredicates)) {
-      for (const sp of ballot.suggestedPredicates) {
-        if (typeof sp !== 'string' || !sp.trim()) throw badArg(`选票 ballots[${bIdx}] 的 suggestedPredicates 必须是非空字符串`);
+    const rawSuggestedPredicates = own(ballot, 'suggestedPredicates');
+    if (rawSuggestedPredicates !== undefined) {
+      if (!Array.isArray(rawSuggestedPredicates)) {
+        throw badArg(`选票 ballots[${bIdx}] 的 suggestedPredicates 必须是数组`);
+      }
+      for (let i = 0; i < rawSuggestedPredicates.length; i++) {
+        const sp = rawSuggestedPredicates[i];
+        if (typeof sp !== 'string' || !sp.trim()) {
+          throw badArg(`选票 ballots[${bIdx}] 的 suggestedPredicates[${i}] 必须是非空字符串`);
+        }
         ballotPredicates.add(sp.trim());
       }
     }
 
-    for (let i = 0; i < ballot.opinions.length; i++) {
-      const op = validateBallotOpinion(ballot.opinions[i], i, maxFrames);
-      if (op.suggestedPredicate) ballotPredicates.add(op.suggestedPredicate);
-      const normKey = (op.issueKey ?? op.comment).toLowerCase();
-      let cluster = clusters.find(
-        (c) =>
-          c.normKey === normKey &&
-          Math.max(c.frames[0], op.frames[0]) <= Math.min(c.frames[1], op.frames[1]),
-      );
-      if (!cluster) {
-        cluster = {
-          normKey,
-          issueKey: op.issueKey ?? null,
-          frames: [op.frames[0], op.frames[1]],
-          severity: op.severity,
-          evidence: op.evidence,
-          comment: op.comment,
-          ballotIndices: new Set(),
-          perspectives: new Set(),
-          suggestedPredicates: new Set(),
-        };
-        clusters.push(cluster);
-      } else {
-        cluster.frames = [
-          Math.min(cluster.frames[0], op.frames[0]),
-          Math.max(cluster.frames[1], op.frames[1]),
-        ];
-        if ((SEVERITY_RANK[op.severity] ?? 1) > (SEVERITY_RANK[cluster.severity] ?? 1)) {
-          cluster.severity = op.severity;
-        }
+    const ballotSlotKey = `${perspective}:${voteIndex}`;
+    const validOpinionsForSummary = [];
+    let rejectedCountForBallot = 0;
+
+    for (let i = 0; i < ballotOpinions.length; i++) {
+      const op = validateBallotOpinion(ballotOpinions[i], i, maxFrames);
+      const normKey = op.rawIssueKey ? normalizeIssueKey(op.rawIssueKey, perspective) : null;
+      if (!normKey) {
+        rejectedCountForBallot++;
+        rejectedOpinions.push({
+          perspective,
+          voteIndex,
+          issueKey: op.rawIssueKey ?? null,
+          frames: op.frames,
+          reason: op.rawIssueKey
+            ? `issueKey "${op.rawIssueKey}" 不在视角 ${perspective} 的封闭类别表内`
+            : `缺少视角 ${perspective} 的封闭 issueKey`,
+        });
+        continue;
       }
-      cluster.ballotIndices.add(bIdx);
-      cluster.perspectives.add(perspective);
-      if (op.suggestedPredicate) cluster.suggestedPredicates.add(op.suggestedPredicate);
+      if (op.suggestedPredicate) ballotPredicates.add(op.suggestedPredicate);
+      const entry = {
+        perspective,
+        voteIndex,
+        ballotSlotKey,
+        issueKey: normKey,
+        frames: op.frames,
+        severity: op.severity,
+        evidence: op.evidence,
+        comment: op.comment,
+        ...(op.suggestedPredicate ? { suggestedPredicate: op.suggestedPredicate } : {}),
+      };
+      validOpinionsForSummary.push({
+        issueKey: normKey,
+        frames: op.frames,
+        severity: op.severity,
+        evidence: op.evidence,
+        comment: op.comment,
+        ...(op.suggestedPredicate ? { suggestedPredicate: op.suggestedPredicate } : {}),
+      });
+      const groupKey = `${perspective}\0${normKey}`;
+      if (!groupedOpinions.has(groupKey)) groupedOpinions.set(groupKey, []);
+      groupedOpinions.get(groupKey).push(entry);
     }
 
     for (const sp of ballotPredicates) {
       predicateVoteCounts.set(sp, (predicateVoteCounts.get(sp) ?? 0) + 1);
     }
-  });
+
+    ballotEntries.push({
+      perspective,
+      voteIndex,
+      ...(grade !== undefined ? { grade } : {}),
+      ...(validatedOrdering ? { candidateOrder: validatedOrdering } : {}),
+      ...(validatedCandidateGrades ? { candidateGrades: validatedCandidateGrades } : {}),
+      opinionCount: validOpinionsForSummary.length,
+      rejectedOpinionCount: rejectedCountForBallot,
+      opinions: validOpinionsForSummary,
+      suggestedPredicates: [...ballotPredicates].sort(compareStrings),
+    });
+  }
+
+  ballotEntries.sort(
+    (a, b) => (PERSPECTIVE_INDEX.get(a.perspective) - PERSPECTIVE_INDEX.get(b.perspective)) || (a.voteIndex - b.voteIndex),
+  );
+
+  const candidateOrderings = ballotEntries
+    .filter((b) => Array.isArray(b.candidateOrder))
+    .map((b) => [...b.candidateOrder]);
+
+  // 与选票输入顺序完全无关的连通分量聚类：按 (perspective, issueKey) 分组、按帧段排序后合并重叠或相邻帧段
+  const clusters = [];
+  for (const entries of groupedOpinions.values()) {
+    entries.sort((a, b) =>
+      (a.frames[0] - b.frames[0])
+      || (a.frames[1] - b.frames[1])
+      || (a.voteIndex - b.voteIndex)
+      || compareStrings(a.comment, b.comment)
+      || compareStrings(a.evidence, b.evidence),
+    );
+    let current = null;
+    for (let i = 0; i < entries.length; i++) {
+      const op = entries[i];
+      if (!current || op.frames[0] > current.frames[1] + 1) {
+        current = {
+          perspective: op.perspective,
+          issueKey: op.issueKey,
+          frames: [op.frames[0], op.frames[1]],
+          members: [op],
+          ballotSlots: new Set([op.ballotSlotKey]),
+          suggestedPredicates: new Set(op.suggestedPredicate ? [op.suggestedPredicate] : []),
+        };
+        clusters.push(current);
+      } else {
+        current.frames[1] = Math.max(current.frames[1], op.frames[1]);
+        current.members.push(op);
+        current.ballotSlots.add(op.ballotSlotKey);
+        if (op.suggestedPredicate) current.suggestedPredicates.add(op.suggestedPredicate);
+      }
+    }
+  }
 
   const opinions = [];
   let discardedOpinionCount = 0;
   const acceptedPredicateCandidates = [];
 
-  for (const c of clusters) {
-    const votes = c.ballotIndices.size;
+  clusters.sort((a, b) =>
+    (a.frames[0] - b.frames[0])
+    || (a.frames[1] - b.frames[1])
+    || (PERSPECTIVE_INDEX.get(a.perspective) - PERSPECTIVE_INDEX.get(b.perspective))
+    || compareStrings(a.issueKey, b.issueKey),
+  );
+
+  for (let i = 0; i < clusters.length; i++) {
+    const c = clusters[i];
+    const votes = c.ballotSlots.size;
     if (votes >= quorum) {
+      const sortedMembers = [...c.members].sort((a, b) =>
+        ((SEVERITY_RANK[b.severity] ?? 1) - (SEVERITY_RANK[a.severity] ?? 1))
+        || (a.frames[0] - b.frames[0])
+        || (a.frames[1] - b.frames[1])
+        || (a.voteIndex - b.voteIndex)
+        || compareStrings(a.evidence, b.evidence)
+        || compareStrings(a.comment, b.comment),
+      );
+      const rep = sortedMembers[0];
       opinions.push({
-        ...(c.issueKey ? { issueKey: c.issueKey } : {}),
+        perspective: c.perspective,
+        issueKey: c.issueKey,
         frames: c.frames,
-        severity: c.severity,
-        evidence: c.evidence,
-        comment: c.comment,
+        severity: rep.severity,
+        evidence: rep.evidence,
+        comment: rep.comment,
         votes,
-        perspectives: [...c.perspectives],
+        perspectives: [c.perspective],
       });
-      for (const sp of c.suggestedPredicates) acceptedPredicateCandidates.push(sp);
+      for (const sp of [...c.suggestedPredicates].sort(compareStrings)) {
+        if ((predicateVoteCounts.get(sp) ?? 0) >= quorum && !acceptedPredicateCandidates.includes(sp)) {
+          acceptedPredicateCandidates.push(sp);
+        }
+      }
     } else {
       discardedOpinionCount++;
     }
   }
 
-  for (const [sp, count] of predicateVoteCounts.entries()) {
-    if (count >= Math.min(quorum, ballots.length)) {
+  for (const sp of [...predicateVoteCounts.keys()].sort(compareStrings)) {
+    if (predicateVoteCounts.get(sp) >= quorum && !acceptedPredicateCandidates.includes(sp)) {
       acceptedPredicateCandidates.push(sp);
     }
   }
 
   const filtered = filterL5SuggestedPredicates(acceptedPredicateCandidates, { film, question });
-  const overallGrade = ballotGrades.length
-    ? pickMajorityGrade(ballotGrades).grade
-    : (opinions.some((o) => o.severity === 'error' || o.severity === 'high') ? '差' : opinions.length ? '一般' : '好');
+  const gradeStats = ballotGrades.length
+    ? pickMajorityGrade(ballotGrades)
+    : { grade: null, counts: { 好: 0, 一般: 0, 差: 0 } };
+
+  let overallGrade = gradeStats.grade
+    ?? (opinions.some((o) => o.severity === 'error' || o.severity === 'high')
+      ? '差'
+      : (opinions.length > 0 || discardedOpinionCount > 0 || rejectedOpinions.length > 0 ? '一般' : '好'));
+
+  if (opinions.length === 0 && (discardedOpinionCount > 0 || rejectedOpinions.length > 0) && overallGrade === '好') {
+    overallGrade = '一般';
+  }
 
   const candidateGrades = {};
-  for (const [cid, grades] of candidateVoteMap.entries()) {
-    candidateGrades[cid] = pickMajorityGrade(grades);
+  for (const cid of [...candidateVoteMap.keys()].sort(compareStrings)) {
+    candidateGrades[cid] = pickMajorityGrade(candidateVoteMap.get(cid));
   }
+
+  rejectedOpinions.sort((a, b) =>
+    (PERSPECTIVE_INDEX.get(a.perspective) - PERSPECTIVE_INDEX.get(b.perspective))
+    || (a.voteIndex - b.voteIndex)
+    || (a.frames[0] - b.frames[0])
+    || (a.frames[1] - b.frames[1])
+    || compareStrings(a.issueKey ?? '', b.issueKey ?? '')
+    || compareStrings(a.reason, b.reason),
+  );
 
   return {
     totalBallots: ballots.length,
     quorum,
     grade: overallGrade,
+    gradeCounts: gradeStats.counts,
+    ballots: ballotEntries,
     candidateOrderings,
     candidateGrades,
     opinions,
     discardedOpinionCount,
+    rejectedOpinions,
     rawSuggestedPredicates: acceptedPredicateCandidates,
     suggestedPredicates: filtered.suggestedPredicates,
     validatedExtraPredicates: filtered.validatedExtraPredicates,

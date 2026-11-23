@@ -136,6 +136,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
       template: chosenTemplate,
       ...(selected ? { templateSelectedBy: selected.selectedBy } : {}),
       brief: body.brief,
+      ...(body.budget ? { budget: body.budget } : {}),
       question,
       assets: question?.assets ?? {},
       assetRef,
