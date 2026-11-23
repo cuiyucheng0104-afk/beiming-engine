@@ -52,10 +52,14 @@ const HELP = `北冥考题库离线考试核验入口
   --questions <目录>  指定题库根目录（默认 beiming/bench/questions）
   --help, -h          打印本帮助信息
 
-退出码：0 全部通过；1 离线考试未通过、负对照失守或全跳过无实跑；2 命令行参数错误；4 题库为空或题目/夹具契约校验不通过`;
+退出码：0 全部通过；1 离线考试未通过、负对照失守或全跳过无实跑；2 命令行参数错误；4 题库为空/缺题集或题目/夹具契约校验不通过`;
 
 const LEVEL1_IDS = new Set(['29-1', '28-1', '23-1', '1-1']);
 const LEVEL2B_IDS = new Set(B6_QUESTION_IDS);
+const REQUIRED_QUESTION_SETS = Object.freeze([
+  Object.freeze({ name: 'level-1', evaluator: 'evaluate-b2.mjs', ids: Object.freeze([...LEVEL1_IDS]) }),
+  Object.freeze({ name: 'level-2-b', evaluator: 'evaluate-b4.mjs', ids: Object.freeze([...LEVEL2B_IDS]) }),
+]);
 const CHANNELS = { none: 0, mono: 1, stereo: 2 };
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -63,6 +67,9 @@ const isPlainObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(
 const isFiniteNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isFiniteArray = (v, minLen = 1) => Array.isArray(v) && v.length >= minLen && v.every(isFiniteNum);
 const isIntPair = (v) => Array.isArray(v) && v.length === 2 && Number.isInteger(v[0]) && Number.isInteger(v[1]);
+const canonicalPath = (p) => {
+  try { return fs.realpathSync.native(p); } catch { return path.resolve(p); }
+};
 
 /** 递归收集目录下全部 .json 题目文件（按相对 POSIX 路径排序） */
 export function discoverQuestionFiles(questionsDir) {
@@ -85,6 +92,77 @@ export function discoverQuestionFiles(questionsDir) {
     const rb = path.relative(questionsDir, b).split(path.sep).join('/');
     return ra < rb ? -1 : ra > rb ? 1 : 0;
   });
+}
+
+function findEmptyQuestionSubdirs(questionsDir) {
+  if (typeof questionsDir !== 'string' || !questionsDir || !fs.existsSync(questionsDir)) return [];
+  let st;
+  try { st = fs.statSync(questionsDir); } catch { return []; }
+  if (!st.isDirectory()) return [];
+  const empty = [];
+  const walk = (dir) => {
+    let hasJson = false;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith('.')) continue;
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (walk(abs)) hasJson = true;
+      } else if (entry.isFile() && entry.name.endsWith('.json')) {
+        hasJson = true;
+      }
+    }
+    if (dir !== questionsDir && !hasJson) {
+      empty.push(path.relative(questionsDir, dir).split(path.sep).join('/'));
+    }
+    return hasJson;
+  };
+  walk(questionsDir);
+  return empty.sort();
+}
+
+const isDirPath = (p) => {
+  try { return fs.statSync(p).isDirectory(); } catch { return false; }
+};
+const isFilePath = (p) => {
+  try { return fs.statSync(p).isFile(); } catch { return false; }
+};
+
+function checkRequiredQuestionSets({ questionsDir, entries, enforceBuiltinSets }) {
+  const errors = [];
+  const emptySubdirs = findEmptyQuestionSubdirs(questionsDir);
+  const checkedSets = new Set();
+
+  if (enforceBuiltinSets) {
+    for (const set of REQUIRED_QUESTION_SETS) {
+      checkedSets.add(set.name);
+      const setDir = path.join(questionsDir, set.name);
+      if (!isDirPath(setDir)) {
+        errors.push(`缺少内置题集目录：${set.name}`);
+        continue;
+      }
+      const evalFile = path.join(setDir, set.evaluator);
+      if (!isFilePath(evalFile)) {
+        errors.push(`内置题集 ${set.name} 缺少评分器：${set.evaluator}`);
+      }
+      const setEntries = entries.filter((e) => e.file.startsWith(`${set.name}/`));
+      if (setEntries.length === 0) {
+        errors.push(`内置题集 ${set.name} 为空（缺少全部 ${set.ids.length} 道题目：${set.ids.join('、')}）`);
+        continue;
+      }
+      const presentIds = new Set(setEntries.map((e) => e.id).filter(Boolean));
+      const missingIds = set.ids.filter((id) => !presentIds.has(id));
+      if (missingIds.length > 0) {
+        errors.push(`内置题集 ${set.name} 缺少必需题目：${missingIds.join('、')}`);
+      }
+    }
+  }
+
+  for (const relSub of emptySubdirs) {
+    if (!checkedSets.has(relSub)) {
+      errors.push(`题集子目录为空：${relSub}`);
+    }
+  }
+  return errors;
 }
 
 function hasValidBaseSpec(spec) {
@@ -172,10 +250,28 @@ function evaluateBasePredicate(text, film, measured) {
   if (a.name === 'orbit_total') {
     const cam = bound.camera?.kind === 'ident' ? bound.camera.name : null;
     const subj = bound.subject?.kind === 'ident' ? bound.subject.name : null;
-    if (!cam || !subj || !a.cmp || !isPlainObj(measured?.orbitTotalDeg)) return 'fail';
+    if (!cam || !subj || !a.cmp) return 'fail';
     const key = `${cam}:${subj}`;
-    if (!Object.hasOwn(measured.orbitTotalDeg, key)) return 'fail';
-    return cmpHolds(measured.orbitTotalDeg[key], a.cmp) ? 'pass' : 'fail';
+    const filmFrames = Number.isInteger(film?.output?.frames) ? film.output.frames : 0;
+    const coversWholeFilm = a.scope.kind === 'all'
+      || (filmFrames > 0 && range[0] === 0 && range[1] === filmFrames);
+    if (coversWholeFilm) {
+      if (!isPlainObj(measured?.orbitTotalDeg) || !Object.hasOwn(measured.orbitTotalDeg, key)) return 'fail';
+      return cmpHolds(measured.orbitTotalDeg[key], a.cmp) ? 'pass' : 'fail';
+    }
+    const series = isPlainObj(measured?.orbitAnglesDeg) && Object.hasOwn(measured.orbitAnglesDeg, key)
+      ? measured.orbitAnglesDeg[key]
+      : null;
+    if (!Array.isArray(series)) return 'fail';
+    const inRange = series
+      .filter((s) => Number.isInteger(s?.frame) && isFiniteNum(s?.deg) && s.frame >= range[0] && s.frame < range[1])
+      .sort((x, y) => x.frame - y.frame);
+    if (inRange.length === 0) return 'fail';
+    let spanDeg = 0;
+    for (let i = 1; i < inRange.length; i++) {
+      spanDeg += Math.abs(inRange[i].deg - inRange[i - 1].deg);
+    }
+    return cmpHolds(spanDeg, a.cmp) ? 'pass' : 'fail';
   }
 
   if (a.name === 'onset') {
@@ -248,6 +344,27 @@ function validateRefData(question, data, refLabel) {
       const lc = data.readings['loop.closure-psnr'];
       if (!isPlainObj(lc) || !Number.isInteger(lc.nearest) || !isFiniteNum(lc.closurePsnr) || !isFiniteNum(lc.adjacentPsnr)) {
         bad('23-1 缺少合法的 readings["loop.closure-psnr"] 字段');
+      }
+      if (!Array.isArray(data.variants) || data.variants.length === 0) {
+        bad('23-1 缺少非空 variants 变体参考数组');
+      } else {
+        data.variants.forEach((v, idx) => {
+          if (!isPlainObj(v) || !isPlainObj(v.deliverable) || !Number.isInteger(v.deliverable.frames) || v.deliverable.frames < 2) {
+            bad(`23-1 variants[${idx}] 缺少合法的 deliverable.frames`);
+            return;
+          }
+          if (v.deliverable.size !== undefined && (!isIntPair(v.deliverable.size) || v.deliverable.size[0] <= 0 || v.deliverable.size[1] <= 0)) {
+            bad(`23-1 variants[${idx}] deliverable.size 不合法`);
+          }
+          if (!isPlainObj(v.readings) || !hasValidBaseSpec(v.readings.base?.spec)) {
+            bad(`23-1 variants[${idx}] 缺少合法的 readings.base.spec`);
+            return;
+          }
+          const vlc = v.readings['loop.closure-psnr'];
+          if (!isPlainObj(vlc) || !Number.isInteger(vlc.nearest) || !isFiniteNum(vlc.closurePsnr) || !isFiniteNum(vlc.adjacentPsnr)) {
+            bad(`23-1 variants[${idx}] 缺少合法的 readings["loop.closure-psnr"] 字段`);
+          }
+        });
       }
     } else if (question.id === '1-1') {
       const ds = data.readings['deliver.spec'];
@@ -436,6 +553,9 @@ function synthesize28OrbitReadings(question) {
     freezes: [],
     cuts: [],
     orbitTotalDeg: { 'camera:subject': 360 },
+    orbitAnglesDeg: {
+      'camera:subject': Array.from({ length: total }, (_, k) => ({ frame: k, deg: (k * 360) / total })),
+    },
     frames: boxes.map((bbox2d, frame) => ({ frame, meta: { size: [W, H], entities: [{ name: 'subject', bbox2d }] } })),
   };
   return {
@@ -469,6 +589,9 @@ function synthesize23TurntableReadings(question, totalDegrees = 360) {
     freezes: [],
     cuts: [],
     orbitTotalDeg: { 'camera:subject': totalDegrees },
+    orbitAnglesDeg: {
+      'camera:subject': Array.from({ length: total }, (_, k) => ({ frame: k, deg: (k * totalDegrees) / total })),
+    },
   };
   return {
     base: {
@@ -564,11 +687,11 @@ function buildLevel2bRefVerdict(question, refData, posReadings) {
       'meta.camera-static': posReadings['meta.camera-static'],
       'motion.zoom-pan': { pairs: refData.locked },
     });
-    const negRef = scoreLevel2b(question, {
+    const negAllRejected = refData.drifting.every((d) => scoreLevel2b(question, {
       'meta.camera-static': posReadings['meta.camera-static'],
-      'motion.zoom-pan': { pairs: [refData.locked[0], refData.drifting[0]] },
-    });
-    return posRef.pass === true && Math.abs(posRef.score - 1) < 1e-9 && negRef.pass === false;
+      'motion.zoom-pan': { pairs: [refData.locked[0], d] },
+    }).pass === false);
+    return posRef.pass === true && Math.abs(posRef.score - 1) < 1e-9 && negAllRejected;
   }
   return false;
 }
@@ -634,10 +757,55 @@ function buildLevel2bBaseEvidence(questionId, posReadings) {
       freezes: [],
       cuts: [],
       orbitTotalDeg: allStatic ? { 'camera:scene': 0 } : {},
+      orbitAnglesDeg: allStatic
+        ? { 'camera:scene': Array.from({ length: 300 }, (_, k) => ({ frame: k, deg: 0 })) }
+        : {},
     };
     return { spec, film, measured };
   }
   return null;
+}
+
+function buildLevel1VariantQuestion(question, variant) {
+  if (!isPlainObj(variant?.deliverable)) return null;
+  const vq = JSON.parse(JSON.stringify(question));
+  Object.assign(vq.deliverable, variant.deliverable);
+  const frames = vq.deliverable?.frames;
+  if (!Number.isInteger(frames) || frames < 2) return null;
+  const half = Math.floor(frames / 2);
+  const last = frames - 1;
+  for (const item of vq.scoring ?? []) {
+    if (item.metric !== 'loop.closure-psnr' || !isPlainObj(item.args)) continue;
+    if (Array.isArray(item.args.search) && Number.isInteger(item.args.expect)) {
+      item.args.search = [half, frames];
+      item.args.expect = last;
+    }
+    if (Number.isInteger(item.args.b)) {
+      item.args.b = last;
+    }
+  }
+  return validateQuestion(vq).ok ? vq : null;
+}
+
+function verifyLevel1Variants(question, refData) {
+  const variants = Array.isArray(refData.variants) ? refData.variants : [];
+  if (question.id === '23-1' && variants.length === 0) return false;
+  for (const variant of variants) {
+    const variantQ = buildLevel1VariantQuestion(question, variant);
+    if (!variantQ) return false;
+    const verdict = scoreLevel1(variantQ, variant.readings);
+    const deliverableOk = verdict.base?.[0]?.check === 'deliverable'
+      && verdict.base[0].pass === true;
+    const hasPreds = isPlainObj(variant.readings?.base?.predicates);
+    const expectBasePass = hasPreds ? true : (variantQ.basePredicates?.length ?? 0) === 0;
+    const variantOk = verdict.scoringPass === true
+      && Math.abs(verdict.score - 1) < 1e-9
+      && deliverableOk
+      && verdict.basePass === expectBasePass
+      && verdict.pass === expectBasePass;
+    if (!variantOk) return false;
+  }
+  return true;
 }
 
 /**
@@ -694,10 +862,13 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       if (shiftedNeg.pass === false && shiftedNeg.score < 1) negRejected++;
     } else if (question.id === '23-1') {
       const rawRefVerdict = scoreLevel1(question, refData.readings);
-      refOk = rawRefVerdict.scoringPass === true
+      const mainRefOk = rawRefVerdict.scoringPass === true
         && Math.abs(rawRefVerdict.score - 1) < 1e-9
+        && rawRefVerdict.base?.[0]?.check === 'deliverable'
+        && rawRefVerdict.base[0].pass === true
         && rawRefVerdict.basePass === false
         && rawRefVerdict.pass === false;
+      refOk = mainRefOk && verifyLevel1Variants(question, refData);
       posVerdict = scoreLevel1(question, synthesize23TurntableReadings(question, 360));
       const underNeg = scoreLevel1(question, synthesize23TurntableReadings(question, 350));
       negChecked++;
@@ -846,7 +1017,10 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
  */
 export async function runExam(options = {}) {
   const benchDir = path.resolve(options.benchDir ?? HERE);
-  const questionsDir = path.resolve(options.questionsDir ?? path.join(benchDir, 'questions'));
+  const defaultQuestionsDir = path.join(benchDir, 'questions');
+  const questionsDir = path.resolve(options.questionsDir ?? defaultQuestionsDir);
+  const enforceBuiltinSets = options.requireBuiltinSets
+    ?? (canonicalPath(questionsDir) === canonicalPath(defaultQuestionsDir));
   const outDir = options.outDir === null ? null : path.resolve(options.outDir ?? path.join(REPO, 'out/exam'));
   const dryRun = Boolean(options.dryRun);
   const evaluators = options.evaluators ?? null;
@@ -942,6 +1116,12 @@ export async function runExam(options = {}) {
       errors,
     });
   }
+
+  const missingSetErrors = checkRequiredQuestionSets({
+    questionsDir,
+    entries,
+    enforceBuiltinSets,
+  });
 
   const ownTempRoot = !dryRun && !options.evalRoot
     ? fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-exam-'))
@@ -1074,8 +1254,9 @@ export async function runExam(options = {}) {
   const passedQuestions = questionReports.filter((q) => q.pass).length;
   const failedQuestions = questionReports.filter((q) => !q.pass && q.status !== 'expected-fail').length;
   const noEvaluated = !dryRun && invalidQuestions === 0 && evaluatedQuestions === 0;
-  const ok = totalQuestions > 0 && invalidQuestions === 0 && failedQuestions === 0 && !noEvaluated;
-  const exitCode = ok ? 0 : invalidQuestions > 0 ? 4 : 1;
+  const hasMissingSets = missingSetErrors.length > 0;
+  const ok = totalQuestions > 0 && invalidQuestions === 0 && !hasMissingSets && failedQuestions === 0 && !noEvaluated;
+  const exitCode = ok ? 0 : (invalidQuestions > 0 || hasMissingSets) ? 4 : 1;
 
   const report = {
     format: EXAM_REPORT_FORMAT,
@@ -1096,6 +1277,7 @@ export async function runExam(options = {}) {
       negativeControlsChecked,
       negativeControlsRejected,
     },
+    missingQuestionSets: missingSetErrors,
     questions: questionReports,
     outputs: [],
     error: ok
@@ -1106,17 +1288,23 @@ export async function runExam(options = {}) {
             message: `${invalidQuestions} 道考题或参考夹具未通过契约校验`,
             hint: '检查 questions[].errors 中的失败原因',
           }
-        : noEvaluated
+        : hasMissingSets
           ? {
-              code: 'exam.no-evaluated-questions',
-              message: `整场考试实际执行并计分的题目数为 0（共 ${skippedQuestions} 题全部为 expected-fail 跳过），禁止假绿`,
-              hint: '确认题库包含至少一道可执行评测的公开考题',
+              code: 'contract.missing-question-set',
+              message: missingSetErrors.join('；'),
+              hint: '确认 beiming/bench/questions/ 下全部内置题集目录及题目文件完整存在',
             }
-          : {
-              code: 'exam.verification-failed',
-              message: `${failedQuestions} 道考题未通过离线考试核验`,
-              hint: '检查 questions[].errors 中的失败原因',
-            },
+          : noEvaluated
+            ? {
+                code: 'exam.no-evaluated-questions',
+                message: `整场考试实际执行并计分的题目数为 0（共 ${skippedQuestions} 题全部为 expected-fail 跳过），禁止假绿`,
+                hint: '确认题库包含至少一道可执行评测的公开考题',
+              }
+            : {
+                code: 'exam.verification-failed',
+                message: `${failedQuestions} 道考题未通过离线考试核验`,
+                hint: '检查 questions[].errors 中的失败原因',
+              },
     createdAt: new Date().toISOString(),
   };
   report.outputs = writeOut(report);
