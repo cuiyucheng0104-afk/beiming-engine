@@ -13,6 +13,7 @@
 
 ### Added
 
+- 新系统 `beiming/verify/` HDR-FLIP 多档曝光感知误差指标 `image.hdrflip`（#73）：新增零外部依赖的 `hdrflip.mjs` 并从 `index.mjs` 导出 `hdrFlip(reference, test)`，输入是线性 sRGB 原色的浮点像素数组或 EXR（字节、文件路径，取 `color.R/G/B` 或 `R/G/B`），返回平均值、逐像素误差图与曝光区间、分位数；数值对齐 NVIDIA flip-evaluator 1.7（ACES 色调映射、默认每度 67.02 像素，含参考图中位亮度为 0 的分支），三组官方真值的平均值偏差在 1e-6 以内，两张相同的图得 0。算法按 BSD-3-Clause 改写自 NVlabs/flip，文件头保留版权声明并补齐 `LICENSES/BSD-3-Clause.txt`。全黑参考图官方会报错退出，这里把曝光区间退化成一档后照常给值；只支持 ACES；1080p 每档曝光约 4 秒。不影响现有路线与作品，配套 7 项单测。
 - `beiming/sources/core/` 新增函数级比对外壳 `fncheck/`。标准答案一侧按标签取 Cycles 源码（Blender v5.2.3），放进被忽略的 `out/` 缓存，核对 40 位提交号后，把内核函数编成本机小程序；Cycles 源码不进仓库。被测一侧把 `shaders/microfacet.wgsl` 里我方移植的函数包进计算着色器，在无头 Chrome 的 WebGPU 上跑。两边用同一批确定性随机输入逐个比，报出不合格的函数、输入和两边的值。入口是 `node beiming/sources/core/fncheck/run.mjs [函数名…] --n <组数> --seed <种子>`，不合格时退出码 4。第一批登记了 13 个叶子函数：GGX 法线分布、lambda 与遮蔽项，以及 F82 菲涅耳。这只是开发期的核对工具，不改任何成片，对 agent 做作品没有影响。
 - `beiming/sources/core/shaders/` 移植了 Cycles 的 GGX 金属反射闭包（F82-tint 菲涅耳、无薄膜、各向同性）：建立闭包时算 F82 的 B 项与能量补偿，求值与概率密度，采样（可见法线分布、同心圆盘、正交基与坐标变换），以及查找表读取。能量补偿用的两张表 `ggx_E`、`ggx_Eavg` 的数值照抄进 `ggx_tables.wgsl`，工具函数放在 Apache-2.0 的 `util.wgsl`，新增 `LICENSES/Apache-2.0.txt`。比对外壳随之能吃单位向量输入、多分量和结构体输出、多个 WGSL 文件拼成一个着色器，标准答案程序把表装进 Cycles 的内核全局数据再调真函数；另加两项显卡上的统计检验：采样方向分箱的 χ² 检验（对故意不配对的概率密度必须不过）与方向反照率积分。新登记 16 项（14 个函数，求值与采样的纯镜面一支各另登记一项）在 100 万组输入上与 Cycles 一致；闭包一层的输入范围收在 float32 条件良好的区域里，理由写在登记表。这是开发期的移植与核对，不改任何成片。
 - `beiming/sources/core/shaders/area_light.wgsl` 移植了 Cycles 的矩形面光（只移矩形、无聚拢的那条路）：球面矩形采样与它的立体角概率密度（含小立体角与掠射时退回平面近似的两支）、从着色点采样面光、按交点求值与概率密度、单面求交；`util.wgsl` 补上 `safe_asinf`、`copysignf` 与 `ray_quad_intersect`。比对外壳新增 `gen`（逐组生成正交基、相对灯面的位置这类彼此相关的输入）与 `branch`（报告各分支的比例），另加两项显卡上的检验：在灯面坐标上分箱的 χ² 检验（对故意不配对和只变形的概率密度都必须不过），以及均匀矩形面光照小面元的辐照度对解析形状因子（不依赖 Cycles，0.2% 以内）。新登记 9 项在 100 万组输入上与 Cycles 一致；float32 下条件不好的区域（掠射、立体角很小时的采样点）不逐组比，理由与实测写在登记表。这是开发期的移植与核对，不改任何成片。
@@ -130,6 +131,7 @@
 
 ### Changed
 
+- CI 提速且不缩覆盖：`tools/run-tests.mjs` 加 `--parallel`（Python 组与 Node 组同时跑）；`render (tests)` 拆成 tests-beiming / tests-rest 两片（`--only` / `--skip` 同一组域，新域自动落进后一片）并缓存 Chromium 的 apt 依赖；去掉与 render 重复的 `unit (Node 24)`；`windows-paths` 与 `env-smoke` 去掉 `continue-on-error`，同时按根因修了四处偶发红灯（preview-serve 管道竞态、jobs 与 cache 测试的时限太紧、audio Ctrl-C 测试信号落在 scipy 导入期）。
 - HDRMixer、audio.qa 与 `space_place` 的新混音/掩蔽能力改为显式 opt-in：只传旧构造参数时仍走 `tame_low` + `loudness_to`（`glue_eq` / `master_glue` / `continuous_duck_db` / `music_ceiling_offset_db` 默认 False/False/0/None）；`audio.masking` 默认仍是 soft < −8 dB / hard < −16 dB，收紧门限与 `music_dominance` / `music_buried` 需 `--strict-masking` 或 `audio.strictMasking`；`space_place` 动态声像跳过静态 ITD 改为 `dynamic_pan=True` 才启用。
 - Dependabot 不再检查仓库根目录的 pip：它会把 `requirements.txt` 写成无哈希 pin 清单、不重生 `requirements.lock`，PR 永远过不了 `env.python-lock` 与 `tests/env/lockfile.test.mjs`（已关闭的 #26 scipy、#27 soxr、#28 pillow、#29 soundfile）。`/tests/ci` 的 lint 哈希清单、npm、GitHub Actions 仍每周检查。根目录 Python 升级走 `node tools/env/lock.mjs --upgrade`。`requirements.txt` 不是 `-r requirements.in` 指针时，`env.python-lock` 现为 error。
 - 引擎从 v1.0 的 7 个文件重构成九层：core（时间与数学）、form（程序化造型）、shade（卡通着色）、stage（镜头与舞台）、look（后期）、paint（Canvas 2D 绘画）、overlay（显示层）、audio（声音）、render（出片），外加 production（生产契约）。《北冥》样片改为调用这些层，`src/` 只留本片的镜头、造型与色板。
@@ -154,6 +156,8 @@
 - 旧作品站的生成物 `showcase/`（由 `site/` 与 `tools/build-showcase.py` 取代）。
 
 ### Fixed
+
+- 治理 `beiming/jobs/` 三条在 Windows 高负载下易触发的计时抖动测试：`beiming/jobs/cache.test.mjs` 的 `A16-29` 跨进程 `prune`/`put` 互斥实测改为确定性互斥窗口压测加无拦截自由并发轮次，不再依赖 20 秒墙钟内靠调度运气撞够 20 次删除；`beiming/jobs/jobs.test.mjs` 放宽长轮询终态测试的 `waitForJob` 超时（`1000` → `10000` ms）及含磁盘队列 I/O / 子进程的测试超时（`3000`/`4000`/`5000` → `15000`/`20000` ms），不改生产逻辑，也不削弱互斥或短超时断言。
 
 - 先验库清单加载器（`beiming/cards/priors-batch2.mjs`、`beiming/cards/priors-audio-subs.mjs`）改为在加载时实时检查 `beiming/cards/<域>/<名>/card.json` 生成 `manifest.cards[].exists`，不再依赖静态 JSON 快照，避免后续新增技术卡后造成 `c11-priors.test.mjs` 失配。
 
