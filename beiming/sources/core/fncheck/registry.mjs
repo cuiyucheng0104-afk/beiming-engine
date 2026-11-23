@@ -107,8 +107,9 @@ FUNCTIONS.push(
   // r·cos(phi)、r·sin(phi) 在 phi 接近 ±π/2 时 cos 接近 0；显卡上 cos 的误差是绝对误差，量级 1
   entry('sample_uniform_disk', [['rand', 'vec2f', UNIT]], 2, 4 * ULP1),
   // 半向量分量是量级 1 的数经 to_global 相加，贴近 0 时靠 abs；中间经过两次归一化、一次 to_global 和显卡的 cos、sin，
-  // 每步都带几个 ULP，取 16 个 ULP。alpha 取整个范围，随机数离开圆盘边缘（理由同上）
-  entry('microfacet_ggx_sample_vndf', [['wi', 'dir', [1e-3, 1]], ['alpha_x', 'f32', ALPHA], ['alpha_y', 'f32', ALPHA], ['rand', 'vec2f', RAND]], 3, 16 * ULP1),
+  // 每步都带几个 ULP。【实测】所需 abs：Apple 显卡 4.6e-7，NVIDIA 1.3e-6（它的 cos、sin 误差更大），取 32 个 ULP。
+  // alpha 取整个范围，随机数离开圆盘边缘（理由同上）
+  entry('microfacet_ggx_sample_vndf', [['wi', 'dir', [1e-3, 1]], ['alpha_x', 'f32', ALPHA], ['alpha_y', 'f32', ALPHA], ['rand', 'vec2f', RAND]], 3, 32 * ULP1),
   // 同 fresnel_f82：F_schlick 减去 B 项
   entry('microfacet_fresnel_f82', [['cos_theta_i', 'f32', UNIT], ['f0', 'vec3f', F0], ['b', 'vec3f', B]], 3, 4 * ULP1),
   entry('microfacet_ggx_preserve_energy', [['N', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA], ['Fss', 'vec3f', UNIT]], { energy_scale: 1, darkening: 3 }),
