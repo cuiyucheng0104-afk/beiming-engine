@@ -56,16 +56,16 @@
 
 ## CI 的 job，以及在本机怎么复现
 
-工作流在 `.github/workflows/ci.yml`：unit、check、render（tests 与 smoke 两路并行）、smoke-render（汇总 render 两路）、env-smoke、windows-paths。下面每条命令都与 job 里的一致，在仓库根目录运行。每个 job 都检出完整历史（`fetch-depth: 0`）：工程计划的证据提交、金标准清单的源提交都要在本仓库里找得到，浅克隆会报「找不到」。
+工作流在 `.github/workflows/ci.yml`：unit、check、render（tests-beiming、tests-rest、smoke 三路并行）、smoke-render（汇总 render 各路）、env-smoke、windows-paths。下面每条命令都与 job 里的一致，在仓库根目录运行。每个 job 都检出完整历史（`fetch-depth: 0`）：工程计划的证据提交、金标准清单的源提交都要在本仓库里找得到，浅克隆会报「找不到」。
 
-### unit（Node 24 与 22、Python 3.12）
+### unit（Node 22、Python 3.12）
 
-不装浏览器和 FFmpeg，需要它们的测试会自己跳过，留到 render (tests) 里跑。
+不装浏览器和 FFmpeg，需要它们的测试会自己跳过，留到 render (tests-*) 里跑。Node 24 的 Linux 全量测试由 render (tests-*) 两片合起来覆盖（同一台 Ubuntu、同一个 Node 24，只是多了浏览器与 FFmpeg），所以不再另跑 unit (Node 24)。
 
 ```sh
 npm ci
 python3.12 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt   # 有 requirements.lock 时用 --require-hashes -r requirements.lock
-node tools/run-tests.mjs
+node tools/run-tests.mjs --parallel   # CI 的写法：Python 组与 Node 组两条流水线同时跑；本机想按域顺序看输出就去掉 --parallel
 ```
 
 PowerShell 的写法：`.venv\Scripts\python -m pip install -r requirements.txt`，测试命令相同。
@@ -81,7 +81,7 @@ eslint 要等 `package.json` 的 devDependencies 登记了 eslint、@eslint/js�
 
 ### render 与 smoke-render（无显卡、软件渲染）
 
-CI 里这一块是 matrix 两路并行，各自做一遍环境准备（装依赖、FFmpeg、字体、headless shell）：`render (tests)` 跑下面的第一条命令（全部测试），`render (smoke)` 跑第二条（`smoke-render.mjs`，含金标准）。`smoke-render` 是汇总任务，两路都通过才绿；检查名沿用拆分前，分支保护选它就不会漏掉 tests 一路。产物：`smoke` 一路上传 `smoke-render`（接触印、静帧、报告，`release.yml` 取它）与 `golden-capture-linux-swiftshader`，`tests` 一路上传 `render-tests`。两路互不依赖，本机想只验证其中一块就只跑对应那条命令。
+CI 里这一块是 matrix 三路并行，各自做一遍环境准备（装依赖、FFmpeg、字体、headless shell；Chromium 的 apt 依赖按 runner 镜像版本缓存下载包，不再每次走 Ubuntu 镜像）：`render (tests-beiming)` 跑 `--only beiming,audio` 那一片，`render (tests-rest)` 跑 `--skip beiming,audio`（同一组域，新增的域自动落进这一片，不会漏），`render (smoke)` 跑 `smoke-render.mjs`（含金标准）。`smoke-render` 是汇总任务，各路都通过才绿；检查名沿用拆分前，分支保护选它就不会漏掉任何一路。产物：`smoke` 一路上传 `smoke-render`（接触印、静帧、报告，`release.yml` 取它）与 `golden-capture-linux-swiftshader`，两片 tests 各上传 `render-tests-beiming`、`render-tests-rest`。各路互不依赖，本机想只验证其中一块就只跑对应那条命令。
 
 需要 playwright-core 锁定版本自带的 headless shell，以及 FFmpeg ≥ 7（带 libx264、aac、ebur128）。
 
@@ -120,7 +120,7 @@ node tools/env/doctor.mjs --route a --json
 node tools/env/doctor.mjs --route c --json
 ```
 
-在三平台第一次跑通之前，这个 job 不阻塞合入。跑通后，把仓库变量 `BEIMING_ENV_SMOKE_REQUIRED` 设为 true，并在分支保护里把它加为必需检查。
+env-smoke 与 windows-paths 都没有 `continue-on-error`：红了就是红，偶发红灯找根因修、不加重试。建议在分支保护里把它们加为必需检查。
 
 ### windows-paths（Windows Server 2025、PowerShell、无 Git Bash）
 

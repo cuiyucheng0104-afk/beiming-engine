@@ -125,6 +125,7 @@
 
 ### Changed
 
+- CI 提速且不缩覆盖：`tools/run-tests.mjs` 加 `--parallel`（Python 组与 Node 组同时跑）；`render (tests)` 拆成 tests-beiming / tests-rest 两片（`--only` / `--skip` 同一组域，新域自动落进后一片）并缓存 Chromium 的 apt 依赖；去掉与 render 重复的 `unit (Node 24)`；`windows-paths` 与 `env-smoke` 去掉 `continue-on-error`，同时按根因修了四处偶发红灯（preview-serve 管道竞态、jobs 与 cache 测试的时限太紧、audio Ctrl-C 测试信号落在 scipy 导入期）。
 - HDRMixer、audio.qa 与 `space_place` 的新混音/掩蔽能力改为显式 opt-in：只传旧构造参数时仍走 `tame_low` + `loudness_to`（`glue_eq` / `master_glue` / `continuous_duck_db` / `music_ceiling_offset_db` 默认 False/False/0/None）；`audio.masking` 默认仍是 soft < −8 dB / hard < −16 dB，收紧门限与 `music_dominance` / `music_buried` 需 `--strict-masking` 或 `audio.strictMasking`；`space_place` 动态声像跳过静态 ITD 改为 `dynamic_pan=True` 才启用。
 - Dependabot 不再检查仓库根目录的 pip：它会把 `requirements.txt` 写成无哈希 pin 清单、不重生 `requirements.lock`，PR 永远过不了 `env.python-lock` 与 `tests/env/lockfile.test.mjs`（已关闭的 #26 scipy、#27 soxr、#28 pillow、#29 soundfile）。`/tests/ci` 的 lint 哈希清单、npm、GitHub Actions 仍每周检查。根目录 Python 升级走 `node tools/env/lock.mjs --upgrade`。`requirements.txt` 不是 `-r requirements.in` 指针时，`env.python-lock` 现为 error。
 - 引擎从 v1.0 的 7 个文件重构成九层：core（时间与数学）、form（程序化造型）、shade（卡通着色）、stage（镜头与舞台）、look（后期）、paint（Canvas 2D 绘画）、overlay（显示层）、audio（声音）、render（出片），外加 production（生产契约）。《北冥》样片改为调用这些层，`src/` 只留本片的镜头、造型与色板。
