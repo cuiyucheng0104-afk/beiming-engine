@@ -66,10 +66,13 @@ test('内核源码的来源：来源说明写了上游与固定提交，上游�
   // 照 Cycles 移植的两个哈希文件不是上游 ThreeRT 的：Apache-2.0，版权与许可写在文件头
   const cycles = ['shaders/hash.wgsl', 'src/cycles_hash.rs'];
   assert.equal(sources.length, 34);
+  // （下面的正则里有许可标识的字样，它不是本文件的许可声明：让许可覆盖的扫描跳过这一段。）
+  // REUSE-IgnoreStart
   for (const f of cycles) {
     assert.match(read(f), /^\/\/ SPDX-FileCopyrightText: 2011-2022 Blender Foundation\n(\/\/ SPDX-FileCopyrightText: .*\n)*\/\/ SPDX-License-Identifier: Apache-2\.0\n/, f);
     assert.ok(prov.includes(`\`${f}\``), `来源说明里没有 ${f}`);
   }
+  // REUSE-IgnoreEnd
   for (const f of sources.filter(f => !cycles.includes(f))) {
     const first = read(f).split('\n', 1)[0], from = split.includes(f) ? 'shaders/pathtrace.wgsl' : f;
     assert.ok(first.startsWith('// 源自 ThreeRT') && first.includes(COMMIT) && first.includes(`renderer/${from}`) && first.includes('MIT') && first.includes('Meshy LLC') && first.includes('PROVENANCE.md'), f);

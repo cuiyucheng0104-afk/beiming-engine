@@ -2535,6 +2535,52 @@ mod tests {
         }
     }
 
+    /// 北冥：着色点、闭包、材质输入值（shaders/shader.wgsl）的字段名单，与「已写未读」的几项写入，做法同上一条。
+    /// 字段名照 Cycles 的 ShaderData、ShaderClosure：改名、删字段要先改这里（加字段只要在名单里补上）。
+    /// 现在只写不读的：着色点的平滑法线、物体号、图元号、重心坐标、这一段光线的长度（物体号只被抄进同样没人读的
+    /// `state.mis_ray_object`）；材质输入值的折射率、高光等级、不透明度、漫反射粗糙度；闭包的采样权重与菲涅耳种类；
+    /// 光线的「出发处的物体与图元」。它们是给后面照 Cycles 移植闭包、灯、图案节点的人留的，着色器里没有别处能发现
+    /// 它们被悄悄删掉，所以在这里按源码查写入语句都在。查的是语句在不在，不是运行时的值。
+    #[test]
+    fn shading_point_is_written() {
+        let template = kernel_template();
+        let src = kernel_wgsl(&template, &KernelVariant::new(false, KernelSwitches::default(), 0));
+        let m = naga::front::wgsl::parse_str(&src).unwrap_or_else(|e| panic!("{}", e.emit_to_string(&src)));
+        let members = |name: &str| -> Vec<String> {
+            let (_, t) = m.types.iter().find(|(_, t)| t.name.as_deref() == Some(name)).unwrap_or_else(|| panic!("内核里没有结构 {name}"));
+            match &t.inner {
+                naga::TypeInner::Struct { members, .. } => members.iter().map(|x| x.name.clone().unwrap()).collect(),
+                _ => panic!("{name} 不是结构"),
+            }
+        };
+        assert_eq!(members("ShadingPoint"), ["P", "N", "Ng", "wi", "object", "prim", "u", "v", "ray_length", "flag", "object_flag", "time", "lcg_state", "emission", "num_closure", "closure", "legacy"]);
+        assert_eq!(members("Closure"), ["kind", "weight", "sample_weight", "N", "alpha_x", "alpha_y", "ior", "energy_scale", "fresnel_type", "f0", "f90_or_b", "exponent", "reflection_tint", "transmission_tint"]);
+        assert_eq!(members("ShaderInputs"), ["base_color", "metallic", "roughness", "ior", "specular_ior_level", "specular_tint", "emission", "alpha", "diffuse_roughness", "flags", "coat_weight", "transmission_weight", "N"]);
+        for write in [
+            // 着色点（shader_setup_from_hit）
+            "(*sd).prim = h.tri;",
+            "(*sd).u = h.u;",
+            "(*sd).v = h.v;",
+            "(*sd).ray_length = h.t;",
+            "(*sd).object = instance_at(h.inst).info.y;",
+            "(*sd).object = object_of(a);",
+            "(*sd).N = n;",
+            // 材质输入值（legacy_shader_inputs）
+            "inp.ior = max(m.layer.y, 1e-5);",
+            "inp.specular_ior_level = max(m.specular_ior_level, 0.0);",
+            "inp.alpha = clamp(m.base_color.a, 0.0, 1.0);",
+            "inp.diffuse_roughness = clamp(m.diffuse_roughness, 0.0, 1.0);",
+            // 闭包（shader_setup_closures）
+            "c.sample_weight = 1.0;",
+            "c.fresnel_type = FRESNEL_F82_TINT;",
+            // 光线（main）
+            "ray.self_object = OBJECT_NONE;",
+            "ray.self_prim = OBJECT_NONE;",
+        ] {
+            assert!(template.contains(write), "这处写入不见了：{write}");
+        }
+    }
+
     /// A kernel with units has the loop guard natively with nothing set, at the browser's limit; THREERT_LOOP_GUARD=0
     /// takes it out, a limit set is the limit, a page's limit comes first. A kernel without units has it only where
     /// one is set, or in a browser.

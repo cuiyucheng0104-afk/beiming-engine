@@ -150,8 +150,9 @@ fn bsdf_albedo(sd: ShadingPoint, k: u32) -> vec3<f32> {
 //   light.wgsl       local_lights（两处问「是不是两面受光」two_sided，候选权重的余弦用上游的着色法线）；
 //                    direct_light（发光体采样用上游的着色法线，并问 two_sided）。归做灯的人删。
 //   integrator.wgsl  相机命中处记的几个量（实时预览留下的 anim、rough0、glass0、refl_e 与清漆判断），现在没有读者。
-// 另有两处直接读材质记录（Material）的已知例外，在求交那一侧：镂空测试 alpha_pass（shader.wgsl）、阴影穿玻璃
-// glass_at（intersect.wgsl），以及硬件求交的 cutout（trace_hw.wgsl）。
+// 另有直接读材质记录（Material）的已知例外，都是上游留下的。求交一侧：镂空测试 alpha_pass（shader.wgsl）、阴影穿玻璃
+// glass_at（intersect.wgsl）、硬件求交的 cutout（trace_hw.wgsl）。灯光一侧读发光三角的材质：emitter_radiance、emitter_sel、
+// emit_mis、sample_emitter、sample_emitter_ris（light.wgsl），归做灯的人。还有给材质函数备输入的 mat_in_at（shader.wgsl）。
 
 // 上游的灯光函数专用的求值：方向 `wo` 上 BSDF 乘余弦的值，与这次求值里高光占的份额（逐通道）。
 // `k`：上游每盏灯的高光倍率，只对上游顶替的闭包有效（移植的闭包不认它）。新写的代码不许调；灯移植完后删。

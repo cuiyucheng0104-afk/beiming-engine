@@ -237,6 +237,66 @@ mod tests {
         assert!(film_bytes(64, 36, &KernelFilm { film_stride: 11, film_lightgroup_first: 10, num_lightgroups: 2, reserved: 0 }, limit).is_err());
     }
 
+    /// 北冥：闭包种类号的快照。种类号是内核自己的编号（名字照 Cycles，数值不照）：往后追加，已有的数值不许变，
+    /// 两个种类不许用同一个号。加种类要在这张表里补一行，并在 ../STRUCTURES.md 的编号登记表里登记；着色器里声明了
+    /// 而这里没有的种类，这条测试会红。
+    #[test]
+    fn the_closure_kinds_keep_their_numbers() {
+        const KINDS: [(&str, u32); 5] = [("CLOSURE_NONE", 0), ("CLOSURE_LEGACY", 1), ("CLOSURE_BSDF_MICROFACET_GGX", 2), ("CLOSURE_BSDF_DIFFUSE", 3), ("CLOSURE_BSDF_TRANSPARENT", 4)];
+        let (m, _) = parse(&variant(0, false));
+        for (name, value) in KINDS {
+            assert_eq!(constant(&m, name), value, "{name}：已有的种类号不许变");
+        }
+        let mut declared: Vec<&str> = m.constants.iter().filter_map(|(_, c)| c.name.as_deref()).filter(|n| n.starts_with("CLOSURE_")).collect();
+        declared.sort();
+        let mut known: Vec<&str> = KINDS.iter().map(|k| k.0).collect();
+        known.sort();
+        assert_eq!(declared, known, "着色器里的闭包种类与快照不是同一批：新种类要先登记");
+        let mut values: Vec<u32> = KINDS.iter().map(|k| k.1).collect();
+        values.dedup();
+        assert_eq!(values, (0..KINDS.len() as u32).collect::<Vec<_>>(), "种类号从 0 起连续追加，不重复");
+    }
+
+    /// 北冥：每次弹射占的随机维度个数两侧是同一个数（integrator.wgsl 的 `PRNG_BOUNCE_NUM` 与 `sample::PRNG_BOUNCE_NUM`；
+    /// 它照 Cycles 取值，对 Cycles 头文件的那一步在 ../../chassis/freeze.test.mjs）。
+    #[test]
+    fn the_bounce_stride_is_the_kernels() {
+        let (m, _) = parse(&variant(0, false));
+        assert_eq!(constant(&m, "PRNG_BOUNCE_NUM"), crate::sample::PRNG_BOUNCE_NUM);
+    }
+
+    /// `code` 里对结构 `name` 的第一处位置式构造（`Name(a, b…)`；零值构造 `Name()` 不算），没有就是 None。
+    fn built_by_position(code: &str, name: &str) -> Option<String> {
+        let call = format!("{name}(");
+        code.match_indices(&call).find_map(|(at, _)| {
+            let own_word = !code[..at].chars().next_back().is_some_and(|c| c.is_alphanumeric() || c == '_');
+            let empty = code[at + call.len()..].trim_start().starts_with(')');
+            (own_word && !empty).then(|| code[at..].chars().take(60).collect())
+        })
+    }
+
+    /// 北冥：只活在一次调用里的结构不许位置式构造（`Closure(a, b, …)`），只许先取零值（`Closure()`）再按名字赋值：
+    /// 这些结构以后还要加字段，位置式构造会让「加字段」变成破坏别处的改动。查的是内核源码的全文（各变体的分支都在
+    /// 里面），注释不算。名单是这类结构的登记表：新加函数内结构、新加函数的返回结构，要补进来。
+    /// （进缓冲的记录不在此列，它们的字段位置本来就是格式：`Material`、`Light`、`ObjectExt` 等照旧按位置拼。）
+    #[test]
+    fn call_structs_are_not_built_by_position() {
+        const NAMES: [&str; 18] = [
+            "PathState", "PathLegacy", "Ray", "ShadingPoint", "ShadingLegacy", "Closure", "ShaderInputs", "SurfaceEval", "ClosureEval", "BsdfEval", "BsdfSample", "BsdfPick", "BsdfEvalLegacy",
+            "LocalHit", "LocalIntersection", "SampleResult", "SampleLegacy", "AuxSample",
+        ];
+        let code: String = kernel_template().lines().map(|l| l.split("//").next().unwrap()).collect::<Vec<_>>().join("\n");
+        for name in NAMES {
+            assert!(code.contains(&format!("struct {name} {{")), "内核里没有结构 {name}：改了名字的话这张名单要跟着改");
+            assert_eq!(built_by_position(&code, name), None, "{name} 被位置式构造了");
+        }
+        // 这条检查自己的对照：位置式构造认得出来，零值构造、名字只是别的标识符的后半截不算。
+        assert!(built_by_position("var c = Closure(1u, w);", "Closure").is_some());
+        assert!(built_by_position("var c = Closure( );\nlet e = ClosureEval();\nfn f(c: Closure) {}", "Closure").is_none());
+        assert!(built_by_position("let e = BsdfEvalLegacy(a, b);", "BsdfEval").is_none());
+        assert!(built_by_position("let e = MyClosure(a);", "Closure").is_none());
+    }
+
     /// Kernel variants in the merged layout: valid WGSL, no entry point with more than eight storage buffers, none
     /// declared beyond them (a pipeline layout counts what is declared), no length of a view's buffer in the source,
     /// and `MergedLive`'s members where the renderer puts their sections.

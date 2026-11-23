@@ -44,12 +44,12 @@
 | `src/denoise.rs` | `renderer/src/denoise.rs` | 没改 |
 | `src/desc.rs` | `renderer/src/desc.rs` | 删去切掉的几类 |
 | `src/files.rs` | `renderer/src/files.rs` | 删去切掉的几类；预设的内嵌路径改指本目录的 `presets/` |
-| `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的四个着色器（见下一节）；全局参数追加三块、材质表与物体扩展表的上传、输出缓冲的分配与读回（见下一节末） |
+| `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的四个着色器（见下一节）；全局参数追加三块、材质表与物体扩展表的上传、输出缓冲的分配与读回（见下一节末）；加了守着内核结构的测试（见下一节「四样内部结构的冻结」） |
 | `src/heap.rs` | `renderer/src/heap.rs` | 删去切掉的几类；多一张物体扩展表（见下一节末） |
 | `src/lib.rs` | `renderer/src/lib.rs` | 删去切掉的几类；文档里的程序名；填全局参数追加的三块 |
 | `src/ltree.rs` | `renderer/src/ltree.rs` | 删去切掉的几类 |
 | `src/main.rs` | `renderer/src/main.rs` | 删去切掉的几类；库名与程序名 |
-| `src/merged.rs` | `renderer/src/merged.rs` | 删去切掉的几类；加了锁住两侧格式的测试（见下一节末） |
+| `src/merged.rs` | `renderer/src/merged.rs` | 删去切掉的几类；加了锁住两侧格式与编号的测试（见下一节末与「四样内部结构的冻结」） |
 | `src/pipeline_cache.rs` | `renderer/src/pipeline_cache.rs` | 没改 |
 | `src/post.rs` | `renderer/src/post.rs` | 没改 |
 | `src/procasset.rs` | `renderer/src/procasset.rs` | 没改 |
@@ -71,7 +71,7 @@
 | `rust-toolchain.toml` | `rust-toolchain.toml` | Rust 版本不变（1.100.0）；去掉只给浏览器构建用的 wasm32 目标，注释重写 |
 | `LICENSE-upstream.txt` | `LICENSE` | 原样 |
 
-`PROVENANCE.md`、`README.md`、`.gitignore` 是北冥新写的。`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 也不是上游的文件：照 Cycles 移植的哈希函数，见下一节「随机维度」。
+`PROVENANCE.md`、`README.md`、`STRUCTURES.md`、`FREEZE.json`、`.gitignore` 是北冥新写的。`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 也不是上游的文件：照 Cycles 移植的哈希函数，见下一节「随机维度」。
 
 ## 北冥加了什么
 
@@ -103,8 +103,8 @@
 
 金属度为 1、没有清漆、没有透射的材质不再经上游顶替，改成一个独立的闭包：种类 `CLOSURE_BSDF_MICROFACET_GGX`，菲涅耳 `FRESNEL_F82_TINT`。带清漆或透射的金属还在上游顶替里，上面的金属接线（`Lobes.bm`）为它们留着。
 
-- `shaders/shader.wgsl`：`shader_setup_closures` 按材质输入值建立这个闭包（底色当 F0，边缘色读 `ShaderInputs.specular_tint`，现在恒为白；alpha 取粗糙度的平方；能量补偿的开关还读全局的 `energyCompensation`）。F82 的 B 项、能量补偿的倍率与权重在这里算一次、存进闭包，不再在每次求值、采样时重算。`ShaderInputs` 多了 `coat_weight`、`transmission_weight` 两项。粗糙度沿用上游的 0.02 下限。
-- `shaders/closure.wgsl`：新增按闭包种类分发的 `bsdf_eval`（取出闭包的字段，调 `../shaders/microfacet.wgsl` 里移植的求值函数）；`surface_shader_bsdf_sample_closure` 对这个闭包调移植的采样函数，方向的两个随机数仍取上游材质采样那一组的后两维，采到方向后再求值一遍取值与概率密度（与原来的接线一样）；上游的灯光函数用的 `surface_shader_bsdf_eval_legacy` 对它直接取闭包的求值，上游每盏灯的高光倍率只对上游顶替有效。
+- `shaders/shader.wgsl`：`shader_setup_closures` 按材质输入值建立这个闭包（底色当 F0，边缘色读 `ShaderInputs.specular_tint`，现在恒为白；alpha 取粗糙度的平方；能量补偿的开关当时还读全局的 `energyCompensation`，后来改读材质记录的那一位，见「材质记录、全局参数、物体扩展表、输出缓冲」）。F82 的 B 项、能量补偿的倍率与权重在这里算一次、存进闭包，不再在每次求值、采样时重算。`ShaderInputs` 多了 `coat_weight`、`transmission_weight` 两项。粗糙度沿用上游的 0.02 下限。
+- `shaders/closure.wgsl`：新增按闭包种类分发的 `bsdf_eval`（取出闭包的字段，调 `../shaders/microfacet.wgsl` 里移植的求值函数）；`surface_shader_bsdf_sample_closure` 对这个闭包调移植的采样函数，方向的两个随机数当时仍取上游材质采样那一组的后两维（后来改成照 Cycles 编号的 `PRNG_SURFACE_BSDF`，见「随机维度」），采到方向后再求值一遍取值与概率密度（与原来的接线一样）；上游的灯光函数用的 `surface_shader_bsdf_eval_legacy` 对它直接取闭包的求值，上游每盏灯的高光倍率只对上游顶替有效。
 - 上游的 `light_mis` 没有改：纯金属的 `Lobes.bm` 仍为真，它经上游的 `pdf_bsdf` 拿到的就是同一个移植函数算的密度。所以纯金属的着色点上仍要算上游的 `Lobes`。
 
 这一步的渲染结果允许末位变化（原来的接线求值时多一次「除以余弦再乘回」，建立闭包的几项也是每次现算）。实测：第 2 级 24 个读数与改之前的相对差不超过 2e-8；每个读数用 8 个种子取均值，改前改后的差不到合成标准误的百分之一；上游自带的渲染测试里不含纯金属的 121 个场景原始输出逐字节相同，含纯金属的 5 个（`cache/mirror-metal`、`cache/mirror-sun`、`furnace/metal-energy-compensated`、`material/metal-f0`、`surface/windows-mirror`）像素相对差的中位数在 1e-7 上下，每张图有零到三个孤立像素超过 1e-5（两台机器、两种求交合起来最大的一个是 7e-3；换一个种子它们换地方、个数相仿，全图均值的相对差不超过 1e-6）：近似镜面的金属把光线反射到灯或物体的边沿上，方向差一个末位，打中与没打中就翻了（关掉俄罗斯轮盘这几个像素照旧；在改之前的程序里给反射方向加一个末位的扰动，同样的像素也跳）。两台机器的基线在这一步之后重记过。
@@ -175,6 +175,18 @@
 - 新测试 `the_dimension_ids_are_distinct`（纯 CPU）：照各着色器里的用法枚举弹射 0 到 64 的编号（照 Cycles 的每次弹射 16 个位置加相机 2 个；16 个上游槽位；各槽位之下登记过的子流序号区段），断言照 Cycles 的编号都小于 2^31、三个名字空间的最高两位各是各的、全部编号互不相同。测试里的常数就是子流序号区段的登记表（方向光 8 盏、本地灯 64 盏、本地灯候选 8 个加灯光瓦片候选 16 个、发光体候选 16 个），加槽位、加子流都要同步改它。
 
 **这条测试管不到的一块**：介质跟踪每一步的白噪声编号（`media_tr` 与 `media_track` 里按步数 `rng_sub` 出来的）。它们挂在每一条阴影射线的编号之下，照上面的区段枚举约有八十万个（6,240 条阴影射线，每条 4 个介质各 32 步），而 `rng_sub` 的编号只有 30 位，「全部互不相同」按生日界做不到。实际试过把区段缩到方向光 4 盏、本地灯 16 盏、介质 2 个、每条射线 4 步，连跟踪步一共 23,098 个编号，就已经有一处：第 3 次与第 55 次弹射的两条阴影射线各有两步互相撞号。所以测试对它们只查「同一条射线之内互不相同」（介质 4 个、每个 32 步），不同射线的跟踪步之间每一对相撞的概率是 2^-30，没有保证。这不是换编号带来的：上游的子流编号原来是 31 位，同样没有这个保证。
+
+### 四样内部结构的冻结
+
+上面几节定下来的四样东西（材质记录、光线负载、随机维度、输出通道）合成了一份条文 [STRUCTURES.md](STRUCTURES.md)：每个字段的名字、类型、含义、谁写谁读与状态，两类结构各自的规矩，编号登记表，落地时与当初设计不一样的地方，判据，还没接的东西各等谁来接，以及改动的规矩。上面几节讲的是「相对上游改了什么、为什么这样写」，条文讲的是「现在是什么样、以后怎么改」；两处对不上时以代码为准。
+
+这一步不改内核的行为（两台机器上回归基线逐位相同），加的是标记与检查：
+
+- 冻结标记 [FREEZE.json](FREEZE.json)：四样结构、版本、冻结日期、条文与登记表的位置、改动的规矩，并按文件钉住着色器里的结构定义（去掉注释与空白之后的摘要）、常数（类型与数值的原文）与函数签名。[../chassis/freeze.mjs](../chassis/freeze.mjs) 从源码重算了比：标记在且一致退出 0，否则 4；名字属于登记类的常数（闭包种类号、材质标志位、路径标志位、随机维度、输出缓冲的位置等）声明了而没进标记也算不一致。有意改了结构之后用 `--update` 重写钉住的值，标记的差异随改动一起提交。
+- `src/merged.rs` 的三条测试：`the_closure_kinds_keep_their_numbers`（闭包种类号的快照：已有的数值不许变，新种类要先登记）、`the_bounce_stride_is_the_kernels`（每次弹射占的随机维度个数两侧同值）、`call_structs_are_not_built_by_position`（只活在一次调用里的结构没有位置式构造，按内核源码全文查）。
+- `src/gpu.rs` 的 `shading_point_is_written`：着色点、闭包、材质输入值的字段名单，与它们和光线里「现在只写不读」各项的写入语句，做法同 `path_state_is_written`。
+- [../chassis/freeze.test.mjs](../chassis/freeze.test.mjs)：仓库里的标记与代码一致；检查认得出该认的改动；条文提到了标记钉住的每个名字；照 Cycles 取值的常数（路径标志位与可见类、随机维度的枚举与每次弹射的个数、菲涅耳种类、着色点与物体的标志、采样标签）与 Cycles 头文件里的同名枚举逐个相等。最后一项要本机有函数级比对用的 Cycles 源码缓存，没有就跳过。
+- 两处着色器只改了注释：`shaders/shader.wgsl` 开头指向条文；`shaders/closure.wgsl` 的例外清单补上灯光一侧直接读材质记录的几个上游函数。
 
 ## 沿用上游名字的地方
 
