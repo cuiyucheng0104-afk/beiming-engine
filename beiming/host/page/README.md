@@ -35,6 +35,6 @@ node 和页面之间：`open` 时 node 把镜头输入、锁文件、档位和�
 
 只配 three 的渲染器；不接资产，`ctx.assets.load`、`ctx.anchor` 一调就报错（锚点来自镜头的 `meta(f)` 和所装的卡的 `meta(f)`；落在相机平面上、透视除法除数 `w = 0` 的，元数据那一帧报错，`anchor` 查询只要世界坐标、照答，见 `DETAILS.md`）；叠加层展开要用的那张卡还没有，带叠加层的镜头装不了；带入口文件的镜头没有数据轨道（`ctx.tracks.apply` 是空操作）；数据卡产出的轨道除了相机都没有地方写，带着这种卡的镜头装不了；带入口文件的镜头里后期类的卡没有地方放（后期链只有固定装载脚本接）；卡交的文字框按 `ctx.size`（输出尺寸）算，档位带缩放时和这一帧的 `size` 对不上，没验证；片子描述所在的目录必须在静态服务放行的目录里。
 
-浏览器启动参数沿用旧渲染器的 `chromeArgs()`，另加 `--mute-audio`。静态服务只绑本机地址，只放行 `beiming/`、three 的构建目录和 `fonts/` 下的 woff2（锁定的字体子集）。
+浏览器启动参数沿用旧渲染器的 `chromeArgs()`，另加 `--mute-audio`。静态服务只绑本机地址，只放行 `beiming/`、three 的构建目录，以及 `fonts/` 与 `routes/c-style/fonts/` 下锁定的字体文件（woff2 与 `fonts.json`）。
 
 测试：`node --test 'beiming/host/page/*.test.mjs'`；卡和固定装载的实渲核对在 `beiming/cards/m1a-cards.test.mjs`。
