@@ -16,7 +16,7 @@
   root() / abs_path(rel_path)                   BEIMING_SFX_ROOT 库根与绝对路径（未设返回 None）
   search(query, ...)                            中英关键词（中文经 sfx_vocab 的 UCS 词表翻译成英文检索词）
                                                + 子库/分类/时长过滤 → 候选列表（含相对路径与得分）
-许可证核验与使用边界（哪些子库能渲染进交付成片、哪些标红待拍板）见 docs/rights/sfx-library.md。
+许可证核验与使用边界（各子库授权状态为 owner-confirmed、来源注记与待补书面项）见 docs/rights/sfx-library.md。
 """
 import json
 import math

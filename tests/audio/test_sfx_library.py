@@ -182,7 +182,7 @@ class EnvironmentTests(unittest.TestCase):
             self.assertIsNone(sfx_library.root())
             self.assertIsNone(sfx_library.abs_path('Lib/Sub A/ok_hit.wav'))
         with mock.patch.dict(os.environ, {sfx_library.ENV_ROOT: '/mnt/sfx'}):
-            self.assertEqual(sfx_library.abs_path('Lib/Sub A/ok_hit.wav'), '/mnt/sfx/Lib/Sub A/ok_hit.wav')
+            self.assertEqual(sfx_library.abs_path('Lib/Sub A/ok_hit.wav'), os.path.join('/mnt/sfx', 'Lib/Sub A/ok_hit.wav'))  # Windows 上 os.path.join 用反斜杠
 
     def test_parse_defects_ignores_non_path_lines(self):
         d = sfx_library.parse_defects('## 0 字节空文件：1 个\n- 说明文字\nLib/x.wav\n噪声行\n')

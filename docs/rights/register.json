@@ -562,7 +562,7 @@
       "scope": "BOOM 与 SoundMorph 的 MEDIA / MEDIA PRODUCER LICENSE：允许在成片（影视、广播、游戏等多媒体成品）中商用，含同步权与机械权，无署名义务；禁止再分发、并入素材库或采样回放系统转售；派生转换产物（拟合参数文件等）只作内部制作中间体，不入仓、不分发。Pro Sound Effects 两子库库内无 EULA，范围待核",
       "term": "BOOM：worldwide、无期限；SoundMorph：至按条款终止；Pro Sound Effects：待补",
       "writtenEvidence": "库内 EULA 原文（路径见 holderBasis，许可证正文不进仓库）；Pro Sound Effects 的官方 EULA 或购买凭证：待补",
-      "status": "unverified",
+      "status": "user-declared",
       "statusNote": "主人 2026-11-24 确认全部子库持有授权（owner-confirmed，item 37 留痕；Portals / Inner Circle 另确认在正版购买范围内），书面凭据（购买记录、官方 EULA）待补；来源注记：Future Weapons 1/2、Portals、Inner Circle 盘内有第三方渠道残留文件（About.zip/LookAE 声明、下载.url、TM DISCOVER.nfo），建议以官方原盘替换拷贝，不阻塞使用，其余 12 个 SoundMorph 子库未逐文件扫描；待补书面项：SoundMorph 单用户许可与 NAS 共享口径、Pro Sound Effects 无库内 EULA；详见 docs/rights/sfx-library.md 第三节",
       "evidence": [
         "docs/rights/sfx-library.md（逐子库核验、EULA 原文要点、来源注记与待补书面项）",
