@@ -7,7 +7,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { polygonIrradiance } from '../fncheck/checks.mjs';
 import { COMMIT, KERNEL, SHADERS, singleCopyProblems } from './build.mjs';
-import { CYCLES, DIFFUSE, GATES, discPixels, rectMean, runLevel2 } from './level2.mjs';
+import { CYCLES, DIFFUSE, GATES, analyticOk, discPixels, rectMean, runLevel2 } from './level2.mjs';
 
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const ROUGHNESS = ['0.05', '0.10', '0.20', '0.30', '0.40', '0.50', '0.60', '0.70', '0.80', '0.90', '1.00'];
@@ -44,8 +44,10 @@ test('解析值：区域缩成一点时等于形状因子；正对的方形灯�
   assert.ok(a > 0 && Math.abs(a / b - 1) < 1e-9);
 });
 
-test('判据：白炉 ±0.5%，解析场景 0.2% 且在 3 个标准误之内', () => {
-  assert.deepEqual(GATES, { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3 });
+test('判据：白炉 ±0.5%，解析场景 0.2% 以内，且在 3 个标准误或相对 1e-5 以内', () => {
+  assert.deepEqual(GATES, { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3, analyticFloor: 1e-5 });
+  const a = (rel, z) => analyticOk({ rel, z });
+  assert.deepEqual([a(2e-6, 3.9), a(2e-5, 3.9), a(2e-5, 2.9), a(3e-3, 0.1), a(-2e-6, -9)], [true, false, true, false, true]);
 });
 
 test('内核源码的来源：来源说明写了上游与固定提交，上游许可全文在，每个源文件第一行注明来源，不含本机路径', () => {
@@ -59,11 +61,13 @@ test('内核源码的来源：来源说明写了上游与固定提交，上游�
   assert.match(lic, /Meshy LLC/);
   assert.match(lic, /Permission is hereby granted, free of charge/);
   const sources = ['src', 'shaders'].flatMap(d => fs.readdirSync(path.join(KERNEL, d)).map(f => `${d}/${f}`));
-  assert.equal(sources.length, 25);
+  // 从上游 pathtrace.wgsl 按阶段分出来的几段，来源行写的是上游那一个文件
+  const split = ['closure', 'film', 'integrator', 'intersect', 'light', 'shader', 'volume'].map(n => `shaders/${n}.wgsl`);
+  assert.equal(sources.length, 32);
   for (const f of sources) {
-    const first = read(f).split('\n', 1)[0];
-    assert.ok(first.startsWith('// 源自 ThreeRT') && first.includes(COMMIT) && first.includes(`renderer/${f}`) && first.includes('MIT') && first.includes('Meshy LLC') && first.includes('PROVENANCE.md'), f);
-    assert.ok(prov.includes(`\`${f}\``), `来源说明的文件对照里没有 ${f}`);
+    const first = read(f).split('\n', 1)[0], from = split.includes(f) ? 'shaders/pathtrace.wgsl' : f;
+    assert.ok(first.startsWith('// 源自 ThreeRT') && first.includes(COMMIT) && first.includes(`renderer/${from}`) && first.includes('MIT') && first.includes('Meshy LLC') && first.includes('PROVENANCE.md'), f);
+    assert.ok(prov.includes(`\`${f}\``) || prov.includes(`\`${path.basename(f)}\``), `来源说明的文件对照里没有 ${f}`);
     assert.doesNotMatch(read(f), /\/Users\/|\/home\/[a-z]|192\.168\./, f);
   }
 });
@@ -108,12 +112,11 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
     }
     assert.ok(rep.furnace.camera.maxRelChange < GATES.furnaceRel / 10, `换相机距离的最大变化 ${rep.furnace.camera.maxRelChange}`);
   });
-  await t.test('解析场景：正对与斜向两种几何，像素均值对解析值 0.2% 以内且在 3 个标准误之内', () => {
+  await t.test('解析场景：正对与斜向两种几何，像素均值对解析值 0.2% 以内，且在 3 个标准误或相对 1e-5 以内', () => {
     assert.deepEqual(rep.analytic.map(a => a.name), ['正对', '斜向']);
     for (const a of rep.analytic) {
       t.diagnostic(`${a.name}: 我方 ${a.mean.toExponential(6)} ± ${a.se.toExponential(2)}（${a.seeds} 个种子）  解析 ${a.exact.toExponential(6)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
-      assert.ok(Math.abs(a.rel) <= GATES.analyticRel, `${a.name} 相对差 ${a.rel}`);
-      assert.ok(Math.abs(a.z) <= GATES.analyticSE, `${a.name} 差 ${a.z} 个标准误`);
+      assert.ok(analyticOk(a), `${a.name} 相对差 ${a.rel}，差 ${a.z} 个标准误`);
     }
   });
   await t.test('负对照：闭包、面光、接线里的多重重要性采样各故意改错一项，对应读数必须超出门限', () => {

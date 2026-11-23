@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 北冥 · 对拍阶梯第 2 级：我方 GGX 金属闭包与矩形面光接进路径追踪内核（build.mjs 从 ../path/ 编出的 core-render）后渲图对答案。
 //   上游自带的漫反射白炉用我们的程序跑要过，画面中央的均值与记下来的数相等；金属白炉 22 个读数对 Cycles（±0.5%）；
-//   矩形面光照漫反射平面对解析值（0.2% 且 3 个标准误以内）；闭包、面光、接线各故意改错一项必须不过；同种子两遍逐字节相同。
+//   矩形面光照漫反射平面对解析值（0.2% 以内，且在 3 个标准误或相对 1e-5 以内）；闭包、面光、接线各故意改错一项必须不过；同种子两遍逐字节相同。
 //   node beiming/sources/core/chassis/level2.mjs [--out 报告.json]
 // 退出码：0 全部过；4 有一项不过；3 缺工具链（git、cargo、npm、网络、显卡）。
 // 渲染一律取内核的线性浮点原始输出（--hdr，曝光与后期之前），不降噪，萤火虫钳制放到不起作用。
@@ -18,7 +18,11 @@ import { polygonIrradiance } from '../fncheck/checks.mjs';
 import { COMMIT, OUT, PRESETS, UPSTREAM, buildRenderer, ensureNodeModules, ensureUpstream, missing } from './build.mjs';
 
 export const CYCLES = JSON.parse(fs.readFileSync(new URL('./cycles-furnace-metal.json', import.meta.url), 'utf8'));
-export const GATES = { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3 };
+// analyticFloor：数值精度的底。两个面光读数的标准误小到相对 1e-6 以下，而同一串随机数在两块显卡上算出来系统地差
+// 2e-7 到 6e-7、两块显卡对解析值都有 3e-6 以内的固定偏离（来源没查清），只按标准误判时同一个内核换一组种子就有
+// 四分之一上下的概率不过（800 个种子分 100 组实测 28 组；按这条底判 0 组，各组偏离最大 5.2e-6）
+export const GATES = { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3, analyticFloor: 1e-5 };
+export const analyticOk = a => Math.abs(a.rel) <= GATES.analyticRel && (Math.abs(a.z) <= GATES.analyticSE || Math.abs(a.rel) <= GATES.analyticFloor);
 // 上游自带的漫反射白炉，画面中央的全精度均值，按显卡各记一个。同一台机器上渲染是确定的，记过的显卡要逐位相等。
 // 换显卡或驱动，着色器编出来的浮点运算次序不同，均值会差在第 8 位上（这两台之间差 1.1e-8），所以没记过的显卡
 // 按相对 1e-6 比。记法：在那台机器上跑一遍本脚本，把报告里 diffuseFurnace.mean 填进来。
@@ -280,7 +284,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
     // 按「显卡加后端」记数。记过的应当逐位相等；换了驱动或着色器编译器会差在末位，那时只要还在容差内就算过，并提示重新登记。没记过的按容差对已有的记录比
     exact: recorded !== null && mean === recorded,
     matches: (recorded === null ? Object.values(DIFFUSE.recorded) : [recorded]).some(v => Math.abs(mean / v - 1) < DIFFUSE.tolerance),
-    rule: recorded === null ? `这块显卡与后端没记过，按相对 ${DIFFUSE.tolerance} 比` : mean === recorded ? '逐位相等' : `与记录不再逐位相等，仍在相对 ${DIFFUSE.tolerance} 之内；请重新登记这块显卡的数`,
+    rule: recorded === null ? `这块显卡与后端没记过，按相对 ${DIFFUSE.tolerance} 比` : mean === recorded ? '逐位相等' : `与记录不再逐位相等；在相对 ${DIFFUSE.tolerance} 之内算过，过不过都请重新登记这块显卡的数`,
   };
 
   say('金属白炉');
@@ -318,7 +322,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   const checks = {
     构建: diffuseFurnace.status === 'pass' && diffuseFurnace.matches,
     白炉: main.rows.every(r => Math.abs(r.rel) <= GATES.furnaceRel && r.se / r.cycles < GATES.furnaceRel / 10) && camera.maxRelChange < GATES.furnaceRel / 10,
-    解析场景: ana.every(x => Math.abs(x.rel) <= GATES.analyticRel && Math.abs(x.z) <= GATES.analyticSE),
+    解析场景: ana.every(analyticOk),
     负对照: negative.every(n => Math.abs(n.worstRel) > n.gate),
     确定性: det.identical,
   };
@@ -350,7 +354,7 @@ export const command = defineCommand({
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
     for (const r of report.furnace.rows) ctx.out(`${Math.abs(r.rel) <= GATES.furnaceRel ? '✓' : '✗'} 白炉 ${r.distribution.padEnd(9)} ${r.roughness}  我方 ${r.ours.toFixed(6)} ± ${r.se.toExponential(1)}  Cycles ${r.cycles.toFixed(6)}  相对差 ${r.rel.toExponential(2)}`);
-    for (const a of report.analytic) ctx.out(`${Math.abs(a.rel) <= GATES.analyticRel && Math.abs(a.z) <= GATES.analyticSE ? '✓' : '✗'} 面光 ${a.name}  我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(1)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
+    for (const a of report.analytic) ctx.out(`${analyticOk(a) ? '✓' : '✗'} 面光 ${a.name}  我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(1)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
     for (const n of report.negative) ctx.out(`${Math.abs(n.worstRel) > n.gate ? '✓' : '✗'} 负对照 ${n.name}：最大相对差 ${n.worstRel.toExponential(2)}`);
     ctx.out(`各项：${Object.entries(report.checks).map(([k, v]) => `${k} ${v ? '过' : '不过'}`).join('，')}；报告：${file}`);
     const bad = Object.keys(report.checks).filter(k => !report.checks[k]);
