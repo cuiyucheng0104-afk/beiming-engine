@@ -85,18 +85,20 @@ struct ShadingPoint {
 
 // 材质输入值：贴图、材质函数、图案节点都算完之后，一个着色点上的材质参数。
 // 取值范围照 Cycles 读出节点输入之后的夹取（粗糙度不带上游的 0.02 下限）。
-// 现在读着的：N、emission，以及纯金属的闭包读的 base_color、metallic、roughness、specular_tint、coat_weight、
+// 现在读着的：N、emission，以及纯金属的闭包读的 base_color、metallic、roughness、specular_tint、flags、coat_weight、
 // transmission_weight；其余是「已写未读」，等移植闭包的人读。
 struct ShaderInputs {
     base_color: vec3<f32>,          // 底色，不小于 0
     metallic: f32,                  // 金属度，0 到 1
     roughness: f32,                 // 粗糙度，0 到 1（alpha = 粗糙度的平方）
     ior: f32,                       // 折射率，不小于 1e-5
-    specular_ior_level: f32,        // 高光等级，不小于 0，默认 0.5。材质记录里还没有这一格，现在恒为 0.5
-    specular_tint: vec3<f32>,       // 金属：F82 的边缘色；非金属：乘在 F0 上的颜色。不小于 0。材质记录里还没有，现在恒为白
+    specular_ior_level: f32,        // 高光等级，不小于 0，默认 0.5
+    specular_tint: vec3<f32>,       // 金属：F82 的边缘色；非金属：乘在 F0 上的颜色。不小于 0，默认白
     emission: vec3<f32>,            // 这个点的自发光辐亮度（已乘物体的功率倍数）
     alpha: f32,                     // 不透明度，0 到 1。现在只是材质记录里的值：贴图的透明度与镂空在求交那一档里判
-    diffuse_roughness: f32,         // 漫反射粗糙度，0 到 1，0 是朗伯。材质记录里还没有，现在恒为 0
+    diffuse_roughness: f32,         // 漫反射粗糙度，0 到 1，0 是朗伯
+    flags: u32,                     // 材质记录的 flags 原样带过来（MATERIAL_FLAG_*）：能量补偿那一位纯金属的闭包读；
+                                    // 闭包大类等移植闭包的人读
     coat_weight: f32,               // 清漆的份额，0 到 1（没编清漆功能的内核里恒为 0）
     transmission_weight: f32,       // 透射的份额，0 到 1（没编玻璃功能的内核里恒为 0）
     N: vec3<f32>,                   // 闭包用的法线：含法线贴图、材质函数（以后还有倒角）
@@ -157,8 +159,9 @@ fn shader_eval_inputs(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32
 // 第三步：按材质输入值填闭包与自发光。只读 ShaderInputs，不读材质记录。归移植闭包的人。
 // 现在每个着色点至多一个闭包。发光卡片（上游的 card：只发光、不散射）没有闭包。
 //   - 金属度为 1、没有清漆、没有透射：照 Cycles 移植的 GGX 微表面闭包，F82-tint 菲涅耳，底色当 F0，边缘色取
-//     specular_tint；alpha 取粗糙度的平方；能量补偿由全局开关 energyCompensation（P.misc.z，非 0 即开）定，
-//     以后改读材质记录的标志位。粗糙度沿用上游的 0.02 下限（Cycles 没有）：去掉它画面会变，而且低于这个下限闭包会
+//     specular_tint（材质记录里的，默认白）；alpha 取粗糙度的平方；能量补偿读材质记录 flags 的
+//     MATERIAL_FLAG_MULTISCATTER（上传前按全局开关 energyCompensation 统一写的，非 0 即开）。
+//     粗糙度沿用上游的 0.02 下限（Cycles 没有）：去掉它画面会变，而且低于这个下限闭包会
 //     落进奇异的一支（采样标签带 LABEL_SINGULAR），积分主循环现在把这个标签当「穿过光滑玻璃」处理，要一并改。
 //   - 别的（带清漆或透射的金属也在内）：一个上游顶替的闭包；它另要的上游 Lobes 在 surface_shader_prepare_closures
 //     里算（closure.wgsl）。
@@ -172,7 +175,7 @@ fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) 
     c.N = inputs.N;
     if (inputs.metallic >= 1.0 && inputs.coat_weight <= 0.0 && inputs.transmission_weight <= 0.0) {
         let alpha = roughness_to_alpha(max(inputs.roughness, 0.02));
-        let f = bsdf_microfacet_setup_fresnel_f82_tint(c.N, (*sd).wi, alpha, inputs.base_color, inputs.specular_tint, P.misc.z != 0.0);
+        let f = bsdf_microfacet_setup_fresnel_f82_tint(c.N, (*sd).wi, alpha, inputs.base_color, inputs.specular_tint, (inputs.flags & MATERIAL_FLAG_MULTISCATTER) != 0u);
         c.kind = CLOSURE_BSDF_MICROFACET_GGX;
         c.weight = f.weight;
         c.alpha_x = alpha;
@@ -407,11 +410,15 @@ fn legacy_shader_inputs(m: Material, emissive: vec3<f32>, base: vec3<f32>, rough
     inp.metallic = clamp(metal, 0.0, 1.0);
     inp.roughness = clamp(rough, 0.0, 1.0);
     inp.ior = max(m.layer.y, 1e-5);
-    inp.specular_ior_level = 0.5;
+    inp.specular_ior_level = max(m.specular_ior_level, 0.0);
+    // （边缘色只在场景里有材质的边缘色不是白时才从材质记录读，别的场景编译期就是白：F82 的 B 项在编译期是 0，
+    // 每盏灯的金属求值少一截。量过：一律从记录读，没有金属的场景也慢 4%。）
     inp.specular_tint = vec3<f32>(1.0);
+    if (has(F_SPECULAR_TINT)) { inp.specular_tint = max(m.specular_tint, vec3<f32>(0.0)); }
     inp.emission = emissive;
     inp.alpha = clamp(m.base_color.a, 0.0, 1.0);
-    inp.diffuse_roughness = 0.0;
+    inp.diffuse_roughness = clamp(m.diffuse_roughness, 0.0, 1.0);
+    inp.flags = m.flags;
     inp.coat_weight = coat;
     inp.transmission_weight = transmission;
     inp.N = n;

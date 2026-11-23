@@ -49,12 +49,12 @@
 | `src/lib.rs` | `renderer/src/lib.rs` | 删去切掉的几类；文档里的程序名 |
 | `src/ltree.rs` | `renderer/src/ltree.rs` | 删去切掉的几类 |
 | `src/main.rs` | `renderer/src/main.rs` | 删去切掉的几类；库名与程序名 |
-| `src/merged.rs` | `renderer/src/merged.rs` | 删去切掉的几类 |
+| `src/merged.rs` | `renderer/src/merged.rs` | 删去切掉的几类；加了锁住两侧格式的测试（见下一节末） |
 | `src/pipeline_cache.rs` | `renderer/src/pipeline_cache.rs` | 没改 |
 | `src/post.rs` | `renderer/src/post.rs` | 没改 |
 | `src/procasset.rs` | `renderer/src/procasset.rs` | 没改 |
 | `src/sample.rs` | `renderer/src/sample.rs` | 没改 |
-| `src/scene.rs` | `renderer/src/scene.rs` | 删去切掉的几类；一个测试读夹具的根目录改成本目录 |
+| `src/scene.rs` | `renderer/src/scene.rs` | 删去切掉的几类；一个测试读夹具的根目录改成本目录；材质记录加长（见下一节末） |
 | `src/script.rs` | `renderer/src/script.rs` | 删去切掉的几类 |
 | `src/skin.rs` | `renderer/src/skin.rs` | 没改 |
 | `src/sky.rs` | `renderer/src/sky.rs` | 没改 |
@@ -123,6 +123,19 @@
 - `shaders/intersect.wgsl`：「只查同一个物体、返回至多 4 个命中」的问法 `trace_local` 定了签名与返回的结构，函数体是空壳。
 
 这一步踩到一处：`Ray` 里两个三维向量必须排在最后。两个向量排在前面、后面紧跟标量时，苹果显卡上两个带水的场景像素会变（相对差到 3e-4）；排到最后就逐位不变了。推测是后端把后面紧跟标量的三维向量按紧凑格式存，运算次序跟着变。
+
+### 材质记录、全局参数、物体扩展表、输出缓冲
+
+内核里进缓冲的几样格式在这里定形，给以后照 Cycles 移植闭包、灯、图案节点与接输出通道的人留好位置。渲染结果不变（逐位）。
+
+**材质记录**（`shaders/pathtrace.wgsl` 的 `Material`，Rust 一侧 `src/scene.rs` 的 `GpuMaterial`）从 18 个 vec4 加长到 26 个，总长度从此冻结，以后只能往预留格里填。
+
+- 第 18 格：边缘色 `specular_tint`（金属是 F82 的边缘色，非金属是乘在 F0 上的颜色）与高光等级 `specular_ior_level`。高光等级单独存，不与上游的 `params.z` 合用（两者只在折射率 1.5 时等价）；`params.z` 只给上游顶替读。
+- 第 19 格是四个标量：漫反射粗糙度 `diffuse_roughness`、`flags`、图案节点表里的起点 `pattern_first` 与个数 `pattern_count`。`flags` 第 0 位是多重散射的能量补偿，第 1 位是「不走上游材质函数」，第 8 到 11 位是闭包大类（表面、自发光、透明、卡通）；位的常数两侧同名（`MATERIAL_FLAG_*`、`MATERIAL_CLASS_*`）。
+- 第 20 到 25 格预留，全 0。
+- `GpuMaterial` 的默认值改成手写：边缘色白、高光等级 0.5，其余 0；每个构造处都以它收尾。能量补偿那一位不在各构造处填，上传前由 `scene::with_energy_compensation` 一处按全局开关 `energyCompensation` 写；纯金属的闭包改读这一位（`ShaderInputs.flags`），上游顶替仍读全局的 `P.misc.z`。
+- 纯金属的边缘色改从材质记录来（默认白，结果不变）。新加一个场景特性位 `F_SPECULAR_TINT`：场景里有材质的边缘色不是白时，材质求值才从记录读它，别的场景里内核编译期取白。原因是量出来的：一律从记录读时，F82 的 B 项不再是编译期的 0，没有金属的计时场景稳态也慢 4%（苹果显卡）。在苹果显卡上强开这一位（`THREERT_FEATURES_ON`）跑过全部回归，结果同样逐位不变。
+- 库测试 `the_material_record_is_the_kernels`（`src/merged.rs`）逐字段比两侧的名字、偏移与总长度（合并布局里按 vec4 拼的那一份也比），逐个比 `flags` 各位的数值，并锁住默认值与能量补偿位的写法。
 
 ## 沿用上游名字的地方
 

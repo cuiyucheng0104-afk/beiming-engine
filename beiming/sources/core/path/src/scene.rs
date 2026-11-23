@@ -364,8 +364,11 @@ pub struct GpuTriAttr {
     pub x: [f32; 4],  // texture LOD constant 0.5*log2(uv area / world area), object index (bits), a particle's area, its emitter entry + 1 (bits; 0: not light-sampled)
 }
 
+/// 北冥：材质记录（pathtrace.wgsl `Material`）是进缓冲的格式，26 个 vec4，总长度冻结：前 18 个是上游的，后 8 个
+/// 是照 Cycles 移植的闭包要的，以后只能往 `reserved` 里填。默认值是手写的（下面的 `Default`）：新字段的正确默认值
+/// 不全是 0，所以每个构造处都要以 `..Default::default()` 收尾。
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GpuMaterial {
     pub base_color: [f32; 4], // rgb, opacity
     pub emissive: [f32; 4],   // rgb nits
@@ -377,6 +380,42 @@ pub struct GpuMaterial {
     pub layer: [f32; 4],      // transmission (glass), index of refraction, clearcoat, clearcoat roughness
     pub mp: [[f32; 4]; 8],    // material function parameters
     pub mt: [i32; 8],         // material function texture slots (-1 none)
+    /// 第 18 格。金属：F82 的边缘色；非金属：乘在 F0 上的颜色。默认白。
+    pub specular_tint: [f32; 3],
+    /// 高光等级，默认 0.5。（`params[2]` 是上游的高光强度，只给上游顶替读：两者只在折射率 1.5 时等价。）
+    pub specular_ior_level: f32,
+    /// 第 19 格。漫反射粗糙度，0 是朗伯。
+    pub diffuse_roughness: f32,
+    /// `MATERIAL_FLAG_*`。能量补偿那一位不在各构造处填：上传前由 `with_energy_compensation` 统一写。
+    pub flags: u32,
+    /// 这个材质的图案节点在节点表里的起点与个数（现在没有节点表：0）。
+    pub pattern_first: u32,
+    pub pattern_count: u32,
+    /// 第 20 到 25 格，预留，全 0。
+    pub reserved: [[f32; 4]; 6],
+}
+
+impl Default for GpuMaterial {
+    /// 边缘色白、高光等级 0.5，其余全 0（前 18 格与上游原来的全 0 默认值一样）。
+    fn default() -> Self {
+        GpuMaterial { specular_tint: [1.0; 3], specular_ior_level: 0.5, ..bytemuck::Zeroable::zeroed() }
+    }
+}
+
+/// 材质记录 `flags` 的位（pathtrace.wgsl 里同名，库测试逐个比数值）。
+pub const MATERIAL_FLAG_MULTISCATTER: u32 = 1 << 0;
+pub const MATERIAL_FLAG_NO_LEGACY_FUNCTION: u32 = 1 << 1;
+pub const MATERIAL_FLAG_CLASS_SHIFT: u32 = 8;
+pub const MATERIAL_FLAG_CLASS_MASK: u32 = 0xf << 8;
+pub const MATERIAL_CLASS_SURFACE: u32 = 0;
+pub const MATERIAL_CLASS_EMISSION: u32 = 1;
+pub const MATERIAL_CLASS_TRANSPARENT: u32 = 2;
+pub const MATERIAL_CLASS_TOON: u32 = 3;
+
+/// 上传用的材质表：每个材质的能量补偿位（`MATERIAL_FLAG_MULTISCATTER`）按全局开关写，别的原样。能量补偿现在是
+/// 整个渲染一个开关（预设的 `energyCompensation`，非 0 即开），所以只在这一处写，各构造处不管这一位。
+pub fn with_energy_compensation(materials: &[GpuMaterial], on: bool) -> Vec<GpuMaterial> {
+    materials.iter().map(|m| GpuMaterial { flags: if on { m.flags | MATERIAL_FLAG_MULTISCATTER } else { m.flags & !MATERIAL_FLAG_MULTISCATTER }, ..*m }).collect()
 }
 
 #[repr(C)]
@@ -864,6 +903,7 @@ pub fn build_material(id: u32, m: &desc::Material, textures: &HashMap<u32, world
         layer: [m.transmission.unwrap_or(0.0).clamp(0.0, 1.0), m.ior.unwrap_or(1.5).max(1.0), m.clearcoat.unwrap_or(0.0).clamp(0.0, 1.0), m.clearcoat_roughness.unwrap_or(0.0).clamp(0.0, 1.0)],
         mp: [[0.0; 4]; 8],
         mt: [-1; 8],
+        ..Default::default()
     };
     if let Some(sh) = &m.shader {
         apply_shader(&mut gm, sh, shaders, tex).with_context(|| format!("material {id}"))?;

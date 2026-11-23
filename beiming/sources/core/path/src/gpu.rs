@@ -1125,6 +1125,9 @@ pub const F_GRID: u32 = 1 << 25;
 /// guided live by the light tiles (pathtrace.wgsl "Light tiles"; the live view's `light_tiles` pass runs for such a
 /// scene).
 pub const F_LISTS: u32 = 1 << 27;
+/// 北冥：有材质的边缘色（`GpuMaterial::specular_tint`）不是白：材质求值从材质记录读它。别的场景里内核编译期取白，
+/// F82 的 B 项跟着是编译期的 0（一律从记录读时，没有金属的场景稳态也慢 4%）。
+pub const F_SPECULAR_TINT: u32 = 1 << 28;
 /// Whether a scene with more such lights has the light tiles (`F_LISTS`): `THREERT_LIGHT_TILES=1|0`, else everywhere
 /// but Android. On Adreno 740 they took OpenStrikeRT's Foundry from 31 to 48 ms a frame (249 x 140, one bounce):
 /// there the lights are resampled as in a scene of fewer, unguided (docs/RUNTIME.md "Android").
@@ -1220,6 +1223,9 @@ pub fn features_of(ms: &[crate::scene::GpuMaterial], environment: u32, textures:
     }
     if ms.iter().any(|m| m.tex1[2] == crate::scene::MAT_UNLIT) {
         f |= F_UNLIT;
+    }
+    if ms.iter().any(|m| m.specular_tint != [1.0; 3]) {
+        f |= F_SPECULAR_TINT;
     }
     if huge(groups, instanced) {
         f |= F_HUGE;
@@ -1540,9 +1546,12 @@ impl Gpu {
         // records' have the edits' room after them (the procedural objects' records follow the model instances').
         let none = [crate::scene::GpuInstance::default()];
         let spheres = crate::light_groups(&scene.lights);
+        // 北冥：材质表在这里统一写能量补偿那一位（全局开关：预设的 energyCompensation，非 0 即开；`Params::set_preset`
+        // 把同一个数写进 misc.z 给上游顶替读）。
+        let materials = crate::scene::with_energy_compensation(&scene.materials, scene.preset.native.energy_compensation != 0.0);
         let parts: [(Table, &[u8], usize); Table::COUNT] = [
             (Table::LightTree, bytemuck::cast_slice(light_tree), 0),
-            (Table::Materials, bytemuck::cast_slice(&scene.materials), 0),
+            (Table::Materials, bytemuck::cast_slice(&materials), 0),
             (Table::Lights, bytemuck::cast_slice(&scene.lights), 0),
             (Table::LightGroups, bytemuck::cast_slice(&spheres), 0),
             (Table::Emitters, bytemuck::cast_slice(emitters), 0),
@@ -2124,6 +2133,7 @@ mod tests {
             ("F_GLASS", F_GLASS), ("F_COAT", F_COAT), ("F_HUGE", F_HUGE), ("F_INST", F_INST), ("F_MEDIA", F_MEDIA), ("F_PEMIT", F_PEMIT),
             ("F_HMEDIA", F_HMEDIA), ("F_PROC", F_PROC), ("F_TINT", F_TINT), ("F_UNLIT", F_UNLIT), ("F_BACKGROUND", F_BACKGROUND),
             ("F_VCOLOR", F_VCOLOR), ("F_AERIAL", F_AERIAL), ("F_GRID", F_GRID), ("F_LISTS", F_LISTS),
+            ("F_SPECULAR_TINT", F_SPECULAR_TINT),
         ];
         let mut seen = 0u32;
         for (name, bit) in all {

@@ -108,6 +108,70 @@ mod tests {
         }
     }
 
+    /// 北冥：一个结构各成员的名字与偏移、结构的总长度，照着色器编译器排出来的。
+    fn members(m: &naga::Module, name: &str) -> (Vec<(String, usize)>, usize) {
+        let (_, ty) = m.types.iter().find(|(_, t)| t.name.as_deref() == Some(name)).unwrap_or_else(|| panic!("no struct {name}"));
+        match &ty.inner {
+            naga::TypeInner::Struct { members, span } => (members.iter().map(|m| (m.name.clone().unwrap(), m.offset as usize)).collect(), *span as usize),
+            _ => panic!("{name} is not a struct"),
+        }
+    }
+
+    /// 北冥：着色器里一个具名常数的值（无符号整数）。按编译器算出来的值取，不靠匹配源码文本。
+    fn constant(m: &naga::Module, name: &str) -> u32 {
+        let (_, c) = m.constants.iter().find(|(_, c)| c.name.as_deref() == Some(name)).unwrap_or_else(|| panic!("着色器里没有常数 {name}"));
+        match m.global_expressions[c.init] {
+            naga::Expression::Literal(naga::Literal::U32(v)) => v,
+            ref other => panic!("{name} 不是无符号整数常数：{other:?}"),
+        }
+    }
+
+    /// 北冥：Rust 一侧结构的字段名与偏移，写法与 `members` 的结果对得上。
+    macro_rules! fields {
+        ($t:ty; $($f:ident),+ $(,)?) => { vec![$((stringify!($f).to_string(), std::mem::offset_of!($t, $f))),+] };
+    }
+
+    /// 北冥：材质记录两侧是同一个格式：着色器的 `Material` 与 `scene::GpuMaterial` 逐字段同名、同偏移，总长度相同
+    /// （26 个 vec4）；合并布局里按 vec4 拼出来的那一份也是这个结构。`flags` 的位两侧各一份，数值逐个相同。
+    /// 手写的默认值：边缘色白、高光等级 0.5，其余全 0；能量补偿那一位只由 `with_energy_compensation` 写。
+    #[test]
+    fn the_material_record_is_the_kernels() {
+        use crate::scene::{self, GpuMaterial};
+        let want = fields!(GpuMaterial; base_color, emissive, params, tex0, tex1, uv, uv2, layer, mp, mt, specular_tint, specular_ior_level, diffuse_roughness, flags, pattern_first, pattern_count, reserved);
+        for merged in [false, true] {
+            let (m, _) = parse(&variant(0, merged));
+            assert_eq!(members(&m, "Material"), (want.clone(), std::mem::size_of::<GpuMaterial>()), "merged {merged}");
+            for (name, value) in [
+                ("MATERIAL_FLAG_MULTISCATTER", scene::MATERIAL_FLAG_MULTISCATTER),
+                ("MATERIAL_FLAG_NO_LEGACY_FUNCTION", scene::MATERIAL_FLAG_NO_LEGACY_FUNCTION),
+                ("MATERIAL_FLAG_CLASS_SHIFT", scene::MATERIAL_FLAG_CLASS_SHIFT),
+                ("MATERIAL_FLAG_CLASS_MASK", scene::MATERIAL_FLAG_CLASS_MASK),
+                ("MATERIAL_CLASS_SURFACE", scene::MATERIAL_CLASS_SURFACE),
+                ("MATERIAL_CLASS_EMISSION", scene::MATERIAL_CLASS_EMISSION),
+                ("MATERIAL_CLASS_TRANSPARENT", scene::MATERIAL_CLASS_TRANSPARENT),
+                ("MATERIAL_CLASS_TOON", scene::MATERIAL_CLASS_TOON),
+            ] {
+                assert_eq!(constant(&m, name), value, "{name}");
+            }
+        }
+        assert_eq!(std::mem::size_of::<GpuMaterial>(), 26 * 16);
+        assert_eq!((scene::MATERIAL_FLAG_MULTISCATTER, scene::MATERIAL_FLAG_NO_LEGACY_FUNCTION, scene::MATERIAL_FLAG_CLASS_MASK), (1, 2, 0xf00));
+        // 默认值：两个不为 0 的字段，其余每个字节都是 0。
+        let d = GpuMaterial::default();
+        assert_eq!((d.specular_tint, d.specular_ior_level), ([1.0; 3], 0.5));
+        let zeroed = GpuMaterial { specular_tint: [0.0; 3], specular_ior_level: 0.0, ..d };
+        assert!(bytemuck::bytes_of(&zeroed).iter().all(|b| *b == 0));
+        // 各构造处都以默认值收尾：发光卡片的材质带着这两个默认值。
+        let card = scene::card_material([1.0, 0.5, 0.25], 2.0);
+        assert_eq!((card.specular_tint, card.specular_ior_level, card.flags), ([1.0; 3], 0.5, 0));
+        // 能量补偿那一位：开就置上、关就清掉，别的位与别的字段不动。
+        let ms = [GpuMaterial { flags: 0xf00, ..d }, GpuMaterial { flags: scene::MATERIAL_FLAG_MULTISCATTER | 2, base_color: [0.25; 4], ..d }];
+        let on = scene::with_energy_compensation(&ms, true);
+        let off = scene::with_energy_compensation(&ms, false);
+        assert_eq!([on[0].flags, on[1].flags, off[0].flags, off[1].flags], [0xf01, 3, 0xf00, 2]);
+        assert_eq!(bytemuck::bytes_of(&GpuMaterial { flags: 0, ..on[1] }), bytemuck::bytes_of(&GpuMaterial { flags: 0, ..ms[1] }));
+    }
+
     /// Kernel variants in the merged layout: valid WGSL, no entry point with more than eight storage buffers, none
     /// declared beyond them (a pipeline layout counts what is declared), no length of a view's buffer in the source,
     /// and `MergedLive`'s members where the renderer puts their sections.

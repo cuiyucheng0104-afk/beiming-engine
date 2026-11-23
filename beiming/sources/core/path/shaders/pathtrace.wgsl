@@ -106,6 +106,7 @@ const F_BACKGROUND: u32 = 2097152u; // scene.background (`sky_mis`)
 const F_VCOLOR: u32 = 4194304u; // vertex colours (`vcolor`)
 const F_GRID: u32 = 33554432u; // density grids (`vgrid`)
 const F_LISTS: u32 = 134217728u; // light tiles (`lt_list_start`): a scene whose shadow-casting local lights are resampled
+const F_SPECULAR_TINT: u32 = 268435456u; // 北冥：有材质的边缘色（Material.specular_tint）不是白：材质求值从材质记录读它
 fn has(f: u32) -> bool { return (FEAT & f) != 0u; }
 
 struct Params {
@@ -147,10 +148,36 @@ struct Params {
 // (`TriAttr`, a triangle's attributes, and `Pixel`, a sample in `accum`: records.wgsl.)
 struct Node { bmin: vec3<f32>, left_or_first: u32, bmax: vec3<f32>, count: u32 };
 // See scene::GpuMaterial for the field layout.
+// 北冥：材质记录是进缓冲的格式，26 个 vec4。总长度冻结：以后只能往预留格（reserved）里填，不许追加。前 18 个是上游
+// 原样的；其中 base_color.rgb（底色）、base_color.a（不透明度）、params.x（金属度）、params.y（粗糙度）、layer.y
+// （折射率）、emissive.rgb（自发光辐亮度，不含物体的功率倍数）照 Cycles 移植的闭包直接读，不另存一份；params.z（上游
+// 的高光强度）只给上游顶替读，它与 specular_ior_level 只在折射率 1.5 时等价，所以高光等级单独存。
+// mp、mt 只归上游的材质函数；图案节点的参数不放在材质记录里，材质记录只带 pattern_first、pattern_count 指向节点表
+// （表的首地址在 P.table_first_ext，表的格式归做图案节点的人）。
+// 第 19 格声明成四个标量，不用向量再做位转换。Rust 一侧的镜像是 scene::GpuMaterial，默认值在那里手写（边缘色白、
+// 高光等级 0.5）；库测试逐字段比两侧的偏移与总长度。
 struct Material {
     base_color: vec4<f32>, emissive: vec4<f32>, params: vec4<f32>, tex0: vec4<i32>, tex1: vec4<i32>, uv: vec4<f32>,
     uv2: vec4<f32>, layer: vec4<f32>, mp: array<vec4<f32>, 8>, mt: array<i32, 8>,
+    specular_tint: vec3<f32>,       // 第 18 格。金属：F82 的边缘色；非金属：乘在 F0 上的颜色。默认白。已落地（纯金属读；
+                                    // 场景里没有非白的边缘色时内核编译期取白，不读这一格：F_SPECULAR_TINT）
+    specular_ior_level: f32,        // 高光等级，默认 0.5。已写未读
+    diffuse_roughness: f32,         // 第 19 格。漫反射粗糙度，0 是朗伯。已写未读
+    flags: u32,                     // MATERIAL_FLAG_*，见下
+    pattern_first: u32,             // 这个材质的图案节点在节点表里的起点与个数。已定义，恒 0
+    pattern_count: u32,
+    reserved: array<vec4<f32>, 6>,  // 第 20 到 25 格，预留，全 0（各向异性、清漆、绒面、透射、薄膜、次表面的参数用到时在这里起名）
 };
+// 材质记录 flags 的位（Rust 一侧同名：scene::MATERIAL_FLAG_*，库测试逐个比数值）。空闲的位取用前要登记。
+const MATERIAL_FLAG_MULTISCATTER: u32 = 1u << 0u;        // 微表面做多重散射的能量补偿（Cycles 的 distribution 选多重散射 GGX）。
+                                                         // 上传前由一处按全局开关 energyCompensation 统一写。已落地
+const MATERIAL_FLAG_NO_LEGACY_FUNCTION: u32 = 1u << 1u;  // 不走上游的材质函数。已定义
+const MATERIAL_FLAG_CLASS_SHIFT: u32 = 8u;               // 第 8 到 11 位：闭包大类（MATERIAL_CLASS_*）。已定义，恒 0
+const MATERIAL_FLAG_CLASS_MASK: u32 = 0xfu << 8u;
+const MATERIAL_CLASS_SURFACE: u32 = 0u;
+const MATERIAL_CLASS_EMISSION: u32 = 1u;
+const MATERIAL_CLASS_TRANSPARENT: u32 = 2u;
+const MATERIAL_CLASS_TOON: u32 = 3u;
 // See scene::GpuLight (x = volumetric scattering scale, specular scale, rect barn-door cosine, -).
 struct Light { pos: vec4<f32>, dir: vec4<f32>, color: vec4<f32>, ext: vec4<f32>, x: vec4<f32> };
 
@@ -222,7 +249,7 @@ fn emitter_tri_at(i: u32) -> EmitterTri {
     // wrong (gpu.rs `GpuOptions::table_views`: Android): from the buffer whole, a record made of its vec4s (their
     // counts: the tests hold them to the renderer's records). Slower than the views below where it was measured
     // (docs/RUNTIME.md "The scene's tables"): an offset from the parameters at every read, the records' assembly.
-    const MATERIAL_VEC4: u32 = 18u;
+    const MATERIAL_VEC4: u32 = 26u;
     const LIGHT_VEC4: u32 = 5u;
     const INSTANCE_VEC4: u32 = 10u;
     const MEDIUM_VEC4: u32 = 14u;
@@ -230,9 +257,13 @@ fn emitter_tri_at(i: u32) -> EmitterTri {
         let b = P.table_first[0].y + i * MATERIAL_VEC4;
         let t0 = table_i(b + 16u);
         let t1 = table_i(b + 17u);
+        let st = table_f(b + 18u);
+        let fl = tables[b + 19u];
         return Material(table_f(b), table_f(b + 1u), table_f(b + 2u), table_i(b + 3u), table_i(b + 4u), table_f(b + 5u), table_f(b + 6u), table_f(b + 7u),
             array<vec4<f32>, 8>(table_f(b + 8u), table_f(b + 9u), table_f(b + 10u), table_f(b + 11u), table_f(b + 12u), table_f(b + 13u), table_f(b + 14u), table_f(b + 15u)),
-            array<i32, 8>(t0.x, t0.y, t0.z, t0.w, t1.x, t1.y, t1.z, t1.w));
+            array<i32, 8>(t0.x, t0.y, t0.z, t0.w, t1.x, t1.y, t1.z, t1.w),
+            st.xyz, st.w, bitcast<f32>(fl.x), fl.y, fl.z, fl.w,
+            array<vec4<f32>, 6>(table_f(b + 20u), table_f(b + 21u), table_f(b + 22u), table_f(b + 23u), table_f(b + 24u), table_f(b + 25u)));
     }
     fn light_at(i: u32) -> Light {
         let b = P.table_first[0].z + i * LIGHT_VEC4;
