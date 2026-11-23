@@ -27,6 +27,15 @@ const result = welchTest(seedsA, seedsB, { blockSize: 8 }); // 门只看 result.
 - **选粒度**：日常门用 8×8 块，定位时再看逐像素。K=8 的两点噪声会误报；噪声大时逐像素检不出 1.01 倍偏移，按块能检出。
 - **限制**：亮度检验看不到亮度相抵的纯色偏，要查色偏按 `channel: 0`、`1`、`2` 各跑一次。样本含 NaN 或无穷、尺寸不一致、输入含空洞或读取中途被改写都抛错，不出半截结果。
 
+## 可控与可复现：局部性与加锁重建
+
+`controllability.mjs` 的两项回归作业，都从 `index.mjs` 导出；判定细则、帧对象与报告字段见 [DETAILS.md](DETAILS.md)。拒收输入时抛的错都带 `code: 'usage.bad-argument'`，渲染器自己抛的错原样透出。
+
+- **`runLocalityTest({ film, patch, renderFilm })`**：把补丁作用到片子描述上，前后各渲一遍；实际变了的帧必须全落在 `explainParam` 预测的 `affects` 里，范围外变一帧就不过，一帧都没变也不过。
+- **`runRebuildTest({ film, lock, renderLocked })`**：同一份片子描述加同一份锁独立重渲两遍。开渲前先照 `lock-check/0.1` 核对锁和片子描述（种子、镜头表对不上就拒）。哈希档逐帧逐位相同；`tier: 'tolerance'` 守 P8 口径：PSNR ≥ 50 dB 且超 5/255 的像素 ≤ 0.1%。
+- **`compareFramePair(a, b)`**：一对帧的字节摘要、MSE、PSNR 与超差像素比例。
+- **`buildControllabilityRow`、`appendControllabilityRow`**：把两份报告并成看板「可控与可复现」栏的一行（先复核报告自洽，带上 `film` 再照镜头表核预测，对不上拒收），追加进 JSONL，并发追加逐行完整。
+
 ```sh
 node --test "beiming/verify/**/*.test.mjs"
 ```
