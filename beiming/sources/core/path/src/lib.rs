@@ -245,7 +245,8 @@ pub fn emitter_lod(c: [f32; 3], lod: [f32; 4], cull: EmitterCull) -> f32 {
     (lod[3] / d) * (lod[3] / d)
 }
 
-/// Seed of the kernel's random numbers (Params::size.w). Renders are deterministic; THREERT_SEED gives the same build
+/// Seed of the kernel's random numbers (`KernelIntegrator::new` hashes it once: `Params::integrator.seed`, and
+/// `Params::size.w`, where the kernel still reads it). Renders are deterministic; THREERT_SEED gives the same build
 /// another sample sequence, for noise floors (two seeds, same estimator).
 pub fn rng_seed() -> u32 {
     static S: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
@@ -639,7 +640,7 @@ pub fn prepare_as(hwrt: bool, sc: &mut scene::Scene, timings: &mut Vec<(String, 
         cam_fwd: [cam.forward.x, cam.forward.y, cam.forward.z, aspect],
         cam_right: [cam.right.x, cam.right.y, cam.right.z, lens_radius],
         cam_up: [cam.up.x, cam.up.y, cam.up.z, focus],
-        size: [sc.width, sc.height, 0, rng_seed()],
+        size: [sc.width, sc.height, 0, gpu::KernelIntegrator::new(rng_seed()).seed],
         // (The preset's and the exposure's: `Params::set_preset`; the sky's: `SkyBaked::write`; the environment's:
         // `EnvSettings::write`. Below.)
         counts: [sc.lights.len() as u32, if total > 0.0 { emitter_tris.len() as u32 } else { 0 }, 0, 0],
@@ -673,6 +674,11 @@ pub fn prepare_as(hwrt: bool, sc: &mut scene::Scene, timings: &mut Vec<(String, 
         // (`gpu::KernelBufs::place`, with what is traced into.)
         live_first: [[0; 4]; 2],
         live_len: [0; 4],
+        integrator: gpu::KernelIntegrator::new(rng_seed()),
+        // （不请求灯组。要灯组的调用方在渲之前换成 `KernelFilm::new(组数)`。）
+        film: gpu::KernelFilm::new(0),
+        // (`gpu::Uploaded::place`, with the buffers.)
+        table_first_ext: [[0; 4]; 2],
     };
     let mut params = params;
     params.set_preset(&sc.preset.native, &cam.exposure);

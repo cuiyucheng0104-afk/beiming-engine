@@ -72,14 +72,14 @@ pub fn sobol_owen(rev_index: u32, dim: usize, seed: u32) -> f32 {
 /// `rng2` of sample.wgsl for a pixel seed (`state.rng_pixel`), a sample index and a dimension id.
 pub fn rng2(pixel_seed: u32, index: u32, d: u32) -> [f32; 2] {
     let s = pixel_seed ^ hash_hp(d);
-    let i = owen_rev(index.reverse_bits(), s ^ 0xf8ade99a) & 0xffff0000;
+    let i = owen_rev(index.reverse_bits(), s ^ 0xf8ade99a) & crate::gpu::SOBOL_INDEX_MASK;
     [sobol_owen(i, 0, s ^ 0xe0aaaf76), sobol_owen(i, 1, s ^ 0x94964d4e)]
 }
 
 /// `rng4` of sample.wgsl.
 pub fn rng4(pixel_seed: u32, index: u32, d: u32) -> [f32; 4] {
     let s = pixel_seed ^ hash_hp(d);
-    let i = owen_rev(index.reverse_bits(), s ^ 0xc2c1a055) & 0xffff0000;
+    let i = owen_rev(index.reverse_bits(), s ^ 0xc2c1a055) & crate::gpu::SOBOL_INDEX_MASK;
     [sobol_owen(i, 0, s ^ 0x39468210), sobol_owen(i, 1, s ^ 0xe9d8a845), sobol_owen(i, 2, s ^ 0x5f32b482), sobol_owen(i, 3, s ^ 0x1524cc56)]
 }
 

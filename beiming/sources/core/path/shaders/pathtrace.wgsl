@@ -109,12 +109,49 @@ const F_LISTS: u32 = 134217728u; // light tiles (`lt_list_start`): a scene whose
 const F_SPECULAR_TINT: u32 = 268435456u; // 北冥：有材质的边缘色（Material.specular_tint）不是白：材质求值从材质记录读它
 fn has(f: u32) -> bool { return (FEAT & f) != 0u; }
 
+// 北冥：全局参数末尾追加的三块（integrator、film、table_first_ext）。全局参数是进缓冲的格式：已有的块长度冻结；
+// 要加东西就在末尾追加自己命名的一整块，并登记块名与主人。Rust 一侧的镜像是 gpu::Params 与同名的结构，库测试
+// 逐字段比两侧的偏移与总长度。
+// 积分器的参数，字段名照 Cycles 的 KernelIntegrator。4 个 vec4。
+struct KernelIntegrator {
+    // 各类弹射的上限。已定义，全 0：弹射上限现在还读上游的 P.counts.z
+    @align(16) max_bounce: u32,
+    max_diffuse_bounce: u32,
+    max_glossy_bounce: u32,
+    max_transmission_bounce: u32,
+    transparent_max_bounce: u32,    // 已定义，0
+    transparent_min_bounce: u32,    // 已定义，0
+    min_bounce: u32,                // 已定义，0：俄罗斯轮盘的起始深度现在还读上游的 P.counts.w
+    sampling_pattern: u32,          // 采样图案，只有 0（Sobol-Burley）
+    sample_clamp_direct: f32,       // 夹取。已定义，0：现在还用上游的亮度夹取（P.misc.x）
+    sample_clamp_indirect: f32,
+    filter_glossy: f32,             // 已定义，0
+    light_inv_rr_threshold: f32,    // 已定义，0
+    seed: u32,                      // 随机数的全局种子。放的是用户种子过一次 hash_hp 之后的值（sample.wgsl 的 rng_start 要的那个）。
+                                    // 已写未读：内核现在还从上游的位置 P.size.w 读同一个数。试过改读这里，苹果显卡上一个场景
+                                    // （相机三个轴都不贴坐标轴的那个）像素末位会变，留给换随机数编号办法的那一步一起改
+    sobol_index_mask: u32,          // Sobol 打乱后的索引取哪几位（sample.wgsl 的 rng_index）。现在固定是 0xffff0000；为 0 时
+                                    // 每个样本取同一个点，开渲前报错。已写未读：内核现在还用 sample.wgsl 里同值的常数
+    pass_kind: u32,                 // 这一趟调度写什么：0 颜色样本，1 辅助样本。已定义，恒 0（辅助那一趟还没有）
+    background_transparent: u32,    // 背景对相机不可见。已定义，恒 0
+};
+const PASS_KIND_COLOR: u32 = 0u;
+const PASS_KIND_AUX: u32 = 1u;
+// 输出缓冲 film 的形状（film.wgsl）。1 个 vec4。
+struct KernelFilm {
+    @align(16) film_stride: u32,    // 每个像素占几个 vec4：固定部分加这次渲染请求的灯组数
+    film_lightgroup_first: u32,     // 第 0 个灯组在像素里的位置（固定部分的长度）
+    num_lightgroups: u32,           // 这次渲染请求的灯组数（不是场景里的灯组数）
+    reserved: u32,
+};
+
 struct Params {
     cam_pos: vec4<f32>,   // w = tan(fov/2)
     cam_fwd: vec4<f32>,   // w = aspect
     cam_right: vec4<f32>, // w = lens radius
     cam_up: vec4<f32>,    // w = focus distance
-    size: vec4<u32>,      // width, height, sample index, seed
+    size: vec4<u32>,      // width, height, sample index, seed（北冥：过一次哈希之后的种子，与 integrator.seed 是同一个数。
+                          // 内核现在还从这一格读；改读 integrator.seed 之后这一格改标预留）
     counts: vec4<u32>,    // lights, emitters, max bounces, rr depth
     env: vec4<f32>,       // has env map, env width, env height, sun light index (-1 none)
     misc: vec4<f32>,      // clamp (absolute radiance), emitter total weight, env total weight, _
@@ -143,6 +180,13 @@ struct Params {
     word_first: vec4<u32>, // each stream's first word in `words` (heap.rs `Stream`): environment CDF (0), procedural data, vertex colours, -
     live_first: array<vec4<u32>, 2>, // the merged layout: each of group 1's vec4 sections' first vec4 in `ML.vecs` (heap.rs `Live`): cache values (0), refl, motion, direct; lists, -, -, -
     live_len: vec4<u32>,   // and the vec4s of refl, motion, direct, lists
+    integrator: KernelIntegrator, // 北冥：积分器的参数
+    film: KernelFilm,             // 北冥：输出缓冲的形状
+    // 北冥：新表在 `tables` 里的首地址（heap.rs `Table` 里排在上游 12 张之后的）。上游的 table_first 已经占满，新表
+    // 只许用这里的 8 格，取用前要登记。现在登记的四个去向：
+    //   [0].x 物体扩展表（object_ext_at，已落地，全 0）   [0].y 图案节点表（已定义，0）
+    //   [0].z、[0].w 广义 Schlick 的两张能量表（已定义，0）   [1] 的四格空闲
+    table_first_ext: array<vec4<u32>, 2>,
 };
 
 // (`TriAttr`, a triangle's attributes, and `Pixel`, a sample in `accum`: records.wgsl.)
@@ -228,6 +272,27 @@ fn lt_node(i: u32) -> vec4<f32> { return table_f(i); }
 fn light_group_at(i: u32) -> vec4<f32> { return table_f(P.table_first[0].w + i); }
 fn energy_at(i: u32) -> vec4<f32> { return table_f(P.table_first[2].y + i); }
 fn glass_energy_at(i: u32) -> vec4<f32> { return table_f(P.table_first[2].z + i); }
+// 北冥：物体扩展表。每个物体 2 个 vec4，与上游的物体表同下标（着色点的 object）、定长；首地址在
+// P.table_first_ext[0].x。各家只填自己的格子，不改长度。现在全是 0，还没有读者。Rust 一侧的镜像是 scene::GpuObjectExt。
+// （运动矢量要的前后两刻变换不放这里，到做运动模糊时另定。）
+struct ObjectExt {
+    entity_id: f32,                 // 实体编号，存成浮点数值（小于 2^24；整数的位直接进浮点通道会被驱动冲成 0），0：不属于任何实体
+    object_flag: u32,               // 物体标志，位照 Cycles 的 SD_OBJECT_*（第 3 位：物体是镜像的）
+    receiver_light_set: u32,        // 灯光链接：这个物体属于哪个接收者集合
+    lightgroup: u32,                // 这个物体（发光时）属于哪个灯组
+    shadow_terminator_shading_offset: f32,   // 阴影终止的两个偏移（平滑网格用）
+    shadow_terminator_geometry_offset: f32,
+    reserved0: f32,
+    reserved1: f32,
+};
+const OBJECT_EXT_VEC4: u32 = 2u;
+const SD_OBJECT_NEGATIVE_SCALE: u32 = 1u << 3u;
+fn object_ext_at(object: u32) -> ObjectExt {
+    let b = P.table_first_ext[0].x + object * OBJECT_EXT_VEC4;
+    let r0 = tables[b];
+    let r1 = tables[b + 1u];
+    return ObjectExt(bitcast<f32>(r0.x), r0.y, r0.z, r0.w, bitcast<f32>(r1.x), bitcast<f32>(r1.y), bitcast<f32>(r1.z), bitcast<f32>(r1.w));
+}
 // An emitter's triangle (lib.rs `GpuEmitterTri`): in world space, the light list's own copy, so a light sample reads
 // no placement (what moves it is copied again: emitter_fill.wgsl); `tri`: its triangle in the triangles' table
 // (attributes: `emitter_attrs`), `inst`: the instance that places it (NO_INST: none), `code`: the light tree's path

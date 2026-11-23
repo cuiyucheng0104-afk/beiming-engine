@@ -78,6 +78,65 @@ struct ProcCache {
     bytes: u64,
 }
 
+/// 北冥：积分器的参数（pathtrace.wgsl `KernelIntegrator`），字段名照 Cycles。只定义、内核还没读的字段是 0。
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct KernelIntegrator {
+    pub max_bounce: u32,
+    pub max_diffuse_bounce: u32,
+    pub max_glossy_bounce: u32,
+    pub max_transmission_bounce: u32,
+    pub transparent_max_bounce: u32,
+    pub transparent_min_bounce: u32,
+    pub min_bounce: u32,
+    pub sampling_pattern: u32,
+    pub sample_clamp_direct: f32,
+    pub sample_clamp_indirect: f32,
+    pub filter_glossy: f32,
+    pub light_inv_rr_threshold: f32,
+    /// 用户种子过一次 `sample::hash_hp` 之后的值（`KernelIntegrator::new`）。内核现在还从 `Params::size[3]` 读同一个数。
+    pub seed: u32,
+    /// Sobol 打乱后的索引取哪几位。为 0 时每个样本取同一个点：`Gpu::render` 开渲前报错。内核现在还用 sample.wgsl 里
+    /// 同值的常数（库测试比着）。
+    pub sobol_index_mask: u32,
+    /// 0 颜色样本，1 辅助样本。
+    pub pass_kind: u32,
+    pub background_transparent: u32,
+}
+
+/// 上游写死的 Sobol 索引掩码：打乱后的索引取高 16 位（65536 个样本之后重复）。sample.wgsl 里同名同值。
+pub const SOBOL_INDEX_MASK: u32 = 0xffff_0000;
+
+impl KernelIntegrator {
+    /// 一次渲染的积分器参数：`seed` 是用户给的种子（`rng_seed`），进缓冲的是它过一次哈希之后的值。
+    pub fn new(seed: u32) -> KernelIntegrator {
+        KernelIntegrator { seed: crate::sample::hash_hp(seed), sobol_index_mask: SOBOL_INDEX_MASK, ..Default::default() }
+    }
+}
+
+/// 北冥：输出缓冲的形状（pathtrace.wgsl `KernelFilm`）。
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct KernelFilm {
+    /// 每个像素占几个 vec4。
+    pub film_stride: u32,
+    /// 第 0 个灯组在像素里的位置。
+    pub film_lightgroup_first: u32,
+    /// 这次渲染请求的灯组数。
+    pub num_lightgroups: u32,
+    pub reserved: u32,
+}
+
+/// 输出缓冲里每个像素固定部分的长度（vec4 个数）：灯组排在它后面。内核不写死这个数，从 `KernelFilm` 读。
+pub const FILM_FIXED: u32 = 10;
+
+impl KernelFilm {
+    /// 请求 `num_lightgroups` 个灯组的一次渲染的输出缓冲形状。
+    pub fn new(num_lightgroups: u32) -> KernelFilm {
+        KernelFilm { film_stride: FILM_FIXED + num_lightgroups, film_lightgroup_first: FILM_FIXED, num_lightgroups, reserved: 0 }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable, Default)]
 pub struct Params {
@@ -138,6 +197,12 @@ pub struct Params {
     /// the last four's lengths. As written: zeros (the kernel asks the buffers).
     pub live_first: [[u32; 4]; 2],
     pub live_len: [u32; 4],
+    /// 北冥：末尾追加的三块（pathtrace.wgsl 同名）。已有的块长度冻结，要加东西就在末尾再追加自己的一整块。
+    pub integrator: KernelIntegrator,
+    pub film: KernelFilm,
+    /// 北冥加的表的首地址（`heap::Table` 里排在上游 12 张之后的，`Uploaded::place`）：物体扩展表、图案节点表、
+    /// 广义 Schlick 的两张能量表；后四格空闲。还没有的表是 0。
+    pub table_first_ext: [[u32; 4]; 2],
 }
 
 /// Room the live view's in-place geometry edits grow into (live/edits.rs `edit_geometry`), past the scene's own data:
@@ -356,6 +421,7 @@ impl Uploaded {
     pub fn place(&self, p: &mut Params) {
         let first = self.heap.firsts();
         p.table_first = std::array::from_fn(|k| std::array::from_fn(|j| first.get(k * 4 + j).copied().unwrap_or(0)));
+        p.table_first_ext = std::array::from_fn(|k| std::array::from_fn(|j| first.get(12 + k * 4 + j).copied().unwrap_or(0)));
         let first = self.words.firsts();
         p.word_first = std::array::from_fn(|k| first.get(k).copied().unwrap_or(0));
     }
@@ -1549,6 +1615,8 @@ impl Gpu {
         // 北冥：材质表在这里统一写能量补偿那一位（全局开关：预设的 energyCompensation，非 0 即开；`Params::set_preset`
         // 把同一个数写进 misc.z 给上游顶替读）。
         let materials = crate::scene::with_energy_compensation(&scene.materials, scene.preset.native.energy_compensation != 0.0);
+        // 北冥：物体扩展表，每个物体一项，现在全是 0（还没有人填）。
+        let object_ext = vec![crate::scene::GpuObjectExt::default(); scene.objects.len() / scene.object_stride()];
         let parts: [(Table, &[u8], usize); Table::COUNT] = [
             (Table::LightTree, bytemuck::cast_slice(light_tree), 0),
             (Table::Materials, bytemuck::cast_slice(&materials), 0),
@@ -1562,6 +1630,7 @@ impl Gpu {
             (Table::Energy, bytemuck::cast_slice(energy), 0),
             (Table::GlassEnergy, bytemuck::cast_slice(crate::glass_energy_lut()), 0),
             (Table::EmitterTris, bytemuck::cast_slice(emitter_tris), 0),
+            (Table::ObjectExt, bytemuck::cast_slice(&object_ext), room.objects * std::mem::size_of::<crate::scene::GpuObjectExt>()),
         ];
         assert!(parts.iter().enumerate().all(|(k, p)| p.0.index() == k), "the tables in `Table`'s order");
         let heap = Heap::filled(d, &parts.map(|p| (p.1.len() + p.2) as u64), |put| parts.iter().for_each(|p| put(p.0, 0, p.1)));
@@ -2014,6 +2083,14 @@ impl Gpu {
     pub fn render(&self, scene: &Scene, tri_verts: &[[f32; 4]], groups: [usize; GROUPS], nodes: &[u8], emitters: &[[f32; 4]], emitter_tris: &[crate::GpuEmitterTri], light_tree: &[[f32; 4]], env: &EnvMap, env_cdf: &[f32], energy: &[[f32; 4]], base: Params, spp: u32, timings: &mut Vec<(String, f64)>) -> Result<Frame> {
         let d = &self.device;
         let (w, h) = (scene.width, scene.height);
+        // 北冥：掩码为 0 时每个样本取的是同一个点，画面不收敛而不报错，所以开渲前拦住。
+        if base.integrator.sobol_index_mask == 0 {
+            return Err(anyhow!("全局参数的 integrator.sobol_index_mask 是 0：每个样本会取同一个点。用 KernelIntegrator::new 填"));
+        }
+        // （种子现在有两处：内核还读 size[3]。两处对不上就是有人只改了一处。）
+        if base.size[3] != base.integrator.seed {
+            return Err(anyhow!("全局参数里的种子两处不一样：size[3] 是 {:#x}，integrator.seed 是 {:#x}", base.size[3], base.integrator.seed));
+        }
         let up = self.upload(scene, &self.accum_buffer(w, h), tri_verts, groups, nodes, emitters, emitter_tris, light_tree, env, env_cdf, energy, timings)?;
         let pipeline = self.pipeline(&up.kernel);
         let (b_accum, b_params, bg) = (&up.accum, &up.params, &up.bg);

@@ -52,10 +52,13 @@ pub enum Table {
     GlassEnergy,
     /// The emitters' triangles in world space (lib.rs `GpuEmitterTri`), three vec4s an emitter.
     EmitterTris,
+    /// 北冥：物体扩展表（`scene::GpuObjectExt`），每个物体两个 vec4，与 `Objects` 同下标。从这一张起是北冥加的表：
+    /// 首地址在 `Params::table_first_ext`（上游的 `table_first` 只有 12 格，已经占满）。
+    ObjectExt,
 }
 
 impl Section for Table {
-    const COUNT: usize = 12;
+    const COUNT: usize = 13;
     const UNIT: u64 = 16;
     const LABEL: &'static str = "tables";
     fn index(self) -> usize {

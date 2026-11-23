@@ -402,6 +402,25 @@ impl Default for GpuMaterial {
     }
 }
 
+/// 北冥：物体扩展表的一项（pathtrace.wgsl `ObjectExt`）：每个物体两个 vec4，与物体表同下标。各家只填自己的格子。
+/// 现在没有人填，上传的是全 0。
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct GpuObjectExt {
+    /// 实体编号，存成浮点数值（小于 2^24），0：不属于任何实体。
+    pub entity_id: f32,
+    /// 物体标志，位照 Cycles 的 `SD_OBJECT_*`（第 3 位：镜像）。
+    pub object_flag: u32,
+    /// 灯光链接的接收者集合号。
+    pub receiver_light_set: u32,
+    /// 所属灯组。
+    pub lightgroup: u32,
+    pub shadow_terminator_shading_offset: f32,
+    pub shadow_terminator_geometry_offset: f32,
+    pub reserved0: f32,
+    pub reserved1: f32,
+}
+
 /// 材质记录 `flags` 的位（pathtrace.wgsl 里同名，库测试逐个比数值）。
 pub const MATERIAL_FLAG_MULTISCATTER: u32 = 1 << 0;
 pub const MATERIAL_FLAG_NO_LEGACY_FUNCTION: u32 = 1 << 1;

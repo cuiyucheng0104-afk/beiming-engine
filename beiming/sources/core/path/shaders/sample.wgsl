@@ -139,7 +139,10 @@ fn rng_hash3(d: u32) -> vec3<f32> { return vec3<f32>(white(d, 0u), white(d, 1u),
 
 // Dimension id `d`'s scramble seed; the shuffled index, 16 bits (65,536 samples, then it repeats; Cycles' index mask).
 fn rng_seed(d: u32) -> u32 { return state.rng_pixel ^ hash_hp(d); }
-fn rng_index(salt: u32) -> u32 { return owen_rev(reverseBits(state.sample), salt) & 0xffff0000u; }
+// 北冥：掩码起了名字，数值没变。全局参数里也有一份（P.integrator.sobol_index_mask，同一个数，库测试比着），内核现在
+// 还用这里的常数：试过改成读全局参数，苹果显卡上五个带介质的场景像素末位会变（最大相对差 4.5e-4）。换掩码算法的人改读它。
+const SOBOL_INDEX_MASK: u32 = 0xffff0000u;
+fn rng_index(salt: u32) -> u32 { return owen_rev(reverseBits(state.sample), salt) & SOBOL_INDEX_MASK; }
 
 fn rng1(d: u32) -> f32 {
     if (rng_white(d)) { return white(d, 0u); }
@@ -167,8 +170,10 @@ fn rng4(d: u32) -> vec4<f32> {
 
 // Starts sample `index` of a pixel (the sample offline, the frame live) on path `path`; `seed`: the render's
 // (THREERT_SEED offline) and the stream's.
+// 北冥：`seed` 是用户种子过一次 hash_hp 之后的值：原来在这里现算的那一次哈希挪到了 CPU 上（gpu.rs 的
+// KernelIntegrator::new），像素种子与原来逐位相同。
 fn rng_start(pix: vec2<u32>, index: u32, seed: u32, path: u32) {
-    state.rng_pixel = hash_hp(pix.x ^ hash_hp(pix.y ^ hash_hp(seed)));
+    state.rng_pixel = hash_hp(pix.x ^ hash_hp(pix.y ^ seed));
     state.sample = index;
     state.legacy.rng_path = path;
 }

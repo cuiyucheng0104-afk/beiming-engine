@@ -44,16 +44,16 @@
 | `src/denoise.rs` | `renderer/src/denoise.rs` | 没改 |
 | `src/desc.rs` | `renderer/src/desc.rs` | 删去切掉的几类 |
 | `src/files.rs` | `renderer/src/files.rs` | 删去切掉的几类；预设的内嵌路径改指本目录的 `presets/` |
-| `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的四个着色器（见下一节） |
-| `src/heap.rs` | `renderer/src/heap.rs` | 删去切掉的几类 |
-| `src/lib.rs` | `renderer/src/lib.rs` | 删去切掉的几类；文档里的程序名 |
+| `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的四个着色器（见下一节）；全局参数追加三块、材质表与物体扩展表的上传（见下一节末） |
+| `src/heap.rs` | `renderer/src/heap.rs` | 删去切掉的几类；多一张物体扩展表（见下一节末） |
+| `src/lib.rs` | `renderer/src/lib.rs` | 删去切掉的几类；文档里的程序名；填全局参数追加的三块 |
 | `src/ltree.rs` | `renderer/src/ltree.rs` | 删去切掉的几类 |
 | `src/main.rs` | `renderer/src/main.rs` | 删去切掉的几类；库名与程序名 |
 | `src/merged.rs` | `renderer/src/merged.rs` | 删去切掉的几类；加了锁住两侧格式的测试（见下一节末） |
 | `src/pipeline_cache.rs` | `renderer/src/pipeline_cache.rs` | 没改 |
 | `src/post.rs` | `renderer/src/post.rs` | 没改 |
 | `src/procasset.rs` | `renderer/src/procasset.rs` | 没改 |
-| `src/sample.rs` | `renderer/src/sample.rs` | 没改 |
+| `src/sample.rs` | `renderer/src/sample.rs` | 索引掩码换成具名常数，数值没变 |
 | `src/scene.rs` | `renderer/src/scene.rs` | 删去切掉的几类；一个测试读夹具的根目录改成本目录；材质记录加长（见下一节末） |
 | `src/script.rs` | `renderer/src/script.rs` | 删去切掉的几类 |
 | `src/skin.rs` | `renderer/src/skin.rs` | 没改 |
@@ -61,7 +61,7 @@
 | `src/texpack.rs` | `renderer/src/texpack.rs` | 删去切掉的几类 |
 | `src/world.rs` | `renderer/src/world.rs` | 删去切掉的几类 |
 | `shaders/pathtrace.wgsl`、`intersect.wgsl`、`shader.wgsl`、`closure.wgsl`、`light.wgsl`、`volume.wgsl`、`integrator.wgsl`、`film.wgsl` | `renderer/shaders/pathtrace.wgsl` | 删去只有实时才走的段；加了北冥的接线（见下一节）；按阶段分成八个文件（见下一节末） |
-| `shaders/sample.wgsl` | `renderer/shaders/sample.wgsl` | 少两个只给辐射缓存用的采样维度常量 |
+| `shaders/sample.wgsl` | `renderer/shaders/sample.wgsl` | 少两个只给辐射缓存用的采样维度常量；随机数的状态换成读路径状态；种子的第一次哈希挪到 CPU 上；索引掩码起了名字 |
 | `shaders/trace_hw.wgsl` | `renderer/shaders/trace_hw.wgsl` | 没改 |
 | `shaders/records.wgsl` | `renderer/shaders/records.wgsl` | 没改 |
 | `presets/cinematic.json`、`presets/preview.json` | `presets/` 下同名文件 | 没改 |
@@ -136,6 +136,17 @@
 - `GpuMaterial` 的默认值改成手写：边缘色白、高光等级 0.5，其余 0；每个构造处都以它收尾。能量补偿那一位不在各构造处填，上传前由 `scene::with_energy_compensation` 一处按全局开关 `energyCompensation` 写；纯金属的闭包改读这一位（`ShaderInputs.flags`），上游顶替仍读全局的 `P.misc.z`。
 - 纯金属的边缘色改从材质记录来（默认白，结果不变）。新加一个场景特性位 `F_SPECULAR_TINT`：场景里有材质的边缘色不是白时，材质求值才从记录读它，别的场景里内核编译期取白。原因是量出来的：一律从记录读时，F82 的 B 项不再是编译期的 0，没有金属的计时场景稳态也慢 4%（苹果显卡）。在苹果显卡上强开这一位（`THREERT_FEATURES_ON`）跑过全部回归，结果同样逐位不变。
 - 库测试 `the_material_record_is_the_kernels`（`src/merged.rs`）逐字段比两侧的名字、偏移与总长度（合并布局里按 vec4 拼的那一份也比），逐个比 `flags` 各位的数值，并锁住默认值与能量补偿位的写法。
+
+**全局参数**（`shaders/pathtrace.wgsl` 的 `Params`，Rust 一侧 `src/gpu.rs` 的 `Params`）在末尾追加三块。已有的块长度冻结；以后要加东西，在末尾再追加自己命名的一整块。
+
+- `integrator`（`KernelIntegrator`，4 个 vec4）：字段名照 Cycles 的 `KernelIntegrator`，四类弹射上限、透明弹射的上下限、`min_bounce`、`sampling_pattern`、两个夹取、`filter_glossy`、`light_inv_rr_threshold`、`seed`、`sobol_index_mask`，外加 `pass_kind`（0 颜色样本、1 辅助样本）与 `background_transparent`。只定义、内核还没读的字段是 0。
+- `seed` 里放的是用户种子过一次哈希之后的值：原来着色器里对种子现算的那一次哈希挪到了 CPU 上（`KernelIntegrator::new`），像素种子与原来逐位相同。`sobol_index_mask` 是上游写死的 `0xffff0000`，为 0 时开渲前报错。
+- 这两个数现在是「已写未读」：内核还从上游的位置 `size.w` 读同一个种子（两处不一样时开渲前报错），掩码还用 `sample.wgsl` 里同值的具名常数 `SOBOL_INDEX_MASK`（库测试比着）。试过改读新位置，苹果显卡上像素末位会变：改读种子时一个场景（`shadow/emitter-no-cast`，最大相对差 1.9e-6；在入口读、在 `rng_start` 里读、放在嵌套结构里还是平铺的 vec4 里，四种写法都一样），改读掩码时五个带介质的场景（最大相对差 4.5e-4）。整数的读法不该改变浮点结果，变的是编译器对旁边浮点式子的排法。留给换随机数编号办法的那一步（它本来就允许结果变化）一起改，改完 `size.w` 标预留。
+- `film`（`KernelFilm`，1 个 vec4）：输出缓冲每个像素的步长 `film_stride`、灯组的起点 `film_lightgroup_first`、这次渲染请求的灯组数 `num_lightgroups`。
+- `table_first_ext`（2 个 vec4、8 格）：北冥加的表的首地址（上游的 `table_first` 12 格已经占满）。登记了四个去向：物体扩展表、图案节点表、广义 Schlick 的两张能量表；后四格空闲。
+- 库测试 `the_parameters_are_the_kernels`（`src/merged.rs`）逐字段比 `Params`、`KernelIntegrator`、`KernelFilm` 两侧的名字、偏移与总长度。
+
+**物体扩展表**（`shaders/pathtrace.wgsl` 的 `ObjectExt` 与 `object_ext_at`，Rust 一侧 `scene::GpuObjectExt`，`heap::Table::ObjectExt`）：每个物体 2 个 vec4，与上游的物体表同下标、定长，首地址在 `table_first_ext` 的第一格。第 0 个 vec4 是实体编号 `entity_id`（存成浮点数值，小于 2^24）、物体标志 `object_flag`（位照 Cycles，第 3 位镜像）、接收者集合号 `receiver_light_set`、所属灯组 `lightgroup`；第 1 个是两个阴影终止偏移与两格预留。现在全是 0，还没有读者；各家以后只填自己的格子。
 
 ## 沿用上游名字的地方
 

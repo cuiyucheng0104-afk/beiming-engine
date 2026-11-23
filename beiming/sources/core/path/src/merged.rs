@@ -172,6 +172,32 @@ mod tests {
         assert_eq!(bytemuck::bytes_of(&GpuMaterial { flags: 0, ..on[1] }), bytemuck::bytes_of(&GpuMaterial { flags: 0, ..ms[1] }));
     }
 
+    /// 北冥：全局参数两侧是同一个格式：着色器的 `Params` 与 `gpu::Params` 逐字段同名、同偏移，总长度相同；末尾
+    /// 追加的 `integrator`、`film` 两块各自的字段也逐个比。物体扩展表的一项同样。
+    #[test]
+    fn the_parameters_are_the_kernels() {
+        use crate::gpu::{KernelFilm, KernelIntegrator, Params, FILM_FIXED, SOBOL_INDEX_MASK};
+        use crate::scene::GpuObjectExt;
+        let (m, _) = parse(&variant(0, false));
+        let want = fields!(Params; cam_pos, cam_fwd, cam_right, cam_up, size, counts, env, misc, sky_color, counts2, time, fog, fog_color, vol, vol2, raster, cache, motion, group_first, light_lod, emit_power, lod_view, ltree, procs, aerial, background, ltile, ltile2, lt_cam, table_first, word_first, live_first, live_len, integrator, film, table_first_ext);
+        assert_eq!(members(&m, "Params"), (want, std::mem::size_of::<Params>()));
+        let want = fields!(KernelIntegrator; max_bounce, max_diffuse_bounce, max_glossy_bounce, max_transmission_bounce, transparent_max_bounce, transparent_min_bounce, min_bounce, sampling_pattern, sample_clamp_direct, sample_clamp_indirect, filter_glossy, light_inv_rr_threshold, seed, sobol_index_mask, pass_kind, background_transparent);
+        assert_eq!(members(&m, "KernelIntegrator"), (want, std::mem::size_of::<KernelIntegrator>()));
+        let want = fields!(KernelFilm; film_stride, film_lightgroup_first, num_lightgroups, reserved);
+        assert_eq!(members(&m, "KernelFilm"), (want, std::mem::size_of::<KernelFilm>()));
+        assert_eq!((std::mem::size_of::<KernelIntegrator>(), std::mem::size_of::<KernelFilm>()), (4 * 16, 16));
+        let want = fields!(GpuObjectExt; entity_id, object_flag, receiver_light_set, lightgroup, shadow_terminator_shading_offset, shadow_terminator_geometry_offset, reserved0, reserved1);
+        assert_eq!(members(&m, "ObjectExt"), (want, std::mem::size_of::<GpuObjectExt>()));
+        assert_eq!(constant(&m, "OBJECT_EXT_VEC4") as usize * 16, std::mem::size_of::<GpuObjectExt>());
+        // 种子进缓冲的是过一次哈希之后的值；掩码是上游写死的那一个；只定义的字段是 0。
+        let i = KernelIntegrator::new(0x5eed);
+        assert_eq!(i, KernelIntegrator { seed: crate::sample::hash_hp(0x5eed), sobol_index_mask: SOBOL_INDEX_MASK, ..Default::default() });
+        assert_eq!((SOBOL_INDEX_MASK, constant(&m, "SOBOL_INDEX_MASK"), constant(&m, "PASS_KIND_COLOR"), constant(&m, "PASS_KIND_AUX")), (0xffff_0000, 0xffff_0000, 0, 1));
+        // 输出缓冲的形状：灯组从固定部分之后开始，步长是固定部分加请求的灯组数。
+        assert_eq!(KernelFilm::new(0), KernelFilm { film_stride: FILM_FIXED, film_lightgroup_first: FILM_FIXED, num_lightgroups: 0, reserved: 0 });
+        assert_eq!(KernelFilm::new(2), KernelFilm { film_stride: FILM_FIXED + 2, film_lightgroup_first: FILM_FIXED, num_lightgroups: 2, reserved: 0 });
+    }
+
     /// Kernel variants in the merged layout: valid WGSL, no entry point with more than eight storage buffers, none
     /// declared beyond them (a pipeline layout counts what is declared), no length of a view's buffer in the source,
     /// and `MergedLive`'s members where the renderer puts their sections.
@@ -259,7 +285,7 @@ mod tests {
             assert!(kernel_template().contains(&format!("const {constant}: u32 = {}u;", bytes / 16)), "{constant}");
             assert_eq!(layout(&m, name).1 as usize, bytes, "{name}");
         }
-        assert_eq!(<Table as crate::heap::Section>::COUNT, Table::EmitterTris as usize + 1);
+        assert_eq!(<Table as crate::heap::Section>::COUNT, Table::ObjectExt as usize + 1);
         // The emitters' triangles.
         assert!(kernel_template().contains(&format!("const EMITTER_TRI_VEC4: u32 = {}u;", std::mem::size_of::<crate::GpuEmitterTri>() / 16)));
         assert!(kernel_template().contains("let b = P.table_first[2].w + i * EMITTER_TRI_VEC4;"));
@@ -278,7 +304,11 @@ mod tests {
         // What the kernel reads with no offset is its heap's first section.
         assert_eq!((Table::LightTree as usize, crate::heap::Stream::EnvCdf as usize), (0, 0));
         assert!(kernel_template().contains("fn lt_node(i: u32) -> vec4<f32> { return table_f(i); }") && kernel_template().contains("fn env_cdf_at(i: u32) -> f32 { return bitcast<f32>(words[i]); }"));
-        assert!(<Table as crate::heap::Section>::COUNT <= 12, "`Params::table_first` names every table");
+        // 北冥：上游的 12 张表在 `table_first`，北冥加的表在 `table_first_ext`（8 格）。
+        assert_eq!(Table::EmitterTris as usize + 1, 12, "`Params::table_first` names upstream's tables");
+        assert!(<Table as crate::heap::Section>::COUNT <= 12 + 8, "`Params::table_first_ext` names the rest");
+        assert_eq!(Table::ObjectExt as usize, 12, "`table_first_ext[0].x`");
+        assert!(kernel_template().contains("let b = P.table_first_ext[0].x + object * OBJECT_EXT_VEC4;"));
     }
 
     /// The loop guard opens every loop of the kernel but counted ones (`for (var i = N; i < M; i++)`, literals), the
