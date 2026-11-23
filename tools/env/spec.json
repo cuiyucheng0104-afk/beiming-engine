@@ -634,6 +634,81 @@
       ]
     },
     {
+      "name": "BEIMING_AUDIO_L2_PYTHON",
+      "group": "声音",
+      "purpose": "L2 声源铸造厂（npm run audio:foundry）推理子进程用的隔离 venv 解释器，要装 torch 与上游 moss_soundeffect_v2；--python 优先；--ssh 时是远端路径；不要用主仓 .venv",
+      "default": "不设（全部命中缓存时不需要，真生成时缺它退出 3）",
+      "readBy": [
+        "engine/audio/foundry.py"
+      ]
+    },
+    {
+      "name": "BEIMING_AUDIO_L2_MODEL_DIR",
+      "group": "声音",
+      "purpose": "L2 声源铸造厂的 MOSS-SoundEffect-v2.0 权重目录（--model-dir 优先；--ssh 时是远端路径）",
+      "default": "不设（全部命中缓存时不需要）",
+      "readBy": [
+        "engine/audio/foundry.py"
+      ]
+    },
+    {
+      "name": "BEIMING_AUDIO_L2_PKG",
+      "group": "声音",
+      "purpose": "L2 声源铸造厂的上游 MOSS-TTS 克隆目录（含 moss_soundeffect_v2 包，--pkg-dir 优先；--ssh 时是远端路径）",
+      "default": "不设（包已装进隔离 venv 时不需要）",
+      "readBy": [
+        "engine/audio/foundry.py"
+      ]
+    },
+    {
+      "name": "BEIMING_AUDIO_L2_CACHE",
+      "group": "声音",
+      "purpose": "L2 声源铸造厂的 SHA256 缓存目录（--cache 优先）",
+      "default": "仓库根的 .cache/audio-foundry（已被 git 忽略）",
+      "readBy": [
+        "engine/audio/foundry.py"
+      ]
+    },
+    {
+      "name": "BEIMING_AUDIO_L2_WORKER",
+      "group": "声音",
+      "purpose": "覆盖 L2 推理子进程脚本的路径，只给测试与排障用（离线单测用它换成不依赖 torch 的 mock）",
+      "default": "不设（用 engine/audio/foundry_worker.py）",
+      "readBy": [
+        "engine/audio/foundry.py"
+      ]
+    },
+    {
+      "name": "CUDA_VISIBLE_DEVICES",
+      "group": "声音",
+      "purpose": "L2 推理子进程按 --gpu 在 import torch 之前写入，限定它只看见指定序号的 GPU（子进程内设置，不读取你的值）",
+      "default": "由 --gpu 设置（默认 0）",
+      "readBy": [
+        "engine/audio/foundry_worker.py"
+      ],
+      "external": "CUDA"
+    },
+    {
+      "name": "HF_HUB_OFFLINE",
+      "group": "声音",
+      "purpose": "L2 推理子进程默认写入 1（权重在本地目录，不联网）；你已设置则不覆盖",
+      "default": "1（由子进程设置）",
+      "readBy": [
+        "engine/audio/foundry_worker.py"
+      ],
+      "external": "Hugging Face"
+    },
+    {
+      "name": "TRANSFORMERS_OFFLINE",
+      "group": "声音",
+      "purpose": "L2 推理子进程默认写入 1（权重在本地目录，不联网）；你已设置则不覆盖",
+      "default": "1（由子进程设置）",
+      "readBy": [
+        "engine/audio/foundry_worker.py"
+      ],
+      "external": "Hugging Face Transformers"
+    },
+    {
       "name": "BEIMING_FPS",
       "group": "声音",
       "purpose": "统一出片传给声音脚本的帧率；A 模版 sound.py 与 film.json 不一致时退出 4（换了档位却没改作品描述）",

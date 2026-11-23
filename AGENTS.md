@@ -42,7 +42,7 @@ npm run check                                 # 全部检查：仓库规范、�
 - 风格只在仓库的固定快照里查：[routes/c-style/STYLES.md](routes/c-style/STYLES.md)（`npm run c:styles -- find <题材关键词>`）。其他全局视频、动画类 skill 只在用户点名时用，产出同样只写 `films/<名字>/`。
 - 命令用仓库的 `npm run` / `node` 入口（退出码、`--json` 约定与全部 npm 脚本见 [docs/CLI.md](docs/CLI.md)），不在归档目录里运行上游脚本。
 
-命令细节：出片编排见 [tools/film/README.md](tools/film/README.md)；页面约定、错误码、镜头缓存与续跑见 [engine/render/README.md](engine/render/README.md)。整片前 `npm run film -- plan films/<名字>` 估算耗时与磁盘（A、C），出片前 `npm run env:gpu` 看 GPU，没有 GPU 的机器（CI）设 `BEIMING_GPU=software-ok`；页面要跟着交付帧率走时写 `window.FPS = window.__RENDER?.fps ?? 24`。声音：混音门禁 `npm run audio:qa -- --film films/<名字>`，声画拍点核对 `npm run audio:cuecheck -- films/<名字>`，旁白、字幕与口型写 `dialogue.json` 后 `npm run audio:voice -- build films/<名字>`（[写法](engine/audio/voice/README.md)）。
+命令细节：出片编排见 [tools/film/README.md](tools/film/README.md)；页面约定、错误码、镜头缓存与续跑见 [engine/render/README.md](engine/render/README.md)。整片前 `npm run film -- plan films/<名字>` 估算耗时与磁盘（A、C），出片前 `npm run env:gpu` 看 GPU，没有 GPU 的机器（CI）设 `BEIMING_GPU=software-ok`；页面要跟着交付帧率走时写 `window.FPS = window.__RENDER?.fps ?? 24`。声音：混音门禁 `npm run audio:qa -- --film films/<名字>`，声画拍点核对 `npm run audio:cuecheck -- films/<名字>`，旁白、字幕与口型写 `dialogue.json` 后 `npm run audio:voice -- build films/<名字>`（[写法](engine/audio/voice/README.md)）；缺中国器物干声时可用 `npm run audio:foundry -- gen --prompt <描述>` 按需生成补库（要隔离 venv 与 ≥18 GiB 空闲显存，产物含 AI 生成内容，缓存不入库，详见 `npm run audio:foundry -- --help`）。
 
 ## 做引擎工程（仅在用户明确要求时，用 plan:*）
 
