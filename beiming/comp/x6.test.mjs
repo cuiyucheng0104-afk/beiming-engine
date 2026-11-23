@@ -73,7 +73,7 @@ def main():
     ap.add_argument('--amp', type=float, default=0.268)
     ap.add_argument('--preset', default='')
     ap.add_argument('--stems', action='store_true')
-    args = ap.parse_args()
+    args, _ = ap.parse_known_args()
 
     amp = args.amp
     if args.preset:
@@ -278,8 +278,41 @@ describe('X6-Unit: Python 解释器解析与 numpy 程序化声音脚本工序',
     });
     assert.equal(rerunNoStems.report, null, '本次未产出 report.json 时不得误认历史文件');
     assert.deepEqual(rerunNoStems.stems, [], '本次未产出 stems 时不得返回上次遗留的分轨');
+    assert.equal(existsSync(join(dirname(sharedOut), 'report.json')), false, '关闭分轨重跑后磁盘不得残留旧 report.json');
+    for (const oldStem of rerunSame.stems) {
+      assert.equal(existsSync(oldStem), false, `关闭分轨重跑后磁盘不得残留旧分轨 ${oldStem}`);
+    }
+    assert.equal(existsSync(join(dirname(sharedOut), 'stems')), false, '关闭分轨重跑后空 stems 目录应一并清理');
 
-    // 失败重跑不得删除或覆盖上一次已成功产出的 WAV
+    // 并发/共用 workDir 输出同目录 A.wav 与 B.wav：分轨路径与记录事件文件互不覆盖串音
+    const sharedConcurrentDir = join(dir, 'shared-concurrent');
+    const resA = runAudioScript({
+      script: scriptPath,
+      events: { ...eventsObj, events: [eventsObj.events[0]] },
+      workDir: sharedConcurrentDir,
+      outPath: join(sharedConcurrentDir, 'A.wav'),
+      args: ['--amp', '0.15', '--stems'],
+      expectedFrames: 45,
+      fps: '30/1',
+    });
+    const resB = runAudioScript({
+      script: scriptPath,
+      events: { ...eventsObj, events: eventsObj.events },
+      workDir: sharedConcurrentDir,
+      outPath: join(sharedConcurrentDir, 'B.wav'),
+      args: ['--amp', '0.25', '--stems'],
+      expectedFrames: 45,
+      fps: '30/1',
+    });
+    assert.notDeepEqual(resA.stems, resB.stems, '同目录不同输出 WAV 的分轨路径必须隔离');
+    assert.equal(existsSync(resA.stems[0]), true);
+    assert.equal(existsSync(resB.stems[0]), true);
+    assert.equal(readFileSync(resA.stems[0]).equals(readFileSync(resB.stems[0])), false, 'A.wav 与 B.wav 的分轨内容不得互相覆盖');
+    assert.equal(existsSync(resA.args[2]), true, '内存事件记录的 args[2] 应在磁盘可追溯');
+    assert.equal(existsSync(resB.args[2]), true, '内存事件记录的 args[2] 应在磁盘可追溯');
+    assert.notEqual(resA.args[2], resB.args[2]);
+
+    // 失败重跑或伴随产物发布冲突（stems 为普通文件 / report.json 为目录）时不得覆盖旧 WAV，也不得残留临时文件
     const prevBytes = readFileSync(sharedOut);
     const failScript = join(dir, 'fail-rerun.py');
     writeFileSync(failScript, 'import sys\nsys.exit(3)\n');
@@ -289,6 +322,77 @@ describe('X6-Unit: Python 解释器解析与 numpy 程序化声音脚本工序',
     );
     assert.equal(existsSync(sharedOut), true, '失败重跑后原成品 WAV 必须完好保留');
     assert.ok(readFileSync(sharedOut).equals(prevBytes), '失败重跑不得改动原成品 WAV 字节');
+
+    const conflictStemsPath = join(dirname(sharedOut), 'stems');
+    writeFileSync(conflictStemsPath, 'not-a-directory');
+    assert.throws(
+      () => runAudioScript({
+        script: scriptPath,
+        events: eventsObj,
+        outPath: sharedOut,
+        args: ['--amp', '0.12', '--stems'],
+        expectedFrames: 45,
+        fps: '30/1',
+      }),
+      isCode('failure.audio-script'),
+    );
+    assert.ok(readFileSync(sharedOut).equals(prevBytes), 'stems 目标为普通文件导致发布失败时不得改写旧 WAV');
+    assert.deepEqual(
+      readdirSync(dirname(sharedOut)).filter((n) => n.startsWith('.beiming-')),
+      [],
+      '发布失败不得残留临时文件',
+    );
+    rmSync(conflictStemsPath, { force: true });
+
+    const conflictReportDir = join(dirname(sharedOut), 'report.json');
+    mkdirSync(conflictReportDir, { recursive: true });
+    assert.throws(
+      () => runAudioScript({
+        script: scriptPath,
+        events: eventsObj,
+        outPath: sharedOut,
+        args: ['--amp', '0.12', '--stems'],
+        expectedFrames: 45,
+        fps: '30/1',
+      }),
+      isCode('failure.audio-script'),
+    );
+    assert.ok(readFileSync(sharedOut).equals(prevBytes), 'report.json 目标为目录导致发布失败时不得改写旧 WAV');
+    assert.deepEqual(
+      readdirSync(dirname(sharedOut)).filter((n) => n.startsWith('.beiming-')),
+      [],
+      'report.json 为目录失败后不得残留临时文件',
+    );
+    rmSync(conflictReportDir, { recursive: true, force: true });
+
+    // 默认 cwd 相对写出 report.json 与 stems/music.wav + report.file 指向最终已发布路径
+    const relCwdScript = join(dir, 'rel-cwd.py');
+    writeFileSync(relCwdScript, [
+      'import json, os, pathlib, struct, wave',
+      'out = os.environ["BEIMING_AUDIO_OUT"]',
+      'with wave.open(out, "wb") as w:',
+      '    w.setparams((2, 2, 48000, 1000, "NONE", ""))',
+      '    w.writeframes(struct.pack("<2000h", *([2048]*2000)))',
+      'pathlib.Path("stems").mkdir(parents=True, exist_ok=True)',
+      'with wave.open("stems/music.wav", "wb") as w:',
+      '    w.setparams((2, 2, 48000, 1000, "NONE", ""))',
+      '    w.writeframes(struct.pack("<2000h", *([1024]*2000)))',
+      'pathlib.Path("report.json").write_text(json.dumps({"file": out, "events": os.environ["BEIMING_EVENTS"]}), encoding="utf-8")',
+    ].join('\n'));
+    const relOut = join(dir, 'rel-cwd-out', 'rel.wav');
+    const relRes = runAudioScript({
+      script: relCwdScript,
+      events: { fps: 48, total_frames: 1 },
+      outPath: relOut,
+      expectedFrames: 1,
+      fps: 48,
+    });
+    assert.ok(relRes.report, '默认 cwd 相对写出的 report.json 必须被采集返回');
+    assert.equal(relRes.report.file, relOut, 'report.file 应更新为已发布 WAV 路径而非已删除的暂存路径');
+    assert.equal(existsSync(relRes.report.file), true);
+    assert.equal(existsSync(relRes.report.events), true);
+    assert.deepEqual(relRes.stems.map((s) => basename(s)), ['music.wav']);
+    assert.equal(existsSync(relRes.stems[0]), true);
   });
 });
 
@@ -319,12 +423,32 @@ describe('X6-Deliver: 合成收尾 deliver() 集成 audioScript 端到端交付�
 
     const b2a = deliver({
       ...input,
-      audioScript: { script: scriptPath, args: ['--stems', '--preset', presetA], mastered: true },
+      audioScript: {
+        script: scriptPath,
+        args: [
+          '--stems',
+          '--preset', presetA,
+          '--win-root', '\\round-A\\preset.json',
+          '--win-eq=\\round-A\\preset.json',
+          '--work-rel=<work>\\sub\\preset.json',
+        ],
+        mastered: true,
+      },
       outDir: join(dir, 'bundle-mastered-a'),
     });
     const b2b = deliver({
       ...input,
-      audioScript: { script: scriptPath, args: ['--stems', '--preset', presetB], mastered: true },
+      audioScript: {
+        script: scriptPath,
+        args: [
+          '--stems',
+          '--preset', presetB,
+          '--win-root', '\\round-B\\preset.json',
+          '--win-eq=\\round-B\\preset.json',
+          '--work-rel=<work>\\sub\\preset.json',
+        ],
+        mastered: true,
+      },
       outDir: join(dir, 'bundle-mastered-b'),
     });
     verifyDeliveryBundle(b2a.dir);
@@ -334,6 +458,7 @@ describe('X6-Deliver: 合成收尾 deliver() 集成 audioScript 端到端交付�
     const runB = readFileSync(join(b2b.dir, PIECES.run), 'utf8');
     assert.equal(runA, runB, '含绝对路径附加参数的跨目录交付 run.json 必须逐位一致');
     assert.ok(!runA.includes(dir), 'run.json 不得泄漏任何本机临时目录路径');
+    assert.ok(!runA.includes('round-A') && !runA.includes('round-B'), 'run.json 不得泄漏 Windows 反斜杠根路径');
     assert.equal(
       readFileSync(join(b2a.dir, PIECES.report), 'utf8'),
       readFileSync(join(b2b.dir, PIECES.report), 'utf8'),
@@ -351,7 +476,11 @@ describe('X6-Deliver: 合成收尾 deliver() 集成 audioScript 端到端交付�
     assert.deepEqual(scriptStep.stems, ['ambient.wav', 'sfx.wav']);
     assert.deepEqual(scriptStep.args, [
       '<script>', '--events', '<events>', '--out', '<work>/audio-script/script-audio.wav',
-      '--stems', '--preset', '<arg-path:0>',
+      '--stems',
+      '--preset', '<arg-path:0>',
+      '--win-root', '<arg-path:1>',
+      '--win-eq=<arg-path:2>',
+      '--work-rel=<work>/sub/preset.json',
     ]);
 
     const audioStep = parsedRun.steps.find((s) => s.step === 'audio');
@@ -401,6 +530,31 @@ describe('X6-Deliver: 合成收尾 deliver() 集成 audioScript 端到端交付�
       );
       assert.equal(existsSync(caseOut), false, `${caseName} 被拒后不得残留输出目录`);
     }
+
+    // track 模式下即便提供响度合格的外部音轨，也不得掩盖 mastered: true 的全零脚本母带
+    writeFileSync(silentOrTruncScript, rejectCases[0][2]);
+    const externalLoudWav = runAudioScript({
+      script: scriptPath,
+      events: input.events,
+      outPath: join(dir, 'loud-ext.wav'),
+      expectedFrames: 45,
+      fps: '30/1',
+    });
+    const trackFilm = structuredClone(input.film);
+    trackFilm.audio = { mode: 'track', loudness: -14, truePeak: -1 };
+    const maskedOut = join(dir, 'reject-masked-silent-track');
+    assert.throws(
+      () => deliver({
+        ...input,
+        film: trackFilm,
+        events: eventsTable(trackFilm),
+        tracks: [{ path: externalLoudWav.path, at: 0, gainDb: 0 }],
+        audioScript: { script: silentOrTruncScript, mastered: true },
+        outDir: maskedOut,
+      }),
+      isCode('contract.delivery-mismatch'),
+    );
+    assert.equal(existsSync(maskedOut), false, 'track 模式下全零脚本母带被拒后不得残留输出目录');
 
     // 无声片（film.audio 缺省 / mode === 'none'）传 audioScript 报 usage.bad-argument
     const silentFilm = structuredClone(input.film);
@@ -641,7 +795,23 @@ describe('X6-Red: 零陷阱参数校验与异常脚本防御', () => {
       isCode('failure.audio-script'),
     );
 
-    // 10. 含空格、分号、引号、$() 的路径不经 shell 安全执行
+    // 10. RIFF 声明边界后若残留旧渲染的 data 块，解码结果必须严格以 RIFF 边界为准（与 Python wave 一致）
+    const trailingDataRes = runPyBody('riff-trailing-data.py', [
+      'import os, pathlib, struct',
+      'out = os.environ["BEIMING_AUDIO_OUT"]',
+      'pcm_valid = struct.pack("<3200h", *([1024] * 3200))',
+      'pcm_stale = struct.pack("<1600h", *([2048] * 1600))',
+      'fmt_chunk = struct.pack("<4sIHHIIHH", b"fmt ", 16, 1, 2, 48000, 48000 * 4, 4, 16)',
+      'data_valid = struct.pack("<4sI", b"data", len(pcm_valid)) + pcm_valid',
+      'data_stale = struct.pack("<4sI", b"data", len(pcm_stale)) + pcm_stale',
+      'riff_body = b"WAVE" + fmt_chunk + data_valid',
+      'riff_head = struct.pack("<4sI", b"RIFF", len(riff_body))',
+      'pathlib.Path(out).write_bytes(riff_head + riff_body + data_stale)',
+    ].join('\n'), { expectedFrames: 1, fps: 30 });
+    assert.equal(trailingDataRes.samples, 1600, 'RIFF 边界内为 1600 采样，尾部残余块不得覆盖解码');
+    assert.equal(Math.round(trailingDataRes.wav.left[0] * 32768), 1024, '首样本必须取 RIFF 边界内的 1024 而非尾部残余的 2048');
+
+    // 11. 含空格、分号、引号、$() 的路径不经 shell 安全执行
     const weirdDir = join(dir, "odd dir; $(echo injected) 'quote' [1]");
     mkdirSync(weirdDir, { recursive: true });
     const weirdScript = join(weirdDir, 'sound.py');
@@ -681,6 +851,8 @@ test('X6-03B-External: 未修改 03B 契约（--events / --out + report.json + s
   assert.equal(res.channels, 2);
   assert.equal(res.samples, 960000);
   assert.ok(res.report && typeof res.report === 'object', '03B 脚本应产出伴随 report.json');
+  assert.equal(res.report.file, res.path, '03B 报告中的 file 字段应指向已发布主 WAV 路径');
+  assert.equal(existsSync(res.report.file), true);
   assert.deepEqual(
     res.stems.map((p) => basename(p)),
     ['ambience.wav', 'music.wav', 'sfx.wav'],

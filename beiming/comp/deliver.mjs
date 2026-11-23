@@ -67,7 +67,7 @@ function placeholders(args, map) {
       const winFrom = from.replace(/\//g, '\\');
       if (winFrom !== from) s = s.split(winFrom).join(to);
     }
-    if (s.startsWith('<work>') || s.startsWith('<out>') || s.startsWith('<script>') || s.startsWith('<events>')) {
+    if (/(?:^|=)(?:<work>|<out>|<script>|<events>)/.test(s)) {
       s = s.replace(/\\/g, '/');
     }
     return s;
@@ -75,7 +75,7 @@ function placeholders(args, map) {
 }
 
 function isAbsolutePathToken(token) {
-  return /^(\/|\\\\|[a-zA-Z]:[\\/])/.test(token);
+  return /^([/\\]|[a-zA-Z]:[/\\])/.test(token);
 }
 
 function sanitizeScriptArgs(rawArgs, subst) {
@@ -263,6 +263,29 @@ function deliverBundle(opts) {
           expectedFrames: at === 0 ? film.output.frames : undefined,
           fps: film.output.fps,
         });
+        let scriptPeak = 0;
+        for (let i = 0; i < scriptRes.samples; i++) {
+          const al = Math.abs(scriptRes.wav.left[i]);
+          const ar = Math.abs(scriptRes.wav.right[i]);
+          if (al > scriptPeak) scriptPeak = al;
+          if (ar > scriptPeak) scriptPeak = ar;
+        }
+        if (scriptPeak === 0) {
+          throw mismatch('声音脚本产出的音轨为全零静音，无法交付母带');
+        }
+        if (preMastered) {
+          const targetLoudness = audioCfg.loudness ?? -14;
+          const targetPeak = audioCfg.truePeak ?? -1;
+          if (!Number.isFinite(targetLoudness) || !Number.isFinite(targetPeak)) {
+            throw bad('audio.loudness、audio.truePeak 必须是有限数');
+          }
+          const scriptLoud = measureLoudness(scriptRes.path, { timeoutMs });
+          if (!Number.isFinite(scriptLoud.integrated) || !Number.isFinite(scriptLoud.truePeak)
+            || Math.abs((scriptLoud.integrated + scriptGainDb) - targetLoudness) > 1
+            || (scriptLoud.truePeak + scriptGainDb) > targetPeak) {
+            throw mismatch(`声音脚本母带不达标：集成响度 ${scriptLoud.integrated} LUFS（目标 ${targetLoudness} ± 1），真峰值 ${scriptLoud.truePeak} dBTP（上限 ${targetPeak}）`);
+          }
+        }
         const scriptSubst = [
           [scriptRes.args[0], '<script>'],
           [scriptRes.args[2], '<events>'],

@@ -215,7 +215,7 @@ function parseWavHeader(buf) {
     throw new CompError('failure.audio-script', `WAV RIFF 声明长度（${8 + riffSize}）超出文件实际字节数（${buf.length}），文件已截断`);
   }
   const riffEnd = 8 + riffSize;
-  let at = 12, fmt = null, data = null;
+  let at = 12, fmt = null, data = null, decodeEnd = riffEnd;
   while (at < riffEnd) {
     if (at + 8 > riffEnd || at + 8 > buf.length) {
       throw new CompError('failure.audio-script', 'WAV 子块头部不完整，文件已截断');
@@ -224,7 +224,7 @@ function parseWavHeader(buf) {
     const size = buf.readUInt32LE(at + 4);
     const body = at + 8;
     if (body + size > riffEnd || body + size > buf.length) {
-      throw new CompError('failure.audio-script', `WAV ${id.trim()} 数据块截断：声明 ${size} 字节，实际仅余 ${buf.length - body} 字节`);
+      throw new CompError('failure.audio-script', `WAV ${id.trim()} 数据块截断：声明 ${size} 字节，实际仅余 ${Math.min(riffEnd, buf.length) - body} 字节`);
     }
     if (id === 'fmt ') {
       if (size < 16) throw new CompError('failure.audio-script', 'WAV fmt 段损坏');
@@ -239,7 +239,11 @@ function parseWavHeader(buf) {
       }
       fmt = { format, channels, sampleRate, blockAlign, bits };
     } else if (id === 'data') {
-      data = buf.subarray(body, body + size);
+      if (!fmt) throw new CompError('failure.audio-script', 'WAV data 段不能出现在 fmt 段之前');
+      if (!data) {
+        data = buf.subarray(body, body + size);
+        decodeEnd = body + size;
+      }
     }
     at = body + size + (size & 1);
   }
@@ -262,18 +266,14 @@ function parseWavHeader(buf) {
   if (data.length <= 0 || data.length % frameBytes !== 0) {
     throw new CompError('failure.audio-script', `WAV data 段字节数（${data.length}）不是完整采样帧（${frameBytes} 字节）的整数倍或为空`);
   }
-  return fmt;
+  return { ...fmt, riffEnd, decodeEnd };
 }
 
-function atomicWriteFile(destPath, bytes) {
-  const dir = dirname(destPath);
-  mkdirSync(dir, { recursive: true });
-  const tmpPath = join(
+function makeTempFilePath(dir) {
+  return join(
     dir,
     `.beiming-tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
-  writeFileSync(tmpPath, bytes);
-  renameSync(tmpPath, destPath);
 }
 
 /**
@@ -343,10 +343,10 @@ export function runAudioScript(opts) {
 
   if (opts.python !== undefined) assertNonEmptyString(opts.python, 'python');
 
-  let cwd = workDir;
+  let explicitCwd = null;
   if (opts.cwd !== undefined) {
-    cwd = resolve(assertNonEmptyString(opts.cwd, 'cwd'));
-    if (!existsSync(cwd) || !statSync(cwd).isDirectory()) {
+    explicitCwd = resolve(assertNonEmptyString(opts.cwd, 'cwd'));
+    if (!existsSync(explicitCwd) || !statSync(explicitCwd).isDirectory()) {
       throw bad(`cwd 目录不存在：${opts.cwd}`);
     }
   }
@@ -448,6 +448,9 @@ export function runAudioScript(opts) {
   const eventsSha256 = sha256(eventsBytes);
 
   const outDir = dirname(outWavPath);
+  const outBase = basename(outWavPath).replace(/\.wav$/i, '') || basename(outWavPath);
+  const publishedEventsPath = externalEventsPath
+    ?? (outBase === 'script-audio' ? join(workDir, 'script-events.json') : join(workDir, `script-events-${outBase}.json`));
   mkdirSync(workDir, { recursive: true });
   mkdirSync(outDir, { recursive: true });
 
@@ -463,7 +466,7 @@ export function runAudioScript(opts) {
     const recordedArgs = [
       scriptPath,
       '--events',
-      externalEventsPath ?? join(workDir, 'script-events.json'),
+      publishedEventsPath,
       '--out',
       outWavPath,
       ...extraArgs,
@@ -481,7 +484,7 @@ export function runAudioScript(opts) {
     };
 
     const r = spawnSync(python, spawnArgs, {
-      cwd,
+      cwd: explicitCwd ?? stagingDir,
       env: childEnv,
       shell: false,
       windowsHide: true,
@@ -511,7 +514,7 @@ export function runAudioScript(opts) {
     const fmt = parseWavHeader(wavBytes);
     let wav;
     try {
-      wav = readWav(wavBytes);
+      wav = readWav(wavBytes.subarray(0, fmt.decodeEnd));
     } catch (err) {
       throw new CompError('failure.audio-script', `声音脚本产出的 WAV 解析失败：${err.message}`);
     }
@@ -532,36 +535,138 @@ export function runAudioScript(opts) {
       );
     }
 
-    atomicWriteFile(outWavPath, wavBytes);
-
     let report = null;
+    let reportBytesToPublish = null;
     const stagedReportPath = join(stagingDir, 'report.json');
-    if (existsSync(stagedReportPath) && statSync(stagedReportPath).isFile()) {
-      const curBytes = readFileSync(stagedReportPath);
-      try {
-        report = JSON.parse(curBytes.toString('utf8'));
-        atomicWriteFile(join(outDir, 'report.json'), curBytes);
-      } catch {
-        report = null;
+    if (existsSync(stagedReportPath)) {
+      if (!statSync(stagedReportPath).isFile()) {
+        throw new CompError('failure.audio-script', '声音脚本产出的 report.json 不是普通文件');
       }
+      const rawReportBytes = readFileSync(stagedReportPath);
+      try {
+        report = JSON.parse(rawReportBytes.toString('utf8'));
+      } catch (err) {
+        throw new CompError('failure.audio-script', `声音脚本产出的 report.json 解析失败：${err.message}`);
+      }
+      if (report && typeof report === 'object' && !Array.isArray(report)) {
+        if (typeof report.file === 'string' && resolve(report.file) === resolve(stagedOutWav)) {
+          report.file = outWavPath;
+        }
+        if (typeof report.events === 'string' && resolve(report.events) === resolve(eventsPath)) {
+          report.events = publishedEventsPath;
+        }
+      }
+      reportBytesToPublish = Buffer.from(`${JSON.stringify(report, null, 2)}\n`, 'utf8');
     }
 
     const stagedStemsDir = join(stagingDir, 'stems');
-    const stems = [];
-    if (existsSync(stagedStemsDir) && statSync(stagedStemsDir).isDirectory()) {
+    const stagedStemEntries = [];
+    if (existsSync(stagedStemsDir)) {
+      if (!statSync(stagedStemsDir).isDirectory()) {
+        throw new CompError('failure.audio-script', '声音脚本产出的 stems 不是目录');
+      }
       const stemFiles = readdirSync(stagedStemsDir)
         .filter((f) => f.toLowerCase().endsWith('.wav'))
         .sort();
-      if (stemFiles.length > 0) {
-        const targetStemsDir = join(outDir, 'stems');
+      for (const f of stemFiles) {
+        const stemFile = join(stagedStemsDir, f);
+        if (statSync(stemFile).isFile()) {
+          stagedStemEntries.push({ name: f, bytes: readFileSync(stemFile) });
+        }
+      }
+    }
+
+    const targetReportPath = join(outDir, 'report.json');
+    const stemsRootDir = join(outDir, 'stems');
+    const targetStemsDir = join(stemsRootDir, outBase);
+
+    // 事务性发布前先核验所有目标路径合法性（不提前改写旧 WAV，也不残留临时文件）
+    if (existsSync(outWavPath) && statSync(outWavPath).isDirectory()) {
+      throw new CompError('failure.audio-script', `输出 WAV 目标路径是目录：${outWavPath}`);
+    }
+    if (reportBytesToPublish !== null && existsSync(targetReportPath) && statSync(targetReportPath).isDirectory()) {
+      throw new CompError('failure.audio-script', `伴随报告目标路径是目录：${targetReportPath}`);
+    }
+    if (!externalEventsPath && existsSync(publishedEventsPath) && statSync(publishedEventsPath).isDirectory()) {
+      throw new CompError('failure.audio-script', `事件表目标路径是目录：${publishedEventsPath}`);
+    }
+    if (stagedStemEntries.length > 0) {
+      if (existsSync(stemsRootDir) && !statSync(stemsRootDir).isDirectory()) {
+        throw new CompError('failure.audio-script', `分轨目录路径已存在且不是目录：${stemsRootDir}`);
+      }
+      if (existsSync(targetStemsDir) && !statSync(targetStemsDir).isDirectory()) {
+        throw new CompError('failure.audio-script', `分轨子目录路径已存在且不是目录：${targetStemsDir}`);
+      }
+      for (const { name } of stagedStemEntries) {
+        const destStem = join(targetStemsDir, name);
+        if (existsSync(destStem) && statSync(destStem).isDirectory()) {
+          throw new CompError('failure.audio-script', `分轨目标文件已存在且是目录：${destStem}`);
+        }
+      }
+    }
+
+    const pendingRenames = [];
+    const stems = [];
+    try {
+      if (stagedStemEntries.length > 0) {
         mkdirSync(targetStemsDir, { recursive: true });
-        for (const f of stemFiles) {
-          const stemBytes = readFileSync(join(stagedStemsDir, f));
-          const destStem = join(targetStemsDir, f);
-          atomicWriteFile(destStem, stemBytes);
+        for (const { name, bytes } of stagedStemEntries) {
+          const destStem = join(targetStemsDir, name);
+          const tmpStem = makeTempFilePath(targetStemsDir);
+          writeFileSync(tmpStem, bytes);
+          pendingRenames.push([tmpStem, destStem]);
           stems.push(destStem);
         }
       }
+      if (reportBytesToPublish !== null) {
+        const tmpReport = makeTempFilePath(outDir);
+        writeFileSync(tmpReport, reportBytesToPublish);
+        pendingRenames.push([tmpReport, targetReportPath]);
+      }
+      if (!externalEventsPath) {
+        const tmpEvents = makeTempFilePath(workDir);
+        writeFileSync(tmpEvents, eventsBytes);
+        pendingRenames.push([tmpEvents, publishedEventsPath]);
+      }
+      const tmpWav = makeTempFilePath(outDir);
+      writeFileSync(tmpWav, wavBytes);
+      pendingRenames.push([tmpWav, outWavPath]);
+
+      for (const [tmpPath, destPath] of pendingRenames) {
+        renameSync(tmpPath, destPath);
+      }
+    } catch (err) {
+      for (const [tmpPath] of pendingRenames) {
+        rmSync(tmpPath, { recursive: true, force: true });
+      }
+      if (err instanceof CompError) throw err;
+      throw new CompError('failure.audio-script', `发布声音脚本产物失败：${err.message}`);
+    }
+
+    // 清理该输出之前遗留但本次未产出的旧伴随产物
+    if (reportBytesToPublish === null) {
+      try {
+        if (existsSync(targetReportPath) && statSync(targetReportPath).isFile()) {
+          rmSync(targetReportPath, { force: true });
+        }
+      } catch { /* 忽略清理异常 */ }
+    }
+    if (stagedStemEntries.length === 0) {
+      rmSync(targetStemsDir, { recursive: true, force: true });
+      try {
+        if (existsSync(stemsRootDir) && statSync(stemsRootDir).isDirectory() && readdirSync(stemsRootDir).length === 0) {
+          rmSync(stemsRootDir, { recursive: true, force: true });
+        }
+      } catch { /* 忽略并发目录非空 */ }
+    } else {
+      const keepNames = new Set(stagedStemEntries.map((e) => e.name));
+      try {
+        for (const existing of readdirSync(targetStemsDir)) {
+          if (!keepNames.has(existing)) {
+            rmSync(join(targetStemsDir, existing), { recursive: true, force: true });
+          }
+        }
+      } catch { /* 忽略清理异常 */ }
     }
 
     return {
