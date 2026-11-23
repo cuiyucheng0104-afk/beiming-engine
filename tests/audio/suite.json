@@ -1,0 +1,4 @@
+{
+  "description": "声音系统（audio / engine/audio / tests/audio）：ERB 合成、拟音、剪辑点、人声流、配乐与字幕，Python 侧包含大量数值计算；CI 上与 Node 组并发跑 4 核时适当放宽总时限",
+  "timeoutSec": 1200
+}

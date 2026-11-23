@@ -1,7 +1,7 @@
 // C10：声音、配乐、配音与字幕的先验库（priors-data/audio-subs.*.json）。
 // 可移植量走 C9 priors/0.1 检索库；挂卡先验与做法只读返回，不当默认值。分流口径见 manifest 的 rules。
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { URL } from 'node:url';
 import { createPriorsStore } from './priors.mjs';
 
@@ -17,11 +17,20 @@ function deepFreeze(value) {
 
 let cache;
 function data() {
-  cache ??= deepFreeze({
-    cardPriors: read('audio-subs.card-priors.json').entries,
-    practices: read('audio-subs.practices.json').entries,
-    manifest: read('audio-subs.manifest.json'),
-  });
+  if (!cache) {
+    const manifest = read('audio-subs.manifest.json');
+    if (Array.isArray(manifest.cards)) {
+      manifest.cards = manifest.cards.map((card) => ({
+        ...card,
+        exists: existsSync(new URL(`./${card.cardId.replace('.', '/')}/card.json`, import.meta.url)),
+      }));
+    }
+    cache = deepFreeze({
+      cardPriors: read('audio-subs.card-priors.json').entries,
+      practices: read('audio-subs.practices.json').entries,
+      manifest,
+    });
+  }
   return cache;
 }
 

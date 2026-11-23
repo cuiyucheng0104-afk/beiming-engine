@@ -1,0 +1,71 @@
+{
+  "format": "question/0.1",
+  "id": "29-2",
+  "level": 2,
+  "title": "点击踩起音",
+  "brief": "做一条 20 秒、30 帧每秒、1080×1350 的短片，共 600 帧，自带配乐。画面里有一个光标，全片正好点击 11 次；每次点击之后的第 2 帧切画面（切点帧号减点击帧号等于 2）；每次点击都踩在配乐的起音上，离最近的起音不超过 1 帧。",
+  "deliverable": {
+    "size": [1080, 1350],
+    "fps": "30/1",
+    "frames": 600,
+    "audio": "required"
+  },
+  "assets": {},
+  "refs": [
+    "beiming/bench/refs/level-2-a/29-2.reference.json"
+  ],
+  "basePredicates": [
+    "delivery(width=1080, height=1350, fps=30, frames=600)",
+    "cut_at(shots)"
+  ],
+  "scoring": [
+    {
+      "metric": "cut.ydif",
+      "source": "events、film",
+      "args": {
+        "event": "click",
+        "count": 11,
+        "lagFrames": 2
+      },
+      "pass": "点击事件正好 11 个；每个点击帧往后第 2 帧都有检出的切点",
+      "weight": 0.4
+    },
+    {
+      "metric": "beat.onset-hit",
+      "source": "events、独立配乐分轨（无分轨时退回 film-audio）",
+      "args": {
+        "event": "click",
+        "tolFrames": 1,
+        "minHitRate": 0.8,
+        "minLift": 0.4
+      },
+      "pass": "点击离配乐最近起音不超过 1 帧的命中率不低于 80%，并且比同一条配乐音轨的随机基线高 40 个百分点以上",
+      "weight": 0.6
+    }
+  ],
+  "controls": {
+    "referencePass": "参考读数必须得满分：11 次点击里 9 次离起音不超过 1 帧（81.8%），11 个切点都在点击后第 2 帧",
+    "negative": "负对照必须判不合格：点击换成随机帧（命中率回到随机基线附近）、配乐起音整体错开点击（混入点击音效时按独立配乐分轨量仍失配），或者切点不在点击后第 2 帧",
+    "random": "随机对照：在参考片的音轨上任取一帧，离最近起音不超过 1 帧的概率是 34%；命中率要比这条基线高 40 个百分点以上"
+  },
+  "needs": [
+    "overlay.cursor",
+    "audio.event-mix"
+  ],
+  "budget": {
+    "tokens": 300000,
+    "wallMs": 900000,
+    "gpuSeconds": 180
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": false,
+    "blockedBy": []
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "案例量测与考题设计调研第 6 节给的初值，还没试跑",
+    "noiseFloor": null,
+    "version": 0
+  }
+}

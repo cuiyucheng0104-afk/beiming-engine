@@ -2,14 +2,17 @@
 // 作业经 jobs 的队列和调度器跑：执行器从这个修订的快照读 film.json、film.lock 和镜头文件，产物写进工作区 deliver/<作业号>/。
 // 作业的结论写成 deliver/<作业号>/outcome.json（队列自己只留一句失败原因，错误码留不住），服务端照它拼信封。
 // 渲出来的帧按档位并进一份索引 deliver/frames-<档位>.json（只留当前修订的），观测和核验都读它。
+// 镜头帧缓存在 deliver/.shot-cache（不进修订快照，跨修订、跨作业复用）：没改的镜头再渲、再交付时不调帧源（交付的 L2 纯函数门也照缓存里的记录用）。
+// 帧源池数着每个镜头的 render 被调了几次，记在结论和账本行的 sourceRenders。
 // 计时只用单调时钟量耗时（记成本用），不进任何产物的内容。
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { loadQueue } from '../jobs/index.mjs';
+import { loadQueue, openShotCache } from '../jobs/index.mjs';
 import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, query } from '../observe/index.mjs';
 import { artifactUrl } from './client.mjs';
 import { ROUTES } from './contract.mjs';
+import { DELEGATE_HARD_TOKEN_CAP } from './delegate.mjs';
 import { ApiError, diagnostic, isRegistered } from './envelope.mjs';
 import {
   deliverBundle, entitiesOf, frameSummary, layerL1, layerL2, layerL3, layerL5, measureMaster, readIndex, renderPlan, reviewMaterials,
@@ -92,6 +95,134 @@ export function createWork({ store, library, reviewer, scheduler }) {
   const deliverDir = (id) => join(store.filmDir(id), 'deliver');
   const jobDir = (id, jobId) => join(deliverDir(id), jobId);
   const output = (id, kind, rel) => ({ kind, url: url(id, rel), sha256: sha256File(join(deliverDir(id), rel)) });
+  const shotCache = (id) => openShotCache(join(deliverDir(id), '.shot-cache'));
+
+  const filmLeases = new Map();
+  let reservationSeq = 0;
+
+  function filmTokenCap(id) {
+    const meta = store.readMeta(id);
+    const rawCap = meta?.budget?.tokens;
+    return Number.isSafeInteger(rawCap) && rawCap > 0
+      ? Math.min(rawCap, DELEGATE_HARD_TOKEN_CAP)
+      : DELEGATE_HARD_TOKEN_CAP;
+  }
+
+  function usedFilmTokens(id) {
+    const ledgerTokens = store.readLedger(id).reduce((n, row) => n + (row.modelTokens ?? 0), 0);
+    let liveTokens = 0;
+    for (const [jid, p] of progress.entries()) {
+      if (store.filmOfJob(jid) === id) liveTokens += p.tokens ?? 0;
+    }
+    let leaseTokens = 0;
+    const leases = filmLeases.get(id);
+    if (leases) {
+      for (const lease of leases) {
+        leaseTokens += lease.settled;
+        for (const amount of lease.active.values()) leaseTokens += amount;
+      }
+    }
+    return ledgerTokens + liveTokens + leaseTokens;
+  }
+
+  /**
+   * 为单片打开进程内原子 token 预留租约（供 deliver 内 L5 与独立 POST /review 共享）：
+   * - 发票前同步汇总已入账 modelTokens、在跑作业实时 token 与同片所有租约的已结算/在途预留，原子扣减可执行上界；
+   * - 每票响应或异常在 finally 调用 settle(actualTokens) 用实耗替换并释放多余预留；
+   * - 租约关闭前始终保留已结算实耗，直到调用方同步转交至 progress 或 store.ledger，消除同片并发超支窗口。
+   */
+  function openBudgetLease(id) {
+    const lease = { active: new Map(), settled: 0, closed: false };
+    if (!filmLeases.has(id)) filmLeases.set(id, new Set());
+    filmLeases.get(id).add(lease);
+
+    const check = ({
+      estimatedInputTokens = 0,
+      maxOutputTokens = 0,
+      maxObservedTokens = 0,
+      estimatedNextTokens = 0,
+    } = {}) => {
+      if (lease.closed) return { ok: false, reason: 'budget.tokens', remaining: 0 };
+      const cap = filmTokenCap(id);
+      const used = usedFilmTokens(id);
+      const remaining = cap - used;
+      if (remaining <= 0) {
+        return { ok: false, reason: 'budget.tokens', remaining: 0, cap, used };
+      }
+
+      const inputBound = Number.isFinite(estimatedInputTokens) && estimatedInputTokens > 0
+        ? Math.ceil(estimatedInputTokens)
+        : 0;
+      const requestedOutput = Number.isFinite(maxOutputTokens) && maxOutputTokens > 0
+        ? Math.ceil(maxOutputTokens)
+        : 0;
+      const observedBound = Number.isFinite(maxObservedTokens) && maxObservedTokens > 0
+        ? Math.ceil(maxObservedTokens)
+        : 0;
+      const fallbackNext = Number.isFinite(estimatedNextTokens) && estimatedNextTokens > 0
+        ? Math.ceil(estimatedNextTokens)
+        : 0;
+
+      let grantedOutput = requestedOutput;
+      let reserveAmount;
+      if (inputBound > 0 || requestedOutput > 0) {
+        const minRequired = Math.max(inputBound + (requestedOutput > 0 ? 1 : 0), observedBound);
+        if (remaining < minRequired) {
+          return { ok: false, reason: 'budget.tokens', remaining, cap, used };
+        }
+        grantedOutput = requestedOutput > 0
+          ? Math.min(requestedOutput, Math.max(0, remaining - inputBound))
+          : 0;
+        if (requestedOutput > 0 && grantedOutput < 1) {
+          return { ok: false, reason: 'budget.tokens', remaining, cap, used };
+        }
+        reserveAmount = Math.min(remaining, Math.max(inputBound + grantedOutput, observedBound));
+      } else {
+        const needed = Math.max(fallbackNext, observedBound);
+        if (needed > 0 && remaining < needed) {
+          return { ok: false, reason: 'budget.tokens', remaining, cap, used };
+        }
+        reserveAmount = Math.min(remaining, needed);
+      }
+
+      const resId = ++reservationSeq;
+      lease.active.set(resId, reserveAmount);
+      let settled = false;
+      const settle = (actualTokens = 0) => {
+        if (settled) return;
+        settled = true;
+        lease.active.delete(resId);
+        const actual = Number.isFinite(actualTokens) && actualTokens > 0 ? Math.round(actualTokens) : 0;
+        lease.settled += actual;
+      };
+      return {
+        ok: true,
+        remaining: Math.max(0, remaining - reserveAmount),
+        cap,
+        used: used + reserveAmount,
+        reserved: reserveAmount,
+        ...(requestedOutput > 0 ? { maxOutputTokens: grantedOutput } : {}),
+        settle,
+      };
+    };
+
+    const close = () => {
+      if (lease.closed) return;
+      lease.closed = true;
+      lease.active.clear();
+      const set = filmLeases.get(id);
+      if (set) {
+        set.delete(lease);
+        if (set.size === 0) filmLeases.delete(id);
+      }
+    };
+
+    return {
+      check,
+      close,
+      get settled() { return lease.settled; },
+    };
+  }
 
   /* ---------------- 帧的索引 ---------------- */
 
@@ -143,7 +274,8 @@ export function createWork({ store, library, reviewer, scheduler }) {
     const dir = jobDir(id, job.id);
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
-    const acc = { gpuSeconds: 0, frames: 0, tokens: 0, start: monotonicMs() };
+    // frames 只数真调了帧源的帧，cachedFrames 数缓存命中的帧
+    const acc = { gpuSeconds: 0, frames: 0, cachedFrames: 0, tokens: 0, start: monotonicMs() };
     progress.set(job.id, acc);
     const pool = sourcePool({ library, workspace: snapshot.dir, blenderBin: blenderInfo()?.bin });
     let outcome, crash;
@@ -209,8 +341,10 @@ export function createWork({ store, library, reviewer, scheduler }) {
     if (signal.aborted) outcome = { ok: true, data: { canceled: true } };
     outcome.cost = { tokens: acc.tokens, gpuSeconds: r3(acc.gpuSeconds), wallMs };
     outcome.frames = acc.frames;
+    outcome.cachedFrames = acc.cachedFrames;
+    outcome.sourceRenders = pool.renders;
     writeFileSync(join(dir, 'outcome.json'), jsonText(outcome));
-    store.ledger(id, { step: `job.${name}`, job: job.id, rev, status: signal.aborted ? (signal.reason === 'preempted' ? 'stopped' : 'canceled') : crash ? 'failed' : 'succeeded', ok: !signal.aborted && outcome.ok, wallMs, gpuSeconds: r3(acc.gpuSeconds), tokens: 0, modelTokens: acc.tokens, frames: acc.frames });
+    store.ledger(id, { step: `job.${name}`, job: job.id, rev, status: signal.aborted ? (signal.reason === 'preempted' ? 'stopped' : 'canceled') : crash ? 'failed' : 'succeeded', ok: !signal.aborted && outcome.ok, wallMs, gpuSeconds: r3(acc.gpuSeconds), tokens: 0, modelTokens: acc.tokens, frames: acc.frames, renderedFrames: acc.frames, cachedFrames: acc.cachedFrames, sourceRenders: pool.renders });
     progress.delete(job.id);
     if (crash && !signal.aborted) throw new Error(outcome.message);
     return { ok: outcome.ok };
@@ -218,14 +352,16 @@ export function createWork({ store, library, reviewer, scheduler }) {
 
   const shotsOf = (film, plan) => plan.map((p) => ({ shot: film.shots.find((s) => s.id === p.shot), frames: p.frames }));
 
-  /** 渲一批帧并进索引，记显卡秒和帧数 */
+  /** 渲一批帧并进索引，记显卡秒和帧数。交回 { records, cache, versions }：cache 是这一批的缓存账 { renderedFrames, cachedFrames, shots }，versions 给 layerL2 */
   async function renderInto(cx, tier, plan, sub) {
     const { film, lock, snapshot, dir, pool, signal, lutPath, acc, id, rev } = cx;
-    const res = await renderPlan({ film, lock, filmDir: snapshot.dir, tier, plan: shotsOf(film, plan), outDir: join(dir, sub), pool, signal, lutPath,
+    const { records, gpuSeconds, versions, ...cache } = await renderPlan({ film, lock, filmDir: snapshot.dir, tier, plan: shotsOf(film, plan), outDir: join(dir, sub), pool, signal, lutPath,
+      cache: shotCache(id),
       onFrame(seconds) { acc.gpuSeconds += seconds; acc.frames++; },
     });
-    mergeFrames(id, tier, rev, res.records);
-    return res.records;
+    acc.cachedFrames += cache.cachedFrames;
+    mergeFrames(id, tier, rev, records);
+    return { records, cache, versions };
   }
 
   const gatesOf = (l1, l2, l3) => ({
@@ -242,12 +378,12 @@ export function createWork({ store, library, reviewer, scheduler }) {
     render: handler('render', async (cx) => {
       const { job, step, film, id, rev } = cx;
       const { tier, plan } = job.payload;
-      const records = await step('render', () => renderInto(cx, tier, plan, 'frames'));
+      const { records, cache } = await step('render', () => renderInto(cx, tier, plan, 'frames'));
       const expected = plan.reduce((n, p) => n + p.frames.length, 0);
       const items = records.map((r) => frameSummary(r, film.shots.find((s) => s.id === r.shot)));
       return {
         ok: true,
-        data: { rev, tier, expectedCount: expected, actualCount: items.length, items, png: `${job.id}/frames/<镜头>/png/f<四位帧号>.png` },
+        data: { rev, tier, expectedCount: expected, actualCount: items.length, ...cache, items, png: `${job.id}/frames/<镜头>/png/f<四位帧号>.png` },
         outputs: [{ kind: 'frames-index', url: url(id, `frames-${tier}.json`) }],
         next: [{ verb: `POST /v1/films/${id}/observe/query`, why: '问主角在画面里的位置和留白' }, { verb: `POST /v1/films/${id}/verify`, why: '跑 L1–L3' }],
       };
@@ -269,7 +405,8 @@ export function createWork({ store, library, reviewer, scheduler }) {
       const records = framesOf(id, tier).records;
       const gateShots = film.shots.filter((s) => !shots?.length || shots.includes(s.id));
       const l2 = await step('l2', async () => {
-        const res = await layerL2({ film, lock, filmDir: snapshot.dir, shots: gateShots, records, pool, scratch: join(intermediateDir, 'l2'), signal, onGpu(seconds) { acc.gpuSeconds += seconds; } });
+        // 只给 cache：每个镜头都真跑、不读也不记过门记录；没过的镜头（纯函数门或包围盒）把缓存里终渲档和这一档这一版的帧和记录作废
+        const res = await layerL2({ film, lock, filmDir: snapshot.dir, shots: gateShots, records, pool, scratch: join(intermediateDir, 'l2'), signal, onGpu(seconds) { acc.gpuSeconds += seconds; }, cache: shotCache(id), tier });
         return res;
       });
       const done = delivered(id);
@@ -296,12 +433,14 @@ export function createWork({ store, library, reviewer, scheduler }) {
     deliver: handler('deliver', async (cx) => {
       const { job, step, film, lock, lockFile, snapshot, pool, signal, id, rev, dir, lutPath, meta, intermediateDir, acc } = cx;
       const plan = film.shots.map((s) => ({ shot: s.id, frames: span(s.in, s.out) }));
-      const records = await step('render', () => renderInto(cx, 'final', plan, 'frames'));
+      const { records, cache, versions } = await step('render', () => renderInto(cx, 'final', plan, 'frames'));
       const bundle = await step('comp', () => deliverBundle({ film, lock: lockFile, records, lutPath, outDir: join(dir, 'bundle') }));
       const master = join(bundle.dir, 'master.mp4');
       const l1 = layerL1(film, snapshot.dir, rev, meta.question);
+      // 这一轮全部命中、这一版又过过门的镜头照缓存里的记录用，不起帧源；单独的核验作业（上面的 verify）每次真跑
       const l2 = await step('l2', async () => {
-        const res = await layerL2({ film, lock, filmDir: snapshot.dir, shots: film.shots, records, pool, scratch: join(intermediateDir, 'l2'), signal, onGpu(seconds) { acc.gpuSeconds += seconds; } });
+        const res = await layerL2({ film, lock, filmDir: snapshot.dir, shots: film.shots, records, pool, scratch: join(intermediateDir, 'l2'), signal, onGpu(seconds) { acc.gpuSeconds += seconds; },
+          cache: shotCache(id), versions });
         return res;
       });
       const l3 = await step('l3', async () => layerL3({
@@ -311,9 +450,26 @@ export function createWork({ store, library, reviewer, scheduler }) {
       const l4 = await step('l4', () => ({ status: 'not-run', reason: '未提供可量测的 ref-pack', compChecks: { pointer: '#/checks', count: bundle.report.checks.length, ok: bundle.report.ok } }));
       const l5 = await step('l5', async () => {
         const images = reviewer ? reviewMaterials({ master, fps: film.output.fps, film, outDir: join(dir, 'review') }) : [];
-        return layerL5({ reviewer, brief: meta.brief ?? meta.question?.brief ?? '', images, loudness: bundle.report.loudness ?? null, film });
+        const lease = openBudgetLease(id);
+        let res;
+        try {
+          res = await layerL5({
+            reviewer,
+            brief: meta.brief ?? meta.question?.brief ?? '',
+            images,
+            loudness: bundle.report.loudness ?? null,
+            film,
+            filmId: id,
+            question: meta.question ?? null,
+            budgetCheck: lease.check,
+            signal,
+          });
+        } finally {
+          acc.tokens += res?.usage?.totalTokens ?? lease.settled;
+          lease.close();
+        }
+        return res;
       });
-      acc.tokens += l5.usage?.totalTokens ?? 0;
       const pass = l1.ok && l2.ok && l3.ok;
       const diagnostics = ordered([...l1.diagnostics, ...l2.diagnostics, ...l3.diagnostics]);
       const verified = await step('report', () => writeVerification(bundle.dir, {
@@ -325,6 +481,8 @@ export function createWork({ store, library, reviewer, scheduler }) {
         throw new ApiError('contract.delivery-mismatch', '交付产物没有齐备六件');
       }
       store.updateMeta(id, (m) => { m.lastDeliver = { job: job.id, rev, dir: `deliver/${job.id}/bundle`, ok: pass }; });
+      // 保留策略：终稿每个镜头只留最近用过的一版，放了七天的条目清掉；清不动不影响已经出齐的六件套
+      try { shotCache(id).prune(); } catch { /* 下一次交付再清 */ }
       // 收获钩子：基础谓词全过才触发；M1a 的收获不出候选，只在账本和记录里留一笔
       let harvest = { triggered: false, reason: '基础谓词没有全过' };
       if (pass && l3.basePass) {
@@ -333,8 +491,10 @@ export function createWork({ store, library, reviewer, scheduler }) {
         store.ledger(id, { step: 'harvest-hook', job: job.id, rev, ok: true, wallMs: 0, gpuSeconds: 0, tokens: 0, modelTokens: 0, frames: 0 });
       }
       const data = {
-        rev, expectedCount: 6, actualCount: names.length, items: names, layers: gatesOf(l1, l2, l3),
-        failed: l3.verdicts.filter((v) => v.status === 'fail').map((v) => v.id), review: { status: l5.status, ...(l5.reason ? { reason: l5.reason } : {}) }, harvest,
+        rev, expectedCount: 6, actualCount: names.length, items: names, deliveredFrames: records.length, ...cache, layers: gatesOf(l1, l2, l3),
+        failed: l3.verdicts.filter((v) => v.status === 'fail').map((v) => v.id),
+        review: { status: l5.status, ...(l5.reason ? { reason: l5.reason } : {}), ...(l5.stoppedReason ? { stoppedReason: l5.stoppedReason } : {}) },
+        harvest,
       };
       const outputs = names.map((n) => ({ kind: kinds[n] ?? 'file', url: url(id, `${job.id}/bundle/${n}`), sha256: verified.files[n].sha256 }));
       if (!pass) {
@@ -631,7 +791,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
    * L5 审片。没配置审片模型：status 是 not-run，写明原因，不取材料。配置了：当前修订交付过就从成片取联系表、切点条带和响度表，
    * 否则用渲出来的预览帧出联系表（没有声音量测）。结果写到 deliver/review/rev-<修订号>.json。L5 只是意见，不改硬门的判定。
    */
-  async function review(id, { brief }) {
+  async function review(id, { brief }, { deferRelease = false } = {}) {
     const film = store.readFilm(id), rev = store.rev(id), meta = store.readMeta(id);
     const relDir = `review/rev-${rev}`;
     const outDir = join(deliverDir(id), relDir);
@@ -650,18 +810,49 @@ export function createWork({ store, library, reviewer, scheduler }) {
         material = 'frames';
       }
     }
-    const l5 = await layerL5({ reviewer, brief: brief ?? meta.brief ?? meta.question?.brief ?? '', images, loudness, film });
-    const record = { format: 'api-review/0.1', film: id, rev, material, images: images.map((i) => i.name), ...l5 };
-    writeFileSync(join(outDir, 'review.json'), jsonText(record));
+    const lease = openBudgetLease(id);
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      lease.close();
+    };
+    let l5, reviewOutput;
+    try {
+      l5 = await layerL5({
+        reviewer,
+        brief: brief ?? meta.brief ?? meta.question?.brief ?? '',
+        images,
+        loudness,
+        film,
+        filmId: id,
+        question: meta.question ?? null,
+        budgetCheck: lease.check,
+      });
+      const record = { format: 'api-review/0.1', film: id, rev, material, images: images.map((i) => i.name), ...l5 };
+      writeFileSync(join(outDir, 'review.json'), jsonText(record));
+      reviewOutput = output(id, 'review', `${relDir}/review.json`);
+    } catch (err) {
+      if (lease.settled > 0) {
+        try {
+          store.ledger(id, { step: 'review', ok: false, wallMs: 0, gpuSeconds: 0, tokens: 0, modelTokens: lease.settled, frames: 0 });
+        } catch { /* 落账失败时不掩盖原异常 */ }
+      }
+      release();
+      throw err;
+    }
+    if (!deferRelease) release();
     const opinions = l5.opinions ?? [];
     return {
       data: {
-        status: l5.status, ...(l5.reason ? { reason: l5.reason } : {}), ...(l5.model ? { model: l5.model } : {}), rev, material, overridesHardGates: false,
+        status: l5.status, ...(l5.reason ? { reason: l5.reason } : {}), ...(l5.stoppedReason ? { stoppedReason: l5.stoppedReason } : {}), ...(l5.model ? { model: l5.model } : {}), ...(l5.grade ? { grade: l5.grade } : {}), rev, material, overridesHardGates: false,
         expectedCount: opinions.length, actualCount: opinions.length, items: opinions, suggestedPredicates: l5.suggestedPredicates ?? [],
+        ...(l5.invalidBallots?.length ? { invalidBallots: l5.invalidBallots } : {}),
       },
-      outputs: [output(id, 'review', `${relDir}/review.json`)],
+      outputs: [reviewOutput],
       tokens: l5.usage?.totalTokens ?? 0,
       diagnostics: l5.status === 'failed' ? [diagnostic({ code: 'env.missing-tool', layer: 'L5', severity: 'warning', message: `审片模型没调通：${l5.reason}` }, { layer: 'L5', severity: 'warning' })] : [],
+      ...(deferRelease ? { releaseBudgetLease: release } : {}),
     };
   }
 

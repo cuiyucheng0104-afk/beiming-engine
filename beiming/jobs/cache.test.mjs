@@ -964,39 +964,215 @@ test('A16-29 G_REV-R4 最终身份检查之后至 unlink 之前的窗口内同�
   assert.equal(pruned.removed, 0, '最终身份检查后被新帧替换的条目不得计入 removed');
   assert.deepEqual([...cache.get(entry).colorBytes], [77], '最终身份检查后发布的新帧必须保留');
 
-  // 3) 跨进程实测：写子进程反复「发布旧帧并做旧 → 发布新帧 [77] → 读回」，父进程同时连续 prune 与 get。
-  //    只有做旧的帧可以被清掉；新帧一旦被误删，子进程读不回就以 3 退出。
+  // 3) 跨进程实测（确定性互斥窗口 + 无拦截自由并发）：
+  //    a) 确定性窗口：写子进程做旧 [1] 后通知父进程；父进程在 prune 持锁通过最终身份检查、即将 unlinkSync 之前写出 go-<round>，
+  //       等子进程发回 trying-<round> 且实际撞上持有中的 .cache.lock（写出 locked-<round>）后再短持锁删除旧帧，并核实持锁期间
+  //       published-<round> 未出现；锁必须把发布挡到 unlink 之后，确保每轮稳定清掉 1 个做旧帧且新帧 [77] 绝不被误删。
+  //    b) 自由并发：去掉全部拦截，父子进程并发跑完至少 20 轮 prune/get 与「做旧 [1] → 发布 [77] → 读回」，
+  //       不依赖调度运气撞够固定删除次数；新帧 [77] 一旦被误删，子进程读不回立即以 3 退出。
   const keeper = jobs.computeFrameCacheKey(makeBaseSpec({ renderSpec: { ...makeBaseSpec().renderSpec, frame: 1 } }));
   cache.put(keeper, { colorBytes: Buffer.from([5]) }); // 同版本留一帧新的，版本目录不会被回收，子进程不必处理目录消失
   renameSpy.mock.restore();
   assert.deepEqual(lockHeld, [true, true, true], '首次 unlink、重入发布与独立发布都要在 .cache.lock 之内');
-  const stop = path.join(tmpDir(t), 'stop');
+  const syncDir = tmpDir(t);
+  const stop = path.join(syncDir, 'stop');
+  const SYNC_ROUNDS = 3;
+  const RACE_MIN = 20;
   const script = `import fs from 'node:fs';
+    import path from 'node:path';
     import { computeFrameCacheKey, openShotCache } from ${JSON.stringify(api)};
     const cache = openShotCache(${JSON.stringify(dir)});
     const entry = computeFrameCacheKey(${JSON.stringify(makeBaseSpec())});
     const file = ${JSON.stringify(frameFiles(dir).find((name) => name.endsWith(`${entry.key.slice(7)}.frame`)))};
+    const syncDir = ${JSON.stringify(syncDir)};
+    const stop = ${JSON.stringify(stop)};
+    const parentPid = ${process.pid};
+    const parentAlive = () => {
+      try {
+        process.kill(parentPid, 0);
+        return true;
+      } catch (error) {
+        return error?.code === 'EPERM';
+      }
+    };
+    let finishing = false;
+    process.on('disconnect', () => {
+      if (!finishing) process.exit(0);
+    });
+    const sleeper = new Int32Array(new SharedArrayBuffer(4));
     const old = new Date(Date.now() - 7200_000);
+    const ageFile = () => {
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          fs.utimesSync(file, old, old);
+          return;
+        } catch (error) {
+          if (!['EBUSY', 'EPERM', 'EACCES'].includes(error?.code) || attempt >= 10) throw error;
+          Atomics.wait(sleeper, 0, 0, 5);
+        }
+      }
+    };
+    const send = (msg) => new Promise((resolve, reject) => process.send(msg, (err) => (err ? reject(err) : resolve())));
+    const inbox = [];
+    const pending = [];
+    process.on('message', (msg) => {
+      if (pending.length) pending.shift()(msg);
+      else inbox.push(msg);
+    });
+    const recv = () => (inbox.length ? Promise.resolve(inbox.shift()) : new Promise((resolve) => pending.push(resolve)));
+    const baseExists = fs.existsSync;
+    let activeLocked;
+    fs.existsSync = (target) => {
+      const seen = baseExists(target);
+      if (seen && activeLocked && path.basename(String(target)) === '.cache.lock') {
+        const notify = activeLocked;
+        activeLocked = undefined;
+        fs.writeFileSync(notify, '');
+      }
+      return seen;
+    };
+    for (let round = 0; round < ${SYNC_ROUNDS}; round += 1) {
+      cache.put(entry, { colorBytes: Buffer.from([1]) });
+      ageFile();
+      await send({ type: 'aged', round });
+      const go = path.join(syncDir, 'go-' + round);
+      const trying = path.join(syncDir, 'trying-' + round);
+      const locked = path.join(syncDir, 'locked-' + round);
+      const published = path.join(syncDir, 'published-' + round);
+      const waitDeadline = Date.now() + 20_000;
+      let sawGo = false;
+      while (!(sawGo = fs.existsSync(go)) && !fs.existsSync(stop) && parentAlive() && Date.now() < waitDeadline) {
+        Atomics.wait(sleeper, 0, 0, 1);
+      }
+      if (fs.existsSync(stop) || !parentAlive()) process.exit(0);
+      if (!sawGo) process.exit(5);
+      fs.writeFileSync(trying, '');
+      activeLocked = locked;
+      try {
+        cache.put(entry, { colorBytes: Buffer.from([77]) });
+      } finally {
+        activeLocked = undefined;
+      }
+      fs.writeFileSync(published, '');
+      if (cache.get(entry)?.colorBytes[0] !== 77) process.exit(3);
+      await send({ type: 'published', round });
+      const cmd = await recv();
+      if (cmd?.type !== 'next') process.exit(4);
+    }
+    fs.existsSync = baseExists;
+    let cycles = 0;
+    const raceDeadline = Date.now() + 60_000;
     do {
       cache.put(entry, { colorBytes: Buffer.from([1]) });
-      fs.utimesSync(file, old, old);
+      ageFile();
       cache.put(entry, { colorBytes: Buffer.from([77]) });
       if (cache.get(entry)?.colorBytes[0] !== 77) process.exit(3);
-    } while (!fs.existsSync(${JSON.stringify(stop)}));`;
-  const writer = spawn(process.execPath, ['--input-type=module', '-e', script], { stdio: 'inherit' });
-  const exited = once(writer, 'exit');
-  let removed = 0;
+      cycles += 1;
+      if (cycles === ${RACE_MIN}) await send({ type: 'race-min' });
+      await new Promise((resolve) => setImmediate(resolve));
+    } while (!fs.existsSync(stop) && parentAlive() && Date.now() < raceDeadline);
+    await send({ type: 'race-done', cycles });
+    finishing = true;
+    process.disconnect?.();`;
+  const writer = spawn(process.execPath, ['--input-type=module', '-e', script], { stdio: ['ignore', 'inherit', 'inherit', 'ipc'] });
+  const closed = once(writer, 'close');
   let alive = true;
   writer.once('exit', () => { alive = false; });
-  for (const deadline = Date.now() + 20_000; alive && removed < 20 && Date.now() < deadline;) {
-    removed += cache.prune({ maxAgeMs: 3600_000 }).removed;
-    cache.get(entry);
-    await new Promise((resolve) => setImmediate(resolve));
+  const messages = [];
+  const waiters = [];
+  let raceMinReached = false;
+  let raceCycles = 0;
+  writer.on('message', (msg) => {
+    if (msg?.type === 'race-min') { raceMinReached = true; return; }
+    if (msg?.type === 'race-done') { raceCycles = msg.cycles; return; }
+    if (waiters.length) waiters.shift()(msg);
+    else messages.push(msg);
+  });
+  const nextMessage = (expectedType, expectedRound) => new Promise((resolve, reject) => {
+    const take = (msg) => {
+      if (msg?.type === expectedType && msg.round === expectedRound) resolve(msg);
+      else reject(new Error(`意外子进程消息: ${JSON.stringify(msg)}`));
+    };
+    if (messages.length) { take(messages.shift()); return; }
+    if (!alive) { reject(new Error(`子进程在等待 ${expectedType}#${expectedRound} 前已退出`)); return; }
+    const onExit = (code, signal) => {
+      const idx = waiters.indexOf(onMsg);
+      if (idx !== -1) waiters.splice(idx, 1);
+      reject(new Error(`子进程在等待 ${expectedType}#${expectedRound} 时退出（code=${code}, signal=${signal}）`));
+    };
+    const onMsg = (msg) => {
+      writer.off('exit', onExit);
+      take(msg);
+    };
+    waiters.push(onMsg);
+    writer.once('exit', onExit);
+  });
+
+  const sleeper = new Int32Array(new SharedArrayBuffer(4));
+  let removed = 0;
+  let pruneCalls = 0;
+  try {
+    // 3a) 确定性跨进程互斥窗口：每轮必进入 unlinkSync 窗口并清掉 1 个做旧帧，同时子进程并发发布的新帧 [77] 必须保留
+    for (let round = 0; round < SYNC_ROUNDS; round += 1) {
+      await nextMessage('aged', round);
+      const go = path.join(syncDir, `go-${round}`);
+      const trying = path.join(syncDir, `trying-${round}`);
+      const locked = path.join(syncDir, `locked-${round}`);
+      const published = path.join(syncDir, `published-${round}`);
+      let triggered = false;
+      const unlinkHold = t.mock.method(fs, 'unlinkSync', (target) => {
+        if (!triggered && typeof target === 'string' && target.endsWith('.frame')) {
+          triggered = true;
+          assert.equal(fs.existsSync(path.join(cache.root, '.cache.lock')), true, '进入删除窗口时父进程必须持有 .cache.lock');
+          fs.writeFileSync(go, '');
+          for (const tryDeadline = Date.now() + 10_000; !fs.existsSync(trying) && Date.now() < tryDeadline;) {
+            Atomics.wait(sleeper, 0, 0, 2);
+          }
+          assert.equal(fs.existsSync(trying), true, `第 ${round + 1} 轮写子进程未在窗口内开始并发发布`);
+          for (const contendDeadline = Date.now() + 5_000; !fs.existsSync(locked) && !fs.existsSync(published) && Date.now() < contendDeadline;) {
+            Atomics.wait(sleeper, 0, 0, 2);
+          }
+          Atomics.wait(sleeper, 0, 0, 60);
+          assert.equal(fs.existsSync(published), false, `第 ${round + 1} 轮父进程持 .cache.lock 期间写子进程不得抢先完成发布`);
+          assert.equal(fs.existsSync(locked), true, `第 ${round + 1} 轮写子进程未观测到持有中的 .cache.lock`);
+        }
+        return realUnlink(target);
+      });
+      let r;
+      try {
+        r = cache.prune({ maxAgeMs: 3600_000 });
+      } finally {
+        unlinkHold.mock.restore();
+        if (!fs.existsSync(go)) fs.writeFileSync(go, '');
+      }
+      assert.equal(triggered, true, `第 ${round + 1} 轮确定性压测未进入 unlinkSync 窗口`);
+      assert.equal(r.removed, 1, `第 ${round + 1} 轮确定性压测应清掉 1 个做旧帧`);
+      removed += r.removed;
+      await nextMessage('published', round);
+      assert.equal(cache.prune({ maxAgeMs: 3600_000 }).removed, 0, '刚发布的新帧 [77] 不得被后续清理误删');
+      assert.deepEqual([...(cache.get(entry)?.colorBytes ?? [])], [77], '跨进程锁必须保护新帧 [77] 不被并发清理误删');
+      writer.send({ type: 'next', round });
+    }
+
+    // 3b) 无拦截自由并发压测：父子进程至少各跑完 RACE_MIN 轮真实并发
+    for (const deadline = Date.now() + 45_000; alive && (!raceMinReached || pruneCalls < RACE_MIN) && Date.now() < deadline;) {
+      removed += cache.prune({ maxAgeMs: 3600_000 }).removed;
+      cache.get(entry);
+      pruneCalls += 1;
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    fs.writeFileSync(stop, '');
+    assert.equal((await closed)[0], 0, '写子进程刚发布的新帧被并发清理误删，或子进程出错');
+  } finally {
+    if (alive) {
+      try { fs.writeFileSync(stop, ''); } catch {}
+      writer.kill();
+      await closed;
+    }
   }
-  fs.writeFileSync(stop, '');
-  assert.equal((await exited)[0], 0, '写子进程刚发布的新帧被并发清理误删，或子进程出错');
-  assert.ok(removed >= 20, `并发期间只清掉 ${removed} 个做旧帧，没有真正压到竞争窗口`);
-  assert.deepEqual([...cache.get(entry).colorBytes], [77]);
+  assert.ok(removed >= SYNC_ROUNDS, `跨进程清理应至少清掉 ${SYNC_ROUNDS} 个做旧帧，实际 ${removed}`);
+  assert.ok(pruneCalls >= RACE_MIN && raceCycles >= RACE_MIN, `自由并发轮次不足（prune=${pruneCalls}, cycles=${raceCycles}）`);
+  assert.deepEqual([...(cache.get(entry)?.colorBytes ?? [])], [77]);
   assert.deepEqual(fs.readdirSync(dir).filter((name) => name.startsWith('.')), [], '不留锁文件与暂存目录');
 });
 
@@ -2357,4 +2533,99 @@ test('A16-39 Windows 8.3 短路径回归：fs.realpathSync 与 fs.realpathSync.n
   });
   cA.put(entry, { colorBytes: Buffer.from([1]), meta: {}, runId: 'r-win-a' });
   assert.equal(observedLockB, true, 'Windows 8.3 短长路径不一致且 ino=0n 时，第二缓存根仍必须独立持锁');
+});
+
+test('A16-40 具名辅助层 layers：随颜色层同一份文件头原子落盘，读回逐字节校验；任一层损坏按坏帧未命中；不带辅助层的条目照旧命中', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-a16-aux-'));
+  try {
+    const cache = jobs.openShotCache(path.join(dir, 'cache'));
+    const entry = jobs.computeFrameCacheKey(makeBaseSpec());
+    const plain = jobs.computeFrameCacheKey(makeBaseSpec({ renderSpec: { tier: 'final', samples: 1, size: [8, 8], frame: 1, subs: [0] } }));
+    const colorBytes = Buffer.from(new Float32Array([0.25, 0.5, 0.75, 1]).buffer);
+    // 辅助层里放换行符和与颜色层相同的字节：切分只认文件头记的长度，不认内容
+    const idBytes = Buffer.concat([Buffer.from([0x0a, 0x0a, 7, 0]), colorBytes]);
+    const layers = { 'objectId.u32': idBytes, 'depth.f32': Buffer.from([1, 2, 3, 4]) };
+    const { colorSha256 } = cache.put(entry, { colorBytes, layers, meta: { shot: 's01', timing: { renderMs: 9 } }, seam: [0.5], runId: 'run-a' });
+    cache.put(plain, { colorBytes, meta: {}, runId: 'run-a' });
+
+    const hit = cache.get(entry);
+    assert.deepEqual(Object.keys(hit.layers).sort(), ['depth.f32', 'objectId.u32']);
+    assert.deepEqual([Buffer.from(hit.colorBytes), Buffer.from(hit.layers['objectId.u32']), Buffer.from(hit.layers['depth.f32'])], [colorBytes, idBytes, layers['depth.f32']]);
+    assert.deepEqual([hit.colorSha256, hit.meta, hit.seam, hit.runId], [colorSha256, { shot: 's01' }, [0.5], 'run-a']);
+    const old = cache.get(plain);
+    assert.deepEqual([Buffer.from(old.colorBytes), Object.hasOwn(old, 'layers')], [colorBytes, false], '不带辅助层的条目照旧命中，没有 layers 键');
+
+    for (const bad of [{ a: new Uint8Array(0) }, { a: 'id' }, { '': idBytes }, 'id', [idBytes]]) {
+      assert.throws(() => cache.put(entry, { colorBytes, layers: bad }), TypeError);
+    }
+
+    const file = path.join(cache.root, 'final', 'shot-s01', entry.shotKey.slice(7), `${entry.key.slice(7)}.frame`);
+    const good = fs.readFileSync(file);
+    for (const damage of [
+      (raw) => { raw[raw.length - 1] ^= 0xff; return raw; }, // 最后一层（objectId.u32）的末字节
+      (raw) => { raw[raw.length - idBytes.length - 1] ^= 0xff; return raw; }, // 前一层（depth.f32）的末字节
+      (raw) => raw.subarray(0, raw.length - 2), // 尾部截断：长度对不上
+      (raw) => Buffer.from(raw.toString('latin1').replace(`"bytes":${idBytes.length}`, `"bytes":${idBytes.length + colorBytes.length + 4}`), 'latin1'), // 文件头把层的长度改大
+    ]) {
+      fs.writeFileSync(file, damage(Buffer.from(good)));
+      assert.equal(cache.get(entry), undefined, '辅助层坏了整条按未命中');
+      assert.equal(fs.existsSync(file), false, '坏帧被清掉');
+      cache.put(entry, { colorBytes, layers, runId: 'run-b' });
+    }
+    assert.deepEqual(Buffer.from(cache.get(entry).layers['objectId.u32']), idBytes);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('A16-41 renderSpec.layers：请求的层集合进第 6 项，次序无关；不写时键与以前相同', () => {
+  const base = makeBaseSpec();
+  const keyOf = (layers) => jobs.computeFrameCacheKey({ ...base, renderSpec: { ...base.renderSpec, layers } });
+  const plain = jobs.computeFrameCacheKey(base);
+  const a = keyOf(['color', 'objectId']), b = keyOf(['objectId', 'color']), c = keyOf(['color', 'depth', 'objectId']);
+  assert.equal(a.key, b.key, '层的次序不进键');
+  assert.notEqual(a.key, c.key, '多要一层换键');
+  assert.notEqual(a.shotKey, c.shotKey, '镜头这一版也跟着换');
+  assert.notEqual(a.key, plain.key);
+  assert.equal(plain.key, jobs.computeFrameCacheKey(makeBaseSpec()).key);
+  for (const bad of [[], ['color', 'color'], [''], 'color', [1]]) assert.throws(() => keyOf(bad), TypeError);
+  assert.throws(() => jobs.computeFrameCacheKey({ ...base, renderSpec: { ...base.renderSpec, extra: 1 } }), TypeError);
+});
+
+test('A16-42 镜头这一版的核验记录：同版任一帧条目取得到，换版取不到；坏了按没有；随 invalidateShot 一起清；不占帧的键', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-a16-verification-'));
+  try {
+    const cache = jobs.openShotCache(path.join(dir, 'cache'));
+    const frame = (n, samples = 1) => jobs.computeFrameCacheKey(makeBaseSpec({ renderSpec: { tier: 'final', samples, size: [8, 8], frame: n, subs: [0] } }));
+    const record = { l2: { shot: 's01', ok: true, frames: [0, 3] } };
+    assert.equal(cache.getShotVerification(frame(0)), undefined);
+    cache.putShotVerification(frame(0), record);
+    assert.deepEqual(cache.getShotVerification(frame(1)), record, '同一版镜头的任一帧条目都取得到');
+    assert.equal(cache.getShotVerification(frame(0, 2)), undefined, '采样数变了是另一版');
+
+    const colorBytes = Buffer.from([1, 2, 3, 4]);
+    cache.put(frame(0), { colorBytes, runId: 'run-a' });
+    assert.deepEqual(Buffer.from(cache.get(frame(0)).colorBytes), colorBytes, '记录和帧各存各的');
+    assert.deepEqual(cache.getShotVerification(frame(0)), record);
+
+    // 同一版再写是原子替换：出片链路真跑 L2 之前靠它把旧的过门记录盖成未过
+    const running = { l2: { shot: 's01', ok: false, status: 'running' } };
+    cache.putShotVerification(frame(1), running);
+    assert.deepEqual(cache.getShotVerification(frame(0)), running, '后写的盖掉先写的，取不回旧的过门记录');
+    cache.putShotVerification(frame(0), record);
+
+    const version = path.join(cache.root, 'final', 'shot-s01', frame(0).shotKey.slice(7));
+    const file = fs.readdirSync(version).map((name) => path.join(version, name)).find((p) => !p.endsWith(`${frame(0).key.slice(7)}.frame`));
+    const raw = fs.readFileSync(file);
+    raw[raw.length - 2] ^= 0xff;
+    fs.writeFileSync(file, raw);
+    assert.equal(cache.getShotVerification(frame(0)), undefined, '校验和对不上按没有记录');
+
+    cache.putShotVerification(frame(0), record);
+    cache.invalidateShot(frame(0));
+    assert.equal(cache.getShotVerification(frame(0)), undefined, '整镜失效时记录一起清');
+    assert.throws(() => cache.putShotVerification(frame(0), { at: new Date() }), TypeError);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

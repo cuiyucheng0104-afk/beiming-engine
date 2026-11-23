@@ -296,7 +296,6 @@ function seatbeltProfile(spec, tmpDir, node) {
   return [
     '(version 1)',
     '(deny default)',
-    '(allow process-fork)',
     `(allow process-exec (literal ${quote(node)}))`,
     '(allow signal (target self))',
     '(allow process-info* (target self))',
@@ -375,30 +374,438 @@ export function detectSandboxBackend() {
   return { backend: 'portable' };
 }
 
-function collect(plan, timeoutMs, onTimeout) {
+const posix = process.platform !== 'win32';
+const drainGraceMs = 300;
+const exitWaitMs = 500;
+const reapMaxWaitMs = 800;
+const reapPollMs = 20;
+const psTimeoutMs = 3000;
+const psMaxPasses = 3;
+
+function waitMs(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function trySignal(target, signal) {
+  if (!Number.isInteger(target) || target === 0 || target === 1 || target === -1) return false;
+  const abs = Math.abs(target);
+  if (abs === process.pid || abs === process.ppid) return false;
+  try {
+    process.kill(target, signal);
+    return true;
+  } catch (error) {
+    return error.code === 'EPERM';
+  }
+}
+
+function pidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 1) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === 'EPERM';
+  }
+}
+
+function groupAlive(pgid) {
+  if (!posix || !Number.isInteger(pgid) || pgid <= 1) return false;
+  try {
+    process.kill(-pgid, 0);
+    return true;
+  } catch (error) {
+    return error.code === 'EPERM';
+  }
+}
+
+function protectedPidsFrom(ppids, extra = []) {
+  const protectedSet = new Set([1, process.pid, process.ppid, ...extra]);
+  for (let cur = process.ppid, depth = 0; cur > 1 && depth < 64; cur = ppids.get(cur), depth += 1) {
+    protectedSet.add(cur);
+  }
+  return protectedSet;
+}
+
+function treeDescendants(rootPid, ppids) {
+  if (!Number.isInteger(rootPid) || rootPid <= 1) return [];
+  const seen = new Set([rootPid]);
+  const found = [];
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const [pid, ppid] of ppids) {
+      if (!seen.has(pid) && seen.has(ppid)) {
+        seen.add(pid);
+        found.push(pid);
+        grew = true;
+      }
+    }
+  }
+  return found;
+}
+
+// Linux 上直接读 /proc：无需起子进程，同时识别仍挂在父进程树上的子进程与携带本作业临时目录标记的独立会话后代。
+function scanLinuxProc(marker, rootPid) {
+  let entries;
+  try {
+    entries = fs.readdirSync('/proc');
+  } catch {
+    return null;
+  }
+  const ppids = new Map();
+  const envMatched = [];
+  for (const name of entries) {
+    if (!/^\d+$/.test(name)) continue;
+    const pid = Number(name);
+    if (pid <= 1) continue;
+    try {
+      const stat = fs.readFileSync(`/proc/${name}/stat`, 'utf8');
+      const closeIdx = stat.lastIndexOf(')');
+      if (closeIdx !== -1) {
+        const fields = stat.slice(closeIdx + 2).trim().split(/\s+/);
+        const ppid = Number(fields[1]);
+        if (Number.isInteger(ppid)) ppids.set(pid, ppid);
+      }
+    } catch {
+      // 进程已退出或无权限读取
+    }
+    if (marker && pid !== process.pid && pid !== process.ppid) {
+      try {
+        const environ = fs.readFileSync(`/proc/${name}/environ`, 'utf8');
+        if (environ.includes(marker)) envMatched.push(pid);
+      } catch {
+        // 进程已退出或属于其他用户
+      }
+    }
+  }
+  const protectedSet = protectedPidsFrom(ppids);
+  const targets = new Set(envMatched);
+  if (rootPid) {
+    for (const pid of treeDescendants(rootPid, ppids)) targets.add(pid);
+  }
+  return [...targets].filter((pid) => pid > 1 && !protectedSet.has(pid));
+}
+
+// 流式读取 ps 输出（避免单次缓冲区上限截断），按本作业专属临时目录标记与父子关系定位残留后代。
+function scanPs(marker, rootPid) {
+  const uid = typeof process.getuid === 'function' ? String(process.getuid()) : null;
+  let args;
+  if (process.platform === 'darwin') {
+    args = uid !== null
+      ? ['-E', '-x', '-U', uid, '-ww', '-o', 'pid=,ppid=,command=']
+      : ['-E', '-axww', '-o', 'pid=,ppid=,command='];
+  } else {
+    args = ['eww', '-A', '-o', 'pid=,ppid=,command='];
+  }
+  return new Promise((resolve) => {
+    const ps = spawn('ps', args, { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, LC_ALL: 'C' } });
+    const ppids = new Map();
+    const envMatched = [];
+    let carry = '';
+    let settled = false;
+    const handleLine = (line) => {
+      const match = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line);
+      if (!match) return;
+      const pid = Number(match[1]);
+      const ppid = Number(match[2]);
+      ppids.set(pid, ppid);
+      if (marker && match[3].includes(marker)) envMatched.push(pid);
+    };
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(guard);
+      if (carry) handleLine(carry);
+      const protectedSet = protectedPidsFrom(ppids, Number.isInteger(ps.pid) ? [ps.pid] : []);
+      const targets = new Set(envMatched);
+      if (rootPid) {
+        for (const pid of treeDescendants(rootPid, ppids)) targets.add(pid);
+      }
+      resolve([...targets].filter((pid) => pid > 1 && !protectedSet.has(pid)));
+    };
+    const guard = setTimeout(() => {
+      try { ps.kill('SIGKILL'); } catch { /* 已退出 */ }
+      if (!ps.stdout.destroyed) ps.stdout.destroy();
+      finish();
+    }, psTimeoutMs);
+    ps.stdout.setEncoding('utf8');
+    ps.stdout.on('data', (chunk) => {
+      const text = carry + chunk;
+      const lines = text.split('\n');
+      carry = lines.pop() ?? '';
+      for (const line of lines) handleLine(line);
+    });
+    ps.once('error', finish);
+    ps.once('close', finish);
+  });
+}
+
+async function findPosixDescendants(marker, rootPid) {
+  if (process.platform === 'linux') {
+    const found = scanLinuxProc(marker, rootPid);
+    if (found !== null) return found;
+  }
+  return scanPs(marker, rootPid);
+}
+
+async function reapPosix({ childPid, marker, includeTree, killRoot, waitForExit }) {
+  const validRoot = Number.isInteger(childPid) && childPid > 1;
+  const killed = new Set();
+
+  // 超时阶段主进程仍在时先拍一次进程树，避免主进程退出后后代改挂 1 号进程而丢失父子链。
+  if (includeTree && validRoot) {
+    const preTargets = await findPosixDescendants(marker, childPid);
+    for (const pid of preTargets) killed.add(pid);
+  }
+
+  if (validRoot) {
+    trySignal(-childPid, 'SIGKILL');
+    if (killRoot) trySignal(childPid, 'SIGKILL');
+  }
+  for (const pid of killed) trySignal(pid, 'SIGKILL');
+
+  if (waitForExit) await waitForExit();
+  if (killed.size > 0) await waitMs(reapPollMs);
+
+  // 主进程已退出后按本作业专属临时目录标记再扫，清理独立会话或脱离原进程组的残留后代。
+  if (marker) {
+    for (let pass = 0; pass < psMaxPasses; pass += 1) {
+      const found = await findPosixDescendants(marker, null);
+      if (validRoot) trySignal(-childPid, 'SIGKILL');
+      let newlyKilled = false;
+      for (const pid of found) {
+        trySignal(pid, 'SIGKILL');
+        if (!killed.has(pid)) {
+          killed.add(pid);
+          newlyKilled = true;
+        }
+      }
+      if (!found.length) break;
+      if (!newlyKilled && pass > 0) break;
+      await waitMs(reapPollMs);
+    }
+  }
+
+  const deadline = Date.now() + reapMaxWaitMs;
+  while (Date.now() < deadline) {
+    const anyAlive = (validRoot && groupAlive(childPid)) || [...killed].some((pid) => pidAlive(pid));
+    if (!anyAlive) break;
+    await waitMs(reapPollMs);
+  }
+}
+
+function runWin32Taskkill(pid) {
+  if (!Number.isInteger(pid) || pid <= 1) return false;
+  const result = spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+    stdio: 'ignore',
+    windowsHide: true,
+    timeout: 5000,
+  });
+  return result.status === 0;
+}
+
+// Windows 上主进程已先退出时 taskkill /PID 会因根进程不在而直接报错，按父进程链与创建时间补清残留后代。
+function reapWin32Orphans(rootPid, spawnedAtMs) {
+  if (!Number.isInteger(rootPid) || rootPid <= 1) return Promise.resolve();
+  const cutoffMs = Math.max(0, spawnedAtMs - 5000);
+  const script = [
+    `$root = ${rootPid};`,
+    `$self = ${process.pid};`,
+    `$cutoff = [DateTimeOffset]::FromUnixTimeMilliseconds(${cutoffMs}).UtcDateTime;`,
+    '$all = @(Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, CreationDate);',
+    '$byPid = @{}; foreach ($p in $all) { $byPid[[int]$p.ProcessId] = $p };',
+    '$protect = [System.Collections.Generic.HashSet[int]]::new();',
+    '[void]$protect.Add($PID);',
+    '$cur = $self;',
+    'for ($i = 0; $i -lt 64 -and $cur -gt 0; $i++) {',
+    '  if (-not $protect.Add($cur)) { break }',
+    '  if ($byPid.ContainsKey($cur)) { $cur = [int]$byPid[$cur].ParentProcessId } else { break }',
+    '}',
+    '$seen = [System.Collections.Generic.HashSet[int]]::new(); [void]$seen.Add($root);',
+    '$targets = [System.Collections.Generic.List[int]]::new();',
+    '$grew = $true;',
+    'while ($grew) {',
+    '  $grew = $false;',
+    '  foreach ($p in $all) {',
+    '    $cid = [int]$p.ProcessId; $ppid = [int]$p.ParentProcessId;',
+    '    if ($seen.Contains($ppid) -and -not $seen.Contains($cid) -and -not $protect.Contains($cid)) {',
+    '      if ($null -eq $p.CreationDate -or $p.CreationDate.ToUniversalTime() -ge $cutoff) {',
+    '        [void]$seen.Add($cid); $targets.Add($cid); $grew = $true;',
+    '      }',
+    '    }',
+    '  }',
+    '}',
+    'foreach ($t in $targets) { try { $proc = Get-Process -Id $t -ErrorAction Stop; $proc.Kill(); [void]$proc.WaitForExit(1000) } catch {} }',
+  ].join(' ');
+  return new Promise((resolve) => {
+    const ps = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(guard);
+      resolve();
+    };
+    const guard = setTimeout(() => {
+      try { ps.kill('SIGKILL'); } catch { /* 已退出 */ }
+      done();
+    }, 8000);
+    ps.once('error', done);
+    ps.once('close', done);
+  });
+}
+
+function collect(plan, timeoutMs, { marker = null, stopContainer = null, onSpawnError = null } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(plan.file, plan.args, { env: plan.env, cwd: plan.cwd, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    const isHost = plan.backend !== 'oci';
+    const spawnedAtMs = Date.now();
+    // POSIX 上用 detached: true 建立独立进程组，超时或退出收尾时可整组终止且不波及宿主进程组。
+    const child = spawn(plan.file, plan.args, {
+      env: plan.env,
+      cwd: plan.cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: posix,
+      windowsHide: true,
+    });
     const out = { stdout: '', stderr: '' };
     let timedOut = false;
+    let exited = false;
+    let pipesClosed = false;
+    let exitCode = null;
+    let exitSignal = null;
+    let settled = false;
+    let cleanupPromise = null;
+    let drainTimer = null;
+    let exitWaitTimer = null;
+    let exitWaitResolve = null;
+
+    const destroyStreams = () => {
+      for (const name of ['stdout', 'stderr']) {
+        if (child[name] && !child[name].destroyed) child[name].destroy();
+      }
+    };
+
+    const wakeExitWaiter = () => {
+      clearTimeout(exitWaitTimer);
+      exitWaitTimer = null;
+      if (exitWaitResolve) {
+        const wake = exitWaitResolve;
+        exitWaitResolve = null;
+        wake();
+      }
+    };
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearTimeout(drainTimer);
+      wakeExitWaiter();
+      destroyStreams();
+      resolve({ code: exitCode, signal: exitSignal ?? (timedOut ? 'SIGKILL' : null), timedOut, ...out });
+    };
+
+    const waitForExit = () => (exited ? Promise.resolve() : new Promise((done) => {
+      exitWaitResolve = done;
+      exitWaitTimer = setTimeout(() => {
+        exitWaitTimer = null;
+        exitWaitResolve = null;
+        done();
+      }, exitWaitMs);
+    }));
+
+    const runCleanup = async ({ killRoot, includeTree }) => {
+      if (!isHost) {
+        if (killRoot || timedOut || exitCode === null) {
+          stopContainer?.();
+          if (posix) {
+            trySignal(-child.pid, 'SIGKILL');
+            if (killRoot) trySignal(child.pid, 'SIGKILL');
+          } else if (killRoot) {
+            runWin32Taskkill(child.pid);
+          }
+          if (killRoot) await waitForExit();
+        }
+        return;
+      }
+      if (posix) {
+        await reapPosix({
+          childPid: child.pid,
+          marker,
+          includeTree,
+          killRoot,
+          waitForExit: killRoot ? waitForExit : null,
+        });
+      } else {
+        const killedTree = runWin32Taskkill(child.pid);
+        if (killRoot) await waitForExit();
+        if (!killedTree) await reapWin32Orphans(child.pid, spawnedAtMs);
+      }
+    };
+
+    const ensureCleanup = (opts) => {
+      if (!cleanupPromise) cleanupPromise = runCleanup(opts);
+      return cleanupPromise;
+    };
+
     const timer = setTimeout(() => {
+      if (settled || exited) return;
       timedOut = true;
-      // shortcut: 只杀主进程，宿主机后端上作业另起会话的后台进程留着（仍在策略内）；对外服务用 oci 后端，停容器时一并清掉。
-      child.kill('SIGKILL');
-      onTimeout();
+      // 超时立即销毁标准输出与标准错误管道，防止后代进程继承句柄拖住收尾。
+      destroyStreams();
+      ensureCleanup({ killRoot: true, includeTree: true }).then(finish, finish);
     }, timeoutMs);
+
     for (const name of ['stdout', 'stderr']) {
       child[name].setEncoding('utf8').on('data', (chunk) => {
         // 超过上限的输出丢掉，作业刷屏不拖垮宿主进程。
         if (out[name].length < outputCap) out[name] += chunk;
       });
     }
+
     child.once('error', (error) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
+      clearTimeout(drainTimer);
+      wakeExitWaiter();
+      destroyStreams();
+      onSpawnError?.();
       reject(error.code === 'ENOENT' ? codedError('env.missing-tool', `找不到沙箱后端的可执行文件：${plan.file}`) : error);
     });
-    child.once('close', (code, signal) => {
+
+    child.once('exit', (code, signal) => {
       clearTimeout(timer);
-      resolve({ code, signal, timedOut, ...out });
+      exited = true;
+      exitCode = code;
+      exitSignal = signal;
+      wakeExitWaiter();
+      if (timedOut) return;
+      // 主进程退出后立刻清理同组与残留后代；期间继续排空已缓冲输出，清理完成后若管道仍未关则在短宽限后销毁返回。
+      if (isHost && posix) trySignal(-child.pid, 'SIGKILL');
+      ensureCleanup({ killRoot: false, includeTree: false }).then(() => {
+        if (settled) return;
+        if (pipesClosed) {
+          finish();
+          return;
+        }
+        drainTimer = setTimeout(finish, drainGraceMs);
+      }, finish);
+    });
+
+    child.once('close', (code, signal) => {
+      pipesClosed = true;
+      if (!exited) {
+        exited = true;
+        exitCode = code;
+        exitSignal = signal;
+      }
+      if (settled || timedOut) return;
+      ensureCleanup({ killRoot: false, includeTree: false }).then(finish, finish);
     });
   });
 }
@@ -418,16 +825,34 @@ export async function runInWorkspaceSandbox(options = {}) {
   const spec = buildContainerSpec(specOptions);
   // 文件清单对着真实工作区再查一遍：不得经过工作区里的符号链接。
   enforceAuthorMode(request, spec.mounts[0].source);
-  const tmpDir = chosen.backend === 'oci' ? undefined : fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'bm-sandbox-')));
+  const tmpPrefix = `bm-sandbox-${randomUUID().replaceAll('-', '').slice(0, 12)}-`;
+  const tmpDir = chosen.backend === 'oci' ? undefined : fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), tmpPrefix)));
+  let plan;
+  let containerStopped = false;
+  let needsContainerCleanup = false;
+  const stopContainer = () => {
+    if (containerStopped || !plan || plan.backend !== 'oci') return;
+    containerStopped = true;
+    // 杀掉容器客户端不等于停掉容器；按容器名强制停止并清理。
+    spawnSync(plan.file, ['kill', spec.containerName], { stdio: 'ignore', timeout: 5000 });
+    spawnSync(plan.file, ['rm', '-f', spec.containerName], { stdio: 'ignore', timeout: 5000 });
+  };
   try {
     if (tmpDir) fs.mkdirSync(path.join(tmpDir, 'home'));
-    const plan = planSandboxExec(spec, { ...chosen, tmpDir, allowDegraded });
-    const result = await collect(plan, timeoutMs, () => {
-      // 杀掉 docker 客户端不等于停掉容器。
-      if (plan.backend === 'oci') spawnSync(plan.file, ['kill', spec.containerName], { stdio: 'ignore' });
+    plan = planSandboxExec(spec, { ...chosen, tmpDir, allowDegraded });
+    const marker = tmpDir ? path.basename(tmpDir) : null;
+    needsContainerCleanup = plan.backend === 'oci';
+    const result = await collect(plan, timeoutMs, {
+      marker,
+      stopContainer,
+      onSpawnError: () => {
+        needsContainerCleanup = false;
+      },
     });
+    if (!result.timedOut && result.code !== null) needsContainerCleanup = false;
     return { backend: plan.backend, isolation: plan.isolation, workspaceId: spec.workspaceId, containerName: spec.containerName, ...result };
   } finally {
+    if (needsContainerCleanup) stopContainer();
     if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 3 });
   }
 }
