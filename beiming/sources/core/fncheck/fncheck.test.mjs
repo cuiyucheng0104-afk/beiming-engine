@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
-import { chi2Test, directionChi2, gammaQ, ggxAlbedo, gridChi2, mcMean } from './checks.mjs';
+import { chi2Test, directionChi2, gammaQ, ggxAlbedo, gridChi2, mcMean, polygonIrradiance } from './checks.mjs';
 import { compare } from './compare.mjs';
 import { FUNCTIONS, crs, dot3, outWidth, width } from './registry.mjs';
 import { CORE, check, makeInputs, shaderSource } from './run.mjs';
@@ -330,18 +330,6 @@ test('端到端 χ²：面光采样的方向分布与立体角概率密度配对
     assert.ok(c.p >= level, `${c.name} 不过：p=${c.p} < ${level}`);
   }
 });
-
-/** 均匀亮度 L = 1 的多边形对朝向 N 的小面元的辐照度 ∫cosθ dω（解析）：Lambert 的边求和，E = ½ Σ Θ_i·(N·n̂_i)，
- *  Θ_i 是相邻两个顶点方向的夹角，n̂_i 是它们张成的平面的单位法向。要求多边形整个在面元的地平线以上。双精度 */
-function polygonIrradiance(P, N, corners) {
-  const r = corners.map(c => v3.sub(c, P));
-  let e = 0;
-  for (let k = 0; k < r.length; k++) {
-    const a = r[k], b = r[(k + 1) % r.length], c = v3.cross(a, b), lc = Math.hypot(...c);
-    e += Math.atan2(lc, v3.dot(a, b)) * v3.dot(N, c) / lc;
-  }
-  return Math.abs(e) / 2;
-}
 
 test('端到端数学裁判：均匀矩形面光照小面元，采样估计的辐照度对解析形状因子在 0.2% 以内（不依赖 Cycles）', { timeout: 600_000 }, async t => {
   const cases = [

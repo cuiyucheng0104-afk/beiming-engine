@@ -6,6 +6,7 @@
 // 两者都不依赖 Cycles：比的是我方采样函数与我方概率密度函数彼此是否一致，以及求值的积分是否不超过 1。
 import { makeInputs } from './run.mjs';
 import { runGpu } from './gpu.mjs';
+import { crs, dot3 } from './registry.mjs';
 
 /** 包一个计算着色器：每线程执行 body，inp 至少被读一次（自动布局只收被用到的绑定） */
 const job = (source, helpers, body) => `${source}
@@ -212,4 +213,16 @@ export async function mcMean({ source, cases, n = 1_000_000, seed = 1 }) {
     const mean = s / n;
     return { mean, stderr: Math.sqrt(Math.max(0, s2 / n - mean * mean) / n) };
   });
+}
+
+/** 均匀亮度 L = 1 的多边形对朝向 N 的小面元的辐照度 ∫cosθ dω（解析）：Lambert 的边求和，E = ½ Σ Θ_i·(N·n̂_i)，
+ *  Θ_i 是相邻两个顶点方向的夹角，n̂_i 是它们张成的平面的单位法向。要求多边形整个在面元的地平线以上。双精度 */
+export function polygonIrradiance(P, N, corners) {
+  const r = corners.map(c => [c[0] - P[0], c[1] - P[1], c[2] - P[2]]);
+  let e = 0;
+  for (let k = 0; k < r.length; k++) {
+    const a = r[k], b = r[(k + 1) % r.length], c = crs(a, b), lc = Math.hypot(...c);
+    e += Math.atan2(lc, dot3(a, b)) * dot3(N, c) / lc;
+  }
+  return Math.abs(e) / 2;
 }
