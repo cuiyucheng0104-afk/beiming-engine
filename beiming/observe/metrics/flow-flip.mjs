@@ -111,17 +111,17 @@ function pyramid(image, scale, levels, radius) {
     pixels[p] = channels === 1 ? data[i] / scale :
       0.2126 * (data[i] / scale) + 0.7152 * (data[i + 1] / scale) + 0.0722 * (data[i + 2] / scale);
   }
-  const result = [{ width, height, pixels }];
-  while (result.length < levels && Math.min(width, height) >= 2 * (2 * radius + 1)) {
+  const result = [];
+  for (;;) {
     const smooth = filtered(pixels, width, height, [1 / 16, 4 / 16, 6 / 16, 4 / 16, 1 / 16]);
+    result.push({ width, height, pixels, smooth });
+    if (result.length >= levels || Math.min(width, height) < 2 * (2 * radius + 1)) return result;
     const stride = width;
     width = Math.ceil(width / 2);
     height = Math.ceil(height / 2);
     pixels = new Float64Array(width * height);
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) pixels[y * width + x] = smooth[2 * (y * stride + x)];
-    result.push({ width, height, pixels });
   }
-  return result;
 }
 
 function sample(a, w, h, x, y) {
@@ -132,40 +132,44 @@ function sample(a, w, h, x, y) {
   return (1 - ty) * ((1 - tx) * a[p] + tx * a[p + right]) + ty * ((1 - tx) * a[p + down] + tx * a[p + right + down]);
 }
 
-// 滑动求和，使每个像素的最小二乘窗口与窗口大小无关；画面外没有观测。
-function boxSum(a, tmp, w, h, r) {
-  for (let y = 0; y < h; y++) {
-    const start = y * w;
-    let s = 0;
-    for (let x = 0; x < Math.min(r, w); x++) s += a[start + x];
-    for (let x = 0; x < w; x++) {
-      if (x + r < w) s += a[start + x + r];
-      if (x > r) s -= a[start + x - r - 1];
-      tmp[start + x] = s;
-    }
+// 裁去画面外的观测，从窗口两端成对相加。镜像后各对加数互换，全零窗口精确为零。
+function sumWindowAxis(input, output, w, h, radius, horizontal) {
+  const length = horizontal ? w : h, stride = horizontal ? 1 : w;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, pos = horizontal ? x : y;
+    let lo = i - stride * Math.min(radius, pos), hi = i + stride * Math.min(radius, length - 1 - pos);
+    let total = 0;
+    for (; lo < hi; lo += stride, hi -= stride) total += input[lo] + input[hi];
+    output[i] = lo === hi ? total + input[lo] : total;
   }
-  for (let x = 0; x < w; x++) {
-    let s = 0;
-    for (let y = 0; y < Math.min(r, h); y++) s += tmp[y * w + x];
-    for (let y = 0; y < h; y++) {
-      if (y + r < h) s += tmp[(y + r) * w + x];
-      if (y > r) s -= tmp[(y - r - 1) * w + x];
-      a[y * w + x] = s;
-    }
-  }
+}
+function boxSum(a, tmp, w, h, radius) {
+  sumWindowAxis(a, tmp, w, h, radius, true);
+  sumWindowAxis(tmp, a, w, h, radius, false);
 }
 
 function flowLevel(ref, test, coarse, radius, iterations) {
-  const { width: w, height: h, pixels: a } = ref, b = test.pixels, n = a.length;
+  const { width: w, height: h, smooth: a } = ref, b = test.smooth, n = a.length;
   const dx = new Float64Array(n), dy = new Float64Array(n);
-  if (coarse) for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x;
-    dx[i] = 2 * sample(coarse.dx, coarse.width, coarse.height, x / 2, y / 2);
-    dy[i] = 2 * sample(coarse.dy, coarse.width, coarse.height, x / 2, y / 2);
-  }
   const gx = filterAxis(b, w, h, [-0.5, 0, 0.5], true), gy = filterAxis(b, w, h, [-0.5, 0, 0.5], false);
   const terms = Array.from({ length: 5 }, () => new Float64Array(n));
   const [xx, xy, yy, xt, yt] = terms, tmp = new Float64Array(n);
+  // 用本层低通前的亮度标记支持域，防止滤波或粗层位移把物体边缘扩散进静止平背景。
+  const raw = test.pixels;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, v = raw[i];
+    xx[i] = Number(ref.pixels[i] !== v || (x > 0 && raw[i - 1] !== v) || (x + 1 < w && raw[i + 1] !== v) ||
+      (y > 0 && raw[i - w] !== v) || (y + 1 < h && raw[i + w] !== v));
+  }
+  boxSum(xx, tmp, w, h, radius);
+  const active = Uint8Array.from(xx, count => Number(count > 0));
+  if (coarse) for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (!active[i]) continue;
+    dx[i] = 2 * sample(coarse.dx, coarse.width, coarse.height, x / 2, y / 2);
+    dy[i] = 2 * sample(coarse.dy, coarse.width, coarse.height, x / 2, y / 2);
+  }
+  const ridgeFloor = 1e-6 * (2 * radius + 1) ** 2;
   for (let step = 0; step < iterations; step++) {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const i = y * w + x, sx = x + dx[i], sy = y + dy[i];
@@ -183,12 +187,17 @@ function flowLevel(ref, test, coarse, radius, iterations) {
     let largest = 0;
     for (let i = 0; i < n; i++) {
       const trace = xx[i] + yy[i];
-      if (trace <= 1e-14) continue;
-      const ridge = 1e-5 * trace, a11 = xx[i] + ridge, a22 = yy[i] + ridge;
+      if (!active[i] || trace <= 1e-14) {
+        dx[i] = dy[i] = 0;
+        continue;
+      }
+      // 弱特征方向至少有 trace/32 的约束，抑制孔径问题，同时保留双向纹理的亚像素精度。
+      const weak = (trace - Math.hypot(xx[i] - yy[i], 2 * xy[i])) / 2;
+      const ridge = Math.max(ridgeFloor, 1e-3 * trace, trace / 32 - weak);
+      const a11 = xx[i] + ridge, a22 = yy[i] + ridge;
       const det = a11 * a22 - xy[i] * xy[i];
-      if (det <= 0) continue;
-      const bx = xt[i] - xx[i] * dx[i] - xy[i] * dy[i], by = yt[i] - xy[i] * dx[i] - yy[i] * dy[i];
-      const u = (a22 * bx - xy[i] * by) / det, v = (a11 * by - xy[i] * bx) / det;
+      const u = (a22 * xt[i] - xy[i] * yt[i]) / det - dx[i];
+      const v = (a11 * yt[i] - xy[i] * xt[i]) / det - dy[i];
       const length = Math.hypot(u, v), damping = 1 / Math.max(1, length);
       dx[i] += u * damping; dy[i] += v * damping;
       largest = Math.max(largest, length);

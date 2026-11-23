@@ -13,8 +13,8 @@ const flipStats = ['mean', 'weightedMedian', 'q1', 'q3', 'p95', 'max'];
 function near(value, expected, tolerance, label) {
   assert.ok(Math.abs(value - expected) <= tolerance, `${label} 读出 ${value}，期望 ${expected} ± ${tolerance}`);
 }
-function luma(width, height, sample) {
-  return { width, height, luma: Float32Array.from({ length: width * height }, (_, i) => sample(i % width, Math.floor(i / width))) };
+function luma(width, height, sample, Type = Float32Array) {
+  return { width, height, luma: Type.from({ length: width * height }, (_, i) => sample(i % width, Math.floor(i / width))) };
 }
 function rgb(width, height, sample, Type = Uint8Array) {
   const pixels = new Type(width * height * 3);
@@ -49,19 +49,92 @@ test('两个公共入口导出指标和分派器，指标名可带 metric: 前�
 });
 
 test('相邻帧按顺序量出 0.5、2.5 px 平移和负 y 方向，幅度单位是 px/帧', () => {
-  const frames = [[0, 0], [0.5, 0], [3, 0], [3, -0.5]].map(([x, y]) => translate(x, y));
+  const frames = [[0, 0], [0.5, 0], [3, 0], [3, -0.5], [3.25, -0.75]].map(([x, y]) => translate(x, y));
   const result = flowField(frames, { fps: 24, roi: { x: 13, y: 11, width: 44, height: 30 } });
-  assert.equal(result.curve.length, 3);
+  assert.equal(result.curve.length, 4);
   assert.equal(result.fields, undefined);
-  for (const [i, [dx, dy]] of [[0.5, 0], [2.5, 0], [0, -0.5]].entries()) {
+  for (const [i, [dx, dy]] of [[0.5, 0], [2.5, 0], [0, -0.5], [0.25, -0.25]].entries()) {
     const p = result.curve[i];
-    near(p.meanDx, dx, 0.10, `第 ${i} 对 dx`);
-    near(p.meanDy, dy, 0.10, `第 ${i} 对 dy`);
-    near(p.meanMag, Math.hypot(dx, dy), 0.10, `第 ${i} 对幅度`);
+    assert.ok(Math.hypot(p.meanDx - dx, p.meanDy - dy) < 0.02, `平移 (${dx},${dy}) 读出 (${p.meanDx},${p.meanDy})`);
+    near(p.meanMag, Math.hypot(dx, dy), 0.02, `第 ${i} 对幅度`);
     near(Math.cos(p.coherentAngleRad), dx / Math.hypot(dx, dy), 0.12, `第 ${i} 对方向 x`);
     near(Math.sin(p.coherentAngleRad), dy / Math.hypot(dx, dy), 0.12, `第 ${i} 对方向 y`);
     assert.ok(p.p95Mag >= 0 && p.maxMag >= p.p95Mag && p.maxMag >= p.meanMag);
   }
+});
+
+test('浮点亮度尺度扩大或缩小到 1e±200，稠密场与单位尺度一致', () => {
+  const run = scale => flowField([0, 0.5].map(dx =>
+    luma(48, 36, (x, y) => scale * texture(x - dx, y), Float64Array)), { includeFields: true }).fields[0];
+  const reference = run(1);
+  for (const scale of [1e-200, 1e200]) {
+    const field = run(scale);
+    for (const axis of ['dx', 'dy']) assert.ok(field[axis].every((v, i) => Math.abs(v - reference[axis][i]) < 1e-9));
+  }
+});
+
+function staticRegion(frames, roi, opts = {}) {
+  const pair = flowField(frames, { ...opts, roi }).curve[0];
+  assert.equal(pair.meanMag, 0);
+  assert.equal(pair.maxMag, 0);
+  return pair;
+}
+
+test('8 位高斯光斑平移 1 px，整图峰值受限，远处的静止背景为零', () => {
+  const frames = [160, 161].map(cx => luma(320, 180, (x, y) =>
+    Math.round(30 + 200 * Math.exp(-((x - cx) ** 2 + (y - 90) ** 2) / (2 * 16 ** 2))), Uint8Array));
+  const { maxMag } = flowField(frames).curve[0];
+  assert.ok(maxMag > 0.90 && maxMag <= 1.2, `高斯光斑峰值 ${maxMag}`);
+  staticRegion(frames, { x: 10, y: 10, width: 60, height: 160 });
+});
+
+test('纸色背景的抗锯齿圆盘平移 0.5 px，整图峰值受限，远处的纸色背景为零', () => {
+  const paper = [244, 240, 233], ink = [54, 66, 80];
+  const frames = [160, 160.5].map(cx => rgb(320, 180, (x, y) => {
+    const coverage = Math.min(1, Math.max(0, 24.5 - Math.hypot(x - cx, y - 90)));
+    return paper.map((v, c) => Math.round(v + coverage * (ink[c] - v)));
+  }));
+  const { maxMag } = flowField(frames).curve[0];
+  assert.ok(maxMag > 0.4 && maxMag <= 0.7, `圆盘峰值 ${maxMag}`);
+  staticRegion(frames, { x: 10, y: 10, width: 60, height: 160 });
+});
+
+test('2.39:1 画面平移 2 px，顶部和底部的纯黑遮幅均为零', () => {
+  const width = 320, height = 216, activeHeight = Math.round(width / 2.39), bar = (height - activeHeight) / 2;
+  const frames = [0, 2].map(dx => luma(width, height, (x, y) =>
+    y < bar || y >= height - bar ? 0 : Math.round(255 * texture(x - dx, y)), Uint8Array));
+  for (const y of [0, height - 24]) staticRegion(frames, { x: 0, y, width, height: 24 });
+  near(flowField(frames, { roi: { x: 80, y: 80, width: 160, height: 56 } }).curve[0].meanDx, 2, 0.02, '遮幅内平移');
+});
+
+for (const [width, height, radius, end] of [[1920, 128, 3, 1600], [120, 640, 8, 480]]) {
+  test(`${width}×${height} 窗半径 ${radius}，纹理下游的静止 ROI 与其镜像严格一致`, () => {
+    const horizontal = width > height, length = Math.max(width, height), breadth = Math.min(width, height);
+    const frames = [0, 1.2].map(shift => luma(width, height, (x, y) => {
+      const u = horizontal ? x : y, v = horizontal ? y : x;
+      return u >= 8 && u < end && v >= 8 && v < breadth - 8 ?
+        Math.round(127.5 + 127.5 * Math.sin(1.57 * (u - 8 - shift) + 0.785 * v)) : 128;
+    }, Uint8Array));
+    const reflected = frames.map(frame => luma(width, height, (x, y) => horizontal ?
+      frame.luma[y * width + width - 1 - x] : frame.luma[(height - 1 - y) * width + x], Uint8Array));
+    const size = length - end - 70;
+    const roi = start => horizontal ? { x: start, y: 20, width: size, height: breadth - 40 } :
+      { x: 20, y: start, width: breadth - 40, height: size };
+    const opts = { pyramidLevels: 1, windowRadius: radius };
+    assert.deepEqual(staticRegion(frames, roi(end + 50), opts), staticRegion(reflected, roi(20), opts));
+  });
+}
+
+test('单层光流的非零读数只取决于局部观测，远处另加纹理不改变返回位', () => {
+  const roi = { x: 230, y: 18, width: 42, height: 26 };
+  const run = extra => {
+    const frames = [0, 0.5].map(dx => luma(290, 64, (x, y) =>
+      x >= 200 || (extra && x < 130) ? Math.round(255 * texture(x - dx, y)) : 128, Uint8Array));
+    return flowField(frames, { pyramidLevels: 1, iterations: 1, roi, includeFields: true });
+  };
+  const local = run(false);
+  near(local.curve[0].meanDx, 0.5, 0.02, '下游纹理位移');
+  assert.deepEqual(run(true), local);
 });
 
 test('同一帧对的左右区域向两个方向独立移动，按 ROI 行优先取每个向量并核算曲线', () => {
