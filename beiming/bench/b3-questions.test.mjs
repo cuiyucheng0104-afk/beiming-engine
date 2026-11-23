@@ -653,3 +653,36 @@ test('B3-22 十四审丙类回归（23-2 拍长抖动与一帧容差）：±10ms
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('B3-23 十五审甲类回归（27-1 镜头内平滑快摇与孤立弱硬切）：YDIF>16 且 scd>3% 的连续快摇不误报切点，13 个弱硬切全检出并满分通过', MEDIA, async () => {
+  const { evaluate, read27_1 } = await evaluator();
+  const q = question('27-1'), { cuts, shots } = reading('27-1.reference');
+  const dir = workdir();
+  try {
+    // 13 个网格切点为孤立弱硬切（全画幅 YDIF 约 15..17，孤立尖峰）；
+    // 第 306..312 帧（第 10 镜内）模拟左栏平滑快摇：第 307 帧 YDIF=18 > 16 且 scdet=3.81% > 3%，随后 308..312 帧持续高 YDIF（14.75..20.5），无孤立尖峰
+    const w = 36, h = 36, raw = Buffer.alloc(510 * w * h);
+    const panSteps = new Map([[306, 36], [307, 46], [308, 48], [309, 46], [310, 44], [311, 42], [312, 24]]);
+    let leftBase = 64, panPhase = 0;
+    for (let f = 0; f < 510; f++) {
+      if (cuts.includes(f)) leftBase = leftBase > 80 ? 64 : 100;
+      const step = panSteps.get(f) ?? 0;
+      if (step) panPhase ^= 1;
+      const dither = (f % 2) * 2, right = 80 + dither;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < 18; x++) {
+          raw[(f * h + y) * w + x] = leftBase + (((x + y) & 1) === panPhase ? step : 0) + dither;
+        }
+        raw.fill(right, (f * h + y) * w + 18, (f * h + y + 1) * w);
+      }
+    }
+    const file = join(dir, 'fastpan27.mov');
+    ffmpeg(['-f', 'rawvideo', '-pix_fmt', 'gray', '-s', `${w}x${h}`, '-r', '30', '-i', 'pipe:0',
+      '-f', 'lavfi', '-i', 'sine=frequency=1000:sample_rate=48000:duration=17', '-af', 'volume=7.1dB', '-ac', '2',
+      '-vf', 'scale=1080:1080:flags=neighbor', '-c:v', 'libx264', '-preset', 'ultrafast', '-qp', '0', '-pix_fmt', 'yuv420p',
+      '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv', '-c:a', 'pcm_s16le', file], raw);
+    const measured = await read27_1(file, { shots });
+    assert.deepEqual(measured.cuts, cuts);
+    const verdict = evaluate(q, measured);
+    assert.deepEqual([passed(verdict), verdict.score, verdict.basePass, verdict.pass], [[true, true], 1, true, true]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

@@ -251,20 +251,37 @@ function beatOf(onsetsMs) {
   return { periodMs: best.p, phaseMs: best.ph };
 }
 
-// 27-1：交付量测、换镜头帧、响度和真峰值从成片量；双栏或低反差硬切用 YDIF + scdet 联合判别，避免平滑快摇误检或弱硬切漏检
-export const read27_1 = orMissing(async (file, film, { crop, cutThreshold = 13, sceneThreshold = 0.025 } = {}) => {
-  const strongThreshold = Math.max(24, cutThreshold);
-  const [seen, loud, strong, scene] = await Promise.all([
+// 逐帧亮度差：用于判别候选切点是否为局部孤立尖峰（硬切在切点帧孤立跳变，连续快摇在相邻多帧维持高帧差平台）
+function ydifs(file) {
+  const out = String(run('ffmpeg', ['-nostdin', '-hide_banner', '-v', 'error', '-i', resolve(file),
+    '-map', '0:v:0', '-vf', 'format=yuv444p,signalstats,metadata=print:file=-', '-f', 'null', '-']));
+  const values = [];
+  let frame = -1;
+  for (const line of out.split(/\r?\n/)) {
+    if (line.startsWith('frame:')) frame = Number(/^frame:(\d+)/.exec(line)?.[1] ?? -1);
+    else if (frame >= 0 && line.startsWith('lavfi.signalstats.YDIF=')) values[frame] = Number(line.slice(23));
+  }
+  return values;
+}
+
+// 27-1：交付量测、换镜头帧、响度和真峰值从成片量；双栏或低反差硬切用 YDIF 孤立峰突出度 + scdet 联合判别，避免平滑快摇误检或弱硬切漏检
+export const read27_1 = orMissing(async (file, film, { crop, cutThreshold = 13, sceneThreshold = 0.025, peakRatio = 1.3 } = {}) => {
+  const strongThreshold = Math.max(32, cutThreshold);
+  const [seen, loud, scene] = await Promise.all([
     filmed(file, crop, cutThreshold),
     metric(audioLoudness(file)),
-    crop || sceneThreshold <= 0 ? { value: [] } : metric(cutYdif(file, strongThreshold)),
     crop || sceneThreshold <= 0 ? { value: [] } : metric(cutScene(file, sceneThreshold)),
   ]);
   let cuts = seen.cuts;
   if (!crop && sceneThreshold > 0) {
+    const ydif = ydifs(file);
     cuts = [];
     for (const frame of seen.cuts) {
-      if (strong.value.includes(frame) || (scene.value.includes(frame) && (cuts.length === 0 || cuts.at(-1) < frame - 1))) {
+      const cur = ydif[frame] ?? 0;
+      const neighbor = Math.max(ydif[frame - 1] ?? 0, ydif[frame + 1] ?? 0);
+      if (cur >= neighbor * peakRatio
+        && (cur > strongThreshold || scene.value.includes(frame))
+        && (cuts.length === 0 || cuts.at(-1) < frame - 1)) {
         cuts.push(frame);
       }
     }
