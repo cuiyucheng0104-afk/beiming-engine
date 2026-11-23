@@ -111,6 +111,19 @@
 
 写法上又踩到三处，都写在各自的注释里：`bsdf_eval` 收一个闭包而不收整个着色点（收整个着色点时苹果显卡上过程几何的阴影场景会随机丢样本）；上游的 `Lobes` 对所有闭包都算（只给上游顶替算时苹果显卡上别的材质像素末位会变）；`light_mis` 不按闭包种类分支（试过三种写法，不是苹果显卡就是英伟达显卡上别的材质像素末位会变）。
 
+### 路径状态与光线
+
+上游的路径状态散在各处：十几个模块级的私有量（当前顶点号、镜面路径标志、几样直接光的中间量、随机数的种子与样本号等），加主循环里的一组局部量（通量、上一次采样的概率密度、几个玻璃标志、射线锥）。这一步把它们收成两个结构，渲染结果不变（逐位）。
+
+- `shaders/integrator.wgsl` 开头：路径状态 `PathState`，一个模块级的私有变量 `state`，所有函数直接读写。字段名照 Cycles 的 `IntegratorState.path`（像素下标、样本号、弹射数、四个分类计数、`rng_pixel`、`rng_offset`、`flag`、`mis_ray_pdf`、`min_ray_pdf`、`continuation_probability`、`throughput`、`visibility`、`mis_ray_object`）；照 Cycles 没有对应的上游状态圈在 `state.legacy`（`PathLegacy`）里。路径标志位与可见类的位照 Cycles 的 `PathRayFlag`、`PathRayVisibilityFlag`，现在只接了「下一次打到灯不做多重重要性采样」那一位（上游的 `specular_bounce`）。
+- 并进去的上游私有量：`cur_depth`（成了 `state.bounce`）、`RNG_INDEX`、`RNG_SEED`（成了 `state.sample`、`state.rng_pixel`），以及进 `state.legacy` 的 `mirror_path`、`rays_off`、`split_frac`、`dl_spec`、`dl_det`、`dl_det_spec`、`sampled_spec`、`sampled_trans`、`mis_x`、`mis_n`、`shadow_hole`、`nee_alone`、`lights_only`、`RNG_PATH`。各文件里读写它们的地方只换了名字。没有并的：求交里过程几何的调用上下文（`gdata_first`、`gdata_count`、`media_voxels`）、灯光瓦片的每像素状态（`lt_list`、`lt_list_n`、`lt_fb`）、循环守卫的计数，它们不是路径状态。
+- 主循环里的 `thr`、`last_pdf`、`specular_bounce`、`behind_glass`、`bent`、`straight` 与金属接线加的 `bm_surf` 换成 `state` 的字段。
+- 新写入、暂时没人读的四项：`min_ray_pdf`、`mis_ray_object`（每次弹射处写）、`visibility`（初值与每次弹射后的更新，在新加的 `path_state_next` 里，只有骨架）、`rng_offset`。分类计数只定义。`src/gpu.rs` 的测试 `path_state_is_written` 锁住两个结构的字段名单，并查这四项的写入语句都在。
+- 光线 `Ray`（起点、方向、`tmin`、`tmax`、`time`、`self_object`、`self_prim`、射线锥的两个量），主循环的 `o`、`d`、`cone_w`、`cone_a` 换成它的字段。相机光线的算式原样留在 `main` 里，算完填进 `Ray`。上游 `trace` 的签名没动。
+- `shaders/intersect.wgsl`：「只查同一个物体、返回至多 4 个命中」的问法 `trace_local` 定了签名与返回的结构，函数体是空壳。
+
+这一步踩到一处：`Ray` 里两个三维向量必须排在最后。两个向量排在前面、后面紧跟标量时，苹果显卡上两个带水的场景像素会变（相对差到 3e-4）；排到最后就逐位不变了。推测是后端把后面紧跟标量的三维向量按紧凑格式存，运算次序跟着变。
+
 ## 沿用上游名字的地方
 
 - **环境变量**。内核读的开关仍叫上游的名字（`THREERT_` 开头），例如 `THREERT_SEED`（随机数种子）、`THREERT_HWRT`、`THREERT_MERGED`、`THREERT_LOOP_GUARD`、`THREERT_PIPELINE_CACHE`、`THREERT_INSTANCING` 等。这次不改：上游自带的 JavaScript 工具还在给它们赋值，改名要和场景入口一起换。

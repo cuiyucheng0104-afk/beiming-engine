@@ -263,7 +263,7 @@ fn emit_mis(hit: Hit, d: vec3<f32>, pdf: f32) -> f32 {
     let cos_l = abs(dot(normalize(cr), d));
     if (lt_on()) {
         // The light tree's pmf where the ray left (the vertex that sampled emitters), per area of the hit triangle.
-        let sel = emitter_sel(entry - 1u, em, ha, mis_x, mis_n);
+        let sel = emitter_sel(entry - 1u, em, ha, state.legacy.mis_x, state.legacy.mis_n);
         if (!(sel > 0.0)) { return 1.0; }
         return power_heuristic(pdf, sel / max(area, 1e-12) * hit.t * hit.t / max(cos_l, 1e-6));
     }
@@ -416,7 +416,7 @@ fn local_light(li: Light, x: vec3<f32>, u: vec2<f32>) -> LS {
 // hits every unshadowed light is evaluated exactly, as UE's deferred lights are (no sampling noise), and the shadowed
 // ones too when there are few (one shadow ray each). Otherwise: resampled importance sampling (Talbot 2005) of RIS_M
 // uniform candidates by unshadowed contribution, then one shadow ray. `vol` = in-scattering in the fog (phase
-// function) instead of the surface BSDF. Surface results add their specular part to `dl_spec`.
+// function) instead of the surface BSDF. Surface results add their specular part to `state.legacy.dl_spec`.
 // Light tiles (live; what guides MegaLights' draws and RTXPT's): each camera pixel reports the local light its
 // resampled shadow ray found (direct_out's w: `lt_fb`, a light-table index; LT_NONE: none), live.wgsl `light_tiles`
 // makes each 8 x 8 tile's reports a list in `light_lists` (the lights found, each once: index, reports; ascending;
@@ -513,7 +513,7 @@ fn local_lights(sd: ShadingPoint, o: vec3<f32>, x: vec3<f32>, vol: bool, d: vec3
                         var c = ls.c;
                         if (ls.pdf > 0.0) { c *= light_mis(ls.pdf, sd, ls.l); }
                         sum += c * f * tr3(vis);
-                        dl_spec += c * f * tr3(vis) * e.spec_frac;
+                        state.legacy.dl_spec += c * f * tr3(vis) * e.spec_frac;
                     }
                 }
             }
@@ -579,9 +579,9 @@ fn local_lights(sd: ShadingPoint, o: vec3<f32>, x: vec3<f32>, vol: bool, d: vec3
             if (any(vis > vec3<f32>(0.0))) {
                 let r = c * tr3(vis) * (wsum * f32(count) / (f32(m_cand) * pick_ph));
                 sum += r;
-                if (!vol) { dl_spec += r * frac; }
+                if (!vol) { state.legacy.dl_spec += r * frac; }
                 // The light tiles' report: the light the camera hit's ray found.
-                if (has(F_LISTS) && !vol && cur_depth == 0u) { lt_fb = pick; }
+                if (has(F_LISTS) && !vol && state.bounce == 0u) { lt_fb = pick; }
             }
         }
     }
@@ -777,7 +777,7 @@ fn env_light(sd: ShadingPoint, o: vec3<f32>) -> vec3<f32> {
 // 北冥：参数从 (Surface, Lobes, 视线) 换成着色点；材质求值经上游顶替专用的 surface_shader_bsdf_eval_legacy。
 fn direct_light(sd: ShadingPoint) -> vec3<f32> {
     var sum = vec3<f32>(0.0);
-    dl_spec = vec3<f32>(0.0);
+    state.legacy.dl_spec = vec3<f32>(0.0);
     let o = offset_origin(sd.P, sd.Ng);
     // Directional lights: uniformly sampled cone (soft shadows), MIS against BSDF sampling.
     for (var i = 0u; i < P.counts2.x; i++) {
@@ -801,13 +801,13 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
                 let frac = e.spec_frac;
                 let wgt = light_mis(pdf_l, sd, l);
                 sum += li.color.rgb * f * wgt * tr3(vis);
-                dl_spec += li.color.rgb * f * wgt * tr3(vis) * frac;
+                state.legacy.dl_spec += li.color.rgb * f * wgt * tr3(vis) * frac;
             }
         }
     }
-    if (cur_depth == 0u) {
-        dl_det += sum;
-        dl_det_spec += dl_spec;
+    if (state.bounce == 0u) {
+        state.legacy.dl_det += sum;
+        state.legacy.dl_det_spec += state.legacy.dl_spec;
     }
     // gpu.rs `KernelSwitches::light_pick`: past the camera hit, the directional lights and one of the other kinds a
     // scene has (local lights, emitters, the sky), weighted by their number.
@@ -819,7 +819,7 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
     @if(light_pick) var take_env = true;
     @if(light_pick) var pick_w = 1.0;
     @if(light_pick) let kinds = u32(has_local) + u32(has_emit) + u32(has_env);
-    @if(light_pick) if (cur_depth > 0u && kinds > 1u) {
+    @if(light_pick) if (state.bounce > 0u && kinds > 1u) {
         var k = min(u32(rng1(rng_dim(D_PICK)) * f32(kinds)), kinds - 1u);
         take_local = has_local && k == 0u;
         if (has_local) { k -= 1u; }
@@ -829,7 +829,7 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
         pick_w = f32(kinds);
     }
     @if(light_pick) let sum_sun = sum;
-    @if(light_pick) let spec_sun = dl_spec;
+    @if(light_pick) let spec_sun = state.legacy.dl_spec;
     @if(!light_pick) sum += local_lights(sd, o, sd.P, false, vec3<f32>(0.0), rng_dim(D_LOCAL));
     @if(light_pick) if (take_local) { sum += local_lights(sd, o, sd.P, false, vec3<f32>(0.0), rng_dim(D_LOCAL)); }
     // Emissive triangles (incl. rect lights)
@@ -837,14 +837,14 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
     // alike. The tree's bound has no two-sided cosine; without one the estimate is the same, its noise a little more.)
     var ne = sd.legacy.surface.n;
     if (two_sided(sd.legacy.lobes)) { ne = vec3<f32>(0.0); }
-    mis_x = o;
-    mis_n = ne;
+    state.legacy.mis_x = o;
+    state.legacy.mis_n = ne;
     var emitters = P.counts.y;
     @if(light_pick) if (!take_emit) { emitters = 0u; }
     if (emitters > 0u) {
         var es: ES;
         // With the light tree its candidates are already near the point: P.ltree.y of them at camera hits, one elsewhere.
-        if (lt_on()) { es = sample_emitter_ris(o, ne, select(1u, u32(P.ltree.w), cur_depth == 0u), sd, rng_dim(D_EMIT)); } else if (seen_directly()) { es = sample_emitter_ris(o, ne, select(EMIT_RIS_M / 2u, EMIT_RIS_M, cur_depth == 0u), sd, rng_dim(D_EMIT)); } else if (P.light_lod.w > 0.0) { es = sample_emitter_ris(o, ne, 2u, sd, rng_dim(D_EMIT)); } else { es = sample_emitter(o, ne, rng_dim(D_EMIT)); }
+        if (lt_on()) { es = sample_emitter_ris(o, ne, select(1u, u32(P.ltree.w), state.bounce == 0u), sd, rng_dim(D_EMIT)); } else if (seen_directly()) { es = sample_emitter_ris(o, ne, select(EMIT_RIS_M / 2u, EMIT_RIS_M, state.bounce == 0u), sd, rng_dim(D_EMIT)); } else if (P.light_lod.w > 0.0) { es = sample_emitter_ris(o, ne, 2u, sd, rng_dim(D_EMIT)); } else { es = sample_emitter(o, ne, rng_dim(D_EMIT)); }
         if (es.pdf_w > 0.0) {
             let e = surface_shader_bsdf_eval_legacy(sd, es.l, 1.0);
             let f = e.eval;
@@ -854,23 +854,23 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
                     let frac = e.spec_frac;
                     let wgt = light_mis(es.pdf_w, sd, es.l) * tr1(vis);
                     sum += es.le * f * wgt * es.w;
-                    dl_spec += es.le * f * wgt * es.w * frac;
+                    state.legacy.dl_spec += es.le * f * wgt * es.w * frac;
                 }
             }
         }
     }
     // Environment
-    var env_on = env_sampled() && !lights_only;
-    @if(light_pick) env_on = take_env && has_env && !lights_only;
+    var env_on = env_sampled() && !state.legacy.lights_only;
+    @if(light_pick) env_on = take_env && has_env && !state.legacy.lights_only;
     if (env_on) {
-        // (`split_frac` is the sky sample's where its BSDF was not 0; where it was, e is 0.)
+        // (`state.legacy.split_frac` is the sky sample's where its BSDF was not 0; where it was, e is 0.)
         let e = env_light(sd, o);
         sum += e;
-        dl_spec += e * split_frac;
+        state.legacy.dl_spec += e * state.legacy.split_frac;
     }
     @if(light_pick) if (pick_w > 1.0) {
         sum = sum_sun + (sum - sum_sun) * pick_w;
-        dl_spec = spec_sun + (dl_spec - spec_sun) * pick_w;
+        state.legacy.dl_spec = spec_sun + (state.legacy.dl_spec - spec_sun) * pick_w;
     }
     return sum;
 }

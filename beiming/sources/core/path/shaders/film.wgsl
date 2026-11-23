@@ -8,7 +8,7 @@
 //    octahedral ray direction). Neighbours reuse each other's rays weighted by their own BRDF (Lumen / SSSR);
 //  - motion_out: live motion vectors per traced pixel: where the camera hit was the previous frame, as a world-space
 //    offset (w = 1: on a moving triangle);
-//  - direct_out: live deterministic direct light per traced pixel (`dl_det` at the camera hit; w: the light it
+//  - direct_out: live deterministic direct light per traced pixel (`state.legacy.dl_det` at the camera hit; w: the light it
 //    reports, "Light tiles");
 //  - light_lists: the light tiles' lists, 64 vec4s a tile, as the live pass `light_tiles` made them last frame;
 //  - cache_keys, cache_acc, cache_val: the radiance cache (below, at `cache_on`);

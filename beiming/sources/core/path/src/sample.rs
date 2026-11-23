@@ -69,7 +69,7 @@ pub fn sobol_owen(rev_index: u32, dim: usize, seed: u32) -> f32 {
     owen_rev(r, seed).reverse_bits() as f32 * (1.0 / 4294967808.0)
 }
 
-/// `rng2` of sample.wgsl for a pixel seed (`RNG_SEED`), a sample index and a dimension id.
+/// `rng2` of sample.wgsl for a pixel seed (`state.rng_pixel`), a sample index and a dimension id.
 pub fn rng2(pixel_seed: u32, index: u32, d: u32) -> [f32; 2] {
     let s = pixel_seed ^ hash_hp(d);
     let i = owen_rev(index.reverse_bits(), s ^ 0xf8ade99a) & 0xffff0000;
@@ -136,7 +136,7 @@ mod tests {
         };
         let d = &g.device;
         let seeds = [0u32, 0x1234_5678, hash_hp(99)];
-        let src = format!("{}\noverride LIVE: bool = false;\nvar<private> cur_depth: u32;\n@group(0) @binding(0) var<storage, read_write> out: array<u32>;\nconst SEEDS = array<u32, 3>({}u, {}u, {}u);\n@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) {{\n    let i = id.x;\n    RNG_SEED = SEEDS[i % 3u];\n    RNG_INDEX = i;\n    let r = rng4(7u + i % 5u);\n    for (var k = 0u; k < 4u; k++) {{ out[i * 4u + k] = bitcast<u32>(r[k]); }}\n}}\n", include_str!("../shaders/sample.wgsl"), seeds[0], seeds[1], seeds[2]);
+        let src = format!("{}\noverride LIVE: bool = false;\nstruct PathLegacy {{ rng_path: u32 }};\nstruct PathState {{ sample: u32, bounce: u32, rng_pixel: u32, legacy: PathLegacy }};\nvar<private> state: PathState;\n@group(0) @binding(0) var<storage, read_write> out: array<u32>;\nconst SEEDS = array<u32, 3>({}u, {}u, {}u);\n@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) {{\n    let i = id.x;\n    state.rng_pixel = SEEDS[i % 3u];\n    state.sample = i;\n    let r = rng4(7u + i % 5u);\n    for (var k = 0u; k < 4u; k++) {{ out[i * 4u + k] = bitcast<u32>(r[k]); }}\n}}\n", include_str!("../shaders/sample.wgsl"), seeds[0], seeds[1], seeds[2]);
         let module = d.create_shader_module(wgpu::ShaderModuleDescriptor { label: None, source: wgpu::ShaderSource::Wgsl(src.into()) });
         let pipeline = d.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: None, layout: None, module: &module, entry_point: Some("main"), compilation_options: Default::default(), cache: None });
         let n = 256u32;

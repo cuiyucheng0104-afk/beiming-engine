@@ -75,8 +75,8 @@ fn fog_scatter(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, tr: f32, rd: u32) -
         var pick: ES;
         var pick_t = 0.0;
         for (var c = 0u; c < 4u; c++) {
-            mis_x = x;
-            mis_n = vec3<f32>(0.0);
+            state.legacy.mis_x = x;
+            state.legacy.mis_n = vec3<f32>(0.0);
             let es = sample_emitter(x, vec3<f32>(0.0), rng_sub(rd, 0x10u + c));
             if (es.pdf_w <= 0.0) { continue; }
             let t = luminance(es.le) * hg_phase(P.vol.y, dot(es.l, d));
@@ -316,8 +316,8 @@ fn phase_direct(x: vec3<f32>, d: vec3<f32>, g: f32, rd: u32) -> vec3<f32> {
         }
     }
     if (P.counts.y > 0u) {
-        mis_x = x;
-        mis_n = vec3<f32>(0.0);
+        state.legacy.mis_x = x;
+        state.legacy.mis_n = vec3<f32>(0.0);
         let es = sample_emitter(x, vec3<f32>(0.0), rng_sub(rd, 0x400u));
         if (es.pdf_w > 0.0) {
             let vis = any_tr(x, es.l, es.dist * 0.999, rng_sub(rd, 0x401u));

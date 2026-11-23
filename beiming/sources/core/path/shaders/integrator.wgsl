@@ -1,39 +1,160 @@
 // 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/shaders/pathtrace.wgsl（北冥按阶段分出的一段：积分主循环），MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
 // ------------------------------------------------------------------------------------------------
-// RNG
+// 北冥：路径状态与光线。照 Cycles 的 IntegratorState.path 与 Ray 取子集，字段名不改。
+//
+// 路径状态是一个模块级的私有变量（每个像素的这次调用各有一份），所有函数直接读写 `state`，不当参数传。
+// 上游散在各处的私有全局与主循环里的散变量都并在这里：照 Cycles 有对应的进正式字段，没有对应的进 `legacy`。
+// 规矩同着色点（shader.wgsl 开头）：不许位置式构造；函数实参不许是指向它的成员的指针（`&state.throughput`：两块显卡
+// 的着色器后端都编不过）。
+// 字段的状态：「已落地」有写有读；「已写未读」现在就写、还没人读（src/gpu.rs 的测试 `path_state_is_written` 守着这几处
+// 写入不被删掉）；「已定义」含义定了、等后面的移植来写。
 
-// Path vertex index of the current shading point (cheaper procedural detail / fewer candidates past the first hit).
-var<private> cur_depth: u32;
-// Live "ray tracing off" (P.raster.w, LiveCore::rays): set once the camera's own ray has found its surface. From then
-// on `trace` reports a miss, so nothing is shadowed, a bounce sees the sky and a mirror reflects the sky: what a
-// rasterizer without shadow maps draws, on any GPU, from the same scene and the same shading. The switch is a uniform:
-// no kernel is rebuilt to flip it.
-var<private> rays_off: bool;
-// The path so far is camera ray + mirror-like bounces (puddles, glass): surface detail is still visible.
-var<private> mirror_path: bool;
+// 每次弹射占的随机维度个数，照 Cycles 的 PRNG_BOUNCE_NUM
+const PRNG_BOUNCE_NUM: u32 = 16u;
+
+// 路径标志位（PathState.flag），位照 Cycles 的 PathRayFlag。现在只接了 PATH_RAY_MIS_SKIP，其余已定义。
+const PATH_RAY_REFLECT: u32 = 1u << 0u;
+const PATH_RAY_SINGULAR: u32 = 1u << 1u;
+const PATH_RAY_TRANSPARENT: u32 = 1u << 2u;
+const PATH_RAY_DIFFUSE_ANCESTOR: u32 = 1u << 4u;
+const PATH_RAY_EMISSION: u32 = 1u << 5u;
+const PATH_RAY_MIS_HAD_TRANSMISSION: u32 = 1u << 6u;
+const PATH_RAY_MIS_SKIP: u32 = 1u << 7u;                 // 下一次打到灯不做多重重要性采样（相机射线、镜面弹射之后）。已落地
+const PATH_RAY_SINGLE_PASS_DONE: u32 = 1u << 8u;
+const PATH_RAY_TRANSPARENT_BACKGROUND: u32 = 1u << 9u;
+const PATH_RAY_TERMINATE_ON_NEXT_SURFACE: u32 = 1u << 10u;
+const PATH_RAY_TERMINATE_AFTER_TRANSPARENT: u32 = 1u << 12u;
+const PATH_RAY_DENOISING_FEATURES: u32 = 1u << 17u;
+const PATH_RAY_SURFACE_PASS: u32 = 1u << 18u;
+const PATH_RAY_SHADOW_FOR_AO: u32 = 1u << 20u;
+const PATH_RAY_SHADOW_FOR_LIGHT_LINKING: u32 = 1u << 25u;
+
+// 光线可见类（PathState.visibility），位照 Cycles 的 PathRayVisibilityFlag
+const PATH_RAY_VISIBILITY_NONE: u32 = 0u;
+const PATH_RAY_VISIBILITY_CAMERA: u32 = 1u << 0u;
+const PATH_RAY_VISIBILITY_TRANSMIT: u32 = 1u << 1u;
+const PATH_RAY_VISIBILITY_DIFFUSE: u32 = 1u << 2u;
+const PATH_RAY_VISIBILITY_GLOSSY: u32 = 1u << 3u;
+const PATH_RAY_VISIBILITY_VOLUME_SCATTER: u32 = 1u << 4u;
+const PATH_RAY_VISIBILITY_SHADOW_OPAQUE: u32 = 1u << 5u;
+const PATH_RAY_VISIBILITY_SHADOW_TRANSPARENT: u32 = 1u << 6u;
+
+// 采样标签里介质散射的一位，数值照 Cycles（别的几位在 ../../shaders/util.wgsl 与 closure.wgsl）
+const LABEL_VOLUME_SCATTER: i32 = 64;
+
+// 「没有物体」
+const OBJECT_NONE: u32 = 0xffffffffu;
+
+// 上游的路径状态，照 Cycles 没有对应。对应的功能照 Cycles 移植之后删。
+struct PathLegacy {
+    // Glass passed since the last scattering vertex: any (behind_glass), and whether an odd number of surfaces (bent).
+    // The vertex's shadow rays toward emitters stopped at the glass and those toward the sky at bending glass, so
+    // what the path finds there counts in full; behind glass that does not bend (a pane) the sky and the directional
+    // lights' disks are weighed against the vertex's samples, which passed it (counted in full, they were counted
+    // twice: a white furnace through water read 1.53).
+    behind_glass: bool,
+    bent: bool,
+    // Only glass passed so far (straight through): what lies behind is seen directly, not clamped as indirect.
+    straight: bool,
+    // The path so far is camera ray + mirror-like bounces (puddles, glass): surface detail is still visible.
+    mirror_path: bool,
+    // 这一段射线是表面顶点按材质采样出来的（bm_rect_hits 要的就是这种）
+    bm_surf: bool,
+    // Live "ray tracing off" (P.raster.w, LiveCore::rays): set once the camera's own ray has found its surface. From
+    // then on `trace` reports a miss, so nothing is shadowed, a bounce sees the sky and a mirror reflects the sky: what
+    // a rasterizer without shadow maps draws, on any GPU, from the same scene and the same shading. The switch is a
+    // uniform: no kernel is rebuilt to flip it.
+    rays_off: bool,
+    // Specular share of the last BSDF evaluation (per channel), the specular part of the direct light being summed,
+    // and whether the last BSDF sample took the specular lobe: the live denoiser filters diffuse and specular apart.
+    split_frac: vec3<f32>,
+    dl_spec: vec3<f32>,
+    sampled_spec: bool,
+    // The last BSDF sample went through the surface (glass: refraction, a delta lobe).
+    sampled_trans: bool,
+    // Where the last vertex sampled emitters (its point and normal, 0 = none: fog): a BSDF ray's emitter hit weighs
+    // its MIS by the light tree's pmf there (emit_mis).
+    mis_x: vec3<f32>,
+    mis_n: vec3<f32>,
+    // At camera hits, the direct light from directional lights (the sun: a tiny disk, so nearly deterministic) and its
+    // specular part: the live viewport keeps it in a signal of its own (no denoiser; short history while things
+    // change). Local lights stay in the denoised signals: their soft shadows are noisy, and on Kabukicho moving them
+    // here cost motion and static error (excess 1.71 / 1.86 / 2.20 -> 1.92 / 1.95 / 2.33, k = 1 SSIM 0.640 -> 0.620).
+    dl_det: vec3<f32>,
+    dl_det_spec: vec3<f32>,
+    // Whether a cutout let the last shadow ray through (the shadow rays' functions clear it, `trace` sets it).
+    shadow_hole: bool,
+    // Set around a `direct_light` that no BSDF ray follows (where a path ends without the cache): its light samples
+    // take the whole of their light. Weighed against a BSDF ray that is never traced they kept their MIS share alone:
+    // of a uniform sky on a Lambert surface, ln 17 / 16 = 18 %.
+    nee_alone: bool,
+    // `direct_light` without the sky: a surface seen in a reflection lights itself from the lights, the sky's light
+    // there is the radiance cache's.
+    lights_only: bool,
+    // 上游随机数编号里的「这次调用的第几条路径」（sample.wgsl `rng_dim`），离线恒为 0
+    rng_path: u32,
+};
+
+struct PathState {
+    render_pixel_index: u32,        // 写缓冲用的像素下标。已落地
+    sample: u32,                    // 第几个样本（上游的 RNG_INDEX）。已落地
+    bounce: u32,                    // 总弹射数，也就是当前着色点是路径上第几个顶点（上游的 cur_depth）。已落地
+    diffuse_bounce: u32,            // 分类计数，照采样标签累加并接各自的上限。已定义（移植闭包的人写）
+    glossy_bounce: u32,
+    transmission_bounce: u32,
+    transparent_bounce: u32,
+    rng_pixel: u32,                 // 随机数的像素种子（上游的 RNG_SEED）。已落地
+    rng_offset: u32,                // 当前弹射的随机维度偏移：初值 PRNG_BOUNCE_NUM，每弹射一次加一个。已写未读
+                                    // （上游的取数还按 bounce 编号，换成「偏移加枚举」之后读它）
+    flag: u32,                      // 路径标志位（PATH_RAY_*）
+    mis_ray_pdf: f32,               // 上一个散射点采样的概率密度：下一次打到灯时算多重重要性采样的权重。已落地
+    min_ray_pdf: f32,               // 这条路径上最小的采样概率密度，初值为浮点最大值（滤光泽与倒角的早退用）。已写未读
+    continuation_probability: f32,  // 这一次弹射俄罗斯轮盘的存活概率，不掷时为 1。已落地
+    throughput: vec3<f32>,          // 路径的通量权重。已落地
+    visibility: u32,                // 这一段光线的可见类（PATH_RAY_VISIBILITY_*）。已写未读（做灯的人读；按采样标签
+                                    // 细分的规矩归移植闭包的人）
+    mis_ray_object: u32,            // 上一个散射点所在的物体（物体表的下标；灯光链接用）。已写未读
+    legacy: PathLegacy,             // 上游的状态，见上
+};
+
+var<private> state: PathState;
+
+// 光线。照 Cycles 的 Ray，加上游的射线锥（它跟着光线走，不随闭包的移植删除）。
+// 上游的求交函数签名没动：`trace(起点, 方向, 最远距离, 模式)`，调用处从这里取字段。
+// 两个三维向量排在最后，是有意的：它们排在前面、后面紧跟标量时，苹果显卡上两个带水的场景像素会变（实测）。推测是
+// 后端把后面紧跟标量的三维向量按紧凑格式存，运算次序跟着变。往这个结构里加字段请加在两个向量之前。
+struct Ray {
+    tmin: f32,                      // 起始距离。已定义（上游靠把起点沿法线挪开来避开自己，见 offset_origin）
+    tmax: f32,                      // 最远距离。已落地
+    time: f32,                      // 时刻（运动模糊用）。已定义，恒 0
+    self_object: u32,               // 光线出发处的物体与图元，求交时跳过自己用。已定义，现在恒为 OBJECT_NONE
+    self_prim: u32,
+    cone_w: f32,                    // Ray cone (Akenine-Moller et al. 2019) for texture LOD: footprint width at the origin
+    cone_a: f32,                    // + spread angle. 已落地
+    P: vec3<f32>,                   // 起点。已落地
+    D: vec3<f32>,                   // 方向（单位向量）。已落地
+};
+
+// 弹射之后更新路径状态。照 Cycles 的 path_state_next，现在只有骨架：下一段光线的可见类与随机维度的偏移。
+// 分类计数、各类弹射上限、其余路径标志位归移植闭包的人照 Cycles 补；PATH_RAY_MIS_SKIP 还按上游的规矩在主循环里设
+// （上游的「镜面弹射」与 Cycles 的「奇异的一瓣」不是同一个判法）。`label`：这次采样的标签（LABEL_*）。
+fn path_state_next(label: i32) {
+    var visibility = PATH_RAY_VISIBILITY_NONE;
+    if ((label & LABEL_VOLUME_SCATTER) != 0) {
+        visibility |= PATH_RAY_VISIBILITY_VOLUME_SCATTER;
+    } else {
+        if ((label & LABEL_TRANSMIT) != 0) { visibility |= PATH_RAY_VISIBILITY_TRANSMIT; }
+        if ((label & LABEL_DIFFUSE) != 0) { visibility |= PATH_RAY_VISIBILITY_DIFFUSE; } else { visibility |= PATH_RAY_VISIBILITY_GLOSSY; }
+    }
+    state.visibility = visibility;
+    state.rng_offset += PRNG_BOUNCE_NUM;
+}
 
 // Shading points the camera sees, directly or in a mirror-like reflection (wet streets, glass): they get the exact
 // light loop and resampled emitters, so reflections are as clean as what they reflect.
 fn seen_directly() -> bool {
-    return cur_depth == 0u || (cur_depth == 1u && mirror_path);
+    return state.bounce == 0u || (state.bounce == 1u && state.legacy.mirror_path);
 }
-// Specular share of the last BSDF evaluation (per channel), the specular part of the direct light being summed, and
-// whether the last BSDF sample took the specular lobe: the live denoiser filters diffuse and specular apart.
-var<private> split_frac: vec3<f32>;
-// Where the last vertex sampled emitters (its point and normal, 0 = none: fog): a BSDF ray's emitter hit weighs its MIS
-// by the light tree's pmf there (emit_mis).
-var<private> mis_x: vec3<f32>;
-var<private> mis_n: vec3<f32>;
-var<private> dl_spec: vec3<f32>;
-// At camera hits, the direct light from directional lights (the sun: a tiny disk, so nearly deterministic) and its
-// specular part: the live viewport keeps it in a signal of its own (no denoiser; short history while things change).
-// Local lights stay in the denoised signals: their soft shadows are noisy, and on Kabukicho moving them here cost
-// motion and static error (excess 1.71 / 1.86 / 2.20 -> 1.92 / 1.95 / 2.33, k = 1 SSIM 0.640 -> 0.620).
-var<private> dl_det: vec3<f32>;
-var<private> dl_det_spec: vec3<f32>;
-var<private> sampled_spec: bool;
-// The last BSDF sample went through the surface (glass: refraction, a delta lobe).
-var<private> sampled_trans: bool;
 
 // ------------------------------------------------------------------------------------------------
 
@@ -43,9 +164,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let h = P.size.y;
     if (gid.x >= w || gid.y >= h) { return; }
     let pix = gid.y * w + gid.x;
+    state.render_pixel_index = pix;
     if (has(F_LISTS)) { lt_fb = LT_NONE; }
     rng_start(gid.xy, P.size.z, P.size.w, 0u);
-    cur_depth = 0u;
+    state.bounce = 0u;
+    state.rng_offset = PRNG_BOUNCE_NUM;
+    state.min_ray_pdf = 3.4028235e38;
+    state.continuation_probability = 1.0;
+    state.visibility = PATH_RAY_VISIBILITY_CAMERA;
+    state.mis_ray_object = OBJECT_NONE;
     // 北冥：相机光线。这一段留在 main 里：试过抽成单独的函数，Metal 上相机三个轴都不贴坐标轴的场景末位会变（运算次序），
     // 所以没有单独的相机文件。
     let cam = rng4(rng_dim(D_CAMERA));
@@ -66,7 +193,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     var radiance = vec3<f32>(0.0);
     var first_t = 0.0;
-    var thr = vec3<f32>(1.0);
+    state.throughput = vec3<f32>(1.0);
     var albedo = vec3<f32>(0.0);
     var normal = vec3<f32>(0.0);
     var anim = false;
@@ -80,7 +207,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var rough0 = 1.0;
     var spec_lobe = false;
     var spec_t = 0.0;
-    var last_pdf = 0.0;
+    state.mis_ray_pdf = 0.0;
     // The camera hit's specular-lobe sample for the reflection resolve: direction, lobe pdf, path weight, albedo E;
     // and whether the camera hit's sample went through glass.
     var refl_l = vec3<f32>(0.0);
@@ -92,43 +219,42 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // neighbours there mostly went through, so it had no rays to rebuild them from: live glass lost its reflection).
     var glass0 = false;
     var mv = vec4<f32>(0.0);
-    dl_det = vec3<f32>(0.0);
-    dl_det_spec = vec3<f32>(0.0);
-    var specular_bounce = true;
-    // Glass passed since the last scattering vertex: any (behind_glass), and whether an odd number of surfaces (bent).
-    // The vertex's shadow rays toward emitters stopped at the glass and those toward the sky at bending glass, so
-    // what the path finds there counts in full; behind glass that does not bend (a pane) the sky and the directional
-    // lights' disks are weighed against the vertex's samples, which passed it (counted in full, they were counted
-    // twice: a white furnace through water read 1.53).
-    var behind_glass = false;
-    var bent = false;
-    // Only glass passed so far (straight through): what lies behind is seen directly, not clamped as indirect.
-    var straight = true;
+    state.legacy.dl_det = vec3<f32>(0.0);
+    state.legacy.dl_det_spec = vec3<f32>(0.0);
+    state.flag = PATH_RAY_MIS_SKIP;
+    state.legacy.behind_glass = false;
+    state.legacy.bent = false;
+    state.legacy.straight = true;
     let clamp_v = P.misc.x;
-    // Ray cone (Akenine-Moller et al. 2019) for texture LOD: footprint width at the origin + spread angle.
-    var cone_w = 0.0;
-    var cone_a = 2.0 * P.cam_pos.w / lod_height();
+    // 北冥：相机那一段算出的起点与方向在这里填进光线（相机的算式没有挪动，见上）。
+    var ray = Ray();
+    ray.P = o;
+    ray.D = d;
+    ray.tmax = INF;
+    ray.self_object = OBJECT_NONE;
+    ray.self_prim = OBJECT_NONE;
+    ray.cone_w = 0.0;
+    ray.cone_a = 2.0 * P.cam_pos.w / lod_height();
 
-    mirror_path = false;
-    // 北冥：这一段射线是表面顶点按材质采样出来的（bm_rect_hits 要的就是这种）
-    var bm_surf = false;
+    state.legacy.mirror_path = false;
+    state.legacy.bm_surf = false;
     for (var depth = 0u; depth <= P.counts.z; depth++) {
-        cur_depth = depth;
+        state.bounce = depth;
         var hit: Hit;
-        hit = trace(o, d, INF, TRACE_CLOSEST);
+        hit = trace(ray.P, ray.D, ray.tmax, TRACE_CLOSEST);
         // Ray tracing off: the camera ray above was the last one traced for this pixel.
-        if (depth == 0u) { rays_off = LIVE && P.raster.w > 0.5; }
+        if (depth == 0u) { state.legacy.rays_off = LIVE && P.raster.w > 0.5; }
         if (has(F_FOG) && P.fog.x > 0.0) {
             // Height fog on every segment (attenuation + ambient inscattering); lit volumetric scattering on camera rays.
             let t0 = select(0.0, P.fog.w, depth == 0u);
             let t1 = select(hit.t, 2.0e4, hit.tri == 0xffffffffu);
             // Inside the volumetric range (camera rays) the medium is denser by the extinction scale (UE).
-            var od = fog_depth(o, d, t0, t1);
+            var od = fog_depth(ray.P, ray.D, t0, t1);
             var tv = t1;
             var trv = 1.0;
             if (has(F_VOLUME) && depth == 0u && P.vol.x > 0.0) {
                 tv = select(t1, min(t1, P.vol2.w), P.vol2.w > 0.0);
-                let odv = fog_depth(o, d, t0, max(tv, t0));
+                let odv = fog_depth(ray.P, ray.D, t0, max(tv, t0));
                 od += odv * (P.vol.z - 1.0);
                 trv = exp(-odv * P.vol.z);
             }
@@ -137,75 +263,79 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             // a quarter of the pixels at 4x weight; the low-frequency fog converges in the accumulation.
             if (has(F_VOLUME) && depth == 0u && P.vol.x > 0.0 && (((gid.x >> 3u) + 2u * (gid.y >> 2u) + pcg(P.size.z)) & VOL_RATE_MASK) == 0u) {
                 // Firefly clamp: a fog point next to a bright sign is rare and huge; haze is a few nits.
-                var fs = f32(VOL_RATE_MASK + 1u) * fog_scatter(o, d, t0, max(tv, t0), trv, rng_dim(D_FOG));
+                var fs = f32(VOL_RATE_MASK + 1u) * fog_scatter(ray.P, ray.D, t0, max(tv, t0), trv, rng_dim(D_FOG));
                 let fl = luminance(fs);
                 let fmax = 0.02 * clamp_v;
                 if (fl > fmax) { fs *= fmax / fl; }
-                radiance += thr * fs;
+                radiance += state.throughput * fs;
             }
-            radiance += thr * (1.0 - tr) * P.fog_color.rgb;
-            thr *= tr;
+            radiance += state.throughput * (1.0 - tr) * P.fog_color.rgb;
+            state.throughput *= tr;
         }
         if (has(F_AERIAL) && hit.tri != 0xffffffffu) {
-            let ta = aerial_tr(o, d, hit.t);
-            let haze = thr * (1.0 - ta) * aerial_light(d);
+            let ta = aerial_tr(ray.P, ray.D, hit.t);
+            let haze = state.throughput * (1.0 - ta) * aerial_light(ray.D);
             radiance += haze;
             // Live: the camera ray's haze is light the camera sees directly, not the surface's: it joins the emission
             // signal (left out of the diffuse one, which the denoiser divides by the albedo).
             if (depth == 0u) { e0 += haze; }
-            thr *= ta;
+            state.throughput *= ta;
         }
         // Paths track every medium.
         if (!LIVE && has(F_MEDIA) && P.time.w > 0.5) {
             // Media on this segment: emission on the way; a real collision scatters the path there.
-            let tk = media_track(o, d, select(hit.t, 1.0e30, hit.tri == 0xffffffffu), rng_dim(D_MEDIA));
-            radiance += thr * tk.emission;
+            let tk = media_track(ray.P, ray.D, select(hit.t, 1.0e30, hit.tri == 0xffffffffu), rng_dim(D_MEDIA));
+            radiance += state.throughput * tk.emission;
             if (tk.t >= 0.0) {
-                let x = o + d * tk.t;
-                thr *= tk.albedo;
+                let x = ray.P + ray.D * tk.t;
+                state.throughput *= tk.albedo;
                 if (depth == 0u) {
                     first_t = tk.t;
                     albedo = tk.albedo;
-                    normal = -d;
+                    normal = -ray.D;
                 }
-                var c = thr * phase_direct(x, d, tk.g, rng_dim(D_VOL_LIGHT));
-                if (depth > 0u && !straight) {
+                var c = state.throughput * phase_direct(x, ray.D, tk.g, rng_dim(D_VOL_LIGHT));
+                if (depth > 0u && !state.legacy.straight) {
                     let lum = luminance(c);
                     if (lum > clamp_v) { c *= clamp_v / lum; }
                 }
                 radiance += c;
                 if (depth == P.counts.z) { break; }
-                let nd = sample_hg(d, tk.g);
-                last_pdf = hg_phase(tk.g, dot(nd, d));
-                bm_surf = false;
-                specular_bounce = false;
-                behind_glass = false;
-                bent = false;
-                straight = false;
-                mirror_path = false;
-                cone_w += cone_a * tk.t;
-                cone_a += 2.0;
+                let nd = sample_hg(ray.D, tk.g);
+                state.mis_ray_pdf = hg_phase(tk.g, dot(nd, ray.D));
+                state.min_ray_pdf = min(state.mis_ray_pdf, state.min_ray_pdf);
+                state.mis_ray_object = OBJECT_NONE;
+                path_state_next(LABEL_VOLUME_SCATTER);
+                state.legacy.bm_surf = false;
+                state.flag &= ~PATH_RAY_MIS_SKIP;
+                state.legacy.behind_glass = false;
+                state.legacy.bent = false;
+                state.legacy.straight = false;
+                state.legacy.mirror_path = false;
+                ray.cone_w += ray.cone_a * tk.t;
+                ray.cone_a += 2.0;
+                state.continuation_probability = 1.0;
                 if (depth >= P.counts.w) {
-                    let q = min(max(thr.x, max(thr.y, thr.z)), 0.95);
-                    if (rng1(rng_dim(D_RR)) > q) { break; }
-                    thr /= q;
+                    state.continuation_probability = min(max(state.throughput.x, max(state.throughput.y, state.throughput.z)), 0.95);
+                    if (rng1(rng_dim(D_RR)) > state.continuation_probability) { break; }
+                    state.throughput /= state.continuation_probability;
                 }
-                o = x;
-                d = nd;
+                ray.P = x;
+                ray.D = nd;
                 continue;
             }
         }
-        if (!LIVE && bm_surf) {
-            var c = thr * bm_rect_hits(o, d, select(hit.t, INF, hit.tri == 0xffffffffu), last_pdf);
-            if (depth > 1u && !straight) {
+        if (!LIVE && state.legacy.bm_surf) {
+            var c = state.throughput * bm_rect_hits(ray.P, ray.D, select(hit.t, INF, hit.tri == 0xffffffffu), state.mis_ray_pdf);
+            if (depth > 1u && !state.legacy.straight) {
                 let lum = luminance(c);
                 if (lum > clamp_v) { c *= clamp_v / lum; }
             }
             radiance += c;
         }
         if (hit.tri == 0xffffffffu) {
-            var c = thr * sky_mis(d, select(0.0, last_pdf, depth > 0u && !bent));
-            if (depth > 1u && !straight) {
+            var c = state.throughput * sky_mis(ray.D, select(0.0, state.mis_ray_pdf, depth > 0u && !state.legacy.bent));
+            if (depth > 1u && !state.legacy.straight) {
                 let lum = luminance(c);
                 if (lum > clamp_v) { c *= clamp_v / lum; }
             }
@@ -214,12 +344,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             radiance += c;
             break;
         }
-        let width = cone_w + cone_a * hit.t;
+        let width = ray.cone_w + ray.cone_a * hit.t;
         // 北冥：材质求值分三步（shader.wgsl）：几何量、材质输入值、闭包。主循环碰材质只经 shader.wgsl 的这三步与
         // closure.wgsl 的 surface_shader_* 一组函数；读 legacy 的几处是登记过的例外（closure.wgsl「上游顶替」一节）。
         var sd = ShadingPoint();
-        shader_setup_from_hit(&sd, o, d, hit);
-        let inputs = shader_eval_inputs(&sd, o, d, hit, width);
+        shader_setup_from_hit(&sd, ray.P, ray.D, hit);
+        let inputs = shader_eval_inputs(&sd, ray.P, ray.D, hit, width);
         shader_setup_closures(&sd, inputs);
         if (depth == 0u) {
             first_t = hit.t;
@@ -236,11 +366,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (any(le > vec3<f32>(0.0))) {
             var wgt = 1.0;
             // Behind glass an emitter counts in full: shadow rays toward emitters stop at glass (emitter_tr).
-            if (depth > 0u && !specular_bounce && !behind_glass) {
-                wgt = emit_mis(hit, d, last_pdf);
+            if (depth > 0u && (state.flag & PATH_RAY_MIS_SKIP) == 0u && !state.legacy.behind_glass) {
+                wgt = emit_mis(hit, ray.D, state.mis_ray_pdf);
             }
-            var c = thr * le * wgt;
-            if (depth > 1u && !straight) {
+            var c = state.throughput * le * wgt;
+            if (depth > 1u && !state.legacy.straight) {
                 let lum = luminance(c);
                 if (lum > clamp_v) { c *= clamp_v / lum; }
             }
@@ -254,9 +384,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             // gpu.rs `KernelSwitches::last_sun`: the last vertex's light from the directional lights alone.
             if (depth > 0u) {
                 surface_shader_prepare_closures(&sd);
-                var dz = thr * sun_light(sd);
+                var dz = state.throughput * sun_light(sd);
                 let lum = luminance(dz);
-                if (lum > clamp_v && !straight) { dz *= clamp_v / lum; }
+                if (lum > clamp_v && !state.legacy.straight) { dz *= clamp_v / lum; }
                 radiance += dz;
             }
             break;
@@ -265,16 +395,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             // gpu.rs `KernelSwitches::last_direct`: the last vertex's direct light.
             if (depth > 0u) {
                 surface_shader_prepare_closures(&sd);
-                var dz = thr * direct_light(sd);
+                var dz = state.throughput * direct_light(sd);
                 let lum = luminance(dz);
-                if (lum > clamp_v && !straight) { dz *= clamp_v / lum; }
+                if (lum > clamp_v && !state.legacy.straight) { dz *= clamp_v / lum; }
                 radiance += dz;
             }
             break;
         }
         surface_shader_prepare_closures(&sd);
-        var dl = thr * direct_light(sd);
-        if (depth > 0u && !straight) {
+        var dl = state.throughput * direct_light(sd);
+        if (depth > 0u && !state.legacy.straight) {
             let lum = luminance(dl);
             if (lum > clamp_v) { dl *= clamp_v / lum; }
         }
@@ -287,13 +417,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let l = bs.wo;
         // （奇异的一瓣：上游顶替里是穿过光滑玻璃。没有概率密度，不做多重重要性采样，后面的东西算全份。）
         let through = (bs.label & LABEL_SINGULAR) != 0;
-        // （采到的是光泽或奇异的一瓣，不是漫反射：上游的 sampled_spec || sampled_trans。）
+        // （采到的是光泽或奇异的一瓣，不是漫反射：上游的 state.legacy.sampled_spec || state.legacy.sampled_trans。）
         let glossy = (bs.label & (LABEL_GLOSSY | LABEL_SINGULAR)) != 0;
         let pdf = bs.pdf;
         let wgt = bs.weight;
         if (depth == 0u) {
-            spec0 = thr * dl_spec;
-            k_spec = split_frac;
+            spec0 = state.throughput * state.legacy.dl_spec;
+            k_spec = state.legacy.split_frac;
             rad0 = radiance;
             split = true;
             spec_lobe = glossy;
@@ -307,37 +437,42 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             }
         }
         if ((!through && pdf <= 0.0) || all(wgt <= vec3<f32>(0.0))) { break; }
-        thr *= wgt;
+        state.throughput *= wgt;
         if (through && dot(l, sd.Ng) < 0.0) {
-            behind_glass = true;
-            bent = !bent;
+            state.legacy.behind_glass = true;
+            state.legacy.bent = !state.legacy.bent;
         } else if (through) {
             // (A refracted direction the geometric normal keeps on this side: a specular vertex.)
-            last_pdf = 0.0;
-            specular_bounce = true;
-            behind_glass = false;
-            bent = false;
+            state.mis_ray_pdf = 0.0;
+            state.flag |= PATH_RAY_MIS_SKIP;
+            state.legacy.behind_glass = false;
+            state.legacy.bent = false;
         } else {
-            last_pdf = pdf;
-            specular_bounce = false;
-            behind_glass = false;
-            bent = false;
+            state.mis_ray_pdf = pdf;
+            // （有概率密度的弹射才记最小值：穿过光滑玻璃的那一瓣没有密度，上面两支不记。）
+            state.min_ray_pdf = min(pdf, state.min_ray_pdf);
+            state.flag &= ~PATH_RAY_MIS_SKIP;
+            state.legacy.behind_glass = false;
+            state.legacy.bent = false;
         }
-        straight = straight && through;
-        bm_surf = !through;
-        cone_w = width;
-        cone_a += 2.0 * bs.sampled_roughness.x * bs.sampled_roughness.x;
-        mirror_path = (depth == 0u || mirror_path) && bs.sampled_roughness.x < MIRROR_ROUGHNESS && glossy;
+        state.legacy.straight = state.legacy.straight && through;
+        state.mis_ray_object = sd.object;
+        path_state_next(bs.label);
+        state.legacy.bm_surf = !through;
+        ray.cone_w = width;
+        ray.cone_a += 2.0 * bs.sampled_roughness.x * bs.sampled_roughness.x;
+        state.legacy.mirror_path = (depth == 0u || state.legacy.mirror_path) && bs.sampled_roughness.x < MIRROR_ROUGHNESS && glossy;
+        state.continuation_probability = 1.0;
         if (depth >= P.counts.w) {
-            let q = min(max(thr.x, max(thr.y, thr.z)), 0.95);
-            if (rng1(rng_dim(D_RR)) > q) { break; }
-            thr /= q;
+            state.continuation_probability = min(max(state.throughput.x, max(state.throughput.y, state.throughput.z)), 0.95);
+            if (rng1(rng_dim(D_RR)) > state.continuation_probability) { break; }
+            state.throughput /= state.continuation_probability;
         }
-        o = offset_origin(sd.P, select(sd.Ng, -sd.Ng, dot(l, sd.Ng) < 0.0));
-        d = l;
+        ray.P = offset_origin(sd.P, select(sd.Ng, -sd.Ng, dot(l, sd.Ng) < 0.0));
+        ray.D = l;
     }
 
     if (non_finite(vec3<f32>(first_t))) { first_t = 0.0; }
     // 北冥：写进 accum 的那一段在 film.wgsl
-    accum_write_sample(pix, radiance, albedo, normal, e0, spec0, split, rad0, k_spec);
+    accum_write_sample(state.render_pixel_index, radiance, albedo, normal, e0, spec0, split, rad0, k_spec);
 }

@@ -4,6 +4,28 @@
 
 // `inst`: the model instance whose model-space triangle `tri` is (F_INST), NO_INST for world-space triangles.
 struct Hit { t: f32, tri: u32, u: f32, v: f32, inst: u32 };
+
+// 北冥：「只查同一个物体」的问法（倒角、遮蔽这类图案节点用），照 Cycles 的 scene_intersect_local。现在只定了签名与
+// 返回的结构，函数体是空壳，恒返回没有命中；归做图案节点的人实现。
+//   ray         光线（integrator.wgsl 的 Ray）：只在 [tmin, tmax] 这一段里找
+//   object      物体表的下标（着色点的 object）：只收这个物体上的命中，别的物体当不存在
+//   lcg_state   命中多于 max_hits 时随机留下哪几个用的小随机数状态；用过之后的状态在返回值里带回
+//   max_hits    最多留几个，不超过 LOCAL_MAX_HITS
+// 实现时的限制：硬件求交下不许新增光线查询的源码位置，只能在现有的 `trace` 之上逐次步进（每次从上一个命中稍后一点
+// 重新出发）、按物体号过滤来拼，不用候选循环（上游记录过候选循环在 Metal 上丢命中）。这样拼出来的多命中在硬件求交下
+// 是否可靠、代价多大还没有量过；不可靠的话只在软件求交上保证。阴影类的问法只许判断挡没挡住，不许读返回的三角号。
+const LOCAL_MAX_HITS: u32 = 4u;
+struct LocalHit { t: f32, tri: u32, u: f32, v: f32 };
+struct LocalIntersection {
+    num_hits: u32,                          // 命中的个数，0 到 max_hits
+    hits: array<LocalHit, LOCAL_MAX_HITS>,  // 前 num_hits 个有效，不保证按距离排序
+    lcg_state: u32,                         // 用过之后的小随机数状态
+};
+fn trace_local(ray: Ray, object: u32, lcg_state: u32, max_hits: u32) -> LocalIntersection {
+    var r = LocalIntersection();
+    r.lcg_state = lcg_state;
+    return r;
+}
 const NO_INST: u32 = 0xffffffffu;
 
 // ------------------------------------------------------------------------------------------------
@@ -142,7 +164,7 @@ fn proc_normal(h: Hit) -> vec3<f32> {
 // mode: TRACE_CLOSEST, TRACE_SHADOW (any hit among shadow casters), TRACE_ANY (any hit on any surface).
 @if(!hwrt) fn trace(o: vec3<f32>, d: vec3<f32>, tmax_in: f32, mode: u32) -> Hit {
     var hit = Hit(tmax_in, 0xffffffffu, 0.0, 0.0, NO_INST);
-    if (rays_off) { return hit; }
+    if (state.legacy.rays_off) { return hit; }
     let inv_d = 1.0 / select(d, vec3<f32>(1e-20), abs(d) < vec3<f32>(1e-20));
     var stack: array<u32, 48>;
     var sp = 0u;
@@ -156,7 +178,7 @@ fn proc_normal(h: Hit) -> vec3<f32> {
                 if (mode == TRACE_SHADOW && (flags & TRI_NO_SHADOW) != 0u) { continue; }
                 let r = intersect_tri(o, d, ti, hit.t);
                 if (r.x < hit.t) {
-                    if (has(F_MASKED) && (flags & TRI_MASKED) != 0u && !cutouts_opaque() && mode != TRACE_ANY_OPAQUE && !alpha_pass(ti, NO_INST, r.y, r.z, r.x)) { shadow_hole = true; continue; }
+                    if (has(F_MASKED) && (flags & TRI_MASKED) != 0u && !cutouts_opaque() && mode != TRACE_ANY_OPAQUE && !alpha_pass(ti, NO_INST, r.y, r.z, r.x)) { state.legacy.shadow_hole = true; continue; }
                     hit = Hit(r.x, ti, r.y, r.z, NO_INST);
                     if (mode != TRACE_CLOSEST) { return hit; }
                 }
@@ -270,7 +292,7 @@ fn proc_normal(h: Hit) -> vec3<f32> {
 // the glass it crosses at its transmission's share and colour (`glass_tr`; in full with A_GLASS_SHADOWS), the media
 // at their transmittance. `sky`: as `glass_tr` takes it.
 fn shadow_tr(o: vec3<f32>, d: vec3<f32>, tmax: f32, sky: bool, rd: u32) -> vec3<f32> {
-    shadow_hole = false;
+    state.legacy.shadow_hole = false;
     if (trace(o, d, tmax, TRACE_SHADOW).tri != 0xffffffffu) { return vec3<f32>(0.0); }
     var tr = vec3<f32>(1.0);
     if (!approx(A_GLASS_SHADOWS) && has(F_GLASS)) {
@@ -333,7 +355,7 @@ fn glass_tr(o_in: vec3<f32>, d: vec3<f32>, tmax: f32, sky: bool) -> vec3<f32> {
 // What reaches a lit point from an analytic light (`shadow_tr`). `shadows` false (a light that casts none): 1, no ray.
 fn light_vis(shadows: bool, o: vec3<f32>, d: vec3<f32>, tmax: f32, rd: u32) -> vec3<f32> {
     if (!shadows) {
-        shadow_hole = false;
+        state.legacy.shadow_hole = false;
         return vec3<f32>(1.0);
     }
     return shadow_tr(o, d, tmax, false, rd);
@@ -416,14 +438,14 @@ fn media_shadows() -> bool { return (!approx(A_MEDIA_SHADOWS) || media_voxels) &
 // Removing the bias without the cost (an opacity micromap, or these rays compacted into a pass of their own) is a
 // follow-up item (ROADMAP § 0). Offline rendering always tests.
 fn emitter_tr(o: vec3<f32>, d: vec3<f32>, tmax: f32, rd: u32) -> f32 {
-    shadow_hole = false;
+    state.legacy.shadow_hole = false;
     if (trace(o, d, tmax, select(TRACE_ANY, TRACE_ANY_OPAQUE, approx(A_CUTOUT_EMITTERS))).tri != 0xffffffffu) { return 0.0; }
     return media_shadow(o, d, tmax, rd);
 }
 
 // A shadow ray any surface stops (fog and volume points toward emitters).
 fn any_tr(o: vec3<f32>, d: vec3<f32>, tmax: f32, rd: u32) -> f32 {
-    shadow_hole = false;
+    state.legacy.shadow_hole = false;
     if (trace(o, d, tmax, TRACE_ANY).tri != 0xffffffffu) { return 0.0; }
     return media_shadow(o, d, tmax, rd);
 }

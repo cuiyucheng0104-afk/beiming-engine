@@ -4,7 +4,7 @@
 // 材质求值的三步在 shader.wgsl）。它们是分发函数：按闭包种类取出字段，再调标量签名的闭包函数。
 // 现在每个着色点至多一个闭包：纯金属是照 Cycles 移植的微表面闭包（../../shaders/microfacet.wgsl），别的是上游顶替。
 
-// 求值的结果。Cycles 把漫反射与光泽分开累加；上游顶替不分，只填 sum（它的高光占比另走上游的私有量 split_frac）。
+// 求值的结果。Cycles 把漫反射与光泽分开累加；上游顶替不分，只填 sum（它的高光占比另走上游的私有量 state.legacy.split_frac）。
 struct BsdfEval {
     diffuse: vec3<f32>,             // 漫反射闭包的部分（已含余弦）。已定义
     glossy: vec3<f32>,              // 光泽闭包的部分。已定义
@@ -111,7 +111,7 @@ fn surface_shader_bsdf_sample_closure(sd: ShadingPoint, k: u32, rand: vec3<f32>)
     bs.sampled_roughness = sqrt(vec2<f32>(c.alpha_x, c.alpha_y));
     bs.eta = 1.0;
     // （上游的私有量：这次采样里高光占的份额，积分器在相机命中处读它。微表面闭包全是高光。）
-    split_frac = vec3<f32>(1.0);
+    state.legacy.split_frac = vec3<f32>(1.0);
     return bs;
 }
 
@@ -166,14 +166,14 @@ struct BsdfEvalLegacy { eval: vec3<f32>, spec_frac: vec3<f32> };
 fn surface_shader_bsdf_eval_legacy(sd: ShadingPoint, wo: vec3<f32>, k: f32) -> BsdfEvalLegacy {
     var r = BsdfEvalLegacy();
     if (sd.closure[0].kind != CLOSURE_LEGACY) {
-        split_frac = vec3<f32>(1.0);
-        r.spec_frac = split_frac;
+        state.legacy.split_frac = vec3<f32>(1.0);
+        r.spec_frac = state.legacy.split_frac;
         if (dot(sd.Ng, wo) > 0.0) { r.eval = bsdf_eval(sd.closure[0], sd.wi, wo).eval * sd.closure[0].weight; }
         return r;
     }
     r.eval = eval_bsdf_k(sd.legacy.surface, sd.legacy.lobes, sd.wi, wo, k);
-    // （上游把高光份额留在私有量 split_frac 里；值为 0 的方向上它不更新，照旧是上一次的。）
-    r.spec_frac = split_frac;
+    // （上游把高光份额留在私有量 state.legacy.split_frac 里；值为 0 的方向上它不更新，照旧是上一次的。）
+    r.spec_frac = state.legacy.split_frac;
     return r;
 }
 
@@ -188,19 +188,19 @@ fn surface_shader_bsdf_sample_legacy(sd: ShadingPoint) -> BsdfSample {
     // Through smooth glass: a delta lobe (weight tint / its sampling share, no MIS: what lies behind counts in full).
     // Rough glass's transmission has a density like any lobe. Either way the live viewport files the light with
     // the specular, like a reflection.
-    let through = has(F_GLASS) && sampled_trans && !lb.rough_t;
+    let through = has(F_GLASS) && state.legacy.sampled_trans && !lb.rough_t;
     bs.wo = l;
     var pdf = 0.0;
     var wgt = lb.tint / max(lb.p_trans, 1e-6);
     if (through) {
-        split_frac = vec3<f32>(1.0);
+        state.legacy.split_frac = vec3<f32>(1.0);
         bs.label = LABEL_TRANSMIT | LABEL_SINGULAR;
     } else {
         pdf = pdf_bsdf(s, lb, sd.wi, l);
         wgt = eval_bsdf(s, lb, sd.wi, l) / max(pdf, 1e-20);
-        if (sampled_trans) {
+        if (state.legacy.sampled_trans) {
             bs.label = LABEL_TRANSMIT | LABEL_GLOSSY;
-        } else if (sampled_spec) {
+        } else if (state.legacy.sampled_spec) {
             bs.label = LABEL_REFLECT | LABEL_GLOSSY;
         } else {
             bs.label = LABEL_REFLECT | LABEL_DIFFUSE;
@@ -439,7 +439,7 @@ fn eval_bsdf_k(s: Surface, lb: Lobes, v: vec3<f32>, l: vec3<f32>, k: f32) -> vec
     let nol = dot(s.n, l);
     let nov = max(dot(s.n, v), 1e-4);
     if (two_sided(lb) && nol < 0.0 && dot(s.ng, l) < 0.0) {
-        split_frac = vec3<f32>(1.0);
+        state.legacy.split_frac = vec3<f32>(1.0);
         return dielectric_t(s, lb, v, l, nov, -nol);
     }
     if (nol <= 0.0 || dot(s.ng, l) <= 0.0) { return vec3<f32>(0.0); }
@@ -460,7 +460,7 @@ fn eval_bsdf_k(s: Surface, lb: Lobes, v: vec3<f32>, l: vec3<f32>, k: f32) -> vec
         spec = spec * (1.0 - lb.e_coat) + vec3<f32>(coat);
     }
     spec += vec3<f32>(glass);
-    split_frac = spec / max(diff + spec, vec3<f32>(1e-12));
+    state.legacy.split_frac = spec / max(diff + spec, vec3<f32>(1e-12));
     return (diff + spec) * nol;
 }
 
@@ -496,8 +496,8 @@ fn pdf_bsdf(s: Surface, lb: Lobes, v: vec3<f32>, l: vec3<f32>) -> f32 {
 }
 
 // MIS weight of a light sample (solid-angle pdf `pdf_l`) against BSDF sampling. A_CUTOUT_PATHS: light that reached
-// the sample through a cutout (`shadow_hole`) is light this vertex's BSDF ray cannot bring, a cutout being opaque to
-// it, unless it is a specular or coat sample that keeps the path mirror-like (`mirror_path`). The sample takes the
+// the sample through a cutout (`state.legacy.shadow_hole`) is light this vertex's BSDF ray cannot bring, a cutout being opaque to
+// it, unless it is a specular or coat sample that keeps the path mirror-like (`state.legacy.mirror_path`). The sample takes the
 // BSDF ray's weight for the rest: 1 - (the share of pdf_bsdf that still tests cutouts) x (the BSDF ray's weight).
 // (Until 2026-11-15 the weight was the plain heuristic: under a card cut out everywhere a uniform sky lit a Lambert
 // plane with 18 % of its light.)
@@ -507,15 +507,15 @@ fn pdf_bsdf(s: Surface, lb: Lobes, v: vec3<f32>, l: vec3<f32>) -> f32 {
 // 密度（密度只看法线、两个方向与 alpha，与菲涅耳无关），和采样一侧的密度配得上。没有改成按闭包种类分支：试过三种
 // 写法，不是苹果显卡就是英伟达显卡上别的材质像素末位会变。
 fn light_mis(pdf_l: f32, sd: ShadingPoint, l: vec3<f32>) -> f32 {
-    if (nee_alone) { return 1.0; }
+    if (state.legacy.nee_alone) { return 1.0; }
     let s = sd.legacy.surface;
     let lb = sd.legacy.lobes;
     let v = sd.wi;
     let pb = pdf_bsdf(s, lb, v, l);
     let w = power_heuristic(pdf_l, pb);
-    if (!approx(A_CUTOUT_PATHS) || !has(F_MASKED) || !shadow_hole) { return w; }
+    if (!approx(A_CUTOUT_PATHS) || !has(F_MASKED) || !state.legacy.shadow_hole) { return w; }
     var see = 0.0;
-    if ((cur_depth == 0u || mirror_path) && s.roughness < MIRROR_ROUGHNESS && pb > 0.0) {
+    if ((state.bounce == 0u || state.legacy.mirror_path) && s.roughness < MIRROR_ROUGHNESS && pb > 0.0) {
         // pdf_bsdf's specular and coat terms.
         let nov = max(dot(s.n, v), 1e-4);
         let h = normalize(v + l);
@@ -559,16 +559,16 @@ fn sample_vndf(v: vec3<f32>, tbn: mat3x3<f32>, alpha: f32, u1: f32, u2: f32) -> 
     return tbn * hl;
 }
 
-// A direction by the BSDF's lobes (`pdf_bsdf` its density; which lobe: sampled_spec, sampled_trans). The zero vector:
+// A direction by the BSDF's lobes (`pdf_bsdf` its density; which lobe: state.legacy.sampled_spec, state.legacy.sampled_trans). The zero vector:
 // no sample (every value and density of it is 0).
 fn sample_bsdf(s: Surface, lb: Lobes, v: vec3<f32>) -> vec3<f32> {
     let tbn = basis(s.n);
     let r = rng4(rng_dim(D_BSDF));
-    sampled_trans = false;
+    state.legacy.sampled_trans = false;
     if (has(F_COAT) || has(F_GLASS)) {
         let u = r.x;
         if (u < lb.p_coat) {
-            sampled_spec = true;
+            state.legacy.sampled_spec = true;
             return reflect(-v, sample_vndf(v, tbn, lb.coat_alpha, r.z, r.w));
         }
         if (u < lb.p_coat + lb.p_trans) {
@@ -578,24 +578,24 @@ fn sample_bsdf(s: Surface, lb: Lobes, v: vec3<f32>) -> vec3<f32> {
             var m = s.n;
             if (lb.rough_t) { m = h; }
             let t = refract(-v, m, 1.0 / lb.eta);
-            sampled_spec = u - lb.p_coat < fresnel_dielectric(max(dot(v, m), 1e-4), lb.eta) * lb.p_trans || all(t == vec3<f32>(0.0));
+            state.legacy.sampled_spec = u - lb.p_coat < fresnel_dielectric(max(dot(v, m), 1e-4), lb.eta) * lb.p_trans || all(t == vec3<f32>(0.0));
             // A ray reflected under the surface, or refracted and still above it, is one the microfacets' masking
             // stops: no sample.
-            if (sampled_spec) {
+            if (state.legacy.sampled_spec) {
                 let rl = reflect(-v, h);
                 return select(rl, vec3<f32>(0.0), dot(rl, s.n) <= 0.0);
             }
-            sampled_trans = true;
+            state.legacy.sampled_trans = true;
             return select(t, vec3<f32>(0.0), dot(t, s.n) >= 0.0);
         }
     }
-    sampled_spec = r.y < lb.p_spec;
-    if (sampled_spec && lb.bm) {
+    state.legacy.sampled_spec = r.y < lb.p_spec;
+    if (state.legacy.sampled_spec && lb.bm) {
         let c = bm_closure(s, v);
         let m = bsdf_microfacet_ggx_sample(s.n, s.ng, v, roughness_to_alpha(s.roughness), s.base, c.b, c.energy_scale, r.zw);
         return select(vec3<f32>(0.0), m.wo, m.label != LABEL_NONE);
     }
-    if (sampled_spec) {
+    if (state.legacy.sampled_spec) {
         let h = sample_vndf(v, tbn, s.roughness * s.roughness, r.z, r.w);
         return reflect(-v, h);
     }

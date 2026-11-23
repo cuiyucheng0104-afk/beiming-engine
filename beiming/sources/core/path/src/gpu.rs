@@ -2246,6 +2246,45 @@ mod tests {
         }
     }
 
+    /// 北冥：路径状态与光线（shaders/integrator.wgsl 的 PathState、Ray）的字段名单，与「已写未读」的几项写入。
+    /// 字段名照 Cycles 的 IntegratorState.path 与 Ray：改名、删字段要先改这里（加字段只要在名单里补上）。
+    /// 最小概率密度、上一个散射点的物体、可见类、随机维度偏移这四项现在只写不读，着色器里没有别处能发现它们被
+    /// 悄悄删掉，所以在这里按源码查：初值与每次弹射的写入都得在。查的是写入语句在不在，不是运行时的值。
+    #[test]
+    fn path_state_is_written() {
+        let src = kernel_wgsl(&kernel_template(), &KernelVariant::new(false, KernelSwitches::default(), 0));
+        let m = naga::front::wgsl::parse_str(&src).unwrap_or_else(|e| panic!("{}", e.emit_to_string(&src)));
+        let members = |name: &str| -> Vec<String> {
+            let (_, t) = m.types.iter().find(|(_, t)| t.name.as_deref() == Some(name)).unwrap_or_else(|| panic!("内核里没有结构 {name}"));
+            match &t.inner {
+                naga::TypeInner::Struct { members, .. } => members.iter().map(|x| x.name.clone().unwrap()).collect(),
+                _ => panic!("{name} 不是结构"),
+            }
+        };
+        assert_eq!(
+            members("PathState"),
+            ["render_pixel_index", "sample", "bounce", "diffuse_bounce", "glossy_bounce", "transmission_bounce", "transparent_bounce", "rng_pixel", "rng_offset", "flag", "mis_ray_pdf", "min_ray_pdf", "continuation_probability", "throughput", "visibility", "mis_ray_object", "legacy"]
+        );
+        let mut ray = members("Ray");
+        ray.sort();
+        assert_eq!(ray, ["D", "P", "cone_a", "cone_w", "self_object", "self_prim", "time", "tmax", "tmin"]);
+        for write in [
+            "state.rng_offset = PRNG_BOUNCE_NUM;",
+            "state.min_ray_pdf = 3.4028235e38;",
+            "state.visibility = PATH_RAY_VISIBILITY_CAMERA;",
+            "state.mis_ray_object = OBJECT_NONE;",
+            "state.min_ray_pdf = min(pdf, state.min_ray_pdf);",
+            "state.min_ray_pdf = min(state.mis_ray_pdf, state.min_ray_pdf);",
+            "state.mis_ray_object = sd.object;",
+            "path_state_next(bs.label);",
+            "path_state_next(LABEL_VOLUME_SCATTER);",
+            "state.visibility = visibility;",
+            "state.rng_offset += PRNG_BOUNCE_NUM;",
+        ] {
+            assert!(src.contains(write), "路径状态的这处写入不见了：{write}");
+        }
+    }
+
     /// A kernel with units has the loop guard natively with nothing set, at the browser's limit; THREERT_LOOP_GUARD=0
     /// takes it out, a limit set is the limit, a page's limit comes first. A kernel without units has it only where
     /// one is set, or in a browser.
@@ -2327,9 +2366,9 @@ mod tests {
             assert_eq!(lit.matches("radiance += dz;").count(), 1);
             assert!(!lit.contains("fn sun_light("), "last_direct takes the directional lights already");
             let sun = v(hwrt, KernelSwitches { last_sun: true, ..Default::default() });
-            assert_eq!((sun.matches("radiance += dz;").count(), sun.matches("fn sun_light(").count(), sun.matches("thr * sun_light(sd)").count()), (1, 1, 1));
+            assert_eq!((sun.matches("radiance += dz;").count(), sun.matches("fn sun_light(").count(), sun.matches("state.throughput * sun_light(sd)").count()), (1, 1, 1));
             assert!(!plain.contains("sun_light"));
-            assert_eq!(lit.matches("env_on = take_env && has_env && !lights_only;").count(), 1);
+            assert_eq!(lit.matches("env_on = take_env && has_env && !state.legacy.lights_only;").count(), 1);
             assert_eq!(lit.contains("let steps = 4u;"), hwrt);
             assert_eq!(v(hwrt, KernelSwitches { cutout_lite: 2, ..Default::default() }) == plain, !hwrt);
         }

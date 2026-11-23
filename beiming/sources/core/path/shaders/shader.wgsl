@@ -344,7 +344,7 @@ fn mat_in_at(ti: u32, u: f32, v: f32, view: vec3<f32>, lod: f32) -> MatIn {
     let t = normalize(a.t.xyz - n * dot(n, a.t.xyz) + vec3<f32>(1e-9));
     let oi = object_of(a);
     return MatIn(p, n, ng, t, cross(n, t) * a.t.w, mesh_uv(a, m, u, v), mesh_lod(a, m), view, object_at(oi * OBJECT_STRIDE).xyz, object_at(oi * OBJECT_STRIDE + 1u).xyz,
-                 P.time.x, P.time.y, P.time.z, lod, cur_depth, object_at(oi * OBJECT_STRIDE).w, cur_depth == 0u || mirror_path,
+                 P.time.x, P.time.y, P.time.z, lod, state.bounce, object_at(oi * OBJECT_STRIDE).w, state.bounce == 0u || state.legacy.mirror_path,
                  object_at(oi * OBJECT_STRIDE + 2u));
 }
 
@@ -359,23 +359,14 @@ fn mat_base(m: Material) -> MatOut {
 // unbiased offline render the live image 0.3 % darker, ΔE +0.02–0.04 (the clamps' darkening is 9–13 %). Offline
 // rendering always tests.
 fn cutouts_opaque() -> bool {
-    return approx(A_CUTOUT_PATHS) && cur_depth >= 1u && !mirror_path;
+    return approx(A_CUTOUT_PATHS) && state.bounce >= 1u && !state.legacy.mirror_path;
 }
 
-// A path stays mirror-like (`mirror_path`) through specular samples off surfaces smoother than this.
+// A path stays mirror-like (`state.legacy.mirror_path`) through specular samples off surfaces smoother than this.
 const MIRROR_ROUGHNESS: f32 = 0.3;
 
-// Whether a cutout let the last shadow ray through (the shadow rays' functions clear it, `trace` sets it).
-var<private> shadow_hole: bool = false;
-
-// Set around a `direct_light` that no BSDF ray follows (where a path ends without the cache): its light samples
-// take the whole of their light. Weighed against a BSDF ray that is never traced they kept their MIS share alone:
-// of a uniform sky on a Lambert surface, ln 17 / 16 = 18 %.
-var<private> nee_alone: bool = false;
-
-// `direct_light` without the sky: a surface seen in a reflection lights itself from the lights, the sky's light
-// there is the radiance cache's.
-var<private> lights_only: bool = false;
+// 北冥：原来声明在这里的三个私有量 shadow_hole、nee_alone、lights_only 并进了路径状态（integrator.wgsl 的 PathLegacy，
+// 说明也在那里）。
 
 // Alpha-cutout test for candidate hits on masked triangles (mesh UVs, footprint of a camera ray at distance t). `inst`:
 // the model instance a pool triangle belongs to (its scale shifts the texel density, as in `inst_attr`), or NO_INST.
@@ -472,7 +463,7 @@ fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     s.emissive = emission(m, uv, lod) * obj_power(a);
     // three.js MeshBasicMaterial: its colour to camera rays and mirror-like paths, lit by nothing, lighting nothing.
     if (has(F_UNLIT) && m.tex1.z == MAT_UNLIT) {
-        s.emissive = select(vec3<f32>(0.0), base, cur_depth == 0u || mirror_path);
+        s.emissive = select(vec3<f32>(0.0), base, state.bounce == 0u || state.legacy.mirror_path);
         base = vec3<f32>(0.0);
         spec = 0.0;
         metal = 0.0;
@@ -480,7 +471,7 @@ fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     // Power just changed by a script / gameplay (objects[1].w = scene time of the edit): short history.
     s.anim = P.time.x - object_at(object_of(a) * OBJECT_STRIDE + 1u).w < 0.5;
     // Detail that only matters where it is seen directly or in mirror-like reflections (puddles, glass, chrome).
-    let near = cur_depth == 0u || mirror_path;
+    let near = state.bounce == 0u || state.legacy.mirror_path;
     if (has(F_TEX) && m.tex0.y >= 0 && near) {
         let tn = tex(m.tex0.y, uv, lod).xyz * 2.0 - 1.0;
         let tp = a.t.xyz - n * dot(n, a.t.xyz);
@@ -497,7 +488,7 @@ fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
         let nv = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v) * select(-1.0, 1.0, front || dot(a.n0.xyz, ng) > 0.0);
         let i = MatIn(p, select(-nv, nv, dot(nv, ng) >= 0.0), ng, t, cross(n, t) * a.t.w, mesh_uv(a, m, h.u, h.v), mesh_lod(a, m), -d,
                       object_at(oi * OBJECT_STRIDE).xyz, object_at(oi * OBJECT_STRIDE + 1u).xyz, P.time.x, P.time.y, P.time.z,
-                      log2(max(width, 1e-7)) - 0.5 * log2(max(abs(dot(ng, d)), 1e-3)), cur_depth, object_at(oi * OBJECT_STRIDE).w, near,
+                      log2(max(width, 1e-7)) - 0.5 * log2(max(abs(dot(ng, d)), 1e-3)), state.bounce, object_at(oi * OBJECT_STRIDE).w, near,
                       object_at(oi * OBJECT_STRIDE + 2u));
         let r = material_function(m.tex1.w - 1, i, m, MatOut(base, rough, metal, spec, s.emissive, n, m.base_color.a, false));
         base = r.base;
@@ -558,11 +549,11 @@ fn surface_proc(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     s.emissive = m.emissive.rgb * object_at(oi * OBJECT_STRIDE).w;
     s.anim = P.time.x - object_at(oi * OBJECT_STRIDE + 1u).w < 0.5;
     if (has(F_FUNC) && m.tex1.w > 0) {
-        let near = cur_depth == 0u || mirror_path;
+        let near = state.bounce == 0u || state.legacy.mirror_path;
         let a = select(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), abs(n.x) > 0.9);
         let t = normalize(cross(a, n));
         let i = MatIn(p, n, ng, t, cross(n, t), proc_attr(h), 0.0, -d, object_at(oi * OBJECT_STRIDE).xyz, object_at(oi * OBJECT_STRIDE + 1u).xyz,
-                      P.time.x, P.time.y, P.time.z, log2(max(width, 1e-7)) - 0.5 * log2(max(abs(dot(ng, d)), 1e-3)), cur_depth,
+                      P.time.x, P.time.y, P.time.z, log2(max(width, 1e-7)) - 0.5 * log2(max(abs(dot(ng, d)), 1e-3)), state.bounce,
                       object_at(oi * OBJECT_STRIDE).w, near, object_at(oi * OBJECT_STRIDE + 2u));
         let f = material_function(m.tex1.w - 1, i, m, MatOut(base, rough, metal, spec, s.emissive, n, m.base_color.a, false));
         base = f.base;

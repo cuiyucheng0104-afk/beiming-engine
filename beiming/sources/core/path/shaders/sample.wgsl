@@ -102,13 +102,11 @@ fn sobol_owen(rev_index: u32, dim: u32, seed: u32) -> f32 {
 }
 
 // A path's sample: its index in the pixel's sequence, the pixel's seed, which path of the invocation it is.
-var<private> RNG_INDEX: u32;
-var<private> RNG_SEED: u32;
-var<private> RNG_PATH: u32;
+// 北冥：这三个量现在在路径状态里（integrator.wgsl 的 PathState）：state.sample、state.rng_pixel、state.legacy.rng_path。
 
-// The id of decision `slot` at the path's current vertex (`cur_depth`); `rng_sub` the k-th part of decision `d` (a
+// The id of decision `slot` at the path's current vertex (`state.bounce`); `rng_sub` the k-th part of decision `d` (a
 // loop's iteration, a light).
-fn rng_dim(slot: u32) -> u32 { return (RNG_PATH << 28u) ^ (cur_depth << 20u) ^ slot; }
+fn rng_dim(slot: u32) -> u32 { return (state.legacy.rng_path << 28u) ^ (state.bounce << 20u) ^ slot; }
 fn rng_sub(d: u32, k: u32) -> u32 { return hash_hp(d ^ hash_hp(k + 0x9e3779b9u)) | 0x80000000u; }
 
 // A path vertex's decisions (`rng_dim`).
@@ -131,8 +129,8 @@ const D_VOL_LIGHT: u32 = 14u; // lights at a point in a medium (`phase_direct`, 
 // Live: Sobol only for the camera path's first vertex (not a loop's parts: `rng_sub` sets the top bit), a hash
 // elsewhere (as NVIDIA's RTXPT; variance only: all-Sobol is 0.14 ms more of Bistro's trace, 0.9 of Kabukichō's, for
 // flicker 0.443 -> 0.431). Offline: Sobol everywhere (as Cycles).
-fn rng_white(d: u32) -> bool { return LIVE && (cur_depth > 0u || RNG_PATH != 0u || d >= 0x80000000u); }
-fn white(d: u32, c: u32) -> f32 { return f32(hash_hp(rng_seed(d) ^ (RNG_INDEX * 0x9e3779b9u + c * 0x85ebca6bu)) >> 8u) * (1.0 / 16777216.0); }
+fn rng_white(d: u32) -> bool { return LIVE && (state.bounce > 0u || state.legacy.rng_path != 0u || d >= 0x80000000u); }
+fn white(d: u32, c: u32) -> f32 { return f32(hash_hp(rng_seed(d) ^ (state.sample * 0x9e3779b9u + c * 0x85ebca6bu)) >> 8u) * (1.0 / 16777216.0); }
 
 // A hash, always: for loops of no fixed length (delta tracking's steps), where a new Sobol dimension a step is QMC's
 // worst case (as pbrt-v4, which draws its majorant tracking from a hashed RNG).
@@ -140,8 +138,8 @@ fn rng_hash(d: u32, c: u32) -> f32 { return white(d, c); }
 fn rng_hash3(d: u32) -> vec3<f32> { return vec3<f32>(white(d, 0u), white(d, 1u), white(d, 2u)); }
 
 // Dimension id `d`'s scramble seed; the shuffled index, 16 bits (65,536 samples, then it repeats; Cycles' index mask).
-fn rng_seed(d: u32) -> u32 { return RNG_SEED ^ hash_hp(d); }
-fn rng_index(salt: u32) -> u32 { return owen_rev(reverseBits(RNG_INDEX), salt) & 0xffff0000u; }
+fn rng_seed(d: u32) -> u32 { return state.rng_pixel ^ hash_hp(d); }
+fn rng_index(salt: u32) -> u32 { return owen_rev(reverseBits(state.sample), salt) & 0xffff0000u; }
 
 fn rng1(d: u32) -> f32 {
     if (rng_white(d)) { return white(d, 0u); }
@@ -170,7 +168,7 @@ fn rng4(d: u32) -> vec4<f32> {
 // Starts sample `index` of a pixel (the sample offline, the frame live) on path `path`; `seed`: the render's
 // (THREERT_SEED offline) and the stream's.
 fn rng_start(pix: vec2<u32>, index: u32, seed: u32, path: u32) {
-    RNG_SEED = hash_hp(pix.x ^ hash_hp(pix.y ^ hash_hp(seed)));
-    RNG_INDEX = index;
-    RNG_PATH = path;
+    state.rng_pixel = hash_hp(pix.x ^ hash_hp(pix.y ^ hash_hp(seed)));
+    state.sample = index;
+    state.legacy.rng_path = path;
 }
