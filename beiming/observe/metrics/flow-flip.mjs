@@ -102,6 +102,8 @@ function filtered(plane, w, h, kernel) {
   return filterAxis(filterAxis(plane, w, h, kernel, true), w, h, kernel, false);
 }
 
+// 六阶二项核（σ²=1.5 px²）减小锐边在整点与半像素起步之间的插值偏差。
+const flowKernel = [1, 6, 15, 20, 15, 6, 1].map(weight => weight / 64);
 function pyramid(image, scale, levels, radius) {
   let { width, height } = image;
   const { data, channels } = image;
@@ -113,7 +115,7 @@ function pyramid(image, scale, levels, radius) {
   }
   const result = [];
   for (;;) {
-    const smooth = filtered(pixels, width, height, [1 / 16, 4 / 16, 6 / 16, 4 / 16, 1 / 16]);
+    const smooth = filtered(pixels, width, height, flowKernel);
     result.push({ width, height, pixels, smooth });
     if (result.length >= levels || Math.min(width, height) < 2 * (2 * radius + 1)) return result;
     const stride = width;
@@ -163,11 +165,21 @@ function flowLevel(ref, test, coarse, radius, iterations) {
   }
   boxSum(xx, tmp, w, h, radius);
   const active = Uint8Array.from(xx, count => Number(count > 0));
-  if (coarse) for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x;
-    if (!active[i]) continue;
-    dx[i] = 2 * sample(coarse.dx, coarse.width, coarse.height, x / 2, y / 2);
-    dy[i] = 2 * sample(coarse.dy, coarse.width, coarse.height, x / 2, y / 2);
+  if (coarse) {
+    // 重复纹理在粗层可能错开一个周期；若该初值的亮度残差比零位移更大，就丢弃。
+    const warpedError = xt, stillError = yt;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (active[i]) {
+        dx[i] = 2 * sample(coarse.dx, coarse.width, coarse.height, x / 2, y / 2);
+        dy[i] = 2 * sample(coarse.dy, coarse.width, coarse.height, x / 2, y / 2);
+      }
+      warpedError[i] = (a[i] - sample(b, w, h, x + dx[i], y + dy[i])) ** 2;
+      stillError[i] = (a[i] - b[i]) ** 2;
+    }
+    boxSum(warpedError, tmp, w, h, radius);
+    boxSum(stillError, tmp, w, h, radius);
+    for (let i = 0; i < n; i++) if (warpedError[i] > stillError[i]) dx[i] = dy[i] = 0;
   }
   const ridgeFloor = 1e-6 * (2 * radius + 1) ** 2;
   for (let step = 0; step < iterations; step++) {
@@ -191,9 +203,9 @@ function flowLevel(ref, test, coarse, radius, iterations) {
         dx[i] = dy[i] = 0;
         continue;
       }
-      // 弱特征方向至少有 trace/32 的约束，抑制孔径问题，同时保留双向纹理的亚像素精度。
+      // 弱特征方向对 trace 的占比设下限，抑制孔径问题，双向纹理仍只需轻微正则。
       const weak = (trace - Math.hypot(xx[i] - yy[i], 2 * xy[i])) / 2;
-      const ridge = Math.max(ridgeFloor, 1e-3 * trace, trace / 32 - weak);
+      const ridge = Math.max(ridgeFloor, 5e-4 * trace, trace / 40 - weak);
       const a11 = xx[i] + ridge, a22 = yy[i] + ridge;
       const det = a11 * a22 - xy[i] * xy[i];
       const u = (a22 * xt[i] - xy[i] * yt[i]) / det - dx[i];

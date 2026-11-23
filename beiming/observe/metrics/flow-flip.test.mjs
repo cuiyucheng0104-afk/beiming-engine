@@ -63,6 +63,15 @@ test('相邻帧按顺序量出 0.5、2.5 px 平移和负 y 方向，幅度单位
   }
 });
 
+test('横纵正弦满幅纹理，粗层不能把 2.5 px 的平移方向翻反', () => {
+  const frame = (dx, dy) => luma(104, 80, (x, y) => Math.round(128 + 50 *
+    (Math.sin(0.30 * (x - dx)) + Math.cos(0.32 * (y - dy)))), Uint8Array);
+  for (const dy of [0, 2.5, -2.5]) {
+    const { meanDx, meanDy } = flowField([frame(0, 0), frame(2.5, dy)], { roi: { x: 20, y: 16, width: 64, height: 48 } }).curve[0];
+    assert.ok(Math.hypot(meanDx - 2.5, meanDy - dy) < 0.02, `期望 (2.5,${dy})，读出 (${meanDx},${meanDy})`);
+  }
+});
+
 test('浮点亮度尺度扩大或缩小到 1e±200，稠密场与单位尺度一致', () => {
   const run = scale => flowField([0, 0.5].map(dx =>
     luma(48, 36, (x, y) => scale * texture(x - dx, y), Float64Array)), { includeFields: true }).fields[0];
@@ -90,13 +99,12 @@ test('8 位高斯光斑平移 1 px，整图峰值受限，远处的静止背景�
 
 test('纸色背景的抗锯齿圆盘平移 0.5 px，整图峰值受限，远处的纸色背景为零', () => {
   const paper = [244, 240, 233], ink = [54, 66, 80];
-  const frames = [160, 160.5].map(cx => rgb(320, 180, (x, y) => {
+  const frames = [160, 160.5, 161].map(cx => rgb(320, 180, (x, y) => {
     const coverage = Math.min(1, Math.max(0, 24.5 - Math.hypot(x - cx, y - 90)));
     return paper.map((v, c) => Math.round(v + coverage * (ink[c] - v)));
   }));
-  const { maxMag } = flowField(frames).curve[0];
-  assert.ok(maxMag > 0.4 && maxMag <= 0.7, `圆盘峰值 ${maxMag}`);
-  staticRegion(frames, { x: 10, y: 10, width: 60, height: 160 });
+  for (const { maxMag } of flowField(frames).curve) assert.ok(maxMag > 0.4 && maxMag <= 0.7, `圆盘峰值 ${maxMag}`);
+  for (let i = 0; i < 2; i++) staticRegion(frames.slice(i, i + 2), { x: 10, y: 10, width: 60, height: 160 });
 });
 
 test('2.39:1 画面平移 2 px，顶部和底部的纯黑遮幅均为零', () => {
