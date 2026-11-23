@@ -495,6 +495,55 @@ describe('X6-Deliver: 合成收尾 deliver() 集成 audioScript 端到端交付�
       assert.ok(aac.integrated >= -15 && aac.integrated <= -13, `${piece} AAC 响度 ${aac.integrated}`);
       assert.ok(aac.truePeak <= -1, `${piece} AAC 真峰值 ${aac.truePeak}`);
     }
+
+    // 3. 带 RIFF 声明边界外旧静音 data 块的有效 48 kHz 立体声 WAV：默认 deliver() 与 mastered: true 均正常通过且首样本与主音频一致
+    const trailingSilentScript = join(dir, 'sound-trailing-silent.py');
+    writeFileSync(trailingSilentScript, [
+      PROCEDURAL_SOUND_PY,
+      'with open(os.environ["BEIMING_AUDIO_OUT"], "ab") as _f:',
+      '    _f.write(b"data" + struct.pack("<I", 72000 * 4) + bytes(72000 * 4))',
+      '',
+    ].join('\n'));
+    const b3Unmastered = deliver({
+      ...input,
+      audioScript: { script: trailingSilentScript, args: ['--amp', '0.08', '--stems'] },
+      outDir: join(dir, 'bundle-trailing-unmastered'),
+    });
+    const b3Mastered = deliver({
+      ...input,
+      audioScript: { script: trailingSilentScript, mastered: true },
+      outDir: join(dir, 'bundle-trailing-mastered'),
+    });
+    verifyDeliveryBundle(b3Unmastered.dir);
+    verifyDeliveryBundle(b3Mastered.dir);
+    const rep1 = JSON.parse(readFileSync(join(b1.dir, PIECES.report), 'utf8'));
+    const rep2a = JSON.parse(readFileSync(join(b2a.dir, PIECES.report), 'utf8'));
+    const rep3Unmastered = JSON.parse(readFileSync(join(b3Unmastered.dir, PIECES.report), 'utf8'));
+    const rep3Mastered = JSON.parse(readFileSync(join(b3Mastered.dir, PIECES.report), 'utf8'));
+    assert.deepEqual(
+      rep3Unmastered.files[PIECES.master],
+      rep1.files[PIECES.master],
+      '带 RIFF 尾块的默认 deliver() 产出的 master.mp4 应与无尾块主音频逐字节一致',
+    );
+    assert.deepEqual(
+      rep3Mastered.files[PIECES.master],
+      rep2a.files[PIECES.master],
+      '带 RIFF 尾块的 mastered: true 产出的 master.mp4 应与无尾块主音频逐字节一致',
+    );
+    for (const [label, trailingDir, cleanDir] of [
+      ['default', b3Unmastered.dir, b1.dir],
+      ['mastered', b3Mastered.dir, b2a.dir],
+    ]) {
+      const trailingDecodedWav = join(dir, `decoded-trailing-${label}.wav`);
+      const cleanDecodedWav = join(dir, `decoded-clean-${label}.wav`);
+      runTool(tools().ffmpeg, ['-hide_banner', '-nostdin', '-v', 'error', '-y', '-i', join(trailingDir, PIECES.master), '-c:a', 'pcm_f32le', '-ar', '48000', '-ac', '2', trailingDecodedWav]);
+      runTool(tools().ffmpeg, ['-hide_banner', '-nostdin', '-v', 'error', '-y', '-i', join(cleanDir, PIECES.master), '-c:a', 'pcm_f32le', '-ar', '48000', '-ac', '2', cleanDecodedWav]);
+      const trailingPcm = readWav(readFileSync(trailingDecodedWav));
+      const cleanPcm = readWav(readFileSync(cleanDecodedWav));
+      assert.equal(trailingPcm.left[0], cleanPcm.left[0], `${label} 模式交付音频左声道首样本应与主音频一致`);
+      assert.equal(trailingPcm.right[0], cleanPcm.right[0], `${label} 模式交付音频右声道首样本应与主音频一致`);
+      assert.ok(Math.abs(trailingPcm.right[0]) > 1e-4, `${label} 模式交付音频首样本不得为静音`);
+    }
   });
 
   test('deliver() 在 mastered: true 但脚本产出响度或真峰值越界时拒绝发布并抛 contract.delivery-mismatch', needFfmpeg, (t) => {
@@ -795,7 +844,8 @@ describe('X6-Red: 零陷阱参数校验与异常脚本防御', () => {
       isCode('failure.audio-script'),
     );
 
-    // 10. RIFF 声明边界后若残留旧渲染的 data 块，解码结果必须严格以 RIFF 边界为准（与 Python wave 一致）
+    // 10. RIFF 声明边界后若残留旧渲染的 data 块，解码结果与落盘文件均必须严格以 RIFF 边界为准（与 Python wave 一致）；
+    //     而 RIFF 声明范围内若含重复 data 段则必须拒绝
     const trailingDataRes = runPyBody('riff-trailing-data.py', [
       'import os, pathlib, struct',
       'out = os.environ["BEIMING_AUDIO_OUT"]',
@@ -810,6 +860,25 @@ describe('X6-Red: 零陷阱参数校验与异常脚本防御', () => {
     ].join('\n'), { expectedFrames: 1, fps: 30 });
     assert.equal(trailingDataRes.samples, 1600, 'RIFF 边界内为 1600 采样，尾部残余块不得覆盖解码');
     assert.equal(Math.round(trailingDataRes.wav.left[0] * 32768), 1024, '首样本必须取 RIFF 边界内的 1024 而非尾部残余的 2048');
+    const publishedTrailingWav = readWav(readFileSync(trailingDataRes.path));
+    assert.equal(publishedTrailingWav.left.length, 1600, '已发布 WAV 落盘文件必须裁齐到 RIFF 边界');
+    assert.equal(Math.round(publishedTrailingWav.left[0] * 32768), 1024, '重读已发布 WAV 首样本必须与主音频一致');
+
+    assert.throws(
+      () => runPyBody('riff-dup-data.py', [
+        'import os, pathlib, struct',
+        'out = os.environ["BEIMING_AUDIO_OUT"]',
+        'pcm_a = struct.pack("<3200h", *([1024] * 3200))',
+        'pcm_b = struct.pack("<3200h", *([0] * 3200))',
+        'fmt_chunk = struct.pack("<4sIHHIIHH", b"fmt ", 16, 1, 2, 48000, 48000 * 4, 4, 16)',
+        'data_a = struct.pack("<4sI", b"data", len(pcm_a)) + pcm_a',
+        'data_b = struct.pack("<4sI", b"data", len(pcm_b)) + pcm_b',
+        'riff_body = b"WAVE" + fmt_chunk + data_a + data_b',
+        'riff_head = struct.pack("<4sI", b"RIFF", len(riff_body))',
+        'pathlib.Path(out).write_bytes(riff_head + riff_body)',
+      ].join('\n'), { expectedFrames: 1, fps: 30 }),
+      isCode('failure.audio-script'),
+    );
 
     // 11. 含空格、分号、引号、$() 的路径不经 shell 安全执行
     const weirdDir = join(dir, "odd dir; $(echo injected) 'quote' [1]");

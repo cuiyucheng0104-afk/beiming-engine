@@ -227,6 +227,7 @@ function parseWavHeader(buf) {
       throw new CompError('failure.audio-script', `WAV ${id.trim()} 数据块截断：声明 ${size} 字节，实际仅余 ${Math.min(riffEnd, buf.length) - body} 字节`);
     }
     if (id === 'fmt ') {
+      if (fmt) throw new CompError('failure.audio-script', 'WAV 含重复 fmt 段');
       if (size < 16) throw new CompError('failure.audio-script', 'WAV fmt 段损坏');
       let format = buf.readUInt16LE(body);
       const channels = buf.readUInt16LE(body + 2);
@@ -240,10 +241,9 @@ function parseWavHeader(buf) {
       fmt = { format, channels, sampleRate, blockAlign, bits };
     } else if (id === 'data') {
       if (!fmt) throw new CompError('failure.audio-script', 'WAV data 段不能出现在 fmt 段之前');
-      if (!data) {
-        data = buf.subarray(body, body + size);
-        decodeEnd = body + size;
-      }
+      if (data) throw new CompError('failure.audio-script', 'WAV 含重复 data 段');
+      data = buf.subarray(body, body + size);
+      decodeEnd = body + size;
     }
     at = body + size + (size & 1);
   }
@@ -510,8 +510,9 @@ export function runAudioScript(opts) {
       throw new CompError('failure.audio-script', `声音脚本 ${basename(scriptPath)} 退出码为 0 但未生成输出 WAV`);
     }
 
-    const wavBytes = readFileSync(stagedOutWav);
-    const fmt = parseWavHeader(wavBytes);
+    const rawWavBytes = readFileSync(stagedOutWav);
+    const fmt = parseWavHeader(rawWavBytes);
+    const wavBytes = rawWavBytes.subarray(0, fmt.riffEnd);
     let wav;
     try {
       wav = readWav(wavBytes.subarray(0, fmt.decodeEnd));
@@ -629,7 +630,7 @@ export function runAudioScript(opts) {
         pendingRenames.push([tmpEvents, publishedEventsPath]);
       }
       const tmpWav = makeTempFilePath(outDir);
-      writeFileSync(tmpWav, wavBytes);
+      writeFileSync(tmpWav, wavBytes.subarray(0, fmt.riffEnd));
       pendingRenames.push([tmpWav, outWavPath]);
 
       for (const [tmpPath, destPath] of pendingRenames) {
