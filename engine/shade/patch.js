@@ -57,18 +57,26 @@ class ShaderPatchError extends Error {   // 不导出：别的模块按 name 认
 // #include 照 three 展开它的正则认（WebGLProgram.js 的 includePattern：顶着行首，前面只许空格 / 制表符，include 后可以不止一个空格）。
 const COMMENT = /\/(?:\\(?:\r\n|[\r\n]))*\/(?:\\(?:\r\n|[\r\n])|[^\r\n])*|\/(?:\\(?:\r\n|[\r\n]))*\*[\s\S]*?(?:\*(?:\\(?:\r\n|[\r\n]))*\/|$)/g, literal = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// 只算整数常量的 !、&&、|| 与括号。其余表达式不猜：即使只有一个命中，也不能向可能关闭的分支打补丁。
-const NEVER = 0, MAYBE = 1, ALWAYS = 2;
-function conditionOf(expr) {
+// 只算整数常量的 !、&&、|| 与括号；未知标识符与 defined 按 Kleene 三值（0 / 0.5 / 1）短路求值；
+// 当前文本里被 #define 成非原子常量的标识符，或含未知运算符/残缺语法的表达式均按 NaN → MAYBE 处理。
+const NEVER = 0, MAYBE = 1, ALWAYS = 2, INT_LITERAL = /^(?:0x[\da-f]+|0[0-7]*|[1-9]\d*)u?$/i, IDENT = /^[a-z_]\w*$/i;
+function evalExpr(expr, nonAtomic, atomOnly = false) {
   const tokens = expr.match(/\w+|&&|\|\||\S/g) ?? [];
   let i = 0;
   function atom(depth) {
     if (depth > 64) return NaN;
     const t = tokens[i++];
+    if (!t) return NaN;
     if (t === '(') { const v = or(depth + 1); return tokens[i++] === ')' ? v : NaN; }
     if (t === '!') return 1 - atom(depth + 1);
-    if (!/^(?:0x[\da-f]+|0[0-7]*|[1-9]\d*)u?$/i.test(t)) return NaN;
-    return Number(!/^0(?:x0+|0*)u?$/i.test(t));
+    if (INT_LITERAL.test(t)) return Number(!/^0(?:x0+|0*)u?$/i.test(t));
+    if (t === 'defined' && !atomOnly) {
+      const paren = tokens[i] === '(';
+      if (paren) i++;
+      const id = tokens[i++];
+      return id && id !== 'defined' && IDENT.test(id) && (!paren || tokens[i++] === ')') ? 0.5 : NaN;
+    }
+    return !atomOnly && t !== 'defined' && IDENT.test(t) && !nonAtomic?.has(t) ? 0.5 : NaN;
   }
   function and(depth) {
     let v = atom(depth);
@@ -80,15 +88,18 @@ function conditionOf(expr) {
     while (tokens[i] === '||') { i++; v = Math.max(v, and(depth)); }
     return v;
   }
-  const v = or(0);
-  return i === tokens.length && !Number.isNaN(v) ? v * ALWAYS : MAYBE;
+  const v = atomOnly ? atom(0) : or(0);
+  return i === tokens.length ? v : NaN;
 }
+const conditionOf = (expr, nonAtomic) => { const v = evalExpr(expr, nonAtomic); return Number.isNaN(v) ? MAYBE : v * ALWAYS; };
 
 function preprocessorSpans(masked, dead, uncertain) {
-  const stack = [];
+  const stack = [], nonAtomic = new Set();
   let state = ALWAYS;
   for (const line of masked.matchAll(/(?:\\(?:\r\n|[\r\n])|[^\r\n])+/g)) {
     const logical = line[0].replace(/\\(?:\r\n|[\r\n])/g, '');
+    const def = /^\s*#\s*define\s+(\w+)(\(?)(.*)/.exec(logical);
+    if (state !== NEVER && def && (def[2] || Number.isNaN(evalExpr(def[3], null, true)))) nonAtomic.add(def[1]);
     const directive = /^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)/.exec(logical);
     if (!directive) {
       if (state !== ALWAYS) (state === NEVER ? dead : uncertain).push([line.index, line.index + line[0].length]);
@@ -100,7 +111,7 @@ function preprocessorSpans(masked, dead, uncertain) {
     if (op === 'if' || op === 'ifdef' || op === 'ifndef') stack.push({ parent: state, remaining: state });
     const branch = stack.at(-1);
     if (!branch) continue;
-    const condition = op === 'else' ? ALWAYS : op === 'if' || op === 'elif' ? conditionOf(rest) : MAYBE;
+    const condition = op === 'else' ? ALWAYS : op === 'if' || op === 'elif' ? conditionOf(rest, nonAtomic) : MAYBE;
     state = Math.min(branch.remaining, condition);
     branch.remaining = Math.min(branch.remaining, ALWAYS - condition);   // 只有此前所有分支都没选中，才可能进入后续分支
   }

@@ -246,24 +246,54 @@ test('FX22 唯一命中也要证明分支生效：常量表达式、未知宏及
   assert.equal(put(`#if 0x1 && (!0 || 0)\n${inc}\n#endif`), '#if 0x1 && (!0 || 0)\nX\n#endif');
 });
 
-test('FX22 true / false 不是 GLSL 预处理常量：按未知宏分支处理，均被 inject 拒绝', () => {
+test('FX22 true / false 不是 GLSL 预处理常量：未知宏分支拒绝，Kleene 可确定短路放行', () => {
   const inc = '#include <common>', put = src => inject(src, inc, 'X', 'replace', 'fx22-n5');
   const before = inject.patchErrors().length;
   const uncertain = [
     `#define true 0\n#if true\n${inc}\n#endif`,
     `#define false 1\n#if false\nfloat x;\n#else\n${inc}\n#endif`,
+    `#if true\n${inc}\n#endif`,
     `#if false\n${inc}\n#endif`,
     `#if !false\n${inc}\n#endif`,
-    `#if 0 && true\n${inc}\n#endif`,
+    `#if 0 || true\n${inc}\n#endif`,
+    `#if 1 && true\n${inc}\n#endif`,
+    `#define true 1 || 1\n#if 0 && true\nfloat x;\n#else\n${inc}\n#endif`,
+    `#define true 1 || 1\n#if true && 0\nfloat x;\n#else\n${inc}\n#endif`,
+    `#define false 1) && 0 && (0\n#if (1 || false)\n${inc}\n#endif`,
+    `#if defined(FLAG)\n${inc}\n#endif`,
+    `#if 0 || defined(FLAG)\n${inc}\n#endif`,
+    `#if 1 || defined()\n${inc}\n#endif`,
+    `#if 1 || +\n${inc}\n#endif`,
+    `#if 1 || (1 + 2)\n${inc}\n#endif`,
   ];
   for (const src of uncertain) {
     assert.throws(() => put(src), { name: 'ShaderPatchError', message: /fx22-n5：无法确认着色器锚点「#include <common>」所在的条件分支生效/ }, src);
   }
+  const dead = [`#if 0 && true\n${inc}\n#endif`, `#if true && 0\n${inc}\n#endif`, `#if 0 && defined(FLAG)\n${inc}\n#endif`];
+  for (const src of dead) {
+    assert.throws(() => put(src), { name: 'ShaderPatchError', message: /fx22-n5：着色器锚点缺失「#include <common>」/ }, src);
+  }
   for (const src of [`#define true 0\n#if true\n${inc}\n#endif\n${inc}`, `#define false 1\n#if false\n${inc}\n#endif\n${inc}`]) {
     assert.throws(() => put(src), { name: 'ShaderPatchError', message: /fx22-n5：着色器锚点不唯一「#include <common>」：生效代码里有 2 处/ }, src);
   }
-  assert.equal(put(`#if 1\n${inc}\n#elif false\n${inc}\n#endif`), `#if 1\nX\n#elif false\n${inc}\n#endif`);
-  assert.equal(inject.patchErrors().length - before, uncertain.length + 2);
+  for (const [src, want] of [
+    [`#if 1 || false\n${inc}\n#endif`, `#if 1 || false\nX\n#endif`],
+    [`#if false || 1\n${inc}\n#endif`, `#if false || 1\nX\n#endif`],
+    [`#define false 0\n#if false || 1\n${inc}\n#endif`, `#define false 0\n#if false || 1\nX\n#endif`],
+    [`#define false (0)\n#if false || 1\n${inc}\n#endif`, `#define false (0)\n#if false || 1\nX\n#endif`],
+    [`#if 1 || defined(FLAG)\n${inc}\n#endif`, `#if 1 || defined(FLAG)\nX\n#endif`],
+    [`#if defined FLAG || 1\n${inc}\n#endif`, `#if defined FLAG || 1\nX\n#endif`],
+    [`#if 1 || false\n${inc}\n#else\n${inc}\n#endif`, `#if 1 || false\nX\n#else\n${inc}\n#endif`],
+    [`#if 0 && true\nfloat x;\n#else\n${inc}\n#endif`, `#if 0 && true\nfloat x;\n#else\nX\n#endif`],
+    [`#if true && 0\nfloat x;\n#else\n${inc}\n#endif`, `#if true && 0\nfloat x;\n#else\nX\n#endif`],
+    [`#if 0 && defined(FLAG)\nfloat x;\n#else\n${inc}\n#endif`, `#if 0 && defined(FLAG)\nfloat x;\n#else\nX\n#endif`],
+    [`#if 0 && true\n${inc}\n#else\n${inc}\n#endif`, `#if 0 && true\n${inc}\n#else\nX\n#endif`],
+    [`#if !(0 && true)\n${inc}\n#endif`, `#if !(0 && true)\nX\n#endif`],
+    [`#if 1\n${inc}\n#elif false\n${inc}\n#endif`, `#if 1\nX\n#elif false\n${inc}\n#endif`],
+  ]) {
+    assert.equal(put(src), want, src);
+  }
+  assert.equal(inject.patchErrors().length - before, uncertain.length + dead.length + 2);
 });
 
 test('FX22 以前的补丁插进去的文本里不找锚点：材质钩子在死分支里另写一套锚点、再把原来的盖住，补丁不落进死分支；投影块整个没了也报补丁错', () => {
