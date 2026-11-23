@@ -13,6 +13,7 @@
 
 ### Added
 
+- `beiming/comp` 新增事件表驱动的 Python+numpy 程序化声音脚本工序（X6，#158，合成收尾层）：`script-audio.mjs` 提供自包含的 `resolvePython` 与 `runAudioScript`，不经 shell 启动未修改的 `.py` 声音脚本（传入 `--events`、`--out` 及 `BEIMING_EVENTS`、`BEIMING_AUDIO_OUT`、`BEIMING_FRAMES`、`BEIMING_FPS`），核验产出的 48 kHz 单声道或立体声 WAV（有限样本、与片长帧数一致）并收集同目录伴随的 `report.json` 与 `stems/*.wav`；`deliver` 新增可选 `audioScript`（记录脱敏的 `audio-script` 运行步骤，`mastered: true` 时跳过二次 `masterAudio` 限幅以保留脚本自带母带，但仍执行成片 `measureLoudness` 与 `measureAac` 交付门禁）。对不传 `audioScript` 的现有作品与交付没有影响。
 - 感知组件新增 `flow.field` 与 `image.flip`（O10，#161）：前者从相邻帧量亚像素稠密光流、方向和速度幅值频谱，后者按观看条件计算 LDR-FLIP 误差图及分位数。对 agent：用 `runFlowFlipMetric` 按名调用，可用已校准的均值阈值判跨机画面回归，不改渲染及既有验收门。
 - Blender 构建脚本新增 `ctx.runtime`（S11，#159）。镜头可用命名时间线编排动作，按序号设置材质插口，用纯函数生成运动模糊所需的三帧关键帧，并通过帧元数据交出文字框、实体锚点和读数。
 - 新增两张讲解片技术卡（T8，#155）：`page.det2d` 在 three 页面宿主上锁定 sRGB、纸色 `#F4F0E9` 和本地字体，供二维镜头按帧重复求值；它是机制卡，不出现在默认卡搜索中。`camera.cue-kf` 把地图的平移、缩放绑到 `time.narration` 或事件表里的命名触发点，可按帧提前或延后。换配音后不必重写相机关键帧；不使用新卡的镜头不变。
