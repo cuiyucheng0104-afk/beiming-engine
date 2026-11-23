@@ -1,0 +1,1022 @@
+{
+  "format": "practices/0.1",
+  "entries": [
+    {
+      "id": "motion-rig.d015.practice",
+      "sourceId": "d015",
+      "section": "2",
+      "caseId": "case-13",
+      "title": "缓动 6 种",
+      "text": "io=u²(3-2u)（默认）；lin=u；in=u³；out=1-(1-u)³；snap=1-(1-u)⁵；hold=恒 0。缓动挂在目标帧上，描述\"从上一帧走到这一帧\"的速度。",
+      "quantities": [],
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 2 节 d015；出处类别：源码拆解·关键帧、缓动与时间采样",
+      "kind": "method",
+      "routeNote": "将段内进度代入缓动函数，再按目标键指定的缓动从上一键插到目标键。"
+    },
+    {
+      "id": "motion-rig.d022.practice",
+      "sourceId": "d022",
+      "section": "2",
+      "caseId": "case-13",
+      "title": "关键帧采样=带 hold 的三次埃尔米特",
+      "text": "基函数 h00=2u³-3u²+1，h10=u³-2u²+u，h01=-2u³+3u²，h11=u³-u²；切线 m1=(k2-k0)·h/(t2-t0)，m2=(k3-k1)·h/(t3-t1)（非均匀 Catmull-Rom）；首/末键与 hold 键切线为 0（刹停再出发）；对 79 数逐个算。攻击=起手停顿→三四个快速过渡键（间隔 0.06 秒）→收招停顿→恢复；停顿键给蓄力和收势留时间。",
+      "quantities": [
+        {
+          "value": 0.06,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 2 节 d022；出处类别：源码拆解·关键帧、缓动与时间采样",
+      "kind": "method",
+      "routeNote": "用非均匀键间隔计算三次埃尔米特切线，在端点与停顿键把切线归零，得到停住再出发的轨道。"
+    },
+    {
+      "id": "motion-rig.d027.practice",
+      "sourceId": "d027",
+      "section": "2",
+      "caseId": "case-13",
+      "title": "停顿键用法",
+      "text": "攻击蓄—爆—收节奏=停顿键之间夹快速过渡键；一招在起手 0.2 s 与收刀 0.46 s 各放停顿键，中间每 0.06 s 一个过渡键；重击在 0.68、0.72 s 连放两个停顿键「砸住」；试验：1 s 挥臂 5 键，第 1、4 键置停顿，导出手腕速度应见两个速度为 0 的平台。",
+      "quantities": [
+        {
+          "value": 0.2,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.46,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.06,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.72,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 1,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "动作与骨骼汇编 第 2 节 d027；出处类别：源码拆解·关键帧、缓动与时间采样",
+      "kind": "method",
+      "routeNote": "在快速过渡的两侧放停顿键，导出手腕速度曲线，用两个零速平台检验停顿。"
+    },
+    {
+      "id": "motion-rig.d028.practice",
+      "sourceId": "d028",
+      "section": "2",
+      "caseId": "case-13",
+      "title": "关键帧继承",
+      "text": "关键帧继承上一键，作者只写变化的字段；light1 的 8 个键平均每键只写 8 个字段。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "关键帧继承上一键、只写变化字段的通用数据组织做法",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "动作与骨骼汇编 第 2 节 d028；出处类别：源码拆解·关键帧、缓动与时间采样"
+    },
+    {
+      "id": "motion-rig.d034.practice",
+      "sourceId": "d034",
+      "section": "3",
+      "caseId": "case-13",
+      "title": "二阶弹簧Spring(ω,ζ)",
+      "text": "a=ω²(目标-x)-2ζωv半隐式欧拉，单步>0.02秒自动细分，数值发散直接跳目标。",
+      "quantities": [
+        {
+          "value": 0.02,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 3 节 d034；出处类别：源码拆解·弹簧、挂件、锁链与布料（案例 13 第 9 章）",
+      "kind": "method",
+      "routeNote": "用半隐式欧拉积分二阶弹簧，遇长帧分成子步，发散时重置到目标。"
+    },
+    {
+      "id": "motion-rig.d035.practice",
+      "sourceId": "d035",
+      "section": "3",
+      "caseId": "case-13",
+      "title": "隐式弹簧与指数滞后",
+      "text": "spring：f=1+2·dt·ζ·ω,hoo=dt·ω²,hhoo=dt·hoo,det=1/(f+hhoo),x=(f·s.x+dt·s.v+hhoo·target)·det,v=(s.v+hoo(target-s.x))·det，无条件稳定；lagK(dt,τ)=1-e^(-dt/τ)帧率无关。",
+      "quantities": [],
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 3 节 d035；出处类别：源码拆解·弹簧、挂件、锁链与布料（案例 13 第 11 章）",
+      "kind": "method",
+      "routeNote": "用隐式更新积分阻尼弹簧，对一阶滞后按时间常数计算每帧指数混合权重。"
+    },
+    {
+      "id": "motion-rig.d059.practice",
+      "sourceId": "d059",
+      "section": "4",
+      "caseId": "case-13",
+      "title": "两骨逆运动学：求肘膝位置与骨段朝向",
+      "text": "距离 d 夹 [0.05,a+b-0.002]；cosA=(a²+d²-b²)/(2ad)；极向 P=(pole-S) 去 D 分量归一，退化用 (0,-1,0)；肘 E=S+D·a·cosA+P·a·sinA；上段基 Y=S-E，Z=±P（膝 +P，手臂 -P），X=Y×Z；下段 Y=E-W，Z=X×Y；转父骨局部后 slerp(weight)；由方向与参考轴构造四元数，再写回骨段朝向。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "将目标限制在两骨可达范围内，按余弦定理求肘位，用极向量确定弯曲平面，再将两段朝向混入父骨局部姿势。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 4 节 d059；出处类别：源码拆解·IK、步态与落脚"
+    },
+    {
+      "id": "motion-rig.d071.practice",
+      "sourceId": "d071",
+      "section": "4",
+      "caseId": "case-13",
+      "title": "骑士两骨IK",
+      "text": "余弦定理；目标距离钳臂[0.06,a+b-0.002]腿[0.08,a+b-0.001]；极向量定弯曲平面，按权重对上下段四元数slerp；臂长.28/.255，腿长按实测静止位置(缺省.45/.43)。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "钳住手脚目标距离，按余弦定理和极向量求两段骨的弯曲，再按权重混合旋转。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 4 节 d071；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）"
+    },
+    {
+      "id": "motion-rig.d087.practice",
+      "sourceId": "d087",
+      "section": "4",
+      "caseId": "case-13",
+      "title": "两段式逆运动学解法",
+      "text": "给定两段长度、末端目标与极向量：目标距离夹 [0.12,(a+b)×0.9995]；cosA=(a²+d²-b²)/(2ad)；极向量去掉沿连线分量作弯曲方向；肘=起点+连线×a·cosA+弯曲方向×a·sinA；骨 y 轴指向父端构造世界朝向，手臂 z 轴取极向量反向，腿取正向。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "限制目标距离并剔除极向量沿连线的分量，按余弦定理定位肘或膝，再分别给两段骨定向。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 4 节 d087；出处类别：源码拆解·IK、步态与落脚"
+    },
+    {
+      "id": "motion-rig.d094.practice",
+      "sourceId": "d094",
+      "section": "4",
+      "caseId": "case-13",
+      "title": "两段逆运动学：限制距离与弯折平面",
+      "text": "余弦定理 cosA=(a²+d²-b²)/(2ad)；肘=起点+D·a·cosA+极向量·a·sinA；距离夹 [|a-b|+.02,(a+b)·.9995]；腿极向量 (±.12,-.35·跪姿权重,1)（膝朝前稍外撇，跪地再向下压）；脚部朝向直接置单位四元数（脚不随坡度倾斜）。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "先裁剪目标距离，再用余弦定理和膝极向量解出中间关节位置。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 4 节 d094；出处类别：源码拆解·IK、步态与落脚（案例 13 第 14 章）"
+    },
+    {
+      "id": "motion-rig.d098.practice",
+      "sourceId": "d098",
+      "section": "4",
+      "caseId": "case-13",
+      "title": "解析两段逆运动学",
+      "text": "取目标方向dir与距离L，L夹到[∣l1-l2∣+0.01,l1+l2-0.002]；x=(l1²-l2²+L²)/(2L)，h=√max(l1²-x²,0)；极向量去掉沿dir分量归一得肘向pp(太小退回(0,0,1))；肘mid=a+dir·x+pp·h，手end=a+dir·L；约20行建模与运行共用；守望者臂长上段长 .335、下段长 .315，右臂极向量为(-.45,-1,-.35)，左臂(1,-.7,-.6)；IK两段骨直接用从静止方向到目标方向的旋转不叠加其他动画。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "把极向量投影到弯曲平面，求取肘部与末端位置，再从静止方向旋转两段骨到目标方向。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "动作与骨骼汇编 第 4 节 d098；出处类别：源码拆解·IK、步态与落脚（案例 13 第 22 章）"
+    },
+    {
+      "id": "motion-rig.d099.practice",
+      "sourceId": "d099",
+      "section": "4",
+      "caseId": "case-13",
+      "title": "两骨解析 IK",
+      "text": "余弦定理一步算肘膝不迭代；臂长 0.28/0.255 m（试验用 0.3/0.27）；腿目标距离钳在 [0.08, 腿长−0.001] m 永不伸直；余量：骑士 0.001–0.002 m、敌人 0.002 m、头目一与龙×0.9995；骑士极向量随手高变化 hi=smoothstep(−.1,.35,腕高−肩高)；骑士骨盆下沉最多 0.4 m；龙腿长上限 0.9995。",
+      "quantities": [
+        {
+          "value": 0.255,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": [
+            0.001,
+            0.002
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.002,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.4,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "用余弦定理直接定位肘膝，为末端保留伸展余量，并随手高调整肘的偏向。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "动作与骨骼汇编 第 4 节 d099；出处类别：源码拆解·IK、步态与落脚"
+    },
+    {
+      "id": "motion-rig.d100.practice",
+      "sourceId": "d100",
+      "section": "4",
+      "caseId": "case-13",
+      "title": "步态最小实现（建议）",
+      "text": "脚在世界里钉住，只有到相位才抬起飞向下一个落点；步频、步幅按速度现算。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "世界锁脚按相位迈步并依速度算步幅",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "动作与骨骼汇编 第 4 节 d100；出处类别：源码拆解·IK、步态与落脚"
+    },
+    {
+      "id": "motion-rig.d118.practice",
+      "sourceId": "d118",
+      "section": "5",
+      "caseId": "case-13",
+      "title": "待机/二级运动试验",
+      "text": "重心换脚间隔 6~11 s 弹簧 w2.3 z.62 幅度 2.5 cm（守望者）；骑士换重心脚每 7–12 s；敌人叹气每 7–13 s、呼吸 1.6 rad/s；龙抖翅每 6.5 s、吐舌每 6–10 s；试验：站立角色只加呼吸正弦（两个不同周期叠加）、换脚弹簧、头部注视弹簧，录 60 s 看是否有可察觉循环。",
+      "quantities": [
+        {
+          "value": [
+            6,
+            11
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.025,
+          "unit": "m",
+          "rawUnit": "cm"
+        },
+        {
+          "value": [
+            7,
+            12
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": [
+            7,
+            13
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 1.6,
+          "unit": "rad/s",
+          "rawUnit": "rad/s"
+        },
+        {
+          "value": 6.5,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": [
+            6,
+            10
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 60,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过(未运行)",
+      "docRef": "动作与骨骼汇编 第 5 节 d118；出处类别：源码拆解·躯干叠加、呼吸、惯性与待机",
+      "kind": "method",
+      "routeNote": "叠加两个周期的呼吸、换脚与注视弹簧，录制一分钟站姿并检查能否看出重复循环。"
+    },
+    {
+      "id": "motion-rig.d149.practice",
+      "sourceId": "d149",
+      "section": "7",
+      "caseId": "case-13",
+      "title": "动画向布娃娃交接速度",
+      "text": "17 关节世界坐标（本帧+上帧）直接当质点当前/上一位置，动画速度原样延续；交接速度每质点超 8 米/秒按比例截断；0.15 秒 内平滑插值，从演出姿势过渡到物理姿势。",
+      "quantities": [
+        {
+          "value": 8,
+          "unit": "m/s",
+          "rawUnit": "米/秒"
+        },
+        {
+          "value": 0.15,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "routeNote": "交接时用连续两帧的关节位置初始化质点，使物理继承动画速度；限制异常初速，再短暂混合到物理姿势。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 7 节 d149；出处类别：源码拆解·受击、倒地、死亡与布娃娃",
+      "kind": "method"
+    },
+    {
+      "id": "motion-rig.d155.practice",
+      "sourceId": "d155",
+      "section": "7",
+      "caseId": "case-13",
+      "title": "将布娃娃质点位置写回骨骼",
+      "text": "质点只有位置：用交接时刻方向做参考算每段方向变化量，乘回交接世界旋转；髋框架 Y=胸-骨盆，X=左大腿-右大腿去 Y，Z=X×Y，增量=当前×交接⁻¹；胸框架 Y=颈-胸，X=左上臂-右上臂；脊柱取髋增量与胸增量 50% slerp；10 段四肢+颈头 从交接方向转至当前方向的旋转×交接世界旋转。",
+      "quantities": [
+        {
+          "value": 0.5,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "routeNote": "以交接时刻为参考，从质点连线恢复肢段朝向，分别建髋与胸的局部标架，在两者间插值得到脊柱旋转。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 7 节 d155；出处类别：源码拆解·受击、倒地、死亡与布娃娃",
+      "kind": "method"
+    },
+    {
+      "id": "motion-rig.d190.practice",
+      "sourceId": "d190",
+      "section": "9",
+      "caseId": "ext-01",
+      "title": "外部案例 01：动作可迁移方法",
+      "text": "原文章节有大量路径控制点、时间窗、推力脉冲，都是针对这部片 90 秒的手摆数据，不属于可迁移的建模参数。可迁移的是方法：轨道=中心化 Catmull-Rom（centripetal）重采样 0.25 m，单调三次插值把时间映射到弧长；推力脉冲 位移*exp(-(a/span)²)，whip 沿尾传；注视 5 点加权 1:2:3:2:1（±0.14 s），颈弯 q*e^(1-q)；咬合调准 7 轮 ×0.8 迭代；呼吸 4.4 s、1+0.13*k*b²；眨眼每 4.7 s、持续 0.26 s；下颌 jaw*0.66 rad。",
+      "quantities": [
+        {
+          "value": 90,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 0.25,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": [
+            -0.14,
+            0.14
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 4.4,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 4.7,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.26,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.66,
+          "unit": "rad",
+          "rawUnit": "rad",
+          "scaleBy": "jaw"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "按弧长重采样轨道并单调映射时间，用多点加权定注视方向，再迭代校准咬合。",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "源码+原文陈述（清单转述，未回查原笔记）",
+      "verificationLabel": "没验证",
+      "docRef": "动作与骨骼汇编 第 9 节 d190；出处类别：原文陈述·外部案例 01：可迁移的方法"
+    },
+    {
+      "id": "motion-rig.d224.practice",
+      "sourceId": "d224",
+      "section": "10",
+      "caseId": "case-13",
+      "title": "骨盆高度防拉直",
+      "text": "hy=standH(stilt)+姿势.hip.y+stepY；对每条腿 hor=脚目标到髋水平距，span=(THIGH+SHIN+SOLE+liftOf(st))·.997；若 hor<span 则 hy=min(hy,脚目标y+√(span²-hor²))。",
+      "quantities": [],
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 10 节 d224；出处类别：源码拆解·视线与头部（案例 13 第 14 章）",
+      "kind": "fix",
+      "routeNote": "逐腿根据足髋水平距和可达腿长求髋部高度上界，降低骨盆以避免膝盖锁直。"
+    },
+    {
+      "id": "motion-rig.d235.practice",
+      "sourceId": "d235",
+      "section": "12",
+      "caseId": "case-13",
+      "title": "关键帧根运动同步",
+      "text": "每帧L=sampleLunge(track,act)，ΔL沿朝向推进；sampleLunge只对lunge字段做同样埃尔米特插值，根位移与画面前冲严格同步。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "根位移与姿势前冲采用相同插值采样",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 12 节 d235；出处类别：源码拆解·控制器、根运动与输入手感（案例 13 第 9 章）"
+    },
+    {
+      "id": "motion-rig.d311.practice",
+      "sourceId": "d311",
+      "section": "15",
+      "caseId": "case-13",
+      "title": "缓动表",
+      "text": "lin t；io t²(3-2t)；in t²；in3 t³；out 1-(1-t)²；out3 1-(1-t)³；hold 0；evalTimeline 在相邻键间按后一键缓动(缺省 io)对 41 数线性插值。",
+      "quantities": [],
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 15 节 d311；出处类别：源码拆解·头目一（戟）姿势与招式（案例 13 第 13 章）",
+      "kind": "method",
+      "routeNote": "取后一关键帧的缓动函数映射段内进度，按结果逐分量线性插值。"
+    },
+    {
+      "id": "motion-rig.d353.practice",
+      "sourceId": "d353",
+      "section": "16",
+      "caseId": "case-13",
+      "title": "缓动表",
+      "text": "lin t；io t²(3-2t) 默认；in t²；in3 t³；out 1-(1-t)²；out3 1-(1-t)³；snap 1-(1-t)⁵；hold 0（停上一姿势到点跳变）。",
+      "quantities": [],
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 16 节 d353；出处类别：源码拆解·头目二（高跷）姿势与招式（案例 13 第 14 章）",
+      "kind": "method",
+      "routeNote": "将归一化进度映射为线性、缓入、缓出或停顿；停顿时保持上一姿势直至到键。"
+    },
+    {
+      "id": "motion-rig.d354.practice",
+      "sourceId": "d354",
+      "section": "16",
+      "caseId": "case-13",
+      "title": "重复关键姿势形成停顿",
+      "text": "同一姿势连写两次，第二键保持姿势不插值。例：0.5 秒到蓄势姿势，0.57 秒仍保持，再加速到 0.7 秒的挥动姿势。",
+      "quantities": [
+        {
+          "value": [
+            0.5,
+            0.57
+          ],
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "routeNote": "连续两键重复同一姿势并保持到第二键，再加速进入下一姿势；改键距即可调停顿。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 16 节 d354；出处类别：源码拆解·头目二（高跷）姿势与招式（案例 13 第 14 章）",
+      "kind": "method"
+    },
+    {
+      "id": "motion-rig.d419.practice",
+      "sourceId": "d419",
+      "section": "17",
+      "caseId": "case-13",
+      "title": "Archer 骨缩放方法",
+      "text": "一个骨架+逐骨缩放表造新角色：每根子骨偏移乘 3 系数再重映射顶点，颈高变 1.093 倍，不用重建模型。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "逐骨缩放偏移并重映射顶点造角色",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 17 节 d419；出处类别：源码拆解·通用敌人、普通敌人与幽影（案例 13）（案例 13 第 15 章）"
+    },
+    {
+      "id": "motion-rig.d439.practice",
+      "sourceId": "d439",
+      "section": "17",
+      "caseId": "case-13",
+      "title": "招式通用事件钩子",
+      "text": "招式表 events:[{t,name}]，行为外壳 onEvent(name) 再去发射箭/笔画/叶符/瞬移；hits:[{t0,t1,…}] 与 track 关键帧时刻对齐；动画与玩法解耦。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "事件钩子驱动玩法并与动画时刻对齐",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 17 节 d439；出处类别：源码拆解·通用敌人、普通敌人与幽影（案例 13）（案例 13 第 16 章）"
+    },
+    {
+      "id": "motion-rig.d464.practice",
+      "sourceId": "d464",
+      "section": "20",
+      "caseId": "case-13",
+      "title": "五套系统共同点",
+      "text": "一行定长浮点数=一个姿势混合=逐数线性插值；都用两骨解析IK余弦定理目标距离留余量(骑士.001-.002米/敌人.002米/头目一与龙×.9995)；换动作\"快照+平滑阶梯\"(骑士淡入.1淡出.2；头目一.22；龙.22空地.5)；姿势上叠弹簧呼吸招式数据不写这些；骨骼动画用真实秒dt，仅着色器uTime是真实时间2倍(clock.t+=dt×2，原实现源码)。",
+      "quantities": [],
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "只是原文说法",
+      "docRef": "动作与骨骼汇编 第 20 节 d464；出处类别：源码拆解·五套系统对照与方法总结",
+      "kind": "method",
+      "routeNote": "逐分量混合姿势，为双骨反解保留伸展余量，从当前姿势快照平滑过渡，最后叠加呼吸与弹簧。"
+    },
+    {
+      "id": "motion-rig.d469.practice",
+      "sourceId": "d469",
+      "section": "20",
+      "caseId": "case-13",
+      "title": "骑士规划器四个最值得抄的细节",
+      "text": "①摆动段s=off-Lc/2+Lc·smoothstep(0,1,u^lerp(1,1.35,run))跑时前慢后快甩腿；②起步选沿移动方向更靠后的脚当支撑脚按其位置反推相位第一步不换脚；③站着转身按\"位置偏差+.22×偏航偏差\"打分误差最大脚补步时长clamp(.22+误差·.25,.2,.36)/(1+.28·min(4,转速))；④两脚相位差半周期左frac(phase)右frac(phase+.5)。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "起步时从后脚的支撑位置反推相位，转身时按落点和朝向误差选脚补步，跑动时调整摆腿曲线。",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 20 节 d469；出处类别：源码拆解·五套系统对照与方法总结"
+    },
+    {
+      "id": "motion-rig.d474.practice",
+      "sourceId": "d474",
+      "section": "20",
+      "caseId": "case-13",
+      "title": "重量感总则",
+      "text": "三件事：出手前先往反方向蓄一下（预备）、出手后冲过头再收回（过冲与回弹）、打中时停一下（定帧）；五套系统四种实现，只有头目二没有自动层。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "反向蓄力过冲回弹与命中停顿造重量",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "没验证",
+      "docRef": "动作与骨骼汇编 第 20 节 d474；出处类别：推断与说明·五套系统对照与方法总结"
+    },
+    {
+      "id": "motion-rig.d477.practice",
+      "sourceId": "d477",
+      "section": "20",
+      "caseId": "case-13",
+      "title": "最省力纯代码组合（建议）",
+      "text": "头目二 49 数向量格式+原实现源码 weigh 自动重量+龙二阶差分前摇+骑士落脚规划器。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "纯代码角色动画系统的模块选型与组合取舍建议",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "没验证",
+      "docRef": "动作与骨骼汇编 第 20 节 d477；出处类别：推断与说明·五套系统对照与方法总结"
+    },
+    {
+      "id": "motion-rig.d499.practice",
+      "sourceId": "d499",
+      "section": "21",
+      "caseId": "case-02",
+      "title": "可照搬的做法清单（笔记总结）",
+      "text": "一个周期函数+不对称重映射代替关键帧（down 0.56、snap 0.3）；次级运动只做滞后采样（手 0.07 周期、尾 0.05+0.5t 秒）；沿肢体分权重不分时序；受载弯曲=每 g 三个小角度（肩 1.4°/腕 1.2°/指 1.5°，上限 3.2 g）；状态切换=参数指数追踪 lerp(当前,目标,1−exp(−4·dt))，频率另用 2.5；动作=包络×常量角；smoothstep 乘积做时间线；在物理姿态上放大不替换（肩部运行均值 damp 2，附加角封顶 20°）；颈尾先给运动学目标再加硬弹簧；头世界空间稳定；受击=给弹簧速度冲量（120 Hz 半隐式欧拉）；死亡=多频正弦叠加乱甩；翼膜鼓起放顶点着色器；翼膜透光=一项加色；姿态约定与骨架解耦；待机靠去同步；多实例降频。",
+      "quantities": [
+        {
+          "value": 1.5,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 20,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 120,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "重映射周期相位形成不对称扑翼，沿肢体延迟采样，用指数追踪切换状态，再叠加受载弯曲和颈尾随动。",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断/源码",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 21 节 d499；出处类别：推断与说明·案例 02 龙动画"
+    },
+    {
+      "id": "motion-rig.d502.practice",
+      "sourceId": "d502",
+      "section": "22",
+      "caseId": "case-01",
+      "title": "旧版 v3 部件动画",
+      "text": "部件位置是脚本逐帧直接设置、无关键帧，运动模糊不起作用，关掉。",
+      "quantities": [],
+      "kind": "fix",
+      "routeNote": "逐帧直接设位置无关键帧时关运动模糊",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "docRef": "动作与骨骼汇编 第 22 节 d502；出处类别：原文陈述·Blender 重制片的部件动画与过程片"
+    },
+    {
+      "id": "motion-rig.d508.practice",
+      "sourceId": "d508",
+      "section": "23",
+      "caseId": "case-27",
+      "title": "验证舞蹈的最小做法",
+      "text": "任一绑好骨角色做 8 s：姿势键落 12 帧格子；每键加一次过头回稳；同一套键给骨盆、胸、头、肘、腕各加 0/1/2/3/4 帧滞后；导出骨骼角度曲线看滞后。",
+      "quantities": [
+        {
+          "value": 8,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 12,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 0,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 1,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 2,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 3,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 4,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "可照做的验证步骤，数字为示意",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "没验证",
+      "docRef": "动作与骨骼汇编 第 23 节 d508；出处类别：推断与说明·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d509.practice",
+      "sourceId": "d509",
+      "section": "23",
+      "caseId": "case-27",
+      "title": "逐帧变形检查",
+      "text": "510 帧全查；发现抬手把胸口一部分拖离原形最多 139 mm，修完每帧 0.0 mm（检查定义未公开）；用毫米报数。",
+      "quantities": [
+        {
+          "value": 510,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 139,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 0,
+          "unit": "mm",
+          "rawUnit": "mm"
+        }
+      ],
+      "kind": "fix",
+      "routeNote": "逐帧全查蒙皮变形最大偏移量并修复到零的质检与修法",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "没验证",
+      "docRef": "动作与骨骼汇编 第 23 节 d509；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d510.practice",
+      "sourceId": "d510",
+      "section": "23",
+      "caseId": "ext-06",
+      "title": "十足行走/死亡造型要求",
+      "text": "十条腿都参与运动;骨骼动画/程序化 IK/混合;地形不平时调整落脚;死亡:禁用 AI,十条腿向内蜷曲,切换受控 ragdoll,身体可顺表面滑动,防不稳定物理与尸体堆积;近战前举前两对腿。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "多足贴地并用受控布娃娃处理死亡",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 23 节 d510；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d511.practice",
+      "sourceId": "d511",
+      "section": "23",
+      "caseId": "case-10",
+      "title": "以武器为中心写关键帧+IK",
+      "text": "武器动作以武器为中心写关键帧，手用反向运动学跟随，比改每根手臂骨骼关键帧少写很多数；连招末帧与下一招首帧用同一姿态；动作适配只校准四肢按静止姿态骨骼方向对齐；肘方向固定偏好(下、外、后)避免手臂穿胸(原实现源码)。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "武器关键帧驱动手部反解并共用连招端姿",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "没验证",
+      "docRef": "动作与骨骼汇编 第 23 节 d511；出处类别：源码拆解·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d515.practice",
+      "sourceId": "d515",
+      "section": "23",
+      "caseId": "case-04",
+      "title": "动画指令",
+      "text": "让 代码代理 用 某生成平台 MCP 给每个角色绑骨并从其动画库加:run、combat stance、attack、hit reaction、death、swimming、talking。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "先给每个角色绑骨，再从动作库为同一骨架配齐移动、战斗反应、游泳和交谈动作。",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 23 节 d515；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d516.practice",
+      "sourceId": "d516",
+      "section": "23",
+      "caseId": "case-04",
+      "title": "武器握持修正",
+      "text": "拳头在网格里就做成闭合,剑才「坐在手里」而不是飘在旁边;盾绑前臂;用户指出「握剑方式不对/盾悬空」后逐条修。",
+      "quantities": [],
+      "kind": "fix",
+      "routeNote": "闭拳建模握剑并把盾绑定前臂修悬空",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 23 节 d516；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d517.practice",
+      "sourceId": "d517",
+      "section": "23",
+      "caseId": "case-04",
+      "title": "战斗反馈时点",
+      "text": "伤害在命中帧显示;怪物 aggro、呼叫同伙、人形低血量逃跑、守卫参战(玩法部分仅记现象)。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "将伤害显示对齐命中帧",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 23 节 d517；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d518.practice",
+      "sourceId": "d518",
+      "section": "23",
+      "caseId": "case-02",
+      "title": "龙翼受载弯曲",
+      "text": "「机翼在倾斜滑翔时冻成硬板」→ 翼受载弯曲,翼尖每 1 g 抬升约 35 cm。",
+      "quantities": [
+        {
+          "value": 0.35,
+          "unit": "m",
+          "rawUnit": "cm"
+        }
+      ],
+      "kind": "fix",
+      "routeNote": "增加受载弯曲修复滑翔翼僵硬",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 23 节 d518；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d519.practice",
+      "sourceId": "d519",
+      "section": "23",
+      "caseId": "case-07",
+      "title": "口型由音频计算",
+      "text": "口型来自人声文件:响度决定张口,高频占比决定更宽或更圆;嘴比声音提前一帧动;每句话末嘴必闭合。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "由响度频谱驱动口型并提前动句尾闭嘴",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 23 节 d519；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d521.practice",
+      "sourceId": "d521",
+      "section": "23",
+      "caseId": "case-27",
+      "title": "案例 27 舞蹈做法",
+      "text": "不对称偶像/飞行姿势库;每个关键帧落拍、过冲再回稳;每个关节用同一组关键帧但各带自己的滞后:骨盆与腰领先→胸→头/肘/腕(这个偏移使她不像木偶);相机与身体同一乐句:追着引领的手臂倾斜、顺着旋转甩、随指向的手臂爬升;音乐150 BPM合成,每个音效按画面帧放置。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "落拍过冲关节滞后并按乐句编排机身",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "docRef": "动作与骨骼汇编 第 23 节 d521；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d525.practice",
+      "sourceId": "d525",
+      "section": "23",
+      "caseId": "case-24",
+      "title": "僵尸手绑定",
+      "text": "50块骨头其中26块形变,41个自定义控制器;自动权重后脚本逐段清理;层级:Root(全局与空翻)/Wrist_Stump 与 Bone_Core(断腕弯扭+骨头小抖动)/Palm_L·Palm_Center·Palm_R(掌拱)/五指链 Metacarpal→Proximal_01→Intermediate_02→Distal_03→Tip;控制器=不渲染的 Circle/Square/Cone 网格经 pose_bone.custom_shape,按组着色(绿/青/黄);每指IK/FK开关与卷曲滑块;Floor 约束(或指尖 Z≥0 检查)防穿地。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "手部绑定的骨链层级、控制器、权重清理与防穿地工序（判据判例）",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "我们自己渲染读回过?否——只是原文说法(含可下载 .blend,压缩包内含 原实现源码 与README,未在Blender运行)",
+      "docRef": "动作与骨骼汇编 第 23 节 d525；出处类别：源码拆解·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d530.practice",
+      "sourceId": "d530",
+      "section": "23",
+      "caseId": "case-28",
+      "title": "机械头机械绑定(非蒙皮)",
+      "text": "刚体不用平滑蒙皮;三轴颈(Neck_Base/Neck_Mid/Head_Pivot);液压杆用 Damped Track/Stretch To 或刚性活塞-缸连杆;彩色线束弹性弯曲固定于扎带;下颌铰链 Jaw_Bone 带侧连杆与后阻尼器同动;Eye_L/Eye_R 用 Track To 指向共用目标 Eye_LookAt_Target 带微扫视;对焦环 Focus_Ring_L/R、光圈开合、镜片前后微移;太阳穴大齿轮由头转与颌开通过 Driver 驱动;分层分解装配系统。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "机械部件刚体绑定并用约束驱动联动",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "docRef": "动作与骨骼汇编 第 23 节 d530；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d531.practice",
+      "sourceId": "d531",
+      "section": "23",
+      "caseId": "ext-02",
+      "title": "库外来源 02 物理与表演",
+      "text": "PHYSICS 针对新地面和新服装重写：真实重力、惯性、体重；表面如何回应每步(碎石滚动/沙陷滑/湿混凝土打滑/草压缩)，脚踝微滚修正、膝盖吸收；头发和松软布料在每次变向时滞后一拍；每只脚都有接触阴影；禁止漂浮/滑动。ACTING：眨眼、眉额活动、胸腔真实起伏、眯眼逆光，每人表情自己的不镜像，无面具脸死眼；两人以上要加“BUT THEY ARE NOT THE SAME PERSON”块：对比动作质感(落后拍点重心低有余韵 vs 抢拍点定形即停)，膝弯/躯干角/肩姿各异，剪影不同时重合。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "按地面调步态并用错拍姿态区分角色",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 23 节 d531；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d532.practice",
+      "sourceId": "d532",
+      "section": "23",
+      "caseId": "case-05",
+      "title": "装配片 零件到位动画",
+      "text": "零件按交错链到位(原片53条链)：预备→行进→过冲≤14 cm→回稳→吸附(snap)；2–3个爆炸视图；零件落位帧=吸附音效帧。",
+      "quantities": [
+        {
+          "value": 0.14,
+          "unit": "m",
+          "rawUnit": "cm"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "交错装配并预备过冲回稳对齐吸附音",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 23 节 d532；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d533.practice",
+      "sourceId": "d533",
+      "section": "23",
+      "caseId": "case-03",
+      "title": "装配爆炸视图层序",
+      "text": "中央颈柱→内金属颅骨架→太阳穴齿轮→光学眼模块→彩色线束与扎带→粉色下颌(每颗彩牙逐个级联)→外层半透明蓝聚碳酸酯颅板→银/黄铜紧固螺丝旋入;牙齿级联间隔 2–3 帧;动画曲线:仅精调 Bezier,明确 ease-in/out,零件锁定时轻微机械过冲并稳定,禁线性插值。",
+      "quantities": [
+        {
+          "value": [
+            2,
+            3
+          ],
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "按层装配并用曲线过冲稳定的操作步骤",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "动作与骨骼汇编 第 23 节 d533；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法"
+    },
+    {
+      "id": "motion-rig.d534.practice",
+      "sourceId": "d534",
+      "section": "24",
+      "caseId": "case-13",
+      "title": "试验：意图 IK vs 直接插值",
+      "text": "两段手臂（上臂 0.3、前臂 0.27），姿势只存握点+剑尖两个三维点，6 个数线性插值+两骨 IK，对比直接插值关节角看大角度挥动时哪个剑变短/手臂翻折。",
+      "quantities": [],
+      "kind": "method",
+      "routeNote": "对比试验的做法，数字为示意",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "没验证",
+      "docRef": "动作与骨骼汇编 第 24 节 d534；出处类别：推断与说明·验证试验"
+    },
+    {
+      "id": "motion-rig.d535.practice",
+      "sourceId": "d535",
+      "section": "24",
+      "caseId": "case-13",
+      "title": "试验：落脚规划器",
+      "text": "双腿角色沿圆周 0.5→4 m/s 加速，每只脚存世界落点，误差>0.2 m 才迈步，统计着地期间位移验证每帧≤0.025 m。",
+      "quantities": [
+        {
+          "value": 4,
+          "unit": "m/s",
+          "rawUnit": "m/s"
+        },
+        {
+          "value": 0.2,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.025,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "圆周变速测试落脚锁定并统计支撑脚漂移",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "没验证",
+      "docRef": "动作与骨骼汇编 第 24 节 d535；出处类别：推断与说明·验证试验"
+    },
+    {
+      "id": "motion-rig.d536.practice",
+      "sourceId": "d536",
+      "section": "24",
+      "caseId": "case-13",
+      "title": "试验：10 点 Verlet 布娃娃",
+      "text": "前倒关键帧 0.5 s，在 0.4 s 交接给布娃娃。",
+      "quantities": [
+        {
+          "value": 0.5,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.4,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "routeNote": "前倒关键帧中途交接给Verlet布娃娃的做法，仅带两个示意时间",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "没验证",
+      "docRef": "动作与骨骼汇编 第 24 节 d536；出处类别：推断与说明·验证试验（案例 13 第 9 章）"
+    }
+  ]
+}
