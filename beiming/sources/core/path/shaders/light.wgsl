@@ -465,12 +465,14 @@ fn lt_in_list(i: u32) -> bool {
 // A shadow ray's origin toward l at a surface: on the side l leaves it from (`o`: the near side's, as computed once).
 // Only a surface that lets light through has a value for the far side, so only a kernel with glass has the code
 // (in every kernel, at its five inlined sites, it cost Bistro's trace 4 %).
-fn light_origin(s: Surface, o: vec3<f32>, l: vec3<f32>) -> vec3<f32> {
-    if (has(F_GLASS) && dot(l, s.ng) < 0.0) { return offset_origin(s.p, -s.ng); }
+fn light_origin(sd: ShadingPoint, o: vec3<f32>, l: vec3<f32>) -> vec3<f32> {
+    if (has(F_GLASS) && dot(l, sd.Ng) < 0.0) { return offset_origin(sd.P, -sd.Ng); }
     return o;
 }
 
-fn local_lights(s: Surface, lb: Lobes, v: vec3<f32>, o: vec3<f32>, x: vec3<f32>, vol: bool, d: vec3<f32>, rd: u32) -> vec3<f32> {
+// 北冥：参数从 (Surface, Lobes, 视线) 换成着色点；材质求值经上游顶替专用的 surface_shader_bsdf_eval_legacy。
+// （`vol` 为真时不读着色点：雾里的散射点传一个全 0 的。）
+fn local_lights(sd: ShadingPoint, o: vec3<f32>, x: vec3<f32>, vol: bool, d: vec3<f32>, rd: u32) -> vec3<f32> {
     let nd = P.counts2.x;
     let nl = P.counts.x - nd;
     if (nl == 0u) { return vec3<f32>(0.0); }
@@ -500,17 +502,18 @@ fn local_lights(s: Surface, lb: Lobes, v: vec3<f32>, o: vec3<f32>, x: vec3<f32>,
                 let dc = li.pos.xyz - x;
                 let reach = li.color.w + select(li.dir.w, length(li.ext.xyz) + li.dir.w, u32(li.pos.w) == 3u);
                 if (li.color.w > 0.0 && dot(dc, dc) > reach * reach) { continue; }
-                if (u32(li.pos.w) != 3u && dot(dc, s.ng) < -li.dir.w && !two_sided(lb)) { continue; } // eval_bsdf rejects it anyway
+                if (u32(li.pos.w) != 3u && dot(dc, sd.Ng) < -li.dir.w && !two_sided(sd.legacy.lobes)) { continue; } // eval_bsdf rejects it anyway
                 let ls = local_light(li, x, rng2(rng_sub(rd, i)));
                 if (all(ls.c <= vec3<f32>(0.0))) { continue; }
-                let f = eval_bsdf_k(s, lb, v, ls.l, li.x.y);
+                let e = surface_shader_bsdf_eval_legacy(sd, ls.l, li.x.y);
+                let f = e.eval;
                 if (any(f > vec3<f32>(0.0))) {
-                    let vis = light_vis(li.ext.w >= 0.5, light_origin(s, o, ls.l), ls.sl, ls.dist * 0.999, rng_sub(rd ^ 0x40000000u, i));
+                    let vis = light_vis(li.ext.w >= 0.5, light_origin(sd, o, ls.l), ls.sl, ls.dist * 0.999, rng_sub(rd ^ 0x40000000u, i));
                     if (any(vis > vec3<f32>(0.0))) {
                         var c = ls.c;
-                        if (ls.pdf > 0.0) { c *= light_mis(ls.pdf, s, lb, v, ls.l); }
+                        if (ls.pdf > 0.0) { c *= light_mis(ls.pdf, sd, ls.l); }
                         sum += c * f * tr3(vis);
-                        dl_spec += c * f * tr3(vis) * split_frac;
+                        dl_spec += c * f * tr3(vis) * e.spec_frac;
                     }
                 }
             }
@@ -549,7 +552,7 @@ fn local_lights(s: Surface, lb: Lobes, v: vec3<f32>, o: vec3<f32>, x: vec3<f32>,
         }
         let ls = local_light(light_at(idx), x, r4.yz);
         var ph = luminance(ls.c);
-        if (vol) { ph *= light_at(idx).x.x; } else if (two_sided(lb)) { ph *= abs(dot(s.n, ls.l)); } else { ph *= max(dot(s.n, ls.l), 0.0) + 0.05 * max(dot(s.ng, ls.l), 0.0); }
+        if (vol) { ph *= light_at(idx).x.x; } else if (two_sided(sd.legacy.lobes)) { ph *= abs(dot(sd.legacy.surface.n, ls.l)); } else { ph *= max(dot(sd.legacy.surface.n, ls.l), 0.0) + 0.05 * max(dot(sd.Ng, ls.l), 0.0); }
         if (ph <= 0.0) { continue; }
         if (nt > 0u && k < m_cand && lt_in_list(idx)) { continue; }
         let w = ph * stands;
@@ -562,15 +565,21 @@ fn local_lights(s: Surface, lb: Lobes, v: vec3<f32>, o: vec3<f32>, x: vec3<f32>,
     }
     if (pick_ph > 0.0) {
         var c: vec3<f32>;
+        // 北冥：选中的那盏灯上这次求值的高光份额
+        var frac = vec3<f32>(0.0);
         let lk = light_at(pick).x;
-        if (vol) { c = pick_ls.c * hg_phase(P.vol.y, dot(pick_ls.l, d)) * lk.x; } else { c = pick_ls.c * eval_bsdf_k(s, lb, v, pick_ls.l, lk.y); }
+        if (vol) { c = pick_ls.c * hg_phase(P.vol.y, dot(pick_ls.l, d)) * lk.x; } else {
+            let e = surface_shader_bsdf_eval_legacy(sd, pick_ls.l, lk.y);
+            c = pick_ls.c * e.eval;
+            frac = e.spec_frac;
+        }
         if (any(c > vec3<f32>(0.0))) {
-            let vis = light_vis(light_at(pick).ext.w >= 0.5, light_origin(s, o, pick_ls.l), pick_ls.sl, pick_ls.dist * 0.999, rng_sub(rd, 0xffffffffu));
-            if (!vol && pick_ls.pdf > 0.0) { c *= light_mis(pick_ls.pdf, s, lb, v, pick_ls.l); }
+            let vis = light_vis(light_at(pick).ext.w >= 0.5, light_origin(sd, o, pick_ls.l), pick_ls.sl, pick_ls.dist * 0.999, rng_sub(rd, 0xffffffffu));
+            if (!vol && pick_ls.pdf > 0.0) { c *= light_mis(pick_ls.pdf, sd, pick_ls.l); }
             if (any(vis > vec3<f32>(0.0))) {
                 let r = c * tr3(vis) * (wsum * f32(count) / (f32(m_cand) * pick_ph));
                 sum += r;
-                if (!vol) { dl_spec += r * split_frac; }
+                if (!vol) { dl_spec += r * frac; }
                 // The light tiles' report: the light the camera hit's ray found.
                 if (has(F_LISTS) && !vol && cur_depth == 0u) { lt_fb = pick; }
             }
@@ -610,7 +619,8 @@ fn emitter_radiance(em: EmitterTri, b1: f32, b2: f32, l: vec3<f32>) -> vec3<f32>
 // same with or without light LOD. With light LOD every surface vertex samples this way (deeper ones with 2
 // candidates): a single draw from the LOD'd CDF would make far emitters rare and heavy, which the radiance cache's
 // clamps cut.
-fn sample_emitter_ris(x: vec3<f32>, n: vec3<f32>, m: u32, sf: Surface, lb: Lobes, v: vec3<f32>, rd: u32) -> ES {
+// 北冥：参数从 (Surface, Lobes, 视线) 换成着色点；材质求值经上游顶替专用的 surface_shader_bsdf_eval_legacy。
+fn sample_emitter_ris(x: vec3<f32>, n: vec3<f32>, m: u32, sd: ShadingPoint, rd: u32) -> ES {
     var r = ES(vec3<f32>(0.0), vec3<f32>(0.0, 1.0, 0.0), 0.0, 0.0, 0.0);
     var wsum = 0.0;
     var pick_b = vec2<f32>(0.0);
@@ -635,7 +645,7 @@ fn sample_emitter_ris(x: vec3<f32>, n: vec3<f32>, m: u32, sf: Surface, lb: Lobes
         let d2 = max(dot(dl, dl), 1e-8);
         let l = dl * inverseSqrt(d2);
         var g = abs(dot(ln, l)) * select(max(dot(n, l), 0.0), 1.0, dot(n, n) == 0.0) / d2;
-        if (m > 1u) { g = abs(dot(ln, l)) * luminance(eval_bsdf(sf, lb, v, l)) / d2; }
+        if (m > 1u) { g = abs(dot(ln, l)) * luminance(surface_shader_bsdf_eval_legacy(sd, l, 1.0).eval) / d2; }
         // target (emitted luminance x G) over source pdf (luminance x light LOD / total, per area) = total x G / LOD;
         // with the tree the source pdf is its selection probability / area (weight / area = luminance x power)
         let lk = emitter_lod(em);
@@ -720,9 +730,10 @@ fn hg_phase(g: f32, c: f32) -> f32 {
 
 // gpu.rs `KernelSwitches::last_sun`: the directional lights alone, as `direct_light` takes them (one shadow ray a
 // light), for the path's last vertex.
-@if(last_sun && !last_direct) fn sun_light(s: Surface, lb: Lobes, v: vec3<f32>) -> vec3<f32> {
+// 北冥：参数从 (Surface, Lobes, 视线) 换成着色点；材质求值经上游顶替专用的 surface_shader_bsdf_eval_legacy。
+@if(last_sun && !last_direct) fn sun_light(sd: ShadingPoint) -> vec3<f32> {
     var sum = vec3<f32>(0.0);
-    let o = offset_origin(s.p, s.ng);
+    let o = offset_origin(sd.P, sd.Ng);
     for (var i = 0u; i < P.counts2.x; i++) {
         let li = light_at(i);
         if (all(li.color.rgb <= vec3<f32>(0.0))) { continue; }
@@ -733,12 +744,12 @@ fn hg_phase(g: f32, c: f32) -> f32 {
         let sin_t = sqrt(max(0.0, 1.0 - cos_t * cos_t));
         let phi = 2.0 * PI * u.y;
         let l = basis(to_light) * vec3<f32>(sin_t * cos(phi), sin_t * sin(phi), cos_t);
-        let f = eval_bsdf_k(s, lb, v, l, li.x.y);
+        let f = surface_shader_bsdf_eval_legacy(sd, l, li.x.y).eval;
         if (any(f > vec3<f32>(0.0))) {
-            let vis = light_vis(li.ext.w >= 0.5, light_origin(s, o, l), l, INF, rng_sub(rng_dim(D_SUN_VIS), i));
+            let vis = light_vis(li.ext.w >= 0.5, light_origin(sd, o, l), l, INF, rng_sub(rng_dim(D_SUN_VIS), i));
             if (any(vis > vec3<f32>(0.0))) {
                 let pdf_l = 1.0 / (2.0 * PI * (1.0 - cos_max));
-                sum += li.color.rgb * f * light_mis(pdf_l, s, lb, v, l) * tr3(vis);
+                sum += li.color.rgb * f * light_mis(pdf_l, sd, l) * tr3(vis);
             }
         }
     }
@@ -749,23 +760,25 @@ fn hg_phase(g: f32, c: f32) -> f32 {
 fn env_sampled() -> bool { return P.counts2.y != 0u && (P.env.x > 0.5 || luminance(P.sky_color.rgb) > 0.0); }
 
 // The sky's light sample at a surface (`o`: its shadow rays' origin): one direction by the map, MIS against the BSDF.
-fn env_light(s: Surface, lb: Lobes, v: vec3<f32>, o: vec3<f32>) -> vec3<f32> {
+// 北冥：参数从 (Surface, Lobes, 视线) 换成着色点；材质求值经上游顶替专用的 surface_shader_bsdf_eval_legacy。
+fn env_light(sd: ShadingPoint, o: vec3<f32>) -> vec3<f32> {
     let l = sample_env(rng_dim(D_ENV));
-    let f = eval_bsdf(s, lb, v, l);
+    let f = surface_shader_bsdf_eval_legacy(sd, l, 1.0).eval;
     if (any(f > vec3<f32>(0.0))) {
         let pdf_e = env_pdf(l);
         if (pdf_e > 0.0) {
-            let vis = sky_tr(light_origin(s, o, l), l, rng_dim(D_ENV_VIS));
-            if (any(vis > vec3<f32>(0.0))) { return env_radiance(l) * f * light_mis(pdf_e, s, lb, v, l) / pdf_e * tr3(vis); }
+            let vis = sky_tr(light_origin(sd, o, l), l, rng_dim(D_ENV_VIS));
+            if (any(vis > vec3<f32>(0.0))) { return env_radiance(l) * f * light_mis(pdf_e, sd, l) / pdf_e * tr3(vis); }
         }
     }
     return vec3<f32>(0.0);
 }
 
-fn direct_light(s: Surface, lb: Lobes, v: vec3<f32>) -> vec3<f32> {
+// 北冥：参数从 (Surface, Lobes, 视线) 换成着色点；材质求值经上游顶替专用的 surface_shader_bsdf_eval_legacy。
+fn direct_light(sd: ShadingPoint) -> vec3<f32> {
     var sum = vec3<f32>(0.0);
     dl_spec = vec3<f32>(0.0);
-    let o = offset_origin(s.p, s.ng);
+    let o = offset_origin(sd.P, sd.Ng);
     // Directional lights: uniformly sampled cone (soft shadows), MIS against BSDF sampling.
     for (var i = 0u; i < P.counts2.x; i++) {
         let li = light_at(i);
@@ -779,13 +792,14 @@ fn direct_light(s: Surface, lb: Lobes, v: vec3<f32>) -> vec3<f32> {
         let l = tb * vec3<f32>(sin_t * cos(phi), sin_t * sin(phi), cos_t);
         // A light gone black (a moon that has set, the sun at night) costs neither its BSDF nor its shadow ray.
         if (all(li.color.rgb <= vec3<f32>(0.0))) { continue; }
-        let f = eval_bsdf_k(s, lb, v, l, li.x.y);
+        let e = surface_shader_bsdf_eval_legacy(sd, l, li.x.y);
+        let f = e.eval;
         if (any(f > vec3<f32>(0.0))) {
-            let vis = light_vis(li.ext.w >= 0.5, light_origin(s, o, l), l, INF, rng_sub(rng_dim(D_SUN_VIS), i));
+            let vis = light_vis(li.ext.w >= 0.5, light_origin(sd, o, l), l, INF, rng_sub(rng_dim(D_SUN_VIS), i));
             if (any(vis > vec3<f32>(0.0))) {
                 let pdf_l = 1.0 / (2.0 * PI * (1.0 - cos_max));
-                let frac = split_frac;
-                let wgt = light_mis(pdf_l, s, lb, v, l);
+                let frac = e.spec_frac;
+                let wgt = light_mis(pdf_l, sd, l);
                 sum += li.color.rgb * f * wgt * tr3(vis);
                 dl_spec += li.color.rgb * f * wgt * tr3(vis) * frac;
             }
@@ -816,13 +830,13 @@ fn direct_light(s: Surface, lb: Lobes, v: vec3<f32>) -> vec3<f32> {
     }
     @if(light_pick) let sum_sun = sum;
     @if(light_pick) let spec_sun = dl_spec;
-    @if(!light_pick) sum += local_lights(s, lb, v, o, s.p, false, vec3<f32>(0.0), rng_dim(D_LOCAL));
-    @if(light_pick) if (take_local) { sum += local_lights(s, lb, v, o, s.p, false, vec3<f32>(0.0), rng_dim(D_LOCAL)); }
+    @if(!light_pick) sum += local_lights(sd, o, sd.P, false, vec3<f32>(0.0), rng_dim(D_LOCAL));
+    @if(light_pick) if (take_local) { sum += local_lights(sd, o, sd.P, false, vec3<f32>(0.0), rng_dim(D_LOCAL)); }
     // Emissive triangles (incl. rect lights)
     // (Rough glass takes emitters from both sides: as a point without a hemisphere does, the samples and `emit_mis`
     // alike. The tree's bound has no two-sided cosine; without one the estimate is the same, its noise a little more.)
-    var ne = s.n;
-    if (two_sided(lb)) { ne = vec3<f32>(0.0); }
+    var ne = sd.legacy.surface.n;
+    if (two_sided(sd.legacy.lobes)) { ne = vec3<f32>(0.0); }
     mis_x = o;
     mis_n = ne;
     var emitters = P.counts.y;
@@ -830,14 +844,15 @@ fn direct_light(s: Surface, lb: Lobes, v: vec3<f32>) -> vec3<f32> {
     if (emitters > 0u) {
         var es: ES;
         // With the light tree its candidates are already near the point: P.ltree.y of them at camera hits, one elsewhere.
-        if (lt_on()) { es = sample_emitter_ris(o, ne, select(1u, u32(P.ltree.w), cur_depth == 0u), s, lb, v, rng_dim(D_EMIT)); } else if (seen_directly()) { es = sample_emitter_ris(o, ne, select(EMIT_RIS_M / 2u, EMIT_RIS_M, cur_depth == 0u), s, lb, v, rng_dim(D_EMIT)); } else if (P.light_lod.w > 0.0) { es = sample_emitter_ris(o, ne, 2u, s, lb, v, rng_dim(D_EMIT)); } else { es = sample_emitter(o, ne, rng_dim(D_EMIT)); }
+        if (lt_on()) { es = sample_emitter_ris(o, ne, select(1u, u32(P.ltree.w), cur_depth == 0u), sd, rng_dim(D_EMIT)); } else if (seen_directly()) { es = sample_emitter_ris(o, ne, select(EMIT_RIS_M / 2u, EMIT_RIS_M, cur_depth == 0u), sd, rng_dim(D_EMIT)); } else if (P.light_lod.w > 0.0) { es = sample_emitter_ris(o, ne, 2u, sd, rng_dim(D_EMIT)); } else { es = sample_emitter(o, ne, rng_dim(D_EMIT)); }
         if (es.pdf_w > 0.0) {
-            let f = eval_bsdf(s, lb, v, es.l);
+            let e = surface_shader_bsdf_eval_legacy(sd, es.l, 1.0);
+            let f = e.eval;
             if (any(f > vec3<f32>(0.0))) {
-                let vis = emitter_tr(light_origin(s, o, es.l), es.l, es.dist * 0.999, rng_dim(D_EMIT_VIS));
+                let vis = emitter_tr(light_origin(sd, o, es.l), es.l, es.dist * 0.999, rng_dim(D_EMIT_VIS));
                 if (vis > 0.0) {
-                    let frac = split_frac;
-                    let wgt = light_mis(es.pdf_w, s, lb, v, es.l) * tr1(vis);
+                    let frac = e.spec_frac;
+                    let wgt = light_mis(es.pdf_w, sd, es.l) * tr1(vis);
                     sum += es.le * f * wgt * es.w;
                     dl_spec += es.le * f * wgt * es.w * frac;
                 }
@@ -849,7 +864,7 @@ fn direct_light(s: Surface, lb: Lobes, v: vec3<f32>) -> vec3<f32> {
     @if(light_pick) env_on = take_env && has_env && !lights_only;
     if (env_on) {
         // (`split_frac` is the sky sample's where its BSDF was not 0; where it was, e is 0.)
-        let e = env_light(s, lb, v, o);
+        let e = env_light(sd, o);
         sum += e;
         dl_spec += e * split_frac;
     }

@@ -1,5 +1,189 @@
 // 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/shaders/pathtrace.wgsl（北冥按阶段分出的一段：材质求值），MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
 // ------------------------------------------------------------------------------------------------
+// 北冥：着色点、闭包、材质输入值，以及材质求值的三步。闭包的求值、采样在 closure.wgsl。
+//
+// 这几个结构只活在一次调用里，不进缓冲。规矩：
+//   - 不许位置式构造（`Closure(a, b, …)`）：先取零值（`Closure()`）再按名字赋值，这样以后加字段不会破坏别处。
+//   - 函数实参不许是指向结构成员或数组元素的指针（`&sd.closure[i]`、`&sd.N`）：有的显卡后端建管线时会崩。
+//     要改某个闭包就传下标，或传整个变量的指针（`ptr<function, ShadingPoint>`）。
+//   - 加新函数、给返回结构加字段不算破坏；改已有函数的参数表算破坏。
+//   - 照 Cycles 逐函数移植、要进函数级比对的函数（../../shaders/ 下的那些）签名只收标量与向量，不收这里的结构。
+//     收结构的只有这里与 closure.wgsl 的分发函数：它们取出字段，再调标量签名的函数。
+// 「上游顶替」：还没照 Cycles 移植的材质由上游原来的代码顶着，圈在名字带 legacy 的字段与函数里，移植完一块删一块。
+// 现在所有材质（金属也在内）都是上游顶替。新写的代码不许读 legacy，也不许调名字带 legacy 的函数；
+// 眼下读着 legacy 的地方都列在 closure.wgsl「上游顶替」一节的例外清单里。
+// 字段的状态：「已落地」有写有读；「已写未读」现在就写、还没人读；「已定义」含义定了、等后面的移植来写。
+
+// 一个着色点上同时存在的闭包个数上限。只在这里定义。
+const MAX_CLOSURE: u32 = 4u;
+
+// 闭包种类。名字照 Cycles，数值是这里自己的：往后追加，已有的数值不改。
+const CLOSURE_NONE: u32 = 0u;
+const CLOSURE_LEGACY: u32 = 1u;                // 上游顶替：求值与采样转给上游的 eval_bsdf_k、pdf_bsdf、sample_bsdf
+const CLOSURE_BSDF_MICROFACET_GGX: u32 = 2u;   // 已定义
+const CLOSURE_BSDF_DIFFUSE: u32 = 3u;          // 已定义
+const CLOSURE_BSDF_TRANSPARENT: u32 = 4u;      // 已定义
+
+// 菲涅耳种类，数值照 Cycles 的 MicrofacetFresnel。已定义。
+// （CONDUCTOR 要一个复数折射率，Closure 里还没有放它的字段：种类号先占着，用到时加两个字段。）
+const FRESNEL_NONE: u32 = 0u;
+const FRESNEL_DIELECTRIC: u32 = 1u;
+const FRESNEL_DIELECTRIC_TINT: u32 = 2u;
+const FRESNEL_CONDUCTOR: u32 = 3u;
+const FRESNEL_GENERALIZED_SCHLICK: u32 = 4u;
+const FRESNEL_F82_TINT: u32 = 5u;
+
+// 着色点标志（ShadingPoint.flag），位照 Cycles 的 ShaderDataFlag
+const SD_BACKFACING: u32 = 1u;                 // 打在背面
+
+// 闭包：一个结构装所有种类。微表面的菲涅耳参数在 Cycles 里另放在四个结构里，这里摊平放进来。
+// 除 kind、weight、sample_weight、N 之外的字段都是「已定义」，由移植闭包的人填。
+struct Closure {
+    kind: u32,                      // 闭包种类（CLOSURE_*）。Cycles 里叫 type，那是这门着色器语言的保留字
+    weight: vec3<f32>,              // 彩色权重
+    sample_weight: f32,             // 在多个闭包之间选哪个去采样的权重
+    N: vec3<f32>,                   // 这个闭包用的法线
+    alpha_x: f32,                   // 微表面两个方向的粗糙度（各向同性时相等）
+    alpha_y: f32,
+    ior: f32,                       // 折射率
+    energy_scale: f32,              // 能量补偿的标量倍率。必须与 weight 分开存，合进去会把颜色通道弄乱
+    fresnel_type: u32,              // 菲涅耳种类（FRESNEL_*）
+    f0: vec3<f32>,                  // F82 型：F0；广义 Schlick 型：F0
+    f90_or_b: vec3<f32>,            // F82 型：预先算好的 b；广义 Schlick 型：F90
+    exponent: f32,                  // 广义 Schlick 的指数；负数表示「按折射率算真菲涅耳再重映射」
+    reflection_tint: vec3<f32>,     // 反射的染色。广义 Schlick 里 Cycles 把真正的染色乘进了 F0，这里只取 1 或 0，
+    transmission_tint: vec3<f32>,   // 实际是「要不要反射焦散」的开关：照搬它的用法，别当颜色用。透射的染色
+};
+
+// 上游顶替读的东西：上游的 Surface（贴图与材质函数算完之后的材质值）与 Lobes（依赖视线的分层权重）。
+// 字段按「搜不到读者就删」处理：最后删掉读者的那次移植顺手删字段。
+struct ShadingLegacy { surface: Surface, lobes: Lobes };
+
+// 着色点：一次命中上的几何量与闭包。照 Cycles 的 ShaderData 取子集。
+struct ShadingPoint {
+    P: vec3<f32>,                   // 位置（世界空间）。已落地
+    N: vec3<f32>,                   // 插值后的平滑法线，打在背面时与 Ng 一起翻向来路；不含法线贴图、不含倒角。已写未读
+                                    // （扰动后的法线在 ShaderInputs.N 与各闭包的 N 里；上游顶替用它自己的 legacy.surface.n）
+    Ng: vec3<f32>,                  // 几何法线，翻向来路。已落地
+    wi: vec3<f32>,                  // 指向来路的方向。已落地
+    object: u32,                    // 物体表的下标（上游的 object_of），软件、硬件两条求交路上都有；不是实例记录号。已写未读
+    prim: u32,                      // 全局三角下标；过程几何的命中是上游的命中码（最高位是 1）。已写未读
+    u: f32,                         // 重心坐标；过程几何的命中里是上游编码过的法线与属性。已写未读
+    v: f32,
+    ray_length: f32,                // 这一段光线走了多远。已写未读
+    flag: u32,                      // 着色点标志（SD_*）。SD_BACKFACING 已落地
+    object_flag: u32,               // 物体标志，位照 Cycles（第 3 位：物体是镜像的）。已定义
+    time: f32,                      // 这条光线的时刻。已定义，恒 0
+    lcg_state: u32,                 // 局部求交随机取子集用的小随机数状态。已定义
+    emission: vec3<f32>,            // 这个点的自发光，单独一个量，不占闭包。已落地
+    num_closure: u32,               // 闭包个数。0：只发光、不散射，路径到这里结束。已落地
+    closure: array<Closure, MAX_CLOSURE>,
+    legacy: ShadingLegacy,          // 上游顶替。闭包移植完后删
+};
+
+// 材质输入值：贴图、材质函数、图案节点都算完之后，一个着色点上的材质参数。
+// 取值范围照 Cycles 读出节点输入之后的夹取（粗糙度不带上游的 0.02 下限）。
+// 现在读它的只有 N 与 emission；其余是「已写未读」，等移植闭包的人读。
+struct ShaderInputs {
+    base_color: vec3<f32>,          // 底色，不小于 0
+    metallic: f32,                  // 金属度，0 到 1
+    roughness: f32,                 // 粗糙度，0 到 1（alpha = 粗糙度的平方）
+    ior: f32,                       // 折射率，不小于 1e-5
+    specular_ior_level: f32,        // 高光等级，不小于 0，默认 0.5。材质记录里还没有这一格，现在恒为 0.5
+    specular_tint: vec3<f32>,       // 金属：F82 的边缘色；非金属：乘在 F0 上的颜色。不小于 0。材质记录里还没有，现在恒为白
+    emission: vec3<f32>,            // 这个点的自发光辐亮度（已乘物体的功率倍数）
+    alpha: f32,                     // 不透明度，0 到 1。现在只是材质记录里的值：贴图的透明度与镂空在求交那一档里判
+    diffuse_roughness: f32,         // 漫反射粗糙度，0 到 1，0 是朗伯。材质记录里还没有，现在恒为 0
+    N: vec3<f32>,                   // 闭包用的法线：含法线贴图、材质函数（以后还有倒角）
+};
+
+// 第一步：填着色点的几何量。不读材质。`sd` 要是刚取的零值（`var sd = ShadingPoint();`）。
+// 往指针里填、不按值返回：试过返回整个着色点，苹果显卡上编译出来的运算次序会变，像素末位不同。
+// 背面的判法沿用上游：几何法线与光线方向的点积不小于 0 就算背面（恰好垂直时 Cycles 算正面，这里算背面）。
+fn shader_setup_from_hit(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32>, h: Hit) {
+    (*sd).P = o + d * h.t;
+    (*sd).wi = -d;
+    (*sd).prim = h.tri;
+    (*sd).u = h.u;
+    (*sd).v = h.v;
+    (*sd).ray_length = h.t;
+    var ng: vec3<f32>;
+    var n: vec3<f32>;
+    if (is_proc(h)) {
+        // 过程几何：几何法线就是着色法线
+        ng = proc_normal(h);
+        n = ng;
+        (*sd).object = instance_at(h.inst).info.y;
+    } else {
+        let i = h.tri;
+        var e1 = tri_verts[i * 3u + 1u].xyz;
+        var e2 = tri_verts[i * 3u + 2u].xyz;
+        var a = attrs[i];
+        if (has(F_INST) && h.inst != NO_INST) {
+            let r = instance_at(h.inst);
+            e1 = inst_vec(r, e1);
+            e2 = inst_vec(r, e2);
+            a = inst_attr(r, a);
+        }
+        let w = 1.0 - h.u - h.v;
+        ng = normalize(cross(e1, e2));
+        n = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
+        (*sd).object = object_of(a);
+    }
+    if (!(dot(ng, d) < 0.0)) {
+        (*sd).flag |= SD_BACKFACING;
+        ng = -ng;
+        n = -n;
+    }
+    (*sd).Ng = ng;
+    (*sd).N = n;
+}
+
+// 第二步：解出这个着色点上的材质输入值。新写的代码里只有这个函数读材质记录（Material）与贴图。
+// 现在装的是上游的贴图与材质函数逻辑（下面的 surface、surface_proc），它顺带把上游的 Surface 留在 legacy 里给
+// 上游顶替用；上游这一段自己再算一遍几何量，读数不变，随 Surface 一起删。
+// 图案节点接在这里；以后的节点图编译器整段替换它。`width`：光线锥在命中处的宽度（米），贴图取级用。
+fn shader_eval_inputs(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> ShaderInputs {
+    let r = surface(o, d, h, width);
+    (*sd).legacy.surface = r.surface;
+    return r.inputs;
+}
+
+// 第三步：按材质输入值填闭包与自发光。只读 ShaderInputs，不读材质记录。归移植闭包的人。
+// 现在每个材质都是一个上游顶替的闭包；它另要的上游 Lobes 在 surface_shader_prepare_closures 里算（closure.wgsl）。
+// 发光卡片（上游的 card：只发光、不散射）没有闭包。
+fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) {
+    (*sd).emission = inputs.emission;
+    (*sd).num_closure = 0u;
+    if ((*sd).legacy.surface.card) { return; }
+    var c = Closure();
+    c.kind = CLOSURE_LEGACY;
+    c.weight = vec3<f32>(1.0);
+    c.sample_weight = 1.0;
+    c.N = inputs.N;
+    (*sd).closure[0] = c;
+    (*sd).num_closure = 1u;
+}
+
+// 只算透明度的一档求值：命中点放过多少光（每个通道 0 到 1；0 是挡住）。不许发任何光线，不许调图案节点。
+// 求交函数和阴影透射里只许调这一档，不许调上面的全量求值：这门着色器语言不许调用图里有环，而全量求值以后会回头
+// 发光线（倒角、遮蔽）。`t`：命中点到光线起点的距离（贴图取级用）。
+// 现在转给上游的两处做法：镂空测试（alpha_pass）与阴影穿玻璃（intersect.wgsl 的 glass_hit）。这两处直接读材质记录，
+// 是已知的例外；上游的求交与阴影射线仍直接调它们，没有改道到这里。归移植闭包的人（透明闭包）填。还没有调用者。
+fn shader_eval_shadow(h: Hit, d: vec3<f32>, t: f32) -> vec3<f32> {
+    if (is_proc(h)) { return vec3<f32>(0.0); }
+    if (!alpha_pass(h.tri, h.inst, h.u, h.v, t)) { return vec3<f32>(1.0); }
+    let g = glass_hit(h, d, t);
+    return g.share * g.tint;
+}
+
+// 灯采样点上的发光：发光三角 `em` 上重心坐标 (b1, b2) 的一点朝 -l 发出的辐亮度。
+// 现在转给上游的 emitter_radiance（light.wgsl）；上游的灯光函数仍直接调它。归做灯的人填。还没有调用者。
+fn shader_eval_emission(em: EmitterTri, b1: f32, b2: f32, l: vec3<f32>) -> vec3<f32> {
+    return emitter_radiance(em, b1, b2, l);
+}
+
+// ------------------------------------------------------------------------------------------------
 // Surface
 
 struct Surface {
@@ -198,8 +382,28 @@ fn emission(m: Material, uv: vec2<f32>, lod: f32) -> vec3<f32> {
     return em;
 }
 
+// 北冥：上游的 surface、surface_proc 算完之后的两样东西：上游自己的 Surface（上游顶替用），与材质输入值。
+struct SurfaceEval { surface: Surface, inputs: ShaderInputs };
+
+// 北冥：从上游算完贴图与材质函数之后的量取出材质输入值，夹取照 Cycles。`rough`、`metal` 是上游夹取之前的值。
+fn legacy_shader_inputs(m: Material, emissive: vec3<f32>, base: vec3<f32>, rough: f32, metal: f32, n: vec3<f32>) -> ShaderInputs {
+    var inp = ShaderInputs();
+    inp.base_color = max(base, vec3<f32>(0.0));
+    inp.metallic = clamp(metal, 0.0, 1.0);
+    inp.roughness = clamp(rough, 0.0, 1.0);
+    inp.ior = max(m.layer.y, 1e-5);
+    inp.specular_ior_level = 0.5;
+    inp.specular_tint = vec3<f32>(1.0);
+    inp.emission = emissive;
+    inp.alpha = clamp(m.base_color.a, 0.0, 1.0);
+    inp.diffuse_roughness = 0.0;
+    inp.N = n;
+    return inp;
+}
+
 // `width` = ray-cone footprint (m) at the hit, for texture LOD.
-fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> Surface {
+// 北冥：返回值从 Surface 换成 SurfaceEval（多带一份材质输入值），别的没动。只由 shader_eval_inputs 调。
+fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     if (is_proc(h)) { return surface_proc(o, d, h, width); }
     let i = h.tri;
     var e1 = tri_verts[i * 3u + 1u].xyz;
@@ -296,13 +500,16 @@ fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> Surface {
         s.coat = clamp(m.layer.z, 0.0, 1.0);
         s.coat_rough = clamp(m.layer.w, 0.02, 1.0);
     }
-    return s;
+    var se = SurfaceEval();
+    se.surface = s;
+    se.inputs = legacy_shader_inputs(m, s.emissive, base, rough, metal, n);
+    return se;
 }
 
 // A procedural hit's surface: the material its geometry function picked, the normal it gave (geometric and shading,
 // two-sided), the object's power and customData. No textures (no uv: material functions get uv 0 and can work from
 // `i.wp`), no transmission.
-fn surface_proc(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> Surface {
+fn surface_proc(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     let r = instance_at(h.inst);
     let hd = r.info.x;
     let mi = pword(pword(hd + 7u) + min((h.tri >> 23u) & 0xffu, pword(hd + 3u) - 1u));
@@ -351,5 +558,8 @@ fn surface_proc(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> Surface {
         s.coat = clamp(m.layer.z, 0.0, 1.0);
         s.coat_rough = clamp(m.layer.w, 0.02, 1.0);
     }
-    return s;
+    var se = SurfaceEval();
+    se.surface = s;
+    se.inputs = legacy_shader_inputs(m, s.emissive, base, rough, metal, n);
+    return se;
 }

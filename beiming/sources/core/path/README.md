@@ -47,5 +47,6 @@ node beiming/sources/core/chassis/regress.mjs --check    # 与基线比：0 全�
 ## 改之前
 
 - 每个文件第一行的来源注释保留。
+- 要求渲染结果不变的改动，改一小步就跑一次上面的 `regress.mjs --check`。显卡的着色器编译器会按上下文合并或重排浮点运算：把一段语句抽成函数、把两个量合到一个函数里算、按值返回一个大结构、把一个除法挪到调用方去做，都可能让像素末位变化，而且两块显卡各有各的敏感处，两台都要跑。已经踩到的几处写在 [PROVENANCE.md](PROVENANCE.md)「北冥加了什么」里。
 - 环境变量与场景运行时接口暂时沿用上游的名字，原因见 [PROVENANCE.md](PROVENANCE.md)。
 - 从上游挑新改动进来时，在 [PROVENANCE.md](PROVENANCE.md) 末节登记。

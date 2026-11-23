@@ -215,24 +215,31 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             break;
         }
         let width = cone_w + cone_a * hit.t;
-        let s = surface(o, d, hit, width);
+        // 北冥：材质求值分三步（shader.wgsl）：几何量、材质输入值、闭包。主循环碰材质只经 shader.wgsl 的这三步与
+        // closure.wgsl 的 surface_shader_* 一组函数；读 legacy 的几处是登记过的例外（closure.wgsl「上游顶替」一节）。
+        var sd = ShadingPoint();
+        shader_setup_from_hit(&sd, o, d, hit);
+        let inputs = shader_eval_inputs(&sd, o, d, hit, width);
+        shader_setup_closures(&sd, inputs);
         if (depth == 0u) {
             first_t = hit.t;
-            if (has(F_LISTS)) { lt_list_start(s.p + mv.xyz); }
-            albedo = select(s.base, s.emissive / max(max(s.emissive.r, max(s.emissive.g, s.emissive.b)), 1e-6), s.card);
-            normal = s.n;
-            anim = s.anim;
-            rough0 = s.roughness;
+            if (has(F_LISTS)) { lt_list_start(sd.P + mv.xyz); }
+            // （降噪用的反照率与法线，上游的口径：只发光的面取发光色，别的取闭包的反照率；法线取闭包用的法线。）
+            albedo = select(bsdf_albedo(sd, 0u), sd.emission / max(max(sd.emission.r, max(sd.emission.g, sd.emission.b)), 1e-6), sd.num_closure == 0u);
+            normal = inputs.N;
+            anim = sd.legacy.surface.anim;
+            rough0 = sd.legacy.surface.roughness;
         }
         if (depth == 1u && spec_lobe) { spec_t = hit.t; }
         // Emission (one-sided for rect light cards)
-        if (any(s.emissive > vec3<f32>(0.0)) && (s.front || !s.card)) {
+        let le = surface_shader_emission(sd);
+        if (any(le > vec3<f32>(0.0))) {
             var wgt = 1.0;
             // Behind glass an emitter counts in full: shadow rays toward emitters stop at glass (emitter_tr).
             if (depth > 0u && !specular_bounce && !behind_glass) {
                 wgt = emit_mis(hit, d, last_pdf);
             }
-            var c = thr * s.emissive * wgt;
+            var c = thr * le * wgt;
             if (depth > 1u && !straight) {
                 let lum = luminance(c);
                 if (lum > clamp_v) { c *= clamp_v / lum; }
@@ -240,12 +247,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             if (depth == 0u) { e0 += c; }
             radiance += c;
         }
-        if (s.card) { break; }
+        // （没有闭包的面只发光、不散射：上游的发光卡片。）
+        if (sd.num_closure == 0u) { break; }
         @if(!last_direct && !last_sun) if (depth == P.counts.z) { break; }
         @if(last_sun && !last_direct) if (depth == P.counts.z) {
             // gpu.rs `KernelSwitches::last_sun`: the last vertex's light from the directional lights alone.
             if (depth > 0u) {
-                var dz = thr * sun_light(s, lobes(s, max(dot(s.n, -d), 1e-4)), -d);
+                surface_shader_prepare_closures(&sd);
+                var dz = thr * sun_light(sd);
                 let lum = luminance(dz);
                 if (lum > clamp_v && !straight) { dz *= clamp_v / lum; }
                 radiance += dz;
@@ -255,53 +264,51 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         @if(last_direct) if (depth == P.counts.z) {
             // gpu.rs `KernelSwitches::last_direct`: the last vertex's direct light.
             if (depth > 0u) {
-                var dz = thr * direct_light(s, lobes(s, max(dot(s.n, -d), 1e-4)), -d);
+                surface_shader_prepare_closures(&sd);
+                var dz = thr * direct_light(sd);
                 let lum = luminance(dz);
                 if (lum > clamp_v && !straight) { dz *= clamp_v / lum; }
                 radiance += dz;
             }
             break;
         }
-        let v = -d;
-        let nov = max(dot(s.n, v), 1e-4);
-        let lb = lobes(s, nov);
-        var dl = thr * direct_light(s, lb, v);
+        surface_shader_prepare_closures(&sd);
+        var dl = thr * direct_light(sd);
         if (depth > 0u && !straight) {
             let lum = luminance(dl);
             if (lum > clamp_v) { dl *= clamp_v / lum; }
         }
         radiance += dl;
-        let l = sample_bsdf(s, lb, v);
-        // Through smooth glass: a delta lobe (weight tint / its sampling share, no MIS: what lies behind counts in full).
-        // Rough glass's transmission has a density like any lobe. Either way the live viewport files the light with
-        // the specular, like a reflection.
-        let through = has(F_GLASS) && sampled_trans && !lb.rough_t;
-        var pdf = 0.0;
-        var wgt = lb.tint / max(lb.p_trans, 1e-6);
-        if (through) {
-            split_frac = vec3<f32>(1.0);
-        } else {
-            pdf = pdf_bsdf(s, lb, v, l);
-            wgt = eval_bsdf(s, lb, v, l) / max(pdf, 1e-20);
-        }
+        // 北冥：选一个闭包，在它上面采样方向。照 Cycles 编号的三个随机数还没接（等换取数接口的那一步）；
+        // 上游顶替自己从上游的随机数里取，不用这三个。
+        let rand_bsdf = vec3<f32>(0.0);
+        let pick = surface_shader_bsdf_bssrdf_pick(sd, rand_bsdf);
+        let bs = surface_shader_bsdf_sample_closure(sd, pick.closure, pick.rand);
+        let l = bs.wo;
+        // （奇异的一瓣：上游顶替里是穿过光滑玻璃。没有概率密度，不做多重重要性采样，后面的东西算全份。）
+        let through = (bs.label & LABEL_SINGULAR) != 0;
+        // （采到的是光泽或奇异的一瓣，不是漫反射：上游的 sampled_spec || sampled_trans。）
+        let glossy = (bs.label & (LABEL_GLOSSY | LABEL_SINGULAR)) != 0;
+        let pdf = bs.pdf;
+        let wgt = bs.weight;
         if (depth == 0u) {
             spec0 = thr * dl_spec;
             k_spec = split_frac;
             rad0 = radiance;
             split = true;
-            spec_lobe = sampled_spec || sampled_trans;
+            spec_lobe = glossy;
             through0 = through;
-            glass0 = has(F_GLASS) && s.transmission > 0.0;
-            refl_e = lb.e_spec;
-            if (sampled_spec && !through && lb.coat <= 0.0) {
+            glass0 = has(F_GLASS) && sd.legacy.surface.transmission > 0.0;
+            refl_e = sd.legacy.lobes.e_spec;
+            if ((bs.label & (LABEL_REFLECT | LABEL_GLOSSY)) == (LABEL_REFLECT | LABEL_GLOSSY) && sd.legacy.lobes.coat <= 0.0) {
                 refl_l = l;
-                refl_pdf = pdf_spec(s, lb, v, l);
+                refl_pdf = pdf_spec(sd, l);
                 refl_w = wgt;
             }
         }
         if ((!through && pdf <= 0.0) || all(wgt <= vec3<f32>(0.0))) { break; }
         thr *= wgt;
-        if (through && dot(l, s.ng) < 0.0) {
+        if (through && dot(l, sd.Ng) < 0.0) {
             behind_glass = true;
             bent = !bent;
         } else if (through) {
@@ -319,14 +326,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         straight = straight && through;
         bm_surf = !through;
         cone_w = width;
-        cone_a += 2.0 * s.roughness * s.roughness;
-        mirror_path = (depth == 0u || mirror_path) && s.roughness < MIRROR_ROUGHNESS && (sampled_spec || sampled_trans);
+        cone_a += 2.0 * bs.sampled_roughness.x * bs.sampled_roughness.x;
+        mirror_path = (depth == 0u || mirror_path) && bs.sampled_roughness.x < MIRROR_ROUGHNESS && glossy;
         if (depth >= P.counts.w) {
             let q = min(max(thr.x, max(thr.y, thr.z)), 0.95);
             if (rng1(rng_dim(D_RR)) > q) { break; }
             thr /= q;
         }
-        o = offset_origin(s.p, select(s.ng, -s.ng, dot(l, s.ng) < 0.0));
+        o = offset_origin(sd.P, select(sd.Ng, -sd.Ng, dot(l, sd.Ng) < 0.0));
         d = l;
     }
 

@@ -25,8 +25,10 @@
 // 北冥：这个文件原来是内核的全部主体，现在按阶段分成了几个文件，只搬了位置。这里留下的是开头的一段：编译开关、常数、
 // 全局参数、各张表的绑定与读法，外加各阶段共用的小函数。别处写着「pathtrace.wgsl 的某某函数」的，按下表去找：
 //   intersect.wgsl   求交：命中记录、过程几何、软件 BVH（trace）、阴影射线与穿玻璃（shadow_tr、glass_tr、glass_at）
-//   shader.wgsl      材质求值：Surface、贴图、材质函数、镂空测试（alpha_pass）、surface 与 surface_proc
-//   closure.wgsl     闭包：Lobes、玻璃、求值与采样（eval_bsdf_k、pdf_bsdf、sample_bsdf、pdf_spec）
+//   shader.wgsl      材质求值：着色点与闭包的结构、求值的三步（shader_setup_from_hit、shader_eval_inputs、
+//                    shader_setup_closures）；上游的 Surface、贴图、材质函数、镂空测试（alpha_pass）、surface 与 surface_proc
+//   closure.wgsl     闭包：积分器碰材质的那一组函数（surface_shader_*）；上游的 Lobes、玻璃、求值与采样（eval_bsdf_k、
+//                    pdf_bsdf、sample_bsdf、light_mis、pdf_spec）
 //   light.wgsl       灯光：发光体表与灯光树、环境、天空与发光体的权重、直接光（direct_light、local_lights 等）
 //   volume.wgsl      体积：大气透视、高度雾、有界介质
 //   integrator.wgsl  积分主循环（main，相机光线也在里面）与路径上的私有状态

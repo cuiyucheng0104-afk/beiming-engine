@@ -93,9 +93,9 @@ fn fog_scatter(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, tr: f32, rd: u32) -
             if (vis > 0.0) { ls += wk * pick.le * hg_phase(P.vol.y, dot(pick.l, d)) * (wsum / (4.0 * pick_t)) * tr1(vis); }
         }
     } else if (has_l) {
-        var dummy_s: Surface;
-        var dummy_l: Lobes;
-        ls += wk * local_lights(dummy_s, dummy_l, -d, x, x, true, d, rng_sub(rd, 0x50u));
+        // 北冥：local_lights 改成收着色点；雾里的散射点没有表面，传一个全 0 的（`vol` 为真时不读它）
+        var dummy_sd: ShadingPoint;
+        ls += wk * local_lights(dummy_sd, x, x, true, d, rng_sub(rd, 0x50u));
     }
     return P.vol.x * P.vol2.rgb * pe * ls;
 }

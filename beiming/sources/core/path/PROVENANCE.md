@@ -86,6 +86,19 @@
 
 上游的 `pathtrace.wgsl` 是一个三千多行的文件。这里把它按阶段分成了八个文件，只搬位置：`pathtrace.wgsl` 留下开头（编译开关、常数、全局参数、各张表的绑定与读法）和各阶段共用的小函数，其余按求交、材质求值、闭包、灯光、体积、积分主循环、输出各一个文件，哪个函数去了哪里写在 `pathtrace.wgsl` 的开头。上游的注释原样跟着代码走。入口函数 `main` 末尾写累加缓冲的一段，因为一个函数不能跨文件，抽成了函数（`film.wgsl` 的 `accum_write_sample`），语句没动。开头生成相机光线的一段留在 `main` 里：试过同样抽成函数，苹果显卡上相机三个轴都不贴坐标轴的场景，像素值的末位会变（相对差 2e-6，运算次序不同），所以没有单独的相机文件。`src/gpu.rs` 的文件列表与 `src/bvh.rs` 里一条读着色器源码的测试跟着改了文件名。Rust 源码的英文注释里仍写着「pathtrace.wgsl 的某某函数」，没有逐条改，按 `pathtrace.wgsl` 开头的对照表去找。从上游挑改动进来时，上游对 `pathtrace.wgsl` 的改动要按这张表落到对应的文件。
 
+### 着色点与闭包
+
+在上游的材质求值与积分主循环之间加了一层结构与函数，给以后照 Cycles 移植闭包、灯与图案节点留位置。渲染结果不变（逐位）。
+
+- `shaders/shader.wgsl` 开头：着色点 `ShadingPoint`、闭包 `Closure`、材质输入值 `ShaderInputs`，与材质求值的三步 `shader_setup_from_hit`（几何量）、`shader_eval_inputs`（材质输入值，里面调上游的 `surface`）、`shader_setup_closures`（闭包）；另有只算透明度的一档 `shader_eval_shadow` 与灯采样点上的发光 `shader_eval_emission`，先转给上游。上游的 `surface`、`surface_proc` 只改了返回值：多带一份材质输入值。
+- `shaders/closure.wgsl` 开头：积分器碰材质的一组函数（`surface_shader_prepare_closures`、`surface_shader_bsdf_eval`、`surface_shader_bsdf_bssrdf_pick`、`surface_shader_bsdf_sample_closure`、`surface_shader_emission`、`surface_shader_transparency`、`bsdf_albedo`），与把它们转给上游求值、采样的两个函数。
+- 现在所有材质（金属也在内）都是「上游顶替」这一种闭包：着色点的 `legacy` 里带着上游的 `Surface` 与 `Lobes`，求值与采样仍是上游的 `eval_bsdf_k`、`pdf_bsdf`、`sample_bsdf`，上一节的金属接线原样在里面。
+- 上游的七个灯光函数（`direct_light`、`local_lights`、`sample_emitter_ris`、`env_light`、`sun_light`、`light_mis`、`pdf_spec`）与 `light_origin` 的参数从 `(Surface, Lobes, 视线)` 换成着色点，函数体里对应的几处读法跟着换，算法没动。
+- `shaders/integrator.wgsl` 的主循环改经上面的函数碰材质。
+- 还在直接读上游 `Surface`、`Lobes` 的地方列在 `shaders/closure.wgsl`「上游顶替」一节的例外清单里。
+
+这一层有四处写法是为了逐位不变试出来的，各处的注释里写了原因：`shader_setup_from_hit` 往指针里填而不按值返回着色点；上游的 `Lobes` 在 `surface_shader_prepare_closures` 里算而不在填闭包时算；上游顶替的求值函数不一并算概率密度；上游顶替的采样在自己的函数里照上游原样的式子把权重算好（`BsdfSample.weight`），不交给主循环去除。前三处是苹果显卡上试出来的，第四处是英伟达显卡的软件求交上试出来的。两家的着色器编译器都会按上下文合并或重排浮点运算，同样的式子换一种组织法就可能换一种运算次序，像素末位随之变化（实测相对差 1e-7 到 2e-4）。
+
 ## 沿用上游名字的地方
 
 - **环境变量**。内核读的开关仍叫上游的名字（`THREERT_` 开头），例如 `THREERT_SEED`（随机数种子）、`THREERT_HWRT`、`THREERT_MERGED`、`THREERT_LOOP_GUARD`、`THREERT_PIPELINE_CACHE`、`THREERT_INSTANCING` 等。这次不改：上游自带的 JavaScript 工具还在给它们赋值，改名要和场景入口一起换。

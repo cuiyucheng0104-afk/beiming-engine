@@ -1,5 +1,164 @@
 // 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/shaders/pathtrace.wgsl（北冥按阶段分出的一段：闭包），MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
 // ------------------------------------------------------------------------------------------------
+// 北冥：积分器碰材质只经下面这一组函数（名字照 Cycles 的 integrator/surface_shader.h；着色点与闭包的结构、
+// 材质求值的三步在 shader.wgsl）。它们是分发函数：按闭包种类取出字段，再调标量签名的闭包函数。
+// 现在每个着色点至多一个闭包，而且都是上游顶替，所以分发只有「转给上游」这一支。
+
+// 求值的结果。Cycles 把漫反射与光泽分开累加；上游顶替不分，只填 sum（它的高光占比另走上游的私有量 split_frac）。
+struct BsdfEval {
+    diffuse: vec3<f32>,             // 漫反射闭包的部分（已含余弦）。已定义
+    glossy: vec3<f32>,              // 光泽闭包的部分。已定义
+    sum: vec3<f32>,                 // 全部闭包之和（已含余弦）。已落地
+    pdf: f32,                       // 立体角概率密度：各闭包的密度按 sample_weight 加权平均。已落地
+};
+
+// 采样的结果。积分器把路径的通量乘上 weight。奇异（delta）的一瓣只有 weight 有意义：label 带 LABEL_SINGULAR，
+// pdf 为 0，不做多重重要性采样。
+struct BsdfSample {
+    wo: vec3<f32>,                  // 采样到的方向；全 0 表示没采到
+    eval: BsdfEval,                 // 这个方向上的求值。上游顶替不填（它的求值直接算进了 weight）。已定义
+    pdf: f32,                       // 这个方向的概率密度；奇异的一瓣为 0
+    label: i32,                     // 采样标签（LABEL_*，位照 Cycles）
+    sampled_roughness: vec2<f32>,   // 采样到的那个闭包的粗糙度（两个方向）
+    eta: f32,                       // 折射率比。上游顶替不填，恒为 1。已定义
+    weight: vec3<f32>,              // 通量的权重：eval.sum / pdf（奇异的一瓣直接给出）
+};
+
+// 选闭包的结果：选中的下标，与第三维重新拉伸回 0 到 1 之后的随机数（留给选中的闭包复用）
+struct BsdfPick { closure: u32, rand: vec3<f32> };
+
+// 采样标签里移植的着色器（../../shaders/util.wgsl）还没用到的两位，数值照 Cycles
+const LABEL_TRANSMIT: i32 = 1;
+const LABEL_DIFFUSE: i32 = 4;
+
+// 闭包填好之后、算直接光与采样之前的事后处理。「滤光泽」（按路径上最小的概率密度把各闭包的粗糙度调大）以后做在这里，
+// 现在还没有。
+// 上游顶替：上游的 Lobes（依赖视线的分层权重）在这里算，位置与上游原来一样（发光算完、确定要往下走之后）。
+// 试过提前到填闭包那一步：苹果显卡上编译出来的运算次序会变，像素末位不同。所以只发光的面、到了弹射上限的面没有 Lobes。
+fn surface_shader_prepare_closures(sd: ptr<function, ShadingPoint>) {
+    (*sd).legacy.lobes = lobes((*sd).legacy.surface, max(dot((*sd).legacy.surface.n, (*sd).wi), 1e-4));
+}
+
+// 对所有闭包求值求和。`light_shader_flags`：灯的着色标志（按灯排除漫反射、光泽、透射闭包），现在都传 0，没人读。
+// 多个闭包求和、密度按 sample_weight 加权平均的那一段归移植闭包的人照 Cycles 写。
+// 要先调过 surface_shader_prepare_closures。还没有调用者：上游的灯光函数用的是上游顶替专用的那一个求值，
+// 上游顶替的采样把求值直接算进权重里（见 surface_shader_bsdf_sample_legacy）。照 Cycles 做灯的人来调它。
+fn surface_shader_bsdf_eval(sd: ShadingPoint, wo: vec3<f32>, light_shader_flags: u32) -> BsdfEval {
+    var r = BsdfEval();
+    if (sd.num_closure > 0u && sd.closure[0].kind == CLOSURE_LEGACY) {
+        // 上游顶替：密度与求值直接转给上游的两个函数，次序照上游（先密度后求值）
+        r.pdf = pdf_bsdf(sd.legacy.surface, sd.legacy.lobes, sd.wi, wo);
+        r.sum = eval_bsdf(sd.legacy.surface, sd.legacy.lobes, sd.wi, wo);
+    }
+    return r;
+}
+
+// 按 sample_weight 选一个闭包去采样。`rand`：三个随机数，第三个用来选，选完重新拉伸回 0 到 1。
+// 现在至多一个闭包：选第 0 个，随机数原样返回。多个闭包的选法归移植闭包的人照 Cycles 写。
+fn surface_shader_bsdf_bssrdf_pick(sd: ShadingPoint, rand: vec3<f32>) -> BsdfPick {
+    var r = BsdfPick();
+    r.closure = 0u;
+    r.rand = rand;
+    return r;
+}
+
+// 在第 `k` 个闭包上采样方向：用 `rand` 的前两个定方向；有多个闭包时把其余闭包的贡献并进 eval 与 pdf。
+// 上游顶替不用 `rand`：它自己从上游的随机数里取（sample_bsdf）。要先调过 surface_shader_prepare_closures。
+fn surface_shader_bsdf_sample_closure(sd: ShadingPoint, k: u32, rand: vec3<f32>) -> BsdfSample {
+    var bs = BsdfSample();
+    if (sd.closure[k].kind != CLOSURE_LEGACY) { return bs; }
+    return surface_shader_bsdf_sample_legacy(sd);
+}
+
+// 这个点朝来路发出的光。上游的发光卡片是单面的：打在背面时不发光。
+fn surface_shader_emission(sd: ShadingPoint) -> vec3<f32> {
+    if (sd.legacy.surface.card && (sd.flag & SD_BACKFACING) != 0u) { return vec3<f32>(0.0); }
+    return sd.emission;
+}
+
+// 阴影射线穿过这个点时放过多少光（透明闭包的权重之和）。现在没有透明闭包，恒为 0。
+// 归移植闭包的人（透明闭包）填。还没有调用者。
+fn surface_shader_transparency(sd: ShadingPoint) -> vec3<f32> {
+    return vec3<f32>(0.0);
+}
+
+// 第 `k` 个闭包的反照率（降噪特征与层间衰减用）。上游顶替返回上游的底色；别的种类归移植闭包的人填，现在返回 0。
+fn bsdf_albedo(sd: ShadingPoint, k: u32) -> vec3<f32> {
+    if (sd.closure[k].kind == CLOSURE_LEGACY) { return sd.legacy.surface.base; }
+    return vec3<f32>(0.0);
+}
+
+// ------------------------------------------------------------------------------------------------
+// 北冥：上游顶替。下面两个函数把着色点转给上游原来的求值与采样（本文件后面的 eval_bsdf_k、pdf_bsdf、sample_bsdf），
+// 金属走移植闭包的那条接线（Lobes.bm）原样留在里面。
+// 这一层的写法是试出来的：显卡的着色器编译器会按上下文合并或重排浮点运算，同样的式子换一种组织法（多包一层函数、
+// 把两个量合在一个函数里算、按值返回大结构、把除法挪到调用方）就可能换一种运算次序，像素末位随之变化，两块显卡
+// 各有各的敏感处。改这里之后要在两台机器上重跑回归基线核对。
+//
+// 读 legacy 的例外清单（新写的代码不许再加；哪次移植删掉了读者，就顺手从这里划掉）：
+//   closure.wgsl     下面两个转接函数；surface_shader_prepare_closures（算上游的 Lobes）；surface_shader_bsdf_eval
+//                    （转给上游的 pdf_bsdf、eval_bsdf）；surface_shader_emission（发光卡片单面）；bsdf_albedo（上游的底色）；
+//                    light_mis（直接调上游的 pdf_bsdf，并读 Lobes 的 p_coat、p_trans、p_spec、a2、bm、coat、coat_alpha
+//                    与 Surface 的粗糙度、法线）；pdf_spec（直接读 Lobes 的 bm、a2，与 Surface 的法线）。
+//                    light_mis 与 pdf_spec 这两处归做灯的人删。
+//   shader.wgsl      shader_eval_inputs（留下上游的 Surface）；shader_setup_closures（发光卡片没有闭包）。
+//   light.wgsl       local_lights（两处问「是不是两面受光」two_sided，候选权重的余弦用上游的着色法线）；
+//                    direct_light（发光体采样用上游的着色法线，并问 two_sided）。归做灯的人删。
+//   integrator.wgsl  相机命中处记的几个量（实时预览留下的 anim、rough0、glass0、refl_e 与清漆判断），现在没有读者。
+// 另有两处直接读材质记录（Material）的已知例外，在求交那一侧：镂空测试 alpha_pass（shader.wgsl）、阴影穿玻璃
+// glass_at（intersect.wgsl），以及硬件求交的 cutout（trace_hw.wgsl）。
+
+// 上游顶替专用的求值：方向 `wo` 上 BSDF 乘余弦的值，与这次求值里高光占的份额（逐通道）。
+// `k`：上游每盏灯的高光倍率，只对上游顶替有效。只给上游的灯光函数用，新写的代码不许调；灯移植完后删。
+// 不带概率密度：试过在这里一并算（上游的 pdf_bsdf），苹果显卡上有玻璃的场景像素末位会变。要密度的地方
+// （light_mis、surface_shader_bsdf_eval）直接调上游的 pdf_bsdf。
+struct BsdfEvalLegacy { eval: vec3<f32>, spec_frac: vec3<f32> };
+
+fn surface_shader_bsdf_eval_legacy(sd: ShadingPoint, wo: vec3<f32>, k: f32) -> BsdfEvalLegacy {
+    var r = BsdfEvalLegacy();
+    r.eval = eval_bsdf_k(sd.legacy.surface, sd.legacy.lobes, sd.wi, wo, k);
+    // （上游把高光份额留在私有量 split_frac 里；值为 0 的方向上它不更新，照旧是上一次的。）
+    r.spec_frac = split_frac;
+    return r;
+}
+
+// 上游顶替专用的采样：方向由上游的 sample_bsdf 定（它自己取随机数，并记下采到的是哪一瓣）。
+// 权重照上游原样的式子在这里算（求值除以密度，一步写完）。试过拆成「这里给求值与密度、积分器来除」：
+// 英伟达显卡上软件求交的像素末位会变。
+fn surface_shader_bsdf_sample_legacy(sd: ShadingPoint) -> BsdfSample {
+    var bs = BsdfSample();
+    let s = sd.legacy.surface;
+    let lb = sd.legacy.lobes;
+    let l = sample_bsdf(s, lb, sd.wi);
+    // Through smooth glass: a delta lobe (weight tint / its sampling share, no MIS: what lies behind counts in full).
+    // Rough glass's transmission has a density like any lobe. Either way the live viewport files the light with
+    // the specular, like a reflection.
+    let through = has(F_GLASS) && sampled_trans && !lb.rough_t;
+    bs.wo = l;
+    var pdf = 0.0;
+    var wgt = lb.tint / max(lb.p_trans, 1e-6);
+    if (through) {
+        split_frac = vec3<f32>(1.0);
+        bs.label = LABEL_TRANSMIT | LABEL_SINGULAR;
+    } else {
+        pdf = pdf_bsdf(s, lb, sd.wi, l);
+        wgt = eval_bsdf(s, lb, sd.wi, l) / max(pdf, 1e-20);
+        if (sampled_trans) {
+            bs.label = LABEL_TRANSMIT | LABEL_GLOSSY;
+        } else if (sampled_spec) {
+            bs.label = LABEL_REFLECT | LABEL_GLOSSY;
+        } else {
+            bs.label = LABEL_REFLECT | LABEL_DIFFUSE;
+        }
+    }
+    bs.pdf = pdf;
+    bs.weight = wgt;
+    bs.sampled_roughness = vec2<f32>(s.roughness);
+    bs.eta = 1.0;
+    return bs;
+}
+
+// ------------------------------------------------------------------------------------------------
 // BSDF (UE DefaultLit)
 
 fn energy_lookup(roughness: f32, nov: f32) -> vec2<f32> {
@@ -287,8 +446,13 @@ fn pdf_bsdf(s: Surface, lb: Lobes, v: vec3<f32>, l: vec3<f32>) -> f32 {
 // BSDF ray's weight for the rest: 1 - (the share of pdf_bsdf that still tests cutouts) x (the BSDF ray's weight).
 // (Until 2026-11-15 the weight was the plain heuristic: under a card cut out everywhere a uniform sky lit a Lambert
 // plane with 18 % of its light.)
-fn light_mis(pdf_l: f32, s: Surface, lb: Lobes, v: vec3<f32>, l: vec3<f32>) -> f32 {
+// 北冥：参数从 (Surface, Lobes, 视线) 换成着色点。函数体直接调上游的 pdf_bsdf、直接读 Lobes 的内部字段，
+// 是登记过的例外（见本文件「上游顶替」一节），归做灯的人删。
+fn light_mis(pdf_l: f32, sd: ShadingPoint, l: vec3<f32>) -> f32 {
     if (nee_alone) { return 1.0; }
+    let s = sd.legacy.surface;
+    let lb = sd.legacy.lobes;
+    let v = sd.wi;
     let pb = pdf_bsdf(s, lb, v, l);
     let w = power_heuristic(pdf_l, pb);
     if (!approx(A_CUTOUT_PATHS) || !has(F_MASKED) || !shadow_hole) { return w; }
@@ -383,7 +547,11 @@ fn sample_bsdf(s: Surface, lb: Lobes, v: vec3<f32>) -> vec3<f32> {
 }
 
 // Density of l under the base specular lobe alone (VNDF sampling).
-fn pdf_spec(s: Surface, lb: Lobes, v: vec3<f32>, l: vec3<f32>) -> f32 {
+// 北冥：参数从 (Surface, Lobes, 视线) 换成着色点。直接读 Lobes 的 bm、a2，是登记过的例外，归做灯的人删。
+fn pdf_spec(sd: ShadingPoint, l: vec3<f32>) -> f32 {
+    let s = sd.legacy.surface;
+    let lb = sd.legacy.lobes;
+    let v = sd.wi;
     let nov = max(dot(s.n, v), 1e-4);
     let noh = max(dot(s.n, normalize(v + l)), 0.0);
     if (lb.bm) { return bm_eval(s, v, l).pdf; }
