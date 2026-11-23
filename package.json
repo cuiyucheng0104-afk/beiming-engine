@@ -36,6 +36,7 @@
     "native:sequence": "node engine/native/sequence.mjs",
     "new": "node tools/new-film.mjs",
     "check:repo": "node tools/repo-check.mjs",
+    "check:fence": "node tools/check-fence.mjs",
     "c:styles": "node tools/c-styles.mjs",
     "c:styles:check": "node tools/c-styles.mjs --check",
     "c:events": "node engine/render/events.mjs",
