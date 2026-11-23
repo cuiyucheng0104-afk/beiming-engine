@@ -151,6 +151,8 @@
 
 ### Fixed
 
+- 治理 `beiming/jobs/` 三条在 Windows 高负载下易触发的计时抖动测试：`beiming/jobs/cache.test.mjs` 的 `A16-29` 跨进程 `prune`/`put` 互斥实测改为确定性互斥窗口压测加无拦截自由并发轮次，不再依赖 20 秒墙钟内靠调度运气撞够 20 次删除；`beiming/jobs/jobs.test.mjs` 放宽长轮询终态测试的 `waitForJob` 超时（`1000` → `10000` ms）及含磁盘队列 I/O / 子进程的测试超时（`3000`/`4000`/`5000` → `15000`/`20000` ms），不改生产逻辑，也不削弱互斥或短超时断言。
+
 - 先验库清单加载器（`beiming/cards/priors-batch2.mjs`、`beiming/cards/priors-audio-subs.mjs`）改为在加载时实时检查 `beiming/cards/<域>/<名>/card.json` 生成 `manifest.cards[].exists`，不再依赖静态 JSON 快照，避免后续新增技术卡后造成 `c11-priors.test.mjs` 失配。
 
 - 修复二维讲解舞台在 Chromium 校验声明时删除调用方 `stack` 属性的问题。`ctx` 的诊断访问器会保留，声明中的自有访问器和数组的额外 `stack` 属性会在 Node 和页面端同步报 `usage.bad-argument`（S3，#136）。
