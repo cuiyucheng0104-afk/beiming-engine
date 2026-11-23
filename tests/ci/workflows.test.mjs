@@ -199,6 +199,13 @@ test('conformance-5090.yml：PR 先过轻量 filter，改到帧源且开了 5090
   assert.ok(nightly.replace(/\s+/g, ' ').includes(sameRepo), 'nightly-rebuild 缺同仓来源守卫');
   assert.match(nightly, /uses: actions\/setup-node@/);
   assert.match(nightly, /npm ci/);
+  // exam 与 nightly-rebuild 真实入口均存在且无条件执行，禁止 hashFiles(...) == '' 的 ::notice:: 假绿跳过回退
+  for (const entry of ['beiming/bench/exam.mjs', 'tools/nightly/rebuild.mjs']) {
+    assert.ok(fs.existsSync(path.join(REPO, entry)), `定时任务入口 ${entry} 必须真实存在`);
+  }
+  assert.match(jobs.exam, /run:\s*npm ci && node beiming\/bench\/exam\.mjs\b/);
+  assert.match(nightly, /run:\s*npm ci && node tools\/nightly\/rebuild\.mjs\b/);
+  assert.doesNotMatch(text, /hashFiles\(|还没有合入|还没合入|::notice::/, 'conformance-5090.yml 不得保留缺入口假绿跳过回退');
   // 只有一致性任务进显卡队：别的 job 用了 gpu-5090 会挤掉排队中的那个
   assert.equal((text.match(/group: gpu-5090/g) || []).length, 1);
 });
@@ -218,7 +225,7 @@ test('工作流里调用的仓库脚本都存在（node / python 后面的相对
   for (const f of WORKFLOWS) {
     const guarded = new Set([...read(f).matchAll(/hashFiles\('([^']+)'\)/g)].map(m => m[1]));
     for (const b of runBlocks(read(f), f)) {
-      for (const m of b.text.matchAll(/(?:^|\s)node\s+((?:tools|tests|engine|routes)\/[^\s"']+\.m?js)/g)) {
+      for (const m of b.text.matchAll(/(?:^|\s)node\s+((?:beiming|tools|tests|engine|routes)\/[^\s"']+\.m?js)/g)) {
         if (!fs.existsSync(path.join(REPO, m[1])) && !guarded.has(m[1])) missing.push(`${f}:${b.line} ${m[1]}`);
       }
       for (const m of b.text.matchAll(/-r\s+((?:tests|tools)\/[^\s"']+)/g)) if (!fs.existsSync(path.join(REPO, m[1]))) missing.push(`${f}:${b.line} ${m[1]}`);

@@ -49,6 +49,10 @@
 
 做题进程和宿主同用户：macOS 用 `sandbox-exec` 挡原题和别的运行，别的平台没有边界（看 `observation.json` 的 `isolation`）。细则见 [DETAILS.md](DETAILS.md)。
 
+## 离线考试核验
+
+`node beiming/bench/exam.mjs [--out <目录>] [--json] [--dry-run]`（测试 `node --test beiming/bench/exam.test.mjs`），代码里用 `runExam()`。扫描 `beiming/bench/questions/` 下全部公开题库、参考读数夹具与公开投影，再经 `runExamQuestion` 执行离线正对照与标准负对照核验，写 `<out>/report.json`（`bench-exam-report/0.1`）。题库为空或契约不过 exit 4，评测或负对照不过 exit 1，绝不假绿。
+
 ## 看板
 
 `node beiming/bench/board.mjs build --out-dir <目录>` 把结果、账本、卡和先验汇成 `board.json`（`bench-board/0.1`）、每天一行的 `history.json` 和离线的 `index.html`；代码里用纯函数 `buildBoard`、`renderBoardHtml`、`appendBoardHistory`。帧源缺能力的格写「这个帧源没有这项能力」，不进均分；隐藏题只落总分。细则见 [DETAILS.md](DETAILS.md#看板)。

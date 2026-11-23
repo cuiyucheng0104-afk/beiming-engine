@@ -150,6 +150,8 @@
 
 ### Fixed
 
+- 补齐夜间考试入口 `beiming/bench/exam.mjs` 与夜间加锁重建入口 `tools/nightly/rebuild.mjs`，并移除 `.github/workflows/conformance-5090.yml` 中 `exam` 与 `nightly-rebuild` 两处 `hashFiles(...) == ''` 的 `::notice::` 假绿跳过回退：两个定时任务现无条件真实执行，其中 `exam.mjs` 扫描校验 `beiming/bench/questions/` 下全部公开题库、参考读数夹具与公开投影并经 `runExamQuestion` 执行离线正负对照判分核验（空题库或契约不过 exit 4、评测或负对照失败 exit 1），`rebuild.mjs` 启动真实 three 页面宿主对带锁探针样片执行两次独立进程渲染并调 `runRebuildTest` 逐帧逐位核对哈希（无头浏览器缺失或无法启动直接 exit 3、锁或哈希失配 exit 1，动态导入统一使用 `pathToFileURL(...).href`）。
+
 - 先验库清单加载器（`beiming/cards/priors-batch2.mjs`、`beiming/cards/priors-audio-subs.mjs`）改为在加载时实时检查 `beiming/cards/<域>/<名>/card.json` 生成 `manifest.cards[].exists`，不再依赖静态 JSON 快照，避免后续新增技术卡后造成 `c11-priors.test.mjs` 失配。
 
 - 修复二维讲解舞台在 Chromium 校验声明时删除调用方 `stack` 属性的问题。`ctx` 的诊断访问器会保留，声明中的自有访问器和数组的额外 `stack` 属性会在 Node 和页面端同步报 `usage.bad-argument`（S3，#136）。
