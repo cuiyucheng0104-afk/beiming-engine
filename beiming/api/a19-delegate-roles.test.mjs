@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { tools, verifyDeliveryBundle } from '../comp/index.mjs';
-import { loadCardLibrary } from './runtime.mjs';
+import { blenderInfo, loadCardLibrary } from './runtime.mjs';
 import {
   DEFAULT_REVIEW_MAX_OUTPUT_TOKENS,
   DELEGATE_HARD_TOKEN_CAP,
@@ -224,35 +224,67 @@ test('A19-2 服务端确定性模板判定：同一需求连续 5 次结果完�
   });
 
   try {
-    const spoofedTemplates = ['title', 'title', 'bogus-template', 'title', undefined];
-    const seenTemplates = [];
+    // 1) 无 Blender 依赖的 title 需求：全平台（含无 Blender 的 CI runner）必跑，服务端忽略客户端伪造 turntable/非法模板
+    const spoofedForTitle = ['turntable', 'turntable', 'bogus-template', 'turntable', undefined];
+    const seenTitleTemplates = [];
     for (let i = 0; i < 5; i++) {
       const createRes = await (await fetch(`${api.url}/v1/films`, {
         method: 'POST',
         headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
         body: JSON.stringify({
           mode: 'delegate',
-          brief: '做一条 4 秒显卡硬表面转台展示，相机绕主体旋转推进',
-          assets: ['asset:rtx-card@1'],
-          ...(spoofedTemplates[i] ? { template: spoofedTemplates[i] } : {}),
+          brief: '做一条 2 秒纯片名落版短片，居中显示 BEIMING',
+          assets: [],
+          ...(spoofedForTitle[i] ? { template: spoofedForTitle[i] } : {}),
           output: { size: [320, 180], fps: '10/1', frames: 10 },
         }),
       })).json();
-      assert.equal(createRes.ok, true);
+      assert.equal(createRes.ok, true, `第 ${i + 1} 次 title 委托建片应成功：${JSON.stringify(createRes.error ?? null)}`);
       const filmEnv = await (await fetch(`${api.url}/v1/films/${createRes.data.film}/film`, {
         headers: { authorization: `Bearer ${createRes.data.token}` },
       })).json();
       assert.equal(filmEnv.ok, true);
-      // turntable 脚手架有 s01 (blender) + s02 (three) 两个镜头
-      assert.equal(filmEnv.data.film.shots.length, 2);
-      assert.equal(filmEnv.data.film.shots[0].source, 'blender');
-      assert.equal(filmEnv.data.film.shots[1].source, 'three');
+      assert.equal(filmEnv.data.film.shots.length, 1);
+      assert.equal(filmEnv.data.film.shots[0].source, 'three');
       const meta = JSON.parse(readFileSync(join(dir, 'meta', `${createRes.data.film}.json`), 'utf8'));
-      assert.equal(meta.template, 'turntable');
+      assert.equal(meta.template, 'title');
       assert.equal(meta.templateSelectedBy, 'server');
-      seenTemplates.push(meta.template);
+      seenTitleTemplates.push(meta.template);
     }
-    assert.deepEqual(seenTemplates, ['turntable', 'turntable', 'turntable', 'turntable', 'turntable']);
+    assert.deepEqual(seenTitleTemplates, ['title', 'title', 'title', 'title', 'title']);
+
+    // 2) 本机装有 Blender 时另验 turntable 需求（需 Blender 签发正式锁）：服务端忽略客户端伪造 title/非法模板
+    if (blenderInfo()) {
+      const spoofedTemplates = ['title', 'title', 'bogus-template', 'title', undefined];
+      const seenTemplates = [];
+      for (let i = 0; i < 5; i++) {
+        const createRes = await (await fetch(`${api.url}/v1/films`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'delegate',
+            brief: '做一条 4 秒显卡硬表面转台展示，相机绕主体旋转推进',
+            assets: ['asset:rtx-card@1'],
+            ...(spoofedTemplates[i] ? { template: spoofedTemplates[i] } : {}),
+            output: { size: [320, 180], fps: '10/1', frames: 10 },
+          }),
+        })).json();
+        assert.equal(createRes.ok, true, `第 ${i + 1} 次 turntable 委托建片应成功：${JSON.stringify(createRes.error ?? null)}`);
+        const filmEnv = await (await fetch(`${api.url}/v1/films/${createRes.data.film}/film`, {
+          headers: { authorization: `Bearer ${createRes.data.token}` },
+        })).json();
+        assert.equal(filmEnv.ok, true);
+        // turntable 脚手架有 s01 (blender) + s02 (three) 两个镜头
+        assert.equal(filmEnv.data.film.shots.length, 2);
+        assert.equal(filmEnv.data.film.shots[0].source, 'blender');
+        assert.equal(filmEnv.data.film.shots[1].source, 'three');
+        const meta = JSON.parse(readFileSync(join(dir, 'meta', `${createRes.data.film}.json`), 'utf8'));
+        assert.equal(meta.template, 'turntable');
+        assert.equal(meta.templateSelectedBy, 'server');
+        seenTemplates.push(meta.template);
+      }
+      assert.deepEqual(seenTemplates, ['turntable', 'turntable', 'turntable', 'turntable', 'turntable']);
+    }
   } finally {
     await api.close();
     await new Promise((r) => mockModel.close(r));
