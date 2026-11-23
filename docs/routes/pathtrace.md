@@ -7,7 +7,7 @@
 ## 1. 路线定位与合规边界（D13）
 
 - **对外品牌名**：固定为 **北冥光追 · 物理路径追踪**（`id: "d"`，`slug: "d-pathtrace"`，`backend: "pathtrace"`），产品与路线名不带 `RTX`，也不用上游项目名 `ThreeRT` 命名目录、文件、脚本或环境变量（遵守 D04，`UPSTREAM_NAME_RE = /raea|vork|threert/i` 由机器检查阻断）。
-- **底层开源许可**：调用第三方原生路径追踪运行时 `ThreeRT`（`meshy-dev/ThreeRT`，**MIT 许可**，2026 Meshy LLC；可选启用 Intel Open Image Denoise `Apache-2.0` 降噪库，授权登记见 [register.md](../rights/register.md) R15）。与 B 路线不同，D 路线底座无 FSL 竞争性限制，成片与管线可全商业使用；但按 D10 存储分层与源码边界，主仓不提交运行时二进制、`OIDN` 动态库或 `.rs` / `.wesl` / `.wgsl` / `Cargo.toml` 文件，由 `tools/repo-check/rules/route-d/runtime-and-template.mjs` 与 `comp.fsl-boundary` 把关。
+- **底层开源许可**：调用第三方原生路径追踪运行时 `ThreeRT`（`meshy-dev/ThreeRT`，**MIT 许可**，2026 Meshy LLC；可选启用 Intel Open Image Denoise `Apache-2.0` 降噪库，授权登记见 [register.md](../rights/register.md) R15）。与 B 路线不同，D 路线底座无 FSL 竞争性限制，成片与管线可全商业使用；但按 D10 存储分层与源码边界，主仓不提交运行时二进制与 `OIDN` 动态库，D 路线的两个目录（`engine/pathtrace/`、`routes/d-pathtrace/`）内不放 `.rs` / `.wesl` / `.wgsl` / `Cargo.toml` 文件，由 `tools/repo-check/rules/route-d/runtime-and-template.mjs` 与 `comp.fsl-boundary` 把关；核心帧源的源码边界见[核心帧源的源码边界](../decisions/2026-11-23-core-source-boundary.md)（D14）。
 - **与 B 路线及 A/C 离屏出片的关系**：B 路线（北冥原生 · BNE）及实验后端 `b:rt` 保持现状不变；A、C 的 `webgpu` 离屏出片（D12）用于北冥三渲二与 86 式风格化；需要硬件全局光照、面光源软阴影、拉丝金属镜面反射或体积烟火奇观的新作品直接走 D 路线。
 
 ## 2. 直通出片架构（砍掉二次翻拍）

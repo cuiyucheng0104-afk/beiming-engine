@@ -150,3 +150,11 @@ path = "engine/audio/ucs_vocab.json"
 precedence = "closest"
 SPDX-FileCopyrightText = "Universal Category System (https://universalcategorysystem.com)"
 SPDX-License-Identifier = "CC0-1.0"
+
+# ── 核心帧源的路径追踪内核：从 ThreeRT 的固定提交分叉后自己维护（上游 MIT，版权人 Meshy LLC；
+#    来源与许可全文见 beiming/sources/core/path/ 下的 PROVENANCE.md 与 LICENSE-upstream.txt）──
+[[annotations]]
+path = "beiming/sources/core/path/**"
+precedence = "closest"
+SPDX-FileCopyrightText = ["2026 Meshy LLC", "2026 北冥引擎 Beiming Engine"]
+SPDX-License-Identifier = "MIT"
