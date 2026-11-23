@@ -1,0 +1,23 @@
+{
+  "format": "card/0.1", "id": "camera.orbit", "version": "1.0.0", "kind": "camera",
+  "title": "环绕转台", "intent": "相机以固定半径围绕目标点匀速旋转，循环播放时不重复起始帧", "visibleToAgent": true,
+  "livesIn": ["data"],
+  "impl": [{ "livesIn": "data", "shape": "evaluate", "hosts": [], "entry": "cards/camera/orbit/evaluate.mjs", "selftest": "cards/camera/orbit/selftest.test.mjs" }],
+  "params": {
+    "target": { "type": "data", "unit": "m", "default": [0, 0, 0], "schema": "target.schema.json", "coupling": "scene-scale" },
+    "distance": { "type": "number", "unit": "m", "range": [0.000001, 1000000], "default": 4, "coupling": "scene-scale" },
+    "elevationDeg": { "type": "number", "unit": "deg", "range": [-90, 90], "default": 0, "coupling": "none" },
+    "startAzimuthDeg": { "type": "number", "unit": "deg", "range": [-360, 360], "default": 0, "coupling": "none" },
+    "turns": { "type": "number", "unit": "turn", "range": [-100, 100], "default": 1, "coupling": "none" },
+    "frames": { "type": "integer", "unit": "frame", "range": [1, 10000000], "default": 72, "coupling": "fps" },
+    "fovYDeg": { "type": "number", "unit": "deg", "range": [1, 170], "default": 40, "coupling": "none" }
+  },
+  "ports": { "in": [], "out": [{ "name": "camera", "type": "tracks.camera" }], "order": { "before": [], "after": [] }, "requires": ["target 是世界坐标（米），Y 轴向上；方位角从 +Z 朝 +X 数起"] },
+  "conditions": { "appliesWhen": ["转台或定半径环拍，物体中心静止"], "notWhen": ["需要追踪运动主体或随帧调整取景距离"] },
+  "calibration": "probe-axes-turntable",
+  "verify": { "selftest": "72 帧和 60 帧转台：每步弦长含首尾接缝相等，最后一帧不重复第零帧；子帧也落在同一圆上", "predicates": [] },
+  "pitfalls": [{ "symptom": "循环接缝处方向或速度不连续", "fix": "整圈用整数 turns 且 frames 填循环的总帧数，不含重复的片尾；仰角勿取正负 90 度（此时位置在轴上）" }],
+  "provenance": { "cases": [], "note": "用局部帧和子帧的连续相位解球坐标与相机朝向，不累加上一帧的姿态" },
+  "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-23" }],
+  "exams": ["28-1", "23-1", "cal:camera.orbit"]
+}
