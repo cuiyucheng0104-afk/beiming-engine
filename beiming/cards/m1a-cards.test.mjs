@@ -474,9 +474,10 @@ test('实渲：片名镜头零手写镜头脚本出帧，探针片子的三个�
         assert.ok(ink.count > 20000, `墨迹像素 ${ink.count} 个`);
         assert.ok(edgesOff(meta.texts[0].bbox2d, ink.box) <= 8, `第 ${f} 帧文字框 ${meta.texts[0].bbox2d} 对墨迹外框 ${ink.box}`);
         assert.ok(edgesOff(title.bbox2d, ink.box) <= 8);
-        // 编号层上片名的像素和颜色层的墨迹是同一批；深度层上这些像素是 1 米
+        // 编号层上片名平面的外框与颜色层墨迹外框对齐；真字体纹理带透明背景与抗锯齿笔画边缘，深度层上这些平面像素是 1 米
         const ids = new Uint32Array(r.bytes.objectId.buffer, r.bytes.objectId.byteOffset, r.bytes.objectId.length / 4), depth = new Float32Array(r.bytes.depth.buffer, r.bytes.depth.byteOffset, r.bytes.depth.length / 4);
-        assert.deepEqual(idBox(r.bytes.objectId, r.refs.objectId.shape, title.id), ink);
+        const titleBox = idBox(r.bytes.objectId, r.refs.objectId.shape, title.id);
+        assert.ok(titleBox.count > ink.count && edgesOff(titleBox.box, ink.box) <= 2);
         assert.ok(depth.every((d, i) => (ids[i] === title.id ? Math.abs(d - 1) < 1e-5 : d === 1e10)));
       }
       // 落定之后字高是画面高的 0.12：129.6 像素，上下居中
@@ -682,6 +683,81 @@ test('实渲：片名镜头零手写镜头脚本出帧，探针片子的三个�
       assert.equal(time.rng.length, 5);
       assert.deepEqual([path.wallClock, path.unseededRandom, path.allowed.length], [[], [], 1]);
       assert.ok(path.files.includes('beiming/cards/two-d/overlay-title/three.js') && path.files.includes('beiming/host/page/cards-probe.shot.js'));
+    });
+
+    await t.test('真字体实渲：RTX 5090、小写 Hello World 与中文「北冥」平滑抗锯齿、文字框对准实际墨迹、同机两遍哈希逐位一致、越界字符拒收', async () => {
+      const aaCount = (bytes) => {
+        const px = new Float32Array(bytes.buffer, bytes.byteOffset, bytes.length / 4);
+        let aa = 0;
+        for (let i = 3; i < px.length; i += 4) if (px[i] > 0.02 && px[i] < 0.95) aa++;
+        return aa;
+      };
+      // s02 的 RTX 5090 实渲帧具备真字体平滑抗锯齿边缘像素
+      const s02Settled = s02.renders.find((r) => r.f === 60);
+      assert.ok(aaCount(s02Settled.bytes.color) > 1000, 'RTX 5090 应有真字体抗锯齿边缘');
+
+      for (const [idx, text] of ['Hello World', '北冥'].entries()) {
+        const customFilm = {
+          ...PROBE_FILM,
+          id: `t4-true-font-${idx}`,
+          output: { ...PROBE_FILM.output, frames: 24 },
+          shots: [probeShot('t01', 0, {
+            mode: 'cards-data',
+            cards: [{ as: 'title', use: 'overlay.title@1', params: { text, enter: 2, settleFrames: 6, heightFrac: 0.2 } }],
+            roles: { hero: 'title' },
+          })],
+          events: [],
+        };
+        const customLock = localLock(customFilm, { t01: 8801 + idx }, threeLib);
+        const inp = shotInput(customFilm, 't01', eventsTable(customFilm));
+        const s1 = await source.open(inp, { lock: customLock, tier: 'final', workspace: root, filmDir: PROBE_DIR });
+        const s2 = await source.open(inp, { lock: customLock, tier: 'final', workspace: root, filmDir: PROBE_DIR });
+        try {
+          const rPre = await s1.render(1, {}, ['color', 'meta']);
+          const preBytes = await readFile(join(root, rPre.layers.color.file));
+          assert.deepEqual([rPre.meta.texts, inkBox(preBytes, rPre.layers.color.shape).count], [[], 0]);
+
+          const rMid = await s1.render(4, {}, ['color', 'meta']);
+          const midBytes = await readFile(join(root, rMid.layers.color.file));
+          const midInk = inkBox(midBytes, rMid.layers.color.shape);
+          assert.ok(midInk.count > 500 && edgesOff(rMid.meta.texts[0].bbox2d, midInk.box) <= 2);
+
+          const r1 = await s1.render(12, {}, ['color', 'meta']);
+          const r1Next = await s1.render(15, {}, ['color', 'meta']);
+          const r2 = await s2.render(12, {}, ['color', 'meta']);
+          assert.equal(r1.layers.color.hash, r2.layers.color.hash, `${text} 同机两遍会话渲染哈希一致`);
+          assert.equal(r1.layers.color.hash, r1Next.layers.color.hash, `${text} 落定后静止帧哈希一致`);
+          assert.notEqual(rMid.layers.color.hash, r1.layers.color.hash, `${text} 入场中与落定后不同`);
+          assert.equal(r1.meta.texts[0].text, text);
+          const bytes = await readFile(join(root, r1.layers.color.file));
+          const ink = inkBox(bytes, r1.layers.color.shape);
+          assert.ok(ink.count > 1000 && aaCount(bytes) > 200, `${text} 墨迹像素与抗锯齿边缘充足`);
+          assert.ok(edgesOff(r1.meta.texts[0].bbox2d, ink.box) <= 2, `${text} 文字框 ${r1.meta.texts[0].bbox2d} 对准墨迹 ${ink.box}`);
+          assert.ok(rMid.meta.texts[0].bbox2d[1] > r1.meta.texts[0].bbox2d[1], `${text} 入场从下往上升到位`);
+        } finally {
+          await s1.close();
+          await s2.close();
+        }
+      }
+
+      // 超出锁定字库覆盖的字符在页面宿主装载时明确报错，不回退系统字体
+      const badFilm = {
+        ...PROBE_FILM,
+        id: 't4-bad-glyph',
+        output: { ...PROBE_FILM.output, frames: 24 },
+        shots: [probeShot('tbad', 0, {
+          mode: 'cards-data',
+          cards: [{ as: 'title', use: 'overlay.title@1', params: { text: '北冥𪚥' } }],
+          roles: { hero: 'title' },
+        })],
+        events: [],
+      };
+      await assert.rejects(
+        source.open(shotInput(badFilm, 'tbad', eventsTable(badFilm)), {
+          lock: localLock(badFilm, { tbad: 8899 }, threeLib), tier: 'final', workspace: root, filmDir: PROBE_DIR,
+        }),
+        /字形表/,
+      );
     });
   } finally {
     await source.stop();

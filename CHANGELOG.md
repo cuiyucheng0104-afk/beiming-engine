@@ -150,6 +150,8 @@
 
 ### Fixed
 
+- `beiming/cards/two-d/overlay-title` 片名技术卡（T4 缺陷回修）：将原先仅支持大写拉丁字母与数字的 5×7 点阵方块网格替换为仓库锁定 OFL 真字体分片（`routes/c-style/fonts/fonts.json` + `mashanzheng-00..12.woff2`，Ma Shan Zheng / BM Brush，覆盖全套可打印 ASCII 与 6,763 个 GB2312 汉字共 7,015 字）离屏 Canvas2D 光栅化纹理平面；页面宿主 `beiming/host/page/host.mjs` 新增只读放行 `routes/c-style/fonts/` 下经 `realpathSync.native` 核验的 `.woff2` 与 `fonts.json`；按光栅化非零 alpha 像素精确裁剪墨迹外框上报 `meta(f).texts[0].bbox2d`，支持 `rise`/`settle`/`fade` 纯函数缓出入场动效并在落版后逐帧静止，超出锁定字库字符直接报错拒收、绝不回退系统字体。
+
 - 先验库清单加载器（`beiming/cards/priors-batch2.mjs`、`beiming/cards/priors-audio-subs.mjs`）改为在加载时实时检查 `beiming/cards/<域>/<名>/card.json` 生成 `manifest.cards[].exists`，不再依赖静态 JSON 快照，避免后续新增技术卡后造成 `c11-priors.test.mjs` 失配。
 
 - 修复二维讲解舞台在 Chromium 校验声明时删除调用方 `stack` 属性的问题。`ctx` 的诊断访问器会保留，声明中的自有访问器和数组的额外 `stack` 属性会在 Node 和页面端同步报 `usage.bad-argument`（S3，#136）。
