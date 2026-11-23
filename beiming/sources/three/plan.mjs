@@ -3,15 +3,9 @@
 import { checkInstanceNames, expandOverlays, implFor, parseCardRef, unfitReason } from '../../cards/runtime.mjs';
 import { renderingOf } from '../../kernel/eval/input.mjs';
 import { shutterSubs } from '../../kernel/eval/time.mjs';
+import { resolveThreeHost, SourceError } from './hosts.mjs';
 
-export class SourceError extends Error {
-  /** next 是可选的「接下来可以怎么办」：一组可执行的替代办法，每项 { verb, why }（和 API 错误信封的 next 同一个写法） */
-  constructor(code, message, next) {
-    super(message);
-    this.code = code;
-    if (next) this.next = next;
-  }
-}
+export { resolveThreeHost, SourceError };
 
 const AUX = ['depth', 'objectId', 'normal', 'motion'];
 // 数据层的卡产出的轨道里，这个帧源有地方写的只有相机轨道
@@ -80,7 +74,16 @@ export function planOpen(caps, input, env, library = {}) {
   const { shot } = input, { source, host, mode } = renderingOf(shot);
   if (source !== caps.id) throw bad(`出这个镜头的帧源是 ${source}，不是 ${caps.id}`);
   if (!['draft', 'final'].includes(env.tier)) throw bad(`档位只能是 draft、final，给的是 ${env.tier}`);
-  if (!caps.hosts.includes(host) || !caps.modes.includes(mode)) throw new SourceError('contract.unsupported-mode', `${caps.id} 帧源不支持宿主 ${host} 加作者模式 ${mode}`);
+  const allowExperimental = Array.isArray(caps.hosts) && caps.hosts.includes('offscreen');
+  const resolvedHost = (host === 'any' || host === 'offscreen')
+    ? resolveThreeHost(shot, {
+      allowExperimental,
+      mainline: Boolean(env.mainline || env.mainlineAcceptance),
+      exam: Boolean(env.exam || input.exam),
+    })
+    : host;
+  const hostList = Array.isArray(resolvedHost) ? resolvedHost : [resolvedHost];
+  if (hostList.some((h) => !caps.hosts.includes(h)) || !caps.modes.includes(mode)) throw new SourceError('contract.unsupported-mode', `${caps.id} 帧源不支持宿主 ${host} 加作者模式 ${mode}`);
   // 用了卡：镜头条目的 cards、镜头输入的 overlays（叠加层展开成卡的实例）有一个不空就算；用了资产：镜头条目的 assets、镜头输入里全片的 assets，有一个不空就算
   const cards = used(shot.cards), overlays = used(input.overlays), assets = used(shot.assets) || used(input.assets);
   if (env.lock === null) {
