@@ -13,6 +13,7 @@
 
 ### Added
 
+- 新增四张 M2 技术卡（T5，#154）。`layout.panels` 按整数像素排上下、左右或网格分屏，逐格居中裁切 RGBA 画面并绘制分隔线。`camera.orbit` 按总帧数等分一圈，末帧到首帧保持同一步长。`camera.drift` 可锁定机位，也可沿相机局部轴匀速推进、平移和变焦。`camera.fit@1` 从静态包围盒的八个角精确求取景距离，支持固定视角和固定仰角的整圈环绕；环拍时将解出的距离与中心交给 `camera.orbit`，全程共用一个半径。
 - `beiming/comp` 新增事件表驱动的 Python+numpy 程序化声音脚本工序（X6，#158，合成收尾层）：`script-audio.mjs` 提供自包含的 `resolvePython` 与 `runAudioScript`，不经 shell 启动未修改的 `.py` 声音脚本（传入 `--events`、`--out` 及 `BEIMING_EVENTS`、`BEIMING_AUDIO_OUT`、`BEIMING_FRAMES`、`BEIMING_FPS`），核验产出的 48 kHz 单声道或立体声 WAV（有限样本、与片长帧数一致）并收集同目录伴随的 `report.json` 与 `stems/*.wav`；`deliver` 新增可选 `audioScript`（记录脱敏的 `audio-script` 运行步骤，`mastered: true` 时跳过二次 `masterAudio` 限幅以保留脚本自带母带，但仍执行成片 `measureLoudness` 与 `measureAac` 交付门禁）。对不传 `audioScript` 的现有作品与交付没有影响。
 - 感知组件新增 `flow.field` 与 `image.flip`（O10，#161）：前者从相邻帧量亚像素稠密光流、方向和速度幅值频谱，后者按观看条件计算 LDR-FLIP 误差图及分位数。对 agent：用 `runFlowFlipMetric` 按名调用，可用已校准的均值阈值判跨机画面回归，不改渲染及既有验收门。
 - Blender 构建脚本新增 `ctx.runtime`（S11，#159）。镜头可用命名时间线编排动作，按序号设置材质插口，用纯函数生成运动模糊所需的三帧关键帧，并通过帧元数据交出文字框、实体锚点和读数。
