@@ -213,7 +213,7 @@
 - **搜高频精密层（Detail）**：跨品类借用微型精密机械，关键词带 `camera shutter dial`、`pocket watch escapement`、`micrometer ratchet`、`micro switch click`、`safe combination dial`（无源机械词会自动触发 `fetch_sfx.py` 的 `_PASSIVE_MECH_QUERY_RE` 电机污染过滤【仓库实证·代码】`tools/fetch_sfx.py:42-49`）；
 - **搜高科技界面层（HUD / UI）**：关键词显式带上 `hitech`、`telemetry`、`hud`、`micro beep`、`laser scan`（触发 `is_hitech_query` 上下文放行【仓库实证·代码】`tools/fetch_sfx.py:52-55`，不会误伤有机拟音的电子合成器禁令）。
 
-CC0 检索之外，商用音效库（rog-5090 已购 63 G：BOOM Library / SoundMorph / Pro Sound Effects）是并列候选池：`node tools/env/py.mjs tools/sfx_library.py search "怪兽吼叫" --dur-max 3` 中英关键词 + 子库 / 时长过滤，候选 `path` 用 `BEIMING_SFX_ROOT` 指向库根后经 `library.load(sfx_library.abs_path(...))` 进混音；索引随仓库分发、检索离线可跑，未设库根时照旧走程序化合成。哪些子库能进对外成片看 [sfx-library.md](../../../docs/rights/sfx-library.md) 的红标清单，拿不准先问主人。
+CC0 检索之外，商用音效库（rog-5090 已购 63 G：BOOM Library / SoundMorph / Pro Sound Effects）是并列候选池：`node tools/env/py.mjs tools/sfx_library.py search "怪兽吼叫" --dur-max 3` 中英关键词 + 子库 / 时长过滤，候选 `path` 用 `BEIMING_SFX_ROOT` 指向库根后经 `library.load(sfx_library.abs_path(...))` 进混音；索引随仓库分发、检索离线可跑，未设库根时照旧走程序化合成。候选带 `rights: owner-confirmed`（主人确认全部子库有授权）；带 ℹ来源注记（索引 `source_residue`）的子库盘内有第三方渠道残留文件，建议以官方原盘替换拷贝，不阻塞使用；清单与待补书面项看 [sfx-library.md](../../../docs/rights/sfx-library.md) 第三节，拿不准先问主人。
 
 ### 2.4 第四步：零训练物理初筛（Stage 1 Judge）
 下载候选素材或校验程序化合成波形后先跑 `python -m engine.audio.sfx_judge <目录> --manifest sfx_manifest.json`（或调 `sfx_judge.extract_metrics` / `judge_wave`）：

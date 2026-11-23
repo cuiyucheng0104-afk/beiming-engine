@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """商用音效库索引与检索（engine/audio/sfx_library.py）测试：BOM CSV 解析、瑕疵清单标记、
 目录字典化索引往返、中英检索与时长过滤、无库环境（CI）降级。全部离线，不碰 rog-5090。"""
+import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -69,6 +71,74 @@ class BuildIndexTests(unittest.TestCase):
             self.assertEqual(loaded[0]['desc'], 'water, splash, droplet')
 
 
+_HEADER = _CSV.split('\r\n')[0] + '\r\n'
+
+
+def _write_csv(tmp, body, header=_HEADER):
+    path = os.path.join(tmp, 'bad.csv')
+    with open(path, 'wb') as f:
+        f.write(b'\xef\xbb\xbf' + (header + body).encode('utf-8'))
+    return path
+
+
+class BuildIndexErrorTests(unittest.TestCase):
+    def test_missing_column_names_the_column(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = _write_csv(tmp, 'B,S,a.wav,D,wav,1.0,48000,24,2,1,x,c,,t,t\r\n',
+                              header=_HEADER.replace('时长(秒)', '长度'))
+            with self.assertRaises(sfx_library.IndexBuildError) as cm:
+                sfx_library.build_index(path)
+            self.assertIn('时长(秒)', str(cm.exception))
+
+    def test_bad_duration_reports_line_number(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = _write_csv(tmp, 'B,S,ok.wav,D,wav,1.0,48000,24,2,1,x,c,,t,t\r\n'
+                                   'B,S,bad.wav,D,wav,abc,48000,24,2,1,x,c,,t,t\r\n')
+            with self.assertRaises(sfx_library.IndexBuildError) as cm:
+                sfx_library.build_index(path)
+            msg = str(cm.exception)
+            self.assertIn('第 3 行', msg)  # 表头是第 1 行
+            self.assertIn('bad.wav', msg)
+
+    def test_negative_nan_and_short_rows_rejected(self):
+        for body, needle in (('B,S,n.wav,D,wav,-1,48000,24,2,1,x,c,,t,t\r\n', '负数'),
+                             ('B,S,n.wav,D,wav,nan,48000,24,2,1,x,c,,t,t\r\n', '有限'),
+                             ('B,S,n.wav,D,wav,1.0\r\n', '采样率')):
+            with tempfile.TemporaryDirectory() as tmp:
+                path = _write_csv(tmp, body)
+                try:
+                    rows, _ = sfx_library.build_index(path)
+                except sfx_library.IndexBuildError as e:
+                    self.assertIn(needle, str(e), body)
+                else:  # 短行只缺数值列时按空值 0 处理不算坏数据，其余必须报错
+                    self.assertEqual(needle, '采样率')
+                    self.assertEqual(rows[0]['sr'], 0)
+
+
+class RightsFieldTests(unittest.TestCase):
+    def test_residue_subs_annotated_but_all_owner_confirmed_and_searchable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = _write_csv(tmp, 'B,SoundMorph.Portals,door.wav,D,wav,1.0,48000,24,2,1,door slam,Doors,,t,t\r\n'
+                                   'B,Pro Sound Effects - First,d2.wav,D,wav,1.0,48000,24,2,1,door slam,Doors,,t,t\r\n'
+                                   'B,SoundMorph.Energy,d3.wav,D,wav,1.0,48000,24,2,1,door slam,Doors,,t,t\r\n')
+            rows, _ = sfx_library.build_index(path)
+        by_sub = {r['sub']: r for r in rows}
+        self.assertEqual(by_sub['SoundMorph.Portals']['source_residue'], sfx_library.RESIDUE_TAG)
+        self.assertNotIn('source_residue', by_sub['Pro Sound Effects - First'])
+        self.assertNotIn('source_residue', by_sub['SoundMorph.Energy'])
+        hits = sfx_library.search('door', index=rows)
+        self.assertEqual(len(hits), 3)  # 注记不排除
+        self.assertEqual({h['rights'] for h in hits}, {'owner-confirmed'})
+        portals = [h for h in hits if h['sub'] == 'SoundMorph.Portals'][0]
+        self.assertTrue(portals['residue_files'])
+
+    def test_committed_index_marks_residue_subs(self):
+        rows = sfx_library.load_index()
+        flagged = {r['sub'] for r in rows if r.get('source_residue')}
+        self.assertEqual(flagged, set(sfx_library.SOURCE_RESIDUE))
+        self.assertFalse([r for r in rows if r['sub'] in sfx_library.SOURCE_RESIDUE and not r.get('source_residue')])
+
+
 class SearchTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -117,6 +187,41 @@ class EnvironmentTests(unittest.TestCase):
     def test_parse_defects_ignores_non_path_lines(self):
         d = sfx_library.parse_defects('## 0 字节空文件：1 个\n- 说明文字\nLib/x.wav\n噪声行\n')
         self.assertEqual(d, {'Lib/x.wav': 'zero_byte_deleted'})
+
+
+_TOOL = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'tools', 'sfx_library.py')
+
+
+def _cli(*argv):
+    return subprocess.run([sys.executable, _TOOL, *argv], capture_output=True, text=True, encoding='utf-8')
+
+
+class CliTests(unittest.TestCase):
+    def test_search_with_custom_index_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rows, _ = _build(tmp)
+            idx = os.path.join(tmp, 'index.jsonl')
+            sfx_library.write_index(rows, idx)
+            r = _cli('search', 'water', '--index', idx, '--json')
+            self.assertEqual(r.returncode, 0, r.stderr)
+            hits = json.loads(r.stdout)['data']['hits']
+            self.assertEqual([h['file'] for h in hits], ['ok_hit.wav'])  # 用的是 fixture 索引而不是内置索引
+
+    def test_search_missing_index_is_environment_error(self):
+        r = _cli('search', 'water', '--index', os.path.join(tempfile.gettempdir(), 'no-such-sfx-index.jsonl'))
+        self.assertEqual(r.returncode, 3, r.stderr)
+
+    def test_index_bad_csv_is_contract_error_with_line(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = _write_csv(tmp, 'B,S,bad.wav,D,wav,abc,48000,24,2,1,x,c,,t,t\r\n')
+            r = _cli('index', '--csv', path, '--out', os.path.join(tmp, 'o.jsonl'))
+            self.assertEqual(r.returncode, 4, r.stderr)
+            self.assertIn('第 2 行', r.stderr + r.stdout)
+
+    def test_search_output_marks_residue_sub(self):
+        r = _cli('search', 'door', '--sub', 'SoundMorph.Portals', '--limit', '3')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn('来源注记:third-party-files', r.stdout)
 
 
 if __name__ == '__main__':

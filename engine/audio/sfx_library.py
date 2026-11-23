@@ -19,12 +19,13 @@
 许可证核验与使用边界（哪些子库能渲染进交付成片、哪些标红待拍板）见 docs/rights/sfx-library.md。
 """
 import json
+import math
 import os
 import re
 from functools import lru_cache
 from pathlib import Path
 
-from .sfx_vocab import _CJK_RE, _tokens, search_ucs
+from .sfx_vocab import CJK_RE, search_ucs, tokenize_query
 
 INDEX_PATH = Path(__file__).resolve().parent / 'sfx_library_index.jsonl'
 ENV_ROOT = 'BEIMING_SFX_ROOT'
@@ -34,6 +35,26 @@ _DEFECT_KINDS = (
     (('FORM', 'AIFF'), 'aiff_renamed_from_wav'),
     (('0 字节', '空文件'), 'zero_byte_deleted'),
 )
+# 授权状态（机器字段）：全部子库统一 owner-confirmed——主人 2026-11-24 确认持有授权（item 37；
+# Portals / Inner Circle 另确认「在正版购买范围内，用过正版下载替换/确认来源」）。
+RIGHTS_STATUS = 'owner-confirmed'
+# 来源注记（不是授权状态，不阻塞使用，不排除检索）：这些子库的盘内有第三方渠道残留文件，
+# 建议以官方原盘替换拷贝。清单为 2026-11-24 的观察记录，依据见 docs/rights/sfx-library.md 第三节。
+SOURCE_RESIDUE = {
+    'SoundMorph - Future Weapons 1': ['Ammunitions/About.zip（内含 About.txt：LookAE 声明、LookAE.com / FCPX 资源站 / Audio Jungle 合集 .url）', '重打包站 GBK 乱码目录「更多免费资源下载」'],
+    'SoundMorph - Future Weapons 2': ['Source Recordings/About.zip、Designed/Explosions/About.zip（内容同上）', '重打包站 GBK 乱码目录「更多免费资源下载」'],
+    'SoundMorph.Portals': ['下载.url（指向 lookae.com，独立复核发现；04:19 复查已不在盘上）'],
+    'SoundMorph.Inner.Circle.Transient.Foundations': ['TM DISCOVER.nfo（独立复核发现；04:19 复查已不在盘上）'],
+}
+RESIDUE_TAG = 'third-party-files'
+
+_REQUIRED_COLS = ('品牌', '子库', '文件名', '所在目录', '时长(秒)', '采样率', '位深', '声道', '描述/关键词', '分类', '子分类')
+
+
+class IndexBuildError(ValueError):
+    """总目录 CSV 缺列或某行数值坏了：消息带行号，调用方（CLI）转成契约错误。"""
+
+
 _DEFECT_PATH_RE = re.compile(r'^\S.*\.(wav|aif|aiff|mp3|m4a|flac|ogg)$', re.I)
 
 
@@ -55,6 +76,23 @@ def parse_defects(text: str) -> dict:
     return out
 
 
+def _s(r, col):
+    return (r.get(col) or '').strip()  # 短行缺的列 DictReader 给 None
+
+
+def _num(r, col, cast):
+    v = _s(r, col)
+    if v == '':
+        return cast(0)
+    try:
+        x = cast(v)
+    except ValueError:
+        raise ValueError(f'{col} 不是数字 {v!r}') from None
+    if not math.isfinite(x):
+        raise ValueError(f'{col} 不是有限数值 {v!r}')
+    return x
+
+
 def build_index(csv_path, defects_path=None) -> tuple:
     """读总目录 CSV（UTF-8 BOM）生成索引行；给瑕疵清单时打缺陷标记（文件名按 CSV 原样保留，
     清单的 .wav 路径与 CSV 修复后 .aif 的行两种写法都能对上）。"""
@@ -65,37 +103,52 @@ def build_index(csv_path, defects_path=None) -> tuple:
         with open(defects_path, encoding='utf-8-sig') as f:
             defects = parse_defects(f.read())
 
+    rows, stats = [], {'renamed': 0, 'deleted': 0, 'total': 0}
     with open(csv_path, encoding='utf-8-sig', newline='') as f:
-        raw = list(csv.DictReader(f))
-
-    rows, stats = [], {'renamed': 0, 'deleted': 0, 'total': len(raw)}
-    for r in raw:
-        rel = '/'.join(x for x in (r.get('所在目录', '').strip(), r.get('文件名', '').strip()) if x)
-        defect = defects.get(rel)
-        if defect is None and rel.lower().endswith('.aif'):
-            # 总目录 CSV 是在瑕疵修复之后导出的：改名后的行已是 .aif，清单里记的还是 .wav
-            defect = defects.get(re.sub(r'\.aif$', '.wav', rel, flags=re.I))
-        name = r.get('文件名', '').strip()
-        if defect == 'aiff_renamed_from_wav':  # 主人 2026-11-24 确认已改名：内容完好，标记留痕
-            stats['renamed'] += 1
-        elif defect == 'zero_byte_deleted':
-            stats['deleted'] += 1
-        row = {
-            'brand': r.get('品牌', '').strip(),
-            'sub': r.get('子库', '').strip(),
-            'file': name,
-            'dir': r.get('所在目录', '').strip(),
-            'dur': float(r.get('时长(秒)') or 0),
-            'sr': int(r.get('采样率') or 0),
-            'bits': int(r.get('位深') or 0),
-            'ch': int(r.get('声道') or 0),
-            'desc': r.get('描述/关键词', '').strip(),
-            'cat': r.get('分类', '').strip(),
-            'subcat': r.get('子分类', '').strip(),
-        }
-        if defect:
-            row['defect'] = defect
-        rows.append(row)
+        reader = csv.DictReader(f)
+        missing = [c for c in _REQUIRED_COLS if c not in (reader.fieldnames or [])]
+        if missing:
+            raise IndexBuildError(f'总目录 CSV 缺少必需列：{"、".join(missing)}（表头：{reader.fieldnames}）')
+        for r in reader:
+            stats['total'] += 1
+            lineno = reader.line_num
+            name = _s(r, '文件名')
+            if not name:
+                raise IndexBuildError(f'总目录 CSV 第 {lineno} 行：文件名为空')
+            try:
+                dur, sr, bits, ch = (_num(r, '时长(秒)', float), _num(r, '采样率', int),
+                                     _num(r, '位深', int), _num(r, '声道', int))
+            except ValueError as e:
+                raise IndexBuildError(f'总目录 CSV 第 {lineno} 行（{name}）：{e}') from None
+            if dur < 0:
+                raise IndexBuildError(f'总目录 CSV 第 {lineno} 行（{name}）：时长(秒) 为负数 {dur}')
+            rel = '/'.join(x for x in (_s(r, '所在目录'), name) if x)
+            defect = defects.get(rel)
+            if defect is None and rel.lower().endswith('.aif'):
+                # 总目录 CSV 是在瑕疵修复之后导出的：改名后的行已是 .aif，清单里记的还是 .wav
+                defect = defects.get(re.sub(r'\.aif$', '.wav', rel, flags=re.I))
+            if defect == 'aiff_renamed_from_wav':  # 主人 2026-11-24 确认已改名：内容完好，标记留痕
+                stats['renamed'] += 1
+            elif defect == 'zero_byte_deleted':
+                stats['deleted'] += 1
+            row = {
+                'brand': _s(r, '品牌'),
+                'sub': _s(r, '子库'),
+                'file': name,
+                'dir': _s(r, '所在目录'),
+                'dur': dur,
+                'sr': sr,
+                'bits': bits,
+                'ch': ch,
+                'desc': _s(r, '描述/关键词'),
+                'cat': _s(r, '分类'),
+                'subcat': _s(r, '子分类'),
+            }
+            if defect:
+                row['defect'] = defect
+            if row['sub'] in SOURCE_RESIDUE:
+                row['source_residue'] = RESIDUE_TAG
+            rows.append(row)
     return rows, stats
 
 
@@ -174,9 +227,9 @@ def _query_terms(query: str) -> list:
             seen.add(t)
             terms.append(t)
 
-    for t in _tokens(query):
+    for t in tokenize_query(query):
         add(t)
-    if not _CJK_RE.search(query):
+    if not CJK_RE.search(query):
         return terms[:24]
     chunks = [(query, True)]
     chunks += [(query[i:i + 2], True) for i in range(max(0, len(query) - 1))]
@@ -188,9 +241,16 @@ def _query_terms(query: str) -> list:
                 add(u['subCategory'])
                 for en in (u['matchedEn'] or u['synonymsEn'][:6]):
                     add(en)
-        if sum(1 for t in terms if not _CJK_RE.search(t)) >= 4:
+        if sum(1 for t in terms if not CJK_RE.search(t)) >= 4:
             break
     return terms[:24]
+
+
+def _hit(row, score):
+    h = {**row, 'path': f"{row['dir']}/{row['file']}", 'score': score, 'rights': RIGHTS_STATUS}
+    if row.get('source_residue'):
+        h['residue_files'] = SOURCE_RESIDUE.get(row['sub'], [])
+    return h
 
 
 def search(query=None, *, brand=None, sub=None, cat=None, subcat=None,
@@ -206,7 +266,7 @@ def search(query=None, *, brand=None, sub=None, cat=None, subcat=None,
     rows = load_index() if index is None else index
     terms = _query_terms(query or '')
     phrase = (query or '').strip().lower()
-    phrase = phrase if phrase and ' ' in phrase and not _CJK_RE.search(phrase) else None
+    phrase = phrase if phrase and ' ' in phrase and not CJK_RE.search(phrase) else None
     q_brand = (brand or '').strip().lower() or None
     q_sub = (sub or '').strip().lower() or None
     q_cat = (cat or '').strip().lower() or None
@@ -229,7 +289,7 @@ def search(query=None, *, brand=None, sub=None, cat=None, subcat=None,
         if dur_max is not None and row['dur'] > float(dur_max):
             continue
         if not terms and not phrase:
-            hits.append({**row, 'path': f"{row['dir']}/{row['file']}", 'score': 0})
+            hits.append(_hit(row, 0))
             continue
         stem = re.sub(r'[._\-]+', ' ', row['file'].rsplit('.', 1)[0]).lower()
         stem_toks = set(stem.split())
@@ -253,6 +313,6 @@ def search(query=None, *, brand=None, sub=None, cat=None, subcat=None,
             elif phrase in stem:
                 score += 3.0
         if score > 0:
-            hits.append({**row, 'path': f"{row['dir']}/{row['file']}", 'score': round(score, 1)})
+            hits.append(_hit(row, round(score, 1)))
     hits.sort(key=lambda h: (-h['score'], h['dur'], h['path']))
     return hits[:max(1, int(limit))]

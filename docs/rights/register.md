@@ -471,13 +471,13 @@
 - **授权范围**：BOOM 与 SoundMorph 的 MEDIA / MEDIA PRODUCER LICENSE：允许在成片（影视、广播、游戏等多媒体成品）中商用，含同步权与机械权，无署名义务；禁止再分发、并入素材库或采样回放系统转售；派生转换产物（拟合参数文件等）只作内部制作中间体，不入仓、不分发。Pro Sound Effects 两子库库内无 EULA，范围待核
 - **期限**：BOOM：worldwide、无期限；SoundMorph：至按条款终止；Pro Sound Effects：待补
 - **书面证据存放位置**：库内 EULA 原文（路径见 holderBasis，许可证正文不进仓库）；Pro Sound Effects 的官方 EULA 或购买凭证：待补
-- **状态**：授权状态待用户确认；三项待主人拍板：SoundMorph 单用户许可与 NAS 共享盘的口径、Future Weapons 1/2 的重打包站来源痕迹、Pro Sound Effects 无库内 EULA；详见 docs/rights/sfx-library.md 第三节
+- **状态**：授权状态待用户确认；主人 2026-11-24 确认全部子库持有授权（owner-confirmed，item 37 留痕；Portals / Inner Circle 另确认在正版购买范围内），书面凭据（购买记录、官方 EULA）待补；来源注记：Future Weapons 1/2、Portals、Inner Circle 盘内有第三方渠道残留文件（About.zip/LookAE 声明、下载.url、TM DISCOVER.nfo），建议以官方原盘替换拷贝，不阻塞使用，其余 12 个 SoundMorph 子库未逐文件扫描；待补书面项：SoundMorph 单用户许可与 NAS 共享口径、Pro Sound Effects 无库内 EULA；详见 docs/rights/sfx-library.md 第三节
 - **证据位置**：
-  - docs/rights/sfx-library.md（逐子库核验、EULA 原文要点与红标清单）
+  - docs/rights/sfx-library.md（逐子库核验、EULA 原文要点、来源注记与待补书面项）
   - rog-5090 /mnt/data1/共享盘/音效库/（库本体，只读挂载使用）
   - engine/audio/sfx_library_index.jsonl（元数据索引，无音频本体）
-- **义务与做法**：音频本体不入仓、不复制；派生参数文件与处理中间体留制作机本地；不把库内文件或其修改版做成素材库、回放系统再分发；红标未拍板前 PSE 两子库与 Future Weapons 1/2 不进对外成片
-- **agent 规则**：检索用 engine/audio/sfx_library.py（BEIMING_SFX_ROOT 指库根，未设时走程序化合成）；选素材前先查 docs/rights/sfx-library.md 的红标清单，拿不准的子库先问主人
+- **义务与做法**：音频本体不入仓、不复制；派生参数文件与处理中间体留制作机本地；不把库内文件或其修改版做成素材库、回放系统再分发；全部子库按 owner-confirmed 可用于成片；带来源注记的 4 个子库建议先用官方原盘替换拷贝
+- **agent 规则**：检索用 engine/audio/sfx_library.py（BEIMING_SFX_ROOT 指库根，未设时走程序化合成）；选素材前先查 docs/rights/sfx-library.md 第三节；检索候选的 rights 字段全部为 owner-confirmed，ℹ来源注记（索引 source_residue 字段）只提示不排除，拿不准的先问主人
 - **对外分发点**：不随 git 仓库分发（rog-5090 挂载或 sshfs，只读）
 - **仓库主体里的相关文件**：`engine/audio/sfx_library.py`、`engine/audio/sfx_library_index.jsonl`、`tools/sfx_library.py`、`tests/audio/test_sfx_library.py`
 
