@@ -1,10 +1,10 @@
 // 委托只通过工作区 HTTP 接口操作片子。每个角色单独维护消息，子作业在工具内等到终态。
-import { callApi, chat, familyOf, HTTP_TOOL } from './agents.mjs';
+import { buildShotWorkerMessages, callApi, chat, DELEGATE_ROLES, familyOf, HTTP_TOOL } from './agents.mjs';
 
 export const DELEGATE_HARD_TOKEN_CAP = 1_200_000;
 const SYSTEM = {
-  director: '你是导演。先 GET /v1/guide，再 GET 片子，照需求用补丁（patch/0.1，带 rev）调片子描述和谓词；改完用一段话说明。',
-  'shot-worker': '你是镜头工。为指定镜头 POST render（tier draft）出草稿，再 POST verify 核验；未过可用 patch/0.1 调本镜头参数再验。工具会等到终态。通过后汇报。',
+  director: DELEGATE_ROLES.director.systemPrompt,
+  'shot-worker': DELEGATE_ROLES['shot-worker'].systemPrompt,
   finalizer: '你是收尾。POST deliver（tier final）出六件套。工具会等到终态，交付完汇报。',
 };
 
@@ -49,7 +49,17 @@ export async function runDelegateOrchestrator({
   let usedTokens = 0, serverTokens = 0, gpuSeconds = 0, liveGpu = 0, bestRev = 1, deliveredRev = null, outputs = [];
   let at = 'director:step-1', stoppedReason;
   const activeChildren = new Set();
-  const result = (status, extra = {}) => ({ status, ...extra, bestRev, delegateTokens: usedTokens, cost: { tokens: usedTokens + serverTokens, gpuSeconds, wallMs: elapsed() }, outputs });
+  const discoveredCards = [];
+  const skippedRemovedShots = [];
+  const result = (status, extra = {}) => ({
+    status,
+    ...extra,
+    bestRev,
+    delegateTokens: usedTokens,
+    ...(skippedRemovedShots.length ? { skippedRemovedShots } : {}),
+    cost: { tokens: usedTokens + serverTokens, gpuSeconds, wallMs: elapsed() },
+    outputs,
+  });
   const http = async (method, path, client = api) => JSON.parse((await callApi(client, { method, path })).text).body;
   async function full(env) {
     const ref = env?.outputs?.find(o => o.kind === 'response');
@@ -129,6 +139,14 @@ export async function runDelegateOrchestrator({
       liveGpu = 0;
     }
     if (env?.ok && Number.isSafeInteger(env.data?.rev)) bestRev = Math.max(bestRev, env.data.rev);
+    if (env?.ok && target.pathname === '/v1/cards/search' && Array.isArray(env.data?.items)) {
+      for (const c of env.data.items) {
+        if (c && typeof c === 'object' && !discoveredCards.some(x => x.id === c.id)) discoveredCards.push(c);
+      }
+    } else if (env?.ok && target.pathname.startsWith('/v1/cards/') && env.data?.card) {
+      const c = env.data.card;
+      if (c && typeof c === 'object' && !discoveredCards.some(x => x.id === c.id)) discoveredCards.push(c);
+    }
     if (isJob && env?.ok && env.data?.status === 'succeeded') {
       const complete = await full(env);
       if (verb === 'deliver') {
@@ -141,12 +159,33 @@ export async function runDelegateOrchestrator({
     return res.text;
   }
 
-  async function session(role, shot) {
+  async function session(role, shot, currentFilm) {
     const tag = shot ? `shot-worker:${shot.id}` : role;
     const model = role === 'director' ? directorModel : workerModel;
-    const task = [`片子 ${filmId}`, `需求：${brief}`, ...(assets.length ? [`素材引用：${JSON.stringify(assets)}`] : []),
-      ...(shot ? [`镜头 ${shot.id}（帧 ${shot.in}–${shot.out}）`] : [])].join('\n');
-    const messages = [{ role: 'system', content: `[ROLE:${tag}]\n${SYSTEM[role]}` }, { role: 'user', content: task }];
+    let messages;
+    if (role === 'shot-worker' && shot) {
+      const built = buildShotWorkerMessages({
+        filmId,
+        rev: bestRev,
+        brief: brief ?? '',
+        assets,
+        shot,
+        basePredicates: currentFilm?.predicates?.base ?? ['floor@1'],
+        extraPredicates: currentFilm?.predicates?.extra ?? [],
+        cards: discoveredCards,
+        budget: {
+          tokens: Math.max(1, maxTokens - usedTokens - serverTokens),
+          gpuSeconds: budget.gpuSeconds,
+          wallSeconds: budget.wallSeconds,
+          maxSteps,
+        },
+      });
+      messages = built.messages;
+    } else {
+      const task = [`片子 ${filmId}`, `需求：${brief}`, ...(assets.length ? [`素材引用：${JSON.stringify(assets)}`] : []),
+        ...(shot ? [`镜头 ${shot.id}（帧 ${shot.in}–${shot.out}）`] : [])].join('\n');
+      messages = [{ role: 'system', content: `[ROLE:${tag}]\n${SYSTEM[role]}` }, { role: 'user', content: task }];
+    }
     const evidence = {};
     for (let step = 1; step <= maxSteps; step++) {
       at = `${tag}:step-${step}`;
@@ -165,6 +204,15 @@ export async function runDelegateOrchestrator({
       try {
         res = await chat({ endpoint, apiKey, signal: deadline && signal ? AbortSignal.any([signal, deadline]) : deadline ?? signal, body, requireUsage: true });
       } catch (e) {
+        if (e?.usage) {
+          const uIn = e.usage.inputTokens ?? 0;
+          const uOut = e.usage.outputTokens ?? 0;
+          if (uIn > 0 || uOut > 0) {
+            const errModel = typeof e.model === 'string' && e.model ? e.model : model;
+            usedTokens += uIn + uOut;
+            onUsage?.({ role: tag, step, model: errModel, family: familyOf(errModel), inputTokens: uIn, outputTokens: uOut });
+          }
+        }
         if (deadline?.aborted && !signal?.aborted) stop('wallSeconds');
         throw e;
       }
@@ -189,9 +237,31 @@ export async function runDelegateOrchestrator({
 
   try {
     if (!await session('director')) return result('failed', { failedAt: at });
-    const film = await readFilm();
-    for (const shot of film.shots) {
-      if (!await session('shot-worker', shot) && !await session('shot-worker', shot)) return result('failed', { failedAt: `shot-worker:${shot.id}` });
+    let film = await readFilm();
+    let filmRev = bestRev;
+    const shotIds = film.shots.map((s) => s.id);
+    for (const shotId of shotIds) {
+      if (bestRev !== filmRev) {
+        film = await readFilm();
+        filmRev = bestRev;
+      }
+      let shot = film.shots.find((s) => s.id === shotId);
+      if (!shot) {
+        skippedRemovedShots.push({ shot: shotId, rev: filmRev });
+        continue;
+      }
+      if (!await session('shot-worker', shot, film)) {
+        // 重试前重新读取最新片子与镜头条目，确保第二次任务书拿到最新 rev 与改动后的镜头 JSON；
+        // 若最新修订已删除该镜头，不得回退旧镜头继续派工，直接跳过并记入状态。
+        film = await readFilm();
+        filmRev = bestRev;
+        shot = film.shots.find((s) => s.id === shotId);
+        if (!shot) {
+          skippedRemovedShots.push({ shot: shotId, rev: filmRev });
+          continue;
+        }
+        if (!await session('shot-worker', shot, film)) return result('failed', { failedAt: `shot-worker:${shotId}` });
+      }
     }
     if (deliveredRev !== bestRev) {
       if (!await session('finalizer')) return result('failed', { failedAt: at });
