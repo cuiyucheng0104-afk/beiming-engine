@@ -207,4 +207,4 @@ v1.0 标签停在首个提交，GitHub 上的 Latest 仍指向它。要替换，
 
 | 现象 | 影响 | 负责的工作包 | 处理与解除条件 |
 |---|---|---|---|
-| `engine/look/gpu.test.mjs` 的「R35 墨线：宽线…」在 SwiftShader 下要 60 秒以上（3840×2080 再 2 倍超采样），超过测试里 `page.goto` 的 30 秒默认时限 | render (tests) 一路的全部测试一步 | 引擎九层（engine/look） | ci.yml 里用 `--skip-grep "R35 墨线：宽线"` 隔离。测试按软件渲染缩小尺寸或放宽时限后，删掉这个参数。GPU 上照常运行 |
+| `engine/look/gpu.test.mjs` 的「R35 墨线：宽线…」在 SwiftShader 下要 60 秒以上（3840×2080 再 2 倍超采样），超过测试里 `page.goto` 的 30 秒默认时限 | render (tests-rest) 一路的全部测试一步 | 引擎九层（engine/look） | ci.yml 里用 `--skip-grep "R35 墨线：宽线"` 隔离。测试按软件渲染缩小尺寸或放宽时限后，删掉这个参数。GPU 上照常运行 |
