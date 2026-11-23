@@ -3,7 +3,8 @@
 // 输入输出走同源二进制 GET / POST，不经 base64。
 import { Buffer } from 'node:buffer';
 import http from 'node:http';
-import { launchBrowser } from '../../../../engine/render/lib/gpu.mjs';
+import process from 'node:process';
+import { chromeArgs, chromeExecutable } from '../../../../engine/render/lib/gpu.mjs';
 import { missing } from './cycles/build.mjs';
 import { width } from './registry.mjs';
 
@@ -65,6 +66,9 @@ window.runAll = async jobs => {
 };
 </script>`;
 
+// Linux 上无头 Chrome 默认不开 WebGPU。只加 --enable-unsafe-webgpu 拿到的是软件适配器，再加 Vulkan 才是真显卡（NVIDIA 上实测）
+const WEBGPU_ARGS = process.platform === 'linux' ? ['--enable-unsafe-webgpu', '--enable-features=Vulkan'] : [];
+
 /** jobs: [{ f, input: Float32Array, source: WGSL 原文 }] → { adapter, outputs: Float32Array[] }（与 jobs 同序） */
 export async function runGpu(jobs) {
   const ins = new Map(jobs.map(j => [j.f.name, j.input]));
@@ -82,7 +86,10 @@ export async function runGpu(jobs) {
   await new Promise(ok => srv.listen(0, '127.0.0.1', ok));
   let browser;
   try {
-    try { browser = await launchBrowser(); } catch (e) { throw missing(`无头浏览器起不来：${e.message}`); }
+    try {
+      const { chromium } = await import('playwright-core');
+      browser = await chromium.launch({ executablePath: chromeExecutable(), args: [...chromeArgs(), ...WEBGPU_ARGS, '--mute-audio'] });
+    } catch (e) { throw missing(`无头浏览器起不来：${String(e.message).split('\n')[0]}`); }
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${srv.address().port}/`);
     const r = await page.evaluate(js => globalThis.runAll(js), jobs.map(j => ({ name: j.f.name, code: kernel(j.source, j.f), n: j.input.length / width(j.f), nOut: j.f.out })));
