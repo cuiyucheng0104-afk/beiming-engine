@@ -24,10 +24,10 @@ function makeTempDir(t, prefix = 'beiming-exam-test-') {
   return dir;
 }
 
-test('exam-1 扫描并运行仓库真实公开题库：11 道公开题（level-1 / level-2-a / level-2-b）与负对照全部通过，写出结构化 report.json', async (t) => {
+test('exam-1 扫描并运行仓库真实公开题库：12 道公开题（level-1 / level-2-a / level-2-b）与负对照全部通过，写出结构化 report.json', async (t) => {
   const outDir = makeTempDir(t);
   const files = discoverQuestionFiles(QUESTIONS_DIR);
-  assert.ok(files.length >= 11, `应至少发现 11 道公开题，实际 ${files.length}`);
+  assert.ok(files.length >= 12, `应至少发现 12 道公开题，实际 ${files.length}`);
 
   const report = await runExam({ outDir });
   assert.equal(report.format, EXAM_REPORT_FORMAT);
@@ -502,7 +502,7 @@ test('exam-12 回归：23-1 参考夹具 variants[] 变体参考片失配或缺�
   assert.equal(r4.summary.invalidQuestions, 1);
 });
 
-test('exam-13 回归：level-2-a（27-1 / 29-2 / 23-2）接入 B3 评分器，缺题集或夹具/阈值篡改必退非 0', async (t) => {
+test('exam-13 回归：level-2-a（27-1 / 29-2 / 23-2 / 30-1）接入 B3 评分器，缺题集或夹具/阈值篡改必退非 0', async (t) => {
   // 1. 移走 level-2-a 全部题目 -> exit 4
   const root1 = makeTempDir(t);
   const fakeBench1 = path.join(root1, 'bench');
@@ -518,7 +518,19 @@ test('exam-13 回归：level-2-a（27-1 / 29-2 / 23-2）接入 B3 评分器，�
   assert.equal(rMissing.error?.code, 'contract.missing-question-set');
   assert.match(rMissing.error?.message ?? '', /level-2-a/);
 
-  // 2. 篡改 27-1 首切阈值 -> B3 评分器必须拒绝（exit 1）
+  // 2. 仅移走 30-1.json -> 缺少必需题目 30-1，exit 4
+  const root30 = makeTempDir(t);
+  const fakeBench30 = path.join(root30, 'bench');
+  fs.cpSync(path.join(HERE, 'questions'), path.join(fakeBench30, 'questions'), { recursive: true });
+  fs.cpSync(path.join(HERE, 'refs'), path.join(fakeBench30, 'refs'), { recursive: true });
+  fs.rmSync(path.join(fakeBench30, 'questions/level-2-a/30-1.json'));
+  const rMissing30 = await runExam({ benchDir: fakeBench30, outDir: null });
+  assert.equal(rMissing30.ok, false);
+  assert.equal(rMissing30.exitCode, 4);
+  assert.equal(rMissing30.error?.code, 'contract.missing-question-set');
+  assert.match(rMissing30.error?.message ?? '', /30-1/);
+
+  // 3. 篡改 27-1 首切阈值 -> B3 评分器必须拒绝（exit 1）
   const q27 = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-2-a/27-1.json'), 'utf8'));
   q27.scoring[0].args.firstCut = 120;
   const badDir = makeTempDir(t);
@@ -527,5 +539,40 @@ test('exam-13 回归：level-2-a（27-1 / 29-2 / 23-2）接入 B3 评分器，�
   assert.equal(rBad.ok, false);
   assert.equal(rBad.exitCode, 1);
   assert.equal(rBad.questions[0].pass, false);
+
+  // 4. 30-1 删掉写死帧号固定负对照样本 -> 夹具校验必须拒绝（exit 4）
+  const q30NoNeg = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-2-a/30-1.json'), 'utf8'));
+  q30NoNeg.refs = ['beiming/bench/refs/level-2-a/30-1.reference.json'];
+  const only30NoNegDir = makeTempDir(t);
+  fs.writeFileSync(path.join(only30NoNegDir, '30-1.json'), JSON.stringify(q30NoNeg, null, 2));
+  const rNoNeg = await runExam({ questionsDir: only30NoNegDir, outDir: null });
+  assert.equal(rNoNeg.ok, false);
+  assert.equal(rNoNeg.exitCode, 4);
+
+  // 5. 30-1 篡改写死帧号夹具使之跟动（失配 expect.pass=false）或收紧 probeBpm 阈值 -> 必须返回 exit 1
+  const rootTamper = makeTempDir(t);
+  const fakeBenchTamper = path.join(rootTamper, 'bench');
+  const only30Dir = path.join(fakeBenchTamper, 'questions-only-30');
+  fs.mkdirSync(only30Dir, { recursive: true });
+  fs.cpSync(path.join(QUESTIONS_DIR, 'level-2-a/30-1.json'), path.join(only30Dir, '30-1.json'));
+  fs.cpSync(path.join(HERE, 'refs'), path.join(fakeBenchTamper, 'refs'), { recursive: true });
+  const ref30 = JSON.parse(fs.readFileSync(path.join(fakeBenchTamper, 'refs/level-2-a/30-1.reference.json'), 'utf8'));
+  const hardPath = path.join(fakeBenchTamper, 'refs/level-2-a/30-1.hardcoded.json');
+  const hard30 = JSON.parse(fs.readFileSync(hardPath, 'utf8'));
+  hard30.probeBeatEvents = ref30.probeBeatEvents;
+  fs.writeFileSync(hardPath, JSON.stringify(hard30, null, 2));
+  const rHardMismatch = await runExam({ benchDir: fakeBenchTamper, questionsDir: only30Dir, outDir: null });
+  assert.equal(rHardMismatch.ok, false);
+  assert.equal(rHardMismatch.exitCode, 1);
+  assert.equal(rHardMismatch.questions[0].pass, false);
+
+  const q30Tight = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-2-a/30-1.json'), 'utf8'));
+  q30Tight.scoring[1].args.probeBpm = 108;
+  const tight30Dir = makeTempDir(t);
+  fs.writeFileSync(path.join(tight30Dir, '30-1.json'), JSON.stringify(q30Tight, null, 2));
+  const rTight30 = await runExam({ questionsDir: tight30Dir, outDir: null });
+  assert.equal(rTight30.ok, false);
+  assert.equal(rTight30.exitCode, 1);
+  assert.equal(rTight30.questions[0].pass, false);
 });
 

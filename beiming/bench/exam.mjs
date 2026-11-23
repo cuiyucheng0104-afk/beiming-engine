@@ -56,7 +56,7 @@ const HELP = `北冥考题库离线考试核验入口
 退出码：0 全部通过；1 离线考试未通过、负对照失守或全跳过无实跑；2 命令行参数错误；4 题库为空/缺题集或题目/夹具契约校验不通过`;
 
 const LEVEL1_IDS = new Set(['29-1', '28-1', '23-1', '1-1']);
-const LEVEL2A_IDS = new Set(['27-1', '29-2', '23-2']);
+const LEVEL2A_IDS = new Set(['27-1', '29-2', '23-2', '30-1']);
 const LEVEL2B_IDS = new Set(B6_QUESTION_IDS);
 const REQUIRED_QUESTION_SETS = Object.freeze([
   Object.freeze({ name: 'level-1', evaluator: 'evaluate-b2.mjs', ids: Object.freeze([...LEVEL1_IDS]) }),
@@ -460,6 +460,31 @@ function validateRefData(question, data, refLabel) {
         || !isPlainObj(data.beat) || !Number.isInteger(data.beat.periodMs) || !Number.isInteger(data.beat.phaseMs)) {
         bad('23-2 缺少合法的 chaptersMs/strongOnsetsMs/beat 读数');
       }
+    } else if (question.id === '30-1') {
+      const validEventList = (list, allowEmpty = false) => Array.isArray(list)
+        && (allowEmpty || list.length > 0)
+        && Array.from(list, (e) => isPlainObj(e)
+          && typeof e.id === 'string' && e.id.trim().length > 0
+          && Number.isSafeInteger(e.frame) && e.frame >= 0 && e.frame < data.frames).every(Boolean)
+        && new Set(list.map((e) => e.id)).size === list.length;
+      const sameIds = (a, b) => {
+        const ids = new Set(b.map((e) => e.id));
+        return a.length === b.length && a.every((e) => ids.has(e.id));
+      };
+      const beatOk = validEventList(data.beatEvents) && validEventList(data.probeBeatEvents)
+        && sameIds(data.beatEvents, data.probeBeatEvents);
+      const beatIdSet = beatOk ? new Set(data.beatEvents.map((e) => e.id)) : new Set();
+      const absOk = (data.absoluteEvents === undefined && data.probeAbsoluteEvents === undefined)
+        || (validEventList(data.absoluteEvents, true)
+          && validEventList(data.probeAbsoluteEvents, true)
+          && sameIds(data.absoluteEvents, data.probeAbsoluteEvents)
+          && !data.absoluteEvents.some((e) => beatIdSet.has(e.id)));
+      if (!isFiniteNum(data.baseBpm) || data.baseBpm <= 0
+        || !isFiniteNum(data.probeBpm) || data.probeBpm <= 0 || data.baseBpm === data.probeBpm
+        || !beatOk || !absOk
+        || !isFiniteNum(data.loudnessLufs) || !isFiniteNum(data.truePeakDbtp)) {
+        bad('30-1 缺少合法的 baseBpm/probeBpm/beatEvents/probeBeatEvents/loudnessLufs/truePeakDbtp 读数');
+      }
     }
   }
 
@@ -481,6 +506,7 @@ function validateRefs(question, benchDir) {
     errors.push(`题目 ${question.id} 缺少参考夹具声明（refs 为空）`);
     return errors;
   }
+  const loadedRefs = [];
   for (const ref of refs) {
     const abs = resolveRefPath(benchDir, ref);
     if (!abs || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
@@ -501,7 +527,16 @@ function validateRefs(question, benchDir) {
     if (rawLeaks.length > 0 || objLeaks.length > 0) {
       errors.push(`参考文件存在泄露项（${ref}）：${rawLeaks.length + objLeaks.length} 处`);
     }
-    errors.push(...validateRefData(question, data, ref));
+    const dataErrors = validateRefData(question, data, ref);
+    errors.push(...dataErrors);
+    if (dataErrors.length === 0) loadedRefs.push(data);
+  }
+  if (question.id === '30-1' && errors.length === 0) {
+    const hasPassSample = loadedRefs.some((d) => d.expect?.pass === true);
+    const hasHardcodedSample = loadedRefs.some((d) => d.expect?.pass === false && Array.isArray(d.expect?.items) && d.expect.items[1] === false);
+    if (!hasPassSample || !hasHardcodedSample) {
+      errors.push('题目 30-1 必须同时声明通过型参考样本与写死帧号失败型固定样本');
+    }
   }
   return errors;
 }
@@ -1085,8 +1120,11 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     if (!posRefData || !posVerdict) {
       return failOutcome(`题目 ${question.id} 缺少通过型参考夹具`);
     }
+    if (question.id === '30-1' && negChecked === 0) {
+      return failOutcome('题目 30-1 缺少写死帧号固定负对照夹具');
+    }
 
-    // 额外合成负对照（切点偏移 / 落拍错位 / 空读数）
+    // 额外合成负对照（切点偏移 / 落拍错位 / 写死帧号 / 空读数）
     const synthNegs = [{}];
     if (question.id === '27-1') {
       synthNegs.push({
@@ -1103,6 +1141,25 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
         ...posRefData,
         chaptersMs: posRefData.chaptersMs.map((ms) => ms + 250),
       });
+    } else if (question.id === '30-1') {
+      const offBeatEvents = posRefData.beatEvents.map((e, idx) => ({
+        id: e.id,
+        frame: ((idx + 1) * 18 + 9) % posRefData.frames,
+      }));
+      synthNegs.push(
+        {
+          ...posRefData,
+          beatEvents: offBeatEvents,
+          probeBeatEvents: offBeatEvents.map((e) => ({
+            id: e.id,
+            frame: Math.round(e.frame * (posRefData.baseBpm / posRefData.probeBpm)),
+          })),
+        },
+        {
+          ...posRefData,
+          probeBeatEvents: posRefData.beatEvents.map((e) => ({ ...e })),
+        },
+      );
     }
     for (const negReading of synthNegs) {
       negChecked++;

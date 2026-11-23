@@ -1,4 +1,4 @@
-// B3 二级第一批先合入三道题（27-1、29-2、23-2）的判分核验：把题目的基础谓词和 scoring[].args 里的阈值套到一份读数上。
+// B3 二级第一批四道题（27-1、29-2、23-2、30-1）的判分核验：把题目的基础谓词和 scoring[].args 里的阈值套到一份读数上。
 //   evaluate(question, reading) → { score, pass, basePass, base: [{ predicate, pass, status, why, atFrame }], items: [{ metric, weight, pass, detail }] }
 //   score 是过了的判分项的权重和；basePass 是基础谓词条条都过；pass 是 basePass 加每个判分项都过，差一项就判不合格。
 //   基础谓词这里不另写判法：读数拼成片子描述和成片量测，逐条交给正式谓词核（verify/predicates.mjs 的 evaluateAssertion），它判 pass 才算过。
@@ -6,12 +6,13 @@
 //   所以读数除了各题自己的表，还要带成片这一头的 colorTag、blackFrames、freezes、cuts 和工程的镜头表 shots。
 //   读数不成形（不是 JSON 对象、缺子表、表里有空洞或混进非数、帧率和总帧数跟交付规格不一致）一律 0 分、不合格，原因写在 detail.invalid，不抛错。
 //   读数的字段见 beiming/bench/refs/level-2-a/ 的夹具；23-2 的章节起点收片内非负有限毫秒数，其余时刻是整数帧或整数毫秒。
-//   read27_1、read29_2、read23_2 从成片量读数，镜头表取工程的片子描述或事件表；readFilm 只量成片这一头。
-//   机器上没有 ffmpeg/ffprobe 时回 { toolMissing }。30-1 移至行为检查后续议题。
+//   read27_1、read29_2、read23_2 从成片量读数，镜头表取工程的片子描述或事件表；readFilm 只量成片这一头；
+//   read30_1 对时间线求值回调在 baseBpm 与 probeBpm 下做纯行为重求值观测（零源码分析）。机器上没有 ffmpeg/ffprobe 时真片读数回 { toolMissing }。
 // shortcut: 命中率和随机基线（05 第 7.1 节的 metric:beat.onset-hit）观测层还没有，先在这里算；它进了 observe/metrics 就换成调它。
 import { spawn, spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { createInterface } from 'node:readline';
+import { evaluate as evaluateTimeline } from '../../../cards/time/timeline/evaluate.mjs';
 import { audioLoudness, blackFreezeDup, cutScene, cutYdif, deliverSpec } from '../../../observe/metrics/index.mjs';
 import { evaluateAssertion } from '../../../verify/predicates.mjs';
 
@@ -46,6 +47,33 @@ const SHAPES = {
     (times(chaptersMs, 0, durationMs) && rising(chaptersMs) ? '' : 'chaptersMs 要是片内严格递增的毫秒数')
     || (ints(strongOnsetsMs, 0, durationMs) && rising(strongOnsetsMs) && strongOnsetsMs.length ? '' : 'strongOnsetsMs 要是不空的、片内严格递增的整数毫秒')
     || (plain(beat) && ints([beat.periodMs], 1, Infinity) && ints([beat.phaseMs], 0, beat.periodMs) ? '' : 'beat 要有正整数 periodMs 和 [0, periodMs) 里的整数 phaseMs'),
+  '30-1': ({ baseBpm, probeBpm, beatEvents, probeBeatEvents, absoluteEvents, probeAbsoluteEvents, loudnessLufs, truePeakDbtp }, { frames }) => {
+    const eventList = (list, allowEmpty = false) => Array.isArray(list)
+      && (allowEmpty || list.length > 0)
+      && Array.from(list, (e) => plain(e)
+        && typeof e.id === 'string' && e.id.trim().length > 0
+        && Number.isSafeInteger(e.frame) && e.frame >= 0 && e.frame < frames).every(Boolean)
+      && new Set(list.map((e) => e.id)).size === list.length;
+    const sameIds = (a, b) => {
+      const ids = new Set(b.map((e) => e.id));
+      return a.length === b.length && a.every((e) => ids.has(e.id));
+    };
+    if (!finite(baseBpm, probeBpm) || baseBpm <= 0 || probeBpm <= 0 || baseBpm === probeBpm) {
+      return 'baseBpm、probeBpm 要是不相等的有限正数';
+    }
+    if (!eventList(beatEvents) || !eventList(probeBeatEvents) || !sameIds(beatEvents, probeBeatEvents)) {
+      return 'beatEvents、probeBeatEvents 要是无空洞、id 唯一一致、帧号在 [0, frames) 内的非空事件表';
+    }
+    if (absoluteEvents !== undefined || probeAbsoluteEvents !== undefined) {
+      const beatIds = new Set(beatEvents.map((e) => e.id));
+      if (!eventList(absoluteEvents, true) || !eventList(probeAbsoluteEvents, true)
+        || !sameIds(absoluteEvents, probeAbsoluteEvents)
+        || absoluteEvents.some((e) => beatIds.has(e.id))) {
+        return 'absoluteEvents、probeAbsoluteEvents 要同构合法且不与 beatEvents 重名';
+      }
+    }
+    return finite(loudnessLufs, truePeakDbtp) ? '' : 'loudnessLufs、truePeakDbtp 要是有限数';
+  },
 };
 
 // 判分里帧和毫秒互换、片内范围都按题面的帧率和总帧数算，所以这两项对不上的读数不判，直接算不成形；画幅只在基础谓词里核
@@ -101,6 +129,59 @@ const RULES = {
     ({ bpm, tolMs, minHitRate }, { strongOnsetsMs, beat }) => {
       const hit = share(strongOnsetsMs.filter((ms) => offGrid(ms, beat.periodMs, beat.phaseMs) <= tolMs).length, strongOnsetsMs.length);
       return { pass: beat.periodMs * bpm === 60000 && hit.hitRate >= minHitRate, ...hit };
+    },
+  ],
+  '30-1': [
+    ({ bpm, minBeatEvents, tolFrames, minHitRate, minLift, phaseFrames = 0 }, { fps, frames, baseBpm, beatEvents }) => {
+      const periodFrames = (fps * 60) / bpm;
+      const onBeat = (frame) => periodFrames > 0 && offGrid(frame, periodFrames, phaseFrames) <= tolFrames + 1e-9;
+      const hit = share(beatEvents.filter(({ frame }) => onBeat(frame)).length, beatEvents.length);
+      const distinctFrames = new Set(beatEvents.map(({ frame }) => frame)).size;
+      const minDistinctFrames = Math.ceil(minBeatEvents / 2);
+      const randomBaseline = Array.from({ length: frames }, (_, frame) => frame).filter(onBeat).length / frames;
+      const lift = hit.hitRate - randomBaseline;
+      const offBeatIds = beatEvents.filter(({ frame }) => !onBeat(frame)).map(({ id }) => id);
+      return {
+        pass: baseBpm === bpm
+          && beatEvents.length >= minBeatEvents
+          && distinctFrames >= minDistinctFrames
+          && hit.hitRate >= minHitRate
+          && lift >= minLift,
+        ...hit,
+        distinctFrames,
+        periodFrames,
+        randomBaseline,
+        lift,
+        baselineFrames: [0, frames],
+        offBeatIds,
+      };
+    },
+    ({ baseBpm, probeBpm, tolFrames, minMovedRatio }, { baseBpm: readBaseBpm, probeBpm: readProbeBpm, beatEvents, probeBeatEvents }) => {
+      // 只核对声明要跟拍的 beatEvents 与 probeBeatEvents，absoluteEvents 按绝对时间走、不查跟拍位移
+      const probeById = new Map(probeBeatEvents.map((e) => [e.id, e.frame]));
+      const unfollowedIds = [];
+      let followed = 0;
+      let movableCount = 0;
+      for (const { id, frame: baseFrame } of beatEvents) {
+        const probeFrame = probeById.get(id);
+        const expectedFrame = Math.round(baseFrame * (baseBpm / probeBpm));
+        const mustMove = Math.abs(expectedFrame - baseFrame) >= tolFrames + 1;
+        if (mustMove) movableCount++;
+        const ok = Math.abs(probeFrame - expectedFrame) <= tolFrames && (!mustMove || probeFrame !== baseFrame);
+        if (ok) followed++;
+        else unfollowedIds.push(id);
+      }
+      const followedRatio = beatEvents.length ? followed / beatEvents.length : 0;
+      const bpmMatched = readBaseBpm === baseBpm && readProbeBpm === probeBpm;
+      const enoughMovable = movableCount >= Math.ceil(beatEvents.length / 2);
+      return {
+        pass: bpmMatched && enoughMovable && followedRatio >= minMovedRatio,
+        followed,
+        events: beatEvents.length,
+        followedRatio,
+        movableCount,
+        unfollowedIds,
+      };
     },
   ],
 };
@@ -344,3 +425,105 @@ export const read23_2 = orMissing(async (file, film, { crop, cutThreshold = 24, 
   const strongOnsetsMs = onsets(file, jump, { minGapMs, durationMs });
   return { ...seen, shots: film?.shots, chaptersMs: chapters.map(chapterMs), beat: beatOf(strongOnsetsMs), strongOnsetsMs };
 });
+
+// 30-1：纯行为 BPM 扰动探针——以 baseBpm 与 probeBpm 两次调用时间线求值回调（结合 time.timeline 的 beatFrames 换算），收集跟拍与绝对时间事件读数
+export async function read30_1(options = {}, extra = {}) {
+  const cfg = typeof options === 'function' ? { ...(plain(extra) ? extra : {}), resolveEvents: options } : (plain(options) ? options : {});
+  const qSpec = plain(cfg.question?.deliverable) ? cfg.question.deliverable : null;
+  const qFollowArgs = plain(cfg.question?.scoring?.[1]?.args) ? cfg.question.scoring[1].args : null;
+  const {
+    resolveEvents,
+    baseBpm = qFollowArgs?.baseBpm ?? 80,
+    probeBpm = qFollowArgs?.probeBpm ?? 96,
+    filmMeta,
+  } = cfg;
+  const givenMeta = plain(filmMeta) ? filmMeta : {};
+  const rawFps = givenMeta.fps ?? qSpec?.fps ?? 24;
+  const fps = typeof rawFps === 'string' ? rate(rawFps) : rawFps;
+  const frames = givenMeta.frames ?? qSpec?.frames ?? 2160;
+  const width = givenMeta.width ?? (Array.isArray(givenMeta.size) ? givenMeta.size[0] : (Array.isArray(qSpec?.size) ? qSpec.size[0] : 1920));
+  const height = givenMeta.height ?? (Array.isArray(givenMeta.size) ? givenMeta.size[1] : (Array.isArray(qSpec?.size) ? qSpec.size[1] : 1080));
+  const cuts = givenMeta.cuts ?? [];
+  const shots = Object.hasOwn(givenMeta, 'shots')
+    ? givenMeta.shots
+    : (Array.isArray(cuts) && Number.isSafeInteger(frames) && frames > 0
+      ? [0, ...cuts].map((start, i) => ({ in: start, out: cuts[i] ?? frames }))
+      : [{ in: 0, out: 2160 }]);
+  const meta = {
+    colorTag: 'bt709',
+    blackFrames: [],
+    freezes: [],
+    loudnessLufs: -14,
+    truePeakDbtp: -1.5,
+    ...givenMeta,
+    width,
+    height,
+    fps,
+    frames,
+    cuts,
+    shots,
+  };
+  if (typeof resolveEvents !== 'function') {
+    return { ...meta, baseBpm, probeBpm, unreadable: '30-1 缺少行为求值函数 resolveEvents' };
+  }
+  if (!finite(baseBpm, probeBpm, meta.fps) || baseBpm <= 0 || probeBpm <= 0 || meta.fps <= 0 || baseBpm === probeBpm
+    || !Number.isSafeInteger(meta.frames) || meta.frames <= 0) {
+    return { ...meta, baseBpm, probeBpm, unreadable: '30-1 行为探针参数不合法' };
+  }
+  const fpsFraction = typeof givenMeta.fpsFraction === 'string'
+    ? givenMeta.fpsFraction
+    : (typeof rawFps === 'string' && /^\d+\/\d+$/.test(rawFps) ? rawFps : `${meta.fps}/1`);
+  const evalAtBpm = async (bpm) => {
+    const beatFrames = (meta.fps * 60) / bpm;
+    const step = evaluateTimeline({ fps: fpsFraction, shot: { in: 0 } }, { holdFrames: 1, beatFrames }, 1, 0).time;
+    const timelineAt = (frame, sub = 0) => evaluateTimeline(
+      { fps: fpsFraction, shot: { in: 0 } },
+      { holdFrames: 1, beatFrames },
+      frame,
+      sub,
+    ).time;
+    const frameAtBeat = (beat, offsetFrames = 0) => Math.round(beat / step.beat) + offsetFrames;
+    const frameAtSeconds = (seconds) => Math.round(seconds / step.seconds);
+    return snapshot(await resolveEvents({
+      bpm,
+      fps: meta.fps,
+      fpsFraction,
+      frames: meta.frames,
+      beatFrames,
+      timelineAt,
+      frameAtBeat,
+      frameAtSeconds,
+    }));
+  };
+  try {
+    const baseOut = await evalAtBpm(baseBpm);
+    const probeOut = await evalAtBpm(probeBpm);
+    if (!plain(baseOut) || !plain(probeOut)) {
+      return { ...meta, baseBpm, probeBpm, unreadable: '30-1 行为求值未返回事件对象' };
+    }
+    const reading = {
+      width: meta.width,
+      height: meta.height,
+      fps: meta.fps,
+      frames: meta.frames,
+      colorTag: meta.colorTag,
+      blackFrames: meta.blackFrames,
+      freezes: meta.freezes,
+      cuts: meta.cuts,
+      shots: meta.shots,
+      loudnessLufs: meta.loudnessLufs,
+      truePeakDbtp: meta.truePeakDbtp,
+      baseBpm,
+      probeBpm,
+      beatEvents: baseOut.beatEvents,
+      probeBeatEvents: probeOut.beatEvents,
+    };
+    if (baseOut.absoluteEvents !== undefined || probeOut.absoluteEvents !== undefined) {
+      reading.absoluteEvents = baseOut.absoluteEvents;
+      reading.probeAbsoluteEvents = probeOut.absoluteEvents;
+    }
+    return reading;
+  } catch {
+    return { ...meta, baseBpm, probeBpm, unreadable: '30-1 行为求值回调异常' };
+  }
+}
