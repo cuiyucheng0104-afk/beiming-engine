@@ -185,8 +185,8 @@ test('FX22 原始着色器的常量死分支里有唯一投影锚点时抛错，
   assert.throws(() => quantizeShadow(frag, 'a', 'b', 'fx22'), /fx22：着色器锚点缺失「#include <shadowmap_pars_fragment>」/);
   assert.deepEqual(inject.patchErrors().slice(count).map(r => [r.fn, r.anchor]), [['inject', inc]]);
   for (const [before, after] of [
-    [`#if 00 // 常量假\n${inc}\n#elif false\n${inc}\n#else\n`, '\n#endif'],
-    ['#if true\n', `\n#elif USE_MAP\n${inc}\n#else\n${inc}\n#endif`],
+    [`#if 00 // 常量假\n${inc}\n#elif 0u\n${inc}\n#else\n`, '\n#endif'],
+    ['#if 1\n', `\n#elif USE_MAP\n${inc}\n#else\n${inc}\n#endif`],
     [`#if USE_MAP\n#elif 1\n#else\n${inc}\n#endif\n`, ''],
     [`#if /* 条件 */ \\\r\n0\n#ifdef USE_MAP\n#else\n${inc}\n#endif\n#else\n`, '\n#endif'],
     [`// #if 0\n/*\n#if 0\n*/\n`, ''],
@@ -244,6 +244,26 @@ test('FX22 唯一命中也要证明分支生效：常量表达式、未知宏及
     assert.throws(() => put(`${guard}\n${inc}\n#endif`), /无法确认.*生效/, guard);
   }
   assert.equal(put(`#if 0x1 && (!0 || 0)\n${inc}\n#endif`), '#if 0x1 && (!0 || 0)\nX\n#endif');
+});
+
+test('FX22 true / false 不是 GLSL 预处理常量：按未知宏分支处理，均被 inject 拒绝', () => {
+  const inc = '#include <common>', put = src => inject(src, inc, 'X', 'replace', 'fx22-n5');
+  const before = inject.patchErrors().length;
+  const uncertain = [
+    `#define true 0\n#if true\n${inc}\n#endif`,
+    `#define false 1\n#if false\nfloat x;\n#else\n${inc}\n#endif`,
+    `#if false\n${inc}\n#endif`,
+    `#if !false\n${inc}\n#endif`,
+    `#if 0 && true\n${inc}\n#endif`,
+  ];
+  for (const src of uncertain) {
+    assert.throws(() => put(src), { name: 'ShaderPatchError', message: /fx22-n5：无法确认着色器锚点「#include <common>」所在的条件分支生效/ }, src);
+  }
+  for (const src of [`#define true 0\n#if true\n${inc}\n#endif\n${inc}`, `#define false 1\n#if false\n${inc}\n#endif\n${inc}`]) {
+    assert.throws(() => put(src), { name: 'ShaderPatchError', message: /fx22-n5：着色器锚点不唯一「#include <common>」：生效代码里有 2 处/ }, src);
+  }
+  assert.equal(put(`#if 1\n${inc}\n#elif false\n${inc}\n#endif`), `#if 1\nX\n#elif false\n${inc}\n#endif`);
+  assert.equal(inject.patchErrors().length - before, uncertain.length + 2);
 });
 
 test('FX22 以前的补丁插进去的文本里不找锚点：材质钩子在死分支里另写一套锚点、再把原来的盖住，补丁不落进死分支；投影块整个没了也报补丁错', () => {

@@ -1,8 +1,8 @@
 // 北冥引擎 · 内置材质补丁：往 three（r170 / r187）的内置材质（MeshToonMaterial、MeshDepthMaterial…）里注入自定义着色器片段。
 // 在传入的着色器原文中逐条校验锚点，缺失直接报错。同一组钩子共用一个程序缓存键。
-// shortcut: activeAnchors 只在 inject 的当前文本内判定注释、条件指令与展开循环，不递归展开其他 ShaderChunk。
-// 页面改写 THREE.ShaderChunk 跨 #include 打开未闭合的 #if 0、用 #define 重命名已补丁函数，与用 import map 替换 patch.js 同属页面自改运行环境。
-// 若需支持这类跨块改写，须在 three 展开后的着色器上核验补丁效果。
+// shortcut: activeAnchors 按当前未展开文本排除常规注释、条件指令及其续行、常量死分支与展开循环内的锚点，不递归展开其他 ShaderChunk；
+//   不防页面对抗性改写 THREE.ShaderLib / ShaderChunk（如借外部 chunk 开关条件分支、在展开循环内撕裂条件/注释收尾，或用 #define 重命名已补丁函数）。
+//   若需支持这类对抗性改写，须在 three 展开并完成预处理的着色器上核验补丁效果。
 // 片段补丁没命中算构建失败（FX22）：这里抛的错（ShaderPatchError）在 material.onBeforeCompile 里同步冒出 renderer.compile / render；
 // 构造时就把 { fn, anchor, message } 记进本模块闭包里的数组：页面把异常接住、把 console.error 静音都抹不掉，页面代码也没有写它的入口
 // （不挂 globalThis，不导出写入函数）。渲染器（engine/render/page.mjs + lib/patch-check.mjs）每次 page.evaluate 交回之前、截完图之后用 inject.patchErrors() 读副本，
@@ -11,7 +11,8 @@
 // 渲染器靠这个前缀认未捕获的异常与 console.error。
 //
 //   inject(src, anchor, code, mode, who)   在锚点后（'after'）/ 前（'before'）插入，或整段替换（'replace'）；who 用于报错。
-//                                           当前文本中，注释、条件指令、常量死分支与展开循环内的锚点不算。仅在未知编译条件内出现也报错。#include 按 three 的行首规则认。
+//                                           按当前未展开文本排除常规注释、条件指令及其续行、常量死分支与展开循环内的锚点；仅在未知编译条件内出现也报错。#include 按 three 的行首规则认。
+//                                           不防页面对抗性改写 THREE.ShaderLib / ShaderChunk（如借外部 chunk 开关条件分支、或在展开循环内撕裂条件/注释收尾），见文件头 shortcut:。
 //                                           以前的 inject 插进去的文本（材质钩子、引擎自己的片段）里的也不算：接着上一次的结果再打补丁时，
 //                                           锚点只在原来的着色器里找。生效的一处都没有、或者不止一处（分不出哪一处真的生效）都报错
 //   inject.patchErrors() → [{ fn, anchor, message }]   本页至今记下的补丁错误（副本，只读、不可改写）；挂在 inject 上而不是新导出：
@@ -56,7 +57,7 @@ class ShaderPatchError extends Error {   // 不导出：别的模块按 name 认
 // #include 照 three 展开它的正则认（WebGLProgram.js 的 includePattern：顶着行首，前面只许空格 / 制表符，include 后可以不止一个空格）。
 const COMMENT = /\/(?:\\(?:\r\n|[\r\n]))*\/(?:\\(?:\r\n|[\r\n])|[^\r\n])*|\/(?:\\(?:\r\n|[\r\n]))*\*[\s\S]*?(?:\*(?:\\(?:\r\n|[\r\n]))*\/|$)/g, literal = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// 只算整数和布尔常量的 !、&&、|| 与括号。其余表达式不猜：即使只有一个命中，也不能向可能关闭的分支打补丁。
+// 只算整数常量的 !、&&、|| 与括号。其余表达式不猜：即使只有一个命中，也不能向可能关闭的分支打补丁。
 const NEVER = 0, MAYBE = 1, ALWAYS = 2;
 function conditionOf(expr) {
   const tokens = expr.match(/\w+|&&|\|\||\S/g) ?? [];
@@ -66,7 +67,6 @@ function conditionOf(expr) {
     const t = tokens[i++];
     if (t === '(') { const v = or(depth + 1); return tokens[i++] === ')' ? v : NaN; }
     if (t === '!') return 1 - atom(depth + 1);
-    if (t === 'true' || t === 'false') return Number(t === 'true');
     if (!/^(?:0x[\da-f]+|0[0-7]*|[1-9]\d*)u?$/i.test(t)) return NaN;
     return Number(!/^0(?:x0+|0*)u?$/i.test(t));
   }
