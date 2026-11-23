@@ -5,8 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import crypto from 'node:crypto';
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { SHARE_ENV, Worker } from 'node:worker_threads';
 import {
   buildContainerSpec,
@@ -1359,6 +1360,82 @@ test('A13-34 POSIX 跨代独立会话后代清理：中间进程先退出后，�
   leafPid = JSON.parse(result.stdout.trim()).pid;
   assert.ok(Number.isInteger(leafPid) && leafPid > 1);
   assert.equal(isPidAlive(leafPid), false, `跨代独立会话后台进程 ${leafPid} 应已终止`);
+});
+
+test('A13-35 独立 CLI 顶层 await 超时结算：无额外事件循环句柄时超时正常返回且清理临时目录', async (t) => {
+  const { base, root, own, app } = fixture(t);
+  const tmpRoot = path.join(base, 'tmp');
+  fs.mkdirSync(tmpRoot, { recursive: true });
+  const sandboxModulePath = fileURLToPath(new URL('./sandbox.mjs', import.meta.url));
+
+  fs.writeFileSync(path.join(app, 'sleep.mjs'), 'setTimeout(() => {}, 6000);\n');
+  fs.writeFileSync(path.join(app, 'child-pipe.mjs'), [
+    "import { spawn } from 'node:child_process';",
+    "const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 6000)'], { stdio: ['ignore', 'inherit', 'inherit'] });",
+    'console.log(JSON.stringify({ pid: child.pid }));',
+    'setTimeout(() => {}, 60000);',
+  ].join('\n'));
+  fs.writeFileSync(path.join(app, 'detached-pipe.mjs'), [
+    "import { spawn } from 'node:child_process';",
+    "const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], { detached: true, stdio: ['ignore', 'inherit', 'inherit'] });",
+    'child.unref();',
+    'console.log(JSON.stringify({ pid: child.pid }));',
+    'setTimeout(() => {}, 60000);',
+  ].join('\n'));
+
+  const cliScript = [
+    "import { pathToFileURL } from 'node:url';",
+    'const [modulePath, payloadJson] = process.argv.slice(2);',
+    'const payload = JSON.parse(payloadJson);',
+    'const { runInWorkspaceSandbox } = await import(pathToFileURL(modulePath).href);',
+    'const result = await runInWorkspaceSandbox(payload);',
+    'process.stdout.write(JSON.stringify({ timedOut: result.timedOut, code: result.code, signal: result.signal, stdout: result.stdout }));',
+  ].join('\n');
+
+  const cases = [
+    { label: 'portable-sleep', backend: 'portable', allowDegraded: true, script: '/app/sleep.mjs', hasChildPid: false },
+    { label: 'portable-child-pipe', backend: 'portable', allowDegraded: true, script: '/app/child-pipe.mjs', hasChildPid: true },
+    { label: 'portable-detached-pipe', backend: 'portable', allowDegraded: true, script: '/app/detached-pipe.mjs', hasChildPid: true },
+  ];
+  if (seatbelt) {
+    cases.push({ label: 'seatbelt-sleep', backend: 'darwin-seatbelt', allowDegraded: false, script: '/app/sleep.mjs', hasChildPid: false });
+  }
+
+  for (const item of cases) {
+    const payload = {
+      request: { mode: 'cards-data' },
+      backend: item.backend,
+      ...(item.allowDegraded ? { allowDegraded: true } : {}),
+      workspacesRoot: root,
+      workspaceDir: own,
+      appDir: app,
+      command: ['node', item.script],
+      timeoutMs: 1200,
+    };
+    const cli = spawnSync(
+      process.execPath,
+      ['--input-type=module', '-', sandboxModulePath, JSON.stringify(payload)],
+      {
+        input: cliScript,
+        encoding: 'utf8',
+        env: { ...process.env, TMPDIR: tmpRoot, TMP: tmpRoot, TEMP: tmpRoot },
+        timeout: 15000,
+        windowsHide: true,
+      },
+    );
+    assert.equal(cli.status, 0, `${item.label} 独立 CLI 应以退出码 0 结束，stderr=${cli.stderr}`);
+    const parsed = JSON.parse(cli.stdout.trim());
+    assert.equal(parsed.timedOut, true, `${item.label} 应返回 timedOut: true`);
+    if (item.hasChildPid) {
+      const firstLine = (parsed.stdout || '').trim().split('\n')[0];
+      const childPid = firstLine ? JSON.parse(firstLine).pid : null;
+      t.after(() => forceKillPid(childPid));
+      assert.ok(Number.isInteger(childPid) && childPid > 1, `${item.label} 应记录后代 PID`);
+      assert.equal(isPidAlive(childPid), false, `${item.label} 超时返回后后代 PID ${childPid} 应已终止`);
+    }
+    const leaked = fs.readdirSync(tmpRoot).filter((name) => name.startsWith('bm-sandbox-'));
+    assert.deepEqual(leaked, [], `${item.label} 超时收尾后不应在临时目录残留 bm-sandbox-*`);
+  }
 });
 
 

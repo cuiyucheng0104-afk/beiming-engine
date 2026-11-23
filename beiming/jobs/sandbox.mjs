@@ -384,8 +384,7 @@ const psMaxPasses = 3;
 
 function waitMs(ms) {
   return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    timer.unref?.();
+    setTimeout(resolve, ms);
   });
 }
 
@@ -530,7 +529,6 @@ function scanPs(marker, rootPid) {
       if (!ps.stdout.destroyed) ps.stdout.destroy();
       finish();
     }, psTimeoutMs);
-    guard.unref?.();
     ps.stdout.setEncoding('utf8');
     ps.stdout.on('data', (chunk) => {
       const text = carry + chunk;
@@ -656,7 +654,6 @@ function reapWin32Orphans(rootPid, spawnedAtMs) {
       try { ps.kill('SIGKILL'); } catch { /* 已退出 */ }
       done();
     }, 8000);
-    guard.unref?.();
     ps.once('error', done);
     ps.once('close', done);
   });
@@ -719,7 +716,6 @@ function collect(plan, timeoutMs, { marker = null, stopContainer = null, onSpawn
         exitWaitResolve = null;
         done();
       }, exitWaitMs);
-      exitWaitTimer.unref?.();
     }));
 
     const runCleanup = async ({ killRoot, includeTree }) => {
@@ -763,7 +759,6 @@ function collect(plan, timeoutMs, { marker = null, stopContainer = null, onSpawn
       destroyStreams();
       ensureCleanup({ killRoot: true, includeTree: true }).then(finish, finish);
     }, timeoutMs);
-    timer.unref?.();
 
     for (const name of ['stdout', 'stderr']) {
       child[name].setEncoding('utf8').on('data', (chunk) => {
@@ -799,7 +794,6 @@ function collect(plan, timeoutMs, { marker = null, stopContainer = null, onSpawn
           return;
         }
         drainTimer = setTimeout(finish, drainGraceMs);
-        drainTimer.unref?.();
       }, finish);
     });
 
