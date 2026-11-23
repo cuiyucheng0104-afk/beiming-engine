@@ -42,6 +42,13 @@ test('overlay.title：支持大写、小写英文与中文片名；落定之后�
     m.handle.dispose();
   }
   assert.ok(widths['北冥'] < widths['RTX 5090'] && widths['RTX 5090'] < widths['Hello World']);
+  const clipped = create({ THREE, size: [640, 360] }, { ...params, text: 'Hello World', heightFrac: 0.35 });
+  const cam = new THREE.PerspectiveCamera(40, 640 / 360, 0.1, 100);
+  cam.add(clipped.object);
+  clipped.apply(60, 0);
+  const [cx0, cy0, cx1, cy1] = clipped.meta(60).texts[0].bbox2d;
+  assert.ok(cx0 === 0 && cx1 === 640 && cy0 >= 0 && cy1 <= 360);
+  clipped.dispose();
 });
 
 test('overlay.title：平面离相机 distance 米，字高按视场角换成米', () => {

@@ -22,7 +22,8 @@
     "settleFrames": { "type": "integer", "unit": "frame", "range": [0, 240], "default": 24, "coupling": "fps" },
     "ink": { "type": "color", "unit": "none", "space": "display", "default": "#F4F0E9", "coupling": "view-transform" },
     "heightFrac": { "type": "number", "unit": "none", "range": [0.02, 0.5], "default": 0.12, "coupling": "none" },
-    "distance": { "type": "number", "unit": "m", "range": [0.2, 50], "default": 1, "coupling": "scene-scale" }
+    "distance": { "type": "number", "unit": "m", "range": [0.2, 50], "default": 1, "coupling": "scene-scale" },
+    "motion": { "type": "string", "unit": "none", "default": "rise", "coupling": "none" }
   },
   "ports": {
     "in": [],
@@ -30,7 +31,7 @@
     "order": { "before": [], "after": [] },
     "requires": [
       "Handle.object 由宿主挂在透视相机下面，它的局部坐标就是相机空间（米，右手系，Y 向上，−Z 朝前）",
-      "text 里的字符属于仓库锁定 OFL 字体分片（routes/c-style/fonts/，覆盖全套可打印 ASCII 与 6,763 个 GB2312 汉字共 7,015 字）"
+      "text 里的字符属于仓库锁定 OFL 字体分片（routes/c-style/fonts/，覆盖全套可打印 ASCII 与 6,763 个 GB2312 汉字共 7,015 字）；motion 取 rise（默认）、settle 或 fade"
     ]
   },
   "conditions": {
