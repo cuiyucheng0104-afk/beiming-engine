@@ -191,3 +191,154 @@ test('exam-5 负对照：题目合法但评测未通过或负对照失守或未�
   assert.equal(unknownOutcome.pass, false);
   assert.match(unknownOutcome.detail, /尚未接入离线核验器/);
 });
+
+test('exam-6 回归：互斥基础谓词（contradiction）与交付规格不符必须如实求值失败（exit 1）', async (t) => {
+  const sample = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-1/29-1.json'), 'utf8'));
+
+  // 1. 29-1 追加互斥谓词 bbox_w(panel_top) <= 0 @ all -> 必须如实判一条过、一条不过，CLI 退非 0
+  const contraDir = makeTempDir(t);
+  const outDir = makeTempDir(t);
+  const contraQ = structuredClone(sample);
+  contraQ.basePredicates.push('bbox_w(panel_top) <= 0 @ all');
+  fs.writeFileSync(path.join(contraDir, '29-1-contra.json'), JSON.stringify(contraQ, null, 2));
+
+  const outcome = evaluateOfflineQuestion({ question: contraQ });
+  assert.equal(outcome.pass, false);
+  assert.equal(outcome.predicates['bbox_w(panel_top) >= 1 @ all']?.pass, true);
+  assert.equal(outcome.predicates['bbox_w(panel_top) <= 0 @ all']?.pass, false);
+
+  const report = await runExam({ questionsDir: contraDir, outDir: null });
+  assert.equal(report.ok, false);
+  assert.equal(report.exitCode, 1);
+  assert.equal(report.summary.passedQuestions, 0);
+  assert.equal(report.summary.failedQuestions, 1);
+
+  const cli = spawnSync(process.execPath, [EXAM_CLI, '--questions', contraDir, '--out', outDir, '--json'], { encoding: 'utf8' });
+  assert.equal(cli.status, 1, cli.stderr);
+  assert.equal(JSON.parse(cli.stdout).ok, false);
+
+  // 2. 29-1 题面改为 stereo 与静音基准不符 -> 必须失败（不得按题面反填 spec 伪造通过）
+  const stereoDir = makeTempDir(t);
+  const stereoQ = structuredClone(sample);
+  stereoQ.deliverable.audio = 'stereo';
+  fs.writeFileSync(path.join(stereoDir, '29-1-stereo.json'), JSON.stringify(stereoQ, null, 2));
+  const stereoReport = await runExam({ questionsDir: stereoDir, outDir: null });
+  assert.equal(stereoReport.ok, false);
+  assert.equal(stereoReport.exitCode, 1);
+
+  // 3. Level 2-b（5-1）追加错误基础谓词 cut_at(100) -> 同样必须如实求值失败
+  const q51 = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-2-b/5-1.json'), 'utf8'));
+  q51.basePredicates.push('cut_at(100)');
+  const badPredDir = makeTempDir(t);
+  fs.writeFileSync(path.join(badPredDir, '5-1-bad-pred.json'), JSON.stringify(q51, null, 2));
+  const badPredReport = await runExam({ questionsDir: badPredDir, outDir: null });
+  assert.equal(badPredReport.ok, false);
+  assert.equal(badPredReport.exitCode, 1);
+});
+
+test('exam-7 回归：参考夹具为空对象、缺量测字段或跨题错指必须校验失败（exit 4，消除 empty-reference 假绿）', async (t) => {
+  const q182 = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-2-b/18-2.json'), 'utf8'));
+  const ref291 = fs.readFileSync(path.join(HERE, 'refs/level-1/29-1-reference.json'), 'utf8');
+
+  // 1. 18-2 夹具清空为 {} -> exit 4
+  const fakeRoot1 = makeTempDir(t);
+  const fakeBench1 = path.join(fakeRoot1, 'bench');
+  const fakeQ1 = path.join(fakeBench1, 'questions/level-2-b');
+  const fakeRef1 = path.join(fakeBench1, 'refs/level-2-b');
+  fs.mkdirSync(fakeQ1, { recursive: true });
+  fs.mkdirSync(fakeRef1, { recursive: true });
+  fs.writeFileSync(path.join(fakeQ1, '18-2.json'), JSON.stringify(q182, null, 2));
+  fs.writeFileSync(path.join(fakeRef1, '18-2.json'), '{}\n');
+
+  const rEmpty = await runExam({ questionsDir: fakeQ1, benchDir: fakeBench1, outDir: null });
+  assert.equal(rEmpty.ok, false);
+  assert.equal(rEmpty.exitCode, 4);
+  assert.equal(rEmpty.summary.invalidQuestions, 1);
+
+  // 2. 18-2 夹具仅有 question 字段、缺少 fps/sceneFrames/moves -> exit 4
+  fs.writeFileSync(path.join(fakeRef1, '18-2.json'), JSON.stringify({ question: '18-2' }));
+  const rHollow = await runExam({ questionsDir: fakeQ1, benchDir: fakeBench1, outDir: null });
+  assert.equal(rHollow.ok, false);
+  assert.equal(rHollow.exitCode, 4);
+  assert.equal(rHollow.summary.invalidQuestions, 1);
+
+  // 3. 18-2 的 refs 指向 29-1 的版式参考文件 -> exit 4
+  const fakeRefL1 = path.join(fakeBench1, 'refs/level-1');
+  fs.mkdirSync(fakeRefL1, { recursive: true });
+  fs.writeFileSync(path.join(fakeRefL1, '29-1-reference.json'), ref291);
+  const crossRefQ = { ...q182, refs: ['bench/refs/level-1/29-1-reference.json'] };
+  const crossDir = makeTempDir(t);
+  fs.writeFileSync(path.join(crossDir, '18-2.json'), JSON.stringify(crossRefQ, null, 2));
+  const rCross = await runExam({ questionsDir: crossDir, benchDir: fakeBench1, outDir: null });
+  assert.equal(rCross.ok, false);
+  assert.equal(rCross.exitCode, 4);
+  assert.equal(rCross.summary.invalidQuestions, 1);
+});
+
+test('exam-8 回归：--questions 副本收紧或放宽 18-2 阈值时必须按加载题目对象判分失败（exit 1，消除 threshold 假绿）', async (t) => {
+  const base182 = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-2-b/18-2.json'), 'utf8'));
+
+  // 1. minLiftOverRandom 提到 1 -> 正对照不达标，必须 exit 1
+  const tightDir = makeTempDir(t);
+  const outDir = makeTempDir(t);
+  const tightQ = structuredClone(base182);
+  tightQ.scoring[0].args.minLiftOverRandom = 1;
+  fs.writeFileSync(path.join(tightDir, '18-2.json'), JSON.stringify(tightQ, null, 2));
+
+  const cliTight = spawnSync(process.execPath, [EXAM_CLI, '--questions', tightDir, '--out', outDir, '--json'], { encoding: 'utf8' });
+  assert.equal(cliTight.status, 1, cliTight.stderr);
+  const parsed = JSON.parse(cliTight.stdout);
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.exitCode, 1);
+  assert.equal(parsed.questions[0].pass, false);
+  assert.equal(parsed.questions[0].score, 0);
+
+  // 2. tolFrames 放宽到 10 -> shift-2f 负对照失守，必须 exit 1
+  const looseDir = makeTempDir(t);
+  const looseQ = structuredClone(base182);
+  looseQ.scoring[0].args.tolFrames = 10;
+  fs.writeFileSync(path.join(looseDir, '18-2.json'), JSON.stringify(looseQ, null, 2));
+  const looseReport = await runExam({ questionsDir: looseDir, outDir: null });
+  assert.equal(looseReport.ok, false);
+  assert.equal(looseReport.exitCode, 1);
+});
+
+test('exam-9 回归：全 expectedFail 跳过题库不得计入通过且必须退出非 0（exit 1，消除 all-skipped 假绿）', async (t) => {
+  const sample29 = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-1/29-1.json'), 'utf8'));
+  const sample23 = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-1/23-1.json'), 'utf8'));
+
+  // 1. 仅含 1 道 expectedFail=true 题 -> evaluatedQuestions=0, passedQuestions=0, ok=false, exit 1
+  const skipOnlyDir = makeTempDir(t);
+  const outDir = makeTempDir(t);
+  const skipped29 = structuredClone(sample29);
+  skipped29.flags.expectedFail = true;
+  skipped29.flags.blockedBy = ['layout.panels'];
+  fs.writeFileSync(path.join(skipOnlyDir, '29-1.json'), JSON.stringify(skipped29, null, 2));
+
+  const cliSkip = spawnSync(process.execPath, [EXAM_CLI, '--questions', skipOnlyDir, '--out', outDir, '--json'], { encoding: 'utf8' });
+  assert.equal(cliSkip.status, 1, cliSkip.stderr);
+  const parsed = JSON.parse(cliSkip.stdout);
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.exitCode, 1);
+  assert.equal(parsed.summary.passedQuestions, 0);
+  assert.equal(parsed.summary.evaluatedQuestions, 0);
+  assert.equal(parsed.summary.skippedQuestions, 1);
+  assert.equal(parsed.questions[0].status, 'expected-fail');
+  assert.equal(parsed.questions[0].pass, false);
+
+  // 2. 混合题库（1 道可跑通 + 1 道 expectedFail）-> 可跑通计入 passedQuestions=1，跳过题不计入 passedQuestions
+  const mixedDir = makeTempDir(t);
+  const skipped23 = structuredClone(sample23);
+  skipped23.flags.expectedFail = true;
+  skipped23.flags.blockedBy = ['camera.orbit'];
+  fs.writeFileSync(path.join(mixedDir, '29-1.json'), JSON.stringify(sample29, null, 2));
+  fs.writeFileSync(path.join(mixedDir, '23-1.json'), JSON.stringify(skipped23, null, 2));
+
+  const mixed = await runExam({ questionsDir: mixedDir, outDir: null });
+  assert.equal(mixed.ok, true, JSON.stringify(mixed.error));
+  assert.equal(mixed.exitCode, 0);
+  assert.equal(mixed.summary.totalQuestions, 2);
+  assert.equal(mixed.summary.evaluatedQuestions, 1);
+  assert.equal(mixed.summary.passedQuestions, 1);
+  assert.equal(mixed.summary.skippedQuestions, 1);
+});

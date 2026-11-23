@@ -254,3 +254,88 @@ test('rebuild-5 页面宿主真实渲染：本机有无头浏览器时真跑两�
   assert.equal(negReport.frames[1].identical, true);
   assert.equal(negReport.frames[2].identical, true);
 });
+
+test('rebuild-6 回归：原始全量时间轴存在缺口（s02.in=50 / s01.out=49）或事件越界时，默认抽样也必须退出 1（消除 gap-default 假绿）', async () => {
+  const fixturesDir = path.join(REPO, 'beiming', 'kernel', 'conformance', 'fixtures');
+  const rawFilm = JSON.parse(fs.readFileSync(path.join(fixturesDir, 'film.json'), 'utf8'));
+  const rawLock = JSON.parse(fs.readFileSync(path.join(fixturesDir, 'lock.json'), 'utf8'));
+
+  // 1. s02.in=50 与 s01.out=49 存在 1 帧缺口 -> 默认 6 帧抽样必须直接失败，且不调用渲染器
+  const gappedFilm = structuredClone(rawFilm);
+  gappedFilm.shots[1].in = 50;
+  assert.throws(() => prepareLockedProbeFilm({ film: gappedFilm, lock: rawLock, frames: DEFAULT_FRAMES }), /50|49/);
+
+  let renderCalls = 0;
+  const gapReport = await runNightlyRebuild({
+    outDir: null,
+    film: gappedFilm,
+    lock: rawLock,
+    frames: DEFAULT_FRAMES,
+    size: [16, 9],
+    renderLocked: async (...args) => {
+      renderCalls++;
+      return makeSyntheticRenderer()(...args);
+    },
+  });
+  assert.equal(gapReport.ok, false);
+  assert.equal(gapReport.pass, false);
+  assert.equal(gapReport.exitCode, 1);
+  assert.equal(renderCalls, 0, '原始时间轴不合法必须在开渲前被拒收');
+
+  // 2. 原始事件落在所属镜头区间外（D13） -> 默认 6 帧抽样前也必须校验并拒收
+  const badEventFilm = structuredClone(rawFilm);
+  badEventFilm.events[0].frame = 60; // mark1 属于 s01 [0, 49)
+  const eventReport = await runNightlyRebuild({
+    outDir: null,
+    film: badEventFilm,
+    lock: rawLock,
+    frames: DEFAULT_FRAMES,
+    size: [16, 9],
+    renderLocked: async (...args) => {
+      renderCalls++;
+      return makeSyntheticRenderer()(...args);
+    },
+  });
+  assert.equal(eventReport.ok, false);
+  assert.equal(eventReport.exitCode, 1);
+  assert.equal(renderCalls, 0);
+});
+
+test('rebuild-7 回归：lock.sources 缺失实际渲染源 three 时必须退出 1，不得以 allowPartialLock 放行（消除 missing-three-pin 假绿）', async () => {
+  const fixturesDir = path.join(REPO, 'beiming', 'kernel', 'conformance', 'fixtures');
+  const rawFilm = JSON.parse(fs.readFileSync(path.join(fixturesDir, 'film.json'), 'utf8'));
+  const rawLock = JSON.parse(fs.readFileSync(path.join(fixturesDir, 'lock.json'), 'utf8'));
+
+  const missingThreeLock = structuredClone(rawLock);
+  missingThreeLock.sources = { core: { version: '0.1.0', host: 'offscreen' } };
+
+  let renderCalls = 0;
+  const report = await runNightlyRebuild({
+    outDir: null,
+    film: rawFilm,
+    lock: missingThreeLock,
+    frames: DEFAULT_FRAMES,
+    size: [16, 9],
+    renderLocked: async (...args) => {
+      renderCalls++;
+      return makeSyntheticRenderer()(...args);
+    },
+  });
+  assert.equal(report.ok, false);
+  assert.equal(report.pass, false);
+  assert.equal(report.exitCode, 1);
+  assert.equal(renderCalls, 0, '缺少实际渲染源 three 的锁必须在开渲前被拒收');
+  assert.match(report.error?.message ?? '', /three|LK4/);
+
+  // 原始夹具已钉住 three@0.187.0/page（仅 s02 顶层非实际渲染源 core 未锁）仍应正常通过
+  const validReport = await runNightlyRebuild({
+    outDir: null,
+    film: rawFilm,
+    lock: rawLock,
+    frames: DEFAULT_FRAMES,
+    size: [16, 9],
+    renderLocked: makeSyntheticRenderer(),
+  });
+  assert.equal(validReport.ok, true, JSON.stringify(validReport.error));
+  assert.equal(validReport.exitCode, 0);
+});

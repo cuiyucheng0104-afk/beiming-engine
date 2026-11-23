@@ -2,12 +2,18 @@
 // 北冥考题库离线核验与基准考试入口：
 // 扫描并校验 beiming/bench/questions/ 下全部公开考题、参考读数夹具与公开投影，
 // 并通过 beiming/bench/runner.mjs (runExamQuestion) 跑通离线基准做题与正负对照判分核验。
-// 题库缺失、为空、题目不合规或任一题正负对照未通过时均以非 0 退出码失败，绝不假绿。
+// 题库缺失、为空、题目/夹具不合规、全跳过无实跑或任一题正负对照未通过时均以非 0 退出码失败，绝不假绿。
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import {
+  checkAssertion,
+  evaluateAssertion,
+  parseFps,
+  scopeRange,
+} from '../verify/predicates.mjs';
 import {
   B6_NEGATIVE_KINDS,
   B6_QUESTION_IDS,
@@ -15,11 +21,15 @@ import {
   evaluateNegativeControl,
 } from './negatives/level-2-b/run-b6.mjs';
 import {
+  argsOf as argsOfB2,
   readClosure,
   readFraming,
+  readLayout,
+  readNearest,
   readPixelBoxes,
   score as scoreLevel1,
 } from './questions/level-1/evaluate-b2.mjs';
+import { score as scoreLevel2b } from './questions/level-2-b/evaluate-b4.mjs';
 import { RESULT_FORMAT, runExamQuestion } from './runner.mjs';
 import {
   projectPublicQuestion,
@@ -42,7 +52,17 @@ const HELP = `北冥考题库离线考试核验入口
   --questions <目录>  指定题库根目录（默认 beiming/bench/questions）
   --help, -h          打印本帮助信息
 
-退出码：0 全部通过；1 离线考试或负对照未通过；2 命令行参数错误；4 题库为空或题目/夹具契约校验不通过`;
+退出码：0 全部通过；1 离线考试未通过、负对照失守或全跳过无实跑；2 命令行参数错误；4 题库为空或题目/夹具契约校验不通过`;
+
+const LEVEL1_IDS = new Set(['29-1', '28-1', '23-1', '1-1']);
+const LEVEL2B_IDS = new Set(B6_QUESTION_IDS);
+const CHANNELS = { none: 0, mono: 1, stereo: 2 };
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+const isPlainObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const isFiniteNum = (v) => typeof v === 'number' && Number.isFinite(v);
+const isFiniteArray = (v, minLen = 1) => Array.isArray(v) && v.length >= minLen && v.every(isFiniteNum);
+const isIntPair = (v) => Array.isArray(v) && v.length === 2 && Number.isInteger(v[0]) && Number.isInteger(v[1]);
 
 /** 递归收集目录下全部 .json 题目文件（按相对 POSIX 路径排序） */
 export function discoverQuestionFiles(questionsDir) {
@@ -67,17 +87,268 @@ export function discoverQuestionFiles(questionsDir) {
   });
 }
 
-function specOf({ deliverable: { size, fps, frames, audio } }) {
-  const [num, den] = fps.split('/').map(Number);
-  return { width: size[0], height: size[1], fps: num / den, frames, audioChannels: { none: 0, stereo: 2 }[audio] };
+function hasValidBaseSpec(spec) {
+  return isPlainObj(spec)
+    && ['width', 'height', 'fps', 'frames', 'audioChannels'].every((k) => isFiniteNum(spec[k]));
 }
 
-function builtBase(question) {
-  return {
-    spec: specOf(question),
-    predicates: Object.fromEntries((question.basePredicates ?? []).map((text) => [text, 'pass'])),
-  };
+function sameDeliverableSpec(spec, deliverable) {
+  if (!hasValidBaseSpec(spec) || !isPlainObj(deliverable)) return false;
+  const rate = parseFps(deliverable.fps);
+  if (!rate || !Array.isArray(deliverable.size) || deliverable.size.length !== 2) return false;
+  const expectedFps = Number(rate.num) / Number(rate.den);
+  return spec.width === deliverable.size[0]
+    && spec.height === deliverable.size[1]
+    && Math.abs(spec.fps - expectedFps) < 1e-9
+    && spec.frames === deliverable.frames
+    && Object.hasOwn(CHANNELS, deliverable.audio)
+    && spec.audioChannels === CHANNELS[deliverable.audio];
 }
+
+function dropComparisonUnit(text) {
+  const masked = text.replace(/"[^"]*"/g, (quoted) => `"${'_'.repeat(quoted.length - 2)}"`);
+  const hit = /((?:>=|<=)\s*-?\d+(?:\.\d+)?|\bin\s*\[[^\][]*\])\s*(?:deg|mm|f|s)(?=\s*(?:@|$))/.exec(masked);
+  return hit ? text.slice(0, hit.index + hit[1].length) + text.slice(hit.index + hit[0].length) : text;
+}
+
+function cmpHolds(value, cmp) {
+  if (!cmp || !isFiniteNum(value)) return false;
+  if (cmp.op === '>=') return value >= cmp.value;
+  if (cmp.op === '<=') return value <= cmp.value;
+  if (cmp.op === 'in') return value >= cmp.lo && value <= cmp.hi;
+  return false;
+}
+
+/**
+ * 基于真实量测证据逐条如实求值基础谓词（绝不按题面盲填 pass）：
+ * - 已上线谓词（since: 0.1）直接交 verify/predicates.mjs 的 evaluateAssertion；
+ * - planned 谓词（bbox_w / bbox_h / margin_lr / margin_tb / orbit_total / onset）
+ *   从实际量测的逐帧包围盒、相机环绕角、音频起声帧号如实比对；
+ * - 任何缺失证据、未支持谓词或互斥条件均如实返回 'fail'。
+ */
+function evaluateBasePredicate(text, film, measured) {
+  const stripped = dropComparisonUnit(text);
+  const checked = checkAssertion(stripped);
+  if (checked.ok) {
+    return evaluateAssertion(stripped, film, measured).status === 'pass' ? 'pass' : 'fail';
+  }
+  const onlyPlanned = Boolean(checked.assertion)
+    && checked.errors.length > 0
+    && checked.errors.every((e) => e.evidence === 'predicate.planned');
+  if (!onlyPlanned) return 'fail';
+
+  const a = checked.assertion;
+  const bound = checked.bound;
+  const range = scopeRange(a.scope, film);
+  if (!range) return 'fail';
+
+  if (a.name === 'bbox_w' || a.name === 'bbox_h' || a.name === 'margin_lr' || a.name === 'margin_tb') {
+    const entityName = bound.entity?.kind === 'ident' ? bound.entity.name : null;
+    if (!entityName || !a.cmp || !Array.isArray(measured?.frames)) return 'fail';
+    const inRange = measured.frames.filter(
+      (f) => Number.isInteger(f?.frame) && f.frame >= range[0] && f.frame < range[1],
+    );
+    if (inRange.length === 0) return 'fail';
+    for (const f of inRange) {
+      const size = f.meta?.size;
+      if (!Array.isArray(size) || size.length !== 2 || !(size[0] > 0) || !(size[1] > 0)) return 'fail';
+      const ent = Array.isArray(f.meta?.entities)
+        ? f.meta.entities.find((e) => e?.name === entityName)
+        : null;
+      const box = ent?.bbox2d;
+      if (!Array.isArray(box) || box.length !== 4 || !box.every(isFiniteNum)) return 'fail';
+      const [x0, y0, x1, y1] = box;
+      const [w, h] = size;
+      let val;
+      if (a.name === 'bbox_w') val = (x1 - x0) / w;
+      else if (a.name === 'bbox_h') val = (y1 - y0) / h;
+      else if (a.name === 'margin_lr') val = Math.min(x0, w - x1) / w;
+      else val = Math.min(y0, h - y1) / h;
+      if (!cmpHolds(val, a.cmp)) return 'fail';
+    }
+    return 'pass';
+  }
+
+  if (a.name === 'orbit_total') {
+    const cam = bound.camera?.kind === 'ident' ? bound.camera.name : null;
+    const subj = bound.subject?.kind === 'ident' ? bound.subject.name : null;
+    if (!cam || !subj || !a.cmp || !isPlainObj(measured?.orbitTotalDeg)) return 'fail';
+    const key = `${cam}:${subj}`;
+    if (!Object.hasOwn(measured.orbitTotalDeg, key)) return 'fail';
+    return cmpHolds(measured.orbitTotalDeg[key], a.cmp) ? 'pass' : 'fail';
+  }
+
+  if (a.name === 'onset') {
+    const audioRef = bound.audio?.kind === 'ident' ? bound.audio.name : null;
+    const evId = bound.event?.kind === 'ref' && bound.event.ref === 'event' ? bound.event.id : null;
+    if (audioRef !== 'audio' || !evId || !isPlainObj(measured?.audioOnsets)) return 'fail';
+    if (!Object.hasOwn(measured.audioOnsets, evId)) return 'fail';
+    const frame = measured.audioOnsets[evId];
+    return isFiniteNum(frame) && frame >= range[0] && frame < range[1] ? 'pass' : 'fail';
+  }
+
+  return 'fail';
+}
+
+function evaluateBasePredicates(question, film, measured) {
+  return Object.fromEntries(
+    (question.basePredicates ?? []).map((text) => [text, evaluateBasePredicate(text, film, measured)]),
+  );
+}
+
+/* ---------------- 参考夹具结构与内容校验 ---------------- */
+
+function validateRefData(question, data, refLabel) {
+  const errors = [];
+  const bad = (msg) => errors.push(`参考文件校验失败（${refLabel}）：${msg}`);
+  if (!isPlainObj(data) || Object.keys(data).length === 0) {
+    bad('必须是非空 JSON 对象');
+    return errors;
+  }
+  if (typeof data.question !== 'string' || data.question !== question.id) {
+    bad(`题号字段 question=${JSON.stringify(data.question)} 与题目 ${question.id} 不匹配`);
+    return errors;
+  }
+
+  const hasMotionEntries = (list, minLen) => Array.isArray(list)
+    && list.length >= minLen
+    && list.every((item) => isPlainObj(item)
+      && ['scale', 'dx', 'dy', 'error', 'stillError'].every((k) => isFiniteNum(item[k])));
+
+  if (LEVEL1_IDS.has(question.id)) {
+    const expectedKind = question.id === '28-1' ? 'negative' : 'reference';
+    if (data.kind !== expectedKind) bad(`kind 应为 ${expectedKind}，实际为 ${JSON.stringify(data.kind)}`);
+    if (typeof data.source !== 'string' || !data.source.trim()) bad('缺少非空 source 说明');
+    if (!isPlainObj(data.readings) || Object.keys(data.readings).length === 0) {
+      bad('缺少非空 readings 量测对象');
+      return errors;
+    }
+    if (!hasValidBaseSpec(data.readings.base?.spec)) bad('缺少合法的 readings.base.spec 规格读数');
+
+    if (question.id === '29-1') {
+      const le = data.readings['layout.edges'];
+      const bandsOk = Array.isArray(le?.bands) && le.bands.length >= 1
+        && le.bands.every((b) => isIntPair(b) && b[0] < b[1]);
+      if (!isPlainObj(le) || !bandsOk
+        || !isFiniteArray(le.edgeErrorsPx, 2 * le.bands.length)
+        || !isFiniteArray(le.sideErrorsPx, 2 * le.bands.length)
+        || !isFiniteNum(le.lineColorError) || le.lineColorError < 0) {
+        bad('29-1 缺少合法的 readings["layout.edges"] 版式量测字段');
+      }
+    } else if (question.id === '28-1') {
+      const mb = data.readings['meta.bbox-limits'];
+      const lc = data.readings['loop.closure-psnr'];
+      if (!isPlainObj(mb) || !['frames', 'maxW', 'minH', 'maxH', 'minMarginLr', 'minMarginTb'].every((k) => isFiniteNum(mb[k]))) {
+        bad('28-1 缺少合法的 readings["meta.bbox-limits"] 字段');
+      }
+      if (!isPlainObj(lc) || !isFiniteNum(lc.closurePsnr) || !isFiniteNum(lc.adjacentPsnr)) {
+        bad('28-1 缺少合法的 readings["loop.closure-psnr"] 字段');
+      }
+    } else if (question.id === '23-1') {
+      const lc = data.readings['loop.closure-psnr'];
+      if (!isPlainObj(lc) || !Number.isInteger(lc.nearest) || !isFiniteNum(lc.closurePsnr) || !isFiniteNum(lc.adjacentPsnr)) {
+        bad('23-1 缺少合法的 readings["loop.closure-psnr"] 字段');
+      }
+    } else if (question.id === '1-1') {
+      const ds = data.readings['deliver.spec'];
+      const al = data.readings['audio.loudness'];
+      const bf = data.readings['frame.black-freeze-dup'];
+      if (!isPlainObj(ds) || !['width', 'height', 'fps', 'frames', 'audioChannels'].every((k) => isFiniteNum(ds[k]))
+        || !['color_space', 'color_transfer', 'color_primaries'].every((k) => typeof ds[k] === 'string' && ds[k].length > 0)) {
+        bad('1-1 缺少合法的 readings["deliver.spec"] 字段');
+      }
+      if (!isPlainObj(al) || !isFiniteNum(al.lufs) || !isFiniteNum(al.truePeakDbtp)) {
+        bad('1-1 缺少合法的 readings["audio.loudness"] 字段');
+      }
+      if (!isPlainObj(bf) || !['blackFrames', 'freezeSegments', 'duplicateFrames'].every((k) => isFiniteNum(bf[k]))) {
+        bad('1-1 缺少合法的 readings["frame.black-freeze-dup"] 字段');
+      }
+    }
+    return errors;
+  }
+
+  if (question.id === '5-1') {
+    if (!isFiniteNum(data.fps) || data.fps <= 0) bad('5-1 缺少合法的 fps');
+    if (!Number.isInteger(data.frames) || data.frames <= 0) bad('5-1 缺少合法的 frames');
+    if (!isPlainObj(data.musicAlign) || !['corr', 'stretch', 'offsetSec', 'trackSec', 'stepSec'].every((k) => isFiniteNum(data.musicAlign[k]))) {
+      bad('5-1 缺少合法的 musicAlign 读数');
+    }
+    if (!Number.isInteger(data.hardCutFrame)) bad('5-1 缺少合法的 hardCutFrame');
+    if (!isPlainObj(data.lowBand) || !['maxHz', 'medianDb', 'riseDb'].every((k) => isFiniteNum(data.lowBand[k]))
+      || !isFiniteArray(data.lowBand.peakFrames, 1)) {
+      bad('5-1 缺少合法的 lowBand.peakFrames 读数');
+    }
+  } else if (question.id === '18-1') {
+    if (!isFiniteNum(data.fps) || data.fps <= 0) bad('18-1 缺少合法的 fps');
+    if (!Number.isInteger(data.frames) || data.frames <= 0) bad('18-1 缺少合法的 frames');
+    if (!isFiniteArray(data.narrationOnsetsSec, 1)) bad('18-1 缺少合法的 narrationOnsetsSec');
+    if (!isFiniteArray(data.subtitleAppearSec, 1)) bad('18-1 缺少合法的 subtitleAppearSec');
+    if (!isFiniteArray(data.sceneFadeFrames, 1)) bad('18-1 缺少合法的 sceneFadeFrames');
+    if (!isPlainObj(data.scenePauses) || !isFiniteArray(data.scenePauses.leadSec, 1)
+      || !isFiniteArray(data.scenePauses.tailSec, 1)
+      || data.scenePauses.leadSec.length !== data.scenePauses.tailSec.length) {
+      bad('18-1 缺少合法的 scenePauses.leadSec/tailSec');
+    }
+    const framesOk = Array.isArray(data.palette?.sceneFrames) && data.palette.sceneFrames.length >= 1
+      && data.palette.sceneFrames.every((sf) => isPlainObj(sf) && Array.isArray(sf.colors) && sf.colors.length >= 1
+        && sf.colors.every((pair) => Array.isArray(pair) && pair.length === 2
+          && typeof pair[0] === 'string' && HEX_COLOR_RE.test(pair[0]) && isFiniteNum(pair[1])));
+    if (!isPlainObj(data.palette) || !isFiniteNum(data.palette.binLevels) || data.palette.binLevels <= 0 || !framesOk) {
+      bad('18-1 缺少合法的 palette.sceneFrames 色板读数');
+    }
+  } else if (question.id === '18-2') {
+    if (!isFiniteNum(data.fps) || data.fps <= 0) bad('18-2 缺少合法的 fps');
+    if (!isIntPair(data.sceneFrames) || !(data.sceneFrames[0] < data.sceneFrames[1])) {
+      bad('18-2 缺少合法的 sceneFrames 场景帧范围');
+    }
+    if (!isFiniteNum(data.resolutionSec) || data.resolutionSec <= 0) bad('18-2 缺少合法的 resolutionSec');
+    const movesOk = Array.isArray(data.moves) && data.moves.length >= 1
+      && data.moves.every((m) => isPlainObj(m) && typeof m.cue === 'string' && m.cue.trim().length > 0
+        && ['cueSec', 'leadSec', 'expectedStartSec', 'measuredStartSec', 'measuredEndSec'].every((k) => isFiniteNum(m[k])));
+    if (!movesOk) bad('18-2 缺少合法的 moves 运镜读数数组');
+  } else if (question.id === '15-2') {
+    if (!isIntPair(data.size) || data.size[0] <= 0 || data.size[1] <= 0) bad('15-2 缺少合法的 size');
+    if (!hasMotionEntries(data.locked, 2)) bad('15-2 缺少合法的 locked 正例镜头读数');
+    if (!hasMotionEntries(data.drifting, 1)) bad('15-2 缺少合法的 drifting 反例镜头读数');
+  }
+
+  return errors;
+}
+
+function validateRefs(question, benchDir) {
+  const beimingRoot = path.resolve(benchDir, '..');
+  const errors = [];
+  const refs = question.refs ?? [];
+  if ((LEVEL1_IDS.has(question.id) || LEVEL2B_IDS.has(question.id)) && refs.length === 0) {
+    errors.push(`题目 ${question.id} 缺少参考夹具声明（refs 为空）`);
+    return errors;
+  }
+  for (const ref of refs) {
+    const abs = path.resolve(beimingRoot, ref);
+    if (!abs.startsWith(beimingRoot + path.sep) || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
+      errors.push(`参考文件不存在：${ref}`);
+      continue;
+    }
+    let raw;
+    let data;
+    try {
+      raw = fs.readFileSync(abs, 'utf8');
+      data = JSON.parse(raw);
+    } catch (e) {
+      errors.push(`参考文件不是合法 JSON（${ref}）：${e.message}`);
+      continue;
+    }
+    const rawLeaks = scanQuestionLeaks(raw);
+    const objLeaks = scanQuestionLeaks(data);
+    if (rawLeaks.length > 0 || objLeaks.length > 0) {
+      errors.push(`参考文件存在泄露项（${ref}）：${rawLeaks.length + objLeaks.length} 处`);
+    }
+    errors.push(...validateRefData(question, data, ref));
+  }
+  return errors;
+}
+
+/* ---------------- 离线基准合成与真实量测 ---------------- */
 
 function paintRgba(width, height, bg, rects = []) {
   const rgba = new Uint8Array(width * height * 4).fill(255);
@@ -89,9 +360,60 @@ function paintRgba(width, height, bg, rects = []) {
   return { width, height, rgba };
 }
 
+function synthesize29Readings(question, { shiftTopPx = 0, dividerColor = [0xCB, 0xFB, 0x03] } = {}) {
+  const W = 1080;
+  const H = 1350;
+  const total = 600;
+  const bg = [9, 9, 6];
+  const panel = [128, 110, 90];
+  const frame = paintRgba(W, H, bg, [
+    [0, 44 + shiftTopPx, W, 652, panel],
+    [0, 673, W, 677, dividerColor],
+    [0, 698, W, 1306, panel],
+  ]);
+  const layoutArgs = argsOfB2(question, 'layout.edges');
+  const canMeasure = typeof layoutArgs.background === 'string' && HEX_COLOR_RE.test(layoutArgs.background)
+    && isFiniteNum(layoutArgs.backgroundTol) && isFiniteNum(layoutArgs.rowFill)
+    && Array.isArray(layoutArgs.bands) && isIntPair(layoutArgs.coreRows)
+    && typeof layoutArgs.color === 'string' && HEX_COLOR_RE.test(layoutArgs.color);
+  const layout = canMeasure
+    ? readLayout(frame, layoutArgs, [W, H])
+    : { bands: null, edgeErrorsPx: null, sideErrorsPx: null, lineColorError: null };
+
+  const entities = [];
+  if (Array.isArray(layout.bands) && layout.bands.length === 3
+    && Array.isArray(layout.sideErrorsPx) && layout.sideErrorsPx.length === 6
+    && layout.sideErrorsPx.every(isFiniteNum)) {
+    const names = ['panel_top', 'divider', 'panel_bottom'];
+    names.forEach((name, idx) => {
+      const [y0, y1] = layout.bands[idx];
+      const leftErr = layout.sideErrorsPx[idx * 2];
+      const rightErr = layout.sideErrorsPx[idx * 2 + 1];
+      entities.push({ name, bbox2d: [leftErr, y0, W - rightErr, y1] });
+    });
+  }
+
+  const film = { output: { size: [W, H], fps: '30/1', frames: total }, shots: [{ id: 's01', in: 0, out: total }] };
+  const meta = { size: [W, H], entities };
+  const measured = {
+    output: { size: [W, H], fps: '30/1', frames: total, colorTag: 'bt709' },
+    blackFrames: [],
+    freezes: [],
+    frames: Array.from({ length: total }, (_, idx) => ({ frame: idx, meta })),
+  };
+  return {
+    base: {
+      spec: { width: W, height: H, fps: 30, frames: total, audioChannels: 0 },
+      predicates: evaluateBasePredicates(question, film, measured),
+    },
+    'layout.edges': layout,
+  };
+}
+
 function synthesize28OrbitReadings(question) {
-  const [W, H] = question.deliverable.size;
-  const total = question.deliverable.frames;
+  const W = 1920;
+  const H = 824;
+  const total = 288;
   const grey = [110, 108, 108];
   const boxAt = (k, height = 560) => {
     const angle = (2 * Math.PI * k) / total;
@@ -107,16 +429,216 @@ function synthesize28OrbitReadings(question) {
   };
   const boxes = Array.from({ length: total }, (_, k) => boxAt(k));
   const samples = [0, 72, 144, 216].map((k) => ({ frame: frameAt(k), box: boxes[k] }));
+  const film = { output: { size: [W, H], fps: '24/1', frames: total }, shots: [{ id: 's01', in: 0, out: total }] };
+  const measured = {
+    output: { size: [W, H], fps: '24/1', frames: total, colorTag: 'bt709' },
+    blackFrames: [],
+    freezes: [],
+    cuts: [],
+    orbitTotalDeg: { 'camera:subject': 360 },
+    frames: boxes.map((bbox2d, frame) => ({ frame, meta: { size: [W, H], entities: [{ name: 'subject', bbox2d }] } })),
+  };
   return {
-    base: builtBase(question),
+    base: {
+      spec: { width: W, height: H, fps: 24, frames: total, audioChannels: 0 },
+      predicates: evaluateBasePredicates(question, film, measured),
+    },
     'meta.bbox-limits': readFraming(boxes, [W, H]),
     'loop.closure-psnr': readClosure(frameAt(0), frameAt(total - 1), frameAt(1)),
     'pixel.bbox': readPixelBoxes(samples, '#6E6C6C', 16),
   };
 }
 
-const LEVEL1_IDS = new Set(['29-1', '28-1', '23-1', '1-1']);
-const LEVEL2B_IDS = new Set(B6_QUESTION_IDS);
+function synthesize23TurntableReadings(question, totalDegrees = 360) {
+  const W = 720;
+  const H = 1080;
+  const total = 72;
+  const turn = (degrees) => {
+    const rgba = new Uint8Array(64 * 8 * 4).fill(255);
+    for (let i = 0; i < 64 * 8; i++) {
+      rgba.fill(Math.round(128 + 100 * Math.sin((2 * Math.PI * (i % 64)) / 64 + (degrees * Math.PI) / 180)), i * 4, i * 4 + 3);
+    }
+    return { width: 64, height: 8, rgba };
+  };
+  const frameAt = (k) => turn((k * totalDegrees) / total);
+  const search = argsOfB2(question, 'loop.closure-psnr')?.search ?? [36, 72];
+  const film = { output: { size: [W, H], fps: '24/1', frames: total }, shots: [{ id: 's01', in: 0, out: total }] };
+  const measured = {
+    output: { size: [W, H], fps: '24/1', frames: total, colorTag: 'bt709' },
+    blackFrames: [],
+    freezes: [],
+    cuts: [],
+    orbitTotalDeg: { 'camera:subject': totalDegrees },
+  };
+  return {
+    base: {
+      spec: { width: W, height: H, fps: 24, frames: total, audioChannels: 0 },
+      predicates: evaluateBasePredicates(question, film, measured),
+    },
+    'loop.closure-psnr': {
+      ...readNearest(frameAt, search),
+      ...readClosure(frameAt(0), frameAt(total - 1), frameAt(1)),
+    },
+  };
+}
+
+function build01BaselineFromRef(question, refData) {
+  const spec = refData.readings['deliver.spec'] ?? {};
+  const audio = refData.readings['audio.loudness'] ?? {};
+  const frames = refData.readings['frame.black-freeze-dup'] ?? {};
+  const tags = new Set(['color_space', 'color_transfer', 'color_primaries'].map((tag) => spec[tag]));
+  const fpsText = `${spec.fps}/1`;
+  const film = {
+    output: { size: [spec.width, spec.height], fps: fpsText, frames: spec.frames },
+    shots: [{ id: 's01', in: 0, out: spec.frames }],
+  };
+  const measured = {
+    output: { size: [spec.width, spec.height], fps: fpsText, frames: spec.frames, colorTag: tags.size === 1 ? [...tags][0] : null },
+    blackFrames: frames.blackFrames === 0 ? [] : null,
+    freezes: frames.freezeSegments === 0 ? [] : null,
+    audio: { loudnessLufs: audio.lufs, truePeakDbtp: audio.truePeakDbtp },
+  };
+  return {
+    ...refData.readings,
+    base: {
+      spec: refData.readings.base.spec,
+      predicates: evaluateBasePredicates(question, film, measured),
+    },
+  };
+}
+
+function buildLevel2bRefVerdict(question, refData, posReadings) {
+  if (question.id === '5-1') {
+    const readings = {
+      'music.align': {
+        corr: refData.musicAlign.corr,
+        stretch: refData.musicAlign.stretch,
+        offsetSec: refData.musicAlign.offsetSec,
+      },
+      'beat.onset-hit': {
+        eventFrames: [refData.hardCutFrame],
+        markFrames: refData.lowBand.peakFrames,
+        range: [0, refData.frames],
+      },
+    };
+    const v = scoreLevel2b(question, readings);
+    return v.pass === true && Math.abs(v.score - 1) < 1e-9;
+  }
+  if (question.id === '18-1') {
+    const paletteArgs = question.scoring.find((s) => s.metric === 'color.palette')?.args;
+    if (!paletteArgs || typeof paletteArgs.color !== 'string' || !HEX_COLOR_RE.test(paletteArgs.color) || !isFiniteNum(paletteArgs.binLevels)) {
+      return false;
+    }
+    const bin = (ch) => Math.floor((ch * paletteArgs.binLevels) / 256);
+    const target = [1, 3, 5].map((i) => bin(parseInt(paletteArgs.color.slice(i, i + 2), 16)));
+    const shares = refData.palette.sceneFrames.map((sf) => sf.colors
+      .filter(([hex]) => [1, 3, 5].every((i, idx) => bin(parseInt(hex.slice(i, i + 2), 16)) === target[idx]))
+      .reduce((sum, [, share]) => sum + share, 0));
+    const readings = {
+      'narration.timing': {
+        appearSec: refData.subtitleAppearSec,
+        onsetsSec: refData.narrationOnsetsSec,
+        spanSec: refData.frames / refData.fps,
+        fadeFrames: refData.sceneFadeFrames,
+        leadSec: refData.scenePauses.leadSec,
+        tailSec: refData.scenePauses.tailSec,
+      },
+      'color.palette': { shares },
+    };
+    const v = scoreLevel2b(question, readings, { allowReferenceSpan: true });
+    return v.pass === true && Math.abs(v.score - 1) < 1e-9;
+  }
+  if (question.id === '18-2') {
+    const readings = {
+      'narration.timing': {
+        eventFrames: refData.moves.map((m) => m.cueSec * refData.fps),
+        markFrames: refData.moves.map((m) => Math.round(m.measuredStartSec * refData.fps)),
+        range: refData.sceneFrames,
+      },
+    };
+    const v = scoreLevel2b(question, readings);
+    return v.pass === true && Math.abs(v.score - 1) < 1e-9;
+  }
+  if (question.id === '15-2') {
+    const posRef = scoreLevel2b(question, {
+      'meta.camera-static': posReadings['meta.camera-static'],
+      'motion.zoom-pan': { pairs: refData.locked },
+    });
+    const negRef = scoreLevel2b(question, {
+      'meta.camera-static': posReadings['meta.camera-static'],
+      'motion.zoom-pan': { pairs: [refData.locked[0], refData.drifting[0]] },
+    });
+    return posRef.pass === true && Math.abs(posRef.score - 1) < 1e-9 && negRef.pass === false;
+  }
+  return false;
+}
+
+function buildLevel2bBaseEvidence(questionId, posReadings) {
+  if (questionId === '5-1') {
+    const spec = { width: 1920, height: 1080, fps: 24, frames: 720, audioChannels: 2 };
+    const film = { output: { size: [1920, 1080], fps: '24/1', frames: 720 }, shots: [{ id: 's01', in: 0, out: 624 }, { id: 's02', in: 624, out: 720 }] };
+    const measured = {
+      output: { size: [1920, 1080], fps: '24/1', frames: 720, colorTag: 'bt709' },
+      blackFrames: [],
+      freezes: [],
+      cuts: posReadings['beat.onset-hit']?.eventFrames ?? [],
+    };
+    return { spec, film, measured };
+  }
+  if (questionId === '18-1') {
+    const spec = { width: 1920, height: 1080, fps: 30, frames: 900, audioChannels: 2 };
+    const appearSec = posReadings['narration.timing']?.appearSec ?? [];
+    const overlays = appearSec.map((sec, idx) => {
+      const start = Math.round(sec * 30);
+      const next = idx + 1 < appearSec.length ? Math.round(appearSec[idx + 1] * 30) : 900;
+      const end = Math.max(start + 1, Math.min(900, next));
+      return { id: `sub-${idx}`, shot: 's01', text: `block-${idx}`, in: start, out: end };
+    });
+    const frames = overlays.map((o) => ({
+      frame: o.in,
+      meta: { size: [1920, 1080], texts: [{ text: o.text }] },
+      ocr: [{ text: o.text }],
+    }));
+    const film = { output: { size: [1920, 1080], fps: '30/1', frames: 900 }, shots: [{ id: 's01', in: 0, out: 900 }], overlays };
+    const measured = {
+      output: { size: [1920, 1080], fps: '30/1', frames: 900, colorTag: 'bt709' },
+      blackFrames: [],
+      freezes: [],
+      frames,
+    };
+    return { spec, film, measured };
+  }
+  if (questionId === '18-2') {
+    const spec = { width: 1920, height: 1080, fps: 30, frames: 600, audioChannels: 2 };
+    const evFrames = posReadings['narration.timing']?.eventFrames ?? [];
+    const audioOnsets = {};
+    if (isFiniteNum(evFrames[0])) audioOnsets.cue_a = evFrames[0];
+    if (isFiniteNum(evFrames[1])) audioOnsets.cue_b = evFrames[1];
+    const film = { output: { size: [1920, 1080], fps: '30/1', frames: 600 }, shots: [{ id: 's01', in: 0, out: 600 }] };
+    const measured = {
+      output: { size: [1920, 1080], fps: '30/1', frames: 600, colorTag: 'bt709' },
+      blackFrames: [],
+      freezes: [],
+      audioOnsets,
+    };
+    return { spec, film, measured };
+  }
+  if (questionId === '15-2') {
+    const spec = { width: 1080, height: 608, fps: 30, frames: 300, audioChannels: 0 };
+    const cameras = posReadings['meta.camera-static']?.cameras ?? [];
+    const allStatic = cameras.length > 0 && cameras.every((c) => JSON.stringify(c.world) === JSON.stringify(cameras[0].world));
+    const film = { output: { size: [1080, 608], fps: '30/1', frames: 300 }, shots: [{ id: 's01', in: 0, out: 300 }] };
+    const measured = {
+      output: { size: [1080, 608], fps: '30/1', frames: 300, colorTag: 'bt709' },
+      blackFrames: [],
+      freezes: [],
+      cuts: [],
+      orbitTotalDeg: allStatic ? { 'camera:scene': 0 } : {},
+    };
+    return { spec, film, measured };
+  }
+  return null;
+}
 
 /**
  * 针对单道公开考题运行离线正对照与负对照判分核验。
@@ -124,22 +646,33 @@ const LEVEL2B_IDS = new Set(B6_QUESTION_IDS);
  */
 export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
   const beimingRoot = path.resolve(benchDir, '..');
+  const failOutcome = (detail) => ({
+    pass: false,
+    positiveScore: 0,
+    negativeControlsChecked: 0,
+    negativeControlsRejected: 0,
+    predicates: {},
+    metrics: {},
+    detail,
+  });
+
   if (LEVEL1_IDS.has(question.id)) {
     const refRel = question.refs?.[0];
     const refAbs = refRel ? path.resolve(beimingRoot, refRel) : null;
-    if (!refAbs || !fs.existsSync(refAbs)) {
-      return {
-        pass: false,
-        positiveScore: 0,
-        negativeControlsChecked: 0,
-        negativeControlsRejected: 0,
-        predicates: {},
-        metrics: {},
-        detail: `缺少参考夹具 ${refRel ?? '(未声明)'}`,
-      };
+    if (!refAbs || !refAbs.startsWith(beimingRoot + path.sep) || !fs.existsSync(refAbs)) {
+      return failOutcome(`缺少参考夹具 ${refRel ?? '(未声明)'}`);
     }
-    const refData = JSON.parse(fs.readFileSync(refAbs, 'utf8'));
+    let refData;
+    try {
+      refData = JSON.parse(fs.readFileSync(refAbs, 'utf8'));
+    } catch (e) {
+      return failOutcome(`参考夹具无法解析（${refRel}）：${e.message}`);
+    }
+    const refErrors = validateRefData(question, refData, refRel);
+    if (refErrors.length > 0) return failOutcome(refErrors.join('；'));
+
     let posVerdict;
+    let refOk = true;
     let negChecked = 0;
     let negRejected = 0;
 
@@ -148,28 +681,66 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       negChecked++;
       if (negVerdict.pass === false && negVerdict.score === 0) negRejected++;
       posVerdict = scoreLevel1(question, synthesize28OrbitReadings(question));
+    } else if (question.id === '29-1') {
+      // 29-1 参考夹具实测带双声道且无逐帧元数据：在真实 B2 评分器下必须得满分(score=1, scoringPass=true)且如实 basePass=false/pass=false
+      const rawRefVerdict = scoreLevel1(question, refData.readings);
+      refOk = rawRefVerdict.scoringPass === true
+        && Math.abs(rawRefVerdict.score - 1) < 1e-9
+        && rawRefVerdict.basePass === false
+        && rawRefVerdict.pass === false;
+      posVerdict = scoreLevel1(question, synthesize29Readings(question));
+      const shiftedNeg = scoreLevel1(question, synthesize29Readings(question, { shiftTopPx: 1, dividerColor: [0xCB, 0xFB - 5, 0x03] }));
+      negChecked++;
+      if (shiftedNeg.pass === false && shiftedNeg.score < 1) negRejected++;
+    } else if (question.id === '23-1') {
+      const rawRefVerdict = scoreLevel1(question, refData.readings);
+      refOk = rawRefVerdict.scoringPass === true
+        && Math.abs(rawRefVerdict.score - 1) < 1e-9
+        && rawRefVerdict.basePass === false
+        && rawRefVerdict.pass === false;
+      posVerdict = scoreLevel1(question, synthesize23TurntableReadings(question, 360));
+      const underNeg = scoreLevel1(question, synthesize23TurntableReadings(question, 350));
+      negChecked++;
+      if (underNeg.pass === false && underNeg.score < 1) negRejected++;
     } else {
-      posVerdict = scoreLevel1(question, { ...refData.readings, base: builtBase(question) });
+      // 1-1：直接用真实参考读数经 verify/predicates 逐条求值基础谓词
+      const rawRefVerdict = scoreLevel1(question, refData.readings);
+      refOk = rawRefVerdict.scoringPass === true && Math.abs(rawRefVerdict.score - 1) < 1e-9;
+      posVerdict = scoreLevel1(question, build01BaselineFromRef(question, refData));
+      if (isPlainObj(refData.preview?.['audio.loudness'])) {
+        const previewReadings = build01BaselineFromRef(question, {
+          ...refData,
+          readings: { ...refData.readings, 'audio.loudness': refData.preview['audio.loudness'] },
+        });
+        const previewNeg = scoreLevel1(question, previewReadings);
+        negChecked++;
+        if (previewNeg.pass === false && previewNeg.score < 1) negRejected++;
+      }
     }
+
     const emptyNeg = scoreLevel1(question, {});
     negChecked++;
     if (emptyNeg.pass === false && emptyNeg.score === 0) negRejected++;
 
-    const posOk = posVerdict.pass === true && posVerdict.scoringPass === true && posVerdict.basePass === true && Math.abs(posVerdict.score - 1) < 1e-9;
+    const posOk = refOk
+      && posVerdict.pass === true
+      && posVerdict.scoringPass === true
+      && posVerdict.basePass === true
+      && Math.abs(posVerdict.score - 1) < 1e-9;
     const negOk = negChecked > 0 && negRejected === negChecked;
     const allOk = posOk && negOk;
 
     const predicates = Object.fromEntries(
       (question.basePredicates ?? []).map((text) => {
         const hit = posVerdict.base?.find((b) => b.check === text);
-        return [text, { pass: Boolean(allOk && hit?.pass), basis: 'offline-eval-b2' }];
+        return [text, { pass: Boolean(hit?.pass), basis: 'offline-eval-b2' }];
       }),
     );
     const metrics = {};
     for (const s of question.scoring) {
       const matching = posVerdict.items.filter((item) => item.metric === s.metric);
       metrics[s.metric] = {
-        pass: Boolean(allOk && matching.length > 0 && matching.every((item) => item.pass)),
+        pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
         basis: 'offline-eval-b2',
       };
     }
@@ -180,78 +751,87 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       negativeControlsRejected: negRejected,
       predicates,
       metrics,
-      detail: allOk ? 'ok' : !posOk ? `正对照得分 ${posVerdict.score}（pass=${posVerdict.pass}）` : `负对照未全部拦截（${negRejected}/${negChecked}）`,
+      detail: allOk
+        ? 'ok'
+        : !refOk
+          ? `参考夹具在 B2 评分器下未满足预期口径（${refRel}）`
+          : !posOk
+            ? `正对照未通过（score=${posVerdict.score}，basePass=${posVerdict.basePass}，scoringPass=${posVerdict.scoringPass}）`
+            : `负对照未全部拦截（${negRejected}/${negChecked}）`,
     };
   }
 
   if (LEVEL2B_IDS.has(question.id)) {
+    const refRel = question.refs?.[0];
+    const refAbs = refRel ? path.resolve(beimingRoot, refRel) : null;
+    if (!refAbs || !refAbs.startsWith(beimingRoot + path.sep) || !fs.existsSync(refAbs)) {
+      return failOutcome(`缺少参考夹具 ${refRel ?? '(未声明)'}`);
+    }
+    let refData;
+    try {
+      refData = JSON.parse(fs.readFileSync(refAbs, 'utf8'));
+    } catch (e) {
+      return failOutcome(`参考夹具无法解析（${refRel}）：${e.message}`);
+    }
+    const refErrors = validateRefData(question, refData, refRel);
+    if (refErrors.length > 0) return failOutcome(refErrors.join('；'));
+
     const pos = buildPositiveBaseline(question.id);
-    const posOk = pos.verdict.pass === true && Math.abs(pos.verdict.score - 1) < 1e-9;
+    // 必须把实际加载的 question 对象交给正式 B4 评分器，禁止静默回读仓库默认题
+    const posVerdict = scoreLevel2b(question, pos.readings);
+    const refOk = buildLevel2bRefVerdict(question, refData, pos.readings);
+    const baseEvidence = buildLevel2bBaseEvidence(question.id, pos.readings);
+    const specOk = Boolean(baseEvidence) && sameDeliverableSpec(baseEvidence.spec, question.deliverable);
+    const predMap = baseEvidence ? evaluateBasePredicates(question, baseEvidence.film, baseEvidence.measured) : {};
+    const basePass = specOk && (question.basePredicates ?? []).every((text) => predMap[text] === 'pass');
+
+    const posOk = posVerdict.pass === true && Math.abs(posVerdict.score - 1) < 1e-9 && refOk && basePass;
     let negChecked = 0;
     let negRejected = 0;
     for (const kind of B6_NEGATIVE_KINDS) {
       negChecked++;
       const neg = evaluateNegativeControl(`${question.id}-${kind}`);
-      if (neg.verdict.pass === false && neg.verdict.score < 1 && neg.failedAsDeclared === true) {
+      const negVerdict = scoreLevel2b(question, neg.readings);
+      const expectedFailed = neg.control.expectedFailedMetrics.map(({ scoring }) => scoring).sort((a, b) => a - b).join();
+      const actualFailed = negVerdict.items.flatMap((item, idx) => (item.pass ? [] : [idx])).join();
+      if (negVerdict.pass === false && negVerdict.score < 1 && neg.failedAsDeclared === true && actualFailed === expectedFailed) {
         negRejected++;
       }
     }
     const negOk = negChecked === B6_NEGATIVE_KINDS.length && negRejected === negChecked;
     const allOk = posOk && negOk;
+
     const predicates = Object.fromEntries(
-      (question.basePredicates ?? []).map((text) => [text, { pass: allOk, basis: 'offline-eval-b4' }]),
+      (question.basePredicates ?? []).map((text) => [text, { pass: predMap[text] === 'pass', basis: 'offline-eval-b4' }]),
     );
     const metrics = {};
     for (const s of question.scoring) {
-      const matching = pos.verdict.items.filter((item) => item.metric === s.metric);
+      const matching = posVerdict.items.filter((item) => item.metric === s.metric);
       metrics[s.metric] = {
-        pass: Boolean(allOk && matching.length > 0 && matching.every((item) => item.pass)),
+        pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
         basis: 'offline-eval-b4',
       };
     }
     return {
       pass: allOk,
-      positiveScore: pos.verdict.score,
+      positiveScore: posVerdict.score,
       negativeControlsChecked: negChecked,
       negativeControlsRejected: negRejected,
       predicates,
       metrics,
-      detail: allOk ? 'ok' : !posOk ? `正对照得分 ${pos.verdict.score}` : `B6 负对照未全部按声明拦截（${negRejected}/${negChecked}）`,
+      detail: allOk
+        ? 'ok'
+        : !refOk
+          ? `参考夹具在 B4 评分器下未通过（${refRel}）`
+          : !basePass
+            ? `基础规格或基础谓词未通过（specOk=${specOk}）`
+            : !posOk
+              ? `正对照未通过（score=${posVerdict.score}，pass=${posVerdict.pass}）`
+              : `B6 负对照未全部按声明拦截（${negRejected}/${negChecked}）`,
     };
   }
 
-  return {
-    pass: false,
-    positiveScore: 0,
-    negativeControlsChecked: 0,
-    negativeControlsRejected: 0,
-    predicates: {},
-    metrics: {},
-    detail: `题号 ${question.id} 尚未接入离线核验器`,
-  };
-}
-
-function validateRefs(question, benchDir) {
-  const beimingRoot = path.resolve(benchDir, '..');
-  const errors = [];
-  for (const ref of question.refs ?? []) {
-    const abs = path.resolve(beimingRoot, ref);
-    if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
-      errors.push(`参考文件不存在：${ref}`);
-      continue;
-    }
-    let raw;
-    try {
-      raw = fs.readFileSync(abs, 'utf8');
-      JSON.parse(raw);
-    } catch (e) {
-      errors.push(`参考文件不是合法 JSON（${ref}）：${e.message}`);
-      continue;
-    }
-    const leaks = scanQuestionLeaks(raw);
-    if (leaks.length > 0) errors.push(`参考文件存在泄露项（${ref}）：${leaks.length} 处`);
-  }
-  return errors;
+  return failOutcome(`题号 ${question.id} 尚未接入离线核验器`);
 }
 
 /**
@@ -294,6 +874,8 @@ export async function runExam(options = {}) {
         totalQuestions: 0,
         validQuestions: 0,
         invalidQuestions: 0,
+        evaluatedQuestions: 0,
+        skippedQuestions: 0,
         passedQuestions: 0,
         failedQuestions: 0,
         negativeControlsChecked: 0,
@@ -431,14 +1013,31 @@ export async function runExam(options = {}) {
         },
       });
 
+      const expectedSkip = Boolean(entry.question.flags?.expectedFail) && runResult.status === 'expected-fail';
+      if (expectedSkip) {
+        questionReports.push({
+          file: entry.file,
+          id: entry.id,
+          level: entry.level,
+          valid: true,
+          status: 'expected-fail',
+          pass: false,
+          score: runResult.score,
+          runId: runResult.runId,
+          negativeControlsChecked: 0,
+          negativeControlsRejected: 0,
+          errors: [],
+        });
+        continue;
+      }
+
       const negChecked = evalOutcome?.negativeControlsChecked ?? 0;
       const negRejected = evalOutcome?.negativeControlsRejected ?? 0;
       negativeControlsChecked += negChecked;
       negativeControlsRejected += negRejected;
 
-      const expectedSkip = Boolean(entry.question.flags?.expectedFail) && runResult.status === 'expected-fail';
-      const runnerOk = runResult.format === RESULT_FORMAT && fs.existsSync(runResult.resultFile) && (runResult.pass === true || expectedSkip);
-      const evalOk = expectedSkip || (Boolean(evalOutcome?.pass) && negRejected === negChecked);
+      const runnerOk = runResult.format === RESULT_FORMAT && fs.existsSync(runResult.resultFile) && runResult.pass === true;
+      const evalOk = Boolean(evalOutcome?.pass) && negRejected === negChecked;
       const pass = runnerOk && evalOk;
       const errors = [];
       if (!pass) {
@@ -470,9 +1069,12 @@ export async function runExam(options = {}) {
   const totalQuestions = questionReports.length;
   const validQuestions = questionReports.filter((q) => q.valid).length;
   const invalidQuestions = totalQuestions - validQuestions;
+  const skippedQuestions = questionReports.filter((q) => q.status === 'expected-fail').length;
+  const evaluatedQuestions = dryRun ? 0 : questionReports.filter((q) => q.valid && q.status !== 'expected-fail').length;
   const passedQuestions = questionReports.filter((q) => q.pass).length;
-  const failedQuestions = totalQuestions - passedQuestions;
-  const ok = totalQuestions > 0 && invalidQuestions === 0 && failedQuestions === 0;
+  const failedQuestions = questionReports.filter((q) => !q.pass && q.status !== 'expected-fail').length;
+  const noEvaluated = !dryRun && invalidQuestions === 0 && evaluatedQuestions === 0;
+  const ok = totalQuestions > 0 && invalidQuestions === 0 && failedQuestions === 0 && !noEvaluated;
   const exitCode = ok ? 0 : invalidQuestions > 0 ? 4 : 1;
 
   const report = {
@@ -487,6 +1089,8 @@ export async function runExam(options = {}) {
       totalQuestions,
       validQuestions,
       invalidQuestions,
+      evaluatedQuestions,
+      skippedQuestions,
       passedQuestions,
       failedQuestions,
       negativeControlsChecked,
@@ -496,13 +1100,23 @@ export async function runExam(options = {}) {
     outputs: [],
     error: ok
       ? null
-      : {
-          code: invalidQuestions > 0 ? 'contract.question-invalid' : 'exam.verification-failed',
-          message: invalidQuestions > 0
-            ? `${invalidQuestions} 道考题或参考夹具未通过契约校验`
-            : `${failedQuestions} 道考题未通过离线考试核验`,
-          hint: '检查 questions[].errors 中的失败原因',
-        },
+      : invalidQuestions > 0
+        ? {
+            code: 'contract.question-invalid',
+            message: `${invalidQuestions} 道考题或参考夹具未通过契约校验`,
+            hint: '检查 questions[].errors 中的失败原因',
+          }
+        : noEvaluated
+          ? {
+              code: 'exam.no-evaluated-questions',
+              message: `整场考试实际执行并计分的题目数为 0（共 ${skippedQuestions} 题全部为 expected-fail 跳过），禁止假绿`,
+              hint: '确认题库包含至少一道可执行评测的公开考题',
+            }
+          : {
+              code: 'exam.verification-failed',
+              message: `${failedQuestions} 道考题未通过离线考试核验`,
+              hint: '检查 questions[].errors 中的失败原因',
+            },
     createdAt: new Date().toISOString(),
   };
   report.outputs = writeOut(report);
@@ -564,8 +1178,9 @@ export async function main(argv = process.argv.slice(2)) {
   if (!report.ok) {
     process.stderr.write(`考试核验未通过（exit ${report.exitCode}）：${report.error?.message ?? '原因不明'}\n`);
   } else {
+    const skipNote = report.summary.skippedQuestions > 0 ? `，跳过 ${report.summary.skippedQuestions} 题` : '';
     process.stderr.write(
-      `考试核验通过：共 ${report.summary.totalQuestions} 题（通过 ${report.summary.passedQuestions} 题，拦截负对照 ${report.summary.negativeControlsRejected}/${report.summary.negativeControlsChecked} 份）\n`,
+      `考试核验通过：共 ${report.summary.totalQuestions} 题（通过 ${report.summary.passedQuestions} 题${skipNote}，拦截负对照 ${report.summary.negativeControlsRejected}/${report.summary.negativeControlsChecked} 份）\n`,
     );
   }
   return report.exitCode;
