@@ -692,12 +692,15 @@ describe('X6-Red: 零陷阱参数校验与异常脚本防御', () => {
     assert.throws(() => deliver(null), isCode('usage.bad-argument'));
     assert.throws(() => deliver(new Proxy({}, {})), isCode('usage.bad-argument'));
 
-    // 不可读 .py 脚本（EACCES / mode 0000）应统一抛 usage.bad-argument
-    const unreadablePy = join(dir, 'unreadable.py');
-    writeFileSync(unreadablePy, PROCEDURAL_SOUND_PY);
-    chmodSync(unreadablePy, 0o000);
-    t.after(() => { try { chmodSync(unreadablePy, 0o644); } catch {} });
-    assert.throws(() => runAudioScript({ ...baseOpts, script: unreadablePy }), isCode('usage.bad-argument'));
+    // 不可读 .py 脚本（EACCES / mode 0000）应统一抛 usage.bad-argument。
+    // Windows 上 chmod 0o000 只设只读位、文件照样读得出，root 也读得出，这两种情况下造不出「不可读」
+    if (process.platform !== 'win32' && process.geteuid?.() !== 0) {
+      const unreadablePy = join(dir, 'unreadable.py');
+      writeFileSync(unreadablePy, PROCEDURAL_SOUND_PY);
+      chmodSync(unreadablePy, 0o000);
+      t.after(() => { try { chmodSync(unreadablePy, 0o644); } catch {} });
+      assert.throws(() => runAudioScript({ ...baseOpts, script: unreadablePy }), isCode('usage.bad-argument'));
+    }
 
     // 循环引用
     const cyclic = { fps: 30 };
