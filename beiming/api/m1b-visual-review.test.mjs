@@ -23,7 +23,7 @@ import {
   runHandsOnAgent,
   startServer,
 } from './index.mjs';
-import { reviewMaterials } from './pipeline.mjs';
+import { reviewKeyframeNumbers, reviewMaterials } from './pipeline.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
@@ -754,3 +754,392 @@ test('M1b-4 报告顶层 ok 与 verification.ok 对齐、unresolvedReviewOpinion
     rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test('M1b-5 frames 模式审片在默认草稿渲染（半尺寸）与稀疏终渲下仍按镜头中点送出原尺寸关键帧', { skip: SKIP_MEDIA, timeout: 240000 }, async () => {
+  // 纯函数单元核验：共用 reviewKeyframeNumbers 选帧逻辑
+  assert.deepEqual(
+    reviewKeyframeNumbers({ output: { frames: 6 }, shots: [{ id: 's01', in: 0, out: 6 }] }),
+    [2],
+  );
+  assert.deepEqual(
+    reviewKeyframeNumbers({
+      output: { frames: 60 },
+      shots: Array.from({ length: 6 }, (_, i) => ({ id: `s0${i + 1}`, in: i * 10, out: (i + 1) * 10 })),
+    }),
+    [4, 24, 34, 54],
+  );
+  assert.deepEqual(
+    reviewKeyframeNumbers({
+      output: { frames: 20 },
+      shots: [{ id: 's01', in: 0, out: 10 }, { id: 's02', in: 10, out: 20 }],
+    }, 1),
+    [4],
+  );
+
+  const dataDir = mkdtempSync(join(tmpdir(), 'bm-m1b-frames-kf-'));
+  const ledgerPath = join(dataDir, 'external-ledger.jsonl');
+  const seenVisionRequests = [];
+
+  const mockVision = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    seenVisionRequests.push(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      model: 'gemini-vision-kf',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', opinions: [], suggestedPredicates: [] }) } }],
+      usage: { prompt_tokens: 350, completion_tokens: 25 },
+    }));
+  });
+  await new Promise((r) => mockVision.listen(0, '127.0.0.1', r));
+
+  const reviewer = createOpenAiVisionReviewer({
+    endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+    apiKey: 'vkey',
+    model: 'gemini-vision-kf',
+    ledgerPath,
+    votesPerPerspective: 1,
+  });
+
+  const token = issueAccountToken(dataDir);
+  const api = await startServer({ dataDir, port: 0, reviewer });
+
+  try {
+    // 1) 建 640x360、6 帧 title 片 -> 默认 POST /render（省略 tier，即 draft 320x180）-> POST /review {}
+    const created = await (await fetch(`${api.url}/v1/films`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        template: 'title',
+        brief: '草稿与稀疏终渲均须送原尺寸中点关键帧',
+        text: 'FULLRES',
+        output: { size: [640, 360], fps: '10/1', frames: 6 },
+      }),
+    })).json();
+    assert.equal(created.ok, true);
+    const filmId = created.data.film;
+    const wsToken = created.data.token;
+
+    const rDraft = await (await fetch(`${api.url}/v1/films/${filmId}/render`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ wait: 30 }),
+    })).json();
+    const rDraftDone = await waitJob(api.url, wsToken, rDraft.data.job);
+    assert.equal(rDraftDone.data.status, 'succeeded');
+
+    // 确认草稿索引确实是半尺寸 320x180 且 frames-final.json 尚不存在
+    const filmDeliverDir = join(dataDir, 'films', filmId, 'deliver');
+    const draftIdx = JSON.parse(readFileSync(join(filmDeliverDir, 'frames-draft.json'), 'utf8'));
+    const draftMid = draftIdx.frames.find((f) => f.frame === 2);
+    assert.ok(draftMid, '默认草稿抽样应含中点帧 f2');
+    assert.deepEqual(
+      pngSize(readFileSync(join(dataDir, 'films', filmId, draftMid.png))),
+      [320, 180],
+      '默认草稿渲染产物应为半尺寸 320x180',
+    );
+    assert.equal(existsSync(join(filmDeliverDir, 'frames-final.json')), false);
+
+    seenVisionRequests.length = 0;
+    const revDraft = await (await fetch(`${api.url}/v1/films/${filmId}/review`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    })).json();
+    assert.equal(revDraft.ok, true);
+    assert.equal(revDraft.data.material, 'frames');
+    assert.ok(seenVisionRequests.length > 0);
+
+    const draftReviewJson = JSON.parse(readFileSync(join(filmDeliverDir, 'review', 'rev-1', 'review.json'), 'utf8'));
+    const draftKfIdx = draftReviewJson.images.indexOf('keyframe-f2');
+    assert.ok(draftKfIdx >= 1, `审片记录 images 必须含 keyframe-f2，实际：${JSON.stringify(draftReviewJson.images)}`);
+    const draftParts = seenVisionRequests[0].messages[1].content;
+    const draftText = draftParts.find((p) => p.type === 'text').text;
+    assert.match(draftText, /keyframe-f2/);
+    assert.doesNotMatch(draftText, /keyframe-f0/);
+    const draftImgParts = draftParts.filter((p) => p.type === 'image_url');
+    const draftKfSize = pngSize(Buffer.from(draftImgParts[draftKfIdx].image_url.url.replace(/^data:image\/png;base64,/, ''), 'base64'));
+    assert.deepEqual(draftKfSize, [640, 360], `默认草稿渲染后审片 keyframe-f2 必须为原尺寸 640x360，绝非 320x180，实际：${JSON.stringify(draftKfSize)}`);
+    assert.equal(
+      existsSync(join(filmDeliverDir, 'frames-final.json')),
+      false,
+      '审片补渲关键帧不得改写 frames-final.json 索引',
+    );
+
+    // 2) 同一修订再跑稀疏终渲 POST /render { tier: 'final', frames: [0] } -> POST /review {}
+    const rSparse = await (await fetch(`${api.url}/v1/films/${filmId}/render`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ tier: 'final', frames: [0], wait: 30 }),
+    })).json();
+    const rSparseDone = await waitJob(api.url, wsToken, rSparse.data.job);
+    assert.equal(rSparseDone.data.status, 'succeeded');
+
+    seenVisionRequests.length = 0;
+    const revSparse = await (await fetch(`${api.url}/v1/films/${filmId}/review`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    })).json();
+    assert.equal(revSparse.ok, true);
+    assert.equal(revSparse.data.material, 'frames');
+    const sparseReviewJson = JSON.parse(readFileSync(join(filmDeliverDir, 'review', 'rev-1', 'review.json'), 'utf8'));
+    assert.ok(sparseReviewJson.images.includes('keyframe-f2'), '稀疏终渲 [0] 后审片仍须提供镜头中点 keyframe-f2');
+    assert.equal(sparseReviewJson.images.includes('keyframe-f0'), false, '稀疏终渲 [0] 后不得退回 keyframe-f0');
+    const sparseKfIdx = sparseReviewJson.images.indexOf('keyframe-f2');
+    const sparseParts = seenVisionRequests[0].messages[1].content;
+    const sparseText = sparseParts.find((p) => p.type === 'text').text;
+    assert.match(sparseText, /keyframe-f2/);
+    assert.doesNotMatch(sparseText, /keyframe-f0/);
+    const sparseImgParts = sparseParts.filter((p) => p.type === 'image_url');
+    const sparseKfSize = pngSize(Buffer.from(sparseImgParts[sparseKfIdx].image_url.url.replace(/^data:image\/png;base64,/, ''), 'base64'));
+    assert.deepEqual(sparseKfSize, [640, 360], `稀疏终渲后 keyframe-f2 宽高必须为 640x360，实际：${JSON.stringify(sparseKfSize)}`);
+    const finalIdxAfter = JSON.parse(readFileSync(join(filmDeliverDir, 'frames-final.json'), 'utf8'));
+    assert.deepEqual(finalIdxAfter.frames.map((f) => f.frame), [0], 'frames-final.json 仍只保留用户渲染的 [0]');
+
+    // 3) 独立冷启动新片仅做稀疏终渲 [0]（无前序草稿审片缓存）-> POST /review {} 同样补渲原尺寸中点 keyframe-f2
+    const created2 = await (await fetch(`${api.url}/v1/films`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        template: 'title',
+        brief: '冷启动稀疏终渲原尺寸中点验证',
+        text: 'COLD',
+        output: { size: [640, 360], fps: '10/1', frames: 6 },
+      }),
+    })).json();
+    assert.equal(created2.ok, true);
+    const f2 = created2.data.film;
+    const t2 = created2.data.token;
+    const rCold = await (await fetch(`${api.url}/v1/films/${f2}/render`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${t2}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ tier: 'final', frames: [0], wait: 30 }),
+    })).json();
+    const rColdDone = await waitJob(api.url, t2, rCold.data.job);
+    assert.equal(rColdDone.data.status, 'succeeded');
+
+    seenVisionRequests.length = 0;
+    const revCold = await (await fetch(`${api.url}/v1/films/${f2}/review`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${t2}`, 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    })).json();
+    assert.equal(revCold.ok, true);
+    const coldReviewJson = JSON.parse(readFileSync(join(dataDir, 'films', f2, 'deliver', 'review', 'rev-1', 'review.json'), 'utf8'));
+    const coldKfIdx = coldReviewJson.images.indexOf('keyframe-f2');
+    assert.ok(coldKfIdx >= 1);
+    assert.equal(coldReviewJson.images.includes('keyframe-f0'), false);
+    const coldImgParts = seenVisionRequests[0].messages[1].content.filter((p) => p.type === 'image_url');
+    assert.deepEqual(
+      pngSize(Buffer.from(coldImgParts[coldKfIdx].image_url.url.replace(/^data:image\/png;base64,/, ''), 'base64')),
+      [640, 360],
+    );
+  } finally {
+    await api.close();
+    await new Promise((r) => mockVision.close(r));
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test('M1b-6 runHandsOnAgent 转发建片与审片请求时自动补回 brief 需求原文且尊重显式非空传值', { skip: SKIP_MEDIA, timeout: 240000 }, async () => {
+  const dataDir = mkdtempSync(join(tmpdir(), 'bm-m1b-handson-brief-'));
+  const reviewLedger = join(dataDir, 'review-ledger.jsonl');
+  const agentLedger = join(dataDir, 'agent-ledger.jsonl');
+  const seenVisionPrompts = [];
+
+  const mockVision = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const promptText = body.messages?.[1]?.content?.find((p) => p.type === 'text')?.text ?? '';
+    seenVisionPrompts.push(promptText);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      model: 'gemini-vision-brief',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', opinions: [], suggestedPredicates: [] }) } }],
+      usage: { prompt_tokens: 300, completion_tokens: 20 },
+    }));
+  });
+  await new Promise((r) => mockVision.listen(0, '127.0.0.1', r));
+
+  const reviewer = createOpenAiVisionReviewer({
+    endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+    apiKey: 'vkey',
+    model: 'gemini-vision-brief',
+    ledgerPath: reviewLedger,
+    votesPerPerspective: 1,
+  });
+
+  const token = issueAccountToken(dataDir);
+  const api = await startServer({ dataDir, port: 0, reviewer });
+
+  let round = 0;
+  let filmId = null;
+  const mockAgent = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    round++;
+    const last = body.messages.at(-1);
+    const toolBody = last.role === 'tool' ? JSON.parse(last.content).body : null;
+    let msg;
+    if (round === 1) {
+      // 模型建片故意不手抄 brief（带查询串一并覆盖路径判断）
+      msg = {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{
+          id: 'b1',
+          type: 'function',
+          function: {
+            name: 'http_request',
+            arguments: JSON.stringify({
+              method: 'POST',
+              path: '/v1/films?source=hands-on',
+              body: { template: 'title', text: 'HI', output: { size: [320, 180], fps: '10/1', frames: 6 } },
+            }),
+          },
+        }],
+      };
+    } else if (round === 2) {
+      filmId = toolBody.data.film;
+      msg = {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{
+          id: 'b2',
+          type: 'function',
+          function: {
+            name: 'http_request',
+            arguments: JSON.stringify({
+              method: 'POST',
+              path: `/v1/films/${filmId}/render`,
+              body: { tier: 'draft', wait: 30 },
+            }),
+          },
+        }],
+      };
+    } else if (round === 3) {
+      // 模型审片传入空对象 {}（不带 brief）
+      msg = {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{
+          id: 'b3',
+          type: 'function',
+          function: {
+            name: 'http_request',
+            arguments: JSON.stringify({
+              method: 'POST',
+              path: `/v1/films/${filmId}/review`,
+              body: {},
+            }),
+          },
+        }],
+      };
+    } else if (round === 4) {
+      // 验证建片时 meta.brief 已落盘，随后故意清空 meta.brief 以独立验证 POST /review 分支的 brief 自动注入（含空白 body.brief 与省略 body）
+      const metaFile = join(dataDir, 'meta', `${filmId}.json`);
+      const m = JSON.parse(readFileSync(metaFile, 'utf8'));
+      assert.equal(m.brief, '原文要在纯色背景中居中显示大标题', 'runHandsOnAgent 建片省略 body.brief 时必须自动持久化 meta.brief');
+      delete m.brief;
+      writeFileSync(metaFile, `${JSON.stringify(m, null, 2)}\n`);
+      msg = {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{
+          id: 'b4',
+          type: 'function',
+          function: {
+            name: 'http_request',
+            arguments: JSON.stringify({
+              method: 'POST',
+              path: `/v1/films/${filmId}/review?check=blank`,
+              body: { brief: '   ' },
+            }),
+          },
+        }],
+      };
+    } else if (round === 5) {
+      // 省略 body 时同样自动补回 brief
+      msg = {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{
+          id: 'b5',
+          type: 'function',
+          function: {
+            name: 'http_request',
+            arguments: JSON.stringify({
+              method: 'POST',
+              path: `/v1/films/${filmId}/review`,
+            }),
+          },
+        }],
+      };
+    } else if (round === 6) {
+      // 模型审片显式传非空 body.brief：代理不得覆盖模型显式传值
+      msg = {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{
+          id: 'b6',
+          type: 'function',
+          function: {
+            name: 'http_request',
+            arguments: JSON.stringify({
+              method: 'POST',
+              path: `/v1/films/${filmId}/review`,
+              body: { brief: '模型显式覆盖的审片要求' },
+            }),
+          },
+        }],
+      };
+    } else {
+      msg = { role: 'assistant', content: '已完成建片、渲染与审片。' };
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ model: 'hands-on-brief-model', choices: [{ message: msg }], usage: { prompt_tokens: 80, completion_tokens: 20 } }));
+  });
+  await new Promise((r) => mockAgent.listen(0, '127.0.0.1', r));
+
+  try {
+    const brief = '原文要在纯色背景中居中显示大标题';
+    const hoRes = await runHandsOnAgent({
+      baseUrl: api.url,
+      token,
+      brief,
+      ledgerPath: agentLedger,
+      endpoint: `http://127.0.0.1:${mockAgent.address().port}/v1`,
+      apiKey: 'akey',
+      model: 'hands-on-brief-model',
+    });
+    assert.equal(hoRes.status, 'done');
+    assert.ok(filmId, '应成功创建片子');
+    assert.deepEqual(hoRes.calls.map((c) => [c.method, c.status, c.ok]), [
+      ['POST', 200, true],
+      ['POST', 200, true],
+      ['POST', 200, true],
+      ['POST', 200, true],
+      ['POST', 200, true],
+      ['POST', 200, true],
+    ]);
+
+    // 3 视角 × 3 票 × 4 次 review = 36 次视觉审片调用：前 3 次（27 票）均为自动补回的 brief，最后 1 次（9 票）为模型显式覆盖值
+    assert.equal(seenVisionPrompts.length, 36);
+    for (const p of seenVisionPrompts.slice(0, 27)) {
+      assert.match(p, /需求原文：原文要在纯色背景中居中显示大标题/);
+      assert.doesNotMatch(p, /需求原文：（没有给）/);
+    }
+    for (const p of seenVisionPrompts.slice(27, 36)) {
+      assert.match(p, /需求原文：模型显式覆盖的审片要求/);
+    }
+  } finally {
+    await api.close();
+    await new Promise((r) => mockAgent.close(r));
+    await new Promise((r) => mockVision.close(r));
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+

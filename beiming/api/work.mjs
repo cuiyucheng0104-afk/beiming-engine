@@ -9,13 +9,13 @@ import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { loadQueue, openShotCache } from '../jobs/index.mjs';
-import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, query } from '../observe/index.mjs';
+import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, pngSize, query } from '../observe/index.mjs';
 import { artifactUrl } from './client.mjs';
 import { ROUTES } from './contract.mjs';
 import { DELEGATE_HARD_TOKEN_CAP } from './delegate.mjs';
 import { ApiError, diagnostic, isRegistered } from './envelope.mjs';
 import {
-  deliverBundle, entitiesOf, frameSummary, layerL1, layerL2, layerL3, layerL5, measureMaster, readIndex, renderPlan, reviewMaterials,
+  deliverBundle, entitiesOf, frameSummary, layerL1, layerL2, layerL3, layerL5, measureMaster, readIndex, renderPlan, reviewKeyframeNumbers, reviewMaterials,
   sourcePool, writeIndex, writeVerification,
 } from './pipeline.mjs';
 import { blenderInfo, ensureLut, monotonicMs } from './runtime.mjs';
@@ -26,7 +26,6 @@ const METRICS = { deliverSpec, audioLoudness, blackFreezeDup, cutYdif, cutScene 
 const CUT_BEFORE = 3, CUT_AFTER = 2;
 // 一张联系表的格宽（像素）
 const SHEET_CELL = 160;
-const MAX_REVIEW_KEYFRAMES = 4;
 
 const jsonText = (v) => `${JSON.stringify(v, null, 2)}\n`;
 const sha256File = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
@@ -39,44 +38,17 @@ function resolveBrief(...candidates) {
   return '';
 }
 
-function pickKeyframesFromRecords(film, records, maxCount = MAX_REVIEW_KEYFRAMES) {
-  const valid = (records ?? [])
-    .filter((r) => r && Number.isSafeInteger(r.frame) && typeof r.png === 'string' && existsSync(r.png))
-    .sort((a, b) => a.frame - b.frame);
-  if (!valid.length) return [];
-  const chosen = [];
-  const seen = new Set();
-  for (const shot of film?.shots ?? []) {
-    if (!Number.isSafeInteger(shot?.in) || !Number.isSafeInteger(shot?.out) || shot.out <= shot.in) continue;
-    const mine = valid.filter((r) => r.shot === shot.id || (r.frame >= shot.in && r.frame < shot.out));
-    if (!mine.length) continue;
-    const mid = Math.floor((shot.in + shot.out - 1) / 2);
-    let best = mine[0];
-    let bestDist = Math.abs(best.frame - mid);
-    for (const r of mine.slice(1)) {
-      const d = Math.abs(r.frame - mid);
-      if (d < bestDist || (d === bestDist && r.frame < best.frame)) {
-        best = r;
-        bestDist = d;
-      }
-    }
-    if (!seen.has(best.frame)) {
-      seen.add(best.frame);
-      chosen.push(best);
-    }
+function hasFullSizePng(record, targetSize) {
+  if (!record || typeof record.png !== 'string' || !existsSync(record.png)) return false;
+  if (!Array.isArray(targetSize) || targetSize.length !== 2) return false;
+  const [tw, th] = targetSize;
+  if (Array.isArray(record.meta?.size) && (record.meta.size[0] !== tw || record.meta.size[1] !== th)) return false;
+  try {
+    const [w, h] = pngSize(readFileSync(record.png));
+    return w === tw && h === th;
+  } catch {
+    return false;
   }
-  const pool = chosen.length ? chosen : valid;
-  const selected = pool.length <= maxCount
-    ? pool
-    : Array.from({ length: maxCount }, (_, i) => pool[Math.round((i * (pool.length - 1)) / (maxCount - 1))]);
-  const deduped = [];
-  const outSeen = new Set();
-  for (const r of selected) {
-    if (outSeen.has(r.frame)) continue;
-    outSeen.add(r.frame);
-    deduped.push({ name: `keyframe-f${r.frame}`, path: r.png });
-  }
-  return deduped;
 }
 
 const bad = (message, extra) => new ApiError('usage.bad-argument', message, extra);
@@ -837,9 +809,105 @@ export function createWork({ store, library, reviewer, scheduler }) {
 
   /* ---------------- 审片 ---------------- */
 
+  const pendingReviewKeyframes = new Map();
+
   /**
-   * L5 审片。没配置审片模型：status 是 not-run，写明原因，不取材料。配置了：当前修订交付过就从成片取联系表、切点条带和响度表，
-   * 否则用渲出来的预览帧出联系表（没有声音量测）。结果写到 deliver/review/rev-<修订号>.json。L5 只是意见，不改硬门的判定。
+   * frames 模式审片的原尺寸关键帧（严格按 reviewKeyframeNumbers 顺序，每张 PNG 宽高严格等于 film.output.size）：
+   * - 优先复用当前修订 frames-final.json 中已存在的原尺寸目标中点帧（全部命中时零额外渲染）；
+   * - 缺失或仅渲染了 draft 半尺寸帧时，仅对缺失的目标中点帧以 final 档补渲到 review/rev-<rev>/keyframes，
+   *   不改写 frames-final.json（不影响 observeQuery/observeSheet 语义），帧结果照常入 shotCache 供后续 deliver 复用；
+   * - 同片同修订并发审片共享同一次在途补渲，避免竞争目录与重复启动帧源。
+   */
+  async function resolveFrameReviewKeyframes(id, { film, rev, outDir }) {
+    const key = `${id}:${rev}`;
+    const inflight = pendingReviewKeyframes.get(key);
+    if (inflight) return inflight;
+    const task = (async () => {
+      const targetFrames = reviewKeyframeNumbers(film);
+      if (!targetFrames.length) return [];
+      const targetSize = film?.output?.size;
+      const keyframeByFrame = new Map();
+      const finalIdx = framesOf(id, 'final');
+      if (finalIdx?.rev === rev) {
+        for (const r of finalIdx.records ?? []) {
+          if (targetFrames.includes(r.frame) && hasFullSizePng(r, targetSize)) {
+            keyframeByFrame.set(r.frame, r.png);
+          }
+        }
+      }
+      const missingFrames = targetFrames.filter((f) => !keyframeByFrame.has(f));
+      if (missingFrames.length) {
+        const ws = store.workspace(id);
+        const snapshot = ws.openSnapshot(ws.snapshot({ rev }));
+        const snapFilm = JSON.parse(readFileSync(join(snapshot.dir, 'film.json'), 'utf8'));
+        const lockFile = join(snapshot.dir, 'film.lock');
+        if (!existsSync(lockFile)) throw new ApiError('env.lock-required', `修订 ${rev} 没有 film.lock`);
+        const lock = JSON.parse(readFileSync(lockFile, 'utf8'));
+        const assigned = new Set();
+        const plan = [];
+        for (const shot of snapFilm.shots ?? []) {
+          const frames = missingFrames.filter((f) => !assigned.has(f) && f >= shot.in && f < shot.out);
+          if (!frames.length) continue;
+          for (const f of frames) assigned.add(f);
+          plan.push({ shot, frames });
+        }
+        if (plan.length) {
+          const lut = await ensureLut(store.dataDir);
+          const planShots = plan.map((p) => p.shot);
+          if (lut?.fallback && planShots.some((shot) => (shot.colorRef ?? 'scene') === 'scene')) {
+            throw new ApiError('env.lock-required', '场景参考镜头需要 Blender 烘焙的正式 agx-mhc 查找表');
+          }
+          if (lut && lock.view?.['agx-mhc'] && lock.view['agx-mhc'] !== lut.sha256 && planShots.some((shot) => (shot.colorRef ?? 'scene') === 'scene')) {
+            throw new ApiError('env.lock-required', '当前查找表与修订锁不一致，请重新提交片子签发正式锁');
+          }
+          const kfDir = join(outDir, 'keyframes');
+          mkdirSync(kfDir, { recursive: true });
+          let inputDir = snapshot.dir;
+          let snapCopyDir = null;
+          let pool = null;
+          try {
+            if (planShots.some((shot) => shot.source === 'blender')) {
+              snapCopyDir = join(kfDir, '.input');
+              rmSync(snapCopyDir, { recursive: true, force: true });
+              cpSync(snapshot.dir, snapCopyDir, { recursive: true });
+              inputDir = snapCopyDir;
+            }
+            pool = sourcePool({ library, workspace: inputDir, blenderBin: blenderInfo()?.bin });
+            const { records } = await renderPlan({
+              film: snapFilm,
+              lock,
+              filmDir: inputDir,
+              tier: 'final',
+              plan,
+              outDir: kfDir,
+              pool,
+              lutPath: lut?.path,
+              cache: shotCache(id),
+            });
+            for (const r of records) {
+              if (hasFullSizePng(r, targetSize)) keyframeByFrame.set(r.frame, r.png);
+            }
+          } finally {
+            await pool?.stop();
+            if (snapCopyDir) rmSync(snapCopyDir, { recursive: true, force: true });
+          }
+        }
+      }
+      return targetFrames
+        .filter((f) => keyframeByFrame.has(f))
+        .map((f) => ({ name: `keyframe-f${f}`, path: keyframeByFrame.get(f) }));
+    })();
+    pendingReviewKeyframes.set(key, task);
+    try {
+      return await task;
+    } finally {
+      if (pendingReviewKeyframes.get(key) === task) pendingReviewKeyframes.delete(key);
+    }
+  }
+
+  /**
+   * L5 审片。没配置审片模型：status 是 not-run，写明原因，不取材料。配置了：当前修订交付过就从成片取联系表、切点条带、原尺寸关键帧和响度表，
+   * 否则用渲出来的预览帧出联系表并保证补齐按镜头中点挑选的原尺寸关键帧（没有声音量测）。结果写到 deliver/review/rev-<修订号>.json。L5 只是意见，不改硬门的判定。
    */
   async function review(id, { brief }, { deferRelease = false } = {}) {
     const film = store.readFilm(id), rev = store.rev(id), meta = store.readMeta(id);
@@ -857,10 +925,9 @@ export function createWork({ store, library, reviewer, scheduler }) {
         const picked = pickFrames(id);
         const renderedRev = picked.rev;
         if (renderedRev !== rev) throw bad('审片材料已过期，请先重渲当前修订', { data: { renderedRev, rev }, hint: '先 POST render，再 POST review' });
-        images = [
-          ...observeSheet(id, { cuts: true, count: 12 }).images,
-          ...pickKeyframesFromRecords(film, picked.records),
-        ];
+        const sheetImages = observeSheet(id, { cuts: true, count: 12 }).images;
+        const keyframes = await resolveFrameReviewKeyframes(id, { film, rev, outDir });
+        images = [...sheetImages, ...keyframes];
         material = 'frames';
       }
     }

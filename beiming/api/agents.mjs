@@ -292,6 +292,36 @@ export async function callApi({ baseUrl, account, workspaces, jobs, signal }, ar
   return { text: JSON.stringify({ status: res.status, body: envelope }), call };
 }
 
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+
+/** 亲手代理调用建片或审片时，若模型省略或留空 body.brief，自动在副本中补回已传入的需求原文（不篡改原参数，亦不覆盖模型显式非空传值） */
+function attachHandsOnBrief(args, brief, baseUrl) {
+  if (typeof brief !== 'string' || !brief.trim()) return args;
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return args;
+  if (String(args.method ?? '').toUpperCase() !== 'POST') return args;
+  const path = args.path;
+  if (typeof path !== 'string' || !/^\/v1\/[^\s#\\]*$/.test(path)) return args;
+  let target;
+  try {
+    target = new URL(path, baseUrl);
+    if (target.origin !== new URL(baseUrl).origin) return args;
+  } catch {
+    return args;
+  }
+  const pathname = target.pathname;
+  if (pathname !== '/v1/films' && !/^\/v1\/films\/[^/]+\/review$/.test(pathname)) return args;
+  const body = args.body;
+  if (body !== undefined && body !== null) {
+    if (!isPlainObject(body)) return args;
+    if (typeof body.brief === 'string' && body.brief.trim()) return args;
+  }
+  return { ...args, body: body == null ? { brief } : { ...body, brief } };
+}
+
 /**
  * 亲手模式的代理循环。baseUrl 是本服务的地址，token 是账户令牌；endpoint、apiKey、model 不给就读环境变量；
  * brief 是需求原文；ledgerPath 是外部模型用量账本；maxSteps 是最多几轮模型调用；tokenBudget 是输入加输出的 token 上限。
@@ -327,7 +357,9 @@ export async function runHandsOnAgent({
       else {
         let args = null;
         try { args = JSON.parse(tc.function.arguments ?? ''); } catch { /* 参数不是 JSON：下面按拒绝处理 */ }
-        result = args && typeof args === 'object' ? await callApi(api, args) : { text: JSON.stringify({ refused: 'arguments 不是 JSON 对象' }), call: { method: '', path: '', status: 0, ok: false, refused: 'arguments 不是 JSON 对象' } };
+        result = args && typeof args === 'object'
+          ? await callApi(api, attachHandsOnBrief(args, brief, baseUrl))
+          : { text: JSON.stringify({ refused: 'arguments 不是 JSON 对象' }), call: { method: '', path: '', status: 0, ok: false, refused: 'arguments 不是 JSON 对象' } };
       }
       calls.push({ step, ...result.call });
       messages.push({ role: 'tool', tool_call_id: tc.id, content: result.text });

@@ -810,7 +810,7 @@ export async function layerL5({
 const MAX_REVIEW_KEYFRAMES = 4;
 
 /** 按镜头中点挑选审片原尺寸关键帧帧号（多镜头时均匀上限 4 帧，去重升序） */
-function pickReviewKeyframeFrames(film, maxCount = MAX_REVIEW_KEYFRAMES) {
+export function reviewKeyframeNumbers(film, maxCount = MAX_REVIEW_KEYFRAMES) {
   const totalFrames = Number.isSafeInteger(film?.output?.frames) && film.output.frames > 0 ? film.output.frames : null;
   const clamp = (f) => (totalFrames !== null ? Math.min(totalFrames - 1, Math.max(0, f)) : Math.max(0, f));
   const mids = [];
@@ -823,8 +823,10 @@ function pickReviewKeyframeFrames(film, maxCount = MAX_REVIEW_KEYFRAMES) {
   if (!unique.length && totalFrames !== null) {
     unique = [Math.floor((totalFrames - 1) / 2)];
   }
-  if (unique.length <= maxCount) return unique;
-  const picked = Array.from({ length: maxCount }, (_, i) => unique[Math.round((i * (unique.length - 1)) / (maxCount - 1))]);
+  const limit = Number.isSafeInteger(maxCount) && maxCount > 0 ? maxCount : MAX_REVIEW_KEYFRAMES;
+  if (unique.length <= limit) return unique;
+  if (limit === 1) return [unique[Math.floor((unique.length - 1) / 2)]];
+  const picked = Array.from({ length: limit }, (_, i) => unique[Math.round((i * (unique.length - 1)) / (limit - 1))]);
   return [...new Set(picked)];
 }
 
@@ -838,7 +840,7 @@ export function reviewMaterials({ master, fps, film, outDir }) {
     const strips = buildCutStrips({ video: master, fps, transitions: film.transitions, outDir: join(outDir, 'cuts') });
     if (strips.ok) for (const p of strips.outputs ?? []) images.push({ name: 'cut', path: p });
   }
-  const keyFrames = pickReviewKeyframeFrames(film);
+  const keyFrames = reviewKeyframeNumbers(film);
   if (keyFrames.length) {
     const kfDir = join(outDir, 'keyframes');
     rmSync(kfDir, { recursive: true, force: true });
