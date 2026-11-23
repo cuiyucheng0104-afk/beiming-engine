@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { create as createCursor } from '../cards/two-d/overlay-cursor/comp.mjs';
 import { evaluateAssertion } from '../verify/predicates.mjs';
 import { projectPublicQuestion, scanQuestionLeaks, validateQuestion } from './index.mjs';
 
@@ -42,7 +43,7 @@ function flipFilm(file, { size: [width, height], fps, frames, cuts }, audio) {
   const w = width / 30, h = height / 30, raw = Buffer.alloc(frames * w * h);
   for (let f = 0; f < frames; f++) raw.fill((cuts.filter((cut) => cut <= f).length % 2 ? 200 : 60) + (f % 2) * 4, f * w * h, (f + 1) * w * h);
   ffmpeg(['-f', 'rawvideo', '-pix_fmt', 'gray', '-s', `${w}x${h}`, '-r', String(fps), '-i', 'pipe:0', ...audio,
-    '-vf', `scale=${width}:${height}:flags=neighbor`, '-c:v', 'libx264', '-qp', '0', '-pix_fmt', 'yuv420p',
+    '-vf', `scale=${width}:${height}:flags=neighbor`, '-c:v', 'libx264', '-preset', 'ultrafast', '-qp', '0', '-pix_fmt', 'yuv420p',
     '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv', '-c:a', 'pcm_s16le', file], raw);
 }
 // 固定种子的线性同余，负对照要能复现
@@ -425,3 +426,230 @@ test('B3-14 基础谓词和正式谓词核不打架：读数带镜头表时逐�
   }
   assert.ok(compared >= 40, `只比了 ${compared} 条`);
 });
+
+test('B3-15 十四审甲类回归（29-2 弱切点）：上半裁框切点 YDIF 约 19.5 时默认阈值 15 可检出全部 11 个切点', MEDIA, async () => {
+  const { evaluate, read29_2 } = await evaluator();
+  const q = question('29-2');
+  const clicks = [45, 90, 135, 180, 240, 302, 345, 390, 450, 495, 540], cuts = clicks.map((frame) => frame + 2);
+  const onsets = clicks.map((frame) => Math.round((frame * 1000) / 30));
+  const events = { format: 'events/0.1', film: 'f_weak_cut', fps: '30/1', frames: 600, events: [
+    ...clicks.map((frame, i) => ({ id: `click-${String(i + 1).padStart(2, '0')}`, frame, sub: 0, kind: 'named', from: 'film' })),
+    ...cuts.map((frame) => ({ id: `cut.${frame}`, frame, sub: 0, kind: 'cut', from: 'film' }))] };
+  // 上半画面每过切点跳变：第 304 帧（第 6 个切点）只从 180 跳到 207（TV 范围压缩后 YDIF 约 19.8 < 24），其余切点大跳；下半画面常驻不动
+  const levels = [60, 200, 60, 200, 60, 180, 207, 60, 220, 70, 210, 70];
+  const dir = workdir();
+  try {
+    const w = 36, h = 45, raw = Buffer.alloc(600 * w * h), audio = burstTrack(join(dir, 'music.raw'), onsets, 20);
+    for (let f = 0; f < 600; f++) {
+      const shot = cuts.filter((cut) => cut <= f).length, dither = (f % 2) * 4;
+      for (let y = 0; y < h; y++) raw.fill((y < 20 ? levels[shot] : 60) + dither, (f * h + y) * w, (f * h + y + 1) * w);
+    }
+    const film = join(dir, 'split.mov');
+    ffmpeg(['-f', 'rawvideo', '-pix_fmt', 'gray', '-s', `${w}x${h}`, '-r', '30', '-i', 'pipe:0', ...audio,
+      '-vf', 'scale=1080:1350:flags=neighbor', '-c:v', 'libx264', '-preset', 'ultrafast', '-qp', '0', '-pix_fmt', 'yuv420p',
+      '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv', '-c:a', 'pcm_s16le', film], raw);
+    const crop = { x: 0, y: 0, width: 1080, height: 600 };
+    const measured = await read29_2(film, events, { crop });
+    assert.deepEqual(measured.cuts, cuts);
+    const verdict = evaluate(q, measured);
+    assert.deepEqual([passed(verdict), verdict.score, verdict.pass], [[true, true], 1, true]);
+    const strict = await read29_2(film, events, { crop, cutThreshold: 24 });
+    assert.equal(strict.cuts.includes(304), false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('B3-16 十四审甲类回归（27-1 双栏稀释切点）：全画幅 YDIF 约 15 的硬切全检出，平滑快摇（YDIF 约 16）不误检', MEDIA, async () => {
+  const { evaluate, read27_1 } = await evaluator();
+  const q = question('27-1'), { cuts, shots } = reading('27-1.reference');
+  const dir = workdir();
+  try {
+    // 左半画幅在 13 个网格切点硬切（步长 36，全画幅被右半静景与 TV 范围稀释到 YDIF 约 15 < 24）；
+    // 第 298..310 帧（第 10 镜内）左半平滑加速扫亮（峰值左半帧差 38、全画幅 YDIF 约 16.3），不是硬切
+    const w = 36, h = 36, raw = Buffer.alloc(510 * w * h);
+    const pan = [0, 4, 10, 18, 29, 43, 61, 82, 103, 121, 134, 143, 149, 152];
+    let leftBase = 64;
+    for (let f = 0; f < 510; f++) {
+      if (cuts.includes(f)) leftBase = leftBase > 80 ? 64 : 100;
+      const offset = f >= 298 && f < 336 ? (f < 298 + pan.length ? pan[f - 298] : 152) : 0;
+      const left = Math.min(245, leftBase + offset) + (f % 2) * 2, right = 80 + (f % 2) * 2;
+      for (let y = 0; y < h; y++) {
+        raw.fill(left, (f * h + y) * w, (f * h + y) * w + 18);
+        raw.fill(right, (f * h + y) * w + 18, (f * h + y + 1) * w);
+      }
+    }
+    const file = join(dir, 'panel27.mov');
+    ffmpeg(['-f', 'rawvideo', '-pix_fmt', 'gray', '-s', `${w}x${h}`, '-r', '30', '-i', 'pipe:0',
+      '-f', 'lavfi', '-i', 'sine=frequency=1000:sample_rate=48000:duration=17', '-af', 'volume=-3dB', '-ac', '2',
+      '-vf', 'scale=1080:1080:flags=neighbor', '-c:v', 'libx264', '-preset', 'ultrafast', '-qp', '0', '-pix_fmt', 'yuv420p',
+      '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv', '-c:a', 'pcm_s16le', file], raw);
+    const measured = await read27_1(file, { shots });
+    assert.deepEqual(measured.cuts, cuts);
+    const verdict = evaluate(q, measured);
+    assert.deepEqual([passed(verdict), verdict.score, verdict.pass], [[true, false], 0.6, false]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('B3-17 十四审甲类回归（起音去重）：同一个渐起音头跨连续 3 个 10ms 窗越阈只计 1 次起音', MEDIA, async () => {
+  const { read29_2 } = await evaluator();
+  const clicks = [45, 90, 135, 180, 240, 300, 345, 390, 450, 495, 540], cuts = clicks.map((frame) => frame + 2);
+  const startsMs = clicks.slice(0, 9).map((frame) => (frame * 100) / 3);
+  const events = { format: 'events/0.1', film: 'f_ramp', fps: '30/1', frames: 600, events: [
+    ...clicks.map((frame, i) => ({ id: `click-${String(i + 1).padStart(2, '0')}`, frame, sub: 0, kind: 'named', from: 'film' })),
+    ...cuts.map((frame) => ({ id: `cut.${frame}`, frame, sub: 0, kind: 'cut', from: 'film' }))] };
+  const dir = workdir();
+  try {
+    // 每个起音分 3 个连续 10ms 窗逐窗放大约 6 倍（每窗对数音量跳变约 0.78 > 0.25），第 2 窗涨幅最大
+    const pcm = new Int16Array(20 * 16000);
+    const amps = [250, 1800, 14000, 14000];
+    for (const ms of startsMs) {
+      for (let w = 0; w < amps.length; w++) {
+        for (let k = 0; k < 160; k++) pcm[ms * 16 + w * 160 + k] = Math.round(amps[w] * Math.sin((Math.PI * k) / 8));
+      }
+    }
+    const rawAudio = join(dir, 'ramp.raw'), film = join(dir, 'ramp.mov');
+    writeFileSync(rawAudio, Buffer.from(pcm.buffer));
+    flipFilm(film, { size: [1080, 1350], fps: 30, frames: 600, cuts }, ['-f', 's16le', '-ar', '16000', '-ac', '1', '-i', rawAudio]);
+    const measured = await read29_2(film, events, { crop: { x: 0, y: 0, width: 90, height: 90 } });
+    assert.equal(measured.onsetsMs.length, startsMs.length);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('B3-18 十四审丙类回归（29-2 配乐分轨）：配乐比点击早 200ms 时混入点击音效不能把负对照骗成满分', MEDIA, async () => {
+  const { evaluate, read29_2 } = await evaluator();
+  const q = question('29-2');
+  const clicks = [45, 90, 135, 180, 240, 300, 345, 390, 450, 495, 540], cuts = clicks.map((frame) => frame + 2);
+  const earlyMusicMs = clicks.map((frame) => (frame * 100) / 3 - 200);
+  const clickSfxMs = clicks.map((frame) => (frame * 100) / 3);
+  const events = { format: 'events/0.1', film: 'f_mix_cheat', fps: '30/1', frames: 600, events: [
+    ...clicks.map((frame, i) => ({ id: `click-${String(i + 1).padStart(2, '0')}`, frame, sub: 0, kind: 'named', from: 'film' })),
+    ...cuts.map((frame) => ({ id: `cut.${frame}`, frame, sub: 0, kind: 'cut', from: 'film' }))] };
+  const dir = workdir();
+  try {
+    const musicRaw = join(dir, 'music.raw'), musicWav = join(dir, 'music.wav'), mixedRaw = join(dir, 'mixed.raw'), film = join(dir, 'mixed.mov');
+    burstTrack(musicRaw, earlyMusicMs, 20);
+    ffmpeg(['-f', 's16le', '-ar', '16000', '-ac', '1', '-i', musicRaw, musicWav]);
+    burstTrack(mixedRaw, [...earlyMusicMs, ...clickSfxMs].sort((a, b) => a - b), 20);
+    flipFilm(film, { size: [1080, 1350], fps: 30, frames: 600, cuts }, ['-f', 's16le', '-ar', '16000', '-ac', '1', '-i', mixedRaw]);
+    const crop = { x: 0, y: 0, width: 90, height: 90 };
+    const measured = await read29_2(film, events, { crop, musicFile: musicWav });
+    const verdict = evaluate(q, measured);
+    assert.deepEqual([passed(verdict), verdict.score, verdict.pass, verdict.items[1].detail.hits], [[true, false], 0.4, false, 0]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('B3-19 十四审甲类回归（29-2 光标卡契约）：识别 overlay.cursor 生成的 tap-* 点击事件', MEDIA, async () => {
+  const { evaluate, read29_2 } = await evaluator();
+  const q = question('29-2');
+  const clicks = [45, 90, 135, 180, 240, 300, 345, 390, 450, 495, 540], cuts = clicks.map((frame) => frame + 2);
+  const onsets = clicks.slice(0, 9).map((frame) => (frame * 100) / 3);
+  const cursor = createCursor({ size: [1080, 1350], shot: { in: 0, frames: 600 } }, {
+    clicks: clicks.map((frame, i) => ({ id: `tap-${String(i + 1).padStart(2, '0')}`, frame, x: 0.5, y: 0.5 })),
+    cutDelayFrames: 2, audio: 'click', startX: 0.2, startY: 0.2, moveFrames: 10, pressFrames: 4, rippleFrames: 12,
+    sizeFrac: 0.02, rippleFrac: 0.08, ink: '#cbfb03',
+  });
+  const events = { format: 'events/0.1', film: 'f_tap', fps: '30/1', frames: 600, events: cursor.object.events };
+  const dir = workdir();
+  try {
+    const film = join(dir, 'tap.mov');
+    flipFilm(film, { size: [1080, 1350], fps: 30, frames: 600, cuts }, burstTrack(join(dir, 'music.raw'), onsets, 20));
+    const measured = await read29_2(film, events, { crop: { x: 0, y: 0, width: 90, height: 90 } });
+    assert.deepEqual(measured.clicks, clicks);
+    const verdict = evaluate(q, measured);
+    assert.deepEqual([passed(verdict), verdict.score, verdict.pass], [[true, true], 1, true]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('B3-20 十四审甲类回归（29-2 刻意冻结）：read29_2 保留 film.shots 的 deliberate 声明，与正式谓词核一致', MEDIA, async () => {
+  const { evaluate, read29_2 } = await evaluator();
+  const q = question('29-2');
+  const clicks = [45, 90, 135, 180, 240, 300, 345, 390, 450, 495, 540], cuts = clicks.map((frame) => frame + 2);
+  const onsets = clicks.slice(0, 9).map((frame) => (frame * 100) / 3);
+  const events = { format: 'events/0.1', film: 'f_freeze', fps: '30/1', frames: 600, events: [
+    ...clicks.map((frame, i) => ({ id: `click-${String(i + 1).padStart(2, '0')}`, frame, sub: 0, kind: 'named', from: 'film' })),
+    ...cuts.map((frame) => ({ id: `cut.${frame}`, frame, sub: 0, kind: 'cut', from: 'film' }))] };
+  const shots = shotsAt(cuts, 600).map((shot, i) => (i === 0
+    ? { id: 's01', ...shot, deliberate: [{ kind: 'freeze', in: 10, out: 35, why: '开场定格' }] }
+    : { id: `s${String(i + 1).padStart(2, '0')}`, ...shot }));
+  const filmDesc = { output: q.deliverable, shots };
+  const dir = workdir();
+  try {
+    // 第 10..34 帧（25 帧 > 半秒 15 帧）完全静止，其余帧照常微抖
+    const w = 36, h = 45, raw = Buffer.alloc(600 * w * h), file = join(dir, 'held.mov');
+    for (let f = 0; f < 600; f++) {
+      const dither = f >= 10 && f < 35 ? 0 : (f % 2) * 4;
+      raw.fill((cuts.filter((cut) => cut <= f).length % 2 ? 200 : 60) + dither, f * w * h, (f + 1) * w * h);
+    }
+    ffmpeg(['-f', 'rawvideo', '-pix_fmt', 'gray', '-s', `${w}x${h}`, '-r', '30', '-i', 'pipe:0',
+      ...burstTrack(join(dir, 'music.raw'), onsets, 20),
+      '-vf', 'scale=1080:1350:flags=neighbor', '-c:v', 'libx264', '-preset', 'ultrafast', '-qp', '0', '-pix_fmt', 'yuv420p',
+      '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv', '-c:a', 'pcm_s16le', file], raw);
+    const crop = { x: 0, y: 0, width: 90, height: 90 };
+    // 不传 film 时按未声明冻结判败；传了 film 时保留 deliberate，和正式谓词核一致判过
+    const bare = evaluate(q, await read29_2(file, events, { crop }));
+    assert.deepEqual([bare.score, bare.basePass, bare.pass], [1, false, false]);
+    const measured = await read29_2(file, events, { crop, film: filmDesc });
+    const verdict = evaluate(q, measured);
+    const formal = evaluateAssertion(q.basePredicates[0], filmDesc, {
+      output: { size: [measured.width, measured.height], fps: q.deliverable.fps, frames: measured.frames, colorTag: measured.colorTag },
+      blackFrames: measured.blackFrames, freezes: measured.freezes, cuts: measured.cuts,
+    });
+    assert.equal(formal.status, 'pass');
+    assert.deepEqual([verdict.score, verdict.basePass, verdict.pass], [1, true, true]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('B3-21 十四审丙类回归（音视频 start_time 对齐）：音轨晚 0.500s 开始时补回轨道偏移后精确命中', MEDIA, async () => {
+  const { evaluate, read29_2 } = await evaluator();
+  const q = question('29-2');
+  const clicks = [45, 90, 135, 180, 240, 300, 345, 390, 450, 495, 540], cuts = clicks.map((frame) => frame + 2);
+  // 播放时刻与前 9 次点击对齐（首击第 45 帧 = 1500ms），音轨从 0.500s 起播，所以在音轨内位于 1000ms..；另放一个 19700ms 尾音（加偏移后超 20000ms 应裁掉）
+  const inStreamMs = [...clicks.slice(0, 9).map((frame) => (frame * 100) / 3 - 500), 19700];
+  const events = { format: 'events/0.1', film: 'f_offset', fps: '30/1', frames: 600, events: [
+    ...clicks.map((frame, i) => ({ id: `click-${String(i + 1).padStart(2, '0')}`, frame, sub: 0, kind: 'named', from: 'film' })),
+    ...cuts.map((frame) => ({ id: `cut.${frame}`, frame, sub: 0, kind: 'cut', from: 'film' }))] };
+  const dir = workdir();
+  try {
+    const w = 36, h = 45, raw = Buffer.alloc(600 * w * h), rawAudio = join(dir, 'delayed.raw'), file = join(dir, 'offset.mov');
+    for (let f = 0; f < 600; f++) raw.fill((cuts.filter((cut) => cut <= f).length % 2 ? 200 : 60) + (f % 2) * 4, f * w * h, (f + 1) * w * h);
+    burstTrack(rawAudio, inStreamMs, 20);
+    ffmpeg(['-f', 'rawvideo', '-pix_fmt', 'gray', '-s', `${w}x${h}`, '-r', '30', '-i', 'pipe:0',
+      '-itsoffset', '0.5', '-f', 's16le', '-ar', '16000', '-ac', '1', '-i', rawAudio,
+      '-vf', 'scale=1080:1350:flags=neighbor', '-c:v', 'libx264', '-preset', 'ultrafast', '-qp', '0', '-pix_fmt', 'yuv420p',
+      '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv', '-c:a', 'pcm_s16le', file], raw);
+    const measured = await read29_2(file, events, { crop: { x: 0, y: 0, width: 90, height: 90 } });
+    assert.equal(measured.onsetsMs[0], 1500);
+    assert.ok(measured.onsetsMs.every((ms) => ms >= 0 && ms < 20000));
+    const verdict = evaluate(q, measured);
+    assert.deepEqual([passed(verdict), verdict.score, verdict.pass], [[true, true], 1, true]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('B3-22 十四审丙类回归（23-2 拍长抖动与一帧容差）：±10ms 交替抖动仍估出 500ms 拍长，41.600ms 章节偏差不被取整误扣', MEDIA, async () => {
+  const { evaluate, read23_2 } = await evaluator();
+  const q = question('23-2');
+  // 55 个强起音在 480 + 500k 毫秒网格上交替提前、延后 10ms（相邻间隔全是 520ms 和 480ms，没有一个 500ms）
+  const onsets = Array.from({ length: 55 }, (_, k) => 480 + 500 * k + (k % 2 ? 10 : -10));
+  const cuts = [48, 192, 336, 432, 528], shots = shotsAt(cuts, 672);
+  const dir = workdir();
+  try {
+    const audio = burstTrack(join(dir, 'jitter.raw'), onsets, 28);
+    flipFilm(join(dir, 'base.mov'), { size: [1920, 1080], fps: 24, frames: 672, cuts }, audio);
+    const mux = async (name, startsUs) => {
+      const meta = join(dir, `${name}.txt`), file = join(dir, `${name}.mkv`);
+      writeFileSync(meta, [';FFMETADATA1', ...startsUs.flatMap((start, i) => ['[CHAPTER]', 'TIMEBASE=1/1000000',
+        `START=${start}`, `END=${startsUs[i + 1] ?? 28000000}`, `title=第 ${i + 1} 章`])].join('\n'));
+      ffmpeg(['-i', join(dir, 'base.mov'), '-i', meta, '-map', '0', '-map_metadata', '1', '-map_chapters', '1', '-c', 'copy', file]);
+      return read23_2(file, { shots });
+    };
+    // 第 3 章起点 8021.600ms 离拍点 7980ms 差 41.600ms < 1000/24 = 41.667ms，应满分通过
+    const within = await mux('within', [0, 2000000, 8021600, 14000000, 18000000, 22000000]);
+    assert.deepEqual(within.beat, { periodMs: 500, phaseMs: 480 });
+    assert.equal(within.chaptersMs[2], 8021.6);
+    const ok = evaluate(q, within);
+    assert.deepEqual([passed(ok), ok.score, ok.basePass, ok.pass], [[true, true], 1, true, true]);
+    // 差到 42.000ms（8022ms）则超过 24fps 一帧，章节项不通过
+    const over = evaluate(q, await mux('over', [0, 2000000, 8022000, 14000000, 18000000, 22000000]));
+    assert.deepEqual([passed(over), over.pass], [[false, true], false]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+

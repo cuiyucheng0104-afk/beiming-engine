@@ -5,13 +5,13 @@
 //   它回 skipped（缺量测）、要对镜头表而读数里没有成形的镜头表，都是没证据，不算过；不过的那条带 why 和反例帧 atFrame。
 //   所以读数除了各题自己的表，还要带成片这一头的 colorTag、blackFrames、freezes、cuts 和工程的镜头表 shots。
 //   读数不成形（不是 JSON 对象、缺子表、表里有空洞或混进非数、帧率和总帧数跟交付规格不一致）一律 0 分、不合格，原因写在 detail.invalid，不抛错。
-//   读数的字段见 beiming/bench/refs/level-2-a/ 的夹具；时刻要么是整数帧，要么是整数毫秒，比较全用整数，不落在浮点误差上。
+//   读数的字段见 beiming/bench/refs/level-2-a/ 的夹具；23-2 的章节起点收片内非负有限毫秒数，其余时刻是整数帧或整数毫秒。
 //   read27_1、read29_2、read23_2 从成片量读数，镜头表取工程的片子描述或事件表；readFilm 只量成片这一头。
 //   机器上没有 ffmpeg/ffprobe 时回 { toolMissing }。30-1 移至行为检查后续议题。
 // shortcut: 命中率和随机基线（05 第 7.1 节的 metric:beat.onset-hit）观测层还没有，先在这里算；它进了 observe/metrics 就换成调它。
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { audioLoudness, blackFreezeDup, cutYdif, deliverSpec } from '../../../observe/metrics/index.mjs';
+import { audioLoudness, blackFreezeDup, cutScene, cutYdif, deliverSpec } from '../../../observe/metrics/index.mjs';
 import { evaluateAssertion } from '../../../verify/predicates.mjs';
 
 // 离周期网格最近一格有多远；网格向两头无限延伸，周期、相位、时刻同一个单位
@@ -22,8 +22,9 @@ function offGrid(at, period, phase = 0) {
 const share = (hits, events) => ({ hits, events, hitRate: events ? hits / events : 0 });
 const finite = (...values) => values.every(Number.isFinite);
 const plain = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
-// 没有空洞的整数表，每项落在 [low, high)；Array.from 把空洞读成 undefined，every 才不会跳过它
+// 没有空洞的整数表 / 有限数表，每项落在 [low, high)；Array.from 把空洞读成 undefined，every 才不会跳过它
 const ints = (list, low, high) => Array.isArray(list) && Array.from(list, (v) => Number.isSafeInteger(v) && v >= low && v < high).every(Boolean);
+const times = (list, low, high) => Array.isArray(list) && Array.from(list, (v) => typeof v === 'number' && Number.isFinite(v) && v >= low && v < high).every(Boolean);
 const rising = (list) => list.every((v, i) => i === 0 || v > list[i - 1]);
 const rate = (fps) => {
   const [num, den] = typeof fps === 'string' ? fps.split('/').map(Number) : [];
@@ -41,7 +42,7 @@ const SHAPES = {
     || ([clicks, cuts].every((list) => ints(list, 0, frames) && rising(list)) ? '' : 'clicks、cuts 要是片内严格递增的整数帧')
     || (ints(onsetsMs, 0, durationMs) && rising(onsetsMs) && onsetsMs.length ? '' : 'onsetsMs 要是不空的、片内严格递增的整数毫秒'),
   '23-2': ({ chaptersMs, strongOnsetsMs, beat }, { durationMs }) =>
-    (ints(chaptersMs, 0, durationMs) && rising(chaptersMs) ? '' : 'chaptersMs 要是片内严格递增的整数毫秒')
+    (times(chaptersMs, 0, durationMs) && rising(chaptersMs) ? '' : 'chaptersMs 要是片内严格递增的毫秒数')
     || (ints(strongOnsetsMs, 0, durationMs) && rising(strongOnsetsMs) && strongOnsetsMs.length ? '' : 'strongOnsetsMs 要是不空的、片内严格递增的整数毫秒')
     || (plain(beat) && ints([beat.periodMs], 1, Infinity) && ints([beat.phaseMs], 0, beat.periodMs) ? '' : 'beat 要有正整数 periodMs 和 [0, periodMs) 里的整数 phaseMs'),
 };
@@ -92,8 +93,8 @@ const RULES = {
   '23-2': [
     ({ count, bpm, tolFrames }, { fps, chaptersMs, beat }) => {
       const offBeatMs = chaptersMs.map((ms) => offGrid(ms, beat.periodMs, beat.phaseMs));
-      // 一帧是 1000 / 帧率 毫秒，两边乘开成整数再比
-      const onBeat = offBeatMs.every((ms) => ms * fps <= tolFrames * 1000);
+      // 一帧是 1000 / 帧率 毫秒，保留亚毫秒精度比较，给 1e-3 容忍分数帧长换算的十纳秒尾差
+      const onBeat = offBeatMs.every((ms) => ms * fps <= tolFrames * 1000 + 1e-3);
       return { pass: beat.periodMs * bpm === 60000 && chaptersMs.length === count && onBeat, chapters: chaptersMs.length, offBeatMs };
     },
     ({ bpm, tolMs, minHitRate }, { strongOnsetsMs, beat }) => {
@@ -164,63 +165,141 @@ function run(tool, args) {
   return child.stdout;
 }
 // 成片这一头正式谓词核要的量测：画幅、帧率、帧数、色彩标签、黑帧、冻结段（半开区间）、换镜头帧；crop 只看画面的一块认切点
-async function filmed(file, crop) {
-  const [spec, still, cuts] = await Promise.all([metric(deliverSpec(file)), metric(blackFreezeDup(file)), metric(cutYdif(file, 24, crop))]);
+async function filmed(file, crop, cutThreshold = 24) {
+  const [spec, still, cuts] = await Promise.all([metric(deliverSpec(file)), metric(blackFreezeDup(file)), metric(cutYdif(file, cutThreshold, crop))]);
   const { width, height, fps, frames, color_space: colorTag } = spec.value;
   return { width, height, fps, frames, colorTag, blackFrames: still.details.black,
     freezes: still.details.freezes.map(([from, to]) => ({ in: from, out: to + 1 })), cuts: cuts.value };
 }
-export const readFilm = orMissing((file) => filmed(file));
+export const readFilm = orMissing((file, { crop, cutThreshold = 24 } = {}) => filmed(file, crop, cutThreshold));
 
-// 起音：声轨解成 16 千赫单声道，每 10 毫秒一格算均方根音量的常用对数（满幅是 0，静音压到 -4），比前一格高出 jump 以上就记一个起音，回毫秒
-function onsets(file, jump) {
-  const bytes = run('ffmpeg', ['-nostdin', '-hide_banner', '-v', 'error', '-i', resolve(file), '-map', '0:a:0', '-ac', '1', '-ar', '16000', '-f', 's16le', '-']);
+// 起音：声轨解成 16 千赫单声道，每 10 毫秒一格算均方根音量的常用对数（满幅是 0，静音压到 -4），
+// 连续越过 jump 的 10 毫秒窗归成同一次起音、取跳变最大的那一窗，避免同一个渐起音头被重复计数；
+// 同时用 ffprobe 读音视频流 start_time 换算到与视频第 0 帧同一播放时间轴，并裁掉片外越界项。
+function onsets(file, jump, { minGapMs = 0, durationMs } = {}) {
+  const resolved = resolve(file);
+  const { streams = [] } = JSON.parse(run('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,start_time', '-of', 'json', resolved]));
+  const startOf = (type) => {
+    const sec = Number(streams.find((stream) => stream.codec_type === type)?.start_time);
+    return Number.isFinite(sec) ? sec : undefined;
+  };
+  const offsetMs = Math.round(((startOf('audio') ?? 0) - (startOf('video') ?? 0)) * 1000);
+  const bytes = run('ffmpeg', ['-nostdin', '-hide_banner', '-v', 'error', '-i', resolved, '-map', '0:a:0', '-ac', '1', '-ar', '16000', '-f', 's16le', '-']);
   // 拷一份对齐到 2 字节的再按 16 位读
   const pcm = new Int16Array(new Uint8Array(bytes.subarray(0, bytes.length & ~1)).buffer);
-  const found = [];
-  let last = -4;
+  const levels = [];
   for (let w = 0; (w + 1) * 160 <= pcm.length; w++) {
     let sum = 0;
     for (let k = w * 160; k < (w + 1) * 160; k++) sum += pcm[k] * pcm[k];
-    const level = Math.max(-4, Math.log10(Math.sqrt(sum / 160) / 32768));
-    if (level - last > jump) found.push(w * 10);
-    last = level;
+    levels.push(Math.max(-4, Math.log10(Math.sqrt(sum / 160) / 32768)));
+  }
+  const deltas = levels.map((lv, w) => Math.max(0, lv - (w > 0 ? levels[w - 1] : offsetMs >= 10 ? -4 : lv)));
+  const found = [];
+  for (let w = 0; w < deltas.length;) {
+    if (deltas[w] <= jump) { w++; continue; }
+    let best = w;
+    while (w < deltas.length && deltas[w] > jump) {
+      if (deltas[w] >= deltas[best]) best = w;
+      w++;
+    }
+    const ms = best * 10 + offsetMs;
+    if (ms >= 0 && (durationMs === undefined || ms < durationMs) && (found.length === 0 || ms - found.at(-1) >= minGapMs)) {
+      found.push(ms);
+    }
   }
   return found;
 }
 
-// 拍子：相邻起音的间隔里出现最多的当周期，起音对周期取余出现最多的当相位；起音不到两个估不出来，回 null
-// shortcut: 只认最常见的起音间隔，切分多的配乐会认成半拍或两拍；真片上认错了就换成自相关估速
+// 拍子：先对相邻起音间隔及相邻两步均值做容差聚类定粗拍长，再在附近扫周期与相位找落拍数最多、平方偏差最小的网格；起音不到两个回 null
+// shortcut: 切分远多于正拍的配乐仍可能聚到半拍或两拍；后续进了观测层再统一替换
 function beatOf(onsetsMs) {
-  const mode = (values) => {
-    const seen = new Map();
-    for (const v of values) seen.set(v, (seen.get(v) ?? 0) + 1);
-    return [...seen].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0];
-  };
-  const periodMs = mode(onsetsMs.slice(1).map((ms, i) => ms - onsetsMs[i]));
-  return periodMs ? { periodMs, phaseMs: mode(onsetsMs.map((ms) => ms % periodMs)) } : null;
+  if (onsetsMs.length < 2) return null;
+  const diffs = onsetsMs.slice(1).map((ms, i) => ms - onsetsMs[i]);
+  const step = onsetsMs.every((ms) => ms % 10 === 0) ? 10 : 1;
+  const seeds = [...new Set([...diffs, ...diffs.slice(1).map((d, i) => Math.round((d + diffs[i]) / (2 * step)) * step)])].filter((c) => c > 0);
+  const bestSeed = seeds.map((c) => {
+    const members = diffs.filter((d) => Math.abs(d - c) <= Math.max(30, Math.round(c * 0.15)));
+    const mean = Math.round(members.reduce((s, d) => s + d, 0) / (members.length * step)) * step || c;
+    const err = members.reduce((s, d) => s + Math.abs(d - c), 0) / members.length;
+    return { c, count: members.length, err, mean };
+  }).sort((a, b) => b.count - a.count || a.err - b.err || a.c - b.c)[0];
+  if (!bestSeed) return null;
+
+  const rough = bestSeed.mean;
+  const tol = Math.min(30, Math.floor(rough / 4));
+  let best = null;
+  for (let p = Math.max(1, rough - 30); p <= rough + 30; p++) {
+    const q = p % step === 0 ? step : 1;
+    const phases = p / q <= 500 ? Array.from({ length: Math.ceil(p / q) }, (_, i) => i * q)
+      : [...new Set(onsetsMs.flatMap((ms) => [-2 * step, -step, 0, step, 2 * step].map((d) => (((ms + d) % p) + p) % p)))].sort((a, b) => a - b);
+    for (const ph of phases) {
+      let hits = 0, sq = 0, exact = 0;
+      for (const ms of onsetsMs) {
+        const d = offGrid(ms, p, ph);
+        if (d <= tol) { hits++; sq += d * d; if (d === 0) exact++; }
+      }
+      const cand = { p, ph, hits, sq, exact, dist: Math.abs(p - rough) };
+      if (!best
+        || cand.hits > best.hits
+        || (cand.hits === best.hits && cand.sq < best.sq)
+        || (cand.hits === best.hits && cand.sq === best.sq && cand.exact > best.exact)
+        || (cand.hits === best.hits && cand.sq === best.sq && cand.exact === best.exact && (cand.dist < best.dist || (cand.dist === best.dist && (cand.p < best.p || (cand.p === best.p && cand.ph < best.ph)))))) {
+        best = cand;
+      }
+    }
+  }
+  return { periodMs: best.p, phaseMs: best.ph };
 }
 
-// 27-1：交付量测、换镜头帧、响度和真峰值从成片量；镜头表取工程的片子描述
-export const read27_1 = orMissing(async (file, film) => {
-  const [seen, loud] = await Promise.all([filmed(file), metric(audioLoudness(file))]);
-  return { ...seen, shots: film?.shots, loudnessLufs: loud.value, truePeakDbtp: loud.details.truePeakDbtp };
+// 27-1：交付量测、换镜头帧、响度和真峰值从成片量；双栏或低反差硬切用 YDIF + scdet 联合判别，避免平滑快摇误检或弱硬切漏检
+export const read27_1 = orMissing(async (file, film, { crop, cutThreshold = 13, sceneThreshold = 0.025 } = {}) => {
+  const strongThreshold = Math.max(24, cutThreshold);
+  const [seen, loud, strong, scene] = await Promise.all([
+    filmed(file, crop, cutThreshold),
+    metric(audioLoudness(file)),
+    crop || sceneThreshold <= 0 ? { value: [] } : metric(cutYdif(file, strongThreshold)),
+    crop || sceneThreshold <= 0 ? { value: [] } : metric(cutScene(file, sceneThreshold)),
+  ]);
+  let cuts = seen.cuts;
+  if (!crop && sceneThreshold > 0) {
+    cuts = [];
+    for (const frame of seen.cuts) {
+      if (strong.value.includes(frame) || (scene.value.includes(frame) && (cuts.length === 0 || cuts.at(-1) < frame - 1))) {
+        cuts.push(frame);
+      }
+    }
+  }
+  return { ...seen, cuts, shots: film?.shots, loudnessLufs: loud.value, truePeakDbtp: loud.details.truePeakDbtp };
 });
 
-// 29-2：事件表（events/0.1）给点击（名字以 click 开头的命名条目）、镜头表（切点条目就是镜头的交界）和它自己的时间基准；
-// 切点从画面量（crop 只看画面的一块），起音从声轨量
-export const read29_2 = orMissing(async (file, events, { crop, jump = 0.25 } = {}) => {
-  const seen = await filmed(file, crop);
+// 29-2：事件表（events/0.1）给点击（兼容 overlay.cursor 的 audio='click' / sync='onset' 及 click* 命名）；
+// 提供了工程 film.shots 时完整保留（含 deliberate 刻意冻结声明），否则从事件表 cut 条目拼镜头表；
+// 切点默认按阈值 15 量（兼容上半裁框弱切点），配乐起音优先读独立分轨 musicFile 以防混音点击音效干扰。
+export const read29_2 = orMissing(async (file, events, { crop, jump = 0.25, cutThreshold = 15, minGapMs = 0, musicFile, film, shots } = {}) => {
+  const seen = await filmed(file, crop, cutThreshold);
+  const durationMs = seen.fps > 0 && seen.frames > 0 ? (seen.frames * 1000) / seen.fps : undefined;
   const at = (keep) => (Array.isArray(events?.events) ? events.events.filter((entry) => plain(entry) && keep(entry)).map((entry) => entry.frame) : []);
   const edges = [0, ...at((entry) => entry.kind === 'cut'), events?.frames];
-  return { ...seen, eventsFps: events?.fps, eventsFrames: events?.frames, shots: edges.slice(1).map((out, i) => ({ in: edges[i], out })),
-    clicks: at((entry) => entry.kind === 'named' && /^click/.test(entry.id)), onsetsMs: onsets(file, jump) };
+  const givenShots = film?.shots ?? shots;
+  const isClick = (entry) => entry.kind === 'named'
+    && (entry.audio === 'click' || entry.sync === 'onset' || (typeof entry.id === 'string' && /^click/i.test(entry.id)));
+  return { ...seen, eventsFps: events?.fps, eventsFrames: events?.frames,
+    shots: givenShots !== undefined ? givenShots : edges.slice(1).map((out, i) => ({ in: edges[i], out })),
+    clicks: at(isClick), onsetsMs: onsets(musicFile ?? file, jump, { minGapMs, durationMs }) };
 });
 
-// 23-2：章节起点读成片的章节元数据，强起音和拍子从声轨量；镜头表取工程的片子描述
-export const read23_2 = orMissing(async (file, film, { jump = 0.35 } = {}) => {
-  const seen = await filmed(file);
+// 23-2：章节起点按章节元数据的精确时间基换算毫秒（不四舍五入成整毫秒），强起音和拍子从声轨量；镜头表取工程的片子描述
+export const read23_2 = orMissing(async (file, film, { crop, cutThreshold = 24, jump = 0.35, minGapMs = 0 } = {}) => {
+  const seen = await filmed(file, crop, cutThreshold);
+  const durationMs = seen.fps > 0 && seen.frames > 0 ? (seen.frames * 1000) / seen.fps : undefined;
   const { chapters } = JSON.parse(run('ffprobe', ['-v', 'error', '-show_chapters', '-of', 'json', resolve(file)]));
-  const strongOnsetsMs = onsets(file, jump);
-  return { ...seen, shots: film?.shots, chaptersMs: chapters.map((chapter) => Math.round(Number(chapter.start_time) * 1000)), beat: beatOf(strongOnsetsMs), strongOnsetsMs };
+  const chapterMs = (chapter) => {
+    const [num, den] = typeof chapter.time_base === 'string' ? chapter.time_base.split('/').map(Number) : [];
+    const raw = Number.isFinite(chapter.start) && num > 0 && den > 0
+      ? (den % 1000 === 0 ? (chapter.start * num) / (den / 1000) : (chapter.start * num * 1000) / den)
+      : Number(chapter.start_time) * 1000;
+    return Math.round(raw * 1e5) / 1e5;
+  };
+  const strongOnsetsMs = onsets(file, jump, { minGapMs, durationMs });
+  return { ...seen, shots: film?.shots, chaptersMs: chapters.map(chapterMs), beat: beatOf(strongOnsetsMs), strongOnsetsMs };
 });
