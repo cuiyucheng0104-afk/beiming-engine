@@ -12,11 +12,13 @@ import { fileURLToPath } from 'node:url';
 import { CliError, defineCommand, isMain, runCli, usageError } from '../../../../tools/lib/cli.mjs';
 import { COMMIT, OUT, TAG, buildRef, runRef } from './cycles/build.mjs';
 import { compare } from './compare.mjs';
-import { runGpu } from './gpu.mjs';
-import { FUNCTIONS, width } from './registry.mjs';
+import { kernel, runGpu } from './gpu.mjs';
+import { FUNCTIONS, SHADERS, outWidth, size, width } from './registry.mjs';
 
-const CORE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const WGSL_FILE = path.join(CORE, 'shaders', 'microfacet.wgsl');
+export const CORE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+/** 把 SHADERS 里的 WGSL 文件拼成一个模块；overrides 按文件名代替原文（测试用来故意改错一项） */
+export const shaderSource = (overrides = {}) => SHADERS.map(file => overrides[file] ?? fs.readFileSync(path.join(CORE, file), 'utf8')).join('\n');
 
 /** 32 位 FNV-1a：把函数名混进种子，单跑一个函数和跑全部时它拿到的输入相同 */
 function fnv1a(s) {
@@ -25,35 +27,62 @@ function fnv1a(s) {
   return h;
 }
 
-/** 确定性输入：mulberry32 取 24 位均匀数，映射到登记的范围后存成 float32。对数范围用到 Math.pow，跨机器是否逐字节相同以报告里的 inputSha256 为准 */
+/** 确定性输入：mulberry32 取 24 位均匀数，按登记的类型与范围逐组生成后存成 float32。标量与向量每个分量用一个均匀数；
+ *  dir 用两个：z 在范围里均匀、方位角在 [0, 2π) 里均匀，即在那一圈球带上按面积均匀。对数范围与 dir 用到 Math.pow、cos、sin，
+ *  跨机器是否逐字节相同以报告里的 inputSha256 为准。登记了 gen(next) 的项由它给出一组 { 输入名: 值 }，按 inputs 的次序写入 */
 export function makeInputs(f, n, seed) {
-  const ranges = f.inputs.flatMap(([, type, r]) => (type !== 'vec3f' ? [r] : Array.isArray(r[0]) ? r : [r, r, r]));
-  const out = new Float32Array(n * ranges.length);
   let s = (fnv1a(f.name) ^ seed) >>> 0;
-  for (let i = 0; i < out.length; i++) {
+  const next = () => {
     s = (s + 0x6d2b79f5) >>> 0;
     let t = Math.imul(s ^ (s >>> 15), 1 | s);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    const [lo, hi, log] = ranges[i % ranges.length];
-    const u = ((t ^ (t >>> 14)) >>> 8) / 16777216;
-    out[i] = log ? lo * (hi / lo) ** u : lo + (hi - lo) * u;
+    return ((t ^ (t >>> 14)) >>> 8) / 16777216;
+  };
+  const out = new Float32Array(n * width(f));
+  let i = 0;
+  for (let g = 0; g < n; g++) {
+    if (f.gen) {
+      const v = f.gen(next);
+      for (const [name] of f.inputs) for (const x of [v[name]].flat()) out[i++] = x;
+      continue;
+    }
+    for (const [, type, r] of f.inputs) {
+      if (type === 'dir') {
+        const z = r[0] + (r[1] - r[0]) * next(), phi = 2 * Math.PI * next(), rho = Math.sqrt(1 - z * z);
+        out[i++] = rho * Math.cos(phi); out[i++] = rho * Math.sin(phi); out[i++] = z;
+        continue;
+      }
+      for (let k = 0; k < size(type); k++) {
+        const [lo, hi, log] = Array.isArray(r[0]) ? r[k] : r;
+        const u = next();
+        out[i++] = log ? lo * (hi / lo) ** u : lo + (hi - lo) * u;
+      }
+    }
   }
   return out;
 }
 
-/** 跑一遍比对，返回报告。wgsl 给了就用它代替登记的 WGSL 文件原文（测试用来故意改错一项） */
+/** 按登记的 branch(一组输入) 数各分支的组数 */
+function branchCounts(f, input, n) {
+  const w = width(f), counts = {};
+  for (let g = 0; g < n; g++) { const b = f.branch(input.subarray(g * w, (g + 1) * w)); counts[b] = (counts[b] ?? 0) + 1; }
+  return counts;
+}
+
+/** 跑一遍比对，返回报告。wgsl 是 { 文件名: 原文 }，代替那几个 WGSL 文件（测试用来故意改错一项） */
 export async function check({ names = FUNCTIONS.map(f => f.name), n = 1_000_000, seed = 1, wgsl, allowFetch = true } = {}) {
   const fns = names.map(name => FUNCTIONS.find(f => f.name === name) ?? (() => { throw usageError('unknown-function', `登记表里没有函数 ${name}`, `可用：${FUNCTIONS.map(f => f.name).join(' ')}`); })());
   const bin = buildRef({ allowFetch });
-  // shortcut: 登记表目前只有一个 WGSL 文件，wgsl 覆盖对全部函数生效；登记了第二个文件时改成按文件覆盖
-  const jobs = fns.map(f => ({ f, input: makeInputs(f, n, seed), source: wgsl ?? fs.readFileSync(path.join(CORE, f.file), 'utf8') }));
-  const gpu = await runGpu(jobs);
+  const source = shaderSource(wgsl);
+  const jobs = fns.map(f => ({ f, input: makeInputs(f, n, seed) }));
+  const gpu = await runGpu(jobs.map(j => ({ name: j.f.name, code: kernel(source, j.f), input: j.input, n, nOut: outWidth(j.f) })));
   const results = jobs.map((j, k) => ({
     name: j.f.name,
     rel: j.f.rel,
     abs: j.f.abs,
     inputSha256: createHash('sha256').update(j.input).digest('hex'),
-    ...compare({ input: j.input, nIn: width(j.f), ref: runRef(bin, j.f.ref, j.input, n * j.f.out), test: gpu.outputs[k], nOut: j.f.out, rel: j.f.rel, abs: j.f.abs }),
+    ...(j.f.branch && { branches: branchCounts(j.f, j.input, n) }),
+    ...compare({ input: j.input, nIn: width(j.f), ref: runRef(bin, j.f.ref, j.input, n * outWidth(j.f)), test: gpu.outputs[k], nOut: outWidth(j.f), rel: j.f.rel, abs: j.f.abs, skip: j.f.skip }),
   }));
   return { ok: results.every(r => r.fails === 0), n, seed, cycles: { tag: TAG, commit: COMMIT }, platform: `${process.platform}-${process.arch}`, adapter: gpu.adapter, results };
 }
@@ -79,7 +108,8 @@ export const command = defineCommand({
     const file = path.join(OUT, 'report.json');
     fs.writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
     for (const r of report.results) {
-      ctx.out(`${r.fails ? '✗' : '✓'} ${r.name.padEnd(38)} 组数 ${r.groups}  最大相对误差 ${r.maxRel.toExponential(2)}（abs 不兜底处 ${r.maxRelNonTiny.toExponential(2)}）  不合格 ${r.fails}  非有限 ${r.nonFinite}`);
+      ctx.out(`${r.fails ? '✗' : '✓'} ${r.name.padEnd(38)} 组数 ${r.groups}  最大相对误差 ${r.maxRel.toExponential(2)}（abs 不兜底处 ${r.maxRelNonTiny.toExponential(2)}）  不合格 ${r.fails}  非有限 ${r.nonFinite}  标准全零 ${r.zeroRef}  不比 ${r.skipped}  所需 abs ${r.needAbs.toExponential(2)}`);
+      if (r.branches) ctx.out(`    分支：${Object.entries(r.branches).map(([b, c]) => `${b} ${(c / r.groups * 100).toFixed(2)}%`).join('，')}`);
       if (r.fails) ctx.out(`    最差一组：下标 ${r.worst[0].index}  输入 [${r.worst[0].input}]  标准 [${r.worst[0].ref}]  被测 [${r.worst[0].test}]  相对误差 ${r.worst[0].relErr}`);
     }
     ctx.out(`报告：${file}`);

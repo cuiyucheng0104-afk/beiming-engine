@@ -106,6 +106,7 @@
 |---|---|---|---|
 | `new` | `tools/new-film.mjs` | 治理骨架 | 已接入（支持 `--backend webgpu` 生成 A/C 同源离屏作品，D12） |
 | `check:repo` | `tools/repo-check.mjs` | 治理骨架 | 已接入 |
+| `check:fence` | `tools/check-fence.mjs` | 治理骨架 | 已接入（改动围栏硬门禁：自 `--base` 以来已提交、未提交、未跟踪的改动都要在 `--fence` 内、`--forbidden` 外；围栏越界、碰 forbidden、围栏没填或契约写法不对、零改动、有 assume-unchanged / skip-worktree 隐藏改动退出 4，git 执行失败退出 1；不接进 `check`，PR 作者自检用） |
 | `plan:check`、`plan:next` | `tools/work-plan.mjs --check`、`--ready` | 治理骨架 | 已接入；旧名 `routes:check`、`routes:next` 已接入，保留一个版本，调用时提示改名 |
 | `setup` | `tools/env/setup.mjs` | 环境 | 已接入 |
 | `env:doctor`、`env:preflight`、`env:lock`、`env:large-files` | `tools/env/doctor.mjs`、`preflight.mjs`、`lock.mjs`、`large-files.mjs` | 环境 | 已接入 |
@@ -120,7 +121,7 @@
 | `c:events`、`c:build` | `engine/render/events.mjs`、`build.mjs` | 出片编排 | 已接入（旧入口；新作品用 `npm run film -- build`） |
 | `qa` | `tools/qa/cli.mjs` | 机器 QA | 已接入 |
 | `golden`、`determinism` | `tools/baseline/golden.mjs`、`determinism.mjs` | 金标准 | 已接入 |
-| `audio:build`、`audio:qa`、`audio:cuecheck`、`audio:voice`、`audio:music`、`audio:erb`、`audio:samples` | `tools/audio/build.mjs`、`qa.mjs`、`cuecheck.mjs`、`voice.mjs`、`music.mjs`、`erb.mjs`、`fetch-samples.mjs` | 声音 | 已接入（`audio:qa` 支持可选 `--kinematics` / `--video` 启用纯 CPU 运动学对冲击同步 `audio.sync`，不传时行为与退出码不变；`audio:music` 为程序化情绪导引乐谱与 ACE-Step 1.5 / Suno v6 Cover 配乐生成 `guide\|build\|probe`，acestep 读 `BEIMING_ACESTEP_URL` 或 `--endpoint` / `--ssh`，suno 读 `BEIMING_SUNO_MCP_URL`；`audio:erb` 从一段录音渲染 N 个新 take，有 nvcc 与 GPU 就整批上 GPU，否则 CPU，读 `BEIMING_NVCC`，用法见 `engine/audio/erb/README.md`） |
+| `audio:build`、`audio:qa`、`audio:cuecheck`、`audio:voice`、`audio:music`、`audio:erb`、`audio:foundry`、`audio:samples` | `tools/audio/build.mjs`、`qa.mjs`、`cuecheck.mjs`、`voice.mjs`、`music.mjs`、`erb.mjs`、`foundry.mjs`、`fetch-samples.mjs` | 声音 | 已接入（`audio:qa` 支持可选 `--kinematics` / `--video` 启用纯 CPU 运动学对冲击同步 `audio.sync`，不传时行为与退出码不变；`audio:music` 为程序化情绪导引乐谱与 ACE-Step 1.5 / Suno v6 Cover 配乐生成 `guide\|build\|probe`，acestep 读 `BEIMING_ACESTEP_URL` 或 `--endpoint` / `--ssh`，suno 读 `BEIMING_SUNO_MCP_URL`；`audio:erb` 从一段录音渲染 N 个新 take，有 nvcc 与 GPU 就整批上 GPU，否则 CPU，读 `BEIMING_NVCC`，用法见 `engine/audio/erb/README.md`；`audio:foundry` 是 L2 声源铸造厂 `gen\|serve\|probe`，按需拉起 MOSS-SoundEffect-v2.0 隔离 venv 子进程生成 48 kHz / 24 bit 干声，SHA256 缓存，过 `sfx_judge` 取证，`--strict` 只收 pass，退出码 5 为空闲显存低于 `--min-free-gib`，读 `BEIMING_AUDIO_L2_PYTHON` / `BEIMING_AUDIO_L2_MODEL_DIR` / `BEIMING_AUDIO_L2_PKG` / `BEIMING_AUDIO_L2_CACHE`，`--ssh` 在远端拉起，不装进主仓 `.venv`） |
 | `fonts:fetch`、`fonts:subset` | `tools/fonts/fetch.mjs`、`subset.mjs` | A 路线 | 已接入；A 作品出片前先 `fonts:subset films/<名字>` |
 | `plates:check`、`plates:bleed`、`lookdev:sweep` | `tools/plates/check.mjs`、`bleed.mjs`、`tools/lookdev/sweep.mjs` | A 路线 | 已接入 |
 | `b:preflight`、`b:render`、`b:prepare`、`b:runtime`、`b:rt` | `engine/render/native.mjs --check-only`、`native.mjs`、`engine/native/prepare.mjs`、`runtime.mjs`、`rt.mjs` | B 路线 | 已接入（`b:rt` 是光追外部后端，实验）；旧名 `native:*`、`raea:*`（例片 `examples/raea`）已接入，保留一个版本 |

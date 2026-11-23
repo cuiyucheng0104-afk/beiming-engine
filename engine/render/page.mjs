@@ -14,6 +14,12 @@
 // 出错不在这里退出进程：页面未捕获的异常、页面崩溃、着色器编译失败、WebGL 上下文丢失、缺本地文件（任何类型返回 ≥400 或
 // 请求失败）、访问外网，都记成 film 上的致命错误，check() 抛出（RenderError，错误码见 README「错误码」，带下一步提示）；
 // 等 READY 期间出错立刻失败，并先关掉这个浏览器再抛。退出码与清理交给调用方（still / video / shots）。
+// 片段补丁没命中算构建失败（lib/patch-check.mjs）：engine/shade 的着色器补丁找不到锚点时，抛错的地方同时在 patch.js 模块闭包里记一条
+// 结构化记录。patchCheck(page) 读它（渲染器按请求路径、按响应内容认下来的 patch.js 地址，加上各实例登记的 #片段，import 同一个实例来读），有记录就抛 failure.shader-error：置 READY 之后读一次，此后这一页每次
+// page.evaluate 把结果交回之前都读（watchPatchModules 加的守卫：renderFrame、lib/yuv.mjs 的 captureGpuFrame、收尾都经它，不用各自调），
+// capture 截完图再读一次（截图走 CDP，不经 evaluate）——
+// 未捕获异常、render(t) 抛错、被页面接住后打到控制台、接住后静音照常画，单采样与超采样，都一样；--allow-gl-errors 不放行。
+// 页面自己往全局键上塞记录、往 console.error 打带机器前缀的字，记录里没有就不判。
 //
 // GPU：ANGLE 后端按 --angle / BEIMING_ANGLE / 平台默认选（macOS metal、Windows vulkan、Linux default），平台不对直接报错；
 //   --gpu required（默认，读 BEIMING_GPU）时落到软件渲染判失败（退出码 3）。浏览器与启动参数见 lib/gpu.mjs，
@@ -28,6 +34,7 @@ import { fileURLToPath } from 'url';
 import { createServer } from './lib/server.mjs';
 import { RenderError, EXIT } from './lib/errors.mjs';
 import { faultWatch, renderInfo } from './lib/inject.mjs';
+import { patchMiss, patchCheck, watchPatchModules, PATCH_TAG } from './lib/patch-check.mjs';
 import {
   chromeArgs, chromeExecutable, defaultAngle, isSoftwareRenderer, SOFTWARE_RENDERER,
   resolveAngle, resolveGpuPolicy, launchBrowser, probeGpu, enforceGpu,
@@ -175,6 +182,7 @@ export async function openFilm(dir, {
   try {
     const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
     await page.addInitScript(faultWatch);
+    await watchPatchModules(page);
     await page.addInitScript(renderInfo, {
       fps: render?.fps ?? null, width: w, height: h, profile: render?.profile ?? null,
       frameCount: render?.frameCount ?? null, contract: CONTRACT_VERSION,
@@ -198,7 +206,7 @@ export async function openFilm(dir, {
       const where = String(e.stack ?? '').split('\n').slice(1, 3).map(s => s.trim()).join(' ← ');
       note(`[页面错误] ${e.message}`);
       log.error(`[页面错误] ${e.message}${where ? `（${where}）` : ''}`);
-      fail(new RenderError('failure.page-error', `页面错误：${e.message}${where ? `（${where}）` : ''}`, { hint: '页面脚本抛了未捕获的异常：按位置修好页面代码；用 node engine/render/still.mjs <目录> 0 单独复现' }));
+      fail(patchMiss(e.message) ?? new RenderError('failure.page-error', `页面错误：${e.message}${where ? `（${where}）` : ''}`, { hint: '页面脚本抛了未捕获的异常：按位置修好页面代码；用 node engine/render/still.mjs <目录> 0 单独复现' }));
     });
     page.on('crash', () => {
       note('[页面崩溃]');
@@ -210,6 +218,8 @@ export async function openFilm(dir, {
         note(`[页面] ${text.slice(0, 200)}`);
         return fail(new RenderError('failure.context-lost', `WebGL 上下文丢失：${text.slice(0, 160)}`, { hint: '显存不够、驱动重置（Windows TDR）或页面调用了 loseContext：减少 --workers 或尺寸，查共享 GPU 上的其他任务' }));
       }
+      // 页面自己接住了补丁没命中的错、打到 console.error：文字只是线索，当场去读 patch.js 里的记录，真有才判（不受 --allow-gl-errors 影响）
+      if (type === 'error' && text.includes(PATCH_TAG)) patchCheck(page).catch(e => { if (e instanceof RenderError) fail(e); });
       if (type === 'error' && SHADER_FATAL.test(text)) {
         note(`[页面] ${text.slice(0, 300)}`);
         log.error(`[页面] ${text.slice(0, 600)}`);
@@ -272,6 +282,7 @@ export async function openFilm(dir, {
       throw e;
     } finally { clearTimeout(hint); }
     check();
+    await patchCheck(page, '页面就绪之前：');
     phase = '读 GPU';
     const probe = await probeGpu(page);
     const { software, warnings: gpuWarn } = enforceGpu(probe, policy, { angle: ANGLE });
@@ -286,12 +297,14 @@ export async function openFilm(dir, {
     let cdp = null;
     /** 截一帧：png（CDP，optimizeForSpeed，与 Playwright PNG 像素一致）或 jpeg（Playwright，quality 默认 95） */
     const capture = async (format = 'png', quality = 95) => {
+      let shot;
       if (format === 'png') {
         cdp ??= await page.context().newCDPSession(page);
-        const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, fromSurface: true });
-        return Buffer.from(data, 'base64');
-      }
-      return page.screenshot({ type: 'jpeg', quality });
+        shot = Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, fromSurface: true })).data, 'base64');
+      } else shot = await page.screenshot({ type: 'jpeg', quality });
+      // 截图不经 page.evaluate，守卫管不到：render(t) 返回之后、截图之前才冒出来的补丁错（页面里没等的异步活）在这里读，图不交回去
+      await patchCheck(page);
+      return shot;
     };
     return { browser, page, gpu: probe.renderer, info, contract: pageContract, check, close, failed, warnings, requests, external, capture, origin };
   } catch (e) {
