@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// 北冥 · 对拍阶梯第 2 级：我方 GGX 金属闭包与矩形面光接进 ThreeRT（build.mjs 编出的 threert-render）后渲图对答案。
-//   ThreeRT 自带的漫反射白炉在打补丁前后读数不变；金属白炉 22 个读数对 Cycles（±0.5%）；
-//   矩形面光照漫反射平面对解析值（0.2% 且 3 个标准误以内）；闭包、面光各故意改错一项必须不过；同种子两遍逐字节相同。
+// 北冥 · 对拍阶梯第 2 级：我方 GGX 金属闭包与矩形面光接进路径追踪内核（build.mjs 从 ../path/ 编出的 core-render）后渲图对答案。
+//   上游自带的漫反射白炉用我们的程序跑要过，画面中央的均值与记下来的数相等；金属白炉 22 个读数对 Cycles（±0.5%）；
+//   矩形面光照漫反射平面对解析值（0.2% 且 3 个标准误以内）；闭包、面光、接线各故意改错一项必须不过；同种子两遍逐字节相同。
 //   node beiming/sources/core/chassis/level2.mjs [--out 报告.json]
 // 退出码：0 全部过；4 有一项不过；3 缺工具链（git、cargo、npm、网络、显卡）。
-// 渲染一律取 ThreeRT 的线性浮点原始输出（--hdr，曝光与后期之前），不降噪，萤火虫钳制放到不起作用。
+// 渲染一律取内核的线性浮点原始输出（--hdr，曝光与后期之前），不降噪，萤火虫钳制放到不起作用。
+// 场景入口暂时还是上游 ThreeRT 的：场景库、打包工具、自带的测试脚本按固定提交取（build.mjs 的 ensureUpstream）。
 import { Buffer } from 'node:buffer';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -14,10 +15,14 @@ import { createInterface } from 'node:readline';
 import { URL } from 'node:url';
 import { CliError, defineCommand, isMain, runCli } from '../../../../tools/lib/cli.mjs';
 import { polygonIrradiance } from '../fncheck/checks.mjs';
-import { COMMIT, OUT, PATCH, SRC, buildRenderer, ensureNodeModules, missing } from './build.mjs';
+import { COMMIT, OUT, PRESETS, UPSTREAM, buildRenderer, ensureNodeModules, ensureUpstream, missing } from './build.mjs';
 
 export const CYCLES = JSON.parse(fs.readFileSync(new URL('./cycles-furnace-metal.json', import.meta.url), 'utf8'));
 export const GATES = { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3 };
+// 上游自带的漫反射白炉，画面中央的全精度均值，按显卡各记一个。同一台机器上渲染是确定的，记过的显卡要逐位相等。
+// 换显卡或驱动，着色器编出来的浮点运算次序不同，均值会差在第 8 位上（这两台之间差 1.1e-8），所以没记过的显卡
+// 按相对 1e-6 比。记法：在那台机器上跑一遍本脚本，把报告里 diffuseFurnace.mean 填进来。
+export const DIFFUSE = { tolerance: 1e-6, recorded: { 'Apple M5 Pro': 0.9999757122248412, 'NVIDIA GeForce RTX 5090': 0.9999757010489703 } };
 const WORK = path.join(OUT, 'level2');
 const ROUGHNESS = Object.keys(CYCLES.GGX);
 const lum = (px, i) => 0.2126 * px[3 * i] + 0.7152 * px[3 * i + 1] + 0.0722 * px[3 * i + 2];
@@ -42,7 +47,7 @@ export function rectMean({ L, albedo, light: { center: c, u, v }, half, n = 256 
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// 场景：写成 ThreeRT 的场景模块（默认导出 () => { scene, camera, options }），用它自己的 tools/bundle-game.ts 打包
+// 场景：写成上游 ThreeRT 的场景模块（默认导出 () => { scene, camera, options }），用上游的 tools/bundle-game.ts 打包
 
 const head = `import { Color, GeometryFunction, Mesh, MeshPhysicalMaterial, MeshStandardMaterial, PerspectiveCamera, PlaneGeometry, ProceduralGeometry, ProceduralMesh, RectAreaLight, Scene, SkyColor } from "@threert/scene";`;
 // 球心在原点的单位解析球（ThreeRT 的程序化几何函数）。ThreeRT 自带的 proceduralSpheres 用 |o|² − r² 求判别式，相机在 100 m 外时
@@ -118,7 +123,7 @@ function bundle(name, source) {
   if (fs.existsSync(out) && fs.existsSync(src) && fs.readFileSync(src, 'utf8') === source) return out;
   fs.writeFileSync(src, source);
   return new Promise((resolve, reject) => {
-    const p = spawn(process.execPath, [path.join(SRC, 'tools', 'bundle-game.ts'), src, '-o', out], { cwd: SRC, stdio: ['ignore', 'ignore', 'pipe'] });
+    const p = spawn(process.execPath, [path.join(UPSTREAM, 'tools', 'bundle-game.ts'), src, '-o', out], { cwd: UPSTREAM, stdio: ['ignore', 'ignore', 'pipe'] });
     let err = '';
     p.stderr.on('data', d => { err += d; });
     p.on('close', code => (code === 0 ? resolve(out) : reject(new Error(`打场景包 ${name} 失败：${err}`))));
@@ -126,15 +131,15 @@ function bundle(name, source) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// 渲染：一个 threert-render serve 进程是一个种子（THREERT_SEED 在进程启动时读一次）
+// 渲染：一个 core-render serve 进程是一个种子（THREERT_SEED 在进程启动时读一次；内核的环境变量沿用上游的名字）
 
 async function serve(bin, seed) {
-  const p = spawn(bin, ['serve', '--presets', path.join(SRC, 'presets')], { cwd: SRC, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, THREERT_SEED: String(seed) } });
+  const p = spawn(bin, ['serve', '--presets', PRESETS], { cwd: UPSTREAM, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, THREERT_SEED: String(seed) } });
   let err = '';
   p.stderr.on('data', d => { err = (err + d).slice(-4000); });
   const lines = createInterface({ input: p.stdout })[Symbol.asyncIterator]();
   const first = await lines.next();
-  if (first.done) throw missing(`threert-render serve 没起来（拿不到显卡？）：${err.trim().split('\n').slice(-3).join(' ')}`);
+  if (first.done) throw missing(`core-render serve 没起来（拿不到显卡？）：${err.trim().split('\n').slice(-3).join(' ')}`);
   const adapter = JSON.parse(first.value).adapter;
   let id = 0;
   return {
@@ -142,7 +147,7 @@ async function serve(bin, seed) {
     async render(game, spp, tag) {
       const hdr = path.join(WORK, 'raw', `${tag}-s${seed}.raw`);
       fs.mkdirSync(path.dirname(hdr), { recursive: true });
-      p.stdin.write(`${JSON.stringify({ id: ++id, game, assets: SRC, out: hdr.replace(/\.raw$/, '.png'), hdr, spp, denoise: false })}\n`);
+      p.stdin.write(`${JSON.stringify({ id: ++id, game, assets: UPSTREAM, out: hdr.replace(/\.raw$/, '.png'), hdr, spp, denoise: false })}\n`);
       const reply = JSON.parse((await lines.next()).value ?? '{"ok":false,"error":"serve 退出了"}');
       if (!reply.ok) throw new Error(`渲染 ${tag} 失败：${reply.error}\n${err}`);
       const buf = fs.readFileSync(hdr);
@@ -210,12 +215,12 @@ export async function analytic(bin, { seeds = ANALYTIC.seeds, geoms = GEOMS } = 
   });
 }
 
-/** ThreeRT 自带的漫反射白炉（tests/render/furnace-diffuse.ts），用它自己的 tools/test-render.ts 跑 */
-function threertTest(bin, tag) {
-  const out = path.join(WORK, 'threert-test', tag);
+/** 上游自带的漫反射白炉（tests/render/furnace-diffuse.ts），用上游的 tools/test-render.ts 跑我们的程序 */
+function upstreamTest(bin) {
+  const out = path.join(WORK, 'upstream-test');
   return new Promise((resolve, reject) => {
-    const p = spawn(process.execPath, [path.join(SRC, 'tools', 'test-render.ts'), 'furnace/diffuse', '--out', out, '--json', path.join(out, 'results.json')],
-      { cwd: SRC, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, THREERT_BIN: bin, THREERT_GPU_LOCK: path.join(WORK, 'gpu.lock') } });
+    const p = spawn(process.execPath, [path.join(UPSTREAM, 'tools', 'test-render.ts'), 'furnace/diffuse', '--out', out, '--json', path.join(out, 'results.json')],
+      { cwd: UPSTREAM, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, THREERT_BIN: bin, THREERT_GPU_LOCK: path.join(WORK, 'gpu.lock') } });
     let log = '';
     p.stdout.on('data', d => { log += d; });
     p.stderr.on('data', d => { log += d; });
@@ -223,26 +228,26 @@ function threertTest(bin, tag) {
       try {
         const r = JSON.parse(fs.readFileSync(path.join(out, 'results.json'), 'utf8')).results.find(x => x.id === 'furnace/diffuse');
         resolve({ ...r, raw: fs.readFileSync(path.join(out, 'furnace-diffuse.raw')) });
-      } catch (e) { reject(new Error(`ThreeRT 的漫反射白炉没跑出结果：${e.message}\n${log}`)); }
+      } catch (e) { reject(new Error(`上游的漫反射白炉没跑出结果：${e.message}\n${log}`)); }
     });
   });
 }
 
-// 负对照：在打好补丁、拷进我方着色器的 ThreeRT 源码上各故意改错一项（build.mjs 的 inject）
+// 负对照：在源码的拷贝上各故意改错一项（build.mjs 的 inject；file 相对 beiming/sources/core/，工作树不动）
 const NEGATIVE = [
   {
     target: 'closure', name: '闭包：求值的遮蔽项漏掉出射方向的 lambda（G2 写成 G1）',
-    inject: { file: 'renderer/shaders/beiming/microfacet.wgsl', from: 'reflectance * common_ / (1.0 + lambdaO + lambdaI)', to: 'reflectance * common_ / (1.0 + lambdaI)' },
+    inject: { file: 'shaders/microfacet.wgsl', from: 'reflectance * common_ / (1.0 + lambdaO + lambdaI)', to: 'reflectance * common_ / (1.0 + lambdaI)' },
     run: async bin => (await furnace(bin, { seeds: [1], rows: ['0.30', '0.60', '1.00'].map(roughness => ({ distribution: 'GGX', roughness })) })).rows, gate: GATES.furnaceRel,
   },
   {
     target: 'area_light', name: '面光：辐射通量到辐亮度的换算多乘 1%',
-    inject: { file: 'renderer/shaders/beiming/area_light.wgsl', from: 'ls.eval_fac = M_1_PI_F * invarea;', to: 'ls.eval_fac = M_1_PI_F * invarea * 1.01;' },
+    inject: { file: 'shaders/area_light.wgsl', from: 'ls.eval_fac = M_1_PI_F * invarea;', to: 'ls.eval_fac = M_1_PI_F * invarea * 1.01;' },
     run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel,
   },
   {
-    target: 'mis', name: '补丁：材质采样打到矩形纯光时不取光（多重重要性采样只剩光源一侧的权重）',
-    inject: { file: 'renderer/shaders/pathtrace.wgsl', from: 'if (!LIVE && bm_surf) {', to: 'if (false && bm_surf) {' },
+    target: 'mis', name: '接线：材质采样打到矩形纯光时不取光（多重重要性采样只剩光源一侧的权重）',
+    inject: { file: 'path/shaders/pathtrace.wgsl', from: 'if (!LIVE && bm_surf) {', to: 'if (false && bm_surf) {' },
     run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel,
   },
 ];
@@ -251,25 +256,30 @@ const NEGATIVE = [
 export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   const t0 = Date.now();
   const say = s => log(`[${((Date.now() - t0) / 1000).toFixed(0)} s] ${s}`);
-  say('构建：原样的 ThreeRT 与打了补丁的');
-  const base = buildRenderer({ allowFetch, patch: false });
-  const ours = buildRenderer({ allowFetch });
+  ensureUpstream({ allowFetch });
+  say('构建：从 beiming/sources/core/path/ 编 core-render');
+  const ours = buildRenderer();
   ensureNodeModules();
+  const info = spawnSync(ours.bin, ['info'], { encoding: 'utf8' });
+  if (info.status !== 0) throw missing(`core-render info 没跑起来（拿不到显卡？）：${(info.stderr || String(info.error)).trim().split('\n').slice(-3).join(' ')}`);
+  const gpu = JSON.parse(info.stdout);
 
-  say('ThreeRT 自带的漫反射白炉，补丁前后各跑一遍');
-  const before = await threertTest(base.bin, 'before'), after = await threertTest(ours.bin, 'after');
-  // 它自己报的读数只留 4 位有效数字，这里另从原始输出按它的取样区域（画面中央 10%）算全精度均值，并逐像素比
-  const f32 = b => new Float32Array(b.buffer, b.byteOffset, b.length / 4);
+  say('上游自带的漫反射白炉');
+  const diffuse = await upstreamTest(ours.bin);
+  // 它自己报的读数只留 4 位有效数字，这里另从原始输出按它的取样区域（画面中央 10%）算全精度均值
   const center = px => {
     const [w, h] = [160, 90], [x0, x1, y0, y1] = [Math.floor(0.45 * w), Math.ceil(0.55 * w), Math.floor(0.45 * h), Math.ceil(0.55 * h)];
     let s = 0;
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) s += lum(px, y * w + x);
     return s / ((x1 - x0) * (y1 - y0));
   };
-  const [pb, pa] = [f32(before.raw), f32(after.raw)];
+  const mean = center(new Float32Array(diffuse.raw.buffer, diffuse.raw.byteOffset, diffuse.raw.length / 4));
+  const recorded = DIFFUSE.recorded[gpu.adapter] ?? null;
   const diffuseFurnace = {
-    status: after.status, statusBefore: before.status, measuredBefore: before.measured, measuredAfter: after.measured, before: center(pb), after: center(pa),
-    identical: before.raw.equals(after.raw), maxAbsDiff: pa.reduce((m, v, i) => Math.max(m, Math.abs(v - pb[i])), 0),
+    status: diffuse.status, measured: diffuse.measured, mean, adapter: gpu.adapter, backend: gpu.backend, recorded,
+    // 记过的显卡逐位相等；没记过的按容差对已有的记录比
+    matches: recorded === null ? Object.values(DIFFUSE.recorded).some(v => Math.abs(mean / v - 1) < DIFFUSE.tolerance) : mean === recorded,
+    rule: recorded === null ? `这块显卡没记过，按相对 ${DIFFUSE.tolerance} 比` : '逐位相等',
   };
 
   say('金属白炉');
@@ -283,7 +293,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   say('负对照');
   const negative = [];
   for (const n of NEGATIVE) {
-    const b = buildRenderer({ allowFetch, inject: [n.inject] });
+    const b = buildRenderer({ inject: [n.inject] });
     const rows = await n.run(b.bin);
     negative.push({ target: n.target, name: n.name, inject: n.inject, gate: n.gate, rows, worstRel: rows.reduce((w, r) => (Math.abs(r.rel) > Math.abs(w) ? r.rel : w), 0) });
   }
@@ -305,7 +315,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   det.cases = ['白炉 粗糙度 0.5 开补偿 256 采样', '斜向面光 256 采样'];
 
   const checks = {
-    构建: diffuseFurnace.status === 'pass' && Math.abs(diffuseFurnace.after / diffuseFurnace.before - 1) < 1e-6 && ours.shaders.every(s => s.copied === s.repo),
+    构建: diffuseFurnace.status === 'pass' && diffuseFurnace.matches,
     白炉: main.rows.every(r => Math.abs(r.rel) <= GATES.furnaceRel && r.se / r.cycles < GATES.furnaceRel / 10) && camera.maxRelChange < GATES.furnaceRel / 10,
     解析场景: ana.every(x => Math.abs(x.rel) <= GATES.analyticRel && Math.abs(x.z) <= GATES.analyticSE),
     负对照: negative.every(n => Math.abs(n.worstRel) > n.gate),
@@ -314,7 +324,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   say('完成');
   return {
     ok: Object.values(checks).every(Boolean), checks, gates: GATES, platform: `${process.platform}-${process.arch}`, adapter: main.adapter, seconds: (Date.now() - t0) / 1000,
-    threert: { commit: COMMIT, patch: path.basename(PATCH), bin: path.basename(ours.bin), baseBin: path.basename(base.bin), shaders: ours.shaders },
+    core: { source: 'beiming/sources/core/path', bin: path.basename(ours.bin), key: ours.key, shaders: ours.shaders }, upstream: { commit: COMMIT, use: '场景库、场景打包工具、自带的测试脚本、素材根目录' },
     diffuseFurnace,
     furnace: { spp: FURNACE.spp, seeds: FURNACE.seeds, D: FURNACE.D[0], image: CYCLES.image, rows: main.rows, camera, nearRows: near.rows },
     analytic: ana, analyticSetup: RECT, negative, determinism: det,
@@ -323,7 +333,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
 
 export const command = defineCommand({
   name: 'chassis-level2',
-  summary: '对拍阶梯第 2 级：我方闭包与面光接进 ThreeRT 后渲白炉（对 Cycles）与解析场景，外加负对照与确定性',
+  summary: '对拍阶梯第 2 级：我方闭包与面光接进路径追踪内核后渲白炉（对 Cycles）与解析场景，外加负对照与确定性',
   usage: ['node beiming/sources/core/chassis/level2.mjs [--out 报告.json]'],
   options: { out: { type: 'string', arg: '<文件>', describe: '报告写到哪里（默认 out/chassis/level2/report.json）' } },
   exitCodes: { 0: '全部过', 2: '用法错误', 3: '缺工具链', 4: '有一项不过' },
