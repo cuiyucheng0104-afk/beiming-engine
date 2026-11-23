@@ -1,0 +1,24 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "15-2-random-beats",
+  "questionId": "15-2",
+  "kind": "random-beats",
+  "disabledCards": [],
+  "seed": 20261123,
+  "description": "机位不锁，换成固定种子取的六个随机拍点，每个拍点机位横向或纵向跳 1 到 2 像素，跳完留在那里。",
+  "perturbation": {
+    "cameraPath": "random-beats"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "meta.camera-static",
+      "why": "相机矩阵在第一个拍点变了"
+    },
+    {
+      "scoring": 1,
+      "metric": "motion.zoom-pan",
+      "why": "第 0 帧对第 150、299 帧都量出平移，线是 0 像素"
+    }
+  ]
+}

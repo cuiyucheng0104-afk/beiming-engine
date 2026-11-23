@@ -189,6 +189,26 @@ test('--only / --skip 按域筛选；不存在的域 exit 2，加 --if-present �
   assert.ok(soft.json.warnings.some(w => /nosuch/.test(w)));
 });
 
+test('按需运行的域 eval：默认不跑也不列出；--only eval 才跑；--skip eval 不报「域不存在」', async t => {
+  const { root, cleanup } = makeRepo({ 'tests/alpha/a.test.mjs': PASS_NODE, 'tests/eval/e.test.mjs': FAIL_NODE });
+  t.after(cleanup);
+  const def = await runNode(RUN_TESTS, ['--root', root, '--json']);
+  assert.equal(def.code, 0, def.stderr);                    // eval 里那条故意失败的没被运行
+  assert.deepEqual(def.json.suites.map(s => s.id), ['alpha:node']);
+  assert.match(def.stderr, /默认不跑的域：eval/);
+  const list = await runNode(RUN_TESTS, ['--root', root, '--list', '--json']);
+  assert.deepEqual(list.json.suites.map(s => s.id), ['alpha:node']);
+  const only = await runNode(RUN_TESTS, ['--root', root, '--only', 'eval', '--json']);
+  assert.equal(only.code, 1);
+  assert.deepEqual(only.json.suites.map(s => [s.id, s.status]), [['eval:node', 'fail']]);
+  const both = await runNode(RUN_TESTS, ['--root', root, '--only', 'alpha,eval', '--list', '--json']);
+  assert.deepEqual(both.json.suites.map(s => s.id), ['alpha:node', 'eval:node']);
+  const skip = await runNode(RUN_TESTS, ['--root', root, '--skip', 'eval', '--json']);
+  assert.equal(skip.code, 0, skip.stderr);
+  const bad = await runNode(RUN_TESTS, ['--root', root, '--only', 'nosuch', '--json']);
+  assert.match(bad.json.error.message, /alpha、eval/);     // 现有的域照样列出 eval
+});
+
 test('有失败：exit 1，失败的测试名与位置进信封', { skip: !python() && '没有 Python' }, async t => {
   const { root, cleanup } = makeRepo({ 'tests/alpha/a.test.mjs': FAIL_NODE, 'tests/beta/test_b.py': FAIL_PY });
   t.after(cleanup);

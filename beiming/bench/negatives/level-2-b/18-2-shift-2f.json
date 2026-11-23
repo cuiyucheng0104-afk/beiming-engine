@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "18-2-shift-2f",
+  "questionId": "18-2",
+  "kind": "shift-2f",
+  "disabledCards": [],
+  "seed": null,
+  "description": "两次快速运镜整体晚 2 帧起（第 227、521 帧），旁白不动。",
+  "perturbation": {
+    "moveShiftFrames": 2
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "narration.timing",
+      "why": "两次运镜的起点各离应起帧 2 帧，容差是 1 帧"
+    }
+  ]
+}

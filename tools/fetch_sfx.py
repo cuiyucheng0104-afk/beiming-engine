@@ -48,7 +48,7 @@ _HITECH_QUERY_RE = re.compile(
     re.I,
 )
 _PASSIVE_MECH_QUERY_RE = re.compile(
-    r'\b(pen|ballpoint|watch|clockwork|ratchet|unscrew|screw|spring|latch|hinge|dial|caliper|clasp)\b',
+    r'\b(pen|ballpoint|watch|clockwork|ratchet|unscrew|screw|spring|latch|hinge|dial|caliper|clasp|scissors?|shears?|snips?|papercut)\b',
     re.I,
 )
 _MOTOR_QUERY_RE = re.compile(r'\b(motor|servo|electric|drill|engine|power|zoom)\b', re.I)

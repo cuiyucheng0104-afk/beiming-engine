@@ -17,8 +17,10 @@
 //   probeNvencAsync(bin) / resolveEncodeAsync(options)   Fast 的异步探测与解析；并发探测共用 Promise，可与宿主初始化、作品加载重叠
 //   resolveEncoder(requested = 'auto', { width, height, probe, mode }) → { encoder, reason }
 //     兼容旧调用：默认 mode=pro，所以 auto 不再选 NVENC
-//   encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = MASTER_CQ, pixFmt = 'rgba' }) → string[]
+//   encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = MASTER_CQ, pixFmt = 'rgba', gop = null, timescale = null }) → string[]
 //     FFmpeg 参数（不含 -y、-loglevel）；x264 与 nvenc 都带 -profile:v high
+//     gop / timescale 只在切片分发（tools/offscreen/farm.mjs）统一各片编码时显式给出（-g 关键帧间隔、-video_track_timescale
+//     视频轨时间基），缺省 null 时一个参数都不加，与合入前的码流逐字节相同
 //   startEncoder(同上) → { write(pixels) → Promise<void>, finish() → Promise<void>, abort() → Promise<void> }
 //     write：写一帧（Uint8Array 或 Buffer）；管道满时等它腾出来（背压）
 //     finish：关上输入、等 FFmpeg 编完；abort：杀掉 FFmpeg、删掉输出
@@ -162,16 +164,20 @@ export function nvencArgs({ cq = MASTER_CQ } = {}) {
 //   Fast 母版因此是 H.264 High@5.1：web-1080p24（maxLevel 4.1）的 qa delivery.codec 给软告警（warn，不阻断）；
 //   master-1080p24（maxLevel 5.1）不告警。web.mp4 另经 encodeWeb 重编为 High@4.1。Pro（默认 x264 High）不走这条。
 // pixFmt：rgba（走 COLOR.png 的 swscale；Pro 默认）或 yuv420p（GPU 已转好有限范围 BT.709，只过零拷贝 setparams 打标记；Fast 默认）
-export function encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = MASTER_CQ, pixFmt = PRO_PIX_FMT } = {}) {
+export function encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = MASTER_CQ, pixFmt = PRO_PIX_FMT, gop = null, timescale = null } = {}) {
   if (!ENCODERS.includes(encoder)) throw new CliError('usage.bad-value', `--encoder 只能是 ${ENCODERS.join(' 或 ')}，收到「${encoder}」`, { hint: `可选 x264 或 nvenc（命令行默认 --mode pro → x264 High）` });
   if (!PIX_FMTS.includes(pixFmt)) throw new CliError('usage.bad-value', `--pix-fmt 只能是 ${PIX_FMTS.join(' 或 ')}，收到「${pixFmt}」`, { hint: 'rgba 走 FFmpeg swscale；yuv420p 由 GPU 直接输出 BT.709 限范围平面字节' });
+  if (gop != null && !(Number.isInteger(gop) && gop >= 1)) throw new CliError('usage.bad-value', `--gop 要是 ≥ 1 的整数，收到「${gop}」`, { hint: '切片拼接时各段统一的关键帧间隔（-g），见 tools/offscreen/farm.mjs' });
+  if (timescale != null && !(Number.isInteger(timescale) && timescale >= 1)) throw new CliError('usage.bad-value', `--timescale 要是 ≥ 1 的整数，收到「${timescale}」`, { hint: '切片拼接时各段统一的 MP4 视频轨时间基（-video_track_timescale），见 tools/offscreen/farm.mjs' });
   const video = encoder === 'nvenc' ? nvencArgs({ cq }) : [...x264Args({ crf, preset }), '-profile:v', H264_PROFILE];
+  if (gop != null) video.push('-g', String(gop));
+  const mux = timescale != null ? ['-video_track_timescale', String(timescale)] : [];
   if (pixFmt === 'yuv420p') {
     return ['-f', 'rawvideo', '-pix_fmt', 'yuv420p', ...TAGS, '-s', `${width}x${height}`, '-framerate', String(fps), '-i', '-',
-      '-vf', YUV_SETPARAMS, ...video, ...TAGS, out];
+      '-vf', YUV_SETPARAMS, ...video, ...TAGS, ...mux, out];
   }
   return ['-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${width}x${height}`, '-framerate', String(fps), '-i', '-',
-    '-vf', COLOR.png, ...video, ...TAGS, out];
+    '-vf', COLOR.png, ...video, ...TAGS, ...mux, out];
 }
 
 const describe = r => (r.error ? `没能启动（${r.error.code ?? r.error.message}）` : r.signal ? `被信号 ${r.signal} 结束` : `退出码 ${r.code}`);

@@ -1,0 +1,24 @@
+{
+  "question": "29-1",
+  "kind": "reference",
+  "source": "案例 29 作者原文件（1080×1350、30 帧每秒、600 帧、带立体声）第 300 帧；2026-11-22 用 evaluate-b2.mjs 的 readLayout 调 layoutEdges 实测，规格用 deliverSpec 和 ffprobe 读回",
+  "readings": {
+    "layout.edges": {
+      "bands": [[44, 652], [673, 677], [698, 1306]],
+      "edgeErrorsPx": [0, 0, 0, 0, 0, 0],
+      "sideErrorsPx": [0, 0, 0, 0, 0, 0],
+      "lineColorError": 1
+    },
+    "base": {
+      "spec": { "width": 1080, "height": 1350, "fps": 30, "frames": 600, "audioChannels": 2 }
+    }
+  },
+  "otherFrames": [
+    { "frame": 0, "edgeErrorsPx": [0, 0, 0, 0, 0, 0], "sideErrorsPx": [0, 0, 0, 0, 0, 0], "lineColorError": 7 },
+    { "frame": 60, "edgeErrorsPx": [0, 0, 0, 0, 0, 0], "sideErrorsPx": [0, 0, 0, 0, 0, 0], "lineColorError": 7 },
+    { "frame": 150, "edgeErrorsPx": [0, 0, 0, 0, 0, 0], "sideErrorsPx": [0, 0, 0, 0, 0, 0], "lineColorError": 5 },
+    { "frame": 450, "edgeErrorsPx": [0, 0, 0, 0, 0, 0], "sideErrorsPx": [0, 0, 0, 0, 0, 0], "lineColorError": 1 },
+    { "frame": 560, "edgeErrorsPx": null, "sideErrorsPx": [0, 0, 0, 0, 0, 0], "lineColorError": 248 }
+  ],
+  "note": "判分只看第 300 帧，和案例 29 版式一节的量法一致：三段的上下沿、左右沿都是 0 像素误差，读数得满分。整题不算合格：base 里只有读回的规格，原文件带立体声，题面不要声音；它又是没有每帧元数据的视频，基础谓词都没判过，而且第 526 帧起片尾卡盖住中缝，分不出三段，「每一帧」的那几条本来也过不了。otherFrames 是同一条片别的帧的读数，留给容差校准：第 0、60、150 帧分隔线中间两行的色差是 5 到 7 级，超过 4 级的初值。"
+}
