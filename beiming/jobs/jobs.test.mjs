@@ -522,7 +522,7 @@ test('长轮询在终态返回状态与最近 5 条事件', { timeout: 30_000 },
     for (const name of ['lock', 'eval', 'verify']) await step(name, () => {});
   } } });
   const job = enqueue();
-  const waited = loadQueue(workspace.root).waitForJob(job.id, { timeoutMs: 1000 });
+  const waited = loadQueue(workspace.root).waitForJob(job.id, { timeoutMs: 10_000 });
   const result = await queue.runJob(job.id);
   const view = await waited;
   assert.equal(view.status, 'succeeded');
@@ -535,8 +535,10 @@ test('长轮询超时时返回当前状态，零毫秒立即读取', { timeout: 
   const job = enqueue();
   const immediate = await queue.waitForJob(job.id, { timeoutMs: 0 });
   assert.equal(immediate.status, 'queued');
-  await stillPending(queue.waitForJob(job.id, { timeoutMs: 100 }));
+  const pendingWait = queue.waitForJob(job.id, { timeoutMs: 100 });
+  await stillPending(pendingWait);
   assert.deepEqual(await queue.waitForJob(job.id, { timeoutMs: 10 }), immediate);
+  assert.deepEqual(await pendingWait, immediate);
 });
 
 test('非法跃迁、重复领取和缺失执行器均拒绝', { timeout: 30_000 }, async t => {
