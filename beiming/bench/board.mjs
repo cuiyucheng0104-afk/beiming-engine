@@ -44,8 +44,10 @@ function bad(message, Type = TypeError, extra) {
 
 // 补足题面扫描器以外的本机绝对路径、家目录和文件 URL。位置也可能是私有键。
 function checkLocalPath(value) {
-  const plain = value.normalize('NFKC').replace(/\p{Cf}/gu, '');
-  if (/file:\/\/|(?:^|[\s("'=,，:])(?:~[\\/]|\\\\[^\\/\s]|\/(?![\/\s<>])[^\s<>/]+)/iu.test(plain)) {
+  // 先验表里有用 / 分隔的一串 Markdown 粗体读数，去掉数值两边的 ** 再认词界。
+  const plain = value.normalize('NFKC').replace(/\p{Cf}/gu, '').replace(/\*\*([−+-]?\d+(?:\.\d+)?)\*\*/gu, '$1');
+  // 路径可嵌在方括号、中文引号等标点之后。不把相对引用、URI 的双斜线或 HTML 闭标签当作绝对路径。
+  if (/file:\/\/|(?<![\p{L}\p{M}\p{N}_./%<\\-])(?:~[\\/]|\\\\[^\\/\s]|\/[^/\s<>]+)/iu.test(plain)) {
     bad('输入含有本机路径', TypeError, { leaks: [{ code: 'local-path' }] });
   }
 }
@@ -275,14 +277,14 @@ function readHistory(input, at) {
 /* ---------------- 矩阵 ---------------- */
 
 function buildMatrix({ asOf, questions, results, cards, caps, previous }) {
-  const byId = new Map(questions.map((q) => [q.id, { ...q }]));
+  const byId = new Map(questions.map((q) => [q.id, { ...q, hasUnmeasured: false }]));
   for (const r of results) {
     const row = byId.get(r.questionId);
     if (row) {
       row.hidden ||= r.hidden;
       if (!row.given) row.expectedFail ||= r.expectedFail;
     } else if (r.level === null) bad('/results 里有一道题既没有题面、结果里也没有 level');
-    else byId.set(r.questionId, { id: r.questionId, level: r.level, hidden: r.hidden, given: false, expectedFail: r.expectedFail, title: null, needs: [], calibration: null });
+    else byId.set(r.questionId, { id: r.questionId, level: r.level, hidden: r.hidden, given: false, hasUnmeasured: false, expectedFail: r.expectedFail, title: null, needs: [], calibration: null });
   }
   const columns = [...new Map(results.map((r) => [tupleKey(r.source, r.model), { source: r.source, model: r.model }])).values()]
     .sort((a, b) => cmp(a.source, b.source) || cmp(a.model, b.model));
@@ -315,6 +317,8 @@ function buildMatrix({ asOf, questions, results, cards, caps, previous }) {
       if (hit?.pick.unsupported || lacks(row, source)) return { kind: UNSUPPORTED, status: UNSUPPORTED, pass: null, score: null, display: UNSUPPORTED_REASON, unsupportedReason: UNSUPPORTED_REASON, runs };
       if (!hit) return { kind: 'unrun', status: 'unrun', pass: null, score: null, display: '未跑', runs };
       const { status, score, unmeasured } = hit.pick;
+      // 在公开投影前登记覆盖缺口，只认参与计分的最新结果。row 是内部的题目副本。
+      if (unmeasured > 0) row.hasUnmeasured = true;
       return { kind: 'scored', status, pass: status === 'pass', score, display: String(Math.round(score * 1000) / 1000), ...(row.hidden ? {} : { unmeasured, runs }) };
     });
     const calibration = row.calibration && { version: row.calibration.version, status: row.calibration.status };
@@ -481,10 +485,10 @@ function examCoverage(sorted, rows, cards) {
   sorted.forEach((q, i) => {
     if (!q.given) return;
     // 可判分：没登记成预期失败，判过分的格里也没有缺量测器的项
-    const reason = rows[i].expectedFail ? 'expected-fail' : rows[i].cells.some((cell) => cell.kind === 'scored' && cell.unmeasured > 0) ? 'unmeasured' : null;
+    const reason = rows[i].expectedFail ? 'expected-fail' : q.hasUnmeasured ? 'unmeasured' : null;
     const at = byLevel.get(q.level) ?? { total: 0, scorable: 0 };
     byLevel.set(q.level, { total: at.total + 1, scorable: at.scorable + (reason ? 0 : 1) });
-    if (reason) notScorable.push({ questionId: q.id, reason });
+    if (reason && !q.hidden) notScorable.push({ questionId: q.id, reason });
   });
   const levels = [...byLevel.values()];
   return {

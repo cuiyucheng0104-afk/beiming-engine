@@ -196,6 +196,29 @@ test('隐藏题只落总分和状态：board.json 和 index.html 里没有题面
   assert.deepEqual([mixed.matrix.rows[0].hidden, mixed.matrix.rows[0].title], [true, '隐藏题 1-1']);
 });
 
+test('即使绝对路径位于说明文字的标点内，也要拒绝；公开的相对引用可用', () => {
+  const snapshot = (title) => buildBoard({ asOf: AS_OF, questions: [question('1-1', 1, { title })] });
+  for (const [left, right] of [['[', ']'], ['{', '}'], ['【', '】'], ['「', '」'], ['—', ';']]) {
+    const title = `校准 ${left}/tmp/private-reading.json${right}`;
+    assert.throws(() => snapshot(title), isBadArgument);
+  }
+  assert.doesNotThrow(() => snapshot('参考 [refs/public-reading.json] 与 {bench-result/0.1}'));
+});
+
+test('可判分总数只看实际量测，隐藏题不发布量测细项或逐题原因', () => {
+  const coverage = (hidden) => buildBoard({ asOf: AS_OF, questions: [question('1-1', 1)], results: [
+    result('1-1', 'three', 'm', 'fail', 0, { hidden, unmeasured: 2 }),
+  ] });
+  for (const hidden of [false, true]) {
+    const b = coverage(hidden);
+    const { scorableQuestions } = b.integrationProgress.examCoverage;
+    assert.deepEqual(scorableQuestions.byLevel, { 1: { total: 1, scorable: 0 } });
+    assert.equal(scorableQuestions.scorable, 0);
+    assert.equal(scorableQuestions.notScorable.length, hidden ? 0 : 1);
+    assert.equal(Object.hasOwn(b.matrix.rows[0].cells[0], 'unmeasured'), !hidden);
+  }
+});
+
 /* ---------------- 四个指标 ---------------- */
 
 const ledgerRow = (jobId, attempt, status, extra = {}) => ({
