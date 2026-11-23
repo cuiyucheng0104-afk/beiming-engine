@@ -9,8 +9,9 @@
 //   read27_1、read29_2、read23_2 从成片量读数，镜头表取工程的片子描述或事件表；readFilm 只量成片这一头。
 //   机器上没有 ffmpeg/ffprobe 时回 { toolMissing }。30-1 移至行为检查后续议题。
 // shortcut: 命中率和随机基线（05 第 7.1 节的 metric:beat.onset-hit）观测层还没有，先在这里算；它进了 observe/metrics 就换成调它。
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
+import { createInterface } from 'node:readline';
 import { audioLoudness, blackFreezeDup, cutScene, cutYdif, deliverSpec } from '../../../observe/metrics/index.mjs';
 import { evaluateAssertion } from '../../../verify/predicates.mjs';
 
@@ -251,15 +252,29 @@ function beatOf(onsetsMs) {
   return { periodMs: best.p, phaseMs: best.ph };
 }
 
-// 逐帧亮度差：用于判别候选切点是否为局部孤立尖峰（硬切在切点帧孤立跳变，连续快摇在相邻多帧维持高帧差平台）
-function ydifs(file) {
-  const out = String(run('ffmpeg', ['-nostdin', '-hide_banner', '-v', 'error', '-i', resolve(file),
-    '-map', '0:v:0', '-vf', 'format=yuv444p,signalstats,metadata=print:file=-', '-f', 'null', '-']));
+// 逐帧亮度差（异步流式读取）：用于同时提取候选切点与判别是否为局部孤立尖峰（硬切在切点帧孤立跳变，连续快摇在相邻多帧维持高帧差平台）
+async function ydifs(file) {
+  const child = spawn('ffmpeg', ['-nostdin', '-hide_banner', '-v', 'error', '-i', resolve(file),
+    '-map', '0:v:0', '-vf', 'signalstats,metadata=print:file=-', '-f', 'null', '-'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stderr = '';
+  child.stderr.setEncoding('utf8').on('data', (chunk) => { stderr = (stderr + chunk).slice(-8192); });
+  const closed = new Promise((accept, reject) => {
+    child.once('error', (err) => reject(err?.code === 'ENOENT' ? absent('ffmpeg') : err));
+    child.once('close', (code) => (code === 0 ? accept() : reject(new Error(`ffmpeg: ${stderr}`))));
+  });
   const values = [];
   let frame = -1;
-  for (const line of out.split(/\r?\n/)) {
-    if (line.startsWith('frame:')) frame = Number(/^frame:(\d+)/.exec(line)?.[1] ?? -1);
-    else if (frame >= 0 && line.startsWith('lavfi.signalstats.YDIF=')) values[frame] = Number(line.slice(23));
+  const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
+  try {
+    await Promise.all([closed, (async () => {
+      for await (const line of lines) {
+        if (line.startsWith('frame:')) frame = Number(/^frame:(\d+)/.exec(line)?.[1] ?? -1);
+        else if (frame >= 0 && line.startsWith('lavfi.signalstats.YDIF=')) values[frame] = Number(line.slice(23));
+      }
+    })()]);
+  } finally {
+    lines.close();
+    if (child.exitCode === null) child.kill();
   }
   return values;
 }
@@ -267,26 +282,35 @@ function ydifs(file) {
 // 27-1：交付量测、换镜头帧、响度和真峰值从成片量；双栏或低反差硬切用 YDIF 孤立峰突出度 + scdet 联合判别，避免平滑快摇误检或弱硬切漏检
 export const read27_1 = orMissing(async (file, film, { crop, cutThreshold = 13, sceneThreshold = 0.025, peakRatio = 1.3 } = {}) => {
   const strongThreshold = Math.max(32, cutThreshold);
-  const [seen, loud, scene] = await Promise.all([
-    filmed(file, crop, cutThreshold),
+  if (crop || sceneThreshold <= 0) {
+    const [seen, loud] = await Promise.all([filmed(file, crop, cutThreshold), metric(audioLoudness(file))]);
+    return { ...seen, shots: film?.shots, loudnessLufs: loud.value, truePeakDbtp: loud.details.truePeakDbtp };
+  }
+  const [spec, still, ydif, loud, scene] = await Promise.all([
+    metric(deliverSpec(file)),
+    metric(blackFreezeDup(file)),
+    ydifs(file),
     metric(audioLoudness(file)),
-    crop || sceneThreshold <= 0 ? { value: [] } : metric(cutScene(file, sceneThreshold)),
+    metric(cutScene(file, sceneThreshold)),
   ]);
-  let cuts = seen.cuts;
-  if (!crop && sceneThreshold > 0) {
-    const ydif = ydifs(file);
-    cuts = [];
-    for (const frame of seen.cuts) {
-      const cur = ydif[frame] ?? 0;
-      const neighbor = Math.max(ydif[frame - 1] ?? 0, ydif[frame + 1] ?? 0);
-      if (cur >= neighbor * peakRatio
-        && (cur > strongThreshold || scene.value.includes(frame))
-        && (cuts.length === 0 || cuts.at(-1) < frame - 1)) {
-        cuts.push(frame);
-      }
+  const { width, height, fps, frames, color_space: colorTag } = spec.value;
+  const cuts = [];
+  for (let frame = 1; frame < ydif.length; frame++) {
+    const cur = ydif[frame] ?? 0;
+    if (!(cur > cutThreshold)) continue;
+    const neighbor = Math.max(ydif[frame - 1] ?? 0, ydif[frame + 1] ?? 0);
+    if (cur >= neighbor * peakRatio
+      && (cur > strongThreshold || scene.value.includes(frame))
+      && (cuts.length === 0 || cuts.at(-1) < frame - 1)) {
+      cuts.push(frame);
     }
   }
-  return { ...seen, cuts, shots: film?.shots, loudnessLufs: loud.value, truePeakDbtp: loud.details.truePeakDbtp };
+  return {
+    width, height, fps, frames, colorTag,
+    blackFrames: still.details.black,
+    freezes: still.details.freezes.map(([from, to]) => ({ in: from, out: to + 1 })),
+    cuts, shots: film?.shots, loudnessLufs: loud.value, truePeakDbtp: loud.details.truePeakDbtp,
+  };
 });
 
 // 29-2：事件表（events/0.1）给点击（兼容 overlay.cursor 的 audio='click' / sync='onset' 及 click* 命名）；
