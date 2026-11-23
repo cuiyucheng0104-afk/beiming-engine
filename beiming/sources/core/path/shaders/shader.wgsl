@@ -10,7 +10,8 @@
 //   - 照 Cycles 逐函数移植、要进函数级比对的函数（../../shaders/ 下的那些）签名只收标量与向量，不收这里的结构。
 //     收结构的只有这里与 closure.wgsl 的分发函数：它们取出字段，再调标量签名的函数。
 // 「上游顶替」：还没照 Cycles 移植的材质由上游原来的代码顶着，圈在名字带 legacy 的字段与函数里，移植完一块删一块。
-// 现在所有材质（金属也在内）都是上游顶替。新写的代码不许读 legacy，也不许调名字带 legacy 的函数；
+// 现在只有一种材质走移植的闭包：金属度为 1、没有清漆、没有透射的金属（CLOSURE_BSDF_MICROFACET_GGX）；别的都是上游顶替。
+// 新写的代码不许读 legacy，也不许调名字带 legacy 的函数；
 // 眼下读着 legacy 的地方都列在 closure.wgsl「上游顶替」一节的例外清单里。
 // 字段的状态：「已落地」有写有读；「已写未读」现在就写、还没人读；「已定义」含义定了、等后面的移植来写。
 
@@ -20,11 +21,11 @@ const MAX_CLOSURE: u32 = 4u;
 // 闭包种类。名字照 Cycles，数值是这里自己的：往后追加，已有的数值不改。
 const CLOSURE_NONE: u32 = 0u;
 const CLOSURE_LEGACY: u32 = 1u;                // 上游顶替：求值与采样转给上游的 eval_bsdf_k、pdf_bsdf、sample_bsdf
-const CLOSURE_BSDF_MICROFACET_GGX: u32 = 2u;   // 已定义
+const CLOSURE_BSDF_MICROFACET_GGX: u32 = 2u;   // GGX 微表面反射。现在只接了 F82_TINT 菲涅耳、各向同性（纯金属）
 const CLOSURE_BSDF_DIFFUSE: u32 = 3u;          // 已定义
 const CLOSURE_BSDF_TRANSPARENT: u32 = 4u;      // 已定义
 
-// 菲涅耳种类，数值照 Cycles 的 MicrofacetFresnel。已定义。
+// 菲涅耳种类，数值照 Cycles 的 MicrofacetFresnel。F82_TINT 已落地，其余已定义。
 // （CONDUCTOR 要一个复数折射率，Closure 里还没有放它的字段：种类号先占着，用到时加两个字段。）
 const FRESNEL_NONE: u32 = 0u;
 const FRESNEL_DIELECTRIC: u32 = 1u;
@@ -37,7 +38,8 @@ const FRESNEL_F82_TINT: u32 = 5u;
 const SD_BACKFACING: u32 = 1u;                 // 打在背面
 
 // 闭包：一个结构装所有种类。微表面的菲涅耳参数在 Cycles 里另放在四个结构里，这里摊平放进来。
-// 除 kind、weight、sample_weight、N 之外的字段都是「已定义」，由移植闭包的人填。
+// kind、weight、sample_weight、N 所有闭包都填；alpha_x、alpha_y、energy_scale、fresnel_type、f0、f90_or_b 现在只有
+// 纯金属的微表面闭包填；其余是「已定义」，由移植闭包的人填。
 struct Closure {
     kind: u32,                      // 闭包种类（CLOSURE_*）。Cycles 里叫 type，那是这门着色器语言的保留字
     weight: vec3<f32>,              // 彩色权重
@@ -83,7 +85,8 @@ struct ShadingPoint {
 
 // 材质输入值：贴图、材质函数、图案节点都算完之后，一个着色点上的材质参数。
 // 取值范围照 Cycles 读出节点输入之后的夹取（粗糙度不带上游的 0.02 下限）。
-// 现在读它的只有 N 与 emission；其余是「已写未读」，等移植闭包的人读。
+// 现在读着的：N、emission，以及纯金属的闭包读的 base_color、metallic、roughness、specular_tint、coat_weight、
+// transmission_weight；其余是「已写未读」，等移植闭包的人读。
 struct ShaderInputs {
     base_color: vec3<f32>,          // 底色，不小于 0
     metallic: f32,                  // 金属度，0 到 1
@@ -94,6 +97,8 @@ struct ShaderInputs {
     emission: vec3<f32>,            // 这个点的自发光辐亮度（已乘物体的功率倍数）
     alpha: f32,                     // 不透明度，0 到 1。现在只是材质记录里的值：贴图的透明度与镂空在求交那一档里判
     diffuse_roughness: f32,         // 漫反射粗糙度，0 到 1，0 是朗伯。材质记录里还没有，现在恒为 0
+    coat_weight: f32,               // 清漆的份额，0 到 1（没编清漆功能的内核里恒为 0）
+    transmission_weight: f32,       // 透射的份额，0 到 1（没编玻璃功能的内核里恒为 0）
     N: vec3<f32>,                   // 闭包用的法线：含法线贴图、材质函数（以后还有倒角）
 };
 
@@ -150,17 +155,35 @@ fn shader_eval_inputs(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32
 }
 
 // 第三步：按材质输入值填闭包与自发光。只读 ShaderInputs，不读材质记录。归移植闭包的人。
-// 现在每个材质都是一个上游顶替的闭包；它另要的上游 Lobes 在 surface_shader_prepare_closures 里算（closure.wgsl）。
-// 发光卡片（上游的 card：只发光、不散射）没有闭包。
+// 现在每个着色点至多一个闭包。发光卡片（上游的 card：只发光、不散射）没有闭包。
+//   - 金属度为 1、没有清漆、没有透射：照 Cycles 移植的 GGX 微表面闭包，F82-tint 菲涅耳，底色当 F0，边缘色取
+//     specular_tint；alpha 取粗糙度的平方；能量补偿由全局开关 energyCompensation（P.misc.z，非 0 即开）定，
+//     以后改读材质记录的标志位。粗糙度沿用上游的 0.02 下限（Cycles 没有）：去掉它画面会变，而且低于这个下限闭包会
+//     落进奇异的一支（采样标签带 LABEL_SINGULAR），积分主循环现在把这个标签当「穿过光滑玻璃」处理，要一并改。
+//   - 别的（带清漆或透射的金属也在内）：一个上游顶替的闭包；它另要的上游 Lobes 在 surface_shader_prepare_closures
+//     里算（closure.wgsl）。
 fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) {
     (*sd).emission = inputs.emission;
     (*sd).num_closure = 0u;
     if ((*sd).legacy.surface.card) { return; }
     var c = Closure();
-    c.kind = CLOSURE_LEGACY;
     c.weight = vec3<f32>(1.0);
     c.sample_weight = 1.0;
     c.N = inputs.N;
+    if (inputs.metallic >= 1.0 && inputs.coat_weight <= 0.0 && inputs.transmission_weight <= 0.0) {
+        let alpha = roughness_to_alpha(max(inputs.roughness, 0.02));
+        let f = bsdf_microfacet_setup_fresnel_f82_tint(c.N, (*sd).wi, alpha, inputs.base_color, inputs.specular_tint, P.misc.z != 0.0);
+        c.kind = CLOSURE_BSDF_MICROFACET_GGX;
+        c.weight = f.weight;
+        c.alpha_x = alpha;
+        c.alpha_y = alpha;
+        c.energy_scale = f.energy_scale;
+        c.fresnel_type = FRESNEL_F82_TINT;
+        c.f0 = inputs.base_color;
+        c.f90_or_b = f.b;
+    } else {
+        c.kind = CLOSURE_LEGACY;
+    }
     (*sd).closure[0] = c;
     (*sd).num_closure = 1u;
 }
@@ -385,8 +408,9 @@ fn emission(m: Material, uv: vec2<f32>, lod: f32) -> vec3<f32> {
 // 北冥：上游的 surface、surface_proc 算完之后的两样东西：上游自己的 Surface（上游顶替用），与材质输入值。
 struct SurfaceEval { surface: Surface, inputs: ShaderInputs };
 
-// 北冥：从上游算完贴图与材质函数之后的量取出材质输入值，夹取照 Cycles。`rough`、`metal` 是上游夹取之前的值。
-fn legacy_shader_inputs(m: Material, emissive: vec3<f32>, base: vec3<f32>, rough: f32, metal: f32, n: vec3<f32>) -> ShaderInputs {
+// 北冥：从上游算完贴图与材质函数之后的量取出材质输入值，夹取照 Cycles。`rough`、`metal` 是上游夹取之前的值；
+// `coat`、`transmission` 是上游夹好的份额。
+fn legacy_shader_inputs(m: Material, emissive: vec3<f32>, base: vec3<f32>, rough: f32, metal: f32, n: vec3<f32>, coat: f32, transmission: f32) -> ShaderInputs {
     var inp = ShaderInputs();
     inp.base_color = max(base, vec3<f32>(0.0));
     inp.metallic = clamp(metal, 0.0, 1.0);
@@ -397,6 +421,8 @@ fn legacy_shader_inputs(m: Material, emissive: vec3<f32>, base: vec3<f32>, rough
     inp.emission = emissive;
     inp.alpha = clamp(m.base_color.a, 0.0, 1.0);
     inp.diffuse_roughness = 0.0;
+    inp.coat_weight = coat;
+    inp.transmission_weight = transmission;
     inp.N = n;
     return inp;
 }
@@ -502,7 +528,7 @@ fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     }
     var se = SurfaceEval();
     se.surface = s;
-    se.inputs = legacy_shader_inputs(m, s.emissive, base, rough, metal, n);
+    se.inputs = legacy_shader_inputs(m, s.emissive, base, rough, metal, n, s.coat, s.transmission);
     return se;
 }
 
@@ -560,6 +586,6 @@ fn surface_proc(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     }
     var se = SurfaceEval();
     se.surface = s;
-    se.inputs = legacy_shader_inputs(m, s.emissive, base, rough, metal, n);
+    se.inputs = legacy_shader_inputs(m, s.emissive, base, rough, metal, n, s.coat, s.transmission);
     return se;
 }

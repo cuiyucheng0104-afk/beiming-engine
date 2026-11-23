@@ -92,12 +92,24 @@
 
 - `shaders/shader.wgsl` 开头：着色点 `ShadingPoint`、闭包 `Closure`、材质输入值 `ShaderInputs`，与材质求值的三步 `shader_setup_from_hit`（几何量）、`shader_eval_inputs`（材质输入值，里面调上游的 `surface`）、`shader_setup_closures`（闭包）；另有只算透明度的一档 `shader_eval_shadow` 与灯采样点上的发光 `shader_eval_emission`，先转给上游。上游的 `surface`、`surface_proc` 只改了返回值：多带一份材质输入值。
 - `shaders/closure.wgsl` 开头：积分器碰材质的一组函数（`surface_shader_prepare_closures`、`surface_shader_bsdf_eval`、`surface_shader_bsdf_bssrdf_pick`、`surface_shader_bsdf_sample_closure`、`surface_shader_emission`、`surface_shader_transparency`、`bsdf_albedo`），与把它们转给上游求值、采样的两个函数。
-- 现在所有材质（金属也在内）都是「上游顶替」这一种闭包：着色点的 `legacy` 里带着上游的 `Surface` 与 `Lobes`，求值与采样仍是上游的 `eval_bsdf_k`、`pdf_bsdf`、`sample_bsdf`，上一节的金属接线原样在里面。
+- 这一层刚加进来时所有材质（金属也在内）都是「上游顶替」这一种闭包：着色点的 `legacy` 里带着上游的 `Surface` 与 `Lobes`，求值与采样仍是上游的 `eval_bsdf_k`、`pdf_bsdf`、`sample_bsdf`，上一节的金属接线原样在里面。纯金属后来改走独立的闭包，见下一节。
 - 上游的七个灯光函数（`direct_light`、`local_lights`、`sample_emitter_ris`、`env_light`、`sun_light`、`light_mis`、`pdf_spec`）与 `light_origin` 的参数从 `(Surface, Lobes, 视线)` 换成着色点，函数体里对应的几处读法跟着换，算法没动。
 - `shaders/integrator.wgsl` 的主循环改经上面的函数碰材质。
 - 还在直接读上游 `Surface`、`Lobes` 的地方列在 `shaders/closure.wgsl`「上游顶替」一节的例外清单里。
 
 这一层有四处写法是为了逐位不变试出来的，各处的注释里写了原因：`shader_setup_from_hit` 往指针里填而不按值返回着色点；上游的 `Lobes` 在 `surface_shader_prepare_closures` 里算而不在填闭包时算；上游顶替的求值函数不一并算概率密度；上游顶替的采样在自己的函数里照上游原样的式子把权重算好（`BsdfSample.weight`），不交给主循环去除。前三处是苹果显卡上试出来的，第四处是英伟达显卡的软件求交上试出来的。两家的着色器编译器都会按上下文合并或重排浮点运算，同样的式子换一种组织法就可能换一种运算次序，像素末位随之变化（实测相对差 1e-7 到 2e-4）。
+
+### 纯金属走独立的微表面闭包
+
+金属度为 1、没有清漆、没有透射的材质不再经上游顶替，改成一个独立的闭包：种类 `CLOSURE_BSDF_MICROFACET_GGX`，菲涅耳 `FRESNEL_F82_TINT`。带清漆或透射的金属还在上游顶替里，上面的金属接线（`Lobes.bm`）为它们留着。
+
+- `shaders/shader.wgsl`：`shader_setup_closures` 按材质输入值建立这个闭包（底色当 F0，边缘色读 `ShaderInputs.specular_tint`，现在恒为白；alpha 取粗糙度的平方；能量补偿的开关还读全局的 `energyCompensation`）。F82 的 B 项、能量补偿的倍率与权重在这里算一次、存进闭包，不再在每次求值、采样时重算。`ShaderInputs` 多了 `coat_weight`、`transmission_weight` 两项。粗糙度沿用上游的 0.02 下限。
+- `shaders/closure.wgsl`：新增按闭包种类分发的 `bsdf_eval`（取出闭包的字段，调 `../shaders/microfacet.wgsl` 里移植的求值函数）；`surface_shader_bsdf_sample_closure` 对这个闭包调移植的采样函数，方向的两个随机数仍取上游材质采样那一组的后两维，采到方向后再求值一遍取值与概率密度（与原来的接线一样）；上游的灯光函数用的 `surface_shader_bsdf_eval_legacy` 对它直接取闭包的求值，上游每盏灯的高光倍率只对上游顶替有效。
+- 上游的 `light_mis` 没有改：纯金属的 `Lobes.bm` 仍为真，它经上游的 `pdf_bsdf` 拿到的就是同一个移植函数算的密度。所以纯金属的着色点上仍要算上游的 `Lobes`。
+
+这一步的渲染结果允许末位变化（原来的接线求值时多一次「除以余弦再乘回」，建立闭包的几项也是每次现算）。实测：第 2 级 24 个读数与改之前的相对差不超过 2e-8；每个读数用 8 个种子取均值，改前改后的差不到合成标准误的百分之一；上游自带的渲染测试里不含纯金属的 121 个场景原始输出逐字节相同，含纯金属的 5 个（`cache/mirror-metal`、`cache/mirror-sun`、`furnace/metal-energy-compensated`、`material/metal-f0`、`surface/windows-mirror`）像素相对差的中位数在 1e-7 上下，每张图有零到三个孤立像素超过 1e-5（两台机器、两种求交合起来最大的一个是 7e-3；换一个种子它们换地方、个数相仿，全图均值的相对差不超过 1e-6）：路径上的离散判断（俄罗斯轮盘等）在末位变化时翻了面。两台机器的基线在这一步之后重记过。
+
+写法上又踩到三处，都写在各自的注释里：`bsdf_eval` 收一个闭包而不收整个着色点（收整个着色点时苹果显卡上过程几何的阴影场景会随机丢样本）；上游的 `Lobes` 对所有闭包都算（只给上游顶替算时苹果显卡上别的材质像素末位会变）；`light_mis` 不按闭包种类分支（试过三种写法，不是苹果显卡就是英伟达显卡上别的材质像素末位会变）。
 
 ## 沿用上游名字的地方
 
