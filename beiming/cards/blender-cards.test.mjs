@@ -79,7 +79,11 @@ function loadCheck(input, account) {
 // ---------- 一、卡文件 ----------
 
 test('两张 Blender 机制卡：各在 cards/mechanism/<目录名>/，带卡文件、入口和自测，落点是 source:blender、宿主是 cycles', () => {
-  const found = readdirSync(join(HERE, 'mechanism'), { recursive: true }).filter((p) => p.endsWith('card.json')).map((p) => `mechanism/${dirname(p).split(sep).join('/')}`).sort();
+  const found = readdirSync(join(HERE, 'mechanism'), { recursive: true })
+    .filter((p) => p.endsWith('card.json'))
+    .map((p) => `mechanism/${dirname(p).split(sep).join('/')}`)
+    .filter((dir) => dir.startsWith('mechanism/blender-'))
+    .sort();
   assert.deepEqual(found, CARDS.map((c) => c.dir).sort());
   for (const c of CARDS) {
     const card = readJson(join(c.abs, 'card.json')), [impl] = card.impl;

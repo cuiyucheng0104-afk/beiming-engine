@@ -1,0 +1,28 @@
+{
+  "format": "card/0.1",
+  "id": "page.det2d",
+  "version": "1.0.0",
+  "kind": "mechanism",
+  "visibleToAgent": false,
+  "title": "确定性二维页面",
+  "intent": "在独占的页面宿主上按帧栅格化：锁定显示颜色、纸底、本地字形和采样，不让墙钟动画或网络改变一帧。",
+  "livesIn": ["source:three"],
+  "impl": [{
+    "livesIn": "source:three", "entry": "cards/mechanism/page-det2d/three.mjs", "shape": "create",
+    "hosts": [{"host": "page", "version": "0.187.0"}], "selftest": "cards/mechanism/page-det2d/selftest.test.mjs"
+  }],
+  "params": {
+    "font": {"type": "string", "unit": "none", "default": "locked-sans", "coupling": "host-api"}
+  },
+  "ports": {
+    "in": [], "out": [{"name": "color", "type": "scene-linear-rgba"}],
+    "order": {"before": ["overlay.title"], "after": []},
+    "requires": ["独占回环页面；Chromium 以 sRGB 和无字体 hinting 启动，设备像素比为 1，WebGL 不开 MSAA。", "原生镜头用 mountStage 把机制挂在二维舞台上。文字只用锁定子集覆盖的字；S3 平面矩形取整数像素，场景动画只由帧号驱动。"]
+  },
+  "conditions": {"appliesWhen": ["页面宿主上的二维讲解镜头。"], "notWhen": ["依赖网络、浏览器定时器、系统字体或分数像素平面的页面。"]},
+  "calibration": "probe-gray-chart",
+  "verify": {"selftest": "核验字体字节与就绪状态；实渲纸底、字形、淡出和三个场景，从层文件按顺序、乱序及单帧新会话复核颜色哈希。", "predicates": []},
+  "provenance": {"cases": [], "note": "二维舞台、页面宿主和仓库自带的 OFL 子集。"},
+  "status": [{"level": "reproduced", "host": "page", "source": "0.187.0", "gpu": "apple-m5-pro", "date": "2026-11-23"}],
+  "exams": ["18-1"]
+}
