@@ -45,6 +45,7 @@ def _sibling(name):
 
 LOADER = _sibling('loader')
 ASSETS = _sibling('assets')
+RUNTIME = _sibling('runtime')
 Fail = LOADER.Fail
 
 # Blender 的 (x, y, z) → 北冥的 (x, z, -y)
@@ -62,6 +63,7 @@ class Ctx:
         self.seed = job['seed']
         self.tokens = dict(job['tokens'])
         self.tier = job['tier']
+        self.runtime = RUNTIME
 
     @staticmethod
     def to_blender(p):
@@ -169,6 +171,12 @@ def op_open(job):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         built = module.build(Ctx(job))
+        if 'state' in built:
+            STATE['kernel'] = RUNTIME.StateKernel(built['state'])
+        if 'meta' in built:
+            if not callable(built['meta']):
+                raise ValueError('meta 必须是函数 meta(f)')
+            STATE.update(meta=built['meta'], base_size=tuple(job['size']))
         who = '入口文件'
 
     if bpy.context.scene != scene:
@@ -405,7 +413,10 @@ def op_render(job):
     t0 = clock()
     aux_scene = STATE['aux']
     loaded = STATE.get('loaded')
-    scene.frame_set(job['f'], subframe=0.0)
+    if 'kernel' in STATE:
+        STATE['kernel'].write(scene, job['f'])
+    else:
+        scene.frame_set(job['f'], subframe=0.0)
     if loaded is not None:
         # 第 5 步：先 tracks.apply，再按 create 的次序调各张卡的 apply；写完再求一遍值，让写进去的关键帧生效
         samples = {(int(s['t']), 0.0): {k: v for k, v in s.items() if k != 't'} for s in job['tracks']}
@@ -423,6 +434,11 @@ def op_render(job):
         # 第 6 步：宿主量完以后并进各张卡的 meta(f)；账跟着交回去，读数的来历也在账里
         result['readings'] = loaded.meta(job['f'])
         result['load'] = loaded.account
+    elif 'meta' in STATE:
+        extra = STATE['meta'](job['f'])
+        collector = extra if isinstance(extra, RUNTIME.MetaCollector) else RUNTIME.MetaCollector(extra)
+        result = collector.merge(result, plan['size'], STATE['base_size'])
+        entities = result['entities']  # 后面的 vis 实测写进交回的那一份
     if not plan['layers']:
         return result
 
