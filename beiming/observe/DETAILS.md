@@ -74,3 +74,25 @@
 - `a` 是候选、`b` 是参考，尺寸须一致，选项对两边同样生效。掩码来源：给 `id` 时读单通道编号层里等于 `id` 的像素（另收 16、32 位整数数组）；给 `background` 时取彩色帧里任一分量与背景色相差超过 `tol` 的像素；四通道帧取 alpha 大于 `threshold`（默认半幅）；单通道取大于 `threshold`（默认 0）。三通道帧不给 `background` 报错。
 - 返回 `iou`、`intersection`、`union`、`precision`（交 / 候选面积）、`recall`（交 / 参考面积）、`bboxIou`（两个紧包围盒的交并比）、`areaA`、`areaB`、`emptyBoth`。
 - 两边都空时各比值取 `emptyValue`（默认 1）并置 `emptyBoth: true`；只有一边空时都是 0。
+
+## 亚像素光流与 LDR-FLIP（`metrics/flow-flip.mjs`）
+
+`flowField`、`imageFlip` 从组件和 `metrics/index.mjs` 都能导入；也可用 `FLOW_FLIP_METRICS[name]` 或 `runFlowFlipMetric(name, ...args)`，`name` 可带 `metric:` 前缀。两者均不读文件、时钟、显卡或随机源，不改输入。帧给 `{ width, height, rgba | rgb | luma | data }`，恰好一个像素载荷，行优先；`data` 按长度推断 1、3、4 通道，单通道按灰度，alpha 不参加量测。只收 8 位无符号或钳位数组、Float32/64 数组。帧、ROI、选项只读普通对象的自有数据描述符；拒绝 Proxy、访问器、未知键、稀疏序列、共享像素缓冲、非有限样本（包括 alpha）以及不合法的尺寸、参数。像素视图只按原生类型、内部长度与数字下标读取，标准成员不许在实例上遮蔽。错误统一抛 `RangeError`，`code: 'usage.bad-argument'`。
+
+### `flowField(frames, { fps?, windowRadius?, pyramidLevels?, iterations?, roi?, includeFields? })`
+
+- 至少两帧，尺寸、通道数和编码（8 位或浮点）一致。用 Rec.709 系数量亮度（8 位直接量显示码值，浮点量线性值）；每对共同比例归一以免梯度乘积溢出。以 `[1,4,6,4,1]/16` 横纵低通、隔点取样构建二倍金字塔；最粗层从零开始，上一层有解时，双线性上采样向量并把位移乘二。
+- 每轮在 `q=p+v(p)` 双线性采样后帧亮度和中心差分梯度 `g`。令 `t=前帧(p)−后帧(q)+g·v(p)`；每个像素在方窗内累加 `H=Σggᵀ, b=Σgt`，解 `(H+λI)δ=b−Hv(p)`，`λ=10⁻⁵ tr(H)`，每轮最多走一个该层像素。超出画面的观测不入窗；平坦无梯度区保留初值，单向纹理只能约束沿梯度的运动。遮挡、切镜和高频重复纹理不保证正确，不把结果当物体运动真值。窗半径默认 3（1–64），层数上限默认 4（1–32，短边容不下窗口就不再降采样），迭代上限默认 6（1–64）。
+- 全画幅求流，`roi: { x, y, width, height }` 只裁统计与返回的场。`curve[t]` 是第 t 帧到下一帧：`meanMag/p95Mag/maxMag` 汇总逐像素 `hypot(dx,dy)`；`meanDx/meanDy` 是平均向量，单位 px/帧，右、下为正，`coherentAngleRad=atan2(meanDy,meanDx)`，零向量为 `null`。顶层 `mean`（也是 `value`）、`p95` 是**逐对均值**的均值与 nearest-rank 95 分位，`max` 是全段最大像素幅值。只有 `includeFields: true` 才返回逐对的 `fields[{width,height,dx,dy}]`，两张 Float64 平面的下标均为 ROI 内的 `y*width+x`。
+- `spectrum` 分析 `N=frames.length−1` 个 `meanMag`，去均值，乘周期 Hann 窗 `wᵢ=(1−cos(2πi/N))/2`（N<3 用矩形窗），实序列单边 DFT：`amplitude[k]=s·|Σwᵢ(mᵢ−m̄) exp(−2πiki/N)|/Σwᵢ`，双边成对的频点 `s=2`，DC 和 Nyquist 取 1。`spectralEnergy=Σ amplitude²/s`。`bins` 从 0 到 `floor(N/2)`；有正有限 `fps` 时 `freqHz=k·fps/N`，否则为 `null`。`dominantIndex` 取最强非零频点（同幅取低频），没有交流分量时为 `null`；`dominantFreqHz` 无主峰或没给帧率时为 `null`。这是**速度大小**不是位置或有符号速度的频谱：来回的 2 Hz 正弦平移，在速度幅值上主峰是 4 Hz。
+
+### `imageFlip(reference, test, { ppd?, distanceM?, monitorWidthM?, resolutionX?, transfer?, includeMap?, threshold? })`
+
+按 Andersson 等 [FLIP: A Difference Evaluator for Alternating Images (HPG 2020)](https://research.nvidia.com/publication/2020-07_flip-difference-evaluator-alternating-images) 的 LDR 口径量两张同尺寸图。只收显示范围：字节除以 255，浮点须在 `[0,1]`。两边默认都是 `transfer: 'srgb'`：`v≤0.04045` 解作 `v/12.92`，否则 `((v+0.055)/1.055)^2.4`；已经是**线性** RGB 的两帧须显式给 `'linear'`。`ppd` 为每度像素数，默认 `3840π/180 ≈ 67.0206`。也可完整给三项几何参数代替 `ppd`：`(distanceM/monitorWidthM)·resolutionX·π/180`；两种写法不能混用，实际 ppd 要在 `(0,2048]` 内以限制卷积核宽度。
+
+1. 线性 sRGB → D65 XYZ，除以白点得 `(x,y,z)`；YCxCz 为 `(116y−16,500(x−y),200(y−z))`。单位 DC 增益下可直接滤 `y, x−y, y−z`，无需来回乘常数。边界复制，三通道分别做 CSF 空间滤波；角坐标为像素偏移除以 ppd。二维高斯项 `a√(π/b) exp(−π²r²/b)`，Y 和 Cx 各一项 `(a,b)=(1,.0047),(1,.0053)`，Cz 是 `(34.1,.04),(13.5,.025)` **两个二维核之和**；三核各自单位和。沿每轴截在 `ceil(3·ppd·√(.04/2)/π)`，分离卷积时 Cz 的两项始终分别过滤，最后才相加。
+2. 滤后逆变换回线性 RGB，裁 `[0,1]` 再转 D65 CIELab；Hunt 调整 `aH=.01·L·a*, bH=.01·L·b*`。`HyAB=|ΔL|+hypot(ΔaH,ΔbH)`，`d=(HyAB/HyAB(纯绿,纯蓝))^0.7`。色差 `Ec` 在 `(0,0)→(.4,.95)→(1,1)` 两段间线性映射。
+3. 从**未滤波**的 `y` 求边缘与点特征，`σ=.041·ppd`，半径 `ceil(3σ)`。沿 x 或 y 的采样核分别正比于 `−k·G(k)`、`((k/σ)²−1)·G(k)`，`G(k)=exp(−k²/(2σ²))`；导数核正负瓣分别归一到 +1/−1，垂直于导数的轴只做单位和高斯平滑。将同阶 x/y 响应以 `hypot` 合为边缘强度 E 与点强度 P。`Ef=(max(|Eref−Etest|,|Pref−Ptest|)/√2)^0.5`。
+4. `FLIP=Ec^(1−Ef)`，误差图是 `[0,1]` 的 Float32；`includeMap: true` 才带 `map`。`mean`（也是 `value`）、`max`、`p95`（按像素数的 nearest-rank）与返回图同源。`q1/weightedMedian/q3` 按误差本身加权：像素升序累加，首次达到总误差 25%/50%/75% 的像素值，全零时都为 0。
+
+`threshold` 在 `[0,1]` 内，给了才返回 `pass: mean <= threshold`。校准时固定颜色编码、尺寸和观看条件，用同一画面的已知良好跨机结果约束误报，再用已知错误的材质、亮度等负对照约束漏报；若两组分不开，不应只靠均值判。测试用局部 1 码舍入与 28 码亮度偏移演示门限 0.05 的两侧，**不是实测 5090 门限**。有很小但严重的局部回归时应另看 `max` 和误差图。
