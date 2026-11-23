@@ -965,9 +965,9 @@ test('A16-29 G_REV-R4 最终身份检查之后至 unlink 之前的窗口内同�
   assert.deepEqual([...cache.get(entry).colorBytes], [77], '最终身份检查后发布的新帧必须保留');
 
   // 3) 跨进程实测（确定性互斥窗口 + 无拦截自由并发）：
-  //    a) 确定性窗口：写子进程做旧 [1] 后通知父进程；父进程在 prune 持锁通过最终身份检查、即将 unlinkSync 之前
-  //       放行并短持锁，让子进程立即并发发布新帧 [77] 撞上 .cache.lock；锁必须把发布挡到 unlink 之后，确保每轮
-  //       稳定清掉 1 个做旧帧且新帧 [77] 绝不被误删。
+  //    a) 确定性窗口：写子进程做旧 [1] 后通知父进程；父进程在 prune 持锁通过最终身份检查、即将 unlinkSync 之前写出 go-<round>，
+  //       等子进程发回 trying-<round> 且实际撞上持有中的 .cache.lock（写出 locked-<round>）后再短持锁删除旧帧，并核实持锁期间
+  //       published-<round> 未出现；锁必须把发布挡到 unlink 之后，确保每轮稳定清掉 1 个做旧帧且新帧 [77] 绝不被误删。
   //    b) 自由并发：去掉全部拦截，父子进程并发跑完至少 20 轮 prune/get 与「做旧 [1] → 发布 [77] → 读回」，
   //       不依赖调度运气撞够固定删除次数；新帧 [77] 一旦被误删，子进程读不回立即以 3 退出。
   const keeper = jobs.computeFrameCacheKey(makeBaseSpec({ renderSpec: { ...makeBaseSpec().renderSpec, frame: 1 } }));
@@ -986,6 +986,19 @@ test('A16-29 G_REV-R4 最终身份检查之后至 unlink 之前的窗口内同�
     const file = ${JSON.stringify(frameFiles(dir).find((name) => name.endsWith(`${entry.key.slice(7)}.frame`)))};
     const syncDir = ${JSON.stringify(syncDir)};
     const stop = ${JSON.stringify(stop)};
+    const parentPid = ${process.pid};
+    const parentAlive = () => {
+      try {
+        process.kill(parentPid, 0);
+        return true;
+      } catch (error) {
+        return error?.code === 'EPERM';
+      }
+    };
+    let finishing = false;
+    process.on('disconnect', () => {
+      if (!finishing) process.exit(0);
+    });
     const sleeper = new Int32Array(new SharedArrayBuffer(4));
     const old = new Date(Date.now() - 7200_000);
     const ageFile = () => {
@@ -1007,20 +1020,48 @@ test('A16-29 G_REV-R4 最终身份检查之后至 unlink 之前的窗口内同�
       else inbox.push(msg);
     });
     const recv = () => (inbox.length ? Promise.resolve(inbox.shift()) : new Promise((resolve) => pending.push(resolve)));
+    const baseExists = fs.existsSync;
+    let activeLocked;
+    fs.existsSync = (target) => {
+      const seen = baseExists(target);
+      if (seen && activeLocked && path.basename(String(target)) === '.cache.lock') {
+        const notify = activeLocked;
+        activeLocked = undefined;
+        fs.writeFileSync(notify, '');
+      }
+      return seen;
+    };
     for (let round = 0; round < ${SYNC_ROUNDS}; round += 1) {
       cache.put(entry, { colorBytes: Buffer.from([1]) });
       ageFile();
       await send({ type: 'aged', round });
       const go = path.join(syncDir, 'go-' + round);
-      while (!fs.existsSync(go) && !fs.existsSync(stop)) Atomics.wait(sleeper, 0, 0, 1);
-      if (fs.existsSync(stop)) process.exit(0);
-      cache.put(entry, { colorBytes: Buffer.from([77]) });
+      const trying = path.join(syncDir, 'trying-' + round);
+      const locked = path.join(syncDir, 'locked-' + round);
+      const published = path.join(syncDir, 'published-' + round);
+      const waitDeadline = Date.now() + 20_000;
+      let sawGo = false;
+      while (!(sawGo = fs.existsSync(go)) && !fs.existsSync(stop) && parentAlive() && Date.now() < waitDeadline) {
+        Atomics.wait(sleeper, 0, 0, 1);
+      }
+      if (fs.existsSync(stop) || !parentAlive()) process.exit(0);
+      if (!sawGo) process.exit(5);
+      fs.writeFileSync(trying, '');
+      activeLocked = locked;
+      try {
+        cache.put(entry, { colorBytes: Buffer.from([77]) });
+      } finally {
+        activeLocked = undefined;
+      }
+      fs.writeFileSync(published, '');
       if (cache.get(entry)?.colorBytes[0] !== 77) process.exit(3);
       await send({ type: 'published', round });
       const cmd = await recv();
       if (cmd?.type !== 'next') process.exit(4);
     }
+    fs.existsSync = baseExists;
     let cycles = 0;
+    const raceDeadline = Date.now() + 60_000;
     do {
       cache.put(entry, { colorBytes: Buffer.from([1]) });
       ageFile();
@@ -1029,8 +1070,9 @@ test('A16-29 G_REV-R4 最终身份检查之后至 unlink 之前的窗口内同�
       cycles += 1;
       if (cycles === ${RACE_MIN}) await send({ type: 'race-min' });
       await new Promise((resolve) => setImmediate(resolve));
-    } while (!fs.existsSync(stop));
+    } while (!fs.existsSync(stop) && parentAlive() && Date.now() < raceDeadline);
     await send({ type: 'race-done', cycles });
+    finishing = true;
     process.disconnect?.();`;
   const writer = spawn(process.execPath, ['--input-type=module', '-e', script], { stdio: ['ignore', 'inherit', 'inherit', 'ipc'] });
   const closed = once(writer, 'close');
@@ -1074,12 +1116,25 @@ test('A16-29 G_REV-R4 最终身份检查之后至 unlink 之前的窗口内同�
     for (let round = 0; round < SYNC_ROUNDS; round += 1) {
       await nextMessage('aged', round);
       const go = path.join(syncDir, `go-${round}`);
+      const trying = path.join(syncDir, `trying-${round}`);
+      const locked = path.join(syncDir, `locked-${round}`);
+      const published = path.join(syncDir, `published-${round}`);
       let triggered = false;
       const unlinkHold = t.mock.method(fs, 'unlinkSync', (target) => {
         if (!triggered && typeof target === 'string' && target.endsWith('.frame')) {
           triggered = true;
+          assert.equal(fs.existsSync(path.join(cache.root, '.cache.lock')), true, '进入删除窗口时父进程必须持有 .cache.lock');
           fs.writeFileSync(go, '');
-          Atomics.wait(sleeper, 0, 0, 100);
+          for (const tryDeadline = Date.now() + 10_000; !fs.existsSync(trying) && Date.now() < tryDeadline;) {
+            Atomics.wait(sleeper, 0, 0, 2);
+          }
+          assert.equal(fs.existsSync(trying), true, `第 ${round + 1} 轮写子进程未在窗口内开始并发发布`);
+          for (const contendDeadline = Date.now() + 5_000; !fs.existsSync(locked) && !fs.existsSync(published) && Date.now() < contendDeadline;) {
+            Atomics.wait(sleeper, 0, 0, 2);
+          }
+          Atomics.wait(sleeper, 0, 0, 60);
+          assert.equal(fs.existsSync(published), false, `第 ${round + 1} 轮父进程持 .cache.lock 期间写子进程不得抢先完成发布`);
+          assert.equal(fs.existsSync(locked), true, `第 ${round + 1} 轮写子进程未观测到持有中的 .cache.lock`);
         }
         return realUnlink(target);
       });
