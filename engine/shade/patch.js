@@ -1,8 +1,7 @@
 // 北冥引擎 · 内置材质补丁：往 three（r170 / r187）的内置材质（MeshToonMaterial、MeshDepthMaterial…）里注入自定义着色器片段。
-// 在传入的着色器原文中逐条校验锚点，缺失直接报错。同一组钩子共用一个程序缓存键。
-// shortcut: activeAnchors 按当前未展开文本排除常规注释、条件指令及其续行、常量死分支与展开循环内的锚点，不递归展开其他 ShaderChunk；
-//   不防页面对抗性改写 THREE.ShaderLib / ShaderChunk（如借外部 chunk 开关条件分支、在展开循环内撕裂条件/注释收尾，或用 #define 重命名已补丁函数）。
-//   若需支持这类对抗性改写，须在 three 展开并完成预处理的着色器上核验补丁效果。
+// 按当前未展开原文逐条校验锚点（排除常规注释与历史注入区间），缺失或不唯一直接报错；同一组钩子共用一个程序缓存键。
+// shortcut: inject 只按当前未展开文本排除常规注释（//、/* */，含行续接）与先前 inject 注入的区间，不模拟 GLSL 预处理或 three 循环展开，也不递归展开其他 ShaderChunk；
+//   不防页面改写 three 着色器模板与 chunk 来藏锚点（如改写 THREE.ShaderLib / ShaderChunk 把锚点放进预处理死分支、展开循环或用 #define 重命名函数；投影块 quantizeShadow 仍保留 SHADOW_CHUNKS 原文摘要校验）。
 // 片段补丁没命中算构建失败（FX22）：这里抛的错（ShaderPatchError）在 material.onBeforeCompile 里同步冒出 renderer.compile / render；
 // 构造时就把 { fn, anchor, message } 记进本模块闭包里的数组：页面把异常接住、把 console.error 静音都抹不掉，页面代码也没有写它的入口
 // （不挂 globalThis，不导出写入函数）。渲染器（engine/render/page.mjs + lib/patch-check.mjs）每次 page.evaluate 交回之前、截完图之后用 inject.patchErrors() 读副本，
@@ -11,10 +10,10 @@
 // 渲染器靠这个前缀认未捕获的异常与 console.error。
 //
 //   inject(src, anchor, code, mode, who)   在锚点后（'after'）/ 前（'before'）插入，或整段替换（'replace'）；who 用于报错。
-//                                           按当前未展开文本排除常规注释、条件指令及其续行、常量死分支与展开循环内的锚点；仅在未知编译条件内出现也报错。#include 按 three 的行首规则认。
-//                                           不防页面对抗性改写 THREE.ShaderLib / ShaderChunk（如借外部 chunk 开关条件分支、或在展开循环内撕裂条件/注释收尾），见文件头 shortcut:。
-//                                           以前的 inject 插进去的文本（材质钩子、引擎自己的片段）里的也不算：接着上一次的结果再打补丁时，
-//                                           锚点只在原来的着色器里找。生效的一处都没有、或者不止一处（分不出哪一处真的生效）都报错
+//                                           只按当前未展开文本排除 // 与 /* */ 常规注释（含行续接）及先前 inject 插进去的文本（材质钩子、引擎自己的片段）：
+//                                           接着上一次的结果再打补丁时，锚点只在原来的非注释原文里找；#include 按 three 展开它的行首写法认。
+//                                           不模拟预处理与循环展开，不防页面改写 three 着色器模板与 chunk 来藏锚点（见文件头 shortcut:）。
+//                                           命中的一处都没有、或者不止一处（如钩子之外原文与 #if 0 分支并存两处）都报错
 //   inject.patchErrors() → [{ fn, anchor, message }]   本页至今记下的补丁错误（副本，只读、不可改写）；挂在 inject 上而不是新导出：
 //                                           本模块的导出名单被 tests/engine/api-snapshot.json 钉着（stable）
 //   strHash(s) / programKey(prefix, parts)  程序缓存键：前缀 | 各段源码拼起来的哈希
@@ -51,92 +50,16 @@ class ShaderPatchError extends Error {   // 不导出：别的模块按 name 认
   }
 }
 
-// 锚点在生效代码里的各处。照第一次出现的位置换不行：材质参数里一段注释先提到同一条 #include，补丁就整段写进注释里，
-// 生效的那一条原样留着、画面错了却没有任何报错。所以 // 与 /* */ 注释里的不算（GLSL 没有字符串，注释按先后认；GLSL ES 3.00 先把
+// 锚点在当前非注释原文里的各处。照第一次出现的位置换不行：材质参数里一段注释先提到同一条 #include，补丁就整段写进注释里，
+// 后面真正要展开的那一条原样留着、画面错了却没有任何报错。所以 // 与 /* */ 注释里的不算（GLSL 没有字符串，注释按先后认；GLSL ES 3.00 先把
 // 「反斜杠 + 换行」接起来再认注释，注释记号中间、行注释末尾夹着行续接的照它的规矩认）；
 // #include 照 three 展开它的正则认（WebGLProgram.js 的 includePattern：顶着行首，前面只许空格 / 制表符，include 后可以不止一个空格）。
-const COMMENT = /\/(?:\\(?:\r\n|[\r\n]))*\/(?:\\(?:\r\n|[\r\n])|[^\r\n])*|\/(?:\\(?:\r\n|[\r\n]))*\*[\s\S]*?(?:\*(?:\\(?:\r\n|[\r\n]))*\/|$)/g, literal = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-// 只算整数常量的 !、&&、|| 与括号；未知标识符与 defined 按 Kleene 三值（0 / 0.5 / 1）短路求值；
-// 当前文本里被 #define 成非原子常量的标识符，或含未知运算符/残缺语法的表达式均按 NaN → MAYBE 处理。
-const NEVER = 0, MAYBE = 1, ALWAYS = 2, INT_LITERAL = /^(?:0x[\da-f]+|0[0-7]*|[1-9]\d*)u?$/i, IDENT = /^[a-z_]\w*$/i;
-function evalExpr(expr, nonAtomic, atomOnly = false) {
-  const tokens = expr.match(/\w+|&&|\|\||\S/g) ?? [];
-  let i = 0;
-  function atom(depth) {
-    if (depth > 64) return NaN;
-    const t = tokens[i++];
-    if (!t) return NaN;
-    if (t === '(') { const v = or(depth + 1); return tokens[i++] === ')' ? v : NaN; }
-    if (t === '!') return 1 - atom(depth + 1);
-    if (INT_LITERAL.test(t)) return Number(!/^0(?:x0+|0*)u?$/i.test(t));
-    if (t === 'defined' && !atomOnly) {
-      const paren = tokens[i] === '(';
-      if (paren) i++;
-      const id = tokens[i++];
-      return id && id !== 'defined' && IDENT.test(id) && (!paren || tokens[i++] === ')') ? 0.5 : NaN;
-    }
-    return !atomOnly && t !== 'defined' && IDENT.test(t) && !nonAtomic?.has(t) ? 0.5 : NaN;
-  }
-  function and(depth) {
-    let v = atom(depth);
-    while (tokens[i] === '&&') { i++; v = Math.min(v, atom(depth)); }
-    return v;
-  }
-  function or(depth) {
-    let v = and(depth);
-    while (tokens[i] === '||') { i++; v = Math.max(v, and(depth)); }
-    return v;
-  }
-  const v = atomOnly ? atom(0) : or(0);
-  return i === tokens.length ? v : NaN;
-}
-const conditionOf = (expr, nonAtomic) => { const v = evalExpr(expr, nonAtomic); return Number.isNaN(v) ? MAYBE : v * ALWAYS; };
-
-function preprocessorSpans(masked, dead, uncertain) {
-  const stack = [], nonAtomic = new Set();
-  let state = ALWAYS;
-  for (const line of masked.matchAll(/(?:\\(?:\r\n|[\r\n])|[^\r\n])+/g)) {
-    const logical = line[0].replace(/\\(?:\r\n|[\r\n])/g, '');
-    const def = /^\s*#\s*define\s+(\w+)(\(?)(.*)/.exec(logical);
-    if (state !== NEVER && def && (def[2] || Number.isNaN(evalExpr(def[3], null, true)))) nonAtomic.add(def[1]);
-    const directive = /^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)/.exec(logical);
-    if (!directive) {
-      if (state !== ALWAYS) (state === NEVER ? dead : uncertain).push([line.index, line.index + line[0].length]);
-      continue;
-    }
-    dead.push([line.index, line.index + line[0].length]);   // 条件指令的续行仍是指令的一部分。
-    const [, op, rest] = directive;
-    if (op === 'endif') { state = stack.pop()?.parent ?? ALWAYS; continue; }
-    if (op === 'if' || op === 'ifdef' || op === 'ifndef') stack.push({ parent: state, remaining: state });
-    const branch = stack.at(-1);
-    if (!branch) continue;
-    const condition = op === 'else' ? ALWAYS : op === 'if' || op === 'elif' ? conditionOf(rest, nonAtomic) : MAYBE;
-    state = Math.min(branch.remaining, condition);
-    branch.remaining = Math.min(branch.remaining, ALWAYS - condition);   // 只有此前所有分支都没选中，才可能进入后续分支
-  }
-}
-
+// 不模拟预处理与循环展开（见文件头 shortcut:）；非注释原文里出现不止一处（含 #if 0 死分支与原锚点并存）由 inject 按「不唯一」报错
+const COMMENT = /\/(?:\\\r?\n)*\/(?:\\\r?\n|[^\n])*|\/(?:\\\r?\n)*\*[\s\S]*?(?:\*(?:\\\r?\n)*\/|$)/g, literal = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function activeAnchors(src, anchor) {
-  const inc = /^#include <([\w./]+)>$/.exec(anchor), dead = [];
-  const masked = src.replace(COMMENT, (comment, start) => {
-    dead.push([start, start + comment.length]);
-    return ' '.repeat(comment.length);   // 注释整体是空白，内部换行不结束预处理指令；等宽遮盖保留原文偏移。
-  });
-  // three 先在原文里展开循环，再交给 GLSL 处理注释；循环头尾即使在两段注释里也会匹配。
-  // 循环界限可能是 NUM_* 等计数。用前瞻从每个循环头起配，避免符号界限的匹配吞掉 three 会展开的数字循环头。
-  for (const block of src.matchAll(/(?=(#pragma unroll_loop_start\s+for\s*\(\s*int\s+i\s*=\s*\w+\s*;\s*i\s*<\s*\w+\s*;\s*i\s*\+\+\s*\)\s*\{[\s\S]+?\}\s+#pragma unroll_loop_end))/g)) {
-    dead.push([block.index, block.index + block[1].length]);
-  }
-  // 可见的 pragma（含不完整的循环）仍按保守规则排除，不把补丁放进展开区。
-  for (const block of masked.matchAll(/#pragma\s+unroll_loop_start\b[\s\S]*?(?:#pragma\s+unroll_loop_end\b|$)/g)) {
-    dead.push([block.index, block.index + block[0].length]);
-  }
-  const uncertain = [];
-  preprocessorSpans(masked, dead, uncertain);
-  const within = (spans, index) => spans.some(([a, b]) => a <= index && index < b);
+  const inc = /^#include <([\w./]+)>$/.exec(anchor), dead = [...src.matchAll(COMMENT)].map(m => [m.index, m.index + m[0].length]);
   const re = inc ? new RegExp(`(?<=^[ \\t]*)#include +<${literal(inc[1])}>`, 'gm') : new RegExp(literal(anchor), 'g');
-  return [...src.matchAll(re)].filter(m => !within(dead, m.index)).map(m => ({ index: m.index, hit: m[0], uncertain: within(uncertain, m.index) }));
+  return [...src.matchAll(re)].filter(m => !dead.some(([a, b]) => m.index > a && m.index < b));   // 起点落在注释里面的不算
 }
 
 // 以前的 inject 交出去的文本 → 里面哪些区间是补丁插进去的 [[起, 止), …]。接着它再打补丁时这些区间里不找锚点：材质钩子的文本是调用方给的，
@@ -148,8 +71,7 @@ export function inject(src, anchor, code, mode = 'after', who = 'patch.js') {
   const mine = INJECTED.get(src) ?? [], hits = activeAnchors(src, anchor).filter(m => !mine.some(([a, b]) => m.index >= a && m.index < b)), name = `「${anchor.slice(0, 60)}」`, rev = `three r${THREE.REVISION}，本模块支持 ${SUPPORTED}`;
   if (!hits.length) throw new ShaderPatchError('inject', who, anchor, `着色器锚点缺失${name}（${rev}）`);
   if (hits.length > 1) throw new ShaderPatchError('inject', who, anchor, `着色器锚点不唯一${name}：生效代码里有 ${hits.length} 处，分不出补丁该打在哪一处（${rev}）`);
-  const [{ index, hit, uncertain }] = hits;
-  if (uncertain) throw new ShaderPatchError('inject', who, anchor, `无法确认着色器锚点${name}所在的条件分支生效（${rev}）`);
+  const [{ index, 0: hit }] = hits;
   // 在 at 处去掉 cut 个字符、放进 put
   const at = mode === 'after' ? index + hit.length : index, cut = mode === 'replace' ? hit.length : 0, put = mode === 'after' ? '\n' + code : mode === 'before' ? code + '\n' : code;
   const out = src.slice(0, at) + put + src.slice(at + cut);

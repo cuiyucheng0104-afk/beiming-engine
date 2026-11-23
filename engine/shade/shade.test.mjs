@@ -151,7 +151,7 @@ test('FX22 投影量化只认对拍过的投影块原文（three r170 / r187 发
   } finally { THREE.ShaderChunk.shadowmap_pars_fragment = keep; }
 });
 
-test('FX22 锚点只认生效代码里的：写在注释里的不算数，生效的不止一处也报错（材质参数里的一段注释不能把补丁引进注释里）', () => {
+test('FX22 锚点按当前非注释原文找：写在注释里的不算数，非注释原文里不止一处也报错（材质参数里的一段注释不能把补丁引进注释里）', () => {
   const frag = THREE.ShaderLib.toon.fragmentShader, INC = '#include <shadowmap_pars_fragment>', who = 'fx22';
   const pars = c => frag.replace('#include <common>', () => '#include <common>\n' + c), clean = quantizeShadow(frag, 'a', 'b', who);
   assert.ok(frag.indexOf('#include <common>') < frag.indexOf(INC), '材质参数（fragmentPars）插在投影块的 #include 前面');
@@ -164,136 +164,18 @@ test('FX22 锚点只认生效代码里的：写在注释里的不算数，生效
   // 生效的指令被注释掉、或者不在行首（three 只展开行首的 #include）：没有可打的地方，报缺失
   for (const [what, to] of [['行注释掉', '// ' + INC], ['块注释掉', `/* ${INC} */`], ['不在行首', 'float bmX; ' + INC]])
     assert.throws(() => quantizeShadow(frag.replace(INC, () => to), 'a', 'b', who), /fx22：着色器锚点缺失「#include <shadowmap_pars_fragment>」/, what);
-  // 条件取决于编译宏时，仍可能有两处生效。three 也会展开 include 后有多个空格的指令。
+  // 非注释原文里不止一处（含预处理死分支里再写一条、include 后多一个空格的另一种写法 three 也展开）：不模拟预处理，按「不唯一」报错，不挑头一条打
   const n = inject.patchErrors().length;
-  for (const c of [`#if USE_SHADOWMAP\n${INC}\n#endif`, `#ifdef USE_SHADOWMAP\n\t#include  <shadowmap_pars_fragment>\n#endif`, INC])
+  for (const c of [`#if 0\n${INC}\n#endif`, `#if 0\n\t#include  <shadowmap_pars_fragment>\n#endif`, INC])
     assert.throws(() => quantizeShadow(pars(c), 'a', 'b', who), /^ShaderPatchError: \[BEIMING_SHADER_PATCH_ERROR\] fx22：着色器锚点不唯一「#include <shadowmap_pars_fragment>」：生效代码里有 2 处/, c);
   assert.deepEqual([inject.patchErrors().length - n, inject.patchErrors().at(-1).fn, inject.patchErrors().at(-1).anchor], [3, 'inject', INC], '照样记进补丁错误记录');
   // 不是 #include 的锚点、三种插法、顶点钩子，同一条规矩
   const src = '// void main() {\n/* void main() { */\nvoid main() {\n}';
   assert.deepEqual(['after', 'before', 'replace'].map(mode => inject(src, 'void main() {', 'X', mode, who)),
     ['// void main() {\n/* void main() { */\nvoid main() {\nX\n}', '// void main() {\n/* void main() { */\nX\nvoid main() {\n}', '// void main() {\n/* void main() { */\nX\n}']);
-  assert.throws(() => inject('void main() {\n}\n#ifndef SKIP_MAIN\nvoid main() {\n}\n#endif', 'void main() {', 'X', 'after', who), /fx22：着色器锚点不唯一「void main\(\) \{」：生效代码里有 2 处/);
+  assert.throws(() => inject('void main() {\n}\n#if 0\nvoid main() {\n}\n#endif', 'void main() {', 'X', 'after', who), /fx22：着色器锚点不唯一「void main\(\) \{」：生效代码里有 2 处/);
   const v = THREE.ShaderLib.toon.vertexShader, note = '// 形变写在 #include <begin_vertex> 后面\n/* void main() { */\n';
   assert.equal(patchVertex(v, { vertexPars: note, vertexBegin: 'transformed.x += 1.0;\n' }, {}, who), patchVertex(v, { vertexBegin: 'transformed.x += 1.0;\n' }, {}, who).replace('#include <common>\n', () => '#include <common>\n' + note));
-});
-
-test('FX22 原始着色器的常量死分支里有唯一投影锚点时抛错，仍可给生效分支打补丁', () => {
-  const inc = '#include <shadowmap_pars_fragment>', chunk = THREE.ShaderChunk.shadowmap_pars_fragment;
-  const frag = `#if 0\n${inc}\n#else\n${chunk}\n#endif`;
-  const count = inject.patchErrors().length;
-  assert.throws(() => quantizeShadow(frag, 'a', 'b', 'fx22'), /fx22：着色器锚点缺失「#include <shadowmap_pars_fragment>」/);
-  assert.deepEqual(inject.patchErrors().slice(count).map(r => [r.fn, r.anchor]), [['inject', inc]]);
-  for (const [before, after] of [
-    [`#if 00 // 常量假\n${inc}\n#elif 0u\n${inc}\n#else\n`, '\n#endif'],
-    ['#if 1\n', `\n#elif USE_MAP\n${inc}\n#else\n${inc}\n#endif`],
-    [`#if USE_MAP\n#elif 1\n#else\n${inc}\n#endif\n`, ''],
-    [`#if /* 条件 */ \\\r\n0\n#ifdef USE_MAP\n#else\n${inc}\n#endif\n#else\n`, '\n#endif'],
-    [`// #if 0\n/*\n#if 0\n*/\n`, ''],
-  ]) assert.equal(inject(before + inc + after, inc, 'X', 'replace'), before + 'X' + after);
-});
-
-test('FX22 跨行块注释保留逻辑行，three 展开循环内的锚点不能用于补丁', () => {
-  const inc = '#include <shadowmap_pars_fragment>', put = src => inject(src, inc, 'X', 'replace');
-  const loop = `#pragma unroll_loop_start\nfor ( int i = 0; i < 0; i ++ ) {\n${inc}\n}\n#pragma unroll_loop_end`;
-  const splitComment = `/*\n${loop.replace(inc, `*/\n${inc}\n/*`)}\n*/`;
-  for (const disabled of [`#if 1 /*\n*/ && 0\n${inc}\n#endif`, `#if 0\nfloat bmX; /*\r\n*/ #endif\n${inc}\n#endif`, loop, splitComment]) {
-    assert.throws(() => put(disabled), { name: 'ShaderPatchError' }, disabled);
-    assert.equal(put(`${disabled}\n${inc}`), `${disabled}\nX`);
-  }
-  assert.throws(() => put(`#pragma unroll_loop_start\n${inc}`), { name: 'ShaderPatchError' });
-  const note = '// three 使用 #pragma unroll_loop_start 展开循环\n';
-  assert.equal(put(note + inc), note + 'X');
-  const enabled = '#if 0 /*\n*/ || 1\n';
-  assert.equal(put(`${enabled}${inc}\n#endif`), `${enabled}X\n#endif`);
-});
-
-test('FX22 条件指令续行上的 include 不能作为锚点', () => {
-  const inc = '#include <shadowmap_pars_fragment>';
-  for (const newline of ['\n', '\r\n']) {
-    const hidden = ['#if 1', '#else', '#if 0 \\', inc, '#endif', '#endif'].join(newline);
-    assert.throws(() => inject(hidden, inc, 'X', 'replace'), /着色器锚点缺失「#include <shadowmap_pars_fragment>」/);
-    assert.equal(inject(`${hidden}\n${inc}`, inc, 'X', 'replace'), `${hidden}\nX`);
-  }
-});
-
-test('FX22 重叠循环头各自起配，零次循环吞掉的唯一锚点报缺失', () => {
-  const inc = '#include <shadowmap_pars_fragment>';
-  const hidden = `#if 0
-#pragma unroll_loop_start
-for ( int i = a; i < b; i ++ ) {
-#endif
-#pragma unroll_loop_start
-for ( int i = 0; i < 0; i ++ ) {}
-#pragma unroll_loop_end
-${inc}
-}
-#pragma unroll_loop_end`;
-  assert.throws(() => inject(hidden, inc, 'X', 'replace'), /着色器锚点缺失「#include <shadowmap_pars_fragment>」/);
-  assert.equal(inject(`${hidden}\n${inc}`, inc, 'X', 'replace'), `${hidden}\nX`);
-});
-
-test('FX22 唯一命中也要证明分支生效：常量表达式、未知宏及其后续分支', () => {
-  const inc = '#include <common>', put = src => inject(src, inc, 'X', 'replace');
-  for (const condition of ['(0)', '0 || 0', '0x0', '!(1 && (0 || 1))']) {
-    const disabled = `#if ${condition}\n${inc}\n#endif`;
-    assert.throws(() => put(disabled), /着色器锚点缺失/, condition);
-    assert.equal(put(`${disabled}\n${inc}`), `${disabled}\nX`, condition);
-  }
-  for (const guard of ['#ifdef FLAG', '#ifndef FLAG', '#if FLAG\n#else', '#if FLAG\n#elif 1', '#if (2 + 3) == 5']) {
-    assert.throws(() => put(`${guard}\n${inc}\n#endif`), /无法确认.*生效/, guard);
-  }
-  assert.equal(put(`#if 0x1 && (!0 || 0)\n${inc}\n#endif`), '#if 0x1 && (!0 || 0)\nX\n#endif');
-});
-
-test('FX22 true / false 不是 GLSL 预处理常量：未知宏分支拒绝，Kleene 可确定短路放行', () => {
-  const inc = '#include <common>', put = src => inject(src, inc, 'X', 'replace', 'fx22-n5');
-  const before = inject.patchErrors().length;
-  const uncertain = [
-    `#define true 0\n#if true\n${inc}\n#endif`,
-    `#define false 1\n#if false\nfloat x;\n#else\n${inc}\n#endif`,
-    `#if true\n${inc}\n#endif`,
-    `#if false\n${inc}\n#endif`,
-    `#if !false\n${inc}\n#endif`,
-    `#if 0 || true\n${inc}\n#endif`,
-    `#if 1 && true\n${inc}\n#endif`,
-    `#define true 1 || 1\n#if 0 && true\nfloat x;\n#else\n${inc}\n#endif`,
-    `#define true 1 || 1\n#if true && 0\nfloat x;\n#else\n${inc}\n#endif`,
-    `#define false 1) && 0 && (0\n#if (1 || false)\n${inc}\n#endif`,
-    `#if defined(FLAG)\n${inc}\n#endif`,
-    `#if 0 || defined(FLAG)\n${inc}\n#endif`,
-    `#if 1 || defined()\n${inc}\n#endif`,
-    `#if 1 || +\n${inc}\n#endif`,
-    `#if 1 || (1 + 2)\n${inc}\n#endif`,
-  ];
-  for (const src of uncertain) {
-    assert.throws(() => put(src), { name: 'ShaderPatchError', message: /fx22-n5：无法确认着色器锚点「#include <common>」所在的条件分支生效/ }, src);
-  }
-  const dead = [`#if 0 && true\n${inc}\n#endif`, `#if true && 0\n${inc}\n#endif`, `#if 0 && defined(FLAG)\n${inc}\n#endif`];
-  for (const src of dead) {
-    assert.throws(() => put(src), { name: 'ShaderPatchError', message: /fx22-n5：着色器锚点缺失「#include <common>」/ }, src);
-  }
-  for (const src of [`#define true 0\n#if true\n${inc}\n#endif\n${inc}`, `#define false 1\n#if false\n${inc}\n#endif\n${inc}`]) {
-    assert.throws(() => put(src), { name: 'ShaderPatchError', message: /fx22-n5：着色器锚点不唯一「#include <common>」：生效代码里有 2 处/ }, src);
-  }
-  for (const [src, want] of [
-    [`#if 1 || false\n${inc}\n#endif`, `#if 1 || false\nX\n#endif`],
-    [`#if false || 1\n${inc}\n#endif`, `#if false || 1\nX\n#endif`],
-    [`#define false 0\n#if false || 1\n${inc}\n#endif`, `#define false 0\n#if false || 1\nX\n#endif`],
-    [`#define false (0)\n#if false || 1\n${inc}\n#endif`, `#define false (0)\n#if false || 1\nX\n#endif`],
-    [`#if 1 || defined(FLAG)\n${inc}\n#endif`, `#if 1 || defined(FLAG)\nX\n#endif`],
-    [`#if defined FLAG || 1\n${inc}\n#endif`, `#if defined FLAG || 1\nX\n#endif`],
-    [`#if 1 || false\n${inc}\n#else\n${inc}\n#endif`, `#if 1 || false\nX\n#else\n${inc}\n#endif`],
-    [`#if 0 && true\nfloat x;\n#else\n${inc}\n#endif`, `#if 0 && true\nfloat x;\n#else\nX\n#endif`],
-    [`#if true && 0\nfloat x;\n#else\n${inc}\n#endif`, `#if true && 0\nfloat x;\n#else\nX\n#endif`],
-    [`#if 0 && defined(FLAG)\nfloat x;\n#else\n${inc}\n#endif`, `#if 0 && defined(FLAG)\nfloat x;\n#else\nX\n#endif`],
-    [`#if 0 && true\n${inc}\n#else\n${inc}\n#endif`, `#if 0 && true\n${inc}\n#else\nX\n#endif`],
-    [`#if !(0 && true)\n${inc}\n#endif`, `#if !(0 && true)\nX\n#endif`],
-    [`#if 1\n${inc}\n#elif false\n${inc}\n#endif`, `#if 1\nX\n#elif false\n${inc}\n#endif`],
-  ]) {
-    assert.equal(put(src), want, src);
-  }
-  assert.equal(inject.patchErrors().length - before, uncertain.length + dead.length + 2);
 });
 
 test('FX22 以前的补丁插进去的文本里不找锚点：材质钩子在死分支里另写一套锚点、再把原来的盖住，补丁不落进死分支；投影块整个没了也报补丁错', () => {

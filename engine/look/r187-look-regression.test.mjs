@@ -9,7 +9,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
-import { runR187LookRegression, judgeLookRegression, verifyShaderPatchBuild, compareIdMaps, ID_CHANNEL_TOL } from './r187-look-regression.mjs';
+import { runR187LookRegression, judgeLookRegression, verifyShaderPatchBuild, compareIdMaps, reportMarkdown, NOTES, ID_CHANNEL_TOL } from './r187-look-regression.mjs';
 import { W, H, STAGES, VARIANTS, EXPECT_IDS, IDS, CORRUPTIONS } from './r187-look-regression.scene.mjs';
 import { thumb, thumbDiff, decodeIds, THUMB_GATE, THUMB_SKIP } from './r187-look-regression.golden.mjs';
 import { TOON_PSNR_GATE_DB, TOON_MAX_FRAC_GT1, TOON_MAX_FRAC_GT5 } from '../shade/r187-toon-regression.mjs';
@@ -105,7 +105,8 @@ test('S6-4 落盘回归报告 docs/quality/r187-look-regression.{json,md} 结构
   assert.equal(report.goldenAnchor.pass, true);
   assert.equal(report.goldenAnchor.baseline, GOLDEN().baseline, '报告对的是当前这份冻结金标准');
   assert.equal(report.consoleWarnings.length, 0);
-  assert.ok(report.notes.length >= 3 && md.includes('## 两版之间的差异与处理'));
+  assert.deepEqual(report.notes, NOTES, '落盘 .json 的 notes 与 r187-look-regression.mjs 一致');
+  assert.equal(reportMarkdown(report), md, 'docs/quality/r187-look-regression.md 与 reportMarkdown(json) 逐字节相同');
   assert.doesNotMatch(JSON.stringify(report) + '\n' + md, /\/Users\/|\/home\/|lab:\/\//);
 });
 
@@ -436,18 +437,12 @@ test('FX22-4 构建命令：夹具影片不改时正常出图；改错一段片�
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('FX22-6 原始投影锚点与 CSP 正文核验，两版在单采样和四倍采样下都执行正式出图命令', async t => {
+test('FX22-6 CSP 正文核验与同源 iframe Blob：两版在单采样和四倍采样下都执行正式出图命令', async t => {
   if ((await run()).skipped) return t.skip((await run()).skipped);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 's6-fx22-')), still = stillIn(dir);
   try {
     for (const rev of [170, 187]) for (const samples of [1, 4]) {
       const render = (name, query) => still(`${rev}-${samples}-${name}`, `three=${rev}&${query}`, '--samples', String(samples));
-      for (const expr of ['0', '1', 'comment', 'endif', 'unroll', 'unroll-comment', 'directive-splice', 'unroll-overlap']) await t.test(`r${rev} ×${samples} 唯一锚点在死分支 ${expr}`, () => {
-        const caught = ['0', '1', 'comment', 'endif', 'unroll'].includes(expr);
-        const miss = render(`dead-${expr}`, `pars=dead-only&expr=${expr}` + (caught ? '&when=swallow&mute=1' : ''));
-        assert.deepEqual([miss.status, miss.png], [1, false], miss.stderr);
-        assert.match(miss.stderr, /错误\[failure\.shader-error\]：.*着色器锚点缺失「#include <shadowmap_pars_fragment>」/);
-      });
       await t.test(`r${rev} ×${samples} CSP 下主文档导入同源 iframe 创建的补丁`, () => {
         const miss = render('frame-blob', 'csp=1&patch=frame-blob&probe=id-callback&when=swallow&mute=1');
         assert.deepEqual([miss.status, miss.png], [1, false], miss.stderr);
