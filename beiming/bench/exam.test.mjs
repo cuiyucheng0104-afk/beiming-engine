@@ -24,10 +24,10 @@ function makeTempDir(t, prefix = 'beiming-exam-test-') {
   return dir;
 }
 
-test('exam-1 扫描并运行仓库真实公开题库：8 道公开题与 16 份负对照全部通过，写出结构化 report.json', async (t) => {
+test('exam-1 扫描并运行仓库真实公开题库：11 道公开题（level-1 / level-2-a / level-2-b）与负对照全部通过，写出结构化 report.json', async (t) => {
   const outDir = makeTempDir(t);
   const files = discoverQuestionFiles(QUESTIONS_DIR);
-  assert.ok(files.length >= 8, `应至少发现 8 道公开题，实际 ${files.length}`);
+  assert.ok(files.length >= 11, `应至少发现 11 道公开题，实际 ${files.length}`);
 
   const report = await runExam({ outDir });
   assert.equal(report.format, EXAM_REPORT_FORMAT);
@@ -39,7 +39,7 @@ test('exam-1 扫描并运行仓库真实公开题库：8 道公开题与 16 份�
   assert.equal(report.summary.invalidQuestions, 0);
   assert.equal(report.summary.passedQuestions, files.length);
   assert.equal(report.summary.failedQuestions, 0);
-  assert.ok(report.summary.negativeControlsChecked >= 16);
+  assert.ok(report.summary.negativeControlsChecked >= 24);
   assert.equal(report.summary.negativeControlsRejected, report.summary.negativeControlsChecked);
 
   const reportFile = path.join(outDir, 'report.json');
@@ -496,5 +496,32 @@ test('exam-12 回归：23-1 参考夹具 variants[] 变体参考片失配或缺�
   assert.equal(r4.ok, false);
   assert.equal(r4.exitCode, 4);
   assert.equal(r4.summary.invalidQuestions, 1);
+});
+
+test('exam-13 回归：level-2-a（27-1 / 29-2 / 23-2）接入 B3 评分器，缺题集或夹具/阈值篡改必退非 0', async (t) => {
+  // 1. 移走 level-2-a 全部题目 -> exit 4
+  const root1 = makeTempDir(t);
+  const fakeBench1 = path.join(root1, 'bench');
+  fs.cpSync(path.join(HERE, 'questions'), path.join(fakeBench1, 'questions'), { recursive: true });
+  fs.cpSync(path.join(HERE, 'refs'), path.join(fakeBench1, 'refs'), { recursive: true });
+  const l2aDir = path.join(fakeBench1, 'questions/level-2-a');
+  for (const name of fs.readdirSync(l2aDir)) {
+    if (name.endsWith('.json')) fs.rmSync(path.join(l2aDir, name));
+  }
+  const rMissing = await runExam({ benchDir: fakeBench1, outDir: null });
+  assert.equal(rMissing.ok, false);
+  assert.equal(rMissing.exitCode, 4);
+  assert.equal(rMissing.error?.code, 'contract.missing-question-set');
+  assert.match(rMissing.error?.message ?? '', /level-2-a/);
+
+  // 2. 篡改 27-1 首切阈值 -> B3 评分器必须拒绝（exit 1）
+  const q27 = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-2-a/27-1.json'), 'utf8'));
+  q27.scoring[0].args.firstCut = 120;
+  const badDir = makeTempDir(t);
+  fs.writeFileSync(path.join(badDir, '27-1.json'), JSON.stringify(q27, null, 2));
+  const rBad = await runExam({ questionsDir: badDir, outDir: null });
+  assert.equal(rBad.ok, false);
+  assert.equal(rBad.exitCode, 1);
+  assert.equal(rBad.questions[0].pass, false);
 });
 

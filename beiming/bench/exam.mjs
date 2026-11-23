@@ -29,6 +29,7 @@ import {
   readPixelBoxes,
   score as scoreLevel1,
 } from './questions/level-1/evaluate-b2.mjs';
+import { evaluate as evaluateLevel2a } from './questions/level-2-a/evaluate-b3.mjs';
 import { score as scoreLevel2b } from './questions/level-2-b/evaluate-b4.mjs';
 import { RESULT_FORMAT, runExamQuestion } from './runner.mjs';
 import {
@@ -55,9 +56,11 @@ const HELP = `北冥考题库离线考试核验入口
 退出码：0 全部通过；1 离线考试未通过、负对照失守或全跳过无实跑；2 命令行参数错误；4 题库为空/缺题集或题目/夹具契约校验不通过`;
 
 const LEVEL1_IDS = new Set(['29-1', '28-1', '23-1', '1-1']);
+const LEVEL2A_IDS = new Set(['27-1', '29-2', '23-2']);
 const LEVEL2B_IDS = new Set(B6_QUESTION_IDS);
 const REQUIRED_QUESTION_SETS = Object.freeze([
   Object.freeze({ name: 'level-1', evaluator: 'evaluate-b2.mjs', ids: Object.freeze([...LEVEL1_IDS]) }),
+  Object.freeze({ name: 'level-2-a', evaluator: 'evaluate-b3.mjs', ids: Object.freeze([...LEVEL2A_IDS]) }),
   Object.freeze({ name: 'level-2-b', evaluator: 'evaluate-b4.mjs', ids: Object.freeze([...LEVEL2B_IDS]) }),
 ]);
 const CHANNELS = { none: 0, mono: 1, stereo: 2 };
@@ -427,22 +430,60 @@ function validateRefData(question, data, refLabel) {
     if (!isIntPair(data.size) || data.size[0] <= 0 || data.size[1] <= 0) bad('15-2 缺少合法的 size');
     if (!hasMotionEntries(data.locked, 2)) bad('15-2 缺少合法的 locked 正例镜头读数');
     if (!hasMotionEntries(data.drifting, 1)) bad('15-2 缺少合法的 drifting 反例镜头读数');
+  } else if (LEVEL2A_IDS.has(question.id)) {
+    if (data.kind !== 'constructed' && data.kind !== 'measured') {
+      bad(`kind 应为 constructed 或 measured，实际为 ${JSON.stringify(data.kind)}`);
+    }
+    const exp = data.expect;
+    if (!isPlainObj(exp) || typeof exp.pass !== 'boolean' || typeof exp.basePass !== 'boolean'
+      || !isFiniteNum(exp.score) || !Array.isArray(exp.items)
+      || exp.items.length !== (question.scoring?.length ?? 0)
+      || !exp.items.every((v) => typeof v === 'boolean')) {
+      bad(`${question.id} 缺少合法的 expect 预期判分对象`);
+    }
+    if (!Number.isInteger(data.width) || data.width <= 0 || !Number.isInteger(data.height) || data.height <= 0
+      || !isFiniteNum(data.fps) || data.fps <= 0 || !Number.isInteger(data.frames) || data.frames <= 0) {
+      bad(`${question.id} 缺少合法的 width/height/fps/frames 读数`);
+    }
+    if (question.id === '27-1') {
+      if (!Array.isArray(data.cuts) || !isFiniteNum(data.loudnessLufs) || !isFiniteNum(data.truePeakDbtp)) {
+        bad('27-1 缺少合法的 cuts/loudnessLufs/truePeakDbtp 读数');
+      }
+    } else if (question.id === '29-2') {
+      if (typeof data.eventsFps !== 'string' || !Number.isInteger(data.eventsFrames)
+        || !Array.isArray(data.clicks) || !Array.isArray(data.cuts)
+        || !Array.isArray(data.onsetsMs) || data.onsetsMs.length === 0) {
+        bad('29-2 缺少合法的 eventsFps/eventsFrames/clicks/cuts/onsetsMs 读数');
+      }
+    } else if (question.id === '23-2') {
+      if (!Array.isArray(data.chaptersMs) || !Array.isArray(data.strongOnsetsMs) || data.strongOnsetsMs.length === 0
+        || !isPlainObj(data.beat) || !Number.isInteger(data.beat.periodMs) || !Number.isInteger(data.beat.phaseMs)) {
+        bad('23-2 缺少合法的 chaptersMs/strongOnsetsMs/beat 读数');
+      }
+    }
   }
 
   return errors;
 }
 
-function validateRefs(question, benchDir) {
+function resolveRefPath(benchDir, ref) {
+  if (typeof ref !== 'string' || !ref) return null;
   const beimingRoot = path.resolve(benchDir, '..');
+  const rel = ref.startsWith('beiming/') ? ref.slice('beiming/'.length) : ref;
+  const abs = path.resolve(beimingRoot, rel);
+  return abs.startsWith(beimingRoot + path.sep) ? abs : null;
+}
+
+function validateRefs(question, benchDir) {
   const errors = [];
   const refs = question.refs ?? [];
-  if ((LEVEL1_IDS.has(question.id) || LEVEL2B_IDS.has(question.id)) && refs.length === 0) {
+  if ((LEVEL1_IDS.has(question.id) || LEVEL2A_IDS.has(question.id) || LEVEL2B_IDS.has(question.id)) && refs.length === 0) {
     errors.push(`题目 ${question.id} 缺少参考夹具声明（refs 为空）`);
     return errors;
   }
   for (const ref of refs) {
-    const abs = path.resolve(beimingRoot, ref);
-    if (!abs.startsWith(beimingRoot + path.sep) || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
+    const abs = resolveRefPath(benchDir, ref);
+    if (!abs || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
       errors.push(`参考文件不存在：${ref}`);
       continue;
     }
@@ -999,6 +1040,111 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
             : !posOk
               ? `正对照未通过（score=${posVerdict.score}，pass=${posVerdict.pass}）`
               : `B6 负对照未全部按声明拦截（${negRejected}/${negChecked}）`,
+    };
+  }
+
+  if (LEVEL2A_IDS.has(question.id)) {
+    const refs = question.refs ?? [];
+    if (refs.length === 0) return failOutcome(`题目 ${question.id} 缺少参考夹具`);
+    let posRefData = null;
+    let posVerdict = null;
+    let refOk = true;
+    let negChecked = 0;
+    let negRejected = 0;
+
+    for (const refRel of refs) {
+      const refAbs = resolveRefPath(benchDir, refRel);
+      if (!refAbs || !fs.existsSync(refAbs)) return failOutcome(`缺少参考夹具 ${refRel}`);
+      let refData;
+      try {
+        refData = JSON.parse(fs.readFileSync(refAbs, 'utf8'));
+      } catch (e) {
+        return failOutcome(`参考夹具无法解析（${refRel}）：${e.message}`);
+      }
+      const refErrors = validateRefData(question, refData, refRel);
+      if (refErrors.length > 0) return failOutcome(refErrors.join('；'));
+
+      const verdict = evaluateLevel2a(question, refData);
+      const exp = refData.expect;
+      const matchesExpect = verdict.pass === exp.pass
+        && verdict.basePass === exp.basePass
+        && Math.abs(verdict.score - exp.score) < 1e-9
+        && verdict.items.length === exp.items.length
+        && verdict.items.every((it, idx) => it.pass === exp.items[idx]);
+      if (!matchesExpect) refOk = false;
+
+      if (exp.pass === true) {
+        posRefData = refData;
+        posVerdict = verdict;
+      } else {
+        negChecked++;
+        if (matchesExpect && verdict.pass === false && verdict.score < 1) negRejected++;
+      }
+    }
+
+    if (!posRefData || !posVerdict) {
+      return failOutcome(`题目 ${question.id} 缺少通过型参考夹具`);
+    }
+
+    // 额外合成负对照（切点偏移 / 落拍错位 / 空读数）
+    const synthNegs = [{}];
+    if (question.id === '27-1') {
+      synthNegs.push({
+        ...posRefData,
+        cuts: posRefData.cuts.map((c, idx) => (idx === 0 ? c + 1 : c)),
+      });
+    } else if (question.id === '29-2') {
+      synthNegs.push(
+        { ...posRefData, cuts: posRefData.cuts.map((c) => c + 1) },
+        { ...posRefData, clicks: posRefData.clicks.map((c) => Math.max(0, c - 10)) },
+      );
+    } else if (question.id === '23-2') {
+      synthNegs.push({
+        ...posRefData,
+        chaptersMs: posRefData.chaptersMs.map((ms) => ms + 250),
+      });
+    }
+    for (const negReading of synthNegs) {
+      negChecked++;
+      const nv = evaluateLevel2a(question, negReading);
+      if (nv.pass === false && nv.score < 1) negRejected++;
+    }
+
+    const posOk = refOk
+      && posVerdict.pass === true
+      && posVerdict.basePass === true
+      && Math.abs(posVerdict.score - 1) < 1e-9;
+    const negOk = negChecked > 0 && negRejected === negChecked;
+    const allOk = posOk && negOk;
+
+    const predicates = Object.fromEntries(
+      (question.basePredicates ?? []).map((text) => {
+        const hit = posVerdict.base?.find((b) => b.predicate === text);
+        return [text, { pass: Boolean(hit?.pass), basis: 'offline-eval-b3' }];
+      }),
+    );
+    const metrics = {};
+    for (const s of question.scoring) {
+      const matching = posVerdict.items.filter((item) => item.metric === s.metric);
+      metrics[s.metric] = {
+        pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
+        basis: 'offline-eval-b3',
+      };
+    }
+    return {
+      pass: allOk,
+      positiveScore: posVerdict.score,
+      negativeControlsChecked: negChecked,
+      negativeControlsRejected: negRejected,
+      predicates,
+      metrics,
+      detail: allOk
+        ? 'ok'
+        : !refOk
+          ? `参考夹具在 B3 评分器下未满足预期口径`
+          : !posOk
+            ? `正对照未通过（score=${posVerdict.score}，basePass=${posVerdict.basePass}）`
+            : `负对照未全部拦截（${negRejected}/${negChecked}）`,
     };
   }
 
