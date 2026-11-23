@@ -26,9 +26,14 @@ async function probe(ctx, page, stage) {
   try { check(refuses(() => page.apply(0, 0)), '没有锁定字体仍能出帧'); } finally { document.fonts.add(face); await document.fonts.ready; }
   check(ctx.renderer.getContext().drawingBufferColorSpace === 'srgb' && !ctx.renderer.getContext().getContextAttributes().antialias, '颜色或 MSAA 未锁');
   check(Object.values(stage.entities).every((mesh) => mesh.material.map.magFilter === ctx.THREE.NearestFilter), '贴图插值未锁');
-  let traps = 0;
-  const foreign = new Proxy({}, { ownKeys() { traps++; return []; }, getPrototypeOf() { traps++; return null; } });
-  check(refuses(() => stagePlan(ctx, [foreign])) && traps === 0, '页面声明触发了 Proxy 陷阱');
+  check(Function.prototype.toString.call(window.Proxy).includes('[native code]'), '全局 Proxy 被替换');
+  let getterHits = 0;
+  const withGetter = Object.defineProperty({ name: 'bad', rect: [0, 0, 16, 16], fill: '#112233' }, 'text', {
+    enumerable: true, get() { getterHits++; return 'AI'; },
+  });
+  const revoked = Proxy.revocable({}, {});
+  revoked.revoke();
+  check(refuses(() => stagePlan(ctx, [withGetter])) && refuses(() => stagePlan(ctx, [revoked.proxy])) && refuses(() => stagePlan(ctx, Array(1))) && getterHits === 0, '页面声明未拦住访问器、空槽或已撤销代理');
 }
 
 export async function build(ctx) {

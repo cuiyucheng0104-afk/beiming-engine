@@ -6,8 +6,6 @@
 // 当图片用的 SVG 文档拿不到外部资源（浏览器的规矩），字体只能照 fonts 声明内联进去；没声明字体时用的是这台机器的系统字体。
 // 排版是在活动的页面里做的，那里拿得到外部资源、也会执行脚本，所以标记和样式进页面之前先过 checkMarkup、checkCss：外链、事件属性、会执行的标签一律拒收。
 
-import { installProxyRegistry } from './proxy-registry.js';
-
 /** 舞台的相机和摆法：竖直视场角（度）、近远裁剪面（米）、第一个元素离相机多远（米）、每后一个元素靠近多少（米）、默认的纸色 */
 export const STAGE = Object.freeze({ fovYDeg: 40, nearM: 1, farM: 100, distanceM: 10, stepM: 0.001, paper: '#F4F0E9' });
 export const KINDS = Object.freeze(['canvas2d', 'svg', 'dom']);
@@ -21,9 +19,14 @@ const INK_PAD = 32;
 const UNPAINTED = ['defs', 'symbol', 'clippath', 'mask', 'pattern', 'marker', 'lineargradient', 'radialgradient', 'filter'];
 const coded = (code, message) => Object.assign(new Error(message), { code });
 const bad = (message) => coded('usage.bad-argument', message);
-const show = (v) => (typeof v === 'function' ? '[function]' : JSON.stringify(v) ?? String(v));
+const show = (v) => {
+  if (typeof v === 'function') return '[function]';
+  try { return JSON.stringify(v) ?? String(v); } catch { /* 转不成 JSON */ }
+  try { return Object.prototype.toString.call(v); } catch { return '<unprintable>'; }
+};
+const fnToStr = Function.prototype.toString;
 
-// ---- 声明只收直接写出来的 ----
+// ---- 声明只收直接写出来的纯数据 ----
 /** 跑一段读声明的同步代码：里面抛出来的不管是什么（陷阱里抛的、撤销了的 Proxy、套成环的对象），都报成 usage.bad-argument */
 function declared(read) {
   try { return read(); } catch (err) {
@@ -35,43 +38,45 @@ function declared(read) {
   }
 }
 
-// Node 直接查内部槽。页面查私有 WeakSet，直接加载本模块的页面也从此刻开始登记。
-const node = globalThis.process;
-const isProxy = node?.versions?.node
-  ? (node.getBuiltinModule?.('node:util/types') ?? await import('node:util/types')).isProxy
-  : installProxyRegistry();
-
-/**
- * v 自己过不过得了结构化克隆的第一关：克隆不了的内建对象（页面节点、模块这类）和页面里未登记的 Proxy 过不了。
- * 带函数的真对象也克隆不了，但报的是里面那个函数；v 自己过不了时报的是 v。所以拿 v 的报错去对「套了一层 Proxy 的 v」的报错（那个一定是报 v 自己）：一样就是没过。
- * 克隆会往 v 里面走，所以里面的访问器要先查完（见 copy）。
- * shortcut: 靠的是 V8 的报错里写着克隆不了的是哪个值；报错千篇一律的引擎里带函数的真声明也会被拒掉（宁可错拒），到那时得另找判法。
- */
-function opaque(v) {
-  const says = (x) => { try { structuredClone(x); return null; } catch (err) { return String(err.message); } };
-  const mine = says(v);
-  return mine !== null && mine === says(new Proxy(v, {}));
+/** 原型链上只能是没有自写 constructor 的普通原型或内建 Object.prototype（数组另许内建 Array.prototype），跨上下文造的普通对象/数组也认 */
+function plainChain(v, array) {
+  for (let p = Object.getPrototypeOf(v); p !== null; p = Object.getPrototypeOf(p)) {
+    const d = Object.getOwnPropertyDescriptor(p, 'constructor');
+    if (!d) continue;
+    if (!Object.hasOwn(d, 'value') || typeof d.value !== 'function') return false;
+    const src = fnToStr.call(d.value);
+    const ok = src === 'function Object() { [native code] }' || (array && src === 'function Array() { [native code] }');
+    if (!ok || Object.getOwnPropertyDescriptor(d.value, 'prototype')?.value !== p) return false;
+  }
+  return true;
 }
 
 /**
  * 抄一份声明交回，之后查的、用的都是抄的这份：调用方那份之后怎么变、读一次给一个样，都碰不到舞台。对象和数组逐层照自有属性的描述符抄，基本值和函数原样。
- * 不收的：Proxy（Node 或页面已登记的在读描述符前拒收）、访问器（一次都不读它）、克隆不了的内建对象（见 opaque）、有空槽的数组、带着下标以外属性的数组。what 是报错时怎么称呼它。
+ * 不收的：非普通原型链的内建或类实例、Symbol 键、访问器（一次都不读它）、有空槽的数组、带着下标以外属性的数组、套成环的对象。页面宿主不替换全局 Proxy，也不防调用方自造的转发 Proxy。
  */
-function copy(what, v) {
+function copy(what, v, seen = new WeakSet()) {
   if (v === null || typeof v !== 'object') return v;
-  if (isProxy(v)) throw bad(`${what} 不是直接写出来的（是 Proxy）`);
-  const array = Array.isArray(v), props = Object.getOwnPropertyDescriptors(v), keys = Reflect.ownKeys(props), out = array ? [] : {};
-  if (array) {
-    const n = props.length.value;
-    if (keys.length !== n + 1) throw bad(`${what} 是有空槽的数组，或者带着下标以外的属性`);
-    for (let i = 0; i < n; i++) if (!Object.hasOwn(props, i)) throw bad(`${what} 的第 ${i} 项是空槽`);
+  const array = Array.isArray(v);
+  if (!plainChain(v, array)) throw bad(`${what} 不是直接写出来的普通${array ? '数组' : '对象'}`);
+  if (seen.has(v)) throw bad(`${what} 套成了环`);
+  seen.add(v);
+  try {
+    const props = Object.getOwnPropertyDescriptors(v), keys = Reflect.ownKeys(props), out = array ? [] : {};
+    if (array) {
+      const n = props.length.value;
+      if (keys.length !== n + 1) throw bad(`${what} 是有空槽的数组，或者带着下标以外的属性`);
+      for (let i = 0; i < n; i++) if (!Object.hasOwn(props, i)) throw bad(`${what} 的第 ${i} 项是空槽`);
+    }
+    for (const k of keys) {
+      if (typeof k !== 'string') throw bad(`${what} 不收 Symbol 键 ${String(k)}`);
+      if (!Object.hasOwn(props[k], 'value')) throw bad(`${what} 的 ${k} 是访问器（读一次一个样），要直接写成值`);
+      if (!(array && k === 'length')) Object.defineProperty(out, k, { value: copy(`${what}.${k}`, props[k].value, seen), enumerable: true, writable: true, configurable: true });
+    }
+    return out;
+  } finally {
+    seen.delete(v);
   }
-  for (const k of keys) {
-    if (!Object.hasOwn(props[k], 'value')) throw bad(`${what} 的 ${String(k)} 是访问器（读一次一个样），要直接写成值`);
-    if (typeof k === 'string' && !(array && k === 'length')) Object.defineProperty(out, k, { value: copy(`${what}.${k}`, props[k].value), enumerable: true, writable: true, configurable: true });
-  }
-  if (opaque(v)) throw bad(`${what} 不是直接写出来的${array ? '数组' : '对象'}（是 Proxy，或者是克隆不了的内建对象）`);
-  return out;
 }
 
 /** 画幅 [宽, 高]：两个正的有限的数，按下标查（空槽读出来是 undefined，过不了） */
@@ -175,7 +180,7 @@ function checkName(name, taken, code) {
  *   { kind: 'svg', name, rect, svg: '<svg …>…</svg>', opacity? }  整张图是一个实体，拉满 rect
  *   { kind: 'dom', html, opacity? }                              一层排版，里面每个带 data-entity 的节点是一个实体，矩形从排版结果量
  * opacity(f, sub) 交 [0, 1] 里的数，不写就是 1。声明不对报 usage.bad-argument；svg、html 还要过 checkMarkup（查过的惰性文档抄在 doc 里，node 里是 null）。
- * size、elements 先各抄一份再查（见 copy）：Proxy、访问器、数组空槽都不收，交回的数组没有空槽。
+ * size、elements 先各抄一份再查（见 copy）：非普通对象、访问器、数组空槽都不收，交回的数组没有空槽。
  */
 export function checkElements(size, elements) {
   return declared(() => checkItems(checkSize('size', copy('size', size)), copy('elements', elements)));
@@ -269,8 +274,7 @@ function inkOf(width, height, isInk) {
 export function createTwoDStage(ctx, opts = {}) {
   // 声明不对当场抛，不放进交回的 Promise 里：调用处不带 await 的 try/catch 也接得住，页面一个节点都还没动
   const [at, look, items, fonts] = declared(() => {
-    if (!ctx || typeof ctx !== 'object') throw bad('ctx 必须是 build(ctx) 收到的那个');
-    if (isProxy(ctx)) throw bad('ctx 是 Proxy，必须是 build(ctx) 收到的那个');
+    if (!ctx || typeof ctx !== 'object' || Array.isArray(ctx)) throw bad('ctx 必须是 build(ctx) 收到的那个');
     // ctx 是宿主的东西，不整份抄：只照描述符读 size、THREE 这两个（访问器不收），不碰 ctx 上的其他属性
     const [raw, THREE] = ['size', 'THREE'].map((k) => {
       const p = Object.getOwnPropertyDescriptor(ctx, k);

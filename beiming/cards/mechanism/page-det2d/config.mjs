@@ -1,38 +1,54 @@
-// 声明与原生宿主对象分开：只按描述符取数据，先拒 Proxy，再做任何反射。
-import { installProxyRegistry } from '../../../sources/three/proxy-registry.js';
-
-const isProxy = globalThis.process?.versions?.node
-  ? (await import('node:util/types')).isProxy : installProxyRegistry();
+// 声明与原生宿主对象分开：只按自有数据属性描述符取纯数据，不触发访问器，读声明抛错统一包为 usage.bad-argument。
 export const bad = (message) => Object.assign(new Error(`page.det2d: ${message}`), { code: 'usage.bad-argument' });
 export const requireValue = (ok, message) => { if (!ok) throw bad(message); };
-const direct = (v) => v !== null && typeof v === 'object' && !isProxy(v);
+const fnToStr = Function.prototype.toString;
+function rootProto(proto, kind = 'Object') {
+  if (proto === null) return kind === 'Object';
+  const C = Object.getOwnPropertyDescriptor(proto, 'constructor')?.value;
+  return typeof C === 'function' && fnToStr.call(C) === `function ${kind}() { [native code] }` && Object.getOwnPropertyDescriptor(C, 'prototype')?.value === proto;
+}
+function readDeclared(fn) {
+  try { return fn(); } catch (err) {
+    if (err && typeof err === 'object' && err.code === 'usage.bad-argument') throw err;
+    let why = '声明不可读';
+    try { if (err?.message) why = String(err.message); } catch { /* 留空 */ }
+    throw bad(why);
+  }
+}
+const direct = (v) => v !== null && typeof v === 'object';
 function record(v) {
-  requireValue(direct(v) && [null, Object.prototype].includes(Object.getPrototypeOf(v)), '必须是直接声明的普通对象');
+  requireValue(direct(v) && !Array.isArray(v) && rootProto(Object.getPrototypeOf(v), 'Object'), '必须是直接声明的普通对象');
 }
 export function fields(v, allowed) {
-  record(v);
-  const out = Object.create(null);
-  for (const k of Reflect.ownKeys(v)) {
-    const d = Object.getOwnPropertyDescriptor(v, k);
-    requireValue(allowed.includes(k) && d.enumerable && Object.hasOwn(d, 'value') && d.value !== undefined && !isProxy(d.value), '声明含未知键、访问器、Proxy 或非显式字段');
-    out[k] = d.value;
-  }
-  return out;
+  return readDeclared(() => {
+    record(v);
+    const out = Object.create(null);
+    for (const k of Reflect.ownKeys(v)) {
+      const d = Object.getOwnPropertyDescriptor(v, k);
+      requireValue(typeof k === 'string' && allowed.includes(k) && d && d.enumerable && Object.hasOwn(d, 'value') && d.value !== undefined, '声明含未知键、访问器或非显式字段');
+      out[k] = d.value;
+    }
+    return out;
+  });
 }
 export function hostField(ctx, k) {
-  record(ctx);
-  const d = Object.getOwnPropertyDescriptor(ctx, k);
-  requireValue(d && Object.hasOwn(d, 'value') && !isProxy(d.value), `需要宿主的数据属性 ${k}`);
-  return d.value;
+  return readDeclared(() => {
+    record(ctx);
+    const d = Object.getOwnPropertyDescriptor(ctx, k);
+    requireValue(d && Object.hasOwn(d, 'value'), `需要宿主的数据属性 ${k}`);
+    return d.value;
+  });
 }
 function list(v, min, max, what) {
-  requireValue(direct(v) && Array.isArray(v) && Object.getPrototypeOf(v) === Array.prototype, `${what} 需要数组`);
-  const n = Object.getOwnPropertyDescriptor(v, 'length').value;
-  requireValue(n >= min && n <= max && Reflect.ownKeys(v).length === n + 1, `${what} 长度或自有键不合法`);
-  return Array.from({ length: n }, (_, i) => {
-    const d = Object.getOwnPropertyDescriptor(v, i);
-    requireValue(d && d.enumerable && Object.hasOwn(d, 'value'), `${what} 不收空槽或访问器`);
-    return d.value;
+  return readDeclared(() => {
+    requireValue(direct(v) && Array.isArray(v) && rootProto(Object.getPrototypeOf(v), 'Array'), `${what} 需要数组`);
+    const n = Object.getOwnPropertyDescriptor(v, 'length').value;
+    requireValue(n >= min && n <= max && Reflect.ownKeys(v).length === n + 1, `${what} 长度或自有键不合法`);
+    return Array.from({ length: n }, (_, i) => {
+      const d = Object.getOwnPropertyDescriptor(v, i);
+      requireValue(d && d.enumerable && Object.hasOwn(d, 'value'), `${what} 不收空槽或访问器`);
+      return d.value;
+    });
   });
 }
 
