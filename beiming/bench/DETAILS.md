@@ -1,6 +1,6 @@
 # 考题：细则
 
-[README.md](README.md) 是索引；这里放跑题器的判分口径、隔离边界和落盘字段，以及[看板](#看板)的输入与口径。代码 [runner.mjs](runner.mjs)（隔离和观测复用 `tools/eval/lib`），测试 `node --test beiming/bench/runner.test.mjs`（要真片的两条在没有 FFmpeg 的机器上跳过）。
+[README.md](README.md) 是索引；这里放跑题器的判分口径、隔离边界和落盘字段，[看板](#看板)的输入与口径，以及[成片墙、原话账本与盲选页](#成片墙原话账本与盲选页)的流程和隔离规则。代码 [runner.mjs](runner.mjs)（隔离和观测复用 `tools/eval/lib`）、[board.mjs](board.mjs)、[wall.mjs](wall.mjs)，测试 `node --test beiming/bench/runner.test.mjs`（要真片的两条在没有 FFmpeg 的机器上跳过）与 `node --test beiming/bench/wall.test.mjs`。
 
 ## 默认判分 `defaultJudge`
 
@@ -137,6 +137,7 @@ node beiming/bench/board.mjs build --out-dir <目录> [--as-of <YYYY-MM-DD>] [--
 - `packParity`：过了确定性验收的包数比 5，跑过消融的开关数比 56。`harvest`：起草、晋升、归档、走到复现过的候选数。
 - `expectedFailQuestions`：预期失败题的数量和题号。
 - `staleReproducedCards`：停在 `reproduced` 且从到这一级最早那天到 `asOf` 超过 14 天的卡（正好 14 天不算）。只读过的占位卡和候选卡放多久都不算；没写日期的列在 `undated`。
+- `scoreboardMetric`（可选入参，命令行也可经 `--extra` 传入）：接入 B11 第 5 步 `computeWeeklyRejectionStats` 产出的自然周重复打回率 `{ firstTimeCount, repeatCount, total, repeatRate }`（可选带 `weekStart` / `weekEnd`），经计数与比率一致性校验后随看板落盘并在静态页「反向指标」区渲染周重复打回率。
 
 ### 历史、静态页与门禁
 
@@ -149,3 +150,31 @@ node beiming/bench/board.mjs build --out-dir <目录> [--as-of <YYYY-MM-DD>] [--
 ## 起草形态
 
 `normalizeQuestionDraft(draft)` 把起草写法（YAML 读成的对象）换成 `question/0.1`，只换不校验：下划线键改小驼峰（到 `scoring[].args` 第一层为止，`assets`、`ext` 里的不动），`width`、`height` 并成 `size`，整数 `fps` 写成 `"n/1"`，`wall_s`（秒）换成 `wallMs`，`gpu_s` 换成 `gpuSeconds`，`初值未校准` 换成 `uncalibrated`，`metric:` 前缀去掉。新旧键并存（`size` 和 `width`）不覆盖，留给校验报错；一个键两种拼法并存或草稿不是纯数据抛 `TypeError`。
+
+## 成片墙、原话账本与盲选页
+
+代码 [wall.mjs](wall.mjs)（由 `index.mjs` 重导出），测试 `node --test beiming/bench/wall.test.mjs`。构建与计分函数不读墙钟、不调 `Math.random`，日期与带时区的 ISO-8601 时间戳由调用方显式传入。入参须为普通 JSON 对象与数组（不防调用方自造的 `Proxy` 或取值器），非法参数统一抛 `code` 为 `usage.bad-argument`（`exitCode` 2）的 `TypeError` 或 `RangeError`。三张 HTML 页面全部离线自包含（零外链，带 `default-src 'none'` 内容安全策略，内联交互脚本零动态插值），所有动态文本经 `escapeHtml` 转义；媒体路径只收相对路径或受控路由前缀（`/api/`、`/artifacts/`、`/media/`、`/blind/`、`/wall/`、`/films/`、`/refs/`），拦截 `..`（含多重百分号编码与查询串）、反斜杠、协议头（`http:`、`https:`、`javascript:`、`data:`、`file:` 等）、`//` 外链、盘符与宿主系统绝对路径。
+
+### 每日成片墙 `buildFilmWall` / `renderFilmWallHtml`
+
+- `buildFilmWall({ date, films, scoreboard, unmeasurableDimensions, maxDaily = 5, includeAllFailed = true, seed })` 回深冻结的 `bench-wall/0.1` 快照：过滤出当天的成片；`includeAllFailed` 为真时保留全部 `ok === false` 的失败片，并按 `seed` 的 SHA-256 摘要从成功片里确定性抽样至多 `maxDaily` 条。
+- 每条成片带并排参考（`reference: { mediaUrl, label, kind }`）、与 `board.mjs` 四数同口径的 `fourIndicators`（`ceiling` 含考题通过率、盲选、对拍余量与 `energyRulers` 能量尺读数，`unattended`，`speedAndCost`，`controllability` 含纯函数门、局部性、同机重建、`rebuild.tolerance` 跨机容差与夜间重建；缺数据时 `value` 为 `null`、`display` 为 `暂无`）、按 `template` 与通配 `*` 匹配的 `unmeasurableDimensions`，以及审核状态（`pending` / `approved` / `rejected`）。
+- `renderFilmWallHtml(wall)` 输出单页中文静态 HTML，并排展示今日成片与参考媒体、四个核心指标、判不了的维度，以及离线导出回执的「过 / 一句话打回」操作区（回执自带 ISO-8601 `at`，可直接交给 `recordRejection` 入账）。
+
+### 原话账本与五步流程
+
+账本目录 `ledgerDir` 在 `withFileLock` 互斥锁下以追加日志 `events.jsonl` 为唯一事实源（第 4 步另追加 `reads.jsonl`），每次变更同步原子刷新 `entries.json`、`predicate-additions.json`、`unmeasurable-dimensions.json`、`weekly-stats.json`；`loadLedgerState(ledgerDir)` 从磁盘重放并返回 `bench-rejection-ledger/0.1` 快照，`renderLedgerHtml(ledgerState)` 渲染无脚本离线静态页。
+
+1. `recordRejection(ledgerDir, { filmId, template, frames, verbatim, category, author, at })`：核验帧区间 `[start, end]`（`0 <= start <= end` 的安全整数）与非空原话后，将 `verbatim` **一字不改**写入账本，回 `step: 1` 条目（`rej-0001` 起顺序编号）。
+2. `translateRejection(ledgerDir, entryId, { candidatePredicate, missedLayer, rationale, reviewer, at })`：记录候选谓词并必填 `missedLayer`（仅限 `'L1'..'L5'`），时间戳不得早于第 1 步，推进至 `step: 2`。
+3. `confirmRejectionTriage(ledgerDir, entryId, { decision, template, predicate, dimension, reason, category, curator, at })`：要求已完成第 2 步。`decision === 'add-predicate'` 时调用 `beiming/verify/predicates.mjs` 的 `checkExtra` 对登记表与参数语法做正式校验（未登记、语法错误、含引号外分号或 `planned` 未实装谓词一律拒绝且不落盘），通过后按 `(template, predicate)` 去重写入基础谓词增补表；`decision === 'unmeasurable-dimension'` 时按 `(template, dimension)` 去重登记为人工把关维度，推进至 `step: 3`。
+4. `recordLedgerRead(ledgerDir, { filmId, template, reader, at })`：下一部同片型作品开工前按 `template`（含 `*`）检索相关打回原话、增补谓词与判不了的维度，追加不可遗漏的 `readRecord`（`read-0001` 起），已过第 3 步的相关条目推进至 `step: 4`。
+5. `computeWeeklyRejectionStats(ledgerDir, { weekOf })`：按 `entry.at` 时间戳写明的日历日期归入自然周（周一至周日），按 `category`（缺省依次回退裁定谓词、维度、候选谓词、原话）统计 `totalRejections`、`uniqueCategories`、`repeatedRejections`（同类超出首次的重复次数 `max(0, count - 1)` 之和）与 `repeatRate`，幂等更新该周快照并将已过第 4 步的周内条目推进至 `step: 5`，产出的 `scoreboardMetric` 可直接交给 `buildBoard` 接入 B9 看板展示。
+
+### 盲选页 `createBlindSession` / `renderBlindPageHtml` / `recordBlindBallot` / `unblindBlindSession`
+
+- `createBlindSession({ sessionId, purpose, pairs, decisionLine, createdAt, seed })`：支持约 10 组（U7 同等画面）至 30 组以上（核心接管）的静帧（`still`）或短片段（`clip`）。前置判定线 `decisionLine` 必填且 `committedAt <= createdAt`，支持 `minTargetWinsOrTies` / `minCandidateWinsOrTies` / `minWinsOrTies` 门槛。显式传入 `seed` 时按 `(seed, sessionId, pairIndex)` 的 SHA-256 最低位确定性分配每组 `left` / `right` 槽位；省略 `seed` 时由 `crypto.randomBytes(16)` 生成不可预测随机种子（仅写入 `answerKey.seed`，绝不退回公开 `sessionId` 也不写入 `publicSession`）。返回严格隔离且以规范 `sha256:` `layoutDigest` 互相绑定的 `{ publicSession, answerKey }`。
+- 零泄露门禁：`publicSession`（`bench-blind-public/0.1`）只保留中立编号 `pair-01` 与槽位 `pair-01-L` / `pair-01-R`，剔除 `targetSource`、原始 `pair.id`、双方 `source` / `label` 与审片选择；`createBlindSession` 与 `renderBlindPageHtml` 对公开字段与媒体路径做循环百分号解码（容错非法 `%`）+ NFKC 归一扫描，命中任何候选来源名、标签或内置来源词（`beiming`、`北冥`、`cycles`、`blender`、`reference`、`gpt` 等）即拒收；盲选页标题与正文全部中立（不含「北冥」字样），导出的选票 JSON 自带 ISO-8601 `submittedAt` 与 `layoutDigest`。
+- `recordBlindBallot(ballotStore, publicSession, { sessionId, layoutDigest, voter, votes, submittedAt })`：校验 `ballot.sessionId` 与 `ballot.layoutDigest`（提供时必须与当前会话完全一致，禁止跨会话静默覆写）、核验每组投票仅限 `'left' | 'right' | 'tie'` 且不重不漏、强制校验 `submittedAt >= decisionLine.committedAt`（按纪元纳秒精确比较），向受控目录追加写入 `ballots.jsonl`（或推入内存数组），回 `bench-blind-ballot/0.1`。
+- `unblindBlindSession(publicSession, answerKey, ballot)`：核对会话、`answerKey.layoutDigest` 与公开槽位现算 `layoutDigest`（禁止同场重排后用旧答案键静默揭盲）及判定线一致后揭盲，回 `bench-blind-report/0.1`：汇总双方胜出数、`ties`、`targetWinsOrTies`、U7 判定 `passed`（`targetWins + ties >= minWinsOrTies`）及可直接传入 `buildBoard({ blindPicks })` 的 `boardBlindPicks`；提供 `reviewerChoice`（或 `reviewerPerspectives`）时计算审片与人类一致率 `agreementRate`，当 `agreementRate < 0.6` 时置 `disablePerspective: true`（恰为 `0.6` 保留）。
+

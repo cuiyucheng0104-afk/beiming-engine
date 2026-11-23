@@ -1006,3 +1006,61 @@ test('入口 index.mjs 导出看板的公开接口', () => {
   for (const name of ['buildBoard', 'renderBoardHtml', 'appendBoardHistory']) assert.equal(bench[name], { buildBoard, renderBoardHtml, appendBoardHistory }[name]);
   assert.deepEqual([bench.BOARD_FORMAT, bench.UNSUPPORTED_REASON, bench.TOTAL_PRIORS_BASELINE], ['bench-board/0.1', '这个帧源没有这项能力', 4452]);
 });
+
+test('L2 看板接收并校验第 5 步周重复打回率 scoreboardMetric 并在静态页展示', (t) => {
+  const metric = { firstTimeCount: 2, repeatCount: 1, total: 3, repeatRate: 1 / 3 };
+  const board = buildBoard({ asOf: AS_OF, scoreboardMetric: metric });
+  assert.deepEqual(board.scoreboardMetric, metric);
+  assert.ok(Object.isFrozen(board.scoreboardMetric));
+  assert.equal(appendBoardHistory([], board).length, 1);
+
+  const html = renderBoardHtml(board);
+  assert.match(html, /周重复打回率/);
+  assert.match(html, /33\.3%/);
+  assert.match(html, /1 \/ 3/);
+  assert.ok(!/<script/i.test(html));
+
+  // 空周（total = 0, repeatRate = null）与显式周区间均正常接收
+  const emptyWeek = buildBoard({
+    asOf: AS_OF,
+    scoreboardMetric: { firstTimeCount: 0, repeatCount: 0, total: 0, repeatRate: null, weekStart: '2026-11-23', weekEnd: '2026-11-29' },
+  });
+  assert.equal(emptyWeek.scoreboardMetric.repeatRate, null);
+  const emptyHtml = renderBoardHtml(emptyWeek);
+  assert.match(emptyHtml, /2026-11-23 至 2026-11-29/);
+
+  // 命令行 --extra 透传 scoreboardMetric
+  const dir = mkdtempSync(join(tmpdir(), 'beiming-b9-l2-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(join(dir, 'extra.json'), JSON.stringify({ scoreboardMetric: metric }));
+  const res = run(['build', '--as-of', AS_OF, '--out-dir', join(dir, 'out'), '--extra', join(dir, 'extra.json')]);
+  assert.equal(res.code, 0, res.stderr);
+  assert.match(readFileSync(join(dir, 'out', 'index.html'), 'utf8'), /33\.3%/);
+
+  // 非法结构、计数矛盾、越界比率、未授权键、Proxy 与泄露内容一律拒收
+  let traps = 0;
+  const badProxy = new Proxy(metric, new Proxy({}, { get: () => { traps += 1; return undefined; } }));
+  for (const badMetric of [
+    null,
+    [],
+    '33.3%',
+    { firstTimeCount: 2, repeatCount: 1, total: 3, repeatRate: 1 / 3, extra: 1 },
+    { firstTimeCount: 1, repeatCount: 1, total: 3, repeatRate: 1 / 3 },
+    { firstTimeCount: 0, repeatCount: 4, total: 3, repeatRate: 1 },
+    { firstTimeCount: -1, repeatCount: 1, total: 0, repeatRate: null },
+    { firstTimeCount: 2, repeatCount: 1, total: 3, repeatRate: 0.5 },
+    { firstTimeCount: 2, repeatCount: 1, total: 3, repeatRate: null },
+    { firstTimeCount: 0, repeatCount: 0, total: 0, repeatRate: 0 },
+    { firstTimeCount: 2, repeatCount: 1, total: 3, repeatRate: 1 / 3, weekStart: '2026-11-29', weekEnd: '2026-11-23' },
+    badProxy,
+  ]) {
+    assert.throws(() => buildBoard({ asOf: AS_OF, scoreboardMetric: badMetric }), isBadArgument);
+  }
+  assert.equal(traps, 0);
+
+  // renderBoardHtml 同样校验篡改后的 scoreboardMetric
+  const tampered = JSON.parse(JSON.stringify(board));
+  tampered.scoreboardMetric = { firstTimeCount: 1, repeatCount: 1, total: 9, repeatRate: 0.5 };
+  assert.throws(() => renderBoardHtml(tampered), isBadArgument);
+});
+
