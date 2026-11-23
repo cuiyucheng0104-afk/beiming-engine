@@ -50,7 +50,16 @@ export async function runDelegateOrchestrator({
   let at = 'director:step-1', stoppedReason;
   const activeChildren = new Set();
   const discoveredCards = [];
-  const result = (status, extra = {}) => ({ status, ...extra, bestRev, delegateTokens: usedTokens, cost: { tokens: usedTokens + serverTokens, gpuSeconds, wallMs: elapsed() }, outputs });
+  const skippedRemovedShots = [];
+  const result = (status, extra = {}) => ({
+    status,
+    ...extra,
+    bestRev,
+    delegateTokens: usedTokens,
+    ...(skippedRemovedShots.length ? { skippedRemovedShots } : {}),
+    cost: { tokens: usedTokens + serverTokens, gpuSeconds, wallMs: elapsed() },
+    outputs,
+  });
   const http = async (method, path, client = api) => JSON.parse((await callApi(client, { method, path })).text).body;
   async function full(env) {
     const ref = env?.outputs?.find(o => o.kind === 'response');
@@ -195,6 +204,15 @@ export async function runDelegateOrchestrator({
       try {
         res = await chat({ endpoint, apiKey, signal: deadline && signal ? AbortSignal.any([signal, deadline]) : deadline ?? signal, body, requireUsage: true });
       } catch (e) {
+        if (e?.usage) {
+          const uIn = e.usage.inputTokens ?? 0;
+          const uOut = e.usage.outputTokens ?? 0;
+          if (uIn > 0 || uOut > 0) {
+            const errModel = typeof e.model === 'string' && e.model ? e.model : model;
+            usedTokens += uIn + uOut;
+            onUsage?.({ role: tag, step, model: errModel, family: familyOf(errModel), inputTokens: uIn, outputTokens: uOut });
+          }
+        }
         if (deadline?.aborted && !signal?.aborted) stop('wallSeconds');
         throw e;
       }
@@ -228,12 +246,20 @@ export async function runDelegateOrchestrator({
         filmRev = bestRev;
       }
       let shot = film.shots.find((s) => s.id === shotId);
-      if (!shot) continue;
+      if (!shot) {
+        skippedRemovedShots.push({ shot: shotId, rev: filmRev });
+        continue;
+      }
       if (!await session('shot-worker', shot, film)) {
-        // 重试前重新读取最新片子与镜头条目，确保第二次任务书拿到最新 rev 与改动后的镜头 JSON
+        // 重试前重新读取最新片子与镜头条目，确保第二次任务书拿到最新 rev 与改动后的镜头 JSON；
+        // 若最新修订已删除该镜头，不得回退旧镜头继续派工，直接跳过并记入状态。
         film = await readFilm();
         filmRev = bestRev;
-        shot = film.shots.find((s) => s.id === shotId) ?? shot;
+        shot = film.shots.find((s) => s.id === shotId);
+        if (!shot) {
+          skippedRemovedShots.push({ shot: shotId, rev: filmRev });
+          continue;
+        }
         if (!await session('shot-worker', shot, film)) return result('failed', { failedAt: `shot-worker:${shotId}` });
       }
     }

@@ -43,6 +43,31 @@ const METHODS = ['GET', 'POST', 'PUT', 'DELETE'];
 // 一次模型调用最多等多久（毫秒）
 const MODEL_TIMEOUT_MS = 120000;
 const SEVERITIES = ['low', 'medium', 'high', 'info', 'warn', 'error'];
+// 单张 L5 视觉审片选票的默认输出 token 上限（每次请求必带 max_tokens，用于可执行上界与防失控输出）
+export const DEFAULT_REVIEW_MAX_OUTPUT_TOKENS = 1_024;
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const REVIEW_MIN_IMAGE_TOKENS = 1_024;
+const REVIEW_FALLBACK_IMAGE_TOKENS = 2_048;
+
+/** 估算单张视觉图像的保守输入 token 上界（覆盖 OpenAI 512px 分块、Claude 面积与 Gemini 视觉计费） */
+function estimateImageTokens(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 24 || !buf.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    return REVIEW_FALLBACK_IMAGE_TOKENS;
+  }
+  const width = buf.readUInt32BE(16);
+  const height = buf.readUInt32BE(20);
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
+    return REVIEW_FALLBACK_IMAGE_TOKENS;
+  }
+  const tiles = Math.ceil(width / 512) * Math.ceil(height / 512);
+  const areaBound = Math.ceil((width * height) / 512);
+  return Math.max(REVIEW_MIN_IMAGE_TOKENS, tiles * 256 + 256, areaBound);
+}
+
+/** 估算单张 L5 选票纯文本输入的保守 token 上界（UTF-8 字节数 + 消息封装开销，永不为 0） */
+function estimateReviewTextInputTokens(systemContent, userText) {
+  return Buffer.byteLength(systemContent, 'utf8') + Buffer.byteLength(userText, 'utf8') + 256;
+}
 
 const AGENT_SYSTEM = [
   '你是一个只通过 HTTP 接口做片子的代理。你手里只有一个工具 http_request，只能调本服务 /v1/ 开头的动词；令牌由工具替你带。',
@@ -81,7 +106,7 @@ function requireConfig(what, names, { endpoint, apiKey, model, ledgerPath }) {
   if (missing.length) throw new TypeError(`${what}缺配置：${missing.join('、')}`);
 }
 
-/** 调一次 chat/completions：交回 { message, model, usage: { inputTokens, outputTokens } } */
+/** 调一次 chat/completions：先提取可核算 usage 再校验 choices[0].message，异常对象亦附带已提取的 usage 与 model */
 export async function chat({ endpoint, apiKey, body, signal, requireUsage = false }) {
   const target = /\/chat\/completions\/?$/.test(endpoint) ? endpoint : `${endpoint.replace(/\/+$/, '')}/chat/completions`;
   const res = await fetch(target, {
@@ -91,13 +116,29 @@ export async function chat({ endpoint, apiKey, body, signal, requireUsage = fals
   if (!res.ok) throw new ModelResponseError(`模型接口返回 HTTP ${res.status}`);
   let data;
   try { data = await res.json(); } catch { throw new ModelResponseError('模型接口返回的不是 JSON'); }
+  const resolvedModel = typeof data?.model === 'string' && data.model.trim() ? data.model : body.model;
+  const hasUsageObj = Boolean(data?.usage && typeof data.usage === 'object');
+  let inputTokens = count(data?.usage?.prompt_tokens ?? data?.usage?.input_tokens);
+  let outputTokens = count(data?.usage?.completion_tokens ?? data?.usage?.output_tokens);
+  if (!requireUsage && inputTokens === 0 && outputTokens === 0) {
+    const total = count(data?.usage?.total_tokens);
+    if (total > 0) inputTokens = total;
+  }
+  const usage = { inputTokens, outputTokens };
+  const withUsage = (err) => {
+    if (hasUsageObj && (inputTokens > 0 || outputTokens > 0)) {
+      err.usage = usage;
+      err.model = resolvedModel;
+    }
+    return err;
+  };
   const message = data?.choices?.[0]?.message;
-  if (!message || typeof message !== 'object') throw new ModelResponseError('模型接口的返回里没有 choices[0].message');
+  if (!message || typeof message !== 'object') throw withUsage(new ModelResponseError('模型接口的返回里没有 choices[0].message'));
   if (requireUsage && !(Number.isSafeInteger(data.usage?.prompt_tokens) && data.usage.prompt_tokens > 0 &&
     Number.isSafeInteger(data.usage.completion_tokens) && data.usage.completion_tokens >= 0)) {
-    throw new ModelResponseError('模型接口没有返回可核算的 token 用量');
+    throw withUsage(new ModelResponseError('模型接口没有返回可核算的 token 用量'));
   }
-  return { message, model: typeof data.model === 'string' ? data.model : body.model, usage: { inputTokens: count(data.usage?.prompt_tokens), outputTokens: count(data.usage?.completion_tokens) } };
+  return { message, model: resolvedModel, usage };
 }
 
 /**
@@ -253,6 +294,7 @@ export function createOpenAiVisionReviewer({
   perspectives = L5_PERSPECTIVES,
   votesPerPerspective = 3,
   maxTokens = null,
+  maxOutputTokens = DEFAULT_REVIEW_MAX_OUTPUT_TOKENS,
 } = {}) {
   requireConfig('审片客户端', { endpoint: 'BEIMING_REVIEW_ENDPOINT', apiKey: 'BEIMING_REVIEW_API_KEY', model: 'BEIMING_REVIEW_MODEL' }, { endpoint, apiKey, model, ledgerPath });
   if (!Number.isSafeInteger(votesPerPerspective) || votesPerPerspective < 1) {
@@ -260,6 +302,9 @@ export function createOpenAiVisionReviewer({
   }
   if (maxTokens !== null && maxTokens !== undefined && (!Number.isSafeInteger(maxTokens) || maxTokens < 0)) {
     throw Object.assign(new Error('maxTokens 必须是非负安全整数'), { code: 'usage.bad-argument' });
+  }
+  if (!Number.isSafeInteger(maxOutputTokens) || maxOutputTokens < 1) {
+    throw Object.assign(new Error('maxOutputTokens 必须是正安全整数'), { code: 'usage.bad-argument' });
   }
   return {
     model,
@@ -274,15 +319,15 @@ export function createOpenAiVisionReviewer({
       candidates = [],
       budgetCheck = null,
       maxTokens: reqMaxTokens = null,
+      maxOutputTokens: reqMaxOutputTokens = null,
       signal = null,
     } = {}) {
       if (reqMaxTokens !== null && reqMaxTokens !== undefined && (!Number.isSafeInteger(reqMaxTokens) || reqMaxTokens < 0)) {
         throw Object.assign(new Error('maxTokens 必须是非负安全整数'), { code: 'usage.bad-argument' });
       }
-      const imageParts = images.map((img) => ({
-        type: 'image_url',
-        image_url: { url: `data:image/png;base64,${readFileSync(img.path).toString('base64')}` },
-      }));
+      if (reqMaxOutputTokens !== null && reqMaxOutputTokens !== undefined && (!Number.isSafeInteger(reqMaxOutputTokens) || reqMaxOutputTokens < 1)) {
+        throw Object.assign(new Error('maxOutputTokens 必须是正安全整数'), { code: 'usage.bad-argument' });
+      }
       const resolvedFilmId = typeof filmId === 'string' && filmId.trim()
         ? filmId.trim()
         : (typeof film?.id === 'string' && film.id.trim() ? film.id.trim() : null);
@@ -290,19 +335,62 @@ export function createOpenAiVisionReviewer({
         p,
         votes: Number.isSafeInteger(p.votes) && p.votes > 0 ? p.votes : votesPerPerspective,
       }));
+      // 在发首票前先校验候选目录（避免非法/重复候选 ID 浪费 token）
+      shuffleCandidatesForBallot(candidates, {
+        filmId: resolvedFilmId ?? 'film',
+        perspective: planned[0]?.p?.id ?? 'composition-readability',
+        voteIndex: 0,
+      });
+      let imageInputBound = 0;
+      const imageParts = images.map((img) => {
+        const buf = readFileSync(img.path);
+        imageInputBound += estimateImageTokens(buf);
+        return {
+          type: 'image_url',
+          image_url: { url: `data:image/png;base64,${buf.toString('base64')}` },
+        };
+      });
       const totalBallots = planned.reduce((n, item) => n + item.votes, 0);
       const effectiveMaxTokens = [maxTokens, reqMaxTokens]
         .filter((v) => Number.isSafeInteger(v) && v >= 0)
         .reduce((min, v) => Math.min(min, v), Infinity);
+      const configuredMaxOutput = reqMaxOutputTokens !== null && reqMaxOutputTokens !== undefined
+        ? Math.min(maxOutputTokens, reqMaxOutputTokens)
+        : maxOutputTokens;
 
       const ballots = [];
       const invalidBallots = [];
       let inputTokens = 0;
       let outputTokens = 0;
+      let maxObservedInputTokens = 0;
+      let maxObservedTotalTokens = 0;
       let lastModel = model;
       let ballotIndex = 0;
       let executedBallots = 0;
       let stoppedReason = null;
+
+      const recordUsage = (usedModel, usage, perspectiveId, voteIdx) => {
+        const uIn = count(usage?.inputTokens);
+        const uOut = count(usage?.outputTokens);
+        const uTotal = uIn + uOut;
+        lastModel = usedModel;
+        inputTokens += uIn;
+        outputTokens += uOut;
+        maxObservedInputTokens = Math.max(maxObservedInputTokens, uIn);
+        maxObservedTotalTokens = Math.max(maxObservedTotalTokens, uTotal);
+        executedBallots++;
+        appendExternalLedger(ledgerPath, {
+          ...(resolvedFilmId ? { film: resolvedFilmId } : {}),
+          role: 'reviewer',
+          perspective: perspectiveId,
+          voteIndex: voteIdx,
+          family: familyOf(usedModel),
+          model: usedModel,
+          inputTokens: uIn,
+          outputTokens: uOut,
+        });
+        return uTotal;
+      };
 
       for (const { p, votes } of planned) {
         if (stoppedReason) break;
@@ -313,30 +401,6 @@ export function createOpenAiVisionReviewer({
           if (signal?.aborted) {
             stoppedReason = 'canceled';
             break;
-          }
-          const spentTokens = inputTokens + outputTokens;
-          const estimatedNextTokens = executedBallots > 0 ? Math.ceil(spentTokens / executedBallots) : 0;
-          if (Number.isFinite(effectiveMaxTokens)) {
-            if (spentTokens >= effectiveMaxTokens || (executedBallots > 0 && spentTokens + estimatedNextTokens > effectiveMaxTokens)) {
-              stoppedReason = 'budget.tokens';
-              break;
-            }
-          }
-          if (typeof budgetCheck === 'function') {
-            const decision = await budgetCheck({
-              ballotIndex,
-              totalBallots,
-              spentTokens,
-              estimatedNextTokens,
-              perspective: p.id,
-              voteIndex,
-            });
-            if (decision === false || (decision && typeof decision === 'object' && (decision.ok === false || decision.allow === false))) {
-              stoppedReason = (decision && typeof decision === 'object' && typeof decision.reason === 'string' && decision.reason.trim())
-                ? decision.reason.trim()
-                : 'budget.tokens';
-              break;
-            }
           }
 
           const orderedCandidates = shuffleCandidatesForBallot(candidates, {
@@ -363,7 +427,79 @@ export function createOpenAiVisionReviewer({
           const content = [{ type: 'text', text }, ...imageParts];
           const systemContent = `[ROLE:reviewer][PERSPECTIVE:${p.id}][VOTE:${voteIndex + 1}]\n${DELEGATE_ROLES.reviewer.systemPrompt}`;
 
-          let res;
+          // 发票前计算可执行保守上界（文本 + 图像 + 输出上限，且不低于已观测单票高水位；首票绝不为 0）
+          const spentTokens = inputTokens + outputTokens;
+          const staticInputBound = estimateReviewTextInputTokens(systemContent, text) + imageInputBound;
+          const inputUpperBound = Math.max(staticInputBound, maxObservedInputTokens);
+          let requestMaxTokens = configuredMaxOutput;
+          if (Number.isFinite(effectiveMaxTokens)) {
+            const localRemaining = effectiveMaxTokens - spentTokens;
+            const minRequired = Math.max(inputUpperBound + 1, maxObservedTotalTokens);
+            if (localRemaining < minRequired) {
+              stoppedReason = 'budget.tokens';
+              break;
+            }
+            requestMaxTokens = Math.min(requestMaxTokens, Math.floor(localRemaining - inputUpperBound));
+            if (requestMaxTokens < 1) {
+              stoppedReason = 'budget.tokens';
+              break;
+            }
+          }
+          const estimatedNextTokens = Math.max(inputUpperBound + requestMaxTokens, maxObservedTotalTokens);
+
+          let settleReservation = null;
+          if (typeof budgetCheck === 'function') {
+            let decision;
+            try {
+              decision = await budgetCheck({
+                ballotIndex,
+                totalBallots,
+                spentTokens,
+                estimatedInputTokens: inputUpperBound,
+                maxOutputTokens: requestMaxTokens,
+                maxObservedTokens: maxObservedTotalTokens,
+                estimatedNextTokens,
+                perspective: p.id,
+                voteIndex,
+              });
+            } catch {
+              // 预算回调抛错时停止后续投票，保留已投出的全部有效票与累计 usage 交回 layerL5/work 记账
+              stoppedReason = 'budget.check-error';
+              break;
+            }
+            if (decision === false || (decision && typeof decision === 'object' && (decision.ok === false || decision.allow === false))) {
+              stoppedReason = (decision && typeof decision === 'object' && typeof decision.reason === 'string' && decision.reason.trim())
+                ? decision.reason.trim()
+                : 'budget.tokens';
+              break;
+            }
+            if (decision && typeof decision === 'object') {
+              if (typeof decision.settle === 'function') settleReservation = decision.settle;
+              if (decision.maxOutputTokens !== undefined) {
+                if (!Number.isSafeInteger(decision.maxOutputTokens) || decision.maxOutputTokens < 1) {
+                  try { settleReservation?.(0); } catch { /* 释放无用量预留失败时不覆盖停票原因 */ }
+                  stoppedReason = 'budget.tokens';
+                  break;
+                }
+                requestMaxTokens = Math.min(requestMaxTokens, decision.maxOutputTokens);
+              } else if (!settleReservation && Number.isFinite(decision.remaining)) {
+                const minRequired = Math.max(inputUpperBound + 1, maxObservedTotalTokens);
+                if (decision.remaining < minRequired) {
+                  stoppedReason = 'budget.tokens';
+                  break;
+                }
+                requestMaxTokens = Math.min(requestMaxTokens, Math.floor(decision.remaining - inputUpperBound));
+                if (requestMaxTokens < 1) {
+                  stoppedReason = 'budget.tokens';
+                  break;
+                }
+              }
+            }
+          }
+
+          let res = null;
+          let ballotTotalTokens = 0;
+          let chatFailed = false;
           try {
             res = await chat({
               endpoint,
@@ -371,40 +507,44 @@ export function createOpenAiVisionReviewer({
               ...(signal ? { signal } : {}),
               body: {
                 model,
+                max_tokens: requestMaxTokens,
                 messages: [
                   { role: 'system', content: systemContent },
                   { role: 'user', content },
                 ],
               },
             });
+            ballotTotalTokens = recordUsage(res.model, res.usage, p.id, voteIndex);
           } catch (err) {
+            chatFailed = true;
+            if (err?.usage && (count(err.usage.inputTokens) > 0 || count(err.usage.outputTokens) > 0)) {
+              const errModel = typeof err.model === 'string' && err.model.trim() ? err.model : model;
+              ballotTotalTokens = recordUsage(errModel, err.usage, p.id, voteIndex);
+            }
             if (signal?.aborted) {
               stoppedReason = 'canceled';
-              break;
+            } else {
+              invalidBallots.push({
+                perspective: p.id,
+                voteIndex,
+                reason: reviewFailure(err),
+              });
             }
-            invalidBallots.push({
-              perspective: p.id,
-              voteIndex,
-              reason: reviewFailure(err),
-            });
+          } finally {
+            if (settleReservation) {
+              try {
+                settleReservation(ballotTotalTokens);
+              } catch {
+                stoppedReason = stoppedReason ?? 'budget.check-error';
+              }
+            }
+          }
+
+          if (stoppedReason) break;
+          if (chatFailed) {
             ballotIndex++;
             continue;
           }
-
-          lastModel = res.model;
-          inputTokens += res.usage.inputTokens;
-          outputTokens += res.usage.outputTokens;
-          executedBallots++;
-          appendExternalLedger(ledgerPath, {
-            ...(resolvedFilmId ? { film: resolvedFilmId } : {}),
-            role: 'reviewer',
-            perspective: p.id,
-            voteIndex,
-            family: familyOf(res.model),
-            model: res.model,
-            inputTokens: res.usage.inputTokens,
-            outputTokens: res.usage.outputTokens,
-          });
 
           const answer = typeof res.message.content === 'string'
             ? res.message.content

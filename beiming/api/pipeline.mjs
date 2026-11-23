@@ -723,7 +723,7 @@ export async function layerL5({
     if (Array.isArray(res?.ballots)) {
       const invalidBallots = Array.isArray(res.invalidBallots) ? res.invalidBallots : [];
       if (res.ballots.length === 0) {
-        if (invalidBallots.length === 0 && res.stoppedReason) {
+        if (invalidBallots.length === 0 && res.stoppedReason && res.stoppedReason !== 'budget.check-error') {
           return {
             status: 'not-run',
             reason: `审片因预算或中止条件未发票（${res.stoppedReason}）`,
@@ -769,7 +769,11 @@ export async function layerL5({
       };
     }
     const validated = validateReview(res, film?.output?.frames);
-    const filtered = filterL5SuggestedPredicates(validated.suggestedPredicates, { film, question });
+    const filtered = filterL5SuggestedPredicates(validated.suggestedPredicates, {
+      film,
+      question,
+      ...(Number.isSafeInteger(film?.output?.frames) ? { totalFrames: film.output.frames } : {}),
+    });
     return {
       status: 'ok',
       model: res.model,
@@ -781,7 +785,14 @@ export async function layerL5({
       overridesHardGates: false,
     };
   } catch (e) {
-    const usage = res?.usage ?? e?.usage ?? null;
+    const rawUsage = res?.usage ?? e?.usage ?? null;
+    const usage = rawUsage && typeof rawUsage === 'object'
+      ? {
+        inputTokens: rawUsage.inputTokens ?? 0,
+        outputTokens: rawUsage.outputTokens ?? 0,
+        totalTokens: rawUsage.totalTokens ?? ((rawUsage.inputTokens ?? 0) + (rawUsage.outputTokens ?? 0)),
+      }
+      : null;
     const invalidBallots = Array.isArray(res?.invalidBallots) && res.invalidBallots.length ? res.invalidBallots : null;
     return {
       status: 'failed',

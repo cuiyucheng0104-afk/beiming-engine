@@ -369,7 +369,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
       case 'observe-query': return work.observeQuery(id, body);
       case 'observe-sheet': return work.observeSheet(id, body);
       case 'observe-metrics': return work.observeMetrics(id, body);
-      case 'review': return work.review(id, body);
+      case 'review': return work.review(id, body, { deferRelease: true });
       case 'harvest': return { data: counted([]) };
       case 'ledger': return { data: counted(store.readLedger(id).reverse()) };
       default: throw missing('找不到这个动词');
@@ -378,68 +378,77 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
 
   const server = createServer(async (req, res) => {
     const start = monotonicMs();
-    let route, id, result, status = 200;
+    let route, id, result, releaseBudgetLease, status = 200;
     try {
-      const target = new URL(req.url, 'http://localhost');
-      const match = matchRoute(req.method, target.pathname);
-      route = match.route;
-      if (!route) {
-        if (!match.allowed.length) throw missing('路由不存在');
-        res.setHeader('Allow', match.allowed.join(', '));
-        throw new ApiError('usage.bad-argument', '此路径不支持该方法', { status: 405 });
+      try {
+        const target = new URL(req.url, 'http://localhost');
+        const match = matchRoute(req.method, target.pathname);
+        route = match.route;
+        if (!route) {
+          if (!match.allowed.length) throw missing('路由不存在');
+          res.setHeader('Allow', match.allowed.join(', '));
+          throw new ApiError('usage.bad-argument', '此路径不支持该方法', { status: 405 });
+        }
+        const who = identify(dataDir, req.headers.authorization);
+        const owner = route.auth === 'job' ? store.filmOfJob(match.params.id) : match.params.id;
+        const denied = authorize(who, route, owner);
+        if (denied) throw new ApiError('auth.base-readonly', denied);
+        if (route.auth !== 'account') id = owner;
+        if (route.binary) {
+          const file = store.workspace(id).resolve(`deliver/${match.params.name}`);
+          const stat = statSync(file, { throwIfNoEntry: false });
+          if (!stat?.isFile()) throw missing('产物文件不存在');
+          res.writeHead(200, { 'content-type': /\.(json|lock)$/i.test(file) ? 'application/json; charset=utf-8' : 'application/octet-stream', 'content-length': stat.size, 'cache-control': 'private, no-store' });
+          await pipeline(createReadStream(file), res);
+          return;
+        }
+        const body = await readBody(req, route);
+        result = await dispatch(route, match.params, target.searchParams, body, who, id, /^Bearer\s+(\S+)$/.exec(req.headers.authorization?.trim() ?? '')?.[1]);
+        if (typeof result?.releaseBudgetLease === 'function') {
+          releaseBudgetLease = result.releaseBudgetLease;
+          const { releaseBudgetLease: _drop, ...clean } = result;
+          result = clean;
+        }
+        if (route.id === 'films-create') id = result.data.film;
+        if (result.ok === false) status = httpStatusOf(result.code);
+      } catch (e) {
+        if (res.headersSent || res.destroyed) return;
+        const code = isRegistered(e.code) ? e.code : 'usage.bad-argument';
+        status = e.status ?? (isRegistered(e.code) || e instanceof TypeError ? httpStatusOf(code) : 500);
+        result = { ok: false, code, message: status === 500 ? '服务端处理失败' : e.message, hint: e.hint, data: e.data, diagnostics: e.diagnostics };
       }
-      const who = identify(dataDir, req.headers.authorization);
-      const owner = route.auth === 'job' ? store.filmOfJob(match.params.id) : match.params.id;
-      const denied = authorize(who, route, owner);
-      if (denied) throw new ApiError('auth.base-readonly', denied);
-      if (route.auth !== 'account') id = owner;
-      if (route.binary) {
-        const file = store.workspace(id).resolve(`deliver/${match.params.name}`);
-        const stat = statSync(file, { throwIfNoEntry: false });
-        if (!stat?.isFile()) throw missing('产物文件不存在');
-        res.writeHead(200, { 'content-type': /\.(json|lock)$/i.test(file) ? 'application/json; charset=utf-8' : 'application/octet-stream', 'content-length': stat.size, 'cache-control': 'private, no-store' });
-        await pipeline(createReadStream(file), res);
-        return;
+      const wallMs = Math.round(monotonicMs() - start);
+      const opts = { ...result, cost: { ...result.cost, wallMs } };
+      let env = result.ok === false ? fail(result.code, result.message, opts) : ok(opts);
+      const limit = route?.tokens ?? 600;
+      const spill = id ? full => {
+        const bytes = JSON.stringify(full);
+        const name = `response-${sha256(bytes)}.json`;
+        const file = store.workspace(id).resolve(`deliver/${name}`);
+        writeFileSync(file, bytes);
+        return { kind: 'response', url: artifactUrl(ROUTES, id, name) };
+      } : undefined;
+      // 留足 cost.tokens 的位数，再用最终序列化字节数回填。
+      env.cost.tokens = limit;
+      env = fitEnvelope(env, limit, spill);
+      if (estimateTokens(env) > limit) {
+        // 长错误文字或多件输出仍可能溢出，留下全文引用与可继续轮询的作业号。
+        const full = env.outputs.find(o => o.kind === 'response');
+        const summary = {
+          cost: env.cost, outputs: full ? [full] : [],
+          data: env.data.job ? { job: env.data.job, status: env.data.status } : { truncated: true },
+        };
+        env = env.ok ? ok(summary) : fail(env.error.code, env.error.code, summary);
+        if (estimateTokens(env) > limit) env.outputs = [];
       }
-      const body = await readBody(req, route);
-      result = await dispatch(route, match.params, target.searchParams, body, who, id, /^Bearer\s+(\S+)$/.exec(req.headers.authorization?.trim() ?? '')?.[1]);
-      if (route.id === 'films-create') id = result.data.film;
-      if (result.ok === false) status = httpStatusOf(result.code);
-    } catch (e) {
-      if (res.headersSent || res.destroyed) return;
-      const code = isRegistered(e.code) ? e.code : 'usage.bad-argument';
-      status = e.status ?? (isRegistered(e.code) || e instanceof TypeError ? httpStatusOf(code) : 500);
-      result = { ok: false, code, message: status === 500 ? '服务端处理失败' : e.message, hint: e.hint, data: e.data, diagnostics: e.diagnostics };
+      env.cost.tokens = estimateTokens(env);
+      env.cost.tokens = estimateTokens(env);
+      if (id) store.ledger(id, { step: route.id, ok: env.ok, wallMs, gpuSeconds: 0, tokens: env.cost.tokens, modelTokens: result.tokens ?? 0, frames: result.frames ?? 0 });
+      res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'private, no-store' });
+      res.end(JSON.stringify(env));
+    } finally {
+      releaseBudgetLease?.();
     }
-    const wallMs = Math.round(monotonicMs() - start);
-    const opts = { ...result, cost: { ...result.cost, wallMs } };
-    let env = result.ok === false ? fail(result.code, result.message, opts) : ok(opts);
-    const limit = route?.tokens ?? 600;
-    const spill = id ? full => {
-      const bytes = JSON.stringify(full);
-      const name = `response-${sha256(bytes)}.json`;
-      const file = store.workspace(id).resolve(`deliver/${name}`);
-      writeFileSync(file, bytes);
-      return { kind: 'response', url: artifactUrl(ROUTES, id, name) };
-    } : undefined;
-    // 留足 cost.tokens 的位数，再用最终序列化字节数回填。
-    env.cost.tokens = limit;
-    env = fitEnvelope(env, limit, spill);
-    if (estimateTokens(env) > limit) {
-      // 长错误文字或多件输出仍可能溢出，留下全文引用与可继续轮询的作业号。
-      const full = env.outputs.find(o => o.kind === 'response');
-      const summary = {
-        cost: env.cost, outputs: full ? [full] : [],
-        data: env.data.job ? { job: env.data.job, status: env.data.status } : { truncated: true },
-      };
-      env = env.ok ? ok(summary) : fail(env.error.code, env.error.code, summary);
-      if (estimateTokens(env) > limit) env.outputs = [];
-    }
-    env.cost.tokens = estimateTokens(env);
-    env.cost.tokens = estimateTokens(env);
-    if (id) store.ledger(id, { step: route.id, ok: env.ok, wallMs, gpuSeconds: 0, tokens: env.cost.tokens, modelTokens: result.tokens ?? 0, frames: result.frames ?? 0 });
-    res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'private, no-store' });
-    res.end(JSON.stringify(env));
   });
   await new Promise((done, reject) => { server.once('error', reject); server.listen(port, host, done); });
   const address = server.address();

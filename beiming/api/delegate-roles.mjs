@@ -7,11 +7,14 @@ import {
   FLOOR,
   checkExtra,
   enforcePredicateFloor,
+  expandTime,
   scopeRange,
 } from '../verify/predicates.mjs';
 import { HTTP_TOOL } from './agents.mjs';
+import { ROUTES } from './contract.mjs';
 
 export const SHOT_WORKER_MAX_START_TOKENS = 15_000;
+const DELEGATE_HARD_TOKEN_CAP = ROUTES.find((r) => r.id === 'films-create')?.request?.properties?.budget?.properties?.tokens?.maximum ?? 1_200_000;
 
 export const L5_GRADES = Object.freeze(['好', '一般', '差']);
 const CONSERVATIVE_GRADE_ORDER = Object.freeze(['差', '一般', '好']);
@@ -390,7 +393,7 @@ function formatShotWorkerSections({
   const gpuVal = own(budget, 'gpuSeconds');
   const wallVal = own(budget, 'wallSeconds');
   const stepsVal = own(budget, 'maxSteps');
-  const tokensText = tokensVal !== undefined ? tokensVal : 1_200_000;
+  const tokensText = tokensVal !== undefined ? tokensVal : DELEGATE_HARD_TOKEN_CAP;
   const gpuText = gpuVal !== undefined ? `${gpuVal}s` : '未限（受整片配额约束）';
   const wallText = wallVal !== undefined ? `${wallVal}s` : '未限（受整片配额约束）';
   const stepsText = stepsVal !== undefined ? stepsVal : 12;
@@ -519,8 +522,8 @@ function validateShotWorkerOptions(options) {
   const bGpu = own(budget, 'gpuSeconds');
   const bWall = own(budget, 'wallSeconds');
   const bSteps = own(budget, 'maxSteps');
-  if (bTokens !== undefined && (!Number.isSafeInteger(bTokens) || bTokens < 0)) {
-    throw badArg('budget.tokens 必须是非负安全整数');
+  if (bTokens !== undefined && (!Number.isSafeInteger(bTokens) || bTokens < 0 || bTokens > DELEGATE_HARD_TOKEN_CAP)) {
+    throw badArg(`budget.tokens 必须是 0..${DELEGATE_HARD_TOKEN_CAP} 的安全整数`);
   }
   if (bGpu !== undefined && (typeof bGpu !== 'number' || !Number.isFinite(bGpu) || bGpu < 0)) {
     throw badArg('budget.gpuSeconds 必须是非负有限数字');
@@ -674,6 +677,7 @@ export function shuffleCandidatesForBallot(candidates, options) {
     throw badArg('voteIndex 必须是非负安全整数');
   }
   if (list.length === 0) return [];
+  extractKnownCandidates(list);
 
   const decorated = [];
   for (let idx = 0; idx < list.length; idx++) {
@@ -729,6 +733,10 @@ export function filterL5SuggestedPredicates(predicates, options) {
   const opts = assertOptionalPlainObject(options, 'filterL5SuggestedPredicates.options');
   const film = own(opts, 'film') === undefined ? null : own(opts, 'film');
   const question = own(opts, 'question') === undefined ? null : own(opts, 'question');
+  const rawTotalFrames = own(opts, 'totalFrames');
+  if (rawTotalFrames !== undefined && (!Number.isSafeInteger(rawTotalFrames) || rawTotalFrames < 1)) {
+    throw badArg('totalFrames 必须是正整数');
+  }
   if (film !== null && (typeof film !== 'object' || Array.isArray(film))) {
     throw badArg('film 必须是纯对象或 null');
   }
@@ -762,6 +770,14 @@ export function filterL5SuggestedPredicates(predicates, options) {
     }
   }
 
+  const filmOutputObj = film && own(film, 'output') && typeof own(film, 'output') === 'object' ? own(film, 'output') : null;
+  const filmFrames = filmOutputObj ? own(filmOutputObj, 'frames') : undefined;
+  const effectiveTotalFrames = rawTotalFrames !== undefined
+    ? (Number.isSafeInteger(filmFrames) ? Math.min(rawTotalFrames, filmFrames) : rawTotalFrames)
+    : filmFrames;
+  const rawQuestionBase = question ? own(question, 'basePredicates') : undefined;
+  const requiredQuestionBase = new Set(Array.isArray(rawQuestionBase) ? rawQuestionBase : []);
+
   const validatedExtraPredicates = [];
   const rejectedPredicates = [];
   const seen = new Set();
@@ -786,16 +802,17 @@ export function filterL5SuggestedPredicates(predicates, options) {
     }
 
     if (film) {
-      const outputObj = own(film, 'output');
-      const totalFrames = outputObj && typeof outputObj === 'object' ? own(outputObj, 'frames') : undefined;
-      const range = scopeRange(extraCheck.assertion.scope, film);
+      const scopeFilm = Number.isSafeInteger(effectiveTotalFrames) && !Number.isSafeInteger(filmFrames)
+        ? { ...film, output: { ...(filmOutputObj ?? {}), frames: effectiveTotalFrames } }
+        : film;
+      const range = scopeRange(extraCheck.assertion.scope, scopeFilm);
       if (
         range === null ||
-        (Number.isSafeInteger(totalFrames) && (range[0] < 0 || range[1] > totalFrames || range[0] >= range[1]))
+        (Number.isSafeInteger(effectiveTotalFrames) && (range[0] < 0 || range[1] > effectiveTotalFrames || range[0] >= range[1]))
       ) {
         rejectedPredicates.push({
           predicate: pred,
-          reason: `断言范围超出片子总帧数 [0, ${totalFrames}) 或无法解析`,
+          reason: `断言范围超出片子总帧数 [0, ${effectiveTotalFrames}) 或无法解析`,
         });
         continue;
       }
@@ -815,7 +832,7 @@ export function filterL5SuggestedPredicates(predicates, options) {
 
       const floorCheck = enforcePredicateFloor(
         candidateFilm,
-        question ? { base: own(question, 'basePredicates') } : null,
+        question ? { base: rawQuestionBase } : null,
       );
       const loose = floorCheck.violations.find((v) => v.code === 'threshold-loosened' || v.path === 'predicates/extra');
       if (loose) {
@@ -823,7 +840,17 @@ export function filterL5SuggestedPredicates(predicates, options) {
         continue;
       }
 
-      const l1 = checkL1(candidateFilm);
+      // 与正式 layerL1（pipeline.mjs:502）保持完全一致：考题给定基础断言已过 question 契约，L1 extra 检查仅针对作者/建议追加的断言。
+      const l1Extra = requiredQuestionBase.size
+        ? [...existingExtra.filter((x) => !requiredQuestionBase.has(x)), pred]
+        : [...existingExtra, pred];
+      const l1 = checkL1({
+        ...candidateFilm,
+        predicates: {
+          base: existingBase,
+          extra: l1Extra,
+        },
+      });
       const l1Err = l1.diagnostics.find(
         (d) => d.severity === 'error' && (d.at === 'predicates/extra' || d.at === 'predicates'),
       );
@@ -832,11 +859,42 @@ export function filterL5SuggestedPredicates(predicates, options) {
         continue;
       }
     } else {
+      const scope = extraCheck.assertion.scope;
+      if (scope.kind === 'range') {
+        if (!Number.isSafeInteger(effectiveTotalFrames)) {
+          rejectedPredicates.push({ predicate: pred, reason: '缺少片子总帧数上下文，无法校验断言帧区间' });
+          continue;
+        }
+        if (scope.from < 0 || scope.to > effectiveTotalFrames || scope.from >= scope.to) {
+          rejectedPredicates.push({
+            predicate: pred,
+            reason: `断言范围超出总帧数 [0, ${effectiveTotalFrames})`,
+          });
+          continue;
+        }
+      } else if (scope.kind === 'shot') {
+        rejectedPredicates.push({ predicate: pred, reason: '缺少片子镜头上下文，无法校验 shot 作用域断言' });
+        continue;
+      } else if (scope.kind === 'time') {
+        const t = expandTime(scope.expr, {});
+        if (t === null) {
+          rejectedPredicates.push({ predicate: pred, reason: '缺少片子事件上下文，无法解析断言时刻作用域' });
+          continue;
+        }
+        if (!Number.isSafeInteger(effectiveTotalFrames) || t < 0 || t >= effectiveTotalFrames) {
+          rejectedPredicates.push({
+            predicate: pred,
+            reason: `断言时刻超出总帧数 [0, ${effectiveTotalFrames}) 或缺少总帧数上下文`,
+          });
+          continue;
+        }
+      }
+
       // 未传 film 时仍须执行 floor@1 防削弱校验，防止放宽底线断言绕过
       const syntheticFilm = { predicates: { base: ['floor@1'], extra: [pred] } };
       const floorCheck = enforcePredicateFloor(
         syntheticFilm,
-        question ? { base: own(question, 'basePredicates') } : null,
+        question ? { base: rawQuestionBase } : null,
       );
       const loose = floorCheck.violations.find((v) => v.code === 'threshold-loosened' || v.path === 'predicates/extra');
       if (loose) {
@@ -938,6 +996,7 @@ function extractKnownCandidates(candidates) {
       ? c.trim()
       : (c && typeof c === 'object' && !Array.isArray(c) && typeof own(c, 'id') === 'string' ? own(c, 'id').trim() : '');
     if (!id) throw badArg(`candidates[${i}] 缺少合法候选 ID`);
+    if (ids.has(id)) throw badArg(`candidates 包含重复候选 ID：${id}`);
     ids.add(id);
   }
   return ids;
@@ -1302,7 +1361,11 @@ export function aggregateL5Votes(ballots, options) {
     }
   }
 
-  const filtered = filterL5SuggestedPredicates(acceptedPredicateCandidates, { film, question });
+  const filtered = filterL5SuggestedPredicates(acceptedPredicateCandidates, {
+    film,
+    question,
+    ...(Number.isSafeInteger(maxFrames) ? { totalFrames: maxFrames } : {}),
+  });
   const gradeStats = ballotGrades.length
     ? pickMajorityGrade(ballotGrades)
     : { grade: null, counts: { 好: 0, 一般: 0, 差: 0 } };

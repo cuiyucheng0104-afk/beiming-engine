@@ -97,30 +97,130 @@ export function createWork({ store, library, reviewer, scheduler }) {
   const output = (id, kind, rel) => ({ kind, url: url(id, rel), sha256: sha256File(join(deliverDir(id), rel)) });
   const shotCache = (id) => openShotCache(join(deliverDir(id), '.shot-cache'));
 
-  /**
-   * 构造单片实时 token 预算闸回调（供 L5 九票循环每票前检查）：
-   * 实时把账本已入账的 modelTokens、同片在跑委托/作业的实时进度 token 与本次 L5 已累计 spentTokens 相加，
-   * 与单片 budget.tokens 和 120 万硬上限的较小值比对，超限或不足下一票预计开销即返回停票。
-   */
-  function filmTokenBudgetCheck(id, currentJobId = null) {
+  const filmLeases = new Map();
+  let reservationSeq = 0;
+
+  function filmTokenCap(id) {
     const meta = store.readMeta(id);
     const rawCap = meta?.budget?.tokens;
-    const cap = Number.isSafeInteger(rawCap) && rawCap > 0
+    return Number.isSafeInteger(rawCap) && rawCap > 0
       ? Math.min(rawCap, DELEGATE_HARD_TOKEN_CAP)
       : DELEGATE_HARD_TOKEN_CAP;
-    return ({ spentTokens = 0, estimatedNextTokens = 0 } = {}) => {
-      const ledgerTokens = store.readLedger(id).reduce((n, row) => n + (row.modelTokens ?? 0), 0);
-      let liveTokens = 0;
-      for (const [jid, p] of progress.entries()) {
-        if (jid === currentJobId) continue;
-        if (store.filmOfJob(jid) === id) liveTokens += p.tokens ?? 0;
+  }
+
+  function usedFilmTokens(id) {
+    const ledgerTokens = store.readLedger(id).reduce((n, row) => n + (row.modelTokens ?? 0), 0);
+    let liveTokens = 0;
+    for (const [jid, p] of progress.entries()) {
+      if (store.filmOfJob(jid) === id) liveTokens += p.tokens ?? 0;
+    }
+    let leaseTokens = 0;
+    const leases = filmLeases.get(id);
+    if (leases) {
+      for (const lease of leases) {
+        leaseTokens += lease.settled;
+        for (const amount of lease.active.values()) leaseTokens += amount;
       }
-      const used = ledgerTokens + liveTokens + spentTokens;
+    }
+    return ledgerTokens + liveTokens + leaseTokens;
+  }
+
+  /**
+   * 为单片打开进程内原子 token 预留租约（供 deliver 内 L5 与独立 POST /review 共享）：
+   * - 发票前同步汇总已入账 modelTokens、在跑作业实时 token 与同片所有租约的已结算/在途预留，原子扣减可执行上界；
+   * - 每票响应或异常在 finally 调用 settle(actualTokens) 用实耗替换并释放多余预留；
+   * - 租约关闭前始终保留已结算实耗，直到调用方同步转交至 progress 或 store.ledger，消除同片并发超支窗口。
+   */
+  function openBudgetLease(id) {
+    const lease = { active: new Map(), settled: 0, closed: false };
+    if (!filmLeases.has(id)) filmLeases.set(id, new Set());
+    filmLeases.get(id).add(lease);
+
+    const check = ({
+      estimatedInputTokens = 0,
+      maxOutputTokens = 0,
+      maxObservedTokens = 0,
+      estimatedNextTokens = 0,
+    } = {}) => {
+      if (lease.closed) return { ok: false, reason: 'budget.tokens', remaining: 0 };
+      const cap = filmTokenCap(id);
+      const used = usedFilmTokens(id);
       const remaining = cap - used;
-      if (remaining <= 0 || (estimatedNextTokens > 0 && remaining < estimatedNextTokens)) {
-        return { ok: false, reason: 'budget.tokens', remaining: Math.max(0, remaining), cap, used };
+      if (remaining <= 0) {
+        return { ok: false, reason: 'budget.tokens', remaining: 0, cap, used };
       }
-      return { ok: true, remaining, cap, used };
+
+      const inputBound = Number.isFinite(estimatedInputTokens) && estimatedInputTokens > 0
+        ? Math.ceil(estimatedInputTokens)
+        : 0;
+      const requestedOutput = Number.isFinite(maxOutputTokens) && maxOutputTokens > 0
+        ? Math.ceil(maxOutputTokens)
+        : 0;
+      const observedBound = Number.isFinite(maxObservedTokens) && maxObservedTokens > 0
+        ? Math.ceil(maxObservedTokens)
+        : 0;
+      const fallbackNext = Number.isFinite(estimatedNextTokens) && estimatedNextTokens > 0
+        ? Math.ceil(estimatedNextTokens)
+        : 0;
+
+      let grantedOutput = requestedOutput;
+      let reserveAmount;
+      if (inputBound > 0 || requestedOutput > 0) {
+        const minRequired = Math.max(inputBound + (requestedOutput > 0 ? 1 : 0), observedBound);
+        if (remaining < minRequired) {
+          return { ok: false, reason: 'budget.tokens', remaining, cap, used };
+        }
+        grantedOutput = requestedOutput > 0
+          ? Math.min(requestedOutput, Math.max(0, remaining - inputBound))
+          : 0;
+        if (requestedOutput > 0 && grantedOutput < 1) {
+          return { ok: false, reason: 'budget.tokens', remaining, cap, used };
+        }
+        reserveAmount = Math.min(remaining, Math.max(inputBound + grantedOutput, observedBound));
+      } else {
+        const needed = Math.max(fallbackNext, observedBound);
+        if (needed > 0 && remaining < needed) {
+          return { ok: false, reason: 'budget.tokens', remaining, cap, used };
+        }
+        reserveAmount = Math.min(remaining, needed);
+      }
+
+      const resId = ++reservationSeq;
+      lease.active.set(resId, reserveAmount);
+      let settled = false;
+      const settle = (actualTokens = 0) => {
+        if (settled) return;
+        settled = true;
+        lease.active.delete(resId);
+        const actual = Number.isFinite(actualTokens) && actualTokens > 0 ? Math.round(actualTokens) : 0;
+        lease.settled += actual;
+      };
+      return {
+        ok: true,
+        remaining: Math.max(0, remaining - reserveAmount),
+        cap,
+        used: used + reserveAmount,
+        reserved: reserveAmount,
+        ...(requestedOutput > 0 ? { maxOutputTokens: grantedOutput } : {}),
+        settle,
+      };
+    };
+
+    const close = () => {
+      if (lease.closed) return;
+      lease.closed = true;
+      lease.active.clear();
+      const set = filmLeases.get(id);
+      if (set) {
+        set.delete(lease);
+        if (set.size === 0) filmLeases.delete(id);
+      }
+    };
+
+    return {
+      check,
+      close,
+      get settled() { return lease.settled; },
     };
   }
 
@@ -350,18 +450,24 @@ export function createWork({ store, library, reviewer, scheduler }) {
       const l4 = await step('l4', () => ({ status: 'not-run', reason: '未提供可量测的 ref-pack', compChecks: { pointer: '#/checks', count: bundle.report.checks.length, ok: bundle.report.ok } }));
       const l5 = await step('l5', async () => {
         const images = reviewer ? reviewMaterials({ master, fps: film.output.fps, film, outDir: join(dir, 'review') }) : [];
-        const res = await layerL5({
-          reviewer,
-          brief: meta.brief ?? meta.question?.brief ?? '',
-          images,
-          loudness: bundle.report.loudness ?? null,
-          film,
-          filmId: id,
-          question: meta.question ?? null,
-          budgetCheck: filmTokenBudgetCheck(id, job.id),
-          signal,
-        });
-        acc.tokens += res.usage?.totalTokens ?? 0;
+        const lease = openBudgetLease(id);
+        let res;
+        try {
+          res = await layerL5({
+            reviewer,
+            brief: meta.brief ?? meta.question?.brief ?? '',
+            images,
+            loudness: bundle.report.loudness ?? null,
+            film,
+            filmId: id,
+            question: meta.question ?? null,
+            budgetCheck: lease.check,
+            signal,
+          });
+        } finally {
+          acc.tokens += res?.usage?.totalTokens ?? lease.settled;
+          lease.close();
+        }
         return res;
       });
       const pass = l1.ok && l2.ok && l3.ok;
@@ -685,7 +791,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
    * L5 审片。没配置审片模型：status 是 not-run，写明原因，不取材料。配置了：当前修订交付过就从成片取联系表、切点条带和响度表，
    * 否则用渲出来的预览帧出联系表（没有声音量测）。结果写到 deliver/review/rev-<修订号>.json。L5 只是意见，不改硬门的判定。
    */
-  async function review(id, { brief }) {
+  async function review(id, { brief }, { deferRelease = false } = {}) {
     const film = store.readFilm(id), rev = store.rev(id), meta = store.readMeta(id);
     const relDir = `review/rev-${rev}`;
     const outDir = join(deliverDir(id), relDir);
@@ -704,18 +810,38 @@ export function createWork({ store, library, reviewer, scheduler }) {
         material = 'frames';
       }
     }
-    const l5 = await layerL5({
-      reviewer,
-      brief: brief ?? meta.brief ?? meta.question?.brief ?? '',
-      images,
-      loudness,
-      film,
-      filmId: id,
-      question: meta.question ?? null,
-      budgetCheck: filmTokenBudgetCheck(id),
-    });
-    const record = { format: 'api-review/0.1', film: id, rev, material, images: images.map((i) => i.name), ...l5 };
-    writeFileSync(join(outDir, 'review.json'), jsonText(record));
+    const lease = openBudgetLease(id);
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      lease.close();
+    };
+    let l5, reviewOutput;
+    try {
+      l5 = await layerL5({
+        reviewer,
+        brief: brief ?? meta.brief ?? meta.question?.brief ?? '',
+        images,
+        loudness,
+        film,
+        filmId: id,
+        question: meta.question ?? null,
+        budgetCheck: lease.check,
+      });
+      const record = { format: 'api-review/0.1', film: id, rev, material, images: images.map((i) => i.name), ...l5 };
+      writeFileSync(join(outDir, 'review.json'), jsonText(record));
+      reviewOutput = output(id, 'review', `${relDir}/review.json`);
+    } catch (err) {
+      if (lease.settled > 0) {
+        try {
+          store.ledger(id, { step: 'review', ok: false, wallMs: 0, gpuSeconds: 0, tokens: 0, modelTokens: lease.settled, frames: 0 });
+        } catch { /* 落账失败时不掩盖原异常 */ }
+      }
+      release();
+      throw err;
+    }
+    if (!deferRelease) release();
     const opinions = l5.opinions ?? [];
     return {
       data: {
@@ -723,9 +849,10 @@ export function createWork({ store, library, reviewer, scheduler }) {
         expectedCount: opinions.length, actualCount: opinions.length, items: opinions, suggestedPredicates: l5.suggestedPredicates ?? [],
         ...(l5.invalidBallots?.length ? { invalidBallots: l5.invalidBallots } : {}),
       },
-      outputs: [output(id, 'review', `${relDir}/review.json`)],
+      outputs: [reviewOutput],
       tokens: l5.usage?.totalTokens ?? 0,
       diagnostics: l5.status === 'failed' ? [diagnostic({ code: 'env.missing-tool', layer: 'L5', severity: 'warning', message: `审片模型没调通：${l5.reason}` }, { layer: 'L5', severity: 'warning' })] : [],
+      ...(deferRelease ? { releaseBudgetLease: release } : {}),
     };
   }
 

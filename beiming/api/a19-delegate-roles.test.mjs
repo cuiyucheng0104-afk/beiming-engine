@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { tools, verifyDeliveryBundle } from '../comp/index.mjs';
 import { loadCardLibrary } from './runtime.mjs';
 import {
+  DEFAULT_REVIEW_MAX_OUTPUT_TOKENS,
+  DELEGATE_HARD_TOKEN_CAP,
   DELEGATE_ROLES,
   HTTP_TOOL,
   L5_GRADES,
@@ -17,6 +19,7 @@ import {
   aggregateL5Votes,
   buildShotWorkerBrief,
   buildShotWorkerMessages,
+  chat,
   createOpenAiVisionReviewer,
   filterL5SuggestedPredicates,
   issueAccountToken,
@@ -28,7 +31,7 @@ import {
   startServer,
 } from './index.mjs';
 import { scaffold } from './films.mjs';
-import { layerL5 } from './pipeline.mjs';
+import { layerL1, layerL5 } from './pipeline.mjs';
 
 function threeMediaSkip() {
   const { ffmpeg, ffprobe } = tools();
@@ -1178,6 +1181,574 @@ test('A19-9 [非阻断 #2] 镜头工首次未过重试前重读最新片子与�
     assert.match(workerBriefs[0], /"text":"FIRST"/);
     assert.match(workerBriefs[1], /rev=2/, '重试前必须重读最新修订号');
     assert.match(workerBriefs[1], /"text":"UPDATED"/, '重试前必须重读改动后的最新镜头 JSON');
+  } finally {
+    await new Promise((r) => mockApi.close(r));
+    await new Promise((r) => mockModel.close(r));
+  }
+});
+
+/** 构造带合法 PNG 签名与 IHDR 宽高的最小假 PNG 字节（供测试图像上界估算） */
+function fakePngHeader(width, height) {
+  const buf = Buffer.alloc(24);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(buf, 0);
+  buf.writeUInt32BE(13, 8);
+  buf.write('IHDR', 12, 'ascii');
+  buf.writeUInt32BE(width, 16);
+  buf.writeUInt32BE(height, 20);
+  return buf;
+}
+
+test('A19-10 [R2-B1] L5 视觉请求必带 max_tokens、首票与带图可执行上界、高水位防均价超支与同片并发原子预留', async () => {
+  const { film } = scaffold({ id: 'f_001', template: 'title', output: { size: [320, 180], fps: '10/1', frames: 10 } });
+  const dir = mkdtempSync(join(tmpdir(), 'bm-a19-r2-b1-'));
+  const ledgerPath = join(dir, 'external-ledger.jsonl');
+  const hdPngPath = join(dir, 'contact-hd.png');
+  writeFileSync(hdPngPath, fakePngHeader(1920, 1080));
+
+  const seenBodies = [];
+  const seenEstimates = [];
+  let costPlan = [{ prompt: 100, comp: 40 }];
+  let callIdx = 0;
+
+  const mockVision = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    seenBodies.push(body);
+    const plan = costPlan[Math.min(callIdx, costPlan.length - 1)];
+    callIdx++;
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      model: 'gemini-vision-r2',
+      choices: [{ message: { content: '{"grade":"好","opinions":[],"suggestedPredicates":[]}' } }],
+      usage: { prompt_tokens: plan.prompt, completion_tokens: plan.comp },
+    }));
+  });
+  await new Promise((r) => mockVision.listen(0, '127.0.0.1', r));
+
+  try {
+    const reviewer = createOpenAiVisionReviewer({
+      endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+      apiKey: 'r2-b1-key',
+      model: 'gemini-vision-r2',
+      ledgerPath,
+    });
+
+    // 1) 首票估价绝不为 0，且每次视觉请求显式带上 max_tokens；带 1920x1080 PNG 图时可执行上界显著大于无图
+    seenBodies.length = 0;
+    seenEstimates.length = 0;
+    callIdx = 0;
+    const textOnly = await layerL5({
+      reviewer,
+      brief: '上界测试',
+      images: [],
+      film,
+      filmId: 'f_001',
+      maxTokens: 60_000,
+      budgetCheck(info) {
+        seenEstimates.push(info.estimatedNextTokens);
+        return true;
+      },
+    });
+    assert.equal(textOnly.status, 'ok');
+    assert.equal(seenBodies.length, 9);
+    assert.ok(seenEstimates[0] > 0, '首票 estimatedNextTokens 绝不能为 0');
+    assert.ok(
+      seenBodies.every((b) => Number.isSafeInteger(b.max_tokens) && b.max_tokens === DEFAULT_REVIEW_MAX_OUTPUT_TOKENS),
+      '每次 L5 视觉请求体必须显式带 max_tokens',
+    );
+    const textOnlyFirstBound = seenEstimates[0];
+
+    const withImageEstimates = [];
+    seenBodies.length = 0;
+    callIdx = 0;
+    const withImage = await layerL5({
+      reviewer,
+      brief: '上界测试',
+      images: [{ name: 'contact', path: hdPngPath }],
+      film,
+      filmId: 'f_001',
+      maxTokens: 60_000,
+      budgetCheck(info) {
+        withImageEstimates.push(info.estimatedNextTokens);
+        return true;
+      },
+    });
+    assert.equal(withImage.status, 'ok');
+    assert.ok(
+      withImageEstimates[0] >= textOnlyFirstBound + 3_000,
+      `带 1920x1080 图像的首票上界 (${withImageEstimates[0]}) 必须显著高于纯文本上界 (${textOnlyFirstBound})`,
+    );
+
+    // 2) 预算小于首票可执行上界时，首票前即拦停（0 次调用），绝不靠首票估价=0放行
+    seenBodies.length = 0;
+    callIdx = 0;
+    const tooSmall = await layerL5({
+      reviewer,
+      brief: '小预算测试',
+      images: [{ name: 'contact', path: hdPngPath }],
+      film,
+      filmId: 'f_001',
+      maxTokens: textOnlyFirstBound, // 足够纯文本，但不足以覆盖 1920x1080 图 + 输出上限
+    });
+    assert.equal(seenBodies.length, 0, '不足首票带图上界时必须 0 票拦截');
+    assert.equal(tooSmall.status, 'not-run');
+    assert.equal(tooSmall.stoppedReason, 'budget.tokens');
+
+    // 3) 变价票防均价超支：第 1 票 10,040、第 2 票 30,040（总 40,080，均价 20,040），总预算 65,000（余额 24,920 > 均价但 < 高水位 30,040）
+    //    必须在第 3 票前立即停票，绝不能因余额大于历史均价而放行更贵的第 3 票！
+    seenBodies.length = 0;
+    callIdx = 0;
+    costPlan = [
+      { prompt: 10_000, comp: 40 },
+      { prompt: 30_000, comp: 40 },
+      { prompt: 30_000, comp: 40 },
+    ];
+    const antiAvg = await layerL5({
+      reviewer,
+      brief: '变价防均价超支',
+      images: [],
+      film,
+      filmId: 'f_001',
+      maxTokens: 65_000,
+    });
+    assert.equal(seenBodies.length, 2, '余额 24,920 小于历史高水位 30,040 时不得发第 3 票');
+    assert.equal(antiAvg.status, 'ok');
+    assert.equal(antiAvg.stoppedReason, 'budget.tokens');
+    assert.equal(antiAvg.usage.totalTokens, 40_080);
+
+    // 4) 剩余额度略高于输入上界但小于默认 max_tokens 时，显式把请求体 max_tokens 钳制在剩余额度内
+    seenBodies.length = 0;
+    callIdx = 0;
+    costPlan = [{ prompt: 100, comp: 40 }];
+    const tightCap = textOnlyFirstBound - DEFAULT_REVIEW_MAX_OUTPUT_TOKENS + 300;
+    const tightRes = await layerL5({
+      reviewer,
+      brief: '上界测试',
+      images: [],
+      film,
+      filmId: 'f_001',
+      maxTokens: tightCap,
+    });
+    assert.equal(tightRes.status, 'ok');
+    assert.ok(seenBodies.length >= 1);
+    assert.equal(seenBodies[0].max_tokens, 300, '首票 max_tokens 必须钳制为剩余预算减去输入上界');
+
+    // 5) 同片并发 POST /v1/films/{id}/review 进程内原子预留实测：慢响应并发时绝不双双冲过单片预算
+    if (!threeMediaSkip()) {
+      const srvDir = mkdtempSync(join(tmpdir(), 'bm-a19-r2-conc-'));
+      const srvLedger = join(srvDir, 'external-ledger.jsonl');
+      let concurrentCalls = 0;
+      let maxInFlight = 0;
+      let inFlight = 0;
+      let holdNextVision = null;
+      let onVisionEntered = null;
+      const slowVision = createServer(async (req, res) => {
+        const chunks = [];
+        for await (const c of req) chunks.push(c);
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        assert.ok(Number.isSafeInteger(body.max_tokens) && body.max_tokens >= 1 && body.max_tokens <= DEFAULT_REVIEW_MAX_OUTPUT_TOKENS);
+        concurrentCalls++;
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        onVisionEntered?.();
+        if (holdNextVision) {
+          const gate = holdNextVision;
+          holdNextVision = null;
+          await gate;
+        } else {
+          await new Promise((r) => setTimeout(r, 80));
+        }
+        inFlight--;
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({
+          model: 'gemini-vision-conc',
+          choices: [{ message: { content: '{"grade":"好","opinions":[],"suggestedPredicates":[]}' } }],
+          usage: { prompt_tokens: 4_000, completion_tokens: 40 },
+        }));
+      });
+      await new Promise((r) => slowVision.listen(0, '127.0.0.1', r));
+      const token = issueAccountToken(srvDir);
+      const api = await startServer({
+        dataDir: srvDir,
+        port: 0,
+        reviewer: createOpenAiVisionReviewer({
+          endpoint: `http://127.0.0.1:${slowVision.address().port}/v1`,
+          apiKey: 'conc-key',
+          model: 'gemini-vision-conc',
+          ledgerPath: srvLedger,
+        }),
+      });
+      try {
+        // 单片预算 6,500：带 1 张 contact.png 时单票上界约 ~4,300，只能容纳 1 张在途预留，并发 3 路 review 时后 2 路必须被原子预留立即挡下！
+        const created = await (await fetch(`${api.url}/v1/films`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            template: 'title',
+            text: 'ATOM',
+            output: { size: [320, 180], fps: '10/1', frames: 6 },
+            budget: { tokens: 6_500 },
+          }),
+        })).json();
+        assert.equal(created.ok, true);
+        const filmId = created.data.film;
+        const wsToken = created.data.token;
+
+        // 先渲草稿帧作为 review 材料
+        const renderEnv = await (await fetch(`${api.url}/v1/films/${filmId}/render?wait=30`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ tier: 'draft' }),
+        })).json();
+        assert.equal(renderEnv.ok, true);
+        assert.equal(renderEnv.data.status, 'succeeded');
+
+        // 并发发起 3 路独立 POST /review
+        const results = await Promise.all([1, 2, 3].map(() =>
+          fetch(`${api.url}/v1/films/${filmId}/review`, {
+            method: 'POST',
+            headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+            body: JSON.stringify({ brief: '并发原子预留测试' }),
+          }).then((r) => r.json()),
+        ));
+        assert.ok(results.every((r) => r.ok));
+        assert.equal(concurrentCalls, 1, '单片 6,500 预算下并发 3 路 review 只允许放行 1 票，绝不允许双双在途超支');
+        assert.equal(maxInFlight, 1, '进程内原子预留必须保证同片并发超额请求不会同时在途');
+        assert.equal(results.filter((r) => r.data.status === 'ok').length, 1);
+        assert.equal(results.filter((r) => r.data.status === 'not-run' && r.data.stoppedReason === 'budget.tokens').length, 2);
+
+        const ledgerEnv = await (await fetch(`${api.url}/v1/films/${filmId}/ledger`, {
+          headers: { authorization: `Bearer ${wsToken}` },
+        })).json();
+        const ledgerTotal = ledgerEnv.data.items.reduce((s, x) => s + (x.modelTokens ?? 0), 0);
+        const extRows = readFileSync(srvLedger, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+        const extTotal = extRows.reduce((s, x) => s + x.inputTokens + x.outputTokens, 0);
+        assert.equal(ledgerTotal, 4_040);
+        assert.equal(extTotal, 4_040);
+        assert.ok(ledgerTotal <= 6_500);
+
+        // 5b) 同片独立 POST /review 在途未结算时，并发 POST /deliver 的 L5 必须共享同一原子预留账本，不得超支
+        concurrentCalls = 0;
+        maxInFlight = 0;
+        const created2 = await (await fetch(`${api.url}/v1/films`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            template: 'title',
+            text: 'RACE',
+            output: { size: [320, 180], fps: '10/1', frames: 6 },
+            budget: { tokens: 6_500 },
+          }),
+        })).json();
+        assert.equal(created2.ok, true);
+        const film2 = created2.data.film;
+        const ws2 = created2.data.token;
+        const render2 = await (await fetch(`${api.url}/v1/films/${film2}/render?wait=30`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${ws2}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ tier: 'draft' }),
+        })).json();
+        assert.equal(render2.ok, true);
+        assert.equal(render2.data.status, 'succeeded');
+
+        let releaseReview;
+        holdNextVision = new Promise((r) => { releaseReview = r; });
+        const entered = new Promise((r) => { onVisionEntered = r; });
+        const reviewPromise = fetch(`${api.url}/v1/films/${film2}/review`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${ws2}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ brief: 'review 与 deliver 并发原子预留' }),
+        }).then((r) => r.json());
+        try {
+          await entered;
+          onVisionEntered = null;
+
+          // 此时 review 已原子预留首票额度并悬停在慢上游请求中，立即发起同片 deliver
+          const deliverEnv = await (await fetch(`${api.url}/v1/films/${film2}/deliver?wait=30`, {
+            method: 'POST',
+            headers: { authorization: `Bearer ${ws2}`, 'content-type': 'application/json' },
+            body: JSON.stringify({ tier: 'final' }),
+          })).json();
+          assert.equal(deliverEnv.ok, true);
+          assert.equal(deliverEnv.data.status, 'succeeded');
+          const reportOut = deliverEnv.outputs.find((o) => o.kind === 'report');
+          assert.ok(reportOut, 'deliver 必须产出 report.json');
+          const report = await (await fetch(`${api.url}${reportOut.url}`, {
+            headers: { authorization: `Bearer ${ws2}` },
+          })).json();
+          assert.equal(report.verification.L5.status, 'not-run', 'review 在途原子预留占满剩余预算时，deliver 内 L5 必须被挡停');
+          assert.equal(report.verification.L5.stoppedReason, 'budget.tokens');
+        } finally {
+          releaseReview();
+        }
+        const reviewEnv = await reviewPromise;
+        assert.equal(reviewEnv.ok, true);
+        assert.equal(reviewEnv.data.status, 'ok');
+        assert.equal(reviewEnv.data.stoppedReason, 'budget.tokens');
+        assert.equal(concurrentCalls, 1, 'review + deliver 同片并发总上游调用必须严格 <= 1 票');
+        assert.equal(maxInFlight, 1);
+
+        const ledger2 = await (await fetch(`${api.url}/v1/films/${film2}/ledger`, {
+          headers: { authorization: `Bearer ${ws2}` },
+        })).json();
+        const ledger2Total = ledger2.data.items.reduce((s, x) => s + (x.modelTokens ?? 0), 0);
+        const ext2Total = readFileSync(srvLedger, 'utf8').trim().split('\n')
+          .map((l) => JSON.parse(l))
+          .filter((r) => r.film === film2)
+          .reduce((s, x) => s + x.inputTokens + x.outputTokens, 0);
+        assert.equal(ledger2Total, 4_040);
+        assert.equal(ext2Total, 4_040);
+        assert.ok(ledger2Total <= 6_500);
+      } finally {
+        await api.close();
+        await new Promise((r) => slowVision.close(r));
+        rmSync(srvDir, { recursive: true, force: true });
+      }
+    }
+  } finally {
+    await new Promise((r) => mockVision.close(r));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('A19-11 [R2-B2] 坏信封（choices: [] 含 usage）与 budgetCheck 抛错 0 丢账', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bm-a19-r2-b2-'));
+  const origFetch = globalThis.fetch;
+  try {
+    // 1) 完整复现 review_report_r2.md:86-113 两条异常路径（envelope & callback）
+    for (const mode of ['envelope', 'callback']) {
+      let calls = 0;
+      let billed = 0;
+      let outputLimit = null;
+      globalThis.fetch = async (_, { body }) => {
+        const req = JSON.parse(body);
+        outputLimit = req.max_completion_tokens ?? req.max_tokens ?? null;
+        const n = ++calls;
+        billed += 140 + n;
+        return Response.json({
+          choices: n === 5 ? [] : [{ message: { content: '{"opinions":[]}' } }],
+          usage: { prompt_tokens: 100 + n, completion_tokens: 40 },
+        });
+      };
+      const ledgerPath = join(dir, `${mode}.jsonl`);
+      const reviewer = createOpenAiVisionReviewer({
+        endpoint: 'https://fixture.invalid',
+        apiKey: 'fixture',
+        model: 'fixture',
+        ledgerPath,
+      });
+      const r = await layerL5({
+        reviewer,
+        images: [],
+        film: { id: 'f', output: { frames: 40 }, shots: [] },
+        maxTokens: 60_000,
+        budgetCheck() {
+          if (mode === 'callback' && calls) throw new Error('ledger unavailable /secret/path');
+          return true;
+        },
+      });
+      const rows = readFileSync(ledgerPath, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+      const ledger = rows.reduce((s, x) => s + x.inputTokens + x.outputTokens, 0);
+      assert.equal(outputLimit, DEFAULT_REVIEW_MAX_OUTPUT_TOKENS);
+      assert.ok(rows.every((row) => row.film === 'f'), '每条外部账本行必须带 film 字段');
+
+      if (mode === 'envelope') {
+        assert.equal(r.status, 'ok');
+        assert.equal(r.totalBallots, 8);
+        assert.equal(r.invalidBallots.length, 1);
+        assert.equal(billed, 1_305);
+        assert.equal(r.usage?.totalTokens, 1_305, '第 5 票坏信封里的 145 token 绝不得丢失');
+        assert.equal(ledger, 1_305, '外部账本必须计入第 5 票坏信封的 145 token');
+      } else {
+        assert.equal(r.status, 'ok');
+        assert.equal(r.stoppedReason, 'budget.check-error');
+        assert.equal(r.totalBallots, 1, '回调抛错时必须保留已投出的第 1 张有效选票');
+        assert.equal(billed, 141);
+        assert.equal(r.usage?.totalTokens, 141, '回调抛错时必须保留前序 141 token 用量');
+        assert.equal(ledger, 141);
+        assert.equal(JSON.stringify(r).includes('ledger unavailable'), false, '回调内部错误文案不得泄漏');
+      }
+    }
+
+    // 2) 首票 budgetCheck 即抛错时返回 failed + stoppedReason: 'budget.check-error' 且 0 次上游调用
+    let calls0 = 0;
+    globalThis.fetch = async () => {
+      calls0++;
+      return Response.json({ choices: [{ message: { content: '{"opinions":[]}' } }], usage: { prompt_tokens: 100, completion_tokens: 40 } });
+    };
+    const r0 = await layerL5({
+      reviewer: createOpenAiVisionReviewer({
+        endpoint: 'https://fixture.invalid',
+        apiKey: 'fixture',
+        model: 'fixture',
+        ledgerPath: join(dir, 'cb0.jsonl'),
+      }),
+      images: [],
+      film: { id: 'f', output: { frames: 40 }, shots: [] },
+      budgetCheck() { throw new Error('boom'); },
+    });
+    assert.equal(calls0, 0);
+    assert.equal(r0.status, 'failed');
+    assert.equal(r0.stoppedReason, 'budget.check-error');
+    assert.equal(r0.usage?.totalTokens, 0);
+
+    // 3) chat() 遇到 choices: [] 仍把提取到的 usage/model 附在异常对象上
+    globalThis.fetch = async () => Response.json({
+      model: 'fixture-m',
+      choices: [],
+      usage: { prompt_tokens: 105, completion_tokens: 40 },
+    });
+    await assert.rejects(
+      () => chat({ endpoint: 'https://fixture.invalid', apiKey: 'k', body: { model: 'm', messages: [] } }),
+      (err) => err?.usage?.inputTokens === 105 && err?.usage?.outputTokens === 40 && err?.model === 'fixture-m',
+    );
+  } finally {
+    globalThis.fetch = origFetch;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('A19-12 [R2-B3 & R2-B4] 重复候选 ID 拒收、无 film 时 totalFrames 帧界校验、28-1 真实考题对齐与任务书 120 万硬上限', () => {
+  const isBadArg = (err) => err?.code === 'usage.bad-argument';
+  const votes = (p) => [0, 1].map((voteIndex) => ({
+    voteIndex,
+    opinions: [],
+    suggestedPredicates: [p],
+  }));
+
+  // 1) B3: 重复候选 ID 在 aggregateL5Votes 与 shuffleCandidatesForBallot 均立即拒收
+  assert.throws(() => aggregateL5Votes([{ opinions: [] }], { candidates: ['a', 'a'] }), isBadArg);
+  assert.throws(() => aggregateL5Votes([{ opinions: [] }], { candidates: [{ id: 'a' }, { id: 'a' }] }), isBadArg);
+  assert.throws(() => shuffleCandidatesForBallot(['a', 'a']), isBadArg);
+  assert.throws(() => shuffleCandidatesForBallot([{ id: 'a' }, { id: ' a ' }]), isBadArg);
+
+  // 2) B3: 未传 film 但传了 totalFrames: 40 时，越界帧区间谓词必须拦截在 rejectedPredicates
+  const oob = aggregateL5Votes(votes('visible(hero) >= 0.92 @ [100,120)'), { totalFrames: 40 });
+  assert.deepEqual(oob.validatedExtraPredicates, []);
+  assert.equal(oob.rejectedPredicates.length, 1);
+
+  const inBounds = aggregateL5Votes(votes('visible(hero) >= 0.92 @ [10,30)'), { totalFrames: 40 });
+  assert.deepEqual(inBounds.validatedExtraPredicates, ['visible(hero) >= 0.92 @ [10,30)']);
+  assert.deepEqual(inBounds.rejectedPredicates, []);
+
+  // 需要片子上下文才能验证的作用域（无 film 时的 shot(s01) / 无帧数时的 [10,30) / event(...)）不得放行
+  assert.deepEqual(
+    filterL5SuggestedPredicates(['visible(hero) >= 0.92 @ shot(s01)'], { totalFrames: 40 }).validatedExtraPredicates,
+    [],
+  );
+  assert.deepEqual(
+    filterL5SuggestedPredicates(['visible(hero) >= 0.92 @ [10,30)']).validatedExtraPredicates,
+    [],
+  );
+  assert.deepEqual(
+    filterL5SuggestedPredicates(['visible(hero) >= 0.92 @ event(beat1)'], { totalFrames: 40 }).validatedExtraPredicates,
+    [],
+  );
+
+  // 3) B3: 真实考题 28-1 与正式 layerL1 完全对齐（考题自带 bbox_w 不得误杀合法建议谓词）
+  const p = 'visible(subject) >= 0.92';
+  const question = JSON.parse(readFileSync('beiming/bench/questions/level-1/28-1.json', 'utf8'));
+  const { film } = scaffold({ id: 'f', template: 'title', question });
+  const proposed = { ...film, predicates: { ...film.predicates, extra: [...film.predicates.extra, p] } };
+  assert.equal(layerL1(proposed, null, 1, question).ok, true);
+  const examAgg = aggregateL5Votes(votes(p), { film, question });
+  assert.deepEqual(examAgg.validatedExtraPredicates, [p]);
+  assert.deepEqual(examAgg.rejectedPredicates, []);
+  // 而如果 L5 自己建议未实现的计划谓词 bbox_w，仍须拦截
+  const plannedAgg = aggregateL5Votes(votes('bbox_w(subject) <= 0.50 @ all'), { film, question });
+  assert.deepEqual(plannedAgg.validatedExtraPredicates, []);
+  assert.equal(plannedAgg.rejectedPredicates.length, 1);
+
+  // 4) B4: buildShotWorkerBrief / buildShotWorkerMessages 对齐 120 万硬上限
+  assert.equal(DELEGATE_HARD_TOKEN_CAP, 1_200_000);
+  assert.throws(
+    () => buildShotWorkerBrief({ shot: { id: 's', in: 0, out: 6 }, budget: { tokens: 1_200_001 } }),
+    isBadArg,
+  );
+  assert.throws(
+    () => buildShotWorkerMessages({ shot: { id: 's', in: 0, out: 6 }, budget: { tokens: 1_200_001 } }),
+    isBadArg,
+  );
+  const atCap = buildShotWorkerBrief({ shot: { id: 's', in: 0, out: 6 }, budget: { tokens: 1_200_000 } });
+  assert.ok(atCap.includes('1200000'));
+});
+
+test('A19-13 [R2-删镜重试] 镜头工重试前最新修订已删除原镜头时跳过该镜头并记入状态，绝不回退过期旧镜头', async () => {
+  const { film: initialFilm } = scaffold({ id: 'f_001', template: 'title', text: 'FIRST', output: { size: [320, 180], fps: '10/1', frames: 6 } });
+  let currentFilm = structuredClone(initialFilm);
+  let currentRev = 1;
+  const workerBriefs = [];
+
+  const mockApi = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const url = new URL(req.url, 'http://127.0.0.1');
+    res.writeHead(200, { 'content-type': 'application/json' });
+    if (req.method === 'GET' && url.pathname === '/v1/films/f_001/ledger') {
+      res.end(JSON.stringify({ ok: true, data: { items: [] } }));
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/films/f_001/film') {
+      res.end(JSON.stringify({ ok: true, data: { rev: currentRev, film: currentFilm } }));
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/v1/films/f_001/deliver') {
+      res.end(JSON.stringify({
+        ok: true,
+        data: { status: 'succeeded', rev: currentRev },
+        outputs: ['master', 'web', 'contact', 'report', 'run', 'lock'].map((k) => ({ kind: k, url: `/v1/films/f_001/artifacts/j_001/bundle/${k}` })),
+      }));
+      return;
+    }
+    res.end(JSON.stringify({ ok: true, data: {} }));
+  });
+  await new Promise((r) => mockApi.listen(0, '127.0.0.1', r));
+
+  const mockModel = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const sys = body.messages[0]?.content ?? '';
+    const usr = body.messages[1]?.content ?? '';
+    const roleTag = /\[ROLE:([^\]]+)\]/.exec(sys)?.[1] ?? '';
+    let msg;
+
+    if (roleTag === 'director') {
+      msg = { role: 'assistant', content: '导演确认完毕' };
+    } else if (roleTag === 'shot-worker:s01') {
+      workerBriefs.push(usr);
+      // 模拟首轮执行期间，外部最新修订已把 s01 从片子中移除（rev=2, shots=[]）
+      currentRev = 2;
+      currentFilm = { ...structuredClone(currentFilm), shots: [] };
+      msg = { role: 'assistant', content: '未做渲染核验，触发重试前重读' };
+    } else {
+      msg = { role: 'assistant', content: '收尾完成' };
+    }
+
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ model: body.model, choices: [{ message: msg }], usage: { prompt_tokens: 100, completion_tokens: 20 } }));
+  });
+  await new Promise((r) => mockModel.listen(0, '127.0.0.1', r));
+
+  try {
+    const outcome = await runDelegateOrchestrator({
+      baseUrl: `http://127.0.0.1:${mockApi.address().port}`,
+      accountToken: 'acct',
+      filmId: 'f_001',
+      workspaceToken: 'ws',
+      brief: '删镜重试不回退测试',
+      endpoint: `http://127.0.0.1:${mockModel.address().port}/v1`,
+      apiKey: 'key',
+      directorModel: 'claude-opus-5-5',
+      workerModel: 'claude-sonnet-5-5',
+      reserveTokens: 2_000,
+    });
+    assert.equal(outcome.status, 'succeeded');
+    assert.equal(workerBriefs.length, 1, '最新修订已移除 s01 时不得带着过期旧镜头发起第二次重试派工');
+    assert.match(workerBriefs[0], /rev=1/);
+    assert.match(workerBriefs[0], /"text":"FIRST"/);
+    assert.deepEqual(outcome.skippedRemovedShots, [{ shot: 's01', rev: 2 }]);
   } finally {
     await new Promise((r) => mockApi.close(r));
     await new Promise((r) => mockModel.close(r));
