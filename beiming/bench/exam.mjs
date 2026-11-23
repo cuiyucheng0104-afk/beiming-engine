@@ -1268,8 +1268,11 @@ export async function runExam(options = {}) {
     entries,
     enforceBuiltinSets,
   });
+  const hasMissingSets = missingSetErrors.length > 0;
+  const hasInvalidEntries = entries.some((entry) => !entry.valid);
+  const contractFailed = hasMissingSets || hasInvalidEntries;
 
-  const ownTempRoot = !dryRun && !options.evalRoot
+  const ownTempRoot = !dryRun && !contractFailed && !options.evalRoot
     ? fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-exam-'))
     : null;
   const evalRoot = options.evalRoot ? path.resolve(options.evalRoot) : ownTempRoot;
@@ -1305,6 +1308,22 @@ export async function runExam(options = {}) {
           status: 'validated',
           pass: true,
           score: 1,
+          negativeControlsChecked: 0,
+          negativeControlsRejected: 0,
+          errors: [],
+        });
+        continue;
+      }
+
+      if (contractFailed) {
+        questionReports.push({
+          file: entry.file,
+          id: entry.id,
+          level: entry.level,
+          valid: true,
+          status: 'skipped-contract-error',
+          pass: false,
+          score: 0,
           negativeControlsChecked: 0,
           negativeControlsRejected: 0,
           errors: [],
@@ -1396,11 +1415,12 @@ export async function runExam(options = {}) {
   const validQuestions = questionReports.filter((q) => q.valid).length;
   const invalidQuestions = totalQuestions - validQuestions;
   const skippedQuestions = questionReports.filter((q) => q.status === 'expected-fail').length;
-  const evaluatedQuestions = dryRun ? 0 : questionReports.filter((q) => q.valid && q.status !== 'expected-fail').length;
+  const evaluatedQuestions = dryRun || contractFailed
+    ? 0
+    : questionReports.filter((q) => q.valid && q.status !== 'expected-fail').length;
   const passedQuestions = questionReports.filter((q) => q.pass).length;
-  const failedQuestions = questionReports.filter((q) => !q.pass && q.status !== 'expected-fail').length;
-  const noEvaluated = !dryRun && invalidQuestions === 0 && evaluatedQuestions === 0;
-  const hasMissingSets = missingSetErrors.length > 0;
+  const failedQuestions = questionReports.filter((q) => !q.pass && q.status !== 'expected-fail' && q.status !== 'skipped-contract-error').length;
+  const noEvaluated = !dryRun && !contractFailed && invalidQuestions === 0 && evaluatedQuestions === 0;
   const ok = totalQuestions > 0 && invalidQuestions === 0 && !hasMissingSets && failedQuestions === 0 && !noEvaluated;
   const exitCode = ok ? 0 : (invalidQuestions > 0 || hasMissingSets) ? 4 : 1;
 

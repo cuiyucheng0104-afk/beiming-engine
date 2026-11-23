@@ -449,13 +449,17 @@ test('exam-12 回归：23-1 参考夹具 variants[] 变体参考片失配或缺�
   const makeFakeBench = (mutateRef) => {
     const root = makeTempDir(t);
     const fakeBench = path.join(root, 'bench');
-    fs.cpSync(path.join(HERE, 'questions'), path.join(fakeBench, 'questions'), { recursive: true });
-    fs.cpSync(path.join(HERE, 'refs'), path.join(fakeBench, 'refs'), { recursive: true });
-    const refFile = path.join(fakeBench, 'refs/level-1/23-1-reference.json');
+    const only23Dir = path.join(fakeBench, 'questions/only-23-1');
+    const refDir = path.join(fakeBench, 'refs/level-1');
+    fs.mkdirSync(only23Dir, { recursive: true });
+    fs.mkdirSync(refDir, { recursive: true });
+    fs.copyFileSync(path.join(HERE, 'questions/level-1/23-1.json'), path.join(only23Dir, '23-1.json'));
+    const refFile = path.join(refDir, '23-1-reference.json');
+    fs.copyFileSync(path.join(HERE, 'refs/level-1/23-1-reference.json'), refFile);
     const fixture = JSON.parse(fs.readFileSync(refFile, 'utf8'));
     mutateRef(fixture);
     fs.writeFileSync(refFile, JSON.stringify(fixture, null, 2));
-    return { root, fakeBench };
+    return { root, fakeBench, only23Dir };
   };
 
   // 1. 头部 60 帧变体 nearest 从 59 改为 30 -> B2 评分器得 0.5 分，整场考试必须 exit 1
@@ -463,7 +467,7 @@ test('exam-12 回归：23-1 参考夹具 variants[] 变体参考片失配或缺�
     fixture.variants[0].readings['loop.closure-psnr'].nearest = 30;
   });
   const out1 = path.join(b1.root, 'out');
-  const r1 = await runExam({ benchDir: b1.fakeBench, outDir: out1 });
+  const r1 = await runExam({ benchDir: b1.fakeBench, questionsDir: b1.only23Dir, outDir: out1 });
   assert.equal(r1.ok, false);
   assert.equal(r1.exitCode, 1);
   const q23 = r1.questions.find((q) => q.id === '23-1');
@@ -476,7 +480,7 @@ test('exam-12 回归：23-1 参考夹具 variants[] 变体参考片失配或缺�
   const b2 = makeFakeBench((fixture) => {
     fixture.variants[0].readings['loop.closure-psnr'].closurePsnr = 5;
   });
-  const r2 = await runExam({ benchDir: b2.fakeBench, outDir: null });
+  const r2 = await runExam({ benchDir: b2.fakeBench, questionsDir: b2.only23Dir, outDir: null });
   assert.equal(r2.ok, false);
   assert.equal(r2.exitCode, 1);
 
@@ -484,7 +488,7 @@ test('exam-12 回归：23-1 参考夹具 variants[] 变体参考片失配或缺�
   const b3 = makeFakeBench((fixture) => {
     fixture.variants[0].readings.base.spec.frames = 72;
   });
-  const r3 = await runExam({ benchDir: b3.fakeBench, outDir: null });
+  const r3 = await runExam({ benchDir: b3.fakeBench, questionsDir: b3.only23Dir, outDir: null });
   assert.equal(r3.ok, false);
   assert.equal(r3.exitCode, 1);
 
@@ -492,7 +496,7 @@ test('exam-12 回归：23-1 参考夹具 variants[] 变体参考片失配或缺�
   const b4 = makeFakeBench((fixture) => {
     delete fixture.variants;
   });
-  const r4 = await runExam({ benchDir: b4.fakeBench, outDir: null });
+  const r4 = await runExam({ benchDir: b4.fakeBench, questionsDir: b4.only23Dir, outDir: null });
   assert.equal(r4.ok, false);
   assert.equal(r4.exitCode, 4);
   assert.equal(r4.summary.invalidQuestions, 1);
