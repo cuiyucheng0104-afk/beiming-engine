@@ -1,0 +1,4147 @@
+{
+  "format": "priors/0.1",
+  "entries": [
+    {
+      "id": "render-pipe.d003.frequency",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s1.frequency",
+      "title": "时钟与纯函数（频率）",
+      "value": 120,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：时钟与纯函数（频率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d003",
+        "note": "固定 60 帧/秒；120 Hz 屏每两次刷新画一帧；90 s 循环，80 BPM，30 小节；每一帧是片中时间的纯函数。全部粒子、水、风为 `t` 的闭式函数，不存状态，可任意跳帧（04/05/06/07/08 都强调）。需要「记忆」的东西（灯笼的摆、被龙扫过的树、湿身、湖面涟漪）加载时把整部片预先走一遍写成表，播放时只查表：灯笼摆按每秒 30 个样本积分 90 秒，植物只记离它最近 3 次「龙经过」，湿身按每 1/24 秒扫一遍全片。闪光、曝光、泛光、震动、阵风都是 pulse(t, 节拍时间, 上升, 衰减) 加权和；风相位预算成 5402 格表（原实现源码）；云影起始位置加载时用 1600 个候选偏移打分挑选（原实现源码）；任何帧可单独渲染。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d003",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "render-pipe.d003.duration",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s1.duration",
+      "title": "时钟与纯函数（时长）",
+      "value": 90,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：时钟与纯函数（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d003",
+        "note": "固定 60 帧/秒；120 Hz 屏每两次刷新画一帧；90 s 循环，80 BPM，30 小节；每一帧是片中时间的纯函数。全部粒子、水、风为 `t` 的闭式函数，不存状态，可任意跳帧（04/05/06/07/08 都强调）。需要「记忆」的东西（灯笼的摆、被龙扫过的树、湿身、湖面涟漪）加载时把整部片预先走一遍写成表，播放时只查表：灯笼摆按每秒 30 个样本积分 90 秒，植物只记离它最近 3 次「龙经过」，湿身按每 1/24 秒扫一遍全片。闪光、曝光、泛光、震动、阵风都是 pulse(t, 节拍时间, 上升, 衰减) 加权和；风相位预算成 5402 格表（原实现源码）；云影起始位置加载时用 1600 个候选偏移打分挑选（原实现源码）；任何帧可单独渲染。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d003",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "render-pipe.d023.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s2.resolution",
+      "title": "4K 母版设置（画面分辨率）",
+      "value": {
+        "width": 2880,
+        "height": 2160
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：4K 母版设置（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 2 节 · d023",
+        "note": "原生 2880×2160（4:3）；每帧按两倍 5760×4320 计算再下采样做干净边缘；阴影贴图 16,384 px（渲染器上限）；描边粗细按 4K 缩放；抖动（dither）去天空条带；重做 4:3 是「重构图每个镜头原生渲染」（43 个镜头）而非裁切；4K 母版渲染不到两分钟；近景裁切放大查阴影锯齿；成片 1:05、24 fps；首版 2:42、64 镜、不到 4 小时。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d023",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "render-pipe.d023.fps",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s2.fps",
+      "title": "4K 母版设置（帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：4K 母版设置（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 2 节 · d023",
+        "note": "原生 2880×2160（4:3）；每帧按两倍 5760×4320 计算再下采样做干净边缘；阴影贴图 16,384 px（渲染器上限）；描边粗细按 4K 缩放；抖动（dither）去天空条带；重做 4:3 是「重构图每个镜头原生渲染」（43 个镜头）而非裁切；4K 母版渲染不到两分钟；近景裁切放大查阴影锯齿；成片 1:05、24 fps；首版 2:42、64 镜、不到 4 小时。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d023",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "render-pipe.d026.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.resolution",
+      "title": "案例 01 重制版 Cycles 设置（studio.setup + 原实现源码）（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：案例 01 重制版 Cycles 设置（studio.setup + 原实现源码）（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d026",
+        "note": "引擎 CYCLES；设备：桌面系统 优先 OPTIX 其次 CUDA，桌面工作站 用 METAL，无则 CPU；另一台本地工作站 日志「后端 OPTIX」。采样：终版 160；预演 48；预览 ≤24；自适应采样开，adaptive_threshold 0.015。降噪：OPENIMAGEDENOISE，输入 RGB_ALBEDO_NORMAL，预滤 ACCURATE，`denoising_use_gpu = True`（hasattr 判断）。反弹：max 6，diffuse 2，glossy 4，transmission 2，volume 0，transparent_max 4。钳制：sample_clamp_direct 0.0，sample_clamp_indirect 4.0（只钳间接光压萤火虫，不动灯的直接高光）；caustics_reflective/refractive 均关；blur_glossy 1.0；use_light_tree 开。输出：1920×1080，resolution_percentage 100；PNG RGBA 8 位，compression 15，dither_intensity 1.0（暗部渐变抗色带）；film_transparent True。色彩管理：view_transform AgX，look \"AgX - Medium High Contrast\"，exposure 0.0，gamma 1.0，display_device sRGB。use_persistent_data True（帧间保留 BVH 与着色器）。运动模糊开快门 0.5（微距长镜头 C 384–575 帧用 0.25）；景深全程开，光圈 f/4–f/22，对焦距 = 机位到目标点距离。；脚本没改、沿用默认（实测）：pixel_filter BLACKMAN_HARRIS 1.5 px；adaptive_min_samples 0；denoising_quality HIGH；light_sampling_threshold 0.01；seed 0 / use_animated_seed False（每帧同一噪声序列）；tile_size 2048；use_fast_gi False；use_guiding False；render.fps 24（原实现源码 没改，帧率在编码时按 30 指定）；场景单位 METRIC scale_length 1。另一台本地工作站 4.5.11 上的默认值本助手未读回（自认）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d026",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d026.noise-threshold",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.noise-threshold",
+      "title": "案例 01 重制版 Cycles 设置（studio.setup + 原实现源码）（自适应采样噪声阈值）",
+      "value": 0.015,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：案例 01 重制版 Cycles 设置（studio.setup + 原实现源码）（自适应采样噪声阈值）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d026",
+        "note": "引擎 CYCLES；设备：桌面系统 优先 OPTIX 其次 CUDA，桌面工作站 用 METAL，无则 CPU；另一台本地工作站 日志「后端 OPTIX」。采样：终版 160；预演 48；预览 ≤24；自适应采样开，adaptive_threshold 0.015。降噪：OPENIMAGEDENOISE，输入 RGB_ALBEDO_NORMAL，预滤 ACCURATE，`denoising_use_gpu = True`（hasattr 判断）。反弹：max 6，diffuse 2，glossy 4，transmission 2，volume 0，transparent_max 4。钳制：sample_clamp_direct 0.0，sample_clamp_indirect 4.0（只钳间接光压萤火虫，不动灯的直接高光）；caustics_reflective/refractive 均关；blur_glossy 1.0；use_light_tree 开。输出：1920×1080，resolution_percentage 100；PNG RGBA 8 位，compression 15，dither_intensity 1.0（暗部渐变抗色带）；film_transparent True。色彩管理：view_transform AgX，look \"AgX - Medium High Contrast\"，exposure 0.0，gamma 1.0，display_device sRGB。use_persistent_data True（帧间保留 BVH 与着色器）。运动模糊开快门 0.5（微距长镜头 C 384–575 帧用 0.25）；景深全程开，光圈 f/4–f/22，对焦距 = 机位到目标点距离。；脚本没改、沿用默认（实测）：pixel_filter BLACKMAN_HARRIS 1.5 px；adaptive_min_samples 0；denoising_quality HIGH；light_sampling_threshold 0.01；seed 0 / use_animated_seed False（每帧同一噪声序列）；tile_size 2048；use_fast_gi False；use_guiding False；render.fps 24（原实现源码 没改，帧率在编码时按 30 指定）；场景单位 METRIC scale_length 1。另一台本地工作站 4.5.11 上的默认值本助手未读回（自认）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d026",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d026.exposure",
+      "domain": "lighting-exposure",
+      "topic": "render-pipe.s3.exposure",
+      "title": "案例 01 重制版 Cycles 设置（studio.setup + 原实现源码）（曝光偏移档位）",
+      "value": 0,
+      "unit": "stop",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：案例 01 重制版 Cycles 设置（studio.setup + 原实现源码）（曝光偏移档位）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d026",
+        "note": "引擎 CYCLES；设备：桌面系统 优先 OPTIX 其次 CUDA，桌面工作站 用 METAL，无则 CPU；另一台本地工作站 日志「后端 OPTIX」。采样：终版 160；预演 48；预览 ≤24；自适应采样开，adaptive_threshold 0.015。降噪：OPENIMAGEDENOISE，输入 RGB_ALBEDO_NORMAL，预滤 ACCURATE，`denoising_use_gpu = True`（hasattr 判断）。反弹：max 6，diffuse 2，glossy 4，transmission 2，volume 0，transparent_max 4。钳制：sample_clamp_direct 0.0，sample_clamp_indirect 4.0（只钳间接光压萤火虫，不动灯的直接高光）；caustics_reflective/refractive 均关；blur_glossy 1.0；use_light_tree 开。输出：1920×1080，resolution_percentage 100；PNG RGBA 8 位，compression 15，dither_intensity 1.0（暗部渐变抗色带）；film_transparent True。色彩管理：view_transform AgX，look \"AgX - Medium High Contrast\"，exposure 0.0，gamma 1.0，display_device sRGB。use_persistent_data True（帧间保留 BVH 与着色器）。运动模糊开快门 0.5（微距长镜头 C 384–575 帧用 0.25）；景深全程开，光圈 f/4–f/22，对焦距 = 机位到目标点距离。；脚本没改、沿用默认（实测）：pixel_filter BLACKMAN_HARRIS 1.5 px；adaptive_min_samples 0；denoising_quality HIGH；light_sampling_threshold 0.01；seed 0 / use_animated_seed False（每帧同一噪声序列）；tile_size 2048；use_fast_gi False；use_guiding False；render.fps 24（原实现源码 没改，帧率在编码时按 30 指定）；场景单位 METRIC scale_length 1。另一台本地工作站 4.5.11 上的默认值本助手未读回（自认）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d026",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d026.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-count",
+      "title": "案例 01 重制版 Cycles 设置（studio.setup + 原实现源码）（帧数）",
+      "value": [
+        384,
+        575
+      ],
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：案例 01 重制版 Cycles 设置（studio.setup + 原实现源码）（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d026",
+        "note": "引擎 CYCLES；设备：桌面系统 优先 OPTIX 其次 CUDA，桌面工作站 用 METAL，无则 CPU；另一台本地工作站 日志「后端 OPTIX」。采样：终版 160；预演 48；预览 ≤24；自适应采样开，adaptive_threshold 0.015。降噪：OPENIMAGEDENOISE，输入 RGB_ALBEDO_NORMAL，预滤 ACCURATE，`denoising_use_gpu = True`（hasattr 判断）。反弹：max 6，diffuse 2，glossy 4，transmission 2，volume 0，transparent_max 4。钳制：sample_clamp_direct 0.0，sample_clamp_indirect 4.0（只钳间接光压萤火虫，不动灯的直接高光）；caustics_reflective/refractive 均关；blur_glossy 1.0；use_light_tree 开。输出：1920×1080，resolution_percentage 100；PNG RGBA 8 位，compression 15，dither_intensity 1.0（暗部渐变抗色带）；film_transparent True。色彩管理：view_transform AgX，look \"AgX - Medium High Contrast\"，exposure 0.0，gamma 1.0，display_device sRGB。use_persistent_data True（帧间保留 BVH 与着色器）。运动模糊开快门 0.5（微距长镜头 C 384–575 帧用 0.25）；景深全程开，光圈 f/4–f/22，对焦距 = 机位到目标点距离。；脚本没改、沿用默认（实测）：pixel_filter BLACKMAN_HARRIS 1.5 px；adaptive_min_samples 0；denoising_quality HIGH；light_sampling_threshold 0.01；seed 0 / use_animated_seed False（每帧同一噪声序列）；tile_size 2048；use_fast_gi False；use_guiding False；render.fps 24（原实现源码 没改，帧率在编码时按 30 指定）；场景单位 METRIC scale_length 1。另一台本地工作站 4.5.11 上的默认值本助手未读回（自认）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d026",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d026.pixels",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.pixels",
+      "title": "案例 01 重制版 Cycles 设置（studio.setup + 原实现源码）（像素尺寸）",
+      "value": 1.5,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：案例 01 重制版 Cycles 设置（studio.setup + 原实现源码）（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d026",
+        "note": "引擎 CYCLES；设备：桌面系统 优先 OPTIX 其次 CUDA，桌面工作站 用 METAL，无则 CPU；另一台本地工作站 日志「后端 OPTIX」。采样：终版 160；预演 48；预览 ≤24；自适应采样开，adaptive_threshold 0.015。降噪：OPENIMAGEDENOISE，输入 RGB_ALBEDO_NORMAL，预滤 ACCURATE，`denoising_use_gpu = True`（hasattr 判断）。反弹：max 6，diffuse 2，glossy 4，transmission 2，volume 0，transparent_max 4。钳制：sample_clamp_direct 0.0，sample_clamp_indirect 4.0（只钳间接光压萤火虫，不动灯的直接高光）；caustics_reflective/refractive 均关；blur_glossy 1.0；use_light_tree 开。输出：1920×1080，resolution_percentage 100；PNG RGBA 8 位，compression 15，dither_intensity 1.0（暗部渐变抗色带）；film_transparent True。色彩管理：view_transform AgX，look \"AgX - Medium High Contrast\"，exposure 0.0，gamma 1.0，display_device sRGB。use_persistent_data True（帧间保留 BVH 与着色器）。运动模糊开快门 0.5（微距长镜头 C 384–575 帧用 0.25）；景深全程开，光圈 f/4–f/22，对焦距 = 机位到目标点距离。；脚本没改、沿用默认（实测）：pixel_filter BLACKMAN_HARRIS 1.5 px；adaptive_min_samples 0；denoising_quality HIGH；light_sampling_threshold 0.01；seed 0 / use_animated_seed False（每帧同一噪声序列）；tile_size 2048；use_fast_gi False；use_guiding False；render.fps 24（原实现源码 没改，帧率在编码时按 30 指定）；场景单位 METRIC scale_length 1。另一台本地工作站 4.5.11 上的默认值本助手未读回（自认）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d026",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d027.samples",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.samples",
+      "title": "Cycles 设置（每像素采样数）",
+      "value": 64,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置（每像素采样数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d027",
+        "note": "AgX + \"AgX - Medium High Contrast\"；Cycles 设 METAL，所有设备 use=True，device GPU；max_bounces 8；use_denoising True；use_adaptive_sampling True；samples 参数传入；PNG RGB；`render_settings(\"CYCLES\",(W,W*9//16),SPP)`；`compute_device_type=\"METAL\"`；`use_motion_blur=False`（位置逐帧直接设，无关键帧，运动模糊不起作用）；备用 EEVEE：`taa_render_samples=samples`、`use_raytracing=True`；相机 `clip_start=0.01`，DOF 用 fstop；`blender -b --factory-startup --python-exit-code 1 -P …`。；成片样本数【冲突】：06 制作日志写「32 采样 + 降噪，约 5 秒/帧」「720 帧约 53 分钟，4.4 秒/帧」，07 清单写「20 采样 + 降噪」；分组清单 另写：v1 32 采样约 5 s/帧（240 帧），v2/v3 成片 720 帧 20 采样（原实现源码）约 53 分钟 4.4 s/帧，v3 重渲 240 帧 3.7 s/帧；阶梯 64spp；预览 1280 宽 48 采样每张 3.5–5.5 s；镜头 A 景深过浅整卡发糊，光圈 f/2.8 改 f/11；运动模糊因部件位置逐帧直设无关键帧而不起作用，关掉。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d027",
+        "c12.section": "3"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-01-legacy",
+          "value": 20,
+          "unit": "spp",
+          "evidenceLevel": "源码",
+          "reason": "07 清单与原实现源码记录 v2/v3 成片采用 20 采样 + 降噪（与 06 日志 32 采样、阶梯 64 spp 并存）"
+        },
+        {
+          "caseId": "case-01-legacy",
+          "value": 32,
+          "unit": "spp",
+          "evidenceLevel": "文档",
+          "reason": "06 制作日志记录 32 采样 + 降噪约 5 s/帧（与 07 清单 20 采样存在差异）"
+        }
+      ]
+    },
+    {
+      "id": "render-pipe.d027.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-count",
+      "title": "Cycles 设置（帧数）",
+      "value": 720,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d027",
+        "note": "AgX + \"AgX - Medium High Contrast\"；Cycles 设 METAL，所有设备 use=True，device GPU；max_bounces 8；use_denoising True；use_adaptive_sampling True；samples 参数传入；PNG RGB；`render_settings(\"CYCLES\",(W,W*9//16),SPP)`；`compute_device_type=\"METAL\"`；`use_motion_blur=False`（位置逐帧直接设，无关键帧，运动模糊不起作用）；备用 EEVEE：`taa_render_samples=samples`、`use_raytracing=True`；相机 `clip_start=0.01`，DOF 用 fstop；`blender -b --factory-startup --python-exit-code 1 -P …`。；成片样本数【冲突】：06 制作日志写「32 采样 + 降噪，约 5 秒/帧」「720 帧约 53 分钟，4.4 秒/帧」，07 清单写「20 采样 + 降噪」；分组清单 另写：v1 32 采样约 5 s/帧（240 帧），v2/v3 成片 720 帧 20 采样（原实现源码）约 53 分钟 4.4 s/帧，v3 重渲 240 帧 3.7 s/帧；阶梯 64spp；预览 1280 宽 48 采样每张 3.5–5.5 s；镜头 A 景深过浅整卡发糊，光圈 f/2.8 改 f/11；运动模糊因部件位置逐帧直设无关键帧而不起作用，关掉。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d027",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d027.duration",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.duration",
+      "title": "Cycles 设置（时长）",
+      "value": [
+        3.5,
+        5.5
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d027",
+        "note": "AgX + \"AgX - Medium High Contrast\"；Cycles 设 METAL，所有设备 use=True，device GPU；max_bounces 8；use_denoising True；use_adaptive_sampling True；samples 参数传入；PNG RGB；`render_settings(\"CYCLES\",(W,W*9//16),SPP)`；`compute_device_type=\"METAL\"`；`use_motion_blur=False`（位置逐帧直接设，无关键帧，运动模糊不起作用）；备用 EEVEE：`taa_render_samples=samples`、`use_raytracing=True`；相机 `clip_start=0.01`，DOF 用 fstop；`blender -b --factory-startup --python-exit-code 1 -P …`。；成片样本数【冲突】：06 制作日志写「32 采样 + 降噪，约 5 秒/帧」「720 帧约 53 分钟，4.4 秒/帧」，07 清单写「20 采样 + 降噪」；分组清单 另写：v1 32 采样约 5 s/帧（240 帧），v2/v3 成片 720 帧 20 采样（原实现源码）约 53 分钟 4.4 s/帧，v3 重渲 240 帧 3.7 s/帧；阶梯 64spp；预览 1280 宽 48 采样每张 3.5–5.5 s；镜头 A 景深过浅整卡发糊，光圈 f/2.8 改 f/11；运动模糊因部件位置逐帧直设无关键帧而不起作用，关掉。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d027",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d028.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.resolution",
+      "title": "案例 03-G 与 案例 03-B 本地渲染设置（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：案例 03-G 与 案例 03-B 本地渲染设置（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d028",
+        "note": "案例 03-G：Cycles，GPU（桌面系统 OPTIX/CUDA，其余 METAL）；采样默认 48（`--samples`）；自适应阈值 0.02；降噪 OPENIMAGEDENOISE，GPU 降噪；AgX，Look = AgX - Medium High Contrast；世界背景见光照。（原实现源码）；案例 03-B：同上，采样默认 64，1920×1080，30 fps；max_bounces 6，diffuse_bounces 2，glossy_bounces 4；`use_persistent_data=True`；PNG 输出；AgX Medium High Contrast（原实现源码）。另一处记法【冲突】：案例 03-B 00 首页「渲染与动画」写 Blender 5.2 本机 Metal；1920×1080 30 fps；128 采样，自适应阈值 0.02，OIDN(GPU)；反弹总 6/漫射 2/光泽 4；AgX+Medium High Contrast；整机挂在缩放 0.01 的根下（1/100 模型约 189 mm 高 → 场景 1.89 m）。64 是脚本默认，128 是首页对成片的写法，没有读回哪个是成片实际值。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d028",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d028.samples",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.samples",
+      "title": "案例 03-G 与 案例 03-B 本地渲染设置（每像素采样数）",
+      "value": 48,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：案例 03-G 与 案例 03-B 本地渲染设置（每像素采样数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d028",
+        "note": "案例 03-G：Cycles，GPU（桌面系统 OPTIX/CUDA，其余 METAL）；采样默认 48（`--samples`）；自适应阈值 0.02；降噪 OPENIMAGEDENOISE，GPU 降噪；AgX，Look = AgX - Medium High Contrast；世界背景见光照。（原实现源码）；案例 03-B：同上，采样默认 64，1920×1080，30 fps；max_bounces 6，diffuse_bounces 2，glossy_bounces 4；`use_persistent_data=True`；PNG 输出；AgX Medium High Contrast（原实现源码）。另一处记法【冲突】：案例 03-B 00 首页「渲染与动画」写 Blender 5.2 本机 Metal；1920×1080 30 fps；128 采样，自适应阈值 0.02，OIDN(GPU)；反弹总 6/漫射 2/光泽 4；AgX+Medium High Contrast；整机挂在缩放 0.01 的根下（1/100 模型约 189 mm 高 → 场景 1.89 m）。64 是脚本默认，128 是首页对成片的写法，没有读回哪个是成片实际值。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d028",
+        "c12.section": "3"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-03",
+          "value": 64,
+          "unit": "spp",
+          "evidenceLevel": "源码",
+          "reason": "案例 03-B 渲染脚本默认 64 spp（对照案例 03-G 48 spp 及 00 首页记法 128 spp）"
+        },
+        {
+          "caseId": "case-03",
+          "value": 128,
+          "unit": "spp",
+          "evidenceLevel": "文档",
+          "reason": "案例 03-B 00 首页写 128 采样，未读回成片实际值，与脚本默认 64 spp 冲突"
+        }
+      ]
+    },
+    {
+      "id": "render-pipe.d028.noise-threshold",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.noise-threshold",
+      "title": "案例 03-G 与 案例 03-B 本地渲染设置（自适应采样噪声阈值）",
+      "value": 0.02,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：案例 03-G 与 案例 03-B 本地渲染设置（自适应采样噪声阈值）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d028",
+        "note": "案例 03-G：Cycles，GPU（桌面系统 OPTIX/CUDA，其余 METAL）；采样默认 48（`--samples`）；自适应阈值 0.02；降噪 OPENIMAGEDENOISE，GPU 降噪；AgX，Look = AgX - Medium High Contrast；世界背景见光照。（原实现源码）；案例 03-B：同上，采样默认 64，1920×1080，30 fps；max_bounces 6，diffuse_bounces 2，glossy_bounces 4；`use_persistent_data=True`；PNG 输出；AgX Medium High Contrast（原实现源码）。另一处记法【冲突】：案例 03-B 00 首页「渲染与动画」写 Blender 5.2 本机 Metal；1920×1080 30 fps；128 采样，自适应阈值 0.02，OIDN(GPU)；反弹总 6/漫射 2/光泽 4；AgX+Medium High Contrast；整机挂在缩放 0.01 的根下（1/100 模型约 189 mm 高 → 场景 1.89 m）。64 是脚本默认，128 是首页对成片的写法，没有读回哪个是成片实际值。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d028",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d028.fps",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.fps",
+      "title": "案例 03-G 与 案例 03-B 本地渲染设置（帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：案例 03-G 与 案例 03-B 本地渲染设置（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d028",
+        "note": "案例 03-G：Cycles，GPU（桌面系统 OPTIX/CUDA，其余 METAL）；采样默认 48（`--samples`）；自适应阈值 0.02；降噪 OPENIMAGEDENOISE，GPU 降噪；AgX，Look = AgX - Medium High Contrast；世界背景见光照。（原实现源码）；案例 03-B：同上，采样默认 64，1920×1080，30 fps；max_bounces 6，diffuse_bounces 2，glossy_bounces 4；`use_persistent_data=True`；PNG 输出；AgX Medium High Contrast（原实现源码）。另一处记法【冲突】：案例 03-B 00 首页「渲染与动画」写 Blender 5.2 本机 Metal；1920×1080 30 fps；128 采样，自适应阈值 0.02，OIDN(GPU)；反弹总 6/漫射 2/光泽 4；AgX+Medium High Contrast；整机挂在缩放 0.01 的根下（1/100 模型约 189 mm 高 → 场景 1.89 m）。64 是脚本默认，128 是首页对成片的写法，没有读回哪个是成片实际值。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d028",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d028.dimension",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.dimension",
+      "title": "案例 03-G 与 案例 03-B 本地渲染设置（物理尺寸）",
+      "value": 189,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：案例 03-G 与 案例 03-B 本地渲染设置（物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d028",
+        "note": "案例 03-G：Cycles，GPU（桌面系统 OPTIX/CUDA，其余 METAL）；采样默认 48（`--samples`）；自适应阈值 0.02；降噪 OPENIMAGEDENOISE，GPU 降噪；AgX，Look = AgX - Medium High Contrast；世界背景见光照。（原实现源码）；案例 03-B：同上，采样默认 64，1920×1080，30 fps；max_bounces 6，diffuse_bounces 2，glossy_bounces 4；`use_persistent_data=True`；PNG 输出；AgX Medium High Contrast（原实现源码）。另一处记法【冲突】：案例 03-B 00 首页「渲染与动画」写 Blender 5.2 本机 Metal；1920×1080 30 fps；128 采样，自适应阈值 0.02，OIDN(GPU)；反弹总 6/漫射 2/光泽 4；AgX+Medium High Contrast；整机挂在缩放 0.01 的根下（1/100 模型约 189 mm 高 → 场景 1.89 m）。64 是脚本默认，128 是首页对成片的写法，没有读回哪个是成片实际值。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d028",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d030.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.resolution",
+      "title": "渲染设置（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：渲染设置（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d030",
+        "note": "案例 03-T：Cycles；1920×1080、30 fps、900 帧；采样数、降噪、反弹未公开；测试帧本机 8 张，900 帧在 某生成平台 GPU；提示词要求 GPU OptiX/CUDA 降噪、AgX — Medium High Contrast、快门 0.5。参考图设置为 1080p（非提示词所写 8K）【冲突：提示词 8K 与参考图 1080p】。发布片 30 秒、30 fps、最终 900 帧经 某生成平台 GPU 渲染。；案例 28：先本地写调试脚本并渲 8 张测试静帧（每镜一张）自检（装配与转头不散架、眼牙随颅骨与颌运动、玻璃金属写实）；终渲 900 帧 Cycles + GPU OptiX/CUDA 降噪于 某生成平台 GPU，先报价待确认；下载 原包素材 与 工程文件。`/gpu` 渲染，渲染器、采样、色彩管理、降噪、帧数未公开；录屏 Motion Blur 复选框勾选。玻璃头 Compositor：物理正确运动模糊（shutter 0.5）；动画景深（微距镜头焦点始终跟踪活动部件，中景跟踪眼睛）；Glare(Fog Glow) 用于太阳穴与眼睛指示灯；色彩配置 AgX — Medium High Contrast。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d030",
+        "c12.section": "3"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-03",
+          "value": {
+            "width": 7680,
+            "height": 4320
+          },
+          "unit": "px",
+          "evidenceLevel": "文档",
+          "reason": "提示词要求 8K 参考图，但实际参考图设置为 1080p（1920×1080）"
+        }
+      ]
+    },
+    {
+      "id": "render-pipe.d030.fps",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.fps",
+      "title": "渲染设置（帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：渲染设置（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d030",
+        "note": "案例 03-T：Cycles；1920×1080、30 fps、900 帧；采样数、降噪、反弹未公开；测试帧本机 8 张，900 帧在 某生成平台 GPU；提示词要求 GPU OptiX/CUDA 降噪、AgX — Medium High Contrast、快门 0.5。参考图设置为 1080p（非提示词所写 8K）【冲突：提示词 8K 与参考图 1080p】。发布片 30 秒、30 fps、最终 900 帧经 某生成平台 GPU 渲染。；案例 28：先本地写调试脚本并渲 8 张测试静帧（每镜一张）自检（装配与转头不散架、眼牙随颅骨与颌运动、玻璃金属写实）；终渲 900 帧 Cycles + GPU OptiX/CUDA 降噪于 某生成平台 GPU，先报价待确认；下载 原包素材 与 工程文件。`/gpu` 渲染，渲染器、采样、色彩管理、降噪、帧数未公开；录屏 Motion Blur 复选框勾选。玻璃头 Compositor：物理正确运动模糊（shutter 0.5）；动画景深（微距镜头焦点始终跟踪活动部件，中景跟踪眼睛）；Glare(Fog Glow) 用于太阳穴与眼睛指示灯；色彩配置 AgX — Medium High Contrast。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d030",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d030.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-count",
+      "title": "渲染设置（帧数）",
+      "value": 900,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：渲染设置（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d030",
+        "note": "案例 03-T：Cycles；1920×1080、30 fps、900 帧；采样数、降噪、反弹未公开；测试帧本机 8 张，900 帧在 某生成平台 GPU；提示词要求 GPU OptiX/CUDA 降噪、AgX — Medium High Contrast、快门 0.5。参考图设置为 1080p（非提示词所写 8K）【冲突：提示词 8K 与参考图 1080p】。发布片 30 秒、30 fps、最终 900 帧经 某生成平台 GPU 渲染。；案例 28：先本地写调试脚本并渲 8 张测试静帧（每镜一张）自检（装配与转头不散架、眼牙随颅骨与颌运动、玻璃金属写实）；终渲 900 帧 Cycles + GPU OptiX/CUDA 降噪于 某生成平台 GPU，先报价待确认；下载 原包素材 与 工程文件。`/gpu` 渲染，渲染器、采样、色彩管理、降噪、帧数未公开；录屏 Motion Blur 复选框勾选。玻璃头 Compositor：物理正确运动模糊（shutter 0.5）；动画景深（微距镜头焦点始终跟踪活动部件，中景跟踪眼睛）；Glare(Fog Glow) 用于太阳穴与眼睛指示灯；色彩配置 AgX — Medium High Contrast。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d030",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d030.duration",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.duration",
+      "title": "渲染设置（时长）",
+      "value": 30,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：渲染设置（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d030",
+        "note": "案例 03-T：Cycles；1920×1080、30 fps、900 帧；采样数、降噪、反弹未公开；测试帧本机 8 张，900 帧在 某生成平台 GPU；提示词要求 GPU OptiX/CUDA 降噪、AgX — Medium High Contrast、快门 0.5。参考图设置为 1080p（非提示词所写 8K）【冲突：提示词 8K 与参考图 1080p】。发布片 30 秒、30 fps、最终 900 帧经 某生成平台 GPU 渲染。；案例 28：先本地写调试脚本并渲 8 张测试静帧（每镜一张）自检（装配与转头不散架、眼牙随颅骨与颌运动、玻璃金属写实）；终渲 900 帧 Cycles + GPU OptiX/CUDA 降噪于 某生成平台 GPU，先报价待确认；下载 原包素材 与 工程文件。`/gpu` 渲染，渲染器、采样、色彩管理、降噪、帧数未公开；录屏 Motion Blur 复选框勾选。玻璃头 Compositor：物理正确运动模糊（shutter 0.5）；动画景深（微距镜头焦点始终跟踪活动部件，中景跟踪眼睛）；Glare(Fog Glow) 用于太阳穴与眼睛指示灯；色彩配置 AgX — Medium High Contrast。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d030",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d031.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.resolution",
+      "title": "Blender 渲染设置与分段（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Blender 渲染设置与分段（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d031",
+        "note": "Blender 5.2 Cycles；某生成平台 GPU 约 12 块显卡；OptiX；1920×1080（预览 720p）；24 fps；720 帧；采样 256；自适应阈值 0.02；降噪 OIDN 带反照率和法线通道；运动模糊快门 180° 位置 START；景深带跟焦（光圈未公开）；焦段穿行 18 mm、定妆 50 mm；色彩管理 AgX（Look、曝光未公开）；输出干净底片 ProRes（档位位深未公开）；反弹次数未公开。预览 720p、终渲 1080p；预览分辨率比例 600×338 小样。；每帧耗时与分段：1080p 每帧约 9–10 s；每块显卡第一帧约 100 s（OptiX 编译）；60 帧一段共 12 段；局部缺陷只重渲那一段按帧拼回（局部重渲每段约 11 分钟，总计 1.9 显卡小时，我们核算）；测试渲染也送 GPU（本地共享队列曾等 15 分钟）；不上传缓存和助手 `out/` 目录（用忽略文件挡）。推算：720×9.5 s=6,840 s=1.9 显卡小时，12 段并行每段 60×9.5+100=670 s≈11 min，官方说「整片约 1 小时」差的时间未说明；段太小会被首帧编译吃掉。；干净底片：ProRes 不带图层和颗粒，是合成源头；改图层、调色、声音只重合成不重渲。工程流程：不保留 工程文件，从代码重建约 15 秒；`原文档:integration-audit`；五道关口：三张最终画质测试帧→分镜→预览→终渲→质检。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d031",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d031.samples",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.samples",
+      "title": "Blender 渲染设置与分段（每像素采样数）",
+      "value": 256,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Blender 渲染设置与分段（每像素采样数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d031",
+        "note": "Blender 5.2 Cycles；某生成平台 GPU 约 12 块显卡；OptiX；1920×1080（预览 720p）；24 fps；720 帧；采样 256；自适应阈值 0.02；降噪 OIDN 带反照率和法线通道；运动模糊快门 180° 位置 START；景深带跟焦（光圈未公开）；焦段穿行 18 mm、定妆 50 mm；色彩管理 AgX（Look、曝光未公开）；输出干净底片 ProRes（档位位深未公开）；反弹次数未公开。预览 720p、终渲 1080p；预览分辨率比例 600×338 小样。；每帧耗时与分段：1080p 每帧约 9–10 s；每块显卡第一帧约 100 s（OptiX 编译）；60 帧一段共 12 段；局部缺陷只重渲那一段按帧拼回（局部重渲每段约 11 分钟，总计 1.9 显卡小时，我们核算）；测试渲染也送 GPU（本地共享队列曾等 15 分钟）；不上传缓存和助手 `out/` 目录（用忽略文件挡）。推算：720×9.5 s=6,840 s=1.9 显卡小时，12 段并行每段 60×9.5+100=670 s≈11 min，官方说「整片约 1 小时」差的时间未说明；段太小会被首帧编译吃掉。；干净底片：ProRes 不带图层和颗粒，是合成源头；改图层、调色、声音只重合成不重渲。工程流程：不保留 工程文件，从代码重建约 15 秒；`原文档:integration-audit`；五道关口：三张最终画质测试帧→分镜→预览→终渲→质检。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d031",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d031.noise-threshold",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.noise-threshold",
+      "title": "Blender 渲染设置与分段（自适应采样噪声阈值）",
+      "value": 0.02,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Blender 渲染设置与分段（自适应采样噪声阈值）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d031",
+        "note": "Blender 5.2 Cycles；某生成平台 GPU 约 12 块显卡；OptiX；1920×1080（预览 720p）；24 fps；720 帧；采样 256；自适应阈值 0.02；降噪 OIDN 带反照率和法线通道；运动模糊快门 180° 位置 START；景深带跟焦（光圈未公开）；焦段穿行 18 mm、定妆 50 mm；色彩管理 AgX（Look、曝光未公开）；输出干净底片 ProRes（档位位深未公开）；反弹次数未公开。预览 720p、终渲 1080p；预览分辨率比例 600×338 小样。；每帧耗时与分段：1080p 每帧约 9–10 s；每块显卡第一帧约 100 s（OptiX 编译）；60 帧一段共 12 段；局部缺陷只重渲那一段按帧拼回（局部重渲每段约 11 分钟，总计 1.9 显卡小时，我们核算）；测试渲染也送 GPU（本地共享队列曾等 15 分钟）；不上传缓存和助手 `out/` 目录（用忽略文件挡）。推算：720×9.5 s=6,840 s=1.9 显卡小时，12 段并行每段 60×9.5+100=670 s≈11 min，官方说「整片约 1 小时」差的时间未说明；段太小会被首帧编译吃掉。；干净底片：ProRes 不带图层和颗粒，是合成源头；改图层、调色、声音只重合成不重渲。工程流程：不保留 工程文件，从代码重建约 15 秒；`原文档:integration-audit`；五道关口：三张最终画质测试帧→分镜→预览→终渲→质检。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d031",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d031.fps",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.fps",
+      "title": "Blender 渲染设置与分段（帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Blender 渲染设置与分段（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d031",
+        "note": "Blender 5.2 Cycles；某生成平台 GPU 约 12 块显卡；OptiX；1920×1080（预览 720p）；24 fps；720 帧；采样 256；自适应阈值 0.02；降噪 OIDN 带反照率和法线通道；运动模糊快门 180° 位置 START；景深带跟焦（光圈未公开）；焦段穿行 18 mm、定妆 50 mm；色彩管理 AgX（Look、曝光未公开）；输出干净底片 ProRes（档位位深未公开）；反弹次数未公开。预览 720p、终渲 1080p；预览分辨率比例 600×338 小样。；每帧耗时与分段：1080p 每帧约 9–10 s；每块显卡第一帧约 100 s（OptiX 编译）；60 帧一段共 12 段；局部缺陷只重渲那一段按帧拼回（局部重渲每段约 11 分钟，总计 1.9 显卡小时，我们核算）；测试渲染也送 GPU（本地共享队列曾等 15 分钟）；不上传缓存和助手 `out/` 目录（用忽略文件挡）。推算：720×9.5 s=6,840 s=1.9 显卡小时，12 段并行每段 60×9.5+100=670 s≈11 min，官方说「整片约 1 小时」差的时间未说明；段太小会被首帧编译吃掉。；干净底片：ProRes 不带图层和颗粒，是合成源头；改图层、调色、声音只重合成不重渲。工程流程：不保留 工程文件，从代码重建约 15 秒；`原文档:integration-audit`；五道关口：三张最终画质测试帧→分镜→预览→终渲→质检。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d031",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d031.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-count",
+      "title": "Blender 渲染设置与分段（帧数）",
+      "value": 720,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Blender 渲染设置与分段（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d031",
+        "note": "Blender 5.2 Cycles；某生成平台 GPU 约 12 块显卡；OptiX；1920×1080（预览 720p）；24 fps；720 帧；采样 256；自适应阈值 0.02；降噪 OIDN 带反照率和法线通道；运动模糊快门 180° 位置 START；景深带跟焦（光圈未公开）；焦段穿行 18 mm、定妆 50 mm；色彩管理 AgX（Look、曝光未公开）；输出干净底片 ProRes（档位位深未公开）；反弹次数未公开。预览 720p、终渲 1080p；预览分辨率比例 600×338 小样。；每帧耗时与分段：1080p 每帧约 9–10 s；每块显卡第一帧约 100 s（OptiX 编译）；60 帧一段共 12 段；局部缺陷只重渲那一段按帧拼回（局部重渲每段约 11 分钟，总计 1.9 显卡小时，我们核算）；测试渲染也送 GPU（本地共享队列曾等 15 分钟）；不上传缓存和助手 `out/` 目录（用忽略文件挡）。推算：720×9.5 s=6,840 s=1.9 显卡小时，12 段并行每段 60×9.5+100=670 s≈11 min，官方说「整片约 1 小时」差的时间未说明；段太小会被首帧编译吃掉。；干净底片：ProRes 不带图层和颗粒，是合成源头；改图层、调色、声音只重合成不重渲。工程流程：不保留 工程文件，从代码重建约 15 秒；`原文档:integration-audit`；五道关口：三张最终画质测试帧→分镜→预览→终渲→质检。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d031",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d031.shutter-angle",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.shutter-angle",
+      "title": "Blender 渲染设置与分段（快门角）",
+      "value": 180,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Blender 渲染设置与分段（快门角）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d031",
+        "note": "Blender 5.2 Cycles；某生成平台 GPU 约 12 块显卡；OptiX；1920×1080（预览 720p）；24 fps；720 帧；采样 256；自适应阈值 0.02；降噪 OIDN 带反照率和法线通道；运动模糊快门 180° 位置 START；景深带跟焦（光圈未公开）；焦段穿行 18 mm、定妆 50 mm；色彩管理 AgX（Look、曝光未公开）；输出干净底片 ProRes（档位位深未公开）；反弹次数未公开。预览 720p、终渲 1080p；预览分辨率比例 600×338 小样。；每帧耗时与分段：1080p 每帧约 9–10 s；每块显卡第一帧约 100 s（OptiX 编译）；60 帧一段共 12 段；局部缺陷只重渲那一段按帧拼回（局部重渲每段约 11 分钟，总计 1.9 显卡小时，我们核算）；测试渲染也送 GPU（本地共享队列曾等 15 分钟）；不上传缓存和助手 `out/` 目录（用忽略文件挡）。推算：720×9.5 s=6,840 s=1.9 显卡小时，12 段并行每段 60×9.5+100=670 s≈11 min，官方说「整片约 1 小时」差的时间未说明；段太小会被首帧编译吃掉。；干净底片：ProRes 不带图层和颗粒，是合成源头；改图层、调色、声音只重合成不重渲。工程流程：不保留 工程文件，从代码重建约 15 秒；`原文档:integration-audit`；五道关口：三张最终画质测试帧→分镜→预览→终渲→质检。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d031",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d031.focal-length",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.focal-length",
+      "title": "Blender 渲染设置与分段（焦距）",
+      "value": 18,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Blender 渲染设置与分段（焦距）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d031",
+        "note": "Blender 5.2 Cycles；某生成平台 GPU 约 12 块显卡；OptiX；1920×1080（预览 720p）；24 fps；720 帧；采样 256；自适应阈值 0.02；降噪 OIDN 带反照率和法线通道；运动模糊快门 180° 位置 START；景深带跟焦（光圈未公开）；焦段穿行 18 mm、定妆 50 mm；色彩管理 AgX（Look、曝光未公开）；输出干净底片 ProRes（档位位深未公开）；反弹次数未公开。预览 720p、终渲 1080p；预览分辨率比例 600×338 小样。；每帧耗时与分段：1080p 每帧约 9–10 s；每块显卡第一帧约 100 s（OptiX 编译）；60 帧一段共 12 段；局部缺陷只重渲那一段按帧拼回（局部重渲每段约 11 分钟，总计 1.9 显卡小时，我们核算）；测试渲染也送 GPU（本地共享队列曾等 15 分钟）；不上传缓存和助手 `out/` 目录（用忽略文件挡）。推算：720×9.5 s=6,840 s=1.9 显卡小时，12 段并行每段 60×9.5+100=670 s≈11 min，官方说「整片约 1 小时」差的时间未说明；段太小会被首帧编译吃掉。；干净底片：ProRes 不带图层和颗粒，是合成源头；改图层、调色、声音只重合成不重渲。工程流程：不保留 工程文件，从代码重建约 15 秒；`原文档:integration-audit`；五道关口：三张最终画质测试帧→分镜→预览→终渲→质检。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d031",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d031.frame-time",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-time",
+      "title": "Blender 渲染设置与分段（单帧耗时）",
+      "value": [
+        9,
+        10
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Blender 渲染设置与分段（单帧耗时）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d031",
+        "note": "Blender 5.2 Cycles；某生成平台 GPU 约 12 块显卡；OptiX；1920×1080（预览 720p）；24 fps；720 帧；采样 256；自适应阈值 0.02；降噪 OIDN 带反照率和法线通道；运动模糊快门 180° 位置 START；景深带跟焦（光圈未公开）；焦段穿行 18 mm、定妆 50 mm；色彩管理 AgX（Look、曝光未公开）；输出干净底片 ProRes（档位位深未公开）；反弹次数未公开。预览 720p、终渲 1080p；预览分辨率比例 600×338 小样。；每帧耗时与分段：1080p 每帧约 9–10 s；每块显卡第一帧约 100 s（OptiX 编译）；60 帧一段共 12 段；局部缺陷只重渲那一段按帧拼回（局部重渲每段约 11 分钟，总计 1.9 显卡小时，我们核算）；测试渲染也送 GPU（本地共享队列曾等 15 分钟）；不上传缓存和助手 `out/` 目录（用忽略文件挡）。推算：720×9.5 s=6,840 s=1.9 显卡小时，12 段并行每段 60×9.5+100=670 s≈11 min，官方说「整片约 1 小时」差的时间未说明；段太小会被首帧编译吃掉。；干净底片：ProRes 不带图层和颗粒，是合成源头；改图层、调色、声音只重合成不重渲。工程流程：不保留 工程文件，从代码重建约 15 秒；`原文档:integration-audit`；五道关口：三张最终画质测试帧→分镜→预览→终渲→质检。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d031",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d031.render-time",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.render-time",
+      "title": "Blender 渲染设置与分段（渲染耗时）",
+      "value": 100,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Blender 渲染设置与分段（渲染耗时）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d031",
+        "note": "Blender 5.2 Cycles；某生成平台 GPU 约 12 块显卡；OptiX；1920×1080（预览 720p）；24 fps；720 帧；采样 256；自适应阈值 0.02；降噪 OIDN 带反照率和法线通道；运动模糊快门 180° 位置 START；景深带跟焦（光圈未公开）；焦段穿行 18 mm、定妆 50 mm；色彩管理 AgX（Look、曝光未公开）；输出干净底片 ProRes（档位位深未公开）；反弹次数未公开。预览 720p、终渲 1080p；预览分辨率比例 600×338 小样。；每帧耗时与分段：1080p 每帧约 9–10 s；每块显卡第一帧约 100 s（OptiX 编译）；60 帧一段共 12 段；局部缺陷只重渲那一段按帧拼回（局部重渲每段约 11 分钟，总计 1.9 显卡小时，我们核算）；测试渲染也送 GPU（本地共享队列曾等 15 分钟）；不上传缓存和助手 `out/` 目录（用忽略文件挡）。推算：720×9.5 s=6,840 s=1.9 显卡小时，12 段并行每段 60×9.5+100=670 s≈11 min，官方说「整片约 1 小时」差的时间未说明；段太小会被首帧编译吃掉。；干净底片：ProRes 不带图层和颗粒，是合成源头；改图层、调色、声音只重合成不重渲。工程流程：不保留 工程文件，从代码重建约 15 秒；`原文档:integration-audit`；五道关口：三张最终画质测试帧→分镜→预览→终渲→质检。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d031",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d031.duration",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.duration",
+      "title": "Blender 渲染设置与分段（时长）",
+      "value": 9.5,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Blender 渲染设置与分段（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d031",
+        "note": "Blender 5.2 Cycles；某生成平台 GPU 约 12 块显卡；OptiX；1920×1080（预览 720p）；24 fps；720 帧；采样 256；自适应阈值 0.02；降噪 OIDN 带反照率和法线通道；运动模糊快门 180° 位置 START；景深带跟焦（光圈未公开）；焦段穿行 18 mm、定妆 50 mm；色彩管理 AgX（Look、曝光未公开）；输出干净底片 ProRes（档位位深未公开）；反弹次数未公开。预览 720p、终渲 1080p；预览分辨率比例 600×338 小样。；每帧耗时与分段：1080p 每帧约 9–10 s；每块显卡第一帧约 100 s（OptiX 编译）；60 帧一段共 12 段；局部缺陷只重渲那一段按帧拼回（局部重渲每段约 11 分钟，总计 1.9 显卡小时，我们核算）；测试渲染也送 GPU（本地共享队列曾等 15 分钟）；不上传缓存和助手 `out/` 目录（用忽略文件挡）。推算：720×9.5 s=6,840 s=1.9 显卡小时，12 段并行每段 60×9.5+100=670 s≈11 min，官方说「整片约 1 小时」差的时间未说明；段太小会被首帧编译吃掉。；干净底片：ProRes 不带图层和颗粒，是合成源头；改图层、调色、声音只重合成不重渲。工程流程：不保留 工程文件，从代码重建约 15 秒；`原文档:integration-audit`；五道关口：三张最终画质测试帧→分镜→预览→终渲→质检。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d031",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d032.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.resolution",
+      "title": "Cycles 设置（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 804
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d032",
+        "note": "Blender 5.2 Cycles；300 samples；自适应阈值 0.02；OpenImageDenoise 带反照率和法线通道；1920×804；24 fps；960 帧（40 s）；16 位 PNG（未压缩 1920×804×3×2≈9.3 MB/帧，×960≈8.9 GB，上限推算）；AgX Medium High Contrast；合成器调色；运动模糊 180°；景深开；最大反弹、焦散、光路裁剪、体积步长、最小采样数未公开；官方说「渲染设置没什么特别，真实感来自五个决定」。每镜头曝光自动匹配主镜头（方法未公开，笔记建议用主镜头平均亮度当基准，推断）；宽银幕画幅、暖色调。300×1920×804=4.63 亿像素采样/帧，×960≈4,446 亿（推断算术）。渲前预览：一个脚本 30 秒内从镜头角度渲任意模块，带 clay 模式和自定义相机模式。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d032",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d032.samples",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.samples",
+      "title": "Cycles 设置（每像素采样数）",
+      "value": 300,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置（每像素采样数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d032",
+        "note": "Blender 5.2 Cycles；300 samples；自适应阈值 0.02；OpenImageDenoise 带反照率和法线通道；1920×804；24 fps；960 帧（40 s）；16 位 PNG（未压缩 1920×804×3×2≈9.3 MB/帧，×960≈8.9 GB，上限推算）；AgX Medium High Contrast；合成器调色；运动模糊 180°；景深开；最大反弹、焦散、光路裁剪、体积步长、最小采样数未公开；官方说「渲染设置没什么特别，真实感来自五个决定」。每镜头曝光自动匹配主镜头（方法未公开，笔记建议用主镜头平均亮度当基准，推断）；宽银幕画幅、暖色调。300×1920×804=4.63 亿像素采样/帧，×960≈4,446 亿（推断算术）。渲前预览：一个脚本 30 秒内从镜头角度渲任意模块，带 clay 模式和自定义相机模式。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d032",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d032.noise-threshold",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.noise-threshold",
+      "title": "Cycles 设置（自适应采样噪声阈值）",
+      "value": 0.02,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置（自适应采样噪声阈值）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d032",
+        "note": "Blender 5.2 Cycles；300 samples；自适应阈值 0.02；OpenImageDenoise 带反照率和法线通道；1920×804；24 fps；960 帧（40 s）；16 位 PNG（未压缩 1920×804×3×2≈9.3 MB/帧，×960≈8.9 GB，上限推算）；AgX Medium High Contrast；合成器调色；运动模糊 180°；景深开；最大反弹、焦散、光路裁剪、体积步长、最小采样数未公开；官方说「渲染设置没什么特别，真实感来自五个决定」。每镜头曝光自动匹配主镜头（方法未公开，笔记建议用主镜头平均亮度当基准，推断）；宽银幕画幅、暖色调。300×1920×804=4.63 亿像素采样/帧，×960≈4,446 亿（推断算术）。渲前预览：一个脚本 30 秒内从镜头角度渲任意模块，带 clay 模式和自定义相机模式。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d032",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d032.fps",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.fps",
+      "title": "Cycles 设置（帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d032",
+        "note": "Blender 5.2 Cycles；300 samples；自适应阈值 0.02；OpenImageDenoise 带反照率和法线通道；1920×804；24 fps；960 帧（40 s）；16 位 PNG（未压缩 1920×804×3×2≈9.3 MB/帧，×960≈8.9 GB，上限推算）；AgX Medium High Contrast；合成器调色；运动模糊 180°；景深开；最大反弹、焦散、光路裁剪、体积步长、最小采样数未公开；官方说「渲染设置没什么特别，真实感来自五个决定」。每镜头曝光自动匹配主镜头（方法未公开，笔记建议用主镜头平均亮度当基准，推断）；宽银幕画幅、暖色调。300×1920×804=4.63 亿像素采样/帧，×960≈4,446 亿（推断算术）。渲前预览：一个脚本 30 秒内从镜头角度渲任意模块，带 clay 模式和自定义相机模式。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d032",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d032.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-count",
+      "title": "Cycles 设置（帧数）",
+      "value": 960,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d032",
+        "note": "Blender 5.2 Cycles；300 samples；自适应阈值 0.02；OpenImageDenoise 带反照率和法线通道；1920×804；24 fps；960 帧（40 s）；16 位 PNG（未压缩 1920×804×3×2≈9.3 MB/帧，×960≈8.9 GB，上限推算）；AgX Medium High Contrast；合成器调色；运动模糊 180°；景深开；最大反弹、焦散、光路裁剪、体积步长、最小采样数未公开；官方说「渲染设置没什么特别，真实感来自五个决定」。每镜头曝光自动匹配主镜头（方法未公开，笔记建议用主镜头平均亮度当基准，推断）；宽银幕画幅、暖色调。300×1920×804=4.63 亿像素采样/帧，×960≈4,446 亿（推断算术）。渲前预览：一个脚本 30 秒内从镜头角度渲任意模块，带 clay 模式和自定义相机模式。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d032",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d032.duration",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.duration",
+      "title": "Cycles 设置（时长）",
+      "value": 40,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d032",
+        "note": "Blender 5.2 Cycles；300 samples；自适应阈值 0.02；OpenImageDenoise 带反照率和法线通道；1920×804；24 fps；960 帧（40 s）；16 位 PNG（未压缩 1920×804×3×2≈9.3 MB/帧，×960≈8.9 GB，上限推算）；AgX Medium High Contrast；合成器调色；运动模糊 180°；景深开；最大反弹、焦散、光路裁剪、体积步长、最小采样数未公开；官方说「渲染设置没什么特别，真实感来自五个决定」。每镜头曝光自动匹配主镜头（方法未公开，笔记建议用主镜头平均亮度当基准，推断）；宽银幕画幅、暖色调。300×1920×804=4.63 亿像素采样/帧，×960≈4,446 亿（推断算术）。渲前预览：一个脚本 30 秒内从镜头角度渲任意模块，带 clay 模式和自定义相机模式。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d032",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d032.angle",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.angle",
+      "title": "Cycles 设置（角度）",
+      "value": 180,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d032",
+        "note": "Blender 5.2 Cycles；300 samples；自适应阈值 0.02；OpenImageDenoise 带反照率和法线通道；1920×804；24 fps；960 帧（40 s）；16 位 PNG（未压缩 1920×804×3×2≈9.3 MB/帧，×960≈8.9 GB，上限推算）；AgX Medium High Contrast；合成器调色；运动模糊 180°；景深开；最大反弹、焦散、光路裁剪、体积步长、最小采样数未公开；官方说「渲染设置没什么特别，真实感来自五个决定」。每镜头曝光自动匹配主镜头（方法未公开，笔记建议用主镜头平均亮度当基准，推断）；宽银幕画幅、暖色调。300×1920×804=4.63 亿像素采样/帧，×960≈4,446 亿（推断算术）。渲前预览：一个脚本 30 秒内从镜头角度渲任意模块，带 clay 模式和自定义相机模式。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d032",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d033.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.resolution",
+      "title": "Cycles 设置与队列（画面分辨率）",
+      "value": {
+        "width": 960,
+        "height": 540
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置与队列（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-original",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d033",
+        "note": "Blender Cycles、本机 GPU；预览 960×540、少采样、只渲需要看的帧，约 0.2 s/帧；终片 625 帧（25 fps × 25 s）1080p、96 自适应采样 + 降噪、含运动模糊与景深，每帧 1.6–8 s，GPU 约 40 min、挂钟约 2 h（队列与其他项目共享）；2D 层 625 帧 CPU 合成约 2 分钟，故 v2 只补渲 21 帧；首版 4 时 31 分，v2 为 5 时 02 分；过程版另耗 1 时 48 分。渲染队列策略：动画锁定后只渲一次终片；lead 设定锁定时间，把片段切成 ≤5 分钟的块逐个入队，使预览不排在长终渲后面；Gate3 时仍在渲的镜头以预览显示并加标签。色彩空间标记：编码时要打 BT.709 标签；预览未打标签，在高清播放器中片子的两种标志色偏移；终片与网页版已加标签。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d033",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d033.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-count",
+      "title": "Cycles 设置与队列（帧数）",
+      "value": 625,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置与队列（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-original",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d033",
+        "note": "Blender Cycles、本机 GPU；预览 960×540、少采样、只渲需要看的帧，约 0.2 s/帧；终片 625 帧（25 fps × 25 s）1080p、96 自适应采样 + 降噪、含运动模糊与景深，每帧 1.6–8 s，GPU 约 40 min、挂钟约 2 h（队列与其他项目共享）；2D 层 625 帧 CPU 合成约 2 分钟，故 v2 只补渲 21 帧；首版 4 时 31 分，v2 为 5 时 02 分；过程版另耗 1 时 48 分。渲染队列策略：动画锁定后只渲一次终片；lead 设定锁定时间，把片段切成 ≤5 分钟的块逐个入队，使预览不排在长终渲后面；Gate3 时仍在渲的镜头以预览显示并加标签。色彩空间标记：编码时要打 BT.709 标签；预览未打标签，在高清播放器中片子的两种标志色偏移；终片与网页版已加标签。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d033",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d033.fps",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.fps",
+      "title": "Cycles 设置与队列（帧率）",
+      "value": 25,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置与队列（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-original",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d033",
+        "note": "Blender Cycles、本机 GPU；预览 960×540、少采样、只渲需要看的帧，约 0.2 s/帧；终片 625 帧（25 fps × 25 s）1080p、96 自适应采样 + 降噪、含运动模糊与景深，每帧 1.6–8 s，GPU 约 40 min、挂钟约 2 h（队列与其他项目共享）；2D 层 625 帧 CPU 合成约 2 分钟，故 v2 只补渲 21 帧；首版 4 时 31 分，v2 为 5 时 02 分；过程版另耗 1 时 48 分。渲染队列策略：动画锁定后只渲一次终片；lead 设定锁定时间，把片段切成 ≤5 分钟的块逐个入队，使预览不排在长终渲后面；Gate3 时仍在渲的镜头以预览显示并加标签。色彩空间标记：编码时要打 BT.709 标签；预览未打标签，在高清播放器中片子的两种标志色偏移；终片与网页版已加标签。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d033",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d033.duration",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.duration",
+      "title": "Cycles 设置与队列（时长）",
+      "value": 25,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置与队列（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-original",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d033",
+        "note": "Blender Cycles、本机 GPU；预览 960×540、少采样、只渲需要看的帧，约 0.2 s/帧；终片 625 帧（25 fps × 25 s）1080p、96 自适应采样 + 降噪、含运动模糊与景深，每帧 1.6–8 s，GPU 约 40 min、挂钟约 2 h（队列与其他项目共享）；2D 层 625 帧 CPU 合成约 2 分钟，故 v2 只补渲 21 帧；首版 4 时 31 分，v2 为 5 时 02 分；过程版另耗 1 时 48 分。渲染队列策略：动画锁定后只渲一次终片；lead 设定锁定时间，把片段切成 ≤5 分钟的块逐个入队，使预览不排在长终渲后面；Gate3 时仍在渲的镜头以预览显示并加标签。色彩空间标记：编码时要打 BT.709 标签；预览未打标签，在高清播放器中片子的两种标志色偏移；终片与网页版已加标签。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d033",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d033.frame-time",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-time",
+      "title": "Cycles 设置与队列（单帧耗时）",
+      "value": [
+        1.6,
+        8
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：Cycles 设置与队列（单帧耗时）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-original",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d033",
+        "note": "Blender Cycles、本机 GPU；预览 960×540、少采样、只渲需要看的帧，约 0.2 s/帧；终片 625 帧（25 fps × 25 s）1080p、96 自适应采样 + 降噪、含运动模糊与景深，每帧 1.6–8 s，GPU 约 40 min、挂钟约 2 h（队列与其他项目共享）；2D 层 625 帧 CPU 合成约 2 分钟，故 v2 只补渲 21 帧；首版 4 时 31 分，v2 为 5 时 02 分；过程版另耗 1 时 48 分。渲染队列策略：动画锁定后只渲一次终片；lead 设定锁定时间，把片段切成 ≤5 分钟的块逐个入队，使预览不排在长终渲后面；Gate3 时仍在渲的镜头以预览显示并加标签。色彩空间标记：编码时要打 BT.709 标签；预览未打标签，在高清播放器中片子的两种标志色偏移；终片与网页版已加标签。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d033",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d035.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.resolution",
+      "title": "渲染器未公开（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：渲染器未公开（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d035",
+        "note": "23：EEVEE/Cycles、采样、灯光、色彩管理均未写、量不出。案例 08 视口「延时片」：Blender 5.2.3；1920×1080 30 fps 750 帧 25.000 s；时间轴 1–1420；1420÷750≈1.89 场景帧/视频帧；Solid 带选中橙色描边，帧 1123 起带材质；Statistics 叠加层入镜；做法 = 按帧显隐 + 逐帧截图。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d035",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d035.fps",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.fps",
+      "title": "渲染器未公开（帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：渲染器未公开（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d035",
+        "note": "23：EEVEE/Cycles、采样、灯光、色彩管理均未写、量不出。案例 08 视口「延时片」：Blender 5.2.3；1920×1080 30 fps 750 帧 25.000 s；时间轴 1–1420；1420÷750≈1.89 场景帧/视频帧；Solid 带选中橙色描边，帧 1123 起带材质；Statistics 叠加层入镜；做法 = 按帧显隐 + 逐帧截图。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d035",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d035.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-count",
+      "title": "渲染器未公开（帧数）",
+      "value": 750,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：渲染器未公开（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d035",
+        "note": "23：EEVEE/Cycles、采样、灯光、色彩管理均未写、量不出。案例 08 视口「延时片」：Blender 5.2.3；1920×1080 30 fps 750 帧 25.000 s；时间轴 1–1420；1420÷750≈1.89 场景帧/视频帧；Solid 带选中橙色描边，帧 1123 起带材质；Statistics 叠加层入镜；做法 = 按帧显隐 + 逐帧截图。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d035",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d035.duration",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.duration",
+      "title": "渲染器未公开（时长）",
+      "value": 25,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：渲染器未公开（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d035",
+        "note": "23：EEVEE/Cycles、采样、灯光、色彩管理均未写、量不出。案例 08 视口「延时片」：Blender 5.2.3；1920×1080 30 fps 750 帧 25.000 s；时间轴 1–1420；1420÷750≈1.89 场景帧/视频帧；Solid 带选中橙色描边，帧 1123 起带材质；Statistics 叠加层入镜；做法 = 按帧显隐 + 逐帧截图。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d035",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d036.samples",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.samples",
+      "title": "采样阶梯（--ladder）（每像素采样数）",
+      "value": 64,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：采样阶梯（--ladder）（每像素采样数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d036",
+        "note": "案例 01 重制版：样本 [1, 2, 4, 8, 16, 32, 64, 128]（第 9 档 0 = 成片第 0 帧本身，开降噪出 原包素材），同机位同灯光，关自适应采样、关降噪渲出真实噪点收敛，各存 原包素材（每拍半一个档位）；这是为过程片做的特效素材，不是质量标定。过程片阶梯段 288–323 全局帧共 9 档×4 帧；渲染时垫 INK 黑底的 RGBA。`use_denoising=False; use_adaptive_sampling=False`。旧版 v3 用同样的阶梯【冲突】：分组清单 写「1→128 同样的阶梯（说明里写 1→96 是原片 案例 01 原作 的）」，分组清单 写「阶梯 64spp」。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d036",
+        "c12.section": "3"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-01-legacy",
+          "value": [
+            1,
+            96
+          ],
+          "unit": "spp",
+          "evidenceLevel": "文档",
+          "reason": "原片说明写作 1→96 采样阶梯，与重制 1→128 及分组清单 64 spp 记法冲突"
+        }
+      ]
+    },
+    {
+      "id": "render-pipe.d036.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-count",
+      "title": "采样阶梯（--ladder）（帧数）",
+      "value": 4,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：采样阶梯（--ladder）（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d036",
+        "note": "案例 01 重制版：样本 [1, 2, 4, 8, 16, 32, 64, 128]（第 9 档 0 = 成片第 0 帧本身，开降噪出 原包素材），同机位同灯光，关自适应采样、关降噪渲出真实噪点收敛，各存 原包素材（每拍半一个档位）；这是为过程片做的特效素材，不是质量标定。过程片阶梯段 288–323 全局帧共 9 档×4 帧；渲染时垫 INK 黑底的 RGBA。`use_denoising=False; use_adaptive_sampling=False`。旧版 v3 用同样的阶梯【冲突】：分组清单 写「1→128 同样的阶梯（说明里写 1→96 是原片 案例 01 原作 的）」，分组清单 写「阶梯 64spp」。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d036",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d037.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-count",
+      "title": "逐帧纯函数状态与运动模糊的三帧关键帧法（Cycles）（帧数）",
+      "value": 312,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：逐帧纯函数状态与运动模糊的三帧关键帧法（Cycles）（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d037",
+        "note": "`film.state(f)` 是纯函数，机位与部件位置只由帧号决定；渲第 f 帧前把 f−1、f、f+1 的状态写成关键帧（Rig.set_frame），让 Cycles 在快门区间内插值得到运动模糊；帧间互不依赖，可抽帧/分段补渲。夹范围：每个 take 起止帧用本 take 状态夹住，转场帧不会模糊到下一个 take。脚本想设线性插值，但本机 Blender 5.2 读回实为 BEZIER/AUTO_CLAMPED（偏好设置对 keyframe_insert 无效），另一台本地工作站 4.5 未读回。改机位只补渲变动帧：v1→v2 只补渲 312 帧 + 23 帧，其余 456 帧复用。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d037",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.d039.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.resolution",
+      "title": "同一自写 WebGPU 路径追踪器家族（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：同一自写 WebGPU 路径追踪器家族（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d039",
+        "note": "014、019、021、026 是同一个自写 WebGPU 路径追踪器（先为餐馆写，后扩到案例 19，再迁到案例 14与案例 21），再遇到这一家族先查 026 第 7 节对照表。引擎演化读法：从餐馆「静态场景+光组重组」长成案例 19「母帧+逐帧窗口+人物和体积」，再原样用到案例 21和案例 14；四地共同限制：相机只摇和俯仰无视差（案例 19最后一镜除外）；014 与 021 切点一帧不差（84/162/222/300），各镜 84/78/60/78/60 帧，是同一剪辑模板，两条新镜头都 78 帧，对得上原文「两个新镜头各 78 个窗口」。成片：案例 14 15 秒 5 镜、案例 21 15.0 秒 5 镜、案例 19 21.5 秒 6 镜，1920×1080、24 fps。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d039",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.d039.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.frame-count",
+      "title": "同一自写 WebGPU 路径追踪器家族（帧数）",
+      "value": 60,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：同一自写 WebGPU 路径追踪器家族（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d039",
+        "note": "014、019、021、026 是同一个自写 WebGPU 路径追踪器（先为餐馆写，后扩到案例 19，再迁到案例 14与案例 21），再遇到这一家族先查 026 第 7 节对照表。引擎演化读法：从餐馆「静态场景+光组重组」长成案例 19「母帧+逐帧窗口+人物和体积」，再原样用到案例 21和案例 14；四地共同限制：相机只摇和俯仰无视差（案例 19最后一镜除外）；014 与 021 切点一帧不差（84/162/222/300），各镜 84/78/60/78/60 帧，是同一剪辑模板，两条新镜头都 78 帧，对得上原文「两个新镜头各 78 个窗口」。成片：案例 14 15 秒 5 镜、案例 21 15.0 秒 5 镜、案例 19 21.5 秒 6 镜，1920×1080、24 fps。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d039",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.d039.duration",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.duration",
+      "title": "同一自写 WebGPU 路径追踪器家族（时长）",
+      "value": 15,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：同一自写 WebGPU 路径追踪器家族（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d039",
+        "note": "014、019、021、026 是同一个自写 WebGPU 路径追踪器（先为餐馆写，后扩到案例 19，再迁到案例 14与案例 21），再遇到这一家族先查 026 第 7 节对照表。引擎演化读法：从餐馆「静态场景+光组重组」长成案例 19「母帧+逐帧窗口+人物和体积」，再原样用到案例 21和案例 14；四地共同限制：相机只摇和俯仰无视差（案例 19最后一镜除外）；014 与 021 切点一帧不差（84/162/222/300），各镜 84/78/60/78/60 帧，是同一剪辑模板，两条新镜头都 78 帧，对得上原文「两个新镜头各 78 个窗口」。成片：案例 14 15 秒 5 镜、案例 21 15.0 秒 5 镜、案例 19 21.5 秒 6 镜，1920×1080、24 fps。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d039",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.d039.fps",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.fps",
+      "title": "同一自写 WebGPU 路径追踪器家族（帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：同一自写 WebGPU 路径追踪器家族（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d039",
+        "note": "014、019、021、026 是同一个自写 WebGPU 路径追踪器（先为餐馆写，后扩到案例 19，再迁到案例 14与案例 21），再遇到这一家族先查 026 第 7 节对照表。引擎演化读法：从餐馆「静态场景+光组重组」长成案例 19「母帧+逐帧窗口+人物和体积」，再原样用到案例 21和案例 14；四地共同限制：相机只摇和俯仰无视差（案例 19最后一镜除外）；014 与 021 切点一帧不差（84/162/222/300），各镜 84/78/60/78/60 帧，是同一剪辑模板，两条新镜头都 78 帧，对得上原文「两个新镜头各 78 个窗口」。成片：案例 14 15 秒 5 镜、案例 21 15.0 秒 5 镜、案例 19 21.5 秒 6 镜，1920×1080、24 fps。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d039",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.d040.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.resolution",
+      "title": "做法与算术（画面分辨率）",
+      "value": {
+        "width": 3840,
+        "height": 2160
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：做法与算术（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d040",
+        "note": "每镜先渲一张干净 4K 母帧（448–640 spp）；每帧只重渲相机当下看到的窗口，像素网格和随机种子与母帧相同，32–48 spp（014/021；案例 19窗口 spp 未写）；没动的地方与母帧逐像素一致，静态街无闪烁，帧间只有真实运动。镜头只摇和俯仰，不能平移，所有镜头运动无视差；4K 母帧确切像素数是假定。依赖固定种子。；采样量算术（推断，假定 4K=3840×2160）：母帧 3840×2160×448=3,715,891,200；78 个窗口 78×1920×1080×32=5,175,705,600；一镜合计 8,891,596,800；对照全按 448 直渲 72,459,878,400；比 1/8.15。采样从 1024 降到 448–640 再加 32–48 窗口，是为有人物和运动物体时控总耗时（推断）。验收建议（未做）：取静止区域逐帧做差期望为 0；案例 19成片 19.98 Mbps H.264，帧间差混了运动和压缩噪声，无法验证。；案例 14同套：新两镜头（水面、镜中）各 448-spp 母帧 + 78 窗口 @32 spp，连同新案例 21镜约 30 分钟（单张工作站 GPU），三个原始案例 14镜头约 17 分钟。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d040",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.d040.samples",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.samples",
+      "title": "做法与算术（每像素采样数范围）",
+      "value": [
+        448,
+        640
+      ],
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：做法与算术（每像素采样数范围）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d040",
+        "note": "每镜先渲一张干净 4K 母帧（448–640 spp）；每帧只重渲相机当下看到的窗口，像素网格和随机种子与母帧相同，32–48 spp（014/021；案例 19窗口 spp 未写）；没动的地方与母帧逐像素一致，静态街无闪烁，帧间只有真实运动。镜头只摇和俯仰，不能平移，所有镜头运动无视差；4K 母帧确切像素数是假定。依赖固定种子。；采样量算术（推断，假定 4K=3840×2160）：母帧 3840×2160×448=3,715,891,200；78 个窗口 78×1920×1080×32=5,175,705,600；一镜合计 8,891,596,800；对照全按 448 直渲 72,459,878,400；比 1/8.15。采样从 1024 降到 448–640 再加 32–48 窗口，是为有人物和运动物体时控总耗时（推断）。验收建议（未做）：取静止区域逐帧做差期望为 0；案例 19成片 19.98 Mbps H.264，帧间差混了运动和压缩噪声，无法验证。；案例 14同套：新两镜头（水面、镜中）各 448-spp 母帧 + 78 窗口 @32 spp，连同新案例 21镜约 30 分钟（单张工作站 GPU），三个原始案例 14镜头约 17 分钟。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d040",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.d041.samples",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.samples",
+      "title": "相机真动，逐帧渲（每像素采样数）",
+      "value": 128,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：相机真动，逐帧渲（每像素采样数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-19",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d041",
+        "note": "最后一镜穿过万寿菊花环，逐帧渲，相机真动，128 spp，72 帧：缓慢前推、近远物体相对位移（视差）、对焦从花环拉到街。只有相机真动的镜头才逐帧重渲。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d041",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.d041.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.frame-count",
+      "title": "相机真动，逐帧渲（帧数）",
+      "value": 72,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：相机真动，逐帧渲（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-19",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d041",
+        "note": "最后一镜穿过万寿菊花环，逐帧渲，相机真动，128 spp，72 帧：缓慢前推、近远物体相对位移（视差）、对焦从花环拉到街。只有相机真动的镜头才逐帧重渲。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d041",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.d049.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.resolution",
+      "title": "HF 页面契约（案例 15、Canvas2D 风格测试）（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节：HF 页面契约（案例 15、Canvas2D 风格测试）（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d049",
+        "note": "Canvas2D（或 SVG），禁止 three/WebGL；1920×1080、24 fps、10.0 s（240 帧）；`window.HF = { meta:{w:1920,h:1080,fps:24,duration:10}, isReady:false, seek: async (t)=>{drawFrame(t)} }`，准备好后 `HF.isReady=true`；每帧是 t 的纯函数，随机数固定种子，禁用 Math.random / Date / requestAnimationFrame；重的静态画在离屏画布预画一次复用；每帧成本 <200 ms（简报要求，非实测）。辅助库：原实现源码（水彩洗/铅笔笔触/草场/树冠/积云）、原实现源码（缓动/随机/噪声）。要求至少 3 轮对照真实画家的自评迭代。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d049",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.d049.fps",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.fps",
+      "title": "HF 页面契约（案例 15、Canvas2D 风格测试）（帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节：HF 页面契约（案例 15、Canvas2D 风格测试）（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d049",
+        "note": "Canvas2D（或 SVG），禁止 three/WebGL；1920×1080、24 fps、10.0 s（240 帧）；`window.HF = { meta:{w:1920,h:1080,fps:24,duration:10}, isReady:false, seek: async (t)=>{drawFrame(t)} }`，准备好后 `HF.isReady=true`；每帧是 t 的纯函数，随机数固定种子，禁用 Math.random / Date / requestAnimationFrame；重的静态画在离屏画布预画一次复用；每帧成本 <200 ms（简报要求，非实测）。辅助库：原实现源码（水彩洗/铅笔笔触/草场/树冠/积云）、原实现源码（缓动/随机/噪声）。要求至少 3 轮对照真实画家的自评迭代。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d049",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.d049.duration",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.duration",
+      "title": "HF 页面契约（案例 15、Canvas2D 风格测试）（时长）",
+      "value": 10,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节：HF 页面契约（案例 15、Canvas2D 风格测试）（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d049",
+        "note": "Canvas2D（或 SVG），禁止 three/WebGL；1920×1080、24 fps、10.0 s（240 帧）；`window.HF = { meta:{w:1920,h:1080,fps:24,duration:10}, isReady:false, seek: async (t)=>{drawFrame(t)} }`，准备好后 `HF.isReady=true`；每帧是 t 的纯函数，随机数固定种子，禁用 Math.random / Date / requestAnimationFrame；重的静态画在离屏画布预画一次复用；每帧成本 <200 ms（简报要求，非实测）。辅助库：原实现源码（水彩洗/铅笔笔触/草场/树冠/积云）、原实现源码（缓动/随机/噪声）。要求至少 3 轮对照真实画家的自评迭代。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d049",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.d049.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.frame-count",
+      "title": "HF 页面契约（案例 15、Canvas2D 风格测试）（帧数）",
+      "value": 240,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节：HF 页面契约（案例 15、Canvas2D 风格测试）（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d049",
+        "note": "Canvas2D（或 SVG），禁止 three/WebGL；1920×1080、24 fps、10.0 s（240 帧）；`window.HF = { meta:{w:1920,h:1080,fps:24,duration:10}, isReady:false, seek: async (t)=>{drawFrame(t)} }`，准备好后 `HF.isReady=true`；每帧是 t 的纯函数，随机数固定种子，禁用 Math.random / Date / requestAnimationFrame；重的静态画在离屏画布预画一次复用；每帧成本 <200 ms（简报要求，非实测）。辅助库：原实现源码（水彩洗/铅笔笔触/草场/树冠/积云）、原实现源码（缓动/随机/噪声）。要求至少 3 轮对照真实画家的自评迭代。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d049",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.d049.frame-time",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.frame-time",
+      "title": "HF 页面契约（案例 15、Canvas2D 风格测试）（单帧耗时）",
+      "value": 200,
+      "unit": "ms",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节：HF 页面契约（案例 15、Canvas2D 风格测试）（单帧耗时）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d049",
+        "note": "Canvas2D（或 SVG），禁止 three/WebGL；1920×1080、24 fps、10.0 s（240 帧）；`window.HF = { meta:{w:1920,h:1080,fps:24,duration:10}, isReady:false, seek: async (t)=>{drawFrame(t)} }`，准备好后 `HF.isReady=true`；每帧是 t 的纯函数，随机数固定种子，禁用 Math.random / Date / requestAnimationFrame；重的静态画在离屏画布预画一次复用；每帧成本 <200 ms（简报要求，非实测）。辅助库：原实现源码（水彩洗/铅笔笔触/草场/树冠/积云）、原实现源码（缓动/随机/噪声）。要求至少 3 轮对照真实画家的自评迭代。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d049",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.d052.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.frame-count",
+      "title": "渲染器体量、耗时与脚本（18、15）（帧数）",
+      "value": 5376,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节：渲染器体量、耗时与脚本（18、15）（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d052",
+        "note": "18：原实现源码 行、原实现源码（合计 58 行）；原实现源码、原文档:integration-audit 47（实测，我们量过，）。整片渲染约 1 分钟，改一处重渲约 1 分钟（README 说法，硬件未公开，没验证）；原实现源码 把 5,376 帧+音轨用 ffmpeg 编成 H.264 High CRF 15 + AAC 192 kbps；原实现源码 抽 32 帧。；15：渲染命令：样张 `node 原实现源码 films/style-tests/<slug>/原实现源码 --stills 1,4.5,8,9.5 --outdir <临时目录>`；成片 `... --mb 1 --workers 4 --crf 16 --out 原包素材；`--mb 1` 含义未公开（推断运动模糊采样数 1）；4 worker 并行与单线程结果一致。性能：单帧预算 <200 ms（简报要求，非实测）；240 帧全渲染「well under a minute」；角色可一拍二（12 fps 姿势），风云平滑。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d052",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.d052.frame-time",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.frame-time",
+      "title": "渲染器体量、耗时与脚本（18、15）（单帧耗时）",
+      "value": 200,
+      "unit": "ms",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节：渲染器体量、耗时与脚本（18、15）（单帧耗时）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d052",
+        "note": "18：原实现源码 行、原实现源码（合计 58 行）；原实现源码、原文档:integration-audit 47（实测，我们量过，）。整片渲染约 1 分钟，改一处重渲约 1 分钟（README 说法，硬件未公开，没验证）；原实现源码 把 5,376 帧+音轨用 ffmpeg 编成 H.264 High CRF 15 + AAC 192 kbps；原实现源码 抽 32 帧。；15：渲染命令：样张 `node 原实现源码 films/style-tests/<slug>/原实现源码 --stills 1,4.5,8,9.5 --outdir <临时目录>`；成片 `... --mb 1 --workers 4 --crf 16 --out 原包素材；`--mb 1` 含义未公开（推断运动模糊采样数 1）；4 worker 并行与单线程结果一致。性能：单帧预算 <200 ms（简报要求，非实测）；240 帧全渲染「well under a minute」；角色可一拍二（12 fps 姿势），风云平滑。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d052",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.d052.fps",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.fps",
+      "title": "渲染器体量、耗时与脚本（18、15）（帧率）",
+      "value": 12,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节：渲染器体量、耗时与脚本（18、15）（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d052",
+        "note": "18：原实现源码 行、原实现源码（合计 58 行）；原实现源码、原文档:integration-audit 47（实测，我们量过，）。整片渲染约 1 分钟，改一处重渲约 1 分钟（README 说法，硬件未公开，没验证）；原实现源码 把 5,376 帧+音轨用 ffmpeg 编成 H.264 High CRF 15 + AAC 192 kbps；原实现源码 抽 32 帧。；15：渲染命令：样张 `node 原实现源码 films/style-tests/<slug>/原实现源码 --stills 1,4.5,8,9.5 --outdir <临时目录>`；成片 `... --mb 1 --workers 4 --crf 16 --out 原包素材；`--mb 1` 含义未公开（推断运动模糊采样数 1）；4 worker 并行与单线程结果一致。性能：单帧预算 <200 ms（简报要求，非实测）；240 帧全渲染「well under a minute」；角色可一拍二（12 fps 姿势），风云平滑。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d052",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.d054.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.frame-count",
+      "title": "渲染速度（帧数）",
+      "value": 1134,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节：渲染速度（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-20",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d054",
+        "note": "1,134 帧全部不到 30 s（桌面工作站 CPU，型号未公开）；换算至少 37.8 帧/s"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d054",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.d054.render-time",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.render-time",
+      "title": "渲染速度（渲染耗时）",
+      "value": 30,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节：渲染速度（渲染耗时）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-20",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d054",
+        "note": "1,134 帧全部不到 30 s（桌面工作站 CPU，型号未公开）；换算至少 37.8 帧/s"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d054",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.d056.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.resolution",
+      "title": "截图模式（画面分辨率）",
+      "value": {
+        "width": 1630,
+        "height": 927
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节：截图模式（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "实测",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d056",
+        "note": "外部案例 01截图模式 1630×927 抽 11 个时刻；`?capture` 不做自适应、像素比默认 1；`?dpr ?q ?fast ?nomsaa` 等开关见外部案例 01量测方法。案例 02 `?capture` 保留绘图缓冲（见）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d056",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.d058.resolution",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s6.resolution",
+      "title": "速度与 GPU 降噪（实测）（画面分辨率）",
+      "value": {
+        "width": 960,
+        "height": 540
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节：速度与 GPU 降噪（实测）（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d058",
+        "note": "另一台本地工作站 1080p、64 采样：OIDN 在 CPU 上 7.22 秒/帧，其中渲染本身不到 1 秒；改 `denoising_use_gpu=True` 后 0.72 秒/帧（runlog 18:07）。「渲染前先测速」省掉约 90% 时间（决定终版能 16 分钟内渲完）。终版 768 帧 972 秒（1.27 秒/帧，160 采样）；二轮预演 768 帧 908 秒（1.18 秒/帧，48 采样）；补渲 168 帧 155 秒（0.92 秒/帧）、144 帧 293 秒（2.03 秒/帧，微距段）、23 帧 29 秒；768 帧共 1.2 GB；全片预演约 15 分钟。对比：旧版 v3 在 某硬件平台 Metal 上 4.4 秒/帧；720 帧约 53 分钟。；分层：助手预览 ≤960×540、≤24 采样单帧；主会话机位抽帧 540p 低采样；分组清单 预演 1080p 48 采样；终版 1080p 160 采样；另一台本地工作站 抽帧 38 张 540p 约 15 秒。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d058",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.d058.render-time",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s6.render-time",
+      "title": "速度与 GPU 降噪（实测）（渲染耗时）",
+      "value": 1,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节：速度与 GPU 降噪（实测）（渲染耗时）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d058",
+        "note": "另一台本地工作站 1080p、64 采样：OIDN 在 CPU 上 7.22 秒/帧，其中渲染本身不到 1 秒；改 `denoising_use_gpu=True` 后 0.72 秒/帧（runlog 18:07）。「渲染前先测速」省掉约 90% 时间（决定终版能 16 分钟内渲完）。终版 768 帧 972 秒（1.27 秒/帧，160 采样）；二轮预演 768 帧 908 秒（1.18 秒/帧，48 采样）；补渲 168 帧 155 秒（0.92 秒/帧）、144 帧 293 秒（2.03 秒/帧，微距段）、23 帧 29 秒；768 帧共 1.2 GB；全片预演约 15 分钟。对比：旧版 v3 在 某硬件平台 Metal 上 4.4 秒/帧；720 帧约 53 分钟。；分层：助手预览 ≤960×540、≤24 采样单帧；主会话机位抽帧 540p 低采样；分组清单 预演 1080p 48 采样；终版 1080p 160 采样；另一台本地工作站 抽帧 38 张 540p 约 15 秒。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d058",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.d058.ratio",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s6.ratio",
+      "title": "速度与 GPU 降噪（实测）（比例）",
+      "value": 0.9,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节：速度与 GPU 降噪（实测）（比例）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d058",
+        "note": "另一台本地工作站 1080p、64 采样：OIDN 在 CPU 上 7.22 秒/帧，其中渲染本身不到 1 秒；改 `denoising_use_gpu=True` 后 0.72 秒/帧（runlog 18:07）。「渲染前先测速」省掉约 90% 时间（决定终版能 16 分钟内渲完）。终版 768 帧 972 秒（1.27 秒/帧，160 采样）；二轮预演 768 帧 908 秒（1.18 秒/帧，48 采样）；补渲 168 帧 155 秒（0.92 秒/帧）、144 帧 293 秒（2.03 秒/帧，微距段）、23 帧 29 秒；768 帧共 1.2 GB；全片预演约 15 分钟。对比：旧版 v3 在 某硬件平台 Metal 上 4.4 秒/帧；720 帧约 53 分钟。；分层：助手预览 ≤960×540、≤24 采样单帧；主会话机位抽帧 540p 低采样；分组清单 预演 1080p 48 采样；终版 1080p 160 采样；另一台本地工作站 抽帧 38 张 540p 约 15 秒。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d058",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.d058.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s6.frame-count",
+      "title": "速度与 GPU 降噪（实测）（帧数）",
+      "value": 768,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节：速度与 GPU 降噪（实测）（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d058",
+        "note": "另一台本地工作站 1080p、64 采样：OIDN 在 CPU 上 7.22 秒/帧，其中渲染本身不到 1 秒；改 `denoising_use_gpu=True` 后 0.72 秒/帧（runlog 18:07）。「渲染前先测速」省掉约 90% 时间（决定终版能 16 分钟内渲完）。终版 768 帧 972 秒（1.27 秒/帧，160 采样）；二轮预演 768 帧 908 秒（1.18 秒/帧，48 采样）；补渲 168 帧 155 秒（0.92 秒/帧）、144 帧 293 秒（2.03 秒/帧，微距段）、23 帧 29 秒；768 帧共 1.2 GB；全片预演约 15 分钟。对比：旧版 v3 在 某硬件平台 Metal 上 4.4 秒/帧；720 帧约 53 分钟。；分层：助手预览 ≤960×540、≤24 采样单帧；主会话机位抽帧 540p 低采样；分组清单 预演 1080p 48 采样；终版 1080p 160 采样；另一台本地工作站 抽帧 38 张 540p 约 15 秒。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d058",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.d058.duration",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s6.duration",
+      "title": "速度与 GPU 降噪（实测）（时长）",
+      "value": 972,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节：速度与 GPU 降噪（实测）（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d058",
+        "note": "另一台本地工作站 1080p、64 采样：OIDN 在 CPU 上 7.22 秒/帧，其中渲染本身不到 1 秒；改 `denoising_use_gpu=True` 后 0.72 秒/帧（runlog 18:07）。「渲染前先测速」省掉约 90% 时间（决定终版能 16 分钟内渲完）。终版 768 帧 972 秒（1.27 秒/帧，160 采样）；二轮预演 768 帧 908 秒（1.18 秒/帧，48 采样）；补渲 168 帧 155 秒（0.92 秒/帧）、144 帧 293 秒（2.03 秒/帧，微距段）、23 帧 29 秒；768 帧共 1.2 GB；全片预演约 15 分钟。对比：旧版 v3 在 某硬件平台 Metal 上 4.4 秒/帧；720 帧约 53 分钟。；分层：助手预览 ≤960×540、≤24 采样单帧；主会话机位抽帧 540p 低采样；分组清单 预演 1080p 48 采样；终版 1080p 160 采样；另一台本地工作站 抽帧 38 张 540p 约 15 秒。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d058",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.d060.frame-count",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s6.frame-count",
+      "title": "局部重渲与窗口（帧数）",
+      "value": 60,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节：局部重渲与窗口（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d060",
+        "note": "局部缺陷只重渲那一段按帧拼回；60 帧一段共 12 段；段太小会被首帧编译（每块显卡首帧约 100 s，OptiX 编译）吃掉；不保留缓存和助手 `out/` 发到显卡机器。已并入。（指针条目，无新数值）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d060",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.d060.render-time",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s6.render-time",
+      "title": "局部重渲与窗口（渲染耗时）",
+      "value": 100,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节：局部重渲与窗口（渲染耗时）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d060",
+        "note": "局部缺陷只重渲那一段按帧拼回；60 帧一段共 12 段；段太小会被首帧编译（每块显卡首帧约 100 s，OptiX 编译）吃掉；不保留缓存和助手 `out/` 发到显卡机器。已并入。（指针条目，无新数值）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d060",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.d068.area-ratio",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s8.area-ratio",
+      "title": "泛光 7 级减到 4 级（版面占比）",
+      "value": 0.15,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 8 节：泛光 7 级减到 4 级（版面占比）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 8 节 · d068",
+        "note": "4 级（原 7 级，作者量过：最小 3 级只占光晕 15%、花 6 遍（74 到 18 像素），去掉后没有一帧看得出）；注释「was 7: the three smallest … no frame shows them missing」（原实现源码）；首级按 1/(1+最大分量) 加权压萤火虫；上采样 3×3 帐篷核混合 0.62；uBloom 实际 0.06 起 + 脉冲（24 s +0.05，67.5 s +0.22）。泛光 4 下 3 上。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d068",
+        "c12.section": "8"
+      }
+    },
+    {
+      "id": "render-pipe.d068.pixels",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s8.pixels",
+      "title": "泛光 7 级减到 4 级（像素尺寸）",
+      "value": [
+        18,
+        74
+      ],
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 8 节：泛光 7 级减到 4 级（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 8 节 · d068",
+        "note": "4 级（原 7 级，作者量过：最小 3 级只占光晕 15%、花 6 遍（74 到 18 像素），去掉后没有一帧看得出）；注释「was 7: the three smallest … no frame shows them missing」（原实现源码）；首级按 1/(1+最大分量) 加权压萤火虫；上采样 3×3 帐篷核混合 0.62；uBloom 实际 0.06 起 + 脉冲（24 s +0.05，67.5 s +0.22）。泛光 4 下 3 上。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d068",
+        "c12.section": "8"
+      }
+    },
+    {
+      "id": "render-pipe.d068.event-time",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s8.event-time",
+      "title": "泛光 7 级减到 4 级（事件时刻）",
+      "value": 24,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 8 节：泛光 7 级减到 4 级（事件时刻）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 8 节 · d068",
+        "note": "4 级（原 7 级，作者量过：最小 3 级只占光晕 15%、花 6 遍（74 到 18 像素），去掉后没有一帧看得出）；注释「was 7: the three smallest … no frame shows them missing」（原实现源码）；首级按 1/(1+最大分量) 加权压萤火虫；上采样 3×3 帐篷核混合 0.62；uBloom 实际 0.06 起 + 脉冲（24 s +0.05，67.5 s +0.22）。泛光 4 下 3 上。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d068",
+        "c12.section": "8"
+      }
+    },
+    {
+      "id": "render-pipe.d068.duration",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s8.duration",
+      "title": "泛光 7 级减到 4 级（时长）",
+      "value": 67.5,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 8 节：泛光 7 级减到 4 级（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 8 节 · d068",
+        "note": "4 级（原 7 级，作者量过：最小 3 级只占光晕 15%、花 6 遍（74 到 18 像素），去掉后没有一帧看得出）；注释「was 7: the three smallest … no frame shows them missing」（原实现源码）；首级按 1/(1+最大分量) 加权压萤火虫；上采样 3×3 帐篷核混合 0.62；uBloom 实际 0.06 起 + 脉冲（24 s +0.05，67.5 s +0.22）。泛光 4 下 3 上。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d068",
+        "c12.section": "8"
+      }
+    },
+    {
+      "id": "render-pipe.d106.resolution",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s13.resolution",
+      "title": "干净底片与合成流程（画面分辨率）",
+      "value": {
+        "width": 3840,
+        "height": 2160
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：干净底片与合成流程（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d106",
+        "note": "干净底片（ProRes，不带图层和颗粒）是合成源头，改图层、调色、声音只重新合成（05 / 案例 03-T）。案例 03-T：提示词要求指示灯加 Glare（Fog Glow）；发布片无字幕和图形层（实测）。合成匹配清单（某生成平台 技能目录页）：抠像（keying）、跟踪（tracking）、清理（cleanup）；匹配光照、氛围、景深、运动模糊、颗粒；缺层才生成；交付预览 + 可编辑 AE 工程（保留跟踪/遮罩/特效/图层）。AE 插画/动态设计/通用动效（040/041/042）：保留可编辑图层与关键帧；插画轻动作 + 眨眼 + 漂浮卡片 + 绕行锦鲤 + 旋转形状（参考图 3840×2160）；多语言日德西（参考图 1280×720），处理字体字长换行；通用动效参考图 1920×1080。AE 视觉特效合成与镜头清理（053/055）：先分析抠像/跟踪/清理，匹配灯光、氛围、景深、运动模糊、颗粒，保留蒙版/效果/跟踪数据；清理：跟踪蒙版，连续播放检查补丁与闪烁而非单帧。某剪辑调色软件 调色（060）：平衡曝光白平衡→对比饱和肤色→镜头匹配；清晰节点结构，单独保留原调色版本。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d106",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "render-pipe.d107.grid-cell",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s13.grid-cell",
+      "title": "像素图层（Canvas2D 叠层）与闪烁判据（栅格单格尺寸）",
+      "value": {
+        "width": 16,
+        "height": 16
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：像素图层（Canvas2D 叠层）与闪烁判据（栅格单格尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "实测",
+        "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 xray_skin 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d107",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "render-pipe.d107.grid-px",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s13.grid-px",
+      "title": "像素图层（Canvas2D 叠层）与闪烁判据（像素尺寸）",
+      "value": 20,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：像素图层（Canvas2D 叠层）与闪烁判据（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "实测",
+        "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 xray_skin 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d107",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "render-pipe.d107.area-ratio",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s13.area-ratio",
+      "title": "像素图层（Canvas2D 叠层）与闪烁判据（版面占比）",
+      "value": [
+        0.05,
+        0.06
+      ],
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：像素图层（Canvas2D 叠层）与闪烁判据（版面占比）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "实测",
+        "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 xray_skin 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d107",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "render-pipe.d107.pixels",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s13.pixels",
+      "title": "像素图层（Canvas2D 叠层）与闪烁判据（像素尺寸）",
+      "value": 240,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：像素图层（Canvas2D 叠层）与闪烁判据（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "实测",
+        "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 xray_skin 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d107",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "render-pipe.d107.ratio",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s13.ratio",
+      "title": "像素图层（Canvas2D 叠层）与闪烁判据（比例）",
+      "value": 0.9,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：像素图层（Canvas2D 叠层）与闪烁判据（比例）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "实测",
+        "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 xray_skin 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d107",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "render-pipe.d107.frame-count",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s13.frame-count",
+      "title": "像素图层（Canvas2D 叠层）与闪烁判据（帧数）",
+      "value": 24,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：像素图层（Canvas2D 叠层）与闪烁判据（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "实测",
+        "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
+        "note": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 xray_skin 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d107",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "render-pipe.d110.frame-count",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frame-count",
+      "title": "案例 01 重制版 重制终版编码（成片与过程片）（帧数）",
+      "value": 336,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 01 重制版 重制终版编码（成片与过程片）（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d110",
+        "note": "`ffmpeg -framerate 30 -i 原包素材 -framerate 30 -i 原包素材 -i 原包素材 -filter_complex \"[0:v][1:v]concat=n=2:v=1:a=0,scale=1920:1080:in_range=pc:out_range=tv:out_color_matrix=bt709:flags=lanczos+accurate_rnd+full_chroma_int,format=yuv420p[v]\" -map \"[v]\" -map 2:a -r 30 -c:v libx264 -preset slow -crf 14 -profile:v high -g 60 -bf 2 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709:range=tv -c:a aac -b:a 320k -ar 48000 -movflags +faststart`；过程片 336 帧 p_%04d + 成片 768 帧 f_%04d；已存在成品则报错不覆盖（已交付文件换版本号）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d110",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d111.event-time",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.event-time",
+      "title": "案例 01 重制版 仅成片版本修法、压缩预览与联系表（事件时刻）",
+      "value": 11.2,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 01 重制版 仅成片版本修法、压缩预览与联系表（事件时刻）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d111",
+        "note": "成片单独一份：音轨从 11.2 s 起，`-af volume=-0.9dB`（成片段单独量 −13.1 LUFS/−0.7 dBTP，降 0.9 dB 得 −14.0 LUFS/−2.3 dBTP，25.600 s）-shortest，正好 768 帧 25.6 秒；弃用做法：`-ss 11.2 -c copy` 只能从关键帧切，实际切出 816 帧 27.2 秒。压缩预览：`ffmpeg -i 原包素材 -c:v libx264 -preset slow -crf 23 -pix_fmt yuv420p -colorspace bt709 -color_primaries bt709 -color_trc bt709 -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709 -c:a copy -movflags +faststart`；联系表 `select='not(mod(n\\,34))',scale=640:-1,tile=6x6 -frames:v 1 -q:v 3`。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d111",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d111.gain-db",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.gain-db",
+      "title": "案例 01 重制版 仅成片版本修法、压缩预览与联系表（电平差）",
+      "value": -0.9,
+      "unit": "dB",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 01 重制版 仅成片版本修法、压缩预览与联系表（电平差）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d111",
+        "note": "成片单独一份：音轨从 11.2 s 起，`-af volume=-0.9dB`（成片段单独量 −13.1 LUFS/−0.7 dBTP，降 0.9 dB 得 −14.0 LUFS/−2.3 dBTP，25.600 s）-shortest，正好 768 帧 25.6 秒；弃用做法：`-ss 11.2 -c copy` 只能从关键帧切，实际切出 816 帧 27.2 秒。压缩预览：`ffmpeg -i 原包素材 -c:v libx264 -preset slow -crf 23 -pix_fmt yuv420p -colorspace bt709 -color_primaries bt709 -color_trc bt709 -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709 -c:a copy -movflags +faststart`；联系表 `select='not(mod(n\\,34))',scale=640:-1,tile=6x6 -frames:v 1 -q:v 3`。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d111",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d111.loudness",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.loudness",
+      "title": "案例 01 重制版 仅成片版本修法、压缩预览与联系表（响度）",
+      "value": -13.1,
+      "unit": "LUFS",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 01 重制版 仅成片版本修法、压缩预览与联系表（响度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d111",
+        "note": "成片单独一份：音轨从 11.2 s 起，`-af volume=-0.9dB`（成片段单独量 −13.1 LUFS/−0.7 dBTP，降 0.9 dB 得 −14.0 LUFS/−2.3 dBTP，25.600 s）-shortest，正好 768 帧 25.6 秒；弃用做法：`-ss 11.2 -c copy` 只能从关键帧切，实际切出 816 帧 27.2 秒。压缩预览：`ffmpeg -i 原包素材 -c:v libx264 -preset slow -crf 23 -pix_fmt yuv420p -colorspace bt709 -color_primaries bt709 -color_trc bt709 -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709 -c:a copy -movflags +faststart`；联系表 `select='not(mod(n\\,34))',scale=640:-1,tile=6x6 -frames:v 1 -q:v 3`。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d111",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d111.true-peak",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.true-peak",
+      "title": "案例 01 重制版 仅成片版本修法、压缩预览与联系表（真峰值）",
+      "value": -0.7,
+      "unit": "dBTP",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 01 重制版 仅成片版本修法、压缩预览与联系表（真峰值）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d111",
+        "note": "成片单独一份：音轨从 11.2 s 起，`-af volume=-0.9dB`（成片段单独量 −13.1 LUFS/−0.7 dBTP，降 0.9 dB 得 −14.0 LUFS/−2.3 dBTP，25.600 s）-shortest，正好 768 帧 25.6 秒；弃用做法：`-ss 11.2 -c copy` 只能从关键帧切，实际切出 816 帧 27.2 秒。压缩预览：`ffmpeg -i 原包素材 -c:v libx264 -preset slow -crf 23 -pix_fmt yuv420p -colorspace bt709 -color_primaries bt709 -color_trc bt709 -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709 -c:a copy -movflags +faststart`；联系表 `select='not(mod(n\\,34))',scale=640:-1,tile=6x6 -frames:v 1 -q:v 3`。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d111",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d111.duration",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.duration",
+      "title": "案例 01 重制版 仅成片版本修法、压缩预览与联系表（时长）",
+      "value": 25.6,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 01 重制版 仅成片版本修法、压缩预览与联系表（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d111",
+        "note": "成片单独一份：音轨从 11.2 s 起，`-af volume=-0.9dB`（成片段单独量 −13.1 LUFS/−0.7 dBTP，降 0.9 dB 得 −14.0 LUFS/−2.3 dBTP，25.600 s）-shortest，正好 768 帧 25.6 秒；弃用做法：`-ss 11.2 -c copy` 只能从关键帧切，实际切出 816 帧 27.2 秒。压缩预览：`ffmpeg -i 原包素材 -c:v libx264 -preset slow -crf 23 -pix_fmt yuv420p -colorspace bt709 -color_primaries bt709 -color_trc bt709 -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709 -c:a copy -movflags +faststart`；联系表 `select='not(mod(n\\,34))',scale=640:-1,tile=6x6 -frames:v 1 -q:v 3`。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d111",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d111.frame-count",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frame-count",
+      "title": "案例 01 重制版 仅成片版本修法、压缩预览与联系表（帧数）",
+      "value": 768,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 01 重制版 仅成片版本修法、压缩预览与联系表（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d111",
+        "note": "成片单独一份：音轨从 11.2 s 起，`-af volume=-0.9dB`（成片段单独量 −13.1 LUFS/−0.7 dBTP，降 0.9 dB 得 −14.0 LUFS/−2.3 dBTP，25.600 s）-shortest，正好 768 帧 25.6 秒；弃用做法：`-ss 11.2 -c copy` 只能从关键帧切，实际切出 816 帧 27.2 秒。压缩预览：`ffmpeg -i 原包素材 -c:v libx264 -preset slow -crf 23 -pix_fmt yuv420p -colorspace bt709 -color_primaries bt709 -color_trc bt709 -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709 -c:a copy -movflags +faststart`；联系表 `select='not(mod(n\\,34))',scale=640:-1,tile=6x6 -frames:v 1 -q:v 3`。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d111",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d112.resolution",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "编码（作者与公开版）与规格表（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：编码（作者与公开版）与规格表（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d112",
+        "note": "作者：H.264 High CRF 15，AAC 192 kbps，1920×1080 30 fps，5,376 帧（原文陈述，只是原文说法）。公开版：x264 core 165 r3223 两遍编码 340 kbps（实际 343,661 bps），yuv420p，5,375 帧 179.167 s【冲突：作者 5,376 帧与公开版 5,375 帧差一帧，原笔记未解释】；AAC 48 kHz 单声道 77,891 bps；文件 9,628,845 B；带角标（实测，我们自己量过）。其它规格：720p 片段 H.264 Main 4,134,779 bps、600 帧 20.0 s；600×338 片段 900 帧 30 s 无音轨 CRF 23；剧照 1920×1080 约 194–202 KB；拼图 3272×940（8 列×4 行，每格 409×235）；webp 600×338 1,046 B。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d112",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d112.fps",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.fps",
+      "title": "编码（作者与公开版）与规格表（帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：编码（作者与公开版）与规格表（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d112",
+        "note": "作者：H.264 High CRF 15，AAC 192 kbps，1920×1080 30 fps，5,376 帧（原文陈述，只是原文说法）。公开版：x264 core 165 r3223 两遍编码 340 kbps（实际 343,661 bps），yuv420p，5,375 帧 179.167 s【冲突：作者 5,376 帧与公开版 5,375 帧差一帧，原笔记未解释】；AAC 48 kHz 单声道 77,891 bps；文件 9,628,845 B；带角标（实测，我们自己量过）。其它规格：720p 片段 H.264 Main 4,134,779 bps、600 帧 20.0 s；600×338 片段 900 帧 30 s 无音轨 CRF 23；剧照 1920×1080 约 194–202 KB；拼图 3272×940（8 列×4 行，每格 409×235）；webp 600×338 1,046 B。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d112",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d112.frame-count",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frame-count",
+      "title": "编码（作者与公开版）与规格表（帧数）",
+      "value": 5376,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：编码（作者与公开版）与规格表（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d112",
+        "note": "作者：H.264 High CRF 15，AAC 192 kbps，1920×1080 30 fps，5,376 帧（原文陈述，只是原文说法）。公开版：x264 core 165 r3223 两遍编码 340 kbps（实际 343,661 bps），yuv420p，5,375 帧 179.167 s【冲突：作者 5,376 帧与公开版 5,375 帧差一帧，原笔记未解释】；AAC 48 kHz 单声道 77,891 bps；文件 9,628,845 B；带角标（实测，我们自己量过）。其它规格：720p 片段 H.264 Main 4,134,779 bps、600 帧 20.0 s；600×338 片段 900 帧 30 s 无音轨 CRF 23；剧照 1920×1080 约 194–202 KB；拼图 3272×940（8 列×4 行，每格 409×235）；webp 600×338 1,046 B。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d112",
+        "c12.section": "14"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-18",
+          "value": 5375,
+          "unit": "frame",
+          "evidenceLevel": "实测",
+          "reason": "公开版实测 5,375 帧（179.167 s），较作者原文陈述 5,376 帧少 1 帧，原笔记未解释"
+        }
+      ]
+    },
+    {
+      "id": "render-pipe.d112.duration",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.duration",
+      "title": "编码（作者与公开版）与规格表（时长）",
+      "value": 179.167,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：编码（作者与公开版）与规格表（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d112",
+        "note": "作者：H.264 High CRF 15，AAC 192 kbps，1920×1080 30 fps，5,376 帧（原文陈述，只是原文说法）。公开版：x264 core 165 r3223 两遍编码 340 kbps（实际 343,661 bps），yuv420p，5,375 帧 179.167 s【冲突：作者 5,376 帧与公开版 5,375 帧差一帧，原笔记未解释】；AAC 48 kHz 单声道 77,891 bps；文件 9,628,845 B；带角标（实测，我们自己量过）。其它规格：720p 片段 H.264 Main 4,134,779 bps、600 帧 20.0 s；600×338 片段 900 帧 30 s 无音轨 CRF 23；剧照 1920×1080 约 194–202 KB；拼图 3272×940（8 列×4 行，每格 409×235）；webp 600×338 1,046 B。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d112",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d112.frequency",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frequency",
+      "title": "编码（作者与公开版）与规格表（频率）",
+      "value": 48000,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：编码（作者与公开版）与规格表（频率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d112",
+        "note": "作者：H.264 High CRF 15，AAC 192 kbps，1920×1080 30 fps，5,376 帧（原文陈述，只是原文说法）。公开版：x264 core 165 r3223 两遍编码 340 kbps（实际 343,661 bps），yuv420p，5,375 帧 179.167 s【冲突：作者 5,376 帧与公开版 5,375 帧差一帧，原笔记未解释】；AAC 48 kHz 单声道 77,891 bps；文件 9,628,845 B；带角标（实测，我们自己量过）。其它规格：720p 片段 H.264 Main 4,134,779 bps、600 帧 20.0 s；600×338 片段 900 帧 30 s 无音轨 CRF 23；剧照 1920×1080 约 194–202 KB；拼图 3272×940（8 列×4 行，每格 409×235）；webp 600×338 1,046 B。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d112",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d114.resolution",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "成片规格（画面分辨率）",
+      "value": {
+        "width": 1440,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片规格（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-20",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d114",
+        "note": "主片 1440×1080（4:3）30 fps 1,134 帧 37.8 s，H.264 High yuv420p 1.78 Mbps（1,779,802 bps）9,672,716 B；AAC 48 kHz 立体声 259 kbps；20 s 片段 1280×960 600 帧 H.264 Main 8.16 Mbps、音频 257 kbps，为主片开头 20 s 的另一次编码；600×450 网页缩略版 0.23 Mbps、音频 99 kbps。官方附图 4 张 1440×1080 jpg + 1 张 600×450 webp。右上角标「某生成平台 某代码模型」为平台叠加，不属原片（画面读数，没验证）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d114",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d114.fps",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.fps",
+      "title": "成片规格（帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片规格（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-20",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d114",
+        "note": "主片 1440×1080（4:3）30 fps 1,134 帧 37.8 s，H.264 High yuv420p 1.78 Mbps（1,779,802 bps）9,672,716 B；AAC 48 kHz 立体声 259 kbps；20 s 片段 1280×960 600 帧 H.264 Main 8.16 Mbps、音频 257 kbps，为主片开头 20 s 的另一次编码；600×450 网页缩略版 0.23 Mbps、音频 99 kbps。官方附图 4 张 1440×1080 jpg + 1 张 600×450 webp。右上角标「某生成平台 某代码模型」为平台叠加，不属原片（画面读数，没验证）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d114",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d114.frame-count",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frame-count",
+      "title": "成片规格（帧数）",
+      "value": 1134,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片规格（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-20",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d114",
+        "note": "主片 1440×1080（4:3）30 fps 1,134 帧 37.8 s，H.264 High yuv420p 1.78 Mbps（1,779,802 bps）9,672,716 B；AAC 48 kHz 立体声 259 kbps；20 s 片段 1280×960 600 帧 H.264 Main 8.16 Mbps、音频 257 kbps，为主片开头 20 s 的另一次编码；600×450 网页缩略版 0.23 Mbps、音频 99 kbps。官方附图 4 张 1440×1080 jpg + 1 张 600×450 webp。右上角标「某生成平台 某代码模型」为平台叠加，不属原片（画面读数，没验证）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d114",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d114.duration",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.duration",
+      "title": "成片规格（时长）",
+      "value": 37.8,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片规格（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-20",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d114",
+        "note": "主片 1440×1080（4:3）30 fps 1,134 帧 37.8 s，H.264 High yuv420p 1.78 Mbps（1,779,802 bps）9,672,716 B；AAC 48 kHz 立体声 259 kbps；20 s 片段 1280×960 600 帧 H.264 Main 8.16 Mbps、音频 257 kbps，为主片开头 20 s 的另一次编码；600×450 网页缩略版 0.23 Mbps、音频 99 kbps。官方附图 4 张 1440×1080 jpg + 1 张 600×450 webp。右上角标「某生成平台 某代码模型」为平台叠加，不属原片（画面读数，没验证）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d114",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d114.frequency",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frequency",
+      "title": "成片规格（频率）",
+      "value": 48000,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片规格（频率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-20",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d114",
+        "note": "主片 1440×1080（4:3）30 fps 1,134 帧 37.8 s，H.264 High yuv420p 1.78 Mbps（1,779,802 bps）9,672,716 B；AAC 48 kHz 立体声 259 kbps；20 s 片段 1280×960 600 帧 H.264 Main 8.16 Mbps、音频 257 kbps，为主片开头 20 s 的另一次编码；600×450 网页缩略版 0.23 Mbps、音频 99 kbps。官方附图 4 张 1440×1080 jpg + 1 张 600×450 webp。右上角标「某生成平台 某代码模型」为平台叠加，不属原片（画面读数，没验证）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d114",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d115.resolution",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "拼接片编码与发布重压判断（画面分辨率）",
+      "value": {
+        "width": 600,
+        "height": 1066
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：拼接片编码与发布重压判断（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d115",
+        "note": "拼接片 libx264 core 165 r3223，两遍编码目标 7000 kbps，vbv_maxrate 7500、vbv_bufsize 14000，ref=5 subme=8 trellis=2 bframes=3 b_adapt=1 direct=3 me=hex rc_lookahead=50 keyint=250 aq=1:1.00，threads=18；H.264 High yuv420p bt709 tv 范围；实际 6,747,506 bps，8,682,062 B；AAC LC 44.1 kHz 立体声 187,351 bps。小版 600×1066 x264 core 164 r3108 crf=23，1,600,727 bps，对拼接片逐帧缩后 PSNR 40.86 dB，响度相同，是平台转码；webp 600×1066 对拼接片第 0 帧 PSNR 33.38 dB；剧照 1080×608，118,786–307,164 B；某生成平台 标志 png 400×400。发布重压判断：简报给单条成片 `--crf 16`；公开版两遍 7000 kbps；下载库 191 条视频中 11 条用同一版 x264 core 165 r3223 两遍编码，其中 9 条同位置带同样角标（001、009、014、015、018、021、025；012、022 无角标）；018 原文写成片 CRF 15 而公开版两遍 340 kbps，说明重压在作者之后【冲突：023、026 作者原文件（CRF 16）也带角标，026 的请求要求代理自己加水印、021 的请求要求给水印留角，所以「角标 = 重压」的结论被 023 复盘改正，015、018 复盘据此改正】。轨道名线索：两段视频轨道名 “系统媒体 Video/Audio”（某系统平台 系统媒体框架 写法），可能在某系统平台软件里过过一手（推断，证据弱，没验证）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d115",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d115.frequency",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frequency",
+      "title": "拼接片编码与发布重压判断（频率）",
+      "value": 44100,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：拼接片编码与发布重压判断（频率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d115",
+        "note": "拼接片 libx264 core 165 r3223，两遍编码目标 7000 kbps，vbv_maxrate 7500、vbv_bufsize 14000，ref=5 subme=8 trellis=2 bframes=3 b_adapt=1 direct=3 me=hex rc_lookahead=50 keyint=250 aq=1:1.00，threads=18；H.264 High yuv420p bt709 tv 范围；实际 6,747,506 bps，8,682,062 B；AAC LC 44.1 kHz 立体声 187,351 bps。小版 600×1066 x264 core 164 r3108 crf=23，1,600,727 bps，对拼接片逐帧缩后 PSNR 40.86 dB，响度相同，是平台转码；webp 600×1066 对拼接片第 0 帧 PSNR 33.38 dB；剧照 1080×608，118,786–307,164 B；某生成平台 标志 png 400×400。发布重压判断：简报给单条成片 `--crf 16`；公开版两遍 7000 kbps；下载库 191 条视频中 11 条用同一版 x264 core 165 r3223 两遍编码，其中 9 条同位置带同样角标（001、009、014、015、018、021、025；012、022 无角标）；018 原文写成片 CRF 15 而公开版两遍 340 kbps，说明重压在作者之后【冲突：023、026 作者原文件（CRF 16）也带角标，026 的请求要求代理自己加水印、021 的请求要求给水印留角，所以「角标 = 重压」的结论被 023 复盘改正，015、018 复盘据此改正】。轨道名线索：两段视频轨道名 “系统媒体 Video/Audio”（某系统平台 系统媒体框架 写法），可能在某系统平台软件里过过一手（推断，证据弱，没验证）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d115",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d115.psnr",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.psnr",
+      "title": "拼接片编码与发布重压判断（峰值信噪比）",
+      "value": 40.86,
+      "unit": "dB",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：拼接片编码与发布重压判断（峰值信噪比）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d115",
+        "note": "拼接片 libx264 core 165 r3223，两遍编码目标 7000 kbps，vbv_maxrate 7500、vbv_bufsize 14000，ref=5 subme=8 trellis=2 bframes=3 b_adapt=1 direct=3 me=hex rc_lookahead=50 keyint=250 aq=1:1.00，threads=18；H.264 High yuv420p bt709 tv 范围；实际 6,747,506 bps，8,682,062 B；AAC LC 44.1 kHz 立体声 187,351 bps。小版 600×1066 x264 core 164 r3108 crf=23，1,600,727 bps，对拼接片逐帧缩后 PSNR 40.86 dB，响度相同，是平台转码；webp 600×1066 对拼接片第 0 帧 PSNR 33.38 dB；剧照 1080×608，118,786–307,164 B；某生成平台 标志 png 400×400。发布重压判断：简报给单条成片 `--crf 16`；公开版两遍 7000 kbps；下载库 191 条视频中 11 条用同一版 x264 core 165 r3223 两遍编码，其中 9 条同位置带同样角标（001、009、014、015、018、021、025；012、022 无角标）；018 原文写成片 CRF 15 而公开版两遍 340 kbps，说明重压在作者之后【冲突：023、026 作者原文件（CRF 16）也带角标，026 的请求要求代理自己加水印、021 的请求要求给水印留角，所以「角标 = 重压」的结论被 023 复盘改正，015、018 复盘据此改正】。轨道名线索：两段视频轨道名 “系统媒体 Video/Audio”（某系统平台 系统媒体框架 写法），可能在某系统平台软件里过过一手（推断，证据弱，没验证）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d115",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d117.resolution",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "编码与 yuvj 提示（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：编码与 yuvj 提示（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-23",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d117",
+        "note": "分解片 原包素材 1920×1080、24 fps、672 帧、28.000 s；7,104,854 bps、25,715,938 B；x264 core 164 r3190 CRF 16；Lavc/Lavf 63.1.100；yuvj420p（全范围）；元数据 title “餐馆招牌 Fight heroine - breakdown reel (split)”、artist “Blender / 某生成平台 / OpenCV pipeline”；AAC LC 44.1 kHz 立体声 235,618 bps；另一份 1920 宽文件逐字节相同；600×338 版 x264 core 164 r3108 CRF 23 保留章节，437,008 bps。转台片：全身 x264 core 164 r3190 CRF 18，1,861,877 bps；头部 CRF 18，7,252,979 bps。yuvj420p 提示（推断，没验证）：作者把 PNG 帧直接交给 libx264 没转 tv 范围；不同播放器亮度可能不一，自己做片显式 `-pix_fmt yuv420p` 与色彩范围。成品色彩：作者原文件 x264 CRF 16，平台转码版 CRF 23。角标不证明重压：023 作者原文件（CRF 16）也带 “某生成平台 某代码模型” 角标；角标可能是制作代理按请求自己加（026 第二段请求要求右上角加水印）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d117",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d117.fps",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.fps",
+      "title": "编码与 yuvj 提示（帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：编码与 yuvj 提示（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-23",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d117",
+        "note": "分解片 原包素材 1920×1080、24 fps、672 帧、28.000 s；7,104,854 bps、25,715,938 B；x264 core 164 r3190 CRF 16；Lavc/Lavf 63.1.100；yuvj420p（全范围）；元数据 title “餐馆招牌 Fight heroine - breakdown reel (split)”、artist “Blender / 某生成平台 / OpenCV pipeline”；AAC LC 44.1 kHz 立体声 235,618 bps；另一份 1920 宽文件逐字节相同；600×338 版 x264 core 164 r3108 CRF 23 保留章节，437,008 bps。转台片：全身 x264 core 164 r3190 CRF 18，1,861,877 bps；头部 CRF 18，7,252,979 bps。yuvj420p 提示（推断，没验证）：作者把 PNG 帧直接交给 libx264 没转 tv 范围；不同播放器亮度可能不一，自己做片显式 `-pix_fmt yuv420p` 与色彩范围。成品色彩：作者原文件 x264 CRF 16，平台转码版 CRF 23。角标不证明重压：023 作者原文件（CRF 16）也带 “某生成平台 某代码模型” 角标；角标可能是制作代理按请求自己加（026 第二段请求要求右上角加水印）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d117",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d117.frame-count",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frame-count",
+      "title": "编码与 yuvj 提示（帧数）",
+      "value": 672,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：编码与 yuvj 提示（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-23",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d117",
+        "note": "分解片 原包素材 1920×1080、24 fps、672 帧、28.000 s；7,104,854 bps、25,715,938 B；x264 core 164 r3190 CRF 16；Lavc/Lavf 63.1.100；yuvj420p（全范围）；元数据 title “餐馆招牌 Fight heroine - breakdown reel (split)”、artist “Blender / 某生成平台 / OpenCV pipeline”；AAC LC 44.1 kHz 立体声 235,618 bps；另一份 1920 宽文件逐字节相同；600×338 版 x264 core 164 r3108 CRF 23 保留章节，437,008 bps。转台片：全身 x264 core 164 r3190 CRF 18，1,861,877 bps；头部 CRF 18，7,252,979 bps。yuvj420p 提示（推断，没验证）：作者把 PNG 帧直接交给 libx264 没转 tv 范围；不同播放器亮度可能不一，自己做片显式 `-pix_fmt yuv420p` 与色彩范围。成品色彩：作者原文件 x264 CRF 16，平台转码版 CRF 23。角标不证明重压：023 作者原文件（CRF 16）也带 “某生成平台 某代码模型” 角标；角标可能是制作代理按请求自己加（026 第二段请求要求右上角加水印）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d117",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d117.duration",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.duration",
+      "title": "编码与 yuvj 提示（时长）",
+      "value": 28,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：编码与 yuvj 提示（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-23",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d117",
+        "note": "分解片 原包素材 1920×1080、24 fps、672 帧、28.000 s；7,104,854 bps、25,715,938 B；x264 core 164 r3190 CRF 16；Lavc/Lavf 63.1.100；yuvj420p（全范围）；元数据 title “餐馆招牌 Fight heroine - breakdown reel (split)”、artist “Blender / 某生成平台 / OpenCV pipeline”；AAC LC 44.1 kHz 立体声 235,618 bps；另一份 1920 宽文件逐字节相同；600×338 版 x264 core 164 r3108 CRF 23 保留章节，437,008 bps。转台片：全身 x264 core 164 r3190 CRF 18，1,861,877 bps；头部 CRF 18，7,252,979 bps。yuvj420p 提示（推断，没验证）：作者把 PNG 帧直接交给 libx264 没转 tv 范围；不同播放器亮度可能不一，自己做片显式 `-pix_fmt yuv420p` 与色彩范围。成品色彩：作者原文件 x264 CRF 16，平台转码版 CRF 23。角标不证明重压：023 作者原文件（CRF 16）也带 “某生成平台 某代码模型” 角标；角标可能是制作代理按请求自己加（026 第二段请求要求右上角加水印）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d117",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d117.frequency",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frequency",
+      "title": "编码与 yuvj 提示（频率）",
+      "value": 44100,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：编码与 yuvj 提示（频率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-23",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d117",
+        "note": "分解片 原包素材 1920×1080、24 fps、672 帧、28.000 s；7,104,854 bps、25,715,938 B；x264 core 164 r3190 CRF 16；Lavc/Lavf 63.1.100；yuvj420p（全范围）；元数据 title “餐馆招牌 Fight heroine - breakdown reel (split)”、artist “Blender / 某生成平台 / OpenCV pipeline”；AAC LC 44.1 kHz 立体声 235,618 bps；另一份 1920 宽文件逐字节相同；600×338 版 x264 core 164 r3108 CRF 23 保留章节，437,008 bps。转台片：全身 x264 core 164 r3190 CRF 18，1,861,877 bps；头部 CRF 18，7,252,979 bps。yuvj420p 提示（推断，没验证）：作者把 PNG 帧直接交给 libx264 没转 tv 范围；不同播放器亮度可能不一，自己做片显式 `-pix_fmt yuv420p` 与色彩范围。成品色彩：作者原文件 x264 CRF 16，平台转码版 CRF 23。角标不证明重压：023 作者原文件（CRF 16）也带 “某生成平台 某代码模型” 角标；角标可能是制作代理按请求自己加（026 第二段请求要求右上角加水印）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d117",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d118.resolution",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "成片编码（画面分辨率）",
+      "value": {
+        "width": 1080,
+        "height": 1350
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片编码（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d118",
+        "note": "1080×1350、30 fps、600 帧、20.000 s；x264 core 164 r3190 CRF 16；Lavc/Lavf 63.1.100（与 023、026 作者文件同套）；7,237,862 bps；18,919,819 B；yuv420p tv 范围；预告 1024×1280 H.264 Main 9,790,204 bps 195 帧，编码器未知；渲染图 2560×1440 两张（客厅广角、去顶俯视 dollhouse；俯视图与上下两半都对不上差约 51，是单独 4K 静帧）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d118",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d118.fps",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.fps",
+      "title": "成片编码（帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片编码（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d118",
+        "note": "1080×1350、30 fps、600 帧、20.000 s；x264 core 164 r3190 CRF 16；Lavc/Lavf 63.1.100（与 023、026 作者文件同套）；7,237,862 bps；18,919,819 B；yuv420p tv 范围；预告 1024×1280 H.264 Main 9,790,204 bps 195 帧，编码器未知；渲染图 2560×1440 两张（客厅广角、去顶俯视 dollhouse；俯视图与上下两半都对不上差约 51，是单独 4K 静帧）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d118",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d118.frame-count",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frame-count",
+      "title": "成片编码（帧数）",
+      "value": 600,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片编码（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d118",
+        "note": "1080×1350、30 fps、600 帧、20.000 s；x264 core 164 r3190 CRF 16；Lavc/Lavf 63.1.100（与 023、026 作者文件同套）；7,237,862 bps；18,919,819 B；yuv420p tv 范围；预告 1024×1280 H.264 Main 9,790,204 bps 195 帧，编码器未知；渲染图 2560×1440 两张（客厅广角、去顶俯视 dollhouse；俯视图与上下两半都对不上差约 51，是单独 4K 静帧）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d118",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d118.duration",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.duration",
+      "title": "成片编码（时长）",
+      "value": 20,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片编码（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d118",
+        "note": "1080×1350、30 fps、600 帧、20.000 s；x264 core 164 r3190 CRF 16；Lavc/Lavf 63.1.100（与 023、026 作者文件同套）；7,237,862 bps；18,919,819 B；yuv420p tv 范围；预告 1024×1280 H.264 Main 9,790,204 bps 195 帧，编码器未知；渲染图 2560×1440 两张（客厅广角、去顶俯视 dollhouse；俯视图与上下两半都对不上差约 51，是单独 4K 静帧）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d118",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d119.resolution",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "打包片规格（画面分辨率）",
+      "value": {
+        "width": 1440,
+        "height": 604
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：打包片规格（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d119",
+        "note": "原包素材 1440×604 24 fps 1,273 帧 53.04 s H.264 High 1.41 Mbps 9,389,290 B；600×252 小版 0.56 Mbps；视口片段 1280×536 H.264 Main 5.60 Mbps 13,996,164 B；官方图 03_blockout 1280×658、17_seven_shots 1920×402、webp 600×252"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d119",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d119.fps",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.fps",
+      "title": "打包片规格（帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：打包片规格（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d119",
+        "note": "原包素材 1440×604 24 fps 1,273 帧 53.04 s H.264 High 1.41 Mbps 9,389,290 B；600×252 小版 0.56 Mbps；视口片段 1280×536 H.264 Main 5.60 Mbps 13,996,164 B；官方图 03_blockout 1280×658、17_seven_shots 1920×402、webp 600×252"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d119",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d119.frame-count",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frame-count",
+      "title": "打包片规格（帧数）",
+      "value": 1273,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：打包片规格（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d119",
+        "note": "原包素材 1440×604 24 fps 1,273 帧 53.04 s H.264 High 1.41 Mbps 9,389,290 B；600×252 小版 0.56 Mbps；视口片段 1280×536 H.264 Main 5.60 Mbps 13,996,164 B；官方图 03_blockout 1280×658、17_seven_shots 1920×402、webp 600×252"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d119",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d119.duration",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.duration",
+      "title": "打包片规格（时长）",
+      "value": 53.04,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：打包片规格（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d119",
+        "note": "原包素材 1440×604 24 fps 1,273 帧 53.04 s H.264 High 1.41 Mbps 9,389,290 B；600×252 小版 0.56 Mbps；视口片段 1280×536 H.264 Main 5.60 Mbps 13,996,164 B；官方图 03_blockout 1280×658、17_seven_shots 1920×402、webp 600×252"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d119",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d120.resolution",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "成片编码（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片编码（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-19",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d120",
+        "note": "54066675 字节；h264 High 1920×1080 yuv420p tv bt709 24fps 516 帧 21.500000s 19983327 bps；aac 48000 2ch 131503 bps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d120",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d120.fps",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.fps",
+      "title": "成片编码（帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片编码（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-19",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d120",
+        "note": "54066675 字节；h264 High 1920×1080 yuv420p tv bt709 24fps 516 帧 21.500000s 19983327 bps；aac 48000 2ch 131503 bps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d120",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d120.frame-count",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frame-count",
+      "title": "成片编码（帧数）",
+      "value": 516,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片编码（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-19",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d120",
+        "note": "54066675 字节；h264 High 1920×1080 yuv420p tv bt709 24fps 516 帧 21.500000s 19983327 bps；aac 48000 2ch 131503 bps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d120",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d120.duration",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.duration",
+      "title": "成片编码（时长）",
+      "value": 21.5,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：成片编码（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-19",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d120",
+        "note": "54066675 字节；h264 High 1920×1080 yuv420p tv bt709 24fps 516 帧 21.500000s 19983327 bps；aac 48000 2ch 131503 bps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d120",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d121.resolution",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "案例 03-T 三个素材编码参数（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 03-T 三个素材编码参数（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d121",
+        "note": "发布片 h264 High 1920×1080 yuv420p tv bt709（transfer iec61966-2-1=sRGB）30fps 900 帧 30.000s 3889615 bps，音频 aac 48000 Hz 2ch 197130 bps；分屏建造片 hevc Main 1920×1080 30fps 893 帧 29.766667s 8719652 bps，aac 48000 253750 bps；环绕参考 hevc Main 10 1920×824 yuv420p10le 24fps 289 帧 12.041667s 4930929 bps，aac 32000 Hz 192140 bps。色彩标签：原色 bt709，传递函数 iec61966-2-1（sRGB），矩阵 bt709，范围 tv；H.264 High yuv420p 3.89 Mbps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d121",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d121.fps",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.fps",
+      "title": "案例 03-T 三个素材编码参数（帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 03-T 三个素材编码参数（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d121",
+        "note": "发布片 h264 High 1920×1080 yuv420p tv bt709（transfer iec61966-2-1=sRGB）30fps 900 帧 30.000s 3889615 bps，音频 aac 48000 Hz 2ch 197130 bps；分屏建造片 hevc Main 1920×1080 30fps 893 帧 29.766667s 8719652 bps，aac 48000 253750 bps；环绕参考 hevc Main 10 1920×824 yuv420p10le 24fps 289 帧 12.041667s 4930929 bps，aac 32000 Hz 192140 bps。色彩标签：原色 bt709，传递函数 iec61966-2-1（sRGB），矩阵 bt709，范围 tv；H.264 High yuv420p 3.89 Mbps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d121",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d121.frame-count",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frame-count",
+      "title": "案例 03-T 三个素材编码参数（帧数）",
+      "value": 900,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 03-T 三个素材编码参数（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d121",
+        "note": "发布片 h264 High 1920×1080 yuv420p tv bt709（transfer iec61966-2-1=sRGB）30fps 900 帧 30.000s 3889615 bps，音频 aac 48000 Hz 2ch 197130 bps；分屏建造片 hevc Main 1920×1080 30fps 893 帧 29.766667s 8719652 bps，aac 48000 253750 bps；环绕参考 hevc Main 10 1920×824 yuv420p10le 24fps 289 帧 12.041667s 4930929 bps，aac 32000 Hz 192140 bps。色彩标签：原色 bt709，传递函数 iec61966-2-1（sRGB），矩阵 bt709，范围 tv；H.264 High yuv420p 3.89 Mbps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d121",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d121.duration",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.duration",
+      "title": "案例 03-T 三个素材编码参数（时长）",
+      "value": 30,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 03-T 三个素材编码参数（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d121",
+        "note": "发布片 h264 High 1920×1080 yuv420p tv bt709（transfer iec61966-2-1=sRGB）30fps 900 帧 30.000s 3889615 bps，音频 aac 48000 Hz 2ch 197130 bps；分屏建造片 hevc Main 1920×1080 30fps 893 帧 29.766667s 8719652 bps，aac 48000 253750 bps；环绕参考 hevc Main 10 1920×824 yuv420p10le 24fps 289 帧 12.041667s 4930929 bps，aac 32000 Hz 192140 bps。色彩标签：原色 bt709，传递函数 iec61966-2-1（sRGB），矩阵 bt709，范围 tv；H.264 High yuv420p 3.89 Mbps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d121",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d121.frequency",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frequency",
+      "title": "案例 03-T 三个素材编码参数（频率）",
+      "value": 48000,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：案例 03-T 三个素材编码参数（频率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d121",
+        "note": "发布片 h264 High 1920×1080 yuv420p tv bt709（transfer iec61966-2-1=sRGB）30fps 900 帧 30.000s 3889615 bps，音频 aac 48000 Hz 2ch 197130 bps；分屏建造片 hevc Main 1920×1080 30fps 893 帧 29.766667s 8719652 bps，aac 48000 253750 bps；环绕参考 hevc Main 10 1920×824 yuv420p10le 24fps 289 帧 12.041667s 4930929 bps，aac 32000 Hz 192140 bps。色彩标签：原色 bt709，传递函数 iec61966-2-1（sRGB），矩阵 bt709，范围 tv；H.264 High yuv420p 3.89 Mbps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d121",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d122.resolution",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "07 / 12 / 案例 03-T 等交付规格（作者原文）（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 804
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：07 / 12 / 案例 03-T 等交付规格（作者原文）（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d122",
+        "note": "案例 07：2 分 56 秒，1080p，24 fps。012 巨城雷击：20 秒、1080p、60 fps、1200 帧、约 15600 栋楼。案例 14 雨夜：15 秒、1080p、24 fps。017 两栖粒子生物：16 秒、30 fps、150 BPM 每拍 12 帧。案例 19：21.5 秒、六镜头、24 fps。案例 21：15 秒、1080p、24 fps。案例 22：约 20 小时完成 40 秒七机位，1920×804、24 fps、960 帧。003 透明机械头：30 秒、30 fps、900 帧。案例 06：65 秒、24 fps、2880×2160。案例 01 原作：25 秒、1080p、25 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d122",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d122.duration",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.duration",
+      "title": "07 / 12 / 案例 03-T 等交付规格（作者原文）（时长）",
+      "value": 56,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：07 / 12 / 案例 03-T 等交付规格（作者原文）（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d122",
+        "note": "案例 07：2 分 56 秒，1080p，24 fps。012 巨城雷击：20 秒、1080p、60 fps、1200 帧、约 15600 栋楼。案例 14 雨夜：15 秒、1080p、24 fps。017 两栖粒子生物：16 秒、30 fps、150 BPM 每拍 12 帧。案例 19：21.5 秒、六镜头、24 fps。案例 21：15 秒、1080p、24 fps。案例 22：约 20 小时完成 40 秒七机位，1920×804、24 fps、960 帧。003 透明机械头：30 秒、30 fps、900 帧。案例 06：65 秒、24 fps、2880×2160。案例 01 原作：25 秒、1080p、25 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d122",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d122.fps",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.fps",
+      "title": "07 / 12 / 案例 03-T 等交付规格（作者原文）（帧率）",
+      "value": 24,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：07 / 12 / 案例 03-T 等交付规格（作者原文）（帧率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d122",
+        "note": "案例 07：2 分 56 秒，1080p，24 fps。012 巨城雷击：20 秒、1080p、60 fps、1200 帧、约 15600 栋楼。案例 14 雨夜：15 秒、1080p、24 fps。017 两栖粒子生物：16 秒、30 fps、150 BPM 每拍 12 帧。案例 19：21.5 秒、六镜头、24 fps。案例 21：15 秒、1080p、24 fps。案例 22：约 20 小时完成 40 秒七机位，1920×804、24 fps、960 帧。003 透明机械头：30 秒、30 fps、900 帧。案例 06：65 秒、24 fps、2880×2160。案例 01 原作：25 秒、1080p、25 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d122",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.d122.frame-count",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frame-count",
+      "title": "07 / 12 / 案例 03-T 等交付规格（作者原文）（帧数）",
+      "value": 1200,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节：07 / 12 / 案例 03-T 等交付规格（作者原文）（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d122",
+        "note": "案例 07：2 分 56 秒，1080p，24 fps。012 巨城雷击：20 秒、1080p、60 fps、1200 帧、约 15600 栋楼。案例 14 雨夜：15 秒、1080p、24 fps。017 两栖粒子生物：16 秒、30 fps、150 BPM 每拍 12 帧。案例 19：21.5 秒、六镜头、24 fps。案例 21：15 秒、1080p、24 fps。案例 22：约 20 小时完成 40 秒七机位，1920×804、24 fps、960 帧。003 透明机械头：30 秒、30 fps、900 帧。案例 06：65 秒、24 fps、2880×2160。案例 01 原作：25 秒、1080p、25 fps"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d122",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s005",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s1.frequency",
+      "title": "渲染器与帧结构（实时 WebGL / three）对照（外部案例 01）（汇总）",
+      "value": 120,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节跨案例对照汇总：渲染器与帧结构（实时 WebGL / three）对照（外部案例 01）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · s005",
+        "note": "外部案例 01：模拟频率：无状态闭式函数；帧率：固定 60 帧/秒，120 Hz 屏每两次刷新画一帧；取值：90 s 循环，80 BPM，30 小节"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d003.frequency"
+      ],
+      "ext": {
+        "c12.sourceId": "s005",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s016",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.noise-threshold",
+      "title": "Cycles 离线设置对照（案例 01 重制版 重制）（汇总）",
+      "value": 0.015,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节跨案例对照汇总：Cycles 离线设置对照（案例 01 重制版 重制）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · s016",
+        "note": "案例 01 重制版 重制：Blender / 设备：4.5.11（另一台本地工作站）/ 5.2（本机）；OPTIX 优先，CUDA，桌面工作站 METAL；采样：终版 160；预演 48；预览 ≤24；自适应阈值 0.015；降噪：OIDN，RGB_ALBEDO_NORMAL，预滤 ACCURATE，GPU；反弹：总 6 / 漫 2 / 光泽 4 / 透射 2 / 体积 0 / 透明 4；色彩管理：AgX，Look AgX - Medium High Contrast，曝光 0；运动模糊 / 景深：快门 0.5（微距 384–575 帧 0.25）；景深全程 f/4–f/22"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d026.noise-threshold"
+      ],
+      "ext": {
+        "c12.sourceId": "s016",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s017",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.samples",
+      "title": "Cycles 离线设置对照（01 旧版 v3）（汇总）",
+      "value": 64,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节跨案例对照汇总：Cycles 离线设置对照（01 旧版 v3）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · s017",
+        "note": "01 旧版 v3：Blender / 设备：本机 Metal，全部设备 use=True；采样：参数传入；v1 32；v2/v3 20 或 32（冲突）；阶梯 64 或 1→128（冲突）；降噪：OIDN，use_denoising True；反弹：max_bounces 8；色彩管理：AgX Medium High Contrast；运动模糊 / 景深：use_motion_blur=False（位置逐帧直设）；镜头 A 光圈 f/2.8 改 f/11"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d027.samples"
+      ],
+      "ext": {
+        "c12.sourceId": "s017",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s018",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.samples",
+      "title": "Cycles 离线设置对照（案例 03-G 该 IP 样本头部）（汇总）",
+      "value": 48,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节跨案例对照汇总：Cycles 离线设置对照（案例 03-G 该 IP 样本头部）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · s018",
+        "note": "案例 03-G 该 IP 样本头部：Blender / 设备：Cycles，OPTIX/CUDA/METAL；采样：默认 48（--samples）；自适应 0.02；降噪：OIDN，GPU；色彩管理：AgX Medium High Contrast"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d028.samples"
+      ],
+      "ext": {
+        "c12.sourceId": "s018",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s019",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.noise-threshold",
+      "title": "Cycles 离线设置对照（案例 03-B 该 IP 样本全身）（汇总）",
+      "value": 0.02,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节跨案例对照汇总：Cycles 离线设置对照（案例 03-B 该 IP 样本全身）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · s019",
+        "note": "案例 03-B 该 IP 样本全身：Blender / 设备：Blender 5.2 本机 Metal；采样：默认 64（原实现源码）或 128（00 首页），冲突；自适应 0.02；降噪：OIDN（GPU）；反弹：总 6 / 漫 2 / 光泽 4；色彩管理：AgX Medium High Contrast"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d028.noise-threshold"
+      ],
+      "ext": {
+        "c12.sourceId": "s019",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s021",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.samples",
+      "title": "Cycles 离线设置对照（案例 05）（汇总）",
+      "value": 256,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节跨案例对照汇总：Cycles 离线设置对照（案例 05）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · s021",
+        "note": "案例 05：Blender / 设备：Blender 5.2；OptiX；约 12 块显卡；采样：256；自适应 0.02；降噪：OIDN albedo+normal；反弹：未公开；色彩管理：AgX（Look、曝光未公开）；运动模糊 / 景深：快门 180° 位置 START；景深带跟焦"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d031.samples"
+      ],
+      "ext": {
+        "c12.sourceId": "s021",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s022",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.samples",
+      "title": "Cycles 离线设置对照（案例 22 城市）（汇总）",
+      "value": 300,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节跨案例对照汇总：Cycles 离线设置对照（案例 22 城市）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "推断",
+        "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · s022",
+        "note": "案例 22 城市：Blender / 设备：Blender 5.2；某生成平台 GPU；采样：300；自适应 0.02；降噪：OIDN albedo+normal；反弹：未公开；色彩管理：AgX Medium High Contrast；合成器调色；运动模糊 / 景深：运动模糊 180°；景深开"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d032.samples"
+      ],
+      "ext": {
+        "c12.sourceId": "s022",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s025",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.samples",
+      "title": "路径追踪器（WebGPU）、母帧加窗口、降噪、光组对照（案例 14 雨夜）（汇总）",
+      "value": [
+        448,
+        640
+      ],
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节跨案例对照汇总：路径追踪器（WebGPU）、母帧加窗口、降噪、光组对照（案例 14 雨夜）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-14",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · s025",
+        "note": "案例 14 雨夜：渲染器：自写 WebGPU 路径追踪；母帧：4K，448–640 spp（新镜头 448）；窗口：每帧窗口 32–48 spp（新镜头 32）；新两镜各 78 个窗口；镜头运动：仅摇和俯仰；耗时：原三镜约 17 分钟；新两镜加案例 21新镜约 30 分钟"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d040.samples"
+      ],
+      "ext": {
+        "c12.sourceId": "s025",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s026",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.samples",
+      "title": "路径追踪器（WebGPU）、母帧加窗口、降噪、光组对照（案例 19 集市）（汇总）",
+      "value": [
+        448,
+        640
+      ],
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节跨案例对照汇总：路径追踪器（WebGPU）、母帧加窗口、降噪、光组对照（案例 19 集市）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-19",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · s026",
+        "note": "案例 19 集市：渲染器：同家族；母帧：4K 448–640 spp；窗口：窗口 spp 未写；镜 6 逐帧真相机 128 spp，72 帧；镜头运动：镜 1–5 摇/俯仰，镜 6 真推进；耗时：返修三镜约 17、25、18 分钟（共约 60 分钟）"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d040.samples"
+      ],
+      "ext": {
+        "c12.sourceId": "s026",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s027",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s4.samples",
+      "title": "路径追踪器（WebGPU）、母帧加窗口、降噪、光组对照（案例 21）（汇总）",
+      "value": [
+        448,
+        640
+      ],
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节跨案例对照汇总：路径追踪器（WebGPU）、母帧加窗口、降噪、光组对照（案例 21）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-21",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · s027",
+        "note": "案例 21：渲染器：同家族；母帧：4K 448–640（新镜头 448）；窗口：32–48（新镜头 32，78 窗口）；镜头运动：仅摇和俯仰；耗时：新两镜+案例 14新两镜约 30 分钟"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d040.samples"
+      ],
+      "ext": {
+        "c12.sourceId": "s027",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s031",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.frame-count",
+      "title": "逐帧纯函数与无头浏览器 出片对照（案例 15）（汇总）",
+      "value": 240,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节跨案例对照汇总：逐帧纯函数与无头浏览器 出片对照（案例 15）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · s031",
+        "note": "案例 15：技术：Canvas2D 或 SVG，禁 three/WebGL；页面接口：`window.HF={meta,isReady,seek(t)}`；并行：`--workers 4`，与单线程结果一致；单帧/整片耗时：单帧预算 <200 ms；240 帧「well under a minute」"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d049.frame-count"
+      ],
+      "ext": {
+        "c12.sourceId": "s031",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s033",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s5.frame-count",
+      "title": "逐帧纯函数与无头浏览器 出片对照（案例 20）（汇总）",
+      "value": 1134,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节跨案例对照汇总：逐帧纯函数与无头浏览器 出片对照（案例 20）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-20",
+        "evidenceLevel": "源码",
+        "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · s033",
+        "note": "案例 20：技术：代码渲染（桌面工作站 CPU）；单帧/整片耗时：1,134 帧全部不到 30 s"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d054.frame-count"
+      ],
+      "ext": {
+        "c12.sourceId": "s033",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s037",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s6.frame-count",
+      "title": "云渲染、并行与耗时对照（案例 01 重制版 重制终版）（汇总）",
+      "value": 768,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节跨案例对照汇总：云渲染、并行与耗时对照（案例 01 重制版 重制终版）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · s037",
+        "note": "案例 01 重制版 重制终版：设置：160 spp，768 帧；每帧：1.27 s；合计：972 s；设备：另一台本地工作站（高算力独显级）"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d058.frame-count"
+      ],
+      "ext": {
+        "c12.sourceId": "s037",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s038",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s6.frame-count",
+      "title": "云渲染、并行与耗时对照（案例 01 重制版 预演 分组清单）（汇总）",
+      "value": 768,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节跨案例对照汇总：云渲染、并行与耗时对照（案例 01 重制版 预演 分组清单）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · s038",
+        "note": "案例 01 重制版 预演 分组清单：设置：48 spp，768 帧；每帧：1.18 s；合计：908 s；设备：另一台本地工作站"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d058.frame-count"
+      ],
+      "ext": {
+        "c12.sourceId": "s038",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s041",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-count",
+      "title": "云渲染、并行与耗时对照（01 旧版 v3）（汇总）",
+      "value": 720,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节跨案例对照汇总：云渲染、并行与耗时对照（01 旧版 v3）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · s041",
+        "note": "01 旧版 v3：设置：20 或 32 spp（冲突）；每帧：4.4 s；合计：720 帧约 53 分钟；设备：某硬件平台 Metal"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d027.frame-count"
+      ],
+      "ext": {
+        "c12.sourceId": "s041",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s042",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.frame-time",
+      "title": "云渲染、并行与耗时对照（案例 01 原作）（汇总）",
+      "value": [
+        1.6,
+        8
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节跨案例对照汇总：云渲染、并行与耗时对照（案例 01 原作）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-original",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · s042",
+        "note": "案例 01 原作：设置：96 spp；每帧：1.6–8 s；合计：GPU 约 40 min，挂钟约 2 h；设备：本机 GPU，共享队列"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d033.frame-time"
+      ],
+      "ext": {
+        "c12.sourceId": "s042",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s043",
+      "domain": "render-sampling-denoise",
+      "topic": "render-pipe.s3.samples",
+      "title": "云渲染、并行与耗时对照（案例 05）（汇总）",
+      "value": 256,
+      "unit": "spp",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节跨案例对照汇总：云渲染、并行与耗时对照（案例 05）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · s043",
+        "note": "案例 05：设置：256 spp；每帧：9–10 s（首帧约 100 s）；合计：约 1 小时（12 块卡）；设备：某生成平台 GPU"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d031.samples"
+      ],
+      "ext": {
+        "c12.sourceId": "s043",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s057",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s8.area-ratio",
+      "title": "泛光、光束、鬼影、镜头脏污对照（外部案例 01）（汇总）",
+      "value": 0.15,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 8 节跨案例对照汇总：泛光、光束、鬼影、镜头脏污对照（外部案例 01）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 8 节 · s057",
+        "note": "外部案例 01：级数与分辨率：4 下 3 上（原 7 级，最小 3 级只占光晕 15%，花 6 遍，74 到 18 像素）；强度 / 混合：上采样 3×3 帐篷核混合 0.62；uBloom 0.06 起 + 脉冲（24 s +0.05，67.5 s +0.22）；其他：首级按 1/(1+最大分量) 加权压萤火虫"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d068.area-ratio"
+      ],
+      "ext": {
+        "c12.sourceId": "s057",
+        "c12.section": "8"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s073",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.frame-count",
+      "title": "编码与成片规格对照（案例 01 重制版 重制终版）（汇总）",
+      "value": 336,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节跨案例对照汇总：编码与成片规格对照（案例 01 重制版 重制终版）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · s073",
+        "note": "案例 01 重制版 重制终版：分辨率 / 帧率 / 帧数 / 时长：1920×1080，30 fps，336+768 帧；编码：libx264 slow crf 14 High，g 60，bf 2；色彩：bt709 tv，scale in_range=pc→out_range=tv"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d110.frame-count"
+      ],
+      "ext": {
+        "c12.sourceId": "s073",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s074",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "编码与成片规格对照（案例 03-B 全身拼装）（汇总）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节跨案例对照汇总：编码与成片规格对照（案例 03-B 全身拼装）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · s074",
+        "note": "案例 03-B 全身拼装：分辨率 / 帧率 / 帧数 / 时长：1920×1080，30 fps；编码：同上，无声；色彩：bt709 tv"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d121.resolution"
+      ],
+      "ext": {
+        "c12.sourceId": "s074",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s075",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "编码与成片规格对照（18 新闻讲解片（作者））（汇总）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节跨案例对照汇总：编码与成片规格对照（18 新闻讲解片（作者））"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · s075",
+        "note": "18 新闻讲解片（作者）：分辨率 / 帧率 / 帧数 / 时长：1920×1080，30 fps，5,376 帧；编码：H.264 High CRF 15，AAC 192 kbps"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d112.resolution"
+      ],
+      "ext": {
+        "c12.sourceId": "s075",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s076",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.duration",
+      "title": "编码与成片规格对照（18 公开版）（汇总）",
+      "value": 179.167,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节跨案例对照汇总：编码与成片规格对照（18 公开版）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · s076",
+        "note": "18 公开版：分辨率 / 帧率 / 帧数 / 时长：5,375 帧 179.167 s；编码：x264 core 165 r3223 两遍 340 kbps；码率：343,661 bps；色彩：yuv420p"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d112.duration"
+      ],
+      "ext": {
+        "c12.sourceId": "s076",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s077",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "编码与成片规格对照（案例 20）（汇总）",
+      "value": {
+        "width": 1440,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节跨案例对照汇总：编码与成片规格对照（案例 20）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-20",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · s077",
+        "note": "案例 20：分辨率 / 帧率 / 帧数 / 时长：1440×1080（4:3），30 fps，1,134 帧，37.8 s；编码：H.264 High；码率：1.78 Mbps；色彩：yuv420p"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d114.resolution"
+      ],
+      "ext": {
+        "c12.sourceId": "s077",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s079",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "编码与成片规格对照（23 打斗女主）（汇总）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节跨案例对照汇总：编码与成片规格对照（23 打斗女主）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-23",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · s079",
+        "note": "23 打斗女主：分辨率 / 帧率 / 帧数 / 时长：1920×1080，24 fps，672 帧，28.000 s；编码：x264 core 164 r3190 CRF 16；码率：7,104,854 bps；色彩：yuvj420p 全范围"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d117.resolution"
+      ],
+      "ext": {
+        "c12.sourceId": "s079",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s081",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "编码与成片规格对照（案例 29）（汇总）",
+      "value": {
+        "width": 1080,
+        "height": 1350
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节跨案例对照汇总：编码与成片规格对照（案例 29）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · s081",
+        "note": "案例 29：分辨率 / 帧率 / 帧数 / 时长：1080×1350，30 fps，600 帧，20.000 s；编码：x264 core 164 r3190 CRF 16；码率：7,237,862 bps；色彩：yuv420p tv"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d118.resolution"
+      ],
+      "ext": {
+        "c12.sourceId": "s081",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s082",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "编码与成片规格对照（案例 22）（汇总）",
+      "value": {
+        "width": 1440,
+        "height": 604
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节跨案例对照汇总：编码与成片规格对照（案例 22）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-22",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · s082",
+        "note": "案例 22：分辨率 / 帧率 / 帧数 / 时长：1440×604，24 fps，1,273 帧，53.04 s；编码：H.264 High；码率：1.41 Mbps"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d119.resolution"
+      ],
+      "ext": {
+        "c12.sourceId": "s082",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s083",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "编码与成片规格对照（案例 19）（汇总）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节跨案例对照汇总：编码与成片规格对照（案例 19）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-19",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · s083",
+        "note": "案例 19：分辨率 / 帧率 / 帧数 / 时长：1920×1080，24 fps，516 帧，21.5 s；编码：h264 High；码率：19,983,327 bps；色彩：yuv420p tv bt709"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d120.resolution"
+      ],
+      "ext": {
+        "c12.sourceId": "s083",
+        "c12.section": "14"
+      }
+    },
+    {
+      "id": "render-pipe.sum.s084",
+      "domain": "color-grade-delivery",
+      "topic": "render-pipe.s14.resolution",
+      "title": "编码与成片规格对照（案例 03-T 发布片）（汇总）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节跨案例对照汇总：编码与成片规格对照（案例 03-T 发布片）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · s084",
+        "note": "案例 03-T 发布片：分辨率 / 帧率 / 帧数 / 时长：1920×1080，30 fps，900 帧，30.000 s；编码：h264 High；码率：3,889,615 bps；色彩：tv bt709（transfer iec61966-2-1）"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "render-pipe.d121.resolution"
+      ],
+      "ext": {
+        "c12.sourceId": "s084",
+        "c12.section": "14"
+      }
+    }
+  ]
+}

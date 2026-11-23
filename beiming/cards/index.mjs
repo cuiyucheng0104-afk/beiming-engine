@@ -18,3 +18,13 @@ export {
   getAudioSubsPractices,
   loadAudioSubsPriorsStore,
 } from './priors-audio-subs.mjs';
+export {
+  C12_COLLECTIONS,
+  getBatch3CardPriors,
+  getBatch3MigrationManifest,
+  getBatch3Practices,
+  loadBatch3PriorsStore,
+  loadFxUiPriorsStore,
+  loadMatHardsurfPriorsStore,
+  loadRenderPipePriorsStore,
+} from './priors-batch3.mjs';

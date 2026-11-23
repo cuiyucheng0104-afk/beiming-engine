@@ -1,0 +1,5501 @@
+{
+  "format": "priors/0.1",
+  "entries": [
+    {
+      "id": "mat-hardsurf.d005.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 frame_dark 枪灰阳极铝（线性基色 RGB）",
+      "value": [
+        0.1,
+        0.098,
+        0.1
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 frame_dark 枪灰阳极铝（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d005",
+        "note": "基色 RGB（线性）(0.1, 0.098, 0.1)；金属度 1；粗糙度 0.5；自发光 0；备注：grain：粗糙度 0.46…0.54，颗粒 size 0.0003 m（噪声 Scale 3333.3, Detail 1.0），Bump Distance 0.000016，粗糙度起伏噪声 Scale 35 Detail 3.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d005",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d005.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 frame_dark 枪灰阳极铝（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 frame_dark 枪灰阳极铝（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d005",
+        "note": "基色 RGB（线性）(0.1, 0.098, 0.1)；金属度 1；粗糙度 0.5；自发光 0；备注：grain：粗糙度 0.46…0.54，颗粒 size 0.0003 m（噪声 Scale 3333.3, Detail 1.0），Bump Distance 0.000016，粗糙度起伏噪声 Scale 35 Detail 3.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d005",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d005.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 frame_dark 枪灰阳极铝（粗糙度范围）",
+      "value": [
+        0.46,
+        0.54
+      ],
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 frame_dark 枪灰阳极铝（粗糙度范围）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d005",
+        "note": "基色 RGB（线性）(0.1, 0.098, 0.1)；金属度 1；粗糙度 0.5；自发光 0；备注：grain：粗糙度 0.46…0.54，颗粒 size 0.0003 m（噪声 Scale 3333.3, Detail 1.0），Bump Distance 0.000016，粗糙度起伏噪声 Scale 35 Detail 3.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d005",
+        "c12.section": "1"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-01-legacy",
+          "value": 0.3,
+          "unit": "ratio",
+          "evidenceLevel": "源码",
+          "reason": "旧版外壳枪灰铝粗糙度 0.30，重制版实测喷砂感调粗至 0.5（带 0.46…0.54 微颗粒起伏）"
+        }
+      ]
+    },
+    {
+      "id": "mat-hardsurf.d005.length",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.length",
+      "title": "重制版材质 frame_dark 枪灰阳极铝（长度尺度）",
+      "value": 0.0003,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 frame_dark 枪灰阳极铝（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d005",
+        "note": "基色 RGB（线性）(0.1, 0.098, 0.1)；金属度 1；粗糙度 0.5；自发光 0；备注：grain：粗糙度 0.46…0.54，颗粒 size 0.0003 m（噪声 Scale 3333.3, Detail 1.0），Bump Distance 0.000016，粗糙度起伏噪声 Scale 35 Detail 3.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d005",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d006.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 frame_black 哑黑（线性基色 RGB）",
+      "value": [
+        0.02,
+        0.02,
+        0.021
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 frame_black 哑黑（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d006",
+        "note": "基色 RGB（线性）(0.02, 0.02, 0.021)；金属度 0；粗糙度 0.5；自发光 0；备注：grain：0.46…0.54，size 0.0003，Bump Distance 0.000008，patch 40"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d006",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d006.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 frame_black 哑黑（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 frame_black 哑黑（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d006",
+        "note": "基色 RGB（线性）(0.02, 0.02, 0.021)；金属度 0；粗糙度 0.5；自发光 0；备注：grain：0.46…0.54，size 0.0003，Bump Distance 0.000008，patch 40"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d006",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d006.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 frame_black 哑黑（粗糙度）",
+      "value": 0.5,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 frame_black 哑黑（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d006",
+        "note": "基色 RGB（线性）(0.02, 0.02, 0.021)；金属度 0；粗糙度 0.5；自发光 0；备注：grain：0.46…0.54，size 0.0003，Bump Distance 0.000008，patch 40"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d006",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d007.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 frame_edge 亮倒角条（线性基色 RGB）",
+      "value": [
+        0.4,
+        0.4,
+        0.415
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 frame_edge 亮倒角条（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d007",
+        "note": "基色 RGB（线性）(0.4, 0.4, 0.415)；金属度 1；粗糙度 0.26；自发光 0；备注：粗糙度 = lin(noise(80, Detail 2.0), 0.23, 0.29)，无凹凸"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d007",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d007.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 frame_edge 亮倒角条（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 frame_edge 亮倒角条（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d007",
+        "note": "基色 RGB（线性）(0.4, 0.4, 0.415)；金属度 1；粗糙度 0.26；自发光 0；备注：粗糙度 = lin(noise(80, Detail 2.0), 0.23, 0.29)，无凹凸"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d007",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d007.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 frame_edge 亮倒角条（粗糙度）",
+      "value": 0.26,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 frame_edge 亮倒角条（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d007",
+        "note": "基色 RGB（线性）(0.4, 0.4, 0.415)；金属度 1；粗糙度 0.26；自发光 0；备注：粗糙度 = lin(noise(80, Detail 2.0), 0.23, 0.29)，无凹凸"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d007",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d008.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 fin_black 黑鳍片（线性基色 RGB）",
+      "value": [
+        0.018,
+        0.018,
+        0.02
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 fin_black 黑鳍片（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d008",
+        "note": "基色 RGB（线性）(0.018, 0.018, 0.02)；金属度 0；粗糙度 0.36；自发光 0；备注：Specular IOR Level 0.75（介电黑+抬高 F0：正看哑黑、掠射有菲涅尔高光）；粗糙度 = lin(noise(120, 2.0), 0.31, 0.41)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d008",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d008.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 fin_black 黑鳍片（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 fin_black 黑鳍片（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d008",
+        "note": "基色 RGB（线性）(0.018, 0.018, 0.02)；金属度 0；粗糙度 0.36；自发光 0；备注：Specular IOR Level 0.75（介电黑+抬高 F0：正看哑黑、掠射有菲涅尔高光）；粗糙度 = lin(noise(120, 2.0), 0.31, 0.41)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d008",
+        "c12.section": "1"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-01-legacy",
+          "value": 0.7,
+          "unit": "ratio",
+          "evidenceLevel": "源码",
+          "reason": "旧版鳍片按金属度 0.7 设值，重制版改为介电黑（金属度 0）配高 Specular IOR Level"
+        }
+      ]
+    },
+    {
+      "id": "mat-hardsurf.d008.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 fin_black 黑鳍片（粗糙度）",
+      "value": 0.36,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 fin_black 黑鳍片（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d008",
+        "note": "基色 RGB（线性）(0.018, 0.018, 0.02)；金属度 0；粗糙度 0.36；自发光 0；备注：Specular IOR Level 0.75（介电黑+抬高 F0：正看哑黑、掠射有菲涅尔高光）；粗糙度 = lin(noise(120, 2.0), 0.31, 0.41)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d008",
+        "c12.section": "1"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-01-legacy",
+          "value": 0.34,
+          "unit": "ratio",
+          "evidenceLevel": "源码",
+          "reason": "旧版鳍片粗糙度 0.34，重制版调整为 0.36"
+        }
+      ]
+    },
+    {
+      "id": "mat-hardsurf.d009.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 fan_blade 扇叶（线性基色 RGB）",
+      "value": [
+        0.017,
+        0.017,
+        0.019
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 fan_blade 扇叶（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d009",
+        "note": "基色 RGB（线性）(0.017, 0.017, 0.019)；金属度 0；粗糙度 0.43；自发光 0；备注：grain 0.39…0.47，size 0.00025（Scale 4000），Bump Distance 0.00001，patch 60"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d009",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d009.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 fan_blade 扇叶（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 fan_blade 扇叶（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d009",
+        "note": "基色 RGB（线性）(0.017, 0.017, 0.019)；金属度 0；粗糙度 0.43；自发光 0；备注：grain 0.39…0.47，size 0.00025（Scale 4000），Bump Distance 0.00001，patch 60"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d009",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d009.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 fan_blade 扇叶（粗糙度）",
+      "value": 0.43,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 fan_blade 扇叶（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d009",
+        "note": "基色 RGB（线性）(0.017, 0.017, 0.019)；金属度 0；粗糙度 0.43；自发光 0；备注：grain 0.39…0.47，size 0.00025（Scale 4000），Bump Distance 0.00001，patch 60"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d009",
+        "c12.section": "1"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-01-legacy",
+          "value": 0.5,
+          "unit": "ratio",
+          "evidenceLevel": "源码",
+          "reason": "旧版风扇叶哑黑粗糙度 0.50，重制版调为 0.43（带 0.39…0.47 微噪声起伏）"
+        }
+      ]
+    },
+    {
+      "id": "mat-hardsurf.d010.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 fan_hub 轮毂盖（线性基色 RGB）",
+      "value": [
+        0.085,
+        0.086,
+        0.094
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 fan_hub 轮毂盖（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d010",
+        "note": "基色 RGB（线性）(0.085, 0.086, 0.094)；金属度 1；粗糙度 0.3；自发光 0；备注：同心拉丝：r = Length(Object坐标 × (1,0,1))；rings = noise(7000, Detail 2.0, vec=CombineXYZ(r,0,0))；Bump(rings, Distance 0.000004)；粗糙度 lin(rings, 0.24, 0.36)；Anisotropic 0.8；Tangent 节点 direction_type RADIAL, axis Y"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d010",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d010.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 fan_hub 轮毂盖（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 fan_hub 轮毂盖（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d010",
+        "note": "基色 RGB（线性）(0.085, 0.086, 0.094)；金属度 1；粗糙度 0.3；自发光 0；备注：同心拉丝：r = Length(Object坐标 × (1,0,1))；rings = noise(7000, Detail 2.0, vec=CombineXYZ(r,0,0))；Bump(rings, Distance 0.000004)；粗糙度 lin(rings, 0.24, 0.36)；Anisotropic 0.8；Tangent 节点 direction_type RADIAL, axis Y"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d010",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d010.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 fan_hub 轮毂盖（粗糙度）",
+      "value": 0.3,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 fan_hub 轮毂盖（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d010",
+        "note": "基色 RGB（线性）(0.085, 0.086, 0.094)；金属度 1；粗糙度 0.3；自发光 0；备注：同心拉丝：r = Length(Object坐标 × (1,0,1))；rings = noise(7000, Detail 2.0, vec=CombineXYZ(r,0,0))；Bump(rings, Distance 0.000004)；粗糙度 lin(rings, 0.24, 0.36)；Anisotropic 0.8；Tangent 节点 direction_type RADIAL, axis Y"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d010",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d010.anisotropic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.anisotropic",
+      "title": "重制版材质 fan_hub 轮毂盖（各向异性）",
+      "value": 0.8,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 fan_hub 轮毂盖（各向异性）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d010",
+        "note": "基色 RGB（线性）(0.085, 0.086, 0.094)；金属度 1；粗糙度 0.3；自发光 0；备注：同心拉丝：r = Length(Object坐标 × (1,0,1))；rings = noise(7000, Detail 2.0, vec=CombineXYZ(r,0,0))；Bump(rings, Distance 0.000004)；粗糙度 lin(rings, 0.24, 0.36)；Anisotropic 0.8；Tangent 节点 direction_type RADIAL, axis Y"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d010",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d011.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 pcb_black 阻焊（线性基色 RGB）",
+      "value": [
+        0.01,
+        0.012,
+        0.011
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 pcb_black 阻焊（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d011",
+        "note": "基色 RGB（线性）(0.01, 0.012, 0.011)；金属度 0；粗糙度 0.36；自发光 0；备注：走线程序纹理（见 1.3）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d011",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d011.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 pcb_black 阻焊（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 pcb_black 阻焊（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d011",
+        "note": "基色 RGB（线性）(0.01, 0.012, 0.011)；金属度 0；粗糙度 0.36；自发光 0；备注：走线程序纹理（见 1.3）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d011",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d011.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 pcb_black 阻焊（粗糙度）",
+      "value": 0.36,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 pcb_black 阻焊（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d011",
+        "note": "基色 RGB（线性）(0.01, 0.012, 0.011)；金属度 0；粗糙度 0.36；自发光 0；备注：走线程序纹理（见 1.3）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d011",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d012.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 copper（线性基色 RGB）",
+      "value": [
+        0.82,
+        0.38,
+        0.21
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 copper（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d012",
+        "note": "基色 RGB（线性）(0.82, 0.38, 0.21)；金属度 1；粗糙度 0.27；自发光 0；备注：粗糙度 lin(noise(400, 2.0), 0.245, 0.295)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d012",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d012.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 copper（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 copper（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d012",
+        "note": "基色 RGB（线性）(0.82, 0.38, 0.21)；金属度 1；粗糙度 0.27；自发光 0；备注：粗糙度 lin(noise(400, 2.0), 0.245, 0.295)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d012",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d012.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 copper（粗糙度）",
+      "value": 0.27,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 copper（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d012",
+        "note": "基色 RGB（线性）(0.82, 0.38, 0.21)；金属度 1；粗糙度 0.27；自发光 0；备注：粗糙度 lin(noise(400, 2.0), 0.245, 0.295)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d012",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d013.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 gold（线性基色 RGB）",
+      "value": [
+        0.95,
+        0.64,
+        0.26
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 gold（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d013",
+        "note": "基色 RGB（线性）(0.95, 0.64, 0.26)；金属度 1；粗糙度 0.3；自发光 0；备注：lin(noise(400,2.0), 0.275, 0.325)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d013",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d013.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 gold（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 gold（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d013",
+        "note": "基色 RGB（线性）(0.95, 0.64, 0.26)；金属度 1；粗糙度 0.3；自发光 0；备注：lin(noise(400,2.0), 0.275, 0.325)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d013",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d013.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 gold（粗糙度）",
+      "value": 0.3,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 gold（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d013",
+        "note": "基色 RGB（线性）(0.95, 0.64, 0.26)；金属度 1；粗糙度 0.3；自发光 0；备注：lin(noise(400,2.0), 0.275, 0.325)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d013",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d014.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 chip 环氧封装（线性基色 RGB）",
+      "value": [
+        0.021,
+        0.021,
+        0.023
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 chip 环氧封装（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d014",
+        "note": "基色 RGB（线性）(0.021, 0.021, 0.023)；金属度 0；粗糙度 0.5；自发光 0；备注：Specular IOR Level 0.30；grain 0.45…0.55，size 0.00018（Scale 5555.6），Bump Distance 0.000014，patch 300"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d014",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d014.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 chip 环氧封装（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 chip 环氧封装（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d014",
+        "note": "基色 RGB（线性）(0.021, 0.021, 0.023)；金属度 0；粗糙度 0.5；自发光 0；备注：Specular IOR Level 0.30；grain 0.45…0.55，size 0.00018（Scale 5555.6），Bump Distance 0.000014，patch 300"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d014",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d014.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 chip 环氧封装（粗糙度）",
+      "value": 0.5,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 chip 环氧封装（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d014",
+        "note": "基色 RGB（线性）(0.021, 0.021, 0.023)；金属度 0；粗糙度 0.5；自发光 0；备注：Specular IOR Level 0.30；grain 0.45…0.55，size 0.00018（Scale 5555.6），Bump Distance 0.000014，patch 300"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d014",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d015.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 die 裸片镜面（线性基色 RGB）",
+      "value": [
+        0.09,
+        0.13,
+        0.28
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 die 裸片镜面（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d015",
+        "note": "基色 RGB（线性）(0.09, 0.13, 0.28)；金属度 1；粗糙度 0.07；自发光 0；备注：视角偏色冒充薄膜干涉：Layer Weight Blend 0.45 取 Facing，色带 (0.090,0.130,0.280)→(0.260,0.150,0.330)；粗糙度 lin(noise(250, 2.0, stretch (40,1,1), rot (0,0.6,0)), 0.05, 0.12)（斜向抛光纹）。注释说不用 Thin Film 插口，因为 4.5 与 5.2 对金属处理不同"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d015",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d015.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 die 裸片镜面（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 die 裸片镜面（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d015",
+        "note": "基色 RGB（线性）(0.09, 0.13, 0.28)；金属度 1；粗糙度 0.07；自发光 0；备注：视角偏色冒充薄膜干涉：Layer Weight Blend 0.45 取 Facing，色带 (0.090,0.130,0.280)→(0.260,0.150,0.330)；粗糙度 lin(noise(250, 2.0, stretch (40,1,1), rot (0,0.6,0)), 0.05, 0.12)（斜向抛光纹）。注释说不用 Thin Film 插口，因为 4.5 与 5.2 对金属处理不同"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d015",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d015.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 die 裸片镜面（粗糙度）",
+      "value": 0.07,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 die 裸片镜面（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d015",
+        "note": "基色 RGB（线性）(0.09, 0.13, 0.28)；金属度 1；粗糙度 0.07；自发光 0；备注：视角偏色冒充薄膜干涉：Layer Weight Blend 0.45 取 Facing，色带 (0.090,0.130,0.280)→(0.260,0.150,0.330)；粗糙度 lin(noise(250, 2.0, stretch (40,1,1), rot (0,0.6,0)), 0.05, 0.12)（斜向抛光纹）。注释说不用 Thin Film 插口，因为 4.5 与 5.2 对金属处理不同"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d015",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d016.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 substrate 绿基板（线性基色 RGB）",
+      "value": [
+        0.016,
+        0.085,
+        0.062
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 substrate 绿基板（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d016",
+        "note": "基色 RGB（线性）(0.016, 0.085, 0.062)；金属度 0；粗糙度 0.42；自发光 0；备注：基色经 noise(900, 2.0) 色带 ×0.8…×1.25；grain 0.38…0.46，size 0.00035，Bump Distance 0.000005，patch 200"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d016",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d016.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 substrate 绿基板（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 substrate 绿基板（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d016",
+        "note": "基色 RGB（线性）(0.016, 0.085, 0.062)；金属度 0；粗糙度 0.42；自发光 0；备注：基色经 noise(900, 2.0) 色带 ×0.8…×1.25；grain 0.38…0.46，size 0.00035，Bump Distance 0.000005，patch 200"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d016",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d016.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 substrate 绿基板（粗糙度）",
+      "value": 0.42,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 substrate 绿基板（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d016",
+        "note": "基色 RGB（线性）(0.016, 0.085, 0.062)；金属度 0；粗糙度 0.42；自发光 0；备注：基色经 noise(900, 2.0) 色带 ×0.8…×1.25；grain 0.38…0.46，size 0.00035，Bump Distance 0.000005，patch 200"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d016",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d017.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 choke 电感（线性基色 RGB）",
+      "value": [
+        0.055,
+        0.055,
+        0.058
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 choke 电感（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d017",
+        "note": "基色 RGB（线性）(0.055, 0.055, 0.058)；金属度 0.2；粗糙度 0.55；自发光 0；备注：grain 0.5…0.6，size 0.0003，Bump Distance 0.00002，patch 300"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d017",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d017.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 choke 电感（金属度）",
+      "value": 0.2,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 choke 电感（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d017",
+        "note": "基色 RGB（线性）(0.055, 0.055, 0.058)；金属度 0.2；粗糙度 0.55；自发光 0；备注：grain 0.5…0.6，size 0.0003，Bump Distance 0.00002，patch 300"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d017",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d017.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 choke 电感（粗糙度）",
+      "value": 0.55,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 choke 电感（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d017",
+        "note": "基色 RGB（线性）(0.055, 0.055, 0.058)；金属度 0.2；粗糙度 0.55；自发光 0；备注：grain 0.5…0.6，size 0.0003，Bump Distance 0.00002，patch 300"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d017",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d018.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 cap 电容铝壳（线性基色 RGB）",
+      "value": [
+        0.6,
+        0.61,
+        0.63
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 cap 电容铝壳（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d018",
+        "note": "基色 RGB（线性）(0.6, 0.61, 0.63)；金属度 1；粗糙度 0.28；自发光 0；备注：lin(noise(400,2.0), 0.255, 0.305)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d018",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d018.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 cap 电容铝壳（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 cap 电容铝壳（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d018",
+        "note": "基色 RGB（线性）(0.6, 0.61, 0.63)；金属度 1；粗糙度 0.28；自发光 0；备注：lin(noise(400,2.0), 0.255, 0.305)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d018",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d018.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 cap 电容铝壳（粗糙度）",
+      "value": 0.28,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 cap 电容铝壳（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d018",
+        "note": "基色 RGB（线性）(0.6, 0.61, 0.63)；金属度 1；粗糙度 0.28；自发光 0；备注：lin(noise(400,2.0), 0.255, 0.305)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d018",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d019.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 steel 拉丝钢（线性基色 RGB）",
+      "value": [
+        0.52,
+        0.53,
+        0.55
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 steel 拉丝钢（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d019",
+        "note": "基色 RGB（线性）(0.52, 0.53, 0.55)；金属度 1；粗糙度 0.33；自发光 0；备注：s = noise(60, 2.0, stretch (1,60,60))；粗糙度 lin(s, 0.26, 0.40)；Bump(s, Distance 0.000004)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d019",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d019.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 steel 拉丝钢（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 steel 拉丝钢（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d019",
+        "note": "基色 RGB（线性）(0.52, 0.53, 0.55)；金属度 1；粗糙度 0.33；自发光 0；备注：s = noise(60, 2.0, stretch (1,60,60))；粗糙度 lin(s, 0.26, 0.40)；Bump(s, Distance 0.000004)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d019",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d019.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 steel 拉丝钢（粗糙度）",
+      "value": 0.33,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 steel 拉丝钢（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d019",
+        "note": "基色 RGB（线性）(0.52, 0.53, 0.55)；金属度 1；粗糙度 0.33；自发光 0；备注：s = noise(60, 2.0, stretch (1,60,60))；粗糙度 lin(s, 0.26, 0.40)；Bump(s, Distance 0.000004)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d019",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d020.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 nickel（线性基色 RGB）",
+      "value": [
+        0.64,
+        0.62,
+        0.58
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 nickel（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d020",
+        "note": "基色 RGB（线性）(0.64, 0.62, 0.58)；金属度 1；粗糙度 0.38；自发光 0；备注：lin(noise(400,2.0), 0.355, 0.405)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d020",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d020.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 nickel（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 nickel（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d020",
+        "note": "基色 RGB（线性）(0.64, 0.62, 0.58)；金属度 1；粗糙度 0.38；自发光 0；备注：lin(noise(400,2.0), 0.355, 0.405)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d020",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d020.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 nickel（粗糙度）",
+      "value": 0.38,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 nickel（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d020",
+        "note": "基色 RGB（线性）(0.64, 0.62, 0.58)；金属度 1；粗糙度 0.38；自发光 0；备注：lin(noise(400,2.0), 0.355, 0.405)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d020",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d021.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 plastic_black（线性基色 RGB）",
+      "value": [
+        0.015,
+        0.015,
+        0.016
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 plastic_black（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d021",
+        "note": "基色 RGB（线性）(0.015, 0.015, 0.016)；金属度 0；粗糙度 0.46；自发光 0；备注：grain 0.42…0.5，size 0.00025，Bump Distance 0.00001，patch 60"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d021",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d021.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 plastic_black（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 plastic_black（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d021",
+        "note": "基色 RGB（线性）(0.015, 0.015, 0.016)；金属度 0；粗糙度 0.46；自发光 0；备注：grain 0.42…0.5，size 0.00025，Bump Distance 0.00001，patch 60"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d021",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d021.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 plastic_black（粗糙度）",
+      "value": 0.46,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 plastic_black（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d021",
+        "note": "基色 RGB（线性）(0.015, 0.015, 0.016)；金属度 0；粗糙度 0.46；自发光 0；备注：grain 0.42…0.5，size 0.00025，Bump Distance 0.00001，patch 60"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d021",
+        "c12.section": "1"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-01-legacy",
+          "value": 0.55,
+          "unit": "ratio",
+          "evidenceLevel": "源码",
+          "reason": "旧版黑色塑料粗糙度 0.55，重制版调为 0.46（带 0.42…0.50 微噪声起伏）"
+        }
+      ]
+    },
+    {
+      "id": "mat-hardsurf.d022.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 port_metal（线性基色 RGB）",
+      "value": [
+        0.62,
+        0.63,
+        0.65
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 port_metal（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d022",
+        "note": "基色 RGB（线性）(0.62, 0.63, 0.65)；金属度 1；粗糙度 0.25；自发光 0；备注：lin(noise(400,2.0), 0.225, 0.275)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d022",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d022.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 port_metal（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 port_metal（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d022",
+        "note": "基色 RGB（线性）(0.62, 0.63, 0.65)；金属度 1；粗糙度 0.25；自发光 0；备注：lin(noise(400,2.0), 0.225, 0.275)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d022",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d022.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 port_metal（粗糙度）",
+      "value": 0.25,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 port_metal（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d022",
+        "note": "基色 RGB（线性）(0.62, 0.63, 0.65)；金属度 1；粗糙度 0.25；自发光 0；备注：lin(noise(400,2.0), 0.225, 0.275)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d022",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d023.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 rubber（线性基色 RGB）",
+      "value": [
+        0.01,
+        0.01,
+        0.01
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 rubber（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d023",
+        "note": "基色 RGB（线性）(0.01, 0.01, 0.01)；金属度 0；粗糙度 0.82；自发光 0；备注：grain 0.78…0.86，size 0.0004（Scale 2500），Bump Distance 0.000015，patch 100"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d023",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d023.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 rubber（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 rubber（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d023",
+        "note": "基色 RGB（线性）(0.01, 0.01, 0.01)；金属度 0；粗糙度 0.82；自发光 0；备注：grain 0.78…0.86，size 0.0004（Scale 2500），Bump Distance 0.000015，patch 100"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d023",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d023.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 rubber（粗糙度）",
+      "value": 0.82,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 rubber（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d023",
+        "note": "基色 RGB（线性）(0.01, 0.01, 0.01)；金属度 0；粗糙度 0.82；自发光 0；备注：grain 0.78…0.86，size 0.0004（Scale 2500），Bump Distance 0.000015，patch 100"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d023",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d024.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 pad_white 导热垫（线性基色 RGB）",
+      "value": [
+        0.78,
+        0.78,
+        0.76
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 pad_white 导热垫（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d024",
+        "note": "基色 RGB（线性）(0.78, 0.78, 0.76)；金属度 0；粗糙度 0.68；自发光 0；备注：Subsurface Weight 0.35，Subsurface Radius (1.0, 0.9, 0.8)，Subsurface Scale 0.0006；Bump(noise(700, 3.0), Distance 0.00012, Strength 0.6)；粗糙度 lin(noise(300,2.0), 0.62, 0.74)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d024",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d024.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 pad_white 导热垫（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 pad_white 导热垫（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d024",
+        "note": "基色 RGB（线性）(0.78, 0.78, 0.76)；金属度 0；粗糙度 0.68；自发光 0；备注：Subsurface Weight 0.35，Subsurface Radius (1.0, 0.9, 0.8)，Subsurface Scale 0.0006；Bump(noise(700, 3.0), Distance 0.00012, Strength 0.6)；粗糙度 lin(noise(300,2.0), 0.62, 0.74)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d024",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d024.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 pad_white 导热垫（粗糙度）",
+      "value": 0.68,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 pad_white 导热垫（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d024",
+        "note": "基色 RGB（线性）(0.78, 0.78, 0.76)；金属度 0；粗糙度 0.68；自发光 0；备注：Subsurface Weight 0.35，Subsurface Radius (1.0, 0.9, 0.8)，Subsurface Scale 0.0006；Bump(noise(700, 3.0), Distance 0.00012, Strength 0.6)；粗糙度 lin(noise(300,2.0), 0.62, 0.74)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d024",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d025.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "重制版材质 emit_white 发光字（线性基色 RGB）",
+      "value": [
+        0.9,
+        0.96,
+        1
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 emit_white 发光字（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d025",
+        "note": "基色 RGB（线性）(0.9, 0.96, 1.0)；金属度 0；粗糙度 0.5；自发光 Emission Strength 2.5；备注：注释：AgX 下约 85% 白，不糊成一坨；辉光交给 2D 合成"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d025",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d025.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "重制版材质 emit_white 发光字（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 emit_white 发光字（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d025",
+        "note": "基色 RGB（线性）(0.9, 0.96, 1.0)；金属度 0；粗糙度 0.5；自发光 Emission Strength 2.5；备注：注释：AgX 下约 85% 白，不糊成一坨；辉光交给 2D 合成"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d025",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d025.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "重制版材质 emit_white 发光字（粗糙度）",
+      "value": 0.5,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 emit_white 发光字（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d025",
+        "note": "基色 RGB（线性）(0.9, 0.96, 1.0)；金属度 0；粗糙度 0.5；自发光 Emission Strength 2.5；备注：注释：AgX 下约 85% 白，不糊成一坨；辉光交给 2D 合成"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d025",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d025.surface-ratio",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.surface-ratio",
+      "title": "重制版材质 emit_white 发光字（表面比例）",
+      "value": 0.85,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：重制版材质 emit_white 发光字（表面比例）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d025",
+        "note": "基色 RGB（线性）(0.9, 0.96, 1.0)；金属度 0；粗糙度 0.5；自发光 Emission Strength 2.5；备注：注释：AgX 下约 85% 白，不糊成一坨；辉光交给 2D 合成"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d025",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d026.ior",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.ior",
+      "title": "默认值（脚本没改，实测读回）（折射率）",
+      "value": 1.5,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：默认值（脚本没改，实测读回）（折射率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d026",
+        "note": "IOR 1.5，Specular IOR Level 0.5，分布 MULTI_GGX，Coat/Sheen/Transmission Weight 0，Alpha 1。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d026",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d036.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 外壳_枪灰铝（线性基色 RGB）",
+      "value": [
+        0.105,
+        0.108,
+        0.115
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 外壳_枪灰铝（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d036",
+        "note": "基色 RGB（线性）(0.105, 0.108, 0.115)；金属度 1；粗糙度 0.30；其它：bump 0.04，bump_scale 2500.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d036",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d036.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 外壳_枪灰铝（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 外壳_枪灰铝（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d036",
+        "note": "基色 RGB（线性）(0.105, 0.108, 0.115)；金属度 1；粗糙度 0.30；其它：bump 0.04，bump_scale 2500.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d036",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d036.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 外壳_枪灰铝（粗糙度）",
+      "value": 0.3,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 外壳_枪灰铝（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d036",
+        "note": "基色 RGB（线性）(0.105, 0.108, 0.115)；金属度 1；粗糙度 0.30；其它：bump 0.04，bump_scale 2500.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d036",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d037.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 外壳_深灰内框（线性基色 RGB）",
+      "value": [
+        0.035,
+        0.036,
+        0.04
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 外壳_深灰内框（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d037",
+        "note": "基色 RGB（线性）(0.035, 0.036, 0.04)；金属度 1；粗糙度 0.42"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d037",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d037.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 外壳_深灰内框（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 外壳_深灰内框（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d037",
+        "note": "基色 RGB（线性）(0.035, 0.036, 0.04)；金属度 1；粗糙度 0.42"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d037",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d037.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 外壳_深灰内框（粗糙度）",
+      "value": 0.42,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 外壳_深灰内框（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d037",
+        "note": "基色 RGB（线性）(0.035, 0.036, 0.04)；金属度 1；粗糙度 0.42"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d037",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d038.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 鳍片_黑色阳极（线性基色 RGB）",
+      "value": [
+        0.018,
+        0.018,
+        0.02
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 鳍片_黑色阳极（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d038",
+        "note": "基色 RGB（线性）(0.018, 0.018, 0.02)；金属度 0.7；粗糙度 0.34"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d038",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d038.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 鳍片_黑色阳极（金属度）",
+      "value": 0.7,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 鳍片_黑色阳极（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d038",
+        "note": "基色 RGB（线性）(0.018, 0.018, 0.02)；金属度 0.7；粗糙度 0.34"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d038",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d038.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 鳍片_黑色阳极（粗糙度）",
+      "value": 0.34,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 鳍片_黑色阳极（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d038",
+        "note": "基色 RGB（线性）(0.018, 0.018, 0.02)；金属度 0.7；粗糙度 0.34"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d038",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d039.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 均热板_铜（线性基色 RGB）",
+      "value": [
+        0.955,
+        0.637,
+        0.538
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 均热板_铜（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d039",
+        "note": "基色 RGB（线性）(0.955, 0.637, 0.538)；金属度 1；粗糙度 0.28；其它：bump 0.03，scale 2500.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d039",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d039.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 均热板_铜（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 均热板_铜（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d039",
+        "note": "基色 RGB（线性）(0.955, 0.637, 0.538)；金属度 1；粗糙度 0.28；其它：bump 0.03，scale 2500.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d039",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d039.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 均热板_铜（粗糙度）",
+      "value": 0.28,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 均热板_铜（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d039",
+        "note": "基色 RGB（线性）(0.955, 0.637, 0.538)；金属度 1；粗糙度 0.28；其它：bump 0.03，scale 2500.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d039",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d040.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 热管_镀镍（线性基色 RGB）",
+      "value": [
+        0.56,
+        0.53,
+        0.48
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 热管_镀镍（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d040",
+        "note": "基色 RGB（线性）(0.56, 0.53, 0.48)；金属度 1；粗糙度 0.22"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d040",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d040.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 热管_镀镍（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 热管_镀镍（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d040",
+        "note": "基色 RGB（线性）(0.56, 0.53, 0.48)；金属度 1；粗糙度 0.22"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d040",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d040.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 热管_镀镍（粗糙度）",
+      "value": 0.22,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 热管_镀镍（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d040",
+        "note": "基色 RGB（线性）(0.56, 0.53, 0.48)；金属度 1；粗糙度 0.22"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d040",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d041.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 黑色塑料（线性基色 RGB）",
+      "value": [
+        0.012,
+        0.012,
+        0.013
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 黑色塑料（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d041",
+        "note": "基色 RGB（线性）(0.012, 0.012, 0.013)；金属度 0；粗糙度 0.55；其它：spec 0.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d041",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d041.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 黑色塑料（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 黑色塑料（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d041",
+        "note": "基色 RGB（线性）(0.012, 0.012, 0.013)；金属度 0；粗糙度 0.55；其它：spec 0.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d041",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d041.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 黑色塑料（粗糙度）",
+      "value": 0.55,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 黑色塑料（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d041",
+        "note": "基色 RGB（线性）(0.012, 0.012, 0.013)；金属度 0；粗糙度 0.55；其它：spec 0.25"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d041",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d042.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 风扇叶_哑黑（线性基色 RGB）",
+      "value": [
+        0.012,
+        0.012,
+        0.013
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 风扇叶_哑黑（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d042",
+        "note": "基色 RGB（线性）(0.012, 0.012, 0.013)；金属度 0；粗糙度 0.5；其它：spec 0.35"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d042",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d042.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 风扇叶_哑黑（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 风扇叶_哑黑（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d042",
+        "note": "基色 RGB（线性）(0.012, 0.012, 0.013)；金属度 0；粗糙度 0.5；其它：spec 0.35"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d042",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d042.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 风扇叶_哑黑（粗糙度）",
+      "value": 0.5,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 风扇叶_哑黑（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d042",
+        "note": "基色 RGB（线性）(0.012, 0.012, 0.013)；金属度 0；粗糙度 0.5；其它：spec 0.35"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d042",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d043.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 芯片封装_环氧（线性基色 RGB）",
+      "value": [
+        0.02,
+        0.02,
+        0.021
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 芯片封装_环氧（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d043",
+        "note": "基色 RGB（线性）(0.02, 0.02, 0.021)；金属度 0；粗糙度 0.6"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d043",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d043.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 芯片封装_环氧（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 芯片封装_环氧（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d043",
+        "note": "基色 RGB（线性）(0.02, 0.02, 0.021)；金属度 0；粗糙度 0.6"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d043",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d043.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 芯片封装_环氧（粗糙度）",
+      "value": 0.6,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 芯片封装_环氧（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d043",
+        "note": "基色 RGB（线性）(0.02, 0.02, 0.021)；金属度 0；粗糙度 0.6"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d043",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d044.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 GPU裸片_硅（线性基色 RGB）",
+      "value": [
+        0.06,
+        0.065,
+        0.09
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 GPU裸片_硅（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d044",
+        "note": "基色 RGB（线性）(0.06, 0.065, 0.09)；金属度 0.9；粗糙度 0.08"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d044",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d044.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 GPU裸片_硅（金属度）",
+      "value": 0.9,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 GPU裸片_硅（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d044",
+        "note": "基色 RGB（线性）(0.06, 0.065, 0.09)；金属度 0.9；粗糙度 0.08"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d044",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d044.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 GPU裸片_硅（粗糙度）",
+      "value": 0.08,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 GPU裸片_硅（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d044",
+        "note": "基色 RGB（线性）(0.06, 0.065, 0.09)；金属度 0.9；粗糙度 0.08"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d044",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d045.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 GPU基板（线性基色 RGB）",
+      "value": [
+        0.04,
+        0.06,
+        0.05
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 GPU基板（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d045",
+        "note": "基色 RGB（线性）(0.04, 0.06, 0.05)；金属度 0；粗糙度 0.4；其它：coat 0.5"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d045",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d045.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 GPU基板（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 GPU基板（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d045",
+        "note": "基色 RGB（线性）(0.04, 0.06, 0.05)；金属度 0；粗糙度 0.4；其它：coat 0.5"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d045",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d045.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 GPU基板（粗糙度）",
+      "value": 0.4,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 GPU基板（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d045",
+        "note": "基色 RGB（线性）(0.04, 0.06, 0.05)；金属度 0；粗糙度 0.4；其它：coat 0.5"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d045",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d046.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 电感_铁氧体（线性基色 RGB）",
+      "value": [
+        0.055,
+        0.055,
+        0.06
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 电感_铁氧体（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d046",
+        "note": "基色 RGB（线性）(0.055, 0.055, 0.06)；金属度 0；粗糙度 0.75"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d046",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d046.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 电感_铁氧体（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 电感_铁氧体（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d046",
+        "note": "基色 RGB（线性）(0.055, 0.055, 0.06)；金属度 0；粗糙度 0.75"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d046",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d046.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 电感_铁氧体（粗糙度）",
+      "value": 0.75,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 电感_铁氧体（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d046",
+        "note": "基色 RGB（线性）(0.055, 0.055, 0.06)；金属度 0；粗糙度 0.75"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d046",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d047.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 电容_铝（线性基色 RGB）",
+      "value": [
+        0.62,
+        0.62,
+        0.64
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 电容_铝（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d047",
+        "note": "基色 RGB（线性）(0.62, 0.62, 0.64)；金属度 1；粗糙度 0.3"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d047",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d047.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 电容_铝（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 电容_铝（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d047",
+        "note": "基色 RGB（线性）(0.62, 0.62, 0.64)；金属度 1；粗糙度 0.3"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d047",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d047.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 电容_铝（粗糙度）",
+      "value": 0.3,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 电容_铝（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d047",
+        "note": "基色 RGB（线性）(0.62, 0.62, 0.64)；金属度 1；粗糙度 0.3"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d047",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d048.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 贴片电容（线性基色 RGB）",
+      "value": [
+        0.35,
+        0.28,
+        0.18
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 贴片电容（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d048",
+        "note": "基色 RGB（线性）(0.35, 0.28, 0.18)；金属度 0；粗糙度 0.5"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d048",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d048.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 贴片电容（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 贴片电容（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d048",
+        "note": "基色 RGB（线性）(0.35, 0.28, 0.18)；金属度 0；粗糙度 0.5"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d048",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d048.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 贴片电容（粗糙度）",
+      "value": 0.5,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 贴片电容（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d048",
+        "note": "基色 RGB（线性）(0.35, 0.28, 0.18)；金属度 0；粗糙度 0.5"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d048",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d049.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 金手指_镀金（线性基色 RGB）",
+      "value": [
+        1,
+        0.766,
+        0.336
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 金手指_镀金（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d049",
+        "note": "基色 RGB（线性）(1.0, 0.766, 0.336)；金属度 1；粗糙度 0.22"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d049",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d049.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 金手指_镀金（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 金手指_镀金（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d049",
+        "note": "基色 RGB（线性）(1.0, 0.766, 0.336)；金属度 1；粗糙度 0.22"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d049",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d049.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 金手指_镀金（粗糙度）",
+      "value": 0.22,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 金手指_镀金（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d049",
+        "note": "基色 RGB（线性）(1.0, 0.766, 0.336)；金属度 1；粗糙度 0.22"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d049",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d050.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 柔性排线_聚酰亚胺（线性基色 RGB）",
+      "value": [
+        0.75,
+        0.38,
+        0.05
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 柔性排线_聚酰亚胺（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d050",
+        "note": "基色 RGB（线性）(0.75, 0.38, 0.05)；金属度 0；粗糙度 0.35；其它：coat 0.3"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d050",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d050.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 柔性排线_聚酰亚胺（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 柔性排线_聚酰亚胺（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d050",
+        "note": "基色 RGB（线性）(0.75, 0.38, 0.05)；金属度 0；粗糙度 0.35；其它：coat 0.3"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d050",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d050.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 柔性排线_聚酰亚胺（粗糙度）",
+      "value": 0.35,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 柔性排线_聚酰亚胺（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d050",
+        "note": "基色 RGB（线性）(0.75, 0.38, 0.05)；金属度 0；粗糙度 0.35；其它：coat 0.3"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d050",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d051.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 挡板_黑钢（线性基色 RGB）",
+      "value": [
+        0.05,
+        0.05,
+        0.055
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 挡板_黑钢（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d051",
+        "note": "基色 RGB（线性）(0.05, 0.05, 0.055)；金属度 1；粗糙度 0.38"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d051",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d051.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 挡板_黑钢（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 挡板_黑钢（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d051",
+        "note": "基色 RGB（线性）(0.05, 0.05, 0.055)；金属度 1；粗糙度 0.38"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d051",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d051.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 挡板_黑钢（粗糙度）",
+      "value": 0.38,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 挡板_黑钢（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d051",
+        "note": "基色 RGB（线性）(0.05, 0.05, 0.055)；金属度 1；粗糙度 0.38"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d051",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d052.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 接口外壳_镀锡（线性基色 RGB）",
+      "value": [
+        0.45,
+        0.45,
+        0.47
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 接口外壳_镀锡（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d052",
+        "note": "基色 RGB（线性）(0.45, 0.45, 0.47)；金属度 1；粗糙度 0.35"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d052",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d052.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 接口外壳_镀锡（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 接口外壳_镀锡（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d052",
+        "note": "基色 RGB（线性）(0.45, 0.45, 0.47)；金属度 1；粗糙度 0.35"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d052",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d052.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 接口外壳_镀锡（粗糙度）",
+      "value": 0.35,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 接口外壳_镀锡（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d052",
+        "note": "基色 RGB（线性）(0.45, 0.45, 0.47)；金属度 1；粗糙度 0.35"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d052",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d053.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 字样_白光（线性基色 RGB）",
+      "value": [
+        1,
+        1,
+        1
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 字样_白光（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d053",
+        "note": "基色 RGB（线性）(1.0, 1.0, 1.0)；金属度 0；粗糙度 0.5；其它：Emission Strength 6.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d053",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d053.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 字样_白光（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 字样_白光（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d053",
+        "note": "基色 RGB（线性）(1.0, 1.0, 1.0)；金属度 0；粗糙度 0.5；其它：Emission Strength 6.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d053",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d053.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 字样_白光（粗糙度）",
+      "value": 0.5,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 字样_白光（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d053",
+        "note": "基色 RGB（线性）(1.0, 1.0, 1.0)；金属度 0；粗糙度 0.5；其它：Emission Strength 6.0"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d053",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d054.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 螺丝_黑（线性基色 RGB）",
+      "value": [
+        0.03,
+        0.03,
+        0.032
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 螺丝_黑（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d054",
+        "note": "基色 RGB（线性）(0.03, 0.03, 0.032)；金属度 1；粗糙度 0.3"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d054",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d054.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 螺丝_黑（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 螺丝_黑（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d054",
+        "note": "基色 RGB（线性）(0.03, 0.03, 0.032)；金属度 1；粗糙度 0.3"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d054",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d054.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 螺丝_黑（粗糙度）",
+      "value": 0.3,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 螺丝_黑（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d054",
+        "note": "基色 RGB（线性）(0.03, 0.03, 0.032)；金属度 1；粗糙度 0.3"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d054",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d055.base-color",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "旧版 v3 材质 PCB阻焊（线性基色 RGB）",
+      "value": [
+        0.012,
+        0.022,
+        0.018
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 PCB阻焊（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d055",
+        "note": "基色 RGB（线性）(0.012, 0.022, 0.018)；金属度 0；粗糙度 0.32；其它：coat 0.4；走线 Wave BANDS SAW，Scale 700 / 650，GREATER_THAN 0.86；噪声 Scale 90 选方向；走线色 (0.04, 0.085, 0.055)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d055",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d055.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "旧版 v3 材质 PCB阻焊（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 PCB阻焊（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d055",
+        "note": "基色 RGB（线性）(0.012, 0.022, 0.018)；金属度 0；粗糙度 0.32；其它：coat 0.4；走线 Wave BANDS SAW，Scale 700 / 650，GREATER_THAN 0.86；噪声 Scale 90 选方向；走线色 (0.04, 0.085, 0.055)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d055",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d055.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "旧版 v3 材质 PCB阻焊（粗糙度）",
+      "value": 0.32,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：旧版 v3 材质 PCB阻焊（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d055",
+        "note": "基色 RGB（线性）(0.012, 0.022, 0.018)；金属度 0；粗糙度 0.32；其它：coat 0.4；走线 Wave BANDS SAW，Scale 700 / 650，GREATER_THAN 0.86；噪声 Scale 90 选方向；走线色 (0.04, 0.085, 0.055)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d055",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d057.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "两版对比的价值（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：两版对比的价值（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "实测",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d057",
+        "note": "重制版把黑件改成介电（金属度 0）+ 抬 F0，v3 鳍片用金属 0.7；重制版叶片/塑料更亚光暗。是「调过一轮」的结果，v3 的问题（样帧迭代 v1→v4）见 1.5。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d057",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d063.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "塑料 mat_plastic（粗糙度）",
+      "value": 0.15,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：塑料 mat_plastic（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d063",
+        "note": "清漆粗糙度 0.15；高光 0.5；纹理缩放 80.0，凹凸默认 0.02，凹凸缩放 1200.0（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d063",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d064.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "金属 mat_metal（金属度）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：金属 mat_metal（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d064",
+        "note": "金属度默认 1.0；凹凸默认 0.03；磨损默认 0.06；各向异性默认 0.0；粗糙度和法线接程序纹理（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d064",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d070.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "08 `FX_chitin`（金属度）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：08 `FX_chitin`（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-08",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d070",
+        "note": "Principled：Metallic 0.000、Roughness 0.250、IOR 1.500、Alpha 1.000（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d070",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d070.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "08 `FX_chitin`（粗糙度）",
+      "value": 0.25,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：08 `FX_chitin`（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-08",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d070",
+        "note": "Principled：Metallic 0.000、Roughness 0.250、IOR 1.500、Alpha 1.000（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d070",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d070.ior",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.ior",
+      "title": "08 `FX_chitin`（折射率）",
+      "value": 1.5,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：08 `FX_chitin`（折射率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-08",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d070",
+        "note": "Principled：Metallic 0.000、Roughness 0.250、IOR 1.500、Alpha 1.000（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d070",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d085.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.roughness",
+      "title": "板甲蚀刻 gEtch（粗糙度范围）",
+      "value": [
+        0.33,
+        0.39
+      ],
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：板甲蚀刻 gEtch（粗糙度范围）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d085",
+        "note": "仅非锁子甲、身体、粗糙度 0.33–0.39 以上的板件；每 0.24 米一圈横带（带子随角度 2 倍正弦起伏），带内画 11 瓣扭曲波纹线，边线在带的 0.04 和 0.28 处；蚀刻处压暗 62%"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d085",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d085.length",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.length",
+      "title": "板甲蚀刻 gEtch（长度尺度）",
+      "value": 0.24,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：板甲蚀刻 gEtch（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d085",
+        "note": "仅非锁子甲、身体、粗糙度 0.33–0.39 以上的板件；每 0.24 米一圈横带（带子随角度 2 倍正弦起伏），带内画 11 瓣扭曲波纹线，边线在带的 0.04 和 0.28 处；蚀刻处压暗 62%"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d085",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d085.surface-ratio",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.surface-ratio",
+      "title": "板甲蚀刻 gEtch（表面比例）",
+      "value": 0.62,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节：板甲蚀刻 gEtch（表面比例）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · d085",
+        "note": "仅非锁子甲、身体、粗糙度 0.33–0.39 以上的板件；每 0.24 米一圈横带（带子随角度 2 倍正弦起伏），带内画 11 瓣扭曲波纹线，边线在带的 0.04 和 0.28 处；蚀刻处压暗 62%"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d085",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d190.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s4.metallic",
+      "title": "角色材质金属度上限（金属度）",
+      "value": 0.2,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：角色材质金属度上限（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-10",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 4 节 · d190",
+        "note": "加载时压到不超过 0.2；每个角色 1 个网格 1 个材质，3 张贴图：基础色、金属粗糙度、法线（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d190",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d192.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s4.metallic",
+      "title": "毛的开关条件（材质侧）（金属度）",
+      "value": 0.35,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：毛的开关条件（材质侧）（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-10",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 4 节 · d192",
+        "note": "粗糙度 0.4 到 0.55 淡入；金属度 0.35 到 0.55 淡出；pbr [0.5, 0.35]=粗糙度至少 0.5、金属度至多 0.35（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d192",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d192.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s4.roughness",
+      "title": "毛的开关条件（材质侧）（粗糙度范围）",
+      "value": [
+        0.4,
+        0.55
+      ],
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节：毛的开关条件（材质侧）（粗糙度范围）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-10",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 4 节 · d192",
+        "note": "粗糙度 0.4 到 0.55 淡入；金属度 0.35 到 0.55 淡出；pbr [0.5, 0.35]=粗糙度至少 0.5、金属度至多 0.35（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d192",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d219.ior",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s5.ior",
+      "title": "透明玻璃 mat_glass（折射率）",
+      "value": 1.52,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节：透明玻璃 mat_glass（折射率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 5 节 · d219",
+        "note": "默认折射率 1.52；透射 1.0；薄膜厚度可设，薄膜折射率 1.38；阴影光线同样走透明（可借性：同上）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d219",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d292.metallic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s7.metallic",
+      "title": "牙 `ivoryMat` MeshStandard 粗糙度 0.3（湿 0.10）、金属度 0.（金属度）",
+      "value": 0.2,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 7 节：牙 `ivoryMat` MeshStandard 粗糙度 0.3（湿 0.10）、金属度 0.（金属度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 7 节 · d292",
+        "note": "牙 `ivoryMat` MeshStandard 粗糙度 0.3（湿 0.10）、金属度 0.2，不接收阴影。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d292",
+        "c12.section": "7"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d292.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s7.roughness",
+      "title": "牙 `ivoryMat` MeshStandard 粗糙度 0.3（湿 0.10）、金属度 0.（粗糙度）",
+      "value": 0.3,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 7 节：牙 `ivoryMat` MeshStandard 粗糙度 0.3（湿 0.10）、金属度 0.（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 7 节 · d292",
+        "note": "牙 `ivoryMat` MeshStandard 粗糙度 0.3（湿 0.10）、金属度 0.2，不接收阴影。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d292",
+        "c12.section": "7"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d322.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s7.roughness",
+      "title": "牙齿 mat_tooth（粗糙度）",
+      "value": 0.16,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 7 节：牙齿 mat_tooth（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 7 节 · d322",
+        "note": "粗糙度 0.16；折射率 1.5；次表面 1.0、缩放 0.0035、各向异性 0.3；透射默认 0.6；清漆 1.0 / 0.03 / 1.5；阴影透明色为基色 × 0.6 + 0.2（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d322",
+        "c12.section": "7"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d322.ior",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s7.ior",
+      "title": "牙齿 mat_tooth（折射率）",
+      "value": 1.5,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 7 节：牙齿 mat_tooth（折射率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 7 节 · d322",
+        "note": "粗糙度 0.16；折射率 1.5；次表面 1.0、缩放 0.0035、各向异性 0.3；透射默认 0.6；清漆 1.0 / 0.03 / 1.5；阴影透明色为基色 × 0.6 + 0.2（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d322",
+        "c12.section": "7"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d322.anisotropic",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s7.anisotropic",
+      "title": "牙齿 mat_tooth（各向异性）",
+      "value": 0.3,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 7 节：牙齿 mat_tooth（各向异性）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 7 节 · d322",
+        "note": "粗糙度 0.16；折射率 1.5；次表面 1.0、缩放 0.0035、各向异性 0.3；透射默认 0.6；清漆 1.0 / 0.03 / 1.5；阴影透明色为基色 × 0.6 + 0.2（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d322",
+        "c12.section": "7"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d348.roughness",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s8.roughness",
+      "title": "竹叶材质（粗糙度）",
+      "value": 0.78,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 8 节：竹叶材质（粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-10",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 8 节 · d348",
+        "note": "粗糙度 0.78，透明度阈值 0.4，开 alpha-to-coverage，环境反射强度 0.35（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d348",
+        "c12.section": "8"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d514.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh1.length",
+      "title": "叠片压接缝（长度尺度）",
+      "value": 0.165,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 H1 节：叠片压接缝（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d514",
+        "note": "肩下 3 层叠片每层下移 0.165 米，用下一层挡住关节穿帮"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d514",
+        "c12.section": "H1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d522.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh1.length",
+      "title": "大型板件做法（长度尺度）",
+      "value": 0.05,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 H1 节：大型板件做法（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d522（案例 13 第 15 章）",
+        "note": "平面轮廓+到刃口距离决定厚度；砍刀 4632 三角，刃口 bevel .05 米渐薄到 0.0016"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d522",
+        "c12.section": "H1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d530.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh1.length",
+      "title": "旋转截面试验（龙/肢体）（长度尺度）",
+      "value": 0.065,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 H1 节：旋转截面试验（龙/肢体）（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d530",
+        "note": "5 个点折线当手臂脊线，每 6.5 cm 一圈，截面 e 从肩 2.0 渐变到腕 2.6，加高斯鼓包当二头肌，权重用升余弦窗，弯 90° 看肘内侧是否塌陷并对比平行移动标架"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d530",
+        "c12.section": "H1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d530.angle",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh1.angle",
+      "title": "旋转截面试验（龙/肢体）（角度）",
+      "value": 90,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 H1 节：旋转截面试验（龙/肢体）（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d530",
+        "note": "5 个点折线当手臂脊线，每 6.5 cm 一圈，截面 e 从肩 2.0 渐变到腕 2.6，加高斯鼓包当二头肌，权重用升余弦窗，弯 90° 看肘内侧是否塌陷并对比平行移动标架"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d530",
+        "c12.section": "H1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d531.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh1.length",
+      "title": "5 胶囊+3 骨距离场试验（长度尺度）",
+      "value": 12,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H1 节：5 胶囊+3 骨距离场试验（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H1 节 · d531",
+        "note": "5 个胶囊（躯干、两臂、两腿）和 3 根骨，12 mm 网格平滑最小值融合，Surface Nets 取面，按权重式算蒙皮；弯肘看肩部接缝撕开或塌陷"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d531",
+        "c12.section": "H1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d534.angle",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh2.angle",
+      "title": "`mesh_obj`（角度）",
+      "value": 35,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 H2 节：`mesh_obj`（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H2 节 · d534",
+        "note": "平滑着色 + `set_sharp_from_angle` 默认 35°。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d534",
+        "c12.section": "H2"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d536.dimension",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh2.dimension",
+      "title": "`add_bevel`（物理尺寸）",
+      "value": 0.0003,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 H2 节：`add_bevel`（物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H2 节 · d536",
+        "note": "默认宽 0.0003 m、segments 2、limit_method ANGLE、angle_limit 35°、harden_normals True。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d536",
+        "c12.section": "H2"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d536.angle",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh2.angle",
+      "title": "`add_bevel`（角度）",
+      "value": 35,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 H2 节：`add_bevel`（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H2 节 · d536",
+        "note": "默认宽 0.0003 m、segments 2、limit_method ANGLE、angle_limit 35°、harden_normals True。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d536",
+        "c12.section": "H2"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d537.dimension",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh2.dimension",
+      "title": "实测（物理尺寸）",
+      "value": 0.3,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H2 节：实测（物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H2 节 · d537",
+        "note": "22 个物体仍带 BEVEL（宽 0.012…0.3 mm × 1…3 段）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d537",
+        "c12.section": "H2"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d551.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh3.length",
+      "title": "包围盒契约（长度尺度）",
+      "value": 0.3,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H3 节：包围盒契约（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H3 节 · d551",
+        "note": "每组几何必须落在 spec.ENV[组] 内，容差 0.3 mm，`model.stats()` 自动报越界；缺模块用方盒子代理占位。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d551",
+        "c12.section": "H3"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d556.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh3.length",
+      "title": "热管每侧 5 根，8 mm 压扁（Y 半轴 2.9、Z 半轴 4.1），Z 位置 −40, −2（长度尺度）",
+      "value": 8,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H3 节：热管每侧 5 根，8 mm 压扁（Y 半轴 2.9、Z 半轴 4.1），Z 位置 −40, −2（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H3 节 · d556",
+        "note": "热管每侧 5 根，8 mm 压扁（Y 半轴 2.9、Z 半轴 4.1），Z 位置 −40, −20, 0, 20, 40，中心 Y −3。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d556",
+        "c12.section": "H3"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d562.bbox-mm",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh3.bbox-mm",
+      "title": "单位（外轮廓三维尺寸）",
+      "value": {
+        "x": 200,
+        "y": 235,
+        "z": 336
+      },
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H3 节：单位（外轮廓三维尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H3 节 · d562",
+        "note": "全程毫米写尺寸 S = 0.001 # millimetre -> metre；包围盒约 200×235×336 mm"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d562",
+        "c12.section": "H3"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d562.distance",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh3.distance",
+      "title": "单位（间距与尺度）",
+      "value": 336,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H3 节：单位（间距与尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H3 节 · d562",
+        "note": "全程毫米写尺寸 S = 0.001 # millimetre -> metre；包围盒约 200×235×336 mm"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d562",
+        "c12.section": "H3"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d564.bbox-mm",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh3.bbox-mm",
+      "title": "01 重制建模流程：唯一尺寸表+部件模块约定+代理占位（外轮廓三维尺寸）",
+      "value": {
+        "x": 304,
+        "y": 123,
+        "z": 40
+      },
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H3 节：01 重制建模流程：唯一尺寸表+部件模块约定+代理占位（外轮廓三维尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "源码",
+        "docRef": "材质与硬表面建模汇编 · 第 H3 节 · d564",
+        "note": "原实现源码 为唯一尺寸表(米，1mm=0.001)，所有建模助手只认这一份；坐标右手系 X=卡长(I/O 挡板在-X) Y=厚度(风扇面在-Y) Z=高(PCIe金手指在-Z，顶边在+Z)，原点=卡体包围盒中心；本体 304×123×40 mm(长官方，高照片实测123±2，官方标137含挡板/金手指量法不明，厚双槽)；每个部件组一个包围盒 ENV[key]=(xmin,xmax,ymin,ymax,zmin,zmax)，几何必须落盒内(容差0.3mm)；部件模块约定 `build()->dict[组键,list[Object]]`，物体放在装配后最终位置，风扇转子必须单个根物体名 fan_l_rotor/fan_r_rotor、原点在风扇中心、绕自身 Y 轴转；缺模块用 原实现源码 包围盒占位，动画和2D不等建模；mats.get(名字) 固定材质库，名字清单见 spec.MATERIALS，无 UV 程序纹理只用 Object 坐标；Blender 5.x 把 Fac 改名 Factor，故插口按序号取(噪声输出0、波纹输出1、色带输入0)；应在 Blender 4.5(另一台本地工作站 OptiX)与 5.2(桌面工作站 Metal)都能跑"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d564",
+        "c12.section": "H3"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-01-legacy",
+          "value": 137,
+          "unit": "mm",
+          "evidenceLevel": "文档",
+          "reason": "官方口径标示高度 137 mm（旧版沿用），重制版按照片实测改为 123 mm"
+        }
+      ]
+    },
+    {
+      "id": "mat-hardsurf.d564.dimension",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh3.dimension",
+      "title": "01 重制建模流程：唯一尺寸表+部件模块约定+代理占位（物理尺寸）",
+      "value": 0.3,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H3 节：01 重制建模流程：唯一尺寸表+部件模块约定+代理占位（物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "源码",
+        "docRef": "材质与硬表面建模汇编 · 第 H3 节 · d564",
+        "note": "原实现源码 为唯一尺寸表(米，1mm=0.001)，所有建模助手只认这一份；坐标右手系 X=卡长(I/O 挡板在-X) Y=厚度(风扇面在-Y) Z=高(PCIe金手指在-Z，顶边在+Z)，原点=卡体包围盒中心；本体 304×123×40 mm(长官方，高照片实测123±2，官方标137含挡板/金手指量法不明，厚双槽)；每个部件组一个包围盒 ENV[key]=(xmin,xmax,ymin,ymax,zmin,zmax)，几何必须落盒内(容差0.3mm)；部件模块约定 `build()->dict[组键,list[Object]]`，物体放在装配后最终位置，风扇转子必须单个根物体名 fan_l_rotor/fan_r_rotor、原点在风扇中心、绕自身 Y 轴转；缺模块用 原实现源码 包围盒占位，动画和2D不等建模；mats.get(名字) 固定材质库，名字清单见 spec.MATERIALS，无 UV 程序纹理只用 Object 坐标；Blender 5.x 把 Fac 改名 Factor，故插口按序号取(噪声输出0、波纹输出1、色带输入0)；应在 Blender 4.5(另一台本地工作站 OptiX)与 5.2(桌面工作站 Metal)都能跑"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d564",
+        "c12.section": "H3"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d586.pixels",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.pixels",
+      "title": "风扇尺寸实测（像素尺寸）",
+      "value": 573,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：风扇尺寸实测（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d586",
+        "note": "外环外径114mm(半径57)左扇x≈95→668共573px=114.8mm右113.8mm;中心X-89.2/+91.7均值±90.5(spec取±88.5/半径56.5);轮毂盖直径38.9mm半径19.4;7叶强后掠镰刀形叶尖连随转外环;窗=圆角方形切掉朝中心两角,窗内黑色下沉平台;叶片缝隙角度对到约3°内"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d586",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d586.dimension",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.dimension",
+      "title": "风扇尺寸实测（物理尺寸）",
+      "value": 114.8,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：风扇尺寸实测（物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d586",
+        "note": "外环外径114mm(半径57)左扇x≈95→668共573px=114.8mm右113.8mm;中心X-89.2/+91.7均值±90.5(spec取±88.5/半径56.5);轮毂盖直径38.9mm半径19.4;7叶强后掠镰刀形叶尖连随转外环;窗=圆角方形切掉朝中心两角,窗内黑色下沉平台;叶片缝隙角度对到约3°内"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d586",
+        "c12.section": "H4"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-01-legacy",
+          "value": 112,
+          "unit": "mm",
+          "evidenceLevel": "源码",
+          "reason": "旧版风扇外框直径 112 mm，重制最终建模 spec 取半径 56.5 mm（直径 113 mm），实测照片为 114–114.8 mm"
+        }
+      ]
+    },
+    {
+      "id": "mat-hardsurf.d586.diameter",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.diameter",
+      "title": "风扇尺寸实测（直径）",
+      "value": 38.9,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：风扇尺寸实测（直径）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d586",
+        "note": "外环外径114mm(半径57)左扇x≈95→668共573px=114.8mm右113.8mm;中心X-89.2/+91.7均值±90.5(spec取±88.5/半径56.5);轮毂盖直径38.9mm半径19.4;7叶强后掠镰刀形叶尖连随转外环;窗=圆角方形切掉朝中心两角,窗内黑色下沉平台;叶片缝隙角度对到约3°内"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d586",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d586.angle",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.angle",
+      "title": "风扇尺寸实测（角度）",
+      "value": 3,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：风扇尺寸实测（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d586",
+        "note": "外环外径114mm(半径57)左扇x≈95→668共573px=114.8mm右113.8mm;中心X-89.2/+91.7均值±90.5(spec取±88.5/半径56.5);轮毂盖直径38.9mm半径19.4;7叶强后掠镰刀形叶尖连随转外环;窗=圆角方形切掉朝中心两角,窗内黑色下沉平台;叶片缝隙角度对到约3°内"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d586",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d587.dimension",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.dimension",
+      "title": "正面骨架尺寸（物理尺寸）",
+      "value": 2.5,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：正面骨架尺寸（物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d587",
+        "note": "X形骨架四条斜臂汇到中心腰宽15mm(x790→865);上盖板沿顶边X-57…+61;斜臂和外圈枪灰倒角条宽约2.5mm,盖板深灰哑光阳极氧化,风扇窗内黑色;外圈金属带四角圆角半径约12mm;尾端+X整面封闭仅2颗小螺丝;背面窗:左窗外缘X-145,上下边到X-56后斜收到尖点X-7.5 Z0,窗高Z±59,上下各留边约2.6mm,右窗镜像"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d587",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d587.radius",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.radius",
+      "title": "正面骨架尺寸（尺寸半径）",
+      "value": 12,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：正面骨架尺寸（尺寸半径）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d587",
+        "note": "X形骨架四条斜臂汇到中心腰宽15mm(x790→865);上盖板沿顶边X-57…+61;斜臂和外圈枪灰倒角条宽约2.5mm,盖板深灰哑光阳极氧化,风扇窗内黑色;外圈金属带四角圆角半径约12mm;尾端+X整面封闭仅2颗小螺丝;背面窗:左窗外缘X-145,上下边到X-56后斜收到尖点X-7.5 Z0,窗高Z±59,上下各留边约2.6mm,右窗镜像"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d587",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d588.pixels",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.pixels",
+      "title": "鳍片参数（像素尺寸）",
+      "value": [
+        7,
+        8
+      ],
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：鳍片参数（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d588",
+        "note": "左右鳍片薄片在YZ平面法线朝X片线沿Z;片距约1.5–1.8mm(目测周期7–8px≈1.5mm,亮度极小值法0.75–0.93mm/条疑每片数两次);每组55–60片(做55片);鳍片厚0.3、片距1.57–1.6为假定值;fins_l 55片给I/O和PCIe让位;正面中盖下有阶梯鳍片块片线沿X法线朝Z"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d588",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d588.distance",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.distance",
+      "title": "鳍片参数（间距与尺度）",
+      "value": 1.5,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：鳍片参数（间距与尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d588",
+        "note": "左右鳍片薄片在YZ平面法线朝X片线沿Z;片距约1.5–1.8mm(目测周期7–8px≈1.5mm,亮度极小值法0.75–0.93mm/条疑每片数两次);每组55–60片(做55片);鳍片厚0.3、片距1.57–1.6为假定值;fins_l 55片给I/O和PCIe让位;正面中盖下有阶梯鳍片块片线沿X法线朝Z"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d588",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d588.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.length",
+      "title": "鳍片参数（长度尺度）",
+      "value": [
+        0.75,
+        0.93
+      ],
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：鳍片参数（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-multi",
+        "evidenceLevel": "推断",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d588",
+        "note": "左右鳍片薄片在YZ平面法线朝X片线沿Z;片距约1.5–1.8mm(目测周期7–8px≈1.5mm,亮度极小值法0.75–0.93mm/条疑每片数两次);每组55–60片(做55片);鳍片厚0.3、片距1.57–1.6为假定值;fins_l 55片给I/O和PCIe让位;正面中盖下有阶梯鳍片块片线沿X法线朝Z"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d588",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d590.size-mm",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.size-mm",
+      "title": "I/O挡板与PCIe（平面物理尺寸）",
+      "value": {
+        "width": 112,
+        "height": 20
+      },
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：I/O挡板与PCIe（平面物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "实测",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d590",
+        "note": "接口单排沿Z从+Z到-Z为DP,DP,DP,HDMI(HDMI最靠PCIe侧;某硬件媒体正文“3×HDMI+1×DP”是笔误);挡板实心无散热孔;接口在下沉约1mm的圆角矩形小板,四角梅花螺丝;顶折耳在金手指底以上100.4mm,本体顶比折耳高约30mm;挡板下端两舌尖伸到金手指底以下约19mm;挡板Z-88.5…+31.5(折耳到-165.4mm);金手指X-105…-18(实测-99…-20);I/O排线宽约25mm沿-Z边走向I/O端;PCIe小板X-110…-5约112×20mm;两面各82位金手指"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d590",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d590.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.length",
+      "title": "I/O挡板与PCIe（长度尺度）",
+      "value": 1,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：I/O挡板与PCIe（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "实测",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d590",
+        "note": "接口单排沿Z从+Z到-Z为DP,DP,DP,HDMI(HDMI最靠PCIe侧;某硬件媒体正文“3×HDMI+1×DP”是笔误);挡板实心无散热孔;接口在下沉约1mm的圆角矩形小板,四角梅花螺丝;顶折耳在金手指底以上100.4mm,本体顶比折耳高约30mm;挡板下端两舌尖伸到金手指底以下约19mm;挡板Z-88.5…+31.5(折耳到-165.4mm);金手指X-105…-18(实测-99…-20);I/O排线宽约25mm沿-Z边走向I/O端;PCIe小板X-110…-5约112×20mm;两面各82位金手指"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d590",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d590.dimension",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.dimension",
+      "title": "I/O挡板与PCIe（物理尺寸）",
+      "value": 100.4,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：I/O挡板与PCIe（物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "实测",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d590",
+        "note": "接口单排沿Z从+Z到-Z为DP,DP,DP,HDMI(HDMI最靠PCIe侧;某硬件媒体正文“3×HDMI+1×DP”是笔误);挡板实心无散热孔;接口在下沉约1mm的圆角矩形小板,四角梅花螺丝;顶折耳在金手指底以上100.4mm,本体顶比折耳高约30mm;挡板下端两舌尖伸到金手指底以下约19mm;挡板Z-88.5…+31.5(折耳到-165.4mm);金手指X-105…-18(实测-99…-20);I/O排线宽约25mm沿-Z边走向I/O端;PCIe小板X-110…-5约112×20mm;两面各82位金手指"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d590",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d591.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.length",
+      "title": "均热板与热管（长度尺度）",
+      "value": 8,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：均热板与热管（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d591",
+        "note": "均热板在主板正面一侧(-Y),接触面镍色,中间略大于GPU封装的矩形,四周黑色压框贴白色导热垫(31–35块);热管左右各5根沿X直伸Z向一字排开(Z=40,20,0,-20,-40mm),8mm铜管,TPU称5根贯穿(两侧各露5头),某硬件媒体写10根;GPU与均热板间液态金属(报道);热管压扁到Y-5.9…-0.1;未做折弯汇聚段;均热板/热管正面改黑色涂层"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d591",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d592.angle",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.angle",
+      "title": "供电口12V-2x6（角度）",
+      "value": 45,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：供电口12V-2x6（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d592",
+        "note": "在主板+X/+Z角斜45°骑切角,针排沿Y横跨卡厚;包围盒X+24…+48(+50) Z+38(+40)…+60;真插座宽20.6mm;顶边凹坑在中段+X端X+28…+54,斜壁;顶边中段X-57…+61下沉一级有两条平行长槽沿X"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d592",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d592.dimension",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.dimension",
+      "title": "供电口12V-2x6（物理尺寸）",
+      "value": 20.6,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：供电口12V-2x6（物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d592",
+        "note": "在主板+X/+Z角斜45°骑切角,针排沿Y横跨卡厚;包围盒X+24…+48(+50) Z+38(+40)…+60;真插座宽20.6mm;顶边凹坑在中段+X端X+28…+54,斜壁;顶边中段X-57…+61下沉一级有两条平行长槽沿X"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d592",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d594.angle",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh4.angle",
+      "title": "01 重制风扇量到的事实（角度）",
+      "value": 35,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 H4 节：01 重制风扇量到的事实（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "实测",
+        "docRef": "材质与硬表面建模汇编 · 第 H4 节 · d594",
+        "note": "叶片中线随半径逆时针后掠约 35°；每片叶顺时针一侧是厚而圆的前缘在最前面(-Y)，逆时针一侧薄后缘在最里面→真实转向是正视顺时针，即 rotation_euler.y 取正值；叶片轮廓角度在正视图 原包素材 沿圆周采样量；PCB 元件位置量自 原包素材、原包素材(叠毫米网格读数)；分组约定 pcb 组 Y 范围+2.0…+6.5，正面只有高度≤0.28 的小件(0201/0402/焊盘/过孔)归 pcb 组，其余正面元件归 vrm 组，背面元件全归 pcb 组；GPU 面朝-Y，正面元件从 Y=+2.0 往-Y 长，背面从 Y=+3.6 往+Y 长"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d594",
+        "c12.section": "H4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d597.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh5.length",
+      "title": "案例 03-G 布尔与倒角（长度尺度）",
+      "value": 0.8,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H5 节：案例 03-G 布尔与倒角（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d597",
+        "note": "布尔 EXACT；倒角 width 默认 0.8 mm、2 段、角度限制 30°、硬化法线；着色 smooth 角 30°（球面 32°）（可借性：倒角三件套与 案例 03-T 一致，印证）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d597",
+        "c12.section": "H5"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d597.angle",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh5.angle",
+      "title": "案例 03-G 布尔与倒角（角度）",
+      "value": 30,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 H5 节：案例 03-G 布尔与倒角（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d597",
+        "note": "布尔 EXACT；倒角 width 默认 0.8 mm、2 段、角度限制 30°、硬化法线；着色 smooth 角 30°（球面 32°）（可借性：倒角三件套与 案例 03-T 一致，印证）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d597",
+        "c12.section": "H5"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d605.dimension",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh5.dimension",
+      "title": "03 建模方法(头盔)（物理尺寸）",
+      "value": 5,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H5 节：03 建模方法(头盔)（物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d605",
+        "note": "逐层超椭圆放样(两张轮廓表)+布尔挖脸部凹腔/散热口台阶/5条横槽/后脑刻线;鸡冠=侧视轮廓拉成梯形体;V字天线/额头红件=凸包(天线5mm厚板根部弦长37mm下缘宽倒角);火神炮=圆柱+布尔(水滴形炮座向后收进圆顶,前端凹坑金色环+圆台炮口+黑膛);面罩/下巴/脸颊用凸包+布尔;原实现源码含材质/凸包/多边形拉伸/放样保形插值/布尔烘焙;建模原则:只建外面看得见的表面,头盔实心只挖脸凹腔和散热口,内骨架深色填充,脖子只做露出段和两根活塞"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d605",
+        "c12.section": "H5"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d605.thickness",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh5.thickness",
+      "title": "03 建模方法(头盔)（厚度）",
+      "value": 37,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H5 节：03 建模方法(头盔)（厚度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d605",
+        "note": "逐层超椭圆放样(两张轮廓表)+布尔挖脸部凹腔/散热口台阶/5条横槽/后脑刻线;鸡冠=侧视轮廓拉成梯形体;V字天线/额头红件=凸包(天线5mm厚板根部弦长37mm下缘宽倒角);火神炮=圆柱+布尔(水滴形炮座向后收进圆顶,前端凹坑金色环+圆台炮口+黑膛);面罩/下巴/脸颊用凸包+布尔;原实现源码含材质/凸包/多边形拉伸/放样保形插值/布尔烘焙;建模原则:只建外面看得见的表面,头盔实心只挖脸凹腔和散热口,内骨架深色填充,脖子只做露出段和两根活塞"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d605",
+        "c12.section": "H5"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d607.angle",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh5.angle",
+      "title": "03 v2→v3 形状纠错表（角度）",
+      "value": 45,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 H5 节：03 v2→v3 形状纠错表（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d607",
+        "note": "鸡冠:方块→长条(顶面平后略升,后段45°斜下末端像檐罩后摄像头);前额:眉檐→独立前额盖正中向前伸尖角(尖端比脸靠前约20mm)两翼后掠;火神炮:朝前短圆筒炮口y≈-112→贴圆顶两侧水平长水滴炮口y≈-79(比脸靠后约60mm);脸颊在前,退一步才是朝正前方散热口面,下面3条槽;侧面:一圈刻线→五边形耳盖(可开舱盖)后缘深色长缝;圆顶与后壳之间有缝露深色骨架"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d607",
+        "c12.section": "H5"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d607.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh5.length",
+      "title": "03 v2→v3 形状纠错表（长度尺度）",
+      "value": 20,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H5 节：03 v2→v3 形状纠错表（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d607",
+        "note": "鸡冠:方块→长条(顶面平后略升,后段45°斜下末端像檐罩后摄像头);前额:眉檐→独立前额盖正中向前伸尖角(尖端比脸靠前约20mm)两翼后掠;火神炮:朝前短圆筒炮口y≈-112→贴圆顶两侧水平长水滴炮口y≈-79(比脸靠后约60mm);脸颊在前,退一步才是朝正前方散热口面,下面3条槽;侧面:一圈刻线→五边形耳盖(可开舱盖)后缘深色长缝;圆顶与后壳之间有缝露深色骨架"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d607",
+        "c12.section": "H5"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d607.dimension",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh5.dimension",
+      "title": "03 v2→v3 形状纠错表（物理尺寸）",
+      "value": 60,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H5 节：03 v2→v3 形状纠错表（物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d607",
+        "note": "鸡冠:方块→长条(顶面平后略升,后段45°斜下末端像檐罩后摄像头);前额:眉檐→独立前额盖正中向前伸尖角(尖端比脸靠前约20mm)两翼后掠;火神炮:朝前短圆筒炮口y≈-112→贴圆顶两侧水平长水滴炮口y≈-79(比脸靠后约60mm);脸颊在前,退一步才是朝正前方散热口面,下面3条槽;侧面:一圈刻线→五边形耳盖(可开舱盖)后缘深色长缝;圆顶与后壳之间有缝露深色骨架"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d607",
+        "c12.section": "H5"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d608.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh5.length",
+      "title": "03 渲染对齐方法（长度尺度）",
+      "value": 3,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H5 节：03 渲染对齐方法（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "源码",
+        "docRef": "材质与硬表面建模汇编 · 第 H5 节 · d608",
+        "note": "front/side/back正交相机取景与线稿裁切逐像素对齐;原实现源码线稿/渲染/叠图三联;原实现源码三个透视视图与实拍并排;原实现源码 --views front,side,back,p114,b2,isoback --samples 96 --tag v2;用已知3D尖点拟合照片相机再反投影轮廓,正面零件位置对到5px(约3mm)以内,但脸看起来仍不像(提取只含可见部分,眼片被阴影和红件遮)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d608",
+        "c12.section": "H5"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d610.dimension",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh6.dimension",
+      "title": "武器尺寸与握点（物理尺寸）",
+      "value": 2,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 H6 节：武器尺寸与握点（物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-10",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H6 节 · d610",
+        "note": "竹杖长 2.0 m、握点 0.3、粗细系数 0.56；军刀 1.12 m、握点 0.11；棍棒 1.7 m、握点 0.2、粗细 0.8（使用者缩放 1.38）；长柄刀 2.35 m、握点 0.3（缩放 1.72）（可借性：纯参数）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d610",
+        "c12.section": "H6"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d627.duration",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh6.duration",
+      "title": "案例 28 多角度约束（时长）",
+      "value": 12,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 H6 节：案例 28 多角度约束（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-28",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H6 节 · d627",
+        "note": "三视图+绕头12秒视频(21:9,360°)约束正面侧面后脑颈部→Blender分层建模(面甲、线缆、头颅)→多角度对照；需要Blender 5.2+；页面约29秒建模演示"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d627",
+        "c12.section": "H6"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d627.angle",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh6.angle",
+      "title": "案例 28 多角度约束（角度）",
+      "value": 360,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 H6 节：案例 28 多角度约束（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-28",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H6 节 · d627",
+        "note": "三视图+绕头12秒视频(21:9,360°)约束正面侧面后脑颈部→Blender分层建模(面甲、线缆、头颅)→多角度对照；需要Blender 5.2+；页面约29秒建模演示"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d627",
+        "c12.section": "H6"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d628.angle",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh6.angle",
+      "title": "僵尸手 动画友好拓扑（角度）",
+      "value": 90,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 H6 节：僵尸手 动画友好拓扑（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H6 节 · d628",
+        "note": "每个手指关节与指节处3条平行边环，使手指弯90°网格不塌；Subdivision Surface+受控 crease/bevel 保持卡通棱面感；宽厚手背、饱满掌垫、略大指节、三段手指、两段拇指粗根部、卡通指甲带三角缺口；断面台阶状紫洋红肉+奶白圆头骨"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d628",
+        "c12.section": "H6"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d629.angle",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh7.angle",
+      "title": "案例 03-B 自动拼装算法（角度）",
+      "value": 3,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 H7 节：案例 03-B 自动拼装算法（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "推断",
+        "docRef": "材质与硬表面建模汇编 · 第 H7 节 · d629",
+        "note": "按包围盒推父件和拉开方向，按零件局部轴（面法线按面积聚类，3° 容差 cos>0.9986）推回，BVH 碰撞二分到 0.01 mm；允许 push 额外推进；零件只做平移（可借性：依赖一段特定算法（BVH 碰撞回推），算法可自写；不依赖 STL 许可，但 STL 来源授权未核实）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d629",
+        "c12.section": "H7"
+      }
+    },
+    {
+      "id": "mat-hardsurf.d629.length",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh7.length",
+      "title": "案例 03-B 自动拼装算法（长度尺度）",
+      "value": 0.01,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H7 节：案例 03-B 自动拼装算法（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "推断",
+        "docRef": "材质与硬表面建模汇编 · 第 H7 节 · d629",
+        "note": "按包围盒推父件和拉开方向，按零件局部轴（面法线按面积聚类，3° 容差 cos>0.9986）推回，BVH 碰撞二分到 0.01 mm；允许 push 额外推进；零件只做平移（可借性：依赖一段特定算法（BVH 碰撞回推），算法可自写；不依赖 STL 许可，但 STL 来源授权未核实）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d629",
+        "c12.section": "H7"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s001",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "金属与硬件材质对照（01 重制（某款旗舰显卡） frame_dark 枪灰阳极铝）（汇总）",
+      "value": [
+        0.1,
+        0.098,
+        0.1
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节跨案例对照汇总：金属与硬件材质对照（01 重制（某款旗舰显卡） frame_dark 枪灰阳极铝）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · s001",
+        "note": "01 重制（某款旗舰显卡） frame_dark 枪灰阳极铝（Blender Cycles Principled）：基色 (0.1,0.098,0.1)，金属度 1，粗糙度 0.5（0.46…0.54），颗粒 0.0003 m"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d005.base-color"
+      ],
+      "ext": {
+        "c12.sourceId": "s001",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s002",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "金属与硬件材质对照（01 重制（某款旗舰显卡） steel 拉丝钢）（汇总）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节跨案例对照汇总：金属与硬件材质对照（01 重制（某款旗舰显卡） steel 拉丝钢）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · s002",
+        "note": "01 重制（某款旗舰显卡） steel 拉丝钢（Blender Cycles Principled）：(0.52,0.53,0.55)，金属 1，粗糙 0.33（0.26…0.40）"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d019.metallic"
+      ],
+      "ext": {
+        "c12.sourceId": "s002",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s003",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "金属与硬件材质对照（01 重制（某款旗舰显卡） cap 电容铝壳）（汇总）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节跨案例对照汇总：金属与硬件材质对照（01 重制（某款旗舰显卡） cap 电容铝壳）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · s003",
+        "note": "01 重制（某款旗舰显卡） cap 电容铝壳（Blender Cycles Principled）：(0.6,0.61,0.63)，金属 1，粗糙 0.28"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d018.metallic"
+      ],
+      "ext": {
+        "c12.sourceId": "s003",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s004",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "金属与硬件材质对照（01 重制（某款旗舰显卡） nickel / port_metal）（汇总）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节跨案例对照汇总：金属与硬件材质对照（01 重制（某款旗舰显卡） nickel / port_metal）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · s004",
+        "note": "01 重制（某款旗舰显卡） nickel / port_metal（Blender Cycles Principled）：nickel (0.64,0.62,0.58) 1 / 0.38；port_metal (0.62,0.63,0.65) 1 / 0.25"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d020.metallic"
+      ],
+      "ext": {
+        "c12.sourceId": "s004",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s005",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "金属与硬件材质对照（01 重制（某款旗舰显卡） copper / gold）（汇总）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节跨案例对照汇总：金属与硬件材质对照（01 重制（某款旗舰显卡） copper / gold）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · s005",
+        "note": "01 重制（某款旗舰显卡） copper / gold（Blender Cycles Principled）：copper (0.82,0.38,0.21) 1 / 0.27；gold (0.95,0.64,0.26) 1 / 0.3"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d012.metallic"
+      ],
+      "ext": {
+        "c12.sourceId": "s005",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s006",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "金属与硬件材质对照（01 重制（某款旗舰显卡） fin_black 黑鳍片（介电））（汇总）",
+      "value": [
+        0.018,
+        0.018,
+        0.02
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节跨案例对照汇总：金属与硬件材质对照（01 重制（某款旗舰显卡） fin_black 黑鳍片（介电））"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · s006",
+        "note": "01 重制（某款旗舰显卡） fin_black 黑鳍片（介电）（Blender Cycles Principled）：(0.018,0.018,0.02)，金属 0，粗糙 0.36，Specular IOR Level 0.75"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d008.base-color"
+      ],
+      "ext": {
+        "c12.sourceId": "s006",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s007",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "金属与硬件材质对照（01 旧版 v3 鳍片_黑色阳极（冲突，见文末冲突表 C1））（汇总）",
+      "value": [
+        0.018,
+        0.018,
+        0.02
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节跨案例对照汇总：金属与硬件材质对照（01 旧版 v3 鳍片_黑色阳极（冲突，见文末冲突表 C1））"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · s007",
+        "note": "01 旧版 v3 鳍片_黑色阳极（冲突，见文末冲突表 C1）（Blender Cycles Principled）：(0.018,0.018,0.02)，金属 0.7，粗糙 0.34"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d038.base-color"
+      ],
+      "ext": {
+        "c12.sourceId": "s007",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s008",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "金属与硬件材质对照（01 旧版 v3 外壳_枪灰铝（冲突 C2））（汇总）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节跨案例对照汇总：金属与硬件材质对照（01 旧版 v3 外壳_枪灰铝（冲突 C2））"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · s008",
+        "note": "01 旧版 v3 外壳_枪灰铝（冲突 C2）（Blender Cycles Principled）：(0.105,0.108,0.115)，金属 1，粗糙 0.30，bump 0.04 scale 2500"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d036.metallic"
+      ],
+      "ext": {
+        "c12.sourceId": "s008",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s009",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "金属与硬件材质对照（01 旧版 v3 金手指_镀金）（汇总）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节跨案例对照汇总：金属与硬件材质对照（01 旧版 v3 金手指_镀金）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · s009",
+        "note": "01 旧版 v3 金手指_镀金（Blender Cycles Principled）：(1.0,0.766,0.336)，金属 1，粗糙 0.22"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d049.metallic"
+      ],
+      "ext": {
+        "c12.sourceId": "s009",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s012",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "金属与硬件材质对照（案例 03-T 透明机械头 mat_metal）（汇总）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节跨案例对照汇总：金属与硬件材质对照（案例 03-T 透明机械头 mat_metal）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · s012",
+        "note": "案例 03-T 透明机械头 mat_metal（Blender Cycles Principled）：金属度默认 1.0，凹凸默认 0.03，磨损默认 0.06，各向异性默认 0.0，粗糙度与法线接程序纹理"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d064.metallic"
+      ],
+      "ext": {
+        "c12.sourceId": "s012",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s013",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "金属与硬件材质对照（案例 08 FX_chitin）（汇总）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 1 节跨案例对照汇总：金属与硬件材质对照（案例 08 FX_chitin）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-08",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 1 节 · s013",
+        "note": "案例 08 FX_chitin（Blender Cycles Principled）：Metallic 0.000，Roughness 0.250，IOR 1.500，Alpha 1.000"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d070.metallic"
+      ],
+      "ext": {
+        "c12.sourceId": "s013",
+        "c12.section": "1"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s033",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s4.metallic",
+      "title": "布、皮、毛与披风对照（案例 10 角色）（汇总）",
+      "value": 0.2,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节跨案例对照汇总：布、皮、毛与披风对照（案例 10 角色）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-10",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 4 节 · s033",
+        "note": "案例 10 角色（three WebGL）：金属度加载时压到不超过 0.2；每角色 1 网格 1 材质 3 张贴图"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d190.metallic"
+      ],
+      "ext": {
+        "c12.sourceId": "s033",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s034",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s4.metallic",
+      "title": "布、皮、毛与披风对照（案例 10 毛）（汇总）",
+      "value": 0.35,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节跨案例对照汇总：布、皮、毛与披风对照（案例 10 毛）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-10",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 4 节 · s034",
+        "note": "案例 10 毛（three WebGL）：粗糙度 0.4 到 0.55 淡入；金属度 0.35 到 0.55 淡出；pbr [0.5,0.35]；毛根 0.76 倍，毛尖 1.04 倍，每根 ±6%"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d192.metallic"
+      ],
+      "ext": {
+        "c12.sourceId": "s034",
+        "c12.section": "4"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s041",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s5.ior",
+      "title": "玻璃、透明、琥珀与树脂对照（案例 03-T mat_glass）（汇总）",
+      "value": 1.52,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节跨案例对照汇总：玻璃、透明、琥珀与树脂对照（案例 03-T mat_glass）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 5 节 · s041",
+        "note": "案例 03-T mat_glass（Blender Cycles Principled）：IOR 1.52，透射 1.0，薄膜折射率 1.38，阴影光线走透明"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d219.ior"
+      ],
+      "ext": {
+        "c12.sourceId": "s041",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s042",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s7.roughness",
+      "title": "玻璃、透明、琥珀与树脂对照（案例 03-T mat_tooth）（汇总）",
+      "value": 0.16,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节跨案例对照汇总：玻璃、透明、琥珀与树脂对照（案例 03-T mat_tooth）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 5 节 · s042",
+        "note": "案例 03-T mat_tooth（Blender Cycles Principled）：粗糙 0.16，IOR 1.5，次表面 1.0 缩放 0.0035，透射 0.6"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d322.roughness"
+      ],
+      "ext": {
+        "c12.sourceId": "s042",
+        "c12.section": "5"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s047",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.surface-ratio",
+      "title": "自发光、火与灯对照（01 重制（某款旗舰显卡） emit_white 发光字）（汇总）",
+      "value": 0.85,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节跨案例对照汇总：自发光、火与灯对照（01 重制（某款旗舰显卡） emit_white 发光字）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 6 节 · s047",
+        "note": "01 重制（某款旗舰显卡） emit_white 发光字（Blender Cycles Principled）：(0.9,0.96,1.0)，Emission Strength 2.5（AgX 下约 85% 白）"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d025.surface-ratio"
+      ],
+      "ext": {
+        "c12.sourceId": "s047",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s048",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.base-color",
+      "title": "自发光、火与灯对照（01 旧版 v3 字样_白光（冲突 C5））（汇总）",
+      "value": [
+        1,
+        1,
+        1
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 6 节跨案例对照汇总：自发光、火与灯对照（01 旧版 v3 字样_白光（冲突 C5））"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01-legacy",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 6 节 · s048",
+        "note": "01 旧版 v3 字样_白光（冲突 C5）（Blender Cycles Principled）：(1,1,1)，Emission Strength 6.0"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d053.base-color"
+      ],
+      "ext": {
+        "c12.sourceId": "s048",
+        "c12.section": "6"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s064",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s8.roughness",
+      "title": "植被叶片与透光对照（案例 10 竹叶）（汇总）",
+      "value": 0.78,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 8 节跨案例对照汇总：植被叶片与透光对照（案例 10 竹叶）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-10",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 8 节 · s064",
+        "note": "案例 10 竹叶（three WebGL）：粗糙度 0.78，阈值 0.4，alpha-to-coverage，环境反射强度 0.35，背向太阳乘 (1.35,1.28,0.5)"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d348.roughness"
+      ],
+      "ext": {
+        "c12.sourceId": "s064",
+        "c12.section": "8"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s084",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "程序化贴图、细节与防闪技术对照（01 重制（某款旗舰显卡））（汇总）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 12 节跨案例对照汇总：程序化贴图、细节与防闪技术对照（01 重制（某款旗舰显卡））"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 12 节 · s084",
+        "note": "01 重制（某款旗舰显卡）（Blender Cycles Principled）：全部程序化无 UV，纹理用 Object 坐标（米）；凹凸随相机距离淡出 0.35×far → far"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d005.metallic"
+      ],
+      "ext": {
+        "c12.sourceId": "s084",
+        "c12.section": "12"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s095",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s1.metallic",
+      "title": "倒角、布尔、修改器与精加工对照（01 重制（某款旗舰显卡） 通用）（汇总）",
+      "value": 1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 H2 节跨案例对照汇总：倒角、布尔、修改器与精加工对照（01 重制（某款旗舰显卡） 通用）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H2 节 · s095",
+        "note": "01 重制（某款旗舰显卡） 通用（Blender Cycles Principled）：add_bevel 默认宽 0.0003 m，2 段，limit ANGLE 35°，harden_normals；box bevel segments 2 profile 0.5；set_sharp_from_angle 35°"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d005.metallic"
+      ],
+      "ext": {
+        "c12.sourceId": "s095",
+        "c12.section": "H2"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s097",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh5.length",
+      "title": "倒角、布尔、修改器与精加工对照（案例 03-G 该 IP 样本头部）（汇总）",
+      "value": 0.8,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H2 节跨案例对照汇总：倒角、布尔、修改器与精加工对照（案例 03-G 该 IP 样本头部）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-03",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H2 节 · s097",
+        "note": "案例 03-G 该 IP 样本头部（Blender Cycles Principled）：布尔 EXACT；倒角 width 0.8 mm，2 段，角度限制 30°，硬化法线"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d597.length"
+      ],
+      "ext": {
+        "c12.sourceId": "s097",
+        "c12.section": "H2"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s100",
+      "domain": "geometry-layout-scale",
+      "topic": "mat-hardsurf.sh3.bbox-mm",
+      "title": "尺寸表、坐标、包围盒与让位对照（01 重制（某款旗舰显卡） 本体）（汇总）",
+      "value": {
+        "x": 304,
+        "y": 123,
+        "z": 40
+      },
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 H3 节跨案例对照汇总：尺寸表、坐标、包围盒与让位对照（01 重制（某款旗舰显卡） 本体）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 H3 节 · s100",
+        "note": "01 重制（某款旗舰显卡） 本体（Blender Cycles Principled）：304×123×40 mm；X 长、Y 厚、Z 高；单位米；CORNER_R 0.012"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d564.bbox-mm"
+      ],
+      "ext": {
+        "c12.sourceId": "s100",
+        "c12.section": "H3"
+      }
+    }
+  ]
+}
