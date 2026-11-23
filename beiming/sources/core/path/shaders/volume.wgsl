@@ -259,7 +259,7 @@ fn media_tr(o: vec3<f32>, d: vec3<f32>, tmax: f32, rd: u32) -> f32 {
 
 // A direction scattered from `d` by the Henyey-Greenstein phase function (its pdf: hg_phase(g, dot(d, result))).
 fn sample_hg(d: vec3<f32>, g: f32) -> vec3<f32> {
-    let r = rng2(rng_dim(D_PHASE));
+    let r = rng2(rng_legacy(D_PHASE));
     let u = r.x;
     var ct = 1.0 - 2.0 * u;
     if (abs(g) > 1e-3) {

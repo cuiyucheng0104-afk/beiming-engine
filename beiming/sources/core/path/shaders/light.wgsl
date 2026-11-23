@@ -739,14 +739,14 @@ fn hg_phase(g: f32, c: f32) -> f32 {
         if (all(li.color.rgb <= vec3<f32>(0.0))) { continue; }
         let cos_max = li.dir.w;
         let to_light = -li.dir.xyz;
-        let u = rng2(rng_sub(rng_dim(D_SUN), i));
+        let u = rng2(rng_sub(rng_legacy(D_SUN), i));
         let cos_t = 1.0 - u.x * (1.0 - cos_max);
         let sin_t = sqrt(max(0.0, 1.0 - cos_t * cos_t));
         let phi = 2.0 * PI * u.y;
         let l = basis(to_light) * vec3<f32>(sin_t * cos(phi), sin_t * sin(phi), cos_t);
         let f = surface_shader_bsdf_eval_legacy(sd, l, li.x.y).eval;
         if (any(f > vec3<f32>(0.0))) {
-            let vis = light_vis(li.ext.w >= 0.5, light_origin(sd, o, l), l, INF, rng_sub(rng_dim(D_SUN_VIS), i));
+            let vis = light_vis(li.ext.w >= 0.5, light_origin(sd, o, l), l, INF, rng_sub(rng_legacy(D_SUN_VIS), i));
             if (any(vis > vec3<f32>(0.0))) {
                 let pdf_l = 1.0 / (2.0 * PI * (1.0 - cos_max));
                 sum += li.color.rgb * f * light_mis(pdf_l, sd, l) * tr3(vis);
@@ -762,12 +762,12 @@ fn env_sampled() -> bool { return P.counts2.y != 0u && (P.env.x > 0.5 || luminan
 // The sky's light sample at a surface (`o`: its shadow rays' origin): one direction by the map, MIS against the BSDF.
 // 北冥：参数从 (Surface, Lobes, 视线) 换成着色点；材质求值经上游顶替专用的 surface_shader_bsdf_eval_legacy。
 fn env_light(sd: ShadingPoint, o: vec3<f32>) -> vec3<f32> {
-    let l = sample_env(rng_dim(D_ENV));
+    let l = sample_env(rng_legacy(D_ENV));
     let f = surface_shader_bsdf_eval_legacy(sd, l, 1.0).eval;
     if (any(f > vec3<f32>(0.0))) {
         let pdf_e = env_pdf(l);
         if (pdf_e > 0.0) {
-            let vis = sky_tr(light_origin(sd, o, l), l, rng_dim(D_ENV_VIS));
+            let vis = sky_tr(light_origin(sd, o, l), l, rng_legacy(D_ENV_VIS));
             if (any(vis > vec3<f32>(0.0))) { return env_radiance(l) * f * light_mis(pdf_e, sd, l) / pdf_e * tr3(vis); }
         }
     }
@@ -784,7 +784,7 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
         let li = light_at(i);
         let cos_max = li.dir.w;
         let to_light = -li.dir.xyz;
-        let u = rng2(rng_sub(rng_dim(D_SUN), i));
+        let u = rng2(rng_sub(rng_legacy(D_SUN), i));
         let cos_t = 1.0 - u.x * (1.0 - cos_max);
         let sin_t = sqrt(max(0.0, 1.0 - cos_t * cos_t));
         let phi = 2.0 * PI * u.y;
@@ -795,7 +795,7 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
         let e = surface_shader_bsdf_eval_legacy(sd, l, li.x.y);
         let f = e.eval;
         if (any(f > vec3<f32>(0.0))) {
-            let vis = light_vis(li.ext.w >= 0.5, light_origin(sd, o, l), l, INF, rng_sub(rng_dim(D_SUN_VIS), i));
+            let vis = light_vis(li.ext.w >= 0.5, light_origin(sd, o, l), l, INF, rng_sub(rng_legacy(D_SUN_VIS), i));
             if (any(vis > vec3<f32>(0.0))) {
                 let pdf_l = 1.0 / (2.0 * PI * (1.0 - cos_max));
                 let frac = e.spec_frac;
@@ -820,7 +820,7 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
     @if(light_pick) var pick_w = 1.0;
     @if(light_pick) let kinds = u32(has_local) + u32(has_emit) + u32(has_env);
     @if(light_pick) if (state.bounce > 0u && kinds > 1u) {
-        var k = min(u32(rng1(rng_dim(D_PICK)) * f32(kinds)), kinds - 1u);
+        var k = min(u32(rng1(rng_legacy(D_PICK)) * f32(kinds)), kinds - 1u);
         take_local = has_local && k == 0u;
         if (has_local) { k -= 1u; }
         take_emit = has_emit && k == 0u;
@@ -830,8 +830,8 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
     }
     @if(light_pick) let sum_sun = sum;
     @if(light_pick) let spec_sun = state.legacy.dl_spec;
-    @if(!light_pick) sum += local_lights(sd, o, sd.P, false, vec3<f32>(0.0), rng_dim(D_LOCAL));
-    @if(light_pick) if (take_local) { sum += local_lights(sd, o, sd.P, false, vec3<f32>(0.0), rng_dim(D_LOCAL)); }
+    @if(!light_pick) sum += local_lights(sd, o, sd.P, false, vec3<f32>(0.0), rng_legacy(D_LOCAL));
+    @if(light_pick) if (take_local) { sum += local_lights(sd, o, sd.P, false, vec3<f32>(0.0), rng_legacy(D_LOCAL)); }
     // Emissive triangles (incl. rect lights)
     // (Rough glass takes emitters from both sides: as a point without a hemisphere does, the samples and `emit_mis`
     // alike. The tree's bound has no two-sided cosine; without one the estimate is the same, its noise a little more.)
@@ -844,12 +844,12 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
     if (emitters > 0u) {
         var es: ES;
         // With the light tree its candidates are already near the point: P.ltree.y of them at camera hits, one elsewhere.
-        if (lt_on()) { es = sample_emitter_ris(o, ne, select(1u, u32(P.ltree.w), state.bounce == 0u), sd, rng_dim(D_EMIT)); } else if (seen_directly()) { es = sample_emitter_ris(o, ne, select(EMIT_RIS_M / 2u, EMIT_RIS_M, state.bounce == 0u), sd, rng_dim(D_EMIT)); } else if (P.light_lod.w > 0.0) { es = sample_emitter_ris(o, ne, 2u, sd, rng_dim(D_EMIT)); } else { es = sample_emitter(o, ne, rng_dim(D_EMIT)); }
+        if (lt_on()) { es = sample_emitter_ris(o, ne, select(1u, u32(P.ltree.w), state.bounce == 0u), sd, rng_legacy(D_EMIT)); } else if (seen_directly()) { es = sample_emitter_ris(o, ne, select(EMIT_RIS_M / 2u, EMIT_RIS_M, state.bounce == 0u), sd, rng_legacy(D_EMIT)); } else if (P.light_lod.w > 0.0) { es = sample_emitter_ris(o, ne, 2u, sd, rng_legacy(D_EMIT)); } else { es = sample_emitter(o, ne, rng_legacy(D_EMIT)); }
         if (es.pdf_w > 0.0) {
             let e = surface_shader_bsdf_eval_legacy(sd, es.l, 1.0);
             let f = e.eval;
             if (any(f > vec3<f32>(0.0))) {
-                let vis = emitter_tr(light_origin(sd, o, es.l), es.l, es.dist * 0.999, rng_dim(D_EMIT_VIS));
+                let vis = emitter_tr(light_origin(sd, o, es.l), es.l, es.dist * 0.999, rng_legacy(D_EMIT_VIS));
                 if (vis > 0.0) {
                     let frac = e.spec_frac;
                     let wgt = light_mis(es.pdf_w, sd, es.l) * tr1(vis);

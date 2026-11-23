@@ -96,7 +96,7 @@ fn surface_shader_bsdf_sample_closure(sd: ShadingPoint, k: u32, rand: vec3<f32>)
     if (c.kind == CLOSURE_LEGACY) { return surface_shader_bsdf_sample_legacy(sd); }
     var bs = BsdfSample();
     if (c.kind != CLOSURE_BSDF_MICROFACET_GGX) { return bs; }
-    let r = rng4(rng_dim(D_BSDF));
+    let r = rng4(rng_legacy(D_BSDF));
     let m = bsdf_microfacet_ggx_sample(c.N, sd.Ng, sd.wi, c.alpha_x, c.f0, c.f90_or_b, c.energy_scale, r.zw);
     // （没采到：label 为 LABEL_NONE，其余全 0，积分器看到密度为 0 就结束这条路径。）
     bs.wo = m.wo;
@@ -563,7 +563,7 @@ fn sample_vndf(v: vec3<f32>, tbn: mat3x3<f32>, alpha: f32, u1: f32, u2: f32) -> 
 // no sample (every value and density of it is 0).
 fn sample_bsdf(s: Surface, lb: Lobes, v: vec3<f32>) -> vec3<f32> {
     let tbn = basis(s.n);
-    let r = rng4(rng_dim(D_BSDF));
+    let r = rng4(rng_legacy(D_BSDF));
     state.legacy.sampled_trans = false;
     if (has(F_COAT) || has(F_GLASS)) {
         let u = r.x;

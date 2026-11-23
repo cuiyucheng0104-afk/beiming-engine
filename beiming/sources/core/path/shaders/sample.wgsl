@@ -106,10 +106,12 @@ fn sobol_owen(rev_index: u32, dim: u32, seed: u32) -> f32 {
 
 // The id of decision `slot` at the path's current vertex (`state.bounce`); `rng_sub` the k-th part of decision `d` (a
 // loop's iteration, a light).
-fn rng_dim(slot: u32) -> u32 { return (state.legacy.rng_path << 28u) ^ (state.bounce << 20u) ^ slot; }
+// 北冥：上游的 rng_dim 改名 rng_legacy：还没有照 Cycles 移植的决定都从这里取编号，新写的代码不许用。眼下它原样返回
+// 上游的编号。
+fn rng_legacy(slot: u32) -> u32 { return (state.legacy.rng_path << 28u) ^ (state.bounce << 20u) ^ slot; }
 fn rng_sub(d: u32, k: u32) -> u32 { return hash_hp(d ^ hash_hp(k + 0x9e3779b9u)) | 0x80000000u; }
 
-// A path vertex's decisions (`rng_dim`).
+// A path vertex's decisions (`rng_legacy`).
 const D_CAMERA: u32 = 0u;    // pixel jitter, lens (4D)
 const D_BSDF: u32 = 1u;      // lobe, specular or not, direction (4D)
 const D_RR: u32 = 2u;        // Russian roulette
@@ -143,6 +145,8 @@ fn rng_seed(d: u32) -> u32 { return state.rng_pixel ^ hash_hp(d); }
 // 还用这里的常数：试过改成读全局参数，苹果显卡上五个带介质的场景像素末位会变（最大相对差 4.5e-4）。换掩码算法的人改读它。
 const SOBOL_INDEX_MASK: u32 = 0xffff0000u;
 fn rng_index(salt: u32) -> u32 { return owen_rev(reverseBits(state.sample), salt) & SOBOL_INDEX_MASK; }
+// 北冥：同上，样本号由调用方给（分支版取数用）。
+fn rng_index_at(index: u32, salt: u32) -> u32 { return owen_rev(reverseBits(index), salt) & SOBOL_INDEX_MASK; }
 
 fn rng1(d: u32) -> f32 {
     if (rng_white(d)) { return white(d, 0u); }
@@ -166,6 +170,33 @@ fn rng4(d: u32) -> vec4<f32> {
     let s = rng_seed(d);
     let i = rng_index(s ^ 0xc2c1a055u);
     return vec4<f32>(sobol_owen(i, 0u, s ^ 0x39468210u), sobol_owen(i, 1u, s ^ 0xe9d8a845u), sobol_owen(i, 2u, s ^ 0x5f32b482u), sobol_owen(i, 3u, s ^ 0x1524cc56u));
+}
+
+// 北冥：照 Cycles 的取数接口（kernel/integrator/path_state.h 的 path_state_rng_1D / 2D / 3D 与 path_branched_rng_2D）。
+// 哪个决定用哪一维，是「路径状态里的偏移加枚举」：编号 = state.rng_offset + 维度，像素种子与样本号也读路径状态。
+// 发生器就是上面的 rng1 到 rng3（与 Cycles 的 sobol_burley_sample_1D 到 3D 盐值逐个相同）。
+// 维度的枚举，数值照 Cycles 的 PathTraceDimension（kernel/types.h）。相机光线的两个不加偏移，直接当编号用。
+const PRNG_FILTER: u32 = 0u;            // 相机：像素滤波，2 维
+const PRNG_LENS_TIME: u32 = 1u;         // 相机：时刻、镜头 x、镜头 y，3 维
+// 以下每次弹射各一份（加 state.rng_offset；每次弹射占 PRNG_BOUNCE_NUM 个位置，见 integrator.wgsl）
+const PRNG_TERMINATE: u32 = 0u;         // 俄罗斯轮盘，1 维
+const PRNG_LIGHT: u32 = 1u;             // 选灯与灯上的点，3 维。已定义（做灯的人用）
+const PRNG_LIGHT_TERMINATE: u32 = 2u;   // 灯的贡献太小时的轮盘，1 维。已定义
+const PRNG_SURFACE_BSDF: u32 = 3u;      // 表面散射，3 维：前两个定方向，第三个选闭包并复用
+const PRNG_SURFACE_AO: u32 = 4u;        // 环境光遮蔽节点，2 维，分支版。已定义
+const PRNG_SURFACE_BEVEL: u32 = 5u;     // 倒角节点，2 维，分支版。已定义
+// 6、10、11：Cycles 给了路径引导，这里不做，也不许另作他用。3 到 9：Cycles 的体积散射与表面复用同一段（同一次弹射
+// 要么是表面要么是体积），移植体积的人照 Cycles 的 PRNG_VOLUME_* 取。7、8、9（表面一侧）、12 到 15：空闲，取用须登记。
+fn path_rng_1D(dimension: u32) -> f32 { return rng1(state.rng_offset + dimension); }
+fn path_rng_2D(dimension: u32) -> vec2<f32> { return rng2(state.rng_offset + dimension); }
+fn path_rng_3D(dimension: u32) -> vec3<f32> { return rng3(state.rng_offset + dimension); }
+// 分支版：同一个决定在一个样本里取 `num_branches` 个点（遮蔽与倒角节点一次发多条射线），第 `branch` 个。样本号换成
+// state.sample * num_branches + branch。索引只留 16 位，所以有效样本数是 65536 除以分支数，超过之后重复同一批点（不偏，
+// 但噪声不再降）；换掩码算法的人一并处理。
+fn path_branched_rng_2D(branch: u32, num_branches: u32, dimension: u32) -> vec2<f32> {
+    let s = rng_seed(state.rng_offset + dimension);
+    let i = rng_index_at(state.sample * num_branches + branch, s ^ 0xf8ade99au);
+    return vec2<f32>(sobol_owen(i, 0u, s ^ 0xe0aaaf76u), sobol_owen(i, 1u, s ^ 0x94964d4eu));
 }
 
 // Starts sample `index` of a pixel (the sample offline, the frame live) on path `path`; `seed`: the render's

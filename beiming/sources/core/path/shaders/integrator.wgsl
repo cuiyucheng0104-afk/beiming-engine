@@ -91,7 +91,7 @@ struct PathLegacy {
     // `direct_light` without the sky: a surface seen in a reflection lights itself from the lights, the sky's light
     // there is the radiance cache's.
     lights_only: bool,
-    // 上游随机数编号里的「这次调用的第几条路径」（sample.wgsl `rng_dim`），离线恒为 0
+    // 上游随机数编号里的「这次调用的第几条路径」（sample.wgsl `rng_legacy`），离线恒为 0
     rng_path: u32,
 };
 
@@ -175,7 +175,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     state.mis_ray_object = OBJECT_NONE;
     // 北冥：相机光线。这一段留在 main 里：试过抽成单独的函数，Metal 上相机三个轴都不贴坐标轴的场景末位会变（运算次序），
     // 所以没有单独的相机文件。
-    let cam = rng4(rng_dim(D_CAMERA));
+    let cam = rng4(rng_legacy(D_CAMERA));
 
     // (Every sample draws its own sub-pixel jitter.)
     var jx = cam.x;
@@ -262,7 +262,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             // a quarter of the pixels at 4x weight; the low-frequency fog converges in the accumulation.
             if (has(F_VOLUME) && depth == 0u && P.vol.x > 0.0 && (((gid.x >> 3u) + 2u * (gid.y >> 2u) + pcg(P.size.z)) & VOL_RATE_MASK) == 0u) {
                 // Firefly clamp: a fog point next to a bright sign is rare and huge; haze is a few nits.
-                var fs = f32(VOL_RATE_MASK + 1u) * fog_scatter(ray.P, ray.D, t0, max(tv, t0), trv, rng_dim(D_FOG));
+                var fs = f32(VOL_RATE_MASK + 1u) * fog_scatter(ray.P, ray.D, t0, max(tv, t0), trv, rng_legacy(D_FOG));
                 let fl = luminance(fs);
                 let fmax = 0.02 * clamp_v;
                 if (fl > fmax) { fs *= fmax / fl; }
@@ -283,7 +283,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         // Paths track every medium.
         if (!LIVE && has(F_MEDIA) && P.time.w > 0.5) {
             // Media on this segment: emission on the way; a real collision scatters the path there.
-            let tk = media_track(ray.P, ray.D, select(hit.t, 1.0e30, hit.tri == 0xffffffffu), rng_dim(D_MEDIA));
+            let tk = media_track(ray.P, ray.D, select(hit.t, 1.0e30, hit.tri == 0xffffffffu), rng_legacy(D_MEDIA));
             film_add_light(state.throughput * tk.emission, depth, LIGHTGROUP_NONE);
             if (tk.t >= 0.0) {
                 let x = ray.P + ray.D * tk.t;
@@ -293,7 +293,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     albedo = tk.albedo;
                     normal = -ray.D;
                 }
-                var c = state.throughput * phase_direct(x, ray.D, tk.g, rng_dim(D_VOL_LIGHT));
+                var c = state.throughput * phase_direct(x, ray.D, tk.g, rng_legacy(D_VOL_LIGHT));
                 if (depth > 0u && !state.legacy.straight) {
                     let lum = luminance(c);
                     if (lum > clamp_v) { c *= clamp_v / lum; }
@@ -316,7 +316,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 state.continuation_probability = 1.0;
                 if (depth >= P.counts.w) {
                     state.continuation_probability = min(max(state.throughput.x, max(state.throughput.y, state.throughput.z)), 0.95);
-                    if (rng1(rng_dim(D_RR)) > state.continuation_probability) { break; }
+                    if (rng1(rng_legacy(D_RR)) > state.continuation_probability) { break; }
                     state.throughput /= state.continuation_probability;
                 }
                 ray.P = x;
@@ -464,7 +464,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         state.continuation_probability = 1.0;
         if (depth >= P.counts.w) {
             state.continuation_probability = min(max(state.throughput.x, max(state.throughput.y, state.throughput.z)), 0.95);
-            if (rng1(rng_dim(D_RR)) > state.continuation_probability) { break; }
+            if (rng1(rng_legacy(D_RR)) > state.continuation_probability) { break; }
             state.throughput /= state.continuation_probability;
         }
         ray.P = offset_origin(sd.P, select(sd.Ng, -sd.Ng, dot(l, sd.Ng) < 0.0));

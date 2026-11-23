@@ -61,7 +61,7 @@
 | `src/texpack.rs` | `renderer/src/texpack.rs` | 删去切掉的几类 |
 | `src/world.rs` | `renderer/src/world.rs` | 删去切掉的几类 |
 | `shaders/pathtrace.wgsl`、`intersect.wgsl`、`shader.wgsl`、`closure.wgsl`、`light.wgsl`、`volume.wgsl`、`integrator.wgsl`、`film.wgsl` | `renderer/shaders/pathtrace.wgsl` | 删去只有实时才走的段；加了北冥的接线（见下一节）；按阶段分成八个文件（见下一节末） |
-| `shaders/sample.wgsl` | `renderer/shaders/sample.wgsl` | 少两个只给辐射缓存用的采样维度常量；随机数的状态换成读路径状态；种子的第一次哈希挪到 CPU 上；索引掩码起了名字 |
+| `shaders/sample.wgsl` | `renderer/shaders/sample.wgsl` | 少两个只给辐射缓存用的采样维度常量；随机数的状态换成读路径状态；种子的第一次哈希挪到 CPU 上；索引掩码起了名字；加了照 Cycles 的取数接口与维度枚举，上游的 `rng_dim` 改名 `rng_legacy`（见下一节「随机维度」） |
 | `shaders/trace_hw.wgsl` | `renderer/shaders/trace_hw.wgsl` | 没改 |
 | `shaders/records.wgsl` | `renderer/shaders/records.wgsl` | 去掉每个像素的输出结构 `Pixel`（换成了 `film.wgsl` 的输出缓冲，见下一节末） |
 | `presets/cinematic.json`、`presets/preview.json` | `presets/` 下同名文件 | 没改 |
@@ -157,6 +157,13 @@
 - `film_write_sample` 里四格先都读出来再写回去（读一格写一格地交替，苹果显卡上稳态慢约 1%）。
 - 降噪、`--hdr`、图像输出、`--signals` 读的还是颜色、反照率、法线、两个方差量与那两组，结果不变（三个场景开、关降噪各渲一遍，图像、`--hdr` 与三份 `--signals` 输出逐字节相同）。
 - 库测试 `the_film_layout_is_the_kernels`（`src/merged.rs`）逐个比两侧的位置常数，查 film 只在 `film.wgsl` 里下标、步长只在一处乘，并锁住缓冲大小的算法与报错。
+
+### 随机维度
+
+发生器没有换（打乱索引加 Owen 扰动的 Sobol，上游与 Cycles 的盐值逐个相同）。要换的是「哪个决定用哪一维」的编号办法：从上游的「路径号、顶点号、槽位拼成一个数」换成 Cycles 的「路径状态里的偏移加枚举」。分两步做，这里是第一步，渲染结果不变（逐位）。
+
+- `shaders/sample.wgsl` 新增取数接口 `path_rng_1D`、`path_rng_2D`、`path_rng_3D`（编号 = `state.rng_offset` 加维度，像素种子与样本号读路径状态；对应 Cycles 的 `path_state_rng_1D` 到 `3D`）与分支版 `path_branched_rng_2D`（样本号换成 `state.sample × 分支数 + 第几支`）。维度的枚举 `PRNG_*` 数值照 Cycles 的 `PathTraceDimension`。这一步它们还没有调用者。
+- 上游的 `rng_dim` 改名 `rng_legacy`：还没有照 Cycles 移植的决定都从它取编号，新写的代码不许用。这一步它原样返回上游的编号，相机、俄罗斯轮盘、金属闭包也还经它取。
 
 ## 沿用上游名字的地方
 
