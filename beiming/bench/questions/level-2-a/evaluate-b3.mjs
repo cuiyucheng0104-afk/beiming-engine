@@ -132,19 +132,27 @@ const RULES = {
     },
   ],
   '30-1': [
-    ({ bpm, minBeatEvents, tolFrames, minHitRate, minLift, phaseFrames = 0 }, { fps, frames, baseBpm, beatEvents }) => {
+    ({ bpm, minBeatEvents, tolFrames, minHitRate, minLift, phaseFrames = 0, requiredEventIds }, { fps, frames, baseBpm, beatEvents }) => {
       const periodFrames = (fps * 60) / bpm;
       const onBeat = (frame) => periodFrames > 0 && offGrid(frame, periodFrames, phaseFrames) <= tolFrames + 1e-9;
       const hit = share(beatEvents.filter(({ frame }) => onBeat(frame)).length, beatEvents.length);
       const distinctFrames = new Set(beatEvents.map(({ frame }) => frame)).size;
-      const minDistinctFrames = Math.ceil(minBeatEvents / 2);
+      const byId = new Map(beatEvents.map((e) => [e.id, e]));
+      const hasReq = Array.isArray(requiredEventIds) && requiredEventIds.length > 0;
+      const missingIds = hasReq
+        ? requiredEventIds.filter((id) => typeof id !== 'string' || !byId.has(id))
+        : [];
       const randomBaseline = Array.from({ length: frames }, (_, frame) => frame).filter(onBeat).length / frames;
       const lift = hit.hitRate - randomBaseline;
+      const reqHit = hasReq && missingIds.length === 0
+        ? share(requiredEventIds.filter((id) => onBeat(byId.get(id).frame)).length, requiredEventIds.length)
+        : null;
+      const reqOk = !hasReq || (missingIds.length === 0 && reqHit.hitRate >= minHitRate && reqHit.hitRate - randomBaseline >= minLift);
       const offBeatIds = beatEvents.filter(({ frame }) => !onBeat(frame)).map(({ id }) => id);
       return {
         pass: baseBpm === bpm
           && beatEvents.length >= minBeatEvents
-          && distinctFrames >= minDistinctFrames
+          && reqOk
           && hit.hitRate >= minHitRate
           && lift >= minLift,
         ...hit,
@@ -154,33 +162,61 @@ const RULES = {
         lift,
         baselineFrames: [0, frames],
         offBeatIds,
+        missingIds,
+        ...(reqHit ? { requiredHitRate: reqHit.hitRate } : {}),
       };
     },
-    ({ baseBpm, probeBpm, tolFrames, minMovedRatio }, { baseBpm: readBaseBpm, probeBpm: readProbeBpm, beatEvents, probeBeatEvents }) => {
+    ({ baseBpm, probeBpm, tolFrames, minMovedRatio, minMovableRatio = 0.5, requiredEventIds }, { baseBpm: readBaseBpm, probeBpm: readProbeBpm, beatEvents, probeBeatEvents }) => {
       // 只核对声明要跟拍的 beatEvents 与 probeBeatEvents，absoluteEvents 按绝对时间走、不查跟拍位移
+      const baseById = new Map(beatEvents.map((e) => [e.id, e.frame]));
       const probeById = new Map(probeBeatEvents.map((e) => [e.id, e.frame]));
+      const hasReq = Array.isArray(requiredEventIds) && requiredEventIds.length > 0;
+      const missingIds = hasReq
+        ? requiredEventIds.filter((id) => typeof id !== 'string' || !baseById.has(id) || !probeById.has(id))
+        : [];
+      const ratio = baseBpm / probeBpm;
+      const movableIds = new Set();
       const unfollowedIds = [];
       let followed = 0;
       let movableCount = 0;
       for (const { id, frame: baseFrame } of beatEvents) {
         const probeFrame = probeById.get(id);
-        const expectedFrame = Math.round(baseFrame * (baseBpm / probeBpm));
-        const mustMove = Math.abs(expectedFrame - baseFrame) >= tolFrames + 1;
-        if (mustMove) movableCount++;
+        const expectedFrame = Math.round(baseFrame * ratio);
+        const lo = (baseFrame - 0.5) * ratio;
+        const hi = (baseFrame + 0.5) * ratio;
+        const disjoint = Number.isFinite(ratio) && (hi <= baseFrame - 0.5 + 1e-9 || lo >= baseFrame + 0.5 - 1e-9);
+        const mustMove = Math.abs(expectedFrame - baseFrame) >= tolFrames + 1 || disjoint;
+        if (mustMove) {
+          movableCount++;
+          movableIds.add(id);
+        }
         const ok = Math.abs(probeFrame - expectedFrame) <= tolFrames && (!mustMove || probeFrame !== baseFrame);
         if (ok) followed++;
         else unfollowedIds.push(id);
       }
       const followedRatio = beatEvents.length ? followed / beatEvents.length : 0;
       const bpmMatched = readBaseBpm === baseBpm && readProbeBpm === probeBpm;
-      const enoughMovable = movableCount >= Math.ceil(beatEvents.length / 2);
+      const reqMovableCount = hasReq && missingIds.length === 0
+        ? requiredEventIds.filter((id) => movableIds.has(id)).length
+        : 0;
+      const reqFollowedCount = hasReq && missingIds.length === 0
+        ? requiredEventIds.filter((id) => !unfollowedIds.includes(id)).length
+        : 0;
+      const reqFollowedRatio = hasReq && requiredEventIds.length ? reqFollowedCount / requiredEventIds.length : 1;
+      const enoughMovable = movableCount >= Math.ceil(beatEvents.length * minMovableRatio)
+        && (!hasReq || (missingIds.length === 0 && reqMovableCount >= Math.ceil(requiredEventIds.length * minMovableRatio)));
       return {
-        pass: bpmMatched && enoughMovable && followedRatio >= minMovedRatio,
+        pass: bpmMatched
+          && missingIds.length === 0
+          && enoughMovable
+          && followedRatio >= minMovedRatio
+          && (!hasReq || reqFollowedRatio >= minMovedRatio),
         followed,
         events: beatEvents.length,
         followedRatio,
         movableCount,
         unfollowedIds,
+        missingIds,
       };
     },
   ],
@@ -438,43 +474,51 @@ export async function read30_1(options = {}, extra = {}) {
     filmMeta,
   } = cfg;
   const givenMeta = plain(filmMeta) ? filmMeta : {};
-  const rawFps = givenMeta.fps ?? qSpec?.fps ?? 24;
-  const fps = typeof rawFps === 'string' ? rate(rawFps) : rawFps;
-  const frames = givenMeta.frames ?? qSpec?.frames ?? 2160;
-  const width = givenMeta.width ?? (Array.isArray(givenMeta.size) ? givenMeta.size[0] : (Array.isArray(qSpec?.size) ? qSpec.size[0] : 1920));
-  const height = givenMeta.height ?? (Array.isArray(givenMeta.size) ? givenMeta.size[1] : (Array.isArray(qSpec?.size) ? qSpec.size[1] : 1080));
-  const cuts = givenMeta.cuts ?? [];
-  const shots = Object.hasOwn(givenMeta, 'shots')
-    ? givenMeta.shots
-    : (Array.isArray(cuts) && Number.isSafeInteger(frames) && frames > 0
-      ? [0, ...cuts].map((start, i) => ({ in: start, out: cuts[i] ?? frames }))
-      : [{ in: 0, out: 2160 }]);
-  const meta = {
-    colorTag: 'bt709',
-    blackFrames: [],
-    freezes: [],
-    loudnessLufs: -14,
-    truePeakDbtp: -1.5,
-    ...givenMeta,
-    width,
-    height,
-    fps,
-    frames,
-    cuts,
-    shots,
-  };
-  if (typeof resolveEvents !== 'function') {
-    return { ...meta, baseBpm, probeBpm, unreadable: '30-1 缺少行为求值函数 resolveEvents' };
+  if (typeof givenMeta.toolMissing === 'string' && givenMeta.toolMissing.length > 0) {
+    return { toolMissing: givenMeta.toolMissing };
   }
-  if (!finite(baseBpm, probeBpm, meta.fps) || baseBpm <= 0 || probeBpm <= 0 || meta.fps <= 0 || baseBpm === probeBpm
-    || !Number.isSafeInteger(meta.frames) || meta.frames <= 0) {
-    return { ...meta, baseBpm, probeBpm, unreadable: '30-1 行为探针参数不合法' };
+  const parseFpsVal = (v) => (typeof v === 'string' ? (/^\d+\/\d+$/.test(v) ? rate(v) : NaN) : v);
+  const hasFps = Object.hasOwn(givenMeta, 'fps');
+  const fps = hasFps ? parseFpsVal(givenMeta.fps) : undefined;
+  const frames = Object.hasOwn(givenMeta, 'frames') ? givenMeta.frames : undefined;
+  const width = Object.hasOwn(givenMeta, 'width')
+    ? givenMeta.width
+    : (Array.isArray(givenMeta.size) ? givenMeta.size[0] : undefined);
+  const height = Object.hasOwn(givenMeta, 'height')
+    ? givenMeta.height
+    : (Array.isArray(givenMeta.size) ? givenMeta.size[1] : undefined);
+
+  // 仅透传调用方显式提供的成片与工程量测证据，绝不私填画幅、帧率、帧数、色彩标签、黑帧、冻结、切点、镜头表或响度默认值
+  const measuredMeta = {
+    ...(width !== undefined ? { width } : {}),
+    ...(height !== undefined ? { height } : {}),
+    ...(fps !== undefined ? { fps } : {}),
+    ...(frames !== undefined ? { frames } : {}),
+    ...(Object.hasOwn(givenMeta, 'colorTag') ? { colorTag: givenMeta.colorTag } : {}),
+    ...(Object.hasOwn(givenMeta, 'blackFrames') ? { blackFrames: givenMeta.blackFrames } : {}),
+    ...(Object.hasOwn(givenMeta, 'freezes') ? { freezes: givenMeta.freezes } : {}),
+    ...(Object.hasOwn(givenMeta, 'cuts') ? { cuts: givenMeta.cuts } : {}),
+    ...(Object.hasOwn(givenMeta, 'shots') ? { shots: givenMeta.shots } : {}),
+    ...(Object.hasOwn(givenMeta, 'loudnessLufs') ? { loudnessLufs: givenMeta.loudnessLufs } : {}),
+    ...(Object.hasOwn(givenMeta, 'truePeakDbtp') ? { truePeakDbtp: givenMeta.truePeakDbtp } : {}),
+  };
+
+  const rawProbeFps = hasFps ? givenMeta.fps : (qSpec?.fps ?? '24/1');
+  const probeFps = typeof rawProbeFps === 'string' ? rate(rawProbeFps) : rawProbeFps;
+  const probeFrames = frames !== undefined ? frames : (qSpec?.frames ?? 2160);
+
+  if (typeof resolveEvents !== 'function') {
+    return { ...measuredMeta, baseBpm, probeBpm, unreadable: '30-1 缺少行为求值函数 resolveEvents' };
+  }
+  if (!finite(baseBpm, probeBpm, probeFps) || baseBpm <= 0 || probeBpm <= 0 || probeFps <= 0 || baseBpm === probeBpm
+    || !Number.isSafeInteger(probeFrames) || probeFrames <= 0) {
+    return { ...measuredMeta, baseBpm, probeBpm, unreadable: '30-1 行为探针参数不合法' };
   }
   const fpsFraction = typeof givenMeta.fpsFraction === 'string'
     ? givenMeta.fpsFraction
-    : (typeof rawFps === 'string' && /^\d+\/\d+$/.test(rawFps) ? rawFps : `${meta.fps}/1`);
+    : (typeof rawProbeFps === 'string' && /^\d+\/\d+$/.test(rawProbeFps) ? rawProbeFps : `${probeFps}/1`);
   const evalAtBpm = async (bpm) => {
-    const beatFrames = (meta.fps * 60) / bpm;
+    const beatFrames = (probeFps * 60) / bpm;
     const step = evaluateTimeline({ fps: fpsFraction, shot: { in: 0 } }, { holdFrames: 1, beatFrames }, 1, 0).time;
     const timelineAt = (frame, sub = 0) => evaluateTimeline(
       { fps: fpsFraction, shot: { in: 0 } },
@@ -486,9 +530,9 @@ export async function read30_1(options = {}, extra = {}) {
     const frameAtSeconds = (seconds) => Math.round(seconds / step.seconds);
     return snapshot(await resolveEvents({
       bpm,
-      fps: meta.fps,
+      fps: probeFps,
       fpsFraction,
-      frames: meta.frames,
+      frames: probeFrames,
       beatFrames,
       timelineAt,
       frameAtBeat,
@@ -499,20 +543,10 @@ export async function read30_1(options = {}, extra = {}) {
     const baseOut = await evalAtBpm(baseBpm);
     const probeOut = await evalAtBpm(probeBpm);
     if (!plain(baseOut) || !plain(probeOut)) {
-      return { ...meta, baseBpm, probeBpm, unreadable: '30-1 行为求值未返回事件对象' };
+      return { ...measuredMeta, baseBpm, probeBpm, unreadable: '30-1 行为求值未返回事件对象' };
     }
     const reading = {
-      width: meta.width,
-      height: meta.height,
-      fps: meta.fps,
-      frames: meta.frames,
-      colorTag: meta.colorTag,
-      blackFrames: meta.blackFrames,
-      freezes: meta.freezes,
-      cuts: meta.cuts,
-      shots: meta.shots,
-      loudnessLufs: meta.loudnessLufs,
-      truePeakDbtp: meta.truePeakDbtp,
+      ...measuredMeta,
       baseBpm,
       probeBpm,
       beatEvents: baseOut.beatEvents,
@@ -524,6 +558,6 @@ export async function read30_1(options = {}, extra = {}) {
     }
     return reading;
   } catch {
-    return { ...meta, baseBpm, probeBpm, unreadable: '30-1 行为求值回调异常' };
+    return { ...measuredMeta, baseBpm, probeBpm, unreadable: '30-1 行为求值回调异常' };
   }
 }

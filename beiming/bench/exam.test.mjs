@@ -293,7 +293,7 @@ test('exam-8 回归：--questions 副本收紧或放宽 18-2 阈值时必须按�
   assert.equal(parsed.questions[0].pass, false);
   assert.equal(parsed.questions[0].score, 0);
 
-  // 2. tolFrames 放宽到 10 -> shift-2f 负对照失守，必须 exit 1
+  // 2. tolFrames 放宽到 10 -> shift-2f 负对照失守，必须 exit 1 且得分归 0
   const looseDir = makeTempDir(t);
   const looseQ = structuredClone(base182);
   looseQ.scoring[0].args.tolFrames = 10;
@@ -301,6 +301,8 @@ test('exam-8 回归：--questions 副本收紧或放宽 18-2 阈值时必须按�
   const looseReport = await runExam({ questionsDir: looseDir, outDir: null });
   assert.equal(looseReport.ok, false);
   assert.equal(looseReport.exitCode, 1);
+  assert.equal(looseReport.questions[0].pass, false);
+  assert.equal(looseReport.questions[0].score, 0);
 });
 
 test('exam-9 回归：全 expectedFail 跳过题库不得计入通过且必须退出非 0（exit 1，消除 all-skipped 假绿）', async (t) => {
@@ -549,30 +551,193 @@ test('exam-13 回归：level-2-a（27-1 / 29-2 / 23-2 / 30-1）接入 B3 评分�
   assert.equal(rNoNeg.ok, false);
   assert.equal(rNoNeg.exitCode, 4);
 
-  // 5. 30-1 篡改写死帧号夹具使之跟动（失配 expect.pass=false）或收紧 probeBpm 阈值 -> 必须返回 exit 1
-  const rootTamper = makeTempDir(t);
-  const fakeBenchTamper = path.join(rootTamper, 'bench');
-  const only30Dir = path.join(fakeBenchTamper, 'questions-only-30');
-  fs.mkdirSync(only30Dir, { recursive: true });
-  fs.cpSync(path.join(QUESTIONS_DIR, 'level-2-a/30-1.json'), path.join(only30Dir, '30-1.json'));
-  fs.cpSync(path.join(HERE, 'refs'), path.join(fakeBenchTamper, 'refs'), { recursive: true });
-  const ref30 = JSON.parse(fs.readFileSync(path.join(fakeBenchTamper, 'refs/level-2-a/30-1.reference.json'), 'utf8'));
-  const hardPath = path.join(fakeBenchTamper, 'refs/level-2-a/30-1.hardcoded.json');
-  const hard30 = JSON.parse(fs.readFileSync(hardPath, 'utf8'));
-  hard30.probeBeatEvents = ref30.probeBeatEvents;
-  fs.writeFileSync(hardPath, JSON.stringify(hard30, null, 2));
-  const rHardMismatch = await runExam({ benchDir: fakeBenchTamper, questionsDir: only30Dir, outDir: null });
+  // 5. 30-1 写死样本被改成移动样本（探针帧 +2 偏移或直接换成参考探针表，0/20 固定）-> 夹具校验必须拒收（exit 4，绝不判 4/4 通过）
+  const makeOnly30Bench = () => {
+    const root = makeTempDir(t);
+    const fakeBench = path.join(root, 'bench');
+    const only30Dir = path.join(fakeBench, 'questions-only-30');
+    const evalRoot = path.join(root, 'eval-runs');
+    const outDir = path.join(root, 'out');
+    fs.mkdirSync(only30Dir, { recursive: true });
+    fs.cpSync(path.join(QUESTIONS_DIR, 'level-2-a/30-1.json'), path.join(only30Dir, '30-1.json'));
+    fs.cpSync(path.join(HERE, 'refs'), path.join(fakeBench, 'refs'), { recursive: true });
+    return { root, fakeBench, only30Dir, evalRoot, outDir };
+  };
+
+  for (const delta of [2, 0]) {
+    const bShift = makeOnly30Bench();
+    const ref30 = JSON.parse(fs.readFileSync(path.join(bShift.fakeBench, 'refs/level-2-a/30-1.reference.json'), 'utf8'));
+    const hardPath = path.join(bShift.fakeBench, 'refs/level-2-a/30-1.hardcoded.json');
+    const hard30 = JSON.parse(fs.readFileSync(hardPath, 'utf8'));
+    hard30.probeBeatEvents = ref30.probeBeatEvents.map((e) => ({ ...e, frame: e.frame + delta }));
+    fs.writeFileSync(hardPath, JSON.stringify(hard30, null, 2));
+
+    const rShift = await runExam({ benchDir: bShift.fakeBench, questionsDir: bShift.only30Dir, evalRoot: bShift.evalRoot, outDir: bShift.outDir });
+    assert.equal(rShift.ok, false, `delta=${delta}`);
+    assert.equal(rShift.exitCode, 4, `delta=${delta}`);
+    assert.equal(rShift.questions[0].valid, false);
+    assert.equal(rShift.questions[0].pass, false);
+    assert.equal(rShift.questions[0].score, 0);
+
+    const q30Loaded = JSON.parse(fs.readFileSync(path.join(bShift.only30Dir, '30-1.json'), 'utf8'));
+    assert.equal(evaluateOfflineQuestion({ question: q30Loaded, benchDir: bShift.fakeBench }).pass, false);
+  }
+
+  // 6. 30-1 固定样本失配或负对照失守（exit 1）时：runner 落盘的 result.json 与单题报告均必须为 pass: false, score: 0（绝不签出 pass: true 或 score: 1）
+  const findResultJson = (dir) => {
+    const hit = fs.readdirSync(dir, { recursive: true }).find((f) => String(f).endsWith('result.json'));
+    assert.ok(hit, `应在 ${dir} 下落盘 result.json`);
+    return JSON.parse(fs.readFileSync(path.join(dir, String(hit)), 'utf8'));
+  };
+
+  // 6a) 保留合法双固定夹具过契约门，追加失配负样本（其 probeBeatEvents 换成参考探针表、保留 expect.pass=false）-> exit 1，result.json 与报告均为 pass:false, score:0
+  const bMismatch = makeOnly30Bench();
+  const ref30 = JSON.parse(fs.readFileSync(path.join(bMismatch.fakeBench, 'refs/level-2-a/30-1.reference.json'), 'utf8'));
+  const extraNeg = JSON.parse(fs.readFileSync(path.join(bMismatch.fakeBench, 'refs/level-2-a/30-1.hardcoded.json'), 'utf8'));
+  extraNeg.probeBeatEvents = ref30.probeBeatEvents;
+  fs.writeFileSync(path.join(bMismatch.fakeBench, 'refs/level-2-a/30-1.extra-neg.json'), JSON.stringify(extraNeg, null, 2));
+  const q30WithExtra = JSON.parse(fs.readFileSync(path.join(bMismatch.only30Dir, '30-1.json'), 'utf8'));
+  q30WithExtra.refs.push('beiming/bench/refs/level-2-a/30-1.extra-neg.json');
+  fs.writeFileSync(path.join(bMismatch.only30Dir, '30-1.json'), JSON.stringify(q30WithExtra, null, 2));
+
+  const rHardMismatch = await runExam({
+    benchDir: bMismatch.fakeBench,
+    questionsDir: bMismatch.only30Dir,
+    evalRoot: bMismatch.evalRoot,
+    outDir: bMismatch.outDir,
+  });
   assert.equal(rHardMismatch.ok, false);
   assert.equal(rHardMismatch.exitCode, 1);
   assert.equal(rHardMismatch.questions[0].pass, false);
+  assert.equal(rHardMismatch.questions[0].score, 0);
+  const mismatchResult = findResultJson(bMismatch.evalRoot);
+  assert.equal(mismatchResult.status, 'fail');
+  assert.equal(mismatchResult.pass, false);
+  assert.equal(mismatchResult.score, 0);
 
+  // 6b) 放宽 minMovedRatio=0 使写死帧号样本被误放过（固定样本失配 + 合成负对照失守，而正对照仍为 1.0）-> exit 1，result.json 与报告均为 pass:false, score:0
+  const bLoose30 = makeOnly30Bench();
+  const q30Loose = JSON.parse(fs.readFileSync(path.join(bLoose30.only30Dir, '30-1.json'), 'utf8'));
+  q30Loose.scoring[1].args.minMovedRatio = 0;
+  fs.writeFileSync(path.join(bLoose30.only30Dir, '30-1.json'), JSON.stringify(q30Loose, null, 2));
+  const rLoose30 = await runExam({
+    benchDir: bLoose30.fakeBench,
+    questionsDir: bLoose30.only30Dir,
+    evalRoot: bLoose30.evalRoot,
+    outDir: bLoose30.outDir,
+  });
+  assert.equal(rLoose30.ok, false);
+  assert.equal(rLoose30.exitCode, 1);
+  assert.equal(rLoose30.questions[0].pass, false);
+  assert.equal(rLoose30.questions[0].score, 0);
+  const looseResult = findResultJson(bLoose30.evalRoot);
+  assert.equal(looseResult.status, 'fail');
+  assert.equal(looseResult.pass, false);
+  assert.equal(looseResult.score, 0);
+
+  // 6c) 收紧 probeBpm 阈值 -> exit 1，报告与 result.json 均不得签出满分
   const q30Tight = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-2-a/30-1.json'), 'utf8'));
   q30Tight.scoring[1].args.probeBpm = 108;
   const tight30Dir = makeTempDir(t);
+  const tightEvalRoot = makeTempDir(t);
   fs.writeFileSync(path.join(tight30Dir, '30-1.json'), JSON.stringify(q30Tight, null, 2));
-  const rTight30 = await runExam({ questionsDir: tight30Dir, outDir: null });
+  const rTight30 = await runExam({ questionsDir: tight30Dir, evalRoot: tightEvalRoot, outDir: null });
   assert.equal(rTight30.ok, false);
   assert.equal(rTight30.exitCode, 1);
   assert.equal(rTight30.questions[0].pass, false);
+  assert.equal(rTight30.questions[0].score, 0);
+  const tightResult = findResultJson(tightEvalRoot);
+  assert.equal(tightResult.pass, false);
+  assert.equal(tightResult.score, 0);
+
+  // 6d) 写死样本保持帧号不动但把 beatEvents 改成全偏拍（或把参考样本 probeBeatEvents 改成不动）-> 过契约门后求值失配（exit 1），result.json 与报告均为 pass:false, score:0
+  const bHardOffBeat = makeOnly30Bench();
+  const hardOffPath = path.join(bHardOffBeat.fakeBench, 'refs/level-2-a/30-1.hardcoded.json');
+  const hardOff = JSON.parse(fs.readFileSync(hardOffPath, 'utf8'));
+  hardOff.beatEvents = hardOff.beatEvents.map((e, idx) => ({ id: e.id, frame: (idx + 1) * 18 + 9 }));
+  hardOff.probeBeatEvents = hardOff.beatEvents.map((e) => ({ ...e }));
+  fs.writeFileSync(hardOffPath, JSON.stringify(hardOff, null, 2));
+  const rHardOff = await runExam({
+    benchDir: bHardOffBeat.fakeBench,
+    questionsDir: bHardOffBeat.only30Dir,
+    evalRoot: bHardOffBeat.evalRoot,
+    outDir: null,
+  });
+  assert.equal(rHardOff.ok, false);
+  assert.equal(rHardOff.exitCode, 1);
+  assert.equal(rHardOff.questions[0].pass, false);
+  assert.equal(rHardOff.questions[0].score, 0);
+  const hardOffResult = findResultJson(bHardOffBeat.evalRoot);
+  assert.equal(hardOffResult.pass, false);
+  assert.equal(hardOffResult.score, 0);
+
+  const bBadPosRef = makeOnly30Bench();
+  const badPosPath = path.join(bBadPosRef.fakeBench, 'refs/level-2-a/30-1.reference.json');
+  const badPos30 = JSON.parse(fs.readFileSync(badPosPath, 'utf8'));
+  badPos30.loudnessLufs = -8.7;
+  fs.writeFileSync(badPosPath, JSON.stringify(badPos30, null, 2));
+  const rBadPosRef = await runExam({
+    benchDir: bBadPosRef.fakeBench,
+    questionsDir: bBadPosRef.only30Dir,
+    evalRoot: bBadPosRef.evalRoot,
+    outDir: null,
+  });
+  assert.equal(rBadPosRef.ok, false);
+  assert.equal(rBadPosRef.exitCode, 1);
+  assert.equal(rBadPosRef.questions[0].pass, false);
+  assert.equal(rBadPosRef.questions[0].score, 0);
+  const badPosResult = findResultJson(bBadPosRef.evalRoot);
+  assert.equal(badPosResult.pass, false);
+  assert.equal(badPosResult.score, 0);
+
+  // 7. 30-1 截断伪负样本、把通过样本改成写死静止表、BPM 扰动对失配或 expect 自相矛盾（含 --dry-run）-> 夹具契约校验必须拒收（exit 4，passedQuestions=0）
+  const bTrunc = makeOnly30Bench();
+  const truncHardPath = path.join(bTrunc.fakeBench, 'refs/level-2-a/30-1.hardcoded.json');
+  const truncHard = JSON.parse(fs.readFileSync(truncHardPath, 'utf8'));
+  truncHard.beatEvents = [{ id: 'm01', frame: 216 }];
+  truncHard.probeBeatEvents = [{ id: 'm01', frame: 216 }];
+  truncHard.expect = { pass: false, basePass: true, score: 0, items: [false, false] };
+  fs.writeFileSync(truncHardPath, JSON.stringify(truncHard, null, 2));
+  const rTrunc = await runExam({ benchDir: bTrunc.fakeBench, questionsDir: bTrunc.only30Dir, outDir: null });
+  assert.equal(rTrunc.ok, false);
+  assert.equal(rTrunc.exitCode, 4);
+  assert.equal(rTrunc.summary.passedQuestions, 0);
+
+  const bStationaryPos = makeOnly30Bench();
+  const stationaryPosPath = path.join(bStationaryPos.fakeBench, 'refs/level-2-a/30-1.reference.json');
+  const stationaryPos = JSON.parse(fs.readFileSync(stationaryPosPath, 'utf8'));
+  stationaryPos.probeBeatEvents = stationaryPos.beatEvents;
+  fs.writeFileSync(stationaryPosPath, JSON.stringify(stationaryPos, null, 2));
+  for (const dryRun of [true, false]) {
+    const rStatPos = await runExam({ benchDir: bStationaryPos.fakeBench, questionsDir: bStationaryPos.only30Dir, dryRun, outDir: null });
+    assert.equal(rStatPos.ok, false);
+    assert.equal(rStatPos.exitCode, 4);
+    assert.equal(rStatPos.summary.passedQuestions, 0);
+    assert.equal(rStatPos.questions[0].pass, false);
+    assert.equal(rStatPos.questions[0].score, 0);
+  }
+
+  const bUnpairedBpm = makeOnly30Bench();
+  const unpairedHardPath = path.join(bUnpairedBpm.fakeBench, 'refs/level-2-a/30-1.hardcoded.json');
+  const unpairedHard = JSON.parse(fs.readFileSync(unpairedHardPath, 'utf8'));
+  unpairedHard.probeBpm = 120;
+  fs.writeFileSync(unpairedHardPath, JSON.stringify(unpairedHard, null, 2));
+  const rUnpairedDry = await runExam({ benchDir: bUnpairedBpm.fakeBench, questionsDir: bUnpairedBpm.only30Dir, dryRun: true, outDir: null });
+  assert.equal(rUnpairedDry.ok, false);
+  assert.equal(rUnpairedDry.exitCode, 4);
+  assert.equal(rUnpairedDry.questions[0].pass, false);
+  assert.equal(rUnpairedDry.questions[0].score, 0);
+
+  const bDryBadRef = makeOnly30Bench();
+  const badRefPath = path.join(bDryBadRef.fakeBench, 'refs/level-2-a/30-1.reference.json');
+  const badRef30 = JSON.parse(fs.readFileSync(badRefPath, 'utf8'));
+  badRef30.expect = { pass: true, basePass: true, score: 0.6, items: [true, false] };
+  fs.writeFileSync(badRefPath, JSON.stringify(badRef30, null, 2));
+  const rDryBadRef = await runExam({ benchDir: bDryBadRef.fakeBench, questionsDir: bDryBadRef.only30Dir, dryRun: true, outDir: null });
+  assert.equal(rDryBadRef.ok, false);
+  assert.equal(rDryBadRef.exitCode, 4);
+  assert.equal(rDryBadRef.summary.passedQuestions, 0);
+  assert.equal(rDryBadRef.questions[0].pass, false);
+  assert.equal(rDryBadRef.questions[0].score, 0);
 });
 

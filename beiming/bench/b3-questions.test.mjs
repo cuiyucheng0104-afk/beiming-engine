@@ -78,7 +78,11 @@ test('B3-1 二级第一批 4 道考题文件存在且原文与对象均通过 B1
     assert.equal('ext' in pub, false, '公开副本不带 ext');
     assert.equal(validateQuestion(pub).ok, true, `${id} 公开投影校验未过`);
   }
-  assert.equal(question('30-1').ext?.['bench.code'], '外01-1');
+  const q30 = question('30-1');
+  assert.equal(q30.ext?.['bench.code'], '外01-1');
+  const expectedIds = Array.from({ length: 20 }, (_, i) => `m${String(i + 1).padStart(2, '0')}`);
+  assert.deepEqual(q30.scoring[0].args.requiredEventIds, expectedIds);
+  assert.deepEqual(q30.scoring[1].args.requiredEventIds, expectedIds);
 });
 
 test('B3-2 拍点类的题都带随机对照，29-2 写明 34%', () => {
@@ -242,8 +246,19 @@ test('B3-7 30-1（外01-1）：双固定行为样本（参考通过 1.0、写死
     ['m11', 56], ['m12', 62], ['m13', 66], ['m14', 68], ['m15', 76],
     ['m16', 84], ['m17', 90], ['m18', 92], ['m19', 112], ['m20', 115.5],
   ];
+  const audioMeta = { loudnessLufs: -14, truePeakDbtp: -1.5 };
+  const fullFilmMeta = {
+    width: ref.width,
+    height: ref.height,
+    fps: ref.fps,
+    frames: ref.frames,
+    ...CLEAN,
+    cuts: ref.cuts,
+    shots: ref.shots,
+    ...audioMeta,
+  };
   const livePositive = await read30_1({
-    filmMeta: { cuts: ref.cuts, shots: ref.shots },
+    filmMeta: fullFilmMeta,
     resolveEvents: ({ frameAtBeat, frameAtSeconds }) => ({
       beatEvents: beatCues.map(([id, beat]) => ({ id, frame: frameAtBeat(beat) })),
       absoluteEvents: [{ id: 'title_enter', frame: frameAtSeconds(2) }, { id: 'end_card', frame: frameAtSeconds(80) }],
@@ -259,10 +274,10 @@ test('B3-7 30-1（外01-1）：双固定行为样本（参考通过 1.0、写死
   // probeBeatEvents 顺序打乱但 id->frame 映射一致，仍按事件名精确匹配满分通过
   assert.equal(evaluate(q, { ...ref, probeBeatEvents: [...ref.probeBeatEvents].reverse() }).pass, true);
 
-  // 复用同一份可变数组缓冲（原地改写 frame）或直接传 deliverable（fps='24/1', size=[1920,1080]）时，read30_1 先快照隔离仍满分通过
+  // 复用同一份可变数组缓冲（原地改写 frame）或直接传 deliverable（fps='24/1', size=[1920,1080]）加实测量测时，read30_1 先快照隔离仍满分通过
   const sharedRows = beatCues.map(([id]) => ({ id, frame: 0 }));
   const reusedOut = await read30_1({
-    filmMeta: q.deliverable,
+    filmMeta: { ...q.deliverable, ...CLEAN, cuts: ref.cuts, shots: ref.shots, ...audioMeta },
     resolveEvents: ({ frameAtBeat }) => {
       sharedRows.forEach((row, idx) => { row.frame = frameAtBeat(beatCues[idx][1]); });
       return { beatEvents: sharedRows };
@@ -270,27 +285,140 @@ test('B3-7 30-1（外01-1）：双固定行为样本（参考通过 1.0、写死
   });
   assert.equal(evaluate(q, reusedOut).pass, true);
 
-  // 20 个不同 id 全部挤在同一个拍点帧（216 -> 180）伪造数量：distinctFrames 退化被拦下
-  const clonedSingleBeat = evaluate(q, {
-    ...ref,
-    beatEvents: ref.beatEvents.map(({ id }) => ({ id, frame: 216 })),
-    probeBeatEvents: ref.beatEvents.map(({ id }) => ({ id, frame: 180 })),
+  // 跨轨同拍事件正对照：m01–m20 用真实 frameAtBeat 分布在 8 个拍点或 5 段×4 轨（含第 0 拍或首拍 +1 帧容差内）上，不得因同拍并发或低拍号四舍五入误扣分
+  for (const multiTrackBeats of [
+    [12, 20, 32, 36, 48, 68, 84, 112],
+    [0, 12, 20, 32, 36, 48, 68, 84],
+    [0, 24, 48, 72, 96],
+  ]) {
+    const crossTrackOut = await read30_1({
+      filmMeta: fullFilmMeta,
+      resolveEvents: ({ frameAtBeat, frameAtSeconds }) => ({
+        beatEvents: beatCues.map(([id], idx) => ({ id, frame: frameAtBeat(multiTrackBeats[idx % multiTrackBeats.length]) })),
+        absoluteEvents: [{ id: 'title_enter', frame: frameAtSeconds(2) }],
+      }),
+    });
+    const crossTrackVerdict = evaluate(q, crossTrackOut);
+    assert.equal(crossTrackVerdict.items[0].detail.distinctFrames, multiTrackBeats.length);
+    assert.deepEqual([passed(crossTrackVerdict), crossTrackVerdict.score, crossTrackVerdict.basePass, crossTrackVerdict.pass], [[true, true], 1, true, true]);
+  }
+  const nearZeroBeatOut = await read30_1({
+    filmMeta: fullFilmMeta,
+    resolveEvents: ({ frameAtBeat }) => ({
+      beatEvents: beatCues.map(([id, beat], idx) => ({ id, frame: idx === 0 ? frameAtBeat(0.06) : frameAtBeat(beat) })),
+    }),
   });
-  assert.deepEqual([passed(clonedSingleBeat), clonedSingleBeat.pass], [[false, true], false]);
+  assert.equal(evaluate(q, nearZeroBeatOut).pass, true);
+  assert.equal(evaluate(q, await read30_1({ filmMeta: { toolMissing: 'ffprobe' }, resolveEvents: () => ({ beatEvents: ref.beatEvents }) })).pass, false);
 
-  // 3) read30_1 写死帧号与部分写死负对照：忽略节拍表写死帧号得 0.6 分不过；19 个跟拍、仅 m08 写死第 864 帧也不过
+  // 漏交题面指定命名事件（m20 改名为 other_event、移入 absoluteEvents 或直接少交）：两项均判不通过、0 分
+  const renamedM20 = await read30_1({
+    filmMeta: fullFilmMeta,
+    resolveEvents: ({ frameAtBeat, frameAtSeconds }) => ({
+      beatEvents: beatCues.map(([id, beat]) => ({ id: id === 'm20' ? 'other_event' : id, frame: frameAtBeat(beat) })),
+      absoluteEvents: [{ id: 'title_enter', frame: frameAtSeconds(2) }],
+    }),
+  });
+  const renamedVerdict = evaluate(q, renamedM20);
+  assert.deepEqual([passed(renamedVerdict), renamedVerdict.score, renamedVerdict.pass], [[false, false], 0, false]);
+  assert.deepEqual([renamedVerdict.items[0].detail.missingIds, renamedVerdict.items[1].detail.missingIds], [['m20'], ['m20']]);
+
+  const hiddenInAbs = await read30_1({
+    filmMeta: fullFilmMeta,
+    resolveEvents: ({ frameAtBeat }) => ({
+      beatEvents: beatCues.map(([id, beat]) => ({ id: id === 'm20' ? 'other_event' : id, frame: frameAtBeat(beat) })),
+      absoluteEvents: [{ id: 'm20', frame: 2079 }],
+    }),
+  });
+  assert.deepEqual([passed(evaluate(q, hiddenInAbs)), evaluate(q, hiddenInAbs).score, evaluate(q, hiddenInAbs).pass], [[false, false], 0, false]);
+
+  const omittedM20 = await read30_1({
+    filmMeta: fullFilmMeta,
+    resolveEvents: ({ frameAtBeat }) => ({
+      beatEvents: beatCues.slice(0, 19).map(([id, beat]) => ({ id, frame: frameAtBeat(beat) })),
+    }),
+  });
+  assert.deepEqual([passed(evaluate(q, omittedM20)), evaluate(q, omittedM20).score, evaluate(q, omittedM20).pass], [[false, false], 0, false]);
+
+  // filmMeta 缺失音频量测（省略 loudnessLufs / truePeakDbtp）：read30_1 不得私填默认值，必须 basePass=false, pass=false, score=0
+  const { loudnessLufs: _noLufs, truePeakDbtp: _noPeak, ...videoOnlyMeta } = fullFilmMeta;
+  for (const partialMeta of [
+    videoOnlyMeta,
+    { ...videoOnlyMeta, loudnessLufs: -14 },
+    { ...videoOnlyMeta, truePeakDbtp: -1.5 },
+    undefined,
+  ]) {
+    const noAudioReading = await read30_1({
+      filmMeta: partialMeta,
+      resolveEvents: ({ frameAtBeat, frameAtSeconds }) => ({
+        beatEvents: beatCues.map(([id, beat]) => ({ id, frame: frameAtBeat(beat) })),
+        absoluteEvents: [{ id: 'title_enter', frame: frameAtSeconds(2) }],
+      }),
+    });
+    const noAudioVerdict = evaluate(q, noAudioReading);
+    assert.deepEqual([noAudioVerdict.pass, noAudioVerdict.basePass, noAudioVerdict.score], [false, false, 0]);
+  }
+
+  // filmMeta 缺失视频交付、黑帧/冻结、色彩标签、切点或工程镜头表（含错切点无 shots）：read30_1 绝不反推伪造通过
+  for (const incompleteMeta of [
+    audioMeta,
+    { ...fullFilmMeta, width: undefined },
+    { ...fullFilmMeta, colorTag: undefined },
+    { ...fullFilmMeta, blackFrames: undefined },
+    { ...fullFilmMeta, freezes: undefined },
+    { ...fullFilmMeta, cuts: undefined },
+    { ...fullFilmMeta, shots: undefined },
+    { width: 1920, height: 1080, fps: 24, frames: 2160, ...CLEAN, cuts: [999], ...audioMeta },
+  ]) {
+    const cleanedMeta = Object.fromEntries(Object.entries(incompleteMeta).filter(([, v]) => v !== undefined));
+    const missingEvVerdict = evaluate(q, await read30_1({
+      filmMeta: cleanedMeta,
+      resolveEvents: ({ frameAtBeat }) => ({
+        beatEvents: beatCues.map(([id, beat]) => ({ id, frame: frameAtBeat(beat) })),
+      }),
+    }));
+    assert.equal(missingEvVerdict.basePass, false);
+    assert.equal(missingEvVerdict.pass, false);
+  }
+
+  // 3) read30_1 写死帧号与部分写死负对照：忽略节拍表写死帧号得 0.6 分不过；19 个跟拍、仅 m08 写死第 864 帧（或 m01 写死低帧号 1..8）也不过
   const liveHardcoded = await read30_1(({ frameAtSeconds }) => ({
     beatEvents: ref.beatEvents.map((e) => ({ ...e })),
     absoluteEvents: [{ id: 'title_enter', frame: frameAtSeconds(2) }],
-  }));
+  }), { filmMeta: fullFilmMeta });
   const liveHardVerdict = evaluate(q, liveHardcoded);
   assert.deepEqual([passed(liveHardVerdict), liveHardVerdict.score, liveHardVerdict.pass], [[true, false], 0.6, false]);
 
   const partialHardcoded = await read30_1(({ frameAtBeat }) => ({
     beatEvents: beatCues.map(([id, beat]) => ({ id, frame: id === 'm08' ? 864 : frameAtBeat(beat) })),
-  }));
+  }), { filmMeta: fullFilmMeta });
   const partialVerdict = evaluate(q, partialHardcoded);
   assert.deepEqual([passed(partialVerdict), partialVerdict.score, partialVerdict.pass, partialVerdict.items[1].detail.unfollowedIds], [[true, false], 0.6, false, ['m08']]);
+
+  // 低帧号写死与伪造填充事件稀释负对照：m01–m20 写死在非零低帧（6/7/8/1）或塞在 0 帧并追加 120 个跟拍 dummy 事件，一律拦截
+  const lowFrameHardcoded = evaluate(q, await read30_1(({ frameAtBeat }) => ({
+    beatEvents: beatCues.map(([id], i) => ({
+      id,
+      frame: i === 0 ? 6 : i === 1 ? 7 : i === 2 ? 8 : i < 10 ? 1 : frameAtBeat(12 + (i - 10) * 8),
+    })),
+  }), { filmMeta: fullFilmMeta }));
+  assert.deepEqual([passed(lowFrameHardcoded), lowFrameHardcoded.score, lowFrameHardcoded.pass], [[true, false], 0.6, false]);
+
+  const dummyDiluted = evaluate(q, await read30_1(({ frameAtBeat }) => ({
+    beatEvents: [
+      ...beatCues.map(([id]) => ({ id, frame: 6 })),
+      ...Array.from({ length: 120 }, (_, i) => ({ id: `pad_${i}`, frame: frameAtBeat(12) })),
+    ],
+  }), { filmMeta: fullFilmMeta }));
+  assert.deepEqual([passed(dummyDiluted), dummyDiluted.score, dummyDiluted.pass], [[false, false], 0, false]);
+
+  const zeroDiluted = evaluate(q, await read30_1(({ frameAtBeat }) => ({
+    beatEvents: [
+      ...beatCues.map(([id]) => ({ id, frame: 0 })),
+      ...Array.from({ length: 120 }, (_, i) => ({ id: `pad_${i}`, frame: frameAtBeat(12) })),
+    ],
+  }), { filmMeta: fullFilmMeta }));
+  assert.deepEqual([passed(zeroDiluted), zeroDiluted.pass], [[true, false], false]);
 
   // 把本该跟拍的事件误写成固定 48 帧并塞进 beatEvents，必须被检出；缩放方向写反或恒定平移也不过；全塞第 0 帧逃避位移也不过
   const leakedAbs = evaluate(q, {
@@ -309,7 +437,7 @@ test('B3-7 30-1（外01-1）：双固定行为样本（参考通过 1.0、写死
     beatEvents: ref.beatEvents.map(({ id }) => ({ id, frame: 0 })),
     probeBeatEvents: ref.beatEvents.map(({ id }) => ({ id, frame: 0 })),
   });
-  assert.deepEqual([passed(allZero), allZero.pass], [[false, false], false]);
+  assert.deepEqual([passed(allZero), allZero.pass], [[true, false], false]);
   const halfZero = evaluate(q, {
     ...ref,
     beatEvents: ref.beatEvents.map(({ id }, i) => ({ id, frame: i < 11 ? 0 : (i - 10) * 18 })),
@@ -321,7 +449,7 @@ test('B3-7 30-1（外01-1）：双固定行为样本（参考通过 1.0、写死
   const sixteenOnBeat = beatCues.map(([id, beat], i) => [id, i === 0 ? 12.5 : beat]);
   const lowHit = evaluate(q, await read30_1(({ frameAtBeat }) => ({
     beatEvents: sixteenOnBeat.map(([id, beat]) => ({ id, frame: frameAtBeat(beat) })),
-  })));
+  }), { filmMeta: fullFilmMeta }));
   assert.deepEqual([passed(lowHit), lowHit.score, lowHit.pass, lowHit.items[0].detail.hitRate], [[false, true], 0.4, false, 0.8]);
 
   const rates = [];

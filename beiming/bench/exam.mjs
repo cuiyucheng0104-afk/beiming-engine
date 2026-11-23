@@ -435,11 +435,20 @@ function validateRefData(question, data, refLabel) {
       bad(`kind 应为 constructed 或 measured，实际为 ${JSON.stringify(data.kind)}`);
     }
     const exp = data.expect;
+    const expectedPass = isPlainObj(exp) && typeof exp.basePass === 'boolean' && Array.isArray(exp.items)
+      ? exp.basePass && exp.items.every((v) => v === true)
+      : null;
+    const expectedScore = isPlainObj(exp) && Array.isArray(exp.items) && Array.isArray(question.scoring)
+      && exp.items.length === question.scoring.length
+      ? question.scoring.reduce((sum, s, idx) => sum + (exp.items[idx] === true && isFiniteNum(s?.weight) ? s.weight : 0), 0)
+      : NaN;
     if (!isPlainObj(exp) || typeof exp.pass !== 'boolean' || typeof exp.basePass !== 'boolean'
       || !isFiniteNum(exp.score) || !Array.isArray(exp.items)
       || exp.items.length !== (question.scoring?.length ?? 0)
-      || !exp.items.every((v) => typeof v === 'boolean')) {
-      bad(`${question.id} 缺少合法的 expect 预期判分对象`);
+      || !exp.items.every((v) => typeof v === 'boolean')
+      || exp.pass !== expectedPass
+      || !isFiniteNum(expectedScore) || Math.abs(exp.score - expectedScore) >= 1e-9) {
+      bad(`${question.id} 缺少合法且自洽的 expect 预期判分对象`);
     }
     if (!Number.isInteger(data.width) || data.width <= 0 || !Number.isInteger(data.height) || data.height <= 0
       || !isFiniteNum(data.fps) || data.fps <= 0 || !Number.isInteger(data.frames) || data.frames <= 0) {
@@ -499,6 +508,94 @@ function resolveRefPath(benchDir, ref) {
   return abs.startsWith(beimingRoot + path.sep) ? abs : null;
 }
 
+function inspect30_1Sample(question, data) {
+  if (!isPlainObj(data)
+    || !Array.isArray(data.beatEvents) || data.beatEvents.length === 0
+    || !Array.isArray(data.probeBeatEvents) || data.probeBeatEvents.length !== data.beatEvents.length) {
+    return null;
+  }
+  const hitArgs = isPlainObj(question?.scoring?.[0]?.args) ? question.scoring[0].args : {};
+  const followArgs = isPlainObj(question?.scoring?.[1]?.args) ? question.scoring[1].args : {};
+  const minBeatEvents = Number.isInteger(hitArgs.minBeatEvents) && hitArgs.minBeatEvents > 0 ? hitArgs.minBeatEvents : 20;
+  if (data.beatEvents.length < minBeatEvents) return null;
+
+  const baseBpm = data.baseBpm;
+  const probeBpm = data.probeBpm;
+  const tolFrames = isFiniteNum(followArgs.tolFrames) && followArgs.tolFrames >= 0 ? Math.min(followArgs.tolFrames, 1) : 1;
+  const minMovableRatio = isFiniteNum(followArgs.minMovableRatio) && followArgs.minMovableRatio > 0 ? followArgs.minMovableRatio : 0.5;
+  const minPassFollowedRatio = isFiniteNum(followArgs.minMovedRatio) && followArgs.minMovedRatio > 0 ? followArgs.minMovedRatio : 1;
+  if (!isFiniteNum(baseBpm) || !isFiniteNum(probeBpm) || baseBpm <= 0 || probeBpm <= 0 || baseBpm === probeBpm) {
+    return null;
+  }
+
+  const reqIds = [...new Set([
+    ...(Array.isArray(hitArgs.requiredEventIds) ? hitArgs.requiredEventIds : []),
+    ...(Array.isArray(followArgs.requiredEventIds) ? followArgs.requiredEventIds : []),
+  ].filter((id) => typeof id === 'string' && id.length > 0))];
+  const baseIds = new Set(data.beatEvents.map((e) => e?.id));
+  const probeById = new Map(data.probeBeatEvents.map((e) => [e?.id, e?.frame]));
+  if (reqIds.some((id) => !baseIds.has(id) || !probeById.has(id))) return null;
+
+  const ratio = baseBpm / probeBpm;
+  const movableIds = new Set();
+  const followedIds = new Set();
+  let movableCount = 0;
+  let followedCount = 0;
+  let allStationary = true;
+  for (const ev of data.beatEvents) {
+    if (!isPlainObj(ev) || !probeById.has(ev.id)) return null;
+    const baseFrame = ev.frame;
+    const probeFrame = probeById.get(ev.id);
+    const expectedFrame = Math.round(baseFrame * ratio);
+    const lo = (baseFrame - 0.5) * ratio;
+    const hi = (baseFrame + 0.5) * ratio;
+    const disjoint = hi <= baseFrame - 0.5 + 1e-9 || lo >= baseFrame + 0.5 - 1e-9;
+    const mustMove = Math.abs(expectedFrame - baseFrame) >= tolFrames + 1 || disjoint;
+    if (mustMove) {
+      movableCount++;
+      movableIds.add(ev.id);
+    }
+    if (probeFrame !== baseFrame) allStationary = false;
+    if (Math.abs(probeFrame - expectedFrame) <= tolFrames && (!mustMove || probeFrame !== baseFrame)) {
+      followedCount++;
+      followedIds.add(ev.id);
+    }
+  }
+  const reqMovableOk = reqIds.length === 0
+    || reqIds.filter((id) => movableIds.has(id)).length >= Math.ceil(reqIds.length * minMovableRatio);
+  const enoughMovable = movableCount >= Math.ceil(data.beatEvents.length * minMovableRatio) && reqMovableOk;
+  const followedRatio = followedCount / data.beatEvents.length;
+  const reqFollowedRatio = reqIds.length === 0
+    ? 1
+    : reqIds.filter((id) => followedIds.has(id)).length / reqIds.length;
+  const followsBpm = enoughMovable
+    && followedRatio >= minPassFollowedRatio
+    && reqFollowedRatio >= minPassFollowedRatio;
+  return { baseBpm, probeBpm, enoughMovable, allStationary, followsBpm };
+}
+
+function isPass30_1Sample(question, data) {
+  const exp = data?.expect;
+  if (!isPlainObj(exp) || exp.pass !== true || exp.basePass !== true
+    || !isFiniteNum(exp.score) || Math.abs(exp.score - 1) >= 1e-9
+    || !Array.isArray(exp.items) || exp.items.length !== 2 || exp.items[0] !== true || exp.items[1] !== true) {
+    return false;
+  }
+  const info = inspect30_1Sample(question, data);
+  return Boolean(info && info.followsBpm);
+}
+
+function isHardcoded30_1Sample(question, data) {
+  const exp = data?.expect;
+  if (!isPlainObj(exp) || exp.pass !== false || exp.basePass !== true
+    || !isFiniteNum(exp.score) || exp.score < 0 || exp.score >= 1
+    || !Array.isArray(exp.items) || exp.items.length !== 2 || exp.items[0] !== true || exp.items[1] !== false) {
+    return false;
+  }
+  const info = inspect30_1Sample(question, data);
+  return Boolean(info && info.enoughMovable && info.allStationary);
+}
+
 function validateRefs(question, benchDir) {
   const errors = [];
   const refs = question.refs ?? [];
@@ -532,10 +629,13 @@ function validateRefs(question, benchDir) {
     if (dataErrors.length === 0) loadedRefs.push(data);
   }
   if (question.id === '30-1' && errors.length === 0) {
-    const hasPassSample = loadedRefs.some((d) => d.expect?.pass === true);
-    const hasHardcodedSample = loadedRefs.some((d) => d.expect?.pass === false && Array.isArray(d.expect?.items) && d.expect.items[1] === false);
-    if (!hasPassSample || !hasHardcodedSample) {
-      errors.push('题目 30-1 必须同时声明通过型参考样本与写死帧号失败型固定样本');
+    const passSamples = loadedRefs.filter((d) => isPass30_1Sample(question, d));
+    const hardcodedSamples = loadedRefs.filter((d) => isHardcoded30_1Sample(question, d));
+    const hasPairedSamples = passSamples.some((p) => hardcodedSamples.some(
+      (h) => p.baseBpm === h.baseBpm && p.probeBpm === h.probeBpm,
+    ));
+    if (!hasPairedSamples) {
+      errors.push('题目 30-1 必须同时声明同 BPM 扰动对下的通过型参考样本与写死帧号失败型固定样本');
     }
   }
   return errors;
@@ -975,6 +1075,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       && posVerdict.basePass === true
       && Math.abs(posVerdict.score - 1) < 1e-9;
     const negOk = negChecked > 0 && negRejected === negChecked;
+    const controlOk = refOk && negOk;
     const allOk = posOk && negOk;
 
     const predicates = Object.fromEntries(
@@ -986,14 +1087,19 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     const metrics = {};
     for (const s of question.scoring) {
       const matching = posVerdict.items.filter((item) => item.metric === s.metric);
-      metrics[s.metric] = {
-        pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
-        basis: 'offline-eval-b2',
-      };
+      metrics[s.metric] = controlOk
+        ? {
+            pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
+            basis: 'offline-eval-b2',
+          }
+        : {
+            pass: false,
+            basis: 'offline-eval-b2-control-mismatch',
+          };
     }
     return {
       pass: allOk,
-      positiveScore: posVerdict.score,
+      positiveScore: controlOk ? posVerdict.score : 0,
       negativeControlsChecked: negChecked,
       negativeControlsRejected: negRejected,
       predicates,
@@ -1046,6 +1152,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       }
     }
     const negOk = negChecked === B6_NEGATIVE_KINDS.length && negRejected === negChecked;
+    const controlOk = refOk && negOk;
     const allOk = posOk && negOk;
 
     const predicates = Object.fromEntries(
@@ -1054,14 +1161,19 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     const metrics = {};
     for (const s of question.scoring) {
       const matching = posVerdict.items.filter((item) => item.metric === s.metric);
-      metrics[s.metric] = {
-        pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
-        basis: 'offline-eval-b4',
-      };
+      metrics[s.metric] = controlOk
+        ? {
+            pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
+            basis: 'offline-eval-b4',
+          }
+        : {
+            pass: false,
+            basis: 'offline-eval-b4-control-mismatch',
+          };
     }
     return {
       pass: allOk,
-      positiveScore: posVerdict.score,
+      positiveScore: controlOk ? posVerdict.score : 0,
       negativeControlsChecked: negChecked,
       negativeControlsRejected: negRejected,
       predicates,
@@ -1084,6 +1196,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     let posRefData = null;
     let posVerdict = null;
     let refOk = true;
+    let hasHardcodedNeg = false;
     let negChecked = 0;
     let negRejected = 0;
 
@@ -1113,6 +1226,13 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
         posVerdict = verdict;
       } else {
         negChecked++;
+        const followArgs = isPlainObj(question?.scoring?.[1]?.args) ? question.scoring[1].args : {};
+        if (question.id === '30-1'
+          && isHardcoded30_1Sample(question, refData)
+          && refData.baseBpm === followArgs.baseBpm
+          && refData.probeBpm === followArgs.probeBpm) {
+          hasHardcodedNeg = true;
+        }
         if (matchesExpect && verdict.pass === false && verdict.score < 1) negRejected++;
       }
     }
@@ -1120,11 +1240,11 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     if (!posRefData || !posVerdict) {
       return failOutcome(`题目 ${question.id} 缺少通过型参考夹具`);
     }
-    if (question.id === '30-1' && negChecked === 0) {
+    if (question.id === '30-1' && !hasHardcodedNeg) {
       return failOutcome('题目 30-1 缺少写死帧号固定负对照夹具');
     }
 
-    // 额外合成负对照（切点偏移 / 落拍错位 / 写死帧号 / 空读数）
+    // 额外合成负对照（切点偏移 / 落拍错位 / 写死帧号 / 漏交命名事件 / 空读数）
     const synthNegs = [{}];
     if (question.id === '27-1') {
       synthNegs.push({
@@ -1159,6 +1279,11 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
           ...posRefData,
           probeBeatEvents: posRefData.beatEvents.map((e) => ({ ...e })),
         },
+        {
+          ...posRefData,
+          beatEvents: posRefData.beatEvents.map((e, idx, arr) => (idx === arr.length - 1 ? { ...e, id: 'other_event' } : e)),
+          probeBeatEvents: posRefData.probeBeatEvents.map((e, idx, arr) => (idx === arr.length - 1 ? { ...e, id: 'other_event' } : e)),
+        },
       );
     }
     for (const negReading of synthNegs) {
@@ -1172,6 +1297,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       && posVerdict.basePass === true
       && Math.abs(posVerdict.score - 1) < 1e-9;
     const negOk = negChecked > 0 && negRejected === negChecked;
+    const controlOk = refOk && negOk;
     const allOk = posOk && negOk;
 
     const predicates = Object.fromEntries(
@@ -1183,14 +1309,19 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     const metrics = {};
     for (const s of question.scoring) {
       const matching = posVerdict.items.filter((item) => item.metric === s.metric);
-      metrics[s.metric] = {
-        pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
-        basis: 'offline-eval-b3',
-      };
+      metrics[s.metric] = controlOk
+        ? {
+            pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
+            basis: 'offline-eval-b3',
+          }
+        : {
+            pass: false,
+            basis: 'offline-eval-b3-control-mismatch',
+          };
     }
     return {
       pass: allOk,
-      positiveScore: posVerdict.score,
+      positiveScore: controlOk ? posVerdict.score : 0,
       negativeControlsChecked: negChecked,
       negativeControlsRejected: negRejected,
       predicates,
@@ -1356,22 +1487,6 @@ export async function runExam(options = {}) {
         continue;
       }
 
-      if (dryRun) {
-        questionReports.push({
-          file: entry.file,
-          id: entry.id,
-          level: entry.level,
-          valid: true,
-          status: 'validated',
-          pass: true,
-          score: 1,
-          negativeControlsChecked: 0,
-          negativeControlsRejected: 0,
-          errors: [],
-        });
-        continue;
-      }
-
       if (contractFailed) {
         questionReports.push({
           file: entry.file,
@@ -1381,6 +1496,23 @@ export async function runExam(options = {}) {
           status: 'skipped-contract-error',
           pass: false,
           score: 0,
+          negativeControlsChecked: 0,
+          negativeControlsRejected: 0,
+          errors: [],
+        });
+        continue;
+      }
+
+      if (dryRun) {
+        const expectedSkip = Boolean(entry.question.flags?.expectedFail);
+        questionReports.push({
+          file: entry.file,
+          id: entry.id,
+          level: entry.level,
+          valid: true,
+          status: expectedSkip ? 'expected-fail' : 'validated',
+          pass: !expectedSkip,
+          score: expectedSkip ? 0 : 1,
           negativeControlsChecked: 0,
           negativeControlsRejected: 0,
           errors: [],
@@ -1407,9 +1539,20 @@ export async function runExam(options = {}) {
           evalOutcome = customEval
             ? await customEval({ question, questionFile: entry.absFile, benchDir })
             : evaluateOfflineQuestion({ question, questionFile: entry.absFile, benchDir });
+          const negOk = (evalOutcome?.negativeControlsRejected ?? 0) === (evalOutcome?.negativeControlsChecked ?? 0);
+          const gateOk = Boolean(evalOutcome?.pass) && negOk;
+          const rawMetrics = isPlainObj(evalOutcome?.metrics) ? evalOutcome.metrics : {};
+          const metrics = gateOk
+            ? rawMetrics
+            : Object.fromEntries(
+                (question.scoring ?? []).map((s) => [
+                  s.metric,
+                  { pass: false, basis: rawMetrics[s.metric]?.basis ?? 'offline-eval-gate-failed' },
+                ]),
+              );
           return {
-            predicates: evalOutcome.predicates ?? {},
-            metrics: evalOutcome.metrics ?? {},
+            predicates: evalOutcome?.predicates ?? {},
+            metrics,
             cost: { gpuSeconds: 0 },
           };
         },
