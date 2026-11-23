@@ -1,17 +1,18 @@
 import manifest from './card.json' with { type: 'json' };
 
-// 数据卡也会直接装进页面，不能静态引 node:util。页面宿主在任何镜头模块之前登记 Proxy。
+// 数据卡也会直接装进页面，不能静态引 node:util；页面宿主保留浏览器原生 Proxy，靠自有数据属性描述符校验纯数据，不防调用方自造的转发 Proxy。
 const node = globalThis.process;
-const isProxy = node?.versions?.node ? (node.getBuiltinModule?.('node:util/types') ?? await import('node:util/types')).isProxy
-  : globalThis[Symbol.for('beiming.three.isProxy')];
+const isProxy = node?.versions?.node
+  ? (node.getBuiltinModule?.('node:util/types') ?? await import('node:util/types')).isProxy
+  : () => false;
 const bad = (field) => { throw Object.assign(new RangeError(`camera.drift：${field} 不是有效的镜头数据`), { code: 'usage.bad-argument' }); };
 const paramsSpec = globalThis.structuredClone(manifest.params);
 const inputsKeys = ['size', 'shot', 'fps', 'seed', 'events', 'bbox'];
 
-// 与其余相机卡一致：先排除代理，再递归复制自有数据，求值只读副本。
+// 与其余相机卡一致：递归复制自有可枚举数据属性，求值只读副本，不触发访问器。
 function data(value, depth = 0) {
   if (value === null || typeof value === 'string' || typeof value === 'boolean' || Number.isFinite(value)) return value;
-  if (typeof value !== 'object' || depth > 24 || !isProxy || isProxy(value)) bad('参数必须是有限、无代理的普通数据');
+  if (typeof value !== 'object' || depth > 24 || isProxy(value)) bad('参数必须是有限、无代理的普通数据');
   const array = Array.isArray(value), proto = Object.getPrototypeOf(value);
   if (array ? proto !== Array.prototype : proto !== Object.prototype && proto !== null) bad('不是普通对象或数组');
   const keys = Reflect.ownKeys(value), copy = array ? [] : Object.create(null);

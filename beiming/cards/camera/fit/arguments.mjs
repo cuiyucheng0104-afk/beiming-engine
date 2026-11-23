@@ -2,16 +2,16 @@
 import card from './card.json' with { type: 'json' };
 
 export function bad(why) { throw Object.assign(new RangeError(`${card.id}：${why}`), { code: 'usage.bad-argument' }); }
-// Node 查内部槽；页面宿主在任何镜头代码执行前登记本页面的 Proxy。
+// Node 查内部槽；页面宿主保留浏览器原生 Proxy，靠自有数据属性描述符校验纯数据，不防调用方自造的转发 Proxy。
 const node = globalThis.process;
 const isProxy = node?.versions?.node
   ? (node.getBuiltinModule?.('node:util/types') ?? await import('node:util/types')).isProxy
-  : globalThis[Symbol.for('beiming.three.isProxy')];
+  : () => false;
 
-// 先排除代理，再看自有描述符。之后只用这份纯数据，不读调用方的属性。
+// 递归复制自有可枚举数据属性描述符，不触发访问器；之后只用这份纯数据，不读调用方的属性。
 function data(v, depth = 0) {
   if (v === null || typeof v === 'string' || typeof v === 'boolean' || Number.isFinite(v)) return v;
-  if (typeof v !== 'object' || depth > 24 || !isProxy || isProxy(v)) bad('参数必须是有限、无代理的普通数据');
+  if (typeof v !== 'object' || depth > 24 || isProxy(v)) bad('参数必须是有限、无代理的普通数据');
   const array = Array.isArray(v), proto = Object.getPrototypeOf(v);
   if (array ? proto !== Array.prototype : proto !== Object.prototype && proto !== null) bad('不是普通对象或数组');
   const keys = Reflect.ownKeys(v), out = array ? [] : Object.create(null);
