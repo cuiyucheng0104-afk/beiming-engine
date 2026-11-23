@@ -609,13 +609,21 @@ test('B3-21 十四审丙类回归（音视频 start_time 对齐）：音轨晚 0
     ...cuts.map((frame) => ({ id: `cut.${frame}`, frame, sub: 0, kind: 'cut', from: 'film' }))] };
   const dir = workdir();
   try {
-    const w = 36, h = 45, raw = Buffer.alloc(600 * w * h), rawAudio = join(dir, 'delayed.raw'), file = join(dir, 'offset.mov');
+    const w = 36, h = 45, raw = Buffer.alloc(600 * w * h), rawAudio = join(dir, 'delayed.raw'), file = join(dir, 'offset.mkv');
     for (let f = 0; f < 600; f++) raw.fill((cuts.filter((cut) => cut <= f).length % 2 ? 200 : 60) + (f % 2) * 4, f * w * h, (f + 1) * w * h);
     burstTrack(rawAudio, inStreamMs, 20);
+    // 用 Matroska + asetpts 显式把音轨首包 PTS 移到 0.500s，避免跨版本 FFmpeg 的 MOV editlist/itsoffset 行为差异
     ffmpeg(['-f', 'rawvideo', '-pix_fmt', 'gray', '-s', `${w}x${h}`, '-r', '30', '-i', 'pipe:0',
-      '-itsoffset', '0.5', '-f', 's16le', '-ar', '16000', '-ac', '1', '-i', rawAudio,
+      '-f', 's16le', '-ar', '16000', '-ac', '1', '-i', rawAudio,
       '-vf', 'scale=1080:1350:flags=neighbor', '-c:v', 'libx264', '-preset', 'ultrafast', '-qp', '0', '-pix_fmt', 'yuv420p',
-      '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv', '-c:a', 'pcm_s16le', file], raw);
+      '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv',
+      '-af', 'asetpts=PTS+0.5/TB', '-c:a', 'pcm_s16le', file], raw);
+    const probe = spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,start_time', '-of', 'json', file], { encoding: 'utf8' });
+    assert.equal(probe.status, 0, probe.stderr);
+    const streams = JSON.parse(probe.stdout).streams;
+    const audioStart = Number(streams.find((s) => s.codec_type === 'audio')?.start_time);
+    const videoStart = Number(streams.find((s) => s.codec_type === 'video')?.start_time);
+    assert.equal(Math.round((audioStart - videoStart) * 1000), 500, `测试夹具应具备 500ms 音画偏移: ${probe.stdout}`);
     const measured = await read29_2(file, events, { crop: { x: 0, y: 0, width: 90, height: 90 } });
     assert.equal(measured.onsetsMs[0], 1500);
     assert.ok(measured.onsetsMs.every((ms) => ms >= 0 && ms < 20000));
