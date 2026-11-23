@@ -27,6 +27,8 @@
 - `colorPaletteDe00(candidate, reference, { k? })`：`color.palette-de00`，主色色板 CIEDE2000 色差。
 - `shapeIou(a, b, { roi?, threshold?, id?, background?, tol?, emptyValue? })`：`shape.iou`，掩码交并比。
 
+`flowField(frames, opts?)` 量亚像素稠密光流、逐对幅值与速度幅值频谱；`imageFlip(ref, test, opts?)` 量 LDR-FLIP 感知误差，可按均值判阈。用 `runFlowFlipMetric` 按 `flow.field`、`image.flip` 调用。输入、单位与阈值校准见 [DETAILS.md](DETAILS.md)。
+
 ## 画面比对与对齐拟合
 
 均从 [index.mjs](index.mjs) 按名导出，同步执行，回答序列化后不超过 500 token，超限时按优先级截断并置 `truncated: true`；参数不对返回 `{ ok: false, error: { code: 'usage.bad-argument', message } }`，不抛异常。完整参数、容差与退化判定口径见 [DETAILS.md](DETAILS.md)。

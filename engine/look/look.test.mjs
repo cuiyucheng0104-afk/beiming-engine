@@ -14,6 +14,7 @@ import { createInk } from './ink.js';
 import { createIdPass } from './ids.js';
 import { mergeParam } from './params.js';
 import { toonKind } from '../shade/toon.js';
+import { inject } from '../shade/patch.js';
 
 // 假渲染器：记下每次 render 时挂在哪个目标上、画的是什么
 function fakeRenderer() {
@@ -170,6 +171,20 @@ test('R40 ID 通道：材质不可见的网格原样跳过；不挡线物体换�
   assert.equal(glow.material.blending, THREE.AdditiveBlending, '渲完换回原材质');
   assert.equal(multi.material, multiMats);
   assert.equal(countIdDisposals(() => ids.dispose()), 5, '3 个描边网格 + 子物体 + 多材质网格的 ID 材质');
+});
+
+test('FX22 ID 通道：物体 onBeforeRender 里冒出的着色器补丁错原样重抛，别的错照旧忽略；渲完都换回原材质与回调', () => {
+  const r = fakeRenderer(), ids = createIdPass(r), scene = outlined(1), mesh = scene.children[0], mat = mesh.material;
+  r.render = () => mesh.onBeforeRender(r, scene, null, mesh.geometry, mesh.material, null);
+  // 换上 ID 材质后回调里读不到自己材质上的东西：这种错 ID 图里照旧忽略
+  const plain = mesh.onBeforeRender = () => { throw new TypeError('ID 材质上没有这个 uniform'); };
+  assert.doesNotThrow(() => ids.render(scene, new THREE.PerspectiveCamera(), null));
+  assert.deepEqual([mesh.material, mesh.onBeforeRender], [mat, plain]);
+  // 回调里真打着色器补丁、锚点没了：这是构建失败，不能吞
+  const patching = mesh.onBeforeRender = () => { inject('void main(){}', '#include <color_fragment>', 'x', 'after', 'fx22-id'); };
+  assert.throws(() => ids.render(scene, new THREE.PerspectiveCamera(), null), /fx22-id：着色器锚点缺失「#include <color_fragment>」/);
+  assert.deepEqual([mesh.material, mesh.onBeforeRender], [mat, patching], '抛错后也换回原材质与回调');
+  ids.dispose();
 });
 
 test('R33 ID 通道：soft 遮挡的材质自带 onBeforeRender 改混合时，回调之后重新套上挡线混合', () => {
