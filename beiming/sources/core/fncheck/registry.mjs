@@ -7,7 +7,7 @@
 // call：可选，(实参 WGSL 表达式数组) => 调用表达式，给要补常量实参的函数用（例如查表函数的表偏移）。
 // gen：可选，(next: () => [0,1) 均匀数) => { 输入名: 数或数组 }，逐组生成彼此相关的输入（正交基、相对灯面的位置）；有它时 inputs 不写范围。
 // branch：可选，(一组输入) => 分支名，只用来在报告里数各分支的比例。
-// skip：可选，(标准答案的一组输出, 被测的一组输出) => 真时这一组不比、只计数。只给登记处写明了理由的病态区域用。
+// skip：可选，(标准答案的一组输出, 被测的一组输出, 这一组的输入) => 真时这一组不比、只计数。只给登记处写明了理由的病态区域用。
 // 合格：|被测−标准| ≤ rel·|标准| + abs。rel 一律 1e-4。
 // abs 只给有相减抵消的函数：两个 O(1) 的数相减得到接近 0 的结果时，两边哪怕只差 1 ULP 的舍入（WGSL 的 sqrt、
 // 除法不保证正确舍入，编译器还可能合成 FMA），相对误差也会大到几十个百分点。这类函数的 abs 取「抵消发生处的
@@ -205,6 +205,12 @@ const RAND_WELL = [1e-2, 1 - 1e-2];
 // WELL 里采样点（世界坐标，量级到 7）与方向的分量：采样映射在矩形边附近斜率大，显卡 cos、sin 约 2e-7 的绝对误差被放大，
 // 方向 D = (Q − P)/t 还要再乘 1/t（t ≥ 0.01）。【实测】所需 abs 最大 1.1e-5（方向分量），取 2.4e-5
 const ABS_SAMPLE = 2.4e-5;
+// 球面矩形采样在 au = rand.x·S + g2 + g3 恰为 0 时有一个间断：真值是 xu = 0（着色点在灯面上的垂足），但 Cycles 的
+// safe_divide 在除数为 0 时给 0，于是 fu = 0、cu 被夹到 1、采样点被甩到灯的边上（area.h:67-73）。au 在 float32 里的
+// 分辨率约 1e-7，两边只要差一个最小浮点间隔（比如一边把乘加合成了一条指令），就会一边踩中一边没踩中。【实测】NVIDIA 上
+// 100 万组里踩中 1 组（au 的双精度真值 1.5e-7），Cycles 本机一侧对输入做微扰则不踩。这是公式自己的间断，照原式移植、不逐组比：
+// 任一边的采样点离垂足不到 1e-5 个边长就跳过。p 是采样点，P 是着色点，axis_u 是单位向量
+const atPole = (p, P, axis_u, len_u) => Math.abs(dot3(add(p, P, -1), axis_u)) < 1e-5 * len_u;
 // 立体角 S = −(g0 + g1 + g2 + g3) 是四个量级到 π/2 的 asin 相加抵消（area.h:53-57）。概率密度 1/S 的比对改在 S 上做，
 // abs 给在 S 上：【实测】MAIN 里超出 1e-4·S 的差最大 2.1e-6，取 48 个 π/2 处的 ULP（约 5.7e-6）
 const ABS_S = 48 * 2 ** -23;
@@ -215,6 +221,7 @@ FUNCTIONS.push(
   light('area_light_rect_sample', RECT_IN, { pdf: 1, P: 3 }, ABS_SAMPLE, {
     gen: next => ({ ...lightGeom(next, WELL), rand: [linU(next, RAND_WELL), linU(next, RAND_WELL)] }), branch: rectBranchOf,
     call: a => `area_light_rect_sample(${a.join(', ')}, true)`,
+    skip: (ref, test, i) => atPole(at(ref, 1), at(i, 0), at(i, 6), i[9]) || atPole(at(test, 1), at(i, 0), at(i, 6), i[9]),
   }),
   // 立体角：MAIN 的全部几何（近、远、大、小，含两边在 1e-5 阈值两侧各走一支的组），比 1/pdf
   light('area_light_rect_sample_solid_angle', RECT_IN, 1, ABS_S, {
@@ -234,6 +241,8 @@ FUNCTIONS.push(
   light('area_light_sample', [['rand', 'vec2f'], ['P', 'vec3f'], ...LIGHT_IN], { ok: 1, P: 3, D: 3, t: 1, pdf: 1, eval_fac: 1 }, ABS_SAMPLE, {
     gen: next => ({ ...lightGeom(next, WELL), rand: [linU(next, RAND_WELL), linU(next, RAND_WELL)] }),
     branch: i => (dot3(add(at(i, 5), at(i, 2), -1), at(i, 16)) > 0 ? '灯背面' : rectBranch(at(i, 2), at(i, 5), at(i, 8), i[11], at(i, 12), i[15])),
+    // ok 为假（灯背面）的组输出全零，照常比；只有两边都采到了点才看是不是在间断上
+    skip: (ref, test, i) => ref[0] !== 0 && test[0] !== 0 && (atPole(at(ref, 1), at(i, 2), at(i, 8), i[11]) || atPole(at(test, 1), at(i, 2), at(i, 8), i[11])),
   }),
   // 射线打中灯面的那一侧：方向指向灯面上的一点，t 是到那一点的距离
   light('area_light_eval_from_intersection', [['ray_P', 'vec3f'], ['ray_D', 'vec3f'], ['t', 'f32'], ...LIGHT_IN], { eval_fac: 1, pdf: 1 }, 0, {
