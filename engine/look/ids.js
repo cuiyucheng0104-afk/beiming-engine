@@ -101,7 +101,8 @@ export function createIdPass(renderer) {
     const guard = o => {
       const f = o.onBeforeRender;
       if (f === THREE.Object3D.prototype.onBeforeRender) return;
-      cbs.push([o, f]); o.onBeforeRender = function (...a) { try { f.apply(this, a); } catch (e) { /* ID 图里忽略 */ } };
+      // 回调读的是物体自己材质上的东西，换成 ID 材质后可能读不到：这类错 ID 图里忽略。着色器补丁没命中（engine/shade/patch.js）是构建失败，原样抛
+      cbs.push([o, f]); o.onBeforeRender = function (...a) { try { f.apply(this, a); } catch (e) { if (e?.name === 'ShaderPatchError') throw e; } };
     };
     let nextId = 1, maxWidth = 0;
     // 'soft' / 'own' 挡线：沿用物体自己的材质，只改混合（soft 只写 alpha 遮挡，own 整体写 0）

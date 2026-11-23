@@ -30,6 +30,8 @@
                           以及 music_dominance / music_buried 双向乐效守卫
   audio.dialogue    hard 1–4 kHz 信噪比 < −2 dB 或对白样本削波；soft 信噪比 ∈ [−2, +2) dB（dialogue_masked）或有声窗 RMS 越出 [−28, −11] dBFS
                           存在非静音 stems/vo.wav（或 dialogue.wav）时核对有声段共振峰清晰度与电平
+  audio.sync        opt-in 传 --kinematics 或 --video 时启用纯 CPU 运动学对冲击同步核（优先 sfx 分轨，兼容 mix 全混音；
+                          24 fps 偏移 ≥ 1.5f 失败；12 fps 一拍二自动启用零相移 [0.25, 0.5, 0.25] 守卫与 1.1f 告警门限）
 另报（不判）：响度范围 LRA、最大瞬时 / 短时响度、频段能量、声场相关、样本峰值。
 整段按 10 秒一块读盘，十分钟级的混音内存也只占几十 MB（engine/audio/stream.py 的分块测量）。
 
@@ -887,7 +889,171 @@ def _check_dialogue(wav, film, sr):
     )
 
 
-def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.5, max_tp=-1.0, chunk_s=10.0, loudness_at='mix', film=None, strict_masking=None, precise_window=None):
+def check_sync(
+    wav,
+    *,
+    film=None,
+    kinematics=None,
+    video=None,
+    sync_stem=None,
+    sync_path='auto',
+    sync_fps_mode='auto',
+    sync_warn_frames=None,
+    sync_fail_frames=None,
+    fps=None,
+):
+    """纯 CPU 运动学对冲击同步检查（audio.sync）：未传 kinematics 与 video 时返回 None，保持原有 QA 行为完全不变。"""
+    if kinematics is None and video is None:
+        return None
+    if kinematics is not None and video is not None:
+        raise CliError('usage.conflicting-visual', '--kinematics 与 --video 不能同时指定')
+    from . import sync_kernel as SK
+
+    wav_abs = os.path.abspath(wav)
+    kin_abs = None
+    vid_abs = None
+    if kinematics is not None:
+        cand = os.path.abspath(kinematics)
+        if os.path.isdir(cand):
+            cand = os.path.join(cand, 'kinematics.json')
+        if not os.path.isfile(cand):
+            raise CliError('env.kinematics-missing', f'找不到遥测文件：{_rel(cand)}', hint='检查 --kinematics 路径')
+        kin_abs = cand
+    if video is not None:
+        vid_abs = os.path.abspath(video)
+        if not os.path.isfile(vid_abs):
+            raise CliError('env.video-missing', f'找不到视频文件：{_rel(vid_abs)}', hint='检查 --video 路径')
+
+    audio_path = wav_abs
+    track_type = 'mix'
+    if sync_stem is not None:
+        st_abs = os.path.abspath(sync_stem)
+        if not os.path.isfile(st_abs):
+            raise CliError('env.sync-stem-missing', f'找不到同步参考音频轨：{_rel(st_abs)}', hint='检查 --sync-stem 路径')
+        audio_path = st_abs
+        stem_l = os.path.splitext(os.path.basename(st_abs))[0].lower()
+        track_type = 'mix' if stem_l in ('mix', 'master') else 'sfx'
+    else:
+        fa = (film or {}).get('audio') or {}
+        cand_dirs = []
+        if film and fa.get('stems'):
+            cand_dirs.append(F.resolve(film, fa['stems']))
+        cand_dirs.append(os.path.join(os.path.dirname(wav_abs), 'stems'))
+        if film and fa.get('cues'):
+            cand_dirs.append(os.path.join(os.path.dirname(F.resolve(film, fa['cues'])), 'stems'))
+        picked = False
+        for d in cand_dirs:
+            if not os.path.isdir(d):
+                continue
+            for stem_fn in ('sfx.wav', 'fx.wav'):
+                cand_p = os.path.join(d, stem_fn)
+                if not os.path.isfile(cand_p):
+                    continue
+                try:
+                    sig_try, sr_try = SK.load_audio_mono(cand_p, SR)
+                    if len(sig_try) > 0 and float(np.max(np.abs(sig_try))) >= 1e-6:
+                        audio_path = cand_p
+                        track_type = 'sfx'
+                        audio_sig, audio_sr = sig_try, sr_try
+                        picked = True
+                        break
+                except Exception:
+                    continue
+            if picked:
+                break
+        if not picked:
+            try:
+                audio_sig, audio_sr = SK.load_audio_mono(audio_path, SR)
+            except Exception as e:
+                raise CliError('contract.audio-unreadable', f'读取同步音频失败 {_rel(audio_path)}：{e}') from None
+    if sync_stem is not None:
+        try:
+            audio_sig, audio_sr = SK.load_audio_mono(audio_path, SR)
+        except Exception as e:
+            raise CliError('contract.audio-unreadable', f'读取同步音频失败 {_rel(audio_path)}：{e}') from None
+
+    eff_fps = fps if fps is not None else (float(film['fps']) if film and film.get('fps') is not None else None)
+    try:
+        res = SK.evaluate_sync(
+            audio_sig,
+            sr=audio_sr,
+            kinematics=kin_abs,
+            video_path=vid_abs,
+            motion_path=sync_path,
+            fps=eff_fps,
+            fps_mode=sync_fps_mode,
+            input_track=track_type,
+            warn_threshold_frames=sync_warn_frames,
+            fail_threshold_frames=sync_fail_frames,
+        )
+    except SK.FfmpegUnavailableError as e:
+        raise CliError('env.ffmpeg-missing', str(e), hint='安装 ffmpeg 或设置 FFMPEG 环境变量') from None
+    except TimeoutError as e:
+        raise CliError('timeout.video-decode', str(e), hint='检查视频文件完整性或增大解码超时') from None
+    except RuntimeError as e:
+        raise CliError('contract.video-unreadable', str(e), hint='检查视频文件是否损坏或包含有效视频流') from None
+    except ValueError as e:
+        raise CliError('contract.sync-input', str(e)) from None
+
+    st = res['status']
+    val_str = f"{res['offset_frames']:+.3f} 帧（{res['offset_ms']:+.1f} ms，{res['path']} / {res['input_track']} / {res['fps_mode']}，corr={res['peak_corr']:.4f}）"
+    exp_str = f"|偏移| < {res['warn_threshold_frames']:g} 帧（硬门 < {res['fail_threshold_frames']:g} 帧，peak_corr ≥ {res['min_peak_corr']:g}）"
+    evidence = {
+        'offsetFrames': res['offset_frames'],
+        'offsetMs': res['offset_ms'],
+        'peakCorr': res['peak_corr'],
+        'peakSnr': res['peak_snr'],
+        'path': res['path'],
+        'inputTrack': res['input_track'],
+        'audioSource': _rel(audio_path),
+        'visualSource': _rel(kin_abs or vid_abs),
+        'fps': res['fps'],
+        'fpsMode': res['fps_mode'],
+        'fpsModeRequested': res['fps_mode_requested'],
+        'onTwosDetected': res['on_twos_detected'],
+        'onTwosGuardApplied': res['on_twos_guard_applied'],
+        'warnThresholdFrames': res['warn_threshold_frames'],
+        'failThresholdFrames': res['fail_threshold_frames'],
+        'elapsedMs': res['elapsed_ms'],
+        'warnings': res['warnings'],
+    }
+    msg = '' if st == 'pass' else res['message']
+    hint = '检查画面动作关键帧与音效摆放时刻对齐' if st != 'pass' else None
+    return _chk(
+        'audio.sync',
+        '运动学对冲击音画同步（纯 CPU）',
+        st,
+        val_str,
+        exp_str,
+        evidence,
+        msg,
+        hint=hint,
+        severity='hard' if st == 'fail' else 'soft',
+    )
+
+
+def analyze(
+    wav,
+    *,
+    fps=None,
+    frames=None,
+    cuts=(),
+    target_lufs=-14.0,
+    tol_lu=0.5,
+    max_tp=-1.0,
+    chunk_s=10.0,
+    loudness_at='mix',
+    film=None,
+    strict_masking=None,
+    precise_window=None,
+    kinematics=None,
+    video=None,
+    sync_stem=None,
+    sync_path='auto',
+    sync_fps_mode='auto',
+    sync_warn_frames=None,
+    sync_fail_frames=None,
+):
     """→ (checks, info)。cuts 是切点帧号；loudness_at 见文件头（mix / deliver）。"""
     import soundfile as sf
     try:
@@ -1040,6 +1206,20 @@ def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.
     dc_chk = _check_dialogue(wav, film, info.samplerate)
     if dc_chk is not None:
         checks.append(dc_chk)
+    sync_chk = check_sync(
+        wav,
+        film=film,
+        kinematics=kinematics,
+        video=video,
+        sync_stem=sync_stem,
+        sync_path=sync_path,
+        sync_fps_mode=sync_fps_mode,
+        sync_warn_frames=sync_warn_frames,
+        sync_fail_frames=sync_fail_frames,
+        fps=fps,
+    )
+    if sync_chk is not None:
+        checks.append(sync_chk)
     for c in checks:
         if c['id'] in ('audio.dc', 'audio.mono', 'audio.edges') and c['status'] == 'warn':
             c['severity'] = 'soft'
@@ -1135,6 +1315,15 @@ def make_parser():
     p.add_argument('--precise-window', action='store_true',
                    help='audio.masking 按事件的 end / dur / pre_s / anchor 取测量窗（默认固定起音前 15 ms 到后 220 ms；--strict-masking 自带此窗）；'
                         '也可在 film.json 写 audio.preciseWindow')
+    p.add_argument('--kinematics', help='可选页面遥测 kinematics.json 路径或目录：启用纯 CPU 运动学对冲击音画同步检查（audio.sync）')
+    p.add_argument('--video', help='可选视频文件路径：无遥测时经 ffmpeg 退化帧差启用纯 CPU 音画同步检查（audio.sync）')
+    p.add_argument('--sync-stem', help='可选同步检测参考音频轨（默认优先 stems/sfx.wav 或 stems/fx.wav，否则退回待检混音）')
+    p.add_argument('--sync-path', choices=['auto', 'actor', 'screen'], default='auto',
+                   help='遥测同步路径：auto（主路径 actor 退化 screen.motion）/ actor / screen')
+    p.add_argument('--sync-fps-mode', choices=['auto', '24fps', '12fps'], default='auto',
+                   help='同步帧率模式：auto（自动识别一拍二）/ 24fps / 12fps（一拍二紧门限与 12 Hz 守卫）')
+    p.add_argument('--sync-warn-frames', type=float, help='音画同步告警偏移帧数门限（12 fps 默认 1.1f，24 fps 默认 1.5f）')
+    p.add_argument('--sync-fail-frames', type=float, help='音画同步硬失败偏移帧数门限（默认 1.5f）')
     return p
 
 
@@ -1143,6 +1332,8 @@ def main(args, ctx):
         raise CliError('usage.missing-input', '要给 --film 或 --wav', hint='例：python -m engine.audio.qa --film films/demo')
     if (args.frames is None) != (args.fps is None):
         raise CliError('usage.frames-fps', '--frames 和 --fps 要一起给')
+    if args.kinematics and args.video:
+        raise CliError('usage.conflicting-sync-source', '--kinematics 与 --video 不能同时指定')
     film = None
     try:
         film = F.load(args.film) if args.film else None
@@ -1168,7 +1359,10 @@ def main(args, ctx):
     ctx.log(f'声音 QA：{_rel(wav)}（档位 {prof["id"]}，目标 {target:g} ± {tol:g} LUFS、真峰值 ≤ {max_tp:g} dBTP；响度在 {at} 定）')
     checks, _ = analyze(wav, fps=fps, frames=frames, cuts=film['cuts'] if film else (), target_lufs=float(target), tol_lu=tol, max_tp=float(max_tp),
                         loudness_at=at, film=film, strict_masking=True if args.strict_masking else None,
-                        precise_window=True if args.precise_window else None)
+                        precise_window=True if args.precise_window else None,
+                        kinematics=args.kinematics, video=args.video, sync_stem=args.sync_stem,
+                        sync_path=args.sync_path, sync_fps_mode=args.sync_fps_mode,
+                        sync_warn_frames=args.sync_warn_frames, sync_fail_frames=args.sync_fail_frames)
     rep = build_report(checks, film=film, wav=wav, profile_id=prof['id'], fail_on_warn=args.fail_on_warn)
     rep['loudnessAt'] = at
     outputs = []
