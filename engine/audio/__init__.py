@@ -7,6 +7,8 @@
   sampler    多采样乐器采样器（CC0 库，BEIMING_SAMPLES 指路径）
   library    CC0 真实录音音效库（按清单加载、48 kHz 重采样、感知锚点 P-Center 标定、过零切片与署名，供 --real-sfx 切换）
   foley      物理拟音层：子事件复合（Pre/Transient/Body/Tail）、P-Center 锚定放置、防机关枪轮询池与运动学颗粒声床
+  erb        96 带 ERB 复基带分析-再合成（子包 erb/，CPU 参考实现 core.py + GPU 执行器 erb_cuda.cu / gpu.py，用法见 erb/README.md）：从一段录音学出不含波形的 ERB 模型，
+             按新种子合成「同一件东西的另一下」（起音因果约束与颗粒约束保住「咔」的干脆，多下录音学 take 间变化，连敲每下不同；python -m engine.audio.erb）
   procedural 物理因果与风格化音效程序化合成：刚体模态撞击（含 radiation='accel' 加速度辐射）、PhISEM 随机粒子碰撞、
              Strouhal 涡街破空、Minnaert 气泡共振、卡通原语，以及三维雷电传播（thunder_strike）、时变四分之一波腔注水
              （pouring_vessel）、简并分裂圆片弹跳与欧拉盘滚振（bouncing_disc）、弹道 N 波与 Friedlander 爆破（shock_blast）
@@ -16,7 +18,11 @@
   sfx_judge  音效物理形态与取证判定（Stage 1，零训练 Timbre Toolbox 描述符：筛伪升频、削波、电源哼声、动作包络错配、
              口技/合成器谐波污染，以及 >6 kHz 周期颗粒调制电嗡声 hf_envelope_buzz 与 4–16 kHz 窄带金属哨音尖刺 hf_whistle_db）
   sfx_vocab  音效库检索词表与世界观三干线锁池（UCS v8.2.1 82 大类 / 753 子类 ucs_vocab.json、24 类复合配方、六种世界观加权与全片音效池规划）
-  music_gen  情绪导引乐谱与配乐生成管线：按镜头事件推导能量弧线（plan_sections_from_film）、确定性合成导引乐谱（build_guide_score）与 ACE-Step 1.5 Cover 生成缓存（python -m engine.audio.music_gen；tools/audio/music.mjs）
+  composer   通用算法电影作曲与零跑调导引合成内核：6 类风格原型（COMPOSER_STYLES）、功能/调式和声与终止式语法（plan_harmonic_arc）、
+             Viterbi 四声部最小运动连接（solve_voice_leading）、单主题动机变形发展（MotifEngine / compose_film_score）、
+             悬停泛音呼吸（Fermata Breath）+ 弱起引子（Anacrusis Pickup）、100% 440Hz 声学导引合成与标准 SMF Type-1 MIDI 导出（export_midi）
+  music_gen  情绪导引乐谱与配乐生成管线：按镜头事件推导能量弧线（plan_sections_from_film）、确定性合成导引乐谱（build_guide_score）、
+             零跑调锁相声码器 Cover 对齐（align_cover_pitch_locked）与 ACE-Step 1.5 / Suno v6 Cover 生成缓存（python -m engine.audio.music_gen；tools/audio/music.mjs）
   orchestra  编配：两层力度交叉淡化的长音、拨奏
   mixing     混音：时间轴摆放、镜头窗、让路、按目标响度定电平、SSL 总线粘合压缩与母带收口（master_chain）
   meter      测量：BS.1770 响度、真峰值、频段能量、起音、ffmpeg 旁证

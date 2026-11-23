@@ -1,114 +1,50 @@
 # calib/：合成校准场景
 
-七个用来量口径的小场景。每个场景是一份和渲染器无关的 JSON（`scene.json`），带一节从规格直接算得出的标准答案 `expected`。three 和 Blender 两个探针适配器照同一份规格各搭一遍、各渲一遍，读回的数和标准答案比。
+带标准答案的小场景。每个场景是一份和渲染器无关的 JSON（`scene.json`，格式 `calib-scene/0.1`）：针孔相机、解析形体（盒子、平面、球、圆柱）、自发光材质（可选受光的标准材质和点光源）、匀速运动，外加一节从规格直接算得出的标准答案 `expected`。没有贴图和模型文件，不引用任何外部素材。字段、单位、算式和每个场景的标准答案见[规格细则](DETAILS.md)。
 
-这里只有规格和检查器，不渲染。
+## 两组场景
 
-```sh
-node beiming/calib/check.mjs                 # 查格式、查单位、从规格重算 expected 并比对
-node --test 'beiming/calib/*.test.mjs'       # 检查器自测
+**探针场景（7 个，`probe-*`）**：量帧源口径用，各服务探针表的几行。`probe-gray-chart`（线性度、显示变换）、`probe-plane-steps`（深度）、`probe-thin-geometry`（编号层边缘）、`probe-axes-turntable`（坐标与相机）、`probe-moving-cube`（时间键、快门）、`probe-occlusion`（可见比例）、`probe-aux-sample`（辅助层取样）。两个帧源的读数在 [table/](table/README.md)。
+
+**公开校准场景（4 个，带版本号）**：给后期链、灯光材质标定、爆炸拆解和取景考题复用，各带 three 和 Blender 两个帧源的镜头入口。物体名是 `meta/0.1` 认的实体名（`ball.gray`、`head.visor` 这样点分的），两个帧源交回的元数据直接过正式契约。
+
+| 引用 | 里面有什么 | 帧 |
+|---|---|---|
+| `calib/hdr-post@1` | 六级曝光阶（1/16 到 64）、亮度 8 的三原色、灰白黑、亮度 1000 和 100 的小球、亮度 50 的细条 | 0 |
+| `calib/studio-balls@1` | 受光地台上灰、铬、白、黑四个受光球，主灯、辅灯、轮廓灯三个点光源；六块自发光色卡，1 米标尺杆 | 0 |
+| `calib/boxes-explode@1` | 八个方块从拼合态沿对角方向匀速散开，后排从前排外侧露出来 | 0 到 24 |
+| `calib/mech-head-proxy@1` | 头壳、面罩、下颌、耳轴、天线、传感器拼的机械头代理体，整体每 48 帧转一圈；机位满足考题 28-1 的取景限制（1920 × 824 下四边留白都不少于 15%） | 0 到 48 |
+
+受光的球和地台没有标准答案：读回多少要看渲染器（three 只有直接光，Blender 是路径追踪），自发光的色卡和标尺才有。两个宿主的元数据现在不带灯（`lights` 是 `null`），灯位用 `calibMetaLights(scene)` 取。
+
+## 用法
+
+```js
+import { checkScene } from './beiming/calib/check.mjs';
+import { PUBLIC_CALIB_SCENES, calibMetaLights, listCalibScenes, materializeCalibWorkspace, resolveCalibScene } from './beiming/calib/index.mjs';
+
+const { id, scene } = resolveCalibScene('calib/hdr-post@1');   // 也认 'hdr-post@1'；结果深冻结
+resolveCalibScene('probe-gray-chart', { allowProbes: true });  // 探针场景要显式放行，不然报 RangeError
+checkScene(scene, id);                                         // 问题清单，空数组就是通过
+listCalibScenes({ includeProbes: true });                      // 4 个公开场景，加 7 个探针场景
+
+// 备好两个帧源的镜头输入；片子描述写到 outDir/film.json，已经有这个文件就报 EEXIST、不覆盖
+const { filmDir, threeShotInput, blenderShotInput } = await materializeCalibWorkspace('calib/hdr-post@1', outDir);
+const session = await source.open(threeShotInput, { lock: null, tier: 'draft', workspace, filmDir });
+const { meta, layers } = await session.render(0, {}, ['color', 'depth', 'objectId']);
 ```
 
-## 1. 格式 `calib-scene/0.1`
+`source` 是 `beiming/host/page/host.mjs`（three）或 `beiming/sources/blender/host.mjs`（Blender）的 `startSource()` 交回的帧源，Blender 那边换成 `blenderShotInput`。引用不是字符串抛 `TypeError`，场景不存在或名字不合法（带 `..`、斜杠、反斜杠等）抛 `RangeError`。`filmDir` 是场景目录，不是 `outDir`：页面宿主只放行 `beiming/` 下的入口文件。探针场景没有镜头入口，`materializeCalibWorkspace` 不接。`calibMetaLights(scene)` 把规格的灯表换成 `meta/0.1` 的 `lights` 写法。
 
-通用口径照 `beiming/kernel/contracts/CONVENTIONS.md` 第 5 节：米、右手系、Y 向上、相机看向自己的 −Z、整数帧、帧号从 0 起、小驼峰字段名、缺字段非法、不得为 `null`、顶层不得有未定义字段（私有数据放 `ext`）。
+## 改场景
 
-### 单位：一律写在字段名的后缀里
+答案字段不手填：由检查器从规格重算一遍再比，写的和重算的对不上就报「写的是 …，重算是 …」。公开场景的内容定了就不改，要改规格另起 `@2`。
 
-每个数值字段的名字必须以下表的后缀结尾。数组里的数归它所在的字段名管（`positionM: [x, y, z]` 三个数都是米）。检查器逐个叶子查：数值字段没后缀就报；带后缀的字段，值不是有限的数（写成字符串、布尔、`null`）也报。不在表里的后缀一律当没后缀报，不猜：比如 `fooPerFrame` 不会被当成 `Frame`，后缀前面紧跟 `Per` 的复合单位只认表里写出的 `MPerFrame`、`RadPerFrame`。
+## 自检
 
-| 后缀 | 单位 | 说明 |
-|---|---|---|
-| `M` | 米 | |
-| `MPerFrame` | 米每帧 | |
-| `Rad` | 弧度 | |
-| `RadPerFrame` | 弧度每帧 | |
-| `Deg` | 度 | 只有名字里带 `Deg` 的才是度 |
-| `Frame` | 帧 | 必须是整数 |
-| `Fps` | 帧每秒 | 只在 `frameRateFps`，供入口换算秒 |
-| `Px` | 像素 | `camera.widthPx`、`camera.heightPx` 必须是整数，其余可以有小数 |
-| `Linear` | 场景线性值 | 颜色和亮度，场景线性、Rec.709 原色，不是显示空间；1 是漫反射白，可以大于 1 |
-| `Dir` | 无量纲方向 | 方向向量，不必归一，使用时归一 |
-| `Ratio` | 无量纲比例 | 子帧、相对容差、交并比 |
-| `Index` | 无量纲编号 | 必须是整数 |
+```sh
+node beiming/calib/check.mjs              # 全部 11 个场景（7 个探针加 4 个公开）：查格式、查单位、查裁剪面、重算 expected 并比对
+node --test 'beiming/calib/*.test.mjs'    # 检查器自测；四个公开场景过检查器，并在 three 和 Blender 上实渲
+```
 
-### 顶层
-
-| 字段 | 说明 |
-|---|---|
-| `format` | 固定 `calib-scene/0.1` |
-| `id` | 等于目录名 |
-| `title` | 中文一句话：场景里有什么 |
-| `probeRows` | 这个场景为探针表的哪几行服务，写口径名（见第 3 节） |
-| `colorSpace` | 固定 `scene-linear-rec709`：全文件所有 `*Linear` 字段都是场景线性 |
-| `frameRange` | `startFrame`、`endFrame`，闭区间；`startFrame` 必须是 0 |
-| `frameRateFps` | 帧率，只在入口把帧换成秒时用 |
-| `camera` | 见下 |
-| `backgroundLinear` | 背景色，场景线性 |
-| `objects` | 物体数组，见下 |
-| `expected` | 标准答案数组，见第 2 节 |
-
-### 相机 `camera`
-
-针孔相机，不动。`positionM`、`lookAtM`、`upDir` 建基：前 = 归一(`lookAtM` − `positionM`)，右 = 归一(前 × `upDir`)，上 = 右 × 前；相机自己的 −Z 是前。`yFovDeg` 是竖直方向的全视场角。`widthPx`、`heightPx` 是分辨率，像素是正方形。`nearM`、`farM` 是裁剪面，0 < `nearM` < `farM`；每个物体在 `frameRange` 的每个整数帧上，沿前方向的深度范围都必须整个落在 [`nearM`, `farM`] 里，全部或部分落在外面就报。建不出基（`lookAtM` 与 `positionM` 重合、`upDir` 长度为零或与前向平行）、`yFovDeg` 不在 (0, 180) 开区间，检查器都报，不往下重算。
-
-可选 `apertureDiameterM`、`focusDistanceM`：镜头的孔径（直径）和对焦距离。标准答案一律按针孔算，这两个数不进任何答案；写上它们是告诉会做景深的渲染器「颜色层可以带景深，辅助层不许带」。
-
-可选 `shutterAngleDeg` 加 `shutterOpens`（两个要么都写要么都不写）：快门角，`shutterOpens` 只能是 `frameStart`，即快门在第 f 帧的起点打开，开 `shutterAngleDeg / 360` 帧，拖影中点在 f + `shutterAngleDeg` / 360 / 2。只在开运动模糊的读数里用。
-
-像素坐标：原点在图像左上角，u 向右、v 向下；像素 (i, j) 的中心是 (i + 0.5, j + 0.5)。像素坐标是连续坐标，整数像素 (i, j) 占 [i, i + 1) × [j, j + 1)；标准答案里的非整数坐标（例如投影出来的 72.727032）就是连续坐标上的那一点，不是像素编号。探针读回某个坐标 (u, v) 时，取它落在的那个整数像素 (⌊u⌋, ⌊v⌋)。`pixelHits` 的射线过的就是给出的连续坐标本身，不先取整。投影：f = (`heightPx` / 2) / tan(`yFovDeg` / 2)，u = `widthPx`/2 + f · x / d，v = `heightPx`/2 − f · y / d，其中 x、y 是点在相机右、上方向的分量，d 是沿前方向的平面深度。
-
-### 物体 `objects[]`
-
-只用解析形体，没有贴图、模型文件，没有灯光。材质只有自发光：`emissionLinear` 是表面的场景线性出射值，不受光照、不过色调映射时读回应等于它。
-
-| 字段 | 说明 |
-|---|---|
-| `id` | 物体名，场景内唯一 |
-| `idIndex` | 编号层里的编号，≥ 1，场景内唯一；0 留给背景 |
-| `shape` | `box`、`plane`、`sphere`、`cylinder` 之一 |
-| 形体尺寸 | `box`：`sizeM` [x, y, z] 全长；`plane`：`sizeM` [x, y]，在局部 XY 平面、法线 +Z、零厚度；`sphere`：`radiusM`；`cylinder`：`radiusM`、`heightM`，轴沿局部 Y |
-| `positionM` | 第 0 帧时局部原点在世界里的位置（形体中心） |
-| `rotation` | 可选，`axisDir` + `angleRad`，轴角，右手定则（正角度从轴尖往回看是逆时针，绕 +Y 转正角度把 +X 转向 −Z） |
-| `emissionLinear` | 自发光，场景线性 |
-| `motion` | 可选。`linear`：`velocityMPerFrame`，位置 = `positionM` + 速度 × t；`spin`：`pivotM`、`axisDir`、`angularVelocityRadPerFrame`，物体整体（位置连同朝向）绕过 `pivotM` 的轴转 ω × t |
-
-t 是时刻：帧号加子帧，t = `atFrame` + `subFrameRatio`。世界变换 p世界 = R · p局部 + T，其中 R = R运动 · R静态，`spin` 时 T = R运动 · (`positionM` − `pivotM`) + `pivotM`。
-
-## 2. 标准答案 `expected[]`
-
-每条都有 `kind`、`source`（算式的中文出处说明）、一个容差字段。容差是给探针读数用的过线，检查器自己比对用 1e-5（大于 1 的数按相对）；重算和写的任一边不是有限数（NaN、无穷）都报。
-
-容差必须大于 0，且不超过下面的上限，超出就报：`toleranceRatio` ≤ 0.1，`tolerancePx` ≤ 2，`minIouRatio` ≤ 1。`pixelPx` 必须恰好 2 个数。
-
-答案字段由检查器从规格重算一遍再比，不手填：生成或修改场景后，答案字段要和重算结果一致，否则 `check.mjs` 报「写的是 …，重算是 …」。手填的输入只留规格本身能定的东西（帧号、物体、要量的像素、局部点）。
-
-| `kind` | 输入字段 | 答案字段 | 容差 | 怎么算 |
-|---|---|---|---|---|
-| `pixelHits` | `atFrame`、`pixelPx`、`intendedHitIds`（这个像素按设计应当依次打到的物体名，由近到远；空数组表示背景） | `hits`：[{`objectId`、`planeDepthM`、`rayDistanceM`}]，由近到远；空数组表示背景 | `toleranceRatio` | 过像素中心的射线逐个与物体求交，每个物体取第一个交点。`planeDepthM` 是沿相机前方向的深度，`rayDistanceM` 是从相机到交点的距离。第一项就是这个像素该看到的物体、该有的深度和编号；整列是遮挡顺序。重算出的物体名序列和 `intendedHitIds` 不一致就报，防止像素选错了地方 |
-| `projectPoint` | `objectId`、`atFrame`、`subFrameRatio`、`localPointM`；可选 `sampleAt` | `pixelPx`；写了 `sampleAt` 时 `subFrameRatio` 也是答案 | `tolerancePx` | 物体局部点在时刻 t 的世界位置做针孔投影。`sampleAt` 只能是 `shutterMid`：子帧由快门算，= `shutterAngleDeg` / 360 / 2 |
-| `patchColor` | `objectId` | `pixelPx`、`valueLinear` | `toleranceRatio` | `pixelPx` 是面片中心在 `startFrame` 的投影；再确认这个像素最先打到的是这块面片，值就是它的 `emissionLinear` |
-| `projectedBox` | `objectId`、`atFrame` | `boxMinPx`、`boxMaxPx` | `minIouRatio` | `box` 的 8 个角或 `plane` 的 4 个角投影后取最小、最大，不计遮挡，即元数据包围盒 |
-| `projectedWidth` | `objectId`、`atFrame` | `widthPx` | `tolerancePx` | 只用于 `cylinder`：中心沿相机右方向 ±半径两点投影的横坐标差 |
-
-## 3. 七个场景各量什么
-
-探针表共 12 行，按口径名引用：颜色层的线性度、显示变换、深度口径、编号层的边缘、坐标与相机、时间键、快门相位、子帧累积和后期的先后、显示变换的整形曲线、可见比例的成本、确定性、耗时。七个场景每个都同时服务「确定性」（各渲两遍比哈希）和「耗时」（冷启动、单帧、读回），下表不再重复。
-
-| 场景 | 里面有什么 | 服务哪几行 | 标准答案 |
-|---|---|---|---|
-| `probe-gray-chart` | 2 米外三排自发光面片：0 到 1 的十一级灰阶；0 加 2⁻⁶ 到 2⁴（即 1/64 到 16）的十二级 HDR 灰阶；红绿蓝青品黄、18% 灰、白八块色卡。背景是暗品红 (0.05, 0, 0.05)，不是 0：两块值为 0 的色块（`ldr-00`、`hdr-00`）因此能和背景分开 | 颜色层的线性度、显示变换、显示变换的整形曲线 | 31 块色块各自的中心像素和线性值；第一、二排之间空隙里的一个背景像素 (320.5, 130.5) |
-| `probe-plane-steps` | 正对相机、距离 1、2、5、10 米的四块平面，各占画面一列 | 深度口径 | 每块平面的中心像素和一个靠角的像素：平面深度、射线距离各一个数，用来分辨帧源给的是哪一种 |
-| `probe-thin-geometry` | 3 米外直径 4 毫米（投影约 0.66 像素）和 2 厘米（约 3.3 像素）两根竖杆；2 米外两张 1 毫米厚、前后相隔 1 厘米、错开交叠的薄片 | 编号层的边缘 | 两根杆的投影宽度；两张薄片的元数据包围盒；交叠区、只有后片、粗杆中心三个像素的遮挡顺序和深度 |
-| `probe-axes-turntable` | 原点上方立 +X 红、+Y 绿、+Z 蓝三根 1 米标记杆加端头球；下面半径 1.2 米的转台绕 +Y 每 96 帧一圈，边上一个黄色标记块；另一边一根品红小杆 `turntable-arm`，带静态旋转（绕 +Z 转 π/2，立成竖直），同时随转台转；相机在斜上方 | 坐标与相机 | 三个端头球的屏幕位置（分辨 Y 向上还是 Z 向上、视场角口径）；转台标记在第 0、24、48、72、96 帧的屏幕位置（分辨旋转方向）；小杆顶端在第 24、48 帧的屏幕位置（分辨旋转合成顺序）；一个像素的求交 |
-| `probe-moving-cube` | 5 米外 0.4 米方块沿 +X 每帧 5 厘米匀速走 48 帧，正面嵌一个线性亮度 50 的小高光球；相机 180 度快门、帧起点开 | 时间键、快门相位、子帧累积和后期的先后 | 方块中心在第 0、24、48 帧和第 24 帧 sub = 0.5 的位置；第 24 帧拖影中点（f + 0.25）的位置；高光球位置；高光像素的遮挡顺序 |
-| `probe-occlusion` | 3、4、5 米外三个 0.5 米方块，前一个挡住后一个的一角，有一条视线同时穿过三个 | 可见比例的成本 | 三个方块的元数据包围盒（编号层反算的交并比按 `minIouRatio` 0.95 过线）；五个像素的遮挡顺序：近中远、中远、只有远、只有近、背景 |
-| `probe-aux-sample` | 5 米外两片斜放的薄板（绕视线轴各转了一个角度），一片沿 +X、一片沿 +Y 匀速平移，斜边一路扫过像素网格的各个相位；1.2 米处一块斜放的静止小片，离 5 米的对焦面很远。相机开 180 度快门，镜头带 5 厘米孔径 | 编号层的边缘、时间键 | 三个物体中心在第 0、4、8 帧的位置，两片薄板在第 4 帧快门中点的位置；62 个点名的像素：像素中心在 `sub = 0`、针孔下打到谁。挑的都是换一种取法答案就变的像素：同一个像素里挪四分之一像素会变的 36 个，只有取快门中点才会变的 20 个，小片的边外 3 个像素以内的背景 6 个（开着孔径时离焦的小片会洇到这里）；并且都离边不止十六分之一像素 |
-
-小杆顶端（局部 (0.15, 0, 0)）的答案按 R = R运动 · R静态（先静态旋转、再运动旋转）算：第 24 帧 (256.840837, 225.936085)，第 48 帧 (401.010232, 216.667855)。顺序反过来（R静态 · R运动）会落到第 24 帧 (268.158863, 233.984785)、第 48 帧 (399.203312, 243.426895)，两种顺序分别差 13.888 和 26.820 像素。
-
-「显示变换」那几行要的查找表和色差，由探针在灰阶场景上量，规格本身不给显示空间的答案。
-
-## 4. 检查器
-
-`check.mjs` 只用 Node 标准库，导出 `checkScene`、`checkFormat`、`checkUnits`、`checkClip`、`computeExpected`、`raycast`、`project` 等函数；直接运行时加载本目录下全部 `probe-*/scene.json`，每个场景一行，最后一行「N 个场景，M 个有问题」。有问题或场景不是 6 个时退出码 1。
+只有机器上确实没有浏览器或 Blender 时，实渲的两项才跳过；帧源起来之后出的错都算失败。验收要看跳过数是 0。

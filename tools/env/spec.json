@@ -605,6 +605,35 @@
       "external": "ACE-Step 1.5"
     },
     {
+      "name": "BEIMING_SUNO_MCP_URL",
+      "group": "声音",
+      "purpose": "Suno MCP Cover 配乐生成的 HTTP 服务地址（npm run audio:music 与 engine.audio.music_gen 在 --provider suno 时读取；--endpoint 优先）",
+      "default": "http://127.0.0.1:3425/mcp/suno",
+      "readBy": [
+        "engine/audio/music_gen.py",
+        "tools/audio/music.mjs"
+      ],
+      "external": "Suno MCP"
+    },
+    {
+      "name": "BEIMING_NVCC",
+      "group": "声音",
+      "purpose": "ERB 再合成 GPU 内核的编译器 nvcc 的路径（engine/audio/erb/gpu.py）；未设时按 PATH 找，再试 /opt/cuda/bin 与 /usr/local/cuda/bin；都没有时 GPU 执行器不可用，自动退回 CPU",
+      "default": "不设（按 PATH 找 nvcc）",
+      "readBy": [
+        "engine/audio/erb/gpu.py"
+      ]
+    },
+    {
+      "name": "BEIMING_ERB_CACHE",
+      "group": "声音",
+      "purpose": "ERB 再合成 GPU 内核编译产物的缓存目录（文件名带源码、nvcc 版本与 GPU 型号的哈希，换了任何一项就重新编译）",
+      "default": "仓库根的 .cache/erb（已被 git 忽略）",
+      "readBy": [
+        "engine/audio/erb/gpu.py"
+      ]
+    },
+    {
       "name": "BEIMING_FPS",
       "group": "声音",
       "purpose": "统一出片传给声音脚本的帧率；A 模版 sound.py 与 film.json 不一致时退出 4（换了档位却没改作品描述）",

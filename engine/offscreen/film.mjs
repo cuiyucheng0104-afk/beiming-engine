@@ -6,11 +6,12 @@
 //     width × height 是宿主的画幅；shadows 阴影贴图类型（默认 PCFShadowMap，false = 不开）。r187 已删掉 PCFSoftShadowMap（A 路线外壳用的那种），
 //     主光的滤波由 tsl/toon.js 的 useR170Shadow 换成与 r170 PCFSoft 同式，类型只决定深度纹理的过滤方式，见那里的说明
 //     overlay / ctx   显示层画布（@napi-rs/canvas，Skia）与它的 2D 上下文；坐标同 A 路线（实际像素，左上原点）
-//   film.work({ dur, fps, shots, look, draw, texts }) → 作品模块的返回值 { render(f), texts(f), dispose() }
+//   film.work({ dur, fps, shots, look, draw, texts, stateKey }) → 作品模块的返回值 { render(f), texts(f), stateKey?(f), dispose() }
 //     shots   同 film.run：[{ in, out?, shot, id? }]（film.json v2 原样）或 [{ at, shot }]；镜头 = { scene, camera, update(t, f, ctx), look(t, ctx) }
 //     look    tsl/look.js 的 createLook 实例；每帧 look.render(scene, camera, 镜头的后期参数)
 //     draw(ctx, t, shot, sctx)   每帧在清空的显示层上画；显示层按 sRGB 数值「盖」在后期结果上（同浏览器合成两块画布），不过后期；无绘制调用或返回 false 时走无叠图输出，连续空帧不清画布、不读回/上传全幅纹理
 //     texts(t)  该时刻的文字（页面约定的 TEXTS），work.texts(f) 交出规范化之后的条目
+//     stateKey(f)  可选：返回 string 时，yuv420p 下相邻帧 key 相同将跳过 render(f) 与 clock.tick 直接复用上一帧 YUV；返回 null / 非 string 不复用
 // 页面约定里给渲染器的 window.DUR / READY / 预热，这里没有：帧数由宿主的 --frames 决定，着色器在第一帧编译。
 import { shotTable, designFit, normalizeTexts } from '../stage/film.js';
 import { setFilmFps, frameOf, REF_FPS } from '../core/clock.js';
@@ -45,7 +46,8 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
   });
   ovTex.colorSpace = THREE.NoColorSpace; ovTex.minFilter = ovTex.magFilter = THREE.NearestFilter; ovTex.generateMipmaps = false; ovTex.needsUpdate = true;
 
-  function work({ dur, fps, shots, look, draw = null, texts = null, events = null, timeline = null }) {
+  function work({ dur, fps, shots, look, draw = null, texts = null, events = null, timeline = null, stateKey = null }) {
+    if (stateKey != null && typeof stateKey !== 'function') throw new TypeError(`film.work 的 stateKey 必须是函数或 null，收到 ${typeof stateKey}`);
     const rate = setFilmFps(fps ?? REF_FPS);
     const table = shotTable(shots, { fps: rate, dur });
     const ov = texture(ovTex).load(ivec2(screenCoordinate.xy));
@@ -57,6 +59,7 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
       dur,
       ...(events ? { events } : {}),
       ...(timeline ? { timeline } : {}),
+      ...(stateKey ? { stateKey } : {}),
       render(f) {
         const t = Math.min(f / rate, dur - 1e-6);
         const { entry, ctx: sctx } = table.at(t, frameOf(t, rate));

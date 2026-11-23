@@ -9,6 +9,11 @@ import { rules, runAll } from '../../tools/repo-check/rules/qa/index.mjs';
 
 after(cleanup);
 
+test('渲染器随包档位与 QA 兼容入口一致，缺配置时不改变判定阈值', () => {
+  const read = file => JSON.parse(fs.readFileSync(path.join(ROOT, file), 'utf8'));
+  assert.deepEqual(read('engine/render/lib/qa-profiles.builtin.json'), read('tools/qa/profiles.builtin.json'));
+});
+
 test('本仓库：QA 域规则全部通过', async () => {
   const res = await runAll({ root: ROOT });
   assert.deepEqual(res.filter(r => !r.ok).map(r => `${r.id}: ${r.findings.filter(f => f.level === 'error').map(f => f.message).join('；')}`), []);

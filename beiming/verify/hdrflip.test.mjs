@@ -136,13 +136,21 @@ test('V17-6 全黑参考图对非黑图给出有限的大误差，异常入参�
 
   const bad = (reference, test, options) => assert.throws(() => verify.hdrFlip(reference, test, options), RangeError);
   bad(img(1), { width: w, height: h + 1, data: new Float32Array(w * (h + 1) * 3) });
+  bad({ width: -w, height: h, data: new Float32Array(n * 3) }, img(1));
+  bad({ width: w, height: 0, data: new Float32Array(0) }, img(1));
+  bad({ width: 4.5, height: h, data: new Float32Array(27 * 3) }, img(1));
   bad(img(1), { width: w, height: h, data: new Float32Array(n * 3 - 1) });
   bad(img(1), { width: w, height: h, data: new Float32Array(n * 2), channels: 2 });
   bad(img(1), { width: w, height: h, data: new Float64Array(n * 3) });
   bad(img(1), img(NaN));
   bad(img(Infinity), img(1));
   bad(img(1), null);
+  bad('', img(1));
+  bad(img(1), img(1), null);
+  bad(img(1), img(1), 67);
   bad(img(1), img(1), { ppd: 0 });
+  bad(img(1), img(1), { ppd: -10 });
+  bad(img(1), img(1), { ppd: NaN });
   bad(img(1), img(1), { tonemapper: 'reinhard' });
   const depthOnly = writeExr({ width: w, height: h, channels: { 'depth.Z': new Float32Array(n) } });
   bad(depthOnly, depthOnly);

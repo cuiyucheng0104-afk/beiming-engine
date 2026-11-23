@@ -65,13 +65,17 @@ const sum = (k) => k.reduce((s, v) => s + v, 0);
 
 // 读成交错的线性 RGB（负值钳到 0）。EXR 取 color.R/G/B，没有就取 R/G/B。
 function load(input, label) {
-  if (typeof input === 'string') input = readFileSync(input);
+  if (typeof input === 'string') {
+    check(input.length > 0, `${label} 文件路径不能为空`);
+    input = readFileSync(input);
+  }
   let width, height, planes, data, channels;
   if (input instanceof Uint8Array) {
     const exr = readExr(input);
     ({ width, height } = exr);
+    check(Number.isInteger(width) && Number.isInteger(height) && width > 0 && height > 0, `${label} 的 EXR 尺寸无效`);
     planes = ['R', 'G', 'B'].map((c) => exr.channels[`color.${c}`] ?? exr.channels[c]);
-    check(planes.every((p) => p instanceof Float32Array), `${label} 的 EXR 缺少浮点 color.R/G/B 或 R/G/B 通道`);
+    check(planes.every((p) => p instanceof Float32Array && p.length === width * height), `${label} 的 EXR 缺少浮点 color.R/G/B 或 R/G/B 通道`);
   } else {
     check(input !== null && typeof input === 'object', `${label} 必须是 { width, height, data } 或 EXR 字节、文件路径`);
     ({ width, height, data, channels = 3 } = input);
@@ -119,14 +123,15 @@ function kernels(ppd) {
   // 特征检测：高斯及其一阶、二阶导数；导数核的正权与负权各自归一到 1 与 -1。
   const sd = 0.5 * GW * ppd;
   const fr = Math.ceil(3 * sd);
-  const g = Float64Array.from({ length: 2 * fr + 1 }, (_, i) => Math.exp(-((i - fr) ** 2) / (2 * sd * sd)));
+  const g = Float64Array.from({ length: 2 * fr + 1 }, (_, i) => (i === fr ? 1 : Math.exp(-((i - fr) ** 2) / (2 * sd * sd))));
   const signed = (k) => {
-    const positive = sum(k.filter((v) => v > 0)), negative = -sum(k.filter((v) => v <= 0));
-    return k.map((v) => v / (v > 0 ? positive : negative));
+    const positive = sum(k.filter((v) => v > 0)), negative = -sum(k.filter((v) => v < 0));
+    return k.map((v) => (v > 0 ? v / positive : v < 0 ? v / negative : 0));
   };
   return {
     y: unit(csf(1, 0.0047)), cx: unit(csf(1, 0.0053)), z1: z1.map((v) => v / zNorm), z2: z2.map((v) => v / zNorm),
-    g: unit(g), dg: signed(g.map((v, i) => -(i - fr) * v)), ddg: signed(g.map((v, i) => ((i - fr) ** 2 / (sd * sd) - 1) * v)),
+    g: unit(g), dg: signed(g.map((v, i) => -(i - fr) * v)),
+    ddg: signed(g.map((v, i) => (i === fr ? -1 : v === 0 ? 0 : ((i - fr) ** 2 / (sd * sd) - 1) * v))),
   };
 }
 
@@ -207,7 +212,9 @@ function perceive(rgb, w, h, gain, K) {
  * 第四通道忽略），或 EXR 的字节（Uint8Array / Buffer）、文件路径。曝光区间只由 reference 决定，所以两个参数不可互换。
  * 返回平均值 value、逐像素误差图 errorMap（从上到下、从左到右）与 details 里的曝光区间和分位数。
  */
-export function hdrFlip(reference, test, { ppd = DEFAULT_PPD, tonemapper = 'aces' } = {}) {
+export function hdrFlip(reference, test, options = {}) {
+  check(options !== null && typeof options === 'object' && !Array.isArray(options), 'options 必须是对象');
+  const { ppd = DEFAULT_PPD, tonemapper = 'aces' } = options;
   check(Number.isFinite(ppd) && ppd > 0, 'ppd 必须是正数');
   check(tonemapper === 'aces', `只支持 tonemapper 'aces'，收到 ${JSON.stringify(tonemapper)}`);
   const ref = load(reference, 'reference'), tst = load(test, 'test');

@@ -1,0 +1,17 @@
+{
+  "question": "15-2",
+  "note": "案例 15 拼接片的量测读数，不带原片媒体。每个镜头拿首帧对尾帧估缩放与平移，216×122 灰度，像素按 216 宽计；error 是估出的变换下的平均灰度差，stillError 是不动时的平均灰度差。locked 是细密画那一行的三个镜头，机位锁死，是正例；drifting 是另外两行里读出缓推或平移的五个镜头，是反例。",
+  "size": [216, 122],
+  "locked": [
+    { "shot": 1, "scale": 1, "dx": 0, "dy": 0, "error": 2.18, "stillError": 2.18 },
+    { "shot": 2, "scale": 1, "dx": 0, "dy": 0, "error": 4.3, "stillError": 4.3 },
+    { "shot": 3, "scale": 1, "dx": 0, "dy": 0, "error": 7.72, "stillError": 7.72 }
+  ],
+  "drifting": [
+    { "row": "b", "shot": 1, "scale": 1.02, "dx": -5, "dy": 2, "error": 6.65, "stillError": 14.28 },
+    { "row": "b", "shot": 2, "scale": 1.03, "dx": -2, "dy": 1, "error": 10.62, "stillError": 15.82 },
+    { "row": "b", "shot": 3, "scale": 1.02, "dx": -1, "dy": 0, "error": 10.42, "stillError": 13.76 },
+    { "row": "c", "shot": 1, "scale": 0.99, "dx": 6, "dy": 0, "error": 14.75, "stillError": 15.21 },
+    { "row": "c", "shot": 3, "scale": 1.02, "dx": 0, "dy": -2, "error": 22, "stillError": 23.32 }
+  ]
+}

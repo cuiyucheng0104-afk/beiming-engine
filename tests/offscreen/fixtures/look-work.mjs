@@ -4,6 +4,7 @@ import { createLook } from '../../../engine/offscreen/tsl/look.js';
 import { inkScene } from './ink-scene.mjs';
 import { paperTile } from './look-paper.mjs';
 import { loadPaper } from '../../../engine/offscreen/paper.mjs';
+import { mergeParams } from '../../../engine/style/index.js';
 
 export function build({ THREE, TSL, renderer, width: W, height: H, pipeline }) {
   const { defaults, p, ss, refHeight = 1080, imagePaper, perFrameTile, paperFile, msaa = 0, fogColor, ortho = false } = globalThis.__LOOK;
@@ -32,7 +33,7 @@ export function build({ THREE, TSL, renderer, width: W, height: H, pipeline }) {
   const look = createLook({ THREE, TSL, renderer }, { width: W, height: H, ss, msaa, refHeight, fps: 24, defaults, paper, fogColor });
   const post = pipeline(look.output);
   return {
-    render() { look.render(scene, camera, pp); post.render(); },
+    render() { look.render(scene, camera, globalThis.__LOOKDEV ? mergeParams(pp, globalThis.__LOOKDEV) : pp); post.render(); },
     dispose() { look.dispose(); paper?.tex.dispose(); frameTex?.dispose(); },
   };
 }

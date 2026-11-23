@@ -1,0 +1,80 @@
+{
+  "format": "question/0.1",
+  "id": "23-1",
+  "level": 1,
+  "title": "无缝转台循环",
+  "brief": "给题目自带的代理模型做一段转台：3 秒、24 帧每秒、72 帧、720×1080，相机绕主体正好转一圈（360°±1°），中间没有切点。循环播放时首尾无缝：最后一帧（第 71 帧）之后接回第 0 帧，看不出停顿和跳动。",
+  "deliverable": {
+    "size": [
+      720,
+      1080
+    ],
+    "fps": "24/1",
+    "frames": 72,
+    "audio": "none"
+  },
+  "assets": {
+    "subject": "calib/mech-head-proxy@1"
+  },
+  "refs": [
+    "bench/refs/level-1/23-1-reference.json"
+  ],
+  "basePredicates": [
+    "delivery(width=720, height=1080, fps=24, frames=72)",
+    "orbit_total(camera, subject) in [359, 361] deg",
+    "no_cut @ all"
+  ],
+  "scoring": [
+    {
+      "metric": "loop.closure-psnr",
+      "args": {
+        "a": 0,
+        "search": [
+          36,
+          72
+        ],
+        "expect": 71
+      },
+      "pass": "后半段（第 36 到 71 帧）里和第 0 帧最像的是第 71 帧",
+      "weight": 0.5
+    },
+    {
+      "metric": "loop.closure-psnr",
+      "args": {
+        "a": 0,
+        "b": 71,
+        "ref": [
+          0,
+          1
+        ],
+        "maxRatio": 1.1
+      },
+      "pass": "第 0 帧对第 71 帧的差不超过第 0 帧对第 1 帧的差的 1.1 倍；差按均方根误差算，由两个 PSNR 换算",
+      "weight": 0.5
+    }
+  ],
+  "controls": {
+    "referencePass": "标准答案工程必须得满分；案例 23 的全身转台（72 帧）和头部转台（60 帧，帧号按帧数换算）两条参考片的读数也必须得满分",
+    "negative": "少转（350°）、多转（370°）、末帧跳到别处的提交必须判不合格"
+  },
+  "needs": [
+    "camera.orbit",
+    "deliver.encode"
+  ],
+  "budget": {
+    "tokens": 200000,
+    "wallMs": 600000,
+    "gpuSeconds": 60
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": false,
+    "blockedBy": []
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "05 第 6.3 节的初值，没有试跑过",
+    "noiseFloor": null,
+    "version": 0
+  }
+}

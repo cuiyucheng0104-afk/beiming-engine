@@ -10,7 +10,7 @@ import { caps } from '../../sources/three/caps.mjs';
 import { planOpen } from '../../sources/three/plan.mjs';
 import { createThreeSource } from '../../sources/three/source.js';
 import { monotonicMs } from './clock.js';
-import { clipStats, lumaStats, measureEntity } from './measure.js';
+import { answerQuery, clipStats, lumaStats, measureEntity, pickAnchors, placeAnchors } from './measure.js';
 
 const META_KEYS = ['texts', 'anchors', 'readings'];
 const CARD_ENTRIES = ['create', 'evaluate'];
@@ -29,7 +29,7 @@ function base64(view) {
 }
 
 /**
- * 装载一个镜头，交回页面里的会话 { manifest, render, close }。
+ * 装载一个镜头，交回页面里的会话 { manifest, render, query, close }。
  * input：镜头输入；env：{ lock, tier }；filmBase：片子描述所在目录的地址，入口文件相对它找；cards：提供给帧源的卡 { 卡名: { card, sha256 } }。
  * 事件只从镜头输入的 events 拿（上层已经展开成全片帧号），这里不从片子描述再展开。
  */
@@ -241,29 +241,24 @@ export async function openSession({ input, env, filmBase, cards = {} }) {
         ? t
         : { ...t, bbox2d: [t.bbox2d[0] * rx, t.bbox2d[1] * ry, t.bbox2d[2] * rx, t.bbox2d[3] * ry] });
       const texts = (extra.texts ?? []).map(scaleText), readings = { ...extra.readings };
-      let anchored = Boolean(extra.anchors);
+      // 锚点：镜头代码交「实体名#锚点名」到世界坐标，宿主投到屏幕、挂到那个实体上。同一个锚点交了两次这一帧算失败，不让后来的盖掉先来的
+      const anchorPairs = Object.entries(extra.anchors ?? {});
       for (const i of loaded.reporters) {
         const m = mergeMeta(i.as, i.handle.meta(f) ?? {});
         texts.push(...m.texts.map(scaleText));
         Object.assign(readings, m.readings);
-        anchored ||= Boolean(m.anchors);
+        anchorPairs.push(...cardAnchors(i, m));
         Object.assign(i.row, { metaIds: m.ids, mergedMetaIds: m.merged });
       }
-      if (anchored) throw new Error('页面宿主还没接锚点');
+      const anchors = placeAnchors(view, proj, facts.size, anchorPairs, facts.manifest.entities.map((e) => e.name));
       const nulls = CAPS.metaNull ?? [];
       if (!nulls.includes('lights') || !nulls.includes('stats.noise')) throw new Error('页面宿主不会量灯和噪声，帧源必须在 metaNull 里声明');
 
       const entities = facts.manifest.entities.map((e) => {
-        const points = [];
-        object.entities[e.name].traverse((o) => {
-          const pos = o.geometry?.attributes.position;
-          for (let i = 0; i < (pos?.count ?? 0); i++) points.push(new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).toArray());
-        });
-        if (!points.length) throw new Error(`实体 ${e.name} 没有几何，量不出包围盒`);
-        const m = measureEntity(view, proj, facts.size, points);
+        const m = measureEntity(view, proj, facts.size, pointsOf(object, e.name));
         const role = entry.roles?.hero === e.name ? 'hero' : entry.roles?.mustSee?.includes(e.name) ? 'mustSee' : null;
         // 可见比例由渲染器在编号层上数了交过来：只有出了像素、这个实体有角色时才有，别的写 null
-        return { id: e.id, name: e.name, class: e.class, ...(role ? { role } : {}), bbox2d: m.bbox2d, bbox3d: m.bbox3d, visible: (role && facts.visible?.[e.name]) ?? null, pxArea: m.pxArea, depth: m.depth };
+        return { id: e.id, name: e.name, class: e.class, ...(role ? { role } : {}), bbox2d: m.bbox2d, bbox3d: m.bbox3d, visible: (role && facts.visible?.[e.name]) ?? null, pxArea: m.pxArea, depth: m.depth, ...(Object.hasOwn(anchors, e.name) ? { anchors: anchors[e.name] } : {}) };
       });
 
       return {
@@ -300,7 +295,48 @@ export async function openSession({ input, env, filmBase, cards = {} }) {
         ...(account.steps || account.cards.length ? { ext: { 'page.load': structuredClone(account) } } : {}),
       };
     },
+
+    /**
+     * 场景查询：渲染器已经把 (f, sub = 0) 写进场景，这里只量不改。q 是 planQuery 判过的 { kind, of: 配上的实体名, tol }。
+     * 包围盒、最低点和元数据的 bbox3d 是同一批顶点；锚点和元数据的是同一份来源（镜头的 meta(f) 加各张卡的），但只取世界坐标、不投到屏幕：
+     * 落在相机平面上的锚点元数据交不出（那一帧报错），这里照答；只看挂在 of 里的实体上的锚点，别的实体上的写坏了也不牵连（pickAnchors）。
+     */
+    query(loaded, f, q) {
+      const { object } = loaded;
+      sync(object);
+      if (q.kind !== 'anchor') return answerQuery(q.kind, q.of.map((name) => [name, pointsOf(object, name)]), q.tol);
+      const pairs = [...Object.entries(object.meta(f)?.anchors ?? {}), ...loaded.reporters.flatMap((i) => cardAnchors(i, mergeMeta(i.as, i.handle.meta(f) ?? {})))];
+      return answerQuery('anchor', pickAnchors(pairs, q.of));
+    },
   };
+
+  /** 卡交的锚点只能挂在它自己带进来的实体上（卡的运行时接口契约 3.2）：实体名换成并进镜头之后的名字。m 是这张卡并好的 meta(f) */
+  function cardAnchors(i, m) {
+    return Object.entries(m.anchors ?? {}).map(([key, world]) => {
+      const rel = key.split('#')[0], own = i.merged.find((x) => x.rel === rel);
+      if (!own) throw new Error(`卡实例 ${i.as} 交的锚点 ${key} 不在它自己带进来的实体上`);
+      return [own.name + key.slice(rel.length), world];
+    });
+  }
+
+  /**
+   * 一个实体全部顶点的世界坐标（先 sync）。实例网格每个实例各算一遍：世界矩阵是对象的世界矩阵乘上那个实例的矩阵，一个实例都没有（count 是 0）就没有顶点。
+   * 没有几何的实体量不出包围盒，报错。
+   * shortcut: 实例网格逐实例逐顶点算，实例数乘顶点数上百万时每帧量元数据会慢，到时改成只变换几何的凸包；蒙皮、变形目标的形变不算，用到时在这里接
+   */
+  function pointsOf(object, name) {
+    const points = [], v = new THREE.Vector3(), world = new THREE.Matrix4();
+    object.entities[name].traverse((o) => {
+      const pos = o.geometry?.attributes.position;
+      if (!pos) return;
+      for (let k = 0; k < (o.isInstancedMesh ? o.count : 1); k++) {
+        if (o.isInstancedMesh) { o.getMatrixAt(k, world); world.premultiply(o.matrixWorld); } else world.copy(o.matrixWorld);
+        for (let i = 0; i < pos.count; i++) points.push(v.fromBufferAttribute(pos, i).applyMatrix4(world).toArray());
+      }
+    });
+    if (!points.length) throw new Error(`实体 ${name} 没有几何，量不出包围盒`);
+    return points;
+  }
 
   /** 把矩阵更新到当前状态，返回相机到世界的矩阵的逆 */
   function sync({ scene, camera }) {
@@ -319,10 +355,22 @@ export async function openSession({ input, env, filmBase, cards = {} }) {
         const res = await session.render(f, opts, want);
         const layers = {};
         for (const [name, l] of Object.entries(res.layers)) layers[name] = { type: l.type, components: l.components, size: l.size, base64: base64(l.data) };
-        return { ok: true, meta: res.meta, layers };
+        // 场景参考通路另交的（半浮点的成片、2 倍编号层）也编成 base64，宽高 node 一侧照颜色层的算
+        const extra = res.extra && Object.fromEntries(Object.entries(res.extra).map(([name, data]) => [name, base64(data)]));
+        return { ok: true, meta: res.meta, layers, ...(extra && { extra }) };
       } catch (e) {
         if (!e.code) throw e;
         return { ok: false, code: e.code, message: e.message };
+      }
+    },
+
+    /** 答一次场景查询。带错误码的错连同 next（替代办法）作为结果交回，别的错照常抛 */
+    async query(f, q) {
+      try {
+        return { ok: true, result: await session.query(f, q) };
+      } catch (e) {
+        if (!e.code) throw e;
+        return { ok: false, code: e.code, message: e.message, next: e.next };
       }
     },
 

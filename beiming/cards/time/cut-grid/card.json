@@ -1,0 +1,52 @@
+{
+  "format": "card/0.1",
+  "id": "time.cut-grid",
+  "version": "1.0.0",
+  "kind": "time",
+  "title": "拍点网格剪辑",
+  "intent": "把想切的位置或各镜头的时长对到固定步长的拍点网格上，让每个切点都落在拍上",
+  "visibleToAgent": true,
+  "livesIn": ["data"],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/time/cut-grid/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/time/cut-grid/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "marks": { "type": "data", "unit": "frame", "schema": "marks.schema.json", "default": [], "coupling": "fps" },
+    "marksAre": { "type": "string", "unit": "none", "default": "cuts", "coupling": "none" },
+    "origin": { "type": "string", "unit": "none", "default": "shot", "coupling": "none" },
+    "gridFrames": { "type": "integer", "unit": "frame", "range": [1, 600], "default": 12, "coupling": "fps" },
+    "minShotFrames": { "type": "integer", "unit": "frame", "range": [1, 6000], "default": 12, "coupling": "fps" },
+    "offsetFrames": { "type": "integer", "unit": "frame", "range": [0, 599], "default": 0, "coupling": "fps" },
+    "startFrame": { "type": "integer", "unit": "frame", "range": [0, 10000000], "default": 0, "coupling": "fps" },
+    "endFrame": { "type": "integer", "unit": "frame", "range": [0, 10000000], "default": 0, "coupling": "fps" }
+  },
+  "ports": {
+    "in": [],
+    "out": [{ "name": "cuts", "type": "tracks.cuts" }],
+    "order": { "before": [], "after": [] },
+    "requires": ["marks、startFrame、endFrame、offsetFrames 默认是镜头局部帧号（origin 是 shot），交出的切点是全片帧号；要直接写全片帧号就把 origin 设成 film", "gridFrames 是一拍（或半拍）在这部片子的帧率下正好几帧；换了帧率要跟着改"]
+  },
+  "conditions": {
+    "appliesWhen": ["跟着音乐剪的片子：切点要全部落在拍点网格上", "手排的镜头时长长短不齐，要对成拍的整数倍"],
+    "notWhen": ["切点跟的是旁白或动作，不是固定的拍：网格会把它挪开", "拍速在片子中途变：这张卡只有一个步长"]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "步长 12 帧：想切在 10、29、30、100 帧，对到 12、24、36、96（29 对到 24，30 在两格中间取 36）；镜头时长 31、22、47 对成切点 36、48，片尾 96；离上一个切点不到最短镜头长的往后挪一格",
+    "predicates": []
+  },
+  "pitfalls": [
+    { "symptom": "切点比想切的位置晚了一格或几格", "fix": "它离上一个切点不到 minShotFrames，被挪到了够长的第一个网格点；把 minShotFrames 调小，或者把这两个位置拉开" },
+    { "symptom": "切点都偏了同一个数，不在拍上", "fix": "音乐的第一拍不在第 0 帧：把第一拍的帧号写进 offsetFrames" },
+    { "symptom": "报放不下", "fix": "endFrame 之前排不下这么多个最短镜头：减镜头、调小 minShotFrames 或者把片尾放长" }
+  ],
+  "provenance": { "cases": [], "note": "对到最近的网格点，再按最短镜头长往后推，切点个数不变；镜头的区间和事件表里的切点条目都从这组帧号来" },
+  "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-22" }],
+  "exams": ["27-1", "23-2", "cal:time.cut-grid"]
+}
