@@ -14,7 +14,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import * as THREE from 'three';
+import * as THREE from 'three-webgpu';
+import { GLTFLoader } from 'three-webgpu/addons/loaders/GLTFLoader.js';
 import { checks as eventChecks } from '../kernel/contracts/events/check.mjs';
 import { shutterSubs } from '../kernel/eval/time.mjs';
 import { buildSyntheticGlb, create as createGlbBridge, inspectGlb, verifyPartNames } from './asset/glb-bridge/index.mjs';
@@ -193,7 +194,13 @@ test('T16-3 M3 端到端桥接链路：正式参数接入 GLB 零件桥 -> 随�
       },
     ],
   });
-  const rotorHandle = createGlbBridge({ THREE }, resolveParams(assetCard, { glb: rotorGlb }));
+  const rotorHandle = createGlbBridge(
+    { THREE },
+    resolveParams(assetCard, {
+      glb: rotorGlb,
+      spec: { alias: 'rotor', expectedParts: ['housing', 'blade'], upAxis: 'Y', unitScale: 1 },
+    }),
+  );
   const bladeMesh = rotorHandle.object.parts.blade;
   assert.equal(bladeMesh.parent, rotorHandle.object.nodes.mount);
   assert.equal(bladeMesh.geometry.attributes.position.count, 3);
@@ -396,3 +403,97 @@ test('T16-4 四张卡全部满足 L2 纯函数确定性（顺序 / 逆序 / 单�
   }
   assert.equal(VOICE_NAMES.length, 5);
 });
+
+test('T16-5 二审 7 项回归：严格零件清单拒绝拼错名与同名空组、多 primitive 几何与材质合入同一零件及越界索引拦截、默认场景可达零件、meta/0.1 ext 扩展、单采样快门相位', async () => {
+  const card = readCard('asset.glb-bridge');
+  const load = (glb, spec) => createGlbBridge({ THREE }, resolveParams(card, { glb, spec }));
+  const spec = { alias: 'gpu', expectedParts: ['body', 'fan_L', 'fan_R'], upAxis: 'Y', unitScale: 1 };
+
+  // 1 & 2. 严格清单拒绝拼错名与同名空组
+  for (const [reason, last] of [['拼错名', 'fan_X'], ['同名空组', { name: 'fan_R', kind: 'group' }]]) {
+    const glb = buildSyntheticGlb({ alias: 'gpu', parts: ['body', 'fan_L', last] });
+    assert.throws(() => load(glb, spec), { code: 'usage.bad-argument' }, `严格清单应拒绝${reason}`);
+  }
+
+  // 两块分别带红、蓝材质的三角面：在 JSON 中保留一个命名 mesh，两个 primitive 共用同一个 BIN 块
+  const tri = (name, x, color) => ({
+    name,
+    positions: [x, 0, 0, x + 1, 0, 0, x, 1, 0],
+    indices: [0, 1, 2],
+    material: { name, baseColorFactor: [...color, 1] },
+  });
+  const seed = Buffer.from(buildSyntheticGlb({
+    alias: 'gpu',
+    prefixAlias: false,
+    parts: [tri('body', 0, [1, 0, 0]), tri('panel', 5, [0, 0, 1])],
+  }));
+  function fixture(change) {
+    const end = 20 + seed.readUInt32LE(12);
+    const doc = JSON.parse(seed.subarray(20, end));
+    change(doc);
+    const text = Buffer.from(JSON.stringify(doc));
+    const padded = Buffer.alloc(Math.ceil(text.length / 4) * 4, 32);
+    text.copy(padded);
+    const out = Buffer.concat([seed.subarray(0, 20), padded, seed.subarray(end)]);
+    out.writeUInt32LE(out.length, 8);
+    out.writeUInt32LE(padded.length, 12);
+    return Uint8Array.from(out);
+  }
+  function merge(d) {
+    d.meshes[0].primitives.push(d.meshes[1].primitives[0]);
+    d.meshes.length = 1;
+    d.nodes.length = 1;
+    d.scenes[0].nodes = [0];
+    d.nodes[0].translation = [2, 0, 0];
+  }
+  const body = { alias: 'gpu', expectedParts: ['body'] };
+  const bounds = (root) => new THREE.Box3().setFromObject(root, true).max.x;
+  const names = (root) => {
+    const seen = new Set();
+    root.traverse((o) => {
+      if (o.isMesh) {
+        for (const m of [o.material].flat()) seen.add(m.name);
+      }
+    });
+    return [...seen].sort();
+  };
+
+  // 3. 第二个 primitive 的几何和材质进入同一个零件
+  const multiPrimGlb = fixture(merge);
+  const refMulti = (await new GLTFLoader().parseAsync(multiPrimGlb.buffer, '')).scene;
+  assert.equal(bounds(refMulti), 8);
+  assert.deepEqual(names(refMulti), ['body', 'panel']);
+  const hMulti = load(multiPrimGlb, body);
+  assert.deepEqual([bounds(hMulti.object), hMulti.object.worldBbox[3], names(hMulti.object)], [8, 8, ['body', 'panel']]);
+  hMulti.dispose();
+
+  // 4. 第二个 primitive 的越界索引必须拒收
+  const badPrim2Glb = fixture((d) => {
+    merge(d);
+    d.meshes[0].primitives[1].indices = d.accessors.length;
+  });
+  assert.throws(() => load(badPrim2Glb, body), { code: 'usage.bad-argument' });
+
+  // 5. 默认场景只交付可达的零件
+  const twoScenesGlb = fixture((d) => {
+    d.scenes = [{ nodes: [0] }, { nodes: [1] }];
+    d.scene = 0;
+  });
+  const refScene0 = (await new GLTFLoader().parseAsync(twoScenesGlb.buffer, '')).scene;
+  assert.equal(bounds(refScene0), 1);
+  const hScene0 = createGlbBridge({ THREE }, resolveParams(card, { glb: twoScenesGlb, spec: body, allowExtraParts: true }));
+  assert.deepEqual([Object.keys(hScene0.object.parts), hScene0.object.worldBbox[3]], [['body'], 1]);
+  hScene0.dispose();
+
+  // 6. 标注直接消费 meta/0.1 扩展
+  const fullMeta = JSON.parse(readFileSync(join(BEIMING, 'kernel/contracts/meta/examples/full.json'), 'utf8'));
+  const hOverlay = createOverlayAnchored({ size: fullMeta.size }, { callouts: [{ id: 'tag', entity: 'kit', text: 'LEFT' }] });
+  fullMeta.ext = { 'page.load': { steps: ['assets', 'tracks', 'create', 'collect'] } };
+  assert.equal(hOverlay.object.layout(fullMeta.shotFrame, fullMeta).texts[0].text, 'LEFT');
+
+  // 7. 非零快门单采样与求值核相位相同
+  const shot = { in: 31, frames: 4 };
+  const actualSubs = subframeTimes(32, shot, { shutterAngleDeg: 180, samples: 1 }).map((s) => s.sub);
+  assert.deepEqual(actualSubs, shutterSubs(180, 1));
+});
+

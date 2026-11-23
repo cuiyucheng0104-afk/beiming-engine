@@ -144,6 +144,13 @@ test('overlay.anchored 自测：像素坐标不误当归一化放大、越界坐
   const hashLeft = createHash('sha256').update(rgbaLeft).digest('hex');
   const hashCore = createHash('sha256').update(rgbaCore).digest('hex');
   assert.notEqual(hashLeft, hashCore, '更换 LEFT -> CORE 时实际绘制的文字字形像素必须改变');
+
+  // 4. 兼容含标准 ext 扩展字段的 meta/0.1
+  const metaWithExt = {
+    ...metaCenter,
+    ext: { 'page.load': { steps: ['assets', 'tracks', 'create', 'collect'] } },
+  };
+  assert.equal(hLeft.object.layout(0, metaWithExt).texts[0].text, 'LEFT');
 });
 
 test('overlay.anchored 自测：靠近画幅边缘时标签框钳制在 safeMarginPx 安全区内，且过 L2 纯函数门', () => {

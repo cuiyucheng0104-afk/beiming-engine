@@ -55,11 +55,14 @@ test('blur.subframe 自测：切点后首帧（f = shot.in）严格钳制快门�
 });
 
 test('blur.subframe 自测：真实页面宿主上下文接入、局部首帧 apply(0, 0) 换算、复用同一读回缓冲与 shutterSubs 默认快门对齐', () => {
-  // 1. 内部第 32 帧、180°、两采样的默认时刻严格对齐 T5/T14 shutterSubs：[32.125, 32.375]
+  // 1. 内部第 32 帧、180°、两采样及单采样的默认时刻严格对齐 T5/T14 shutterSubs
   const subs = shutterSubs(180, 2);
   const sched32 = subframeTimes(32, { in: 31, frames: 4 }, { shutterAngleDeg: 180, samples: 2 });
   assert.deepEqual(sched32.map((s) => s.sub), subs);
   assert.deepEqual(sched32.map((s) => s.t), [32.125, 32.375]);
+  const sched32Single = subframeTimes(32, { in: 31, frames: 4 }, { shutterAngleDeg: 180, samples: 1 });
+  assert.deepEqual(sched32Single.map((s) => s.sub), shutterSubs(180, 1));
+  assert.deepEqual(sched32Single.map((s) => s.t), [32.25]);
 
   // 2. 真实页面宿主完整 ctx（含 ctx.tracks.apply、cards.use、rng 等）及局部首帧 apply(0, 0) -> 全片第 31 帧
   const hostCtx = {

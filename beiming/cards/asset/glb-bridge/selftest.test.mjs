@@ -104,7 +104,7 @@ test('asset.glb-bridge 自测：真实父子层级（mount -> blade）、原始�
 });
 
 test('asset.glb-bridge 自测：缺零件、重名节点、匿名网格、删 BIN 块、越界子节点与非法 UTF-8 均以 usage.bad-argument 拒绝', () => {
-  // 1. 缺少 fan_R
+  // 1. 缺少 fan_R、拼错名 fan_X 或同名空组 fan_R 均被严格清单拒绝
   const missingGlb = buildSyntheticGlb({
     alias: 'gpu',
     parts: ['body', 'fan_L'],
@@ -116,6 +116,14 @@ test('asset.glb-bridge 自测：缺零件、重名节点、匿名网格、删 BI
     () => verifyPartNames(missingGlb, ['body', 'fan_L', 'fan_R'], { throwOnError: true }),
     (err) => err?.code === 'usage.bad-argument' && /缺少零件 fan_R/.test(err.message),
   );
+  const spec3 = { alias: 'gpu', expectedParts: ['body', 'fan_L', 'fan_R'], upAxis: 'Y', unitScale: 1 };
+  for (const last of ['fan_X', { name: 'fan_R', kind: 'group' }]) {
+    const badPartGlb = buildSyntheticGlb({ alias: 'gpu', parts: ['body', 'fan_L', last] });
+    assert.throws(
+      () => create({ THREE }, { glb: badPartGlb, spec: spec3 }),
+      (err) => err?.code === 'usage.bad-argument',
+    );
+  }
 
   // 2. 重名节点
   const dupGlb = buildSyntheticGlb({

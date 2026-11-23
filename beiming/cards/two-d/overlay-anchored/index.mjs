@@ -35,6 +35,7 @@ const ALLOWED_META_KEYS = Object.freeze([
   'origin',
   'hash',
   'anchors',
+  'ext',
 ]);
 
 const ALLOWED_ENTITY_KEYS = Object.freeze([
@@ -245,6 +246,14 @@ function validateFrameMetaObject(frameMeta, width, height) {
       }
     } else {
       fail('frameMeta.entities 必须是数组或普通对象');
+    }
+  }
+  if (frameMeta.ext !== undefined) {
+    if (!isPlainObject(frameMeta.ext)) fail('frameMeta.ext 必须是普通对象');
+    for (const k of Object.keys(frameMeta.ext)) {
+      if (!/^[a-z][a-z0-9-]*\.[A-Za-z0-9_.-]+$/.test(k)) {
+        fail(`frameMeta.ext 键 ${JSON.stringify(k)} 不符合 "<namespace>.<key>" 格式`);
+      }
     }
   }
 }

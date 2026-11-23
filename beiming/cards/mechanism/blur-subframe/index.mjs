@@ -119,7 +119,7 @@ export function subframeTimes(rawFrame, rawShot = { in: 0, frames: 48 }, rawOpts
   }
 
   const span = shutterAngleDeg / 360;
-  if (samples === 1 || span === 0) {
+  if (span === 0) {
     return [
       {
         index: 0,

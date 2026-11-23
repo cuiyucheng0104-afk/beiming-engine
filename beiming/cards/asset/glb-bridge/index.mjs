@@ -958,40 +958,68 @@ export function inspectGlb(input) {
     if (!Array.isArray(m.primitives) || m.primitives.length < 1) {
       fail(`glTF meshes[${i}].primitives 必须是非空数组`);
     }
-    const prim = m.primitives[0];
-    if (!isPlainObject(prim) || !isPlainObject(prim.attributes)) {
-      fail(`glTF meshes[${i}].primitives[0].attributes 必须是普通对象`);
-    }
-    const posIdx = prim.attributes.POSITION;
-    const { values: vertices, bbox, synthesizedFromBounds } = decodeFloatAccessor(posIdx, 'VEC3', 3, rawAccessors, rawBufferViews, binBytes, isBinaryGlb);
-    const vertexCount = vertices.length / 3;
+    const primitives = new Array(m.primitives.length);
+    const allVertices = [];
+    let mMinX = Infinity, mMinY = Infinity, mMinZ = Infinity;
+    let mMaxX = -Infinity, mMaxY = -Infinity, mMaxZ = -Infinity;
 
-    let normals = null;
-    if (prim.attributes.NORMAL !== undefined) {
-      const normRes = decodeFloatAccessor(prim.attributes.NORMAL, 'VEC3', vertexCount, rawAccessors, rawBufferViews, binBytes, isBinaryGlb);
-      if (normRes.values.length === vertices.length) normals = normRes.values;
-    }
-
-    let uvs = null;
-    if (prim.attributes.TEXCOORD_0 !== undefined) {
-      const uvRes = decodeFloatAccessor(prim.attributes.TEXCOORD_0, 'VEC2', vertexCount, rawAccessors, rawBufferViews, binBytes, isBinaryGlb);
-      if (uvRes.values.length === vertexCount * 2) uvs = uvRes.values;
-    }
-
-    const hasIndices = prim.indices !== undefined || synthesizedFromBounds;
-    const indices = prim.indices !== undefined
-      ? decodeIndexAccessor(prim.indices, vertexCount, rawAccessors, rawBufferViews, binBytes, isBinaryGlb)
-      : (synthesizedFromBounds ? [...BOX_INDICES] : Array.from({ length: vertexCount }, (_, k) => k));
-
-    let material = null;
-    if (prim.material !== undefined) {
-      if (!Number.isInteger(prim.material) || prim.material < 0 || prim.material >= decodedMaterials.length) {
-        fail(`glTF meshes[${i}].primitives[0].material 索引 ${safeShow(prim.material)} 越界`);
+    for (let p = 0; p < m.primitives.length; p++) {
+      const prim = m.primitives[p];
+      if (!isPlainObject(prim) || !isPlainObject(prim.attributes)) {
+        fail(`glTF meshes[${i}].primitives[${p}].attributes 必须是普通对象`);
       }
-      material = decodedMaterials[prim.material];
+      const posIdx = prim.attributes.POSITION;
+      const { values: vertices, bbox, synthesizedFromBounds } = decodeFloatAccessor(posIdx, 'VEC3', 3, rawAccessors, rawBufferViews, binBytes, isBinaryGlb);
+      const vertexCount = vertices.length / 3;
+
+      let normals = null;
+      if (prim.attributes.NORMAL !== undefined) {
+        const normRes = decodeFloatAccessor(prim.attributes.NORMAL, 'VEC3', vertexCount, rawAccessors, rawBufferViews, binBytes, isBinaryGlb);
+        if (normRes.values.length === vertices.length) normals = normRes.values;
+      }
+
+      let uvs = null;
+      if (prim.attributes.TEXCOORD_0 !== undefined) {
+        const uvRes = decodeFloatAccessor(prim.attributes.TEXCOORD_0, 'VEC2', vertexCount, rawAccessors, rawBufferViews, binBytes, isBinaryGlb);
+        if (uvRes.values.length === vertexCount * 2) uvs = uvRes.values;
+      }
+
+      const hasIndices = prim.indices !== undefined || synthesizedFromBounds;
+      const indices = prim.indices !== undefined
+        ? decodeIndexAccessor(prim.indices, vertexCount, rawAccessors, rawBufferViews, binBytes, isBinaryGlb)
+        : (synthesizedFromBounds ? [...BOX_INDICES] : Array.from({ length: vertexCount }, (_, k) => k));
+
+      let material = null;
+      if (prim.material !== undefined) {
+        if (!Number.isInteger(prim.material) || prim.material < 0 || prim.material >= decodedMaterials.length) {
+          fail(`glTF meshes[${i}].primitives[${p}].material 索引 ${safeShow(prim.material)} 越界`);
+        }
+        material = decodedMaterials[prim.material];
+      }
+
+      for (let k = 0; k < vertices.length; k++) allVertices.push(vertices[k]);
+      if (bbox[0] < mMinX) mMinX = bbox[0];
+      if (bbox[1] < mMinY) mMinY = bbox[1];
+      if (bbox[2] < mMinZ) mMinZ = bbox[2];
+      if (bbox[3] > mMaxX) mMaxX = bbox[3];
+      if (bbox[4] > mMaxY) mMaxY = bbox[4];
+      if (bbox[5] > mMaxZ) mMaxZ = bbox[5];
+
+      primitives[p] = { vertices, normals, uvs, indices, hasIndices, bbox, material };
     }
 
-    decodedMeshes[i] = { vertices, normals, uvs, indices, hasIndices, bbox, material };
+    const firstPrim = primitives[0];
+    const unionBbox = Number.isFinite(mMinX) ? [mMinX, mMinY, mMinZ, mMaxX, mMaxY, mMaxZ] : [...firstPrim.bbox];
+    decodedMeshes[i] = {
+      primitives,
+      vertices: allVertices,
+      normals: firstPrim.normals,
+      uvs: firstPrim.uvs,
+      indices: firstPrim.indices,
+      hasIndices: firstPrim.hasIndices,
+      bbox: unionBbox,
+      material: firstPrim.material,
+    };
   }
 
   // 校验节点数组、children 引用合法性、单父节点约束与无环性
@@ -1046,9 +1074,27 @@ export function inspectGlb(input) {
     }
   }
 
+  const activeSceneIndex = rawScenes.length > 0 ? (gltf.scene ?? 0) : null;
+  const reachableNodes = new Set();
+  if (activeSceneIndex !== null) {
+    const activeScene = rawScenes[activeSceneIndex];
+    const queue = Array.isArray(activeScene?.nodes) ? [...activeScene.nodes] : [];
+    while (queue.length > 0) {
+      const idx = queue.shift();
+      if (reachableNodes.has(idx)) continue;
+      reachableNodes.add(idx);
+      const children = rawNodes[idx]?.children;
+      if (Array.isArray(children)) {
+        for (const cIdx of children) queue.push(cIdx);
+      }
+    }
+  } else {
+    for (let i = 0; i < rawNodes.length; i++) reachableNodes.add(i);
+  }
+
   const alias = typeof extras.alias === 'string' && extras.alias.length > 0
     ? extras.alias
-    : (typeof rawScenes[0]?.name === 'string' && rawScenes[0].name.length > 0 ? rawScenes[0].name : 'asset');
+    : (typeof rawScenes[activeSceneIndex ?? 0]?.name === 'string' && rawScenes[activeSceneIndex ?? 0].name.length > 0 ? rawScenes[activeSceneIndex ?? 0].name : 'asset');
   const upAxis = extras.upAxis ?? 'Y';
   const unitScale = extras.unitScale ?? 1;
   const hand = extras.hand ?? 'right';
@@ -1103,6 +1149,7 @@ export function inspectGlb(input) {
 
   for (let i = 0; i < rawNodes.length; i++) {
     const n = rawNodes[i];
+    const inActiveScene = reachableNodes.has(i);
     const rawName = typeof n.name === 'string' ? n.name.trim() : '';
     const partName = stripAliasPrefix(rawName, alias);
     const hasMesh = n.mesh !== undefined;
@@ -1114,10 +1161,27 @@ export function inspectGlb(input) {
     const indices = meshData ? [...meshData.indices] : [];
     const hasIndices = meshData ? Boolean(meshData.hasIndices) : false;
     const material = meshData?.material ? { ...meshData.material, baseColorFactor: [...meshData.material.baseColorFactor], emissiveFactor: [...meshData.material.emissiveFactor] } : null;
+    const primitives = meshData
+      ? meshData.primitives.map((pr) => ({
+        vertices: [...pr.vertices],
+        normals: pr.normals ? [...pr.normals] : null,
+        uvs: pr.uvs ? [...pr.uvs] : null,
+        indices: [...pr.indices],
+        hasIndices: Boolean(pr.hasIndices),
+        bbox: [...pr.bbox],
+        material: pr.material
+          ? {
+            ...pr.material,
+            baseColorFactor: [...pr.material.baseColorFactor],
+            emissiveFactor: [...pr.material.emissiveFactor],
+          }
+          : null,
+      }))
+      : [];
     const worldMatrix = getWorldMatrix(i);
     const worldBbox = hasMesh ? computeBboxFromVertices(vertices, worldMatrix) : computeBboxFromVertices([...boxVertices(bbox)], worldMatrix);
 
-    if (hasMesh) {
+    if (inActiveScene && hasMesh) {
       if (worldBbox[0] < minX) minX = worldBbox[0];
       if (worldBbox[1] < minY) minY = worldBbox[1];
       if (worldBbox[2] < minZ) minZ = worldBbox[2];
@@ -1133,6 +1197,7 @@ export function inspectGlb(input) {
       name: rawName,
       partName,
       hasMesh,
+      inActiveScene,
       parentIndex: parentIdx !== undefined ? parentIdx : null,
       parent: parentIdx !== undefined ? (rawNodes[parentIdx]?.name ?? '') : null,
       children: Array.isArray(n.children) ? [...n.children] : [],
@@ -1149,19 +1214,22 @@ export function inspectGlb(input) {
       indices,
       hasIndices,
       material,
+      primitives,
     };
     nodes[i] = info;
 
-    if (rawName === '') {
-      if (hasMesh) unnamedMeshNodes.push(i);
-    } else {
-      if (seenNames.has(partName) || seenNames.has(rawName)) {
-        if (!duplicateNames.includes(partName)) duplicateNames.push(partName);
+    if (inActiveScene) {
+      if (rawName === '') {
+        if (hasMesh) unnamedMeshNodes.push(i);
+      } else {
+        if (seenNames.has(partName) || seenNames.has(rawName)) {
+          if (!duplicateNames.includes(partName)) duplicateNames.push(partName);
+        }
+        seenNames.add(partName);
+        seenNames.add(rawName);
       }
-      seenNames.add(partName);
-      seenNames.add(rawName);
+      if (hasMesh) meshNodes.push(info);
     }
-    if (hasMesh) meshNodes.push(info);
   }
 
   const assetWorldBbox = Number.isFinite(minX) ? [minX, minY, minZ, maxX, maxY, maxZ] : [0, 0, 0, 0, 0, 0];
@@ -1228,12 +1296,9 @@ export function verifyPartNames(input, rawExpectedParts, rawOpts = {}) {
   const actualMeshParts = inspection.meshNodes
     .filter((n) => n.name !== '')
     .map((n) => stripAliasPrefix(n.name, alias));
-  const actualAllNamedNodes = inspection.nodes
-    .filter((n) => n.name !== '')
-    .map((n) => stripAliasPrefix(n.name, alias));
 
-  const matchedParts = expectedParts.filter((p) => actualMeshParts.includes(p) || actualAllNamedNodes.includes(p));
-  const missingParts = expectedParts.filter((p) => !actualMeshParts.includes(p) && !actualAllNamedNodes.includes(p));
+  const matchedParts = expectedParts.filter((p) => actualMeshParts.includes(p));
+  const missingParts = expectedParts.filter((p) => !actualMeshParts.includes(p));
   const extraParts = actualMeshParts.filter((p) => !expectedParts.includes(p));
   const duplicateParts = [...inspection.duplicateNames];
   const unnamedNodes = [...inspection.unnamedMeshNodes];
@@ -1482,50 +1547,79 @@ function buildThreeHierarchy(THREE, inspection, alias, globalScale) {
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
 
-  // 第一遍：为每个节点创建 Group 或 Mesh，严格保留 GLB 中的原始顶点数量、属性与 PBR 材质
+  function buildPrimitiveMesh(meshName, prim, fallbackBbox) {
+    const verts = prim.vertices?.length ? prim.vertices : [...boxVertices(prim.bbox ?? fallbackBbox)];
+    const posArray = new Float32Array(verts);
+    const normArray = prim.normals?.length === verts.length ? new Float32Array(prim.normals) : null;
+    const uvArray = prim.uvs?.length === (verts.length / 3) * 2 ? new Float32Array(prim.uvs) : null;
+    const indexArray = prim.hasIndices && prim.indices?.length ? [...prim.indices] : null;
+
+    if (THREE) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(posArray, 3));
+      if (normArray) {
+        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normArray, 3));
+      }
+      if (uvArray) {
+        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvArray, 2));
+      }
+      if (indexArray && typeof geometry.setIndex === 'function') {
+        geometry.setIndex(indexArray);
+      }
+      if (!normArray && typeof geometry.computeVertexNormals === 'function') {
+        geometry.computeVertexNormals();
+      }
+      const material = createThreeMaterial(THREE, prim.material);
+      const meshObj = new THREE.Mesh(geometry, material);
+      meshObj.name = meshName;
+      disposables.push(geometry, material);
+      return meshObj;
+    }
+    return makeFallbackObject3D(
+      meshName,
+      true,
+      prim.bbox ?? fallbackBbox,
+      {
+        posArray,
+        normArray,
+        uvArray,
+        indexArray: indexArray ? new Uint32Array(indexArray) : null,
+      },
+      prim.material,
+    );
+  }
+
+  // 第一遍：为激活场景可达的每个节点创建 Group 或 Mesh，严格保留 GLB 中的全部 primitive、原始顶点属性与 PBR 材质
   for (let i = 0; i < inspection.nodes.length; i++) {
     const node = inspection.nodes[i];
+    if (node.inActiveScene === false) {
+      nodeObjects[i] = null;
+      continue;
+    }
     const partName = stripAliasPrefix(node.name, alias) || `node_${i}`;
     let obj;
 
     if (node.hasMesh) {
-      const verts = node.vertices?.length ? node.vertices : [...boxVertices(node.bbox)];
-      const posArray = new Float32Array(verts);
-      const normArray = node.normals?.length === verts.length ? new Float32Array(node.normals) : null;
-      const uvArray = node.uvs?.length === (verts.length / 3) * 2 ? new Float32Array(node.uvs) : null;
-      const indexArray = node.hasIndices && node.indices?.length ? [...node.indices] : null;
+      const prims = Array.isArray(node.primitives) && node.primitives.length > 0
+        ? node.primitives
+        : [{
+          vertices: node.vertices,
+          normals: node.normals,
+          uvs: node.uvs,
+          indices: node.indices,
+          hasIndices: node.hasIndices,
+          bbox: node.bbox,
+          material: node.material,
+        }];
 
-      if (THREE) {
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(posArray, 3));
-        if (normArray) {
-          geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normArray, 3));
-        }
-        if (uvArray) {
-          geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvArray, 2));
-        }
-        if (indexArray && typeof geometry.setIndex === 'function') {
-          geometry.setIndex(indexArray);
-        }
-        if (!normArray && typeof geometry.computeVertexNormals === 'function') {
-          geometry.computeVertexNormals();
-        }
-        const material = createThreeMaterial(THREE, node.material);
-        obj = new THREE.Mesh(geometry, material);
-        disposables.push(geometry, material);
+      if (prims.length === 1) {
+        obj = buildPrimitiveMesh(partName, prims[0], node.bbox);
       } else {
-        obj = makeFallbackObject3D(
-          partName,
-          true,
-          node.bbox,
-          {
-            posArray,
-            normArray,
-            uvArray,
-            indexArray: indexArray ? new Uint32Array(indexArray) : null,
-          },
-          node.material,
-        );
+        obj = THREE ? new THREE.Group() : makeFallbackObject3D(partName, false, node.bbox);
+        for (let p = 0; p < prims.length; p++) {
+          const childMesh = buildPrimitiveMesh(`${partName}_${p}`, prims[p], prims[p].bbox ?? node.bbox);
+          obj.add(childMesh);
+        }
       }
 
       const [wx0, wy0, wz0, wx1, wy1, wz1] = node.worldBbox ?? node.bbox;
@@ -1558,10 +1652,11 @@ function buildThreeHierarchy(THREE, inspection, alias, globalScale) {
     }
   }
 
-  // 第二遍：按 glTF 真实父子层级挂载到父节点或 root 下
+  // 第二遍：按 glTF 真实父子层级仅挂载激活场景可达节点到父节点或 root 下
   for (let i = 0; i < inspection.nodes.length; i++) {
     const node = inspection.nodes[i];
     const obj = nodeObjects[i];
+    if (!obj) continue;
     if (node.parentIndex !== null && node.parentIndex !== undefined && nodeObjects[node.parentIndex]) {
       nodeObjects[node.parentIndex].add(obj);
     } else {
@@ -1575,16 +1670,6 @@ function buildThreeHierarchy(THREE, inspection, alias, globalScale) {
   return { root, parts, nodeObjects, nodesByName, worldBbox, disposables };
 }
 
-function isDefaultGpuSpec(spec) {
-  const keys = Object.keys(spec);
-  if (keys.some((k) => !['alias', 'expectedParts', 'upAxis', 'unitScale'].includes(k))) return false;
-  if ((spec.alias ?? 'gpu') !== 'gpu') return false;
-  if ((spec.upAxis ?? 'Y') !== 'Y') return false;
-  if ((spec.unitScale ?? 1) !== 1) return false;
-  const ep = spec.expectedParts;
-  return Array.isArray(ep) && ep.length === 3 && ep[0] === 'body' && ep[1] === 'fan_L' && ep[2] === 'fan_R';
-}
-
 /**
  * 卡入口 create(ctx, params)
  */
@@ -1595,12 +1680,15 @@ export function create(rawCtx = {}, rawParams = {}) {
   if (!isPlainObject(params)) fail('params 必须是普通对象');
   checkAllowedKeys('params', params, ['glb', 'spec', 'strictParts', 'allowExtraParts', 'scale']);
 
-  const spec = params.spec ?? {
-    alias: 'gpu',
-    expectedParts: ['body', 'fan_L', 'fan_R'],
-    upAxis: 'Y',
-    unitScale: 1,
-  };
+  const hasExplicitSpec = params.spec !== undefined;
+  const spec = hasExplicitSpec
+    ? params.spec
+    : {
+      alias: 'gpu',
+      expectedParts: ['body', 'fan_L', 'fan_R'],
+      upAxis: 'Y',
+      unitScale: 1,
+    };
   if (!isPlainObject(spec)) fail('params.spec 必须是普通对象');
   checkAllowedKeys('params.spec', spec, ['alias', 'expectedParts', 'parts', 'upAxis', 'unitScale', 'glb', 'glbBase64']);
 
@@ -1640,23 +1728,12 @@ export function create(rawCtx = {}, rawParams = {}) {
 
   const inspection = inspectGlb(glbBytes);
 
-  // 当调用方仅经 resolveParams(card, { glb }) 传入自定义 GLB 而未改默认 gpu spec 时，
-  // 若该 GLB 自身并非 gpu 零件集（无一零件与默认 body/fan_L/fan_R 重合且 alias 不为 gpu），按资产自身零件表做完整性核对。
-  let expectedParts = spec.expectedParts;
-  let effectiveAlias = spec.alias ?? inspection.alias;
-  if (hasExplicitGlb) {
-    if (!expectedParts) {
-      expectedParts = inspection.partNames;
-      effectiveAlias = spec.alias ?? inspection.alias;
-    } else if (
-      isDefaultGpuSpec(spec)
-      && inspection.partNames.length > 0
-      && !expectedParts.every((p) => inspection.partNames.includes(p))
-      && inspection.partNames.some((p) => !expectedParts.includes(p))
-    ) {
-      expectedParts = inspection.partNames;
-      effectiveAlias = inspection.alias;
-    }
+  let expectedParts = (hasExplicitSpec || !hasExplicitGlb)
+    ? spec.expectedParts
+    : undefined;
+  let effectiveAlias = (hasExplicitSpec ? spec.alias : undefined) ?? inspection.alias;
+  if (hasExplicitGlb && !expectedParts) {
+    expectedParts = inspection.partNames;
   }
   if (!Array.isArray(expectedParts) || expectedParts.length < 1) {
     fail('GLB 资产必须至少包含一个命名网格零件');
