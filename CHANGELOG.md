@@ -160,6 +160,8 @@
 
 ### Fixed
 
+- `beiming/cards/two-d/overlay-title` 片名技术卡（T4 缺陷回修）：将原先仅支持大写拉丁字母与数字的 5×7 点阵方块网格替换为仓库锁定 OFL 真字体分片（`routes/c-style/fonts/fonts.json` + `mashanzheng-00..12.woff2`，Ma Shan Zheng / BM Brush，覆盖全套可打印 ASCII 与 6,763 个 GB2312 汉字共 7,015 字）离屏 Canvas2D 光栅化，仅在 `create()` 光栅化期间临时装卸 `FontFace` 以兼容 `page.det2d@1` 独占字体校验，全纹理 RGB 置白仅由 alpha 调制消除透明底抗锯齿黑边，并按水平墨迹游程构建仅覆盖非零 alpha 像素的平面网格使透明区零误写 `objectId`/`depth`；页面宿主 `beiming/host/page/host.mjs` 新增只读放行 `routes/c-style/fonts/` 下经 `realpathSync.native` 核验的 `.woff2` 与 `fonts.json`；按输出像素中心命中规则上报画幅裁切后的精确可见墨迹外框 `meta(f).texts[0].bbox2d`，`card.json` 补齐 `motion` 参数声明（支持 `rise`/`settle`/`fade` 纯函数缓出入场动效并在落版后逐帧静止），超出锁定字库字符直接报错拒收、绝不回退系统字体。
+
 - 完善一次性作业执行器 `beiming/jobs/sandbox.mjs` 的超时收尾与进程生命周期清理：`collect()` 改为同时监听 `exit` 与 `timeout`，超时后立即终止进程树并销毁标准输出/标准错误管道，主进程退出后在清理后代并短暂排空已缓冲输出后及时关闭管道返回，不再因后代进程继承管道句柄导致 `timeoutMs` 延迟或挂起；POSIX 宿主机后端以独立进程组启动子进程，并结合本次作业专属临时目录标记清理退出或超时后滞留的后代进程（`darwin-seatbelt` 策略同时收敛为不放行 `process-fork`，`worker_threads` 照常工作；Windows 宿主机后端结合 `taskkill /T` 与父进程关系清理残留后代；`oci` 后端在超时或异常退出收尾时强制停止并清理容器）。配套 `beiming/jobs/sandbox.test.mjs` 新增 `A13-28`–`A13-34` 生命周期与并发清理回归测试，不改公开接口与作品画面。
 
 - 治理 `beiming/jobs/` 三条在 Windows 高负载下易触发的计时抖动测试：`beiming/jobs/cache.test.mjs` 的 `A16-29` 跨进程 `prune`/`put` 互斥实测改为确定性互斥窗口压测加无拦截自由并发轮次，不再依赖 20 秒墙钟内靠调度运气撞够 20 次删除；`beiming/jobs/jobs.test.mjs` 放宽长轮询终态测试的 `waitForJob` 超时（`1000` → `10000` ms）及含磁盘队列 I/O / 子进程的测试超时（`3000`/`4000`/`5000` → `15000`/`20000` ms），不改生产逻辑，也不削弱互斥或短超时断言。
