@@ -1,5 +1,6 @@
 // 函数登记表：比对外壳只认这里登记的函数。每项的 WGSL 函数名与标准答案程序（cycles/ref.cpp）的函数标识同名。
-// inputs：[参数名, 'f32' | 'vec3f', [下限, 上限]]，在范围里均匀取；vec3f 可给一个范围（三个分量共用）或三个范围（逐分量）。
+// inputs：[参数名, 'f32' | 'vec3f', [下限, 上限]]，在范围里均匀取；范围第三项写 'log' 时按对数均匀取。
+// vec3f 可给一个范围（三个分量共用）或三个范围（逐分量）。
 // 合格：|被测−标准| ≤ rel·|标准| + abs。rel 一律 1e-4。
 // abs 只给有相减抵消的函数：两个 O(1) 的数相减得到接近 0 的结果时，两边哪怕只差 1 ULP 的舍入（WGSL 的 sqrt、
 // 除法不保证正确舍入，编译器还可能合成 FMA），相对误差也会大到几十个百分点。这类函数的 abs 取「抵消发生处的
@@ -7,9 +8,10 @@
 const FILE = 'shaders/microfacet.wgsl';
 const entry = (name, inputs, out, abs = 0) => ({ name, file: FILE, wgsl: name, ref: name, inputs, out, rel: 1e-4, abs });
 
-// alpha2 = 粗糙度 alpha 的平方，alpha 取 0.01 到 1。alpha2 = 0 时 bsdf_D 在 cos_NH = 1 处是 0/0，两边都出 NaN。
-const ALPHA2 = [1e-4, 1];
-const ALPHA = [0.01, 1];
+// alpha2 = 粗糙度 alpha 的平方。Cycles 在 alpha_x·alpha_y ≤ 2e-10 时才当成纯镜面、不再求值，所以下限取到它上面一点；
+// 按对数均匀取，抛光金属那一头（alpha 很小）和粗糙那一头拿到一样多的样本。alpha2 = 0 时 bsdf_D 是 0/0，两边都出 NaN。
+const ALPHA2 = [2.56e-10, 1, 'log'];
+const ALPHA = [1.6e-5, 1, 'log'];
 // cos_N = 0 时 1/sqr(cos_N) 是无穷，两边都出 inf；掠射角取到 1e-3（约 89.94°）为止
 const COS = [1e-3, 1];
 // 向量的 z 分量（法线方向）不能是 0：aniso_lambda 除以 sqr(V.z)

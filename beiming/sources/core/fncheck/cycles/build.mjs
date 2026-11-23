@@ -1,5 +1,5 @@
 // 标准答案一侧：按固定标签取 Cycles 源码到被忽略的 out/ 缓存（只取内核与 util 两个目录），核对提交号，
-// 再把 ref.cpp 编成本机小程序。Cycles 源码（Apache-2.0）只在缓存里，不进仓库。
+// 再把 ref.cpp 编成本机小程序。Cycles 源码（Apache-2.0，其中闭包文件是 BSD-3-Clause）只在缓存里，不进仓库。
 // 缺工具（git、编译器、网络）时抛出的错误带 .missing，测试据此跳过。
 import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
@@ -54,7 +54,7 @@ export function ensureSource({ allowFetch = true } = {}) {
   return SRC;
 }
 
-/** 编出标准答案程序，返回可执行文件路径。按编译器、选项与源文件内容缓存 */
+/** 编出标准答案程序，返回可执行文件路径。按编译器、Cycles 提交号、选项与源文件内容缓存 */
 export function buildRef(opts) {
   const src = ensureSource(opts);
   const cxx = process.env.CXX || (process.platform === 'darwin' ? 'clang++' : 'g++');
@@ -70,7 +70,7 @@ export function buildRef(opts) {
     `-I${path.join(HERE, 'shim')}`, `-I${path.join(src, 'intern', 'cycles')}`,
   ];
   const cpp = path.join(HERE, 'ref.cpp');
-  const key = createHash('sha256').update([cxx, ...flags, fs.readFileSync(cpp, 'utf8'), fs.readFileSync(path.join(HERE, 'shim/tbb/spin_mutex.h'), 'utf8')].join('\0')).digest('hex').slice(0, 16);
+  const key = createHash('sha256').update([cxx, COMMIT, ...flags, fs.readFileSync(cpp, 'utf8'), fs.readFileSync(path.join(HERE, 'shim/tbb/spin_mutex.h'), 'utf8')].join('\0')).digest('hex').slice(0, 16);
   const bin = path.join(OUT, `cycles-ref-${key}`);
   if (!fs.existsSync(bin)) {
     const r = sh(cxx, [...flags, cpp, '-o', `${bin}.tmp`], { encoding: 'utf8' });

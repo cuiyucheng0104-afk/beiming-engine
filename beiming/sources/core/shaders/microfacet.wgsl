@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2009-2010 Sony Pictures Imageworks Inc., et al. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-License-Identifier: BSD-3-Clause
+//
 // GGX 微表面与 F82 菲涅耳的叶子函数，照 Cycles（Blender v5.2.3）内核源码逐行移植。纯函数，不带绑定。
 // Cycles 的模板参数 MicrofacetType 在这里固定为 GGX，函数名带 _ggx；同名的 float 与 Spectrum 重载分成两个名字，
 // Spectrum（三通道）用 vec3f，float 版带 _f32。

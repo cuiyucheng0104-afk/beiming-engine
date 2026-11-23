@@ -25,7 +25,7 @@ function fnv1a(s) {
   return h;
 }
 
-/** 确定性输入：mulberry32 取 24 位均匀数，映射到登记的范围后存成 float32。只用整数运算与 IEEE 双精度，跨机器逐字节相同 */
+/** 确定性输入：mulberry32 取 24 位均匀数，映射到登记的范围后存成 float32。对数范围用到 Math.pow，跨机器是否逐字节相同以报告里的 inputSha256 为准 */
 export function makeInputs(f, n, seed) {
   const ranges = f.inputs.flatMap(([, type, r]) => (type !== 'vec3f' ? [r] : Array.isArray(r[0]) ? r : [r, r, r]));
   const out = new Float32Array(n * ranges.length);
@@ -34,8 +34,9 @@ export function makeInputs(f, n, seed) {
     s = (s + 0x6d2b79f5) >>> 0;
     let t = Math.imul(s ^ (s >>> 15), 1 | s);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    const [lo, hi] = ranges[i % ranges.length];
-    out[i] = lo + (hi - lo) * (((t ^ (t >>> 14)) >>> 8) / 16777216);
+    const [lo, hi, log] = ranges[i % ranges.length];
+    const u = ((t ^ (t >>> 14)) >>> 8) / 16777216;
+    out[i] = log ? lo * (hi / lo) ** u : lo + (hi - lo) * u;
   }
   return out;
 }
