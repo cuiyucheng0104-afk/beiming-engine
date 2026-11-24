@@ -149,6 +149,36 @@
       "since": "0.1"
     },
     {
+      "name": "noise_residual",
+      "params": [
+        {
+          "name": "target",
+          "type": "ref",
+          "required": true
+        }
+      ],
+      "reads": [
+        "film"
+      ],
+      "requires": [],
+      "since": "0.1"
+    },
+    {
+      "name": "alias_edge",
+      "params": [
+        {
+          "name": "target",
+          "type": "ref",
+          "required": true
+        }
+      ],
+      "reads": [
+        "film"
+      ],
+      "requires": [],
+      "since": "0.1"
+    },
+    {
       "name": "bbox_w",
       "params": [
         {
