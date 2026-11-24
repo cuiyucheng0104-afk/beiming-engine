@@ -257,22 +257,115 @@ function isFilesPath(path) {
 }
 
 const JSON_WS_ONLY = /^[ \t\r\n]*(\{[\s\S]*\}|\[[\s\S]*\])[ \t\r\n]*$/;
+const MAX_JSON_DEPTH = 128;
+
+/** 检查已通过 JSON.parse 的文本中任意嵌套对象是否含重复键、且总嵌套深度不超过 MAX_JSON_DEPTH（不包壳，不抬高深度） */
+function isStrictJsonArrayText(text) {
+  let depth = 0;
+  const keyStack = [];
+  const stateStack = [];
+  let i = 0;
+  const n = text.length;
+  const skipWs = () => { while (i < n && (text[i] === ' ' || text[i] === '\t' || text[i] === '\r' || text[i] === '\n')) i++; };
+  const readStr = () => {
+    const start = i++;
+    while (i < n) {
+      const ch = text[i++];
+      if (ch === '\\') { i++; continue; }
+      if (ch === '"') {
+        const decoded = JSON.parse(text.slice(start, i));
+        return decoded.isWellFormed() ? decoded : null;
+      }
+    }
+    return null;
+  };
+  while (i < n) {
+    skipWs();
+    if (i >= n) break;
+    const ch = text[i];
+    if (ch === '[') {
+      depth++;
+      if (depth > MAX_JSON_DEPTH) return false;
+      stateStack.push('arr');
+      i++;
+    } else if (ch === '{') {
+      depth++;
+      if (depth > MAX_JSON_DEPTH) return false;
+      stateStack.push('obj-key');
+      keyStack.push(new Set());
+      i++;
+    } else if (ch === ']') {
+      depth--;
+      stateStack.pop();
+      i++;
+    } else if (ch === '}') {
+      depth--;
+      stateStack.pop();
+      keyStack.pop();
+      i++;
+    } else if (ch === '"') {
+      const top = stateStack.at(-1);
+      const s = readStr();
+      if (s === null) return false;
+      if (top === 'obj-key') {
+        const seen = keyStack.at(-1);
+        if (seen.has(s)) return false;
+        seen.add(s);
+        stateStack[stateStack.length - 1] = 'obj-val';
+      }
+    } else if (ch === ',') {
+      if (stateStack.at(-1) === 'obj-val') stateStack[stateStack.length - 1] = 'obj-key';
+      i++;
+    } else {
+      i++;
+    }
+  }
+  return true;
+}
+
+/** 把含未配对 UTF-16 代理码元的字符串编码为保留非法 UTF-8 字节序列的 Uint8Array，防止 fetch 静默替换为 U+FFFD */
+function encodePreservingMalformedSurrogates(str) {
+  const chunks = [];
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = i + 1 < str.length ? str.charCodeAt(i + 1) : 0;
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        chunks.push(Buffer.from(str.slice(i, i + 2), 'utf8'));
+        i++;
+      } else {
+        chunks.push(Buffer.from([0xed, 0xa0 | ((code >> 6) & 0x0f), 0x80 | (code & 0x3f)]));
+      }
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      chunks.push(Buffer.from([0xed, 0xb0 | ((code >> 6) & 0x0f), 0x80 | (code & 0x3f)]));
+    } else {
+      chunks.push(Buffer.from(str[i], 'utf8'));
+    }
+  }
+  return Buffer.concat(chunks);
+}
 
 /**
  * 兼容外部模型把 JSON 请求体序列化为字符串传入 http_request.body 的情形：
- * 仅对非 /v1/films/<id>/files/* 路径且仅含 RFC 8259 合法空白、无重复键的 JSON 对象/数组字符串解包
- * （复用服务端同一套 parseRequestText 严格解析器）；/files/* 源码正文、重复键、非法空白、解析失败字符串与其他原始值一律原样保留。
+ * 仅对非 /v1/films/<id>/files/* 路径且仅含 RFC 8259 合法空白、无孤立代理码元、无重复键、深度不超过 128 的合法 JSON 对象/数组字符串解包；
+ * /files/* 源码正文、重复键、非法空白、解析失败字符串与其他原始值一律原样保留。
  */
 export function normalizeJsonToolBody(path, body) {
-  if (typeof body !== 'string' || isFilesPath(path)) return body;
+  if (typeof body !== 'string' || isFilesPath(path) || !body.isWellFormed()) return body;
   const m = JSON_WS_ONLY.exec(body);
   if (!m) return body;
   if (m[1][0] === '{') {
     const parsed = parseRequestText(body);
     return parsed.ok && isPlainObject(parsed.body) ? parsed.body : body;
   }
-  const wrapped = parseRequestText(`{"_":${m[1]}}`);
-  return wrapped.ok && Array.isArray(wrapped.body?._) ? wrapped.body._ : body;
+  if (Buffer.byteLength(body, 'utf8') > 2 * 1024 * 1024) return body;
+  try {
+    const parsed = JSON.parse(m[1]);
+    if (!Array.isArray(parsed)) return body;
+    return isStrictJsonArrayText(m[1]) ? parsed : body;
+  } catch {
+    return body;
+  }
 }
 
 /**
@@ -292,12 +385,18 @@ export async function callApi({ baseUrl, account, workspaces, jobs, signal }, ar
   const token = (film && workspaces[film]) || (job && workspaces[jobs[job]]) || account;
   const hasBody = args.body !== undefined && args.body !== null && method !== 'GET';
   const reqBody = hasBody ? normalizeJsonToolBody(target.pathname, args.body) : args.body;
-  // 非 /files/ 路径上传入显式空串 "" 时按 JSON 字符串 "" 发送，避免 0 字节正文被服务端当成省略请求体 {} 放行
+  // 非 /files/ 路径上传入显式空串 "" 时按 JSON 字符串 "" 发送，避免 0 字节正文被服务端当成省略请求体 {} 放行；
+  // 含孤立代理码元的非 /files/ 字符串保留非法 UTF-8 字节送出，避免 fetch 静默替换为 U+FFFD 绕过服务端 400 校验
   const emptyJsonStr = hasBody && reqBody === '' && !isFilesPath(target.pathname);
   const text = typeof reqBody === 'string' && !emptyJsonStr;
+  const wireBody = !hasBody
+    ? undefined
+    : text
+      ? (!isFilesPath(target.pathname) && !reqBody.isWellFormed() ? encodePreservingMalformedSurrogates(reqBody) : reqBody)
+      : JSON.stringify(reqBody);
   const res = await fetch(target, {
     method, headers: { authorization: `Bearer ${token}`, ...(hasBody ? { 'content-type': text ? 'text/plain; charset=utf-8' : 'application/json' } : {}) },
-    ...(hasBody ? { body: text ? reqBody : JSON.stringify(reqBody) } : {}), signal,
+    ...(hasBody ? { body: wireBody } : {}), signal,
   });
   const call = { method, path, status: res.status, ok: res.ok };
   const rawContentType = res.headers.get('content-type') ?? '';

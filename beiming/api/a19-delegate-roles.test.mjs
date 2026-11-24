@@ -3088,4 +3088,77 @@ test('A19-23 [R1 收口] 150s 墙钟预算守卫、严格 JSON 解包（拒重�
   }
 });
 
+test('A19-24: normalizeJsonToolBody 边界（孤立代理码元直击真实 server 400、防包壳注入与 128 层数组深度）', async () => {
+  const loneHigh = '{"brief":"bad\uD800str"}';
+  const loneLow = '{"brief":"bad\uDC00str"}';
+  assert.equal(normalizeJsonToolBody('/v1/films', loneHigh), loneHigh, '含孤立高代理的对象串不得解包');
+  assert.equal(normalizeJsonToolBody('/v1/films', loneLow), loneLow, '含孤立低代理的对象串不得解包');
+  assert.equal(normalizeJsonToolBody('/v1/films', '["\\uD800"]'), '["\\uD800"]', '含转义孤立代理的数组串不得解包');
+
+  // 防止 {"_":...} 包壳注入把非法的 [ ],"extra":[] 当合法数组解包
+  const wrappedBypass = '[],"extra":[]';
+  assert.equal(normalizeJsonToolBody('/v1/films', wrappedBypass), wrappedBypass, '[],"extra":[] 不得绕过包壳解包');
+
+  // 嵌套数组内对象重复键不得解包
+  const dupInArr = '[{"a":1,"a":2}]';
+  assert.equal(normalizeJsonToolBody('/v1/films', dupInArr), dupInArr, '数组内嵌套对象重复键不得解包');
+  assert.deepEqual(
+    normalizeJsonToolBody('/v1/films', '[{"a":1,"b":[2,{"c":3}],"d":4}]'),
+    [{ a: 1, b: [2, { c: 3 }], d: 4 }],
+    '数组内无重复键合法嵌套对象须正常解包',
+  );
+
+  // 128 层空数组应按不包壳真实深度解包，129 层超限保留原串
+  const depth128 = '['.repeat(128) + ']'.repeat(128);
+  const depth129 = '['.repeat(129) + ']'.repeat(129);
+  assert.ok(Array.isArray(normalizeJsonToolBody('/v1/films', depth128)), '128 层空数组须解包为数组');
+  assert.equal(normalizeJsonToolBody('/v1/films', depth129), depth129, '129 层空数组超限须保留原串');
+
+  // 真实 POST /v1/films：含孤立代理码元（高/低代理）的字符串体经 callApi 发送不得被 fetch 静默替换为 U+FFFD，必须返回 400
+  const dataDir = mkdtempSync(join(tmpdir(), 'a19-24-surrogate-'));
+  const ledgerPath = join(dataDir, 'agent-ledger.jsonl');
+  const token = issueAccountToken(dataDir);
+  const api = await startServer({ dataDir, port: 0 });
+  let round = 0;
+  const mockAgent = createServer(async (req, res) => {
+    for await (const _ of req) { /* drain */ }
+    round++;
+    const msg = round === 1
+      ? {
+          role: 'assistant',
+          content: null,
+          tool_calls: [
+            { id: 'tc_surr_hi', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films', body: loneHigh }) } },
+            { id: 'tc_surr_lo', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films', body: loneLow }) } },
+            { id: 'tc_wrap_inj', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films', body: wrappedBypass }) } },
+          ],
+        }
+      : { role: 'assistant', content: 'done' };
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ model: 'r2-surrogate', choices: [{ message: msg }], usage: { prompt_tokens: 40, completion_tokens: 10 } }));
+  });
+  await new Promise((r) => mockAgent.listen(0, '127.0.0.1', r));
+  try {
+    const res = await runHandsOnAgent({
+      baseUrl: api.url,
+      token,
+      brief: '测孤立代理不被静默替换',
+      ledgerPath,
+      endpoint: `http://127.0.0.1:${mockAgent.address().port}/v1`,
+      apiKey: 'akey',
+      model: 'r2-surrogate',
+      maxSteps: 4,
+    });
+    assert.equal(res.calls.length, 3);
+    for (let i = 0; i < 3; i++) {
+      assert.deepEqual([res.calls[i].status, res.calls[i].ok, res.calls[i].code], [400, false, 'usage.bad-argument'], `第 ${i + 1} 个非法字符串体必须被真实服务端 400 拒收`);
+    }
+  } finally {
+    await api.close();
+    await new Promise((r) => mockAgent.close(r));
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+
 
