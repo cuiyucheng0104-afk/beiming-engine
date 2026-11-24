@@ -92,17 +92,25 @@ function engineCodeDirs(source) {
   return dirs;
 }
 
-const IN_PROCESS_ESM_EXACT = new Set([
+const NODE_ONLY_ESM_EXACT = new Set([
   'beiming/host/page/host.mjs',
-  'beiming/sources/three/caps.mjs',
-  'beiming/sources/three/plan.mjs',
-  'beiming/sources/three/source.js',
   'beiming/sources/blender/caps.mjs',
   'beiming/sources/blender/host.mjs',
 ]);
-const isInProcessEsmRel = (rel) => (
-  (rel.startsWith('beiming/kernel/eval/') && rel.endsWith('.mjs'))
-  || IN_PROCESS_ESM_EXACT.has(rel)
+const DUAL_LOADED_THREE_EXACT = new Set([
+  'beiming/sources/three/caps.mjs',
+  'beiming/sources/three/plan.mjs',
+  'beiming/sources/three/source.js',
+]);
+const isKernelEvalMjs = (rel) => rel.startsWith('beiming/kernel/eval/') && rel.endsWith('.mjs');
+const isTrackedInProcessRel = (rel) => isKernelEvalMjs(rel) || NODE_ONLY_ESM_EXACT.has(rel) || DUAL_LOADED_THREE_EXACT.has(rel);
+// 仅在 Node 进程静态加载、不被浏览器/子进程按请求从磁盘现读的 ESM 文件
+const isNodeOnlyEsmRel = (source, rel) => (
+  NODE_ONLY_ESM_EXACT.has(rel) || (source !== 'three' && isKernelEvalMjs(rel))
+);
+// 同时被 Node 启动静态导入且被页面宿主按请求从磁盘读给浏览器的双端加载文件（three 帧源）
+const isDualLoadedRel = (source, rel) => (
+  source === 'three' && (DUAL_LOADED_THREE_EXACT.has(rel) || isKernelEvalMjs(rel))
 );
 
 // 启动期只读快照：本 Node 进程静态导入并缓存在 ESM 模块表中的运行时文件摘要（仅在 effective=true 且 root===REPO 时用于标识本进程实际产出的像素版本）
@@ -110,7 +118,7 @@ const LOADED_IN_PROCESS_DIGESTS = (() => {
   const map = new Map();
   for (const dir of ['beiming/kernel/eval', 'beiming/host/page', 'beiming/sources/three', 'beiming/sources/blender']) {
     for (const item of collectRuntimeFiles(join(REPO, dir), REPO)) {
-      if (isInProcessEsmRel(item.rel)) {
+      if (isTrackedInProcessRel(item.rel)) {
         const bytes = readFileSync(item.abs);
         map.set(item.rel, Object.freeze({ length: bytes.length, sha256: sha256(bytes) }));
       }
@@ -122,8 +130,11 @@ const LOADED_IN_PROCESS_DIGESTS = (() => {
 /**
  * 计算指定帧源依赖的引擎运行时代码与锁定字体摘要：
  * - effective = false（默认，供签锁镜像与外部 root 单测使用）：全部文件实时读盘；
- * - effective = true 且 root === REPO（供本进程缓存键与交付核对使用）：每次作业现读磁盘的浏览器脚本、Blender Python、字体、扩展源实时读盘，
- *   本进程启动时已静态导入的 Node ESM 文件改用 LOADED_IN_PROCESS_DIGESTS，杜绝热进程旧内存代码污染新版缓存键。
+ * - effective = true 且 root === REPO（供本进程缓存键与交付核对使用）：
+ *   1. 仅按作业现读磁盘的脚本/字体/扩展源实时读盘；
+ *   2. 仅 Node 静态加载的 ESM 文件（host.mjs、blender/{caps,host}.mjs 及非 three 的 kernel/eval/*.mjs）取启动期快照 LOADED_IN_PROCESS_DIGESTS；
+ *   3. 双端加载文件（three 的 sources/three/{caps,plan,source}.* 与 kernel/eval/*.mjs，浏览器按请求读盘而 Node 用启动期模块缓存）：
+ *      未改动时与磁盘摘要严格一致；热改磁盘后同时计入磁盘现读与 `#in-process` 启动快照，既使旧缓存与旧交付锁立即失效，又隔离重启后的干净新版缓存键。
  */
 export function engineCodeDigest(source, { root = REPO, effective = false } = {}) {
   const src = typeof source === 'string' ? source : '';
@@ -140,14 +151,22 @@ export function engineCodeDigest(source, { root = REPO, effective = false } = {}
     h.update(`dir:${dir}\0${exists ? 'present' : 'missing'}\0`);
     if (existsOnDisk) {
       for (const item of collectRuntimeFiles(absDir, root)) {
-        if (useInProcess && isInProcessEsmRel(item.rel)) continue;
+        if (useInProcess && isNodeOnlyEsmRel(src, item.rel)) continue;
         const bytes = readFileSync(item.abs);
         entriesByRel.set(item.rel, { length: bytes.length, sha256: sha256(bytes) });
       }
     }
     if (useInProcess) {
       for (const [rel, snap] of LOADED_IN_PROCESS_DIGESTS) {
-        if (rel.startsWith(`${dir}/`)) entriesByRel.set(rel, snap);
+        if (!rel.startsWith(`${dir}/`)) continue;
+        if (isNodeOnlyEsmRel(src, rel)) {
+          entriesByRel.set(rel, snap);
+        } else if (isDualLoadedRel(src, rel)) {
+          const live = entriesByRel.get(rel);
+          if (!live || live.sha256 !== snap.sha256 || live.length !== snap.length) {
+            entriesByRel.set(`${rel}#in-process`, snap);
+          }
+        }
       }
     }
   }

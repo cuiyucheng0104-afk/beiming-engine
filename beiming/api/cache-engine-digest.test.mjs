@@ -895,7 +895,8 @@ test('R1【甲】#1：热进程静态导入的 Node ESM 走启动期有效摘要
 
   const hot = runWorker('hot-edit-and-half-render');
   assert.notEqual(hot.afterDisk, hot.beforeEff, 'effective=false 实时感知磁盘 input.mjs 修改');
-  assert.equal(hot.afterEff, hot.beforeEff, 'effective=true 对本进程已加载 ESM 保持启动期快照，不把旧内存像素写进新键');
+  assert.notEqual(hot.afterEff, hot.beforeEff, 'three 双端加载的 input.mjs 热改后，effective=true 立即脱离旧键');
+  assert.notEqual(hot.afterEff, hot.afterDisk, 'three 双端加载热改后进入含 #in-process 的混合键，不污染重启后的新版缓存键');
   assert.deepEqual([hot.renderedFrames, hot.cachedFrames], [6, 0]);
 
   const restarted = runWorker('restarted-continue');
@@ -972,6 +973,32 @@ test('R1【甲】#2：deliver 拒绝为新版引擎或字体产出的像素盖�
   assert.equal(d2.body.ok, true, JSON.stringify(d2.body));
   const bundleLock = JSON.parse(readFileSync(join(dataDir, 'films', filmId, 'deliver', d2.body.data.job, 'bundle', 'film.lock'), 'utf8'));
   assert.equal(bundleLock.sources.three.image, isoRuntime.threeImage({ effective: true }));
+
+  // R2【甲】收口：热改双端加载的 sources/three/source.js，有效摘要与有效镜像立即脱离旧值且区别于重启后的干净磁盘镜像；
+  // 旧缓存立即失效（重渲 12 帧），旧交付锁被 deliver 立即拒收（env.lock-required），纯 Node 的 host.mjs 热改保持启动快照
+  const beforeSourceEff = isoRuntime.engineCodeDigest('three', { effective: true });
+  const beforeSourceImg = isoRuntime.threeImage({ effective: true });
+  const hostPath = join(isoRepo, 'beiming/host/page/host.mjs');
+  writeFileSync(hostPath, `${readFileSync(hostPath, 'utf8')}\n// node-only-hot-edit\n`);
+  assert.equal(isoRuntime.engineCodeDigest('three', { effective: true }), beforeSourceEff, '纯 Node 静态加载的 host.mjs 热改时 effective=true 保持启动快照');
+  assert.notEqual(isoRuntime.engineCodeDigest('three'), beforeSourceEff, '纯 Node 文件热改时 effective=false 实时感知磁盘变化');
+
+  const sourceJsPath = join(isoRepo, 'beiming/sources/three/source.js');
+  writeFileSync(sourceJsPath, `${readFileSync(sourceJsPath, 'utf8')}\n// browser-dual-loaded-hot-edit\n`);
+  const afterSourceDisk = isoRuntime.engineCodeDigest('three');
+  const afterSourceEff = isoRuntime.engineCodeDigest('three', { effective: true });
+  const afterSourceImg = isoRuntime.threeImage({ effective: true });
+  assert.notEqual(afterSourceEff, beforeSourceEff, '热改双端加载的 sources/three/source.js 后，有效摘要必须立即变化');
+  assert.notEqual(afterSourceEff, afterSourceDisk, '热改双端加载的 sources/three/source.js 须带 #in-process 隔离重启后的新版键');
+  assert.notEqual(afterSourceImg, beforeSourceImg, '热改 sources/three/source.js 后有效镜像立即偏离旧锁');
+
+  const rSourceHot = await waitJob(token, await req('POST', `/v1/films/${filmId}/render?wait=30`, token, { tier: 'final' }));
+  assert.equal(rSourceHot.body.ok, true, JSON.stringify(rSourceHot.body));
+  assert.deepEqual([rSourceHot.body.data.renderedFrames, rSourceHot.body.data.cachedFrames], [12, 0], '热改 source.js 后不得命中旧帧缓存');
+
+  const dSourceStale = await waitJob(token, await req('POST', `/v1/films/${filmId}/deliver?wait=30`, token, {}));
+  assert.equal(dSourceStale.body.ok, false, '热改 source.js 后旧交付锁不得通过 deliver 核对');
+  assert.equal(dSourceStale.body.error?.code, 'env.lock-required', JSON.stringify(dSourceStale.body));
 });
 
 test('R1【甲】#3：独立 verify 的 layerL2 按失败帧索引记录的 cacheEntry 精准作废旧版坏帧，保留同镜头新版好帧', { skip: noFfmpeg }, async () => {
