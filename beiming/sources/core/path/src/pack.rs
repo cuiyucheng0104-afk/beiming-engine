@@ -1130,6 +1130,9 @@ pub fn read_glb(bytes: &[u8], meshes: &[Mesh]) -> R<(Vec<world::Geometry>, usize
 /// - 平行光（夹角 0）：辐照度 E 原样。scene/light.cpp:298 夹角 0 时 `SunLight::area` 取 1，:316 `eval_fac = 1 / area`，即 1；
 ///   kernel/light/sun.h:46 取用它。内核的平行光收的是垂直于光线的面上的辐照度。
 /// 包里没有的几样照 Blender 的默认取：normalize 开、面光不聚拢（spread 180°）、点光半径 0、平行光夹角 0。
+/// 上面的式子有前提：Blender 一侧同步给 Cycles 的 strength = 灯色 × energy × 2^exposure（开色温时还乘色温色），所以这里
+/// 假定灯的曝光为 0、不开色温、normalize 开、面光是矩形（不是圆、椭圆）、灯矩阵不带缩放（Cycles 的面积会乘缩放）。
+/// 这些前提由导出器保证，读入器不查。
 pub fn kernel_light(l: &Light, watts: f64) -> desc::Light {
     let color = l.color.map(|c| c as f32);
     match l.kind {
@@ -1190,7 +1193,7 @@ pub fn sensor_width_mm(sensor_height_m: f64, aspect: f64) -> f32 {
     (sensor_height_m * 1000.0 * aspect) as f32
 }
 
-/// 实例表一行在内核里落到了哪：物体表的下标、这一帧画不画、内核平铺后的三角形数，和用来查法线的那个三角形。
+/// 实例表一行在内核里落到了哪：物体表的下标、这一帧画不画、画出来的三角形数（几何文件里这个网格实际读到的三角形数，不画是 0），和用来查法线的那个三角形。
 #[derive(Clone, Debug)]
 pub struct Placed {
     pub row: usize,
@@ -1376,7 +1379,7 @@ pub fn build(p: &Pack, k: usize, size: (u32, u32), preset: Option<&str>, presets
 
 // ------------------------------------------------------------------------------------------ 统计与核对记录
 
-/// `pack-info` 的统计。三角形数是内核这一帧实际平铺（或按实例摆放）的，不是抄清单。
+/// `pack-info` 的统计。三角形数是从几何文件实际读到的每个网格的三角形数，乘以这一帧画出来的实例（不是抄清单的 tris）。
 pub fn info(p: &Pack, k: usize, b: &Built) -> Value {
     let entities: BTreeSet<u32> = p.rows.iter().map(|r| r[2]).collect();
     let mut types: std::collections::BTreeMap<&str, usize> = Default::default();

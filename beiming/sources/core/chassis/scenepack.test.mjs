@@ -82,7 +82,7 @@ test('必填字段照结构定义的 required 枚举：清单每一层、条件�
   assert.ok(paths.length >= 80, `只枚举出 ${paths.length} 个`);
 });
 
-test('pack-info：统计照实（三角形数是内核平铺的），核对记录过契约全部判定，镜像实例的几何法线取了反（SP7）', (t) => {
+test('pack-info：统计照实（三角形数是几何文件读到的每个网格的三角形数乘以画出来的实例），核对记录过契约全部判定，镜像实例的几何法线取了反（SP7）', (t) => {
   const bin = renderer(t);
   if (!bin) return;
   const spec = fullPack();
