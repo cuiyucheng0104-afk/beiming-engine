@@ -230,6 +230,15 @@
       "reason": "联系表标签用的 5×7 点阵字是公开的 HD44780 液晶字库字形，写成「#」与空格的字符串；上游是「0/1」位串，且字形不同（如 3），记号归一化后都成了「键: [7 个字符串]」才连成一串（P00 集成时判定）",
       "owner": "P07",
       "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.fsl-boundary",
+      "path": "beiming/sources/core/path/**",
+      "match": "Rust / WESL",
+      "kind": "false-positive",
+      "reason": "核心帧源的路径追踪内核：从 ThreeRT（MIT，版权人 Meshy LLC）的固定提交分叉后自己维护的 Rust 源码与 Cargo 清单，不是上游 RAEA 的源码；来源见该目录的 PROVENANCE.md，依据 docs/decisions/2026-11-23-core-source-boundary.md",
+      "owner": "core",
+      "added": "2026-11-23"
     }
   ]
 }

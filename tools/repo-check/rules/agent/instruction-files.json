@@ -7,6 +7,7 @@
     { "path": ".claude/settings.json", "role": "仓库级权限、PreToolUse 钩子、插件开关与 CLAUDE.md 加载排除" },
     { "path": ".claude/skills/beiming-film/SKILL.md", "role": "仓库 skill：做片入口流程" },
     { "path": ".claude/skills/beiming-review/SKILL.md", "role": "仓库 skill：审片、验收与交付记录" },
+    { "path": "skills/beiming-tsl/SKILL.md", "role": "仓库 skill：TSL / WebGPU 离屏管线的模块路由、调参与调试手册" },
     { "path": "cases/vendor/lemo-opuscar/.claude-plugin/marketplace.json", "role": "上游资料（风格库甲的插件市场清单），只读快照" },
     { "path": "cases/vendor/lemo-opuscar/AGENTS.md", "role": "上游资料，只读快照，不是本仓库指令" },
     { "path": "cases/vendor/lemo-opuscar/CLAUDE.md", "role": "上游资料（@AGENTS.md 桥接），已由 claudeMdExcludes 屏蔽自动加载" },

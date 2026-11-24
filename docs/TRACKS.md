@@ -51,7 +51,7 @@
 | 已实现 | 3 秒两镜头模版 `stills / animatic / build / render / plan` 端到端出片；单帧内容寻址缓存复用；世界内三维文字安全区与真实 WCAG 对比度门禁；RTX 4070 双次冷渲逐字节确定性验证（工程待办 T25、T26） |
 | 验收 | 机器 QA 硬门（含 `pathtrace-hideTexts` 对比度 ≥ 3:1）、实际 GPU 与硬件光追状态记录、同一提交两次 `--no-cache` 帧哈希一致 |
 | 未实现 | 16-bit 分层通道对接 A 路线屏幕空间墨线与 Kuwahara 纸纹后期；复杂骨骼蒙皮角色 IK 表演 |
-| 许可 | 上游 `meshy-dev/ThreeRT` 为 MIT 许可（可选动态链接 OIDN Apache-2.0），无 FSL 竞争性使用限制，可商业交付（D13）；运行时二进制与上游 Rust / WESL / WGSL 源码不进 git（D10），见 [THIRD-PARTY](../THIRD-PARTY.md) 与 [register.md](rights/register.md) R15 |
+| 许可 | 上游 `meshy-dev/ThreeRT` 为 MIT 许可（可选动态链接 OIDN Apache-2.0），无 FSL 竞争性使用限制，可商业交付（D13）；运行时二进制不进 git（D10），D 路线的两个目录（`engine/pathtrace/`、`routes/d-pathtrace/`）内不放上游 Rust / WESL / WGSL 源码，核心帧源的源码边界见[核心帧源的源码边界](decisions/2026-11-23-core-source-boundary.md)（D14）；另见 [THIRD-PARTY](../THIRD-PARTY.md) 与 [register.md](rights/register.md) R15 |
 
 ## 四条路线共用的规矩
 

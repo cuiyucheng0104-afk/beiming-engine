@@ -1,0 +1,58 @@
+[package]
+name = "beiming-core-path"
+version = "0.1.0"
+edition = "2021"
+description = "北冥核心帧源的离线路径追踪内核：从 ThreeRT 的固定提交分叉，只留离线渲染一路（内嵌场景运行时、GPU 路径追踪、后期）；来源见 PROVENANCE.md"
+license = "MIT"
+
+# 程序名不跟包名：编出来的是 core-render
+[[bin]]
+name = "core-render"
+path = "src/main.rs"
+
+[dependencies]
+wgpu = "30"
+# The kernel's variants (gpu.rs `kernel_wgsl`): WESL's conditional translation, by wesl-rs (WESL's compiler in Rust).
+wesl = { version = "0.6", features = ["naga-ext"] }
+bytemuck = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+gltf = { version = "1.4", features = ["KHR_materials_emissive_strength", "KHR_texture_transform", "KHR_materials_ior", "KHR_materials_transmission", "extensions"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "exr"] }
+glam = { version = "0.30", features = ["bytemuck"] }
+rayon = "1.10"
+anyhow = "1"
+half = { version = "2", features = ["bytemuck"] }
+# Procedural geometry data: content hashes (asset files and inline data alike; src/procasset.rs).
+sha2 = "0.10"
+
+# The clock of a frame: std's natively (a re-export, nothing changes), the page's `performance.now()` in a browser,
+# where std's `Instant` panics.
+web-time = "1.1"
+
+# The native shell only: the embedded script runtime, blocking on the GPU's futures, the denoiser.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+pollster = "0.4"
+oidn = { version = "2.5", optional = true }
+# Scene runtime of the render node (game bundles run in the renderer process, src/script.rs).
+rquickjs = "0.12"
+# Files on the host channel are base64 (docs/RUNTIME.md "Files"): the script runtime's codec (src/script.rs).
+base64 = "0.23"
+
+# src/merged.rs's tests read the generated shaders with the compiler wgpu uses: they are valid, and no stage binds more
+# storage buffers than a browser allows.
+[dev-dependencies]
+naga = { version = "30", features = ["wgsl-in"] }
+
+[features]
+# Intel Open Image Denoise (needs OIDN_DIR at build time and the shared libs at runtime).
+oidn = ["dep:oidn"]
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = "thin"
+
+[profile.dev]
+opt-level = 2
+
