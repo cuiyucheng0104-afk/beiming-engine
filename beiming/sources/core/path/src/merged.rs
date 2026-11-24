@@ -400,7 +400,7 @@ mod tests {
             assert!(kernel_template().contains(&format!("const {constant}: u32 = {}u;", bytes / 16)), "{constant}");
             assert_eq!(layout(&m, name).1 as usize, bytes, "{name}");
         }
-        assert_eq!(<Table as crate::heap::Section>::COUNT, Table::ObjectExt as usize + 1);
+        assert_eq!(<Table as crate::heap::Section>::COUNT, Table::GgxGenSchlickS as usize + 1);
         // The emitters' triangles.
         assert!(kernel_template().contains(&format!("const EMITTER_TRI_VEC4: u32 = {}u;", std::mem::size_of::<crate::GpuEmitterTri>() / 16)));
         assert!(kernel_template().contains("let b = P.table_first[2].w + i * EMITTER_TRI_VEC4;"));
@@ -424,6 +424,16 @@ mod tests {
         assert!(<Table as crate::heap::Section>::COUNT <= 12 + 8, "`Params::table_first_ext` names the rest");
         assert_eq!(Table::ObjectExt as usize, 12, "`table_first_ext[0].x`");
         assert!(kernel_template().contains("let b = P.table_first_ext[0].x + object * OBJECT_EXT_VEC4;"));
+        // 北冥：广义 Schlick 的两张表在 `table_first_ext[0].z`、`[0].w`，`[0].y` 留给图案节点表。
+        assert_eq!(<Table as crate::heap::Section>::COUNT, 12 + crate::heap::EXT_SLOTS.len());
+        assert_eq!(crate::heap::EXT_SLOTS[Table::ObjectExt as usize - 12], 0);
+        assert_eq!(crate::heap::EXT_SLOTS[Table::GgxGenSchlickIorS as usize - 12], 2, "`table_first_ext[0].z`");
+        assert_eq!(crate::heap::EXT_SLOTS[Table::GgxGenSchlickS as usize - 12], 3, "`table_first_ext[0].w`");
+        assert!(kernel_template().contains("fn table_ggx_gen_schlick_ior_s() -> i32 { return i32(P.table_first_ext[0].z * 4u); }"));
+        assert!(kernel_template().contains("fn table_ggx_gen_schlick_s() -> i32 { return i32(P.table_first_ext[0].w * 4u); }"));
+        // 数据：两张表接在一起，末一个数与 Cycles shader.tables 的 table_ggx_gen_schlick_s 末一个数相同
+        let t = crate::ggx_gen_schlick_tables();
+        assert_eq!((t.len(), t[0], t[t.len() - 1]), (2 * crate::GGX_GEN_SCHLICK_LEN, 0.0, 0.445448));
     }
 
     /// The loop guard opens every loop of the kernel but counted ones (`for (var i = N; i < M; i++)`, literals), the

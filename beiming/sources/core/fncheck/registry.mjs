@@ -324,3 +324,70 @@ FUNCTIONS.push(
     branch: i => (Number.isFinite(i[0]) && Number.isFinite(i[1]) && Number.isFinite(i[2]) ? (i[3] > 0 ? '间接' : '直接') : '有非有限分量'),
   }),
 );
+// 下面是原理化 BSDF 非金属那一半（电介质高光：GGX 加广义 Schlick，只有反射；漫反射；发光值；滤光泽）与它们用到的
+// 工具函数。闭包一层的输入范围同上面金属的理由：N 固定为 (0, 0, 1)、alpha 取 [0.1, 1]、随机数离开圆盘边缘、贴地出射不比。
+// 原理化 BSDF 给电介质高光的是 f90 = 1、exponent = −eta、reflection_tint = 1、transmission_tint = 0（kernel/svm/closure.h），
+// 这里 f0、f90、两个染色在 [0, 1] 里取，exponent 取 [−4, −1.01]（eta 到 4）；广义 Schlick 的一般那一支（exponent ≥ 0）
+// 与 ior < 1（含全反射）单独一项。
+const IOR = [1.01, 4, 'log'];
+const NEG_EXP = [-4, -1.01];
+/** η < 1 时贴着临界角：η² − (1 − cos²θi) 的绝对值小于 1e-2（双精度算）的组不比。输入的前两个是 cosθi、η */
+const NEAR_CRITICAL = (ref, test, i) => Math.abs(i[1] * i[1] - (1 - i[0] * i[0])) < 1e-2;
+const GS_IN = [['ior', 'f32', IOR], ['f0', 'vec3f', UNIT], ['f90', 'vec3f', UNIT], ['exponent', 'f32', NEG_EXP], ['reflection_tint', 'vec3f', UNIT], ['transmission_tint', 'vec3f', UNIT]];
+const GS_EVAL_IN = [['N', 'dir', NZ], ['wi', 'dir', HEMI], ['wo', 'dir', [-0.2, 1]], ['alpha', 'f32', ALPHA_CLOSURE], ...GS_IN];
+const GS_SAMPLE_IN = alpha => [['N', 'dir', NZ], ['Ng', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', alpha], ...GS_IN];
+FUNCTIONS.push(
+  // 偏振反射率。条件不好的两处在 float32 下 Cycles 原式本身就不准，照上面金属闭包那一批的做法收窄或跳过（理由【实测】见核对报告）：
+  //   - η 贴近 1：r_s = (cosθi − √(cos²θi + η² − 1))/(…) 的分子相消；η 取 [1.01, 4]（原理化 BSDF 的电介质高光 eta 只在
+  //     这一侧：ior ≥ 1 时 eta = ior 或 ior_from_F0 的值，都不小于 1，等于 1 时不建闭包）。
+  //   - η < 1 贴着临界角：η² − (1 − cos²θi) 贴近 0，开方把一个 ULP 放大成 cosθt 的大误差。η < 1 另登记一项，
+  //     那个差的绝对值小于 1e-2 的组不比。
+  // 反射率在 η 接近 1、正入射时很小：量级 1 的数相减之后平方，给 4 个 ULP
+  entry('fresnel_dielectric_polarized', [['cos_theta_i', 'f32', [-1, 1]], ['eta', 'f32', IOR]], 2, 4 * ULP1),
+  entry('fresnel_dielectric_polarized_inside', [['cos_theta_i', 'f32', [-1, 1]], ['eta', 'f32', [0.25, 0.99, 'log']]], 2, 4 * ULP1, { wgsl: 'fresnel_dielectric_polarized', ref: 'fresnel_dielectric_polarized', skip: NEAR_CRITICAL }),
+  entry('fresnel_dielectric_ccl', [['cos_theta_i', 'f32', [-1, 1]], ['eta', 'f32', IOR]], 1, 4 * ULP1),
+  entry('fresnel_dielectric_ccl_inside', [['cos_theta_i', 'f32', [-1, 1]], ['eta', 'f32', [0.25, 0.99, 'log']]], 1, 4 * ULP1, { wgsl: 'fresnel_dielectric_ccl', ref: 'fresnel_dielectric_ccl', skip: NEAR_CRITICAL }),
+  entry('fresnel_dielectric_Fss', [['eta', 'f32', [0.25, 4, 'log']]], 1, 4 * ULP1),
+  entry('ior_from_F0', [['f0', 'f32', [-0.1, 1.1]]], 1),
+  // (ior − 1) 在 ior 接近 1 时相消，取 [1.01, 4] 加 [0.25, 0.99] 两段的整个 [0.25, 4]
+  entry('F0_from_ior', [['ior', 'f32', [0.25, 4, 'log']]], 1, 4 * ULP1),
+  entry('inverse_lerp', [['a', 'f32', [0, 0.5]], ['b', 'f32', [0.6, 1]], ['x', 'f32', [0, 1]]], 1, 4 * ULP1, { file: APACHE }),
+  // 除数取 0 与非 0 各半：分量是 0 的概率不够，用 gen 逐组生成
+  entry('safe_divide_color', [['a', 'vec3f'], ['b', 'vec3f']], 3, 0, { file: APACHE, gen: next => ({ a: [next(), next(), next()], b: [0, 1, 2].map(() => (next() < 0.5 ? 0 : 0.01 + next())) }) }),
+  // 1 − max(albedo / weight) 在比值接近 1 时相消：量级 1 上的 4 个 ULP，再乘 weight（不超过 1）
+  entry('closure_layering_weight', [['layer_albedo', 'vec3f'], ['weight', 'vec3f']], 3, 4 * ULP1, { gen: next => { const w = [0, 1, 2].map(() => (next() < 0.1 ? 0 : 0.01 + next())); return { weight: w, layer_albedo: w.map(x => x * next() * 1.2) }; } }),
+  entry('lookup_table_read_3D_ggx_gen_schlick_ior_s', [['x', 'f32', [-0.1, 1.1]], ['y', 'f32', [-0.1, 1.1]], ['z', 'f32', [-0.1, 1.1]]], 1, 0, { file: APACHE, wgsl: 'lookup_table_read_3D', call: ([x, y, z]) => `lookup_table_read_3D(${x}, ${y}, ${z}, table_ggx_gen_schlick_ior_s(), 16, 16, 16)` }),
+  entry('lookup_table_read_3D_ggx_gen_schlick_s', [['x', 'f32', [-0.1, 1.1]], ['y', 'f32', [-0.1, 1.1]], ['z', 'f32', [-0.1, 1.1]]], 1, 0, { file: APACHE, wgsl: 'lookup_table_read_3D', call: ([x, y, z]) => `lookup_table_read_3D(${x}, ${y}, ${z}, table_ggx_gen_schlick_s(), 16, 16, 16)` }),
+  // F = f0 + s·(f90 − f0) 与 1 − F：量级 1 的相减；s 来自 (F_real − F0)/(1 − F0)，正入射附近两个接近的数相减
+  entry('generalized_schlick_fresnel', [['ior', 'f32', IOR], ['cos_theta_i', 'f32', UNIT], ['f0', 'vec3f', UNIT], ['f90', 'vec3f', UNIT], ['exponent', 'f32', NEG_EXP], ['reflection_tint', 'vec3f', UNIT], ['transmission_tint', 'vec3f', UNIT]], { reflectance: 3, transmittance: 3 }, 4 * ULP1),
+  // 一般那一支：exponent ≥ 0，ior 取 [0.5, 2]（含 ior < 1 的全反射与用折射角的那一支）。cosθi 取到 0.999 为止：
+  // pow(1 − cos, e) 在显卡上是 exp2·log2，底数贴近 0 时相对误差大。ior < 1 贴着全反射（1 − (1 − cos²θi)/ior² 的绝对值
+  // 小于 1e-2）的组不比：开方把一个 ULP 放大成折射角余弦的大误差，再经 pow 放大 e 倍
+  entry('generalized_schlick_fresnel_regular', [['ior', 'f32', [0.5, 2, 'log']], ['cos_theta_i', 'f32', [0, 0.999]], ['f0', 'vec3f', UNIT], ['f90', 'vec3f', UNIT], ['exponent', 'f32', [0.5, 8]], ['reflection_tint', 'vec3f', UNIT], ['transmission_tint', 'vec3f', UNIT]], { reflectance: 3, transmittance: 3 }, 16 * ULP1, {
+    wgsl: 'generalized_schlick_fresnel', ref: 'generalized_schlick_fresnel', skip: (ref, test, i) => Math.abs(1 - (1 - i[1] * i[1]) / (i[0] * i[0])) < 1e-2,
+  }),
+  entry('microfacet_fresnel_generalized_schlick', [['cos_theta_i', 'f32', UNIT], ...GS_IN], 3, 4 * ULP1),
+  entry('bsdf_microfacet_estimate_albedo_generalized_schlick', [['N', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA], ...GS_IN], 3, 4 * ULP1, { call: a => `bsdf_microfacet_estimate_albedo_generalized_schlick(${a.join(', ')}, true, true)` }),
+  entry('bsdf_microfacet_estimate_albedo_f82_tint', [['N', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA], ['f0', 'vec3f', UNIT]], 3, 0, { call: a => `bsdf_microfacet_estimate_albedo_f82_tint(${a.join(', ')}, true)` }),
+  // darkening = (1 + Fms·missing)/energy_scale：Fss = f0 + s·(f90 − f0) 的相减同上
+  entry('bsdf_microfacet_setup_fresnel_generalized_schlick', [['N', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA], ...GS_IN], { f0: 3, energy_scale: 1, weight: 3 }, 4 * ULP1, { call: a => `bsdf_microfacet_setup_fresnel_generalized_schlick(${a.join(', ')}, true)` }),
+  entry('bsdf_microfacet_eval_ggx_generalized_schlick', GS_EVAL_IN, EVAL_OUT, 4 * ULP1),
+  entry('bsdf_microfacet_eval_ggx_generalized_schlick_singular', [['N', 'dir', NZ], ['wi', 'dir', HEMI], ['wo', 'dir', [-0.2, 1]], ['alpha', 'f32', ALPHA_SINGULAR], ...GS_IN], EVAL_OUT, 0, { wgsl: 'bsdf_microfacet_eval_ggx_generalized_schlick', ref: 'bsdf_microfacet_eval_ggx_generalized_schlick' }),
+  entry('bsdf_microfacet_ggx_eval_generalized_schlick', [...GS_EVAL_IN, ['energy_scale', 'f32', [1, 2]]], EVAL_OUT, 4 * ULP1),
+  entry('bsdf_microfacet_sample_ggx_generalized_schlick', [...GS_SAMPLE_IN(ALPHA_CLOSURE), ['rand', 'vec2f', RAND]], SAMPLE_OUT, SAMPLE_ABS, { skip: GRAZING }),
+  // 纯镜面：求值乘了 1e6，反射率里 s = (F_real − F0)/(1 − F0) 在正入射附近的相消（量级 1 上的几个 ULP）跟着放大 1e6 倍；
+  // abs 兜不住求值又不能放宽到方向上，所以 f0、f90 取 [0.01, 1]（反射率不低于 0.01 的量级），不取 0 附近
+  entry('bsdf_microfacet_sample_ggx_generalized_schlick_singular', [['N', 'dir', NZ], ['Ng', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA_SINGULAR], ['ior', 'f32', IOR], ['f0', 'vec3f', [0.01, 1]], ['f90', 'vec3f', [0.01, 1]], ['exponent', 'f32', NEG_EXP], ['reflection_tint', 'vec3f', [0.01, 1]], ['transmission_tint', 'vec3f', UNIT], ['rand', 'vec2f', UNIT]], SAMPLE_OUT, 4 * ULP1, { wgsl: 'bsdf_microfacet_sample_ggx_generalized_schlick', ref: 'bsdf_microfacet_sample_ggx_generalized_schlick' }),
+  entry('bsdf_microfacet_ggx_sample_generalized_schlick', [...GS_SAMPLE_IN(ALPHA_CLOSURE), ['energy_scale', 'f32', [1, 2]], ['rand', 'vec2f', RAND]], SAMPLE_OUT, SAMPLE_ABS, { skip: GRAZING }),
+  // 滤光泽：Cycles 的 bsdf_blur 分发到 bsdf_microfacet_blur（kernel/closure/bsdf.h），alpha 与模糊粗糙度取大
+  entry('bsdf_blur', [['alpha_x', 'f32', UNIT], ['alpha_y', 'f32', UNIT], ['roughness', 'f32', [0, 0.5]]], 2, 0, { wgsl: 'bsdf_microfacet_blur' }),
+  // 余弦半球采样：随机数离开圆盘边缘（理由同 microfacet_ggx_sample_vndf），方向分量经 make_orthonormals 与 to_global 相加抵消
+  entry('sample_cos_hemisphere', [['N', 'dir', [-1, 1]], ['rand', 'vec2f', RAND]], { wo: 3, pdf: 1 }, 32 * ULP1),
+  entry('bsdf_diffuse_eval', [['N', 'dir', [-1, 1]], ['wo', 'dir', [-1, 1]]], EVAL_OUT, 4 * ULP1),
+  entry('bsdf_diffuse_sample', [['N', 'dir', [-1, 1]], ['Ng', 'dir', [-1, 1]], ['rand', 'vec2f', RAND]], SAMPLE_OUT, 32 * ULP1, {
+    // 方向贴着几何法线的地平线（|Ng·wo| < 1e-5）时两边可能一边判在上面、一边判在下面
+    skip: (ref, test, i) => [ref, test].some(o => Math.abs(o[4] * i[3] + o[5] * i[4] + o[6] * i[5]) < 1e-5),
+  }),
+  entry('emissive_pdf', [['Ng', 'dir', [-1, 1]], ['wi', 'dir', [-1, 1]]], 1),
+  entry('emissive_simple_eval', [['Ng', 'dir', [-1, 1]], ['wi', 'dir', [-1, 1]]], 3),
+);

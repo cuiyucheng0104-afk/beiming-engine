@@ -426,8 +426,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             @if(aux) state.first_hit_object = sd.object;
             first_t = hit.t;
             if (has(F_LISTS)) { lt_list_start(sd.P + mv.xyz); }
-            // （降噪用的反照率与法线，上游的口径：只发光的面取发光色，别的取闭包的反照率；法线取闭包用的法线。）
-            albedo = select(bsdf_albedo(sd, 0u), sd.emission / max(max(sd.emission.r, max(sd.emission.g, sd.emission.b)), 1e-6), sd.num_closure == 0u);
+            // （降噪用的反照率：只发光的面取归一化的发光色，别的照 Cycles 取漫反射类闭包的反照率之和（closure.wgsl 的
+            // surface_shader_denoising_albedo）；法线取闭包用的法线，还是上游的口径。）
+            albedo = select(surface_shader_denoising_albedo(sd), sd.emission / max(max(sd.emission.r, max(sd.emission.g, sd.emission.b)), 1e-6), sd.num_closure == 0u);
             normal = inputs.N;
             anim = sd.legacy.surface.anim;
             rough0 = sd.legacy.surface.roughness;
@@ -491,8 +492,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let pick = surface_shader_bsdf_bssrdf_pick(sd, rand_bsdf);
         let bs = surface_shader_bsdf_sample_closure(sd, pick.closure, pick.rand);
         let l = bs.wo;
-        // （奇异的一瓣：上游顶替里是穿过光滑玻璃。没有概率密度，不做多重重要性采样，后面的东西算全份。）
-        let through = (bs.label & LABEL_SINGULAR) != 0;
+        // （穿过光滑玻璃：上游顶替的奇异的透射一瓣。没有概率密度，不做多重重要性采样，后面的东西算全份。移植的闭包的奇异
+        // 一瓣（粗糙度 0 的镜面反射）不算在这里：它照 Cycles 带着乘了 1e6 的概率密度走下面普通的一支。）
+        let through = (bs.label & (LABEL_SINGULAR | LABEL_TRANSMIT)) == (LABEL_SINGULAR | LABEL_TRANSMIT);
         // （采到的是光泽或奇异的一瓣，不是漫反射：上游的 state.legacy.sampled_spec || state.legacy.sampled_trans。）
         let glossy = (bs.label & (LABEL_GLOSSY | LABEL_SINGULAR)) != 0;
         let pdf = bs.pdf;

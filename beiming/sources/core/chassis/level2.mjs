@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // 北冥 · 对拍阶梯第 2 级：我方 GGX 金属闭包与矩形面光接进路径追踪内核（build.mjs 从 ../path/ 编出的 core-render）后渲图对答案。
 //   上游自带的漫反射白炉用我们的程序跑要过，画面中央的均值与记下来的数相等；金属白炉 22 个读数对 Cycles（±0.5%）；
-//   矩形面光照漫反射平面四种几何对解析值（32 个种子，0.2% 以内，且在 3 个标准误或相对 2e-6 以内）；闭包、面光、接线故意改错六项，每项必须不过；
+//   电介质与混合白炉（原理化 BSDF）14 个读数对 Cycles（±0.5%）；Pharr 自发光球与矩形面光照漫反射平面四种几何对解析值
+//   （32 个种子，0.2% 以内，且在 3 个标准误或相对 2e-6 以内）；闭包、面光、接线故意改错十一项，每项必须不过；
 //   同种子两遍逐字节相同。
 //   node beiming/sources/core/chassis/level2.mjs [--out 报告.json]
 // 退出码：0 全部过；4 有一项不过；3 缺工具链（git、cargo、npm、网络、显卡）。
@@ -19,6 +20,8 @@ import { polygonIrradiance } from '../fncheck/checks.mjs';
 import { COMMIT, OUT, PRESETS, UPSTREAM, buildRenderer, ensureNodeModules, ensureUpstream, missing } from './build.mjs';
 
 export const CYCLES = JSON.parse(fs.readFileSync(new URL('./cycles-furnace-metal.json', import.meta.url), 'utf8'));
+// 电介质与混合白炉：底色 1 的原理化 BSDF，键是「金属度/粗糙度」；做法与金属白炉相同（见那份文件的 source.method_check）
+export const PRINCIPLED = JSON.parse(fs.readFileSync(new URL('./cycles-furnace-principled.json', import.meta.url), 'utf8'));
 // analyticFloor：数值精度的底。解析场景的标准误可以小到相对 1e-6 以下，而单精度算出来的读数对解析值本来就有
 // 百万分之零点五以内的固定残差（同一串随机数在两块显卡上还系统地差 2e-7 到 6e-7），只按标准误判就是在判这点残差。
 // 底取相对 2e-6，约为残差的五倍。种子取 32 个：8 个种子估出来的标准误尾巴很重，均值超过 3 个标准误的概率约 2%
@@ -29,7 +32,10 @@ export const passedByFloor = a => analyticOk(a) && Math.abs(a.z) > GATES.analyti
 // 上游自带的漫反射白炉，画面中央的全精度均值，按显卡各记一个。同一台机器上渲染是确定的，记过的显卡要逐位相等。
 // 换显卡或驱动，着色器编出来的浮点运算次序不同，均值会差在第 8 位上（这两台之间差 0.9e-8），所以没记过的显卡
 // 按相对 1e-6 比。记法：在那台机器上跑一遍本脚本，把报告里 diffuseFurnace.mean 填进来。
-export const DIFFUSE = { tolerance: 1e-6, recorded: { 'Apple M5 Pro|Metal': 1.0007596142590045, 'NVIDIA GeForce RTX 5090|Vulkan': 1.0007596049457788 } };
+// 2026-11-25 两台都重记过：漫反射改走照 Cycles 移植的 bsdf_diffuse（余弦半球采样、取 PRNG_SURFACE_BSDF 那组随机数），
+// 不再是上游顶替的朗伯（它把 5% 的样本分给零高光的那一瓣，随机数也是上游的那一组），读数随之换了一串噪声（苹果显卡
+// 1.0007596 → 1.0004397，英伟达显卡 1.0007596 → 1.0004399，都仍在上游自己的 2% 门内；两台之间现在差 1.1e-7）
+export const DIFFUSE = { tolerance: 1e-6, recorded: { 'Apple M5 Pro|Metal': 1.0004397429525853, 'NVIDIA GeForce RTX 5090|Vulkan': 1.0004398547112943 } };
 const WORK = path.join(OUT, 'level2');
 const ROUGHNESS = Object.keys(CYCLES.GGX);
 const lum = (px, i) => 0.2126 * px[3 * i] + 0.7152 * px[3 * i + 1] + 0.0722 * px[3 * i + 2];
@@ -80,14 +86,30 @@ const opts = (size, native) => `{ name: "level2", width: ${size}, height: ${size
 /** 白炉：ThreeRT 没有正交相机，用透视相机放在 D 处，过球心那个平面上的半高取 Cycles 正交相机的 1.25。
  *  白炉里一个像素的值只取决于视线对球的碰撞参数 b（入射角 asin b），透视下 b = ρ / sqrt(1 + (ρ/D)²)（ρ 是过球心平面上的位置），
  *  与正交差的是 (ρ/D)² 的二阶小量；读数随 D 的变化由两档 D 实测给出。球是解析球（程序化几何，见 SPHERE），不是网格 */
-function furnaceScene({ roughness, compensate, D }) {
+function furnaceScene({ roughness, compensate, D, metalness = 1, maxBounces }) {
   return `${head}
 export default function () {
   const scene = new Scene();
   scene.environment = new SkyColor(0xffffff, 1);
-  scene.add(new ProceduralMesh(${SPHERE}, new MeshStandardMaterial({ color: new Color().setRGB(1, 1, 1), metalness: 1, roughness: ${roughness} })));
+  scene.add(new ProceduralMesh(${SPHERE}, new MeshStandardMaterial({ color: new Color().setRGB(1, 1, 1), metalness: ${metalness}, roughness: ${roughness} })));
   ${cam(`0, 0, ${D}`, (2 * Math.atan(1.25 / D) * 180) / Math.PI)}
-  return { scene, camera: c, options: ${opts(128, { energyCompensation: compensate ? 1 : 0 })} };
+  return { scene, camera: c, options: ${opts(128, { energyCompensation: compensate ? 1 : 0, ...(maxBounces && { maxBounces }) })} };
+}`;
+}
+
+/** Pharr 的自发光球（PBRT 第 3 版的「white furnace」变体）：相机在半径 1 的解析球里面，球面是反照率 albedo 的朗伯面、
+ *  自发光辐亮度 Le，世界是黑的。处处的出射辐亮度满足 L = Le + albedo·L，所以每个像素都趋近 Le/(1 − albedo)。
+ *  弹射上限取 128（截断的偏差是 albedo^129，远在门限之下）。高光强度 0：没有电介质高光，只有漫反射与发光 */
+export const PHARR = { albedo: 0.5, Le: 0.5, image: 64, maxBounces: 128 };
+function pharrScene() {
+  const { albedo: a, Le, image, maxBounces } = PHARR;
+  return `${head}
+export default function () {
+  const scene = new Scene();
+  scene.environment = new SkyColor(0xffffff, 0);
+  scene.add(new ProceduralMesh(${SPHERE}, new MeshPhysicalMaterial({ color: new Color().setRGB(${a}, ${a}, ${a}), roughness: 1, metalness: 0, specularIntensity: 0, emissive: new Color().setRGB(1, 1, 1), emissiveIntensity: ${Le} })));
+  const c = new PerspectiveCamera(60, 1, 0.01, 10); c.position.set(0, 0, 0.3); c.lookAt(0.2, 0.1, -1); c.setManualExposure(0); scene.add(c);
+  return { scene, camera: c, options: ${opts(image, { energyCompensation: 1, maxBounces })} };
 }`;
 }
 
@@ -214,6 +236,32 @@ export async function furnace(bin, { D = FURNACE.D[0], seeds = FURNACE.seeds, ro
   };
 }
 
+/** 电介质与混合白炉：原理化 BSDF（底色 1，其余取默认：折射率 1.5、高光等级 0.5），开能量补偿（Cycles 节点默认的分布
+ *  MULTI_GGX），弹射上限 128（与 Cycles 那边相同）。读数口径与金属白炉相同 */
+export async function principledFurnace(bin, { D = FURNACE.D[0], seeds = FURNACE.seeds, keys = Object.keys(PRINCIPLED.readings) } = {}) {
+  const disc = discPixels(128, 128, PRINCIPLED.image.inner_disc_frac * PRINCIPLED.image.sphere_radius_px);
+  const jobs = [];
+  for (const k of keys) {
+    const [metalness, roughness] = k.split('/').map(Number);
+    const tag = `furnace-principled-m${metalness}-r${roughness}-D${D}`;
+    jobs.push({ tag, spp: FURNACE.spp, game: await bundle(tag, furnaceScene({ roughness, metalness, compensate: true, D, maxBounces: 128 })), read: ({ px }) => disc.reduce((s, i) => s + lum(px, i), 0) / disc.length });
+  }
+  const { readings } = await renderSeeds(bin, seeds, jobs);
+  return keys.map((k, j) => {
+    const { mean, se } = meanSe(readings[j]), ref = PRINCIPLED.readings[k];
+    const [metalness, roughness] = k.split('/');
+    return { key: k, metalness, roughness, ours: mean, se, cycles: ref, rel: mean / ref - 1 };
+  });
+}
+
+/** Pharr 的自发光球：全图像素亮度的均值对 Le/(1 − albedo)，判法与矩形面光的解析场景相同（analyticOk） */
+export async function pharr(bin, { seeds = ANALYTIC.seeds } = {}) {
+  const job = { tag: 'pharr-emissive-sphere', spp: ANALYTIC.spp, game: await bundle('pharr-emissive-sphere', pharrScene()), read: ({ px, w, h }) => { let s = 0; for (let i = 0; i < w * h; i++) s += lum(px, i); return s / (w * h); } };
+  const { readings } = await renderSeeds(bin, seeds, [job]);
+  const { mean, se } = meanSe(readings[0]), exact = PHARR.Le / (1 - PHARR.albedo);
+  return [{ name: 'Pharr 自发光球', seeds: seeds.length, spp: ANALYTIC.spp, mean, se, exact, rel: mean / exact - 1, z: (mean - exact) / se }];
+}
+
 export async function analytic(bin, { seeds = ANALYTIC.seeds, geoms = GEOMS } = {}) {
   const { image, region } = RECT, lo = (image - region) / 2;
   const jobs = [];
@@ -260,12 +308,18 @@ function upstreamTest(bin) {
 // fine 的三项改错很小（十万分之二、万分之二、千分之一点五），在 0.2% 之内：它们要的是解析场景的整条判法（analyticOk）判不过，
 // 守的是那条底没有把这个量级的错放过去。它们的读数里噪声与数值残差占百分之几到十几，所以容差放到 ±30%
 export const negativeTolerance = n => (n.fine ? 0.3 : 0.05);
+// 原理化 BSDF 那五项负对照登记的读数（最大相对差），2026-11-25 在苹果显卡上量的。漫反射与自发光两项可以手算：
+// Le/(1 − 0.98·0.5) 对 Le/(1 − 0.5) 是 −1.96%；发光多乘 1% 是 +1%
+const PRINCIPLED_NEAR = { dielectric_fresnel: -1.38e-2, layering: 5.41e-2, diffuse: -1.97e-2, pick: 1.75e-1, emission: 9.91e-3 };
 export const negativeOk = n => (n.fine ? n.rows.some(r => !analyticOk(r)) : Math.abs(n.worstRel) > n.gate) && Math.abs(n.worstRel / n.near - 1) <= negativeTolerance(n);
 const NEGATIVE = [
   {
     target: 'closure', name: '闭包：求值的遮蔽项漏掉出射方向的 lambda（G2 写成 G1）',
-    inject: { file: 'shaders/microfacet.wgsl', from: 'reflectance * common_ / (1.0 + lambdaO + lambdaI)', to: 'reflectance * common_ / (1.0 + lambdaI)' },
-    run: async bin => (await furnace(bin, { seeds: [1], rows: ['0.30', '0.60', '1.00'].map(roughness => ({ distribution: 'GGX', roughness })) })).rows, gate: GATES.furnaceRel, near: 0.557,
+    // （电介质高光的求值有同样一行，所以连着下一个函数的名字一起认，只改金属那一处）
+    inject: { file: 'shaders/microfacet.wgsl', from: 'reflectance * common_ / (1.0 + lambdaO + lambdaI), common_ / (1.0 + lambdaI));\n}\n\n// kernel/closure/bsdf_microfacet.h:1106-1114: bsdf_microfacet_ggx_eval，求值乘 energy_scale，概率密度不乘\nfn bsdf_microfacet_ggx_eval(N', to: 'reflectance * common_ / (1.0 + lambdaI), common_ / (1.0 + lambdaI));\n}\n\n// kernel/closure/bsdf_microfacet.h:1106-1114: bsdf_microfacet_ggx_eval，求值乘 energy_scale，概率密度不乘\nfn bsdf_microfacet_ggx_eval(N' },
+    // near 原来是 0.557：那时材质采样一侧采到方向后再调一遍求值，改错的求值两侧都用上；现在照 Cycles 用采样函数自己算的求值
+    // 与概率密度（surface_shader_bsdf_sample_closure），改错的只剩光源一侧的求值，读数挪到 0.241
+    run: async bin => (await furnace(bin, { seeds: [1], rows: ['0.30', '0.60', '1.00'].map(roughness => ({ distribution: 'GGX', roughness })) })).rows, gate: GATES.furnaceRel, near: 0.241,
   },
   {
     target: 'area_light', name: '面光：辐射通量到辐亮度的换算多乘 1%',
@@ -275,7 +329,9 @@ const NEGATIVE = [
   {
     target: 'mis', name: '接线：材质采样打到矩形纯光时不取光（多重重要性采样只剩光源一侧的权重）',
     inject: { file: 'path/shaders/integrator.wgsl', from: 'if (!LIVE && state.legacy.bm_surf) {', to: 'if (false && state.legacy.bm_surf) {' },
-    run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel, near: -4.87e-3,
+    // near 原来是 −4.87e-3：平面那时是上游顶替的朗伯，材质采样有 5% 分给零高光的那一瓣，材质一侧的权重小一些；改走照 Cycles 的
+    // bsdf_diffuse（全部按余弦采样）之后材质一侧的权重变大，关掉它丢的份额跟着变大
+    run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel, near: -5.25e-3,
   },
   {
     target: 'area_light_fine', name: '面光：辐射通量到辐亮度的换算多乘十万分之二',
@@ -291,6 +347,32 @@ const NEGATIVE = [
     target: 'mis_occluder', name: '接线：材质采样打到矩形纯光时遮挡距离直接拿 hit.t 比（灯紧贴背后的面时这一侧整份丢掉）',
     inject: { file: 'path/shaders/integrator.wgsl', from: 'select(hit.t / 0.999, INF, hit.tri == 0xffffffffu)', to: 'select(hit.t, INF, hit.tri == 0xffffffffu)' },
     run: async bin => analytic(bin, { seeds: ANALYTIC.seeds.slice(0, 8), geoms: [PLATE] }), fine: true, gate: GATES.analyticFloor, near: -1.48e-3,
+  },
+  // 原理化 BSDF 的接线：电介质高光、层间权重、漫反射、多闭包选择、自发光各改错一项
+  {
+    target: 'dielectric_fresnel', name: '电介质高光：菲涅耳不随角度变（广义 Schlick 的插值系数 s 恒为 0，反射率停在 F0）',
+    inject: { file: 'shaders/microfacet.wgsl', from: 'let s = saturate(inverse_lerp(F0_real, 1.0, F_real));', to: 'let s = 0.0;' },
+    run: async bin => principledFurnace(bin, { seeds: [1], keys: ['0.00/0.00', '0.00/0.50'] }), gate: GATES.furnaceRel, near: PRINCIPLED_NEAR.dielectric_fresnel,
+  },
+  {
+    target: 'layering', name: '层间权重：电介质高光下面的漫反射不按高光的反照率衰减',
+    inject: { file: 'path/shaders/shader.wgsl', from: 'weight = closure_layering_weight(closure_albedo(c, wi), weight);', to: 'weight = weight;' },
+    run: async bin => principledFurnace(bin, { seeds: [1], keys: ['0.00/0.20', '0.00/0.80'] }), gate: GATES.furnaceRel, near: PRINCIPLED_NEAR.layering,
+  },
+  {
+    target: 'diffuse', name: '漫反射：采样一侧的求值少乘 2%（概率密度不变）',
+    inject: { file: 'shaders/microfacet.wgsl', from: 'return MicrofacetSample(LABEL_REFLECT | LABEL_DIFFUSE, vec3f(s.pdf), s.wo, s.pdf);', to: 'return MicrofacetSample(LABEL_REFLECT | LABEL_DIFFUSE, vec3f(s.pdf * 0.98), s.wo, s.pdf);' },
+    run: async bin => pharr(bin, { seeds: [1, 2] }), gate: GATES.analyticRel, near: PRINCIPLED_NEAR.diffuse,
+  },
+  {
+    target: 'pick', name: '多闭包选择：选闭包的随机数只用到一半（后面的闭包很少被选到，与合起来的概率密度配不上）',
+    inject: { file: 'path/shaders/closure.wgsl', from: 'let rr = rand.z * sum;', to: 'let rr = rand.z * sum * 0.5;' },
+    run: async bin => principledFurnace(bin, { seeds: [1], keys: ['0.50/0.20', '0.50/0.80'] }), gate: GATES.furnaceRel, near: PRINCIPLED_NEAR.pick,
+  },
+  {
+    target: 'emission', name: '自发光：发光值多乘 1%',
+    inject: { file: 'path/shaders/closure.wgsl', from: 'return emissive_simple_eval(sd.Ng, sd.wi) * sd.emission;', to: 'return emissive_simple_eval(sd.Ng, sd.wi) * sd.emission * 1.01;' },
+    run: async bin => pharr(bin, { seeds: [1, 2] }), gate: GATES.analyticRel, near: PRINCIPLED_NEAR.emission,
   },
 ];
 
@@ -330,6 +412,12 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   const near = await furnace(ours.bin, { D: FURNACE.D[1], seeds: [1] });
   const camera = { D: FURNACE.D, fovNote: '过球心平面上的半高 1.25（正交 ortho_scale 2.5 的一半）', maxRelChange: Math.max(...main.rows.map((r, k) => Math.abs(near.rows[k].ours / r.ours - 1))) };
 
+  say('电介质与混合白炉');
+  const principled = await principledFurnace(ours.bin);
+
+  say('Pharr 自发光球');
+  const emissive = await pharr(ours.bin);
+
   say('矩形面光照漫反射平面');
   const ana = await analytic(ours.bin, { geoms: [...GEOMS, NEAR, PLATE] });
 
@@ -361,6 +449,8 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
     构建: diffuseFurnace.status === 'pass' && diffuseFurnace.matches,
     白炉: main.rows.every(r => Math.abs(r.rel) <= GATES.furnaceRel && r.se / r.cycles < GATES.furnaceRel / 10) && camera.maxRelChange < GATES.furnaceRel / 10,
     解析场景: ana.every(analyticOk),
+    电介质白炉: principled.every(r => Math.abs(r.rel) <= GATES.furnaceRel && r.se / r.cycles < GATES.furnaceRel / 10),
+    自发光: emissive.every(analyticOk),
     负对照: negative.every(negativeOk),
     确定性: det.identical,
   };
@@ -370,6 +460,8 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
     core: { source: 'beiming/sources/core/path', bin: path.basename(ours.bin), key: ours.key, shaders: ours.shaders }, upstream: { commit: COMMIT, use: '场景库、场景打包工具、自带的测试脚本、素材根目录' },
     diffuseFurnace,
     furnace: { spp: FURNACE.spp, seeds: FURNACE.seeds, D: FURNACE.D[0], image: CYCLES.image, rows: main.rows, camera, nearRows: near.rows },
+    principled: { spp: FURNACE.spp, seeds: FURNACE.seeds, D: FURNACE.D[0], source: PRINCIPLED.source, rows: principled },
+    emissive, emissiveSetup: PHARR,
     analytic: ana, analyticSetup: RECT, negative, determinism: det,
   };
 }
@@ -392,6 +484,8 @@ export const command = defineCommand({
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
     for (const r of report.furnace.rows) ctx.out(`${Math.abs(r.rel) <= GATES.furnaceRel ? '✓' : '✗'} 白炉 ${r.distribution.padEnd(9)} ${r.roughness}  我方 ${r.ours.toFixed(6)} ± ${r.se.toExponential(1)}  Cycles ${r.cycles.toFixed(6)}  相对差 ${r.rel.toExponential(2)}`);
+    for (const r of report.principled.rows) ctx.out(`${Math.abs(r.rel) <= GATES.furnaceRel ? '✓' : '✗'} 白炉 原理化 金属度 ${r.metalness} 粗糙度 ${r.roughness}  我方 ${r.ours.toFixed(6)} ± ${r.se.toExponential(1)}  Cycles ${r.cycles.toFixed(6)}  相对差 ${r.rel.toExponential(2)}`);
+    for (const a of report.emissive) ctx.out(`${analyticOk(a) ? '✓' : '✗'} ${a.name}  我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(1)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
     for (const a of report.analytic) ctx.out(`${analyticOk(a) ? '✓' : '✗'} 面光 ${a.name}  我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(1)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
     for (const a of report.analytic.filter(passedByFloor)) ctx.out(`提示 面光 ${a.name} 超过了 ${GATES.analyticSE} 个标准误，是按数值精度的底（相对 ${GATES.analyticFloor}）过的`);
     for (const n of report.negative) ctx.out(`${negativeOk(n) ? '✓' : '✗'} 负对照 ${n.name}：最大相对差 ${n.worstRel.toExponential(2)}（该在 ${n.near.toExponential(2)} 的 ±${negativeTolerance(n) * 100}% 之内${n.fine ? '，且解析场景的判法判它不过' : ''}）`);

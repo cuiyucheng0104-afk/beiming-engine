@@ -1,6 +1,6 @@
 # 核心帧源 · 内核的四样内部结构
 
-读者｜要改内核、或要在内核里移植闭包、灯、图案节点、降噪、输出通道的人与 agent　冻结标记｜[FREEZE.json](FREEZE.json)（版本 1.1.0，2026-11-24）　来源与历史｜[PROVENANCE.md](PROVENANCE.md)
+读者｜要改内核、或要在内核里移植闭包、灯、图案节点、降噪、输出通道的人与 agent　冻结标记｜[FREEZE.json](FREEZE.json)（版本 1.2.0，2026-11-25）　来源与历史｜[PROVENANCE.md](PROVENANCE.md)
 
 这份条文定死路径追踪内核内部四样东西的形状：**材质记录、光线负载、随机维度、输出通道**。定下来是为了让后面几类移植能分给不同的人同时做：各改各的函数，不改这四样的形状。
 
@@ -46,6 +46,7 @@ node beiming/sources/core/chassis/freeze.mjs     # 冻结标记在、且与着�
 - **不许位置式构造**（`Closure(a, b, …)`）：先取零值（`Closure()`）再按名字赋值。这样加字段才不会破坏别处。库测试 `call_structs_are_not_built_by_position` 按内核源码全文查。
 - **函数实参里不许出现指向结构成员或数组元素的指针**（`f(&sd.N)`、`f(&sd.closure[i])`、`f(&state.throughput)`）。前两种在苹果显卡上一切正常，在英伟达显卡上建管线时着色器后端会崩；第三种（指向模块级私有变量的成员）两块显卡都编不过。要改某个闭包就传下标，或传整个变量的指针（`ptr<function, ShadingPoint>`）。库测试 `every_kernel_variant_generates_spirv_and_msl` 让内核的每个变体都过 SPIR-V 与 MSL 两个后端的代码生成，在任何一台机器上都拦得住。
 - 进函数的结构里，三维向量后面不要紧跟标量；`Ray` 的两个向量因此排在最后（见「光线」）。
+- **不要按变量下标读写着色点的闭包数组**（`sd.closure[i]`、`(*sd).closure[n] = c`）：苹果显卡上整个着色点会被挪到内存里，有 24 盏灯的计时场景稳态从 2.1 秒上下慢到 15 秒（1.2.0 落地时实测）。循环按下标展开成常数（`closure_store`、`surface_shader_bsdf_eval_mis`），只采样那一处（`surface_shader_bsdf_sample_closure` 的 `sd.closure[k]`）是变量下标。
 - 不要再加按值收整个 `ShadingPoint` 的函数层。它有一千多字节；七个灯光函数已经按值收它，再往下多传一层，苹果显卡上出现过随机丢样本。新写的分发函数收一个闭包或标量。
 
 ### 函数的规矩
@@ -87,8 +88,8 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 8 到 15 | `mp` | 8 个 vec4 f32 | 上游材质函数的参数 | 已落地。只归上游的材质函数 |
 | 16、17 | `mt` | 8 个 i32 | 上游材质函数的贴图槽 | 已落地。只归上游的材质函数 |
 | 18 | `specular_tint` | vec3 f32 | 金属：F82 的边缘色；非金属：乘在 F0 上的颜色。默认白 | 已落地，见下面「边缘色」 |
-| 18 | `specular_ior_level` | f32 | 高光等级，默认 0.5 | 已写未读（进了 `ShaderInputs`，那里没人读） |
-| 19 | `diffuse_roughness` | f32 | 漫反射粗糙度，0 是朗伯 | 已写未读（同上） |
+| 18 | `specular_ior_level` | f32 | 高光等级，默认 0.5。从场景描述压出来时取 three.js `specularIntensity`（默认 1）的一半 | 已落地（电介质高光读） |
+| 19 | `diffuse_roughness` | f32 | 漫反射粗糙度，0 是朗伯 | 已落地（只用来判「漫反射粗糙度 0」；不为 0 的材质走上游顶替） |
 | 19 | `flags` | u32 | 按位的标志，见登记表 | 第 0 位已落地，其余已定义 |
 | 19 | `pattern_first`、`pattern_count` | u32 | 这个材质的图案节点在节点表里的起点与个数 | 已定义，恒 0 |
 | 20 到 25 | `reserved` | 6 个 vec4 f32 | 预留，全 0。给各向异性、清漆、绒面、透射、薄膜、次表面的参数；用到的人在这里起名 | 预留 |
@@ -99,8 +100,8 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 - 高光等级单独存，不与上游的 `params.z` 合用：两者只在折射率 1.5 时等价。
 - 第 19 格在着色器里声明成四个标量，不用向量再做位转换。
 - 图案节点（倒角、环境光遮蔽等）的参数不放进材质记录。材质记录只带 `pattern_first`、`pattern_count` 指向一张单独的节点表（首地址的格子见登记表）；节点表的格式归做图案节点的人。上游的 `mp`、`mt` 继续只归上游的材质函数。
-- **默认值**在 Rust 一侧手写（`GpuMaterial::default`）：边缘色白、高光等级 0.5，其余全 0；每个构造处都以它收尾。
-- **能量补偿那一位**（`MATERIAL_FLAG_MULTISCATTER`）不在各构造处填：上传前由 `scene::with_energy_compensation` 一处按全局开关 `energyCompensation` 统一写。纯金属的闭包读这一位；上游顶替仍读全局的 `P.misc.z`。
+- **默认值**在 Rust 一侧手写（`GpuMaterial::default`）：边缘色白、高光等级 0.5，其余全 0；每个构造处都以它收尾。`scene::build_material` 另按场景描述的 `specularIntensity` 填高光等级（等级 = 强度的一半：three.js 的强度乘在 F0 上，Blender 的等级乘 2 之后乘在 F0 上），所以 `specularIntensity: 0` 的材质没有电介质高光。
+- **能量补偿那一位**（`MATERIAL_FLAG_MULTISCATTER`）不在各构造处填：上传前由 `scene::with_energy_compensation` 一处按全局开关 `energyCompensation` 统一写。移植的闭包（金属、电介质高光）读这一位；上游顶替仍读全局的 `P.misc.z`。
 - **边缘色由一个场景特性位决定读不读材质记录**。特性位 `F_SPECULAR_TINT`（`src/gpu.rs` 的 `features_of` 按材质表定）：场景里有材质的边缘色不是白时，材质求值才从记录读 `specular_tint`；别的场景里内核编译期取白，不读这一格。这是量出来的：一律从记录读时，F82 的 B 项不再是编译期的 0，没有金属的场景稳态也慢 4%（苹果显卡）。现在没有任何场景入口能把边缘色设成非白，所以这一位平时恒关；强开它（环境变量 `THREERT_FEATURES_ON`）跑过全部回归，结果逐位不变。
 
 谁写：Rust 的 `scene::build_material`（从场景描述压出来）与 `scene::card_material`。场景包读入器（`src/pack.rs`）把包里的材质先换成场景描述（底色、金属度、粗糙度，其余取默认），也经 `scene::build_material` 压。
@@ -113,16 +114,16 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 | 字段 | 类型 | 含义 | 状态 |
 |---|---|---|---|
-| `base_color` | vec3 | 底色，不小于 0 | 已落地（纯金属的闭包读） |
+| `base_color` | vec3 | 底色，不小于 0 | 已落地 |
 | `metallic` | f32 | 金属度，0 到 1 | 已落地 |
 | `roughness` | f32 | 粗糙度，0 到 1。**不带上游的 0.02 下限** | 已落地 |
-| `ior` | f32 | 折射率，不小于 1e-5 | 已写未读 |
-| `specular_ior_level` | f32 | 高光等级，不小于 0 | 已写未读 |
-| `specular_tint` | vec3 | 边缘色，不小于 0；特性位关着时恒白 | 已落地（纯金属的闭包读） |
+| `ior` | f32 | 折射率，不小于 1e-5 | 已落地（电介质高光读） |
+| `specular_ior_level` | f32 | 高光等级，不小于 0。three.js 的无光照材质在这里置 0 | 已落地（电介质高光读） |
+| `specular_tint` | vec3 | 边缘色，不小于 0；特性位关着时恒白 | 已落地（金属读夹到 1 以内的值当 F82 的边缘色，电介质高光乘在 F0 上） |
 | `emission` | vec3 | 这个点的自发光辐亮度，**已乘物体的功率倍数** | 已落地 |
-| `alpha` | f32 | 不透明度，0 到 1。现在只是材质记录里的值，不含贴图的透明度（镂空在求交那一侧判） | 已写未读 |
-| `diffuse_roughness` | f32 | 漫反射粗糙度，0 到 1 | 已写未读 |
-| `flags` | u32 | 材质记录的 `flags` 原样带过来 | 能量补偿位已落地；闭包大类已定义 |
+| `alpha` | f32 | 不透明度，0 到 1。现在只是材质记录里的值，不含贴图的透明度（镂空在求交那一侧判） | 已落地（只用来判「不透明度 1」；小于 1 的材质走上游顶替） |
+| `diffuse_roughness` | f32 | 漫反射粗糙度，0 到 1 | 已落地（只用来判「漫反射粗糙度 0」） |
+| `flags` | u32 | 材质记录的 `flags` 原样带过来 | 能量补偿位已落地（金属与电介质高光都读）；闭包大类已定义 |
 | `coat_weight` | f32 | 清漆的份额，0 到 1 | 已落地（只用来判「无清漆」） |
 | `transmission_weight` | f32 | 透射的份额，0 到 1 | 已落地（只用来判「无透射」） |
 | `N` | vec3 | 闭包用的法线：含法线贴图、材质函数，以后还有倒角 | 已落地 |
@@ -147,7 +148,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `lcg_state` | u32 | 局部求交随机取子集用的小随机数状态 | 没人写 | 已定义 |
 | `emission` | vec3 | 这个点的自发光，单独一个量，不占闭包 | `shader_setup_closures` | 已落地 |
 | `num_closure` | u32 | 闭包个数。0：只发光、不散射，路径到这里结束 | 同上 | 已落地 |
-| `closure` | `Closure` 的数组，长 `MAX_CLOSURE` | 闭包 | 同上 | 已落地（现在至多 1 个） |
+| `closure` | `Closure` 的数组，长 `MAX_CLOSURE` | 闭包 | 同上 | 已落地（移植的至多 3 个，上游顶替 1 个） |
 | `legacy` | `ShadingLegacy` | 上游的 `Surface` 与 `Lobes`，给上游顶替读 | `shader_eval_inputs`、`surface_shader_prepare_closures` | 已落地，闭包与灯移植完后删 |
 
 `MAX_CLOSURE` 是 4，只在一处定义。它不是缓冲格式，改它不算破坏；数组越长每个着色点占的栈越大。
@@ -162,27 +163,32 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 |---|---|---|---|
 | `kind` | u32 | 闭包种类 `CLOSURE_*`，见登记表。Cycles 里叫 `type`，那是这门语言的保留字 | 已落地 |
 | `weight` | vec3 | 彩色权重 | 已落地 |
-| `sample_weight` | f32 | 在多个闭包之间选哪个去采样的权重 | 已写未读（恒 1） |
+| `sample_weight` | f32 | 在多个闭包之间选哪个去采样的权重：分配时取权重的平均，微表面的再乘估出来的反照率的平均与能量补偿的 darkening 的平均（次序照 Cycles） | 已落地（选闭包、合起来的概率密度读它） |
 | `N` | vec3 | 这个闭包用的法线 | 已落地 |
-| `alpha_x`、`alpha_y` | f32 | 微表面两个方向的粗糙度（各向同性时相等） | 已落地（只读 `alpha_x`） |
-| `ior` | f32 | 折射率 | 已定义 |
+| `alpha_x`、`alpha_y` | f32 | 微表面两个方向的粗糙度（各向同性时相等） | 已落地（求值与采样只读 `alpha_x`；滤光泽两个都读写） |
+| `ior` | f32 | 折射率。电介质高光：按高光等级调过的 eta；金属：1 | 已落地（电介质高光读） |
 | `energy_scale` | f32 | 能量补偿的标量倍率。必须与 `weight` 分开存，合进去会把颜色通道弄乱 | 已落地 |
-| `fresnel_type` | u32 | 菲涅耳种类 `FRESNEL_*`，数值照 Cycles 的 `MicrofacetFresnel` | 已写未读（只有 `FRESNEL_F82_TINT` 一种在用，求值不看它） |
+| `fresnel_type` | u32 | 菲涅耳种类 `FRESNEL_*`，数值照 Cycles 的 `MicrofacetFresnel` | 已落地（`bsdf_eval`、`bsdf_sample`、`closure_albedo` 按它分 F82 与广义 Schlick） |
 | `f0` | vec3 | F82 型与广义 Schlick 型的 F0 | 已落地 |
-| `f90_or_b` | vec3 | F82 型：预先算好的 b；广义 Schlick 型：F90 | 已落地（F82 的 b） |
-| `exponent` | f32 | 广义 Schlick 的指数；负数表示「按折射率算真菲涅耳再重映射」 | 已定义 |
-| `reflection_tint`、`transmission_tint` | vec3 | 反射与透射的染色。广义 Schlick 里 Cycles 把真正的染色乘进了 F0，`reflection_tint` 只取 1 或 0，实际是「要不要反射焦散」的开关：照搬它的用法，别当颜色用 | 已定义 |
+| `f90_or_b` | vec3 | F82 型：预先算好的 b；广义 Schlick 型：F90 | 已落地 |
+| `exponent` | f32 | 广义 Schlick 的指数；负数表示「按折射率算真菲涅耳再重映射」（原理化 BSDF 取 −eta） | 已落地 |
+| `reflection_tint`、`transmission_tint` | vec3 | 反射与透射的染色。广义 Schlick 里 Cycles 把真正的染色乘进了 F0，`reflection_tint` 只取 1 或 0，实际是「要不要反射焦散」的开关：照搬它的用法，别当颜色用 | 已落地（电介质高光取 1 与 0） |
 
-`kind`、`weight`、`sample_weight`、`N` 所有闭包都填；`alpha_x`、`alpha_y`、`energy_scale`、`fresnel_type`、`f0`、`f90_or_b` 现在只有纯金属的微表面闭包填。
+`kind`、`weight`、`sample_weight`、`N` 所有闭包都填；`alpha_x`、`alpha_y`、`energy_scale`、`fresnel_type`、`f0`、`f90_or_b` 只有微表面闭包填；`ior`、`exponent`、`reflection_tint`、`transmission_tint` 只有电介质高光填（金属的 `ior` 填 1）。
 
-菲涅耳种类：`FRESNEL_NONE`（0）、`FRESNEL_DIELECTRIC`（1）、`FRESNEL_DIELECTRIC_TINT`（2）、`FRESNEL_CONDUCTOR`（3）、`FRESNEL_GENERALIZED_SCHLICK`（4）、`FRESNEL_F82_TINT`（5）。只有最后一个已落地。`FRESNEL_CONDUCTOR` 要一个复数折射率（实部、虚部各三个通道），闭包里还没有放它的字段：种类号先占着，用到时加两个字段。各向异性的切线、薄膜的参数同样是用到时加字段。
+菲涅耳种类：`FRESNEL_NONE`（0）、`FRESNEL_DIELECTRIC`（1）、`FRESNEL_DIELECTRIC_TINT`（2）、`FRESNEL_CONDUCTOR`（3）、`FRESNEL_GENERALIZED_SCHLICK`（4）、`FRESNEL_F82_TINT`（5）。`FRESNEL_GENERALIZED_SCHLICK`（电介质高光）与 `FRESNEL_F82_TINT`（金属）已落地，其余已定义。`FRESNEL_CONDUCTOR` 要一个复数折射率（实部、虚部各三个通道），闭包里还没有放它的字段：种类号先占着，用到时加两个字段。各向异性的切线、薄膜的参数同样是用到时加字段。
 
-**现在的实际情况**：一个着色点至多一个闭包。
+**现在的实际情况**（`shader_setup_closures`）：
 
-- 金属度为 1、没有清漆、没有透射的材质：`CLOSURE_BSDF_MICROFACET_GGX` 加 `FRESNEL_F82_TINT`。底色当 F0，边缘色取 `ShaderInputs.specular_tint`，alpha 取粗糙度的平方。F82 的 b、能量补偿的倍率与权重在填闭包时算一次、存进闭包。粗糙度在这里沿用上游的 0.02 下限（Cycles 没有）：去掉它画面会变，而且低于这个下限闭包会落进奇异的一支，积分主循环现在把奇异的标签当「穿过光滑玻璃」处理，要一并改。
-- 别的（带清漆或透射的金属也在内）：一个 `CLOSURE_LEGACY`，求值与采样转给上游。
-- 发光卡片（上游的 `card`：只发光、不散射）：没有闭包。
-- `CLOSURE_BSDF_DIFFUSE`、`CLOSURE_BSDF_TRANSPARENT` 只占了种类号。
+- 没有清漆、透射、漫反射粗糙度，不透明度是 1 的材质，照 Cycles 的原理化 BSDF（`kernel/svm/closure.h` 的 `svm_node_closure_bsdf`）里「无清漆、无光泽、无次表面、无透射、无薄膜、各向同性、漫反射粗糙度 0」那一条路，至多三个闭包，次序与 Cycles 相同：
+  1. 金属：金属度大于 1e-5（Cycles 的 `CLOSURE_WEIGHT_CUTOFF`）时，`CLOSURE_BSDF_MICROFACET_GGX` 加 `FRESNEL_F82_TINT`，权重是金属度乘剩下的权重；F0 是夹到 1 以内的底色，边缘色夹到 1 以内。之后剩下的权重乘 (1 − 金属度)。
+  2. 电介质高光：`CLOSURE_BSDF_MICROFACET_GGX` 加 `FRESNEL_GENERALIZED_SCHLICK`，只有反射。F0 由折射率与高光等级算（`principled_specular_f0_eta`：等级不是 0.5 时 F0 乘 2 倍等级、eta 由 F0 反算），乘高光染色；F90 是 1，指数是 −eta，反射染色 1、透射染色 0。eta 为 1（比如高光等级 0）时不建。剩下的权重按它的反照率衰减（`closure_layering_weight`）。
+  3. 漫反射：`CLOSURE_BSDF_DIFFUSE`，权重是底色乘剩下的权重。
+  每个闭包照 Cycles 的 `bsdf_alloc`：权重的平均小于 1e-5 就不建（纯金属因此只有一个闭包）。alpha 取粗糙度的平方，**不带上游的 0.02 下限**：粗糙度 0 时微表面闭包是奇异的一瓣，求值为 0，采样的求值与概率密度乘 1e6，积分主循环照 Cycles 把它当普通的一次弹射（见「与 Cycles、与上游不一样的地方」）。能量补偿读材质记录的 `MATERIAL_FLAG_MULTISCATTER`（Cycles 的多重散射 GGX，原理化 BSDF 节点的默认分布）。
+- 别的（带清漆或透射的、漫反射粗糙度不为 0 的、不透明度小于 1 的）：一个 `CLOSURE_LEGACY`，求值与采样转给上游。一个材质要么全走移植的闭包、要么全走上游，不混。
+- 发光卡片（上游的 `card`：只发光、不散射）：没有闭包。所有闭包的权重都太小（比如无光照材质：底色、高光都是 0）时也没有闭包，路径到这里结束。
+- `CLOSURE_BSDF_TRANSPARENT` 只占了种类号。
+- 这条路上没有移的几步：发光被光泽与清漆衰减（这条路上衰减是 1）、`maybe_ensure_valid_specular_reflection`（Cycles 只在着色器带凹凸校正标志时改法线；这里法线贴图之后不校正）、各向异性的切线。材质函数改了上游的高光强度时，移植的闭包不认（读的是材质记录的高光等级）。
 
 ### 材质求值的三步，与只算透明度的一档
 
@@ -192,9 +198,10 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 |---|---|---|
 | `shader_setup_from_hit(sd, o, d, h)` | 填着色点的几何量，不读材质。往整变量的指针里填，不按值返回（按值返回时苹果显卡上像素末位会变） | 已落地 |
 | `shader_eval_inputs(sd, o, d, h, width) → ShaderInputs` | 解出材质输入值。现在装上游的贴图与材质函数逻辑，顺带把上游的 `Surface` 留在 `sd.legacy` 里。图案节点接在这里；以后的节点图编译器整段替换它 | 已落地 |
-| `shader_setup_closures(sd, inputs)` | 只读 `ShaderInputs`，填闭包与自发光。归移植闭包的人 | 已落地 |
+| `closure_store(sd, n, c)` | 把闭包放进第 n 格，下标写成常数（按变量下标往闭包数组里写，苹果显卡上整个着色点会被挪到内存里，实测稳态慢几倍） | 已落地（1.2.0 加） |
+| `shader_setup_closures(sd, inputs)` | 只读 `ShaderInputs`，填闭包与自发光（见上「现在的实际情况」）。归移植闭包的人 | 已落地 |
 | `shader_eval_shadow(h, d, t) → vec3` | 只算透明度的一档：命中点放过多少光。不许发任何光线，不许调图案节点。求交函数与阴影透射里只许调这一档，不许调上面的全量求值（这门语言不许调用图里有环，而全量求值以后会回头发光线）。现在转给上游的镂空测试与阴影穿玻璃 | 已定义、无调用者（上游的求交与阴影射线仍直接调那两处） |
-| `shader_eval_emission(em, b1, b2, l) → vec3` | 灯采样点上的发光。现在转给上游的 `emitter_radiance` | 已定义、无调用者（上游的灯光函数仍直接调 `emitter_radiance`） |
+| `shader_eval_emission(em, b1, b2, l) → vec3` | 灯采样点上的发光：口径照 Cycles（发光量乘 `emissive_simple_eval`，两面都发光），发光量仍由上游的 `emitter_radiance` 给 | 已落地（上游采样发光三角的 `sample_emitter`、`sample_emitter_ris` 调它取发光值；采样的概率密度归做灯的人） |
 
 ### 积分器碰材质只经这一组函数
 
@@ -202,25 +209,33 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 | 函数 | 做什么 | 状态 |
 |---|---|---|
-| `surface_shader_prepare_closures(sd)` | 闭包填好之后、算直接光与采样之前的事后处理。「滤光泽」以后做在这里。**现在不是空壳**：上游的 `Lobes` 在这里算，而且对所有闭包都算（纯金属的也算，上游的 `light_mis` 还经它拿概率密度） | 已落地 |
-| `bsdf_eval(c, wi, wo) → ClosureEval { eval, pdf }` | 一个闭包在一个方向上的求值（已含余弦，没乘闭包的 `weight`）与概率密度。照 Cycles 的 `bsdf_eval`。收一个闭包，不收整个着色点。上游顶替不走这里 | 已落地 |
-| `surface_shader_bsdf_eval(sd, wo, light_shader_flags) → BsdfEval` | 对所有闭包求值求和。`light_shader_flags` 是灯的着色标志，现在没人读 | 已定义、无调用者 |
-| `surface_shader_bsdf_bssrdf_pick(sd, rand) → BsdfPick { closure, rand }` | 按 `sample_weight` 选一个闭包去采样；用三个随机数里的第三个来选，选完重新拉伸回 0 到 1。**现在恒选第 0 个，随机数原样返回** | 已落地（骨架） |
-| `surface_shader_bsdf_sample_closure(sd, k, rand) → BsdfSample` | 在第 k 个闭包上采样方向，用 `rand` 的前两个定方向。上游顶替不用 `rand`，自己从上游的随机数里取 | 已落地 |
-| `surface_shader_emission(sd) → vec3` | 这个点朝来路发出的光。上游的发光卡片是单面的 | 已落地 |
+| `surface_shader_prepare_closures(sd)` | 闭包填好之后、算直接光与采样之前的事后处理。滤光泽照 Cycles：全局参数的 `filter_glossy`（存的就是内核里的量 1 / blur_glossy，0 关）大于 0 时，`blur_pdf` = 它乘 `state.min_ray_pdf`，小于 1 时各微表面闭包的 alpha 与 `sqrt(1 − blur_pdf)·0.5` 取大（`bsdf_microfacet_blur`）；上游顶替不模糊。上游的 `Lobes` 也在这里算，对所有闭包都算（上游的灯光函数还读它的 `two_sided`） | 已落地 |
+| `bsdf_eval(c, wi, wo) → ClosureEval { eval, pdf }` | 一个闭包在一个方向上的求值（已含余弦，没乘闭包的 `weight`）与概率密度。照 Cycles 的 `bsdf_eval`，按种类与菲涅耳种类分到金属、电介质高光、漫反射。收一个闭包，不收整个着色点。上游顶替不走这里 | 已落地 |
+| `bsdf_sample(c, Ng, wi, rand) → MicrofacetSample` | 一个闭包上采样方向，照 Cycles 的 `bsdf_sample` 分发；用 `rand` 的前两个 | 已落地（1.2.0 加） |
+| `bsdf_eval_mis_one(c, wi, wo, e) → vec2` | `surface_shader_bsdf_eval_mis` 循环里的一个闭包：求值累加进 `e`，返回 (密度乘取样权重, 取样权重) | 已落地（1.2.0 加） |
+| `bsdf_blur(sd, k, roughness) → Closure` | 第 k 个闭包模糊之后的样子，照 Cycles 的 `closure/bsdf.h` `bsdf_blur`（微表面闭包的 alpha 与模糊粗糙度取大）；滤光泽用 | 已落地（1.2.0 加） |
+| `bsdf_eval_accum(e, kind, value)` | 求值累加进漫反射或光泽那一份与 `sum`，照 Cycles 的 `film/light_passes.h` | 已落地（1.2.0 加） |
+| `surface_shader_bsdf_eval_mis(sd, wo, skip, e, sum_pdf, sum_sample_weight) → f32` | 除第 `skip` 个之外的闭包求值累加进 `e`，返回按 `sample_weight` 加权的平均概率密度。照 Cycles 的 `_surface_shader_bsdf_eval_mis`；`skip` 取 `MAX_CLOSURE` 时不跳过 | 已落地（1.2.0 加） |
+| `surface_shader_bsdf_eval(sd, wo, light_shader_flags) → BsdfEval` | 对所有闭包求值求和、概率密度按 `sample_weight` 加权平均（照 Cycles 的同名函数）。`light_shader_flags` 是灯的着色标志，现在没人读 | 已落地（上游的灯光函数经 `surface_shader_bsdf_eval_legacy` 与 `light_mis` 调它） |
+| `surface_shader_bsdf_bssrdf_pick(sd, rand) → BsdfPick { closure, rand }` | 按 `sample_weight` 选一个闭包去采样；用三个随机数里的第三个来选，选完重新拉伸回 0 到 1。照 Cycles 的同名函数 | 已落地 |
+| `surface_shader_bsdf_sample_closure(sd, k, rand) → BsdfSample` | 在第 k 个闭包上采样方向，用 `rand` 的前两个定方向，再并进其余闭包在这个方向上的求值与概率密度；通量的权重是求值之和除以合起来的概率密度（照 Cycles 的同名函数与 `integrate_surface_bsdf_bssrdf_bounce`）。上游顶替不用 `rand`，自己从上游的随机数里取 | 已落地 |
+| `surface_shader_emission(sd) → vec3` | 这个点朝来路发出的光：照 Cycles，发光量乘 `emissive_simple_eval`（两面都发光）。上游的发光卡片例外，照旧是单面的 | 已落地 |
 | `surface_shader_transparency(sd) → vec3` | 阴影射线穿过这个点时放过多少光。恒 0 | 已定义、无调用者 |
-| `bsdf_albedo(sd, k) → vec3` | 第 k 个闭包的反照率。口径还是上游的：上游顶替返回上游的底色，微表面闭包返回 F0 | 已落地（上游的口径） |
+| `bsdf_albedo(sd, k) → vec3` | 第 k 个闭包的反照率，口径照 Cycles 的 `bsdf_albedo`（`closure_albedo`：闭包权重，微表面的再乘 `bsdf_microfacet_estimate_albedo`）。上游顶替返回上游的底色 | 已落地 |
+| `closure_albedo(c, wi) → vec3` | 一个移植的闭包的反照率（`bsdf_albedo` 与层间权重都用它） | 已落地（1.2.0 加） |
+| `closure_sample_weight(weight) → f32` | 分配闭包时的取样权重，照 Cycles 的 `closure/alloc.h`；小于 1e-5 时为 0，不建这个闭包 | 已落地（1.2.0 加） |
+| `surface_shader_denoising_albedo(sd) → vec3` | 降噪用的反照率：照 Cycles 的 `film/denoising_passes.h` 在「首次命中、不跟反射、不按粗糙度加权」时的值，漫反射类闭包的 `bsdf_albedo` 之和。上游顶替取上游的底色 | 已落地（1.2.0 加；主循环在相机命中处读它） |
 
 返回的结构：
 
 | 结构 | 字段 | 状态 |
 |---|---|---|
-| `BsdfEval` | `diffuse`、`glossy`（vec3）：漫反射与光泽闭包各自的部分；`sum`（vec3）：全部闭包之和，已含余弦；`pdf`（f32）：各闭包的密度按 `sample_weight` 的加权平均 | `sum` 已落地（纯金属闭包的采样在 `surface_shader_bsdf_sample_closure` 里读它算权重）；`pdf`、`glossy` 已写未读（`glossy` 只在填它的函数里拿来填 `sum`）；`diffuse` 已定义。积分器不读这个结构（权重已经在采样函数里算好） |
-| `BsdfSample` | `wo`（vec3）采到的方向，全 0 表示没采到；`eval`（`BsdfEval`）；`pdf`（f32），奇异的一瓣为 0；`label`（i32）采样标签 `LABEL_*`，位照 Cycles；`sampled_roughness`（vec2）；`eta`（f32）折射率比；`weight`（vec3）通量的权重 | `wo`、`pdf`、`label`、`sampled_roughness`、`weight` 已落地；`eval` 已写未读（上游顶替不填）；`eta` 已写未读（恒 1） |
+| `BsdfEval` | `diffuse`、`glossy`（vec3）：漫反射与光泽闭包各自的部分；`sum`（vec3）：全部闭包之和，已含余弦；`pdf`（f32）：各闭包的密度按 `sample_weight` 的加权平均 | `sum`、`pdf` 已落地（直接光读 `sum`，`light_mis` 读 `pdf`，采样在 `surface_shader_bsdf_sample_closure` 里读它算权重）；`diffuse`、`glossy` 已写未读（`glossy` 只拿来算上游的高光份额）。积分器不读这个结构（权重已经在采样函数里算好） |
+| `BsdfSample` | `wo`（vec3）采到的方向，全 0 表示没采到；`eval`（`BsdfEval`）；`pdf`（f32），奇异的一瓣为 0；`label`（i32）采样标签 `LABEL_*`，位照 Cycles；`sampled_roughness`（vec2）；`eta`（f32）折射率比；`weight`（vec3）通量的权重 | `wo`、`pdf`、`label`、`sampled_roughness`、`weight` 已落地；`eval` 已写未读（上游顶替不填）；`eta` 已写未读（移植的闭包只有反射，恒 1） |
 | `BsdfPick` | `closure`（u32）选中的下标；`rand`（vec3）重新拉伸后的随机数 | 已落地 |
 | `ClosureEval` | `eval`（vec3）、`pdf`（f32） | 已落地 |
 
-采样标签：`LABEL_NONE`（0）、`LABEL_TRANSMIT`（1）、`LABEL_REFLECT`（2）、`LABEL_DIFFUSE`（4）、`LABEL_GLOSSY`（8）、`LABEL_SINGULAR`（16）、`LABEL_VOLUME_SCATTER`（64），数值照 Cycles。它们分在三个文件里：`LABEL_NONE`、`LABEL_REFLECT`、`LABEL_GLOSSY`、`LABEL_SINGULAR` 在共用目录的 `../shaders/util.wgsl`（移植的闭包用到的四个），`LABEL_TRANSMIT`、`LABEL_DIFFUSE` 在 `shaders/closure.wgsl`，`LABEL_VOLUME_SCATTER` 在 `shaders/integrator.wgsl`。七个都进了冻结标记。
+采样标签：`LABEL_NONE`（0）、`LABEL_TRANSMIT`（1）、`LABEL_REFLECT`（2）、`LABEL_DIFFUSE`（4）、`LABEL_GLOSSY`（8）、`LABEL_SINGULAR`（16）、`LABEL_VOLUME_SCATTER`（64），数值照 Cycles。它们分在三个文件里：`LABEL_NONE`、`LABEL_REFLECT`、`LABEL_DIFFUSE`、`LABEL_GLOSSY`、`LABEL_SINGULAR` 在共用目录的 `../shaders/util.wgsl`（移植的闭包用到的五个；`LABEL_DIFFUSE` 在 1.2.0 从 `shaders/closure.wgsl` 挪过来，漫反射闭包要它），`LABEL_TRANSMIT` 在 `shaders/closure.wgsl`，`LABEL_VOLUME_SCATTER` 在 `shaders/integrator.wgsl`。七个都进了冻结标记。
 
 上游顶替专用、灯移植完后删的两个：`surface_shader_bsdf_eval_legacy(sd, wo, k) → { eval, spec_frac }`（上游的灯光函数专用的求值，`k` 是上游每盏灯的高光倍率，只对上游顶替有效）与 `surface_shader_bsdf_sample_legacy(sd)`。
 
@@ -244,7 +259,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `rng_offset` | u32 | 当前弹射的随机维度偏移，初值 `PRNG_BOUNCE_NUM`，每弹射一次加一个 | `main` 开头、`path_state_next` | 已落地 |
 | `flag` | u32 | 路径标志位 `PATH_RAY_*` | 主循环 | `PATH_RAY_MIS_SKIP` 已落地，其余已定义 |
 | `mis_ray_pdf` | f32 | 上一个散射点采样的概率密度：下一次打到灯时算多重重要性采样的权重 | 主循环 | 已落地 |
-| `min_ray_pdf` | f32 | 这条路径上最小的采样概率密度，初值为浮点最大值。有概率密度的弹射才记（表面的非穿透一支、介质散射） | 主循环 | 已写未读 |
+| `min_ray_pdf` | f32 | 这条路径上最小的采样概率密度，初值为浮点最大值。有概率密度的弹射才记（表面的非穿透一支，含移植的闭包奇异的那一瓣、介质散射） | 主循环 | 已落地（滤光泽读） |
 | `continuation_probability` | f32 | 这一次弹射俄罗斯轮盘的存活概率，不掷时为 1 | 主循环 | 已落地 |
 | `throughput` | vec3 | 路径的通量权重 | 主循环 | 已落地 |
 | `visibility` | u32 | 这一段光线的可见类 `PATH_RAY_VISIBILITY_*` | `main` 开头、`path_state_next` | 已写未读（只有骨架） |
@@ -306,7 +321,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 1 | `transparent_max_bounce`、`transparent_min_bounce`、`min_bounce` | u32 | 透明弹射的上下限；俄罗斯轮盘的起始深度 | 已定义，0（轮盘的起始深度现在读上游的 `counts.w`） |
 | 1 | `sampling_pattern` | u32 | 采样图案，只有 0（Sobol-Burley） | 已定义 |
 | 2 | `sample_clamp_direct`、`sample_clamp_indirect` | f32 | 夹取 | 已定义，0（现在用上游的亮度夹取 `misc.x`） |
-| 2 | `filter_glossy`、`light_inv_rr_threshold` | f32 | 滤光泽；灯的轮盘阈值 | 已定义，0 |
+| 2 | `filter_glossy`、`light_inv_rr_threshold` | f32 | 滤光泽：存 1 / blur_glossy（照 Cycles 宿主一侧 `scene/integrator.cpp:269` 的存法），内核直接用，不再取倒数；0 关（Cycles 关着时存浮点最大值，见「与 Cycles、与上游不一样的地方」第 38 条）。写它的是命令行（换算在写的那一侧）。灯的轮盘阈值 | `filter_glossy` 已落地（`surface_shader_prepare_closures` 读；谁写见命令行）；`light_inv_rr_threshold` 已定义，0 |
 | 3 | `seed` | u32 | 随机数的全局种子 | 已落地，见下 |
 | 3 | `sobol_index_mask` | u32 | Sobol 打乱后的索引取哪几位 | 已落地，见下 |
 | 3 | `pass_kind` | u32 | 这一趟调度写什么：`PASS_KIND_COLOR`（0）颜色样本，`PASS_KIND_AUX`（1）辅助样本。两侧同名常数 | Rust 一侧照实填（要辅助层时清零之后、第一个颜色样本之前以 1 调度一次）；内核不读：两种样本各走自己的入口（见「编号登记表」的「编译开关与入口」） |
@@ -326,7 +341,9 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `num_lightgroups` | u32 | 这次渲染请求的灯组数，不是场景里的灯组数 | 同上 |
 | `reserved` | u32 | 预留 | 预留 |
 
-**`table_first_ext`**（2 个 vec4、8 格）：北冥加的表在表缓冲里的首地址。上游的 `table_first` 12 格已经占满，新表只许用这里的格子，取用前要登记（见登记表）。
+**`table_first_ext`**（2 个 vec4、8 格）：北冥加的表在表缓冲里的首地址。上游的 `table_first` 12 格已经占满，新表只许用这里的格子，取用前要登记（见登记表）。Rust 一侧北冥加的表是 `heap::Table` 第 12 张起，各占哪一格由 `heap::EXT_SLOTS` 定（不按次序：`[0].y` 留给还没有的图案节点表，那一格是 0）。
+
+**广义 Schlick 的两张反照率表**（1.2.0 加，占 `[0].z`、`[0].w`）：Cycles `scene/shader.tables` 的 `table_ggx_gen_schlick_ior_s`、`table_ggx_gen_schlick_s`，各 4096 个 f32（16×16×16），数据在 `../shaders/ggx_gen_schlick.tables`（`lib.rs` 的 `ggx_gen_schlick_tables` 读），在表缓冲里各占一段（`heap::Table::GgxGenSchlickIorS`、`GgxGenSchlickS`）。内核里按 float 读：`pathtrace.wgsl` 的 `lookup_table_fetch(i)`（i 是整个表缓冲里的第几个 float）与 `table_ggx_gen_schlick_ior_s()`、`table_ggx_gen_schlick_s()`（首地址乘 4），给 `../shaders/util.wgsl` 的 `lookup_table_read_3D` 用，对应 Cycles 的 `kernel_data_fetch(lookup_table, …)` 与 `kernel_data.tables.ggx_gen_schlick_*`。不放进常数数组：naga 生成 SPIR-V 时按运行时下标取常数数组，会先把整个数组拷进函数内的临时变量，这两张表放进去之后英伟达显卡上内核编译不出来。能量补偿的两张旧表（1056 个数）照旧在 `../shaders/ggx_tables.wgsl` 的常数数组里，量小没卡住，冻结只许加，没动。
 
 ### 物体扩展表 `ObjectExt`（进缓冲）
 
@@ -378,7 +395,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 每次弹射 | `PRNG_TERMINATE` | 0 | 1 | 已落地（俄罗斯轮盘） |
 | | `PRNG_LIGHT` | 1 | 3 | 已定义 |
 | | `PRNG_LIGHT_TERMINATE` | 2 | 1 | 已定义 |
-| | `PRNG_SURFACE_BSDF` | 3 | 3：前两个定方向，第三个选闭包并复用 | 已落地（只有纯金属的微表面闭包用前两个；上游顶替不用它） |
+| | `PRNG_SURFACE_BSDF` | 3 | 3：前两个定方向，第三个选闭包并复用 | 已落地（移植的闭包用前两个定方向、第三个选闭包；上游顶替不用它） |
 | | `PRNG_SURFACE_AO` | 4 | 2，分支版 | 已定义 |
 | | `PRNG_SURFACE_BEVEL` | 5 | 2，分支版 | 已定义 |
 
@@ -462,7 +479,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 位置 | 常数 | 内容 | 取法 | 状态 |
 |---|---|---|---|---|
 | 0 | `FILM_COMBINED` | rgb 颜色的累加和；w 样本数 | 每个样本累加 | 已落地 |
-| 1 | `FILM_DENOISE_ALBEDO` | rgb 降噪用的反照率的累加和；w 不透明度的累加和 | 累加 | 反照率已落地，但是上游的口径（相机首次命中的底色）；不透明度已落地 |
+| 1 | `FILM_DENOISE_ALBEDO` | rgb 降噪用的反照率的累加和；w 不透明度的累加和 | 累加 | 反照率已落地：相机首次命中处的 `surface_shader_denoising_albedo`（移植的闭包照 Cycles 取漫反射类闭包的反照率之和，上游顶替取底色）；不透明度已落地 |
 | 2 | `FILM_DENOISE_NORMAL` | xyz 降噪用的法线的累加和；w 覆盖率计数 | 累加 | 法线已落地，但是上游的口径（世界空间；出层时换到 Cycles 降噪特征的相机空间，见下）；覆盖率计数已落地 |
 | 3 | `FILM_LEGACY_VARIANCE` | 上游降噪用的两个量：x 亮度的和，y 亮度平方的和 | 累加 | 已落地（上游）。换降噪器时腾出来 |
 | 4 | `FILM_LEGACY_EMIT` | 上游 `--signals` 的一组：相机直接看到的光 | 累加 | 已落地（上游，只在开了 `--signals` 时写） |
@@ -512,7 +529,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 |---|---|---|---|
 | `alpha` | f32 | 这个样本的不透明度：1，背景对相机不可见而相机射线没打到表面时 0 | 已落地 |
 | `L` | vec3 | 颜色：这条路径上各次贡献之和。只由 `film_add_light` 加 | 已落地 |
-| `albedo`、`normal` | vec3 | 降噪用的反照率与法线（上游的口径） | 已落地 |
+| `albedo`、`normal` | vec3 | 降噪用的反照率与法线（反照率见 `FILM_DENOISE_ALBEDO`；法线是上游的口径） | 已落地 |
 | `legacy` | `SampleLegacy` | 上游 `--signals` 要的几样 | 已落地，接上正式的通道之后删 |
 
 `AuxSample`：`depth`（f32）、`object_id`（u32，小于 2^24）、`motion`（vec2）、`normal`（vec3）。`motion` 已定义、恒 0，其余已落地。
@@ -530,17 +547,17 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 1. 闭包的种类字段叫 `kind`：Cycles 里叫 `type`，那是这门着色器语言的保留字。
 2. 材质求值是三步加只算透明度的一档，不是一个函数；`shader_setup_from_hit` 往指针里填，不按值返回。
 3. 背面的判法沿用上游（点积不小于 0 算背面），不是 Cycles 的（小于 0 才算）。
-4. `surface_shader_prepare_closures` 不是空壳：上游的 `Lobes` 在这里算，而且纯金属的着色点上也算。它不收路径状态参数。
-5. 纯金属闭包的粗糙度带着上游的 0.02 下限；`ShaderInputs.roughness` 自己不带。
+4. `surface_shader_prepare_closures` 不是空壳：滤光泽之外，上游的 `Lobes` 也在这里算，而且移植的闭包的着色点上也算（上游的灯光函数还读它）。它不收路径状态参数（滤光泽直接读模块级的路径状态）。
+5. （1.2.0 起删掉：移植的闭包不再带上游的 0.02 粗糙度下限。）
 6. `ShaderInputs` 除了材质的输入，还带三项：`flags`（材质记录的标志原样带过来）、`coat_weight`、`transmission_weight`（只用来判「无清漆、无透射」）。
 7. `BsdfSample` 带一个 `weight`（通量的权重）。上游顶替的采样在自己的函数里照上游原样的式子把权重算好，不填 `eval`。
-8. 微表面闭包的采样没有用采样函数自己返回的求值与密度（Cycles 的做法），而是采到方向后再求值一遍。换成 Cycles 的做法会再有一次像素末位的变化。
+8. （1.2.0 起删掉：微表面闭包的采样照 Cycles 用采样函数自己返回的求值与密度，再并进其余闭包。）
 9. `sampled_roughness` 的口径是粗糙度（alpha 的平方根），不是 Cycles 的 alpha：积分器拿它算射线锥与「镜面路径」。
 10. 上游顶替专用的求值返回 `{ eval, spec_frac }`，不带概率密度；要密度的地方直接调上游的 `pdf_bsdf`。
-11. 灯光一侧的多重重要性采样（上游的 `light_mis`）没有经闭包的分发：纯金属的密度仍经上游的 `pdf_bsdf` 拿（它里面调的是同一个移植函数）。
+11. 灯光一侧的多重重要性采样（上游的 `light_mis`）里，移植的闭包的密度经闭包分发（`surface_shader_bsdf_eval`），上游顶替仍经上游的 `pdf_bsdf`。直接光的求值（`surface_shader_bsdf_eval_legacy`）对移植的闭包另查一次几何法线，丢掉几何面背后的灯（Cycles 的求值不查）。
 12. 按闭包种类分发的 `bsdf_eval` 收一个闭包，不收整个着色点。
 13. `shader_eval_shadow` 收的是命中、方向与距离，不是着色点。
-14. 能量补偿对纯金属的闭包读材质记录的那一位，对上游顶替仍读全局开关。
+14. 能量补偿对移植的闭包读材质记录的那一位，对上游顶替仍读全局开关。
 15. 边缘色按场景特性位决定读不读材质记录。
 16. `ShaderInputs.alpha` 只是材质记录里的值，不含贴图的透明度。
 
@@ -571,11 +588,16 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 33. 一个样本的结果是模块级的私有变量；`film_add_light` 往它上面加，不直接写颜色那一格。
 34. 灯组数没有写死的上限：上限由显卡的单个缓冲大小在开渲前算。
 35. 辅助样本是内核的另一个入口（`aux_sample`）的一趟调度，不是颜色样本里的第 0 个；覆盖率只在要辅助层的变体里数。Cycles 自己的深度、编号取首个样本覆盖写，法线累加。
-36. 降噪特征的法线在内核里是世界空间，出层时才换到 Cycles 的相机空间；反照率仍是上游的口径（见「还没接的」）。
+36. 降噪特征的法线在内核里是世界空间，出层时才换到 Cycles 的相机空间。反照率照 Cycles 取首次命中处漫反射类闭包的反照率之和，但不跟反射（Cycles 开着「跟反射」时，光泽闭包的那一份推迟到下一个顶点写），也不按粗糙度加权（见「还没接的」）。
 
 **分文件**
 
 37. 内核的主着色器按阶段分成八个文件，其中体积单独一个；没有单独的相机文件。
+
+**全局参数与表**（1.2.0 加）
+
+38. `integrator.filter_glossy` 为 0 表示关：Cycles 关着时存浮点最大值（`scene/integrator.cpp:269`）。全局参数各处零初始化，0 必须等于关；开着时存的与 Cycles 一样是 1 / blur_glossy。
+39. Cycles 的查找表都在一个 `lookup_table` 里按偏移读。这里只有广义 Schlick 的两张在表缓冲里按偏移读；能量补偿的两张仍在常数数组里，一维、二维查表函数各有读常数数组与读表缓冲（`_buf`）两份，三维的只读表缓冲。
 
 ## 编号登记表
 
@@ -663,7 +685,7 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 |---|---|---|
 | `[0].x` | 物体扩展表 | 已落地（表全 0） |
 | `[0].y` | 图案节点表 | 已定义，0 |
-| `[0].z`、`[0].w` | 广义 Schlick 的两张能量表 | 已定义，0 |
+| `[0].z`、`[0].w` | 广义 Schlick 的两张反照率表（`table_ggx_gen_schlick_ior_s`、`table_ggx_gen_schlick_s`） | 已落地（`lookup_table_read_3D` 读） |
 | `[1].x` 到 `[1].w` | | 空闲 |
 
 ### 输出缓冲的各格（`film` 每个像素的固定部分）
@@ -706,7 +728,7 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 - **只有冻结标记这一道守着的**：上游槽位 `D_*` 的数值、路径标志位（本机没有 Cycles 源码缓存时）、冻结了签名的函数的参数表。它们改了之后库测试照过，红的只有 `freeze.mjs` 与它的测试；所以 `--update` 之前先看清标记的差异里有没有不是自己想改的行。
 - 位置式构造的那条测试是文本匹配，不是语法树：给结构起别名再按位置构造，它认不出来。
 - 查写入语句的两条测试同样是文本匹配：把一处「已写未读」的写入包进永不成立的分支，语句还在，测试照过。
-- **内核里的几处修法只有第 2 级拦得住，CI 里看不见。** 矩形纯光命中一侧用的那个没挪动的着色点的写入（`state.legacy.bm_x = sd.P`）、遮挡距离除以 0.999 的那一处、纯金属闭包没采到方向时把结果置 0 的那个判断（`let ok`）：删掉或改回去，冻结检查、不用显卡的库测试、CI 全过，只有第 2 级（`../chassis/level2.mjs`，要显卡，只在本机跑）的解析场景与负对照会不过。改积分主循环、闭包采样、灯的人，每次都在本机跑一遍第 2 级；复核的人看差异时对着这三处看一眼。
+- **内核里的几处修法只有第 2 级拦得住，CI 里看不见。** 矩形纯光命中一侧用的那个没挪动的着色点的写入（`state.legacy.bm_x = sd.P`）、遮挡距离除以 0.999 的那一处、移植的闭包只在采到方向（概率密度不为 0）时才算权重的那个判断（`surface_shader_bsdf_sample_closure` 里的 `if (m.pdf != 0.0)`）：删掉或改回去，冻结检查、不用显卡的库测试、CI 全过，只有第 2 级（`../chassis/level2.mjs`，要显卡，只在本机跑）的解析场景与负对照会不过。改积分主循环、闭包采样、灯的人，每次都在本机跑一遍第 2 级；复核的人看差异时对着这三处看一眼。
 
 ## 锁
 
@@ -756,6 +778,8 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 
 **用统计判据的地方，种子至少 32 个。** 8 个种子估出来的标准误尾巴很重：落地过程中出现过三次「差 3.5 到 4.6 个标准误」，加种子（64 个）重判都回到 1 以内。遇到落在 3 到 5 个标准误之间的，先加种子，别急着找原因。
 
+**电介质与混合白炉**（1.2.0 加）：底色 1 的原理化 BSDF 球，金属度 0 的粗糙度 0、0.1 … 1.0 共 11 档，金属度 0.5 的粗糙度 0.2、0.5、0.8 三档，开能量补偿、弹射上限 128；对 Cycles（`../chassis/cycles-furnace-principled.json`，Blender 5.2.3 处理器渲染，做法同金属白炉，出读数之前用同一脚本重出金属白炉粗糙度 0.5 与原读数逐位相同）每球 ±0.5%，门同金属白炉。这一组读数都在 1 附近（Cycles 的层间权重本来就近乎守恒），±0.5% 的门分辨不出小的接线错，那一类由函数级比对与负对照守。**Pharr 自发光球**（1.2.0 加）：相机在解析球里面，球面反照率 0.5、自发光 0.5 的朗伯面，处处趋近 1；判法同下面的解析场景。
+
 **第 2 级解析场景的判法**（矩形纯光照漫反射平面，正对、斜向、近灯、灯后有板四种几何；种子 1 到 32、每个 4096 采样）：像素均值对解析值的相对差在 **0.2% 以内，且在 3 个标准误或相对 2e-6 以内**（`level2.mjs` 的 `GATES` 与 `analyticOk`）。靠后一半那条底才过的读数，工具的输出里会打一行提示。
 
 后一半那条「相对 2e-6」是数值精度的底，来历照实写在这里：
@@ -770,7 +794,7 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 
 灯后有板这个几何（斜向那一种，灯背后 30 微米放一块 0.7 m 见方、与灯平行的黑板；黑板不反光，解析值与斜向相同）守的是遮挡的判法：材质采样打到矩形纯光时，遮挡物的距离是从沿法线挪开的射线起点量的，灯的距离是从着色点本身量的，两个起点不同。光源采样一侧的阴影射线从挪开的起点打、长度取灯距乘 0.999；材质采样一侧用同一条判法（遮挡距离除以 0.999 再与灯距比）。直接拿两个距离比的话，板离灯不到挪开的那一点距离时这一侧把灯判成被挡住、整份丢掉，读数偏低千分之一点五，而另外三种几何上完全看不出来。它也只进第 2 级的判定。
 
-**负对照有六项**，每项故意改错一处，必须不过，而且读数要落在登记值的容差之内（读数挪了位置说明接线变了）：粗的三项（遮蔽项写错、面光换算多乘 1%、材质采样一侧不取光）读数远在门外，容差 ±5%；细的三项（面光换算多乘十万分之二、命中一侧改回从挪开的起点算、遮挡距离改回直接拿来比）要的是解析场景的判法判它不过，守的是那条底没有把这个量级的错放过去，它们的读数里噪声与残差占的份额大，容差 ±30%。
+**负对照有十一项**，每项故意改错一处，必须不过，而且读数要落在登记值的容差之内（读数挪了位置说明接线变了）：粗的八项（遮蔽项写错、面光换算多乘 1%、材质采样一侧不取光；电介质高光的菲涅耳不随角度变、电介质高光下面的漫反射不衰减、漫反射采样一侧的求值少乘 2%、选闭包的随机数只用一半、发光多乘 1%）读数远在门外，容差 ±5%；细的三项（面光换算多乘十万分之二、命中一侧改回从挪开的起点算、遮挡距离改回直接拿来比）要的是解析场景的判法判它不过，守的是那条底没有把这个量级的错放过去，它们的读数里噪声与残差占的份额大，容差 ±30%。
 
 **换了随机数的编号之后，某个解析场景碰巧落在 3 个标准误之外（又不在那条底以内）时**：把种子加到 64 个（1 到 64），按合起来的 64 个判一次。仍然不过就是不过，去找原因；不许反复换种子或换种子组直到过为止。
 
@@ -793,15 +817,15 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 
 | 东西 | 现在 | 等谁来接 |
 |---|---|---|
-| `Closure` 的 `ior`、`exponent`、`reflection_tint`、`transmission_tint`；`sample_weight`、`fresnel_type` 的读者；`alpha_y` 的读者 | 已定义或已写未读 | 移植闭包 |
-| `CLOSURE_BSDF_DIFFUSE`、`CLOSURE_BSDF_TRANSPARENT`；`FRESNEL_*` 里除 F82 之外的五种 | 只占了号 | 移植闭包 |
-| `ShaderInputs` 的 `ior`、`specular_ior_level`、`alpha`、`diffuse_roughness`；`Material` 的 `specular_ior_level`、`diffuse_roughness` 的读者 | 已写未读 | 移植闭包 |
+| `Closure` 的 `alpha_y` 在求值与采样里的读者（各向异性） | 已写，求值与采样只读 `alpha_x` | 移植闭包（各向异性） |
+| `CLOSURE_BSDF_TRANSPARENT`；`FRESNEL_*` 里除 F82、广义 Schlick 之外的四种 | 只占了号 | 移植闭包 |
+| 清漆、透射、光泽、次表面、薄膜、各向异性、漫反射粗糙度不为 0、不透明度小于 1 的材质（现在整个走上游顶替） | 上游顶替 | 移植闭包 |
 | `MATERIAL_FLAG_CLASS_*`、`MATERIAL_CLASS_*`；材质记录的 6 个预留格 | 已定义 | 移植闭包 |
-| `surface_shader_bsdf_bssrdf_pick` 的多闭包选法；`surface_shader_bsdf_sample_closure` 里并入其余闭包的贡献 | 骨架 | 移植闭包 |
+| 移植的闭包之间按灯的着色标志排除某类闭包（`light_shader_flags`）、不用多重重要性采样的灯把材质一侧的密度置 0 | 没做 | 做灯 |
 | `surface_shader_transparency`、`shader_eval_shadow`；`CLOSURE_BSDF_TRANSPARENT`；`PATH_RAY_VISIBILITY_SHADOW_*` | 已定义、无调用者 | 移植闭包（透明闭包），并把上游求交里的镂空与穿玻璃改道过来 |
-| `PathState` 的四个分类计数；`path_state_next` 里的计数、上限与其余 `PATH_RAY_*` 位；`min_ray_pdf` 的读者（滤光泽）；`integrator` 块的弹射上限、`min_bounce`、两个夹取、`filter_glossy` | 已定义或已写未读 | 移植闭包 |
-| `BsdfEval` 的 `diffuse`、`glossy`；`BsdfSample` 的 `eval`、`eta` 的读者；`pass_diffuse_weight`、`pass_glossy_weight` | 已定义或已写未读 | 移植闭包（分通道对拍） |
-| `surface_shader_bsdf_eval`（与它的 `light_shader_flags`）、`shader_eval_emission` | 已定义、无调用者 | 做灯 |
+| `PathState` 的四个分类计数；`path_state_next` 里的计数、上限与其余 `PATH_RAY_*` 位；`integrator` 块的弹射上限、`min_bounce`、两个夹取 | 已定义或已写未读 | 移植闭包 |
+| `BsdfEval` 的 `diffuse`、`glossy`（已写）；`BsdfSample` 的 `eval`、`eta` 的读者；`pass_diffuse_weight`、`pass_glossy_weight` | 已写未读或已定义 | 移植闭包（分通道对拍） |
+| `surface_shader_bsdf_eval` 的 `light_shader_flags` | 已定义，没人读 | 做灯 |
 | `PRNG_LIGHT`、`PRNG_LIGHT_TERMINATE`；`integrator` 块的 `light_inv_rr_threshold` | 已定义 | 做灯 |
 | `state.visibility`、`state.mis_ray_object`、着色点的 `object` 的读者；`ObjectExt` 的 `receiver_light_set`、`lightgroup` | 已写未读或已定义 | 做灯（灯光链接、灯组） |
 | `film_add_light` 往灯组里写的那一支、它的 `bounce` 参数；把算灯的函数改成逐盏调用 | 已定义，没有场景走到过 | 做灯 |
@@ -809,11 +833,10 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 | `trace_local`；着色点的 `lcg_state`、`object_flag`、`prim`、`u`、`v`、`N`、`ray_length` 的读者；`Ray` 的 `self_object`、`self_prim`、`tmin` 的读者 | 已定义、无调用者，或已写未读 | 图案节点（倒角、遮蔽） |
 | `PRNG_SURFACE_AO`、`PRNG_SURFACE_BEVEL`、`path_branched_rng_2D`、`path_rng_2D` | 已定义、无调用者 | 图案节点 |
 | `Material` 的 `pattern_first`、`pattern_count`；`MATERIAL_FLAG_NO_LEGACY_FUNCTION`；`table_first_ext` 的图案节点表一格；`ObjectExt.object_flag` 的读者（镜像位场景包读入器已写） | 已定义 | 图案节点 |
-| `table_first_ext` 的两格能量表；`FRESNEL_GENERALIZED_SCHLICK` | 已定义 | 移植闭包（广义 Schlick） |
 | `AuxSample.motion`、`FILM_AUX_DATA` 的 zw（运动矢量） | 已定义，恒 0：场景包只有整数帧的状态，快门两端的位置算不出来 | 运动模糊与运动矢量 |
 | 请求灯组的命令行与任务描述字段 | 没有 | 做灯（灯组） |
 | 场景包里解析过、校验过、还没生效的：图案节点（`pack::Node`）、灯光链接与分灯组名（`pack::Light` 的 `link`、`group`）；`pack-info` 的统计列在 `notApplied` | 已读未生效 | 图案节点；做灯（灯光链接、灯组） |
-| `FILM_DENOISE_ALBEDO`、`FILM_DENOISE_NORMAL` 换成 Cycles 的口径；`bsdf_albedo` 的口径；`FILM_LEGACY_VARIANCE`；`denoising_feature_throughput`；`PATH_RAY_DENOISING_FEATURES` | 上游的口径：只取相机首次命中那一点；反照率是那一点的底色（只发光的面取归一化的发光色），法线是闭包用的法线（含法线贴图）。Cycles（`kernel/film/denoising_passes.h`）沿光滑的反射、透射一直跟到够粗糙的面才写，反照率是漫反射类闭包的权重和、乘降噪特征的通量，法线是全部闭包按权重的平均。只有法线的坐标系出层时换成了 Cycles 的（见「输出通道」）；两侧差多少还没量 | 降噪与采样 |
+| `FILM_DENOISE_NORMAL` 换成 Cycles 的口径；降噪反照率的「跟反射」与按粗糙度加权；`FILM_LEGACY_VARIANCE`；`denoising_feature_throughput`；`PATH_RAY_DENOISING_FEATURES` | 只取相机首次命中那一点。反照率已照 Cycles 取漫反射类闭包的 `bsdf_albedo` 之和（上游顶替取底色，只发光的面取归一化的发光色），法线是闭包用的法线（含法线贴图）。Cycles（`kernel/film/denoising_passes.h`）开着「跟反射」时沿光滑的反射、透射一直跟到够粗糙的面才写，乘降噪特征的通量，法线是全部闭包按权重的平均。只有法线的坐标系出层时换成了 Cycles 的（见「输出通道」）；两侧差多少还没量 | 降噪与采样 |
 | `sobol_index_mask` 的算法、`sampling_pattern`、分支版取数的有效样本数 | 上游写死的值 | 降噪与采样 |
 | 着色点与光线的 `time` | 已定义，恒 0 | 运动模糊 |
 | `ObjectExt` 的两个阴影终止偏移 | 已定义 | 平滑网格 |
@@ -828,9 +851,9 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 
 移植闭包、做灯、做图案节点三条线会同时动内核。下面几件事落在两条线的交界上，先说定归谁：
 
-- **多闭包的直接光归移植闭包的人。** 上游的灯光函数拿材质求值经 `surface_shader_bsdf_eval_legacy`，它对移植的闭包只算第 0 个；灯光一侧的多重重要性采样权重 `light_mis` 用的是上游 `Lobes` 的密度，只在纯金属上与采样一侧的密度碰巧相等。一个着色点填出多个闭包之前，移植闭包的人把前者改成对全部闭包求和、把后者的密度改成经闭包分发。这是「新代码不碰名字带 `legacy` 的函数」的点名例外，只限这两处。
+- **多闭包的直接光归移植闭包的人（1.2.0 已做）。** 上游的灯光函数拿材质求值经 `surface_shader_bsdf_eval_legacy`，它对移植的闭包改成调 `surface_shader_bsdf_eval` 对全部闭包求和；`light_mis` 对移植的闭包的密度改成经闭包分发。这是「新代码不碰名字带 `legacy` 的函数」的点名例外，只限这两处。
 - **凹凸阴影项与阴影终止偏移**（Cycles 做在它的求值入口里，要用着色点）做在收着色点的分发函数里（`surface_shader_bsdf_eval` 那一层），不做在 `bsdf_eval(c, wi, wo)` 里：后者只收一个闭包，签名不为它改。
-- **主循环把奇异的标签一律当「穿过光滑玻璃」**。移植出镜面反射这类奇异的闭包时，由移植闭包的人一并改主循环里读 `LABEL_SINGULAR` 的那几处。
+- **主循环里的「穿过光滑玻璃」（1.2.0 已改）**：只有奇异的透射一瓣（`LABEL_TRANSMIT | LABEL_SINGULAR`，上游顶替的光滑玻璃）算穿过；移植的闭包的奇异反射一瓣照 Cycles 带着乘了 1e6 的概率密度走普通的一支（多重重要性采样的密度、最小密度照记，后面的矩形纯光照常经 `bm_rect_hits` 取光）。
 - **阴影链接与发光网格的成员集**由做灯的人另开一张表（见「物体扩展表」）。**直接光调用处的夹取**归做灯的人。
 - **图案节点的结果在闭包移植完之前只到得了已移植的闭包。** 倒角改的是 `ShaderInputs.N`、遮蔽改的是底色，而上游顶替的闭包与上游的灯光函数读的是 `sd.legacy.surface`。过渡期不许为了让效果到达上游顶替而去写 `legacy` 的表面量；图案节点先在已移植的闭包上验。
 - **材质的图案节点表位置**（`pattern_first`、`pattern_count`）现在没有带进 `ShaderInputs`。做图案节点的人用到时加字段带出来，不另读一次材质记录（过程几何的材质号算法不一样）。
@@ -843,4 +866,4 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 3. **破坏性的**（改已有字段的名字、含义、位置；改进缓冲的格式的长度；改已有函数的参数表；改已有编号的数值）：先经核心帧源的负责人同意。
 4. 凡是动到冻结标记钉住的东西（第 1 条里的加字段、第 2 条、第 3 条都会）：改这份条文里对应的字段表或登记表，升 [FREEZE.json](FREEZE.json) 里的版本号（不算破坏的升末位，破坏性的升首位），运行 `node beiming/sources/core/chassis/freeze.mjs --update`，把标记的差异与改动放在同一个提交里。
 5. 每一步：`cargo test --locked`、`freeze.mjs`、两台机器上的 `regress.mjs --check`。有意改变渲染结果的改动过后，两台机器各重记一次基线。
-6. **七个没有调用者的函数，签名是暂定的**：`surface_shader_bsdf_eval`、`surface_shader_transparency`、`shader_eval_shadow`、`shader_eval_emission`、`trace_local`、`path_rng_2D`、`path_branched_rng_2D`。（`film_write_aux`、`object_ext_at` 已经有调用者，并在两台机器上过了回归，签名定下来了。）它们只过了校验与两个后端的代码生成，没有在显卡上跑过；按值传大结构这类问题只有真跑才暴露。第一个调用者落地、并在两台机器上过了回归之后，签名才算定下来（那时把它从这张名单里划掉）。在这之前改它们的参数表不算破坏性的改动，不用先经同意：改条文与冻结标记（第 4 条）就行。
+6. **五个没有调用者的函数，签名是暂定的**：`surface_shader_transparency`、`shader_eval_shadow`、`trace_local`、`path_rng_2D`、`path_branched_rng_2D`。（`film_write_aux`、`object_ext_at` 已经有调用者，并在两台机器上过了回归，签名定下来了；`surface_shader_bsdf_eval`、`shader_eval_emission` 在 1.2.0 有了调用者，在两台机器上过了第 2 级，签名定下来了。）它们只过了校验与两个后端的代码生成，没有在显卡上跑过；按值传大结构这类问题只有真跑才暴露。第一个调用者落地、并在两台机器上过了回归之后，签名才算定下来（那时把它从这张名单里划掉）。在这之前改它们的参数表不算破坏性的改动，不用先经同意：改条文与冻结标记（第 4 条）就行。

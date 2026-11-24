@@ -24,7 +24,7 @@ test('仓库里的冻结标记：四样结构、版本、日期、条文与登�
   for (const f of fs.readdirSync(path.join(KERNEL, 'shaders')).filter(f => f.endsWith('.wgsl'))) assert.ok(scan.includes(`shaders/${f}`), f);
   for (const f of SHADERS) assert.ok(scan.includes(`../shaders/${f}`), f);
   assert.ok(SHADERS.length === 5 && scan.length > Object.keys(m.pinned).length);
-  for (const n of ['LABEL_NONE', 'LABEL_REFLECT', 'LABEL_GLOSSY', 'LABEL_SINGULAR']) assert.ok(n in m.pinned['../shaders/util.wgsl'].constants, n);
+  for (const n of ['LABEL_NONE', 'LABEL_REFLECT', 'LABEL_DIFFUSE', 'LABEL_GLOSSY', 'LABEL_SINGULAR']) assert.ok(n in m.pinned['../shaders/util.wgsl'].constants, n);
   assert.deepEqual(m.structures, STRUCTURES);
   assert.equal(m.text, 'STRUCTURES.md');
   assert.ok(m.registry.startsWith('STRUCTURES.md#'));
@@ -223,6 +223,6 @@ test('照 Cycles 取值的常数：与 Cycles 头文件里的同名枚举逐个�
   const names = ours.map(o => `${o[0]} ${o[1]}`);
   for (const n of ['shaders/integrator.wgsl PATH_RAY_MIS_SKIP', 'shaders/integrator.wgsl PATH_RAY_VISIBILITY_CAMERA', 'shaders/integrator.wgsl PRNG_BOUNCE_NUM', 'src/sample.rs PRNG_BOUNCE_NUM',
     'shaders/sample.wgsl PRNG_FILTER', 'shaders/sample.wgsl PRNG_SURFACE_BSDF', 'shaders/shader.wgsl FRESNEL_F82_TINT', 'shaders/shader.wgsl SD_BACKFACING', 'shaders/pathtrace.wgsl SD_OBJECT_NEGATIVE_SCALE',
-    'shaders/closure.wgsl LABEL_DIFFUSE', '../shaders/util.wgsl LABEL_SINGULAR']) assert.ok(names.includes(n), n);
+    'shaders/closure.wgsl LABEL_TRANSMIT', '../shaders/util.wgsl LABEL_DIFFUSE', '../shaders/util.wgsl LABEL_SINGULAR']) assert.ok(names.includes(n), n);
   t.diagnostic(`比了 ${ours.length} 个常数`);
 });
