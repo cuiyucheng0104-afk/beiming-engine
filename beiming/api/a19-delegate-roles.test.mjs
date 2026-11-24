@@ -2932,50 +2932,78 @@ test('A19-23 [R1 收口] 150s 墙钟预算守卫、严格 JSON 解包（拒重�
   });
   await new Promise((r) => mockAgent.listen(0, '127.0.0.1', r));
 
-  // 3) 委托作业合并拒收显式 body: null
-  let deliverReached = false;
+  // 3) 委托作业合并拒收显式 body: null（覆盖 shot-worker render:null 与 finalizer deliver:null 两条真实路径）
+  let deliverReachedDuringNullCall = false;
+  let deliverNullSawStep2 = false;
+  let renderNullReached = false;
+  let finalizerCalled = false;
+  let deliverCallCount = 0;
   const { film } = scaffold({ id: 'f_001', template: 'title', text: 'NULLTEST', output: { size: [320, 180], fps: '10/1', frames: 6 } });
   const mockDelegateApi = createServer(async (req, res) => {
-    for await (const _ of req) { /* drain */ }
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const raw = Buffer.concat(chunks).toString('utf8');
     const url = new URL(req.url, 'http://127.0.0.1');
     res.writeHead(200, { 'content-type': 'application/json' });
     if (req.method === 'GET' && url.pathname === '/v1/films/f_001/ledger') return res.end(JSON.stringify({ ok: true, data: { items: [] } }));
     if (req.method === 'GET' && url.pathname === '/v1/films/f_001/film') return res.end(JSON.stringify({ ok: true, data: { rev: 1, film } }));
+    if (req.method === 'POST' && url.pathname === '/v1/films/f_001/render') {
+      if (!raw || raw === 'null') renderNullReached = true;
+      return res.end(JSON.stringify({ ok: true, data: { status: 'succeeded', rev: 1 }, outputs: [] }));
+    }
+    if (req.method === 'POST' && url.pathname === '/v1/films/f_001/verify') {
+      return res.end(JSON.stringify({ ok: true, data: { status: 'succeeded', rev: 1 }, outputs: [] }));
+    }
     if (req.method === 'POST' && url.pathname === '/v1/films/f_001/deliver') {
-      deliverReached = true;
+      deliverCallCount++;
+      if (!deliverNullSawStep2) deliverReachedDuringNullCall = true;
       return res.end(JSON.stringify({ ok: true, data: { status: 'succeeded', rev: 1 }, outputs: [] }));
     }
     res.end(JSON.stringify({ ok: true, data: { rev: 1 } }));
   });
   await new Promise((r) => mockDelegateApi.listen(0, '127.0.0.1', r));
 
-  const toolReplies = [];
-  let delegateTurn = 0;
+  const toolRepliesByRole = { worker: [], finalizer: [] };
+  let workerStep = 0;
+  let finalizerStep = 0;
   const mockDelegateModel = createServer(async (req, res) => {
     const chunks = [];
     for await (const c of req) chunks.push(c);
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     const sys = body.messages[0]?.content ?? '';
     const last = body.messages.at(-1);
-    if (last?.role === 'tool') toolReplies.push(JSON.parse(last.content));
-    delegateTurn++;
     let msg;
     if (sys.startsWith('[ROLE:director]')) {
       msg = { role: 'assistant', content: '导演完成' };
     } else if (sys.startsWith('[ROLE:shot-worker:')) {
-      const done = body.messages.some((m) => m.role === 'tool' && m.content.includes('verify'));
-      msg = delegateTurn === 2
-        ? { role: 'assistant', content: null, tool_calls: [{ id: 'w-r', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films/f_001/render', body: null }) } }] }
-        : { role: 'assistant', content: done ? '镜头完成' : '跳过' };
+      if (last?.role === 'tool') toolRepliesByRole.worker.push(JSON.parse(last.content));
+      workerStep++;
+      if (workerStep === 1) {
+        msg = { role: 'assistant', content: null, tool_calls: [{ id: 'w-null', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films/f_001/render', body: null }) } }] };
+      } else if (workerStep === 2) {
+        msg = { role: 'assistant', content: null, tool_calls: [{ id: 'w-r', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films/f_001/render', body: { tier: 'draft' } }) } }] };
+      } else if (workerStep === 3) {
+        msg = { role: 'assistant', content: null, tool_calls: [{ id: 'w-v', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films/f_001/verify', body: {} }) } }] };
+      } else {
+        msg = { role: 'assistant', content: '镜头完成' };
+      }
     } else {
-      msg = { role: 'assistant', content: null, tool_calls: [{ id: 'f-d', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films/f_001/deliver', body: null }) } }] };
+      finalizerCalled = true;
+      if (last?.role === 'tool') {
+        deliverNullSawStep2 = true;
+        toolRepliesByRole.finalizer.push(JSON.parse(last.content));
+      }
+      finalizerStep++;
+      msg = finalizerStep === 1
+        ? { role: 'assistant', content: null, tool_calls: [{ id: 'f-d', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films/f_001/deliver', body: null }) } }] }
+        : { role: 'assistant', content: '收尾结束' };
     }
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ model: 'r1-null-check', choices: [{ message: msg }], usage: { prompt_tokens: 20, completion_tokens: 5 } }));
   });
   await new Promise((r) => mockDelegateModel.listen(0, '127.0.0.1', r));
 
-  // 4) wallSeconds: 150（介于 120s 与 MODEL_TIMEOUT_MS=240s 之间）必须为模型调用登记 ~150s 预算截止信号，而不是等满 240s
+  // 4) wallSeconds: 150 与边界 240 均须为模型调用登记 < MODEL_TIMEOUT_MS 的预算截止信号并以 stopped / wallSeconds 收口
   const origTimeout = AbortSignal.timeout;
   const recordedTimeouts = [];
   const wallController = new AbortController();
@@ -3010,35 +3038,45 @@ test('A19-23 [R1 收口] 150s 墙钟预算守卫、严格 JSON 解包（拒重�
       apiKey: 'akey',
       directorModel: 'r1-null-check',
       workerModel: 'r1-null-check',
-      maxSteps: 2,
+      maxSteps: 6,
     });
-    assert.equal(deliverReached, false, '显式 body: null 不得被转成 {} 放行至服务端');
-    assert.ok(toolReplies.some((r) => typeof r.refused === 'string' && r.refused.includes('JSON 对象')), '显式 body: null 必须被工具拒收');
+    assert.equal(renderNullReached, false, 'render 显式 body: null 不得放行至服务端');
+    assert.equal(finalizerCalled, true, '必须真实进入收尾员阶段验证 deliver body: null');
+    assert.equal(deliverReachedDuringNullCall, false, '收尾员显式 body: null 调 deliver 时不得放行至服务端');
+    assert.equal(deliverCallCount, 1, '仅允许收尾后兜底调用以合法对象 {tier:"final"} 到达服务端，显式 null 那次必须被拦截');
+    assert.ok(toolRepliesByRole.worker.some((r) => typeof r.refused === 'string' && r.refused.includes('render') && r.refused.includes('JSON 对象')));
+    assert.ok(toolRepliesByRole.finalizer.some((r) => typeof r.refused === 'string' && r.refused.includes('deliver') && r.refused.includes('JSON 对象')));
 
-    AbortSignal.timeout = (ms) => {
-      recordedTimeouts.push(ms);
-      if (ms > 120_000 && ms <= 150_000) {
-        const ac = new AbortController();
-        queueMicrotask(() => ac.abort(new DOMException('wallSeconds deadline', 'TimeoutError')));
-        return ac.signal;
-      }
-      return origTimeout(ms);
-    };
-    const wallRes = await runDelegateOrchestrator({
-      baseUrl: `http://127.0.0.1:${mockDelegateApi.address().port}`,
-      filmId: 'f_001',
-      workspaceToken: 'ws',
-      brief: '测 150 秒墙钟预算截止',
-      budget: { tokens: 50000, gpuSeconds: 60, wallSeconds: 150 },
-      endpoint: `http://127.0.0.1:${mockSlowModel.address().port}/v1`,
-      apiKey: 'akey',
-      directorModel: 'r1-slow',
-      workerModel: 'r1-slow',
-      signal: wallController.signal,
-    });
-    assert.equal(wallRes.status, 'stopped');
-    assert.equal(wallRes.stoppedReason, 'wallSeconds');
-    assert.ok(recordedTimeouts.some((ms) => ms > 120_000 && ms <= 150_000), `150s 墙钟预算必须登记 <=150000ms 截止信号，实际: ${JSON.stringify(recordedTimeouts)}`);
+    for (const wallSec of [150, 240]) {
+      recordedTimeouts.length = 0;
+      AbortSignal.timeout = (ms) => {
+        recordedTimeouts.push(ms);
+        if (ms > 120_000 && ms < 240_000) {
+          const ac = new AbortController();
+          queueMicrotask(() => ac.abort(new DOMException(`wallSeconds ${wallSec} deadline`, 'TimeoutError')));
+          return ac.signal;
+        }
+        return origTimeout(ms);
+      };
+      const wallRes = await runDelegateOrchestrator({
+        baseUrl: `http://127.0.0.1:${mockDelegateApi.address().port}`,
+        filmId: 'f_001',
+        workspaceToken: 'ws',
+        brief: `测 ${wallSec} 秒墙钟预算截止`,
+        budget: { tokens: 50000, gpuSeconds: 60, wallSeconds: wallSec },
+        endpoint: `http://127.0.0.1:${mockSlowModel.address().port}/v1`,
+        apiKey: 'akey',
+        directorModel: 'r1-slow',
+        workerModel: 'r1-slow',
+        signal: wallController.signal,
+      });
+      assert.equal(wallRes.status, 'stopped', `wallSeconds=${wallSec} 必须 stopped`);
+      assert.equal(wallRes.stoppedReason, 'wallSeconds', `wallSeconds=${wallSec} 必须 stoppedReason=wallSeconds`);
+      assert.ok(
+        recordedTimeouts.some((ms) => ms > 120_000 && ms < 240_000 && ms <= wallSec * 1000),
+        `wallSeconds=${wallSec} 必须登记严格小于 240000ms 的截止信号，实际: ${JSON.stringify(recordedTimeouts)}`,
+      );
+    }
   } finally {
     AbortSignal.timeout = origTimeout;
     await api.close();

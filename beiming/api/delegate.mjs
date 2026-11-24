@@ -214,7 +214,9 @@ export async function runDelegateOrchestrator({
       body.max_tokens = Math.min(stepReserve, maxTokens - usedTokens - serverTokens - inputBound);
       if (body.max_tokens < 1) stop('tokens');
       const remainingMs = budget.wallSeconds * 1000 - elapsed();
-      const deadline = Number.isFinite(remainingMs) && remainingMs <= MODEL_TIMEOUT_MS ? AbortSignal.timeout(Math.max(1, remainingMs)) : null;
+      const deadline = Number.isFinite(remainingMs) && remainingMs <= MODEL_TIMEOUT_MS
+        ? AbortSignal.timeout(Math.max(1, Math.min(remainingMs, MODEL_TIMEOUT_MS - 1)))
+        : null;
       let res;
       try {
         res = await chat({ endpoint, apiKey, signal: deadline && signal ? AbortSignal.any([signal, deadline]) : deadline ?? signal, body, requireUsage: true });
