@@ -3,7 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tools as compTools, bakeAgxLut, SHAPER } from '../comp/index.mjs';
 import { findBlender } from '../sources/blender/host.mjs';
@@ -86,35 +86,74 @@ function engineCodeDirs(source) {
     dirs.push('beiming/sources/three', 'beiming/host/page');
   } else if (source === 'blender') {
     dirs.push('beiming/sources/blender');
-  } else if (typeof source === 'string' && /^[a-zA-Z0-9_-]+$/.test(source)) {
+  } else if (typeof source === 'string' && /^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)*$/.test(source)) {
     dirs.push(`beiming/sources/${source}`);
   }
   return dirs;
 }
 
+const IN_PROCESS_ESM_EXACT = new Set([
+  'beiming/host/page/host.mjs',
+  'beiming/sources/three/caps.mjs',
+  'beiming/sources/three/plan.mjs',
+  'beiming/sources/three/source.js',
+  'beiming/sources/blender/caps.mjs',
+  'beiming/sources/blender/host.mjs',
+]);
+const isInProcessEsmRel = (rel) => (
+  (rel.startsWith('beiming/kernel/eval/') && rel.endsWith('.mjs'))
+  || IN_PROCESS_ESM_EXACT.has(rel)
+);
+
+// 启动期只读快照：本 Node 进程静态导入并缓存在 ESM 模块表中的运行时文件摘要（仅在 effective=true 且 root===REPO 时用于标识本进程实际产出的像素版本）
+const LOADED_IN_PROCESS_DIGESTS = (() => {
+  const map = new Map();
+  for (const dir of ['beiming/kernel/eval', 'beiming/host/page', 'beiming/sources/three', 'beiming/sources/blender']) {
+    for (const item of collectRuntimeFiles(join(REPO, dir), REPO)) {
+      if (isInProcessEsmRel(item.rel)) {
+        const bytes = readFileSync(item.abs);
+        map.set(item.rel, Object.freeze({ length: bytes.length, sha256: sha256(bytes) }));
+      }
+    }
+  }
+  return map;
+})();
+
 /**
- * 实时计算指定帧源依赖的引擎运行时代码与锁定字体摘要（严禁模块级/启动期缓存）。
- * 每次调用按 POSIX 相对路径确定性排序并同时哈希路径与内容，跳过测试、文档与产物目录。
+ * 计算指定帧源依赖的引擎运行时代码与锁定字体摘要：
+ * - effective = false（默认，供签锁镜像与外部 root 单测使用）：全部文件实时读盘；
+ * - effective = true 且 root === REPO（供本进程缓存键与交付核对使用）：每次作业现读磁盘的浏览器脚本、Blender Python、字体、扩展源实时读盘，
+ *   本进程启动时已静态导入的 Node ESM 文件改用 LOADED_IN_PROCESS_DIGESTS，杜绝热进程旧内存代码污染新版缓存键。
  */
-export function engineCodeDigest(source, { root = REPO } = {}) {
+export function engineCodeDigest(source, { root = REPO, effective = false } = {}) {
   const src = typeof source === 'string' ? source : '';
   const dirs = engineCodeDirs(src);
-  const filesByRel = new Map();
+  const useInProcess = Boolean(effective) && resolve(root) === resolve(REPO);
+  const entriesByRel = new Map();
   const h = createHash('sha256');
   h.update(`engine-code-digest/1\0source:${src}\0`);
   for (const dir of dirs) {
     const absDir = join(root, dir);
-    const exists = Boolean(statSync(absDir, { throwIfNoEntry: false })?.isDirectory());
+    const hasInProcess = useInProcess && [...LOADED_IN_PROCESS_DIGESTS.keys()].some((rel) => rel.startsWith(`${dir}/`));
+    const existsOnDisk = Boolean(statSync(absDir, { throwIfNoEntry: false })?.isDirectory());
+    const exists = existsOnDisk || hasInProcess;
     h.update(`dir:${dir}\0${exists ? 'present' : 'missing'}\0`);
-    if (exists) {
-      for (const item of collectRuntimeFiles(absDir, root)) filesByRel.set(item.rel, item.abs);
+    if (existsOnDisk) {
+      for (const item of collectRuntimeFiles(absDir, root)) {
+        if (useInProcess && isInProcessEsmRel(item.rel)) continue;
+        const bytes = readFileSync(item.abs);
+        entriesByRel.set(item.rel, { length: bytes.length, sha256: sha256(bytes) });
+      }
+    }
+    if (useInProcess) {
+      for (const [rel, snap] of LOADED_IN_PROCESS_DIGESTS) {
+        if (rel.startsWith(`${dir}/`)) entriesByRel.set(rel, snap);
+      }
     }
   }
-  for (const rel of [...filesByRel.keys()].sort(byCodePoint)) {
-    const bytes = readFileSync(filesByRel.get(rel));
-    h.update(`file:${rel}\0${bytes.length}\0`);
-    h.update(bytes);
-    h.update('\0');
+  for (const rel of [...entriesByRel.keys()].sort(byCodePoint)) {
+    const entry = entriesByRel.get(rel);
+    h.update(`file:${rel}\0${entry.length}\0${entry.sha256}\0`);
   }
   return `sha256:${h.digest('hex')}`;
 }
@@ -179,20 +218,22 @@ export function liveCardsDigest(cardIds, { root = REPO } = {}) {
   return `sha256:${h.digest('hex')}`;
 }
 
-/** 页面宿主用的 three 构建产物与实时引擎/字体代码摘要（锁里 sources.three.image） */
+/** 页面宿主用的 three 构建产物与引擎/字体代码摘要（锁里 sources.three.image） */
 export function threeImage(opts = {}) {
   const root = opts?.root ?? REPO;
+  const effective = Boolean(opts?.effective);
   const file = join(root, 'node_modules/three-webgpu/build/three.module.js');
   const upstream = existsSync(file) ? sha256(readFileSync(file)) : sha256(Buffer.from(`three ${THREE_VERSION}`));
-  const code = engineCodeDigest('three', { root });
+  const code = engineCodeDigest('three', { root, effective });
   return `sha256:${sha256(Buffer.from(`three\0${THREE_VERSION}\0${upstream}\0${code}\0`))}`;
 }
 
-/** Blender 的运行环境与实时引擎/字体代码摘要（锁里 sources.blender.image） */
+/** Blender 的运行环境与引擎/字体代码摘要（锁里 sources.blender.image） */
 export function blenderImage(version, opts = {}) {
   const root = opts?.root ?? REPO;
+  const effective = Boolean(opts?.effective);
   const base = sha256(Buffer.from(`blender ${version} cycles`));
-  const code = engineCodeDigest('blender', { root });
+  const code = engineCodeDigest('blender', { root, effective });
   return `sha256:${sha256(Buffer.from(`blender\0${version}\0${base}\0${code}\0`))}`;
 }
 

@@ -3,6 +3,7 @@
 // 2. 缓存键纳入全片事件表（events.events），跨镜头事件变更即时失效全片缓存，单镜头参数变更仍保持无关镜头 100% 命中；
 // 3. 全部改动模拟均在临时副本目录中进行，绝不脏改仓库文件。
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -683,3 +684,484 @@ test('场景 5：同一进程内不重启服务，改字体、引擎代码或卡
   assert.notEqual(deliveredLock.sources.three.image, lock1.sources.three.image, '交付锁已更新为最新引擎+字体摘要');
   assert.equal(deliveredLock.cards['overlay.title'].sha256, lock3.cards['overlay.title'].sha256, '交付锁卡摘要已实时更新');
 });
+
+/* ---------------- 6. R1 Astra 六项【甲】类阻断定向回归测试 ---------------- */
+
+/** 构造带真实 loadCards + planOpen 校验、免无头浏览器启动的临时隔离仓库副本。 */
+function makeIsolatedServerRepo(name) {
+  const isoRepo = join(tmpRoot, name);
+  mkdirSync(join(isoRepo, 'routes/c-style'), { recursive: true });
+  cpSync(join(REPO, 'beiming'), join(isoRepo, 'beiming'), { recursive: true });
+  cpSync(join(REPO, 'routes/c-style/fonts'), join(isoRepo, 'routes/c-style/fonts'), { recursive: true });
+  cpSync(join(REPO, 'package.json'), join(isoRepo, 'package.json'));
+  const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+  for (const dirName of ['engine', 'tools', 'node_modules']) {
+    if (existsSync(join(REPO, dirName))) {
+      symlinkSync(join(REPO, dirName), join(isoRepo, dirName), linkType);
+    }
+  }
+  // 在临时副本内替换 host.mjs 的 startSource：保留真实 loadCards、caps、planOpen、planRender 契约校验，
+  // 像素颜色同时受 Node 内存 shotInput(input.tokens) 与磁盘浏览器脚本/字体影响，避免无 GPU 环境跳过。
+  const hostPath = join(isoRepo, 'beiming/host/page/host.mjs');
+  const origHost = readFileSync(hostPath, 'utf8');
+  const cutAt = origHost.indexOf('export async function startSource');
+  assert.ok(cutAt > 0, 'host.mjs 必须包含 startSource');
+  const stubbedHost = `${origHost.slice(0, cutAt)}
+export async function startSource({ cards = [] } = {}) {
+  const library = await loadCards(cards);
+  const CAPS = caps(library);
+  return {
+    caps: () => structuredClone(CAPS),
+    async open(liveInput, liveEnv) {
+      const missing = ENV_KEYS.filter((k) => liveEnv?.[k] === undefined);
+      if (missing.length) throw new SourceError('usage.bad-argument', 'env 缺 ' + missing.join('、'));
+      const input = structuredClone(liveInput);
+      const env = structuredClone(Object.fromEntries(ENV_KEYS.map((k) => [k, liveEnv[k]])));
+      const locked = planOpen(CAPS, input, env, library);
+      let renders = 0;
+      return {
+        manifest: () => ({ format: 'manifest/0.1', frames: input.shot.out - input.shot.in, entities: [{ id: 1, name: 'title' }] }),
+        async render(f, opts = {}, want = ['color', 'objectId', 'meta']) {
+          const { size } = planRender(CAPS, input.shot, input.output.size, env.tier, opts, want, locked);
+          const [w, h] = size;
+          const diskRuntime = await readFile(join(REPO, 'beiming/host/page/runtime.js'));
+          const diskFonts = await readFile(join(REPO, 'routes/c-style/fonts/fonts.json'));
+          const seedHex = sha256(Buffer.concat([
+            Buffer.from(JSON.stringify({ tokens: input.tokens ?? null, cards: input.shot.cards ?? null, overlays: input.overlays ?? null })),
+            diskRuntime,
+            diskFonts,
+          ]));
+          const base = (parseInt(seedHex.slice(0, 6), 16) % 600) / 1000 + 0.15;
+          const x0 = Math.max(1, Math.round(w * 0.1)), y0 = Math.max(1, Math.round(h * 0.1));
+          const x1 = Math.max(x0 + 1, Math.round(w * 0.9)), y1 = Math.max(y0 + 1, Math.round(h * 0.9));
+          const color = new Float32Array(w * h * 4).map((_, i) => (i % 4 === 3 ? 1 : base + 0.002 * f + 0.0001 * (i % 13)));
+          const colorBytes = Buffer.from(color.buffer);
+          const idArr = new Uint32Array(w * h);
+          for (let y = y0; y < y1; y++) {
+            for (let x = x0; x < x1; x++) idArr[y * w + x] = 1;
+          }
+          const idBytes = Buffer.from(idArr.buffer);
+          const sub = 'r' + pad(renders++, 3) + '-f' + pad(f, 4);
+          await mkdir(join(env.workspace, sub), { recursive: true });
+          await writeFile(join(env.workspace, sub, 'color.f32'), colorBytes);
+          await writeFile(join(env.workspace, sub, 'objectId.u32'), idBytes);
+          const frame = input.shot.in + f;
+          const areaFrac = ((x1 - x0) * (y1 - y0)) / (w * h);
+          const heroName = input.shot.roles?.hero ?? input.shot.cards?.[0]?.as ?? 'title';
+          const meta = {
+            format: 'meta/0.1', film: input.film, shot: input.shot.id, frame, shotFrame: f, size: [w, h],
+            entities: [{ id: 1, name: heroName, role: 'hero', bbox2d: [x0, y0, x1, y1], pxArea: areaFrac, visible: 1 }],
+            texts: [{ id: heroName, text: input.shot.cards?.[0]?.params?.text ?? 'TITLE', bbox2d: [x0, y0, x1, y1] }],
+            events: (input.events?.events ?? []).filter((e) => e.frame === frame).map((e) => ({ id: e.id, frame: e.frame })),
+            stats: { luma: { p1: 0.08, p50: base, p99: base + 0.08 }, clip: { black: 0, white: 0 } },
+            source: { id: 'three', renderer: 'three', tier: env.tier, backend: 'stub', gpu: 'stub-gpu' },
+            timing: { stateMs: 1, renderMs: 1, readbackMs: 1 },
+            hash: { color: 'sha256:' + sha256(colorBytes) },
+          };
+          return {
+            meta,
+            layers: {
+              color: { file: sub + '/color.f32', shape: [h, w, 4], components: ['R', 'G', 'B', 'A'], hash: 'sha256:' + sha256(colorBytes) },
+              objectId: { file: sub + '/objectId.u32', shape: [h, w, 1], components: ['id'], hash: 'sha256:' + sha256(idBytes) },
+            },
+          };
+        },
+        async query() { return {}; },
+        async close() {},
+      };
+    },
+    async stop() {},
+  };
+}
+`;
+  writeFileSync(hostPath, stubbedHost);
+  return isoRepo;
+}
+
+test('R1【甲】#1：热进程静态导入的 Node ESM 走启动期有效摘要不污染新键，重启后 0 命中重渲全片新像素，浏览器脚本与字体仍实时生效', { skip: noFfmpeg }, () => {
+  const isoRepo = makeIsolatedServerRepo('r1-1-effective-esm');
+  const cacheDir = join(tmpRoot, 'r1-1-shot-cache');
+  const workDir = join(tmpRoot, 'r1-1-work');
+  mkdirSync(workDir, { recursive: true });
+
+  const workerScript = join(tmpRoot, 'r1-1-worker.mjs');
+  writeFileSync(workerScript, `
+    import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+    import { join } from 'node:path';
+    import { pathToFileURL } from 'node:url';
+
+    const [mode, isoRepo, workDir, cacheDir, lutPath] = process.argv.slice(2);
+    const runtime = await import(pathToFileURL(join(isoRepo, 'beiming/api/runtime.mjs')).href);
+    const pipeline = await import(pathToFileURL(join(isoRepo, 'beiming/api/pipeline.mjs')).href);
+    const { startSource } = await import(pathToFileURL(join(isoRepo, 'beiming/host/page/host.mjs')).href);
+    const { openShotCache } = await import(pathToFileURL(join(isoRepo, 'beiming/jobs/index.mjs')).href);
+
+    const lib = runtime.loadCardLibrary();
+    const src = await startSource({ cards: runtime.threeCardDirs(lib) });
+    const pool = { renders: {}, get: async () => src, stop: () => src.stop() };
+    const cache = openShotCache(cacheDir);
+    const film = JSON.parse(readFileSync(join(workDir, 'film.json'), 'utf8'));
+    const lock = JSON.parse(readFileSync(join(workDir, 'film.lock'), 'utf8'));
+
+    if (mode === 'init-lock') {
+      const { scaffold } = await import(pathToFileURL(join(isoRepo, 'beiming/api/films.mjs')).href);
+      const built = scaffold({ id: 'f_001', template: 'title', output: { size: [16, 8], fps: '24/1', frames: 12 } }).film;
+      writeFileSync(join(workDir, 'film.json'), JSON.stringify(built, null, 2));
+      const ctx = runtime.lockContext({ rev: 1, library: lib, lut: { path: lutPath, sha256: 'sha256:' + 'a'.repeat(64) }, assets: {} });
+      const { generateLock } = await import(pathToFileURL(join(isoRepo, 'beiming/kernel/lock-gen.mjs')).href);
+      writeFileSync(join(workDir, 'film.lock'), JSON.stringify(generateLock(built, ctx), null, 2));
+      console.log(JSON.stringify({
+        diskDigest: runtime.engineCodeDigest('three'),
+        effectiveDigest: runtime.engineCodeDigest('three', { effective: true }),
+        diskImg: runtime.threeImage(),
+        effectiveImg: runtime.threeImage({ effective: true }),
+      }));
+      process.exit(0);
+    }
+
+    if (mode === 'hot-edit-and-half-render') {
+      const beforeEff = runtime.engineCodeDigest('three', { effective: true });
+      // 在本进程已静态导入 input.mjs 后修改磁盘上的 input.mjs（让重启后的新进程把 ink 改成 #00ff00）
+      const inputFile = join(isoRepo, 'beiming/kernel/eval/input.mjs');
+      const srcText = readFileSync(inputFile, 'utf8').replace(
+        "...(film.style?.tokens ? { tokens: film.style.tokens } : {}),",
+        "tokens: { ...(film.style?.tokens ?? {}), ink: '#00ff00' },"
+      );
+      writeFileSync(inputFile, srcText);
+      const afterDisk = runtime.engineCodeDigest('three');
+      const afterEff = runtime.engineCodeDigest('three', { effective: true });
+      const res = await pipeline.renderPlan({
+        film, lock, filmDir: workDir, tier: 'final',
+        plan: [{ shot: film.shots[0], frames: [0, 1, 2, 3, 4, 5] }],
+        outDir: join(workDir, 'out-hot'), pool, lutPath, cache,
+      });
+      console.log(JSON.stringify({
+        beforeEff, afterDisk, afterEff,
+        renderedFrames: res.renderedFrames, cachedFrames: res.cachedFrames,
+        hashes: res.records.map((r) => r.meta.hash.color),
+      }));
+      process.exit(0);
+    }
+
+    if (mode === 'restarted-continue') {
+      const res = await pipeline.renderPlan({
+        film, lock, filmDir: workDir, tier: 'final',
+        plan: [{ shot: film.shots[0], frames: Array.from({ length: 12 }, (_, i) => i) }],
+        outDir: join(workDir, 'out-restarted'), pool, lutPath, cache,
+      });
+      // 同进程热改浏览器端脚本 runtime.js，必须立即感知并 0 命中重渲
+      const pageRuntime = join(isoRepo, 'beiming/host/page/runtime.js');
+      writeFileSync(pageRuntime, readFileSync(pageRuntime, 'utf8') + '\\n// browser-hot-change\\n');
+      const resBrowser = await pipeline.renderPlan({
+        film, lock, filmDir: workDir, tier: 'final',
+        plan: [{ shot: film.shots[0], frames: Array.from({ length: 12 }, (_, i) => i) }],
+        outDir: join(workDir, 'out-browser-hot'), pool, lutPath, cache,
+      });
+      console.log(JSON.stringify({
+        restarted: {
+          renderedFrames: res.renderedFrames,
+          cachedFrames: res.cachedFrames,
+          hashes: res.records.map((r) => r.meta.hash.color),
+        },
+        browserHot: {
+          renderedFrames: resBrowser.renderedFrames,
+          cachedFrames: resBrowser.cachedFrames,
+          hashes: resBrowser.records.map((r) => r.meta.hash.color),
+        },
+      }));
+      process.exit(0);
+    }
+  `);
+
+  const film = {
+    ...singleThreeFilm(),
+    title: 'R1-1',
+    audio: { mode: 'none' },
+    delivery: { web: true, contact: true },
+    predicates: { base: 'floor@1', extra: [] },
+  };
+  writeFileSync(join(workDir, 'film.json'), JSON.stringify(film, null, 2));
+  writeFileSync(join(workDir, 'film.lock'), '{}');
+
+  const runWorker = (mode) => {
+    const r = spawnSync(process.execPath, [workerScript, mode, isoRepo, workDir, cacheDir, lutPath], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr || r.stdout);
+    return JSON.parse(r.stdout.trim());
+  };
+
+  const init = runWorker('init-lock');
+  assert.equal(init.effectiveDigest, init.diskDigest, '启动时未改磁盘，effective 与磁盘摘要严格一致');
+  assert.equal(init.effectiveImg, init.diskImg, '启动时 threeImage({ effective: true }) 与 threeImage() 严格一致');
+
+  const hot = runWorker('hot-edit-and-half-render');
+  assert.notEqual(hot.afterDisk, hot.beforeEff, 'effective=false 实时感知磁盘 input.mjs 修改');
+  assert.equal(hot.afterEff, hot.beforeEff, 'effective=true 对本进程已加载 ESM 保持启动期快照，不把旧内存像素写进新键');
+  assert.deepEqual([hot.renderedFrames, hot.cachedFrames], [6, 0]);
+
+  const restarted = runWorker('restarted-continue');
+  assert.deepEqual(
+    [restarted.restarted.renderedFrames, restarted.restarted.cachedFrames],
+    [12, 0],
+    '重启加载新 input.mjs 后续渲 0..11 必须 0 命中、重渲全部 12 帧，绝不出现 6 旧 + 6 新混帧',
+  );
+  assert.notEqual(restarted.restarted.hashes[0], hot.hashes[0], '重启后第 0 帧必须是新版 #00ff00 像素，不得复用热进程旧像素');
+  assert.deepEqual(
+    [restarted.browserHot.renderedFrames, restarted.browserHot.cachedFrames],
+    [12, 0],
+    '热进程改浏览器脚本 runtime.js 必须实时失效重渲',
+  );
+  assert.notEqual(restarted.browserHot.hashes[0], restarted.restarted.hashes[0]);
+});
+
+test('R1【甲】#2：deliver 拒绝为新版引擎或字体产出的像素盖上旧版修订锁（报 env.lock-required），重签锁后交付通过', { skip: noFfmpeg }, async (t) => {
+  const isoRepo = makeIsolatedServerRepo('r1-2-deliver-lock');
+  const isoApi = await import(pathToFileURL(join(isoRepo, 'beiming/api/index.mjs')).href);
+  const isoRuntime = await import(pathToFileURL(join(isoRepo, 'beiming/api/runtime.mjs')).href);
+
+  const dataDir = join(tmpRoot, 'r1-2-data');
+  const account = isoApi.issueAccountToken(dataDir);
+  const server = await isoApi.startServer({ dataDir, port: 0, reviewer: null });
+  t.after(() => server.close());
+
+  const req = async (method, path, auth, payload) => {
+    const res = await fetch(`${server.url}${path}`, {
+      method,
+      headers: { authorization: `Bearer ${auth}`, 'content-type': 'application/json' },
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+    return { http: res.status, body: await res.json() };
+  };
+  const waitJob = async (auth, init) => {
+    let cur = init;
+    while (['queued', 'running'].includes(cur.body?.data?.status)) {
+      cur = await req('GET', `/v1/jobs/${cur.body.data.job}?wait=30`, auth);
+    }
+    return cur;
+  };
+
+  const created = await req('POST', '/v1/films', account, {
+    template: 'title',
+    output: { size: [320, 180], fps: '24/1', frames: 12 },
+  });
+  assert.equal(created.http, 200, JSON.stringify(created.body));
+  const { film: filmId, token } = created.body.data;
+
+  // 同版本正常交付通过
+  const d1 = await waitJob(token, await req('POST', `/v1/films/${filmId}/deliver?wait=30`, token, {}));
+  assert.equal(d1.body.ok, true, JSON.stringify(d1.body));
+
+  // 修改字体文件使运行环境镜像变为新版：独立 POST /render 仍允许重渲新像素，但保持旧修订锁调 POST /deliver 必须被拒
+  const fontJsonPath = join(isoRepo, 'routes/c-style/fonts/fonts.json');
+  writeFileSync(fontJsonPath, `${readFileSync(fontJsonPath, 'utf8')}\n`);
+
+  const rNew = await waitJob(token, await req('POST', `/v1/films/${filmId}/render?wait=30`, token, { tier: 'final' }));
+  assert.equal(rNew.body.ok, true, JSON.stringify(rNew.body));
+  assert.deepEqual([rNew.body.data.renderedFrames, rNew.body.data.cachedFrames], [12, 0]);
+
+  const dStale = await waitJob(token, await req('POST', `/v1/films/${filmId}/deliver?wait=30`, token, {}));
+  assert.equal(dStale.body.ok, false, '旧锁与当前有效引擎/字体镜像不一致时 deliver 必须拒绝封包');
+  assert.equal(dStale.body.error?.code, 'env.lock-required', JSON.stringify(dStale.body));
+
+  // 重新 PUT /film 签发正式锁后再交付：成功并附新版锁
+  const put2 = await req('PUT', `/v1/films/${filmId}/film`, token, {
+    format: 'patch/0.1', rev: 1, ops: [{ op: 'set', path: 'title', value: 'Re-locked Title' }],
+  });
+  assert.equal(put2.http, 200, JSON.stringify(put2.body));
+
+  const d2 = await waitJob(token, await req('POST', `/v1/films/${filmId}/deliver?wait=30`, token, {}));
+  assert.equal(d2.body.ok, true, JSON.stringify(d2.body));
+  const bundleLock = JSON.parse(readFileSync(join(dataDir, 'films', filmId, 'deliver', d2.body.data.job, 'bundle', 'film.lock'), 'utf8'));
+  assert.equal(bundleLock.sources.three.image, isoRuntime.threeImage({ effective: true }));
+});
+
+test('R1【甲】#3：独立 verify 的 layerL2 按失败帧索引记录的 cacheEntry 精准作废旧版坏帧，保留同镜头新版好帧', { skip: noFfmpeg }, async () => {
+  const engineRootA = makeEngineRoot('r1-3-ver-a');
+  const engineRootB = makeEngineRoot('r1-3-ver-b');
+  writeText(engineRootB, 'beiming/host/page/runtime.js', 'export const PAGE_HOST = 2;\n');
+
+  const workRoot = join(tmpRoot, 'r1-3-work');
+  mkdirSync(workRoot, { recursive: true });
+  const film = singleThreeFilm();
+  const lock = lockOf(engineRootA);
+  const cache = openShotCache(join(workRoot, 'deliver', '.shot-cache'));
+  const indexFile = join(workRoot, 'deliver', 'frames-final.json');
+  mkdirSync(dirname(indexFile), { recursive: true });
+
+  // A 版写坏 0..5 帧包围盒并写入索引
+  const resA = await pipeline.renderPlan({
+    film, lock, filmDir: workRoot, tier: 'final',
+    plan: [{ shot: film.shots[0], frames: [0, 1, 2, 3, 4, 5] }],
+    outDir: join(workRoot, 'job-a'), pool: fakePool(0, { failBbox: true }), lutPath, cache, engineRoot: engineRootA,
+  });
+  pipeline.writeIndex(indexFile, workRoot, resA.records, { rev: 1, tier: 'final' });
+
+  // 修正为 B 版后渲好 6..11 帧，按 mergeFrames 逻辑与 0..5 合并落盘索引
+  const resB = await pipeline.renderPlan({
+    film, lock, filmDir: workRoot, tier: 'final',
+    plan: [{ shot: film.shots[0], frames: [6, 7, 8, 9, 10, 11] }],
+    outDir: join(workRoot, 'job-b'), pool: fakePool(0.1, { failBbox: false }), lutPath, cache, engineRoot: engineRootB,
+  });
+  const prior = pipeline.readIndex(indexFile, workRoot);
+  const keep = prior.records.filter((r) => !resB.records.some((n) => n.frame === r.frame));
+  pipeline.writeIndex(indexFile, workRoot, [...keep, ...resB.records].sort((a, b) => a.frame - b.frame), { rev: 1, tier: 'final' });
+
+  // 独立 verify（不传 versions，当前为 B 版）检出 0..5 共 6 帧包围盒失败
+  const merged = pipeline.readIndex(indexFile, workRoot);
+  const l2 = await pipeline.layerL2({
+    film, lock, filmDir: workRoot, shots: film.shots, records: merged.records,
+    pool: fakePool(0.1), scratch: join(workRoot, 'l2'), cache, tier: 'final', engineRoot: engineRootB,
+  });
+  assert.equal(l2.ok, false);
+  assert.equal(l2.bbox.failures, 6);
+
+  // 重跑 B 版好帧 6..11：必须命中 6/6！
+  const rerunB = await pipeline.renderPlan({
+    film, lock, filmDir: workRoot, tier: 'final',
+    plan: [{ shot: film.shots[0], frames: [6, 7, 8, 9, 10, 11] }],
+    outDir: join(workRoot, 'job-b-rerun'), pool: fakePool(0.1), lutPath, cache, engineRoot: engineRootB,
+  });
+  assert.deepEqual([rerunB.renderedFrames, rerunB.cachedFrames], [0, 6], 'B 版好帧 6..11 不得被误作废，必须命中 6/6');
+
+  // 切回 A 版重跑刚判坏的 0..5：必须命中 0/6！
+  const rerunA = await pipeline.renderPlan({
+    film, lock, filmDir: workRoot, tier: 'final',
+    plan: [{ shot: film.shots[0], frames: [0, 1, 2, 3, 4, 5] }],
+    outDir: join(workRoot, 'job-a-rerun'), pool: fakePool(0), lutPath, cache, engineRoot: engineRootA,
+  });
+  assert.deepEqual([rerunA.renderedFrames, rerunA.cachedFrames], [6, 0], 'A 版坏帧缓存必须已被精准作废，命中 0/6');
+});
+
+test('R1【甲】#4：buildShotCacheInputs 与 renderPlan 纳入 film.overlays 隐式引用的 two-d.overlay 卡摘要', { skip: noFfmpeg }, async () => {
+  const engineRoot = makeEngineRoot('r1-4-overlays');
+  writeText(engineRoot, 'beiming/cards/two-d/overlay/card.json', JSON.stringify({ id: 'two-d.overlay', version: '1.0.0' }));
+  writeText(engineRoot, 'beiming/cards/two-d/overlay/three.js', 'export const OVERLAY_IMPL = 1;\n');
+
+  const workRoot = join(tmpRoot, 'r1-4-work');
+  mkdirSync(workRoot, { recursive: true });
+  const film = {
+    ...singleThreeFilm(),
+    shots: [{
+      id: 's02', in: 0, out: 12, source: 'three', host: 'page', mode: 'cards-data', colorRef: 'display', seed: 1002,
+      cards: [],
+    }],
+    overlays: [{ id: 'cap', shot: 's02', anchor: 'screen', pos: [0.5, 0.9], text: 'Caption', in: 0, out: 12 }],
+  };
+  const lock = {
+    ...lockOf(engineRoot),
+    cards: {
+      ...lockOf(engineRoot).cards,
+      'two-d.overlay': { impl: ['source:three'], sha256: HEX('f'), version: '1.0.0' },
+    },
+  };
+
+  const inputs1 = pipeline.buildShotCacheInputs({ film, lock, shot: film.shots[0], filmDir: workRoot, tier: 'final', engineRoot });
+  assert.ok(inputs1.cards.some((c) => c.id === 'two-d.overlay'), 'lock.cards 中的 two-d.overlay 必须进入缓存键 cards 列表');
+
+  const cache = openShotCache(join(workRoot, 'deliver', '.shot-cache'));
+  const plan = [{ shot: film.shots[0], frames: Array.from({ length: 12 }, (_, i) => i) }];
+  const r1 = await pipeline.renderPlan({
+    film, lock, filmDir: workRoot, tier: 'final', plan,
+    outDir: join(workRoot, 'ov-1'), pool: fakePool(0), lutPath, cache, engineRoot,
+  });
+  assert.deepEqual([r1.renderedFrames, r1.cachedFrames], [12, 0]);
+
+  // 沿用同一片子与旧锁，仅改 two-d.overlay 的实现文件，第二轮必须 0 命中、重渲 12 帧
+  writeText(engineRoot, 'beiming/cards/two-d/overlay/three.js', 'export const OVERLAY_IMPL = 2;\n');
+  const r2 = await pipeline.renderPlan({
+    film, lock, filmDir: workRoot, tier: 'final', plan,
+    outDir: join(workRoot, 'ov-2'), pool: fakePool(0.25), lutPath, cache, engineRoot,
+  });
+  assert.deepEqual([r2.renderedFrames, r2.cachedFrames], [12, 0], '改 two-d.overlay 卡实现后必须使缓存失效重渲');
+  assert.notEqual(firstRed(r2), firstRed(r1));
+});
+
+test('R1【甲】#5：engineCodeDigest 纳入契约合法的带点号扩展帧源目录（如 ext.demo），同时拒绝路径穿越名', () => {
+  const root = makeEngineRoot('r1-5-ext-source');
+  writeText(root, 'beiming/sources/ext.demo/worker.mjs', 'export const v = 1;\n');
+  const d1 = runtime.engineCodeDigest('ext.demo', { root });
+
+  writeText(root, 'beiming/sources/ext.demo/worker.mjs', 'export const v = 2;\n');
+  const d2 = runtime.engineCodeDigest('ext.demo', { root });
+  assert.notEqual(d2, d1, '修改 beiming/sources/ext.demo/worker.mjs 必须使 engineCodeDigest("ext.demo") 变化');
+
+  // 拒绝 .. 与路径分隔符，不得越出 beiming/sources/
+  writeText(root, 'beiming/secret.mjs', 'export const SECRET = 1;\n');
+  const bad1 = runtime.engineCodeDigest('..', { root });
+  const bad2 = runtime.engineCodeDigest('ext..demo', { root });
+  const bad3 = runtime.engineCodeDigest('ext/demo', { root });
+  writeText(root, 'beiming/secret.mjs', 'export const SECRET = 2;\n');
+  assert.equal(runtime.engineCodeDigest('..', { root }), bad1, '.. 不得扫入父目录文件');
+  assert.equal(runtime.engineCodeDigest('ext..demo', { root }), bad2);
+  assert.equal(runtime.engineCodeDigest('ext/demo', { root }), bad3);
+});
+
+test('R1【甲】#6：服务启动后迁移卡目录并重签锁，渲染与审片补渲作业实时读取最新卡库目录而不再报 env.missing-tool', { skip: noFfmpeg }, async (t) => {
+  const isoRepo = makeIsolatedServerRepo('r1-6-dynamic-cards');
+  const isoApi = await import(pathToFileURL(join(isoRepo, 'beiming/api/index.mjs')).href);
+
+  const dataDir = join(tmpRoot, 'r1-6-data');
+  const account = isoApi.issueAccountToken(dataDir);
+  const fakeReviewer = {
+    async review() {
+      return {
+        verdict: { pass: true, confidence: 0.9, summary: 'ok', opinions: [] },
+        usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+      };
+    },
+  };
+  const server = await isoApi.startServer({ dataDir, port: 0, reviewer: fakeReviewer });
+  t.after(() => server.close());
+
+  const req = async (method, path, auth, payload) => {
+    const res = await fetch(`${server.url}${path}`, {
+      method,
+      headers: { authorization: `Bearer ${auth}`, 'content-type': 'application/json' },
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+    return { http: res.status, body: await res.json() };
+  };
+  const waitJob = async (auth, init) => {
+    let cur = init;
+    while (['queued', 'running'].includes(cur.body?.data?.status)) {
+      cur = await req('GET', `/v1/jobs/${cur.body.data.job}?wait=30`, auth);
+    }
+    return cur;
+  };
+
+  const created = await req('POST', '/v1/films', account, {
+    template: 'title',
+    output: { size: [320, 180], fps: '24/1', frames: 12 },
+  });
+  assert.equal(created.http, 200, JSON.stringify(created.body));
+  const { film: filmId, token } = created.body.data;
+
+  // 服务启动后迁移 overlay.title 目录，并同步更新实现入口文件名与 card.json 清单
+  const oldCardDir = join(isoRepo, 'beiming/cards/two-d/overlay-title');
+  const newCardDir = join(isoRepo, 'beiming/cards/two-d/overlay-title-migrated');
+  renameSync(oldCardDir, newCardDir);
+  renameSync(join(newCardDir, 'three.js'), join(newCardDir, 'entry-v2.js'));
+  const cardJsonFile = join(newCardDir, 'card.json');
+  const cardJson = JSON.parse(readFileSync(cardJsonFile, 'utf8'));
+  cardJson.impl[0].entry = 'cards/two-d/overlay-title-migrated/entry-v2.js';
+  cardJson.impl[0].selftest = 'cards/two-d/overlay-title-migrated/selftest.test.mjs';
+  writeFileSync(cardJsonFile, `${JSON.stringify(cardJson, null, 2)}\n`);
+
+  // PUT /film 重签新锁成功
+  const put2 = await req('PUT', `/v1/films/${filmId}/film`, token, {
+    format: 'patch/0.1', rev: 1, ops: [{ op: 'set', path: 'title', value: 'Migrated Card' }],
+  });
+  assert.equal(put2.http, 200, JSON.stringify(put2.body));
+
+  // 紧接着渲染第 0 帧：不得因 createWork 持有启动期旧目录报 env.missing-tool
+  const renderRes = await waitJob(token, await req('POST', `/v1/films/${filmId}/render?wait=30`, token, {
+    tier: 'draft', shots: ['s01'], frames: [0],
+  }));
+  assert.equal(renderRes.body.ok, true, `迁移卡目录后渲染不得报 env.missing-tool：${JSON.stringify(renderRes.body)}`);
+  assert.equal(renderRes.body.data.renderedFrames, 1);
+
+  // 审片补渲原尺寸关键帧（work.mjs 另一处 sourcePool 调用点）同样必须实时获取最新卡目录
+  const reviewRes = await req('POST', `/v1/films/${filmId}/review`, token, { brief: '核对片名画面' });
+  assert.equal(reviewRes.http, 200, `迁移卡目录后审片补渲不得报 env.missing-tool：${JSON.stringify(reviewRes.body)}`);
+  assert.equal(reviewRes.body.ok, true);
+});
+

@@ -96,7 +96,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
   const registry = createCardRegistry(Object.values(cards), { allowReproduced: true });
   const frozen = await loadContracts();
   let url;
-  const work = createWork({ store, library, scheduler, reviewer: reviewer === undefined ? reviewerFromEnv({ ledgerPath: join(dataDir, 'external-ledger.jsonl') }) : reviewer });
+  const work = createWork({ store, library: loadCardLibrary, scheduler, reviewer: reviewer === undefined ? reviewerFromEnv({ ledgerPath: join(dataDir, 'external-ledger.jsonl') }) : reviewer });
 
   async function commit(id, film, rev, files = {}) {
     return store.commit(id, film, rev, { files, library: loadCardLibrary(), lut: await ensureLut(dataDir) });
