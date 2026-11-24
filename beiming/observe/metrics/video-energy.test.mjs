@@ -298,3 +298,66 @@ test('工具缺失（仅缺 ffmpeg）与 roi 透传校验', { skip: !hasMediaToo
   }
 });
 
+test('R1 回归：VFR 保留原始帧数与尾部斜边、90° 旋转元数据对齐烘焙旋转、ROI edgeRatio 按 ROI 面积计、6x64 小画幅默认 block 自适应', { skip: !hasMediaTools && '环境缺少音视频工具' }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'video-energy-r1-'));
+  const ff = (args, input) => {
+    const r = spawnSync('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', ...args], { input });
+    assert.equal(r.status, 0, String(r.stderr));
+  };
+  try {
+    const w = 128, h = 64;
+    const plane = Buffer.alloc(w * h);
+    const flat = Buffer.alloc(w * h, 24);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) plane[y * w + x] = x >= 45 + y * 0.32 ? 224 : 24;
+    }
+    const source = join(dir, 'edge.mp4');
+    const rot = join(dir, 'rot.mp4');
+    const baked = join(dir, 'baked.mkv');
+    const vfr = join(dir, 'vfr.mp4');
+    const tail = join(dir, 'tail.mp4');
+    const small = join(dir, 'small.mp4');
+    const tiny = join(dir, 'tiny.mp4');
+
+    ff(['-f', 'rawvideo', '-pixel_format', 'gray', '-video_size', `${w}x${h}`, '-framerate', '24', '-i', 'pipe:0', '-c:v', 'libx264', '-crf', '0', '-pix_fmt', 'yuv420p', source], Buffer.concat(Array(12).fill(plane)));
+    ff(['-display_rotation', '90', '-i', source, '-c', 'copy', rot]);
+    ff(['-i', rot, '-map', '0:v:0', '-c:v', 'ffv1', baked]);
+    ff(['-i', source, '-vf', "setpts='if(lt(N,6),N,N+12)/(24*TB)'", '-fps_mode', 'vfr', '-c:v', 'libx264', vfr]);
+    ff(['-f', 'rawvideo', '-pixel_format', 'gray', '-video_size', `${w}x${h}`, '-framerate', '24', '-i', 'pipe:0', '-vf', "setpts='if(lt(N,6),N,N+12)/(24*TB)'", '-fps_mode', 'vfr', '-c:v', 'libx264', '-crf', '0', '-pix_fmt', 'yuv420p', tail], Buffer.concat([...Array(6).fill(flat), ...Array(6).fill(plane)]));
+    ff(['-f', 'lavfi', '-i', 'color=gray:s=6x64:r=24', '-frames:v', '3', '-pix_fmt', 'yuv420p', '-c:v', 'libx264', small]);
+    ff(['-f', 'lavfi', '-i', 'color=gray:s=2x64:r=24', '-frames:v', '3', '-pix_fmt', 'yuv420p', '-c:v', 'libx264', tiny]);
+
+    // 1. ROI edgeRatio 按 ROI 面积而非整帧面积计算
+    const roi = { x: 24, y: 0, width: 64, height: 64 };
+    const roiRes = await videoAliasEdge(source, { roi });
+    assert.ok(roiRes.details.edgePixels > 0);
+    assert.equal(roiRes.details.edgeRatio, roiRes.details.edgePixels / (roi.width * roi.height * roiRes.details.sampledFrames));
+
+    // 2. 90° 旋转元数据：解码显示尺寸为 64x128，与无损烘焙旋转读数逐位相等
+    const tagged = await videoAliasEdge(rot);
+    const bakedRes = await videoAliasEdge(baked);
+    assert.equal(tagged.details.width, 64);
+    assert.equal(tagged.details.height, 128);
+    assert.equal(tagged.value, bakedRes.value);
+    assert.ok(tagged.value > 0.6);
+
+    // 3. VFR 12 帧短片不重复帧且尾部 6 帧斜边不丢失
+    const vfrRes = await videoAliasEdge(vfr);
+    assert.equal(vfrRes.details.totalFrames, 12);
+    const tailRes = await videoAliasEdge(tail);
+    assert.equal(tailRes.details.totalFrames, 12);
+    assert.equal(tailRes.details.status, 'ok');
+
+    // 4. 6x64 小画幅默认 block 自适应为 6 正常得 ok；短边 <4 的 2x64 返回结构化 insufficient-resolution
+    const smallRes = await videoNoiseResidual(small);
+    assert.equal(smallRes.details.status, 'ok');
+    assert.equal(smallRes.details.block, 6);
+    const tinyRes = await videoNoiseResidual(tiny);
+    assert.equal(tinyRes.value, null);
+    assert.equal(tinyRes.details.status, 'insufficient-resolution');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+

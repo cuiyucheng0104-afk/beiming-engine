@@ -46,7 +46,7 @@ function planSegments(totalFrames, maxFrames) {
 async function probeVideo(filePath) {
   const child = spawn('ffprobe', [
     '-v', 'error', '-select_streams', 'v:0', '-count_frames',
-    '-show_entries', 'stream=width,height,nb_read_frames,nb_frames',
+    '-show_entries', 'stream=width,height,nb_read_frames,nb_frames:stream_side_data=rotation:stream_tags=rotate',
     '-of', 'json', resolve(filePath),
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
   let stdout = '', stderr = '';
@@ -58,8 +58,15 @@ async function probeVideo(filePath) {
   });
   const stream = JSON.parse(stdout).streams?.[0];
   if (!stream) throw new Error('缺少视频轨');
-  const width = Number(stream.width);
-  const height = Number(stream.height);
+  let width = Number(stream.width);
+  let height = Number(stream.height);
+  // ffmpeg 解码默认按显示矩阵自动旋转：±90°/±270° 旋转元数据会使解码输出帧的宽高互换
+  const sideRot = stream.side_data_list?.find((s) => s && s.rotation !== undefined)?.rotation;
+  const rawRot = sideRot ?? stream.tags?.rotate ?? 0;
+  const rotDeg = Number(rawRot);
+  if (Number.isFinite(rotDeg) && Math.abs(Math.round(rotDeg)) % 180 === 90) {
+    [width, height] = [height, width];
+  }
   const totalFrames = Number(stream.nb_read_frames) || Number(stream.nb_frames);
   if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
     throw new Error('视频尺寸无效');
@@ -79,6 +86,7 @@ async function streamGraySegments(filePath, width, height, segments, onSegment) 
     '-nostdin', '-hide_banner', '-v', 'error',
     '-i', resolve(filePath),
     '-map', '0:v:0',
+    '-fps_mode', 'passthrough',
     '-f', 'rawvideo', '-pix_fmt', 'gray', '-',
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
   let stderr = '';
@@ -165,11 +173,38 @@ export function videoNoiseResidual(filePath, opts = {}) {
         },
       };
     }
+    if (rulerOpts.roi === undefined && rulerOpts.block === undefined && Math.min(width, height) < 4) {
+      return {
+        value: null,
+        details: {
+          status: 'insufficient-resolution',
+          staticRatio: 0,
+          staticPixels: 0,
+          totalPixels: 0,
+          pairs: 0,
+          sampledFrames: 0,
+          totalFrames,
+          width,
+          height,
+          segments: [],
+        },
+      };
+    }
+    const effectiveOpts = (() => {
+      if (rulerOpts.block !== undefined) return rulerOpts;
+      const areaW = rulerOpts.roi?.width ?? width;
+      const areaH = rulerOpts.roi?.height ?? height;
+      if (Number.isInteger(areaW) && Number.isInteger(areaH) && areaW > 0 && areaH > 0) {
+        const shortSide = Math.min(areaW, areaH);
+        if (shortSide >= 4 && shortSide < 8) return { ...rulerOpts, block: shortSide };
+      }
+      return rulerOpts;
+    })();
     const plan = planSegments(totalFrames, maxFrames);
     const segResults = [];
     const decoded = await streamGraySegments(filePath, width, height, plan, ([start, end], frames) => {
       if (frames.length < 2) return;
-      const r = noiseResidual(frames, rulerOpts);
+      const r = noiseResidual(frames, effectiveOpts);
       segResults.push({ start, end, frames: frames.length, r });
     });
     if (decoded < 2 || segResults.length === 0) {
@@ -245,13 +280,15 @@ export function videoAliasEdge(filePath, opts = {}) {
     const detailPixels = Math.max(...segResults.map((s) => s.r.detailPixels));
     const sampledFrames = segResults.reduce((sum, s) => sum + s.frames, 0);
     const first = segResults[0].r;
+    const areaW = rulerOpts.roi?.width ?? width;
+    const areaH = rulerOpts.roi?.height ?? height;
     return {
       value,
       details: {
         status,
         jaggedness: value,
         edgePixels,
-        edgeRatio: sampledFrames ? edgePixels / (width * height * sampledFrames) : 0,
+        edgeRatio: sampledFrames ? edgePixels / (areaW * areaH * sampledFrames) : 0,
         flicker,
         flickerUnit: first.flickerUnit,
         detailPixels,

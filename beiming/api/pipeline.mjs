@@ -729,19 +729,17 @@ export async function measureMaster(master) {
 
 const fixOfResult = (r) => (r.fixes ?? []).find((f) => f && typeof f.path === 'string');
 
-/** 判断显式断言列表是否已覆盖默认 L3 成片画质门：question.basePredicates 显式声明同名即覆盖；film.predicates.extra 仅在全片且不比默认门松时覆盖，防止借 extra 放宽 */
-function coversEnergyGate(texts, name, defaultMax, { strictOnly }) {
+/** 判断考题基础断言列表是否已显式覆盖全片成片默认画质门（仅 question.basePredicates 可替代默认 base 门，film.predicates.extra 不得隐藏 basePass 违例） */
+function coversBaseEnergyGate(texts, name) {
   for (const text of texts) {
     if (typeof text !== 'string') continue;
     const parsed = parseAssertion(text);
     if (!parsed.ok || parsed.assertion.name !== name) continue;
-    if (!strictOnly) return true;
-    const { args, cmp, scope } = parsed.assertion;
+    const { args, scope } = parsed.assertion;
     if (scope?.kind !== 'all' || args.length !== 1) continue;
     if (args[0].name !== null && args[0].name !== 'target') continue;
     const target = args[0].value;
-    if (!target || target.kind !== 'ident' || target.name !== 'film') continue;
-    if (!cmp || (cmp.op === '<=' && cmp.value <= defaultMax) || (cmp.op === 'in' && cmp.hi <= defaultMax)) return true;
+    if (target && target.kind === 'ident' && target.name === 'film') return true;
   }
   return false;
 }
@@ -784,14 +782,13 @@ export function layerL3({ film, measured, question, entities }) {
     if (result.status === 'skipped') diagnostics.push(diagnostic({ layer: 'L3', message: `考题必验断言 ${text} 缺少证据`, hint: result.reason }));
   }
   for (const text of filmExtra) if (!required.has(text)) add(evaluateAssertion(text, film, measured), false);
-  // 成片量测在场时自动执行默认 L3 画质门；纯色无边缘或全幅运动无静止区等退化跳过记入 conditionalSkips，不把合规片误判为 basePass=false
+  // 成片量测在场时自动执行默认 L3 画质门；仅 question.basePredicates 显式覆盖全片同名断言时跳过，film.predicates.extra 始终独立于 base 运行，不隐藏 basePass 违例
   for (const [key, predName, defaultMax] of [
     ['noiseResidual', 'noise_residual', DEFAULT_MAX_NOISE_RESIDUAL],
     ['aliasEdge', 'alias_edge', DEFAULT_MAX_ALIAS_EDGE],
   ]) {
     if (!measured || !Object.hasOwn(measured, key) || measured[key] === undefined) continue;
-    if (coversEnergyGate(questionBase, predName, defaultMax, { strictOnly: false })) continue;
-    if (coversEnergyGate(filmExtra, predName, defaultMax, { strictOnly: true })) continue;
+    if (coversBaseEnergyGate(questionBase, predName)) continue;
     const v = add(evaluateAssertion(`${predName}(film) <= ${defaultMax}`, film, measured), true);
     if (v.status === 'skipped') conditionalSkips.add(v);
   }

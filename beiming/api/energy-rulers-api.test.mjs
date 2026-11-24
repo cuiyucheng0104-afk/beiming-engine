@@ -128,7 +128,7 @@ test('layerL3 语义：显式更严约束不重复、显式更松约束不能绕
   assert.ok(flatAlias.reason);
   for (const v of flatRes.verdicts) assert.ok(checkVerdict(v), JSON.stringify(checkVerdict.errors));
 
-  // 3. film.predicates.extra 显式写更严阈值：不重复生成条目，且按更严阈值拦截
+  // 3. film.predicates.extra 显式写更严阈值：base 默认门与 extra 独立生效，extra 越界判 ok=false，同时超默认门时 basePass 也必须为 false
   const strictFilm = makeSyntheticFilm({
     predicates: { base: ['floor@1'], extra: ['noise_residual(film) <= 1.0', 'alias_edge(film) <= 0.3'] },
   });
@@ -143,10 +143,25 @@ test('layerL3 语义：显式更严约束不重复、显式更松约束不能绕
     entities,
   });
   assert.equal(strictRes.ok, false);
-  assert.equal(strictRes.verdicts.filter((v) => v.id === 'pred.noise_residual').length, 1);
-  assert.equal(strictRes.verdicts.filter((v) => v.id === 'pred.alias_edge').length, 1);
-  assert.equal(strictRes.verdicts.find((v) => v.id === 'pred.noise_residual').status, 'fail');
-  assert.equal(strictRes.verdicts.find((v) => v.id === 'pred.alias_edge').status, 'fail');
+  assert.equal(strictRes.basePass, true);
+  assert.equal(strictRes.verdicts.filter((v) => v.id === 'pred.noise_residual' && v.base).length, 1);
+  assert.equal(strictRes.verdicts.filter((v) => v.id === 'pred.alias_edge' && v.base).length, 1);
+  assert.equal(strictRes.verdicts.find((v) => v.id === 'pred.noise_residual' && !v.base).status, 'fail');
+  assert.equal(strictRes.verdicts.find((v) => v.id === 'pred.alias_edge' && !v.base).status, 'fail');
+
+  // 3b. R1 回归：当实测同时超过 extra 上限与默认 base 上限时，basePass 必须为 false（extra 不得遮蔽 base 违例）
+  const bothFailRes = layerL3({
+    film: makeSyntheticFilm({ predicates: { base: ['floor@1'], extra: ['alias_edge(film) <= 1'] } }),
+    measured: {
+      ...baseMeasured,
+      aliasEdge: { value: 2.0, status: 'ok', unit: 'px' },
+    },
+    question: null,
+    entities,
+  });
+  assert.equal(bothFailRes.ok, false);
+  assert.equal(bothFailRes.basePass, false);
+  assert.ok(bothFailRes.verdicts.some((v) => v.id === 'pred.alias_edge' && v.base && v.status === 'fail'));
 
   // 4. film.predicates.extra 试图写更松阈值：默认 L3 门仍拦截，不能借 extra 放宽
   const looseFilm = makeSyntheticFilm({
@@ -383,8 +398,21 @@ test('端到端：合规真成片过 deliver L3 门、POST /observe/metrics 查�
     const strictReport = JSON.parse(readFileSync(join(strictBundle, 'report.json'), 'utf8'));
     assert.equal(strictReport.ok, false);
     assert.equal(strictReport.verification.ok, false);
-    assert.equal(strictReport.verification.verdicts.filter((v) => v.id === 'pred.alias_edge').length, 1);
+    assert.equal(strictReport.verification.verdicts.filter((v) => v.id === 'pred.alias_edge' && v.base).length, 1);
+    assert.equal(strictReport.verification.verdicts.filter((v) => v.id === 'pred.alias_edge' && !v.base && v.status === 'fail').length, 1);
     for (const v of strictReport.verification.verdicts) assert.ok(checkVerdict(v), JSON.stringify(checkVerdict.errors));
+
+    // 6. R1 回归：6x64 合法小画幅调 measureMaster 不得静默丢弃 noiseResidual
+    const smallMp4 = join(root, 'small-6x64.mp4');
+    const rSmall = spawnSync('ffmpeg', [
+      '-nostdin', '-hide_banner', '-loglevel', 'error', '-y',
+      '-f', 'lavfi', '-i', 'color=gray:s=6x64:r=24', '-frames:v', '3',
+      '-pix_fmt', 'yuv420p', '-c:v', 'libx264', smallMp4,
+    ]);
+    assert.equal(rSmall.status, 0, String(rSmall.stderr));
+    const smallMeasured = await measureMaster(smallMp4);
+    assert.ok(Object.hasOwn(smallMeasured, 'noiseResidual'));
+    assert.equal(smallMeasured.noiseResidual.status, 'ok');
   } finally {
     await api.close();
     if (prevTemp === undefined) delete process.env[tempVar];

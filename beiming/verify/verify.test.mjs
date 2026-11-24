@@ -750,6 +750,7 @@ test('noise_residual 与 alias_edge：登记为 0.1 谓词、不改 floor@1 六�
     { noiseResidual: null },
     { noiseResidual: { value: null, status: 'no-static-region' } },
     { noiseResidual: { value: null, status: 'insufficient-frames' } },
+    { noiseResidual: { value: null, status: 'insufficient-resolution' } },
     { noiseResidual: { value: null, details: { code: 'tool-missing', tool: 'ffmpeg' } } },
   ]) {
     const r = evaluateAssertion('noise_residual(film) <= 4.5', film, measured);
@@ -757,21 +758,28 @@ test('noise_residual 与 alias_edge：登记为 0.1 谓词、不改 floor@1 六�
     assert.ok(typeof r.reason === 'string' && r.reason.length > 0);
   }
 
-  // alias_edge：数值与对象形态、过门/越界/跳过
-  assert.equal(evaluateAssertion('alias_edge(film) <= 1.5', film, { aliasEdge: 0.12 }).status, 'pass');
-  assert.equal(evaluateAssertion('alias_edge(film) <= 1.5', film, { aliasEdge: { value: 0.45, status: 'ok' } }).status, 'pass');
+  // alias_edge：数值与对象形态、过门/越界/跳过（默认上限 0.6 px，拦住 0.727 px 1x 点采样斜边）
+  assert.equal(DEFAULT_MAX_ALIAS_EDGE, 0.6);
+  assert.equal(evaluateAssertion('alias_edge(film) <= 0.6', film, { aliasEdge: 0.12 }).status, 'pass');
+  assert.equal(evaluateAssertion('alias_edge(film) <= 0.6', film, { aliasEdge: { value: 0.45, status: 'ok' } }).status, 'pass');
   assert.equal(evaluateAssertion('alias_edge(film)', film, { aliasEdge: DEFAULT_MAX_ALIAS_EDGE }).status, 'pass');
 
-  const aliasFail = evaluateAssertion('alias_edge(film) <= 1.5', film, { aliasEdge: { value: 1.82, status: 'ok' } });
+  const aliasFail = evaluateAssertion('alias_edge(film) <= 0.6', film, { aliasEdge: { value: 0.727, status: 'ok' } });
   assert.equal(aliasFail.status, 'fail');
   assert.equal(aliasFail.ok, false);
-  assert.equal(aliasFail.measured, 1.82);
-  assert.match(aliasFail.expected, /1\.5/);
-  assert.match(aliasFail.expected, /1\.82/);
+  assert.equal(aliasFail.measured, 0.727);
+  assert.match(aliasFail.expected, /0\.6/);
+  assert.match(aliasFail.expected, /0\.727/);
   assert.ok(aliasFail.hint);
 
-  const bareAliasFail = evaluateAssertion('alias_edge(film)', film, { aliasEdge: DEFAULT_MAX_ALIAS_EDGE + 0.5 });
+  const bareAliasFail = evaluateAssertion('alias_edge(film)', film, { aliasEdge: 0.727 });
   assert.equal(bareAliasFail.status, 'fail');
+
+  // R1 回归：非 film 目标不得借视频读数通过；局部帧区间 @ [0,2) 无分段证据时返回 skipped 不得凭全片读数误判
+  assert.equal(evaluateAssertion('noise_residual(audio) <= 4', film, { noiseResidual: 0.05 }).status, 'fail');
+  assert.equal(evaluateAssertion('alias_edge(audio) <= 1', film, { aliasEdge: 0.05 }).status, 'fail');
+  assert.equal(evaluateAssertion('alias_edge(film) <= 1 @ [0,2)', film, { aliasEdge: { value: 2, status: 'ok' } }).status, 'skipped');
+  assert.equal(evaluateAssertion('noise_residual(film) <= 1 @ [0,2)', film, { noiseResidual: { value: 6, status: 'ok' } }).status, 'skipped');
 
   for (const measured of [
     {},
@@ -780,7 +788,7 @@ test('noise_residual 与 alias_edge：登记为 0.1 谓词、不改 floor@1 六�
     { aliasEdge: { value: null, status: 'ok' } },
     { aliasEdge: { value: null, details: { code: 'tool-missing', tool: 'ffprobe' } } },
   ]) {
-    const r = evaluateAssertion('alias_edge(film) <= 1.5', film, measured);
+    const r = evaluateAssertion('alias_edge(film) <= 0.6', film, measured);
     assert.equal(r.status, 'skipped', JSON.stringify(measured));
     assert.ok(typeof r.reason === 'string' && r.reason.length > 0);
   }
@@ -793,9 +801,10 @@ test('noise_residual 与 alias_edge：登记为 0.1 谓词、不改 floor@1 六�
     evaluateAssertion('noise_residual(film) <= 4.5', film, { noiseResidual: 0.2 }),
     noisyFail,
     evaluateAssertion('noise_residual(film) <= 4.5', film, { noiseResidual: { value: null, status: 'no-static-region' } }),
-    evaluateAssertion('alias_edge(film) <= 1.5', film, { aliasEdge: 0.1 }),
+    evaluateAssertion('alias_edge(film) <= 0.6', film, { aliasEdge: 0.1 }),
     aliasFail,
-    evaluateAssertion('alias_edge(film) <= 1.5', film, { aliasEdge: { value: 0, status: 'no-edges' } }),
+    evaluateAssertion('alias_edge(film) <= 0.6', film, { aliasEdge: { value: 0, status: 'no-edges' } }),
+    evaluateAssertion('alias_edge(film) <= 1 @ [0,2)', film, { aliasEdge: { value: 2, status: 'ok' } }),
   ]) {
     const v = toVerdict(res, { base: true });
     assert.ok(validateVerdict(v), JSON.stringify(validateVerdict.errors));

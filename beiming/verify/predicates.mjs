@@ -31,12 +31,12 @@ export const HERO_PEAK_AREA_MIN = 0.05;
 // delivery 的色彩标签：成片是显示空间 sRGB 编码、Rec.709 原色（片子描述契约 5.9），编码标签取 bt709
 export const DELIVERY_COLOR_TAG = 'bt709';
 // L3 成片画质默认门限（经 api.test.mjs / scaffold-defaults.test.mjs / m1b-visual-review.test.mjs 12 支真渲染成片实测标定）：
-// - noise_residual 上限 4.5 code8：12 支真成片读数 0.00–3.95 code8（常规 640x360/720p 与 turntable 均 <= 2.35，仅 320x180 24 字极小字号微漂移达 3.95），
+// - noise_residual 上限 4.5 code8：合规真成片读数 0.00–2.15 code8（640x360/720p 与 turntable 均 <= 2.15），
 //   而 noise=alls=8 负对照读数 4.80–4.98 code8（alls=10 达 6.16–6.29）稳定判 fail。
 export const DEFAULT_MAX_NOISE_RESIDUAL = 4.5;
-// - alias_edge 上限 1.5 px：常规 640x360/720p 与 turntable 真成片读数 0.04–0.45 px，唯 320x180 24 字长片名极小字号（1.5px 笔画）达 1.25 px，
-//   1x 点采样细斜杆（宽 1.5px 斜率 0.45）达 1.78 px、锯齿阶梯达 3.97 px 稳定判 fail；对高清或特定镜头可在 predicates.extra 写更严上限（如 <= 0.4）。
-export const DEFAULT_MAX_ALIAS_EDGE = 1.5;
+// - alias_edge 上限 0.6 px：常规 640x360/720p 与 turntable/短片名真成片读数 0.04–0.45 px（720p 24 字长片名仅 0.29 px），
+//   1x 点采样斜边（s=0.32 达 0.727 px、s=0.45 细斜杆达 1.78 px）稳定判 fail；对高清或特定镜头可在 predicates.extra 写更严上限（如 <= 0.4）。
+export const DEFAULT_MAX_ALIAS_EDGE = 0.6;
 
 /* ---------------- 编辑距离与改名建议 ---------------- */
 
@@ -319,7 +319,7 @@ function extractEnergyReading(raw) {
   const code = raw.code ?? raw.details?.code ?? null;
   if (code === 'tool-missing') return { kind: 'tool-missing', tool: raw.tool ?? raw.details?.tool ?? 'ffmpeg' };
   const status = raw.status ?? raw.details?.status ?? null;
-  if (status === 'no-static-region' || status === 'no-edges' || status === 'insufficient-frames') {
+  if (status === 'no-static-region' || status === 'no-edges' || status === 'insufficient-frames' || status === 'insufficient-resolution') {
     return { kind: status };
   }
   if (raw.value === null || raw.value === undefined) return { kind: 'null-value' };
@@ -493,12 +493,21 @@ const EVALUATORS = {
     return checked ? pass(a.text, { frames: checked }) : skipped(a.text, '抽到的帧里没有落在文案区间、又带文字框的');
   },
 
-  noise_residual(a, bound, film, measured) {
+  noise_residual(a, bound, film, measured, range) {
+    const targetName = bound.target?.name ?? null;
+    if (targetName !== 'film') {
+      return fail(a.text, { target: targetName }, null, '目标须为 film（成片视频），不能用成片视频量测替代其他目标');
+    }
+    const totalFrames = Number.isInteger(film.output?.frames) ? film.output.frames : null;
+    if (a.scope?.kind !== 'all' && !(totalFrames !== null && range[0] === 0 && range[1] === totalFrames)) {
+      return skipped(a.text, `当前仅具备全片聚合量测，缺少帧区间 [${range[0]}, ${range[1]}) 的分段噪声残差证据`);
+    }
     const r = extractEnergyReading(measured.noiseResidual);
     if (r.kind === 'missing') return skipped(a.text, '没有成片静止区噪声残差的量测（measured.noiseResidual）');
     if (r.kind === 'tool-missing') return skipped(a.text, `缺少音视频工具 ${r.tool}，无法量测成片噪声残差（tool-missing）`);
     if (r.kind === 'no-static-region') return skipped(a.text, '成片无静止区域，无法量测噪声残差（no-static-region）');
     if (r.kind === 'insufficient-frames') return skipped(a.text, '成片不足 2 帧，无法量测帧间噪声残差（insufficient-frames）');
+    if (r.kind === 'insufficient-resolution') return skipped(a.text, '成片短边不足 4 像素，无法分块量测噪声残差（insufficient-resolution）');
     if (r.kind !== 'ok') return skipped(a.text, '成片噪声残差量测值为空或无效（measured.noiseResidual）');
     const cmp = a.cmp ?? { op: '<=', value: DEFAULT_MAX_NOISE_RESIDUAL };
     return cmpOk(r.value, cmp)
@@ -513,7 +522,15 @@ const EVALUATORS = {
       );
   },
 
-  alias_edge(a, bound, film, measured) {
+  alias_edge(a, bound, film, measured, range) {
+    const targetName = bound.target?.name ?? null;
+    if (targetName !== 'film') {
+      return fail(a.text, { target: targetName }, null, '目标须为 film（成片视频），不能用成片视频量测替代其他目标');
+    }
+    const totalFrames = Number.isInteger(film.output?.frames) ? film.output.frames : null;
+    if (a.scope?.kind !== 'all' && !(totalFrames !== null && range[0] === 0 && range[1] === totalFrames)) {
+      return skipped(a.text, `当前仅具备全片聚合量测，缺少帧区间 [${range[0]}, ${range[1]}) 的分段锯齿度证据`);
+    }
     const r = extractEnergyReading(measured.aliasEdge);
     if (r.kind === 'missing') return skipped(a.text, '没有成片边缘锯齿度的量测（measured.aliasEdge）');
     if (r.kind === 'tool-missing') return skipped(a.text, `缺少音视频工具 ${r.tool}，无法量测成片边缘锯齿度（tool-missing）`);
