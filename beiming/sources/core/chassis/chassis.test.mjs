@@ -76,7 +76,9 @@ test('内核源码的来源：来源说明写了上游与固定提交，上游�
   const split = ['closure', 'film', 'integrator', 'intersect', 'light', 'shader', 'volume'].map(n => `shaders/${n}.wgsl`);
   // 照 Cycles 移植的两个哈希文件不是上游 ThreeRT 的：Apache-2.0，版权与许可写在文件头
   const cycles = ['shaders/hash.wgsl', 'src/cycles_hash.rs'];
-  assert.equal(sources.length, 34);
+  // 北冥新写的文件（不是上游的，也没有照 Cycles 取东西）：MIT，文件头写版权人
+  const own = ['src/pack.rs'];
+  assert.equal(sources.length, 35);
   // （下面的正则里有许可标识的字样，它不是本文件的许可声明：让许可覆盖的扫描跳过这一段。）
   // REUSE-IgnoreStart
   for (const f of cycles) {
@@ -99,8 +101,13 @@ test('内核源码的来源：来源说明写了上游与固定提交，上游�
   }
   assert.doesNotMatch(prov, /除 `cycles_hash\.rs` 之外的全部/);
   assert.match(read('shaders/pathtrace.wgsl').split('\n').slice(0, 12).join('\n'), /ObjectExt 的字段名 receiver_light_set、lightgroup/);
+  for (const f of own) {
+    assert.match(read(f), /^\/\/ SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine\n\/\/ SPDX-License-Identifier: MIT\n/, f);
+    assert.ok(prov.includes(`\`${f}\``), `来源说明里没有 ${f}`);
+    assert.doesNotMatch(read(f), /\/Users\/|\/home\/[a-z]|192\.168\./, f);
+  }
   // REUSE-IgnoreEnd
-  for (const f of sources.filter(f => !cycles.includes(f))) {
+  for (const f of sources.filter(f => !cycles.includes(f) && !own.includes(f))) {
     const first = read(f).split('\n', 1)[0], from = split.includes(f) ? 'shaders/pathtrace.wgsl' : f;
     assert.ok(first.startsWith('// 源自 ThreeRT') && first.includes(COMMIT) && first.includes(`renderer/${from}`) && first.includes('MIT') && first.includes('Meshy LLC') && first.includes('PROVENANCE.md'), f);
     assert.ok(prov.includes(`\`${f}\``) || prov.includes(`\`${path.basename(f)}\``), `来源说明的文件对照里没有 ${f}`);

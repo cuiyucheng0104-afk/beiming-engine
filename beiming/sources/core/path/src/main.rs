@@ -8,12 +8,17 @@
 //!                         [--runtime threert-runtime.js (the game is then an ES module importing it)]
 //!                         [--hdr out.raw] [--signals PREFIX] (linear RGB f32: the image; its diffuse / specular /
 //!                         emission apart, PREFIX-{diffuse,specular,emission}.raw)
+//!   core-render pack-info <pack dir> [--frame k] [--record check.json] [--width W --height H]
+//!                         (北冥：读场景包、选一帧建成内核的场景，不渲；stdout 一行统计的 JSON，--record 写场景包核对记录)
+//!   core-render render-pack <pack dir> -o out.png [--frame k] [--spp N] [--width W --height H] [--hdr out.raw]
+//!                         [--signals PREFIX] [--no-denoise] [--stats out.json] [--preset name] [--override JSON]
+//!                         (北冥：读场景包、渲一帧。读不对时 stderr 一行 {"error":{code,at,message}}，退出码照错误码的前缀)
 //!   core-render serve [--presets DIR]      # JSON-lines jobs on stdin, keeps the GPU device and game runtimes warm
 //!   core-render setup <bundle.js>          # setup cost in the embedded runtime
 //!   core-render info                       # print adapter info
 
 use beiming_core_path::script::ScriptHost;
-use beiming_core_path::{default_presets_dir, denoise, gpu, post, prepare, scene};
+use beiming_core_path::{default_presets_dir, denoise, gpu, pack, post, prepare, scene};
 
 use anyhow::{anyhow, Context, Result};
 use glam::Vec3;
@@ -171,6 +176,17 @@ fn main() -> Result<()> {
             let stats = render(&g, &job, &presets, init_ms, &mut Hosts::default())?;
             println!("{}", serde_json::to_string(&stats)?);
         }
+        "pack-info" | "render-pack" => {
+            if let Err(e) = pack_command(cmd, &args, &presets) {
+                match e.downcast_ref::<pack::PackError>() {
+                    Some(pe) => {
+                        eprintln!("{}", pe.json());
+                        std::process::exit(pack::exit_code(pe.code));
+                    }
+                    None => return Err(e),
+                }
+            }
+        }
         "ae" => {
             // core-render ae linear.exr <ev100 it was exposed at> [lowPercent highPercent compensation minEv maxEv]
             let img = image::open(&args[2])?.to_rgb32f();
@@ -259,10 +275,62 @@ fn main() -> Result<()> {
             }
         }
         _ => {
-            eprintln!("usage: core-render render <bundle.js> -o out.png [--assets DIR] [--state f.json] [--camera JSON] [--spp N] | serve | setup | info");
+            eprintln!("usage: core-render render <bundle.js> -o out.png [--assets DIR] [--state f.json] [--camera JSON] [--spp N] | pack-info <pack dir> | render-pack <pack dir> -o out.png | serve | setup | info");
             std::process::exit(2);
         }
     }
+    Ok(())
+}
+
+/// 北冥：`pack-info`、`render-pack`。参数出值域报 usage.bad-argument；场景包的毛病由 pack.rs 报带错误码的 `PackError`。
+fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
+    let flag = |name: &str| args.iter().position(|a| a == name).and_then(|i| args.get(i + 1)).cloned();
+    let usage = |at: &str, m: String| -> anyhow::Error { pack::PackError { code: pack::BAD_ARGUMENT, at: at.into(), message: m }.into() };
+    let num = |name: &str| -> Result<Option<u32>> { flag(name).map(|s| s.parse::<u32>().map_err(|_| usage(name, format!("{s:?} 不是非负整数")))).transpose() };
+    let dir = PathBuf::from(args.get(2).filter(|a| !a.starts_with('-')).ok_or_else(|| usage("", "要给场景包目录".into()))?);
+    let frame = num("--frame")?.unwrap_or(0) as usize;
+    let size = (num("--width")?.unwrap_or(1280), num("--height")?.unwrap_or(720));
+    if size.0 == 0 || size.1 == 0 {
+        return Err(usage("--width", "画面的宽和高都要大于 0".into()));
+    }
+    let overrides: Option<serde_json::Value> = flag("--override").map(|s| serde_json::from_str(&s)).transpose()?;
+    let t_total = Instant::now();
+    let p = pack::load(&dir)?;
+    if cmd == "pack-info" {
+        let b = pack::build(&p, frame, size, flag("--preset").as_deref(), presets, overrides.as_ref())?;
+        if let Some(out) = flag("--record") {
+            std::fs::write(&out, serde_json::to_vec_pretty(&pack::record(&p, frame, &b))?)?;
+        }
+        println!("{}", pack::info(&p, frame, &b));
+        return Ok(());
+    }
+    let t0 = Instant::now();
+    let g = gpu::Gpu::new()?;
+    let init_ms = t0.elapsed().as_secs_f64() * 1000.0;
+    let t = Instant::now();
+    let b = pack::build(&p, frame, size, flag("--preset").as_deref(), presets, overrides.as_ref())?;
+    let timings = vec![("gpu_init_ms".into(), init_ms), ("pack_ms".into(), t.elapsed().as_secs_f64() * 1000.0)];
+    let job = Job {
+        // （场景来自场景包，不来自游戏脚本：`finish` 不读 `game`）
+        game: GameJob { bundle: dir.clone(), runtime: None, assets: dir.clone(), room: String::new(), seed: None, state: None, seq: 0 },
+        out: PathBuf::from(flag("-o").unwrap_or_else(|| "out.png".into())),
+        spp: num("--spp")?,
+        stats: flag("--stats").map(PathBuf::from),
+        denoise: if args.iter().any(|a| a == "--no-denoise") { Some(false) } else { None },
+        overrides,
+        camera: None,
+        preset: flag("--preset"),
+        time: None,
+        size: (Some(size.0), Some(size.1)),
+        hdr: flag("--hdr").map(PathBuf::from),
+        signals: flag("--signals").map(PathBuf::from),
+    };
+    let mut stats = finish(&g, b.scene, &job, init_ms, timings, t_total)?;
+    stats["pack"] = serde_json::json!({ "id": p.id, "frame": frame, "frames": p.count });
+    if let Some(f) = &job.stats {
+        std::fs::write(f, serde_json::to_vec_pretty(&stats)?)?;
+    }
+    println!("{}", serde_json::to_string(&stats)?);
     Ok(())
 }
 
@@ -288,7 +356,7 @@ fn render(g: &gpu::Gpu, job: &Job, presets: &Path, init_ms: f64, hosts: &mut Hos
         host.seek(job.time.unwrap_or(0.0))?;
     }
     timings.push(("script_ms".into(), script_ms));
-    let mut sc = {
+    let sc = {
         let mut w = host.world.borrow_mut();
         w.take_changes();
         let missing: Vec<String> = w.files().into_iter().filter(|f| !beiming_core_path::files::asset_path(&job.game.assets, f).is_file()).collect();
@@ -306,12 +374,17 @@ fn render(g: &gpu::Gpu, job: &Job, presets: &Path, init_ms: f64, hosts: &mut Hos
         w.settings = saved;
         sc?
     };
+    timings.push(("load_ms".into(), sc.stats["load_ms"]));
+    finish(g, sc, job, init_ms, timings, t_total)
+}
+
+/// The rest of a render once its scene is built: the GPU trace, denoise, post, the files, the stats.
+fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timings: Vec<(String, f64)>, t_total: Instant) -> Result<serde_json::Value> {
     sc.width = job.size.0.unwrap_or(sc.width);
     sc.height = job.size.1.unwrap_or(sc.height);
     if let Some(c) = &job.camera {
         override_camera(&mut sc.camera, c)?;
     }
-    timings.push(("load_ms".into(), sc.stats["load_ms"]));
 
     let prep = prepare(g, &mut sc, &mut timings);
     let preset = sc.preset.clone();

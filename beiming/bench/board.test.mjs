@@ -8,7 +8,7 @@ import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import * as bench from './index.mjs';
-import { BOARD_FORMAT, TOTAL_PRIORS_BASELINE, UNSUPPORTED_REASON, appendBoardHistory, buildBoard, escapeHtml, renderBoardHtml } from './board.mjs';
+import { ALLOWED_RENDERERS, BOARD_FORMAT, FILM_TYPES, TOTAL_PRIORS_BASELINE, UNSUPPORTED_REASON, appendBoardHistory, buildBoard, escapeHtml, renderBoardHtml } from './board.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
@@ -516,7 +516,7 @@ test('buildBoard 是纯函数：不读墙钟，同一份入参两次结果相同
   assert.deepEqual([first.format, first.asOf], [BOARD_FORMAT, AS_OF]);
   assert.equal(BOARD_FORMAT, 'bench-board/0.1');
   assert.ok(Object.isFrozen(first) && Object.isFrozen(first.matrix.rows[0].cells[0]) && Object.isFrozen(first.history));
-  assert.deepEqual(Object.keys(first), ['format', 'asOf', 'fourIndicators', 'matrix', 'integrationProgress', 'reverseIndicators', 'calibrationChanges', 'history']);
+  assert.deepEqual(Object.keys(first), ['format', 'asOf', 'fourIndicators', 'coreFrameShare', 'matrix', 'integrationProgress', 'reverseIndicators', 'calibrationChanges', 'history']);
   for (const asOf of [undefined, '2026-02-30', '2026-1-1', 20261123, '2026-11-23T00:00:00Z']) assert.throws(() => buildBoard({ asOf }), isBadArgument);
 });
 
@@ -1005,6 +1005,8 @@ test('并发回填三个日期时保留每一天，三个产物对应同一版�
 test('入口 index.mjs 导出看板的公开接口', () => {
   for (const name of ['buildBoard', 'renderBoardHtml', 'appendBoardHistory']) assert.equal(bench[name], { buildBoard, renderBoardHtml, appendBoardHistory }[name]);
   assert.deepEqual([bench.BOARD_FORMAT, bench.UNSUPPORTED_REASON, bench.TOTAL_PRIORS_BASELINE], ['bench-board/0.1', '这个帧源没有这项能力', 4452]);
+  assert.equal(bench.FILM_TYPES, FILM_TYPES);
+  assert.equal(bench.ALLOWED_RENDERERS, ALLOWED_RENDERERS);
 });
 
 test('L2 看板接收并校验第 5 步周重复打回率 scoreboardMetric 并在静态页展示', (t) => {
@@ -1062,5 +1064,287 @@ test('L2 看板接收并校验第 5 步周重复打回率 scoreboardMetric 并�
   const tampered = JSON.parse(JSON.stringify(board));
   tampered.scoreboardMetric = { firstTimeCount: 1, repeatCount: 1, total: 9, repeatRate: 0.5 };
   assert.throws(() => renderBoardHtml(tampered), isBadArgument);
+});
+
+/* ---------------- O12 核心出帧占比 ---------------- */
+
+test('O12 常量冻结、零输入全 0 显示与静态页四格渲染', () => {
+  assert.ok(Object.isFrozen(FILM_TYPES));
+  assert.deepEqual(FILM_TYPES, [
+    { id: 'motion-explainer', label: '动态图形与讲解' },
+    { id: 'hard-surface', label: '硬表面与写实' },
+    { id: 'toon', label: '三渲二' },
+    { id: 'realtime-3d', label: '游戏感实时三维' },
+  ]);
+  for (const item of FILM_TYPES) assert.ok(Object.isFrozen(item));
+  assert.ok(Object.isFrozen(ALLOWED_RENDERERS));
+  assert.deepEqual(ALLOWED_RENDERERS, ['blender', 'three', 'core', 'legacy-page']);
+
+  // 过门前零输入（省略 frameMeta 与空数组）：四格齐全且均为 0（rate === 0 而非 null）
+  for (const input of [{ asOf: AS_OF }, { asOf: AS_OF, frameMeta: [] }, { asOf: AS_OF, frameMeta: [{ filmType: 'toon', filmId: 'empty-film', frames: [] }] }]) {
+    const board = buildBoard(input);
+    assert.ok(Object.isFrozen(board.coreFrameShare));
+    assert.ok(Object.isFrozen(board.coreFrameShare.overall));
+    assert.ok(Object.isFrozen(board.coreFrameShare.byFilmType));
+    assert.deepEqual(board.coreFrameShare.overall, { coreFrames: 0, totalFrames: 0, rate: 0 });
+    assert.deepEqual(Object.keys(board.coreFrameShare.byFilmType), ['motion-explainer', 'hard-surface', 'toon', 'realtime-3d']);
+    for (const { id, label } of FILM_TYPES) {
+      assert.ok(Object.isFrozen(board.coreFrameShare.byFilmType[id]));
+      assert.deepEqual(board.coreFrameShare.byFilmType[id], { label, coreFrames: 0, totalFrames: 0, rate: 0 });
+    }
+    const html = renderBoardHtml(board);
+    const idxFour = html.indexOf('<h2>四个指标</h2>');
+    const idxCore = html.indexOf('<h2>核心出帧占比</h2>');
+    const idxMatrix = html.indexOf('<h2>考题 × 帧源 × 做题模型</h2>');
+    assert.ok(idxFour >= 0 && idxCore > idxFour && idxMatrix > idxCore, '核心出帧占比应位于四个指标之后、考题矩阵之前');
+    const labelsPos = FILM_TYPES.map(({ label }) => html.indexOf(`<h3>${label}</h3>`, idxCore));
+    assert.ok(labelsPos.every((p) => p > idxCore && p < idxMatrix));
+    for (let i = 1; i < labelsPos.length; i += 1) assert.ok(labelsPos[i] > labelsPos[i - 1], '四格应按 FILM_TYPES 固定顺序渲染');
+    assert.ok(html.includes('0.0%') && html.includes('0 / 0 帧'));
+    assert.ok(!/<script/i.test(html));
+  }
+});
+
+test('O12 多片型统计、单帧切换 source.renderer 即时联动与完整 meta/0.1 消费', () => {
+  const realMeta = JSON.parse(readFileSync(join(REPO, 'beiming/kernel/contracts/meta/examples/full.json'), 'utf8'));
+  const makeFrame = (renderer, frameNo) => ({
+    format: 'meta/0.1',
+    film: 'f_demo',
+    shot: 's01',
+    frame: frameNo,
+    stats: { tris: 1200, noise: 0.005 },
+    entities: [{ id: 1, name: 'hero', class: 'mesh', visible: 1 }],
+    origin: { host: ['source', 'stats'] },
+    source: { id: renderer, renderer, host: renderer === 'core' ? 'beiming-core' : renderer },
+  });
+
+  const frameMeta = [
+    {
+      filmType: 'motion-explainer',
+      filmId: 'f-motion-1',
+      frames: [makeFrame('three', 0), makeFrame('core', 1), makeFrame('legacy-page', 2), makeFrame('three', 3)],
+    },
+    {
+      filmType: 'hard-surface',
+      filmId: 'f-hard-1',
+      frames: [realMeta, makeFrame('core', 151)],
+    },
+    {
+      filmType: 'hard-surface',
+      filmId: 'f-hard-2',
+      frames: [makeFrame('blender', 0), makeFrame('core', 1)],
+    },
+    {
+      filmType: 'toon',
+      filmId: 'f-toon-1',
+      frames: [makeFrame('blender', 0), makeFrame('three', 1)],
+    },
+  ];
+
+  const base = buildBoard({ asOf: AS_OF, frameMeta });
+  assert.deepEqual(base.coreFrameShare.byFilmType['motion-explainer'], { label: '动态图形与讲解', coreFrames: 1, totalFrames: 4, rate: 0.25 });
+  assert.deepEqual(base.coreFrameShare.byFilmType['hard-surface'], { label: '硬表面与写实', coreFrames: 2, totalFrames: 4, rate: 0.5 });
+  assert.deepEqual(base.coreFrameShare.byFilmType.toon, { label: '三渲二', coreFrames: 0, totalFrames: 2, rate: 0 });
+  assert.deepEqual(base.coreFrameShare.byFilmType['realtime-3d'], { label: '游戏感实时三维', coreFrames: 0, totalFrames: 0, rate: 0 });
+  assert.deepEqual(base.coreFrameShare.overall, { coreFrames: 3, totalFrames: 10, rate: 0.3 });
+
+  const baseHtml = renderBoardHtml(base);
+  assert.ok(baseHtml.includes('25.0%') && baseHtml.includes('1 / 4 帧'));
+  assert.ok(baseHtml.includes('50.0%') && baseHtml.includes('2 / 4 帧'));
+  assert.ok(baseHtml.includes('0.0%') && baseHtml.includes('0 / 2 帧') && baseHtml.includes('0 / 0 帧'));
+  assert.ok(baseHtml.includes('30.0%') && baseHtml.includes('3 / 10 帧'));
+
+  // 手工改一帧：toon 第 0 帧 blender -> core，仅 toon 与 overall 精确变化，其余三个片型不变
+  const flippedUp = structuredClone(frameMeta);
+  flippedUp[3].frames[0].source.renderer = 'core';
+  const boardUp = buildBoard({ asOf: AS_OF, frameMeta: flippedUp });
+  assert.deepEqual(boardUp.coreFrameShare.byFilmType.toon, { label: '三渲二', coreFrames: 1, totalFrames: 2, rate: 0.5 });
+  assert.deepEqual(boardUp.coreFrameShare.overall, { coreFrames: 4, totalFrames: 10, rate: 0.4 });
+  for (const id of ['motion-explainer', 'hard-surface', 'realtime-3d']) {
+    assert.deepEqual(boardUp.coreFrameShare.byFilmType[id], base.coreFrameShare.byFilmType[id]);
+  }
+
+  // 手工改一帧：motion-explainer 第 1 帧 core -> three，仅 motion-explainer 与 overall 精确变化，其余三个片型不变
+  const flippedDown = structuredClone(frameMeta);
+  flippedDown[0].frames[1].source.renderer = 'three';
+  const boardDown = buildBoard({ asOf: AS_OF, frameMeta: flippedDown });
+  assert.deepEqual(boardDown.coreFrameShare.byFilmType['motion-explainer'], { label: '动态图形与讲解', coreFrames: 0, totalFrames: 4, rate: 0 });
+  assert.deepEqual(boardDown.coreFrameShare.overall, { coreFrames: 2, totalFrames: 10, rate: 0.2 });
+  for (const id of ['hard-surface', 'toon', 'realtime-3d']) {
+    assert.deepEqual(boardDown.coreFrameShare.byFilmType[id], base.coreFrameShare.byFilmType[id]);
+  }
+});
+
+test('O12 不采信作业自报：仅认逐帧 source.renderer === core，且兼容历史、旧快照、CLI --extra 与防篡改', (t) => {
+  const board = buildBoard({
+    asOf: AS_OF,
+    jobs: [
+      { jobId: 'job-self-report', basePass: true, interventions: 0, renderer: 'core', reportedCoreShare: 1, coreFrameShare: 1, coreFrames: 99 },
+    ],
+    frameMeta: [
+      {
+        filmType: 'hard-surface',
+        filmId: 'f-spoof',
+        reportedCoreShare: 1,
+        coreFrames: 99,
+        totalFrames: 99,
+        rate: 1,
+        renderer: 'core',
+        frames: [
+          { renderer: 'core', reportedRenderer: 'core', source: { id: 'core', renderer: 'blender', host: 'core' } },
+          { renderer: 'core', source: { id: 'core', renderer: 'three', host: 'core' } },
+        ],
+      },
+    ],
+  });
+  assert.deepEqual(board.coreFrameShare.byFilmType['hard-surface'], { label: '硬表面与写实', coreFrames: 0, totalFrames: 2, rate: 0 });
+  assert.deepEqual(board.coreFrameShare.overall, { coreFrames: 0, totalFrames: 2, rate: 0 });
+
+  // appendBoardHistory 保持既有历史行白名单结构不破坏
+  const hist = appendBoardHistory([], board);
+  assert.equal(hist.length, 1);
+  assert.equal(Object.hasOwn(hist[0], 'coreFrameShare'), false);
+
+  // 旧快照（未含 coreFrameShare）经 renderBoardHtml 与 appendBoardHistory 保持兼容并按全 0 兜底渲染
+  const legacyBoard = JSON.parse(JSON.stringify(board));
+  delete legacyBoard.coreFrameShare;
+  const legacyHtml = renderBoardHtml(legacyBoard);
+  assert.ok(legacyHtml.includes('<h2>核心出帧占比</h2>') && legacyHtml.includes('0.0%') && legacyHtml.includes('0 / 0 帧'));
+  assert.equal(appendBoardHistory([], legacyBoard).length, 1);
+
+  // 篡改 board.coreFrameShare 在 renderBoardHtml 与 appendBoardHistory 均被拒收
+  const tamperedCases = [
+    null,
+    {},
+    { ...JSON.parse(JSON.stringify(board.coreFrameShare)), extra: 1 },
+    {
+      ...JSON.parse(JSON.stringify(board.coreFrameShare)),
+      overall: { coreFrames: 1, totalFrames: 2, rate: 0.5 },
+    },
+    {
+      overall: { coreFrames: 3, totalFrames: 2, rate: 1 },
+      byFilmType: {
+        ...JSON.parse(JSON.stringify(board.coreFrameShare.byFilmType)),
+        'hard-surface': { label: '硬表面与写实', coreFrames: 3, totalFrames: 2, rate: 1 },
+      },
+    },
+    {
+      overall: { coreFrames: 0, totalFrames: 2, rate: 0.5 },
+      byFilmType: JSON.parse(JSON.stringify(board.coreFrameShare.byFilmType)),
+    },
+    {
+      overall: { coreFrames: 0, totalFrames: 2, rate: 0 },
+      byFilmType: {
+        ...JSON.parse(JSON.stringify(board.coreFrameShare.byFilmType)),
+        toon: { label: '<script>x</script>', coreFrames: 0, totalFrames: 0, rate: 0 },
+      },
+    },
+  ];
+  for (const badShare of tamperedCases) {
+    const tampered = JSON.parse(JSON.stringify(board));
+    tampered.coreFrameShare = badShare;
+    assert.throws(() => renderBoardHtml(tampered), isBadArgument);
+    assert.throws(() => appendBoardHistory([], tampered), isBadArgument);
+  }
+
+  // CLI --extra 透传 frameMeta
+  const dir = mkdtempSync(join(tmpdir(), 'beiming-o12-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(join(dir, 'extra.json'), JSON.stringify({
+    frameMeta: [{ filmType: 'realtime-3d', filmId: 'f-rt', frames: [{ source: { renderer: 'core' } }, { source: { renderer: 'three' } }] }],
+  }));
+  const res = run(['build', '--as-of', AS_OF, '--out-dir', join(dir, 'out'), '--extra', join(dir, 'extra.json')]);
+  assert.equal(res.code, 0, res.stderr);
+  const cliBoard = JSON.parse(readFileSync(join(dir, 'out', 'board.json'), 'utf8'));
+  assert.deepEqual(cliBoard.coreFrameShare.byFilmType['realtime-3d'], { label: '游戏感实时三维', coreFrames: 1, totalFrames: 2, rate: 0.5 });
+  assert.match(readFileSync(join(dir, 'out', 'index.html'), 'utf8'), /50\.0%/);
+
+  // R1 回归 1：逐帧直接携带 filmType 的 meta/0.1 对象与按片型分组统计完全一致，且支持混排
+  const fullMeta = JSON.parse(readFileSync(join(REPO, 'beiming/kernel/contracts/meta/examples/full.json'), 'utf8'));
+  const groupedOne = buildBoard({ asOf: AS_OF, frameMeta: [{ filmType: 'toon', frames: [fullMeta] }] });
+  const flatOne = buildBoard({ asOf: AS_OF, frameMeta: [{ ...fullMeta, filmType: 'toon' }] });
+  assert.deepEqual(flatOne.coreFrameShare, groupedOne.coreFrameShare);
+  const mixedBatch = buildBoard({
+    asOf: AS_OF,
+    frameMeta: [
+      { ...fullMeta, filmType: 'toon', source: { ...fullMeta.source, renderer: 'core' } },
+      { filmType: 'toon', frames: [{ source: { renderer: 'three' } }] },
+    ],
+  });
+  assert.deepEqual(mixedBatch.coreFrameShare.byFilmType.toon, { label: '三渲二', coreFrames: 1, totalFrames: 2, rate: 0.5 });
+
+  // R1 回归 2：十进制半点 3/2000 (0.15%) 精确四舍五入为 0.2%（不因浮点漂移变成 0.1%）
+  const twoThousand = Array.from({ length: 2000 }, (_, i) => ({ source: { renderer: i < 3 ? 'core' : 'three' } }));
+  const halfBoard = buildBoard({ asOf: AS_OF, frameMeta: [{ filmType: 'toon', frames: twoThousand }] });
+  assert.deepEqual(halfBoard.coreFrameShare.overall, { coreFrames: 3, totalFrames: 2000, rate: 3 / 2000 });
+  const toonCard = renderBoardHtml(halfBoard).match(/<article data-film-type="toon">([\s\S]*?)<\/article>/)?.[1] ?? '';
+  assert.equal(toonCard.match(/[\d.]+%/)?.[0], '0.2%');
+});
+
+test('O12 负例与原型污染门禁：非法 filmType / source.renderer / frames / 原型污染 / 泄露均按 usage.bad-argument 拒收', () => {
+  let traps = 0;
+  const proxied = (target) => new Proxy(target, new Proxy({}, { get: () => { traps += 1; return undefined; } }));
+  const sparseFrames = [{ source: { renderer: 'core' } }, , { source: { renderer: 'three' } }]; // eslint-disable-line no-sparse-arrays
+  const badInputs = [
+    { frameMeta: null },
+    { frameMeta: {} },
+    { frameMeta: 'toon' },
+    { frameMeta: [null] },
+    { frameMeta: [{ frames: [] }] },
+    { frameMeta: [{ filmType: 'live-action', frames: [] }] },
+    { frameMeta: [{ filmType: '', frames: [] }] },
+    { frameMeta: [{ filmType: 'TOON', frames: [] }] },
+    { frameMeta: [{ filmType: 123, frames: [] }] },
+    { frameMeta: [{ filmType: 'toon', filmId: '', frames: [] }] },
+    { frameMeta: [{ filmType: 'toon', filmId: null, frames: [] }] },
+    { frameMeta: [{ filmType: 'toon', filmId: 42, frames: [] }] },
+    { frameMeta: [{ filmType: 'toon' }] },
+    { frameMeta: [{ filmType: 'toon', frames: null }] },
+    { frameMeta: [{ filmType: 'toon', frames: {} }] },
+    { frameMeta: [{ filmType: 'toon', frames: '[]' }] },
+    { frameMeta: [{ filmType: 'toon', frames: sparseFrames }] },
+    { frameMeta: [{ filmType: 'toon', frames: [null] }] },
+    { frameMeta: [{ filmType: 'toon', frames: ['core'] }] },
+    { frameMeta: [{ filmType: 'toon', frames: [{}] }] },
+    { frameMeta: [{ filmType: 'toon', frames: [{ source: null }] }] },
+    { frameMeta: [{ filmType: 'toon', frames: [{ source: 'core' }] }] },
+    { frameMeta: [{ filmType: 'toon', frames: [{ source: {} }] }] },
+    { frameMeta: [{ filmType: 'toon', frames: [{ source: { renderer: '' } }] }] },
+    { frameMeta: [{ filmType: 'toon', frames: [{ source: { renderer: 'cycles' } }] }] },
+    { frameMeta: [{ filmType: 'toon', frames: [{ source: { renderer: 'Core' } }] }] },
+    { frameMeta: [{ filmType: 'toon', frames: [{ source: { renderer: null } }] }] },
+    { frameMeta: [{ filmType: 'toon', frames: [{ source: { renderer: 1 } }] }] },
+    { frameMeta: proxied([]) },
+    { frameMeta: [{ filmType: 'toon', frames: [{ source: { renderer: 'core' }, note: 'lab://private/frame' }] }] },
+    { frameMeta: [{ filmType: 'toon', filmId: '/Users/someone/film', frames: [] }] },
+  ];
+  for (const [i, extra] of badInputs.entries()) {
+    assert.throws(() => buildBoard({ asOf: AS_OF, ...extra }), isBadArgument, `O12 负例第 ${i} 个`);
+  }
+  const protoPayload = JSON.parse(`{"asOf":"${AS_OF}","frameMeta":[{"filmType":"toon","frames":[{"source":{"renderer":"core"},"__proto__":{"o12Polluted":1}}]}]}`);
+  assert.throws(() => buildBoard(protoPayload), isBadArgument);
+  assert.equal({}.o12Polluted, undefined);
+  assert.equal(traps, 0);
+
+  // Object.prototype 挂上 O12 相关键的 getter/setter 时，三个公开纯函数仍零陷阱
+  const o12ProtoKeys = ['frameMeta', 'coreFrameShare', 'byFilmType', 'overall', 'coreFrames', 'totalFrames', 'filmType', 'filmId', 'frames', 'renderer'];
+  let protoTraps = 0;
+  try {
+    for (const key of o12ProtoKeys) {
+      Object.defineProperty(Object.prototype, key, {
+        __proto__: null,
+        configurable: true,
+        get() { protoTraps += 1; return []; },
+        set() { protoTraps += 1; },
+      });
+    }
+    const clean = buildBoard({ asOf: AS_OF, frameMeta: [{ filmType: 'toon', frames: [{ source: { renderer: 'core' } }] }] });
+    assert.equal(clean.coreFrameShare.byFilmType.toon.rate, 1);
+    assert.ok(renderBoardHtml(clean).includes('100.0%'));
+    assert.equal(appendBoardHistory([], clean).length, 1);
+  } finally {
+    for (const key of o12ProtoKeys) delete Object.prototype[key];
+  }
+  assert.equal(protoTraps, 0);
 });
 

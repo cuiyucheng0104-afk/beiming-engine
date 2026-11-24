@@ -411,7 +411,7 @@ impl Default for GpuMaterial {
 }
 
 /// 北冥：物体扩展表的一项（pathtrace.wgsl `ObjectExt`）：每个物体两个 vec4，与物体表同下标。各家只填自己的格子。
-/// 现在没有人填，上传的是全 0。
+/// 场景包读入器（pack.rs）填 `entity_id` 与 `object_flag` 的镜像位；别的入口与别的格子是全 0。内核里还没有人读这张表。
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GpuObjectExt {
@@ -428,6 +428,9 @@ pub struct GpuObjectExt {
     pub reserved0: f32,
     pub reserved1: f32,
 }
+
+/// 物体标志 `SD_OBJECT_NEGATIVE_SCALE`（pathtrace.wgsl 里同名同值）：物体是镜像的。
+pub const SD_OBJECT_NEGATIVE_SCALE: u32 = 1 << 3;
 
 /// 材质记录 `flags` 的位（pathtrace.wgsl 里同名，库测试逐个比数值）。
 pub const MATERIAL_FLAG_MULTISCATTER: u32 = 1 << 0;
@@ -558,6 +561,8 @@ pub struct Scene {
     pub tri_nodes: Vec<(String, u32, u32)>,
     /// Triangle ranges of flattened instances of instanced objects (first, end, instance index): picking.
     pub tri_instances: Vec<(u32, u32, u32)>,
+    /// 北冥：物体扩展表（`GpuObjectExt`），与 `objects` 同下标。空的时候上传全 0；场景包读入器（pack.rs）填实体编号与镜像位。
+    pub object_ext: Vec<GpuObjectExt>,
     /// Some object has instance colours (`InstanceTable::colors`): the kernel's F_TINT, 4 vec4s an object
     /// (`object_stride`).
     pub tinted: bool,
@@ -1875,6 +1880,7 @@ pub fn build(w: &World, assets: &Path, presets_dir: &Path, overrides: Option<&se
         stats,
         tri_nodes,
         tri_instances,
+        object_ext: vec![],
         tinted,
         retained,
         media,

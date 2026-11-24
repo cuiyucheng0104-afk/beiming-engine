@@ -8,7 +8,16 @@ export {
   validateQuestion,
 } from './validate-question.mjs';
 export { RESULT_FORMAT, SOURCES, defaultJudge, hasBlockedByChanged, runExamQuestion } from './runner.mjs';
-export { BOARD_FORMAT, TOTAL_PRIORS_BASELINE, UNSUPPORTED_REASON, appendBoardHistory, buildBoard, renderBoardHtml } from './board.mjs';
+export {
+  ALLOWED_RENDERERS,
+  BOARD_FORMAT,
+  FILM_TYPES,
+  TOTAL_PRIORS_BASELINE,
+  UNSUPPORTED_REASON,
+  appendBoardHistory,
+  buildBoard,
+  renderBoardHtml,
+} from './board.mjs';
 export { WALL_FORMAT, DEFAULT_MAX_DAILY, buildFilmWall, renderFilmWallHtml } from './wall.mjs';
 export {
   LEDGER_FORMAT,
