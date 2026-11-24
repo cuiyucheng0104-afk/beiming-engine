@@ -1380,6 +1380,8 @@ pub fn build(p: &Pack, k: usize, size: (u32, u32), preset: Option<&str>, presets
 // ------------------------------------------------------------------------------------------ 统计与核对记录
 
 /// `pack-info` 的统计。三角形数是从几何文件实际读到的每个网格的三角形数，乘以这一帧画出来的实例（不是抄清单的 tris）。
+/// `drawn` 与 `triangles` 只算这一帧画出来的实例：九个数全为 0 的不建；行列式为 0（九个数不全为 0，压扁成面或线）的，内核建场景时
+/// 也不画（`scene::instance_world` 把它藏起来），即行列式为 0 的那一帧这个实例不画。
 pub fn info(p: &Pack, k: usize, b: &Built) -> Value {
     let entities: BTreeSet<u32> = p.rows.iter().map(|r| r[2]).collect();
     let mut types: std::collections::BTreeMap<&str, usize> = Default::default();
@@ -1605,6 +1607,13 @@ mod tests {
     fn zero_scale_rows_are_not_drawn() {
         let mut p = pack(0, false);
         for x in &mut p.frames_instances.data[16..16 + 12] {
+            *x = 0.0;
+        }
+        let b = build(&p, 0, (64, 32), None, &presets(), None).unwrap();
+        assert_eq!(b.placed.iter().map(|x| (x.drawn, x.triangles)).collect::<Vec<_>>(), vec![(true, 1), (false, 0)]);
+        // 九个数不全为 0、行列式为 0（压扁成 yz 平面上的一个面）：建了，但内核不画
+        let mut p = pack(0, false);
+        for x in &mut p.frames_instances.data[16..16 + 3] {
             *x = 0.0;
         }
         let b = build(&p, 0, (64, 32), None, &presets(), None).unwrap();
