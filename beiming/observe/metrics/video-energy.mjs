@@ -1,5 +1,6 @@
 // 成片视频文件的噪点残差与边缘锯齿量测封装（O8 视频入口）。
-// 用 ffprobe 查宽高与总帧数，用 ffmpeg 流式解码 8 位灰度亮度平面（不落临时图片文件），
+// 用 ffprobe 查总帧数，用 ffmpeg 以自定界 Y4M 单通道灰度流（yuv4mpegpipe + gray，-fps_mode passthrough）
+// 读取按显示矩阵自动旋转后的真实解码尺寸与 8 位灰度亮度平面（不落临时图片文件）；
 // 短片全量解码，长片按确定性首/中/尾三段连续窗口分段量测后聚合（取最差值与最大闪烁），避免 4K 长片爆内存。
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
@@ -7,6 +8,7 @@ import { aliasEdge, noiseResidual } from './energy-rulers.mjs';
 
 export const DEFAULT_MAX_FRAMES = 60;
 const MIN_MAX_FRAMES = 9;
+const MAX_Y4M_LINE = 4096;
 const NOISE_OPTS = ['maxFrames', 'roi', 'block', 'motionThreshold', 'maxShift'];
 const ALIAS_OPTS = ['maxFrames', 'roi', 'edgeThreshold'];
 
@@ -31,6 +33,19 @@ function validateInputs(filePath, opts, allowed) {
   return { maxFrames, rulerOpts };
 }
 
+function resolveRegion(width, height, roi) {
+  if (roi === undefined) return { x: 0, y: 0, width, height };
+  if (
+    roi === null || typeof roi !== 'object' || Array.isArray(roi)
+    || ![roi.x, roi.y, roi.width, roi.height].every(Number.isInteger)
+    || roi.x < 0 || roi.y < 0 || roi.width <= 0 || roi.height <= 0
+    || roi.x + roi.width > width || roi.y + roi.height > height
+  ) {
+    bad('roi 须为画面内的整数像素框');
+  }
+  return roi;
+}
+
 /** 规划确定性采样窗口：短片全量解码，长片取首/中/尾三段互不重叠的连续帧段（每段至少 3 帧） */
 function planSegments(totalFrames, maxFrames) {
   if (totalFrames <= maxFrames) return [[0, totalFrames]];
@@ -46,7 +61,7 @@ function planSegments(totalFrames, maxFrames) {
 async function probeVideo(filePath) {
   const child = spawn('ffprobe', [
     '-v', 'error', '-select_streams', 'v:0', '-count_frames',
-    '-show_entries', 'stream=width,height,nb_read_frames,nb_frames:stream_side_data=rotation:stream_tags=rotate',
+    '-show_entries', 'stream=width,height,nb_read_frames,nb_frames',
     '-of', 'json', resolve(filePath),
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
   let stdout = '', stderr = '';
@@ -58,15 +73,8 @@ async function probeVideo(filePath) {
   });
   const stream = JSON.parse(stdout).streams?.[0];
   if (!stream) throw new Error('缺少视频轨');
-  let width = Number(stream.width);
-  let height = Number(stream.height);
-  // ffmpeg 解码默认按显示矩阵自动旋转：±90°/±270° 旋转元数据会使解码输出帧的宽高互换
-  const sideRot = stream.side_data_list?.find((s) => s && s.rotation !== undefined)?.rotation;
-  const rawRot = sideRot ?? stream.tags?.rotate ?? 0;
-  const rotDeg = Number(rawRot);
-  if (Number.isFinite(rotDeg) && Math.abs(Math.round(rotDeg)) % 180 === 90) {
-    [width, height] = [height, width];
-  }
+  const width = Number(stream.width);
+  const height = Number(stream.height);
   const totalFrames = Number(stream.nb_read_frames) || Number(stream.nb_frames);
   if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
     throw new Error('视频尺寸无效');
@@ -77,70 +85,156 @@ async function probeVideo(filePath) {
   return { width, height, totalFrames };
 }
 
+function parseY4mStreamHeader(line) {
+  if (!line.startsWith('YUV4MPEG2 ')) throw new Error(`无效 Y4M 流头：${line.slice(0, 64)}`);
+  const wm = /\bW(\d+)\b/.exec(line);
+  const hm = /\bH(\d+)\b/.exec(line);
+  const width = wm ? Number(wm[1]) : 0;
+  const height = hm ? Number(hm[1]) : 0;
+  if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
+    throw new Error(`无效 Y4M 尺寸：${line.slice(0, 64)}`);
+  }
+  return { width, height };
+}
+
 /**
- * 流式解码 8 位灰度帧平面，只保留落入目标连续段的帧；每段满帧立即回调并释放该段缓冲，控制内存上界。
+ * 以 Y4M（yuv4mpegpipe + gray）流式解码 8 位灰度帧平面：
+ * 直接从 ffmpeg 写出的 YUV4MPEG2 头取真实显示宽高（自动对齐任意旋转矩阵），
+ * 仅保留落入目标连续段的帧并在每段满帧时立即回调释放缓冲，控制内存上界。
  */
-async function streamGraySegments(filePath, width, height, segments, onSegment) {
-  const frameBytes = width * height;
+async function streamGraySegments(filePath, segments, { onHeader, onSegment }) {
   const child = spawn('ffmpeg', [
     '-nostdin', '-hide_banner', '-v', 'error',
     '-i', resolve(filePath),
     '-map', '0:v:0',
     '-fps_mode', 'passthrough',
-    '-f', 'rawvideo', '-pix_fmt', 'gray', '-',
+    '-strict', '-1',
+    '-f', 'yuv4mpegpipe', '-pix_fmt', 'gray', '-',
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
   let stderr = '';
+  let stoppedEarly = false;
+  let spawnError = null;
   child.stderr.setEncoding('utf8').on('data', (chunk) => { stderr = (stderr + chunk).slice(-8192); });
   const closed = new Promise((accept, reject) => {
-    child.once('error', reject);
-    child.once('close', (code) => (code === 0 ? accept() : reject(new Error(`ffmpeg: ${stderr}`))));
+    child.once('error', (err) => {
+      spawnError = err;
+      reject(err);
+    });
+    child.once('close', (code) => {
+      if (stoppedEarly || code === 0) accept();
+      else reject(new Error(`ffmpeg: ${stderr}`));
+    });
   });
 
+  let state = 'header';
+  let lineChunks = [];
+  let lineLen = 0;
+  let width = 0;
+  let height = 0;
+  let frameBytes = 0;
   let frameIndex = 0;
   let segIdx = 0;
   let offset = 0;
   let currentBuf = null;
   let segFrames = [];
+  let headerParsed = false;
+  let earlyAbort = false;
 
+  const takeLine = (chunk, pos) => {
+    const nl = chunk.indexOf(0x0a, pos);
+    if (nl === -1) {
+      const slice = chunk.subarray(pos);
+      lineLen += slice.length;
+      if (lineLen > MAX_Y4M_LINE) throw new Error('Y4M 头行过长');
+      lineChunks.push(slice);
+      return { line: null, nextPos: chunk.length };
+    }
+    const slice = chunk.subarray(pos, nl);
+    lineLen += slice.length;
+    if (lineLen > MAX_Y4M_LINE) throw new Error('Y4M 头行过长');
+    lineChunks.push(slice);
+    const line = Buffer.concat(lineChunks).toString('ascii').replace(/\r$/, '');
+    lineChunks = [];
+    lineLen = 0;
+    return { line, nextPos: nl + 1 };
+  };
+
+  let readerError = null;
   try {
-    await Promise.all([closed, (async () => {
-      for await (const chunk of child.stdout) {
-        let pos = 0;
-        while (pos < chunk.length) {
-          const need = frameBytes - offset;
-          const take = Math.min(need, chunk.length - pos);
-          const seg = segIdx < segments.length ? segments[segIdx] : null;
-          const keep = seg !== null && frameIndex >= seg[0] && frameIndex < seg[1];
-          if (keep) {
-            if (offset === 0) currentBuf = new Uint8Array(frameBytes);
-            currentBuf.set(chunk.subarray(pos, pos + take), offset);
-          }
-          offset += take;
-          pos += take;
-          if (offset === frameBytes) {
-            if (keep) {
-              segFrames.push({ width, height, luma: currentBuf });
-              currentBuf = null;
-            }
-            frameIndex++;
-            offset = 0;
-            if (seg !== null && frameIndex === seg[1]) {
-              onSegment(seg, segFrames);
-              segFrames = [];
-              segIdx++;
+    const reader = (async () => {
+      try {
+        for await (const chunk of child.stdout) {
+          let pos = 0;
+          while (pos < chunk.length) {
+            if (state === 'header') {
+              const { line, nextPos } = takeLine(chunk, pos);
+              pos = nextPos;
+              if (line === null) break;
+              ({ width, height } = parseY4mStreamHeader(line));
+              frameBytes = width * height;
+              headerParsed = true;
+              if (onHeader && onHeader({ width, height }) === false) {
+                earlyAbort = true;
+                stoppedEarly = true;
+                child.stdout.destroy();
+                if (child.exitCode === null) child.kill();
+                return;
+              }
+              state = 'frame-hdr';
+            } else if (state === 'frame-hdr') {
+              const { line, nextPos } = takeLine(chunk, pos);
+              pos = nextPos;
+              if (line === null) break;
+              if (!line.startsWith('FRAME')) throw new Error(`无效 Y4M 帧头：${line.slice(0, 32)}`);
+              offset = 0;
+              state = 'frame-data';
+            } else {
+              const need = frameBytes - offset;
+              const take = Math.min(need, chunk.length - pos);
+              const seg = segIdx < segments.length ? segments[segIdx] : null;
+              const keep = seg !== null && frameIndex >= seg[0] && frameIndex < seg[1];
+              if (keep) {
+                if (offset === 0) currentBuf = new Uint8Array(frameBytes);
+                currentBuf.set(chunk.subarray(pos, pos + take), offset);
+              }
+              offset += take;
+              pos += take;
+              if (offset === frameBytes) {
+                if (keep) {
+                  segFrames.push({ width, height, luma: currentBuf });
+                  currentBuf = null;
+                }
+                frameIndex++;
+                offset = 0;
+                state = 'frame-hdr';
+                if (seg !== null && frameIndex === seg[1]) {
+                  onSegment(seg, segFrames, width, height);
+                  segFrames = [];
+                  segIdx++;
+                }
+              }
             }
           }
         }
+        if (headerParsed && !earlyAbort && segIdx < segments.length && segFrames.length > 0) {
+          onSegment([segments[segIdx][0], frameIndex], segFrames, width, height);
+          segFrames = [];
+        }
+      } catch (err) {
+        readerError = err;
+        stoppedEarly = true;
+        child.stdout.destroy();
+        if (child.exitCode === null) child.kill();
       }
-      if (segIdx < segments.length && segFrames.length > 0) {
-        onSegment([segments[segIdx][0], frameIndex], segFrames);
-        segFrames = [];
-      }
-    })()]);
+    })();
+
+    await Promise.all([closed, reader]);
+    if (readerError) throw readerError;
+    if (!headerParsed && !spawnError) throw new Error('缺少视频帧');
   } finally {
     if (child.exitCode === null) child.kill();
   }
-  return frameIndex;
+  return { width, height, decoded: frameIndex, aborted: earlyAbort };
 }
 
 async function measure(metric, unit, run) {
@@ -155,8 +249,8 @@ async function measure(metric, unit, run) {
 export function videoNoiseResidual(filePath, opts = {}) {
   const { maxFrames, rulerOpts } = validateInputs(filePath, opts, NOISE_OPTS);
   return measure('metric:noise.residual', 'code8', async () => {
-    const { width, height, totalFrames } = await probeVideo(filePath);
-    if (totalFrames < 2) {
+    const probed = await probeVideo(filePath);
+    if (probed.totalFrames < 2) {
       return {
         value: null,
         details: {
@@ -165,15 +259,40 @@ export function videoNoiseResidual(filePath, opts = {}) {
           staticPixels: 0,
           totalPixels: 0,
           pairs: 0,
-          sampledFrames: totalFrames,
-          totalFrames,
-          width,
-          height,
+          sampledFrames: probed.totalFrames,
+          totalFrames: probed.totalFrames,
+          width: probed.width,
+          height: probed.height,
           segments: [],
         },
       };
     }
-    if (rulerOpts.roi === undefined && rulerOpts.block === undefined && Math.min(width, height) < 4) {
+    const plan = planSegments(probed.totalFrames, maxFrames);
+    const segResults = [];
+    let effectiveOpts = rulerOpts;
+    let insufficientResolution = false;
+
+    const { width, height, decoded } = await streamGraySegments(filePath, plan, {
+      onHeader({ width: w, height: h }) {
+        const reg = resolveRegion(w, h, rulerOpts.roi);
+        if (rulerOpts.block === undefined) {
+          const shortSide = Math.min(reg.width, reg.height);
+          if (shortSide < 4) {
+            insufficientResolution = true;
+            return false;
+          }
+          if (shortSide < 8) effectiveOpts = { ...rulerOpts, block: shortSide };
+        }
+        return true;
+      },
+      onSegment([start, end], frames) {
+        if (frames.length < 2) return;
+        const r = noiseResidual(frames, effectiveOpts);
+        segResults.push({ start, end, frames: frames.length, r });
+      },
+    });
+
+    if (insufficientResolution) {
       return {
         value: null,
         details: {
@@ -183,30 +302,13 @@ export function videoNoiseResidual(filePath, opts = {}) {
           totalPixels: 0,
           pairs: 0,
           sampledFrames: 0,
-          totalFrames,
+          totalFrames: probed.totalFrames,
           width,
           height,
           segments: [],
         },
       };
     }
-    const effectiveOpts = (() => {
-      if (rulerOpts.block !== undefined) return rulerOpts;
-      const areaW = rulerOpts.roi?.width ?? width;
-      const areaH = rulerOpts.roi?.height ?? height;
-      if (Number.isInteger(areaW) && Number.isInteger(areaH) && areaW > 0 && areaH > 0) {
-        const shortSide = Math.min(areaW, areaH);
-        if (shortSide >= 4 && shortSide < 8) return { ...rulerOpts, block: shortSide };
-      }
-      return rulerOpts;
-    })();
-    const plan = planSegments(totalFrames, maxFrames);
-    const segResults = [];
-    const decoded = await streamGraySegments(filePath, width, height, plan, ([start, end], frames) => {
-      if (frames.length < 2) return;
-      const r = noiseResidual(frames, effectiveOpts);
-      segResults.push({ start, end, frames: frames.length, r });
-    });
     if (decoded < 2 || segResults.length === 0) {
       return {
         value: null,
@@ -217,7 +319,7 @@ export function videoNoiseResidual(filePath, opts = {}) {
           totalPixels: 0,
           pairs: 0,
           sampledFrames: decoded,
-          totalFrames: decoded || totalFrames,
+          totalFrames: decoded || probed.totalFrames,
           width,
           height,
           segments: [],
@@ -262,13 +364,19 @@ export function videoNoiseResidual(filePath, opts = {}) {
 export function videoAliasEdge(filePath, opts = {}) {
   const { maxFrames, rulerOpts } = validateInputs(filePath, opts, ALIAS_OPTS);
   return measure('metric:alias.edge', 'px', async () => {
-    const { width, height, totalFrames } = await probeVideo(filePath);
-    const plan = planSegments(totalFrames, maxFrames);
+    const probed = await probeVideo(filePath);
+    const plan = planSegments(probed.totalFrames, maxFrames);
     const segResults = [];
-    const decoded = await streamGraySegments(filePath, width, height, plan, ([start, end], frames) => {
-      if (frames.length < 1) return;
-      const r = aliasEdge(frames, rulerOpts);
-      segResults.push({ start, end, frames: frames.length, r });
+    const { width, height, decoded } = await streamGraySegments(filePath, plan, {
+      onHeader({ width: w, height: h }) {
+        resolveRegion(w, h, rulerOpts.roi);
+        return true;
+      },
+      onSegment([start, end], frames) {
+        if (frames.length < 1) return;
+        const r = aliasEdge(frames, rulerOpts);
+        segResults.push({ start, end, frames: frames.length, r });
+      },
     });
     if (decoded < 1 || segResults.length === 0) throw new Error('缺少视频帧');
     const okSegs = segResults.filter((s) => s.r.status === 'ok');

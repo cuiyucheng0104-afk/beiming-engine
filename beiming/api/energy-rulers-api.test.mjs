@@ -182,7 +182,7 @@ test('layerL3 语义：显式更严约束不重复、显式更松约束不能绕
   assert.ok(looseRes.verdicts.some((v) => v.id === 'pred.noise_residual' && v.base && v.status === 'fail'));
   assert.ok(looseRes.verdicts.some((v) => v.id === 'pred.alias_edge' && v.base && v.status === 'fail'));
 
-  // 5. question.basePredicates 显式声明同名谓词：不重复添加默认条目
+  // 5. question.basePredicates 显式声明同名谓词（含 @ all 与等价全片区间 @ [0,12)）：不重复添加默认条目
   const qRes = layerL3({
     film,
     measured: {
@@ -196,6 +196,22 @@ test('layerL3 语义：显式更严约束不重复、显式更松约束不能绕
   assert.equal(qRes.ok, true);
   assert.equal(qRes.verdicts.filter((v) => v.id === 'pred.noise_residual').length, 1);
   assert.equal(qRes.verdicts.filter((v) => v.id === 'pred.alias_edge').length, 1);
+
+  const qAll = layerL3({
+    film,
+    measured: { ...baseMeasured, aliasEdge: { value: 0.8, status: 'ok', unit: 'px' } },
+    question: { basePredicates: ['alias_edge(film) <= 1 @ all'] },
+    entities,
+  });
+  const qRange = layerL3({
+    film,
+    measured: { ...baseMeasured, aliasEdge: { value: 0.8, status: 'ok', unit: 'px' } },
+    question: { basePredicates: ['alias_edge(film) <= 1 @ [0,12)'] },
+    entities,
+  });
+  assert.equal(qAll.ok, true);
+  assert.equal(qRange.ok, true);
+  assert.equal(qRange.verdicts.filter((v) => v.id === 'pred.alias_edge').length, 1);
 });
 
 const skipMedia = pageMediaSkip();

@@ -30,7 +30,7 @@ import { caps as threeCaps } from '../sources/three/caps.mjs';
 import { planRender as planThree } from '../sources/three/plan.mjs';
 import { readExr, writeExr } from '../verify/exr/exr.mjs';
 import {
-  checkL1, DEFAULT_MAX_ALIAS_EDGE, DEFAULT_MAX_NOISE_RESIDUAL, evaluateAssertion, evaluateFloor, guardPredicates, IOU_MIN, parseAssertion, runPureFunctionGate, toVerdict, verifySampledBboxes,
+  checkL1, DEFAULT_MAX_ALIAS_EDGE, DEFAULT_MAX_NOISE_RESIDUAL, evaluateAssertion, evaluateFloor, guardPredicates, IOU_MIN, parseAssertion, runPureFunctionGate, scopeRange, toVerdict, verifySampledBboxes,
 } from '../verify/index.mjs';
 import { diagnostic } from './envelope.mjs';
 import { BEIMING, engineCodeDigest, liveCardsDigest, monotonicMs, threeCardDirs, VIEW_SHAPER } from './runtime.mjs';
@@ -729,17 +729,23 @@ export async function measureMaster(master) {
 
 const fixOfResult = (r) => (r.fixes ?? []).find((f) => f && typeof f.path === 'string');
 
-/** 判断考题基础断言列表是否已显式覆盖全片成片默认画质门（仅 question.basePredicates 可替代默认 base 门，film.predicates.extra 不得隐藏 basePass 违例） */
-function coversBaseEnergyGate(texts, name) {
+/** 判断考题基础断言列表是否已显式覆盖全片成片默认画质门（支持 @ all 及等价覆盖 [0, frames) 的区间/单镜；仅 question.basePredicates 可替代默认 base 门，film.predicates.extra 不得隐藏 basePass 违例） */
+function coversBaseEnergyGate(texts, name, film) {
+  const totalFrames = Number.isInteger(film?.output?.frames) ? film.output.frames : null;
   for (const text of texts) {
     if (typeof text !== 'string') continue;
     const parsed = parseAssertion(text);
     if (!parsed.ok || parsed.assertion.name !== name) continue;
     const { args, scope } = parsed.assertion;
-    if (scope?.kind !== 'all' || args.length !== 1) continue;
+    if (args.length !== 1) continue;
     if (args[0].name !== null && args[0].name !== 'target') continue;
     const target = args[0].value;
-    if (target && target.kind === 'ident' && target.name === 'film') return true;
+    if (!target || target.kind !== 'ident' || target.name !== 'film') continue;
+    if (scope?.kind === 'all') return true;
+    if (totalFrames !== null && scope) {
+      const range = scopeRange(scope, film);
+      if (range && range[0] === 0 && range[1] === totalFrames) return true;
+    }
   }
   return false;
 }
@@ -788,7 +794,7 @@ export function layerL3({ film, measured, question, entities }) {
     ['aliasEdge', 'alias_edge', DEFAULT_MAX_ALIAS_EDGE],
   ]) {
     if (!measured || !Object.hasOwn(measured, key) || measured[key] === undefined) continue;
-    if (coversBaseEnergyGate(questionBase, predName)) continue;
+    if (coversBaseEnergyGate(questionBase, predName, film)) continue;
     const v = add(evaluateAssertion(`${predName}(film) <= ${defaultMax}`, film, measured), true);
     if (v.status === 'skipped') conditionalSkips.add(v);
   }

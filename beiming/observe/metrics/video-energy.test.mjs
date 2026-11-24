@@ -333,13 +333,24 @@ test('R1 回归：VFR 保留原始帧数与尾部斜边、90° 旋转元数据�
     assert.ok(roiRes.details.edgePixels > 0);
     assert.equal(roiRes.details.edgeRatio, roiRes.details.edgePixels / (roi.width * roi.height * roiRes.details.sampledFrames));
 
-    // 2. 90° 旋转元数据：解码显示尺寸为 64x128，与无损烘焙旋转读数逐位相等
+    // 2. 90° 与 89.5° 旋转元数据：直接按 ffmpeg Y4M 输出头取真实显示尺寸 64x128，与无损烘焙旋转读数逐位相等
     const tagged = await videoAliasEdge(rot);
     const bakedRes = await videoAliasEdge(baked);
     assert.equal(tagged.details.width, 64);
     assert.equal(tagged.details.height, 128);
     assert.equal(tagged.value, bakedRes.value);
     assert.ok(tagged.value > 0.6);
+
+    const rot895 = join(dir, 'rot895.mp4');
+    const baked895 = join(dir, 'baked895.mkv');
+    ff(['-display_rotation', '89.5', '-i', source, '-c', 'copy', rot895]);
+    ff(['-i', rot895, '-map', '0:v:0', '-c:v', 'ffv1', baked895]);
+    const tagged895 = await videoAliasEdge(rot895);
+    const baked895Res = await videoAliasEdge(baked895);
+    assert.deepEqual(
+      [tagged895.details.width, tagged895.details.height, tagged895.value],
+      [baked895Res.details.width, baked895Res.details.height, baked895Res.value],
+    );
 
     // 3. VFR 12 帧短片不重复帧且尾部 6 帧斜边不丢失
     const vfrRes = await videoAliasEdge(vfr);
@@ -348,13 +359,16 @@ test('R1 回归：VFR 保留原始帧数与尾部斜边、90° 旋转元数据�
     assert.equal(tailRes.details.totalFrames, 12);
     assert.equal(tailRes.details.status, 'ok');
 
-    // 4. 6x64 小画幅默认 block 自适应为 6 正常得 ok；短边 <4 的 2x64 返回结构化 insufficient-resolution
+    // 4. 6x64 小画幅默认 block 自适应为 6 正常得 ok；短边 <4 的 2x64 省略或显式传全幅 ROI 均一致返回 insufficient-resolution
     const smallRes = await videoNoiseResidual(small);
     assert.equal(smallRes.details.status, 'ok');
     assert.equal(smallRes.details.block, 6);
     const tinyRes = await videoNoiseResidual(tiny);
     assert.equal(tinyRes.value, null);
     assert.equal(tinyRes.details.status, 'insufficient-resolution');
+    const tinyWithFullRoi = await videoNoiseResidual(tiny, { roi: { x: 0, y: 0, width: 2, height: 64 } });
+    assert.equal(tinyWithFullRoi.value, null);
+    assert.equal(tinyWithFullRoi.details.status, 'insufficient-resolution');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
