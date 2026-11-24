@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
-import { chi2Test, directionChi2, gammaQ, ggxAlbedo, gridChi2, mcMean, polygonIrradiance } from './checks.mjs';
+import { chi2Test, directionChi2, gammaQ, ggxAlbedo, gridChi2, mcMean, polygonIrradiance, reciprocity } from './checks.mjs';
 import { compare } from './compare.mjs';
 import { FUNCTIONS, crs, dot3, outWidth, width } from './registry.mjs';
 import { CORE, check, makeInputs, shaderSource } from './run.mjs';
@@ -124,6 +124,15 @@ const NEW = [
   'bsdf_microfacet_sample_ggx', 'bsdf_microfacet_ggx_sample',
   'safe_asinf', 'ray_quad_intersect', 'area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_rect_sample_tiny', 'area_light_rect_sample_grazing',
   'area_light_sample', 'area_light_eval_from_intersection', 'area_light_intersect',
+  // 原理化 BSDF 非金属那一半
+  'fresnel_dielectric_polarized', 'fresnel_dielectric_polarized_inside', 'fresnel_dielectric_ccl', 'fresnel_dielectric_ccl_inside', 'fresnel_dielectric_Fss',
+  'ior_from_F0', 'F0_from_ior', 'inverse_lerp', 'safe_divide_color', 'closure_layering_weight',
+  'lookup_table_read_3D_ggx_gen_schlick_ior_s', 'lookup_table_read_3D_ggx_gen_schlick_s',
+  'generalized_schlick_fresnel', 'generalized_schlick_fresnel_regular', 'microfacet_fresnel_generalized_schlick',
+  'bsdf_microfacet_estimate_albedo_generalized_schlick', 'bsdf_microfacet_estimate_albedo_f82_tint', 'bsdf_microfacet_setup_fresnel_generalized_schlick',
+  'bsdf_microfacet_eval_ggx_generalized_schlick', 'bsdf_microfacet_eval_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_eval_generalized_schlick',
+  'bsdf_microfacet_sample_ggx_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_sample_generalized_schlick',
+  'bsdf_blur', 'sample_cos_hemisphere', 'bsdf_diffuse_eval', 'bsdf_diffuse_sample', 'emissive_pdf', 'emissive_simple_eval',
 ];
 
 /** 端到端测试的公共前置：缺工具链时跳过（E2E=1 时抛出），返回 null */
@@ -160,6 +169,27 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
     ['B * (1.0 / 126.0)', 'B * (1.0 / 125.0)', ['fresnel_f82_Fss', 'bsdf_microfacet_setup_fresnel_f82_tint'], 6, 3],
     // 新移植的闭包求值：反射的公共因子 0.25 改成 0.26，只有求值与它的包装不合格
     ['let common_ = D / cos_NI * 0.25;', 'let common_ = D / cos_NI * 0.26;', ['bsdf_microfacet_eval_ggx', 'bsdf_microfacet_ggx_eval'], 16, 4],
+  ]) {
+    await breakOne(t, file, src, from, to, expect, nIn, nOut);
+  }
+  // 原理化 BSDF 非金属那一半，各改错一项：
+  for (const [from, to, expect, nIn, nOut] of [
+    // 电介质的菲涅耳：非偏振取平均的 1/2 改成 0.51。用它的广义 Schlick（exponent < 0 那一支）、求值、采样、能量补偿一并不合格；
+    // 一般那一支（exponent ≥ 0）不经它，照旧合格
+    ['return (f.x + f.y) * (1.0 / 2.0);', 'return (f.x + f.y) * 0.51;', ['fresnel_dielectric_ccl', 'fresnel_dielectric_ccl_inside', 'generalized_schlick_fresnel', 'microfacet_fresnel_generalized_schlick',
+      'bsdf_microfacet_eval_ggx_generalized_schlick', 'bsdf_microfacet_ggx_eval_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_sample_generalized_schlick'], 2, 1],
+    // 电介质的 F0：(ior − 1)/(ior + 1) 的平方漏掉平方。能量补偿那一项也用它（s = (Fss − F0)/(1 − F0)），但改错之后 F0
+    // 总大于 Fss、s 被夹成 0，与对的 s（几个百分点）只在粗糙时差得出 1e-4，10 万组里没有超出的组，所以它不在名单里
+    ['return sqr((ior - 1.0) / (ior + 1.0));', 'return (ior - 1.0) / (ior + 1.0);', ['F0_from_ior', 'generalized_schlick_fresnel', 'microfacet_fresnel_generalized_schlick',
+      'bsdf_microfacet_eval_ggx_generalized_schlick', 'bsdf_microfacet_ggx_eval_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_sample_generalized_schlick'], 1, 1],
+    // 层间权重：1 − max(albedo/weight) 写成 1 − 平均
+    ['return weight * saturate(1.0 - reduce_max(safe_divide_color(layer_albedo, weight)));', 'return weight * saturate(1.0 - average(safe_divide_color(layer_albedo, weight)));', ['closure_layering_weight'], 6, 3],
+    // 漫反射：求值的 1/π 改成 0.32
+    ['let cosNO = max(dot(N, wo), 0.0) * M_1_PI_F;', 'let cosNO = max(dot(N, wo), 0.0) * 0.32;', ['bsdf_diffuse_eval'], 6, 4],
+    // 发光值：双面改成单面（只认几何法线那一侧）
+    ['let cosNI = abs(dot(Ng, wi));', 'let cosNI = dot(Ng, wi);', ['emissive_pdf', 'emissive_simple_eval'], 6, 1],
+    // 滤光泽：alpha 与模糊粗糙度取大写成取小
+    ['return vec2f(max(roughness, alpha_x), max(roughness, alpha_y));', 'return vec2f(min(roughness, alpha_x), max(roughness, alpha_y));', ['bsdf_blur'], 3, 2],
   ]) {
     await breakOne(t, file, src, from, to, expect, nIn, nOut);
   }
@@ -345,4 +375,87 @@ test('端到端数学裁判：均匀矩形面光照小面元，采样估计的�
     // 样本数给够：标准误差不到容差的四分之一
     assert.ok(r[k].stderr / c.exact < 5e-4, `${c.name} 标准误差 ${r[k].stderr}`);
   });
+});
+
+// 原理化 BSDF 的电介质高光（GGX、广义 Schlick、只有反射；f0 取折射率 1.5 的 F0、f90 = 1、exponent = −1.5，照
+// kernel/svm/closure.h 高光分支的默认值）与漫反射
+const DIELECTRIC = (ior = 1.5) => `${ior}, vec3f(F0_from_ior(${ior})), vec3f(1.0), ${-ior}, vec3f(1.0), vec3f(0.0)`;
+const PRINCIPLED_HELPERS = `
+fn chi2_wi(cos_i: f32) -> vec3f { return vec3f(sqrt(1.0 - cos_i * cos_i), 0.0, cos_i); }
+fn chi2_dielectric_sample(u: vec3f, alpha: f32, cos_i: f32) -> vec4f {
+  let s = bsdf_microfacet_ggx_sample_generalized_schlick(vec3f(0.0, 0.0, 1.0), vec3f(0.0, 0.0, 1.0), chi2_wi(cos_i), alpha, ${DIELECTRIC()}, 1.0, u.xy);
+  return vec4f(s.wo, f32(s.label != LABEL_NONE));
+}
+fn chi2_dielectric_pdf(wo: vec3f, alpha: f32, cos_i: f32) -> f32 {
+  return bsdf_microfacet_ggx_eval_generalized_schlick(vec3f(0.0, 0.0, 1.0), chi2_wi(cos_i), wo, alpha, ${DIELECTRIC()}, 1.0).pdf;
+}
+fn chi2_diffuse_sample(u: vec3f, N: vec3f) -> vec4f {
+  let s = bsdf_diffuse_sample(N, N, u.xy);
+  return vec4f(s.wo, f32(s.pdf > 0.0));
+}
+`;
+
+test('端到端 χ²：电介质高光与漫反射的采样方向分布与概率密度配对；故意不配对时检验不过', { timeout: 600_000 }, async t => {
+  const alphas = [0.05, 0.2, 0.5, 1];
+  const normals = [[0, 0, 1], [0.3, -0.5, 0.812404]];
+  const pairs = alphas.length * 3 + normals.length;
+  const level = 1 - (1 - 0.01) ** (1 / pairs);
+  const cases = [
+    ...alphas.flatMap(alpha => [1, 0.7, 0.26].flatMap(cosI => [
+      { name: `电介质 alpha=${alpha} cosI=${cosI}`, sample: `chi2_dielectric_sample(u, ${alpha}, ${cosI})`, pdf: `chi2_dielectric_pdf(wo, ${alpha}, ${cosI})` },
+      { name: `反例 电介质 alpha=${alpha} cosI=${cosI}`, bad: true, sample: `chi2_dielectric_sample(u, ${alpha}, ${cosI})`, pdf: `chi2_dielectric_pdf(wo, ${alpha * 1.1}, ${cosI})` },
+    ])),
+    ...normals.flatMap(N => [
+      { name: `漫反射 N=[${N}]`, sample: `chi2_diffuse_sample(u, vec3f(${N.join(', ')}))`, pdf: `bsdf_diffuse_eval(vec3f(${N.join(', ')}), wo).pdf` },
+      // 反例：概率密度按 cos^1.1 归一化前的形状给，分布形状与采样对不上
+      { name: `反例 漫反射 N=[${N}]`, bad: true, sample: `chi2_diffuse_sample(u, vec3f(${N.join(', ')}))`, pdf: `pow(bsdf_diffuse_eval(vec3f(${N.join(', ')}), wo).pdf * M_PI_F, 1.1) * 2.1 / (2.0 * M_PI_F)` },
+    ]),
+  ];
+  const r = await gpuOnly(t, () => directionChi2({ source: shaderSource() + PRINCIPLED_HELPERS, cases, n: 1_000_000, seed: 1 }));
+  if (!r) return;
+  for (const c of r) {
+    t.diagnostic(`${c.name}: χ²=${c.chi2.toFixed(1)} dof=${c.dof} p=${c.p.toExponential(3)} 被拒样本 ${c.lost.observed}（期望 ${c.lost.expected.toFixed(1)}）`);
+    if (c.bad) assert.ok(c.p < level, `${c.name} 应当不过，p=${c.p}`);
+    else assert.ok(c.p >= level, `${c.name} 不过：p=${c.p} < ${level}`);
+  }
+});
+
+test('端到端反照率：电介质高光（关能量补偿）与漫反射对出射半球积分不超过 1.001', { timeout: 600_000 }, async t => {
+  const cases = [];
+  // 粗糙度从 0.1 起，理由同金属那一项
+  for (const roughness of [0.1, 0.2, 0.3, 0.5, 0.7, 1]) {
+    for (const cosI of [1, 0.7, 0.3, 0.1, 0.05]) {
+      // f0 = f90 = 1：反射率恒为 1，是这个闭包反照率的上界（折射率只经 s 插在 f0 与 f90 之间，这里不起作用）
+      cases.push({ name: '电介质 f0=f90=1', roughness, cosI, alpha: roughness_to_alpha(roughness), eval: `bsdf_microfacet_ggx_eval_generalized_schlick(N, wi, wo, alpha, 1.5, vec3f(1.0), vec3f(1.0), -1.5, vec3f(1.0), vec3f(0.0), 1.0).eval.x` });
+    }
+  }
+  // 漫反射：alpha 只决定求积用的半向量分布（取 1，盖住整个半球）
+  for (const cosI of [1, 0.5, 0.05]) cases.push({ name: '漫反射', roughness: 1, cosI, alpha: 1, eval: 'bsdf_diffuse_eval(N, wo).eval.x' });
+  const r = await gpuOnly(t, () => ggxAlbedo({ source: shaderSource(), cases, m: 1024 }));
+  if (!r) return;
+  let max = 0;
+  cases.forEach((c, k) => {
+    t.diagnostic(`${c.name} roughness=${c.roughness} cosI=${c.cosI}: 反照率 ${r[k].toFixed(6)}`);
+    max = Math.max(max, r[k]);
+    assert.ok(r[k] <= 1.001, `${c.name} ${JSON.stringify(c)} 反照率 ${r[k]} 超过 1.001`);
+  });
+  // 漫反射的积分该是 1：求积本身准不准也在这里看
+  cases.forEach((c, k) => { if (c.name === '漫反射') assert.ok(Math.abs(r[k] - 1) < 1e-3, `漫反射 cosI=${c.cosI} 积出 ${r[k]}`); });
+  t.diagnostic(`最大反照率 ${max.toFixed(6)}`);
+});
+
+test('端到端互易：电介质高光与漫反射交换两个方向，BSDF 的相对差不超过 1e-4；故意不互易时检验不过', { timeout: 600_000 }, async t => {
+  const cases = [
+    ...[0.1, 0.3, 0.6, 1].map(roughness => ({ name: `电介质 粗糙度 ${roughness}`, eval: `bsdf_microfacet_eval_ggx_generalized_schlick(N, wi, wo, ${roughness_to_alpha(roughness)}, ${DIELECTRIC()}).eval.x` })),
+    { name: '漫反射', eval: 'bsdf_diffuse_eval(N, wo).eval.x' },
+    // 反例：能量补偿的倍率随入射方向变（microfacet_ggx_preserve_energy 按入射余弦查表），乘上它就不互易
+    { name: '反例 电介质乘入射方向的能量补偿', bad: true, eval: `bsdf_microfacet_eval_ggx_generalized_schlick(N, wi, wo, 0.25, ${DIELECTRIC()}).eval.x * microfacet_ggx_preserve_energy(N, wi, 0.25, vec3f(1.0)).energy_scale` },
+  ];
+  const r = await gpuOnly(t, () => reciprocity({ source: shaderSource(), cases, n: 1_000_000, seed: 1 }));
+  if (!r) return;
+  for (const c of r) {
+    t.diagnostic(`${c.name}: 最大相对差 ${c.maxRel.toExponential(3)}（参与比较 ${c.counted} 组，最差一组 cos 与两边的值 [${c.worst}]）`);
+    if (c.bad) assert.ok(c.maxRel > 1e-4, `${c.name} 应当不互易`);
+    else { assert.ok(c.maxRel <= 1e-4, `${c.name} 相对差 ${c.maxRel}`); assert.ok(c.counted > 900_000, c.name); }
+  }
 });

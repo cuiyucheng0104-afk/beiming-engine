@@ -681,7 +681,7 @@ fn sample_emitter_ris(x: vec3<f32>, n: vec3<f32>, m: u32, sd: ShadingPoint, rd: 
     let m_card = material_at(bitcast<u32>(attrs[em.tri].uv.w)).tex1.z == MAT_EMITTER_CARD;
     if (!m_card) { cos_l = abs(cos_l); }
     if (cos_l <= 0.0) { return r; }
-    r.le = emitter_radiance(em, pick_b.x, pick_b.y, l);
+    r.le = shader_eval_emission(em, pick_b.x, pick_b.y, l);
     r.l = l;
     r.dist = dist;
     // MIS by the source pdf: power alone without the tree (emit_mis), the tree's pmf with it
@@ -716,7 +716,7 @@ fn sample_emitter(x: vec3<f32>, n: vec3<f32>, rd: u32) -> ES {
     var cos_l = dot(ln, -l);
     if (material_at(bitcast<u32>(attrs[em.tri].uv.w)).tex1.z != MAT_EMITTER_CARD) { cos_l = abs(cos_l); }
     if (cos_l <= 0.0 || (has(F_PEMIT) && !(cos_l > 0.0))) { return r; } // also a particle not shown (no area: NaN)
-    r.le = emitter_radiance(em, b1, b2, l);
+    r.le = shader_eval_emission(em, b1, b2, l);
     r.l = l;
     r.dist = dist;
     r.pdf_w = pk.p / area * d2 / cos_l;
