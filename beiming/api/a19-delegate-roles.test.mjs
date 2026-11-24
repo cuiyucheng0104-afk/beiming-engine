@@ -916,11 +916,12 @@ test('A19-7 [B2] L5 先记账后解析与坏票隔离：第 5 票返回越界帧
   const dir = mkdtempSync(join(tmpdir(), 'bm-a19-b2-'));
   const ledgerPath = join(dir, 'external-ledger.jsonl');
   let mode = 'mixed';
-  let idx = 0;
 
   const mockVision = createServer(async (req, res) => {
-    if (!req.complete) await new Promise((r) => { req.once('end', r); req.resume(); });
-    const n = idx++;
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const sys = body?.messages?.[0]?.content ?? '';
     res.writeHead(200, { 'content-type': 'application/json' });
     if (mode === 'all-bad') {
       res.end(JSON.stringify({
@@ -930,7 +931,7 @@ test('A19-7 [B2] L5 先记账后解析与坏票隔离：第 5 票返回越界帧
       }));
       return;
     }
-    if (n === 4) {
+    if (sys.includes('[PERSPECTIVE:motion-rhythm][VOTE:2]')) {
       // 第 5 票（motion-rhythm vote 1）：返回越界帧区间 [0, 9999]
       res.end(JSON.stringify({
         model: 'gemini-vision-b2',
@@ -939,8 +940,8 @@ test('A19-7 [B2] L5 先记账后解析与坏票隔离：第 5 票返回越界帧
       }));
       return;
     }
-    if (n === 7) {
-      // 第 8 票：损坏 JSON
+    if (sys.includes('[PERSPECTIVE:look-consistency][VOTE:2]')) {
+      // 第 8 票（look-consistency vote 1）：损坏 JSON
       res.end(JSON.stringify({
         model: 'gemini-vision-b2',
         choices: [{ message: { content: '{broken json' } }],
@@ -948,7 +949,10 @@ test('A19-7 [B2] L5 先记账后解析与坏票隔离：第 5 票返回越界帧
       }));
       return;
     }
-    const opinions = (n === 0 || n === 1)
+    const opinions = (
+      sys.includes('[PERSPECTIVE:composition-readability][VOTE:1]')
+      || sys.includes('[PERSPECTIVE:composition-readability][VOTE:2]')
+    )
       ? [{ issueKey: 'hero-framing', frames: [2, 6], severity: 'warn', evidence: '主体略偏左', comment: '建议居中' }]
       : [];
     res.end(JSON.stringify({
@@ -985,7 +989,6 @@ test('A19-7 [B2] L5 先记账后解析与坏票隔离：第 5 票返回越界帧
 
     // 全坏票场景：status === 'failed' 但 usage 依然 100% 返还（9 * 250 = 2250）
     mode = 'all-bad';
-    idx = 0;
     const allBad = await layerL5({ reviewer, brief: '全坏票记账测试', images: [], loudness: null, film, filmId: 'f_002' });
     assert.equal(allBad.status, 'failed');
     assert.equal(allBad.totalBallots, 0);
