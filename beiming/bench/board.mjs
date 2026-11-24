@@ -17,6 +17,16 @@ export const BOARD_FORMAT = 'bench-board/0.1';
 export const UNSUPPORTED_REASON = '这个帧源没有这项能力';
 /** 05 §11：参数汇编的总条数，「参数的验证比例」的分母。 */
 export const TOTAL_PRIORS_BASELINE = 4452;
+/** 04 §11 / O12：核心出帧占比的固定四类片型。 */
+export const FILM_TYPES = Object.freeze([
+  Object.freeze({ id: 'motion-explainer', label: '动态图形与讲解' }),
+  Object.freeze({ id: 'hard-surface', label: '硬表面与写实' }),
+  Object.freeze({ id: 'toon', label: '三渲二' }),
+  Object.freeze({ id: 'realtime-3d', label: '游戏感实时三维' }),
+]);
+/** 定稿简报 v2 §4 / meta/0.1：每帧元数据 source.renderer 允许的渲染器集合。 */
+export const ALLOWED_RENDERERS = Object.freeze(['blender', 'three', 'core', 'legacy-page']);
+const FILM_TYPE_IDS = Object.freeze(FILM_TYPES.map((t) => t.id));
 const STALE_DAYS = 14, TOTAL_PACKS = 5, TOTAL_SWITCHES = 56, MAX_DEPTH = 64;
 const RESULT_FORMAT = 'bench-result/0.1', QUESTION_FORMAT = 'question/0.1';
 const UNSUPPORTED = 'unsupported-capability', NO_NAME = 'unspecified';
@@ -26,7 +36,7 @@ const SCORED = ['pass', 'fail', 'error', 'timeout', 'failed', 'expected-fail'];
 const CARD_STATUS = { read: 'read-only', 'read-only': 'read-only', candidate: 'candidate', reproduced: 'reproduced', measured: 'verified', verified: 'verified', 'film-verified': 'production-proven', 'production-proven': 'production-proven' };
 const STATUS_ORDER = ['read-only', 'candidate', 'reproduced', 'verified', 'production-proven'];
 const RULERS = ['noise.residual', 'clip.highlight-ratio', 'alias.edge'];
-const INPUT_KEYS = ['asOf', 'questions', 'results', 'cards', 'sourceCapabilities', 'ledger', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'priors', 'packParity', 'harvest', 'history', 'scoreboardMetric'];
+const INPUT_KEYS = ['asOf', 'questions', 'results', 'cards', 'sourceCapabilities', 'ledger', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'priors', 'packParity', 'harvest', 'history', 'scoreboardMetric', 'frameMeta'];
 
 /* ---------------- 入参门禁 ---------------- */
 
@@ -599,6 +609,81 @@ function readScoreboardMetric(input, at = '/scoreboardMetric') {
   };
 }
 
+/** O12：按四类片型统计核心出帧占比；唯一真相源是逐帧宿主元数据 frame.source.renderer === 'core'，不采信作业自报。 */
+function readFrameMeta(input) {
+  const counts = new Map(FILM_TYPES.map(({ id }) => [id, { coreFrames: 0, totalFrames: 0 }]));
+  const countFrame = (frameRaw, fAt, bucket) => {
+    const frame = obj(frameRaw, fAt);
+    const source = obj(frame.source, `${fAt}/source`);
+    const renderer = oneOf(source.renderer, ALLOWED_RENDERERS, `${fAt}/source/renderer`);
+    bucket.totalFrames += 1;
+    if (renderer === 'core') bucket.coreFrames += 1;
+  };
+  list(input, '/frameMeta').forEach((raw, i) => {
+    const at = `/frameMeta/${i}`;
+    const item = obj(raw, at);
+    const filmType = oneOf(item.filmType, FILM_TYPE_IDS, `${at}/filmType`);
+    if (item.filmId !== undefined) text(item.filmId, `${at}/filmId`);
+    const bucket = counts.get(filmType);
+    if (Object.hasOwn(item, 'frames')) {
+      if (!Array.isArray(item.frames)) bad(`${at}/frames 必须是数组`);
+      item.frames.forEach((frameRaw, j) => countFrame(frameRaw, `${at}/frames/${j}`, bucket));
+    } else if (Object.hasOwn(item, 'source')) {
+      countFrame(item, at, bucket);
+    } else {
+      bad(`${at}/frames 必须是数组`);
+    }
+  });
+  let totalCore = 0;
+  let totalAll = 0;
+  const byFilmType = Object.fromEntries(FILM_TYPES.map(({ id, label: typeLabel }) => {
+    const { coreFrames, totalFrames } = counts.get(id);
+    totalCore += coreFrames;
+    totalAll += totalFrames;
+    return [id, { label: typeLabel, coreFrames, totalFrames, rate: totalFrames ? coreFrames / totalFrames : 0 }];
+  }));
+  return {
+    overall: { coreFrames: totalCore, totalFrames: totalAll, rate: totalAll ? totalCore / totalAll : 0 },
+    byFilmType,
+  };
+}
+
+/** 校验看板快照上的 coreFrameShare 结构与计数一致性（供 checkBoard / renderBoardHtml 复核）。 */
+function readCoreFrameShare(input, at = '看板的 coreFrameShare') {
+  const c = only(obj(input, at), ['overall', 'byFilmType'], at);
+  const checkEntry = (raw, where, expectedLabel) => {
+    const allowed = expectedLabel === undefined ? ['coreFrames', 'totalFrames', 'rate'] : ['label', 'coreFrames', 'totalFrames', 'rate'];
+    const e = only(obj(raw, where), allowed, where);
+    if (expectedLabel !== undefined && text(e.label, `${where}/label`) !== expectedLabel) {
+      bad(`${where}/label 必须是 ${expectedLabel}`);
+    }
+    const coreFrames = count(e.coreFrames, `${where}/coreFrames`);
+    const totalFrames = count(e.totalFrames, `${where}/totalFrames`);
+    if (coreFrames > totalFrames) bad(`${where} 的 coreFrames 不能超过 totalFrames`, RangeError);
+    const expectedRate = totalFrames ? coreFrames / totalFrames : 0;
+    const givenRate = amount(e.rate, `${where}/rate`);
+    if (givenRate > 1) bad(`${where}/rate 不能超过 1`, RangeError);
+    if (Math.abs(givenRate - expectedRate) > 1e-9) bad(`${where}/rate 与 coreFrames / totalFrames 不一致`, RangeError);
+    return expectedLabel === undefined
+      ? { coreFrames, totalFrames, rate: expectedRate }
+      : { label: expectedLabel, coreFrames, totalFrames, rate: expectedRate };
+  };
+  const byRaw = only(obj(c.byFilmType, `${at}/byFilmType`), FILM_TYPE_IDS, `${at}/byFilmType`);
+  let sumCore = 0;
+  let sumTotal = 0;
+  const byFilmType = Object.fromEntries(FILM_TYPES.map(({ id, label: typeLabel }) => {
+    const entry = checkEntry(byRaw[id], `${at}/byFilmType/${id}`, typeLabel);
+    sumCore += entry.coreFrames;
+    sumTotal += entry.totalFrames;
+    return [id, entry];
+  }));
+  const overall = checkEntry(c.overall, `${at}/overall`);
+  if (overall.coreFrames !== sumCore || overall.totalFrames !== sumTotal) {
+    bad(`${at}/overall 与 byFilmType 合计不一致`, RangeError);
+  }
+  return { overall, byFilmType };
+}
+
 /* ---------------- 历史 ---------------- */
 
 function historyRow(board, datedIds = new Set()) {
@@ -669,6 +754,7 @@ function checkBoard(board) {
   const b = obj(intake(board, '看板'), '看板');
   if (b.format !== BOARD_FORMAT) bad(`看板的 format 不是 ${BOARD_FORMAT}`);
   day(b.asOf, '看板的 asOf');
+  if (b.coreFrameShare !== undefined) readCoreFrameShare(b.coreFrameShare, '看板的 coreFrameShare');
   return b;
 }
 
@@ -677,7 +763,7 @@ function checkBoard(board) {
 /**
  * 纯函数：由落盘数据算出看板快照（深冻结）。inputs 只有 asOf（YYYY-MM-DD）必填，其余没给就是没有数据：
  * questions（题目文件）、results（bench-result/0.1）、cards（卡文件）、sourceCapabilities、ledger（job-ledger/0.1 行）、jobs（作业记录）、
- * parity、energy、blindPicks、pureFunctionGate、locality、rebuild、priors、packParity、harvest、history（之前的每日行）。
+ * parity、energy、blindPicks、pureFunctionGate、locality、rebuild、priors、packParity、harvest、history（之前的每日行）、scoreboardMetric、frameMeta（按片型分组的每帧元数据）。
  * 入参不是纯数据、字段不对、带私有内容，都抛 code 为 usage.bad-argument 的 TypeError / RangeError。
  */
 export function buildBoard(inputs) {
@@ -691,6 +777,7 @@ export function buildBoard(inputs) {
   const { matrix, sorted, calibrationChanges } = buildMatrix({ asOf, questions: readQuestions(input.questions), results: readResults(input.results), cards, caps: readCapabilities(input.sourceCapabilities), previous });
   const rebuild = input.rebuild === undefined ? emptyObj() : only(obj(input.rebuild, '/rebuild'), ['exact', 'tolerance', 'nightlyLegacy'], '/rebuild');
   const scoreboardMetric = readScoreboardMetric(input.scoreboardMetric);
+  const coreFrameShare = readFrameMeta(input.frameMeta);
   const board = {
     format: BOARD_FORMAT,
     asOf,
@@ -704,6 +791,7 @@ export function buildBoard(inputs) {
         rebuild: { exact: tally(rebuild.exact, '/rebuild/exact'), tolerance: tally(rebuild.tolerance, '/rebuild/tolerance'), nightlyLegacy: tally(rebuild.nightlyLegacy, '/rebuild/nightlyLegacy') },
       },
     },
+    coreFrameShare,
     matrix,
     integrationProgress: { cards: cardProgress(cards), examCoverage: examCoverage(sorted, matrix.rows, cards), priorsVerified: priorsVerified(input.priors), packParity: packParity(input.packParity), harvest: harvest(input.harvest) },
     reverseIndicators: {
@@ -749,6 +837,15 @@ const fmt = (value, digits = 3) => {
   return String(Number.isFinite(scaled) ? scaled : value);
 };
 const pct = (value) => (typeof value === 'number' ? `${Number.isFinite(value * 100) ? fmt(value * 100, 1) : String(value)}%` : '—');
+// 用整数精确半进位保留一位小数，消除 3/2000 (0.15%) 等十进制半点的 IEEE-754 浮点误差
+const sharePct = (coreFrames, totalFrames) => {
+  if (!Number.isSafeInteger(coreFrames) || !Number.isSafeInteger(totalFrames) || coreFrames < 0 || totalFrames < 0) return '—';
+  if (totalFrames === 0) return '0.0%';
+  const c = BigInt(coreFrames);
+  const t = BigInt(totalFrames);
+  const tenths = (c * 2000n + t) / (2n * t);
+  return `${tenths / 10n}.${tenths % 10n}%`;
+};
 const frac = (t) => (t?.status === 'not-run' ? '未跑' : `${fmt(t?.passed, 0)} / ${fmt(t?.total, 0)}（${pct(t?.rate)}）`);
 const label = (table, value) => (typeof value === 'string' && Object.hasOwn(table, value) ? table[value] : value);
 const STATUS_LABEL = { pass: '通过', fail: '没过', error: '出错', timeout: '超时', failed: '判分失败', 'expected-fail': '预期失败' };
@@ -809,6 +906,21 @@ function page(board) {
     ['旧作品夜间重建', frac(control.rebuild.nightlyLegacy)],
   ])}</article>
 </div>`;
+
+  const coreShare = board.coreFrameShare === undefined ? readFrameMeta(undefined) : readCoreFrameShare(board.coreFrameShare, '看板的 coreFrameShare');
+  const coreShareHtml = h`<div class="cards">
+${FILM_TYPES.map(({ id, label: typeLabel }) => {
+    const item = coreShare.byFilmType[id];
+    return h`<article data-film-type="${id}"><h3>${typeLabel}</h3>${facts([
+      ['核心出帧占比', sharePct(item.coreFrames, item.totalFrames)],
+      ['帧数', `${fmt(item.coreFrames, 0)} / ${fmt(item.totalFrames, 0)} 帧`],
+    ])}</article>`;
+  })}
+</div>
+${facts([
+    ['总计', `${sharePct(coreShare.overall.coreFrames, coreShare.overall.totalFrames)}（${fmt(coreShare.overall.coreFrames, 0)} / ${fmt(coreShare.overall.totalFrames, 0)} 帧）`],
+  ])}
+<p class="note">口径仅认宿主每帧元数据 source.renderer === "core"，不采信作业自报；接管过门前每格为 0 亦照样显示。</p>`;
 
   const grid = h`<div class="scroll"><table>
 <caption>每格是这道题在这个帧源、这个做题模型上最新一次的得分（0 到 1）。写着「${UNSUPPORTED_REASON}」的格和没跑的格不进任何均分；做题出错、超时、预期失败记 0 分，照算。</caption>
@@ -875,6 +987,7 @@ ${repeatHtml}
 <header><h1>北冥看板</h1><p class="note">截至 <time>${board.asOf}</time>，由结果文件生成（${board.format}）。</p></header>
 <main>
 <section><h2>四个指标</h2>${indicators}</section>
+<section><h2>核心出帧占比</h2>${coreShareHtml}</section>
 <section><h2>考题 × 帧源 × 做题模型</h2>${grid}</section>
 <section><h2>整合进度</h2>${integration}</section>
 <section><h2>反向指标</h2>${reverseHtml}</section>
@@ -896,7 +1009,7 @@ export function renderBoardHtml(board) {
 // 做题目录等是做题方能写的地方，里面的 JSON 不当成绩读
 const RUN_PRIVATE_DIRS = new Set(['worktree', 'session', 'tmp', 'transcript', '.git', 'node_modules']);
 const CARD_SKIP_DIRS = new Set(['.git', 'node_modules', 'priors-data']);
-const EXTRA_KEYS = ['sourceCapabilities', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'packParity', 'harvest', 'scoreboardMetric'];
+const EXTRA_KEYS = ['sourceCapabilities', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'packParity', 'harvest', 'scoreboardMetric', 'frameMeta'];
 const hasPrivateMarker = (s) => scanQuestionLeaks(String(s)).some((l) => l.code !== 'local-path');
 function shownPath(s) {
   return /^(?:[\\/]|file:|~[\\/]|[a-z]:[\\/])/i.test(s) || hasPrivateText(s) ? '<路径已隐去>' : s;
