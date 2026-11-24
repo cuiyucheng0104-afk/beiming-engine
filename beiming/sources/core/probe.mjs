@@ -1,7 +1,8 @@
 // 核心帧源的一致性探针：把校准场景（beiming/calib/ 下的 probe-*，calib-scene/0.1）用 chassis/scenepack.mjs 写成场景包，
 // 经帧源接口（source.mjs 的 startSource → open → render）出层，照校准规格自己算期望，七项读数交给一致性套件的
-// evaluateSourceConformance 判。口径与 three、blender 两个帧源的探针相同（beiming/kernel/conformance/fixtures/v4-probe.mjs、
-// probe-observations.mjs 与 beiming/calib/table/ 里那几行）：
+// evaluateSourceConformance 判。场景、读数名与门限和 three、blender 两个帧源的探针相同（beiming/kernel/conformance/fixtures/v4-probe.mjs、
+// probe-observations.mjs 与 beiming/calib/table/ 里那几行），差别有四处：相机约定只用 8 个锚点（三个端头球与五个标记块），
+// 没有转台摆臂第 24、48 帧的变换先后；转台快门角是 0（核心拒绝大于 0 的快门角）；用 draft 档 16 采样；灰阶色块用矩形面光（见下）：
 //   颜色线性度  probe-gray-chart：灰阶与色卡中心像素、背景像素的线性值对规格里的发光值。场景包的材质还没有发光闭包（场景包契约
 //              第 6 节「材质参数登记」待定），色块写成对相机可见的矩形面光，辐亮度照内核读包的换算（功率 ÷ (π·宽·高) × 灯色）取成发光值
 //   深度        probe-plane-steps：规格里八个像素的平面深度对深度层，取相对误差的中位

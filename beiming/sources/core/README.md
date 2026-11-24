@@ -48,9 +48,11 @@ await s.close(); await src.stop();
 | 场景查询 `anchor`、`intersect`、`contact` | `contract.unsupported-query`：场景包里没有锚点，网格之间的穿插与接触没算 |
 | 场景包读不对 | 内核报的码（`contract.bad-value` 等），见 path/README.md |
 
+成片档的拒绝与帧源契约的 F25 冲突：F25 不看档位，宿主与作者模式都声明过时 `open` 就该成功；错误码表里 `contract.unsupported-mode` 也只指宿主或作者模式。所以帧源核对记录里只记 draft 档的 `open`，这一条待契约改（给只进看板的帧源留出 `final` 的例外，或者登记专用码）。
+
 ## 元数据
 
-- `source.renderer` 是 `core`，`host` 是 `offscreen`，`version` 是内核源码的内容摘要（`chassis/build.mjs` 的 `sourceKey`，编好的程序按它命名）。
+- `source.renderer` 是 `core`，`host` 是 `offscreen`，`version` 是内核源码的内容摘要（`chassis/build.mjs` 的 `sourceKey`，编好的程序按它命名）。帧源契约 3.4 的表里 core 的 `version` 写的是锁文件锁定的提交号，两者对不上：带锁文件 `open` 会被拒，待契约定用哪一个。
 - 相机：`world` 是场景包相机表的 `mat16`，`proj` 照每帧元数据契约 5.1 从 `fovY`、清单的 `near`、`far` 和输出尺寸算；相机表带景深两列时带 `focusDist`、`fstop`、`sensorHeightM`。
 - 实体：这一帧画出来的实体（实例矩阵左上 3×3 行列式不为 0）逐顶点投影，算 `bbox2d`、`bbox3d`、`pxArea`、`depth`（算式与页面宿主共用 `../../host/page/measure.js`，同样不做近裁剪面的裁剪：跨到相机后面的实体 `bbox2d` 不对）。`visible` 写 `null`（场景包里没有角色）。
 - `lights`、`stats.noise` 写 `null`，在能力声明的 `metaNull` 里；`texts` 是空数组。
@@ -62,5 +64,5 @@ await s.close(); await src.stop();
 node beiming/sources/core/probe.mjs [--out 报告.json] [--machine 名字]   # 退出码 0 七项都过，4 有一项不过
 ```
 
-- 七项的口径与 three、blender 两个帧源的探针相同，量法写在 `probe.mjs` 文件头。场景包的材质还没有发光闭包，灰阶的色块写成对相机可见的矩形面光。
+- 七项用的场景、读数名与门限和 three、blender 两个帧源的探针相同，量法写在 `probe.mjs` 文件头。差别：相机约定少了转台摆臂的变换先后（只比 8 个锚点）；转台快门角是 0；用 draft 档；场景包的材质还没有发光闭包，灰阶的色块写成对相机可见的矩形面光。
 - 确定性：能力声明写 `hash-same-machine`。依据：苹果 M5 Pro（Metal）与 RTX 5090（Vulkan）两台机器上，转台第 0、12、24、36、48 帧顺序渲、同一会话再渲一遍、另起帧源乱序渲，颜色层与法线层逐字节相同；两份从 Blender 导出的场景包同一帧渲两遍，颜色、深度、编号、覆盖率、法线层逐字节相同（苹果显卡上量的）。跨机器不比。
