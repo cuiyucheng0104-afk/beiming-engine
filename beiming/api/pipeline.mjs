@@ -807,7 +807,30 @@ export async function layerL5({
   }
 }
 
-/** 审片材料：联系表 + 切点条带（从成片取） */
+const MAX_REVIEW_KEYFRAMES = 4;
+
+/** 按镜头中点挑选审片原尺寸关键帧帧号（多镜头时均匀上限 4 帧，去重升序） */
+export function reviewKeyframeNumbers(film, maxCount = MAX_REVIEW_KEYFRAMES) {
+  const totalFrames = Number.isSafeInteger(film?.output?.frames) && film.output.frames > 0 ? film.output.frames : null;
+  const clamp = (f) => (totalFrames !== null ? Math.min(totalFrames - 1, Math.max(0, f)) : Math.max(0, f));
+  const mids = [];
+  for (const shot of film?.shots ?? []) {
+    if (Number.isSafeInteger(shot?.in) && Number.isSafeInteger(shot?.out) && shot.out > shot.in) {
+      mids.push(clamp(Math.floor((shot.in + shot.out - 1) / 2)));
+    }
+  }
+  let unique = [...new Set(mids)].sort((a, b) => a - b);
+  if (!unique.length && totalFrames !== null) {
+    unique = [Math.floor((totalFrames - 1) / 2)];
+  }
+  const limit = Number.isSafeInteger(maxCount) && maxCount > 0 ? maxCount : MAX_REVIEW_KEYFRAMES;
+  if (unique.length <= limit) return unique;
+  if (limit === 1) return [unique[Math.floor((unique.length - 1) / 2)]];
+  const picked = Array.from({ length: limit }, (_, i) => unique[Math.round((i * (unique.length - 1)) / (limit - 1))]);
+  return [...new Set(picked)];
+}
+
+/** 审片材料：联系表 + 切点条带 + 未缩放原尺寸关键帧（从成片按镜头中点取，最多 4 帧） */
 export function reviewMaterials({ master, fps, film, outDir }) {
   mkdirSync(outDir, { recursive: true });
   const images = [];
@@ -816,6 +839,42 @@ export function reviewMaterials({ master, fps, film, outDir }) {
   if ((film.transitions ?? []).length) {
     const strips = buildCutStrips({ video: master, fps, transitions: film.transitions, outDir: join(outDir, 'cuts') });
     if (strips.ok) for (const p of strips.outputs ?? []) images.push({ name: 'cut', path: p });
+  }
+  const keyFrames = reviewKeyframeNumbers(film);
+  if (keyFrames.length) {
+    const kfDir = join(outDir, 'keyframes');
+    rmSync(kfDir, { recursive: true, force: true });
+    mkdirSync(kfDir, { recursive: true });
+    try {
+      const { ffmpeg } = compTools();
+      const rawFps = fps ?? film?.output?.fps;
+      const rate = typeof rawFps === 'number' && Number.isFinite(rawFps) && rawFps > 0
+        ? String(rawFps)
+        : (() => { const p = parseFps(rawFps); return `${p.num}/${p.den}`; })();
+      const select = keyFrames.map((n) => `eq(n\\,${n})`).join('+');
+      runTool(ffmpeg, [
+        '-hide_banner', '-nostdin', '-v', 'error', '-y',
+        '-i', master,
+        '-map', '0:v:0',
+        '-vf', `fps=fps=${rate},select=${select}`,
+        '-fps_mode', 'passthrough',
+        '-frames:v', String(keyFrames.length),
+        '-c:v', 'png',
+        '-start_number', '0',
+        join(kfDir, 'tmp-%04d.png'),
+      ], { what: '原尺寸审片关键帧' });
+      for (let i = 0; i < keyFrames.length; i++) {
+        const src = join(kfDir, `tmp-${pad(i)}.png`);
+        if (!existsSync(src)) continue;
+        const name = `keyframe-f${keyFrames[i]}`;
+        const dest = join(kfDir, `${name}.png`);
+        renameSync(src, dest);
+        images.push({ name, path: dest });
+      }
+    } catch {
+      // 抽帧失败时清理临时目录，不阻断已产出的联系表与切点条带
+      rmSync(kfDir, { recursive: true, force: true });
+    }
   }
   return images;
 }
@@ -834,20 +893,50 @@ export function deliverBundle({ film, lock, records, lutPath, outDir }) {
 }
 
 /**
- * 把 L2–L5 的复核写进 report.json 的 verification 键，再照 comp 的完整性规则重新锚定：
+ * 把 L2–L5 的复核写进 report.json 的 verification 键，同时对齐顶层 ok 与 verification.ok 并紧邻写出
+ * unresolvedReviewOpinions（成立 L5 审片意见条数），再照 comp 的完整性规则重新锚定：
  * run.json 的 reportBodySha256 换成新报告正文（不含 run.json 那一项）的摘要，报告里 run.json 的字节数与摘要跟着更新。
  * 写完用 comp 的 verifyDeliveryBundle 自查一遍。
  */
 export function writeVerification(dir, verification) {
-  const report = JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8'));
+  const rawReport = JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8'));
   const run = JSON.parse(readFileSync(join(dir, 'run.json'), 'utf8'));
-  report.verification = verification;
-  const body = { ...report, files: { ...report.files } };
-  delete body.files['run.json'];
-  run.reportBodySha256 = sha256(jsonBytes(body));
+  const l5Opinions = Array.isArray(verification?.L5?.opinions)
+    ? verification.L5.opinions
+    : (Array.isArray(verification?.layers?.L5?.opinions) ? verification.layers.L5.opinions : []);
+  const unresolvedReviewOpinions = l5Opinions.length;
+  const {
+    format,
+    film,
+    delivery,
+    ok: prevOk,
+    unresolvedReviewOpinions: _prevUnresolved,
+    checks,
+    probes,
+    loudness,
+    files,
+    verification: _prevVerification,
+    ...rest
+  } = rawReport;
+  const filesWithoutRun = { ...files };
+  delete filesWithoutRun['run.json'];
+  const report = {
+    ...(format !== undefined ? { format } : {}),
+    ...(film !== undefined ? { film } : {}),
+    ...(delivery !== undefined ? { delivery } : {}),
+    ok: Boolean(prevOk && verification?.ok !== false),
+    unresolvedReviewOpinions,
+    ...(checks !== undefined ? { checks } : {}),
+    ...(probes !== undefined ? { probes } : {}),
+    ...(loudness !== undefined ? { loudness } : {}),
+    files: filesWithoutRun,
+    ...rest,
+    verification,
+  };
+  run.reportBodySha256 = sha256(jsonBytes(report));
   const runBytes = jsonBytes(run);
   writeFileSync(join(dir, 'run.json'), runBytes);
-  report.files = { ...report.files, 'run.json': { bytes: runBytes.length, sha256: sha256(runBytes) } };
+  report.files = { ...filesWithoutRun, 'run.json': { bytes: runBytes.length, sha256: sha256(runBytes) } };
   writeFileSync(join(dir, 'report.json'), jsonBytes(report));
   return verifyDeliveryBundle(dir);
 }

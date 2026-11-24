@@ -466,6 +466,62 @@ describe('真实 ffmpeg：母带与交付六件套', NEED_FFMPEG, () => {
     assert.deepEqual(verify().files, first.files);
   });
 
+  test('M1b 复验对齐 report.ok 与 verification.ok：verification.ok=false 配 ok=false 通过，错配与 comp checks 失败拒收', () => {
+    const dir = first ? first.dir : deliver({
+      film: smallFilm(),
+      events: eventsTable(smallFilm()),
+      lock: lockFor(fx.warm),
+      frames: framesFor(),
+      view: { lutPath: fx.warm, shaper: SHAPER },
+      outDir: join(root, 'deliver-m1b'),
+    }).dir;
+    const reportPath = join(dir, PIECES.report);
+    const runPath = join(dir, PIECES.run);
+    const origReport = readFileSync(reportPath);
+    const origRun = readFileSync(runPath);
+    const reanchor = (mutate) => {
+      const report = JSON.parse(origReport.toString('utf8'));
+      const run = JSON.parse(origRun.toString('utf8'));
+      mutate(report);
+      const body = { ...report, files: { ...report.files } };
+      delete body.files[PIECES.run];
+      run.reportBodySha256 = sha(Buffer.from(`${JSON.stringify(body, null, 2)}\n`));
+      const runBytes = Buffer.from(`${JSON.stringify(run, null, 2)}\n`);
+      writeFileSync(runPath, runBytes);
+      report.files[PIECES.run] = { bytes: runBytes.length, sha256: sha(runBytes) };
+      writeFileSync(reportPath, Buffer.from(`${JSON.stringify(report, null, 2)}\n`));
+    };
+    try {
+      // 1) verification.ok === false 且 report.ok === false（comp checks 全过）：通过复验
+      reanchor((r) => { r.ok = false; r.verification = { format: 'api-verification/0.1', ok: false }; });
+      assert.equal(Object.keys(verifyDeliveryBundle(dir).files).length, 6);
+
+      // 2) verification.ok === false 但 report.ok === true（错配）：拒收
+      reanchor((r) => { r.ok = true; r.verification = { format: 'api-verification/0.1', ok: false }; });
+      assert.throws(() => verifyDeliveryBundle(dir), code('contract.delivery-mismatch'));
+
+      // 3) 无 verification 但 report.ok === false：拒收
+      reanchor((r) => { r.ok = false; });
+      assert.throws(() => verifyDeliveryBundle(dir), code('contract.delivery-mismatch'));
+
+      // 4) verification.ok === true 但 report.ok === false：拒收
+      reanchor((r) => { r.ok = false; r.verification = { format: 'api-verification/0.1', ok: true }; });
+      assert.throws(() => verifyDeliveryBundle(dir), code('contract.delivery-mismatch'));
+
+      // 5) comp checks 本身有失败（checksOk === false），即使 report.ok === false 且 verification.ok === false 也拒收
+      reanchor((r) => {
+        r.checks[0].ok = false;
+        r.ok = false;
+        r.verification = { format: 'api-verification/0.1', ok: false };
+      });
+      assert.throws(() => verifyDeliveryBundle(dir), code('contract.delivery-mismatch'));
+    } finally {
+      writeFileSync(runPath, origRun);
+      writeFileSync(reportPath, origReport);
+    }
+    if (first) assert.deepEqual(verifyDeliveryBundle(dir).files, first.files);
+  });
+
   test('M10 关闭 web/contact 后向原目录重跑，在写入前拒绝冲突', () => {
     const film = smallFilm();
     delete film.delivery.web;
