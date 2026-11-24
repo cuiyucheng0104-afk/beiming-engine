@@ -19,6 +19,8 @@ pub mod scene;
 pub mod script;
 pub mod skin;
 pub mod cycles_hash;
+// 北冥：照 Cycles 移植的像素滤波建表
+pub mod pixel_filter;
 pub mod sample;
 pub mod sky;
 pub mod texpack;
@@ -682,6 +684,8 @@ pub fn prepare_as(hwrt: bool, sc: &mut scene::Scene, timings: &mut Vec<(String, 
         film: gpu::KernelFilm::new(0),
         // (`gpu::Uploaded::place`, with the buffers.)
         table_first_ext: [[0; 4]; 2],
+        // （北冥：不查滤波表，像素内均匀抖动。要像素滤波的调用方换成 `KernelFilterTable::new`。）
+        filter_table: gpu::KernelFilterTable::default(),
     };
     let mut params = params;
     params.set_preset(&sc.preset.native, &cam.exposure);

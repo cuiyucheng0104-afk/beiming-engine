@@ -6,13 +6,16 @@
 // file：WGSL 函数所在的文件；比对时 SHADERS 里的文件全部拼进一个着色器，所以函数可以调用别的文件里的函数。
 // call：可选，(实参 WGSL 表达式数组) => 调用表达式，给要补常量实参的函数用（例如查表函数的表偏移）。
 // gen：可选，(next: () => [0,1) 均匀数) => { 输入名: 数或数组 }，逐组生成彼此相关的输入（正交基、相对灯面的位置）；有它时 inputs 不写范围。
+// host：可选，为真时被测的是宿主一侧的 Rust（core-render fncheck-host 逐组算），file 是 Rust 源文件，不上显卡。
+// n：可选，这一项的组数（不写就用外壳的 --n）。filterTables：可选，为真时外壳先按 FILTER_TABLES 让标准答案程序建表，
+// 拼进着色器（filterTableStub）。
 // branch：可选，(一组输入) => 分支名，只用来在报告里数各分支的比例。
 // skip：可选，(标准答案的一组输出, 被测的一组输出, 这一组的输入) => 真时这一组不比、只计数。只给登记处写明了理由的病态区域用。
 // 合格：|被测−标准| ≤ rel·|标准| + abs。rel 一律 1e-4。
 // abs 只给有相减抵消的函数：两个 O(1) 的数相减得到接近 0 的结果时，两边哪怕只差 1 ULP 的舍入（WGSL 的 sqrt、
 // 除法不保证正确舍入，编译器还可能合成 FMA），相对误差也会大到几十个百分点。这类函数的 abs 取「抵消发生处的
 // 量级上 4 个 ULP」，再乘上相减之后的放大系数；实测的最大差值都在它的一半以内。
-export const SHADERS = ['shaders/microfacet.wgsl', 'shaders/util.wgsl', 'shaders/ggx_tables.wgsl', 'shaders/area_light.wgsl'];
+export const SHADERS = ['shaders/microfacet.wgsl', 'shaders/util.wgsl', 'shaders/ggx_tables.wgsl', 'shaders/area_light.wgsl', 'shaders/imaging.wgsl'];
 const BSD = SHADERS[0], APACHE = SHADERS[1], LIGHT = SHADERS[3];
 const entry = (name, inputs, out, abs = 0, more = {}) => ({ name, file: BSD, wgsl: name, ref: name, inputs, out, rel: 1e-4, abs, ...more });
 
@@ -262,5 +265,62 @@ FUNCTIONS.push(
       const g = lightGeom(next, RAY), r = towards(next, g, [-1.5, 1.5]);
       return { ...r, ray_tmin: 0, ray_tmax: r.t * linU(next, [0.5, 2]), quad_P: g.co, inv_quad_u: mul(g.axis_u, 1 / g.len_u), inv_quad_v: mul(g.axis_v, 1 / g.len_v), quad_n: g.dir };
     },
+  }),
+);
+
+// 下面是成像一路：像素滤波（宿主一侧照 scene/film.cpp 建表，内核拿一个随机数查表）与贡献的夹取（kernel/film/light_passes.h）。
+// 滤波函数与建表在宿主一侧：被测的是 Rust（path/src/pixel_filter.rs，经 core-render fncheck-host 逐组算），登记 host: true；
+// 查表与夹取在内核里：被测的是 WGSL（shaders/imaging.wgsl），在显卡上算。
+// 查表的三项用的是 Cycles 自己建的三张表（FILTER_TABLES，次序与 cycles/ref_imaging.h 的 filter_tables_fixed 相同）：
+// 外壳先让标准答案程序按这三组参数建表，拼成 imaging.wgsl 要的 filter_table_value(i)（filterTableStub），只比查表本身；
+// 建表对不对由 filter_table 一项逐项比。
+const IMAGING = 'shaders/imaging.wgsl';
+const PIXEL_FILTER = 'path/src/pixel_filter.rs';
+/** 查表比对用的三张表：[种类（scene/film.h 的 FilterType：0 盒式、1 高斯、2 Blackman-Harris）, 宽度] */
+export const FILTER_TABLES = [[0, 2.0], [1, 1.5], [2, 1.5]];
+export const FILTER_TABLE_SIZE = 1024;
+/** imaging.wgsl 要的表：values 是 FILTER_TABLES 次序的几张表接在一起；不给时全 0（不比查表的检验用） */
+export const filterTableStub = values => (values
+  ? `const FNCHECK_FILTER_TABLE = array<f32, ${values.length}>(${[...values].map(v => (Number.isInteger(v) ? `${v}.0` : `${v}`)).join(', ')});
+fn filter_table_value(i: i32) -> f32 { return FNCHECK_FILTER_TABLE[i]; }
+`
+  : 'fn filter_table_value(i: i32) -> f32 { return 0.0; }\n');
+const hostFn = (name, inputs, out, abs = 0, more = {}) => entry(name, inputs, out, abs, { file: PIXEL_FILTER, host: true, ...more });
+// 滤波函数只在建表用到的定义域上比：自变量 v 在 [0, 宽度/2]，宽度是建表时放大过的（高斯乘 3、Blackman-Harris 乘 2），
+// 界面上的宽度 0.01 到 10 像素，所以放大后取到 0.01 到 30
+const WIDTH = [0.01, 30];
+const filterIn = next => { const width = logU(next, WIDTH); return { v: width / 2 * next(), width }; };
+// Blackman-Harris 在 v = 宽度/2 处是四个 O(1) 的系数加减抵消到 6e-5，量级 1 上 4 个 ULP
+const BH_ABS = 4 * ULP1;
+// 建表：种类三选一，界面上的宽度 0.01 到 10 像素对数均匀。表里的数是 0.5·(1 ± y)，y 贴近 1 时相减抵消；y 由约一千项的累加和
+// 反查出来，两边滤波函数差的一个 ULP 会在累加里放大。表值的量级到 0.5 + 支撑半宽（高斯宽 10 时 15.5），abs 按这个量级给
+// 【实测】所需 abs 见测试输出，在这个 abs 的一半以内
+const TABLE_ABS = 64 * 16 * ULP1;
+// 查表：自变量取到 [0, 1] 外面一点，覆盖 saturate 与 t == 0 的那一支；表值到 2.75（高斯宽 1.5 的支撑半宽 2.25 加 0.5），
+// 插值 (1 − t)·d0 + t·d1 在过 0 处相减抵消，abs 给量级 4 上 4 个 ULP
+const READ_ABS = 4 * 4 * ULP1;
+const read = (name, k) => entry(`filter_table_read_${name}`, [['x', 'f32', [-0.1, 1.1]]], 1, READ_ABS, { file: IMAGING, wgsl: 'filter_table_read', filterTables: true, call: ([x]) => `filter_table_read(${x}, ${k * FILTER_TABLE_SIZE})` });
+// 夹取：贡献的三个分量正负都有、对数均匀取在 1e-3 到 1e3，各有 5% 是 0、+∞、−∞、非数（照 ensure_finite 清成 0）；bounce 取 −1 到 2
+// （相机射线上的发光是 −1）；两个上限对数均匀取在 1e-2 到 1e4，各有 20% 是 FLT_MAX（不夹）
+const SPECIAL = [0, Infinity, -Infinity, NaN];
+function clampIn(next) {
+  const comp = () => { const r = next(); return r < 0.2 ? SPECIAL[Math.floor(r / 0.05)] : (next() < 0.5 ? -1 : 1) * logU(next, [1e-3, 1e3]); };
+  const limit = () => (next() < 0.2 ? 3.4028234663852886e38 : logU(next, [1e-2, 1e4]));
+  return { L: [comp(), comp(), comp()], bounce: Math.floor(next() * 4) - 1, sample_clamp_direct: limit(), sample_clamp_indirect: limit() };
+}
+FUNCTIONS.push(
+  hostFn('filter_func_box', [['v', 'f32'], ['width', 'f32']], 1, 0, { gen: filterIn }),
+  hostFn('filter_func_gaussian', [['v', 'f32'], ['width', 'f32']], 1, 0, { gen: filterIn }),
+  hostFn('filter_func_blackman_harris', [['v', 'f32'], ['width', 'f32']], 1, BH_ABS, { gen: filterIn }),
+  // 建表，三种各一项。一组是一整张表（1024 个数），各取 1000 组：100 万组要写 4 GB
+  ...['box', 'gaussian', 'blackman_harris'].map((kind, type) => hostFn(`filter_table_${kind}`, [['type', 'f32'], ['width', 'f32']], FILTER_TABLE_SIZE, TABLE_ABS, {
+    wgsl: 'filter_table', ref: 'filter_table', n: 1000, gen: next => ({ type, width: logU(next, [0.01, 10]) }),
+  })),
+  read('box', 0),
+  read('gaussian', 1),
+  read('blackman_harris', 2),
+  entry('film_clamp_light', [['L', 'vec3f'], ['bounce', 'f32'], ['sample_clamp_direct', 'f32'], ['sample_clamp_indirect', 'f32']], 3, 0, {
+    file: IMAGING, gen: clampIn, call: ([L, b, d, i]) => `film_clamp_light(${L}, i32(${b}), ${d}, ${i})`,
+    branch: i => (Number.isFinite(i[0]) && Number.isFinite(i[1]) && Number.isFinite(i[2]) ? (i[3] > 0 ? '间接' : '直接') : '有非有限分量'),
   }),
 );

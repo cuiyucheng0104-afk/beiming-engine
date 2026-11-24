@@ -248,6 +248,9 @@ static const Entry table[] = {
      }},
 };
 
+// 成像一组（像素滤波、夹取）另放一个文件，表名 imaging_table
+#include "ref_imaging.h"
+
 static_assert(sizeof(float) == 4, "float32 required");  // 只在小端主机上用（arm64、x86-64），不做字节序转换
 
 int main(int argc, char **argv)
@@ -256,11 +259,15 @@ int main(int argc, char **argv)
   for (const Entry &t : table) {
     if (argc == 2 && strcmp(t.id, argv[1]) == 0) e = &t;
   }
+  for (const Entry &t : imaging_table) {
+    if (argc == 2 && strcmp(t.id, argv[1]) == 0) e = &t;
+  }
   if (!e) {
     fprintf(stderr, "unknown function id: %s\n", argc == 2 ? argv[1] : "(none)");
     return 1;
   }
   init_tables();
+  init_imaging_tables();
   std::vector<float> in(e->n_in), out(e->n_out);
   for (;;) {
     const size_t got = fread(in.data(), sizeof(float), e->n_in, stdin);

@@ -3,10 +3,11 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
+import { buildRenderer } from '../chassis/build.mjs';
 import { chi2Test, directionChi2, gammaQ, ggxAlbedo, gridChi2, mcMean, polygonIrradiance } from './checks.mjs';
 import { compare } from './compare.mjs';
-import { FUNCTIONS, crs, dot3, outWidth, width } from './registry.mjs';
-import { CORE, check, makeInputs, shaderSource } from './run.mjs';
+import { FILTER_TABLES, FUNCTIONS, crs, dot3, outWidth, width } from './registry.mjs';
+import { CORE, check, filterTables, makeInputs, runHost, shaderSource } from './run.mjs';
 
 const E2E = process.env.BEIMING_FNCHECK_E2E === '1';
 const byName = name => FUNCTIONS.find(f => f.name === name);
@@ -53,11 +54,12 @@ test('容差边界：恰好等于容差算过，超一点不过；任一边非�
 });
 
 test('登记表里每个函数在它的 WGSL 文件和标准答案程序里都有，参数个数对得上', async () => {
-  const cpp = await readFile(new URL('./cycles/ref.cpp', import.meta.url), 'utf8');
-  for (const name of NEW) assert.ok(byName(name), `登记表里没有 ${name}`);
+  const cpp = (await readFile(new URL('./cycles/ref.cpp', import.meta.url), 'utf8')) + (await readFile(new URL('./cycles/ref_imaging.h', import.meta.url), 'utf8'));
+  for (const name of [...NEW, ...NEW_IMAGING]) assert.ok(byName(name), `登记表里没有 ${name}`);
   for (const f of FUNCTIONS) {
     const wgsl = await readFile(`${CORE}/${f.file}`, 'utf8');
-    const m = wgsl.match(new RegExp(`\\nfn ${f.wgsl}\\(([^)]*)\\)`));
+    // 宿主一侧的几项是 Rust 的 pub fn
+    const m = wgsl.match(new RegExp(`\\n${f.host ? 'pub fn' : 'fn'} ${f.wgsl}\\(([^)]*)\\)`));
     assert.ok(m, `${f.file} 里没有 fn ${f.wgsl}`);
     // 有 call 的项由它拼出调用（补常量实参），参数个数不必与输入个数相同
     if (!f.call) assert.equal(m[1].split(',').filter(s => s.trim()).length, f.inputs.length, f.name);
@@ -126,6 +128,12 @@ const NEW = [
   'area_light_sample', 'area_light_eval_from_intersection', 'area_light_intersect',
 ];
 
+// 成像一路：像素滤波的滤波函数与建表（宿主一侧），查表与夹取（内核）
+const NEW_IMAGING = [
+  'filter_func_box', 'filter_func_gaussian', 'filter_func_blackman_harris', 'filter_table_box', 'filter_table_gaussian', 'filter_table_blackman_harris',
+  'filter_table_read_box', 'filter_table_read_gaussian', 'filter_table_read_blackman_harris', 'film_clamp_light',
+];
+
 /** 端到端测试的公共前置：缺工具链时跳过（E2E=1 时抛出），返回 null */
 async function e2e(t, opts) {
   try { return await check({ allowFetch: E2E, ...opts }); } catch (e) {
@@ -141,7 +149,7 @@ test('端到端：每个登记的函数 100 万组随机输入，WGSL 与 Cycles
     t.diagnostic(`${r.name}: groups=${r.groups} maxRel=${r.maxRel.toExponential(3)} maxRelNonTiny=${r.maxRelNonTiny.toExponential(3)} abs=${r.abs.toExponential(2)} fails=${r.fails} nonFinite=${r.nonFinite} 标准全零的组=${(r.zeroRef / r.groups * 100).toFixed(2)}% 不比的组=${(r.skipped / r.groups * 100).toFixed(3)}% 所需abs=${r.needAbs.toExponential(2)}${r.branches ? ` 分支=${Object.entries(r.branches).map(([b, c]) => `${b}:${(c / r.groups * 100).toFixed(2)}%`).join('，')}` : ''}`);
     // 实测差值要在 abs 的一半以内
     assert.ok(r.needAbs <= r.abs / 2, `${r.name} 所需 abs ${r.needAbs} 超过登记的 abs 的一半`);
-    assert.equal(r.groups, 1_000_000, r.name);
+    assert.equal(r.groups, byName(r.name).n ?? 1_000_000, r.name);
     assert.ok(r.maxRelNonTiny <= 1e-4, `${r.name} 在绝对容差不兜底的地方相对误差 ${r.maxRelNonTiny}`);
     assert.equal(r.fails, 0, `${r.name} 不合格：${JSON.stringify(r.worst[0])}`);
   }
@@ -345,4 +353,88 @@ test('端到端数学裁判：均匀矩形面光照小面元，采样估计的�
     // 样本数给够：标准误差不到容差的四分之一
     assert.ok(r[k].stderr / c.exact < 5e-4, `${c.name} 标准误差 ${r[k].stderr}`);
   });
+});
+
+// ------------------------------------------------------------------------------------------------ 成像一路
+
+test('端到端：成像一路故意改错一项，对应的函数报不过（查表、夹取改着色器；三种滤波改宿主一侧的 Rust）', { timeout: 900_000 }, async t => {
+  const file = 'shaders/imaging.wgsl', src = await readFile(`${CORE}/${file}`, 'utf8');
+  // 查表：插值的后一项读错成前一格，三张表的查表都不合格
+  await breakOne(t, file, src, 'return (1.0 - t) * data0 + t * data1;', 'return (1.0 - t) * data0 + t * data0;', ['filter_table_read_box', 'filter_table_read_gaussian', 'filter_table_read_blackman_harris'], 1, 1);
+  // 夹取：直接、间接按 bounce > 1 分（相机射线之后第一次弹射的直接光被当成间接光）
+  await breakOne(t, file, src, 'select(sample_clamp_direct, sample_clamp_indirect, bounce > 0)', 'select(sample_clamp_direct, sample_clamp_indirect, bounce > 1)', ['film_clamp_light'], 6, 3);
+  // 宿主一侧：三种滤波各改错一项，在源码的拷贝上改了再编（../chassis/build.mjs 的 inject，工作树不动）
+  const pf = 'path/src/pixel_filter.rs';
+  const inject = [
+    // 盒式：建表前宽度多乘 1%（滤波函数本身恒为 1，错只出在表上）
+    { file: pf, from: 'FilterType::Box => (filter_func_box, width),', to: 'FilterType::Box => (filter_func_box, width * 1.01),' },
+    // 高斯：6/宽度写成 6.1/宽度
+    { file: pf, from: 'let v = v * (6.0 / width);', to: 'let v = v * (6.1 / width);' },
+    // Blackman-Harris：第二项的系数 0.48829 写成 0.48
+    { file: pf, from: '0.35875 - 0.48829 * v.cos()', to: '0.35875 - 0.48 * v.cos()' },
+  ];
+  const r = await e2e(t, { names: NEW_IMAGING.slice(0, 6), n: 100_000, seed: 3, inject });
+  if (!r) return;
+  assert.deepEqual(r.results.filter(x => x.fails > 0).map(x => x.name), ['filter_func_gaussian', 'filter_func_blackman_harris', 'filter_table_box', 'filter_table_gaussian', 'filter_table_blackman_harris']);
+});
+
+// 像素滤波的采样分布：内核的查表（filter_table_read）查宿主一侧 Rust 建的表（与 Cycles 建的逐位相同，见 filter_table_* 三项），
+// 样本是像素内的偏移 o（像素中心 0.5）。期望的分布是这张表本身给出的：表是分段线性的反函数，第 s 段（s = 0…1022）占随机数的
+// 1/1023，在 [表[s], 表[s+1]] 上均匀；最后一格是 0（Cycles 建表时只写到倒数第二格），所以最后一段反着铺在 [0, 表[1022]] 上。
+// 这里检验的是查表与这个分布配不配对。表本身与连续的滤波函数并不完全一样：对称的一支在半边累积分布为 1 的那一格跳到支撑的
+// 端点，两头各有 1/1023 的随机数均匀铺在尾巴上，加上最后一段，一共约 0.3% 的样本不照滤波函数分布。【实测】高斯宽 1.5 的表
+// 对连续的高斯，100 万个样本、64 箱的 χ² 期望是 2514（自由度约 55），所以不拿连续的滤波函数做这一项的期望。
+// 偏移映射到 [0, 1]：x = (o − (0.5 − R)) / 2R（R 是支撑半宽：盒式 w/2，高斯 1.5w，Blackman-Harris w），y 是另一个均匀数
+// （只为套 gridChi2），64×1 个箱。
+const FILTER_R = [w => w / 2, w => 1.5 * w, w => w];
+const FILTER_HELPERS = `
+fn filter_chi2_sample(u: vec3f, offset: i32, R: f32) -> vec3f { return vec3f((filter_table_read(u.x, offset) - (0.5 - R)) / (2.0 * R), u.y, 1.0); }
+// 表（从 offset 起）给出的偏移 o 处的概率密度（对 do）：单调的 1022 段二分找所在的段，加上反铺的最后一段
+fn filter_table_density(o: f32, offset: i32) -> f32 {
+  var d = 0.0;
+  let last = filter_table_value(offset + 1022);
+  if (o >= 0.0 && o <= last) { d += 1.0 / (1023.0 * last); }
+  if (o < filter_table_value(offset) || o > last) { return d; }
+  var lo = 0;
+  var hi = 1022;
+  while (hi - lo > 1) {
+    let mid = (lo + hi) / 2;
+    if (filter_table_value(offset + mid) <= o) { lo = mid; } else { hi = mid; }
+  }
+  let w = filter_table_value(offset + hi) - filter_table_value(offset + lo);
+  if (w > 0.0) { d += 1.0 / (1023.0 * w); }
+  return d;
+}
+fn filter_chi2_density(x: f32, offset: i32, R: f32) -> f32 { return filter_table_density((0.5 - R) + x * 2.0 * R, offset) * 2.0 * R; }
+`;
+
+test('端到端 χ²：像素滤波的查表（查宿主一侧建的表）给出的偏移照表的分布；宽度对不上、分布变形时检验不过', { timeout: 900_000 }, async t => {
+  let tables;
+  try {
+    const bin = buildRenderer().bin;
+    // 照 FILTER_TABLES 建的三张，再接上宽度各乘 1.1 的三张（反例的密度用）
+    tables = Float32Array.from([...filterTables(bin, runHost), ...runHost(bin, 'filter_table', Float32Array.from(FILTER_TABLES.flatMap(([k, w]) => [k, w * 1.1])), 3 * 1024)]);
+  } catch (e) {
+    if (e.missing && !E2E) { t.skip(`缺工具链：${e.missing}`); return; }
+    throw e;
+  }
+  const kinds = ['盒式', '高斯', 'Blackman-Harris'];
+  const level = 1 - (1 - 0.01) ** (1 / kinds.length);
+  const cases = kinds.flatMap((name, k) => {
+    const R = FILTER_R[FILTER_TABLES[k][0]](FILTER_TABLES[k][1]), sample = `filter_chi2_sample(u, ${k * 1024}, ${R})`;
+    return [
+      { name, sample, density: `filter_chi2_density(p.x, ${k * 1024}, ${R})` },
+      // 反例：密度用宽 1.1 倍的表
+      { name: `反例（宽度） ${name}`, bad: true, sample, density: `filter_chi2_density(p.x, ${(3 + k) * 1024}, ${R})` },
+      // 反例二：支撑集与归一化都不变，只把随机数换成它的平方
+      { name: `反例（只变形） ${name}`, bad: true, sample: `filter_chi2_sample(vec3f(u.x * u.x, u.y, u.z), ${k * 1024}, ${R})`, density: `filter_chi2_density(p.x, ${k * 1024}, ${R})` },
+    ];
+  });
+  const r = await gpuOnly(t, () => gridChi2({ source: shaderSource({}, tables) + FILTER_HELPERS, cases, n: 1_000_000, seed: 1, nx: 64, ny: 1, sub: 64 }));
+  if (!r) return;
+  for (const c of r) {
+    t.diagnostic(`${c.name}: χ²=${c.chi2.toFixed(1)} dof=${c.dof} p=${c.p.toExponential(3)} 落在区间外 ${c.lost.observed}（期望 ${c.lost.expected.toFixed(1)}）`);
+    if (c.bad) { assert.ok(c.p < level, `${c.name} 应当不过，p=${c.p}`); continue; }
+    assert.ok(c.p >= level, `${c.name} 不过：p=${c.p} < ${level}`);
+  }
 });
