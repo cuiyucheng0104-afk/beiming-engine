@@ -315,7 +315,8 @@ export function ensureLut(dataDir) {
  * lut 是 ensureLut 的结果（可以是 null：没有查找表签不了锁）。
  */
 export function lockContext({ rev, library, lut, assets, machine = { class: 'local', driver: process.platform }, root }) {
-  const opts = root ? { root } : undefined;
+  // 现网进程签锁与 deliver 核锁同口径（effective: true），确保锁精确锚定本进程实际执行的代码/字体组合；传入外部 root 时仍全盘实时读盘
+  const opts = root ? { root } : { effective: true };
   const sources = { three: { version: THREE_VERSION, host: 'page', image: threeImage(opts) } };
   const b = blenderInfo();
   if (b) sources.blender = { version: b.version, host: 'cycles', image: blenderImage(b.version, opts) };

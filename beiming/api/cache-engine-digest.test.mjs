@@ -999,6 +999,17 @@ test('R1【甲】#2：deliver 拒绝为新版引擎或字体产出的像素盖�
   const dSourceStale = await waitJob(token, await req('POST', `/v1/films/${filmId}/deliver?wait=30`, token, {}));
   assert.equal(dSourceStale.body.ok, false, '热改 source.js 后旧交付锁不得通过 deliver 核对');
   assert.equal(dSourceStale.body.error?.code, 'env.lock-required', JSON.stringify(dSourceStale.body));
+
+  // R3【甲】收口：热改 source.js 后同一服务进程通过正式 PUT /film 重签锁，随后正式 POST /deliver 必须通过且交付锁锚定当前有效镜像
+  const put3 = await req('PUT', `/v1/films/${filmId}/film`, token, {
+    format: 'patch/0.1', rev: 2, ops: [{ op: 'set', path: 'title', value: 'Re-locked After Source Hot Edit' }],
+  });
+  assert.equal(put3.http, 200, JSON.stringify(put3.body));
+  const d3 = await waitJob(token, await req('POST', `/v1/films/${filmId}/deliver?wait=30`, token, {}));
+  assert.equal(d3.body.ok, true, `热改 source.js 后重签锁再走正式 POST /deliver 必须通过: ${JSON.stringify(d3.body)}`);
+  const bundleLock3 = JSON.parse(readFileSync(join(dataDir, 'films', filmId, 'deliver', d3.body.data.job, 'bundle', 'film.lock'), 'utf8'));
+  assert.equal(bundleLock3.sources.three.image, isoRuntime.threeImage({ effective: true }));
+  assert.notEqual(bundleLock3.sources.three.image, bundleLock.sources.three.image);
 });
 
 test('R1【甲】#3：独立 verify 的 layerL2 按失败帧索引记录的 cacheEntry 精准作废旧版坏帧，保留同镜头新版好帧', { skip: noFfmpeg }, async () => {
