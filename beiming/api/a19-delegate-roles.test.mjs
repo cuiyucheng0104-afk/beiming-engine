@@ -3108,11 +3108,13 @@ test('A19-24: normalizeJsonToolBody 边界（孤立代理码元直击真实 serv
     '数组内无重复键合法嵌套对象须正常解包',
   );
 
-  // 128 层空数组应按不包壳真实深度解包，129 层超限保留原串
+  // 128 层空数组应按不包壳真实深度解包，129 层超限保留原串；超过 2 MiB（<= 16 MiB，与 parseRequestText 同口径）的合法数组须正常解包
   const depth128 = '['.repeat(128) + ']'.repeat(128);
   const depth129 = '['.repeat(129) + ']'.repeat(129);
   assert.ok(Array.isArray(normalizeJsonToolBody('/v1/films', depth128)), '128 层空数组须解包为数组');
   assert.equal(normalizeJsonToolBody('/v1/films', depth129), depth129, '129 层空数组超限须保留原串');
+  const over2MiBArr = `["${'x'.repeat(2 * 1024 * 1024 + 16)}"]`;
+  assert.deepEqual(normalizeJsonToolBody('/v1/films', over2MiBArr), ['x'.repeat(2 * 1024 * 1024 + 16)], '2 MiB 以上（<= 16 MiB）合法数组须按 parseRequestText 同口径解包');
 
   // 真实 POST /v1/films：含孤立代理码元（高/低代理）的字符串体经 callApi 发送不得被 fetch 静默替换为 U+FFFD，必须返回 400
   const dataDir = mkdtempSync(join(tmpdir(), 'a19-24-surrogate-'));

@@ -358,7 +358,7 @@ export function normalizeJsonToolBody(path, body) {
     const parsed = parseRequestText(body);
     return parsed.ok && isPlainObject(parsed.body) ? parsed.body : body;
   }
-  if (Buffer.byteLength(body, 'utf8') > 2 * 1024 * 1024) return body;
+  if (Buffer.byteLength(body, 'utf8') > 16 * 1024 * 1024) return body;
   try {
     const parsed = JSON.parse(m[1]);
     if (!Array.isArray(parsed)) return body;
