@@ -599,8 +599,11 @@ export function createOpenAiVisionReviewer({
             `片子：${JSON.stringify(film)}`,
             `声音量测表：${loudness ? JSON.stringify(loudness) : '（没有声音量测）'}`,
             ...(orderedCandidates.length
-              ? [`候选展示顺序（已按种子打乱）：${JSON.stringify(orderedCandidates)}`]
-              : []),
+              ? [
+                  `候选展示顺序（已按种子打乱）：${JSON.stringify(orderedCandidates)}`,
+                  'candidateGrades 仅填写以上候选 ID。',
+                ]
+              : ['本次为单片评审（无多候选对比），请省略 candidateGrades 字段或填 []。']),
             `图：${images.map((img, i) => `第 ${i + 1} 张 ${img.name}`).join('；') || '（没有图）'}。联系表（contact）每格左上角是全片帧号；切点条带（cut）是切点前 3 帧到后 2 帧，红线是切口；keyframe-f<帧号> 为未缩放的原尺寸关键帧，请直接据以检查构图细节、主体清晰度与文字可读性。`,
           ].join('\n');
           const content = [{ type: 'text', text }, ...imageParts];
@@ -731,12 +734,34 @@ export function createOpenAiVisionReviewer({
           try {
             const parsedBallot = parseReview(answer, film?.output?.frames);
             if (parsedBallot.candidateGrades) {
-              const allowed = new Set(candidateOrder);
-              const seen = new Set();
-              for (const cg of parsedBallot.candidateGrades) {
-                if (!allowed.has(cg.id)) throw new ModelResponseError(`审片选票包含未知候选 ID：${cg.id}`);
-                if (seen.has(cg.id)) throw new ModelResponseError(`审片选票包含重复候选 ID：${cg.id}`);
-                seen.add(cg.id);
+              if (candidateOrder.length === 0) {
+                if (parsedBallot.candidateGrades.length === 0) {
+                  delete parsedBallot.candidateGrades;
+                } else if (
+                  parsedBallot.candidateGrades.length === 1
+                  && resolvedFilmId
+                  && parsedBallot.candidateGrades[0].id === resolvedFilmId
+                ) {
+                  const selfGrade = parsedBallot.candidateGrades[0].grade;
+                  if (parsedBallot.grade !== undefined && parsedBallot.grade !== selfGrade) {
+                    throw new ModelResponseError(
+                      `审片选票单片等级矛盾：grade（${parsedBallot.grade}）与 candidateGrades[${resolvedFilmId}]（${selfGrade}）不一致`,
+                    );
+                  }
+                  if (parsedBallot.grade === undefined) parsedBallot.grade = selfGrade;
+                  delete parsedBallot.candidateGrades;
+                } else {
+                  const bad = parsedBallot.candidateGrades.find((cg) => cg.id !== resolvedFilmId) ?? parsedBallot.candidateGrades[0];
+                  throw new ModelResponseError(`审片选票包含未知候选 ID：${bad.id}`);
+                }
+              } else {
+                const allowed = new Set(candidateOrder);
+                const seen = new Set();
+                for (const cg of parsedBallot.candidateGrades) {
+                  if (!allowed.has(cg.id)) throw new ModelResponseError(`审片选票包含未知候选 ID：${cg.id}`);
+                  if (seen.has(cg.id)) throw new ModelResponseError(`审片选票包含重复候选 ID：${cg.id}`);
+                  seen.add(cg.id);
+                }
               }
             }
             ballots.push({

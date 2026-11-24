@@ -2675,3 +2675,221 @@ test('A19-20 [FIX-real-model] runDelegateOrchestrator 默认 maxSteps 为 24（>
   }
 });
 
+test('A19-21 [FIX-real-model] 单片 L5 审片提示词省略 candidateGrades、自指 film.id 与空数组平滑归一化、未知/矛盾项严格拒收且多候选模式零回归', async () => {
+  // 1) reviewer systemPrompt 明确 candidateGrades 仅多候选对比时填写、单片请省略或留空 []
+  const rp = DELEGATE_ROLES.reviewer.systemPrompt;
+  assert.match(rp, /candidateGrades/);
+  assert.match(rp, /候选展示顺序|多候选/);
+  assert.match(rp, /单片.*省略.*candidateGrades|省略\s*candidateGrades/);
+
+  const dir = mkdtempSync(join(tmpdir(), 'bm-a19-21-'));
+  const origFetch = globalThis.fetch;
+  const film = { id: 'f_001', output: { frames: 20 }, shots: [{ id: 's01', in: 0, out: 20 }] };
+
+  const makeReviewer = (name) => createOpenAiVisionReviewer({
+    endpoint: 'https://fixture.invalid',
+    apiKey: 'test-key',
+    model: 'gpt-6.2-astra',
+    ledgerPath: join(dir, `${name}.jsonl`),
+  });
+
+  try {
+    // 2) 单片评审（candidates: []）：提示词明确要求省略 candidateGrades；自指 film.id（含匹配 grade / 省 grade / 带空格）与 [] 均平滑吸收并产出聚合意见
+    const singlePrompts = [];
+    globalThis.fetch = async (_, { body }) => {
+      const req = JSON.parse(body);
+      const sys = req.messages[0].content;
+      const userText = req.messages[1].content[0].text;
+      singlePrompts.push(userText);
+      const perspective = /\[PERSPECTIVE:([^\]]+)\]/.exec(sys)?.[1];
+      const voteNum = Number(/\[VOTE:(\d+)\]/.exec(sys)?.[1] ?? 1);
+      let payload;
+      if (perspective === 'composition-readability' && voteNum === 1) {
+        payload = {
+          grade: '一般',
+          candidateGrades: [{ id: 'f_001', grade: '一般' }],
+          opinions: [{ issueKey: 'title-readability', frames: [0, 5], severity: 'warn', evidence: '片名字号偏小', comment: '放大片名字号' }],
+          suggestedPredicates: [],
+        };
+      } else if (perspective === 'composition-readability' && voteNum === 2) {
+        // 省略顶层 grade，仅给出单片自指 candidateGrades（带首尾空白）-> 沿用其 grade
+        payload = {
+          candidateGrades: [{ id: ' f_001 ', grade: '一般' }],
+          opinions: [{ issueKey: 'title-readability', frames: [0, 5], severity: 'warn', evidence: '片名边缘偏紧', comment: '增大片名留白' }],
+          suggestedPredicates: [],
+        };
+      } else if (perspective === 'composition-readability' && voteNum === 3) {
+        payload = { grade: '好', candidateGrades: [], opinions: [], suggestedPredicates: [] };
+      } else if (perspective === 'motion-rhythm') {
+        payload = { grade: '好', candidateGrades: [{ id: 'f_001', grade: '好' }], opinions: [], suggestedPredicates: [] };
+      } else {
+        payload = { grade: '一般', opinions: [], suggestedPredicates: [] };
+      }
+      return Response.json({
+        model: 'gpt-6.2-astra',
+        choices: [{ message: { content: JSON.stringify(payload) } }],
+        usage: { prompt_tokens: 120, completion_tokens: 45 },
+      });
+    };
+
+    const singleOk = await layerL5({
+      film,
+      filmId: 'f_001',
+      images: [],
+      reviewer: makeReviewer('single-ok'),
+      candidates: [],
+    });
+    assert.equal(singlePrompts.length, 9);
+    for (const txt of singlePrompts) {
+      assert.ok(!txt.includes('候选展示顺序'), '单片评审提示词不应包含候选展示顺序');
+      assert.match(txt, /本次为单片评审.*省略\s*candidateGrades/);
+    }
+    assert.equal(singleOk.status, 'ok');
+    assert.equal(singleOk.totalBallots, 9);
+    assert.equal(singleOk.invalidBallots, undefined);
+    assert.equal(singleOk.grade, '一般');
+    assert.deepEqual(singleOk.gradeCounts, { 好: 4, 一般: 5, 差: 0 });
+    assert.deepEqual(singleOk.candidateGrades, {});
+    assert.ok(singleOk.ballots.every((b) => b.candidateGrades === undefined), '单片归一化后选票不得残留 candidateGrades 字段');
+    const adoptedVote = singleOk.ballots.find((b) => b.perspective === 'composition-readability' && b.voteIndex === 1);
+    assert.equal(adoptedVote?.grade, '一般', '省略顶层 grade 时应沿用自指 candidateGrades[0].grade');
+    assert.equal(singleOk.opinions.length, 1);
+    assert.equal(singleOk.opinions[0].issueKey, 'title-readability');
+    assert.equal(singleOk.opinions[0].votes, 2);
+
+    // 3a) 单片评审：未知候选 ID 'ghost' 仍严格拒收
+    globalThis.fetch = async () => Response.json({
+      model: 'gpt-6.2-astra',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', candidateGrades: [{ id: 'ghost', grade: '好' }], opinions: [] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 30 },
+    });
+    const ghostRes = await layerL5({ film, filmId: 'f_001', images: [], reviewer: makeReviewer('ghost'), candidates: [] });
+    assert.equal(ghostRes.status, 'failed');
+    assert.equal(ghostRes.invalidBallots?.length, 9);
+    assert.ok(ghostRes.invalidBallots.every((b) => /审片选票包含未知候选 ID：ghost/.test(b.reason)));
+
+    // 3b) 单片评审：顶层 grade 与自指 candidateGrades[0].grade 互相矛盾时严格拒收
+    globalThis.fetch = async () => Response.json({
+      model: 'gpt-6.2-astra',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', candidateGrades: [{ id: 'f_001', grade: '差' }], opinions: [] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 30 },
+    });
+    const conflictRes = await layerL5({ film, filmId: 'f_001', images: [], reviewer: makeReviewer('conflict'), candidates: [] });
+    assert.equal(conflictRes.status, 'failed');
+    assert.equal(conflictRes.invalidBallots?.length, 9);
+    assert.ok(conflictRes.invalidBallots.every((b) => /矛盾|不一致/.test(b.reason)));
+
+    // 3c) 单片评审：>= 2 个候选条目（含异 ID 双条目或重复自指双条目）仍严格拒收
+    for (const [tag, cg] of [
+      ['two-mixed', [{ id: 'f_001', grade: '好' }, { id: 'ghost', grade: '差' }]],
+      ['two-dup-self', [{ id: 'f_001', grade: '好' }, { id: 'f_001', grade: '好' }]],
+    ]) {
+      globalThis.fetch = async () => Response.json({
+        model: 'gpt-6.2-astra',
+        choices: [{ message: { content: JSON.stringify({ grade: '好', candidateGrades: cg, opinions: [] }) } }],
+        usage: { prompt_tokens: 100, completion_tokens: 30 },
+      });
+      const multiEntryRes = await layerL5({ film, filmId: 'f_001', images: [], reviewer: makeReviewer(tag), candidates: [] });
+      assert.equal(multiEntryRes.status, 'failed', `${tag} 必须拒收`);
+      assert.equal(multiEntryRes.invalidBallots?.length, 9);
+      assert.ok(multiEntryRes.invalidBallots.every((b) => /审片选票包含未知候选 ID：/.test(b.reason)));
+    }
+
+    // 3d) 无 resolvedFilmId 时不得误判为自指，仍严格拒收
+    globalThis.fetch = async () => Response.json({
+      model: 'gpt-6.2-astra',
+      choices: [{ message: { content: JSON.stringify({ grade: '一般', candidateGrades: [{ id: 'f_001', grade: '一般' }], opinions: [] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 30 },
+    });
+    const noIdRes = await layerL5({
+      film: { output: { frames: 20 }, shots: [] },
+      images: [],
+      reviewer: makeReviewer('no-id'),
+      candidates: [],
+    });
+    assert.equal(noIdRes.status, 'failed');
+    assert.equal(noIdRes.invalidBallots?.length, 9);
+    assert.ok(noIdRes.invalidBallots.every((b) => /审片选票包含未知候选 ID：f_001/.test(b.reason)));
+
+    // 4) 多候选模式（candidates: ['a', 'b']）提示词与严格校验零回归（含误填 film.id 仍拒收）
+    const multiPrompts = [];
+    globalThis.fetch = async (_, { body }) => {
+      const req = JSON.parse(body);
+      const userText = req.messages[1].content[0].text;
+      multiPrompts.push(userText);
+      return Response.json({
+        model: 'gpt-6.2-astra',
+        choices: [{ message: { content: JSON.stringify({ grade: '好', candidateGrades: [{ id: 'a', grade: '好' }, { id: 'b', grade: '一般' }], opinions: [] }) } }],
+        usage: { prompt_tokens: 100, completion_tokens: 30 },
+      });
+    };
+    const multiOk = await layerL5({
+      film,
+      filmId: 'f_001',
+      images: [],
+      reviewer: makeReviewer('multi-ok'),
+      candidates: ['a', 'b'],
+    });
+    assert.equal(multiOk.status, 'ok');
+    assert.equal(multiOk.totalBallots, 9);
+    assert.equal(multiOk.invalidBallots, undefined);
+    assert.equal(multiOk.candidateGrades.a.grade, '好');
+    assert.equal(multiOk.candidateGrades.b.grade, '一般');
+    assert.ok(multiPrompts.every((txt) => /候选展示顺序/.test(txt) && /candidateGrades 仅填写以上候选 ID/.test(txt)));
+
+    globalThis.fetch = async () => Response.json({
+      model: 'gpt-6.2-astra',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', candidateGrades: [{ id: 'f_001', grade: '好' }], opinions: [] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 30 },
+    });
+    const multiSelfReject = await layerL5({
+      film,
+      filmId: 'f_001',
+      images: [],
+      reviewer: makeReviewer('multi-self-reject'),
+      candidates: ['a', 'b'],
+    });
+    assert.equal(multiSelfReject.status, 'failed');
+    assert.equal(multiSelfReject.invalidBallots?.length, 9);
+    assert.ok(multiSelfReject.invalidBallots.every((b) => /审片选票包含未知候选 ID：f_001/.test(b.reason)));
+  } finally {
+    globalThis.fetch = origFetch;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('A19-22 [FIX-real-model] shot-worker allowedVerbs 开放 artifacts 只读、systemPrompt 引导 observe/sheet + GET 看图且起始 token 远低于 15,000', () => {
+  const sw = DELEGATE_ROLES['shot-worker'];
+  assert.ok(Object.isFrozen(sw.allowedVerbs));
+  assert.ok(
+    sw.allowedVerbs.includes('GET /v1/films/{id}/artifacts/{name}'),
+    'shot-worker.allowedVerbs 必须包含 GET /v1/films/{id}/artifacts/{name}',
+  );
+  assert.match(sw.systemPrompt, /POST\s+\/v1\/films\/\{id\}\/observe\/sheet/);
+  assert.match(sw.systemPrompt, /outputs\[\]\.url/);
+  assert.match(sw.systemPrompt, /GET/);
+  assert.match(sw.systemPrompt, /构图.*文字清晰度.*入场动效|联系表/);
+
+  const library = loadCardLibrary();
+  const realCards = Object.values(library).map((x) => x.card);
+  for (const template of ['title', 'turntable']) {
+    const { film } = scaffold({ id: 'f_001', template });
+    for (const shot of film.shots) {
+      const built = buildShotWorkerMessages({
+        filmId: film.id,
+        rev: 1,
+        brief: '测试镜头工看图引导后的起始上下文 token 余量',
+        shot,
+        basePredicates: film.predicates.base,
+        extraPredicates: ['inside_frame(hero, margin=0.05) @ all'],
+        cards: realCards,
+      });
+      assert.ok(
+        built.startTokens < 6_000 && built.startTokens <= SHOT_WORKER_MAX_START_TOKENS,
+        `${template}/${shot.id} 起始上下文 (${built.startTokens}) 应远低于 ${SHOT_WORKER_MAX_START_TOKENS}`,
+      );
+    }
+  }
+});
+
+
