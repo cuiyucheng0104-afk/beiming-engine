@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 北冥 · 对拍阶梯第 2 级：我方 GGX 金属闭包与矩形面光接进路径追踪内核（build.mjs 从 ../path/ 编出的 core-render）后渲图对答案。
 //   上游自带的漫反射白炉用我们的程序跑要过，画面中央的均值与记下来的数相等；金属白炉 22 个读数对 Cycles（±0.5%）；
-//   矩形面光照漫反射平面三种几何对解析值（32 个种子，0.2% 以内，且在 3 个标准误或相对 2e-6 以内）；闭包、面光、接线故意改错五项，每项必须不过；
+//   矩形面光照漫反射平面四种几何对解析值（32 个种子，0.2% 以内，且在 3 个标准误或相对 2e-6 以内）；闭包、面光、接线故意改错六项，每项必须不过；
 //   同种子两遍逐字节相同。
 //   node beiming/sources/core/chassis/level2.mjs [--out 报告.json]
 // 退出码：0 全部过；4 有一项不过；3 缺工具链（git、cargo、npm、网络、显卡）。
@@ -100,6 +100,10 @@ const GEOMS = [{ name: '正对', position: [0, 0, 1] }, { name: '斜向', positi
 // 这个读数偏高万分之二（上面两种只有百万分之二与千万分之四）。它的噪声也大（32 个种子的标准误是相对 5e-6 上下），
 // 只进第 2 级的判定，不进回归基线逐位比的那 24 个读数
 const NEAR = { name: '近灯', position: [0, 0, 0.25] };
+// 斜向那个几何，灯背后 30 微米放一块 0.7 m 见方、与灯平行的黑板（plate 是板离灯面的米数）。黑板不反光，解析值与斜向相同。
+// 30 微米比射线起点挪开的那一点距离小：材质采样一侧要是把从挪开的起点量的遮挡距离直接与从着色点量的灯距比，
+// 会把灯判成被板挡住，读数偏低千分之一点五。也只进第 2 级的判定
+const PLATE = { name: '灯后有板', position: [0.8, 0, 0.9], plate: 3e-5 };
 
 /** three.js 的 lookAt（灯与相机的 -z 指向目标、上方向 +y）定出的灯面半边向量 */
 function lightAxes(position, size) {
@@ -109,8 +113,9 @@ function lightAxes(position, size) {
   return { center: position, u: x.map(a => a * size / 2), v: y.map(a => a * size / 2) };
 }
 
-function rectScene({ position }) {
+function rectScene({ position, plate }) {
   const { L, albedo: a, size, image, Zc, halfView } = RECT;
+  const k = 1 + (plate ?? 0) / Math.hypot(...position);
   return `${head}
 export default function () {
   const scene = new Scene();
@@ -120,7 +125,11 @@ export default function () {
   r.position.set(${position});
   r.lookAt(0, 0, 0);
   r.card = false;
-  scene.add(r);
+  scene.add(r);${plate === undefined ? '' : `
+  const bk = new Mesh(new PlaneGeometry(0.7, 0.7), new MeshPhysicalMaterial({ color: new Color().setRGB(0, 0, 0), roughness: 1, metalness: 0, specularIntensity: 0 }));
+  bk.position.set(${position.map(x => x * k)});
+  bk.lookAt(0, 0, 0);
+  scene.add(bk);`}
   ${cam(`0, 0, ${Zc}`, (2 * Math.atan(halfView / Zc) * 180) / Math.PI)}
   return { scene, camera: c, options: ${opts(image, { energyCompensation: 0 })} };
 }`;
@@ -209,8 +218,9 @@ export async function analytic(bin, { seeds = ANALYTIC.seeds, geoms = GEOMS } = 
   const { image, region } = RECT, lo = (image - region) / 2;
   const jobs = [];
   for (const g of geoms) {
+    const tag = `rect-${g.position.join('_')}${g.plate === undefined ? '' : `-plate${g.plate}`}`;
     jobs.push({
-      tag: `rect-${g.position.join('_')}`, spp: ANALYTIC.spp, game: await bundle(`rect-${g.position.join('_')}`, rectScene(g)),
+      tag, spp: ANALYTIC.spp, game: await bundle(tag, rectScene(g)),
       read: ({ px, w }) => {
         let s = 0;
         for (let y = lo; y < lo + region; y++) for (let x = lo; x < lo + region; x++) s += lum(px, y * w + x);
@@ -247,7 +257,7 @@ function upstreamTest(bin) {
 // 负对照：在源码的拷贝上各故意改错一项（build.mjs 的 inject；file 相对 beiming/sources/core/，工作树不动）。
 // near 是这项改错该量到的最大相对差：读数要在门外，还要落在 near 的 ±5% 之内（fine 的两项 ±30%）。改错的读数挪了位置，说明接线变了
 // （纯金属没采到方向的样本曾经漏进白炉，这一项从 0.557 变成 1.20，照旧在门外，当时没有人发现）。
-// fine 的两项改错很小（十万分之二、万分之二），在 0.2% 之内：它们要的是解析场景的整条判法（analyticOk）判不过，
+// fine 的三项改错很小（十万分之二、万分之二、千分之一点五），在 0.2% 之内：它们要的是解析场景的整条判法（analyticOk）判不过，
 // 守的是那条底没有把这个量级的错放过去。它们的读数里噪声与数值残差占百分之几到十几，所以容差放到 ±30%
 export const negativeTolerance = n => (n.fine ? 0.3 : 0.05);
 export const negativeOk = n => (n.fine ? n.rows.some(r => !analyticOk(r)) : Math.abs(n.worstRel) > n.gate) && Math.abs(n.worstRel / n.near - 1) <= negativeTolerance(n);
@@ -276,6 +286,11 @@ const NEGATIVE = [
     target: 'mis_origin', name: '接线：材质采样打到矩形纯光时从沿法线挪开的射线起点算（两侧的权重配不平）',
     inject: { file: 'path/shaders/integrator.wgsl', from: 'bm_rect_hits(state.legacy.bm_x, ray.D,', to: 'bm_rect_hits(ray.P, ray.D,' },
     run: async bin => analytic(bin, { geoms: [NEAR] }), fine: true, gate: GATES.analyticFloor, near: 2.0e-4,
+  },
+  {
+    target: 'mis_occluder', name: '接线：材质采样打到矩形纯光时遮挡距离直接拿 hit.t 比（灯紧贴背后的面时这一侧整份丢掉）',
+    inject: { file: 'path/shaders/integrator.wgsl', from: 'select(hit.t / 0.999, INF, hit.tri == 0xffffffffu)', to: 'select(hit.t, INF, hit.tri == 0xffffffffu)' },
+    run: async bin => analytic(bin, { seeds: ANALYTIC.seeds.slice(0, 8), geoms: [PLATE] }), fine: true, gate: GATES.analyticFloor, near: -1.48e-3,
   },
 ];
 
@@ -316,7 +331,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   const camera = { D: FURNACE.D, fovNote: '过球心平面上的半高 1.25（正交 ortho_scale 2.5 的一半）', maxRelChange: Math.max(...main.rows.map((r, k) => Math.abs(near.rows[k].ours / r.ours - 1))) };
 
   say('矩形面光照漫反射平面');
-  const ana = await analytic(ours.bin, { geoms: [...GEOMS, NEAR] });
+  const ana = await analytic(ours.bin, { geoms: [...GEOMS, NEAR, PLATE] });
 
   say('负对照');
   const negative = [];

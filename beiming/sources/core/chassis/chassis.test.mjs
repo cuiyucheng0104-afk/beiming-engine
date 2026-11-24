@@ -51,7 +51,7 @@ test('判据：白炉 ±0.5%，解析场景 0.2% 以内，且在 3 个标准误�
   assert.deepEqual([[1.9e-6, 3.9], [1.9e-6, 2.9], [2.1e-6, 3.9]].map(([rel, z]) => passedByFloor({ rel, z })), [true, false, false]);
 });
 
-test('负对照的判法：粗的三项读数在门外且落在登记值的 ±5% 之内；细的两项要解析场景的判法判它不过，读数在登记值的 ±30% 之内', () => {
+test('负对照的判法：粗的三项读数在门外且落在登记值的 ±5% 之内；细的几项要解析场景的判法判它不过，读数在登记值的 ±30% 之内', () => {
   const coarse = { gate: 2e-3, near: 1e-2 }, fine = { fine: true, gate: 2e-6, near: 2e-5 };
   assert.deepEqual([negativeTolerance(coarse), negativeTolerance(fine)], [0.05, 0.3]);
   assert.deepEqual([1.04e-2, 1.06e-2, 1.9e-3].map(worstRel => negativeOk({ ...coarse, worstRel })), [true, false, false]);
@@ -143,16 +143,16 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
     }
     assert.ok(rep.furnace.camera.maxRelChange < GATES.furnaceRel / 10, `换相机距离的最大变化 ${rep.furnace.camera.maxRelChange}`);
   });
-  await t.test('解析场景：正对、斜向、近灯三种几何各 32 个种子，像素均值对解析值 0.2% 以内，且在 3 个标准误或相对 2e-6 以内', () => {
-    assert.deepEqual(rep.analytic.map(a => [a.name, a.seeds]), [['正对', 32], ['斜向', 32], ['近灯', 32]]);
+  await t.test('解析场景：正对、斜向、近灯、灯后有板四种几何各 32 个种子，像素均值对解析值 0.2% 以内，且在 3 个标准误或相对 2e-6 以内', () => {
+    assert.deepEqual(rep.analytic.map(a => [a.name, a.seeds]), [['正对', 32], ['斜向', 32], ['近灯', 32], ['灯后有板', 32]]);
     for (const a of rep.analytic) {
       t.diagnostic(`${a.name}: 我方 ${a.mean.toExponential(6)} ± ${a.se.toExponential(2)}（${a.seeds} 个种子）  解析 ${a.exact.toExponential(6)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
       if (passedByFloor(a)) t.diagnostic(`提示 ${a.name} 超过了 ${GATES.analyticSE} 个标准误，是按相对 ${GATES.analyticFloor} 的底过的`);
       assert.ok(analyticOk(a), `${a.name} 相对差 ${a.rel}，差 ${a.z} 个标准误`);
     }
   });
-  await t.test('负对照：闭包、面光、接线故意改错五项，每项必须不过，读数落在登记值的容差之内（粗的三项 ±5%，细的两项 ±30%）', () => {
-    assert.deepEqual(rep.negative.map(n => n.target), ['closure', 'area_light', 'mis', 'area_light_fine', 'mis_origin']);
+  await t.test('负对照：闭包、面光、接线故意改错六项，每项必须不过，读数落在登记值的容差之内（粗的三项 ±5%，细的三项 ±30%）', () => {
+    assert.deepEqual(rep.negative.map(n => n.target), ['closure', 'area_light', 'mis', 'area_light_fine', 'mis_origin', 'mis_occluder']);
     for (const n of rep.negative) {
       t.diagnostic(`${n.name}: 最大相对差 ${n.worstRel.toExponential(2)}（门限 ${n.gate}，登记值 ${n.near}，容差 ±${negativeTolerance(n) * 100}%）`);
       assert.ok(negativeOk(n), n.name);
