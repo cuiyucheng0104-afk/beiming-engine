@@ -32,7 +32,7 @@ cargo test --locked                # 库测试，部分用例要能跑 wgpu 的�
 
 ```sh
 node beiming/sources/core/chassis/level2.mjs
-node beiming/sources/core/chassis/imaging.mjs    # 成像一路：像素滤波的刀口剖面、Cycles 口径的夹取、负对照（不要上游仓库）
+node beiming/sources/core/chassis/imaging.mjs    # 成像一路：像素滤波的刀口剖面、Cycles 口径的夹取、滤光泽对 Cycles、负对照（不要上游仓库）
 ```
 
 退出码 0 全部过，4 有一项不过，3 缺工具链。场景仍用上游的场景库与打包工具，脚本第一次跑会按固定提交把上游仓库取到 `out/` 下（要网络），细节见 [PROVENANCE.md](PROVENANCE.md)。
@@ -67,8 +67,9 @@ core-render render-pack <包目录> -o out.png [--frame k] [--spp N] [--width W 
   - `--pixel-filter`、`--filter-width`（0.01 到 10 像素）：像素滤波，默认盒式宽 1。不是盒式宽 1 时宿主一侧照 Cycles `scene/film.cpp` 建一张重要性采样表（`src/pixel_filter.rs`），相机射线的像素内偏移拿一个随机数查它（编译开关 `pixel_filter`），每个样本的权重是 1。盒式宽 1 不查表，与不加参数逐位相同。Blender 同步到 Cycles 时盒式强制宽 1（界面上的默认宽度 1.5 只对高斯、Blackman-Harris 起作用），所以参考包的 `pixelFilter: "box"` 就是这里的默认。
   - `--clamp-direct`、`--clamp-indirect`（0 到 1e8）：Cycles 的直接光、间接光夹取上限。写进全局参数时乘 3（Cycles 比的是一次贡献三个分量绝对值之和），0 是不夹（默认）。有一个不是 0 时内核用编译开关 `sample_clamp` 的变体。背景与路上找到的发光按「弹射数减 1」选上限：相机直接看到的、经一次反射看到的天空走直接光的上限，两次反射以上才走间接光的。
   - `--filter-glossy`（0 到 10）：滤光泽，写进全局参数的是 1 / 用户值，0 是不滤（默认）。
+  - 要对 Blender 的 Cycles：`render-pack` 默认的预设（cinematic）能量补偿是 0、弹射上限 8，而原理化 BSDF 默认的分布是多重散射 GGX。对拍时加 `--override '{"native":{"energyCompensation":1,"maxBounces":128}}'`（第 2 级的滤光泽一项就是这样渲的）。
   - `render-pack` 一路不用上游的亮度夹取（场景预设的 `clampIndirect` 换算出的 `misc.x`，电影预设是 64）：物理参考是不夹的。从场景脚本进来的渲染照旧用它。
-  - 第 2 级判据与负对照在 `../chassis/imaging.mjs`（刀口剖面、经奇异镜子看天空的夹取），测试 `../chassis/imaging.test.mjs`。
+  - 第 2 级判据与负对照在 `../chassis/imaging.mjs`（刀口剖面、经奇异镜子看天空的夹取、焦散场景的滤光泽对 Cycles 的读数 `../chassis/cycles-filter-glossy.json`），测试 `../chassis/imaging.test.mjs`。
 
 - 场景包本身的毛病（清单、文件、帧号）读不对时，stderr 最后一行是 `{"error":{"code","at","message"}}`：`at` 是出错字段的路径（如 `lights[2].watts`），码取错误码表里已有的（结构不对 `contract.bad-value`、没定义的键 `contract.unknown-key`、未知的图案节点 `contract.unknown-node`、契约允许但这里装不了的 `contract.unsupported-input`、帧号出界 `usage.bad-argument`），退出码照码的前缀。命令行参数本身的错（如 `--override` 不是合法的 JSON）不走这一行。
 - 文件整个读进内存，所以读之前先查大小：单个文件不超过 1 GiB，三张每帧状态表照 shape 合计不超过 2 GiB，超了报 `contract.bad-value`（`at` 是那张表的 shape，或几何文件的 `geometry.file`）。

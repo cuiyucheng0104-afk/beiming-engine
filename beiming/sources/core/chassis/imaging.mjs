@@ -10,6 +10,8 @@
 //   上限低于真值时逐通道等于照 Cycles 的式子手算的值（±3 个标准误；每个样本相同、标准误为 0 时按 1e-5 相对误差）；不该
 //   起作用的那个上限与不夹逐位相同；上限为 0 时与不设逐位相同。直角反射器「每条相机射线恰好反射两次」由 cornerBounces 的
 //   几何追踪与读数一起证明。
+//   滤光泽：漫反射地面经近镜面金属板看小面光的焦散，关与开各对 Blender Cycles 渲的同一场景（cycles-filter-glossy.json）
+//   取中央一块区域的均值，±4 个合并标准误；开与关之差在两边都要超过 5 个合并标准误（判得出的条件）；滤光泽给 0 与不给逐位相同。
 //   负对照：在源码的拷贝上各改错一项（build.mjs 的 inject），对应的一项必须不过。
 //   node beiming/sources/core/chassis/imaging.mjs [--out 报告.json]
 // 退出码：0 全部过；4 有一项不过；3 缺工具链（cargo、显卡）。
@@ -20,12 +22,13 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
+import { URL } from 'node:url';
 import { CliError, defineCommand, isMain, runCli } from '../../../../tools/lib/cli.mjs';
 import { crs, dot3 } from '../fncheck/registry.mjs';
 import { PRESETS, buildRenderer, missing } from './build.mjs';
 import { IDENTITY, translate, writePack } from './scenepack.mjs';
 
-export const GATES = { knifeSE: 4, clampSE: 3, clampRel: 1e-5 };
+export const GATES = { knifeSE: 4, clampSE: 3, clampRel: 1e-5, glossySE: 4, glossyDistinct: 5 };
 
 const UNITS = { meter: 1, up: 'Y', hand: 'right' };
 const SOURCE = { exporter: 'chassis/imaging@0.1', blender: '5.2.3', sha256: '0'.repeat(64) };
@@ -153,11 +156,12 @@ const work = () => tmp ?? (tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-
 process.on('exit', () => tmp && fs.rmSync(tmp, { recursive: true, force: true }));
 let seq = 0;
 
-/** 写包、渲一帧，返回 { hdr: Float32Array（RGB，行主序）, bytes: Buffer }；args 是 render-pack 的额外参数 */
-export function render(bin, spec, { w, h, spp }, args = []) {
+/** 写包、渲一帧，返回 { hdr: Float32Array（RGB，行主序）, bytes: Buffer }；args 是 render-pack 的额外参数，env 是额外的环境变量
+ *  （THREERT_SEED 换随机数种子） */
+export function render(bin, spec, { w, h, spp }, args = [], env = {}) {
   const dir = path.join(work(), `p${seq++}`), out = path.join(work(), `r${seq++}.raw`);
   writePack(dir, spec);
-  const r = spawnSync(bin, ['render-pack', dir, '-o', path.join(work(), 'out.png'), '--hdr', out, '--spp', String(spp), '--width', String(w), '--height', String(h), '--no-denoise', '--presets', PRESETS, ...args], { encoding: 'utf8', maxBuffer: 1 << 28 });
+  const r = spawnSync(bin, ['render-pack', dir, '-o', path.join(work(), 'out.png'), '--hdr', out, '--spp', String(spp), '--width', String(w), '--height', String(h), '--no-denoise', '--presets', PRESETS, ...args], { encoding: 'utf8', maxBuffer: 1 << 28, env: { ...process.env, ...env } });
   if (r.status !== 0) throw Object.assign(new Error(`render-pack ${args.join(' ')} 失败：${r.stderr.trim().split('\n').at(-1)}`), /adapter|GPU|显卡/i.test(r.stderr) ? { missing: 'GPU' } : {});
   const bytes = fs.readFileSync(out);
   return { bytes, hdr: new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4) };
@@ -291,13 +295,107 @@ export function clampCases(bin, only = Object.keys(CLAMP_CASES)) {
 /** 几何追踪的判定：count 里只有 want 次反射，没有离开时朝下的 */
 export const geometryOk = (g, want) => Object.keys(g.count).join() === String(want) && g.down === 0;
 
-/** 上限给 0、盒式宽 1 显式给出：与不加参数逐位相同 */
+// ---------------------------------------------------------------------------------------------------------------
+// 滤光泽：照 Cycles 的 integrator/surface_shader.h surface_shader_prepare_closures，弹过一次之后打到的微表面闭包按路径上最小的
+// 采样概率密度 min_ray_pdf 把 alpha 抬到 sqrt(1 − filter_glossy × min_ray_pdf) × 0.5（宿主存 1 / blur_glossy）。相机直接看到的面
+// 不模糊，所以要一个「先漫反射、再光泽」的场景：漫反射地面经一块近镜面的金属板看小面光的焦散。标准答案是 Blender 5.2.3 的
+// Cycles 渲的同一场景（cycles-filter-glossy.json，blur_glossy 关与开），取画面中央一块区域的均值，对它 ±4 个合并标准误；
+// 开与关之差在两边都要超过 5 个合并标准误，否则这个场景判不出滤光泽，报不过。
+
+export const GLOSSY_REF = JSON.parse(fs.readFileSync(new URL('./cycles-filter-glossy.json', import.meta.url), 'utf8'));
+// 场景的数照 Cycles 一侧的脚本（GLOSSY_REF.source.scene），Blender 坐标、z 朝上；写进包时照导出器换轴 (x, y, z) → (x, z, −y)，
+// 相机与灯的矩阵是 A·M（相机看 −z、上是 +y；面光朝局部 −z 发光）。区域对 x、y 都对称，画面怎么存都不影响读数
+export const GLOSSY = { w: 64, h: 64, region: [24, 40], sppOff: 16_384, sppOn: 4096, seeds: 4, blur: 0.25 };
+const toPack = v => [v[0], v[2], -v[1]];
+const unit = v => v.map(x => x / Math.hypot(...v));
+const axpy = (a, b, s) => a.map((x, i) => x + s * b[i]);
+/** 中心 c、边 u、v（u × v 是正面法线）、半边长 h 的方块，四角逆时针，与 Cycles 一侧的 quad 同序 */
+function quadB(name, c, u, v, h) {
+  const n = unit(crs(u, v)), P = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => axpy(axpy(c, u, a * h), v, b * h));
+  return { name, positions: P.flatMap(toPack), normals: Array(4).fill(toPack(n)).flat(), indices: [0, 1, 2, 0, 2, 3] };
+}
+/** 列主序 A·M：M 的三列是局部 x、y、z 轴在 Blender 里的方向，t 是位置 */
+const matA = (x, y, z, t) => [...toPack(x), 0, ...toPack(y), 0, ...toPack(z), 0, ...toPack(t), 1];
+export function glossyPack() {
+  const { camera, light, plate, floor } = GLOSSY_REF.source.scene;
+  const n = unit(axpy(unit(axpy(light.location, plate.center, -1)), unit(axpy(plate.target, plate.center, -1)), 1));
+  const meshes = [quadB('floor', [0, 0, 0], [1, 0, 0], [0, 1, 0], floor.half), quadB('plate', plate.center, [0, 1, 0], [-n[2], 0, n[0]], plate.half)];
+  const mat = (name, m) => ({ name, closure: 'surface', params: { baseColor: m.base_color, metallic: m.metallic, roughness: m.roughness } });
+  return {
+    manifest: {
+      format: 'scene-pack/0.1', id: 'pack:chassis-glossy@1', units: UNITS,
+      geometry: { file: 'geometry.glb', meshes: meshes.map(mesh) },
+      instances: { file: 'instances.u32', shape: [2, 4], names: ['floor', 'plate'], class: ['part', 'part'] },
+      materials: [mat('floor', floor.material), mat('plate', plate.material)],
+      lights: [{ name: 'lamp', type: 'area-rect', size: light.size, watts: light.watts, color: [1, 1, 1], visibleToCamera: false }],
+      world: { color: [0, 0, 0], visibleToCamera: true },
+      camera: { type: 'persp', near: 0.05, far: 100 },
+      frames: {
+        count: 1,
+        instances: { file: 'frames/instances.f32', shape: [1, 2, 16], fields: ['mat16'] },
+        camera: { file: 'frames/camera.f32', shape: [1, 17], fields: ['mat16', 'fovY'] },
+        lights: { file: 'frames/lights.f32', shape: [1, 1, 16], fields: ['mat16'] },
+      },
+      source: SOURCE,
+    },
+    meshes,
+    rows: [[0, 0, 1, 0], [1, 1, 2, 0]],
+    tables: {
+      instances: [...IDENTITY, ...IDENTITY],
+      camera: [...matA([1, 0, 0], [0, 1, 0], [0, 0, 1], camera.location), 2 * Math.atan(camera.tan_half_fov)],
+      // 面光朝 +z：绕 x 轴转 180°
+      lights: matA([1, 0, 0], [0, -1, 0], [0, 0, -1], light.location),
+    },
+  };
+}
+
+/** 区域均值与标准误，口径同 Cycles 一侧：几个种子逐像素平均，标准误 = sqrt(Σ_像素 种子间方差 / 种子数) / 像素数 */
+export function regionReading(images, { w, region: [a, b] }) {
+  const k = images.length;
+  let sum = 0, varSum = 0, n = 0;
+  for (let y = a; y < b; y++) {
+    for (let x = a; x < b; x++) {
+      const v = images.map(im => pixel(im, y * w + x)), m = v.reduce((p, q) => p + q, 0) / k;
+      sum += m;
+      varSum += v.reduce((p, q) => p + (q - m) ** 2, 0) / (k - 1);
+      n++;
+    }
+  }
+  return { mean: sum / n, se: Math.sqrt(varSum / k) / n };
+}
+// 渲染设置对上 Cycles 一侧：原理化 BSDF 默认的分布是多重散射 GGX（能量补偿开），弹射上限 128。render-pack 默认的预设
+// （cinematic）能量补偿是 0、弹射上限 8，所以用 --override 改这两项，做法同 level2.mjs 的白炉
+export const GLOSSY_OVERRIDE = ['--override', JSON.stringify({ native: { energyCompensation: 1, maxBounces: 128 } })];
+const glossyRender = (bin, args, spp) => regionReading(Array.from({ length: GLOSSY.seeds }, (_, s) => render(bin, glossyPack(), { ...GLOSSY, spp }, [...GLOSSY_OVERRIDE, ...args], { THREERT_SEED: String(s + 1) }).hdr), GLOSSY);
+const cyclesRow = blur => GLOSSY_REF.rows.find(r => r.blur_glossy === blur);
+const zOfPair = (a, b) => (a.mean - b.mean) / Math.hypot(a.se, b.se);
+
+/** 滤光泽：关与开（blur_glossy = GLOSSY.blur）各对 Cycles；开与关之差在两边都要超过 5 个合并标准误（判得出的条件）。
+ *  only 挑项（负对照只跑开的那一项） */
+export function glossyCases(bin, only = ['off', 'on']) {
+  const ours = {}, rows = [];
+  for (const key of only) {
+    const blur = key === 'on' ? GLOSSY.blur : 0;
+    ours[key] = glossyRender(bin, key === 'on' ? ['--filter-glossy', String(blur)] : [], key === 'on' ? GLOSSY.sppOn : GLOSSY.sppOff);
+    const ref = cyclesRow(blur), z = zOfPair(ours[key], { mean: ref.region_mean, se: ref.se });
+    rows.push({ name: `滤光泽${key === 'on' ? `开（blur_glossy ${blur}）` : '关'}对 Cycles`, blur, ours: ours[key], cycles: { mean: ref.region_mean, se: ref.se }, z, ok: Math.abs(z) <= GATES.glossySE });
+  }
+  if (only.length === 2) {
+    const c = zOfPair({ mean: cyclesRow(GLOSSY.blur).region_mean, se: cyclesRow(GLOSSY.blur).se }, { mean: cyclesRow(0).region_mean, se: cyclesRow(0).se });
+    const o = zOfPair(ours.on, ours.off);
+    rows.push({ name: '判得出：开与关之差', zCycles: c, zOurs: o, ok: Math.abs(c) > GATES.glossyDistinct && Math.abs(o) > GATES.glossyDistinct });
+  }
+  return rows;
+}
+
+/** 上限给 0、盒式宽 1 显式给出、滤光泽给 0：与不加参数逐位相同 */
 export function bitwiseCases(bin) {
-  const knife = knifePack(), corner = cornerPack(COLORED);
+  const knife = knifePack(), corner = cornerPack(COLORED), glossy = glossyPack();
   const same = (spec, size, args) => render(bin, spec, size, args).bytes.equals(render(bin, spec, size).bytes);
   return [
     { name: '盒式宽 1 显式给出', ok: same(knife, KNIFE, ['--pixel-filter', 'box', '--filter-width', '1']) },
     { name: '两个夹取上限给 0', ok: same(corner, CORNER, ['--clamp-direct', '0', '--clamp-indirect', '0']) },
+    { name: '滤光泽给 0', ok: render(bin, glossy, { ...GLOSSY, spp: 256 }, [...GLOSSY_OVERRIDE, '--filter-glossy', '0']).bytes.equals(render(bin, glossy, { ...GLOSSY, spp: 256 }, GLOSSY_OVERRIDE).bytes) },
   ];
 }
 
@@ -335,11 +433,18 @@ export const NEGATIVE = [
     inject: { file: 'shaders/imaging.wgsl', from: 'let sum = a.x + a.y + a.z;', to: 'let sum = max(a.x, max(a.y, a.z));' },
     run: bin => clampCases(bin, ['mirrorDirectColored']).cases,
   },
+  {
+    name: '滤光泽：内核里再取一次倒数（全局参数里已经是 1 / blur_glossy）',
+    inject: { file: 'path/shaders/closure.wgsl', from: 'filter_glossy_roughness(P.integrator.filter_glossy, state.min_ray_pdf)', to: 'filter_glossy_roughness(1.0 / P.integrator.filter_glossy, state.min_ray_pdf)' },
+    run: bin => glossyCases(bin, ['on']),
+  },
 ];
 
 /** 一项读数的一句话：逐通道读数对手算值，或逐位比的结果 */
 export function reading(r) {
   if (r.worst) return `最差一列 ${r.worst.z.toFixed(1)} 个标准误`;
+  if (r.ours) return `${r.ours.mean.toPrecision(6)}（标准误 ${r.ours.se.toExponential(2)}）对 Cycles ${r.cycles.mean.toPrecision(6)}（${r.cycles.se.toExponential(2)}），${r.z.toFixed(2)} 个合并标准误`;
+  if (r.zCycles !== undefined) return `开与关之差：Cycles ${r.zCycles.toFixed(1)}、北冥 ${r.zOurs.toFixed(1)} 个合并标准误`;
   if (!r.channels) return r.ok ? '逐位相同' : `不逐位相同（最大差 ${r.diff.toExponential(2)}）`;
   return r.channels.map(c => `${c.mean.toPrecision(9)} 对 ${c.expected.toPrecision(9)}（${c.z === null ? `标准误 0，相对差 ${c.rel.toExponential(2)}` : `${c.z.toFixed(2)} 个标准误`}）`).join('，');
 }
@@ -357,7 +462,9 @@ export async function runImaging({ negatives = true, log = () => {} } = {}) {
   const knife = KNIFE_CASES.map(([k, w]) => knifeCase(bin, k, w));
   say('夹取');
   const clamp = clampCases(bin);
-  say('逐位相同的两项');
+  say('滤光泽');
+  const glossy = glossyCases(bin);
+  say('逐位相同的三项');
   const bitwise = bitwiseCases(bin);
   const negative = [];
   if (negatives) {
@@ -368,13 +475,13 @@ export async function runImaging({ negatives = true, log = () => {} } = {}) {
     }
   }
   const geometry = { mirror: geometryOk(clamp.geometry.mirror, 1), corner: geometryOk(clamp.geometry.corner, 2) };
-  const ok = knife.every(c => c.ok) && geometry.mirror && geometry.corner && clamp.cases.every(c => c.ok) && bitwise.every(c => c.ok) && negative.every(n => n.caught);
-  return { ok, adapter: gpu.adapter, backend: gpu.backend, gates: GATES, knife, geometry, clamp, bitwise, negative };
+  const ok = knife.every(c => c.ok) && geometry.mirror && geometry.corner && clamp.cases.every(c => c.ok) && glossy.every(c => c.ok) && bitwise.every(c => c.ok) && negative.every(n => n.caught);
+  return { ok, adapter: gpu.adapter, backend: gpu.backend, gates: GATES, knife, geometry, clamp, glossy, bitwise, negative };
 }
 
 export const command = defineCommand({
   name: 'chassis-imaging',
-  summary: '成像一路的第 2 级：像素滤波的刀口剖面对解析式、Cycles 口径的夹取对手算值、负对照',
+  summary: '成像一路的第 2 级：像素滤波的刀口剖面对解析式、Cycles 口径的夹取对手算值、滤光泽对 Cycles、负对照',
   usage: ['node beiming/sources/core/chassis/imaging.mjs [--out 报告.json] [--no-negatives]'],
   options: {
     out: { type: 'string', arg: '<文件>', describe: '报告写到这里（JSON）' },
@@ -392,6 +499,7 @@ export const command = defineCommand({
     for (const c of report.knife) ctx.out(`${c.ok ? '✓' : '✗'} 刀口 ${c.name.padEnd(22)} 平台 ${c.plateau.toFixed(6)}  最差一列 ${c.worst.column}：${c.worst.mean.toFixed(6)} 对 ${c.worst.expected.toFixed(6)}，${c.worst.z.toFixed(2)} 个标准误（标准误 ${c.worst.se.toExponential(2)}）；对连续滤波函数最差第 ${c.continuousWorst.column} 列 ${c.continuousWorst.z.toFixed(2)} 个标准误（只记录）`);
     for (const [k, want] of [['mirror', 1], ['corner', 2]]) ctx.out(`${report.geometry[k] ? '✓' : '✗'} 几何 ${k === 'mirror' ? '单面镜' : '直角反射器'}：视锥上 ${JSON.stringify(report.clamp.geometry[k].count)}（反射次数: 条数，应只有 ${want}），离开时朝下 ${report.clamp.geometry[k].down} 条`);
     for (const c of report.clamp.cases) ctx.out(`${c.ok ? '✓' : '✗'} 夹取 ${c.name}：${reading(c)}`);
+    for (const c of report.glossy) ctx.out(`${c.ok ? '✓' : '✗'} ${c.name}：${reading(c)}`);
     for (const c of report.bitwise) ctx.out(`${c.ok ? '✓' : '✗'} 逐位相同 ${c.name}`);
     for (const n of report.negative) ctx.out(`${n.caught ? '✓' : '✗'} 负对照 ${n.name}：${n.rows.map(r => `${r.name} ${r.ok ? '过' : '不过'}（${r.reading}）`).join('；')}`);
     if (ctx.opts.out) fs.writeFileSync(ctx.opts.out, `${JSON.stringify(report, null, 2)}\n`);

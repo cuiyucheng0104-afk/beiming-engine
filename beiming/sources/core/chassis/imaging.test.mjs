@@ -3,14 +3,32 @@
 import assert from 'node:assert/strict';
 import process from 'node:process';
 import { test } from 'node:test';
-import { CORNER, GATES, KNIFE_CASES, NEGATIVE, clampedSky, cornerBounces, cornerQuads, filterCdf, geometryOk, mirrorBounces, mirrorQuads, runImaging, viewBounces } from './imaging.mjs';
+import { CORNER, GATES, GLOSSY, GLOSSY_REF, KNIFE_CASES, NEGATIVE, clampedSky, cornerBounces, cornerQuads, filterCdf, geometryOk, glossyPack, mirrorBounces, mirrorQuads, regionReading, runImaging, viewBounces } from './imaging.mjs';
 
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 
-test('判据：刀口每列 4 个标准误，夹取 3 个标准误、标准误为 0 时相对 1e-5；刀口七组，负对照六项', () => {
-  assert.deepEqual(GATES, { knifeSE: 4, clampSE: 3, clampRel: 1e-5 });
+test('判据：刀口每列 4 个标准误，夹取 3 个标准误、标准误为 0 时相对 1e-5，滤光泽 4 个合并标准误、判得出要超过 5 个；刀口七组，负对照七项', () => {
+  assert.deepEqual(GATES, { knifeSE: 4, clampSE: 3, clampRel: 1e-5, glossySE: 4, glossyDistinct: 5 });
   assert.equal(KNIFE_CASES.length, 7);
-  assert.equal(NEGATIVE.length, 6);
+  assert.equal(NEGATIVE.length, 7);
+});
+
+test('滤光泽：场景与读数口径对上 Cycles 一侧的记录，区域读数的标准误照种子间方差算', () => {
+  const sc = GLOSSY_REF.source.scene;
+  assert.deepEqual(sc.resolution, [GLOSSY.w, GLOSSY.h]);
+  assert.deepEqual(sc.region, GLOSSY.region);
+  assert.deepEqual(GLOSSY_REF.rows.map(r => r.blur_glossy), [0, GLOSSY.blur]);
+  // 换轴之后地面在 y = 0、法线朝 +y；板的法线是 Cycles 一侧记下的那个（换轴 (x, y, z) → (x, z, −y)）
+  const p = glossyPack(), [floor, plate] = p.meshes;
+  for (const [i, v] of [0, 1, 0].entries()) assert.ok(Math.abs(floor.normals[i] - v) < 1e-15);
+  for (let k = 0; k < 4; k++) assert.ok(Math.abs(floor.positions[3 * k + 1]) < 1e-15);
+  const n = sc.plate_normal;
+  for (const [i, v] of [n[0], n[2], -n[1]].entries()) assert.ok(Math.abs(plate.normals[i] - v) < 1e-12, `${plate.normals[i]} 对 ${v}`);
+  // 两个种子、两个像素：均值是四个数的平均；种子间方差各是 0.5、2，标准误 sqrt((0.5 + 2) / 2) / 2
+  const img = vals => Float32Array.from(vals.flatMap(v => [v, v, v]));
+  const r = regionReading([img([1, 2]), img([2, 4])], { w: 2, region: [0, 1] });
+  assert.equal(r.mean, 1.5);
+  assert.ok(Math.abs(r.se - Math.sqrt(0.5 / 2)) < 1e-12);
 });
 
 test('夹取的手算值照 Cycles：三个分量之和超过 3 × 上限时按比例缩；白天空每个分量夹到上限，没超的不动', () => {
@@ -41,7 +59,7 @@ test('连续滤波函数的累积分布：两端是 0 与 1，对称，盒式是
   assert.ok(Math.abs(filterCdf('box', 3)(0.75) - 0.75) < 1e-9);
 });
 
-test('端到端：成像一路的第 2 级（刀口剖面、几何、夹取、逐位相同、负对照）', { timeout: 7_200_000 }, async t => {
+test('端到端：成像一路的第 2 级（刀口剖面、几何、夹取、滤光泽、逐位相同、负对照）', { timeout: 7_200_000 }, async t => {
   let rep;
   try {
     rep = await runImaging({ log: s => t.diagnostic(s) });
@@ -67,10 +85,15 @@ test('端到端：成像一路的第 2 级（刀口剖面、几何、夹取、�
       assert.ok(c.ok, c.name);
     }
   });
-  await t.test('逐位相同：盒式宽 1 显式给出、两个上限给 0', () => {
+  await t.test('滤光泽：关与开各对 Cycles 不超过 4 个合并标准误，开与关之差两边都超过 5 个', () => {
+    assert.equal(rep.glossy.length, 3);
+    for (const c of rep.glossy) assert.ok(c.ok, c.name);
+  });
+  await t.test('逐位相同：盒式宽 1 显式给出、两个上限给 0、滤光泽给 0', () => {
+    assert.equal(rep.bitwise.length, 3);
     for (const c of rep.bitwise) assert.ok(c.ok, c.name);
   });
-  await t.test('负对照：六项每项故意改错一处，对应的一项必须不过', () => {
+  await t.test('负对照：七项每项故意改错一处，对应的一项必须不过', () => {
     assert.equal(rep.negative.length, NEGATIVE.length);
     for (const n of rep.negative) {
       t.diagnostic(`${n.name}: ${n.rows.map(r => `${r.name} ${r.ok ? '过' : '不过'}（${r.reading}）`).join('；')}`);
