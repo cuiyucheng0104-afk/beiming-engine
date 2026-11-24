@@ -175,6 +175,39 @@ export function symmetricPack() {
   return { manifest, meshes, rows, tables: { instances: [...translate(-0.6, 0, 0), ...scaleThenTranslate(-1, 1, 1, 0.6, 0, 0)], camera: [...translate(0, 0, 3), 0.6], lights: translate(0, 0, 2) } };
 }
 
+/**
+ * 前后错开的两块板（输出通道的边缘测试用）。相机在 (0, 0, 3) 朝 -z，fovY 0.6。后板（实体 1）10 m 见方，绕 y 轴转 PLATES.tilt、
+ * 过 (0, 0, -1)，铺满画面；前板（实体 2）在 z = 0，右边是一条斜边（从 (0.25, -3) 到 (-0.25, 3)），挡住画面左边一大半。
+ * 两块板的几何与 PLATES 里的数一致，测试照它们自己求交。
+ */
+export const PLATES = { camera: [0, 0, 3], fovY: 0.6, tilt: 0.3, backAt: -1, front: [[-3, -3], [0.25, -3], [-0.25, 3], [-3, 3]] };
+export function platesPack({ worldVisible = true } = {}) {
+  const front = { name: 'front', positions: PLATES.front.flatMap(([x, y]) => [x, y, 0]), normals: Array(4).fill([0, 0, 1]).flat(), indices: [0, 1, 2, 0, 2, 3] };
+  const back = { name: 'back', positions: [-5, -5, 0, 5, -5, 0, 5, 5, 0, -5, 5, 0], normals: Array(4).fill([0, 0, 1]).flat(), indices: [0, 1, 2, 0, 2, 3] };
+  const [c, s] = [Math.cos(PLATES.tilt), Math.sin(PLATES.tilt)];
+  const rows = [[0, 0, 1, 0], [1, 0, 2, 0]];
+  const manifest = {
+    format: 'scene-pack/0.1',
+    id: 'pack:chassis-plates@1',
+    units: UNITS,
+    geometry: { file: 'geometry.glb', meshes: [back, front].map(mesh) },
+    instances: { file: 'instances.u32', shape: [2, 4], names: ['back', 'front'], class: ['part', 'part'] },
+    materials: [{ name: 'matte', closure: 'surface', params: { baseColor: [0.8, 0.8, 0.8], metallic: 0, roughness: 1 } }],
+    lights: [{ name: 'key', type: 'area-rect', size: [1, 1], watts: 30, color: [1, 1, 1], visibleToCamera: false }],
+    world: { color: [0.2, 0.2, 0.2], visibleToCamera: worldVisible },
+    camera: { type: 'persp', near: 0.05, far: 50 },
+    frames: {
+      count: 1,
+      instances: { file: 'frames/instances.f32', shape: [1, 2, 16], fields: ['mat16'] },
+      camera: { file: 'frames/camera.f32', shape: [1, 17], fields: ['mat16', 'fovY'] },
+      lights: { file: 'frames/lights.f32', shape: [1, 1, 16], fields: ['mat16'] },
+    },
+    source: SOURCE,
+  };
+  const tilted = [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, PLATES.backAt, 1];
+  return { manifest, meshes: [back, front], rows, tables: { instances: [...tilted, ...IDENTITY], camera: [...translate(...PLATES.camera), PLATES.fovY], lights: translate(0, 0, 2) } };
+}
+
 // ------------------------------------------------------------------------------------------------ 必填字段
 
 const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v);
