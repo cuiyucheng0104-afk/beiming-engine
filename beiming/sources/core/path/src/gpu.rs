@@ -112,6 +112,11 @@ pub struct KernelIntegrator {
     pub background_transparent: u32,
 }
 
+/// `KernelIntegrator::pass_kind` 的两个值（pathtrace.wgsl 里同名）：颜色样本；辅助样本（`Gpu::render` 要辅助层时在第一个
+/// 颜色样本之前调度一次）。
+pub const PASS_KIND_COLOR: u32 = 0;
+pub const PASS_KIND_AUX: u32 = 1;
+
 /// 上游写死的 Sobol 索引掩码：打乱后的索引取高 16 位（65536 个样本之后重复）。经 `KernelIntegrator::new` 进全局参数。
 pub const SOBOL_INDEX_MASK: u32 = 0xffff_0000;
 
@@ -1399,7 +1404,23 @@ pub struct Frame {
     pub variance: Vec<f32>,
     /// 北冥：这次渲染请求的每个灯组一层（每个像素的均值），没请求就是空的。现在还没有贡献写进灯组：全 0。
     pub lightgroups: Vec<Vec<[f32; 3]>>,
+    /// 北冥：每个像素的不透明度（各样本不透明度的均值，`FILM_DENOISE_ALBEDO` 的 w）。颜色已经预乘了它。
+    pub alpha: Vec<f32>,
+    /// 北冥：辅助层，`render` 的 `aux` 为真时才有。
+    pub aux: Option<AuxLayers>,
     pub samples: u32,
+}
+
+/// 北冥：辅助样本那一趟写下的几层（每个像素一个，不做平均），加上从颜色样本数出来的覆盖率。
+pub struct AuxLayers {
+    /// 平面深度（米）；什么都没打到：1e10。
+    pub depth: Vec<f32>,
+    /// 实体编号；没打到或不属于任何实体：0。
+    pub id: Vec<u32>,
+    /// 法线，相机空间（相机看 -Z、Y 向上），长度 1；什么都没打到：0。
+    pub normal: Vec<[f32; 3]>,
+    /// 首次命中的实体编号等于 `id` 的颜色样本数除以样本数。
+    pub coverage: Vec<f32>,
 }
 
 impl Gpu {
@@ -2157,8 +2178,10 @@ impl Gpu {
 
     #[cfg(not(target_arch = "wasm32"))]
     /// Render `spp` samples. `base` holds everything except the per-dispatch sample index.
+    /// 北冥：`aux` 为真时，清零之后、第一个颜色样本之前先调度一次辅助样本（`pass_kind` 为 `PASS_KIND_AUX`），读回时带上
+    /// 辅助层（`Frame::aux`）。辅助样本不取随机数、不改颜色样本：要不要辅助层，颜色逐位相同。
     #[allow(clippy::too_many_arguments)]
-    pub fn render(&self, scene: &Scene, tri_verts: &[[f32; 4]], groups: [usize; GROUPS], nodes: &[u8], emitters: &[[f32; 4]], emitter_tris: &[crate::GpuEmitterTri], light_tree: &[[f32; 4]], env: &EnvMap, env_cdf: &[f32], energy: &[[f32; 4]], base: Params, spp: u32, timings: &mut Vec<(String, f64)>) -> Result<Frame> {
+    pub fn render(&self, scene: &Scene, tri_verts: &[[f32; 4]], groups: [usize; GROUPS], nodes: &[u8], emitters: &[[f32; 4]], emitter_tris: &[crate::GpuEmitterTri], light_tree: &[[f32; 4]], env: &EnvMap, env_cdf: &[f32], energy: &[[f32; 4]], base: Params, spp: u32, aux: bool, timings: &mut Vec<(String, f64)>) -> Result<Frame> {
         let d = &self.device;
         let (w, h) = (scene.width, scene.height);
         // 北冥：掩码为 0 时每个样本取的是同一个点，画面不收敛而不报错，所以开渲前拦住。
@@ -2177,6 +2200,28 @@ impl Gpu {
         enc.clear_buffer(b_film, 0, None);
         self.sync_tables(&up, &mut enc);
         self.queue.submit([enc.finish()]);
+        let dispatch = |p: &mut Params| {
+            up.place(p);
+            self.no_vis_bufs.place(p);
+            self.queue.write_buffer(b_params, 0, bytemuck::bytes_of(p));
+            let mut enc = d.create_command_encoder(&Default::default());
+            {
+                let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None, timestamp_writes: None });
+                pass.set_pipeline(&pipeline);
+                pass.set_bind_group(0, bg, &[]);
+                pass.set_bind_group(1, &self.no_vis, &[]);
+                pass.dispatch_workgroups(w.div_ceil(8), h.div_ceil(8), 1);
+            }
+            self.queue.submit([enc.finish()]);
+        };
+        if aux {
+            let ta = Instant::now();
+            let mut p = base;
+            p.integrator.pass_kind = PASS_KIND_AUX;
+            dispatch(&mut p);
+            self.device.poll(wgpu::PollType::wait_indefinitely())?;
+            timings.push(("aux_ms".into(), ta.elapsed().as_secs_f64() * 1000.0));
+        }
         // One dispatch per sample; params are rewritten between submissions. Batch a few per submit.
         let batch = 4u32;
         let mut s = 0u32;
@@ -2184,18 +2229,8 @@ impl Gpu {
             for k in 0..batch.min(spp - s) {
                 let mut p = base;
                 p.size[2] = s + k;
-                up.place(&mut p);
-                self.no_vis_bufs.place(&mut p);
-                self.queue.write_buffer(b_params, 0, bytemuck::bytes_of(&p));
-                let mut enc = d.create_command_encoder(&Default::default());
-                {
-                    let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None, timestamp_writes: None });
-                    pass.set_pipeline(&pipeline);
-                    pass.set_bind_group(0, bg, &[]);
-                    pass.set_bind_group(1, &self.no_vis, &[]);
-                    pass.dispatch_workgroups(w.div_ceil(8), h.div_ceil(8), 1);
-                }
-                self.queue.submit([enc.finish()]);
+                p.integrator.pass_kind = PASS_KIND_COLOR;
+                dispatch(&mut p);
             }
             s += batch.min(spp - s);
             self.device.poll(wgpu::PollType::wait_indefinitely())?;
@@ -2220,7 +2255,8 @@ impl Gpu {
         let floats: &[f32] = bytemuck::cast_slice(&data);
         let n = (w * h) as usize;
         let (stride, groups) = (base.film.film_stride as usize * 4, base.film.num_lightgroups as usize);
-        let mut frame = Frame { width: w, height: h, color: Vec::with_capacity(n), albedo: Vec::with_capacity(n), normal: Vec::with_capacity(n), emission: Vec::with_capacity(n), specular: Vec::with_capacity(n), variance: Vec::with_capacity(n), lightgroups: vec![Vec::with_capacity(n); groups], samples: spp };
+        let mut frame = Frame { width: w, height: h, color: Vec::with_capacity(n), albedo: Vec::with_capacity(n), normal: Vec::with_capacity(n), emission: Vec::with_capacity(n), specular: Vec::with_capacity(n), variance: Vec::with_capacity(n), lightgroups: vec![Vec::with_capacity(n); groups], alpha: Vec::with_capacity(n), aux: None, samples: spp };
+        let mut layers = aux.then(|| AuxLayers { depth: Vec::with_capacity(n), id: Vec::with_capacity(n), normal: Vec::with_capacity(n), coverage: Vec::with_capacity(n) });
         for p in floats.chunks_exact(stride) {
             let c = p[FILM_COMBINED as usize * 4 + 3].max(1.0);
             let at = |slot: u32, k: usize| Some(p[slot as usize * 4 + k]).filter(|v| v.is_finite()).unwrap_or(0.0);
@@ -2235,7 +2271,16 @@ impl Gpu {
             for (g, group) in frame.lightgroups.iter_mut().enumerate() {
                 group.push(rgb(base.film.film_lightgroup_first + g as u32));
             }
+            frame.alpha.push(at(FILM_DENOISE_ALBEDO, 3) / c);
+            if let Some(l) = &mut layers {
+                // （辅助两格是覆盖写的原值，不除以样本数；编号存的是浮点数值）
+                l.depth.push(at(FILM_AUX_DATA, 0));
+                l.id.push(at(FILM_AUX_DATA, 1) as u32);
+                l.normal.push([at(FILM_AUX_NORMAL, 0), at(FILM_AUX_NORMAL, 1), at(FILM_AUX_NORMAL, 2)]);
+                l.coverage.push(at(FILM_DENOISE_NORMAL, 3) / c);
+            }
         }
+        frame.aux = layers;
         drop(data);
         readback.unmap();
         timings.push(("readback_ms".into(), t2.elapsed().as_secs_f64() * 1000.0));
@@ -2476,7 +2521,8 @@ mod tests {
 
     /// 北冥：请求灯组的那条路是通的。同一个场景渲两遍，一遍不请求灯组、一遍请求 2 个（现在还没有任何贡献写进
     /// 灯组）：颜色、反照率、法线、方差逐位相同；读回的灯组是 2 层、每层一个像素一项、全是 0；不请求时没有灯组层。
-    /// 请求得太多（缓冲超过这块显卡的上限）在开渲前报错。（没有显卡时跳过。）
+    /// 请求得太多（缓冲超过这块显卡的上限）在开渲前报错。要辅助层（`aux`）的一遍同样逐位相同，辅助层每个像素一项，
+    /// 不透明度全是 1（背景对相机可见）。（没有显卡时跳过。）
     #[test]
     fn requested_lightgroups_leave_the_picture_alone() {
         const GAME: &str = r#"
@@ -2509,12 +2555,14 @@ mod tests {
         let mut sc = crate::scene::build(&host.world.borrow(), root, &root.join("presets"), None).unwrap();
         let mut timings = vec![];
         let prep = crate::prepare(&g, &mut sc, &mut timings);
-        let mut render = |film: KernelFilm| {
+        let mut render_with = |film: KernelFilm, aux: bool| {
             let params = Params { film, ..prep.params };
-            g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, crate::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, 4, &mut timings)
+            g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, crate::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, 4, aux, &mut timings)
         };
-        let plain = render(prep.params.film).unwrap();
-        let with = render(KernelFilm::new(2)).unwrap();
+        let plain = render_with(prep.params.film, false).unwrap();
+        let with = render_with(KernelFilm::new(2), false).unwrap();
+        let aux = render_with(prep.params.film, true).unwrap();
+        let mut render = |film: KernelFilm| render_with(film, false);
         let n = (sc.width * sc.height) as usize;
         let bits = |v: &[[f32; 3]]| v.iter().flatten().map(|x| x.to_bits()).collect::<Vec<u32>>();
         assert_eq!((plain.color.len(), with.color.len()), (n, n));
@@ -2523,6 +2571,13 @@ mod tests {
         assert_eq!(bits(&plain.albedo), bits(&with.albedo), "反照率");
         assert_eq!(bits(&plain.normal), bits(&with.normal), "法线");
         assert_eq!(plain.variance.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), with.variance.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), "方差");
+        assert_eq!(bits(&plain.color), bits(&aux.color), "要辅助层时的颜色");
+        assert_eq!(bits(&plain.albedo), bits(&aux.albedo), "要辅助层时的反照率");
+        assert_eq!(bits(&plain.normal), bits(&aux.normal), "要辅助层时的法线");
+        assert!(plain.aux.is_none() && plain.alpha.iter().all(|a| *a == 1.0));
+        let layers = aux.aux.as_ref().expect("要了辅助层");
+        assert_eq!((layers.depth.len(), layers.id.len(), layers.normal.len(), layers.coverage.len()), (n, n, n, n));
+        assert!(layers.depth.iter().any(|d| *d < 1e10) && layers.coverage.iter().all(|c| (0.0..=1.0).contains(c)));
         assert!(plain.lightgroups.is_empty());
         assert_eq!(with.lightgroups.len(), 2);
         for group in &with.lightgroups {
@@ -2555,7 +2610,7 @@ mod tests {
         };
         assert_eq!(
             members("PathState"),
-            ["render_pixel_index", "sample", "bounce", "diffuse_bounce", "glossy_bounce", "transmission_bounce", "transparent_bounce", "rng_pixel", "rng_offset", "flag", "mis_ray_pdf", "min_ray_pdf", "continuation_probability", "throughput", "visibility", "mis_ray_object", "legacy"]
+            ["render_pixel_index", "sample", "bounce", "diffuse_bounce", "glossy_bounce", "transmission_bounce", "transparent_bounce", "rng_pixel", "rng_offset", "flag", "mis_ray_pdf", "min_ray_pdf", "continuation_probability", "throughput", "visibility", "mis_ray_object", "first_hit_object", "legacy"]
         );
         let mut ray = members("Ray");
         ray.sort();

@@ -44,6 +44,8 @@ struct Job {
     /// `--signals PREFIX`: PREFIX-diffuse.raw / -specular.raw / -emission.raw, the image's linear signals apart as the
     /// live denoiser splits them (RGB f32, output size; live snapshots to `*.signals` write the same).
     signals: Option<PathBuf>,
+    /// 北冥：背景对相机不可见（场景包的 world.visibleToCamera 是 false）：相机射线没打到表面的样本不透明度与颜色记 0。
+    transparent: bool,
 }
 
 /// The game state to render: a bundle's scene for a room, at its initial state or a room's committed state.
@@ -172,6 +174,7 @@ fn main() -> Result<()> {
                 size: (flag("--width").map(|s| s.parse()).transpose()?, flag("--height").map(|s| s.parse()).transpose()?),
                 hdr: flag("--hdr").map(PathBuf::from),
                 signals: flag("--signals").map(PathBuf::from),
+                transparent: false,
             };
             let stats = render(&g, &job, &presets, init_ms, &mut Hosts::default())?;
             println!("{}", serde_json::to_string(&stats)?);
@@ -257,6 +260,7 @@ fn main() -> Result<()> {
                         size: (v["width"].as_u64().map(|x| x as u32), v["height"].as_u64().map(|x| x as u32)),
                         hdr: v["hdr"].as_str().map(PathBuf::from),
                         signals: v["signals"].as_str().map(PathBuf::from),
+                        transparent: false,
                     };
                     // (A `live` job asks for the real-time renderer, which this build does not have.)
                     match v["live"].as_u64() {
@@ -324,6 +328,7 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
         size: (Some(size.0), Some(size.1)),
         hdr: flag("--hdr").map(PathBuf::from),
         signals: flag("--signals").map(PathBuf::from),
+        transparent: !p.world_visible,
     };
     let mut stats = finish(&g, b.scene, &job, init_ms, timings, t_total)?;
     stats["pack"] = serde_json::json!({ "id": p.id, "frame": frame, "frames": p.count });
@@ -393,7 +398,8 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
     if job.signals.is_some() {
         params.motion[1] = 1.0;
     }
-    let frame = g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, beiming_core_path::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, spp, &mut timings)?;
+    params.integrator.background_transparent = job.transparent as u32;
+    let frame = g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, beiming_core_path::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, spp, false, &mut timings)?;
     if let Some(prefix) = &job.signals {
         // The raw (undenoised) means: diffuse = color less specular and emission.
         let diffuse: Vec<f32> = frame.color.iter().zip(&frame.specular).zip(&frame.emission).flat_map(|((c, s), e)| [0, 1, 2].map(|k| (c[k] - s[k] - e[k]).max(0.0))).collect();

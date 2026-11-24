@@ -97,8 +97,9 @@ const CACHE_SIZE: u32 = 262144u;     // entries, a power of two (gpu.rs CACHE_SI
 // 固定部分各通道的位置（Rust 一侧同名：gpu.rs 的 FILM_*，库测试逐个比数值）。
 const FILM_COMBINED: u32 = 0u;        // 颜色 rgb 的累加和，w：样本数。已落地
 const FILM_DENOISE_ALBEDO: u32 = 1u;  // 降噪用的反照率 rgb 的累加和（上游的口径：相机首次命中的底色）。已落地。
-                                      // w：不透明度的累加和。已定义，现在恒 0
-const FILM_DENOISE_NORMAL: u32 = 2u;  // 降噪用的法线 xyz 的累加和（上游的口径：世界空间）。已落地。w：覆盖率计数。已定义，恒 0
+                                      // w：不透明度的累加和。已落地
+const FILM_DENOISE_NORMAL: u32 = 2u;  // 降噪用的法线 xyz 的累加和（上游的口径：世界空间）。已落地。
+                                      // w：覆盖率计数（首次命中的实体编号等于辅助样本编号的样本数）。已落地
 const FILM_LEGACY_VARIANCE: u32 = 3u; // 上游降噪用的两个量：x 亮度的和，y 亮度平方的和。已落地，换降噪器时腾出来
 const FILM_LEGACY_EMIT: u32 = 4u;     // 上游 `render --signals` 的两组：相机直接看到的光；
 const FILM_LEGACY_SPEC: u32 = 5u;     // 首次命中处的高光部分。已落地（只在开了 --signals 时写），以后腾出来
@@ -121,7 +122,7 @@ struct SampleLegacy {
 
 // 一个样本的结果：film_write_sample 收它。规矩同着色点（shader.wgsl 开头）：不许位置式构造；三维向量后面别紧跟标量。
 struct SampleResult {
-    alpha: f32,                     // 这个样本的不透明度。已定义，恒 0
+    alpha: f32,                     // 这个样本的不透明度：背景对相机不可见、相机射线又没打到表面时 0，否则 1。已落地
     L: vec3<f32>,                   // 颜色：这条路径上各次贡献之和。只由 film_add_light 加。已落地
     albedo: vec3<f32>,              // 降噪用的反照率与法线（上游的口径）。已落地
     normal: vec3<f32>,
@@ -155,7 +156,7 @@ struct AuxSample {
     normal: vec3<f32>,              // 法线（相机空间，长度 1）；没打到：0
 };
 
-// 写辅助样本。只定义：辅助那一趟调度（P.integrator.pass_kind 为 PASS_KIND_AUX）还没有，现在没有调用者。
+// 写辅助样本。辅助那一趟调度（P.integrator.pass_kind 为 PASS_KIND_AUX，integrator.wgsl 的 aux_sample）调它。
 // 实体编号存成浮点数值：整数的位直接进浮点通道，小整数是非规格化数，驱动可能把它冲成 0。
 fn film_write_aux(aux: AuxSample) {
     let b = film_pixel_first();
@@ -182,7 +183,11 @@ fn film_write_sample(r: SampleResult) {
     film[b + FILM_COMBINED] = combined + vec4<f32>(radiance, 1.0);
     let lum = luminance(radiance);
     film[b + FILM_DENOISE_ALBEDO] = denoise_albedo + vec4<f32>(albedo, r.alpha);
-    film[b + FILM_DENOISE_NORMAL] = denoise_normal + vec4<f32>(normal, 0.0);
+    // 覆盖率计数（输出通道契约 5.4）：这个样本相机射线首次命中的实体编号（没打到表面、或打到的不属于任何实体：0）等于辅助
+    // 样本的编号，就记一份。没跑辅助那一趟时辅助那一格是 0，这个数没人读。
+    var first_id = 0.0;
+    if (state.first_hit_object != OBJECT_NONE) { first_id = object_ext_at(state.first_hit_object).entity_id; }
+    film[b + FILM_DENOISE_NORMAL] = denoise_normal + vec4<f32>(normal, select(0.0, 1.0, first_id == film[b + FILM_AUX_DATA].y));
     film[b + FILM_LEGACY_VARIANCE] = variance + vec4<f32>(lum, lum * lum, 0.0, 0.0);
     // `render --signals` (P.motion.y, a live-only lane otherwise): what the camera ray saw directly and the specular
     // share at the camera hit, split as the live denoiser splits them (no reflection resolve), in the slots only live
