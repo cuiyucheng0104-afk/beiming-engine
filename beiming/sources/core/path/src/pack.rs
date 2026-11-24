@@ -1709,7 +1709,7 @@ mod tests {
         assert!(link_ok("kit.*") && link_ok("kit.a") && !link_ok("kit*") && !link_ok("*"));
         assert!(link_matches("kit.*", "kit.a") && !link_matches("kit.*", "kit") && !link_matches("kit", "kit.a"));
         assert!(id_ok("pack:a-b1@2") && !id_ok("pack:A@1") && !id_ok("pack:a@0") && !id_ok("a@1"));
-        assert!(ext_key_ok("oracle.scene") && !ext_key_ok("scene"));
+        assert!(ext_key_ok("chassis.note") && !ext_key_ok("scene"));
         assert_eq!(exit_code(BAD_VALUE), 4);
         assert_eq!(exit_code(BAD_ARGUMENT), 2);
     }
