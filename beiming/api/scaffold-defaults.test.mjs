@@ -256,6 +256,24 @@ test('M1b-4 真实渲染与交付端到端：默认 60f/30fps title、24f/24fps 
     });
     const guideDeliver = await runJob(smallTitle.film, smallTitle.token, 'deliver');
     await assertCleanDeliver(smallTitle.film, guideDeliver);
+
+    // 6. 长文案片名（19 字符 'PRODUCT LAUNCH 2026' 与 24 字符上限 'ABCDEFGHIJKLMNOPQRSTUVWX'，最小字高 heightFrac ≈ 0.074）
+    //    入场首帧满不透明度，POST /deliver 断言 ok: true、pred.delivery 通过、零黑帧、零冻结
+    const longLaunch = (await call('POST', '/v1/films', account, {
+      template: 'title',
+      text: 'PRODUCT LAUNCH 2026',
+      output: { size: [640, 360], fps: '30/1', frames: 24 },
+    })).data;
+    const launchDeliver = await runJob(longLaunch.film, longLaunch.token, 'deliver');
+    await assertCleanDeliver(longLaunch.film, launchDeliver);
+
+    const max24Title = (await call('POST', '/v1/films', account, {
+      template: 'title',
+      text: 'ABCDEFGHIJKLMNOPQRSTUVWX',
+      output: { size: [320, 180], fps: '30/1', frames: 24 },
+    })).data;
+    const max24Deliver = await runJob(max24Title.film, max24Title.token, 'deliver');
+    await assertCleanDeliver(max24Title.film, max24Deliver);
   } finally {
     await api.close();
     if (prevTemp === undefined) delete process.env[tempVar];
@@ -343,4 +361,3 @@ test('M1b-5 真实 Blender + three 双镜 turntable（60f/30fps deliver 与最�
     rmSync(root, { recursive: true, force: true });
   }
 });
-
