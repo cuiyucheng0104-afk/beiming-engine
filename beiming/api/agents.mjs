@@ -298,7 +298,7 @@ function isPlainObject(v) {
   return proto === Object.prototype || proto === null;
 }
 
-/** 亲手代理调用建片或审片时，若模型省略或留空 body.brief，自动在副本中补回已传入的需求原文（不篡改原参数，亦不覆盖模型显式非空传值） */
+/** 亲手代理调用建片或审片时，若模型省略或留空 body.brief，自动在副本中补回已传入的需求原文（不篡改原参数，不覆盖显式非空传值，亦不吞掉显式非法类型） */
 function attachHandsOnBrief(args, brief, baseUrl) {
   if (typeof brief !== 'string' || !brief.trim()) return args;
   if (!args || typeof args !== 'object' || Array.isArray(args)) return args;
@@ -317,7 +317,8 @@ function attachHandsOnBrief(args, brief, baseUrl) {
   const body = args.body;
   if (body !== undefined && body !== null) {
     if (!isPlainObject(body)) return args;
-    if (typeof body.brief === 'string' && body.brief.trim()) return args;
+    const hasBrief = Object.hasOwn(body, 'brief') && body.brief !== undefined;
+    if (hasBrief && (typeof body.brief !== 'string' || body.brief.trim())) return args;
   }
   return { ...args, body: body == null ? { brief } : { ...body, brief } };
 }

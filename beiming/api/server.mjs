@@ -452,7 +452,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
       }
       env.cost.tokens = estimateTokens(env);
       env.cost.tokens = estimateTokens(env);
-      if (id) store.ledger(id, { step: route.id, ok: env.ok, wallMs, gpuSeconds: 0, tokens: env.cost.tokens, modelTokens: result.tokens ?? 0, frames: result.frames ?? 0 });
+      if (id) store.ledger(id, { step: route.id, ok: env.ok, wallMs, gpuSeconds: result.gpuSeconds ?? 0, tokens: env.cost.tokens, modelTokens: result.tokens ?? 0, frames: result.frames ?? 0 });
       res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'private, no-store' });
       res.end(JSON.stringify(env));
     } finally {
