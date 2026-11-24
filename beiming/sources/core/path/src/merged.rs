@@ -306,6 +306,27 @@ mod tests {
         assert!(built_by_position("let e = MyClosure(a);", "Closure").is_none());
     }
 
+    /// 北冥：着色点的闭包数组只按常数下标读写（条文 STRUCTURES.md「只活在一次调用里的结构」里那一条）。按变量下标取，
+    /// SPIR-V 后端把整个数组拷进函数内的临时变量，英伟达显卡上那份拷贝落在本地内存里；苹果显卡上整个着色点被挪到内存里。
+    /// 两块显卡上计时场景都慢一成以上，读数却不变，别的检查发现不了。查内核源码全文，注释不算。
+    #[test]
+    fn closures_are_indexed_by_constants() {
+        let variable = |code: &str| {
+            code.match_indices(".closure[").map(|(i, m)| &code[i + m.len()..]).find(|rest| {
+                let n = rest.find(']').unwrap_or(0);
+                n == 0 || !rest[..n].bytes().all(|b| b.is_ascii_digit())
+            }).map(|rest| rest.chars().take(24).collect::<String>())
+        };
+        let code = without_comments(&kernel_template());
+        assert!(code.contains(".closure[0]"), "内核里没有按下标读闭包数组的地方：改了字段名的话这条检查要跟着改");
+        assert_eq!(variable(&code), None, "按变量下标读写了着色点的闭包数组（改成 switch 分到常数下标）");
+        // 这条检查自己的对照
+        assert!(variable("let c = sd.closure[k];").is_some());
+        assert!(variable("(*sd).closure[n] = c;").is_some());
+        assert!(variable("(*sd).closure[n + 1u] = c;").is_some());
+        assert!(variable("c = sd.closure[3]; d = (*sd).closure[0].kind;").is_none());
+    }
+
     /// Kernel variants in the merged layout: valid WGSL, no entry point with more than eight storage buffers, none
     /// declared beyond them (a pipeline layout counts what is declared), no length of a view's buffer in the source,
     /// and `MergedLive`'s members where the renderer puts their sections.

@@ -67,9 +67,15 @@ fn surface_shader_prepare_closures(sd: ptr<function, ShadingPoint>) {
 }
 
 // 第 k 个闭包模糊之后的样子：照 Cycles 的 closure/bsdf.h bsdf_blur，微表面闭包的 alpha 与模糊粗糙度取大，别的不动。
-// k 不小于闭包个数时原样返回
+// k 不小于闭包个数时原样返回。取第 k 个用 switch 写成常数下标（理由见 surface_shader_bsdf_sample_closure）
 fn bsdf_blur(sd: ptr<function, ShadingPoint>, k: u32, roughness: f32) -> Closure {
-    var c = (*sd).closure[k];
+    var c: Closure;
+    switch (k) {
+        case 0u: { c = (*sd).closure[0]; }
+        case 1u: { c = (*sd).closure[1]; }
+        case 2u: { c = (*sd).closure[2]; }
+        default: { c = (*sd).closure[3]; }
+    }
     if (k < (*sd).num_closure && c.kind == CLOSURE_BSDF_MICROFACET_GGX) {
         let a = bsdf_microfacet_blur(c.alpha_x, c.alpha_y, roughness);
         c.alpha_x = a.x;
@@ -202,8 +208,17 @@ fn surface_shader_bsdf_bssrdf_pick(sd: ShadingPoint, rand: vec3<f32>) -> BsdfPic
 // surface_shader_bsdf_sample_closure（无路径引导）。用 `rand` 的前两个定方向。通量的权重照 Cycles 的
 // integrate_surface_bsdf_bssrdf_bounce：求值之和除以合起来的概率密度。奇异的一瓣（纯镜面）求值与密度都乘了 1e6，
 // 照样并进来。上游顶替不用 `rand`：它自己从上游的随机数里取（sample_bsdf）。要先调过 surface_shader_prepare_closures。
+// 取第 k 个闭包用 switch 写成常数下标，不写 sd.closure[k]：着色点是按值传进来的，按变量下标取它的闭包数组时 SPIR-V 后端
+// 先把整个数组（4 × 128 字节）拷进函数内的临时变量再取，英伟达显卡上这份拷贝落在本地内存里（每个线程的本地内存
+// 336 → 1200 字节），计时场景稳态慢 12% 上下；苹果显卡上慢三成。改成 switch 之后两块显卡上的结果逐位不变。
 fn surface_shader_bsdf_sample_closure(sd: ShadingPoint, k: u32, rand: vec3<f32>) -> BsdfSample {
-    let c = sd.closure[k];
+    var c: Closure;
+    switch (k) {
+        case 0u: { c = sd.closure[0]; }
+        case 1u: { c = sd.closure[1]; }
+        case 2u: { c = sd.closure[2]; }
+        default: { c = sd.closure[3]; }
+    }
     if (c.kind == CLOSURE_LEGACY) { return surface_shader_bsdf_sample_legacy(sd); }
     var bs = BsdfSample();
     let m = bsdf_sample(c, sd.Ng, sd.wi, rand);
@@ -257,9 +272,17 @@ fn closure_albedo(c: Closure, wi: vec3<f32>) -> vec3<f32> {
 }
 
 // 第 `k` 个闭包的反照率（降噪特征与层间衰减用），口径照 Cycles（closure_albedo）。上游顶替返回上游的底色。
+// 现在没有调用者。取第 k 个用 switch 写成常数下标（理由见 surface_shader_bsdf_sample_closure）
 fn bsdf_albedo(sd: ShadingPoint, k: u32) -> vec3<f32> {
-    if (sd.closure[k].kind == CLOSURE_LEGACY) { return sd.legacy.surface.base; }
-    return closure_albedo(sd.closure[k], sd.wi);
+    var c: Closure;
+    switch (k) {
+        case 0u: { c = sd.closure[0]; }
+        case 1u: { c = sd.closure[1]; }
+        case 2u: { c = sd.closure[2]; }
+        default: { c = sd.closure[3]; }
+    }
+    if (c.kind == CLOSURE_LEGACY) { return sd.legacy.surface.base; }
+    return closure_albedo(c, sd.wi);
 }
 
 // 降噪用的反照率，照 Cycles 的 film/denoising_passes.h film_write_denoising_features_surface 在「首次命中、不跟反射
