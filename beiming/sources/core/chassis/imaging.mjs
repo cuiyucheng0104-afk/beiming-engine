@@ -21,6 +21,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { CliError, defineCommand, isMain, runCli } from '../../../../tools/lib/cli.mjs';
+import { crs, dot3 } from '../fncheck/registry.mjs';
 import { PRESETS, buildRenderer, missing } from './build.mjs';
 import { IDENTITY, translate, writePack } from './scenepack.mjs';
 
@@ -100,13 +101,11 @@ export function cornerPack(world = [1, 1, 1]) {
 }
 
 const sub = (a, b) => a.map((x, i) => x - b[i]);
-const dotv = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const crossv = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 /** 射线与三角形（Möller–Trumbore），返回距离或 Infinity */
 function hitTri(o, d, p0, p1, p2) {
-  const e1 = sub(p1, p0), e2 = sub(p2, p0), q = crossv(d, e2), det = dotv(e1, q);
+  const e1 = sub(p1, p0), e2 = sub(p2, p0), q = crs(d, e2), det = dot3(e1, q);
   if (Math.abs(det) < 1e-12) return Infinity;
-  const s = sub(o, p0), u = dotv(s, q) / det, r = crossv(s, e1), v = dotv(d, r) / det, t = dotv(e2, r) / det;
+  const s = sub(o, p0), u = dot3(s, q) / det, r = crs(s, e1), v = dot3(d, r) / det, t = dot3(e2, r) / det;
   return u >= 0 && v >= 0 && u + v <= 1 && t > 1e-9 ? t : Infinity;
 }
 /** 几何追踪（双精度）：从 o 沿 d 在这几面镜子之间理想反射，返回反射次数与最后离开时的方向；超过 8 次算没出来 */
@@ -123,7 +122,7 @@ export function traceMirrors(quads, o, d) {
     }
     if (best.t === Infinity) return { reflections: n, out: d };
     o = o.map((x, i) => x + best.t * d[i]);
-    const k = 2 * dotv(d, best.N);
+    const k = 2 * dot3(d, best.N);
     d = d.map((x, i) => x - k * best.N[i]);
   }
   return { reflections: n, out: d };
