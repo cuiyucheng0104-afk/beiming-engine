@@ -85,11 +85,13 @@ test('ci.yml：六个 job 都在，各有时限；权限只读；windows-paths �
   assert.match(text, /workflow_call:/);
 });
 
-test('ci.yml：render 的 tests 两片与 smoke 并行且互不拖累；smoke-render 汇总各路，release.yml 要的产物名只由 smoke 一路上传', () => {
+test('ci.yml：render 的 tests 三片与 smoke 并行且互不拖累；smoke-render 汇总各路，release.yml 要的产物名只由 smoke 一路上传', () => {
   const jobs = jobsOf(read('.github/workflows/ci.yml'));
-  assert.match(jobs.render, /- part: tests-beiming\n\s+tests_args: --only beiming,audio\n\s+- part: tests-rest\n\s+tests_args: --skip beiming,audio\n\s+- part: smoke\n/);
-  // 两片要合起来不漏域：一片 --only 一组、另一片 --skip 同一组（新增的域自动落进 --skip 那一片）
-  assert.equal(/--only ([\w,-]+)/.exec(jobs.render)[1], /--skip ([\w,-]+)/.exec(jobs.render)[1], 'tests 两片的 --only / --skip 要是同一组域');
+  assert.match(jobs.render, /- part: tests-beiming\n\s+tests_args: --only beiming,audio\n\s+- part: tests-beiming-api\n\s+tests_args: --only beiming-api\n\s+- part: tests-rest\n\s+tests_args: --skip beiming,beiming-api,audio\n\s+- part: smoke\n/);
+  // 各 --only 分片并集要等于 --skip 集合，确保不漏域（新增的域自动落进 --skip 那一片）
+  const onlyDomains = [...jobs.render.matchAll(/--only ([\w,-]+)/g)].flatMap(m => m[1].split(',')).sort();
+  const skipDomains = /--skip ([\w,-]+)/.exec(jobs.render)[1].split(',').sort();
+  assert.deepEqual(onlyDomains, skipDomains, 'tests 各 --only 分片的并集必须等于 --skip 集合');
   assert.match(jobs.render, /fail-fast: false/, '一路红了另一路也要跑完');
   // 每个只属于某一路的步骤都要带 matrix.part 条件，否则两路会各跑一遍对方的活
   const stepsOf = text => text.split(/\n {6}- /).slice(1).map(s => `- ${s}`);
