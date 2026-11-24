@@ -2,6 +2,7 @@
 // 照 Cycles 取值的常数对 Cycles 的头文件（本机有 Cycles 源码缓存时才比，没有就跳过；BEIMING_FNCHECK_E2E=1 时缺了算失败）。
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -131,7 +132,7 @@ test('命令：标记与代码一致退出 0；没有标记、标记与代码不
   const ok = run();
   assert.equal(ok.status, 0, ok.stderr);
   assert.match(ok.stdout + ok.stderr, /与代码一致/);
-  const tmp = fs.mkdtempSync(path.join(fs.realpathSync(process.env.TMPDIR || '/tmp'), 'beiming-freeze-test-'));
+  const tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'beiming-freeze-test-'));
   try {
     // 照内核目录的样子拷：path/ 下是标记、条文与着色器，旁边的 shaders/ 是共用目录
     const kernel = path.join(tmp, 'path'), copy = path.join(kernel, 'FREEZE.json');
