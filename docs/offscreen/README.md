@@ -17,6 +17,7 @@
 浏览器里最贵的是取帧与搬运，不是渲染。离屏出片把渲染留在 GPU 上，用 `mapAsync` 把像素直接读进 Node 内存，没有 CDP、base64 与进程间搬运；一个进程里可以开多部片，共用一个 GPU 设备，由我们自己排队。
 
 ## 2. 架构
+> 改这条管线或给它调参的 agent 入口：[skills/beiming-tsl/SKILL.md](../../skills/beiming-tsl/SKILL.md)——主题路由（视觉诉求 → `engine/offscreen/tsl/` 模块与参数）、脚本生成的模块符号索引（`npm run tsl:index:check` 防漂移）与调试工作流。
 
 ```
 作品模块  build(ctx) → { render(f), dispose?() }      只依赖注入进来的 THREE / TSL，不 import three，不碰 DOM
