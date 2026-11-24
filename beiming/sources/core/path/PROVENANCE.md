@@ -11,7 +11,7 @@
 | 项目 | ThreeRT，<https://github.com/meshy-dev/ThreeRT> |
 | 固定提交 | `c946cc96bdb08979224e851a7fc67a066b1b456b` |
 | 许可 | MIT，版权人 Meshy LLC（2026）。许可全文原样放在 [LICENSE-upstream.txt](LICENSE-upstream.txt) |
-| 本目录的许可 | 默认 MIT：上游的部分版权归 Meshy LLC，北冥改写与新增的部分版权归北冥引擎，逐路径登记在仓库根的 `REUSE.toml`。有十二个文件带着照 Blender Cycles 取的东西，版权与许可写在各自的文件头（文件头优先于 `REUSE.toml`），见下面「照 Cycles 取的部分」 |
+| 本目录的许可 | 默认 MIT：上游的部分版权归 Meshy LLC，北冥改写与新增的部分版权归北冥引擎，逐路径登记在仓库根的 `REUSE.toml`。有十一个文件带着照 Blender Cycles 取的东西，版权与许可写在各自的文件头（文件头优先于 `REUSE.toml`），见下面「照 Cycles 取的部分」 |
 
 每个源自上游的 `.rs` 与 `.wgsl` 文件第一行都写了它对应上游的哪个路径。
 
@@ -31,7 +31,6 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 | `src/gpu.rs` | MIT 与 Apache-2.0 | 积分器参数块 `KernelIntegrator` 的字段名（着色器里那一份在 CPU 上的镜像） | `kernel/data_template.h`（Apache-2.0） |
 | `src/sample.rs` | MIT 与 Apache-2.0 | `PRNG_BOUNCE_NUM` 的名字与数值；像素种子的式子 `rng_pixel` | `kernel/types.h`、`kernel/sample/pattern.h`（都是 Apache-2.0） |
 | `src/scene.rs` | MIT 与 Apache-2.0 | 物体扩展表 `GpuObjectExt` 的四个字段名与物体标志的位（着色器里那一份在 CPU 上的镜像） | `kernel/types.h`（Apache-2.0） |
-| `src/pack.rs` | MIT 与 Apache-2.0 | 三种灯从功率（或辐照度）换成内核单位的系数：矩形面光 1 / (π·面积)、点光 1 / (4π)、平行光 1 | `scene/light.cpp`、`kernel/light/area.h`（都是 Apache-2.0） |
 
 许可全文在仓库根的 `LICENSES/`（`MIT.txt`、`Apache-2.0.txt`、`BSD-3-Clause.txt`）。其余文件（`shaders/` 下的 `film`、`light`、`volume`、`records`、`trace_hw` 与 `src/` 下表里没列的那些）没有照 Cycles 定义什么，是 MIT。这张表按「在哪个文件里定义」算：结构的字段、常数、式子写在哪个文件，哪个文件就标；别的文件只是用到这些名字的（比如 `src/merged.rs` 与 `src/gpu.rs` 的库测试里按名字核对两侧的字段表与编号、`src/lib.rs` 填积分器参数），不另标。
 
@@ -91,7 +90,7 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 | `rust-toolchain.toml` | `rust-toolchain.toml` | Rust 版本不变（1.100.0）；去掉只给浏览器构建用的 wasm32 目标，注释重写 |
 | `LICENSE-upstream.txt` | `LICENSE` | 原样 |
 
-`PROVENANCE.md`、`README.md`、`STRUCTURES.md`、`FREEZE.json`、`.gitignore` 是北冥新写的；`src/pack.rs`（场景包读入器）也是。`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 也不是上游的文件：照 Cycles 移植的哈希函数，见下一节「随机维度」。
+`PROVENANCE.md`、`README.md`、`STRUCTURES.md`、`FREEZE.json`、`.gitignore` 是北冥新写的。`src/pack.rs`（场景包读入器）也是北冥新写的（MIT，文件头写明）：三种灯的换算是辐射度量学的式子，只对过 Cycles 的口径、没有搬代码，出处写在它的注释里。`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 也不是上游的文件：照 Cycles 移植的哈希函数，见下一节「随机维度」。
 
 ## 北冥加了什么
 

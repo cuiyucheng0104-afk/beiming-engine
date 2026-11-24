@@ -1,11 +1,7 @@
 // SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
-// SPDX-FileCopyrightText: 2011-2022 Blender Foundation
-// SPDX-License-Identifier: MIT AND Apache-2.0
-// 多方许可。北冥新写的部分是 MIT。照 Cycles（Blender v5.2.3，路径相对 intern/cycles/）取的部分是 Apache-2.0
-// （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
-//   三种灯从功率（或辐照度）换成内核单位的系数：scene/light.cpp（PointLight::area、PointLight::copy_to_kernel、
-//   AreaLight::area、AreaLight::copy_to_kernel、SunLight::area、SunLight::copy_to_kernel），kernel/light/area.h
-//   （area_light_eval 里的 eval_fac）
+// SPDX-License-Identifier: MIT
+// 北冥新写的文件，不是上游 ThreeRT 的。三种灯的换算是辐射度量学的式子，没有搬 Cycles 的代码；为了和 Cycles 的口径一致，
+// 逐条对过 Cycles（Blender v5.2.3）的源码，出处写在 `kernel_light` 的注释里。
 //! 北冥：场景包读入器（场景包契约 `scene-pack/0.1`，在 beiming/kernel/contracts/scene-pack/）。读一个场景包目录：
 //! 清单 `pack.json`、几何文件（GLB）、实例表（u32）、每帧状态表（f32），全部校验；选一帧建成内核的 `World`，
 //! 再走现有的 `scene::build`。读入方是信任边界：一切错都报成带错误码的 `PackError`，不 panic、不越界读。
@@ -1093,15 +1089,17 @@ pub fn read_glb(bytes: &[u8], meshes: &[Mesh]) -> R<(Vec<world::Geometry>, usize
 
 // ------------------------------------------------------------------------------------------ 建 World
 
-/// 一盏灯在第 `k` 帧换成内核的灯描述。功率照 Cycles 的口径换（`size`、`watts` 照契约：瓦，场景线性）：
-/// - 矩形面光：辐亮度 L = P / (π·宽·高)。Cycles：scene/light.cpp `AreaLight::area` 是宽乘高、`AreaLight::copy_to_kernel`
-///   里 `invarea = 1 / area`（normalize 默认开），kernel/light/area.h `area_light_eval` 里 `eval_fac = M_1_PI_F * invarea`。
-///   内核的矩形纯光收的就是辐亮度（light.wgsl 的 `bm_rect_le` 一段：它在里面乘回 π·面积，再乘 1 / (π·面积)），
-///   与第 2 级对过解析值的那条换算是同一个式子。
-/// - 点光（半径 0）：辐射强度 I = P / (4π)。Cycles：scene/light.cpp `PointLight::area` 在半径 0 时取 4，
-///   `PointLight::copy_to_kernel` 里 `eval_fac = invarea * M_1_PI_F`，即 1 / (4π)。内核的点光收的是辐射强度（按 1 / d² 衰减）。
-/// - 平行光（夹角 0）：辐照度 E 原样。Cycles：scene/light.cpp `SunLight::area` 在夹角 0 时取 1，`SunLight::copy_to_kernel`
-///   里 `eval_fac = 1 / area`，即 1。内核的平行光收的是垂直于光线的面上的辐照度。
+/// 一盏灯在第 `k` 帧换成内核的灯描述。功率照 Cycles 的口径换（`size`、`watts` 照契约：瓦，场景线性；Cycles 的灯强度是
+/// 功率乘灯色，再乘下面的 eval_fac 就是它渲染时用的量）。行号是 Blender v5.2.3 的 intern/cycles/ 下的：
+/// - 矩形面光：辐亮度 L = P / (π·宽·高)。scene/light.cpp:224 面积是宽乘高（`AreaLight::area`），:238 `invarea = 1 / area`
+///   （normalize 默认开），kernel/light/area.h:313 `eval_fac = M_1_PI_F * invarea`。内核的矩形纯光收的就是辐亮度
+///   （light.wgsl 的 `bm_rect_le` 一段：在里面乘回 π·面积，area_light.wgsl 再乘 1 / (π·面积)），与第 2 级对过解析值的
+///   那条换算是同一个式子。
+/// - 点光（半径 0）：辐射强度 I = P / (4π)。scene/light.cpp:135 半径 0 时 `PointLight::area` 取 4，:142 `invarea = 1 / area`，
+///   :145 `eval_fac = invarea * M_1_PI_F`，即 1 / (4π)；kernel/light/point.h:32 取用它。内核的点光收的是辐射强度（按 1 / d² 衰减）。
+/// - 平行光（夹角 0）：辐照度 E 原样。scene/light.cpp:298 夹角 0 时 `SunLight::area` 取 1，:316 `eval_fac = 1 / area`，即 1；
+///   kernel/light/sun.h:46 取用它。内核的平行光收的是垂直于光线的面上的辐照度。
+/// 包里没有的几样照 Blender 的默认取：normalize 开、面光不聚拢（spread 180°）、点光半径 0、平行光夹角 0。
 pub fn kernel_light(l: &Light, watts: f64) -> desc::Light {
     let color = l.color.map(|c| c as f32);
     match l.kind {
