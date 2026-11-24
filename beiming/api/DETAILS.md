@@ -56,18 +56,19 @@ node beiming/api/cli.mjs render --id f_001 --wait 30 --json '{"tier":"draft"}'
 
 `render`、`verify` 的补渲和 `deliver` 的终渲都经 `pipeline.mjs` 的 `renderPlan`。每部片的缓存在工作区 `deliver/.shot-cache/`（`jobs/cache.mjs` 的 `openShotCache`）：不进修订快照，跨修订、跨作业复用。每帧先按 04 §10 的六项键查缓存，命中的帧把 `color.f32`、`objectId.u32` 和别的请求层还原到 `<作业>/frames/<镜头>/layers/cache-f<局部帧号>/`，不调帧源；一个镜头全部命中就不为它起 Blender 或浏览器会话。只改 `s02` 再交付，`s01` 的帧源调用是 0 次（终渲和 L2 都算）；原样再交付，全片是 0 次。
 
-`buildShotCacheInputs({ film, lock, shot, filmDir, tier, events, device })` 交出一个镜头的键输入：
+`buildShotCacheInputs({ film, lock, shot, filmDir, tier, events, device, engineDigest, cardsDigest, engineRoot })` 交出一个镜头的键输入：
 
 | 项 | 进键的内容 |
 |---|---|
-| ① 镜头 | 镜头条目和它的起始帧；本镜头看得到的事件：落在镜头里的、`shot` 点名这个镜头的、镜头条目或入口文件里按名字引用的；片级参数 `output.fps`、`style.tokens`、`assets` 表、贴在这个镜头的 `overlays`、锁里的镜头种子 |
+| ① 镜头 | 镜头条目和它的起始帧；完整全片事件表 `events.events`（`shotInput` 把全片事件交给镜头与卡，修改任意事件都会使受影响缓存键失效）；片级参数 `output.fps`、`style.tokens`、`assets` 表、贴在这个镜头的 `overlays`、锁里的镜头种子 |
 | ② 文件 | 入口文件，加上 `shots/` 下不是别的镜头入口的源码（共用模块）；用到的资产在锁里的摘要。`cards-data` 镜头没有入口 |
 | ③ 轨道 | 镜头 `tracks` 声明的摘要，没有写 `'none'` |
 | ④ 卡 | 镜头的卡、叠加层卡和数据层（`impl` 含 `data`）的卡在锁里的 `version` 与 `sha256`。合成的卡不进键：缓存存的是合成之前的层 |
-| ⑤ 环境 | 帧源与宿主、锁里的运行时版本与镜像、浏览器可执行文件的指纹、浏览器的显卡参数、系统版本、锁里声明的出片机器 `lock.machine`（`class`、`driver`，整个对象规范化后进键），加上帧源上次出帧时报的 `backend` 与 `gpu` |
+| ⑤ 环境 | 帧源与宿主、锁里的运行时版本与镜像加上按作业实时计算的引擎代码/字体摘要（`engineCodeDigest`）与本镜头所用卡的磁盘实时摘要（`liveCardsDigest`，仍保持 `jobs/cache.mjs` 的 5 个 `ENV_KEYS` 不变）、浏览器可执行文件的指纹、浏览器的显卡参数、系统版本、锁里声明的出片机器 `lock.machine`（`class`、`driver`，整个对象规范化后进键），加上帧源上次出帧时报的 `backend` 与 `gpu` |
 | ⑥ 规格 | 档位、采样数、`output.size`、局部帧号、快门子帧相位、这一档要帧源交的层 `layersOf(film, tier)`。`colorRef` 在镜头条目里，属于 ① |
 
-- **别的镜头改参数、改事件不影响本镜头；镜头整体后移要重渲**：起始帧在键里。镜头代码和卡拿得到 `ctx.shot.in`（[镜头契约](../kernel/contracts/shot/CONTRACT.md) S10，`time.timeline` 用它算全片时间），`time` 类型的卡参数写整数是全片帧号（转台模板片名卡的 `enter: 0`），后移之后同一个局部帧号的画面可以不一样。前一个镜头改长，后面的镜头都重渲；只改长最后一个镜头，前面的照常命中。`jobs/cache.mjs` 的键本身不含起始帧，由这里放进 `film.at`。
+- **实时引擎/字体/卡摘要与签锁绑定（无启动期缓存）**：`runtime.mjs` 的 `engineCodeDigest(source, { root })` 每次调用实时按 POSIX 相对路径排序并同时哈希路径与内容（跳过 `*.test.*`、`*.md`、`out/`、`__pycache__/`、`.git/`、`node_modules/`）：共用涵盖 `beiming/kernel/eval/` 与 `routes/c-style/fonts/`（`fonts.json` 及目录内存在的 `.woff2`/`.ttf`/`.otf` 等字体文件），`three` 另含 `beiming/sources/three/` 与 `beiming/host/page/`，`blender` 另含 `beiming/sources/blender/`，其他帧源另含存在的 `beiming/sources/<source>/`；`liveCardsDigest(cardIds, { root })` 按次实时哈希本镜头所用卡与数据层卡的非测试运行时文件。`threeImage(opts)` 与 `blenderImage(version, opts)` 实时合入 `engineCodeDigest` 与既有上游构建/版本，使 `lockContext()` 签出的 `film.lock` 与交付锁同步锚定引擎代码与字体版本；`server.mjs` 的 `commit()` 每次签锁实时调用 `loadCardLibrary()`。`renderPlan` 在每次作业开始按本作业涉及的帧源与镜头卡实时计算一次快照传给 `buildShotCacheInputs`（同一作业所有帧共享同一快照，下一作业立即重算，彻底杜绝片子与旧锁不变时改引擎/字体/卡代码复出旧帧或半途续渲混帧）；`layerL2` 独立作废缓存时同步透传 `engineRoot`。
+- **别的镜头改参数不影响本镜头；全片事件变更失效全片；镜头整体后移要重渲**：起始帧在键里。镜头代码和卡拿得到 `ctx.shot.in`（[镜头契约](../kernel/contracts/shot/CONTRACT.md) S10，`time.timeline` 用它算全片时间），`time` 类型的卡参数写整数是全片帧号（转台模板片名卡的 `enter: 0`），后移之后同一个局部帧号的画面可以不一样。前一个镜头改长，后面的镜头都重渲；只改长最后一个镜头，前面的照常命中。`jobs/cache.mjs` 的键本身不含起始帧，由这里放进 `film.at`。因为 `shotInput` 传入全片事件表，`events` 按完整 `events.events` 进键，修改任意事件都会令全片各镜头键失效。
 - 命中的元数据 `timing` 记 0，其余原样，`hash.color` 与还原出的颜色层一致。
 - **命中的帧身份**。写缓存时，管线在元数据的 `cache` 字段记录帧键和各层的 SHA-256。恢复时核对帧键、层摘要和 `meta/0.1` 的 `shot`、`frame`、`shotFrame`、`source.id`、`source.tier`。`size` 必须逐轴匹配当前帧源的 `planRender` 结果，颜色和辅助层的长度也按这个画幅检查。例如 `320 × 180` 影片默认生成 `160 × 90` 的草稿帧，校验也遵循镜头的 `tiers.<档位>.scale`。错画幅、错帧号或旧版本的载荷，以及被替换的辅助层，都会触发该帧重新渲染并覆盖缓存。升级前缺少 `cache` 字段的帧首次读取时重渲一次。输出的元数据只带帧源字段。缓存目录假定由管线写入，能同时改写载荷、帧键及摘要的写入者也能生成自洽记录。
 - **请求的通道**：`film.delivery.layers` 是终渲要落盘的通道。终渲档向帧源要 `color`、`objectId` 加上它点名的通道（`depth`、`normal`），草稿档只要前两个。这组层名进键，所以换一组通道必重渲，不会拿缺层的旧帧当命中。层文件 `depth.f32`、`normal.f32` 和颜色层放在同一个目录；`<镜头>/exr/l<局部帧号>.exr` 一律由管线用 `verify/exr` 的写入器写（ZIPS，32 位），`readExr` 读得回来（FFmpeg 的 EXR 编码器不写 `pixelAspectRatio`，以前没点名通道时由它写的文件 `readExr` 读不了）。通道是 `R`、`G`、`B`、`A` 加 `depth.Z`、`normal.X`、`normal.Y`、`normal.Z`、`objectId.id`（点名了哪个带哪个），数就是层文件里的；没点名时只有颜色。帧源交不出的通道（`motion`、降噪层、分灯组）由帧源报 `contract.unsupported-output`，作业失败，不出缺层的帧。场景参考通路里页面帧源另交的 `frame.exr`、`objectId2x.u32` 也随帧进缓存、原样还原；页面帧源的场景参考镜头（`source: three`、`colorRef: scene`）命中时这两个文件必须都在，`objectId2x.u32` 的大小必须是 2 倍画幅，`frame.exr` 要用 `readExr` 整个解得开、宽高是这一帧的画幅，页面宿主该写的通道一个不缺、每个都是宽乘高个样本：浮点的 `color.R`、`color.G`、`color.B`、`color.A`，这一帧向帧源要的每个辅助通道的每个分量（浮点的 `depth.Z`、`normal.X`、`normal.Y`、`normal.Z`，整数的 `objectId.id`），要了编号层另有浮点的 `objectId2x.coverage`（缓存的校验和只保证存进去的字节没变，不保证存的是个好文件；独立的 `normal.f32` 在也不说明原生 EXR 里的 `normal.Z` 在），辅助通道的数还要和层文件里的逐样本相同（页面宿主写这个文件时用的就是层文件里的数，对不上就是别的帧的文件），否则这一帧当没命中重渲，还原出的帧目录每帧都有解得开的 `frame.exr`。成片（`master.mp4`、`web.mp4`）只用颜色。
@@ -80,7 +81,7 @@ node beiming/api/cli.mjs render --id f_001 --wait 30 --json '{"tier":"draft"}'
 - **键算不出来**（镜头条目里有帧源才判得出的错）时这个镜头不走缓存，帧源照常出帧或报它自己的错。
 - 测「重新渲染」（重复性、重建）时每次用新片子，或先删 `deliver/.shot-cache/`，否则测到的是命中。`renderPlan` 不传 `cache` 就每帧都渲。
 
-改动后运行 `node --test beiming/api/shot-cache-api.test.mjs`：前半用记数的假帧源（只要 FFmpeg），最后两条用真 Blender 和无头浏览器：一条经 HTTP 把双镜头片交付二十来次（改一个镜头、原样再交付、换三组 `delivery.layers`、把页面镜头改成场景参考，各冷热对照；从一帧的缓存条目里抽掉原生 `frame.exr`、把它截成前 16 字节、只去掉它里面的 `normal.Z`，看它只重渲这一帧补齐；往一帧的编号层点坏两个像素让包围盒不过，看交付和单独核验都报 422 并作废这一版，原样再交付重渲后 200），另一条用单镜头的场景参考页面片，把 288 × 200、180 × 320、同画幅另一帧和改片名之前那一版的整条真实载荷（还有只换原生 EXR 的）写进 320 × 180 一帧的键，看交付照样 200、只重渲这一帧，草稿档缩半的帧照常命中。帧源调用次数读账本行的 `sourceRenders`，缺工具时跳过。
+改动后运行 `node --test beiming/api/cache-engine-digest.test.mjs beiming/api/shot-cache-api.test.mjs`：前者用临时引擎副本验证帧源代码、页面宿主、求值核、字体、卡实现、半途续渲不混帧、全片事件进键与同进程不重启重签锁；后者前半用记数的假帧源（只要 FFmpeg），最后两条用真 Blender 和无头浏览器：一条经 HTTP 把双镜头片交付二十来次（改一个镜头、原样再交付、换三组 `delivery.layers`、把页面镜头改成场景参考，各冷热对照；从一帧的缓存条目里抽掉原生 `frame.exr`、把它截成前 16 字节、只去掉它里面的 `normal.Z`，看它只重渲这一帧补齐；往一帧的编号层点坏两个像素让包围盒不过，看交付和单独核验都报 422 并作废这一版，原样再交付重渲后 200），另一条用单镜头的场景参考页面片，把 288 × 200、180 × 320、同画幅另一帧和改片名之前那一版的整条真实载荷（还有只换原生 EXR 的）写进 320 × 180 一帧的键，看交付照样 200、只重渲这一帧，草稿档缩半的帧照常命中。帧源调用次数读账本行的 `sourceRenders`，缺工具时跳过。
 
 ## 委托三角色、镜头工五段任务书、服务端模板判定与 L5 三视角九票规程
 

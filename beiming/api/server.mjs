@@ -99,7 +99,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
   const work = createWork({ store, library, scheduler, reviewer: reviewer === undefined ? reviewerFromEnv({ ledgerPath: join(dataDir, 'external-ledger.jsonl') }) : reviewer });
 
   async function commit(id, film, rev, files = {}) {
-    return store.commit(id, film, rev, { files, library, lut: await ensureLut(dataDir) });
+    return store.commit(id, film, rev, { files, library: loadCardLibrary(), lut: await ensureLut(dataDir) });
   }
 
   async function createFilm(body, who, bearer) {

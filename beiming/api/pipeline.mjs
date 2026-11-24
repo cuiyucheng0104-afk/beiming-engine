@@ -33,7 +33,7 @@ import {
   checkL1, evaluateAssertion, evaluateFloor, guardPredicates, IOU_MIN, runPureFunctionGate, toVerdict, verifySampledBboxes,
 } from '../verify/index.mjs';
 import { diagnostic } from './envelope.mjs';
-import { BEIMING, monotonicMs, threeCardDirs, VIEW_SHAPER } from './runtime.mjs';
+import { BEIMING, engineCodeDigest, liveCardsDigest, monotonicMs, threeCardDirs, VIEW_SHAPER } from './runtime.mjs';
 
 const pad = (n, w = 4) => String(n).padStart(w, '0');
 const r3 = (v) => (Number.isFinite(v) ? Math.round(v * 1000) / 1000 : null);
@@ -203,28 +203,36 @@ const deviceOf = (source = {}) => ({ backend: String(source.backend ?? 'none'), 
 /**
  * 一个镜头的缓存键输入：computeFrameCacheKey 的前五项，加上 determinism 和摊平的 tier、samples、size、subs、layers
  * （帧号由调用方逐帧填；比 jobs/cache.mjs 的 renderShotsWithCache 的镜头输入多一个 layers）。
- * events 是全片事件表；device 是帧源上次出帧时报的 { backend, gpu }，没出过帧不传。
- *   ① 镜头条目和它的起始帧，加上本镜头看得到的事件（落在镜头里的、点名这个镜头的、镜头条目或入口文件里按名字引用的）
+ * events 是全片事件表；device 是帧源上次出帧时报的 { backend, gpu }，没出过帧不传；
+ * engineDigest / cardsDigest 为当前作业开始时快照的实时引擎代码（含字体）与本镜头所用卡的磁盘摘要，未传时现算；engineRoot 供测试隔离引擎根目录。
+ *   ① 镜头条目和它的起始帧，加上全片事件表（events.events：shotInput 把全片事件交给镜头与卡，任何事件变更都必须失效缓存）
  *      和用到的片级参数（帧率、风格 tokens、资产表、贴在这个镜头的叠加层、锁里的镜头种子）。
  *      起始帧必须进键：镜头代码和卡拿得到 ctx.shot.in（镜头契约 S10），time 类型的卡参数写整数是全片帧号，
  *      前面的镜头改长、这个镜头整体后移之后画面可以不一样，所以平移过的镜头重渲；
  *   ② 入口文件和它可能引用的工作区源码（shots/ 下不是别的镜头入口的文件），加上用到的资产在锁里的摘要；cards-data 镜头没有入口；
  *   ③ 镜头的 tracks 声明的摘要，没有写 'none'；④ 镜头的卡、叠加层卡和数据层的卡在锁里的版本与实现哈希；
- *   ⑤ 帧源与宿主、锁里的运行时版本与镜像、浏览器构建、显卡后端、系统、锁里声明的出片机器（lock.machine：机器类别、显卡驱动版本）与显卡；
+ *   ⑤ 帧源与宿主、锁里的运行时版本与镜像加上按作业实时计算的引擎代码/字体/卡摘要、浏览器构建、显卡后端、系统、锁里声明的出片机器（lock.machine：机器类别、显卡驱动版本）与显卡；
  *   ⑥ 档位、采样数、画幅、快门子帧相位、这一档要帧源交的层（layersOf）。colorRef 在镜头条目里，已经在 ① 里。
- * shortcut: 镜头代码写死名字去读别的镜头里的事件、或者引用别的镜头的入口文件，这里看不出来；出现这种写法时把事件表和 shots/ 全部进键。
+ * shortcut: 镜头代码引用别的镜头的入口文件，这里看不出来；出现这种写法时把 shots/ 全部进键。
  */
 /** 一档要帧源交、要随帧落盘的层：颜色和编号层总要；终渲档加上 delivery.layers 点名的通道（片子契约：终渲要落盘的通道） */
 export const layersOf = (film, tier) => [...new Set(['color', 'objectId', ...(tier === 'final' ? film.delivery?.layers ?? [] : [])])].sort();
 
-export function buildShotCacheInputs({ film, lock, shot, filmDir, tier, events = eventsTable(film), device }) {
+function shotCardIds(film, lock, shot) {
+  const r = renderingOf(shot);
+  const overlays = (film.overlays ?? []).filter((o) => o.shot === shot.id);
+  const used = new Set([...(r.cards ?? shot.cards ?? []).map((c) => parseCardRef(c.use).name), ...(overlays.length ? [OVERLAY_CARD] : [])]);
+  const lockedData = Object.entries(lock.cards ?? {}).filter(([, c]) => c.impl?.includes('data')).map(([id]) => id);
+  return [...new Set([...used, ...lockedData])];
+}
+
+export function buildShotCacheInputs({ film, lock, shot, filmDir, tier, events = eventsTable(film), device, engineDigest, cardsDigest, engineRoot }) {
   const caps = SOURCE_CAPS[shot.source]?.();
   if (!caps) throw coded('contract.unsupported-mode', `帧源 ${shot.source} 这台服务器没接`);
   const r = renderingOf(shot), base = filmDirOf(shot, filmDir);
   const overlays = (film.overlays ?? []).filter((o) => o.shot === shot.id);
 
   const loadedFiles = [];
-  let code = '';
   if (typeof r.entry === 'string' && existsSync(join(base, r.entry))) {
     const others = new Set(film.shots.filter((x) => x.id !== shot.id).map((x) => renderingOf(x).entry));
     const shared = listDir(join(base, 'shots')).length
@@ -234,20 +242,19 @@ export function buildShotCacheInputs({ film, lock, shot, filmDir, tier, events =
     for (const path of [...new Set([r.entry, ...shared])]) {
       const bytes = readFileSync(join(base, path));
       loadedFiles.push({ path, sha256: sha256(bytes) });
-      if (path === r.entry) code = bytes.toString('utf8');
     }
   }
   for (const ref of new Set([film.assets, shot.assets, r.assets].flatMap((a) => Object.values(a ?? {})))) {
     if (lock.assets?.[ref]) loadedFiles.push({ path: ref, sha256: hexOf(lock.assets[ref]) });
   }
 
-  const text = JSON.stringify([shot, overlays]) + code;
-  const mine = events.events
-    .filter((e) => (e.frame >= shot.in && e.frame < shot.out) || e.shot === shot.id || (e.kind === 'named' && text.includes(JSON.stringify(e.id).slice(1, -1))));
-
   const used = new Set([...(r.cards ?? shot.cards ?? []).map((c) => parseCardRef(c.use).name), ...(overlays.length ? [OVERLAY_CARD] : [])]);
   const cards = Object.entries(lock.cards ?? {}).filter(([id, c]) => used.has(id) || c.impl?.includes('data'))
     .map(([id, c]) => ({ id, version: c.version, sha256: c.sha256 }));
+
+  const digestOpts = engineRoot ? { root: engineRoot } : undefined;
+  const codeDigest = engineDigest ?? engineCodeDigest(shot.source, digestOpts);
+  const liveCards = cardsDigest ?? liveCardsDigest([...used, ...cards.map((c) => c.id)], digestOpts);
 
   const locked = lock.sources?.[shot.source] ?? {};
   const tracks = r.tracks ?? shot.tracks;
@@ -255,14 +262,14 @@ export function buildShotCacheInputs({ film, lock, shot, filmDir, tier, events =
   const shutter = r.shutter ?? shot.shutter ?? {};
   return {
     shot,
-    events: mine,
+    events: events.events,
     film: { at: shot.in, fps: film.output.fps, tokens: film.style?.tokens ?? null, assets: film.assets ?? null, overlays, seed: lock.seeds?.[shot.id] ?? null },
     loadedFiles,
     tracksHash: tracks === undefined ? 'none' : `sha256:${sha256(canonicalJson(tracks))}`,
     cards,
     runtimeEnv: {
       source: `${shot.source}:${locked.host ?? 'none'}`,
-      runtimeVersion: `${locked.version ?? 'none'} ${locked.image ?? 'none'}`,
+      runtimeVersion: `${locked.version ?? 'none'} ${locked.image ?? 'none'} engine:${codeDigest} cards:${liveCards}`,
       browserBuild: shot.source === 'three' ? browserBuild() : 'none',
       gpuBackend: `${shot.source === 'three' ? chromeArgs().join(' ') : 'auto'} ${device?.backend ?? 'unprobed'}`,
       driver: `${process.platform} ${process.arch} ${release()} ${canonicalJson(lock.machine ?? null)} ${device?.gpu ?? 'unprobed'}`,
@@ -327,12 +334,25 @@ const floatsOf = (buf) => new Float32Array(buf.buffer.slice(buf.byteOffset, buf.
  *   容差档帧源（determinism 是 tolerance）出的一段连续帧里混了几轮的帧时查接缝尖峰，有尖峰就让这个镜头这一版的缓存失效、把旧帧在这一轮重渲。
  * shortcut: 抽样帧（不连续）不查接缝，相邻帧差在抽样间隔上没有可比性；要查时改渲连续区间。
  */
-export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool, signal, lutPath, onFrame, cache }) {
+export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool, signal, lutPath, onFrame, cache, engineRoot }) {
   const events = eventsTable(film);
   const records = [], shots = [], versions = {};
   const want = layersOf(film, tier), aux = want.filter((name) => name !== 'color');
   const embed = tier === 'final' ? (film.delivery?.layers ?? []).filter((name) => name !== 'color') : [];
   const runId = randomUUID();
+  const engineOpts = engineRoot ? { root: engineRoot } : undefined;
+  // 按作业实时计算一次本作业涉及的帧源与卡摘要：同一作业所有帧共享同一快照，下一作业立即重算，杜绝混帧与启动期陈旧快照
+  const engineDigests = cache
+    ? new Map([...new Set(plan.map(({ shot }) => shot.source))].map((source) => [source, engineCodeDigest(source, engineOpts)]))
+    : null;
+  const cardDigests = cache ? new Map() : null;
+  if (cache) {
+    for (const { shot } of plan) {
+      try {
+        cardDigests.set(shot.id, liveCardsDigest(shotCardIds(film, lock, shot), engineOpts));
+      } catch { /* 非法卡引用交由 rekey / 帧源照常报错 */ }
+    }
+  }
   let gpuMs = 0;
   for (const { shot, frames } of plan) {
     signal?.throwIfAborted();
@@ -347,7 +367,12 @@ export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool
     const rekey = () => {
       // 键算不出来（镜头条目里有帧源才判得出的错）就不走缓存，让帧源照常报它自己的错
       try {
-        keyed = cache ? buildShotCacheInputs({ film, lock, shot, filmDir, tier, events, device }) : null;
+        keyed = cache ? buildShotCacheInputs({
+          film, lock, shot, filmDir, tier, events, device,
+          engineDigest: engineDigests.get(shot.source),
+          cardsDigest: cardDigests.get(shot.id),
+          engineRoot,
+        }) : null;
         if (keyed && frames.length) entryOf(frames[0]);
       } catch {
         keyed = null;
@@ -525,7 +550,7 @@ export function layerL1(film, filmDir, rev, question) {
  * 单独的核验作业只给 cache、不给 versions：每个镜头都真跑，不读记录、过了也不记；没过同样作废终渲档这一版，再加 records 所在的那一档（tier，核验作业给）。
  * records 里有、shots 没点名的镜头不跑纯函数门，但它的帧包围盒没过时同样作废。两个都不给就只跑门。
  */
-export async function layerL2({ film, lock, filmDir, shots, records, pool, scratch, signal, onGpu, cache, versions, tier }) {
+export async function layerL2({ film, lock, filmDir, shots, records, pool, scratch, signal, onGpu, cache, versions, tier, engineRoot }) {
   const diagnostics = [];
   const gates = [];
   const events = eventsTable(film);
@@ -543,7 +568,7 @@ export async function layerL2({ film, lock, filmDir, shots, records, pool, scrat
     if (!cache) return;
     const version = versions?.[shot.id];
     const entries = version ? [version.entry] : [...new Set(['final', tier ?? 'final'])].map((t) => {
-      try { return entryFrom(buildShotCacheInputs({ film, lock, shot, filmDir, tier: t, events, device: readDevices(cache)[shot.source] }), 0); } catch { return undefined; }
+      try { return entryFrom(buildShotCacheInputs({ film, lock, shot, filmDir, tier: t, events, device: readDevices(cache)[shot.source], engineRoot }), 0); } catch { return undefined; }
     });
     for (const entry of entries) if (entry) cache.invalidateShot(entry);
   };

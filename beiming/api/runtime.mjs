@@ -2,7 +2,7 @@
 // 这里只认识环境，不认识请求。找不到的工具交回 null，由调用方报 env.missing-tool / env.ffmpeg-missing。
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tools as compTools, bakeAgxLut, SHAPER } from '../comp/index.mjs';
@@ -60,14 +60,141 @@ export function hasFfmpeg() {
   return ffmpegCache;
 }
 
-/** 页面宿主用的 three 构建产物的摘要（锁里 sources.three.image） */
-export function threeImage() {
-  const file = join(REPO, 'node_modules/three-webgpu/build/three.module.js');
-  return `sha256:${sha256(existsSync(file) ? readFileSync(file) : Buffer.from(`three ${THREE_VERSION}`))}`;
+const SKIP_DIRS = new Set(['out', '__pycache__', '.git', 'node_modules']);
+const isSkippedRuntimeFile = (name) => /\.test\./i.test(name) || /\.md$/i.test(name);
+const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+function collectRuntimeFiles(dir, root, out = []) {
+  if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return out;
+  const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => byCodePoint(a.name, b.name));
+  for (const e of entries) {
+    const abs = join(dir, e.name);
+    if (e.isDirectory()) {
+      if (!SKIP_DIRS.has(e.name)) collectRuntimeFiles(abs, root, out);
+    } else if (e.isFile() || (e.isSymbolicLink() && statSync(abs, { throwIfNoEntry: false })?.isFile())) {
+      if (!isSkippedRuntimeFile(e.name)) {
+        out.push({ rel: relative(root, abs).split(sep).join('/'), abs });
+      }
+    }
+  }
+  return out;
 }
 
-/** Blender 的运行环境摘要：没有容器镜像时取「Blender 版本 + cycles」这段描述的摘要 */
-export const blenderImage = (version) => `sha256:${sha256(Buffer.from(`blender ${version} cycles`))}`;
+function engineCodeDirs(source) {
+  const dirs = ['beiming/kernel/eval', 'routes/c-style/fonts'];
+  if (source === 'three') {
+    dirs.push('beiming/sources/three', 'beiming/host/page');
+  } else if (source === 'blender') {
+    dirs.push('beiming/sources/blender');
+  } else if (typeof source === 'string' && /^[a-zA-Z0-9_-]+$/.test(source)) {
+    dirs.push(`beiming/sources/${source}`);
+  }
+  return dirs;
+}
+
+/**
+ * 实时计算指定帧源依赖的引擎运行时代码与锁定字体摘要（严禁模块级/启动期缓存）。
+ * 每次调用按 POSIX 相对路径确定性排序并同时哈希路径与内容，跳过测试、文档与产物目录。
+ */
+export function engineCodeDigest(source, { root = REPO } = {}) {
+  const src = typeof source === 'string' ? source : '';
+  const dirs = engineCodeDirs(src);
+  const filesByRel = new Map();
+  const h = createHash('sha256');
+  h.update(`engine-code-digest/1\0source:${src}\0`);
+  for (const dir of dirs) {
+    const absDir = join(root, dir);
+    const exists = Boolean(statSync(absDir, { throwIfNoEntry: false })?.isDirectory());
+    h.update(`dir:${dir}\0${exists ? 'present' : 'missing'}\0`);
+    if (exists) {
+      for (const item of collectRuntimeFiles(absDir, root)) filesByRel.set(item.rel, item.abs);
+    }
+  }
+  for (const rel of [...filesByRel.keys()].sort(byCodePoint)) {
+    const bytes = readFileSync(filesByRel.get(rel));
+    h.update(`file:${rel}\0${bytes.length}\0`);
+    h.update(bytes);
+    h.update('\0');
+  }
+  return `sha256:${h.digest('hex')}`;
+}
+
+function findCardDirs(cardsRoot, wanted) {
+  const found = new Map();
+  if (!wanted.size || !statSync(cardsRoot, { throwIfNoEntry: false })?.isDirectory()) return found;
+  function walk(dir) {
+    const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => byCodePoint(a.name, b.name));
+    const hasCardJson = entries.some((e) => e.name === 'card.json'
+      && (e.isFile() || (e.isSymbolicLink() && statSync(join(dir, e.name), { throwIfNoEntry: false })?.isFile())));
+    if (hasCardJson) {
+      try {
+        const card = JSON.parse(readFileSync(join(dir, 'card.json'), 'utf8'));
+        if (typeof card?.id === 'string' && wanted.has(card.id)) {
+          const list = found.get(card.id) ?? [];
+          list.push(dir);
+          found.set(card.id, list);
+        }
+      } catch { /* 忽略无关目录中无法解析的 card.json */ }
+      return;
+    }
+    for (const e of entries) {
+      if (e.isDirectory() && !SKIP_DIRS.has(e.name)) walk(join(dir, e.name));
+    }
+  }
+  walk(cardsRoot);
+  return found;
+}
+
+/**
+ * 按次实时哈希给定 cardIds 在 beiming/cards/ 对应目录的非测试运行时文件（不缓存、不扫描无关卡）。
+ * 找不到的合成测试卡名确定性标记为 missing。
+ */
+export function liveCardsDigest(cardIds, { root = REPO } = {}) {
+  const ids = [...new Set([...(cardIds ?? [])].filter((id) => typeof id === 'string' && id.length > 0))].sort(byCodePoint);
+  const h = createHash('sha256');
+  h.update('live-cards-digest/1\0');
+  if (!ids.length) {
+    h.update('empty\0');
+    return `sha256:${h.digest('hex')}`;
+  }
+  const found = findCardDirs(join(root, 'beiming', 'cards'), new Set(ids));
+  for (const id of ids) {
+    const dirs = found.get(id);
+    if (!dirs?.length) {
+      h.update(`card:${id}\0missing\0`);
+      continue;
+    }
+    h.update(`card:${id}\0present\0`);
+    const filesByRel = new Map();
+    for (const dir of dirs) {
+      for (const item of collectRuntimeFiles(dir, root)) filesByRel.set(item.rel, item.abs);
+    }
+    for (const rel of [...filesByRel.keys()].sort(byCodePoint)) {
+      const bytes = readFileSync(filesByRel.get(rel));
+      h.update(`file:${rel}\0${bytes.length}\0`);
+      h.update(bytes);
+      h.update('\0');
+    }
+  }
+  return `sha256:${h.digest('hex')}`;
+}
+
+/** 页面宿主用的 three 构建产物与实时引擎/字体代码摘要（锁里 sources.three.image） */
+export function threeImage(opts = {}) {
+  const root = opts?.root ?? REPO;
+  const file = join(root, 'node_modules/three-webgpu/build/three.module.js');
+  const upstream = existsSync(file) ? sha256(readFileSync(file)) : sha256(Buffer.from(`three ${THREE_VERSION}`));
+  const code = engineCodeDigest('three', { root });
+  return `sha256:${sha256(Buffer.from(`three\0${THREE_VERSION}\0${upstream}\0${code}\0`))}`;
+}
+
+/** Blender 的运行环境与实时引擎/字体代码摘要（锁里 sources.blender.image） */
+export function blenderImage(version, opts = {}) {
+  const root = opts?.root ?? REPO;
+  const base = sha256(Buffer.from(`blender ${version} cycles`));
+  const code = engineCodeDigest('blender', { root });
+  return `sha256:${sha256(Buffer.from(`blender\0${version}\0${base}\0${code}\0`))}`;
+}
 
 /** 纯 JS 确定性解析式 AgX 对数整形三维查找表（无 Blender 裸机环境兜底，输入已在 SHAPER 对数域 [0, 1]）。 */
 export function analyticAgxCube(gridSize = 33) {
@@ -127,10 +254,11 @@ export function ensureLut(dataDir) {
  * 签锁要的资源目录（kernel/lock-gen.mjs 的 context）。缺 Blender 时 blender 帧源不进目录，片子用到它签锁会失败。
  * lut 是 ensureLut 的结果（可以是 null：没有查找表签不了锁）。
  */
-export function lockContext({ rev, library, lut, assets, machine = { class: 'local', driver: process.platform } }) {
-  const sources = { three: { version: THREE_VERSION, host: 'page', image: threeImage() } };
+export function lockContext({ rev, library, lut, assets, machine = { class: 'local', driver: process.platform }, root }) {
+  const opts = root ? { root } : undefined;
+  const sources = { three: { version: THREE_VERSION, host: 'page', image: threeImage(opts) } };
   const b = blenderInfo();
-  if (b) sources.blender = { version: b.version, host: 'cycles', image: blenderImage(b.version) };
+  if (b) sources.blender = { version: b.version, host: 'cycles', image: blenderImage(b.version, opts) };
   const compVer = library['comp.display']?.card?.status?.find((s) => s.host === 'node')?.source ?? process.versions.node;
   const sameMinor = (a, c) => typeof a === 'string' && typeof c === 'string' && a.split('.').slice(0, 2).join('.') === c.split('.').slice(0, 2).join('.');
   return {
