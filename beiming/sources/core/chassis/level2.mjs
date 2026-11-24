@@ -34,8 +34,8 @@ export const passedByFloor = a => analyticOk(a) && Math.abs(a.z) > GATES.analyti
 // 按相对 1e-6 比。记法：在那台机器上跑一遍本脚本，把报告里 diffuseFurnace.mean 填进来。
 // 2026-11-25 两台都重记过：漫反射改走照 Cycles 移植的 bsdf_diffuse（余弦半球采样、取 PRNG_SURFACE_BSDF 那组随机数），
 // 不再是上游顶替的朗伯（它把 5% 的样本分给零高光的那一瓣，随机数也是上游的那一组），读数随之换了一串噪声（苹果显卡
-// 1.0007596 → 1.0004397，仍在上游自己的 2% 门内）
-export const DIFFUSE = { tolerance: 1e-6, recorded: { 'Apple M5 Pro|Metal': 1.0004397429525853, 'NVIDIA GeForce RTX 5090|Vulkan': 1.0007596049457788 } };
+// 1.0007596 → 1.0004397，英伟达显卡 1.0007596 → 1.0004399，都仍在上游自己的 2% 门内；两台之间现在差 1.1e-7）
+export const DIFFUSE = { tolerance: 1e-6, recorded: { 'Apple M5 Pro|Metal': 1.0004397429525853, 'NVIDIA GeForce RTX 5090|Vulkan': 1.0004398547112943 } };
 const WORK = path.join(OUT, 'level2');
 const ROUGHNESS = Object.keys(CYCLES.GGX);
 const lum = (px, i) => 0.2126 * px[3 * i] + 0.7152 * px[3 * i + 1] + 0.0722 * px[3 * i + 2];
