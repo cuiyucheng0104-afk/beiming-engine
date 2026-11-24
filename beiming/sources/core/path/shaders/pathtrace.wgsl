@@ -140,7 +140,7 @@ struct KernelIntegrator {
     transparent_min_bounce: u32,    // 已定义，0
     min_bounce: u32,                // 已定义，0：俄罗斯轮盘的起始深度现在还读上游的 P.counts.w
     sampling_pattern: u32,          // 采样图案，只有 0（Sobol-Burley）
-    sample_clamp_direct: f32,       // 夹取。已定义，0：现在还用上游的亮度夹取（P.misc.x）
+    sample_clamp_direct: f32,       // 夹取的两个上限：存用户值 × 3，0 关（Cycles 关着时存 FLT_MAX）。编译开关 sample_clamp 的变体里读
     sample_clamp_indirect: f32,
     filter_glossy: f32,             // 滤光泽：存 1 / blur_glossy（照 Cycles 宿主一侧的存法），0 关（Cycles 关着时存 FLT_MAX）
     light_inv_rr_threshold: f32,    // 已定义，0

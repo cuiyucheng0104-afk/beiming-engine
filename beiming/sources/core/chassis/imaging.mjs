@@ -4,8 +4,12 @@
 //   给出的分布与刀口的卷积」（tableExpected），每一列的差不超过 4 个标准误；对连续滤波函数的卷积（knifeExpected）只记录不判：
 //   Cycles 的表在尾巴上有离散化（util/math_cdf.cpp 对称的一支、scene/film.cpp 表的最后一格为 0），约 0.3% 的样本不照连续
 //   滤波函数分布，标准答案是 Cycles 的表。盒式宽 1 不查表（子像素均匀抖动），对连续盒式判；与不加参数逐位相同。
-//   夹取：相机直接看天空（直接光）、两面镜子拼的直角反射器里看两次反射之后的天空（间接光），上限低于真值时读数等于照 Cycles
-//   的式子手算的值（±3 个标准误）；上限为 0 时与不设逐位相同。
+//   夹取：粗糙度 0 的金属是奇异闭包（不做光源采样，多重重要性采样的权重是 1），经它看亮度已知的均匀天空，每个样本的贡献
+//   是确定的数。照 Cycles，背景按「弹射数减 1」选上限（kernel/film/light_passes.h:638 与 :140-141）：相机直接看到的天空与
+//   单面镜里的天空（减 1 之后是 −1、0）走直接光的上限，直角反射器里两次反射之后的天空（减 1 之后是 1）走间接光的上限。
+//   上限低于真值时逐通道等于照 Cycles 的式子手算的值（±3 个标准误；每个样本相同、标准误为 0 时按 1e-5 相对误差）；不该
+//   起作用的那个上限与不夹逐位相同；上限为 0 时与不设逐位相同。直角反射器「每条相机射线恰好反射两次」由 cornerBounces 的
+//   几何追踪与读数一起证明。
 //   负对照：在源码的拷贝上各改错一项（build.mjs 的 inject），对应的一项必须不过。
 //   node beiming/sources/core/chassis/imaging.mjs [--out 报告.json]
 // 退出码：0 全部过；4 有一项不过；3 缺工具链（cargo、显卡）。
@@ -20,11 +24,11 @@ import { CliError, defineCommand, isMain, runCli } from '../../../../tools/lib/c
 import { PRESETS, buildRenderer, missing } from './build.mjs';
 import { IDENTITY, translate, writePack } from './scenepack.mjs';
 
-export const GATES = { knifeSE: 4, clampSE: 3 };
+export const GATES = { knifeSE: 4, clampSE: 3, clampRel: 1e-5 };
 
 const UNITS = { meter: 1, up: 'Y', hand: 'right' };
 const SOURCE = { exporter: 'chassis/imaging@0.1', blender: '5.2.3', sha256: '0'.repeat(64) };
-// 镜面：金属度 1、粗糙度 0（内核给纯金属带着上游的 0.02 下限）、底色白，F82 的边缘色默认白，反射率处处是 1
+// 镜面：金属度 1、粗糙度 0（奇异闭包）、底色白，F82 的边缘色默认白：Cycles 的 F82-tint 在 F0 = 1、边缘色 = 1 时 b = 0，反射率恒为 1
 const MIRROR = { name: 'mirror', closure: 'surface', params: { baseColor: [1, 1, 1], metallic: 1, roughness: 0 } };
 const quad = (name, corners, n) => ({ name, positions: corners.flat(), normals: Array(4).fill(n).flat(), indices: [0, 1, 2, 0, 2, 3] });
 const mesh = m => ({ name: m.name, tris: 2, attrs: ['position', 'cornerNormal'] });
@@ -58,7 +62,7 @@ function pack(id, meshes, { world, visible, cam, fovY }) {
 // 刀口：z = 0 上一块镜面占住 x < X0 的半平面（往上下左右各伸 50 m），背景对相机不可见（相机射线没打到表面的样本记 0）、
 // 白色世界亮度 1 从镜面反射进相机，镜面那一侧的读数约 1、另一侧恰为 0。相机在 (0, 0, 3) 朝 -z，画面 32×128，tan(fovY/2) = 0.5，
 // 过 z = 0 的平面上像素到 x 是线性映射（一个像素 3·0.5·宽高比·2/32 m），分界落在第 EDGE 列（像素坐标，0 是左边缘）。
-// 平台（镜面一侧的读数，不是恰好 1：两次 GGX 的能量损失与环境光的多重重要性采样）取 plateau 那几列的均值：分界减 0.5 再减
+// 平台（镜面一侧的读数；粗糙度 0 的金属是奇异闭包，每个样本恰为 1，标准误为 0）取 plateau 那几列的均值：分界减 0.5 再减
 // 最宽的支撑半宽（高斯宽 3 的 4.5）之后还在左边的列，每个样本都落在镜面上。
 export const KNIFE = { w: 32, h: 128, spp: 256, tan: 0.5, cam: 3, edge: 16.3, plateau: [0, 11] };
 const knifePixel = () => (2 * KNIFE.cam * KNIFE.tan * (KNIFE.w / KNIFE.h)) / KNIFE.w;
@@ -67,21 +71,80 @@ export function knifePack() {
   return pack('pack:chassis-knife@1', [quad('plate', [[-50, -50, 0], [X0, -50, 0], [X0, 50, 0], [-50, 50, 0]], [0, 0, 1])], { world: [1, 1, 1], visible: false, cam: [0, 0, KNIFE.cam], fovY: 2 * Math.atan(KNIFE.tan) });
 }
 
-// 夹取，直接光：相机直接看白色天空（亮度 1；画面外放一块镜子凑足几何）。Cycles 里相机射线打到背景的弹射数减 1 是 −1，用直接光的上限
+// 夹取用的三个场景，天空颜色 world 可选（默认白，亮度 1）。
+// 相机直接看天空（画面外放一块镜子凑足几何）：相机射线打到背景，弹射数减 1 是 −1，走直接光的上限
 export const SKY = { w: 16, h: 16, spp: 16 };
-export function skyPack() {
-  return pack('pack:chassis-sky@1', [quad('behind', [[-1, -1, 10], [1, -1, 10], [1, 1, 10], [-1, 1, 10]], [0, 0, 1])], { world: [1, 1, 1], visible: true, cam: [0, 0, 3], fovY: 0.3 });
+export function skyPack(world = [1, 1, 1]) {
+  return pack('pack:chassis-sky@1', [quad('behind', [[-1, -1, 10], [1, -1, 10], [1, 1, 10], [-1, 1, 10]], [0, 0, 1])], { world, visible: true, cam: [0, 0, 3], fovY: 0.3 });
 }
-// 夹取，间接光：两面镜子沿 y 轴拼成开口朝 +z 的直角（棱在原点），相机在 (0, 0, 5) 朝 -z 看进去：每条相机射线在两面镜子上各反射一次，
-// 原路方向退回去打到白色天空（亮度 1）。打到天空时路径上已有两次弹射，Cycles 的弹射数减 1 是 1，用间接光的上限
-export const CORNER = { w: 32, h: 32, spp: 64 };
-export function cornerPack() {
+// 单面镜：z = 0 上 100×100 m 的镜子，相机在 (0, 0, 3) 朝 −z，fovY 0.3：每条相机射线在镜子上反射一次后朝上打到天空，
+// 弹射数减 1 是 0，走直接光的上限
+export const MIRROR_VIEW = { w: 32, h: 32, spp: 64 };
+export const mirrorQuads = () => [quad('mirror', [[-50, -50, 0], [50, -50, 0], [50, 50, 0], [-50, 50, 0]], [0, 0, 1])];
+export function mirrorPack(world = [1, 1, 1]) {
+  return pack('pack:chassis-mirror@1', mirrorQuads(), { world, visible: true, cam: [0, 0, 3], fovY: 0.3 });
+}
+// 直角反射器：两面镜子沿 y 轴拼成开口朝 +z 的直角（棱在原点，镜面法线 (±1, 0, 1)/√2），相机在 (−0.4, 0, 5) 朝 −z、
+// tan(fovY/2) = 0.03 看进去：相机射线先打 x < 0 的那面，再打 x > 0 的那面，原路方向退回去打到天空。打到天空时路径上已有
+// 两次弹射，弹射数减 1 是 1，走间接光的上限
+export const CORNER = { w: 32, h: 32, spp: 64, cam: [-0.4, 0, 5], tan: 0.03 };
+export function cornerQuads() {
   const L = 2, Y = 5, s = Math.SQRT1_2;
-  return pack('pack:chassis-corner@1', [
+  return [
     quad('a', [[-L, -Y, L], [0, -Y, 0], [0, Y, 0], [-L, Y, L]], [s, 0, s]),
     quad('b', [[0, -Y, 0], [L, -Y, L], [L, Y, L], [0, Y, 0]], [-s, 0, s]),
-  ], { world: [1, 1, 1], visible: true, cam: [-0.4, 0, 5], fovY: 2 * Math.atan(0.03) });
+  ];
 }
+export function cornerPack(world = [1, 1, 1]) {
+  return pack('pack:chassis-corner@1', cornerQuads(), { world, visible: true, cam: CORNER.cam, fovY: 2 * Math.atan(CORNER.tan) });
+}
+
+const sub = (a, b) => a.map((x, i) => x - b[i]);
+const dotv = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const crossv = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+/** 射线与三角形（Möller–Trumbore），返回距离或 Infinity */
+function hitTri(o, d, p0, p1, p2) {
+  const e1 = sub(p1, p0), e2 = sub(p2, p0), q = crossv(d, e2), det = dotv(e1, q);
+  if (Math.abs(det) < 1e-12) return Infinity;
+  const s = sub(o, p0), u = dotv(s, q) / det, r = crossv(s, e1), v = dotv(d, r) / det, t = dotv(e2, r) / det;
+  return u >= 0 && v >= 0 && u + v <= 1 && t > 1e-9 ? t : Infinity;
+}
+/** 几何追踪（双精度）：从 o 沿 d 在这几面镜子之间理想反射，返回反射次数与最后离开时的方向；超过 8 次算没出来 */
+export function traceMirrors(quads, o, d) {
+  let n = 0;
+  for (; n <= 8; n++) {
+    let best = { t: Infinity };
+    for (const q of quads) {
+      const P = k => q.positions.slice(3 * k, 3 * k + 3);
+      for (let k = 0; k < q.indices.length; k += 3) {
+        const t = hitTri(o, d, P(q.indices[k]), P(q.indices[k + 1]), P(q.indices[k + 2]));
+        if (t < best.t) best = { t, N: q.normals.slice(0, 3) };
+      }
+    }
+    if (best.t === Infinity) return { reflections: n, out: d };
+    o = o.map((x, i) => x + best.t * d[i]);
+    const k = 2 * dotv(d, best.N);
+    d = d.map((x, i) => x - k * best.N[i]);
+  }
+  return { reflections: n, out: d };
+}
+/** 相机射线覆盖的整个视锥（盒式宽 1 的子像素抖动不出画面）上取 (m+1)² 个方向，含四角，逐个几何追踪：
+ *  返回各个反射次数出现的次数，与离开时朝下（z ≤ 0）的条数。场景是平面镜、视锥是凸的，取到四角与网格就覆盖了 */
+export function viewBounces(quads, cam, tanY, aspect, m = 64) {
+  const count = {};
+  let down = 0;
+  for (let i = 0; i <= m; i++) {
+    for (let j = 0; j <= m; j++) {
+      const d = [(2 * i / m - 1) * tanY * aspect, (2 * j / m - 1) * tanY, -1];
+      const r = traceMirrors(quads, cam, d);
+      count[r.reflections] = (count[r.reflections] ?? 0) + 1;
+      if (r.out[2] <= 0) down++;
+    }
+  }
+  return { count, down };
+}
+export const cornerBounces = () => viewBounces(cornerQuads(), CORNER.cam, CORNER.tan, CORNER.w / CORNER.h);
+export const mirrorBounces = () => viewBounces(mirrorQuads(), [0, 0, 3], Math.tan(0.15), MIRROR_VIEW.w / MIRROR_VIEW.h);
 
 // ---------------------------------------------------------------------------------------------------------------
 // 渲染
@@ -151,9 +214,11 @@ export function tableExpected(bin, kind, width, plateau) {
     let p = 0;
     for (let k = 0; k < 1023; k++) {
       const a = Math.min(t[k], t[k + 1]), b = Math.max(t[k], t[k + 1]);
-      p += (b > a ? Math.min(1, Math.max(0, (cut - a) / (b - a))) : (a < cut ? 1 : 0)) / 1023;
+      p += b > a ? Math.min(1, Math.max(0, (cut - a) / (b - a))) : (a < cut ? 1 : 0);
     }
-    return plateau * p;
+    // 先加各段的比例、最后除一次：整列都落在镜面一侧时 p 恰为 1。合并后镜面是奇异闭包，平台每个样本都是 1、标准误为 0，
+    // 逐段除 1023 再加会留下 1e-16 的舍入，在标准误为 0 时就成了无穷多个标准误
+    return plateau * (p / 1023);
   });
 }
 
@@ -185,36 +250,51 @@ export function knifeCase(bin, kind, width, { ref = bin, args = ['--pixel-filter
 // 夹取：照 Cycles 的 kernel/film/light_passes.h film_clamp_light，一次贡献三个分量绝对值之和超过上限（用户值乘 3，
 // scene/integrator.cpp:311-315）就按比例缩到上限。灰的贡献 (v, v, v) 夹过之后每个分量是 min(v, 用户值)
 
-/** 一项夹取的读数：全画面像素均值与标准误（像素之间独立），对手算值的标准误倍数 */
+/** 照 Cycles 的式子手算夹过之后的颜色：天空 c 的三个分量之和超过 3 × 上限 u 就按比例缩 */
+export const clampedSky = (c, u) => c.map(x => x * Math.min(1, (3 * u) / (c[0] + c[1] + c[2])));
+const channel = (hdr, n, k) => meanSe(Array.from({ length: n }, (_, i) => hdr[3 * i + k]));
+/** 一项夹取，逐通道对手算值：标准误不为 0 时 ±3 个标准误；每个样本相同（标准误为 0）时相对误差 ≤ 1e-5 */
 function clampCase(bin, name, spec, size, args, expected) {
   const { hdr } = render(bin, spec, size, args);
-  const px = Array.from({ length: size.w * size.h }, (_, i) => pixel(hdr, i));
-  const { mean, se } = meanSe(px);
-  const exp = typeof expected === 'function' ? expected() : expected;
-  const z = se > 0 ? (mean - exp) / se : (mean === exp ? 0 : Infinity);
-  return { name, args, mean, se, expected: exp, z, ok: Math.abs(z) <= GATES.clampSE };
+  const rows = expected.map((e, k) => {
+    const { mean, se } = channel(hdr, size.w * size.h, k);
+    const rel = Math.abs(mean - e) / Math.abs(e);
+    return { mean, se, expected: e, z: se > 0 ? (mean - e) / se : null, rel, ok: se > 0 ? Math.abs(mean - e) <= GATES.clampSE * se : rel <= GATES.clampRel };
+  });
+  const worst = rows.reduce((p, r) => (r.z ?? r.rel / GATES.clampRel * GATES.clampSE) ** 2 > (p.z ?? p.rel / GATES.clampRel * GATES.clampSE) ** 2 ? r : p);
+  return { name, args, channels: rows, z: worst.z, rel: worst.rel, ok: rows.every(r => r.ok) };
+}
+/** 一项「这个上限不该起作用」：与不夹逐位相同 */
+function clampSame(bin, name, spec, size, args) {
+  const a = render(bin, spec, size, args), b = render(bin, spec, size);
+  let diff = 0;
+  for (let i = 0; i < a.hdr.length; i++) diff = Math.max(diff, Math.abs(a.hdr[i] - b.hdr[i]));
+  return { name, args, diff, ok: a.bytes.equals(b.bytes) };
 }
 
-/** 夹取的几项：直接光夹到 0.5、间接光的上限不碰直接光；间接光夹到 0.2、直接光的上限不碰间接光；上限为 0 与不设逐位相同 */
-export function clampCases(bin) {
-  const sky = skyPack(), corner = cornerPack();
-  const plain = render(bin, corner, CORNER).hdr;
-  const free = meanSe(Array.from({ length: CORNER.w * CORNER.h }, (_, i) => pixel(plain, i)));
-  return {
-    // 不夹时两次反射之后的读数（两面镜子 GGX 的能量损失，只作记录）
-    cornerFree: free,
-    cases: [
-      clampCase(bin, '直接光夹到 0.5（相机直接看天空）', sky, SKY, ['--clamp-direct', '0.5'], 0.5),
-      clampCase(bin, '间接光的上限不碰直接光', sky, SKY, ['--clamp-indirect', '0.1'], 1),
-      clampCase(bin, '间接光夹到 0.2（两次反射之后的天空）', corner, CORNER, ['--clamp-indirect', '0.2'], 0.2),
-      clampCase(bin, '直接光的上限不碰间接光', corner, CORNER, ['--clamp-direct', '0.1'], free.mean),
-    ],
-  };
+const WHITE = [1, 1, 1], COLORED = [1, 0.5, 0.25];
+const U = 0.2;
+/** 夹取的各项，键是负对照挑项用的名字 */
+export const CLAMP_CASES = {
+  skyDirect: bin => clampCase(bin, '相机直接看天空，直接光上限 0.5', skyPack(), SKY, ['--clamp-direct', '0.5'], clampedSky(WHITE, 0.5)),
+  skyIndirect: bin => clampSame(bin, '相机直接看天空，只设间接光上限 0.1', skyPack(), SKY, ['--clamp-indirect', '0.1']),
+  mirrorDirectWhite: bin => clampCase(bin, '单面镜、白天空，直接光上限 0.2', mirrorPack(WHITE), MIRROR_VIEW, ['--clamp-direct', String(U)], clampedSky(WHITE, U)),
+  mirrorDirectColored: bin => clampCase(bin, '单面镜、彩色天空，直接光上限 0.2', mirrorPack(COLORED), MIRROR_VIEW, ['--clamp-direct', String(U)], clampedSky(COLORED, U)),
+  mirrorIndirect: bin => clampSame(bin, '单面镜，只设间接光上限 0.2', mirrorPack(COLORED), MIRROR_VIEW, ['--clamp-indirect', String(U)]),
+  cornerIndirectWhite: bin => clampCase(bin, '直角反射器、白天空，间接光上限 0.2', cornerPack(WHITE), CORNER, ['--clamp-indirect', String(U)], clampedSky(WHITE, U)),
+  cornerIndirectColored: bin => clampCase(bin, '直角反射器、彩色天空，间接光上限 0.2', cornerPack(COLORED), CORNER, ['--clamp-indirect', String(U)], clampedSky(COLORED, U)),
+  cornerDirect: bin => clampSame(bin, '直角反射器，只设直接光上限 0.2', cornerPack(COLORED), CORNER, ['--clamp-direct', String(U)]),
+};
+/** 夹取：几何追踪（单面镜每条相机射线恰好反射一次、直角反射器恰好两次，离开时都朝上）与各项读数 */
+export function clampCases(bin, only = Object.keys(CLAMP_CASES)) {
+  return { geometry: { mirror: mirrorBounces(), corner: cornerBounces() }, cases: only.map(k => CLAMP_CASES[k](bin)) };
 }
+/** 几何追踪的判定：count 里只有 want 次反射，没有离开时朝下的 */
+export const geometryOk = (g, want) => Object.keys(g.count).join() === String(want) && g.down === 0;
 
 /** 上限给 0、盒式宽 1 显式给出：与不加参数逐位相同 */
 export function bitwiseCases(bin) {
-  const knife = knifePack(), corner = cornerPack();
+  const knife = knifePack(), corner = cornerPack(COLORED);
   const same = (spec, size, args) => render(bin, spec, size, args).bytes.equals(render(bin, spec, size).bytes);
   return [
     { name: '盒式宽 1 显式给出', ok: same(knife, KNIFE, ['--pixel-filter', 'box', '--filter-width', '1']) },
@@ -224,7 +304,7 @@ export function bitwiseCases(bin) {
 
 export const KNIFE_CASES = [['box', 1], ['box', 1.5], ['box', 3], ['gaussian', 1.5], ['gaussian', 3], ['blackman-harris', 1.5], ['blackman-harris', 3]];
 
-// 负对照（build.mjs 的 inject；file 相对 beiming/sources/core/，工作树不动）：每项改错一处，对应的一项必须不过
+// 负对照（build.mjs 的 inject；file 相对 beiming/sources/core/，工作树不动）：每项改错一处，挑出来的每一项都必须不过
 export const NEGATIVE = [
   {
     name: '像素滤波：高斯建表前宽度乘 2.5（应为 3）',
@@ -244,14 +324,26 @@ export const NEGATIVE = [
   {
     name: '夹取：宿主没把用户值乘 3（夹到的是三个分量之和）',
     inject: { file: 'path/src/main.rs', from: 'let times3 = |v: f32| if v == 0.0 { 0.0 } else { v * 3.0 };', to: 'let times3 = |v: f32| if v == 0.0 { 0.0 } else { v };' },
-    run: bin => clampCases(bin).cases.slice(0, 1),
+    run: bin => clampCases(bin, ['mirrorDirectWhite', 'mirrorDirectColored']).cases,
   },
   {
-    name: '夹取：发光与背景的弹射数没减 1（相机看到的天空当成了间接光）',
+    name: '夹取：背景的弹射数没减 1（单面镜里的天空当成了间接光）',
     inject: { file: 'path/shaders/integrator.wgsl', from: '@if(sample_clamp) c = film_clamp_contribution(c, i32(depth) - 1);\n            if (depth == 0u) { e0 += c; }\n            if (depth == 1u && spec_lobe) { spec_t = 1.0e4; }', to: '@if(sample_clamp) c = film_clamp_contribution(c, i32(depth));\n            if (depth == 0u) { e0 += c; }\n            if (depth == 1u && spec_lobe) { spec_t = 1.0e4; }' },
-    run: bin => clampCases(bin).cases.slice(1, 3),
+    run: bin => clampCases(bin, ['mirrorDirectWhite', 'mirrorIndirect']).cases,
+  },
+  {
+    name: '夹取：按最大分量而不是三个分量之和比上限',
+    inject: { file: 'shaders/imaging.wgsl', from: 'let sum = a.x + a.y + a.z;', to: 'let sum = max(a.x, max(a.y, a.z));' },
+    run: bin => clampCases(bin, ['mirrorDirectColored']).cases,
   },
 ];
+
+/** 一项读数的一句话：逐通道读数对手算值，或逐位比的结果 */
+export function reading(r) {
+  if (r.worst) return `最差一列 ${r.worst.z.toFixed(1)} 个标准误`;
+  if (!r.channels) return r.ok ? '逐位相同' : `不逐位相同（最大差 ${r.diff.toExponential(2)}）`;
+  return r.channels.map(c => `${c.mean.toPrecision(9)} 对 ${c.expected.toPrecision(9)}（${c.z === null ? `标准误 0，相对差 ${c.rel.toExponential(2)}` : `${c.z.toFixed(2)} 个标准误`}）`).join('，');
+}
 
 /** 跑完成像一路的第 2 级，返回报告（ok 为全部过） */
 export async function runImaging({ negatives = true, log = () => {} } = {}) {
@@ -273,11 +365,12 @@ export async function runImaging({ negatives = true, log = () => {} } = {}) {
     for (const n of NEGATIVE) {
       say(`负对照：${n.name}`);
       const rows = n.run(buildRenderer({ inject: [n.inject] }).bin, bin);
-      negative.push({ name: n.name, rows: rows.map(r => ({ name: r.name, z: r.z ?? r.worst.z, ok: r.ok })), caught: rows.some(r => !r.ok) });
+      negative.push({ name: n.name, rows: rows.map(r => ({ name: r.name, ok: r.ok, reading: reading(r) })), caught: rows.every(r => !r.ok) });
     }
   }
-  const ok = knife.every(c => c.ok) && clamp.cases.every(c => c.ok) && bitwise.every(c => c.ok) && negative.every(n => n.caught);
-  return { ok, adapter: gpu.adapter, backend: gpu.backend, gates: GATES, knife, clamp, bitwise, negative };
+  const geometry = { mirror: geometryOk(clamp.geometry.mirror, 1), corner: geometryOk(clamp.geometry.corner, 2) };
+  const ok = knife.every(c => c.ok) && geometry.mirror && geometry.corner && clamp.cases.every(c => c.ok) && bitwise.every(c => c.ok) && negative.every(n => n.caught);
+  return { ok, adapter: gpu.adapter, backend: gpu.backend, gates: GATES, knife, geometry, clamp, bitwise, negative };
 }
 
 export const command = defineCommand({
@@ -298,10 +391,10 @@ export const command = defineCommand({
       throw e;
     }
     for (const c of report.knife) ctx.out(`${c.ok ? '✓' : '✗'} 刀口 ${c.name.padEnd(22)} 平台 ${c.plateau.toFixed(6)}  最差一列 ${c.worst.column}：${c.worst.mean.toFixed(6)} 对 ${c.worst.expected.toFixed(6)}，${c.worst.z.toFixed(2)} 个标准误（标准误 ${c.worst.se.toExponential(2)}）；对连续滤波函数最差第 ${c.continuousWorst.column} 列 ${c.continuousWorst.z.toFixed(2)} 个标准误（只记录）`);
-    ctx.out(`  不夹时直角反射器的读数 ${report.clamp.cornerFree.mean.toFixed(6)} ± ${report.clamp.cornerFree.se.toExponential(2)}`);
-    for (const c of report.clamp.cases) ctx.out(`${c.ok ? '✓' : '✗'} 夹取 ${c.name}：${c.mean.toPrecision(9)} 对 ${c.expected.toPrecision(9)}，${c.z.toFixed(2)} 个标准误（标准误 ${c.se.toExponential(2)}）`);
+    for (const [k, want] of [['mirror', 1], ['corner', 2]]) ctx.out(`${report.geometry[k] ? '✓' : '✗'} 几何 ${k === 'mirror' ? '单面镜' : '直角反射器'}：视锥上 ${JSON.stringify(report.clamp.geometry[k].count)}（反射次数: 条数，应只有 ${want}），离开时朝下 ${report.clamp.geometry[k].down} 条`);
+    for (const c of report.clamp.cases) ctx.out(`${c.ok ? '✓' : '✗'} 夹取 ${c.name}：${reading(c)}`);
     for (const c of report.bitwise) ctx.out(`${c.ok ? '✓' : '✗'} 逐位相同 ${c.name}`);
-    for (const n of report.negative) ctx.out(`${n.caught ? '✓' : '✗'} 负对照 ${n.name}：${n.rows.map(r => `${r.name} ${r.ok ? '过' : '不过'}（${Number(r.z).toFixed(1)}）`).join('，')}`);
+    for (const n of report.negative) ctx.out(`${n.caught ? '✓' : '✗'} 负对照 ${n.name}：${n.rows.map(r => `${r.name} ${r.ok ? '过' : '不过'}（${r.reading}）`).join('；')}`);
     if (ctx.opts.out) fs.writeFileSync(ctx.opts.out, `${JSON.stringify(report, null, 2)}\n`);
     return { data: report, ...(!report.ok && { error: { code: 'contract.chassis-imaging', message: '成像一路的第 2 级有一项不过', hint: '逐项见上' } }) };
   },

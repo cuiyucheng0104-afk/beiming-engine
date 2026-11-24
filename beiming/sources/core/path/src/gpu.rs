@@ -2605,7 +2605,7 @@ mod tests {
                 let plain = KernelVariant::new(hwrt, k, 0);
                 let all_features = KernelVariant::new(hwrt, k, F_SOURCE);
                 // （北冥：要辅助层的变体多一个入口 AUX_ENTRY，两个后端把每个入口都生成一遍。）
-                for v in [plain, KernelVariant { uniform_tables: true, ..all_features }, KernelVariant { whole_tables: true, ..all_features }, KernelVariant { guard: Some(1 << 16), ..all_features }, KernelVariant { merged: true, ..plain }, KernelVariant { merged: true, guard: Some(1 << 16), ..all_features }, KernelVariant { aux: true, ..plain }, KernelVariant { aux: true, merged: true, guard: Some(1 << 16), ..all_features }] {
+                for v in [plain, KernelVariant { uniform_tables: true, ..all_features }, KernelVariant { whole_tables: true, ..all_features }, KernelVariant { guard: Some(1 << 16), ..all_features }, KernelVariant { merged: true, ..plain }, KernelVariant { merged: true, guard: Some(1 << 16), ..all_features }, KernelVariant { aux: true, ..plain }, KernelVariant { aux: true, merged: true, guard: Some(1 << 16), ..all_features }, KernelVariant { aux: true, pixel_filter: true, sample_clamp: true, ..all_features }] {
                     // （合并布局是浏览器的，那里没有硬件求交。）
                     if v.merged && v.hwrt {
                         continue;
@@ -2615,7 +2615,8 @@ mod tests {
                 }
             }
         }
-        assert_eq!(n, 8 * 8 + 8 * 5);
+        // （北冥：成像一路的两个开关 pixel_filter、sample_clamp 与 aux 一起开的一种，软件、硬件求交各一。）
+        assert_eq!(n, 8 * 9 + 8 * 6);
         let bad = "struct S { a: vec3<f32>, b: f32 };\nfn half(p: ptr<function, vec3<f32>>) { *p = *p * 0.5; }\n@group(0) @binding(0) var<storage, read_write> out: array<vec4<f32>>;\n@compute @workgroup_size(1) fn main() {\n    var s = S();\n    s.a = vec3<f32>(1.0);\n    half(&s.a);\n    out[0] = vec4<f32>(s.a, s.b);\n}\n";
         naga_valid(bad);
         let crash = std::panic::catch_unwind(|| codegen_valid(bad)).expect_err("成员指针当实参：SPIR-V 后端现在生成得出来了");

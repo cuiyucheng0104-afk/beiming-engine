@@ -157,7 +157,7 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
   }
   await t.test('构建：从仓库内的源码编，上游的提交号对，上游自带的漫反射白炉过且均值与记录相等', () => {
     assert.equal(rep.core.source, 'beiming/sources/core/path');
-    assert.equal(rep.core.shaders.length, 4);
+    assert.equal(rep.core.shaders.length, SHADERS.length);
     assert.equal(rep.upstream.commit, COMMIT);
     const d = rep.diffuseFurnace;
     t.diagnostic(`漫反射白炉：${d.adapter}（${d.backend}）均值 ${d.mean}，记录 ${d.recorded}，${d.rule}`);

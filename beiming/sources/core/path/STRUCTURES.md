@@ -309,9 +309,9 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 实现它时的限制：硬件求交下不许新增光线查询的源码位置，只能在现有的 `trace` 之上逐次步进、按物体号过滤来拼，不用候选循环（上游记录过候选循环在苹果显卡上丢命中）。这样拼出来的多命中在硬件求交下是否可靠、代价多大**还没有量过**；不可靠的话只在软件求交上保证图案节点。阴影类的问法只许判断挡没挡住，不许读返回的三角号。硬件求交下按物体过滤可见类同样是已知限制，之前只在软件求交上保证。
 
-### 全局参数 `Params` 末尾追加的三块（进缓冲）
+### 全局参数 `Params` 末尾追加的四块（进缓冲）
 
-定义：`shaders/pathtrace.wgsl` 的 `Params`、`KernelIntegrator`、`KernelFilm`；Rust 一侧 `src/gpu.rs` 的同名结构。上游原有的字段不动（实时预览留下的字段这次不清）。放在统一缓冲里的嵌套结构，第一个成员带 `@align(16)`。
+定义：`shaders/pathtrace.wgsl` 的 `Params`、`KernelIntegrator`、`KernelFilm`、`KernelFilterTable`；Rust 一侧 `src/gpu.rs` 的同名结构。上游原有的字段不动（实时预览留下的字段这次不清）。放在统一缓冲里的嵌套结构，第一个成员带 `@align(16)`。
 
 **`integrator`**（`KernelIntegrator`，4 个 vec4，字段名照 Cycles 的同名结构）。写的人：`KernelIntegrator::new(用户种子)`。
 
@@ -320,8 +320,8 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 0 | `max_bounce`、`max_diffuse_bounce`、`max_glossy_bounce`、`max_transmission_bounce` | u32 | 各类弹射的上限 | 已定义，全 0（弹射上限现在读上游的 `counts.z`） |
 | 1 | `transparent_max_bounce`、`transparent_min_bounce`、`min_bounce` | u32 | 透明弹射的上下限；俄罗斯轮盘的起始深度 | 已定义，0（轮盘的起始深度现在读上游的 `counts.w`） |
 | 1 | `sampling_pattern` | u32 | 采样图案，只有 0（Sobol-Burley） | 已定义 |
-| 2 | `sample_clamp_direct`、`sample_clamp_indirect` | f32 | 夹取 | 已定义，0（现在用上游的亮度夹取 `misc.x`） |
-| 2 | `filter_glossy`、`light_inv_rr_threshold` | f32 | 滤光泽：存 1 / blur_glossy（照 Cycles 宿主一侧 `scene/integrator.cpp:269` 的存法），内核直接用，不再取倒数；0 关（Cycles 关着时存浮点最大值，见「与 Cycles、与上游不一样的地方」第 38 条）。写它的是命令行（换算在写的那一侧）。灯的轮盘阈值 | `filter_glossy` 已落地（`surface_shader_prepare_closures` 读；谁写见命令行）；`light_inv_rr_threshold` 已定义，0 |
+| 2 | `sample_clamp_direct`、`sample_clamp_indirect` | f32 | 夹取的直接光、间接光上限：存**用户值 × 3**（照 Cycles 宿主一侧 `scene/integrator.cpp:311-315` 的存法），0 关（Cycles 关着时存浮点最大值，见「与 Cycles、与上游不一样的地方」第 38 条）。内核照 Cycles 的 `film_clamp_light` 比的是一次贡献**三个分量绝对值之和**（`reduce_add`），超了按比例缩到上限，所以灰的贡献每个分量夹到用户值；按「弹射数」选上限：大于 0 用间接光的 | 已落地：`render-pack` 照 `--clamp-direct`、`--clamp-indirect` 写；内核在编译开关 `sample_clamp` 的变体里经 `film.wgsl` 的 `film_clamp_contribution` 读。别的入口恒 0，照旧用上游的亮度夹取 `misc.x` |
+| 2 | `filter_glossy`、`light_inv_rr_threshold` | f32 | 滤光泽：存 1 / blur_glossy（照 Cycles 宿主一侧 `scene/integrator.cpp:269` 的存法），内核直接用，不再取倒数；0 关（Cycles 关着时存浮点最大值，见「与 Cycles、与上游不一样的地方」第 38 条）。写它的是命令行（换算在写的那一侧：`render-pack --filter-glossy <用户值>` 写 1 / 用户值，用户值 0 写 0）。灯的轮盘阈值 | `filter_glossy` 已落地（`surface_shader_prepare_closures` 读，`render-pack` 写，别的入口恒 0）；`light_inv_rr_threshold` 已定义，0 |
 | 3 | `seed` | u32 | 随机数的全局种子 | 已落地，见下 |
 | 3 | `sobol_index_mask` | u32 | Sobol 打乱后的索引取哪几位 | 已落地，见下 |
 | 3 | `pass_kind` | u32 | 这一趟调度写什么：`PASS_KIND_COLOR`（0）颜色样本，`PASS_KIND_AUX`（1）辅助样本。两侧同名常数 | Rust 一侧照实填（要辅助层时清零之后、第一个颜色样本之前以 1 调度一次）；内核不读：两种样本各走自己的入口（见「编号登记表」的「编译开关与入口」） |
@@ -340,6 +340,14 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `film_lightgroup_first` | u32 | 第 0 个灯组在像素里的位置（固定部分的长度） | 已落地（内核里读它的那一支没有场景走到过） |
 | `num_lightgroups` | u32 | 这次渲染请求的灯组数，不是场景里的灯组数 | 同上 |
 | `reserved` | u32 | 预留 | 预留 |
+
+**`filter_table`**（`KernelFilterTable`，257 个 vec4，1.2.0 加，归成像）：像素滤波的重要性采样表。写的人：`KernelFilterTable::new(种类, 宽度)`（`render-pack` 照 `--pixel-filter`、`--filter-width` 调；别的入口与默认是 `KernelFilterTable::default()`，全 0）。
+
+| 格 | 字段 | 类型 | 含义 | 状态 |
+|---|---|---|---|---|
+| 0 | `use_filter_table` | u32 | 1：相机射线的像素内偏移查下面这张表；0：不查表，像素内均匀抖动（盒式宽 1 与默认就是这样） | 已落地 |
+| 0 | `reserved0`、`reserved1`、`reserved2` | u32 | 预留 | 预留，0 |
+| 1–256 | `table` | vec4 × 256 | 表的 1024 个数（`FILTER_TABLE_SIZE`），每个 vec4 装四个：照 Cycles `scene/film.cpp` 的 `filter_table` 在宿主一侧建（`src/pixel_filter.rs`），内核经 `film.wgsl` 的 `filter_table_value(i)` 读、`../shaders/imaging.wgsl` 的 `filter_table_read` 查（`kernel/util/lookup_table.h` 的 `lookup_table_read`，`kernel/camera/camera.h:460-465` 的用法） | 已落地：`use_filter_table` 为 1 时（编译开关 `pixel_filter` 的变体）读 |
 
 **`table_first_ext`**（2 个 vec4、8 格）：北冥加的表在表缓冲里的首地址。上游的 `table_first` 12 格已经占满，新表只许用这里的格子，取用前要登记（见登记表）。Rust 一侧北冥加的表是 `heap::Table` 第 12 张起，各占哪一格由 `heap::EXT_SLOTS` 定（不按次序：`[0].y` 留给还没有的图案节点表，那一格是 0）。
 
@@ -534,7 +542,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 `AuxSample`：`depth`（f32）、`object_id`（u32，小于 2^24）、`motion`（vec2）、`normal`（vec3）。`motion` 已定义、恒 0，其余已落地。
 
-现在一次 `film_add_light` 里还是几盏灯的和，夹取也还留在调用处（上游的亮度夹取）。把算灯的函数改成逐盏调用、带上灯组槽位是做灯的人的活；直接光调用处的夹取也归做灯的人（逐盏写灯组要求每一次贡献已经夹取过，而且与加进颜色的是同一个值）。其余各处的夹取换成 Cycles 的口径是移植闭包的人的活。
+现在一次 `film_add_light` 里还是几盏灯的和，夹取还在调用处：上游的亮度夹取 `misc.x` 照旧；编译开关 `sample_clamp` 的变体里，每处调用之前再经 `film_clamp_contribution` 照 Cycles 的口径夹一次（1.2.0，十一处）。弹射数照 Cycles 各调用处的口径：直接光用着色点所在的顶点号，路上找到的发光、背景、雾、介质发光用那一段射线的顶点号减 1（相机射线是 −1）。把算灯的函数改成逐盏调用、带上灯组槽位是做灯的人的活；直接光调用处的夹取现在夹的是几盏灯的和，改成逐盏夹也归做灯的人（逐盏写灯组要求每一次贡献已经夹取过，而且与加进颜色的是同一个值）。
 
 读回与写文件：Rust 读回时按 `FILM_*` 取，除以样本数（辅助两格是覆盖写的原值，不除）。上游的 `--hdr`、图像输出、CPU 降噪读的还是颜色、反照率、法线与两个方差量，结果不变。不透明度进 `Frame::alpha`；要辅助层时（`Gpu::render` 的 `aux`：用编译开关 `aux` 的变体，颜色样本与辅助样本两个管线）辅助层与覆盖率进 `Frame::aux`。`core-render render-pack --passes DIR` 把它们照输出通道契约写成层文件，见 [README.md](README.md)「读场景包」。
 
@@ -596,8 +604,12 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 **全局参数与表**（1.2.0 加）
 
-38. `integrator.filter_glossy` 为 0 表示关：Cycles 关着时存浮点最大值（`scene/integrator.cpp:269`）。全局参数各处零初始化，0 必须等于关；开着时存的与 Cycles 一样是 1 / blur_glossy。
+38. `integrator.filter_glossy` 与两个夹取上限 `sample_clamp_direct`、`sample_clamp_indirect` 为 0 表示关：Cycles 关着时存浮点最大值（`scene/integrator.cpp:269`、`:311-315`）。全局参数各处零初始化，0 必须等于关；开着时存的与 Cycles 一样：`filter_glossy` 是 1 / blur_glossy，夹取是用户值 × 3（内核比的是三个分量之和，见「全局参数」）。命令行上用户给 0 写 0。
 39. Cycles 的查找表都在一个 `lookup_table` 里按偏移读。这里只有广义 Schlick 的两张在表缓冲里按偏移读；能量补偿的两张仍在常数数组里，一维、二维查表函数各有读常数数组与读表缓冲（`_buf`）两份，三维的只读表缓冲。
+40. 像素滤波的表放在全局参数末尾的一块（`filter_table`），不在表缓冲里：Cycles 放在 `lookup_table` 里按 `film.filter_table_offset` 读。
+41. 盒式宽 1（默认）不查表，像素内均匀抖动，与加像素滤波之前逐位相同。Cycles 的盒式宽 1 也查表，它的表最后一格是 0（`scene/film.cpp` 建表前全 0、对称的一支只写到倒数第二格），查表在最后一段往 0 插值，约 1/1023 的样本不照盒式分布；别的种类与宽度照 Cycles 查同一张表，判据对的是 Cycles 表给出的分布（见「判据」）。
+42. `render-pack` 一路把上游的亮度夹取（`misc.x`，原来是 2^EV × 预设的 `clampIndirect`，电影预设 64、预览 16）关掉（写浮点最大值），只认 Cycles 的两个上限：物理参考是不夹的。上游的场景脚本照旧用 `misc.x`。
+43. Cycles 口径的夹取与像素滤波各在一个编译开关后面（`sample_clamp`、`pixel_filter`），不是运行时分支：写成运行时分支时，不开的场景回归有 174 处不同（白炉读数差 1e-11 量级，上游场景的原始输出不同）。
 
 ## 编号登记表
 
@@ -676,6 +688,7 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 | `integrator` | 4 个 vec4 | 核心帧源 | 没有空位（16 个字段都起了名） |
 | `film` | 1 个 vec4 | 核心帧源 | `reserved` 一格 |
 | `table_first_ext` | 2 个 vec4 | 核心帧源 | 见下一张表 |
+| `filter_table` | 257 个 vec4（1.2.0 加） | 核心帧源（成像） | `reserved0`、`reserved1`、`reserved2` 三格 |
 
 再要加东西：在末尾追加自己命名的一整块，在这里登记块名与主人。上游的 `size.w` 是停用后的预留格。
 
@@ -711,6 +724,8 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 |---|---|---|---|
 | `hwrt`、`strict`、`cutout_lite`、`cutout_lite2`、`last_direct`、`last_sun`、`light_pick`、`merged`、`uniform_tables`、`whole_tables`、`guard` | 开关 | 已落地（上游） | 显卡与布局 |
 | `aux` | 开关 | 已落地（1.1.0 加） | 输出通道：这次渲染要辅助层。开了多一个入口 `aux_sample`，颜色样本写首次命中的物体、数覆盖率；关着时颜色内核里没有这几样。由 `Gpu::render` 的 `aux` 决定，不是显卡的开关 |
+| `pixel_filter` | 开关 | 已落地（1.2.0 加） | 成像：这次渲染查像素滤波表。开了相机射线的像素内偏移经 `filter_table_read` 查全局参数的 `filter_table`；关着时偏移就是像素滤波的两个随机数本身（盒式宽 1），内核与加这个开关之前逐字相同。由 `FilmSwitches::of` 按 `filter_table.use_filter_table` 决定 |
+| `sample_clamp` | 开关 | 已落地（1.2.0 加） | 成像：这次渲染照 Cycles 的口径夹取。开了每次贡献经 `film_clamp_contribution`；关着时只有上游的亮度夹取，内核与加这个开关之前逐字相同。由 `FilmSwitches::of` 按 `integrator` 的两个夹取上限有没有一个不是 0 决定 |
 | `main` | 入口 | 已落地（上游） | 颜色样本，每个变体都有 |
 | `aux_sample` | 入口 | 已落地（1.1.0 加），只在 `aux` 的变体里 | 输出通道：辅助样本 |
 
@@ -736,14 +751,14 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 
 | 检查 | 在哪 | 守什么 |
 |---|---|---|
-| `freeze.mjs` | `../chassis/freeze.mjs`，测试 `../chassis/freeze.test.mjs` | 冻结标记在；标记钉住的结构定义、常数、函数签名与着色器一致；登记类的编号都进了标记（扫内核 `shaders/` 下的全部着色器加共用目录里编进内核的四个着色器，标记没钉住的文件里声明了这类常数也算不一致；声明不写类型、前面带属性、写在一行里的第二个、写在函数里面，都认）；条文提到了标记钉住的每个名字 |
+| `freeze.mjs` | `../chassis/freeze.mjs`，测试 `../chassis/freeze.test.mjs` | 冻结标记在；标记钉住的结构定义、常数、函数签名与着色器一致；登记类的编号都进了标记（扫内核 `shaders/` 下的全部着色器加共用目录里编进内核的五个着色器，标记没钉住的文件里声明了这类常数也算不一致；声明不写类型、前面带属性、写在一行里的第二个、写在函数里面，都认）；条文提到了标记钉住的每个名字 |
 | `the_material_record_is_the_kernels` | `src/merged.rs` | `Material` 两侧逐字段同名、同偏移、同总长度（合并布局的那一份也比）；`flags` 各位两侧同值；默认值；能量补偿位的写法 |
 | `the_parameters_are_the_kernels` | `src/merged.rs` | `Params`、`KernelIntegrator`、`KernelFilm`、`ObjectExt` 两侧逐字段同名、同偏移、同总长度；种子是哈希后的值；步长取整的规矩 |
 | `the_film_layout_is_the_kernels` | `src/merged.rs` | `FILM_*` 两侧同值；`film` 只在 `film.wgsl` 里下标；步长只在一处乘；缓冲大小的算法与报错 |
 | `the_closure_kinds_keep_their_numbers` | `src/merged.rs` | 闭包种类号的快照：已有的数值不变，新种类要先登记 |
 | `the_bounce_stride_is_the_kernels` | `src/merged.rs` | `PRNG_BOUNCE_NUM` 两侧同值 |
 | `call_structs_are_not_built_by_position` | `src/merged.rs` | 只活在一次调用里的结构没有位置式构造（先去掉注释再查；名字与括号之间有空白、换行、注释都认）。名单在测试里，新加这类结构要补 |
-| `every_kernel_variant_generates_spirv_and_msl` | `src/gpu.rs` | 内核的 104 个变体都过 SPIR-V 与 MSL 两个后端的代码生成（每个入口都生成）。104 个是：8 组编译开关（默认、六个取值各单开一个、全开）乘缓冲布局（软件求交 8 种、硬件求交 5 种，其中要辅助层的 `aux` 软件求交 2 种、硬件求交 1 种）。**不是开关的全部组合** |
+| `every_kernel_variant_generates_spirv_and_msl` | `src/gpu.rs` | 内核的 120 个变体都过 SPIR-V 与 MSL 两个后端的代码生成（每个入口都生成）。120 个是：8 组编译开关（默认、六个取值各单开一个、全开）乘缓冲布局（软件求交 9 种、硬件求交 6 种，其中要辅助层的 `aux` 软件求交 3 种、硬件求交 2 种；成像的 `pixel_filter`、`sample_clamp` 与 `aux` 一起开的一种，软件、硬件各一）。**不是开关的全部组合** |
 | `the_aux_switch_is_only_the_aux_layers` | `src/gpu.rs` | 编译开关 `aux` 管的东西：开了入口是 `aux_sample` 与 `main` 两个，关着只有 `main`；关着的变体里没有辅助样本、首次命中物体的写入、读辅助那一格；两种变体都不读 `pass_kind` |
 | `path_state_is_written` | `src/gpu.rs` | `PathState`、`Ray` 的字段名单；路径状态里「已写未读」各项的写入语句都在，先去掉注释再按出现次数查（同一句有两处的，删掉一处也红；注释掉不算在） |
 | `shading_point_is_written` | `src/gpu.rs` | `ShadingPoint`、`Closure`、`ShaderInputs` 的字段名单；它们与 `Ray` 里「已写未读」各项的写入语句都在，先去掉注释再按出现次数查 |
@@ -794,6 +809,8 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 
 灯后有板这个几何（斜向那一种，灯背后 30 微米放一块 0.7 m 见方、与灯平行的黑板；黑板不反光，解析值与斜向相同）守的是遮挡的判法：材质采样打到矩形纯光时，遮挡物的距离是从沿法线挪开的射线起点量的，灯的距离是从着色点本身量的，两个起点不同。光源采样一侧的阴影射线从挪开的起点打、长度取灯距乘 0.999；材质采样一侧用同一条判法（遮挡距离除以 0.999 再与灯距比）。直接拿两个距离比的话，板离灯不到挪开的那一点距离时这一侧把灯判成被挡住、整份丢掉，读数偏低千分之一点五，而另外三种几何上完全看不出来。它也只进第 2 级的判定。
 
+**成像的第 2 级**（1.2.0 加，`../chassis/imaging.mjs`）：像素滤波的刀口剖面（半平面黑白分界，三种滤波、两种宽度）每一列对「Cycles 的滤波表给出的分布与刀口的卷积」不超过 4 个标准误，对连续滤波函数的卷积只记录不判；盒式宽 1 显式给出与不加参数逐位相同。夹取用粗糙度 0 的金属（奇异闭包）看亮度已知的均匀天空：单面镜里的天空走直接光的上限、直角反射器里两次反射之后的天空走间接光的上限，逐通道对照 Cycles 的式子手算的值 ±3 个标准误（每个样本相同、标准误为 0 时相对误差 ≤ 1e-5），不该起作用的那个上限与不夹逐位相同；上限给 0 与不设逐位相同。负对照六项：高斯、Blackman-Harris、盒式的建表宽度，宿主没乘 3，背景的弹射数没减 1，按最大分量比上限。
+
 **负对照有十一项**，每项故意改错一处，必须不过，而且读数要落在登记值的容差之内（读数挪了位置说明接线变了）：粗的八项（遮蔽项写错、面光换算多乘 1%、材质采样一侧不取光；电介质高光的菲涅耳不随角度变、电介质高光下面的漫反射不衰减、漫反射采样一侧的求值少乘 2%、选闭包的随机数只用一半、发光多乘 1%）读数远在门外，容差 ±5%；细的三项（面光换算多乘十万分之二、命中一侧改回从挪开的起点算、遮挡距离改回直接拿来比）要的是解析场景的判法判它不过，守的是那条底没有把这个量级的错放过去，它们的读数里噪声与残差占的份额大，容差 ±30%。
 
 **换了随机数的编号之后，某个解析场景碰巧落在 3 个标准误之外（又不在那条底以内）时**：把种子加到 64 个（1 到 64），按合起来的 64 个判一次。仍然不过就是不过，去找原因；不许反复换种子或换种子组直到过为止。
@@ -823,7 +840,7 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 | `MATERIAL_FLAG_CLASS_*`、`MATERIAL_CLASS_*`；材质记录的 6 个预留格 | 已定义 | 移植闭包 |
 | 移植的闭包之间按灯的着色标志排除某类闭包（`light_shader_flags`）、不用多重重要性采样的灯把材质一侧的密度置 0 | 没做 | 做灯 |
 | `surface_shader_transparency`、`shader_eval_shadow`；`CLOSURE_BSDF_TRANSPARENT`；`PATH_RAY_VISIBILITY_SHADOW_*` | 已定义、无调用者 | 移植闭包（透明闭包），并把上游求交里的镂空与穿玻璃改道过来 |
-| `PathState` 的四个分类计数；`path_state_next` 里的计数、上限与其余 `PATH_RAY_*` 位；`integrator` 块的弹射上限、`min_bounce`、两个夹取 | 已定义或已写未读 | 移植闭包 |
+| `PathState` 的四个分类计数；`path_state_next` 里的计数、上限与其余 `PATH_RAY_*` 位；`integrator` 块的弹射上限、`min_bounce` | 已定义或已写未读 | 移植闭包 |
 | `BsdfEval` 的 `diffuse`、`glossy`（已写）；`BsdfSample` 的 `eval`、`eta` 的读者；`pass_diffuse_weight`、`pass_glossy_weight` | 已写未读或已定义 | 移植闭包（分通道对拍） |
 | `surface_shader_bsdf_eval` 的 `light_shader_flags` | 已定义，没人读 | 做灯 |
 | `PRNG_LIGHT`、`PRNG_LIGHT_TERMINATE`；`integrator` 块的 `light_inv_rr_threshold` | 已定义 | 做灯 |
@@ -854,7 +871,7 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 - **多闭包的直接光归移植闭包的人（1.2.0 已做）。** 上游的灯光函数拿材质求值经 `surface_shader_bsdf_eval_legacy`，它对移植的闭包改成调 `surface_shader_bsdf_eval` 对全部闭包求和；`light_mis` 对移植的闭包的密度改成经闭包分发。这是「新代码不碰名字带 `legacy` 的函数」的点名例外，只限这两处。
 - **凹凸阴影项与阴影终止偏移**（Cycles 做在它的求值入口里，要用着色点）做在收着色点的分发函数里（`surface_shader_bsdf_eval` 那一层），不做在 `bsdf_eval(c, wi, wo)` 里：后者只收一个闭包，签名不为它改。
 - **主循环里的「穿过光滑玻璃」（1.2.0 已改）**：只有奇异的透射一瓣（`LABEL_TRANSMIT | LABEL_SINGULAR`，上游顶替的光滑玻璃）算穿过；移植的闭包的奇异反射一瓣照 Cycles 带着乘了 1e6 的概率密度走普通的一支（多重重要性采样的密度、最小密度照记，后面的矩形纯光照常经 `bm_rect_hits` 取光）。
-- **阴影链接与发光网格的成员集**由做灯的人另开一张表（见「物体扩展表」）。**直接光调用处的夹取**归做灯的人。
+- **阴影链接与发光网格的成员集**由做灯的人另开一张表（见「物体扩展表」）。**直接光调用处的夹取**改成逐盏夹归做灯的人（现在夹的是几盏灯的和，见「输出通道」）。
 - **图案节点的结果在闭包移植完之前只到得了已移植的闭包。** 倒角改的是 `ShaderInputs.N`、遮蔽改的是底色，而上游顶替的闭包与上游的灯光函数读的是 `sd.legacy.surface`。过渡期不许为了让效果到达上游顶替而去写 `legacy` 的表面量；图案节点先在已移植的闭包上验。
 - **材质的图案节点表位置**（`pattern_first`、`pattern_count`）现在没有带进 `ShaderInputs`。做图案节点的人用到时加字段带出来，不另读一次材质记录（过程几何的材质号算法不一样）。
 - **三条线各自加字段，会在冻结标记上相撞**（同一个结构的摘要、版本号那一行）。合并时不手工解这几行：合并之后重跑 `freeze.mjs --update`，版本号由做合并的人定；`src/gpu.rs` 里两条测试的字段名单照合并后的结构补齐。
