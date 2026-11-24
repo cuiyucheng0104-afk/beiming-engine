@@ -165,16 +165,17 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 - `table_first_ext`（2 个 vec4、8 格）：北冥加的表的首地址（上游的 `table_first` 12 格已经占满）。登记了四个去向：物体扩展表、图案节点表、广义 Schlick 的两张能量表；后四格空闲。
 - 库测试 `the_parameters_are_the_kernels`（`src/merged.rs`）逐字段比 `Params`、`KernelIntegrator`、`KernelFilm` 两侧的名字、偏移与总长度。
 
-**物体扩展表**（`shaders/pathtrace.wgsl` 的 `ObjectExt` 与 `object_ext_at`，Rust 一侧 `scene::GpuObjectExt`，`heap::Table::ObjectExt`）：每个物体 2 个 vec4，与上游的物体表同下标、定长，首地址在 `table_first_ext` 的第一格。第 0 个 vec4 是实体编号 `entity_id`（存成浮点数值，小于 2^24）、物体标志 `object_flag`（位照 Cycles，第 3 位镜像）、接收者集合号 `receiver_light_set`、所属灯组 `lightgroup`；第 1 个是两个阴影终止偏移与两格预留。现在全是 0，还没有读者；各家以后只填自己的格子。
+**物体扩展表**（`shaders/pathtrace.wgsl` 的 `ObjectExt` 与 `object_ext_at`，Rust 一侧 `scene::GpuObjectExt`，`heap::Table::ObjectExt`）：每个物体 2 个 vec4，与上游的物体表同下标、定长，首地址在 `table_first_ext` 的第一格。第 0 个 vec4 是实体编号 `entity_id`（存成浮点数值，小于 2^24）、物体标志 `object_flag`（位照 Cycles，第 3 位镜像）、接收者集合号 `receiver_light_set`、所属灯组 `lightgroup`；第 1 个是两个阴影终止偏移与两格预留。场景包读入器写实体编号与镜像位，辅助样本与覆盖率读实体编号；别的格子全是 0；各家以后只填自己的格子。
 
 **输出缓冲 film**（`shaders/film.wgsl`，Rust 一侧 `src/gpu.rs` 的 `FILM_*`、`film_bytes`、`Gpu::film_buffer` 与读回）换掉了上游每个像素一个写死的结构（`records.wgsl` 的 `Pixel`，5 个 vec4）。
 
 - 一块 vec4 的数组，每个像素占 `P.film.film_stride` 个。固定部分 10 个：0 颜色与样本数，1 降噪用的反照率（w 留给不透明度），2 降噪用的法线（w 留给覆盖率计数），3 上游降噪用的两个方差量（亮度的和、亮度平方的和；原来挤在反照率与法线的 w 里），4、5 上游 `--signals` 的两组，6、7 辅助样本的两格（深度、实体编号、运动矢量；法线），8、9 预留。灯组排在固定部分之后，从 `P.film.film_lightgroup_first` 起。步长与灯组的起点两侧都从全局参数读，不写死。
-- film 只经三个函数读写：`film_add_light(L, bounce, 灯组槽位)` 每一次贡献调一次，把值加进这个样本的颜色（模块级私有变量 `film_sample` 的 `L`），槽位不是「无」时同一个值直接加进那个灯组；`film_write_aux(AuxSample)` 写辅助样本的两格，只定义，辅助那一趟调度还没有；`film_write_sample(SampleResult)` 在样本结束时写其余通道，语句是上游 `main` 末尾那一段，次序没动。主循环里原来的 11 处 `radiance += …` 改成调 `film_add_light`，槽位全填「无」，累加的次序不变。
+- film 只经三个函数读写：`film_add_light(L, bounce, 灯组槽位)` 每一次贡献调一次，把值加进这个样本的颜色（模块级私有变量 `film_sample` 的 `L`），槽位不是「无」时同一个值直接加进那个灯组；`film_write_aux(AuxSample)` 写辅助样本的两格（入口 `aux_sample` 调它）；`film_write_sample(SampleResult)` 在样本结束时写其余通道，语句是上游 `main` 末尾那一段，次序没动。主循环里原来的 11 处 `radiance += …` 改成调 `film_add_light`，槽位全填「无」，累加的次序不变。
 - 灯组数是这次渲染请求的灯组数（`KernelFilm::new(组数)`），不是场景里的。开渲前按 `步长 × 16 × 宽 × 高` 算缓冲大小，超过显卡单个缓冲绑定的上限就报错，并写明这个分辨率下这次最多能要几组。`Frame` 多了 `lightgroups`（每组一层）。请求灯组的路是通的：库测试 `requested_lightgroups_leave_the_picture_alone` 把同一个场景不请求、请求 2 组各渲一遍，颜色、反照率、法线、方差逐位相同，两个灯组全 0。
 - 步长由 Rust 一侧向上取到 4 的倍数（64 字节）：不请求灯组时是 12，不是 10。这是量出来的：苹果显卡上步长 10、11 的稳态比步长 12、16 慢 5%（同样只写前四格），每个像素的记录对不齐 64 字节时写起来就慢。多出来的格子没人读写；代价是缓冲大两成，个别分辨率下能请求的灯组数少至多 3 个（4K 下不变，仍是 6 个）。
 - `film_write_sample` 里四格先都读出来再写回去（读一格写一格地交替，苹果显卡上稳态慢约 1%）。
 - 降噪、`--hdr`、图像输出、`--signals` 读的还是颜色、反照率、法线、两个方差量与那两组，结果不变（三个场景开、关降噪各渲一遍，图像、`--hdr` 与三份 `--signals` 输出逐字节相同）。
+- 辅助样本与覆盖率（冻结标记 1.1.0）：内核的第二个入口 `aux_sample`（编译开关 `aux` 的变体里才有），过像素中心打一条针孔射线，只求交与取几何量，写深度、实体编号（读物体扩展表）、相机空间的着色法线，经 `film_write_aux` 覆盖写辅助两格。`Gpu::render` 要辅助层时用 `aux` 的变体，在清零之后、第一个颜色样本之前从这个入口调度一次（起先是 `main` 开头按 `P.integrator.pass_kind` 分支、覆盖率每次都数，英伟达显卡上不要辅助层时稳态慢 4% 到 5%，所以拆开）。路径状态加了 `first_hit_object`（相机射线首次命中的物体），`aux` 的变体里 `film_write_sample` 拿它的实体编号与辅助那一格比，相等就给 `FILM_DENOISE_NORMAL.w` 加 1；不透明度（`SampleResult.alpha`，背景对相机不可见而相机射线没打到时 0）累加在 `FILM_DENOISE_ALBEDO.w`。这三处都只写各通道的 w 与新的两格，颜色、反照率、法线、方差的写法没动：两台机器上回归基线逐位相同，库测试 `requested_lightgroups_leave_the_picture_alone` 另查要辅助层时颜色、反照率、法线逐位相同。
 - 库测试 `the_film_layout_is_the_kernels`（`src/merged.rs`）逐个比两侧的位置常数，查 film 只在 `film.wgsl` 里下标、步长只在一处乘，并锁住缓冲大小的算法与报错。
 
 ### 随机维度
