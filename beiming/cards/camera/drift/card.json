@@ -1,0 +1,32 @@
+{
+  "format": "card/0.1",
+  "id": "camera.drift",
+  "version": "1.0.0",
+  "kind": "camera",
+  "title": "锁机位与缓推",
+  "intent": "固定机位，或沿相机局部轴匀速推轨、平移，逐帧交出相机姿态和透视矩阵",
+  "visibleToAgent": true,
+  "livesIn": ["data"],
+  "impl": [{ "livesIn": "data", "shape": "evaluate", "entry": "cards/camera/drift/evaluate.mjs", "hosts": [], "selftest": "cards/camera/drift/selftest.test.mjs" }],
+  "params": {
+    "mode": { "type": "string", "unit": "none", "default": "locked", "coupling": "none" },
+    "pos": { "type": "data", "unit": "m", "schema": "pos.schema.json", "default": [0, 0, 3], "coupling": "scene-scale" },
+    "yawDeg": { "type": "number", "unit": "deg", "range": [-180, 180], "default": 0, "coupling": "none" },
+    "pitchDeg": { "type": "number", "unit": "deg", "range": [-90, 90], "default": 0, "coupling": "none" },
+    "fovYDeg": { "type": "number", "unit": "deg", "range": [1, 170], "default": 40, "coupling": "none" },
+    "zoom": { "type": "number", "unit": "ratio", "range": [0.1, 10], "default": 1, "coupling": "none" },
+    "pan": { "type": "data", "unit": "m", "schema": "pan.schema.json", "default": [0, 0], "coupling": "scene-scale" },
+    "pushMeters": { "type": "number", "unit": "m", "range": [-1000, 1000], "default": 0, "coupling": "scene-scale" }
+  },
+  "ports": {
+    "in": [], "out": [{ "name": "camera", "type": "tracks.camera" }], "order": { "before": [], "after": [] },
+    "requires": ["inputs.size 与 inputs.shot.frames 取镜头实际画幅和帧数。locked 忽略运动量；linear 在首帧到末帧之间沿相机右、上方向平移 pan 米，沿视线推进 pushMeters 米，焦距线性变到原来的 zoom 倍。", "右手系，默认看向 −Z，先绕世界 Y 偏航，再绕局部 X 俯仰。camera 的 pos、quat、fovDeg 供宿主装载；world、proj 是列主序世界矩阵和 OpenGL 透视矩阵（近远面 0.1、100 米）。"]
+  },
+  "conditions": { "appliesWhen": ["场景内的东西动，机位必须静止", "无需关键帧的单段匀速缓推"], "notWhen": ["路径要拐弯或朝向随主体变"] },
+  "calibration": "studio-balls@1",
+  "verify": { "selftest": "锁死与零漂移逐帧、逐子帧相机矩阵相同；斜向机位的线性平移和推进按局部轴计算；投影随光学变焦。", "predicates": [] },
+  "pitfalls": [{ "symptom": "写了推进量而画面没动", "fix": "把 mode 设为 linear；locked 即使给了非零运动量也完全锁死。" }],
+  "provenance": { "cases": [], "note": "从静态姿态与镜头局部时间直接求值，不积分上一帧的机位。" },
+  "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-23" }],
+  "exams": ["15-2"]
+}

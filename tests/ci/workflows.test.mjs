@@ -70,10 +70,13 @@ test('ci.yml：六个 job 都在，各有时限；权限只读；windows-paths �
   assert.deepEqual(Object.keys(jobs), ['unit', 'check', 'render', 'smoke-render', 'env-smoke', 'windows-paths']);
   assert.match(jobs['env-smoke'], /os: \[ubuntu-24\.04, macos-26, windows-2025\]/);
   assert.match(jobs['env-smoke'], /hashFiles\('tools\/env\/doctor\.mjs'\) != ''/);
-  for (const k of ['windows-paths', 'env-smoke']) assert.match(jobs[k], /continue-on-error: \$\{\{ vars\.BEIMING_\w+_REQUIRED != 'true' \}\}/);
+  // 红了就是红：任何 job 都不许 continue-on-error（含 windows-paths、env-smoke，它们转绿后已去掉吞红）
+  assert.doesNotMatch(text.replace(/^\s*#.*$/gm, ''), /continue-on-error/, 'ci.yml 里不许有 continue-on-error 吞红');
   for (const [k, v] of Object.entries(jobs)) assert.match(v, /timeout-minutes:\s*\d+/, `${k} 没有 timeout-minutes`);
   assert.match(text, /^permissions:\n {2}contents: read$/m);
-  assert.match(jobs.unit, /node: \['24', '22'\]/);
+  // Node 24 + Linux 全量由 render (tests-*) 两片覆盖，unit 只留没有浏览器与 FFmpeg 的 Node 22，不再重复跑一遍 Node 24
+  assert.match(jobs.unit, /node: \['22'\]/);
+  for (const k of ['unit', 'windows-paths']) assert.match(jobs[k], /node tools\/run-tests\.mjs --parallel /, `${k} 要用 --parallel 让 Python 组与 Node 组同时跑`);
   assert.match(jobs.unit, /python-version: '3\.12'/);
   assert.match(jobs.render, /BEIMING_ANGLE: swiftshader/);
   assert.match(jobs.render, /sha256sum -c/);
@@ -82,19 +85,27 @@ test('ci.yml：六个 job 都在，各有时限；权限只读；windows-paths �
   assert.match(text, /workflow_call:/);
 });
 
-test('ci.yml：render 的 tests 与 smoke 两路并行且互不拖累；smoke-render 汇总两路，release.yml 要的产物名只由 smoke 一路上传', () => {
+test('ci.yml：render 的 tests 三片与 smoke 并行且互不拖累；smoke-render 汇总各路，release.yml 要的产物名只由 smoke 一路上传', () => {
   const jobs = jobsOf(read('.github/workflows/ci.yml'));
-  assert.match(jobs.render, /matrix:\n\s+part: \[tests, smoke\]/);
+  assert.match(jobs.render, /- part: tests-beiming\n\s+tests_args: --only beiming,audio\n\s+- part: tests-beiming-api\n\s+tests_args: --only beiming-api\n\s+- part: tests-rest\n\s+tests_args: --skip beiming,beiming-api,audio\n\s+- part: smoke\n/);
+  // 各 --only 分片并集要等于 --skip 集合，确保不漏域（新增的域自动落进 --skip 那一片）
+  const onlyDomains = [...jobs.render.matchAll(/--only ([\w,-]+)/g)].flatMap(m => m[1].split(',')).sort();
+  const skipDomains = /--skip ([\w,-]+)/.exec(jobs.render)[1].split(',').sort();
+  assert.deepEqual(onlyDomains, skipDomains, 'tests 各 --only 分片的并集必须等于 --skip 集合');
   assert.match(jobs.render, /fail-fast: false/, '一路红了另一路也要跑完');
   // 每个只属于某一路的步骤都要带 matrix.part 条件，否则两路会各跑一遍对方的活
   const stepsOf = text => text.split(/\n {6}- /).slice(1).map(s => `- ${s}`);
   const steps = stepsOf(jobs.render);
   const find = re => steps.find(s => re.test(s));
-  assert.match(find(/node tools\/run-tests\.mjs/), /if: matrix\.part == 'tests'/);
+  assert.match(find(/node tools\/run-tests\.mjs/), /if: startsWith\(matrix\.part, 'tests'\)/);
+  assert.match(find(/node tools\/run-tests\.mjs/), /--parallel --timeout 900 --require browser,ffmpeg,python \$TESTS_ARGS/);
   assert.match(find(/node tests\/ci\/smoke-render\.mjs/), /if: matrix\.part == 'smoke'/);
   assert.match(find(/name: smoke-render\n/), /matrix\.part == 'smoke'/, 'smoke-render 产物（release.yml 下载）只能由 smoke 一路上传，名字不能撞');
   assert.match(find(/name: golden-capture-linux-swiftshader/), /matrix\.part == 'smoke'/);
-  assert.match(find(/name: render-tests\n/), /matrix\.part == 'tests'/);
+  assert.match(find(/name: render-\$\{\{ matrix\.part \}\}\n/), /startsWith\(matrix\.part, 'tests'\)/, '两片测试报告各用自己的产物名，不撞');
+  // apt 下载缓存：Chromium 的系统依赖不再每次走 Ubuntu 镜像
+  assert.match(jobs.render, /Dir::Cache::archives "\/tmp\/beiming-apt"/);
+  assert.match(jobs.render, /path: \/tmp\/beiming-apt\/\*\.deb/);
   // 汇总任务：沿用 smoke-render 这个检查名，上游失败时也要跑（否则会被跳过而不是变红）
   assert.match(jobs['smoke-render'], /needs: render\b/);
   assert.match(jobs['smoke-render'], /if: always\(\)/);
@@ -199,6 +210,13 @@ test('conformance-5090.yml：PR 先过轻量 filter，改到帧源且开了 5090
   assert.ok(nightly.replace(/\s+/g, ' ').includes(sameRepo), 'nightly-rebuild 缺同仓来源守卫');
   assert.match(nightly, /uses: actions\/setup-node@/);
   assert.match(nightly, /npm ci/);
+  // exam 与 nightly-rebuild 真实入口均存在且无条件执行，禁止 hashFiles(...) == '' 的 ::notice:: 假绿跳过回退
+  for (const entry of ['beiming/bench/exam.mjs', 'tools/nightly/rebuild.mjs']) {
+    assert.ok(fs.existsSync(path.join(REPO, entry)), `定时任务入口 ${entry} 必须真实存在`);
+  }
+  assert.match(jobs.exam, /run:\s*npm ci && node beiming\/bench\/exam\.mjs\b/);
+  assert.match(nightly, /run:\s*npm ci && node tools\/nightly\/rebuild\.mjs\b/);
+  assert.doesNotMatch(text, /hashFiles\(|还没有合入|还没合入|::notice::/, 'conformance-5090.yml 不得保留缺入口假绿跳过回退');
   // 只有一致性任务进显卡队：别的 job 用了 gpu-5090 会挤掉排队中的那个
   assert.equal((text.match(/group: gpu-5090/g) || []).length, 1);
 });
@@ -218,7 +236,7 @@ test('工作流里调用的仓库脚本都存在（node / python 后面的相对
   for (const f of WORKFLOWS) {
     const guarded = new Set([...read(f).matchAll(/hashFiles\('([^']+)'\)/g)].map(m => m[1]));
     for (const b of runBlocks(read(f), f)) {
-      for (const m of b.text.matchAll(/(?:^|\s)node\s+((?:tools|tests|engine|routes)\/[^\s"']+\.m?js)/g)) {
+      for (const m of b.text.matchAll(/(?:^|\s)node\s+((?:beiming|tools|tests|engine|routes)\/[^\s"']+\.m?js)/g)) {
         if (!fs.existsSync(path.join(REPO, m[1])) && !guarded.has(m[1])) missing.push(`${f}:${b.line} ${m[1]}`);
       }
       for (const m of b.text.matchAll(/-r\s+((?:tests|tools)\/[^\s"']+)/g)) if (!fs.existsSync(path.join(REPO, m[1]))) missing.push(`${f}:${b.line} ${m[1]}`);

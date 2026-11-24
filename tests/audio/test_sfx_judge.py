@@ -27,8 +27,9 @@ class SfxJudgeTests(unittest.TestCase):
         n = D.N(dur)
         t = np.arange(n) / D.SR
         env = np.sin(np.pi * np.clip(t / dur, 0.0, 1.0)) ** 1.25
-        # 真实织物摩擦既有高频纤维湍流，也常带近讲低频隆隆声；白化自相关不应误报为周期谐波
-        fibers = D.hp(D.lp(rng.standard_normal(n), 11500.0, 2), 950.0, 2) * 0.35
+        # 真实织物摩擦既有高频纤维湍流（微纤维非高斯起伏），也常带近讲低频隆隆声；白化自相关不应误报为周期谐波，且通过 B4 去包络峭度
+        fiber_burst = 0.12 + 3.2 * (np.abs(D.lp(rng.standard_normal(n), 320.0, 2)) ** 2.8)
+        fibers = D.hp(D.lp(rng.standard_normal(n) * fiber_burst, 11500.0, 2), 950.0, 2) * 0.45
         rumble = D.lp(rng.standard_normal(n), 140.0, 2) * 0.45
         wave = (fibers + rumble) * env
         res = J.judge_wave(wave, D.SR, 'friction_cloth')

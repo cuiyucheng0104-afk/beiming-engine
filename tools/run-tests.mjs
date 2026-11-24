@@ -4,6 +4,7 @@
 //   node tools/run-tests.mjs --only ci,production  只跑这几个域        --skip render   不跑某个域
 //   node tools/run-tests.mjs --list                只列出会跑什么，不执行
 //   node tools/run-tests.mjs --skip-grep <名字片段>  不跑名字含这段文字的测试（CI 用来隔离已登记的已知问题）
+//   node tools/run-tests.mjs --parallel            Python 组与 Node 组两条流水线同时跑（各自仍按域顺序；CI 用它压墙钟时间）
 //   node tools/run-tests.mjs --json                stdout 只输出一个 JSON 对象（附录 C2 信封 + summary、suites）
 //   node tools/run-tests.mjs --help                完整参数
 //
@@ -11,7 +12,7 @@
 //   文件：*.test.{mjs,js,cjs} 是 Node 测试，test_*.py 是 Python unittest。
 //   范围：git 跟踪的文件加上未跟踪、未被忽略的文件（不是 git 检出时遍历目录）。
 //   不发现：cases/、films/ 整个目录；任何一级名为 fixtures、__fixtures__、node_modules、out、__pycache__ 或以点开头的目录。
-//   域：tests/<域>/… → <域>；engine/audio/… → audio（与 audio/、tests/audio/ 同属声音链路）；其余按第一级目录
+//   域：tests/<域>/… → <域>；engine/audio/… → audio（与 audio/、tests/audio/ 同属声音链路）；beiming/api/… 与 beiming/bench/… → beiming-api；其余按第一级目录
 //       （engine、lab、audio、tools…），根目录下的文件 → root。同名的 tests/<域>/ 与同名目录里的测试合成一个域。
 // 每个域的 Node 测试由一个 `node --test` 进程运行，Python 测试由一个解释器进程运行；域之间顺序执行。
 // 与旧的 npm 脚本对应：test:routes → --only ci,production,tools；test:engine → --only engine,lab；test:audio → --only audio；
@@ -330,6 +331,7 @@ export function domainOf(rel) {
   if (parts.length === 1) return 'root';
   if (parts[0] === 'tests') return parts.length > 2 ? parts[1] : 'root';
   if (parts[0] === 'engine' && parts[1] === 'audio') return 'audio';
+  if (parts[0] === 'beiming' && (parts[1] === 'api' || parts[1] === 'bench')) return 'beiming-api';
   return parts[0];
 }
 
@@ -512,6 +514,11 @@ ok = r.wasSuccessful() and not broken
 sys.exit(0 if ok and r.testsRun else (5 if ok else 1))
 `;
 
+// --parallel 时各组的 stderr 先捕获，跑完一次性打出（带组名），免得两条流水线的输出交错；单线跑时 stderr 直通，行为不变
+function flushBuffered(s, r, ctx) {
+  if (ctx.stderrMode === 'capture' && r.stderr) process.stderr.write(`\n──── ${s.id} 的输出 ────\n${r.stderr}${r.stderr.endsWith('\n') ? '' : '\n'}`);
+}
+
 async function runNodeSuite(s, ctx) {
   const c = s.config;
   const args = ['--test', '--test-reporter=spec', '--test-reporter-destination=stderr', '--test-reporter=tap', '--test-reporter-destination=stdout'];
@@ -525,7 +532,8 @@ async function runNodeSuite(s, ctx) {
   // 否则这里的 node --test 会当自己是子进程，改用内部协议输出，TAP 解析不到任何结果
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
-  const r = await run(process.execPath, args, { cwd: ctx.root, env, timeoutMs: ctx.timeoutMs(s), stdout: 'capture', stderr: 'inherit' });
+  const r = await run(process.execPath, args, { cwd: ctx.root, env, timeoutMs: ctx.timeoutMs(s), stdout: 'capture', stderr: ctx.stderrMode });
+  flushBuffered(s, r, ctx);
   const { counts, failures } = parseTap(r.stdout);
   return {
     code: r.code, timedOut: r.timedOut, leaked: r.leaked, durationMs: r.durationMs, failures, spawnError: r.error,
@@ -536,7 +544,8 @@ async function runNodeSuite(s, ctx) {
 async function runPythonSuite(s, ctx) {
   const py = ctx.python();
   const env = pythonEnv({ BEIMING_TEST_FILES: JSON.stringify(s.files.map(f => path.join(ctx.root, f))), BEIMING_TEST_ROOT: ctx.root, BEIMING_TEST_GREP: ctx.grep || '', BEIMING_TEST_SKIP: JSON.stringify(ctx.skipGrep) });
-  const r = await run(py.cmd, [...py.pre, '-c', PY_DRIVER], { cwd: ctx.root, env, timeoutMs: ctx.timeoutMs(s), stdout: 'capture', stderr: 'inherit' });
+  const r = await run(py.cmd, [...py.pre, '-c', PY_DRIVER], { cwd: ctx.root, env, timeoutMs: ctx.timeoutMs(s), stdout: 'capture', stderr: ctx.stderrMode });
+  flushBuffered(s, r, ctx);
   const MARK = '@@BEIMING-UNITTEST@@';
   const mark = r.stdout.lastIndexOf(MARK);
   let res = null;
@@ -590,7 +599,7 @@ export function missingDependency(failure, kind, deps) {
 
 const SPEC = {
   only: { type: 'list' }, skip: { type: 'list' }, require: { type: 'list' }, 'if-present': { type: 'bool' },
-  list: { type: 'bool' }, json: { type: 'bool' }, report: { type: 'string' }, timeout: { type: 'int' }, bail: { type: 'bool' },
+  list: { type: 'bool' }, parallel: { type: 'bool' }, json: { type: 'bool' }, report: { type: 'string' }, timeout: { type: 'int' }, bail: { type: 'bool' },
   grep: { type: 'string' }, 'skip-grep': { type: 'multi' }, python: { type: 'string' }, root: { type: 'string' }, help: { type: 'bool', short: 'h' },
 };
 
@@ -609,6 +618,8 @@ export const HELP = `北冥仓库 · 测试总入口（npm test）
   --skip-grep <文字>   不跑名字含这段文字的测试（可重复；CI 用它隔离已登记的已知问题，见 tests/ci/README.md）
   --timeout <秒>       每一组的总时限（默认 600；tests/<域>/suite.json 的 timeoutSec 优先于默认值，本参数优先于两者）
   --bail               有一组失败就停，剩下的标为未运行
+  --parallel           Python 组与 Node 组分成两条流水线同时跑（各条里仍按域顺序）：Python 组多是单线程的数值计算，Node 组占满其余核；
+                       每组的输出等它跑完一次性打印，不交错。CI 用它压低墙钟时间，本机默认不开
   --python <解释器>    指定 Python（默认依次找 BEIMING_PY、PYTHON、tools/env/py.mjs、.venv、python3、python、py -3）
   --root <目录>        在另一个检出里发现并运行（给 tests/ci 的夹具用）
   --json               stdout 只输出一个 JSON 对象（附录 C2 信封 + summary、suites）；进度在 stderr
@@ -662,6 +673,7 @@ export async function main(argv = process.argv.slice(2)) {
     python: () => (pyMemo === undefined ? (pyMemo = resolvePython(root, opts.python)) : pyMemo),
     timeoutMs: s => 1000 * (opts.timeout || s.config.timeoutSec || 600),
     deps: declaredDeps(root),
+    stderrMode: opts.parallel ? 'capture' : 'inherit',
   };
 
   // 发现与筛选
@@ -751,13 +763,13 @@ export async function main(argv = process.argv.slice(2)) {
     finish(code, { summary: summarize(suites, started), suites: suites.map(view) }, e);
   });
   let stop = false;
-  for (const s of suites) {
-    if (s.status !== 'pending') continue;
-    if (stop) { s.status = 'not-run'; continue; }
+  const runOne = async s => {
+    if (s.status !== 'pending') return;
+    if (stop) { s.status = 'not-run'; return; }
     s.status = 'running';
     process.stderr.write(`\n▶ ${s.domain}（${s.kind === 'node' ? 'Node' : 'Python'}，${s.files.length} 个文件）\n`);
     const r = s.kind === 'node' ? await runNodeSuite(s, ctx) : await runPythonSuite(s, ctx);
-    if (interrupted) return EXIT.SIGINT;
+    if (interrupted) return;
     Object.assign(s, { exitCode: r.code, durationMs: r.durationMs, counts: r.counts, failures: r.failures });
     if (r.timedOut) { s.status = 'timeout'; s.skipReason = `超过 ${ctx.timeoutMs(s) / 1000} 秒没有结束，已结束整棵进程树（可能有没关闭的服务器、子进程或定时器）`; }
     else if (r.spawnError) { s.status = 'fail'; s.skipReason = `启动失败：${r.spawnError.message}`; }
@@ -774,7 +786,11 @@ export async function main(argv = process.argv.slice(2)) {
     }
     if (r.leaked) warnings.push(`${s.id} 结束后进程组里还有残留进程（已强制结束）：检查测试里启动的浏览器、服务器、子进程有没有关闭`);
     if (s.status !== 'pass' && opts.bail) stop = true;
-  }
+  };
+  const lanes = opts.parallel ? [suites.filter(s => s.kind === 'python'), suites.filter(s => s.kind !== 'python')] : [suites];
+  await Promise.all(lanes.map(async lane => { for (const s of lane) await runOne(s); }));
+  if (interrupted) return EXIT.SIGINT;
+
 
   // 汇总与退出码
   const summary = summarize(suites, started);

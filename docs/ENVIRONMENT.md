@@ -181,6 +181,14 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `BEIMING_SUNO_MCP_URL` | 声音（Suno MCP） | `npm run audio:music`（`engine.audio.music_gen`）在 `--provider suno` 时连接的本地 Suno MCP 服务端地址；`--endpoint` 优先 | `http://127.0.0.1:3425/mcp/suno` |
 | `BEIMING_NVCC` | 声音 | ERB 再合成 GPU 内核的编译器 nvcc 的路径（`engine/audio/erb/gpu.py`）；未设时按 PATH 找，再试 `/opt/cuda/bin` 与 `/usr/local/cuda/bin`；都没有时 GPU 执行器不可用，自动退回 CPU | 不设（按 PATH 找 nvcc） |
 | `BEIMING_ERB_CACHE` | 声音 | ERB 再合成 GPU 内核编译产物的缓存目录（文件名带源码、nvcc 版本与 GPU 型号的哈希，换了任何一项就重新编译） | 仓库根的 `.cache/erb`（已被 git 忽略） |
+| `BEIMING_AUDIO_L2_PYTHON` | 声音 | L2 声源铸造厂（npm run audio:foundry）推理子进程用的隔离 venv 解释器，要装 torch 与上游 moss_soundeffect_v2；--python 优先；--ssh 时是远端路径；不要用主仓 .venv | 不设（全部命中缓存时不需要，真生成时缺它退出 3） |
+| `BEIMING_AUDIO_L2_MODEL_DIR` | 声音 | L2 声源铸造厂的 MOSS-SoundEffect-v2.0 权重目录（--model-dir 优先；--ssh 时是远端路径） | 不设（全部命中缓存时不需要） |
+| `BEIMING_AUDIO_L2_PKG` | 声音 | L2 声源铸造厂的上游 MOSS-TTS 克隆目录（含 moss_soundeffect_v2 包，--pkg-dir 优先；--ssh 时是远端路径） | 不设（包已装进隔离 venv 时不需要） |
+| `BEIMING_AUDIO_L2_CACHE` | 声音 | L2 声源铸造厂的 SHA256 缓存目录（--cache 优先） | 仓库根的 .cache/audio-foundry（已被 git 忽略） |
+| `BEIMING_AUDIO_L2_WORKER` | 声音 | 覆盖 L2 推理子进程脚本的路径，只给测试与排障用（离线单测用它换成不依赖 torch 的 mock） | 不设（用 engine/audio/foundry_worker.py） |
+| `CUDA_VISIBLE_DEVICES` | 声音（CUDA） | L2 推理子进程按 --gpu 在 import torch 之前写入，限定它只看见指定序号的 GPU（子进程内设置，不读取你的值） | 由 --gpu 设置（默认 0） |
+| `HF_HUB_OFFLINE` | 声音（Hugging Face） | L2 推理子进程默认写入 1（权重在本地目录，不联网）；你已设置则不覆盖 | 1（由子进程设置） |
+| `TRANSFORMERS_OFFLINE` | 声音（Hugging Face Transformers） | L2 推理子进程默认写入 1（权重在本地目录，不联网）；你已设置则不覆盖 | 1（由子进程设置） |
 | `BEIMING_FPS` | 声音 | 统一出片传给声音脚本的帧率；A 模版 `sound.py` 与 `film.json` 不一致时退出 4 | 由统一出片设置 |
 | `BEIMING_FRAMES` | 声音 | 统一出片传给声音脚本的总帧数，核对方式同上 | 由统一出片设置 |
 | `FREESOUND_TOKEN` | 声音（Freesound） | Freesound API Key；仅在用 `tools/fetch_sfx.py` 搜索或下载 CC0 真实录音音效（供 `audio/mix.py --real-sfx`）时需要 | 不设（默认合成音效不需要） |

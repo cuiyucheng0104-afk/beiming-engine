@@ -1,0 +1,603 @@
+// 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/shaders/pathtrace.wgsl（北冥按阶段分出的一段：材质求值），MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
+// SPDX-FileCopyrightText: 2026 Meshy LLC
+// SPDX-FileCopyrightText: 2009-2010 Sony Pictures Imageworks Inc., et al. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-License-Identifier: MIT AND Apache-2.0 AND BSD-3-Clause
+// 多方许可。上游的与北冥新写的部分是 MIT。照 Cycles（Blender v5.2.3，路径相对 intern/cycles/）取的部分是 Apache-2.0
+// （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
+//   着色点标志 SD_BACKFACING 的名字与数值，着色点与闭包的字段名（ShaderData、ShaderClosure）：kernel/types.h
+//   闭包种类 CLOSURE_* 的名字（数值是这里自己的）：kernel/svm/types.h（ClosureType，去掉 _ID 后缀）
+// 菲涅耳种类 FRESNEL_* 的名字与次序取自 kernel/closure/bsdf_microfacet.h 的 enum MicrofacetFresnel，那个文件是 BSD-3-Clause
+// （版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation，许可全文见仓库根的 LICENSES/BSD-3-Clause.txt）。
+// ------------------------------------------------------------------------------------------------
+// 北冥：着色点、闭包、材质输入值，以及材质求值的三步。闭包的求值、采样在 closure.wgsl。
+// 内核的四样内部结构（材质记录、光线负载、随机维度、输出通道）已经冻结：每个字段的含义与状态、编号登记表、改动的规矩
+// 在 ../STRUCTURES.md；改了这里的结构、常数或函数的参数表，要同步改那份条文与冻结标记（../FREEZE.json）。
+//
+// 这几个结构只活在一次调用里，不进缓冲。规矩：
+//   - 不许位置式构造（`Closure(a, b, …)`）：先取零值（`Closure()`）再按名字赋值，这样以后加字段不会破坏别处。
+//   - 函数实参不许是指向结构成员或数组元素的指针（`&sd.closure[i]`、`&sd.N`）：有的显卡后端建管线时会崩。
+//     要改某个闭包就传下标，或传整个变量的指针（`ptr<function, ShadingPoint>`）。
+//   - 加新函数、给返回结构加字段不算破坏；改已有函数的参数表算破坏。
+//   - 照 Cycles 逐函数移植、要进函数级比对的函数（../../shaders/ 下的那些）签名只收标量与向量，不收这里的结构。
+//     收结构的只有这里与 closure.wgsl 的分发函数：它们取出字段，再调标量签名的函数。
+// 「上游顶替」：还没照 Cycles 移植的材质由上游原来的代码顶着，圈在名字带 legacy 的字段与函数里，移植完一块删一块。
+// 现在只有一种材质走移植的闭包：金属度为 1、没有清漆、没有透射的金属（CLOSURE_BSDF_MICROFACET_GGX）；别的都是上游顶替。
+// 新写的代码不许读 legacy，也不许调名字带 legacy 的函数；
+// 眼下读着 legacy 的地方都列在 closure.wgsl「上游顶替」一节的例外清单里。
+// 字段的状态：「已落地」有写有读；「已写未读」现在就写、还没人读；「已定义」含义定了、等后面的移植来写。
+
+// 一个着色点上同时存在的闭包个数上限。只在这里定义。
+const MAX_CLOSURE: u32 = 4u;
+
+// 闭包种类。名字照 Cycles，数值是这里自己的：往后追加，已有的数值不改。
+const CLOSURE_NONE: u32 = 0u;
+const CLOSURE_LEGACY: u32 = 1u;                // 上游顶替：求值与采样转给上游的 eval_bsdf_k、pdf_bsdf、sample_bsdf
+const CLOSURE_BSDF_MICROFACET_GGX: u32 = 2u;   // GGX 微表面反射。现在只接了 F82_TINT 菲涅耳、各向同性（纯金属）
+const CLOSURE_BSDF_DIFFUSE: u32 = 3u;          // 已定义
+const CLOSURE_BSDF_TRANSPARENT: u32 = 4u;      // 已定义
+
+// 菲涅耳种类，数值照 Cycles 的 MicrofacetFresnel。F82_TINT 已落地，其余已定义。
+// （CONDUCTOR 要一个复数折射率，Closure 里还没有放它的字段：种类号先占着，用到时加两个字段。）
+const FRESNEL_NONE: u32 = 0u;
+const FRESNEL_DIELECTRIC: u32 = 1u;
+const FRESNEL_DIELECTRIC_TINT: u32 = 2u;
+const FRESNEL_CONDUCTOR: u32 = 3u;
+const FRESNEL_GENERALIZED_SCHLICK: u32 = 4u;
+const FRESNEL_F82_TINT: u32 = 5u;
+
+// 着色点标志（ShadingPoint.flag），位照 Cycles 的 ShaderDataFlag
+const SD_BACKFACING: u32 = 1u;                 // 打在背面
+
+// 闭包：一个结构装所有种类。微表面的菲涅耳参数在 Cycles 里另放在四个结构里，这里摊平放进来。
+// kind、weight、sample_weight、N 所有闭包都填；alpha_x、alpha_y、energy_scale、fresnel_type、f0、f90_or_b 现在只有
+// 纯金属的微表面闭包填；其余是「已定义」，由移植闭包的人填。
+struct Closure {
+    kind: u32,                      // 闭包种类（CLOSURE_*）。Cycles 里叫 type，那是这门着色器语言的保留字
+    weight: vec3<f32>,              // 彩色权重
+    sample_weight: f32,             // 在多个闭包之间选哪个去采样的权重
+    N: vec3<f32>,                   // 这个闭包用的法线
+    alpha_x: f32,                   // 微表面两个方向的粗糙度（各向同性时相等）
+    alpha_y: f32,
+    ior: f32,                       // 折射率
+    energy_scale: f32,              // 能量补偿的标量倍率。必须与 weight 分开存，合进去会把颜色通道弄乱
+    fresnel_type: u32,              // 菲涅耳种类（FRESNEL_*）
+    f0: vec3<f32>,                  // F82 型：F0；广义 Schlick 型：F0
+    f90_or_b: vec3<f32>,            // F82 型：预先算好的 b；广义 Schlick 型：F90
+    exponent: f32,                  // 广义 Schlick 的指数；负数表示「按折射率算真菲涅耳再重映射」
+    reflection_tint: vec3<f32>,     // 反射的染色。广义 Schlick 里 Cycles 把真正的染色乘进了 F0，这里只取 1 或 0，
+    transmission_tint: vec3<f32>,   // 实际是「要不要反射焦散」的开关：照搬它的用法，别当颜色用。透射的染色
+};
+
+// 上游顶替读的东西：上游的 Surface（贴图与材质函数算完之后的材质值）与 Lobes（依赖视线的分层权重）。
+// 字段按「搜不到读者就删」处理：最后删掉读者的那次移植顺手删字段。
+struct ShadingLegacy { surface: Surface, lobes: Lobes };
+
+// 着色点：一次命中上的几何量与闭包。照 Cycles 的 ShaderData 取子集。
+struct ShadingPoint {
+    P: vec3<f32>,                   // 位置（世界空间）。已落地
+    N: vec3<f32>,                   // 插值后的平滑法线，打在背面时与 Ng 一起翻向来路；不含法线贴图、不含倒角。已写未读
+                                    // （扰动后的法线在 ShaderInputs.N 与各闭包的 N 里；上游顶替用它自己的 legacy.surface.n）
+    Ng: vec3<f32>,                  // 几何法线，翻向来路。已落地
+    wi: vec3<f32>,                  // 指向来路的方向。已落地
+    object: u32,                    // 物体表的下标（上游的 object_of），软件、硬件两条求交路上都有；不是实例记录号。已写未读
+    prim: u32,                      // 全局三角下标；过程几何的命中是上游的命中码（最高位是 1）。已写未读
+    u: f32,                         // 重心坐标；过程几何的命中里是上游编码过的法线与属性。已写未读
+    v: f32,
+    ray_length: f32,                // 这一段光线走了多远。已写未读
+    flag: u32,                      // 着色点标志（SD_*）。SD_BACKFACING 已落地
+    object_flag: u32,               // 物体标志，位照 Cycles（第 3 位：物体是镜像的）。已定义
+    time: f32,                      // 这条光线的时刻。已定义，恒 0
+    lcg_state: u32,                 // 局部求交随机取子集用的小随机数状态。已定义
+    emission: vec3<f32>,            // 这个点的自发光，单独一个量，不占闭包。已落地
+    num_closure: u32,               // 闭包个数。0：只发光、不散射，路径到这里结束。已落地
+    closure: array<Closure, MAX_CLOSURE>,
+    legacy: ShadingLegacy,          // 上游顶替。闭包移植完后删
+};
+
+// 材质输入值：贴图、材质函数、图案节点都算完之后，一个着色点上的材质参数。
+// 取值范围照 Cycles 读出节点输入之后的夹取（粗糙度不带上游的 0.02 下限）。
+// 现在读着的：N、emission，以及纯金属的闭包读的 base_color、metallic、roughness、specular_tint、flags、coat_weight、
+// transmission_weight；其余是「已写未读」，等移植闭包的人读。
+struct ShaderInputs {
+    base_color: vec3<f32>,          // 底色，不小于 0
+    metallic: f32,                  // 金属度，0 到 1
+    roughness: f32,                 // 粗糙度，0 到 1（alpha = 粗糙度的平方）
+    ior: f32,                       // 折射率，不小于 1e-5
+    specular_ior_level: f32,        // 高光等级，不小于 0，默认 0.5
+    specular_tint: vec3<f32>,       // 金属：F82 的边缘色；非金属：乘在 F0 上的颜色。不小于 0，默认白
+    emission: vec3<f32>,            // 这个点的自发光辐亮度（已乘物体的功率倍数）
+    alpha: f32,                     // 不透明度，0 到 1。现在只是材质记录里的值：贴图的透明度与镂空在求交那一档里判
+    diffuse_roughness: f32,         // 漫反射粗糙度，0 到 1，0 是朗伯
+    flags: u32,                     // 材质记录的 flags 原样带过来（MATERIAL_FLAG_*）：能量补偿那一位纯金属的闭包读；
+                                    // 闭包大类等移植闭包的人读
+    coat_weight: f32,               // 清漆的份额，0 到 1（没编清漆功能的内核里恒为 0）
+    transmission_weight: f32,       // 透射的份额，0 到 1（没编玻璃功能的内核里恒为 0）
+    N: vec3<f32>,                   // 闭包用的法线：含法线贴图、材质函数（以后还有倒角）
+};
+
+// 第一步：填着色点的几何量。不读材质。`sd` 要是刚取的零值（`var sd = ShadingPoint();`）。
+// 往指针里填、不按值返回：试过返回整个着色点，苹果显卡上编译出来的运算次序会变，像素末位不同。
+// 背面的判法沿用上游：几何法线与光线方向的点积不小于 0 就算背面（恰好垂直时 Cycles 算正面，这里算背面）。
+fn shader_setup_from_hit(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32>, h: Hit) {
+    (*sd).P = o + d * h.t;
+    (*sd).wi = -d;
+    (*sd).prim = h.tri;
+    (*sd).u = h.u;
+    (*sd).v = h.v;
+    (*sd).ray_length = h.t;
+    var ng: vec3<f32>;
+    var n: vec3<f32>;
+    if (is_proc(h)) {
+        // 过程几何：几何法线就是着色法线
+        ng = proc_normal(h);
+        n = ng;
+        (*sd).object = instance_at(h.inst).info.y;
+    } else {
+        let i = h.tri;
+        var e1 = tri_verts[i * 3u + 1u].xyz;
+        var e2 = tri_verts[i * 3u + 2u].xyz;
+        var a = attrs[i];
+        if (has(F_INST) && h.inst != NO_INST) {
+            let r = instance_at(h.inst);
+            e1 = inst_vec(r, e1);
+            e2 = inst_vec(r, e2);
+            a = inst_attr(r, a);
+        }
+        let w = 1.0 - h.u - h.v;
+        ng = normalize(cross(e1, e2));
+        n = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
+        (*sd).object = object_of(a);
+    }
+    if (!(dot(ng, d) < 0.0)) {
+        (*sd).flag |= SD_BACKFACING;
+        ng = -ng;
+        n = -n;
+    }
+    (*sd).Ng = ng;
+    (*sd).N = n;
+}
+
+// 第二步：解出这个着色点上的材质输入值。新写的代码里只有这个函数读材质记录（Material）与贴图。
+// 现在装的是上游的贴图与材质函数逻辑（下面的 surface、surface_proc），它顺带把上游的 Surface 留在 legacy 里给
+// 上游顶替用；上游这一段自己再算一遍几何量，读数不变，随 Surface 一起删。
+// 图案节点接在这里；以后的节点图编译器整段替换它。`width`：光线锥在命中处的宽度（米），贴图取级用。
+fn shader_eval_inputs(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> ShaderInputs {
+    let r = surface(o, d, h, width);
+    (*sd).legacy.surface = r.surface;
+    return r.inputs;
+}
+
+// 第三步：按材质输入值填闭包与自发光。只读 ShaderInputs，不读材质记录。归移植闭包的人。
+// 现在每个着色点至多一个闭包。发光卡片（上游的 card：只发光、不散射）没有闭包。
+//   - 金属度为 1、没有清漆、没有透射：照 Cycles 移植的 GGX 微表面闭包，F82-tint 菲涅耳，底色当 F0，边缘色取
+//     specular_tint（材质记录里的，默认白）；alpha 取粗糙度的平方；能量补偿读材质记录 flags 的
+//     MATERIAL_FLAG_MULTISCATTER（上传前按全局开关 energyCompensation 统一写的，非 0 即开）。
+//     粗糙度沿用上游的 0.02 下限（Cycles 没有）：去掉它画面会变，而且低于这个下限闭包会
+//     落进奇异的一支（采样标签带 LABEL_SINGULAR），积分主循环现在把这个标签当「穿过光滑玻璃」处理，要一并改。
+//   - 别的（带清漆或透射的金属也在内）：一个上游顶替的闭包；它另要的上游 Lobes 在 surface_shader_prepare_closures
+//     里算（closure.wgsl）。
+fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) {
+    (*sd).emission = inputs.emission;
+    (*sd).num_closure = 0u;
+    if ((*sd).legacy.surface.card) { return; }
+    var c = Closure();
+    c.weight = vec3<f32>(1.0);
+    c.sample_weight = 1.0;
+    c.N = inputs.N;
+    if (inputs.metallic >= 1.0 && inputs.coat_weight <= 0.0 && inputs.transmission_weight <= 0.0) {
+        let alpha = roughness_to_alpha(max(inputs.roughness, 0.02));
+        let f = bsdf_microfacet_setup_fresnel_f82_tint(c.N, (*sd).wi, alpha, inputs.base_color, inputs.specular_tint, (inputs.flags & MATERIAL_FLAG_MULTISCATTER) != 0u);
+        c.kind = CLOSURE_BSDF_MICROFACET_GGX;
+        c.weight = f.weight;
+        c.alpha_x = alpha;
+        c.alpha_y = alpha;
+        c.energy_scale = f.energy_scale;
+        c.fresnel_type = FRESNEL_F82_TINT;
+        c.f0 = inputs.base_color;
+        c.f90_or_b = f.b;
+    } else {
+        c.kind = CLOSURE_LEGACY;
+    }
+    (*sd).closure[0] = c;
+    (*sd).num_closure = 1u;
+}
+
+// 只算透明度的一档求值：命中点放过多少光（每个通道 0 到 1；0 是挡住）。不许发任何光线，不许调图案节点。
+// 求交函数和阴影透射里只许调这一档，不许调上面的全量求值：这门着色器语言不许调用图里有环，而全量求值以后会回头
+// 发光线（倒角、遮蔽）。`t`：命中点到光线起点的距离（贴图取级用）。
+// 现在转给上游的两处做法：镂空测试（alpha_pass）与阴影穿玻璃（intersect.wgsl 的 glass_hit）。这两处直接读材质记录，
+// 是已知的例外；上游的求交与阴影射线仍直接调它们，没有改道到这里。归移植闭包的人（透明闭包）填。还没有调用者。
+fn shader_eval_shadow(h: Hit, d: vec3<f32>, t: f32) -> vec3<f32> {
+    if (is_proc(h)) { return vec3<f32>(0.0); }
+    if (!alpha_pass(h.tri, h.inst, h.u, h.v, t)) { return vec3<f32>(1.0); }
+    let g = glass_hit(h, d, t);
+    return g.share * g.tint;
+}
+
+// 灯采样点上的发光：发光三角 `em` 上重心坐标 (b1, b2) 的一点朝 -l 发出的辐亮度。
+// 现在转给上游的 emitter_radiance（light.wgsl）；上游的灯光函数仍直接调它。归做灯的人填。还没有调用者。
+fn shader_eval_emission(em: EmitterTri, b1: f32, b2: f32, l: vec3<f32>) -> vec3<f32> {
+    return emitter_radiance(em, b1, b2, l);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Surface
+
+struct Surface {
+    p: vec3<f32>,
+    ng: vec3<f32>,
+    n: vec3<f32>,
+    base: vec3<f32>,
+    metallic: f32,
+    roughness: f32,
+    specular: f32,
+    emissive: vec3<f32>,
+    front: bool,
+    card: bool,
+    // Shading changes over time (animated emission, rain ripples): the live viewport keeps a short history here.
+    anim: bool,
+    // Glass (transmission share, index of refraction) and clearcoat (amount, perceptual roughness).
+    transmission: f32,
+    ior: f32,
+    coat: f32,
+    coat_rough: f32,
+};
+
+fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
+    return select(pow((c + 0.055) / 1.055, vec3<f32>(2.4)), c / 12.92, c <= vec3<f32>(0.04045));
+}
+
+// Texture pages: `lod` is log2 of the ray footprint in texture-UV units; the mip level adds the texture's resolution.
+fn tex_level(id: i32, uv: vec2<f32>, level: f32) -> vec4<f32> {
+    let a = tex_info_at(u32(id) * 2u);
+    let b = tex_info_at(u32(id) * 2u + 1u);
+    let f = select(clamp(uv, vec2<f32>(0.0), vec2<f32>(1.0)), fract(uv), b.y > 0.5);
+    return textureSampleLevel(textures, samp, a.xy + f * a.zw, i32(b.x), clamp(level, 0.0, TEX_MAX_LEVEL));
+}
+
+fn tex(id: i32, uv: vec2<f32>, lod: f32) -> vec4<f32> {
+    let b = tex_info_at(u32(id) * 2u + 1u);
+    return tex_level(id, uv, lod + 0.5 * log2(b.z * b.w));
+}
+
+fn mesh_uv(a: TriAttr, m: Material, u: f32, v: f32) -> vec2<f32> {
+    let w = 1.0 - u - v;
+    return (vec2<f32>(a.n0.w, a.n1.w) * w + vec2<f32>(a.n2.w, a.uv.x) * u + a.uv.yz * v) * m.uv.xy + m.uv2.xy;
+}
+
+// log2(texture-UV units per metre) of a triangle's mesh UVs (incl. material repeat).
+fn mesh_lod(a: TriAttr, m: Material) -> f32 {
+    return a.x.x + 0.5 * log2(max(abs(m.uv.x * m.uv.y), 1e-12));
+}
+
+// ------------------------------------------------------------------------------------------------
+// Material functions: scene-supplied WGSL (like a UE Custom-HLSL material), docs/MATERIAL_FUNCTIONS.md.
+// Inputs in world space (metres, Y up); helpers convert to UE space (cm, Z up) for ported UE code.
+
+struct MatIn {
+    wp: vec3<f32>,   // world position, m
+    n: vec3<f32>,    // vertex normal (facing the viewer)
+    ng: vec3<f32>,   // geometric normal (facing the viewer)
+    t: vec3<f32>,    // tangent (+u)
+    b: vec3<f32>,    // bitangent (image up = -v)
+    uv: vec2<f32>,   // mesh UV0 (image convention: v down)
+    uvd: f32,        // log2(mesh UV units per metre): msample(..., exp2(i.uvd)) for mesh-UV lookups
+    view: vec3<f32>, // unit vector toward the viewer / ray origin
+    op: vec3<f32>,   // object pivot, m
+    ob: vec3<f32>,   // object world bounds size, m
+    time: f32,
+    wetness: f32,
+    rain: f32,
+    lod: f32,        // log2 of the ray footprint, m
+    depth: u32,      // path vertex (0 = camera hit)
+    power: f32,      // instance power (UE "Power"): scale the emission by it
+    near: bool,      // seen directly or in mirror-like reflections (puddles, glass): where fine detail shows
+    custom: vec4<f32>, // per-instance data (UE PerInstanceCustomData): the object's `customData`, or its particle's
+};
+
+struct MatOut {
+    base: vec3<f32>,
+    roughness: f32,
+    metallic: f32,
+    specular: f32,
+    emissive: vec3<f32>,
+    normal: vec3<f32>, // world-space shading normal
+    opacity: f32,      // alpha-tested against the material's alphaTest
+    animated: bool,    // the shading here moves with time (live: short history, as for animated emission)
+};
+
+// Texture slot `slot` of the material function at `uv`, mip from the ray footprint and `uv_per_m` (uv units / m).
+fn msample(m: Material, i: MatIn, slot: u32, uv: vec2<f32>, uv_per_m: f32) -> vec4<f32> {
+    let id = m.mt[slot];
+    if (id < 0) { return vec4<f32>(1.0); }
+    return tex(id, uv, i.lod + log2(max(uv_per_m, 1e-9)) - LOD_BIAS);
+}
+
+// Colour texture (sRGB-encoded) -> linear rgb, alpha as stored.
+fn msample_color(m: Material, i: MatIn, slot: u32, uv: vec2<f32>, uv_per_m: f32) -> vec4<f32> {
+    let c = msample(m, i, slot, uv, uv_per_m);
+    return vec4<f32>(srgb_to_linear(c.rgb), c.a);
+}
+
+// Tangent-space normal (x along +u, y image-up, z out) -> world.
+fn tangent_normal(i: MatIn, tn: vec3<f32>) -> vec3<f32> {
+    let w = i.t * tn.x + i.b * tn.y + i.n * tn.z;
+    if (dot(w, w) < 1e-12) { return i.n; }
+    let nn = normalize(w);
+    return select(i.n, nn, dot(nn, i.ng) > 0.0);
+}
+
+// Unreal space: (X, Y, Z) cm, Z up = ours (x, z, y) * 100.
+fn ue_pos(p: vec3<f32>) -> vec3<f32> { return vec3<f32>(p.x, p.z, p.y) * 100.0; }
+fn ue_vec(v: vec3<f32>) -> vec3<f32> { return vec3<f32>(v.x, v.z, v.y); }
+fn from_ue_vec(v: vec3<f32>) -> vec3<f32> { return vec3<f32>(v.x, v.z, v.y); }
+
+// @material-functions-begin
+fn material_function(f: i32, i: MatIn, m: Material, base: MatOut) -> MatOut { return base; }
+fn alpha_material_function(f: i32, i: MatIn, m: Material, base: MatOut) -> MatOut { return base; }
+fn emissive_material_function(f: i32, i: MatIn, m: Material, base: MatOut) -> MatOut { return base; }
+// @material-functions-end
+
+fn object_of(a: TriAttr) -> u32 { return bitcast<u32>(a.x.y); }
+// vec4s per object (scene.rs OBJECT_STRIDE): (pivot, power), (bounds size, time of the last power edit), per-instance
+// data (`MatIn.custom`).
+override OBJECT_STRIDE: u32 = select(3u, 4u, (FEAT & F_TINT) != 0u);
+// An instanced object's instance colour (three.js `instanceColor`), white for every other object.
+fn obj_tint(oi: u32) -> vec3<f32> { return object_at(oi * OBJECT_STRIDE + 3u).rgb; }
+// Instance power (UE material "Power", scripts animate it): scales the emission of everything the node draws.
+fn obj_power(a: TriAttr) -> f32 { return object_at(object_of(a) * OBJECT_STRIDE).w; }
+
+// Inputs at a point of triangle ti (barycentrics u, v) for material functions outside full shading (alpha, NEE).
+fn mat_in_at(ti: u32, u: f32, v: f32, view: vec3<f32>, lod: f32) -> MatIn {
+    let a = attrs[ti];
+    let m = material_at(bitcast<u32>(a.uv.w));
+    let w = 1.0 - u - v;
+    let p = tri_verts[ti * 3u].xyz + tri_verts[ti * 3u + 1u].xyz * u + tri_verts[ti * 3u + 2u].xyz * v;
+    let ng = normalize(cross(tri_verts[ti * 3u + 1u].xyz, tri_verts[ti * 3u + 2u].xyz));
+    var n = normalize(a.n0.xyz * w + a.n1.xyz * u + a.n2.xyz * v);
+    let t = normalize(a.t.xyz - n * dot(n, a.t.xyz) + vec3<f32>(1e-9));
+    let oi = object_of(a);
+    return MatIn(p, n, ng, t, cross(n, t) * a.t.w, mesh_uv(a, m, u, v), mesh_lod(a, m), view, object_at(oi * OBJECT_STRIDE).xyz, object_at(oi * OBJECT_STRIDE + 1u).xyz,
+                 P.time.x, P.time.y, P.time.z, lod, state.bounce, object_at(oi * OBJECT_STRIDE).w, state.bounce == 0u || state.legacy.mirror_path,
+                 object_at(oi * OBJECT_STRIDE + 2u));
+}
+
+fn mat_base(m: Material) -> MatOut {
+    return MatOut(m.base_color.rgb, m.params.y, m.params.x, m.params.z, m.emissive.rgb, vec3<f32>(0.0, 1.0, 0.0), m.base_color.a, false);
+}
+
+// A_CUTOUT_PATHS: rays past the camera ray and its own light samples, off mirror-like paths (whose image is still seen), take
+// alpha-cutout triangles as opaque: no alpha test, no stepping through the leaves behind. The leaves of a tree are then
+// solid cards to indirect light and to the light samples of later bounces. Through foliage that was most of the trace:
+// Bistro along its camera path, frame GPU 16.1 / 19.9 ms -> 14.2 / 16.0 at its first pose / 15 s in; against the
+// unbiased offline render the live image 0.3 % darker, ΔE +0.02–0.04 (the clamps' darkening is 9–13 %). Offline
+// rendering always tests.
+fn cutouts_opaque() -> bool {
+    return approx(A_CUTOUT_PATHS) && state.bounce >= 1u && !state.legacy.mirror_path;
+}
+
+// A path stays mirror-like (`state.legacy.mirror_path`) through specular samples off surfaces smoother than this.
+const MIRROR_ROUGHNESS: f32 = 0.3;
+
+// 北冥：原来声明在这里的三个私有量 shadow_hole、nee_alone、lights_only 并进了路径状态（integrator.wgsl 的 PathLegacy，
+// 说明也在那里）。
+
+// Alpha-cutout test for candidate hits on masked triangles (mesh UVs, footprint of a camera ray at distance t). `inst`:
+// the model instance a pool triangle belongs to (its scale shifts the texel density, as in `inst_attr`), or NO_INST.
+// 北冥：直接读材质记录（Material）的已知例外，上游留下的；清单在 closure.wgsl「读 legacy 的例外清单」。
+fn alpha_pass(ti: u32, inst: u32, u: f32, v: f32, t: f32) -> bool {
+    let a = attrs[ti];
+    let m = material_at(bitcast<u32>(a.uv.w));
+    var alpha = m.base_color.a;
+    var lod = mesh_lod(a, m) + log2(max(t * 2.0 * P.cam_pos.w / lod_height(), 1e-7)) - LOD_BIAS;
+    if (has(F_INST) && inst != NO_INST) { lod += bitcast<f32>(instance_at(inst).info.z); }
+    if (has(F_TEX) && m.tex0.x >= 0) {
+        alpha *= tex(m.tex0.x, mesh_uv(a, m, u, v), lod).a;
+    }
+    if (has(F_FUNC) && m.tex1.w > 0) {
+        let i = mat_in_at(ti, u, v, vec3<f32>(0.0, 1.0, 0.0), log2(max(t * 2.0 * P.cam_pos.w / lod_height(), 1e-7)));
+        var b = mat_base(m);
+        b.opacity = alpha;
+        alpha = alpha_material_function(m.tex1.w - 1, i, m, b).opacity;
+    }
+    return alpha >= m.uv2.w;
+}
+
+// Emitted radiance at `uv`: factor x emissive map.
+fn emission(m: Material, uv: vec2<f32>, lod: f32) -> vec3<f32> {
+    var em = m.emissive.rgb;
+    if (all(em <= vec3<f32>(0.0))) { return em; }
+    if (has(F_TEX) && m.tex1.x >= 0) { em *= srgb_to_linear(tex(m.tex1.x, uv, lod).rgb); }
+    return em;
+}
+
+// 北冥：上游的 surface、surface_proc 算完之后的两样东西：上游自己的 Surface（上游顶替用），与材质输入值。
+struct SurfaceEval { surface: Surface, inputs: ShaderInputs };
+
+// 北冥：从上游算完贴图与材质函数之后的量取出材质输入值，夹取照 Cycles。`rough`、`metal` 是上游夹取之前的值；
+// `coat`、`transmission` 是上游夹好的份额。
+fn legacy_shader_inputs(m: Material, emissive: vec3<f32>, base: vec3<f32>, rough: f32, metal: f32, n: vec3<f32>, coat: f32, transmission: f32) -> ShaderInputs {
+    var inp = ShaderInputs();
+    inp.base_color = max(base, vec3<f32>(0.0));
+    inp.metallic = clamp(metal, 0.0, 1.0);
+    inp.roughness = clamp(rough, 0.0, 1.0);
+    inp.ior = max(m.layer.y, 1e-5);
+    inp.specular_ior_level = max(m.specular_ior_level, 0.0);
+    // （边缘色只在场景里有材质的边缘色不是白时才从材质记录读，别的场景编译期就是白：F82 的 B 项在编译期是 0，
+    // 每盏灯的金属求值少一截。量过：一律从记录读，没有金属的场景也慢 4%。）
+    inp.specular_tint = vec3<f32>(1.0);
+    if (has(F_SPECULAR_TINT)) { inp.specular_tint = max(m.specular_tint, vec3<f32>(0.0)); }
+    inp.emission = emissive;
+    inp.alpha = clamp(m.base_color.a, 0.0, 1.0);
+    inp.diffuse_roughness = clamp(m.diffuse_roughness, 0.0, 1.0);
+    inp.flags = m.flags;
+    inp.coat_weight = coat;
+    inp.transmission_weight = transmission;
+    inp.N = n;
+    return inp;
+}
+
+// `width` = ray-cone footprint (m) at the hit, for texture LOD.
+// 北冥：返回值从 Surface 换成 SurfaceEval（多带一份材质输入值），别的没动。只由 shader_eval_inputs 调。
+fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
+    if (is_proc(h)) { return surface_proc(o, d, h, width); }
+    let i = h.tri;
+    var e1 = tri_verts[i * 3u + 1u].xyz;
+    var e2 = tri_verts[i * 3u + 2u].xyz;
+    var a = attrs[i];
+    if (has(F_INST) && h.inst != NO_INST) {
+        let r = instance_at(h.inst);
+        e1 = inst_vec(r, e1);
+        e2 = inst_vec(r, e2);
+        a = inst_attr(r, a);
+    }
+    let w = 1.0 - h.u - h.v;
+    var ng = normalize(cross(e1, e2));
+    var n = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
+    let mi = bitcast<u32>(a.uv.w);
+    let m = material_at(mi);
+    let front = dot(ng, d) < 0.0;
+    if (!front) { ng = -ng; }
+    if (dot(n, ng) < 0.0) { n = -n; }
+    let p = o + d * h.t;
+
+    let uv = mesh_uv(a, m, h.u, h.v);
+    let lod = mesh_lod(a, m) + log2(max(width, 1e-7)) - 0.5 * log2(max(abs(dot(ng, d)), 1e-3)) - LOD_BIAS;
+
+    var s: Surface;
+    s.p = p;
+    s.front = front;
+    s.card = m.tex1.z == MAT_EMITTER_CARD;
+    var base = m.base_color.rgb;
+    if (has(F_TINT)) { base *= obj_tint(object_of(a)); }
+    if (has(F_VCOLOR)) { base *= vcolor(i, h.u, h.v); }
+    var rough = m.params.y;
+    var metal = m.params.x;
+    var spec = m.params.z;
+    if (has(F_TEX)) {
+        if (m.tex0.x >= 0) { base *= srgb_to_linear(tex(m.tex0.x, uv, lod).rgb); }
+        if (m.tex0.z >= 0) { rough *= tex(m.tex0.z, uv, lod).g; }
+        if (m.tex0.w >= 0) { metal *= tex(m.tex0.w, uv, lod).b; }
+    }
+    s.emissive = emission(m, uv, lod) * obj_power(a);
+    // three.js MeshBasicMaterial: its colour to camera rays and mirror-like paths, lit by nothing, lighting nothing.
+    if (has(F_UNLIT) && m.tex1.z == MAT_UNLIT) {
+        s.emissive = select(vec3<f32>(0.0), base, state.bounce == 0u || state.legacy.mirror_path);
+        base = vec3<f32>(0.0);
+        spec = 0.0;
+        metal = 0.0;
+    }
+    // Power just changed by a script / gameplay (objects[1].w = scene time of the edit): short history.
+    s.anim = P.time.x - object_at(object_of(a) * OBJECT_STRIDE + 1u).w < 0.5;
+    // Detail that only matters where it is seen directly or in mirror-like reflections (puddles, glass, chrome).
+    let near = state.bounce == 0u || state.legacy.mirror_path;
+    if (has(F_TEX) && m.tex0.y >= 0 && near) {
+        let tn = tex(m.tex0.y, uv, lod).xyz * 2.0 - 1.0;
+        let tp = a.t.xyz - n * dot(n, a.t.xyz);
+        if (dot(tp, tp) > 1e-12) {
+            let t = normalize(tp);
+            let b = cross(n, t) * a.t.w;
+            let pn = t * (tn.x * m.params.w) + b * (tn.y * m.params.w) + n * tn.z;
+            if (dot(pn, pn) > 1e-12 && dot(pn, ng) > 0.0) { n = normalize(pn); }
+        }
+    }
+    if (has(F_FUNC) && m.tex1.w > 0) {
+        let oi = object_of(a);
+        var t = normalize(a.t.xyz - n * dot(n, a.t.xyz) + vec3<f32>(1e-9));
+        let nv = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v) * select(-1.0, 1.0, front || dot(a.n0.xyz, ng) > 0.0);
+        let i = MatIn(p, select(-nv, nv, dot(nv, ng) >= 0.0), ng, t, cross(n, t) * a.t.w, mesh_uv(a, m, h.u, h.v), mesh_lod(a, m), -d,
+                      object_at(oi * OBJECT_STRIDE).xyz, object_at(oi * OBJECT_STRIDE + 1u).xyz, P.time.x, P.time.y, P.time.z,
+                      log2(max(width, 1e-7)) - 0.5 * log2(max(abs(dot(ng, d)), 1e-3)), state.bounce, object_at(oi * OBJECT_STRIDE).w, near,
+                      object_at(oi * OBJECT_STRIDE + 2u));
+        let r = material_function(m.tex1.w - 1, i, m, MatOut(base, rough, metal, spec, s.emissive, n, m.base_color.a, false));
+        base = r.base;
+        rough = r.roughness;
+        metal = r.metallic;
+        spec = r.specular;
+        s.emissive = r.emissive;
+        n = r.normal;
+        // Shading the function says moves with time (wave normals) is as animated as emission is: short history.
+        s.anim = s.anim || any(r.emissive > vec3<f32>(0.0)) || r.animated;
+    }
+    s.base = base;
+    s.roughness = clamp(rough, 0.02, 1.0);
+    s.metallic = clamp(metal, 0.0, 1.0);
+    s.specular = spec;
+    s.ng = ng;
+    s.n = n;
+    s.ior = 1.5;
+    if (has(F_GLASS)) {
+        s.transmission = clamp(m.layer.x, 0.0, 1.0);
+        // glTF transmissionTexture (R), its index + 1 in uv.z.
+        if (has(F_TEX) && m.uv.z > 0.5) { s.transmission *= tex(i32(m.uv.z) - 1, uv, lod).r; }
+        s.ior = max(m.layer.y, 1.0001);
+    }
+    if (has(F_COAT)) {
+        s.coat = clamp(m.layer.z, 0.0, 1.0);
+        s.coat_rough = clamp(m.layer.w, 0.02, 1.0);
+    }
+    var se = SurfaceEval();
+    se.surface = s;
+    se.inputs = legacy_shader_inputs(m, s.emissive, base, rough, metal, n, s.coat, s.transmission);
+    return se;
+}
+
+// A procedural hit's surface: the material its geometry function picked, the normal it gave (geometric and shading,
+// two-sided), the object's power and customData. No textures (no uv: material functions get uv 0 and can work from
+// `i.wp`), no transmission.
+fn surface_proc(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
+    let r = instance_at(h.inst);
+    let hd = r.info.x;
+    let mi = pword(pword(hd + 7u) + min((h.tri >> 23u) & 0xffu, pword(hd + 3u) - 1u));
+    let m = material_at(mi);
+    let oi = r.info.y;
+    var ng = proc_normal(h);
+    let front = dot(ng, d) < 0.0;
+    if (!front) { ng = -ng; }
+    var n = ng;
+    let p = o + d * h.t;
+    var s: Surface;
+    s.p = p;
+    s.front = front;
+    s.card = false;
+    var base = m.base_color.rgb;
+    if (has(F_TINT)) { base *= obj_tint(oi); }
+    var rough = m.params.y;
+    var metal = m.params.x;
+    var spec = m.params.z;
+    s.emissive = m.emissive.rgb * object_at(oi * OBJECT_STRIDE).w;
+    s.anim = P.time.x - object_at(oi * OBJECT_STRIDE + 1u).w < 0.5;
+    if (has(F_FUNC) && m.tex1.w > 0) {
+        let near = state.bounce == 0u || state.legacy.mirror_path;
+        let a = select(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), abs(n.x) > 0.9);
+        let t = normalize(cross(a, n));
+        let i = MatIn(p, n, ng, t, cross(n, t), proc_attr(h), 0.0, -d, object_at(oi * OBJECT_STRIDE).xyz, object_at(oi * OBJECT_STRIDE + 1u).xyz,
+                      P.time.x, P.time.y, P.time.z, log2(max(width, 1e-7)) - 0.5 * log2(max(abs(dot(ng, d)), 1e-3)), state.bounce,
+                      object_at(oi * OBJECT_STRIDE).w, near, object_at(oi * OBJECT_STRIDE + 2u));
+        let f = material_function(m.tex1.w - 1, i, m, MatOut(base, rough, metal, spec, s.emissive, n, m.base_color.a, false));
+        base = f.base;
+        rough = f.roughness;
+        metal = f.metallic;
+        spec = f.specular;
+        s.emissive = f.emissive;
+        n = f.normal;
+        s.anim = s.anim || any(f.emissive > vec3<f32>(0.0)) || f.animated;
+    }
+    s.base = base;
+    s.roughness = clamp(rough, 0.02, 1.0);
+    s.metallic = clamp(metal, 0.0, 1.0);
+    s.specular = spec;
+    s.ng = ng;
+    s.n = n;
+    s.ior = 1.5;
+    if (has(F_COAT)) {
+        s.coat = clamp(m.layer.z, 0.0, 1.0);
+        s.coat_rough = clamp(m.layer.w, 0.02, 1.0);
+    }
+    var se = SurfaceEval();
+    se.surface = s;
+    se.inputs = legacy_shader_inputs(m, s.emissive, base, rough, metal, n, s.coat, s.transmission);
+    return se;
+}

@@ -12,13 +12,12 @@ export const DEFAULT_OUTPUT = Object.freeze({ size: [1280, 720], fps: '30/1', fr
 const TITLE_RE = /^[A-Z0-9 .:-]{1,24}$/;
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
-/** 片名镜头：入场即落定（settleFrames 0），整个镜头声明成刻意的冻结 */
-function titleShot(id, from, to, text, seed, { ink } = {}) {
+/** 片名镜头：默认启用入场缓出与微漂移动效（settle-drift），不预置整镜冻结豁免 */
+export function titleShot(id, from, to, text, seed, { ink } = {}) {
   return {
     id, in: from, out: to, source: 'three', host: 'page', mode: 'cards-data', colorRef: 'display', seed,
-    cards: [{ as: 'title', use: 'overlay.title@1', params: { text, enter: 0, settleFrames: 0, heightFrac: Math.min(0.5, 1.78 / text.length), ...(ink ? { ink } : {}) } }],
+    cards: [{ as: 'title', use: 'overlay.title@1', params: { text, enter: from - 1, settleFrames: Math.min(12, Math.max(2, to - from)), motion: 'settle-drift', heightFrac: Math.min(0.5, 1.78 / text.length), ...(ink ? { ink } : {}) } }],
     roles: { hero: 'title' },
-    deliberate: [{ kind: 'freeze', in: from, out: to, why: '片名落版之后定住不动' }],
   };
 }
 
@@ -32,7 +31,7 @@ export function turntableShot(id, from, to, seed, assets = { kit: 'asset:rtx-car
     id, in: from, out: to, source: 'blender', host: 'cycles', mode: 'cards-data', colorRef: 'scene', seed, assets,
     cards: [{ as: 'cam', use: 'camera.spline@1', params: { keys } },
       { as: 'cycles', use: 'blender.cycles@1', params: {} }, { as: 'keys', use: 'blender.state-keys@1', params: {} }],
-    roles: { hero }, tiers: { draft: { samples: 16 }, final: { samples: 32 } },
+    roles: { hero }, shutter: { angleDeg: 180, samples: 1 }, tiers: { draft: { samples: 16 }, final: { samples: 64 } },
   };
 }
 
@@ -78,7 +77,7 @@ export function scaffold({ id, template, output, title, text = template === 'tur
   }
   const style = kind === 'turntable'
     ? { view: { scene: 'agx-mhc', display: 'srgb' }, tokens: { ink: '#111318', paper: '#EAE6DF' } }
-    : { view: { scene: 'agx-mhc', display: 'srgb' } };
+    : { view: { scene: 'agx-mhc', display: 'srgb' }, tokens: { ink: '#F4F0E9', paper: '#242936' } };
   const film = {
     format: 'film/3.0', id, ...(title ? { title } : {}), ...(question ? { exam: question.id } : {}),
     output: out, ...(hasExamAssets && shots.length === 1 ? { assets: examAssets } : {}), shots, ...(transitions.length ? { transitions } : {}), events,

@@ -36,6 +36,13 @@ export const command = pythonCommand({
     'no-report': flag('不写报告文件（只打印 / --json）'),
     'fail-on-warn': flag('告警也算不通过'),
     'loudness-at': { type: 'string', arg: '<mix|deliver>', choices: ['mix', 'deliver'], describe: '响度在哪一步定：mix 声音脚本自己母带（查响度、真峰值）；deliver 封装时线性增益（查峰值余量）。默认自动' },
+    kinematics: str('<遥测>', '可选 kinematics.json 路径或目录：启用纯 CPU 运动学对冲击音画同步检查（audio.sync）'),
+    video: str('<视频>', '可选视频路径：无遥测时经 ffmpeg 退化帧差启用纯 CPU 音画同步检查（audio.sync）'),
+    'sync-stem': str('<分轨>', '可选同步参考音频轨（默认优先 stems/sfx.wav 或 stems/fx.wav，否则退回待检混音）'),
+    'sync-path': { type: 'string', arg: '<auto|actor|screen>', choices: ['auto', 'actor', 'screen'], describe: '遥测同步路径：auto（优先 actor 退化 screen.motion）/ actor / screen' },
+    'sync-fps-mode': { type: 'string', arg: '<auto|24fps|12fps>', choices: ['auto', '24fps', '12fps'], describe: '同步帧率模式：auto（自动识别一拍二）/ 24fps / 12fps' },
+    'sync-warn-frames': num('<帧>', '音画同步告警偏移帧数门限（12 fps 默认 1.1f，24 fps 默认 1.5f）'),
+    'sync-fail-frames': num('<帧>', '音画同步硬失败偏移帧数门限（默认 1.5f）'),
   },
   examples: ['node tools/audio/qa.mjs --film films/dawn --json', 'node tools/audio/qa.mjs --wav out/mix.wav --profile beiming-1040p24 --frames 240 --fps 24'],
 });

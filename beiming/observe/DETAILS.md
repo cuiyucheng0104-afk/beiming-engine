@@ -74,3 +74,34 @@
 - `a` 是候选、`b` 是参考，尺寸须一致，选项对两边同样生效。掩码来源：给 `id` 时读单通道编号层里等于 `id` 的像素（另收 16、32 位整数数组）；给 `background` 时取彩色帧里任一分量与背景色相差超过 `tol` 的像素；四通道帧取 alpha 大于 `threshold`（默认半幅）；单通道取大于 `threshold`（默认 0）。三通道帧不给 `background` 报错。
 - 返回 `iou`、`intersection`、`union`、`precision`（交 / 候选面积）、`recall`（交 / 参考面积）、`bboxIou`（两个紧包围盒的交并比）、`areaA`、`areaB`、`emptyBoth`。
 - 两边都空时各比值取 `emptyValue`（默认 1）并置 `emptyBoth: true`；只有一边空时都是 0。
+
+### 成片视频封装（`metrics/video-energy.mjs`）
+
+- `videoNoiseResidual(filePath, { maxFrames?, roi?, block?, motionThreshold?, maxShift? })` 与 `videoAliasEdge(filePath, { maxFrames?, roi?, edgeThreshold? })` 从 `metrics/index.mjs` 与组件顶层 `observe/index.mjs` 统一导出，面向本地成片视频文件（如 `master.mp4`）。
+- 先用 `ffprobe -count_frames` 查总帧数，再用 `ffmpeg -nostdin -hide_banner -v error -i <file> -map 0:v:0 -fps_mode passthrough -strict -1 -f yuv4mpegpipe -pix_fmt gray -` 按原帧 1:1（不因 VFR 重复帧）流式读取自定界 Y4M 单通道 8 位灰度亮度平面（不落临时图片文件），直接从 `YUV4MPEG2` 流头取 ffmpeg 按显示矩阵自动旋转后的真实解码宽高（涵盖 ±90°/±89.5° 等任意旋转元数据），委托 `energy-rulers.mjs` 的 `noiseResidual` / `aliasEdge` 计算；`videoNoiseResidual` 未显式传 `block` 且有效量测区（整幅或合法 `roi`）短边在 `4..7` 像素时自动将默认 `block` 收敛至短边（短边 `< 4` 无论省略或显式传合法 `roi` 均一致返回 `status: 'insufficient-resolution'`），`videoAliasEdge` 的 `edgeRatio` 在传入 `roi` 时按 ROI 面积分母计算。
+- 内存上界守卫：`totalFrames <= maxFrames`（默认 60，合法下限 9）时全量解码；超过 `maxFrames` 时取首、中、尾三段互不重叠的确定性等距连续窗口（每段长 `floor(maxFrames / 3) >= 3` 帧，同时支撑 `noiseResidual` 与 `aliasEdge.flicker`），每段解码完立即计算并释放帧缓冲，最终聚合取最差/最大 `value`（`videoAliasEdge` 同时取最大 `flicker`）。
+- 返回标准 `{ metric, unit, value, details }`：`videoNoiseResidual` 为 `metric:noise.residual` / `code8`，`videoAliasEdge` 为 `metric:alias.edge` / `px`，`details` 保留 `status`、`staticRatio`、`flicker`、`flickerUnit`、`edgePixels`、`sampledFrames`、`totalFrames` 与各段读数 `segments`。单帧视频调 `videoNoiseResidual` 返回 `value: null`、`details.status: 'insufficient-frames'` 不抛异常；缺少 `ffprobe` / `ffmpeg`（`ENOENT`）时照 `video-audio.mjs` 同口径返回 `{ metric, value: null, details: { code: 'tool-missing', tool }, unit }`；非法路径、未知选项或非法 `maxFrames` 抛带 `code: 'usage.bad-argument'` 的 `RangeError`。
+
+## 亚像素光流与 LDR-FLIP（`metrics/flow-flip.mjs`）
+
+`flowField`、`imageFlip` 从组件和 `metrics/index.mjs` 都能导入；也可用 `FLOW_FLIP_METRICS[name]` 或 `runFlowFlipMetric(name, ...args)`，`name` 可带 `metric:` 前缀。两者均不读文件、时钟、显卡或随机源，不改输入。帧给 `{ width, height, rgba | rgb | luma | data }`，恰好一个像素载荷，行优先；`data` 按长度推断 1、3、4 通道，单通道按灰度，alpha 不参加量测。只收 8 位无符号或钳位数组、Float32/64 数组。帧、ROI、选项只读普通对象的自有数据描述符；拒绝 Proxy、访问器、未知键、稀疏序列、共享像素缓冲、非有限样本（包括 alpha）以及不合法的尺寸、参数。像素视图只按原生类型、内部长度与数字下标读取，标准成员不许在实例上遮蔽。错误统一抛 `RangeError`，`code: 'usage.bad-argument'`。
+
+### `flowField(frames, { fps?, windowRadius?, pyramidLevels?, iterations?, roi?, includeFields? })`
+
+- 至少两帧，尺寸、通道数和编码（8 位或浮点）一致。按 Rec.709 系数计算亮度。每对帧共用一个除数，8 位取 255，浮点取两帧颜色通道的最大绝对值（全零时取 1），使梯度乘积与正则下限使用同一尺度。各层用 `[1,6,15,20,15,6,1]/64` 横纵低通，滤后亮度用于本层求流，隔点取样生成下一层。
+- 最粗层从零开始。细层先用本层低通前的亮度检查方窗。若窗内两帧逐像素相同，且后帧亮度在各像素与其画内四邻点间均相同，该窗位移始终为零。其余位置从粗层双线性上采样位移并乘二。在本层方窗内，对比该初值与零位移的亮度残差平方和；若上采样使残差变大，就从零开始，避免沿用粗层错配的纹理周期。
+- 每轮在 `q=p+v(p)` 双线性采样滤后亮度和后帧中心差分梯度 `g`，令 `t=前帧(p)−后帧(q)+g·v(p)`。在半径 `r` 的方窗内分别累加 `H=Σggᵀ`、`b=Σgt`，越界观测跳过。窗口先横后纵，每轴从截在画内的两端成对相加，翻转该轴时求和顺序对称，全零窗口的和精确为零。
+- 令 `T=tr(H)`，若 `T≤10⁻¹⁴`，位移清零。否则用 Tikhonov 正则解总速度 `(H+λI)v目标=b`，每轮向目标最多走一个该层像素。取 `λ=max(10⁻⁶(2r+1)², 5×10⁻⁴T, T/40−λmin(H))`。绝对下限稳定弱梯度，最后一项抑制单向边缘上无法观测的切向速度。遮挡、切镜和高频重复纹理仍可能产生误差。窗半径默认 3（1–64），层数上限默认 4（1–32，短边容不下窗口就不再降采样），迭代上限默认 6（1–64）。
+- 全画幅求流，`roi: { x, y, width, height }` 只裁统计与返回的场。`curve[t]` 是第 t 帧到下一帧：`meanMag/p95Mag/maxMag` 汇总逐像素 `hypot(dx,dy)`；`meanDx/meanDy` 是平均向量，单位 px/帧，右、下为正，`coherentAngleRad=atan2(meanDy,meanDx)`，零向量为 `null`。顶层 `mean`（也是 `value`）、`p95` 是**逐对均值**的均值与 nearest-rank 95 分位，`max` 是全段最大像素幅值。只有 `includeFields: true` 才返回逐对的 `fields[{width,height,dx,dy}]`，两张 Float64 平面的下标均为 ROI 内的 `y*width+x`。
+- `spectrum` 分析 `N=frames.length−1` 个 `meanMag`，去均值，乘周期 Hann 窗 `wᵢ=(1−cos(2πi/N))/2`（N<3 用矩形窗），实序列单边 DFT：`amplitude[k]=s·|Σwᵢ(mᵢ−m̄) exp(−2πiki/N)|/Σwᵢ`，双边成对的频点 `s=2`，DC 和 Nyquist 取 1。`spectralEnergy=Σ amplitude²/s`。`bins` 从 0 到 `floor(N/2)`；有正有限 `fps` 时 `freqHz=k·fps/N`，否则为 `null`。`dominantIndex` 取最强非零频点（同幅取低频），没有交流分量时为 `null`；`dominantFreqHz` 无主峰或没给帧率时为 `null`。这是**速度大小**不是位置或有符号速度的频谱：来回的 2 Hz 正弦平移，在速度幅值上主峰是 4 Hz。
+
+### `imageFlip(reference, test, { ppd?, distanceM?, monitorWidthM?, resolutionX?, transfer?, includeMap?, threshold? })`
+
+按 Andersson 等 [FLIP: A Difference Evaluator for Alternating Images (HPG 2020)](https://research.nvidia.com/publication/2020-07_flip-difference-evaluator-alternating-images) 的 LDR 口径量两张同尺寸图。只收显示范围：字节除以 255，浮点须在 `[0,1]`。两边默认都是 `transfer: 'srgb'`：`v≤0.04045` 解作 `v/12.92`，否则 `((v+0.055)/1.055)^2.4`；已经是**线性** RGB 的两帧须显式给 `'linear'`。`ppd` 为每度像素数，默认 `3840π/180 ≈ 67.0206`。也可完整给三项几何参数代替 `ppd`：`(distanceM/monitorWidthM)·resolutionX·π/180`；两种写法不能混用，实际 ppd 要在 `(0,2048]` 内以限制卷积核宽度。
+
+1. 线性 sRGB → D65 XYZ，除以白点得 `(x,y,z)`；YCxCz 为 `(116y−16,500(x−y),200(y−z))`。单位 DC 增益下可直接滤 `y, x−y, y−z`，无需来回乘常数。边界复制，三通道分别做 CSF 空间滤波；角坐标为像素偏移除以 ppd。二维高斯项 `a√(π/b) exp(−π²r²/b)`，Y 和 Cx 各一项 `(a,b)=(1,.0047),(1,.0053)`，Cz 是 `(34.1,.04),(13.5,.025)` **两个二维核之和**；三核各自单位和。沿每轴截在 `ceil(3·ppd·√(.04/2)/π)`，分离卷积时 Cz 的两项始终分别过滤，最后才相加。
+2. 滤后逆变换回线性 RGB，裁 `[0,1]` 再转 D65 CIELab；Hunt 调整 `aH=.01·L·a*, bH=.01·L·b*`。`HyAB=|ΔL|+hypot(ΔaH,ΔbH)`，`d=(HyAB/HyAB(纯绿,纯蓝))^0.7`。色差 `Ec` 在 `(0,0)→(.4,.95)→(1,1)` 两段间线性映射。
+3. 从**未滤波**的 `y` 求边缘与点特征，`σ=.041·ppd`，半径 `ceil(3σ)`。沿 x 或 y 的采样核分别正比于 `−k·G(k)`、`((k/σ)²−1)·G(k)`，`G(k)=exp(−k²/(2σ²))`；导数核正负瓣分别归一到 +1/−1，垂直于导数的轴只做单位和高斯平滑。将同阶 x/y 响应以 `hypot` 合为边缘强度 E 与点强度 P。`Ef=(max(|Eref−Etest|,|Pref−Ptest|)/√2)^0.5`。
+4. `FLIP=Ec^(1−Ef)`，误差图是 `[0,1]` 的 Float32；`includeMap: true` 才带 `map`。`mean`（也是 `value`）、`max`、`p95`（按像素数的 nearest-rank）与返回图同源。`q1/weightedMedian/q3` 按误差本身加权：像素升序累加，首次达到总误差 25%/50%/75% 的像素值，全零时都为 0。
+
+`threshold` 在 `[0,1]` 内，给了才返回 `pass: mean <= threshold`。校准时固定颜色编码、尺寸和观看条件，用同一画面的已知良好跨机结果约束误报，再用已知错误的材质、亮度等负对照约束漏报；若两组分不开，不应只靠均值判。测试用局部 1 码舍入与 28 码亮度偏移演示门限 0.05 的两侧，**不是实测 5090 门限**。有很小但严重的局部回归时应另看 `max` 和误差图。
