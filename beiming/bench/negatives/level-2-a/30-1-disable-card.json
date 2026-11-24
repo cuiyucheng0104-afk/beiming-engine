@@ -1,0 +1,21 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "30-1-disable-card",
+  "questionId": "30-1",
+  "kind": "disable-card",
+  "disabledCards": [
+    "time.timeline"
+  ],
+  "seed": null,
+  "description": "关掉时间线节拍表驱动卡：20 个跟拍命名时刻（m01–m20）不经节拍表换算而直接写死 80 BPM 下的帧号。在 80 BPM 下同样有 17/20（85%）落在 18 帧拍点网格上（第一条判分线照过），但按 2026-11-23 管理员裁定做纯行为 BPM 扰动检查（把节拍表从 80 BPM 改到 96 BPM 重新求值，零源码静态扫描）时，20 个跟拍事件全部停在原帧号未随新拍速位移。",
+  "perturbation": {
+    "bpmFollow": "hardcoded"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 1,
+      "metric": "timeline.bpm-follow",
+      "why": "节拍表从 80 BPM 改到 96 BPM 重新求值后，20 个跟拍命名时刻全部停在原帧号（跟随率 0%，要求 100%）"
+    }
+  ]
+}

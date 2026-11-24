@@ -1,0 +1,28 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "29-1-disable-card",
+  "questionId": "29-1",
+  "kind": "disable-card",
+  "disabledCards": [
+    "layout.panels",
+    "deliver.encode"
+  ],
+  "seed": null,
+  "description": "关掉分屏版式和交付编码两张卡：上下两个面板的顶底外边距设成 48 像素（比题面要求的 44 像素各多缩进 4 像素），分隔线绿色通道因色彩转换偏差低了 12 级。两处改动分别打穿版式边界与分隔线色差两条判分线。",
+  "perturbation": {
+    "panelMarginPx": 48,
+    "dividerColorDelta": 12
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "layout.edges",
+      "why": "上面板上沿与下面板下沿各偏离题面 4 像素，超过 0 像素容差"
+    },
+    {
+      "scoring": 1,
+      "metric": "layout.edges",
+      "why": "分隔线中心两行对 #CBFB03 的最大通道差为 12 级，超过 4 级容差"
+    }
+  ]
+}

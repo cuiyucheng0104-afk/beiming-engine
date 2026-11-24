@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "29-1-shift-2f",
+  "questionId": "29-1",
+  "kind": "shift-2f",
+  "disabledCards": [],
+  "seed": null,
+  "description": "中场分隔线色阶过渡脉冲（原本在第 298 到 299 帧压暗绿通道 24 级、第 300 帧恢复 #CBFB03）整体晚 2 帧落到第 300 到 301 帧：全片 600 帧的上下两个面板与分隔线几何边界始终保持合规（第一条边界判分线与全片几何基础谓词均通过），但第 300 帧抽样时分隔线仍处于绿通道压暗 24 级的过渡态。模型假设说明：静态分屏几何本身对时间平移不敏感，这份负对照拦得住靠的是模型在抽样帧（第 300 帧）前安排了 2 帧分隔线色阶复位脉冲。",
+  "perturbation": {
+    "transitionShiftFrames": 2
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 1,
+      "metric": "layout.edges",
+      "why": "第 300 帧分隔线中间两行绿通道比 #CBFB03 偏暗 24 级，超过 4 级容差"
+    }
+  ]
+}

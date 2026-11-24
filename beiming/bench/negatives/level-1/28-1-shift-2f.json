@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "28-1-shift-2f",
+  "questionId": "28-1",
+  "kind": "shift-2f",
+  "disabledCards": [],
+  "seed": null,
+  "description": "逐帧元数据报出的包围盒时间轴相对画面像素整体晚 2 帧：每帧包围盒自身的宽高与四边留白仍在题面限值内，画面首尾也照常闭合（前两条判分线照过），但抽样帧上像素实测包围盒与迟到 2 帧的元数据包围盒左右边相差 14 像素（错位 1 帧时差 7 像素还在 8 像素容差内）。",
+  "perturbation": {
+    "metaShiftFrames": 2
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 2,
+      "metric": "pixel.bbox",
+      "why": "像素实测包围盒与错位 2 帧的元数据包围盒最大边差 14 像素，超过 8 像素容差"
+    }
+  ]
+}

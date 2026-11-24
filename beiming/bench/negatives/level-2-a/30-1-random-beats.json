@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "30-1-random-beats",
+  "questionId": "30-1",
+  "kind": "random-beats",
+  "disabledCards": [],
+  "seed": 20261124,
+  "description": "20 个跟拍命名时刻（m01–m20）不按正拍节拍表编排，换成固定种子在 2160 帧里取的 20 个随机拍点（折算成连续拍数交时间线求值）：从 80 BPM 改到 96 BPM 重求值时仍按拍速等比联动位移（第二条照过），但在 80 BPM 下落拍率跌回随机基线附近（仅 5/20 = 25% 落拍，较 16.7% 基线提升不足 9 个百分点）。",
+  "perturbation": {
+    "beatSchedule": "random-beats"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "beat.onset-hit",
+      "why": "20 个随机跟拍事件仅 5 个落在 80 BPM 拍点网格 1 帧容差内（命中率 25%，低于 85% 下限且较随机基线提升仅 8.3 个百分点）"
+    }
+  ]
+}

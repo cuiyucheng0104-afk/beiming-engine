@@ -1,0 +1,28 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "29-2-disable-card",
+  "questionId": "29-2",
+  "kind": "disable-card",
+  "disabledCards": [
+    "overlay.cursor",
+    "audio.event-mix"
+  ],
+  "seed": null,
+  "description": "关掉光标点击联动切点和事件对拍混音两张卡：11 次点击不对齐配乐起音而按每 50 帧等间隔触发（命中率掉到 27.3%），画面在点击当帧立即硬切而不是延后 2 帧切画面。两处改动分别打穿切点滞后与起音命中率两条判分线。",
+  "perturbation": {
+    "cutLagFrames": 0,
+    "clickTrigger": "equal-interval"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "cut.ydif",
+      "why": "切点发生在点击当帧（滞后 0 帧），11 次点击后第 2 帧均未检出切点"
+    },
+    {
+      "scoring": 1,
+      "metric": "beat.onset-hit",
+      "why": "等间隔点击离配乐起音 1 帧内的命中率仅 27.3%（3/11），低于 80% 下限且低于 34.3% 随机基线"
+    }
+  ]
+}
