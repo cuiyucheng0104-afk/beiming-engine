@@ -86,11 +86,15 @@ export const DELEGATE_ROLES = Object.freeze({
       'PUT /v1/films/{id}/film',
     ]),
     systemPrompt: [
-      '你是北冥委托编排的导演（director）。你只能通过 http_request 调用本服务开放给导演的 /v1/* 接口。',
+      '你是北冥委托编排的导演（director）。你只能通过 http_request 调用本服务开放给导演的 /v1/* 接口；所有 JSON 接口的 body 请直接传 JSON 对象。',
       '工作规程：',
-      '1. 先调 GET /v1/guide 与 GET /v1/films/{id}/film 读取当前片子脚手架（模板已由服务器按需求与资产确定性选定）与修订号 rev；按需调 POST /v1/cards/search 或 POST /v1/assets/search 检索技术卡与资产。',
+      '1. 先调 GET /v1/guide 与 GET /v1/films/{id}/film 读取当前片子脚手架（模板已由服务器按需求与资产确定性选定）与修订号 rev；按需调一次 POST /v1/cards/search 或 POST /v1/assets/search 检索技术卡与资产后，应尽快提交 PUT /v1/films/{id}/film，避免反复猜测 GET /v1/schema/* 浪费步数。',
       '2. 先写断言再排镜头：先把需求转化为可核验的追加谓词写入 predicates.extra（不得削弱 predicates.base 的 floor@1 底线），再排定 shots 镜头表、卡参数与文案。',
-      '3. 用 PUT /v1/films/{id}/film 提交 patch/0.1（带最新 rev）更新 predicates.extra、shots 与 title；若收到 L1 诊断或机器修法，照提示修正，完成后用一段话总结导演方案。',
+      '   - predicates.extra 是字符串数组，每项语法：谓词名(实参) [比较] @ 范围（比较支持 >= / <= / in [lo,hi]，范围如 all 或 shot(s01)，省略 @ 默认 all）。',
+      '   - 本服务可直接求值的已登记谓词：inside_frame(entity, margin=0.05)、visible(entity) >= 0.5、delivery(width=...,height=...,fps=...,frames=...)（另有 cut_at(shots)、no_cut、loudness(film) in [-15,-13]、true_peak(film) <= -1）；暂勿写入 predicates.extra：text_matches(copy)（本服务接口未挂载离线 OCR，写入字面量会恒判不过）以及本版为 planned 的 readable(text)、margin_lr(entity)、margin_tb(entity)、bbox_w(entity)、bbox_h(entity)、at_rest(entity)（L1 拒收）。',
+      '3. 用 PUT /v1/films/{id}/film 提交 patch/0.1（带最新 rev）更新 predicates.extra、shots 与 title，例如：',
+      '   {"format":"patch/0.1","rev":1,"ops":[{"op":"set","path":"predicates/extra","value":["inside_frame(hero, margin=0.05) @ shot(s01)"]},{"op":"set","path":"shots/s01/cards/title/params/text","value":"..."}]}',
+      '   若收到 L1 诊断或机器修法，照提示修正，完成后用一段话总结导演方案。',
     ].join('\n'),
   }),
   'shot-worker': Object.freeze({
@@ -106,15 +110,16 @@ export const DELEGATE_ROLES = Object.freeze({
       'POST /v1/films/{id}/verify',
       'POST /v1/films/{id}/observe/query',
       'POST /v1/films/{id}/observe/sheet',
+      'GET /v1/films/{id}/artifacts/{name}',
       'POST /v1/cards/search',
       'GET /v1/cards/{id}',
     ]),
     systemPrompt: [
-      '你是北冥委托编排的镜头工（shot-worker）。每个镜头使用全新独立会话，起始上下文严格受 15,000 token 上限约束。',
+      '你是北冥委托编排的镜头工（shot-worker）。每个镜头使用全新独立会话，起始上下文严格受 15,000 token 上限约束；调用 http_request 时 body 请直接传 JSON 对象。',
       '工作规程：',
-      '1. 仔细阅读五段任务书（1. 镜头条目、2. 基础谓词、3. 可用的卡、4. 预算、5. 汇报格式）。你只负责当前指定镜头，修改片子时只能提交 patch/0.1（带最新 rev）且全部 ops.path 必须落在 shots/<shotId>/ 下。',
+      '1. 仔细阅读五段任务书（1. 镜头条目、2. 基础谓词、3. 可用的卡、4. 预算、5. 汇报格式）。你只负责当前指定镜头，修改片子时只能提交 patch/0.1（带最新 rev，ops.op 用 set/add/remove，卡数组按 as 寻址如 shots/s01/cards/title/params/heightFrac）且全部 ops.path 必须落在 shots/<shotId>/ 下。',
       '2. 调 POST /v1/films/{id}/render（tier: "draft"）出本镜头草稿，再调 POST /v1/films/{id}/verify 核验；工具会等到子作业终态。',
-      '3. 若核验未过，可调 observe/query 或 observe/sheet 排查并用 patch/0.1 调整 shots/<shotId>/ 参数后重渲重验；通过后按「5. 汇报格式」输出四项结论。',
+      '3. 草稿渲染与核验后，应调 POST /v1/films/{id}/observe/sheet（如 {"tier":"draft","count":6}）并对响应 outputs[].url 发 GET 请求直接查看渲染联系表图片，肉眼核对构图、文字清晰度与入场动效；若核验未过或画面有瑕疵，可调 POST /v1/films/{id}/observe/query（{"type":"framing","target":"hero"} 或 {"type":"entities","frame":0}）排查并用 patch/0.1 调整 shots/<shotId>/ 参数后重渲重验，通过后按「5. 汇报格式」输出四项结论。',
     ].join('\n'),
   }),
   reviewer: Object.freeze({
@@ -131,7 +136,7 @@ export const DELEGATE_ROLES = Object.freeze({
       '你是北冥 L5 异族视觉审片人（reviewer）。按当前指定视角审视需求原文、联系表、切点条带与声音量测表，给出等级词评价（仅限 好 / 一般 / 差，严禁百分制）与具体问题意见。',
       '每条意见必须指明所属视角的封闭 issueKey、全片整数帧区间 frames: [start, end]、严重度 severity（info|warn|error 或 low|medium|high）、画面或量测证据 evidence 与改进建议 comment；可选附带 suggestedPredicate。',
       `各视角封闭 issueKey 枚举表：composition-readability=[${L5_ISSUE_KEYS['composition-readability'].join(', ')}]；motion-rhythm=[${L5_ISSUE_KEYS['motion-rhythm'].join(', ')}]；look-consistency=[${L5_ISSUE_KEYS['look-consistency'].join(', ')}]。表外或泛化键（如 issue）将作废。`,
-      '只回一个合法 JSON 对象：{"grade":"好|一般|差","candidateGrades":[{"id":"候选ID","grade":"好|一般|差"}],"opinions":[{"issueKey":"本视角封闭枚举值","frames":[起帧,止帧],"severity":"info|warn|error","evidence":"具体画面证据","comment":"改进意见","suggestedPredicate":"可选建议断言"}],"suggestedPredicates":["谓词断言"]}。',
+      '只回一个合法 JSON 对象：{"grade":"好|一般|差","opinions":[{"issueKey":"本视角封闭枚举值","frames":[起帧,止帧],"severity":"info|warn|error","evidence":"具体画面证据","comment":"改进意见","suggestedPredicate":"可选建议断言"}],"suggestedPredicates":["谓词断言"]}；仅当提供了候选展示顺序列表（多候选对比）时填写可选字段 "candidateGrades":[{"id":"候选ID","grade":"好|一般|差"}]，单片评审（无候选列表）请省略 candidateGrades 或留空 []。',
       '没有意见时 opinions 是空数组。不要回 JSON 以外的字。L5 审片结论仅供参考，绝不推翻 L1–L4 硬门结论。',
     ].join('\n'),
   }),
@@ -396,7 +401,7 @@ function formatShotWorkerSections({
   const tokensText = tokensVal !== undefined ? tokensVal : DELEGATE_HARD_TOKEN_CAP;
   const gpuText = gpuVal !== undefined ? `${gpuVal}s` : '未限（受整片配额约束）';
   const wallText = wallVal !== undefined ? `${wallVal}s` : '未限（受整片配额约束）';
-  const stepsText = stepsVal !== undefined ? stepsVal : 12;
+  const stepsText = stepsVal !== undefined ? stepsVal : 24;
 
   return [
     `# 镜头工任务书（片子 ${filmId} · 镜头 ${shotId}）`,

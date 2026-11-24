@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { tools, verifyDeliveryBundle } from '../comp/index.mjs';
 import { blenderInfo, loadCardLibrary } from './runtime.mjs';
+import { normalizeJsonToolBody } from './agents.mjs';
 import {
   DEFAULT_REVIEW_MAX_OUTPUT_TOKENS,
   DELEGATE_HARD_TOKEN_CAP,
@@ -19,6 +20,7 @@ import {
   aggregateL5Votes,
   buildShotWorkerBrief,
   buildShotWorkerMessages,
+  callApi,
   chat,
   createOpenAiVisionReviewer,
   filterL5SuggestedPredicates,
@@ -26,6 +28,7 @@ import {
   measureStartContextTokens,
   normalizeIssueKey,
   runDelegateOrchestrator,
+  runHandsOnAgent,
   selectDelegateTemplate,
   shuffleCandidatesForBallot,
   startServer,
@@ -2230,4 +2233,934 @@ test('A19-16 [R3-B3] 候选 ID 首尾空白一致规范化：展示目录、逐�
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('A19-17 [FIX-real-model] 委托编排兼容模型将 JSON 请求体序列化为字符串（shot-worker patch/0.1 与 render/verify/deliver）且拒收非法体', async () => {
+  const { film: initialFilm } = scaffold({ id: 'f_001', template: 'title', text: 'INIT', output: { size: [320, 180], fps: '10/1', frames: 6 } });
+  let currentFilm = structuredClone(initialFilm);
+  let currentRev = 1;
+  const received = [];
+
+  const mockApi = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const raw = Buffer.concat(chunks).toString('utf8');
+    const url = new URL(req.url, 'http://127.0.0.1');
+    const contentType = req.headers['content-type'] ?? '';
+    let parsed = null;
+    if (raw) {
+      try { parsed = JSON.parse(raw); } catch { /* 保留 raw */ }
+    }
+    if (req.method !== 'GET') {
+      received.push({ method: req.method, path: url.pathname, contentType, raw, parsed });
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    if (req.method === 'GET' && url.pathname === '/v1/films/f_001/ledger') {
+      res.end(JSON.stringify({ ok: true, data: { items: [] } }));
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/films/f_001/film') {
+      res.end(JSON.stringify({ ok: true, data: { rev: currentRev, film: currentFilm } }));
+      return;
+    }
+    if (req.method === 'PUT' && url.pathname === '/v1/films/f_001/film') {
+      currentRev++;
+      res.end(JSON.stringify({ ok: true, data: { rev: currentRev } }));
+      return;
+    }
+    if (req.method === 'POST' && (url.pathname === '/v1/films/f_001/render' || url.pathname === '/v1/films/f_001/verify')) {
+      res.end(JSON.stringify({ ok: true, data: { status: 'succeeded', rev: currentRev } }));
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/v1/films/f_001/deliver') {
+      res.end(JSON.stringify({
+        ok: true,
+        data: { status: 'succeeded', rev: currentRev },
+        outputs: ['master', 'web', 'contact', 'report', 'run', 'lock'].map((k) => ({ kind: k, url: `/v1/films/f_001/artifacts/j_001/bundle/${k}` })),
+      }));
+      return;
+    }
+    res.end(JSON.stringify({ ok: true, data: {} }));
+  });
+  await new Promise((r) => mockApi.listen(0, '127.0.0.1', r));
+
+  const toolReplies = { director: [], worker: [], finalizer: [] };
+  const mockModel = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const sys = body.messages[0]?.content ?? '';
+    const roleTag = /\[ROLE:([^\]]+)\]/.exec(sys)?.[1] ?? '';
+    const tm = body.messages.filter((m) => m.role === 'tool').map((m) => JSON.parse(m.content));
+    const tc = (id, method, path, reqBody) => ({
+      role: 'assistant',
+      content: null,
+      tool_calls: [{ id, type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method, path, ...(reqBody !== undefined ? { body: reqBody } : {}) }) } }],
+    });
+
+    let msg;
+    if (roleTag === 'director') {
+      toolReplies.director = tm;
+      if (tm.length === 0) {
+        // 导演用 JSON 字符串提交 patch/0.1
+        msg = tc('d1', 'PUT', '/v1/films/f_001/film', JSON.stringify({
+          format: 'patch/0.1',
+          rev: 1,
+          ops: [{ op: 'set', path: 'predicates/extra', value: ['inside_frame(hero, margin=0.05) @ shot(s01)'] }],
+        }));
+      } else {
+        msg = { role: 'assistant', content: '导演完成' };
+      }
+    } else if (roleTag === 'shot-worker:s01') {
+      toolReplies.worker = tm;
+      if (tm.length === 0) {
+        // 越权跨镜头 JSON 字符串 patch -> 仍须被 ownShotPatch 拒收
+        msg = tc('w1', 'PUT', '/v1/films/f_001/film', JSON.stringify({
+          format: 'patch/0.1',
+          rev: 2,
+          ops: [{ op: 'set', path: 'shots/s99/cards/title/params/text', value: 'BAD' }],
+        }));
+      } else if (tm.length === 1) {
+        // 损坏 JSON 字符串 patch -> 仍须被 ownShotPatch 拒收
+        msg = tc('w2', 'PUT', '/v1/films/f_001/film', '{"format":"patch/0.1",broken');
+      } else if (tm.length === 2) {
+        // 合法本镜头 JSON 字符串 patch/0.1 -> 必须解包通过 ownShotPatch 并以 application/json 发送
+        msg = tc('w3', 'PUT', '/v1/films/f_001/film', JSON.stringify({
+          format: 'patch/0.1',
+          rev: 2,
+          ops: [{ op: 'set', path: 'shots/s01/cards/title/params/text', value: 'STR-OK' }],
+        }));
+      } else if (tm.length === 3) {
+        // render 给坏 JSON 字符串 -> 拒收，绝不按字符拆散成 {"0":"{",...}
+        msg = tc('w4', 'POST', '/v1/films/f_001/render', '{not-json');
+      } else if (tm.length === 4) {
+        // render 给数组 JSON 字符串 -> 拒收，绝不按索引展开
+        msg = tc('w5', 'POST', '/v1/films/f_001/render', '["s01"]');
+      } else if (tm.length === 5) {
+        // render 给合法 JSON 字符串 -> 解包后合并 wait:0 / shots / tier:draft
+        msg = tc('w6', 'POST', '/v1/films/f_001/render', '{"tier":"final","shots":["s99"]}');
+      } else if (tm.length === 6) {
+        // verify 给合法 JSON 字符串 -> 解包后合并 wait:0 / shots / tier:draft
+        msg = tc('w7', 'POST', '/v1/films/f_001/verify', '{"tier":"draft"}');
+      } else {
+        msg = { role: 'assistant', content: '状态：pass' };
+      }
+    } else {
+      toolReplies.finalizer = tm;
+      if (tm.length === 0) {
+        // deliver 给非法原始值 -> 拒收，不吞成 { wait: 0 }
+        msg = tc('f1', 'POST', '/v1/films/f_001/deliver', 42);
+      } else if (tm.length === 1) {
+        // deliver 给合法 JSON 字符串 -> 解包后合并 tier:final / wait:0
+        msg = tc('f2', 'POST', '/v1/films/f_001/deliver', '{"tier":"final"}');
+      } else {
+        msg = { role: 'assistant', content: '交付完成' };
+      }
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ model: body.model, choices: [{ message: msg }], usage: { prompt_tokens: 100, completion_tokens: 20 } }));
+  });
+  await new Promise((r) => mockModel.listen(0, '127.0.0.1', r));
+
+  try {
+    const outcome = await runDelegateOrchestrator({
+      baseUrl: `http://127.0.0.1:${mockApi.address().port}`,
+      accountToken: 'acct',
+      filmId: 'f_001',
+      workspaceToken: 'ws',
+      brief: '真模型 JSON 字符串请求体回归',
+      endpoint: `http://127.0.0.1:${mockModel.address().port}/v1`,
+      apiKey: 'key',
+      directorModel: 'gemini-4-carbon',
+      workerModel: 'gemini-4-argon',
+      reserveTokens: 2_000,
+    });
+    assert.equal(outcome.status, 'succeeded', `委托应成功，实际：${JSON.stringify(outcome)}`);
+    // 越权/损坏 patch 与非法作业 body 必须在委托侧拒收
+    assert.ok(toolReplies.worker[0]?.refused, '跨镜头字符串 patch 必须被拒收');
+    assert.ok(toolReplies.worker[1]?.refused, '损坏 JSON 字符串 patch 必须被拒收');
+    assert.equal(toolReplies.worker[2]?.status, 200, '本镜头合法 JSON 字符串 patch 必须放行');
+    assert.ok(toolReplies.worker[3]?.refused, 'render 损坏 JSON 字符串必须被拒收');
+    assert.ok(toolReplies.worker[4]?.refused, 'render JSON 数组字符串必须被拒收');
+    assert.equal(toolReplies.worker[5]?.status, 200, 'render 合法 JSON 字符串必须放行');
+    assert.equal(toolReplies.worker[6]?.status, 200, 'verify 合法 JSON 字符串必须放行');
+    assert.ok(toolReplies.finalizer[0]?.refused, 'deliver 非对象原始体必须被拒收');
+    // deliver 成功交回六件套后 finalizer 直接短循环返回，不再为汇报追加一次模型调用
+    assert.equal(toolReplies.finalizer.length, 1);
+    assert.equal(outcome.outputs.length, 6);
+
+    // 核对到达服务端的全部请求均是合法 application/json 且无字符拆散键 "0"
+    assert.equal(received.length, 5);
+    for (const r of received) {
+      assert.match(r.contentType, /^application\/json\b/i, `${r.method} ${r.path} 应为 application/json`);
+      assert.equal(Object.hasOwn(r.parsed, '0'), false, `${r.method} ${r.path} 不得把字符串按字符拆散成键 "0"`);
+    }
+    assert.equal(received[0].path, '/v1/films/f_001/film');
+    assert.equal(received[0].parsed.format, 'patch/0.1');
+    assert.equal(received[1].path, '/v1/films/f_001/film');
+    assert.equal(received[1].parsed.ops[0].value, 'STR-OK');
+    assert.equal(received[2].path, '/v1/films/f_001/render');
+    assert.deepEqual(received[2].parsed, { tier: 'draft', shots: ['s01'], wait: 0 });
+    assert.equal(received[3].path, '/v1/films/f_001/verify');
+    assert.deepEqual(received[3].parsed, { tier: 'draft', shots: ['s01'], wait: 0 });
+    assert.equal(received[4].path, '/v1/films/f_001/deliver');
+    assert.deepEqual(received[4].parsed, { tier: 'final', wait: 0 });
+  } finally {
+    await new Promise((r) => mockApi.close(r));
+    await new Promise((r) => mockModel.close(r));
+  }
+});
+
+test('A19-18 [FIX-real-model] callApi 与 attachHandsOnBrief 兼容非 /files/ 的 JSON 字符串 body，/files/* 保持 text/plain 且不吞非法 brief', async () => {
+  // 1) 探针服务：验证 callApi 对非 /files/ 的 JSON 对象/数组字符串发 application/json，而 /files/* 与非法字符串保持 text/plain
+  const seen = [];
+  const probe = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    seen.push({
+      method: req.method,
+      path: req.url,
+      contentType: req.headers['content-type'] ?? '',
+      raw: Buffer.concat(chunks).toString('utf8'),
+    });
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, data: {} }));
+  });
+  await new Promise((r) => probe.listen(0, '127.0.0.1', r));
+  const client = { baseUrl: `http://127.0.0.1:${probe.address().port}`, account: 'acct', workspaces: { f_001: 'ws' }, jobs: {} };
+
+  try {
+    await callApi(client, { method: 'POST', path: '/v1/cards/search', body: '  {"q":"title","limit":5}  ' });
+    await callApi(client, { method: 'POST', path: '/v1/films/f_001/observe/metrics', body: '["deliverSpec"]' });
+    await callApi(client, { method: 'POST', path: '/v1/films/f_001/render', body: '{bad-json' });
+    await callApi(client, { method: 'POST', path: '/v1/films/f_001/render', body: '123' });
+    await callApi(client, { method: 'PUT', path: '/v1/films/f_001/files/shots/s01/main.py', body: '  {"not_unwrapped": 1}\n' });
+    await callApi(client, { method: 'PUT', path: '/v1/films/f_001/files/shots/s01/script.mjs?x=1', body: 'export default {}' });
+
+    assert.equal(seen[0].contentType, 'application/json');
+    assert.deepEqual(JSON.parse(seen[0].raw), { q: 'title', limit: 5 });
+    assert.equal(seen[1].contentType, 'application/json');
+    assert.deepEqual(JSON.parse(seen[1].raw), ['deliverSpec']);
+    assert.equal(seen[2].contentType, 'text/plain; charset=utf-8');
+    assert.equal(seen[2].raw, '{bad-json');
+    assert.equal(seen[3].contentType, 'text/plain; charset=utf-8');
+    assert.equal(seen[3].raw, '123');
+    assert.equal(seen[4].contentType, 'text/plain; charset=utf-8');
+    assert.equal(seen[4].raw, '  {"not_unwrapped": 1}\n');
+    assert.equal(seen[5].contentType, 'text/plain; charset=utf-8');
+    assert.equal(seen[5].raw, 'export default {}');
+  } finally {
+    await new Promise((r) => probe.close(r));
+  }
+
+  // 2) 真实 startServer + runHandsOnAgent：字符串 JSON 建片省略 brief 时自动补回 brief，显式非法类型 brief 仍报 400
+  const dataDir = mkdtempSync(join(tmpdir(), 'bm-a19-18-handson-'));
+  const ledgerPath = join(dataDir, 'agent-ledger.jsonl');
+  const token = issueAccountToken(dataDir);
+  const api = await startServer({ dataDir, port: 0 });
+  let round = 0;
+  let createdFilmId = null;
+  const mockAgent = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    round++;
+    const last = body.messages.at(-1);
+    if (round === 2 && last?.role === 'tool') {
+      createdFilmId = JSON.parse(last.content)?.body?.data?.film ?? null;
+    }
+    let msg;
+    if (round === 1) {
+      // 字符串化 JSON 建片且省略 brief -> 必须解包并自动补回代理 brief（200）
+      msg = {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{
+          id: 'c1',
+          type: 'function',
+          function: {
+            name: 'http_request',
+            arguments: JSON.stringify({
+              method: 'POST',
+              path: '/v1/films',
+              body: JSON.stringify({ template: 'title', text: 'STRBRIEF', output: { size: [320, 180], fps: '10/1', frames: 6 } }),
+            }),
+          },
+        }],
+      };
+    } else if (round === 2) {
+      // 字符串化 JSON 带显式非法类型 brief（对象 / 数字）-> 绝不覆盖，服务端必须返回 400 usage.bad-argument
+      msg = {
+        role: 'assistant',
+        content: null,
+        tool_calls: [
+          {
+            id: 'c2',
+            type: 'function',
+            function: {
+              name: 'http_request',
+              arguments: JSON.stringify({
+                method: 'POST',
+                path: '/v1/films',
+                body: JSON.stringify({ template: 'title', brief: { bad: true }, text: 'BAD1', output: { size: [320, 180], fps: '10/1', frames: 6 } }),
+              }),
+            },
+          },
+          {
+            id: 'c3',
+            type: 'function',
+            function: {
+              name: 'http_request',
+              arguments: JSON.stringify({
+                method: 'POST',
+                path: '/v1/films',
+                body: JSON.stringify({ template: 'title', brief: 123, text: 'BAD2', output: { size: [320, 180], fps: '10/1', frames: 6 } }),
+              }),
+            },
+          },
+          {
+            id: 'c4',
+            type: 'function',
+            function: {
+              name: 'http_request',
+              arguments: JSON.stringify({
+                method: 'POST',
+                path: `/v1/films/${createdFilmId}/review`,
+                body: JSON.stringify({ brief: { bad: 'review' } }),
+              }),
+            },
+          },
+        ],
+      };
+    } else {
+      msg = { role: 'assistant', content: '完成' };
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ model: 'hands-on-str-body', choices: [{ message: msg }], usage: { prompt_tokens: 60, completion_tokens: 15 } }));
+  });
+  await new Promise((r) => mockAgent.listen(0, '127.0.0.1', r));
+
+  try {
+    const res = await runHandsOnAgent({
+      baseUrl: api.url,
+      token,
+      brief: '字符串 JSON 建片应自动补回需求原文',
+      ledgerPath,
+      endpoint: `http://127.0.0.1:${mockAgent.address().port}/v1`,
+      apiKey: 'akey',
+      model: 'hands-on-str-body',
+    });
+    assert.equal(res.status, 'done');
+    assert.equal(res.calls.length, 4);
+    assert.deepEqual([res.calls[0].status, res.calls[0].ok], [200, true]);
+    assert.ok(createdFilmId);
+    const meta = JSON.parse(readFileSync(join(dataDir, 'meta', `${createdFilmId}.json`), 'utf8'));
+    assert.equal(meta.brief, '字符串 JSON 建片应自动补回需求原文');
+    assert.deepEqual([res.calls[1].status, res.calls[1].ok, res.calls[1].code], [400, false, 'usage.bad-argument']);
+    assert.deepEqual([res.calls[2].status, res.calls[2].ok, res.calls[2].code], [400, false, 'usage.bad-argument']);
+    assert.deepEqual([res.calls[3].status, res.calls[3].ok, res.calls[3].code], [400, false, 'usage.bad-argument']);
+  } finally {
+    await api.close();
+    await new Promise((r) => mockAgent.close(r));
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test('A19-19 [FIX-real-model] director 提示词包含 predicates.extra 语法、常用谓词名、patch/0.1 示例与防盲猜指引，shot-worker 起始上下文仍 <= 15,000 token', () => {
+  const dp = DELEGATE_ROLES.director.systemPrompt;
+  assert.match(dp, /predicates\.extra.*字符串数组/);
+  assert.match(dp, /谓词名\(实参\)\s*\[比较\]\s*@\s*范围/);
+  assert.match(dp, /\ball\b/);
+  assert.match(dp, /shot\(s01\)/);
+  for (const name of ['inside_frame', 'visible', 'text_matches', 'readable', 'margin_lr', 'margin_tb', 'bbox_w', 'bbox_h', 'at_rest', 'delivery']) {
+    assert.ok(dp.includes(name), `director.systemPrompt 应列出常用已登记谓词 ${name}`);
+  }
+  assert.match(dp, /"format":"patch\/0\.1"/);
+  assert.match(dp, /"path":"predicates\/extra"/);
+  assert.match(dp, /\/v1\/schema\//);
+
+  // shot-worker 提示词明示 JSON 对象 body，起始上下文仍严格 <= 15,000 token，且省略 budget.maxSteps 时默认展示 24
+  assert.match(DELEGATE_ROLES['shot-worker'].systemPrompt, /JSON\s*对象/);
+  const { film } = scaffold({ id: 'f_001', template: 'turntable' });
+  const built = buildShotWorkerMessages({
+    filmId: film.id,
+    rev: 1,
+    brief: '测试镜头工任务书',
+    shot: film.shots[0],
+    basePredicates: film.predicates.base,
+  });
+  assert.ok(built.startTokens <= SHOT_WORKER_MAX_START_TOKENS);
+  assert.match(built.user, /最大工具循环步数（maxSteps）：`24`/);
+});
+
+test('A19-20 [FIX-real-model] runDelegateOrchestrator 默认 maxSteps 为 24（>12 步可完成、超 24 步在 step-24 停、显式传参严格生效）', async () => {
+  const { film } = scaffold({ id: 'f_001', template: 'title', text: 'STEPS', output: { size: [320, 180], fps: '10/1', frames: 6 } });
+  const mockApi = createServer(async (req, res) => {
+    for await (const chunk of req) void chunk;
+    const url = new URL(req.url, 'http://127.0.0.1');
+    res.writeHead(200, { 'content-type': 'application/json' });
+    if (req.method === 'GET' && url.pathname === '/v1/films/f_001/ledger') {
+      res.end(JSON.stringify({ ok: true, data: { items: [] } }));
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/films/f_001/film') {
+      res.end(JSON.stringify({ ok: true, data: { rev: 1, film: { ...film, shots: [] } } }));
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/v1/films/f_001/deliver') {
+      res.end(JSON.stringify({
+        ok: true,
+        data: { status: 'succeeded', rev: 1 },
+        outputs: ['master', 'web', 'contact', 'report', 'run', 'lock'].map((k) => ({ kind: k, url: `/v1/films/f_001/artifacts/j_001/bundle/${k}` })),
+      }));
+      return;
+    }
+    res.end(JSON.stringify({ ok: true, data: {} }));
+  });
+  await new Promise((r) => mockApi.listen(0, '127.0.0.1', r));
+
+  let directorToolSteps = 15;
+  const mockModel = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const sys = body.messages[0]?.content ?? '';
+    const roleTag = /\[ROLE:([^\]]+)\]/.exec(sys)?.[1] ?? '';
+    const tm = body.messages.filter((m) => m.role === 'tool');
+    let msg;
+    if (roleTag === 'director' && tm.length < directorToolSteps) {
+      msg = {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{ id: `s-${tm.length + 1}`, type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'GET', path: '/v1/guide' }) } }],
+      };
+    } else {
+      msg = { role: 'assistant', content: '完成' };
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ model: body.model, choices: [{ message: msg }], usage: { prompt_tokens: 100, completion_tokens: 20 } }));
+  });
+  await new Promise((r) => mockModel.listen(0, '127.0.0.1', r));
+
+  const common = {
+    baseUrl: `http://127.0.0.1:${mockApi.address().port}`,
+    accountToken: 'acct',
+    filmId: 'f_001',
+    workspaceToken: 'ws',
+    brief: '默认步数上限回归',
+    endpoint: `http://127.0.0.1:${mockModel.address().port}/v1`,
+    apiKey: 'key',
+    directorModel: 'gemini-4-carbon',
+    workerModel: 'gemini-4-argon',
+    reserveTokens: 2_000,
+  };
+
+  try {
+    // 1) 省略 maxSteps，导演走 15 步工具调用 + 1 步汇报（共 16 步 > 旧默认值 12）-> 成功
+    directorToolSteps = 15;
+    const pass16 = await runDelegateOrchestrator(common);
+    assert.equal(pass16.status, 'succeeded');
+
+    // 2) 省略 maxSteps，导演持续调用超过 24 步 -> 在 director:step-24 停止失败
+    directorToolSteps = 30;
+    const hitDefault = await runDelegateOrchestrator(common);
+    assert.equal(hitDefault.status, 'failed');
+    assert.equal(hitDefault.failedAt, 'director:step-24');
+
+    // 3) 显式传入 maxSteps: 3 -> 严格在 director:step-3 停止失败
+    const hitExplicit = await runDelegateOrchestrator({ ...common, maxSteps: 3 });
+    assert.equal(hitExplicit.status, 'failed');
+    assert.equal(hitExplicit.failedAt, 'director:step-3');
+  } finally {
+    await new Promise((r) => mockApi.close(r));
+    await new Promise((r) => mockModel.close(r));
+  }
+});
+
+test('A19-21 [FIX-real-model] 单片 L5 审片提示词省略 candidateGrades、自指 film.id 与空数组平滑归一化、未知/矛盾项严格拒收且多候选模式零回归', async () => {
+  // 1) reviewer systemPrompt 明确 candidateGrades 仅多候选对比时填写、单片请省略或留空 []
+  const rp = DELEGATE_ROLES.reviewer.systemPrompt;
+  assert.match(rp, /candidateGrades/);
+  assert.match(rp, /候选展示顺序|多候选/);
+  assert.match(rp, /单片.*省略.*candidateGrades|省略\s*candidateGrades/);
+
+  const dir = mkdtempSync(join(tmpdir(), 'bm-a19-21-'));
+  const origFetch = globalThis.fetch;
+  const film = { id: 'f_001', output: { frames: 20 }, shots: [{ id: 's01', in: 0, out: 20 }] };
+
+  const makeReviewer = (name) => createOpenAiVisionReviewer({
+    endpoint: 'https://fixture.invalid',
+    apiKey: 'test-key',
+    model: 'gpt-6.2-astra',
+    ledgerPath: join(dir, `${name}.jsonl`),
+  });
+
+  try {
+    // 2) 单片评审（candidates: []）：提示词明确要求省略 candidateGrades；自指 film.id（含匹配 grade / 省 grade / 带空格）与 [] 均平滑吸收并产出聚合意见
+    const singlePrompts = [];
+    globalThis.fetch = async (_, { body }) => {
+      const req = JSON.parse(body);
+      const sys = req.messages[0].content;
+      const userText = req.messages[1].content[0].text;
+      singlePrompts.push(userText);
+      const perspective = /\[PERSPECTIVE:([^\]]+)\]/.exec(sys)?.[1];
+      const voteNum = Number(/\[VOTE:(\d+)\]/.exec(sys)?.[1] ?? 1);
+      let payload;
+      if (perspective === 'composition-readability' && voteNum === 1) {
+        payload = {
+          grade: '一般',
+          candidateGrades: [{ id: 'f_001', grade: '一般' }],
+          opinions: [{ issueKey: 'title-readability', frames: [0, 5], severity: 'warn', evidence: '片名字号偏小', comment: '放大片名字号' }],
+          suggestedPredicates: [],
+        };
+      } else if (perspective === 'composition-readability' && voteNum === 2) {
+        // 省略顶层 grade，仅给出单片自指 candidateGrades（带首尾空白）-> 沿用其 grade
+        payload = {
+          candidateGrades: [{ id: ' f_001 ', grade: '一般' }],
+          opinions: [{ issueKey: 'title-readability', frames: [0, 5], severity: 'warn', evidence: '片名边缘偏紧', comment: '增大片名留白' }],
+          suggestedPredicates: [],
+        };
+      } else if (perspective === 'composition-readability' && voteNum === 3) {
+        payload = { grade: '好', candidateGrades: [], opinions: [], suggestedPredicates: [] };
+      } else if (perspective === 'motion-rhythm') {
+        payload = { grade: '好', candidateGrades: [{ id: 'f_001', grade: '好' }], opinions: [], suggestedPredicates: [] };
+      } else {
+        payload = { grade: '一般', opinions: [], suggestedPredicates: [] };
+      }
+      return Response.json({
+        model: 'gpt-6.2-astra',
+        choices: [{ message: { content: JSON.stringify(payload) } }],
+        usage: { prompt_tokens: 120, completion_tokens: 45 },
+      });
+    };
+
+    const singleOk = await layerL5({
+      film,
+      filmId: 'f_001',
+      images: [],
+      reviewer: makeReviewer('single-ok'),
+      candidates: [],
+    });
+    assert.equal(singlePrompts.length, 9);
+    for (const txt of singlePrompts) {
+      assert.ok(!txt.includes('候选展示顺序'), '单片评审提示词不应包含候选展示顺序');
+      assert.match(txt, /本次为单片评审.*省略\s*candidateGrades/);
+    }
+    assert.equal(singleOk.status, 'ok');
+    assert.equal(singleOk.totalBallots, 9);
+    assert.equal(singleOk.invalidBallots, undefined);
+    assert.equal(singleOk.grade, '一般');
+    assert.deepEqual(singleOk.gradeCounts, { 好: 4, 一般: 5, 差: 0 });
+    assert.deepEqual(singleOk.candidateGrades, {});
+    assert.ok(singleOk.ballots.every((b) => b.candidateGrades === undefined), '单片归一化后选票不得残留 candidateGrades 字段');
+    const adoptedVote = singleOk.ballots.find((b) => b.perspective === 'composition-readability' && b.voteIndex === 1);
+    assert.equal(adoptedVote?.grade, '一般', '省略顶层 grade 时应沿用自指 candidateGrades[0].grade');
+    assert.equal(singleOk.opinions.length, 1);
+    assert.equal(singleOk.opinions[0].issueKey, 'title-readability');
+    assert.equal(singleOk.opinions[0].votes, 2);
+
+    // 3a) 单片评审：未知候选 ID 'ghost' 仍严格拒收
+    globalThis.fetch = async () => Response.json({
+      model: 'gpt-6.2-astra',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', candidateGrades: [{ id: 'ghost', grade: '好' }], opinions: [] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 30 },
+    });
+    const ghostRes = await layerL5({ film, filmId: 'f_001', images: [], reviewer: makeReviewer('ghost'), candidates: [] });
+    assert.equal(ghostRes.status, 'failed');
+    assert.equal(ghostRes.invalidBallots?.length, 9);
+    assert.ok(ghostRes.invalidBallots.every((b) => /审片选票包含未知候选 ID：ghost/.test(b.reason)));
+
+    // 3b) 单片评审：顶层 grade 与自指 candidateGrades[0].grade 互相矛盾时严格拒收
+    globalThis.fetch = async () => Response.json({
+      model: 'gpt-6.2-astra',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', candidateGrades: [{ id: 'f_001', grade: '差' }], opinions: [] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 30 },
+    });
+    const conflictRes = await layerL5({ film, filmId: 'f_001', images: [], reviewer: makeReviewer('conflict'), candidates: [] });
+    assert.equal(conflictRes.status, 'failed');
+    assert.equal(conflictRes.invalidBallots?.length, 9);
+    assert.ok(conflictRes.invalidBallots.every((b) => /矛盾|不一致/.test(b.reason)));
+
+    // 3c) 单片评审：>= 2 个候选条目（含异 ID 双条目或重复自指双条目）仍严格拒收
+    for (const [tag, cg] of [
+      ['two-mixed', [{ id: 'f_001', grade: '好' }, { id: 'ghost', grade: '差' }]],
+      ['two-dup-self', [{ id: 'f_001', grade: '好' }, { id: 'f_001', grade: '好' }]],
+    ]) {
+      globalThis.fetch = async () => Response.json({
+        model: 'gpt-6.2-astra',
+        choices: [{ message: { content: JSON.stringify({ grade: '好', candidateGrades: cg, opinions: [] }) } }],
+        usage: { prompt_tokens: 100, completion_tokens: 30 },
+      });
+      const multiEntryRes = await layerL5({ film, filmId: 'f_001', images: [], reviewer: makeReviewer(tag), candidates: [] });
+      assert.equal(multiEntryRes.status, 'failed', `${tag} 必须拒收`);
+      assert.equal(multiEntryRes.invalidBallots?.length, 9);
+      assert.ok(multiEntryRes.invalidBallots.every((b) => /审片选票包含未知候选 ID：/.test(b.reason)));
+    }
+
+    // 3d) 无 resolvedFilmId 时不得误判为自指，仍严格拒收
+    globalThis.fetch = async () => Response.json({
+      model: 'gpt-6.2-astra',
+      choices: [{ message: { content: JSON.stringify({ grade: '一般', candidateGrades: [{ id: 'f_001', grade: '一般' }], opinions: [] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 30 },
+    });
+    const noIdRes = await layerL5({
+      film: { output: { frames: 20 }, shots: [] },
+      images: [],
+      reviewer: makeReviewer('no-id'),
+      candidates: [],
+    });
+    assert.equal(noIdRes.status, 'failed');
+    assert.equal(noIdRes.invalidBallots?.length, 9);
+    assert.ok(noIdRes.invalidBallots.every((b) => /审片选票包含未知候选 ID：f_001/.test(b.reason)));
+
+    // 4) 多候选模式（candidates: ['a', 'b']）提示词与严格校验零回归（含误填 film.id 仍拒收）
+    const multiPrompts = [];
+    globalThis.fetch = async (_, { body }) => {
+      const req = JSON.parse(body);
+      const userText = req.messages[1].content[0].text;
+      multiPrompts.push(userText);
+      return Response.json({
+        model: 'gpt-6.2-astra',
+        choices: [{ message: { content: JSON.stringify({ grade: '好', candidateGrades: [{ id: 'a', grade: '好' }, { id: 'b', grade: '一般' }], opinions: [] }) } }],
+        usage: { prompt_tokens: 100, completion_tokens: 30 },
+      });
+    };
+    const multiOk = await layerL5({
+      film,
+      filmId: 'f_001',
+      images: [],
+      reviewer: makeReviewer('multi-ok'),
+      candidates: ['a', 'b'],
+    });
+    assert.equal(multiOk.status, 'ok');
+    assert.equal(multiOk.totalBallots, 9);
+    assert.equal(multiOk.invalidBallots, undefined);
+    assert.equal(multiOk.candidateGrades.a.grade, '好');
+    assert.equal(multiOk.candidateGrades.b.grade, '一般');
+    assert.ok(multiPrompts.every((txt) => /候选展示顺序/.test(txt) && /candidateGrades 仅填写以上候选 ID/.test(txt)));
+
+    globalThis.fetch = async () => Response.json({
+      model: 'gpt-6.2-astra',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', candidateGrades: [{ id: 'f_001', grade: '好' }], opinions: [] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 30 },
+    });
+    const multiSelfReject = await layerL5({
+      film,
+      filmId: 'f_001',
+      images: [],
+      reviewer: makeReviewer('multi-self-reject'),
+      candidates: ['a', 'b'],
+    });
+    assert.equal(multiSelfReject.status, 'failed');
+    assert.equal(multiSelfReject.invalidBallots?.length, 9);
+    assert.ok(multiSelfReject.invalidBallots.every((b) => /审片选票包含未知候选 ID：f_001/.test(b.reason)));
+  } finally {
+    globalThis.fetch = origFetch;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('A19-22 [FIX-real-model] shot-worker allowedVerbs 开放 artifacts 只读、systemPrompt 引导 observe/sheet + GET 看图且起始 token 远低于 15,000', () => {
+  const sw = DELEGATE_ROLES['shot-worker'];
+  assert.ok(Object.isFrozen(sw.allowedVerbs));
+  assert.ok(
+    sw.allowedVerbs.includes('GET /v1/films/{id}/artifacts/{name}'),
+    'shot-worker.allowedVerbs 必须包含 GET /v1/films/{id}/artifacts/{name}',
+  );
+  assert.match(sw.systemPrompt, /POST\s+\/v1\/films\/\{id\}\/observe\/sheet/);
+  assert.match(sw.systemPrompt, /outputs\[\]\.url/);
+  assert.match(sw.systemPrompt, /GET/);
+  assert.match(sw.systemPrompt, /构图.*文字清晰度.*入场动效|联系表/);
+  assert.match(sw.systemPrompt, /cards\/title\/params\/heightFrac/);
+  assert.match(sw.systemPrompt, /observe\/query.*framing.*entities/);
+  assert.match(DELEGATE_ROLES.director.systemPrompt, /暂勿写入\s+predicates\.extra.*text_matches.*OCR/);
+
+  const library = loadCardLibrary();
+  const realCards = Object.values(library).map((x) => x.card);
+  for (const template of ['title', 'turntable']) {
+    const { film } = scaffold({ id: 'f_001', template });
+    for (const shot of film.shots) {
+      const built = buildShotWorkerMessages({
+        filmId: film.id,
+        rev: 1,
+        brief: '测试镜头工看图引导后的起始上下文 token 余量',
+        shot,
+        basePredicates: film.predicates.base,
+        extraPredicates: ['inside_frame(hero, margin=0.05) @ all'],
+        cards: realCards,
+      });
+      assert.ok(
+        built.startTokens < 6_000 && built.startTokens <= SHOT_WORKER_MAX_START_TOKENS,
+        `${template}/${shot.id} 起始上下文 (${built.startTokens}) 应远低于 ${SHOT_WORKER_MAX_START_TOKENS}`,
+      );
+    }
+  }
+});
+
+test('A19-23 [R1 收口] 150s 墙钟预算守卫、严格 JSON 解包（拒重复键与非 JSON 空白）、显式空串/string-null-brief 拒收与作业体 null 拒收', async () => {
+  // 1) 严格 JSON 解包：拒绝重复键与 U+00A0 非 JSON 空白（原样保留交服务端拒收），同时兼容合法对象与数组
+  const dupStr = '{"brief":2,"brief":"片名"}';
+  const nbspStr = '\u00A0{"tier":"draft"}';
+  assert.equal(normalizeJsonToolBody('/v1/films', dupStr), dupStr, '重复键 JSON 字符串不得经 JSON.parse 折叠');
+  assert.equal(normalizeJsonToolBody('/v1/films/f_001/render', nbspStr), nbspStr, '含 U+00A0 前导空白的字符串不得被 trim 解包');
+  assert.deepEqual(normalizeJsonToolBody('/v1/cards/search', ' \t{"q":"title"}\r\n'), { q: 'title' });
+  assert.deepEqual(normalizeJsonToolBody('/v1/films/f_001/observe/metrics', '["deliverSpec"]'), ['deliverSpec']);
+  assert.equal(normalizeJsonToolBody('/v1/films/f_001/observe/metrics', '[{"a":1,"a":2}]'), '[{"a":1,"a":2}]');
+
+  // 2) 真实 startServer + runHandsOnAgent：重复键、U+00A0 空白、显式空串 "" 与字符串 '{"brief":null}' 均须被服务端 400 拒收
+  const dataDir = mkdtempSync(join(tmpdir(), 'bm-a19-23-r1-'));
+  const ledgerPath = join(dataDir, 'agent-ledger.jsonl');
+  const token = issueAccountToken(dataDir);
+  const api = await startServer({ dataDir, port: 0 });
+  let round = 0;
+  const mockAgent = createServer(async (req, res) => {
+    for await (const _ of req) { /* drain */ }
+    round++;
+    const msg = round === 1
+      ? {
+          role: 'assistant',
+          content: null,
+          tool_calls: [
+            { id: 'r1-dup', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films', body: dupStr }) } },
+            { id: 'r1-nbsp', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films', body: '\u00A0{"template":"title"}' }) } },
+            { id: 'r1-empty', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films', body: '' }) } },
+            { id: 'r1-null-brief', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films', body: '{"brief":null}' }) } },
+          ],
+        }
+      : { role: 'assistant', content: '完成' };
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ model: 'r1-strict-check', choices: [{ message: msg }], usage: { prompt_tokens: 40, completion_tokens: 10 } }));
+  });
+  await new Promise((r) => mockAgent.listen(0, '127.0.0.1', r));
+
+  // 3) 委托作业合并拒收显式 body: null（覆盖 shot-worker render:null 与 finalizer deliver:null 两条真实路径）
+  let deliverReachedDuringNullCall = false;
+  let deliverNullSawStep2 = false;
+  let renderNullReached = false;
+  let finalizerCalled = false;
+  let deliverCallCount = 0;
+  const { film } = scaffold({ id: 'f_001', template: 'title', text: 'NULLTEST', output: { size: [320, 180], fps: '10/1', frames: 6 } });
+  const mockDelegateApi = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const raw = Buffer.concat(chunks).toString('utf8');
+    const url = new URL(req.url, 'http://127.0.0.1');
+    res.writeHead(200, { 'content-type': 'application/json' });
+    if (req.method === 'GET' && url.pathname === '/v1/films/f_001/ledger') return res.end(JSON.stringify({ ok: true, data: { items: [] } }));
+    if (req.method === 'GET' && url.pathname === '/v1/films/f_001/film') return res.end(JSON.stringify({ ok: true, data: { rev: 1, film } }));
+    if (req.method === 'POST' && url.pathname === '/v1/films/f_001/render') {
+      if (!raw || raw === 'null') renderNullReached = true;
+      return res.end(JSON.stringify({ ok: true, data: { status: 'succeeded', rev: 1 }, outputs: [] }));
+    }
+    if (req.method === 'POST' && url.pathname === '/v1/films/f_001/verify') {
+      return res.end(JSON.stringify({ ok: true, data: { status: 'succeeded', rev: 1 }, outputs: [] }));
+    }
+    if (req.method === 'POST' && url.pathname === '/v1/films/f_001/deliver') {
+      deliverCallCount++;
+      if (!deliverNullSawStep2) deliverReachedDuringNullCall = true;
+      return res.end(JSON.stringify({ ok: true, data: { status: 'succeeded', rev: 1 }, outputs: [] }));
+    }
+    res.end(JSON.stringify({ ok: true, data: { rev: 1 } }));
+  });
+  await new Promise((r) => mockDelegateApi.listen(0, '127.0.0.1', r));
+
+  const toolRepliesByRole = { worker: [], finalizer: [] };
+  let workerStep = 0;
+  let finalizerStep = 0;
+  const mockDelegateModel = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const sys = body.messages[0]?.content ?? '';
+    const last = body.messages.at(-1);
+    let msg;
+    if (sys.startsWith('[ROLE:director]')) {
+      msg = { role: 'assistant', content: '导演完成' };
+    } else if (sys.startsWith('[ROLE:shot-worker:')) {
+      if (last?.role === 'tool') toolRepliesByRole.worker.push(JSON.parse(last.content));
+      workerStep++;
+      if (workerStep === 1) {
+        msg = { role: 'assistant', content: null, tool_calls: [{ id: 'w-null', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films/f_001/render', body: null }) } }] };
+      } else if (workerStep === 2) {
+        msg = { role: 'assistant', content: null, tool_calls: [{ id: 'w-r', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films/f_001/render', body: { tier: 'draft' } }) } }] };
+      } else if (workerStep === 3) {
+        msg = { role: 'assistant', content: null, tool_calls: [{ id: 'w-v', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films/f_001/verify', body: {} }) } }] };
+      } else {
+        msg = { role: 'assistant', content: '镜头完成' };
+      }
+    } else {
+      finalizerCalled = true;
+      if (last?.role === 'tool') {
+        deliverNullSawStep2 = true;
+        toolRepliesByRole.finalizer.push(JSON.parse(last.content));
+      }
+      finalizerStep++;
+      msg = finalizerStep === 1
+        ? { role: 'assistant', content: null, tool_calls: [{ id: 'f-d', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films/f_001/deliver', body: null }) } }] }
+        : { role: 'assistant', content: '收尾结束' };
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ model: 'r1-null-check', choices: [{ message: msg }], usage: { prompt_tokens: 20, completion_tokens: 5 } }));
+  });
+  await new Promise((r) => mockDelegateModel.listen(0, '127.0.0.1', r));
+
+  // 4) wallSeconds: 150 与边界 240 均须为模型调用登记 < MODEL_TIMEOUT_MS 的预算截止信号并以 stopped / wallSeconds 收口
+  const origTimeout = AbortSignal.timeout;
+  const recordedTimeouts = [];
+  const wallController = new AbortController();
+  const mockSlowModel = createServer(async (req, res) => {
+    req.on('close', () => { if (!res.writableEnded) res.end(); });
+  });
+  await new Promise((r) => mockSlowModel.listen(0, '127.0.0.1', r));
+
+  try {
+    const ho = await runHandsOnAgent({
+      baseUrl: api.url,
+      token,
+      brief: '原需求',
+      ledgerPath,
+      endpoint: `http://127.0.0.1:${mockAgent.address().port}/v1`,
+      apiKey: 'akey',
+      model: 'r1-strict-check',
+    });
+    assert.equal(ho.status, 'done');
+    assert.equal(ho.calls.length, 4);
+    for (let i = 0; i < 4; i++) {
+      assert.deepEqual([ho.calls[i].status, ho.calls[i].ok, ho.calls[i].code], [400, false, 'usage.bad-argument'], `第 ${i + 1} 个非法字符串体必须被服务端拒收`);
+    }
+
+    await runDelegateOrchestrator({
+      baseUrl: `http://127.0.0.1:${mockDelegateApi.address().port}`,
+      filmId: 'f_001',
+      workspaceToken: 'ws',
+      brief: '测显式 null 作业体',
+      budget: { tokens: 50000, gpuSeconds: 60, wallSeconds: 60 },
+      endpoint: `http://127.0.0.1:${mockDelegateModel.address().port}/v1`,
+      apiKey: 'akey',
+      directorModel: 'r1-null-check',
+      workerModel: 'r1-null-check',
+      maxSteps: 6,
+    });
+    assert.equal(renderNullReached, false, 'render 显式 body: null 不得放行至服务端');
+    assert.equal(finalizerCalled, true, '必须真实进入收尾员阶段验证 deliver body: null');
+    assert.equal(deliverReachedDuringNullCall, false, '收尾员显式 body: null 调 deliver 时不得放行至服务端');
+    assert.equal(deliverCallCount, 1, '仅允许收尾后兜底调用以合法对象 {tier:"final"} 到达服务端，显式 null 那次必须被拦截');
+    assert.ok(toolRepliesByRole.worker.some((r) => typeof r.refused === 'string' && r.refused.includes('render') && r.refused.includes('JSON 对象')));
+    assert.ok(toolRepliesByRole.finalizer.some((r) => typeof r.refused === 'string' && r.refused.includes('deliver') && r.refused.includes('JSON 对象')));
+
+    for (const wallSec of [150, 240]) {
+      recordedTimeouts.length = 0;
+      AbortSignal.timeout = (ms) => {
+        recordedTimeouts.push(ms);
+        if (ms > 120_000 && ms < 240_000) {
+          const ac = new AbortController();
+          queueMicrotask(() => ac.abort(new DOMException(`wallSeconds ${wallSec} deadline`, 'TimeoutError')));
+          return ac.signal;
+        }
+        return origTimeout(ms);
+      };
+      const wallRes = await runDelegateOrchestrator({
+        baseUrl: `http://127.0.0.1:${mockDelegateApi.address().port}`,
+        filmId: 'f_001',
+        workspaceToken: 'ws',
+        brief: `测 ${wallSec} 秒墙钟预算截止`,
+        budget: { tokens: 50000, gpuSeconds: 60, wallSeconds: wallSec },
+        endpoint: `http://127.0.0.1:${mockSlowModel.address().port}/v1`,
+        apiKey: 'akey',
+        directorModel: 'r1-slow',
+        workerModel: 'r1-slow',
+        signal: wallController.signal,
+      });
+      assert.equal(wallRes.status, 'stopped', `wallSeconds=${wallSec} 必须 stopped`);
+      assert.equal(wallRes.stoppedReason, 'wallSeconds', `wallSeconds=${wallSec} 必须 stoppedReason=wallSeconds`);
+      assert.ok(
+        recordedTimeouts.some((ms) => ms > 120_000 && ms < 240_000 && ms <= wallSec * 1000),
+        `wallSeconds=${wallSec} 必须登记严格小于 240000ms 的截止信号，实际: ${JSON.stringify(recordedTimeouts)}`,
+      );
+    }
+  } finally {
+    AbortSignal.timeout = origTimeout;
+    await api.close();
+    await new Promise((r) => mockAgent.close(r));
+    await new Promise((r) => mockDelegateApi.close(r));
+    await new Promise((r) => mockDelegateModel.close(r));
+    await new Promise((r) => mockSlowModel.close(r));
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test('A19-24: normalizeJsonToolBody 边界（孤立代理码元直击真实 server 400、防包壳注入与 128 层数组深度）', async () => {
+  const loneHigh = '{"brief":"bad\uD800str"}';
+  const loneLow = '{"brief":"bad\uDC00str"}';
+  assert.equal(normalizeJsonToolBody('/v1/films', loneHigh), loneHigh, '含孤立高代理的对象串不得解包');
+  assert.equal(normalizeJsonToolBody('/v1/films', loneLow), loneLow, '含孤立低代理的对象串不得解包');
+  assert.equal(normalizeJsonToolBody('/v1/films', '["\\uD800"]'), '["\\uD800"]', '含转义孤立代理的数组串不得解包');
+
+  // 防止 {"_":...} 包壳注入把非法的 [ ],"extra":[] 当合法数组解包
+  const wrappedBypass = '[],"extra":[]';
+  assert.equal(normalizeJsonToolBody('/v1/films', wrappedBypass), wrappedBypass, '[],"extra":[] 不得绕过包壳解包');
+
+  // 嵌套数组内对象重复键不得解包
+  const dupInArr = '[{"a":1,"a":2}]';
+  assert.equal(normalizeJsonToolBody('/v1/films', dupInArr), dupInArr, '数组内嵌套对象重复键不得解包');
+  assert.deepEqual(
+    normalizeJsonToolBody('/v1/films', '[{"a":1,"b":[2,{"c":3}],"d":4}]'),
+    [{ a: 1, b: [2, { c: 3 }], d: 4 }],
+    '数组内无重复键合法嵌套对象须正常解包',
+  );
+
+  // 128 层空数组应按不包壳真实深度解包，129 层超限保留原串；超过 2 MiB（<= 16 MiB，与 parseRequestText 同口径）的合法数组须正常解包
+  const depth128 = '['.repeat(128) + ']'.repeat(128);
+  const depth129 = '['.repeat(129) + ']'.repeat(129);
+  assert.ok(Array.isArray(normalizeJsonToolBody('/v1/films', depth128)), '128 层空数组须解包为数组');
+  assert.equal(normalizeJsonToolBody('/v1/films', depth129), depth129, '129 层空数组超限须保留原串');
+  const over2MiBArr = `["${'x'.repeat(2 * 1024 * 1024 + 16)}"]`;
+  assert.deepEqual(normalizeJsonToolBody('/v1/films', over2MiBArr), ['x'.repeat(2 * 1024 * 1024 + 16)], '2 MiB 以上（<= 16 MiB）合法数组须按 parseRequestText 同口径解包');
+
+  // 真实 POST /v1/films：含孤立代理码元（高/低代理）的字符串体经 callApi 发送不得被 fetch 静默替换为 U+FFFD，必须返回 400
+  const dataDir = mkdtempSync(join(tmpdir(), 'a19-24-surrogate-'));
+  const ledgerPath = join(dataDir, 'agent-ledger.jsonl');
+  const token = issueAccountToken(dataDir);
+  const api = await startServer({ dataDir, port: 0 });
+  let round = 0;
+  const mockAgent = createServer(async (req, res) => {
+    for await (const _ of req) { /* drain */ }
+    round++;
+    const msg = round === 1
+      ? {
+          role: 'assistant',
+          content: null,
+          tool_calls: [
+            { id: 'tc_surr_hi', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films', body: loneHigh }) } },
+            { id: 'tc_surr_lo', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films', body: loneLow }) } },
+            { id: 'tc_wrap_inj', type: 'function', function: { name: 'http_request', arguments: JSON.stringify({ method: 'POST', path: '/v1/films', body: wrappedBypass }) } },
+          ],
+        }
+      : { role: 'assistant', content: 'done' };
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ model: 'r2-surrogate', choices: [{ message: msg }], usage: { prompt_tokens: 40, completion_tokens: 10 } }));
+  });
+  await new Promise((r) => mockAgent.listen(0, '127.0.0.1', r));
+  try {
+    const res = await runHandsOnAgent({
+      baseUrl: api.url,
+      token,
+      brief: '测孤立代理不被静默替换',
+      ledgerPath,
+      endpoint: `http://127.0.0.1:${mockAgent.address().port}/v1`,
+      apiKey: 'akey',
+      model: 'r2-surrogate',
+      maxSteps: 4,
+    });
+    assert.equal(res.calls.length, 3);
+    for (let i = 0; i < 3; i++) {
+      assert.deepEqual([res.calls[i].status, res.calls[i].ok, res.calls[i].code], [400, false, 'usage.bad-argument'], `第 ${i + 1} 个非法字符串体必须被真实服务端 400 拒收`);
+    }
+  } finally {
+    await api.close();
+    await new Promise((r) => mockAgent.close(r));
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+
 
