@@ -1,5 +1,5 @@
 // 委托只通过工作区 HTTP 接口操作片子。每个角色单独维护消息，子作业在工具内等到终态。
-import { buildShotWorkerMessages, buildToolImageMessage, callApi, chat, DELEGATE_ROLES, estimateChatBodyInputTokens, familyOf, HTTP_TOOL } from './agents.mjs';
+import { buildShotWorkerMessages, buildToolImageMessage, callApi, chat, DELEGATE_ROLES, estimateChatBodyInputTokens, familyOf, HTTP_TOOL, MODEL_TIMEOUT_MS, normalizeJsonToolBody } from './agents.mjs';
 
 export const DELEGATE_HARD_TOKEN_CAP = 1_200_000;
 const SYSTEM = {
@@ -7,6 +7,12 @@ const SYSTEM = {
   'shot-worker': DELEGATE_ROLES['shot-worker'].systemPrompt,
   finalizer: '你是收尾。POST deliver（tier final）出六件套。工具会等到终态，交付完汇报。',
 };
+
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
 
 /** 模型的账户级查询只开放素材、卡和契约。片子的写入与作业等待绑定到本次工作区。 */
 function inScope(method, pathname, root) {
@@ -30,7 +36,7 @@ function ownShotPatch(body, shotId) {
 /** 运行一次委托，交回终态、最后修订、累计成本以及已经验证过的交付产物。 */
 export async function runDelegateOrchestrator({
   baseUrl, accountToken, filmId, workspaceToken, brief, assets = [], budget = {}, endpoint, apiKey, directorModel, workerModel,
-  reserveTokens = 20_000, maxSteps = 12, signal, onUsage,
+  reserveTokens = 20_000, maxSteps = 24, signal, onUsage,
 }) {
   if (!endpoint || !apiKey || !directorModel || !workerModel) throw new TypeError('委托模式缺模型配置');
   if (!Number.isSafeInteger(reserveTokens) || reserveTokens < 1 || !Number.isSafeInteger(maxSteps) || maxSteps < 1) {
@@ -98,9 +104,14 @@ export async function runDelegateOrchestrator({
     if (target.origin !== baseOrigin || !inScope(method, target.pathname, root)) return refuse('该动词不在本片的委托范围内');
     const verb = target.pathname.slice(root.length + 1);
     const isJob = method === 'POST' && ['render', 'verify', 'deliver'].includes(verb);
+    let body = args.body;
+    if (method !== 'GET' && body !== undefined && body !== null) {
+      body = normalizeJsonToolBody(target.pathname, body);
+      if (body !== args.body) args = { ...args, body };
+    }
     if (target.pathname.startsWith(`${root}/`) && method !== 'GET') {
       if (role === 'shot-worker' && method === 'PUT' && verb === 'film') {
-        if (!ownShotPatch(args.body, shot.id)) return refuse(`镜头工只允许用 patch/0.1 修改本镜头 shots/${shot.id}/`);
+        if (!ownShotPatch(body, shot.id)) return refuse(`镜头工只允许用 patch/0.1 修改本镜头 shots/${shot.id}/`);
       } else {
         const allowed = (role === 'director' && method === 'PUT' && verb === 'film') ||
           (role === 'shot-worker' && method === 'POST' && ['observe/query', 'observe/sheet', 'render', 'verify'].includes(verb)) ||
@@ -109,9 +120,12 @@ export async function runDelegateOrchestrator({
       }
     }
     if (isJob) {
+      if (body !== undefined && !isPlainObject(body)) {
+        return refuse(`${verb} 的请求体必须是 JSON 对象`);
+      }
       // 先拿到作业号，才能在取消或预算到期时终止自己提交的子作业。
       target.searchParams.delete('wait');
-      args = { ...args, path: target.pathname + target.search, body: { ...args.body, wait: 0 } };
+      args = { ...args, path: target.pathname + target.search, body: { ...(body ?? {}), wait: 0 } };
       if (verb === 'deliver') Object.assign(args.body, { tier: 'final' });
       if (shot) Object.assign(args.body, { shots: [shot.id], tier: 'draft' });
     }
@@ -200,7 +214,9 @@ export async function runDelegateOrchestrator({
       body.max_tokens = Math.min(stepReserve, maxTokens - usedTokens - serverTokens - inputBound);
       if (body.max_tokens < 1) stop('tokens');
       const remainingMs = budget.wallSeconds * 1000 - elapsed();
-      const deadline = Number.isFinite(remainingMs) && remainingMs < 120_000 ? AbortSignal.timeout(Math.max(1, remainingMs)) : null;
+      const deadline = Number.isFinite(remainingMs) && remainingMs <= MODEL_TIMEOUT_MS
+        ? AbortSignal.timeout(Math.max(1, Math.min(remainingMs, MODEL_TIMEOUT_MS - 1)))
+        : null;
       let res;
       try {
         res = await chat({ endpoint, apiKey, signal: deadline && signal ? AbortSignal.any([signal, deadline]) : deadline ?? signal, body, requireUsage: true });
