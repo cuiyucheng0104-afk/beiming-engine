@@ -224,5 +224,198 @@ class CliTests(unittest.TestCase):
         self.assertIn('来源注记:third-party-files', r.stdout)
 
 
+class CatalogV2Tests(unittest.TestCase):
+    """Step 1 方案 B：结构化增强（id/role/norm_cat/vgroup）、总地图 manifest、FTS5 检索、gid 回填、按需拉取与音频加载。"""
+
+    def _sample_rows(self):
+        return [
+            {
+                'brand': 'BOOM Library', 'sub': 'Mechanicals Designed',
+                'file': 'mech_click_01.wav', 'dir': 'SoundMorph/Mechanicals Designed',
+                'dur': 1.2, 'sr': 96000, 'bits': 24, 'ch': 2,
+                'desc': 'METAL MECHANISM click snap lock', 'cat': 'Engineering', 'subcat': 'Mechanisms',
+            },
+            {
+                'brand': 'BOOM Library', 'sub': 'Mechanicals Designed',
+                'file': 'mech_click_02.wav', 'dir': 'SoundMorph/Mechanicals Designed',
+                'dur': 1.3, 'sr': 96000, 'bits': 24, 'ch': 2,
+                'desc': 'METAL MECHANISM click snap lock', 'cat': 'Engineering', 'subcat': 'Mechanisms',
+            },
+            {
+                'brand': 'Pro Sound Effects', 'sub': 'Pro.Sound.Effects.Shanghai',
+                'file': 'Waitan_AMB_Stereo.wav', 'dir': 'Pro.Sound.Effects.Shanghai/Part-01',
+                'dur': 120.0, 'sr': 96000, 'bits': 24, 'ch': 2,
+                'desc': 'Shanghai riverside crowd ambience traffic', 'cat': 'Ambience', 'subcat': 'City',
+            },
+            {
+                'brand': 'SoundMorph', 'sub': 'SoundMorph.Energy',
+                'file': 'energy_whoosh_passby_01.wav', 'dir': 'SoundMorph/SoundMorph.Energy/Whoosh',
+                'dur': 2.4, 'sr': 96000, 'bits': 24, 'ch': 2,
+                'desc': 'fast energy whoosh passby transition', 'cat': 'Whoosh and Passby', 'subcat': '',
+            },
+        ]
+
+    def test_enrichment_fields_and_variant_grouping(self):
+        rows = self._sample_rows()
+        enriched = [sfx_library.enrich_row(r) for r in rows]
+        # 稳定短 ID（同路径同 ID）
+        self.assertTrue(all(r['id'] for r in enriched))
+        self.assertEqual(enriched[0]['id'], sfx_library.stable_id('SoundMorph/Mechanicals Designed/mech_click_01.wav'))
+        self.assertNotEqual(enriched[0]['id'], enriched[1]['id'])
+        # role 与 norm_cat
+        self.assertEqual(enriched[0]['role'], 'oneshot')
+        self.assertEqual(enriched[0]['norm_cat'], 'mechanical')
+        self.assertEqual(enriched[2]['role'], 'bed')
+        self.assertEqual(enriched[2]['norm_cat'], 'ambience')
+        self.assertEqual(enriched[3]['role'], 'transition')
+        # 变体组名去掉尾部 _01 / _02
+        self.assertEqual(enriched[0]['vgroup'], enriched[1]['vgroup'])
+        # group_variants=True 合并同类变体
+        grouped = sfx_library.search('metal click', index=rows, group_variants=True)
+        self.assertEqual(len(grouped), 1)
+        self.assertEqual(grouped[0]['variant_count'], 2)
+        self.assertEqual(len(grouped[0]['variants']), 2)
+        # role / norm_cat 过滤
+        beds = sfx_library.search(index=rows, role='bed')
+        self.assertEqual([h['file'] for h in beds], ['Waitan_AMB_Stereo.wav'])
+        mechs = sfx_library.search(index=rows, norm_cat='mechanical')
+        self.assertEqual(len(mechs), 2)
+
+    def test_manifest_build_and_committed_manifest(self):
+        rows = self._sample_rows()
+        m = sfx_library.build_manifest(rows)
+        self.assertEqual(m['schema'], 'beiming.sfx-manifest/1')
+        self.assertEqual(m['stats']['total'], 4)
+        self.assertIn('gdrive', m['source']['provider'])
+        self.assertIn('mechanical', m['categories'])
+        self.assertIn('ambience', m['categories'])
+        self.assertIn('oneshot', m['roles'])
+        # 仓库内置总地图存在且不含内网 IP / 本机路径
+        self.assertTrue(sfx_library.MANIFEST_PATH.exists())
+        cm = sfx_library.load_manifest()
+        raw = json.dumps(cm, ensure_ascii=False)
+        self.assertNotIn('192.168.', raw)
+        self.assertNotIn('/Users/', raw)
+        self.assertEqual(cm['stats']['total'], 15784)
+
+    def test_fts5_cache_search_and_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            idx = os.path.join(tmp, 'index.jsonl')
+            cache_dir = os.path.join(tmp, 'cache')
+            sfx_library.write_index(self._sample_rows(), idx)
+            hits = sfx_library.search('metal click', index_path=idx, cache_dir=cache_dir)
+            self.assertEqual(len(hits), 2)
+            self.assertTrue(os.path.exists(os.path.join(cache_dir, 'index.sqlite')))
+            # 第二次命中已有 sqlite 缓存
+            hits2 = sfx_library.search('shanghai ambience', index_path=idx, cache_dir=cache_dir, role='bed')
+            self.assertEqual([h['file'] for h in hits2], ['Waitan_AMB_Stereo.wav'])
+
+    def test_info_and_backfill_gids_roundtrip(self):
+        rows = self._sample_rows()
+        lsjson = [
+            {'Path': 'SoundMorph/Mechanicals Designed/mech_click_01.wav', 'ID': '1AbCdEfGhIjKlMnOpQrStUvWxYz', 'IsDir': False},
+            {'Path': '/Pro.Sound.Effects.Shanghai/Part-01/Waitan_AMB_Stereo.wav', 'ID': '2ZyXwVuTsRqPoNmLkJiHgFeDcBa', 'IsDir': False},
+            {'Path': 'SoundMorph/Mechanicals Designed', 'ID': 'dir-ignored', 'IsDir': True},
+        ]
+        updated, stats = sfx_library.backfill_gids(rows, lsjson)
+        self.assertEqual(stats['matched'], 2)
+        self.assertEqual(stats['total'], 4)
+        with tempfile.TemporaryDirectory() as tmp:
+            idx = os.path.join(tmp, 'index.jsonl')
+            sfx_library.write_index(updated, idx)
+            reloaded = sfx_library.load_index(idx)
+            target_id = sfx_library.stable_id('SoundMorph/Mechanicals Designed/mech_click_01.wav')
+            item = sfx_library.info(target_id, index=reloaded)
+            self.assertEqual(item['gid'], '1AbCdEfGhIjKlMnOpQrStUvWxYz')
+            self.assertEqual(len(item['variants']), 2)
+
+    def test_fetch_on_demand_cache_and_path_traversal_guard(self):
+        rows = self._sample_rows()
+        rows[0]['gid'] = 'fake-gdrive-id-001'
+        target_id = sfx_library.stable_id('SoundMorph/Mechanicals Designed/mech_click_01.wav')
+        calls = []
+
+        def fake_downloader(entry, dest_path):
+            calls.append((entry['gid'], dest_path))
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            with open(dest_path, 'wb') as f:
+                f.write(b'RIFFdemo')
+
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {k: v for k, v in os.environ.items() if k not in (sfx_library.ENV_ROOT, sfx_library.ENV_REMOTE)}
+            with mock.patch.dict(os.environ, env, clear=True):
+                p1 = sfx_library.fetch(target_id, index=rows, cache_dir=tmp, downloader=fake_downloader)
+                p2 = sfx_library.fetch(target_id, index=rows, cache_dir=tmp, downloader=fake_downloader)
+                self.assertEqual(p1, p2)
+                self.assertEqual(len(calls), 1)  # 第二次走本地缓存，不重复下载
+                # 无 gid 且无 remote 必须明确报错，不静默吞掉
+                with self.assertRaises(sfx_library.SfxFetchError):
+                    sfx_library.fetch('SoundMorph/Mechanicals Designed/mech_click_02.wav', index=rows, cache_dir=tmp)
+                # 路径穿越防护
+                with self.assertRaises(sfx_library.SfxFetchError):
+                    sfx_library.resolve('../etc/passwd', index=rows, cache_dir=tmp)
+                # 拼错的短 ID 应明确报索引找不到，而不是误当相对路径
+                with self.assertRaises(sfx_library.SfxFetchError) as cm_id:
+                    sfx_library.resolve('sfx_0000000000', index=rows, cache_dir=tmp)
+                self.assertIn('找不到短 ID', str(cm_id.exception))
+                # 直链下载遇到网络异常应转为 SfxFetchError（不抛裸 OSError）
+                with mock.patch('shutil.which', return_value=None), \
+                     mock.patch('urllib.request.urlopen', side_effect=OSError('network down')):
+                    rows[1]['gid'] = 'fake-gid-net-err'
+                    with self.assertRaises(sfx_library.SfxFetchError) as cm_net:
+                        sfx_library.fetch('SoundMorph/Mechanicals Designed/mech_click_02.wav', index=rows, cache_dir=tmp)
+                    self.assertIn('network down', str(cm_net.exception))
+
+    def test_load_audio_one_shot_and_bed_deterministic(self):
+        try:
+            import numpy as np
+            import soundfile as sf
+        except ImportError:
+            self.skipTest('numpy/soundfile unavailable')
+        rows = self._sample_rows()
+        with tempfile.TemporaryDirectory() as tmp:
+            # 写一个 24kHz 单声道短 WAV，验证重采样到 48kHz 立体声 float64
+            rel_dir = os.path.join(tmp, 'SoundMorph', 'Mechanicals Designed')
+            os.makedirs(rel_dir, exist_ok=True)
+            t = np.arange(24000, dtype=np.float32) / 24000.0
+            sig = 0.25 * np.sin(2 * np.pi * 440.0 * t)
+            sf.write(os.path.join(rel_dir, 'mech_click_01.wav'), sig, 24000)
+            sf.write(os.path.join(rel_dir, 'mech_click_02.wav'), sig * 0.8, 24000)
+            with mock.patch.dict(os.environ, {sfx_library.ENV_ROOT: tmp}):
+                x = sfx_library.load_audio('SoundMorph/Mechanicals Designed/mech_click_01.wav', index=rows)
+                self.assertEqual(x.dtype, np.float64)
+                self.assertEqual(x.ndim, 2)
+                self.assertEqual(x.shape[1], 2)
+                self.assertAlmostEqual(len(x) / 48000.0, 1.0, places=2)
+                # one_shot 确定性
+                pool = ['SoundMorph/Mechanicals Designed/mech_click_01.wav', 'SoundMorph/Mechanicals Designed/mech_click_02.wav']
+                a1 = sfx_library.one_shot(pool, seed=99, index=rows)
+                a2 = sfx_library.one_shot(pool, seed=99, index=rows)
+                self.assertTrue(np.array_equal(a1, a2))
+                # bed 无缝循环到精确长度 2.5s
+                b = sfx_library.bed('SoundMorph/Mechanicals Designed/mech_click_01.wav', dur=2.5, seed=7, xfade=0.1, index=rows)
+                self.assertEqual(b.shape, (int(round(2.5 * 48000)), 2))
+
+    def test_cli_manifest_info_and_backfill(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            idx = os.path.join(tmp, 'index.jsonl')
+            man = os.path.join(tmp, 'manifest.json')
+            lsj = os.path.join(tmp, 'lsjson.json')
+            sfx_library.write_index(self._sample_rows(), idx)
+            with open(lsj, 'w', encoding='utf-8') as f:
+                json.dump([{'Path': 'SoundMorph/Mechanicals Designed/mech_click_01.wav', 'ID': 'gid-xyz', 'IsDir': False}], f)
+            r = _cli('backfill-gids', '--lsjson', lsj, '--index', idx, '--out', idx, '--manifest', man, '--folder-id', 'folder-123', '--json')
+            self.assertEqual(r.returncode, 0, r.stderr)
+            data = json.loads(r.stdout)['data']
+            self.assertEqual(data['matched'], 1)
+            r2 = _cli('manifest', '--manifest', man, '--json')
+            self.assertEqual(r2.returncode, 0, r2.stderr)
+            self.assertEqual(json.loads(r2.stdout)['data']['source']['folder_id'], 'folder-123')
+            tid = sfx_library.stable_id('SoundMorph/Mechanicals Designed/mech_click_01.wav')
+            r3 = _cli('info', tid, '--index', idx, '--json')
+            self.assertEqual(r3.returncode, 0, r3.stderr)
+            self.assertEqual(json.loads(r3.stdout)['data']['gid'], 'gid-xyz')
+
+
 if __name__ == '__main__':
     unittest.main()

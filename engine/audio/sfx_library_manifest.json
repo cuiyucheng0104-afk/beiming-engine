@@ -1,0 +1,209 @@
+{
+  "schema": "beiming.sfx-manifest/1",
+  "index_file": "engine/audio/sfx_library_index.jsonl",
+  "source": {
+    "provider": "gdrive",
+    "folder_id": "10MgXBFKPQUnwQiboM-7ByqaXtaPxp5Ju",
+    "folder_url": "https://drive.google.com/drive/folders/10MgXBFKPQUnwQiboM-7ByqaXtaPxp5Ju",
+    "rclone_remote": "gdrive:beiming-sfx",
+    "env_remote": "BEIMING_SFX_REMOTE",
+    "env_cache": "BEIMING_SFX_CACHE",
+    "env_root": "BEIMING_SFX_ROOT",
+    "rights": "owner-confirmed"
+  },
+  "stats": {
+    "total": 15784,
+    "active": 15639,
+    "defective": 145,
+    "with_gid": 15784,
+    "sublibraries": 19
+  },
+  "roles": {
+    "oneshot": {
+      "count": 10137,
+      "desc": "短促单发拟音/打击/提示音（<=4s）"
+    },
+    "transition": {
+      "count": 1330,
+      "desc": "转场/扫频/破空/蓄力变换（<=12s）"
+    },
+    "bed": {
+      "count": 1209,
+      "desc": "长环境底/持续氛围（>=10s，适合循环铺底）"
+    },
+    "sequence": {
+      "count": 3108,
+      "desc": "中长段连续动作/多段机械或演化事件"
+    }
+  },
+  "categories": {
+    "ambience": {
+      "count": 120,
+      "desc": "环境底噪与城市/自然实景（上海外滩、人群、交通、房间底、风雨）"
+    },
+    "mechanical": {
+      "count": 2544,
+      "desc": "机械机关、金属咬合、伺服电机、齿轮与门锁"
+    },
+    "impact": {
+      "count": 203,
+      "desc": "撞击、重击、落物、拳击与低频冲击"
+    },
+    "whoosh": {
+      "count": 1536,
+      "desc": "破空、挥砍、飞掠、扫频、转场与上升音"
+    },
+    "energy": {
+      "count": 576,
+      "desc": "能量、电流、雷电、等离子、蓄力与充放电"
+    },
+    "ui_scifi": {
+      "count": 2728,
+      "desc": "科幻界面、按键提示音、全息、雷达、警报与故障音"
+    },
+    "weapon": {
+      "count": 2479,
+      "desc": "枪械、炮火、激光武器、爆炸与装弹"
+    },
+    "creature": {
+      "count": 3002,
+      "desc": "怪兽、生物吼叫、动物虫鸟与奇幻生物"
+    },
+    "debris": {
+      "count": 1439,
+      "desc": "碎裂、石块、木头、玻璃、金属残片与坍塌"
+    },
+    "foley": {
+      "count": 64,
+      "desc": "拟音脚步、衣物摩擦、身体动作与日常器物"
+    },
+    "vocal": {
+      "count": 318,
+      "desc": "人声呼喊、呼吸、低语、嘶吼与实验人声"
+    },
+    "drone": {
+      "count": 290,
+      "desc": "持续低鸣、嗡鸣、紧张氛围与噪声底"
+    },
+    "other": {
+      "count": 485,
+      "desc": "其他设计音效与实验素材"
+    }
+  },
+  "sublibraries": {
+    "SoundMorph.Monster_Within": {
+      "brand": "SoundMorph",
+      "count": 3067,
+      "note": "怪兽攻击、吼叫、脚步、呼吸、肉体打击与变身",
+      "source_residue": false
+    },
+    "SoundMorph.Robotic Lifeforms": {
+      "brand": "SoundMorph",
+      "count": 2672,
+      "note": "机器人变形、伺服、金属摩擦、脚步与电子人声",
+      "source_residue": false
+    },
+    "SoundMorph.Users of Tomorrow": {
+      "brand": "SoundMorph",
+      "count": 1877,
+      "note": "未来 UI 交互、全息屏、按键、故障与警报",
+      "source_residue": false
+    },
+    "SoundMorph.Matter Mayhem": {
+      "brand": "SoundMorph",
+      "count": 1396,
+      "note": "石块/木头/玻璃/金属爆破、碎裂与坍塌",
+      "source_residue": false
+    },
+    "SoundMorph.Mechanism": {
+      "brand": "SoundMorph",
+      "count": 769,
+      "note": "精密机械机关、齿轮与机器人机械动作",
+      "source_residue": false
+    },
+    "SoundMorph.Future.Weapons.3": {
+      "brand": "SoundMorph",
+      "count": 756,
+      "note": "全套科幻步枪/狙击/激光/扫描护盾与装弹",
+      "source_residue": false
+    },
+    "SoundMorph.Steampunk.Weapons": {
+      "brand": "SoundMorph",
+      "count": 648,
+      "note": "蒸汽朋克机械枪械、喷火与脉冲武器",
+      "source_residue": false
+    },
+    "SoundMorph.Energy": {
+      "brand": "SoundMorph",
+      "count": 606,
+      "note": "电流、雷电、粒子、充放电、能量武器与破空",
+      "source_residue": false
+    },
+    "SoundMorph - Future Weapons 2": {
+      "brand": "SoundMorph",
+      "count": 527,
+      "note": "重型科幻枪械、等离子炮、爆炸与分层源素材",
+      "source_residue": true
+    },
+    "SoundMorph.Bloody Nightmare": {
+      "brand": "SoundMorph",
+      "count": 516,
+      "note": "暗黑惊悚冲击、低语、脉冲、氛围与上升音",
+      "source_residue": false
+    },
+    "SoundMorph - Future Weapons 1": {
+      "brand": "SoundMorph",
+      "count": 467,
+      "note": "科幻联盟/反抗军武器、激光与装弹拟音",
+      "source_residue": true
+    },
+    "SoundMorph.Inner.Circle.Transient.Foundations": {
+      "brand": "SoundMorph",
+      "count": 461,
+      "note": "电影级瞬态底鼓、军鼓、节奏切片与合成打击",
+      "source_residue": true
+    },
+    "SoundMorph.Tension": {
+      "brand": "SoundMorph",
+      "count": 438,
+      "note": "悬疑低鸣、水琴摩擦、扭曲噪声与氛围铺底",
+      "source_residue": false
+    },
+    "SoundMorph.Portals": {
+      "brand": "SoundMorph",
+      "count": 419,
+      "note": "中世纪/科幻/石门/传送门开关与空间跃迁",
+      "source_residue": true
+    },
+    "SoundMorph.Solar Sky": {
+      "brand": "SoundMorph",
+      "count": 394,
+      "note": "飞船舱门、启停、引擎氛围与星际飞掠",
+      "source_residue": false
+    },
+    "Pro Sound Effects - First": {
+      "brand": "Pro Sound Effects",
+      "count": 350,
+      "note": "通用自然/城市/人群/器物与拟音精选",
+      "source_residue": false
+    },
+    "SoundMorph.Road Riders": {
+      "brand": "SoundMorph",
+      "count": 292,
+      "note": "摩托车引擎、加速、减速与飞掠",
+      "source_residue": false
+    },
+    "Mechanicals Designed": {
+      "brand": "BOOM Library",
+      "count": 96,
+      "note": "BOOM 大型金属机械与复杂机关咬合设计",
+      "source_residue": false
+    },
+    "Pro.Sound.Effects.Shanghai": {
+      "brand": "Pro Sound Effects",
+      "count": 33,
+      "note": "上海外滩/南京路/古镇/地铁/磁悬浮实景立体声环境底",
+      "source_residue": false
+    }
+  }
+}

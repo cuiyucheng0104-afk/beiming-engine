@@ -89,6 +89,7 @@
     "audio:erb": "node tools/audio/erb.mjs",
     "audio:foundry": "node tools/audio/foundry.mjs",
     "audio:samples": "node tools/audio/fetch-samples.mjs",
+    "audio:sfx": "node tools/env/py.mjs tools/sfx_library.py",
     "fonts:fetch": "node tools/fonts/fetch.mjs",
     "fonts:subset": "node tools/fonts/subset.mjs",
     "plates:check": "node tools/plates/check.mjs",
