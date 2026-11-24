@@ -4,9 +4,9 @@
 #                  两片合起来覆盖（同一台 Ubuntu、同一个 Node 24，只是多了浏览器与 FFmpeg），不再另起一个重复的 unit (Node 24)。
 #   check          node tools/check-all.mjs --skip tests（= npm run check，测试在 unit 与 render 里跑）：仓库规范、工程计划、风格索引、案例库、
 #                  导演规范、语法、更新日志；eslint 与 ruff 只报告告警数、不阻塞。
-#   render         无显卡（SwiftShader 软件 WebGL）+ FFmpeg 8 + 锁定版本的 headless shell，三路并行（matrix.part，环境准备各做一份）：
-#                  tests-beiming / tests-rest  全部测试再跑一遍（这次浏览器与 FFmpeg 都在，渲染失败夹具、GPU 回归、混音测试都会真跑），
-#                         分两片并行：beiming + audio 一片，其余域（--skip 同一组）一片，新增的域自动落进后一片，不会漏；
+#   render         无显卡（SwiftShader 软件 WebGL）+ FFmpeg 8 + 锁定版本的 headless shell，四路并行（matrix.part，环境准备各做一份）：
+#                  tests-beiming / tests-beiming-api / tests-rest  全部测试再跑一遍（这次浏览器与 FFmpeg 都在，渲染失败夹具、GPU 回归、混音测试都会真跑），
+#                         分三片并行：beiming + audio 一片，beiming-api 一片，其余域（--skip 同一组并集）一片，新增的域自动落进后一片，不会漏；
 #                  smoke  tests/ci/smoke-render.mjs：A / C 模版小尺寸出片并核对规格，B 模版资产桥导出并核对可复现，
 #                         《北冥》与 lab 静帧，与 linux-swiftshader 金标准比对（还没有清单时首次采集并上传工件）。
 #   smoke-render   汇总 render 各路：都通过才绿。检查名与产物名（smoke-render，release.yml 取接触印与静帧）沿用拆分前，
@@ -150,8 +150,10 @@ jobs:
         include:
           - part: tests-beiming
             tests_args: --only beiming,audio
+          - part: tests-beiming-api
+            tests_args: --only beiming-api
           - part: tests-rest
-            tests_args: --skip beiming,audio
+            tests_args: --skip beiming,beiming-api,audio
           - part: smoke
     env:
       # 没有显卡：Chrome 的 WebGL 走 ANGLE + SwiftShader；金标准的平台键因此是 linux-swiftshader

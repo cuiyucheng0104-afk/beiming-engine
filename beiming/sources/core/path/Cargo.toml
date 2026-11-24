@@ -41,8 +41,9 @@ base64 = "0.23"
 
 # src/merged.rs's tests read the generated shaders with the compiler wgpu uses: they are valid, and no stage binds more
 # storage buffers than a browser allows.
+# 北冥：另开两个后端（SPIR-V、MSL）：库测试让内核的每个变体都过一遍两个后端的代码生成（src/gpu.rs `codegen_valid`）。
 [dev-dependencies]
-naga = { version = "30", features = ["wgsl-in"] }
+naga = { version = "30", features = ["wgsl-in", "spv-out", "msl-out"] }
 
 [features]
 # Intel Open Image Denoise (needs OIDN_DIR at build time and the shared libs at runtime).

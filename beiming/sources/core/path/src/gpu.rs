@@ -1,4 +1,11 @@
 // 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/src/gpu.rs，MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
+// SPDX-FileCopyrightText: 2026 Meshy LLC
+// SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-License-Identifier: MIT AND Apache-2.0
+// 多方许可。上游的与北冥新写的部分是 MIT。照 Cycles（Blender v5.2.3，路径相对 intern/cycles/）取的部分是 Apache-2.0
+// （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
+//   积分器参数块 KernelIntegrator 的字段名（pass_kind、background_transparent 是这里自己的）：kernel/data_template.h
 //! Headless wgpu backend: uploads the flattened scene once, accumulates path-traced samples, reads back HDR.
 
 use crate::heap::{Heap, Live, Section, Stream, Table};
@@ -78,6 +85,99 @@ struct ProcCache {
     bytes: u64,
 }
 
+/// 北冥：积分器的参数（pathtrace.wgsl `KernelIntegrator`），字段名照 Cycles。只定义、内核还没读的字段是 0。
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct KernelIntegrator {
+    pub max_bounce: u32,
+    pub max_diffuse_bounce: u32,
+    pub max_glossy_bounce: u32,
+    pub max_transmission_bounce: u32,
+    pub transparent_max_bounce: u32,
+    pub transparent_min_bounce: u32,
+    pub min_bounce: u32,
+    pub sampling_pattern: u32,
+    pub sample_clamp_direct: f32,
+    pub sample_clamp_indirect: f32,
+    pub filter_glossy: f32,
+    pub light_inv_rr_threshold: f32,
+    /// 用户种子过一次 `sample::hash_hp` 之后的值（`KernelIntegrator::new`）。内核的像素种子从这里来（sample.wgsl 的
+    /// `rng_start`）。
+    pub seed: u32,
+    /// Sobol 打乱后的索引取哪几位（sample.wgsl 的 `rng_index_at` 读它）。为 0 时每个样本取同一个点：`Gpu::render` 开渲前
+    /// 报错。
+    pub sobol_index_mask: u32,
+    /// 0 颜色样本，1 辅助样本。
+    pub pass_kind: u32,
+    pub background_transparent: u32,
+}
+
+/// 上游写死的 Sobol 索引掩码：打乱后的索引取高 16 位（65536 个样本之后重复）。经 `KernelIntegrator::new` 进全局参数。
+pub const SOBOL_INDEX_MASK: u32 = 0xffff_0000;
+
+impl KernelIntegrator {
+    /// 一次渲染的积分器参数：`seed` 是用户给的种子（`rng_seed`），进缓冲的是它过一次哈希之后的值。
+    pub fn new(seed: u32) -> KernelIntegrator {
+        KernelIntegrator { seed: crate::sample::hash_hp(seed), sobol_index_mask: SOBOL_INDEX_MASK, ..Default::default() }
+    }
+}
+
+/// 北冥：输出缓冲的形状（pathtrace.wgsl `KernelFilm`）。
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct KernelFilm {
+    /// 每个像素占几个 vec4。
+    pub film_stride: u32,
+    /// 第 0 个灯组在像素里的位置。
+    pub film_lightgroup_first: u32,
+    /// 这次渲染请求的灯组数。
+    pub num_lightgroups: u32,
+    pub reserved: u32,
+}
+
+/// 北冥：输出缓冲 film 固定部分各通道的位置（film.wgsl 里同名，库测试逐个比数值）：颜色与样本数、降噪用的反照率
+/// 与法线、上游降噪用的两个方差量、上游 `--signals` 的两组、辅助样本的两格。第 8、9 格预留。
+pub const FILM_COMBINED: u32 = 0;
+pub const FILM_DENOISE_ALBEDO: u32 = 1;
+pub const FILM_DENOISE_NORMAL: u32 = 2;
+pub const FILM_LEGACY_VARIANCE: u32 = 3;
+pub const FILM_LEGACY_EMIT: u32 = 4;
+pub const FILM_LEGACY_SPEC: u32 = 5;
+pub const FILM_AUX_DATA: u32 = 6;
+pub const FILM_AUX_NORMAL: u32 = 7;
+/// 输出缓冲里每个像素固定部分的长度（vec4 个数）：灯组排在它后面。内核不写死这个数，从 `KernelFilm` 读。
+pub const FILM_FIXED: u32 = 10;
+/// 每个像素的步长向上取到这个数的倍数（4 个 vec4 是 64 字节）。量出来的：苹果显卡上步长 10、11 比步长 12、16 的
+/// 稳态慢 5%（同样只写前四格），每个像素的记录对不齐 64 字节时写起来就慢。多出来的格子没人读写。
+pub const FILM_STRIDE_ALIGN: u32 = 4;
+
+/// 输出缓冲的字节数：每个像素 `film_stride` 个 vec4。`limit` 是显卡单个缓冲绑定的上限（也不许超过单个缓冲的上限）：
+/// 超过就报错，并写明这个分辨率下这次最多能要几个灯组。形状对不上（不是 `KernelFilm::new` 填的）也报错。
+pub fn film_bytes(w: u32, h: u32, film: &KernelFilm, limit: u64) -> Result<u64> {
+    if film.film_lightgroup_first < FILM_FIXED || film.film_stride < film.film_lightgroup_first + film.num_lightgroups {
+        return Err(anyhow!("全局参数的 film 一块形状不对（{film:?}）：用 KernelFilm::new 填"));
+    }
+    let per_vec4 = w as u64 * h as u64 * 16;
+    let bytes = per_vec4 * film.film_stride as u64;
+    if bytes > limit {
+        // （步长是 FILM_STRIDE_ALIGN 的倍数：放得下的最大步长先向下取整，再减去固定部分。）
+        let most = (limit / per_vec4.max(1) / FILM_STRIDE_ALIGN as u64 * FILM_STRIDE_ALIGN as u64).saturating_sub(film.film_lightgroup_first as u64);
+        return Err(anyhow!(
+            "输出缓冲要 {bytes} 字节（{w}×{h}，每个像素 {} 个 vec4），超过这块显卡单个缓冲绑定的上限 {limit} 字节：这个分辨率下这次最多能要 {most} 个灯组（请求了 {} 个），多出来的分几次渲",
+            film.film_stride,
+            film.num_lightgroups
+        ));
+    }
+    Ok(bytes)
+}
+
+impl KernelFilm {
+    /// 请求 `num_lightgroups` 个灯组的一次渲染的输出缓冲形状。
+    pub fn new(num_lightgroups: u32) -> KernelFilm {
+        KernelFilm { film_stride: (FILM_FIXED + num_lightgroups).next_multiple_of(FILM_STRIDE_ALIGN), film_lightgroup_first: FILM_FIXED, num_lightgroups, reserved: 0 }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable, Default)]
 pub struct Params {
@@ -138,6 +238,12 @@ pub struct Params {
     /// the last four's lengths. As written: zeros (the kernel asks the buffers).
     pub live_first: [[u32; 4]; 2],
     pub live_len: [u32; 4],
+    /// 北冥：末尾追加的三块（pathtrace.wgsl 同名）。已有的块长度冻结，要加东西就在末尾再追加自己的一整块。
+    pub integrator: KernelIntegrator,
+    pub film: KernelFilm,
+    /// 北冥加的表的首地址（`heap::Table` 里排在上游 12 张之后的，`Uploaded::place`）：物体扩展表、图案节点表、
+    /// 广义 Schlick 的两张能量表；后四格空闲。还没有的表是 0。
+    pub table_first_ext: [[u32; 4]; 2],
 }
 
 /// Room the live view's in-place geometry edits grow into (live/edits.rs `edit_geometry`), past the scene's own data:
@@ -296,7 +402,7 @@ struct SceneBuffers<'a> {
     heap: &'a Heap<Table>,
     words: &'a Heap<Stream>,
     prev_verts: &'a wgpu::Buffer,
-    accum: &'a wgpu::Buffer,
+    film: &'a wgpu::Buffer,
     parts: &'a BindParts,
     accel: Option<&'a Accel>,
     uniform: Option<&'a [wgpu::Buffer; 4]>,
@@ -316,9 +422,8 @@ pub struct Uploaded {
     /// `UNIFORM_TABLES`' order; `Gpu::sync_tables` copies their sections there each frame).
     pub uniform: Option<[wgpu::Buffer; 4]>,
     /// The trace's samples, a `Pixel` a pixel: the view's buffer (a live view's targets', an offline render's own:
-    /// `accum_buffer`). A handle of it here, for the scene's bind group, where the kernel's layout has it;
-    /// `Gpu::set_accum` gives it another (a view of another size).
-    pub accum: wgpu::Buffer,
+    /// `film_buffer`). A handle of it here, for the scene's bind group, where the kernel's layout has it.
+    pub film: wgpu::Buffer,
     pub params: wgpu::Buffer,
     /// Kernel specialisation for this scene (`Gpu::pipeline`).
     pub kernel: Kernel,
@@ -356,6 +461,7 @@ impl Uploaded {
     pub fn place(&self, p: &mut Params) {
         let first = self.heap.firsts();
         p.table_first = std::array::from_fn(|k| std::array::from_fn(|j| first.get(k * 4 + j).copied().unwrap_or(0)));
+        p.table_first_ext = std::array::from_fn(|k| std::array::from_fn(|j| first.get(12 + k * 4 + j).copied().unwrap_or(0)));
         let first = self.words.firsts();
         p.word_first = std::array::from_fn(|k| first.get(k).copied().unwrap_or(0));
     }
@@ -421,11 +527,21 @@ pub fn instance_mask(cast_shadow: bool, hidden: bool) -> u8 {
 const RECORDS: &str = include_str!("../shaders/records.wgsl");
 
 /// (pathtrace.wgsl first: a module's imports and directives come before its declarations.)
-const KERNEL_FILES: [&str; 8] = [
+/// 北冥：内核主体按阶段分成了几个文件（pathtrace.wgsl 的开头列着哪个阶段在哪个文件）。
+const KERNEL_FILES: [&str; 16] = [
     include_str!("../shaders/pathtrace.wgsl"),
     RECORDS,
     include_str!("../shaders/sample.wgsl"),
+    // 北冥：照 Cycles 移植的哈希函数（像素种子用）
+    include_str!("../shaders/hash.wgsl"),
+    include_str!("../shaders/intersect.wgsl"),
     include_str!("../shaders/trace_hw.wgsl"),
+    include_str!("../shaders/shader.wgsl"),
+    include_str!("../shaders/closure.wgsl"),
+    include_str!("../shaders/light.wgsl"),
+    include_str!("../shaders/volume.wgsl"),
+    include_str!("../shaders/integrator.wgsl"),
+    include_str!("../shaders/film.wgsl"),
     // 北冥：照 Cycles 移植的 GGX 金属闭包与矩形面光采样（原文件在 beiming/sources/core/shaders/，仓库里只此一份）
     include_str!("../../shaders/microfacet.wgsl"),
     include_str!("../../shaders/util.wgsl"),
@@ -436,6 +552,38 @@ const KERNEL_FILES: [&str; 8] = [
 /// The kernel's source: its files as one WESL module, every device's and scene's variant in it under `@if`.
 pub fn kernel_template() -> String {
     KERNEL_FILES.join("\n")
+}
+
+/// 北冥：去掉着色器源码里的注释（`//` 到行尾，`/* */` 可以嵌套），换行留着。按源码文本查写法的几条测试先过这一道：
+/// 被注释掉的语句不算在，夹在名字与括号之间的注释也挡不住匹配。
+#[cfg(test)]
+pub(crate) fn without_comments(src: &str) -> String {
+    let (mut out, mut depth, mut line) = (String::with_capacity(src.len()), 0usize, false);
+    let mut it = src.chars().peekable();
+    while let Some(c) = it.next() {
+        let next = it.peek().copied();
+        if line {
+            line = c != '\n';
+        } else if c == '/' && next == Some('*') {
+            depth += 1;
+            it.next();
+            continue;
+        } else if depth > 0 {
+            if c == '*' && next == Some('/') {
+                depth -= 1;
+                it.next();
+                continue;
+            }
+        } else if c == '/' && next == Some('/') {
+            line = true;
+            it.next();
+            continue;
+        }
+        if c == '\n' || !(line || depth > 0) {
+            out.push(c);
+        }
+    }
+    out
 }
 
 /// What a kernel is compiled for (pathtrace.wgsl's head names the flags): the device's traversal, switches, binding
@@ -822,8 +970,6 @@ pub const CACHE_SIZE: u64 = 1 << 18;
 /// The kernel's `finish` pass (pathtrace.wgsl): a record's bytes (DEFERRED_VECS vec4s) after the 16 of their count,
 /// and the invocations of a dispatch row (DEFERRED_ROW).
 pub const DEFERRED_BYTES: u64 = 96;
-/// The bytes of a traced pixel's samples (records.wgsl `Pixel`), in a view's buffer of them (`Gpu::accum_buffer`).
-pub const SAMPLE_BYTES: u64 = 80;
 
 /// A buffer, or a range of one: in the merged layout (merged.rs) several of the engine's buffers are ranges of the one
 /// buffer a binding holds.
@@ -1117,6 +1263,9 @@ pub const F_GRID: u32 = 1 << 25;
 /// guided live by the light tiles (pathtrace.wgsl "Light tiles"; the live view's `light_tiles` pass runs for such a
 /// scene).
 pub const F_LISTS: u32 = 1 << 27;
+/// 北冥：有材质的边缘色（`GpuMaterial::specular_tint`）不是白：材质求值从材质记录读它。别的场景里内核编译期取白，
+/// F82 的 B 项跟着是编译期的 0（一律从记录读时，没有金属的场景稳态也慢 4%）。
+pub const F_SPECULAR_TINT: u32 = 1 << 28;
 /// Whether a scene with more such lights has the light tiles (`F_LISTS`): `THREERT_LIGHT_TILES=1|0`, else everywhere
 /// but Android. On Adreno 740 they took OpenStrikeRT's Foundry from 31 to 48 ms a frame (249 x 140, one bounce):
 /// there the lights are resampled as in a scene of fewer, unguided (docs/RUNTIME.md "Android").
@@ -1213,6 +1362,9 @@ pub fn features_of(ms: &[crate::scene::GpuMaterial], environment: u32, textures:
     if ms.iter().any(|m| m.tex1[2] == crate::scene::MAT_UNLIT) {
         f |= F_UNLIT;
     }
+    if ms.iter().any(|m| m.specular_tint != [1.0; 3]) {
+        f |= F_SPECULAR_TINT;
+    }
     if huge(groups, instanced) {
         f |= F_HUGE;
     }
@@ -1245,6 +1397,8 @@ pub struct Frame {
     pub specular: Vec<[f32; 3]>,
     /// Variance of the per-pixel mean luminance.
     pub variance: Vec<f32>,
+    /// 北冥：这次渲染请求的每个灯组一层（每个像素的均值），没请求就是空的。现在还没有贡献写进灯组：全 0。
+    pub lightgroups: Vec<Vec<[f32; 3]>>,
     pub samples: u32,
 }
 
@@ -1422,10 +1576,13 @@ impl Gpu {
             .clone()
     }
 
-    /// A view's buffer of the trace's samples (`Uploaded::accum`): a `Pixel` a pixel, the largest buffer a view holds
+    /// A view's buffer of the trace's samples (`Uploaded::film`; film.wgsl `film`): `film.film_stride` vec4s a pixel
+    /// (北冥：开渲前先按显卡的上限算大小，`film_bytes`), the largest buffer a view holds
     /// (`view_fits`).
-    pub fn accum_buffer(&self, w: u32, h: u32) -> wgpu::Buffer {
-        self.device.create_buffer(&wgpu::BufferDescriptor { label: Some("accum"), size: w as u64 * h as u64 * SAMPLE_BYTES, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })
+    pub fn film_buffer(&self, w: u32, h: u32, film: &KernelFilm) -> Result<wgpu::Buffer> {
+        let limits = self.device.limits();
+        let size = film_bytes(w, h, film, (limits.max_storage_buffer_binding_size as u64).min(limits.max_buffer_size))?;
+        Ok(self.device.create_buffer(&wgpu::BufferDescriptor { label: Some("film"), size, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false }))
     }
 
     /// Texture pages for the scene's texture set (see `texpack`), cached across uploads of the same set.
@@ -1469,9 +1626,9 @@ impl Gpu {
     }
 
     /// Uploads a prepared scene (geometry, materials, textures, environment, acceleration structures) and returns the
-    /// bind group used by both the offline and the live kernels. `accum` holds one 80-byte Pixel per output pixel.
+    /// bind group used by both the offline and the live kernels. `film` is the output buffer (`film_buffer`).
     #[allow(clippy::too_many_arguments)]
-    pub fn upload(&self, scene: &Scene, accum: &wgpu::Buffer, tri_verts: &[[f32; 4]], groups: [usize; GROUPS], nodes: &[u8], emitters: &[[f32; 4]], emitter_tris: &[crate::GpuEmitterTri], light_tree: &[[f32; 4]], env: &EnvMap, env_cdf: &[f32], energy: &[[f32; 4]], timings: &mut Vec<(String, f64)>) -> Result<Uploaded> {
+    pub fn upload(&self, scene: &Scene, film: &wgpu::Buffer, tri_verts: &[[f32; 4]], groups: [usize; GROUPS], nodes: &[u8], emitters: &[[f32; 4]], emitter_tris: &[crate::GpuEmitterTri], light_tree: &[[f32; 4]], env: &EnvMap, env_cdf: &[f32], energy: &[[f32; 4]], timings: &mut Vec<(String, f64)>) -> Result<Uploaded> {
         let d = &self.device;
         let t0 = Instant::now();
         // (The vertices too: the kernel's tree over no triangle is a leaf of triangle 0, which these zeros make a
@@ -1524,7 +1681,7 @@ impl Gpu {
             GridsGpu { atlas }
         });
         let grid_view = grids.as_ref().map_or_else(|| self.no_grid_view.clone(), |g| g.atlas.create_view(&Default::default()));
-        let b_accum = accum.clone();
+        let b_film = film.clone();
         let b_params = d.create_buffer(&wgpu::BufferDescriptor { label: Some("params"), size: std::mem::size_of::<Params>() as u64, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
 
         let (tex_view, tex_info) = self.texture_pages(scene, timings);
@@ -1532,9 +1689,14 @@ impl Gpu {
         // records' have the edits' room after them (the procedural objects' records follow the model instances').
         let none = [crate::scene::GpuInstance::default()];
         let spheres = crate::light_groups(&scene.lights);
+        // 北冥：材质表在这里统一写能量补偿那一位（全局开关：预设的 energyCompensation，非 0 即开；`Params::set_preset`
+        // 把同一个数写进 misc.z 给上游顶替读）。
+        let materials = crate::scene::with_energy_compensation(&scene.materials, scene.preset.native.energy_compensation != 0.0);
+        // 北冥：物体扩展表，每个物体一项，现在全是 0（还没有人填）。
+        let object_ext = vec![crate::scene::GpuObjectExt::default(); scene.objects.len() / scene.object_stride()];
         let parts: [(Table, &[u8], usize); Table::COUNT] = [
             (Table::LightTree, bytemuck::cast_slice(light_tree), 0),
-            (Table::Materials, bytemuck::cast_slice(&scene.materials), 0),
+            (Table::Materials, bytemuck::cast_slice(&materials), 0),
             (Table::Lights, bytemuck::cast_slice(&scene.lights), 0),
             (Table::LightGroups, bytemuck::cast_slice(&spheres), 0),
             (Table::Emitters, bytemuck::cast_slice(emitters), 0),
@@ -1545,6 +1707,7 @@ impl Gpu {
             (Table::Energy, bytemuck::cast_slice(energy), 0),
             (Table::GlassEnergy, bytemuck::cast_slice(crate::glass_energy_lut()), 0),
             (Table::EmitterTris, bytemuck::cast_slice(emitter_tris), 0),
+            (Table::ObjectExt, bytemuck::cast_slice(&object_ext), room.objects * std::mem::size_of::<crate::scene::GpuObjectExt>()),
         ];
         assert!(parts.iter().enumerate().all(|(k, p)| p.0.index() == k), "the tables in `Table`'s order");
         let heap = Heap::filled(d, &parts.map(|p| (p.1.len() + p.2) as u64), |put| parts.iter().for_each(|p| put(p.0, 0, p.1)));
@@ -1751,12 +1914,12 @@ impl Gpu {
             self.uniform_copies(&heap)
         });
         let bg_parts = BindParts { nodes: b_nodes, tex_view, env_view, sampler, grid_view };
-        let bg = self.scene_bind_group(&SceneBuffers { params: &b_params, verts: &b_verts, attrs: &b_attrs, heap: &heap, words: &words, prev_verts: &b_prev, accum: &b_accum, parts: &bg_parts, accel: accel.as_ref(), uniform: uniform.as_ref() });
+        let bg = self.scene_bind_group(&SceneBuffers { params: &b_params, verts: &b_verts, attrs: &b_attrs, heap: &heap, words: &words, prev_verts: &b_prev, film: &b_film, parts: &bg_parts, accel: accel.as_ref(), uniform: uniform.as_ref() });
         let kernel = Kernel::new(scene, groups);
         self.queue.submit([]);
         self.device.poll(wgpu::PollType::wait_indefinitely())?;
         timings.push(("upload_ms".into(), t0.elapsed().as_secs_f64() * 1000.0));
-        Ok(Uploaded { bg, bg_parts, heap, uniform, accum: b_accum, params: b_params, kernel, verts: b_verts, attrs: b_attrs, prev_verts: b_prev, dynamic_first, accel, grids, vcolors: !scene.gpu_vcolors.is_empty(), media_nodes: scene.media_nodes.clone(), media_hidden: std::cell::RefCell::new(scene.media.iter().map(|m| m.a[1] == crate::scene::MEDIUM_HIDDEN).collect()), room, words, cdf_words: env_cdf.len(), region_words, env_tex })
+        Ok(Uploaded { bg, bg_parts, heap, uniform, film: b_film, params: b_params, kernel, verts: b_verts, attrs: b_attrs, prev_verts: b_prev, dynamic_first, accel, grids, vcolors: !scene.gpu_vcolors.is_empty(), media_nodes: scene.media_nodes.clone(), media_hidden: std::cell::RefCell::new(scene.media.iter().map(|m| m.a[1] == crate::scene::MEDIUM_HIDDEN).collect()), room, words, cdf_words: env_cdf.len(), region_words, env_tex })
     }
 
     /// Bytes Metal allocates for an AABB BLAS over `count` boxes in `boxes` (its own size query through wgpu-hal; None
@@ -1928,7 +2091,7 @@ impl Gpu {
             wgpu::BindGroupEntry { binding: 8, resource: wgpu::BindingResource::Sampler(&p.sampler) },
             view(9, &p.env_view),
             view(10, &p.grid_view),
-            buffer_entry(11, b.accum),
+            buffer_entry(11, b.film),
         ];
         if !self.hwrt {
             entries.push(buffer_entry(3, &p.nodes));
@@ -1997,16 +2160,20 @@ impl Gpu {
     pub fn render(&self, scene: &Scene, tri_verts: &[[f32; 4]], groups: [usize; GROUPS], nodes: &[u8], emitters: &[[f32; 4]], emitter_tris: &[crate::GpuEmitterTri], light_tree: &[[f32; 4]], env: &EnvMap, env_cdf: &[f32], energy: &[[f32; 4]], base: Params, spp: u32, timings: &mut Vec<(String, f64)>) -> Result<Frame> {
         let d = &self.device;
         let (w, h) = (scene.width, scene.height);
-        let up = self.upload(scene, &self.accum_buffer(w, h), tri_verts, groups, nodes, emitters, emitter_tris, light_tree, env, env_cdf, energy, timings)?;
+        // 北冥：掩码为 0 时每个样本取的是同一个点，画面不收敛而不报错，所以开渲前拦住。
+        if base.integrator.sobol_index_mask == 0 {
+            return Err(anyhow!("全局参数的 integrator.sobol_index_mask 是 0：每个样本会取同一个点。用 KernelIntegrator::new 填"));
+        }
+        let up = self.upload(scene, &self.film_buffer(w, h, &base.film)?, tri_verts, groups, nodes, emitters, emitter_tris, light_tree, env, env_cdf, energy, timings)?;
         let pipeline = self.pipeline(&up.kernel);
-        let (b_accum, b_params, bg) = (&up.accum, &up.params, &up.bg);
-        let accum_size = b_accum.size();
+        let (b_film, b_params, bg) = (&up.film, &up.params, &up.bg);
+        let film_size = b_film.size();
         let stopped_before = self.guard_trips(&self.no_vis_bufs)?;
 
 
         let t1 = Instant::now();
         let mut enc = d.create_command_encoder(&Default::default());
-        enc.clear_buffer(b_accum, 0, None);
+        enc.clear_buffer(b_film, 0, None);
         self.sync_tables(&up, &mut enc);
         self.queue.submit([enc.finish()]);
         // One dispatch per sample; params are rewritten between submissions. Batch a few per submit.
@@ -2040,26 +2207,33 @@ impl Gpu {
             }
         }
         let t2 = Instant::now();
-        let readback = d.create_buffer(&wgpu::BufferDescriptor { label: Some("readback"), size: accum_size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let readback = d.create_buffer(&wgpu::BufferDescriptor { label: Some("readback"), size: film_size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let mut enc = d.create_command_encoder(&Default::default());
-        enc.copy_buffer_to_buffer(b_accum, 0, &readback, 0, accum_size);
+        enc.copy_buffer_to_buffer(b_film, 0, &readback, 0, film_size);
         self.queue.submit([enc.finish()]);
         readback.slice(..).map_async(wgpu::MapMode::Read, |_| {});
         self.device.poll(wgpu::PollType::wait_indefinitely())?;
         let data = readback.slice(..).get_mapped_range()?;
-        let px: &[[f32; 20]] = bytemuck::cast_slice(&data); // color, albedo, normal, live-only emission + specular
+        // 北冥：每个像素 film_stride 个 vec4，各通道按 FILM_* 的位置取，灯组从 film_lightgroup_first 起。步长与起点
+        // 是这次渲染写进全局参数的那两个数，不写死。
+        let floats: &[f32] = bytemuck::cast_slice(&data);
         let n = (w * h) as usize;
-        let mut frame = Frame { width: w, height: h, color: Vec::with_capacity(n), albedo: Vec::with_capacity(n), normal: Vec::with_capacity(n), emission: Vec::with_capacity(n), specular: Vec::with_capacity(n), variance: Vec::with_capacity(n), samples: spp };
-        for p in px {
-            let c = p[3].max(1.0);
-            let p: [f32; 20] = p.map(|v| if v.is_finite() { v } else { 0.0 });
-            frame.color.push([p[0] / c, p[1] / c, p[2] / c]);
-            frame.albedo.push([p[4] / c, p[5] / c, p[6] / c]);
-            frame.normal.push([p[8] / c, p[9] / c, p[10] / c]);
-            frame.emission.push([p[12] / c, p[13] / c, p[14] / c]);
-            frame.specular.push([p[16] / c, p[17] / c, p[18] / c]);
-            let mean = p[7] / c;
-            frame.variance.push(((p[11] / c - mean * mean).max(0.0)) / c);
+        let (stride, groups) = (base.film.film_stride as usize * 4, base.film.num_lightgroups as usize);
+        let mut frame = Frame { width: w, height: h, color: Vec::with_capacity(n), albedo: Vec::with_capacity(n), normal: Vec::with_capacity(n), emission: Vec::with_capacity(n), specular: Vec::with_capacity(n), variance: Vec::with_capacity(n), lightgroups: vec![Vec::with_capacity(n); groups], samples: spp };
+        for p in floats.chunks_exact(stride) {
+            let c = p[FILM_COMBINED as usize * 4 + 3].max(1.0);
+            let at = |slot: u32, k: usize| Some(p[slot as usize * 4 + k]).filter(|v| v.is_finite()).unwrap_or(0.0);
+            let rgb = |slot: u32| [at(slot, 0) / c, at(slot, 1) / c, at(slot, 2) / c];
+            frame.color.push(rgb(FILM_COMBINED));
+            frame.albedo.push(rgb(FILM_DENOISE_ALBEDO));
+            frame.normal.push(rgb(FILM_DENOISE_NORMAL));
+            frame.emission.push(rgb(FILM_LEGACY_EMIT));
+            frame.specular.push(rgb(FILM_LEGACY_SPEC));
+            let mean = at(FILM_LEGACY_VARIANCE, 0) / c;
+            frame.variance.push(((at(FILM_LEGACY_VARIANCE, 1) / c - mean * mean).max(0.0)) / c);
+            for (g, group) in frame.lightgroups.iter_mut().enumerate() {
+                group.push(rgb(base.film.film_lightgroup_first + g as u32));
+            }
         }
         drop(data);
         readback.unmap();
@@ -2116,6 +2290,7 @@ mod tests {
             ("F_GLASS", F_GLASS), ("F_COAT", F_COAT), ("F_HUGE", F_HUGE), ("F_INST", F_INST), ("F_MEDIA", F_MEDIA), ("F_PEMIT", F_PEMIT),
             ("F_HMEDIA", F_HMEDIA), ("F_PROC", F_PROC), ("F_TINT", F_TINT), ("F_UNLIT", F_UNLIT), ("F_BACKGROUND", F_BACKGROUND),
             ("F_VCOLOR", F_VCOLOR), ("F_AERIAL", F_AERIAL), ("F_GRID", F_GRID), ("F_LISTS", F_LISTS),
+            ("F_SPECULAR_TINT", F_SPECULAR_TINT),
         ];
         let mut seen = 0u32;
         for (name, bit) in all {
@@ -2135,6 +2310,23 @@ mod tests {
     fn naga_valid(src: &str) {
         let m = naga::front::wgsl::parse_str(src).unwrap_or_else(|e| panic!("{}", e.emit_to_string(src)));
         naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::all()).validate(&m).unwrap_or_else(|e| panic!("{}", e.emit_to_string(src)));
+    }
+
+    /// 北冥：`src` 过 naga 的校验之后，再过 SPIR-V（Vulkan）与 MSL（Metal）两个后端的代码生成。
+    /// 校验过了不等于生成得出来：把结构成员或数组元素的指针当函数实参（`f(&sd.N)`、`f(&sd.closure[1])`），校验放行，
+    /// MSL 后端照常生成，SPIR-V 后端在生成时崩（进程退出，不是报错）。只在苹果显卡上跑是发现不了的，所以每台机器
+    /// 两个后端都生成一遍。只生成、不交给驱动编译；绑定号用假的。
+    pub(crate) fn codegen_valid(src: &str) {
+        let m = naga::front::wgsl::parse_str(src).unwrap_or_else(|e| panic!("{}", e.emit_to_string(src)));
+        let info = naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::all()).validate(&m).unwrap_or_else(|e| panic!("{}", e.emit_to_string(src)));
+        // （内核有一个管线常数 FEAT：后端要它先定成值，这里取它的默认值。）
+        let (m, info) = naga::back::pipeline_constants::process_overrides(&m, &info, None, &Default::default()).expect("管线常数取默认值");
+        let spv = naga::back::spv::Options { fake_missing_bindings: true, ..Default::default() };
+        let words = naga::back::spv::write_vec(&m, &info, &spv, None).unwrap_or_else(|e| panic!("SPIR-V 后端生成不出来：{e}"));
+        assert!(!words.is_empty());
+        let msl = naga::back::msl::Options { lang_version: (2, 4), fake_missing_bindings: true, ..Default::default() };
+        let (text, _) = naga::back::msl::write_string(&m, &info, &msl, &Default::default()).unwrap_or_else(|e| panic!("MSL 后端生成不出来：{e}"));
+        assert!(!text.is_empty());
     }
 
     /// The kernel's bind group layouts are what its source declares, in every layout and traversal: a variant's
@@ -2238,6 +2430,201 @@ mod tests {
         }
     }
 
+    /// 北冥：内核的每个变体（上一条测试校验的那些，加合并布局的）都过 SPIR-V 与 MSL 两个后端的代码生成，见
+    /// `codegen_valid`。末尾是这条测试自己的对照：一段成员指针当实参的着色器，校验放行，SPIR-V 后端必须生成不出来；
+    /// 哪天后端修好了这段，这条断言会红，那时内核里的这条禁令（shaders/shader.wgsl 开头）才可以放开。
+    #[test]
+    fn every_kernel_variant_generates_spirv_and_msl() {
+        if std::env::var("THREERT_LOOP_GUARD").is_ok() {
+            return;
+        }
+        let template = kernel_template();
+        let all = KernelSwitches { strict: true, cutout_lite: 2, last_direct: true, last_sun: false, light_pick: true };
+        let switches = [
+            KernelSwitches::default(),
+            KernelSwitches { strict: true, ..Default::default() },
+            KernelSwitches { cutout_lite: 1, ..Default::default() },
+            KernelSwitches { cutout_lite: 2, ..Default::default() },
+            KernelSwitches { last_direct: true, ..Default::default() },
+            KernelSwitches { last_sun: true, ..Default::default() },
+            KernelSwitches { light_pick: true, ..Default::default() },
+            all,
+        ];
+        let mut n = 0;
+        for hwrt in [false, true] {
+            for &k in &switches {
+                let plain = KernelVariant::new(hwrt, k, 0);
+                let all_features = KernelVariant::new(hwrt, k, F_SOURCE);
+                for v in [plain, KernelVariant { uniform_tables: true, ..all_features }, KernelVariant { whole_tables: true, ..all_features }, KernelVariant { guard: Some(1 << 16), ..all_features }, KernelVariant { merged: true, ..plain }, KernelVariant { merged: true, guard: Some(1 << 16), ..all_features }] {
+                    // （合并布局是浏览器的，那里没有硬件求交。）
+                    if v.merged && v.hwrt {
+                        continue;
+                    }
+                    codegen_valid(&kernel_wgsl(&template, &v));
+                    n += 1;
+                }
+            }
+        }
+        assert_eq!(n, 8 * 6 + 8 * 4);
+        let bad = "struct S { a: vec3<f32>, b: f32 };\nfn half(p: ptr<function, vec3<f32>>) { *p = *p * 0.5; }\n@group(0) @binding(0) var<storage, read_write> out: array<vec4<f32>>;\n@compute @workgroup_size(1) fn main() {\n    var s = S();\n    s.a = vec3<f32>(1.0);\n    half(&s.a);\n    out[0] = vec4<f32>(s.a, s.b);\n}\n";
+        naga_valid(bad);
+        let crash = std::panic::catch_unwind(|| codegen_valid(bad)).expect_err("成员指针当实参：SPIR-V 后端现在生成得出来了");
+        let said = crash.downcast_ref::<String>().cloned().unwrap_or_default();
+        assert!(said.contains("is not cached"), "崩的不是预期的那一处：{said}");
+    }
+
+    /// 北冥：请求灯组的那条路是通的。同一个场景渲两遍，一遍不请求灯组、一遍请求 2 个（现在还没有任何贡献写进
+    /// 灯组）：颜色、反照率、法线、方差逐位相同；读回的灯组是 2 层、每层一个像素一项、全是 0；不请求时没有灯组层。
+    /// 请求得太多（缓冲超过这块显卡的上限）在开渲前报错。（没有显卡时跳过。）
+    #[test]
+    fn requested_lightgroups_leave_the_picture_alone() {
+        const GAME: &str = r#"
+            const tri = (id, p) => __engine.geometry(id, new Float32Array(p), new Float32Array([0,0,1, 0,0,1, 0,0,1]), new Float32Array([0,0, 1,0, 0,1]), new Uint32Array([0,1,2]));
+            globalThis.__threert = {
+                describe: () => JSON.stringify({ handlers: [], frame: false, keys: {} }),
+                setup: (room, seed) => {
+                    tri(1, [-1,0,0, 0,0,0, -1,1,0]);
+                    tri(2, [0,-1,0, 2,-1,0, 0,1,0]);
+                    __engine.material(3, { name: "lamp", color: [1, 1, 1], opacity: 1, metalness: 0, roughness: 0.5, emissive: [1, 0.5, 0.25], emissiveIntensity: 10, doubleSided: true });
+                    __engine.material(4, { name: "wall", color: [0.8, 0.8, 0.8], opacity: 1, metalness: 0, roughness: 0.5, emissive: [0, 0, 0], emissiveIntensity: 0, doubleSided: true });
+                    __engine.object(5, { name: "lamp", parent: null, castShadow: true, kind: "mesh", geometry: 1, material: 3 });
+                    __engine.object(6, { name: "wall", parent: null, castShadow: true, kind: "mesh", geometry: 2, material: 4 });
+                    __engine.object(7, { name: "cam", parent: null, castShadow: false, kind: "camera", camera: { fov: 50, near: 0.1, far: 100, exposure: { mode: "manual", ev100: 0 } } });
+                    __engine.transform(7, new Float32Array([0, 0, 5, 0, 0, 0, 1, 1, 1, 1]));
+                    __engine.environment({ sky: { type: "color", color: [0.2, 0.3, 0.4], intensity: 1, skyLightIntensity: 1 } });
+                    __engine.settings({ name: "lightgroups", preset: "preview", width: 32, height: 18, time: 0, camera: 7 });
+                    return "{}";
+                },
+                event: () => "{}", commit: () => {}, setState: () => {}, frame: () => {}, outline: () => "[]", inspect: () => "{}", edit: () => {},
+            };
+        "#;
+        let g = match Gpu::new_with(GpuOptions::default()) {
+            Ok(g) => g,
+            Err(e) => return eprintln!("skipped: {e}"),
+        };
+        let host = crate::script::ScriptHost::new(GAME).unwrap();
+        host.setup("room", None).unwrap();
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut sc = crate::scene::build(&host.world.borrow(), root, &root.join("presets"), None).unwrap();
+        let mut timings = vec![];
+        let prep = crate::prepare(&g, &mut sc, &mut timings);
+        let mut render = |film: KernelFilm| {
+            let params = Params { film, ..prep.params };
+            g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, crate::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, 4, &mut timings)
+        };
+        let plain = render(prep.params.film).unwrap();
+        let with = render(KernelFilm::new(2)).unwrap();
+        let n = (sc.width * sc.height) as usize;
+        let bits = |v: &[[f32; 3]]| v.iter().flatten().map(|x| x.to_bits()).collect::<Vec<u32>>();
+        assert_eq!((plain.color.len(), with.color.len()), (n, n));
+        assert!(plain.color.iter().flatten().any(|x| *x > 0.0), "场景是黑的，比不出东西");
+        assert_eq!(bits(&plain.color), bits(&with.color), "颜色");
+        assert_eq!(bits(&plain.albedo), bits(&with.albedo), "反照率");
+        assert_eq!(bits(&plain.normal), bits(&with.normal), "法线");
+        assert_eq!(plain.variance.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), with.variance.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), "方差");
+        assert!(plain.lightgroups.is_empty());
+        assert_eq!(with.lightgroups.len(), 2);
+        for group in &with.lightgroups {
+            assert_eq!(group.len(), n);
+            assert!(bits(group).iter().all(|b| *b == 0), "还没有贡献写进灯组，应当全是 0");
+        }
+        // 请求得太多：开渲前报错，并说最多能要几组。
+        let limits = g.device.limits();
+        let too_many = ((limits.max_storage_buffer_binding_size as u64).min(limits.max_buffer_size) / (n as u64 * 16)) as u32;
+        let e = render(KernelFilm::new(too_many)).err().expect("超过显卡上限的请求应当报错").to_string();
+        assert!(e.contains("最多能要"), "{e}");
+    }
+
+    /// 北冥：路径状态与光线（shaders/integrator.wgsl 的 PathState、Ray）的字段名单，与「已写未读」的几项写入。
+    /// 字段名照 Cycles 的 IntegratorState.path 与 Ray：改名、删字段要先改这里（加字段只要在名单里补上）。
+    /// 最小概率密度、上一个散射点的物体、可见类、随机维度偏移这四项现在只写不读，着色器里没有别处能发现它们被
+    /// 悄悄删掉，所以在这里按源码查：初值与每次弹射的写入都得在。查的是写入语句在不在（先去掉注释，被注释掉的不算），
+    /// 不是运行时的值：语句还在、却包进永不成立的分支，这里查不出来。
+    #[test]
+    fn path_state_is_written() {
+        let src = kernel_wgsl(&kernel_template(), &KernelVariant::new(false, KernelSwitches::default(), 0));
+        let m = naga::front::wgsl::parse_str(&src).unwrap_or_else(|e| panic!("{}", e.emit_to_string(&src)));
+        let src = without_comments(&src);
+        let members = |name: &str| -> Vec<String> {
+            let (_, t) = m.types.iter().find(|(_, t)| t.name.as_deref() == Some(name)).unwrap_or_else(|| panic!("内核里没有结构 {name}"));
+            match &t.inner {
+                naga::TypeInner::Struct { members, .. } => members.iter().map(|x| x.name.clone().unwrap()).collect(),
+                _ => panic!("{name} 不是结构"),
+            }
+        };
+        assert_eq!(
+            members("PathState"),
+            ["render_pixel_index", "sample", "bounce", "diffuse_bounce", "glossy_bounce", "transmission_bounce", "transparent_bounce", "rng_pixel", "rng_offset", "flag", "mis_ray_pdf", "min_ray_pdf", "continuation_probability", "throughput", "visibility", "mis_ray_object", "legacy"]
+        );
+        let mut ray = members("Ray");
+        ray.sort();
+        assert_eq!(ray, ["D", "P", "cone_a", "cone_w", "self_object", "self_prim", "time", "tmax", "tmin"]);
+        for (write, count) in [
+            ("state.rng_offset = PRNG_BOUNCE_NUM;", 1),
+            ("state.min_ray_pdf = 3.4028235e38;", 1),
+            ("state.visibility = PATH_RAY_VISIBILITY_CAMERA;", 1),
+            ("state.mis_ray_object = OBJECT_NONE;", 2),
+            ("state.min_ray_pdf = min(pdf, state.min_ray_pdf);", 1),
+            ("state.min_ray_pdf = min(state.mis_ray_pdf, state.min_ray_pdf);", 1),
+            ("state.mis_ray_object = sd.object;", 1),
+            ("path_state_next(bs.label);", 1),
+            ("path_state_next(LABEL_VOLUME_SCATTER);", 1),
+            ("state.visibility = visibility;", 1),
+            ("state.rng_offset += PRNG_BOUNCE_NUM;", 1),
+        ] {
+            assert_eq!(src.matches(write).count(), count, "路径状态的这处写入该有 {count} 处：{write}");
+        }
+    }
+
+    /// 北冥：着色点、闭包、材质输入值（shaders/shader.wgsl）的字段名单，与「已写未读」的几项写入，做法同上一条。
+    /// 字段名照 Cycles 的 ShaderData、ShaderClosure：改名、删字段要先改这里（加字段只要在名单里补上）。
+    /// 现在只写不读的：着色点的平滑法线、物体号、图元号、重心坐标、这一段光线的长度（物体号只被抄进同样没人读的
+    /// `state.mis_ray_object`）；材质输入值的折射率、高光等级、不透明度、漫反射粗糙度；闭包的采样权重与菲涅耳种类；
+    /// 光线的「出发处的物体与图元」。它们是给后面照 Cycles 移植闭包、灯、图案节点的人留的，着色器里没有别处能发现
+    /// 它们被悄悄删掉，所以在这里按源码查写入语句都在。查的是语句在不在（先去掉注释），不是运行时的值。
+    #[test]
+    fn shading_point_is_written() {
+        let template = without_comments(&kernel_template());
+        // 去注释这一道自己的对照：行注释、块注释（可以嵌套）里的不算，注释外面的原样留着
+        assert_eq!(without_comments("a = 1; // b = 2;\n/* c = 3; /* d */ e = 4; */f = 5; g = 6 / 2;"), "a = 1; \nf = 5; g = 6 / 2;");
+        assert_eq!(without_comments("// (*sd).ray_length = h.t;").matches("(*sd).ray_length = h.t;").count(), 0);
+        let src = kernel_wgsl(&template, &KernelVariant::new(false, KernelSwitches::default(), 0));
+        let m = naga::front::wgsl::parse_str(&src).unwrap_or_else(|e| panic!("{}", e.emit_to_string(&src)));
+        let members = |name: &str| -> Vec<String> {
+            let (_, t) = m.types.iter().find(|(_, t)| t.name.as_deref() == Some(name)).unwrap_or_else(|| panic!("内核里没有结构 {name}"));
+            match &t.inner {
+                naga::TypeInner::Struct { members, .. } => members.iter().map(|x| x.name.clone().unwrap()).collect(),
+                _ => panic!("{name} 不是结构"),
+            }
+        };
+        assert_eq!(members("ShadingPoint"), ["P", "N", "Ng", "wi", "object", "prim", "u", "v", "ray_length", "flag", "object_flag", "time", "lcg_state", "emission", "num_closure", "closure", "legacy"]);
+        assert_eq!(members("Closure"), ["kind", "weight", "sample_weight", "N", "alpha_x", "alpha_y", "ior", "energy_scale", "fresnel_type", "f0", "f90_or_b", "exponent", "reflection_tint", "transmission_tint"]);
+        assert_eq!(members("ShaderInputs"), ["base_color", "metallic", "roughness", "ior", "specular_ior_level", "specular_tint", "emission", "alpha", "diffuse_roughness", "flags", "coat_weight", "transmission_weight", "N"]);
+        for (write, count) in [
+            // 着色点（shader_setup_from_hit）
+            ("(*sd).prim = h.tri;", 1),
+            ("(*sd).u = h.u;", 1),
+            ("(*sd).v = h.v;", 1),
+            ("(*sd).ray_length = h.t;", 1),
+            ("(*sd).object = instance_at(h.inst).info.y;", 1),
+            ("(*sd).object = object_of(a);", 1),
+            ("(*sd).N = n;", 1),
+            // 材质输入值（legacy_shader_inputs）
+            ("inp.ior = max(m.layer.y, 1e-5);", 1),
+            ("inp.specular_ior_level = max(m.specular_ior_level, 0.0);", 1),
+            ("inp.alpha = clamp(m.base_color.a, 0.0, 1.0);", 1),
+            ("inp.diffuse_roughness = clamp(m.diffuse_roughness, 0.0, 1.0);", 1),
+            // 闭包（shader_setup_closures）
+            ("c.sample_weight = 1.0;", 1),
+            ("c.fresnel_type = FRESNEL_F82_TINT;", 1),
+            // 光线（main）
+            ("ray.self_object = OBJECT_NONE;", 1),
+            ("ray.self_prim = OBJECT_NONE;", 1),
+        ] {
+            assert_eq!(template.matches(write).count(), count, "这处写入该有 {count} 处：{write}");
+        }
+    }
+
     /// A kernel with units has the loop guard natively with nothing set, at the browser's limit; THREERT_LOOP_GUARD=0
     /// takes it out, a limit set is the limit, a page's limit comes first. A kernel without units has it only where
     /// one is set, or in a browser.
@@ -2316,12 +2703,12 @@ mod tests {
             assert_eq!(strict.matches("fn ray_bad(").count(), hwrt as usize);
             assert!(!strict.contains("env_cdf_at(y - 1u)") && !strict.contains("env_cdf_at(base + x - 1u)") && plain.contains("env_cdf_at(y - 1u)"));
             let lit = v(hwrt, KernelSwitches { strict: true, cutout_lite: 2, last_direct: true, last_sun: false, light_pick: true });
-            assert_eq!(lit.matches("radiance += dz;").count(), 1);
+            assert_eq!(lit.matches("film_add_light(dz, depth, LIGHTGROUP_NONE);").count(), 1);
             assert!(!lit.contains("fn sun_light("), "last_direct takes the directional lights already");
             let sun = v(hwrt, KernelSwitches { last_sun: true, ..Default::default() });
-            assert_eq!((sun.matches("radiance += dz;").count(), sun.matches("fn sun_light(").count(), sun.matches("sun_light(s, lobes(").count()), (1, 1, 1));
+            assert_eq!((sun.matches("film_add_light(dz, depth, LIGHTGROUP_NONE);").count(), sun.matches("fn sun_light(").count(), sun.matches("state.throughput * sun_light(sd)").count()), (1, 1, 1));
             assert!(!plain.contains("sun_light"));
-            assert_eq!(lit.matches("env_on = take_env && has_env && !lights_only;").count(), 1);
+            assert_eq!(lit.matches("env_on = take_env && has_env && !state.legacy.lights_only;").count(), 1);
             assert_eq!(lit.contains("let steps = 4u;"), hwrt);
             assert_eq!(v(hwrt, KernelSwitches { cutout_lite: 2, ..Default::default() }) == plain, !hwrt);
         }

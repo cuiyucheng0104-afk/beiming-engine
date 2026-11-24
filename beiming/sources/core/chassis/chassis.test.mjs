@@ -6,8 +6,8 @@ import process from 'node:process';
 import path from 'node:path';
 import { test } from 'node:test';
 import { polygonIrradiance } from '../fncheck/checks.mjs';
-import { COMMIT, KERNEL, SHADERS, singleCopyProblems } from './build.mjs';
-import { CYCLES, DIFFUSE, GATES, discPixels, rectMean, runLevel2 } from './level2.mjs';
+import { COMMIT, KERNEL, SHADERS, singleCopyProblems, sourceKey } from './build.mjs';
+import { CYCLES, DIFFUSE, GATES, analyticOk, discPixels, negativeOk, negativeTolerance, passedByFloor, rectMean, runLevel2 } from './level2.mjs';
 
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const ROUGHNESS = ['0.05', '0.10', '0.20', '0.30', '0.40', '0.50', '0.60', '0.70', '0.80', '0.90', '1.00'];
@@ -44,13 +44,26 @@ test('解析值：区域缩成一点时等于形状因子；正对的方形灯�
   assert.ok(a > 0 && Math.abs(a / b - 1) < 1e-9);
 });
 
-test('判据：白炉 ±0.5%，解析场景 0.2% 且在 3 个标准误之内', () => {
-  assert.deepEqual(GATES, { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3 });
+test('判据：白炉 ±0.5%，解析场景 0.2% 以内，且在 3 个标准误或相对 2e-6 以内；靠那条底才过的要提示', () => {
+  assert.deepEqual(GATES, { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3, analyticFloor: 2e-6 });
+  const a = (rel, z) => analyticOk({ rel, z });
+  assert.deepEqual([a(1.9e-6, 3.9), a(2.1e-6, 3.9), a(2e-5, 2.9), a(3e-3, 0.1), a(-1.9e-6, -9)], [true, false, true, false, true]);
+  assert.deepEqual([[1.9e-6, 3.9], [1.9e-6, 2.9], [2.1e-6, 3.9]].map(([rel, z]) => passedByFloor({ rel, z })), [true, false, false]);
+});
+
+test('负对照的判法：粗的三项读数在门外且落在登记值的 ±5% 之内；细的几项要解析场景的判法判它不过，读数在登记值的 ±30% 之内', () => {
+  const coarse = { gate: 2e-3, near: 1e-2 }, fine = { fine: true, gate: 2e-6, near: 2e-5 };
+  assert.deepEqual([negativeTolerance(coarse), negativeTolerance(fine)], [0.05, 0.3]);
+  assert.deepEqual([1.04e-2, 1.06e-2, 1.9e-3].map(worstRel => negativeOk({ ...coarse, worstRel })), [true, false, false]);
+  const rows = (rel, z) => [{ rel: 1e-7, z: 0.2 }, { rel, z }];
+  assert.equal(negativeOk({ ...fine, worstRel: 2.5e-5, rows: rows(2.5e-5, 12) }), true);
+  assert.equal(negativeOk({ ...fine, worstRel: 2.7e-5, rows: rows(2.7e-5, 12) }), false, '读数偏出登记值 30%');
+  assert.equal(negativeOk({ ...fine, worstRel: 2.0e-5, rows: rows(2.0e-5, 1.4) }), false, '判法没有判它不过（噪声里看不出来）');
 });
 
 test('内核源码的来源：来源说明写了上游与固定提交，上游许可全文在，每个源文件第一行注明来源，不含本机路径', () => {
   const read = f => fs.readFileSync(path.join(KERNEL, f), 'utf8');
-  const prov = read('PROVENANCE.md');
+  const prov = read('PROVENANCE.md'), third = fs.readFileSync(path.join(KERNEL, '..', '..', '..', '..', 'THIRD-PARTY.md'), 'utf8');
   assert.ok(prov.includes('https://github.com/meshy-dev/ThreeRT'));
   assert.ok(prov.includes(COMMIT));
   assert.match(prov, /MIT/);
@@ -59,11 +72,38 @@ test('内核源码的来源：来源说明写了上游与固定提交，上游�
   assert.match(lic, /Meshy LLC/);
   assert.match(lic, /Permission is hereby granted, free of charge/);
   const sources = ['src', 'shaders'].flatMap(d => fs.readdirSync(path.join(KERNEL, d)).map(f => `${d}/${f}`));
-  assert.equal(sources.length, 25);
-  for (const f of sources) {
-    const first = read(f).split('\n', 1)[0];
-    assert.ok(first.startsWith('// 源自 ThreeRT') && first.includes(COMMIT) && first.includes(`renderer/${f}`) && first.includes('MIT') && first.includes('Meshy LLC') && first.includes('PROVENANCE.md'), f);
-    assert.ok(prov.includes(`\`${f}\``), `来源说明的文件对照里没有 ${f}`);
+  // 从上游 pathtrace.wgsl 按阶段分出来的几段，来源行写的是上游那一个文件
+  const split = ['closure', 'film', 'integrator', 'intersect', 'light', 'shader', 'volume'].map(n => `shaders/${n}.wgsl`);
+  // 照 Cycles 移植的两个哈希文件不是上游 ThreeRT 的：Apache-2.0，版权与许可写在文件头
+  const cycles = ['shaders/hash.wgsl', 'src/cycles_hash.rs'];
+  assert.equal(sources.length, 34);
+  // （下面的正则里有许可标识的字样，它不是本文件的许可声明：让许可覆盖的扫描跳过这一段。）
+  // REUSE-IgnoreStart
+  for (const f of cycles) {
+    assert.match(read(f), /^\/\/ SPDX-FileCopyrightText: 2011-2022 Blender Foundation\n(\/\/ SPDX-FileCopyrightText: .*\n)*\/\/ SPDX-License-Identifier: Apache-2\.0\n/, f);
+    assert.ok(prov.includes(`\`${f}\``), `来源说明里没有 ${f}`);
+  }
+  // 带着照 Cycles 取的名字、数值或函数骨架的六个着色器：第一行仍是上游的来源，其后的文件头是多方许可
+  for (const [f, id] of Object.entries({ integrator: 'MIT AND Apache-2.0', sample: 'MIT AND Apache-2.0', closure: 'MIT AND Apache-2.0', pathtrace: 'MIT AND Apache-2.0', intersect: 'MIT AND Apache-2.0', shader: 'MIT AND Apache-2.0 AND BSD-3-Clause' })) {
+    const text = read(`shaders/${f}.wgsl`);
+    assert.ok(text.split('\n').slice(1, 7).includes(`// SPDX-License-Identifier: ${id}`), `${f}.wgsl 的文件头`);
+    assert.match(text, /^\/\/ SPDX-FileCopyrightText: 2011-2022 Blender Foundation$/m, f);
+    assert.ok(prov.includes(`| \`shaders/${f}.wgsl\` | MIT`), `来源说明「照 Cycles 取的部分」里没有 ${f}.wgsl`);
+  }
+  // Rust 一侧带着同一类内容（着色器里那一份在 CPU 上的镜像）的三个文件，同样的文件头
+  for (const f of ['src/gpu.rs', 'src/sample.rs', 'src/scene.rs']) {
+    const text = read(f);
+    assert.deepEqual(text.split('\n').slice(1, 5), ['// SPDX-FileCopyrightText: 2026 Meshy LLC', '// SPDX-FileCopyrightText: 2011-2022 Blender Foundation', '// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine', '// SPDX-License-Identifier: MIT AND Apache-2.0'], `${f} 的文件头`);
+    assert.ok(prov.includes(`| \`${f}\` | MIT 与 Apache-2.0 |`), `来源说明「照 Cycles 取的部分」里没有 ${f}`);
+    assert.ok(third.includes(`\`${path.basename(f)}\`（`), `第三方清单核心那一条里没有 ${f}`);
+  }
+  assert.doesNotMatch(prov, /除 `cycles_hash\.rs` 之外的全部/);
+  assert.match(read('shaders/pathtrace.wgsl').split('\n').slice(0, 12).join('\n'), /ObjectExt 的字段名 receiver_light_set、lightgroup/);
+  // REUSE-IgnoreEnd
+  for (const f of sources.filter(f => !cycles.includes(f))) {
+    const first = read(f).split('\n', 1)[0], from = split.includes(f) ? 'shaders/pathtrace.wgsl' : f;
+    assert.ok(first.startsWith('// 源自 ThreeRT') && first.includes(COMMIT) && first.includes(`renderer/${from}`) && first.includes('MIT') && first.includes('Meshy LLC') && first.includes('PROVENANCE.md'), f);
+    assert.ok(prov.includes(`\`${f}\``) || prov.includes(`\`${path.basename(f)}\``), `来源说明的文件对照里没有 ${f}`);
     assert.doesNotMatch(read(f), /\/Users\/|\/home\/[a-z]|192\.168\./, f);
   }
 });
@@ -75,6 +115,10 @@ test('内核的包名与程序名不用上游项目名；四个移植的着色�
   assert.equal(SHADERS.length, 4);
   assert.deepEqual(singleCopyProblems(), []);
   for (const f of SHADERS) assert.ok(fs.existsSync(path.join(KERNEL, '..', 'shaders', f)), f);
+  // 程序按源码内容的摘要命名，负对照的改错也算进摘要
+  assert.match(sourceKey(), /^[0-9a-f]{16}$/);
+  assert.equal(sourceKey(), sourceKey([]));
+  assert.notEqual(sourceKey([{ file: 'path/src/lib.rs', from: 'a', to: 'b' }]), sourceKey());
 });
 
 test('漫反射白炉的记录：按显卡各记一个，没记过的显卡按相对 1e-6 比', () => {
@@ -108,19 +152,19 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
     }
     assert.ok(rep.furnace.camera.maxRelChange < GATES.furnaceRel / 10, `换相机距离的最大变化 ${rep.furnace.camera.maxRelChange}`);
   });
-  await t.test('解析场景：正对与斜向两种几何，像素均值对解析值 0.2% 以内且在 3 个标准误之内', () => {
-    assert.deepEqual(rep.analytic.map(a => a.name), ['正对', '斜向']);
+  await t.test('解析场景：正对、斜向、近灯、灯后有板四种几何各 32 个种子，像素均值对解析值 0.2% 以内，且在 3 个标准误或相对 2e-6 以内', () => {
+    assert.deepEqual(rep.analytic.map(a => [a.name, a.seeds]), [['正对', 32], ['斜向', 32], ['近灯', 32], ['灯后有板', 32]]);
     for (const a of rep.analytic) {
       t.diagnostic(`${a.name}: 我方 ${a.mean.toExponential(6)} ± ${a.se.toExponential(2)}（${a.seeds} 个种子）  解析 ${a.exact.toExponential(6)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
-      assert.ok(Math.abs(a.rel) <= GATES.analyticRel, `${a.name} 相对差 ${a.rel}`);
-      assert.ok(Math.abs(a.z) <= GATES.analyticSE, `${a.name} 差 ${a.z} 个标准误`);
+      if (passedByFloor(a)) t.diagnostic(`提示 ${a.name} 超过了 ${GATES.analyticSE} 个标准误，是按相对 ${GATES.analyticFloor} 的底过的`);
+      assert.ok(analyticOk(a), `${a.name} 相对差 ${a.rel}，差 ${a.z} 个标准误`);
     }
   });
-  await t.test('负对照：闭包、面光、接线里的多重重要性采样各故意改错一项，对应读数必须超出门限', () => {
-    assert.deepEqual(rep.negative.map(n => n.target), ['closure', 'area_light', 'mis']);
+  await t.test('负对照：闭包、面光、接线故意改错六项，每项必须不过，读数落在登记值的容差之内（粗的三项 ±5%，细的三项 ±30%）', () => {
+    assert.deepEqual(rep.negative.map(n => n.target), ['closure', 'area_light', 'mis', 'area_light_fine', 'mis_origin', 'mis_occluder']);
     for (const n of rep.negative) {
-      t.diagnostic(`${n.name}: 最大相对差 ${n.worstRel.toExponential(2)}（门限 ${n.gate}）`);
-      assert.ok(Math.abs(n.worstRel) > n.gate, n.name);
+      t.diagnostic(`${n.name}: 最大相对差 ${n.worstRel.toExponential(2)}（门限 ${n.gate}，登记值 ${n.near}，容差 ±${negativeTolerance(n) * 100}%）`);
+      assert.ok(negativeOk(n), n.name);
     }
   });
   await t.test('确定性：同一种子渲两遍，输出逐字节相同', () => {

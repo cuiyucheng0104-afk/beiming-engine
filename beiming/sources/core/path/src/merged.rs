@@ -79,7 +79,7 @@ pub const UNIFORM_TABLES: [UniformTable; 4] = [
 mod tests {
     use super::*;
 
-    use crate::gpu::{kernel_template, kernel_wgsl, KernelVariant};
+    use crate::gpu::{kernel_template, kernel_wgsl, without_comments, KernelVariant};
 
     /// A scene's kernel (software traversal, no switch) as compiled, as written or in the merged layout.
     fn variant(features: u32, merged: bool) -> String {
@@ -106,6 +106,203 @@ mod tests {
             naga::TypeInner::Struct { members, span } => (members.iter().map(|m| m.offset as u64).collect(), *span as u64),
             _ => panic!("{name} is not a struct"),
         }
+    }
+
+    /// 北冥：一个结构各成员的名字与偏移、结构的总长度，照着色器编译器排出来的。
+    fn members(m: &naga::Module, name: &str) -> (Vec<(String, usize)>, usize) {
+        let (_, ty) = m.types.iter().find(|(_, t)| t.name.as_deref() == Some(name)).unwrap_or_else(|| panic!("no struct {name}"));
+        match &ty.inner {
+            naga::TypeInner::Struct { members, span } => (members.iter().map(|m| (m.name.clone().unwrap(), m.offset as usize)).collect(), *span as usize),
+            _ => panic!("{name} is not a struct"),
+        }
+    }
+
+    /// 北冥：着色器里一个具名常数的值（无符号整数）。按编译器算出来的值取，不靠匹配源码文本。
+    fn constant(m: &naga::Module, name: &str) -> u32 {
+        let (_, c) = m.constants.iter().find(|(_, c)| c.name.as_deref() == Some(name)).unwrap_or_else(|| panic!("着色器里没有常数 {name}"));
+        match m.global_expressions[c.init] {
+            naga::Expression::Literal(naga::Literal::U32(v)) => v,
+            ref other => panic!("{name} 不是无符号整数常数：{other:?}"),
+        }
+    }
+
+    /// 北冥：Rust 一侧结构的字段名与偏移，写法与 `members` 的结果对得上。
+    macro_rules! fields {
+        ($t:ty; $($f:ident),+ $(,)?) => { vec![$((stringify!($f).to_string(), std::mem::offset_of!($t, $f))),+] };
+    }
+
+    /// 北冥：材质记录两侧是同一个格式：着色器的 `Material` 与 `scene::GpuMaterial` 逐字段同名、同偏移，总长度相同
+    /// （26 个 vec4）；合并布局里按 vec4 拼出来的那一份也是这个结构。`flags` 的位两侧各一份，数值逐个相同。
+    /// 手写的默认值：边缘色白、高光等级 0.5，其余全 0；能量补偿那一位只由 `with_energy_compensation` 写。
+    #[test]
+    fn the_material_record_is_the_kernels() {
+        use crate::scene::{self, GpuMaterial};
+        let want = fields!(GpuMaterial; base_color, emissive, params, tex0, tex1, uv, uv2, layer, mp, mt, specular_tint, specular_ior_level, diffuse_roughness, flags, pattern_first, pattern_count, reserved);
+        for merged in [false, true] {
+            let (m, _) = parse(&variant(0, merged));
+            assert_eq!(members(&m, "Material"), (want.clone(), std::mem::size_of::<GpuMaterial>()), "merged {merged}");
+            for (name, value) in [
+                ("MATERIAL_FLAG_MULTISCATTER", scene::MATERIAL_FLAG_MULTISCATTER),
+                ("MATERIAL_FLAG_NO_LEGACY_FUNCTION", scene::MATERIAL_FLAG_NO_LEGACY_FUNCTION),
+                ("MATERIAL_FLAG_CLASS_SHIFT", scene::MATERIAL_FLAG_CLASS_SHIFT),
+                ("MATERIAL_FLAG_CLASS_MASK", scene::MATERIAL_FLAG_CLASS_MASK),
+                ("MATERIAL_CLASS_SURFACE", scene::MATERIAL_CLASS_SURFACE),
+                ("MATERIAL_CLASS_EMISSION", scene::MATERIAL_CLASS_EMISSION),
+                ("MATERIAL_CLASS_TRANSPARENT", scene::MATERIAL_CLASS_TRANSPARENT),
+                ("MATERIAL_CLASS_TOON", scene::MATERIAL_CLASS_TOON),
+            ] {
+                assert_eq!(constant(&m, name), value, "{name}");
+            }
+        }
+        assert_eq!(std::mem::size_of::<GpuMaterial>(), 26 * 16);
+        assert_eq!((scene::MATERIAL_FLAG_MULTISCATTER, scene::MATERIAL_FLAG_NO_LEGACY_FUNCTION, scene::MATERIAL_FLAG_CLASS_MASK), (1, 2, 0xf00));
+        // 默认值：两个不为 0 的字段，其余每个字节都是 0。
+        let d = GpuMaterial::default();
+        assert_eq!((d.specular_tint, d.specular_ior_level), ([1.0; 3], 0.5));
+        let zeroed = GpuMaterial { specular_tint: [0.0; 3], specular_ior_level: 0.0, ..d };
+        assert!(bytemuck::bytes_of(&zeroed).iter().all(|b| *b == 0));
+        // 各构造处都以默认值收尾：发光卡片的材质带着这两个默认值。
+        let card = scene::card_material([1.0, 0.5, 0.25], 2.0);
+        assert_eq!((card.specular_tint, card.specular_ior_level, card.flags), ([1.0; 3], 0.5, 0));
+        // 能量补偿那一位：开就置上、关就清掉，别的位与别的字段不动。
+        let ms = [GpuMaterial { flags: 0xf00, ..d }, GpuMaterial { flags: scene::MATERIAL_FLAG_MULTISCATTER | 2, base_color: [0.25; 4], ..d }];
+        let on = scene::with_energy_compensation(&ms, true);
+        let off = scene::with_energy_compensation(&ms, false);
+        assert_eq!([on[0].flags, on[1].flags, off[0].flags, off[1].flags], [0xf01, 3, 0xf00, 2]);
+        assert_eq!(bytemuck::bytes_of(&GpuMaterial { flags: 0, ..on[1] }), bytemuck::bytes_of(&GpuMaterial { flags: 0, ..ms[1] }));
+    }
+
+    /// 北冥：全局参数两侧是同一个格式：着色器的 `Params` 与 `gpu::Params` 逐字段同名、同偏移，总长度相同；末尾
+    /// 追加的 `integrator`、`film` 两块各自的字段也逐个比。物体扩展表的一项同样。
+    #[test]
+    fn the_parameters_are_the_kernels() {
+        use crate::gpu::{KernelFilm, KernelIntegrator, Params, FILM_FIXED, SOBOL_INDEX_MASK};
+        use crate::scene::GpuObjectExt;
+        let (m, _) = parse(&variant(0, false));
+        let want = fields!(Params; cam_pos, cam_fwd, cam_right, cam_up, size, counts, env, misc, sky_color, counts2, time, fog, fog_color, vol, vol2, raster, cache, motion, group_first, light_lod, emit_power, lod_view, ltree, procs, aerial, background, ltile, ltile2, lt_cam, table_first, word_first, live_first, live_len, integrator, film, table_first_ext);
+        assert_eq!(members(&m, "Params"), (want, std::mem::size_of::<Params>()));
+        let want = fields!(KernelIntegrator; max_bounce, max_diffuse_bounce, max_glossy_bounce, max_transmission_bounce, transparent_max_bounce, transparent_min_bounce, min_bounce, sampling_pattern, sample_clamp_direct, sample_clamp_indirect, filter_glossy, light_inv_rr_threshold, seed, sobol_index_mask, pass_kind, background_transparent);
+        assert_eq!(members(&m, "KernelIntegrator"), (want, std::mem::size_of::<KernelIntegrator>()));
+        let want = fields!(KernelFilm; film_stride, film_lightgroup_first, num_lightgroups, reserved);
+        assert_eq!(members(&m, "KernelFilm"), (want, std::mem::size_of::<KernelFilm>()));
+        assert_eq!((std::mem::size_of::<KernelIntegrator>(), std::mem::size_of::<KernelFilm>()), (4 * 16, 16));
+        let want = fields!(GpuObjectExt; entity_id, object_flag, receiver_light_set, lightgroup, shadow_terminator_shading_offset, shadow_terminator_geometry_offset, reserved0, reserved1);
+        assert_eq!(members(&m, "ObjectExt"), (want, std::mem::size_of::<GpuObjectExt>()));
+        assert_eq!(constant(&m, "OBJECT_EXT_VEC4") as usize * 16, std::mem::size_of::<GpuObjectExt>());
+        // 种子进缓冲的是过一次哈希之后的值；掩码是上游写死的那一个；只定义的字段是 0。
+        let i = KernelIntegrator::new(0x5eed);
+        assert_eq!(i, KernelIntegrator { seed: crate::sample::hash_hp(0x5eed), sobol_index_mask: SOBOL_INDEX_MASK, ..Default::default() });
+        assert_eq!((SOBOL_INDEX_MASK, constant(&m, "PASS_KIND_COLOR"), constant(&m, "PASS_KIND_AUX")), (0xffff_0000, 0, 1));
+        // 输出缓冲的形状：灯组从固定部分之后开始，步长是固定部分加请求的灯组数。
+        assert_eq!(KernelFilm::new(0), KernelFilm { film_stride: 12, film_lightgroup_first: FILM_FIXED, num_lightgroups: 0, reserved: 0 });
+        assert_eq!(KernelFilm::new(2), KernelFilm { film_stride: 12, film_lightgroup_first: FILM_FIXED, num_lightgroups: 2, reserved: 0 });
+        assert_eq!(KernelFilm::new(3), KernelFilm { film_stride: 16, film_lightgroup_first: FILM_FIXED, num_lightgroups: 3, reserved: 0 });
+    }
+
+    /// 北冥：输出缓冲 film 两侧是同一个布局：固定部分各通道的位置与固定部分的长度两侧各一份，数值逐个相同；
+    /// 内核里步长与灯组的起点只从全局参数读（源码里除了定义那一行，不出现固定部分的长度）。开渲前按显卡的上限
+    /// 算缓冲大小：超过就报错并说这次最多能要几组。
+    #[test]
+    fn the_film_layout_is_the_kernels() {
+        use crate::gpu::{self, film_bytes, KernelFilm};
+        let (m, _) = parse(&variant(0, false));
+        for (name, value) in [
+            ("FILM_COMBINED", gpu::FILM_COMBINED),
+            ("FILM_DENOISE_ALBEDO", gpu::FILM_DENOISE_ALBEDO),
+            ("FILM_DENOISE_NORMAL", gpu::FILM_DENOISE_NORMAL),
+            ("FILM_LEGACY_VARIANCE", gpu::FILM_LEGACY_VARIANCE),
+            ("FILM_LEGACY_EMIT", gpu::FILM_LEGACY_EMIT),
+            ("FILM_LEGACY_SPEC", gpu::FILM_LEGACY_SPEC),
+            ("FILM_AUX_DATA", gpu::FILM_AUX_DATA),
+            ("FILM_AUX_NORMAL", gpu::FILM_AUX_NORMAL),
+            ("FILM_FIXED", gpu::FILM_FIXED),
+        ] {
+            assert_eq!(constant(&m, name), value, "{name}");
+        }
+        assert_eq!([gpu::FILM_COMBINED, gpu::FILM_DENOISE_ALBEDO, gpu::FILM_DENOISE_NORMAL, gpu::FILM_LEGACY_VARIANCE, gpu::FILM_LEGACY_EMIT, gpu::FILM_LEGACY_SPEC, gpu::FILM_AUX_DATA, gpu::FILM_AUX_NORMAL, gpu::FILM_FIXED], [0, 1, 2, 3, 4, 5, 6, 7, 10]);
+        // film 只在 film.wgsl 里下标，内核别处不碰；固定部分的长度只出现在定义那一行。
+        let template = kernel_template();
+        let film = include_str!("../shaders/film.wgsl");
+        assert_eq!(template.matches("film[").count(), film.matches("film[").count());
+        assert_eq!(template.matches("FILM_FIXED").count(), 1);
+        assert_eq!(template.matches("* P.film.film_stride").count(), 1, "步长只在 film_pixel_first 里乘");
+        // 缓冲大小。4K 下每个 vec4 是 132,710,400 字节，2 GiB 的上限放得下 16 个：固定 10 个加 6 个灯组。
+        let limit = (1u64 << 31) - 1;
+        assert_eq!(film_bytes(1920, 1080, &KernelFilm::new(0), limit).unwrap(), 1920 * 1080 * 12 * 16);
+        assert_eq!(film_bytes(3840, 2160, &KernelFilm::new(6), limit).unwrap(), 3840 * 2160 * 16 * 16);
+        let e = film_bytes(3840, 2160, &KernelFilm::new(7), limit).unwrap_err().to_string();
+        assert!(e.contains("最多能要 6 个灯组") && e.contains("请求了 7 个"), "{e}");
+        // 形状不是 KernelFilm::new 填的：全 0、步长放不下灯组。
+        assert!(film_bytes(64, 36, &KernelFilm::default(), limit).is_err());
+        assert!(film_bytes(64, 36, &KernelFilm { film_stride: 11, film_lightgroup_first: 10, num_lightgroups: 2, reserved: 0 }, limit).is_err());
+    }
+
+    /// 北冥：闭包种类号的快照。种类号是内核自己的编号（名字照 Cycles，数值不照）：往后追加，已有的数值不许变，
+    /// 两个种类不许用同一个号。加种类要在这张表里补一行，并在 ../STRUCTURES.md 的编号登记表里登记；着色器里声明了
+    /// 而这里没有的种类，这条测试会红。
+    #[test]
+    fn the_closure_kinds_keep_their_numbers() {
+        const KINDS: [(&str, u32); 5] = [("CLOSURE_NONE", 0), ("CLOSURE_LEGACY", 1), ("CLOSURE_BSDF_MICROFACET_GGX", 2), ("CLOSURE_BSDF_DIFFUSE", 3), ("CLOSURE_BSDF_TRANSPARENT", 4)];
+        let (m, _) = parse(&variant(0, false));
+        for (name, value) in KINDS {
+            assert_eq!(constant(&m, name), value, "{name}：已有的种类号不许变");
+        }
+        let mut declared: Vec<&str> = m.constants.iter().filter_map(|(_, c)| c.name.as_deref()).filter(|n| n.starts_with("CLOSURE_")).collect();
+        declared.sort();
+        let mut known: Vec<&str> = KINDS.iter().map(|k| k.0).collect();
+        known.sort();
+        assert_eq!(declared, known, "着色器里的闭包种类与快照不是同一批：新种类要先登记");
+        let mut values: Vec<u32> = KINDS.iter().map(|k| k.1).collect();
+        values.dedup();
+        assert_eq!(values, (0..KINDS.len() as u32).collect::<Vec<_>>(), "种类号从 0 起连续追加，不重复");
+    }
+
+    /// 北冥：每次弹射占的随机维度个数两侧是同一个数（integrator.wgsl 的 `PRNG_BOUNCE_NUM` 与 `sample::PRNG_BOUNCE_NUM`；
+    /// 它照 Cycles 取值，对 Cycles 头文件的那一步在 ../../chassis/freeze.test.mjs）。
+    #[test]
+    fn the_bounce_stride_is_the_kernels() {
+        let (m, _) = parse(&variant(0, false));
+        assert_eq!(constant(&m, "PRNG_BOUNCE_NUM"), crate::sample::PRNG_BOUNCE_NUM);
+    }
+
+    /// `code` 里对结构 `name` 的第一处位置式构造（`Name(a, b…)`；零值构造 `Name()` 不算），没有就是 None。
+    /// 名字与括号之间可以有空白（`Name (a)`、名字后换行再写括号都编得过）；调用方先去掉注释（夹在中间的注释同样
+    /// 编得过）。这是文本匹配，不是语法树：
+    /// 给结构起别名（`alias`）再构造，这里认不出来。
+    fn built_by_position(code: &str, name: &str) -> Option<String> {
+        code.match_indices(name).find_map(|(at, _)| {
+            let own_word = !code[..at].chars().next_back().is_some_and(|c| c.is_alphanumeric() || c == '_');
+            let args = code[at + name.len()..].trim_start().strip_prefix('(')?;
+            (own_word && !args.trim_start().starts_with(')')).then(|| code[at..].chars().take(60).collect())
+        })
+    }
+
+    /// 北冥：只活在一次调用里的结构不许位置式构造（`Closure(a, b, …)`），只许先取零值（`Closure()`）再按名字赋值：
+    /// 这些结构以后还要加字段，位置式构造会让「加字段」变成破坏别处的改动。查的是内核源码的全文（各变体的分支都在
+    /// 里面），注释不算。名单是这类结构的登记表：新加函数内结构、新加函数的返回结构，要补进来。
+    /// （进缓冲的记录不在此列，它们的字段位置本来就是格式：`Material`、`Light`、`ObjectExt` 等照旧按位置拼。）
+    #[test]
+    fn call_structs_are_not_built_by_position() {
+        const NAMES: [&str; 18] = [
+            "PathState", "PathLegacy", "Ray", "ShadingPoint", "ShadingLegacy", "Closure", "ShaderInputs", "SurfaceEval", "ClosureEval", "BsdfEval", "BsdfSample", "BsdfPick", "BsdfEvalLegacy",
+            "LocalHit", "LocalIntersection", "SampleResult", "SampleLegacy", "AuxSample",
+        ];
+        let code = without_comments(&kernel_template());
+        for name in NAMES {
+            assert!(code.contains(&format!("struct {name} {{")), "内核里没有结构 {name}：改了名字的话这张名单要跟着改");
+            assert_eq!(built_by_position(&code, name), None, "{name} 被位置式构造了");
+        }
+        // 这条检查自己的对照：位置式构造认得出来，零值构造、名字只是别的标识符的后半截不算。
+        assert!(built_by_position("var c = Closure(1u, w);", "Closure").is_some());
+        assert!(built_by_position("var c = Closure (1u, w);", "Closure").is_some());
+        assert!(built_by_position("var c = Closure\n    (1u, w);", "Closure").is_some());
+        assert!(built_by_position(&without_comments("var c = Closure /* k */ (1u, w);"), "Closure").is_some());
+        assert!(built_by_position(&without_comments("var c = Closure // k\n    (1u, w);"), "Closure").is_some());
+        assert!(built_by_position(&without_comments("// var c = Closure(1u, w);\n/* Closure(1u) */"), "Closure").is_none());
+        assert!(built_by_position("var c = Closure (\n);", "Closure").is_none());
+        assert!(built_by_position("var c = Closure( );\nlet e = ClosureEval();\nfn f(c: Closure) {}", "Closure").is_none());
+        assert!(built_by_position("let e = BsdfEvalLegacy(a, b);", "BsdfEval").is_none());
+        assert!(built_by_position("let e = MyClosure(a);", "Closure").is_none());
     }
 
     /// Kernel variants in the merged layout: valid WGSL, no entry point with more than eight storage buffers, none
@@ -195,7 +392,7 @@ mod tests {
             assert!(kernel_template().contains(&format!("const {constant}: u32 = {}u;", bytes / 16)), "{constant}");
             assert_eq!(layout(&m, name).1 as usize, bytes, "{name}");
         }
-        assert_eq!(<Table as crate::heap::Section>::COUNT, Table::EmitterTris as usize + 1);
+        assert_eq!(<Table as crate::heap::Section>::COUNT, Table::ObjectExt as usize + 1);
         // The emitters' triangles.
         assert!(kernel_template().contains(&format!("const EMITTER_TRI_VEC4: u32 = {}u;", std::mem::size_of::<crate::GpuEmitterTri>() / 16)));
         assert!(kernel_template().contains("let b = P.table_first[2].w + i * EMITTER_TRI_VEC4;"));
@@ -214,7 +411,11 @@ mod tests {
         // What the kernel reads with no offset is its heap's first section.
         assert_eq!((Table::LightTree as usize, crate::heap::Stream::EnvCdf as usize), (0, 0));
         assert!(kernel_template().contains("fn lt_node(i: u32) -> vec4<f32> { return table_f(i); }") && kernel_template().contains("fn env_cdf_at(i: u32) -> f32 { return bitcast<f32>(words[i]); }"));
-        assert!(<Table as crate::heap::Section>::COUNT <= 12, "`Params::table_first` names every table");
+        // 北冥：上游的 12 张表在 `table_first`，北冥加的表在 `table_first_ext`（8 格）。
+        assert_eq!(Table::EmitterTris as usize + 1, 12, "`Params::table_first` names upstream's tables");
+        assert!(<Table as crate::heap::Section>::COUNT <= 12 + 8, "`Params::table_first_ext` names the rest");
+        assert_eq!(Table::ObjectExt as usize, 12, "`table_first_ext[0].x`");
+        assert!(kernel_template().contains("let b = P.table_first_ext[0].x + object * OBJECT_EXT_VEC4;"));
     }
 
     /// The loop guard opens every loop of the kernel but counted ones (`for (var i = N; i < M; i++)`, literals), the
