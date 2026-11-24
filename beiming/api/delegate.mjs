@@ -1,5 +1,5 @@
 // 委托只通过工作区 HTTP 接口操作片子。每个角色单独维护消息，子作业在工具内等到终态。
-import { buildShotWorkerMessages, buildToolImageMessage, callApi, chat, DELEGATE_ROLES, estimateChatBodyInputTokens, familyOf, HTTP_TOOL, normalizeJsonToolBody } from './agents.mjs';
+import { buildShotWorkerMessages, buildToolImageMessage, callApi, chat, DELEGATE_ROLES, estimateChatBodyInputTokens, familyOf, HTTP_TOOL, MODEL_TIMEOUT_MS, normalizeJsonToolBody } from './agents.mjs';
 
 export const DELEGATE_HARD_TOKEN_CAP = 1_200_000;
 const SYSTEM = {
@@ -120,7 +120,7 @@ export async function runDelegateOrchestrator({
       }
     }
     if (isJob) {
-      if (body !== undefined && body !== null && !isPlainObject(body)) {
+      if (body !== undefined && !isPlainObject(body)) {
         return refuse(`${verb} 的请求体必须是 JSON 对象`);
       }
       // 先拿到作业号，才能在取消或预算到期时终止自己提交的子作业。
@@ -214,7 +214,7 @@ export async function runDelegateOrchestrator({
       body.max_tokens = Math.min(stepReserve, maxTokens - usedTokens - serverTokens - inputBound);
       if (body.max_tokens < 1) stop('tokens');
       const remainingMs = budget.wallSeconds * 1000 - elapsed();
-      const deadline = Number.isFinite(remainingMs) && remainingMs < 120_000 ? AbortSignal.timeout(Math.max(1, remainingMs)) : null;
+      const deadline = Number.isFinite(remainingMs) && remainingMs <= MODEL_TIMEOUT_MS ? AbortSignal.timeout(Math.max(1, remainingMs)) : null;
       let res;
       try {
         res = await chat({ endpoint, apiKey, signal: deadline && signal ? AbortSignal.any([signal, deadline]) : deadline ?? signal, body, requireUsage: true });

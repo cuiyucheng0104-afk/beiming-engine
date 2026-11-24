@@ -7,6 +7,7 @@
 // 这份账本和工作区的账本（GET ledger）分开记：那边是服务器花的，这边是外部模型花的。
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { parseRequestText } from '../kernel/patch-apply.mjs';
 import {
   DELEGATE_ROLES,
   L5_GRADES,
@@ -41,7 +42,7 @@ export {
 
 const METHODS = ['GET', 'POST', 'PUT', 'DELETE'];
 // 一次模型调用最多等多久（毫秒；兼顾带多模态图片输入的真实推理模型长思考回合，仍受外层预算 signal 约束）
-const MODEL_TIMEOUT_MS = 240000;
+export const MODEL_TIMEOUT_MS = 240000;
 const SEVERITIES = ['low', 'medium', 'high', 'info', 'warn', 'error'];
 const AGENT_IMAGE_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const AGENT_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
@@ -255,20 +256,23 @@ function isFilesPath(path) {
     || /^\/v1\/films\/[^/]+\/files(?:\/|$)/.test(decoded);
 }
 
+const JSON_WS_ONLY = /^[ \t\r\n]*(\{[\s\S]*\}|\[[\s\S]*\])[ \t\r\n]*$/;
+
 /**
  * 兼容外部模型把 JSON 请求体序列化为字符串传入 http_request.body 的情形：
- * 仅对非 /v1/films/<id>/files/* 路径且以 { 或 [ 开头的合法 JSON 对象/数组字符串解包；
- * /files/* 源码正文、解析失败字符串与其他原始值一律原样保留，避免误解析或吞掉非法类型错误。
+ * 仅对非 /v1/films/<id>/files/* 路径且仅含 RFC 8259 合法空白、无重复键的 JSON 对象/数组字符串解包
+ * （复用服务端同一套 parseRequestText 严格解析器）；/files/* 源码正文、重复键、非法空白、解析失败字符串与其他原始值一律原样保留。
  */
 export function normalizeJsonToolBody(path, body) {
   if (typeof body !== 'string' || isFilesPath(path)) return body;
-  const trimmed = body.trim();
-  if (!trimmed || (trimmed[0] !== '{' && trimmed[0] !== '[')) return body;
-  try {
-    const parsed = JSON.parse(trimmed);
-    if (isPlainObject(parsed) || Array.isArray(parsed)) return parsed;
-  } catch { /* 非法 JSON 字符串原样交给上游校验或服务端报错 */ }
-  return body;
+  const m = JSON_WS_ONLY.exec(body);
+  if (!m) return body;
+  if (m[1][0] === '{') {
+    const parsed = parseRequestText(body);
+    return parsed.ok && isPlainObject(parsed.body) ? parsed.body : body;
+  }
+  const wrapped = parseRequestText(`{"_":${m[1]}}`);
+  return wrapped.ok && Array.isArray(wrapped.body?._) ? wrapped.body._ : body;
 }
 
 /**
@@ -288,7 +292,9 @@ export async function callApi({ baseUrl, account, workspaces, jobs, signal }, ar
   const token = (film && workspaces[film]) || (job && workspaces[jobs[job]]) || account;
   const hasBody = args.body !== undefined && args.body !== null && method !== 'GET';
   const reqBody = hasBody ? normalizeJsonToolBody(target.pathname, args.body) : args.body;
-  const text = typeof reqBody === 'string';
+  // 非 /files/ 路径上传入显式空串 "" 时按 JSON 字符串 "" 发送，避免 0 字节正文被服务端当成省略请求体 {} 放行
+  const emptyJsonStr = hasBody && reqBody === '' && !isFilesPath(target.pathname);
+  const text = typeof reqBody === 'string' && !emptyJsonStr;
   const res = await fetch(target, {
     method, headers: { authorization: `Bearer ${token}`, ...(hasBody ? { 'content-type': text ? 'text/plain; charset=utf-8' : 'application/json' } : {}) },
     ...(hasBody ? { body: text ? reqBody : JSON.stringify(reqBody) } : {}), signal,
@@ -340,10 +346,11 @@ function attachHandsOnBrief(args, brief, baseUrl) {
   }
   const pathname = target.pathname;
   if (pathname !== '/v1/films' && !/^\/v1\/films\/[^/]+\/review$/.test(pathname)) return args;
+  const wasString = typeof args.body === 'string';
   const body = normalizeJsonToolBody(pathname, args.body);
   if (body !== undefined && body !== null) {
     if (!isPlainObject(body)) return args;
-    const hasBrief = Object.hasOwn(body, 'brief') && body.brief !== undefined && body.brief !== null;
+    const hasBrief = Object.hasOwn(body, 'brief') && body.brief !== undefined && (wasString ? true : body.brief !== null);
     if (hasBrief && (typeof body.brief !== 'string' || body.brief.trim())) {
       return body === args.body ? args : { ...args, body };
     }
