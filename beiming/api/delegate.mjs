@@ -1,5 +1,5 @@
 // 委托只通过工作区 HTTP 接口操作片子。每个角色单独维护消息，子作业在工具内等到终态。
-import { buildShotWorkerMessages, callApi, chat, DELEGATE_ROLES, familyOf, HTTP_TOOL } from './agents.mjs';
+import { buildShotWorkerMessages, buildToolImageMessage, callApi, chat, DELEGATE_ROLES, estimateChatBodyInputTokens, familyOf, HTTP_TOOL } from './agents.mjs';
 
 export const DELEGATE_HARD_TOKEN_CAP = 1_200_000;
 const SYSTEM = {
@@ -91,20 +91,21 @@ export async function runDelegateOrchestrator({
 
   async function tool(args, role, shot, evidence) {
     checkBudget();
+    const refuse = (why) => ({ text: JSON.stringify({ refused: why }) });
     const method = String(args.method).toUpperCase();
-    if (typeof args.path !== 'string' || !args.path.startsWith('/v1/')) return JSON.stringify({ refused: '需要本服务的 /v1/ 路径' });
+    if (typeof args.path !== 'string' || !args.path.startsWith('/v1/')) return refuse('需要本服务的 /v1/ 路径');
     const target = new URL(args.path, baseUrl);
-    if (target.origin !== baseOrigin || !inScope(method, target.pathname, root)) return JSON.stringify({ refused: '该动词不在本片的委托范围内' });
+    if (target.origin !== baseOrigin || !inScope(method, target.pathname, root)) return refuse('该动词不在本片的委托范围内');
     const verb = target.pathname.slice(root.length + 1);
     const isJob = method === 'POST' && ['render', 'verify', 'deliver'].includes(verb);
     if (target.pathname.startsWith(`${root}/`) && method !== 'GET') {
       if (role === 'shot-worker' && method === 'PUT' && verb === 'film') {
-        if (!ownShotPatch(args.body, shot.id)) return JSON.stringify({ refused: `镜头工只允许用 patch/0.1 修改本镜头 shots/${shot.id}/` });
+        if (!ownShotPatch(args.body, shot.id)) return refuse(`镜头工只允许用 patch/0.1 修改本镜头 shots/${shot.id}/`);
       } else {
         const allowed = (role === 'director' && method === 'PUT' && verb === 'film') ||
           (role === 'shot-worker' && method === 'POST' && ['observe/query', 'observe/sheet', 'render', 'verify'].includes(verb)) ||
           (role === 'finalizer' && method === 'POST' && verb === 'deliver');
-        if (!allowed) return JSON.stringify({ refused: '该动词不属于当前角色' });
+        if (!allowed) return refuse('该动词不属于当前角色');
       }
     }
     if (isJob) {
@@ -156,7 +157,7 @@ export async function runDelegateOrchestrator({
         evidence[verb] = complete.data?.rev;
       }
     }
-    return res.text;
+    return { text: res.text, ...(res.image ? { image: res.image } : {}) };
   }
 
   async function session(role, shot, currentFilm) {
@@ -194,8 +195,8 @@ export async function runDelegateOrchestrator({
       await readLedger();
       checkBudget(stepReserve);
       const body = { model, messages, tools: [HTTP_TOOL], tool_choice: 'auto' };
-      // 以 UTF-8 字节为保守的输入界，预留消息封装开销；服务商同时限制输出，单次请求不能借用下一步预算。
-      const inputBound = Buffer.byteLength(JSON.stringify(body)) + 256 + 16 * messages.length;
+      // 以 UTF-8 字节与图像分辨率上界估算输入预算；服务商同时限制输出，单次请求不能借用下一步预算。
+      const inputBound = estimateChatBodyInputTokens(body, model);
       body.max_tokens = Math.min(stepReserve, maxTokens - usedTokens - serverTokens - inputBound);
       if (body.max_tokens < 1) stop('tokens');
       const remainingMs = budget.wallSeconds * 1000 - elapsed();
@@ -222,12 +223,17 @@ export async function runDelegateOrchestrator({
       const calls = res.message.tool_calls ?? [];
       if (!calls.length) return !shot || (evidence.render === bestRev && evidence.verify === bestRev);
       messages.push({ role: 'assistant', content: res.message.content ?? null, tool_calls: calls });
+      const attachedImages = [];
       for (const tc of calls) {
         let args;
         try { args = JSON.parse(tc.function?.arguments); } catch { /* 把参数错误交回模型修正 */ }
-        const content = tc.function?.name === 'http_request' && args && typeof args === 'object'
-          ? await tool(args, role, shot, evidence) : JSON.stringify({ refused: 'http_request 需要 JSON 对象参数' });
-        messages.push({ role: 'tool', tool_call_id: tc.id, content });
+        const out = tc.function?.name === 'http_request' && args && typeof args === 'object'
+          ? await tool(args, role, shot, evidence) : { text: JSON.stringify({ refused: 'http_request 需要 JSON 对象参数' }) };
+        messages.push({ role: 'tool', tool_call_id: tc.id, content: out.text });
+        if (out.image) attachedImages.push(out.image);
+      }
+      if (attachedImages.length) {
+        messages.push(buildToolImageMessage(attachedImages));
       }
     }
     await readLedger();

@@ -32,6 +32,7 @@ def build(ctx):
     camera = scene.camera.data
     camera.sensor_fit, camera.sensor_height, camera.lens = 'VERTICAL', 24, 48
     scene.cycles.max_bounces = 0
+    scene.view_layers[0].cycles.use_denoising = False
 
     mat = bpy.data.materials.new('enamel')
     mat.use_nodes = True
@@ -178,7 +179,7 @@ function iou(a, b) {
 
 async function inspect(session, workspace, f, angleDeg = 0) {
   const samples = 8, want = [...Object.keys(CHANNELS), 'meta'];
-  const { meta, layers } = await session.render(f, { samples, shutter: { angleDeg, samples: 1 } }, want);
+  const { meta, layers } = await session.render(f, { samples, denoise: 'none', shutter: { angleDeg, samples: 1 } }, want);
   clean(meta);
   const [w, h] = SIZE;
   assert.deepEqual([meta.format, meta.frame, meta.shotFrame, meta.fps, meta.size, meta.seed], ['meta/0.1', SHOT.in + f, f, INPUT.output.fps, SIZE, SHOT.seed]);

@@ -135,7 +135,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
     store.writeMeta(id, {
       template: chosenTemplate,
       ...(selected ? { templateSelectedBy: selected.selectedBy } : {}),
-      brief: body.brief,
+      ...(typeof body.brief === 'string' && body.brief.trim() ? { brief: body.brief } : {}),
       ...(body.budget ? { budget: body.budget } : {}),
       question,
       assets: question?.assets ?? {},
@@ -398,7 +398,16 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
           const file = store.workspace(id).resolve(`deliver/${match.params.name}`);
           const stat = statSync(file, { throwIfNoEntry: false });
           if (!stat?.isFile()) throw missing('产物文件不存在');
-          res.writeHead(200, { 'content-type': /\.(json|lock)$/i.test(file) ? 'application/json; charset=utf-8' : 'application/octet-stream', 'content-length': stat.size, 'cache-control': 'private, no-store' });
+          const contentType = /\.(json|lock)$/i.test(file)
+            ? 'application/json; charset=utf-8'
+            : /\.png$/i.test(file)
+              ? 'image/png'
+              : /\.jpe?g$/i.test(file)
+                ? 'image/jpeg'
+                : /\.webp$/i.test(file)
+                  ? 'image/webp'
+                  : 'application/octet-stream';
+          res.writeHead(200, { 'content-type': contentType, 'content-length': stat.size, 'cache-control': 'private, no-store' });
           await pipeline(createReadStream(file), res);
           return;
         }
@@ -415,7 +424,15 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
         if (res.headersSent || res.destroyed) return;
         const code = isRegistered(e.code) ? e.code : 'usage.bad-argument';
         status = e.status ?? (isRegistered(e.code) || e instanceof TypeError ? httpStatusOf(code) : 500);
-        result = { ok: false, code, message: status === 500 ? '服务端处理失败' : e.message, hint: e.hint, data: e.data, diagnostics: e.diagnostics };
+        const frames = Number.isFinite(e?.ledgerCost?.frames) ? e.ledgerCost.frames : 0;
+        const gpuSeconds = Number.isFinite(e?.ledgerCost?.gpuSeconds) ? e.ledgerCost.gpuSeconds : 0;
+        const tokens = Number.isFinite(e?.ledgerCost?.tokens) ? e.ledgerCost.tokens : 0;
+        result = {
+          ok: false, code, message: status === 500 ? '服务端处理失败' : e.message, hint: e.hint, data: e.data, diagnostics: e.diagnostics,
+          ...(frames > 0 ? { frames } : {}),
+          ...(gpuSeconds > 0 ? { gpuSeconds, cost: { gpuSeconds } } : {}),
+          ...(tokens > 0 ? { tokens } : {}),
+        };
       }
       const wallMs = Math.round(monotonicMs() - start);
       const opts = { ...result, cost: { ...result.cost, wallMs } };
@@ -443,7 +460,7 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
       }
       env.cost.tokens = estimateTokens(env);
       env.cost.tokens = estimateTokens(env);
-      if (id) store.ledger(id, { step: route.id, ok: env.ok, wallMs, gpuSeconds: 0, tokens: env.cost.tokens, modelTokens: result.tokens ?? 0, frames: result.frames ?? 0 });
+      if (id) store.ledger(id, { step: route.id, ok: env.ok, wallMs, gpuSeconds: result.gpuSeconds ?? 0, tokens: env.cost.tokens, modelTokens: result.tokens ?? 0, frames: result.frames ?? 0 });
       res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'private, no-store' });
       res.end(JSON.stringify(env));
     } finally {

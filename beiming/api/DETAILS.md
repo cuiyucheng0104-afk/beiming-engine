@@ -103,3 +103,19 @@ node beiming/api/cli.mjs render --id f_001 --wait 30 --json '{"tier":"draft"}'
   - 仅得票 `>= quorum` 的建议谓词经 `filterL5SuggestedPredicates` 逐条过 `checkExtra`、帧域/上下文作用域（无 `film` 时亦校验已知 `totalFrames` 并拒绝缺上下文的 `shot`/`event` 作用域）、`enforcePredicateFloor` 与与正式 `layerL1` 一致的考题基线分离 `checkL1`：通过 L1 的合法谓词记入 `suggestedPredicates` / `validatedExtraPredicates`（不会自动改写片子 `predicates.extra`），未登记谓词、越界帧域或削弱 `floor@1` 底线的建议谓词一律拦截在 `rejectedPredicates`。
   - 所有公开导出函数在解构入参前执行零陷阱纯数据校验（拒绝 Proxy、getter/setter 访问器、稀疏/附键数组、非纯对象原型、循环引用、越界数值等），统一抛出 `code: 'usage.bad-argument'`。
   - 改动后运行 `node --test beiming/api/a19-delegate-roles.test.mjs`。
+
+## 做片代理视觉回看、原尺寸审片关键帧与报告顶层对齐
+
+- **做片代理直接看渲染图（`agents.mjs`、`delegate.mjs`、`server.mjs`）**：
+  - `server.mjs` 的二进制产物路由对 `.png`、`.jpg`/`.jpeg`、`.webp` 分别返回 `image/png`、`image/jpeg`、`image/webp`（`.json`/`.lock` 仍为 `application/json`，其余二进制仍为 `application/octet-stream`）。
+  - `callApi()` 收到 HTTP 2xx 且 `content-type` 为 `image/png`、`image/jpeg` 或 `image/webp` 时按流读取字节并严守 `<= 8 MiB` 上限：满足 `0 < bytes <= 8 MiB` 时，返回的 `text` 带 `imageAttached: true` 且附 `image: { mimeType, base64, bytes, path }`；为空或超 8 MiB 时 `imageAttached: false`、不附加 `image` 且不在内存中缓冲超限载荷。
+  - `runHandsOnAgent()` 与 `runDelegateOrchestrator()` 在整轮 `http_request` 的全部 `role: 'tool'` 消息落入会话后，立刻追加一条包含 `image_url`（`data:<mimeType>;base64,...`）的多模态 `role: 'user'` 消息（`buildToolImageMessage`），使视觉做片模型下一轮直接看到渲染帧与联系表；委托编排器同步以 `estimateChatBodyInputTokens` 按图像分辨率估算输入 token 上界，不把 base64 字符数当纯文本 token 误判超预算。
+- **审片材料附未缩放原尺寸关键帧与需求原文逐级兜底（`pipeline.mjs`、`work.mjs`、`agents.mjs`、`server.mjs`）**：
+  - `reviewKeyframeNumbers(film, maxCount)` 导出共用镜头中点选帧逻辑（多镜头时均匀上限 4 帧、去重升序）；`reviewMaterials({ master, fps, film, outDir })` 保留 `contact.png` 与切点条带，并从 `master` 按该目标帧号列表抽帧（不缩放，保持与 `film.output.size` 一致的原始分辨率）落盘到 `keyframes/keyframe-f<帧号>.png`，以 `{ name: 'keyframe-f<帧号>', path }` 加入 `images`。
+  - 未交付前的 `material === 'frames'` 审片通过内部联系表/切点条带生成器将审片材料写入按次隔离的 `review/rev-<rev>/materials-<id>/` 目录（与 `POST /observe/sheet` 的 `sheets/` 及并发 `POST /review` 彻底隔离，`master` 模式审片同样按次隔离材料目录，且 `review.json` 经临时文件原子改名落盘）；原尺寸关键帧先按 `reviewKeyframeNumbers(film)` 检查当前修订 `frames-final.json` 中已存在且像素宽高严格等于 `film.output.size` 的目标中点帧（全部命中时零额外渲染）；对缺失或仅渲染了半尺寸的目标帧，基于审片专用浅拷贝 `reviewFilm`（剥离 `delivery.layers` 避免请求未实现交付通道、将镜头缩小的 `tiers.final.scale` 归一为 `1` 以保证原尺寸）以 `final` 档仅补渲这 1–4 帧到 `review/rev-<rev>/keyframes`（不改写 `frames-final.json` 索引，常规镜头复用 `shotCache` 供后续 `deliver` 命中，涉及 `blender` 时隔离快照副本并核验 `lut`，补渲后仍有目标帧缺失时显式抛 `contract.delivery-mismatch` 而不静默空关键帧进入 L5；同片同修订并发审片共享在途补渲，仅由发起方经 `server.mjs` 将本次补渲 `frames` 与 `gpuSeconds` 如实写入 `GET /ledger`，搭便车方记 `0` 不重复计账）。
+  - `POST /v1/films` 传入非空白 `brief` 时无论亲手还是委托模式均持久化至 `meta.brief`；`runHandsOnAgent()` 转发 `POST /v1/films` 或 `POST /v1/films/<id>/review` 时，仅当 `body` 省略/`null` 或 `body.brief` 省略/`undefined`/空白字符串时自动在副本中补回已传入的需求原文（不篡改原参数，显式非空字符串原样保留，显式非法类型如对象、数组、数字、布尔、`null` 原样透传给服务端返回 `400 usage.bad-argument`）；审片与交付传入 L5 的需求原文按 `request brief -> meta.brief -> meta.question.brief -> film.title` 逐级兜底；审片提示词明确说明 `keyframe-f<帧号>` 为未缩放原尺寸关键帧。
+- **报告顶层 `ok` 与 `verification.ok` 对齐且并排展示未处理审片意见数（`pipeline.mjs`、`work.mjs`、`comp/deliver.mjs`）**：
+  - `writeVerification(dir, verification)` 将顶层 `ok` 对齐为 `Boolean(report.ok && verification?.ok !== false)`，并紧邻 `ok` 之后并排写入非负整数 `unresolvedReviewOpinions`（成立 L5 审片意见 `verification.L5.opinions.length`），重建 `report.json` 并重新锚定 `run.json` 摘要；`deliver` 作业响应 `data` 同步带出 `unresolvedReviewOpinions`。
+  - `verifyDeliveryBundle(dir)` 强制校验 `checksOk && report.ok === (checksOk && report.verification?.ok !== false)`：纯 `comp` 交付包仍须 `checksOk && report.ok === true`，硬门未过的交付包须 `report.ok === false` 才过完整性复验，错配（如 `ok: true` 配 `verification.ok: false`）或 `checks` 失败一律拒收。
+  - 改动后运行 `BEIMING_BLENDER=/nonexistent/blender node --test beiming/api/m1b-visual-review.test.mjs` 与 `node --test beiming/comp/comp.test.mjs`。
+

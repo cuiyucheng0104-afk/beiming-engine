@@ -452,7 +452,9 @@ export function verifyDeliveryBundle(dir, { reportSha256 } = {}) {
     if (JSON.stringify(run.delivery) !== JSON.stringify(report.delivery)) throw mismatch('交付配置与运行记录不符');
   } else if (!reportSha256) throw mismatch('缺报告摘要，历史交付需要 reportSha256');
   const expected = expectedPieces(run.delivery ?? report.delivery);
-  if (Object.keys(report.files).length !== expected.length || !report.ok) throw mismatch('交付清单不符');
+  const checksOk = Array.isArray(report.checks) && report.checks.every((c) => c?.ok === true);
+  const expectedOk = checksOk && report.verification?.ok !== false;
+  if (Object.keys(report.files).length !== expected.length || !checksOk || report.ok !== expectedOk) throw mismatch('交付清单不符');
   const files = {};
   for (const name of expected) {
     const want = report.files[name];

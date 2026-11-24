@@ -56,7 +56,7 @@ const HELP = `北冥考题库离线考试核验入口
 退出码：0 全部通过；1 离线考试未通过、负对照失守或全跳过无实跑；2 命令行参数错误；4 题库为空/缺题集或题目/夹具契约校验不通过`;
 
 const LEVEL1_IDS = new Set(['29-1', '28-1', '23-1', '1-1']);
-const LEVEL2A_IDS = new Set(['27-1', '29-2', '23-2']);
+const LEVEL2A_IDS = new Set(['27-1', '29-2', '23-2', '30-1']);
 const LEVEL2B_IDS = new Set(B6_QUESTION_IDS);
 const REQUIRED_QUESTION_SETS = Object.freeze([
   Object.freeze({ name: 'level-1', evaluator: 'evaluate-b2.mjs', ids: Object.freeze([...LEVEL1_IDS]) }),
@@ -435,11 +435,20 @@ function validateRefData(question, data, refLabel) {
       bad(`kind 应为 constructed 或 measured，实际为 ${JSON.stringify(data.kind)}`);
     }
     const exp = data.expect;
+    const expectedPass = isPlainObj(exp) && typeof exp.basePass === 'boolean' && Array.isArray(exp.items)
+      ? exp.basePass && exp.items.every((v) => v === true)
+      : null;
+    const expectedScore = isPlainObj(exp) && Array.isArray(exp.items) && Array.isArray(question.scoring)
+      && exp.items.length === question.scoring.length
+      ? question.scoring.reduce((sum, s, idx) => sum + (exp.items[idx] === true && isFiniteNum(s?.weight) ? s.weight : 0), 0)
+      : NaN;
     if (!isPlainObj(exp) || typeof exp.pass !== 'boolean' || typeof exp.basePass !== 'boolean'
       || !isFiniteNum(exp.score) || !Array.isArray(exp.items)
       || exp.items.length !== (question.scoring?.length ?? 0)
-      || !exp.items.every((v) => typeof v === 'boolean')) {
-      bad(`${question.id} 缺少合法的 expect 预期判分对象`);
+      || !exp.items.every((v) => typeof v === 'boolean')
+      || exp.pass !== expectedPass
+      || !isFiniteNum(expectedScore) || Math.abs(exp.score - expectedScore) >= 1e-9) {
+      bad(`${question.id} 缺少合法且自洽的 expect 预期判分对象`);
     }
     if (!Number.isInteger(data.width) || data.width <= 0 || !Number.isInteger(data.height) || data.height <= 0
       || !isFiniteNum(data.fps) || data.fps <= 0 || !Number.isInteger(data.frames) || data.frames <= 0) {
@@ -460,6 +469,31 @@ function validateRefData(question, data, refLabel) {
         || !isPlainObj(data.beat) || !Number.isInteger(data.beat.periodMs) || !Number.isInteger(data.beat.phaseMs)) {
         bad('23-2 缺少合法的 chaptersMs/strongOnsetsMs/beat 读数');
       }
+    } else if (question.id === '30-1') {
+      const validEventList = (list, allowEmpty = false) => Array.isArray(list)
+        && (allowEmpty || list.length > 0)
+        && Array.from(list, (e) => isPlainObj(e)
+          && typeof e.id === 'string' && e.id.trim().length > 0
+          && Number.isSafeInteger(e.frame) && e.frame >= 0 && e.frame < data.frames).every(Boolean)
+        && new Set(list.map((e) => e.id)).size === list.length;
+      const sameIds = (a, b) => {
+        const ids = new Set(b.map((e) => e.id));
+        return a.length === b.length && a.every((e) => ids.has(e.id));
+      };
+      const beatOk = validEventList(data.beatEvents) && validEventList(data.probeBeatEvents)
+        && sameIds(data.beatEvents, data.probeBeatEvents);
+      const beatIdSet = beatOk ? new Set(data.beatEvents.map((e) => e.id)) : new Set();
+      const absOk = (data.absoluteEvents === undefined && data.probeAbsoluteEvents === undefined)
+        || (validEventList(data.absoluteEvents, true)
+          && validEventList(data.probeAbsoluteEvents, true)
+          && sameIds(data.absoluteEvents, data.probeAbsoluteEvents)
+          && !data.absoluteEvents.some((e) => beatIdSet.has(e.id)));
+      if (!isFiniteNum(data.baseBpm) || data.baseBpm <= 0
+        || !isFiniteNum(data.probeBpm) || data.probeBpm <= 0 || data.baseBpm === data.probeBpm
+        || !beatOk || !absOk
+        || !isFiniteNum(data.loudnessLufs) || !isFiniteNum(data.truePeakDbtp)) {
+        bad('30-1 缺少合法的 baseBpm/probeBpm/beatEvents/probeBeatEvents/loudnessLufs/truePeakDbtp 读数');
+      }
     }
   }
 
@@ -474,6 +508,94 @@ function resolveRefPath(benchDir, ref) {
   return abs.startsWith(beimingRoot + path.sep) ? abs : null;
 }
 
+function inspect30_1Sample(question, data) {
+  if (!isPlainObj(data)
+    || !Array.isArray(data.beatEvents) || data.beatEvents.length === 0
+    || !Array.isArray(data.probeBeatEvents) || data.probeBeatEvents.length !== data.beatEvents.length) {
+    return null;
+  }
+  const hitArgs = isPlainObj(question?.scoring?.[0]?.args) ? question.scoring[0].args : {};
+  const followArgs = isPlainObj(question?.scoring?.[1]?.args) ? question.scoring[1].args : {};
+  const minBeatEvents = Number.isInteger(hitArgs.minBeatEvents) && hitArgs.minBeatEvents > 0 ? hitArgs.minBeatEvents : 20;
+  if (data.beatEvents.length < minBeatEvents) return null;
+
+  const baseBpm = data.baseBpm;
+  const probeBpm = data.probeBpm;
+  const tolFrames = isFiniteNum(followArgs.tolFrames) && followArgs.tolFrames >= 0 ? Math.min(followArgs.tolFrames, 1) : 1;
+  const minMovableRatio = isFiniteNum(followArgs.minMovableRatio) && followArgs.minMovableRatio > 0 ? followArgs.minMovableRatio : 0.5;
+  const minPassFollowedRatio = isFiniteNum(followArgs.minMovedRatio) && followArgs.minMovedRatio > 0 ? followArgs.minMovedRatio : 1;
+  if (!isFiniteNum(baseBpm) || !isFiniteNum(probeBpm) || baseBpm <= 0 || probeBpm <= 0 || baseBpm === probeBpm) {
+    return null;
+  }
+
+  const reqIds = [...new Set([
+    ...(Array.isArray(hitArgs.requiredEventIds) ? hitArgs.requiredEventIds : []),
+    ...(Array.isArray(followArgs.requiredEventIds) ? followArgs.requiredEventIds : []),
+  ].filter((id) => typeof id === 'string' && id.length > 0))];
+  const baseIds = new Set(data.beatEvents.map((e) => e?.id));
+  const probeById = new Map(data.probeBeatEvents.map((e) => [e?.id, e?.frame]));
+  if (reqIds.some((id) => !baseIds.has(id) || !probeById.has(id))) return null;
+
+  const ratio = baseBpm / probeBpm;
+  const movableIds = new Set();
+  const followedIds = new Set();
+  let movableCount = 0;
+  let followedCount = 0;
+  let allStationary = true;
+  for (const ev of data.beatEvents) {
+    if (!isPlainObj(ev) || !probeById.has(ev.id)) return null;
+    const baseFrame = ev.frame;
+    const probeFrame = probeById.get(ev.id);
+    const expectedFrame = Math.round(baseFrame * ratio);
+    const lo = (baseFrame - 0.5) * ratio;
+    const hi = (baseFrame + 0.5) * ratio;
+    const disjoint = hi <= baseFrame - 0.5 + 1e-9 || lo >= baseFrame + 0.5 - 1e-9;
+    const mustMove = Math.abs(expectedFrame - baseFrame) >= tolFrames + 1 || disjoint;
+    if (mustMove) {
+      movableCount++;
+      movableIds.add(ev.id);
+    }
+    if (probeFrame !== baseFrame) allStationary = false;
+    if (Math.abs(probeFrame - expectedFrame) <= tolFrames && (!mustMove || probeFrame !== baseFrame)) {
+      followedCount++;
+      followedIds.add(ev.id);
+    }
+  }
+  const reqMovableOk = reqIds.length === 0
+    || reqIds.filter((id) => movableIds.has(id)).length >= Math.ceil(reqIds.length * minMovableRatio);
+  const enoughMovable = movableCount >= Math.ceil(data.beatEvents.length * minMovableRatio) && reqMovableOk;
+  const followedRatio = followedCount / data.beatEvents.length;
+  const reqFollowedRatio = reqIds.length === 0
+    ? 1
+    : reqIds.filter((id) => followedIds.has(id)).length / reqIds.length;
+  const followsBpm = enoughMovable
+    && followedRatio >= minPassFollowedRatio
+    && reqFollowedRatio >= minPassFollowedRatio;
+  return { baseBpm, probeBpm, enoughMovable, allStationary, followsBpm };
+}
+
+function isPass30_1Sample(question, data) {
+  const exp = data?.expect;
+  if (!isPlainObj(exp) || exp.pass !== true || exp.basePass !== true
+    || !isFiniteNum(exp.score) || Math.abs(exp.score - 1) >= 1e-9
+    || !Array.isArray(exp.items) || exp.items.length !== 2 || exp.items[0] !== true || exp.items[1] !== true) {
+    return false;
+  }
+  const info = inspect30_1Sample(question, data);
+  return Boolean(info && info.followsBpm);
+}
+
+function isHardcoded30_1Sample(question, data) {
+  const exp = data?.expect;
+  if (!isPlainObj(exp) || exp.pass !== false || exp.basePass !== true
+    || !isFiniteNum(exp.score) || exp.score < 0 || exp.score >= 1
+    || !Array.isArray(exp.items) || exp.items.length !== 2 || exp.items[0] !== true || exp.items[1] !== false) {
+    return false;
+  }
+  const info = inspect30_1Sample(question, data);
+  return Boolean(info && info.enoughMovable && info.allStationary);
+}
+
 function validateRefs(question, benchDir) {
   const errors = [];
   const refs = question.refs ?? [];
@@ -481,6 +603,7 @@ function validateRefs(question, benchDir) {
     errors.push(`题目 ${question.id} 缺少参考夹具声明（refs 为空）`);
     return errors;
   }
+  const loadedRefs = [];
   for (const ref of refs) {
     const abs = resolveRefPath(benchDir, ref);
     if (!abs || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
@@ -501,7 +624,19 @@ function validateRefs(question, benchDir) {
     if (rawLeaks.length > 0 || objLeaks.length > 0) {
       errors.push(`参考文件存在泄露项（${ref}）：${rawLeaks.length + objLeaks.length} 处`);
     }
-    errors.push(...validateRefData(question, data, ref));
+    const dataErrors = validateRefData(question, data, ref);
+    errors.push(...dataErrors);
+    if (dataErrors.length === 0) loadedRefs.push(data);
+  }
+  if (question.id === '30-1' && errors.length === 0) {
+    const passSamples = loadedRefs.filter((d) => isPass30_1Sample(question, d));
+    const hardcodedSamples = loadedRefs.filter((d) => isHardcoded30_1Sample(question, d));
+    const hasPairedSamples = passSamples.some((p) => hardcodedSamples.some(
+      (h) => p.baseBpm === h.baseBpm && p.probeBpm === h.probeBpm,
+    ));
+    if (!hasPairedSamples) {
+      errors.push('题目 30-1 必须同时声明同 BPM 扰动对下的通过型参考样本与写死帧号失败型固定样本');
+    }
   }
   return errors;
 }
@@ -851,12 +986,13 @@ function verifyLevel1Variants(question, refData) {
 
 /**
  * 针对单道公开考题运行离线正对照与负对照判分核验。
- * 返回 { pass, positiveScore, negativeControlsChecked, negativeControlsRejected, predicates, metrics, detail }。
+ * 返回 { pass, controlsOk, positiveScore, negativeControlsChecked, negativeControlsRejected, predicates, metrics, detail }。
  */
 export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
   const beimingRoot = path.resolve(benchDir, '..');
   const failOutcome = (detail) => ({
     pass: false,
+    controlsOk: false,
     positiveScore: 0,
     negativeControlsChecked: 0,
     negativeControlsRejected: 0,
@@ -940,6 +1076,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       && posVerdict.basePass === true
       && Math.abs(posVerdict.score - 1) < 1e-9;
     const negOk = negChecked > 0 && negRejected === negChecked;
+    const controlOk = Boolean(refOk && negOk);
     const allOk = posOk && negOk;
 
     const predicates = Object.fromEntries(
@@ -951,14 +1088,20 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     const metrics = {};
     for (const s of question.scoring) {
       const matching = posVerdict.items.filter((item) => item.metric === s.metric);
-      metrics[s.metric] = {
-        pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
-        basis: 'offline-eval-b2',
-      };
+      metrics[s.metric] = controlOk
+        ? {
+            pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
+            basis: 'offline-eval-b2',
+          }
+        : {
+            pass: false,
+            basis: 'offline-eval-b2-control-mismatch',
+          };
     }
     return {
       pass: allOk,
-      positiveScore: posVerdict.score,
+      controlsOk: controlOk,
+      positiveScore: controlOk ? posVerdict.score : 0,
       negativeControlsChecked: negChecked,
       negativeControlsRejected: negRejected,
       predicates,
@@ -1011,6 +1154,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       }
     }
     const negOk = negChecked === B6_NEGATIVE_KINDS.length && negRejected === negChecked;
+    const controlOk = Boolean(refOk && negOk);
     const allOk = posOk && negOk;
 
     const predicates = Object.fromEntries(
@@ -1019,14 +1163,20 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     const metrics = {};
     for (const s of question.scoring) {
       const matching = posVerdict.items.filter((item) => item.metric === s.metric);
-      metrics[s.metric] = {
-        pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
-        basis: 'offline-eval-b4',
-      };
+      metrics[s.metric] = controlOk
+        ? {
+            pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
+            basis: 'offline-eval-b4',
+          }
+        : {
+            pass: false,
+            basis: 'offline-eval-b4-control-mismatch',
+          };
     }
     return {
       pass: allOk,
-      positiveScore: posVerdict.score,
+      controlsOk: controlOk,
+      positiveScore: controlOk ? posVerdict.score : 0,
       negativeControlsChecked: negChecked,
       negativeControlsRejected: negRejected,
       predicates,
@@ -1049,6 +1199,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     let posRefData = null;
     let posVerdict = null;
     let refOk = true;
+    let hasHardcodedNeg = false;
     let negChecked = 0;
     let negRejected = 0;
 
@@ -1078,6 +1229,13 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
         posVerdict = verdict;
       } else {
         negChecked++;
+        const followArgs = isPlainObj(question?.scoring?.[1]?.args) ? question.scoring[1].args : {};
+        if (question.id === '30-1'
+          && isHardcoded30_1Sample(question, refData)
+          && refData.baseBpm === followArgs.baseBpm
+          && refData.probeBpm === followArgs.probeBpm) {
+          hasHardcodedNeg = true;
+        }
         if (matchesExpect && verdict.pass === false && verdict.score < 1) negRejected++;
       }
     }
@@ -1085,8 +1243,11 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     if (!posRefData || !posVerdict) {
       return failOutcome(`题目 ${question.id} 缺少通过型参考夹具`);
     }
+    if (question.id === '30-1' && !hasHardcodedNeg) {
+      return failOutcome('题目 30-1 缺少写死帧号固定负对照夹具');
+    }
 
-    // 额外合成负对照（切点偏移 / 落拍错位 / 空读数）
+    // 额外合成负对照（切点偏移 / 落拍错位 / 写死帧号 / 漏交命名事件 / 空读数）
     const synthNegs = [{}];
     if (question.id === '27-1') {
       synthNegs.push({
@@ -1103,6 +1264,50 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
         ...posRefData,
         chaptersMs: posRefData.chaptersMs.map((ms) => ms + 250),
       });
+    } else if (question.id === '30-1') {
+      const hitArgs = isPlainObj(question.scoring?.[0]?.args) ? question.scoring[0].args : {};
+      const hitBpm = isFiniteNum(hitArgs.bpm) && hitArgs.bpm > 0 ? hitArgs.bpm : posRefData.baseBpm;
+      const phaseFrames = isFiniteNum(hitArgs.phaseFrames) ? hitArgs.phaseFrames : 0;
+      const periodFrames = (posRefData.fps * 60) / hitBpm;
+      const halfPeriod = Number.isFinite(periodFrames) && periodFrames >= 4 ? periodFrames / 2 : 9;
+      const offBeatEvents = posRefData.beatEvents.map((e, idx) => ({
+        id: e.id,
+        frame: (((Math.round((idx + 1) * periodFrames + phaseFrames + halfPeriod) % posRefData.frames) + posRefData.frames) % posRefData.frames),
+      }));
+      synthNegs.push(
+        {
+          ...posRefData,
+          beatEvents: offBeatEvents,
+          probeBeatEvents: offBeatEvents.map((e) => ({
+            id: e.id,
+            frame: Math.min(posRefData.frames - 1, Math.max(0, Math.round(e.frame * (posRefData.baseBpm / posRefData.probeBpm)))),
+          })),
+        },
+        {
+          ...posRefData,
+          probeBeatEvents: posRefData.beatEvents.map((e) => ({ ...e })),
+        },
+      );
+      const reqIds = (question.scoring ?? [])
+        .flatMap((s) => (Array.isArray(s?.args?.requiredEventIds) ? s.args.requiredEventIds : []))
+        .filter((id) => typeof id === 'string' && id.length > 0);
+      const baseIdSet = new Set(posRefData.beatEvents.map((e) => e.id));
+      const targetId = [...reqIds].reverse().find((id) => baseIdSet.has(id))
+        ?? posRefData.beatEvents[posRefData.beatEvents.length - 1]?.id;
+      if (targetId) {
+        const usedIds = new Set([
+          ...posRefData.beatEvents.map((e) => e.id),
+          ...(posRefData.absoluteEvents ?? []).map((e) => e.id),
+        ]);
+        let replacementId = 'other_event';
+        let suffix = 1;
+        while (usedIds.has(replacementId)) replacementId = `other_event_${suffix++}`;
+        synthNegs.push({
+          ...posRefData,
+          beatEvents: posRefData.beatEvents.map((e) => (e.id === targetId ? { ...e, id: replacementId } : e)),
+          probeBeatEvents: posRefData.probeBeatEvents.map((e) => (e.id === targetId ? { ...e, id: replacementId } : e)),
+        });
+      }
     }
     for (const negReading of synthNegs) {
       negChecked++;
@@ -1115,6 +1320,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       && posVerdict.basePass === true
       && Math.abs(posVerdict.score - 1) < 1e-9;
     const negOk = negChecked > 0 && negRejected === negChecked;
+    const controlOk = Boolean(refOk && negOk);
     const allOk = posOk && negOk;
 
     const predicates = Object.fromEntries(
@@ -1126,14 +1332,20 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     const metrics = {};
     for (const s of question.scoring) {
       const matching = posVerdict.items.filter((item) => item.metric === s.metric);
-      metrics[s.metric] = {
-        pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
-        basis: 'offline-eval-b3',
-      };
+      metrics[s.metric] = controlOk
+        ? {
+            pass: Boolean(matching.length > 0 && matching.every((item) => item.pass)),
+            basis: 'offline-eval-b3',
+          }
+        : {
+            pass: false,
+            basis: 'offline-eval-b3-control-mismatch',
+          };
     }
     return {
       pass: allOk,
-      positiveScore: posVerdict.score,
+      controlsOk: controlOk,
+      positiveScore: controlOk ? posVerdict.score : 0,
       negativeControlsChecked: negChecked,
       negativeControlsRejected: negRejected,
       predicates,
@@ -1299,22 +1511,6 @@ export async function runExam(options = {}) {
         continue;
       }
 
-      if (dryRun) {
-        questionReports.push({
-          file: entry.file,
-          id: entry.id,
-          level: entry.level,
-          valid: true,
-          status: 'validated',
-          pass: true,
-          score: 1,
-          negativeControlsChecked: 0,
-          negativeControlsRejected: 0,
-          errors: [],
-        });
-        continue;
-      }
-
       if (contractFailed) {
         questionReports.push({
           file: entry.file,
@@ -1331,7 +1527,36 @@ export async function runExam(options = {}) {
         continue;
       }
 
+      if (dryRun) {
+        const expectedSkip = Boolean(entry.question.flags?.expectedFail);
+        questionReports.push({
+          file: entry.file,
+          id: entry.id,
+          level: entry.level,
+          valid: true,
+          status: expectedSkip ? 'expected-fail' : 'validated',
+          pass: !expectedSkip,
+          score: expectedSkip ? 0 : 1,
+          negativeControlsChecked: 0,
+          negativeControlsRejected: 0,
+          errors: [],
+        });
+        continue;
+      }
+
       const customEval = evaluators && Object.hasOwn(evaluators, entry.id) ? evaluators[entry.id] : null;
+      const checkOutcomeControls = (out) => {
+        if (!isPlainObj(out)) return false;
+        const ctrlField = out.controlsOk === undefined ? true : out.controlsOk;
+        if (ctrlField !== true) return false;
+        const hasChecked = out.negativeControlsChecked !== undefined;
+        const hasRejected = out.negativeControlsRejected !== undefined;
+        if (!hasChecked && !hasRejected) return true;
+        return Number.isInteger(out.negativeControlsChecked)
+          && Number.isInteger(out.negativeControlsRejected)
+          && out.negativeControlsChecked > 0
+          && out.negativeControlsRejected === out.negativeControlsChecked;
+      };
       let evalOutcome = null;
       const runResult = await runExamQuestion({
         questionFile: entry.absFile,
@@ -1350,9 +1575,30 @@ export async function runExam(options = {}) {
           evalOutcome = customEval
             ? await customEval({ question, questionFile: entry.absFile, benchDir })
             : evaluateOfflineQuestion({ question, questionFile: entry.absFile, benchDir });
+          const controlsOk = checkOutcomeControls(evalOutcome);
+          const rawPreds = isPlainObj(evalOutcome?.predicates) ? evalOutcome.predicates : {};
+          const rawMetrics = isPlainObj(evalOutcome?.metrics) ? evalOutcome.metrics : {};
+          const judgedTrue = (table, key) => {
+            const v = Object.hasOwn(table, key) ? table[key] : null;
+            return v === true || v?.pass === true;
+          };
+          const wouldFakePass = !evalOutcome?.pass
+            && (question.basePredicates ?? []).every((p) => judgedTrue(rawPreds, p))
+            && (question.scoring ?? []).every((s) => judgedTrue(rawMetrics, s.metric));
+          const metrics = controlsOk && !wouldFakePass
+            ? rawMetrics
+            : Object.fromEntries(
+                (question.scoring ?? []).map((s) => [
+                  s.metric,
+                  {
+                    pass: false,
+                    basis: rawMetrics[s.metric]?.basis ?? (controlsOk ? 'offline-eval-failed' : 'offline-eval-control-mismatch'),
+                  },
+                ]),
+              );
           return {
-            predicates: evalOutcome.predicates ?? {},
-            metrics: evalOutcome.metrics ?? {},
+            predicates: rawPreds,
+            metrics,
             cost: { gpuSeconds: 0 },
           };
         },
@@ -1376,13 +1622,16 @@ export async function runExam(options = {}) {
         continue;
       }
 
-      const negChecked = evalOutcome?.negativeControlsChecked ?? 0;
-      const negRejected = evalOutcome?.negativeControlsRejected ?? 0;
+      const rawNegChecked = evalOutcome?.negativeControlsChecked;
+      const rawNegRejected = evalOutcome?.negativeControlsRejected;
+      const negChecked = Number.isInteger(rawNegChecked) && rawNegChecked >= 0 ? rawNegChecked : 0;
+      const negRejected = Number.isInteger(rawNegRejected) && rawNegRejected >= 0 ? rawNegRejected : 0;
       negativeControlsChecked += negChecked;
       negativeControlsRejected += negRejected;
 
+      const controlsOk = checkOutcomeControls(evalOutcome);
       const runnerOk = runResult.format === RESULT_FORMAT && fs.existsSync(runResult.resultFile) && runResult.pass === true;
-      const evalOk = Boolean(evalOutcome?.pass) && negRejected === negChecked;
+      const evalOk = Boolean(evalOutcome?.pass) && controlsOk;
       const pass = runnerOk && evalOk;
       const errors = [];
       if (!pass) {
