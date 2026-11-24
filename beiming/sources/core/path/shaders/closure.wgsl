@@ -95,18 +95,21 @@ fn surface_shader_bsdf_sample_closure(sd: ShadingPoint, k: u32, rand: vec3<f32>)
     var bs = BsdfSample();
     if (c.kind != CLOSURE_BSDF_MICROFACET_GGX) { return bs; }
     let m = bsdf_microfacet_ggx_sample(c.N, sd.Ng, sd.wi, c.alpha_x, c.f0, c.f90_or_b, c.energy_scale, rand.xy);
-    // （没采到：label 为 LABEL_NONE，其余全 0，积分器看到密度为 0 就结束这条路径。）
+    // 没采到（label 为 LABEL_NONE）：结果全 0，积分器看到密度为 0 就结束这条路径。零方向上的求值照算但不用：那里
+    // 密度不是 0，求值为 0 靠的是除以零得无穷大，这门语言不保证。用 select 不用分支：这个函数里多一支分支，
+    // 苹果显卡上没有金属的场景稳态也会慢 3% 到 4%。
+    let ok = m.label != LABEL_NONE;
     bs.wo = m.wo;
     bs.label = m.label;
     let e = bsdf_eval(c, sd.wi, m.wo);
-    bs.pdf = e.pdf;
-    bs.eval.glossy = e.eval * c.weight;
+    bs.pdf = select(0.0, e.pdf, ok);
+    bs.eval.glossy = select(vec3<f32>(0.0), e.eval * c.weight, ok);
     bs.eval.sum = bs.eval.glossy;
-    bs.eval.pdf = e.pdf;
-    bs.weight = bs.eval.sum / max(e.pdf, 1e-20);
+    bs.eval.pdf = bs.pdf;
+    bs.weight = select(vec3<f32>(0.0), bs.eval.sum / max(e.pdf, 1e-20), ok);
     // （这里的口径是粗糙度，即 alpha 的平方根：积分器拿它算光线锥与「镜面路径」。Cycles 的同名量是 alpha。）
-    bs.sampled_roughness = sqrt(vec2<f32>(c.alpha_x, c.alpha_y));
-    bs.eta = 1.0;
+    bs.sampled_roughness = select(vec2<f32>(0.0), sqrt(vec2<f32>(c.alpha_x, c.alpha_y)), ok);
+    bs.eta = select(0.0, 1.0, ok);
     // （上游的私有量：这次采样里高光占的份额，积分器在相机命中处读它。微表面闭包全是高光。）
     state.legacy.split_frac = vec3<f32>(1.0);
     return bs;

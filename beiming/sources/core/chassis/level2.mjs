@@ -237,22 +237,25 @@ function upstreamTest(bin) {
   });
 }
 
-// 负对照：在源码的拷贝上各故意改错一项（build.mjs 的 inject；file 相对 beiming/sources/core/，工作树不动）
+// 负对照：在源码的拷贝上各故意改错一项（build.mjs 的 inject；file 相对 beiming/sources/core/，工作树不动）。
+// near 是这项改错该量到的最大相对差：读数要在门外，还要落在 near 的 ±5% 之内。改错的读数挪了位置，说明接线变了
+// （纯金属没采到方向的样本曾经漏进白炉，这一项从 0.557 变成 1.20，照旧在门外，当时没有人发现）
+export const negativeOk = n => Math.abs(n.worstRel) > n.gate && Math.abs(n.worstRel / n.near - 1) <= 0.05;
 const NEGATIVE = [
   {
     target: 'closure', name: '闭包：求值的遮蔽项漏掉出射方向的 lambda（G2 写成 G1）',
     inject: { file: 'shaders/microfacet.wgsl', from: 'reflectance * common_ / (1.0 + lambdaO + lambdaI)', to: 'reflectance * common_ / (1.0 + lambdaI)' },
-    run: async bin => (await furnace(bin, { seeds: [1], rows: ['0.30', '0.60', '1.00'].map(roughness => ({ distribution: 'GGX', roughness })) })).rows, gate: GATES.furnaceRel,
+    run: async bin => (await furnace(bin, { seeds: [1], rows: ['0.30', '0.60', '1.00'].map(roughness => ({ distribution: 'GGX', roughness })) })).rows, gate: GATES.furnaceRel, near: 0.557,
   },
   {
     target: 'area_light', name: '面光：辐射通量到辐亮度的换算多乘 1%',
     inject: { file: 'shaders/area_light.wgsl', from: 'ls.eval_fac = M_1_PI_F * invarea;', to: 'ls.eval_fac = M_1_PI_F * invarea * 1.01;' },
-    run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel,
+    run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel, near: 1.0e-2,
   },
   {
     target: 'mis', name: '接线：材质采样打到矩形纯光时不取光（多重重要性采样只剩光源一侧的权重）',
     inject: { file: 'path/shaders/integrator.wgsl', from: 'if (!LIVE && state.legacy.bm_surf) {', to: 'if (false && state.legacy.bm_surf) {' },
-    run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel,
+    run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel, near: -4.87e-3,
   },
 ];
 
@@ -300,7 +303,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   for (const n of NEGATIVE) {
     const b = buildRenderer({ inject: [n.inject] });
     const rows = await n.run(b.bin);
-    negative.push({ target: n.target, name: n.name, inject: n.inject, gate: n.gate, rows, worstRel: rows.reduce((w, r) => (Math.abs(r.rel) > Math.abs(w) ? r.rel : w), 0) });
+    negative.push({ target: n.target, name: n.name, inject: n.inject, gate: n.gate, near: n.near, rows, worstRel: rows.reduce((w, r) => (Math.abs(r.rel) > Math.abs(w) ? r.rel : w), 0) });
   }
 
   say('同一种子渲两遍');
@@ -323,7 +326,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
     构建: diffuseFurnace.status === 'pass' && diffuseFurnace.matches,
     白炉: main.rows.every(r => Math.abs(r.rel) <= GATES.furnaceRel && r.se / r.cycles < GATES.furnaceRel / 10) && camera.maxRelChange < GATES.furnaceRel / 10,
     解析场景: ana.every(analyticOk),
-    负对照: negative.every(n => Math.abs(n.worstRel) > n.gate),
+    负对照: negative.every(negativeOk),
     确定性: det.identical,
   };
   say('完成');
@@ -355,7 +358,7 @@ export const command = defineCommand({
     fs.writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
     for (const r of report.furnace.rows) ctx.out(`${Math.abs(r.rel) <= GATES.furnaceRel ? '✓' : '✗'} 白炉 ${r.distribution.padEnd(9)} ${r.roughness}  我方 ${r.ours.toFixed(6)} ± ${r.se.toExponential(1)}  Cycles ${r.cycles.toFixed(6)}  相对差 ${r.rel.toExponential(2)}`);
     for (const a of report.analytic) ctx.out(`${analyticOk(a) ? '✓' : '✗'} 面光 ${a.name}  我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(1)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
-    for (const n of report.negative) ctx.out(`${Math.abs(n.worstRel) > n.gate ? '✓' : '✗'} 负对照 ${n.name}：最大相对差 ${n.worstRel.toExponential(2)}`);
+    for (const n of report.negative) ctx.out(`${negativeOk(n) ? '✓' : '✗'} 负对照 ${n.name}：最大相对差 ${n.worstRel.toExponential(2)}（该在 ${n.near.toExponential(2)} 的 ±5% 之内）`);
     ctx.out(`各项：${Object.entries(report.checks).map(([k, v]) => `${k} ${v ? '过' : '不过'}`).join('，')}；报告：${file}`);
     const bad = Object.keys(report.checks).filter(k => !report.checks[k]);
     return { data: report, outputs: [{ path: file, kind: 'report' }], ...(bad.length && { error: { code: 'contract.chassis-level2', message: `不过：${bad.join('、')}`, hint: `明细见 ${file}` } }) };

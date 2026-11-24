@@ -7,7 +7,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { polygonIrradiance } from '../fncheck/checks.mjs';
 import { COMMIT, KERNEL, SHADERS, singleCopyProblems } from './build.mjs';
-import { CYCLES, DIFFUSE, GATES, analyticOk, discPixels, rectMean, runLevel2 } from './level2.mjs';
+import { CYCLES, DIFFUSE, GATES, analyticOk, discPixels, negativeOk, rectMean, runLevel2 } from './level2.mjs';
 
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const ROUGHNESS = ['0.05', '0.10', '0.20', '0.30', '0.40', '0.50', '0.60', '0.70', '0.80', '0.90', '1.00'];
@@ -128,11 +128,11 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
       assert.ok(analyticOk(a), `${a.name} 相对差 ${a.rel}，差 ${a.z} 个标准误`);
     }
   });
-  await t.test('负对照：闭包、面光、接线里的多重重要性采样各故意改错一项，对应读数必须超出门限', () => {
+  await t.test('负对照：闭包、面光、接线里的多重重要性采样各故意改错一项，对应读数必须超出门限，且落在登记值的 ±5% 之内', () => {
     assert.deepEqual(rep.negative.map(n => n.target), ['closure', 'area_light', 'mis']);
     for (const n of rep.negative) {
-      t.diagnostic(`${n.name}: 最大相对差 ${n.worstRel.toExponential(2)}（门限 ${n.gate}）`);
-      assert.ok(Math.abs(n.worstRel) > n.gate, n.name);
+      t.diagnostic(`${n.name}: 最大相对差 ${n.worstRel.toExponential(2)}（门限 ${n.gate}，登记值 ${n.near}）`);
+      assert.ok(negativeOk(n), n.name);
     }
   });
   await t.test('确定性：同一种子渲两遍，输出逐字节相同', () => {
