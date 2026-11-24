@@ -741,3 +741,100 @@ test('exam-13 回归：level-2-a（27-1 / 29-2 / 23-2 / 30-1）接入 B3 评分�
   assert.equal(rDryBadRef.questions[0].score, 0);
 });
 
+test('exam-14 回归：30-1 追加合法可选事件不误清零、28-1 单分项失败保留部分分、运行期控制失配必零分落盘', async (t) => {
+  const findResultJson = (dir) => {
+    const hit = fs.readdirSync(dir, { recursive: true }).find((f) => String(f).endsWith('result.json'));
+    assert.ok(hit, `应在 ${dir} 下落盘 result.json`);
+    return JSON.parse(fs.readFileSync(path.join(dir, String(hit)), 'utf8'));
+  };
+
+  // 1. 30-1 在参考样本末尾追加合法第 21 个可选事件 m21（基准帧 180、探针帧 150），以及可选事件名为 other_event 时均应满分通过且负对照 5/5 全拦
+  for (const extraId of ['m21', 'other_event']) {
+    const root30 = makeTempDir(t);
+    const fakeBench30 = path.join(root30, 'bench');
+    const only30Dir = path.join(fakeBench30, 'questions-only-30');
+    const evalRoot30 = path.join(root30, 'eval-runs');
+    fs.mkdirSync(only30Dir, { recursive: true });
+    fs.cpSync(path.join(QUESTIONS_DIR, 'level-2-a/30-1.json'), path.join(only30Dir, '30-1.json'));
+    fs.cpSync(path.join(HERE, 'refs'), path.join(fakeBench30, 'refs'), { recursive: true });
+
+    const refPath = path.join(fakeBench30, 'refs/level-2-a/30-1.reference.json');
+    const ref30 = JSON.parse(fs.readFileSync(refPath, 'utf8'));
+    ref30.beatEvents.push({ id: extraId, frame: 180 });
+    ref30.probeBeatEvents.push({ id: extraId, frame: 150 });
+    fs.writeFileSync(refPath, JSON.stringify(ref30, null, 2));
+
+    const r30 = await runExam({ benchDir: fakeBench30, questionsDir: only30Dir, evalRoot: evalRoot30, outDir: null });
+    assert.equal(r30.ok, true, `${extraId}: ${JSON.stringify(r30.error)} / ${JSON.stringify(r30.questions[0]?.errors)}`);
+    assert.equal(r30.exitCode, 0, extraId);
+    assert.equal(r30.questions[0].pass, true, extraId);
+    assert.equal(r30.questions[0].score, 1, extraId);
+    assert.equal(r30.questions[0].negativeControlsChecked, 5, extraId);
+    assert.equal(r30.questions[0].negativeControlsRejected, 5, extraId);
+    const res30 = findResultJson(evalRoot30);
+    assert.equal(res30.pass, true, extraId);
+    assert.equal(res30.score, 1, extraId);
+  }
+
+  // 2. 28-1 收紧 maxW=0.05（正对照 0.5 分、负对照 2/2 正常拦截）-> exit 1，单题报告与落盘 result.json 均保留真实部分分 0.5
+  const q28Dir = makeTempDir(t);
+  const evalRoot28 = makeTempDir(t);
+  const out28 = makeTempDir(t);
+  const q28 = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-1/28-1.json'), 'utf8'));
+  q28.scoring[0].args.maxW = 0.05;
+  fs.writeFileSync(path.join(q28Dir, '28-1.json'), JSON.stringify(q28, null, 2));
+
+  const r28 = await runExam({ questionsDir: q28Dir, evalRoot: evalRoot28, outDir: out28 });
+  assert.equal(r28.ok, false);
+  assert.equal(r28.exitCode, 1);
+  assert.equal(r28.questions[0].valid, true);
+  assert.equal(r28.questions[0].pass, false);
+  assert.equal(r28.questions[0].score, 0.5);
+  assert.equal(r28.questions[0].negativeControlsChecked, 2);
+  assert.equal(r28.questions[0].negativeControlsRejected, 2);
+  const saved28 = JSON.parse(fs.readFileSync(path.join(out28, 'report.json'), 'utf8'));
+  assert.equal(saved28.questions[0].pass, false);
+  assert.equal(saved28.questions[0].score, 0.5);
+  const res28 = findResultJson(evalRoot28);
+  assert.equal(res28.status, 'fail');
+  assert.equal(res28.pass, false);
+  assert.equal(res28.score, 0.5);
+
+  // 3. 合法 30-1 夹具过 validateRefs 后，运行期出现负对照失守或固定样本控制项失配（controlsOk: false）时：exit 1 且报告与 result.json 均零分落盘
+  const q30ValidDir = makeTempDir(t);
+  fs.cpSync(path.join(QUESTIONS_DIR, 'level-2-a/30-1.json'), path.join(q30ValidDir, '30-1.json'));
+
+  for (const [label, outcomePatch] of [
+    ['neg-leak', { pass: true, controlsOk: true, negativeControlsChecked: 4, negativeControlsRejected: 3 }],
+    ['ref-mismatch', { pass: false, controlsOk: false, negativeControlsChecked: 4, negativeControlsRejected: 4 }],
+  ]) {
+    const evalRootCtrl = makeTempDir(t);
+    const outCtrl = makeTempDir(t);
+    const rCtrl = await runExam({
+      questionsDir: q30ValidDir,
+      evalRoot: evalRootCtrl,
+      outDir: outCtrl,
+      evaluators: {
+        '30-1': ({ question }) => ({
+          positiveScore: 1,
+          predicates: Object.fromEntries(question.basePredicates.map((p) => [p, { pass: true, basis: 'test' }])),
+          metrics: Object.fromEntries(question.scoring.map((s) => [s.metric, { pass: true, basis: 'test' }])),
+          detail: `模拟运行期控制失配（${label}）`,
+          ...outcomePatch,
+        }),
+      },
+    });
+    assert.equal(rCtrl.ok, false, label);
+    assert.equal(rCtrl.exitCode, 1, label);
+    assert.equal(rCtrl.questions[0].valid, true, label);
+    assert.equal(rCtrl.questions[0].pass, false, label);
+    assert.equal(rCtrl.questions[0].score, 0, label);
+    const savedCtrl = JSON.parse(fs.readFileSync(path.join(outCtrl, 'report.json'), 'utf8'));
+    assert.equal(savedCtrl.questions[0].pass, false, label);
+    assert.equal(savedCtrl.questions[0].score, 0, label);
+    const resCtrl = findResultJson(evalRootCtrl);
+    assert.equal(resCtrl.status, 'fail', label);
+    assert.equal(resCtrl.pass, false, label);
+    assert.equal(resCtrl.score, 0, label);
+  }
+});

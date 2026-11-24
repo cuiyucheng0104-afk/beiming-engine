@@ -986,12 +986,13 @@ function verifyLevel1Variants(question, refData) {
 
 /**
  * 针对单道公开考题运行离线正对照与负对照判分核验。
- * 返回 { pass, positiveScore, negativeControlsChecked, negativeControlsRejected, predicates, metrics, detail }。
+ * 返回 { pass, controlsOk, positiveScore, negativeControlsChecked, negativeControlsRejected, predicates, metrics, detail }。
  */
 export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
   const beimingRoot = path.resolve(benchDir, '..');
   const failOutcome = (detail) => ({
     pass: false,
+    controlsOk: false,
     positiveScore: 0,
     negativeControlsChecked: 0,
     negativeControlsRejected: 0,
@@ -1075,7 +1076,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       && posVerdict.basePass === true
       && Math.abs(posVerdict.score - 1) < 1e-9;
     const negOk = negChecked > 0 && negRejected === negChecked;
-    const controlOk = refOk && negOk;
+    const controlOk = Boolean(refOk && negOk);
     const allOk = posOk && negOk;
 
     const predicates = Object.fromEntries(
@@ -1099,6 +1100,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     }
     return {
       pass: allOk,
+      controlsOk: controlOk,
       positiveScore: controlOk ? posVerdict.score : 0,
       negativeControlsChecked: negChecked,
       negativeControlsRejected: negRejected,
@@ -1152,7 +1154,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       }
     }
     const negOk = negChecked === B6_NEGATIVE_KINDS.length && negRejected === negChecked;
-    const controlOk = refOk && negOk;
+    const controlOk = Boolean(refOk && negOk);
     const allOk = posOk && negOk;
 
     const predicates = Object.fromEntries(
@@ -1173,6 +1175,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     }
     return {
       pass: allOk,
+      controlsOk: controlOk,
       positiveScore: controlOk ? posVerdict.score : 0,
       negativeControlsChecked: negChecked,
       negativeControlsRejected: negRejected,
@@ -1262,9 +1265,14 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
         chaptersMs: posRefData.chaptersMs.map((ms) => ms + 250),
       });
     } else if (question.id === '30-1') {
+      const hitArgs = isPlainObj(question.scoring?.[0]?.args) ? question.scoring[0].args : {};
+      const hitBpm = isFiniteNum(hitArgs.bpm) && hitArgs.bpm > 0 ? hitArgs.bpm : posRefData.baseBpm;
+      const phaseFrames = isFiniteNum(hitArgs.phaseFrames) ? hitArgs.phaseFrames : 0;
+      const periodFrames = (posRefData.fps * 60) / hitBpm;
+      const halfPeriod = Number.isFinite(periodFrames) && periodFrames >= 4 ? periodFrames / 2 : 9;
       const offBeatEvents = posRefData.beatEvents.map((e, idx) => ({
         id: e.id,
-        frame: ((idx + 1) * 18 + 9) % posRefData.frames,
+        frame: (((Math.round((idx + 1) * periodFrames + phaseFrames + halfPeriod) % posRefData.frames) + posRefData.frames) % posRefData.frames),
       }));
       synthNegs.push(
         {
@@ -1272,19 +1280,33 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
           beatEvents: offBeatEvents,
           probeBeatEvents: offBeatEvents.map((e) => ({
             id: e.id,
-            frame: Math.round(e.frame * (posRefData.baseBpm / posRefData.probeBpm)),
+            frame: Math.min(posRefData.frames - 1, Math.max(0, Math.round(e.frame * (posRefData.baseBpm / posRefData.probeBpm)))),
           })),
         },
         {
           ...posRefData,
           probeBeatEvents: posRefData.beatEvents.map((e) => ({ ...e })),
         },
-        {
-          ...posRefData,
-          beatEvents: posRefData.beatEvents.map((e, idx, arr) => (idx === arr.length - 1 ? { ...e, id: 'other_event' } : e)),
-          probeBeatEvents: posRefData.probeBeatEvents.map((e, idx, arr) => (idx === arr.length - 1 ? { ...e, id: 'other_event' } : e)),
-        },
       );
+      const reqIds = (question.scoring ?? [])
+        .flatMap((s) => (Array.isArray(s?.args?.requiredEventIds) ? s.args.requiredEventIds : []))
+        .filter((id) => typeof id === 'string' && id.length > 0);
+      const baseIdSet = new Set(posRefData.beatEvents.map((e) => e.id));
+      const targetId = [...reqIds].reverse().find((id) => baseIdSet.has(id));
+      if (targetId) {
+        const usedIds = new Set([
+          ...posRefData.beatEvents.map((e) => e.id),
+          ...(posRefData.absoluteEvents ?? []).map((e) => e.id),
+        ]);
+        let replacementId = 'other_event';
+        let suffix = 1;
+        while (usedIds.has(replacementId)) replacementId = `other_event_${suffix++}`;
+        synthNegs.push({
+          ...posRefData,
+          beatEvents: posRefData.beatEvents.map((e) => (e.id === targetId ? { ...e, id: replacementId } : e)),
+          probeBeatEvents: posRefData.probeBeatEvents.map((e) => (e.id === targetId ? { ...e, id: replacementId } : e)),
+        });
+      }
     }
     for (const negReading of synthNegs) {
       negChecked++;
@@ -1297,7 +1319,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       && posVerdict.basePass === true
       && Math.abs(posVerdict.score - 1) < 1e-9;
     const negOk = negChecked > 0 && negRejected === negChecked;
-    const controlOk = refOk && negOk;
+    const controlOk = Boolean(refOk && negOk);
     const allOk = posOk && negOk;
 
     const predicates = Object.fromEntries(
@@ -1321,6 +1343,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     }
     return {
       pass: allOk,
+      controlsOk: controlOk,
       positiveScore: controlOk ? posVerdict.score : 0,
       negativeControlsChecked: negChecked,
       negativeControlsRejected: negRejected,
@@ -1521,6 +1544,18 @@ export async function runExam(options = {}) {
       }
 
       const customEval = evaluators && Object.hasOwn(evaluators, entry.id) ? evaluators[entry.id] : null;
+      const checkOutcomeControls = (out) => {
+        if (!isPlainObj(out)) return false;
+        const ctrlField = out.controlsOk === undefined ? true : out.controlsOk;
+        if (ctrlField !== true) return false;
+        const hasChecked = out.negativeControlsChecked !== undefined;
+        const hasRejected = out.negativeControlsRejected !== undefined;
+        if (!hasChecked && !hasRejected) return true;
+        return Number.isInteger(out.negativeControlsChecked)
+          && Number.isInteger(out.negativeControlsRejected)
+          && out.negativeControlsChecked > 0
+          && out.negativeControlsRejected === out.negativeControlsChecked;
+      };
       let evalOutcome = null;
       const runResult = await runExamQuestion({
         questionFile: entry.absFile,
@@ -1539,19 +1574,29 @@ export async function runExam(options = {}) {
           evalOutcome = customEval
             ? await customEval({ question, questionFile: entry.absFile, benchDir })
             : evaluateOfflineQuestion({ question, questionFile: entry.absFile, benchDir });
-          const negOk = (evalOutcome?.negativeControlsRejected ?? 0) === (evalOutcome?.negativeControlsChecked ?? 0);
-          const gateOk = Boolean(evalOutcome?.pass) && negOk;
+          const controlsOk = checkOutcomeControls(evalOutcome);
+          const rawPreds = isPlainObj(evalOutcome?.predicates) ? evalOutcome.predicates : {};
           const rawMetrics = isPlainObj(evalOutcome?.metrics) ? evalOutcome.metrics : {};
-          const metrics = gateOk
+          const judgedTrue = (table, key) => {
+            const v = Object.hasOwn(table, key) ? table[key] : null;
+            return v === true || v?.pass === true;
+          };
+          const wouldFakePass = !evalOutcome?.pass
+            && (question.basePredicates ?? []).every((p) => judgedTrue(rawPreds, p))
+            && (question.scoring ?? []).every((s) => judgedTrue(rawMetrics, s.metric));
+          const metrics = controlsOk && !wouldFakePass
             ? rawMetrics
             : Object.fromEntries(
                 (question.scoring ?? []).map((s) => [
                   s.metric,
-                  { pass: false, basis: rawMetrics[s.metric]?.basis ?? 'offline-eval-gate-failed' },
+                  {
+                    pass: false,
+                    basis: rawMetrics[s.metric]?.basis ?? (controlsOk ? 'offline-eval-failed' : 'offline-eval-control-mismatch'),
+                  },
                 ]),
               );
           return {
-            predicates: evalOutcome?.predicates ?? {},
+            predicates: rawPreds,
             metrics,
             cost: { gpuSeconds: 0 },
           };
@@ -1576,13 +1621,16 @@ export async function runExam(options = {}) {
         continue;
       }
 
-      const negChecked = evalOutcome?.negativeControlsChecked ?? 0;
-      const negRejected = evalOutcome?.negativeControlsRejected ?? 0;
+      const rawNegChecked = evalOutcome?.negativeControlsChecked;
+      const rawNegRejected = evalOutcome?.negativeControlsRejected;
+      const negChecked = Number.isInteger(rawNegChecked) && rawNegChecked >= 0 ? rawNegChecked : 0;
+      const negRejected = Number.isInteger(rawNegRejected) && rawNegRejected >= 0 ? rawNegRejected : 0;
       negativeControlsChecked += negChecked;
       negativeControlsRejected += negRejected;
 
+      const controlsOk = checkOutcomeControls(evalOutcome);
       const runnerOk = runResult.format === RESULT_FORMAT && fs.existsSync(runResult.resultFile) && runResult.pass === true;
-      const evalOk = Boolean(evalOutcome?.pass) && negRejected === negChecked;
+      const evalOk = Boolean(evalOutcome?.pass) && controlsOk;
       const pass = runnerOk && evalOk;
       const errors = [];
       if (!pass) {
