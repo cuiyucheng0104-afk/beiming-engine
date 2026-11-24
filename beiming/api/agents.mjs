@@ -7,6 +7,7 @@
 // 这份账本和工作区的账本（GET ledger）分开记：那边是服务器花的，这边是外部模型花的。
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { parseRequestText } from '../kernel/patch-apply.mjs';
 import {
   DELEGATE_ROLES,
   L5_GRADES,
@@ -40,8 +41,8 @@ export {
 };
 
 const METHODS = ['GET', 'POST', 'PUT', 'DELETE'];
-// 一次模型调用最多等多久（毫秒）
-const MODEL_TIMEOUT_MS = 120000;
+// 一次模型调用最多等多久（毫秒；兼顾带多模态图片输入的真实推理模型长思考回合，仍受外层预算 signal 约束）
+export const MODEL_TIMEOUT_MS = 240000;
 const SEVERITIES = ['low', 'medium', 'high', 'info', 'warn', 'error'];
 const AGENT_IMAGE_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const AGENT_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
@@ -240,6 +241,133 @@ export async function chat({ endpoint, apiKey, body, signal, requireUsage = fals
   return { message, model: resolvedModel, usage };
 }
 
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+
+function isFilesPath(path) {
+  if (typeof path !== 'string') return false;
+  const pathname = path.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/?#]+/i, '').split(/[?#]/, 1)[0];
+  let decoded = pathname;
+  try { decoded = decodeURIComponent(pathname); } catch { /* 保持原路径 */ }
+  return /^\/v1\/films\/[^/]+\/files(?:\/|$)/.test(pathname)
+    || /^\/v1\/films\/[^/]+\/files(?:\/|$)/.test(decoded);
+}
+
+const JSON_WS_ONLY = /^[ \t\r\n]*(\{[\s\S]*\}|\[[\s\S]*\])[ \t\r\n]*$/;
+const MAX_JSON_DEPTH = 128;
+
+/** 检查已通过 JSON.parse 的文本中任意嵌套对象是否含重复键、且总嵌套深度不超过 MAX_JSON_DEPTH（不包壳，不抬高深度） */
+function isStrictJsonArrayText(text) {
+  let depth = 0;
+  const keyStack = [];
+  const stateStack = [];
+  let i = 0;
+  const n = text.length;
+  const skipWs = () => { while (i < n && (text[i] === ' ' || text[i] === '\t' || text[i] === '\r' || text[i] === '\n')) i++; };
+  const readStr = () => {
+    const start = i++;
+    while (i < n) {
+      const ch = text[i++];
+      if (ch === '\\') { i++; continue; }
+      if (ch === '"') {
+        const decoded = JSON.parse(text.slice(start, i));
+        return decoded.isWellFormed() ? decoded : null;
+      }
+    }
+    return null;
+  };
+  while (i < n) {
+    skipWs();
+    if (i >= n) break;
+    const ch = text[i];
+    if (ch === '[') {
+      depth++;
+      if (depth > MAX_JSON_DEPTH) return false;
+      stateStack.push('arr');
+      i++;
+    } else if (ch === '{') {
+      depth++;
+      if (depth > MAX_JSON_DEPTH) return false;
+      stateStack.push('obj-key');
+      keyStack.push(new Set());
+      i++;
+    } else if (ch === ']') {
+      depth--;
+      stateStack.pop();
+      i++;
+    } else if (ch === '}') {
+      depth--;
+      stateStack.pop();
+      keyStack.pop();
+      i++;
+    } else if (ch === '"') {
+      const top = stateStack.at(-1);
+      const s = readStr();
+      if (s === null) return false;
+      if (top === 'obj-key') {
+        const seen = keyStack.at(-1);
+        if (seen.has(s)) return false;
+        seen.add(s);
+        stateStack[stateStack.length - 1] = 'obj-val';
+      }
+    } else if (ch === ',') {
+      if (stateStack.at(-1) === 'obj-val') stateStack[stateStack.length - 1] = 'obj-key';
+      i++;
+    } else {
+      i++;
+    }
+  }
+  return true;
+}
+
+/** 把含未配对 UTF-16 代理码元的字符串编码为保留非法 UTF-8 字节序列的 Uint8Array，防止 fetch 静默替换为 U+FFFD */
+function encodePreservingMalformedSurrogates(str) {
+  const chunks = [];
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = i + 1 < str.length ? str.charCodeAt(i + 1) : 0;
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        chunks.push(Buffer.from(str.slice(i, i + 2), 'utf8'));
+        i++;
+      } else {
+        chunks.push(Buffer.from([0xed, 0xa0 | ((code >> 6) & 0x0f), 0x80 | (code & 0x3f)]));
+      }
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      chunks.push(Buffer.from([0xed, 0xb0 | ((code >> 6) & 0x0f), 0x80 | (code & 0x3f)]));
+    } else {
+      chunks.push(Buffer.from(str[i], 'utf8'));
+    }
+  }
+  return Buffer.concat(chunks);
+}
+
+/**
+ * 兼容外部模型把 JSON 请求体序列化为字符串传入 http_request.body 的情形：
+ * 仅对非 /v1/films/<id>/files/* 路径且仅含 RFC 8259 合法空白、无孤立代理码元、无重复键、深度不超过 128 的合法 JSON 对象/数组字符串解包；
+ * /files/* 源码正文、重复键、非法空白、解析失败字符串与其他原始值一律原样保留。
+ */
+export function normalizeJsonToolBody(path, body) {
+  if (typeof body !== 'string' || isFilesPath(path) || !body.isWellFormed()) return body;
+  const m = JSON_WS_ONLY.exec(body);
+  if (!m) return body;
+  if (m[1][0] === '{') {
+    const parsed = parseRequestText(body);
+    return parsed.ok && isPlainObject(parsed.body) ? parsed.body : body;
+  }
+  if (Buffer.byteLength(body, 'utf8') > 16 * 1024 * 1024) return body;
+  try {
+    const parsed = JSON.parse(m[1]);
+    if (!Array.isArray(parsed)) return body;
+    return isStrictJsonArrayText(m[1]) ? parsed : body;
+  } catch {
+    return body;
+  }
+}
+
 /**
  * 执行一次 http_request。只放行本服务 /v1/ 开头的路径；令牌由这里挑：建片交回的工作区令牌记下来（不交给模型），
  * 之后调那部片和它的作业时带工作区令牌，别的动词带账户令牌。交回 { text（给模型的工具结果）, call（留给调用方的记录） }。
@@ -256,10 +384,19 @@ export async function callApi({ baseUrl, account, workspaces, jobs, signal }, ar
   const job = /^\/v1\/jobs\/([^/]+)$/.exec(target.pathname)?.[1];
   const token = (film && workspaces[film]) || (job && workspaces[jobs[job]]) || account;
   const hasBody = args.body !== undefined && args.body !== null && method !== 'GET';
-  const text = typeof args.body === 'string';
+  const reqBody = hasBody ? normalizeJsonToolBody(target.pathname, args.body) : args.body;
+  // 非 /files/ 路径上传入显式空串 "" 时按 JSON 字符串 "" 发送，避免 0 字节正文被服务端当成省略请求体 {} 放行；
+  // 含孤立代理码元的非 /files/ 字符串保留非法 UTF-8 字节送出，避免 fetch 静默替换为 U+FFFD 绕过服务端 400 校验
+  const emptyJsonStr = hasBody && reqBody === '' && !isFilesPath(target.pathname);
+  const text = typeof reqBody === 'string' && !emptyJsonStr;
+  const wireBody = !hasBody
+    ? undefined
+    : text
+      ? (!isFilesPath(target.pathname) && !reqBody.isWellFormed() ? encodePreservingMalformedSurrogates(reqBody) : reqBody)
+      : JSON.stringify(reqBody);
   const res = await fetch(target, {
     method, headers: { authorization: `Bearer ${token}`, ...(hasBody ? { 'content-type': text ? 'text/plain; charset=utf-8' : 'application/json' } : {}) },
-    ...(hasBody ? { body: text ? args.body : JSON.stringify(args.body) } : {}), signal,
+    ...(hasBody ? { body: wireBody } : {}), signal,
   });
   const call = { method, path, status: res.status, ok: res.ok };
   const rawContentType = res.headers.get('content-type') ?? '';
@@ -292,12 +429,6 @@ export async function callApi({ baseUrl, account, workspaces, jobs, signal }, ar
   return { text: JSON.stringify({ status: res.status, body: envelope }), call };
 }
 
-function isPlainObject(v) {
-  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
-  const proto = Object.getPrototypeOf(v);
-  return proto === Object.prototype || proto === null;
-}
-
 /** 亲手代理调用建片或审片时，若模型省略或留空 body.brief，自动在副本中补回已传入的需求原文（不篡改原参数，不覆盖显式非空传值，亦不吞掉显式非法类型） */
 function attachHandsOnBrief(args, brief, baseUrl) {
   if (typeof brief !== 'string' || !brief.trim()) return args;
@@ -314,11 +445,14 @@ function attachHandsOnBrief(args, brief, baseUrl) {
   }
   const pathname = target.pathname;
   if (pathname !== '/v1/films' && !/^\/v1\/films\/[^/]+\/review$/.test(pathname)) return args;
-  const body = args.body;
+  const wasString = typeof args.body === 'string';
+  const body = normalizeJsonToolBody(pathname, args.body);
   if (body !== undefined && body !== null) {
     if (!isPlainObject(body)) return args;
-    const hasBrief = Object.hasOwn(body, 'brief') && body.brief !== undefined && body.brief !== null;
-    if (hasBrief && (typeof body.brief !== 'string' || body.brief.trim())) return args;
+    const hasBrief = Object.hasOwn(body, 'brief') && body.brief !== undefined && (wasString ? true : body.brief !== null);
+    if (hasBrief && (typeof body.brief !== 'string' || body.brief.trim())) {
+      return body === args.body ? args : { ...args, body };
+    }
   }
   return { ...args, body: body == null ? { brief } : { ...body, brief } };
 }
@@ -571,8 +705,11 @@ export function createOpenAiVisionReviewer({
             `片子：${JSON.stringify(film)}`,
             `声音量测表：${loudness ? JSON.stringify(loudness) : '（没有声音量测）'}`,
             ...(orderedCandidates.length
-              ? [`候选展示顺序（已按种子打乱）：${JSON.stringify(orderedCandidates)}`]
-              : []),
+              ? [
+                  `候选展示顺序（已按种子打乱）：${JSON.stringify(orderedCandidates)}`,
+                  'candidateGrades 仅填写以上候选 ID。',
+                ]
+              : ['本次为单片评审（无多候选对比），请省略 candidateGrades 字段或填 []。']),
             `图：${images.map((img, i) => `第 ${i + 1} 张 ${img.name}`).join('；') || '（没有图）'}。联系表（contact）每格左上角是全片帧号；切点条带（cut）是切点前 3 帧到后 2 帧，红线是切口；keyframe-f<帧号> 为未缩放的原尺寸关键帧，请直接据以检查构图细节、主体清晰度与文字可读性。`,
           ].join('\n');
           const content = [{ type: 'text', text }, ...imageParts];
@@ -703,12 +840,34 @@ export function createOpenAiVisionReviewer({
           try {
             const parsedBallot = parseReview(answer, film?.output?.frames);
             if (parsedBallot.candidateGrades) {
-              const allowed = new Set(candidateOrder);
-              const seen = new Set();
-              for (const cg of parsedBallot.candidateGrades) {
-                if (!allowed.has(cg.id)) throw new ModelResponseError(`审片选票包含未知候选 ID：${cg.id}`);
-                if (seen.has(cg.id)) throw new ModelResponseError(`审片选票包含重复候选 ID：${cg.id}`);
-                seen.add(cg.id);
+              if (candidateOrder.length === 0) {
+                if (parsedBallot.candidateGrades.length === 0) {
+                  delete parsedBallot.candidateGrades;
+                } else if (
+                  parsedBallot.candidateGrades.length === 1
+                  && resolvedFilmId
+                  && parsedBallot.candidateGrades[0].id === resolvedFilmId
+                ) {
+                  const selfGrade = parsedBallot.candidateGrades[0].grade;
+                  if (parsedBallot.grade !== undefined && parsedBallot.grade !== selfGrade) {
+                    throw new ModelResponseError(
+                      `审片选票单片等级矛盾：grade（${parsedBallot.grade}）与 candidateGrades[${resolvedFilmId}]（${selfGrade}）不一致`,
+                    );
+                  }
+                  if (parsedBallot.grade === undefined) parsedBallot.grade = selfGrade;
+                  delete parsedBallot.candidateGrades;
+                } else {
+                  const bad = parsedBallot.candidateGrades.find((cg) => cg.id !== resolvedFilmId) ?? parsedBallot.candidateGrades[0];
+                  throw new ModelResponseError(`审片选票包含未知候选 ID：${bad.id}`);
+                }
+              } else {
+                const allowed = new Set(candidateOrder);
+                const seen = new Set();
+                for (const cg of parsedBallot.candidateGrades) {
+                  if (!allowed.has(cg.id)) throw new ModelResponseError(`审片选票包含未知候选 ID：${cg.id}`);
+                  if (seen.has(cg.id)) throw new ModelResponseError(`审片选票包含重复候选 ID：${cg.id}`);
+                  seen.add(cg.id);
+                }
               }
             }
             ballots.push({
