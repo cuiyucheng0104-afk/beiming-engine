@@ -1693,8 +1693,12 @@ test('M1b-11 runHandsOnAgent 遇到显式非法类型 brief 时原样透传返�
     assert.deepEqual([res.calls[0].status, res.calls[0].ok, res.calls[0].code], [400, false, 'usage.bad-argument']);
     // 2) POST /v1/films brief: 42 -> 400 usage.bad-argument
     assert.deepEqual([res.calls[1].status, res.calls[1].ok, res.calls[1].code], [400, false, 'usage.bad-argument']);
-    // 3) POST /v1/films brief: null -> 400 usage.bad-argument
-    assert.deepEqual([res.calls[2].status, res.calls[2].ok, res.calls[2].code], [400, false, 'usage.bad-argument']);
+    // 3) POST /v1/films brief: null -> 自动补回代理需求原文（200 且 meta.brief 已落盘）
+    assert.deepEqual([res.calls[2].status, res.calls[2].ok], [200, true]);
+    const nullFilmId = toolResponses[1]?.body?.data?.film;
+    assert.ok(nullFilmId);
+    const nullMeta = JSON.parse(readFileSync(join(dataDir, 'meta', `${nullFilmId}.json`), 'utf8'));
+    assert.equal(nullMeta.brief, '代理需求原文不应覆盖模型显式传入的非法类型 brief');
     // 4) POST /v1/films 省略 brief -> 200 且 meta.brief 正确落盘
     assert.deepEqual([res.calls[3].status, res.calls[3].ok], [200, true]);
     assert.ok(filmId);
@@ -1705,6 +1709,101 @@ test('M1b-11 runHandsOnAgent 遇到显式非法类型 brief 时原样透传返�
   } finally {
     await api.close();
     await new Promise((r) => mockAgent.close(r));
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test('M1b-12 部分补渲失败仅记单条失败账目且错误信封如实回报 gpuSeconds（R3 回归）', { skip: threeMediaSkip(), timeout: 180000 }, async () => {
+  const dataDir = mkdtempSync(join(tmpdir(), 'beiming-m1b12-'));
+  const ledgerPath = join(dataDir, 'vision-ledger.jsonl');
+  const mockVision = createServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      model: 'gemini-vision-r3-partial',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', opinions: [], suggestedPredicates: [] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 10 },
+    }));
+  });
+  await new Promise((r) => mockVision.listen(0, '127.0.0.1', r));
+  const reviewer = createOpenAiVisionReviewer({
+    endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+    apiKey: 'vkey',
+    model: 'gemini-vision-r3-partial',
+    ledgerPath,
+    votesPerPerspective: 1,
+  });
+  const account = issueAccountToken(dataDir);
+  const api = await startServer({ dataDir, port: 0, reviewer });
+  try {
+    const created = await (await fetch(`${api.url}/v1/films`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${account}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        template: 'title',
+        text: 'PARTIAL',
+        brief: '两镜部分补渲失败单账回归',
+        output: { size: [640, 360], fps: '10/1', frames: 6 },
+      }),
+    })).json();
+    assert.equal(created.ok, true);
+    const { film: filmId, token } = created.data;
+    const cur = (await (await fetch(`${api.url}/v1/films/${filmId}/film`, {
+      headers: { authorization: `Bearer ${token}` },
+    })).json()).data;
+    const baseShot = cur.film.shots[0];
+    const s01 = structuredClone({ ...baseShot, id: 's01', in: 0, out: 3 });
+    const s02 = structuredClone({
+      ...baseShot,
+      id: 's02',
+      in: 3,
+      out: 6,
+      seed: (baseShot.seed ?? 1) + 1,
+      tiers: { final: { samples: 2 } },
+    });
+    if (s01.deliberate?.[0]) { s01.deliberate[0].in = 0; s01.deliberate[0].out = 3; }
+    if (s02.deliberate?.[0]) { s02.deliberate[0].in = 3; s02.deliberate[0].out = 6; }
+    const putRes = await fetch(`${api.url}/v1/films/${filmId}/film`, {
+      method: 'PUT',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...cur.film,
+        shots: [s01, s02],
+        transitions: [{ id: 'c1', at: 3, type: 'cut' }],
+        rev: cur.rev,
+      }),
+    });
+    assert.equal(putRes.status, 200);
+    const rDraft = await (await fetch(`${api.url}/v1/films/${filmId}/render`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ wait: 30 }),
+    })).json();
+    const rDraftDone = await waitJob(api.url, token, rDraft.data.job);
+    assert.equal(rDraftDone.data.status, 'succeeded');
+
+    const revHttp = await fetch(`${api.url}/v1/films/${filmId}/review`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const revBody = await revHttp.json();
+    assert.equal(revHttp.status, 422);
+    assert.equal(revBody.ok, false);
+    assert.equal(revBody.error.code, 'contract.unsupported-option');
+    assert.ok(revBody.cost.gpuSeconds > 0, `HTTP 错误信封必须回报正值 gpuSeconds，实际 ${JSON.stringify(revBody.cost)}`);
+
+    const ledgerRes = await (await fetch(`${api.url}/v1/films/${filmId}/ledger`, {
+      headers: { authorization: `Bearer ${token}` },
+    })).json();
+    assert.equal(ledgerRes.ok, true);
+    const reviewRows = ledgerRes.data.items.filter((row) => row.step === 'review');
+    assert.equal(reviewRows.length, 1, `单次失败审片只能产生 1 条 review 账目，实际 ${reviewRows.length} 条`);
+    assert.equal(reviewRows[0].ok, false);
+    assert.equal(reviewRows[0].frames, 1);
+    assert.ok(reviewRows[0].gpuSeconds > 0);
+  } finally {
+    await api.close();
+    await new Promise((r) => mockVision.close(r));
     rmSync(dataDir, { recursive: true, force: true });
   }
 });

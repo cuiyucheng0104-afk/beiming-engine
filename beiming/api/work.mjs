@@ -988,9 +988,13 @@ export function createWork({ store, library, reviewer, scheduler }) {
           images = [...sheetImages, ...kf.images];
         } catch (err) {
           if (kfFrames > 0 || kfGpuSeconds > 0) {
-            try {
-              store.ledger(id, { step: 'review', ok: false, wallMs: 0, gpuSeconds: kfGpuSeconds, tokens: 0, modelTokens: 0, frames: kfFrames });
-            } catch { /* 落账失败时不掩盖原异常 */ }
+            if (deferRelease && err && typeof err === 'object' && Object.isExtensible(err)) {
+              err.ledgerCost = { frames: kfFrames, gpuSeconds: kfGpuSeconds, tokens: 0 };
+            } else {
+              try {
+                store.ledger(id, { step: 'review', ok: false, wallMs: 0, gpuSeconds: kfGpuSeconds, tokens: 0, modelTokens: 0, frames: kfFrames });
+              } catch { /* 落账失败时不掩盖原异常 */ }
+            }
           }
           throw err;
         }
@@ -1023,9 +1027,13 @@ export function createWork({ store, library, reviewer, scheduler }) {
       reviewOutput = output(id, 'review', `${relDir}/review.json`);
     } catch (err) {
       if (lease.settled > 0 || kfFrames > 0 || kfGpuSeconds > 0) {
-        try {
-          store.ledger(id, { step: 'review', ok: false, wallMs: 0, gpuSeconds: kfGpuSeconds, tokens: 0, modelTokens: lease.settled, frames: kfFrames });
-        } catch { /* 落账失败时不掩盖原异常 */ }
+        if (deferRelease && err && typeof err === 'object' && Object.isExtensible(err)) {
+          err.ledgerCost = { frames: kfFrames, gpuSeconds: kfGpuSeconds, tokens: lease.settled };
+        } else {
+          try {
+            store.ledger(id, { step: 'review', ok: false, wallMs: 0, gpuSeconds: kfGpuSeconds, tokens: 0, modelTokens: lease.settled, frames: kfFrames });
+          } catch { /* 落账失败时不掩盖原异常 */ }
+        }
       }
       release();
       throw err;

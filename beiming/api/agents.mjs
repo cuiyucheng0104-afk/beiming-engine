@@ -317,7 +317,7 @@ function attachHandsOnBrief(args, brief, baseUrl) {
   const body = args.body;
   if (body !== undefined && body !== null) {
     if (!isPlainObject(body)) return args;
-    const hasBrief = Object.hasOwn(body, 'brief') && body.brief !== undefined;
+    const hasBrief = Object.hasOwn(body, 'brief') && body.brief !== undefined && body.brief !== null;
     if (hasBrief && (typeof body.brief !== 'string' || body.brief.trim())) return args;
   }
   return { ...args, body: body == null ? { brief } : { ...body, brief } };

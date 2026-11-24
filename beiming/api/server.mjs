@@ -424,7 +424,15 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
         if (res.headersSent || res.destroyed) return;
         const code = isRegistered(e.code) ? e.code : 'usage.bad-argument';
         status = e.status ?? (isRegistered(e.code) || e instanceof TypeError ? httpStatusOf(code) : 500);
-        result = { ok: false, code, message: status === 500 ? '服务端处理失败' : e.message, hint: e.hint, data: e.data, diagnostics: e.diagnostics };
+        const frames = Number.isFinite(e?.ledgerCost?.frames) ? e.ledgerCost.frames : 0;
+        const gpuSeconds = Number.isFinite(e?.ledgerCost?.gpuSeconds) ? e.ledgerCost.gpuSeconds : 0;
+        const tokens = Number.isFinite(e?.ledgerCost?.tokens) ? e.ledgerCost.tokens : 0;
+        result = {
+          ok: false, code, message: status === 500 ? '服务端处理失败' : e.message, hint: e.hint, data: e.data, diagnostics: e.diagnostics,
+          ...(frames > 0 ? { frames } : {}),
+          ...(gpuSeconds > 0 ? { gpuSeconds, cost: { gpuSeconds } } : {}),
+          ...(tokens > 0 ? { tokens } : {}),
+        };
       }
       const wallMs = Math.round(monotonicMs() - start);
       const opts = { ...result, cost: { ...result.cost, wallMs } };
