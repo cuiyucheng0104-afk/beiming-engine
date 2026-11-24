@@ -118,6 +118,7 @@ export function sourceKey(inject = []) {
  * 保证构建目录 `target` 里内核这个包的产物是从摘要为 `key` 的源码编的。cargo 按文件时间判断要不要重编：源码的时间倒退时
  * （比如把一个较早的提交导出到编过较新提交的目录上，文件时间是提交时间），它认为什么都没变，留下的还是上一份源码的程序
  * 与测试。所以构建目录里记着上次编的是哪一份源码；不是这一份，就先清掉这个包的产物（两个编译档都清，依赖不动）。
+ * 这一道只在用这份脚本构建时有效：回放加进它之前的提交时，要用现在的脚本，或用会更新文件时间的办法导出。
  */
 export function freshTarget(target, key, cwd = KERNEL) {
   const stamp = path.join(target, '.beiming-source');
