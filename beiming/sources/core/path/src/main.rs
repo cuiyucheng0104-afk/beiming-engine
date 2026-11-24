@@ -12,7 +12,9 @@
 //!                         (北冥：读场景包、选一帧建成内核的场景，不渲；stdout 一行统计的 JSON，--record 写场景包核对记录)
 //!   core-render render-pack <pack dir> -o out.png [--frame k] [--spp N] [--width W --height H] [--hdr out.raw]
 //!                         [--signals PREFIX] [--no-denoise] [--stats out.json] [--preset name] [--override JSON]
-//!                         (北冥：读场景包、渲一帧。读不对时 stderr 一行 {"error":{code,at,message}}，退出码照错误码的前缀)
+//!                         [--passes DIR]
+//!                         (北冥：读场景包、渲一帧。读不对时 stderr 一行 {"error":{code,at,message}}，退出码照错误码的前缀。
+//!                         --passes：照输出通道出层，每个通道一个文件，加通道声明 passes.json，见 write_passes)
 //!   core-render serve [--presets DIR]      # JSON-lines jobs on stdin, keeps the GPU device and game runtimes warm
 //!   core-render setup <bundle.js>          # setup cost in the embedded runtime
 //!   core-render info                       # print adapter info
@@ -44,6 +46,10 @@ struct Job {
     /// `--signals PREFIX`: PREFIX-diffuse.raw / -specular.raw / -emission.raw, the image's linear signals apart as the
     /// live denoiser splits them (RGB f32, output size; live snapshots to `*.signals` write the same).
     signals: Option<PathBuf>,
+    /// 北冥：`render-pack --passes DIR`：照输出通道出层（每个通道一个文件，加一份通道声明 passes.json），见 `write_passes`。
+    passes: Option<PathBuf>,
+    /// 北冥：背景对相机不可见（场景包的 world.visibleToCamera 是 false）：相机射线没打到表面的样本不透明度与颜色记 0。
+    transparent: bool,
 }
 
 /// The game state to render: a bundle's scene for a room, at its initial state or a room's committed state.
@@ -172,6 +178,8 @@ fn main() -> Result<()> {
                 size: (flag("--width").map(|s| s.parse()).transpose()?, flag("--height").map(|s| s.parse()).transpose()?),
                 hdr: flag("--hdr").map(PathBuf::from),
                 signals: flag("--signals").map(PathBuf::from),
+                passes: None,
+                transparent: false,
             };
             let stats = render(&g, &job, &presets, init_ms, &mut Hosts::default())?;
             println!("{}", serde_json::to_string(&stats)?);
@@ -257,6 +265,8 @@ fn main() -> Result<()> {
                         size: (v["width"].as_u64().map(|x| x as u32), v["height"].as_u64().map(|x| x as u32)),
                         hdr: v["hdr"].as_str().map(PathBuf::from),
                         signals: v["signals"].as_str().map(PathBuf::from),
+                        passes: None,
+                        transparent: false,
                     };
                     // (A `live` job asks for the real-time renderer, which this build does not have.)
                     match v["live"].as_u64() {
@@ -324,6 +334,8 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
         size: (Some(size.0), Some(size.1)),
         hdr: flag("--hdr").map(PathBuf::from),
         signals: flag("--signals").map(PathBuf::from),
+        passes: flag("--passes").map(PathBuf::from),
+        transparent: !p.world_visible,
     };
     let mut stats = finish(&g, b.scene, &job, init_ms, timings, t_total)?;
     stats["pack"] = serde_json::json!({ "id": p.id, "frame": frame, "frames": p.count });
@@ -332,6 +344,60 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
     }
     println!("{}", serde_json::to_string(&stats)?);
     Ok(())
+}
+
+/// 北冥：`--passes DIR` 出的层。每个通道一个文件、没有文件头、行主序（行从上到下，像素从左到右，一个像素里各分量挨着）、
+/// 每个数 4 字节小端，文件名是「通道名.类型」（帧源接口契约 3.3 的写法，与页面宿主一致）。objectId 的两个分量类型不同：
+/// id（u32）进 objectId.u32，coverage（f32）另进 objectId.coverage.f32，两个文件形状相同。
+/// 通道的数值照输出通道契约：color 是 RGBA（RGB 是样本均值，已经预乘 A）；depth、objectId、normal 取辅助样本；
+/// denoiseAlbedo 是上游口径的反照率均值；denoiseNormal 照 Cycles 的降噪特征换到它的相机空间（看 +Z、Y 向上：
+/// kernel/film/denoising_passes.h 把世界空间的法线经 worldtocamera 变过去），见 STRUCTURES.md「输出通道」。
+/// 不出 motion（场景包没有帧间的状态）与分灯组。另写一份通道声明 passes.json（passes/0.1，只列交出的六个通道）。
+/// 返回给 stdout 统计的一段：每个通道的文件、形状 [高, 宽, 分量数]、分量名与类型。
+fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params) -> Result<serde_json::Value> {
+    let aux = frame.aux.as_ref().ok_or_else(|| anyhow!("要出层，渲染却没有带辅助层"))?;
+    std::fs::create_dir_all(dir)?;
+    let (h, w) = (frame.height as usize, frame.width as usize);
+    let v3 = |v: [f32; 4]| Vec3::new(v[0], v[1], v[2]);
+    let (right, up, fwd) = (v3(params.cam_right), v3(params.cam_up), v3(params.cam_fwd));
+    let denoise_normal: Vec<f32> = frame.normal.iter().flat_map(|n| { let n = Vec3::from(*n); [n.dot(right), n.dot(up), n.dot(fwd)] }).collect();
+    let color: Vec<f32> = frame.color.iter().zip(&frame.alpha).flat_map(|(c, a)| [c[0], c[1], c[2], *a]).collect();
+    let flat = |v: &[[f32; 3]]| v.iter().flatten().copied().collect::<Vec<f32>>();
+    let f32s: [(&str, &str, &[&str], Vec<f32>); 6] = [
+        ("color", "color.f32", &["R", "G", "B", "A"], color),
+        ("depth", "depth.f32", &["Z"], aux.depth.clone()),
+        ("objectId.coverage", "objectId.coverage.f32", &["coverage"], aux.coverage.clone()),
+        ("normal", "normal.f32", &["X", "Y", "Z"], flat(&aux.normal)),
+        ("denoiseAlbedo", "denoiseAlbedo.f32", &["R", "G", "B"], flat(&frame.albedo)),
+        ("denoiseNormal", "denoiseNormal.f32", &["X", "Y", "Z"], denoise_normal),
+    ];
+    let mut layers = serde_json::Map::new();
+    let entry = |file: &str, k: usize, comps: &[&str], ty: &str| serde_json::json!({ "file": file, "shape": [h, w, k], "components": comps, "type": ty });
+    for (name, file, comps, data) in &f32s {
+        debug_assert_eq!(data.len(), h * w * comps.len());
+        std::fs::write(dir.join(file), bytemuck::cast_slice::<f32, u8>(data))?;
+        layers.insert(name.to_string(), entry(file, comps.len(), comps, "f32"));
+    }
+    std::fs::write(dir.join("objectId.u32"), bytemuck::cast_slice::<u32, u8>(&aux.id))?;
+    layers.insert("objectId".into(), entry("objectId.u32", 1, &["id"], "u32"));
+    // 通道声明：各通道的属性照输出通道契约 3.1 的登记表
+    let ch = |name: &str, comps: &[(&str, &str)], space: &str, sample: &str| {
+        serde_json::json!({ "name": name, "components": comps.iter().map(|(n, t)| serde_json::json!({ "name": n, "type": t })).collect::<Vec<_>>(), "colorSpace": space, "sample": sample, "antialiased": sample == "accumulate" })
+    };
+    let (f, lin) = ("f32", "scene-linear-rec709");
+    let table = serde_json::json!({
+        "format": "passes/0.1",
+        "channels": [
+            ch("color", &[("R", f), ("G", f), ("B", f), ("A", f)], lin, "accumulate"),
+            ch("depth", &[("Z", f)], "none", "sub0"),
+            ch("objectId", &[("id", "u32"), ("coverage", f)], "none", "sub0"),
+            ch("normal", &[("X", f), ("Y", f), ("Z", f)], "none", "sub0"),
+            ch("denoiseAlbedo", &[("R", f), ("G", f), ("B", f)], lin, "accumulate"),
+            ch("denoiseNormal", &[("X", f), ("Y", f), ("Z", f)], "none", "accumulate"),
+        ],
+    });
+    std::fs::write(dir.join("passes.json"), serde_json::to_vec_pretty(&table)?)?;
+    Ok(serde_json::json!({ "dir": dir, "table": "passes.json", "layers": layers }))
 }
 
 /// PREFIX-diffuse.raw, -specular.raw, -emission.raw (RGB f32 each).
@@ -393,7 +459,12 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
     if job.signals.is_some() {
         params.motion[1] = 1.0;
     }
-    let frame = g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, beiming_core_path::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, spp, &mut timings)?;
+    params.integrator.background_transparent = job.transparent as u32;
+    let frame = g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, beiming_core_path::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, spp, job.passes.is_some(), &mut timings)?;
+    let passes = match &job.passes {
+        Some(dir) => Some(write_passes(dir, &frame, &params)?),
+        None => None,
+    };
     if let Some(prefix) = &job.signals {
         // The raw (undenoised) means: diffuse = color less specular and emission.
         let diffuse: Vec<f32> = frame.color.iter().zip(&frame.specular).zip(&frame.emission).flat_map(|((c, s), e)| [0, 1, 2].map(|k| (c[k] - s[k] - e[k]).max(0.0))).collect();
@@ -467,6 +538,10 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
         "samples_per_sec": (w * h) as f64 * spp as f64 / (trace_ms / 1000.0).max(1e-9),
         "timings_ms": timings.iter().map(|(k, v)| (k.clone(), serde_json::json!((v * 10.0).round() / 10.0))).collect::<serde_json::Map<_, _>>(),
     });
+    let mut stats = stats;
+    if let Some(p) = passes {
+        stats["passes"] = p;
+    }
     if let Some(p) = &job.stats {
         std::fs::write(p, serde_json::to_vec_pretty(&stats)?)?;
     }

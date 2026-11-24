@@ -47,12 +47,13 @@ pub struct Gpu {
     /// The merged binding layout (merged.rs): a browser's, where a stage has eight storage buffers. Natively with
     /// THREERT_MERGED=1 (software traversal, the device held to eight too).
     pub merged: bool,
-    /// By (material-function code hash, the features that change the source: `KernelVariant::flags`).
-    modules: std::sync::Mutex<std::collections::HashMap<(u64, u32), wgpu::ShaderModule>>,
+    /// By (material-function code hash, the features that change the source: `KernelVariant::flags`, 北冥：要不要辅助层
+    /// `KernelVariant::aux`).
+    modules: std::sync::Mutex<std::collections::HashMap<(u64, u32, bool), wgpu::ShaderModule>>,
     pipeline_layout: wgpu::PipelineLayout,
-    /// Kernel variants by (feature mask, material-function code hash): `FEAT` compiles out the features a scene
-    /// does not use (they cost registers even when idle).
-    pipelines: std::sync::Mutex<std::collections::HashMap<(u32, u64), wgpu::ComputePipeline>>,
+    /// Kernel variants by (feature mask, material-function code hash, 北冥：要不要辅助层, 入口): `FEAT` compiles out the
+    /// features a scene does not use (they cost registers even when idle).
+    pipelines: std::sync::Mutex<std::collections::HashMap<(u32, u64, bool, &'static str), wgpu::ComputePipeline>>,
     layout: wgpu::BindGroupLayout,
     /// Group 1, the live viewport's: primary visibility (texture_2d<u32>), the radiance cache (`CacheBuffers`) and
     /// what the live passes read of a trace (`KernelBufs`). Offline renders bind `no_vis` (1x1 texture `no_vis_view`,
@@ -111,6 +112,11 @@ pub struct KernelIntegrator {
     pub pass_kind: u32,
     pub background_transparent: u32,
 }
+
+/// `KernelIntegrator::pass_kind` 的两个值（pathtrace.wgsl 里同名）：颜色样本；辅助样本（`Gpu::render` 要辅助层时在第一个
+/// 颜色样本之前调度一次）。
+pub const PASS_KIND_COLOR: u32 = 0;
+pub const PASS_KIND_AUX: u32 = 1;
 
 /// 上游写死的 Sobol 索引掩码：打乱后的索引取高 16 位（65536 个样本之后重复）。经 `KernelIntegrator::new` 进全局参数。
 pub const SOBOL_INDEX_MASK: u32 = 0xffff_0000;
@@ -604,7 +610,14 @@ pub struct KernelVariant {
     pub whole_tables: bool,
     /// The loop guard's limit, in a kernel with the guard (`loop_guard_of`, `guard_loops`).
     pub guard: Option<u32>,
+    /// 北冥：这次渲染要辅助层（编译开关 `aux`）：多一个入口 `AUX_ENTRY`（辅助样本），颜色样本数覆盖率。没有它时颜色内核里
+    /// 没有这两样（每个颜色样本读辅助那一格、入口里按 `pass_kind` 分支，英伟达显卡上稳态慢 4% 到 5%）。
+    pub aux: bool,
 }
+
+/// 北冥：内核的两个入口：颜色样本（每个变体都有）；辅助样本（只在 `KernelVariant::aux` 的变体里）。
+pub const COLOR_ENTRY: &str = "main";
+pub const AUX_ENTRY: &str = "aux_sample";
 
 impl KernelVariant {
     /// A device's traversal and switches, a scene's features; the layout as written, no guard.
@@ -613,7 +626,7 @@ impl KernelVariant {
     }
 
     /// The flags of the kernel's conditional translation (pathtrace.wgsl's head).
-    pub fn flags(&self) -> [(&'static str, bool); 11] {
+    pub fn flags(&self) -> [(&'static str, bool); 12] {
         let k = &self.switches;
         [
             ("hwrt", self.hwrt),
@@ -627,6 +640,7 @@ impl KernelVariant {
             ("uniform_tables", self.uniform_tables),
             ("whole_tables", self.whole_tables),
             ("guard", self.guard.is_some()),
+            ("aux", self.aux),
         ]
     }
 
@@ -1399,7 +1413,23 @@ pub struct Frame {
     pub variance: Vec<f32>,
     /// 北冥：这次渲染请求的每个灯组一层（每个像素的均值），没请求就是空的。现在还没有贡献写进灯组：全 0。
     pub lightgroups: Vec<Vec<[f32; 3]>>,
+    /// 北冥：每个像素的不透明度（各样本不透明度的均值，`FILM_DENOISE_ALBEDO` 的 w）。颜色已经预乘了它。
+    pub alpha: Vec<f32>,
+    /// 北冥：辅助层，`render` 的 `aux` 为真时才有。
+    pub aux: Option<AuxLayers>,
     pub samples: u32,
+}
+
+/// 北冥：辅助样本那一趟写下的几层（每个像素一个，不做平均），加上从颜色样本数出来的覆盖率。
+pub struct AuxLayers {
+    /// 平面深度（米）；什么都没打到：1e10。
+    pub depth: Vec<f32>,
+    /// 实体编号；没打到或不属于任何实体：0。
+    pub id: Vec<u32>,
+    /// 法线，相机空间（相机看 -Z、Y 向上），长度 1；什么都没打到：0。
+    pub normal: Vec<[f32; 3]>,
+    /// 首次命中的实体编号等于 `id` 的颜色样本数除以样本数。
+    pub coverage: Vec<f32>,
 }
 
 impl Gpu {
@@ -1520,17 +1550,22 @@ impl Gpu {
 
     /// The path-tracing kernel specialised for a scene (feature mask + material functions), compiled on first use.
     pub fn pipeline(&self, k: &Kernel) -> wgpu::ComputePipeline {
+        self.pipeline_of(k, false, COLOR_ENTRY)
+    }
+
+    /// 北冥：`pipeline`，指定要不要辅助层（`KernelVariant::aux`）与入口（`COLOR_ENTRY`、`AUX_ENTRY`）。
+    pub fn pipeline_of(&self, k: &Kernel, aux: bool, entry: &'static str) -> wgpu::ComputePipeline {
         let mut cache = self.pipelines.lock().unwrap();
         cache
-            .entry((k.features, k.hash))
+            .entry((k.features, k.hash, aux, entry))
             .or_insert_with(|| {
-                let module = self.kernel_module(k);
+                let module = self.kernel_module(k, aux);
                 let constants = k.constants();
                 let p = self.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                     label: Some("pathtrace"),
                     layout: Some(&self.pipeline_layout),
                     module: &module,
-                    entry_point: Some("main"),
+                    entry_point: Some(entry),
                     compilation_options: wgpu::PipelineCompilationOptions { constants: &constants, ..Default::default() },
                     cache: self.cache(),
                 });
@@ -1541,13 +1576,13 @@ impl Gpu {
     }
 
     /// The kernel module for a scene: the shared one, or with its material functions spliced in.
-    fn kernel_module(&self, k: &Kernel) -> wgpu::ShaderModule {
+    fn kernel_module(&self, k: &Kernel, aux: bool) -> wgpu::ShaderModule {
         let patches = k.features & F_SOURCE;
-        if patches == 0 && k.functions.is_empty() && k.volume_functions.is_empty() && k.geometry_functions.is_empty() {
+        if !aux && patches == 0 && k.functions.is_empty() && k.volume_functions.is_empty() && k.geometry_functions.is_empty() {
             return self.module.clone();
         }
         let mut mods = self.modules.lock().unwrap();
-        mods.entry((k.hash, patches))
+        mods.entry((k.hash, patches, aux))
             .or_insert_with(|| {
                 let splice = |src: &str, marker: &str, code: &str| -> String {
                     if code.is_empty() {
@@ -1559,7 +1594,7 @@ impl Gpu {
                 };
                 let src = splice(&splice(&splice(&self.source, "material-functions", &k.functions), "volume-functions", &k.volume_functions), "geometry-functions", &k.geometry_functions);
                 // The variant: this device's traversal, switches, layout and loop guard, this scene's features.
-                let v = KernelVariant { merged: self.merged, uniform_tables: self.uniform_tables, whole_tables: self.whole_tables, guard: loop_guard_of(false), ..KernelVariant::new(self.hwrt, self.switches, patches) };
+                let v = KernelVariant { merged: self.merged, uniform_tables: self.uniform_tables, whole_tables: self.whole_tables, guard: loop_guard_of(false), aux, ..KernelVariant::new(self.hwrt, self.switches, patches) };
                 // A scene's functions that do not compile (a game's own WGSL) cost the game its functions, not the
                 // app its renderer: the kernel is made without them, and the game's log says why. (A panic here took
                 // the engine down, and ThreeRT for Android then took the device for one without a renderer.)
@@ -2157,8 +2192,11 @@ impl Gpu {
 
     #[cfg(not(target_arch = "wasm32"))]
     /// Render `spp` samples. `base` holds everything except the per-dispatch sample index.
+    /// 北冥：`aux` 为真时用要辅助层的变体（`KernelVariant::aux`）：清零之后、第一个颜色样本之前先从入口 `AUX_ENTRY` 调度一次
+    /// 辅助样本（`pass_kind` 为 `PASS_KIND_AUX`），颜色样本数覆盖率，读回时带上辅助层（`Frame::aux`）。辅助样本不取随机数、
+    /// 不改颜色样本：要不要辅助层，颜色逐位相同。
     #[allow(clippy::too_many_arguments)]
-    pub fn render(&self, scene: &Scene, tri_verts: &[[f32; 4]], groups: [usize; GROUPS], nodes: &[u8], emitters: &[[f32; 4]], emitter_tris: &[crate::GpuEmitterTri], light_tree: &[[f32; 4]], env: &EnvMap, env_cdf: &[f32], energy: &[[f32; 4]], base: Params, spp: u32, timings: &mut Vec<(String, f64)>) -> Result<Frame> {
+    pub fn render(&self, scene: &Scene, tri_verts: &[[f32; 4]], groups: [usize; GROUPS], nodes: &[u8], emitters: &[[f32; 4]], emitter_tris: &[crate::GpuEmitterTri], light_tree: &[[f32; 4]], env: &EnvMap, env_cdf: &[f32], energy: &[[f32; 4]], base: Params, spp: u32, aux: bool, timings: &mut Vec<(String, f64)>) -> Result<Frame> {
         let d = &self.device;
         let (w, h) = (scene.width, scene.height);
         // 北冥：掩码为 0 时每个样本取的是同一个点，画面不收敛而不报错，所以开渲前拦住。
@@ -2166,7 +2204,8 @@ impl Gpu {
             return Err(anyhow!("全局参数的 integrator.sobol_index_mask 是 0：每个样本会取同一个点。用 KernelIntegrator::new 填"));
         }
         let up = self.upload(scene, &self.film_buffer(w, h, &base.film)?, tri_verts, groups, nodes, emitters, emitter_tris, light_tree, env, env_cdf, energy, timings)?;
-        let pipeline = self.pipeline(&up.kernel);
+        let pipeline = self.pipeline_of(&up.kernel, aux, COLOR_ENTRY);
+        let aux_pipeline = aux.then(|| self.pipeline_of(&up.kernel, true, AUX_ENTRY));
         let (b_film, b_params, bg) = (&up.film, &up.params, &up.bg);
         let film_size = b_film.size();
         let stopped_before = self.guard_trips(&self.no_vis_bufs)?;
@@ -2177,6 +2216,28 @@ impl Gpu {
         enc.clear_buffer(b_film, 0, None);
         self.sync_tables(&up, &mut enc);
         self.queue.submit([enc.finish()]);
+        let dispatch = |p: &mut Params, pipeline: &wgpu::ComputePipeline| {
+            up.place(p);
+            self.no_vis_bufs.place(p);
+            self.queue.write_buffer(b_params, 0, bytemuck::bytes_of(p));
+            let mut enc = d.create_command_encoder(&Default::default());
+            {
+                let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None, timestamp_writes: None });
+                pass.set_pipeline(pipeline);
+                pass.set_bind_group(0, bg, &[]);
+                pass.set_bind_group(1, &self.no_vis, &[]);
+                pass.dispatch_workgroups(w.div_ceil(8), h.div_ceil(8), 1);
+            }
+            self.queue.submit([enc.finish()]);
+        };
+        if let Some(aux_pipeline) = &aux_pipeline {
+            let ta = Instant::now();
+            let mut p = base;
+            p.integrator.pass_kind = PASS_KIND_AUX;
+            dispatch(&mut p, aux_pipeline);
+            self.device.poll(wgpu::PollType::wait_indefinitely())?;
+            timings.push(("aux_ms".into(), ta.elapsed().as_secs_f64() * 1000.0));
+        }
         // One dispatch per sample; params are rewritten between submissions. Batch a few per submit.
         let batch = 4u32;
         let mut s = 0u32;
@@ -2184,18 +2245,8 @@ impl Gpu {
             for k in 0..batch.min(spp - s) {
                 let mut p = base;
                 p.size[2] = s + k;
-                up.place(&mut p);
-                self.no_vis_bufs.place(&mut p);
-                self.queue.write_buffer(b_params, 0, bytemuck::bytes_of(&p));
-                let mut enc = d.create_command_encoder(&Default::default());
-                {
-                    let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None, timestamp_writes: None });
-                    pass.set_pipeline(&pipeline);
-                    pass.set_bind_group(0, bg, &[]);
-                    pass.set_bind_group(1, &self.no_vis, &[]);
-                    pass.dispatch_workgroups(w.div_ceil(8), h.div_ceil(8), 1);
-                }
-                self.queue.submit([enc.finish()]);
+                p.integrator.pass_kind = PASS_KIND_COLOR;
+                dispatch(&mut p, &pipeline);
             }
             s += batch.min(spp - s);
             self.device.poll(wgpu::PollType::wait_indefinitely())?;
@@ -2220,7 +2271,8 @@ impl Gpu {
         let floats: &[f32] = bytemuck::cast_slice(&data);
         let n = (w * h) as usize;
         let (stride, groups) = (base.film.film_stride as usize * 4, base.film.num_lightgroups as usize);
-        let mut frame = Frame { width: w, height: h, color: Vec::with_capacity(n), albedo: Vec::with_capacity(n), normal: Vec::with_capacity(n), emission: Vec::with_capacity(n), specular: Vec::with_capacity(n), variance: Vec::with_capacity(n), lightgroups: vec![Vec::with_capacity(n); groups], samples: spp };
+        let mut frame = Frame { width: w, height: h, color: Vec::with_capacity(n), albedo: Vec::with_capacity(n), normal: Vec::with_capacity(n), emission: Vec::with_capacity(n), specular: Vec::with_capacity(n), variance: Vec::with_capacity(n), lightgroups: vec![Vec::with_capacity(n); groups], alpha: Vec::with_capacity(n), aux: None, samples: spp };
+        let mut layers = aux.then(|| AuxLayers { depth: Vec::with_capacity(n), id: Vec::with_capacity(n), normal: Vec::with_capacity(n), coverage: Vec::with_capacity(n) });
         for p in floats.chunks_exact(stride) {
             let c = p[FILM_COMBINED as usize * 4 + 3].max(1.0);
             let at = |slot: u32, k: usize| Some(p[slot as usize * 4 + k]).filter(|v| v.is_finite()).unwrap_or(0.0);
@@ -2235,7 +2287,16 @@ impl Gpu {
             for (g, group) in frame.lightgroups.iter_mut().enumerate() {
                 group.push(rgb(base.film.film_lightgroup_first + g as u32));
             }
+            frame.alpha.push(at(FILM_DENOISE_ALBEDO, 3) / c);
+            if let Some(l) = &mut layers {
+                // （辅助两格是覆盖写的原值，不除以样本数；编号存的是浮点数值）
+                l.depth.push(at(FILM_AUX_DATA, 0));
+                l.id.push(at(FILM_AUX_DATA, 1) as u32);
+                l.normal.push([at(FILM_AUX_NORMAL, 0), at(FILM_AUX_NORMAL, 1), at(FILM_AUX_NORMAL, 2)]);
+                l.coverage.push(at(FILM_DENOISE_NORMAL, 3) / c);
+            }
         }
+        frame.aux = layers;
         drop(data);
         readback.unmap();
         timings.push(("readback_ms".into(), t2.elapsed().as_secs_f64() * 1000.0));
@@ -2328,6 +2389,25 @@ mod tests {
         let msl = naga::back::msl::Options { lang_version: (2, 4), fake_missing_bindings: true, ..Default::default() };
         let (text, _) = naga::back::msl::write_string(&m, &info, &msl, &Default::default()).unwrap_or_else(|e| panic!("MSL 后端生成不出来：{e}"));
         assert!(!text.is_empty());
+    }
+
+    /// 北冥：编译开关 `aux` 管的是什么：开了多一个入口 `AUX_ENTRY`、颜色样本数覆盖率；关着时内核里没有辅助样本、颜色样本不读
+    /// 辅助那一格、也不写首次命中的物体；两种变体里内核都不读 `pass_kind`（颜色样本那个入口里没有按它的分支）。
+    #[test]
+    fn the_aux_switch_is_only_the_aux_layers() {
+        let template = kernel_template();
+        for hwrt in [false, true] {
+            let plain = KernelVariant::new(hwrt, KernelSwitches::default(), 0);
+            let (off, on) = (kernel_wgsl(&template, &plain), kernel_wgsl(&template, &KernelVariant { aux: true, ..plain }));
+            let entries = |src: &str| naga::front::wgsl::parse_str(src).unwrap().entry_points.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+            assert_eq!(entries(&off), [COLOR_ENTRY]);
+            assert_eq!(entries(&on), [AUX_ENTRY, COLOR_ENTRY]);
+            for gone in ["aux_sample", "first_hit_object =", "FILM_AUX_DATA].y"] {
+                assert!(!off.contains(gone), "不要辅助层的内核里有 {gone}");
+                assert!(on.contains(gone), "要辅助层的内核里没有 {gone}");
+            }
+            assert!(!off.contains(".pass_kind") && !on.contains(".pass_kind"));
+        }
     }
 
     /// The kernel's bind group layouts are what its source declares, in every layout and traversal: a variant's
@@ -2427,6 +2507,7 @@ mod tests {
                 naga_valid(&kernel_wgsl(&template, &KernelVariant { uniform_tables: true, ..all_features }));
                 naga_valid(&kernel_wgsl(&template, &KernelVariant { whole_tables: true, ..all_features }));
                 naga_valid(&kernel_wgsl(&template, &KernelVariant { guard: Some(1 << 16), ..all_features }));
+                naga_valid(&kernel_wgsl(&template, &KernelVariant { aux: true, ..all_features }));
             }
         }
     }
@@ -2456,7 +2537,8 @@ mod tests {
             for &k in &switches {
                 let plain = KernelVariant::new(hwrt, k, 0);
                 let all_features = KernelVariant::new(hwrt, k, F_SOURCE);
-                for v in [plain, KernelVariant { uniform_tables: true, ..all_features }, KernelVariant { whole_tables: true, ..all_features }, KernelVariant { guard: Some(1 << 16), ..all_features }, KernelVariant { merged: true, ..plain }, KernelVariant { merged: true, guard: Some(1 << 16), ..all_features }] {
+                // （北冥：要辅助层的变体多一个入口 AUX_ENTRY，两个后端把每个入口都生成一遍。）
+                for v in [plain, KernelVariant { uniform_tables: true, ..all_features }, KernelVariant { whole_tables: true, ..all_features }, KernelVariant { guard: Some(1 << 16), ..all_features }, KernelVariant { merged: true, ..plain }, KernelVariant { merged: true, guard: Some(1 << 16), ..all_features }, KernelVariant { aux: true, ..plain }, KernelVariant { aux: true, merged: true, guard: Some(1 << 16), ..all_features }] {
                     // （合并布局是浏览器的，那里没有硬件求交。）
                     if v.merged && v.hwrt {
                         continue;
@@ -2466,7 +2548,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(n, 8 * 6 + 8 * 4);
+        assert_eq!(n, 8 * 8 + 8 * 5);
         let bad = "struct S { a: vec3<f32>, b: f32 };\nfn half(p: ptr<function, vec3<f32>>) { *p = *p * 0.5; }\n@group(0) @binding(0) var<storage, read_write> out: array<vec4<f32>>;\n@compute @workgroup_size(1) fn main() {\n    var s = S();\n    s.a = vec3<f32>(1.0);\n    half(&s.a);\n    out[0] = vec4<f32>(s.a, s.b);\n}\n";
         naga_valid(bad);
         let crash = std::panic::catch_unwind(|| codegen_valid(bad)).expect_err("成员指针当实参：SPIR-V 后端现在生成得出来了");
@@ -2476,7 +2558,8 @@ mod tests {
 
     /// 北冥：请求灯组的那条路是通的。同一个场景渲两遍，一遍不请求灯组、一遍请求 2 个（现在还没有任何贡献写进
     /// 灯组）：颜色、反照率、法线、方差逐位相同；读回的灯组是 2 层、每层一个像素一项、全是 0；不请求时没有灯组层。
-    /// 请求得太多（缓冲超过这块显卡的上限）在开渲前报错。（没有显卡时跳过。）
+    /// 请求得太多（缓冲超过这块显卡的上限）在开渲前报错。要辅助层（`aux`）的一遍同样逐位相同，辅助层每个像素一项，
+    /// 不透明度全是 1（背景对相机可见）。（没有显卡时跳过。）
     #[test]
     fn requested_lightgroups_leave_the_picture_alone() {
         const GAME: &str = r#"
@@ -2509,12 +2592,14 @@ mod tests {
         let mut sc = crate::scene::build(&host.world.borrow(), root, &root.join("presets"), None).unwrap();
         let mut timings = vec![];
         let prep = crate::prepare(&g, &mut sc, &mut timings);
-        let mut render = |film: KernelFilm| {
+        let mut render_with = |film: KernelFilm, aux: bool| {
             let params = Params { film, ..prep.params };
-            g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, crate::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, 4, &mut timings)
+            g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, crate::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, 4, aux, &mut timings)
         };
-        let plain = render(prep.params.film).unwrap();
-        let with = render(KernelFilm::new(2)).unwrap();
+        let plain = render_with(prep.params.film, false).unwrap();
+        let with = render_with(KernelFilm::new(2), false).unwrap();
+        let aux = render_with(prep.params.film, true).unwrap();
+        let mut render = |film: KernelFilm| render_with(film, false);
         let n = (sc.width * sc.height) as usize;
         let bits = |v: &[[f32; 3]]| v.iter().flatten().map(|x| x.to_bits()).collect::<Vec<u32>>();
         assert_eq!((plain.color.len(), with.color.len()), (n, n));
@@ -2523,6 +2608,13 @@ mod tests {
         assert_eq!(bits(&plain.albedo), bits(&with.albedo), "反照率");
         assert_eq!(bits(&plain.normal), bits(&with.normal), "法线");
         assert_eq!(plain.variance.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), with.variance.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), "方差");
+        assert_eq!(bits(&plain.color), bits(&aux.color), "要辅助层时的颜色");
+        assert_eq!(bits(&plain.albedo), bits(&aux.albedo), "要辅助层时的反照率");
+        assert_eq!(bits(&plain.normal), bits(&aux.normal), "要辅助层时的法线");
+        assert!(plain.aux.is_none() && plain.alpha.iter().all(|a| *a == 1.0));
+        let layers = aux.aux.as_ref().expect("要了辅助层");
+        assert_eq!((layers.depth.len(), layers.id.len(), layers.normal.len(), layers.coverage.len()), (n, n, n, n));
+        assert!(layers.depth.iter().any(|d| *d < 1e10) && layers.coverage.iter().all(|c| (0.0..=1.0).contains(c)));
         assert!(plain.lightgroups.is_empty());
         assert_eq!(with.lightgroups.len(), 2);
         for group in &with.lightgroups {
@@ -2555,7 +2647,7 @@ mod tests {
         };
         assert_eq!(
             members("PathState"),
-            ["render_pixel_index", "sample", "bounce", "diffuse_bounce", "glossy_bounce", "transmission_bounce", "transparent_bounce", "rng_pixel", "rng_offset", "flag", "mis_ray_pdf", "min_ray_pdf", "continuation_probability", "throughput", "visibility", "mis_ray_object", "legacy"]
+            ["render_pixel_index", "sample", "bounce", "diffuse_bounce", "glossy_bounce", "transmission_bounce", "transparent_bounce", "rng_pixel", "rng_offset", "flag", "mis_ray_pdf", "min_ray_pdf", "continuation_probability", "throughput", "visibility", "mis_ray_object", "first_hit_object", "legacy"]
         );
         let mut ray = members("Ray");
         ray.sort();

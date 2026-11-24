@@ -29,6 +29,8 @@
 //   whole_tables          the seven typed tables read from the tables' buffer whole, as `merged` reads them, and
 //                         no views of their sections (gpu.rs `GpuOptions::table_views`: Android's drivers)
 //   guard                 the loop guard (gpu.rs `loop_guard_of`, `guard_loops`)
+//   aux                   北冥：这次渲染要辅助层（gpu.rs `KernelVariant::aux`）：多一个入口 aux_sample（辅助样本），颜色样本
+//                         数覆盖率。不要辅助层时编出来的颜色内核里没有这两样
 // The numbers a variant is compiled for are WESL constants (`import constants::`, gpu.rs `KernelVariant::constants`): the
 // uniform tables' lengths, the loop guard's limit.
 //
@@ -141,8 +143,9 @@ struct KernelIntegrator {
                                     // 已落地
     sobol_index_mask: u32,          // Sobol 打乱后的索引取哪几位（sample.wgsl 的 rng_index_at）。现在固定是 0xffff0000；为 0 时
                                     // 每个样本取同一个点，开渲前报错。已落地
-    pass_kind: u32,                 // 这一趟调度写什么：0 颜色样本，1 辅助样本。已定义，恒 0（辅助那一趟还没有）
-    background_transparent: u32,    // 背景对相机不可见。已定义，恒 0
+    pass_kind: u32,                 // 这一趟调度写什么：0 颜色样本，1 辅助样本。gpu.rs 照实填；内核不读（两种样本各走自己的
+                                    // 入口：main、aux_sample）
+    background_transparent: u32,    // 背景对相机不可见。已落地（render-pack 照场景包填）
 };
 const PASS_KIND_COLOR: u32 = 0u;
 const PASS_KIND_AUX: u32 = 1u;
