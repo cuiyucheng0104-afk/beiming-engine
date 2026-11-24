@@ -175,11 +175,11 @@ const frameFiles = (cache, shot, tier = 'final') => readdirSync(join(cache.root,
 
 /* ---------------- 假帧源：帧源调用次数是精确的 ---------------- */
 
-test('buildShotCacheInputs 交出六项：别的镜头的条目、事件、卡不进本镜头的键', () => {
+test('buildShotCacheInputs 交出六项：别的镜头的条目与卡不进本镜头的键，全片事件表完整进键', () => {
   const film = filmOf(), lock = lockOf();
   const [a, b] = film.shots.map((shot) => pipeline.buildShotCacheInputs({ film, lock, shot, filmDir: root, tier: 'final' }));
-  assert.deepEqual(a.events, [], 's02 的片名事件不进 s01');
-  assert.deepEqual(b.events.map((e) => [e.kind, e.frame, e.id]), [['cut', 12, 'cut.12'], ['named', 12, 'title']], '落在 s02 里的事件');
+  assert.deepEqual(a.events.map((e) => [e.kind, e.frame, e.id]), [['cut', 12, 'cut.12'], ['named', 12, 'title']], '全片事件表完整进入每个镜头的键（卡拿得到全片事件）');
+  assert.deepEqual(b.events, a.events, 's01 与 s02 纳入同一份全片事件表');
   assert.deepEqual([a.film.at, b.film.at], [0, 12], '镜头的起始帧进键');
   assert.deepEqual(a.cards.map((c) => c.id).sort(), ['blender.cycles', 'time.events'], '本镜头的卡加数据层的卡，没有 s02 的卡和合成的卡');
   assert.deepEqual(b.cards.map((c) => c.id).sort(), ['overlay.title', 'time.events']);
@@ -238,7 +238,7 @@ test('六项键逐项单点变化：该重渲的镜头整镜重渲，无关的�
   // [名字, 改片子, 改锁, 档位, 重渲的镜头]
   const cases = [
     ['① 本镜头参数', (f) => { f.shots[1].cards[0].params.enter = 2; }, null, 'final', ['s02']],
-    ['① 本镜头事件', (f) => { f.events[0].frame = 'cut(12) + 2'; }, null, 'final', ['s02']],
+    ['① 全片事件', (f) => { f.events[0].frame = 'cut(12) + 2'; }, null, 'final', ['s01', 's02']],
     ['① 风格 tokens.paper', (f) => { f.style.tokens.paper = '#FFFFFF'; }, null, 'final', ['s01', 's02']],
     ['① 帧率', (f) => { f.output.fps = '30/1'; }, null, 'final', ['s01', 's02']],
     ['① 锁里的镜头种子', null, (l) => { l.seeds.s02 = 7; }, 'final', ['s02']],
