@@ -2,18 +2,29 @@
   "format": "practices/0.1",
   "entries": [
     {
-      "id": "fx-ui.d026.practice",
-      "sourceId": "d026",
+      "id": "fx-ui.d027.practice",
+      "sourceId": "d027",
       "section": "1",
-      "caseId": "case-13",
-      "title": "通用限幅模式",
-      "text": "每个好看的效果配一个防丑限幅（软膝、软肩、雾纱扣除、每通道封顶、单张调暗），降级=倍率+补能量，切换加滞回与交叉淡变，确定性（种子+哈希缓存）",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
+      "caseId": "case-ext01",
+      "title": "闭式弹道粒子",
+      "text": "p=o+d·v0(1−e^(−k·a))/k−½g·a²；火星 74 m/s、阻尼 1.5、重力 24、寿命 1.5 s；一个 burst() 换参数做火星/冰屑/尘埃/水滴/鳞片；粒子剔除把 gl_Position 设为 vec4(2,2,2,1)；不足一像素按 max(尺寸, −z·0.00062) 画成一像素宽并降亮度；补充：位置公式不存状态所以可以倒放；一种预乘混合同时画「加光」与「遮挡」，透明度写 0 是纯加光，写覆盖率是烟和水（见下一条预乘混合）。；并列出处（重复条已合并）：「带阻力的闭式弹道」，案例 外部案例 01；该出处标：证据 源码，验证 没验证",
+      "quantities": [
+        {
+          "value": 74,
+          "unit": "m/s",
+          "rawUnit": "m/s"
+        },
+        {
+          "value": 1.5,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
       "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 1 节 · d026"
+      "docRef": "特效粒子界面二维汇编 · 第 1 节 · d027"
     },
     {
       "id": "fx-ui.d063.practice",
@@ -30,48 +41,6 @@
       "docRef": "特效粒子界面二维汇编 · 第 2 节 · d063"
     },
     {
-      "id": "fx-ui.d088.practice",
-      "sourceId": "d088",
-      "section": "3",
-      "caseId": "case-ext01",
-      "title": "记忆拖尾",
-      "text": "加载时把场景摆到 12 个时刻采样嘴位置/方向/强度，交着色器插值；所有发光体合成一盏点光按强度加权",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 3 节 · d088"
-    },
-    {
-      "id": "fx-ui.d101.practice",
-      "sourceId": "d101",
-      "section": "4",
-      "caseId": "case-ext06",
-      "title": "fx_kit 清单",
-      "text": "枪口闪光、曳光弹、火花、碎屑、碎玻璃、外星飞溅物;命中:几丁质碎片、方向性冲击、暗色外星液体或火花",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 4 节 · d101"
-    },
-    {
-      "id": "fx-ui.d118.practice",
-      "sourceId": "d118",
-      "section": "5",
-      "caseId": "case-13",
-      "title": "本章不存在的内容",
-      "text": "没有落叶堆随风飘落/地面落叶粒子/可交互落叶堆的模拟；\"落叶怎么铺怎么动\"的对应物只有：静态巨叶网格、岩台与石面上的落叶色着色、落叶坑减速判定；唯一随风的是烟柱和云",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 5 节 · d118"
-    },
-    {
       "id": "fx-ui.d136.practice",
       "sourceId": "d136",
       "section": "5",
@@ -86,88 +55,29 @@
       "docRef": "特效粒子界面二维汇编 · 第 5 节 · d136"
     },
     {
-      "id": "fx-ui.d138.practice",
-      "sourceId": "d138",
-      "section": "5",
-      "caseId": "case-14",
-      "title": "雨的做法",
-      "text": "每镜头 5,600 条真实几何雨丝;屋檐滴水;水坑上扩散的水环;水坑与落滴水环来自与案例 21共用的 water module;自述不足:雨不与雨伞溅射交互、湿膜片边缘有时读作水坑边界；补充：每镜 5,600 条雨，使雨会被灯照亮、会进景深。；并列出处（重复条已合并）：「雨做成几何体」，案例 14 雨夜小巷；该出处标：证据 原文陈述，验证 只是原文说法",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 5 节 · d138"
-    },
-    {
-      "id": "fx-ui.d170.practice",
-      "sourceId": "d170",
-      "section": "8",
+      "id": "fx-ui.d192.practice",
+      "sourceId": "d192",
+      "section": "10",
       "caseId": "case-13",
-      "title": "旋风斩特效",
-      "text": "披风阵风 1.8 倍；每秒 30 次冒地尘",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 8 节 · d170"
-    },
-    {
-      "id": "fx-ui.d184.practice",
-      "sourceId": "d184",
-      "section": "9",
-      "caseId": "case-13",
-      "title": "液滴+池涟漪同步",
-      "text": "液滴动画全在顶点着色器，落点处池面涟漪读同一套 aDrop 参数保持同步",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 9 节 · d184"
-    },
-    {
-      "id": "fx-ui.d194.practice",
-      "sourceId": "d194",
-      "section": "11",
-      "caseId": "case-ext03",
-      "title": "食品广告物理",
-      "text": "落体按重力自然加速,落地一帧挤压+快速阻尼回弹;落下的肉饼挤压下层酸黄瓜和生菜、边缘向外挤出但仍可见;蒸汽每帧活着并被镜头撕开;油脂随机爆点;汁水落地「一两颗小珠」即止",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 11 节 · d194"
-    },
-    {
-      "id": "fx-ui.d195.practice",
-      "sourceId": "d195",
-      "section": "11",
-      "caseId": "case-ext03",
-      "title": "线稿变材质(ink-to-matter)",
-      "text": "每个转场都是场景内事件:线稿平面旋入 3D(SEAM A)、线框逐层自建 12 层(SEAM B)、沿自身线条逐层「点燃」:缓冲带栏杆线先点燃当作引信→板边线膨胀成混凝土、竖框线结晶出玻璃、露台轮廓长出植物;下→上逐层;未点燃的上方仍为线框;蓝图纸像氰版曝光般向天空渐亮、从建筑轮廓向外扩散;禁止出现半图半实的分屏边界",
-      "quantities": [],
+      "title": "太阳可见度预烘",
+      "text": "粒子出生时沿太阳方向 10 步射线(步长 0.9/2.2/4.2/7/10.5/14.5/19/25/32/40 米)，被挡则亮度压到 SHADOW_SHADE=0.15(手机 6 步)；金属与幽灵除外；uFxSun=天空太阳色×min(6,太阳强度)×0.2，uFxAmb=lerp(天顶色,地平色,0.6)×0.75×环境强度；多数爆发乘 1−0.35~0.65×uNight(夜里光晕收敛防泛光糊成一片)；补充：多数爆发乘 1−(0.35~0.65)×uNight，夜里光晕收敛，不被泛光糊成一片；HDR 白热火花强度 I=5–10 靠泛光出光晕，不用光晕贴图。粒子出生时测太阳可见度的摘要写法：沿太阳方向走 10 步（步长 0.9→40 m）测遮挡，被挡亮度压到 0.15。；并列出处（重复条已合并）：「粒子测太阳」，案例 13；该出处标：证据 源码，验证 作者成片用过(未运行)；并列出处（重复条已合并）：「特效随昼夜」，案例 13；该出处标：证据 源码，验证 作者成片用过(未运行)",
+      "quantities": [
+        {
+          "value": 40,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 40,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
       "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
       "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 11 节 · d195"
-    },
-    {
-      "id": "fx-ui.d196.practice",
-      "sourceId": "d196",
-      "section": "11",
-      "caseId": "case-ext04",
-      "title": "打斗环境持续项",
-      "text": "雪斜向持续下落「never stopping, never freezing」;每面旗/旗杆随风起伏鞭响、杆弯曲;草弯、雪被风吹成帘、布条飘;云锋翻滚、云隙太阳持续;板甲上积雪在撞击时抖落;受扰雪扬起并真实落下;布与旗有滞后与啪的一下",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 11 节 · d196"
+      "docRef": "特效粒子界面二维汇编 · 第 10 节 · d192"
     },
     {
       "id": "fx-ui.d198.practice",
@@ -184,20 +94,6 @@
       "docRef": "特效粒子界面二维汇编 · 第 11 节 · d198"
     },
     {
-      "id": "fx-ui.d199.practice",
-      "sourceId": "d199",
-      "section": "11",
-      "caseId": "case-17",
-      "title": "五种显示模式",
-      "text": "同一表面画成 skin/X-ray/thermal/contours/pearl 五种,一条擦除线横扫、两侧各一种模式并在屏上标出两个模式名",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 11 节 · d199"
-    },
-    {
       "id": "fx-ui.d200.practice",
       "sourceId": "d200",
       "section": "11",
@@ -212,83 +108,18 @@
       "docRef": "特效粒子界面二维汇编 · 第 11 节 · d200"
     },
     {
-      "id": "fx-ui.d201.practice",
-      "sourceId": "d201",
-      "section": "11",
-      "caseId": "case-12",
-      "title": "巨城雷击物理顺序与规模",
-      "text": "阶梯先导短跳下行→地面最高点上升流光迎接→空中相接→之后才回击→雷声→停电波→变压器闪→复电;一镜到底(低掠湿街→爬塔玻璃幕→入云→沿先导俯冲→流光与先导相遇→击中塔尖→广角看城变暗);城市约15,600栋/带桥的河/公园/16座变电站,无图片模型纹理文件仅2字体,无屏幕界面仅4条事实卡;模块化+并行子代理,主控保管引擎(时间线/雷/光/后期)",
+      "id": "fx-ui.d270.practice",
+      "sourceId": "d270",
+      "section": "19",
+      "caseId": "case-13",
+      "title": "滞回防闪烁",
+      "text": "引路叶进屏0.84留0.92、背后进2.62退2.36、手柄扳机按下0.35松开0.22(trigger/triggerOff)、摇杆当方向键nav0.6/navOff0.42",
       "quantities": [],
       "kind": "fix",
       "evidenceLevel": "文档",
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 11 节 · d201"
-    },
-    {
-      "id": "fx-ui.d216.practice",
-      "sourceId": "d216",
-      "section": "14",
-      "caseId": "case-13",
-      "title": "一套SVG三种用途",
-      "text": "原实现源码 的 sigilSVG() 把徽记写成SVG字符串：加载画面/标题/结局字幕卡/致命错误卡直接塞页面；分享卡用 data:image/svg+xml 转 Image 画到Canvas(原实现源码)；美术只做一次不用图片文件",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 14 节 · d216"
-    },
-    {
-      "id": "fx-ui.d219.practice",
-      "sourceId": "d219",
-      "section": "14",
-      "caseId": "case-04",
-      "title": "技能图标提示词模板",
-      "text": "「Square fantasy MMO ability icon, hand-painted painterly style, rich saturated colours, dark vignette edges, no text, no border frame.」+动作描述+「readable at small size」;6 个图标(打击/冲锋/地裂/断筋/战吼/胜利治疗)",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 14 节 · d219"
-    },
-    {
-      "id": "fx-ui.d235.practice",
-      "sourceId": "d235",
-      "section": "16",
-      "caseId": "case-06",
-      "title": "案例 06 二维动作片叠层",
-      "text": "速度线、黑白冲击帧、望远镜遮罩加色散、卡通烟团、半透明底条字幕，都是叠在三维画面上的二维层；三渲二=平涂色块+粗轮廓+橙紫光影",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 16 节 · d235"
-    },
-    {
-      "id": "fx-ui.d251.practice",
-      "sourceId": "d251",
-      "section": "17",
-      "caseId": "case-13",
-      "title": "标题/结局构图规则",
-      "text": "大剑不能插在字上（6–8° 相机偏航避不开→logotype 上移到发光巨树树冠上方，副标题当 kicker）；标题字 3vh 更高，阴影板更紧更暖（宽冷色板把金色树冠染成橄榄）；菜单栈下移压在暗路上而不是亮的基座；结局：下三分之一卡片压暗地板带，发光巨树/半圆殿缺口/剑留空；小徽记放在发光巨树冠上会「金压金」→标题与结局卡只放字标",
-      "quantities": [
-        {
-          "value": [
-            6,
-            8
-          ],
-          "unit": "deg",
-          "rawUnit": "°"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 17 节 · d251"
+      "docRef": "特效粒子界面二维汇编 · 第 19 节 · d270"
     },
     {
       "id": "fx-ui.d272.practice",
@@ -316,32 +147,18 @@
       "docRef": "特效粒子界面二维汇编 · 第 19 节 · d272"
     },
     {
-      "id": "fx-ui.d292.practice",
-      "sourceId": "d292",
+      "id": "fx-ui.d279.practice",
+      "sourceId": "d279",
       "section": "20",
-      "caseId": "case-01-legacy",
-      "title": "旧版2D层实现差异",
-      "text": "用Blender 2D正交相机绘制光标/标签(重制版改为Pillow);故障:原红绿蓝三层叠加会整体发亮,改为同一张图三次采样各通道单独错位后合成",
+      "caseId": "case-01r",
+      "title": "颗粒与故障算法",
+      "text": "grain: effect_noise((960,540),σ=22)放大到1080p、random.seed决定平移、与原图overlay,blend系数=alpha×4(alpha0.07→0.28),8张循环;glitch: 切片条数int(5+9s),高6…int(30+90s),横移±140s,R通道+k/B通道-k(k=int(10s));Pillow effect_noise不受random.seed控制(多进程下颗粒图案不可逐像素复现)；补充：3D 渲染 RGBA 透明底；Pillow effect_noise 不受随机种子控制，多进程每次重跑噪声图不同（笔记自认）。；并列出处（重复条已合并）：「合成输入：RGBA 透明底与颗粒种子问题」分组清单 七、后期与 2D 合成，案例 01 重制版 自建重制片；该出处标：证据 原文陈述，验证 未逐条标注",
       "quantities": [],
-      "kind": "method",
+      "kind": "fix",
       "evidenceLevel": "文档",
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 20 节 · d292"
-    },
-    {
-      "id": "fx-ui.d296.practice",
-      "sourceId": "d296",
-      "section": "21",
-      "caseId": "case-18",
-      "title": "字体",
-      "text": "场景标题衬线体（原文 Source Serif 4），正文/图注/字幕无衬线（Inter）",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 21 节 · d296"
+      "docRef": "特效粒子界面二维汇编 · 第 20 节 · d279"
     },
     {
       "id": "fx-ui.d301.practice",
@@ -358,20 +175,6 @@
       "docRef": "特效粒子界面二维汇编 · 第 21 节 · d301"
     },
     {
-      "id": "fx-ui.d305.practice",
-      "sourceId": "d305",
-      "section": "21",
-      "caseId": "case-20",
-      "title": "一份数据同时驱动声音与画面",
-      "text": "音高曲线、音节高亮、标签都读合成器输出，不另做动画",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 21 节 · d305"
-    },
-    {
       "id": "fx-ui.d307.practice",
       "sourceId": "d307",
       "section": "21",
@@ -384,20 +187,6 @@
       "evidenceLabel": "推断",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 21 节 · d307"
-    },
-    {
-      "id": "fx-ui.d308.practice",
-      "sourceId": "d308",
-      "section": "21",
-      "caseId": "case-22",
-      "title": "视口统计覆盖层",
-      "text": "Blender 视口左上角的统计覆盖层显示 Objects/Triangles 作为展示元素，界面里彩色代理标签随场景长大",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 21 节 · d308"
     },
     {
       "id": "fx-ui.d310.practice",
@@ -453,18 +242,18 @@
       "docRef": "特效粒子界面二维汇编 · 第 21 节 · d313"
     },
     {
-      "id": "fx-ui.d317.practice",
-      "sourceId": "d317",
+      "id": "fx-ui.d314.practice",
+      "sourceId": "d314",
       "section": "21",
-      "caseId": "case-21",
-      "title": "案例 21 招牌先列表给母语者审",
-      "text": "先列出招牌让母语者审核再渲染；西语/日文未经母语者审校；文化真实性落到文字和生活细节",
+      "caseId": "case-18",
+      "title": "数据与来源上屏规则",
+      "text": "头条数字集中在 原实现源码,每个带注释写来源;计数当天变动要在屏上说明(旁白「at least 253」是 4:45 p.m. ET 的数,席位条随后跳到 254 并注「253 at 4:45 p.m. ET · +1 called at 6:51 p.m.」);一个方块一个议席的席位条",
       "quantities": [],
       "kind": "method",
       "evidenceLevel": "文档",
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 21 节 · d317"
+      "docRef": "特效粒子界面二维汇编 · 第 21 节 · d314"
     },
     {
       "id": "fx-ui.d318.practice",
@@ -481,46 +270,24 @@
       "docRef": "特效粒子界面二维汇编 · 第 21 节 · d318"
     },
     {
-      "id": "fx-ui.d320.practice",
-      "sourceId": "d320",
-      "section": "22",
-      "caseId": "case-27",
-      "title": "绑定控制器画法",
-      "text": "头和骨盆=黄色方框与圆环，手脚=红色/蓝色方框，膝肘=绿色圆圈；青柠色箭头光标；移动手柄=带箭头坐标轴",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 22 节 · d320"
-    },
-    {
-      "id": "fx-ui.d321.practice",
-      "sourceId": "d321",
+      "id": "fx-ui.d323.practice",
+      "sourceId": "d323",
       "section": "22",
       "caseId": "case-29",
-      "title": "下半光标四种",
-      "text": "Walls：平面上一次长拖，墙在光标经过时升起，身后留黄绿线；Doors：五次点击开五扇门，镜头放大前两扇，配乐停顿时地板铺开；Furniture：点六次，每次房间轮廓闪一下，家具（共 76 件）从点击处落下；Light：抓住太阳图标划过一道光把路径追踪渲染“显影”出来，结尾停在阳光下整套公寓一直转到最后一帧",
-      "quantities": [],
+      "title": "下半复用",
+      "text": "建造画面沿用上一版光标片渲染，没重算；黄绿墨线=合成时色相偏移（非重渲）；前 15 帧在 CPU 重渲去掉图纸大标题章；屏幕层单独画在 CPU 上合成",
+      "quantities": [
+        {
+          "value": 15,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
       "kind": "fix",
       "evidenceLevel": "文档",
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 22 节 · d321"
-    },
-    {
-      "id": "fx-ui.d322.practice",
-      "sourceId": "d322",
-      "section": "22",
-      "caseId": "case-29",
-      "title": "相机标记",
-      "text": "平面上有一个带视锥的黄绿标记表示上半那台相机站在哪（唯一连接上下两半的视觉线索）",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 22 节 · d322"
+      "docRef": "特效粒子界面二维汇编 · 第 22 节 · d323"
     },
     {
       "id": "fx-ui.d329.practice",
@@ -535,73 +302,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 22 节 · d329"
-    },
-    {
-      "id": "fx-ui.d339.practice",
-      "sourceId": "d339",
-      "section": "23",
-      "caseId": "case-ext16",
-      "title": "社区:13 个动画/特效快捷写法(某作者)",
-      "text": "快捷写法非内置命令:/某作者-d-films(3D“如果地球停转”解说)、/effects glass-widgets(人物周围悬浮玻璃面板)、/minimalistic-graphics、/effects orbit(缩略图绕头旋转)、/stick-figure、/effects spotlight(背景压暗人物保亮)、/breakdown(产品拆解)、/effects todo(随说话打勾清单)、/map-route(路线动画)、/effects timeline(发光播放头剪辑时间线)、/graph(数字成图)、/effects match-cut(词锁定匹配剪辑)、移动设备 风格开关;“若不识别则补一行描述”",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d339"
-    },
-    {
-      "id": "fx-ui.d341.practice",
-      "sourceId": "d341",
-      "section": "23",
-      "caseId": "case-ext03",
-      "title": "动态字幕动效规则",
-      "text": "入场 ease-out 无弹跳无过冲;出场 ease-in 加速出画;快速运动仅运动层带方向运动模糊、背景不糊;无淡入淡出/溶解/擦除;词逐个从下方 20 px 弹起锁定;落地帧闪一个强调色后 4 帧内回近黑",
-      "quantities": [
-        {
-          "value": 20,
-          "unit": "px",
-          "rawUnit": "px"
-        },
-        {
-          "value": 4,
-          "unit": "frame",
-          "rawUnit": "帧"
-        }
-      ],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d341"
-    },
-    {
-      "id": "fx-ui.d343.practice",
-      "sourceId": "d343",
-      "section": "23",
-      "caseId": "case-ext03",
-      "title": "文本锁定句",
-      "text": "「TEXT LOCK: render every quoted string exactly as written, correctly spelled…Do not translate, do not paraphrase, do not add any other text, no subtitles, no captions, no watermark, no logo…」;每个提示词末尾列出全部要出现的字符串(copy list)",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d343"
-    },
-    {
-      "id": "fx-ui.d345.practice",
-      "sourceId": "d345",
-      "section": "23",
-      "caseId": "case-ext03",
-      "title": "字母瀑布动效",
-      "text": "词语按「字母逐个从左到右,每个从高斯模糊淡入到锐利,极小均匀错峰,整词约半秒成型」;fast attack、long soft settle、无弹跳;完成后元素相对画框像素稳定、无抖动;退场逐字溶入模糊;一次只动一个元素;字区:镜1 左墙、镜2 右上,不盖脸/手/笔记本",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d345"
     },
     {
       "id": "fx-ui.d348.practice",
@@ -636,82 +336,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "特效粒子界面二维汇编 · 第 23 节 · d351"
-    },
-    {
-      "id": "fx-ui.d353.practice",
-      "sourceId": "d353",
-      "section": "23",
-      "caseId": "case-56",
-      "title": "某矢量软件矢量化/某图像软件精修/某实时节点工具",
-      "text": "矢量：确认保真细节→清杂散路径→按组/图层整理；PS：局部修补+独立图层+可编辑蒙版+全尺寸检查；TD：确认风格/输出格式/时长，暴露主要控制，保存原始输入和工程",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 23 节 · d353"
-    },
-    {
-      "id": "fx-ui.d356.practice",
-      "sourceId": "d356",
-      "section": "24",
-      "caseId": "case-18",
-      "title": "角标",
-      "text": "右上约 x1594–1862、y96–202 “某生成平台 某代码模型”，任务书没要，推断是平台叠加；冲突：右上角「某生成平台 某代码模型」角标，本条推断为平台叠加；见下面「水印位置」与「角标不能当重压证据」两条，作者原文件里确有，且 026 请求原文写明是制作代理按请求自己加的。019/原复盘写「平台叠加」，未改，冲突未解。",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 24 节 · d356"
-    },
-    {
-      "id": "fx-ui.d362.practice",
-      "sourceId": "d362",
-      "section": "24",
-      "caseId": "case-27",
-      "title": "水印",
-      "text": "左面板左上角青柠底 “某生成平台” + 黑底 “某代码模型” 两行",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 24 节 · d362"
-    },
-    {
-      "id": "fx-ui.d366.practice",
-      "sourceId": "d366",
-      "section": "24",
-      "caseId": "case-29",
-      "title": "去字",
-      "text": "最后一轮意见：去掉所有像幻灯片的东西（章节/房间字幕、“CURSOR BUILD”“FINAL WALK-THROUGH”标签、大标题），只留短标签光标 + 一张片尾卡 “案例 29 · drawn, built and rendered in code”（17.5 s 起）；画面唯一文字=四个光标标签+图纸自带小尺寸和房间名+片尾卡",
-      "quantities": [
-        {
-          "value": 17.5,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 24 节 · d366"
-    },
-    {
-      "id": "fx-ui.d371.practice",
-      "sourceId": "d371",
-      "section": "24",
-      "caseId": "case-multi",
-      "title": "“某生成平台 某代码模型”角标不能当重压证据",
-      "text": "023、026 作者原文件都带它，026 请求原文写明是代理自己加的；019 复盘写“平台叠加”与此冲突，没改；冲突：023、026 作者原文件都带角标，026 请求原文写明是代理自己加的；019 复盘写「平台叠加」与此冲突，没改。",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "特效粒子界面二维汇编 · 第 24 节 · d371"
     }
   ]
 }

@@ -2,18 +2,89 @@
   "format": "practices/0.1",
   "entries": [
     {
-      "id": "render-pipe.d025.practice",
-      "sourceId": "d025",
-      "section": "2",
-      "caseId": "case-07",
-      "title": "镜头首帧运动模糊泄漏的修法",
-      "text": "镜头第一帧的运动模糊采样会回溯到上一镜头，使每次剪切起始带鬼影双重曝光；引擎修复 = 把每个采样钳制在本镜头内，一次清除一整类缺陷。",
-      "quantities": [],
+      "id": "render-pipe.d015.practice",
+      "sourceId": "d015",
+      "section": "1",
+      "caseId": "case-multi",
+      "title": "预乘 alpha 与剔除、软深度",
+      "text": "外部案例 01：预乘 alpha 一种混合 (`One,OneMinusSrcAlpha`)：alpha=0 加光、alpha=覆盖率做遮挡（；原实现源码，统一 PMB）；剔除粒子 `gl_Position=vec4(2,2,2,1)`；软深度 `softZ(vVZ,k)`；alpha-to-coverage 用于叶、发、鳍。；细粒子像素下限：火星 `max(尺寸,-z*0.00062)`；水滴 `-z*0.00072`；鳞片 `-z*0.00085`；快门拉条：绳长 `宽+速度*0.0085`，珠 `宽+速度*0.0125`（1/60 s 快门）。；烘焙噪声贴图：puffTex 256²（`n=fbm2(uv*5+3)*0.9+fbm2(uv*11)*0.35`，`a=smoothstep(1,0.15,r+(n-0.55)*0.75)`）；noiseTex 256² 5 层周期 fbm。；预编译：`Post.warm()`、`R.compileAsync`、`G.R.compile`，避免首次出现卡帧。记忆类效果加载时烘焙：湿度钟 24 Hz 扫 90 s；甩水 30 Hz 模拟，上限 22000/6000/6000；火焰表 12 样本。",
+      "quantities": [
+        {
+          "value": 0.016667,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 24,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 90,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 30,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        }
+      ],
       "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
       "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 2 节 · d025"
+      "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d015"
+    },
+    {
+      "id": "render-pipe.d017.practice",
+      "sourceId": "d017",
+      "section": "1",
+      "caseId": "case-ext01",
+      "title": "单盏点光合并",
+      "text": "两股吐息、闪光、光球、龙珠每帧按强度加权合成一个位置/颜色/距离，喂给同一盏 PointLight（原实现源码）；注释：多一盏灯会让山谷每个受光像素全片多付一次代价；建筑灯池「about 0.2 ms each at 3.7 megapixels」（原实现源码），只有山门一盏是真灯，`?pools` 默认 1。",
+      "quantities": [
+        {
+          "value": 0.2,
+          "unit": "ms",
+          "rawUnit": "ms"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d017"
+    },
+    {
+      "id": "render-pipe.d037.practice",
+      "sourceId": "d037",
+      "section": "3",
+      "caseId": "case-01r",
+      "title": "逐帧纯函数状态与运动模糊的三帧关键帧法（Cycles）",
+      "text": "`film.state(f)` 是纯函数，机位与部件位置只由帧号决定；渲第 f 帧前把 f−1、f、f+1 的状态写成关键帧（Rig.set_frame），让 Cycles 在快门区间内插值得到运动模糊；帧间互不依赖，可抽帧/分段补渲。夹范围：每个 take 起止帧用本 take 状态夹住，转场帧不会模糊到下一个 take。脚本想设线性插值，但本机 Blender 5.2 读回实为 BEZIER/AUTO_CLAMPED（偏好设置对 keyframe_insert 无效），另一台本地工作站 4.5 未读回。改机位只补渲变动帧：v1→v2 只补渲 312 帧 + 23 帧，其余 456 帧复用。",
+      "quantities": [
+        {
+          "value": 312,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 23,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 456,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d037"
     },
     {
       "id": "render-pipe.d045.practice",
@@ -28,34 +99,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d045"
-    },
-    {
-      "id": "render-pipe.d046.practice",
-      "sourceId": "d046",
-      "section": "4",
-      "caseId": "case-26",
-      "title": "光组分离保存",
-      "text": "路径追踪器分别保存 5 个光组（太阳、天空、灯、霓虹 A、霓虹 B），同一批采样按组重新合成；霓虹在剪辑里闪烁/熄灭/调亮度无需重渲；原文结尾也把它当最重要建议（「从第一次渲染起就分开存光组」）；关键设计使「霓虹闪灭+声音同步」成立，我们在成片上验证了闪烁与声音同帧。与北冥「颜色、深度、法线、物体编号」分层图同一路思路。",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d046"
-    },
-    {
-      "id": "render-pipe.d053.practice",
-      "sourceId": "d053",
-      "section": "5",
-      "caseId": "case-07",
-      "title": "帧即时间纯函数与相机剪切表",
-      "text": "单个 three 页面只暴露一个函数「给时间画那一帧」；固定随机种子、无时钟；带历史的效果（如稻草暴风雪）从头以固定步长模拟并缓存；相机放剪切表（位置/目标/焦距/光圈/对焦点关键帧），统一求值器生成平滑曲线，每镜头前后各多出额外帧使第 0 帧已在运动；时间冻结 = 世界冻结而相机仍在飞，倒带 = 同一相机运动反向播放。结果帧可乱序、多机并行。",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d053"
     },
     {
       "id": "render-pipe.d057.practice",
@@ -88,18 +131,29 @@
       "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d057"
     },
     {
-      "id": "render-pipe.d059.practice",
-      "sourceId": "d059",
+      "id": "render-pipe.d060.practice",
+      "sourceId": "d060",
       "section": "6",
-      "caseId": "case-multi",
-      "title": "云 GPU 渲染流程（僵尸手 24、案例 22 22、玻璃头 28）",
-      "text": "僵尸手：先本地渲 6 张检查帧（手背伤口+骨、蜘蛛拱、爬行一步、空翻空中、手枪、带控制器的 OK）自检无扭曲手指/撕裂网格/伤口钉紧贴/僵尸着色器丰富；再用 /gpu 列 GPU 与价、确认无遗留任务、报价、上传 工程文件、显示 GPU/预计积分/最高费用、确认「yes」后才开始；Cycles 高质量 + GPU 降噪（OptiX 或 OIDN）；导出 H.264 -crf 15；持续跟进不因报错放弃；笔记本上传帧太慢改云上重渲，并拆成两台 GPU 相向渲染，完成后关机；前两版被自己判为前景手指失焦、地平线有刺眼辉线，第三版才入片；全程约 3.5 小时。；案例 22：每 GPU 一个 Blender 进程，渲染可续；渲完拷回帧检查闪烁（指标阈值未公开）；先向用户展示价格并等确认再租 GPU（某生成平台 GPU 经 `/gpu` 命令）；结束后关机。",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
+      "caseId": "case-05",
+      "title": "局部重渲与窗口",
+      "text": "局部缺陷只重渲那一段按帧拼回；60 帧一段共 12 段；段太小会被首帧编译（每块显卡首帧约 100 s，OptiX 编译）吃掉；不保留缓存和助手 输出目录 发到显卡机器。已并入。（指针条目，无新数值）",
+      "quantities": [
+        {
+          "value": 60,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 100,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
       "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d059"
+      "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d060"
     },
     {
       "id": "render-pipe.d061.practice",
@@ -116,34 +170,6 @@
       "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d061"
     },
     {
-      "id": "render-pipe.d066.practice",
-      "sourceId": "d066",
-      "section": "7",
-      "caseId": "case-03",
-      "title": "色彩管理在其他案例",
-      "text": "餐馆：bloom、halation、色差、AgX 色调映射（look 未公开）。案例 22：AgX Medium High Contrast，合成器调色，每镜头曝光自动匹配主镜头。玻璃头：AgX — Medium High Contrast。Blender 默认链见",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 7 节 · d066"
-    },
-    {
-      "id": "render-pipe.d074.practice",
-      "sourceId": "d074",
-      "section": "8",
-      "caseId": "case-ext01",
-      "title": "体积光模糊的注释与代码对不上【冲突】",
-      "text": "原实现源码 注释说体积光「quarter resolution, two blur passes」，代码里没有模糊遍，只在调色时做 4 个双线性采样的平均（原实现源码）",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 8 节 · d074"
-    },
-    {
       "id": "render-pipe.d094.practice",
       "sourceId": "d094",
       "section": "11",
@@ -158,60 +184,29 @@
       "docRef": "渲染管线采样后期性能汇编 · 第 11 节 · d094"
     },
     {
-      "id": "render-pipe.d102.practice",
-      "sourceId": "d102",
-      "section": "13",
-      "caseId": "case-15",
-      "title": "三种手绘风格的后期做法",
-      "text": "水粉：笔刷引擎先把每个元素画成平涂明暗团块，再用不透明扁刷重绘：每笔有「蘸满起笔、鬃毛纹、干尾」；有对比处笔触沿边，平面区保持方向（天空水平、山坡对角、树皮竖向）；亮部偏暖、暗部偏冷、全片无轮廓线；顶层笔触画三遍并在 2 拍上循环切换使画面「boil」（每两帧轮换）。迷幻水彩：色洗 = 一层层软、变形的多边形用 multiply 混合，重叠处像颜料般混色（品红叠黄变红橙）；云/领子/精灵留白纸；每帧再过一道缓慢扭曲颜料、加深干燥边缘、加盐斑的通道，随后加固定在纸上不动的颗粒与纸齿；女孩见到精灵与大笑时各从脸部扩散一次晕染。传统纹样风格：矿物色平涂 + 深色细线；浅色页边 + 青金石蓝底金点花边框；树冠伸出上边框；草地 = 扇贝形色带铺满小植物；平面倾斜空间无线性透视。参数全未公开。",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d102"
-    },
-    {
-      "id": "render-pipe.d103.practice",
-      "sourceId": "d103",
-      "section": "13",
-      "caseId": "case-07",
-      "title": "风格后处理与色彩脚本",
-      "text": "两个色调、明暗交界软边、加轮廓线；笔触纹理只出现在受光处；脸部明暗借自一个光滑头部形状（只有一条干净分界线）；衣服区域材质交界处有干净描边。色彩脚本：每个段落一套调色板：紫色傍晚 + 一扇琥珀窗、更冷更低饱和的时间冻结、倒带时扫过正午、青蓝清晨 + 金色稻草；标题由实物搭成：「首段标题词」稻草捆、「中段标题词」捆扎树枝、「末段标题词」砖，字母在音乐强拍上组装。",
-      "quantities": [],
-      "kind": "method",
+      "id": "render-pipe.d095.practice",
+      "sourceId": "d095",
+      "section": "12",
+      "caseId": "case-ext01",
+      "title": "脉冲记号",
+      "text": "pulse(t,t0,att,rel)（原实现源码）：t0 前 0，t0..t0+att 为 smoothstep 升到 1，之后 exp(−(t−t0−att)/rel)；win(a,b,升,降)；闪光/曝光/泛光/震动/阵风全是它的加权和。闪前压暗 −0.28、提前 0.036 s（约 2 帧）",
+      "quantities": [
+        {
+          "value": 0.036,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 2,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "fix",
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d103"
-    },
-    {
-      "id": "render-pipe.d108.practice",
-      "sourceId": "d108",
-      "section": "13",
-      "caseId": "case-multi",
-      "title": "游戏自写后期链概述（案例 16 16、案例 10 10）",
-      "text": "案例 16：环境光遮蔽、带太阳阴影体积雾、泛光、景深、自动曝光、调色、FXAA，low/medium/high/ultra 预设按 GPU 选；案例 10：体积光束与雾、运动模糊、泛光、眼睛适应（自动曝光）、调色、按帧率自适应渲染分辨率",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d108"
-    },
-    {
-      "id": "render-pipe.d167.practice",
-      "sourceId": "d167",
-      "section": "18",
-      "caseId": "case-16",
-      "title": "案例 16 网页包瘦身",
-      "text": "模型间共享的贴图只存一份；首访 350 MB → 约 235 MB；用「前后对每张贴图指纹」证明无损",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 18 节 · d167"
+      "docRef": "渲染管线采样后期性能汇编 · 第 12 节 · d095"
     },
     {
       "id": "render-pipe.d181.practice",
@@ -237,6 +232,20 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 21 节 · d181"
+    },
+    {
+      "id": "render-pipe.d182.practice",
+      "sourceId": "d182",
+      "section": "21",
+      "caseId": "case-13",
+      "title": "调试 URL 开关与验收手段（案例 13）",
+      "text": "?q= ?r16=off ?lut=0 ?mblur=0 ?cath16=0 ?bossgap=0 ?sdf=0 等；第 01 章渲染部分列 36 个；每个新效果都能单独关掉。其他：?occl=0、?cathshell=0、?bdetail=0/1、?cathtex=、?audio=lite、substep 1–4。同类：案例 02 `?view=`、`?msaa=N`、案例 10 自检入口、外部案例 01 `?dpr ?q ?fast ?nomsaa ?pools ?capture`",
+      "quantities": [],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 21 节 · d182"
     },
     {
       "id": "render-pipe.d183.practice",

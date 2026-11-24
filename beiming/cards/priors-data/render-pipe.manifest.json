@@ -7,28 +7,28 @@
   "summaryRows": 101,
   "order": "ledger 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "源总数 = 明细条目 + 跨案例对照表汇总行；汇总行去向随所指同案例真实明细，不另算明细",
-  "portableCount": 79,
-  "cardCoupledCount": 179,
-  "practiceCount": 21,
-  "excludedOrConflictCount": 8,
+  "portableCount": 103,
+  "cardCoupledCount": 159,
+  "practiceCount": 15,
+  "excludedOrConflictCount": 10,
   "detailRouteCounts": {
-    "portable": 37,
-    "card-coupled": 123,
-    "practice": 18,
+    "portable": 54,
+    "card-coupled": 110,
+    "practice": 14,
     "skipped-or-conflict": 8
   },
   "summaryRouteCounts": {
-    "portable": 42,
-    "card-coupled": 56,
-    "practice": 3,
-    "skipped-or-conflict": 0
+    "portable": 49,
+    "card-coupled": 49,
+    "practice": 1,
+    "skipped-or-conflict": 2
   },
   "emittedCounts": {
-    "priorsTotal": 171,
-    "priorsDetail": 140,
-    "priorsSummary": 31,
-    "cardPriors": 123,
-    "practices": 18,
+    "priorsTotal": 226,
+    "priorsDetail": 189,
+    "priorsSummary": 37,
+    "cardPriors": 110,
+    "practices": 14,
     "excludedDetails": 8
   },
   "files": {
@@ -37,13 +37,13 @@
     "practices": "render-pipe.practices.json"
   },
   "rules": {
-    "method": "严格对齐 05 §8.1、C10 终审标杆与 C11 终审铁律执行四路分流；先判 skipped-or-conflict，再判 portable，再先于 practice 判 card-coupled，最后判 practice",
-    "portable": "跨实现通用的物理、光学、标准 PBR 材质（scene-linear-rec709 线性基色/金属度/粗糙度/IOR）、硬表面构件物理尺寸、二维界面规格（srgb-display 主色/字号/分辨率/安全区/转场时长）、离线路径追踪采样/阈值/曝光/快门角及交付编码规格；不收场景面数/粒子/实例/材质预算与着色器公式堆",
-    "cardCoupled": "着色器/GLSL/节点公式、特效粒子发射器配置、画质档位与 LOD 开关、场景面数/实例/粒子/材质预算与单片常量表；每条同时记 cardId 与字面 target，严格取自 05 §5 的 92 张正式技术卡，useAsDefault: false",
-    "practice": "剥离源码标识与片名后仍完整可照做的跨实现工序、设计原则、排错经验与修法（kind: method | fix）",
-    "skippedOrConflict": "冲突对账行、汇编编排说明、纯指针/未公开/未量/受限读回、纯证据或状态注记及单片坐标摆放表；同单位可比冲突挂入对应可移植先验 conflicts[]，全部冲突留档 manifest.conflicts",
+    "method": "严格对齐 05 §8.1 执行四路分流；先判 skipped-or-conflict，再判跨实现工序与修法 practice，再判独立可复用物理/规格量 portable，其余与特定场景/着色器/档位强耦合者归 card-coupled",
+    "portable": "可脱离原场景着色器算式与多档位容量表独立复用的物理、光学、标准 PBR 材质基底（scene-linear-rec709 线性基色/金属度/粗糙度/IOR/清漆/光泽）、真实构件物理尺寸（mm/cm/m）、资产与编码交付规格（分辨率/像素密度/宽高比/骨骼与形态键规模/帧率/响度 LUFS/dBTP）、界面 sRGB 色值与触控/排版几何、以及明确独立的速度/寿命/代际频率/时间常数/阈值量",
+    "cardCoupled": "与特定角色/场景/着色器公式、多档画质/LOD/粒子池容量配置、后期调色/泛光多参数预设、放样轮廓坐标阵列或特定模板强耦合的参数包；每条同时记 cardId 与字面 target，严格取自 05 §5 的 92 张正式技术卡，useAsDefault: false",
+    "practice": "主体为跨实现可复用的算法机制、建模/UV/刚性蒙皮/分件工序、渲染排队/报错即停策略、设计原则与排错修法（kind: method | fix）",
+    "skippedOrConflict": "冲突对账行、多版本未决采样对账、汇编编排说明、纯指针/未公开/未量/受限读回、纯证据或状态注记及单片实例坐标摆放表；同单位可比冲突挂入对应可移植先验 conflicts[]，全部冲突留档 manifest.conflicts",
     "evidence": "证据等级取最弱一级映射（推断 > 文档 > 源码 > 实测，绝不升级），全部条目 verifiedInOurStack: false",
-    "summaryRule": "汇总行通过 summaryOf 指回同案例真实明细（次要跨条引用记 alsoSummarizes），严格继承去向与挂卡 target；link 仅在 valueCol 含显著匹配数值或色值时标 values，否则标 gist"
+    "summaryRule": "汇总行按源表显式外键 localRefs、子案例标识与同节同主题准则通过 summaryOf 指回真实明细（次要引用严禁跨节污染），严格继承主明细去向与挂卡 target；link 仅在 valueCol 含显著匹配数值或色值时标 values，否则标 gist"
   },
   "fixes": [
     {
@@ -53,8 +53,8 @@
       "examples": []
     },
     {
-      "issue": "scene-budget-to-card-coupled",
-      "description": "场景三角面、顶点、实例、粒子池与材质计数预算统一归 card-coupled，不进入 portable"
+      "issue": "multi-tier-pool-coupled",
+      "description": "多档画质粒子池容量、着色器场公式与单片放样坐标表归 card-coupled，独立物理/尺寸/交付/时序规格进 portable"
     }
   ],
   "cases": [
@@ -182,35 +182,29 @@
       "cardId": "post.hdr-chain",
       "target": "post.hdr-chain",
       "inSpec": true,
-      "count": 16
+      "count": 15
     },
     {
       "cardId": "shade.px-lod",
       "target": "shade.px-lod",
       "inSpec": true,
-      "count": 14
-    },
-    {
-      "cardId": "time.bake",
-      "target": "time.bake",
-      "inSpec": true,
-      "count": 8
+      "count": 12
     },
     {
       "cardId": "time.seeded",
       "target": "time.seeded",
       "inSpec": true,
-      "count": 8
+      "count": 7
     },
     {
       "cardId": "fx.post-state",
       "target": "fx.post-state",
       "inSpec": true,
-      "count": 7
+      "count": 6
     },
     {
-      "cardId": "blender.cycles",
-      "target": "blender.cycles",
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
       "inSpec": true,
       "count": 6
     },
@@ -221,16 +215,10 @@
       "count": 5
     },
     {
-      "cardId": "light.emit-pool",
-      "target": "light.emit-pool",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
       "inSpec": true,
       "count": 5
-    },
-    {
-      "cardId": "comp.finish",
-      "target": "comp.finish",
-      "inSpec": true,
-      "count": 4
     },
     {
       "cardId": "layout.panels",
@@ -239,14 +227,14 @@
       "count": 4
     },
     {
-      "cardId": "post.bilateral-up",
-      "target": "post.bilateral-up",
+      "cardId": "light.emit-pool",
+      "target": "light.emit-pool",
       "inSpec": true,
       "count": 4
     },
     {
-      "cardId": "post.grade-lut",
-      "target": "post.grade-lut",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
       "inSpec": true,
       "count": 4
     },
@@ -257,14 +245,26 @@
       "count": 4
     },
     {
-      "cardId": "page.det2d",
-      "target": "page.det2d",
+      "cardId": "comp.display",
+      "target": "comp.display",
       "inSpec": true,
       "count": 3
     },
     {
-      "cardId": "post.bloom",
-      "target": "post.bloom",
+      "cardId": "comp.finish",
+      "target": "comp.finish",
+      "inSpec": true,
+      "count": 3
+    },
+    {
+      "cardId": "post.bilateral-up",
+      "target": "post.bilateral-up",
+      "inSpec": true,
+      "count": 3
+    },
+    {
+      "cardId": "time.bake",
+      "target": "time.bake",
       "inSpec": true,
       "count": 3
     },
@@ -275,8 +275,8 @@
       "count": 2
     },
     {
-      "cardId": "comp.display",
-      "target": "comp.display",
+      "cardId": "page.det2d",
+      "target": "page.det2d",
       "inSpec": true,
       "count": 2
     },
@@ -297,18 +297,6 @@
       "target": "comp.tonemap-hybrid",
       "inSpec": true,
       "count": 1
-    },
-    {
-      "cardId": "post.ao",
-      "target": "post.ao",
-      "inSpec": true,
-      "count": 1
-    },
-    {
-      "cardId": "post.hue-keep",
-      "target": "post.hue-keep",
-      "inSpec": true,
-      "count": 1
     }
   ],
   "conflicts": [
@@ -319,8 +307,7 @@
       "detail": "AgX + \"AgX - Medium High Contrast\"；Cycles 设 METAL，所有设备 use=True，device GPU；max_bounces 8；use_denoising True；use_adaptive_sampling True；samples 参数传入；PNG RGB；`render_settings(\"CYCLES\",(W,W*9//16),SPP)`；`compute_device_type=\"METAL\"`；`use_motion_blur=False`（位置逐帧直接设，无关键帧，运动模糊不起作用）；备用 EEVEE：`taa_render_samples=samples`、`use_raytracing=True`；相机 `clip_start=0.01`，DOF 用 fstop；`blender -b --factory-startup --python-exit-code 1 -P …`。；成片样本数【冲突】：06 制作日志写「32 采样 + 降噪，约 5 秒/帧」「720 帧约 53 分钟，4.4 秒/帧」，07 清单写「20 采样 + 降噪」；分组清单 另写：v1 32 采样约 5 s/帧（240 帧），v2/v3 成片 720 帧 20 采样（原实现源码）约 53 分钟 4.4 s/帧，v3 重渲 240 帧 3.7 s/帧；阶梯 64spp；预览 1280 宽 48 采样每张 3.5–5.5 s；镜头 A 景深过浅整卡发糊，光圈 f/2.8 改 f/11；运动模糊因部件位置逐帧直设无关键帧而不起作用，关掉。",
       "evidenceLevel": "源码",
       "attachedTo": [
-        "render-pipe.d027.samples",
-        "render-pipe.d027.samples"
+        "render-pipe.d026.samples"
       ]
     },
     {
@@ -329,10 +316,7 @@
       "title": "案例 03-G 与 案例 03-B 本地渲染设置",
       "detail": "案例 03-G：Cycles，GPU（桌面系统 OPTIX/CUDA，其余 METAL）；采样默认 48（`--samples`）；自适应阈值 0.02；降噪 OPENIMAGEDENOISE，GPU 降噪；AgX，Look = AgX - Medium High Contrast；世界背景见光照。（原实现源码）；案例 03-B：同上，采样默认 64，1920×1080，30 fps；max_bounces 6，diffuse_bounces 2，glossy_bounces 4；`use_persistent_data=True`；PNG 输出；AgX Medium High Contrast（原实现源码）。另一处记法【冲突】：案例 03-B 00 首页「渲染与动画」写 Blender 5.2 本机 Metal；1920×1080 30 fps；128 采样，自适应阈值 0.02，OIDN(GPU)；反弹总 6/漫射 2/光泽 4；AgX+Medium High Contrast；整机挂在缩放 0.01 的根下（1/100 模型约 189 mm 高 → 场景 1.89 m）。64 是脚本默认，128 是首页对成片的写法，没有读回哪个是成片实际值。",
       "evidenceLevel": "源码",
-      "attachedTo": [
-        "render-pipe.d028.samples",
-        "render-pipe.d028.samples"
-      ]
+      "attachedTo": []
     },
     {
       "sourceId": "d030",
@@ -407,12 +391,20 @@
   ],
   "excluded": [
     {
+      "sourceId": "d027",
+      "sourceLine": 244,
+      "section": "3",
+      "caseId": "case-01-legacy",
+      "title": "Cycles 设置",
+      "reason": "多版本记录采样数分歧对账，无单一采信定值"
+    },
+    {
       "sourceId": "d029",
       "sourceLine": 257,
       "section": "3",
       "caseId": "case-03",
       "title": "案例 03-B 编码命令与 QA 在第 14 节；03 头部渲染踩坑见第 21 节",
-      "reason": "纯交叉指针条目，无新数值与做法"
+      "reason": "纯交叉引用指针条目，无新参数或做法"
     },
     {
       "sourceId": "d076",
@@ -420,7 +412,7 @@
       "section": "9",
       "caseId": "case-ext01",
       "title": "调色（见）",
-      "reason": "纯交叉引用指针条目，无新数值与做法"
+      "reason": "纯交叉引用指针条目，无新参数或做法"
     },
     {
       "sourceId": "d109",
@@ -428,7 +420,7 @@
       "section": "13",
       "caseId": "case-multi",
       "title": "色彩范围 yuvj 提示（见）",
-      "reason": "纯交叉指针条目，无新数值与做法"
+      "reason": "纯交叉引用指针条目，无新参数或做法"
     },
     {
       "sourceId": "d116",
@@ -436,7 +428,7 @@
       "section": "14",
       "caseId": "case-01-original",
       "title": "案例 01 原作 的 BT.709 标签（同）",
-      "reason": "纯交叉指针条目，无新数值与做法"
+      "reason": "纯交叉引用指针条目，无新参数或做法"
     },
     {
       "sourceId": "d133",
@@ -444,7 +436,7 @@
       "section": "15",
       "caseId": "case-13",
       "title": "大教堂、古墓、zone_19、发光巨树、幽灵、主角（18–22）的分档",
-      "reason": "纯交叉引用指针条目，无新数值与做法"
+      "reason": "纯交叉引用指针条目，无新参数或做法"
     },
     {
       "sourceId": "d166",
@@ -452,15 +444,7 @@
       "section": "18",
       "caseId": "case-02",
       "title": "未量项",
-      "reason": "单片实例摆放与让位坐标表（05 §8.1 坐标表不迁）"
-    },
-    {
-      "sourceId": "d179",
-      "sourceLine": 1117,
-      "section": "20",
-      "caseId": "case-ext01",
-      "title": "本机读回的限制",
-      "reason": "未公开/未实测/无参数清单或受限读回，无可用参数与做法"
+      "reason": "未实测项、受限读回或源码注释对账记录"
     },
     {
       "sourceId": "d186",
@@ -468,35 +452,35 @@
       "section": "21",
       "caseId": "case-multi",
       "title": "渲染器注释与代码不一致与「没有」清单",
-      "reason": "纯交叉指针条目，无新数值与做法"
+      "reason": "未实测项、受限读回或源码注释对账记录"
     }
   ],
   "blindAudit": {
-    "method": "独立规则盲审（不引用转换器路由或量提取模块），按 05 §8.1 与 C10/C11 终审铁律重判；分层无放回抽样 >=10% 明细 + >=10% 汇总，遍历 mulberry32(Math.imul(seed, 0x9e3779b1)) 全部 200 个种子",
+    "method": "独立规则盲审（不引用转换器路由或量提取模块），按 05 §8.1 四路口径重判；分层无放回抽样 >=10% 明细 + >=10% 汇总，遍历 mulberry32(Math.imul(seed, 0x9e3779b1)) 全部 200 个种子",
     "canonicalSeed": 42,
     "detailSampleSize": 19,
     "summarySampleSize": 11,
     "sampleSize": 30,
     "disagreeCount": 0,
     "disagreeRate": 0,
-    "fullPopulationDisagreeCount": 0,
-    "fullPopulationDisagreeRate": 0,
+    "fullPopulationDisagreeCount": 5,
+    "fullPopulationDisagreeRate": 0.017422,
     "seed200Verified": true,
     "seed200PassCount": 200,
     "seed200Worst": {
-      "seed": 1,
-      "disagreeCount": 0,
+      "seed": 39,
+      "disagreeCount": 3,
       "sampleSize": 30,
-      "disagreeRate": 0
+      "disagreeRate": 0.1
     },
     "sample": [
       {
         "sourceId": "d066",
         "kind": "detail",
-        "ledgerRoute": "practice",
-        "blindRoute": "practice",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "剥离源码标识与片名后仍可跨实现复用的做法、工序或踩坑修法"
+        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "d084",
@@ -504,7 +488,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "d177",
@@ -512,7 +496,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "d111",
@@ -520,7 +504,7 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "跨渲染器通用交付规格、路径追踪采样/阈值、曝光/快门或帧率时间量"
+        "reason": "跨渲染器通用的交付规格、采样/曝光/快门参数、时间常数或自适应检查时序"
       },
       {
         "sourceId": "d131",
@@ -528,7 +512,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "d148",
@@ -536,7 +520,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "d052",
@@ -544,7 +528,7 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "跨渲染器通用交付规格、路径追踪采样/阈值、曝光/快门或帧率时间量"
+        "reason": "跨渲染器通用的交付规格、采样/曝光/快门参数、时间常数或自适应检查时序"
       },
       {
         "sourceId": "d061",
@@ -552,7 +536,7 @@
         "ledgerRoute": "practice",
         "blindRoute": "practice",
         "agree": true,
-        "reason": "剥离源码标识与片名后仍可跨实现复用的做法、工序或踩坑修法"
+        "reason": "渲染管线通用混合/灯光合并/脉冲包络算法或排队防坑工序"
       },
       {
         "sourceId": "d012",
@@ -560,7 +544,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "d169",
@@ -568,7 +552,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "d114",
@@ -576,7 +560,7 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "跨渲染器通用交付规格、路径追踪采样/阈值、曝光/快门或帧率时间量"
+        "reason": "跨渲染器通用的交付规格、采样/曝光/快门参数、时间常数或自适应检查时序"
       },
       {
         "sourceId": "d146",
@@ -584,15 +568,15 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "d025",
         "kind": "detail",
-        "ledgerRoute": "practice",
-        "blindRoute": "practice",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "剥离源码标识与片名后仍可跨实现复用的做法、工序或踩坑修法"
+        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "d112",
@@ -600,7 +584,7 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "跨渲染器通用交付规格、路径追踪采样/阈值、曝光/快门或帧率时间量"
+        "reason": "跨渲染器通用的交付规格、采样/曝光/快门参数、时间常数或自适应检查时序"
       },
       {
         "sourceId": "d090",
@@ -608,7 +592,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "d091",
@@ -616,15 +600,15 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "d027",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
         "agree": true,
-        "reason": "跨渲染器通用交付规格、路径追踪采样/阈值、曝光/快门或帧率时间量"
+        "reason": "多版本采样数记录冲突对账，无单一采信值"
       },
       {
         "sourceId": "d150",
@@ -632,15 +616,15 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "d160",
         "kind": "detail",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
         "agree": true,
-        "reason": "着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "跨渲染器通用的交付规格、采样/曝光/快门参数、时间常数或自适应检查时序"
       },
       {
         "sourceId": "s013",
@@ -648,7 +632,7 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d023：跨渲染器通用交付规格、路径追踪采样/阈值、曝光/快门或帧率时间量"
+        "reason": "汇总随所指明细 d023：跨渲染器通用的交付规格、采样/曝光/快门参数、时间常数或自适应检查时序"
       },
       {
         "sourceId": "s075",
@@ -656,7 +640,7 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d112：跨渲染器通用交付规格、路径追踪采样/阈值、曝光/快门或帧率时间量"
+        "reason": "汇总随所指明细 d112：跨渲染器通用的交付规格、采样/曝光/快门参数、时间常数或自适应检查时序"
       },
       {
         "sourceId": "s033",
@@ -664,7 +648,7 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d054：跨渲染器通用交付规格、路径追踪采样/阈值、曝光/快门或帧率时间量"
+        "reason": "汇总随所指明细 d054：跨渲染器通用的交付规格、采样/曝光/快门参数、时间常数或自适应检查时序"
       },
       {
         "sourceId": "s014",
@@ -672,7 +656,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d024：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d024：与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "s004",
@@ -680,7 +664,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d014：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d014：与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "s068",
@@ -688,7 +672,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d004：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d004：与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "s036",
@@ -696,7 +680,7 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d003：跨渲染器通用交付规格、路径追踪采样/阈值、曝光/快门或帧率时间量"
+        "reason": "汇总随所指明细 d003：跨渲染器通用的交付规格、采样/曝光/快门参数、时间常数或自适应检查时序"
       },
       {
         "sourceId": "s009",
@@ -704,7 +688,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d004：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d004：与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "s086",
@@ -712,7 +696,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d123：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d123：与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       },
       {
         "sourceId": "s044",
@@ -720,7 +704,7 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d032：跨渲染器通用交付规格、路径追踪采样/阈值、曝光/快门或帧率时间量"
+        "reason": "汇总随所指明细 d032：跨渲染器通用的交付规格、采样/曝光/快门参数、时间常数或自适应检查时序"
       },
       {
         "sourceId": "s051",
@@ -728,7 +712,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d062：着色器/特效粒子/档位预算或特定实现常量配置，须目标帧源重标定，挂卡"
+        "reason": "汇总随所指明细 d062：与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
       }
     ]
   },
@@ -825,10 +809,10 @@
         "d011"
       ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "time.seeded",
-      "target": "time.seeded",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s007"
+      ]
     },
     {
       "sourceId": "s008",
@@ -878,7 +862,8 @@
       "route": "portable",
       "targets": [
         "render-pipe.d003.frequency",
-        "render-pipe.d003.duration"
+        "render-pipe.d003.duration",
+        "render-pipe.d003.interval"
       ]
     },
     {
@@ -965,11 +950,10 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "time.seeded",
-      "target": "time.seeded",
+      "route": "portable",
       "targets": [
-        "render-pipe.d010.card"
+        "render-pipe.d010.interval",
+        "render-pipe.d010.duration"
       ]
     },
     {
@@ -1034,11 +1018,9 @@
         "case-02",
         "case-ext01"
       ],
-      "route": "card-coupled",
-      "cardId": "post.hdr-chain",
-      "target": "post.hdr-chain",
+      "route": "practice",
       "targets": [
-        "render-pipe.d015.card"
+        "render-pipe.d015.practice"
       ]
     },
     {
@@ -1060,11 +1042,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "card-coupled",
-      "cardId": "post.hdr-chain",
-      "target": "post.hdr-chain",
+      "route": "practice",
       "targets": [
-        "render-pipe.d017.card"
+        "render-pipe.d017.practice"
       ]
     },
     {
@@ -1268,9 +1248,11 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-07",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
       "targets": [
-        "render-pipe.d025.practice"
+        "render-pipe.d025.card"
       ]
     },
     {
@@ -1294,10 +1276,8 @@
       "caseId": "case-01-legacy",
       "summaryOf": "d027",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "render-pipe.sum.s017"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceId": "s018",
@@ -1307,10 +1287,10 @@
       "caseId": "case-03",
       "summaryOf": "d028",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "render-pipe.sum.s018"
-      ]
+      "route": "card-coupled",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
+      "targets": []
     },
     {
       "sourceId": "s019",
@@ -1320,10 +1300,10 @@
       "caseId": "case-03",
       "summaryOf": "d028",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "render-pipe.sum.s019"
-      ]
+      "route": "card-coupled",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
+      "targets": []
     },
     {
       "sourceId": "s020",
@@ -1378,8 +1358,8 @@
       "sourceLine": 233,
       "section": "3",
       "kind": "summary",
-      "caseId": "case-28",
-      "summaryOf": "d030",
+      "caseId": "case-multi",
+      "summaryOf": "d034",
       "link": "gist",
       "route": "portable",
       "targets": []
@@ -1393,8 +1373,11 @@
       "route": "portable",
       "targets": [
         "render-pipe.d026.resolution",
+        "render-pipe.d026.samples",
         "render-pipe.d026.noise-threshold",
         "render-pipe.d026.exposure",
+        "render-pipe.d026.shutter-ratio",
+        "render-pipe.d026.f-stop",
         "render-pipe.d026.frame-count",
         "render-pipe.d026.pixels"
       ]
@@ -1405,12 +1388,8 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-01-legacy",
-      "route": "portable",
-      "targets": [
-        "render-pipe.d027.samples",
-        "render-pipe.d027.frame-count",
-        "render-pipe.d027.duration"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceId": "d028",
@@ -1418,13 +1397,11 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-03",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
       "targets": [
-        "render-pipe.d028.resolution",
-        "render-pipe.d028.samples",
-        "render-pipe.d028.noise-threshold",
-        "render-pipe.d028.fps",
-        "render-pipe.d028.dimension"
+        "render-pipe.d028.card"
       ]
     },
     {
@@ -1474,7 +1451,8 @@
         "render-pipe.d031.shutter-angle",
         "render-pipe.d031.focal-length",
         "render-pipe.d031.frame-time",
-        "render-pipe.d031.duration"
+        "render-pipe.d031.render-time",
+        "render-pipe.d031.interval"
       ]
     },
     {
@@ -1515,11 +1493,12 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-27",
-      "route": "card-coupled",
-      "cardId": "blender.cycles",
-      "target": "blender.cycles",
+      "route": "portable",
       "targets": [
-        "render-pipe.d034.card"
+        "render-pipe.d034.resolution",
+        "render-pipe.d034.fps",
+        "render-pipe.d034.frame-count",
+        "render-pipe.d034.duration"
       ]
     },
     {
@@ -1558,9 +1537,9 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "render-pipe.d037.frame-count"
+        "render-pipe.d037.practice"
       ]
     },
     {
@@ -1614,7 +1593,9 @@
       "summaryOf": "d040",
       "link": "values",
       "route": "portable",
-      "targets": []
+      "targets": [
+        "render-pipe.sum.s027"
+      ]
     },
     {
       "sourceId": "s028",
@@ -1637,10 +1618,10 @@
       "caseId": "case-29",
       "summaryOf": "d044",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "blender.cycles",
-      "target": "blender.cycles",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s029"
+      ]
     },
     {
       "sourceId": "d039",
@@ -1701,6 +1682,7 @@
       "targets": [
         "render-pipe.d042.resolution",
         "render-pipe.d042.samples",
+        "render-pipe.d042.render-time",
         "render-pipe.d042.duration",
         "render-pipe.d042.frame-count"
       ]
@@ -1724,11 +1706,14 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-29",
-      "route": "card-coupled",
-      "cardId": "blender.cycles",
-      "target": "blender.cycles",
+      "route": "portable",
       "targets": [
-        "render-pipe.d044.card"
+        "render-pipe.d044.samples",
+        "render-pipe.d044.length",
+        "render-pipe.d044.render-time",
+        "render-pipe.d044.frame-time",
+        "render-pipe.d044.duration",
+        "render-pipe.d044.frame-count"
       ]
     },
     {
@@ -1751,9 +1736,11 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-26",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
       "targets": [
-        "render-pipe.d046.practice"
+        "render-pipe.d046.card"
       ]
     },
     {
@@ -1767,11 +1754,11 @@
         "case-21",
         "case-22"
       ],
-      "route": "card-coupled",
-      "cardId": "blender.cycles",
-      "target": "blender.cycles",
+      "route": "portable",
       "targets": [
-        "render-pipe.d047.card"
+        "render-pipe.d047.duration",
+        "render-pipe.d047.angle",
+        "render-pipe.d047.frame-count"
       ]
     },
     {
@@ -1780,11 +1767,10 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-19",
-      "route": "card-coupled",
-      "cardId": "blender.cycles",
-      "target": "blender.cycles",
+      "route": "portable",
       "targets": [
-        "render-pipe.d048.card"
+        "render-pipe.d048.length",
+        "render-pipe.d048.loudness"
       ]
     },
     {
@@ -1810,6 +1796,9 @@
       "kind": "summary",
       "caseId": "case-15",
       "summaryOf": "d049",
+      "alsoSummarizes": [
+        "d052"
+      ],
       "link": "values",
       "route": "portable",
       "targets": [
@@ -1827,7 +1816,9 @@
         "d057"
       ],
       "link": "gist",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "page.det2d",
+      "target": "page.det2d",
       "targets": []
     },
     {
@@ -1851,10 +1842,10 @@
       "caseId": "case-17",
       "summaryOf": "d055",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "page.det2d",
-      "target": "page.det2d",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s034"
+      ]
     },
     {
       "sourceId": "s035",
@@ -1918,11 +1909,10 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-18",
-      "route": "card-coupled",
-      "cardId": "page.det2d",
-      "target": "page.det2d",
+      "route": "portable",
       "targets": [
-        "render-pipe.d051.card"
+        "render-pipe.d051.resolution",
+        "render-pipe.d051.frame-interval"
       ]
     },
     {
@@ -1930,7 +1920,11 @@
       "sourceLine": 423,
       "section": "5",
       "kind": "detail",
-      "caseId": "case-18",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-15",
+        "case-18"
+      ],
       "route": "portable",
       "targets": [
         "render-pipe.d052.frame-count",
@@ -1944,9 +1938,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-07",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "page.det2d",
+      "target": "page.det2d",
       "targets": [
-        "render-pipe.d053.practice"
+        "render-pipe.d053.card"
       ]
     },
     {
@@ -1967,11 +1963,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-17",
-      "route": "card-coupled",
-      "cardId": "page.det2d",
-      "target": "page.det2d",
+      "route": "portable",
       "targets": [
-        "render-pipe.d055.card"
+        "render-pipe.d055.duration",
+        "render-pipe.d055.fps",
+        "render-pipe.d055.frame-count"
       ]
     },
     {
@@ -2024,7 +2020,9 @@
       "summaryOf": "d058",
       "link": "values",
       "route": "portable",
-      "targets": []
+      "targets": [
+        "render-pipe.sum.s039"
+      ]
     },
     {
       "sourceId": "s040",
@@ -2045,10 +2043,8 @@
       "caseId": "case-01-legacy",
       "summaryOf": "d027",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "render-pipe.sum.s041"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceId": "s042",
@@ -2110,10 +2106,10 @@
       "caseId": "case-29",
       "summaryOf": "d044",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "blender.cycles",
-      "target": "blender.cycles",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s046"
+      ]
     },
     {
       "sourceId": "s047",
@@ -2158,7 +2154,9 @@
       "caseId": "case-24",
       "summaryOf": "d059",
       "link": "values",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
       "targets": []
     },
     {
@@ -2197,9 +2195,11 @@
         "case-03",
         "case-24"
       ],
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
       "targets": [
-        "render-pipe.d059.practice"
+        "render-pipe.d059.card"
       ]
     },
     {
@@ -2208,10 +2208,9 @@
       "section": "6",
       "kind": "detail",
       "caseId": "case-05",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "render-pipe.d060.frame-count",
-        "render-pipe.d060.render-time"
+        "render-pipe.d060.practice"
       ]
     },
     {
@@ -2259,9 +2258,7 @@
       "caseId": "case-13",
       "summaryOf": "d063",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "post.hue-keep",
-      "target": "post.hue-keep",
+      "route": "portable",
       "targets": []
     },
     {
@@ -2296,7 +2293,7 @@
       "section": "7",
       "kind": "summary",
       "caseId": "case-multi",
-      "summaryOf": "d031",
+      "summaryOf": "d026",
       "link": "gist",
       "route": "portable",
       "targets": []
@@ -2320,11 +2317,10 @@
       "section": "7",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "post.hue-keep",
-      "target": "post.hue-keep",
+      "route": "portable",
       "targets": [
-        "render-pipe.d063.card"
+        "render-pipe.d063.duration",
+        "render-pipe.d063.dimension"
       ]
     },
     {
@@ -2359,9 +2355,11 @@
       "section": "7",
       "kind": "detail",
       "caseId": "case-03",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "comp.display",
+      "target": "comp.display",
       "targets": [
-        "render-pipe.d066.practice"
+        "render-pipe.d066.card"
       ]
     },
     {
@@ -2372,10 +2370,10 @@
       "caseId": "case-ext01",
       "summaryOf": "d068",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "render-pipe.sum.s057"
-      ]
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
+      "targets": []
     },
     {
       "sourceId": "s058",
@@ -2435,11 +2433,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
       "targets": [
-        "render-pipe.d068.area-ratio",
-        "render-pipe.d068.pixels",
-        "render-pipe.d068.duration"
+        "render-pipe.d068.card"
       ]
     },
     {
@@ -2474,11 +2472,9 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "post.volumetric",
-      "target": "post.volumetric",
+      "route": "portable",
       "targets": [
-        "render-pipe.d071.card"
+        "render-pipe.d071.samples"
       ]
     },
     {
@@ -2513,9 +2509,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "post.volumetric",
+      "target": "post.volumetric",
       "targets": [
-        "render-pipe.d074.practice"
+        "render-pipe.d074.card"
       ]
     },
     {
@@ -2558,9 +2556,7 @@
         "d080"
       ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "comp.finish",
-      "target": "comp.finish",
+      "route": "portable",
       "targets": []
     },
     {
@@ -2630,11 +2626,9 @@
       "section": "9",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "comp.finish",
-      "target": "comp.finish",
+      "route": "portable",
       "targets": [
-        "render-pipe.d079.card"
+        "render-pipe.d079.duration"
       ]
     },
     {
@@ -2669,11 +2663,9 @@
       "section": "9",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "post.grade-lut",
-      "target": "post.grade-lut",
+      "route": "portable",
       "targets": [
-        "render-pipe.d082.card"
+        "render-pipe.d082.frame-count"
       ]
     },
     {
@@ -2710,10 +2702,10 @@
       "caseId": "case-13",
       "summaryOf": "d085",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "post.bilateral-up",
-      "target": "post.bilateral-up",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s066"
+      ]
     },
     {
       "sourceId": "s067",
@@ -2747,11 +2739,13 @@
       "section": "10",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "post.bilateral-up",
-      "target": "post.bilateral-up",
+      "route": "portable",
       "targets": [
-        "render-pipe.d085.card"
+        "render-pipe.d085.samples",
+        "render-pipe.d085.length",
+        "render-pipe.d085.ratio",
+        "render-pipe.d085.distance",
+        "render-pipe.d085.thickness"
       ]
     },
     {
@@ -2790,11 +2784,9 @@
         "case-10",
         "case-13"
       ],
-      "route": "card-coupled",
-      "cardId": "post.ao",
-      "target": "post.ao",
+      "route": "portable",
       "targets": [
-        "render-pipe.d088.card"
+        "render-pipe.d088.time-constant"
       ]
     },
     {
@@ -2871,9 +2863,9 @@
       "section": "11",
       "kind": "summary",
       "caseId": "case-multi",
-      "summaryOf": "d031",
+      "summaryOf": "d026",
       "alsoSummarizes": [
-        "d024"
+        "d027"
       ],
       "link": "values",
       "route": "portable",
@@ -2950,11 +2942,9 @@
       "section": "12",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "card-coupled",
-      "cardId": "fx.post-state",
-      "target": "fx.post-state",
+      "route": "practice",
       "targets": [
-        "render-pipe.d095.card"
+        "render-pipe.d095.practice"
       ]
     },
     {
@@ -3041,9 +3031,11 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-15",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
       "targets": [
-        "render-pipe.d102.practice"
+        "render-pipe.d102.card"
       ]
     },
     {
@@ -3052,9 +3044,11 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-07",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
       "targets": [
-        "render-pipe.d103.practice"
+        "render-pipe.d103.card"
       ]
     },
     {
@@ -3107,11 +3101,13 @@
       "route": "portable",
       "targets": [
         "render-pipe.d107.grid-cell",
-        "render-pipe.d107.grid-px",
         "render-pipe.d107.fill-ratio",
         "render-pipe.d107.area-ratio",
-        "render-pipe.d107.pixels",
+        "render-pipe.d107.grid-px",
+        "render-pipe.d107.margin-px",
+        "render-pipe.d107.size-ratio",
         "render-pipe.d107.ratio",
+        "render-pipe.d107.frame-interval",
         "render-pipe.d107.frame-count"
       ]
     },
@@ -3125,9 +3121,11 @@
         "case-10",
         "case-16"
       ],
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
       "targets": [
-        "render-pipe.d108.practice"
+        "render-pipe.d108.card"
       ]
     },
     {
@@ -3236,10 +3234,10 @@
       "caseId": "case-27",
       "summaryOf": "d034",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "blender.cycles",
-      "target": "blender.cycles",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s080"
+      ]
     },
     {
       "sourceId": "s081",
@@ -3714,10 +3712,10 @@
       "caseId": "case-ext01",
       "summaryOf": "d135",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s090"
+      ]
     },
     {
       "sourceId": "s091",
@@ -3740,10 +3738,10 @@
       "caseId": "case-10",
       "summaryOf": "d137",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s092"
+      ]
     },
     {
       "sourceId": "s093",
@@ -3764,11 +3762,10 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "card-coupled",
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
+      "route": "portable",
       "targets": [
-        "render-pipe.d135.card"
+        "render-pipe.d135.interval",
+        "render-pipe.d135.duration"
       ]
     },
     {
@@ -3790,11 +3787,11 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-10",
-      "route": "card-coupled",
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
+      "route": "portable",
       "targets": [
-        "render-pipe.d137.card"
+        "render-pipe.d137.duration",
+        "render-pipe.d137.interval",
+        "render-pipe.d137.ratio"
       ]
     },
     {
@@ -3803,11 +3800,15 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "light.emit-pool",
-      "target": "light.emit-pool",
+      "route": "portable",
       "targets": [
-        "render-pipe.d138.card"
+        "render-pipe.d138.threshold-ratio",
+        "render-pipe.d138.frame-count",
+        "render-pipe.d138.duration",
+        "render-pipe.d138.length",
+        "render-pipe.d138.interval",
+        "render-pipe.d138.frequency",
+        "render-pipe.d138.render-time"
       ]
     },
     {
@@ -4143,9 +4144,7 @@
       "caseId": "case-ext01",
       "summaryOf": "d159",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "time.bake",
-      "target": "time.bake",
+      "route": "portable",
       "targets": []
     },
     {
@@ -4156,10 +4155,10 @@
       "caseId": "case-13",
       "summaryOf": "d138",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "light.emit-pool",
-      "target": "light.emit-pool",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s100"
+      ]
     },
     {
       "sourceId": "s101",
@@ -4180,11 +4179,9 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "card-coupled",
-      "cardId": "time.bake",
-      "target": "time.bake",
+      "route": "portable",
       "targets": [
-        "render-pipe.d159.card"
+        "render-pipe.d159.duration"
       ]
     },
     {
@@ -4193,11 +4190,9 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "card-coupled",
-      "cardId": "time.bake",
-      "target": "time.bake",
+      "route": "portable",
       "targets": [
-        "render-pipe.d160.card"
+        "render-pipe.d160.duration"
       ]
     },
     {
@@ -4206,11 +4201,9 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "card-coupled",
-      "cardId": "time.bake",
-      "target": "time.bake",
+      "route": "portable",
       "targets": [
-        "render-pipe.d161.card"
+        "render-pipe.d161.interval"
       ]
     },
     {
@@ -4219,11 +4212,10 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "card-coupled",
-      "cardId": "time.bake",
-      "target": "time.bake",
+      "route": "portable",
       "targets": [
-        "render-pipe.d162.card"
+        "render-pipe.d162.length",
+        "render-pipe.d162.duration"
       ]
     },
     {
@@ -4232,11 +4224,11 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "time.bake",
-      "target": "time.bake",
+      "route": "portable",
       "targets": [
-        "render-pipe.d163.card"
+        "render-pipe.d163.resolution",
+        "render-pipe.d163.duration",
+        "render-pipe.d163.dimension"
       ]
     },
     {
@@ -4245,11 +4237,10 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "time.bake",
-      "target": "time.bake",
+      "route": "portable",
       "targets": [
-        "render-pipe.d164.card"
+        "render-pipe.d164.render-time",
+        "render-pipe.d164.duration"
       ]
     },
     {
@@ -4280,9 +4271,11 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-16",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "time.bake",
+      "target": "time.bake",
       "targets": [
-        "render-pipe.d167.practice"
+        "render-pipe.d167.card"
       ]
     },
     {
@@ -4434,8 +4427,12 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "skipped-or-conflict",
-      "targets": []
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": [
+        "render-pipe.d179.card"
+      ]
     },
     {
       "sourceId": "d180",
@@ -4467,11 +4464,9 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "post.hdr-chain",
-      "target": "post.hdr-chain",
+      "route": "practice",
       "targets": [
-        "render-pipe.d182.card"
+        "render-pipe.d182.practice"
       ]
     },
     {
