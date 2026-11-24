@@ -217,16 +217,17 @@ export async function runExamQuestion({
 } = {}) {
   if (!questionFile) throw usageError('缺少题目文件', '写 --question <题目文件>', 'usage.missing-argument');
   if (source !== null && !SOURCES.includes(source)) throw usageError(`source 只能是 ${SOURCES.join(' / ')}`);
-  if (typeof forceExpectedFail !== 'boolean') throw usageError('forceExpectedFail 必须是布尔值');
   if (typeof rerunOnBlockedByChange !== 'boolean') throw usageError('rerunOnBlockedByChange 必须是布尔值');
-  if (previousBlockedBy != null) normalizeBlockedBy(previousBlockedBy, 'previousBlockedBy');
+  const prevBlockedBy = previousBlockedBy != null ? normalizeBlockedBy(previousBlockedBy, 'previousBlockedBy') : null;
   let raw;
   try { raw = fs.readFileSync(questionFile, 'utf8'); } catch (e) { throw usageError(`读不到题目文件（${e.code ?? e.message}）`, '检查 --question 的路径'); }
   const checked = validateQuestion(raw);
   if (!checked.ok) throw contractError('contract.question-invalid', `题目没过 question/0.1 校验：${whyInvalid(checked)}`, '用 beiming/bench 的 validateQuestion 看逐条问题，改完重跑');
   const question = JSON.parse(raw);
   const { hidden, expectedFail, blockedBy } = question.flags;
-  const blockedByChanged = rerunOnBlockedByChange ? hasBlockedByChanged(blockedBy, previousBlockedBy) : false;
+  // 隐藏题在 result.json 中脱敏为 ["[hidden]"]，将脱敏占位原样传回 previousBlockedBy 不得误判为 blockedBy 已变化
+  const redactedPrev = hidden && prevBlockedBy !== null && prevBlockedBy.length === 1 && prevBlockedBy[0] === '[hidden]';
+  const blockedByChanged = rerunOnBlockedByChange && !redactedPrev ? hasBlockedByChanged(blockedBy, prevBlockedBy) : false;
   const skip = expectedFail && !forceExpectedFail && !blockedByChanged;
   // shortcut: 不经 shell（各平台引号规则不一样），按空白拆词，整个词可以用引号包起来；要管道、重定向时自己写 sh -c "…"
   const argv = solverCmd ? [...solverCmd.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]) : null;

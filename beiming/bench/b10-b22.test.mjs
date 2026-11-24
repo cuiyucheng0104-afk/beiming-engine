@@ -227,6 +227,27 @@ test('B22-4: runExamQuestion 对 B22 (900-1.json) 默认与 blockedBy 未变不�
   assert.deepEqual(skipHidden.blockedBy, ['[hidden]']);
   assert.ok(!dumpRun(skipHidden.runDir).includes('SECRET-BLOCKER'));
 
+  // R1 回归：将隐藏预期失败题落盘 result.json 的脱敏占位 ["[hidden]"] 原样传回 previousBlockedBy，不得误判为变化而重跑
+  let redactedCalls = 0;
+  const recordedBlockedBy = JSON.parse(fs.readFileSync(skipHidden.resultFile, 'utf8')).blockedBy;
+  const skipRedacted = await runExamQuestion({
+    questionFile: hiddenXfFile,
+    evalRoot,
+    previousBlockedBy: recordedBlockedBy,
+    rerunOnBlockedByChange: true,
+    solver: async () => { redactedCalls++; return { gpuSeconds: 1 }; },
+    judge: allPassJudge,
+  });
+  assert.deepEqual([redactedCalls, skipRedacted.status, skipRedacted.cost.gpuSeconds], [0, 'expected-fail', 0]);
+
+  // R1 兼容回归：沿用旧签名传 forceExpectedFail: null 时仍按假值跳过，不抛参数错
+  const legacyNullForce = await runExamQuestion({
+    questionFile: b22File,
+    evalRoot,
+    forceExpectedFail: null,
+  });
+  assert.equal(legacyNullForce.status, 'expected-fail');
+
   let hiddenSawQuestion = null;
   const rerunHidden = await runExamQuestion({
     questionFile: hiddenXfFile,

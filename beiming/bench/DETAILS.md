@@ -79,7 +79,7 @@
 代码 [runner.mjs](runner.mjs)（经 [index.mjs](index.mjs) 重导出），测试 `node --test beiming/bench/b10-b22.test.mjs`。
 
 - `hasBlockedByChanged(currentBlockedBy, previousBlockedBy)`：纯函数。`previousBlockedBy` 为 `null` 或 `undefined` 时返回 `false`；双方为字符串数组时先对元素做 `trim()` 并过滤空串，再按去重排序集合比较，内容相同返回 `false`，存在增删改返回 `true`；传入既非空值也非字符串数组的非法参数（含数组空洞、非字符串项、代理与访问器）抛 `usageError`（`exitCode: 2`）。
-- `runExamQuestion({ ..., forceExpectedFail = false, previousBlockedBy = null, rerunOnBlockedByChange = false })`：未开启 `rerunOnBlockedByChange` 时保持向后兼容，照旧 `skip = expectedFail && !forceExpectedFail`；开启 `rerunOnBlockedByChange: true` 时，若 `blockedBy` 与 `previousBlockedBy` 无变化（含未传 `previousBlockedBy`）则直接跳过（不调 `solver`、`gpuSeconds` 为 `0`、`status: 'expected-fail'`），变化时才放行重跑 `solver` 与 `judge`，隐藏题的 `blockedBy` 原文仍维持 `[hidden]` 脱敏边界。
+- `runExamQuestion({ ..., forceExpectedFail = false, previousBlockedBy = null, rerunOnBlockedByChange = false })`：未开启 `rerunOnBlockedByChange` 时保持向后兼容，照旧 `skip = expectedFail && !forceExpectedFail`；开启 `rerunOnBlockedByChange: true` 时，若 `blockedBy` 与 `previousBlockedBy` 无变化（含未传 `previousBlockedBy`，以及隐藏题将落盘 `result.json` 脱敏占位 `["[hidden]"]` 原样传回的情况）则直接跳过（不调 `solver`、`gpuSeconds` 为 `0`、`status: 'expected-fail'`），变化时才放行重跑 `solver` 与 `judge`，隐藏题的 `blockedBy` 原文仍维持 `[hidden]` 脱敏边界。
 - 公开预期失败题集位于 `beiming/bench/questions/expected-fail/`，已登记 `10-1`（逆光熊猫毛）、`14-1`（雨夜小巷五镜）、`24-1`（`bench.code: 024-1`，僵尸手爬行与后空翻）、`30-2`（`bench.code: 外01-2`，龙头特写）与 `900-1`（`bench.code: B22-1`，同框混合三渲二角色与写实物体），`exam.mjs` 自动发现并记为 `expected-fail` 跳过，不计入失败。
 
 ## 看板
