@@ -18,7 +18,7 @@ import {
   deliverBundle, entitiesOf, frameSummary, layerL1, layerL2, layerL3, layerL5, measureMaster, readIndex, renderPlan, reviewKeyframeNumbers, reviewMaterials,
   sourcePool, writeIndex, writeVerification,
 } from './pipeline.mjs';
-import { blenderInfo, ensureLut, monotonicMs } from './runtime.mjs';
+import { blenderImage, blenderInfo, ensureLut, monotonicMs, threeImage } from './runtime.mjs';
 
 const TERMINAL = new Set(['succeeded', 'failed', 'canceled', 'stopped']);
 const METRICS = {
@@ -313,7 +313,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
     // frames 只数真调了帧源的帧，cachedFrames 数缓存命中的帧
     const acc = { gpuSeconds: 0, frames: 0, cachedFrames: 0, tokens: 0, start: monotonicMs() };
     progress.set(job.id, acc);
-    const pool = sourcePool({ library, workspace: snapshot.dir, blenderBin: blenderInfo()?.bin });
+    const pool = sourcePool({ library: typeof library === 'function' ? library() : library, workspace: snapshot.dir, blenderBin: blenderInfo()?.bin });
     let outcome, crash;
     try {
       const film = JSON.parse(readFileSync(join(snapshot.dir, 'film.json'), 'utf8'));
@@ -468,6 +468,19 @@ export function createWork({ store, library, reviewer, scheduler }) {
 
     deliver: handler('deliver', async (cx) => {
       const { job, step, film, lock, lockFile, snapshot, pool, signal, id, rev, dir, lutPath, meta, intermediateDir, acc } = cx;
+      for (const source of new Set((film.shots ?? []).map((s) => (s.renderer ?? s).source))) {
+        const lockedSource = lock.sources?.[source];
+        if (source === 'three') {
+          if (lockedSource?.image !== threeImage({ effective: true })) {
+            throw new ApiError('env.lock-required', '当前帧源运行代码或字体版本与修订锁不一致，请重新提交片子签发正式锁后再交付');
+          }
+        } else if (source === 'blender') {
+          const ver = blenderInfo()?.version ?? lockedSource?.version;
+          if (!ver || lockedSource?.image !== blenderImage(ver, { effective: true })) {
+            throw new ApiError('env.lock-required', '当前帧源运行代码或字体版本与修订锁不一致，请重新提交片子签发正式锁后再交付');
+          }
+        }
+      }
       const plan = film.shots.map((s) => ({ shot: s.id, frames: span(s.in, s.out) }));
       const { records, cache, versions } = await step('render', () => renderInto(cx, 'final', plan, 'frames'));
       const bundle = await step('comp', () => deliverBundle({ film, lock: lockFile, records, lutPath, outDir: join(dir, 'bundle') }));
@@ -911,7 +924,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
               cpSync(snapshot.dir, snapCopyDir, { recursive: true });
               inputDir = snapCopyDir;
             }
-            pool = sourcePool({ library, workspace: inputDir, blenderBin: blenderInfo()?.bin });
+            pool = sourcePool({ library: typeof library === 'function' ? library() : library, workspace: inputDir, blenderBin: blenderInfo()?.bin });
             const { records } = await renderPlan({
               film: reviewFilm,
               lock,
