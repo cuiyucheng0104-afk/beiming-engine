@@ -16,6 +16,7 @@ import { claudeCommand } from '../../tools/eval/lib/drive.mjs';
 import { runTool } from '../../tools/eval/lib/exec.mjs';
 import { readJsonIfExists, sha256File, sha256Text, walk, writeJson } from '../../tools/eval/lib/files.mjs';
 import { newRunId } from '../../tools/eval/lib/rundir.mjs';
+import { canonical, isInside } from '../../tools/eval/lib/paths.mjs';
 import { assertEvalRoot, platformInfo, resolveEvalRoot, sessionEnv, writeSessionConfig } from '../../tools/eval/lib/sandbox.mjs';
 import { loadTranscript } from '../../tools/eval/lib/transcript.mjs';
 import { cutScene } from '../observe/index.mjs';
@@ -27,7 +28,19 @@ export const RESULT_FORMAT = 'bench-result/0.1';
 export const SOURCES = ['three', 'blender', 'core'];
 const PROMPT = '读当前目录的 question.json，按题面做题。成片存成当前目录的 deliverable.mp4；用了显卡就把秒数写进 submission.json 的 cost.gpuSeconds。';
 const num = (v) => (Number.isFinite(v) ? v : null);
-const inside = (p, dir) => p === dir || p.startsWith(dir + path.sep);
+const inside = (p, dir) => (dir === '/' ? p.startsWith('/') : p === dir || p.startsWith(dir + path.sep));
+const rawInside = (root, target) => {
+  const norm = (s) => (process.platform === 'darwin' || process.platform === 'win32' ? path.resolve(s).toLowerCase() : path.resolve(s));
+  const r = norm(root), t = norm(target);
+  return r === '/' ? t.startsWith('/') : t === r || t.startsWith(r + path.sep);
+};
+const hasUnsafeSbplChar = (s) => {
+  for (let i = 0; i < s.length; i += 1) {
+    const code = s.charCodeAt(i);
+    if (code < 0x20 || code === 0x7f || code === 0x22) return true;
+  }
+  return false;
+};
 const ffprobe = () => process.env.FFPROBE || 'ffprobe';
 // 异常的原因，保证不是空的：new Error() 的 message 是 ''，throw '' 连名字都没有
 const why = (e) => String(e?.message || e || '') || '原因不明';
@@ -62,15 +75,41 @@ const SANDBOX_EXEC = '/usr/bin/sandbox-exec';
 let seatbelt;   // 实际试一次：有这个文件不等于能用（已经在别的沙箱里时可能套不上）
 const hasSeatbelt = () => (seatbelt ??= process.platform === 'darwin' && spawnSync(SANDBOX_EXEC, ['-p', '(version 1)(allow default)', '/usr/bin/true']).status === 0);
 
-// seatbelt 规则：别的照常放行，只挡下面三样。读（file-read-data）要点名写才盖得住通配的放行
-function seatbeltProfile(run, questionFile, hidden) {
+// seatbelt 规则：别的照常放行，只挡下面几样。读（file-read-data）要点名写才盖得住通配的放行
+function seatbeltProfile(run, questionFile, hidden, denyReadDirs = []) {
   // shortcut: 路径里有双引号或控制字符时拼不成规则（sandbox-exec 起不来，这道题落 error），真遇到再换转义
   const q = JSON.stringify, rx = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const real = fs.realpathSync(questionFile), qDir = path.dirname(real), dir = fs.realpathSync(run.dir);
+  const home = os.homedir();
   // 隐藏题常和别的隐藏题、答案放在一个目录：原题在仓库外就整个目录都挡；目录里装着运行目录、家目录或 node 的不挡（挡了做题进程起不来）
-  const wholeDir = hidden && !inside(real, REPO) && [dir, fs.realpathSync(os.homedir()), fs.realpathSync(process.execPath)].every((p) => !inside(p, qDir));
+  const wholeDir = hidden && !inside(real, REPO) && [dir, canonical(home), canonical(process.execPath)].every((p) => !inside(p, qDir));
+
+  // 收集仓外用户个人目录与显式拒绝目录（含原路径与 realpath 解析路径，防止软链绕过；不包含关键运行路径才加入）
+  const denySubpaths = new Set();
+  const addDenyDir = (rawDir, protectedPaths) => {
+    if (typeof rawDir !== 'string') return;
+    const trimmed = rawDir.trim();
+    if (!trimmed || hasUnsafeSbplChar(trimmed)) return;
+    const resolved = path.resolve(trimmed);
+    const canon = canonical(resolved);
+    if (protectedPaths.some((p) => rawInside(resolved, p) || isInside(resolved, p))) return;
+    for (const candidate of [resolved, canon]) {
+      if (!hasUnsafeSbplChar(candidate)) denySubpaths.add(candidate);
+    }
+  };
+
+  const personalProtected = [dir, REPO, process.execPath, ...(hidden ? [] : [questionFile])];
+  for (const name of ['Desktop', 'Documents', 'Downloads']) {
+    const sub = path.join(home, name);
+    if (fs.existsSync(sub)) addDenyDir(sub, personalProtected);
+  }
+
+  const explicitProtected = [dir, home, REPO, process.execPath];
+  for (const rawDir of denyReadDirs) addDenyDir(rawDir, explicitProtected);
+
+  const extraSubpaths = [...denySubpaths].map((p) => ` (subpath ${q(p)})`).join('');
   return '(version 1)(allow default)'
-    + `(deny file-read* file-read-data (literal ${q(real)})${wholeDir ? ` (subpath ${q(qDir)})` : ''})`
+    + `(deny file-read* file-read-data (literal ${q(real)})${wholeDir ? ` (subpath ${q(qDir)})` : ''}${extraSubpaths})`
     // 宿主写的三个文件：meta.json 不给读，结果和观测不给改（做题进程留下的后台进程也改不了）
     + `(deny file-read* file-read-data file-write* ${['meta.json', 'result.json', 'observation.json'].map((f) => `(literal ${q(path.join(dir, f))})`).join(' ')})`
     // 别的运行（<运行根>/<题号>/<runId>/ 这一层往下，里面有别人交的成片）；运行根里别的文件照常读得到
@@ -166,33 +205,38 @@ export async function defaultJudge({ question, worktreeDir }) {
   return { predicates, metrics, cost: { gpuSeconds: submission?.cost?.gpuSeconds } };
 }
 
-function normalizeBlockedBy(value, name) {
+function normalizeStringArray(value, name, itemHint) {
   if (value == null) return null;
   if (types.isProxy(value) || !Array.isArray(value)) {
-    throw usageError(`${name} 必须是字符串数组或 null`, '传入字符串数组（例如 question.flags.blockedBy）');
+    throw usageError(`${name} 必须是字符串数组或 null`, `传入字符串数组（${name}）`);
   }
   const items = new Set();
   for (let i = 0; i < value.length; i += 1) {
     const desc = Object.getOwnPropertyDescriptor(value, i);
     if (!desc || !('value' in desc) || typeof desc.value !== 'string') {
-      throw usageError(`${name} 第 ${i + 1} 项必须是字符串`, 'blockedBy 只能包含字符串元素');
+      throw usageError(`${name} 第 ${i + 1} 项必须是字符串`, itemHint);
     }
     const trimmed = desc.value.trim();
     if (trimmed) items.add(trimmed);
   }
-  return [...items].sort();
+  return [...items];
+}
+
+function normalizeBlockedBy(value, name) {
+  const items = normalizeStringArray(value, name, 'blockedBy 只能包含字符串元素');
+  return items ? items.sort() : null;
 }
 
 /**
  * 比较当前与上次记录的 blockedBy 集合是否发生变化（纯函数）。
- * previousBlockedBy 为 null/undefined 时返回 false；
- * 双方均为字符串数组时，对各自元素做 trim() 并过滤空串后按去重排序集合比较，内容相同返回 false，有任何增删改返回 true；
+ * previousBlockedBy 为 null/undefined 或隐藏题脱敏占位 ["[hidden]"] 时返回 false；
+ * 双方为字符串数组时，对各自元素做 trim() 并过滤空串后按去重排序集合比较，内容相同返回 false，有任何增删改返回 true；
  * 非法类型抛出 usageError。
  */
 export function hasBlockedByChanged(currentBlockedBy, previousBlockedBy) {
   const current = normalizeBlockedBy(currentBlockedBy, 'currentBlockedBy') ?? [];
   const previous = normalizeBlockedBy(previousBlockedBy, 'previousBlockedBy');
-  if (previous === null) return false;
+  if (previous === null || (previous.length === 1 && previous[0] === '[hidden]')) return false;
   return current.length !== previous.length || current.some((item, i) => item !== previous[i]);
 }
 
@@ -214,20 +258,21 @@ export async function runExamQuestion({
   forceExpectedFail = false,
   previousBlockedBy = null,
   rerunOnBlockedByChange = false,
+  denyReadDirs = null,
 } = {}) {
   if (!questionFile) throw usageError('缺少题目文件', '写 --question <题目文件>', 'usage.missing-argument');
   if (source !== null && !SOURCES.includes(source)) throw usageError(`source 只能是 ${SOURCES.join(' / ')}`);
   if (typeof rerunOnBlockedByChange !== 'boolean') throw usageError('rerunOnBlockedByChange 必须是布尔值');
   const prevBlockedBy = previousBlockedBy != null ? normalizeBlockedBy(previousBlockedBy, 'previousBlockedBy') : null;
+  const extraDenyReadDirs = normalizeStringArray(denyReadDirs, 'denyReadDirs', 'denyReadDirs 只能包含字符串目录路径') ?? [];
+  const envDenyReadDirs = (process.env.BEIMING_DENY_READ_DIRS ?? '').split(path.delimiter).map((s) => s.trim()).filter(Boolean);
   let raw;
   try { raw = fs.readFileSync(questionFile, 'utf8'); } catch (e) { throw usageError(`读不到题目文件（${e.code ?? e.message}）`, '检查 --question 的路径'); }
   const checked = validateQuestion(raw);
   if (!checked.ok) throw contractError('contract.question-invalid', `题目没过 question/0.1 校验：${whyInvalid(checked)}`, '用 beiming/bench 的 validateQuestion 看逐条问题，改完重跑');
   const question = JSON.parse(raw);
   const { hidden, expectedFail, blockedBy } = question.flags;
-  // 隐藏题在 result.json 中脱敏为 ["[hidden]"]，将脱敏占位原样传回 previousBlockedBy 不得误判为 blockedBy 已变化
-  const redactedPrev = hidden && prevBlockedBy !== null && prevBlockedBy.length === 1 && prevBlockedBy[0] === '[hidden]';
-  const blockedByChanged = rerunOnBlockedByChange && !redactedPrev ? hasBlockedByChanged(blockedBy, prevBlockedBy) : false;
+  const blockedByChanged = rerunOnBlockedByChange ? hasBlockedByChanged(blockedBy, prevBlockedBy) : false;
   const skip = expectedFail && !forceExpectedFail && !blockedByChanged;
   // shortcut: 不经 shell（各平台引号规则不一样），按空白拆词，整个词可以用引号包起来；要管道、重定向时自己写 sh -c "…"
   const argv = solverCmd ? [...solverCmd.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]) : null;
@@ -258,7 +303,7 @@ export async function runExamQuestion({
   writeJson(path.join(dir, 'meta.json'), { kind: 'beiming-bench-run', runId, questionId: question.id, questionSha256: `sha256:${sha256Text(raw)}`, hidden, source, model, platform: platformInfo(), startedAt: startedAt.toISOString() });
 
   const sandboxed = how === 'command' || how === 'claude';
-  const profile = sandboxed && hasSeatbelt() ? seatbeltProfile(run, questionFile, hidden) : null;
+  const profile = sandboxed && hasSeatbelt() ? seatbeltProfile(run, questionFile, hidden, [...extraDenyReadDirs, ...envDenyReadDirs]) : null;
   let solved = {}, error = null, measured = {}, wallMs = 0;
   if (!skip) {
     writeJson(path.join(run.worktree, 'question.json'), projectPublicQuestion(question));

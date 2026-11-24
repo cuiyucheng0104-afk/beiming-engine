@@ -17,6 +17,7 @@ import {
   validateQuestion,
 } from './index.mjs';
 import { runExam } from './exam.mjs';
+import { isInside } from '../../tools/eval/lib/paths.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
@@ -103,10 +104,14 @@ test('B10/B22-2: runExam 自动发现并跳过 5 道 expected-fail 题，且既�
 test('B22-3: hasBlockedByChanged 单元测试（相同、重排去重、增删改、null 与非法类型）', () => {
   assert.equal(bench.hasBlockedByChanged, hasBlockedByChanged);
 
-  // null / undefined 作为 previousBlockedBy 时视为无对照，不触发重跑
+  // null / undefined 或隐藏题脱敏占位 ["[hidden]"] 作为 previousBlockedBy 时视为无对照，不触发重跑
   assert.equal(hasBlockedByChanged(['缺 A'], null), false);
   assert.equal(hasBlockedByChanged(['缺 A'], undefined), false);
+  assert.equal(hasBlockedByChanged(['缺 A'], ['[hidden]']), false);
+  assert.equal(hasBlockedByChanged(['缺 A'], [' [hidden] ']), false);
+  assert.equal(hasBlockedByChanged(['缺 A'], ['[hidden]', ' ']), false);
   assert.equal(hasBlockedByChanged(null, null), false);
+  assert.equal(hasBlockedByChanged(null, ['[hidden]']), false);
   assert.equal(hasBlockedByChanged([], null), false);
 
   // 相同与重排/空白/重复归一后相同
@@ -115,10 +120,12 @@ test('B22-3: hasBlockedByChanged 单元测试（相同、重排去重、增删�
   assert.equal(hasBlockedByChanged([], ['  ']), false);
   assert.equal(hasBlockedByChanged(null, []), false);
 
-  // 增、删、改均返回 true
+  // 增、删、改均返回 true（混有别的项或作为 currentBlockedBy 传 ["[hidden]"] 不按脱敏占位跳过）
   assert.equal(hasBlockedByChanged(['核心接管写实', 'G18'], ['核心接管写实']), true);
   assert.equal(hasBlockedByChanged(['核心接管写实'], ['核心接管写实', 'G18']), true);
   assert.equal(hasBlockedByChanged(['核心接管写实', 'G19'], ['核心接管写实', 'G18']), true);
+  assert.equal(hasBlockedByChanged(['缺 A'], ['[hidden]', '缺 B']), true);
+  assert.equal(hasBlockedByChanged(['[hidden]'], ['缺 A']), true);
   assert.equal(hasBlockedByChanged(null, ['G18']), true);
 
   // 非法类型抛 usageError (exitCode 2)
@@ -441,5 +448,118 @@ fs.writeFileSync('probe-out.json', JSON.stringify({
     assert.equal(probeOut.origDir.ok, false, 'seatbelt 下不得列出隐藏题目录');
   } else {
     t.diagnostic('当前环境不支持 sandbox-exec，跳过 seatbelt 文件边界断言');
+  }
+});
+
+test('B10-7: 公开题运行在 macOS seatbelt 下拒绝读取 denyReadDirs、BEIMING_DENY_READ_DIRS 与用户个人目录', async (t) => {
+  const dir = makeTempDir(t, 'beiming-b10-deny-');
+  const publicQuestion = path.join(QUESTIONS_DIR, 'level-1/29-1.json');
+  const evalRoot = path.join(dir, 'eval-root');
+  const paramDenyDir = path.join(dir, 'deny-param');
+  const envDenyDir = path.join(dir, 'deny-env');
+  const futureDenyDir = path.join(dir, 'deny-future-not-created');
+  fs.mkdirSync(paramDenyDir);
+  fs.mkdirSync(envDenyDir);
+  const paramSecret = path.join(paramDenyDir, 'secret.txt');
+  const envSecret = path.join(envDenyDir, 'secret.txt');
+  fs.writeFileSync(paramSecret, 'CANARY-PARAM-DENY');
+  fs.writeFileSync(envSecret, 'CANARY-ENV-DENY');
+
+  // 非法 denyReadDirs 类型按 usageError 拒收
+  const badGetter = ['ok'];
+  Object.defineProperty(badGetter, 1, { enumerable: true, get() { throw new Error('getter must not run'); } });
+  for (const bad of ['str', 123, {}, true, [123], [null], badGetter]) {
+    await assert.rejects(
+      runExamQuestion({ questionFile: publicQuestion, evalRoot, denyReadDirs: bad, solver: async () => ({}) }),
+      (e) => e?.exitCode === 2 && /^usage\./.test(e?.code),
+    );
+  }
+
+  const probe = path.join(dir, 'deny-probe.mjs');
+  fs.writeFileSync(probe, `import fs from 'node:fs';
+const readSafe = (target) => {
+  try { return { ok: true, content: fs.readFileSync(target, 'utf8') }; }
+  catch (e) { return { ok: false, code: e.code || 'ERR' }; }
+};
+const listSafe = (target) => {
+  try { return { ok: true, items: fs.readdirSync(target).length }; }
+  catch (e) { return { ok: false, code: e.code || 'ERR' }; }
+};
+const [paramTarget, envTarget, desktopTarget] = process.argv.slice(2);
+fs.writeFileSync('deny-probe-out.json', JSON.stringify({
+  hasDenyEnvVar: Object.hasOwn(process.env, 'BEIMING_DENY_READ_DIRS'),
+  paramFile: readSafe(paramTarget),
+  envFile: readSafe(envTarget),
+  desktopList: desktopTarget ? listSafe(desktopTarget) : null,
+}));
+`);
+
+  const desktopDir = path.join(os.homedir(), 'Desktop');
+  const shouldCheckDesktop = SEATBELT
+    && fs.existsSync(desktopDir)
+    && !isInside(desktopDir, REPO)
+    && !isInside(desktopDir, evalRoot)
+    && !isInside(desktopDir, process.execPath)
+    && !isInside(desktopDir, publicQuestion);
+
+  const prevEnv = process.env.BEIMING_DENY_READ_DIRS;
+  t.after(() => {
+    if (prevEnv === undefined) delete process.env.BEIMING_DENY_READ_DIRS;
+    else process.env.BEIMING_DENY_READ_DIRS = prevEnv;
+  });
+  // 混入空段、未创建目录以及带引号/换行等异常字符，验证安全过滤且不破坏 seatbelt 语法
+  process.env.BEIMING_DENY_READ_DIRS = [
+    '',
+    envDenyDir,
+    futureDenyDir,
+    '/tmp/unsafe"quote',
+    '/tmp/unsafe\nline',
+    '',
+  ].join(path.delimiter);
+
+  const res = await runExamQuestion({
+    questionFile: publicQuestion,
+    evalRoot,
+    denyReadDirs: [paramDenyDir, os.homedir()],
+    solverCmd: `"${process.execPath}" "${probe}" "${paramSecret}" "${envSecret}" "${shouldCheckDesktop ? desktopDir : ''}"`,
+    judge: allPassJudge,
+  });
+  assert.equal(res.status, 'pass');
+
+  const obs = JSON.parse(fs.readFileSync(path.join(res.runDir, 'observation.json'), 'utf8'));
+  const out = JSON.parse(fs.readFileSync(path.join(res.runDir, 'worktree/deny-probe-out.json'), 'utf8'));
+  assert.equal(out.hasDenyEnvVar, false, 'solverEnv 不得向做题子进程泄露 BEIMING_DENY_READ_DIRS');
+  assert.equal(obs.isolation, SEATBELT ? 'seatbelt' : 'process-cwd');
+
+  if (SEATBELT) {
+    assert.deepEqual([out.paramFile.ok, out.paramFile.code], [false, 'EPERM']);
+    assert.deepEqual([out.envFile.ok, out.envFile.code], [false, 'EPERM']);
+
+    if (shouldCheckDesktop) {
+      assert.deepEqual([out.desktopList.ok, out.desktopList.code], [false, 'EPERM']);
+    }
+
+    // 用 sandbox_check 验证未创建目录与个人目录（当符合不包含条件时）的策略拒绝
+    if (fs.existsSync('/usr/bin/python3')) {
+      const pyProbe = path.join(dir, 'sb-check.py');
+      fs.writeFileSync(pyProbe, `import ctypes, json, os, sys
+from pathlib import Path
+lib = ctypes.CDLL('/usr/lib/libsandbox.dylib')
+check = lib.sandbox_check
+check.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int]
+Path('sb.json').write_text(json.dumps([check(os.getpid(), b'file-read-data', 1, ctypes.c_char_p(os.fsencode(p))) for p in sys.argv[1:]]))
+`);
+      const targets = [futureDenyDir, ...(shouldCheckDesktop ? [desktopDir] : [])];
+      const sbRun = await runExamQuestion({
+        questionFile: publicQuestion,
+        evalRoot,
+        denyReadDirs: [paramDenyDir],
+        solverCmd: `"/usr/bin/python3" -I "${pyProbe}" ${targets.map((p) => `"${p}"`).join(' ')}`,
+        judge: allPassJudge,
+      });
+      assert.equal(sbRun.status, 'pass');
+      const checks = JSON.parse(fs.readFileSync(path.join(sbRun.runDir, 'worktree/sb.json'), 'utf8'));
+      assert.deepEqual(checks, targets.map(() => 1), 'sandbox_check 应拒绝未创建目录与个人目录');
+    }
   }
 });
