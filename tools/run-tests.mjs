@@ -12,7 +12,7 @@
 //   文件：*.test.{mjs,js,cjs} 是 Node 测试，test_*.py 是 Python unittest。
 //   范围：git 跟踪的文件加上未跟踪、未被忽略的文件（不是 git 检出时遍历目录）。
 //   不发现：cases/、films/ 整个目录；任何一级名为 fixtures、__fixtures__、node_modules、out、__pycache__ 或以点开头的目录。
-//   域：tests/<域>/… → <域>；engine/audio/… → audio（与 audio/、tests/audio/ 同属声音链路）；其余按第一级目录
+//   域：tests/<域>/… → <域>；engine/audio/… → audio（与 audio/、tests/audio/ 同属声音链路）；beiming/api/… 与 beiming/bench/… → beiming-api；其余按第一级目录
 //       （engine、lab、audio、tools…），根目录下的文件 → root。同名的 tests/<域>/ 与同名目录里的测试合成一个域。
 // 每个域的 Node 测试由一个 `node --test` 进程运行，Python 测试由一个解释器进程运行；域之间顺序执行。
 // 与旧的 npm 脚本对应：test:routes → --only ci,production,tools；test:engine → --only engine,lab；test:audio → --only audio；
@@ -331,6 +331,7 @@ export function domainOf(rel) {
   if (parts.length === 1) return 'root';
   if (parts[0] === 'tests') return parts.length > 2 ? parts[1] : 'root';
   if (parts[0] === 'engine' && parts[1] === 'audio') return 'audio';
+  if (parts[0] === 'beiming' && (parts[1] === 'api' || parts[1] === 'bench')) return 'beiming-api';
   return parts[0];
 }
 
