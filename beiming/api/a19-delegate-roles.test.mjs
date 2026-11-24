@@ -2869,6 +2869,9 @@ test('A19-22 [FIX-real-model] shot-worker allowedVerbs 开放 artifacts 只读�
   assert.match(sw.systemPrompt, /outputs\[\]\.url/);
   assert.match(sw.systemPrompt, /GET/);
   assert.match(sw.systemPrompt, /构图.*文字清晰度.*入场动效|联系表/);
+  assert.match(sw.systemPrompt, /cards\/title\/params\/heightFrac/);
+  assert.match(sw.systemPrompt, /observe\/query.*framing.*entities/);
+  assert.match(DELEGATE_ROLES.director.systemPrompt, /暂勿写入\s+predicates\.extra.*text_matches.*OCR/);
 
   const library = loadCardLibrary();
   const realCards = Object.values(library).map((x) => x.card);

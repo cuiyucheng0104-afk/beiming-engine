@@ -40,8 +40,8 @@ export {
 };
 
 const METHODS = ['GET', 'POST', 'PUT', 'DELETE'];
-// 一次模型调用最多等多久（毫秒）
-const MODEL_TIMEOUT_MS = 120000;
+// 一次模型调用最多等多久（毫秒；兼顾带多模态图片输入的真实推理模型长思考回合，仍受外层预算 signal 约束）
+const MODEL_TIMEOUT_MS = 240000;
 const SEVERITIES = ['low', 'medium', 'high', 'info', 'warn', 'error'];
 const AGENT_IMAGE_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const AGENT_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
