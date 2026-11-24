@@ -1,6 +1,6 @@
 // B5（第二部分）：二级第一批 4 道公开考题（23-2、27-1、29-2、30-1）的标准负对照核验。每道题三种故意做错：关掉题面要用的卡、整体错位 2 帧、换成随机拍点。
-// 每道题一个参数化信号/行为模型（逐帧灰度画面、10 毫秒对数均方根音量包络、双声道混音电平、时间线双拍速行为求值回调），都在题目自己的 deliverable 时间线上现造；
-// 读数全部从造出来的信号或行为量回来（observe 的 telemetry 检切点、10 毫秒音量跳变检起音、间隔聚类加网格扫描估拍长与相位、time.timeline 在 80 与 96 BPM 下的纯行为重求值），不手填分数。
+// 每道题一个参数化信号/行为模型（逐帧强对比灰度画面、48 kHz 立体声合成 PCM 音轨、10 毫秒对数均方根音量包络、时间线双拍速行为求值回调），都在题目自己的 deliverable 时间线上现造；
+// 读数全部从造出来的信号或行为量回来（原始像素帧间 YDIF 与 observe 的 telemetry 双重校验检切点、ITU-R BS.1770-4 K 加权积分响度与 4 倍过采样真峰值实测、10 毫秒音量跳变检起音、间隔聚类加网格扫描估拍长与相位、time.timeline 在 80 与 96 BPM 下的纯行为重求值），零硬编码读数、不手填分数。
 // 30-1 严格遵守 2026-11-23 管理员裁定：只做纯行为 BPM 扰动检查（80 -> 96 BPM 重求值），零源码静态扫描。
 // 正对照是模型的默认参数；负对照只把同目录夹具 <题号>-<种类>.json 里 perturbation 写的参数换掉，别的一概不动，再交给 evaluate-b3 的正式 evaluate（本模块按统一口径记作 score）。
 import { readFileSync } from 'node:fs';
@@ -51,14 +51,20 @@ function rng(seed) {
   };
 }
 
-// 随机拍点：[from, to) 里取 count 个帧号，两两至少隔 gap 帧，回升序
+// 随机拍点：无放回 Floyd 抽样，在 [from, to) 里取 count 个两两至少隔 gap 帧的整数帧号，O(count) 零重试必终止，回升序
 function randomBeats(seed, count, [from, to], gap = 1) {
-  const rand = rng(seed), beats = [];
-  while (beats.length < count) {
-    const frame = from + Math.floor(rand() * (to - from));
-    if (beats.every((other) => Math.abs(other - frame) >= gap)) beats.push(frame);
+  if (!Number.isInteger(from) || !Number.isInteger(to) || !Number.isInteger(count) || count < 0 || !Number.isInteger(gap) || gap < 1) {
+    throw new RangeError('randomBeats 的区间、拍点数与最小间隔要是合法整数');
   }
-  return beats.sort((a, b) => a - b);
+  if (count === 0) return [];
+  const slack = (to - from) - (count - 1) * (gap - 1);
+  if (slack < count) throw new RangeError('randomBeats 的帧区间放不下这么多带间隔的拍点');
+  const rand = rng(seed), picked = new Set();
+  for (let j = slack - count; j < slack; j++) {
+    const r = Math.floor(rand() * (j + 1));
+    picked.add(picked.has(r) ? j : r);
+  }
+  return [...picked].sort((a, b) => a - b).map((u, i) => from + u + i * (gap - 1));
 }
 
 // 连续纹理（两层格点噪声），shot 换一套格点就是另一个镜头的画面
@@ -77,31 +83,270 @@ function texture(x, y, shot = 0) {
   return 0.7 * layer(x / 7, y / 7) + 0.3 * layer(x / 3, y / 3);
 }
 
+// 相邻镜头奇偶交替落在 [36, 106] 与 [150, 220] 两个强对比亮度带：镜头切换处原始像素 YDIF > 100 >> 24，镜内帧间底噪 MAD ~ 1.33（既不误触冻结也不误触切点，且全像素 > 32 零黑帧）
 function grayFrame([width, height], { shot = 0, noise = 4, seed = 1 } = {}) {
   const rand = rng(seed), gray = new Uint8Array(width * height);
+  const base = (shot & 1) === 0 ? 36 : 150;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const value = 30 + 195 * texture(x, y, shot) + noise * (rand() - 0.5);
+      const value = base + 70 * texture(x, y, shot) + noise * (rand() - 0.5);
       gray[y * width + x] = Math.max(0, Math.min(255, Math.round(value)));
     }
   }
   return gray;
 }
 
-// 合成镜头切换画面并用 observe 的 telemetry 实测切点帧号
-function detectCutsFromPlanes(size, frames, plannedCuts) {
-  const sorted = [...plannedCuts].filter((f) => f > 0 && f < frames).sort((a, b) => a - b);
+export function synthesizePlanes(size, frames, plannedCuts = []) {
+  if (!Array.isArray(size) || size.length !== 2 || !size.every((n) => Number.isInteger(n) && n > 0)) {
+    throw new RangeError('synthesizePlanes 的画幅 size 要是两个正整数');
+  }
+  if (!Number.isInteger(frames) || frames <= 0) throw new RangeError('synthesizePlanes 的总帧数要是正整数');
+  const sorted = [...new Set(plannedCuts)].filter((f) => f > 0 && f < frames).sort((a, b) => a - b);
   let shot = 1, ptr = 0;
-  const planes = Array.from({ length: frames }, (_, f) => {
+  return Array.from({ length: frames }, (_, f) => {
     while (ptr < sorted.length && f >= sorted[ptr]) {
       shot++;
       ptr++;
     }
     return grayFrame(size, { shot, noise: 4, seed: f + 1 });
   });
+}
+
+// 合成镜头切换画面，用与 cutYdif(video, 24) 同口径的原始像素帧间 MAD > 24 实测切点，并与 observe 的 telemetry 交叉核对一致
+function detectCutsFromPlanes(size, frames, plannedCuts, ydifThreshold = 24) {
+  const planes = synthesizePlanes(size, frames, plannedCuts);
+  const area = size[0] * size[1], ydifCuts = [];
+  for (let f = 1; f < planes.length; f++) {
+    const cur = planes[f], prev = planes[f - 1];
+    let diffSum = 0;
+    for (let i = 0; i < area; i++) diffSum += Math.abs(cur[i] - prev[i]);
+    if (diffSum / area > ydifThreshold) ydifCuts.push(f);
+  }
   const seen = telemetry({ width: size[0], height: size[1], frames: planes, rangeMode: 'full' });
   if (!seen.ok) throw new Error(`切点没量出来：${seen.error.message}`);
-  return seen.detectedCuts;
+  if (!seen.truncated && JSON.stringify(ydifCuts) !== JSON.stringify(seen.detectedCuts)) {
+    throw new Error(`YDIF 切点 ${JSON.stringify(ydifCuts)} 与 telemetry 切点 ${JSON.stringify(seen.detectedCuts)} 不一致`);
+  }
+  return ydifCuts;
+}
+
+/* ---------------- 48 kHz 立体声 PCM 合成与 ITU-R BS.1770-4 响度 / 4× 真峰值实测 ---------------- */
+
+export const AUDIO_SAMPLE_RATE = 48000;
+const BS1770_BLOCK = 0.4 * AUDIO_SAMPLE_RATE;
+const BS1770_STEP = 0.1 * AUDIO_SAMPLE_RATE;
+const TP_OVERSAMPLE = 4;
+const TP_TAPS = 12;
+// 48000 Hz 下 ITU-R BS.1770-4 K 加权两级二阶滤波器系数 [b0, b1, b2, a1, a2]（高频搁架 + RLB 高通）
+const [K1_B0, K1_B1, K1_B2, K1_A1, K1_A2] = [1.53512485958697, -2.69169618940638, 1.19839281085285, -1.69065929318241, 0.73248077421585];
+const [K2_B0, K2_B1, K2_B2, K2_A1, K2_A2] = [1, -2, 1, -1.99004745483398, 0.99007225036621];
+// 4 倍过采样的第 1、2、3 分数相（12 抽头汉宁窗 sinc 插值核；第 0 相恰为整数采样点本身）
+const TP_PHASES = [1, 2, 3].map((phase) => Float64Array.from({ length: TP_TAPS }, (_, k) => {
+  const x = k - TP_TAPS / 2 + 1 - phase / TP_OVERSAMPLE;
+  const win = 0.5 + 0.5 * Math.cos((Math.PI * x) / (TP_TAPS / 2));
+  return (x === 0 ? 1 : Math.sin(Math.PI * x) / (Math.PI * x)) * win;
+}));
+const [P1_0, P1_1, P1_2, P1_3, P1_4, P1_5, P1_6, P1_7, P1_8, P1_9, P1_10, P1_11] = TP_PHASES[0];
+const [P2_0, P2_1, P2_2, P2_3, P2_4, P2_5, P2_6, P2_7, P2_8, P2_9, P2_10, P2_11] = TP_PHASES[1];
+const [P3_0, P3_1, P3_2, P3_3, P3_4, P3_5, P3_6, P3_7, P3_8, P3_9, P3_10, P3_11] = TP_PHASES[2];
+const TP_MAX_L1 = Math.max(...TP_PHASES.map((ker) => ker.reduce((sum, w) => sum + Math.abs(w), 0)));
+
+const AUDIO_DEFAULTS_BY_QID = deepFreeze({
+  '23-2': { bpm: 120, seed: 232 },
+  '27-1': { bpm: 150, seed: 271 },
+  '29-2': { bpm: 120, seed: 292 },
+  '30-1': { bpm: 80, seed: 301 },
+});
+
+// 合成确定性 48 kHz 立体声多音与节拍包络 PCM 音轨：既支持 (frames, fps, opts)，也支持直接传题号 ('27-1' / '30-1', opts)
+export function synthesizeAudioTrack(framesOrQuestionId, fps, opts = {}) {
+  let frames = framesOrQuestionId, rate = fps, cfg = opts;
+  if (typeof framesOrQuestionId === 'string') {
+    const q = loadQuestion(framesOrQuestionId);
+    frames = q.deliverable.frames;
+    rate = fpsOf(q);
+    cfg = { ...AUDIO_DEFAULTS_BY_QID[framesOrQuestionId], ...(fps && typeof fps === 'object' ? fps : opts) };
+  } else if (typeof rate === 'string') {
+    const { num, den } = parseFps(rate);
+    rate = Number(num) / Number(den);
+  }
+  const { bpm = 120, gainDb = 0, seed = 1 } = cfg ?? {};
+  if (!Number.isInteger(frames) || frames <= 0 || !Number.isFinite(rate) || rate <= 0) {
+    throw new RangeError('synthesizeAudioTrack 的帧数与帧率要是正数');
+  }
+  if (!Number.isFinite(bpm) || bpm <= 0 || !Number.isFinite(gainDb)) {
+    throw new RangeError('synthesizeAudioTrack 的 bpm 与 gainDb 不合法');
+  }
+  const total = Math.round((frames / rate) * AUDIO_SAMPLE_RATE);
+  const left = new Float32Array(total), right = new Float32Array(total);
+  const gain = 10 ** (gainDb / 20);
+  const period = 2400;
+  const baseL = new Float32Array(period), baseR = new Float32Array(period);
+  const shift = ((seed >>> 0) % 24) * 100;
+  for (let i = 0; i < period; i++) {
+    const t = (2 * Math.PI * ((i + shift) % period)) / AUDIO_SAMPLE_RATE;
+    baseL[i] = 0.132 * Math.cos(220 * t) + 0.082 * Math.cos(440 * t) + 0.048 * Math.cos(660 * t);
+    baseR[i] = 0.132 * Math.cos(220 * t + 0.3) + 0.082 * Math.cos(440 * t - 0.25) + 0.048 * Math.cos(660 * t + 0.2);
+  }
+  const envLen = Math.max(1, Math.round((60 / bpm) * AUDIO_SAMPLE_RATE));
+  const envTable = new Float32Array(envLen);
+  for (let i = 0; i < envLen; i++) {
+    const u = i / envLen;
+    const accent = (0.5 - 0.5 * Math.cos(2 * Math.PI * u)) ** 14;
+    envTable[i] = gain * (0.78 + 2.34 * accent);
+  }
+  const fade = Math.min(480, Math.floor(total / 8));
+  for (let i = 0, p = 0, e = 0; i < total; i++) {
+    let env = envTable[e];
+    if (i < fade) env *= i / fade;
+    else if (i >= total - fade) env *= (total - 1 - i) / fade;
+    left[i] = baseL[p] * env;
+    right[i] = baseR[p] * env;
+    if (++p === period) p = 0;
+    if (++e === envLen) e = 0;
+  }
+  return { sampleRate: AUDIO_SAMPLE_RATE, channels: [left, right] };
+}
+
+// 按 ITU-R BS.1770-4 实测立体声/单声道 PCM 的 K 加权门限积分响度（LUFS）与 4 倍过采样真峰值（dBTP）
+export function measureAudioLoudness(trackOrChannels, sampleRate = AUDIO_SAMPLE_RATE) {
+  const channels = Array.isArray(trackOrChannels) ? trackOrChannels : trackOrChannels?.channels;
+  const sr = Array.isArray(trackOrChannels) ? sampleRate : (trackOrChannels?.sampleRate ?? sampleRate);
+  if (sr !== AUDIO_SAMPLE_RATE) throw new RangeError(`measureAudioLoudness 只支持 ${AUDIO_SAMPLE_RATE} Hz 采样率`);
+  if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2
+    || channels.some((c) => !ArrayBuffer.isView(c) || c.length !== channels[0].length)) {
+    throw new RangeError('measureAudioLoudness 需要 1 或 2 个等长声道样本数组');
+  }
+  const n = channels[0].length;
+  if (n < BS1770_BLOCK) throw new RangeError('measureAudioLoudness 至少需要 400 毫秒样本');
+  const numChunks = Math.floor(n / BS1770_STEP);
+  const chunkPower = new Float64Array(numChunks);
+  let peak = 0;
+
+  for (const c of channels) {
+    let x1 = 0, x2 = 0, u1 = 0, u2 = 0, y1 = 0, y2 = 0;
+    const limit = numChunks * BS1770_STEP;
+    for (let ch = 0, base = 0; ch < numChunks; ch++, base += BS1770_STEP) {
+      let sumSq = 0;
+      for (let i = base, end = base + BS1770_STEP; i < end; i++) {
+        const x = c[i];
+        const ax = x < 0 ? -x : x;
+        if (ax > peak) peak = ax;
+        const u = K1_B0 * x + K1_B1 * x1 + K1_B2 * x2 - K1_A1 * u1 - K1_A2 * u2;
+        x2 = x1; x1 = x;
+        const y = K2_B0 * u + K2_B1 * u1 + K2_B2 * u2 - K2_A1 * y1 - K2_A2 * y2;
+        u2 = u1; u1 = u; y2 = y1; y1 = y;
+        sumSq += y * y;
+      }
+      chunkPower[ch] += sumSq / BS1770_BLOCK;
+    }
+    for (let i = limit; i < n; i++) {
+      const ax = Math.abs(c[i]);
+      if (ax > peak) peak = ax;
+    }
+  }
+
+  // 4 倍过采样真峰值：利用 12 抽头核 L1 范数精确跳过不可能超越当前峰值的 64 样本静默/低幅块，零近似误差
+  for (const c of channels) {
+    for (let b = 0; b < n; b += 64) {
+      const bEnd = b + 64 < n ? b + 64 : n;
+      const wLo = b >= 5 ? b - 5 : 0, wHi = bEnd + 5 < n ? bEnd + 5 : n - 1;
+      let blockMax = 0;
+      for (let j = wLo; j <= wHi; j++) {
+        const av = c[j] < 0 ? -c[j] : c[j];
+        if (av > blockMax) blockMax = av;
+      }
+      if (blockMax * TP_MAX_L1 <= peak) continue;
+      for (let i = b; i < bEnd; i++) {
+        if (i >= 5 && i + 6 < n) {
+          const c0 = c[i - 5], c1 = c[i - 4], c2 = c[i - 3], c3 = c[i - 2], c4 = c[i - 1], c5 = c[i];
+          const c6 = c[i + 1], c7 = c[i + 2], c8 = c[i + 3], c9 = c[i + 4], c10 = c[i + 5], c11 = c[i + 6];
+          const v1 = Math.abs(c0 * P1_0 + c1 * P1_1 + c2 * P1_2 + c3 * P1_3 + c4 * P1_4 + c5 * P1_5 + c6 * P1_6 + c7 * P1_7 + c8 * P1_8 + c9 * P1_9 + c10 * P1_10 + c11 * P1_11);
+          const v2 = Math.abs(c0 * P2_0 + c1 * P2_1 + c2 * P2_2 + c3 * P2_3 + c4 * P2_4 + c5 * P2_5 + c6 * P2_6 + c7 * P2_7 + c8 * P2_8 + c9 * P2_9 + c10 * P2_10 + c11 * P2_11);
+          const v3 = Math.abs(c0 * P3_0 + c1 * P3_1 + c2 * P3_2 + c3 * P3_3 + c4 * P3_4 + c5 * P3_5 + c6 * P3_6 + c7 * P3_7 + c8 * P3_8 + c9 * P3_9 + c10 * P3_10 + c11 * P3_11);
+          if (v1 > peak) peak = v1;
+          if (v2 > peak) peak = v2;
+          if (v3 > peak) peak = v3;
+        } else {
+          for (let p = 0; p < 3; p++) {
+            const ker = TP_PHASES[p];
+            let v = 0;
+            for (let k = 0; k < TP_TAPS; k++) {
+              const j = i + k - 5;
+              if (j >= 0 && j < n) v += c[j] * ker[k];
+            }
+            const av = Math.abs(v);
+            if (av > peak) peak = av;
+          }
+        }
+      }
+    }
+  }
+
+  const numBlocks = numChunks - 3;
+  const blocks = new Float64Array(numBlocks);
+  let rolling = chunkPower[0] + chunkPower[1] + chunkPower[2];
+  let absSum = 0, absCount = 0;
+  for (let b = 0; b < numBlocks; b++) {
+    rolling += chunkPower[b + 3];
+    blocks[b] = rolling;
+    if (rolling > 0 && -0.691 + 10 * Math.log10(rolling) > -70) {
+      absSum += rolling;
+      absCount++;
+    }
+    rolling -= chunkPower[b];
+  }
+  let rawLufs = -Infinity;
+  if (absCount > 0) {
+    const relGate = -0.691 + 10 * Math.log10(absSum / absCount) - 10;
+    let relSum = 0, relCount = 0;
+    for (let b = 0; b < numBlocks; b++) {
+      const p = blocks[b];
+      if (p > 0 && -0.691 + 10 * Math.log10(p) > relGate) {
+        relSum += p;
+        relCount++;
+      }
+    }
+    rawLufs = -0.691 + 10 * Math.log10(relSum / relCount);
+  }
+  const rawTp = peak > 0 ? 20 * Math.log10(peak) : -Infinity;
+  return {
+    loudnessLufs: Number.isFinite(rawLufs) ? Math.round(rawLufs * 100) / 100 : rawLufs,
+    truePeakDbtp: Number.isFinite(rawTp) ? Math.round(rawTp * 100) / 100 : rawTp,
+  };
+}
+
+// 把合成音轨编码为 16-bit 小端 PCM WAV 字节流，供外部复核与 observe/audioLoudness 交叉验证
+export function encodeWavPcm16(trackOrChannels, sampleRate = AUDIO_SAMPLE_RATE) {
+  const channels = Array.isArray(trackOrChannels) ? trackOrChannels : trackOrChannels?.channels;
+  const sr = Array.isArray(trackOrChannels) ? sampleRate : (trackOrChannels?.sampleRate ?? sampleRate);
+  if (!Array.isArray(channels) || (channels.length !== 1 && channels.length !== 2)) {
+    throw new RangeError('encodeWavPcm16 需要单声道或立体声样本');
+  }
+  const chCount = channels.length, n = channels[0].length;
+  const blockAlign = chCount * 2, dataBytes = n * blockAlign;
+  const buf = new Uint8Array(44 + dataBytes);
+  const view = new DataView(buf.buffer);
+  const writeTag = (off, str) => { for (let i = 0; i < str.length; i++) buf[off + i] = str.charCodeAt(i); };
+  writeTag(0, 'RIFF');
+  view.setUint32(4, 36 + dataBytes, true);
+  writeTag(8, 'WAVEfmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, chCount, true);
+  view.setUint32(24, sr, true);
+  view.setUint32(28, sr * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeTag(36, 'data');
+  view.setUint32(40, dataBytes, true);
+  for (let i = 0, off = 44; i < n; i++) {
+    for (let c = 0; c < chCount; c++, off += 2) {
+      const sample = Math.max(-32768, Math.min(32767, Math.round(channels[c][i] * 32767)));
+      view.setInt16(off, sample, true);
+    }
+  }
+  return buf;
 }
 
 const shotsAt = (cuts, frames) => [0, ...cuts].map((start, i) => ({ in: start, out: cuts[i] ?? frames }));
@@ -225,6 +470,8 @@ function measure232(q, p) {
 
 const GRID_27_1 = deepFreeze({
   planeSize: [32, 32],
+  audioBpm: 150,
+  audioSeed: 271,
   gridCuts: [96, 144, 168, 192, 240, 252, 264, 276, 288, 336, 384, 432, 456],
   equalCuts: [36, 73, 109, 146, 182, 219, 255, 291, 328, 364, 401, 437, 474],
 });
@@ -239,6 +486,7 @@ function measure271(q, p) {
     : GRID_27_1.gridCuts;
   const plannedCuts = rawCuts.map((f) => f + p.cutShiftFrames).filter((f) => f > 0 && f < frames);
   const cuts = detectCutsFromPlanes(GRID_27_1.planeSize, frames, plannedCuts);
+  const audio = measureAudioLoudness(synthesizeAudioTrack(frames, fps, { bpm: GRID_27_1.audioBpm, seed: GRID_27_1.audioSeed }));
   return {
     width,
     height,
@@ -249,8 +497,8 @@ function measure271(q, p) {
     freezes: [],
     shots: shotsAt(cuts, frames),
     cuts,
-    loudnessLufs: -14,
-    truePeakDbtp: -1.5,
+    loudnessLufs: audio.loudnessLufs,
+    truePeakDbtp: audio.truePeakDbtp,
   };
 }
 
@@ -305,6 +553,8 @@ function measure292(q, p) {
 /* ---------------- 30-1：一张节拍表（纯行为 BPM 扰动检查，零源码扫描） ---------------- */
 
 const TABLE_30_1 = deepFreeze({
+  planeSize: [32, 18],
+  audioSeed: 301,
   cuts: [216, 576, 864, 1224, 1656],
   beats: [12, 20, 28.5, 32, 36, 38, 40, 48, 52, 54.5, 56, 62, 66, 68, 76, 84, 90, 92, 112, 115.5],
 });
@@ -348,7 +598,8 @@ function measure301(q, p) {
   const baseOut = evalTimelineAtBpm(q, resolveEvents, baseBpm);
   const probeOut = evalTimelineAtBpm(q, resolveEvents, probeBpm);
   const complete = baseOut.beatEvents.length === TABLE_30_1.beats.length && probeOut.beatEvents.length === TABLE_30_1.beats.length;
-  const cuts = [...TABLE_30_1.cuts];
+  const cuts = detectCutsFromPlanes(TABLE_30_1.planeSize, frames, TABLE_30_1.cuts);
+  const audio = measureAudioLoudness(synthesizeAudioTrack(frames, fps, { bpm: baseBpm, seed: TABLE_30_1.audioSeed }));
   return {
     width,
     height,
@@ -359,8 +610,8 @@ function measure301(q, p) {
     freezes: [],
     cuts,
     shots: shotsAt(cuts, frames),
-    loudnessLufs: -14,
-    truePeakDbtp: -1.5,
+    loudnessLufs: audio.loudnessLufs,
+    truePeakDbtp: audio.truePeakDbtp,
     baseBpm,
     probeBpm,
     beatEvents: complete ? baseOut.beatEvents : [],

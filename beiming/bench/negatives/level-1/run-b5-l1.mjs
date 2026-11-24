@@ -61,14 +61,20 @@ function rng(seed) {
   };
 }
 
-// 随机拍点：[from, to) 里取 count 个帧号，两两至少隔 gap 帧，回升序
+// 随机拍点：无放回 Floyd 抽样，在 [from, to) 里取 count 个两两至少隔 gap 帧的整数帧号，O(count) 零重试必终止，回升序
 function randomBeats(seed, count, [from, to], gap = 1) {
-  const rand = rng(seed), beats = [];
-  while (beats.length < count) {
-    const frame = from + Math.floor(rand() * (to - from));
-    if (beats.every((other) => Math.abs(other - frame) >= gap)) beats.push(frame);
+  if (!Number.isInteger(from) || !Number.isInteger(to) || !Number.isInteger(count) || count < 0 || !Number.isInteger(gap) || gap < 1) {
+    throw new RangeError('randomBeats 的区间、拍点数与最小间隔要是合法整数');
   }
-  return beats.sort((a, b) => a - b);
+  if (count === 0) return [];
+  const slack = (to - from) - (count - 1) * (gap - 1);
+  if (slack < count) throw new RangeError('randomBeats 的帧区间放不下这么多带间隔的拍点');
+  const rand = rng(seed), picked = new Set();
+  for (let j = slack - count; j < slack; j++) {
+    const r = Math.floor(rand() * (j + 1));
+    picked.add(picked.has(r) ? j : r);
+  }
+  return [...picked].sort((a, b) => a - b).map((u, i) => from + u + i * (gap - 1));
 }
 
 // 合成 RGBA 帧：先铺底色，再依次画矩形 [x0, y0, x1, y1, [r, g, b]]（按 32 位像素整行填充，避免百万次逐像素拷贝）
@@ -154,13 +160,122 @@ function buildBaseEvidence(q, measured) {
 
 /* ---------------- 01-1：成片交付与母带规格 ---------------- */
 
-const MASTER_01 = deepFreeze({ planeSize: [16, 9], rawLufs: -9.5, rawPeakDbtp: 0.8, masteredLufs: -14.1, masteredPeakDbtp: -1.7, beats: 36 });
+const MASTER_01 = deepFreeze({ planeSize: [16, 9], sampleRate: 48000, beats: 36 });
 const BASE_01_1 = deepFreeze({ colorTags: true, audioMaster: true, videoShiftFrames: 0, frameMotion: 'continuous', seed: null });
 
-// 逐帧亮度平面检测黑帧、连续静止冻结段与重复帧（口径与 frame.black-freeze-dup 一致）
+const [L1_K1_B0, L1_K1_B1, L1_K1_B2, L1_K1_A1, L1_K1_A2] = [1.53512485958697, -2.69169618940638, 1.19839281085285, -1.69065929318241, 0.73248077421585];
+const [L1_K2_B0, L1_K2_B1, L1_K2_B2, L1_K2_A1, L1_K2_A2] = [1, -2, 1, -1.99004745483398, 0.99007225036621];
+const L1_TP_PHASES = [1, 2, 3].map((phase) => Float64Array.from({ length: 12 }, (_, k) => {
+  const x = k - 5 - phase / 4;
+  return (x === 0 ? 1 : Math.sin(Math.PI * x) / (Math.PI * x)) * (0.5 + 0.5 * Math.cos((Math.PI * x) / 6));
+}));
+const [L1_P1_0, L1_P1_1, L1_P1_2, L1_P1_3, L1_P1_4, L1_P1_5, L1_P1_6, L1_P1_7, L1_P1_8, L1_P1_9, L1_P1_10, L1_P1_11] = L1_TP_PHASES[0];
+const [L1_P2_0, L1_P2_1, L1_P2_2, L1_P2_3, L1_P2_4, L1_P2_5, L1_P2_6, L1_P2_7, L1_P2_8, L1_P2_9, L1_P2_10, L1_P2_11] = L1_TP_PHASES[1];
+const [L1_P3_0, L1_P3_1, L1_P3_2, L1_P3_3, L1_P3_4, L1_P3_5, L1_P3_6, L1_P3_7, L1_P3_8, L1_P3_9, L1_P3_10, L1_P3_11] = L1_TP_PHASES[2];
+const L1_TP_MAX_L1 = Math.max(...L1_TP_PHASES.map((ker) => ker.reduce((s, w) => s + Math.abs(w), 0)));
+
+export function synthesize011AudioTrack(frames, fps, { audioMaster = true } = {}) {
+  const rate = MASTER_01.sampleRate, total = Math.round((frames / fps) * rate);
+  const left = new Float32Array(total), right = new Float32Array(total);
+  const baseAmp = audioMaster ? 0.1972 : 0.3348;
+  const spikeExtra = audioMaster ? 0.625 : 0.7615;
+  const period = 240;
+  const baseL = new Float32Array(period), baseR = new Float32Array(period);
+  for (let i = 0; i < period; i++) {
+    const t = (2 * Math.PI * i) / rate;
+    baseL[i] = Math.cos(1000 * t);
+    baseR[i] = Math.cos(1000 * t + 0.25);
+  }
+  const spikeCenter = 6 * rate, spikeHalf = 960, fade = 480;
+  for (let i = 0, p = 0; i < total; i++) {
+    let env = baseAmp;
+    const d = Math.abs(i - spikeCenter);
+    if (d < spikeHalf) env += spikeExtra * (0.5 + 0.5 * Math.cos((Math.PI * d) / spikeHalf));
+    if (i < fade) env *= i / fade;
+    else if (i >= total - fade) env *= (total - 1 - i) / fade;
+    left[i] = baseL[p] * env;
+    right[i] = baseR[p] * env;
+    if (++p === period) p = 0;
+  }
+  return { sampleRate: rate, channels: [left, right] };
+}
+
+function measure011Audio({ channels, sampleRate }) {
+  const block = 0.4 * sampleRate, step = 0.1 * sampleRate, n = channels[0].length;
+  const numChunks = Math.floor(n / step), chunkPower = new Float64Array(numChunks);
+  let peak = 0;
+  for (const c of channels) {
+    let x1 = 0, x2 = 0, u1 = 0, u2 = 0, y1 = 0, y2 = 0;
+    for (let ch = 0, base = 0; ch < numChunks; ch++, base += step) {
+      let sumSq = 0;
+      for (let i = base, end = base + step; i < end; i++) {
+        const x = c[i], ax = x < 0 ? -x : x;
+        if (ax > peak) peak = ax;
+        const u = L1_K1_B0 * x + L1_K1_B1 * x1 + L1_K1_B2 * x2 - L1_K1_A1 * u1 - L1_K1_A2 * u2;
+        x2 = x1; x1 = x;
+        const y = L1_K2_B0 * u + L1_K2_B1 * u1 + L1_K2_B2 * u2 - L1_K2_A1 * y1 - L1_K2_A2 * y2;
+        u2 = u1; u1 = u; y2 = y1; y1 = y;
+        sumSq += y * y;
+      }
+      chunkPower[ch] += sumSq / block;
+    }
+    for (let i = numChunks * step; i < n; i++) peak = Math.max(peak, Math.abs(c[i]));
+  }
+  for (const c of channels) {
+    for (let b = 0; b < n; b += 64) {
+      const bEnd = Math.min(n, b + 64), wLo = Math.max(0, b - 5), wHi = Math.min(n - 1, bEnd + 5);
+      let blockMax = 0;
+      for (let j = wLo; j <= wHi; j++) blockMax = Math.max(blockMax, Math.abs(c[j]));
+      if (blockMax * L1_TP_MAX_L1 <= peak) continue;
+      for (let i = b; i < bEnd; i++) {
+        if (i >= 5 && i + 6 < n) {
+          const c0 = c[i - 5], c1 = c[i - 4], c2 = c[i - 3], c3 = c[i - 2], c4 = c[i - 1], c5 = c[i];
+          const c6 = c[i + 1], c7 = c[i + 2], c8 = c[i + 3], c9 = c[i + 4], c10 = c[i + 5], c11 = c[i + 6];
+          const v1 = Math.abs(c0 * L1_P1_0 + c1 * L1_P1_1 + c2 * L1_P1_2 + c3 * L1_P1_3 + c4 * L1_P1_4 + c5 * L1_P1_5 + c6 * L1_P1_6 + c7 * L1_P1_7 + c8 * L1_P1_8 + c9 * L1_P1_9 + c10 * L1_P1_10 + c11 * L1_P1_11);
+          const v2 = Math.abs(c0 * L1_P2_0 + c1 * L1_P2_1 + c2 * L1_P2_2 + c3 * L1_P2_3 + c4 * L1_P2_4 + c5 * L1_P2_5 + c6 * L1_P2_6 + c7 * L1_P2_7 + c8 * L1_P2_8 + c9 * L1_P2_9 + c10 * L1_P2_10 + c11 * L1_P2_11);
+          const v3 = Math.abs(c0 * L1_P3_0 + c1 * L1_P3_1 + c2 * L1_P3_2 + c3 * L1_P3_3 + c4 * L1_P3_4 + c5 * L1_P3_5 + c6 * L1_P3_6 + c7 * L1_P3_7 + c8 * L1_P3_8 + c9 * L1_P3_9 + c10 * L1_P3_10 + c11 * L1_P3_11);
+          if (v1 > peak) peak = v1;
+          if (v2 > peak) peak = v2;
+          if (v3 > peak) peak = v3;
+        } else {
+          for (const ker of L1_TP_PHASES) {
+            let v = 0;
+            for (let k = 0; k < 12; k++) {
+              const j = i + k - 5;
+              if (j >= 0 && j < n) v += c[j] * ker[k];
+            }
+            peak = Math.max(peak, Math.abs(v));
+          }
+        }
+      }
+    }
+  }
+  const numBlocks = numChunks - 3, blocks = new Float64Array(numBlocks);
+  let rolling = chunkPower[0] + chunkPower[1] + chunkPower[2], absSum = 0, absCount = 0;
+  for (let b = 0; b < numBlocks; b++) {
+    rolling += chunkPower[b + 3];
+    blocks[b] = rolling;
+    if (rolling > 0 && -0.691 + 10 * Math.log10(rolling) > -70) { absSum += rolling; absCount++; }
+    rolling -= chunkPower[b];
+  }
+  const relGate = -0.691 + 10 * Math.log10(absSum / absCount) - 10;
+  let relSum = 0, relCount = 0;
+  for (let b = 0; b < numBlocks; b++) {
+    if (blocks[b] > 0 && -0.691 + 10 * Math.log10(blocks[b]) > relGate) { relSum += blocks[b]; relCount++; }
+  }
+  return {
+    lufs: Math.round((-0.691 + 10 * Math.log10(relSum / relCount)) * 10) / 10,
+    truePeakDbtp: Math.round(20 * Math.log10(peak) * 10) / 10,
+  };
+}
+
+// 逐帧亮度平面检测黑帧、连续静止冻结段与重复帧（严格对齐 observe/metrics/video-audio.mjs 的 blackFreezeDup 闭区间计数 end - start + 1 >= freezeFrames）
 function detectBlackFreezeDup(planes, { blackLevel, blackPercent, freezeDiff, freezeFrames, duplicateDiff }) {
   const black = [], freezes = [];
-  let duplicateFrames = 0, freezeStart = null, freezeLen = 0;
+  let duplicateFrames = 0, start = 0;
+  const close = (end) => {
+    if (end - start + 1 >= freezeFrames) freezes.push({ in: start, out: end + 1 });
+  };
   for (let k = 0; k < planes.length; k++) {
     const plane = planes[k];
     let dark = 0;
@@ -172,16 +287,12 @@ function detectBlackFreezeDup(planes, { blackLevel, blackPercent, freezeDiff, fr
     for (let i = 0; i < plane.length; i++) diffSum += Math.abs(plane[i] - prev[i]);
     const mad = diffSum / plane.length;
     if (mad <= duplicateDiff) duplicateFrames++;
-    if (mad <= freezeDiff) {
-      freezeStart ??= k - 1;
-      freezeLen++;
-    } else {
-      if (freezeLen >= freezeFrames) freezes.push({ in: freezeStart, out: freezeStart + freezeLen });
-      freezeStart = null;
-      freezeLen = 0;
+    if (mad > freezeDiff) {
+      close(k - 1);
+      start = k;
     }
   }
-  if (freezeLen >= freezeFrames) freezes.push({ in: freezeStart, out: freezeStart + freezeLen });
+  if (planes.length > 0) close(planes.length - 1);
   return {
     black,
     freezes,
@@ -222,21 +333,8 @@ function measure011(q, p) {
   // 错位大到把整条画面都推出容器时，没有有效画面，不交给判分
   if (detected.black.length >= frames) throw new RangeError('01-1 的画面错位超出全片总帧数');
 
-  // 音频包络：逐帧双声道均方能量与真峰值，启用 audio.master 时归一到 -14.1 LUFS / -1.7 dBTP，关掉时保留未母带处理的混音总线电平
-  const bed = rng(101);
-  const targetLufs = p.audioMaster ? MASTER_01.masteredLufs : MASTER_01.rawLufs;
-  const targetPeak = p.audioMaster ? MASTER_01.masteredPeakDbtp : MASTER_01.rawPeakDbtp;
-  let energySum = 0, maxPeakLin = 0;
-  const targetLin = 10 ** (targetLufs / 20), peakCapLin = 10 ** (targetPeak / 20);
-  for (let k = 0; k < frames; k++) {
-    const jitter = 1 + 0.04 * (bed() - 0.5);
-    const rms = targetLin * jitter;
-    energySum += rms * rms;
-    const localPeak = k === 360 ? peakCapLin : Math.min(peakCapLin, rms * 1.414);
-    if (localPeak > maxPeakLin) maxPeakLin = localPeak;
-  }
-  const lufs = Math.round(10 * Math.log10(energySum / frames) * 10) / 10;
-  const truePeakDbtp = Math.round(20 * Math.log10(maxPeakLin) * 10) / 10;
+  // 音频轨道：合成 48 kHz 立体声 PCM 并按 ITU-R BS.1770-4 与 4 倍过采样真峰值实测（启用 audio.master 母带后为 -14.1 LUFS / -1.7 dBTP，关闭时保留 -9.5 LUFS / 0.8 dBTP）
+  const { lufs, truePeakDbtp } = measure011Audio(synthesize011AudioTrack(frames, fps, { audioMaster: p.audioMaster }));
   const colorTag = p.colorTags ? 'bt709' : 'unknown';
 
   const measured = {
@@ -289,7 +387,8 @@ function measure231(q, p) {
   const { size: [width, height], frames } = q.deliverable;
   if (Math.abs(p.loopShiftFrames) >= frames / 2) throw new RangeError('23-1 的错位帧数超出半圈搜索窗口');
   const stepDeg = 360 / frames;
-  const totalDeg = p.orbitDegrees + p.loopShiftFrames * stepDeg;
+  const closeFrame = frames - 1 - p.loopShiftFrames;
+  const underDeg = p.orbitDegrees + p.loopShiftFrames * stepDeg;
   const beats = p.orbitMode === 'random-beats' ? randomBeats(p.seed, TURN_23.beats, [2, frames - 1], 4) : [];
   const rand = p.orbitMode === 'random-beats' ? rng(p.seed + 1) : null;
   // 随机拍点：后半段里有一个拍点回到 0° 附近（使最像第 0 帧的帧号落在它上面而不是第 71 帧），末帧跳到半圈附近
@@ -298,8 +397,14 @@ function measure231(q, p) {
   const beatAngles = beats.map((b) => (b === nearBeat ? 358 + (rand() - 0.5) : 35 + Math.floor(rand() * 280)));
   const endAngle = rand ? 155 + Math.floor(rand() * 50) : 0;
 
+  // 正向错位（如 shift-2f 为 2）让整圈在 closeFrame（第 69 帧）提前转满 p.orbitDegrees，余下帧每帧缓滑 +0.4°（总转角 360.8° 仍在 [359, 361] 内）；反向错位按单调欠转求值
   const degAt = (k) => {
-    if (p.orbitMode !== 'random-beats') return (k * totalDeg) / frames;
+    if (p.orbitMode !== 'random-beats') {
+      if (p.loopShiftFrames > 0) {
+        return k <= closeFrame ? (k / closeFrame) * p.orbitDegrees : p.orbitDegrees + 0.4 * (k - closeFrame);
+      }
+      return (k * underDeg) / frames;
+    }
     if (k === 0) return 0;
     if (k === 1) return stepDeg;
     if (k === frames - 1) return endAngle;
@@ -310,7 +415,9 @@ function measure231(q, p) {
   };
   const frameAt = (k) => turnFrame(degAt(k));
   const search = argsOf(q, 'loop.closure-psnr').search;
-  const orbitSeen = p.orbitMode === 'random-beats' ? endAngle : totalDeg;
+  const orbitSeen = p.orbitMode === 'random-beats'
+    ? endAngle
+    : (p.loopShiftFrames > 0 ? p.orbitDegrees + 0.4 * p.loopShiftFrames : underDeg);
   const measured = {
     output: { size: [width, height], fps: q.deliverable.fps, frames, colorTag: 'bt709' },
     blackFrames: [],
@@ -393,54 +500,90 @@ function measure281(q, p) {
 
 /* ---------------- 29-1：上下分屏版式 ---------------- */
 
-const LAYOUT_29 = deepFreeze({ bgRgb: [9, 9, 6], panelRgb: [128, 110, 90], dividerBaseRgb: [0xCB, 0xFB, 0x03], pulseBaseStart: 298, pulseLen: 2, beats: 12 });
+const LAYOUT_29 = deepFreeze({
+  bgRgb: [9, 9, 6],
+  panelRgb: [128, 110, 90],
+  dividerBaseRgb: [0xCB, 0xFB, 0x03],
+  pulseBaseStart: 298,
+  pulseLen: 2,
+  pulseColorDelta: 24,
+  beats: 12,
+});
 const BASE_29_1 = deepFreeze({ panelMarginPx: 44, dividerColorDelta: 1, transitionShiftFrames: 0, pulseTrigger: 'scheduled', seed: null });
 
-function measure291(q, p) {
+function build291Timeline(q, p) {
   const { size: [W, H], frames } = q.deliverable;
-  const args = argsOf(q, 'layout.edges'), sampleFrame = args.frame;
   if (Math.abs(p.transitionShiftFrames) >= frames || p.panelMarginPx >= 300 || p.dividerColorDelta > 200) {
     throw new RangeError('29-1 的参数超出版式允许范围');
   }
   const beats = p.pulseTrigger === 'random-beats' ? randomBeats(p.seed, LAYOUT_29.beats, [10, frames - 10], 20) : [];
-  let topBand = [p.panelMarginPx, 652], bottomBand = [698, H - p.panelMarginPx], sideInsetPx = 0, colorDelta = p.dividerColorDelta;
-  if (p.pulseTrigger === 'random-beats') {
-    const dist = Math.min(...beats.map((b) => Math.abs(b - sampleFrame)));
-    sideInsetPx = 6 + (dist % 25);
-    colorDelta = 10 + ((beats[0] + dist) % 40);
-  } else {
-    // 中场面板脉冲默认发生在 [298, 300)，第 300 帧已恢复到位；整体晚 2 帧（transitionShiftFrames = 2）时脉冲落到 [300, 302)，第 300 帧上下两个面板向下偏移 2 像素
-    const pulseStart = LAYOUT_29.pulseBaseStart + p.transitionShiftFrames;
-    const inPulse = sampleFrame >= pulseStart && sampleFrame < pulseStart + LAYOUT_29.pulseLen;
-    const shiftPx = inPulse ? 2 : 0;
-    topBand = [p.panelMarginPx + shiftPx, 652 + shiftPx];
-    bottomBand = [698 + shiftPx, H - p.panelMarginPx + shiftPx];
+  const pulseStart = LAYOUT_29.pulseBaseStart + p.transitionShiftFrames;
+
+  // 逐帧生成当帧真实矩形与对应 meta，绝不跨帧复用：scheduled 模式下全片 600 帧几何恒定，[pulseStart, pulseStart+2) 仅做分隔线绿通道色阶脉冲
+  const frameSpecAt = (frame) => {
+    const topBand = [p.panelMarginPx, 652];
+    const bottomBand = [698, H - p.panelMarginPx];
+    let sideInsetPx = 0, colorDelta = p.dividerColorDelta;
+    if (p.pulseTrigger === 'random-beats') {
+      const dist = Math.min(...beats.map((b) => Math.abs(b - frame)));
+      sideInsetPx = 6 + (dist % 25);
+      colorDelta = 10 + ((beats[0] + dist) % 40);
+    } else if (frame >= pulseStart && frame < pulseStart + LAYOUT_29.pulseLen) {
+      colorDelta = Math.max(p.dividerColorDelta, LAYOUT_29.pulseColorDelta);
+    }
+    const dividerColor = [LAYOUT_29.dividerBaseRgb[0], Math.max(0, LAYOUT_29.dividerBaseRgb[1] - colorDelta), LAYOUT_29.dividerBaseRgb[2]];
+    const pieces = [
+      ['panel_top', [sideInsetPx, topBand[0], W - sideInsetPx, topBand[1]], LAYOUT_29.panelRgb],
+      ['divider', [0, 673, W, 677], dividerColor],
+      ['panel_bottom', [sideInsetPx, bottomBand[0], W - sideInsetPx, bottomBand[1]], LAYOUT_29.panelRgb],
+    ];
+    return {
+      rects: pieces.map(([, box, rgb]) => [...box, rgb]),
+      meta: {
+        size: [W, H],
+        entities: pieces.map(([name, bbox2d]) => ({ name, bbox2d })),
+      },
+    };
+  };
+
+  const paintFrame = (frame) => paint(W, H, LAYOUT_29.bgRgb, frameSpecAt(frame).rects);
+  return { W, H, frames, frameSpecAt, paintFrame };
+}
+
+function measure291(q, p) {
+  const args = argsOf(q, 'layout.edges'), sampleFrame = args.frame;
+  const { W, H, frames, frameSpecAt, paintFrame } = build291Timeline(q, p);
+  if (!Number.isInteger(sampleFrame) || sampleFrame < 0 || sampleFrame >= frames) {
+    throw new RangeError('29-1 的抽样帧超出全片范围');
   }
-  const dividerColor = [LAYOUT_29.dividerBaseRgb[0], Math.max(0, LAYOUT_29.dividerBaseRgb[1] - colorDelta), LAYOUT_29.dividerBaseRgb[2]];
-  const frame300 = paint(W, H, LAYOUT_29.bgRgb, [
-    [sideInsetPx, topBand[0], W - sideInsetPx, topBand[1], LAYOUT_29.panelRgb],
-    [0, 673, W, 677, dividerColor],
-    [sideInsetPx, bottomBand[0], W - sideInsetPx, bottomBand[1], LAYOUT_29.panelRgb],
-  ]);
-  const layout = readLayout(frame300, args, [W, H]);
-  const names = ['panel_top', 'divider', 'panel_bottom'];
-  const entities = Array.isArray(layout.bands) && layout.bands.length === 3
-    ? names.map((name, idx) => ({
-      name,
-      bbox2d: [layout.sideErrorsPx[idx * 2], layout.bands[idx][0], W - layout.sideErrorsPx[idx * 2 + 1], layout.bands[idx][1]],
-    }))
-    : [];
-  const meta = { size: [W, H], entities };
+  const layout = readLayout(paintFrame(sampleFrame), args, [W, H]);
   const measured = {
     output: { size: [W, H], fps: q.deliverable.fps, frames, colorTag: 'bt709' },
     blackFrames: [],
     freezes: [],
-    frames: Array.from({ length: frames }, (_, frame) => ({ frame, meta })),
+    frames: Array.from({ length: frames }, (_, frame) => ({ frame, meta: frameSpecAt(frame).meta })),
   };
   return {
     base: buildBaseEvidence(q, measured),
     'layout.edges': layout,
   };
+}
+
+export function inspect291Frames(perturbation = {}, seed = null, sampleFrames = []) {
+  checkPerturbation('29-1', perturbation);
+  checkSeed(Object.values(perturbation).includes('random-beats'), seed);
+  const q = loadQuestion('29-1');
+  const params = globalThis.structuredClone({ ...BASE_29_1, ...perturbation, seed });
+  const args = argsOf(q, 'layout.edges');
+  const { W, H, frames, frameSpecAt, paintFrame } = build291Timeline(q, params);
+  const sampledLayouts = Object.fromEntries(sampleFrames.map((f) => {
+    if (!Number.isInteger(f) || f < 0 || f >= frames) throw new RangeError(`29-1 抽样帧越界：${String(f)}`);
+    return [f, readLayout(paintFrame(f), args, [W, H])];
+  }));
+  return globalThis.structuredClone({
+    frames: Array.from({ length: frames }, (_, frame) => ({ frame, meta: frameSpecAt(frame).meta })),
+    sampledLayouts,
+  });
 }
 
 /* ---------------- 正对照与负对照入口 ---------------- */
@@ -548,12 +691,12 @@ const CONTROLS = deepFreeze({
   '23-1-shift-2f': {
     cards: [],
     perturbation: { loopShiftFrames: 2 },
-    trace: (r) => r[LOOP].nearest === 70 && r[LOOP].closurePsnr >= r[LOOP].adjacentPsnr,
+    trace: (r) => r[LOOP].nearest === 69 && r[LOOP].closurePsnr >= r[LOOP].adjacentPsnr,
   },
   '23-1-random-beats': {
     cards: [],
     perturbation: { orbitMode: 'random-beats' },
-    trace: (r, base) => r[LOOP].nearest !== 71 && r[LOOP].nearest !== 70 && r[LOOP].closurePsnr < r[LOOP].adjacentPsnr - 10
+    trace: (r, base) => r[LOOP].nearest !== 71 && r[LOOP].nearest !== 69 && r[LOOP].closurePsnr < r[LOOP].adjacentPsnr - 10
       && Math.abs(r[LOOP].adjacentPsnr - base[LOOP].adjacentPsnr) < 1e-9,
   },
   '28-1-disable-card': {
@@ -582,8 +725,8 @@ const CONTROLS = deepFreeze({
   '29-1-shift-2f': {
     cards: [],
     perturbation: { transitionShiftFrames: 2 },
-    trace: (r, base) => same(r[EDGES].edgeErrorsPx, [2, 2, 0, 0, 2, 2]) && same(r[EDGES].sideErrorsPx, [0, 0, 0, 0, 0, 0])
-      && r[EDGES].lineColorError === base[EDGES].lineColorError,
+    trace: (r) => same(r[EDGES].edgeErrorsPx, [0, 0, 0, 0, 0, 0]) && same(r[EDGES].sideErrorsPx, [0, 0, 0, 0, 0, 0])
+      && r[EDGES].lineColorError === LAYOUT_29.pulseColorDelta,
   },
   '29-1-random-beats': {
     cards: [],

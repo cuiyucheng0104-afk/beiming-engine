@@ -1,11 +1,14 @@
 // B5：B2 一级 4 道考题（01-1、23-1、28-1、29-1）与 B3 二级第一批 4 道考题（23-2、27-1、29-2、30-1）共 8 道公开题的 24 份标准负对照（关卡、整体错位 2 帧、随机拍点）与正式判分核验。
 // 正对照和负对照的读数分别由 negatives/level-1/run-b5-l1.mjs 和 negatives/level-2-a/run-b5-l2a.mjs 在合成信号/行为模型上真实量出，判分走 evaluate-b2 与 evaluate-b3 的正式判分器。
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { audioLoudness, cutYdif } from '../observe/metrics/video-audio.mjs';
 import { scanQuestionLeaks } from './index.mjs';
 import {
   B5_FORMAT as B5_L1_FORMAT,
@@ -15,6 +18,7 @@ import {
   evaluateAllB5L1Negatives,
   evaluateNegativeControl as evaluateL1Control,
   evaluatePerturbedModel as evaluateL1Perturbed,
+  inspect291Frames,
   loadControl as loadL1Control,
   loadQuestion as loadL1Question,
   measure as measureL1,
@@ -26,12 +30,16 @@ import {
   B5_NEGATIVE_KINDS as B5_L2A_KINDS,
   build301Resolver,
   buildPositiveBaseline as buildL2aBaseline,
+  encodeWavPcm16,
   evaluateAllB5L2aNegatives,
   evaluateNegativeControl as evaluateL2aControl,
   evaluatePerturbedModel as evaluateL2aPerturbed,
   loadControl as loadL2aControl,
   loadQuestion as loadL2aQuestion,
   measure as measureL2a,
+  measureAudioLoudness,
+  synthesizeAudioTrack,
+  synthesizePlanes,
   validateNegativeControl as validateL2aControl,
 } from './negatives/level-2-a/run-b5-l2a.mjs';
 import { read30_1 } from './questions/level-2-a/evaluate-b3.mjs';
@@ -245,7 +253,7 @@ const MECHANISM = {
     assert.deepEqual([r['deliver.spec'], r['audio.loudness']], [base['deliver.spec'], base['audio.loudness']]);
   },
   '01-1-random-beats': (q, r, base) => {
-    assert.deepEqual(r['frame.black-freeze-dup'], { blackFrames: 0, freezeSegments: 25, duplicateFrames: 1016 });
+    assert.deepEqual(r['frame.black-freeze-dup'], { blackFrames: 0, freezeSegments: 25, duplicateFrames: 1011 });
     assert.deepEqual([r['deliver.spec'], r['audio.loudness']], [base['deliver.spec'], base['audio.loudness']]);
   },
   '23-1-disable-card': (q, r) => {
@@ -254,12 +262,12 @@ const MECHANISM = {
     assert.ok(ratio > 3 && ratio > q.scoring[1].args.maxRatio, `首尾误差比 ${ratio}`);
   },
   '23-1-shift-2f': (q, r) => {
-    assert.equal(r['loop.closure-psnr'].nearest, 70);
+    assert.equal(r['loop.closure-psnr'].nearest, 69);
     const ratio = amplitude(r['loop.closure-psnr'].closurePsnr) / amplitude(r['loop.closure-psnr'].adjacentPsnr);
     assert.ok(ratio <= q.scoring[1].args.maxRatio, `第 71 帧误差比 ${ratio} 在限值内`);
   },
   '23-1-random-beats': (q, r, base) => {
-    assert.equal(r['loop.closure-psnr'].nearest, 40);
+    assert.equal(r['loop.closure-psnr'].nearest, 42);
     assert.ok(r['loop.closure-psnr'].closurePsnr < 10);
     assert.equal(r['loop.closure-psnr'].adjacentPsnr, base['loop.closure-psnr'].adjacentPsnr);
   },
@@ -282,15 +290,15 @@ const MECHANISM = {
     assert.deepEqual(r['layout.edges'].sideErrorsPx, [0, 0, 0, 0, 0, 0]);
     assert.equal(r['layout.edges'].lineColorError, 12);
   },
-  '29-1-shift-2f': (q, r, base) => {
-    assert.deepEqual(r['layout.edges'].edgeErrorsPx, [2, 2, 0, 0, 2, 2]);
+  '29-1-shift-2f': (q, r) => {
+    assert.deepEqual(r['layout.edges'].edgeErrorsPx, [0, 0, 0, 0, 0, 0]);
     assert.deepEqual(r['layout.edges'].sideErrorsPx, [0, 0, 0, 0, 0, 0]);
-    assert.equal(r['layout.edges'].lineColorError, base['layout.edges'].lineColorError);
+    assert.equal(r['layout.edges'].lineColorError, 24);
   },
   '29-1-random-beats': (q, r) => {
     assert.deepEqual(r['layout.edges'].edgeErrorsPx, [0, 0, 0, 0, 0, 0]);
-    assert.deepEqual(r['layout.edges'].sideErrorsPx, [7, 7, 0, 0, 7, 7]);
-    assert.equal(r['layout.edges'].lineColorError, 22);
+    assert.deepEqual(r['layout.edges'].sideErrorsPx, [21, 21, 0, 0, 21, 21]);
+    assert.equal(r['layout.edges'].lineColorError, 21);
   },
   '23-2-disable-card': (q, r, base) => {
     assert.deepEqual(r.chaptersMs, [0, 2000, 8083, 14000, 18000, 22000]);
@@ -316,7 +324,7 @@ const MECHANISM = {
   },
   '27-1-random-beats': (q, r, base) => {
     assert.equal(r.cuts.length, base.cuts.length);
-    assert.equal(r.cuts[0], 47);
+    assert.equal(r.cuts[0], 37);
     assert.ok(r.cuts.filter((f) => f % 12 !== 0).length >= 10);
   },
   '29-2-disable-card': (q, r, base) => {
@@ -583,4 +591,133 @@ test('B5-10 24 份夹具、2 个核验模块和本测试文件零泄露、零私
     assert.equal(scanProperNouns16(text), 0, `${file} 里有商业专名（16 位表）`);
   }
   for (const id of ALL_CONTROL_IDS) assert.deepEqual(scanQuestionLeaks(loadControl(id)), [], id);
+});
+
+/* ---------------- R1 独立复核回归门禁 ---------------- */
+
+const MEDIA_OPTS = ['ffmpeg', 'ffprobe'].every((tool) => spawnSync(tool, ['-version']).status === 0)
+  ? {}
+  : { skip: '缺少 ffmpeg/ffprobe' };
+
+function writeLosslessMkv(filePath, planes, [width, height], fps, wavBuffer = null) {
+  const uv = Buffer.alloc(width * height * 2, 128);
+  const rawYuv = Buffer.concat(planes.flatMap((plane) => [plane, uv]));
+  const args = ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'yuv444p',
+    '-s', `${width}x${height}`, '-r', String(fps), '-i', 'pipe:0'];
+  let wavPath = null;
+  if (wavBuffer) {
+    wavPath = `${filePath}.wav`;
+    writeFileSync(wavPath, wavBuffer);
+    args.push('-i', wavPath, '-c:a', 'pcm_s16le');
+  }
+  args.push('-c:v', 'ffv1', filePath);
+  const run = spawnSync('ffmpeg', args, { input: rawYuv });
+  if (wavPath) rmSync(wavPath, { force: true });
+  assert.equal(run.status, 0, String(run.stderr));
+}
+
+test('B5-11 R1 回归：27-1 与 30-1 真实合成 48 kHz 立体声 PCM 并实测响度/真峰值，与正式 audioLoudness 交叉一致', MEDIA_OPTS, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bm-b5-audio-'));
+  try {
+    for (const qid of ['27-1', '30-1']) {
+      const pos = POSITIVE[qid];
+      assert.ok(pos.readings.loudnessLufs >= -15 && pos.readings.loudnessLufs <= -13, `${qid} 响度在 [-15, -13] LUFS 内`);
+      assert.ok(pos.readings.truePeakDbtp <= -1, `${qid} 真峰值不高于 -1 dBTP`);
+      const track = synthesizeAudioTrack(qid);
+      const wavFile = join(dir, `${qid}.wav`);
+      writeFileSync(wavFile, encodeWavPcm16(track));
+      const official = await audioLoudness(wavFile);
+      assert.ok(Math.abs(pos.readings.loudnessLufs - official.value) <= 0.35, `${qid} LUFS 偏差超出 ±0.35`);
+      assert.ok(Math.abs(pos.readings.truePeakDbtp - official.details.truePeakDbtp) <= 0.35, `${qid} dBTP 偏差超出 ±0.35`);
+    }
+
+    // 合成带音轨的无损成片再交正式 audioLoudness 端到端量测，确认成片容器内真实可测
+    const pos271 = POSITIVE['27-1'];
+    const mkv271 = join(dir, '27-1-av.mkv');
+    const planes271 = synthesizePlanes([32, 32], pos271.readings.frames, pos271.readings.cuts);
+    writeLosslessMkv(mkv271, planes271, [32, 32], pos271.readings.fps, encodeWavPcm16(synthesizeAudioTrack('27-1')));
+    const muxed = await audioLoudness(mkv271);
+    assert.ok(Math.abs(pos271.readings.loudnessLufs - muxed.value) <= 0.35);
+    assert.ok(Math.abs(pos271.readings.truePeakDbtp - muxed.details.truePeakDbtp) <= 0.35);
+
+    // 增益扰动时实测响度与真峰值同步线性变化，非硬编码常数
+    const louder = measureAudioLoudness(synthesizeAudioTrack(510, 30, { bpm: 150, seed: 271, gainDb: 3 }));
+    assert.ok(Math.abs((louder.loudnessLufs - pos271.readings.loudnessLufs) - 3) <= 0.05);
+    assert.ok(Math.abs((louder.truePeakDbtp - pos271.readings.truePeakDbtp) - 3) <= 0.05);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('B5-12 R1 回归：23-2、27-1 与 30-1 合成灰度平面编码成无损成片后，与正式 cutYdif(file, 24) 检出切点逐帧完全相等', MEDIA_OPTS, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bm-b5-ydif-'));
+  try {
+    for (const [qid, size] of [['23-2', [32, 18]], ['27-1', [32, 32]], ['30-1', [32, 18]]]) {
+      const pos = POSITIVE[qid];
+      const mkv = join(dir, `${qid}.mkv`);
+      const planes = synthesizePlanes(size, pos.readings.frames, pos.readings.cuts);
+      writeLosslessMkv(mkv, planes, size, pos.readings.fps);
+      const actual = await cutYdif(mkv, 24);
+      assert.deepEqual(pos.readings.cuts, actual.value, `${qid} 正对照切点与正式 cutYdif 逐帧一致`);
+    }
+    const shifted232 = resultOf('23-2-shift-2f');
+    const mkvShift = join(dir, '23-2-shift.mkv');
+    writeLosslessMkv(mkvShift, synthesizePlanes([32, 18], shifted232.readings.frames, shifted232.readings.cuts), [32, 18], shifted232.readings.fps);
+    assert.deepEqual(shifted232.readings.cuts, (await cutYdif(mkvShift, 24)).value);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('B5-13 R1 回归：29-1 全片 600 帧逐帧独立生成 meta，第 298 帧及全片 margin_tb(panel_top) 真实合规，越界扰动报 fail', () => {
+  const q = loadQuestion('29-1');
+  const H = q.deliverable.size[1];
+  const marginKey = q.basePredicates.find((p) => p.startsWith('margin_tb(panel_top)'));
+  assert.ok(marginKey);
+  assert.equal(POSITIVE['29-1'].readings.base.predicates[marginKey], 'pass');
+
+  const inspected = inspect291Frames({}, null, [0, 298, 299, 300, 599]);
+  assert.equal(inspected.frames.length, 600);
+  assert.equal(new Set(inspected.frames.map((f) => f.meta)).size, 600, '600 帧各有独立的 meta 对象，不跨帧复用');
+  for (const f of inspected.frames) {
+    const topPanel = f.meta.entities.find((e) => e.name === 'panel_top');
+    const marginTb = Math.min(topPanel.bbox2d[1], H - topPanel.bbox2d[3]) / H;
+    assert.ok(marginTb >= 0.0323 && marginTb <= 0.0329, `第 ${f.frame} 帧 margin_tb=${marginTb} 在 [0.0323, 0.0329] 内`);
+  }
+  // 第 298、299 帧是分隔线绿通道色阶脉冲（几何不变），第 300 帧恢复 #CBFB03
+  assert.deepEqual(inspected.sampledLayouts[298].bands, [[44, 652], [673, 677], [698, 1306]]);
+  assert.equal(inspected.sampledLayouts[298].lineColorError, 24);
+  assert.equal(inspected.sampledLayouts[299].lineColorError, 24);
+  assert.equal(inspected.sampledLayouts[300].lineColorError, 1);
+
+  const shiftCtrl = evaluateL1Control('29-1-shift-2f');
+  assert.equal(shiftCtrl.verdict.basePass, true, '29-1-shift-2f 全片几何基础谓词保持通过');
+  assert.equal(shiftCtrl.readings.base.predicates[marginKey], 'pass');
+  assert.deepEqual(failedAt(shiftCtrl.verdict), [1], '29-1-shift-2f 仅打穿分隔线色差判分项');
+
+  const brokenMargin = evaluateL1Perturbed('29-1', { panelMarginPx: 46 });
+  assert.equal(brokenMargin.readings.base.predicates[marginKey], 'fail', 'panelMarginPx=46 破坏面板边距时基础谓词必报 fail');
+  assert.equal(brokenMargin.verdict.basePass, false);
+});
+
+test('B5-14 R1 回归：23-1-shift-2f 提前 2 帧闭合且总转角 360.8°，保持 orbit_total 基础谓词通过', () => {
+  const pos = POSITIVE['23-1'];
+  const ctrl = evaluateL1Control('23-1-shift-2f');
+  const orbitKey = Object.keys(pos.readings.base.predicates).find((k) => k.startsWith('orbit_total'));
+  assert.ok(orbitKey);
+  assert.equal(ctrl.readings.base.predicates[orbitKey], 'pass');
+  assert.equal(ctrl.readings.base.predicates[orbitKey], pos.readings.base.predicates[orbitKey]);
+  assert.equal(ctrl.verdict.basePass, true);
+  assert.equal(ctrl.readings['loop.closure-psnr'].nearest, 69);
+  assert.deepEqual(failedAt(ctrl.verdict), [0]);
+});
+
+test('B5-15 R1 回归：Floyd 无放回抽样遍历 seed = 700..799（含 701）全部确定性快速返回、零超时', () => {
+  const start = performance.now();
+  for (let seed = 700; seed <= 799; seed++) {
+    const r = evaluateL1Perturbed('23-1', { orbitMode: 'random-beats' }, seed);
+    assert.equal(r.verdict.pass, false, `23-1 seed=${seed} 应判不过`);
+  }
+  const elapsedMs = performance.now() - start;
+  assert.ok(elapsedMs < 3000, `100 个种子（含 701）耗时 ${elapsedMs.toFixed(1)}ms 应远低于 3000ms`);
 });
