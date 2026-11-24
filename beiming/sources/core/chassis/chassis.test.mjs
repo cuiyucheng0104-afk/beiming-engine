@@ -63,7 +63,7 @@ test('负对照的判法：粗的三项读数在门外且落在登记值的 ±5%
 
 test('内核源码的来源：来源说明写了上游与固定提交，上游许可全文在，每个源文件第一行注明来源，不含本机路径', () => {
   const read = f => fs.readFileSync(path.join(KERNEL, f), 'utf8');
-  const prov = read('PROVENANCE.md');
+  const prov = read('PROVENANCE.md'), third = fs.readFileSync(path.join(KERNEL, '..', '..', '..', '..', 'THIRD-PARTY.md'), 'utf8');
   assert.ok(prov.includes('https://github.com/meshy-dev/ThreeRT'));
   assert.ok(prov.includes(COMMIT));
   assert.match(prov, /MIT/);
@@ -90,6 +90,15 @@ test('内核源码的来源：来源说明写了上游与固定提交，上游�
     assert.match(text, /^\/\/ SPDX-FileCopyrightText: 2011-2022 Blender Foundation$/m, f);
     assert.ok(prov.includes(`| \`shaders/${f}.wgsl\` | MIT`), `来源说明「照 Cycles 取的部分」里没有 ${f}.wgsl`);
   }
+  // Rust 一侧带着同一类内容（着色器里那一份在 CPU 上的镜像）的三个文件，同样的文件头
+  for (const f of ['src/gpu.rs', 'src/sample.rs', 'src/scene.rs']) {
+    const text = read(f);
+    assert.deepEqual(text.split('\n').slice(1, 5), ['// SPDX-FileCopyrightText: 2026 Meshy LLC', '// SPDX-FileCopyrightText: 2011-2022 Blender Foundation', '// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine', '// SPDX-License-Identifier: MIT AND Apache-2.0'], `${f} 的文件头`);
+    assert.ok(prov.includes(`| \`${f}\` | MIT 与 Apache-2.0 |`), `来源说明「照 Cycles 取的部分」里没有 ${f}`);
+    assert.ok(third.includes(`\`${path.basename(f)}\`（`), `第三方清单核心那一条里没有 ${f}`);
+  }
+  assert.doesNotMatch(prov, /除 `cycles_hash\.rs` 之外的全部/);
+  assert.match(read('shaders/pathtrace.wgsl').split('\n').slice(0, 12).join('\n'), /ObjectExt 的字段名 receiver_light_set、lightgroup/);
   // REUSE-IgnoreEnd
   for (const f of sources.filter(f => !cycles.includes(f))) {
     const first = read(f).split('\n', 1)[0], from = split.includes(f) ? 'shaders/pathtrace.wgsl' : f;

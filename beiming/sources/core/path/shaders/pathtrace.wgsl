@@ -6,6 +6,8 @@
 // 多方许可。上游的与北冥新写的部分是 MIT。照 Cycles（Blender v5.2.3，路径相对 intern/cycles/）取的部分是 Apache-2.0
 // （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
 //   物体标志 SD_OBJECT_NEGATIVE_SCALE 的名字与数值：kernel/types.h
+//   物体扩展表 ObjectExt 的字段名 receiver_light_set、lightgroup、shadow_terminator_shading_offset、shadow_terminator_geometry_offset：
+//   kernel/types.h（KernelObject）
 //   积分器参数块 KernelIntegrator 的字段名：kernel/data_template.h
 // ThreeRT native path tracer. One sample per pixel per dispatch, accumulated in `film` (film.wgsl).
 // Shading model mirrors UE5 DefaultLit: Lambert diffuse + GGX / Smith-joint-approx / Schlick(F90 = saturate(50 F0.g)),

@@ -1,4 +1,12 @@
 // 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/src/scene.rs，MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
+// SPDX-FileCopyrightText: 2026 Meshy LLC
+// SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-License-Identifier: MIT AND Apache-2.0
+// 多方许可。上游的与北冥新写的部分是 MIT。照 Cycles（Blender v5.2.3，路径相对 intern/cycles/）取的部分是 Apache-2.0
+// （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
+//   物体扩展表 GpuObjectExt 的字段名 receiver_light_set、lightgroup、shadow_terminator_shading_offset、shadow_terminator_geometry_offset，
+//   物体标志的位（SD_OBJECT_*）：kernel/types.h（KernelObject、ShaderDataObjectFlag）
 //! The engine's world (world.rs) + asset files -> flat GPU-ready scene (world-space triangles, materials, textures,
 //! lights).
 
