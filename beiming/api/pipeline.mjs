@@ -23,14 +23,14 @@ import { parseCardRef, OVERLAY_CARD } from '../cards/runtime.mjs';
 import { startSource as startPage } from '../host/page/host.mjs';
 import { canonicalJson, checkCacheSeams, computeFrameCacheKey, seamSignature } from '../jobs/cache.mjs';
 import { eventsTable, renderingOf, shotInput, shutterSubs } from '../kernel/eval/index.mjs';
-import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutYdif, deliverSpec } from '../observe/index.mjs';
+import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutYdif, deliverSpec, videoAliasEdge, videoNoiseResidual } from '../observe/index.mjs';
 import { caps as blenderCaps } from '../sources/blender/caps.mjs';
 import { planRender as planBlender, startSource as startBlender } from '../sources/blender/host.mjs';
 import { caps as threeCaps } from '../sources/three/caps.mjs';
 import { planRender as planThree } from '../sources/three/plan.mjs';
 import { readExr, writeExr } from '../verify/exr/exr.mjs';
 import {
-  checkL1, evaluateAssertion, evaluateFloor, guardPredicates, IOU_MIN, runPureFunctionGate, toVerdict, verifySampledBboxes,
+  checkL1, DEFAULT_MAX_ALIAS_EDGE, DEFAULT_MAX_NOISE_RESIDUAL, evaluateAssertion, evaluateFloor, guardPredicates, IOU_MIN, parseAssertion, runPureFunctionGate, scopeRange, toVerdict, verifySampledBboxes,
 } from '../verify/index.mjs';
 import { diagnostic } from './envelope.mjs';
 import { BEIMING, engineCodeDigest, liveCardsDigest, monotonicMs, threeCardDirs, VIEW_SHAPER } from './runtime.mjs';
@@ -694,27 +694,64 @@ export async function layerL2({ film, lock, filmDir, shots, records, pool, scrat
 
 const finiteAudio = (v, floor = -120) => (typeof v === 'number' ? (Number.isFinite(v) ? v : v === -Infinity ? floor : undefined) : undefined);
 
-/** 成片量测：交付规格、响度、黑帧与冻结、切点（YDIF） */
+const energyReading = (m) => {
+  if (!m || typeof m !== 'object' || m.details?.code === 'tool-missing') return undefined;
+  return { value: m.value, unit: m.unit, ...(m.details ?? {}) };
+};
+
+/** 成片量测：交付规格、响度、黑帧与冻结、切点（YDIF）、静止区噪声残差与边缘锯齿 */
 export async function measureMaster(master) {
-  const [spec, loud, bfd, cuts] = await Promise.all([deliverSpec(master), audioLoudness(master).catch(() => null), blackFreezeDup(master), cutYdif(master)]);
+  const [spec, loud, bfd, cuts, noise, alias] = await Promise.all([
+    deliverSpec(master),
+    audioLoudness(master).catch(() => null),
+    blackFreezeDup(master),
+    cutYdif(master),
+    videoNoiseResidual(master).catch(() => null),
+    videoAliasEdge(master).catch(() => null),
+  ]);
   const loudnessLufs = finiteAudio(loud?.value);
   const truePeakDbtp = finiteAudio(loud?.details?.truePeakDbtp);
   const audio = {
     ...(loudnessLufs !== undefined ? { loudnessLufs } : {}),
     ...(truePeakDbtp !== undefined ? { truePeakDbtp } : {}),
   };
+  const noiseResidual = energyReading(noise);
+  const aliasEdge = energyReading(alias);
   return {
     output: spec.value ? { size: [spec.value.width, spec.value.height], fps: spec.details.frameRate, frames: spec.value.frames, colorTag: spec.value.color_space } : undefined,
     blackFrames: bfd.details?.black, freezes: bfd.details?.freezes?.map(([a, b]) => ({ in: a, out: b + 1 })),
     ...(Object.keys(audio).length ? { audio } : {}),
     cuts: cuts.value,
+    ...(noiseResidual !== undefined ? { noiseResidual } : {}),
+    ...(aliasEdge !== undefined ? { aliasEdge } : {}),
   };
 }
 
 const fixOfResult = (r) => (r.fixes ?? []).find((f) => f && typeof f.path === 'string');
 
+/** 判断考题基础断言列表是否已显式覆盖全片成片默认画质门（支持 @ all 及等价覆盖 [0, frames) 的区间/单镜；仅 question.basePredicates 可替代默认 base 门，film.predicates.extra 不得隐藏 basePass 违例） */
+function coversBaseEnergyGate(texts, name, film) {
+  const totalFrames = Number.isInteger(film?.output?.frames) ? film.output.frames : null;
+  for (const text of texts) {
+    if (typeof text !== 'string') continue;
+    const parsed = parseAssertion(text);
+    if (!parsed.ok || parsed.assertion.name !== name) continue;
+    const { args, scope } = parsed.assertion;
+    if (args.length !== 1) continue;
+    if (args[0].name !== null && args[0].name !== 'target') continue;
+    const target = args[0].value;
+    if (!target || target.kind !== 'ident' || target.name !== 'film') continue;
+    if (scope?.kind === 'all') return true;
+    if (totalFrames !== null && scope) {
+      const range = scopeRange(scope, film);
+      if (range && range[0] === 0 && range[1] === totalFrames) return true;
+    }
+  }
+  return false;
+}
+
 /**
- * L3：floor@1（加题目自带的基础谓词）逐条求值、predicates.extra 逐条求值、防削弱守卫。
+ * L3：floor@1（加题目自带的基础谓词与默认成片画质门）逐条求值、predicates.extra 逐条求值、防削弱守卫。
  * measured 是 { frames: [{ frame, meta }], ...成片量测 }。question 是考题（可以是 null）。entities 是 { 镜头: [实体名] }。
  */
 export function layerL3({ film, measured, question, entities }) {
@@ -727,8 +764,9 @@ export function layerL3({ film, measured, question, entities }) {
     if (result.status === 'fail') {
       const fix = fixOfResult(result);
       diagnostics.push(diagnostic({ code: 'contract.bad-value', layer: 'L3', message: `${result.predicate} 判不过`, ...(v.atFrames ? { atFrames: v.atFrames } : {}),
-        ...(v.value !== undefined ? { value: v.value } : {}), ...(result.expected ? { expected: String(result.expected) } : {}), ...(fix ? { fix, at: fix.path } : {}) }, { layer: 'L3' }));
+        ...(v.value !== undefined ? { value: v.value } : {}), ...(result.expected ? { expected: String(result.expected) } : {}), ...(result.hint ? { hint: result.hint } : {}), ...(fix ? { fix, at: fix.path } : {}) }, { layer: 'L3' }));
     }
+    return v;
   };
   const conditionalSkips = new Set();
   for (const item of evaluateFloor(film, measured)) {
@@ -739,7 +777,9 @@ export function layerL3({ film, measured, question, entities }) {
     }
     for (const r of item.results) add(r, true);
   }
-  const required = new Set(question?.basePredicates ?? []);
+  const questionBase = question?.basePredicates ?? [];
+  const filmExtra = film.predicates?.extra ?? [];
+  const required = new Set(questionBase);
   let requiredPass = true;
   for (const text of required) {
     const result = evaluateAssertion(text, film, measured);
@@ -747,7 +787,17 @@ export function layerL3({ film, measured, question, entities }) {
     if (result.status !== 'pass') requiredPass = false;
     if (result.status === 'skipped') diagnostics.push(diagnostic({ layer: 'L3', message: `考题必验断言 ${text} 缺少证据`, hint: result.reason }));
   }
-  for (const text of film.predicates?.extra ?? []) if (!required.has(text)) add(evaluateAssertion(text, film, measured), false);
+  for (const text of filmExtra) if (!required.has(text)) add(evaluateAssertion(text, film, measured), false);
+  // 成片量测在场时自动执行默认 L3 画质门；仅 question.basePredicates 显式覆盖全片同名断言时跳过，film.predicates.extra 始终独立于 base 运行，不隐藏 basePass 违例
+  for (const [key, predName, defaultMax] of [
+    ['noiseResidual', 'noise_residual', DEFAULT_MAX_NOISE_RESIDUAL],
+    ['aliasEdge', 'alias_edge', DEFAULT_MAX_ALIAS_EDGE],
+  ]) {
+    if (!measured || !Object.hasOwn(measured, key) || measured[key] === undefined) continue;
+    if (coversBaseEnergyGate(questionBase, predName, film)) continue;
+    const v = add(evaluateAssertion(`${predName}(film) <= ${defaultMax}`, film, measured), true);
+    if (v.status === 'skipped') conditionalSkips.add(v);
+  }
   const guard = guardPredicates(film, question ? { base: question.basePredicates } : null, { entities });
   for (const v of guard.violations) {
     const fix = v.fixes?.[0];
