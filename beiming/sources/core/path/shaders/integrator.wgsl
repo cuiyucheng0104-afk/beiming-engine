@@ -1,4 +1,13 @@
 // 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/shaders/pathtrace.wgsl（北冥按阶段分出的一段：积分主循环），MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
+// SPDX-FileCopyrightText: 2026 Meshy LLC
+// SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-License-Identifier: MIT AND Apache-2.0
+// 多方许可。上游的与北冥新写的部分是 MIT。照 Cycles（Blender v5.2.3，路径相对 intern/cycles/）取的部分是 Apache-2.0
+// （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
+//   路径标志位 PATH_RAY_*、可见类 PATH_RAY_VISIBILITY_*、PRNG_BOUNCE_NUM、LABEL_VOLUME_SCATTER 的名字与数值，光线的字段名：kernel/types.h
+//   路径状态的字段名：kernel/integrator/state_template.h
+//   path_state_next 的骨架（按采样标签定下一段光线的可见类、推进随机维度的偏移）：kernel/integrator/path_state.h
 // ------------------------------------------------------------------------------------------------
 // 北冥：路径状态与光线。照 Cycles 的 IntegratorState.path 与 Ray 取子集，字段名不改。
 //

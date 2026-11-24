@@ -1,4 +1,13 @@
 // 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/shaders/sample.wgsl，MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
+// SPDX-FileCopyrightText: 2026 Meshy LLC
+// SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-License-Identifier: MIT AND Apache-2.0
+// 多方许可。上游的与北冥新写的部分是 MIT。照 Cycles（Blender v5.2.3，路径相对 intern/cycles/）取的部分是 Apache-2.0
+// （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
+//   随机维度的枚举 PRNG_* 的名字与数值：kernel/types.h（PathTraceDimension）
+//   取数接口 path_rng_1D、path_rng_2D、path_rng_3D、path_branched_rng_2D：kernel/integrator/path_state.h（path_state_rng_1D 到 3D、path_branched_rng_2D）
+//   像素种子的式子（rng_start）：kernel/sample/pattern.h（path_rng_pixel_init）
 // The kernel's random numbers: shuffled, Owen-scrambled Sobol (Burley 2020; Cycles' Sobol-Burley). Four dimensions,
 // more by padding: each decision has a dimension id that seeds the scramble. renderer/src/sample.rs: the same on the CPU.
 

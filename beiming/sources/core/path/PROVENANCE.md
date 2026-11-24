@@ -11,9 +11,25 @@
 | 项目 | ThreeRT，<https://github.com/meshy-dev/ThreeRT> |
 | 固定提交 | `c946cc96bdb08979224e851a7fc67a066b1b456b` |
 | 许可 | MIT，版权人 Meshy LLC（2026）。许可全文原样放在 [LICENSE-upstream.txt](LICENSE-upstream.txt) |
-| 本目录的许可 | MIT。上游的部分版权归 Meshy LLC，北冥改写与新增的部分版权归北冥引擎；逐路径登记在仓库根的 `REUSE.toml`。两个文件例外：`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 是照 Blender Cycles 的 `util/hash.h` 移植的，Apache-2.0，版权与许可写在各自的文件头 |
+| 本目录的许可 | 默认 MIT：上游的部分版权归 Meshy LLC，北冥改写与新增的部分版权归北冥引擎，逐路径登记在仓库根的 `REUSE.toml`。有八个文件带着照 Blender Cycles 取的东西，版权与许可写在各自的文件头（文件头优先于 `REUSE.toml`），见下面「照 Cycles 取的部分」 |
 
 每个源自上游的 `.rs` 与 `.wgsl` 文件第一行都写了它对应上游的哪个路径。
+
+### 照 Cycles 取的部分
+
+Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee`），下面的路径相对 `intern/cycles/`。没有整段搬代码的地方只取了名字、数值或函数的骨架，也照实标出来，和共用目录 `../shaders/` 下四个移植着色器的做法一致。
+
+| 本目录的文件 | 许可 | 照 Cycles 取了什么 | Cycles 的文件（许可） |
+|---|---|---|---|
+| `shaders/hash.wgsl`、`src/cycles_hash.rs` | Apache-2.0 | 像素种子的哈希函数 `hash_iqnt2d`，逐行移植 | `util/hash.h`（Apache-2.0） |
+| `shaders/integrator.wgsl` | MIT 与 Apache-2.0 | 路径标志位 `PATH_RAY_*`、可见类 `PATH_RAY_VISIBILITY_*`、`PRNG_BOUNCE_NUM`、`LABEL_VOLUME_SCATTER` 的名字与数值，光线的字段名；路径状态的字段名；`path_state_next` 的骨架 | `kernel/types.h`、`kernel/integrator/state_template.h`、`kernel/integrator/path_state.h`（都是 Apache-2.0） |
+| `shaders/sample.wgsl` | MIT 与 Apache-2.0 | 随机维度的枚举 `PRNG_*` 的名字与数值；取数接口 `path_rng_1D`、`path_rng_2D`、`path_rng_3D`、`path_branched_rng_2D`；像素种子的式子 | `kernel/types.h`、`kernel/integrator/path_state.h`、`kernel/sample/pattern.h`（都是 Apache-2.0） |
+| `shaders/shader.wgsl` | MIT、Apache-2.0 与 BSD-3-Clause | 着色点标志 `SD_BACKFACING` 的名字与数值，着色点与闭包的字段名；闭包种类 `CLOSURE_*` 的名字（数值是这里自己的）；菲涅耳种类 `FRESNEL_*` 的名字与次序 | `kernel/types.h`、`kernel/svm/types.h`（Apache-2.0）；菲涅耳种类来自 `kernel/closure/bsdf_microfacet.h`（BSD-3-Clause，版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation） |
+| `shaders/closure.wgsl` | MIT 与 Apache-2.0 | 采样标签 `LABEL_TRANSMIT`、`LABEL_DIFFUSE` 的名字与数值；`surface_shader_*` 这一组函数的名字与分工；`bsdf_eval` 按闭包种类分发的骨架 | `kernel/types.h`、`kernel/integrator/surface_shader.h`、`kernel/closure/bsdf.h`（都是 Apache-2.0） |
+| `shaders/pathtrace.wgsl` | MIT 与 Apache-2.0 | 物体标志 `SD_OBJECT_NEGATIVE_SCALE` 的名字与数值；积分器参数块 `KernelIntegrator` 的字段名 | `kernel/types.h`、`kernel/data_template.h`（都是 Apache-2.0） |
+| `shaders/intersect.wgsl` | MIT 与 Apache-2.0 | `LOCAL_MAX_HITS` 的名字与数值、`LocalIntersection` 的字段名；`trace_local` 这个问法 | `kernel/types.h`、`kernel/bvh/bvh.h`（都是 Apache-2.0） |
+
+许可全文在仓库根的 `LICENSES/`（`MIT.txt`、`Apache-2.0.txt`、`BSD-3-Clause.txt`）。其余文件（`shaders/` 下的 `film`、`light`、`volume`、`records`、`trace_hw` 与 `src/` 下除 `cycles_hash.rs` 之外的全部）没有照 Cycles 取的东西，是 MIT。
 
 ## 切掉了什么，为什么能切
 

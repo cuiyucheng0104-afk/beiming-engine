@@ -1,4 +1,13 @@
 // 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/shaders/pathtrace.wgsl（北冥按阶段分出的一段：闭包），MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
+// SPDX-FileCopyrightText: 2026 Meshy LLC
+// SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-License-Identifier: MIT AND Apache-2.0
+// 多方许可。上游的与北冥新写的部分是 MIT。照 Cycles（Blender v5.2.3，路径相对 intern/cycles/）取的部分是 Apache-2.0
+// （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
+//   采样标签 LABEL_TRANSMIT、LABEL_DIFFUSE 的名字与数值：kernel/types.h（ClosureLabel）
+//   surface_shader_* 这一组函数的名字与分工：kernel/integrator/surface_shader.h
+//   bsdf_eval 按闭包种类分发的骨架：kernel/closure/bsdf.h
 // ------------------------------------------------------------------------------------------------
 // 北冥：积分器碰材质只经下面这一组函数（名字照 Cycles 的 integrator/surface_shader.h；着色点与闭包的结构、
 // 材质求值的三步在 shader.wgsl）。它们是分发函数：按闭包种类取出字段，再调标量签名的闭包函数。

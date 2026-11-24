@@ -1,4 +1,15 @@
 // 源自 ThreeRT（github.com/meshy-dev/ThreeRT）固定提交 c946cc96bdb08979224e851a7fc67a066b1b456b 的 renderer/shaders/pathtrace.wgsl（北冥按阶段分出的一段：材质求值），MIT 许可，版权人 Meshy LLC（2026）。这个文件北冥有没有改过、改了什么，见 ../PROVENANCE.md，许可全文见 ../LICENSE-upstream.txt。
+// SPDX-FileCopyrightText: 2026 Meshy LLC
+// SPDX-FileCopyrightText: 2009-2010 Sony Pictures Imageworks Inc., et al. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-License-Identifier: MIT AND Apache-2.0 AND BSD-3-Clause
+// 多方许可。上游的与北冥新写的部分是 MIT。照 Cycles（Blender v5.2.3，路径相对 intern/cycles/）取的部分是 Apache-2.0
+// （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
+//   着色点标志 SD_BACKFACING 的名字与数值，着色点与闭包的字段名（ShaderData、ShaderClosure）：kernel/types.h
+//   闭包种类 CLOSURE_* 的名字（数值是这里自己的）：kernel/svm/types.h（ClosureType，去掉 _ID 后缀）
+// 菲涅耳种类 FRESNEL_* 的名字与次序取自 kernel/closure/bsdf_microfacet.h 的 enum MicrofacetFresnel，那个文件是 BSD-3-Clause
+// （版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation，许可全文见仓库根的 LICENSES/BSD-3-Clause.txt）。
 // ------------------------------------------------------------------------------------------------
 // 北冥：着色点、闭包、材质输入值，以及材质求值的三步。闭包的求值、采样在 closure.wgsl。
 // 内核的四样内部结构（材质记录、光线负载、随机维度、输出通道）已经冻结：每个字段的含义与状态、编号登记表、改动的规矩

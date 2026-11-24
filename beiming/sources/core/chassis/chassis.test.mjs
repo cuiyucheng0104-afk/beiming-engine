@@ -83,6 +83,13 @@ test('内核源码的来源：来源说明写了上游与固定提交，上游�
     assert.match(read(f), /^\/\/ SPDX-FileCopyrightText: 2011-2022 Blender Foundation\n(\/\/ SPDX-FileCopyrightText: .*\n)*\/\/ SPDX-License-Identifier: Apache-2\.0\n/, f);
     assert.ok(prov.includes(`\`${f}\``), `来源说明里没有 ${f}`);
   }
+  // 带着照 Cycles 取的名字、数值或函数骨架的六个着色器：第一行仍是上游的来源，其后的文件头是多方许可
+  for (const [f, id] of Object.entries({ integrator: 'MIT AND Apache-2.0', sample: 'MIT AND Apache-2.0', closure: 'MIT AND Apache-2.0', pathtrace: 'MIT AND Apache-2.0', intersect: 'MIT AND Apache-2.0', shader: 'MIT AND Apache-2.0 AND BSD-3-Clause' })) {
+    const text = read(`shaders/${f}.wgsl`);
+    assert.ok(text.split('\n').slice(1, 7).includes(`// SPDX-License-Identifier: ${id}`), `${f}.wgsl 的文件头`);
+    assert.match(text, /^\/\/ SPDX-FileCopyrightText: 2011-2022 Blender Foundation$/m, f);
+    assert.ok(prov.includes(`| \`shaders/${f}.wgsl\` | MIT`), `来源说明「照 Cycles 取的部分」里没有 ${f}.wgsl`);
+  }
   // REUSE-IgnoreEnd
   for (const f of sources.filter(f => !cycles.includes(f))) {
     const first = read(f).split('\n', 1)[0], from = split.includes(f) ? 'shaders/pathtrace.wgsl' : f;
