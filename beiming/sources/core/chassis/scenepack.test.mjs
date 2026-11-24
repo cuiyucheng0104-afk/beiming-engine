@@ -125,6 +125,26 @@ test('缺字段：结构定义里每个必填字段删一次，读入器都报 c
   assert.deepEqual(wrong, [], `${paths.length} 个必填字段里这些没报对`);
 });
 
+test('缺字段：挂在可选父字段下面的必填字段（dynamic[]、frames.materials 的）在带这两项的清单上再枚举一遍，at 照样是这个字段的路径', (t) => {
+  const bin = renderer(t);
+  if (!bin) return;
+  const spec = fullPack();
+  const base = new Set(requiredPaths(SCHEMA, spec.manifest));
+  const m = structuredClone(spec.manifest);
+  m.dynamic = [{ name: 'cloth', files: 'dynamic/cloth' }];
+  m.frames.materials = { file: 'frames/materials.f32', shape: [2, 1], fields: ['roughness'] };
+  const extra = requiredPaths(SCHEMA, m).filter(p => !base.has(p));
+  assert.deepEqual(extra.sort(), ['dynamic[0].files', 'dynamic[0].name', 'frames.materials.fields', 'frames.materials.file', 'frames.materials.shape']);
+  const wrong = [];
+  for (const at of extra) {
+    const { dir } = fresh({ ...spec, layout: spec.manifest, manifest: withoutField(m, at) });
+    const r = run(bin, ['pack-info', dir]);
+    const e = r.status === 0 ? null : failure(r);
+    if (!e || e.code !== 'contract.bad-value' || e.at !== at || r.status !== 4) wrong.push(`${at}：${JSON.stringify(e)}（退出 ${r.status}）`);
+  }
+  assert.deepEqual(wrong, []);
+});
+
 /** 坏包：每一种都必须是带码的报错（不 panic、不越界读），码与位置照写 */
 const BAD = [
   ['实例表的网格下标越界', s => { s.rows[1][0] = 7; }, 'contract.bad-value', 'instances.file'],
