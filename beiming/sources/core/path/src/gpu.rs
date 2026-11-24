@@ -1692,8 +1692,9 @@ impl Gpu {
         // 北冥：材质表在这里统一写能量补偿那一位（全局开关：预设的 energyCompensation，非 0 即开；`Params::set_preset`
         // 把同一个数写进 misc.z 给上游顶替读）。
         let materials = crate::scene::with_energy_compensation(&scene.materials, scene.preset.native.energy_compensation != 0.0);
-        // 北冥：物体扩展表，每个物体一项，现在全是 0（还没有人填）。
-        let object_ext = vec![crate::scene::GpuObjectExt::default(); scene.objects.len() / scene.object_stride()];
+        // 北冥：物体扩展表，每个物体一项：场景包读入器填了就用它的，否则全 0。
+        let n_objects = scene.objects.len() / scene.object_stride();
+        let object_ext = if scene.object_ext.len() == n_objects { scene.object_ext.clone() } else { vec![crate::scene::GpuObjectExt::default(); n_objects] };
         let parts: [(Table, &[u8], usize); Table::COUNT] = [
             (Table::LightTree, bytemuck::cast_slice(light_tree), 0),
             (Table::Materials, bytemuck::cast_slice(&materials), 0),

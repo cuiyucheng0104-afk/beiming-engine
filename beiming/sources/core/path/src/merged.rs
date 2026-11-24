@@ -189,6 +189,7 @@ mod tests {
         let want = fields!(GpuObjectExt; entity_id, object_flag, receiver_light_set, lightgroup, shadow_terminator_shading_offset, shadow_terminator_geometry_offset, reserved0, reserved1);
         assert_eq!(members(&m, "ObjectExt"), (want, std::mem::size_of::<GpuObjectExt>()));
         assert_eq!(constant(&m, "OBJECT_EXT_VEC4") as usize * 16, std::mem::size_of::<GpuObjectExt>());
+        assert_eq!(constant(&m, "SD_OBJECT_NEGATIVE_SCALE"), crate::scene::SD_OBJECT_NEGATIVE_SCALE);
         // 种子进缓冲的是过一次哈希之后的值；掩码是上游写死的那一个；只定义的字段是 0。
         let i = KernelIntegrator::new(0x5eed);
         assert_eq!(i, KernelIntegrator { seed: crate::sample::hash_hp(0x5eed), sobol_index_mask: SOBOL_INDEX_MASK, ..Default::default() });
