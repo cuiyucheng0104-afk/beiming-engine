@@ -1,12 +1,13 @@
-// 渲染底盘（对拍阶梯第 2 级）的测试。纯逻辑部分任何机器都跑；端到端部分要取得到 ThreeRT 源码、编得出它的渲染程序
-// （git、cargo、npm、显卡），缺了就跳过并写明缺什么；BEIMING_CHASSIS_E2E=1 时缺工具链算失败。
+// 渲染底盘（对拍阶梯第 2 级）的测试。纯逻辑部分任何机器都跑；端到端部分要编得出 ../path/ 的渲染程序、取得到上游的
+// 场景打包工具（git、cargo、npm、显卡），缺了就跳过并写明缺什么；BEIMING_CHASSIS_E2E=1 时缺工具链算失败。
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import process from 'node:process';
+import path from 'node:path';
 import { test } from 'node:test';
 import { polygonIrradiance } from '../fncheck/checks.mjs';
-import { PATCH } from './build.mjs';
-import { CYCLES, GATES, discPixels, rectMean, runLevel2 } from './level2.mjs';
+import { COMMIT, KERNEL, SHADERS, singleCopyProblems } from './build.mjs';
+import { CYCLES, DIFFUSE, GATES, discPixels, rectMean, runLevel2 } from './level2.mjs';
 
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const ROUGHNESS = ['0.05', '0.10', '0.20', '0.30', '0.40', '0.50', '0.60', '0.70', '0.80', '0.90', '1.00'];
@@ -47,14 +48,38 @@ test('判据：白炉 ±0.5%，解析场景 0.2% 且在 3 个标准误之内', (
   assert.deepEqual(GATES, { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3 });
 });
 
-test('补丁：只改 ThreeRT 的内核着色器与拼接着色器的 gpu.rs；头部注明 ThreeRT 的 MIT 许可与版权人；不含本机路径', () => {
-  const text = fs.readFileSync(PATCH, 'utf8');
-  const files = [...text.matchAll(/^diff --git a\/(\S+) b\//gm)].map(m => m[1]);
-  assert.deepEqual([...new Set(files)].sort(), ['renderer/shaders/pathtrace.wgsl', 'renderer/src/gpu.rs']);
-  const head = text.slice(0, text.indexOf('diff --git'));
-  assert.match(head, /Meshy LLC/);
-  assert.ok(head.includes('SPDX-License-' + 'Identifier: MIT')); // 拆开写：许可扫描会把连着写的标签当成本文件的许可
-  assert.doesNotMatch(text, /\/Users\/|\/home\/|192\.168\./);
+test('内核源码的来源：来源说明写了上游与固定提交，上游许可全文在，每个源文件第一行注明来源，不含本机路径', () => {
+  const read = f => fs.readFileSync(path.join(KERNEL, f), 'utf8');
+  const prov = read('PROVENANCE.md');
+  assert.ok(prov.includes('https://github.com/meshy-dev/ThreeRT'));
+  assert.ok(prov.includes(COMMIT));
+  assert.match(prov, /MIT/);
+  const lic = read('LICENSE-upstream.txt');
+  assert.match(lic, /^MIT License/);
+  assert.match(lic, /Meshy LLC/);
+  assert.match(lic, /Permission is hereby granted, free of charge/);
+  const sources = ['src', 'shaders'].flatMap(d => fs.readdirSync(path.join(KERNEL, d)).map(f => `${d}/${f}`));
+  assert.equal(sources.length, 25);
+  for (const f of sources) {
+    const first = read(f).split('\n', 1)[0];
+    assert.ok(first.startsWith('// 源自 ThreeRT') && first.includes(COMMIT) && first.includes(`renderer/${f}`) && first.includes('MIT') && first.includes('Meshy LLC') && first.includes('PROVENANCE.md'), f);
+    assert.ok(prov.includes(`\`${f}\``), `来源说明的文件对照里没有 ${f}`);
+    assert.doesNotMatch(read(f), /\/Users\/|\/home\/[a-z]|192\.168\./, f);
+  }
+});
+
+test('内核的包名与程序名不用上游项目名；四个移植的着色器仓库里只有一份，内核直接读它', () => {
+  const cargo = fs.readFileSync(path.join(KERNEL, 'Cargo.toml'), 'utf8');
+  assert.match(cargo, /^name = "beiming-core-path"$/m);
+  assert.match(cargo, /^\[\[bin\]\]\nname = "core-render"$/m);
+  assert.equal(SHADERS.length, 4);
+  assert.deepEqual(singleCopyProblems(), []);
+  for (const f of SHADERS) assert.ok(fs.existsSync(path.join(KERNEL, '..', 'shaders', f)), f);
+});
+
+test('漫反射白炉的记录：按显卡各记一个，没记过的显卡按相对 1e-6 比', () => {
+  assert.equal(DIFFUSE.tolerance, 1e-6);
+  for (const v of Object.values(DIFFUSE.recorded)) assert.ok(Math.abs(v - 1) < 0.02);
 });
 
 test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对照、确定性）', { timeout: 7_200_000 }, async t => {
@@ -65,15 +90,14 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
     if (e.missing && !E2E) { t.skip(`缺工具链：${e.missing}`); return; }
     throw e;
   }
-  await t.test('构建：提交号对、我方着色器逐字节相同、ThreeRT 自带的漫反射白炉读数不变', () => {
-    assert.equal(rep.threert.commit, 'c946cc96bdb08979224e851a7fc67a066b1b456b');
-    assert.equal(rep.threert.shaders.length, 4);
-    for (const s of rep.threert.shaders) assert.equal(s.copied, s.repo, s.file);
+  await t.test('构建：从仓库内的源码编，上游的提交号对，上游自带的漫反射白炉过且均值与记录相等', () => {
+    assert.equal(rep.core.source, 'beiming/sources/core/path');
+    assert.equal(rep.core.shaders.length, 4);
+    assert.equal(rep.upstream.commit, COMMIT);
     const d = rep.diffuseFurnace;
-    t.diagnostic(`漫反射白炉：补丁前 ${d.before}，补丁后 ${d.after}，逐字节相同 ${d.identical}，逐像素最大差 ${d.maxAbsDiff}`);
-    assert.equal(d.statusBefore, 'pass');
+    t.diagnostic(`漫反射白炉：${d.adapter}（${d.backend}）均值 ${d.mean}，记录 ${d.recorded}，${d.rule}`);
     assert.equal(d.status, 'pass');
-    assert.ok(Math.abs(d.after / d.before - 1) < 1e-6);
+    assert.equal(d.matches, true);
   });
   await t.test('白炉：22 个读数都在 Cycles 的 ±0.5% 之内，噪声远小于门限，换相机距离读数不变', () => {
     assert.equal(rep.furnace.rows.length, 22);
@@ -92,7 +116,7 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
       assert.ok(Math.abs(a.z) <= GATES.analyticSE, `${a.name} 差 ${a.z} 个标准误`);
     }
   });
-  await t.test('负对照：闭包、面光、补丁里的多重重要性采样各故意改错一项，对应读数必须超出门限', () => {
+  await t.test('负对照：闭包、面光、接线里的多重重要性采样各故意改错一项，对应读数必须超出门限', () => {
     assert.deepEqual(rep.negative.map(n => n.target), ['closure', 'area_light', 'mis']);
     for (const n of rep.negative) {
       t.diagnostic(`${n.name}: 最大相对差 ${n.worstRel.toExponential(2)}（门限 ${n.gate}）`);

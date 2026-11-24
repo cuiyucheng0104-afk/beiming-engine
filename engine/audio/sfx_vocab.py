@@ -31,7 +31,7 @@ from pathlib import Path
 import re
 
 VOCAB_PATH = Path(__file__).resolve().parent / 'ucs_vocab.json'
-_CJK_RE = re.compile(r'[\u4e00-\u9fff]')
+CJK_RE = re.compile(r'[\u4e00-\u9fff]')
 _TOKEN_SPLIT_RE = re.compile(r'[\s,，、/|+；;：:()（）\-]+')
 
 # 音效库检索修饰词表：单独搜泛词（如 "gear"、"beep"、"laser"）极易召回 8-bit 合成器或工厂电机噪音，
@@ -430,7 +430,7 @@ def get_cat(cat_id_or_prefix: str) -> list:
     ]
 
 
-def _tokens(query: str) -> list:
+def tokenize_query(query: str) -> list:
     raw = str(query or '').strip()
     if not raw:
         return []
@@ -444,8 +444,8 @@ def search_ucs(query: str, top_n: int = 10) -> list:
     if not q:
         return []
     ql = q.lower()
-    toks = [t.lower() for t in _tokens(q)]
-    has_cjk = bool(_CJK_RE.search(q))
+    toks = [t.lower() for t in tokenize_query(q)]
+    has_cjk = bool(CJK_RE.search(q))
     scored = []
 
     for e in load_ucs()['entries']:
@@ -555,7 +555,7 @@ def match_recipes(query: str, top_n: int = 5) -> list:
     if not q:
         return []
     ql = q.lower()
-    toks = [t.lower() for t in _tokens(q)]
+    toks = [t.lower() for t in tokenize_query(q)]
     has_cutting = bool(_CUTTING_TOOL_RE.search(q))
     has_scribe = bool(_SCRIBE_TOOL_RE.search(q))
     has_paper_mat = bool(_PASSIVE_PAPER_MATERIAL_RE.search(q))
@@ -570,7 +570,7 @@ def match_recipes(query: str, top_n: int = 5) -> list:
             score += 100.0
         for trig in rec['triggers']:
             tl = trig.lower()
-            is_cjk_trig = bool(_CJK_RE.search(tl))
+            is_cjk_trig = bool(CJK_RE.search(tl))
             if tl == ql:
                 score += 95.0
             elif (tl in ql) if is_cjk_trig else _ascii_trigger_in_query(tl, ql):
@@ -1151,7 +1151,7 @@ def search_by_world(query: str, world: str = 'realistic', top_n: int = 8) -> dic
     queries = []
     seen_q = set()
     q_clean = re.sub(r'\s+', ' ', q).strip()
-    is_ascii_q = bool(q_clean and not _CJK_RE.search(q_clean))
+    is_ascii_q = bool(q_clean and not CJK_RE.search(q_clean))
     q_violates_avoid = any(av.lower() in q_clean.lower() for av in avoid_list) if is_ascii_q else False
     candidate_pool_low = {p.lower() for p in (*id_queries, *det_queries)}
     if is_ascii_q and not excluded_cats and q_clean.lower() in candidate_pool_low:
@@ -1161,7 +1161,7 @@ def search_by_world(query: str, world: str = 'realistic', top_n: int = 8) -> dic
         if phrase.lower() not in seen_q:
             seen_q.add(phrase.lower())
             queries.append(phrase)
-    if is_ascii_q and not excluded_cats and not q_violates_avoid and q_clean.lower() not in seen_q and len(_tokens(q_clean)) >= 2:
+    if is_ascii_q and not excluded_cats and not q_violates_avoid and q_clean.lower() not in seen_q and len(tokenize_query(q_clean)) >= 2:
         seen_q.add(q_clean.lower())
         queries.append(q_clean)
     for phrase in det_queries[:3]:
@@ -2029,7 +2029,7 @@ def expand_for_freesound(query: str, max_queries: int = 6, *, world: str = None)
             'input': q,
             'world': sbw['world'],
             'worldLabel': sbw['worldLabel'],
-            'isChinese': bool(_CJK_RE.search(q)),
+            'isChinese': bool(CJK_RE.search(q)),
             'power': sbw['power'],
             'archetype': sbw['archetype'],
             'queries': sbw['queries'][:max(1, int(max_queries))],
@@ -2082,7 +2082,7 @@ def expand_for_freesound(query: str, max_queries: int = 6, *, world: str = None)
 
     top_free_avoid = [a.lower() for a in recipes[0]['avoid']] if recipes else []
     q_clean = re.sub(r'\s+', ' ', q).strip()
-    if q_clean and not _CJK_RE.search(q_clean):
+    if q_clean and not CJK_RE.search(q_clean):
         rec_pool_low = {
             p.lower()
             for r in recipes[:1]
@@ -2118,13 +2118,13 @@ def expand_for_freesound(query: str, max_queries: int = 6, *, world: str = None)
                     else:
                         _add(f"{sl} {cat_words}".strip() if sl != cat_words else sl)
 
-    if not _CJK_RE.search(q) and q:
+    if not CJK_RE.search(q) and q:
         _add(q)
 
     primary_rec = recipes[0] if recipes else None
     return {
         'input': q,
-        'isChinese': bool(_CJK_RE.search(q)),
+        'isChinese': bool(CJK_RE.search(q)),
         'power': primary_rec['power'] if primary_rec else 'passive',
         'archetype': primary_rec['archetype'] if primary_rec else (ucs_hits[0]['category'].lower() if ucs_hits else 'generic'),
         'queries': queries[:max(1, int(max_queries))],
