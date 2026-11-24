@@ -856,11 +856,38 @@ fn read_file(dir: &Path, rel: &str, at: &str, want: Option<u64>) -> R<Vec<u8>> {
             return Err(bad(at, format!("{rel} 是 {len} 字节，照 shape 必须是 {w} 字节（SP8）")));
         }
     }
+    if len > FILE_MAX {
+        return Err(bad(at, format!("{rel} 是 {len} 字节，超过单个文件的上限 {FILE_MAX}")));
+    }
     std::fs::read(&p).map_err(|e| bad(at, format!("{rel} 读不出来：{e}")))
 }
 
+/// 单个文件（几何、任一张每帧状态表）与三张每帧状态表合计的字节上限。读入器把文件整个读进内存（表还要再解成 f32），
+/// 不设上限的话，一个只声明了大 shape 的清单、或磁盘上几乎不占地方的稀疏文件，就能让进程占掉几 GB 内存。上限在读之前查。
+/// 取值对现实场景宽裕：1 GiB 的实例表够一万个实例跑一千六百多帧（每帧每行 64 字节），1 GiB 的 GLB 是千万量级的三角形。
+const FILE_MAX: u64 = 1 << 30;
+const TABLES_MAX: u64 = 2 << 30;
+
 fn bytes_of(shape: &[usize], at: &str) -> R<u64> {
     shape.iter().try_fold(4u64, |a, &x| a.checked_mul(x as u64)).ok_or_else(|| bad(at, "shape 各项之积太大"))
+}
+
+/// 三张每帧状态表照 shape 的字节数（实例、相机、灯）；单张超过 `file_max` 或累计超过 `total_max` 时报在那张表的 shape 上。
+fn table_bytes(p: &Pack, file_max: u64, total_max: u64) -> R<[u64; 3]> {
+    let mut out = [0; 3];
+    let mut total = 0;
+    for (k, (t, at)) in [(&p.frames_instances, "frames.instances.shape"), (&p.frames_camera, "frames.camera.shape"), (&p.frames_lights, "frames.lights.shape")].into_iter().enumerate() {
+        let b = bytes_of(&t.shape, at)?;
+        if b > file_max {
+            return Err(bad(at, format!("照 shape 是 {b} 字节，超过单个文件的上限 {file_max}")));
+        }
+        total += b;
+        if total > total_max {
+            return Err(bad(at, format!("三张每帧状态表照 shape 合计到这张已是 {total} 字节，超过上限 {total_max}")));
+        }
+        out[k] = b;
+    }
+    Ok(out)
 }
 
 /// 读一个场景包目录：清单、几何、实例表、三张每帧状态表，全部校验。
@@ -908,13 +935,13 @@ pub fn load(dir: &Path) -> R<Pack> {
     }
 
     // 每帧状态表
-    for (key, at) in [("instances", "frames.instances"), ("camera", "frames.camera"), ("lights", "frames.lights")] {
+    let sizes = table_bytes(&p, FILE_MAX, TABLES_MAX)?;
+    for (key, at, want) in [("instances", "frames.instances", sizes[0]), ("camera", "frames.camera", sizes[1]), ("lights", "frames.lights", sizes[2])] {
         let t = match key {
             "instances" => &mut p.frames_instances,
             "camera" => &mut p.frames_camera,
             _ => &mut p.frames_lights,
         };
-        let want = bytes_of(&t.shape, &join(at, "shape"))?;
         let raw = read_file(&root, &t.file.clone(), &join(at, "file"), Some(want))?;
         t.data = raw.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
         if let Some(k) = t.data.iter().position(|x| !x.is_finite()) {
@@ -1623,6 +1650,57 @@ mod tests {
         let t = std::time::Instant::now();
         assert_eq!(parse_manifest(&v).unwrap().names.len(), n);
         assert!(t.elapsed().as_secs_f64() < 10.0, "{:?}", t.elapsed());
+    }
+
+    /// 一个空的临时包目录（系统临时目录下，按测试名与进程号分开）。
+    fn scratch(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("beiming-pack-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("f")).unwrap();
+        d
+    }
+
+    fn f32_bytes(x: &[f32]) -> Vec<u8> {
+        x.iter().flat_map(|v| v.to_le_bytes()).collect()
+    }
+
+    /// 内存上限在读之前查：表的 shape 声明了 2 GiB（文件根本不存在）、几何文件是 1 GiB 多一个字节的稀疏文件，都报带码的错。
+    #[test]
+    fn oversized_files_are_refused_before_reading() {
+        let c = 1usize << 24;
+        let mut v = manifest();
+        v["frames"]["count"] = json!(c);
+        v["frames"]["instances"]["shape"] = json!([c, 2, 16]);
+        v["frames"]["camera"]["shape"] = json!([c, 19]);
+        v["frames"]["lights"]["shape"] = json!([c, 3, 17]);
+        let d = scratch("big-table");
+        std::fs::write(d.join("pack.json"), serde_json::to_vec(&v).unwrap()).unwrap();
+        std::fs::write(d.join("i.u32"), [0u32, 0, 1, 0, 0, 0, 2, 0].map(|x| x.to_le_bytes()).concat()).unwrap();
+        let e = load(&d).unwrap_err();
+        assert_eq!((e.code, e.at.as_str()), (BAD_VALUE, "frames.instances.shape"), "{}", e.message);
+        std::fs::remove_dir_all(&d).unwrap();
+
+        let p = pack(0, false);
+        let d = scratch("big-glb");
+        std::fs::write(d.join("pack.json"), serde_json::to_vec(&manifest()).unwrap()).unwrap();
+        std::fs::write(d.join("i.u32"), [0u32, 0, 1, 0, 0, 0, 2, 0].map(|x| x.to_le_bytes()).concat()).unwrap();
+        std::fs::write(d.join("f/i.f32"), f32_bytes(&p.frames_instances.data)).unwrap();
+        std::fs::write(d.join("f/c.f32"), f32_bytes(&p.frames_camera.data)).unwrap();
+        std::fs::write(d.join("f/l.f32"), f32_bytes(&p.frames_lights.data)).unwrap();
+        std::fs::File::create(d.join("g.glb")).unwrap().set_len(FILE_MAX + 1).unwrap();
+        let e = load(&d).unwrap_err();
+        assert_eq!((e.code, e.at.as_str()), (BAD_VALUE, "geometry.file"));
+        assert!(e.message.contains("上限"), "{}", e.message);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// 单张表与三张表合计的上限（这里换成小数，免得造大清单）：超了报在让它超的那张表的 shape 上。
+    #[test]
+    fn table_limits_name_the_shape() {
+        let p = parse_manifest(&manifest()).unwrap();
+        assert_eq!(table_bytes(&p, 1000, 1000).unwrap(), [128, 76, 204]);
+        assert_eq!(table_bytes(&p, 200, 1000).unwrap_err().at, "frames.lights.shape");
+        assert_eq!(table_bytes(&p, 1000, 150).unwrap_err().at, "frames.camera.shape");
     }
 
     #[test]
