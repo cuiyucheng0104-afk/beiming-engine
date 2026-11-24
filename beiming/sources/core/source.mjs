@@ -36,10 +36,13 @@ const record = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const pad = (n, width) => String(n).padStart(width, '0');
 const sha256 = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
-/** 起一次 core-render；退出码不是 0 时，stderr 最后一行是 {"error":{code,at,message}} 就报那个码，否则原样报错 */
-function run(bin, args) {
+/** 起一次 core-render；退出码不是 0 时，stderr 最后一行是 {"error":{code,at,message}} 就报那个码，否则原样报错。
+ *  给了 seed 时内核的种子就是它（THREERT_SEED），外层环境里的 THREERT_SEED、THREERT_HWRT 不传下去 */
+function run(bin, args, seed) {
   return new Promise((ok, fail) => {
-    const child = spawn(bin, [...args, '--presets', PRESETS], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const { THREERT_SEED: _s, THREERT_HWRT: _h, ...env } = process.env;
+    if (seed !== undefined) env.THREERT_SEED = String(seed);
+    const child = spawn(bin, [...args, '--presets', PRESETS], { stdio: ['ignore', 'pipe', 'pipe'], env });
     const out = [], err = [];
     child.stdout.on('data', (b) => out.push(b));
     child.stderr.on('data', (b) => err.push(b));
@@ -213,7 +216,7 @@ export async function startSource({ bin = process.env.BEIMING_CORE_RENDER } = {}
           const sub = `r${pad(renders++, 3)}-f${pad(f, 4)}`, out = join(resolve(env.workspace), sub);
           await mkdir(out, { recursive: true });
           const [w, h] = plan.size;
-          res = await run(bin, ['render-pack', dir, '--frame', String(f), '--spp', String(plan.samples), '--width', String(w), '--height', String(h), '--no-denoise', '-o', join(out, 'preview.png'), '--passes', out]);
+          res = await run(bin, ['render-pack', dir, '--frame', String(f), '--spp', String(plan.samples), '--width', String(w), '--height', String(h), '--no-denoise', '-o', join(out, 'preview.png'), '--passes', out], locked.seed);
           for (const name of plan.layers) {
             const [file, components] = LAYERS[name];
             layers[name] = { file: `${sub}/${file}`, shape: [h, w, components.length], components, hash: sha256(await readFile(join(out, file))) };

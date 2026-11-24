@@ -54,7 +54,7 @@ await s.close(); await src.stop();
 - 相机：`world` 是场景包相机表的 `mat16`，`proj` 照每帧元数据契约 5.1 从 `fovY`、清单的 `near`、`far` 和输出尺寸算；相机表带景深两列时带 `focusDist`、`fstop`、`sensorHeightM`。
 - 实体：这一帧画出来的实体（实例矩阵左上 3×3 行列式不为 0）逐顶点投影，算 `bbox2d`、`bbox3d`、`pxArea`、`depth`（算式与页面宿主共用 `../../host/page/measure.js`，同样不做近裁剪面的裁剪：跨到相机后面的实体 `bbox2d` 不对）。`visible` 写 `null`（场景包里没有角色）。
 - `lights`、`stats.noise` 写 `null`，在能力声明的 `metaNull` 里；`texts` 是空数组。
-- 镜头种子照实写进 `seed`，但内核的采样还没用它（用的是内核默认的种子）。
+- 镜头种子照实写进 `seed`，也就是内核采样用的种子（起 core-render 时设 `THREERT_SEED`，外层环境里的 `THREERT_SEED`、`THREERT_HWRT` 不传下去）。
 
 ## 确定性与一致性探针
 

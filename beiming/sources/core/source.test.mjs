@@ -144,6 +144,31 @@ test('两块错开的板经帧源接口出一帧：元数据过每帧元数据�
   await s.close();
 });
 
+test('镜头种子进内核：同一个种子两遍逐字节相同、外层的 THREERT_SEED 改不了它；换种子 color 层变、depth 层不变', async (t) => {
+  const bin = renderer(t);
+  if (!bin) return;
+  const dir = fresh('seed');
+  writePack(dir, platesPack());
+  const src = await startSource({ bin });
+  const once = async (seed, outer) => {
+    const saved = process.env.THREERT_SEED;
+    if (outer === undefined) delete process.env.THREERT_SEED; else process.env.THREERT_SEED = outer;
+    try {
+      const env = envOf(), s = await src.open(inputOf(dir, [64, 36], { seed, tiers: { draft: { samples: 8, scale: 1 } } }), env);
+      const r = await rendered(t, s, 0, {}, ['color', 'depth']);
+      await s.close();
+      return r && { seed: r.meta.seed, color: r.layers.color.hash, depth: r.layers.depth.hash };
+    } finally { if (saved === undefined) delete process.env.THREERT_SEED; else process.env.THREERT_SEED = saved; }
+  };
+  const a = await once(7);
+  if (!a) return;
+  const b = await once(7, '99'), c = await once(99);
+  assert.deepEqual(b, a, '同一个镜头种子两遍（第二遍外层设了 THREERT_SEED）逐字节相同');
+  assert.equal(c.seed, 99);
+  assert.notEqual(c.color, a.color, '换镜头种子 color 层要变');
+  assert.equal(c.depth, a.depth, '换镜头种子 depth 层不变（辅助样本不取随机数）');
+});
+
 test('从 Blender 导出的场景包（BEIMING_CORE_TEST_PACKS）经帧源接口各出一帧：每个通道字节数对、有限、不全为同一个值，编号都在实体清单里', async (t) => {
   const list = (process.env.BEIMING_CORE_TEST_PACKS ?? '').split(path.delimiter).filter(Boolean);
   if (!list.length) { t.skip('没设 BEIMING_CORE_TEST_PACKS'); return; }
