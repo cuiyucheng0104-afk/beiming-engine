@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "23-1-shift-2f",
+  "questionId": "23-1",
+  "kind": "shift-2f",
+  "disabledCards": [],
+  "seed": null,
+  "description": "转台环绕闭合相位提前 2 帧：第 0 到第 69 帧匀速转完 360° 提前闭合，第 70、71 帧各小幅缓滑 0.4°（总转角 360.8°，仍满足 [359°, 361°] 基础谓词）；后半段里和第 0 帧最像的帧从第 71 帧提前到第 69 帧，打穿第一条判分线；第 71 帧离第 0 帧仅 0.8°（小于相邻帧约 5.2° 的步进，第二条判分线照过）。",
+  "perturbation": {
+    "loopShiftFrames": 2
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "loop.closure-psnr",
+      "why": "整圈提前 2 帧在第 69 帧闭合（总转角 360.8°），后半段（第 36 到 71 帧）里和第 0 帧 PSNR 最高的是第 69 帧，不是题面要求的第 71 帧"
+    }
+  ]
+}

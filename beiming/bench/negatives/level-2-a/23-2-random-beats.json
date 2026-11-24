@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "23-2-random-beats",
+  "questionId": "23-2",
+  "kind": "random-beats",
+  "disabledCards": [],
+  "seed": 20261124,
+  "description": "片内 5 个章节切换点不跟 120 BPM 拍点网格走，换成固定种子在 672 帧里取的 5 个随机拍点（两两至少隔 36 帧）；配乐的强起音和拍点网格不变，强起音落拍率照过，章节落拍项判不过。",
+  "perturbation": {
+    "chapterTrigger": "random-beats"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "beat.onset-hit",
+      "why": "随机章节起点里最远偏离拍点达 230 毫秒，5 个章节超过 1 帧（41.667 毫秒）容差"
+    }
+  ]
+}
