@@ -31,7 +31,7 @@
     "order": { "before": [], "after": [] },
     "requires": [
       "Handle.object 由宿主挂在透视相机下面，它的局部坐标就是相机空间（米，右手系，Y 向上，−Z 朝前）",
-      "text 里的字符属于仓库锁定 OFL 字体分片（routes/c-style/fonts/，覆盖全套可打印 ASCII 与 6,763 个 GB2312 汉字共 7,015 字）；motion 取 rise（默认）、settle 或 fade"
+      "text 里的字符属于仓库锁定 OFL 字体分片（routes/c-style/fonts/，覆盖全套可打印 ASCII 与 6,763 个 GB2312 汉字共 7,015 字）；motion 取 rise（默认）、settle、settle-drift 或 fade"
     ]
   },
   "conditions": {

@@ -5,7 +5,7 @@
 // 颜色：ink 是显示空间的颜色，写进颜色层的是它解码到线性光之后的值，预乘透明度。
 /* global URL, location, fetch, crypto, FontFace, document, window */
 
-const MOTIONS = new Set(['rise', 'settle', 'fade']);
+const MOTIONS = new Set(['rise', 'settle', 'settle-drift', 'fade']);
 const ALPHA_MIN = 8;
 
 function parseCodepoints(manifest) {
@@ -225,8 +225,17 @@ export function create(ctx, params) {
     const baseH = (params.heightFrac * 2 * params.distance) / projection()[5];
     const p = t < params.enter ? 0 : params.settleFrames === 0 ? 1 : Math.min(1, (t - params.enter) / params.settleFrames);
     const eased = 1 - (1 - p) ** 3;
+    const isSettle = motion === 'settle' || motion === 'settle-drift';
     const scale = motion === 'settle' && p > 0 ? 0.85 + 0.15 * eased : 1;
-    const liftFactor = motion === 'fade' ? 0 : motion === 'settle' ? 0.25 : 0.5;
+    const liftFactor = motion === 'fade' ? 0 : isSettle ? 0.25 : 0.5;
+    if (motion === 'settle-drift' && p > 0) {
+      const settleEased = 0.35 * p + 0.65 * eased;
+      const after = Math.max(0, t - params.enter - params.settleFrames);
+      const omega = (2 * Math.PI) / 48;
+      const driftScale = 1 + 0.012 * settleEased + 0.008 * Math.sin(omega * after);
+      const driftLift = 0.045 * baseH * (1 - Math.cos(omega * after));
+      return { h: baseH * driftScale, lift: (settleEased - 1) * liftFactor * baseH + driftLift, opacity: 1 };
+    }
     return { h: baseH * scale, lift: (eased - 1) * liftFactor * baseH, opacity: eased };
   }
 

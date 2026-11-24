@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "kind": "mechanism",
   "title": "Cycles 渲染与显卡降噪",
-  "intent": "把 Blender 镜头的渲染器定成 Cycles：显卡出图，降噪用 OIDN 并放在显卡上，快门从帧起点打开；草稿档低采样加降噪，终稿档按镜头写的采样数出",
+  "intent": "把 Blender 镜头的渲染器定成 Cycles：显卡出图，降噪用 OIDN 并放在显卡上，快门从帧起点打开；草稿档低采样加降噪，终稿档按镜头写的采样数出并开启 OIDN 降噪",
   "visibleToAgent": true,
   "livesIn": [
     "source:blender"
@@ -58,7 +58,7 @@
       "after": []
     },
     "requires": [
-      "ctx.hostScene 是这个镜头的 Blender 场景；每像素采样数、开不开降噪由帧源按档位逐次定（草稿档开，终稿档取镜头 tiers.final.samples），这张卡定降噪器和它放在哪",
+      "ctx.hostScene 是这个镜头的 Blender 场景；每像素采样数、开不开降噪由帧源按档位逐次定（草稿档与终稿档均开 OIDN 降噪，终稿档取镜头 tiers.final.samples），这张卡定降噪器和它放在哪",
       "颜色层是场景线性的 32 位浮点，降噪器的辅助输入取反照率和法线"
     ]
   },
@@ -73,7 +73,7 @@
   },
   "calibration": "probe-gray-chart",
   "verify": {
-    "selftest": "装上之后渲染器是 Cycles、快门位置是帧起点、降噪器是 OIDN 并放在显卡上、反弹次数和间接光截断照参数；草稿档出帧的元数据 source.denoise 是 oidn-gpu、采样数是档位的数，终稿档的采样数是镜头 tiers.final.samples；有卡把渲染器改成别的时下一帧报错",
+    "selftest": "装上之后渲染器是 Cycles、快门位置是帧起点、降噪器是 OIDN 并放在显卡上、反弹次数和间接光截断照参数；草稿档出帧的元数据 source.denoise 是 oidn-gpu、采样数是档位的数，终稿档的采样数是镜头 tiers.final.samples 且开启 OIDN 降噪；有卡把渲染器改成别的时下一帧报错",
     "predicates": []
   },
   "pitfalls": [

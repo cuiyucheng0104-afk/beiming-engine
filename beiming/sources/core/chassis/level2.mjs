@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // 北冥 · 对拍阶梯第 2 级：我方 GGX 金属闭包与矩形面光接进路径追踪内核（build.mjs 从 ../path/ 编出的 core-render）后渲图对答案。
 //   上游自带的漫反射白炉用我们的程序跑要过，画面中央的均值与记下来的数相等；金属白炉 22 个读数对 Cycles（±0.5%）；
-//   矩形面光照漫反射平面对解析值（0.2% 且 3 个标准误以内）；闭包、面光、接线各故意改错一项必须不过；同种子两遍逐字节相同。
+//   矩形面光照漫反射平面四种几何对解析值（32 个种子，0.2% 以内，且在 3 个标准误或相对 2e-6 以内）；闭包、面光、接线故意改错六项，每项必须不过；
+//   同种子两遍逐字节相同。
 //   node beiming/sources/core/chassis/level2.mjs [--out 报告.json]
 // 退出码：0 全部过；4 有一项不过；3 缺工具链（git、cargo、npm、网络、显卡）。
 // 渲染一律取内核的线性浮点原始输出（--hdr，曝光与后期之前），不降噪，萤火虫钳制放到不起作用。
@@ -18,11 +19,17 @@ import { polygonIrradiance } from '../fncheck/checks.mjs';
 import { COMMIT, OUT, PRESETS, UPSTREAM, buildRenderer, ensureNodeModules, ensureUpstream, missing } from './build.mjs';
 
 export const CYCLES = JSON.parse(fs.readFileSync(new URL('./cycles-furnace-metal.json', import.meta.url), 'utf8'));
-export const GATES = { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3 };
+// analyticFloor：数值精度的底。解析场景的标准误可以小到相对 1e-6 以下，而单精度算出来的读数对解析值本来就有
+// 百万分之零点五以内的固定残差（同一串随机数在两块显卡上还系统地差 2e-7 到 6e-7），只按标准误判就是在判这点残差。
+// 底取相对 2e-6，约为残差的五倍。种子取 32 个：8 个种子估出来的标准误尾巴很重，均值超过 3 个标准误的概率约 2%
+export const GATES = { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3, analyticFloor: 2e-6 };
+export const analyticOk = a => Math.abs(a.rel) <= GATES.analyticRel && (Math.abs(a.z) <= GATES.analyticSE || Math.abs(a.rel) <= GATES.analyticFloor);
+/** 超过了 3 个标准误、靠那条底才过的读数：输出里要提示 */
+export const passedByFloor = a => analyticOk(a) && Math.abs(a.z) > GATES.analyticSE;
 // 上游自带的漫反射白炉，画面中央的全精度均值，按显卡各记一个。同一台机器上渲染是确定的，记过的显卡要逐位相等。
-// 换显卡或驱动，着色器编出来的浮点运算次序不同，均值会差在第 8 位上（这两台之间差 1.1e-8），所以没记过的显卡
+// 换显卡或驱动，着色器编出来的浮点运算次序不同，均值会差在第 8 位上（这两台之间差 0.9e-8），所以没记过的显卡
 // 按相对 1e-6 比。记法：在那台机器上跑一遍本脚本，把报告里 diffuseFurnace.mean 填进来。
-export const DIFFUSE = { tolerance: 1e-6, recorded: { 'Apple M5 Pro|Metal': 0.9999757122248412, 'NVIDIA GeForce RTX 5090|Vulkan': 0.9999757010489703 } };
+export const DIFFUSE = { tolerance: 1e-6, recorded: { 'Apple M5 Pro|Metal': 1.0007596142590045, 'NVIDIA GeForce RTX 5090|Vulkan': 1.0007596049457788 } };
 const WORK = path.join(OUT, 'level2');
 const ROUGHNESS = Object.keys(CYCLES.GGX);
 const lum = (px, i) => 0.2126 * px[3 * i] + 0.7152 * px[3 * i + 1] + 0.0722 * px[3 * i + 2];
@@ -38,8 +45,8 @@ export function discPixels(w, h, r) {
   return out;
 }
 
-/** 亮度 L 的单面朗伯矩形灯（灯心 center，半边向量 u、v）照 z = 0 上反照率 albedo 的朗伯平面，[-half, half]² 上出射辐亮度的均值（中点求积，双精度） */
-export function rectMean({ L, albedo, light: { center: c, u, v }, half, n = 256 }) {
+/** 亮度 L 的单面朗伯矩形灯（灯心 center，半边向量 u、v）照 z = 0 上反照率 albedo 的朗伯平面，[-half, half]² 上出射辐亮度的均值（中点求积，双精度；n = 1024 时求积误差在相对 4e-8 以下；256 时近灯是 6.8e-7，与读数的残差同量级） */
+export function rectMean({ L, albedo, light: { center: c, u, v }, half, n = 1024 }) {
   const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => c.map((x, k) => x + a * u[k] + b * v[k]));
   let s = 0;
   for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) s += polygonIrradiance([half * ((2 * i + 1) / n - 1), half * ((2 * j + 1) / n - 1), 0], [0, 0, 1], corners);
@@ -89,6 +96,14 @@ export default function () {
  *  像素到平面是线性映射，像素内均匀抖动，所以区域的像素均值就是平面上那个方块里出射辐亮度的均值；方块对称，灯左右翻转读数不变 */
 export const RECT = { L: 10, albedo: 0.5, size: 0.5, image: 64, region: 16, Zc: 3, halfView: 0.4 };
 const GEOMS = [{ name: '正对', position: [0, 0, 1] }, { name: '斜向', position: [0.8, 0, 0.9] }];
+// 灯高 0.25 m 正对。射线起点沿法线挪开的那一点距离与灯距的比，它比上面两种大：材质采样一侧要是从挪开的起点算矩形灯，
+// 这个读数偏高万分之二（上面两种只有百万分之二与千万分之四）。它的噪声也大（32 个种子的标准误是相对 5e-6 上下），
+// 只进第 2 级的判定，不进回归基线逐位比的那 24 个读数
+const NEAR = { name: '近灯', position: [0, 0, 0.25] };
+// 斜向那个几何，灯背后 30 微米放一块 0.7 m 见方、与灯平行的黑板（plate 是板离灯面的米数）。黑板不反光，解析值与斜向相同。
+// 30 微米比射线起点挪开的那一点距离小：材质采样一侧要是把从挪开的起点量的遮挡距离直接与从着色点量的灯距比，
+// 会把灯判成被板挡住，读数偏低千分之一点五。也只进第 2 级的判定
+const PLATE = { name: '灯后有板', position: [0.8, 0, 0.9], plate: 3e-5 };
 
 /** three.js 的 lookAt（灯与相机的 -z 指向目标、上方向 +y）定出的灯面半边向量 */
 function lightAxes(position, size) {
@@ -98,8 +113,9 @@ function lightAxes(position, size) {
   return { center: position, u: x.map(a => a * size / 2), v: y.map(a => a * size / 2) };
 }
 
-function rectScene({ position }) {
+function rectScene({ position, plate }) {
   const { L, albedo: a, size, image, Zc, halfView } = RECT;
+  const k = 1 + (plate ?? 0) / Math.hypot(...position);
   return `${head}
 export default function () {
   const scene = new Scene();
@@ -109,7 +125,11 @@ export default function () {
   r.position.set(${position});
   r.lookAt(0, 0, 0);
   r.card = false;
-  scene.add(r);
+  scene.add(r);${plate === undefined ? '' : `
+  const bk = new Mesh(new PlaneGeometry(0.7, 0.7), new MeshPhysicalMaterial({ color: new Color().setRGB(0, 0, 0), roughness: 1, metalness: 0, specularIntensity: 0 }));
+  bk.position.set(${position.map(x => x * k)});
+  bk.lookAt(0, 0, 0);
+  scene.add(bk);`}
   ${cam(`0, 0, ${Zc}`, (2 * Math.atan(halfView / Zc) * 180) / Math.PI)}
   return { scene, camera: c, options: ${opts(image, { energyCompensation: 0 })} };
 }`;
@@ -174,7 +194,7 @@ async function renderSeeds(bin, seeds, jobs) {
 // ---------------------------------------------------------------------------------------------------------------
 
 const FURNACE = { spp: 1024, seeds: [1, 2, 3, 4], D: [100, 30] };
-const ANALYTIC = { spp: 4096, seeds: [1, 2, 3, 4, 5, 6, 7, 8] };
+const ANALYTIC = { spp: 4096, seeds: Array.from({ length: 32 }, (_, k) => k + 1) };
 
 export async function furnace(bin, { D = FURNACE.D[0], seeds = FURNACE.seeds, rows = null } = {}) {
   const disc = discPixels(128, 128, CYCLES.image.inner_disc_frac * CYCLES.image.sphere_radius_px);
@@ -198,8 +218,9 @@ export async function analytic(bin, { seeds = ANALYTIC.seeds, geoms = GEOMS } = 
   const { image, region } = RECT, lo = (image - region) / 2;
   const jobs = [];
   for (const g of geoms) {
+    const tag = `rect-${g.position.join('_')}${g.plate === undefined ? '' : `-plate${g.plate}`}`;
     jobs.push({
-      tag: `rect-${g.position.join('_')}`, spp: ANALYTIC.spp, game: await bundle(`rect-${g.position.join('_')}`, rectScene(g)),
+      tag, spp: ANALYTIC.spp, game: await bundle(tag, rectScene(g)),
       read: ({ px, w }) => {
         let s = 0;
         for (let y = lo; y < lo + region; y++) for (let x = lo; x < lo + region; x++) s += lum(px, y * w + x);
@@ -233,22 +254,43 @@ function upstreamTest(bin) {
   });
 }
 
-// 负对照：在源码的拷贝上各故意改错一项（build.mjs 的 inject；file 相对 beiming/sources/core/，工作树不动）
+// 负对照：在源码的拷贝上各故意改错一项（build.mjs 的 inject；file 相对 beiming/sources/core/，工作树不动）。
+// near 是这项改错该量到的最大相对差：读数要在门外，还要落在 near 的 ±5% 之内（fine 的两项 ±30%）。改错的读数挪了位置，说明接线变了
+// （纯金属没采到方向的样本曾经漏进白炉，这一项从 0.557 变成 1.20，照旧在门外，当时没有人发现）。
+// fine 的三项改错很小（十万分之二、万分之二、千分之一点五），在 0.2% 之内：它们要的是解析场景的整条判法（analyticOk）判不过，
+// 守的是那条底没有把这个量级的错放过去。它们的读数里噪声与数值残差占百分之几到十几，所以容差放到 ±30%
+export const negativeTolerance = n => (n.fine ? 0.3 : 0.05);
+export const negativeOk = n => (n.fine ? n.rows.some(r => !analyticOk(r)) : Math.abs(n.worstRel) > n.gate) && Math.abs(n.worstRel / n.near - 1) <= negativeTolerance(n);
 const NEGATIVE = [
   {
     target: 'closure', name: '闭包：求值的遮蔽项漏掉出射方向的 lambda（G2 写成 G1）',
     inject: { file: 'shaders/microfacet.wgsl', from: 'reflectance * common_ / (1.0 + lambdaO + lambdaI)', to: 'reflectance * common_ / (1.0 + lambdaI)' },
-    run: async bin => (await furnace(bin, { seeds: [1], rows: ['0.30', '0.60', '1.00'].map(roughness => ({ distribution: 'GGX', roughness })) })).rows, gate: GATES.furnaceRel,
+    run: async bin => (await furnace(bin, { seeds: [1], rows: ['0.30', '0.60', '1.00'].map(roughness => ({ distribution: 'GGX', roughness })) })).rows, gate: GATES.furnaceRel, near: 0.557,
   },
   {
     target: 'area_light', name: '面光：辐射通量到辐亮度的换算多乘 1%',
     inject: { file: 'shaders/area_light.wgsl', from: 'ls.eval_fac = M_1_PI_F * invarea;', to: 'ls.eval_fac = M_1_PI_F * invarea * 1.01;' },
-    run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel,
+    run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel, near: 1.0e-2,
   },
   {
     target: 'mis', name: '接线：材质采样打到矩形纯光时不取光（多重重要性采样只剩光源一侧的权重）',
-    inject: { file: 'path/shaders/pathtrace.wgsl', from: 'if (!LIVE && bm_surf) {', to: 'if (false && bm_surf) {' },
-    run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel,
+    inject: { file: 'path/shaders/integrator.wgsl', from: 'if (!LIVE && state.legacy.bm_surf) {', to: 'if (false && state.legacy.bm_surf) {' },
+    run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel, near: -4.87e-3,
+  },
+  {
+    target: 'area_light_fine', name: '面光：辐射通量到辐亮度的换算多乘十万分之二',
+    inject: { file: 'shaders/area_light.wgsl', from: 'ls.eval_fac = M_1_PI_F * invarea;', to: 'ls.eval_fac = M_1_PI_F * invarea * 1.00002;' },
+    run: async bin => analytic(bin), fine: true, gate: GATES.analyticFloor, near: 2.0e-5,
+  },
+  {
+    target: 'mis_origin', name: '接线：材质采样打到矩形纯光时从沿法线挪开的射线起点算（两侧的权重配不平）',
+    inject: { file: 'path/shaders/integrator.wgsl', from: 'bm_rect_hits(state.legacy.bm_x, ray.D,', to: 'bm_rect_hits(ray.P, ray.D,' },
+    run: async bin => analytic(bin, { geoms: [NEAR] }), fine: true, gate: GATES.analyticFloor, near: 2.0e-4,
+  },
+  {
+    target: 'mis_occluder', name: '接线：材质采样打到矩形纯光时遮挡距离直接拿 hit.t 比（灯紧贴背后的面时这一侧整份丢掉）',
+    inject: { file: 'path/shaders/integrator.wgsl', from: 'select(hit.t / 0.999, INF, hit.tri == 0xffffffffu)', to: 'select(hit.t, INF, hit.tri == 0xffffffffu)' },
+    run: async bin => analytic(bin, { seeds: ANALYTIC.seeds.slice(0, 8), geoms: [PLATE] }), fine: true, gate: GATES.analyticFloor, near: -1.48e-3,
   },
 ];
 
@@ -280,7 +322,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
     // 按「显卡加后端」记数。记过的应当逐位相等；换了驱动或着色器编译器会差在末位，那时只要还在容差内就算过，并提示重新登记。没记过的按容差对已有的记录比
     exact: recorded !== null && mean === recorded,
     matches: (recorded === null ? Object.values(DIFFUSE.recorded) : [recorded]).some(v => Math.abs(mean / v - 1) < DIFFUSE.tolerance),
-    rule: recorded === null ? `这块显卡与后端没记过，按相对 ${DIFFUSE.tolerance} 比` : mean === recorded ? '逐位相等' : `与记录不再逐位相等，仍在相对 ${DIFFUSE.tolerance} 之内；请重新登记这块显卡的数`,
+    rule: recorded === null ? `这块显卡与后端没记过，按相对 ${DIFFUSE.tolerance} 比` : mean === recorded ? '逐位相等' : `与记录不再逐位相等；在相对 ${DIFFUSE.tolerance} 之内算过，过不过都请重新登记这块显卡的数`,
   };
 
   say('金属白炉');
@@ -289,14 +331,14 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   const camera = { D: FURNACE.D, fovNote: '过球心平面上的半高 1.25（正交 ortho_scale 2.5 的一半）', maxRelChange: Math.max(...main.rows.map((r, k) => Math.abs(near.rows[k].ours / r.ours - 1))) };
 
   say('矩形面光照漫反射平面');
-  const ana = await analytic(ours.bin);
+  const ana = await analytic(ours.bin, { geoms: [...GEOMS, NEAR, PLATE] });
 
   say('负对照');
   const negative = [];
   for (const n of NEGATIVE) {
     const b = buildRenderer({ inject: [n.inject] });
     const rows = await n.run(b.bin);
-    negative.push({ target: n.target, name: n.name, inject: n.inject, gate: n.gate, rows, worstRel: rows.reduce((w, r) => (Math.abs(r.rel) > Math.abs(w) ? r.rel : w), 0) });
+    negative.push({ target: n.target, name: n.name, inject: n.inject, gate: n.gate, near: n.near, fine: n.fine === true, rows, worstRel: rows.reduce((w, r) => (Math.abs(r.rel) > Math.abs(w) ? r.rel : w), 0) });
   }
 
   say('同一种子渲两遍');
@@ -318,8 +360,8 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   const checks = {
     构建: diffuseFurnace.status === 'pass' && diffuseFurnace.matches,
     白炉: main.rows.every(r => Math.abs(r.rel) <= GATES.furnaceRel && r.se / r.cycles < GATES.furnaceRel / 10) && camera.maxRelChange < GATES.furnaceRel / 10,
-    解析场景: ana.every(x => Math.abs(x.rel) <= GATES.analyticRel && Math.abs(x.z) <= GATES.analyticSE),
-    负对照: negative.every(n => Math.abs(n.worstRel) > n.gate),
+    解析场景: ana.every(analyticOk),
+    负对照: negative.every(negativeOk),
     确定性: det.identical,
   };
   say('完成');
@@ -350,8 +392,9 @@ export const command = defineCommand({
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
     for (const r of report.furnace.rows) ctx.out(`${Math.abs(r.rel) <= GATES.furnaceRel ? '✓' : '✗'} 白炉 ${r.distribution.padEnd(9)} ${r.roughness}  我方 ${r.ours.toFixed(6)} ± ${r.se.toExponential(1)}  Cycles ${r.cycles.toFixed(6)}  相对差 ${r.rel.toExponential(2)}`);
-    for (const a of report.analytic) ctx.out(`${Math.abs(a.rel) <= GATES.analyticRel && Math.abs(a.z) <= GATES.analyticSE ? '✓' : '✗'} 面光 ${a.name}  我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(1)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
-    for (const n of report.negative) ctx.out(`${Math.abs(n.worstRel) > n.gate ? '✓' : '✗'} 负对照 ${n.name}：最大相对差 ${n.worstRel.toExponential(2)}`);
+    for (const a of report.analytic) ctx.out(`${analyticOk(a) ? '✓' : '✗'} 面光 ${a.name}  我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(1)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
+    for (const a of report.analytic.filter(passedByFloor)) ctx.out(`提示 面光 ${a.name} 超过了 ${GATES.analyticSE} 个标准误，是按数值精度的底（相对 ${GATES.analyticFloor}）过的`);
+    for (const n of report.negative) ctx.out(`${negativeOk(n) ? '✓' : '✗'} 负对照 ${n.name}：最大相对差 ${n.worstRel.toExponential(2)}（该在 ${n.near.toExponential(2)} 的 ±${negativeTolerance(n) * 100}% 之内${n.fine ? '，且解析场景的判法判它不过' : ''}）`);
     ctx.out(`各项：${Object.entries(report.checks).map(([k, v]) => `${k} ${v ? '过' : '不过'}`).join('，')}；报告：${file}`);
     const bad = Object.keys(report.checks).filter(k => !report.checks[k]);
     return { data: report, outputs: [{ path: file, kind: 'report' }], ...(bad.length && { error: { code: 'contract.chassis-level2', message: `不过：${bad.join('、')}`, hint: `明细见 ${file}` } }) };
