@@ -1,6 +1,6 @@
 # 核心帧源 · 内核的四样内部结构
 
-读者｜要改内核、或要在内核里移植闭包、灯、图案节点、降噪、输出通道的人与 agent　冻结标记｜[FREEZE.json](FREEZE.json)（版本 1.0.0，2026-11-24）　来源与历史｜[PROVENANCE.md](PROVENANCE.md)
+读者｜要改内核、或要在内核里移植闭包、灯、图案节点、降噪、输出通道的人与 agent　冻结标记｜[FREEZE.json](FREEZE.json)（版本 1.1.0，2026-11-24）　来源与历史｜[PROVENANCE.md](PROVENANCE.md)
 
 这份条文定死路径追踪内核内部四样东西的形状：**材质记录、光线负载、随机维度、输出通道**。定下来是为了让后面几类移植能分给不同的人同时做：各改各的函数，不改这四样的形状。
 
@@ -236,7 +236,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 | 字段 | 类型 | 含义 | 谁写 | 状态 |
 |---|---|---|---|---|
-| `render_pixel_index` | u32 | 写缓冲用的像素下标 | `main` 开头 | 已落地 |
+| `render_pixel_index` | u32 | 写缓冲用的像素下标 | 两个入口（`main`、`aux_sample`）开头 | 已落地 |
 | `sample` | u32 | 第几个样本 | `rng_start` | 已落地 |
 | `bounce` | u32 | 总弹射数，也就是当前着色点是路径上第几个顶点 | 主循环每轮开头 | 已落地 |
 | `diffuse_bounce`、`glossy_bounce`、`transmission_bounce`、`transparent_bounce` | u32 | 分类计数：照采样标签累加并接各自的上限 | 没人写 | 已定义 |
@@ -249,9 +249,10 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `throughput` | vec3 | 路径的通量权重 | 主循环 | 已落地 |
 | `visibility` | u32 | 这一段光线的可见类 `PATH_RAY_VISIBILITY_*` | `main` 开头、`path_state_next` | 已写未读（只有骨架） |
 | `mis_ray_object` | u32 | 上一个散射点所在的物体（物体表的下标）；介质散射记 `OBJECT_NONE` | 主循环 | 已写未读 |
+| `first_hit_object` | u32 | 相机射线首次命中的物体（物体表的下标）；没打到表面（含在介质里先散射了）记 `OBJECT_NONE`。覆盖率用：`film_write_sample` 读它的实体编号 | `main` 开头、主循环第 0 个顶点；只在要辅助层的变体（编译开关 `aux`）里写 | 已落地（1.1.0 加） |
 | `legacy` | `PathLegacy` | 上游的路径状态，照 Cycles 没有对应 | 各处 | 已落地，对应功能移植后删 |
 
-已登记、还没加的字段（加字段不算破坏，这里只占名字）：`pass_diffuse_weight`、`pass_glossy_weight`（分通道对拍用）、`denoising_feature_throughput`（降噪特征用）、`first_hit_object`（覆盖率用）。
+已登记、还没加的字段（加字段不算破坏，这里只占名字）：`pass_diffuse_weight`、`pass_glossy_weight`（分通道对拍用）、`denoising_feature_throughput`（降噪特征用）。
 
 `PathLegacy` 里现在有：`behind_glass`、`bent`、`straight`、`mirror_path`、`bm_surf`、`rays_off`、`split_frac`、`dl_spec`、`sampled_spec`、`sampled_trans`、`mis_x`、`mis_n`、`dl_det`、`dl_det_spec`、`shadow_hole`、`nee_alone`、`lights_only`、`rng_path`、`bm_x`（这一段射线出发的着色点本身，没有沿法线挪开；材质采样打到矩形纯光时从它算命中与概率密度，与光源采样一侧用同一个点）。没有并进来的上游私有量不是路径状态：求交里过程几何的调用上下文（`gdata_first`、`gdata_count`、`media_voxels`）、灯光瓦片的每像素状态（`lt_list`、`lt_list_n`、`lt_fb`）、循环守卫的计数。
 
@@ -308,8 +309,8 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 2 | `filter_glossy`、`light_inv_rr_threshold` | f32 | 滤光泽；灯的轮盘阈值 | 已定义，0 |
 | 3 | `seed` | u32 | 随机数的全局种子 | 已落地，见下 |
 | 3 | `sobol_index_mask` | u32 | Sobol 打乱后的索引取哪几位 | 已落地，见下 |
-| 3 | `pass_kind` | u32 | 这一趟调度写什么：`PASS_KIND_COLOR`（0）颜色样本，`PASS_KIND_AUX`（1）辅助样本 | 已定义，恒 0（辅助那一趟调度还没有） |
-| 3 | `background_transparent` | u32 | 背景对相机不可见 | 已定义，恒 0 |
+| 3 | `pass_kind` | u32 | 这一趟调度写什么：`PASS_KIND_COLOR`（0）颜色样本，`PASS_KIND_AUX`（1）辅助样本。两侧同名常数 | Rust 一侧照实填（要辅助层时清零之后、第一个颜色样本之前以 1 调度一次）；内核不读：两种样本各走自己的入口（见「编号登记表」的「编译开关与入口」） |
+| 3 | `background_transparent` | u32 | 背景对相机不可见：相机射线没打到表面的样本不透明度与颜色都记 0 | 已落地：`render-pack` 照场景包的 `world.visibleToCamera` 填；别的入口恒 0 |
 
 **种子与掩码现在从哪里读**：内核读 `P.integrator.seed` 与 `P.integrator.sobol_index_mask`。
 
@@ -342,7 +343,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 1 | `shadow_terminator_shading_offset`、`shadow_terminator_geometry_offset` | f32 | 阴影终止的两个偏移（平滑网格用） |
 | 1 | `reserved0`、`reserved1` | f32 | 预留 |
 
-状态：表已上传（个数等于物体数）。**场景包读入器（`src/pack.rs`）写 `entity_id`（实例表的实体编号）与 `object_flag` 的第 3 位（实例表第四列是 1 的镜像实例），经 `Scene::object_ext` 带进上传；这两格已写未读，库测试 `mirrored_instances_have_flipped_geometric_normals_and_their_ids` 守着写入。** 从场景脚本建的场景这张表仍是全 0；其余字段已定义、没有人写非 0 的值；`object_ext_at` 已定义、无调用者。各家以后只填自己的格子。运动矢量要的前后两刻变换不放这里，到做运动模糊时另定。
+状态：表已上传（个数等于物体数）。**场景包读入器（`src/pack.rs`）写 `entity_id`（实例表的实体编号）与 `object_flag` 的第 3 位（实例表第四列是 1 的镜像实例），经 `Scene::object_ext` 带进上传；库测试 `mirrored_instances_have_flipped_geometric_normals_and_their_ids` 守着写入。`entity_id` 已落地：辅助样本（`aux_sample`）读它写编号层，`film_write_sample` 读它数覆盖率；`object_flag` 已写未读。** 从场景脚本建的场景这张表仍是全 0（编号层全 0）；其余字段已定义、没有人写非 0 的值。`object_ext_at` 的调用者就是上面两处。各家以后只填自己的格子。运动矢量要的前后两刻变换不放这里，到做运动模糊时另定。
 
 **这张表放不下、也不放的**：阴影链接的集合号，与发光网格的两个 64 位成员集（Cycles 物体记录里的 `light_set_membership`、`shadow_set_membership`、`blocker_shadow_set`）。表里只有接收者集合号与灯组两格，剩下两格 f32 的预留装不下它们，表的长度又是冻结的。做灯的人要用时另开一张表，首地址取 `table_first_ext` 的一个空格并登记。
 
@@ -461,13 +462,13 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 位置 | 常数 | 内容 | 取法 | 状态 |
 |---|---|---|---|---|
 | 0 | `FILM_COMBINED` | rgb 颜色的累加和；w 样本数 | 每个样本累加 | 已落地 |
-| 1 | `FILM_DENOISE_ALBEDO` | rgb 降噪用的反照率的累加和；w 不透明度的累加和 | 累加 | 反照率已落地，但是上游的口径（相机首次命中的底色）；不透明度已定义，恒 0 |
-| 2 | `FILM_DENOISE_NORMAL` | xyz 降噪用的法线的累加和；w 覆盖率计数 | 累加 | 法线已落地，但是上游的口径（世界空间）；覆盖率计数已定义，恒 0 |
+| 1 | `FILM_DENOISE_ALBEDO` | rgb 降噪用的反照率的累加和；w 不透明度的累加和 | 累加 | 反照率已落地，但是上游的口径（相机首次命中的底色）；不透明度已落地 |
+| 2 | `FILM_DENOISE_NORMAL` | xyz 降噪用的法线的累加和；w 覆盖率计数 | 累加 | 法线已落地，但是上游的口径（世界空间；出层时换到 Cycles 降噪特征的相机空间，见下）；覆盖率计数已落地 |
 | 3 | `FILM_LEGACY_VARIANCE` | 上游降噪用的两个量：x 亮度的和，y 亮度平方的和 | 累加 | 已落地（上游）。换降噪器时腾出来 |
 | 4 | `FILM_LEGACY_EMIT` | 上游 `--signals` 的一组：相机直接看到的光 | 累加 | 已落地（上游，只在开了 `--signals` 时写） |
 | 5 | `FILM_LEGACY_SPEC` | 上游 `--signals` 的一组：首次命中处的高光部分 | 累加 | 同上 |
-| 6 | `FILM_AUX_DATA` | x 深度，y 实体编号（存成浮点数值），zw 运动矢量 | 辅助样本覆盖写一次 | 已定义 |
-| 7 | `FILM_AUX_NORMAL` | xyz 法线（相机空间，长度 1） | 同上 | 已定义 |
+| 6 | `FILM_AUX_DATA` | x 深度，y 实体编号（存成浮点数值），zw 运动矢量 | 辅助样本覆盖写一次 | 深度、编号已落地；运动矢量已定义，恒 0 |
+| 7 | `FILM_AUX_NORMAL` | xyz 法线（相机空间，长度 1） | 同上 | 已落地 |
 | 8、9 | | 预留 | | 预留 |
 | `film_lightgroup_first` 起 | | 第 k 个灯组的 rgb 累加和 | 累加 | 已定义，没有场景走到过 |
 
@@ -486,8 +487,11 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 几条写死的语义（通道的名字、单位、取法照仓库里已经冻结的通道契约，这里只定它们在缓冲里的位置）：
 
 - 深度是相机 Z 方向的平面深度，不是到相机的距离。什么都没打到：编号 0、深度 1e10、法线与运动全 0。
-- 深度、编号、法线、运动四个量每个像素取同一个**辅助样本**，不做平均。辅助样本是独立的一条射线：过像素中心、孔径按 0、快门按 0；它不是颜色样本里的某一个，也不计入样本数；不取任何随机数、不调图案节点，两遍必须逐位相同。它在清零之后、第一个颜色样本之前跑，同一个入口按 `pass_kind` 分支。
-- 覆盖率 = 颜色样本里「首次命中的编号（没打到或打到非实体记 0）等于辅助样本的编号」的个数，除以颜色样本数。
+- 深度、编号、法线、运动四个量每个像素取同一个**辅助样本**，不做平均。辅助样本是独立的一条射线：过像素中心、孔径按 0、快门按 0；它不是颜色样本里的某一个，也不计入样本数；不取任何随机数、不调图案节点，两遍必须逐位相同。它在清零之后、第一个颜色样本之前跑，是内核的另一个入口（`aux_sample`），只在要辅助层的变体里有（编译开关 `aux`，见「编号登记表」的「编译开关与入口」）。
+- 覆盖率 = 颜色样本里「首次命中的编号（没打到或打到非实体记 0）等于辅助样本的编号」的个数，除以颜色样本数。每个颜色样本在 `film_write_sample` 里拿 `state.first_hit_object` 的实体编号与辅助那一格的编号比，相等就给 `FILM_DENOISE_NORMAL.w` 加 1；读回时除以样本数。只在要辅助层的变体里数（首次命中的物体也只在那里写）：不要辅助层时编出来的颜色样本不读辅助那一格，`FILM_DENOISE_NORMAL.w` 恒 0。
+- 不透明度（颜色的 A）：每个样本 1；背景对相机不可见（`background_transparent`）而相机射线什么都没打到时这个样本记 0，颜色也记 0（路上加过的雾不算）。累加在 `FILM_DENOISE_ALBEDO.w`，读回时除以样本数。颜色不除以它（预乘）。
+- 辅助样本的实现：`integrator.wgsl` 的入口 `aux_sample`（`@if(aux)`）；`Gpu::render` 要辅助层时从这个入口调度一次，颜色样本仍从 `main` 调度。内核不读 `pass_kind`（Rust 一侧照实填）。相机射线照 `main` 里那一段的式子、像素内取中心、不加镜头偏移；只调 `trace` 与 `shader_setup_from_hit`（几何量），不调材质与图案节点，不取随机数。法线取 `shader_setup_from_hit` 翻过向的着色法线（顶点法线插值；背对来路的面连同几何法线一起翻向相机），变到相机空间：`(N·right, N·up, −N·forward)`。深度是命中距离乘射线方向在相机前方上的分量。
+- **降噪特征的法线换坐标系**（出层时做，不在内核里）：内核累加的是世界空间的法线（上游的口径）。Cycles 的降噪特征把法线经 `worldtocamera` 变到它的相机空间再累加（`kernel/film/denoising_passes.h` 第 151 到 153 行）；那个相机空间看向 +Z（同一个文件第 243 行把介质散射处的法线写成视线方向 `(0, 0, −1)`；`kernel/camera/camera.h` 第 165 行景深按 `1 / normalize(Pcamera).z` 算焦平面，前方的 z 是正的）。X 向右、Y 向上是从 Blender 把相机矩阵的 Z 取反后交给 Cycles 推的，本机 Cycles 源码缓存里没有那一段（`blender/camera.cpp`），没有核对。所以 `denoiseNormal` 层是 `(n·right, n·up, n·forward)`，`n` 是世界空间法线的样本均值（不重新归一化，Cycles 也是累加不归一）。它与辅助层 `normal` 的 Z 符号相反，这是有意的：前者照 Cycles 降噪特征，后者照输出通道契约 5.5。
 - 灯组的贡献和颜色的贡献是同一个值（夹取之后的），在同一处写。
 - Cycles 自己只有深度和编号是首个样本覆盖写，法线和运动是累加再平均；它在背景处写的深度是 0。对拍时那边另渲一遍辅助层并换算，不拿 Cycles 的累加值比。
 
@@ -499,23 +503,23 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 |---|---|---|
 | `film_pixel_first()` | 这个像素在 `film` 里的第一个 vec4。步长只在这里乘 | 已落地 |
 | `film_add_light(L, bounce, lightgroup)` | 路径上的一次贡献（已乘通量、已夹取）：加进这个样本的颜色；`lightgroup` 不是 `LIGHTGROUP_NONE` 时，同一个值直接加进那个灯组（还要求槽位小于请求的灯组数、值是有限的）。`bounce`：这次贡献出在路径的第几个顶点，现在没人用（留给按直接光、间接光分夹取上限） | 加进颜色的一支已落地（主循环 11 处调用）。**往灯组里写的那一支已定义，没有场景走到过**：各处传的都是 `LIGHTGROUP_NONE` |
-| `film_write_aux(AuxSample)` | 写辅助样本的两格，覆盖写 | 已定义、无调用者（辅助那一趟调度还没有） |
+| `film_write_aux(AuxSample)` | 写辅助样本的两格，覆盖写 | 已落地（入口 `aux_sample` 调它） |
 | `film_write_sample(SampleResult)` | 样本结束时写其余通道。每个样本调一次。四格先都读出来再写回去（读一格写一格地交替，苹果显卡上稳态慢约 1%） | 已落地 |
 
 `SampleResult`（一个样本的结果）是模块级的私有变量 `film_sample`，随路径推进累加：
 
 | 字段 | 类型 | 含义 | 状态 |
 |---|---|---|---|
-| `alpha` | f32 | 这个样本的不透明度 | 已定义，恒 0 |
+| `alpha` | f32 | 这个样本的不透明度：1，背景对相机不可见而相机射线没打到表面时 0 | 已落地 |
 | `L` | vec3 | 颜色：这条路径上各次贡献之和。只由 `film_add_light` 加 | 已落地 |
 | `albedo`、`normal` | vec3 | 降噪用的反照率与法线（上游的口径） | 已落地 |
 | `legacy` | `SampleLegacy` | 上游 `--signals` 要的几样 | 已落地，接上正式的通道之后删 |
 
-`AuxSample`：`depth`（f32）、`object_id`（u32，小于 2^24）、`motion`（vec2）、`normal`（vec3）。已定义。
+`AuxSample`：`depth`（f32）、`object_id`（u32，小于 2^24）、`motion`（vec2）、`normal`（vec3）。`motion` 已定义、恒 0，其余已落地。
 
 现在一次 `film_add_light` 里还是几盏灯的和，夹取也还留在调用处（上游的亮度夹取）。把算灯的函数改成逐盏调用、带上灯组槽位是做灯的人的活；直接光调用处的夹取也归做灯的人（逐盏写灯组要求每一次贡献已经夹取过，而且与加进颜色的是同一个值）。其余各处的夹取换成 Cycles 的口径是移植闭包的人的活。
 
-读回与写文件：Rust 读回时按 `FILM_*` 取，除以样本数。上游的 `--hdr`、图像输出、CPU 降噪读的还是颜色、反照率、法线与两个方差量，结果不变。
+读回与写文件：Rust 读回时按 `FILM_*` 取，除以样本数（辅助两格是覆盖写的原值，不除）。上游的 `--hdr`、图像输出、CPU 降噪读的还是颜色、反照率、法线与两个方差量，结果不变。不透明度进 `Frame::alpha`；要辅助层时（`Gpu::render` 的 `aux`：用编译开关 `aux` 的变体，颜色样本与辅助样本两个管线）辅助层与覆盖率进 `Frame::aux`。`core-render render-pack --passes DIR` 把它们照输出通道契约写成层文件，见 [README.md](README.md)「读场景包」。
 
 ## 与 Cycles、与上游不一样的地方
 
@@ -566,11 +570,12 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 32. 上游的两个方差量从反照率、法线两格的 w 里挪到了第 3 格。
 33. 一个样本的结果是模块级的私有变量；`film_add_light` 往它上面加，不直接写颜色那一格。
 34. 灯组数没有写死的上限：上限由显卡的单个缓冲大小在开渲前算。
-35. 辅助那一趟调度没有做，`film_write_aux` 没有调用者。
+35. 辅助样本是内核的另一个入口（`aux_sample`）的一趟调度，不是颜色样本里的第 0 个；覆盖率只在要辅助层的变体里数。Cycles 自己的深度、编号取首个样本覆盖写，法线累加。
+36. 降噪特征的法线在内核里是世界空间，出层时才换到 Cycles 的相机空间；反照率仍是上游的口径（见「还没接的」）。
 
 **分文件**
 
-36. 内核的主着色器按阶段分成八个文件，其中体积单独一个；没有单独的相机文件。
+37. 内核的主着色器按阶段分成八个文件，其中体积单独一个；没有单独的相机文件。
 
 ## 编号登记表
 
@@ -666,15 +671,28 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 | 格 | 名字 | 状态 |
 |---|---|---|
 | 0 | `FILM_COMBINED` | 已落地 |
-| 1 | `FILM_DENOISE_ALBEDO` | rgb 已落地；w 已定义 |
-| 2 | `FILM_DENOISE_NORMAL` | xyz 已落地；w 已定义 |
+| 1 | `FILM_DENOISE_ALBEDO` | rgb 已落地；w（不透明度）已落地 |
+| 2 | `FILM_DENOISE_NORMAL` | xyz 已落地；w（覆盖率计数）已落地 |
 | 3 | `FILM_LEGACY_VARIANCE` | 已落地（上游）；zw 空着。换降噪器时整格改标预留 |
 | 4 | `FILM_LEGACY_EMIT` | 已落地（上游）；w 空着。接上正式通道后改标预留 |
 | 5 | `FILM_LEGACY_SPEC` | 同上 |
-| 6 | `FILM_AUX_DATA` | 已定义 |
-| 7 | `FILM_AUX_NORMAL` | 已定义；w 空着 |
+| 6 | `FILM_AUX_DATA` | xy 已落地；zw（运动矢量）已定义 |
+| 7 | `FILM_AUX_NORMAL` | xyz 已落地；w 空着 |
 | 8、9 | | 预留 |
 | 10 起 | 灯组，每组一格 | 已定义 |
+
+### 编译开关与入口
+
+内核的条件翻译开关（`@if`，`src/gpu.rs` 的 `KernelVariant::flags`，`pathtrace.wgsl` 开头有一份说明）与计算入口。开关名、入口名两侧各写一处（入口名在 `src/gpu.rs` 的 `COLOR_ENTRY`、`AUX_ENTRY`），库测试 `the_aux_switch_is_only_the_aux_layers` 查入口与开关的对应。
+
+| 名字 | 种类 | 状态 | 给谁 |
+|---|---|---|---|
+| `hwrt`、`strict`、`cutout_lite`、`cutout_lite2`、`last_direct`、`last_sun`、`light_pick`、`merged`、`uniform_tables`、`whole_tables`、`guard` | 开关 | 已落地（上游） | 显卡与布局 |
+| `aux` | 开关 | 已落地（1.1.0 加） | 输出通道：这次渲染要辅助层。开了多一个入口 `aux_sample`，颜色样本写首次命中的物体、数覆盖率；关着时颜色内核里没有这几样。由 `Gpu::render` 的 `aux` 决定，不是显卡的开关 |
+| `main` | 入口 | 已落地（上游） | 颜色样本，每个变体都有 |
+| `aux_sample` | 入口 | 已落地（1.1.0 加），只在 `aux` 的变体里 | 输出通道：辅助样本 |
+
+再加开关或入口：先登记在这里，再加进 `KernelVariant::flags`（或两侧的入口名常数），并把它带进 `every_kernel_variant_generates_spirv_and_msl`。
 
 ### 场景特性位
 
@@ -703,7 +721,8 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 | `the_closure_kinds_keep_their_numbers` | `src/merged.rs` | 闭包种类号的快照：已有的数值不变，新种类要先登记 |
 | `the_bounce_stride_is_the_kernels` | `src/merged.rs` | `PRNG_BOUNCE_NUM` 两侧同值 |
 | `call_structs_are_not_built_by_position` | `src/merged.rs` | 只活在一次调用里的结构没有位置式构造（先去掉注释再查；名字与括号之间有空白、换行、注释都认）。名单在测试里，新加这类结构要补 |
-| `every_kernel_variant_generates_spirv_and_msl` | `src/gpu.rs` | 内核的 80 个变体都过 SPIR-V 与 MSL 两个后端的代码生成。80 个是：8 组编译开关（默认、六个取值各单开一个、全开）乘缓冲布局（软件求交 6 种、硬件求交 4 种）。**不是开关的全部组合** |
+| `every_kernel_variant_generates_spirv_and_msl` | `src/gpu.rs` | 内核的 104 个变体都过 SPIR-V 与 MSL 两个后端的代码生成（每个入口都生成）。104 个是：8 组编译开关（默认、六个取值各单开一个、全开）乘缓冲布局（软件求交 8 种、硬件求交 5 种，其中要辅助层的 `aux` 软件求交 2 种、硬件求交 1 种）。**不是开关的全部组合** |
+| `the_aux_switch_is_only_the_aux_layers` | `src/gpu.rs` | 编译开关 `aux` 管的东西：开了入口是 `aux_sample` 与 `main` 两个，关着只有 `main`；关着的变体里没有辅助样本、首次命中物体的写入、读辅助那一格；两种变体都不读 `pass_kind` |
 | `path_state_is_written` | `src/gpu.rs` | `PathState`、`Ray` 的字段名单；路径状态里「已写未读」各项的写入语句都在，先去掉注释再按出现次数查（同一句有两处的，删掉一处也红；注释掉不算在） |
 | `shading_point_is_written` | `src/gpu.rs` | `ShadingPoint`、`Closure`、`ShaderInputs` 的字段名单；它们与 `Ray` 里「已写未读」各项的写入语句都在，先去掉注释再按出现次数查 |
 | `the_dimension_ids_are_distinct` | `src/sample.rs` | 随机编号在登记的区段里互不相同（范围见上） |
@@ -764,6 +783,8 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 - 首次编译两台机器都只记录。
 - 参考数（结构落地之前与之后的程序轮流量，取中位）：稳态，苹果显卡累计慢 10.8%（1.52 秒 → 1.69 秒；四遍各 9 次轮流的中位一致），英伟达显卡慢 6% 到 7%（0.115 秒上下 → 0.123 秒上下，几遍之间不一样）；首次编译两台机器都慢两成上下（英伟达显卡 1.8 秒 → 2.2 秒，苹果显卡 1.03 秒 → 1.27 秒）。
 - **英伟达显卡上那个计时场景一次只有 0.12 秒上下**，同一个程序各次之间能差 3% 到 6%：这条线的分辨率只有两三个百分点，离 10% 的余量约三个百分点。要判得准，得把采样数加到一渲一秒以上再比（还没做，见「还没接的」）。
+- **输出通道接上之后（冻结标记 1.1.0：辅助样本、覆盖率计数、透明度），不要辅助层时**（改前改后的程序轮流量，回归工具的计时场景）：苹果显卡各 7 次，中位 1.926 秒 → 1.913 秒，在散布之内；英伟达显卡慢 4% 到 5%（一遍各 7 次 0.1274 → 0.1325 秒，一遍各 9 次 0.1222 → 0.1284 秒，两组几乎不重叠）。同一遍里拆开量（各 9 次）：去掉覆盖率计数 +1.4%，只去掉读辅助那一格（物体扩展表照读）+0.7%，只去掉 `main` 开头按 `pass_kind` 的分支 +2.8%：慢主要在每个颜色样本多读一次输出缓冲的辅助那一格（每个像素记录的第二个 64 字节）。后来把辅助样本改成单独的入口、覆盖率计数放到编译开关 `aux` 后面（只在要辅助层的那次渲染打开），不要辅助层时编出来的颜色内核与改前只差三处：路径状态多一个字段（`first_hit_object`，不写）、每个样本开头置不透明度为 1、相机射线没打到时按 `background_transparent` 的那个分支（后两处是颜色层的 A，与要不要辅助层无关）。改完之后的量法与读数见下一条。要辅助层时多出的是辅助那一趟调度本身：1920×1080 一趟，苹果显卡约 20 毫秒、英伟达显卡约 0.6 毫秒（同一帧 64 采样的求交分别约 430、40 毫秒）。
+- **辅助样本改成单独的入口、覆盖率计数放到编译开关 `aux` 后面之后**：不要辅助层时，英伟达显卡上改前（场景包读入器那一版）与改后轮流各 9 次，中位 0.1227 秒 → 0.1242 秒（+1.2%）；同一台机器另一遍把改前、改后、改前的一份拷贝三个程序轮流各 9 次，中位 0.1223、0.1237、0.1209 秒：同一个程序与它的拷贝之间就差 1.1%，这个计时场景分不出 1% 上下的差别（见上面「分辨率只有两三个百分点」一条）。要辅助层时多出的（同一个程序、同一个场景包，加不加 `--passes` 轮流各 7 次，1920×1080，求交的毫秒数含辅助那一趟）：苹果显卡 256 采样，从 Blender 导出的两份包 +7.7%（1340 → 1444 毫秒，辅助那一趟 23 毫秒）、+2.2%（1593 → 1629，24 毫秒）；英伟达显卡 1024 采样，+8.6%（499 → 542，0.5 毫秒）、+5.9%（574 → 607，0.5 毫秒）。多出的大头在颜色样本数覆盖率（每个样本读一次辅助那一格、查一次物体扩展表），不在辅助那一趟本身。
 - 苹果显卡上慢的那 10.8% 里，约一半来自修矩形纯光两侧不从同一个点算的那一条：主循环多带一个三维向量（`bm_x`）过求交。新加一个变量的七种放法都一样慢。不新加变量、复用路径状态里已经带过求交的那个量（`state.legacy.mis_x`）的写法不慢（苹果显卡累计 6.4%），但要把发光体一侧算选灯概率的起点一起换成射线起点；粗糙玻璃透射时这两个点不同，等于在那一侧引进同一类「两侧不从同一个点算」的不一致。所以现在没有换，留到做灯时与光源采样的起点一起统一。
 
 ## 还没接的
@@ -789,11 +810,10 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 | `PRNG_SURFACE_AO`、`PRNG_SURFACE_BEVEL`、`path_branched_rng_2D`、`path_rng_2D` | 已定义、无调用者 | 图案节点 |
 | `Material` 的 `pattern_first`、`pattern_count`；`MATERIAL_FLAG_NO_LEGACY_FUNCTION`；`table_first_ext` 的图案节点表一格；`ObjectExt.object_flag` 的读者（镜像位场景包读入器已写） | 已定义 | 图案节点 |
 | `table_first_ext` 的两格能量表；`FRESNEL_GENERALIZED_SCHLICK` | 已定义 | 移植闭包（广义 Schlick） |
-| `film_write_aux`、`AuxSample`、`FILM_AUX_DATA`、`FILM_AUX_NORMAL`；`pass_kind` 与辅助那一趟调度；`FILM_DENOISE_ALBEDO.w`（不透明度）、`FILM_DENOISE_NORMAL.w`（覆盖率）；`SampleResult.alpha`；`background_transparent`；`first_hit_object` | 已定义、无调用者 | 接输出通道 |
-| 请求灯组的命令行与任务描述字段 | 没有 | 接输出通道 |
-| `ObjectExt.entity_id` 的读者（物体编号层）；`object_ext_at` 的第一个调用者 | 已写未读（场景包读入器写）；无调用者 | 接输出通道 |
+| `AuxSample.motion`、`FILM_AUX_DATA` 的 zw（运动矢量） | 已定义，恒 0：场景包只有整数帧的状态，快门两端的位置算不出来 | 运动模糊与运动矢量 |
+| 请求灯组的命令行与任务描述字段 | 没有 | 做灯（灯组） |
 | 场景包里解析过、校验过、还没生效的：图案节点（`pack::Node`）、灯光链接与分灯组名（`pack::Light` 的 `link`、`group`）；`pack-info` 的统计列在 `notApplied` | 已读未生效 | 图案节点；做灯（灯光链接、灯组） |
-| `FILM_DENOISE_ALBEDO`、`FILM_DENOISE_NORMAL` 换成 Cycles 的口径；`bsdf_albedo` 的口径；`FILM_LEGACY_VARIANCE`；`denoising_feature_throughput`；`PATH_RAY_DENOISING_FEATURES` | 上游的口径 | 降噪 |
+| `FILM_DENOISE_ALBEDO`、`FILM_DENOISE_NORMAL` 换成 Cycles 的口径；`bsdf_albedo` 的口径；`FILM_LEGACY_VARIANCE`；`denoising_feature_throughput`；`PATH_RAY_DENOISING_FEATURES` | 上游的口径：只取相机首次命中那一点；反照率是那一点的底色（只发光的面取归一化的发光色），法线是闭包用的法线（含法线贴图）。Cycles（`kernel/film/denoising_passes.h`）沿光滑的反射、透射一直跟到够粗糙的面才写，反照率是漫反射类闭包的权重和、乘降噪特征的通量，法线是全部闭包按权重的平均。只有法线的坐标系出层时换成了 Cycles 的（见「输出通道」）；两侧差多少还没量 | 降噪与采样 |
 | `sobol_index_mask` 的算法、`sampling_pattern`、分支版取数的有效样本数 | 上游写死的值 | 降噪与采样 |
 | 着色点与光线的 `time` | 已定义，恒 0 | 运动模糊 |
 | `ObjectExt` 的两个阴影终止偏移 | 已定义 | 平滑网格 |
@@ -823,4 +843,4 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 3. **破坏性的**（改已有字段的名字、含义、位置；改进缓冲的格式的长度；改已有函数的参数表；改已有编号的数值）：先经核心帧源的负责人同意。
 4. 凡是动到冻结标记钉住的东西（第 1 条里的加字段、第 2 条、第 3 条都会）：改这份条文里对应的字段表或登记表，升 [FREEZE.json](FREEZE.json) 里的版本号（不算破坏的升末位，破坏性的升首位），运行 `node beiming/sources/core/chassis/freeze.mjs --update`，把标记的差异与改动放在同一个提交里。
 5. 每一步：`cargo test --locked`、`freeze.mjs`、两台机器上的 `regress.mjs --check`。有意改变渲染结果的改动过后，两台机器各重记一次基线。
-6. **九个没有调用者的函数，签名是暂定的**：`surface_shader_bsdf_eval`、`surface_shader_transparency`、`shader_eval_shadow`、`shader_eval_emission`、`trace_local`、`path_rng_2D`、`path_branched_rng_2D`、`film_write_aux`、`object_ext_at`。它们只过了校验与两个后端的代码生成，没有在显卡上跑过；按值传大结构这类问题只有真跑才暴露。第一个调用者落地、并在两台机器上过了回归之后，签名才算定下来（那时把它从这张名单里划掉）。在这之前改它们的参数表不算破坏性的改动，不用先经同意：改条文与冻结标记（第 4 条）就行。
+6. **七个没有调用者的函数，签名是暂定的**：`surface_shader_bsdf_eval`、`surface_shader_transparency`、`shader_eval_shadow`、`shader_eval_emission`、`trace_local`、`path_rng_2D`、`path_branched_rng_2D`。（`film_write_aux`、`object_ext_at` 已经有调用者，并在两台机器上过了回归，签名定下来了。）它们只过了校验与两个后端的代码生成，没有在显卡上跑过；按值传大结构这类问题只有真跑才暴露。第一个调用者落地、并在两台机器上过了回归之后，签名才算定下来（那时把它从这张名单里划掉）。在这之前改它们的参数表不算破坏性的改动，不用先经同意：改条文与冻结标记（第 4 条）就行。

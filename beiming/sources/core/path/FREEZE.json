@@ -1,7 +1,7 @@
 {
   "schema": "beiming.core.freeze/1",
   "name": "核心帧源路径追踪内核的四样内部结构",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "frozen": "2026-11-24",
   "structures": [
     "材质记录",
@@ -115,7 +115,7 @@
     },
     "shaders/integrator.wgsl": {
       "structs": {
-        "PathState": "500f05e8087c9c0703fecc084501e4ebc598e0054c175644eb4a7b9d40ac6f60",
+        "PathState": "1aae6b65b92b07fbb548929cb798414563b146e814c02ee67154d1407be456d0",
         "Ray": "69716dc80d18c5ff5c8ef53c2dd8f1cd2210f8a039077fc71a389102c96ee324"
       },
       "constants": {
