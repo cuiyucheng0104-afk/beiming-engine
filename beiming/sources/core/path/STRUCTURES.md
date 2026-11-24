@@ -103,7 +103,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 - **能量补偿那一位**（`MATERIAL_FLAG_MULTISCATTER`）不在各构造处填：上传前由 `scene::with_energy_compensation` 一处按全局开关 `energyCompensation` 统一写。纯金属的闭包读这一位；上游顶替仍读全局的 `P.misc.z`。
 - **边缘色由一个场景特性位决定读不读材质记录**。特性位 `F_SPECULAR_TINT`（`src/gpu.rs` 的 `features_of` 按材质表定）：场景里有材质的边缘色不是白时，材质求值才从记录读 `specular_tint`；别的场景里内核编译期取白，不读这一格。这是量出来的：一律从记录读时，F82 的 B 项不再是编译期的 0，没有金属的场景稳态也慢 4%（苹果显卡）。现在没有任何场景入口能把边缘色设成非白，所以这一位平时恒关；强开它（环境变量 `THREERT_FEATURES_ON`）跑过全部回归，结果逐位不变。
 
-谁写：Rust 的 `scene::build_material`（从场景描述压出来）与 `scene::card_material`；以后是场景包读入器。
+谁写：Rust 的 `scene::build_material`（从场景描述压出来）与 `scene::card_material`。场景包读入器（`src/pack.rs`）把包里的材质先换成场景描述（底色、金属度、粗糙度，其余取默认），也经 `scene::build_material` 压。
 
 谁读：新写的代码里**只有 `shader_eval_inputs` 读材质记录**（现在经它调的上游 `surface`、`surface_proc`）。积分器不读。上游留下的直接读者是已知的例外：求交一侧的镂空测试 `alpha_pass`、阴影穿玻璃 `glass_at`、硬件求交的 `cutout`；灯光一侧读发光三角材质的 `emitter_radiance`、`emitter_sel`、`emit_mis`、`sample_emitter`、`sample_emitter_ris`；给材质函数备输入的 `mat_in_at`。
 
@@ -342,7 +342,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 1 | `shadow_terminator_shading_offset`、`shadow_terminator_geometry_offset` | f32 | 阴影终止的两个偏移（平滑网格用） |
 | 1 | `reserved0`、`reserved1` | f32 | 预留 |
 
-状态：表已上传（全 0，个数等于物体数），**所有字段已定义、没有人写非 0 的值；`object_ext_at` 已定义、无调用者**。各家以后只填自己的格子。运动矢量要的前后两刻变换不放这里，到做运动模糊时另定。
+状态：表已上传（个数等于物体数）。**场景包读入器（`src/pack.rs`）写 `entity_id`（实例表的实体编号）与 `object_flag` 的第 3 位（实例表第四列是 1 的镜像实例），经 `Scene::object_ext` 带进上传；这两格已写未读，库测试 `mirrored_instances_have_flipped_geometric_normals_and_their_ids` 守着写入。** 从场景脚本建的场景这张表仍是全 0；其余字段已定义、没有人写非 0 的值；`object_ext_at` 已定义、无调用者。各家以后只填自己的格子。运动矢量要的前后两刻变换不放这里，到做运动模糊时另定。
 
 **这张表放不下、也不放的**：阴影链接的集合号，与发光网格的两个 64 位成员集（Cycles 物体记录里的 `light_set_membership`、`shadow_set_membership`、`blocker_shadow_set`）。表里只有接收者集合号与灯组两格，剩下两格 f32 的预留装不下它们，表的长度又是冻结的。做灯的人要用时另开一张表，首地址取 `table_first_ext` 的一个空格并登记。
 
@@ -787,11 +787,12 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 | 上游的灯光函数、`surface_shader_bsdf_eval_legacy`、`light_mis` 与 `pdf_spec` 里读 `Lobes` 的地方、各 `D_*` 槽位 | 上游顶替 | 做灯（移植完删） |
 | `trace_local`；着色点的 `lcg_state`、`object_flag`、`prim`、`u`、`v`、`N`、`ray_length` 的读者；`Ray` 的 `self_object`、`self_prim`、`tmin` 的读者 | 已定义、无调用者，或已写未读 | 图案节点（倒角、遮蔽） |
 | `PRNG_SURFACE_AO`、`PRNG_SURFACE_BEVEL`、`path_branched_rng_2D`、`path_rng_2D` | 已定义、无调用者 | 图案节点 |
-| `Material` 的 `pattern_first`、`pattern_count`；`MATERIAL_FLAG_NO_LEGACY_FUNCTION`；`table_first_ext` 的图案节点表一格；`ObjectExt.object_flag` 的写入 | 已定义 | 图案节点 |
+| `Material` 的 `pattern_first`、`pattern_count`；`MATERIAL_FLAG_NO_LEGACY_FUNCTION`；`table_first_ext` 的图案节点表一格；`ObjectExt.object_flag` 的读者（镜像位场景包读入器已写） | 已定义 | 图案节点 |
 | `table_first_ext` 的两格能量表；`FRESNEL_GENERALIZED_SCHLICK` | 已定义 | 移植闭包（广义 Schlick） |
 | `film_write_aux`、`AuxSample`、`FILM_AUX_DATA`、`FILM_AUX_NORMAL`；`pass_kind` 与辅助那一趟调度；`FILM_DENOISE_ALBEDO.w`（不透明度）、`FILM_DENOISE_NORMAL.w`（覆盖率）；`SampleResult.alpha`；`background_transparent`；`first_hit_object` | 已定义、无调用者 | 接输出通道 |
 | 请求灯组的命令行与任务描述字段 | 没有 | 接输出通道 |
-| `ObjectExt.entity_id` 的写入；`object_ext_at` 的第一个调用者 | 已定义、无调用者 | 场景读入与接输出通道 |
+| `ObjectExt.entity_id` 的读者（物体编号层）；`object_ext_at` 的第一个调用者 | 已写未读（场景包读入器写）；无调用者 | 接输出通道 |
+| 场景包里解析过、校验过、还没生效的：图案节点（`pack::Node`）、灯光链接与分灯组名（`pack::Light` 的 `link`、`group`）；`pack-info` 的统计列在 `notApplied` | 已读未生效 | 图案节点；做灯（灯光链接、灯组） |
 | `FILM_DENOISE_ALBEDO`、`FILM_DENOISE_NORMAL` 换成 Cycles 的口径；`bsdf_albedo` 的口径；`FILM_LEGACY_VARIANCE`；`denoising_feature_throughput`；`PATH_RAY_DENOISING_FEATURES` | 上游的口径 | 降噪 |
 | `sobol_index_mask` 的算法、`sampling_pattern`、分支版取数的有效样本数 | 上游写死的值 | 降噪与采样 |
 | 着色点与光线的 `time` | 已定义，恒 0 | 运动模糊 |
