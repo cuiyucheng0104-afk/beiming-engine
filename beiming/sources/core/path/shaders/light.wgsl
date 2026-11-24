@@ -339,7 +339,8 @@ fn bm_rect_sample(li: Light, x: vec3<f32>, u: vec2<f32>) -> LS {
     return LS(bm_rect_le(li, r, ls.D, ls.t * ls.t) * (ls.eval_fac / ls.pdf), ls.D, ls.D, ls.t, ls.pdf);
 }
 
-// 表面顶点按材质采样的射线 (o, d)（立体角概率密度 pdf_b）在 t_hit 之前打到的矩形纯光，按多重重要性采样加权。
+// 表面顶点按材质采样的方向 d（立体角概率密度 pdf_b）在 t_hit 之前打到的矩形纯光，按多重重要性采样加权。
+// o 是着色点本身，不是沿法线挪开之后的射线起点：光源采样一侧（bm_rect_sample）从着色点本身算，两侧要用同一个点。
 // 灯不挡光，射线照常往前走；不投影的灯在光源一侧不查遮挡，这一侧也不查。
 fn bm_rect_hits(o: vec3<f32>, d: vec3<f32>, t_hit: f32, pdf_b: f32) -> vec3<f32> {
     var c = vec3<f32>(0.0);

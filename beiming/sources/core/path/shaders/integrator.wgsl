@@ -93,6 +93,9 @@ struct PathLegacy {
     lights_only: bool,
     // 上游随机数编号里的「这次调用的第几条路径」，离线恒为 0。编号换成按 rng_offset 之后只剩实时那一支的 rng_white 读它
     rng_path: u32,
+    // 这一段射线出发的着色点本身（没有沿法线挪开）。bm_rect_hits 从它算矩形纯光的命中与概率密度：光源采样一侧
+    // 也是从着色点本身算的，两侧要用同一个点，多重重要性采样的权重才配得平（Cycles 不挪射线起点，没有这个问题）
+    bm_x: vec3<f32>,
 };
 
 struct PathState {
@@ -329,7 +332,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             }
         }
         if (!LIVE && state.legacy.bm_surf) {
-            var c = state.throughput * bm_rect_hits(ray.P, ray.D, select(hit.t, INF, hit.tri == 0xffffffffu), state.mis_ray_pdf);
+            // （遮挡距离 hit.t 是从挪开的起点量的，灯距从着色点本身量：两者差不超过挪开的那一点距离。光源采样一侧
+            // 也是从着色点采样、从挪开的起点打阴影射线，容差相同；只有遮挡物贴着灯面不到这个距离时判法才不同。）
+            var c = state.throughput * bm_rect_hits(state.legacy.bm_x, ray.D, select(hit.t, INF, hit.tri == 0xffffffffu), state.mis_ray_pdf);
             if (depth > 1u && !state.legacy.straight) {
                 let lum = luminance(c);
                 if (lum > clamp_v) { c *= clamp_v / lum; }
@@ -471,6 +476,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             if (path_rng_1D(PRNG_TERMINATE) > state.continuation_probability) { break; }
             state.throughput /= state.continuation_probability;
         }
+        state.legacy.bm_x = sd.P;
         ray.P = offset_origin(sd.P, select(sd.Ng, -sd.Ng, dot(l, sd.Ng) < 0.0));
         ray.D = l;
     }
