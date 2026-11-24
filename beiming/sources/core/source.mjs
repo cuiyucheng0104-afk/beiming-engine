@@ -248,7 +248,7 @@ export async function startSource({ bin = process.env.BEIMING_CORE_RENDER } = {}
             id: shot.source, renderer: CAPS.id, host: HOST, version: CAPS.version, tier: env.tier,
             ...(res ? { gpu: res.adapter, backend: res.backend, samples: plan.samples } : {}),
           },
-          timing: { stateMs: stateMs + (t.pack_ms ?? 0), renderMs: (t.trace_ms ?? 0) + (t.aux_ms ?? 0), readbackMs: t.readback_ms ?? 0 },
+          timing: { stateMs: stateMs + (t.pack_ms ?? 0), renderMs: t.trace_ms ?? 0, readbackMs: t.readback_ms ?? 0 },
           origin: { host: ['camera', 'entities', 'lights', 'stats', 'source', 'timing'], shot: [], kernel: ['events'] },
           hash: { color: hashColor },
         };
