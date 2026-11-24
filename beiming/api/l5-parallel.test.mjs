@@ -1,11 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createOpenAiVisionReviewer, reviewerFromEnv } from './agents.mjs';
+import { tools } from '../comp/index.mjs';
+import { DEFAULT_REVIEW_CONCURRENCY, createOpenAiVisionReviewer, reviewerFromEnv } from './agents.mjs';
+import { issueAccountToken, startServer } from './index.mjs';
 import { layerL5 } from './pipeline.mjs';
+
+function threeMediaSkip() {
+  const { ffmpeg, ffprobe } = tools();
+  for (const [name, bin, args] of [['ffmpeg', ffmpeg, ['-version']], ['ffprobe', ffprobe, ['-version']]]) {
+    if (!bin || spawnSync(bin, args, { stdio: 'ignore', timeout: 20000 }).status !== 0) return `缺少可执行的 ${name}`;
+  }
+  const probe = "import {chromium} from 'playwright-core'; const b=await chromium.launch({headless:true,executablePath:process.env.BEIMING_CHROME || undefined,args:['--mute-audio']}); await b.close()";
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', probe], { stdio: 'ignore', timeout: 20000 });
+  return r.status === 0 ? null : '无头浏览器不可执行';
+}
 
 const FILM = {
   id: 'f_par_001',
@@ -34,8 +47,9 @@ test('L5-PAR-1: concurrency 参数校验与 BEIMING_REVIEW_CONCURRENCY 环境变
     ledgerPath: '/tmp/l5-par-1.jsonl',
   };
 
+  assert.equal(DEFAULT_REVIEW_CONCURRENCY, 1, 'DEFAULT_REVIEW_CONCURRENCY 必须为 1');
   const def = createOpenAiVisionReviewer(baseCfg);
-  assert.equal(def.concurrency, 3, '默认 concurrency 必须为 3');
+  assert.equal(def.concurrency, 1, '默认 concurrency 必须为 1');
 
   for (const valid of [1, 3, 16]) {
     const r = createOpenAiVisionReviewer({ ...baseCfg, concurrency: valid });
@@ -55,9 +69,9 @@ test('L5-PAR-1: concurrency 参数校验与 BEIMING_REVIEW_CONCURRENCY 环境变
     BEIMING_REVIEW_API_KEY: 'k',
     BEIMING_REVIEW_MODEL: 'm',
   };
-  assert.equal(reviewerFromEnv({ env: baseEnv, ledgerPath: baseCfg.ledgerPath }).concurrency, 3);
-  assert.equal(reviewerFromEnv({ env: { ...baseEnv, BEIMING_REVIEW_CONCURRENCY: '' }, ledgerPath: baseCfg.ledgerPath }).concurrency, 3);
-  assert.equal(reviewerFromEnv({ env: { ...baseEnv, BEIMING_REVIEW_CONCURRENCY: '   ' }, ledgerPath: baseCfg.ledgerPath }).concurrency, 3);
+  assert.equal(reviewerFromEnv({ env: baseEnv, ledgerPath: baseCfg.ledgerPath }).concurrency, 1);
+  assert.equal(reviewerFromEnv({ env: { ...baseEnv, BEIMING_REVIEW_CONCURRENCY: '' }, ledgerPath: baseCfg.ledgerPath }).concurrency, 1);
+  assert.equal(reviewerFromEnv({ env: { ...baseEnv, BEIMING_REVIEW_CONCURRENCY: '   ' }, ledgerPath: baseCfg.ledgerPath }).concurrency, 1);
   assert.equal(reviewerFromEnv({ env: { ...baseEnv, BEIMING_REVIEW_CONCURRENCY: '1' }, ledgerPath: baseCfg.ledgerPath }).concurrency, 1);
   assert.equal(reviewerFromEnv({ env: { ...baseEnv, BEIMING_REVIEW_CONCURRENCY: '3' }, ledgerPath: baseCfg.ledgerPath }).concurrency, 3);
   assert.equal(reviewerFromEnv({ env: { ...baseEnv, BEIMING_REVIEW_CONCURRENCY: ' 16 ' }, ledgerPath: baseCfg.ledgerPath }).concurrency, 16);
@@ -434,6 +448,393 @@ test('L5-PAR-4: 无 settle 降级串行、AbortSignal 中途取消与单票异�
       assert.equal(res.usage.totalTokens, 7 * 120 + 200);
       assert.equal(settledTotal, 7 * 120 + 200);
       assert.equal(active.size, 0);
+    } finally {
+      await new Promise((r) => server.close(r));
+    }
+  }
+
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('L5-PAR-5 [R1-阻断#1]: 默认 POST /review（concurrency=1）3 票预算 65,000 + 变价 [10,040, 30,040, 30,040] 在第 2 票后停票且两本账均为 40,080', async (t) => {
+  const skip = threeMediaSkip();
+  if (skip) return t.skip(skip);
+
+  const dir = mkdtempSync(join(tmpdir(), 'bm-l5-par-5-'));
+  const ledgerPath = join(dir, 'external-ledger.jsonl');
+  const costPlan = [
+    { prompt: 10_000, comp: 40 },
+    { prompt: 30_000, comp: 40 },
+    { prompt: 30_000, comp: 40 },
+  ];
+  let callIdx = 0;
+
+  const mockVision = createServer(async (req, res) => {
+    await readJsonBody(req);
+    const plan = costPlan[Math.min(callIdx++, costPlan.length - 1)];
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      model: 'vision-var-price',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', opinions: [], suggestedPredicates: [] }) } }],
+      usage: { prompt_tokens: plan.prompt, completion_tokens: plan.comp },
+    }));
+  });
+  await new Promise((r) => mockVision.listen(0, '127.0.0.1', r));
+
+  const reviewer = createOpenAiVisionReviewer({
+    endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+    apiKey: 'test-key',
+    model: 'vision-var-price',
+    ledgerPath,
+    perspectives: [{ id: 'composition-readability', title: '构图与可读', focus: '构图', votes: 3 }],
+  });
+  assert.equal(reviewer.concurrency, 1);
+
+  const token = issueAccountToken(dir);
+  const api = await startServer({ dataDir: dir, port: 0, reviewer });
+  try {
+    const created = await (await fetch(`${api.url}/v1/films`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        template: 'title',
+        text: 'R1B1',
+        output: { size: [320, 180], fps: '10/1', frames: 6 },
+        budget: { tokens: 65_000 },
+      }),
+    })).json();
+    assert.equal(created.ok, true);
+    const filmId = created.data.film;
+    const wsToken = created.data.token;
+
+    const renderEnv = await (await fetch(`${api.url}/v1/films/${filmId}/render?wait=30`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ tier: 'draft' }),
+    })).json();
+    assert.equal(renderEnv.ok, true);
+    assert.equal(renderEnv.data.status, 'succeeded');
+
+    const reviewEnv = await (await fetch(`${api.url}/v1/films/${filmId}/review`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ brief: 'R1 阻断 #1 默认串行高水位防超支测试' }),
+    })).json();
+    assert.equal(reviewEnv.ok, true);
+    assert.equal(reviewEnv.data.status, 'ok');
+    assert.equal(reviewEnv.data.stoppedReason, 'budget.tokens');
+    assert.equal(callIdx, 2, '第 2 票完成后高水位更新为 30,040，余额 24,920 不足高水位，必须停在第 2 票');
+
+    const ledgerEnv = await (await fetch(`${api.url}/v1/films/${filmId}/ledger`, {
+      headers: { authorization: `Bearer ${wsToken}` },
+    })).json();
+    const wsTotal = ledgerEnv.data.items.reduce((s, x) => s + (x.modelTokens ?? 0), 0);
+    const extRows = readFileSync(ledgerPath, 'utf8').trim().split('\n').map(JSON.parse);
+    const extTotal = extRows.reduce((s, x) => s + x.inputTokens + x.outputTokens, 0);
+    assert.equal(wsTotal, 40_080);
+    assert.equal(extTotal, 40_080);
+    assert.ok(wsTotal <= 65_000 && extTotal <= 65_000);
+  } finally {
+    await api.close();
+    await new Promise((r) => mockVision.close(r));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('L5-PAR-6 [R1-阻断#2]: concurrency=3 + 预算 31,104 不因在途临时预留截断第 3 票 max_tokens（3 票全有效、invalidBallots=0）', async (t) => {
+  const skip = threeMediaSkip();
+  if (skip) return t.skip(skip);
+
+  const dir = mkdtempSync(join(tmpdir(), 'bm-l5-par-6-'));
+  const ledgerPath = join(dir, 'external-ledger.jsonl');
+  const seenMaxTokens = [];
+
+  const mockVision = createServer(async (req, res) => {
+    const body = await readJsonBody(req);
+    const { voteIndex } = parseVoteTag(body);
+    seenMaxTokens.push(body.max_tokens);
+    if (voteIndex === 1) {
+      await new Promise((r) => setTimeout(r, 60));
+    }
+    const isThird = voteIndex === 2;
+    const neededComp = isThird ? 80 : 40;
+    const payload = JSON.stringify({ grade: '好', opinions: [], suggestedPredicates: [] });
+    // 模拟真实上游按请求 max_tokens 硬截断输出（第 3 票需要 80 token，若被误裁为 40 则返回半截 JSON）
+    const content = body.max_tokens < neededComp ? payload.slice(0, 18) : payload;
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      model: 'vision-no-trunc',
+      choices: [{ message: { content } }],
+      usage: { prompt_tokens: 10_000, completion_tokens: Math.min(neededComp, body.max_tokens) },
+    }));
+  });
+  await new Promise((r) => mockVision.listen(0, '127.0.0.1', r));
+
+  const reviewer = createOpenAiVisionReviewer({
+    endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+    apiKey: 'test-key',
+    model: 'vision-no-trunc',
+    ledgerPath,
+    perspectives: [{ id: 'composition-readability', title: '构图与可读', focus: '构图', votes: 3 }],
+    concurrency: 3,
+  });
+
+  const token = issueAccountToken(dir);
+  const api = await startServer({ dataDir: dir, port: 0, reviewer });
+  try {
+    const created = await (await fetch(`${api.url}/v1/films`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        template: 'title',
+        text: 'R1B2',
+        output: { size: [320, 180], fps: '10/1', frames: 6 },
+        budget: { tokens: 31_104 },
+      }),
+    })).json();
+    assert.equal(created.ok, true);
+    const filmId = created.data.film;
+    const wsToken = created.data.token;
+
+    const renderEnv = await (await fetch(`${api.url}/v1/films/${filmId}/render?wait=30`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ tier: 'draft' }),
+    })).json();
+    assert.equal(renderEnv.ok, true);
+
+    const reviewEnv = await (await fetch(`${api.url}/v1/films/${filmId}/review`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ brief: 'R1 阻断 #2 在途临时预留不得截断 max_tokens' }),
+    })).json();
+    assert.equal(reviewEnv.ok, true);
+    assert.equal(reviewEnv.data.status, 'ok');
+    assert.equal(reviewEnv.data.stoppedReason, undefined);
+    assert.equal(reviewEnv.data.invalidBallots ?? undefined, undefined, '3 票均不得因临时预留被截断而成为坏票');
+    assert.equal(seenMaxTokens.length, 3);
+    assert.ok(seenMaxTokens.every((m) => m === 1024), `每票均应按完整 max_tokens=1024 发出，实际 ${JSON.stringify(seenMaxTokens)}`);
+
+    const extRows = readFileSync(ledgerPath, 'utf8').trim().split('\n').map(JSON.parse);
+    assert.equal(extRows.length, 3);
+    const extTotal = extRows.reduce((s, x) => s + x.inputTokens + x.outputTokens, 0);
+    assert.equal(extTotal, 30_160);
+    assert.ok(extTotal <= 31_104);
+  } finally {
+    await api.close();
+    await new Promise((r) => mockVision.close(r));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('L5-PAR-7 [R1-阻断#3]: 异步 budgetCheck 在途票结算后返回过期拒绝时自动重检，全部 3 票通过', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bm-l5-par-7-'));
+  const ledgerPath = join(dir, 'external-ledger.jsonl');
+
+  const mockVision = createServer(async (req, res) => {
+    const body = await readJsonBody(req);
+    const { voteIndex } = parseVoteTag(body);
+    await new Promise((r) => setTimeout(r, voteIndex === 1 ? 45 : 10));
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      model: 'vision-async-stale',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', opinions: [], suggestedPredicates: [] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 20 },
+    }));
+  });
+  await new Promise((r) => mockVision.listen(0, '127.0.0.1', r));
+
+  try {
+    const reviewer = createOpenAiVisionReviewer({
+      endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+      apiKey: 'test-key',
+      model: 'vision-async-stale',
+      ledgerPath,
+      perspectives: [{ id: 'composition-readability', title: '构图与可读', focus: '构图', votes: 3 }],
+      concurrency: 3,
+    });
+
+    const active = new Map();
+    let seq = 0;
+    let ballot2Checks = 0;
+    const res = await reviewer.review({
+      brief: '异步 budgetCheck 过期拒绝重检',
+      images: [],
+      film: FILM,
+      filmId: FILM.id,
+      async budgetCheck({ ballotIndex }) {
+        if (ballotIndex === 2) {
+          ballot2Checks++;
+          if (ballot2Checks === 1) {
+            // 模拟异步预算服务在第 2 票（index=1）结算前读到满额，等其结算释放后再把过期拒绝交回
+            await new Promise((r) => setTimeout(r, 90));
+            return { ok: false, reason: 'budget.tokens' };
+          }
+        }
+        const id = ++seq;
+        active.set(id, 1);
+        return {
+          ok: true,
+          settle() { active.delete(id); },
+        };
+      },
+    });
+
+    assert.equal(ballot2Checks, 2, '过期拒绝被 settledSeq 识别后必须自动重检第 3 票');
+    assert.equal(res.ballots.length, 3);
+    assert.equal(res.stoppedReason, undefined);
+    assert.equal(res.usage.totalTokens, 360);
+    assert.equal(active.size, 0);
+  } finally {
+    await new Promise((r) => mockVision.close(r));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('L5-PAR-8 [R1-阻断#4 & #5]: 首票有 settle 不掩盖后续无 settle、constructor 视角键与调度抛错必等在途票记账结算', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bm-l5-par-8-'));
+
+  // 1) 阻断 #4：首票返回 settle()，后续票无 settle 按 spentTokens + 120 <= 240 授权
+  {
+    const server = createServer(async (req, res) => {
+      await readJsonBody(req);
+      await new Promise((r) => setTimeout(r, 15));
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        model: 'vision-mixed-settle',
+        choices: [{ message: { content: JSON.stringify({ grade: '好', opinions: [], suggestedPredicates: [] }) } }],
+        usage: { prompt_tokens: 100, completion_tokens: 20 },
+      }));
+    });
+    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    try {
+      const reviewer = createOpenAiVisionReviewer({
+        endpoint: `http://127.0.0.1:${server.address().port}/v1`,
+        apiKey: 'test-key',
+        model: 'vision-mixed-settle',
+        ledgerPath: join(dir, 'mixed-settle.jsonl'),
+        perspectives: [{ id: 'composition-readability', title: '构图与可读', focus: '构图', votes: 3 }],
+        concurrency: 3,
+      });
+      const observedSpent = [];
+      const res = await reviewer.review({
+        brief: '逐票检查 settle',
+        images: [],
+        film: FILM,
+        filmId: FILM.id,
+        budgetCheck({ ballotIndex, spentTokens }) {
+          observedSpent.push(spentTokens);
+          return ballotIndex === 0 ? { ok: true, settle() {} } : spentTokens + 120 <= 240;
+        },
+      });
+      assert.deepEqual(observedSpent, [0, 120, 240]);
+      assert.equal(res.ballots.length, 2);
+      assert.equal(res.stoppedReason, 'budget.tokens');
+      assert.ok(res.usage.totalTokens <= 240, `总支出 ${res.usage.totalTokens} 不得超过 240`);
+    } finally {
+      await new Promise((r) => server.close(r));
+    }
+  }
+
+  // 2) 阻断 #5a：自定义视角 id="constructor" 且省略 issueKeys 不抛错
+  {
+    const server = createServer(async (req, res) => {
+      await readJsonBody(req);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        model: 'vision-ctor',
+        choices: [{ message: { content: JSON.stringify({ grade: '好', opinions: [], suggestedPredicates: [] }) } }],
+        usage: { prompt_tokens: 100, completion_tokens: 20 },
+      }));
+    });
+    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    try {
+      const reviewer = createOpenAiVisionReviewer({
+        endpoint: `http://127.0.0.1:${server.address().port}/v1`,
+        apiKey: 'test-key',
+        model: 'vision-ctor',
+        ledgerPath: join(dir, 'ctor.jsonl'),
+        perspectives: [{ id: 'constructor', title: '构造原型键测试', focus: '检查不误命中 Object.prototype.constructor', votes: 1 }],
+        concurrency: 2,
+      });
+      const res = await reviewer.review({
+        brief: 'constructor 键测试',
+        images: [],
+        film: FILM,
+        filmId: FILM.id,
+      });
+      assert.equal(res.ballots.length, 1);
+      assert.equal(res.ballots[0].perspective, 'constructor');
+      assert.equal(res.usage.totalTokens, 120);
+    } finally {
+      await new Promise((r) => server.close(r));
+    }
+  }
+
+  // 3) 阻断 #5b：调度循环抛错时必须等在途票完成响应、写账本与 settle 后才返回，绝不先返回、后记账
+  {
+    const ledgerPath = join(dir, 'drain-on-throw.jsonl');
+    const server = createServer(async (req, res) => {
+      await readJsonBody(req);
+      await new Promise((r) => setTimeout(r, 80));
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        model: 'vision-drain',
+        choices: [{ message: { content: JSON.stringify({ grade: '好', opinions: [], suggestedPredicates: [] }) } }],
+        usage: { prompt_tokens: 100, completion_tokens: 20 },
+      }));
+    });
+    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    try {
+      const active = new Map();
+      let seq = 0;
+      let settledTotal = 0;
+      const reviewer = createOpenAiVisionReviewer({
+        endpoint: `http://127.0.0.1:${server.address().port}/v1`,
+        apiKey: 'test-key',
+        model: 'vision-drain',
+        ledgerPath,
+        perspectives: [
+          { id: 'constructor', title: '正常在途票', focus: '延迟响应', votes: 1 },
+          {
+            id: 'boom',
+            votes: 1,
+            get title() { throw new Error('simulated dispatch failure'); },
+            focus: '触发调度异常',
+          },
+        ],
+        concurrency: 2,
+      });
+      const res = await layerL5({
+        reviewer,
+        brief: '调度异常排空在途票测试',
+        images: [],
+        film: FILM,
+        filmId: FILM.id,
+        budgetCheck() {
+          const id = ++seq;
+          active.set(id, 1);
+          return {
+            ok: true,
+            settle(actual = 0) {
+              active.delete(id);
+              settledTotal += actual;
+            },
+          };
+        },
+      });
+      assert.equal(res.status, 'failed');
+      assert.equal(res.reason, '视觉审片适配器调用失败');
+      assert.equal(active.size, 0, '返回时在途票必须已全部 settle');
+      assert.equal(settledTotal, 120, '返回时在途票实耗必须已全部结算');
+      assert.equal(res.usage?.totalTokens, 120, '返回结果 usage 必须完整包含已收在途票用量');
+      const rowsAtReturn = readFileSync(ledgerPath, 'utf8').trim().split('\n').map(JSON.parse);
+      assert.equal(rowsAtReturn.length, 1, '返回瞬间外部账本必须已完成落账');
+      assert.equal(rowsAtReturn[0].inputTokens + rowsAtReturn[0].outputTokens, 120);
+
+      await new Promise((r) => setTimeout(r, 120));
+      const rowsLater = readFileSync(ledgerPath, 'utf8').trim().split('\n').map(JSON.parse);
+      assert.equal(rowsLater.length, 1, '返回后不得再有延迟补写账本');
     } finally {
       await new Promise((r) => server.close(r));
     }
