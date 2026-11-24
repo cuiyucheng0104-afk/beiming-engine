@@ -84,32 +84,70 @@ function seatbeltProfile(run, questionFile, hidden, denyReadDirs = []) {
   // 隐藏题常和别的隐藏题、答案放在一个目录：原题在仓库外就整个目录都挡；目录里装着运行目录、家目录或 node 的不挡（挡了做题进程起不来）
   const wholeDir = hidden && !inside(real, REPO) && [dir, canonical(home), canonical(process.execPath)].every((p) => !inside(p, qDir));
 
-  // 收集仓外用户个人目录与显式拒绝目录（含原路径与 realpath 解析路径，防止软链绕过；不包含关键运行路径才加入）
+  // 收集仓外用户个人目录与显式拒绝目录（含原路径与 realpath 解析路径，防止软链绕过）；
+  // 若受保护运行路径（run.dir / REPO / process.execPath）落在该目录下且目录本身不是家目录或其祖先，
+  // 则使用 (require-all (subpath <dir>) (require-not (subpath <keep>)) ...) 精准挖空运行路径，继续拒读所有同级兄弟目录
   const denySubpaths = new Set();
-  const addDenyDir = (rawDir, protectedPaths) => {
+  const denyCarved = [];
+  const addDenyDir = (rawDir, protectedPaths, { carve = false } = {}) => {
     if (typeof rawDir !== 'string') return;
-    const trimmed = rawDir.trim();
-    if (!trimmed || hasUnsafeSbplChar(trimmed)) return;
-    const resolved = path.resolve(trimmed);
+    // 保留目录名首尾空格（POSIX 合法路径），仅过滤空白串与不安全控制字符/双引号
+    if (!rawDir.trim() || hasUnsafeSbplChar(rawDir)) return;
+    const resolved = path.resolve(rawDir);
     const canon = canonical(resolved);
-    if (protectedPaths.some((p) => rawInside(resolved, p) || isInside(resolved, p))) return;
+    const hitProtected = protectedPaths.filter((p) => rawInside(resolved, p) || isInside(resolved, p));
+    if (hitProtected.length > 0) {
+      if (!carve) return;
+      if (rawInside(resolved, home) || isInside(resolved, home)) return;
+      const keepSet = new Set();
+      for (const p of hitProtected) {
+        const rp = path.resolve(p), cp = canonical(rp);
+        for (const k of [rp, cp]) if (!hasUnsafeSbplChar(k)) keepSet.add(k);
+      }
+      if (!keepSet.size) return;
+      for (const candidate of new Set([resolved, canon])) {
+        if (!hasUnsafeSbplChar(candidate)) denyCarved.push({ dir: candidate, keep: [...keepSet] });
+      }
+      return;
+    }
     for (const candidate of [resolved, canon]) {
       if (!hasUnsafeSbplChar(candidate)) denySubpaths.add(candidate);
     }
   };
 
-  const personalProtected = [dir, REPO, process.execPath, ...(hidden ? [] : [questionFile])];
+  const personalProtected = [dir, REPO, process.execPath];
   for (const name of ['Desktop', 'Documents', 'Downloads']) {
     const sub = path.join(home, name);
-    if (fs.existsSync(sub)) addDenyDir(sub, personalProtected);
+    if (fs.existsSync(sub)) addDenyDir(sub, personalProtected, { carve: true });
   }
 
   const explicitProtected = [dir, home, REPO, process.execPath];
-  for (const rawDir of denyReadDirs) addDenyDir(rawDir, explicitProtected);
+  for (const rawDir of denyReadDirs) addDenyDir(rawDir, explicitProtected, { carve: true });
 
   const extraSubpaths = [...denySubpaths].map((p) => ` (subpath ${q(p)})`).join('');
+  const ancestorLiterals = (parentDir, keepPaths) => {
+    const out = new Set();
+    for (const kp of keepPaths) {
+      let cur = path.dirname(kp);
+      while (cur && cur !== path.dirname(cur) && rawInside(parentDir, cur)) {
+        if (!hasUnsafeSbplChar(cur)) out.add(cur);
+        if (cur === parentDir) break;
+        cur = path.dirname(cur);
+      }
+    }
+    return [...out];
+  };
+  const carvedRules = denyCarved
+    .map(({ dir: d, keep }) => {
+      const keepNot = keep.map((k) => `(require-not (subpath ${q(k)}))`).join(' ');
+      const anc = ancestorLiterals(d, keep);
+      const ancAllow = anc.length ? `(allow file-read-metadata ${anc.map((a) => `(literal ${q(a)})`).join(' ')})` : '';
+      return `(deny file-read* file-read-data (require-all (subpath ${q(d)}) ${keepNot}))${ancAllow}`;
+    })
+    .join('');
   return '(version 1)(allow default)'
     + `(deny file-read* file-read-data (literal ${q(real)})${wholeDir ? ` (subpath ${q(qDir)})` : ''}${extraSubpaths})`
+    + carvedRules
     // 宿主写的三个文件：meta.json 不给读，结果和观测不给改（做题进程留下的后台进程也改不了）
     + `(deny file-read* file-read-data file-write* ${['meta.json', 'result.json', 'observation.json'].map((f) => `(literal ${q(path.join(dir, f))})`).join(' ')})`
     // 别的运行（<运行根>/<题号>/<runId>/ 这一层往下，里面有别人交的成片）；运行根里别的文件照常读得到
@@ -205,7 +243,7 @@ export async function defaultJudge({ question, worktreeDir }) {
   return { predicates, metrics, cost: { gpuSeconds: submission?.cost?.gpuSeconds } };
 }
 
-function normalizeStringArray(value, name, itemHint) {
+function normalizeStringArray(value, name, itemHint, { trim = true } = {}) {
   if (value == null) return null;
   if (types.isProxy(value) || !Array.isArray(value)) {
     throw usageError(`${name} 必须是字符串数组或 null`, `传入字符串数组（${name}）`);
@@ -216,8 +254,8 @@ function normalizeStringArray(value, name, itemHint) {
     if (!desc || !('value' in desc) || typeof desc.value !== 'string') {
       throw usageError(`${name} 第 ${i + 1} 项必须是字符串`, itemHint);
     }
-    const trimmed = desc.value.trim();
-    if (trimmed) items.add(trimmed);
+    const normalized = trim ? desc.value.trim() : desc.value;
+    if (normalized.trim()) items.add(normalized);
   }
   return [...items];
 }
@@ -264,8 +302,8 @@ export async function runExamQuestion({
   if (source !== null && !SOURCES.includes(source)) throw usageError(`source 只能是 ${SOURCES.join(' / ')}`);
   if (typeof rerunOnBlockedByChange !== 'boolean') throw usageError('rerunOnBlockedByChange 必须是布尔值');
   const prevBlockedBy = previousBlockedBy != null ? normalizeBlockedBy(previousBlockedBy, 'previousBlockedBy') : null;
-  const extraDenyReadDirs = normalizeStringArray(denyReadDirs, 'denyReadDirs', 'denyReadDirs 只能包含字符串目录路径') ?? [];
-  const envDenyReadDirs = (process.env.BEIMING_DENY_READ_DIRS ?? '').split(path.delimiter).map((s) => s.trim()).filter(Boolean);
+  const extraDenyReadDirs = normalizeStringArray(denyReadDirs, 'denyReadDirs', 'denyReadDirs 只能包含字符串目录路径', { trim: false }) ?? [];
+  const envDenyReadDirs = (process.env.BEIMING_DENY_READ_DIRS ?? '').split(path.delimiter).filter((s) => s.trim().length > 0);
   let raw;
   try { raw = fs.readFileSync(questionFile, 'utf8'); } catch (e) { throw usageError(`读不到题目文件（${e.code ?? e.message}）`, '检查 --question 的路径'); }
   const checked = validateQuestion(raw);

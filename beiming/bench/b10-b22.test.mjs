@@ -563,3 +563,63 @@ Path('sb.json').write_text(json.dumps([check(os.getpid(), b'file-read-data', 1, 
     }
   }
 });
+
+test('B10-8: R3 回归 — evalRoot 位于 Desktop 时挖空运行目录仍拒读同级兄弟目录，且 denyReadDirs 保留末尾空格', async (t) => {
+  if (!SEATBELT) return;
+  const fakeHome = fs.realpathSync(makeTempDir(t, 'beiming-b10-r3-'));
+  const desktop = path.join(fakeHome, 'Desktop');
+  const siblingBank = path.join(desktop, 'sibling-bank');
+  const runs = path.join(desktop, 'runs');
+  const trailingDir = path.join(fakeHome, 'archive ');
+  fs.mkdirSync(siblingBank, { recursive: true });
+  fs.mkdirSync(runs, { recursive: true });
+  fs.mkdirSync(trailingDir, { recursive: true });
+
+  const siblingSecret = path.join(siblingBank, 'secret.json');
+  const trailingSecret = path.join(trailingDir, 'secret.json');
+  fs.writeFileSync(siblingSecret, '{"secret":"SIBLING-CANARY"}');
+  fs.writeFileSync(trailingSecret, '{"secret":"TRAILING-CANARY"}');
+
+  const probe = path.join(fakeHome, 'probe-r3.mjs');
+  fs.writeFileSync(probe, `import fs from 'node:fs';
+import path from 'node:path';
+const readErr = (p) => { try { fs.readFileSync(p, 'utf8'); return null; } catch (e) { return e.code; } };
+const listErr = (p) => { try { fs.readdirSync(p); return null; } catch (e) { return e.code; } };
+const [siblingFile, siblingDir, desktopDir, trailingFile] = process.argv.slice(2);
+fs.writeFileSync('r3-out.json', JSON.stringify({
+  cwdReal: fs.realpathSync('.'),
+  ownId: JSON.parse(fs.readFileSync(path.resolve('question.json'), 'utf8')).id,
+  siblingFileErr: readErr(siblingFile),
+  siblingDirErr: listErr(siblingDir),
+  desktopListErr: listErr(desktopDir),
+  trailingFileErr: readErr(trailingFile),
+}));
+`);
+
+  const homeMock = t.mock.method(os, 'homedir', () => fakeHome);
+  const { syncBuiltinESMExports } = await import('node:module');
+  syncBuiltinESMExports();
+  t.after(() => {
+    homeMock.mock.restore();
+    syncBuiltinESMExports();
+  });
+
+  const publicQuestion = path.join(REPO, 'beiming/bench/questions/level-1/29-1.json');
+  const res = await runExamQuestion({
+    questionFile: publicQuestion,
+    evalRoot: runs,
+    denyReadDirs: [trailingDir],
+    solverCmd: `"${process.execPath}" "${probe}" "${siblingSecret}" "${siblingBank}" "${desktop}" "${trailingSecret}"`,
+    judge: allPassJudge,
+  });
+  assert.equal(res.status, 'pass');
+  const obs = JSON.parse(fs.readFileSync(path.join(res.runDir, 'observation.json'), 'utf8'));
+  const out = JSON.parse(fs.readFileSync(path.join(res.runDir, 'worktree/r3-out.json'), 'utf8'));
+  assert.equal(obs.isolation, 'seatbelt');
+  assert.equal(out.cwdReal, path.join(res.runDir, 'worktree'));
+  assert.equal(out.ownId, '29-1');
+  assert.equal(out.siblingFileErr, 'EPERM');
+  assert.equal(out.siblingDirErr, 'EPERM');
+  assert.equal(out.desktopListErr, 'EPERM');
+  assert.equal(out.trailingFileErr, 'EPERM');
+});

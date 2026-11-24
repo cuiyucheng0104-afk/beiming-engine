@@ -41,7 +41,7 @@
 `seatbelt` 挡以下几样，别的照常放行：
 
 - **原题**读不到。隐藏题在仓库外时，它所在的目录整个读不到（别的隐藏题、答案常放在一起）。所以隐藏题单独放一个目录，做题命令别放在里面；这个目录要是装着运行目录、家目录或 node，就只挡原题这一个文件。
-- **用户个人目录与显式拒绝目录**读不到（公开题与隐藏题均生效，同时覆盖原路径与 `realpathSync` 解析路径）：自动拒读 `os.homedir()` 下已存在的 `Desktop`、`Documents`、`Downloads`（只要不包含运行目录、仓库根、`process.execPath`，且非隐藏题时不包含原题路径）；同时拒读 `runExamQuestion` 的可选参数 `denyReadDirs`（字符串数组或 `null`/`undefined`，非法类型抛 `usageError`）与环境变量 `BEIMING_DENY_READ_DIRS`（按 `path.delimiter` 拆分、忽略空段并安全过滤控制字符/引号，含尚未创建的 `path.resolve` 目录路径，只要不包含运行目录、`os.homedir()`、仓库根与 `process.execPath`）。`BEIMING_DENY_READ_DIRS` 不透传给做题子进程。
+- **用户个人目录与显式拒绝目录**读不到（公开题与隐藏题均生效，同时覆盖原路径与 `realpathSync` 解析路径）：自动拒读 `os.homedir()` 下已存在的 `Desktop`、`Documents`、`Downloads`，同时拒读 `runExamQuestion` 的可选参数 `denyReadDirs`（字符串数组或 `null`/`undefined`，保留目录名首尾空格，非法类型抛 `usageError`）与环境变量 `BEIMING_DENY_READ_DIRS`（按 `path.delimiter` 拆分、保留路径空格、过滤空白段与控制字符/引号，含尚未创建的 `path.resolve` 目录路径）。若运行目录、`REPO` 或 `process.execPath` 恰好落入上述目录内且该目录不是 `os.homedir()` 或其祖先，则通过 `(require-all (subpath <dir>) (require-not (subpath <keep>)) ...)` 精准挖空受保护子路径并仅放行祖先链 `file-read-metadata`，继续拒读所有同级兄弟目录。`BEIMING_DENY_READ_DIRS` 不透传给做题子进程。
 - 运行目录里宿主写的 `meta.json` 读不到，`result.json`、`observation.json` 写不了（做题进程留下的后台进程也改不了结果）。
 - **别的运行**（`<root>/<题号>/<runId>/` 往下，里面有别人交的成片）读不到内容；运行根里别的文件照常能读。
 
