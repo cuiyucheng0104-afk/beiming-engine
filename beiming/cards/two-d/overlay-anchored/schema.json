@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cards/two-d/overlay-anchored/schema.json",
+  "title": "锚点引线标注表",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "entity",
+      "text"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]*$"
+      },
+      "entity": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$"
+      },
+      "anchor": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_.-]+$"
+      },
+      "text": {
+        "type": "string",
+        "minLength": 1
+      },
+      "dx": {
+        "type": "number"
+      },
+      "dy": {
+        "type": "number"
+      },
+      "startFrame": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "endFrame": {
+        "type": "integer",
+        "minimum": 1
+      }
+    }
+  }
+}

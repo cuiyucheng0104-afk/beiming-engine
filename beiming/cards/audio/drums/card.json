@@ -1,0 +1,156 @@
+{
+  "format": "card/0.1",
+  "id": "audio.drums",
+  "version": "1.0.0",
+  "kind": "audio",
+  "title": "程序化鼓组与机械重音",
+  "intent": "按节拍网格或事件点用纯函数合成 48kHz 立体声底鼓、军鼓、踩镲与机械敲击，零外部音频依赖",
+  "visibleToAgent": true,
+  "livesIn": [
+    "comp"
+  ],
+  "impl": [
+    {
+      "livesIn": "comp",
+      "entry": "cards/audio/drums/index.mjs",
+      "shape": "create",
+      "hosts": [],
+      "selftest": "cards/audio/drums/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "pattern": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": {
+        "bpm": 120,
+        "stepsPerBeat": 4,
+        "hits": [
+          {
+            "id": "beat-0-kick",
+            "voice": "kick",
+            "step": 0,
+            "velocity": 1,
+            "pan": 0
+          },
+          {
+            "id": "beat-1-hihat",
+            "voice": "hihat",
+            "step": 2,
+            "velocity": 0.65,
+            "pan": -0.2
+          },
+          {
+            "id": "beat-2-snare",
+            "voice": "snare",
+            "step": 4,
+            "velocity": 0.9,
+            "pan": 0.1
+          },
+          {
+            "id": "beat-3-rim",
+            "voice": "rim",
+            "step": 6,
+            "velocity": 0.75,
+            "pan": 0.25
+          }
+        ]
+      },
+      "coupling": "fps"
+    },
+    "gainDb": {
+      "type": "number",
+      "unit": "dB",
+      "range": [
+        -48,
+        12
+      ],
+      "default": -3,
+      "coupling": "none"
+    },
+    "ceilingDb": {
+      "type": "number",
+      "unit": "dBFS",
+      "range": [
+        -18,
+        0
+      ],
+      "default": -1,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [
+      {
+        "name": "events",
+        "type": "events"
+      }
+    ],
+    "out": [
+      {
+        "name": "events",
+        "type": "events"
+      },
+      {
+        "name": "readings",
+        "type": "frame-meta"
+      }
+    ],
+    "order": {
+      "before": [
+        "audio.event-mix",
+        "audio.master"
+      ],
+      "after": []
+    },
+    "requires": [
+      "合成工具给的 ctx 带 fps（\"分子/分母\"）、frames（全片或镜头总帧数）和 seed（无符号 32 位整数噪声种子）；带 sampleRate 时必须是 48000",
+      "所有音色（kick 底鼓、snare 军鼓、hihat 踩镲、rim 机械敲击、accent 工业重音）全部由纯数学振荡器与带种子确定性伪随机噪声在 48000 Hz 下逐采样合成，不读任何外部音频文件",
+      "时刻换算采样点固定为 round((frame + sub) × 48000 × 分母 ÷ 分子)，亦支持按节拍网格（bpm + stepsPerBeat + bar/beat/step）自动换算精确帧号与采样点；混音完成后峰值超过 ceilingDb 时整体按比例压回 ceilingDb，导出事件表严格按 EV1 (frame, id) 排序",
+      "未知音色、越界帧号、缺失落点或非 48000 采样率输入，一律报 usage.bad-argument"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "硬件拆解、动作卡点或节奏切换片子需要零外部素材依赖、完全确定性可复现的鼓点与机械动作重音，并交出精确到采样点的事件表"
+    ],
+    "notWhen": [
+      "需要真实录制的管弦乐或人声配音（旁白用 time.narration）",
+      "采样率不是 48000 赫兹"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "48000 Hz 立体声：五种音色（kick/snare/hihat/rim/accent）各自能量集中在预期频段与时长内；同一 seed 与 pattern 重复合成或跨帧乱序读取 meta(f) 逐位一致，改变 bpm 或 stepsPerBeat 时网格落点与波形同步变化，导出事件表通过 EV1 (frame, id) 校验；峰值严格不超 ceilingDb（-1 dBFS）；非法采样率、越界帧与未知音色全部以 usage.bad-argument 拒绝",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "鼓点密集叠加后整体音量被压低",
+      "fix": "峰值超过 ceilingDb 时会整轨等比下压防削波；把次要踩镲的 velocity 调低到 0.4–0.6，让底鼓与重音保留动态余量"
+    },
+    {
+      "symptom": "分数帧率（如 30000/1001）下鼓点采样位置飘了 1 个采样点",
+      "fix": "不要先算每帧采样数再乘帧号：统一用 round((frame + sub) × 48000 × 分母 ÷ 分子) 先乘后除"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "全部音色由指数扫频相位积分与 Mulberry32 确定性噪声序列闭式合成，立体声按等功率声像定律分配左右声道"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "node",
+      "source": "24.13.1",
+      "gpu": "none",
+      "date": "2026-11-23"
+    }
+  ],
+  "exams": [
+    "1-2",
+    "27-1",
+    "cal:audio.drums"
+  ]
+}

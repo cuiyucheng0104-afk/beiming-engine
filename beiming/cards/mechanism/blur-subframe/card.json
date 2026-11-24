@@ -1,0 +1,136 @@
+{
+  "format": "card/0.1",
+  "id": "blur.subframe",
+  "version": "1.0.0",
+  "kind": "mechanism",
+  "title": "线性子帧累积运动模糊",
+  "intent": "在线性光空间按快门角做子帧采样平均，并在镜头切点硬钳制快门区间以杜绝跨切点重影",
+  "visibleToAgent": false,
+  "livesIn": [
+    "source:three"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "cards/mechanism/blur-subframe/index.mjs",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "page",
+          "version": "0.187.0"
+        }
+      ],
+      "selftest": "cards/mechanism/blur-subframe/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "shutterAngleDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [
+        0,
+        360
+      ],
+      "default": 180,
+      "coupling": "fps"
+    },
+    "samples": {
+      "type": "integer",
+      "unit": "none",
+      "range": [
+        1,
+        64
+      ],
+      "default": 8,
+      "coupling": "host-api"
+    },
+    "clampToShot": {
+      "type": "boolean",
+      "unit": "none",
+      "default": true,
+      "coupling": "fps"
+    },
+    "policy": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": {
+        "alignment": "forward",
+        "clampToShot": true
+      },
+      "coupling": "fps"
+    }
+  },
+  "ports": {
+    "in": [
+      {
+        "name": "color",
+        "type": "scene-linear-rgba"
+      }
+    ],
+    "out": [
+      {
+        "name": "color",
+        "type": "scene-linear-rgba"
+      },
+      {
+        "name": "readings",
+        "type": "frame-meta"
+      }
+    ],
+    "order": {
+      "before": [
+        "post.hdr-chain"
+      ],
+      "after": []
+    },
+    "requires": [
+      "这张卡是帧源底层机制卡（visibleToAgent 为 false，由宿主或引擎按镜头 shutterAngleDeg 与档位采样数自动挂接，不对做题代理暴露）",
+      "所有子帧必须在色调映射之前的场景线性光空间（32 位浮点 RGBA）中等权或按核权重求平均，绝不能在 sRGB 8 位显示空间里平均",
+      "镜头边界硬钳制（clampToShot=true）：无论采用居中快门（centered）还是前向快门（forward），任何子帧采样时刻 t 一律钳制在当前镜头区间 [shot.in, shot.in + shot.frames) 内；切点后首帧（f = shot.in）绝不向前跨切点采样上一镜头（零跨切点重影）",
+      "快门角越界、子帧数非 [1, 64] 整数、线性缓冲长度不一致或带 NaN/无穷输入，一律报 usage.bad-argument"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "three 帧源在终稿或校准档需要物理正确的线性光子帧运动模糊，且多镜头切换处要求切点后首帧干脆利落、无上一镜头残影"
+    ],
+    "notWhen": [
+      "shutterAngleDeg 为 0 或草稿档 samples 为 1 时自动退化为单次正点采样（sub = 0）"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "180° 快门、8 子帧：在镜头切点 f = shot.in 处开启镜头边界钳制（clampToShot=true）时，所有子帧时刻严格落在 [shot.in, shot.in + 1) 内，上一镜头高亮特征在切点后首帧的残影能量严格为 0；关闭钳制的负对照（clampToShot=false）在切点后首帧混入 50% 上一镜头子帧并测出显著重影；线性光空间平均保留高光能量且顺序/乱序/单帧逐位一致",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "镜头刚切过去的第一帧出现了上一个镜头的半透明鬼影",
+      "fix": "居中快门 [f - Δ/2, f + Δ/2) 在 f = shot.in 时前半段会落进上一镜头；必须保持 clampToShot=true 把快门窗口钳进当前镜头 [shot.in, shot.out)"
+    },
+    {
+      "symptom": "高速运动的高光拖尾发暗发灰",
+      "fix": "必须在 post.hdr-chain 色调映射之前的场景线性 Float32Array 上做 accumulateLinear，不要在 8 位 sRGB 上平均"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "子帧相位由分层中点采样 (i + 0.5) / N 映射至快门窗口，并在镜头首尾帧把窗口平移钳制在 [shot.in, shot.out) 内，再于场景线性浮点空间逐通道加权求和"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-23"
+    }
+  ],
+  "exams": [
+    "1-2",
+    "27-1",
+    "7-1",
+    "cal:blur.subframe"
+  ]
+}
