@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "29-1-shift-2f",
+  "questionId": "29-1",
+  "kind": "shift-2f",
+  "disabledCards": [],
+  "seed": null,
+  "description": "中场面板切换脉冲（原本在第 298 到 299 帧完成复位）整体晚 2 帧落到第 300 到 301 帧：第 300 帧抽样时上下两个面板仍处于向下偏移 2 像素的过渡位置，分隔线颜色不变。模型假设说明：静态分屏版式本身对时间平移不敏感，这份负对照拦得住靠的是模型在抽样帧（第 300 帧）前安排了 2 帧面板复位脉冲。",
+  "perturbation": {
+    "transitionShiftFrames": 2
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "layout.edges",
+      "why": "第 300 帧上下面板的四条水平边界均向下偏移 2 像素，超过 0 像素容差"
+    }
+  ]
+}

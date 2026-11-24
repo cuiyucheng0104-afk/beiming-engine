@@ -1,0 +1,24 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "23-1-random-beats",
+  "questionId": "23-1",
+  "kind": "random-beats",
+  "disabledCards": [],
+  "seed": 20261124,
+  "description": "相机不做匀速整圈转台，换成固定种子在 72 帧里取的 12 个随机拍点，每个拍点跳到一个方位角，末帧跳到半圈附近。后半段里最像第 0 帧的帧号不再是第 71 帧，末帧对第 0 帧的误差也远超相邻帧。",
+  "perturbation": {
+    "orbitMode": "random-beats"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "loop.closure-psnr",
+      "why": "后半段里和第 0 帧最像的是随机拍点落回起点附近的第 40 帧，不是第 71 帧"
+    },
+    {
+      "scoring": 1,
+      "metric": "loop.closure-psnr",
+      "why": "末帧跳到半圈附近，第 0 帧对第 71 帧的 PSNR 仅 6.11 dB，远低于相邻帧的 33.15 dB"
+    }
+  ]
+}

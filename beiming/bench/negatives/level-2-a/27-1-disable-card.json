@@ -1,0 +1,22 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "27-1-disable-card",
+  "questionId": "27-1",
+  "kind": "disable-card",
+  "disabledCards": [
+    "time.cut-grid",
+    "time.timeline"
+  ],
+  "seed": null,
+  "description": "关掉网格切点和时间线两张卡：13 个换镜头不按 150 BPM（一拍 12 帧）的 1、2、4、8 拍网格排布，而是把 510 帧按 14 段近似等分（首切在第 36 帧，12 个切点不在 12 帧整数倍上）。整片响度与真峰值保持合规，响度项照过。",
+  "perturbation": {
+    "cutSchedule": "equal-interval"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "cut.ydif",
+      "why": "首切在第 36 帧（要求第 96 帧），且 12 个切点不是 12 帧的整数倍"
+    }
+  ]
+}
