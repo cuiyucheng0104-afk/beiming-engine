@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // 北冥 · 成像一路的第 2 级：像素滤波与 Cycles 口径的夹取接进内核（core-render render-pack）后渲图对解析值。
-//   像素滤波：刀口场景（半平面黑白分界）在三种滤波、两种宽度下出图，沿分界的剖面（把每一列像素平均）对滤波函数与刀口卷积的
-//   解析式，每一列的差不超过 4 个标准误；盒式宽 1（不给参数、显式给 box 1）与不加参数逐位相同。
+//   像素滤波：刀口场景（半平面黑白分界）在三种滤波、两种宽度下出图，沿分界的剖面（把每一列像素平均）对「Cycles 的滤波表
+//   给出的分布与刀口的卷积」（tableExpected），每一列的差不超过 4 个标准误；对连续滤波函数的卷积（knifeExpected）只记录不判：
+//   Cycles 的表在尾巴上有离散化（util/math_cdf.cpp 对称的一支、scene/film.cpp 表的最后一格为 0），约 0.3% 的样本不照连续
+//   滤波函数分布，标准答案是 Cycles 的表。盒式宽 1 不查表（子像素均匀抖动），对连续盒式判；与不加参数逐位相同。
 //   夹取：相机直接看天空（直接光）、两面镜子拼的直角反射器里看两次反射之后的天空（间接光），上限低于真值时读数等于照 Cycles
 //   的式子手算的值（±3 个标准误）；上限为 0 时与不设逐位相同。
 //   负对照：在源码的拷贝上各改错一项（build.mjs 的 inject），对应的一项必须不过。
@@ -134,9 +136,10 @@ export function knifeExpected(kind, w, plateau) {
   return Array.from({ length: KNIFE.w }, (_, i) => plateau * cdf(KNIFE.edge - i - 0.5));
 }
 
-/** 诊断用（不进判定）：照宿主一侧实际建出的表（core-render fncheck-host filter_table，与 Cycles 建的逐位相同）算的剖面期望。
+/** 判定用：照宿主一侧建出的表（core-render fncheck-host filter_table，第 1 级逐项对 Cycles 建的表，相对误差 0）算的剖面期望。
  *  表是分段线性的反函数，第 s 段占随机数的 1/1023、在 [表[s], 表[s+1]] 上均匀（最后一段反着铺回 0），第 i 列的期望是
- *  平台 × Σ_s (1/1023) × 这一段里 i + o < 分界的比例 */
+ *  平台 × Σ_s (1/1023) × 这一段里 i + o < 分界的比例。每段是闭式，没有数值积分，误差只有双精度舍入（约 1e-15，远小于标准误的 1/10）。
+ *  bin 必须是没改错的渲染程序：负对照改的正是建表，拿改错的程序建期望就抓不到了 */
 export function tableExpected(bin, kind, width, plateau) {
   const type = Object.keys(FILTERS).indexOf(kind);
   const input = Float32Array.from([type, width]);
@@ -159,22 +162,23 @@ export function columns(hdr, w, h) {
   return Array.from({ length: w }, (_, x) => meanSe(Array.from({ length: h }, (_, y) => pixel(hdr, y * w + x))));
 }
 
-/** 一种滤波、一个宽度：剖面每一列对解析式的标准误倍数 */
-export function knifeCase(bin, kind, width, args = ['--pixel-filter', kind, '--filter-width', String(width)]) {
+/** 一种滤波、一个宽度：剖面每一列对期望的标准误倍数。bin 出图，ref 建期望用的表（默认同 bin；负对照传没改错的那个）。
+ *  判定对 Cycles 表给出的期望（盒式宽 1 不查表，对连续盒式）；对连续滤波函数的那一列（continuousWorst）只记录 */
+export function knifeCase(bin, kind, width, { ref = bin, args = ['--pixel-filter', kind, '--filter-width', String(width)] } = {}) {
   const { hdr } = render(bin, knifePack(), KNIFE, args);
   const cols = columns(hdr, KNIFE.w, KNIFE.h);
   const plat = meanSe(cols.slice(...KNIFE.plateau).map(c => c.mean)), plateau = plat.mean;
-  const exp = knifeExpected(kind, width, plateau);
+  const continuous = knifeExpected(kind, width, plateau);
+  const exp = kind === 'box' && width === 1 ? continuous : tableExpected(ref, kind, width, plateau);
   // 标准误把平台的标准误按这一列的覆盖比例算进去（期望是平台乘一个确定的数）
-  const rows = cols.map((c, i) => {
-    const se = Math.hypot(c.se, (exp[i] / plateau) * plat.se);
-    return { column: i, mean: c.mean, se, expected: exp[i], z: se > 0 ? (c.mean - exp[i]) / se : (c.mean === exp[i] ? 0 : Infinity) };
-  });
+  const zOf = (c, e) => {
+    const se = Math.hypot(c.se, (e / plateau) * plat.se);
+    return { se, z: se > 0 ? (c.mean - e) / se : (c.mean === e ? 0 : Infinity) };
+  };
+  const rows = cols.map((c, i) => ({ column: i, mean: c.mean, expected: exp[i], ...zOf(c, exp[i]), continuous: continuous[i], zContinuous: zOf(c, continuous[i]).z }));
   const worst = rows.reduce((a, b) => (Math.abs(b.z) > Math.abs(a.z) ? b : a));
-  // 诊断：对照表本身给出的期望（盒式宽 1 不查表，没有这一项）
-  const table = kind === 'box' && width === 1 ? null : tableExpected(bin, kind, width, plateau);
-  const tableWorst = table && rows.map((r, i) => ({ column: i, z: (r.mean - table[i]) / r.se, expected: table[i] })).reduce((a, b) => (Math.abs(b.z) > Math.abs(a.z) ? b : a));
-  return { name: `${kind} ${width}`, kind, width, plateau, rows, worst, tableWorst, ok: rows.every(r => Math.abs(r.z) <= GATES.knifeSE) };
+  const cw = rows.reduce((a, b) => (Math.abs(b.zContinuous) > Math.abs(a.zContinuous) ? b : a));
+  return { name: `${kind} ${width}`, kind, width, plateau, rows, worst, continuousWorst: { column: cw.column, expected: cw.continuous, z: cw.zContinuous }, ok: rows.every(r => Math.abs(r.z) <= GATES.knifeSE) };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -225,17 +229,17 @@ export const NEGATIVE = [
   {
     name: '像素滤波：高斯建表前宽度乘 2.5（应为 3）',
     inject: { file: 'path/src/pixel_filter.rs', from: 'FilterType::Gaussian => (filter_func_gaussian, width * 3.0),', to: 'FilterType::Gaussian => (filter_func_gaussian, width * 2.5),' },
-    run: bin => [knifeCase(bin, 'gaussian', 1.5)],
+    run: (bin, ref) => [knifeCase(bin, 'gaussian', 1.5, { ref })],
   },
   {
     name: '像素滤波：Blackman-Harris 建表前宽度乘 1.8（应为 2）',
     inject: { file: 'path/src/pixel_filter.rs', from: 'FilterType::BlackmanHarris => (filter_func_blackman_harris, width * 2.0),', to: 'FilterType::BlackmanHarris => (filter_func_blackman_harris, width * 1.8),' },
-    run: bin => [knifeCase(bin, 'blackman-harris', 1.5)],
+    run: (bin, ref) => [knifeCase(bin, 'blackman-harris', 1.5, { ref })],
   },
   {
     name: '像素滤波：盒式的表照半宽建（宽度少乘一半）',
     inject: { file: 'path/src/pixel_filter.rs', from: 'FilterType::Box => (filter_func_box, width),', to: 'FilterType::Box => (filter_func_box, width * 0.5),' },
-    run: bin => [knifeCase(bin, 'box', 3)],
+    run: (bin, ref) => [knifeCase(bin, 'box', 3, { ref })],
   },
   {
     name: '夹取：宿主没把用户值乘 3（夹到的是三个分量之和）',
@@ -268,7 +272,7 @@ export async function runImaging({ negatives = true, log = () => {} } = {}) {
   if (negatives) {
     for (const n of NEGATIVE) {
       say(`负对照：${n.name}`);
-      const rows = n.run(buildRenderer({ inject: [n.inject] }).bin);
+      const rows = n.run(buildRenderer({ inject: [n.inject] }).bin, bin);
       negative.push({ name: n.name, rows: rows.map(r => ({ name: r.name, z: r.z ?? r.worst.z, ok: r.ok })), caught: rows.some(r => !r.ok) });
     }
   }
@@ -293,7 +297,7 @@ export const command = defineCommand({
       if (e.missing) throw new CliError('env.chassis-toolchain', `缺工具链：${e.missing}`, '要 cargo 与能拿到显卡的环境');
       throw e;
     }
-    for (const c of report.knife) ctx.out(`${c.ok ? '✓' : '✗'} 刀口 ${c.name.padEnd(22)} 平台 ${c.plateau.toFixed(6)}  最差一列 ${c.worst.column}：${c.worst.mean.toFixed(6)} 对 ${c.worst.expected.toFixed(6)}，${c.worst.z.toFixed(2)} 个标准误（标准误 ${c.worst.se.toExponential(2)}）${c.tableWorst ? `；对表本身给出的期望最差第 ${c.tableWorst.column} 列 ${c.tableWorst.z.toFixed(2)} 个标准误（诊断，不进判定）` : ''}`);
+    for (const c of report.knife) ctx.out(`${c.ok ? '✓' : '✗'} 刀口 ${c.name.padEnd(22)} 平台 ${c.plateau.toFixed(6)}  最差一列 ${c.worst.column}：${c.worst.mean.toFixed(6)} 对 ${c.worst.expected.toFixed(6)}，${c.worst.z.toFixed(2)} 个标准误（标准误 ${c.worst.se.toExponential(2)}）；对连续滤波函数最差第 ${c.continuousWorst.column} 列 ${c.continuousWorst.z.toFixed(2)} 个标准误（只记录）`);
     ctx.out(`  不夹时直角反射器的读数 ${report.clamp.cornerFree.mean.toFixed(6)} ± ${report.clamp.cornerFree.se.toExponential(2)}`);
     for (const c of report.clamp.cases) ctx.out(`${c.ok ? '✓' : '✗'} 夹取 ${c.name}：${c.mean.toPrecision(9)} 对 ${c.expected.toPrecision(9)}，${c.z.toFixed(2)} 个标准误（标准误 ${c.se.toExponential(2)}）`);
     for (const c of report.bitwise) ctx.out(`${c.ok ? '✓' : '✗'} 逐位相同 ${c.name}`);
