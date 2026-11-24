@@ -630,8 +630,9 @@ export function buildSyntheticGlb(rawSpec = {}) {
 
 function stripAliasPrefix(name, alias) {
   if (typeof name !== 'string' || name.length === 0) return '';
-  if (alias && name.startsWith(`${alias}.`)) return name.slice(alias.length + 1);
-  if (name.includes('.')) return name.split('.').pop();
+  if (typeof alias === 'string' && alias.length > 0 && name.startsWith(`${alias}.`)) {
+    return name.slice(alias.length + 1);
+  }
   return name;
 }
 
@@ -951,78 +952,7 @@ export function inspectGlb(input) {
     decodedMaterials[i] = normalizeMaterialSpec(`glTF materials[${i}]`, rawMaterials[i]);
   }
 
-  const decodedMeshes = new Array(rawMeshes.length);
-  for (let i = 0; i < rawMeshes.length; i++) {
-    const m = rawMeshes[i];
-    if (!isPlainObject(m)) fail(`glTF meshes[${i}] 必须是普通对象`);
-    if (!Array.isArray(m.primitives) || m.primitives.length < 1) {
-      fail(`glTF meshes[${i}].primitives 必须是非空数组`);
-    }
-    const primitives = new Array(m.primitives.length);
-    const allVertices = [];
-    let mMinX = Infinity, mMinY = Infinity, mMinZ = Infinity;
-    let mMaxX = -Infinity, mMaxY = -Infinity, mMaxZ = -Infinity;
-
-    for (let p = 0; p < m.primitives.length; p++) {
-      const prim = m.primitives[p];
-      if (!isPlainObject(prim) || !isPlainObject(prim.attributes)) {
-        fail(`glTF meshes[${i}].primitives[${p}].attributes 必须是普通对象`);
-      }
-      const posIdx = prim.attributes.POSITION;
-      const { values: vertices, bbox, synthesizedFromBounds } = decodeFloatAccessor(posIdx, 'VEC3', 3, rawAccessors, rawBufferViews, binBytes, isBinaryGlb);
-      const vertexCount = vertices.length / 3;
-
-      let normals = null;
-      if (prim.attributes.NORMAL !== undefined) {
-        const normRes = decodeFloatAccessor(prim.attributes.NORMAL, 'VEC3', vertexCount, rawAccessors, rawBufferViews, binBytes, isBinaryGlb);
-        if (normRes.values.length === vertices.length) normals = normRes.values;
-      }
-
-      let uvs = null;
-      if (prim.attributes.TEXCOORD_0 !== undefined) {
-        const uvRes = decodeFloatAccessor(prim.attributes.TEXCOORD_0, 'VEC2', vertexCount, rawAccessors, rawBufferViews, binBytes, isBinaryGlb);
-        if (uvRes.values.length === vertexCount * 2) uvs = uvRes.values;
-      }
-
-      const hasIndices = prim.indices !== undefined || synthesizedFromBounds;
-      const indices = prim.indices !== undefined
-        ? decodeIndexAccessor(prim.indices, vertexCount, rawAccessors, rawBufferViews, binBytes, isBinaryGlb)
-        : (synthesizedFromBounds ? [...BOX_INDICES] : Array.from({ length: vertexCount }, (_, k) => k));
-
-      let material = null;
-      if (prim.material !== undefined) {
-        if (!Number.isInteger(prim.material) || prim.material < 0 || prim.material >= decodedMaterials.length) {
-          fail(`glTF meshes[${i}].primitives[${p}].material 索引 ${safeShow(prim.material)} 越界`);
-        }
-        material = decodedMaterials[prim.material];
-      }
-
-      for (let k = 0; k < vertices.length; k++) allVertices.push(vertices[k]);
-      if (bbox[0] < mMinX) mMinX = bbox[0];
-      if (bbox[1] < mMinY) mMinY = bbox[1];
-      if (bbox[2] < mMinZ) mMinZ = bbox[2];
-      if (bbox[3] > mMaxX) mMaxX = bbox[3];
-      if (bbox[4] > mMaxY) mMaxY = bbox[4];
-      if (bbox[5] > mMaxZ) mMaxZ = bbox[5];
-
-      primitives[p] = { vertices, normals, uvs, indices, hasIndices, bbox, material };
-    }
-
-    const firstPrim = primitives[0];
-    const unionBbox = Number.isFinite(mMinX) ? [mMinX, mMinY, mMinZ, mMaxX, mMaxY, mMaxZ] : [...firstPrim.bbox];
-    decodedMeshes[i] = {
-      primitives,
-      vertices: allVertices,
-      normals: firstPrim.normals,
-      uvs: firstPrim.uvs,
-      indices: firstPrim.indices,
-      hasIndices: firstPrim.hasIndices,
-      bbox: unionBbox,
-      material: firstPrim.material,
-    };
-  }
-
-  // 校验节点数组、children 引用合法性、单父节点约束与无环性
+  // 先校验节点数组、children 引用合法性、单父节点约束、无环性与场景选择，再只解码所选场景可达的三角网格
   const parentOf = new Map();
   for (let i = 0; i < rawNodes.length; i++) {
     const n = rawNodes[i];
@@ -1090,6 +1020,87 @@ export function inspectGlb(input) {
     }
   } else {
     for (let i = 0; i < rawNodes.length; i++) reachableNodes.add(i);
+  }
+
+  const reachableMeshIndices = new Set();
+  for (const idx of reachableNodes) {
+    const meshIdx = rawNodes[idx]?.mesh;
+    if (meshIdx !== undefined) reachableMeshIndices.add(meshIdx);
+  }
+
+  const decodedMeshes = new Array(rawMeshes.length).fill(null);
+  for (let i = 0; i < rawMeshes.length; i++) {
+    if (!reachableMeshIndices.has(i)) continue;
+    const m = rawMeshes[i];
+    if (!isPlainObject(m)) fail(`glTF meshes[${i}] 必须是普通对象`);
+    if (!Array.isArray(m.primitives) || m.primitives.length < 1) {
+      fail(`glTF meshes[${i}].primitives 必须是非空数组`);
+    }
+    const primitives = new Array(m.primitives.length);
+    const allVertices = [];
+    let mMinX = Infinity, mMinY = Infinity, mMinZ = Infinity;
+    let mMaxX = -Infinity, mMaxY = -Infinity, mMaxZ = -Infinity;
+
+    for (let p = 0; p < m.primitives.length; p++) {
+      const prim = m.primitives[p];
+      if (!isPlainObject(prim) || !isPlainObject(prim.attributes)) {
+        fail(`glTF meshes[${i}].primitives[${p}].attributes 必须是普通对象`);
+      }
+      if (prim.mode !== undefined && prim.mode !== 4) {
+        fail(`glTF meshes[${i}].primitives[${p}].mode 仅支持 TRIANGLES (4)，实际为 ${safeShow(prim.mode)}`);
+      }
+      const posIdx = prim.attributes.POSITION;
+      const { values: vertices, bbox, synthesizedFromBounds } = decodeFloatAccessor(posIdx, 'VEC3', 3, rawAccessors, rawBufferViews, binBytes, isBinaryGlb);
+      const vertexCount = vertices.length / 3;
+
+      let normals = null;
+      if (prim.attributes.NORMAL !== undefined) {
+        const normRes = decodeFloatAccessor(prim.attributes.NORMAL, 'VEC3', vertexCount, rawAccessors, rawBufferViews, binBytes, isBinaryGlb);
+        if (normRes.values.length === vertices.length) normals = normRes.values;
+      }
+
+      let uvs = null;
+      if (prim.attributes.TEXCOORD_0 !== undefined) {
+        const uvRes = decodeFloatAccessor(prim.attributes.TEXCOORD_0, 'VEC2', vertexCount, rawAccessors, rawBufferViews, binBytes, isBinaryGlb);
+        if (uvRes.values.length === vertexCount * 2) uvs = uvRes.values;
+      }
+
+      const hasIndices = prim.indices !== undefined || synthesizedFromBounds;
+      const indices = prim.indices !== undefined
+        ? decodeIndexAccessor(prim.indices, vertexCount, rawAccessors, rawBufferViews, binBytes, isBinaryGlb)
+        : (synthesizedFromBounds ? [...BOX_INDICES] : Array.from({ length: vertexCount }, (_, k) => k));
+
+      let material = null;
+      if (prim.material !== undefined) {
+        if (!Number.isInteger(prim.material) || prim.material < 0 || prim.material >= decodedMaterials.length) {
+          fail(`glTF meshes[${i}].primitives[${p}].material 索引 ${safeShow(prim.material)} 越界`);
+        }
+        material = decodedMaterials[prim.material];
+      }
+
+      for (let k = 0; k < vertices.length; k++) allVertices.push(vertices[k]);
+      if (bbox[0] < mMinX) mMinX = bbox[0];
+      if (bbox[1] < mMinY) mMinY = bbox[1];
+      if (bbox[2] < mMinZ) mMinZ = bbox[2];
+      if (bbox[3] > mMaxX) mMaxX = bbox[3];
+      if (bbox[4] > mMaxY) mMaxY = bbox[4];
+      if (bbox[5] > mMaxZ) mMaxZ = bbox[5];
+
+      primitives[p] = { vertices, normals, uvs, indices, hasIndices, bbox, material };
+    }
+
+    const firstPrim = primitives[0];
+    const unionBbox = Number.isFinite(mMinX) ? [mMinX, mMinY, mMinZ, mMaxX, mMaxY, mMaxZ] : [...firstPrim.bbox];
+    decodedMeshes[i] = {
+      primitives,
+      vertices: allVertices,
+      normals: firstPrim.normals,
+      uvs: firstPrim.uvs,
+      indices: firstPrim.indices,
+      hasIndices: firstPrim.hasIndices,
+      bbox: unionBbox,
+      material: firstPrim.material,
+    };
   }
 
   const alias = typeof extras.alias === 'string' && extras.alias.length > 0
@@ -1179,7 +1190,7 @@ export function inspectGlb(input) {
       }))
       : [];
     const worldMatrix = getWorldMatrix(i);
-    const worldBbox = hasMesh ? computeBboxFromVertices(vertices, worldMatrix) : computeBboxFromVertices([...boxVertices(bbox)], worldMatrix);
+    const worldBbox = meshData ? computeBboxFromVertices(vertices, worldMatrix) : computeBboxFromVertices([...boxVertices(bbox)], worldMatrix);
 
     if (inActiveScene && hasMesh) {
       if (worldBbox[0] < minX) minX = worldBbox[0];
@@ -1297,10 +1308,18 @@ export function verifyPartNames(input, rawExpectedParts, rawOpts = {}) {
     .filter((n) => n.name !== '')
     .map((n) => stripAliasPrefix(n.name, alias));
 
+  const seenActual = new Set();
+  const duplicateParts = [...inspection.duplicateNames];
+  for (const part of actualMeshParts) {
+    if (seenActual.has(part) && !duplicateParts.includes(part)) {
+      duplicateParts.push(part);
+    }
+    seenActual.add(part);
+  }
+
   const matchedParts = expectedParts.filter((p) => actualMeshParts.includes(p));
   const missingParts = expectedParts.filter((p) => !actualMeshParts.includes(p));
   const extraParts = actualMeshParts.filter((p) => !expectedParts.includes(p));
-  const duplicateParts = [...inspection.duplicateNames];
   const unnamedNodes = [...inspection.unnamedMeshNodes];
   const coordErrors = [];
 
@@ -1680,7 +1699,7 @@ export function create(rawCtx = {}, rawParams = {}) {
   if (!isPlainObject(params)) fail('params 必须是普通对象');
   checkAllowedKeys('params', params, ['glb', 'spec', 'strictParts', 'allowExtraParts', 'scale']);
 
-  const hasExplicitSpec = params.spec !== undefined;
+  const hasExplicitSpec = params.spec !== undefined && params.spec !== null;
   const spec = hasExplicitSpec
     ? params.spec
     : {
@@ -1733,7 +1752,9 @@ export function create(rawCtx = {}, rawParams = {}) {
     : undefined;
   let effectiveAlias = (hasExplicitSpec ? spec.alias : undefined) ?? inspection.alias;
   if (hasExplicitGlb && !expectedParts) {
-    expectedParts = inspection.partNames;
+    expectedParts = inspection.meshNodes
+      .filter((n) => n.name !== '')
+      .map((n) => stripAliasPrefix(n.name, effectiveAlias));
   }
   if (!Array.isArray(expectedParts) || expectedParts.length < 1) {
     fail('GLB 资产必须至少包含一个命名网格零件');

@@ -68,13 +68,28 @@ const ALLOWED_CALLOUT_KEYS = Object.freeze([
 const ALLOWED_ANCHOR_KEYS = Object.freeze(['world', 'screen', 'x', 'y']);
 
 const TITLE_CAPTURE_THREE = {
+  RGBAFormat: 1023,
+  UnsignedByteType: 1009,
+  LinearFilter: 1006,
+  BufferAttribute: class {
+    constructor(array, itemSize) { this.array = array; this.itemSize = itemSize; }
+  },
   BufferGeometry: class {
-    constructor() { this.attributes = {}; }
+    constructor() { this.attributes = {}; this.index = null; }
     setAttribute(name, attr) { this.attributes[name] = attr; }
+    setIndex(index) { this.index = index; }
     dispose() {}
   },
   Float32BufferAttribute: class {
     constructor(array, itemSize) { this.array = array; this.itemSize = itemSize; }
+  },
+  DataTexture: class {
+    constructor(data, width, height, format, type) {
+      this.image = { data, width, height };
+      this.format = format;
+      this.type = type;
+    }
+    dispose() {}
   },
   Color: class {
     constructor(c) { this.c = c; }
@@ -87,6 +102,81 @@ const TITLE_CAPTURE_THREE = {
     constructor(geometry, material) { this.geometry = geometry; this.material = material; }
   },
 };
+
+const NODE_GLYPH_ROWS = 7;
+const NODE_GLYPH_COLS = 5;
+const NODE_GLYPH_ADVANCE = 6;
+const NODE_GLYPHS = {
+  ' ': '00000 00000 00000 00000 00000 00000 00000',
+  '-': '00000 00000 00000 11111 00000 00000 00000',
+  '.': '00000 00000 00000 00000 00000 01100 01100',
+  ':': '00000 01100 01100 00000 01100 01100 00000',
+  0: '01110 10001 10011 10101 11001 10001 01110',
+  1: '00100 01100 00100 00100 00100 00100 01110',
+  2: '01110 10001 00001 00010 00100 01000 11111',
+  3: '11110 00001 00001 01110 00001 00001 11110',
+  4: '00010 00110 01010 10010 11111 00010 00010',
+  5: '11111 10000 11110 00001 00001 10001 01110',
+  6: '00110 01000 10000 11110 10001 10001 01110',
+  7: '11111 00001 00010 00100 01000 01000 01000',
+  8: '01110 10001 10001 01110 10001 10001 01110',
+  9: '01110 10001 10001 01111 00001 00010 01100',
+  A: '01110 10001 10001 11111 10001 10001 10001',
+  B: '11110 10001 10001 11110 10001 10001 11110',
+  C: '01110 10001 10000 10000 10000 10001 01110',
+  D: '11110 10001 10001 10001 10001 10001 11110',
+  E: '11111 10000 10000 11110 10000 10000 11111',
+  F: '11111 10000 10000 11110 10000 10000 10000',
+  G: '01110 10001 10000 10111 10001 10001 01111',
+  H: '10001 10001 10001 11111 10001 10001 10001',
+  I: '01110 00100 00100 00100 00100 00100 01110',
+  J: '00111 00010 00010 00010 00010 10010 01100',
+  K: '10001 10010 10100 11000 10100 10010 10001',
+  L: '10000 10000 10000 10000 10000 10000 11111',
+  M: '10001 11011 10101 10101 10001 10001 10001',
+  N: '10001 11001 10101 10011 10001 10001 10001',
+  O: '01110 10001 10001 10001 10001 10001 01110',
+  P: '11110 10001 10001 11110 10000 10000 10000',
+  Q: '01110 10001 10001 10001 10101 10010 01101',
+  R: '11110 10001 10001 11110 10100 10010 10001',
+  S: '01111 10000 10000 01110 00001 00001 11110',
+  T: '11111 00100 00100 00100 00100 00100 00100',
+  U: '10001 10001 10001 10001 10001 10001 01110',
+  V: '10001 10001 10001 10001 10001 01010 00100',
+  W: '10001 10001 10001 10101 10101 11011 10001',
+  X: '10001 10001 01010 00100 01010 10001 10001',
+  Y: '10001 10001 01010 00100 00100 00100 00100',
+  Z: '11111 00001 00010 00100 01000 10000 11111',
+};
+
+function rasterizeFallbackGlyphGrid(normalized) {
+  const dots = [];
+  let minCol = Infinity;
+  let maxCol = -Infinity;
+  [...normalized].forEach((ch, idx) => {
+    const glyph = (NODE_GLYPHS[ch] ?? NODE_GLYPHS['-']).replaceAll(' ', '');
+    for (let r = 0; r < NODE_GLYPH_ROWS; r++) {
+      for (let c = 0; c < NODE_GLYPH_COLS; c++) {
+        if (glyph[r * NODE_GLYPH_COLS + c] === '1') {
+          const col = idx * NODE_GLYPH_ADVANCE + c;
+          if (col < minCol) minCol = col;
+          if (col > maxCol) maxCol = col;
+          dots.push([col, r]);
+        }
+      }
+    }
+  });
+  if (dots.length === 0) {
+    return { totalCols: 1, totalRows: NODE_GLYPH_ROWS, grid: new Uint8Array(NODE_GLYPH_ROWS) };
+  }
+  const totalCols = Math.max(1, maxCol - minCol + 1);
+  const totalRows = NODE_GLYPH_ROWS;
+  const grid = new Uint8Array(totalCols * totalRows);
+  for (const [col, row] of dots) {
+    grid[row * totalCols + (col - minCol)] = 1;
+  }
+  return { totalCols, totalRows, grid };
+}
 
 const TITLE_GLYPH_CACHE = new Map();
 
@@ -101,31 +191,51 @@ function getTitleGlyphGrid(rawText) {
     { THREE: TITLE_CAPTURE_THREE, size: [1, 1] },
     { text: normalized, enter: 0, settleFrames: 0, ink: '#FFFFFF', heightFrac: 1, distance: 1 },
   );
+  const mapImage = handle.object.material?.map?.image;
   const pos = handle.object.geometry.attributes.position.array;
-  let minX = Infinity;
-  let maxX = -Infinity;
-  const rects = [];
-  for (let i = 0; i < pos.length; i += 18) {
-    const x0 = pos[i];
-    const y0 = pos[i + 1];
-    const x1 = pos[i + 3];
-    const y1 = pos[i + 7];
-    if (x0 < minX) minX = x0;
-    if (x1 > maxX) maxX = x1;
-    rects.push([x0, y0, x1, y1]);
-  }
-  handle.dispose();
-  const totalCols = Math.max(1, Math.round(maxX - minX));
-  const totalRows = 7;
-  const grid = new Uint8Array(totalCols * totalRows);
-  for (const [x0, , , y1] of rects) {
-    const col = Math.round(x0 - minX);
-    const row = Math.round(3.5 - y1);
-    if (col >= 0 && col < totalCols && row >= 0 && row < totalRows) {
-      grid[row * totalCols + col] = 1;
+  if (mapImage && mapImage.data && mapImage.width > 0 && mapImage.height > 0) {
+    const totalCols = mapImage.width;
+    const totalRows = mapImage.height;
+    const grid = new Uint8Array(totalCols * totalRows);
+    for (let row = 0; row < totalRows; row++) {
+      const srcRowOff = (totalRows - 1 - row) * totalCols * 4;
+      for (let col = 0; col < totalCols; col++) {
+        if (mapImage.data[srcRowOff + col * 4 + 3] >= 64) {
+          grid[row * totalCols + col] = 1;
+        }
+      }
     }
+    handle.dispose();
+    cached = { totalCols, totalRows, grid };
+  } else if (pos.length >= 18) {
+    let minX = Infinity;
+    let maxX = -Infinity;
+    const rects = [];
+    for (let i = 0; i < pos.length; i += 18) {
+      const x0 = pos[i];
+      const y0 = pos[i + 1];
+      const x1 = pos[i + 3];
+      const y1 = pos[i + 7];
+      if (x0 < minX) minX = x0;
+      if (x1 > maxX) maxX = x1;
+      rects.push([x0, y0, x1, y1]);
+    }
+    handle.dispose();
+    const totalCols = Math.max(1, Math.round(maxX - minX));
+    const totalRows = NODE_GLYPH_ROWS;
+    const grid = new Uint8Array(totalCols * totalRows);
+    for (const [x0, , , y1] of rects) {
+      const col = Math.round(x0 - minX);
+      const row = Math.round(3.5 - y1);
+      if (col >= 0 && col < totalCols && row >= 0 && row < totalRows) {
+        grid[row * totalCols + col] = 1;
+      }
+    }
+    cached = { totalCols, totalRows, grid };
+  } else {
+    handle.dispose();
+    cached = rasterizeFallbackGlyphGrid(normalized);
   }
-  cached = { totalCols, totalRows, grid };
   TITLE_GLYPH_CACHE.set(rawText, cached);
   return cached;
 }

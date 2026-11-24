@@ -35,16 +35,7 @@
       "type": "data",
       "unit": "none",
       "schema": "schema.json",
-      "default": {
-        "alias": "gpu",
-        "expectedParts": [
-          "body",
-          "fan_L",
-          "fan_R"
-        ],
-        "upAxis": "Y",
-        "unitScale": 1
-      },
+      "default": null,
       "coupling": "asset-batch"
     },
     "strictParts": {

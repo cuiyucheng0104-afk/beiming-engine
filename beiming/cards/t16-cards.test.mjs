@@ -497,3 +497,71 @@ test('T16-5 二审 7 项回归：严格零件清单拒绝拼错名与同名空�
   assert.deepEqual(actualSubs, shutterSubs(180, 1));
 });
 
+test('T16-6 终审 4 项回归：默认入口传非 GPU GLB 交付自身零件、严格 alias 前缀剥离、未选场景辅助线不阻断默认场景', async () => {
+  const card = readCard('asset.glb-bridge');
+  function load(glb, spec) {
+    const given = { glb: Buffer.from(glb).toString('base64') };
+    if (spec !== undefined) given.spec = spec;
+    return createGlbBridge({ THREE }, resolveParams(card, given));
+  }
+
+  const rotorNames = ['housing', 'blade'];
+  const rotor = buildSyntheticGlb({ alias: 'rotor', prefixAlias: false, parts: rotorNames });
+  const gpuSpec = { alias: 'gpu', expectedParts: ['body', 'fan_L', 'fan_R'] };
+  const gpu = (last) => buildSyntheticGlb({ alias: 'gpu', parts: ['gpu.body', 'gpu.fan_L', last] });
+
+  function withGuideScene() {
+    const parts = ['body', 'guide'].map((name) => ({
+      name,
+      positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+      indices: [0, 1, 2],
+    }));
+    const seed = Buffer.from(buildSyntheticGlb({ alias: 'kit', prefixAlias: false, parts }));
+    const end = 20 + seed.readUInt32LE(12);
+    const doc = JSON.parse(seed.subarray(20, end));
+    doc.scene = 0;
+    doc.scenes = [{ nodes: [0] }, { nodes: [1] }];
+    const line = doc.meshes[1].primitives[0];
+    line.mode = 1;
+    delete line.indices;
+    const pos = doc.accessors[line.attributes.POSITION];
+    pos.count = 2;
+    pos.max = [1, 0, 0];
+    const text = Buffer.from(JSON.stringify(doc));
+    const padded = Buffer.alloc(Math.ceil(text.length / 4) * 4, 32);
+    text.copy(padded);
+    const out = Buffer.concat([seed.subarray(0, 20), padded, seed.subarray(end)]);
+    out.writeUInt32LE(out.length, 8);
+    out.writeUInt32LE(padded.length, 12);
+    return Uint8Array.from(out);
+  }
+  const twoScenes = withGuideScene();
+
+  // 正对照：真实零件名、显式清单、正确前缀、两个有效场景
+  const loader = new GLTFLoader();
+  const reference = await loader.parseAsync(rotor.buffer, '');
+  assert.deepEqual(reference.scene.children.map((o) => o.name), rotorNames);
+  const explicit = load(rotor, { alias: 'rotor', expectedParts: rotorNames });
+  assert.deepEqual(Object.keys(explicit.object.parts), rotorNames);
+  explicit.dispose();
+  const gpuOk = load(gpu('gpu.fan_R'), gpuSpec);
+  assert.equal(gpuOk.meta(0).readings.verified, 1);
+  gpuOk.dispose();
+  const { scene, scenes } = await loader.parseAsync(twoScenes.buffer, '');
+  assert.deepEqual(scene.children.map((o) => o.name), ['body']);
+  assert.equal(scenes[1].children[0].isLineSegments, true);
+  assert.equal(scenes[1].children[0].geometry.attributes.position.count, 2);
+
+  // 甲 1：只传 GLB 的正式入口应交付转子两个零件
+  const rotorDefault = load(rotor);
+  assert.deepEqual(Object.keys(rotorDefault.object.parts), rotorNames);
+  rotorDefault.dispose();
+
+  // 甲 2：严格清单应拒绝其他资产的同名网格
+  assert.throws(() => load(gpu('other.fan_R'), gpuSpec), { code: 'usage.bad-argument' });
+
+  // 甲 3：未选场景的辅助线不妨碍默认场景交付 body
+  const hGuide = load(twoScenes, { alias: 'kit', expectedParts: ['body'] });
+  assert.deepEqual(Object.keys(hGuide.object.parts), ['body']);
+  hGuide.dispose();
+});
