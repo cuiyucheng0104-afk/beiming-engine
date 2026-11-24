@@ -687,6 +687,8 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 - **条文登记表里写的数。** 机器只查条文提到了冻结标记钉住的每个名字，不查表里写的号与代码里的数值是不是同一个：只把上面登记表里的某个号改错（比如把一个闭包种类号写成另一个数），三道检查都过。改登记表的人自己对一遍着色器里的常数，复核的人再对一遍；两处对不上时以代码与冻结标记为准。
 - **只有冻结标记这一道守着的**：上游槽位 `D_*` 的数值、路径标志位（本机没有 Cycles 源码缓存时）、冻结了签名的函数的参数表。它们改了之后库测试照过，红的只有 `freeze.mjs` 与它的测试；所以 `--update` 之前先看清标记的差异里有没有不是自己想改的行。
 - 位置式构造的那条测试是文本匹配，不是语法树：给结构起别名再按位置构造，它认不出来。
+- 查写入语句的两条测试同样是文本匹配：把一处「已写未读」的写入包进永不成立的分支，语句还在，测试照过。
+- **内核里的几处修法只有第 2 级拦得住，CI 里看不见。** 矩形纯光命中一侧用的那个没挪动的着色点的写入（`state.legacy.bm_x = sd.P`）、遮挡距离除以 0.999 的那一处、纯金属闭包没采到方向时把结果置 0 的那个判断（`let ok`）：删掉或改回去，冻结检查、不用显卡的库测试、CI 全过，只有第 2 级（`../chassis/level2.mjs`，要显卡，只在本机跑）的解析场景与负对照会不过。改积分主循环、闭包采样、灯的人，每次都在本机跑一遍第 2 级；复核的人看差异时对着这三处看一眼。
 
 ## 锁
 
@@ -694,16 +696,16 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 
 | 检查 | 在哪 | 守什么 |
 |---|---|---|
-| `freeze.mjs` | `../chassis/freeze.mjs`，测试 `../chassis/freeze.test.mjs` | 冻结标记在；标记钉住的结构定义、常数、函数签名与着色器一致；登记类的编号都进了标记（扫内核 `shaders/` 下的全部着色器加共用目录的 `../shaders/util.wgsl`，标记没钉住的文件里声明了这类常数也算不一致）；条文提到了标记钉住的每个名字 |
+| `freeze.mjs` | `../chassis/freeze.mjs`，测试 `../chassis/freeze.test.mjs` | 冻结标记在；标记钉住的结构定义、常数、函数签名与着色器一致；登记类的编号都进了标记（扫内核 `shaders/` 下的全部着色器加共用目录里编进内核的四个着色器，标记没钉住的文件里声明了这类常数也算不一致；声明不写类型、前面带属性、写在一行里的第二个、写在函数里面，都认）；条文提到了标记钉住的每个名字 |
 | `the_material_record_is_the_kernels` | `src/merged.rs` | `Material` 两侧逐字段同名、同偏移、同总长度（合并布局的那一份也比）；`flags` 各位两侧同值；默认值；能量补偿位的写法 |
 | `the_parameters_are_the_kernels` | `src/merged.rs` | `Params`、`KernelIntegrator`、`KernelFilm`、`ObjectExt` 两侧逐字段同名、同偏移、同总长度；种子是哈希后的值；步长取整的规矩 |
 | `the_film_layout_is_the_kernels` | `src/merged.rs` | `FILM_*` 两侧同值；`film` 只在 `film.wgsl` 里下标；步长只在一处乘；缓冲大小的算法与报错 |
 | `the_closure_kinds_keep_their_numbers` | `src/merged.rs` | 闭包种类号的快照：已有的数值不变，新种类要先登记 |
 | `the_bounce_stride_is_the_kernels` | `src/merged.rs` | `PRNG_BOUNCE_NUM` 两侧同值 |
-| `call_structs_are_not_built_by_position` | `src/merged.rs` | 只活在一次调用里的结构没有位置式构造（名字与括号之间有空白、换行也认）。名单在测试里，新加这类结构要补 |
+| `call_structs_are_not_built_by_position` | `src/merged.rs` | 只活在一次调用里的结构没有位置式构造（先去掉注释再查；名字与括号之间有空白、换行、注释都认）。名单在测试里，新加这类结构要补 |
 | `every_kernel_variant_generates_spirv_and_msl` | `src/gpu.rs` | 内核的 80 个变体都过 SPIR-V 与 MSL 两个后端的代码生成。80 个是：8 组编译开关（默认、六个取值各单开一个、全开）乘缓冲布局（软件求交 6 种、硬件求交 4 种）。**不是开关的全部组合** |
-| `path_state_is_written` | `src/gpu.rs` | `PathState`、`Ray` 的字段名单；路径状态里「已写未读」各项的写入语句都在，按出现次数查（同一句有两处的，删掉一处也红） |
-| `shading_point_is_written` | `src/gpu.rs` | `ShadingPoint`、`Closure`、`ShaderInputs` 的字段名单；它们与 `Ray` 里「已写未读」各项的写入语句都在，按出现次数查 |
+| `path_state_is_written` | `src/gpu.rs` | `PathState`、`Ray` 的字段名单；路径状态里「已写未读」各项的写入语句都在，先去掉注释再按出现次数查（同一句有两处的，删掉一处也红；注释掉不算在） |
+| `shading_point_is_written` | `src/gpu.rs` | `ShadingPoint`、`Closure`、`ShaderInputs` 的字段名单；它们与 `Ray` 里「已写未读」各项的写入语句都在，先去掉注释再按出现次数查 |
 | `the_dimension_ids_are_distinct` | `src/sample.rs` | 随机编号在登记的区段里互不相同（范围见上） |
 | `the_shader_is_this` | `src/sample.rs` | 取数接口在显卡上的数与 CPU 上的镜像相同（要显卡） |
 | `requested_lightgroups_leave_the_picture_alone` | `src/gpu.rs` | 请求灯组不改变画面，读回的灯组层数对（要显卡） |
@@ -711,7 +713,7 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 
 **这些检查在哪里跑**：CI 里没有 Rust 工具链，也没有显卡。上表里 CI 跑得到的只有第一行（`freeze.test.mjs` 在全仓库的测试里），最后一行在 CI 上没有 Cycles 源码缓存、会跳过。其余 12 条库测试只在本机跑：`cargo test --locked`，或回归工具 `regress.mjs --check`（它把库测试的通过数与基线比，少了算不同）。所以改内核的人每一步都要在本机跑一遍，不能等 CI 报。
 
-两条静态测试（`path_state_is_written`、`shading_point_is_written`）查的是写入语句在不在，不是运行时的值。「已写未读」的字段运行时的值对不对，要等读它的人接上之后由读数来验。
+两条静态测试（`path_state_is_written`、`shading_point_is_written`）查的是写入语句在不在，不是运行时的值：语句还在、却包进永不成立的分支（`if (false) { … }`），它们认不出来。「已写未读」的字段运行时的值对不对，要等读它的人接上之后由读数来验。
 
 ## 判据
 

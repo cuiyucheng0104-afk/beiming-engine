@@ -7,8 +7,9 @@
 //   constants  具名常数：类型与数值的原文
 //   functions  函数的签名原文（参数表与返回类型）
 // 另有 families：名字以这些前缀开头的常数是登记过的编号，着色器里声明了而标记里没有就算不一致（加了号没登记）。
-// 这一条扫的是内核 shaders/ 下的全部着色器，加共用目录里放采样标签的 ../shaders/util.wgsl：标记没有钉住的文件里
-// 声明了这类常数，同样算不一致。
+// 这一条扫的是内核 shaders/ 下的全部着色器，加共用目录里编进内核的那四个（build.mjs 的 SHADERS）：标记没有钉住的
+// 文件里声明了这类常数，同样算不一致。声明怎么写都认：不写类型的（const X = 1u;）、前面带属性的（@if(…) const X…）、
+// 一行里第二个、函数里面的；注释里的不算。
 // 改了结构而没更新标记，这里不过；更新标记是一次看得见的改动（--update 之后标记的差异进提交），同时要改条文里对应的
 // 字段表或登记表，并在标记里升版本号。规矩见条文「改动的规矩」一节。
 import { createHash } from 'node:crypto';
@@ -16,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineCommand, isMain, runCli } from '../../../../tools/lib/cli.mjs';
+import { SHADERS } from './build.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const KERNEL = path.join(HERE, '..', 'path');
@@ -24,7 +26,7 @@ export const SCHEMA = 'beiming.core.freeze/1';
 export const STRUCTURES = ['材质记录', '光线负载', '随机维度', '输出通道'];
 const KINDS = ['structs', 'constants', 'functions'];
 
-const stripComments = src => src.split('\n').map(l => l.replace(/\/\/.*$/, '')).join('\n');
+const stripComments = src => src.replace(/\/\*[\s\S]*?\*\//g, ' ').split('\n').map(l => l.replace(/\/\/.*$/, '')).join('\n');
 const squeeze = s => s.replace(/\s+/g, ' ').trim();
 const sha256 = s => createHash('sha256').update(s).digest('hex');
 
@@ -36,21 +38,22 @@ export function pinOf(src, kind, name) {
     return m && sha256(m[1].replace(/\s+/g, '').replace(/,$/, ''));
   }
   if (kind === 'constants') {
-    const m = new RegExp(`^\\s*const\\s+${name}\\s*:\\s*([^;]+);`, 'm').exec(code);
+    // 钉住值是冒号后面的原文；不写类型的声明没有冒号，从等号起算
+    const m = new RegExp(`\\bconst\\s+${name}\\s*(?::\\s*|(?==))([^;]+);`).exec(code);
     return m && squeeze(m[1]);
   }
   const m = new RegExp(`\\bfn\\s+${name}\\s*\\(([^)]*)\\)\\s*(->[^{]*)?\\{`).exec(code);
   return m && squeeze(`(${squeeze(m[1])}) ${m[2] ?? ''}`);
 }
 
-/** 源码里名字以 `prefixes` 之一开头的常数 */
+/** 源码里名字以 `prefixes` 之一开头的常数。const 是着色语言的保留字，去掉注释之后「const 名字 冒号或等号」只能是声明 */
 export function familyConstants(src, prefixes) {
-  return [...stripComments(src).matchAll(/^\s*const\s+([A-Za-z_][A-Za-z0-9_]*)\s*:/gm)].map(m => m[1]).filter(n => prefixes.some(p => n.startsWith(p)));
+  return [...stripComments(src).matchAll(/\bconst\s+([A-Za-z_][A-Za-z0-9_]*)\s*[:=]/g)].map(m => m[1]).filter(n => prefixes.some(p => n.startsWith(p)));
 }
 
-/** 登记类编号要扫的文件（相对内核目录 `dir`）：shaders/ 下的全部着色器，加共用目录的 util.wgsl */
+/** 登记类编号要扫的文件（相对内核目录 `dir`）：shaders/ 下的全部着色器，加共用目录里编进内核的四个 */
 export function scanFiles(dir) {
-  return [...fs.readdirSync(path.join(dir, 'shaders')).filter(f => f.endsWith('.wgsl')).sort().map(f => `shaders/${f}`), '../shaders/util.wgsl'];
+  return [...fs.readdirSync(path.join(dir, 'shaders')).filter(f => f.endsWith('.wgsl')).sort().map(f => `shaders/${f}`), ...SHADERS.map(f => `../shaders/${f}`)];
 }
 
 /**

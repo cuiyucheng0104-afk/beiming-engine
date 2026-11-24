@@ -79,7 +79,7 @@ pub const UNIFORM_TABLES: [UniformTable; 4] = [
 mod tests {
     use super::*;
 
-    use crate::gpu::{kernel_template, kernel_wgsl, KernelVariant};
+    use crate::gpu::{kernel_template, kernel_wgsl, without_comments, KernelVariant};
 
     /// A scene's kernel (software traversal, no switch) as compiled, as written or in the merged layout.
     fn variant(features: u32, merged: bool) -> String {
@@ -266,7 +266,8 @@ mod tests {
     }
 
     /// `code` 里对结构 `name` 的第一处位置式构造（`Name(a, b…)`；零值构造 `Name()` 不算），没有就是 None。
-    /// 名字与括号之间可以有空白（`Name (a)`、名字后换行再写括号都编得过）。这是文本匹配，不是语法树：
+    /// 名字与括号之间可以有空白（`Name (a)`、名字后换行再写括号都编得过）；调用方先去掉注释（夹在中间的注释同样
+    /// 编得过）。这是文本匹配，不是语法树：
     /// 给结构起别名（`alias`）再构造，这里认不出来。
     fn built_by_position(code: &str, name: &str) -> Option<String> {
         code.match_indices(name).find_map(|(at, _)| {
@@ -286,7 +287,7 @@ mod tests {
             "PathState", "PathLegacy", "Ray", "ShadingPoint", "ShadingLegacy", "Closure", "ShaderInputs", "SurfaceEval", "ClosureEval", "BsdfEval", "BsdfSample", "BsdfPick", "BsdfEvalLegacy",
             "LocalHit", "LocalIntersection", "SampleResult", "SampleLegacy", "AuxSample",
         ];
-        let code: String = kernel_template().lines().map(|l| l.split("//").next().unwrap()).collect::<Vec<_>>().join("\n");
+        let code = without_comments(&kernel_template());
         for name in NAMES {
             assert!(code.contains(&format!("struct {name} {{")), "内核里没有结构 {name}：改了名字的话这张名单要跟着改");
             assert_eq!(built_by_position(&code, name), None, "{name} 被位置式构造了");
@@ -295,6 +296,9 @@ mod tests {
         assert!(built_by_position("var c = Closure(1u, w);", "Closure").is_some());
         assert!(built_by_position("var c = Closure (1u, w);", "Closure").is_some());
         assert!(built_by_position("var c = Closure\n    (1u, w);", "Closure").is_some());
+        assert!(built_by_position(&without_comments("var c = Closure /* k */ (1u, w);"), "Closure").is_some());
+        assert!(built_by_position(&without_comments("var c = Closure // k\n    (1u, w);"), "Closure").is_some());
+        assert!(built_by_position(&without_comments("// var c = Closure(1u, w);\n/* Closure(1u) */"), "Closure").is_none());
         assert!(built_by_position("var c = Closure (\n);", "Closure").is_none());
         assert!(built_by_position("var c = Closure( );\nlet e = ClosureEval();\nfn f(c: Closure) {}", "Closure").is_none());
         assert!(built_by_position("let e = BsdfEvalLegacy(a, b);", "BsdfEval").is_none());

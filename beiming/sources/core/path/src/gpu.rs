@@ -547,6 +547,38 @@ pub fn kernel_template() -> String {
     KERNEL_FILES.join("\n")
 }
 
+/// 北冥：去掉着色器源码里的注释（`//` 到行尾，`/* */` 可以嵌套），换行留着。按源码文本查写法的几条测试先过这一道：
+/// 被注释掉的语句不算在，夹在名字与括号之间的注释也挡不住匹配。
+#[cfg(test)]
+pub(crate) fn without_comments(src: &str) -> String {
+    let (mut out, mut depth, mut line) = (String::with_capacity(src.len()), 0usize, false);
+    let mut it = src.chars().peekable();
+    while let Some(c) = it.next() {
+        let next = it.peek().copied();
+        if line {
+            line = c != '\n';
+        } else if c == '/' && next == Some('*') {
+            depth += 1;
+            it.next();
+            continue;
+        } else if depth > 0 {
+            if c == '*' && next == Some('/') {
+                depth -= 1;
+                it.next();
+                continue;
+            }
+        } else if c == '/' && next == Some('/') {
+            line = true;
+            it.next();
+            continue;
+        }
+        if c == '\n' || !(line || depth > 0) {
+            out.push(c);
+        }
+    }
+    out
+}
+
 /// What a kernel is compiled for (pathtrace.wgsl's head names the flags): the device's traversal, switches, binding
 /// layout and loop guard, and the scene's features that change the kernel's declarations (`F_SOURCE`; the others
 /// switch code under `override FEAT`).
@@ -2499,11 +2531,13 @@ mod tests {
     /// 北冥：路径状态与光线（shaders/integrator.wgsl 的 PathState、Ray）的字段名单，与「已写未读」的几项写入。
     /// 字段名照 Cycles 的 IntegratorState.path 与 Ray：改名、删字段要先改这里（加字段只要在名单里补上）。
     /// 最小概率密度、上一个散射点的物体、可见类、随机维度偏移这四项现在只写不读，着色器里没有别处能发现它们被
-    /// 悄悄删掉，所以在这里按源码查：初值与每次弹射的写入都得在。查的是写入语句在不在，不是运行时的值。
+    /// 悄悄删掉，所以在这里按源码查：初值与每次弹射的写入都得在。查的是写入语句在不在（先去掉注释，被注释掉的不算），
+    /// 不是运行时的值：语句还在、却包进永不成立的分支，这里查不出来。
     #[test]
     fn path_state_is_written() {
         let src = kernel_wgsl(&kernel_template(), &KernelVariant::new(false, KernelSwitches::default(), 0));
         let m = naga::front::wgsl::parse_str(&src).unwrap_or_else(|e| panic!("{}", e.emit_to_string(&src)));
+        let src = without_comments(&src);
         let members = |name: &str| -> Vec<String> {
             let (_, t) = m.types.iter().find(|(_, t)| t.name.as_deref() == Some(name)).unwrap_or_else(|| panic!("内核里没有结构 {name}"));
             match &t.inner {
@@ -2540,10 +2574,13 @@ mod tests {
     /// 现在只写不读的：着色点的平滑法线、物体号、图元号、重心坐标、这一段光线的长度（物体号只被抄进同样没人读的
     /// `state.mis_ray_object`）；材质输入值的折射率、高光等级、不透明度、漫反射粗糙度；闭包的采样权重与菲涅耳种类；
     /// 光线的「出发处的物体与图元」。它们是给后面照 Cycles 移植闭包、灯、图案节点的人留的，着色器里没有别处能发现
-    /// 它们被悄悄删掉，所以在这里按源码查写入语句都在。查的是语句在不在，不是运行时的值。
+    /// 它们被悄悄删掉，所以在这里按源码查写入语句都在。查的是语句在不在（先去掉注释），不是运行时的值。
     #[test]
     fn shading_point_is_written() {
-        let template = kernel_template();
+        let template = without_comments(&kernel_template());
+        // 去注释这一道自己的对照：行注释、块注释（可以嵌套）里的不算，注释外面的原样留着
+        assert_eq!(without_comments("a = 1; // b = 2;\n/* c = 3; /* d */ e = 4; */f = 5; g = 6 / 2;"), "a = 1; \nf = 5; g = 6 / 2;");
+        assert_eq!(without_comments("// (*sd).ray_length = h.t;").matches("(*sd).ray_length = h.t;").count(), 0);
         let src = kernel_wgsl(&template, &KernelVariant::new(false, KernelSwitches::default(), 0));
         let m = naga::front::wgsl::parse_str(&src).unwrap_or_else(|e| panic!("{}", e.emit_to_string(&src)));
         let members = |name: &str| -> Vec<String> {
