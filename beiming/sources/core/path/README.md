@@ -58,7 +58,7 @@ node beiming/sources/core/chassis/freeze.mjs --update    # 有意改了之后，
 
 ```sh
 core-render pack-info <包目录> [--frame k] [--record 核对记录.json]       # 不渲，stdout 一行统计（三角形数是从几何文件实际读到的每个网格的三角形数，乘以这一帧画出来的实例）；--record 写场景包核对记录
-core-render render-pack <包目录> -o out.png [--frame k] [--spp N] [--width W --height H] [--hdr out.raw] [--no-denoise] [--stats s.json]
+core-render render-pack <包目录> -o out.png [--frame k] [--spp N] [--width W --height H] [--hdr out.raw] [--no-denoise] [--stats s.json] [--passes 目录]
 ```
 
 - 场景包本身的毛病（清单、文件、帧号）读不对时，stderr 最后一行是 `{"error":{"code","at","message"}}`：`at` 是出错字段的路径（如 `lights[2].watts`），码取错误码表里已有的（结构不对 `contract.bad-value`、没定义的键 `contract.unknown-key`、未知的图案节点 `contract.unknown-node`、契约允许但这里装不了的 `contract.unsupported-input`、帧号出界 `usage.bad-argument`），退出码照码的前缀。命令行参数本身的错（如 `--override` 不是合法的 JSON）不走这一行。
@@ -66,7 +66,8 @@ core-render render-pack <包目录> -o out.png [--frame k] [--spp N] [--width W 
 - 实例矩阵原样进实例表；镜像实例（第四列是 1）平铺时翻转绕序，实体编号与镜像位写进物体扩展表。灯的功率照 Cycles 的口径换算，式子与出处写在 `src/pack.rs` 的 `kernel_light`。图案节点与灯光链接只解析、校验，还不生效。
 - 一行实例这一帧画不画：左上 3×3 的九个数全为 0 的不建（契约 5.4）；九个数不全为 0 但行列式为 0 的（压扁成一个面、一条线），内核建场景时也不画（按 32 位浮点算，行列式的绝对值不超过 1e-30 就算 0），即行列式为 0 的那一帧这个实例不画。`pack-info` 的 `drawn` 与 `triangles` 都不算它。
 - 镜像在画面上量不出来：内核着色时把几何法线翻向来路、再让着色法线与它同侧（`shaders/shader.wgsl` 的 `surface` 与 `surface_proc`），不透明表面画出来与三角形的绕序无关，去掉翻转画面只差浮点末位。所以没有显卡上的负对照，镜像由核对记录的 SP7 与它的负对照（去掉翻转后 SP7 必须不过）守着。
-- 测试在 `../chassis/scenepack.test.mjs`（写出器是同目录的 `scenepack.mjs`，自己拼 GLB）：`BEIMING_CHASSIS_E2E=1` 时现编渲染程序。从 Blender 导出的场景包不进仓库，用环境变量 `BEIMING_CORE_TEST_PACKS` 列出它们的目录（按系统的路径分隔符隔开，每个目录旁边放「目录名.blender-stats.json」），不设就跳过。
+- `--passes 目录`：照输出通道契约（`beiming/kernel/contracts/passes/`）出层，每个通道一个文件，没有文件头、行主序（行从上到下，像素从左到右，一个像素里各分量挨着）、每个数 4 字节小端，文件名「通道名.类型」：`color.f32`（R、G、B、A；RGB 是样本均值、已经预乘 A）、`depth.f32`（Z，平面深度，米；什么都没打到 1e10）、`objectId.u32`（id，实体编号；0 是没打到任何实体）、`objectId.coverage.f32`（coverage：objectId 的两个分量类型不同，另放一个形状相同的文件）、`normal.f32`（X、Y、Z，相机空间：看 -Z、Y 向上）、`denoiseAlbedo.f32`（R、G、B）、`denoiseNormal.f32`（X、Y、Z，Cycles 降噪特征的相机空间：看 +Z、Y 向上）；外加通道声明 `passes.json`（`passes/0.1`，只列这六个通道）。stdout 统计多一段 `passes`：每个通道的文件、形状 `[高, 宽, 分量数]`、分量名与类型。depth、objectId、normal 取辅助样本（每个像素一条，过像素中心、针孔，不取随机数），不做平均；coverage 是首次命中的实体编号等于它的颜色样本所占的比例。背景对相机不可见（`world.visibleToCamera` 是 false）时，相机射线什么都没打到的样本 A 与 RGB 记 0。不出 motion（场景包只有整数帧的状态）与分灯组。要辅助层不改颜色：同一个包加不加 `--passes`，颜色逐位相同。计时在 stdout 统计的 `timings_ms.aux_ms`。
+- 测试在 `../chassis/scenepack.test.mjs`（写出器是同目录的 `scenepack.mjs`，自己拼 GLB）：`BEIMING_CHASSIS_E2E=1` 时现编渲染程序。从 Blender 导出的场景包不进仓库，用环境变量 `BEIMING_CORE_TEST_PACKS` 列出它们的目录（按系统的路径分隔符隔开，每个目录旁边放「目录名.blender-stats.json」），不设就跳过。出层的测试在 `../chassis/passes.test.mjs`：两块前后错开的板（`scenepack.mjs` 的 `platesPack`），测试照内核的取数在 JS 里重算每个颜色样本落在像素里的哪一点、照场景规格自己求交，逐像素对编号、深度、法线与覆盖率，写通道核对记录交给 `passes/check.mjs` 判，并以「辅助层换成颜色样本的平均」做负对照；同一个文件还查透明度、加辅助层不改颜色、两份从 Blender 导出的包每个通道的文件。
 
 ## 改之前
 
