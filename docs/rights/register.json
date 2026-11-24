@@ -581,6 +581,28 @@
         "tools/sfx_library.py",
         "tests/audio/test_sfx_library.py"
       ]
+    },
+    {
+      "id": "R17",
+      "title": "概念种子表：ccore/ThreeJS-3D-Scenes-v2 的 400 条提示词节选",
+      "kind": "open-license",
+      "holder": "CCORE（数据集发布者）",
+      "holderBasis": "数据集卡与 LICENSE：MIT，Copyright (c) 2026 CCORE；beiming/bench/seeds/ccore-concepts/LICENSE-upstream.txt",
+      "licensor": "同权利方（公开许可）",
+      "scope": "MIT：可复制、修改、再分发，需保留版权与许可声明；数据集卡写明「在发布者持有权利的范围内」，发布者对提示词内容的权利链未独立核实",
+      "term": "公开许可，无期限",
+      "writtenEvidence": "beiming/bench/seeds/ccore-concepts/LICENSE-upstream.txt；固定版本 Hugging Face 提交 370b2cf95727666a3ac570f7fdb3f63f4552d382",
+      "status": "license-known",
+      "evidence": [
+        "THIRD-PARTY.md 第 14 节",
+        "REUSE.toml",
+        "beiming/bench/seeds/ccore-concepts/README.md"
+      ],
+      "obligations": "保留 LICENSE-upstream.txt；只放提示词文本，不取该数据集的图片、助手回复代码与系统提示（未审查）",
+      "agentRule": "只当出题的概念参考，不当题目、评分依据或渲染素材；扩大取用范围前先回到本条核对",
+      "gitPaths": [
+        "beiming/bench/seeds/ccore-concepts/**"
+      ]
     }
   ],
   "appendix": [

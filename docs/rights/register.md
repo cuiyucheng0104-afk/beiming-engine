@@ -31,6 +31,7 @@
 | R14 | 上游光追渲染器 vork（B 路线光追外部后端 rt 调用，不随仓库分发，实验阶段） | Nullframe, Inc.（上游仓库 voyager-so/vork 的版权人） | 同权利方（按其公开的预览许可） | vork Preview License（自定义许可，不是开源许可）：允许任何用途的使用、自用修改、原样分发未改动的副本；未经书面许可不得出售、出租、再许可、分发改动过的版本，不得做成他人提交场景或任务来渲染的托管服务；对用它做出的场景、代码与媒体不主张权利 | 许可只覆盖 0.5.1 这一版；以后的版本可以改用别的条款（含收费），已取得版本的权利不因此收回 | 公开许可，以发行包里的 LICENSE 为准；条款没有单列的情形（例如复制代码片段进 MIT 仓库）是否允许：待补（需向上游书面确认或取得法律意见） | 公开许可，按许可义务使用 | — |
 | R15 | 上游路径追踪运行时 ThreeRT（D 路线 · 北冥光追 · 物理路径追踪调用，运行时二进制不入 git 仓库） | Meshy LLC（上游仓库 meshy-dev/ThreeRT 的版权人，2026） | 同权利方（按 MIT 公开开源许可） | MIT 许可：允许商业与非商业使用、复制、修改、合并、发布与分发，须在软件副本或重要部分保留版权与许可声明；若外部运行包启用 --features oidn，动态链接的 Intel Open Image Denoise 按 Apache-2.0 履行许可与 NOTICE 义务 | 公开开源许可，无期限 | 公开许可，以上游固定提交（记录于 engine/pathtrace/runtime.lock.json）的 MIT LICENSE 与仓库 LICENSES/MIT.txt 为准 | 公开许可，按许可义务使用 | — |
 | R16 | 商用音效库（rog-5090 · BOOM Library / SoundMorph / Pro Sound Effects，音频本体不入仓） | BOOM Library GbR；SoundMorph Sound Libraries Inc.；Pro Sound Effects, Inc.（各自 EULA 的版权人） | 同权利方（商用许可，主人 2026-11-24 告知为已购可用） | BOOM 与 SoundMorph 的 MEDIA / MEDIA PRODUCER LICENSE：允许在成片（影视、广播、游戏等多媒体成品）中商用，含同步权与机械权，无署名义务；禁止再分发、并入素材库或采样回放系统转售；派生转换产物（拟合参数文件等）只作内部制作中间体，不入仓、不分发。Pro Sound Effects 两子库库内无 EULA，范围待核 | BOOM：worldwide、无期限；SoundMorph：至按条款终止；Pro Sound Effects：待补 | 库内 EULA 原文（路径见 holderBasis，许可证正文不进仓库）；Pro Sound Effects 的官方 EULA 或购买凭证：待补 | 用户声明已获授权，书面证据待补 | — |
+| R17 | 概念种子表：ccore/ThreeJS-3D-Scenes-v2 的 400 条提示词节选 | CCORE（数据集发布者） | 同权利方（公开许可） | MIT：可复制、修改、再分发，需保留版权与许可声明；数据集卡写明「在发布者持有权利的范围内」，发布者对提示词内容的权利链未独立核实 | 公开许可，无期限 | beiming/bench/seeds/ccore-concepts/LICENSE-upstream.txt；固定版本 Hugging Face 提交 370b2cf95727666a3ac570f7fdb3f63f4552d382 | 公开许可，按许可义务使用 | — |
 
 ## R01 上海美术电影制片厂（上美影）相关 IP：IP 图、剧照与据此制作的发布会动画
 
@@ -482,6 +483,22 @@
 - **agent 规则**：检索用 engine/audio/sfx_library.py（BEIMING_SFX_ROOT 指库根，未设时走程序化合成）；选素材前先查 docs/rights/sfx-library.md 第三节；检索候选的 rights 字段全部为 owner-confirmed，ℹ来源注记（索引 source_residue 字段）只提示不排除，拿不准的先问主人
 - **对外分发点**：不随 git 仓库分发（rog-5090 挂载或 sshfs，只读）
 - **仓库主体里的相关文件**：`engine/audio/sfx_library.py`、`engine/audio/sfx_library_index.jsonl`、`tools/sfx_library.py`、`tests/audio/test_sfx_library.py`
+
+## R17 概念种子表：ccore/ThreeJS-3D-Scenes-v2 的 400 条提示词节选
+
+- **权利方**：CCORE（数据集发布者）（依据：数据集卡与 LICENSE：MIT，Copyright (c) 2026 CCORE；beiming/bench/seeds/ccore-concepts/LICENSE-upstream.txt）
+- **授权方**：同权利方（公开许可）
+- **授权范围**：MIT：可复制、修改、再分发，需保留版权与许可声明；数据集卡写明「在发布者持有权利的范围内」，发布者对提示词内容的权利链未独立核实
+- **期限**：公开许可，无期限
+- **书面证据存放位置**：beiming/bench/seeds/ccore-concepts/LICENSE-upstream.txt；固定版本 Hugging Face 提交 370b2cf95727666a3ac570f7fdb3f63f4552d382
+- **状态**：公开许可，按许可义务使用
+- **证据位置**：
+  - THIRD-PARTY.md 第 14 节
+  - REUSE.toml
+  - beiming/bench/seeds/ccore-concepts/README.md
+- **义务与做法**：保留 LICENSE-upstream.txt；只放提示词文本，不取该数据集的图片、助手回复代码与系统提示（未审查）
+- **agent 规则**：只当出题的概念参考，不当题目、评分依据或渲染素材；扩大取用范围前先回到本条核对
+- **仓库主体里的相关文件**：`beiming/bench/seeds/ccore-concepts/**`
 
 ## AI 生成内容的标识（D11）
 

@@ -134,4 +134,10 @@ Skia Canvas 仅在仓库外做过 C 模版对照实验（MIT），没有加入�
 | [852wa/JIZURA](https://github.com/852wa/JIZURA) | MIT，Copyright (c) 2026 hakoniwa | `engine/overlay/kinetic.js` | 文字入场部件的分类方式；用它在中文上渲过样张来挑动效 |
 | [dososo/blcaptain-measure-cjk](https://github.com/dososo/blcaptain-measure-cjk)（分寸 · Measure） | 代码 Apache-2.0；规则文本与数据 CC BY 4.0，作者 爆裂队长NEXT（BLCaptain） | `engine/overlay/cjk.js`、QA 检查 `texts.cjk-break` | 行高取值区间的建议（默认行高 1.7 落在它建议的 1.6–1.9 内）、把排版规则做成机器检查的做法 |
 
+## 14. 数据集节选（提示词文本）
+
+| 来源 | 固定版本 | 许可 | 在仓库中的位置 | 义务 |
+|---|---|---|---|---|
+| [ccore/ThreeJS-3D-Scenes-v2](https://huggingface.co/datasets/ccore/ThreeJS-3D-Scenes-v2) | Hugging Face 提交 `370b2cf95727666a3ac570f7fdb3f63f4552d382` | MIT，Copyright (c) 2026 CCORE | `beiming/bench/seeds/ccore-concepts/`（400 条提示词，不含图片与助手回复） | 保留 `LICENSE-upstream.txt`；只作出题参考，范围见该目录 README；登记见 `docs/rights/register.json` R17 |
+
 <!-- REUSE-IgnoreEnd -->

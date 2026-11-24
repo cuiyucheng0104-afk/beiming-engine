@@ -158,3 +158,10 @@ path = "beiming/sources/core/path/**"
 precedence = "closest"
 SPDX-FileCopyrightText = ["2026 Meshy LLC", "2026 北冥引擎 Beiming Engine"]
 SPDX-License-Identifier = "MIT"
+
+# ── 概念种子表：ccore/ThreeJS-3D-Scenes-v2 的提示词节选（上游 MIT，版权人 CCORE；来源与许可全文见该目录 README.md 与 LICENSE-upstream.txt）──
+[[annotations]]
+path = "beiming/bench/seeds/ccore-concepts/**"
+precedence = "closest"
+SPDX-FileCopyrightText = ["2026 CCORE", "2026 北冥引擎 Beiming Engine"]
+SPDX-License-Identifier = "MIT"
