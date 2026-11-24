@@ -5,7 +5,7 @@
   "backend": "Metal",
   "driver": ""
  },
- "kernel": "00070a3ebeee6df3",
+ "kernel": "05a8c404c134a332",
  "upstreamCommit": "c946cc96bdb08979224e851a7fc67a066b1b456b",
  "level2": {
   "白炉 GGX 0.05": 0.9999891810918227,
@@ -542,18 +542,18 @@
   "width": 1920,
   "height": 1080,
   "spp": 256,
-  "firstFrameMs": 1286.9,
-  "steadyS": 1.7209,
+  "firstFrameMs": 1387.7,
+  "steadyS": 1.8013,
   "samples": {
    "firstFrameMs": [
-    1265.5,
-    1298.1,
-    1286.9
+    1387.7,
+    1388.1,
+    1378.6
    ],
    "steadyS": [
-    1.6905,
-    1.7214,
-    1.7209
+    1.8040999999999998,
+    1.8005,
+    1.8013
    ]
   }
  }
