@@ -90,7 +90,7 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 | `rust-toolchain.toml` | `rust-toolchain.toml` | Rust 版本不变（1.100.0）；去掉只给浏览器构建用的 wasm32 目标，注释重写 |
 | `LICENSE-upstream.txt` | `LICENSE` | 原样 |
 
-`PROVENANCE.md`、`README.md`、`STRUCTURES.md`、`FREEZE.json`、`.gitignore` 是北冥新写的。`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 也不是上游的文件：照 Cycles 移植的哈希函数，见下一节「随机维度」。
+`PROVENANCE.md`、`README.md`、`STRUCTURES.md`、`FREEZE.json`、`.gitignore` 是北冥新写的。`src/pack.rs`（场景包读入器）也是北冥新写的（MIT，文件头写明）：三种灯的换算是辐射度量学的式子，只对过 Cycles 的口径、没有搬代码，出处写在它的注释里。`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 也不是上游的文件：照 Cycles 移植的哈希函数，见下一节「随机维度」。
 
 ## 北冥加了什么
 
