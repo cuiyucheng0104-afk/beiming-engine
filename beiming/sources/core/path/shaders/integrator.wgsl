@@ -341,9 +341,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             }
         }
         if (!LIVE && state.legacy.bm_surf) {
-            // （遮挡距离 hit.t 是从挪开的起点量的，灯距从着色点本身量：两者差不超过挪开的那一点距离。光源采样一侧
-            // 也是从着色点采样、从挪开的起点打阴影射线，容差相同；只有遮挡物贴着灯面不到这个距离时判法才不同。）
-            var c = state.throughput * bm_rect_hits(state.legacy.bm_x, ray.D, select(hit.t, INF, hit.tri == 0xffffffffu), state.mis_ray_pdf);
+            // （遮挡距离 hit.t 是从挪开的起点量的，灯距从着色点本身量，两个起点不同，不能直接比。光源采样一侧的阴影
+            // 射线从挪开的起点打、长度取灯距乘 0.999，在这之内没有遮挡物就算照得到；这里用同一条判法：hit.t 除以
+            // 0.999 再与灯距比。直接拿 hit.t 比的话，灯紧贴背后的面时这一侧会把灯判成被挡住，两侧权重加不到 1。）
+            var c = state.throughput * bm_rect_hits(state.legacy.bm_x, ray.D, select(hit.t / 0.999, INF, hit.tri == 0xffffffffu), state.mis_ray_pdf);
             if (depth > 1u && !state.legacy.straight) {
                 let lum = luminance(c);
                 if (lum > clamp_v) { c *= clamp_v / lum; }
