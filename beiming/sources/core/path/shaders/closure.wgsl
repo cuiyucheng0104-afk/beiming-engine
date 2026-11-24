@@ -50,13 +50,14 @@ const LABEL_TRANSMIT: i32 = 1;
 // 试过提前到填闭包那一步：苹果显卡上编译出来的运算次序会变，像素末位不同。所以只发光的面、到了弹射上限的面没有 Lobes。
 // 移植的闭包的着色点上也照算：上游的灯光函数还读它的 two_sided 与上游的着色法线（见 closure.wgsl「上游顶替」一节）。
 // 滤光泽照 Cycles 的 integrator/surface_shader.h surface_shader_prepare_closures 里 filter_glossy 那一段：按路径上最小的
-// 采样概率密度把各个微表面闭包的 alpha 调大（closure/bsdf.h bsdf_blur → bsdf_microfacet_blur）。全局参数里存的是
-// blur_glossy 原值（0 关），内核里的量是它的倒数（scene/integrator.cpp:269）；关着时什么都不做。上游顶替的闭包不模糊。
+// 采样概率密度把各个微表面闭包的 alpha 调大（closure/bsdf.h bsdf_blur → bsdf_microfacet_blur）。全局参数里存的就是
+// 内核里的量 1 / blur_glossy（照 scene/integrator.cpp:269），0 表示关（与 Cycles 关着时存 FLT_MAX 不同：全局参数各处零初始化，
+// 0 必须等于关）；关着时什么都不做。上游顶替的闭包不模糊。
 // 「过滤闭包」（filter_closures）与 SD_BSDF_HAS_EVAL 标志这里没有，不移。
 fn surface_shader_prepare_closures(sd: ptr<function, ShadingPoint>) {
     (*sd).legacy.lobes = lobes((*sd).legacy.surface, max(dot((*sd).legacy.surface.n, (*sd).wi), 1e-4));
     if (P.integrator.filter_glossy > 0.0) {
-        let blur_roughness = filter_glossy_roughness(1.0 / P.integrator.filter_glossy, state.min_ray_pdf);
+        let blur_roughness = filter_glossy_roughness(P.integrator.filter_glossy, state.min_ray_pdf);
         // （下标写成常数，理由同 shader.wgsl 的 closure_store）
         (*sd).closure[0] = bsdf_blur(&(*sd), 0u, blur_roughness);
         (*sd).closure[1] = bsdf_blur(&(*sd), 1u, blur_roughness);

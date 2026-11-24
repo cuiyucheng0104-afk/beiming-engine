@@ -220,7 +220,7 @@ fn principled_specular_f0_eta(ior: f32, specular_ior_level: f32) -> vec2f {
 }
 
 // kernel/integrator/surface_shader.h:189-202 surface_shader_prepare_closures 里滤光泽那一段算出的模糊粗糙度：
-// filter_glossy 是内核里的值（宿主侧 scene/integrator.cpp:269 存 1 / blur_glossy，关着时是 FLT_MAX）。
+// filter_glossy 是内核里的值 1 / blur_glossy（宿主侧 scene/integrator.cpp:269；北冥的全局参数里存的也是它，0 关、调用方不进来）。
 // blur_pdf ≥ 1 时 Cycles 不模糊，这里返回 0（bsdf_microfacet_blur 取大之后不改任何闭包）
 fn filter_glossy_roughness(filter_glossy: f32, min_ray_pdf: f32) -> f32 {
   let blur_pdf = filter_glossy * min_ray_pdf;

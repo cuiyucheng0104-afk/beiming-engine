@@ -209,7 +209,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 | 函数 | 做什么 | 状态 |
 |---|---|---|
-| `surface_shader_prepare_closures(sd)` | 闭包填好之后、算直接光与采样之前的事后处理。滤光泽照 Cycles：全局参数的 `filter_glossy`（blur_glossy 原值）大于 0 时，内核里的量是它的倒数，`blur_pdf` = 那个量乘 `state.min_ray_pdf`，小于 1 时各微表面闭包的 alpha 与 `sqrt(1 − blur_pdf)·0.5` 取大（`bsdf_microfacet_blur`）；上游顶替不模糊。上游的 `Lobes` 也在这里算，对所有闭包都算（上游的灯光函数还读它的 `two_sided`） | 已落地 |
+| `surface_shader_prepare_closures(sd)` | 闭包填好之后、算直接光与采样之前的事后处理。滤光泽照 Cycles：全局参数的 `filter_glossy`（存的就是内核里的量 1 / blur_glossy，0 关）大于 0 时，`blur_pdf` = 它乘 `state.min_ray_pdf`，小于 1 时各微表面闭包的 alpha 与 `sqrt(1 − blur_pdf)·0.5` 取大（`bsdf_microfacet_blur`）；上游顶替不模糊。上游的 `Lobes` 也在这里算，对所有闭包都算（上游的灯光函数还读它的 `two_sided`） | 已落地 |
 | `bsdf_eval(c, wi, wo) → ClosureEval { eval, pdf }` | 一个闭包在一个方向上的求值（已含余弦，没乘闭包的 `weight`）与概率密度。照 Cycles 的 `bsdf_eval`，按种类与菲涅耳种类分到金属、电介质高光、漫反射。收一个闭包，不收整个着色点。上游顶替不走这里 | 已落地 |
 | `bsdf_sample(c, Ng, wi, rand) → MicrofacetSample` | 一个闭包上采样方向，照 Cycles 的 `bsdf_sample` 分发；用 `rand` 的前两个 | 已落地（1.2.0 加） |
 | `bsdf_eval_mis_one(c, wi, wo, e) → vec2` | `surface_shader_bsdf_eval_mis` 循环里的一个闭包：求值累加进 `e`，返回 (密度乘取样权重, 取样权重) | 已落地（1.2.0 加） |
@@ -321,7 +321,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 1 | `transparent_max_bounce`、`transparent_min_bounce`、`min_bounce` | u32 | 透明弹射的上下限；俄罗斯轮盘的起始深度 | 已定义，0（轮盘的起始深度现在读上游的 `counts.w`） |
 | 1 | `sampling_pattern` | u32 | 采样图案，只有 0（Sobol-Burley） | 已定义 |
 | 2 | `sample_clamp_direct`、`sample_clamp_indirect` | f32 | 夹取 | 已定义，0（现在用上游的亮度夹取 `misc.x`） |
-| 2 | `filter_glossy`、`light_inv_rr_threshold` | f32 | 滤光泽：存 Blender 的 blur_glossy 原值，0 关；内核里的量是它的倒数（Cycles 宿主一侧 `scene/integrator.cpp` 存的就是倒数，关着时存浮点最大值）。灯的轮盘阈值 | `filter_glossy` 已落地（`surface_shader_prepare_closures` 读；谁写见命令行）；`light_inv_rr_threshold` 已定义，0 |
+| 2 | `filter_glossy`、`light_inv_rr_threshold` | f32 | 滤光泽：存 1 / blur_glossy（照 Cycles 宿主一侧 `scene/integrator.cpp:269` 的存法），内核直接用，不再取倒数；0 关（Cycles 关着时存浮点最大值，见「与 Cycles、与上游不一样的地方」第 38 条）。写它的是命令行（换算在写的那一侧）。灯的轮盘阈值 | `filter_glossy` 已落地（`surface_shader_prepare_closures` 读；谁写见命令行）；`light_inv_rr_threshold` 已定义，0 |
 | 3 | `seed` | u32 | 随机数的全局种子 | 已落地，见下 |
 | 3 | `sobol_index_mask` | u32 | Sobol 打乱后的索引取哪几位 | 已落地，见下 |
 | 3 | `pass_kind` | u32 | 这一趟调度写什么：`PASS_KIND_COLOR`（0）颜色样本，`PASS_KIND_AUX`（1）辅助样本。两侧同名常数 | Rust 一侧照实填（要辅助层时清零之后、第一个颜色样本之前以 1 调度一次）；内核不读：两种样本各走自己的入口（见「编号登记表」的「编译开关与入口」） |
@@ -341,7 +341,9 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `num_lightgroups` | u32 | 这次渲染请求的灯组数，不是场景里的灯组数 | 同上 |
 | `reserved` | u32 | 预留 | 预留 |
 
-**`table_first_ext`**（2 个 vec4、8 格）：北冥加的表在表缓冲里的首地址。上游的 `table_first` 12 格已经占满，新表只许用这里的格子，取用前要登记（见登记表）。
+**`table_first_ext`**（2 个 vec4、8 格）：北冥加的表在表缓冲里的首地址。上游的 `table_first` 12 格已经占满，新表只许用这里的格子，取用前要登记（见登记表）。Rust 一侧北冥加的表是 `heap::Table` 第 12 张起，各占哪一格由 `heap::EXT_SLOTS` 定（不按次序：`[0].y` 留给还没有的图案节点表，那一格是 0）。
+
+**广义 Schlick 的两张反照率表**（1.2.0 加，占 `[0].z`、`[0].w`）：Cycles `scene/shader.tables` 的 `table_ggx_gen_schlick_ior_s`、`table_ggx_gen_schlick_s`，各 4096 个 f32（16×16×16），数据在 `../shaders/ggx_gen_schlick.tables`（`lib.rs` 的 `ggx_gen_schlick_tables` 读），在表缓冲里各占一段（`heap::Table::GgxGenSchlickIorS`、`GgxGenSchlickS`）。内核里按 float 读：`pathtrace.wgsl` 的 `lookup_table_fetch(i)`（i 是整个表缓冲里的第几个 float）与 `table_ggx_gen_schlick_ior_s()`、`table_ggx_gen_schlick_s()`（首地址乘 4），给 `../shaders/util.wgsl` 的 `lookup_table_read_3D` 用，对应 Cycles 的 `kernel_data_fetch(lookup_table, …)` 与 `kernel_data.tables.ggx_gen_schlick_*`。不放进常数数组：naga 生成 SPIR-V 时按运行时下标取常数数组，会先把整个数组拷进函数内的临时变量，这两张表放进去之后英伟达显卡上内核编译不出来。能量补偿的两张旧表（1056 个数）照旧在 `../shaders/ggx_tables.wgsl` 的常数数组里，量小没卡住，冻结只许加，没动。
 
 ### 物体扩展表 `ObjectExt`（进缓冲）
 
@@ -592,6 +594,11 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 37. 内核的主着色器按阶段分成八个文件，其中体积单独一个；没有单独的相机文件。
 
+**全局参数与表**（1.2.0 加）
+
+38. `integrator.filter_glossy` 为 0 表示关：Cycles 关着时存浮点最大值（`scene/integrator.cpp:269`）。全局参数各处零初始化，0 必须等于关；开着时存的与 Cycles 一样是 1 / blur_glossy。
+39. Cycles 的查找表都在一个 `lookup_table` 里按偏移读。这里只有广义 Schlick 的两张在表缓冲里按偏移读；能量补偿的两张仍在常数数组里，一维、二维查表函数各有读常数数组与读表缓冲（`_buf`）两份，三维的只读表缓冲。
+
 ## 编号登记表
 
 **要新号向核心帧源的负责人要；改登记表不算变更。** 拿到号之后：在这里登记，在着色器（与 Rust 一侧）加常数，运行 `freeze.mjs --update` 把新常数补进冻结标记。
@@ -678,7 +685,7 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 |---|---|---|
 | `[0].x` | 物体扩展表 | 已落地（表全 0） |
 | `[0].y` | 图案节点表 | 已定义，0 |
-| `[0].z`、`[0].w` | 广义 Schlick 的两张能量表 | 已定义，0 |
+| `[0].z`、`[0].w` | 广义 Schlick 的两张反照率表（`table_ggx_gen_schlick_ior_s`、`table_ggx_gen_schlick_s`） | 已落地（`lookup_table_read_3D` 读） |
 | `[1].x` 到 `[1].w` | | 空闲 |
 
 ### 输出缓冲的各格（`film` 每个像素的固定部分）
@@ -826,7 +833,6 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 | `trace_local`；着色点的 `lcg_state`、`object_flag`、`prim`、`u`、`v`、`N`、`ray_length` 的读者；`Ray` 的 `self_object`、`self_prim`、`tmin` 的读者 | 已定义、无调用者，或已写未读 | 图案节点（倒角、遮蔽） |
 | `PRNG_SURFACE_AO`、`PRNG_SURFACE_BEVEL`、`path_branched_rng_2D`、`path_rng_2D` | 已定义、无调用者 | 图案节点 |
 | `Material` 的 `pattern_first`、`pattern_count`；`MATERIAL_FLAG_NO_LEGACY_FUNCTION`；`table_first_ext` 的图案节点表一格；`ObjectExt.object_flag` 的读者（镜像位场景包读入器已写） | 已定义 | 图案节点 |
-| `table_first_ext` 的两格能量表 | 已定义，0（广义 Schlick 的两张反照率表照能量补偿表的做法放进了 `../../shaders/ggx_tables.wgsl` 的常数数组，没有用这两格） | 移植闭包（透射的能量表） |
 | `AuxSample.motion`、`FILM_AUX_DATA` 的 zw（运动矢量） | 已定义，恒 0：场景包只有整数帧的状态，快门两端的位置算不出来 | 运动模糊与运动矢量 |
 | 请求灯组的命令行与任务描述字段 | 没有 | 做灯（灯组） |
 | 场景包里解析过、校验过、还没生效的：图案节点（`pack::Node`）、灯光链接与分灯组名（`pack::Light` 的 `link`、`group`）；`pack-info` 的统计列在 `notApplied` | 已读未生效 | 图案节点；做灯（灯光链接、灯组） |

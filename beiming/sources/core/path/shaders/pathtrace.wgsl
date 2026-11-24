@@ -137,7 +137,7 @@ struct KernelIntegrator {
     sampling_pattern: u32,          // 采样图案，只有 0（Sobol-Burley）
     sample_clamp_direct: f32,       // 夹取。已定义，0：现在还用上游的亮度夹取（P.misc.x）
     sample_clamp_indirect: f32,
-    filter_glossy: f32,             // 已定义，0
+    filter_glossy: f32,             // 滤光泽：存 1 / blur_glossy（照 Cycles 宿主一侧的存法），0 关（Cycles 关着时存 FLT_MAX）
     light_inv_rr_threshold: f32,    // 已定义，0
     seed: u32,                      // 随机数的全局种子。放的是用户种子过一次 hash_hp 之后的值（sample.wgsl 的 rng_start 要的那个）。
                                     // 已落地
