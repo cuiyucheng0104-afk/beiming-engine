@@ -1,0 +1,273 @@
+// 核心帧源对上层的接口（帧源接口契约 3.2 的 caps、open 与会话的 manifest、render、query、close）。宿主是 node 这一侧：
+// 每次 render 起一次渲染程序 core-render render-pack，从场景包出层；元数据（相机、实体的包围盒与深度范围、场景查询）在这里
+// 直接读场景包算，不问渲染器。镜头条目是 build-script 模式，entry 指向场景包（目录或它的 pack.json，相对片子描述所在的目录）。
+// 只进看板、不出成片：env.tier 是 final 时 open 报错。装载之前的判定（宿主、作者模式、锁、卡、资产、叠加层）和场景查询的写法
+// 与 three 帧源共用 ../three/plan.mjs；元数据的算式与页面宿主共用 ../../host/page/measure.js。
+import { spawn } from 'node:child_process';
+import { Buffer } from 'node:buffer';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { mkdir, readFile } from 'node:fs/promises';
+import { basename, dirname, join, resolve } from 'node:path';
+import { performance } from 'node:perf_hooks';
+import process from 'node:process';
+import { answerQuery, clipStats, lumaStats, measureEntity } from '../../host/page/measure.js';
+import { renderingOf } from '../../kernel/eval/input.mjs';
+import { SourceError, declared, planFrame, planOpen, planQuery } from '../three/plan.mjs';
+import { HOST, caps } from './caps.mjs';
+import { PRESETS, buildRenderer, sourceKey } from './chassis/build.mjs';
+
+export { SourceError };
+const { structuredClone } = globalThis;
+const ENV_KEYS = ['lock', 'tier', 'workspace', 'filmDir'];
+const NOT_YET = '核心帧源还没过门：只进看板、不出成片';
+/** 内核出的层文件（render-pack --passes 的文件名与分量，见 path/README.md「读场景包」） */
+const LAYERS = {
+  color: ['color.f32', ['R', 'G', 'B', 'A']],
+  depth: ['depth.f32', ['Z']],
+  objectId: ['objectId.u32', ['id']],
+  normal: ['normal.f32', ['X', 'Y', 'Z']],
+  denoiseAlbedo: ['denoiseAlbedo.f32', ['R', 'G', 'B']],
+  denoiseNormal: ['denoiseNormal.f32', ['X', 'Y', 'Z']],
+};
+const bad = (message) => new SourceError('usage.bad-argument', message);
+const show = (v) => { try { return JSON.stringify(v) ?? String(v); } catch { return String(v); } };
+const record = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const pad = (n, width) => String(n).padStart(width, '0');
+const sha256 = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+
+/** 起一次 core-render；退出码不是 0 时，stderr 最后一行是 {"error":{code,at,message}} 就报那个码，否则原样报错。
+ *  给了 seed 时内核的种子就是它（THREERT_SEED），外层环境里的 THREERT_SEED、THREERT_HWRT 不传下去 */
+function run(bin, args, seed) {
+  return new Promise((ok, fail) => {
+    const { THREERT_SEED: _s, THREERT_HWRT: _h, ...env } = process.env;
+    if (seed !== undefined) env.THREERT_SEED = String(seed);
+    const child = spawn(bin, [...args, '--presets', PRESETS], { stdio: ['ignore', 'pipe', 'pipe'], env });
+    const out = [], err = [];
+    child.stdout.on('data', (b) => out.push(b));
+    child.stderr.on('data', (b) => err.push(b));
+    child.on('error', fail);
+    child.on('close', (code) => {
+      const stderr = Buffer.concat(err).toString('utf8').trim();
+      if (code === 0) return ok(JSON.parse(Buffer.concat(out).toString('utf8').trim().split('\n').at(-1)));
+      let e;
+      try { e = JSON.parse(stderr.split('\n').at(-1)).error; } catch { /* 不是带码的错 */ }
+      fail(e?.code ? new SourceError(e.code, `场景包 ${e.at}：${e.message}`) : new Error(`core-render ${args[0]} 退出码 ${code}：${stderr.split('\n').slice(-5).join('\n')}`));
+    });
+  });
+}
+
+// ------------------------------------------------------------------------------------------------ 读场景包（只读元数据要的几样）
+
+/** 二进制表按 f32 或 u32 读成数组（带 byteOffset） */
+const table = (dir, file) => {
+  const b = readFileSync(join(dir, file));
+  return file.endsWith('.u32') ? new Uint32Array(b.buffer, b.byteOffset, b.byteLength / 4) : new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4);
+};
+
+/** GLB 里每个网格的顶点位置（全部图元的 POSITION 摊平成 [x, y, z, …]）。内核读过、校验过这个文件，这里不再查 */
+function meshPositions(file) {
+  const b = readFileSync(file);
+  const jsonLen = b.readUInt32LE(12), json = JSON.parse(b.toString('utf8', 20, 20 + jsonLen));
+  const bin = 20 + jsonLen + 8;
+  return json.meshes.map((m) => m.primitives.flatMap((p) => {
+    const acc = json.accessors[p.attributes.POSITION], view = json.bufferViews[acc.bufferView];
+    const start = bin + (view.byteOffset ?? 0) + (acc.byteOffset ?? 0), stride = view.byteStride ?? 12;
+    return Array.from({ length: acc.count * 3 }, (_, i) => b.readFloatLE(start + Math.floor(i / 3) * stride + (i % 3) * 4));
+  }));
+}
+
+/** 场景包目录：entry 是目录，或者目录里的 pack.json */
+const packDir = (filmDir, entry) => {
+  const p = resolve(filmDir, entry);
+  return basename(p) === 'pack.json' ? dirname(p) : p;
+};
+
+/** 读进场景包里元数据要的几样：清单、实例表、每帧的实例矩阵与相机行、每个网格的顶点 */
+function loadPack(dir) {
+  const m = JSON.parse(readFileSync(join(dir, 'pack.json'), 'utf8'));
+  const rows = table(dir, m.instances.file);
+  const cam = m.frames.camera;
+  // 相机表每行的列：mat16 占 16 个数，别的各占 1 个
+  const col = {}; let w = 0;
+  for (const f of cam.fields) { col[f] = w; w += f === 'mat16' ? 16 : 1; }
+  return {
+    m,
+    rows: Array.from({ length: m.instances.shape[0] }, (_, i) => ({ mesh: rows[i * 4], entity: rows[i * 4 + 2], name: m.instances.names[i], class: m.instances.class[i] })),
+    instances: table(dir, m.frames.instances.file),
+    camera: table(dir, cam.file), camCols: col, camWidth: w,
+    meshes: meshPositions(join(dir, m.geometry.file)),
+  };
+}
+
+const det3 = (a) => a[0] * (a[5] * a[10] - a[9] * a[6]) - a[4] * (a[1] * a[10] - a[9] * a[2]) + a[8] * (a[1] * a[6] - a[5] * a[2]);
+const apply = (a, x, y, z) => [a[0] * x + a[4] * y + a[8] * z + a[12], a[1] * x + a[5] * y + a[9] * z + a[13], a[2] * x + a[6] * y + a[10] * z + a[14]];
+
+/** 第 k 帧每个实体画出来的顶点（世界坐标）：{ 实体名: { id, class, points } }。照内核的规矩，左上 3×3 行列式为 0 的行这一帧不画 */
+function entityPoints(pack, k) {
+  const out = {}, n = pack.rows.length;
+  pack.rows.forEach((r, i) => {
+    const a = Array.from(pack.instances.subarray((k * n + i) * 16, (k * n + i + 1) * 16));
+    if (Math.abs(det3(a)) <= 1e-30) return;
+    const e = (out[r.name] ??= { id: r.entity, class: r.class, points: [] });
+    const v = pack.meshes[r.mesh];
+    for (let j = 0; j < v.length; j += 3) e.points.push(apply(a, v[j], v[j + 1], v[j + 2]));
+  });
+  return out;
+}
+
+/** 第 k 帧的相机：元数据的 camera（不含快门角）与 view（相机到世界的逆）、proj */
+function cameraAt(pack, k, size) {
+  const row = pack.camera.subarray(k * pack.camWidth, (k + 1) * pack.camWidth), c = pack.camCols;
+  const world = Array.from(row.subarray(c.mat16, c.mat16 + 16));
+  const fov = row[c.fovY], { near, far, sensorHeight } = pack.m.camera;
+  const t = 1 / Math.tan(fov / 2);
+  const proj = [t * size[1] / size[0], 0, 0, 0, 0, t, 0, 0, 0, 0, -(far + near) / (far - near), -1, 0, 0, (-2 * far * near) / (far - near), 0];
+  // shortcut: 相机矩阵当刚体求逆（转置旋转、反推平移）；场景包的相机要带缩放时换成一般的 4×4 求逆
+  const r = (i, j) => world[j * 4 + i];
+  const p = [world[12], world[13], world[14]];
+  const view = [r(0, 0), r(0, 1), r(0, 2), 0, r(1, 0), r(1, 1), r(1, 2), 0, r(2, 0), r(2, 1), r(2, 2), 0, 0, 0, 0, 1];
+  for (let i = 0; i < 3; i++) view[12 + i] = -(r(0, i) * p[0] + r(1, i) * p[1] + r(2, i) * p[2]);
+  const dof = c.focusDist !== undefined ? { focusDist: row[c.focusDist], fstop: row[c.fstop], sensorHeightM: sensorHeight } : {};
+  return { camera: { world, proj, fovYDeg: (fov * 180) / Math.PI, near, far, ...dof }, view, proj };
+}
+
+// ------------------------------------------------------------------------------------------------ 一次 render 的计划
+
+/**
+ * 交不出的请求报带码的错：要的输出没声明 → contract.unsupported-output；快门参数出值域 → usage.bad-argument；
+ * 快门角 0 配多个子帧 → contract.shutter-conflict；快门角大于 0 → contract.unsupported-option（内核没有运动模糊）；
+ * 采样数、缩放出值域 → usage.bad-argument。取值次序：这次调用 → 锁文件 → 镜头条目 → 能力声明。
+ */
+export function planRender(c, shot, size, tier, opts, want, locked) {
+  if (!Array.isArray(want) || want.some((n) => typeof n !== 'string') || new Set(want).size !== want.length) throw bad('want 必须是不重复的输出名数组');
+  const missing = want.filter((n) => n !== 'meta' && !declared(c, n));
+  if (missing.length) throw new SourceError('contract.unsupported-output', `核心帧源交不出：${missing.join('、')}`);
+  if (!record(opts ?? {}) || (opts?.shutter !== undefined && !record(opts.shutter))) throw bad('opts 和 opts.shutter 必须是对象');
+  const o = opts ?? {}, mine = o.shutter ?? {}, theirs = record(shot.shutter) ? shot.shutter : {};
+  const angleDeg = mine.angleDeg ?? theirs.angleDeg ?? 0;
+  const shutterSamples = mine.samples ?? locked.shutterSamples ?? theirs.samples ?? 1;
+  if (typeof angleDeg !== 'number' || !(angleDeg >= 0 && angleDeg <= 360)) throw bad(`快门角必须在 [0, 360] 度，给的是 ${show(angleDeg)}`);
+  if (!Number.isInteger(shutterSamples) || shutterSamples < 1) throw bad(`子帧采样数必须是不小于 1 的整数，给的是 ${show(shutterSamples)}`);
+  if (angleDeg === 0 && shutterSamples > 1) throw new SourceError('contract.shutter-conflict', `快门角是 0，子帧采样数却是 ${shutterSamples}`);
+  if (angleDeg > 0) throw new SourceError('contract.unsupported-option', `核心帧源的运动模糊还没做：生效的快门角是 ${angleDeg} 度，只能出快门角 0 的帧`);
+  const preset = record(shot.tiers?.[tier]) ? shot.tiers[tier] : {};
+  const scale = o.scale ?? preset.scale ?? c[tier].scale;
+  const samples = o.samples ?? preset.samples ?? c[tier].samples;
+  if (typeof scale !== 'number' || !(scale > 0 && scale <= 1)) throw bad(`scale 必须在 (0, 1]，给的是 ${show(scale)}`);
+  if (!Number.isInteger(samples) || samples < 1 || samples > 2 ** 32 - 1) throw bad(`每像素采样数必须是不小于 1 的整数，给的是 ${show(samples)}`);
+  return {
+    angleDeg,
+    samples,
+    size: [Math.max(1, Math.round(size[0] * scale)), Math.max(1, Math.round(size[1] * scale))],
+    // 没要颜色层就是「只要元数据」：不出像素
+    layers: want.includes('color') ? want.filter((n) => n !== 'meta') : [],
+  };
+}
+
+// ------------------------------------------------------------------------------------------------ 帧源
+
+/**
+ * 起帧源。bin 是渲染程序 core-render（不给时取环境变量 BEIMING_CORE_RENDER，再没有就按 chassis/build.mjs 现编或取编好的那份）。
+ * 返回 { caps, open, stop }。
+ */
+export async function startSource({ bin = process.env.BEIMING_CORE_RENDER } = {}) {
+  if (!bin) {
+    try { bin = buildRenderer().bin; } catch (e) { throw e.missing ? new SourceError('env.missing-tool', `编不出渲染程序 core-render：${e.message}`) : e; }
+  }
+  // shortcut: 版本是工作树里内核源码的摘要；bin 是从别处给的时它不一定就是这份源码编的
+  const CAPS = caps(sourceKey());
+
+  async function open(input, env) {
+    const missingEnv = ENV_KEYS.filter((k) => !record(env) || env[k] === undefined);
+    if (!record(input) || !record(input.shot) || missingEnv.length) throw bad(`input、input.shot 必须是对象，env 要有 ${ENV_KEYS.join('、')}`);
+    const locked = planOpen(CAPS, input, env);
+    if (env.tier === 'final') throw new SourceError('contract.unsupported-mode', `${NOT_YET}（这次 env.tier 是 final）`);
+    const { shot, output } = input, { entry } = renderingOf(shot);
+    if (typeof entry !== 'string' || !entry) throw bad('build-script 模式的镜头要写 entry：场景包的目录或它的 pack.json');
+    const dir = packDir(env.filmDir, entry);
+    const info = await run(bin, ['pack-info', dir]);
+    const frames = shot.out - shot.in;
+    if (frames > info.frames) throw bad(`场景包 ${info.id} 只有 ${info.frames} 帧，镜头要 ${frames} 帧`);
+    const pack = loadPack(dir);
+    const entities = [...new Map(pack.rows.map((r) => [r.entity, { id: r.entity, name: r.name, class: r.class }])).values()].sort((a, b) => a.id - b.id);
+    const timeline = input.events?.events ?? [];
+    let renders = 0, closed = false;
+    const live = () => { if (closed) throw bad('会话已经关了'); };
+
+    return {
+      manifest: () => ({ frames, entities: entities.map((e) => ({ ...e })) }),
+
+      /** 渲一帧：层写在 env.workspace 下的 r<会话内序号>-f<帧号>/，交回元数据和层引用；场景包第 f 帧就是镜头局部第 f 帧 */
+      async render(f, opts, want) {
+        live();
+        planFrame(frames, f);
+        const plan = planRender(CAPS, shot, output.size, env.tier, opts, want, locked);
+        const t0 = performance.now();
+        const { camera, view, proj } = cameraAt(pack, f, plan.size);
+        const ents = Object.entries(entityPoints(pack, f)).map(([name, e]) => {
+          const g = measureEntity(view, proj, plan.size, e.points);
+          return { id: e.id, name, class: e.class, bbox2d: g.bbox2d, bbox3d: g.bbox3d, visible: null, pxArea: g.pxArea, depth: g.depth };
+        }).sort((a, b) => a.id - b.id);
+        const stateMs = performance.now() - t0;
+        const pixels = plan.layers.length > 0;
+        let stats = null, layers = {}, hashColor = null, res = null;
+        if (pixels) {
+          const sub = `r${pad(renders++, 3)}-f${pad(f, 4)}`, out = join(resolve(env.workspace), sub);
+          await mkdir(out, { recursive: true });
+          const [w, h] = plan.size;
+          res = await run(bin, ['render-pack', dir, '--frame', String(f), '--spp', String(plan.samples), '--width', String(w), '--height', String(h), '--no-denoise', '-o', join(out, 'preview.png'), '--passes', out], locked.seed);
+          for (const name of plan.layers) {
+            const [file, components] = LAYERS[name];
+            layers[name] = { file: `${sub}/${file}`, shape: [h, w, components.length], components, hash: sha256(await readFile(join(out, file))) };
+          }
+          const bytes = await readFile(join(out, LAYERS.color[0]));
+          const rgba = new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
+          hashColor = sha256(bytes);
+          stats = { luma: lumaStats(rgba), ...(shot.colorRef === 'display' ? clipStats(rgba) : {}), noise: null, tris: res.triangles };
+        }
+        const t = res?.timings_ms ?? {};
+        const meta = {
+          format: 'meta/0.1',
+          film: input.film,
+          shot: shot.id,
+          frame: shot.in + f,
+          shotFrame: f,
+          seed: locked.seed,
+          fps: output.fps,
+          size: plan.size,
+          colorRef: shot.colorRef,
+          units: { meter: 1, up: 'Y', hand: 'right' },
+          camera: { ...camera, shutterAngleDeg: plan.angleDeg },
+          entities: ents,
+          lights: null,
+          events: timeline.filter((e) => e.frame === shot.in + f).map((e) => ({ id: e.id, frame: e.frame })),
+          texts: [],
+          stats,
+          source: {
+            id: shot.source, renderer: CAPS.id, host: HOST, version: CAPS.version, tier: env.tier,
+            ...(res ? { gpu: res.adapter, backend: res.backend, samples: plan.samples } : {}),
+          },
+          timing: { stateMs: stateMs + (t.pack_ms ?? 0), renderMs: t.trace_ms ?? 0, readbackMs: t.readback_ms ?? 0 },
+          origin: { host: ['camera', 'entities', 'lights', 'stats', 'source', 'timing'], shot: [], kernel: ['events'] },
+          hash: { color: hashColor },
+        };
+        return { meta, layers };
+      },
+
+      /** 场景查询在第 f 帧的状态上答，坐标是世界坐标、米，地面是 y = 0；只答 bbox3d、belowGround，算式见 measure.js 的 answerQuery */
+      async query(f, q) {
+        live();
+        planFrame(frames, f);
+        const { kind, of, tol } = planQuery(CAPS, q, entities.map((e) => e.name));
+        const at = entityPoints(pack, f);
+        // 这一帧不画的实体没有顶点，不进结果
+        return answerQuery(kind, of.filter((n) => at[n]).map((n) => [n, at[n].points]), tol);
+      },
+
+      async close() { closed = true; },
+    };
+  }
+
+  return { caps: () => structuredClone(CAPS), open, stop: async () => {} };
+}

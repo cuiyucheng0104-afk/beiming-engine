@@ -1,0 +1,4 @@
+# 这个内核固定用的 Rust 版本：每台机器、每次构建都一样，渲染读数与确定性检查不随机器上碰巧装的稳定版变化。
+# 换版本单独提一次改动，并重跑 beiming/sources/core/chassis/ 的第 2 级。
+[toolchain]
+channel = "1.100.0"

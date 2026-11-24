@@ -146,6 +146,9 @@ test('domainOf / inScope：路径规则', () => {
   assert.equal(domainOf('tests/render/a.test.mjs'), 'render');
   assert.equal(domainOf('tests/a.test.mjs'), 'root');
   assert.equal(domainOf('engine/audio/test_audio.py'), 'audio');
+  assert.equal(domainOf('beiming/api/api.test.mjs'), 'beiming-api');
+  assert.equal(domainOf('beiming/bench/exam.test.mjs'), 'beiming-api');
+  assert.equal(domainOf('beiming/cards/m1a-cards.test.mjs'), 'beiming');
   assert.equal(domainOf('engine/look/look.test.mjs'), 'engine');
   assert.equal(domainOf('tools/repo-check/rules/core/x.test.mjs'), 'tools');
   assert.equal(domainOf('x.test.mjs'), 'root');
@@ -223,6 +226,17 @@ test('有失败：exit 1，失败的测试名与位置进信封', { skip: !pytho
   assert.equal(py.counts.fail, 1);
   assert.match(py.failures[0].name, /test_broken/);
   assert.equal(r.json.summary.fail, 2);
+});
+
+test('--parallel：Python 组与 Node 组同时跑，结果与顺序跑一致', { skip: !python() && '没有 Python' }, async t => {
+  const { root, cleanup } = makeRepo({ 'tests/alpha/a.test.mjs': FAIL_NODE, 'tests/beta/test_b.py': FAIL_PY, 'tests/beta/helper_b.py': 'def double(x):\n    return 2 * x\n', 'tests/gamma/g.test.mjs': PASS_NODE });
+  t.after(cleanup);
+  const seq = await runNode(RUN_TESTS, ['--root', root, '--json']);
+  const par = await runNode(RUN_TESTS, ['--root', root, '--json', '--parallel']);
+  assert.equal(par.code, 1);
+  const pick = r => Object.fromEntries(r.json.suites.map(s => [s.id, [s.status, s.counts.pass, s.counts.fail]]));
+  assert.deepEqual(pick(par), pick(seq), '并行与顺序的每组结果一致');
+  assert.equal(par.json.summary.fail, seq.json.summary.fail);
 });
 
 test('--bail：第一组失败后剩下的标为未运行', async t => {

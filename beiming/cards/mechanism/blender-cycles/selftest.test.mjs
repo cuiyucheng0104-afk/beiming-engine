@@ -2,7 +2,7 @@
 // 一、在后台 Blender 里直接调 create：渲染器是 Cycles（不是 EEVEE）、快门从帧起点打开、降噪器是 OIDN 并放在显卡上、
 //     反弹次数和间接光钳制照参数写；别的东西把渲染器改成 EEVEE 之后 apply 报错，不照常出帧。
 // 二、经 Blender 帧源出例子片子 film-min 的 s01：草稿档低采样加降噪，降噪跑在显卡后端上（元数据 source.denoise 是 oidn-gpu）；
-//     终稿档的每像素采样数是镜头 tiers.final.samples，不降噪。渲染产物在系统临时目录里，跑完删掉。
+//     终稿档的每像素采样数是镜头 tiers.final.samples，同样开启 OIDN 降噪。渲染产物在系统临时目录里，跑完删掉。
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -67,7 +67,7 @@ describe('blender.cycles 实跑', { concurrency: false }, () => {
     });
   });
 
-  test('经帧源出帧：草稿档降噪跑在显卡上，终稿档取 tiers.final.samples 不降噪', { skip: !BLENDER && '本机没有 Blender', timeout: 600000 }, async (t) => {
+  test('经帧源出帧：草稿档与终稿档降噪均跑在显卡上，终稿档取 tiers.final.samples', { skip: !BLENDER && '本机没有 Blender', timeout: 600000 }, async (t) => {
     const film = JSON.parse(await readFile(join(BEIMING, 'kernel/contracts/examples/film-min/film.json'), 'utf8'));
     const shot = film.shots.find((s) => s.id === 's01');
     const lib = await loadCards(DIRS), assets = await loadAssets();
@@ -92,7 +92,7 @@ describe('blender.cycles 实跑', { concurrency: false }, () => {
       assert.deepEqual([draft.source.backend, draft.source.denoise], [src.device.backend, 'oidn-gpu']);
       const final = await render('final', 0.125);
       assert.equal(final.source.samples, shot.tiers.final.samples);
-      assert.equal(final.source.denoise, undefined);
+      assert.deepEqual([final.source.backend, final.source.denoise], [src.device.backend, 'oidn-gpu']);
     } finally {
       await src.stop();
       await rm(root, { recursive: true, force: true });

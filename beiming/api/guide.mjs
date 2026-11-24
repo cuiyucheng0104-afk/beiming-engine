@@ -1,6 +1,6 @@
 // 入口卡：GET /v1/guide 的正文。一段纯文本，动词总表直接由合同生成（不手抄），保证改合同后入口卡跟着变。
 // 整个响应信封序列化之后按 estimateTokens 不超过 1500 token，由单测硬卡。
-import { turntableShot } from './films.mjs';
+import { titleShot, turntableShot } from './films.mjs';
 import { ROUTES } from './contract.mjs';
 
 /** 动词总表的一行：方法 路径（工作区令牌的路由带 W，作业路由带 J） */
@@ -8,11 +8,7 @@ const verbLine = (r) => `${r.method} ${r.path}${r.auth === 'workspace' ? ' W' : 
 
 export const VERBS = Object.freeze(ROUTES.map((r) => `${r.method} ${r.path}`));
 
-const THREE_SAMPLE = {
-  id: 's01', in: 0, out: 60, source: 'three', host: 'page', mode: 'cards-data', colorRef: 'display', seed: 1001,
-  cards: [{ as: 'title', use: 'overlay.title@1', params: { text: 'RTX 5090', enter: 0, settleFrames: 0, heightFrac: 0.16 } }],
-  roles: { hero: 'title' }, deliberate: [{ kind: 'freeze', in: 0, out: 60, why: 'hold' }],
-};
+const THREE_SAMPLE = titleShot('s01', 0, 60, 'RTX 5090', 1001);
 
 const BLENDER_SAMPLE = turntableShot('s01', 0, 30, 1001);
 

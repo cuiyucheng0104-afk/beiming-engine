@@ -1,0 +1,33 @@
+{
+  "format": "card/0.1",
+  "id": "camera.cue-kf",
+  "version": "1.0.0",
+  "kind": "camera",
+  "title": "触发词运镜",
+  "intent": "让地图运镜跟着命名事件走；换旁白时间表不用重排关键帧",
+  "visibleToAgent": true,
+  "livesIn": ["data"],
+  "impl": [{ "livesIn": "data", "entry": "cards/camera/cue-kf/evaluate.mjs", "shape": "evaluate", "hosts": [], "selftest": "cards/camera/cue-kf/selftest.test.mjs" }],
+  "params": {
+    "moves": { "type": "data", "unit": "none", "schema": "moves.schema.json", "default": [], "coupling": "resolution" }
+  },
+  "ports": {
+    "in": [{ "name": "events", "type": "events" }],
+    "out": [{ "name": "camera", "type": "tracks.camera" }],
+    "order": { "before": [], "after": ["time.narration"] },
+    "requires": ["inputs.events 收名字到全片整数帧的表、events/0.1 文档或它的条目（含 time.narration 的 cues.events），以及页面宿主的镜头局部条目。frame 减 shot.in，f 已是局部帧，不再减。"]
+  },
+  "conditions": {
+    "appliesWhen": ["平面地图或讲解图：第一个姿态在片头保持，之后由命名事件加有符号的整帧偏移触发移动，段间和末尾保持不动"],
+    "notWhen": ["需要绕行三维物体或改变相机朝向", "运镜起点只有绝对帧号，没有命名事件"]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": { "selftest": "换旁白词时刻后，运镜随之移动；全片与局部输入一致。独立由相邻帧的变换量起点，测首末保持和子帧缓动，并将页面透视相机投影与平面矩阵核对。", "predicates": [] },
+  "pitfalls": [
+    { "symptom": "镜头比触发词晚", "fix": "cueOffsetFrames 默认 0；要提前就写负数（例如提前 15 帧填 -15）。" },
+    { "symptom": "两个动作只量到一次持续运镜", "fix": "让首尾姿态接得上，并在两段之间留出静止帧。每帧位移远小于一个像素时，像素判分也可能量不到；按帧数和画幅选位移。" }
+  ],
+  "provenance": { "cases": [], "note": "用命名事件加偏移做关键帧，按二维中心与相对放大率插值；无外部素材。" },
+  "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-23" }],
+  "exams": ["18-2", "cal:camera.cue-kf"]
+}

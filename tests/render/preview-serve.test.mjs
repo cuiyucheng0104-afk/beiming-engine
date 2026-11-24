@@ -465,21 +465,25 @@ test('Test 3：C 路线作品夹具状态探测（fps / frames / cuts / mixUrl /
 });
 
 test('serve.mjs 命令行：默认启用 ?preview=1 并在 stderr 打印提示；--no-preview 关闭注入；--json 信封保持不变', { timeout: 30_000 }, async () => {
-  const startServe = extraArgs => new Promise((resolve, reject) => {
+  // stdout 与 stderr 是两根独立的管道，到达父进程的先后不保证（Windows 上实测信封先到、提示行后到）：
+  // 信封与 stderr 里的 ready 提示都到齐才算启动完成，断言才能放心读 stderr
+  const startServe = (extraArgs, ready) => new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [path.join(ROOT, 'engine/render/serve.mjs'), '--port', '0', '--json', ...extraArgs], {
       cwd: ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    let stdout = '', stderr = '';
+    let stdout = '', stderr = '', envelope = null;
     const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error(`serve.mjs 启动超时：${stderr}`)); }, 15_000);
+    const check = () => {
+      if (!envelope || !ready.test(stderr)) return;
+      clearTimeout(timer);
+      resolve({ child, envelope, getStderr: () => stderr });
+    };
     child.stdout.on('data', d => {
       stdout += d.toString('utf8');
-      if (stdout.trim().endsWith('}')) {
-        clearTimeout(timer);
-        resolve({ child, envelope: JSON.parse(stdout), getStderr: () => stderr });
-      }
+      if (!envelope && stdout.trim().endsWith('}')) { envelope = JSON.parse(stdout); check(); }
     });
-    child.stderr.on('data', d => { stderr += d.toString('utf8'); });
+    child.stderr.on('data', d => { stderr += d.toString('utf8'); check(); });
     child.on('error', err => { clearTimeout(timer); reject(err); });
   });
 
@@ -489,7 +493,7 @@ test('serve.mjs 命令行：默认启用 ?preview=1 并在 stderr 打印提示�
     return await exited;
   };
 
-  const s1 = await startServe([]);
+  const s1 = await startServe([], /带声分轨调片预览：/);
   try {
     assert.equal(s1.envelope.ok, true);
     assert.deepEqual(Object.keys(s1.envelope.data).sort(), ['port', 'root', 'url']);
@@ -504,7 +508,7 @@ test('serve.mjs 命令行：默认启用 ?preview=1 并在 stderr 打印提示�
     if (process.platform !== 'win32') assert.equal(code, 143);
   }
 
-  const s2 = await startServe(['--no-preview']);
+  const s2 = await startServe(['--no-preview'], /预览服务：/);
   try {
     assert.equal(s2.envelope.ok, true);
     assert.doesNotMatch(s2.getStderr(), /带声分轨调片预览/);

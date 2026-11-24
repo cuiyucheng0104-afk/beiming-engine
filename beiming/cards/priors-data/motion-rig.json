@@ -1,0 +1,2381 @@
+{
+  "format": "priors/0.1",
+  "entries": [
+    {
+      "id": "motion-rig.d077.walk-cadence",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-4.walk-cadence",
+      "title": "四档步态算表（走路每秒步数（两脚合计，等于 2v/C；整个步态周期的频率是它的一半））",
+      "value": 2.2,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节 IK、步态与落脚：四档步态算表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 4 节 d077；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）",
+        "note": "原证据：源码/实测(笔记脚本计算)；原验证：我们自己算过(笔记用脚本算出)。走v1.6:C1.456 df.570 抬.075 2.20步/秒 Lc.830 支撑.519s摆动.391s；锁定3.3:C2.531 df.361 抬.190 2.61 Lc.914 .277/.490；跑4.7:C3.352 df.235 抬.260 2.80 Lc.788 .168/.546；冲刺7.3:C4.698 df.180 抬.410 3.11 Lc.846 .116/.528；公式步频=v/C每秒步数=2v/C Lc=df×C；走df>.5有双脚着地期，跑df<.5有腾空期。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "2.20步/秒",
+        "c11.sourceId": "d077"
+      }
+    },
+    {
+      "id": "motion-rig.d077.walk-stride",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-4.walk-stride",
+      "title": "四档步态算表（行走时每整周期步幅）",
+      "value": 1.456,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节 IK、步态与落脚：四档步态算表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 4 节 d077；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）",
+        "note": "原证据：源码/实测(笔记脚本计算)；原验证：我们自己算过(笔记用脚本算出)。走v1.6:C1.456 df.570 抬.075 2.20步/秒 Lc.830 支撑.519s摆动.391s；锁定3.3:C2.531 df.361 抬.190 2.61 Lc.914 .277/.490；跑4.7:C3.352 df.235 抬.260 2.80 Lc.788 .168/.546；冲刺7.3:C4.698 df.180 抬.410 3.11 Lc.846 .116/.528；公式步频=v/C每秒步数=2v/C Lc=df×C；走df>.5有双脚着地期，跑df<.5有腾空期。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "走v1.6:C1.456",
+        "c11.sourceId": "d077"
+      }
+    },
+    {
+      "id": "motion-rig.d077.run-cadence",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-4.run-cadence",
+      "title": "四档步态算表（跑步步频（双脚合计））",
+      "value": 2.8,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节 IK、步态与落脚：四档步态算表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 4 节 d077；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）",
+        "note": "原证据：源码/实测(笔记脚本计算)；原验证：我们自己算过(笔记用脚本算出)。走v1.6:C1.456 df.570 抬.075 2.20步/秒 Lc.830 支撑.519s摆动.391s；锁定3.3:C2.531 df.361 抬.190 2.61 Lc.914 .277/.490；跑4.7:C3.352 df.235 抬.260 2.80 Lc.788 .168/.546；冲刺7.3:C4.698 df.180 抬.410 3.11 Lc.846 .116/.528；公式步频=v/C每秒步数=2v/C Lc=df×C；走df>.5有双脚着地期，跑df<.5有腾空期。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "跑4.7:C3.352 df.235 抬.260 2.80",
+        "c11.sourceId": "d077"
+      }
+    },
+    {
+      "id": "motion-rig.d077.run-stride",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-4.run-stride",
+      "title": "四档步态算表（跑步时每整周期步幅）",
+      "value": 3.352,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节 IK、步态与落脚：四档步态算表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 4 节 d077；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）",
+        "note": "原证据：源码/实测(笔记脚本计算)；原验证：我们自己算过(笔记用脚本算出)。走v1.6:C1.456 df.570 抬.075 2.20步/秒 Lc.830 支撑.519s摆动.391s；锁定3.3:C2.531 df.361 抬.190 2.61 Lc.914 .277/.490；跑4.7:C3.352 df.235 抬.260 2.80 Lc.788 .168/.546；冲刺7.3:C4.698 df.180 抬.410 3.11 Lc.846 .116/.528；公式步频=v/C每秒步数=2v/C Lc=df×C；走df>.5有双脚着地期，跑df<.5有腾空期。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "跑4.7:C3.352",
+        "c11.sourceId": "d077"
+      }
+    },
+    {
+      "id": "motion-rig.d077.sprint-cadence",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-4.sprint-cadence",
+      "title": "四档步态算表（冲刺步频（双脚合计））",
+      "value": 3.11,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节 IK、步态与落脚：四档步态算表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 4 节 d077；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）",
+        "note": "原证据：源码/实测(笔记脚本计算)；原验证：我们自己算过(笔记用脚本算出)。走v1.6:C1.456 df.570 抬.075 2.20步/秒 Lc.830 支撑.519s摆动.391s；锁定3.3:C2.531 df.361 抬.190 2.61 Lc.914 .277/.490；跑4.7:C3.352 df.235 抬.260 2.80 Lc.788 .168/.546；冲刺7.3:C4.698 df.180 抬.410 3.11 Lc.846 .116/.528；公式步频=v/C每秒步数=2v/C Lc=df×C；走df>.5有双脚着地期，跑df<.5有腾空期。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "冲刺7.3:C4.698 df.180 抬.410 3.11",
+        "c11.sourceId": "d077"
+      }
+    },
+    {
+      "id": "motion-rig.d077.sprint-stride",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-4.sprint-stride",
+      "title": "四档步态算表（冲刺时每整周期步幅）",
+      "value": 4.698,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节 IK、步态与落脚：四档步态算表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 4 节 d077；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）",
+        "note": "原证据：源码/实测(笔记脚本计算)；原验证：我们自己算过(笔记用脚本算出)。走v1.6:C1.456 df.570 抬.075 2.20步/秒 Lc.830 支撑.519s摆动.391s；锁定3.3:C2.531 df.361 抬.190 2.61 Lc.914 .277/.490；跑4.7:C3.352 df.235 抬.260 2.80 Lc.788 .168/.546；冲刺7.3:C4.698 df.180 抬.410 3.11 Lc.846 .116/.528；公式步频=v/C每秒步数=2v/C Lc=df×C；走df>.5有双脚着地期，跑df<.5有腾空期。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "冲刺7.3:C4.698",
+        "c11.sourceId": "d077"
+      }
+    },
+    {
+      "id": "motion-rig.d077.lock-cadence",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-4.lock-cadence",
+      "title": "四档步态算表（锁定移动步频（两脚合计））",
+      "value": 2.61,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节 IK、步态与落脚：四档步态算表",
+          "速度 3.3 m/s"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 4 节 d077；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）",
+        "note": "原证据：源码/实测(笔记脚本计算)；原验证：我们自己算过(笔记用脚本算出)。走v1.6:C1.456 df.570 抬.075 2.20步/秒 Lc.830 支撑.519s摆动.391s；锁定3.3:C2.531 df.361 抬.190 2.61 Lc.914 .277/.490；跑4.7:C3.352 df.235 抬.260 2.80 Lc.788 .168/.546；冲刺7.3:C4.698 df.180 抬.410 3.11 Lc.846 .116/.528；公式步频=v/C每秒步数=2v/C Lc=df×C；走df>.5有双脚着地期，跑df<.5有腾空期。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.sourceId": "d077",
+        "c11.raw": "锁定3.3:C2.531 df.361 抬.190 2.61"
+      }
+    },
+    {
+      "id": "motion-rig.d077.lock-stride",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-4.lock-stride",
+      "title": "四档步态算表（锁定移动的整周期步幅）",
+      "value": 2.531,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节 IK、步态与落脚：四档步态算表",
+          "速度 3.3 m/s"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 4 节 d077；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）",
+        "note": "原证据：源码/实测(笔记脚本计算)；原验证：我们自己算过(笔记用脚本算出)。走v1.6:C1.456 df.570 抬.075 2.20步/秒 Lc.830 支撑.519s摆动.391s；锁定3.3:C2.531 df.361 抬.190 2.61 Lc.914 .277/.490；跑4.7:C3.352 df.235 抬.260 2.80 Lc.788 .168/.546；冲刺7.3:C4.698 df.180 抬.410 3.11 Lc.846 .116/.528；公式步频=v/C每秒步数=2v/C Lc=df×C；走df>.5有双脚着地期，跑df<.5有腾空期。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.sourceId": "d077",
+        "c11.raw": "锁定3.3:C2.531"
+      }
+    },
+    {
+      "id": "motion-rig.d077.walk-stance",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-4.walk-stance",
+      "title": "四档步态算表（行走时单脚支撑期时长）",
+      "value": 0.519,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节 IK、步态与落脚：四档步态算表",
+          "速度 1.6 m/s"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 4 节 d077；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）",
+        "note": "原证据：源码/实测(笔记脚本计算)；原验证：我们自己算过(笔记用脚本算出)。走v1.6:C1.456 df.570 抬.075 2.20步/秒 Lc.830 支撑.519s摆动.391s；锁定3.3:C2.531 df.361 抬.190 2.61 Lc.914 .277/.490；跑4.7:C3.352 df.235 抬.260 2.80 Lc.788 .168/.546；冲刺7.3:C4.698 df.180 抬.410 3.11 Lc.846 .116/.528；公式步频=v/C每秒步数=2v/C Lc=df×C；走df>.5有双脚着地期，跑df<.5有腾空期。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.sourceId": "d077",
+        "c11.raw": "支撑.519s"
+      }
+    },
+    {
+      "id": "motion-rig.d077.walk-swing",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-4.walk-swing",
+      "title": "四档步态算表（行走时单脚摆动期时长）",
+      "value": 0.391,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节 IK、步态与落脚：四档步态算表",
+          "速度 1.6 m/s"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 4 节 d077；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）",
+        "note": "原证据：源码/实测(笔记脚本计算)；原验证：我们自己算过(笔记用脚本算出)。走v1.6:C1.456 df.570 抬.075 2.20步/秒 Lc.830 支撑.519s摆动.391s；锁定3.3:C2.531 df.361 抬.190 2.61 Lc.914 .277/.490；跑4.7:C3.352 df.235 抬.260 2.80 Lc.788 .168/.546；冲刺7.3:C4.698 df.180 抬.410 3.11 Lc.846 .116/.528；公式步频=v/C每秒步数=2v/C Lc=df×C；走df>.5有双脚着地期，跑df<.5有腾空期。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.sourceId": "d077",
+        "c11.raw": "摆动.391s"
+      }
+    },
+    {
+      "id": "motion-rig.d077.run-stance",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-4.run-stance",
+      "title": "四档步态算表（跑步时单脚支撑期时长）",
+      "value": 0.168,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节 IK、步态与落脚：四档步态算表",
+          "速度 4.7 m/s"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 4 节 d077；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）",
+        "note": "原证据：源码/实测(笔记脚本计算)；原验证：我们自己算过(笔记用脚本算出)。走v1.6:C1.456 df.570 抬.075 2.20步/秒 Lc.830 支撑.519s摆动.391s；锁定3.3:C2.531 df.361 抬.190 2.61 Lc.914 .277/.490；跑4.7:C3.352 df.235 抬.260 2.80 Lc.788 .168/.546；冲刺7.3:C4.698 df.180 抬.410 3.11 Lc.846 .116/.528；公式步频=v/C每秒步数=2v/C Lc=df×C；走df>.5有双脚着地期，跑df<.5有腾空期。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.sourceId": "d077",
+        "c11.raw": "Lc.788 .168/.546"
+      }
+    },
+    {
+      "id": "motion-rig.d077.run-swing",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-4.run-swing",
+      "title": "四档步态算表（跑步时单脚摆动期时长）",
+      "value": 0.546,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 4 节 IK、步态与落脚：四档步态算表",
+          "速度 4.7 m/s"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 4 节 d077；出处类别：源码拆解·IK、步态与落脚（案例 13 第 9 章）",
+        "note": "原证据：源码/实测(笔记脚本计算)；原验证：我们自己算过(笔记用脚本算出)。走v1.6:C1.456 df.570 抬.075 2.20步/秒 Lc.830 支撑.519s摆动.391s；锁定3.3:C2.531 df.361 抬.190 2.61 Lc.914 .277/.490；跑4.7:C3.352 df.235 抬.260 2.80 Lc.788 .168/.546；冲刺7.3:C4.698 df.180 抬.410 3.11 Lc.846 .116/.528；公式步频=v/C每秒步数=2v/C Lc=df×C；走df>.5有双脚着地期，跑df<.5有腾空期。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.sourceId": "d077",
+        "c11.raw": "Lc.788 .168/.546"
+      }
+    },
+    {
+      "id": "motion-rig.d101.breath-cycle",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-5.breath-cycle",
+      "title": "呼吸/叹气/重心换脚（敌人）（基础呼吸周期（约））",
+      "value": 3.93,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：呼吸/叹气/重心换脚（敌人）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节 d101；出处类别：源码拆解·躯干叠加、呼吸、惯性与待机",
+        "note": "原证据：源码；原验证：作者成片用过。exert 速度>3 时 +0.25/秒否则 -0.07/秒（攻击受击 exertK .18）；呼吸速率 1.6 弧度/秒×(1+0.9exert)（≈3.93 秒一次），振幅×(1+0.8exert)；换脚 shift=(tanh(2.4·sin(0.21t+φ))·0.9+sin(0.53t+2φ)·0.12)·idleW；calm：剑尖速 0.5~1.8 米/秒时 idleW 降为 0，速率 4/秒；叹气每 7~13 秒一次，持续 2.6 秒包络 sin(πk)，首次 3~9 秒；视线游移 gz=sin(.17t) gy=sin(.11t)；呼吸：髋 y+.004，胸 x.026；叹气：髋 y+.006，胸 x-.045，头 x-.05。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "≈3.93 秒一次",
+        "c11.sourceId": "d101"
+      }
+    },
+    {
+      "id": "motion-rig.d101.breath-angular-frequency",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-5.breath-angular-frequency",
+      "title": "呼吸/叹气/重心换脚（敌人）（基础呼吸角频率）",
+      "value": 1.6,
+      "unit": "rad/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：呼吸/叹气/重心换脚（敌人）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节 d101；出处类别：源码拆解·躯干叠加、呼吸、惯性与待机",
+        "note": "原证据：源码；原验证：作者成片用过。exert 速度>3 时 +0.25/秒否则 -0.07/秒（攻击受击 exertK .18）；呼吸速率 1.6 弧度/秒×(1+0.9exert)（≈3.93 秒一次），振幅×(1+0.8exert)；换脚 shift=(tanh(2.4·sin(0.21t+φ))·0.9+sin(0.53t+2φ)·0.12)·idleW；calm：剑尖速 0.5~1.8 米/秒时 idleW 降为 0，速率 4/秒；叹气每 7~13 秒一次，持续 2.6 秒包络 sin(πk)，首次 3~9 秒；视线游移 gz=sin(.17t) gy=sin(.11t)；呼吸：髋 y+.004，胸 x.026；叹气：髋 y+.006，胸 x-.045，头 x-.05。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "呼吸速率 1.6 弧度/秒",
+        "c11.sourceId": "d101"
+      }
+    },
+    {
+      "id": "motion-rig.d101.sigh-interval",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-5.sigh-interval",
+      "title": "呼吸/叹气/重心换脚（敌人）（叹气间隔）",
+      "value": [
+        7,
+        13
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：呼吸/叹气/重心换脚（敌人）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节 d101；出处类别：源码拆解·躯干叠加、呼吸、惯性与待机",
+        "note": "原证据：源码；原验证：作者成片用过。exert 速度>3 时 +0.25/秒否则 -0.07/秒（攻击受击 exertK .18）；呼吸速率 1.6 弧度/秒×(1+0.9exert)（≈3.93 秒一次），振幅×(1+0.8exert)；换脚 shift=(tanh(2.4·sin(0.21t+φ))·0.9+sin(0.53t+2φ)·0.12)·idleW；calm：剑尖速 0.5~1.8 米/秒时 idleW 降为 0，速率 4/秒；叹气每 7~13 秒一次，持续 2.6 秒包络 sin(πk)，首次 3~9 秒；视线游移 gz=sin(.17t) gy=sin(.11t)；呼吸：髋 y+.004，胸 x.026；叹气：髋 y+.006，胸 x-.045，头 x-.05。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "叹气每 7~13 秒一次",
+        "c11.sourceId": "d101"
+      }
+    },
+    {
+      "id": "motion-rig.d101.sigh-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-5.sigh-duration",
+      "title": "呼吸/叹气/重心换脚（敌人）（单次叹气时长）",
+      "value": 2.6,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：呼吸/叹气/重心换脚（敌人）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节 d101；出处类别：源码拆解·躯干叠加、呼吸、惯性与待机",
+        "note": "原证据：源码；原验证：作者成片用过。exert 速度>3 时 +0.25/秒否则 -0.07/秒（攻击受击 exertK .18）；呼吸速率 1.6 弧度/秒×(1+0.9exert)（≈3.93 秒一次），振幅×(1+0.8exert)；换脚 shift=(tanh(2.4·sin(0.21t+φ))·0.9+sin(0.53t+2φ)·0.12)·idleW；calm：剑尖速 0.5~1.8 米/秒时 idleW 降为 0，速率 4/秒；叹气每 7~13 秒一次，持续 2.6 秒包络 sin(πk)，首次 3~9 秒；视线游移 gz=sin(.17t) gy=sin(.11t)；呼吸：髋 y+.004，胸 x.026；叹气：髋 y+.006，胸 x-.045，头 x-.05。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "持续 2.6 秒",
+        "c11.sourceId": "d101"
+      }
+    },
+    {
+      "id": "motion-rig.d107.breath-cycle",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-5.breath-cycle",
+      "title": "骨盆与呼吸（骑士）（骑士呼吸周期）",
+      "value": 3.93,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：骨盆与呼吸（骑士）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节 d107；出处类别：源码拆解·躯干叠加、呼吸、惯性与待机",
+        "note": "原证据：源码；原验证：作者成片用过。breath=sin(time×1.6)（周期 3.93 秒）；跑步 drop-=(drop-.01)×.85×run×mv；加 bob、land×.24、air×.05、静止 -breath×.004×(1-move)、起步下蹲；tilt→.1run+.05；hip→-.15×armSwing×move，静止 +.02sin(time×.4)；重心左右 proll+=weightX×.05×(1-.6run)，px+=weightX×.028×(1-.7run)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "周期 3.93 秒",
+        "c11.sourceId": "d107"
+      }
+    },
+    {
+      "id": "motion-rig.d110.breath-cycle",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-5.breath-cycle",
+      "title": "久站休息姿（久站呼吸周期）",
+      "value": 4,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：久站休息姿"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节 d110；出处类别：源码拆解·躯干叠加、呼吸、惯性与待机",
+        "note": "原证据：源码；原验证：作者成片用过。条件：着地、无动作、不格挡、速度<0.15、转身速率<0.8，持续 0.4 秒后休息权重速率 1.7 升到 1，一动速率 11 退回；戒备字段（REST_GUARD）权重 rw×(1-lockW)，其余 rw×(1-.55lockW)；摇摆 sway=sin(t×.63)×.6+sin(t×.37+1.3)×.4：px+=sway×.008，proll-=sway×.012，side+=sway×.008，头偏航+sin(t×.21)×.06；换重心脚每 7~12 秒（7+random×5）速率 1.1，px+=.08 proll+=.1 side-=.08；静止呼吸 br=sin(t×1.57)（周期 4.0 秒）shy+=br×(.004+.005rw)，lean-=br×.008×rw。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "周期 4.0 秒",
+        "c11.sourceId": "d110"
+      }
+    },
+    {
+      "id": "motion-rig.d110.weight-shift-interval",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-5.weight-shift-interval",
+      "title": "久站休息姿（久站换重心脚间隔）",
+      "value": [
+        7,
+        12
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：久站休息姿"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节 d110；出处类别：源码拆解·躯干叠加、呼吸、惯性与待机",
+        "note": "原证据：源码；原验证：作者成片用过。条件：着地、无动作、不格挡、速度<0.15、转身速率<0.8，持续 0.4 秒后休息权重速率 1.7 升到 1，一动速率 11 退回；戒备字段（REST_GUARD）权重 rw×(1-lockW)，其余 rw×(1-.55lockW)；摇摆 sway=sin(t×.63)×.6+sin(t×.37+1.3)×.4：px+=sway×.008，proll-=sway×.012，side+=sway×.008，头偏航+sin(t×.21)×.06；换重心脚每 7~12 秒（7+random×5）速率 1.1，px+=.08 proll+=.1 side-=.08；静止呼吸 br=sin(t×1.57)（周期 4.0 秒）shy+=br×(.004+.005rw)，lean-=br×.008×rw。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "换重心脚每 7~12 秒",
+        "c11.sourceId": "d110"
+      }
+    },
+    {
+      "id": "motion-rig.d191.click-count",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-9.click-count",
+      "title": "公寓光标动作与点击对拍（成片点击总数）",
+      "value": 11,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 9 节 外部案例 01：可迁移的方法：公寓光标动作与点击对拍"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 9 节 d191；出处类别：实测读数·外部案例 01：可迁移的方法",
+        "note": "原证据：实测；原验证：我们量过。11 次点击中 9 次离配乐起音不到 1 帧；切点晚点击 2 帧。属节奏不属造型，路线 C 可用。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "11 次点击",
+        "c11.sourceId": "d191"
+      }
+    },
+    {
+      "id": "motion-rig.d191.aligned-click-count",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-9.aligned-click-count",
+      "title": "公寓光标动作与点击对拍（距起音不到一帧的点击数）",
+      "value": 9,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 9 节 外部案例 01：可迁移的方法：公寓光标动作与点击对拍"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 9 节 d191；出处类别：实测读数·外部案例 01：可迁移的方法",
+        "note": "原证据：实测；原验证：我们量过。11 次点击中 9 次离配乐起音不到 1 帧；切点晚点击 2 帧。属节奏不属造型，路线 C 可用。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "9 次离配乐起音不到 1 帧",
+        "c11.sourceId": "d191"
+      }
+    },
+    {
+      "id": "motion-rig.d191.sync-error-bound",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-9.sync-error-bound",
+      "title": "公寓光标动作与点击对拍（点击起音误差上界（不到））",
+      "value": 1,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 9 节 外部案例 01：可迁移的方法：公寓光标动作与点击对拍"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 9 节 d191；出处类别：实测读数·外部案例 01：可迁移的方法",
+        "note": "原证据：实测；原验证：我们量过。11 次点击中 9 次离配乐起音不到 1 帧；切点晚点击 2 帧。属节奏不属造型，路线 C 可用。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "不到 1 帧",
+        "c11.sourceId": "d191"
+      }
+    },
+    {
+      "id": "motion-rig.d191.cut-offset",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-9.cut-offset",
+      "title": "公寓光标动作与点击对拍（切点晚于点击的帧数）",
+      "value": 2,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 9 节 外部案例 01：可迁移的方法：公寓光标动作与点击对拍"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 9 节 d191；出处类别：实测读数·外部案例 01：可迁移的方法",
+        "note": "原证据：实测；原验证：我们量过。11 次点击中 9 次离配乐起音不到 1 帧；切点晚点击 2 帧。属节奏不属造型，路线 C 可用。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "切点晚点击 2 帧",
+        "c11.sourceId": "d191"
+      }
+    },
+    {
+      "id": "motion-rig.d211.breath-cycle",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-9.breath-cycle",
+      "title": "睡醒段呼吸/抬头/垂尾（睡醒段呼吸周期）",
+      "value": 4.4,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 9 节 外部案例 01：可迁移的方法：睡醒段呼吸/抬头/垂尾"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 9 节 d211；出处类别：源码拆解·外部案例 01：可迁移的方法",
+        "note": "原证据：源码；原验证：作者成片用过。swellOn=1−sm(10.5,13.5,t)；b=0.5−0.5·cos(2π(t/4.4−a/190)+0.6)；倍数 1+0.13·k·b²·sm(5,22,a)·(1−sm(120,160,a))（4.4 s 一呼吸，鼓包沿身体速度 190/4.4=43.2 m/s）；头颈离岩 lift：t 0/2.9/4.9/6.6/8.6/10.2/14.3/15.4/16.3/17.1/17.6→2.6/2.6/7.0/5.0/6.2/4.4/4.4/8.0/7.0/3.0/3.0；liftUp：0/2.9/4.9/6.6/8.6/10.2/14.3/15.4/18→−0.9/−0.9/2.2/1.0/2.0/1.2/1.0/0/0；垂尾 tailOn=1−sm(11.5,14.5,t)，尾部 34 m（a>138），四次快甩 f=Σ sin(9.5d)·e^(−2.1d)，t0∈{1.5,4.0,6.3,8.1}，慢摆 sw=sin(0.9t−2.2q) sv=sin(0.63t+1.1−1.6q)，位移 x+=w·q²(2.2sw+3.4f)，y+=w·q²(2.6sv+4.2f)，z+=w·q²(1.6sw−1.2f)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "4.4 s 一呼吸",
+        "c11.sourceId": "d211"
+      }
+    },
+    {
+      "id": "motion-rig.d211.breath-wave-speed",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-9.breath-wave-speed",
+      "title": "睡醒段呼吸/抬头/垂尾（呼吸鼓包沿身体传播速度（约））",
+      "value": 43.2,
+      "unit": "m/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 9 节 外部案例 01：可迁移的方法：睡醒段呼吸/抬头/垂尾"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 9 节 d211；出处类别：源码拆解·外部案例 01：可迁移的方法",
+        "note": "原证据：源码；原验证：作者成片用过。swellOn=1−sm(10.5,13.5,t)；b=0.5−0.5·cos(2π(t/4.4−a/190)+0.6)；倍数 1+0.13·k·b²·sm(5,22,a)·(1−sm(120,160,a))（4.4 s 一呼吸，鼓包沿身体速度 190/4.4=43.2 m/s）；头颈离岩 lift：t 0/2.9/4.9/6.6/8.6/10.2/14.3/15.4/16.3/17.1/17.6→2.6/2.6/7.0/5.0/6.2/4.4/4.4/8.0/7.0/3.0/3.0；liftUp：0/2.9/4.9/6.6/8.6/10.2/14.3/15.4/18→−0.9/−0.9/2.2/1.0/2.0/1.2/1.0/0/0；垂尾 tailOn=1−sm(11.5,14.5,t)，尾部 34 m（a>138），四次快甩 f=Σ sin(9.5d)·e^(−2.1d)，t0∈{1.5,4.0,6.3,8.1}，慢摆 sw=sin(0.9t−2.2q) sv=sin(0.63t+1.1−1.6q)，位移 x+=w·q²(2.2sw+3.4f)，y+=w·q²(2.6sv+4.2f)，z+=w·q²(1.6sw−1.2f)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "鼓包沿身体速度 190/4.4=43.2 m/s",
+        "c11.sourceId": "d211"
+      }
+    },
+    {
+      "id": "motion-rig.d245.transition-key-interval",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-13.transition-key-interval",
+      "title": "招式共同节奏(推断)（挥动过渡键间隔）",
+      "value": 0.06,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节 骑士动作表与站姿数值：招式共同节奏(推断)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "动作与骨骼汇编 第 13 节 d245；出处类别：推断与说明·骑士动作表与站姿数值（案例 13 第 9 章）",
+        "note": "原证据：推断；原验证：只是原文说法。起手键(举剑)停顿→每隔0.06秒一个过渡键穿过命中窗口→收招键停顿→一到两个恢复键→回站姿；轻一0.2秒起手0.26秒挥完；重击0.42秒蓄力停顿0.13秒劈下，最低点用两个停顿键(0.68,0.72)\"砸住\"。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "每隔0.06秒一个过渡键",
+        "c11.sourceId": "d245"
+      }
+    },
+    {
+      "id": "motion-rig.d245.light-raise-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-13.light-raise-duration",
+      "title": "招式共同节奏(推断)（轻击起手阶段时长）",
+      "value": 0.2,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节 骑士动作表与站姿数值：招式共同节奏(推断)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "动作与骨骼汇编 第 13 节 d245；出处类别：推断与说明·骑士动作表与站姿数值（案例 13 第 9 章）",
+        "note": "原证据：推断；原验证：只是原文说法。起手键(举剑)停顿→每隔0.06秒一个过渡键穿过命中窗口→收招键停顿→一到两个恢复键→回站姿；轻一0.2秒起手0.26秒挥完；重击0.42秒蓄力停顿0.13秒劈下，最低点用两个停顿键(0.68,0.72)\"砸住\"。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "轻一0.2秒起手",
+        "c11.sourceId": "d245"
+      }
+    },
+    {
+      "id": "motion-rig.d245.light-swing-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-13.light-swing-duration",
+      "title": "招式共同节奏(推断)（轻击挥动阶段时长）",
+      "value": 0.26,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节 骑士动作表与站姿数值：招式共同节奏(推断)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "动作与骨骼汇编 第 13 节 d245；出处类别：推断与说明·骑士动作表与站姿数值（案例 13 第 9 章）",
+        "note": "原证据：推断；原验证：只是原文说法。起手键(举剑)停顿→每隔0.06秒一个过渡键穿过命中窗口→收招键停顿→一到两个恢复键→回站姿；轻一0.2秒起手0.26秒挥完；重击0.42秒蓄力停顿0.13秒劈下，最低点用两个停顿键(0.68,0.72)\"砸住\"。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "0.26秒挥完",
+        "c11.sourceId": "d245"
+      }
+    },
+    {
+      "id": "motion-rig.d245.heavy-windup-hold-time",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-13.heavy-windup-hold-time",
+      "title": "招式共同节奏(推断)（重击到达蓄力停顿键的时刻）",
+      "value": 0.42,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节 骑士动作表与站姿数值：招式共同节奏(推断)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "动作与骨骼汇编 第 13 节 d245；出处类别：推断与说明·骑士动作表与站姿数值（案例 13 第 9 章）",
+        "note": "原证据：推断；原验证：只是原文说法。起手键(举剑)停顿→每隔0.06秒一个过渡键穿过命中窗口→收招键停顿→一到两个恢复键→回站姿；轻一0.2秒起手0.26秒挥完；重击0.42秒蓄力停顿0.13秒劈下，最低点用两个停顿键(0.68,0.72)\"砸住\"。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "重击0.42秒蓄力停顿",
+        "c11.sourceId": "d245"
+      }
+    },
+    {
+      "id": "motion-rig.d245.heavy-downstroke-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-13.heavy-downstroke-duration",
+      "title": "招式共同节奏(推断)（重击劈下阶段时长）",
+      "value": 0.13,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节 骑士动作表与站姿数值：招式共同节奏(推断)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "动作与骨骼汇编 第 13 节 d245；出处类别：推断与说明·骑士动作表与站姿数值（案例 13 第 9 章）",
+        "note": "原证据：推断；原验证：只是原文说法。起手键(举剑)停顿→每隔0.06秒一个过渡键穿过命中窗口→收招键停顿→一到两个恢复键→回站姿；轻一0.2秒起手0.26秒挥完；重击0.42秒蓄力停顿0.13秒劈下，最低点用两个停顿键(0.68,0.72)\"砸住\"。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "0.13秒劈下",
+        "c11.sourceId": "d245"
+      }
+    },
+    {
+      "id": "motion-rig.d256.breath-cycle",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-14.breath-cycle",
+      "title": "龙呼吸与鼻孔（平时呼吸周期）",
+      "value": 3.2,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙呼吸与鼻孔"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d256；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）（案例 13 第 11 章）",
+        "note": "原证据：源码；原验证：作者成片用过。br=.5-.5cos(2π·clock/per)；平时per3.2秒幅度.035，疲惫片段(downed/spent/reeling/buckle/dying/chokeStall)per1.7秒幅度.05；胸-1.5°颈-1°脊柱-1.2°随br-.5起伏；胸骨缩放x=1+amp·br,y=1+(x-1)·.7子骨反向缩放抵消；鼻孔max(0,sin(2π·clock/per-.6))。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "平时per3.2秒",
+        "c11.sourceId": "d256"
+      }
+    },
+    {
+      "id": "motion-rig.d256.tired-breath-cycle",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-14.tired-breath-cycle",
+      "title": "龙呼吸与鼻孔（疲惫时呼吸周期）",
+      "value": 1.7,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙呼吸与鼻孔"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d256；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）（案例 13 第 11 章）",
+        "note": "原证据：源码；原验证：作者成片用过。br=.5-.5cos(2π·clock/per)；平时per3.2秒幅度.035，疲惫片段(downed/spent/reeling/buckle/dying/chokeStall)per1.7秒幅度.05；胸-1.5°颈-1°脊柱-1.2°随br-.5起伏；胸骨缩放x=1+amp·br,y=1+(x-1)·.7子骨反向缩放抵消；鼻孔max(0,sin(2π·clock/per-.6))。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "per1.7秒幅度.05",
+        "c11.sourceId": "d256"
+      }
+    },
+    {
+      "id": "motion-rig.d269.flap-period",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-14.flap-period",
+      "title": "龙扇翼周期与肩仰角曲线（常速拍翼周期）",
+      "value": 0.97,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼周期与肩仰角曲线"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d269；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）（案例 13 第 11 章）",
+        "note": "原证据：源码；原验证：作者成片用过。STROKE={period .97,periodClimb .8,down .42,top 46,bottom -32,lagFore .06,lagHand .13}；strokeElev：ph<D时top+(bottom-top)(.5-.5cos(πu))(下扑正弦加速)，否则bottom+(top-bottom)smooth((ph-D)/(1-D))(上挥smoothstep较慢)；一拍.97秒(爬升.8)下扑.41秒上挥.56秒，摆幅78°。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "一拍.97秒",
+        "c11.sourceId": "d269"
+      }
+    },
+    {
+      "id": "motion-rig.d269.climb-flap-period",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-14.climb-flap-period",
+      "title": "龙扇翼周期与肩仰角曲线（爬升拍翼周期）",
+      "value": 0.8,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼周期与肩仰角曲线"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d269；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）（案例 13 第 11 章）",
+        "note": "原证据：源码；原验证：作者成片用过。STROKE={period .97,periodClimb .8,down .42,top 46,bottom -32,lagFore .06,lagHand .13}；strokeElev：ph<D时top+(bottom-top)(.5-.5cos(πu))(下扑正弦加速)，否则bottom+(top-bottom)smooth((ph-D)/(1-D))(上挥smoothstep较慢)；一拍.97秒(爬升.8)下扑.41秒上挥.56秒，摆幅78°。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "一拍.97秒(爬升.8)",
+        "c11.sourceId": "d269"
+      }
+    },
+    {
+      "id": "motion-rig.d269.downstroke-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-14.downstroke-duration",
+      "title": "龙扇翼周期与肩仰角曲线（常速下扑时长）",
+      "value": 0.41,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼周期与肩仰角曲线"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d269；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）（案例 13 第 11 章）",
+        "note": "原证据：源码；原验证：作者成片用过。STROKE={period .97,periodClimb .8,down .42,top 46,bottom -32,lagFore .06,lagHand .13}；strokeElev：ph<D时top+(bottom-top)(.5-.5cos(πu))(下扑正弦加速)，否则bottom+(top-bottom)smooth((ph-D)/(1-D))(上挥smoothstep较慢)；一拍.97秒(爬升.8)下扑.41秒上挥.56秒，摆幅78°。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "下扑.41秒",
+        "c11.sourceId": "d269"
+      }
+    },
+    {
+      "id": "motion-rig.d269.upstroke-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-14.upstroke-duration",
+      "title": "龙扇翼周期与肩仰角曲线（常速上挥时长）",
+      "value": 0.56,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼周期与肩仰角曲线"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d269；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）（案例 13 第 11 章）",
+        "note": "原证据：源码；原验证：作者成片用过。STROKE={period .97,periodClimb .8,down .42,top 46,bottom -32,lagFore .06,lagHand .13}；strokeElev：ph<D时top+(bottom-top)(.5-.5cos(πu))(下扑正弦加速)，否则bottom+(top-bottom)smooth((ph-D)/(1-D))(上挥smoothstep较慢)；一拍.97秒(爬升.8)下扑.41秒上挥.56秒，摆幅78°。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "上挥.56秒",
+        "c11.sourceId": "d269"
+      }
+    },
+    {
+      "id": "motion-rig.d269.downstroke-share",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-14.downstroke-share",
+      "title": "龙扇翼周期与肩仰角曲线（常速下扑占周期比例）",
+      "value": 0.42,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼周期与肩仰角曲线"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d269；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）（案例 13 第 11 章）",
+        "note": "原证据：源码；原验证：作者成片用过。STROKE={period .97,periodClimb .8,down .42,top 46,bottom -32,lagFore .06,lagHand .13}；strokeElev：ph<D时top+(bottom-top)(.5-.5cos(πu))(下扑正弦加速)，否则bottom+(top-bottom)smooth((ph-D)/(1-D))(上挥smoothstep较慢)；一拍.97秒(爬升.8)下扑.41秒上挥.56秒，摆幅78°。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "down .42",
+        "c11.sourceId": "d269"
+      }
+    },
+    {
+      "id": "motion-rig.d269.wing-angular-excursion",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-14.wing-angular-excursion",
+      "title": "龙扇翼周期与肩仰角曲线（肩仰角全行程摆幅）",
+      "value": 78,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼周期与肩仰角曲线"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d269；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）（案例 13 第 11 章）",
+        "note": "原证据：源码；原验证：作者成片用过。STROKE={period .97,periodClimb .8,down .42,top 46,bottom -32,lagFore .06,lagHand .13}；strokeElev：ph<D时top+(bottom-top)(.5-.5cos(πu))(下扑正弦加速)，否则bottom+(top-bottom)smooth((ph-D)/(1-D))(上挥smoothstep较慢)；一拍.97秒(爬升.8)下扑.41秒上挥.56秒，摆幅78°。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "摆幅78°",
+        "c11.sourceId": "d269"
+      }
+    },
+    {
+      "id": "motion-rig.d289.flap-period",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-14.flap-period",
+      "title": "龙扇翼层（常速拍翼周期）",
+      "value": 0.97,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼层"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d289；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）",
+        "note": "原证据：源码；原验证：作者成片用过(未运行)。STROKE={period:.97, periodClimb:.8, down:.42, top:46, bottom:−32, lagFore:.06, lagHand:.13}；相位 ph<.42 下扑：仰角=46+(−32−46)·(.5−.5cos(π·ph/.42))；ph≥.42 上挥：−32+78·smoothstep((ph−.42)/.58)；手部折叠下扑 0，上挥 sin(π·min(1,1.12u))^0.8，u≥0.893 归零；相位 0/0.21/0.42/0.71/1 肩仰角 46/7/−32/7/46；一拍 0.97 s（下扑 0.41、上挥 0.56）；前臂晚 0.06 拍、手晚 0.13 拍翅尖鞭甩；骨盆高 .24A·(−cos2πP) m，头反向 −2.2A·bob 度抵消；起飞后重扇两下周期 0.8 s；近景下扑占比 0.42、远景 0.45（两套节奏不一致）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "一拍 0.97 s",
+        "c11.sourceId": "d289"
+      }
+    },
+    {
+      "id": "motion-rig.d289.heavy-flap-period",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-14.heavy-flap-period",
+      "title": "龙扇翼层（起飞后重扇周期）",
+      "value": 0.8,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼层"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d289；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）",
+        "note": "原证据：源码；原验证：作者成片用过(未运行)。STROKE={period:.97, periodClimb:.8, down:.42, top:46, bottom:−32, lagFore:.06, lagHand:.13}；相位 ph<.42 下扑：仰角=46+(−32−46)·(.5−.5cos(π·ph/.42))；ph≥.42 上挥：−32+78·smoothstep((ph−.42)/.58)；手部折叠下扑 0，上挥 sin(π·min(1,1.12u))^0.8，u≥0.893 归零；相位 0/0.21/0.42/0.71/1 肩仰角 46/7/−32/7/46；一拍 0.97 s（下扑 0.41、上挥 0.56）；前臂晚 0.06 拍、手晚 0.13 拍翅尖鞭甩；骨盆高 .24A·(−cos2πP) m，头反向 −2.2A·bob 度抵消；起飞后重扇两下周期 0.8 s；近景下扑占比 0.42、远景 0.45（两套节奏不一致）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "起飞后重扇两下周期 0.8 s",
+        "c11.sourceId": "d289"
+      }
+    },
+    {
+      "id": "motion-rig.d289.downstroke-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-14.downstroke-duration",
+      "title": "龙扇翼层（常速下扑时长）",
+      "value": 0.41,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼层"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d289；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）",
+        "note": "原证据：源码；原验证：作者成片用过(未运行)。STROKE={period:.97, periodClimb:.8, down:.42, top:46, bottom:−32, lagFore:.06, lagHand:.13}；相位 ph<.42 下扑：仰角=46+(−32−46)·(.5−.5cos(π·ph/.42))；ph≥.42 上挥：−32+78·smoothstep((ph−.42)/.58)；手部折叠下扑 0，上挥 sin(π·min(1,1.12u))^0.8，u≥0.893 归零；相位 0/0.21/0.42/0.71/1 肩仰角 46/7/−32/7/46；一拍 0.97 s（下扑 0.41、上挥 0.56）；前臂晚 0.06 拍、手晚 0.13 拍翅尖鞭甩；骨盆高 .24A·(−cos2πP) m，头反向 −2.2A·bob 度抵消；起飞后重扇两下周期 0.8 s；近景下扑占比 0.42、远景 0.45（两套节奏不一致）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "下扑 0.41、上挥 0.56",
+        "c11.sourceId": "d289"
+      }
+    },
+    {
+      "id": "motion-rig.d289.upstroke-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-14.upstroke-duration",
+      "title": "龙扇翼层（常速上挥时长）",
+      "value": 0.56,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼层"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d289；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）",
+        "note": "原证据：源码；原验证：作者成片用过(未运行)。STROKE={period:.97, periodClimb:.8, down:.42, top:46, bottom:−32, lagFore:.06, lagHand:.13}；相位 ph<.42 下扑：仰角=46+(−32−46)·(.5−.5cos(π·ph/.42))；ph≥.42 上挥：−32+78·smoothstep((ph−.42)/.58)；手部折叠下扑 0，上挥 sin(π·min(1,1.12u))^0.8，u≥0.893 归零；相位 0/0.21/0.42/0.71/1 肩仰角 46/7/−32/7/46；一拍 0.97 s（下扑 0.41、上挥 0.56）；前臂晚 0.06 拍、手晚 0.13 拍翅尖鞭甩；骨盆高 .24A·(−cos2πP) m，头反向 −2.2A·bob 度抵消；起飞后重扇两下周期 0.8 s；近景下扑占比 0.42、远景 0.45（两套节奏不一致）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "下扑 0.41、上挥 0.56",
+        "c11.sourceId": "d289"
+      }
+    },
+    {
+      "id": "motion-rig.d289.near-downstroke-share",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-14.near-downstroke-share",
+      "title": "龙扇翼层（近景下扑占比）",
+      "value": 0.42,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼层",
+          "近景"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d289；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）",
+        "note": "原证据：源码；原验证：作者成片用过(未运行)。STROKE={period:.97, periodClimb:.8, down:.42, top:46, bottom:−32, lagFore:.06, lagHand:.13}；相位 ph<.42 下扑：仰角=46+(−32−46)·(.5−.5cos(π·ph/.42))；ph≥.42 上挥：−32+78·smoothstep((ph−.42)/.58)；手部折叠下扑 0，上挥 sin(π·min(1,1.12u))^0.8，u≥0.893 归零；相位 0/0.21/0.42/0.71/1 肩仰角 46/7/−32/7/46；一拍 0.97 s（下扑 0.41、上挥 0.56）；前臂晚 0.06 拍、手晚 0.13 拍翅尖鞭甩；骨盆高 .24A·(−cos2πP) m，头反向 −2.2A·bob 度抵消；起飞后重扇两下周期 0.8 s；近景下扑占比 0.42、远景 0.45（两套节奏不一致）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "近景下扑占比 0.42",
+        "c11.sourceId": "d289"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-13",
+          "value": 0.45,
+          "unit": "ratio",
+          "evidenceLevel": "源码",
+          "reason": "远景的下扑占比为 0.45，不可套用近景节奏。"
+        }
+      ]
+    },
+    {
+      "id": "motion-rig.d289.far-downstroke-share",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-14.far-downstroke-share",
+      "title": "龙扇翼层（远景下扑占比）",
+      "value": 0.45,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼层",
+          "远景"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d289；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）",
+        "note": "原证据：源码；原验证：作者成片用过(未运行)。STROKE={period:.97, periodClimb:.8, down:.42, top:46, bottom:−32, lagFore:.06, lagHand:.13}；相位 ph<.42 下扑：仰角=46+(−32−46)·(.5−.5cos(π·ph/.42))；ph≥.42 上挥：−32+78·smoothstep((ph−.42)/.58)；手部折叠下扑 0，上挥 sin(π·min(1,1.12u))^0.8，u≥0.893 归零；相位 0/0.21/0.42/0.71/1 肩仰角 46/7/−32/7/46；一拍 0.97 s（下扑 0.41、上挥 0.56）；前臂晚 0.06 拍、手晚 0.13 拍翅尖鞭甩；骨盆高 .24A·(−cos2πP) m，头反向 −2.2A·bob 度抵消；起飞后重扇两下周期 0.8 s；近景下扑占比 0.42、远景 0.45（两套节奏不一致）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "远景 0.45",
+        "c11.sourceId": "d289"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-13",
+          "value": 0.42,
+          "unit": "ratio",
+          "evidenceLevel": "源码",
+          "reason": "近景的下扑占比为 0.42，与远景适用条件不同。"
+        }
+      ]
+    },
+    {
+      "id": "motion-rig.d289.forearm-phase-lag",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-14.forearm-phase-lag",
+      "title": "龙扇翼层（前臂拍翼滞后（拍数））",
+      "value": 0.06,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼层",
+          "前臂"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d289；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）",
+        "note": "原证据：源码；原验证：作者成片用过(未运行)。STROKE={period:.97, periodClimb:.8, down:.42, top:46, bottom:−32, lagFore:.06, lagHand:.13}；相位 ph<.42 下扑：仰角=46+(−32−46)·(.5−.5cos(π·ph/.42))；ph≥.42 上挥：−32+78·smoothstep((ph−.42)/.58)；手部折叠下扑 0，上挥 sin(π·min(1,1.12u))^0.8，u≥0.893 归零；相位 0/0.21/0.42/0.71/1 肩仰角 46/7/−32/7/46；一拍 0.97 s（下扑 0.41、上挥 0.56）；前臂晚 0.06 拍、手晚 0.13 拍翅尖鞭甩；骨盆高 .24A·(−cos2πP) m，头反向 −2.2A·bob 度抵消；起飞后重扇两下周期 0.8 s；近景下扑占比 0.42、远景 0.45（两套节奏不一致）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "前臂晚 0.06 拍",
+        "c11.sourceId": "d289"
+      }
+    },
+    {
+      "id": "motion-rig.d289.hand-phase-lag",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-14.hand-phase-lag",
+      "title": "龙扇翼层（手部拍翼滞后（拍数））",
+      "value": 0.13,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：龙扇翼层",
+          "手部"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节 d289；出处类别：源码拆解·龙动画：姿势、片段、飞行与步态（案例 13）",
+        "note": "原证据：源码；原验证：作者成片用过(未运行)。STROKE={period:.97, periodClimb:.8, down:.42, top:46, bottom:−32, lagFore:.06, lagHand:.13}；相位 ph<.42 下扑：仰角=46+(−32−46)·(.5−.5cos(π·ph/.42))；ph≥.42 上挥：−32+78·smoothstep((ph−.42)/.58)；手部折叠下扑 0，上挥 sin(π·min(1,1.12u))^0.8，u≥0.893 归零；相位 0/0.21/0.42/0.71/1 肩仰角 46/7/−32/7/46；一拍 0.97 s（下扑 0.41、上挥 0.56）；前臂晚 0.06 拍、手晚 0.13 拍翅尖鞭甩；骨盆高 .24A·(−cos2πP) m，头反向 −2.2A·bob 度抵消；起飞后重扇两下周期 0.8 s；近景下扑占比 0.42、远景 0.45（两套节奏不一致）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "手晚 0.13 拍",
+        "c11.sourceId": "d289"
+      }
+    },
+    {
+      "id": "motion-rig.d420.heavy-chop-windup",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-17.heavy-chop-windup",
+      "title": "前摇可读性（重劈前摇时长）",
+      "value": 1.14,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节 通用敌人、普通敌人与幽影（案例 13）：前摇可读性"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 17 节 d420；出处类别：源码拆解·通用敌人、普通敌人与幽影（案例 13）（案例 13 第 15 章）",
+        "note": "原证据：源码；原验证：作者成片用过。Brute 重劈前摇 1.14 秒、盾击 0.4 秒、弓手拉满弓 1.25 秒后再等 0.45 秒才放箭。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "前摇 1.14 秒",
+        "c11.sourceId": "d420"
+      }
+    },
+    {
+      "id": "motion-rig.d420.bash-windup",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-17.bash-windup",
+      "title": "前摇可读性（盾击前摇时长）",
+      "value": 0.4,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节 通用敌人、普通敌人与幽影（案例 13）：前摇可读性"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 17 节 d420；出处类别：源码拆解·通用敌人、普通敌人与幽影（案例 13）（案例 13 第 15 章）",
+        "note": "原证据：源码；原验证：作者成片用过。Brute 重劈前摇 1.14 秒、盾击 0.4 秒、弓手拉满弓 1.25 秒后再等 0.45 秒才放箭。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "盾击 0.4 秒",
+        "c11.sourceId": "d420"
+      }
+    },
+    {
+      "id": "motion-rig.d420.full-draw-time",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-17.full-draw-time",
+      "title": "前摇可读性（拉至满弓用时）",
+      "value": 1.25,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节 通用敌人、普通敌人与幽影（案例 13）：前摇可读性"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 17 节 d420；出处类别：源码拆解·通用敌人、普通敌人与幽影（案例 13）（案例 13 第 15 章）",
+        "note": "原证据：源码；原验证：作者成片用过。Brute 重劈前摇 1.14 秒、盾击 0.4 秒、弓手拉满弓 1.25 秒后再等 0.45 秒才放箭。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "拉满弓 1.25 秒",
+        "c11.sourceId": "d420"
+      }
+    },
+    {
+      "id": "motion-rig.d420.full-draw-hold",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-17.full-draw-hold",
+      "title": "前摇可读性（满弓至释放的等待时长）",
+      "value": 0.45,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节 通用敌人、普通敌人与幽影（案例 13）：前摇可读性"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 17 节 d420；出处类别：源码拆解·通用敌人、普通敌人与幽影（案例 13）（案例 13 第 15 章）",
+        "note": "原证据：源码；原验证：作者成片用过。Brute 重劈前摇 1.14 秒、盾击 0.4 秒、弓手拉满弓 1.25 秒后再等 0.45 秒才放箭。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "再等 0.45 秒",
+        "c11.sourceId": "d420"
+      }
+    },
+    {
+      "id": "motion-rig.d442.breath-cycle",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-18.breath-cycle",
+      "title": "守望者闲置动画层（守望者呼吸周期范围）",
+      "value": [
+        4.1,
+        5.1
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 18 节 守望者与 NPC 的程序动画：守望者闲置动画层"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 18 节 d442；出处类别：源码拆解·守望者与 NPC 的程序动画（案例 13 第 22 章）",
+        "note": "原证据：源码；原验证：作者成品用过。呼吸相位bp=(bp+dt/(4.6+.5·sin(.071t)))%1吸气占前38%(周期4.1–5.1 s)；偏航弹簧w=1.9(说话2.8)速度夹±1.35 rad/s，说话或玩家<2.6 m转向玩家；重心hx目标side·.025·amp，w=2.3 z=.62，每6–11 s(说话+3 s)翻side amp=.75–1.2，幅度2.5 cm；前后hz目标.004sin(.23t+1.1)+.003sin(.61t) w=3 z=1；转身下沉dip=-min(1,∣yawV∣/.9)·.012 w=5 z=.8；髋位置(hx,.004呼吸+dip-∣hx∣·.12,hz)，旋转(hz·.8,sin(.37t)·.022+hx·.6,roll)，roll=hx·1.5；脊(.05+.006呼吸-.03tw,-.06tw-hx·.4)，胸(.03-.012呼吸-.04tw,-.08tw-hx·.3)；手杖四元数identity.slerp(qTilt,tw·.95)+rotateZ(.006呼吸-hx·.35)+rotateX(.13raise+hz·.6)位置抬(.02,.085,.03)·raise。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "周期4.1–5.1 s",
+        "c11.sourceId": "d442"
+      }
+    },
+    {
+      "id": "motion-rig.d447.breath-cycle",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-18.breath-cycle",
+      "title": "NPC甲姿态（甲角色呼吸周期）",
+      "value": 5.2,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 18 节 守望者与 NPC 的程序动画：NPC甲姿态"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 18 节 d447；出处类别：源码拆解·守望者与 NPC 的程序动画（案例 13 第 22 章）",
+        "note": "原证据：源码；原验证：作者成品用过。呼吸br=sin(2πt/5.2)；佝偻slump=.5+.5sin(.11t+1.3)；spine.x=.03+.012br+.03·slump·(1-speak)；chest=(-.01-.014br,yaw·.15,.01sin(.21t))；neck=(pitch·.3+.04slump(1-look.on),yaw·.3,0)；head=(pitch·.7+nod·.16+.02br,yaw·.55,.03sin(.17t))——注视分配比例胸15%/颈30%/头55%；肩±.02br；飘带pennon.rotation=(w.z·.35w.s+sin(2.3t)·.08w.s,0,-w.x·.35w.s+sin(1.7t+1)·.1w.s)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "呼吸br=sin(2πt/5.2)",
+        "c11.sourceId": "d447"
+      }
+    },
+    {
+      "id": "motion-rig.d448.breath-cycle",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-18.breath-cycle",
+      "title": "NPC乙姿态（乙角色呼吸周期）",
+      "value": 4.4,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 18 节 守望者与 NPC 的程序动画：NPC乙姿态"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 18 节 d448；出处类别：源码拆解·守望者与 NPC 的程序动画（案例 13 第 22 章）",
+        "note": "原证据：源码；原验证：作者成品用过。呼吸周期4.4 s；spine.x=.02br；chest=(-.015br+.03speak,yaw·.12,0)；颈(.08+pitch·.2,yaw·.3,roll·.4)，头(.1+pitch·.25+nod·.14+sin(.5t)·.02,yaw·.5,roll·.6+sin(.23t)·.03)，roll=clamp(yaw,±1)·.22·look.on(盲人侧耳聆听歪头)；读金叶右手read=1-max(speak,look.on·.6)，stroke=sin(1.9t)·.5+sin(3.7t+1)·.25，farmR.x=.02stroke·read，handR.x=.12stroke·read；左手每7.3 s翻叶cyc=(t%7.3)/7.3，turn=cyc>.82?sin((cyc-.82)/.18π):0，handL.y=turn·1.2；灯笼随风rotation=(w.z·.22w.s+sin(1.6t)·.06w.s,0,-w.x·.22w.s+sin(1.25t+2)·.07w.s)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "呼吸周期4.4 s",
+        "c11.sourceId": "d448"
+      }
+    },
+    {
+      "id": "motion-rig.d484.cruise-flap-frequency",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-21.cruise-flap-frequency",
+      "title": "各飞行状态拍频与半幅（巡航力度从零至一的拍翼频率范围）",
+      "value": [
+        1.1,
+        1.6
+      ],
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 21 节 案例 02 龙动画：各飞行状态拍频与半幅"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 21 节 d484；出处类别：源码拆解·案例 02 龙动画",
+        "note": "原证据：源码；原验证：作者成片用过。巡航（力度 0→1）1.1→1.6 Hz/半幅 20→34°，down 0.56、snap 0.32、fold 0.75、kff 0.92、twistU −9°；W 用力拍 2.0 Hz/37°；加速 Shift 2.2 Hz/37°；带载滑翔转弯浅拍动量 0.3；实飞悬停 2.1 Hz/46°/机身仰 31°；drake 小翼龙 2.0→3.0（加速 4.1）Hz/22→36°（加速 38°）；展示 glide 1.2/26/a0/fold0.75；cruise 1.3/28/a1；power 2.2/37/beat0.5；hover（旧）1.5/46/fold0.85/flare0.25/beat0.3/sweepOsc12°/fig8 7°/tilt32°；hover（HOVER 常量）2.1/48；dive 1.2/26/a0/tuck1；flare 1.25/30/a0.75/flare1；takeoff 2.2/40/beat0.5；步态混合 参数 damp 4，频率 damp 2.5；展示滚转输入 r：扭转 ±16·r、仰角 ∓6·r、内侧折翼 0.35·r。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "巡航（力度 0→1）1.1→1.6 Hz",
+        "c11.sourceId": "d484"
+      }
+    },
+    {
+      "id": "motion-rig.d484.hover-flap-frequency",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-21.hover-flap-frequency",
+      "title": "各飞行状态拍频与半幅（实飞悬停拍翼频率）",
+      "value": 2.1,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 21 节 案例 02 龙动画：各飞行状态拍频与半幅"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 21 节 d484；出处类别：源码拆解·案例 02 龙动画",
+        "note": "原证据：源码；原验证：作者成片用过。巡航（力度 0→1）1.1→1.6 Hz/半幅 20→34°，down 0.56、snap 0.32、fold 0.75、kff 0.92、twistU −9°；W 用力拍 2.0 Hz/37°；加速 Shift 2.2 Hz/37°；带载滑翔转弯浅拍动量 0.3；实飞悬停 2.1 Hz/46°/机身仰 31°；drake 小翼龙 2.0→3.0（加速 4.1）Hz/22→36°（加速 38°）；展示 glide 1.2/26/a0/fold0.75；cruise 1.3/28/a1；power 2.2/37/beat0.5；hover（旧）1.5/46/fold0.85/flare0.25/beat0.3/sweepOsc12°/fig8 7°/tilt32°；hover（HOVER 常量）2.1/48；dive 1.2/26/a0/tuck1；flare 1.25/30/a0.75/flare1；takeoff 2.2/40/beat0.5；步态混合 参数 damp 4，频率 damp 2.5；展示滚转输入 r：扭转 ±16·r、仰角 ∓6·r、内侧折翼 0.35·r。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "实飞悬停 2.1 Hz/46°",
+        "c11.sourceId": "d484"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-02",
+          "value": 1.5,
+          "unit": "Hz",
+          "evidenceLevel": "源码",
+          "reason": "旧悬停表给 1.5 Hz，实飞与更新后的常量均为 2.1 Hz。"
+        }
+      ]
+    },
+    {
+      "id": "motion-rig.d484.small-flier-frequency",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-21.small-flier-frequency",
+      "title": "各飞行状态拍频与半幅（小翼龙常速拍翼频率范围）",
+      "value": [
+        2,
+        3
+      ],
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 21 节 案例 02 龙动画：各飞行状态拍频与半幅"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 21 节 d484；出处类别：源码拆解·案例 02 龙动画",
+        "note": "原证据：源码；原验证：作者成片用过。巡航（力度 0→1）1.1→1.6 Hz/半幅 20→34°，down 0.56、snap 0.32、fold 0.75、kff 0.92、twistU −9°；W 用力拍 2.0 Hz/37°；加速 Shift 2.2 Hz/37°；带载滑翔转弯浅拍动量 0.3；实飞悬停 2.1 Hz/46°/机身仰 31°；drake 小翼龙 2.0→3.0（加速 4.1）Hz/22→36°（加速 38°）；展示 glide 1.2/26/a0/fold0.75；cruise 1.3/28/a1；power 2.2/37/beat0.5；hover（旧）1.5/46/fold0.85/flare0.25/beat0.3/sweepOsc12°/fig8 7°/tilt32°；hover（HOVER 常量）2.1/48；dive 1.2/26/a0/tuck1；flare 1.25/30/a0.75/flare1；takeoff 2.2/40/beat0.5；步态混合 参数 damp 4，频率 damp 2.5；展示滚转输入 r：扭转 ±16·r、仰角 ∓6·r、内侧折翼 0.35·r。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "小翼龙 2.0→3.0（加速 4.1）Hz",
+        "c11.sourceId": "d484"
+      }
+    },
+    {
+      "id": "motion-rig.d489.breath-frequency",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-21.breath-frequency",
+      "title": "机身视觉层（机身呼吸频率（约））",
+      "value": 0.255,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 21 节 案例 02 龙动画：机身视觉层"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 21 节 d489；出处类别：源码拆解·案例 02 龙动画",
+        "note": "原证据：源码；原验证：作者成片用过。HEAVE_GAIN 1.3；起伏限幅 ±0.5 m（死亡×0.3）；慢分量 damp 1.1、输出 damp 25；起伏加速度限幅 ±40 m/s² damp 14；HEAVE_HIST 96 帧；拍翼抬头 noseUp=clamp(pd·0.012,−0.04,0.07) rad damp 14（注释≈±2.5°）；躯干侧弯 clamp(ωy·0.07,±0.09 rad=5.16°)×[0.3,0.35,0.35]；呼吸 chest +0.012·sin(1.6t)、脊柱 −0.006·sin(1.6t) rad（0.255 Hz）；胸随拍动俯仰 (pose.L.camber−0.4)·0.04；角速度低通 限幅 2.6 rad/s damp 8；链载荷限幅 25 m/s²；待机下颌 0.02+0.015·max(0,sin(0.7t)) rad；低速摆尾 (1−smoothstep(10,26,V))·0.06+0.01 rad。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "呼吸 chest +0.012·sin(1.6t)、脊柱 −0.006·sin(1.6t) rad（0.255 Hz）",
+        "c11.sourceId": "d489"
+      }
+    },
+    {
+      "id": "motion-rig.d505.frame-rate",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-22.frame-rate",
+      "title": "节奏（重制片）（重制片帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 22 节 Blender 重制片的部件动画与过程片：节奏（重制片）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 22 节 d505；出处类别：源码拆解·Blender 重制片的部件动画与过程片",
+        "note": "原证据：源码+实测；原验证：我们自己渲染读回过。150 BPM，30 fps，1 拍=12 帧，1 小节=48 帧；片长 768 帧=25.6 秒（某代码模型 写\"36.8 秒\"是含过程片 336 帧的全片）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "30 fps",
+        "c11.sourceId": "d505"
+      }
+    },
+    {
+      "id": "motion-rig.d505.beat-frames",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-22.beat-frames",
+      "title": "节奏（重制片）（每拍帧数）",
+      "value": 12,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 22 节 Blender 重制片的部件动画与过程片：节奏（重制片）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 22 节 d505；出处类别：源码拆解·Blender 重制片的部件动画与过程片",
+        "note": "原证据：源码+实测；原验证：我们自己渲染读回过。150 BPM，30 fps，1 拍=12 帧，1 小节=48 帧；片长 768 帧=25.6 秒（某代码模型 写\"36.8 秒\"是含过程片 336 帧的全片）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "1 拍=12 帧",
+        "c11.sourceId": "d505"
+      }
+    },
+    {
+      "id": "motion-rig.d505.bar-frames",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-22.bar-frames",
+      "title": "节奏（重制片）（每小节帧数）",
+      "value": 48,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 22 节 Blender 重制片的部件动画与过程片：节奏（重制片）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 22 节 d505；出处类别：源码拆解·Blender 重制片的部件动画与过程片",
+        "note": "原证据：源码+实测；原验证：我们自己渲染读回过。150 BPM，30 fps，1 拍=12 帧，1 小节=48 帧；片长 768 帧=25.6 秒（某代码模型 写\"36.8 秒\"是含过程片 336 帧的全片）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "1 小节=48 帧",
+        "c11.sourceId": "d505"
+      }
+    },
+    {
+      "id": "motion-rig.d505.film-frames",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-22.film-frames",
+      "title": "节奏（重制片）（重制片总帧数）",
+      "value": 768,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 22 节 Blender 重制片的部件动画与过程片：节奏（重制片）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 22 节 d505；出处类别：源码拆解·Blender 重制片的部件动画与过程片",
+        "note": "原证据：源码+实测；原验证：我们自己渲染读回过。150 BPM，30 fps，1 拍=12 帧，1 小节=48 帧；片长 768 帧=25.6 秒（某代码模型 写\"36.8 秒\"是含过程片 336 帧的全片）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "片长 768 帧",
+        "c11.sourceId": "d505"
+      }
+    },
+    {
+      "id": "motion-rig.d505.film-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-22.film-duration",
+      "title": "节奏（重制片）（重制片时长）",
+      "value": 25.6,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 22 节 Blender 重制片的部件动画与过程片：节奏（重制片）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 22 节 d505；出处类别：源码拆解·Blender 重制片的部件动画与过程片",
+        "note": "原证据：源码+实测；原验证：我们自己渲染读回过。150 BPM，30 fps，1 拍=12 帧，1 小节=48 帧；片长 768 帧=25.6 秒（某代码模型 写\"36.8 秒\"是含过程片 336 帧的全片）。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "25.6 秒",
+        "c11.sourceId": "d505"
+      },
+      "conflicts": [
+        {
+          "caseId": "case-01",
+          "value": 36.8,
+          "unit": "s",
+          "evidenceLevel": "文档",
+          "reason": "36.8 秒包含额外 336 帧的过程片，不是重制正片自身的片长。"
+        }
+      ]
+    },
+    {
+      "id": "motion-rig.d524.walk-speed-before",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.walk-speed-before",
+      "title": "案例 06 步伐修复(带前后量测)（步态修正前行进速度）",
+      "value": 3.4,
+      "unit": "m/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：案例 06 步伐修复(带前后量测)",
+          "修正前"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d524；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过。“跳着走”根因:车队3.4 m/s 无人能走,步伐规划变慢跑;修到1.5 m/s:双脚离地占比47.8%→0%;骨盆上下35.8 cm→3.3 cm;步长1.10 m@3.2步/秒→0.77 m@2步/秒;落地脚滑动0 mm;不动剪辑时间;并为每个人和狗做骨架+落脚规划。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "车队3.4 m/s",
+        "c11.sourceId": "d524"
+      }
+    },
+    {
+      "id": "motion-rig.d524.walk-speed-after",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.walk-speed-after",
+      "title": "案例 06 步伐修复(带前后量测)（步态修正后行进速度）",
+      "value": 1.5,
+      "unit": "m/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：案例 06 步伐修复(带前后量测)",
+          "修正后"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d524；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过。“跳着走”根因:车队3.4 m/s 无人能走,步伐规划变慢跑;修到1.5 m/s:双脚离地占比47.8%→0%;骨盆上下35.8 cm→3.3 cm;步长1.10 m@3.2步/秒→0.77 m@2步/秒;落地脚滑动0 mm;不动剪辑时间;并为每个人和狗做骨架+落脚规划。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "修到1.5 m/s",
+        "c11.sourceId": "d524"
+      }
+    },
+    {
+      "id": "motion-rig.d524.step-length-before",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-23.step-length-before",
+      "title": "案例 06 步伐修复(带前后量测)（步态修正前单步长度）",
+      "value": 1.1,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：案例 06 步伐修复(带前后量测)",
+          "修正前"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d524；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过。“跳着走”根因:车队3.4 m/s 无人能走,步伐规划变慢跑;修到1.5 m/s:双脚离地占比47.8%→0%;骨盆上下35.8 cm→3.3 cm;步长1.10 m@3.2步/秒→0.77 m@2步/秒;落地脚滑动0 mm;不动剪辑时间;并为每个人和狗做骨架+落脚规划。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "步长1.10 m",
+        "c11.sourceId": "d524"
+      }
+    },
+    {
+      "id": "motion-rig.d524.step-length-after",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-23.step-length-after",
+      "title": "案例 06 步伐修复(带前后量测)（步态修正后单步长度）",
+      "value": 0.77,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：案例 06 步伐修复(带前后量测)",
+          "修正后"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d524；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过。“跳着走”根因:车队3.4 m/s 无人能走,步伐规划变慢跑;修到1.5 m/s:双脚离地占比47.8%→0%;骨盆上下35.8 cm→3.3 cm;步长1.10 m@3.2步/秒→0.77 m@2步/秒;落地脚滑动0 mm;不动剪辑时间;并为每个人和狗做骨架+落脚规划。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "0.77 m@2步/秒",
+        "c11.sourceId": "d524"
+      }
+    },
+    {
+      "id": "motion-rig.d524.step-cadence-before",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.step-cadence-before",
+      "title": "案例 06 步伐修复(带前后量测)（步态修正前步频）",
+      "value": 3.2,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：案例 06 步伐修复(带前后量测)",
+          "修正前"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d524；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过。“跳着走”根因:车队3.4 m/s 无人能走,步伐规划变慢跑;修到1.5 m/s:双脚离地占比47.8%→0%;骨盆上下35.8 cm→3.3 cm;步长1.10 m@3.2步/秒→0.77 m@2步/秒;落地脚滑动0 mm;不动剪辑时间;并为每个人和狗做骨架+落脚规划。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "3.2步/秒",
+        "c11.sourceId": "d524"
+      }
+    },
+    {
+      "id": "motion-rig.d524.step-cadence-after",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.step-cadence-after",
+      "title": "案例 06 步伐修复(带前后量测)（步态修正后步频）",
+      "value": 2,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：案例 06 步伐修复(带前后量测)",
+          "修正后"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d524；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过。“跳着走”根因:车队3.4 m/s 无人能走,步伐规划变慢跑;修到1.5 m/s:双脚离地占比47.8%→0%;骨盆上下35.8 cm→3.3 cm;步长1.10 m@3.2步/秒→0.77 m@2步/秒;落地脚滑动0 mm;不动剪辑时间;并为每个人和狗做骨架+落脚规划。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "0.77 m@2步/秒",
+        "c11.sourceId": "d524"
+      }
+    },
+    {
+      "id": "motion-rig.d524.flight-share-before",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-23.flight-share-before",
+      "title": "案例 06 步伐修复(带前后量测)（步态修正前双脚离地占比）",
+      "value": 0.478,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：案例 06 步伐修复(带前后量测)",
+          "修正前"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d524；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过。“跳着走”根因:车队3.4 m/s 无人能走,步伐规划变慢跑;修到1.5 m/s:双脚离地占比47.8%→0%;骨盆上下35.8 cm→3.3 cm;步长1.10 m@3.2步/秒→0.77 m@2步/秒;落地脚滑动0 mm;不动剪辑时间;并为每个人和狗做骨架+落脚规划。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "双脚离地占比47.8%",
+        "c11.sourceId": "d524"
+      }
+    },
+    {
+      "id": "motion-rig.d524.flight-share-after",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-23.flight-share-after",
+      "title": "案例 06 步伐修复(带前后量测)（步态修正后双脚离地占比）",
+      "value": 0,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：案例 06 步伐修复(带前后量测)",
+          "修正后"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d524；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过。“跳着走”根因:车队3.4 m/s 无人能走,步伐规划变慢跑;修到1.5 m/s:双脚离地占比47.8%→0%;骨盆上下35.8 cm→3.3 cm;步长1.10 m@3.2步/秒→0.77 m@2步/秒;落地脚滑动0 mm;不动剪辑时间;并为每个人和狗做骨架+落脚规划。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "双脚离地占比47.8%→0%",
+        "c11.sourceId": "d524"
+      }
+    },
+    {
+      "id": "motion-rig.d524.pelvis-bob-before",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-23.pelvis-bob-before",
+      "title": "案例 06 步伐修复(带前后量测)（步态修正前骨盆上下位移）",
+      "value": 0.358,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：案例 06 步伐修复(带前后量测)",
+          "修正前"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d524；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过。“跳着走”根因:车队3.4 m/s 无人能走,步伐规划变慢跑;修到1.5 m/s:双脚离地占比47.8%→0%;骨盆上下35.8 cm→3.3 cm;步长1.10 m@3.2步/秒→0.77 m@2步/秒;落地脚滑动0 mm;不动剪辑时间;并为每个人和狗做骨架+落脚规划。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "骨盆上下35.8 cm",
+        "c11.sourceId": "d524"
+      }
+    },
+    {
+      "id": "motion-rig.d524.pelvis-bob-after",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-23.pelvis-bob-after",
+      "title": "案例 06 步伐修复(带前后量测)（步态修正后骨盆上下位移）",
+      "value": 0.033,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：案例 06 步伐修复(带前后量测)",
+          "修正后"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d524；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过。“跳着走”根因:车队3.4 m/s 无人能走,步伐规划变慢跑;修到1.5 m/s:双脚离地占比47.8%→0%;骨盆上下35.8 cm→3.3 cm;步长1.10 m@3.2步/秒→0.77 m@2步/秒;落地脚滑动0 mm;不动剪辑时间;并为每个人和狗做骨架+落脚规划。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "35.8 cm→3.3 cm",
+        "c11.sourceId": "d524"
+      }
+    },
+    {
+      "id": "motion-rig.d524.planted-foot-slide",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-23.planted-foot-slide",
+      "title": "案例 06 步伐修复(带前后量测)（修正后落地脚滑移）",
+      "value": 0,
+      "unit": "mm",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：案例 06 步伐修复(带前后量测)"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-06",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d524；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过。“跳着走”根因:车队3.4 m/s 无人能走,步伐规划变慢跑;修到1.5 m/s:双脚离地占比47.8%→0%;骨盆上下35.8 cm→3.3 cm;步长1.10 m@3.2步/秒→0.77 m@2步/秒;落地脚滑动0 mm;不动剪辑时间;并为每个人和狗做骨架+落脚规划。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "落地脚滑动0 mm",
+        "c11.sourceId": "d524"
+      }
+    },
+    {
+      "id": "motion-rig.d526.frame-rate",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.frame-rate",
+      "title": "僵尸手两遍动画（成片帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手两遍动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d526；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过(含自量)。30fps/20秒/600帧;Pass1 摆姿:B1 帧1–90 醒来抽搐(小指食指双痉挛)→半握爪→张开;B2 91–150 蜘蛛拱;B3 151–300 蜘蛛爬行6–8步(指尖不滑,手指错相,掌每步下沉,断腕惯性摆);B4 301–420 蹲伏预备→推离→360°后空翻→张掌落地回稳;B5 421–600 手枪手势两枪带后坐→张开翻滚→OK手势呼吸;Pass2 脚本遍历所有F曲线:转 AUTO_CLAMPED/BEZIER、指尖与断腕骨加2–4帧交叠/跟随、负重微颤、快手势小过冲、严查穿地;空翻走真实弹道弧;实测全部600帧指尖入地最多0.0019单位(手长约3.4单位)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "30fps",
+        "c11.sourceId": "d526"
+      }
+    },
+    {
+      "id": "motion-rig.d526.film-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.film-duration",
+      "title": "僵尸手两遍动画（成片时长）",
+      "value": 20,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手两遍动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d526；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过(含自量)。30fps/20秒/600帧;Pass1 摆姿:B1 帧1–90 醒来抽搐(小指食指双痉挛)→半握爪→张开;B2 91–150 蜘蛛拱;B3 151–300 蜘蛛爬行6–8步(指尖不滑,手指错相,掌每步下沉,断腕惯性摆);B4 301–420 蹲伏预备→推离→360°后空翻→张掌落地回稳;B5 421–600 手枪手势两枪带后坐→张开翻滚→OK手势呼吸;Pass2 脚本遍历所有F曲线:转 AUTO_CLAMPED/BEZIER、指尖与断腕骨加2–4帧交叠/跟随、负重微颤、快手势小过冲、严查穿地;空翻走真实弹道弧;实测全部600帧指尖入地最多0.0019单位(手长约3.4单位)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "20秒",
+        "c11.sourceId": "d526"
+      }
+    },
+    {
+      "id": "motion-rig.d526.film-frame-count",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.film-frame-count",
+      "title": "僵尸手两遍动画（成片总帧数）",
+      "value": 600,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手两遍动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d526；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过(含自量)。30fps/20秒/600帧;Pass1 摆姿:B1 帧1–90 醒来抽搐(小指食指双痉挛)→半握爪→张开;B2 91–150 蜘蛛拱;B3 151–300 蜘蛛爬行6–8步(指尖不滑,手指错相,掌每步下沉,断腕惯性摆);B4 301–420 蹲伏预备→推离→360°后空翻→张掌落地回稳;B5 421–600 手枪手势两枪带后坐→张开翻滚→OK手势呼吸;Pass2 脚本遍历所有F曲线:转 AUTO_CLAMPED/BEZIER、指尖与断腕骨加2–4帧交叠/跟随、负重微颤、快手势小过冲、严查穿地;空翻走真实弹道弧;实测全部600帧指尖入地最多0.0019单位(手长约3.4单位)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "600帧",
+        "c11.sourceId": "d526"
+      }
+    },
+    {
+      "id": "motion-rig.d526.crawl-step-count",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-23.crawl-step-count",
+      "title": "僵尸手两遍动画（爬行段步数）",
+      "value": [
+        6,
+        8
+      ],
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手两遍动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d526；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过(含自量)。30fps/20秒/600帧;Pass1 摆姿:B1 帧1–90 醒来抽搐(小指食指双痉挛)→半握爪→张开;B2 91–150 蜘蛛拱;B3 151–300 蜘蛛爬行6–8步(指尖不滑,手指错相,掌每步下沉,断腕惯性摆);B4 301–420 蹲伏预备→推离→360°后空翻→张掌落地回稳;B5 421–600 手枪手势两枪带后坐→张开翻滚→OK手势呼吸;Pass2 脚本遍历所有F曲线:转 AUTO_CLAMPED/BEZIER、指尖与断腕骨加2–4帧交叠/跟随、负重微颤、快手势小过冲、严查穿地;空翻走真实弹道弧;实测全部600帧指尖入地最多0.0019单位(手长约3.4单位)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "蜘蛛爬行6–8步",
+        "c11.sourceId": "d526"
+      }
+    },
+    {
+      "id": "motion-rig.d526.overlap-delay",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.overlap-delay",
+      "title": "僵尸手两遍动画（曲线润色的交叠滞后帧数）",
+      "value": [
+        2,
+        4
+      ],
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手两遍动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "实测",
+        "docRef": "动作与骨骼汇编 第 23 节 d526；出处类别：实测读数·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：实测；原验证：作者成片用过(含自量)。30fps/20秒/600帧;Pass1 摆姿:B1 帧1–90 醒来抽搐(小指食指双痉挛)→半握爪→张开;B2 91–150 蜘蛛拱;B3 151–300 蜘蛛爬行6–8步(指尖不滑,手指错相,掌每步下沉,断腕惯性摆);B4 301–420 蹲伏预备→推离→360°后空翻→张掌落地回稳;B5 421–600 手枪手势两枪带后坐→张开翻滚→OK手势呼吸;Pass2 脚本遍历所有F曲线:转 AUTO_CLAMPED/BEZIER、指尖与断腕骨加2–4帧交叠/跟随、负重微颤、快手势小过冲、严查穿地;空翻走真实弹道弧;实测全部600帧指尖入地最多0.0019单位(手长约3.4单位)。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "2–4帧交叠/跟随",
+        "c11.sourceId": "d526"
+      }
+    },
+    {
+      "id": "motion-rig.d527.frame-rate",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.frame-rate",
+      "title": "僵尸手 绑定与动画（成片帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手 绑定与动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "文档",
+        "docRef": "动作与骨骼汇编 第 23 节 d527；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：原文陈述；原验证：只是原文说法。简报→bmesh建模→IK/FK及卷曲控制→关键姿势→曲线润色与触地测量→材质灯光→六帧检查→云渲染；945顶点、956面、50骨骼、41控制器；检查600帧指尖触地；先姿势后曲线；保留可编辑控制器；约3.5小时；20秒、1080p、30fps；工程ZIP未在Blender打开。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "30fps",
+        "c11.sourceId": "d527"
+      }
+    },
+    {
+      "id": "motion-rig.d527.film-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.film-duration",
+      "title": "僵尸手 绑定与动画（成片时长）",
+      "value": 20,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手 绑定与动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "文档",
+        "docRef": "动作与骨骼汇编 第 23 节 d527；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：原文陈述；原验证：只是原文说法。简报→bmesh建模→IK/FK及卷曲控制→关键姿势→曲线润色与触地测量→材质灯光→六帧检查→云渲染；945顶点、956面、50骨骼、41控制器；检查600帧指尖触地；先姿势后曲线；保留可编辑控制器；约3.5小时；20秒、1080p、30fps；工程ZIP未在Blender打开。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "20秒",
+        "c11.sourceId": "d527"
+      }
+    },
+    {
+      "id": "motion-rig.d527.film-frame-count",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.film-frame-count",
+      "title": "僵尸手 绑定与动画（成片总帧数）",
+      "value": 600,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手 绑定与动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "文档",
+        "docRef": "动作与骨骼汇编 第 23 节 d527；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：原文陈述；原验证：只是原文说法。简报→bmesh建模→IK/FK及卷曲控制→关键姿势→曲线润色与触地测量→材质灯光→六帧检查→云渲染；945顶点、956面、50骨骼、41控制器；检查600帧指尖触地；先姿势后曲线；保留可编辑控制器；约3.5小时；20秒、1080p、30fps；工程ZIP未在Blender打开。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "检查600帧指尖触地",
+        "c11.sourceId": "d527"
+      }
+    },
+    {
+      "id": "motion-rig.d529.frame-rate",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.frame-rate",
+      "title": "僵尸手 两遍动画（成片帧率）",
+      "value": 30,
+      "unit": "fps",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手 两遍动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "文档",
+        "docRef": "动作与骨骼汇编 第 23 节 d529；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：原文陈述；原验证：作者成片用过。Pass1 关键姿势(30fps，20秒/600帧)：B1 1–90 唤醒与伸展(小指食指双抽搐→半拳爪→张开)；B2 91–150 蜘蛛拱桥；B3 151–300 蜘蛛爬行6–8步走微弯，手指错拍(食指无名指→中指小指，拇指从侧面转向)，落点指尖不滑动，断腕惯性摇摆；B4 301–420 蓄力(深蹲预备)+后空翻360°手指收拢+掌展开+弹性落地；B5 421–600 立腕握拳→手指枪(食指前射、拇指击锤、两次后坐)→张开翻滚展示两面→OK手势停住带呼吸。Pass2 曲线润色：所有 F-curve 转 AUTO_CLAMPED/BEZIER；指尖末节比近节晚2–4帧完成弯曲(overlap/follow-through)；承重时轻微颤抖；快速手势(手指枪、OK)小幅过冲；严格检查无手指穿地。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "30fps",
+        "c11.sourceId": "d529"
+      }
+    },
+    {
+      "id": "motion-rig.d529.film-duration",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.film-duration",
+      "title": "僵尸手 两遍动画（成片时长）",
+      "value": 20,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手 两遍动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "文档",
+        "docRef": "动作与骨骼汇编 第 23 节 d529；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：原文陈述；原验证：作者成片用过。Pass1 关键姿势(30fps，20秒/600帧)：B1 1–90 唤醒与伸展(小指食指双抽搐→半拳爪→张开)；B2 91–150 蜘蛛拱桥；B3 151–300 蜘蛛爬行6–8步走微弯，手指错拍(食指无名指→中指小指，拇指从侧面转向)，落点指尖不滑动，断腕惯性摇摆；B4 301–420 蓄力(深蹲预备)+后空翻360°手指收拢+掌展开+弹性落地；B5 421–600 立腕握拳→手指枪(食指前射、拇指击锤、两次后坐)→张开翻滚展示两面→OK手势停住带呼吸。Pass2 曲线润色：所有 F-curve 转 AUTO_CLAMPED/BEZIER；指尖末节比近节晚2–4帧完成弯曲(overlap/follow-through)；承重时轻微颤抖；快速手势(手指枪、OK)小幅过冲；严格检查无手指穿地。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "20秒",
+        "c11.sourceId": "d529"
+      }
+    },
+    {
+      "id": "motion-rig.d529.film-frame-count",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.film-frame-count",
+      "title": "僵尸手 两遍动画（成片总帧数）",
+      "value": 600,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手 两遍动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "文档",
+        "docRef": "动作与骨骼汇编 第 23 节 d529；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：原文陈述；原验证：作者成片用过。Pass1 关键姿势(30fps，20秒/600帧)：B1 1–90 唤醒与伸展(小指食指双抽搐→半拳爪→张开)；B2 91–150 蜘蛛拱桥；B3 151–300 蜘蛛爬行6–8步走微弯，手指错拍(食指无名指→中指小指，拇指从侧面转向)，落点指尖不滑动，断腕惯性摇摆；B4 301–420 蓄力(深蹲预备)+后空翻360°手指收拢+掌展开+弹性落地；B5 421–600 立腕握拳→手指枪(食指前射、拇指击锤、两次后坐)→张开翻滚展示两面→OK手势停住带呼吸。Pass2 曲线润色：所有 F-curve 转 AUTO_CLAMPED/BEZIER；指尖末节比近节晚2–4帧完成弯曲(overlap/follow-through)；承重时轻微颤抖；快速手势(手指枪、OK)小幅过冲；严格检查无手指穿地。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "600帧",
+        "c11.sourceId": "d529"
+      }
+    },
+    {
+      "id": "motion-rig.d529.crawl-step-count",
+      "domain": "geometry-layout-scale",
+      "topic": "motion-rig.sec-23.crawl-step-count",
+      "title": "僵尸手 两遍动画（爬行段步数）",
+      "value": [
+        6,
+        8
+      ],
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手 两遍动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "文档",
+        "docRef": "动作与骨骼汇编 第 23 节 d529；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：原文陈述；原验证：作者成片用过。Pass1 关键姿势(30fps，20秒/600帧)：B1 1–90 唤醒与伸展(小指食指双抽搐→半拳爪→张开)；B2 91–150 蜘蛛拱桥；B3 151–300 蜘蛛爬行6–8步走微弯，手指错拍(食指无名指→中指小指，拇指从侧面转向)，落点指尖不滑动，断腕惯性摇摆；B4 301–420 蓄力(深蹲预备)+后空翻360°手指收拢+掌展开+弹性落地；B5 421–600 立腕握拳→手指枪(食指前射、拇指击锤、两次后坐)→张开翻滚展示两面→OK手势停住带呼吸。Pass2 曲线润色：所有 F-curve 转 AUTO_CLAMPED/BEZIER；指尖末节比近节晚2–4帧完成弯曲(overlap/follow-through)；承重时轻微颤抖；快速手势(手指枪、OK)小幅过冲；严格检查无手指穿地。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "蜘蛛爬行6–8步",
+        "c11.sourceId": "d529"
+      }
+    },
+    {
+      "id": "motion-rig.d529.overlap-delay",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-23.overlap-delay",
+      "title": "僵尸手 两遍动画（曲线润色的交叠滞后帧数）",
+      "value": [
+        2,
+        4
+      ],
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节 绑定规格、动作库与其他案例的动作做法：僵尸手 两遍动画"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-24",
+        "evidenceLevel": "文档",
+        "docRef": "动作与骨骼汇编 第 23 节 d529；出处类别：原文陈述·绑定规格、动作库与其他案例的动作做法",
+        "note": "原证据：原文陈述；原验证：作者成片用过。Pass1 关键姿势(30fps，20秒/600帧)：B1 1–90 唤醒与伸展(小指食指双抽搐→半拳爪→张开)；B2 91–150 蜘蛛拱桥；B3 151–300 蜘蛛爬行6–8步走微弯，手指错拍(食指无名指→中指小指，拇指从侧面转向)，落点指尖不滑动，断腕惯性摇摆；B4 301–420 蓄力(深蹲预备)+后空翻360°手指收拢+掌展开+弹性落地；B5 421–600 立腕握拳→手指枪(食指前射、拇指击锤、两次后坐)→张开翻滚展示两面→OK手势停住带呼吸。Pass2 曲线润色：所有 F-curve 转 AUTO_CLAMPED/BEZIER；指尖末节比近节晚2–4帧完成弯曲(overlap/follow-through)；承重时轻微颤抖；快速手势(手指枪、OK)小幅过冲；严格检查无手指穿地。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c11.raw": "指尖末节比近节晚2–4帧",
+        "c11.sourceId": "d529"
+      }
+    },
+    {
+      "id": "motion-rig.sum.s026",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-5.breath-cycle",
+      "title": "跨案例对照：基本呼吸周期与叹气间隔（case-13）",
+      "value": 3.93,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：基本呼吸周期与叹气间隔"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节对照表行 s026 → d101",
+        "note": "原证据：源码；原验证：作者成片用过。呼吸 1.6 rad/s×(1+.9exert)，约 3.93 秒一次；叹气每 7–13 秒"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "motion-rig.d101.breath-cycle",
+        "motion-rig.d101.sigh-interval"
+      ],
+      "ext": {
+        "c11.sourceId": "s026",
+        "c11.valueFrom": "motion-rig.d101.breath-cycle"
+      }
+    },
+    {
+      "id": "motion-rig.sum.s027",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-5.breath-cycle",
+      "title": "跨案例对照：常态与久站呼吸周期、换重心间隔（case-13）",
+      "value": 3.93,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：常态与久站呼吸周期、换重心间隔"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节对照表行 s027 → d107",
+        "note": "原证据：源码；原验证：作者成片用过。breath=sin(time×1.6)，周期 3.93 秒；久站 sin(t×1.57)，周期 4.0 秒；换重心每 7–12 秒"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "motion-rig.d107.breath-cycle",
+        "motion-rig.d110.breath-cycle",
+        "motion-rig.d110.weight-shift-interval"
+      ],
+      "ext": {
+        "c11.sourceId": "s027",
+        "c11.valueFrom": "motion-rig.d107.breath-cycle"
+      }
+    },
+    {
+      "id": "motion-rig.sum.s030",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-14.breath-cycle",
+      "title": "跨案例对照：常态和疲惫动作的呼吸周期（case-13）",
+      "value": 3.2,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：常态和疲惫动作的呼吸周期"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节对照表行 s030 → d256",
+        "note": "原证据：源码；原验证：作者成片用过。周期 3.2 秒幅度 .035；疲惫片段 1.7 秒幅度 .05"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "motion-rig.d256.breath-cycle",
+        "motion-rig.d256.tired-breath-cycle"
+      ],
+      "ext": {
+        "c11.sourceId": "s030",
+        "c11.valueFrom": "motion-rig.d256.breath-cycle"
+      }
+    },
+    {
+      "id": "motion-rig.sum.s031",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-18.breath-cycle",
+      "title": "跨案例对照：三种角色的呼吸周期（case-13）",
+      "value": [
+        4.1,
+        5.1
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：三种角色的呼吸周期"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节对照表行 s031 → d442",
+        "note": "原证据：源码；原验证：作者成片用过。4.6±.5 秒 / 5.2 秒 / 4.4 秒"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "motion-rig.d442.breath-cycle",
+        "motion-rig.d447.breath-cycle",
+        "motion-rig.d448.breath-cycle"
+      ],
+      "ext": {
+        "c11.sourceId": "s031",
+        "c11.valueFrom": "motion-rig.d442.breath-cycle"
+      }
+    },
+    {
+      "id": "motion-rig.sum.s032",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-21.breath-frequency",
+      "title": "跨案例对照：机身呼吸频率（case-02）",
+      "value": 0.255,
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：机身呼吸频率"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节对照表行 s032 → d489",
+        "note": "原证据：源码；原验证：作者成片用过。chest +.012·sin(1.6t)，≈0.255 Hz"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "motion-rig.d489.breath-frequency"
+      ],
+      "ext": {
+        "c11.sourceId": "s032",
+        "c11.valueFrom": "motion-rig.d489.breath-frequency"
+      }
+    },
+    {
+      "id": "motion-rig.sum.s033",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-9.breath-cycle",
+      "title": "跨案例对照：身体鼓包的呼吸周期（ext-01）",
+      "value": 4.4,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 5 节 躯干叠加、呼吸、惯性与待机：身体鼓包的呼吸周期"
+        ]
+      },
+      "provenance": {
+        "caseId": "ext-01",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 5 节对照表行 s033 → d211",
+        "note": "原证据：源码；原验证：作者成片用过。4.4 秒一呼吸，鼓包沿身体 190/4.4=43.2 m/s，倍数 1+.13·k·b²"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "motion-rig.d211.breath-cycle"
+      ],
+      "ext": {
+        "c11.sourceId": "s033",
+        "c11.valueFrom": "motion-rig.d211.breath-cycle"
+      }
+    },
+    {
+      "id": "motion-rig.sum.s056",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-14.flap-period",
+      "title": "跨案例对照：常速与爬升拍翼周期（case-13）",
+      "value": 0.97,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：常速与爬升拍翼周期"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节对照表行 s056 → d269",
+        "note": "原证据：源码；原验证：作者成片用过。period .97（爬升 .8）；下扑 .42，上挥 .58；肩仰 top 46° bottom -32°，摆幅 78°"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "motion-rig.d269.flap-period",
+        "motion-rig.d269.climb-flap-period"
+      ],
+      "ext": {
+        "c11.sourceId": "s056",
+        "c11.valueFrom": "motion-rig.d269.flap-period"
+      }
+    },
+    {
+      "id": "motion-rig.sum.s058",
+      "domain": "time-rhythm-editing",
+      "topic": "motion-rig.sec-21.cruise-flap-frequency",
+      "title": "跨案例对照：巡航拍翼频率（case-02）",
+      "value": [
+        1.1,
+        1.6
+      ],
+      "unit": "Hz",
+      "conditions": {
+        "appliesWhen": [
+          "第 14 节 龙动画：姿势、片段、飞行与步态（案例 13）：巡航拍翼频率"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "动作与骨骼汇编 第 14 节对照表行 s058 → d484",
+        "note": "原证据：源码；原验证：作者成片用过。巡航 1.1→1.6 Hz（周期 .91→.63 秒）、半幅 20→34°；下拍占比 .56；默认 freq 1.3 Hz amp 30°"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "motion-rig.d484.cruise-flap-frequency"
+      ],
+      "ext": {
+        "c11.sourceId": "s058",
+        "c11.valueFrom": "motion-rig.d484.cruise-flap-frequency"
+      }
+    }
+  ]
+}

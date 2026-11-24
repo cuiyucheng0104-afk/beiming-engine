@@ -19,6 +19,16 @@ export {
   loadAudioSubsPriorsStore,
 } from './priors-audio-subs.mjs';
 export {
+  C11_COLLECTIONS,
+  getBatch2CardPriors,
+  getBatch2MigrationManifest,
+  getBatch2Practices,
+  loadArchScenePriorsStore,
+  loadBatch2PriorsStore,
+  loadLightCamPriorsStore,
+  loadMotionRigPriorsStore,
+} from './priors-batch2.mjs';
+export {
   C12_COLLECTIONS,
   getBatch3CardPriors,
   getBatch3MigrationManifest,

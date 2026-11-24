@@ -56,16 +56,16 @@
 
 ## CI 的 job，以及在本机怎么复现
 
-工作流在 `.github/workflows/ci.yml`：unit、check、render（tests 与 smoke 两路并行）、smoke-render（汇总 render 两路）、env-smoke、windows-paths。下面每条命令都与 job 里的一致，在仓库根目录运行。每个 job 都检出完整历史（`fetch-depth: 0`）：工程计划的证据提交、金标准清单的源提交都要在本仓库里找得到，浅克隆会报「找不到」。
+工作流在 `.github/workflows/ci.yml`：unit、check、render（tests-beiming、tests-beiming-api、tests-rest、smoke 四路并行）、smoke-render（汇总 render 各路）、env-smoke、windows-paths。下面每条命令都与 job 里的一致，在仓库根目录运行。每个 job 都检出完整历史（`fetch-depth: 0`）：工程计划的证据提交、金标准清单的源提交都要在本仓库里找得到，浅克隆会报「找不到」。
 
-### unit（Node 24 与 22、Python 3.12）
+### unit（Node 22、Python 3.12）
 
-不装浏览器和 FFmpeg，需要它们的测试会自己跳过，留到 render (tests) 里跑。
+不装浏览器和 FFmpeg，需要它们的测试会自己跳过，留到 render (tests-*) 里跑。Node 24 的 Linux 全量测试由 render (tests-*) 三片合起来覆盖（同一台 Ubuntu、同一个 Node 24，只是多了浏览器与 FFmpeg），所以不再另跑 unit (Node 24)。
 
 ```sh
 npm ci
 python3.12 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt   # 有 requirements.lock 时用 --require-hashes -r requirements.lock
-node tools/run-tests.mjs
+node tools/run-tests.mjs --parallel   # CI 的写法：Python 组与 Node 组两条流水线同时跑；本机想按域顺序看输出就去掉 --parallel
 ```
 
 PowerShell 的写法：`.venv\Scripts\python -m pip install -r requirements.txt`，测试命令相同。
@@ -81,7 +81,7 @@ eslint 要等 `package.json` 的 devDependencies 登记了 eslint、@eslint/js�
 
 ### render 与 smoke-render（无显卡、软件渲染）
 
-CI 里这一块是 matrix 两路并行，各自做一遍环境准备（装依赖、FFmpeg、字体、headless shell）：`render (tests)` 跑下面的第一条命令（全部测试），`render (smoke)` 跑第二条（`smoke-render.mjs`，含金标准）。`smoke-render` 是汇总任务，两路都通过才绿；检查名沿用拆分前，分支保护选它就不会漏掉 tests 一路。产物：`smoke` 一路上传 `smoke-render`（接触印、静帧、报告，`release.yml` 取它）与 `golden-capture-linux-swiftshader`，`tests` 一路上传 `render-tests`。两路互不依赖，本机想只验证其中一块就只跑对应那条命令。
+CI 里这一块是 matrix 四路并行，各自做一遍环境准备（装依赖、FFmpeg、字体、headless shell；Chromium 的 apt 依赖按 runner 镜像版本缓存下载包，不再每次走 Ubuntu 镜像）：`render (tests-beiming)` 跑 `--only beiming,audio`，`render (tests-beiming-api)` 跑 `--only beiming-api`，`render (tests-rest)` 跑 `--skip beiming,beiming-api,audio`（同一组域的补集，新增的域自动落进这一片，不会漏），`render (smoke)` 跑 `smoke-render.mjs`（含金标准）。`smoke-render` 是汇总任务，各路都通过才绿；检查名沿用拆分前，分支保护选它就不会漏掉任何一路。产物：`smoke` 一路上传 `smoke-render`（接触印、静帧、报告，`release.yml` 取它）与 `golden-capture-linux-swiftshader`，三片 tests 各上传 `render-tests-beiming`、`render-tests-beiming-api`、`render-tests-rest`。各路互不依赖，本机想只验证其中一块就只跑对应那条命令。
 
 需要 playwright-core 锁定版本自带的 headless shell，以及 FFmpeg ≥ 7（带 libx264、aac、ebur128）。
 
@@ -120,7 +120,7 @@ node tools/env/doctor.mjs --route a --json
 node tools/env/doctor.mjs --route c --json
 ```
 
-在三平台第一次跑通之前，这个 job 不阻塞合入。跑通后，把仓库变量 `BEIMING_ENV_SMOKE_REQUIRED` 设为 true，并在分支保护里把它加为必需检查。
+env-smoke 与 windows-paths 都没有 `continue-on-error`：红了就是红，偶发红灯找根因修、不加重试。建议在分支保护里把它们加为必需检查。
 
 ### windows-paths（Windows Server 2025、PowerShell、无 Git Bash）
 
@@ -140,12 +140,13 @@ PowerShell 调 `npm.ps1` 时会吞掉单独的 `--`，参数传不到脚本里�
 
 - **PR**：先跑轻量 `filter`（托管 runner，限 5 分钟），`tests/ci/conformance-filter.mjs` 判定变更路径是否触及帧源与一致性边界：`beiming/sources/`、`beiming/host/`、`beiming/kernel/conformance/`、`beiming/kernel/contracts/source/`、`beiming/kernel/contracts/meta/`、`beiming/calib/`（按整段目录匹配，`beiming/sources-notes/` 不算；路径原样比较，前导空格的顶层目录 ` beiming/sources/` 不算；`--null` 时 `\` 是文件名里的普通字符，根目录的 `beiming\sources\notes.txt` 不算，不带 `--null` 手工传 Windows 路径时才把 `\` 当分隔符）。差异用 `git diff -z --name-only --no-renames "$BASE_SHA...$HEAD_SHA"`：`-z` 配 `--null`，中文与制表符路径不会被 git 转义成引号串；三点差异看整个 PR，不只最后一个提交。只改 `beiming/api` 等其他目录、`docs/`、`site/` 的 PR 输出 `frame_sources_changed=false`，不排显卡队。
 - **信任边界**：显卡任务与夜间重建跑在自托管机器上，只接同仓分支的 PR（`github.event.pull_request.head.repo.full_name == github.repository`）；fork 来的 PR 只跑 `filter`，显卡任务跳过，要跑由维护者把分支推到本仓库。
-- **夜间**（schedule，北京时间 02:00；也可 workflow_dispatch / workflow_call）：`exam`（考试）→ `conformance-5090` → `nightly-rebuild`（夜间重建），一致性排在考试之后、夜间重建之前。`nightly-rebuild` 的条件显式写 `!cancelled() && needs['conformance-5090'].result == 'success'`：不写状态函数会被套上隐式 `success()`，夜间链里祖先 `filter` 是 skipped，会把夜间重建连带跳过。考试与夜间重建的入口（`beiming/bench/exam.mjs`、`tools/nightly/rebuild.mjs`）还没合入，缺入口时这一步只打一条 `::notice::` 占位提示、job 照常绿，链上的下一步照跑。`workflow_call` 有输入 `mode`（默认 `nightly`）：调用方即使是 PR 也走夜间链；传 `mode: pr` 才走 `filter` 分支。从 PR 调用 `workflow_call` 时 `github.event_name` 也是 `pull_request`，所以另有内部布尔输入 `from_call`（默认 `true`，调用方不要传；直接由 `pull_request` 触发时没有 inputs，为假）区分两者，传 `mode: ''` 也走夜间链。
+- **夜间**（schedule，北京时间 02:00；也可 workflow_dispatch / workflow_call）：`exam`（考试）→ `conformance-5090` → `nightly-rebuild`（夜间重建），一致性排在考试之后、夜间重建之前。`nightly-rebuild` 的条件显式写 `!cancelled() && needs['conformance-5090'].result == 'success'`：不写状态函数会被套上隐式 `success()`，夜间链里祖先 `filter` 是 skipped，会把夜间重建连带跳过。考试（`node beiming/bench/exam.mjs`）与夜间重建（`node tools/nightly/rebuild.mjs`）均无条件真实执行，不再使用 `hashFiles` 假绿跳过：入口缺失、题库为空或契约/评测不通过、无头浏览器不可用（exit 3）或重建哈希失配时直接以非零退出码失败。`workflow_call` 有输入 `mode`（默认 `nightly`）：调用方即使是 PR 也走夜间链；传 `mode: pr` 才走 `filter` 分支。从 PR 调用 `workflow_call` 时 `github.event_name` 也是 `pull_request`，所以另有内部布尔输入 `from_call`（默认 `true`，调用方不要传；直接由 `pull_request` 触发时没有 inputs，为假）区分两者，传 `mode: ''` 也走夜间链。
 - **显卡任务跑什么**：先确认无头浏览器可用，再真起停一次 three 帧源（只有空的浏览器版本目录时第一步也会过，而 `render.test.mjs` 起不了帧源就 `t.skip`、整步照绿；两步任一不过都 exit 3），再跑一致性套件、校准检查和帧源实渲测试（`beiming/sources/three`、`beiming/sources/blender`、`beiming/host/page`）；three 实渲测试用 TAP 报告单独跑并落盘，再由 Node 读回核对：读不到文件、没有用例、汇总里跳过数非零或出现 `# SKIP` 都不过（exit 3；预检之后测试自己再起帧源仍可能起不来而 `t.skip`，`node --test` 照样退出 0；不用 `tee` / `grep`，缺命令或文件读不了时 `if grep` 会当成没有跳过放行；Blender 测试在没有 Blender 的机器上可以跳过，不查）；只读表的测试把 Three 的 `render()` 改坏也全绿，实渲测试会红。
 - **显卡队**：运行器标签 `[self-hosted, linux, x64, rtx5090]`，`concurrency: gpu-5090` 串行、不取消进行中的任务。仓库变量 `BEIMING_5090_RUNNER` 设为 `true`（运行器注册好之后由维护者设置）之前，显卡任务一律跳过，不会卡在排队里。同组最多一个在跑、一个在排（pending），再来的会顶掉排着的那个，所以只有 `conformance-5090` 进这个组。
 
 ```sh
 git diff -z --name-only --no-renames origin/main...HEAD | node tests/ci/conformance-filter.mjs --null   # 本 PR 会不会排显卡队
+node beiming/bench/exam.mjs                                                                             # 夜间第一步：公开题库校验与离线基准考试核验
 node --input-type=module -e "const { startSource } = await import('./beiming/host/page/host.mjs'); const s = await startSource(); await s.stop();"   # 预检先确认帧源起得来；跑套件时再由 Node 核对 Three 的 TAP 报告 0 跳过
 node --test 'beiming/kernel/conformance/*.test.mjs' 'beiming/calib/*.test.mjs' \
   'beiming/sources/blender/*.test.mjs' 'beiming/host/page/*.test.mjs'   # 显卡任务跑的套件（three 实渲测试单独跑，见下面几行）
@@ -154,6 +155,7 @@ node --test 'beiming/kernel/conformance/*.test.mjs' 'beiming/calib/*.test.mjs' \
   node --test --test-reporter=tap 'beiming/sources/three/*.test.mjs' > "$TAP" || rc=$?
   TAP="$TAP" node --input-type=module -e "import fs from 'node:fs'; const tap = fs.readFileSync(process.env.TAP, 'utf8'); process.stdout.write(tap); if (!/^# tests [1-9]/m.test(tap) || /^# skipped [1-9]/m.test(tap) || /# SKIP\b/.test(tap)) { console.error('::error::5090 上 three 实渲测试有被跳过或未产出有效 TAP，不能当绿灯'); process.exit(3); }" || exit $?
   test "$rc" -eq 0 || exit "$rc" )
+node tools/nightly/rebuild.mjs                                                                          # 夜间第三步：带锁基准探针样片两次独立实渲逐位重建核验
 ```
 
 ## 金标准首次采集
@@ -207,4 +209,4 @@ v1.0 标签停在首个提交，GitHub 上的 Latest 仍指向它。要替换，
 
 | 现象 | 影响 | 负责的工作包 | 处理与解除条件 |
 |---|---|---|---|
-| `engine/look/gpu.test.mjs` 的「R35 墨线：宽线…」在 SwiftShader 下要 60 秒以上（3840×2080 再 2 倍超采样），超过测试里 `page.goto` 的 30 秒默认时限 | render (tests) 一路的全部测试一步 | 引擎九层（engine/look） | ci.yml 里用 `--skip-grep "R35 墨线：宽线"` 隔离。测试按软件渲染缩小尺寸或放宽时限后，删掉这个参数。GPU 上照常运行 |
+| `engine/look/gpu.test.mjs` 的「R35 墨线：宽线…」在 SwiftShader 下要 60 秒以上（3840×2080 再 2 倍超采样），超过测试里 `page.goto` 的 30 秒默认时限 | render (tests-rest) 一路的全部测试一步 | 引擎九层（engine/look） | ci.yml 里用 `--skip-grep "R35 墨线：宽线"` 隔离。测试按软件渲染缩小尺寸或放宽时限后，删掉这个参数。GPU 上照常运行 |

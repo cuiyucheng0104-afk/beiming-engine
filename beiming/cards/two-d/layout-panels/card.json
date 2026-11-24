@@ -1,0 +1,38 @@
+{
+  "format": "card/0.1",
+  "id": "layout.panels",
+  "version": "1.0.0",
+  "kind": "two-d",
+  "title": "整数像素分屏",
+  "intent": "把多路画面排成上下、左右或网格分屏，中缝和分隔线精确到一个像素",
+  "visibleToAgent": true,
+  "livesIn": ["comp"],
+  "impl": [{ "livesIn": "comp", "entry": "cards/two-d/layout-panels/comp.mjs", "shape": "create", "hosts": [], "selftest": "cards/two-d/layout-panels/selftest.test.mjs" }],
+  "params": {
+    "direction": { "type": "string", "unit": "none", "default": "vertical", "coupling": "none" },
+    "rows": { "type": "integer", "unit": "none", "range": [1, 64], "default": 2, "coupling": "none" },
+    "columns": { "type": "integer", "unit": "none", "range": [1, 64], "default": 2, "coupling": "none" },
+    "margin": { "type": "integer", "unit": "px", "range": [0, 32768], "default": 0, "coupling": "resolution" },
+    "gap": { "type": "integer", "unit": "px", "range": [0, 32768], "default": 0, "coupling": "resolution" },
+    "dividerPx": { "type": "integer", "unit": "px", "range": [0, 32768], "default": 0, "coupling": "resolution" },
+    "dividerColor": { "type": "color", "unit": "none", "space": "display", "default": "#CBFB03", "coupling": "view-transform" },
+    "background": { "type": "color", "unit": "none", "space": "display", "default": "#090906", "coupling": "view-transform" }
+  },
+  "ports": {
+    "in": [], "out": [],
+    "order": { "before": ["comp.finish", "deliver.encode"], "after": ["comp.display"] },
+    "requires": [
+      "create({size:[宽,高]}, params)：vertical 用 rows 行，margin 留在上下；horizontal 用 columns 列，margin 留在左右；grid 用 rows × columns，四边各留 margin。gap、margin、dividerPx 都是整数像素，线宽不超过中缝。",
+      "Handle.object.panels、dividers 是只读 [x,y,w,h] 矩形表，原点左上。object.entities 是供合成方登记的 {id,name,bbox2d} 列表。上下两格名为 panel_top、panel_bottom，单条分隔线名为 divider。",
+      "逐帧调用 object.compose(sources)，sources 从上到下、每行从左到右，每格交 {width,height,rgba}。rgba 是显示空间 8 位直通 RGBA 的 Uint8Array、Uint8ClampedArray 或整块 ArrayBuffer，不用共享内存。返回新的 Uint8Array；一比一居中裁切、保留透明度，不缩放、不改输入。",
+      "画幅和片源各边长 1 到 32768 像素，面积不超过 33554432 像素。片源不得小于格子；剩余像素先分给靠左、靠上的格子，线宽与中缝奇偶不同时线向左、向上取整。"
+    ]
+  },
+  "conditions": { "appliesWhen": ["要像素边界固定的对照分屏或等分网格"], "notWhen": ["需要缩放、倾斜、遮罩或每格不同的权重"] },
+  "calibration": "probe-thin-geometry",
+  "verify": { "selftest": "从实际合成的 1080 × 1350 画面读取两个 1080 × 608 面板及居中 4 像素分隔线的十二条边和分隔线颜色；另验奇数余量、网格、中心裁切和逐帧独立。", "predicates": [] },
+  "pitfalls": [{ "symptom": "某格的边沿比另一格多 1 像素", "fix": "扣除边距与中缝后的可用像素不能整除；若要严格等大，调整画幅、边距或中缝使它整除。" }],
+  "provenance": { "cases": [], "note": "按整数商和余数分配格子；显示空间逐行复制，不经采样器。" },
+  "status": [{ "level": "reproduced", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-23" }],
+  "exams": ["29-1"]
+}

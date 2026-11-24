@@ -1,6 +1,7 @@
 // 页面宿主（node 一侧）：three 帧源对上层的接口就在这里。起本机静态服务和无头、静音的浏览器；
 // open 开一个新页面装载镜头，render 让页面出一帧、把读回的各层写成层文件、交回元数据和层引用。页面一侧在 runtime.js。
 import { createHash } from 'node:crypto';
+import { realpathSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
@@ -14,9 +15,10 @@ import { coverage2x, HALF_FLOATS } from '../../sources/three/source.js';
 import { writeExr } from '../../verify/exr/exr.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-// 页面只拿得到这两处：本系统的代码，和 0.187.0 的 three
+// 页面只拿得到这两处：本系统的代码，和 0.187.0 的 three；另外只读放行仓库锁定的字体子集（fonts/ 下的 woff2，以及 routes/c-style/fonts/ 下的 woff2 与 fonts.json，许可和脚本拿不到）
 const SERVED = ['beiming/', 'node_modules/three-webgpu/build/'];
-const MIME = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json' };
+const FONTS = 'fonts/', TITLE_FONTS = 'routes/c-style/fonts/';
+const MIME = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.woff2': 'font/woff2' };
 // 带错误码的错在页面里换成普通对象再过来：错误码过不了页面和 node 之间的序列化
 const PAGE = `<!doctype html><meta charset="utf-8">
 <script type="importmap">{ "imports": { "three": "/node_modules/three-webgpu/build/three.module.js" } }</script>
@@ -46,18 +48,33 @@ function plane(data, k, at, lut) {
   return out;
 }
 
-/** 地址里的路径换成仓库里的文件；不在放行目录里、或者想跳出去的，返回 null */
-export function resolveServed(urlPath) {
+/**
+ * 地址里的路径换成仓库里的文件，交回它的真实路径；不在放行目录里的、想跳出去的、文件不存在的返回 null。
+ * 符号链接照它指到的真实文件再判一遍：真实路径必须还在那个放行目录（也取真实路径）下面、扩展名不变，链接跳出目录的拿不到。
+ * repo 是仓库根，只有测试会换。
+ */
+export function resolveServed(urlPath, repo = REPO) {
   let path;
   try { path = decodeURIComponent(urlPath.split('?')[0]).replace(/^\/+/, ''); } catch { return null; }
-  const abs = resolve(REPO, path);
-  return SERVED.some((dir) => rel(abs).startsWith(dir)) && MIME[extname(abs)] ? abs : null;
+  const abs = resolve(repo, path);
+  const at = relative(repo, abs).split(sep).join('/'), ext = extname(abs);
+  const dir = (MIME[ext] && SERVED.find((d) => at.startsWith(d)))
+    || (ext === '.woff2' && at.startsWith(FONTS) && FONTS)
+    || ((ext === '.woff2' || at === `${TITLE_FONTS}fonts.json`) && at.startsWith(TITLE_FONTS) && TITLE_FONTS);
+  if (!dir) return null;
+  try {
+    const real = realpathSync.native(abs);
+    if (!real.startsWith(realpathSync.native(resolve(repo, dir)) + sep) || extname(real) !== ext) return null;
+    if (dir === TITLE_FONTS && ext === '.json' && !real.endsWith(`${sep}fonts.json`)) return null;
+    return real;
+  } catch { return null; }
 }
 
-async function startServer() {
+/** 起本机静态服务（只绑 127.0.0.1）。repo 是仓库根，只有测试会换 */
+export async function startServer(repo = REPO) {
   const server = createServer(async (req, res) => {
     if (req.url === '/') return res.writeHead(200, { 'content-type': 'text/html' }).end(PAGE);
-    const file = resolveServed(req.url);
+    const file = resolveServed(req.url, repo);
     const body = file && await readFile(file).catch(() => null);
     if (!body) return res.writeHead(404).end();
     res.writeHead(200, { 'content-type': MIME[extname(file)], 'cache-control': 'no-store' }).end(body);

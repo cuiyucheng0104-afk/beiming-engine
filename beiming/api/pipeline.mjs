@@ -16,24 +16,24 @@ import { basename, join, relative, sep } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { chromium } from 'playwright-core';
 import { chromeArgs, chromeExecutable } from '../../engine/render/lib/gpu.mjs';
-import { validateReview, reviewFailure } from './agents.mjs';
+import { aggregateL5Votes, filterL5SuggestedPredicates, reviewFailure, validateReview } from './agents.mjs';
 import { assetPaths } from './assets.mjs';
 import { branchFilter, deliver as compDeliver, parseFps, runTool, tools as compTools, verifyDeliveryBundle } from '../comp/index.mjs';
 import { parseCardRef, OVERLAY_CARD } from '../cards/runtime.mjs';
 import { startSource as startPage } from '../host/page/host.mjs';
 import { canonicalJson, checkCacheSeams, computeFrameCacheKey, seamSignature } from '../jobs/cache.mjs';
 import { eventsTable, renderingOf, shotInput, shutterSubs } from '../kernel/eval/index.mjs';
-import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutYdif, deliverSpec } from '../observe/index.mjs';
+import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutYdif, deliverSpec, videoAliasEdge, videoNoiseResidual } from '../observe/index.mjs';
 import { caps as blenderCaps } from '../sources/blender/caps.mjs';
 import { planRender as planBlender, startSource as startBlender } from '../sources/blender/host.mjs';
 import { caps as threeCaps } from '../sources/three/caps.mjs';
 import { planRender as planThree } from '../sources/three/plan.mjs';
 import { readExr, writeExr } from '../verify/exr/exr.mjs';
 import {
-  checkL1, evaluateAssertion, evaluateFloor, guardPredicates, IOU_MIN, runPureFunctionGate, toVerdict, verifySampledBboxes,
+  checkL1, DEFAULT_MAX_ALIAS_EDGE, DEFAULT_MAX_NOISE_RESIDUAL, evaluateAssertion, evaluateFloor, guardPredicates, IOU_MIN, parseAssertion, runPureFunctionGate, scopeRange, toVerdict, verifySampledBboxes,
 } from '../verify/index.mjs';
 import { diagnostic } from './envelope.mjs';
-import { BEIMING, monotonicMs, threeCardDirs, VIEW_SHAPER } from './runtime.mjs';
+import { BEIMING, engineCodeDigest, liveCardsDigest, monotonicMs, threeCardDirs, VIEW_SHAPER } from './runtime.mjs';
 
 const pad = (n, w = 4) => String(n).padStart(w, '0');
 const r3 = (v) => (Number.isFinite(v) ? Math.round(v * 1000) / 1000 : null);
@@ -63,16 +63,17 @@ export function sourcePool({ library, blenderBin, workspace }) {
     },
   });
   async function start(source, device) {
+    const lib = typeof library === 'function' ? library() : library;
     if (source === 'blender') {
       if (!blenderBin) throw coded('env.missing-tool', '这台服务器上没有 Blender：blender 镜头渲不了');
       if (!blenders.has(device)) {
-        const cards = Object.values(library).filter(({ card }) => card.id === 'camera.spline' || card.livesIn.includes('source:blender')).map(c => c.dir);
+        const cards = Object.values(lib).filter(({ card }) => card.id === 'camera.spline' || card.livesIn.includes('source:blender')).map(c => c.dir);
         blenders.set(device, await startBlender({ blenderBin, assets: assetPaths(workspace), cards, device }));
       }
       return blenders.get(device);
     }
     if (source === 'three') {
-      page ??= await startPage({ cards: threeCardDirs(library) }).catch((e) => { throw coded('env.missing-tool', `起不了无头浏览器：${String(e.message).split('\n')[0]}`); });
+      page ??= await startPage({ cards: threeCardDirs(lib) }).catch((e) => { throw coded('env.missing-tool', `起不了无头浏览器：${String(e.message).split('\n')[0]}`); });
       return page;
     }
     throw coded('contract.unsupported-mode', `帧源 ${source} 这台服务器没接`);
@@ -203,28 +204,38 @@ const deviceOf = (source = {}) => ({ backend: String(source.backend ?? 'none'), 
 /**
  * 一个镜头的缓存键输入：computeFrameCacheKey 的前五项，加上 determinism 和摊平的 tier、samples、size、subs、layers
  * （帧号由调用方逐帧填；比 jobs/cache.mjs 的 renderShotsWithCache 的镜头输入多一个 layers）。
- * events 是全片事件表；device 是帧源上次出帧时报的 { backend, gpu }，没出过帧不传。
- *   ① 镜头条目和它的起始帧，加上本镜头看得到的事件（落在镜头里的、点名这个镜头的、镜头条目或入口文件里按名字引用的）
+ * events 是全片事件表；device 是帧源上次出帧时报的 { backend, gpu }，没出过帧不传；
+ * engineDigest / cardsDigest 为当前作业开始时快照的实时引擎代码（含字体）与本镜头所用卡的磁盘摘要，未传时现算；engineRoot 供测试隔离引擎根目录。
+ *   ① 镜头条目和它的起始帧，加上全片事件表（events.events：shotInput 把全片事件交给镜头与卡，任何事件变更都必须失效缓存）
  *      和用到的片级参数（帧率、风格 tokens、资产表、贴在这个镜头的叠加层、锁里的镜头种子）。
  *      起始帧必须进键：镜头代码和卡拿得到 ctx.shot.in（镜头契约 S10），time 类型的卡参数写整数是全片帧号，
  *      前面的镜头改长、这个镜头整体后移之后画面可以不一样，所以平移过的镜头重渲；
  *   ② 入口文件和它可能引用的工作区源码（shots/ 下不是别的镜头入口的文件），加上用到的资产在锁里的摘要；cards-data 镜头没有入口；
  *   ③ 镜头的 tracks 声明的摘要，没有写 'none'；④ 镜头的卡、叠加层卡和数据层的卡在锁里的版本与实现哈希；
- *   ⑤ 帧源与宿主、锁里的运行时版本与镜像、浏览器构建、显卡后端、系统、锁里声明的出片机器（lock.machine：机器类别、显卡驱动版本）与显卡；
+ *   ⑤ 帧源与宿主、锁里的运行时版本与镜像加上按作业实时计算的引擎代码/字体/卡摘要、浏览器构建、显卡后端、系统、锁里声明的出片机器（lock.machine：机器类别、显卡驱动版本）与显卡；
  *   ⑥ 档位、采样数、画幅、快门子帧相位、这一档要帧源交的层（layersOf）。colorRef 在镜头条目里，已经在 ① 里。
- * shortcut: 镜头代码写死名字去读别的镜头里的事件、或者引用别的镜头的入口文件，这里看不出来；出现这种写法时把事件表和 shots/ 全部进键。
+ * shortcut: 镜头代码引用别的镜头的入口文件，这里看不出来；出现这种写法时把 shots/ 全部进键。
  */
 /** 一档要帧源交、要随帧落盘的层：颜色和编号层总要；终渲档加上 delivery.layers 点名的通道（片子契约：终渲要落盘的通道） */
 export const layersOf = (film, tier) => [...new Set(['color', 'objectId', ...(tier === 'final' ? film.delivery?.layers ?? [] : [])])].sort();
 
-export function buildShotCacheInputs({ film, lock, shot, filmDir, tier, events = eventsTable(film), device }) {
+const OVERLAY_CARD_ID = parseCardRef(OVERLAY_CARD).name;
+
+function shotCardIds(film, lock, shot) {
+  const r = renderingOf(shot);
+  const overlays = (film.overlays ?? []).filter((o) => o.shot === shot.id);
+  const used = new Set([...(r.cards ?? shot.cards ?? []).map((c) => parseCardRef(c.use).name), ...(overlays.length ? [OVERLAY_CARD_ID] : [])]);
+  const lockedData = Object.entries(lock.cards ?? {}).filter(([, c]) => c.impl?.includes('data')).map(([id]) => id);
+  return [...new Set([...used, ...lockedData])];
+}
+
+export function buildShotCacheInputs({ film, lock, shot, filmDir, tier, events = eventsTable(film), device, engineDigest, cardsDigest, engineRoot }) {
   const caps = SOURCE_CAPS[shot.source]?.();
   if (!caps) throw coded('contract.unsupported-mode', `帧源 ${shot.source} 这台服务器没接`);
   const r = renderingOf(shot), base = filmDirOf(shot, filmDir);
   const overlays = (film.overlays ?? []).filter((o) => o.shot === shot.id);
 
   const loadedFiles = [];
-  let code = '';
   if (typeof r.entry === 'string' && existsSync(join(base, r.entry))) {
     const others = new Set(film.shots.filter((x) => x.id !== shot.id).map((x) => renderingOf(x).entry));
     const shared = listDir(join(base, 'shots')).length
@@ -234,20 +245,20 @@ export function buildShotCacheInputs({ film, lock, shot, filmDir, tier, events =
     for (const path of [...new Set([r.entry, ...shared])]) {
       const bytes = readFileSync(join(base, path));
       loadedFiles.push({ path, sha256: sha256(bytes) });
-      if (path === r.entry) code = bytes.toString('utf8');
     }
   }
   for (const ref of new Set([film.assets, shot.assets, r.assets].flatMap((a) => Object.values(a ?? {})))) {
     if (lock.assets?.[ref]) loadedFiles.push({ path: ref, sha256: hexOf(lock.assets[ref]) });
   }
 
-  const text = JSON.stringify([shot, overlays]) + code;
-  const mine = events.events
-    .filter((e) => (e.frame >= shot.in && e.frame < shot.out) || e.shot === shot.id || (e.kind === 'named' && text.includes(JSON.stringify(e.id).slice(1, -1))));
-
-  const used = new Set([...(r.cards ?? shot.cards ?? []).map((c) => parseCardRef(c.use).name), ...(overlays.length ? [OVERLAY_CARD] : [])]);
+  const used = new Set([...(r.cards ?? shot.cards ?? []).map((c) => parseCardRef(c.use).name), ...(overlays.length ? [OVERLAY_CARD_ID] : [])]);
   const cards = Object.entries(lock.cards ?? {}).filter(([id, c]) => used.has(id) || c.impl?.includes('data'))
     .map(([id, c]) => ({ id, version: c.version, sha256: c.sha256 }));
+
+  const engineOpts = engineRoot ? { root: engineRoot, effective: true } : { effective: true };
+  const cardOpts = engineRoot ? { root: engineRoot } : undefined;
+  const codeDigest = engineDigest ?? engineCodeDigest(shot.source, engineOpts);
+  const liveCards = cardsDigest ?? liveCardsDigest([...used, ...cards.map((c) => c.id)], cardOpts);
 
   const locked = lock.sources?.[shot.source] ?? {};
   const tracks = r.tracks ?? shot.tracks;
@@ -255,14 +266,14 @@ export function buildShotCacheInputs({ film, lock, shot, filmDir, tier, events =
   const shutter = r.shutter ?? shot.shutter ?? {};
   return {
     shot,
-    events: mine,
+    events: events.events,
     film: { at: shot.in, fps: film.output.fps, tokens: film.style?.tokens ?? null, assets: film.assets ?? null, overlays, seed: lock.seeds?.[shot.id] ?? null },
     loadedFiles,
     tracksHash: tracks === undefined ? 'none' : `sha256:${sha256(canonicalJson(tracks))}`,
     cards,
     runtimeEnv: {
       source: `${shot.source}:${locked.host ?? 'none'}`,
-      runtimeVersion: `${locked.version ?? 'none'} ${locked.image ?? 'none'}`,
+      runtimeVersion: `${locked.version ?? 'none'} ${locked.image ?? 'none'} engine:${codeDigest} cards:${liveCards}`,
       browserBuild: shot.source === 'three' ? browserBuild() : 'none',
       gpuBackend: `${shot.source === 'three' ? chromeArgs().join(' ') : 'auto'} ${device?.backend ?? 'unprobed'}`,
       driver: `${process.platform} ${process.arch} ${release()} ${canonicalJson(lock.machine ?? null)} ${device?.gpu ?? 'unprobed'}`,
@@ -327,12 +338,26 @@ const floatsOf = (buf) => new Float32Array(buf.buffer.slice(buf.byteOffset, buf.
  *   容差档帧源（determinism 是 tolerance）出的一段连续帧里混了几轮的帧时查接缝尖峰，有尖峰就让这个镜头这一版的缓存失效、把旧帧在这一轮重渲。
  * shortcut: 抽样帧（不连续）不查接缝，相邻帧差在抽样间隔上没有可比性；要查时改渲连续区间。
  */
-export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool, signal, lutPath, onFrame, cache }) {
+export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool, signal, lutPath, onFrame, cache, engineRoot }) {
   const events = eventsTable(film);
   const records = [], shots = [], versions = {};
   const want = layersOf(film, tier), aux = want.filter((name) => name !== 'color');
   const embed = tier === 'final' ? (film.delivery?.layers ?? []).filter((name) => name !== 'color') : [];
   const runId = randomUUID();
+  const engineOpts = engineRoot ? { root: engineRoot, effective: true } : { effective: true };
+  const cardOpts = engineRoot ? { root: engineRoot } : undefined;
+  // 按作业计算一次本作业实际执行的帧源有效摘要与卡实时摘要：同一作业所有帧共享同一快照，下一作业立即重算，杜绝混帧与启动期陈旧快照
+  const engineDigests = cache
+    ? new Map([...new Set(plan.map(({ shot }) => shot.source))].map((source) => [source, engineCodeDigest(source, engineOpts)]))
+    : null;
+  const cardDigests = cache ? new Map() : null;
+  if (cache) {
+    for (const { shot } of plan) {
+      try {
+        cardDigests.set(shot.id, liveCardsDigest(shotCardIds(film, lock, shot), cardOpts));
+      } catch { /* 非法卡引用交由 rekey / 帧源照常报错 */ }
+    }
+  }
   let gpuMs = 0;
   for (const { shot, frames } of plan) {
     signal?.throwIfAborted();
@@ -347,19 +372,26 @@ export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool
     const rekey = () => {
       // 键算不出来（镜头条目里有帧源才判得出的错）就不走缓存，让帧源照常报它自己的错
       try {
-        keyed = cache ? buildShotCacheInputs({ film, lock, shot, filmDir, tier, events, device }) : null;
+        keyed = cache ? buildShotCacheInputs({
+          film, lock, shot, filmDir, tier, events, device,
+          engineDigest: engineDigests.get(shot.source),
+          cardsDigest: cardDigests.get(shot.id),
+          engineRoot,
+        }) : null;
         if (keyed && frames.length) entryOf(frames[0]);
       } catch {
         keyed = null;
       }
     };
     const entryOf = (frame) => entryFrom(keyed, frame - shot.in);
+    const cacheEntryOf = (entry) => ({ tier: entry.tier, shotId: entry.shotId, shotKey: entry.shotKey });
     const store = (frame, rec) => {
       const colorBytes = readFileSync(rec.color), colorFloats = seamSignature(floatsOf(colorBytes));
       const layers = Object.fromEntries(Object.entries(rec.files).map(([name, file]) => [name, readFileSync(file)]));
       // 存进去的元数据多记一项 cache：这一帧是照哪个键渲的、存的每一层的摘要（还原时核，交出去的元数据不带）
       const entry = entryOf(frame);
       cache.put(entry, { colorBytes, layers, meta: { ...rec.meta, cache: { key: entry.key, layers: digestsOf(layers) } }, seam: colorFloats, runId });
+      rec.cacheEntry = cacheEntryOf(entry);
       seams.set(frame, { runId, colorFloats });
     };
     const render = async (frame) => {
@@ -407,7 +439,7 @@ export async function renderPlan({ film, lock, filmDir, tier, plan, outDir, pool
       const metaPath = join(dir, `f${pad(frame)}.meta.json`);
       writeFileSync(metaPath, jsonBytes(meta));
       seams.set(frame, { runId: hit.runId, colorFloats: hit.seam });
-      return { frame, shot: shot.id, meta, metaPath, color: join(sub, 'color.f32'), objectId: files['objectId.u32'], files, shape: [h, w, 4], cached: true };
+      return { frame, shot: shot.id, meta, metaPath, color: join(sub, 'color.f32'), objectId: files['objectId.u32'], files, shape: [h, w, 4], cached: true, cacheEntry: cacheEntryOf(entry) };
     };
 
     try {
@@ -473,10 +505,13 @@ export function frameSummary(rec, shot) {
   return { frame: rec.frame, shot: rec.shot, hero, luma };
 }
 
-/** 渲出来的帧要给验收和观测读：存成索引（路径相对工作区） */
+/** 渲出来的帧要给验收和观测读：存成索引（路径相对工作区，带走缓存时的轻量版本键 cacheEntry） */
 export function writeIndex(file, root, records, extra = {}) {
   const rel = (p) => relative(root, p).split(sep).join('/');
-  const frames = records.map((r) => ({ frame: r.frame, shot: r.shot, meta: rel(r.metaPath), color: rel(r.color), objectId: rel(r.objectId), shape: r.shape, exr: rel(r.exr), png: rel(r.png) }));
+  const frames = records.map((r) => ({
+    frame: r.frame, shot: r.shot, meta: rel(r.metaPath), color: rel(r.color), objectId: rel(r.objectId), shape: r.shape, exr: rel(r.exr), png: rel(r.png),
+    ...(r.cacheEntry ? { cacheEntry: r.cacheEntry } : {}),
+  }));
   writeFileSync(file, jsonBytes({ format: 'api-render-index/0.1', ...extra, frames }));
 }
 
@@ -525,7 +560,7 @@ export function layerL1(film, filmDir, rev, question) {
  * 单独的核验作业只给 cache、不给 versions：每个镜头都真跑，不读记录、过了也不记；没过同样作废终渲档这一版，再加 records 所在的那一档（tier，核验作业给）。
  * records 里有、shots 没点名的镜头不跑纯函数门，但它的帧包围盒没过时同样作废。两个都不给就只跑门。
  */
-export async function layerL2({ film, lock, filmDir, shots, records, pool, scratch, signal, onGpu, cache, versions, tier }) {
+export async function layerL2({ film, lock, filmDir, shots, records, pool, scratch, signal, onGpu, cache, versions, tier, engineRoot }) {
   const diagnostics = [];
   const gates = [];
   const events = eventsTable(film);
@@ -538,14 +573,67 @@ export async function layerL2({ film, lock, filmDir, shots, records, pool, scrat
   const shotOfFrame = new Map(records.map((r) => [r.frame, r.shot]));
   const boxFailed = new Set(bb.failures.map((f) => shotOfFrame.get(f.frame))); // 归不到镜头的失败项记成 undefined
   const boxed = (shot) => !boxFailed.has(undefined) && !boxFailed.has(shot.id);
-  // 没过 L2 的镜头要作废的条目：交付是 renderPlan 交回的这一版；单独核验时键现算（算不出来就没有缓存可作废）
-  const retire = (shot) => {
+  const failedFrameSet = new Set(bb.failures.map((f) => f.frame).filter(Number.isInteger));
+  const hasUnattributedBboxFailure = boxFailed.has(undefined);
+  const toInvalidationEntry = (ce) => (
+    ce && typeof ce === 'object' && typeof ce.tier === 'string' && typeof ce.shotId === 'string' && typeof ce.shotKey === 'string'
+      ? { tier: ce.tier, shotId: ce.shotId, shotKey: ce.shotKey, key: typeof ce.key === 'string' ? ce.key : ce.shotKey }
+      : null
+  );
+  const currentEntry = (shot, t) => {
+    try { return entryFrom(buildShotCacheInputs({ film, lock, shot, filmDir, tier: t, events, device: readDevices(cache)[shot.source], engineRoot }), 0); } catch { return undefined; }
+  };
+  const fallbackEntries = (shot, version) => (
+    version
+      ? [version.entry]
+      : [...new Set(['final', tier ?? 'final'])].map((t) => currentEntry(shot, t)).filter(Boolean)
+  );
+  // 没过 L2 的镜头要作废的条目：
+  // - 包围盒失败（!boxed）：精准定位失败帧携带的 cacheEntry 作废，不误伤同镜头其他版本好帧；无 cacheEntry 时回退当前键；
+  // - 纯函数门失败（!gateOk）：作废当前版本键以及记录中对应版本的 cacheEntry。
+  const retire = (shot, { gateOk = true } = {}) => {
     if (!cache) return;
     const version = versions?.[shot.id];
-    const entries = version ? [version.entry] : [...new Set(['final', tier ?? 'final'])].map((t) => {
-      try { return entryFrom(buildShotCacheInputs({ film, lock, shot, filmDir, tier: t, events, device: readDevices(cache)[shot.source] }), 0); } catch { return undefined; }
-    });
-    for (const entry of entries) if (entry) cache.invalidateShot(entry);
+    const entries = new Map();
+    const addEntry = (e) => {
+      const inv = toInvalidationEntry(e);
+      if (inv) entries.set(`${inv.tier}\0${inv.shotId}\0${inv.shotKey}`, inv);
+    };
+    const shotRecords = records.filter((r) => r.shot === shot.id);
+    if (!gateOk) {
+      for (const e of fallbackEntries(shot, version)) addEntry(e);
+      const curKeys = new Set([...entries.values()].map((e) => e.shotKey));
+      for (const r of shotRecords) {
+        const inv = toInvalidationEntry(r.cacheEntry);
+        if (inv && curKeys.has(inv.shotKey)) addEntry(inv);
+      }
+    }
+    if (!boxed(shot)) {
+      if (version) addEntry(version.entry);
+      if (hasUnattributedBboxFailure) {
+        for (const e of fallbackEntries(shot, version)) addEntry(e);
+        for (const r of shotRecords) addEntry(r.cacheEntry);
+      } else {
+        const badRecs = shotRecords.filter((r) => failedFrameSet.has(r.frame));
+        let missingCacheEntry = badRecs.length === 0;
+        const curDraft = !version && badRecs.some((r) => r.cacheEntry?.tier === 'draft') ? currentEntry(shot, 'draft') : undefined;
+        for (const r of badRecs) {
+          const inv = toInvalidationEntry(r.cacheEntry);
+          if (inv) {
+            addEntry(inv);
+            if (curDraft && inv.tier === 'draft' && inv.shotKey === curDraft.shotKey) {
+              addEntry(currentEntry(shot, 'final'));
+            }
+          } else {
+            missingCacheEntry = true;
+          }
+        }
+        if (missingCacheEntry) {
+          for (const e of fallbackEntries(shot, version)) addEntry(e);
+        }
+      }
+    }
+    for (const inv of entries.values()) cache.invalidateShot(inv);
   };
   let gpuMs = 0;
   for (const shot of shots) {
@@ -553,7 +641,7 @@ export async function layerL2({ film, lock, filmDir, shots, records, pool, scrat
     const frames = [shot.in, shot.out - 1];
     if (frames[0] === frames[1]) {
       gates.push({ shot: shot.id, status: 'skipped', reason: '纯函数门至少需要两帧' });
-      if (!boxed(shot)) retire(shot);
+      if (!boxed(shot)) retire(shot, { gateOk: true });
       continue;
     }
     const version = cache ? versions?.[shot.id] : undefined;
@@ -561,7 +649,7 @@ export async function layerL2({ film, lock, filmDir, shots, records, pool, scrat
     const known = version?.hit ? cache.getShotVerification(version.entry) : undefined;
     if (known?.l2?.ok === true && known.l2.shot === shot.id && known.framesColorDigest === framesColorDigest) {
       gates.push({ ...known.l2, cached: true });
-      if (!boxed(shot)) retire(shot);
+      if (!boxed(shot)) retire(shot, { gateOk: true });
       continue;
     }
     if (version) cache.putShotVerification(version.entry, { l2: { shot: shot.id, ok: false, status: 'running' } });
@@ -589,14 +677,14 @@ export async function layerL2({ film, lock, filmDir, shots, records, pool, scrat
     const g = await runPureFunctionGate(adapter, frames, { compare: 'hash', seed: 1 });
     signal?.throwIfAborted(); // 门把出帧时的错都收成「没过」：作业被取消不是门的结论，不记、也不作废帧
     gates.push({ shot: shot.id, status: g.ok ? 'pass' : 'fail', ok: g.ok, bitExact: g.bitExact, frames: g.frames, mismatches: g.mismatches.length });
-    if (!g.ok || !boxed(shot)) retire(shot);
+    if (!g.ok || !boxed(shot)) retire(shot, { gateOk: g.ok });
     else if (version) cache.putShotVerification(version.entry, { l2: gates.at(-1), framesColorDigest });
     if (!g.ok) {
       diagnostics.push(diagnostic({ code: 'contract.bad-value', layer: 'L2', at: `shots/${shot.id}`, message: `纯函数门没过：同一帧顺序渲、乱序渲、单独渲的颜色层不逐位相同（${g.mismatches.length} 处）`,
         atFrames: g.mismatches.map((m) => m.frame).filter(Number.isInteger), evidence: JSON.stringify(g.mismatches[0]).slice(0, 200), hint: '镜头里有跨帧状态或没带种子的随机：每帧只由时刻决定' }, { layer: 'L2' }));
     }
   }
-  for (const shot of film.shots) if (!shots.includes(shot) && boxFailed.has(shot.id)) retire(shot);
+  for (const shot of film.shots) if (!shots.includes(shot) && boxFailed.has(shot.id)) retire(shot, { gateOk: true });
   for (const f of bb.failures.slice(0, 5)) {
     diagnostics.push(diagnostic({ code: 'contract.bad-value', layer: 'L2', message: `包围盒核对没过：${f.kind}${f.name ? `（${f.name}）` : ''}${Number.isFinite(f.iou) ? `，IoU ${r3(f.iou)} < ${IOU_MIN}` : ''}`,
       ...(Number.isInteger(f.frame) ? { atFrames: [f.frame] } : {}), expected: `元数据 bbox2d 和编号层反算的包围盒 IoU ≥ ${IOU_MIN}` }, { layer: 'L2' }));
@@ -606,27 +694,64 @@ export async function layerL2({ film, lock, filmDir, shots, records, pool, scrat
 
 const finiteAudio = (v, floor = -120) => (typeof v === 'number' ? (Number.isFinite(v) ? v : v === -Infinity ? floor : undefined) : undefined);
 
-/** 成片量测：交付规格、响度、黑帧与冻结、切点（YDIF） */
+const energyReading = (m) => {
+  if (!m || typeof m !== 'object' || m.details?.code === 'tool-missing') return undefined;
+  return { value: m.value, unit: m.unit, ...(m.details ?? {}) };
+};
+
+/** 成片量测：交付规格、响度、黑帧与冻结、切点（YDIF）、静止区噪声残差与边缘锯齿 */
 export async function measureMaster(master) {
-  const [spec, loud, bfd, cuts] = await Promise.all([deliverSpec(master), audioLoudness(master).catch(() => null), blackFreezeDup(master), cutYdif(master)]);
+  const [spec, loud, bfd, cuts, noise, alias] = await Promise.all([
+    deliverSpec(master),
+    audioLoudness(master).catch(() => null),
+    blackFreezeDup(master),
+    cutYdif(master),
+    videoNoiseResidual(master).catch(() => null),
+    videoAliasEdge(master).catch(() => null),
+  ]);
   const loudnessLufs = finiteAudio(loud?.value);
   const truePeakDbtp = finiteAudio(loud?.details?.truePeakDbtp);
   const audio = {
     ...(loudnessLufs !== undefined ? { loudnessLufs } : {}),
     ...(truePeakDbtp !== undefined ? { truePeakDbtp } : {}),
   };
+  const noiseResidual = energyReading(noise);
+  const aliasEdge = energyReading(alias);
   return {
     output: spec.value ? { size: [spec.value.width, spec.value.height], fps: spec.details.frameRate, frames: spec.value.frames, colorTag: spec.value.color_space } : undefined,
     blackFrames: bfd.details?.black, freezes: bfd.details?.freezes?.map(([a, b]) => ({ in: a, out: b + 1 })),
     ...(Object.keys(audio).length ? { audio } : {}),
     cuts: cuts.value,
+    ...(noiseResidual !== undefined ? { noiseResidual } : {}),
+    ...(aliasEdge !== undefined ? { aliasEdge } : {}),
   };
 }
 
 const fixOfResult = (r) => (r.fixes ?? []).find((f) => f && typeof f.path === 'string');
 
+/** 判断考题基础断言列表是否已显式覆盖全片成片默认画质门（支持 @ all 及等价覆盖 [0, frames) 的区间/单镜；仅 question.basePredicates 可替代默认 base 门，film.predicates.extra 不得隐藏 basePass 违例） */
+function coversBaseEnergyGate(texts, name, film) {
+  const totalFrames = Number.isInteger(film?.output?.frames) ? film.output.frames : null;
+  for (const text of texts) {
+    if (typeof text !== 'string') continue;
+    const parsed = parseAssertion(text);
+    if (!parsed.ok || parsed.assertion.name !== name) continue;
+    const { args, scope } = parsed.assertion;
+    if (args.length !== 1) continue;
+    if (args[0].name !== null && args[0].name !== 'target') continue;
+    const target = args[0].value;
+    if (!target || target.kind !== 'ident' || target.name !== 'film') continue;
+    if (scope?.kind === 'all') return true;
+    if (totalFrames !== null && scope) {
+      const range = scopeRange(scope, film);
+      if (range && range[0] === 0 && range[1] === totalFrames) return true;
+    }
+  }
+  return false;
+}
+
 /**
- * L3：floor@1（加题目自带的基础谓词）逐条求值、predicates.extra 逐条求值、防削弱守卫。
+ * L3：floor@1（加题目自带的基础谓词与默认成片画质门）逐条求值、predicates.extra 逐条求值、防削弱守卫。
  * measured 是 { frames: [{ frame, meta }], ...成片量测 }。question 是考题（可以是 null）。entities 是 { 镜头: [实体名] }。
  */
 export function layerL3({ film, measured, question, entities }) {
@@ -639,8 +764,9 @@ export function layerL3({ film, measured, question, entities }) {
     if (result.status === 'fail') {
       const fix = fixOfResult(result);
       diagnostics.push(diagnostic({ code: 'contract.bad-value', layer: 'L3', message: `${result.predicate} 判不过`, ...(v.atFrames ? { atFrames: v.atFrames } : {}),
-        ...(v.value !== undefined ? { value: v.value } : {}), ...(result.expected ? { expected: String(result.expected) } : {}), ...(fix ? { fix, at: fix.path } : {}) }, { layer: 'L3' }));
+        ...(v.value !== undefined ? { value: v.value } : {}), ...(result.expected ? { expected: String(result.expected) } : {}), ...(result.hint ? { hint: result.hint } : {}), ...(fix ? { fix, at: fix.path } : {}) }, { layer: 'L3' }));
     }
+    return v;
   };
   const conditionalSkips = new Set();
   for (const item of evaluateFloor(film, measured)) {
@@ -651,7 +777,9 @@ export function layerL3({ film, measured, question, entities }) {
     }
     for (const r of item.results) add(r, true);
   }
-  const required = new Set(question?.basePredicates ?? []);
+  const questionBase = question?.basePredicates ?? [];
+  const filmExtra = film.predicates?.extra ?? [];
+  const required = new Set(questionBase);
   let requiredPass = true;
   for (const text of required) {
     const result = evaluateAssertion(text, film, measured);
@@ -659,7 +787,17 @@ export function layerL3({ film, measured, question, entities }) {
     if (result.status !== 'pass') requiredPass = false;
     if (result.status === 'skipped') diagnostics.push(diagnostic({ layer: 'L3', message: `考题必验断言 ${text} 缺少证据`, hint: result.reason }));
   }
-  for (const text of film.predicates?.extra ?? []) if (!required.has(text)) add(evaluateAssertion(text, film, measured), false);
+  for (const text of filmExtra) if (!required.has(text)) add(evaluateAssertion(text, film, measured), false);
+  // 成片量测在场时自动执行默认 L3 画质门；仅 question.basePredicates 显式覆盖全片同名断言时跳过，film.predicates.extra 始终独立于 base 运行，不隐藏 basePass 违例
+  for (const [key, predName, defaultMax] of [
+    ['noiseResidual', 'noise_residual', DEFAULT_MAX_NOISE_RESIDUAL],
+    ['aliasEdge', 'alias_edge', DEFAULT_MAX_ALIAS_EDGE],
+  ]) {
+    if (!measured || !Object.hasOwn(measured, key) || measured[key] === undefined) continue;
+    if (coversBaseEnergyGate(questionBase, predName, film)) continue;
+    const v = add(evaluateAssertion(`${predName}(film) <= ${defaultMax}`, film, measured), true);
+    if (v.status === 'skipped') conditionalSkips.add(v);
+  }
   const guard = guardPredicates(film, question ? { base: question.basePredicates } : null, { entities });
   for (const v of guard.violations) {
     const fix = v.fixes?.[0];
@@ -692,17 +830,145 @@ export const entitiesOf = (records) => {
  * 审片的输入：需求原文、联系表、切点条带、声音量测表。reviewer 没配置时 status 是 not-run，写明原因；
  * 配置了就交给它，意见原样带回；L5 只是意见，不改硬门的判定。
  */
-export async function layerL5({ reviewer, brief, images, loudness, film }) {
+export async function layerL5({
+  reviewer,
+  brief,
+  images,
+  loudness,
+  film,
+  filmId = null,
+  candidates = [],
+  question = null,
+  budgetCheck = null,
+  maxTokens = null,
+  signal = null,
+}) {
   if (!reviewer) return { status: 'not-run', reason: '服务器没有配置异族视觉审片模型（BEIMING_REVIEW_ENDPOINT、BEIMING_REVIEW_API_KEY、BEIMING_REVIEW_MODEL）', opinions: [], suggestedPredicates: [], overridesHardGates: false };
+  const resolvedFilmId = filmId ?? film?.id ?? null;
+  let res = null;
   try {
-    const res = await reviewer.review({ brief, images, loudness, film: { id: film.id, output: film.output, shots: film.shots.map((s) => ({ id: s.id, in: s.in, out: s.out })) } });
-    return { status: 'ok', model: res.model, ...validateReview(res, film.output.frames), usage: res.usage ?? null, overridesHardGates: false };
+    res = await reviewer.review({
+      brief,
+      images,
+      loudness,
+      film: { id: resolvedFilmId ?? film?.id, output: film.output, shots: (film.shots ?? []).map((s) => ({ id: s.id, in: s.in, out: s.out })) },
+      filmId: resolvedFilmId,
+      candidates,
+      ...(typeof budgetCheck === 'function' ? { budgetCheck } : {}),
+      ...(maxTokens !== null && maxTokens !== undefined ? { maxTokens } : {}),
+      ...(signal ? { signal } : {}),
+    });
+    if (Array.isArray(res?.ballots)) {
+      const invalidBallots = Array.isArray(res.invalidBallots) ? res.invalidBallots : [];
+      if (res.ballots.length === 0) {
+        if (invalidBallots.length === 0 && res.stoppedReason && res.stoppedReason !== 'budget.check-error') {
+          return {
+            status: 'not-run',
+            reason: `审片因预算或中止条件未发票（${res.stoppedReason}）`,
+            stoppedReason: res.stoppedReason,
+            ...(res.model ? { model: res.model } : {}),
+            totalBallots: 0,
+            ...(Number.isSafeInteger(res.plannedBallots) ? { plannedBallots: res.plannedBallots } : {}),
+            opinions: [],
+            suggestedPredicates: [],
+            usage: res.usage ?? null,
+            overridesHardGates: false,
+          };
+        }
+        return {
+          status: 'failed',
+          reason: invalidBallots[0]?.reason || (res.stoppedReason ? `审片已停止（${res.stoppedReason}），未获得有效选票` : '所有审片选票均无效'),
+          ...(res.stoppedReason ? { stoppedReason: res.stoppedReason } : {}),
+          ...(res.model ? { model: res.model } : {}),
+          totalBallots: 0,
+          ...(Number.isSafeInteger(res.plannedBallots) ? { plannedBallots: res.plannedBallots } : {}),
+          ...(invalidBallots.length ? { invalidBallots } : {}),
+          opinions: [],
+          suggestedPredicates: [],
+          usage: res.usage ?? null,
+          overridesHardGates: false,
+        };
+      }
+      const aggregated = aggregateL5Votes(res.ballots, {
+        totalFrames: film?.output?.frames,
+        film,
+        question,
+        candidates,
+      });
+      return {
+        status: 'ok',
+        model: res.model,
+        ...aggregated,
+        ...(Number.isSafeInteger(res.plannedBallots) ? { plannedBallots: res.plannedBallots } : {}),
+        ...(invalidBallots.length ? { invalidBallots } : {}),
+        ...(res.stoppedReason ? { stoppedReason: res.stoppedReason } : {}),
+        usage: res.usage ?? null,
+        overridesHardGates: false,
+      };
+    }
+    const validated = validateReview(res, film?.output?.frames);
+    const filtered = filterL5SuggestedPredicates(validated.suggestedPredicates, {
+      film,
+      question,
+      ...(Number.isSafeInteger(film?.output?.frames) ? { totalFrames: film.output.frames } : {}),
+    });
+    return {
+      status: 'ok',
+      model: res.model,
+      ...validated,
+      suggestedPredicates: filtered.suggestedPredicates,
+      validatedExtraPredicates: filtered.validatedExtraPredicates,
+      rejectedPredicates: filtered.rejectedPredicates,
+      usage: res.usage ?? null,
+      overridesHardGates: false,
+    };
   } catch (e) {
-    return { status: 'failed', reason: reviewFailure(e), opinions: [], suggestedPredicates: [], overridesHardGates: false };
+    const rawUsage = res?.usage ?? e?.usage ?? null;
+    const usage = rawUsage && typeof rawUsage === 'object'
+      ? {
+        inputTokens: rawUsage.inputTokens ?? 0,
+        outputTokens: rawUsage.outputTokens ?? 0,
+        totalTokens: rawUsage.totalTokens ?? ((rawUsage.inputTokens ?? 0) + (rawUsage.outputTokens ?? 0)),
+      }
+      : null;
+    const invalidBallots = Array.isArray(res?.invalidBallots) && res.invalidBallots.length ? res.invalidBallots : null;
+    return {
+      status: 'failed',
+      reason: reviewFailure(e),
+      ...(res?.stoppedReason ? { stoppedReason: res.stoppedReason } : {}),
+      ...(invalidBallots ? { invalidBallots } : {}),
+      opinions: [],
+      suggestedPredicates: [],
+      ...(usage ? { usage } : {}),
+      overridesHardGates: false,
+    };
   }
 }
 
-/** 审片材料：联系表 + 切点条带（从成片取） */
+const MAX_REVIEW_KEYFRAMES = 4;
+
+/** 按镜头中点挑选审片原尺寸关键帧帧号（多镜头时均匀上限 4 帧，去重升序） */
+export function reviewKeyframeNumbers(film, maxCount = MAX_REVIEW_KEYFRAMES) {
+  const totalFrames = Number.isSafeInteger(film?.output?.frames) && film.output.frames > 0 ? film.output.frames : null;
+  const clamp = (f) => (totalFrames !== null ? Math.min(totalFrames - 1, Math.max(0, f)) : Math.max(0, f));
+  const mids = [];
+  for (const shot of film?.shots ?? []) {
+    if (Number.isSafeInteger(shot?.in) && Number.isSafeInteger(shot?.out) && shot.out > shot.in) {
+      mids.push(clamp(Math.floor((shot.in + shot.out - 1) / 2)));
+    }
+  }
+  let unique = [...new Set(mids)].sort((a, b) => a - b);
+  if (!unique.length && totalFrames !== null) {
+    unique = [Math.floor((totalFrames - 1) / 2)];
+  }
+  const limit = Number.isSafeInteger(maxCount) && maxCount > 0 ? maxCount : MAX_REVIEW_KEYFRAMES;
+  if (unique.length <= limit) return unique;
+  if (limit === 1) return [unique[Math.floor((unique.length - 1) / 2)]];
+  const picked = Array.from({ length: limit }, (_, i) => unique[Math.round((i * (unique.length - 1)) / (limit - 1))]);
+  return [...new Set(picked)];
+}
+
+/** 审片材料：联系表 + 切点条带 + 未缩放原尺寸关键帧（从成片按镜头中点取，最多 4 帧） */
 export function reviewMaterials({ master, fps, film, outDir }) {
   mkdirSync(outDir, { recursive: true });
   const images = [];
@@ -711,6 +977,42 @@ export function reviewMaterials({ master, fps, film, outDir }) {
   if ((film.transitions ?? []).length) {
     const strips = buildCutStrips({ video: master, fps, transitions: film.transitions, outDir: join(outDir, 'cuts') });
     if (strips.ok) for (const p of strips.outputs ?? []) images.push({ name: 'cut', path: p });
+  }
+  const keyFrames = reviewKeyframeNumbers(film);
+  if (keyFrames.length) {
+    const kfDir = join(outDir, 'keyframes');
+    rmSync(kfDir, { recursive: true, force: true });
+    mkdirSync(kfDir, { recursive: true });
+    try {
+      const { ffmpeg } = compTools();
+      const rawFps = fps ?? film?.output?.fps;
+      const rate = typeof rawFps === 'number' && Number.isFinite(rawFps) && rawFps > 0
+        ? String(rawFps)
+        : (() => { const p = parseFps(rawFps); return `${p.num}/${p.den}`; })();
+      const select = keyFrames.map((n) => `eq(n\\,${n})`).join('+');
+      runTool(ffmpeg, [
+        '-hide_banner', '-nostdin', '-v', 'error', '-y',
+        '-i', master,
+        '-map', '0:v:0',
+        '-vf', `fps=fps=${rate},select=${select}`,
+        '-fps_mode', 'passthrough',
+        '-frames:v', String(keyFrames.length),
+        '-c:v', 'png',
+        '-start_number', '0',
+        join(kfDir, 'tmp-%04d.png'),
+      ], { what: '原尺寸审片关键帧' });
+      for (let i = 0; i < keyFrames.length; i++) {
+        const src = join(kfDir, `tmp-${pad(i)}.png`);
+        if (!existsSync(src)) continue;
+        const name = `keyframe-f${keyFrames[i]}`;
+        const dest = join(kfDir, `${name}.png`);
+        renameSync(src, dest);
+        images.push({ name, path: dest });
+      }
+    } catch {
+      // 抽帧失败时清理临时目录，不阻断已产出的联系表与切点条带
+      rmSync(kfDir, { recursive: true, force: true });
+    }
   }
   return images;
 }
@@ -729,20 +1031,50 @@ export function deliverBundle({ film, lock, records, lutPath, outDir }) {
 }
 
 /**
- * 把 L2–L5 的复核写进 report.json 的 verification 键，再照 comp 的完整性规则重新锚定：
+ * 把 L2–L5 的复核写进 report.json 的 verification 键，同时对齐顶层 ok 与 verification.ok 并紧邻写出
+ * unresolvedReviewOpinions（成立 L5 审片意见条数），再照 comp 的完整性规则重新锚定：
  * run.json 的 reportBodySha256 换成新报告正文（不含 run.json 那一项）的摘要，报告里 run.json 的字节数与摘要跟着更新。
  * 写完用 comp 的 verifyDeliveryBundle 自查一遍。
  */
 export function writeVerification(dir, verification) {
-  const report = JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8'));
+  const rawReport = JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8'));
   const run = JSON.parse(readFileSync(join(dir, 'run.json'), 'utf8'));
-  report.verification = verification;
-  const body = { ...report, files: { ...report.files } };
-  delete body.files['run.json'];
-  run.reportBodySha256 = sha256(jsonBytes(body));
+  const l5Opinions = Array.isArray(verification?.L5?.opinions)
+    ? verification.L5.opinions
+    : (Array.isArray(verification?.layers?.L5?.opinions) ? verification.layers.L5.opinions : []);
+  const unresolvedReviewOpinions = l5Opinions.length;
+  const {
+    format,
+    film,
+    delivery,
+    ok: prevOk,
+    unresolvedReviewOpinions: _prevUnresolved,
+    checks,
+    probes,
+    loudness,
+    files,
+    verification: _prevVerification,
+    ...rest
+  } = rawReport;
+  const filesWithoutRun = { ...files };
+  delete filesWithoutRun['run.json'];
+  const report = {
+    ...(format !== undefined ? { format } : {}),
+    ...(film !== undefined ? { film } : {}),
+    ...(delivery !== undefined ? { delivery } : {}),
+    ok: Boolean(prevOk && verification?.ok !== false),
+    unresolvedReviewOpinions,
+    ...(checks !== undefined ? { checks } : {}),
+    ...(probes !== undefined ? { probes } : {}),
+    ...(loudness !== undefined ? { loudness } : {}),
+    files: filesWithoutRun,
+    ...rest,
+    verification,
+  };
+  run.reportBodySha256 = sha256(jsonBytes(report));
   const runBytes = jsonBytes(run);
   writeFileSync(join(dir, 'run.json'), runBytes);
-  report.files = { ...report.files, 'run.json': { bytes: runBytes.length, sha256: sha256(runBytes) } };
+  report.files = { ...filesWithoutRun, 'run.json': { bytes: runBytes.length, sha256: sha256(runBytes) } };
   writeFileSync(join(dir, 'report.json'), jsonBytes(report));
   return verifyDeliveryBundle(dir);
 }

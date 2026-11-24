@@ -7,22 +7,164 @@
 // 这份账本和工作区的账本（GET ledger）分开记：那边是服务器花的，这边是外部模型花的。
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { parseRequestText } from '../kernel/patch-apply.mjs';
+import {
+  DELEGATE_ROLES,
+  L5_GRADES,
+  L5_ISSUE_KEYS,
+  L5_PERSPECTIVES,
+  SHOT_WORKER_MAX_START_TOKENS,
+  aggregateL5Votes,
+  buildShotWorkerBrief,
+  buildShotWorkerMessages,
+  filterL5SuggestedPredicates,
+  measureStartContextTokens,
+  normalizeIssueKey,
+  selectDelegateTemplate,
+  shuffleCandidatesForBallot,
+} from './delegate-roles.mjs';
+
+export {
+  DELEGATE_ROLES,
+  L5_GRADES,
+  L5_ISSUE_KEYS,
+  L5_PERSPECTIVES,
+  SHOT_WORKER_MAX_START_TOKENS,
+  aggregateL5Votes,
+  buildShotWorkerBrief,
+  buildShotWorkerMessages,
+  filterL5SuggestedPredicates,
+  measureStartContextTokens,
+  normalizeIssueKey,
+  selectDelegateTemplate,
+  shuffleCandidatesForBallot,
+};
 
 const METHODS = ['GET', 'POST', 'PUT', 'DELETE'];
-// 一次模型调用最多等多久（毫秒）
-const MODEL_TIMEOUT_MS = 120000;
-const SEVERITIES = ['low', 'medium', 'high'];
+// 一次模型调用最多等多久（毫秒；兼顾带多模态图片输入的真实推理模型长思考回合，仍受外层预算 signal 约束）
+export const MODEL_TIMEOUT_MS = 240000;
+const SEVERITIES = ['low', 'medium', 'high', 'info', 'warn', 'error'];
+const AGENT_IMAGE_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const AGENT_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+const DATA_IMAGE_PREFIX_RE = /^data:image\/[a-z0-9.+-]+;base64,/i;
+// 单张 L5 视觉审片选票的默认输出 token 上限（每次请求必带 max_tokens，用于可执行上界与防失控输出）
+export const DEFAULT_REVIEW_MAX_OUTPUT_TOKENS = 1_024;
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const REVIEW_MIN_IMAGE_TOKENS = 1_024;
+const REVIEW_FALLBACK_IMAGE_TOKENS = 2_048;
+const GPT_4O_MINI_RE = /^(?:[^:]+:)?gpt-4o-mini(?:$|[-_:@.])/;
+const HIGH_MULT_VISION_MODELS = [
+  [/^(?:[^:]+:)?gpt-4\.1-mini(?:$|[-_:@.])/, 1.62],
+  [/^(?:[^:]+:)?gpt-4\.1-nano(?:$|[-_:@.])/, 2.46],
+  [/^(?:[^:]+:)?o4-mini(?:$|[-_:@.])/, 1.72],
+  [/^(?:[^:]+:)?gpt-5-mini(?:$|[-_:@.])/, 1.62],
+  [/^(?:[^:]+:)?gpt-5-nano(?:$|[-_:@.])/, 2.46],
+];
+
+/** 估算单张视觉图像的保守输入 token 上界（覆盖 OpenAI 高倍率/分块/补丁计费、Claude 面积与 Gemini 视觉计费） */
+function estimateImageTokens(buf, model = '') {
+  const modelName = String(model ?? '').trim().toLowerCase().split('/').pop() ?? '';
+  const isGpt4oMini = GPT_4O_MINI_RE.test(modelName);
+  const highMult = HIGH_MULT_VISION_MODELS.find(([re]) => re.test(modelName))?.[1] ?? 0;
+
+  if (!Buffer.isBuffer(buf) || buf.length < 24 || !buf.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    if (isGpt4oMini) return Math.max(REVIEW_FALLBACK_IMAGE_TOKENS, 2833 + 5667);
+    if (highMult > 0) return Math.max(REVIEW_FALLBACK_IMAGE_TOKENS, Math.ceil(1536 * highMult));
+    return REVIEW_FALLBACK_IMAGE_TOKENS;
+  }
+  const width = buf.readUInt32BE(16);
+  const height = buf.readUInt32BE(20);
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
+    if (isGpt4oMini) return Math.max(REVIEW_FALLBACK_IMAGE_TOKENS, 2833 + 5667);
+    if (highMult > 0) return Math.max(REVIEW_FALLBACK_IMAGE_TOKENS, Math.ceil(1536 * highMult));
+    return REVIEW_FALLBACK_IMAGE_TOKENS;
+  }
+  const tiles = Math.ceil(width / 512) * Math.ceil(height / 512);
+  const areaBound = Math.ceil((width * height) / 512);
+  const baseBound = Math.max(REVIEW_MIN_IMAGE_TOKENS, tiles * 256 + 256, areaBound);
+  if (isGpt4oMini) {
+    return Math.max(baseBound, 2833 + 5667 * tiles);
+  }
+  if (highMult > 0) {
+    const tileBound = Math.ceil((85 + 170 * tiles) * highMult);
+    const patchBound = Math.ceil(Math.min(1536, Math.ceil(width / 32) * Math.ceil(height / 32)) * highMult);
+    return Math.max(baseBound, tileBound, patchBound);
+  }
+  return baseBound;
+}
+
+/** 估算单张 L5 选票纯文本输入的保守 token 上界（UTF-8 字节数 + 消息封装开销，永不为 0） */
+function estimateReviewTextInputTokens(systemContent, userText) {
+  return Buffer.byteLength(systemContent, 'utf8') + Buffer.byteLength(userText, 'utf8') + 256;
+}
+
+/** 把工具调用返回的一组图像产物封装为紧随 tool 消息之后的多模态 user 消息，供视觉代理观察画面。 */
+export function buildToolImageMessage(images) {
+  return {
+    role: 'user',
+    content: images.flatMap((img) => [
+      {
+        type: 'text',
+        text: `以上工具调用返回的图像产物（${img.path}，${img.mimeType}，${img.bytes} 字节），请直接观察画面内容后再决定下一步。`,
+      },
+      {
+        type: 'image_url',
+        image_url: { url: `data:${img.mimeType};base64,${img.base64}` },
+      },
+    ]),
+  };
+}
+
+/** 估算含可选 image_url 的 Chat Completions 请求体输入 token 保守上界（图像按分辨率估算，不按 base64 字节膨胀）。 */
+export function estimateChatBodyInputTokens(body, model = '') {
+  let imageTokens = 0;
+  const messages = Array.isArray(body?.messages)
+    ? body.messages.map((msg) => {
+      if (!msg || !Array.isArray(msg.content)) return msg;
+      let changed = false;
+      const content = msg.content.map((part) => {
+        const url = part?.type === 'image_url' ? part?.image_url?.url : null;
+        if (typeof url === 'string' && DATA_IMAGE_PREFIX_RE.test(url)) {
+          changed = true;
+          const comma = url.indexOf(',');
+          const headB64 = url.slice(comma + 1, comma + 65).replace(/\s+/g, '').slice(0, 48);
+          imageTokens += estimateImageTokens(Buffer.from(headB64, 'base64'), model);
+          return { ...part, image_url: { ...part.image_url, url: '[image_url]' } };
+        }
+        return part;
+      });
+      return changed ? { ...msg, content } : msg;
+    })
+    : body?.messages;
+  const sanitized = JSON.stringify({ ...body, messages });
+  const msgCount = Array.isArray(body?.messages) ? body.messages.length : 0;
+  return Buffer.byteLength(sanitized) + imageTokens + 256 + 16 * msgCount;
+}
+
+async function readBinaryResponse(res, keepUpTo = 0) {
+  const contentLength = Number(res.headers.get('content-length'));
+  const keep = keepUpTo > 0 && !(Number.isFinite(contentLength) && contentLength > keepUpTo) ? keepUpTo : 0;
+  if (!res.body) {
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { bytes: buf.byteLength, buffer: keep > 0 && buf.byteLength <= keep ? buf : null };
+  }
+  let bytes = 0;
+  let chunks = keep > 0 ? [] : null;
+  for await (const chunk of res.body) {
+    const piece = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    bytes += piece.byteLength;
+    if (chunks) {
+      if (bytes <= keep) chunks.push(piece);
+      else chunks = null;
+    }
+  }
+  return { bytes, buffer: chunks ? Buffer.concat(chunks, bytes) : null };
+}
 
 const AGENT_SYSTEM = [
   '你是一个只通过 HTTP 接口做片子的代理。你手里只有一个工具 http_request，只能调本服务 /v1/ 开头的动词；令牌由工具替你带。',
   '先 GET /v1/guide，照里面的闭环做：建片、改片（补丁带 rev）、看诊断（能机器修的用 ?applyFixes=machine）、渲、观测、核验、交付。',
   '每一步先看响应信封的 ok、error.code、diagnostics、next。做完用一段话汇报做了什么、卡在哪。',
-].join('\n');
-
-const REVIEW_SYSTEM = [
-  '你是审片人。看需求原文、联系表、切点条带和声音量测表，指出成片不合需求的地方。',
-  '只回一个 JSON 对象：{"opinions":[{"frames":[起帧,止帧],"severity":"low|medium|high","evidence":"在哪张图的哪一格看到了什么","comment":"意见"}],"suggestedPredicates":["谓词断言"]}。',
-  '没有意见时 opinions 是空数组。不要回 JSON 以外的字。',
 ].join('\n');
 
 export const HTTP_TOOL = {
@@ -56,7 +198,7 @@ function requireConfig(what, names, { endpoint, apiKey, model, ledgerPath }) {
   if (missing.length) throw new TypeError(`${what}缺配置：${missing.join('、')}`);
 }
 
-/** 调一次 chat/completions：交回 { message, model, usage: { inputTokens, outputTokens } } */
+/** 调一次 chat/completions：先提取可核算 usage 再校验 choices[0].message，异常对象亦附带已提取的 usage 与 model */
 export async function chat({ endpoint, apiKey, body, signal, requireUsage = false }) {
   const target = /\/chat\/completions\/?$/.test(endpoint) ? endpoint : `${endpoint.replace(/\/+$/, '')}/chat/completions`;
   const res = await fetch(target, {
@@ -66,13 +208,164 @@ export async function chat({ endpoint, apiKey, body, signal, requireUsage = fals
   if (!res.ok) throw new ModelResponseError(`模型接口返回 HTTP ${res.status}`);
   let data;
   try { data = await res.json(); } catch { throw new ModelResponseError('模型接口返回的不是 JSON'); }
+  const resolvedModel = typeof data?.model === 'string' && data.model.trim() ? data.model : body.model;
+  const hasUsageObj = Boolean(data?.usage && typeof data.usage === 'object');
+  let inputTokens = count(data?.usage?.prompt_tokens ?? data?.usage?.input_tokens);
+  let outputTokens = count(data?.usage?.completion_tokens ?? data?.usage?.output_tokens);
+  if (!requireUsage) {
+    const total = count(data?.usage?.total_tokens);
+    if (total > inputTokens + outputTokens) {
+      if (inputTokens > 0 && outputTokens === 0) {
+        outputTokens = total - inputTokens;
+      } else if (inputTokens === 0 && outputTokens > 0) {
+        inputTokens = total - outputTokens;
+      } else {
+        inputTokens += total - inputTokens - outputTokens;
+      }
+    }
+  }
+  const usage = { inputTokens, outputTokens };
+  const withUsage = (err) => {
+    if (hasUsageObj && (inputTokens > 0 || outputTokens > 0)) {
+      err.usage = usage;
+      err.model = resolvedModel;
+    }
+    return err;
+  };
   const message = data?.choices?.[0]?.message;
-  if (!message || typeof message !== 'object') throw new ModelResponseError('模型接口的返回里没有 choices[0].message');
+  if (!message || typeof message !== 'object') throw withUsage(new ModelResponseError('模型接口的返回里没有 choices[0].message'));
   if (requireUsage && !(Number.isSafeInteger(data.usage?.prompt_tokens) && data.usage.prompt_tokens > 0 &&
     Number.isSafeInteger(data.usage.completion_tokens) && data.usage.completion_tokens >= 0)) {
-    throw new ModelResponseError('模型接口没有返回可核算的 token 用量');
+    throw withUsage(new ModelResponseError('模型接口没有返回可核算的 token 用量'));
   }
-  return { message, model: typeof data.model === 'string' ? data.model : body.model, usage: { inputTokens: count(data.usage?.prompt_tokens), outputTokens: count(data.usage?.completion_tokens) } };
+  return { message, model: resolvedModel, usage };
+}
+
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+
+function isFilesPath(path) {
+  if (typeof path !== 'string') return false;
+  const pathname = path.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/?#]+/i, '').split(/[?#]/, 1)[0];
+  let decoded = pathname;
+  try { decoded = decodeURIComponent(pathname); } catch { /* 保持原路径 */ }
+  return /^\/v1\/films\/[^/]+\/files(?:\/|$)/.test(pathname)
+    || /^\/v1\/films\/[^/]+\/files(?:\/|$)/.test(decoded);
+}
+
+const JSON_WS_ONLY = /^[ \t\r\n]*(\{[\s\S]*\}|\[[\s\S]*\])[ \t\r\n]*$/;
+const MAX_JSON_DEPTH = 128;
+
+/** 检查已通过 JSON.parse 的文本中任意嵌套对象是否含重复键、且总嵌套深度不超过 MAX_JSON_DEPTH（不包壳，不抬高深度） */
+function isStrictJsonArrayText(text) {
+  let depth = 0;
+  const keyStack = [];
+  const stateStack = [];
+  let i = 0;
+  const n = text.length;
+  const skipWs = () => { while (i < n && (text[i] === ' ' || text[i] === '\t' || text[i] === '\r' || text[i] === '\n')) i++; };
+  const readStr = () => {
+    const start = i++;
+    while (i < n) {
+      const ch = text[i++];
+      if (ch === '\\') { i++; continue; }
+      if (ch === '"') {
+        const decoded = JSON.parse(text.slice(start, i));
+        return decoded.isWellFormed() ? decoded : null;
+      }
+    }
+    return null;
+  };
+  while (i < n) {
+    skipWs();
+    if (i >= n) break;
+    const ch = text[i];
+    if (ch === '[') {
+      depth++;
+      if (depth > MAX_JSON_DEPTH) return false;
+      stateStack.push('arr');
+      i++;
+    } else if (ch === '{') {
+      depth++;
+      if (depth > MAX_JSON_DEPTH) return false;
+      stateStack.push('obj-key');
+      keyStack.push(new Set());
+      i++;
+    } else if (ch === ']') {
+      depth--;
+      stateStack.pop();
+      i++;
+    } else if (ch === '}') {
+      depth--;
+      stateStack.pop();
+      keyStack.pop();
+      i++;
+    } else if (ch === '"') {
+      const top = stateStack.at(-1);
+      const s = readStr();
+      if (s === null) return false;
+      if (top === 'obj-key') {
+        const seen = keyStack.at(-1);
+        if (seen.has(s)) return false;
+        seen.add(s);
+        stateStack[stateStack.length - 1] = 'obj-val';
+      }
+    } else if (ch === ',') {
+      if (stateStack.at(-1) === 'obj-val') stateStack[stateStack.length - 1] = 'obj-key';
+      i++;
+    } else {
+      i++;
+    }
+  }
+  return true;
+}
+
+/** 把含未配对 UTF-16 代理码元的字符串编码为保留非法 UTF-8 字节序列的 Uint8Array，防止 fetch 静默替换为 U+FFFD */
+function encodePreservingMalformedSurrogates(str) {
+  const chunks = [];
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = i + 1 < str.length ? str.charCodeAt(i + 1) : 0;
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        chunks.push(Buffer.from(str.slice(i, i + 2), 'utf8'));
+        i++;
+      } else {
+        chunks.push(Buffer.from([0xed, 0xa0 | ((code >> 6) & 0x0f), 0x80 | (code & 0x3f)]));
+      }
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      chunks.push(Buffer.from([0xed, 0xb0 | ((code >> 6) & 0x0f), 0x80 | (code & 0x3f)]));
+    } else {
+      chunks.push(Buffer.from(str[i], 'utf8'));
+    }
+  }
+  return Buffer.concat(chunks);
+}
+
+/**
+ * 兼容外部模型把 JSON 请求体序列化为字符串传入 http_request.body 的情形：
+ * 仅对非 /v1/films/<id>/files/* 路径且仅含 RFC 8259 合法空白、无孤立代理码元、无重复键、深度不超过 128 的合法 JSON 对象/数组字符串解包；
+ * /files/* 源码正文、重复键、非法空白、解析失败字符串与其他原始值一律原样保留。
+ */
+export function normalizeJsonToolBody(path, body) {
+  if (typeof body !== 'string' || isFilesPath(path) || !body.isWellFormed()) return body;
+  const m = JSON_WS_ONLY.exec(body);
+  if (!m) return body;
+  if (m[1][0] === '{') {
+    const parsed = parseRequestText(body);
+    return parsed.ok && isPlainObject(parsed.body) ? parsed.body : body;
+  }
+  if (Buffer.byteLength(body, 'utf8') > 16 * 1024 * 1024) return body;
+  try {
+    const parsed = JSON.parse(m[1]);
+    if (!Array.isArray(parsed)) return body;
+    return isStrictJsonArrayText(m[1]) ? parsed : body;
+  } catch {
+    return body;
+  }
 }
 
 /**
@@ -91,14 +384,37 @@ export async function callApi({ baseUrl, account, workspaces, jobs, signal }, ar
   const job = /^\/v1\/jobs\/([^/]+)$/.exec(target.pathname)?.[1];
   const token = (film && workspaces[film]) || (job && workspaces[jobs[job]]) || account;
   const hasBody = args.body !== undefined && args.body !== null && method !== 'GET';
-  const text = typeof args.body === 'string';
+  const reqBody = hasBody ? normalizeJsonToolBody(target.pathname, args.body) : args.body;
+  // 非 /files/ 路径上传入显式空串 "" 时按 JSON 字符串 "" 发送，避免 0 字节正文被服务端当成省略请求体 {} 放行；
+  // 含孤立代理码元的非 /files/ 字符串保留非法 UTF-8 字节送出，避免 fetch 静默替换为 U+FFFD 绕过服务端 400 校验
+  const emptyJsonStr = hasBody && reqBody === '' && !isFilesPath(target.pathname);
+  const text = typeof reqBody === 'string' && !emptyJsonStr;
+  const wireBody = !hasBody
+    ? undefined
+    : text
+      ? (!isFilesPath(target.pathname) && !reqBody.isWellFormed() ? encodePreservingMalformedSurrogates(reqBody) : reqBody)
+      : JSON.stringify(reqBody);
   const res = await fetch(target, {
     method, headers: { authorization: `Bearer ${token}`, ...(hasBody ? { 'content-type': text ? 'text/plain; charset=utf-8' : 'application/json' } : {}) },
-    ...(hasBody ? { body: text ? args.body : JSON.stringify(args.body) } : {}), signal,
+    ...(hasBody ? { body: wireBody } : {}), signal,
   });
   const call = { method, path, status: res.status, ok: res.ok };
-  if (!/json/.test(res.headers.get('content-type') ?? '')) {
-    const bytes = (await res.arrayBuffer()).byteLength;
+  const rawContentType = res.headers.get('content-type') ?? '';
+  if (!/json/i.test(rawContentType)) {
+    const mimeType = rawContentType.split(';')[0].trim().toLowerCase();
+    const isSupportedImage = res.ok && AGENT_IMAGE_MIMES.has(mimeType);
+    const { bytes, buffer } = await readBinaryResponse(res, isSupportedImage ? AGENT_IMAGE_MAX_BYTES : 0);
+    if (isSupportedImage) {
+      const imageAttached = bytes > 0 && buffer !== null;
+      const out = {
+        text: JSON.stringify({ status: res.status, contentType: res.headers.get('content-type'), bytes, imageAttached }),
+        call: { ...call, bytes, imageAttached },
+      };
+      if (imageAttached) {
+        out.image = { mimeType, base64: buffer.toString('base64'), bytes, path };
+      }
+      return out;
+    }
     return { text: JSON.stringify({ status: res.status, contentType: res.headers.get('content-type'), bytes }), call: { ...call, bytes } };
   }
   const envelope = await res.json();
@@ -111,6 +427,34 @@ export async function callApi({ baseUrl, account, workspaces, jobs, signal }, ar
   }
   if (typeof data?.job === 'string' && film) jobs[data.job] = film;
   return { text: JSON.stringify({ status: res.status, body: envelope }), call };
+}
+
+/** 亲手代理调用建片或审片时，若模型省略或留空 body.brief，自动在副本中补回已传入的需求原文（不篡改原参数，不覆盖显式非空传值，亦不吞掉显式非法类型） */
+function attachHandsOnBrief(args, brief, baseUrl) {
+  if (typeof brief !== 'string' || !brief.trim()) return args;
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return args;
+  if (String(args.method ?? '').toUpperCase() !== 'POST') return args;
+  const path = args.path;
+  if (typeof path !== 'string' || !/^\/v1\/[^\s#\\]*$/.test(path)) return args;
+  let target;
+  try {
+    target = new URL(path, baseUrl);
+    if (target.origin !== new URL(baseUrl).origin) return args;
+  } catch {
+    return args;
+  }
+  const pathname = target.pathname;
+  if (pathname !== '/v1/films' && !/^\/v1\/films\/[^/]+\/review$/.test(pathname)) return args;
+  const wasString = typeof args.body === 'string';
+  const body = normalizeJsonToolBody(pathname, args.body);
+  if (body !== undefined && body !== null) {
+    if (!isPlainObject(body)) return args;
+    const hasBrief = Object.hasOwn(body, 'brief') && body.brief !== undefined && (wasString ? true : body.brief !== null);
+    if (hasBrief && (typeof body.brief !== 'string' || body.brief.trim())) {
+      return body === args.body ? args : { ...args, body };
+    }
+  }
+  return { ...args, body: body == null ? { brief } : { ...body, brief } };
 }
 
 /**
@@ -141,16 +485,23 @@ export async function runHandsOnAgent({
     const toolCalls = Array.isArray(res.message.tool_calls) ? res.message.tool_calls : [];
     messages.push({ role: 'assistant', content: res.message.content ?? null, ...(toolCalls.length ? { tool_calls: toolCalls } : {}) });
     if (!toolCalls.length) return done('done', step, typeof res.message.content === 'string' ? res.message.content : null);
+    const attachedImages = [];
     for (const tc of toolCalls) {
       let result;
       if (tc?.function?.name !== 'http_request') result = { text: JSON.stringify({ refused: '只有 http_request 这一个工具' }), call: { method: '', path: '', status: 0, ok: false, refused: `没有工具 ${tc?.function?.name}` } };
       else {
         let args = null;
         try { args = JSON.parse(tc.function.arguments ?? ''); } catch { /* 参数不是 JSON：下面按拒绝处理 */ }
-        result = args && typeof args === 'object' ? await callApi(api, args) : { text: JSON.stringify({ refused: 'arguments 不是 JSON 对象' }), call: { method: '', path: '', status: 0, ok: false, refused: 'arguments 不是 JSON 对象' } };
+        result = args && typeof args === 'object'
+          ? await callApi(api, attachHandsOnBrief(args, brief, baseUrl))
+          : { text: JSON.stringify({ refused: 'arguments 不是 JSON 对象' }), call: { method: '', path: '', status: 0, ok: false, refused: 'arguments 不是 JSON 对象' } };
       }
       calls.push({ step, ...result.call });
       messages.push({ role: 'tool', tool_call_id: tc.id, content: result.text });
+      if (result.image) attachedImages.push(result.image);
+    }
+    if (attachedImages.length) {
+      messages.push(buildToolImageMessage(attachedImages));
     }
   }
   return done('max-steps', maxSteps);
@@ -158,7 +509,10 @@ export async function runHandsOnAgent({
 
 class ModelResponseError extends Error {}
 
-export const reviewFailure = error => error instanceof ModelResponseError ? error.message : '视觉审片适配器调用失败';
+export const reviewFailure = error =>
+  (error instanceof ModelResponseError || error?.code === 'usage.bad-argument')
+    ? error.message
+    : '视觉审片适配器调用失败';
 
 export function validateReview(parsed, frames = Infinity) {
   const text = value => typeof value === 'string' && value.trim().length > 0;
@@ -168,11 +522,39 @@ export function validateReview(parsed, frames = Infinity) {
       || o.frames[0] > o.frames[1] || !SEVERITIES.includes(o.severity) || !text(o.evidence) || !text(o.comment)) {
       throw new ModelResponseError(`审片意见 opinions[${i}] 的帧段、严重度、证据或意见不合法`);
     }
-    return { frames: o.frames, severity: o.severity, evidence: o.evidence, comment: o.comment };
+    if (o.issueKey !== undefined && !text(o.issueKey)) {
+      throw new ModelResponseError(`审片意见 opinions[${i}] 的 issueKey 必须是非空字符串`);
+    }
+    if (o.suggestedPredicate !== undefined && !text(o.suggestedPredicate)) {
+      throw new ModelResponseError(`审片意见 opinions[${i}] 的 suggestedPredicate 必须是非空字符串`);
+    }
+    return {
+      ...(text(o.issueKey) ? { issueKey: o.issueKey.trim() } : {}),
+      frames: o.frames,
+      severity: o.severity,
+      evidence: o.evidence,
+      comment: o.comment,
+      ...(text(o.suggestedPredicate) ? { suggestedPredicate: o.suggestedPredicate.trim() } : {}),
+    };
   });
   const suggestedPredicates = parsed.suggestedPredicates === undefined ? [] : parsed.suggestedPredicates;
   if (!Array.isArray(suggestedPredicates) || !suggestedPredicates.every(text)) throw new ModelResponseError('suggestedPredicates 必须是断言字符串数组');
-  return { opinions, suggestedPredicates };
+  if (parsed.grade !== undefined && !L5_GRADES.includes(parsed.grade)) {
+    throw new ModelResponseError(`审片等级 grade 必须是 ${L5_GRADES.join('/')} 之一`);
+  }
+  let candidateGrades;
+  if (parsed.candidateGrades !== undefined) {
+    if (!Array.isArray(parsed.candidateGrades) || !parsed.candidateGrades.every(cg => cg && text(cg.id) && L5_GRADES.includes(cg.grade))) {
+      throw new ModelResponseError('candidateGrades 必须是含 id 与合法等级词的数组');
+    }
+    candidateGrades = parsed.candidateGrades.map(cg => ({ id: cg.id.trim(), grade: cg.grade }));
+  }
+  return {
+    ...(parsed.grade !== undefined ? { grade: parsed.grade } : {}),
+    ...(candidateGrades !== undefined ? { candidateGrades } : {}),
+    opinions,
+    suggestedPredicates,
+  };
 }
 
 function parseReview(text, frames) {
@@ -182,25 +564,342 @@ function parseReview(text, frames) {
 }
 
 /**
- * 异族视觉审片客户端。交回 { model, review({ brief, images: [{ name, path }], loudness, film }) }；
- * review 交回 { model, opinions, suggestedPredicates, dropped（形状不对被丢掉的意见条数）, usage }。调不通或回答不成形就抛异常，由调用方记成 failed。
+ * 异族视觉审片客户端（L5 三视角 × 3 票 = 9 票完整规程）。
+ * 交回 { model, perspectives, votesPerPerspective, review({ brief, images, loudness, film, filmId, candidates, budgetCheck, maxTokens, signal }) }；
+ * review 按三个视角各投 3 票（共 9 票）：
+ * - 每票调用模型前先执行 budgetCheck / maxTokens 预算闸检查，超限时立即停票并保留已投票与 stoppedReason；
+ * - 收到响应后先累计 usage 并写入带 film 字段的外部用量账本，再解析校验单票；
+ * - 单张坏票或上游失败仅隔离记入 invalidBallots，不中断其余选票，也不丢失已花 token。
  */
-export function createOpenAiVisionReviewer({ endpoint, apiKey, model, ledgerPath } = {}) {
+export function createOpenAiVisionReviewer({
+  endpoint,
+  apiKey,
+  model,
+  ledgerPath,
+  perspectives = L5_PERSPECTIVES,
+  votesPerPerspective = 3,
+  maxTokens = null,
+  maxOutputTokens = DEFAULT_REVIEW_MAX_OUTPUT_TOKENS,
+} = {}) {
   requireConfig('审片客户端', { endpoint: 'BEIMING_REVIEW_ENDPOINT', apiKey: 'BEIMING_REVIEW_API_KEY', model: 'BEIMING_REVIEW_MODEL' }, { endpoint, apiKey, model, ledgerPath });
+  if (!Number.isSafeInteger(votesPerPerspective) || votesPerPerspective < 1) {
+    throw Object.assign(new Error('votesPerPerspective 必须是正安全整数'), { code: 'usage.bad-argument' });
+  }
+  if (maxTokens !== null && maxTokens !== undefined && (!Number.isSafeInteger(maxTokens) || maxTokens < 0)) {
+    throw Object.assign(new Error('maxTokens 必须是非负安全整数'), { code: 'usage.bad-argument' });
+  }
+  if (!Number.isSafeInteger(maxOutputTokens) || maxOutputTokens < 1) {
+    throw Object.assign(new Error('maxOutputTokens 必须是正安全整数'), { code: 'usage.bad-argument' });
+  }
   return {
     model,
-    async review({ brief, images = [], loudness = null, film = null }) {
-      const text = [
-        `需求原文：${brief || '（没有给）'}`,
-        `片子：${JSON.stringify(film)}`,
-        `声音量测表：${loudness ? JSON.stringify(loudness) : '（没有声音量测）'}`,
-        `图：${images.map((img, i) => `第 ${i + 1} 张 ${img.name}`).join('；') || '（没有图）'}。联系表每格左上角是全片帧号；切点条带是切点前 3 帧到后 2 帧，红线是切口。`,
-      ].join('\n');
-      const content = [{ type: 'text', text }, ...images.map((img) => ({ type: 'image_url', image_url: { url: `data:image/png;base64,${readFileSync(img.path).toString('base64')}` } }))];
-      const res = await chat({ endpoint, apiKey, body: { model, messages: [{ role: 'system', content: REVIEW_SYSTEM }, { role: 'user', content }] } });
-      appendExternalLedger(ledgerPath, { role: 'reviewer', family: familyOf(res.model), model: res.model, inputTokens: res.usage.inputTokens, outputTokens: res.usage.outputTokens });
-      const answer = typeof res.message.content === 'string' ? res.message.content : (Array.isArray(res.message.content) ? res.message.content.map((p) => p?.text ?? '').join('') : '');
-      return { model: res.model, ...parseReview(answer, film?.output?.frames), usage: { ...res.usage, totalTokens: res.usage.inputTokens + res.usage.outputTokens } };
+    perspectives,
+    votesPerPerspective,
+    async review({
+      brief,
+      images = [],
+      loudness = null,
+      film = null,
+      filmId = null,
+      candidates = [],
+      budgetCheck = null,
+      maxTokens: reqMaxTokens = null,
+      maxOutputTokens: reqMaxOutputTokens = null,
+      signal = null,
+    } = {}) {
+      if (reqMaxTokens !== null && reqMaxTokens !== undefined && (!Number.isSafeInteger(reqMaxTokens) || reqMaxTokens < 0)) {
+        throw Object.assign(new Error('maxTokens 必须是非负安全整数'), { code: 'usage.bad-argument' });
+      }
+      if (reqMaxOutputTokens !== null && reqMaxOutputTokens !== undefined && (!Number.isSafeInteger(reqMaxOutputTokens) || reqMaxOutputTokens < 1)) {
+        throw Object.assign(new Error('maxOutputTokens 必须是正安全整数'), { code: 'usage.bad-argument' });
+      }
+      const resolvedFilmId = typeof filmId === 'string' && filmId.trim()
+        ? filmId.trim()
+        : (typeof film?.id === 'string' && film.id.trim() ? film.id.trim() : null);
+      const planned = perspectives.map((p) => ({
+        p,
+        votes: Number.isSafeInteger(p.votes) && p.votes > 0 ? p.votes : votesPerPerspective,
+      }));
+      // 在发首票前先校验候选目录（避免非法/重复候选 ID 浪费 token）
+      shuffleCandidatesForBallot(candidates, {
+        filmId: resolvedFilmId ?? 'film',
+        perspective: planned[0]?.p?.id ?? 'composition-readability',
+        voteIndex: 0,
+      });
+      let imageInputBound = 0;
+      const imageParts = images.map((img) => {
+        const buf = readFileSync(img.path);
+        imageInputBound += estimateImageTokens(buf, model);
+        return {
+          type: 'image_url',
+          image_url: { url: `data:image/png;base64,${buf.toString('base64')}` },
+        };
+      });
+      const totalBallots = planned.reduce((n, item) => n + item.votes, 0);
+      const effectiveMaxTokens = [maxTokens, reqMaxTokens]
+        .filter((v) => Number.isSafeInteger(v) && v >= 0)
+        .reduce((min, v) => Math.min(min, v), Infinity);
+      const configuredMaxOutput = reqMaxOutputTokens !== null && reqMaxOutputTokens !== undefined
+        ? Math.min(maxOutputTokens, reqMaxOutputTokens)
+        : maxOutputTokens;
+
+      const ballots = [];
+      const invalidBallots = [];
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let maxObservedInputTokens = 0;
+      let maxObservedTotalTokens = 0;
+      let lastModel = model;
+      let ballotIndex = 0;
+      let executedBallots = 0;
+      let stoppedReason = null;
+
+      const recordUsage = (usedModel, usage, perspectiveId, voteIdx) => {
+        const uIn = count(usage?.inputTokens);
+        const uOut = count(usage?.outputTokens);
+        const uTotal = uIn + uOut;
+        lastModel = usedModel;
+        inputTokens += uIn;
+        outputTokens += uOut;
+        maxObservedInputTokens = Math.max(maxObservedInputTokens, uIn);
+        maxObservedTotalTokens = Math.max(maxObservedTotalTokens, uTotal);
+        executedBallots++;
+        appendExternalLedger(ledgerPath, {
+          ...(resolvedFilmId ? { film: resolvedFilmId } : {}),
+          role: 'reviewer',
+          perspective: perspectiveId,
+          voteIndex: voteIdx,
+          family: familyOf(usedModel),
+          model: usedModel,
+          inputTokens: uIn,
+          outputTokens: uOut,
+        });
+        return uTotal;
+      };
+
+      for (const { p, votes } of planned) {
+        if (stoppedReason) break;
+        const issueKeys = Array.isArray(p.issueKeys) && p.issueKeys.length
+          ? p.issueKeys
+          : (L5_ISSUE_KEYS[p.id] ?? []);
+        for (let voteIndex = 0; voteIndex < votes; voteIndex++) {
+          if (signal?.aborted) {
+            stoppedReason = 'canceled';
+            break;
+          }
+
+          const orderedCandidates = shuffleCandidatesForBallot(candidates, {
+            filmId: resolvedFilmId ?? 'film',
+            perspective: p.id,
+            voteIndex,
+          });
+          const candidateOrder = orderedCandidates.map((c, idx) =>
+            (typeof c === 'string' ? c : String(c?.id ?? idx)).trim(),
+          );
+          const text = [
+            `审片视角：${p.title}（${p.id}）· 第 ${voteIndex + 1}/${votes} 票`,
+            `视角关注点：${p.focus}`,
+            `本视角封闭 issueKey 枚举（每条意见必填且仅限此表）：${issueKeys.join(', ')}`,
+            `等级词枚举：${L5_GRADES.join(' / ')}`,
+            `需求原文：${brief || '（没有给）'}`,
+            `片子：${JSON.stringify(film)}`,
+            `声音量测表：${loudness ? JSON.stringify(loudness) : '（没有声音量测）'}`,
+            ...(orderedCandidates.length
+              ? [
+                  `候选展示顺序（已按种子打乱）：${JSON.stringify(orderedCandidates)}`,
+                  'candidateGrades 仅填写以上候选 ID。',
+                ]
+              : ['本次为单片评审（无多候选对比），请省略 candidateGrades 字段或填 []。']),
+            `图：${images.map((img, i) => `第 ${i + 1} 张 ${img.name}`).join('；') || '（没有图）'}。联系表（contact）每格左上角是全片帧号；切点条带（cut）是切点前 3 帧到后 2 帧，红线是切口；keyframe-f<帧号> 为未缩放的原尺寸关键帧，请直接据以检查构图细节、主体清晰度与文字可读性。`,
+          ].join('\n');
+          const content = [{ type: 'text', text }, ...imageParts];
+          const systemContent = `[ROLE:reviewer][PERSPECTIVE:${p.id}][VOTE:${voteIndex + 1}]\n${DELEGATE_ROLES.reviewer.systemPrompt}`;
+
+          // 发票前计算可执行保守上界（文本 + 图像 + 输出上限，且不低于已观测单票高水位；首票绝不为 0）
+          const spentTokens = inputTokens + outputTokens;
+          const staticInputBound = estimateReviewTextInputTokens(systemContent, text) + imageInputBound;
+          const inputUpperBound = Math.max(staticInputBound, maxObservedInputTokens);
+          let requestMaxTokens = configuredMaxOutput;
+          if (Number.isFinite(effectiveMaxTokens)) {
+            const localRemaining = effectiveMaxTokens - spentTokens;
+            const minRequired = Math.max(inputUpperBound + 1, maxObservedTotalTokens);
+            if (localRemaining < minRequired) {
+              stoppedReason = 'budget.tokens';
+              break;
+            }
+            requestMaxTokens = Math.min(requestMaxTokens, Math.floor(localRemaining - inputUpperBound));
+            if (requestMaxTokens < 1) {
+              stoppedReason = 'budget.tokens';
+              break;
+            }
+          }
+          const estimatedNextTokens = Math.max(inputUpperBound + requestMaxTokens, maxObservedTotalTokens);
+
+          let settleReservation = null;
+          if (typeof budgetCheck === 'function') {
+            let decision;
+            try {
+              decision = await budgetCheck({
+                ballotIndex,
+                totalBallots,
+                spentTokens,
+                estimatedInputTokens: inputUpperBound,
+                maxOutputTokens: requestMaxTokens,
+                maxObservedTokens: maxObservedTotalTokens,
+                estimatedNextTokens,
+                perspective: p.id,
+                voteIndex,
+              });
+            } catch {
+              // 预算回调抛错时停止后续投票，保留已投出的全部有效票与累计 usage 交回 layerL5/work 记账
+              stoppedReason = 'budget.check-error';
+              break;
+            }
+            if (decision === false || (decision && typeof decision === 'object' && (decision.ok === false || decision.allow === false))) {
+              stoppedReason = (decision && typeof decision === 'object' && typeof decision.reason === 'string' && decision.reason.trim())
+                ? decision.reason.trim()
+                : 'budget.tokens';
+              break;
+            }
+            if (decision && typeof decision === 'object') {
+              if (typeof decision.settle === 'function') settleReservation = decision.settle;
+              if (decision.maxOutputTokens !== undefined) {
+                if (!Number.isSafeInteger(decision.maxOutputTokens) || decision.maxOutputTokens < 1) {
+                  try { settleReservation?.(0); } catch { /* 释放无用量预留失败时不覆盖停票原因 */ }
+                  stoppedReason = 'budget.tokens';
+                  break;
+                }
+                requestMaxTokens = Math.min(requestMaxTokens, decision.maxOutputTokens);
+              } else if (!settleReservation && Number.isFinite(decision.remaining)) {
+                const minRequired = Math.max(inputUpperBound + 1, maxObservedTotalTokens);
+                if (decision.remaining < minRequired) {
+                  stoppedReason = 'budget.tokens';
+                  break;
+                }
+                requestMaxTokens = Math.min(requestMaxTokens, Math.floor(decision.remaining - inputUpperBound));
+                if (requestMaxTokens < 1) {
+                  stoppedReason = 'budget.tokens';
+                  break;
+                }
+              }
+            }
+          }
+
+          let res = null;
+          let ballotTotalTokens = 0;
+          let chatFailed = false;
+          try {
+            res = await chat({
+              endpoint,
+              apiKey,
+              ...(signal ? { signal } : {}),
+              body: {
+                model,
+                max_tokens: requestMaxTokens,
+                messages: [
+                  { role: 'system', content: systemContent },
+                  { role: 'user', content },
+                ],
+              },
+            });
+            ballotTotalTokens = recordUsage(res.model, res.usage, p.id, voteIndex);
+          } catch (err) {
+            chatFailed = true;
+            if (err?.usage && (count(err.usage.inputTokens) > 0 || count(err.usage.outputTokens) > 0)) {
+              const errModel = typeof err.model === 'string' && err.model.trim() ? err.model : model;
+              ballotTotalTokens = recordUsage(errModel, err.usage, p.id, voteIndex);
+            }
+            if (signal?.aborted) {
+              stoppedReason = 'canceled';
+            } else {
+              invalidBallots.push({
+                perspective: p.id,
+                voteIndex,
+                reason: reviewFailure(err),
+              });
+            }
+          } finally {
+            if (settleReservation) {
+              try {
+                settleReservation(ballotTotalTokens);
+              } catch {
+                stoppedReason = stoppedReason ?? 'budget.check-error';
+              }
+            }
+          }
+
+          if (stoppedReason) break;
+          if (chatFailed) {
+            ballotIndex++;
+            continue;
+          }
+
+          const answer = typeof res.message.content === 'string'
+            ? res.message.content
+            : (Array.isArray(res.message.content) ? res.message.content.map((part) => part?.text ?? '').join('') : '');
+          try {
+            const parsedBallot = parseReview(answer, film?.output?.frames);
+            if (parsedBallot.candidateGrades) {
+              if (candidateOrder.length === 0) {
+                if (parsedBallot.candidateGrades.length === 0) {
+                  delete parsedBallot.candidateGrades;
+                } else if (
+                  parsedBallot.candidateGrades.length === 1
+                  && resolvedFilmId
+                  && parsedBallot.candidateGrades[0].id === resolvedFilmId
+                ) {
+                  const selfGrade = parsedBallot.candidateGrades[0].grade;
+                  if (parsedBallot.grade !== undefined && parsedBallot.grade !== selfGrade) {
+                    throw new ModelResponseError(
+                      `审片选票单片等级矛盾：grade（${parsedBallot.grade}）与 candidateGrades[${resolvedFilmId}]（${selfGrade}）不一致`,
+                    );
+                  }
+                  if (parsedBallot.grade === undefined) parsedBallot.grade = selfGrade;
+                  delete parsedBallot.candidateGrades;
+                } else {
+                  const bad = parsedBallot.candidateGrades.find((cg) => cg.id !== resolvedFilmId) ?? parsedBallot.candidateGrades[0];
+                  throw new ModelResponseError(`审片选票包含未知候选 ID：${bad.id}`);
+                }
+              } else {
+                const allowed = new Set(candidateOrder);
+                const seen = new Set();
+                for (const cg of parsedBallot.candidateGrades) {
+                  if (!allowed.has(cg.id)) throw new ModelResponseError(`审片选票包含未知候选 ID：${cg.id}`);
+                  if (seen.has(cg.id)) throw new ModelResponseError(`审片选票包含重复候选 ID：${cg.id}`);
+                  seen.add(cg.id);
+                }
+              }
+            }
+            ballots.push({
+              perspective: p.id,
+              voteIndex,
+              ...(candidateOrder.length ? { candidateOrder } : {}),
+              ...parsedBallot,
+            });
+          } catch (err) {
+            invalidBallots.push({
+              perspective: p.id,
+              voteIndex,
+              reason: reviewFailure(err),
+            });
+          }
+          ballotIndex++;
+        }
+      }
+
+      return {
+        model: lastModel,
+        ballots,
+        invalidBallots,
+        plannedBallots: totalBallots,
+        executedBallots,
+        ...(stoppedReason ? { stoppedReason } : {}),
+        usage: {
+          inputTokens,
+          outputTokens,
+          totalTokens: inputTokens + outputTokens,
+        },
+      };
     },
   };
 }
