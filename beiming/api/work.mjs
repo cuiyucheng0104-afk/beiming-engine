@@ -9,7 +9,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { loadQueue, openShotCache } from '../jobs/index.mjs';
-import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, pngSize, query } from '../observe/index.mjs';
+import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, pngSize, query, videoAliasEdge, videoNoiseResidual } from '../observe/index.mjs';
 import { artifactUrl } from './client.mjs';
 import { ROUTES } from './contract.mjs';
 import { DELEGATE_HARD_TOKEN_CAP } from './delegate.mjs';
@@ -21,7 +21,10 @@ import {
 import { blenderImage, blenderInfo, ensureLut, monotonicMs, threeImage } from './runtime.mjs';
 
 const TERMINAL = new Set(['succeeded', 'failed', 'canceled', 'stopped']);
-const METRICS = { deliverSpec, audioLoudness, blackFreezeDup, cutYdif, cutScene };
+const METRICS = {
+  deliverSpec, audioLoudness, blackFreezeDup, cutYdif, cutScene,
+  noiseResidual: videoNoiseResidual, aliasEdge: videoAliasEdge,
+};
 // 切点条带要的邻帧：切点前 3 帧到切点后 2 帧（observe 的 STRIP_OFFSETS）
 const CUT_BEFORE = 3, CUT_AFTER = 2;
 // 一张联系表的格宽（像素）
