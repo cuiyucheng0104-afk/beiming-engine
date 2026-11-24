@@ -173,16 +173,14 @@ test('坏包：下标越界、形状不符、字节数不符、NaN 与无穷、�
   assert.equal(checks.SP17(rec([{ status: 'ok' }])).length, 1);
 });
 
-/** 左右对称的包渲 8 个种子：每个种子左半与右半的平均亮度差；返回差的均值、标准误与第一个种子的原始输出 */
+/** 左右对称的包渲 8 个种子：每个种子左半与右半的平均亮度差；返回差的均值与标准误 */
 function halves(bin, dir) {
   const W = 128, H = 64, d = [];
-  let first = null;
   for (let seed = 1; seed <= 8; seed++) {
     const hdr = path.join(dir, '..', `${path.basename(dir)}-${path.basename(bin)}-s${seed}.raw`);
     const r = spawnSync(bin, ['render-pack', dir, '-o', `${hdr}.png`, '--hdr', hdr, '--spp', '64', '--width', String(W), '--height', String(H), '--no-denoise', '--presets', PRESETS], { encoding: 'utf8', env: { ...process.env, THREERT_SEED: String(seed) } });
     if (r.status !== 0) return { error: r.stderr };
     const b = fs.readFileSync(hdr);
-    first ??= b;
     const px = new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4);
     let left = 0, right = 0;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -194,39 +192,27 @@ function halves(bin, dir) {
   }
   const mean = d.reduce((a, b) => a + b, 0) / d.length;
   const se = Math.sqrt(d.reduce((a, b) => a + (b - mean) ** 2, 0) / (d.length - 1) / d.length);
-  return { mean, se, z: mean / se, first };
+  return { mean, se, z: mean / se };
 }
 
-const symmetric = { dir: null, ok: null };
+// 镜像的绕序翻转在画面上量不出来，所以没有「去掉翻转后左右两半变得不对称」这条显卡负对照：内核着色时把几何法线翻向来路、
+// 再让着色法线与它同侧（path/shaders/shader.wgsl 的 surface 与 surface_proc），不透明表面画出来与三角形的绕序无关。
+// 镜像由核对记录的 SP7 与下面这条的负对照（去掉翻转后 SP7 必须不过）守着。
 test('显卡：左右对称的包（右边是镜像件）左右两半平均亮度差在 3 个标准误以内；去掉镜像的绕序翻转后核对记录的 SP7 不过', (t) => {
   const bin = renderer(t);
   if (!bin) return;
-  symmetric.dir = fresh(symmetricPack()).dir;
-  const ok = halves(bin, symmetric.dir);
+  const dir = fresh(symmetricPack()).dir;
+  const ok = halves(bin, dir);
   if (ok.error) {
     if (!E2E) { t.skip(`渲不出来（多半是没有显卡）：${ok.error.trim().split('\n').at(-1)}`); return; }
     assert.fail(ok.error);
   }
-  symmetric.ok = ok;
   t.diagnostic(`镜像对：左右差 ${ok.mean.toExponential(3)}，标准误 ${ok.se.toExponential(3)}，z = ${ok.z.toFixed(2)}`);
   assert.ok(Math.abs(ok.z) <= 3, `z = ${ok.z}`);
-  assert.deepEqual(allChecks(record(bin, symmetric.dir)), {});
+  assert.deepEqual(allChecks(record(bin, dir)), {});
   const broken = renderer(t, NO_FLIP);
   if (!broken) return;
-  assert.equal(checks.SP7(record(broken, symmetric.dir)).length, 1, '去掉翻转之后镜像件那一行 SP7 必须不过');
-});
-
-// 还过不了：内核着色时把几何法线翻向来路、再让着色法线与它同侧（shaders/shader.wgsl 的 surface），不透明的表面画出来与三角形的
-// 绕序无关，去掉翻转画面只差在浮点末位（苹果显卡上实测：一个种子 24576 个数里 1273 个不同，相对差至多 3.1e-7）。
-// 场景包能写的材质只有不透明的 surface，在画面上量不出翻没翻。
-test('显卡负对照：去掉镜像的绕序翻转后，左右两半的平均亮度差超过 3 个标准误', { todo: '内核对不透明表面不看绕序，画面上量不出（见上面的注释）' }, (t) => {
-  if (!symmetric.ok) { t.skip('上一条没渲出来'); return; }
-  const broken = renderer(t, NO_FLIP);
-  if (!broken) return;
-  const neg = halves(broken, symmetric.dir);
-  if (neg.error) assert.fail(neg.error);
-  t.diagnostic(`负对照：左右差 ${neg.mean.toExponential(3)}，标准误 ${neg.se.toExponential(3)}，z = ${neg.z.toFixed(2)}；第一个种子的原始输出与不去掉翻转时${neg.first.equals(symmetric.ok.first) ? '逐字节相同' : '不全相同'}`);
-  assert.ok(Math.abs(neg.z) > 3, `z = ${neg.z}`);
+  assert.equal(checks.SP7(record(broken, dir)).length, 1, '去掉翻转之后镜像件那一行 SP7 必须不过');
 });
 
 test('从 Blender 导出的场景包（BEIMING_CORE_TEST_PACKS）：统计与 Blender 一侧逐项相等，核对记录过全部判定，首末两帧渲得出、没有 NaN', (t) => {
