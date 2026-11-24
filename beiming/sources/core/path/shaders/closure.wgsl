@@ -16,20 +16,20 @@
 // 求值的结果。Cycles 把漫反射与光泽分开累加；上游顶替不分，只填 sum（它的高光占比另走上游的私有量 state.legacy.split_frac）。
 struct BsdfEval {
     diffuse: vec3<f32>,             // 漫反射闭包的部分（已含余弦）。已定义
-    glossy: vec3<f32>,              // 光泽闭包的部分。已定义
-    sum: vec3<f32>,                 // 全部闭包之和（已含余弦）。已落地
-    pdf: f32,                       // 立体角概率密度：各闭包的密度按 sample_weight 加权平均。已落地
+    glossy: vec3<f32>,              // 光泽闭包的部分。已写未读（只在填它的函数里拿来填 sum）
+    sum: vec3<f32>,                 // 全部闭包之和（已含余弦）。已落地（纯金属闭包的采样读它算权重）
+    pdf: f32,                       // 立体角概率密度：各闭包的密度按 sample_weight 加权平均。已写未读
 };
 
 // 采样的结果。积分器把路径的通量乘上 weight。奇异（delta）的一瓣只有 weight 有意义：label 带 LABEL_SINGULAR，
 // pdf 为 0，不做多重重要性采样。
 struct BsdfSample {
     wo: vec3<f32>,                  // 采样到的方向；全 0 表示没采到
-    eval: BsdfEval,                 // 这个方向上的求值。上游顶替不填（它的求值直接算进了 weight）。已定义
+    eval: BsdfEval,                 // 这个方向上的求值。上游顶替不填（它的求值直接算进了 weight）。已写未读
     pdf: f32,                       // 这个方向的概率密度；奇异的一瓣为 0
     label: i32,                     // 采样标签（LABEL_*，位照 Cycles）
     sampled_roughness: vec2<f32>,   // 采样到的那个闭包的粗糙度（两个方向）
-    eta: f32,                       // 折射率比。上游顶替不填，恒为 1。已定义
+    eta: f32,                       // 折射率比。上游顶替不填，恒为 1。已写未读
     weight: vec3<f32>,              // 通量的权重：eval.sum / pdf（奇异的一瓣直接给出）
 };
 

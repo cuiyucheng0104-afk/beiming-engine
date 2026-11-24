@@ -94,6 +94,7 @@
 
 // An alpha-cutout triangle: its material has an alpha test (as the build flags TRI_MASKED; model instances' pool
 // triangles carry no flags).
+// 北冥：直接读材质记录（Material）的已知例外，上游留下的；清单在 closure.wgsl「读 legacy 的例外清单」。
 @if(hwrt) fn cutout(ti: u32) -> bool {
     return material_at(bitcast<u32>(attrs[ti].uv.w)).uv2.w > 0.0;
 }

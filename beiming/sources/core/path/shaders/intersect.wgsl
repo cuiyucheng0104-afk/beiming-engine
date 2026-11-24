@@ -382,6 +382,7 @@ fn glass_hit(h: Hit, d: vec3<f32>, t: f32) -> GlassAt {
     return glass_at(h, d, t);
 }
 
+// 北冥：直接读材质记录（Material）的已知例外，上游留下的；清单在 closure.wgsl「读 legacy 的例外清单」。
 fn glass_at(h: Hit, d: vec3<f32>, t: f32) -> GlassAt {
     var a = attrs[h.tri];
     var e1 = tri_verts[h.tri * 3u + 1u].xyz;

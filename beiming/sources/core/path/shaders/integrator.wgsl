@@ -139,7 +139,7 @@ struct Ray {
     tmin: f32,                      // 起始距离。已定义（上游靠把起点沿法线挪开来避开自己，见 offset_origin）
     tmax: f32,                      // 最远距离。已落地
     time: f32,                      // 时刻（运动模糊用）。已定义，恒 0
-    self_object: u32,               // 光线出发处的物体与图元，求交时跳过自己用。已定义，现在恒为 OBJECT_NONE
+    self_object: u32,               // 光线出发处的物体与图元，求交时跳过自己用。已写未读，现在恒为 OBJECT_NONE
     self_prim: u32,
     cone_w: f32,                    // Ray cone (Akenine-Moller et al. 2019) for texture LOD: footprint width at the origin
     cone_a: f32,                    // + spread angle. 已落地
