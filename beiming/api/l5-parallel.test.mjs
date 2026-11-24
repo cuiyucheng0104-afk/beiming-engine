@@ -842,3 +842,201 @@ test('L5-PAR-8 [R1-阻断#4 & #5]: 首票有 settle 不掩盖后续无 settle、
 
   rmSync(dir, { recursive: true, force: true });
 });
+
+test('L5-PAR-9 [R2-丙1]: 异步无 settle 过期授权在途票结算后必须触发重检，总支出严格 <= 240', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bm-l5-par-9-'));
+  const ledgerPath = join(dir, 'external-ledger.jsonl');
+  let upstreamCalls = 0;
+
+  const mockVision = createServer(async (req, res) => {
+    const body = await readJsonBody(req);
+    const { voteIndex } = parseVoteTag(body);
+    upstreamCalls++;
+    await new Promise((r) => setTimeout(r, voteIndex === 1 ? 45 : 5));
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      model: 'vision-stale-allow',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', opinions: [], suggestedPredicates: [] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 20 },
+    }));
+  });
+  await new Promise((r) => mockVision.listen(0, '127.0.0.1', r));
+
+  try {
+    const reviewer = createOpenAiVisionReviewer({
+      endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+      apiKey: 'test-key',
+      model: 'vision-stale-allow',
+      ledgerPath,
+      perspectives: [{ id: 'composition-readability', title: '构图与可读', focus: '构图', votes: 3 }],
+      concurrency: 3,
+    });
+
+    const ballot2ObservedSpent = [];
+    const active = new Map();
+    let seq = 0;
+    const res = await reviewer.review({
+      brief: 'R2 丙1 异步无 settle 过期授权重检',
+      images: [],
+      film: FILM,
+      filmId: FILM.id,
+      async budgetCheck({ ballotIndex, spentTokens }) {
+        if (ballotIndex === 2) {
+          ballot2ObservedSpent.push(spentTokens);
+          if (ballot2ObservedSpent.length === 1) {
+            // 第 3 票在 spentTokens=120 且第 2 票在途时开始检查，等第 2 票结算完成（inFlight 归零、spentTokens=240）后才返回无 settle 的 true
+            await new Promise((r) => setTimeout(r, 90));
+            return true;
+          }
+          return spentTokens + 120 <= 240;
+        }
+        if (spentTokens + 120 > 240) return false;
+        const id = ++seq;
+        active.set(id, 1);
+        return {
+          ok: true,
+          settle() { active.delete(id); },
+        };
+      },
+    });
+
+    assert.deepEqual(ballot2ObservedSpent, [120, 240], '过期无 settle 授权必须被 settledSeq 拦截并以最新 spentTokens=240 重检');
+    assert.equal(upstreamCalls, 2, '第 3 票重检被拒后严禁发出第 3 次上游调用');
+    assert.equal(res.ballots.length, 2);
+    assert.equal(res.stoppedReason, 'budget.tokens');
+    assert.equal(res.usage.totalTokens, 240);
+    assert.ok(res.usage.totalTokens <= 240, `总支出 ${res.usage.totalTokens} 不得超过 240`);
+    assert.equal(active.size, 0);
+
+    const extRows = readFileSync(ledgerPath, 'utf8').trim().split('\n').map(JSON.parse);
+    assert.equal(extRows.length, 2);
+    assert.equal(extRows.reduce((s, x) => s + x.inputTokens + x.outputTokens, 0), 240);
+  } finally {
+    await new Promise((r) => mockVision.close(r));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('L5-PAR-10 [R2-丙2]: 调度抛出冻结 Error 时通过真实 POST /review 保持外部账本与工作区用量均为 240 一致', async (t) => {
+  const skip = threeMediaSkip();
+  if (skip) return t.skip(skip);
+
+  const dir = mkdtempSync(join(tmpdir(), 'bm-l5-par-10-'));
+  const ledgerPath = join(dir, 'external-ledger.jsonl');
+  const frozenErr = Object.freeze(Object.assign(new Error('frozen scheduler error'), { code: 'E_FROZEN_SCHED' }));
+
+  const mockVision = createServer(async (req, res) => {
+    const body = await readJsonBody(req);
+    const { perspective } = parseVoteTag(body);
+    if (perspective === 'motion-rhythm') {
+      await new Promise((r) => setTimeout(r, 80));
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      model: 'vision-frozen-err',
+      choices: [{ message: { content: JSON.stringify({ grade: '好', opinions: [], suggestedPredicates: [] }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 20 },
+    }));
+  });
+  await new Promise((r) => mockVision.listen(0, '127.0.0.1', r));
+
+  const reviewer = createOpenAiVisionReviewer({
+    endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+    apiKey: 'test-key',
+    model: 'vision-frozen-err',
+    ledgerPath,
+    perspectives: [
+      { id: 'composition-readability', title: '首票探测', focus: '构图', votes: 1 },
+      { id: 'motion-rhythm', title: '在途延迟票', focus: '节奏', votes: 1 },
+      {
+        id: 'look-consistency',
+        votes: 1,
+        get title() { throw frozenErr; },
+        focus: '触发冻结异常',
+      },
+    ],
+    concurrency: 3,
+  });
+
+  const token = issueAccountToken(dir);
+  const api = await startServer({ dataDir: dir, port: 0, reviewer });
+  try {
+    const created = await (await fetch(`${api.url}/v1/films`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        template: 'title',
+        text: 'R2C2',
+        output: { size: [320, 180], fps: '10/1', frames: 6 },
+        budget: { tokens: 100_000 },
+      }),
+    })).json();
+    assert.equal(created.ok, true);
+    const filmId = created.data.film;
+    const wsToken = created.data.token;
+
+    const renderEnv = await (await fetch(`${api.url}/v1/films/${filmId}/render?wait=30`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ tier: 'draft' }),
+    })).json();
+    assert.equal(renderEnv.ok, true);
+    assert.equal(renderEnv.data.status, 'succeeded');
+
+    const reviewEnv = await (await fetch(`${api.url}/v1/films/${filmId}/review`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${wsToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ brief: 'R2 丙2 冻结异常两本账一致性测试' }),
+    })).json();
+    assert.equal(reviewEnv.ok, true);
+    assert.equal(reviewEnv.data.status, 'failed');
+    assert.equal(reviewEnv.data.reason, '视觉审片适配器调用失败');
+
+    const ledgerEnv = await (await fetch(`${api.url}/v1/films/${filmId}/ledger`, {
+      headers: { authorization: `Bearer ${wsToken}` },
+    })).json();
+    const wsTotal = ledgerEnv.data.items.reduce((s, x) => s + (x.modelTokens ?? 0), 0);
+    const extRows = readFileSync(ledgerPath, 'utf8').trim().split('\n').map(JSON.parse);
+    const extTotal = extRows.reduce((s, x) => s + x.inputTokens + x.outputTokens, 0);
+    assert.equal(extRows.length, 2);
+    assert.equal(extTotal, 240);
+    assert.equal(wsTotal, 240, '冻结 Error 包装后工作区账本必须与外部账本完全一致（均为 240）');
+
+    // 验证包装错误保留 cause/code 且兼容不可写 usage 与原始值异常
+    const frozenBadArg = Object.freeze(Object.assign(new Error('frozen bad arg'), { code: 'usage.bad-argument' }));
+    const reviewerWrap = createOpenAiVisionReviewer({
+      endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+      apiKey: 'test-key',
+      model: 'vision-frozen-err',
+      ledgerPath: join(dir, 'wrap-check.jsonl'),
+      perspectives: [
+        { id: 'composition-readability', title: '正常票', focus: '构图', votes: 1 },
+        { id: 'look-consistency', votes: 1, get title() { throw frozenBadArg; }, focus: '冻结带 code 异常' },
+      ],
+      concurrency: 2,
+    });
+    await assert.rejects(
+      () => reviewerWrap.review({ brief: 'wrap check', images: [], film: FILM, filmId: FILM.id }),
+      (err) => err instanceof Error && err.cause === frozenBadArg && err.code === 'usage.bad-argument' && err.usage?.totalTokens === 120,
+    );
+
+    const reviewerPrim = createOpenAiVisionReviewer({
+      endpoint: `http://127.0.0.1:${mockVision.address().port}/v1`,
+      apiKey: 'test-key',
+      model: 'vision-frozen-err',
+      ledgerPath: join(dir, 'prim-check.jsonl'),
+      perspectives: [
+        { id: 'composition-readability', title: '正常票', focus: '构图', votes: 1 },
+        { id: 'look-consistency', votes: 1, get title() { throw 'primitive-boom'; }, focus: '原始值异常' },
+      ],
+      concurrency: 2,
+    });
+    const primL5 = await layerL5({ reviewer: reviewerPrim, brief: 'primitive check', images: [], film: FILM, filmId: FILM.id });
+    assert.equal(primL5.status, 'failed');
+    assert.equal(primL5.usage?.totalTokens, 120);
+  } finally {
+    await api.close();
+    await new Promise((r) => mockVision.close(r));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

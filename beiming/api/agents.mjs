@@ -511,6 +511,38 @@ export async function runHandsOnAgent({
 
 class ModelResponseError extends Error {}
 
+function canAttachUsageProperty(err) {
+  if (typeof err !== 'object' || err === null || !Object.isExtensible(err)) return false;
+  let cur = err;
+  while (cur) {
+    const desc = Object.getOwnPropertyDescriptor(cur, 'usage');
+    if (desc) {
+      return 'value' in desc ? desc.writable === true : typeof desc.set === 'function';
+    }
+    cur = Object.getPrototypeOf(cur);
+  }
+  return true;
+}
+
+function attachUsageToLoopError(err, finalUsage) {
+  if (canAttachUsageProperty(err)) {
+    try {
+      err.usage = finalUsage;
+      return err;
+    } catch {
+      // 代理或异常 setter 拒写时回退包装新 Error，确保不丢用量
+    }
+  }
+  const wrapped = new Error(err instanceof Error ? err.message : String(err), { cause: err });
+  if (err && typeof err === 'object') {
+    for (const key of ['name', 'code', 'model', 'status']) {
+      if (key in err && err[key] !== undefined) wrapped[key] = err[key];
+    }
+  }
+  wrapped.usage = finalUsage;
+  return wrapped;
+}
+
 export const reviewFailure = error =>
   (error instanceof ModelResponseError || error?.code === 'usage.bad-argument')
     ? error.message
@@ -837,6 +869,7 @@ export function createOpenAiVisionReviewer({
       };
 
       let nextTaskIdx = 0;
+      let hasLoopErr = false;
       let loopErr = null;
       try {
         while (nextTaskIdx < totalBallots && !stoppedReason) {
@@ -959,8 +992,10 @@ export function createOpenAiVisionReviewer({
             }
             if (!hasSettle) {
               effectiveConcurrency = 1;
-              if (inFlight.size > 0) {
-                await Promise.allSettled([...inFlight]);
+              if (inFlight.size > 0 || settledSeq !== seqBefore) {
+                if (inFlight.size > 0) {
+                  await Promise.allSettled([...inFlight]);
+                }
                 continue;
               }
             }
@@ -1046,18 +1081,17 @@ export function createOpenAiVisionReviewer({
           }
         }
       } catch (err) {
+        hasLoopErr = true;
         loopErr = err;
       } finally {
         if (inFlight.size > 0) {
           await Promise.allSettled([...inFlight]);
         }
       }
-      if (loopErr) {
-        if (typeof loopErr === 'object' && loopErr !== null && Object.isExtensible(loopErr) && !loopErr.usage) {
-          const totalTokens = inputTokens + outputTokens;
-          if (totalTokens > 0) {
-            loopErr.usage = { inputTokens, outputTokens, totalTokens };
-          }
+      if (hasLoopErr) {
+        const totalTokens = inputTokens + outputTokens;
+        if (totalTokens > 0) {
+          throw attachUsageToLoopError(loopErr, { inputTokens, outputTokens, totalTokens });
         }
         throw loopErr;
       }
