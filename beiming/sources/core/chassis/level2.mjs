@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // 北冥 · 对拍阶梯第 2 级：我方 GGX 金属闭包与矩形面光接进路径追踪内核（build.mjs 从 ../path/ 编出的 core-render）后渲图对答案。
 //   上游自带的漫反射白炉用我们的程序跑要过，画面中央的均值与记下来的数相等；金属白炉 22 个读数对 Cycles（±0.5%）；
-//   矩形面光照漫反射平面对解析值（0.2% 以内，且在 3 个标准误或相对 1e-5 以内）；闭包、面光、接线各故意改错一项必须不过；同种子两遍逐字节相同。
+//   矩形面光照漫反射平面三种几何对解析值（32 个种子，0.2% 以内，且在 3 个标准误或相对 2e-6 以内）；闭包、面光、接线故意改错五项，每项必须不过；
+//   同种子两遍逐字节相同。
 //   node beiming/sources/core/chassis/level2.mjs [--out 报告.json]
 // 退出码：0 全部过；4 有一项不过；3 缺工具链（git、cargo、npm、网络、显卡）。
 // 渲染一律取内核的线性浮点原始输出（--hdr，曝光与后期之前），不降噪，萤火虫钳制放到不起作用。
@@ -18,11 +19,13 @@ import { polygonIrradiance } from '../fncheck/checks.mjs';
 import { COMMIT, OUT, PRESETS, UPSTREAM, buildRenderer, ensureNodeModules, ensureUpstream, missing } from './build.mjs';
 
 export const CYCLES = JSON.parse(fs.readFileSync(new URL('./cycles-furnace-metal.json', import.meta.url), 'utf8'));
-// analyticFloor：数值精度的底。两个面光读数的标准误小到相对 1e-6 以下，而同一串随机数在两块显卡上算出来系统地差
-// 2e-7 到 6e-7、两块显卡对解析值都有 3e-6 以内的固定偏离（来源没查清），只按标准误判时同一个内核换一组种子就有
-// 四分之一上下的概率不过（800 个种子分 100 组实测 28 组；按这条底判 0 组，各组偏离最大 5.2e-6）
-export const GATES = { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3, analyticFloor: 1e-5 };
+// analyticFloor：数值精度的底。解析场景的标准误可以小到相对 1e-6 以下，而单精度算出来的读数对解析值本来就有
+// 百万分之零点五以内的固定残差（同一串随机数在两块显卡上还系统地差 2e-7 到 6e-7），只按标准误判就是在判这点残差。
+// 底取相对 2e-6，约为残差的五倍。种子取 32 个：8 个种子估出来的标准误尾巴很重，均值超过 3 个标准误的概率约 2%
+export const GATES = { furnaceRel: 5e-3, analyticRel: 2e-3, analyticSE: 3, analyticFloor: 2e-6 };
 export const analyticOk = a => Math.abs(a.rel) <= GATES.analyticRel && (Math.abs(a.z) <= GATES.analyticSE || Math.abs(a.rel) <= GATES.analyticFloor);
+/** 超过了 3 个标准误、靠那条底才过的读数：输出里要提示 */
+export const passedByFloor = a => analyticOk(a) && Math.abs(a.z) > GATES.analyticSE;
 // 上游自带的漫反射白炉，画面中央的全精度均值，按显卡各记一个。同一台机器上渲染是确定的，记过的显卡要逐位相等。
 // 换显卡或驱动，着色器编出来的浮点运算次序不同，均值会差在第 8 位上（这两台之间差 0.9e-8），所以没记过的显卡
 // 按相对 1e-6 比。记法：在那台机器上跑一遍本脚本，把报告里 diffuseFurnace.mean 填进来。
@@ -42,8 +45,8 @@ export function discPixels(w, h, r) {
   return out;
 }
 
-/** 亮度 L 的单面朗伯矩形灯（灯心 center，半边向量 u、v）照 z = 0 上反照率 albedo 的朗伯平面，[-half, half]² 上出射辐亮度的均值（中点求积，双精度） */
-export function rectMean({ L, albedo, light: { center: c, u, v }, half, n = 256 }) {
+/** 亮度 L 的单面朗伯矩形灯（灯心 center，半边向量 u、v）照 z = 0 上反照率 albedo 的朗伯平面，[-half, half]² 上出射辐亮度的均值（中点求积，双精度；n = 1024 时求积误差在相对 4e-8 以下；256 时近灯是 6.8e-7，与读数的残差同量级） */
+export function rectMean({ L, albedo, light: { center: c, u, v }, half, n = 1024 }) {
   const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => c.map((x, k) => x + a * u[k] + b * v[k]));
   let s = 0;
   for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) s += polygonIrradiance([half * ((2 * i + 1) / n - 1), half * ((2 * j + 1) / n - 1), 0], [0, 0, 1], corners);
@@ -93,6 +96,10 @@ export default function () {
  *  像素到平面是线性映射，像素内均匀抖动，所以区域的像素均值就是平面上那个方块里出射辐亮度的均值；方块对称，灯左右翻转读数不变 */
 export const RECT = { L: 10, albedo: 0.5, size: 0.5, image: 64, region: 16, Zc: 3, halfView: 0.4 };
 const GEOMS = [{ name: '正对', position: [0, 0, 1] }, { name: '斜向', position: [0.8, 0, 0.9] }];
+// 灯高 0.25 m 正对。射线起点沿法线挪开的那一点距离与灯距的比，它比上面两种大：材质采样一侧要是从挪开的起点算矩形灯，
+// 这个读数偏高万分之二（上面两种只有百万分之二与千万分之四）。它的噪声也大（32 个种子的标准误是相对 5e-6 上下），
+// 只进第 2 级的判定，不进回归基线逐位比的那 24 个读数
+const NEAR = { name: '近灯', position: [0, 0, 0.25] };
 
 /** three.js 的 lookAt（灯与相机的 -z 指向目标、上方向 +y）定出的灯面半边向量 */
 function lightAxes(position, size) {
@@ -178,7 +185,7 @@ async function renderSeeds(bin, seeds, jobs) {
 // ---------------------------------------------------------------------------------------------------------------
 
 const FURNACE = { spp: 1024, seeds: [1, 2, 3, 4], D: [100, 30] };
-const ANALYTIC = { spp: 4096, seeds: [1, 2, 3, 4, 5, 6, 7, 8] };
+const ANALYTIC = { spp: 4096, seeds: Array.from({ length: 32 }, (_, k) => k + 1) };
 
 export async function furnace(bin, { D = FURNACE.D[0], seeds = FURNACE.seeds, rows = null } = {}) {
   const disc = discPixels(128, 128, CYCLES.image.inner_disc_frac * CYCLES.image.sphere_radius_px);
@@ -238,9 +245,12 @@ function upstreamTest(bin) {
 }
 
 // 负对照：在源码的拷贝上各故意改错一项（build.mjs 的 inject；file 相对 beiming/sources/core/，工作树不动）。
-// near 是这项改错该量到的最大相对差：读数要在门外，还要落在 near 的 ±5% 之内。改错的读数挪了位置，说明接线变了
-// （纯金属没采到方向的样本曾经漏进白炉，这一项从 0.557 变成 1.20，照旧在门外，当时没有人发现）
-export const negativeOk = n => Math.abs(n.worstRel) > n.gate && Math.abs(n.worstRel / n.near - 1) <= 0.05;
+// near 是这项改错该量到的最大相对差：读数要在门外，还要落在 near 的 ±5% 之内（fine 的两项 ±30%）。改错的读数挪了位置，说明接线变了
+// （纯金属没采到方向的样本曾经漏进白炉，这一项从 0.557 变成 1.20，照旧在门外，当时没有人发现）。
+// fine 的两项改错很小（十万分之二、万分之二），在 0.2% 之内：它们要的是解析场景的整条判法（analyticOk）判不过，
+// 守的是那条底没有把这个量级的错放过去。它们的读数里噪声与数值残差占百分之几到十几，所以容差放到 ±30%
+export const negativeTolerance = n => (n.fine ? 0.3 : 0.05);
+export const negativeOk = n => (n.fine ? n.rows.some(r => !analyticOk(r)) : Math.abs(n.worstRel) > n.gate) && Math.abs(n.worstRel / n.near - 1) <= negativeTolerance(n);
 const NEGATIVE = [
   {
     target: 'closure', name: '闭包：求值的遮蔽项漏掉出射方向的 lambda（G2 写成 G1）',
@@ -256,6 +266,16 @@ const NEGATIVE = [
     target: 'mis', name: '接线：材质采样打到矩形纯光时不取光（多重重要性采样只剩光源一侧的权重）',
     inject: { file: 'path/shaders/integrator.wgsl', from: 'if (!LIVE && state.legacy.bm_surf) {', to: 'if (false && state.legacy.bm_surf) {' },
     run: async bin => analytic(bin, { seeds: [1, 2] }), gate: GATES.analyticRel, near: -4.87e-3,
+  },
+  {
+    target: 'area_light_fine', name: '面光：辐射通量到辐亮度的换算多乘十万分之二',
+    inject: { file: 'shaders/area_light.wgsl', from: 'ls.eval_fac = M_1_PI_F * invarea;', to: 'ls.eval_fac = M_1_PI_F * invarea * 1.00002;' },
+    run: async bin => analytic(bin), fine: true, gate: GATES.analyticFloor, near: 2.0e-5,
+  },
+  {
+    target: 'mis_origin', name: '接线：材质采样打到矩形纯光时从沿法线挪开的射线起点算（两侧的权重配不平）',
+    inject: { file: 'path/shaders/integrator.wgsl', from: 'bm_rect_hits(state.legacy.bm_x, ray.D,', to: 'bm_rect_hits(ray.P, ray.D,' },
+    run: async bin => analytic(bin, { geoms: [NEAR] }), fine: true, gate: GATES.analyticFloor, near: 2.0e-4,
   },
 ];
 
@@ -296,14 +316,14 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   const camera = { D: FURNACE.D, fovNote: '过球心平面上的半高 1.25（正交 ortho_scale 2.5 的一半）', maxRelChange: Math.max(...main.rows.map((r, k) => Math.abs(near.rows[k].ours / r.ours - 1))) };
 
   say('矩形面光照漫反射平面');
-  const ana = await analytic(ours.bin);
+  const ana = await analytic(ours.bin, { geoms: [...GEOMS, NEAR] });
 
   say('负对照');
   const negative = [];
   for (const n of NEGATIVE) {
     const b = buildRenderer({ inject: [n.inject] });
     const rows = await n.run(b.bin);
-    negative.push({ target: n.target, name: n.name, inject: n.inject, gate: n.gate, near: n.near, rows, worstRel: rows.reduce((w, r) => (Math.abs(r.rel) > Math.abs(w) ? r.rel : w), 0) });
+    negative.push({ target: n.target, name: n.name, inject: n.inject, gate: n.gate, near: n.near, fine: n.fine === true, rows, worstRel: rows.reduce((w, r) => (Math.abs(r.rel) > Math.abs(w) ? r.rel : w), 0) });
   }
 
   say('同一种子渲两遍');
@@ -358,7 +378,8 @@ export const command = defineCommand({
     fs.writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
     for (const r of report.furnace.rows) ctx.out(`${Math.abs(r.rel) <= GATES.furnaceRel ? '✓' : '✗'} 白炉 ${r.distribution.padEnd(9)} ${r.roughness}  我方 ${r.ours.toFixed(6)} ± ${r.se.toExponential(1)}  Cycles ${r.cycles.toFixed(6)}  相对差 ${r.rel.toExponential(2)}`);
     for (const a of report.analytic) ctx.out(`${analyticOk(a) ? '✓' : '✗'} 面光 ${a.name}  我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(1)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
-    for (const n of report.negative) ctx.out(`${negativeOk(n) ? '✓' : '✗'} 负对照 ${n.name}：最大相对差 ${n.worstRel.toExponential(2)}（该在 ${n.near.toExponential(2)} 的 ±5% 之内）`);
+    for (const a of report.analytic.filter(passedByFloor)) ctx.out(`提示 面光 ${a.name} 超过了 ${GATES.analyticSE} 个标准误，是按数值精度的底（相对 ${GATES.analyticFloor}）过的`);
+    for (const n of report.negative) ctx.out(`${negativeOk(n) ? '✓' : '✗'} 负对照 ${n.name}：最大相对差 ${n.worstRel.toExponential(2)}（该在 ${n.near.toExponential(2)} 的 ±${negativeTolerance(n) * 100}% 之内${n.fine ? '，且解析场景的判法判它不过' : ''}）`);
     ctx.out(`各项：${Object.entries(report.checks).map(([k, v]) => `${k} ${v ? '过' : '不过'}`).join('，')}；报告：${file}`);
     const bad = Object.keys(report.checks).filter(k => !report.checks[k]);
     return { data: report, outputs: [{ path: file, kind: 'report' }], ...(bad.length && { error: { code: 'contract.chassis-level2', message: `不过：${bad.join('、')}`, hint: `明细见 ${file}` } }) };
