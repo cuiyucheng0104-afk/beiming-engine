@@ -182,8 +182,8 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
     // 总大于 Fss、s 被夹成 0，与对的 s（几个百分点）只在粗糙时差得出 1e-4，10 万组里没有超出的组，所以它不在名单里
     ['return sqr((ior - 1.0) / (ior + 1.0));', 'return (ior - 1.0) / (ior + 1.0);', ['F0_from_ior', 'generalized_schlick_fresnel', 'microfacet_fresnel_generalized_schlick',
       'bsdf_microfacet_eval_ggx_generalized_schlick', 'bsdf_microfacet_ggx_eval_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_sample_generalized_schlick'], 1, 1],
-    // 层间权重：1 − max(albedo/weight) 写成 1 − 平均
-    ['return weight * saturate(1.0 - reduce_max(safe_divide_color(layer_albedo, weight)));', 'return weight * saturate(1.0 - average(safe_divide_color(layer_albedo, weight)));', ['closure_layering_weight'], 6, 3],
+    // 层间权重：剩下的权重多乘 0.99（标准为 0 的组被测也是 0，最差一组落在标准不为 0 的组上）
+    ['return weight * saturate(1.0 - reduce_max(safe_divide_color(layer_albedo, weight)));', 'return 0.99 * weight * saturate(1.0 - reduce_max(safe_divide_color(layer_albedo, weight)));', ['closure_layering_weight'], 6, 3],
     // 漫反射：求值的 1/π 改成 0.32
     ['let cosNO = max(dot(N, wo), 0.0) * M_1_PI_F;', 'let cosNO = max(dot(N, wo), 0.0) * 0.32;', ['bsdf_diffuse_eval'], 6, 4],
     // 发光值：双面改成单面（只认几何法线那一侧）
