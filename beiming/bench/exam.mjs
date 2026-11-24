@@ -1292,7 +1292,8 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
         .flatMap((s) => (Array.isArray(s?.args?.requiredEventIds) ? s.args.requiredEventIds : []))
         .filter((id) => typeof id === 'string' && id.length > 0);
       const baseIdSet = new Set(posRefData.beatEvents.map((e) => e.id));
-      const targetId = [...reqIds].reverse().find((id) => baseIdSet.has(id));
+      const targetId = [...reqIds].reverse().find((id) => baseIdSet.has(id))
+        ?? posRefData.beatEvents[posRefData.beatEvents.length - 1]?.id;
       if (targetId) {
         const usedIds = new Set([
           ...posRefData.beatEvents.map((e) => e.id),

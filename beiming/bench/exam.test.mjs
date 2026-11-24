@@ -837,4 +837,22 @@ test('exam-14 回归：30-1 追加合法可选事件不误清零、28-1 单分�
     assert.equal(resCtrl.pass, false, label);
     assert.equal(resCtrl.score, 0, label);
   }
+
+  // 4. 省略 requiredEventIds 的旧版 30-1 题面不得跳过“漏交必需事件”负对照而假绿（R3 回归）
+  const legacy30 = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-2-a/30-1.json'), 'utf8'));
+  delete legacy30.scoring[0].args.requiredEventIds;
+  delete legacy30.scoring[1].args.requiredEventIds;
+  const legacyDir = makeTempDir(t);
+  const legacyEvalRoot = makeTempDir(t);
+  fs.writeFileSync(path.join(legacyDir, '30-1.json'), JSON.stringify(legacy30, null, 2));
+  const rLegacy = await runExam({ questionsDir: legacyDir, evalRoot: legacyEvalRoot, outDir: null });
+  assert.equal(rLegacy.ok, false);
+  assert.equal(rLegacy.exitCode, 1);
+  assert.equal(rLegacy.questions[0].pass, false);
+  assert.equal(rLegacy.questions[0].score, 0);
+  assert.equal(rLegacy.questions[0].negativeControlsChecked, 5);
+  assert.equal(rLegacy.questions[0].negativeControlsRejected, 4);
+  const legacyRes = findResultJson(legacyEvalRoot);
+  assert.equal(legacyRes.pass, false);
+  assert.equal(legacyRes.score, 0);
 });
