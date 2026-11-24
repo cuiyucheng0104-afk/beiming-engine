@@ -11,6 +11,7 @@ pub mod gpu;
 pub mod heap;
 pub mod ltree;
 pub mod merged;
+pub mod pack;
 pub mod post;
 pub mod procasset;
 pub mod scene;
