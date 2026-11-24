@@ -5,7 +5,7 @@
   "backend": "Vulkan",
   "driver": "NVIDIA"
  },
- "kernel": "68f5885442f2d486",
+ "kernel": "00070a3ebeee6df3",
  "upstreamCommit": "c946cc96bdb08979224e851a7fc67a066b1b456b",
  "level2": {
   "白炉 GGX 0.05": 0.9999892555619158,
@@ -30,8 +30,8 @@
   "白炉 MULTI_GGX 0.80": 0.999893880927452,
   "白炉 MULTI_GGX 0.90": 0.9998022287619763,
   "白炉 MULTI_GGX 1.00": 0.9998896195747989,
-  "面光 正对": 0.3632549644826213,
-  "面光 斜向": 0.1937598130389233
+  "面光 正对": 0.3632535801953054,
+  "面光 斜向": 0.19375955820214585
  },
  "upstream": {
   "sw": {
@@ -109,7 +109,7 @@
     "light/many-shadowed": "pass dd80bba402182cb89089d8450ad884939b4f0bcbc8764051526c577cef5b8feb",
     "light/point-inverse-square": "pass fdca2970e96215b145356a207bcb878dfbde8c71bf283b7b557ce0a365d741bc",
     "light/rect-card-luminance": "pass 194df8b5ba067b3a615cdea5f22fdfde00cdfcdfa795cfe1be48c469dbe81c5c",
-    "light/rect-irradiance": "pass 2d34575390a5e2feb4867938ed38b4ca16869a404280b182179bb6701fd0601a",
+    "light/rect-irradiance": "pass 56c5d48189b4170767d98d56e12351e151acf394203e06708d368ed427b02b74",
     "light/shown-in-place-live": "unsupported",
     "light/spot-cone": "pass eea5bdf0ec8d2540734966301535d5139869e81853c2939f0723d3b81c77d0c4",
     "light/sun-point-live": "unsupported",
@@ -355,7 +355,7 @@
     "light/many-shadowed": "pass 473f870746d846aa3dc1f3b5a5b5d782ca357470d74a472fce8ded6656805c8b",
     "light/point-inverse-square": "pass b68222fed3642abf66f894a6615a6728818e3b7141754fa0b722edf05e73d473",
     "light/rect-card-luminance": "pass 194df8b5ba067b3a615cdea5f22fdfde00cdfcdfa795cfe1be48c469dbe81c5c",
-    "light/rect-irradiance": "pass d2240fef26355d1c2aacce6b40a423deffdcf877ee9fed154a606f6120db7dbb",
+    "light/rect-irradiance": "pass 76fc4ce3a191f566da507a29938a93226dc8862f93c780b927a0c04eebbb03df",
     "light/shown-in-place-live": "unsupported",
     "light/spot-cone": "pass 522ef7b80b5d6f8fa4c65e969e203fcf4e3634f21bf3f40d85a2ec1ace28f084",
     "light/sun-point-live": "unsupported",
@@ -528,7 +528,7 @@
   }
  },
  "cargo": {
-  "passed": 93,
+  "passed": 97,
   "failed": 0,
   "ignored": 1,
   "failures": []
@@ -538,18 +538,18 @@
   "width": 1920,
   "height": 1080,
   "spp": 256,
-  "firstFrameMs": 2137.1,
-  "steadyS": 0.1232,
+  "firstFrameMs": 2124.5,
+  "steadyS": 0.12409999999999999,
   "samples": {
    "firstFrameMs": [
-    2191.4,
-    2127.4,
-    2137.1
+    2197.8,
+    2124.5,
+    2040.2
    ],
    "steadyS": [
-    0.1231,
-    0.12329999999999999,
-    0.1232
+    0.1251,
+    0.12409999999999999,
+    0.12340000000000001
    ]
   }
  }

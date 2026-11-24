@@ -5,7 +5,7 @@
   "backend": "Metal",
   "driver": ""
  },
- "kernel": "68f5885442f2d486",
+ "kernel": "00070a3ebeee6df3",
  "upstreamCommit": "c946cc96bdb08979224e851a7fc67a066b1b456b",
  "level2": {
   "白炉 GGX 0.05": 0.9999891810918227,
@@ -30,8 +30,8 @@
   "白炉 MULTI_GGX 0.80": 0.9998939999581776,
   "白炉 MULTI_GGX 0.90": 0.9998022623275339,
   "白炉 MULTI_GGX 1.00": 0.999889748723404,
-  "面光 正对": 0.3632550383772468,
-  "面光 斜向": 0.1937599292723462
+  "面光 正对": 0.36325365200900706,
+  "面光 斜向": 0.19375965033577813
  },
  "upstream": {
   "sw": {
@@ -109,7 +109,7 @@
     "light/many-shadowed": "pass 42a2ceadc0c123e816ed444158e2c739b3b91f50f869cf9870f8817ebedc5b25",
     "light/point-inverse-square": "pass c496debfdc63fa817385e4048ed1d2077b1ff93d233d3dd4f019256e4a75aa6d",
     "light/rect-card-luminance": "pass 194df8b5ba067b3a615cdea5f22fdfde00cdfcdfa795cfe1be48c469dbe81c5c",
-    "light/rect-irradiance": "pass d715f49c3b3848a6dfbbd0e8360976eff4a1a3bae8379340cf2f2ec115718257",
+    "light/rect-irradiance": "pass 9796881ad074901fd072380bc8d4cdc0ab9d5c793204b4e6e03dda3dc9ba528f",
     "light/shown-in-place-live": "unsupported",
     "light/spot-cone": "pass 74a0975624fb40cee23e8bfcbb5eae68cc9dae4c2fc3d89b10cafb1f11a66656",
     "light/sun-point-live": "unsupported",
@@ -359,7 +359,7 @@
     "light/many-shadowed": "pass 035906469ada4898e9d95ed33f468bb40c9b26db2b23993a48e87e45ba64f868",
     "light/point-inverse-square": "pass 53a11407f3045dd33f7b4710264a9e128f7851cfbf3adf346fe510fe4a057d27",
     "light/rect-card-luminance": "pass 194df8b5ba067b3a615cdea5f22fdfde00cdfcdfa795cfe1be48c469dbe81c5c",
-    "light/rect-irradiance": "pass b92facb302092f124ab3a9e712c5604ebfb5df2f40901af93390e68512eb0083",
+    "light/rect-irradiance": "pass 01e996067c662aebb296c447ea56f422589992179c7567dddc09eae0c58e6ab3",
     "light/shown-in-place-live": "unsupported",
     "light/spot-cone": "pass c6bf3b61cc526e0fb08e5bdfe97fc5c26fdf564e6d8412255c9cabb062e361ae",
     "light/sun-point-live": "unsupported",
@@ -532,7 +532,7 @@
   }
  },
  "cargo": {
-  "passed": 93,
+  "passed": 97,
   "failed": 0,
   "ignored": 1,
   "failures": []
@@ -542,18 +542,18 @@
   "width": 1920,
   "height": 1080,
   "spp": 256,
-  "firstFrameMs": 1294.8,
-  "steadyS": 1.5991,
+  "firstFrameMs": 1286.9,
+  "steadyS": 1.7209,
   "samples": {
    "firstFrameMs": [
-    1294.8,
-    1294.8,
-    1297.8
+    1265.5,
+    1298.1,
+    1286.9
    ],
    "steadyS": [
-    1.6,
-    1.5987,
-    1.5991
+    1.6905,
+    1.7214,
+    1.7209
    ]
   }
  }
