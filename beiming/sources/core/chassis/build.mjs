@@ -1,7 +1,7 @@
 // 渲染底盘的构建：渲染程序 core-render 从仓库里的 beiming/sources/core/path/ 编（cargo build --locked --release），
 // 构建目录与编好的程序都放在仓库根被忽略的 out/chassis/ 下，不往源码目录里写东西。内核用 include_str! 直接读
 // beiming/sources/core/shaders/ 下的四个着色器，仓库里只有那一份；编之前核对这一点。编好的程序按源码内容的摘要另存，
-// 摘要没变就不重编。负对照要故意改错源码时，把源码拷到 out/ 下的临时目录里改、在那里编，不动工作树里被跟踪的文件。
+// 摘要没变就不重编；摘要变了，先清掉构建目录里内核这个包上次的产物再编（cargo 只看文件时间，见 freshTarget）。负对照要故意改错源码时，把源码拷到 out/ 下的临时目录里改、在那里编，不动工作树里被跟踪的文件。
 // 上游 ThreeRT（MIT，版权人 Meshy LLC）只在场景入口上还用得着：按固定提交取到 out/chassis/ 的缓存，核对提交号，
 // 只用它的场景打包工具、场景库、自带的测试脚本与素材根目录；渲染程序不从那里编。来源见 ../path/PROVENANCE.md。
 // 缺工具（git、cargo、npm、网络）时抛出的错误带 .missing，测试据此跳过。
@@ -109,6 +109,29 @@ export function singleCopyProblems() {
   ];
 }
 
+/** 进构建的全部文件内容（加上负对照的改错）的摘要：编好的程序按它命名 */
+export function sourceKey(inject = []) {
+  return sha256(JSON.stringify([inputFiles().map(f => [f, sha256(fs.readFileSync(path.join(CORE, f)))]), inject])).slice(0, 16);
+}
+
+/**
+ * 保证构建目录 `target` 里内核这个包的产物是从摘要为 `key` 的源码编的。cargo 按文件时间判断要不要重编：源码的时间倒退时
+ * （比如把一个较早的提交导出到编过较新提交的目录上，文件时间是提交时间），它认为什么都没变，留下的还是上一份源码的程序
+ * 与测试。所以构建目录里记着上次编的是哪一份源码；不是这一份，就先清掉这个包的产物（两个编译档都清，依赖不动）。
+ * 这一道只在用这份脚本构建时有效：回放加进它之前的提交时，要用现在的脚本，或用会更新文件时间的办法导出。
+ */
+export function freshTarget(target, key, cwd = KERNEL) {
+  const stamp = path.join(target, '.beiming-source');
+  if (fs.existsSync(stamp) && fs.readFileSync(stamp, 'utf8') === key) return;
+  // cargo clean -p 一次只清一个编译档的目录：库测试那一档（debug）与出程序的那一档（release）各清一次
+  for (const profile of [[], ['--release']]) {
+    const r = sh(cargoPath(), ['clean', '--locked', ...profile, '-p', 'beiming-core-path'], { cwd, stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, CARGO_TARGET_DIR: target } });
+    if (r.status !== 0) throw new Error(`清不掉内核上次编的产物：\n${r.stderr.split('\n').slice(-10).join('\n')}`);
+  }
+  fs.mkdirSync(target, { recursive: true });
+  fs.writeFileSync(stamp, key);
+}
+
 /**
  * 编出渲染程序，返回 { bin, key, shaders }。inject 是负对照用的故意改错：[{ file: 相对 beiming/sources/core/ 的路径, from, to }]，
  * from 必须恰好出现一次；有 inject 时在 out/ 下的拷贝里改和编，工作树不动。
@@ -118,7 +141,7 @@ export function buildRenderer({ inject = [] } = {}) {
   if (problems.length) throw new Error(`拒绝编译：${problems.join('；')}`);
   const files = inputFiles();
   const shaders = SHADERS.map(f => ({ file: `shaders/${f}`, sha256: sha256(fs.readFileSync(path.join(CORE, 'shaders', f))) }));
-  const key = sha256(JSON.stringify([files.map(f => [f, sha256(fs.readFileSync(path.join(CORE, f)))]), inject])).slice(0, 16);
+  const key = sourceKey(inject);
   const bin = path.join(OUT, 'bin', `core-render-${key}${EXE}`);
   if (fs.existsSync(bin)) return { bin, key, shaders, built: false };
 
@@ -138,6 +161,7 @@ export function buildRenderer({ inject = [] } = {}) {
       fs.writeFileSync(p, text.replace(from, to));
     }
   }
+  freshTarget(target, key, path.join(root, 'path'));
   const r = sh(cargoPath(), ['build', '--locked', '--release', '--bin', 'core-render'], { cwd: path.join(root, 'path'), stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, CARGO_TARGET_DIR: target } });
   if (r.status !== 0) throw new Error(`内核编不过：\n${r.stderr.split('\n').slice(-40).join('\n')}`);
   fs.mkdirSync(path.dirname(bin), { recursive: true });

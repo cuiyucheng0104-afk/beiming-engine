@@ -6,8 +6,8 @@
 @if(hwrt) @group(0) @binding(19) var acc: acceleration_structure;
 
 @if(hwrt) fn trace(o: vec3<f32>, d: vec3<f32>, tmax_in: f32, mode: u32) -> Hit {
-    // Ray tracing off (pathtrace.wgsl `rays_off`): past the camera ray, every ray misses.
-    if (rays_off) { return Hit(tmax_in, 0xffffffffu, 0.0, 0.0, NO_INST); }
+    // Ray tracing off (pathtrace.wgsl `state.legacy.rays_off`): past the camera ray, every ray misses.
+    if (state.legacy.rays_off) { return Hit(tmax_in, 0xffffffffu, 0.0, 0.0, NO_INST); }
     let mask = select(0xffu, 1u, mode == TRACE_SHADOW);
     let any = mode != TRACE_CLOSEST;
     // (A scene without cutouts: one query. A feature bit: the kernel has this or what follows, not both.)
@@ -40,8 +40,8 @@
     for (var k = 0u; k < steps + u32(any); k++) {
         let h = trace_opaque(o + d * t0, d, tmax_in - t0, mask, first);
         if (h.tri == 0xffffffffu) {
-            // (A shadow ray comes here in order only past a cutout that let it through: `shadow_hole`.)
-            if (any && !first) { shadow_hole = true; }
+            // (A shadow ray comes here in order only past a cutout that let it through: `state.legacy.shadow_hole`.)
+            if (any && !first) { state.legacy.shadow_hole = true; }
             return Hit(tmax_in, 0xffffffffu, 0.0, 0.0, NO_INST);
         }
         let t = t0 + h.t;
@@ -94,6 +94,7 @@
 
 // An alpha-cutout triangle: its material has an alpha test (as the build flags TRI_MASKED; model instances' pool
 // triangles carry no flags).
+// 北冥：直接读材质记录（Material）的已知例外，上游留下的；清单在 closure.wgsl「读 legacy 的例外清单」。
 @if(hwrt) fn cutout(ti: u32) -> bool {
     return material_at(bitcast<u32>(attrs[ti].uv.w)).uv2.w > 0.0;
 }
