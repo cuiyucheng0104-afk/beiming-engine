@@ -1,0 +1,21 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "23-2-disable-card",
+  "questionId": "23-2",
+  "kind": "disable-card",
+  "disabledCards": [
+    "time.cut-grid"
+  ],
+  "seed": null,
+  "description": "关掉拍点网格切点对齐卡：章节起点不吸附到 120 BPM（周期 500 毫秒、相位 480 毫秒）拍点网格上，第 3 个章节起点落在 8083 毫秒（离 7980 毫秒拍点晚 103 毫秒，约 2.5 帧）。配乐音轨本身不变，55 个强起音里仍有 47 个（85.5%）落在拍点 30 毫秒内（第二条判分线照过）。",
+  "perturbation": {
+    "chapterTrigger": "unquantized"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "beat.onset-hit",
+      "why": "第 3 个章节起点离最近拍点差 103 毫秒（约 2.5 帧），超过 1 帧（41.67 毫秒）容差"
+    }
+  ]
+}

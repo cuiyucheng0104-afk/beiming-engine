@@ -1,0 +1,28 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "28-1-disable-card",
+  "questionId": "28-1",
+  "kind": "disable-card",
+  "disabledCards": [
+    "camera.orbit",
+    "camera.fit"
+  ],
+  "seed": null,
+  "description": "关掉取景拟合和环绕闭合两张卡：主体高度放大到 720 像素（占画面高度 87.4%，上下留白只剩 6.3%），环绕只转 240° 就结束。像素估出的包围盒和该帧元数据本身仍然对齐（第三条判分线照过），取景限值与首尾闭合两条判分线各被对应参数打穿。",
+  "perturbation": {
+    "subjectHeightPx": 720,
+    "orbitDegrees": 240
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "meta.bbox-limits",
+      "why": "主体高度占画面 87.4%（上限 70%），上下留白仅 6.3%（下限 15%）"
+    },
+    {
+      "scoring": 1,
+      "metric": "loop.closure-psnr",
+      "why": "首尾帧 PSNR 为 18.04 dB，比相邻帧 27.08 dB 低 9.04 dB，超过 1 dB 容差"
+    }
+  ]
+}

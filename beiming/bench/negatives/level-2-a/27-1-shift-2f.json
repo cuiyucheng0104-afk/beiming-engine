@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "27-1-shift-2f",
+  "questionId": "27-1",
+  "kind": "shift-2f",
+  "disabledCards": [],
+  "seed": null,
+  "description": "全片 13 个换镜头相对 12 帧拍点网格整体晚 2 帧：首切从第 96 帧挪到第 98 帧，13 个切点帧号除以 12 的余数全部变成 2，脱离 12 帧整数倍网格；整片响度和真峰值不变，第二条判分线照过。",
+  "perturbation": {
+    "cutShiftFrames": 2
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "cut.ydif",
+      "why": "首切偏到第 98 帧，全部 13 个换镜头帧均偏离 12 帧整数倍网格 2 帧"
+    }
+  ]
+}

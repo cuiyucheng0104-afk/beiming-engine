@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "01-1-random-beats",
+  "questionId": "01-1",
+  "kind": "random-beats",
+  "disabledCards": [],
+  "seed": 20261124,
+  "description": "画面不做逐帧连续运动，换成固定种子在 1104 帧里取的 36 个随机拍点，只在拍点短窗内运动、其余区间画面保持静止。交付规格、色彩标签与双声道母带响度照旧合规，但拍点之间的静止段触发连续冻结与重复帧拦截。",
+  "perturbation": {
+    "frameMotion": "random-beats"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 2,
+      "metric": "frame.black-freeze-dup",
+      "why": "随机拍点之间画面静止，检出 25 段半秒以上冻结与 1011 帧重复帧"
+    }
+  ]
+}

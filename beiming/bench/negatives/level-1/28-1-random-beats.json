@@ -1,0 +1,24 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "28-1-random-beats",
+  "questionId": "28-1",
+  "kind": "random-beats",
+  "disabledCards": [],
+  "seed": 20261124,
+  "description": "相机不做平稳整圈环绕，换成固定种子在 288 帧里取的 12 个随机拍点，每个拍点跳到随机方位角并推近到超限高度（最高占画面 83.5%），末帧留在未闭合的拍点方位上。像素与当帧元数据同步生成（第三条照过），取景限值与首尾闭合双双不过。",
+  "perturbation": {
+    "orbitMode": "random-beats"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "meta.bbox-limits",
+      "why": "随机拍点推近帧的主体高度达 83.5%（上限 70%），上下留白缩至 8.3%（下限 15%）"
+    },
+    {
+      "scoring": 1,
+      "metric": "loop.closure-psnr",
+      "why": "末帧停在随机拍点方位上，首尾 PSNR 为 18.48 dB，比相邻帧 26.55 dB 低 8.07 dB"
+    }
+  ]
+}
