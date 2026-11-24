@@ -1,7 +1,7 @@
 // B5（第二部分）：二级第一批 4 道公开考题（23-2、27-1、29-2、30-1）的标准负对照核验。每道题三种故意做错：关掉题面要用的卡、整体错位 2 帧、换成随机拍点。
-// 每道题一个参数化信号/行为模型（逐帧强对比灰度画面、面向带响度判分题 27-1 与 30-1 的 48 kHz 立体声合成 PCM 音轨、对齐已合入 B6（run-b6.mjs 20 ms 合成包络口径）用于 23-2 与 29-2 起音对照的确定性对数能量包络、时间线双拍速行为求值回调），都在题目自己的 deliverable 时间线上现造；
-// 读数全部从造出来的信号或行为量回来（原始像素帧间 YDIF 与 observe 的 telemetry 双重校验检切点、ITU-R BS.1770-4 两阶段门控（-70 LUFS 绝对门 + -10 LU 相对门）K 加权积分响度与 4 倍过采样真峰值实测、buildLogRmsEnvelope + detectOnsetsFromEnvelope 对数能量跳变检起音、间隔聚类加网格扫描估拍长与相位、time.timeline 在 80 与 96 BPM 下的纯行为重求值），零硬编码读数、不手填分数。
-// 口径边界：23-2 与 29-2 照已合入 B6（run-b6.mjs 20 ms 合成包络口径）直接走确定性对数能量包络（buildLogRmsEnvelope + detectOnsetsFromEnvelope，按 evaluate-b3 同口径 10 ms 窗提取起音），不提供恒定响度正弦轨；synthesizeAudioTrack 按题号调用时仅接受带响度门限/判分的 '27-1' 与 '30-1'，传入 '23-2'、'29-2' 或未知题号一律抛 RangeError。
+// 每道题一个参数化信号/行为模型（逐帧强对比灰度画面、面向带响度判分题 27-1 与 30-1 的 48 kHz 立体声合成 PCM 音轨、照已合入 B6（run-b6.mjs）同类合成包络方案按 evaluate-b3 10 ms 起音窗用于 23-2 与 29-2 起音对照的确定性对数能量包络、时间线双拍速行为求值回调），都在题目自己的 deliverable 时间线上现造；
+// 读数全部从造出来的信号或行为量回来（原始像素帧间 YDIF 与 observe 的 telemetry 双重校验检切点、ITU-R BS.1770-4 两阶段门控（-70 LUFS 绝对门 + -10 LU 相对门）K 加权积分响度与 4 倍过采样真峰值实测、buildLogRmsEnvelope + detectOnsetsFromEnvelope 10 ms 窗对数能量跳变检起音、间隔聚类加网格扫描估拍长与相位、time.timeline 在 80 与 96 BPM 下的纯行为重求值），零硬编码读数、不手填分数。
+// 口径边界：23-2 与 29-2 照已合入 B6（run-b6.mjs）同类合成包络方案直接走确定性对数能量包络（buildLogRmsEnvelope + detectOnsetsFromEnvelope，按 evaluate-b3 同口径 10 ms 窗提取起音），不提供恒定响度正弦轨；synthesizeAudioTrack 按题号调用时仅接受带响度门限/判分的 '27-1' 与 '30-1'，传入 '23-2'、'29-2' 或未知题号一律抛 RangeError。
 // 30-1 严格遵守 2026-11-23 管理员裁定：只做纯行为 BPM 扰动检查（80 -> 96 BPM 重求值），零源码静态扫描。
 // 正对照是模型的默认参数；负对照只把同目录夹具 <题号>-<种类>.json 里 perturbation 写的参数换掉，别的一概不动，再交给 evaluate-b3 的正式 evaluate（本模块按统一口径记作 score）。
 import { readFileSync } from 'node:fs';
@@ -168,12 +168,12 @@ const AUDIO_DEFAULTS_BY_QID = deepFreeze({
 });
 
 // 合成确定性 48 kHz 立体声多音与节拍包络 PCM 音轨：既支持 (frames, fps, opts)，也支持直接传带响度判分的题号 ('27-1' / '30-1', opts)；
-// 23-2 与 29-2 的起音对照照已合入 B6（run-b6.mjs 20 ms 合成包络口径）走确定性对数能量包络（buildLogRmsEnvelope + detectOnsetsFromEnvelope），不提供恒定响度正弦轨，传入时抛 RangeError
+// 23-2 与 29-2 的起音对照照已合入 B6（run-b6.mjs）同类合成包络方案按 evaluate-b3 10 ms 窗走确定性对数能量包络（buildLogRmsEnvelope + detectOnsetsFromEnvelope），不提供恒定响度正弦轨，传入时抛 RangeError
 export function synthesizeAudioTrack(framesOrQuestionId, fps, opts) {
   let frames = framesOrQuestionId, rate = fps, cfg;
   if (typeof framesOrQuestionId === 'string') {
     if (framesOrQuestionId === '23-2' || framesOrQuestionId === '29-2') {
-      throw new RangeError(`${framesOrQuestionId} 的音频起音对照照 B6（20 ms 合成包络口径）走确定性对数能量包络（buildLogRmsEnvelope + detectOnsetsFromEnvelope），不提供恒定响度正弦轨；synthesizeAudioTrack 仅接受带响度判分的 27-1、30-1`);
+      throw new RangeError(`${framesOrQuestionId} 的音频起音对照照 B6 同类合成包络方案按 evaluate-b3 10 ms 窗走确定性对数能量包络（buildLogRmsEnvelope + detectOnsetsFromEnvelope），不提供恒定响度正弦轨；synthesizeAudioTrack 仅接受带响度判分的 27-1、30-1`);
     }
     if (!Object.hasOwn(AUDIO_DEFAULTS_BY_QID, framesOrQuestionId)) {
       throw new RangeError(`synthesizeAudioTrack 仅接受带响度判分的二级题号（27-1、30-1），收到：${framesOrQuestionId}`);
