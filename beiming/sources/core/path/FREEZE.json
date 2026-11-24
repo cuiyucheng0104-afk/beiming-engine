@@ -221,6 +221,14 @@
         "film_write_aux": "(aux: AuxSample)",
         "film_write_sample": "(r: SampleResult)"
       }
+    },
+    "../shaders/util.wgsl": {
+      "constants": {
+        "LABEL_NONE": "i32 = 0",
+        "LABEL_REFLECT": "i32 = 2",
+        "LABEL_GLOSSY": "i32 = 8",
+        "LABEL_SINGULAR": "i32 = 16"
+      }
     }
   }
 }

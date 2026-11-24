@@ -182,9 +182,9 @@
 
 这一步不改内核的行为（两台机器上回归基线逐位相同），加的是标记与检查：
 
-- 冻结标记 [FREEZE.json](FREEZE.json)：四样结构、版本、冻结日期、条文与登记表的位置、改动的规矩，并按文件钉住着色器里的结构定义（去掉注释与空白之后的摘要）、常数（类型与数值的原文）与函数签名。[../chassis/freeze.mjs](../chassis/freeze.mjs) 从源码重算了比：标记在且一致退出 0，否则 4；名字属于登记类的常数（闭包种类号、材质标志位、路径标志位、随机维度、输出缓冲的位置等）声明了而没进标记也算不一致。有意改了结构之后用 `--update` 重写钉住的值，标记的差异随改动一起提交。
-- `src/merged.rs` 的三条测试：`the_closure_kinds_keep_their_numbers`（闭包种类号的快照：已有的数值不许变，新种类要先登记）、`the_bounce_stride_is_the_kernels`（每次弹射占的随机维度个数两侧同值）、`call_structs_are_not_built_by_position`（只活在一次调用里的结构没有位置式构造，按内核源码全文查）。
-- `src/gpu.rs` 的 `shading_point_is_written`：着色点、闭包、材质输入值的字段名单，与它们和光线里「现在只写不读」各项的写入语句，做法同 `path_state_is_written`。
+- 冻结标记 [FREEZE.json](FREEZE.json)：四样结构、版本、冻结日期、条文与登记表的位置、改动的规矩，并按文件钉住着色器里的结构定义（去掉注释与空白之后的摘要）、常数（类型与数值的原文）与函数签名。[../chassis/freeze.mjs](../chassis/freeze.mjs) 从源码重算了比：标记在且一致退出 0，否则 4；名字属于登记类的常数（闭包种类号、材质标志位、路径标志位、随机维度、输出缓冲的位置等）声明了而没进标记也算不一致：这一条扫的是内核 `shaders/` 下的全部着色器加共用目录的 `../shaders/util.wgsl`（它放着四个采样标签，也钉进了标记），不只是标记已经钉住的文件。有意改了结构之后用 `--update` 重写钉住的值，标记的差异随改动一起提交。
+- `src/merged.rs` 的三条测试：`the_closure_kinds_keep_their_numbers`（闭包种类号的快照：已有的数值不许变，新种类要先登记）、`the_bounce_stride_is_the_kernels`（每次弹射占的随机维度个数两侧同值）、`call_structs_are_not_built_by_position`（只活在一次调用里的结构没有位置式构造，按内核源码全文查；名字与括号之间有空白也认）。
+- `src/gpu.rs` 的 `shading_point_is_written`：着色点、闭包、材质输入值的字段名单，与它们和光线里「现在只写不读」各项的写入语句，做法同 `path_state_is_written`；两条都按出现次数查写入语句（同一句有两处的，少一处也红）。
 - [../chassis/freeze.test.mjs](../chassis/freeze.test.mjs)：仓库里的标记与代码一致；检查认得出该认的改动；条文提到了标记钉住的每个名字；照 Cycles 取值的常数（路径标志位与可见类、随机维度的枚举与每次弹射的个数、菲涅耳种类、着色点与物体的标志、采样标签）与 Cycles 头文件里的同名枚举逐个相等。最后一项要本机有函数级比对用的 Cycles 源码缓存，没有就跳过。
 - 两处着色器只改了注释：`shaders/shader.wgsl` 开头指向条文；`shaders/closure.wgsl` 的例外清单补上灯光一侧直接读材质记录的几个上游函数。
 

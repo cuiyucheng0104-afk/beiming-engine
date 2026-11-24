@@ -2518,20 +2518,20 @@ mod tests {
         let mut ray = members("Ray");
         ray.sort();
         assert_eq!(ray, ["D", "P", "cone_a", "cone_w", "self_object", "self_prim", "time", "tmax", "tmin"]);
-        for write in [
-            "state.rng_offset = PRNG_BOUNCE_NUM;",
-            "state.min_ray_pdf = 3.4028235e38;",
-            "state.visibility = PATH_RAY_VISIBILITY_CAMERA;",
-            "state.mis_ray_object = OBJECT_NONE;",
-            "state.min_ray_pdf = min(pdf, state.min_ray_pdf);",
-            "state.min_ray_pdf = min(state.mis_ray_pdf, state.min_ray_pdf);",
-            "state.mis_ray_object = sd.object;",
-            "path_state_next(bs.label);",
-            "path_state_next(LABEL_VOLUME_SCATTER);",
-            "state.visibility = visibility;",
-            "state.rng_offset += PRNG_BOUNCE_NUM;",
+        for (write, count) in [
+            ("state.rng_offset = PRNG_BOUNCE_NUM;", 1),
+            ("state.min_ray_pdf = 3.4028235e38;", 1),
+            ("state.visibility = PATH_RAY_VISIBILITY_CAMERA;", 1),
+            ("state.mis_ray_object = OBJECT_NONE;", 2),
+            ("state.min_ray_pdf = min(pdf, state.min_ray_pdf);", 1),
+            ("state.min_ray_pdf = min(state.mis_ray_pdf, state.min_ray_pdf);", 1),
+            ("state.mis_ray_object = sd.object;", 1),
+            ("path_state_next(bs.label);", 1),
+            ("path_state_next(LABEL_VOLUME_SCATTER);", 1),
+            ("state.visibility = visibility;", 1),
+            ("state.rng_offset += PRNG_BOUNCE_NUM;", 1),
         ] {
-            assert!(src.contains(write), "路径状态的这处写入不见了：{write}");
+            assert_eq!(src.matches(write).count(), count, "路径状态的这处写入该有 {count} 处：{write}");
         }
     }
 
@@ -2556,28 +2556,28 @@ mod tests {
         assert_eq!(members("ShadingPoint"), ["P", "N", "Ng", "wi", "object", "prim", "u", "v", "ray_length", "flag", "object_flag", "time", "lcg_state", "emission", "num_closure", "closure", "legacy"]);
         assert_eq!(members("Closure"), ["kind", "weight", "sample_weight", "N", "alpha_x", "alpha_y", "ior", "energy_scale", "fresnel_type", "f0", "f90_or_b", "exponent", "reflection_tint", "transmission_tint"]);
         assert_eq!(members("ShaderInputs"), ["base_color", "metallic", "roughness", "ior", "specular_ior_level", "specular_tint", "emission", "alpha", "diffuse_roughness", "flags", "coat_weight", "transmission_weight", "N"]);
-        for write in [
+        for (write, count) in [
             // 着色点（shader_setup_from_hit）
-            "(*sd).prim = h.tri;",
-            "(*sd).u = h.u;",
-            "(*sd).v = h.v;",
-            "(*sd).ray_length = h.t;",
-            "(*sd).object = instance_at(h.inst).info.y;",
-            "(*sd).object = object_of(a);",
-            "(*sd).N = n;",
+            ("(*sd).prim = h.tri;", 1),
+            ("(*sd).u = h.u;", 1),
+            ("(*sd).v = h.v;", 1),
+            ("(*sd).ray_length = h.t;", 1),
+            ("(*sd).object = instance_at(h.inst).info.y;", 1),
+            ("(*sd).object = object_of(a);", 1),
+            ("(*sd).N = n;", 1),
             // 材质输入值（legacy_shader_inputs）
-            "inp.ior = max(m.layer.y, 1e-5);",
-            "inp.specular_ior_level = max(m.specular_ior_level, 0.0);",
-            "inp.alpha = clamp(m.base_color.a, 0.0, 1.0);",
-            "inp.diffuse_roughness = clamp(m.diffuse_roughness, 0.0, 1.0);",
+            ("inp.ior = max(m.layer.y, 1e-5);", 1),
+            ("inp.specular_ior_level = max(m.specular_ior_level, 0.0);", 1),
+            ("inp.alpha = clamp(m.base_color.a, 0.0, 1.0);", 1),
+            ("inp.diffuse_roughness = clamp(m.diffuse_roughness, 0.0, 1.0);", 1),
             // 闭包（shader_setup_closures）
-            "c.sample_weight = 1.0;",
-            "c.fresnel_type = FRESNEL_F82_TINT;",
+            ("c.sample_weight = 1.0;", 1),
+            ("c.fresnel_type = FRESNEL_F82_TINT;", 1),
             // 光线（main）
-            "ray.self_object = OBJECT_NONE;",
-            "ray.self_prim = OBJECT_NONE;",
+            ("ray.self_object = OBJECT_NONE;", 1),
+            ("ray.self_prim = OBJECT_NONE;", 1),
         ] {
-            assert!(template.contains(write), "这处写入不见了：{write}");
+            assert_eq!(template.matches(write).count(), count, "这处写入该有 {count} 处：{write}");
         }
     }
 

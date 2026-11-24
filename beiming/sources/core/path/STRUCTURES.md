@@ -668,6 +668,9 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 
 - `legacy` 的例外清单（哪些地方还在读上游的结构）是注释里的一张表，没有机器检查。
 - 「新写的代码不许用 `rng_legacy`」「新写的代码里只有 `shader_eval_inputs` 读材质记录」「进函数级比对的函数签名只收标量与向量」靠复核把关。
+- **条文登记表里写的数。** 机器只查条文提到了冻结标记钉住的每个名字，不查表里写的号与代码里的数值是不是同一个：只把上面登记表里的某个号改错（比如把一个闭包种类号写成另一个数），三道检查都过。改登记表的人自己对一遍着色器里的常数，复核的人再对一遍；两处对不上时以代码与冻结标记为准。
+- **只有冻结标记这一道守着的**：上游槽位 `D_*` 的数值、路径标志位（本机没有 Cycles 源码缓存时）、冻结了签名的函数的参数表。它们改了之后库测试照过，红的只有 `freeze.mjs` 与它的测试；所以 `--update` 之前先看清标记的差异里有没有不是自己想改的行。
+- 位置式构造的那条测试是文本匹配，不是语法树：给结构起别名再按位置构造，它认不出来。
 
 ## 锁
 
@@ -675,16 +678,16 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 
 | 检查 | 在哪 | 守什么 |
 |---|---|---|
-| `freeze.mjs` | `../chassis/freeze.mjs`，测试 `../chassis/freeze.test.mjs` | 冻结标记在；标记钉住的结构定义、常数、函数签名与着色器一致；登记类的编号都进了标记；条文提到了标记钉住的每个名字 |
+| `freeze.mjs` | `../chassis/freeze.mjs`，测试 `../chassis/freeze.test.mjs` | 冻结标记在；标记钉住的结构定义、常数、函数签名与着色器一致；登记类的编号都进了标记（扫内核 `shaders/` 下的全部着色器加共用目录的 `../shaders/util.wgsl`，标记没钉住的文件里声明了这类常数也算不一致）；条文提到了标记钉住的每个名字 |
 | `the_material_record_is_the_kernels` | `src/merged.rs` | `Material` 两侧逐字段同名、同偏移、同总长度（合并布局的那一份也比）；`flags` 各位两侧同值；默认值；能量补偿位的写法 |
 | `the_parameters_are_the_kernels` | `src/merged.rs` | `Params`、`KernelIntegrator`、`KernelFilm`、`ObjectExt` 两侧逐字段同名、同偏移、同总长度；种子是哈希后的值；步长取整的规矩 |
 | `the_film_layout_is_the_kernels` | `src/merged.rs` | `FILM_*` 两侧同值；`film` 只在 `film.wgsl` 里下标；步长只在一处乘；缓冲大小的算法与报错 |
 | `the_closure_kinds_keep_their_numbers` | `src/merged.rs` | 闭包种类号的快照：已有的数值不变，新种类要先登记 |
 | `the_bounce_stride_is_the_kernels` | `src/merged.rs` | `PRNG_BOUNCE_NUM` 两侧同值 |
-| `call_structs_are_not_built_by_position` | `src/merged.rs` | 只活在一次调用里的结构没有位置式构造。名单在测试里，新加这类结构要补 |
+| `call_structs_are_not_built_by_position` | `src/merged.rs` | 只活在一次调用里的结构没有位置式构造（名字与括号之间有空白、换行也认）。名单在测试里，新加这类结构要补 |
 | `every_kernel_variant_generates_spirv_and_msl` | `src/gpu.rs` | 内核的每个变体（80 个）都过 SPIR-V 与 MSL 两个后端的代码生成 |
-| `path_state_is_written` | `src/gpu.rs` | `PathState`、`Ray` 的字段名单；路径状态里「已写未读」各项的写入语句都在 |
-| `shading_point_is_written` | `src/gpu.rs` | `ShadingPoint`、`Closure`、`ShaderInputs` 的字段名单；它们与 `Ray` 里「已写未读」各项的写入语句都在 |
+| `path_state_is_written` | `src/gpu.rs` | `PathState`、`Ray` 的字段名单；路径状态里「已写未读」各项的写入语句都在，按出现次数查（同一句有两处的，删掉一处也红） |
+| `shading_point_is_written` | `src/gpu.rs` | `ShadingPoint`、`Closure`、`ShaderInputs` 的字段名单；它们与 `Ray` 里「已写未读」各项的写入语句都在，按出现次数查 |
 | `the_dimension_ids_are_distinct` | `src/sample.rs` | 随机编号在登记的区段里互不相同（范围见上） |
 | `the_shader_is_this` | `src/sample.rs` | 取数接口在显卡上的数与 CPU 上的镜像相同（要显卡） |
 | `requested_lightgroups_leave_the_picture_alone` | `src/gpu.rs` | 请求灯组不改变画面，读回的灯组层数对（要显卡） |

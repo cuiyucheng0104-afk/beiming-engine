@@ -8,7 +8,7 @@ import process from 'node:process';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { ensureSource } from '../fncheck/cycles/build.mjs';
-import { KERNEL, MARKER, STRUCTURES, check, familyConstants, pinOf, refresh } from './freeze.mjs';
+import { KERNEL, MARKER, STRUCTURES, check, familyConstants, pinOf, refresh, scanFiles } from './freeze.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const marker = () => JSON.parse(fs.readFileSync(MARKER, 'utf8'));
@@ -16,7 +16,12 @@ const read = file => { try { return fs.readFileSync(path.join(KERNEL, file), 'ut
 
 test('仓库里的冻结标记：四样结构、版本、日期、条文与登记表、改动的规矩都在，钉住的定义与代码一致', () => {
   const m = marker();
-  assert.deepEqual(check(m, read), []);
+  assert.deepEqual(check(m, read, scanFiles(KERNEL)), []);
+  // 登记类编号扫的是内核的全部着色器加共用目录的 util.wgsl，不只是标记钉住的那几个文件
+  const scan = scanFiles(KERNEL);
+  for (const f of fs.readdirSync(path.join(KERNEL, 'shaders')).filter(f => f.endsWith('.wgsl'))) assert.ok(scan.includes(`shaders/${f}`), f);
+  assert.ok(scan.includes('../shaders/util.wgsl') && scan.length > Object.keys(m.pinned).length);
+  for (const n of ['LABEL_NONE', 'LABEL_REFLECT', 'LABEL_GLOSSY', 'LABEL_SINGULAR']) assert.ok(n in m.pinned['../shaders/util.wgsl'].constants, n);
   assert.deepEqual(m.structures, STRUCTURES);
   assert.equal(m.text, 'STRUCTURES.md');
   assert.ok(m.registry.startsWith('STRUCTURES.md#'));
@@ -91,6 +96,22 @@ test('检查：改了结构而没更新标记不过；加了登记类的编号�
   assert.equal(check(null, from(files)).length, 1);
 });
 
+test('检查：标记没钉住的文件里声明了登记类的编号也不过；更新时给这个文件开一项', () => {
+  const files = { 'a.wgsl': 'const K_ONE: u32 = 1u;\n', 'b.wgsl': 'fn g() {}\nconst OTHER: u32 = 7u;\n', 'TEXT.md': '# 条文\n' };
+  const from = fs => file => fs[file] ?? null;
+  const m = { schema: 'beiming.core.freeze/1', version: '1.0.0', frozen: '2026-11-24', structures: STRUCTURES, text: 'TEXT.md', registry: 'TEXT.md#表', rules: ['规矩'], families: ['K_'], pinned: { 'a.wgsl': { constants: { K_ONE: 'u32 = 1u' } } } };
+  const scan = ['a.wgsl', 'b.wgsl'];
+  assert.deepEqual(check(m, from(files), scan), []);
+  const added = { ...files, 'b.wgsl': `${files['b.wgsl']}const K_TWO: u32 = 2u;\n` };
+  assert.deepEqual(check(m, from(added)), [], '不给要扫的文件时只看钉住的');
+  assert.deepEqual(check(m, from(added), scan), ['b.wgsl 的常数 K_TWO：是登记类的编号，标记里没有']);
+  assert.deepEqual(check(m, from(files), [...scan, 'c.wgsl']), ['c.wgsl：文件不在']);
+  const updated = refresh(m, from(added), scan);
+  assert.deepEqual(updated.pinned['b.wgsl'], { constants: { K_TWO: 'u32 = 2u' } });
+  assert.deepEqual(check(updated, from(added), scan), []);
+  assert.deepEqual(refresh(m, from(files), scan).pinned, m.pinned, '没有登记类常数的文件不开项');
+});
+
 test('命令：标记与代码一致退出 0；没有标记、标记与代码不一致退出 4', () => {
   const run = (...args) => spawnSync(process.execPath, [path.join(HERE, 'freeze.mjs'), ...args], { encoding: 'utf8' });
   const ok = run();
@@ -98,17 +119,30 @@ test('命令：标记与代码一致退出 0；没有标记、标记与代码不
   assert.match(ok.stdout + ok.stderr, /与代码一致/);
   const tmp = fs.mkdtempSync(path.join(fs.realpathSync(process.env.TMPDIR || '/tmp'), 'beiming-freeze-test-'));
   try {
-    assert.equal(run('--marker', path.join(tmp, 'FREEZE.json')).status, 4, '没有标记');
-    fs.cpSync(path.join(KERNEL, 'shaders'), path.join(tmp, 'shaders'), { recursive: true });
-    for (const f of ['FREEZE.json', 'STRUCTURES.md']) fs.copyFileSync(path.join(KERNEL, f), path.join(tmp, f));
-    assert.equal(run('--marker', path.join(tmp, 'FREEZE.json')).status, 0, '原样拷出来的一份');
-    const film = path.join(tmp, 'shaders', 'film.wgsl');
+    // 照内核目录的样子拷：path/ 下是标记、条文与着色器，旁边的 shaders/ 是共用目录
+    const kernel = path.join(tmp, 'path'), copy = path.join(kernel, 'FREEZE.json');
+    fs.mkdirSync(kernel);
+    assert.equal(run('--marker', copy).status, 4, '没有标记');
+    fs.cpSync(path.join(KERNEL, 'shaders'), path.join(kernel, 'shaders'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, 'shaders'));
+    fs.copyFileSync(path.join(KERNEL, '..', 'shaders', 'util.wgsl'), path.join(tmp, 'shaders', 'util.wgsl'));
+    for (const f of ['FREEZE.json', 'STRUCTURES.md']) fs.copyFileSync(path.join(KERNEL, f), path.join(kernel, f));
+    assert.equal(run('--marker', copy).status, 0, '原样拷出来的一份');
+    // 标记没钉住的文件（体积那一段）里加一个登记类的编号
+    const volume = path.join(kernel, 'shaders', 'volume.wgsl'), before = fs.readFileSync(volume, 'utf8');
+    assert.ok(!('shaders/volume.wgsl' in marker().pinned));
+    fs.writeFileSync(volume, `${before}\nconst PRNG_VOLUME_PHASE: u32 = 3u;\n`);
+    const unpinned = run('--marker', copy);
+    assert.equal(unpinned.status, 4, '没钉住的文件里加了登记类的编号');
+    assert.match(unpinned.stdout + unpinned.stderr, /shaders\/volume\.wgsl 的常数 PRNG_VOLUME_PHASE/);
+    fs.writeFileSync(volume, before);
+    const film = path.join(kernel, 'shaders', 'film.wgsl');
     fs.writeFileSync(film, fs.readFileSync(film, 'utf8').replace('const FILM_AUX_NORMAL: u32 = 7u;', 'const FILM_AUX_NORMAL: u32 = 8u;'));
-    const bad = run('--marker', path.join(tmp, 'FREEZE.json'));
+    const bad = run('--marker', copy);
     assert.equal(bad.status, 4, '改了一个位置常数');
     assert.match(bad.stdout + bad.stderr, /FILM_AUX_NORMAL/);
-    fs.writeFileSync(path.join(tmp, 'FREEZE.json'), '{ 不是 JSON');
-    assert.equal(run('--marker', path.join(tmp, 'FREEZE.json')).status, 4, '标记读不了');
+    fs.writeFileSync(copy, '{ 不是 JSON');
+    assert.equal(run('--marker', copy).status, 4, '标记读不了');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -118,7 +152,7 @@ test('命令：标记与代码一致退出 0；没有标记、标记与代码不
 // 内核里名字以这些前缀开头的常数，数值都照 Cycles 的同名枚举（kernel/types.h）：路径标志位与可见类、随机维度的枚举与
 // 每次弹射的个数、着色点与物体的标志、采样标签。菲涅耳种类照 closure/bsdf_microfacet.h 的 enum MicrofacetFresnel 的次序。
 const CYCLES_PREFIXES = ['PATH_RAY_', 'PRNG_', 'SD_', 'LABEL_'];
-const KERNEL_FILES = ['pathtrace', 'intersect', 'shader', 'closure', 'light', 'volume', 'integrator', 'film', 'sample'].map(n => `shaders/${n}.wgsl`).concat('../shaders/util.wgsl');
+const KERNEL_FILES = scanFiles(KERNEL);
 
 /** `1u << 7u`、`(1U << 7U)`、`0x10`、`16` 这类整数式的值；认不出来返回 null */
 function intOf(text) {

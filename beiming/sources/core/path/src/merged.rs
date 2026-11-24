@@ -266,12 +266,13 @@ mod tests {
     }
 
     /// `code` 里对结构 `name` 的第一处位置式构造（`Name(a, b…)`；零值构造 `Name()` 不算），没有就是 None。
+    /// 名字与括号之间可以有空白（`Name (a)`、名字后换行再写括号都编得过）。这是文本匹配，不是语法树：
+    /// 给结构起别名（`alias`）再构造，这里认不出来。
     fn built_by_position(code: &str, name: &str) -> Option<String> {
-        let call = format!("{name}(");
-        code.match_indices(&call).find_map(|(at, _)| {
+        code.match_indices(name).find_map(|(at, _)| {
             let own_word = !code[..at].chars().next_back().is_some_and(|c| c.is_alphanumeric() || c == '_');
-            let empty = code[at + call.len()..].trim_start().starts_with(')');
-            (own_word && !empty).then(|| code[at..].chars().take(60).collect())
+            let args = code[at + name.len()..].trim_start().strip_prefix('(')?;
+            (own_word && !args.trim_start().starts_with(')')).then(|| code[at..].chars().take(60).collect())
         })
     }
 
@@ -292,6 +293,9 @@ mod tests {
         }
         // 这条检查自己的对照：位置式构造认得出来，零值构造、名字只是别的标识符的后半截不算。
         assert!(built_by_position("var c = Closure(1u, w);", "Closure").is_some());
+        assert!(built_by_position("var c = Closure (1u, w);", "Closure").is_some());
+        assert!(built_by_position("var c = Closure\n    (1u, w);", "Closure").is_some());
+        assert!(built_by_position("var c = Closure (\n);", "Closure").is_none());
         assert!(built_by_position("var c = Closure( );\nlet e = ClosureEval();\nfn f(c: Closure) {}", "Closure").is_none());
         assert!(built_by_position("let e = BsdfEvalLegacy(a, b);", "BsdfEval").is_none());
         assert!(built_by_position("let e = MyClosure(a);", "Closure").is_none());

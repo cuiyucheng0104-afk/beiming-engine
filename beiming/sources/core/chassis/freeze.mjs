@@ -7,6 +7,8 @@
 //   constants  具名常数：类型与数值的原文
 //   functions  函数的签名原文（参数表与返回类型）
 // 另有 families：名字以这些前缀开头的常数是登记过的编号，着色器里声明了而标记里没有就算不一致（加了号没登记）。
+// 这一条扫的是内核 shaders/ 下的全部着色器，加共用目录里放采样标签的 ../shaders/util.wgsl：标记没有钉住的文件里
+// 声明了这类常数，同样算不一致。
 // 改了结构而没更新标记，这里不过；更新标记是一次看得见的改动（--update 之后标记的差异进提交），同时要改条文里对应的
 // 字段表或登记表，并在标记里升版本号。规矩见条文「改动的规矩」一节。
 import { createHash } from 'node:crypto';
@@ -46,11 +48,16 @@ export function familyConstants(src, prefixes) {
   return [...stripComments(src).matchAll(/^\s*const\s+([A-Za-z_][A-Za-z0-9_]*)\s*:/gm)].map(m => m[1]).filter(n => prefixes.some(p => n.startsWith(p)));
 }
 
+/** 登记类编号要扫的文件（相对内核目录 `dir`）：shaders/ 下的全部着色器，加共用目录的 util.wgsl */
+export function scanFiles(dir) {
+  return [...fs.readdirSync(path.join(dir, 'shaders')).filter(f => f.endsWith('.wgsl')).sort().map(f => `shaders/${f}`), '../shaders/util.wgsl'];
+}
+
 /**
- * 标记与代码比。`marker`：解析后的标记；`read(file)`：读内核目录下的一个文件，没有时返回 null。
- * 返回不一致的地方（空数组就是一致）。
+ * 标记与代码比。`marker`：解析后的标记；`read(file)`：读内核目录下的一个文件，没有时返回 null；`scan`：除了标记钉住的
+ * 文件之外还要扫登记类编号的文件。返回不一致的地方（空数组就是一致）。
  */
-export function check(marker, read) {
+export function check(marker, read, scan = []) {
   const problems = [];
   const bad = m => { problems.push(m); };
   if (!marker || typeof marker !== 'object') return ['冻结标记不是一个 JSON 对象'];
@@ -76,14 +83,20 @@ export function check(marker, read) {
       if (now === null) bad(`${file} 的 ${kind} ${name}：源码里找不到了`);
       else if (now !== want) bad(`${file} 的 ${kind} ${name}：与标记不一致（标记 ${want}，现在 ${now}）`);
     }
-    for (const name of familyConstants(src, families)) if (!(name in (kinds.constants ?? {}))) bad(`${file} 的常数 ${name}：是登记类的编号，标记里没有`);
+  }
+  for (const file of new Set([...Object.keys(pinned), ...scan])) {
+    const src = read(file);
+    if (src === null) { if (!(file in pinned)) bad(`${file}：文件不在`); continue; }
+    for (const name of familyConstants(src, families)) if (!(name in (pinned[file]?.constants ?? {}))) bad(`${file} 的常数 ${name}：是登记类的编号，标记里没有`);
   }
   return problems;
 }
 
 /** 按现在的代码重算标记里钉住的值（登记类的常数新声明的补进去）；找不到的名字原样留着，由 check 报出来 */
-export function refresh(marker, read) {
+export function refresh(marker, read, scan = []) {
   const out = JSON.parse(JSON.stringify(marker));
+  // 标记还没钉住、却声明了登记类常数的文件：先给它开一项
+  for (const file of scan) if (!(file in (out.pinned ??= {})) && familyConstants(read(file) ?? '', out.families ?? []).length) out.pinned[file] = {};
   for (const [file, kinds] of Object.entries(out.pinned ?? {})) {
     const src = read(file);
     if (src === null) continue;
@@ -111,12 +124,13 @@ export const command = defineCommand({
     const fail = (message, hint) => ({ error: { code: 'contract.core-freeze', message, hint } });
     let marker;
     try { marker = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return fail(`读不了冻结标记 ${file}：${e.message}`, '标记是 beiming/sources/core/path/FREEZE.json'); }
+    const scan = scanFiles(path.dirname(file));
     if (ctx.opts.update) {
-      marker = refresh(marker, read);
+      marker = refresh(marker, read, scan);
       fs.writeFileSync(file, `${JSON.stringify(marker, null, 2)}\n`);
       ctx.out(`已按现在的代码重写 ${file}`);
     }
-    const problems = check(marker, read);
+    const problems = check(marker, read, scan);
     for (const p of problems) ctx.out(`✗ ${p}`);
     if (problems.length) return { data: { marker: file, problems }, ...fail(`冻结标记与代码有 ${problems.length} 处不一致`, '无意的改动：改回去。有意的改动：照条文「改动的规矩」办，改条文与登记表、升版本号，再运行 freeze.mjs --update') };
     const count = Object.values(marker.pinned).reduce((n, kinds) => n + KINDS.reduce((k, kind) => k + Object.keys(kinds[kind] ?? {}).length, 0), 0);
