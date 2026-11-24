@@ -156,7 +156,7 @@ struct AuxSample {
     normal: vec3<f32>,              // 法线（相机空间，长度 1）；没打到：0
 };
 
-// 写辅助样本。辅助那一趟调度（P.integrator.pass_kind 为 PASS_KIND_AUX，integrator.wgsl 的 aux_sample）调它。
+// 写辅助样本。辅助那一趟调度（入口 aux_sample，integrator.wgsl）调它。
 // 实体编号存成浮点数值：整数的位直接进浮点通道，小整数是非规格化数，驱动可能把它冲成 0。
 fn film_write_aux(aux: AuxSample) {
     let b = film_pixel_first();
@@ -184,10 +184,13 @@ fn film_write_sample(r: SampleResult) {
     let lum = luminance(radiance);
     film[b + FILM_DENOISE_ALBEDO] = denoise_albedo + vec4<f32>(albedo, r.alpha);
     // 覆盖率计数（输出通道契约 5.4）：这个样本相机射线首次命中的实体编号（没打到表面、或打到的不属于任何实体：0）等于辅助
-    // 样本的编号，就记一份。没跑辅助那一趟时辅助那一格是 0，这个数没人读。
-    var first_id = 0.0;
-    if (state.first_hit_object != OBJECT_NONE) { first_id = object_ext_at(state.first_hit_object).entity_id; }
-    film[b + FILM_DENOISE_NORMAL] = denoise_normal + vec4<f32>(normal, select(0.0, 1.0, first_id == film[b + FILM_AUX_DATA].y));
+    // 样本的编号，就记一份。只在要辅助层的变体里数（编译开关 aux）：每个样本多读一次辅助那一格，英伟达显卡上稳态慢约 1.4%。
+    @if(!aux) film[b + FILM_DENOISE_NORMAL] = denoise_normal + vec4<f32>(normal, 0.0);
+    @if(aux) {
+        var first_id = 0.0;
+        if (state.first_hit_object != OBJECT_NONE) { first_id = object_ext_at(state.first_hit_object).entity_id; }
+        film[b + FILM_DENOISE_NORMAL] = denoise_normal + vec4<f32>(normal, select(0.0, 1.0, first_id == film[b + FILM_AUX_DATA].y));
+    }
     film[b + FILM_LEGACY_VARIANCE] = variance + vec4<f32>(lum, lum * lum, 0.0, 0.0);
     // `render --signals` (P.motion.y, a live-only lane otherwise): what the camera ray saw directly and the specular
     // share at the camera hit, split as the live denoiser splits them (no reflection resolve), in the slots only live

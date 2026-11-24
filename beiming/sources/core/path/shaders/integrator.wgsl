@@ -127,7 +127,7 @@ struct PathState {
                                     // 细分的规矩归移植闭包的人）
     mis_ray_object: u32,            // 上一个散射点所在的物体（物体表的下标；灯光链接用）。已写未读
     first_hit_object: u32,          // 相机射线首次命中的物体（物体表的下标），没打到表面：OBJECT_NONE。覆盖率用（film.wgsl 的
-                                    // film_write_sample 拿它的实体编号与辅助样本的比）。已落地
+                                    // film_write_sample 拿它的实体编号与辅助样本的比）。已落地（只在编译开关 aux 的变体里写）
     legacy: PathLegacy,             // 上游的状态，见上
 };
 
@@ -170,13 +170,17 @@ fn seen_directly() -> bool {
     return state.bounce == 0u || (state.bounce == 1u && state.legacy.mirror_path);
 }
 
-// 北冥：辅助样本（输出通道契约 5.1）。每个像素一条：过像素中心、针孔（不开景深）、时刻 0，不取任何随机数、不调图案节点，
+// 北冥：辅助样本（输出通道契约 5.1），内核的第二个入口，只在要辅助层的变体里（编译开关 aux）。每个像素一条：过像素中心、针孔（不开景深）、时刻 0，不取任何随机数、不调图案节点，
 // 只求交、取几何量，覆盖写 film 的辅助两格。深度是沿相机前方的平面深度；法线是着色法线（顶点法线插值，背对来路的面翻向
 // 相机：shader_setup_from_hit 已经翻过），变到相机空间（相机看 -Z、Y 向上）；实体编号读物体扩展表。什么都没打到：编号 0、
 // 深度 1e10、法线 0。相机射线的算式照 main 里的那一段，只是像素内的位置取中心、不加镜头的偏移。
-fn aux_sample(gid: vec2<u32>) {
+// 单独成一个入口、不在 main 里按 pass_kind 分支：颜色样本那个入口里多一个分支，英伟达显卡上稳态慢约 3%。
+@if(aux) @compute @workgroup_size(8, 8, 1)
+fn aux_sample(@builtin(global_invocation_id) gid: vec3<u32>) {
     let w = P.size.x;
     let h = P.size.y;
+    if (gid.x >= w || gid.y >= h) { return; }
+    state.render_pixel_index = gid.y * w + gid.x;
     state.bounce = 0u;
     let ndc = vec2<f32>((f32(gid.x) + 0.5) / f32(w) * 2.0 - 1.0, 1.0 - (f32(gid.y) + 0.5) / f32(h) * 2.0);
     let d = normalize(P.cam_fwd.xyz + P.cam_right.xyz * (ndc.x * P.cam_pos.w * P.cam_fwd.w) + P.cam_up.xyz * (ndc.y * P.cam_pos.w));
@@ -202,11 +206,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (gid.x >= w || gid.y >= h) { return; }
     let pix = gid.y * w + gid.x;
     state.render_pixel_index = pix;
-    // 北冥：辅助那一趟调度（gpu.rs 在清零之后、第一个颜色样本之前跑一次）只写辅助样本，不走下面的颜色样本
-    if (P.integrator.pass_kind == PASS_KIND_AUX) {
-        aux_sample(gid.xy);
-        return;
-    }
     if (has(F_LISTS)) { lt_fb = LT_NONE; }
     rng_start(gid.xy, P.size.z, P.integrator.seed, 0u);
     state.bounce = 0u;
@@ -215,7 +214,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     state.continuation_probability = 1.0;
     state.visibility = PATH_RAY_VISIBILITY_CAMERA;
     state.mis_ray_object = OBJECT_NONE;
-    state.first_hit_object = OBJECT_NONE;
+    @if(aux) state.first_hit_object = OBJECT_NONE;
     // 这个样本的不透明度：背景对相机可见时恒为 1；不可见时相机射线什么都没打到记 0（见下面没打到的那一支）
     film_sample.alpha = 1.0;
     // 北冥：相机光线。这一段留在 main 里：试过抽成单独的函数，Metal 上相机三个轴都不贴坐标轴的场景末位会变（运算次序），
@@ -410,7 +409,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let inputs = shader_eval_inputs(&sd, ray.P, ray.D, hit, width);
         shader_setup_closures(&sd, inputs);
         if (depth == 0u) {
-            state.first_hit_object = sd.object;
+            @if(aux) state.first_hit_object = sd.object;
             first_t = hit.t;
             if (has(F_LISTS)) { lt_list_start(sd.P + mv.xyz); }
             // （降噪用的反照率与法线，上游的口径：只发光的面取发光色，别的取闭包的反照率；法线取闭包用的法线。）
