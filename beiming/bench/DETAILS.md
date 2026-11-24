@@ -105,6 +105,8 @@ node beiming/bench/board.mjs build --out-dir <目录> [--as-of <YYYY-MM-DD>] [--
 | `packParity` | `{ verifiedPacks, ablatedSwitches }`（分母固定为 5 和 56；若写 `totalPacks`、`totalSwitches` 必须等于 5 和 56） |
 | `harvest` | `{ drafted, promoted, archived, reproducedPromotions }` |
 | `history` | 之前的每日行（`history.json` 的内容） |
+| `scoreboardMetric` | B11 第 5 步自然周重复打回率 `{ firstTimeCount, repeatCount, total, repeatRate, weekStart?, weekEnd? }` |
+| `frameMeta` | O12 按片型分组的每帧宿主元数据 `[{ filmType, filmId?, frames: [{ source: { renderer } }] }]`（仅认每帧 `source.renderer`，`filmType` 须在 `FILM_TYPES` 内，`renderer` 须在 `ALLOWED_RENDERERS` 内） |
 
 ### 矩阵
 
@@ -126,6 +128,14 @@ node beiming/bench/board.mjs build --out-dir <目录> [--as-of <YYYY-MM-DD>] [--
 - `unattended`：基础谓词全过且人工介入 0 次的作业占比。`templateOrigin` 是 `self-selected`，或 `mode` 是 `hand` 且 `selfSelectedTemplate` 是 `true` 的片单列在 `selfSelected`，不进主统计。
 - `speedAndCost`：账本先过 A15 的 `summarizeJobLedger`。出了成片的作业是有一轮 `succeeded` 且成片时长大于 0 的（时长取作业记录的 `filmDurationSec`，账本行自己带了也认）；它的每一轮都摊在成片秒数上，得 `wallSecPerFilmSec`、`gpuSecPerFilmSec`、`tokensPerFilmSec`、`tokensByTierPerFilmSec`。`renderedPerDelivered` 是全账本的渲帧数除以交付帧数，`meanRounds` 是每个作业平均几行。没有成片时比率是 `null`；有的行显卡秒不是实测时 `gpuIsLowerBound` 是 `true`。
 - `controllability`：`pureFunctionGate`、`locality`、`rebuild` 的 `exact`（同机比哈希）、`tolerance`（跨机容差）、`nightlyLegacy`（旧作品夜间重建）。
+
+### 核心出帧占比 `coreFrameShare`（O12）
+
+导出常量 `FILM_TYPES`（深冻结，固定四类片型：`motion-explainer` 动态图形与讲解、`hard-surface` 硬表面与写实、`toon` 三渲二、`realtime-3d` 游戏感实时三维）与 `ALLOWED_RENDERERS`（`['blender', 'three', 'core', 'legacy-page']`），并由 `beiming/bench/index.mjs` 重新导出。
+
+- `buildBoard` 始终输出 `coreFrameShare: { overall: { coreFrames, totalFrames, rate }, byFilmType }`，其中 `byFilmType` 固定包含 `FILM_TYPES` 四格（每格含 `label`、`coreFrames`、`totalFrames`、`rate`）；无帧时 `coreFrames = 0`、`totalFrames = 0`、`rate = 0`（而非 `null`），接管过门前四格照样完整输出与渲染。
+- 唯一真相源是 `frameMeta[].frames[].source.renderer === 'core'`：严格校验 `filmType`、`frames` 数组、`source` 对象与 `source.renderer` 取值，允许保留标准 `meta/0.1` 的其余字段；作业记录 `jobs` 或条目上的任何自报字段一律忽略，绝不采信。
+- `renderBoardHtml` 在「四个指标」与考题矩阵之间渲染独立的「核心出帧占比」区块，按 `FILM_TYPES` 固定顺序逐格展示片型名、占比（一位小数百分比，如 `0.0%`、`25.0%`）与帧数（`coreFrames / totalFrames 帧`）及四片型总计；未含 `coreFrameShare` 的旧看板快照按全 0 兜底展示，篡改后的 `coreFrameShare` 由 `checkBoard` 拒收。命令行可通过 `--extra` 传入 `frameMeta`。
 
 ### 整合进度 `integrationProgress` 与反向指标 `reverseIndicators`
 
