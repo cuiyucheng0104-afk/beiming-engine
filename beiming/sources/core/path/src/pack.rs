@@ -13,7 +13,7 @@ use crate::{desc, scene, world};
 use anyhow::Result;
 use glam::{Mat4, Vec3, Vec3A};
 use serde_json::{json, Map, Value};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// 结构不合契约（过不了结构定义，或违反了没有专用码的条文）。错误码表里没有场景包专用的通用码，借用这一个。
@@ -429,9 +429,10 @@ pub fn parse_manifest(v: &Value) -> R<Pack> {
             return Err(bad(&idx("instances.names", i), format!("{nm:?} 不是合法的实体名（SP19）")));
         }
     }
-    let leaf: BTreeSet<&str> = names.iter().map(String::as_str).collect();
-    for a in &leaf {
-        if let Some(b) = leaf.iter().find(|b| b.starts_with(&format!("{a}."))) {
+    // 查每个名字在「.」处截出的前缀是不是也在表里：总量与名字总长度成正比，实例多也不卡
+    let leaf: HashSet<&str> = names.iter().map(String::as_str).collect();
+    for b in &names {
+        if let Some(a) = b.match_indices('.').map(|(i, _)| &b[..i]).find(|a| leaf.contains(a)) {
             return Err(bad("instances.names", format!("{a} 是装配体（{b} 以它加点开头），实例表只能列叶子实体（SP14）")));
         }
     }
@@ -1464,6 +1465,10 @@ mod tests {
         assert_eq!(err_of(|v| v["lights"][0]["link"] = json!(["nobody"])).at, "lights[0].link[0]");
         assert_eq!(err_of(|v| v["materials"][0]["pattern"][1]["by"] = json!("line")).at, "materials[0].pattern[1].by");
         assert_eq!(err_of(|v| v["instances"]["names"] = json!(["kit", "kit.b"])).at, "instances.names");
+        assert_eq!(err_of(|v| v["instances"]["names"] = json!(["kit.a.b", "kit"])).at, "instances.names");
+        let mut v = manifest();
+        v["instances"]["names"] = json!(["kit.ab", "kit.a"]);
+        assert!(parse_manifest(&v).is_ok(), "kit.ab 不以「kit.a.」开头，两个都是叶子");
         assert_eq!(err_of(|v| { v["camera"].as_object_mut().unwrap().remove("sensorHeight"); }).at, "camera.sensorHeight");
     }
 
@@ -1604,6 +1609,20 @@ mod tests {
         assert_eq!(by_type(0.0), 3.0);
         let sun = b.scene.lights.iter().find(|l| l.pos[3] == 0.0).unwrap();
         assert_eq!(&sun.dir[..3], &[0.0, -1.0, 0.0]);
+    }
+
+    /// 查「只列叶子实体」（SP14）的耗时与名字总长度成正比：二十万个实例的清单也在几秒内校验完。
+    #[test]
+    fn many_instances_are_checked_quickly() {
+        let n = 200_000;
+        let mut v = manifest();
+        v["instances"]["shape"] = json!([n, 4]);
+        v["instances"]["names"] = json!((0..n).map(|i| format!("kit.p{i}")).collect::<Vec<_>>());
+        v["instances"]["class"] = json!(vec!["part"; n]);
+        v["frames"]["instances"]["shape"] = json!([1, n, 16]);
+        let t = std::time::Instant::now();
+        assert_eq!(parse_manifest(&v).unwrap().names.len(), n);
+        assert!(t.elapsed().as_secs_f64() < 10.0, "{:?}", t.elapsed());
     }
 
     #[test]
