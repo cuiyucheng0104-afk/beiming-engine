@@ -1650,6 +1650,37 @@ mod tests {
         assert_eq!(&sun.dir[..3], &[0.0, -1.0, 0.0]);
     }
 
+    /// 每帧状态表按帧取行：两帧的包，第 1 帧的灯功率、第 1 行实例的矩阵、相机位置都与第 0 帧不同；相机表与灯表的列次序
+    /// 故意和登记表的次序不一样。选第 1 帧建出来的场景取到的是第 1 帧的值。
+    #[test]
+    fn each_frame_reads_its_own_rows() {
+        let mut v = manifest();
+        v["frames"]["count"] = json!(2);
+        v["frames"]["instances"]["shape"] = json!([2, 2, 16]);
+        v["frames"]["camera"] = json!({ "file": "f/c.f32", "shape": [2, 19], "fields": ["fstop", "fovY", "mat16", "focusDist"] });
+        v["frames"]["lights"] = json!({ "file": "f/l.f32", "shape": [2, 3, 17], "fields": ["watts", "mat16"] });
+        let mut p = parse_manifest(&v).unwrap();
+        let base = pack(0, false);
+        p.geometry = base.geometry.clone();
+        p.rows = base.rows.clone();
+        let mut inst = base.frames_instances.data.clone();
+        inst.extend_from_slice(&base.frames_instances.data[..16]);
+        inst.extend_from_slice(&Mat4::from_translation(Vec3::new(1.0, 2.0, 0.0)).to_cols_array());
+        p.frames_instances.data = inst;
+        let cam = |z: f32| [&[2.8, 0.8][..], &Mat4::from_translation(Vec3::new(0.0, 0.0, z)).to_cols_array(), &[5.0]].concat();
+        p.frames_camera.data = [cam(5.0), cam(7.0)].concat();
+        let light = |w: f32| [&[w][..], &Mat4::from_translation(Vec3::new(0.0, 0.0, 3.0)).to_cols_array()].concat();
+        p.frames_lights.data = [light(10.0), light(20.0), light(0.0), light(30.0), light(60.0), light(0.0)].concat();
+        check_tables(&p).unwrap();
+        let b = build(&p, 1, (64, 32), None, &presets(), None).unwrap();
+        assert_eq!(b.scene.camera.position, Vec3::new(0.0, 0.0, 7.0));
+        let by_type = |t: f32| b.scene.lights.iter().find(|l| l.pos[3] == t).unwrap().color[0] as f64;
+        assert!((by_type(3.0) / (30.0 / (std::f64::consts::PI * 2.0)) - 1.0).abs() < 1e-6, "矩形灯取第 1 帧的 30 瓦");
+        assert!((by_type(1.0) / (60.0 / (4.0 * std::f64::consts::PI)) - 1.0).abs() < 1e-6, "点光取第 1 帧的 60 瓦");
+        let ip = b.scene.retained.instanced(row_id(1)).unwrap();
+        assert_eq!(b.scene.instances[ip.first as usize].world.w_axis, glam::Vec4::new(1.0, 2.0, 0.0, 1.0));
+    }
+
     /// 查「只列叶子实体」（SP14）的耗时与名字总长度成正比：二十万个实例的清单也在几秒内校验完。
     #[test]
     fn many_instances_are_checked_quickly() {
