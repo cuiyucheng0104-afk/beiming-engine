@@ -7,7 +7,8 @@
 // 另有两段取自 Apache-2.0 的内核文件里的一小段式子：原理化 BSDF 按高光等级调折射率（kernel/svm/closure.h），
 // 滤光泽的模糊粗糙度（kernel/integrator/surface_shader.h）。
 // 行号指 intern/cycles/ 下的文件。Cycles 的 normalize、len 与 WGSL 内建的舍入不同（内建 normalize 用 inverseSqrt），
-// 所以照原式写成 normalize_ccl、len_ccl。查表函数读 ggx_tables.wgsl 里的 LOOKUP_TABLE。
+// 所以照原式写成 normalize_ccl、len_ccl。一维、二维查表函数读 ggx_tables.wgsl 里的 LOOKUP_TABLE；三维的与 _buf 两个
+// 读存储缓冲（数据在 ggx_gen_schlick.tables，见 lookup_table_read_buf 上面的说明）。
 
 // util/math_base.h:37、40: M_PI_2_F、M_PI_4_F
 const M_PI_2_F: f32 = 1.5707963267948966;
@@ -132,7 +133,46 @@ fn lookup_table_read_2D(x: f32, y_in: f32, offset: i32, xsize: i32, ysize: i32) 
   return (1.0 - t) * data0 + t * data1;
 }
 
-// kernel/util/lookup_table.h:49-69: lookup_table_read_3D
+// 下面三个读存储缓冲里的表，与 Cycles 一样按偏移读 lookup_table（kernel_data_fetch(lookup_table, i)）。
+// 不用常数数组：naga 生成 SPIR-V 时按运行时下标取常数数组会先把整个数组拷进函数内的临时变量，大表在英伟达上编译不出来。
+// 取数的 lookup_table_fetch(i)（i 是第几个 float）与各表的偏移由引入这份文件的着色器给：内核在 path/shaders/pathtrace.wgsl，
+// 比对外壳在 fncheck/gpu.mjs，函数体两边同一份。上面两个读 ggx_tables.wgsl 常数数组的旧函数不动。
+
+// kernel/util/lookup_table.h:13-28: lookup_table_read（读存储缓冲里的表）
+fn lookup_table_read_buf(x_in: f32, offset: i32, size: i32) -> f32 {
+  let x = saturate(x_in) * f32(size - 1);
+
+  let index = min(i32(x), size - 1);
+  let nindex = min(index + 1, size - 1);
+  let t = x - f32(index);
+
+  let data0 = lookup_table_fetch(index + offset);
+  if (t == 0.0) {
+    return data0;
+  }
+
+  let data1 = lookup_table_fetch(nindex + offset);
+  return (1.0 - t) * data0 + t * data1;
+}
+
+// kernel/util/lookup_table.h:30-45: lookup_table_read_2D（读存储缓冲里的表）
+fn lookup_table_read_2D_buf(x: f32, y_in: f32, offset: i32, xsize: i32, ysize: i32) -> f32 {
+  let y = saturate(y_in) * f32(ysize - 1);
+
+  let index = min(i32(y), ysize - 1);
+  let nindex = min(index + 1, ysize - 1);
+  let t = y - f32(index);
+
+  let data0 = lookup_table_read_buf(x, offset + xsize * index, xsize);
+  if (t == 0.0) {
+    return data0;
+  }
+
+  let data1 = lookup_table_read_buf(x, offset + xsize * nindex, xsize);
+  return (1.0 - t) * data0 + t * data1;
+}
+
+// kernel/util/lookup_table.h:49-69: lookup_table_read_3D（读存储缓冲里的表；广义 Schlick 的两张表只走这里）
 fn lookup_table_read_3D(x: f32, y: f32, z_in: f32, offset: i32, xsize: i32, ysize: i32, zsize: i32) -> f32 {
   let z = saturate(z_in) * f32(zsize - 1);
 
@@ -140,12 +180,12 @@ fn lookup_table_read_3D(x: f32, y: f32, z_in: f32, offset: i32, xsize: i32, ysiz
   let nindex = min(index + 1, zsize - 1);
   let t = z - f32(index);
 
-  let data0 = lookup_table_read_2D(x, y, offset + xsize * ysize * index, xsize, ysize);
+  let data0 = lookup_table_read_2D_buf(x, y, offset + xsize * ysize * index, xsize, ysize);
   if (t == 0.0) {
     return data0;
   }
 
-  let data1 = lookup_table_read_2D(x, y, offset + xsize * ysize * nindex, xsize, ysize);
+  let data1 = lookup_table_read_2D_buf(x, y, offset + xsize * ysize * nindex, xsize, ysize);
   return (1.0 - t) * data0 + t * data1;
 }
 

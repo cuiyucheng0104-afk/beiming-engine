@@ -284,6 +284,12 @@ fn lt_node(i: u32) -> vec4<f32> { return table_f(i); }
 fn light_group_at(i: u32) -> vec4<f32> { return table_f(P.table_first[0].w + i); }
 fn energy_at(i: u32) -> vec4<f32> { return table_f(P.table_first[2].y + i); }
 fn glass_energy_at(i: u32) -> vec4<f32> { return table_f(P.table_first[2].z + i); }
+// 北冥：移植的查表函数（../../shaders/util.wgsl 的 lookup_table_read_buf 一族）从表缓冲里按 float 取数，对应 Cycles 的
+// kernel_data_fetch(lookup_table, i)；i 是整个表缓冲里的第几个 float。广义 Schlick 的两张表（各 4096 个数，
+// ../../shaders/ggx_gen_schlick.tables）首地址在 P.table_first_ext[0].z、[0].w（以 vec4 计，这里换成 float 数）。
+fn lookup_table_fetch(i: i32) -> f32 { let u = u32(i); return bitcast<f32>(tables[u >> 2u][u & 3u]); }
+fn table_ggx_gen_schlick_ior_s() -> i32 { return i32(P.table_first_ext[0].z * 4u); }
+fn table_ggx_gen_schlick_s() -> i32 { return i32(P.table_first_ext[0].w * 4u); }
 // 北冥：物体扩展表。每个物体 2 个 vec4，与上游的物体表同下标（着色点的 object）、定长；首地址在
 // P.table_first_ext[0].x。各家只填自己的格子，不改长度。现在全是 0，还没有读者。Rust 一侧的镜像是 scene::GpuObjectExt。
 // （运动矢量要的前后两刻变换不放这里，到做运动模糊时另定。）

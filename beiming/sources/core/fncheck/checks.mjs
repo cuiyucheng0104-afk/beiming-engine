@@ -5,11 +5,12 @@
 //   mcMean：一个采样估计量在显卡上逐样本算、回到 JS 用双精度求平均（面光辐照度对解析形状因子）。
 // 两者都不依赖 Cycles：比的是我方采样函数与我方概率密度函数彼此是否一致，以及求值的积分是否不超过 1。
 import { makeInputs } from './run.mjs';
-import { runGpu } from './gpu.mjs';
+import { LUT_PRELUDE, runGpu } from './gpu.mjs';
 import { crs, dot3 } from './registry.mjs';
 
 /** 包一个计算着色器：每线程执行 body，inp 至少被读一次（自动布局只收被用到的绑定） */
 const job = (source, helpers, body) => `${source}
+${LUT_PRELUDE}
 ${helpers}
 @group(0) @binding(0) var<storage, read> inp: array<f32>;
 @group(0) @binding(1) var<storage, read_write> outp: array<f32>;

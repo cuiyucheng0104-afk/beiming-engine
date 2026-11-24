@@ -7,6 +7,7 @@
 // 文件后半是原理化 BSDF 非金属那一半的闭包（电介质高光、漫反射）与发光值，来源同为 BSD-3-Clause 的文件
 // （kernel/closure/bsdf_microfacet.h、bsdf_util.h、bsdf_diffuse.h、emissive.h、kernel/sample/mapping.h）。
 // 纯函数，不带绑定；用到 util.wgsl 的工具函数与 ggx_tables.wgsl 的查找表，与同目录的 WGSL 文件拼在一起编译。
+// 广义 Schlick 的两张表在存储缓冲里：偏移 table_ggx_gen_schlick_ior_s()、table_ggx_gen_schlick_s() 由引入的着色器给（见 util.wgsl）。
 // 闭包只移金属反射这一条路：GGX、F82-tint 菲涅耳、无薄膜、无折射、各向同性（alpha_x == alpha_y，所以只传一个 alpha）。
 // Cycles 里闭包参数放在 MicrofacetBsdf 结构体里，这里一律改成显式参数：N、alpha（已 saturate）、f0、b（F82 的 B 项）、energy_scale。
 // Cycles 的模板参数 MicrofacetType 在这里固定为 GGX，函数名带 _ggx；同名的 float 与 Spectrum 重载分成两个名字，
@@ -443,10 +444,10 @@ fn bsdf_microfacet_estimate_albedo_generalized_schlick(N: vec3f, wi: vec3f, alph
   var s: f32;
   if (exponent < 0.0) {
     let z = sqrt(abs((ior - 1.0) / (ior + 1.0)));
-    s = lookup_table_read_3D(rough, cos_NI, z, TABLE_GGX_GEN_SCHLICK_IOR_S, 16, 16, 16);
+    s = lookup_table_read_3D(rough, cos_NI, z, table_ggx_gen_schlick_ior_s(), 16, 16, 16);
   } else {
     let z = 1.0 / (0.2 * exponent + 1.0);
-    s = lookup_table_read_3D(rough, cos_NI, z, TABLE_GGX_GEN_SCHLICK_S, 16, 16, 16);
+    s = lookup_table_read_3D(rough, cos_NI, z, table_ggx_gen_schlick_s(), 16, 16, 16);
   }
   let F = f0 + s * (f90 - f0);
   let reflectance = F * reflection_tint * f32(eval_reflection);
@@ -458,7 +459,7 @@ fn bsdf_microfacet_estimate_albedo_generalized_schlick(N: vec3f, wi: vec3f, alph
 fn bsdf_microfacet_estimate_albedo_f82_tint(N: vec3f, wi: vec3f, alpha: f32, f0: vec3f, eval_reflection: bool) -> vec3f {
   let cos_NI = dot(wi, N);
   let rough = sqrt(sqrt(alpha * alpha));
-  let s = lookup_table_read_3D(rough, cos_NI, 0.5, TABLE_GGX_GEN_SCHLICK_S, 16, 16, 16);
+  let s = lookup_table_read_3D(rough, cos_NI, 0.5, table_ggx_gen_schlick_s(), 16, 16, 16);
   return (f0 + s * (vec3f(1.0) - f0)) * f32(eval_reflection);
 }
 

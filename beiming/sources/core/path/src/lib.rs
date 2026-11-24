@@ -938,6 +938,28 @@ pub fn glass_energy(mu: f64, alpha: f64, eta: f64, n: usize) -> f64 {
     sum / (n * n) as f64
 }
 
+/// 北冥：广义 Schlick 的一张表有几个数（16×16×16）。
+pub const GGX_GEN_SCHLICK_LEN: usize = 4096;
+
+/// 北冥：Cycles 的 table_ggx_gen_schlick_ior_s 与 table_ggx_gen_schlick_s 接在一起（各 `GGX_GEN_SCHLICK_LEN` 个），
+/// 从 ../shaders/ggx_gen_schlick.tables 读（`//` 开头的行是注释，其余是带 f 后缀、逗号分隔的数）。内核按 float 读
+/// （`heap::Table::GgxGenSchlickIorS`、`GgxGenSchlickS`；pathtrace.wgsl 的 `lookup_table_fetch`）。
+pub fn ggx_gen_schlick_tables() -> &'static [f32] {
+    static T: std::sync::OnceLock<Vec<f32>> = std::sync::OnceLock::new();
+    T.get_or_init(|| {
+        let v: Vec<f32> = include_str!("../../shaders/ggx_gen_schlick.tables")
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("//"))
+            .flat_map(|l| l.split(','))
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.trim_end_matches('f').parse::<f32>().expect("ggx_gen_schlick.tables: a number"))
+            .collect();
+        assert_eq!(v.len(), 2 * GGX_GEN_SCHLICK_LEN, "ggx_gen_schlick.tables");
+        v
+    })
+}
+
 /// `glass_energy` over the table's nodes, entering then leaving, four values a vec4 (`heap::Table::GlassEnergy`; once
 /// a process, 35 ms).
 pub fn glass_energy_lut() -> &'static [[f32; 4]] {

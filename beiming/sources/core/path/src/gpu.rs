@@ -467,7 +467,10 @@ impl Uploaded {
     pub fn place(&self, p: &mut Params) {
         let first = self.heap.firsts();
         p.table_first = std::array::from_fn(|k| std::array::from_fn(|j| first.get(k * 4 + j).copied().unwrap_or(0)));
-        p.table_first_ext = std::array::from_fn(|k| std::array::from_fn(|j| first.get(12 + k * 4 + j).copied().unwrap_or(0)));
+        p.table_first_ext = [[0; 4]; 2];
+        for (k, &slot) in crate::heap::EXT_SLOTS.iter().enumerate() {
+            p.table_first_ext[slot / 4][slot % 4] = first[12 + k];
+        }
         let first = self.words.firsts();
         p.word_first = std::array::from_fn(|k| first.get(k).copied().unwrap_or(0));
     }
@@ -1744,6 +1747,8 @@ impl Gpu {
             (Table::GlassEnergy, bytemuck::cast_slice(crate::glass_energy_lut()), 0),
             (Table::EmitterTris, bytemuck::cast_slice(emitter_tris), 0),
             (Table::ObjectExt, bytemuck::cast_slice(&object_ext), room.objects * std::mem::size_of::<crate::scene::GpuObjectExt>()),
+            (Table::GgxGenSchlickIorS, bytemuck::cast_slice(&crate::ggx_gen_schlick_tables()[..crate::GGX_GEN_SCHLICK_LEN]), 0),
+            (Table::GgxGenSchlickS, bytemuck::cast_slice(&crate::ggx_gen_schlick_tables()[crate::GGX_GEN_SCHLICK_LEN..]), 0),
         ];
         assert!(parts.iter().enumerate().all(|(k, p)| p.0.index() == k), "the tables in `Table`'s order");
         let heap = Heap::filled(d, &parts.map(|p| (p.1.len() + p.2) as u64), |put| parts.iter().for_each(|p| put(p.0, 0, p.1)));

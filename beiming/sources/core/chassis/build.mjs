@@ -21,8 +21,9 @@ export const OUT = path.join(CORE, '..', '..', '..', 'out', 'chassis');
 export const KERNEL = path.join(CORE, 'path');
 export const PRESETS = path.join(KERNEL, 'presets');
 export const SHADERS = ['microfacet.wgsl', 'util.wgsl', 'area_light.wgsl', 'ggx_tables.wgsl'];
-/** 进构建的东西（相对 beiming/sources/core/）：内核的清单、锁、工具链、源码、着色器、预设，加上四个移植的着色器 */
-const INPUTS = ['path/Cargo.toml', 'path/Cargo.lock', 'path/rust-toolchain.toml', 'path/src', 'path/shaders', 'path/presets', ...SHADERS.map(f => `shaders/${f}`)];
+/** 进构建的东西（相对 beiming/sources/core/）：内核的清单、锁、工具链、源码、着色器、预设，加上四个移植的着色器与
+ *  内核 include_str! 读的广义 Schlick 两张表的数据（path/src/lib.rs 的 ggx_gen_schlick_tables） */
+const INPUTS = ['path/Cargo.toml', 'path/Cargo.lock', 'path/rust-toolchain.toml', 'path/src', 'path/shaders', 'path/presets', ...SHADERS.map(f => `shaders/${f}`), 'shaders/ggx_gen_schlick.tables'];
 const EXE = process.platform === 'win32' ? '.exe' : '';
 
 export const COMMIT = 'c946cc96bdb08979224e851a7fc67a066b1b456b';
