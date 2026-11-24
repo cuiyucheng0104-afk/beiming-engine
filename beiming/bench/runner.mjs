@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { types } from 'node:util';
 import { EvalError, contractError, envError, runCli, usageError } from '../../tools/eval/lib/cli.mjs';
 import { claudeCommand } from '../../tools/eval/lib/drive.mjs';
 import { runTool } from '../../tools/eval/lib/exec.mjs';
@@ -165,22 +166,68 @@ export async function defaultJudge({ question, worktreeDir }) {
   return { predicates, metrics, cost: { gpuSeconds: submission?.cost?.gpuSeconds } };
 }
 
+function normalizeBlockedBy(value, name) {
+  if (value == null) return null;
+  if (types.isProxy(value) || !Array.isArray(value)) {
+    throw usageError(`${name} 必须是字符串数组或 null`, '传入字符串数组（例如 question.flags.blockedBy）');
+  }
+  const items = new Set();
+  for (let i = 0; i < value.length; i += 1) {
+    const desc = Object.getOwnPropertyDescriptor(value, i);
+    if (!desc || !('value' in desc) || typeof desc.value !== 'string') {
+      throw usageError(`${name} 第 ${i + 1} 项必须是字符串`, 'blockedBy 只能包含字符串元素');
+    }
+    const trimmed = desc.value.trim();
+    if (trimmed) items.add(trimmed);
+  }
+  return [...items].sort();
+}
+
+/**
+ * 比较当前与上次记录的 blockedBy 集合是否发生变化（纯函数）。
+ * previousBlockedBy 为 null/undefined 时返回 false；
+ * 双方均为字符串数组时，对各自元素做 trim() 并过滤空串后按去重排序集合比较，内容相同返回 false，有任何增删改返回 true；
+ * 非法类型抛出 usageError。
+ */
+export function hasBlockedByChanged(currentBlockedBy, previousBlockedBy) {
+  const current = normalizeBlockedBy(currentBlockedBy, 'currentBlockedBy') ?? [];
+  const previous = normalizeBlockedBy(previousBlockedBy, 'previousBlockedBy');
+  if (previous === null) return false;
+  return current.length !== previous.length || current.some((item, i) => item !== previous[i]);
+}
+
 /**
  * 跑一道题。solver（函数，测试和内嵌用，和宿主同进程）、solverCmd（命令）、model（无头 claude）三选一；后两种在做题目录里起子进程。
  * 做题目录里只放 question.json（公开投影），完整题目只在本进程里，判分也在本进程做；子进程还读得到什么，看文件头的信任边界。
  * judge({ question, worktreeDir, runDir }) → { metrics: { 指标名: true | { pass } }, predicates: { 断言原文: true | { pass } } }；不传用 defaultJudge
  * @returns 结果文件的内容，外加 runDir、resultFile
  */
-export async function runExamQuestion({ questionFile, evalRoot, solver, solverCmd, model = null, claude = 'claude', source = null, judge, forceExpectedFail = false } = {}) {
+export async function runExamQuestion({
+  questionFile,
+  evalRoot,
+  solver,
+  solverCmd,
+  model = null,
+  claude = 'claude',
+  source = null,
+  judge,
+  forceExpectedFail = false,
+  previousBlockedBy = null,
+  rerunOnBlockedByChange = false,
+} = {}) {
   if (!questionFile) throw usageError('缺少题目文件', '写 --question <题目文件>', 'usage.missing-argument');
   if (source !== null && !SOURCES.includes(source)) throw usageError(`source 只能是 ${SOURCES.join(' / ')}`);
+  if (typeof forceExpectedFail !== 'boolean') throw usageError('forceExpectedFail 必须是布尔值');
+  if (typeof rerunOnBlockedByChange !== 'boolean') throw usageError('rerunOnBlockedByChange 必须是布尔值');
+  if (previousBlockedBy != null) normalizeBlockedBy(previousBlockedBy, 'previousBlockedBy');
   let raw;
   try { raw = fs.readFileSync(questionFile, 'utf8'); } catch (e) { throw usageError(`读不到题目文件（${e.code ?? e.message}）`, '检查 --question 的路径'); }
   const checked = validateQuestion(raw);
   if (!checked.ok) throw contractError('contract.question-invalid', `题目没过 question/0.1 校验：${whyInvalid(checked)}`, '用 beiming/bench 的 validateQuestion 看逐条问题，改完重跑');
   const question = JSON.parse(raw);
   const { hidden, expectedFail, blockedBy } = question.flags;
-  const skip = expectedFail && !forceExpectedFail;
+  const blockedByChanged = rerunOnBlockedByChange ? hasBlockedByChanged(blockedBy, previousBlockedBy) : false;
+  const skip = expectedFail && !forceExpectedFail && !blockedByChanged;
   // shortcut: 不经 shell（各平台引号规则不一样），按空白拆词，整个词可以用引号包起来；要管道、重定向时自己写 sh -c "…"
   const argv = solverCmd ? [...solverCmd.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]) : null;
   const how = skip ? 'none' : typeof solver === 'function' ? 'function' : argv ? 'command' : model ? 'claude' : null;

@@ -1,0 +1,77 @@
+{
+  "format": "question/0.1",
+  "id": "10-1",
+  "level": 4,
+  "title": "逆光熊猫毛",
+  "brief": "做一条 10 秒、24 帧每秒、1920×1080、240 帧的雾林逆光熊猫特写镜头，不带声音，不换镜头。熊猫主体需用 9 层壳毛表现顺滑毛发层级与明显逆光轮廓亮边，背后配备不少于 28 步射线步进的体积光柱穿林透射。",
+  "deliverable": {
+    "size": [
+      1920,
+      1080
+    ],
+    "fps": "24/1",
+    "frames": 240,
+    "audio": "none"
+  },
+  "assets": {},
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=24, frames=240)",
+    "no_cut @ all",
+    "inside_frame(panda, margin=0.05) @ all",
+    "visible(panda) >= 0.5 @ all",
+    "key_fill_ratio(panda) >= 4 @ all",
+    "fx_visible(volumetric_beam, minArea=0.05) @ all",
+    "noise_residual(film) <= 4.5 @ all",
+    "alias_edge(film) <= 0.6 @ all"
+  ],
+  "scoring": [
+    {
+      "metric": "fur.rim-silhouette",
+      "source": "frame-meta",
+      "args": {
+        "shellLayers": 9,
+        "minRimContrast": 3
+      },
+      "pass": "9 层壳层毛发逐层收敛，逆光轮廓光亮边清晰包裹主体且无块状穿帮",
+      "weight": 0.5
+    },
+    {
+      "metric": "beam.depth-marching",
+      "source": "render-stats",
+      "args": {
+        "marchSteps": 28,
+        "minBeamContrast": 0.15
+      },
+      "pass": "熊猫背后至少 28 步射线步进的体积光柱透射连续无条带，雾林层次完整",
+      "weight": 0.5
+    }
+  ],
+  "controls": {
+    "referencePass": "参考渲染基线在 9 层壳毛轮廓亮边与 28 步体积光柱两项评分上均得满分",
+    "negative": "缺少壳层毛发（退化为光面剪影）或缺失体积光柱散射的提交必须判不合格"
+  },
+  "needs": [
+    "shade.shell-fur",
+    "fx.volumetric-beam",
+    "deliver.encode"
+  ],
+  "budget": {
+    "tokens": 500000,
+    "wallMs": 1800000,
+    "gpuSeconds": 300
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": true,
+    "blockedBy": [
+      "缺壳层毛发（shade.shell-fur）",
+      "缺体积光柱（fx.volumetric-beam）"
+    ]
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "05 第 6.4 节预期失败题初值，待相关技术卡落地后校准",
+    "noiseFloor": null,
+    "version": 0
+  }
+}

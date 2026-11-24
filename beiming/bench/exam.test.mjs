@@ -24,10 +24,10 @@ function makeTempDir(t, prefix = 'beiming-exam-test-') {
   return dir;
 }
 
-test('exam-1 扫描并运行仓库真实公开题库：12 道公开题（level-1 / level-2-a / level-2-b）与负对照全部通过，写出结构化 report.json', async (t) => {
+test('exam-1 扫描并运行仓库真实公开题库：12 道公开题（level-1 / level-2-a / level-2-b）与负对照全部通过、expected-fail 题正常跳过，写出结构化 report.json', async (t) => {
   const outDir = makeTempDir(t);
   const files = discoverQuestionFiles(QUESTIONS_DIR);
-  assert.ok(files.length >= 12, `应至少发现 12 道公开题，实际 ${files.length}`);
+  assert.ok(files.length >= 17, `应至少发现 17 道公开考题（含预期失败题），实际 ${files.length}`);
 
   const report = await runExam({ outDir });
   assert.equal(report.format, EXAM_REPORT_FORMAT);
@@ -37,7 +37,10 @@ test('exam-1 扫描并运行仓库真实公开题库：12 道公开题（level-1
   assert.equal(report.summary.totalQuestions, files.length);
   assert.equal(report.summary.validQuestions, files.length);
   assert.equal(report.summary.invalidQuestions, 0);
-  assert.equal(report.summary.passedQuestions, files.length);
+  assert.ok(report.summary.skippedQuestions >= 5, `应至少跳过 5 道 expected-fail 题，实际 ${report.summary.skippedQuestions}`);
+  assert.equal(report.summary.evaluatedQuestions, files.length - report.summary.skippedQuestions);
+  assert.ok(report.summary.evaluatedQuestions >= 12);
+  assert.equal(report.summary.passedQuestions, report.summary.evaluatedQuestions);
   assert.equal(report.summary.failedQuestions, 0);
   assert.ok(report.summary.negativeControlsChecked >= 24);
   assert.equal(report.summary.negativeControlsRejected, report.summary.negativeControlsChecked);
@@ -47,12 +50,18 @@ test('exam-1 扫描并运行仓库真实公开题库：12 道公开题（level-1
   assert.ok(fs.existsSync(reportFile));
   const saved = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
   assert.equal(saved.ok, true);
-  assert.equal(saved.summary.passedQuestions, files.length);
+  assert.equal(saved.summary.passedQuestions, report.summary.evaluatedQuestions);
+  assert.equal(saved.summary.skippedQuestions, report.summary.skippedQuestions);
   for (const q of saved.questions) {
     assert.equal(q.valid, true, q.file);
-    assert.equal(q.pass, true, `${q.id}: ${q.errors.join('；')}`);
-    assert.equal(q.score, 1, q.id);
     assert.ok(typeof q.runId === 'string' && q.runId.length > 0, q.id);
+    if (q.status === 'expected-fail') {
+      assert.equal(q.pass, false, q.id);
+      assert.equal(q.score, 0, q.id);
+    } else {
+      assert.equal(q.pass, true, `${q.id}: ${q.errors.join('；')}`);
+      assert.equal(q.score, 1, q.id);
+    }
   }
 });
 
