@@ -612,21 +612,27 @@ function readScoreboardMetric(input, at = '/scoreboardMetric') {
 /** O12：按四类片型统计核心出帧占比；唯一真相源是逐帧宿主元数据 frame.source.renderer === 'core'，不采信作业自报。 */
 function readFrameMeta(input) {
   const counts = new Map(FILM_TYPES.map(({ id }) => [id, { coreFrames: 0, totalFrames: 0 }]));
+  const countFrame = (frameRaw, fAt, bucket) => {
+    const frame = obj(frameRaw, fAt);
+    const source = obj(frame.source, `${fAt}/source`);
+    const renderer = oneOf(source.renderer, ALLOWED_RENDERERS, `${fAt}/source/renderer`);
+    bucket.totalFrames += 1;
+    if (renderer === 'core') bucket.coreFrames += 1;
+  };
   list(input, '/frameMeta').forEach((raw, i) => {
     const at = `/frameMeta/${i}`;
     const item = obj(raw, at);
     const filmType = oneOf(item.filmType, FILM_TYPE_IDS, `${at}/filmType`);
     if (item.filmId !== undefined) text(item.filmId, `${at}/filmId`);
-    if (!Array.isArray(item.frames)) bad(`${at}/frames 必须是数组`);
     const bucket = counts.get(filmType);
-    item.frames.forEach((frameRaw, j) => {
-      const fAt = `${at}/frames/${j}`;
-      const frame = obj(frameRaw, fAt);
-      const source = obj(frame.source, `${fAt}/source`);
-      const renderer = oneOf(source.renderer, ALLOWED_RENDERERS, `${fAt}/source/renderer`);
-      bucket.totalFrames += 1;
-      if (renderer === 'core') bucket.coreFrames += 1;
-    });
+    if (Object.hasOwn(item, 'frames')) {
+      if (!Array.isArray(item.frames)) bad(`${at}/frames 必须是数组`);
+      item.frames.forEach((frameRaw, j) => countFrame(frameRaw, `${at}/frames/${j}`, bucket));
+    } else if (Object.hasOwn(item, 'source')) {
+      countFrame(item, at, bucket);
+    } else {
+      bad(`${at}/frames 必须是数组`);
+    }
   });
   let totalCore = 0;
   let totalAll = 0;
@@ -831,7 +837,15 @@ const fmt = (value, digits = 3) => {
   return String(Number.isFinite(scaled) ? scaled : value);
 };
 const pct = (value) => (typeof value === 'number' ? `${Number.isFinite(value * 100) ? fmt(value * 100, 1) : String(value)}%` : '—');
-const pctFixed = (value) => (typeof value === 'number' && Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : '—');
+// 用整数精确半进位保留一位小数，消除 3/2000 (0.15%) 等十进制半点的 IEEE-754 浮点误差
+const sharePct = (coreFrames, totalFrames) => {
+  if (!Number.isSafeInteger(coreFrames) || !Number.isSafeInteger(totalFrames) || coreFrames < 0 || totalFrames < 0) return '—';
+  if (totalFrames === 0) return '0.0%';
+  const c = BigInt(coreFrames);
+  const t = BigInt(totalFrames);
+  const tenths = (c * 2000n + t) / (2n * t);
+  return `${tenths / 10n}.${tenths % 10n}%`;
+};
 const frac = (t) => (t?.status === 'not-run' ? '未跑' : `${fmt(t?.passed, 0)} / ${fmt(t?.total, 0)}（${pct(t?.rate)}）`);
 const label = (table, value) => (typeof value === 'string' && Object.hasOwn(table, value) ? table[value] : value);
 const STATUS_LABEL = { pass: '通过', fail: '没过', error: '出错', timeout: '超时', failed: '判分失败', 'expected-fail': '预期失败' };
@@ -898,13 +912,13 @@ function page(board) {
 ${FILM_TYPES.map(({ id, label: typeLabel }) => {
     const item = coreShare.byFilmType[id];
     return h`<article data-film-type="${id}"><h3>${typeLabel}</h3>${facts([
-      ['核心出帧占比', pctFixed(item.rate)],
+      ['核心出帧占比', sharePct(item.coreFrames, item.totalFrames)],
       ['帧数', `${fmt(item.coreFrames, 0)} / ${fmt(item.totalFrames, 0)} 帧`],
     ])}</article>`;
   })}
 </div>
 ${facts([
-    ['总计', `${pctFixed(coreShare.overall.rate)}（${fmt(coreShare.overall.coreFrames, 0)} / ${fmt(coreShare.overall.totalFrames, 0)} 帧）`],
+    ['总计', `${sharePct(coreShare.overall.coreFrames, coreShare.overall.totalFrames)}（${fmt(coreShare.overall.coreFrames, 0)} / ${fmt(coreShare.overall.totalFrames, 0)} 帧）`],
   ])}
 <p class="note">口径仅认宿主每帧元数据 source.renderer === "core"，不采信作业自报；接管过门前每格为 0 亦照样显示。</p>`;
 

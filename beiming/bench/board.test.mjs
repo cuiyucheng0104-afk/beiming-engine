@@ -1258,6 +1258,27 @@ test('O12 不采信作业自报：仅认逐帧 source.renderer === core，且兼
   const cliBoard = JSON.parse(readFileSync(join(dir, 'out', 'board.json'), 'utf8'));
   assert.deepEqual(cliBoard.coreFrameShare.byFilmType['realtime-3d'], { label: '游戏感实时三维', coreFrames: 1, totalFrames: 2, rate: 0.5 });
   assert.match(readFileSync(join(dir, 'out', 'index.html'), 'utf8'), /50\.0%/);
+
+  // R1 回归 1：逐帧直接携带 filmType 的 meta/0.1 对象与按片型分组统计完全一致，且支持混排
+  const fullMeta = JSON.parse(readFileSync(join(REPO, 'beiming/kernel/contracts/meta/examples/full.json'), 'utf8'));
+  const groupedOne = buildBoard({ asOf: AS_OF, frameMeta: [{ filmType: 'toon', frames: [fullMeta] }] });
+  const flatOne = buildBoard({ asOf: AS_OF, frameMeta: [{ ...fullMeta, filmType: 'toon' }] });
+  assert.deepEqual(flatOne.coreFrameShare, groupedOne.coreFrameShare);
+  const mixedBatch = buildBoard({
+    asOf: AS_OF,
+    frameMeta: [
+      { ...fullMeta, filmType: 'toon', source: { ...fullMeta.source, renderer: 'core' } },
+      { filmType: 'toon', frames: [{ source: { renderer: 'three' } }] },
+    ],
+  });
+  assert.deepEqual(mixedBatch.coreFrameShare.byFilmType.toon, { label: '三渲二', coreFrames: 1, totalFrames: 2, rate: 0.5 });
+
+  // R1 回归 2：十进制半点 3/2000 (0.15%) 精确四舍五入为 0.2%（不因浮点漂移变成 0.1%）
+  const twoThousand = Array.from({ length: 2000 }, (_, i) => ({ source: { renderer: i < 3 ? 'core' : 'three' } }));
+  const halfBoard = buildBoard({ asOf: AS_OF, frameMeta: [{ filmType: 'toon', frames: twoThousand }] });
+  assert.deepEqual(halfBoard.coreFrameShare.overall, { coreFrames: 3, totalFrames: 2000, rate: 3 / 2000 });
+  const toonCard = renderBoardHtml(halfBoard).match(/<article data-film-type="toon">([\s\S]*?)<\/article>/)?.[1] ?? '';
+  assert.equal(toonCard.match(/[\d.]+%/)?.[0], '0.2%');
 });
 
 test('O12 负例与原型污染门禁：非法 filmType / source.renderer / frames / 原型污染 / 泄露均按 usage.bad-argument 拒收', () => {
