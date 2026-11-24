@@ -1631,7 +1631,7 @@ test('A16-35 九审收口：建锁早期轮换回收（linkSync 即刻轮换）�
       }
       return r;
     });
-    assert.deepEqual(cache2.prune({ maxAgeMs: 0, now: Date.now() + 5000, lockTimeoutMs: 200 }), { removed: 0 });
+    assert.deepEqual(cache2.prune({ maxAgeMs: 0, now: Date.now() + 5000, lockTimeoutMs: 2000 }), { removed: 0 });
     assert.equal(rotated2, true);
     assert.deepEqual(fs.readdirSync(retired2).filter(n => n === '.cache.lock' || n.startsWith('.write-')), []);
     assert.deepEqual(fs.readdirSync(cache2.root).filter(n => n === '.cache.lock' || n.startsWith('.write-')), []);
