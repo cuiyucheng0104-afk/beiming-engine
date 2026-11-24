@@ -82,7 +82,7 @@ test('出帧计划：值域、快门自相矛盾、档位的默认值和草稿�
   assert.throws(() => plan('final', { scale: 2 }), code('usage.bad-argument'));
   assert.throws(() => plan('final', { samples: 1.5 }), code('usage.bad-argument'));
   assert.throws(() => plan('final', { shutter: { angleDeg: 0, samples: 4 } }), code('contract.shutter-conflict'));
-  assert.deepEqual(plan('final', {}), { angleDeg: 0, shutterSamples: 1, size: [640, 360], samples: 64, denoise: false, layers: ['color'] });
+  assert.deepEqual(plan('final', {}), { angleDeg: 0, shutterSamples: 1, size: [640, 360], samples: 64, denoise: true, layers: ['color'] });
   assert.deepEqual(plan('draft', {}), { angleDeg: 0, shutterSamples: 1, size: [320, 180], samples: 24, denoise: true, layers: ['color'] });
   assert.deepEqual(plan('final', {}, ['meta']).layers, []);
   assert.deepEqual(plan('draft', {}, ['color'], [1920, 1080]).size, [960, 540]);
@@ -385,7 +385,7 @@ test('实跑：常驻 Blender 渲校准镜头，层文件、元数据、交并�
       assert.deepEqual(layers.color.shape, [360, 640, 4]);
       assert.deepEqual([meta.frame, meta.shotFrame, meta.seed, meta.size, meta.hash.color], [100 + f, f, 7, [640, 360], layers.color.hash]);
       assert.deepEqual([meta.source.id, meta.source.renderer, meta.source.host, meta.source.tier, meta.source.samples], ['blender', 'blender', 'cycles', 'final', 8]);
-      assert.equal(meta.source.denoise, undefined);
+      assert.match(meta.source.denoise, /^oidn-(gpu|cpu)$/);
       // 编号层反算的包围盒对元数据的包围盒；cube 和 blocker 都没被挡
       for (const name of ['cube', 'blocker']) {
         const e = meta.entities.find((x) => x.name === name), box = idBox(ids, e.id), iou = iouOf(box, e.bbox2d);
@@ -410,7 +410,7 @@ test('实跑：常驻 Blender 渲校准镜头，层文件、元数据、交并�
     const mid = frames[12];
     [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 6, 1].forEach((v, i) => near(mid.meta.camera.world[i], v, 1e-6, `camera.world[${i}]`));
     near(mid.meta.camera.fovYDeg, 40, 1e-4, 'fovYDeg');
-    [3.2, 0.8, 0.4, 1].forEach((v, i) => near(mid.color.at(320, 180)[i], v, 1e-4, `正中像素的线性颜色分量 ${i}（HDR 不截）`));
+    [3.2, 0.8, 0.4, 1].forEach((v, i) => near(mid.color.at(320, 180)[i], v, 0.05, `正中像素的线性颜色分量 ${i}（HDR 不截）`));
     assert.deepEqual(mid.ids.at(320, 180), [2]);
     assert.deepEqual(mid.ids.at(10, 10), [0]);
     const depth = await readLayer(env.workspace, mid.layers.depth, 'f32'), normal = await readLayer(env.workspace, mid.layers.normal, 'f32');

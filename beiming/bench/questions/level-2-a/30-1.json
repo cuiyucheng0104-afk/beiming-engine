@@ -1,0 +1,93 @@
+{
+  "format": "question/0.1",
+  "id": "30-1",
+  "level": 2,
+  "title": "一张节拍表",
+  "brief": "做一条 90 秒、24 帧每秒、1920×1080 的巨兽对决短片，共 2160 帧，配 80 BPM 的音乐（一拍 0.75 秒，18 帧）。画面、特效、相机、配乐共用同一张节拍表驱动至少 20 个跟拍命名时刻（动作与段落切换命名事件 m01–m20，记入跟拍事件表 beatEvents）；允许存在按绝对时间走的命名时刻（如片名 title_enter 在第 2 秒即第 48 帧入场，记入绝对时间事件表 absoluteEvents，不计入跟拍检查）。跟拍命名时刻落在 80 BPM 拍点网格上（离最近的 18 帧整数倍不超过 1 帧）的比例不低于 85%，并比全片随机基线高出至少 40 个百分点。把节拍表从 80 BPM 改到 96 BPM 重新求值时，声明要跟拍的命名时刻全部按新拍速等比联动位移（容差不超过 1 帧，不得写死帧号），按绝对时间走的命名时刻保持第 48 帧不变且不扣分。整片响度 -14 LUFS（上下不超过 1），真峰值不高于 -1 dBTP。",
+  "deliverable": {
+    "size": [1920, 1080],
+    "fps": "24/1",
+    "frames": 2160,
+    "audio": "required"
+  },
+  "assets": {},
+  "refs": [
+    "beiming/bench/refs/level-2-a/30-1.reference.json",
+    "beiming/bench/refs/level-2-a/30-1.hardcoded.json"
+  ],
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=24, frames=2160)",
+    "cut_at(shots)",
+    "loudness(film) in [-15,-13]",
+    "true_peak(film) <= -1"
+  ],
+  "scoring": [
+    {
+      "metric": "beat.onset-hit",
+      "source": "events",
+      "args": {
+        "bpm": 80,
+        "minBeatEvents": 20,
+        "tolFrames": 1,
+        "minHitRate": 0.85,
+        "minLift": 0.4,
+        "requiredEventIds": [
+          "m01", "m02", "m03", "m04", "m05",
+          "m06", "m07", "m08", "m09", "m10",
+          "m11", "m12", "m13", "m14", "m15",
+          "m16", "m17", "m18", "m19", "m20"
+        ]
+      },
+      "pass": "跟拍命名时刻不少于 20 个且须包含题面指定的 m01–m20；全体跟拍事件及 m01–m20 离 80 BPM 拍点网格（18 帧整数倍）不超过 1 帧的命中率均不低于 85%，并且比全片随机基线高出至少 40 个百分点",
+      "weight": 0.6
+    },
+    {
+      "metric": "timeline.bpm-follow",
+      "source": "时间线改 BPM 行为重求值",
+      "args": {
+        "baseBpm": 80,
+        "probeBpm": 96,
+        "tolFrames": 1,
+        "minMovedRatio": 1,
+        "minMovableRatio": 0.5,
+        "requiredEventIds": [
+          "m01", "m02", "m03", "m04", "m05",
+          "m06", "m07", "m08", "m09", "m10",
+          "m11", "m12", "m13", "m14", "m15",
+          "m16", "m17", "m18", "m19", "m20"
+        ]
+      },
+      "pass": "节拍表从 80 BPM 改到 96 BPM 重新求值时，声明要跟拍的命名时刻（全体及 m01–m20，且至少半数位于改拍速后应发生帧位移的非零拍点）100% 按新拍速等比位移（偏差不超过 1 帧，应位移事件绝不原地写死）；按绝对时间走的命名时刻不查跟拍位移",
+      "weight": 0.4
+    }
+  ],
+  "controls": {
+    "referencePass": "参考固定样本必须得满分：20 个跟拍命名时刻里 17 个落在 80 BPM 拍点网格上（85%），节拍表改到 96 BPM 后 20 个跟拍事件全部按 80/96 联动位移，固定在第 48 帧（2 秒）的绝对时间事件 title_enter 不触发误罚",
+    "negative": "负对照固定样本必须判不合格：写死帧号的样本在 80 BPM 下同样有 17/20（85%）落拍，但改到 96 BPM 后跟拍事件原地不动（总分 0.6，整题不通过）；落拍比例低于 85% 也判不合格",
+    "random": "随机对照：80 BPM、24 帧每秒下一拍 18 帧、正负 1 帧容差窗口宽 3 帧，全片任取一帧落拍的随机基线是 3/18（16.7%）；命中率必须不低于 85% 且比随机基线高出 40 个百分点以上"
+  },
+  "needs": [
+    "time.timeline",
+    "time.events",
+    "time.envelope"
+  ],
+  "budget": {
+    "tokens": 500000,
+    "wallMs": 2400000,
+    "gpuSeconds": 600
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": false,
+    "blockedBy": []
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "案例量测与考题设计调研第 6 节及行为检查裁定初值，配双固定样本核验",
+    "noiseFloor": null,
+    "version": 0
+  },
+  "ext": {
+    "bench.code": "外01-1"
+  }
+}

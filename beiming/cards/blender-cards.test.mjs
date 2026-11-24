@@ -79,7 +79,11 @@ function loadCheck(input, account) {
 // ---------- 一、卡文件 ----------
 
 test('两张 Blender 机制卡：各在 cards/mechanism/<目录名>/，带卡文件、入口和自测，落点是 source:blender、宿主是 cycles', () => {
-  const found = readdirSync(join(HERE, 'mechanism'), { recursive: true }).filter((p) => p.endsWith('card.json')).map((p) => `mechanism/${dirname(p).split(sep).join('/')}`).sort();
+  const found = readdirSync(join(HERE, 'mechanism'), { recursive: true })
+    .filter((p) => p.endsWith('card.json'))
+    .map((p) => `mechanism/${dirname(p).split(sep).join('/')}`)
+    .filter((dir) => dir.startsWith('mechanism/blender-'))
+    .sort();
   assert.deepEqual(found, CARDS.map((c) => c.dir).sort());
   for (const c of CARDS) {
     const card = readJson(join(c.abs, 'card.json')), [impl] = card.impl;
@@ -247,12 +251,13 @@ describe('Blender 实跑 film-min 的 s01', { concurrency: false }, () => {
         ]);
       } finally { await session.close(); }
 
-      // 终稿档：每像素采样数取镜头的 tiers.final.samples，不降噪
+      // 终稿档：每像素采样数取镜头的 tiers.final.samples，默认启用 OIDN 降噪
       const final = await src.open(input, env('final'));
       try {
         const { meta } = await final.render(90, { scale: 0.25 }, ['color', 'meta']);
         assert.deepEqual(judged(meta), CLEAN);
-        assert.deepEqual([meta.source.tier, meta.source.samples, meta.source.denoise], ['final', S01.tiers.final.samples, undefined]);
+        assert.deepEqual([meta.source.tier, meta.source.samples], ['final', S01.tiers.final.samples]);
+        assert.match(meta.source.denoise ?? '', /^oidn-(gpu|cpu)$/);
       } finally { await final.close(); }
     } finally {
       await src.stop();

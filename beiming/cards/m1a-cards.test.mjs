@@ -225,7 +225,7 @@ test('时刻换成镜头局部帧号：整数减起始帧，算式查事件表�
   assert.deepEqual([localFrame(200, events, 180), localFrame('event(title)', events, 180), localFrame('event(title) - 2', events, 180), localFrame('cut(180) + 12', events, 180)], [20, 12, 10, 12]);
   for (const bad of ['event(nobody)', 'cut(7)', 'title', 1.5]) assert.throws(() => localFrame(bad, events, 180), coded('usage.bad-argument'));
   const { card } = library['overlay.title'];
-  assert.deepEqual(resolveParams(card, { text: 'RTX 5090', enter: 'event(title)' }, { events, shotIn: 180 }), { text: 'RTX 5090', enter: 12, settleFrames: 24, ink: '#F4F0E9', heightFrac: 0.12, distance: 1 });
+  assert.deepEqual(resolveParams(card, { text: 'RTX 5090', enter: 'event(title)' }, { events, shotIn: 180 }), { text: 'RTX 5090', enter: 12, settleFrames: 24, ink: '#F4F0E9', heightFrac: 0.12, distance: 1, motion: 'rise' });
   for (const bad of [{ size: 3 }, { settleFrames: 2.5 }, { heightFrac: 0.9 }, { text: 5 }, { distance: '1' }]) assert.throws(() => resolveParams(card, bad), coded('usage.bad-argument'), JSON.stringify(bad));
 });
 
@@ -682,6 +682,212 @@ test('实渲：片名镜头零手写镜头脚本出帧，探针片子的三个�
       assert.equal(time.rng.length, 5);
       assert.deepEqual([path.wallClock, path.unseededRandom, path.allowed.length], [[], [], 1]);
       assert.ok(path.files.includes('beiming/cards/two-d/overlay-title/three.js') && path.files.includes('beiming/host/page/cards-probe.shot.js'));
+    });
+
+    await t.test('真字体实渲：RTX 5090、小写 Hello World（含大字号裁切）与中文「北冥」、fade/settle 动效、透明区零误标与 page.det2d 双卡兼容', async () => {
+      const aaCount = (bytes) => {
+        const px = new Float32Array(bytes.buffer, bytes.byteOffset, bytes.length / 4);
+        let aa = 0;
+        for (let i = 3; i < px.length; i += 4) if (px[i] > 0.02 && px[i] < 0.95) aa++;
+        return aa;
+      };
+      // s02 的 RTX 5090 实渲帧具备真字体平滑抗锯齿边缘像素
+      const s02Settled = s02.renders.find((r) => r.f === 60);
+      assert.ok(aaCount(s02Settled.bytes.color) > 1000, 'RTX 5090 应有真字体抗锯齿边缘');
+
+      for (const [idx, [text, heightFrac]] of [['Hello World', 0.2], ['Hello World', 0.35], ['北冥', 0.2]].entries()) {
+        const customFilm = {
+          ...PROBE_FILM,
+          id: `t4-true-font-${idx}`,
+          output: { ...PROBE_FILM.output, size: [640, 360], frames: 24 },
+          shots: [probeShot('t01', 0, {
+            mode: 'cards-data',
+            cards: [{ as: 'title', use: 'overlay.title@1', params: { text, enter: 2, settleFrames: 6, heightFrac } }],
+            roles: { hero: 'title' },
+          })],
+          events: [],
+        };
+        const customLock = localLock(customFilm, { t01: 8801 + idx }, threeLib);
+        const inp = shotInput(customFilm, 't01', eventsTable(customFilm));
+        const s1 = await source.open(inp, { lock: customLock, tier: 'final', workspace: root, filmDir: PROBE_DIR });
+        const s2 = await source.open(inp, { lock: customLock, tier: 'final', workspace: root, filmDir: PROBE_DIR });
+        try {
+          const rPre = await s1.render(1, {}, ['color', 'meta']);
+          const preBytes = await readFile(join(root, rPre.layers.color.file));
+          assert.deepEqual([rPre.meta.texts, inkBox(preBytes, rPre.layers.color.shape).count], [[], 0]);
+
+          const rMid = await s1.render(4, {}, ['color', 'meta']);
+          const midBytes = await readFile(join(root, rMid.layers.color.file));
+          const midInk = inkBox(midBytes, rMid.layers.color.shape);
+          assert.ok(midInk.count > 500);
+          assert.deepEqual(rMid.meta.texts[0].bbox2d.map(Math.round), midInk.box);
+
+          const r1 = await s1.render(12, {}, ['color', 'objectId', 'meta']);
+          const r1Next = await s1.render(15, {}, ['color', 'meta']);
+          const r2 = await s2.render(12, {}, ['color', 'meta']);
+          assert.equal(r1.layers.color.hash, r2.layers.color.hash, `${text} 同机两遍会话渲染哈希一致`);
+          assert.equal(r1.layers.color.hash, r1Next.layers.color.hash, `${text} 落定后静止帧哈希一致`);
+          assert.notEqual(rMid.layers.color.hash, r1.layers.color.hash, `${text} 入场中与落定后不同`);
+          assert.equal(r1.meta.texts[0].text, text);
+          const bytes = await readFile(join(root, r1.layers.color.file));
+          const idBytes = await readFile(join(root, r1.layers.objectId.file));
+          const ink = inkBox(bytes, r1.layers.color.shape);
+          const titleId = r1.meta.entities.find((e) => e.name === 'title').id;
+          assert.ok(ink.count > 1000 && aaCount(bytes) > 150, `${text} 墨迹像素与抗锯齿边缘充足`);
+          assert.deepEqual(r1.meta.texts[0].bbox2d.map(Math.round), ink.box, `${text} (${heightFrac}) 文字框精确匹配墨迹外框`);
+          assert.deepEqual(idBox(idBytes, r1.layers.objectId.shape, titleId), ink, `${text} (${heightFrac}) 透明像素零误标 objectId`);
+          assert.ok(rMid.meta.texts[0].bbox2d[1] > r1.meta.texts[0].bbox2d[1], `${text} 入场从下往上升到位`);
+        } finally {
+          await s1.close();
+          await s2.close();
+        }
+      }
+
+      // motion: fade 与 settle 在 film.json 中可正常声明并实渲
+      for (const [mIdx, motion] of ['fade', 'settle'].entries()) {
+        const motionFilm = {
+          ...PROBE_FILM,
+          id: `t4-motion-${motion}`,
+          output: { ...PROBE_FILM.output, size: [640, 360], frames: 24 },
+          shots: [probeShot('tm', 0, {
+            mode: 'cards-data',
+            cards: [{ as: 'title', use: 'overlay.title@1', params: { text: 'RTX 5090', enter: 2, settleFrames: 6, motion } }],
+            roles: { hero: 'title' },
+          })],
+          events: [],
+        };
+        const sMotion = await source.open(shotInput(motionFilm, 'tm', eventsTable(motionFilm)), {
+          lock: localLock(motionFilm, { tm: 8850 + mIdx }, threeLib), tier: 'final', workspace: root, filmDir: PROBE_DIR,
+        });
+        try {
+          const r = await sMotion.render(8, {}, ['color', 'objectId', 'meta']);
+          const bytes = await readFile(join(root, r.layers.color.file));
+          const idBytes = await readFile(join(root, r.layers.objectId.file));
+          const ink = inkBox(bytes, r.layers.color.shape);
+          const titleId = r.meta.entities.find((e) => e.name === 'title').id;
+          assert.deepEqual(r.meta.texts[0].bbox2d.map(Math.round), ink.box);
+          assert.deepEqual(idBox(idBytes, r.layers.objectId.shape, titleId), ink);
+        } finally {
+          await sMotion.close();
+        }
+      }
+
+      // 小字号合法下限 heightFrac=0.02：文字框按像素中心命中与实测墨迹外框精确一致；透明底白色 ink="#ffffff" 半透明边缘严格满足线性预乘 R=G=B=A
+      for (const [sIdx, sText] of ['Hello World', 'RTX 5090', '北冥'].entries()) {
+        const smallFilm = {
+          ...PROBE_FILM,
+          id: `t4-small-${sIdx}`,
+          output: { ...PROBE_FILM.output, size: [640, 360], frames: 24 },
+          shots: [probeShot('ts', 0, {
+            mode: 'cards-data',
+            cards: [{ as: 'title', use: 'overlay.title@1', params: { text: sText, enter: 2, settleFrames: 6, heightFrac: 0.02 } }],
+            roles: { hero: 'title' },
+          })],
+          events: [],
+        };
+        const sSmall = await source.open(shotInput(smallFilm, 'ts', eventsTable(smallFilm)), {
+          lock: localLock(smallFilm, { ts: 8860 + sIdx }, threeLib), tier: 'final', workspace: root, filmDir: PROBE_DIR,
+        });
+        try {
+          const r = await sSmall.render(8, {}, ['color', 'objectId', 'meta']);
+          const bytes = await readFile(join(root, r.layers.color.file));
+          const idBytes = await readFile(join(root, r.layers.objectId.file));
+          const ink = inkBox(bytes, r.layers.color.shape);
+          const titleId = r.meta.entities.find((e) => e.name === 'title').id;
+          assert.ok(ink.count > 0);
+          assert.deepEqual(r.meta.texts[0].bbox2d.map(Math.round), ink.box, `小字号 ${sText} 文字框匹配实测墨迹外框`);
+          assert.deepEqual(idBox(idBytes, r.layers.objectId.shape, titleId), ink);
+        } finally {
+          await sSmall.close();
+        }
+      }
+
+      const whiteFilm = {
+        ...PROBE_FILM,
+        id: 't4-white-premul',
+        output: { ...PROBE_FILM.output, size: [640, 360], frames: 24 },
+        shots: [probeShot('tw', 0, {
+          mode: 'cards-data',
+          cards: [{ as: 'title', use: 'overlay.title@1', params: { text: 'RTX 5090', enter: 2, settleFrames: 6, ink: '#ffffff' } }],
+          roles: { hero: 'title' },
+        })],
+        events: [],
+      };
+      const sWhite = await source.open(shotInput(whiteFilm, 'tw', eventsTable(whiteFilm)), {
+        lock: localLock(whiteFilm, { tw: 8870 }, threeLib), tier: 'final', workspace: root, filmDir: PROBE_DIR,
+      });
+      try {
+        let sampled = 0, wrong = 0;
+        for (const f of [4, 8]) {
+          const r = await sWhite.render(f, {}, ['color']);
+          const rgba = await readFile(join(root, r.layers.color.file));
+          for (let i = 0; i < 640 * 360; i++) {
+            const a = rgba.readFloatLE(16 * i + 12);
+            if (a <= 0.04 || a >= 0.95) continue;
+            sampled++;
+            if (
+              Math.abs(rgba.readFloatLE(16 * i) - a) > 0.01
+              || Math.abs(rgba.readFloatLE(16 * i + 4) - a) > 0.01
+              || Math.abs(rgba.readFloatLE(16 * i + 8) - a) > 0.01
+            ) wrong++;
+          }
+        }
+        assert.ok(sampled > 1000, `半透明抗锯齿样本数 ${sampled}`);
+        assert.equal(wrong, 0, '透明底白色 ink 半透明边缘不应变暗');
+      } finally {
+        await sWhite.close();
+      }
+
+      // 与 page.det2d@1 同镜头并存：临时装卸 FontFace 不污染 document.fonts
+      const dualDirs = ['cards/two-d/overlay-title', 'cards/mechanism/page-det2d'];
+      const dualLib = await loadCards(dualDirs);
+      const dualSource = await startSource({ cards: dualDirs });
+      try {
+        const dualFilm = {
+          ...PROBE_FILM,
+          id: 't4-dual-det2d',
+          output: { ...PROBE_FILM.output, size: [640, 360], frames: 24 },
+          shots: [probeShot('td', 0, {
+            mode: 'cards-data',
+            cards: [
+              { as: 'page', use: 'page.det2d@1', params: {} },
+              { as: 'title', use: 'overlay.title@1', params: { text: 'RTX 5090', enter: 2, settleFrames: 6 } },
+            ],
+            roles: { hero: 'title' },
+          })],
+          events: [],
+        };
+        const sDual = await dualSource.open(shotInput(dualFilm, 'td', eventsTable(dualFilm)), {
+          lock: localLock(dualFilm, { td: 8880 }, dualLib), tier: 'final', workspace: root, filmDir: PROBE_DIR,
+        });
+        try {
+          const r = await sDual.render(8, {}, ['color', 'objectId', 'meta']);
+          assert.equal(r.meta.texts.find((x) => x.id === 'title.line')?.text, 'RTX 5090');
+        } finally {
+          await sDual.close();
+        }
+      } finally {
+        await dualSource.stop();
+      }
+
+      // 超出锁定字库覆盖的字符在页面宿主装载时明确报错，不回退系统字体
+      const badFilm = {
+        ...PROBE_FILM,
+        id: 't4-bad-glyph',
+        output: { ...PROBE_FILM.output, frames: 24 },
+        shots: [probeShot('tbad', 0, {
+          mode: 'cards-data',
+          cards: [{ as: 'title', use: 'overlay.title@1', params: { text: '北冥𪚥' } }],
+          roles: { hero: 'title' },
+        })],
+        events: [],
+      };
+      await assert.rejects(
+        source.open(shotInput(badFilm, 'tbad', eventsTable(badFilm)), {
+          lock: localLock(badFilm, { tbad: 8899 }, threeLib), tier: 'final', workspace: root, filmDir: PROBE_DIR,
+        }),
+        /字形表/,
+      );
     });
   } finally {
     await source.stop();

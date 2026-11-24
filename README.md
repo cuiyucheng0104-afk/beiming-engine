@@ -181,7 +181,7 @@ tests/      契约、治理与渲染测试
 ## 测试、CI 与发布
 
 - `npm test` 跑全部 Node 与 Python 测试；`npm run check` 跑全部检查；`npm run lint` 列出 lint 告警数（只报告）；`npm run eval:selftest` 是 agent 评测计分器的自检。
-- 每个 PR 都跑 `.github/workflows/ci.yml`：unit（Node 24 与 22、Python 3.12）；check；smoke-render（无显卡的 SwiftShader 下三条路线的模版出片，并与金标准比对：第一次运行只采集待审批候选，审批人看过工件里的总览 contact.png 后用 `npm run golden -- approve` 转正）；env-smoke（Linux、macOS、Windows 三平台环境自检）；windows-paths（PowerShell 与中文路径）。
+- 每个 PR 都跑 `.github/workflows/ci.yml`：unit（Node 22、Python 3.12；Node 24 的全量测试在 render 的 tests 两片里跑）；check；smoke-render（无显卡的 SwiftShader 下三条路线的模版出片，并与金标准比对：第一次运行只采集待审批候选，审批人看过工件里的总览 contact.png 后用 `npm run golden -- approve` 转正）；env-smoke（Linux、macOS、Windows 三平台环境自检）；windows-paths（PowerShell 与中文路径）。
 - 推 `v*` 标签会触发 `.github/workflows/release.yml`，用 CHANGELOG.md 的对应段落建草稿 Release，维护者核对后发布。
 - 本机复现与发布步骤见 [tests/ci/README.md](tests/ci/README.md)。
 

@@ -2175,7 +2175,7 @@
     "/v1/films/{id}/observe/metrics": {
       "post": {
         "operationId": "observe-metrics",
-        "summary": "成片量测：交付规格、响度、黑帧冻结、切点",
+        "summary": "成片量测：交付规格、响度、黑帧冻结、切点、噪点残差与边缘锯齿",
         "security": [
           {
             "bearer": []
@@ -2209,7 +2209,9 @@
                         "audioLoudness",
                         "blackFreezeDup",
                         "cutYdif",
-                        "cutScene"
+                        "cutScene",
+                        "noiseResidual",
+                        "aliasEdge"
                       ]
                     }
                   }

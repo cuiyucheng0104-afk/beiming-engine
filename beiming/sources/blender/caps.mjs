@@ -26,7 +26,7 @@ export const caps = (version, library = {}) => ({
   motionBlur: { mode: 'native', auxAt: 'sub0', conflicts: ['motion'] },
   determinism: 'tolerance',
   draft: { kind: 'cycles-low', samples: 24, scale: 0.5, denoise: 'gpu' },
-  final: { samples: 64, scale: 1 },
+  final: { samples: 64, scale: 1, denoise: 'gpu' },
   granularity: 'frame',
   randomAccess: true,
   modes: Object.keys(library).length ? ['cards-data', 'build-script'] : ['build-script'],

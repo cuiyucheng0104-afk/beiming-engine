@@ -274,9 +274,10 @@ test('B8-8 隐藏题：blockedBy 原文和精确的墙钟预算不回显', async
   };
   assert.deepEqual(await timeout(true), ['error', ['wallMs'], '超过墙钟预算，已结束', false]);
   assert.deepEqual(await timeout(false), ['error', ['wallMs'], '超过墙钟预算 317 ms，已结束', true]);
-  // 隐藏题的判分器抛错：原因里可能带指标名和阈值，不落盘
-  const leaky = await runExamQuestion({ questionFile: qFile, evalRoot: root, forceExpectedFail: true, solver: async () => ({}), judge: () => { throw new Error('loop.closure-psnr 低于 41.5'); } });
-  assert.deepEqual([leaky.status, leaky.error, (await readJson(leaky.resultFile)).error, dump(leaky.runDir).includes('41.5')], ['error', '判分出错', '判分出错', false]);
+  // 隐藏题的判分器抛错：原因里可能带指标名和阈值，不落盘（避开与 ISO 时间戳 SS.s 子串撞车）
+  const leaky = await runExamQuestion({ questionFile: qFile, evalRoot: root, forceExpectedFail: true, solver: async () => ({}), judge: () => { throw new Error('loop.closure-psnr 低于 41.5 dB'); } });
+  const leakyDump = dump(leaky.runDir);
+  assert.deepEqual([leaky.status, leaky.error, (await readJson(leaky.resultFile)).error, leakyDump.includes('loop.closure-psnr') || leakyDump.includes('41.5 dB')], ['error', '判分出错', '判分出错', false]);
   // 同一类诊断从做题这头抛出来也一样：做题函数和宿主同进程，报错里可能带私有段和隐藏题目录，三处都只留固定的一句
   const viaSolver = await runExamQuestion({ questionFile: qFile, evalRoot: root, forceExpectedFail: true, solver: async () => { throw new Error(`controls.referencePass 读不到：${dir}`); }, judge: allPass });
   const reasons = [viaSolver.error, (await readJson(viaSolver.resultFile)).error, (await readJson(join(viaSolver.runDir, 'observation.json'))).error];

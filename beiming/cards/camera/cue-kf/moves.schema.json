@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "由命名事件触发的平面运镜",
+  "description": "每段的起点是 cue 所指的事件加 cueOffsetFrames。按时间先后展开；不许重叠，相邻段的收尾和起始姿态必须相同。空数组保持原位。",
+  "type": "array",
+  "$defs": {
+    "center": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": -9007199254740991, "maximum": 9007199254740991 }, "description": "[cx, cy]，未缩放画幅上的像素，以中心为原点，向右、向下为正" },
+    "zoom": { "type": "number", "minimum": 0.0009765625, "maximum": 1024, "description": "相对静止画幅的放大率，1 为原大" }
+  },
+  "items": {
+    "type": "object",
+    "required": ["cue", "durationFrames", "from", "to"],
+    "additionalProperties": false,
+    "properties": {
+      "cue": { "type": "string", "pattern": "^\\S+$", "description": "命名事件的 id，不收帧号" },
+      "cueOffsetFrames": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991, "default": 0, "description": "相对事件的帧数，负数提前" },
+      "durationFrames": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+      "from": { "$ref": "#/$defs/center" },
+      "to": { "$ref": "#/$defs/center" },
+      "zoomFrom": { "$ref": "#/$defs/zoom", "description": "不写则沿用上段终值，第一段为 1" },
+      "zoomTo": { "$ref": "#/$defs/zoom", "description": "不写则保持本段 zoomFrom" }
+    }
+  }
+}

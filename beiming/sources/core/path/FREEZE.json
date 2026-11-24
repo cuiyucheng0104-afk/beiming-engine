@@ -1,0 +1,234 @@
+{
+  "schema": "beiming.core.freeze/1",
+  "name": "核心帧源路径追踪内核的四样内部结构",
+  "version": "1.1.0",
+  "frozen": "2026-11-24",
+  "structures": [
+    "材质记录",
+    "光线负载",
+    "随机维度",
+    "输出通道"
+  ],
+  "text": "STRUCTURES.md",
+  "registry": "STRUCTURES.md#编号登记表",
+  "check": "node beiming/sources/core/chassis/freeze.mjs",
+  "rules": [
+    "进缓冲的格式（材质记录、全局参数、物体扩展表、输出缓冲）：字段的位置就是格式。材质记录总长度不变，只能往预留格里填；全局参数只能在末尾追加自己命名的一整块，已有的块长度不变；输出缓冲的固定部分只能填预留格；物体扩展表各家只填自己的格子。",
+    "只活在一次调用里的结构（路径状态、光线、着色点、闭包、材质输入值、样本结果与各函数的返回结构）：加字段不算破坏，改已有字段的名字或含义算；不许位置式构造；函数实参不许是指向结构成员或数组元素的指针。",
+    "函数：加新函数、给返回结构加字段不算破坏，改已有函数的参数表算。",
+    "名字带 legacy 的字段与函数是上游顶替：移植完一块删一块，删除不算破坏；进缓冲的格式里的上游格子停用后改标预留，位置与长度不动。",
+    "编号（闭包种类号、材质 flags 的位、每次弹射的随机维度、全局参数的追加块、新表首地址的格子、输出缓冲的格子）要新号先向核心帧源的负责人要，登记进条文的登记表；改登记表不算变更。",
+    "破坏性的改动要先经核心帧源的负责人同意：改条文、升这里的版本号，再运行 freeze.mjs --update，把标记的差异与改动放在同一个提交里。"
+  ],
+  "families": [
+    "CLOSURE_",
+    "FRESNEL_",
+    "MATERIAL_FLAG_",
+    "MATERIAL_CLASS_",
+    "PATH_RAY_",
+    "PRNG_",
+    "D_",
+    "FILM_",
+    "PASS_KIND_",
+    "SD_",
+    "LABEL_",
+    "F_SPECULAR_TINT"
+  ],
+  "pinned": {
+    "shaders/pathtrace.wgsl": {
+      "structs": {
+        "Material": "149896d4e8ceaf915761db165bc70e77a881d10bc5d91e3affd9b9dba42d65e8",
+        "KernelIntegrator": "2367e5f3cf51884191a931ed744238213fffc32e88235836bbb0c08fb95165fd",
+        "KernelFilm": "3341edfec35bbd8fc9f88b147081746256ff6d92881b060d50b1af4b16d645e8",
+        "Params": "6a7571c9cde0015c02dd36c65af91c59aff17b286b58e0e54fa814b0cf3b8562",
+        "ObjectExt": "2ed64bfa6c339ec884681b9b659b81845449e45512e4cfc0c4be4a56714ce026"
+      },
+      "constants": {
+        "MATERIAL_VEC4": "u32 = 26u",
+        "OBJECT_EXT_VEC4": "u32 = 2u",
+        "F_SPECULAR_TINT": "u32 = 268435456u",
+        "PASS_KIND_COLOR": "u32 = 0u",
+        "PASS_KIND_AUX": "u32 = 1u",
+        "MATERIAL_FLAG_MULTISCATTER": "u32 = 1u << 0u",
+        "MATERIAL_FLAG_NO_LEGACY_FUNCTION": "u32 = 1u << 1u",
+        "MATERIAL_FLAG_CLASS_SHIFT": "u32 = 8u",
+        "MATERIAL_FLAG_CLASS_MASK": "u32 = 0xfu << 8u",
+        "MATERIAL_CLASS_SURFACE": "u32 = 0u",
+        "MATERIAL_CLASS_EMISSION": "u32 = 1u",
+        "MATERIAL_CLASS_TRANSPARENT": "u32 = 2u",
+        "MATERIAL_CLASS_TOON": "u32 = 3u",
+        "SD_OBJECT_NEGATIVE_SCALE": "u32 = 1u << 3u"
+      },
+      "functions": {
+        "object_ext_at": "(object: u32) -> ObjectExt"
+      }
+    },
+    "shaders/shader.wgsl": {
+      "structs": {
+        "Closure": "bb4ade1495043f3c6a026caa1ff2d71f1f8940fff19d840bee2eb16544dbf9d8",
+        "ShadingPoint": "309fc0e47dd4ce4b27a6cc11ce5a3da6dd170758b547177b44c50be4c6f15ab8",
+        "ShaderInputs": "7b291d44572267c392da59949e57ae3a614e0d3cbea7a0af4aecbe93794c251c"
+      },
+      "constants": {
+        "CLOSURE_NONE": "u32 = 0u",
+        "CLOSURE_LEGACY": "u32 = 1u",
+        "CLOSURE_BSDF_MICROFACET_GGX": "u32 = 2u",
+        "CLOSURE_BSDF_DIFFUSE": "u32 = 3u",
+        "CLOSURE_BSDF_TRANSPARENT": "u32 = 4u",
+        "FRESNEL_NONE": "u32 = 0u",
+        "FRESNEL_DIELECTRIC": "u32 = 1u",
+        "FRESNEL_DIELECTRIC_TINT": "u32 = 2u",
+        "FRESNEL_CONDUCTOR": "u32 = 3u",
+        "FRESNEL_GENERALIZED_SCHLICK": "u32 = 4u",
+        "FRESNEL_F82_TINT": "u32 = 5u",
+        "SD_BACKFACING": "u32 = 1u"
+      },
+      "functions": {
+        "shader_setup_from_hit": "(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32>, h: Hit)",
+        "shader_eval_inputs": "(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> ShaderInputs",
+        "shader_setup_closures": "(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs)",
+        "shader_eval_shadow": "(h: Hit, d: vec3<f32>, t: f32) -> vec3<f32>",
+        "shader_eval_emission": "(em: EmitterTri, b1: f32, b2: f32, l: vec3<f32>) -> vec3<f32>"
+      }
+    },
+    "shaders/closure.wgsl": {
+      "structs": {
+        "BsdfEval": "a442a65bb4c1fa8bc964d3c9c205bd66d24375bd56a51937158f388fac16ce02",
+        "BsdfSample": "eeb520716e5c7b2c547f4e8c2e761ee56e670c13f9a14ab15388db6c539dbccd",
+        "BsdfPick": "309702975eebe698bd93d1a986eafef06547f076f91b7cc859d42c7cb4a1534b",
+        "ClosureEval": "e7298d98859c3a0261baea31f5e835437c637e6c853e8be1bfc5eeef75466735"
+      },
+      "constants": {
+        "LABEL_TRANSMIT": "i32 = 1",
+        "LABEL_DIFFUSE": "i32 = 4"
+      },
+      "functions": {
+        "surface_shader_prepare_closures": "(sd: ptr<function, ShadingPoint>)",
+        "bsdf_eval": "(c: Closure, wi: vec3<f32>, wo: vec3<f32>) -> ClosureEval",
+        "surface_shader_bsdf_eval": "(sd: ShadingPoint, wo: vec3<f32>, light_shader_flags: u32) -> BsdfEval",
+        "surface_shader_bsdf_bssrdf_pick": "(sd: ShadingPoint, rand: vec3<f32>) -> BsdfPick",
+        "surface_shader_bsdf_sample_closure": "(sd: ShadingPoint, k: u32, rand: vec3<f32>) -> BsdfSample",
+        "surface_shader_emission": "(sd: ShadingPoint) -> vec3<f32>",
+        "surface_shader_transparency": "(sd: ShadingPoint) -> vec3<f32>",
+        "bsdf_albedo": "(sd: ShadingPoint, k: u32) -> vec3<f32>"
+      }
+    },
+    "shaders/integrator.wgsl": {
+      "structs": {
+        "PathState": "1aae6b65b92b07fbb548929cb798414563b146e814c02ee67154d1407be456d0",
+        "Ray": "69716dc80d18c5ff5c8ef53c2dd8f1cd2210f8a039077fc71a389102c96ee324"
+      },
+      "constants": {
+        "OBJECT_NONE": "u32 = 0xffffffffu",
+        "PRNG_BOUNCE_NUM": "u32 = 16u",
+        "PATH_RAY_REFLECT": "u32 = 1u << 0u",
+        "PATH_RAY_SINGULAR": "u32 = 1u << 1u",
+        "PATH_RAY_TRANSPARENT": "u32 = 1u << 2u",
+        "PATH_RAY_DIFFUSE_ANCESTOR": "u32 = 1u << 4u",
+        "PATH_RAY_EMISSION": "u32 = 1u << 5u",
+        "PATH_RAY_MIS_HAD_TRANSMISSION": "u32 = 1u << 6u",
+        "PATH_RAY_MIS_SKIP": "u32 = 1u << 7u",
+        "PATH_RAY_SINGLE_PASS_DONE": "u32 = 1u << 8u",
+        "PATH_RAY_TRANSPARENT_BACKGROUND": "u32 = 1u << 9u",
+        "PATH_RAY_TERMINATE_ON_NEXT_SURFACE": "u32 = 1u << 10u",
+        "PATH_RAY_TERMINATE_AFTER_TRANSPARENT": "u32 = 1u << 12u",
+        "PATH_RAY_DENOISING_FEATURES": "u32 = 1u << 17u",
+        "PATH_RAY_SURFACE_PASS": "u32 = 1u << 18u",
+        "PATH_RAY_SHADOW_FOR_AO": "u32 = 1u << 20u",
+        "PATH_RAY_SHADOW_FOR_LIGHT_LINKING": "u32 = 1u << 25u",
+        "PATH_RAY_VISIBILITY_NONE": "u32 = 0u",
+        "PATH_RAY_VISIBILITY_CAMERA": "u32 = 1u << 0u",
+        "PATH_RAY_VISIBILITY_TRANSMIT": "u32 = 1u << 1u",
+        "PATH_RAY_VISIBILITY_DIFFUSE": "u32 = 1u << 2u",
+        "PATH_RAY_VISIBILITY_GLOSSY": "u32 = 1u << 3u",
+        "PATH_RAY_VISIBILITY_VOLUME_SCATTER": "u32 = 1u << 4u",
+        "PATH_RAY_VISIBILITY_SHADOW_OPAQUE": "u32 = 1u << 5u",
+        "PATH_RAY_VISIBILITY_SHADOW_TRANSPARENT": "u32 = 1u << 6u",
+        "LABEL_VOLUME_SCATTER": "i32 = 64"
+      },
+      "functions": {
+        "path_state_next": "(label: i32)"
+      }
+    },
+    "shaders/intersect.wgsl": {
+      "structs": {
+        "Hit": "cc55ca9ffb5bb9c812d7a0eccdda6131e536b668f7e48247b710119d04afbe37",
+        "LocalHit": "89832bbfc2f81eb545baef7311c63a297ffb007408ccd2127e81d9ecea08f0ca",
+        "LocalIntersection": "92c68a8da853a6c21c8261efe9b3eee8b4f0d390649de07bd91e449d6b548061"
+      },
+      "constants": {
+        "LOCAL_MAX_HITS": "u32 = 4u"
+      },
+      "functions": {
+        "trace": "(o: vec3<f32>, d: vec3<f32>, tmax_in: f32, mode: u32) -> Hit",
+        "trace_local": "(ray: Ray, object: u32, lcg_state: u32, max_hits: u32) -> LocalIntersection"
+      }
+    },
+    "shaders/sample.wgsl": {
+      "constants": {
+        "D_BSDF": "u32 = 1u",
+        "D_PICK": "u32 = 3u",
+        "D_SUN": "u32 = 4u",
+        "D_SUN_VIS": "u32 = 5u",
+        "D_LOCAL": "u32 = 6u",
+        "D_EMIT": "u32 = 7u",
+        "D_EMIT_VIS": "u32 = 8u",
+        "D_ENV": "u32 = 9u",
+        "D_ENV_VIS": "u32 = 10u",
+        "D_FOG": "u32 = 11u",
+        "D_MEDIA": "u32 = 12u",
+        "D_PHASE": "u32 = 13u",
+        "D_VOL_LIGHT": "u32 = 14u",
+        "PRNG_FILTER": "u32 = 0u",
+        "PRNG_LENS_TIME": "u32 = 1u",
+        "PRNG_TERMINATE": "u32 = 0u",
+        "PRNG_LIGHT": "u32 = 1u",
+        "PRNG_LIGHT_TERMINATE": "u32 = 2u",
+        "PRNG_SURFACE_BSDF": "u32 = 3u",
+        "PRNG_SURFACE_AO": "u32 = 4u",
+        "PRNG_SURFACE_BEVEL": "u32 = 5u"
+      },
+      "functions": {
+        "rng_legacy": "(slot: u32) -> u32",
+        "rng_sub": "(d: u32, k: u32) -> u32",
+        "path_rng_1D": "(dimension: u32) -> f32",
+        "path_rng_2D": "(dimension: u32) -> vec2<f32>",
+        "path_rng_3D": "(dimension: u32) -> vec3<f32>",
+        "path_branched_rng_2D": "(branch: u32, num_branches: u32, dimension: u32) -> vec2<f32>",
+        "rng_start": "(pix: vec2<u32>, index: u32, seed: u32, path: u32)"
+      }
+    },
+    "shaders/film.wgsl": {
+      "structs": {
+        "SampleResult": "cc682c8c93a44399ef94c201d8cb9d032e0b8ca078e94df90aa68ecafb9e503f",
+        "AuxSample": "d162dd22479feb07adad8861ce35c331b2fe7a4ed4f640fca118dd9fa3f05480"
+      },
+      "constants": {
+        "LIGHTGROUP_NONE": "u32 = 0xffffffffu",
+        "FILM_COMBINED": "u32 = 0u",
+        "FILM_DENOISE_ALBEDO": "u32 = 1u",
+        "FILM_DENOISE_NORMAL": "u32 = 2u",
+        "FILM_LEGACY_VARIANCE": "u32 = 3u",
+        "FILM_LEGACY_EMIT": "u32 = 4u",
+        "FILM_LEGACY_SPEC": "u32 = 5u",
+        "FILM_AUX_DATA": "u32 = 6u",
+        "FILM_AUX_NORMAL": "u32 = 7u",
+        "FILM_FIXED": "u32 = 10u"
+      },
+      "functions": {
+        "film_pixel_first": "() -> u32",
+        "film_add_light": "(L: vec3<f32>, bounce: u32, lightgroup: u32)",
+        "film_write_aux": "(aux: AuxSample)",
+        "film_write_sample": "(r: SampleResult)"
+      }
+    },
+    "../shaders/util.wgsl": {
+      "constants": {
+        "LABEL_NONE": "i32 = 0",
+        "LABEL_REFLECT": "i32 = 2",
+        "LABEL_GLOSSY": "i32 = 8",
+        "LABEL_SINGULAR": "i32 = 16"
+      }
+    }
+  }
+}
