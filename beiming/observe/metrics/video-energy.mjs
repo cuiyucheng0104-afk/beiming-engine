@@ -33,6 +33,21 @@ function validateInputs(filePath, opts, allowed) {
   return { maxFrames, rulerOpts };
 }
 
+function validateRulerOpts(rulerOpts) {
+  if (rulerOpts.maxShift !== undefined && (!Number.isSafeInteger(rulerOpts.maxShift) || rulerOpts.maxShift < 0)) {
+    bad('maxShift 须为非负安全整数');
+  }
+  if (rulerOpts.block !== undefined && (!Number.isInteger(rulerOpts.block) || rulerOpts.block < 4)) {
+    bad('block 须为不小于 4 的整数');
+  }
+  if (rulerOpts.motionThreshold !== undefined && (!Number.isFinite(rulerOpts.motionThreshold) || rulerOpts.motionThreshold < 0)) {
+    bad('无效参数 motionThreshold');
+  }
+  if (rulerOpts.edgeThreshold !== undefined && (!Number.isFinite(rulerOpts.edgeThreshold) || rulerOpts.edgeThreshold < 0)) {
+    bad('无效参数 edgeThreshold');
+  }
+}
+
 function resolveRegion(width, height, roi) {
   if (roi === undefined) return { x: 0, y: 0, width, height };
   if (
@@ -249,8 +264,17 @@ async function measure(metric, unit, run) {
 export function videoNoiseResidual(filePath, opts = {}) {
   const { maxFrames, rulerOpts } = validateInputs(filePath, opts, NOISE_OPTS);
   return measure('metric:noise.residual', 'code8', async () => {
+    validateRulerOpts(rulerOpts);
     const probed = await probeVideo(filePath);
     if (probed.totalFrames < 2) {
+      // 仅读 Y4M 流头即终止（0 帧解码），确保单帧旋转视频也回报与 ffmpeg 显示矩阵一致的宽高
+      const { width, height } = await streamGraySegments(filePath, [], {
+        onHeader({ width: w, height: h }) {
+          resolveRegion(w, h, rulerOpts.roi);
+          return false;
+        },
+        onSegment() {},
+      });
       return {
         value: null,
         details: {
@@ -261,8 +285,8 @@ export function videoNoiseResidual(filePath, opts = {}) {
           pairs: 0,
           sampledFrames: probed.totalFrames,
           totalFrames: probed.totalFrames,
-          width: probed.width,
-          height: probed.height,
+          width,
+          height,
           segments: [],
         },
       };
@@ -364,6 +388,7 @@ export function videoNoiseResidual(filePath, opts = {}) {
 export function videoAliasEdge(filePath, opts = {}) {
   const { maxFrames, rulerOpts } = validateInputs(filePath, opts, ALIAS_OPTS);
   return measure('metric:alias.edge', 'px', async () => {
+    validateRulerOpts(rulerOpts);
     const probed = await probeVideo(filePath);
     const plan = planSegments(probed.totalFrames, maxFrames);
     const segResults = [];

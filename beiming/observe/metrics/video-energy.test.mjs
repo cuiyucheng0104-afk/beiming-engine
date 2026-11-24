@@ -369,6 +369,21 @@ test('R1 回归：VFR 保留原始帧数与尾部斜边、90° 旋转元数据�
     const tinyWithFullRoi = await videoNoiseResidual(tiny, { roi: { x: 0, y: 0, width: 2, height: 64 } });
     assert.equal(tinyWithFullRoi.value, null);
     assert.equal(tinyWithFullRoi.details.status, 'insufficient-resolution');
+
+    // 5. R3 回归：90° 旋转单帧噪声详情使用显示宽高 64x128；窄 ROI 传入非法 maxShift 仍抛 usage.bad-argument
+    const one = join(dir, 'one.mp4');
+    const one90 = join(dir, 'one90.mp4');
+    ff(['-f', 'lavfi', '-i', 'color=gray:s=128x64:r=24', '-frames:v', '1', '-c:v', 'libx264', one]);
+    ff(['-display_rotation', '90', '-i', one, '-c', 'copy', one90]);
+    const oneAlias = await videoAliasEdge(one90);
+    const oneNoise = await videoNoiseResidual(one90);
+    assert.equal(oneNoise.details.status, 'insufficient-frames');
+    assert.deepEqual([oneAlias.details.width, oneAlias.details.height], [64, 128]);
+    assert.deepEqual([oneNoise.details.width, oneNoise.details.height], [64, 128]);
+    await assert.rejects(
+      videoNoiseResidual(source, { roi: { x: 0, y: 0, width: 3, height: 64 }, maxShift: -1 }),
+      (err) => err instanceof RangeError && err.code === 'usage.bad-argument',
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
