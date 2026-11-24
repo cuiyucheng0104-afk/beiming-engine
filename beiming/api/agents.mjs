@@ -240,6 +240,37 @@ export async function chat({ endpoint, apiKey, body, signal, requireUsage = fals
   return { message, model: resolvedModel, usage };
 }
 
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+
+function isFilesPath(path) {
+  if (typeof path !== 'string') return false;
+  const pathname = path.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/?#]+/i, '').split(/[?#]/, 1)[0];
+  let decoded = pathname;
+  try { decoded = decodeURIComponent(pathname); } catch { /* 保持原路径 */ }
+  return /^\/v1\/films\/[^/]+\/files(?:\/|$)/.test(pathname)
+    || /^\/v1\/films\/[^/]+\/files(?:\/|$)/.test(decoded);
+}
+
+/**
+ * 兼容外部模型把 JSON 请求体序列化为字符串传入 http_request.body 的情形：
+ * 仅对非 /v1/films/<id>/files/* 路径且以 { 或 [ 开头的合法 JSON 对象/数组字符串解包；
+ * /files/* 源码正文、解析失败字符串与其他原始值一律原样保留，避免误解析或吞掉非法类型错误。
+ */
+export function normalizeJsonToolBody(path, body) {
+  if (typeof body !== 'string' || isFilesPath(path)) return body;
+  const trimmed = body.trim();
+  if (!trimmed || (trimmed[0] !== '{' && trimmed[0] !== '[')) return body;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (isPlainObject(parsed) || Array.isArray(parsed)) return parsed;
+  } catch { /* 非法 JSON 字符串原样交给上游校验或服务端报错 */ }
+  return body;
+}
+
 /**
  * 执行一次 http_request。只放行本服务 /v1/ 开头的路径；令牌由这里挑：建片交回的工作区令牌记下来（不交给模型），
  * 之后调那部片和它的作业时带工作区令牌，别的动词带账户令牌。交回 { text（给模型的工具结果）, call（留给调用方的记录） }。
@@ -256,10 +287,11 @@ export async function callApi({ baseUrl, account, workspaces, jobs, signal }, ar
   const job = /^\/v1\/jobs\/([^/]+)$/.exec(target.pathname)?.[1];
   const token = (film && workspaces[film]) || (job && workspaces[jobs[job]]) || account;
   const hasBody = args.body !== undefined && args.body !== null && method !== 'GET';
-  const text = typeof args.body === 'string';
+  const reqBody = hasBody ? normalizeJsonToolBody(target.pathname, args.body) : args.body;
+  const text = typeof reqBody === 'string';
   const res = await fetch(target, {
     method, headers: { authorization: `Bearer ${token}`, ...(hasBody ? { 'content-type': text ? 'text/plain; charset=utf-8' : 'application/json' } : {}) },
-    ...(hasBody ? { body: text ? args.body : JSON.stringify(args.body) } : {}), signal,
+    ...(hasBody ? { body: text ? reqBody : JSON.stringify(reqBody) } : {}), signal,
   });
   const call = { method, path, status: res.status, ok: res.ok };
   const rawContentType = res.headers.get('content-type') ?? '';
@@ -292,12 +324,6 @@ export async function callApi({ baseUrl, account, workspaces, jobs, signal }, ar
   return { text: JSON.stringify({ status: res.status, body: envelope }), call };
 }
 
-function isPlainObject(v) {
-  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
-  const proto = Object.getPrototypeOf(v);
-  return proto === Object.prototype || proto === null;
-}
-
 /** 亲手代理调用建片或审片时，若模型省略或留空 body.brief，自动在副本中补回已传入的需求原文（不篡改原参数，不覆盖显式非空传值，亦不吞掉显式非法类型） */
 function attachHandsOnBrief(args, brief, baseUrl) {
   if (typeof brief !== 'string' || !brief.trim()) return args;
@@ -314,11 +340,13 @@ function attachHandsOnBrief(args, brief, baseUrl) {
   }
   const pathname = target.pathname;
   if (pathname !== '/v1/films' && !/^\/v1\/films\/[^/]+\/review$/.test(pathname)) return args;
-  const body = args.body;
+  const body = normalizeJsonToolBody(pathname, args.body);
   if (body !== undefined && body !== null) {
     if (!isPlainObject(body)) return args;
     const hasBrief = Object.hasOwn(body, 'brief') && body.brief !== undefined && body.brief !== null;
-    if (hasBrief && (typeof body.brief !== 'string' || body.brief.trim())) return args;
+    if (hasBrief && (typeof body.brief !== 'string' || body.brief.trim())) {
+      return body === args.body ? args : { ...args, body };
+    }
   }
   return { ...args, body: body == null ? { brief } : { ...body, brief } };
 }
