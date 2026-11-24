@@ -176,16 +176,23 @@ mod tests {
     /// 追加的 `integrator`、`film` 两块各自的字段也逐个比。物体扩展表的一项同样。
     #[test]
     fn the_parameters_are_the_kernels() {
-        use crate::gpu::{KernelFilm, KernelIntegrator, Params, FILM_FIXED, SOBOL_INDEX_MASK};
+        use crate::gpu::{KernelFilm, KernelFilterTable, KernelIntegrator, Params, FILM_FIXED, SOBOL_INDEX_MASK};
         use crate::scene::GpuObjectExt;
         let (m, _) = parse(&variant(0, false));
-        let want = fields!(Params; cam_pos, cam_fwd, cam_right, cam_up, size, counts, env, misc, sky_color, counts2, time, fog, fog_color, vol, vol2, raster, cache, motion, group_first, light_lod, emit_power, lod_view, ltree, procs, aerial, background, ltile, ltile2, lt_cam, table_first, word_first, live_first, live_len, integrator, film, table_first_ext);
+        let want = fields!(Params; cam_pos, cam_fwd, cam_right, cam_up, size, counts, env, misc, sky_color, counts2, time, fog, fog_color, vol, vol2, raster, cache, motion, group_first, light_lod, emit_power, lod_view, ltree, procs, aerial, background, ltile, ltile2, lt_cam, table_first, word_first, live_first, live_len, integrator, film, table_first_ext, filter_table);
         assert_eq!(members(&m, "Params"), (want, std::mem::size_of::<Params>()));
         let want = fields!(KernelIntegrator; max_bounce, max_diffuse_bounce, max_glossy_bounce, max_transmission_bounce, transparent_max_bounce, transparent_min_bounce, min_bounce, sampling_pattern, sample_clamp_direct, sample_clamp_indirect, filter_glossy, light_inv_rr_threshold, seed, sobol_index_mask, pass_kind, background_transparent);
         assert_eq!(members(&m, "KernelIntegrator"), (want, std::mem::size_of::<KernelIntegrator>()));
         let want = fields!(KernelFilm; film_stride, film_lightgroup_first, num_lightgroups, reserved);
         assert_eq!(members(&m, "KernelFilm"), (want, std::mem::size_of::<KernelFilm>()));
         assert_eq!((std::mem::size_of::<KernelIntegrator>(), std::mem::size_of::<KernelFilm>()), (4 * 16, 16));
+        let want = fields!(KernelFilterTable; use_filter_table, reserved0, reserved1, reserved2, table);
+        assert_eq!(members(&m, "KernelFilterTable"), (want, std::mem::size_of::<KernelFilterTable>()));
+        assert_eq!(std::mem::size_of::<KernelFilterTable>(), 257 * 16);
+        // 像素滤波：盒式宽 1 不查表（全 0）；别的宽度与种类照 Cycles 建表
+        assert_eq!(KernelFilterTable::new(crate::pixel_filter::FilterType::Box, 1.0), KernelFilterTable::default());
+        let g = KernelFilterTable::new(crate::pixel_filter::FilterType::Gaussian, 1.5);
+        assert_eq!((g.use_filter_table, g.table[255][2], g.table[0][0]), (1, crate::pixel_filter::filter_table(crate::pixel_filter::FilterType::Gaussian, 1.5)[1022], crate::pixel_filter::filter_table(crate::pixel_filter::FilterType::Gaussian, 1.5)[0]));
         let want = fields!(GpuObjectExt; entity_id, object_flag, receiver_light_set, lightgroup, shadow_terminator_shading_offset, shadow_terminator_geometry_offset, reserved0, reserved1);
         assert_eq!(members(&m, "ObjectExt"), (want, std::mem::size_of::<GpuObjectExt>()));
         assert_eq!(constant(&m, "OBJECT_EXT_VEC4") as usize * 16, std::mem::size_of::<GpuObjectExt>());

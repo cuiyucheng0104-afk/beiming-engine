@@ -19,11 +19,11 @@ const read = file => { try { return fs.readFileSync(path.join(KERNEL, file), 'ut
 test('仓库里的冻结标记：四样结构、版本、日期、条文与登记表、改动的规矩都在，钉住的定义与代码一致', () => {
   const m = marker();
   assert.deepEqual(check(m, read, scanFiles(KERNEL)), []);
-  // 登记类编号扫的是内核的全部着色器加共用目录里编进内核的四个，不只是标记钉住的那几个文件
+  // 登记类编号扫的是内核的全部着色器加共用目录里编进内核的五个，不只是标记钉住的那几个文件
   const scan = scanFiles(KERNEL);
   for (const f of fs.readdirSync(path.join(KERNEL, 'shaders')).filter(f => f.endsWith('.wgsl'))) assert.ok(scan.includes(`shaders/${f}`), f);
   for (const f of SHADERS) assert.ok(scan.includes(`../shaders/${f}`), f);
-  assert.ok(SHADERS.length === 4 && scan.length > Object.keys(m.pinned).length);
+  assert.ok(SHADERS.length === 5 && scan.length > Object.keys(m.pinned).length);
   for (const n of ['LABEL_NONE', 'LABEL_REFLECT', 'LABEL_DIFFUSE', 'LABEL_GLOSSY', 'LABEL_SINGULAR']) assert.ok(n in m.pinned['../shaders/util.wgsl'].constants, n);
   assert.deepEqual(m.structures, STRUCTURES);
   assert.equal(m.text, 'STRUCTURES.md');

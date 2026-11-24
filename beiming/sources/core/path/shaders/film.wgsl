@@ -138,7 +138,7 @@ fn film_pixel_first() -> u32 { return state.render_pixel_index * P.film.film_str
 // 路径上的一次贡献（已乘通量、已夹取）：加进这个样本的颜色；`lightgroup` 不是 LIGHTGROUP_NONE 时，同一个值直接加进
 // film 里的那个灯组。每一次贡献调一次。`bounce`：这次贡献出在路径的第几个顶点（以后按它分直接光与间接光的夹取上限）。
 // 现在各处传的都是 LIGHTGROUP_NONE，而且一次调用里还是几盏灯的和：把算灯的函数改成逐盏调用、带上灯组槽位，
-// 是做灯的人的活；夹取现在还留在调用处（上游的亮度夹取）。
+// 是做灯的人的活。夹取在调用处：上游的亮度夹取，编译开关 sample_clamp 的变体里再经 film_clamp_contribution（Cycles 的口径）。
 // 一个像素一条线程，直接加没有竞争。非有限的值不进灯组（颜色那边在样本结束时整个样本一起查）。
 fn film_add_light(L: vec3<f32>, bounce: u32, lightgroup: u32) {
     film_sample.L += L;
@@ -147,6 +147,20 @@ fn film_add_light(L: vec3<f32>, bounce: u32, lightgroup: u32) {
         film[i] += vec4<f32>(L, 0.0);
     }
 }
+
+// 北冥：照 Cycles 的口径夹取路径上的一次贡献（../../shaders/imaging.wgsl 的 film_clamp_light），每次 film_add_light 之前调。
+// bounce 照 Cycles 各调用处的口径：直接光（阴影射线）是着色点所在的顶点号，路上找到的发光、背景、雾是那一段射线的顶点号
+// 减 1（相机射线是 -1）；所以相机看到的、第一次弹射之后打到的发光都算直接光。两个上限是 Cycles 内核的口径（用户值乘 3，
+// render-pack 照命令行写），是 0 的那一个不夹（Cycles 在那里写 FLT_MAX）。只在编译开关 sample_clamp 的变体里调（两个上限
+// 有一个不是 0 时 src/gpu.rs 打开它）；没有它时只有调用处上游的亮度夹取 P.misc.x。
+fn film_clamp_contribution(L: vec3<f32>, bounce: i32) -> vec3<f32> {
+    let direct = P.integrator.sample_clamp_direct;
+    let indirect = P.integrator.sample_clamp_indirect;
+    return film_clamp_light(L, bounce, select(direct, 3.4028235e38, direct == 0.0), select(indirect, 3.4028235e38, indirect == 0.0));
+}
+
+// 北冥：像素滤波表的第 i 个数（../../shaders/imaging.wgsl 的 filter_table_read 调它）：表在全局参数的 filter_table 一块
+fn filter_table_value(i: i32) -> f32 { return P.filter_table.table[u32(i) >> 2u][u32(i) & 3u]; }
 
 // 辅助样本：过像素中心的单独一条射线看到的深度、实体编号、运动矢量与法线，每个像素覆盖写一次，不做平均。
 struct AuxSample {

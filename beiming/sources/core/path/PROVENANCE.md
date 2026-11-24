@@ -11,13 +11,13 @@
 | 项目 | ThreeRT，<https://github.com/meshy-dev/ThreeRT> |
 | 固定提交 | `c946cc96bdb08979224e851a7fc67a066b1b456b` |
 | 许可 | MIT，版权人 Meshy LLC（2026）。许可全文原样放在 [LICENSE-upstream.txt](LICENSE-upstream.txt) |
-| 本目录的许可 | 默认 MIT：上游的部分版权归 Meshy LLC，北冥改写与新增的部分版权归北冥引擎，逐路径登记在仓库根的 `REUSE.toml`。有十一个文件带着照 Blender Cycles 取的东西，版权与许可写在各自的文件头（文件头优先于 `REUSE.toml`），见下面「照 Cycles 取的部分」 |
+| 本目录的许可 | 默认 MIT：上游的部分版权归 Meshy LLC，北冥改写与新增的部分版权归北冥引擎，逐路径登记在仓库根的 `REUSE.toml`。有十二个文件带着照 Blender Cycles 取的东西，版权与许可写在各自的文件头（文件头优先于 `REUSE.toml`），见下面「照 Cycles 取的部分」 |
 
 每个源自上游的 `.rs` 与 `.wgsl` 文件第一行都写了它对应上游的哪个路径。
 
 ### 照 Cycles 取的部分
 
-Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee`），下面的路径相对 `intern/cycles/`。没有整段搬代码的地方只取了名字、数值或函数的骨架，也照实标出来，和共用目录 `../shaders/` 下四个移植着色器的做法一致。
+Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee`），下面的路径相对 `intern/cycles/`。没有整段搬代码的地方只取了名字、数值或函数的骨架，也照实标出来，和共用目录 `../shaders/` 下几个移植着色器的做法一致。
 
 | 本目录的文件 | 许可 | 照 Cycles 取了什么 | Cycles 的文件（许可） |
 |---|---|---|---|
@@ -30,6 +30,7 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 | `shaders/intersect.wgsl` | MIT 与 Apache-2.0 | `LOCAL_MAX_HITS` 的名字与数值、`LocalIntersection` 的字段名；`trace_local` 这个问法 | `kernel/types.h`、`kernel/bvh/bvh.h`（都是 Apache-2.0） |
 | `src/gpu.rs` | MIT 与 Apache-2.0 | 积分器参数块 `KernelIntegrator` 的字段名（着色器里那一份在 CPU 上的镜像） | `kernel/data_template.h`（Apache-2.0） |
 | `src/sample.rs` | MIT 与 Apache-2.0 | `PRNG_BOUNCE_NUM` 的名字与数值；像素种子的式子 `rng_pixel` | `kernel/types.h`、`kernel/sample/pattern.h`（都是 Apache-2.0） |
+| `src/pixel_filter.rs` | Apache-2.0 | 像素滤波的三个滤波函数与建重要性采样表（`filter_func_box`、`filter_func_gaussian`、`filter_func_blackman_harris`、`filter_table`），与它用的累积分布求值、反函数（对称的一支），逐行移植 | `scene/film.cpp`、`util/math_cdf.h`、`util/math_cdf.cpp`（都是 Apache-2.0） |
 | `src/scene.rs` | MIT 与 Apache-2.0 | 物体扩展表 `GpuObjectExt` 的四个字段名与物体标志的位（着色器里那一份在 CPU 上的镜像） | `kernel/types.h`（Apache-2.0） |
 
 许可全文在仓库根的 `LICENSES/`（`MIT.txt`、`Apache-2.0.txt`、`BSD-3-Clause.txt`）。其余文件（`shaders/` 下的 `film`、`light`、`volume`、`records`、`trace_hw` 与 `src/` 下表里没列的那些）没有照 Cycles 定义什么，是 MIT。这张表按「在哪个文件里定义」算：结构的字段、常数、式子写在哪个文件，哪个文件就标；别的文件只是用到这些名字的（比如 `src/merged.rs` 与 `src/gpu.rs` 的库测试里按名字核对两侧的字段表与编号、`src/lib.rs` 填积分器参数），不另标。
@@ -63,11 +64,11 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 | `src/denoise.rs` | `renderer/src/denoise.rs` | 没改 |
 | `src/desc.rs` | `renderer/src/desc.rs` | 删去切掉的几类 |
 | `src/files.rs` | `renderer/src/files.rs` | 删去切掉的几类；预设的内嵌路径改指本目录的 `presets/` |
-| `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的四个着色器（见下一节）；全局参数追加三块、材质表与物体扩展表的上传、输出缓冲的分配与读回（见下一节末）；加了守着内核结构的测试（见下一节「四样内部结构的冻结」） |
+| `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的五个着色器（见下一节）；全局参数追加四块（第四块是像素滤波表，见下一节「像素滤波与夹取」）、成像的两个编译开关、材质表与物体扩展表的上传、输出缓冲的分配与读回（见下一节末）；加了守着内核结构的测试（见下一节「四样内部结构的冻结」） |
 | `src/heap.rs` | `renderer/src/heap.rs` | 删去切掉的几类；多一张物体扩展表（见下一节末） |
-| `src/lib.rs` | `renderer/src/lib.rs` | 删去切掉的几类；文档里的程序名；填全局参数追加的三块 |
+| `src/lib.rs` | `renderer/src/lib.rs` | 删去切掉的几类；文档里的程序名；填全局参数追加的四块 |
 | `src/ltree.rs` | `renderer/src/ltree.rs` | 删去切掉的几类 |
-| `src/main.rs` | `renderer/src/main.rs` | 删去切掉的几类；库名与程序名 |
+| `src/main.rs` | `renderer/src/main.rs` | 删去切掉的几类；库名与程序名；`render-pack` 的像素滤波、夹取、滤光泽参数与关掉上游的亮度夹取（见下一节「像素滤波与夹取」）；比对外壳用的 `fncheck-host` 子命令 |
 | `src/merged.rs` | `renderer/src/merged.rs` | 删去切掉的几类；加了锁住两侧格式与编号的测试（见下一节末与「四样内部结构的冻结」） |
 | `src/pipeline_cache.rs` | `renderer/src/pipeline_cache.rs` | 没改 |
 | `src/post.rs` | `renderer/src/post.rs` | 没改 |
@@ -144,6 +145,17 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 - `src/scene.rs`：`build_material` 按场景描述的 `specularIntensity` 填材质记录的高光等级（它的一半）。
 
 这一步有意改变渲染结果：非金属材质从上游顶替换成移植的闭包，读数会变，回归基线要重记。纯金属的第 2 级读数仍在门内（采样的权重改成 Cycles 的做法，末位会变）。
+
+### 像素滤波与夹取
+
+照 Cycles（同一提交）把像素滤波与贡献的夹取接进内核，只在 `render-pack` 一路由命令行打开（参数见 [README.md](README.md)「读场景包」）。不加这些参数时内核与加它们之前逐字相同，渲染结果逐位不变。
+
+- `src/pixel_filter.rs`（新文件，Apache-2.0）：宿主一侧建像素滤波的重要性采样表，照 `scene/film.cpp` 的 `filter_func_box`、`filter_func_gaussian`、`filter_func_blackman_harris`、`filter_table`（建表前高斯的宽度乘 3、Blackman-Harris 乘 2）与 `util/math_cdf.h`、`math_cdf.cpp` 的累积分布求值与反函数（对称的一支）逐行移植，全用 f32、次序照原式。`fncheck-host` 子命令把这几个函数交给函数级比对外壳逐项比 Cycles 自己建的表。
+- `../shaders/imaging.wgsl`（新文件，Apache-2.0）：查表 `filter_table_read`（`kernel/util/lookup_table.h` 的 `lookup_table_read`，用法照 `kernel/camera/camera.h:460-465`）；夹取 `film_clamp_light`（`kernel/film/light_passes.h:126-148`，开了 `__CLAMP_SAMPLE__` 的那一支）与它用的 `isfinite_safe`、`ensure_finite3`（`util/math_base.h`、`util/math_float3.h`）。表放在哪里归调用方：本文件只调 `filter_table_value(i)`。
+- `shaders/pathtrace.wgsl`、`src/gpu.rs`：全局参数末尾追加第四块 `filter_table`（`KernelFilterTable`，257 个 vec4：一个「查不查表」的标志、三格预留、1024 个数）；两个编译开关 `pixel_filter`、`sample_clamp`（`KernelVariant` 的两个字段，`FilmSwitches::of` 按全局参数决定，管线与着色器按它分开缓存）。起先写成运行时分支，不开的场景回归有 174 处不同（白炉读数差 1e-11 量级），所以放到编译开关后面。
+- `shaders/film.wgsl`：`filter_table_value` 读全局参数的表；`film_clamp_contribution` 把两个上限里是 0 的换成浮点最大值再调 `film_clamp_light`。`shaders/integrator.wgsl` 的主循环在 `sample_clamp` 的变体里，十一处 `film_add_light` 之前各夹一次，弹射数照 Cycles 各调用处的口径（直接光用顶点号；发光、背景、雾、介质发光用顶点号减 1）。相机光线在 `pixel_filter` 的变体里拿像素滤波的两个随机数查表得到像素内的偏移，每个样本的权重是 1。
+- `src/main.rs`：`render-pack` 的 `--pixel-filter`、`--filter-width`、`--clamp-direct`、`--clamp-indirect`、`--filter-glossy`（`CyclesFilm`）。两个夹取上限写进全局参数时乘 3、滤光泽写 1 / 用户值，照 `scene/integrator.cpp:269`、`:311-315`；用户给 0 时写 0（关），Cycles 在那里写浮点最大值。`render-pack` 一路把上游的亮度夹取 `misc.x`（原来是 `NativePreset::firefly_clamp` 算的 2^EV × 预设的 `clampIndirect`，场景包的曝光恒为 EV 0，所以电影预设是 64、预览 16）写成浮点最大值：物理参考是不夹的。
+- 函数级比对外壳（`../fncheck/`）加成像一组：三个滤波函数、三种建表、三种查表与夹取，标准答案程序直接调 Cycles 的真函数（`scene/film.cpp` 里的 static 函数由 `cycles/build.mjs` 从源码缓存原样截出，不进仓库）。第 2 级在 `../chassis/imaging.mjs`：刀口剖面对 Cycles 表给出的分布，夹取经粗糙度 0 的金属（奇异闭包）看天空。
 
 ### 路径状态与光线
 

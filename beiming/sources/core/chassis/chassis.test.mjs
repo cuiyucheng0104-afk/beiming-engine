@@ -129,11 +129,11 @@ test('内核源码的来源：来源说明写了上游与固定提交，上游�
   }
 });
 
-test('内核的包名与程序名不用上游项目名；四个移植的着色器仓库里只有一份，内核直接读它', () => {
+test('内核的包名与程序名不用上游项目名；五个移植的着色器仓库里只有一份，内核直接读它', () => {
   const cargo = fs.readFileSync(path.join(KERNEL, 'Cargo.toml'), 'utf8');
   assert.match(cargo, /^name = "beiming-core-path"$/m);
   assert.match(cargo, /^\[\[bin\]\]\nname = "core-render"$/m);
-  assert.equal(SHADERS.length, 4);
+  assert.equal(SHADERS.length, 5);
   assert.deepEqual(singleCopyProblems(), []);
   for (const f of SHADERS) assert.ok(fs.existsSync(path.join(KERNEL, '..', 'shaders', f)), f);
   // 程序按源码内容的摘要命名，负对照的改错也算进摘要
@@ -157,7 +157,7 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
   }
   await t.test('构建：从仓库内的源码编，上游的提交号对，上游自带的漫反射白炉过且均值与记录相等', () => {
     assert.equal(rep.core.source, 'beiming/sources/core/path');
-    assert.equal(rep.core.shaders.length, 4);
+    assert.equal(rep.core.shaders.length, SHADERS.length);
     assert.equal(rep.upstream.commit, COMMIT);
     const d = rep.diffuseFurnace;
     t.diagnostic(`漫反射白炉：${d.adapter}（${d.backend}）均值 ${d.mean}，记录 ${d.recorded}，${d.rule}`);
