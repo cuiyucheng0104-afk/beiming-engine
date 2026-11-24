@@ -6,7 +6,7 @@ import process from 'node:process';
 import path from 'node:path';
 import { test } from 'node:test';
 import { polygonIrradiance } from '../fncheck/checks.mjs';
-import { COMMIT, KERNEL, SHADERS, singleCopyProblems } from './build.mjs';
+import { COMMIT, KERNEL, SHADERS, singleCopyProblems, sourceKey } from './build.mjs';
 import { CYCLES, DIFFUSE, GATES, analyticOk, discPixels, negativeOk, negativeTolerance, passedByFloor, rectMean, runLevel2 } from './level2.mjs';
 
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
@@ -106,6 +106,10 @@ test('内核的包名与程序名不用上游项目名；四个移植的着色�
   assert.equal(SHADERS.length, 4);
   assert.deepEqual(singleCopyProblems(), []);
   for (const f of SHADERS) assert.ok(fs.existsSync(path.join(KERNEL, '..', 'shaders', f)), f);
+  // 程序按源码内容的摘要命名，负对照的改错也算进摘要
+  assert.match(sourceKey(), /^[0-9a-f]{16}$/);
+  assert.equal(sourceKey(), sourceKey([]));
+  assert.notEqual(sourceKey([{ file: 'path/src/lib.rs', from: 'a', to: 'b' }]), sourceKey());
 });
 
 test('漫反射白炉的记录：按显卡各记一个，没记过的显卡按相对 1e-6 比', () => {
