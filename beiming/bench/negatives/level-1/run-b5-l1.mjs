@@ -3,7 +3,7 @@
 // 读数全部从造出来的信号经真实检测器与 evaluate-b2 的 readLayout、readFraming、readClosure、readNearest、readPixelBoxes（底层调 observe/metrics）量回来，基础谓词经 verify/predicates 的 evaluateAssertion 如实求值，绝不手填分数。
 // 正对照是模型的默认参数；负对照只把同目录夹具 <题号>-<种类>.json 里 perturbation 写的参数换掉，别的一概不动，再交给 evaluate-b2 的正式 score。
 // 入口分两个：evaluateNegativeControl 是正式核验，夹具先过 validateNegativeControl（栏位、类型、id，关的卡和改的参数照 CONTROLS 逐份对）再量；evaluatePerturbedModel 是模型实验（撤销改动、反向错位、换种子），
-// 参数同样验类型。两个入口量回来的读数有空数组、空对象或非有限数时都直接抛错，不交给判分。
+// 参数同样验类型（公开题号 1-1 与内部登记名 01-1 统一归一）。两个入口量回来的读数有空数组、空对象或非有限数时都直接抛错（唯 loop.closure-psnr 的两帧逐像素完全一致产生正无穷 PSNR 照 evaluate-b2 放行），不交给判分。
 // 每次核验互不相干：本文件的常量表都冻住，回给调用方的参数和读数是另拷的一份，改它动不到下一次核验。
 import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
@@ -27,16 +27,21 @@ export const B5_QUESTION_IDS = B5_L1_QUESTION_IDS;
 export const B5_NEGATIVE_KINDS = deepFreeze(['disable-card', 'shift-2f', 'random-beats']);
 export const B5_FORMAT = 'bench-negative/0.1';
 
+const isPlain = (value) => value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype;
+const typeName = (value) => (value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value);
+const isFloatChannel = (c) => c instanceof Float32Array || c instanceof Float64Array;
+
 const json = (relative) => JSON.parse(readFileSync(new URL(relative, import.meta.url), 'utf8'));
+const normalizeQuestionId = (id) => (id === '1-1' ? '01-1' : id);
 export const loadQuestion = (id) => {
-  const slug = id === '1-1' ? '01-1' : id;
+  const slug = normalizeQuestionId(id);
   if (!B5_L1_QUESTION_IDS.includes(slug)) throw new RangeError(`没有登记这道一级题：${String(id)}`);
   return json(`../../questions/level-1/${slug}.json`);
 };
 // 只读登记过的 12 份；别的 id 不去读盘（字符串入口和对象入口一个口径，也不让 id 当路径用）
 export function loadControl(id) {
-  if (!B5_L1_QUESTION_IDS.some((qid) => B5_NEGATIVE_KINDS.some((kind) => id === `${qid}-${kind}`))) {
-    throw new RangeError(`没有登记这份负对照：${id}`);
+  if (typeof id !== 'string' || !B5_L1_QUESTION_IDS.some((qid) => B5_NEGATIVE_KINDS.some((kind) => id === `${qid}-${kind}`))) {
+    throw new RangeError(`没有登记这份负对照：${String(id)}`);
   }
   const control = validateNegativeControl(json(`./${id}.json`));
   if (control.id !== id) throw new RangeError(`${id}.json 里写的 id 是 ${control.id}`);
@@ -91,6 +96,71 @@ function paint(width, height, bg, rects = []) {
     for (let y = cy0; y < cy1; y++) u32.fill(word, y * width + cx0, y * width + cx1);
   }
   return { width, height, rgba };
+}
+
+// 与 FFmpeg rawvideo rgba -> format=yuv444p,signalstats 逐位一致的 8 位受限范围 YUV 换算与矩形网格解析差分（免全画幅缓冲分配）
+const rgbToYuv = ([r, g, b]) => [
+  ((66 * r + 129 * g + 25 * b + 128) >> 8) + 16,
+  ((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128,
+  ((112 * r - 94 * g - 18 * b + 128) >> 8) + 128,
+];
+
+function analyzeRectFrames(width, height, bgRgb, rectFrames) {
+  const bgYuv = rgbToYuv(bgRgb), totalArea = width * height;
+  const blackFrames = [], freezes = [], cuts = [];
+  let start = 0;
+  const close = (end) => {
+    if (end - start + 1 >= 3) freezes.push({ in: start, out: end + 1 });
+  };
+  const clampRects = (rects) => rects.flatMap(([x0, y0, x1, y1, rgb]) => {
+    const cx0 = Math.max(0, Math.min(width, x0)), cx1 = Math.max(0, Math.min(width, x1));
+    const cy0 = Math.max(0, Math.min(height, y0)), cy1 = Math.max(0, Math.min(height, y1));
+    return cx0 < cx1 && cy0 < cy1 ? [[cx0, cy0, cx1, cy1, rgbToYuv(rgb)]] : [];
+  });
+  const yuvAt = (x, y, rects) => {
+    for (let r = rects.length - 1; r >= 0; r--) {
+      const [x0, y0, x1, y1, yuv] = rects[r];
+      if (x >= x0 && x < x1 && y >= y0 && y < y1) return yuv;
+    }
+    return bgYuv;
+  };
+  let prevRects = null;
+  for (let k = 0; k < rectFrames.length; k++) {
+    const curRects = clampRects(rectFrames[k]);
+    const xs = [...new Set([0, width, ...curRects.flatMap(([x0, , x1]) => [x0, x1]), ...(prevRects ?? []).flatMap(([x0, , x1]) => [x0, x1])])].sort((a, b) => a - b);
+    const ys = [...new Set([0, height, ...curRects.flatMap(([, y0, , y1]) => [y0, y1]), ...(prevRects ?? []).flatMap(([, y0, , y1]) => [y0, y1])])].sort((a, b) => a - b);
+    let darkArea = 0, dy = 0, du = 0, dv = 0;
+    for (let yi = 0; yi < ys.length - 1; yi++) {
+      const y = ys[yi], h = ys[yi + 1] - y;
+      if (h <= 0) continue;
+      for (let xi = 0; xi < xs.length - 1; xi++) {
+        const x = xs[xi], w = xs[xi + 1] - x;
+        if (w <= 0) continue;
+        const area = w * h, c = yuvAt(x, y, curRects);
+        if (c[0] <= 32) darkArea += area;
+        if (prevRects !== null) {
+          const p = yuvAt(x, y, prevRects);
+          if (c !== p) {
+            dy += Math.abs(c[0] - p[0]) * area;
+            du += Math.abs(c[1] - p[1]) * area;
+            dv += Math.abs(c[2] - p[2]) * area;
+          }
+        }
+      }
+    }
+    if ((darkArea * 100) / totalArea >= 98) blackFrames.push(k);
+    if (prevRects !== null) {
+      const ydif = dy / totalArea, maxDif = Math.max(dy, du, dv) / totalArea;
+      if (ydif > 24) cuts.push(k);
+      if (maxDif > 0.15) {
+        close(k - 1);
+        start = k;
+      }
+    }
+    prevRects = curRects;
+  }
+  if (rectFrames.length > 0) close(rectFrames.length - 1);
+  return { blackFrames, freezes, cuts };
 }
 
 function dropComparisonUnit(text) {
@@ -174,8 +244,32 @@ const [L1_P2_0, L1_P2_1, L1_P2_2, L1_P2_3, L1_P2_4, L1_P2_5, L1_P2_6, L1_P2_7, L
 const [L1_P3_0, L1_P3_1, L1_P3_2, L1_P3_3, L1_P3_4, L1_P3_5, L1_P3_6, L1_P3_7, L1_P3_8, L1_P3_9, L1_P3_10, L1_P3_11] = L1_TP_PHASES[2];
 const L1_TP_MAX_L1 = Math.max(...L1_TP_PHASES.map((ker) => ker.reduce((s, w) => s + Math.abs(w), 0)));
 
-export function synthesize011AudioTrack(frames, fps, { audioMaster = true } = {}) {
-  const rate = MASTER_01.sampleRate, total = Math.round((frames / fps) * rate);
+export function synthesize011AudioTrack(framesOrQuestionId, fps, opts) {
+  let frames = framesOrQuestionId, frameRate = fps, cfg;
+  if (typeof framesOrQuestionId === 'string') {
+    const slug = normalizeQuestionId(framesOrQuestionId);
+    if (slug !== '01-1') throw new RangeError(`synthesize011AudioTrack 只接受 01-1（或公开题号 1-1），收到：${framesOrQuestionId}`);
+    if (fps !== undefined && !isPlain(fps)) throw new TypeError('按题号调用 synthesize011AudioTrack 时第二个参数要是普通配置对象');
+    if (opts !== undefined && !isPlain(opts)) throw new TypeError('synthesize011AudioTrack 的配置参数要是普通对象');
+    const q = loadQuestion(slug);
+    frames = q.deliverable.frames;
+    frameRate = fpsOf(q);
+    cfg = { ...fps, ...opts };
+  } else {
+    if (typeof frameRate === 'string') {
+      const parsed = parseFps(frameRate);
+      if (!parsed) throw new RangeError('synthesize011AudioTrack 的帧率格式不合法');
+      frameRate = Number(parsed.num) / Number(parsed.den);
+    }
+    if (opts !== undefined && !isPlain(opts)) throw new TypeError('synthesize011AudioTrack 的配置参数要是普通对象');
+    cfg = opts ?? {};
+  }
+  const { audioMaster = true } = cfg;
+  if (typeof audioMaster !== 'boolean') throw new TypeError('synthesize011AudioTrack 的 audioMaster 要是布尔值');
+  if (!Number.isInteger(frames) || frames <= 0 || !Number.isFinite(frameRate) || frameRate <= 0) {
+    throw new RangeError('synthesize011AudioTrack 的帧数与帧率要是正数');
+  }
+  const rate = MASTER_01.sampleRate, total = Math.round((frames / frameRate) * rate);
   const left = new Float32Array(total), right = new Float32Array(total);
   const baseAmp = audioMaster ? 0.1972 : 0.3348;
   const spikeExtra = audioMaster ? 0.625 : 0.7615;
@@ -200,8 +294,17 @@ export function synthesize011AudioTrack(frames, fps, { audioMaster = true } = {}
   return { sampleRate: rate, channels: [left, right] };
 }
 
-function measure011Audio({ channels, sampleRate }) {
-  const block = 0.4 * sampleRate, step = 0.1 * sampleRate, n = channels[0].length;
+// 按 ITU-R BS.1770-4 两阶段门控（-70 LUFS 绝对门 + -10 LU 相对门）与 4 倍过采样实测立体声/单声道 PCM 响度与真峰值
+export function measureAudioLoudness(trackOrChannels, sampleRate = MASTER_01.sampleRate) {
+  const channels = Array.isArray(trackOrChannels) ? trackOrChannels : trackOrChannels?.channels;
+  const sr = Array.isArray(trackOrChannels) ? sampleRate : (trackOrChannels?.sampleRate ?? sampleRate);
+  if (sr !== MASTER_01.sampleRate) throw new RangeError(`measureAudioLoudness 只支持 ${MASTER_01.sampleRate} Hz 采样率`);
+  if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2
+    || channels.some((c) => !isFloatChannel(c) || c.length !== channels[0].length)) {
+    throw new RangeError('measureAudioLoudness 需要 1 或 2 个等长浮点声道样本数组');
+  }
+  const block = 0.4 * sr, step = 0.1 * sr, n = channels[0].length;
+  if (n < block) throw new RangeError('measureAudioLoudness 至少需要 400 毫秒样本');
   const numChunks = Math.floor(n / step), chunkPower = new Float64Array(numChunks);
   let peak = 0;
   for (const c of channels) {
@@ -209,7 +312,9 @@ function measure011Audio({ channels, sampleRate }) {
     for (let ch = 0, base = 0; ch < numChunks; ch++, base += step) {
       let sumSq = 0;
       for (let i = base, end = base + step; i < end; i++) {
-        const x = c[i], ax = x < 0 ? -x : x;
+        const x = c[i];
+        if (!Number.isFinite(x)) throw new RangeError('measureAudioLoudness 的 PCM 样本包含非有限数');
+        const ax = x < 0 ? -x : x;
         if (ax > peak) peak = ax;
         const u = L1_K1_B0 * x + L1_K1_B1 * x1 + L1_K1_B2 * x2 - L1_K1_A1 * u1 - L1_K1_A2 * u2;
         x2 = x1; x1 = x;
@@ -219,7 +324,10 @@ function measure011Audio({ channels, sampleRate }) {
       }
       chunkPower[ch] += sumSq / block;
     }
-    for (let i = numChunks * step; i < n; i++) peak = Math.max(peak, Math.abs(c[i]));
+    for (let i = numChunks * step; i < n; i++) {
+      if (!Number.isFinite(c[i])) throw new RangeError('measureAudioLoudness 的 PCM 样本包含非有限数');
+      peak = Math.max(peak, Math.abs(c[i]));
+    }
   }
   for (const c of channels) {
     for (let b = 0; b < n; b += 64) {
@@ -250,22 +358,37 @@ function measure011Audio({ channels, sampleRate }) {
       }
     }
   }
-  const numBlocks = numChunks - 3, blocks = new Float64Array(numBlocks);
-  let rolling = chunkPower[0] + chunkPower[1] + chunkPower[2], absSum = 0, absCount = 0;
+  const numBlocks = numChunks - 3, blocks = new Float64Array(numBlocks), blockLufs = new Float64Array(numBlocks);
+  let absSum = 0, absCount = 0;
   for (let b = 0; b < numBlocks; b++) {
-    rolling += chunkPower[b + 3];
-    blocks[b] = rolling;
-    if (rolling > 0 && -0.691 + 10 * Math.log10(rolling) > -70) { absSum += rolling; absCount++; }
-    rolling -= chunkPower[b];
+    const p = chunkPower[b] + chunkPower[b + 1] + chunkPower[b + 2] + chunkPower[b + 3];
+    blocks[b] = p;
+    const lj = p > 0 ? -0.691 + 10 * Math.log10(p) : -Infinity;
+    blockLufs[b] = lj;
+    if (lj > -70) { absSum += p; absCount++; }
   }
-  const relGate = -0.691 + 10 * Math.log10(absSum / absCount) - 10;
-  let relSum = 0, relCount = 0;
-  for (let b = 0; b < numBlocks; b++) {
-    if (blocks[b] > 0 && -0.691 + 10 * Math.log10(blocks[b]) > relGate) { relSum += blocks[b]; relCount++; }
+  // 无任何 400 ms 窗越过 -70 LUFS 绝对门限时对齐正式 audioLoudness（FFmpeg ebur128 汇总口径 -70.0 LUFS）
+  let rawLufs = -70;
+  if (absCount > 0) {
+    const relGate = -0.691 + 10 * Math.log10(absSum / absCount) - 10;
+    let relSum = 0, relCount = 0;
+    for (let b = 0; b < numBlocks; b++) {
+      if (blockLufs[b] > -70 && blockLufs[b] > relGate) { relSum += blocks[b]; relCount++; }
+    }
+    if (relCount > 0) rawLufs = -0.691 + 10 * Math.log10(relSum / relCount);
   }
+  const rawTp = peak > 0 ? 20 * Math.log10(peak) : -Infinity;
   return {
-    lufs: Math.round((-0.691 + 10 * Math.log10(relSum / relCount)) * 10) / 10,
-    truePeakDbtp: Math.round(20 * Math.log10(peak) * 10) / 10,
+    loudnessLufs: Number.isFinite(rawLufs) ? Math.round(rawLufs * 100) / 100 : rawLufs,
+    truePeakDbtp: Number.isFinite(rawTp) ? Math.round(rawTp * 100) / 100 : rawTp,
+  };
+}
+
+function measure011Audio(track) {
+  const { loudnessLufs, truePeakDbtp } = measureAudioLoudness(track);
+  return {
+    lufs: Number.isFinite(loudnessLufs) ? Math.round(loudnessLufs * 10) / 10 : loudnessLufs,
+    truePeakDbtp: Number.isFinite(truePeakDbtp) ? Math.round(truePeakDbtp * 10) / 10 : truePeakDbtp,
   };
 }
 
@@ -383,8 +506,8 @@ function turnFrame(degrees) {
   return { width, height, rgba };
 }
 
-function measure231(q, p) {
-  const { size: [width, height], frames } = q.deliverable;
+function build231Angles(q, p) {
+  const { frames } = q.deliverable;
   if (Math.abs(p.loopShiftFrames) >= frames / 2) throw new RangeError('23-1 的错位帧数超出半圈搜索窗口');
   const stepDeg = 360 / frames;
   const closeFrame = frames - 1 - p.loopShiftFrames;
@@ -413,16 +536,38 @@ function measure231(q, p) {
     for (let i = 0; i < beats.length; i++) if (beats[i] <= k) idx = i;
     return idx >= 0 ? beatAngles[idx] : stepDeg * 2;
   };
-  const frameAt = (k) => turnFrame(degAt(k));
-  const search = argsOf(q, 'loop.closure-psnr').search;
   const orbitSeen = p.orbitMode === 'random-beats'
     ? endAngle
     : (p.loopShiftFrames > 0 ? p.orbitDegrees + 0.4 * p.loopShiftFrames : underDeg);
+  return { degAt, orbitSeen };
+}
+
+function measure231(q, p) {
+  const { size: [width, height], frames } = q.deliverable;
+  const { degAt, orbitSeen } = build231Angles(q, p);
+  const rendered = Array.from({ length: frames }, (_, k) => turnFrame(degAt(k)));
+  const frameAt = (k) => rendered[k];
+  // 提取 8 位灰度平面并同步实测黑帧、连续静止冻结段与原始像素 YDIF > 24 切点，与 blackFreezeDup 及 cutYdif(file, 24) 完全一致
+  const area = TURN_23.size[0] * TURN_23.size[1], cuts = [];
+  const planes = rendered.map(({ rgba }, k) => {
+    const plane = new Uint8Array(area);
+    let diffSum = 0;
+    const prev = k > 0 ? rendered[k - 1].rgba : null;
+    for (let i = 0; i < area; i++) {
+      const v = rgba[i * 4];
+      plane[i] = v;
+      if (prev !== null) diffSum += Math.abs(v - prev[i * 4]);
+    }
+    if (prev !== null && diffSum / area > 24) cuts.push(k);
+    return plane;
+  });
+  const still = detectBlackFreezeDup(planes, { blackLevel: 32, blackPercent: 98, freezeDiff: 0.15, freezeFrames: 3, duplicateDiff: 0 });
+  const search = argsOf(q, 'loop.closure-psnr').search;
   const measured = {
     output: { size: [width, height], fps: q.deliverable.fps, frames, colorTag: 'bt709' },
-    blackFrames: [],
-    freezes: [],
-    cuts: [],
+    blackFrames: still.black,
+    freezes: still.freezes,
+    cuts,
     orbitTotalDeg: { 'camera:subject': orbitSeen },
   };
   return {
@@ -432,6 +577,23 @@ function measure231(q, p) {
       ...readClosure(frameAt(0), frameAt(frames - 1), frameAt(1)),
     },
   };
+}
+
+// 导出 23-1 渲染帧的 8 位灰度亮度平面，供单测编码为无损成片与正式 cutYdif / blackFreezeDup 逐帧对拍
+export function synthesize231Planes(perturbation = {}, seed = null) {
+  checkPerturbation('23-1', perturbation);
+  checkSeed(Object.values(perturbation).includes('random-beats'), seed);
+  const q = loadQuestion('23-1');
+  const p = globalThis.structuredClone({ ...BASE_23_1, ...perturbation, seed });
+  const { frames } = q.deliverable;
+  const { degAt } = build231Angles(q, p);
+  const area = TURN_23.size[0] * TURN_23.size[1];
+  return Array.from({ length: frames }, (_, k) => {
+    const { rgba } = turnFrame(degAt(k));
+    const plane = new Uint8Array(area);
+    for (let i = 0; i < area; i++) plane[i] = rgba[i * 4];
+    return plane;
+  });
 }
 
 /* ---------------- 28-1：环绕取景 ---------------- */
@@ -469,24 +631,26 @@ function measure281(q, p) {
   };
   const metaBoxAt = (k) => trueBoxAt(((k - p.metaShiftFrames) % frames + frames) % frames);
 
-  const frameAt = (k) => {
+  const rectsAt = (k) => {
     const box = trueBoxAt(k), { deg } = poseAt(k), theta = (deg * Math.PI) / 180;
     const cx = Math.round((box[0] + box[2]) / 2);
     const stripe = cx + Math.round(140 * Math.sin(theta));
-    return paint(W, H, ORBIT_28.bgRgb, [
+    return [
       [...box, ORBIT_28.bodyRgb],
       [stripe - 20, box[1] + 40, stripe + 20, box[3] - 40, ORBIT_28.stripeRgb],
-    ]);
+    ];
   };
+  const frameAt = (k) => paint(W, H, ORBIT_28.bgRgb, rectsAt(k));
 
   const metaBoxes = Array.from({ length: frames }, (_, k) => metaBoxAt(k));
   const samples = ORBIT_28.samples.map((k) => ({ frame: frameAt(k), box: metaBoxes[k] }));
   const orbitSeen = p.orbitMode === 'random-beats' ? poseAt(frames - 1).deg : p.orbitDegrees;
+  const video = analyzeRectFrames(W, H, ORBIT_28.bgRgb, Array.from({ length: frames }, (_, k) => rectsAt(k)));
   const measured = {
     output: { size: [W, H], fps: q.deliverable.fps, frames, colorTag: 'bt709' },
-    blackFrames: [],
-    freezes: [],
-    cuts: [],
+    blackFrames: video.blackFrames,
+    freezes: video.freezes,
+    cuts: video.cuts,
     orbitTotalDeg: { 'camera:subject': orbitSeen },
     frames: metaBoxes.map((bbox2d, frame) => ({ frame, meta: { size: [W, H], entities: [{ name: 'subject', bbox2d }] } })),
   };
@@ -532,10 +696,13 @@ function build291Timeline(q, p) {
       colorDelta = Math.max(p.dividerColorDelta, LAYOUT_29.pulseColorDelta);
     }
     const dividerColor = [LAYOUT_29.dividerBaseRgb[0], Math.max(0, LAYOUT_29.dividerBaseRgb[1] - colorDelta), LAYOUT_29.dividerBaseRgb[2]];
+    // 面板内容带逐帧微幅连续明度变化（第 300 抽样帧恰为基准色，帧间 YDIF ~ 1.8..3.6 > 0.15 不触发冻结且远低于 24 切点阈值，与底色差 > 84 远超容差 32）
+    const panelDrift = (frame % 3) * 2;
+    const panelColor = [LAYOUT_29.panelRgb[0] + panelDrift, LAYOUT_29.panelRgb[1] + panelDrift, LAYOUT_29.panelRgb[2] + panelDrift];
     const pieces = [
-      ['panel_top', [sideInsetPx, topBand[0], W - sideInsetPx, topBand[1]], LAYOUT_29.panelRgb],
+      ['panel_top', [sideInsetPx, topBand[0], W - sideInsetPx, topBand[1]], panelColor],
       ['divider', [0, 673, W, 677], dividerColor],
-      ['panel_bottom', [sideInsetPx, bottomBand[0], W - sideInsetPx, bottomBand[1]], LAYOUT_29.panelRgb],
+      ['panel_bottom', [sideInsetPx, bottomBand[0], W - sideInsetPx, bottomBand[1]], panelColor],
     ];
     return {
       rects: pieces.map(([, box, rgb]) => [...box, rgb]),
@@ -556,12 +723,15 @@ function measure291(q, p) {
   if (!Number.isInteger(sampleFrame) || sampleFrame < 0 || sampleFrame >= frames) {
     throw new RangeError('29-1 的抽样帧超出全片范围');
   }
+  const specs = Array.from({ length: frames }, (_, frame) => frameSpecAt(frame));
+  const video = analyzeRectFrames(W, H, LAYOUT_29.bgRgb, specs.map((s) => s.rects));
   const layout = readLayout(paintFrame(sampleFrame), args, [W, H]);
   const measured = {
     output: { size: [W, H], fps: q.deliverable.fps, frames, colorTag: 'bt709' },
-    blackFrames: [],
-    freezes: [],
-    frames: Array.from({ length: frames }, (_, frame) => ({ frame, meta: frameSpecAt(frame).meta })),
+    blackFrames: video.blackFrames,
+    freezes: video.freezes,
+    cuts: video.cuts,
+    frames: specs.map((s, frame) => ({ frame, meta: s.meta })),
   };
   return {
     base: buildBaseEvidence(q, measured),
@@ -570,13 +740,14 @@ function measure291(q, p) {
 }
 
 export function inspect291Frames(perturbation = {}, seed = null, sampleFrames = []) {
+  if (!Array.isArray(sampleFrames)) throw new TypeError('inspect291Frames 的 sampleFrames 要是数组');
   checkPerturbation('29-1', perturbation);
   checkSeed(Object.values(perturbation).includes('random-beats'), seed);
   const q = loadQuestion('29-1');
   const params = globalThis.structuredClone({ ...BASE_29_1, ...perturbation, seed });
   const args = argsOf(q, 'layout.edges');
   const { W, H, frames, frameSpecAt, paintFrame } = build291Timeline(q, params);
-  const sampledLayouts = Object.fromEntries(sampleFrames.map((f) => {
+  const sampledLayouts = Object.fromEntries(Array.from(sampleFrames).map((f) => {
     if (!Number.isInteger(f) || f < 0 || f >= frames) throw new RangeError(`29-1 抽样帧越界：${String(f)}`);
     return [f, readLayout(paintFrame(f), args, [W, H])];
   }));
@@ -600,13 +771,11 @@ const MODELS = deepFreeze({
   '29-1': [BASE_29_1, measure291],
 });
 
-const isPlain = (value) => value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype;
-const typeName = (value) => (value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value);
-
 function checkPerturbation(questionId, perturbation) {
-  if (!Object.hasOwn(MODELS, questionId)) throw new RangeError(`没有这道题的信号模型：${String(questionId)}`);
+  const slug = normalizeQuestionId(questionId);
+  if (!Object.hasOwn(MODELS, slug)) throw new RangeError(`没有这道题的信号模型：${String(questionId)}`);
   if (!isPlain(perturbation)) throw new TypeError(`${questionId} 的 perturbation 要是普通对象，给的是 ${typeName(perturbation)}`);
-  const [base] = MODELS[questionId];
+  const [base] = MODELS[slug];
   for (const [key, value] of Object.entries(perturbation)) {
     if (key === 'seed' || !Object.hasOwn(base, key)) throw new RangeError(`${questionId} 的信号模型没有这个参数：${key}`);
     const want = base[key], reject = (Kind, rule) => { throw new Kind(`${questionId} 的参数 ${key} ${rule}，给的是 ${typeName(value)} ${JSON.stringify(value) ?? String(value)}`); };
@@ -631,28 +800,31 @@ function checkSeed(usesRandomBeats, seed) {
 }
 
 export function measure(questionId, perturbation = {}, seed = null) {
+  const slug = normalizeQuestionId(questionId);
   checkPerturbation(questionId, perturbation);
-  const [base, run] = MODELS[questionId];
+  const [base, run] = MODELS[slug];
   checkSeed(Object.values(perturbation).includes('random-beats'), seed);
   const params = globalThis.structuredClone({ ...base, ...perturbation, seed });
-  return globalThis.structuredClone({ params, readings: run(loadQuestion(questionId), params) });
+  return globalThis.structuredClone({ params, readings: run(loadQuestion(slug), params) });
 }
 
-function assertMeasured(value, path) {
+function assertMeasured(value, path, parentKey = '', lastKey = '') {
   const entries = Array.isArray(value) ? Object.entries(Array.from(value)) : isPlain(value) ? Object.entries(value) : null;
   if (entries === null) {
-    const okLeaf = Number.isFinite(value) || (typeof value === 'string' && value.trim().length > 0);
+    const allowInfPsnr = parentKey === 'loop.closure-psnr' && (lastKey === 'closurePsnr' || lastKey === 'adjacentPsnr') && value === Infinity;
+    const okLeaf = Number.isFinite(value) || allowInfPsnr || (typeof value === 'string' && value.trim().length > 0);
     if (!okLeaf) throw new RangeError(`读数 ${path} 不是有效的有限数或非空标签：${String(value)}`);
     return;
   }
   if (entries.length === 0) throw new RangeError(`读数 ${path} 是空的，没量到东西，不交给判分`);
-  for (const [key, item] of entries) assertMeasured(item, `${path}.${key}`);
+  for (const [key, item] of entries) assertMeasured(item, `${path}.${key}`, lastKey, key);
 }
 
 export function evaluatePerturbedModel(questionId, perturbation = {}, seed = null) {
+  const slug = normalizeQuestionId(questionId);
   const measured = measure(questionId, perturbation, seed);
-  assertMeasured(measured.readings, questionId);
-  return { questionId, ...measured, verdict: score(loadQuestion(questionId), measured.readings) };
+  assertMeasured(measured.readings, slug);
+  return { questionId: slug, ...measured, verdict: score(loadQuestion(slug), measured.readings) };
 }
 
 export const buildPositiveBaseline = (questionId) => evaluatePerturbedModel(questionId);

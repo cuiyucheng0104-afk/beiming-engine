@@ -8,7 +8,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { audioLoudness, cutYdif } from '../observe/metrics/video-audio.mjs';
+import { audioLoudness, blackFreezeDup, cutYdif } from '../observe/metrics/video-audio.mjs';
+import { evaluateAssertion } from '../verify/predicates.mjs';
 import { scanQuestionLeaks } from './index.mjs';
 import {
   B5_FORMAT as B5_L1_FORMAT,
@@ -22,6 +23,9 @@ import {
   loadControl as loadL1Control,
   loadQuestion as loadL1Question,
   measure as measureL1,
+  measureAudioLoudness as measureL1AudioLoudness,
+  synthesize011AudioTrack,
+  synthesize231Planes,
   validateNegativeControl as validateL1Control,
 } from './negatives/level-1/run-b5-l1.mjs';
 import {
@@ -42,6 +46,7 @@ import {
   synthesizePlanes,
   validateNegativeControl as validateL2aControl,
 } from './negatives/level-2-a/run-b5-l2a.mjs';
+import { score as scoreB2 } from './questions/level-1/evaluate-b2.mjs';
 import { read30_1 } from './questions/level-2-a/evaluate-b3.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -721,3 +726,188 @@ test('B5-15 R1 回归：Floyd 无放回抽样遍历 seed = 700..799（含 701）
   const elapsedMs = performance.now() - start;
   assert.ok(elapsedMs < 3000, `100 个种子（含 701）耗时 ${elapsedMs.toFixed(1)}ms 应远低于 3000ms`);
 });
+
+/* ---------------- R2（B5-A 裁定）定点回归门禁 ---------------- */
+
+test('B5-16 R2 回归：23-1 实测渲染帧切点写入 measured.cuts，23-1-random-beats 的 no_cut @ all 与正式 cutYdif(file, 24) 完全一致', MEDIA_OPTS, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bm-b5-231-cuts-'));
+  try {
+    const q = loadL1Question('23-1');
+    const film = { output: q.deliverable, shots: [{ id: 's01', in: 0, out: q.deliverable.frames }] };
+
+    for (const [label, perturbation, seed, wantStatus] of [
+      ['pos', {}, null, 'pass'],
+      ['shift', loadL1Control('23-1-shift-2f').perturbation, null, 'pass'],
+      ['disable', loadL1Control('23-1-disable-card').perturbation, null, 'pass'],
+      ['random', loadL1Control('23-1-random-beats').perturbation, loadL1Control('23-1-random-beats').seed, 'fail'],
+    ]) {
+      const mkv = join(dir, `23-1-${label}.mkv`);
+      const planes = synthesize231Planes(perturbation, seed);
+      writeLosslessMkv(mkv, planes, [64, 16], 24);
+      const actualCuts = (await cutYdif(mkv, 24)).value;
+      const expectedStatus = evaluateAssertion('no_cut @ all', film, { cuts: actualCuts }).status;
+      assert.equal(expectedStatus, wantStatus, `23-1 ${label} 正式 cutYdif 求值应为 ${wantStatus}`);
+      const measured = measureL1('23-1', perturbation, seed);
+      assert.equal(measured.readings.base.predicates['no_cut @ all'], expectedStatus, `23-1 ${label} 的 no_cut @ all 与 cutYdif 一致`);
+      if (label === 'random') {
+        assert.ok(actualCuts.length > 0 && actualCuts[0] === 4, `23-1-random-beats 检出真实切点 ${JSON.stringify(actualCuts)}`);
+        const ctrl = evaluateL1Control('23-1-random-beats');
+        assert.equal(ctrl.readings.base.predicates['no_cut @ all'], 'fail');
+        assert.deepEqual(failedAt(ctrl.verdict), [0, 1]);
+        assert.equal(ctrl.failedAsDeclared, true);
+      } else {
+        assert.deepEqual(actualCuts, []);
+      }
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('B5-17 R2 回归：synthesizeAudioTrack 收窄为仅接受带响度判分的 27-1 与 30-1，对 23-2、29-2 或未知题号明确抛 RangeError', () => {
+  for (const onsetOnlyId of ['23-2', '29-2']) {
+    assert.throws(
+      () => synthesizeAudioTrack(onsetOnlyId),
+      (err) => err instanceof RangeError && /B6|buildLogRmsEnvelope/.test(err.message),
+      `${onsetOnlyId} 走合成对数能量包络，调用 synthesizeAudioTrack 必抛 RangeError`,
+    );
+  }
+  for (const unknownId of ['99-2', '01-1', '']) {
+    assert.throws(() => synthesizeAudioTrack(unknownId), RangeError, `未登记题号 ${unknownId} 必抛 RangeError`);
+  }
+  for (const loudId of ['27-1', '30-1']) {
+    const track = synthesizeAudioTrack(loudId);
+    assert.equal(track.sampleRate, 48000);
+    assert.equal(track.channels.length, 2);
+    assert.ok(track.channels[0].length > 0);
+  }
+});
+
+test('B5-18 R2 回归：run-b5-l1 统一兼容公开题号 1-1 与内部登记名 01-1，保持 B5_L1_QUESTION_IDS 不变', () => {
+  assert.deepEqual(B5_L1_QUESTION_IDS, ['01-1', '23-1', '28-1', '29-1']);
+  const q = loadL1Question('01-1');
+  assert.equal(q.id, '1-1');
+  assert.deepEqual(loadL1Question('1-1'), q);
+
+  const baselineFromPublicId = buildL1Baseline(q.id);
+  assert.equal(baselineFromPublicId.verdict.score, 1);
+  assert.equal(baselineFromPublicId.verdict.pass, true);
+  assert.deepEqual(baselineFromPublicId, buildL1Baseline('01-1'));
+  assert.deepEqual(measureL1('1-1', { videoShiftFrames: 2 }), measureL1('01-1', { videoShiftFrames: 2 }));
+  assert.deepEqual(evaluateL1Perturbed('1-1', { audioMaster: false }), evaluateL1Perturbed('01-1', { audioMaster: false }));
+});
+
+test('B5-19 R2 回归：run-b5-l1 放行两帧逐像素全等产生的合法 PSNR === Infinity，与正式 evaluate-b2 score 完全一致', () => {
+  const q = loadL1Question('28-1');
+  const perturbation = { orbitDegrees: 1 };
+  const measured = measureL1('28-1', perturbation);
+  assert.equal(measured.readings['loop.closure-psnr'].adjacentPsnr, Infinity);
+  const formal = scoreB2(q, measured.readings);
+  assert.equal(formal.malformed, false);
+  const judged = evaluateL1Perturbed('28-1', perturbation);
+  assert.deepEqual(judged.verdict, formal);
+});
+
+test('B5-20 R2 回归：ITU-R BS.1770-4 两阶段门控严格筛除 <= -70 LUFS 绝对门下低电平段，-65/-73 dBFS 双段 PCM 与正式 audioLoudness 一致', MEDIA_OPTS, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bm-b5-bs1770-'));
+  try {
+    const samples = Float32Array.from(
+      { length: 48000 * 20 },
+      (_, i) => (10 ** ((i < 480000 ? -65 : -73) / 20)) * Math.sin((2 * Math.PI * i) / 48),
+    );
+    const pcm = { sampleRate: 48000, channels: [samples, samples] };
+    const wavBuf = Buffer.alloc(samples.length * 8);
+    for (let i = 0; i < samples.length; i++) {
+      wavBuf.writeFloatLE(samples[i], i * 8);
+      wavBuf.writeFloatLE(samples[i], i * 8 + 4);
+    }
+    const wavPath = join(dir, 'dual-gate.wav');
+    const enc = spawnSync(
+      'ffmpeg',
+      ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-f', 'f32le', '-ar', '48000', '-ac', '2', '-i', 'pipe:0', '-c:a', 'pcm_f32le', wavPath],
+      { input: wavBuf },
+    );
+    assert.equal(enc.status, 0, String(enc.stderr));
+    const official = (await audioLoudness(wavPath)).value;
+    const localL2a = measureAudioLoudness(pcm).loudnessLufs;
+    const localL1 = measureL1AudioLoudness(pcm).loudnessLufs;
+    assert.ok(Math.abs(localL2a - official) <= 0.35, `L2a 响度 ${localL2a} 与正式 ${official} 偏差超出 ±0.35 LU`);
+    assert.ok(Math.abs(localL1 - official) <= 0.35, `L1 响度 ${localL1} 与正式 ${official} 偏差超出 ±0.35 LU`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('B5-21 R2 红队加固回归：delivery 冻结段与 blackFreezeDup 对齐、build301Resolver 兼容夹具扰动、辅助入口参数严检', MEDIA_OPTS, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bm-b5-redteam-'));
+  try {
+    // 1. 23-1-random-beats 与慢转 1° 的 delivery(...) 基础谓词与正式 blackFreezeDup 对齐
+    const q23 = loadL1Question('23-1');
+    const delivKey23 = q23.basePredicates[0];
+    const film23 = { output: q23.deliverable, shots: [{ id: 's01', in: 0, out: q23.deliverable.frames }] };
+    const randCtrl23 = loadL1Control('23-1-random-beats');
+    const mkv23 = join(dir, '23-1-rand-freeze.mkv');
+    writeLosslessMkv(mkv23, synthesize231Planes(randCtrl23.perturbation, randCtrl23.seed), [64, 16], 24);
+    const still23 = await blackFreezeDup(mkv23);
+    const officialDeliv23 = evaluateAssertion(delivKey23, film23, {
+      output: { ...q23.deliverable, colorTag: 'bt709' },
+      blackFrames: still23.details.black,
+      freezes: still23.details.freezes.map(([from, to]) => ({ in: from, out: to + 1 })),
+    }).status;
+    assert.equal(officialDeliv23, 'fail');
+    assert.equal(measureL1('23-1', randCtrl23.perturbation, randCtrl23.seed).readings.base.predicates[delivKey23], officialDeliv23);
+    assert.equal(measureL1('23-1', { orbitDegrees: 1 }).readings.base.predicates[delivKey23], 'fail');
+    assert.equal(measureL1('28-1', { orbitDegrees: 1 }).readings.base.predicates[loadL1Question('28-1').basePredicates[0]], 'fail');
+
+    // 2. build301Resolver 直接传夹具 perturbation（及可选 seed）或默认无参均返回完整 20 个事件并与 measure 对齐
+    const q30 = loadL2aQuestion('30-1');
+    const pos30 = POSITIVE['30-1'];
+    const filmMeta30 = {
+      width: pos30.readings.width,
+      height: pos30.readings.height,
+      fps: pos30.readings.fps,
+      frames: pos30.readings.frames,
+      colorTag: pos30.readings.colorTag,
+      blackFrames: pos30.readings.blackFrames,
+      freezes: pos30.readings.freezes,
+      cuts: pos30.readings.cuts,
+      shots: pos30.readings.shots,
+      loudnessLufs: pos30.readings.loudnessLufs,
+      truePeakDbtp: pos30.readings.truePeakDbtp,
+    };
+    assert.deepEqual(await read30_1({ question: q30, resolveEvents: build301Resolver(), filmMeta: filmMeta30 }), pos30.readings);
+    for (const cid of ['30-1-disable-card', '30-1-shift-2f', '30-1-random-beats']) {
+      const c = loadL2aControl(cid);
+      const probed = await read30_1({ question: q30, resolveEvents: build301Resolver(q30, c.perturbation, c.seed), filmMeta: filmMeta30 });
+      assert.deepEqual(probed, resultOf(cid).readings, `${cid} 经 build301Resolver(q, perturbation, seed) 与正式结果一致`);
+    }
+
+    // 3. synthesizeAudioTrack 三参调用、非法帧率字符串与 synthesize011AudioTrack 分数帧率兼容
+    assert.deepEqual(
+      measureAudioLoudness(synthesizeAudioTrack('27-1', undefined, { gainDb: 3 })),
+      measureAudioLoudness(synthesizeAudioTrack('27-1', { gainDb: 3 })),
+    );
+    assert.throws(() => synthesizeAudioTrack(510, 'bad'), RangeError);
+    assert.throws(() => synthesizeAudioTrack(510, 30, 'bad'), TypeError);
+    assert.equal(synthesize011AudioTrack(1104, '30/1').channels[0].length, 1104 * 1600);
+    assert.equal(synthesize011AudioTrack('1-1').channels[0].length, 1104 * 1600);
+
+    // 4. 低于 -70 LUFS 绝对门的全低电平音轨对齐正式 audioLoudness（-70 LUFS）
+    const sub70 = Float32Array.from({ length: 48000 * 2 }, (_, i) => (10 ** (-75 / 20)) * Math.sin((2 * Math.PI * i) / 48));
+    const subWav = join(dir, 'sub70.wav');
+    const subBuf = Buffer.alloc(sub70.length * 8);
+    for (let i = 0; i < sub70.length; i++) {
+      subBuf.writeFloatLE(sub70[i], i * 8);
+      subBuf.writeFloatLE(sub70[i], i * 8 + 4);
+    }
+    const enc = spawnSync('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-f', 'f32le', '-ar', '48000', '-ac', '2', '-i', 'pipe:0', '-c:a', 'pcm_f32le', subWav], { input: subBuf });
+    assert.equal(enc.status, 0);
+    const offSub = (await audioLoudness(subWav)).value;
+    assert.ok(Math.abs(measureAudioLoudness([sub70, sub70]).loudnessLufs - offSub) <= 0.35);
+    assert.ok(Math.abs(measureL1AudioLoudness([sub70, sub70]).loudnessLufs - offSub) <= 0.35);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+

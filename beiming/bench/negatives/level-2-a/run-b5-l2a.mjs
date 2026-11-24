@@ -1,6 +1,7 @@
 // B5（第二部分）：二级第一批 4 道公开考题（23-2、27-1、29-2、30-1）的标准负对照核验。每道题三种故意做错：关掉题面要用的卡、整体错位 2 帧、换成随机拍点。
-// 每道题一个参数化信号/行为模型（逐帧强对比灰度画面、48 kHz 立体声合成 PCM 音轨、10 毫秒对数均方根音量包络、时间线双拍速行为求值回调），都在题目自己的 deliverable 时间线上现造；
-// 读数全部从造出来的信号或行为量回来（原始像素帧间 YDIF 与 observe 的 telemetry 双重校验检切点、ITU-R BS.1770-4 K 加权积分响度与 4 倍过采样真峰值实测、10 毫秒音量跳变检起音、间隔聚类加网格扫描估拍长与相位、time.timeline 在 80 与 96 BPM 下的纯行为重求值），零硬编码读数、不手填分数。
+// 每道题一个参数化信号/行为模型（逐帧强对比灰度画面、面向带响度判分题 27-1 与 30-1 的 48 kHz 立体声合成 PCM 音轨、对齐已合入 B6（run-b6.mjs 20 ms 合成包络口径）用于 23-2 与 29-2 起音对照的确定性对数能量包络、时间线双拍速行为求值回调），都在题目自己的 deliverable 时间线上现造；
+// 读数全部从造出来的信号或行为量回来（原始像素帧间 YDIF 与 observe 的 telemetry 双重校验检切点、ITU-R BS.1770-4 两阶段门控（-70 LUFS 绝对门 + -10 LU 相对门）K 加权积分响度与 4 倍过采样真峰值实测、buildLogRmsEnvelope + detectOnsetsFromEnvelope 对数能量跳变检起音、间隔聚类加网格扫描估拍长与相位、time.timeline 在 80 与 96 BPM 下的纯行为重求值），零硬编码读数、不手填分数。
+// 口径边界：23-2 与 29-2 照已合入 B6（run-b6.mjs 20 ms 合成包络口径）直接走确定性对数能量包络（buildLogRmsEnvelope + detectOnsetsFromEnvelope，按 evaluate-b3 同口径 10 ms 窗提取起音），不提供恒定响度正弦轨；synthesizeAudioTrack 按题号调用时仅接受带响度门限/判分的 '27-1' 与 '30-1'，传入 '23-2'、'29-2' 或未知题号一律抛 RangeError。
 // 30-1 严格遵守 2026-11-23 管理员裁定：只做纯行为 BPM 扰动检查（80 -> 96 BPM 重求值），零源码静态扫描。
 // 正对照是模型的默认参数；负对照只把同目录夹具 <题号>-<种类>.json 里 perturbation 写的参数换掉，别的一概不动，再交给 evaluate-b3 的正式 evaluate（本模块按统一口径记作 score）。
 import { readFileSync } from 'node:fs';
@@ -19,6 +20,10 @@ export const B5_QUESTION_IDS = B5_L2A_QUESTION_IDS;
 export const B5_NEGATIVE_KINDS = deepFreeze(['disable-card', 'shift-2f', 'random-beats']);
 export const B5_FORMAT = 'bench-negative/0.1';
 
+const isPlain = (value) => value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype;
+const typeName = (value) => (value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value);
+const isFloatChannel = (c) => c instanceof Float32Array || c instanceof Float64Array;
+
 const json = (relative) => JSON.parse(readFileSync(new URL(relative, import.meta.url), 'utf8'));
 export const loadQuestion = (id) => {
   if (!B5_L2A_QUESTION_IDS.includes(id)) throw new RangeError(`没有登记这道二级题：${String(id)}`);
@@ -26,8 +31,8 @@ export const loadQuestion = (id) => {
 };
 // 只读登记过的 12 份；别的 id 不去读盘（字符串入口和对象入口一个口径，也不让 id 当路径用）
 export function loadControl(id) {
-  if (!B5_L2A_QUESTION_IDS.some((qid) => B5_NEGATIVE_KINDS.some((kind) => id === `${qid}-${kind}`))) {
-    throw new RangeError(`没有登记这份负对照：${id}`);
+  if (typeof id !== 'string' || !B5_L2A_QUESTION_IDS.some((qid) => B5_NEGATIVE_KINDS.some((kind) => id === `${qid}-${kind}`))) {
+    throw new RangeError(`没有登记这份负对照：${String(id)}`);
   }
   const control = validateNegativeControl(json(`./${id}.json`));
   if (control.id !== id) throw new RangeError(`${id}.json 里写的 id 是 ${control.id}`);
@@ -97,10 +102,16 @@ function grayFrame([width, height], { shot = 0, noise = 4, seed = 1 } = {}) {
 }
 
 export function synthesizePlanes(size, frames, plannedCuts = []) {
-  if (!Array.isArray(size) || size.length !== 2 || !size.every((n) => Number.isInteger(n) && n > 0)) {
+  if (!Array.isArray(size) || size.length !== 2 || !Array.from(size).every((n) => Number.isInteger(n) && n > 0)) {
     throw new RangeError('synthesizePlanes 的画幅 size 要是两个正整数');
   }
   if (!Number.isInteger(frames) || frames <= 0) throw new RangeError('synthesizePlanes 的总帧数要是正整数');
+  if (!Array.isArray(plannedCuts) || !Array.from(plannedCuts).every((f) => typeof f === 'number')) {
+    throw new TypeError('synthesizePlanes 的 plannedCuts 要是整数帧号数组');
+  }
+  if (!plannedCuts.every((f) => Number.isSafeInteger(f))) {
+    throw new RangeError('synthesizePlanes 的 plannedCuts 元素要是安全整数');
+  }
   const sorted = [...new Set(plannedCuts)].filter((f) => f > 0 && f < frames).sort((a, b) => a - b);
   let shot = 1, ptr = 0;
   return Array.from({ length: frames }, (_, f) => {
@@ -152,30 +163,48 @@ const [P3_0, P3_1, P3_2, P3_3, P3_4, P3_5, P3_6, P3_7, P3_8, P3_9, P3_10, P3_11]
 const TP_MAX_L1 = Math.max(...TP_PHASES.map((ker) => ker.reduce((sum, w) => sum + Math.abs(w), 0)));
 
 const AUDIO_DEFAULTS_BY_QID = deepFreeze({
-  '23-2': { bpm: 120, seed: 232 },
   '27-1': { bpm: 150, seed: 271 },
-  '29-2': { bpm: 120, seed: 292 },
   '30-1': { bpm: 80, seed: 301 },
 });
 
-// 合成确定性 48 kHz 立体声多音与节拍包络 PCM 音轨：既支持 (frames, fps, opts)，也支持直接传题号 ('27-1' / '30-1', opts)
-export function synthesizeAudioTrack(framesOrQuestionId, fps, opts = {}) {
-  let frames = framesOrQuestionId, rate = fps, cfg = opts;
+// 合成确定性 48 kHz 立体声多音与节拍包络 PCM 音轨：既支持 (frames, fps, opts)，也支持直接传带响度判分的题号 ('27-1' / '30-1', opts)；
+// 23-2 与 29-2 的起音对照照已合入 B6（run-b6.mjs 20 ms 合成包络口径）走确定性对数能量包络（buildLogRmsEnvelope + detectOnsetsFromEnvelope），不提供恒定响度正弦轨，传入时抛 RangeError
+export function synthesizeAudioTrack(framesOrQuestionId, fps, opts) {
+  let frames = framesOrQuestionId, rate = fps, cfg;
   if (typeof framesOrQuestionId === 'string') {
+    if (framesOrQuestionId === '23-2' || framesOrQuestionId === '29-2') {
+      throw new RangeError(`${framesOrQuestionId} 的音频起音对照照 B6（20 ms 合成包络口径）走确定性对数能量包络（buildLogRmsEnvelope + detectOnsetsFromEnvelope），不提供恒定响度正弦轨；synthesizeAudioTrack 仅接受带响度判分的 27-1、30-1`);
+    }
+    if (!Object.hasOwn(AUDIO_DEFAULTS_BY_QID, framesOrQuestionId)) {
+      throw new RangeError(`synthesizeAudioTrack 仅接受带响度判分的二级题号（27-1、30-1），收到：${framesOrQuestionId}`);
+    }
+    if (fps !== undefined && !isPlain(fps)) {
+      throw new TypeError('按题号调用 synthesizeAudioTrack 时配置参数要是普通对象');
+    }
+    if (opts !== undefined && !isPlain(opts)) {
+      throw new TypeError('synthesizeAudioTrack 的配置参数要是普通对象');
+    }
     const q = loadQuestion(framesOrQuestionId);
     frames = q.deliverable.frames;
     rate = fpsOf(q);
-    cfg = { ...AUDIO_DEFAULTS_BY_QID[framesOrQuestionId], ...(fps && typeof fps === 'object' ? fps : opts) };
-  } else if (typeof rate === 'string') {
-    const { num, den } = parseFps(rate);
-    rate = Number(num) / Number(den);
+    cfg = { ...AUDIO_DEFAULTS_BY_QID[framesOrQuestionId], ...fps, ...opts };
+  } else {
+    if (typeof rate === 'string') {
+      const parsed = parseFps(rate);
+      if (!parsed) throw new RangeError('synthesizeAudioTrack 的帧率格式不合法');
+      rate = Number(parsed.num) / Number(parsed.den);
+    }
+    if (opts !== undefined && !isPlain(opts)) {
+      throw new TypeError('synthesizeAudioTrack 的配置参数要是普通对象');
+    }
+    cfg = opts ?? {};
   }
-  const { bpm = 120, gainDb = 0, seed = 1 } = cfg ?? {};
+  const { bpm = 120, gainDb = 0, seed = 1 } = cfg;
   if (!Number.isInteger(frames) || frames <= 0 || !Number.isFinite(rate) || rate <= 0) {
     throw new RangeError('synthesizeAudioTrack 的帧数与帧率要是正数');
   }
-  if (!Number.isFinite(bpm) || bpm <= 0 || !Number.isFinite(gainDb)) {
-    throw new RangeError('synthesizeAudioTrack 的 bpm 与 gainDb 不合法');
+  if (!Number.isFinite(bpm) || bpm <= 0 || !Number.isFinite(gainDb) || !Number.isSafeInteger(seed)) {
+    throw new RangeError('synthesizeAudioTrack 的 bpm、gainDb 与 seed 不合法');
   }
   const total = Math.round((frames / rate) * AUDIO_SAMPLE_RATE);
   const left = new Float32Array(total), right = new Float32Array(total);
@@ -214,8 +243,8 @@ export function measureAudioLoudness(trackOrChannels, sampleRate = AUDIO_SAMPLE_
   const sr = Array.isArray(trackOrChannels) ? sampleRate : (trackOrChannels?.sampleRate ?? sampleRate);
   if (sr !== AUDIO_SAMPLE_RATE) throw new RangeError(`measureAudioLoudness 只支持 ${AUDIO_SAMPLE_RATE} Hz 采样率`);
   if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2
-    || channels.some((c) => !ArrayBuffer.isView(c) || c.length !== channels[0].length)) {
-    throw new RangeError('measureAudioLoudness 需要 1 或 2 个等长声道样本数组');
+    || channels.some((c) => !isFloatChannel(c) || c.length !== channels[0].length)) {
+    throw new RangeError('measureAudioLoudness 需要 1 或 2 个等长浮点声道样本数组');
   }
   const n = channels[0].length;
   if (n < BS1770_BLOCK) throw new RangeError('measureAudioLoudness 至少需要 400 毫秒样本');
@@ -230,6 +259,7 @@ export function measureAudioLoudness(trackOrChannels, sampleRate = AUDIO_SAMPLE_
       let sumSq = 0;
       for (let i = base, end = base + BS1770_STEP; i < end; i++) {
         const x = c[i];
+        if (!Number.isFinite(x)) throw new RangeError('measureAudioLoudness 的 PCM 样本包含非有限数');
         const ax = x < 0 ? -x : x;
         if (ax > peak) peak = ax;
         const u = K1_B0 * x + K1_B1 * x1 + K1_B2 * x2 - K1_A1 * u1 - K1_A2 * u2;
@@ -241,6 +271,7 @@ export function measureAudioLoudness(trackOrChannels, sampleRate = AUDIO_SAMPLE_
       chunkPower[ch] += sumSq / BS1770_BLOCK;
     }
     for (let i = limit; i < n; i++) {
+      if (!Number.isFinite(c[i])) throw new RangeError('measureAudioLoudness 的 PCM 样本包含非有限数');
       const ax = Math.abs(c[i]);
       if (ax > peak) peak = ax;
     }
@@ -285,29 +316,30 @@ export function measureAudioLoudness(trackOrChannels, sampleRate = AUDIO_SAMPLE_
 
   const numBlocks = numChunks - 3;
   const blocks = new Float64Array(numBlocks);
-  let rolling = chunkPower[0] + chunkPower[1] + chunkPower[2];
+  const blockLufs = new Float64Array(numBlocks);
   let absSum = 0, absCount = 0;
   for (let b = 0; b < numBlocks; b++) {
-    rolling += chunkPower[b + 3];
-    blocks[b] = rolling;
-    if (rolling > 0 && -0.691 + 10 * Math.log10(rolling) > -70) {
-      absSum += rolling;
+    const p = chunkPower[b] + chunkPower[b + 1] + chunkPower[b + 2] + chunkPower[b + 3];
+    blocks[b] = p;
+    const lj = p > 0 ? -0.691 + 10 * Math.log10(p) : -Infinity;
+    blockLufs[b] = lj;
+    if (lj > -70) {
+      absSum += p;
       absCount++;
     }
-    rolling -= chunkPower[b];
   }
-  let rawLufs = -Infinity;
+  // 无任何 400 ms 窗越过 -70 LUFS 绝对门限时对齐正式 audioLoudness（FFmpeg ebur128 汇总口径 -70.0 LUFS）
+  let rawLufs = -70;
   if (absCount > 0) {
     const relGate = -0.691 + 10 * Math.log10(absSum / absCount) - 10;
     let relSum = 0, relCount = 0;
     for (let b = 0; b < numBlocks; b++) {
-      const p = blocks[b];
-      if (p > 0 && -0.691 + 10 * Math.log10(p) > relGate) {
-        relSum += p;
+      if (blockLufs[b] > -70 && blockLufs[b] > relGate) {
+        relSum += blocks[b];
         relCount++;
       }
     }
-    rawLufs = -0.691 + 10 * Math.log10(relSum / relCount);
+    if (relCount > 0) rawLufs = -0.691 + 10 * Math.log10(relSum / relCount);
   }
   const rawTp = peak > 0 ? 20 * Math.log10(peak) : -Infinity;
   return {
@@ -320,8 +352,10 @@ export function measureAudioLoudness(trackOrChannels, sampleRate = AUDIO_SAMPLE_
 export function encodeWavPcm16(trackOrChannels, sampleRate = AUDIO_SAMPLE_RATE) {
   const channels = Array.isArray(trackOrChannels) ? trackOrChannels : trackOrChannels?.channels;
   const sr = Array.isArray(trackOrChannels) ? sampleRate : (trackOrChannels?.sampleRate ?? sampleRate);
-  if (!Array.isArray(channels) || (channels.length !== 1 && channels.length !== 2)) {
-    throw new RangeError('encodeWavPcm16 需要单声道或立体声样本');
+  if (!Number.isSafeInteger(sr) || sr <= 0) throw new RangeError('encodeWavPcm16 的采样率要是正整数');
+  if (!Array.isArray(channels) || (channels.length !== 1 && channels.length !== 2)
+    || channels.some((c) => !isFloatChannel(c) || c.length === 0 || c.length !== channels[0].length)) {
+    throw new RangeError('encodeWavPcm16 需要 1 或 2 个非空等长浮点声道样本数组');
   }
   const chCount = channels.length, n = channels[0].length;
   const blockAlign = chCount * 2, dataBytes = n * blockAlign;
@@ -342,7 +376,9 @@ export function encodeWavPcm16(trackOrChannels, sampleRate = AUDIO_SAMPLE_RATE) 
   view.setUint32(40, dataBytes, true);
   for (let i = 0, off = 44; i < n; i++) {
     for (let c = 0; c < chCount; c++, off += 2) {
-      const sample = Math.max(-32768, Math.min(32767, Math.round(channels[c][i] * 32767)));
+      const v = channels[c][i];
+      if (!Number.isFinite(v)) throw new RangeError('encodeWavPcm16 的 PCM 样本包含非有限数');
+      const sample = Math.max(-32768, Math.min(32767, Math.round(v * 32767)));
       view.setInt16(off, sample, true);
     }
   }
@@ -560,8 +596,16 @@ const TABLE_30_1 = deepFreeze({
 });
 const BASE_30_1 = deepFreeze({ bpmFollow: 'linked', beatSchedule: 'beat-table', eventShiftFrames: 0, seed: null });
 
-// 构造 30-1 的纯行为时间线求值回调（可直接传入 evaluate-b3 的 read30_1）
-export function build301Resolver(q, p) {
+// 构造 30-1 的纯行为时间线求值回调（既可传完整 params，也可直接传夹具 perturbation 与可选 seed，供外部直接调 evaluate-b3 的 read30_1）
+export function build301Resolver(qOrId = '30-1', perturbationOrParams = {}, seed = undefined) {
+  const q = typeof qOrId === 'string' ? loadQuestion(qOrId) : qOrId;
+  if (!isPlain(q) || q.id !== '30-1') throw new RangeError('build301Resolver 只接受 30-1 题目对象或题号');
+  if (!isPlain(perturbationOrParams)) throw new TypeError(`30-1 的 perturbation 要是普通对象，给的是 ${typeName(perturbationOrParams)}`);
+  const { seed: embeddedSeed, ...rest } = perturbationOrParams;
+  checkPerturbation('30-1', rest);
+  const resolvedSeed = seed !== undefined ? seed : (embeddedSeed !== undefined ? embeddedSeed : null);
+  checkSeed(Object.values(rest).includes('random-beats'), resolvedSeed);
+  const p = { ...BASE_30_1, ...rest, seed: resolvedSeed };
   const { frames } = q.deliverable, fps = fpsOf(q), baseBpm = q.scoring[1].args.baseBpm;
   const baseBeatFrames = (fps * 60) / baseBpm;
   const beats = p.beatSchedule === 'random-beats'
@@ -636,9 +680,6 @@ const MODELS = deepFreeze({
   '29-2': [BASE_29_2, measure292],
   '30-1': [BASE_30_1, measure301],
 });
-
-const isPlain = (value) => value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype;
-const typeName = (value) => (value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value);
 
 function checkPerturbation(questionId, perturbation) {
   if (!Object.hasOwn(MODELS, questionId)) throw new RangeError(`没有这道题的信号模型：${String(questionId)}`);
