@@ -75,6 +75,13 @@
 - 返回 `iou`、`intersection`、`union`、`precision`（交 / 候选面积）、`recall`（交 / 参考面积）、`bboxIou`（两个紧包围盒的交并比）、`areaA`、`areaB`、`emptyBoth`。
 - 两边都空时各比值取 `emptyValue`（默认 1）并置 `emptyBoth: true`；只有一边空时都是 0。
 
+### 成片视频封装（`metrics/video-energy.mjs`）
+
+- `videoNoiseResidual(filePath, { maxFrames?, roi?, block?, motionThreshold?, maxShift? })` 与 `videoAliasEdge(filePath, { maxFrames?, roi?, edgeThreshold? })` 从 `metrics/index.mjs` 与组件顶层 `observe/index.mjs` 统一导出，面向本地成片视频文件（如 `master.mp4`）。
+- 先用 `ffprobe -count_frames` 查视频宽高与总帧数，再用 `ffmpeg -nostdin -hide_banner -v error -i <file> -map 0:v:0 -f rawvideo -pix_fmt gray -` 流式读取 8 位灰度亮度平面（不落临时图片文件），委托 `energy-rulers.mjs` 的 `noiseResidual` / `aliasEdge` 计算。
+- 内存上界守卫：`totalFrames <= maxFrames`（默认 60，合法下限 9）时全量解码；超过 `maxFrames` 时取首、中、尾三段互不重叠的确定性等距连续窗口（每段长 `floor(maxFrames / 3) >= 3` 帧，同时支撑 `noiseResidual` 与 `aliasEdge.flicker`），每段解码完立即计算并释放帧缓冲，最终聚合取最差/最大 `value`（`videoAliasEdge` 同时取最大 `flicker`）。
+- 返回标准 `{ metric, unit, value, details }`：`videoNoiseResidual` 为 `metric:noise.residual` / `code8`，`videoAliasEdge` 为 `metric:alias.edge` / `px`，`details` 保留 `status`、`staticRatio`、`flicker`、`flickerUnit`、`edgePixels`、`sampledFrames`、`totalFrames` 与各段读数 `segments`。单帧视频调 `videoNoiseResidual` 返回 `value: null`、`details.status: 'insufficient-frames'` 不抛异常；缺少 `ffprobe` / `ffmpeg`（`ENOENT`）时照 `video-audio.mjs` 同口径返回 `{ metric, value: null, details: { code: 'tool-missing', tool }, unit }`；非法路径、未知选项或非法 `maxFrames` 抛带 `code: 'usage.bad-argument'` 的 `RangeError`。
+
 ## 亚像素光流与 LDR-FLIP（`metrics/flow-flip.mjs`）
 
 `flowField`、`imageFlip` 从组件和 `metrics/index.mjs` 都能导入；也可用 `FLOW_FLIP_METRICS[name]` 或 `runFlowFlipMetric(name, ...args)`，`name` 可带 `metric:` 前缀。两者均不读文件、时钟、显卡或随机源，不改输入。帧给 `{ width, height, rgba | rgb | luma | data }`，恰好一个像素载荷，行优先；`data` 按长度推断 1、3、4 通道，单通道按灰度，alpha 不参加量测。只收 8 位无符号或钳位数组、Float32/64 数组。帧、ROI、选项只读普通对象的自有数据描述符；拒绝 Proxy、访问器、未知键、稀疏序列、共享像素缓冲、非有限样本（包括 alpha）以及不合法的尺寸、参数。像素视图只按原生类型、内部长度与数字下标读取，标准成员不许在实例上遮蔽。错误统一抛 `RangeError`，`code: 'usage.bad-argument'`。

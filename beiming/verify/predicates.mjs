@@ -30,6 +30,13 @@ export const FLOOR = registeredTemplate('floor', 1);
 export const HERO_PEAK_AREA_MIN = 0.05;
 // delivery 的色彩标签：成片是显示空间 sRGB 编码、Rec.709 原色（片子描述契约 5.9），编码标签取 bt709
 export const DELIVERY_COLOR_TAG = 'bt709';
+// L3 成片画质默认门限（经 api.test.mjs / scaffold-defaults.test.mjs / m1b-visual-review.test.mjs 12 支真渲染成片实测标定）：
+// - noise_residual 上限 4.5 code8：12 支真成片读数 0.00–3.95 code8（常规 640x360/720p 与 turntable 均 <= 2.35，仅 320x180 24 字极小字号微漂移达 3.95），
+//   而 noise=alls=8 负对照读数 4.80–4.98 code8（alls=10 达 6.16–6.29）稳定判 fail。
+export const DEFAULT_MAX_NOISE_RESIDUAL = 4.5;
+// - alias_edge 上限 1.5 px：常规 640x360/720p 与 turntable 真成片读数 0.04–0.45 px，唯 320x180 24 字长片名极小字号（1.5px 笔画）达 1.25 px，
+//   1x 点采样细斜杆（宽 1.5px 斜率 0.45）达 1.78 px、锯齿阶梯达 3.97 px 稳定判 fail；对高清或特定镜头可在 predicates.extra 写更严上限（如 <= 0.4）。
+export const DEFAULT_MAX_ALIAS_EDGE = 1.5;
 
 /* ---------------- 编辑距离与改名建议 ---------------- */
 
@@ -297,8 +304,28 @@ export function copyOf(film, range) {
 /* ---------------- 求值 ---------------- */
 
 const pass = (predicate, measured) => ({ ok: true, status: 'pass', predicate, measured });
-const fail = (predicate, measured, counterexampleFrame, expected, fixes = []) => ({ ok: false, status: 'fail', predicate, measured, counterexampleFrame, expected, fixes });
+const fail = (predicate, measured, counterexampleFrame, expected, fixes = [], hint = undefined) => ({
+  ok: false, status: 'fail', predicate, measured, counterexampleFrame, expected, fixes, ...(hint ? { hint } : {}),
+});
 const skipped = (predicate, reason) => ({ ok: null, status: 'skipped', predicate, reason });
+const round3 = (v) => (Number.isFinite(v) ? Math.round(v * 1000) / 1000 : v);
+
+function extractEnergyReading(raw) {
+  if (raw === undefined || raw === null) return { kind: 'missing' };
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) ? { kind: 'ok', value: raw } : { kind: 'invalid' };
+  }
+  if (!isObj(raw)) return { kind: 'invalid' };
+  const code = raw.code ?? raw.details?.code ?? null;
+  if (code === 'tool-missing') return { kind: 'tool-missing', tool: raw.tool ?? raw.details?.tool ?? 'ffmpeg' };
+  const status = raw.status ?? raw.details?.status ?? null;
+  if (status === 'no-static-region' || status === 'no-edges' || status === 'insufficient-frames') {
+    return { kind: status };
+  }
+  if (raw.value === null || raw.value === undefined) return { kind: 'null-value' };
+  if (typeof raw.value !== 'number' || !Number.isFinite(raw.value)) return { kind: 'invalid' };
+  return { kind: 'ok', value: raw.value };
+}
 
 function cmpOk(value, cmp) {
   if (!cmp) return true;
@@ -465,6 +492,45 @@ const EVALUATORS = {
     }
     return checked ? pass(a.text, { frames: checked }) : skipped(a.text, '抽到的帧里没有落在文案区间、又带文字框的');
   },
+
+  noise_residual(a, bound, film, measured) {
+    const r = extractEnergyReading(measured.noiseResidual);
+    if (r.kind === 'missing') return skipped(a.text, '没有成片静止区噪声残差的量测（measured.noiseResidual）');
+    if (r.kind === 'tool-missing') return skipped(a.text, `缺少音视频工具 ${r.tool}，无法量测成片噪声残差（tool-missing）`);
+    if (r.kind === 'no-static-region') return skipped(a.text, '成片无静止区域，无法量测噪声残差（no-static-region）');
+    if (r.kind === 'insufficient-frames') return skipped(a.text, '成片不足 2 帧，无法量测帧间噪声残差（insufficient-frames）');
+    if (r.kind !== 'ok') return skipped(a.text, '成片噪声残差量测值为空或无效（measured.noiseResidual）');
+    const cmp = a.cmp ?? { op: '<=', value: DEFAULT_MAX_NOISE_RESIDUAL };
+    return cmpOk(r.value, cmp)
+      ? pass(a.text, r.value)
+      : fail(
+        a.text,
+        r.value,
+        null,
+        `成片静止区噪声残差 ${cmpText(cmp)} code8（实测 ${round3(r.value)} code8）`,
+        [],
+        '提高渲染采样数（tiers.final.samples）或启用降噪（denoise），降低成片静止区颗粒噪点',
+      );
+  },
+
+  alias_edge(a, bound, film, measured) {
+    const r = extractEnergyReading(measured.aliasEdge);
+    if (r.kind === 'missing') return skipped(a.text, '没有成片边缘锯齿度的量测（measured.aliasEdge）');
+    if (r.kind === 'tool-missing') return skipped(a.text, `缺少音视频工具 ${r.tool}，无法量测成片边缘锯齿度（tool-missing）`);
+    if (r.kind === 'no-edges') return skipped(a.text, '成片无强边缘，无法量测边缘锯齿度（no-edges）');
+    if (r.kind !== 'ok') return skipped(a.text, '成片边缘锯齿度量测值为空或无效（measured.aliasEdge）');
+    const cmp = a.cmp ?? { op: '<=', value: DEFAULT_MAX_ALIAS_EDGE };
+    return cmpOk(r.value, cmp)
+      ? pass(a.text, r.value)
+      : fail(
+        a.text,
+        r.value,
+        null,
+        `成片边缘锯齿度 ${cmpText(cmp)} px（实测 ${round3(r.value)} px）`,
+        [],
+        '启用抗锯齿/超采样或增大细笔画字号与渲染分辨率，避免 1x 点采样阶梯锯齿',
+      );
+  },
 };
 
 /** 实参里的实体落到这个镜头上：角色名查镜头的 roles，别的原样；hero 没绑是 null */
@@ -529,6 +595,7 @@ export function toVerdict(result, { base = true } = {}) {
   if (Number.isInteger(result.counterexampleFrame)) v.atFrames = [result.counterexampleFrame];
   if (result.measured !== undefined && result.measured !== null) v.value = result.measured;
   if (result.expected) v.expected = result.expected;
+  if (result.status === 'fail' && result.hint) v.hint = result.hint;
   if (result.status === 'skipped') v.reason = result.reason;
   const fix = (result.fixes ?? []).find((f) => f.applicability === 'machine');
   if (fix) v.fix = fix;
