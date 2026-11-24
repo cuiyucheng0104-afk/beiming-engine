@@ -77,7 +77,7 @@ export function scaffold({ id, template, output, title, text = template === 'tur
   }
   const style = kind === 'turntable'
     ? { view: { scene: 'agx-mhc', display: 'srgb' }, tokens: { ink: '#111318', paper: '#EAE6DF' } }
-    : { view: { scene: 'agx-mhc', display: 'srgb' } };
+    : { view: { scene: 'agx-mhc', display: 'srgb' }, tokens: { ink: '#F4F0E9', paper: '#242936' } };
   const film = {
     format: 'film/3.0', id, ...(title ? { title } : {}), ...(question ? { exam: question.id } : {}),
     output: out, ...(hasExamAssets && shots.length === 1 ? { assets: examAssets } : {}), shots, ...(transitions.length ? { transitions } : {}), events,

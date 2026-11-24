@@ -269,7 +269,7 @@ test('M1b-4 真实渲染与交付端到端：默认 60f/30fps title、24f/24fps 
 
     const max24Title = (await call('POST', '/v1/films', account, {
       template: 'title',
-      text: 'ABCDEFGHIJKLMNOPQRSTUVWX',
+      text: 'INTERNATIONAL FILM AWARD',
       output: { size: [320, 180], fps: '30/1', frames: 24 },
     })).data;
     const max24Deliver = await runJob(max24Title.film, max24Title.token, 'deliver');
