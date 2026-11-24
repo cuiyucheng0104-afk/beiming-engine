@@ -1010,14 +1010,16 @@ fn accessor_values(a: &gltf::Accessor, blob: &[u8], at: &str, what: &str, comps:
     let end = view.offset().checked_add(view.length()).filter(|e| *e <= blob.len()).ok_or_else(|| bad(at, format!("{what} 的缓冲视图越出了二进制块")))?;
     let count = a.count();
     let start = view.offset().checked_add(a.offset()).ok_or_else(|| bad(at, "偏移太大"))?;
-    if stride < elem || (count > 0 && count.checked_sub(1).and_then(|c| c.checked_mul(stride)).and_then(|x| x.checked_add(start + elem)).is_none_or(|last| last > end)) {
+    // 每一步都 checked：坏文件的 byteOffset 可以接近 2^64，普通加法会回绕成小数骗过检查
+    let last = count.checked_sub(1).and_then(|c| c.checked_mul(stride)).and_then(|x| x.checked_add(elem)).and_then(|x| x.checked_add(start));
+    if stride < elem || (count > 0 && last.is_none_or(|last| last > end)) {
         return Err(bad(at, format!("{what} 的访问器越出了它的缓冲视图")));
     }
     let mut out = Vec::with_capacity(count * comps);
     for i in 0..count {
         for c in 0..comps {
             let o = start + i * stride + c * size;
-            let b = &blob[o..o + size];
+            let b = o.checked_add(size).and_then(|e| blob.get(o..e)).ok_or_else(|| bad(at, format!("{what} 的访问器越出了二进制块")))?;
             out.push(match (size, float) {
                 (4, true) => f32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f64,
                 (4, false) => u32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f64,
@@ -1467,6 +1469,11 @@ mod tests {
 
     /// 一个带一个三角形的 GLB（JSON 块加二进制块），用来测几何的读法与越界检查。
     fn glb(index: u32) -> Vec<u8> {
+        glb_with(index, |_| {})
+    }
+
+    /// 同上，JSON 块先交给 `f` 改一改（造坏文件用）。
+    fn glb_with(index: u32, f: impl FnOnce(&mut Value)) -> Vec<u8> {
         let mut bin = vec![];
         for x in [0.0f32, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0] {
             bin.extend_from_slice(&x.to_le_bytes());
@@ -1474,10 +1481,11 @@ mod tests {
         for i in [0u32, 1, index] {
             bin.extend_from_slice(&i.to_le_bytes());
         }
-        let j = json!({ "asset": { "version": "2.0" }, "buffers": [{ "byteLength": bin.len() }],
+        let mut j = json!({ "asset": { "version": "2.0" }, "buffers": [{ "byteLength": bin.len() }],
             "bufferViews": [{ "buffer": 0, "byteOffset": 0, "byteLength": 36 }, { "buffer": 0, "byteOffset": 36, "byteLength": 36 }, { "buffer": 0, "byteOffset": 72, "byteLength": 12 }],
             "accessors": [{ "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [1, 1, 0] }, { "bufferView": 1, "componentType": 5126, "count": 3, "type": "VEC3" }, { "bufferView": 2, "componentType": 5125, "count": 3, "type": "SCALAR" }],
             "meshes": [{ "name": "ramp", "primitives": [{ "attributes": { "POSITION": 0, "NORMAL": 1 }, "indices": 2 }] }] });
+        f(&mut j);
         let mut js = serde_json::to_vec(&j).unwrap();
         while js.len() % 4 != 0 {
             js.push(b' ');
@@ -1504,6 +1512,10 @@ mod tests {
         let mut cut = glb(2);
         cut.truncate(cut.len() - 8);
         assert!(read_glb(&cut, &meshes).is_err(), "截短的文件报错，不越界读");
+        for off in [u64::MAX - 11, u64::MAX, 1 << 63] {
+            let e = read_glb(&glb_with(2, |j| j["accessors"][0]["byteOffset"] = json!(off)), &meshes).unwrap_err();
+            assert_eq!(e.code, BAD_VALUE, "byteOffset = {off}：报错，不 panic");
+        }
     }
 
     /// 一个装好的包（不经文件）：一块朝 +z 的三角板，原件在 x = -1，镜像件（x 取反）在 x = +1。
