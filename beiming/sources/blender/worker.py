@@ -22,6 +22,7 @@ import math
 import os
 import sys
 import time
+from contextlib import contextmanager
 
 sys.dont_write_bytecode = True
 
@@ -47,6 +48,7 @@ LOADER = _sibling('loader')
 ASSETS = _sibling('assets')
 RUNTIME = _sibling('runtime')
 QUERY = _sibling('query')
+EXPORT_PACK = _sibling('export_pack')
 Fail = LOADER.Fail
 
 # Blender 的 (x, y, z) → 北冥的 (x, z, -y)
@@ -170,7 +172,9 @@ def op_open(job):
     else:
         spec = importlib.util.spec_from_file_location('beiming_shot_entry', job['entry'])
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        source = spec.loader.get_data(job['entry'])
+        STATE['sourceSha256'] = hashlib.sha256(source).hexdigest()
+        exec(spec.loader.source_to_code(source, job['entry']), module.__dict__)
         built = module.build(Ctx(job))
         if 'state' in built:
             STATE['kernel'] = RUNTIME.StateKernel(built['state'])
@@ -228,7 +232,8 @@ def op_open(job):
     # 盒形滤镜收到 0.01 像素：这 1 个样本落在像素中心，不靠采样序列的第一个点恰好在哪。
     # 本机量到 Cycles 只取 1 个样本时数据层本来就在像素中心，换别的滤镜读数不变；编号层是不是取像素中心由自检逐像素核对
     aux.cycles.pixel_filter_type, aux.cycles.filter_width = 'BOX', 0.01
-    STATE.update(entities=entities, frames=job['frames'], display=job['colorRef'] == 'display', aux=aux)
+    STATE.update(entities=entities, frames=job['frames'], display=job['colorRef'] == 'display', aux=aux,
+                 export_size=(r.resolution_x, r.resolution_y))
     out = {'entities': [{k: e[k] for k in ('id', 'name', 'class')} for e in entities]}
     if job.get('mode') == 'cards-data':
         out['load'] = STATE['loaded'].account
@@ -424,6 +429,45 @@ def apply_cards(scene, loaded, frame, tracks):
     scene.frame_set(frame, subframe=0.0)
 
 
+@contextmanager
+def frame_pose(scene, frame, tracks, initial_tracks):
+    """查询和导出都借用一个整帧姿态，退出时恢复调用前的帧、关键帧和卡状态。"""
+    if 'kernel' in STATE:
+        with STATE['kernel'].query_pose(scene, frame):
+            yield
+        return
+    previous = scene.frame_current, scene.frame_subframe
+    loaded = STATE.get('loaded')
+    try:
+        scene.frame_set(frame, subframe=0.)
+        if loaded is not None:
+            apply_cards(scene, loaded, frame, tracks)
+        yield
+    finally:
+        if loaded is not None:
+            f, saved = STATE.get('render_pose', (0, initial_tracks))
+            apply_cards(scene, loaded, f, saved)
+        scene.frame_set(previous[0], subframe=previous[1])
+
+
+def op_export_pack(job):
+    scene = bpy.context.scene
+    tracks = job.get('tracks', {})
+
+    def pose(f):
+        return frame_pose(scene, f, tracks.get(str(f), []), job.get('initialTracks', []))
+
+    if 'sourceSha256' not in job:
+        job['sourceSha256'] = STATE['sourceSha256']
+    r = scene.render
+    previous_size = r.resolution_x, r.resolution_y
+    try:
+        r.resolution_x, r.resolution_y = STATE['export_size']
+        return EXPORT_PACK.export_scene_pack(scene, STATE['entities'], job, pose)
+    finally:
+        r.resolution_x, r.resolution_y = previous_size
+
+
 def op_query(job):
     scene = bpy.context.scene
     frame, plan = job['frame'], job['plan']
@@ -444,21 +488,8 @@ def op_query(job):
                                STATE['ignore_pairs'], RUNTIME.to_beiming)
 
     try:
-        if 'kernel' in STATE:
-            with STATE['kernel'].query_pose(scene, frame):
-                return measure_query()
-        previous = scene.frame_current, scene.frame_subframe
-        loaded = STATE.get('loaded')
-        try:
-            scene.frame_set(frame, subframe=0.)
-            if loaded is not None:
-                apply_cards(scene, loaded, frame, job['tracks'])
+        with frame_pose(scene, frame, job.get('tracks', []), job.get('initialTracks', [])):
             return measure_query()
-        finally:
-            if loaded is not None:
-                f, tracks = STATE.get('render_pose', (0, job['initialTracks']))
-                apply_cards(scene, loaded, f, tracks)
-            scene.frame_set(previous[0], subframe=previous[1])
     except (ValueError, TypeError, AttributeError, OverflowError) as e:
         raise Fail('contract.bad-value', str(e)) from e
 
@@ -583,7 +614,8 @@ def op_close(_job):
     return {}
 
 
-OPS = {'hello': op_hello, 'open': op_open, 'render': op_render, 'query': op_query, 'close': op_close}
+OPS = {'hello': op_hello, 'open': op_open, 'render': op_render, 'query': op_query,
+       'export_pack': op_export_pack, 'close': op_close}
 
 
 def reply(message):

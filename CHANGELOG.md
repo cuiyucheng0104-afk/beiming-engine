@@ -12,6 +12,7 @@
 这一段汇总从 v1.0 到工业级交付升级完成前的全部变更，按合入顺序归类。升级以 [docs/decisions/2026-11-10-industrial-baseline.md](docs/decisions/2026-11-10-industrial-baseline.md) 的 D01–D13 为准，拆成多个工作包推进，目标是让仓库成为按 A、B、C、D 四条路线组织的技术模版仓库：agent 读完入口文档就能选对路线，按模版建作品，用统一的命令出片；成片先过机器 QA 与人工创作闸门，才标为交付；每个 PR 都有测试、无显卡冒烟出片与 Windows 路径检查把关。各工作包合入时，在下面的分类里追加自己的条目。
 
 ### Added
+- Blender 常驻会话可用 `exportScenePack()` 导出 `scene-pack/0.1`，保留求值网格、镜像实例和逐帧状态，并可独立核对 Blender 统计与两遍导出的文件哈希。
 - 新增拼装烘焙器（S13）与 `assembly.dsl` 技术卡（T9）：七种步骤可在渲染前烘成确定性的零件刚体矩阵，支持按从属子树调整装配；渲染时只读位姿，不再求碰撞。见[拼装烘焙接口](beiming/sources/blender/DETAILS.md#拼装烘焙)。
 - 新增 Blender 草稿档与终稿档对拍（S14），逐项比较基础谓词、角色包围盒和 AgX 显示亮度分位，定位跨档超差的帧、实体和分位。
 - Blender 卡库新增 `light.studio` 与 `mat.library`（M3 T13）：六套棚光随主体尺寸重算灯位、灯面和功率，21 种无 UV 硬表面材质可按对象名或通配符批量绑定。
