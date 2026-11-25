@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "vector3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    },
+    "timeKey": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["controlPoints"],
+  "properties": {
+    "controlPoints": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/vector3" }
+    },
+    "timeKeys": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/timeKey" }
+    },
+    "timeKeyMode": {
+      "enum": ["arclength", "cpIndex"]
+    },
+    "speed": { "type": "number", "minimum": 0 },
+    "startS": { "type": "number" },
+    "sRef": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "number" }
+    },
+    "speedDt": { "type": "number", "exclusiveMinimum": 0 },
+    "arcLengthDivisions": { "type": "integer", "minimum": 16, "maximum": 100000 },
+    "railSampleSpacing": { "type": "number", "exclusiveMinimum": 0 },
+    "impulses": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "sampleArclengths": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "number", "minimum": 0 }
+    },
+    "radialAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "z"],
+      "properties": {
+        "x": { "type": "number" },
+        "z": { "type": "number" },
+        "rIn": { "type": "number" },
+        "rOut": { "type": "number" },
+        "yLow0": { "type": "number" },
+        "yLow1": { "type": "number" },
+        "yHigh0": { "type": "number" },
+        "yHigh1": { "type": "number" },
+        "yScale": { "type": "number" }
+      }
+    },
+    "upZoneVec": { "$ref": "#/$defs/vector3" },
+    "zones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "fromS", "toS"],
+        "properties": {
+          "kind": { "enum": ["quiet", "up", "seat"] },
+          "fromS": { "type": "number" },
+          "toS": { "type": "number" },
+          "edge": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    }
+  }
+}

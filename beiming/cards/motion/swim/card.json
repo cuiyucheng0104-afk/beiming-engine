@@ -1,0 +1,158 @@
+{
+  "format": "card/0.1",
+  "id": "motion.swim",
+  "version": "1.0.0",
+  "kind": "motion",
+  "title": "弧长行波侧摆场",
+  "intent": "沿主体弧长向后传播正弦行波侧摆与法向起伏，结合头尾包络衰减与近竖直平滑淡出",
+  "visibleToAgent": true,
+  "livesIn": ["data"],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/motion/swim/index.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/motion/swim/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "config": {
+      "type": "data",
+      "schema": "schema.json",
+      "unit": "none",
+      "coupling": "scene-scale",
+      "default": {
+        "wavelength": 39,
+        "slip": 0.16,
+        "idleSpeed": 5.5,
+        "ampSlow": 1.25,
+        "ampFast": 0.85,
+        "speedSlow": 14,
+        "speedFast": 60,
+        "heaveRatio": 0.55,
+        "heaveFreqRatio": 0.63,
+        "heavePhaseDeg": 74.48451336700703,
+        "headFade": [7, 34],
+        "tailBoostStart": 60,
+        "tailBoostBase": 0.85,
+        "tailBoostGain": 0.9,
+        "verticalFade": [0.24, 0.52],
+        "stirWavelength": 23,
+        "stirSpeed": 15,
+        "stirSideAmp": 0.95,
+        "stirHeaveAmp": 0.5,
+        "stirHeadFade": [5, 22],
+        "stirTailFadeFrac": [0.5, 1.0]
+      }
+    },
+    "amplitude": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 100],
+      "default": 1,
+      "coupling": "none"
+    },
+    "calm": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 10],
+      "default": 1,
+      "coupling": "none"
+    },
+    "stir": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 10],
+      "default": 0,
+      "coupling": "none"
+    },
+    "phaseDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [-360000, 360000],
+      "default": 0,
+      "coupling": "none"
+    },
+    "bodyLength": {
+      "type": "number",
+      "unit": "m",
+      "range": [0.001, 100000],
+      "default": 172,
+      "coupling": "scene-scale"
+    },
+    "speed": {
+      "type": "number",
+      "unit": "m/s",
+      "range": [0, 10000],
+      "default": 20,
+      "coupling": "scene-scale"
+    },
+    "headS": {
+      "type": "number",
+      "unit": "m",
+      "range": [-1000000, 1000000],
+      "default": 0,
+      "coupling": "scene-scale"
+    },
+    "sPhase": {
+      "type": "number",
+      "unit": "m",
+      "range": [-1000000, 1000000],
+      "default": 0,
+      "coupling": "scene-scale"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      { "name": "swim", "type": "tracks.swim" },
+      { "name": "readings", "type": "frame-meta" }
+    ],
+    "order": {
+      "before": ["motion.sweep-body"],
+      "after": []
+    },
+    "requires": [
+      "行波相位与飞行距离 headS 和时间绑定，amplitude 为 0 时精确归零",
+      "侧摆在水平正交轴、起伏在切线与侧摆正交轴上施加，近竖直切线平滑淡出"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "细长躯干沿轨道滑行时需要自然的行波侧摆与法向起伏"
+    ],
+    "notWhen": [
+      "刚性体不允许产生沿弧长形变"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "核对 amplitude=0 精确归零、行波尾向传播相位、头尾包络与正交性、近竖直淡出及乱序抽帧一致。",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "垂直爬升或俯冲时脊线水平面侧摆跳变",
+      "fix": "保持 verticalFade 在水平分量过小时平滑归零，不要将下限设为 0。"
+    },
+    {
+      "symptom": "头部出现不希望的左右晃动",
+      "fix": "将 headFade 起点设在大于 0 的弧长，确保头部保持在轨道中心。"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "纯函数弧长行波侧摆与法向起伏场，按世界水平正交基施加位移并支持次级张力涟漪。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "kernel-eval",
+      "source": "0.1.0",
+      "gpu": "none",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": ["cal:motion.swim"]
+}

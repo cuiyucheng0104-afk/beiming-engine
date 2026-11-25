@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "vector3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bankGain", "bankSaturation", "gravity"],
+  "properties": {
+    "bankGain": { "type": "number", "minimum": 0 },
+    "bankSaturation": { "type": "number", "minimum": 0 },
+    "gravity": { "type": "number", "exclusiveMinimum": 0 },
+    "maxSpeedSq": { "type": "number", "exclusiveMinimum": 0 },
+    "curvatureHalfSpan": { "type": "number", "exclusiveMinimum": 0 },
+    "curvatureSmoothHalfSpan": { "type": "number", "minimum": 0 },
+    "tightCurlLow": { "type": "number", "minimum": 0 },
+    "tightCurlHigh": { "type": "number", "minimum": 0 },
+    "verticalGuardLow": { "type": "number", "minimum": 0, "maximum": 1 },
+    "verticalGuardHigh": { "type": "number", "minimum": 0, "maximum": 1 },
+    "fallbackAxis": { "$ref": "#/$defs/vector3" },
+    "viewRollTargetDot": { "type": "number", "minimum": -1, "maximum": 1 },
+    "viewRollMaxAngleRad": { "type": "number", "minimum": 0, "maximum": 3.141592653589793 }
+  }
+}

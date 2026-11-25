@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "vector3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    },
+    "dipSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "scale"],
+      "properties": {
+        "start": { "type": "number" },
+        "end": { "type": "number" },
+        "scale": { "type": "number" }
+      }
+    },
+    "termSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "amp": { "type": "number" },
+        "envelope": { "enum": ["smooth-window", "attack-decay", "cosine"] },
+        "riseStart": { "type": "number" },
+        "riseEnd": { "type": "number" },
+        "fallStart": { "type": "number" },
+        "fallEnd": { "type": "number" },
+        "attackStart": { "type": "number" },
+        "attack": { "type": "number", "exclusiveMinimum": 0 },
+        "release": { "type": "number", "exclusiveMinimum": 0 },
+        "dip": { "$ref": "#/$defs/dipSpec" }
+      }
+    }
+  },
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["t0", "dir"],
+    "properties": {
+      "t0": { "type": "number" },
+      "t1": { "type": "number" },
+      "duration": { "type": "number", "exclusiveMinimum": 0 },
+      "dir": { "$ref": "#/$defs/vector3" },
+      "amp": { "type": "number" },
+      "reach": { "type": "number", "exclusiveMinimum": 0 },
+      "whip": { "type": "number", "minimum": 0 },
+      "tailFade": { "type": "number", "minimum": 0 },
+      "envelope": { "enum": ["smooth-window", "attack-decay", "cosine"] },
+      "riseStart": { "type": "number" },
+      "riseEnd": { "type": "number" },
+      "fallStart": { "type": "number" },
+      "fallEnd": { "type": "number" },
+      "attackStart": { "type": "number" },
+      "attack": { "type": "number", "exclusiveMinimum": 0 },
+      "release": { "type": "number", "exclusiveMinimum": 0 },
+      "dip": { "$ref": "#/$defs/dipSpec" },
+      "terms": {
+        "type": "array",
+        "minItems": 1,
+        "items": { "$ref": "#/$defs/termSpec" }
+      }
+    }
+  }
+}

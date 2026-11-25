@@ -1,0 +1,111 @@
+{
+  "format": "card/0.1",
+  "id": "motion.impulse",
+  "version": "1.0.0",
+  "kind": "motion",
+  "title": "推力脉冲偏移场",
+  "intent": "按事件列表沿脊线弧长求平滑推力脉冲位移与速度偏移，支持鞭打传播与高斯衰减",
+  "visibleToAgent": true,
+  "livesIn": ["data"],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/motion/impulse/index.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/motion/impulse/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "events": {
+      "type": "data",
+      "schema": "schema.json",
+      "unit": "none",
+      "coupling": "scene-scale",
+      "default": [
+        {
+          "t0": 0.2,
+          "duration": 0.8,
+          "dir": [0, 1, 0],
+          "amp": 1.5,
+          "reach": 12,
+          "whip": 0,
+          "envelope": "smooth-window"
+        }
+      ]
+    },
+    "arclength": {
+      "type": "number",
+      "unit": "m",
+      "range": [0, 100000],
+      "default": 0,
+      "coupling": "scene-scale"
+    },
+    "bodyLength": {
+      "type": "number",
+      "unit": "m",
+      "range": [0.001, 100000],
+      "default": 100,
+      "coupling": "scene-scale"
+    },
+    "velocityDt": {
+      "type": "number",
+      "unit": "s",
+      "range": [0.00001, 0.1],
+      "default": 0.0005,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      { "name": "impulse", "type": "tracks.impulse" },
+      { "name": "readings", "type": "frame-meta" }
+    ],
+    "order": {
+      "before": ["motion.sweep-body"],
+      "after": []
+    },
+    "requires": [
+      "事件时间与时长单位为秒，dir 为三维世界方向向量，amp 与 reach 单位为米，whip 单位为米每秒",
+      "空事件列表返回零位移与零速度，任意抽帧逐位一致"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "需要沿主体弧长叠加短时推力、后坐、闪避或鞭打传播偏移的脊线动画"
+    ],
+    "notWhen": [
+      "需要由刚体碰撞或实时弹簧积分决定位移"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "核对空事件归零、平滑窗与攻放包络峰值与速度导数、弧长高斯衰减、鞭打延迟传播及乱序抽帧一致。",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "脉冲结束时刻脊线出现突变弹跳",
+      "fix": "为事件设置平滑收尾区间或 tailFade 参数，确保包络在 t1 处平滑归零。"
+    },
+    {
+      "symptom": "冲击波在尾部截断不自然",
+      "fix": "增大 reach 或调整 whip 传播速度，使高斯衰减在主体末端前平滑收敛。"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "纯函数事件驱动推力脉冲场，按平滑包络、弧长高斯衰减与尾向传播延迟叠加位移并求中心差分速度。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "kernel-eval",
+      "source": "0.1.0",
+      "gpu": "none",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": ["cal:motion.impulse"]
+}
