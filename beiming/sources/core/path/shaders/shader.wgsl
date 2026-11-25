@@ -8,8 +8,8 @@
 // （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
 //   着色点标志 SD_BACKFACING 的名字与数值，着色点与闭包的字段名（ShaderData、ShaderClosure）：kernel/types.h
 //   闭包种类 CLOSURE_* 的名字（数值是这里自己的）：kernel/svm/types.h（ClosureType，去掉 _ID 后缀）
-//   shader_setup_closures 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重：kernel/svm/closure.h
-//   （svm_node_closure_bsdf 的 CLOSURE_BSDF_PRINCIPLED_ID 分支），照原式重写
+//   shader_setup_closures 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重，金属与电介质高光取 valid_reflection_N：
+//   kernel/svm/closure.h（svm_node_closure_bsdf 的 CLOSURE_BSDF_PRINCIPLED_ID 分支），照原式重写
 // 菲涅耳种类 FRESNEL_* 的名字与次序取自 kernel/closure/bsdf_microfacet.h 的 enum MicrofacetFresnel，那个文件是 BSD-3-Clause
 // （版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation，许可全文见仓库根的 LICENSES/BSD-3-Clause.txt）。
 // ------------------------------------------------------------------------------------------------
@@ -80,7 +80,7 @@ struct ShadingLegacy { surface: Surface, lobes: Lobes };
 // 着色点：一次命中上的几何量与闭包。照 Cycles 的 ShaderData 取子集。
 struct ShadingPoint {
     P: vec3<f32>,                   // 位置（世界空间）。已落地
-    N: vec3<f32>,                   // 插值后的平滑法线，打在背面时与 Ng 一起翻向来路；不含法线贴图、不含倒角。已写未读
+    N: vec3<f32>,                   // 插值后的平滑法线，打在背面时与 Ng 一起翻向来路；不含法线贴图、不含倒角。已落地（凹凸阴影项读）
                                     // （扰动后的法线在 ShaderInputs.N 与各闭包的 N 里；上游顶替用它自己的 legacy.surface.n）
     Ng: vec3<f32>,                  // 几何法线，翻向来路。已落地
     wi: vec3<f32>,                  // 指向来路的方向。已落地
@@ -189,8 +189,11 @@ fn shader_eval_inputs(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32
 // 微表面的 alpha 取粗糙度的平方（ShaderInputs.roughness 已夹在 0 到 1），不带上游的 0.02 下限：粗糙度为 0 时是奇异的一瓣，
 // 积分主循环按 Cycles 的做法处理（integrator.wgsl 里 through 的那个判断）。能量补偿（Cycles 的多重散射 GGX）读材质记录
 // flags 的 MATERIAL_FLAG_MULTISCATTER（上传前按全局开关 energyCompensation 统一写的）。
+// 金属与电介质高光的法线照 Cycles 取 valid_reflection_N（maybe_ensure_valid_specular_reflection：着色法线让镜面反射方向
+// 落到几何面以下时往几何法线拧；它只在材质带凹凸校正标志时生效，而这个标志 Blender 默认开着，场景包里又没有这个参数，
+// 所以视为开），漫反射用原来的 N。
 // 没有移的（这条路上都不出现，或这里没有）：发光被光泽与清漆衰减的那一步（principled_bsdf_emission：没有清漆与光泽，
-// 衰减是 1）、maybe_ensure_valid_specular_reflection（只在着色器带凹凸校正标志时才改法线）、各向异性的切线。
+// 衰减是 1）、各向异性的切线。
 // 把闭包放进第 n 格。下标写成常数：按变量下标往着色点的闭包数组里写，苹果显卡上整个着色点会被挪到内存里，
 // 有 24 盏灯的计时场景稳态慢了几倍（实测）
 fn closure_store(sd: ptr<function, ShadingPoint>, n: u32, c: Closure) {
@@ -218,6 +221,8 @@ fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) 
     }
     let N = inputs.N;
     let wi = (*sd).wi;
+    // 金属与电介质高光用拧过的法线（反射方向不落到几何面以下），漫反射用原来的 N：照 Cycles 的 valid_reflection_N
+    let valid_reflection_N = maybe_ensure_valid_specular_reflection((*sd).Ng, wi, N);
     let preserve = (inputs.flags & MATERIAL_FLAG_MULTISCATTER) != 0u;
     let alpha = saturate(roughness_to_alpha(inputs.roughness));
     var weight = vec3<f32>(1.0);
@@ -229,15 +234,15 @@ fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) 
         c.sample_weight = closure_sample_weight(c.weight);
         if (c.sample_weight > 0.0) {
             c.kind = CLOSURE_BSDF_MICROFACET_GGX;
-            c.N = N;
+            c.N = valid_reflection_N;
             c.alpha_x = alpha;
             c.alpha_y = alpha;
             c.ior = 1.0;
             c.fresnel_type = FRESNEL_F82_TINT;
             c.f0 = min(inputs.base_color, vec3<f32>(1.0));
-            let f = bsdf_microfacet_setup_fresnel_f82_tint(N, wi, alpha, c.f0, min(inputs.specular_tint, vec3<f32>(1.0)), preserve);
+            let f = bsdf_microfacet_setup_fresnel_f82_tint(valid_reflection_N, wi, alpha, c.f0, min(inputs.specular_tint, vec3<f32>(1.0)), preserve);
             c.f90_or_b = f.b;
-            c.sample_weight *= average(bsdf_microfacet_estimate_albedo_f82_tint(N, wi, alpha, c.f0, true));
+            c.sample_weight *= average(bsdf_microfacet_estimate_albedo_f82_tint(valid_reflection_N, wi, alpha, c.f0, true));
             c.energy_scale = f.energy_scale;
             if (preserve) {
                 c.weight *= f.weight;
@@ -256,7 +261,7 @@ fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) 
         c.sample_weight = closure_sample_weight(c.weight);
         if (c.sample_weight > 0.0) {
             c.kind = CLOSURE_BSDF_MICROFACET_GGX;
-            c.N = N;
+            c.N = valid_reflection_N;
             c.alpha_x = alpha;
             c.alpha_y = alpha;
             c.ior = fe.y;
@@ -265,9 +270,9 @@ fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) 
             c.exponent = -fe.y;
             c.reflection_tint = vec3<f32>(1.0);
             c.transmission_tint = vec3<f32>(0.0);
-            let g = bsdf_microfacet_setup_fresnel_generalized_schlick(N, wi, alpha, c.ior, fe.x * inputs.specular_tint, c.f90_or_b, c.exponent, c.reflection_tint, c.transmission_tint, preserve);
+            let g = bsdf_microfacet_setup_fresnel_generalized_schlick(valid_reflection_N, wi, alpha, c.ior, fe.x * inputs.specular_tint, c.f90_or_b, c.exponent, c.reflection_tint, c.transmission_tint, preserve);
             c.f0 = g.f0;
-            c.sample_weight *= average(bsdf_microfacet_estimate_albedo_generalized_schlick(N, wi, alpha, c.ior, c.f0, c.f90_or_b, c.exponent, c.reflection_tint, c.transmission_tint, true, true));
+            c.sample_weight *= average(bsdf_microfacet_estimate_albedo_generalized_schlick(valid_reflection_N, wi, alpha, c.ior, c.f0, c.f90_or_b, c.exponent, c.reflection_tint, c.transmission_tint, true, true));
             c.energy_scale = g.energy_scale;
             if (preserve) {
                 c.weight *= g.weight;

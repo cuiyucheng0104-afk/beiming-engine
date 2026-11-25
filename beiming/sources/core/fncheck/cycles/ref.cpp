@@ -124,6 +124,17 @@ static ShaderClosure diffuse(const float3 N)
   return sc;
 }
 
+/* 凹凸阴影项要的着色点：bump_shadowing_term 只读 sd->N、sd->type、sd->flag。ShaderData 很大（带整个闭包数组），
+ * 放在静态存储里（零初始化），每组只改这三样；图元取三角形（不是曲线），凹凸校正标志开着（Blender 的默认，内核里视为开） */
+static ShaderData bump_sd;
+static const ShaderData *bump_shader_data(const float3 Ns)
+{
+  bump_sd.N = Ns;
+  bump_sd.type = PRIMITIVE_TRIANGLE;
+  bump_sd.flag = SD_USE_BUMP_MAP_CORRECTION;
+  return &bump_sd;
+}
+
 /* 求值：返回零时 Cycles 不写 *pdf，这里预置 0 */
 static void eval_out(float *o, const Spectrum eval, const float pdf)
 {
@@ -369,6 +380,15 @@ static const Entry table[] = {
      }},
     {"emissive_pdf", 6, 1, [](const float *i, float *o) { o[0] = emissive_pdf(get3(i), get3(i + 3)); }},
     {"emissive_simple_eval", 6, 3, [](const float *i, float *o) { put3(o, emissive_simple_eval(get3(i), get3(i + 3))); }},
+    {"ensure_valid_specular_reflection", 9, 3, [](const float *i, float *o) { put3(o, ensure_valid_specular_reflection(get3(i), get3(i + 3), get3(i + 6))); }},
+    {"bump_shadowing_term", 11, 1, [](const float *i, float *o) {
+       /* 输入依次是 Ns（sd->N）、N（sc->N）、I、is_eval、is_diffuse；漫反射类取 CLOSURE_BSDF_DIFFUSE_ID，别的取 GGX 反射 */
+       const ShaderData *sd = bump_shader_data(get3(i));
+       ShaderClosure sc = {};
+       sc.N = get3(i + 3);
+       sc.type = i[10] != 0.0f ? CLOSURE_BSDF_DIFFUSE_ID : CLOSURE_BSDF_MICROFACET_GGX_ID;
+       o[0] = bump_shadowing_term(sd, &sc, get3(i + 6), i[9] != 0.0f);
+     }},
     {"safe_asinf", 1, 1, [](const float *i, float *o) { o[0] = safe_asinf(i[0]); }},
     {"ray_quad_intersect", 20, 7, [](const float *i, float *o) {
        float3 P = zero_float3();

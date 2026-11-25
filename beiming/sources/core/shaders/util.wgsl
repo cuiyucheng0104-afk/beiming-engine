@@ -5,7 +5,8 @@
 //
 // 闭包、采样与面光用到的工具函数，照 Cycles（Blender v5.2.3）的 util 与内核源码逐行移植；这些源文件都是 Apache-2.0。
 // 另有两段取自 Apache-2.0 的内核文件里的一小段式子：原理化 BSDF 按高光等级调折射率（kernel/svm/closure.h），
-// 滤光泽的模糊粗糙度（kernel/integrator/surface_shader.h）。
+// 滤光泽的模糊粗糙度（kernel/integrator/surface_shader.h）；还有闭包求值与采样入口乘的凹凸阴影项（kernel/closure/bsdf.h 的
+// bump_shadowing_term，用到 microfacet.wgsl 的 bsdf_G_mono_ggx）。
 // 行号指 intern/cycles/ 下的文件。Cycles 的 normalize、len 与 WGSL 内建的舍入不同（内建 normalize 用 inverseSqrt），
 // 所以照原式写成 normalize_ccl、len_ccl。一维、二维查表函数读 ggx_tables.wgsl 里的 LOOKUP_TABLE；三维的与 _buf 两个
 // 读存储缓冲（数据在 ggx_gen_schlick.tables，见 lookup_table_read_buf 上面的说明）。
@@ -54,6 +55,55 @@ fn len_ccl(a: vec3f) -> f32 {
 // util/math_float3.h:332-340: normalize(float3)
 fn normalize_ccl(a: vec3f) -> vec3f {
   return a / len_ccl(a);
+}
+
+// util/math_float3.h:542-546: safe_normalize_fallback
+fn safe_normalize_fallback(a: vec3f, fallback: vec3f) -> vec3f {
+  let t = len_ccl(a);
+  if (t != 0.0) {
+    return a * (1.0 / t);
+  }
+  return fallback;
+}
+
+// kernel/closure/bsdf.h:89-150: bump_shadowing_term。Ns 是插值后的平滑法线（Cycles 的 sd->N），N 是闭包的法线（sc->N），
+// I 是出射方向。Cycles 读着色点的另两样：图元是不是曲线（这里没有曲线）、凹凸校正标志 SD_USE_BUMP_MAP_CORRECTION
+// （这里视为开，理由见 microfacet.wgsl 的 maybe_ensure_valid_specular_reflection）；闭包是不是漫反射类
+// （CLOSURE_IS_BSDF_DIFFUSE）由调用方判好传进来。is_eval：求值入口为真，采样入口为假
+fn bump_shadowing_term(Ns: vec3f, N: vec3f, I: vec3f, is_eval: bool, is_diffuse: bool) -> f32 {
+  if (all(N == Ns)) {
+    return 1.0;
+  }
+
+  // 方向要在平滑法线这一侧也合法：I 与 N 在平滑几何的同一侧时拒绝折射，在两侧时拒绝反射
+  let cosNsI = dot(Ns, I);
+  let cosNsN = dot(Ns, N);
+  let cosNI = dot(N, I);
+  if (cosNsI * cosNsN * cosNI < 0.0 && (is_eval || is_diffuse)) {
+    return 0.0;
+  }
+
+  // 上面的判据对所有闭包都做，下面的柔化只给漫反射类
+  if (!is_diffuse) {
+    return 1.0;
+  }
+
+  // （凹凸校正标志关着时 Cycles 在这里返回 1；这里标志视为开）
+
+  let cos_i = abs(cosNsI);
+  let cos_d = abs(cosNsN);
+  if (cos_d >= 1.0 || cos_i >= 1.0) {
+    return 1.0;
+  }
+  if (cos_i < 1e-6) {
+    return 0.0;
+  }
+
+  let tan2_d = 1.0 / sqr(cos_d) - 1.0;
+  let bump_alpha2 = saturate(0.125 * tan2_d);
+
+  // 平滑过渡，免得在垂直处不连续
+  return bsdf_G_mono_ggx(bump_alpha2, cos_i);
 }
 
 // util/math_float3.h:601: average(float3) = reduce_add(a) * (1/3)

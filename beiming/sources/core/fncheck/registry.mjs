@@ -397,6 +397,86 @@ FUNCTIONS.push(
   entry('emissive_simple_eval', [['Ng', 'dir', [-1, 1]], ['wi', 'dir', [-1, 1]]], 3),
 );
 
+// 下面是原理化 BSDF 给金属与电介质高光换法线的一步（kernel/closure/bsdf_util.h 的 ensure_valid_specular_reflection，BSD-3-Clause）
+// 与闭包求值、采样入口乘的凹凸阴影项（kernel/closure/bsdf.h 的 bump_shadowing_term，Apache-2.0）。
+// 法线与方向不能各自独立均匀取：要的是「着色法线偏离几何法线、反射方向落到几何面以下」这类相关的输入，所以用 gen 逐组生成，
+// 全部用双精度算完再存成 float32。
+/** 以 Z 为轴、偏开 theta 弧度、方位角 phi 的单位向量；X、Y 是与 Z 正交的两个单位向量 */
+const tilted = (Z, X, Y, theta, phi) => add(add(mul(Z, Math.cos(theta)), X, Math.sin(theta) * Math.cos(phi)), Y, Math.sin(theta) * Math.sin(phi));
+/** 双精度里照 Cycles 的式子（bsdf_util.h:324-394）走一遍 ensure_valid_specular_reflection：不拧法线时返回 null，拧时返回
+ *  四个量里最小的那个（都在 0 到 1 之间，越小 float32 下越病态）：结果的 Nx、Nz，根号与 b 之比 √(b² − 4ac)/b，入射方向在 X-Z 平面里的
+ *  长度 √a。理由：Nx = √(1 − Nz²)、Nz = √Nz² 在被开方数贴近 0 时把一个 ULP 放大成 ε/(2Nx) 量级的绝对误差（Nx 到 1e-4 时是 4e-4）；
+ *  b² − 4ac = 4(a − t²)·Ix² 在 Ix 贴近 0 时是两个量级 4a² 的数相减，开方后同样被放大；√a 小时 Ix、Iz 本身是两个点积相消出来的小数。
+ *  这几处 Cycles 原式在 float32 下本身就不准：【实测】本机 100 万组里不合格的组拿双精度照原式算真值，Cycles 本机一侧离真值更远的
+ *  约占四成（诊断脚本没有入库） */
+function specularCond(Ng, I, N) {
+  const R = add(mul(N, 2 * dot3(N, I)), I, -1), Iz = dot3(I, Ng), t = Math.min(0.9 * Iz, 0.01);
+  if (dot3(Ng, R) >= t) return null;
+  const Xr = add(N, Ng, -dot3(N, Ng)), L = Math.hypot(...Xr), X = L ? mul(Xr, 1 / L) : N;
+  const Ix = dot3(I, X), a = Ix * Ix + Iz * Iz, b = 2 * (a + Iz * t), c = (t + Iz) ** 2, d = Math.sqrt(Math.max(b * b - 4 * a * c, 0));
+  const Nz2 = (Ix < 0 ? b + d : b - d) / (4 * a);
+  return Math.min(Math.sqrt(Math.max(1 - Nz2, 0)), Math.sqrt(Math.max(Nz2, 0)), d / b, Math.sqrt(a));
+}
+// 拧法线的组只在 specularCond 不小于这个数的区域里逐组比
+const SPEC_WELL = 0.1;
+/** 几何法线 Ng 任意朝向；着色法线 N 偏开 Ng 0.01 到 1.4 弧度（十分之一的组 N 就是 Ng）；来路方向 I 在 Ng 这一侧，与 Ng 的夹角余弦
+ *  对数均匀取在 1e-4 到 1（贴地的多）。不是 N 就是 Ng 的组里，一半只收「要拧法线、又在条件良好区域」的（N 偏开 0.3 到 1.4 弧度，
+ *  按 specularCond 拒绝重取：N 偏得太少时拧过的法线贴着 Ng，Nx 小于 0.1，取不到），另一半不挑 */
+function specularGeom(next) {
+  const [X, Y] = rotation(next), Ng = crs(X, Y), same = next() < 0.1, force = !same && next() < 0.5;
+  const N = same ? Ng : tilted(Ng, X, Y, linU(next, force ? [0.3, 1.4] : [0.01, 1.4]), 2 * Math.PI * next());
+  for (;;) {
+    const I = tilted(Ng, X, Y, Math.acos(logU(next, [1e-4, 1])), 2 * Math.PI * next());
+    if (!force || specularCond(Ng, I, N) >= SPEC_WELL) return { Ng, I, N };
+  }
+}
+/** 凹凸阴影项的输入：平滑法线 Ns 任意朝向；闭包法线 N 五分之一的组就是 Ns（直接返回 1 的那一支），其余偏开 Ns 0.1 到 π − 0.1 弧度
+ *  （含翻到背面的，上游材质函数把法线翻过来时会这样）；出射方向 I 与 Ns 的夹角余弦的绝对值取在 1e-2 到 1、正负各半。
+ *  另有十分之一的组 Ns 取 (0, 0, 1)、I 的 z 分量取 ±(1e-9 到 5e-7)（对数均匀）：cos_i 小于 1e-6 那一支，这时 dot(Ns, I) 就是 I.z，
+ *  没有舍入。is_eval、is_diffuse 各自五五开（1 为真）。
+ *  收窄的理由（都是 Cycles 原式在 float32 下的病态，不是移植的差别）：
+ *    - N 不贴着 Ns（偏开至少 0.1 弧度）：tan²_d = 1/cos_d² − 1 在 cos_d 贴近 1 时相消，cos_d 差一个 ULP，tan²_d 就差 6e-8/(1 − cos_d)
+ *      的相对量，再经柔化放大到结果上；偏开 0.1 弧度时约 1.2e-5。
+ *    - cos_i 不在 1e-6 到 1e-2 之间：dot(Ns, I) 两边各差一两个 ULP（约 1e-7 的绝对量），柔化的结果在掠射处随 δcos/cos 变。 */
+function bumpGeom(next) {
+  const tiny = next() < 0.1;
+  const [X, Y] = tiny ? [[1, 0, 0], [0, 1, 0]] : rotation(next), Ns = crs(X, Y);
+  const N = next() < 0.2 ? Ns : tilted(Ns, X, Y, linU(next, [0.1, Math.PI - 0.1]), 2 * Math.PI * next());
+  const side = next() < 0.5 ? 1 : -1, phi = 2 * Math.PI * next();
+  let I;
+  if (tiny) {
+    const z = side * logU(next, [1e-9, 5e-7]), r = Math.sqrt(1 - z * z);
+    I = [r * Math.cos(phi), r * Math.sin(phi), z];
+  } else {
+    I = tilted(Ns, X, Y, Math.acos(side * logU(next, [1e-2, 1])), phi);
+  }
+  return { Ns, N, I, is_eval: next() < 0.5 ? 1 : 0, is_diffuse: next() < 0.5 ? 1 : 0 };
+}
+/** 报告用：双精度里按 Cycles 的条件判 bump_shadowing_term 走哪一支（bsdf.h:98-149） */
+function bumpBranch(i) {
+  const Ns = at(i, 0), N = at(i, 3), I = at(i, 6), is_eval = i[9] !== 0, is_diffuse = i[10] !== 0;
+  if (Ns.every((x, k) => x === N[k])) return '闭包法线就是平滑法线';
+  if (dot3(Ns, I) * dot3(Ns, N) * dot3(N, I) < 0 && (is_eval || is_diffuse)) return '方向在平滑法线那一侧不合法';
+  if (!is_diffuse) return '非漫反射';
+  return Math.abs(dot3(Ns, I)) < 1e-6 ? '漫反射柔化·贴地' : '漫反射柔化';
+}
+FUNCTIONS.push(
+  // 拧过的法线 Nx·X + Nz·Ng。拧法线的组只比条件良好区域（specularCond ≥ SPEC_WELL）里的，别的不比。比的组里 Nx、Nz 不小于 0.1，
+  // 开方把 Nz² 的几个 ULP 放大到至多约 5 倍；结果分量量级 1。abs 给 16 个 ULP；【实测】所需 abs 见测试输出，在它的一半以内
+  entry('ensure_valid_specular_reflection', [['Ng', 'vec3f'], ['I', 'vec3f'], ['N', 'vec3f']], 3, 16 * ULP1, {
+    gen: specularGeom,
+    branch: i => { const c = specularCond(at(i, 0), at(i, 3), at(i, 6)); return at(i, 0).every((x, k) => x === i[6 + k]) ? 'N 就是 Ng' : c === null ? '原样' : c >= SPEC_WELL ? '拧法线' : '拧法线·病态（不比）'; },
+    skip: (ref, test, i) => { const c = specularCond(at(i, 0), at(i, 3), at(i, 6)); return c !== null && c < SPEC_WELL; },
+  }),
+  // 判据 cosNsI·cosNsN·cosNI < 0 在任一个余弦贴近 0 时两边可能一边判正一边判负（各差一两个 ULP），这些组不比。
+  // 贴地那一支 dot(Ns, I) 没有舍入，只看另两个
+  entry('bump_shadowing_term', [['Ns', 'vec3f'], ['N', 'vec3f'], ['I', 'vec3f'], ['is_eval', 'f32'], ['is_diffuse', 'f32']], 1, 0, {
+    file: APACHE, gen: bumpGeom, branch: bumpBranch,
+    call: ([Ns, N, I, ev, di]) => `bump_shadowing_term(${Ns}, ${N}, ${I}, ${ev} != 0.0, ${di} != 0.0)`,
+    skip: (ref, test, i) => Math.min(Math.abs(dot3(at(i, 0), at(i, 3))), Math.abs(dot3(at(i, 3), at(i, 6)))) < 1e-5,
+  }),
+);
+
 // 三角形求交（util/math_intersect.h 的 ray_triangle_intersect，内核的软件求交用它）。输入不能只均匀取：要守的是公共边与
 // 顶点上不漏，均匀取的射线几乎碰不到边。三角形任意朝向、边长 1e-2 到 1e3；射线方向是单位向量。分两项：
 //   ray_triangle_intersect       逐组对 Cycles 比中没中与 u、v、t，只在单精度条件良好的区域（WELL_TRI）：最短的高不小于

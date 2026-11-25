@@ -7,7 +7,8 @@
 // （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
 //   采样标签 LABEL_TRANSMIT、LABEL_DIFFUSE 的名字与数值：kernel/types.h（ClosureLabel）
 //   surface_shader_* 这一组函数的名字与分工：kernel/integrator/surface_shader.h
-//   bsdf_eval、bsdf_sample 按闭包种类分发、bsdf_albedo 乘估出来的反照率：kernel/closure/bsdf.h
+//   bsdf_eval、bsdf_sample 按闭包种类分发、两处入口与出口乘凹凸阴影项（bump_shadowing_term 的调用处）、bsdf_albedo 乘估出来的反照率：
+//   kernel/closure/bsdf.h
 //   多个闭包之间按 sample_weight 选一个、求值求和、概率密度按 sample_weight 加权（surface_shader_bsdf_bssrdf_pick、
 //   _surface_shader_bsdf_eval_mis、surface_shader_bsdf_sample_closure）与滤光泽：kernel/integrator/surface_shader.h
 //   求值的漫反射与光泽两份分开累加（bsdf_eval_init、bsdf_eval_accum）：kernel/film/light_passes.h
@@ -144,19 +145,36 @@ fn bsdf_eval_accum(e: ptr<function, BsdfEval>, kind: u32, value: vec3<f32>) {
 // 稳态慢一倍上下（实测）。次序与 Cycles 的循环相同（第 0 个起）。
 fn surface_shader_bsdf_eval_mis(sd: ShadingPoint, wo: vec3<f32>, skip: u32, e: ptr<function, BsdfEval>, sum_pdf_in: f32, sum_sample_weight_in: f32) -> f32 {
     var sum = vec2<f32>(sum_pdf_in, sum_sample_weight_in);
-    if (skip != 0u && 0u < sd.num_closure) { sum += bsdf_eval_mis_one(sd.closure[0], sd.wi, wo, e); }
-    if (skip != 1u && 1u < sd.num_closure) { sum += bsdf_eval_mis_one(sd.closure[1], sd.wi, wo, e); }
-    if (skip != 2u && 2u < sd.num_closure) { sum += bsdf_eval_mis_one(sd.closure[2], sd.wi, wo, e); }
-    if (skip != 3u && 3u < sd.num_closure) { sum += bsdf_eval_mis_one(sd.closure[3], sd.wi, wo, e); }
+    if (skip != 0u && 0u < sd.num_closure) { sum += bsdf_eval_mis_bump_one(sd.closure[0], sd.N, sd.wi, wo, e); }
+    if (skip != 1u && 1u < sd.num_closure) { sum += bsdf_eval_mis_bump_one(sd.closure[1], sd.N, sd.wi, wo, e); }
+    if (skip != 2u && 2u < sd.num_closure) { sum += bsdf_eval_mis_bump_one(sd.closure[2], sd.N, sd.wi, wo, e); }
+    if (skip != 3u && 3u < sd.num_closure) { sum += bsdf_eval_mis_bump_one(sd.closure[3], sd.N, sd.wi, wo, e); }
     return select(0.0, sum.x / sum.y, sum.y > 0.0);
 }
 
-// _surface_shader_bsdf_eval_mis 循环里的一个闭包：求值累加进 e；返回 (pdf·sample_weight, sample_weight)，密度为 0 时前一项是 0
+// _surface_shader_bsdf_eval_mis 循环里的一个闭包，不乘凹凸阴影项。1.2.1 起没有调用者（循环改调下面的
+// bsdf_eval_mis_bump_one）；签名在冻结标记里，删它算改动，留着等核心帧源的负责人定
 fn bsdf_eval_mis_one(c: Closure, wi: vec3<f32>, wo: vec3<f32>, e: ptr<function, BsdfEval>) -> vec2<f32> {
     let ce = bsdf_eval(c, wi, wo);
     var r = vec2<f32>(0.0, c.sample_weight);
     if (ce.pdf != 0.0) {
         bsdf_eval_accum(e, c.kind, ce.eval * c.weight);
+        r.x = ce.pdf * c.sample_weight;
+    }
+    return r;
+}
+
+// _surface_shader_bsdf_eval_mis 循环里的一个闭包：求值累加进 e；返回 (pdf·sample_weight, sample_weight)，密度为 0 时前一项是 0。
+// 照 Cycles 的 closure/bsdf.h bsdf_eval 的入口乘凹凸阴影项（bump_shadowing_term，is_eval 为真）：为 0 时求值与密度都是 0，
+// 不调闭包；不为 0 时乘在求值上，次序照 Cycles（闭包的求值先乘它，再乘闭包的 weight）。`Ns` 是着色点的平滑法线 sd.N。
+// 漫反射类（Cycles 的 CLOSURE_IS_BSDF_DIFFUSE）这里只有 CLOSURE_BSDF_DIFFUSE。阴影终止偏移（shift_cos_in）没有移
+fn bsdf_eval_mis_bump_one(c: Closure, Ns: vec3<f32>, wi: vec3<f32>, wo: vec3<f32>, e: ptr<function, BsdfEval>) -> vec2<f32> {
+    var r = vec2<f32>(0.0, c.sample_weight);
+    let bump_shadowing = bump_shadowing_term(Ns, c.N, wo, true, c.kind == CLOSURE_BSDF_DIFFUSE);
+    if (bump_shadowing == 0.0) { return r; }
+    let ce = bsdf_eval(c, wi, wo);
+    if (ce.pdf != 0.0) {
+        bsdf_eval_accum(e, c.kind, ce.eval * bump_shadowing * c.weight);
         r.x = ce.pdf * c.sample_weight;
     }
     return r;
@@ -221,7 +239,12 @@ fn surface_shader_bsdf_sample_closure(sd: ShadingPoint, k: u32, rand: vec3<f32>)
     }
     if (c.kind == CLOSURE_LEGACY) { return surface_shader_bsdf_sample_legacy(sd); }
     var bs = BsdfSample();
-    let m = bsdf_sample(c, sd.Ng, sd.wi, rand);
+    var m = bsdf_sample(c, sd.Ng, sd.wi, rand);
+    // 照 Cycles 的 closure/bsdf.h bsdf_sample 的出口：采到了、又不是透射时，求值乘凹凸阴影项（is_eval 为假：判据只拦漫反射，
+    // 柔化也只给漫反射）；概率密度不乘。阴影终止偏移（shift_cos_in）没有移
+    if (m.label != LABEL_NONE && (m.label & LABEL_TRANSMIT) == 0) {
+        m.eval *= bump_shadowing_term(sd.N, c.N, m.wo, false, c.kind == CLOSURE_BSDF_DIFFUSE);
+    }
     bs.wo = m.wo;
     bs.label = m.label;
     if (m.pdf != 0.0) {

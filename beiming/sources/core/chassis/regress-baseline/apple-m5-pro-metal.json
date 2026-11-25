@@ -5,7 +5,7 @@
   "backend": "Metal",
   "driver": ""
  },
- "kernel": "67c572dcaa4f9394",
+ "kernel": "c32a8ee2b685df80",
  "upstreamCommit": "c946cc96bdb08979224e851a7fc67a066b1b456b",
  "level2": {
   "白炉 GGX 0.05": 0.9999891913570174,
@@ -65,7 +65,7 @@
     "fog/transmittance": "pass 8a51066f4a9435b9a7fe46847ec14f5c3bcd91e01a2cd1858bd76dbae5232b1e",
     "furnace/clearcoat": "pass c3d8bfa01b4641e1655ebbfdf7bc4e32826c0af419d8fe33f7ad511d6e69272e",
     "furnace/diffuse": "pass 338d22ae7bec7aabf325acb27cf6c806e5bb0648c563f1ab3bcf6913a90b00ca",
-    "furnace/metal-energy-compensated": "pass e5d9366fb559aaf3cd6a4678be32dff4530704e615c442472b17aa03f80b5e03",
+    "furnace/metal-energy-compensated": "pass 3acfb25a16aef4c9e1b45ed8e3bcd3b0c891b00b4f3be013d51aeca3c45934ae",
     "geometry/added-live": "unsupported",
     "geometry/edit-live": "unsupported",
     "geometry/edit-move-live": "unsupported",
@@ -194,21 +194,21 @@
     "sky/uniform-irradiance": "pass 1d68220900c886abb82d44376c6943f295d1c22cff76cdfad701e53df45ea862",
     "std/led-picture": "pass 06e942d3994d7957cfdb46445d97e73dea0e530f124d5c5b098fcbaa9640810a",
     "std/light-blink": "pass 62bc7be020465f464b09c2fb9b6ee85d73927f8c1e2616141a1d605caae44f7e",
-    "std/paint-grime": "pass 99537133d6add7a9cf68472af4e03b289fa2812c77e848d8dd6555db9ce33902",
-    "std/road-marking-mask": "pass 13fba7721ca922ccbfd944d27f7745f33dab93694a76a84dee25fd1057fc70ee",
+    "std/paint-grime": "pass 86185476bb468d5d3f2836fbbb46236d69062345c58374de6e6e7e5a7ddf295b",
+    "std/road-marking-mask": "pass 665c89d1a54d225ec7f4515b61b653934b34caf3f61f8b0a4cf3fb02a99d649c",
     "std/set-intensity": "pass 9d32e3ea959f7a3cc09ec393a6c84d06f52e487fcb6336e069e21f59e685cc06",
-    "std/set-mask": "pass 13fba7721ca922ccbfd944d27f7745f33dab93694a76a84dee25fd1057fc70ee",
+    "std/set-mask": "pass 665c89d1a54d225ec7f4515b61b653934b34caf3f61f8b0a4cf3fb02a99d649c",
     "std/sign-blink": "pass a77eca65762200b48b7130145263da7e9c22922368b223ff65885d7cecdffd75",
     "std/sign-emission": "pass 414cd04d6201f1fc7de554080de9277f5573b38c86b0c8718a7085cef53d838d",
     "std/sign-scroll": "pass c7a2e0bfd937aff4542ce6c04ea4c4c968da8c4129fee89a535d6c3c36928699",
-    "std/wet-ground-dry": "pass ecb1afc5311cd3d1b805beba5668d5bd6b2fdde578353f232fa82eeb7ce9f428",
-    "surface/grime": "pass 717dbdab70cef1689da8f216cd09d692ce584437392097dd7ec15cd4a1f01149",
-    "surface/puddles": "pass 11f68dedbe8960ec69e51185b925c3cee33f4d578eff346a3cd1ae8be3691676",
-    "surface/wet-layer-gltf": "fail 9444bc0c3de7c6b4884a3d4c54bd01746604173511a73d8d155e6556ac6ee858",
-    "surface/wet": "pass 236dc71f48c6a9c3ea73bea2de40bf9ebab6fb86b436b497b912c377d9c0e151",
+    "std/wet-ground-dry": "pass 880d64935330f7fd84a502563a6f5a3d955c8c4a46517963bef77d885f9b2e0e",
+    "surface/grime": "pass 057544866ace9faa9f0d7d39808d161a7bfc3b4cde7f3f1a7513a546e390d96e",
+    "surface/puddles": "pass ebfe6de0d63d7ac88259b1158cd6900db8b896f750536e5ba23111884267c09a",
+    "surface/wet-layer-gltf": "fail 725c2de1bc2d1437904e70f7201c324a157a95e4c2dde2d8f6ced80a85044c7f",
+    "surface/wet": "pass b4b5825cc9291ca185f1c08b86ed89edb20ec9feb20d0416d7e5446deb5e3cdf",
     "surface/windows-mirror": "pass 09718a339c0f208f0b9a524655d10cada30841aa86fdc1ce311067404ef3ab9c",
     "surface/windows": "fail 2504e3a6fa71cb9f6a7e494e5bd083b71494d01d92c61491c4b4a57b5c7a2d23",
-    "surface/world-mapping": "pass 82819d8a755a8bf4206ca7856de44345c04b0ee3b64641c473e3a9f29953950f",
+    "surface/world-mapping": "pass 3cce2e8d6e8945f294c523f326ee8c95509599031f8297f113bd51da3bed22e4",
     "texture/srgb-decode": "pass fae71a884f70cf4210640e27f1c3f7f02aec5764d6b9bea7c9d1fafd6c508a80",
     "translucent/depth": "unsupported",
     "translucent/order": "fail",
@@ -275,9 +275,9 @@
     "water/fresnel": "pass 55749de37447e9fb3e81837c938e787eb673469ffbd48ca5e4914bf047a4ffd8",
     "water/furnace": "pass b608e803c4dbf16296c58100f9f8ba7a9aa1bc7ac989f24186a5ac307abbdb90",
     "water/scatter-live": "unsupported",
-    "water/scatter": "pass cf08a6a3e92f05f84c6e6f6f6c761abbc5848f661c0e78395f84c5919713bb31",
+    "water/scatter": "pass 0cb19c9c342603161f471db095499e3a0c712f428a4fad827d6ea8a4ed648c99",
     "wind/pivot-sway-live": "unsupported",
-    "wind/pivot-sway": "pass f4493282fa8a1adcf07ad86b2740a72535db17fc4420e01295d628195fe8b310"
+    "wind/pivot-sway": "pass 9ef0b0b5cc4a96c05603786a35ceb2ef3e94d56cd5f2478ff78dd0731f7e867c"
    }
   },
   "hw": {
@@ -315,7 +315,7 @@
     "fog/transmittance": "pass 88cdfe9d657ff1e372f76ca89d34760e8fa984f9b9aea0607e3d8d1cd9a53901",
     "furnace/clearcoat": "pass 69b9aed1a8ad446d9c845e85236baa108eab9306822d54b03857fa3c4f3cfedd",
     "furnace/diffuse": "pass 42a344b0f5142305c07fbb89cdde1bd3bbf9b09d5f1ed19f52aa30a70595e1a6",
-    "furnace/metal-energy-compensated": "pass da65ddc209650cb1b200b380c600d40d24c95c8ce86fc6939cbf216290f46072",
+    "furnace/metal-energy-compensated": "pass cb3a885688b85728a592317ab7b4c3ab9d3e935d0d536404ee6beb7105d4b3e1",
     "geometry/added-live": "unsupported",
     "geometry/edit-live": "unsupported",
     "geometry/edit-move-live": "unsupported",
@@ -444,21 +444,21 @@
     "sky/uniform-irradiance": "pass 36538f9a71038c48ca3c9da5d5761fa3a597006a0fc225a63946e75b34f43dc1",
     "std/led-picture": "pass 06e942d3994d7957cfdb46445d97e73dea0e530f124d5c5b098fcbaa9640810a",
     "std/light-blink": "pass 5ff36a82a5d350de7915808fc5060ee8e0e14cc19c5ea53d41eee92344d72e0c",
-    "std/paint-grime": "pass 86bfb579eb90e6ebf5c7f90e898b4e42ba07a52df1d9a5299615d8615e6ed686",
-    "std/road-marking-mask": "pass 13fba7721ca922ccbfd944d27f7745f33dab93694a76a84dee25fd1057fc70ee",
+    "std/paint-grime": "pass 27657b6ed94d34fd1f28039e28aa6f1e7a3d664f468f76532d705b7e0cc55b93",
+    "std/road-marking-mask": "pass 665c89d1a54d225ec7f4515b61b653934b34caf3f61f8b0a4cf3fb02a99d649c",
     "std/set-intensity": "pass 6273783d41dc5f7695643234cd46f420960a506ac6185c81d76da399be434113",
-    "std/set-mask": "pass 13fba7721ca922ccbfd944d27f7745f33dab93694a76a84dee25fd1057fc70ee",
+    "std/set-mask": "pass 665c89d1a54d225ec7f4515b61b653934b34caf3f61f8b0a4cf3fb02a99d649c",
     "std/sign-blink": "pass a77eca65762200b48b7130145263da7e9c22922368b223ff65885d7cecdffd75",
     "std/sign-emission": "pass 414cd04d6201f1fc7de554080de9277f5573b38c86b0c8718a7085cef53d838d",
     "std/sign-scroll": "pass c8bf4f9cad789d07c788212562d74523d6aff25784a3aa0e97364dd3d5a0dea3",
-    "std/wet-ground-dry": "pass 691f7ce61313f16c1f492f98576a1c57cc08ae8424a3ce7106a122d35295316c",
-    "surface/grime": "pass 8aa24078298536634bfd1798061b9454207ad524abfad14c6601eb4d8f716526",
-    "surface/puddles": "pass a6287c45ad3fbcfe1c007a1b8353c15982907f02bfce6f9196d0bdc14e0493d8",
-    "surface/wet-layer-gltf": "fail 2931b80ff6d8aade0f9e1829fd18a80736c0115ee5e455cd910d075ab9d7db17",
-    "surface/wet": "pass 3105d4f7df1a39f1f47afdc3d789cb208e9db6284af62bdd264853662cc698c2",
+    "std/wet-ground-dry": "pass 97bc3e41343c5414e750695c0284e7847a74dbd0c0e3e3c52abeae9cf7ce62b9",
+    "surface/grime": "pass 68476d0e9b03710f658713b610a465f711636513712ebf3a1b52ba3e00e778d3",
+    "surface/puddles": "pass 193d04784e9098dc8906beb8a06588897d94059ba3cc86257d5ae02517f2867b",
+    "surface/wet-layer-gltf": "fail 29194329541d07bd49e69c83c2bb83daba11e35419e93559c1ca8d0161056e65",
+    "surface/wet": "pass a35f47d2f3de9cc0cce04957c72383aa8f3fd12a5842fe15715ea3b139f6a520",
     "surface/windows-mirror": "pass 0d6d252f96b0e0c41a04ac0616a0bcb9aa0176122d13d7975ed47de4f0d3626c",
     "surface/windows": "pass 78eee03475bb0e726c2cd355b40104204db3c8ece0c9a66b7aba9fe07a6da25c",
-    "surface/world-mapping": "pass 5d867848b019456439583e16d1d22c7570903905bcbcffe9f944242f7b5b3ce0",
+    "surface/world-mapping": "pass 2e349e35beaa36ac903848d6d0fb2e4d4e864224269ce10aad4a9592b6db0fb4",
     "texture/srgb-decode": "pass 6da5157e91dc5ac6b9f47ba6ed0a84a3fb973a4113a1d57c497d0dbbfca78529",
     "translucent/depth": "unsupported",
     "translucent/order": "fail",
@@ -525,9 +525,9 @@
     "water/fresnel": "pass fa2046afdb04b88d3f0e9c9063ad5999b4af2640a6f01898718e3ce01ade2161",
     "water/furnace": "pass 8dc67d8009d43c1e76de83027f187e0b9acdb5596f8bf8bfd17dff7c3a75bdd1",
     "water/scatter-live": "unsupported",
-    "water/scatter": "pass b208b496f0202908147285192126eb63c628786a54aa11db088fb32f44c79f36",
+    "water/scatter": "pass 2ffb6155b6b7abdbcbe06261c6ac3700764d6b6c5906c458cb49891f8f94dd00",
     "wind/pivot-sway-live": "unsupported",
-    "wind/pivot-sway": "pass 5a83918ef7eab3b0306087122b6dec0a5545801446be9450067e94bf765bd9f4"
+    "wind/pivot-sway": "pass 6a4fbf1720ae2873fd23705882f3bbcfc49eed88fc7b4cc8ab10e5596915ed74"
    }
   }
  },
@@ -542,18 +542,18 @@
   "width": 1920,
   "height": 1080,
   "spp": 256,
-  "firstFrameMs": 1878,
-  "steadyS": 1.623,
+  "firstFrameMs": 1957.6,
+  "steadyS": 1.4812,
   "samples": {
    "firstFrameMs": [
-    1878,
-    1876.6,
-    2022.5
+    1957.6,
+    1936.6,
+    1976.4
    ],
    "steadyS": [
-    1.6237000000000001,
-    1.6211,
-    1.623
+    1.48,
+    1.4914,
+    1.4812
    ]
   }
  }

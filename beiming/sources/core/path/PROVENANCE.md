@@ -24,8 +24,8 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 | `shaders/hash.wgsl`、`src/cycles_hash.rs` | Apache-2.0 | 像素种子的哈希函数 `hash_iqnt2d`，逐行移植 | `util/hash.h`（Apache-2.0） |
 | `shaders/integrator.wgsl` | MIT 与 Apache-2.0 | 路径标志位 `PATH_RAY_*`、可见类 `PATH_RAY_VISIBILITY_*`、`PRNG_BOUNCE_NUM`、`LABEL_VOLUME_SCATTER` 的名字与数值，光线的字段名；路径状态的字段名；`path_state_next` 的骨架 | `kernel/types.h`、`kernel/integrator/state_template.h`、`kernel/integrator/path_state.h`（都是 Apache-2.0） |
 | `shaders/sample.wgsl` | MIT 与 Apache-2.0 | 随机维度的枚举 `PRNG_*` 的名字与数值；取数接口 `path_rng_1D`、`path_rng_2D`、`path_rng_3D`、`path_branched_rng_2D`；像素种子的式子 | `kernel/types.h`、`kernel/integrator/path_state.h`、`kernel/sample/pattern.h`（都是 Apache-2.0） |
-| `shaders/shader.wgsl` | MIT、Apache-2.0 与 BSD-3-Clause | 着色点标志 `SD_BACKFACING` 的名字与数值，着色点与闭包的字段名；闭包种类 `CLOSURE_*` 的名字（数值是这里自己的）；菲涅耳种类 `FRESNEL_*` 的名字与次序；`shader_setup_closures` 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重的算法（`kernel/svm/closure.h` 的 `svm_node_closure_bsdf` 原理化分支，照原式重写） | `kernel/types.h`、`kernel/svm/types.h`（Apache-2.0）；菲涅耳种类来自 `kernel/closure/bsdf_microfacet.h`（BSD-3-Clause，版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation） |
-| `shaders/closure.wgsl` | MIT 与 Apache-2.0 | 采样标签 `LABEL_TRANSMIT` 的名字与数值；`surface_shader_*` 这一组函数的名字与分工，多个闭包之间的选择、求值求和与按 `sample_weight` 加权的概率密度（`surface_shader_bsdf_bssrdf_pick`、`_surface_shader_bsdf_eval_mis`、`surface_shader_bsdf_sample_closure`）、滤光泽与发光，逐函数照原式移植；`bsdf_eval`、`bsdf_sample` 按闭包种类分发、`bsdf_albedo`；求值的漫反射与光泽两份（`bsdf_eval_accum`）；闭包的取样权重（`closure_sample_weight`）；降噪反照率取哪些闭包 | `kernel/types.h`、`kernel/integrator/surface_shader.h`、`kernel/closure/bsdf.h`、`kernel/film/light_passes.h`、`kernel/closure/alloc.h`、`kernel/film/denoising_passes.h`（都是 Apache-2.0） |
+| `shaders/shader.wgsl` | MIT、Apache-2.0 与 BSD-3-Clause | 着色点标志 `SD_BACKFACING` 的名字与数值，着色点与闭包的字段名；闭包种类 `CLOSURE_*` 的名字（数值是这里自己的）；菲涅耳种类 `FRESNEL_*` 的名字与次序；`shader_setup_closures` 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重的算法，金属与电介质高光取 `valid_reflection_N`（`kernel/svm/closure.h` 的 `svm_node_closure_bsdf` 原理化分支，照原式重写） | `kernel/types.h`、`kernel/svm/types.h`（Apache-2.0）；菲涅耳种类来自 `kernel/closure/bsdf_microfacet.h`（BSD-3-Clause，版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation） |
+| `shaders/closure.wgsl` | MIT 与 Apache-2.0 | 采样标签 `LABEL_TRANSMIT` 的名字与数值；`surface_shader_*` 这一组函数的名字与分工，多个闭包之间的选择、求值求和与按 `sample_weight` 加权的概率密度（`surface_shader_bsdf_bssrdf_pick`、`_surface_shader_bsdf_eval_mis`、`surface_shader_bsdf_sample_closure`）、滤光泽与发光，逐函数照原式移植；`bsdf_eval`、`bsdf_sample` 按闭包种类分发、两处调凹凸阴影项的位置、`bsdf_albedo`；求值的漫反射与光泽两份（`bsdf_eval_accum`）；闭包的取样权重（`closure_sample_weight`）；降噪反照率取哪些闭包 | `kernel/types.h`、`kernel/integrator/surface_shader.h`、`kernel/closure/bsdf.h`、`kernel/film/light_passes.h`、`kernel/closure/alloc.h`、`kernel/film/denoising_passes.h`（都是 Apache-2.0） |
 | `shaders/pathtrace.wgsl` | MIT 与 Apache-2.0 | 物体标志 `SD_OBJECT_NEGATIVE_SCALE` 的名字与数值；积分器参数块 `KernelIntegrator` 的字段名；物体扩展表 `ObjectExt` 的四个字段名（`receiver_light_set`、`lightgroup`、两个阴影终止偏移） | `kernel/types.h`、`kernel/data_template.h`（都是 Apache-2.0） |
 | `shaders/intersect.wgsl` | MIT 与 Apache-2.0 | `LOCAL_MAX_HITS` 的名字与数值、`LocalIntersection` 的字段名；`trace_local` 这个问法 | `kernel/types.h`、`kernel/bvh/bvh.h`（都是 Apache-2.0） |
 | `src/gpu.rs` | MIT 与 Apache-2.0 | 积分器参数块 `KernelIntegrator` 的字段名（着色器里那一份在 CPU 上的镜像） | `kernel/data_template.h`（Apache-2.0） |
@@ -145,6 +145,18 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 - `src/scene.rs`：`build_material` 按场景描述的 `specularIntensity` 填材质记录的高光等级（它的一半）。
 
 这一步有意改变渲染结果：非金属材质从上游顶替换成移植的闭包，读数会变，回归基线要重记。纯金属的第 2 级读数仍在门内（采样的权重改成 Cycles 的做法，末位会变）。
+
+### 金属与电介质高光换法线、凹凸阴影项
+
+Cycles 的原理化 BSDF 给金属与电介质高光的闭包用的是 `valid_reflection_N`（`kernel/svm/closure.h:296` 算，`:333` 金属、`:448` 电介质高光；`:378`、`:397` 的玻璃与 `:155` 的清漆、`:496` 的次表面这里走上游顶替，没有接），漫反射用原来的法线；闭包求值与采样的入口再乘凹凸阴影项。换法线只在材质带凹凸校正标志 `SD_USE_BUMP_MAP_CORRECTION` 时生效，这个标志由材质属性 `use_bump_map_correction` 决定，Blender 里默认开着（宿主一侧 `scene/shader.cpp:52` 的 `SOCKET_BOOLEAN` 默认为真、`:686` 置标志；插件 `properties.py:1184` 的默认值为真）。场景包里没有这个材质参数，所以内核里视为开。光滑的球在轮廓附近着色法线让镜面反射方向落到几何面以下，Cycles 在那里把法线往几何法线拧；不拧时金属球轮廓上的半覆盖像素系统偏暗，越光滑越明显。
+
+- `../shaders/microfacet.wgsl`（BSD-3-Clause）加：`ensure_valid_specular_reflection`（`kernel/closure/bsdf_util.h:319-395`，逐行移植）、`maybe_ensure_valid_specular_reflection`（同文件 `:397-409`；Cycles 读着色点的标志、图元种类、几何法线与来路方向，这里标志视为开、没有曲线，几何法线与来路方向作参数传进来；`isequal(Ng, N)` 时原样返回）。
+- `../shaders/util.wgsl`（Apache-2.0）加：`safe_normalize_fallback`（`util/math_float3.h:542-546`）、`bump_shadowing_term`（`kernel/closure/bsdf.h:89-150`，逐行移植；Cycles 读着色点的平滑法线、图元种类与凹凸校正标志，闭包的法线与种类，这里平滑法线、闭包法线、出射方向、`is_eval`、「是不是漫反射类」作参数传进来，标志视为开、没有曲线）。它用到 `microfacet.wgsl` 的 `bsdf_G_mono_ggx`（`bsdf_G<GGX>(alpha2, cos_N)`）。
+- `shaders/shader.wgsl`：`shader_setup_closures` 照 `svm/closure.h:296` 算 `valid_reflection_N`，金属与电介质高光的闭包法线、建立菲涅耳与估反照率都用它，漫反射照旧用原来的法线。
+- `shaders/closure.wgsl`：Cycles 调凹凸阴影项的只有两处，`closure/bsdf.h:564-567`、`:647`（`bsdf_eval` 的入口：为 0 时求值与密度都是 0，否则乘在求值上）与 `:322`（`bsdf_sample` 的出口：采到了、又不是透射时乘在求值上）。这里的 `bsdf_eval`、`bsdf_sample` 只收一个闭包（条文「三条线之间的分工」），所以两处都做在收着色点的一层：求值一侧是新加的 `bsdf_eval_mis_bump_one`（`_surface_shader_bsdf_eval_mis` 循环里的一个闭包，代替原来的 `bsdf_eval_mis_one`；后者签名在冻结标记里，没有调用者了，留着），采样一侧在 `surface_shader_bsdf_sample_closure` 里。同在这两处的阴影终止偏移（`shift_cos_in`）没有移。
+- 函数级比对加两项：`ensure_valid_specular_reflection`、`bump_shadowing_term`（`../fncheck/registry.mjs`，标准答案程序 `../fncheck/cycles/ref.cpp` 调 Cycles 的同名函数；凹凸阴影项的着色点按三角形、标志开着填）。
+
+着色点的平滑法线 `sd.N` 由此从「已写未读」变成已落地。这一步有意改变渲染结果：光滑金属与电介质高光在轮廓附近变亮，回归基线要重记。冻结标记升到 1.2.1（只加函数，不算破坏）。
 
 ### 像素滤波与夹取
 

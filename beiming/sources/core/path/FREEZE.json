@@ -1,7 +1,7 @@
 {
   "schema": "beiming.core.freeze/1",
   "name": "核心帧源路径追踪内核的四样内部结构",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "frozen": "2026-11-25",
   "structures": [
     "材质记录",
@@ -119,6 +119,7 @@
         "closure_sample_weight": "(weight: vec3<f32>) -> f32",
         "surface_shader_denoising_albedo": "(sd: ShadingPoint) -> vec3<f32>",
         "bsdf_eval_mis_one": "(c: Closure, wi: vec3<f32>, wo: vec3<f32>, e: ptr<function, BsdfEval>) -> vec2<f32>",
+        "bsdf_eval_mis_bump_one": "(c: Closure, Ns: vec3<f32>, wi: vec3<f32>, wo: vec3<f32>, e: ptr<function, BsdfEval>) -> vec2<f32>",
         "bsdf_blur": "(sd: ptr<function, ShadingPoint>, k: u32, roughness: f32) -> Closure"
       }
     },

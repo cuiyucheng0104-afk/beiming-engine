@@ -117,6 +117,30 @@ test('面光几何输入：正交基、invarea 与着色点的位置按场景生
   for (let g = 0; g < 100; g++) assert.ok(Math.abs(b[g * w + 19] * b[g * w + 11] * b[g * w + 15] - 1) < 1e-5, 'invarea 应为 1/(len_u·len_v)');
 });
 
+test('换法线与凹凸阴影项的输入：确定可复现，是单位向量，来路在几何法线这一侧，要拧法线的组占相当比例', () => {
+  const f = byName('ensure_valid_specular_reflection'), a = makeInputs(f, 4000, 5), w = width(f);
+  assert.deepEqual(Buffer.from(a.buffer), Buffer.from(makeInputs(f, 4000, 5).buffer));
+  const branches = {};
+  for (let g = 0; g < 4000; g++) {
+    const i = a.subarray(g * w, (g + 1) * w), [Ng, I, N] = [[...i.subarray(0, 3)], [...i.subarray(3, 6)], [...i.subarray(6, 9)]];
+    for (const v of [Ng, I, N]) assert.ok(Math.abs(Math.hypot(...v) - 1) < 1e-6, `第 ${g} 组不是单位向量`);
+    assert.ok(dot3(I, Ng) > 0, `第 ${g} 组来路在几何面下面`);
+    const b = f.branch(i);
+    branches[b] = (branches[b] ?? 0) + 1;
+  }
+  // 逐组比的组里至少四成要拧法线
+  assert.ok(branches['拧法线'] > 0.4 * 4000, JSON.stringify(branches));
+  const h = byName('bump_shadowing_term'), c = makeInputs(h, 4000, 5), hw = width(h), seen = new Set();
+  for (let g = 0; g < 4000; g++) {
+    const i = c.subarray(g * hw, (g + 1) * hw);
+    for (const k of [0, 3, 6]) assert.ok(Math.abs(Math.hypot(...i.subarray(k, k + 3)) - 1) < 1e-6, `第 ${g} 组不是单位向量`);
+    assert.ok([0, 1].includes(i[9]) && [0, 1].includes(i[10]));
+    seen.add(h.branch(i));
+  }
+  // 五个分支都取得到
+  assert.equal(seen.size, 5, [...seen].join('、'));
+});
+
 test('χ² 检验：p 值与已知值一致，期望过小的箱合并，期望为 0 却有样本时判不过', () => {
   // 卡方分布上分位：dof=1 时 3.841 对应 p=0.05；dof=10 时 23.209 对应 p=0.01
   assert.ok(Math.abs(gammaQ(0.5, 3.841 / 2) - 0.05) < 1e-4);
@@ -146,6 +170,8 @@ const NEW = [
   'bsdf_microfacet_eval_ggx_generalized_schlick', 'bsdf_microfacet_eval_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_eval_generalized_schlick',
   'bsdf_microfacet_sample_ggx_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_sample_generalized_schlick',
   'bsdf_blur', 'sample_cos_hemisphere', 'bsdf_diffuse_eval', 'bsdf_diffuse_sample', 'emissive_pdf', 'emissive_simple_eval',
+  // 金属与电介质高光换法线、凹凸阴影项
+  'ensure_valid_specular_reflection', 'bump_shadowing_term',
 ];
 
 // 成像一路：像素滤波的滤波函数与建表（宿主一侧），查表与夹取（内核）
@@ -216,6 +242,11 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
   const util = 'shaders/util.wgsl', usrc = await readFile(`${CORE}/${util}`, 'utf8');
   await breakOne(t, util, usrc, 'f0 *= 2.0 * specular_ior_level;', 'f0 *= 2.1 * specular_ior_level;', ['principled_specular_f0_eta'], 2, 2);
   await breakOne(t, util, usrc, 'eta = 1.0 / eta;', 'eta = eta;', ['principled_specular_f0_eta'], 2, 2);
+  // 金属与电介质高光换法线：反射方向的门槛 0.01 改成 0.1；凹凸阴影项：漫反射柔化的 0.125 改成 0.15（判据的符号反过来也判得出，
+  // 但最差一组的标准是 0、相对误差记 0，过不了下面对最差一组的检查）。只跑这两项（各自只让自己那一项不合格）
+  const BUMP = ['ensure_valid_specular_reflection', 'bump_shadowing_term'];
+  await breakOne(t, file, src, 'let threshold = min(0.9 * Iz, 0.01);', 'let threshold = min(0.9 * Iz, 0.1);', ['ensure_valid_specular_reflection'], 9, 3, BUMP);
+  await breakOne(t, util, usrc, 'let bump_alpha2 = saturate(0.125 * tan2_d);', 'let bump_alpha2 = saturate(0.15 * tan2_d);', ['bump_shadowing_term'], 11, 1, BUMP);
   const light = 'shaders/area_light.wgsl', lsrc = await readFile(`${CORE}/${light}`, 'utf8');
   // 面光：矩形右边界的 0.5 改成 0.51，走立体角那一支的四项不合格；平面近似的两项（tiny、grazing）概率密度不用 x1，照旧合格
   await breakOne(t, light, lsrc, 'let x1 = xc + 0.5 * len_u;', 'let x1 = xc + 0.51 * len_u;', ['area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_sample', 'area_light_eval_from_intersection'], 16, 4);

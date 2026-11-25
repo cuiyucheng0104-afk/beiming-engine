@@ -1,6 +1,6 @@
 # 核心帧源 · 内核的四样内部结构
 
-读者｜要改内核、或要在内核里移植闭包、灯、图案节点、降噪、输出通道的人与 agent　冻结标记｜[FREEZE.json](FREEZE.json)（版本 1.2.0，2026-11-25）　来源与历史｜[PROVENANCE.md](PROVENANCE.md)
+读者｜要改内核、或要在内核里移植闭包、灯、图案节点、降噪、输出通道的人与 agent　冻结标记｜[FREEZE.json](FREEZE.json)（版本 1.2.1，2026-11-25）　来源与历史｜[PROVENANCE.md](PROVENANCE.md)
 
 这份条文定死路径追踪内核内部四样东西的形状：**材质记录、光线负载、随机维度、输出通道**。定下来是为了让后面几类移植能分给不同的人同时做：各改各的函数，不改这四样的形状。
 
@@ -135,7 +135,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 字段 | 类型 | 含义 | 谁写 | 状态 |
 |---|---|---|---|---|
 | `P` | vec3 | 位置（世界空间） | `shader_setup_from_hit` | 已落地 |
-| `N` | vec3 | 插值后的平滑法线，打在背面时与 `Ng` 一起翻向来路；不含法线贴图、不含倒角。过程几何的命中里等于 `Ng` | 同上 | 已写未读 |
+| `N` | vec3 | 插值后的平滑法线，打在背面时与 `Ng` 一起翻向来路；不含法线贴图、不含倒角。过程几何的命中里等于 `Ng` | 同上 | 已落地（1.2.1 起凹凸阴影项读它，见 `bsdf_eval_mis_bump_one`） |
 | `Ng` | vec3 | 几何法线，翻向来路 | 同上 | 已落地 |
 | `wi` | vec3 | 指向来路的方向 | 同上 | 已落地 |
 | `object` | u32 | 物体表的下标，软件、硬件两条求交路上都有；不是实例记录号 | 同上 | 已写未读（只被抄进同样没人读的 `state.mis_ray_object`） |
@@ -188,7 +188,8 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 - 别的（带清漆或透射的、漫反射粗糙度不为 0 的、不透明度小于 1 的）：一个 `CLOSURE_LEGACY`，求值与采样转给上游。一个材质要么全走移植的闭包、要么全走上游，不混。
 - 发光卡片（上游的 `card`：只发光、不散射）：没有闭包。所有闭包的权重都太小（比如无光照材质：底色、高光都是 0）时也没有闭包，路径到这里结束。
 - `CLOSURE_BSDF_TRANSPARENT` 只占了种类号。
-- 这条路上没有移的几步：凹凸阴影项（见「与 Cycles 不一样」第 45 条）、发光被光泽与清漆衰减（这条路上衰减是 1）、`maybe_ensure_valid_specular_reflection`（Cycles 只在着色器带凹凸校正标志时改法线；这里法线贴图之后不校正）、各向异性的切线。材质函数改了上游的高光强度时，移植的闭包不认（读的是材质记录的高光等级）。
+- 金属与电介质高光的闭包法线照 Cycles 取 `valid_reflection_N`（`maybe_ensure_valid_specular_reflection`：着色法线让镜面反射方向落到几何面以下时往几何法线拧），漫反射用原来的法线（1.2.1 起）。Cycles 只在材质带凹凸校正标志 `SD_USE_BUMP_MAP_CORRECTION` 时这样做，但这个标志由材质属性 `use_bump_map_correction` 决定、Blender 里默认开着，场景包里又没有这个参数，所以这里视为开：没有法线贴图的光滑球在轮廓附近也会拧。求值与采样的入口照 Cycles 乘凹凸阴影项（见「积分器碰材质只经这一组函数」）。
+- 这条路上没有移的几步：发光被光泽与清漆衰减（这条路上衰减是 1）、各向异性的切线、阴影终止偏移（`shift_cos_in`）。材质函数改了上游的高光强度时，移植的闭包不认（读的是材质记录的高光等级）。
 
 ### 材质求值的三步，与只算透明度的一档
 
@@ -212,13 +213,14 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `surface_shader_prepare_closures(sd)` | 闭包填好之后、算直接光与采样之前的事后处理。滤光泽照 Cycles：全局参数的 `filter_glossy`（存的就是内核里的量 1 / blur_glossy，0 关）大于 0 时，`blur_pdf` = 它乘 `state.min_ray_pdf`，小于 1 时各微表面闭包的 alpha 与 `sqrt(1 − blur_pdf)·0.5` 取大（`bsdf_microfacet_blur`）；上游顶替不模糊。上游的 `Lobes` 也在这里算，对所有闭包都算（上游的灯光函数还读它的 `two_sided`） | 已落地 |
 | `bsdf_eval(c, wi, wo) → ClosureEval { eval, pdf }` | 一个闭包在一个方向上的求值（已含余弦，没乘闭包的 `weight`）与概率密度。照 Cycles 的 `bsdf_eval`，按种类与菲涅耳种类分到金属、电介质高光、漫反射。收一个闭包，不收整个着色点。上游顶替不走这里 | 已落地 |
 | `bsdf_sample(c, Ng, wi, rand) → MicrofacetSample` | 一个闭包上采样方向，照 Cycles 的 `bsdf_sample` 分发；用 `rand` 的前两个 | 已落地（1.2.0 加） |
-| `bsdf_eval_mis_one(c, wi, wo, e) → vec2` | `surface_shader_bsdf_eval_mis` 循环里的一个闭包：求值累加进 `e`，返回 (密度乘取样权重, 取样权重) | 已落地（1.2.0 加） |
+| `bsdf_eval_mis_bump_one(c, Ns, wi, wo, e) → vec2` | `surface_shader_bsdf_eval_mis` 循环里的一个闭包：先照 Cycles `bsdf_eval` 的入口算凹凸阴影项（`Ns` 是着色点的平滑法线 `sd.N`；为 0 时求值与密度都是 0），再求值、乘上它，累加进 `e`，返回 (密度乘取样权重, 取样权重) | 已落地（1.2.1 加） |
+| `bsdf_eval_mis_one(c, wi, wo, e) → vec2` | 同上，不乘凹凸阴影项 | 1.2.1 起没有调用者（由上一行代替）；签名在冻结标记里，删不删等核心帧源的负责人定 |
 | `bsdf_blur(sd, k, roughness) → Closure` | 第 k 个闭包模糊之后的样子，照 Cycles 的 `closure/bsdf.h` `bsdf_blur`（微表面闭包的 alpha 与模糊粗糙度取大）；滤光泽用 | 已落地（1.2.0 加） |
 | `bsdf_eval_accum(e, kind, value)` | 求值累加进漫反射或光泽那一份与 `sum`，照 Cycles 的 `film/light_passes.h` | 已落地（1.2.0 加） |
 | `surface_shader_bsdf_eval_mis(sd, wo, skip, e, sum_pdf, sum_sample_weight) → f32` | 除第 `skip` 个之外的闭包求值累加进 `e`，返回按 `sample_weight` 加权的平均概率密度。照 Cycles 的 `_surface_shader_bsdf_eval_mis`；`skip` 取 `MAX_CLOSURE` 时不跳过 | 已落地（1.2.0 加） |
 | `surface_shader_bsdf_eval(sd, wo, light_shader_flags) → BsdfEval` | 对所有闭包求值求和、概率密度按 `sample_weight` 加权平均（照 Cycles 的同名函数）。`light_shader_flags` 是灯的着色标志，现在没人读 | 已落地（上游的灯光函数经 `surface_shader_bsdf_eval_legacy` 与 `light_mis` 调它） |
 | `surface_shader_bsdf_bssrdf_pick(sd, rand) → BsdfPick { closure, rand }` | 按 `sample_weight` 选一个闭包去采样；用三个随机数里的第三个来选，选完重新拉伸回 0 到 1。照 Cycles 的同名函数 | 已落地 |
-| `surface_shader_bsdf_sample_closure(sd, k, rand) → BsdfSample` | 在第 k 个闭包上采样方向，用 `rand` 的前两个定方向，再并进其余闭包在这个方向上的求值与概率密度；通量的权重是求值之和除以合起来的概率密度（照 Cycles 的同名函数与 `integrate_surface_bsdf_bssrdf_bounce`）。上游顶替不用 `rand`，自己从上游的随机数里取 | 已落地 |
+| `surface_shader_bsdf_sample_closure(sd, k, rand) → BsdfSample` | 在第 k 个闭包上采样方向，用 `rand` 的前两个定方向，再并进其余闭包在这个方向上的求值与概率密度；通量的权重是求值之和除以合起来的概率密度（照 Cycles 的同名函数与 `integrate_surface_bsdf_bssrdf_bounce`）。采到了、又不是透射时，求值照 Cycles `bsdf_sample` 的出口乘凹凸阴影项（1.2.1 起）。上游顶替不用 `rand`，自己从上游的随机数里取 | 已落地 |
 | `surface_shader_emission(sd) → vec3` | 这个点朝来路发出的光：照 Cycles，发光量乘 `emissive_simple_eval`（两面都发光）。上游的发光卡片例外，照旧是单面的 | 已落地 |
 | `surface_shader_transparency(sd) → vec3` | 阴影射线穿过这个点时放过多少光。恒 0 | 已定义、无调用者 |
 | `bsdf_albedo(sd, k) → vec3` | 第 k 个闭包的反照率，口径照 Cycles 的 `bsdf_albedo`（`closure_albedo`：闭包权重，微表面的再乘 `bsdf_microfacet_estimate_albedo`）。上游顶替返回上游的底色 | 已落地 |
@@ -611,7 +613,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 42. `render-pack` 一路把上游的亮度夹取（`misc.x`，原来是 2^EV × 预设的 `clampIndirect`，电影预设 64、预览 16）关掉（写浮点最大值），只认 Cycles 的两个上限：物理参考是不夹的。上游的场景脚本照旧用 `misc.x`。
 43. Cycles 口径的夹取与像素滤波各在一个编译开关后面（`sample_clamp`、`pixel_filter`），不是运行时分支：写成运行时分支时，不开的场景回归有 174 处不同（白炉读数差 1e-11 量级，上游场景的原始输出不同）。
 44. 滤光泽只模糊移植的微表面闭包：Cycles 的 `surface_shader_prepare_closures` 对所有 BSDF 闭包都调 `bsdf_blur`（含玻璃、清漆），这里上游顶替的闭包不模糊。场景开着滤光泽时，走上游顶替的材质（带清漆、透射、漫反射粗糙度不为 0 或不透明度小于 1 的，分流条件见「闭包 `Closure`」一节）的光泽一瓣与 Cycles 不同。
-45. 凹凸阴影项 `bump_shadowing_term`（Cycles 在 `closure/bsdf.h` 的求值与采样入口都乘它）没有移：有法线贴图时闭包法线与平滑法线不同，Cycles 在 cosNsI·cosNsN·cosNI < 0 时让求值与漫反射的采样为 0，开着凹凸校正时还对漫反射做柔化；这里都不做。所以带法线贴图的材质与 Cycles 不同：求值那一项对所有闭包都乘，金属也在内；采样为 0 与柔化只影响漫反射。将来做在哪一层见「三条线之间的分工」里的「凹凸阴影项与阴影终止偏移」。
+45. 凹凸阴影项 `bump_shadowing_term`（Cycles 在 `closure/bsdf.h` 的求值与采样入口都乘它）1.2.1 起照移，凹凸校正标志视为开（场景包里没有这个材质参数，取 Blender 的默认：开）。不一样的地方：Cycles 做在 `bsdf_eval`、`bsdf_sample` 里，这里那两个函数只收一个闭包，所以做在收着色点的一层（求值一侧在 `bsdf_eval_mis_bump_one`，采样一侧在 `surface_shader_bsdf_sample_closure`），式子与乘的次序照 Cycles；同在那两处的阴影终止偏移（`shift_cos_in`）没有移。带法线贴图或材质函数改了法线的材质，漫反射的柔化照 Cycles 做；上游顶替的闭包不走这两处，不乘。
 
 **求交**
 
@@ -881,7 +883,7 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 移植闭包、做灯、做图案节点三条线会同时动内核。下面几件事落在两条线的交界上，先说定归谁：
 
 - **多闭包的直接光归移植闭包的人（1.2.0 已做）。** 上游的灯光函数拿材质求值经 `surface_shader_bsdf_eval_legacy`，它对移植的闭包改成调 `surface_shader_bsdf_eval` 对全部闭包求和；`light_mis` 对移植的闭包的密度改成经闭包分发。这是「新代码不碰名字带 `legacy` 的函数」的点名例外，只限这两处。
-- **凹凸阴影项与阴影终止偏移**（Cycles 做在它的求值入口里，要用着色点）做在收着色点的分发函数里（`surface_shader_bsdf_eval` 那一层），不做在 `bsdf_eval(c, wi, wo)` 里：后者只收一个闭包，签名不为它改。
+- **凹凸阴影项与阴影终止偏移**（Cycles 做在它的求值入口里，要用着色点）做在收着色点的分发函数里（`surface_shader_bsdf_eval` 那一层），不做在 `bsdf_eval(c, wi, wo)` 里：后者只收一个闭包，签名不为它改。凹凸阴影项 1.2.1 已做（求值一侧 `bsdf_eval_mis_bump_one`、采样一侧 `surface_shader_bsdf_sample_closure`）；阴影终止偏移还没做。
 - **主循环里的「穿过光滑玻璃」（1.2.0 已改）**：只有奇异的透射一瓣（`LABEL_TRANSMIT | LABEL_SINGULAR`，上游顶替的光滑玻璃）算穿过；移植的闭包的奇异反射一瓣照 Cycles 带着乘了 1e6 的概率密度走普通的一支（多重重要性采样的密度、最小密度照记），并照 Cycles 的 `path_state_next` 置 `PATH_RAY_MIS_SKIP`：这个着色点上光源一侧对奇异的一瓣求值为 0，所以下一次打到发光面、天空、太阳盘、矩形纯光（`bm_rect_hits`）时权重取 1，不按 `power_heuristic` 加权。
 - **阴影链接与发光网格的成员集**由做灯的人另开一张表（见「物体扩展表」）。**直接光调用处的夹取**改成逐盏夹归做灯的人（现在夹的是几盏灯的和，见「输出通道」）。
 - **图案节点的结果在闭包移植完之前只到得了已移植的闭包。** 倒角改的是 `ShaderInputs.N`、遮蔽改的是底色，而上游顶替的闭包与上游的灯光函数读的是 `sd.legacy.surface`。过渡期不许为了让效果到达上游顶替而去写 `legacy` 的表面量；图案节点先在已移植的闭包上验。
