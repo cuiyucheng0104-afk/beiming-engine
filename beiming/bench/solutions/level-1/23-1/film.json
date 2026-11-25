@@ -1,0 +1,62 @@
+{
+  "format": "film/3.0",
+  "id": "sol_23_1",
+  "seed": 231,
+  "title": "标准答案 23-1 无缝转台循环",
+  "exam": "23-1",
+  "output": {
+    "size": [720, 1080],
+    "fps": "24/1",
+    "frames": 72
+  },
+  "assets": {
+    "subject": "asset:mech-head-proxy@1"
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 72,
+      "source": "three",
+      "host": "page",
+      "mode": "cards-data",
+      "colorRef": "scene",
+      "seed": 231,
+      "cards": [
+        {
+          "as": "orbit",
+          "use": "camera.orbit@1",
+          "params": {
+            "target": [0, 0, 0],
+            "distance": 3.4,
+            "elevationDeg": 14,
+            "startAzimuthDeg": 0,
+            "turns": 1,
+            "frames": 72,
+            "fovYDeg": 35
+          }
+        }
+      ],
+      "roles": {
+        "hero": "subject"
+      }
+    }
+  ],
+  "style": {
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "audio": {
+    "mode": "none"
+  },
+  "predicates": {
+    "base": ["floor@1"],
+    "extra": []
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709",
+    "card": "deliver.encode@1"
+  }
+}

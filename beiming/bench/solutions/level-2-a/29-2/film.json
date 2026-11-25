@@ -1,0 +1,100 @@
+{
+  "format": "film/3.0",
+  "id": "sol_29_2",
+  "seed": 292,
+  "title": "标准答案 29-2 点击踩起音",
+  "exam": "29-2",
+  "output": {
+    "size": [1080, 1350],
+    "fps": "30/1",
+    "frames": 600
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 47,
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 29201,
+      "cards": [
+        {
+          "as": "cursor",
+          "use": "overlay.cursor@1",
+          "params": {
+            "cutDelayFrames": 2,
+            "audio": "click",
+            "ink": "#CBFB03"
+          }
+        },
+        {
+          "as": "evmix",
+          "use": "audio.event-mix@1",
+          "params": {
+            "gainDb": -6,
+            "ceilingDb": -1,
+            "fadeMs": 5,
+            "toleranceFrames": 1,
+            "onsetFloor": 0.1
+          }
+        }
+      ]
+    },
+    { "id": "s02", "in": 47, "out": 97, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 29202 },
+    { "id": "s03", "in": 97, "out": 147, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 29203 },
+    { "id": "s04", "in": 147, "out": 197, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 29204 },
+    { "id": "s05", "in": 197, "out": 247, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 29205 },
+    { "id": "s06", "in": 247, "out": 297, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 29206 },
+    { "id": "s07", "in": 297, "out": 347, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 29207 },
+    { "id": "s08", "in": 347, "out": 397, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 29208 },
+    { "id": "s09", "in": 397, "out": 447, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 29209 },
+    { "id": "s10", "in": 447, "out": 497, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 29210 },
+    { "id": "s11", "in": 497, "out": 547, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 29211 },
+    { "id": "s12", "in": 547, "out": 600, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 29212 }
+  ],
+  "transitions": [
+    { "id": "to-s02", "at": 47, "type": "cut" },
+    { "id": "to-s03", "at": 97, "type": "cut" },
+    { "id": "to-s04", "at": 147, "type": "cut" },
+    { "id": "to-s05", "at": 197, "type": "cut" },
+    { "id": "to-s06", "at": 247, "type": "cut" },
+    { "id": "to-s07", "at": 297, "type": "cut" },
+    { "id": "to-s08", "at": 347, "type": "cut" },
+    { "id": "to-s09", "at": 397, "type": "cut" },
+    { "id": "to-s10", "at": 447, "type": "cut" },
+    { "id": "to-s11", "at": 497, "type": "cut" },
+    { "id": "to-s12", "at": 547, "type": "cut" }
+  ],
+  "events": [
+    { "id": "click-01", "frame": 45, "shot": "s01", "audio": "click", "sync": "onset" },
+    { "id": "click-02", "frame": 95, "shot": "s02", "audio": "click", "sync": "onset" },
+    { "id": "click-03", "frame": 145, "shot": "s03", "audio": "click", "sync": "onset" },
+    { "id": "click-04", "frame": 195, "shot": "s04", "audio": "click", "sync": "onset" },
+    { "id": "click-05", "frame": 245, "shot": "s05", "audio": "click", "sync": "onset" },
+    { "id": "click-06", "frame": 295, "shot": "s06", "audio": "click", "sync": "onset" },
+    { "id": "click-07", "frame": 345, "shot": "s07", "audio": "click", "sync": "onset" },
+    { "id": "click-08", "frame": 395, "shot": "s08", "audio": "click", "sync": "onset" },
+    { "id": "click-09", "frame": 445, "shot": "s09", "audio": "click", "sync": "onset" },
+    { "id": "click-10", "frame": 495, "shot": "s10", "audio": "click", "sync": "onset" },
+    { "id": "click-11", "frame": 545, "shot": "s11", "audio": "click", "sync": "onset" }
+  ],
+  "style": {
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "audio": {
+    "mode": "script"
+  },
+  "predicates": {
+    "base": ["floor@1"],
+    "extra": []
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709",
+    "card": "deliver.encode@1"
+  }
+}
