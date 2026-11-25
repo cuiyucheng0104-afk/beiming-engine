@@ -1,4 +1,45 @@
-# Blender 场景查询细则
+# Blender 场景查询与拼装烘焙
+
+## 拼装烘焙
+
+`bakeAssembly` 是一次性离线作业，与 `startSource`、渲染帧和求值核无关。输入是初始**世界坐标**下的代理三角网格，零件名对应卡应用姿态时的对象。顶点用右手 Y-up；实体表面的三角面要一致朝外，以便区分穿入和贴合。默认单位是米，`units: 'mm'` 将输入网格和配方长度一起换算为米，方向、分位数和角度不缩放。
+
+```js
+import { bakeAssembly, loadBakedAssembly } from './bake.mjs';
+
+const meshes = {
+  stop: { vertices: [[0, 0, 0], [0, 2, 0], [0, 0, 2]], faces: [[0, 1, 2]] },
+  tab: { vertices: [[1, 0, 0], [1, 1, 0], [1, 0, 1]], faces: [[0, 1, 2]] },
+};
+const recipe = { root: 'stop', steps: [
+  { op: 'slide', target: 'tab', onto: 'stop', dir: [-1, 0, 0] },
+  { op: 'move', target: 'stop+', delta: [0, 0.02, 0] },
+] };
+await bakeAssembly({ recipe, meshes, outPath: 'asm.baked.json' });
+const { parts } = await loadBakedAssembly('asm.baked.json');
+// parts.tab.matrix4x4 的平移列为 [-1, 0.02, 0]，parent 为 'stop'。
+```
+
+`engine: 'auto'` 优先用 Blender BVHTree，没有 Blender 时用纯 Python。指定 `'python'` 或 `'blender'` 可强制后端；显式指定的程序启动失败或求解失败直接报错。可传 `pythonBin`、`blenderBin`。`meshes` 也可写在 `recipe.meshes`。省略 `outPath` 直接返回内存对象；传路径时返回同一对象，并在成功后将结果写入该路径。
+
+| `op` | 除 `target` 外的参数 | 几何含义 |
+| --- | --- | --- |
+| `slide` | `onto, dir, push?, quantile?` | 动件顶点向定件投射，定件顶点反向投射。沿单位方向移动到首个命中，或取命中距离分位数，再加 `push`。 |
+| `seat` | `onto, dir, maxExtra?, tol?, step?` | 从首次接触开始继续试探；用最近三角面的有符号法线距离计数穿入顶点。默认试探上限 30 mm、容差 0.35 mm、步长 0.25 mm。 |
+| `fit` | `onto, rangeX, rangeY, rangeZ, tol?, touchTol?` | 每轴给 `[起点, 终点, 步长]`，固定轴写 `0`。枚举平移，在安全位置中优先选贴合顶点多者。默认穿入容差 0.35 mm、贴合容差 0.4 mm。 |
+| `move` / `attach` | `delta` / `parent` | 前者做世界空间平移；后者只登记从属，不改矩阵。 |
+| `rot` | `pivot, axis, angleDeg` | 绕经过 `pivot` 的世界轴按右手定则旋转，角度单位为度。 |
+| `mirror` | `ref` | 平移到 `ref` 包围盒中心关于 `recipe.centerX` 的镜像位置，不反转网格绕序；省略对称面报错。 |
+
+`slide`/`seat` 无射线命中、`fit` 没有满足容差的候选位置时会报错，不把原位当成成功解。`fit` 的贴合分数来自代理网格样点，不是连续曲面的接触面积；范围、网格细分和法线朝向都会影响结果。用于薄壁或细榫的代理网格要保留接合面的几何。
+
+选择器可写名字、逗号列表或数组。`name+` 包含自身及当时登记的递归子件，`*` 包含已动件和起始 `root`；普通名字只指该件。碰撞步骤成功后自动登记从属。要整体移动已装子树，显式写 `name+`；只改这一步不会对无关件重复施加变换。
+
+每个步骤推荐写成表中的对象，也可按 `[target, op, ...参数]` 排成数组，参数顺序同表。`asm-baked/0.1` 中的 `parts` 按零件名 UTF-8 字节序写出。每件有 `matrix4x4`（行优先、相对于初始世界姿态的刚体变换，平移在最后一列）、`parent`、`touched`。另有 `steps` 摘要和 `recipeSha256` 配方指纹。变换已在世界空间累计，回放时**不要再乘父件矩阵**。时间、进程与文件路径不参与序列化。
+
+回放时给 `assembly.dsl` 的 `baked` 参数传上述对象或已烘焙 JSON 的文件名；`assetAlias: 'kit'` 将 `tab` 对应到镜头物体 `kit.tab`。`progress` 默认 1；`animate: true` 时按镜头从 0 到 `progress` 展示。卡从创建时的世界姿态计算每一帧，不依赖上一帧。**当前正式装载限制**：这张卡指定的题号 `03B-1` 不符合现行 card-file 题号格式，会在 `cards-data` 装载前被拒绝；独立烘焙接口不受此限制。
+
+## 场景查询
 
 按[帧源接口契约 §3.7](../../kernel/contracts/source/CONTRACT.md#37-场景查询-scenequery-和-queryresult)的 `SceneQuery` 和 `QueryResult` 交付。查询帧号必须是 `[0, manifest().frames)` 里的整数。查询在该镜头局部整帧的 `sub = 0` 读取评值依赖图。构建脚本的 `state(f)` 临时应用到对象和插口，退出时还原，渲染仍由 `StateKernel` 写自己的关键帧。`cards-data` 用同一套轨道与卡求值，在查询后重新应用上次渲染的姿态，首次渲染前恢复到起始姿态。
 

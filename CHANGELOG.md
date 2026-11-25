@@ -12,6 +12,7 @@
 这一段汇总从 v1.0 到工业级交付升级完成前的全部变更，按合入顺序归类。升级以 [docs/decisions/2026-11-10-industrial-baseline.md](docs/decisions/2026-11-10-industrial-baseline.md) 的 D01–D13 为准，拆成多个工作包推进，目标是让仓库成为按 A、B、C、D 四条路线组织的技术模版仓库：agent 读完入口文档就能选对路线，按模版建作品，用统一的命令出片；成片先过机器 QA 与人工创作闸门，才标为交付；每个 PR 都有测试、无显卡冒烟出片与 Windows 路径检查把关。各工作包合入时，在下面的分类里追加自己的条目。
 
 ### Added
+- 新增拼装烘焙器（S13）与 `assembly.dsl` 技术卡（T9）：七种步骤可在渲染前烘成确定性的零件刚体矩阵，支持按从属子树调整装配；渲染时只读位姿，不再求碰撞。见[拼装烘焙接口](beiming/sources/blender/DETAILS.md#拼装烘焙)。
 - 感知模块新增 `luma.percentile` 与 `cut.ghost`（O9），可从内存帧或编码成片定位曝光跳变和跨切点重影。验收模块启用 13 个 M3 谓词（V12/V13），覆盖穿插与接触、静止、取景、过曝、焦点、特效可见度、切镜与编码后读回；新增 `template:assembly@1`（V7），在冻结的 `floor@1` 之外核对拼装片。详见 `beiming/observe/DETAILS.md` 和 `beiming/verify/DETAILS.md`。
 - Blender 帧源支持五种整帧场景查询（S12）。`bbox3d`、`anchor`、`belowGround` 交回北冥 Y-up 世界坐标，`intersect` 用评值网格 BVH 检查穿插，`contact` 量最小表面间隙。装配可用通配符自检和显式关节豁免，查询后仍可独立渲染原帧。详见 [Blender 查询细则](beiming/sources/blender/DETAILS.md)。
 - 考题跑题器按 10% 折算提示词缓存读取 token，再以计费总数判预算，并在 `observation.json` 记录原始与计费明细。基于 B20 标准答案和 B7 校准证据将 17 张技术卡晋升为 `measured`，可见卡在 D14 窗口期满后仍可被 agent 检索。

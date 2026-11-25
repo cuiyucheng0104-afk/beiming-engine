@@ -45,7 +45,9 @@ return {'entities': [{'name': 'body', 'class': 'part', 'objects': [body]}],
 
 ## 场景查询
 
-`session.query(f, q)` 在镜头局部整帧回答 `bbox3d`、`anchor`、`intersect`、`contact`、`belowGround`。用 `of: ['part.*']` 可检查装配，省略 `against` 时在组内两两量测。坐标用北冥 Y-up 米制，每次最多 50 项。见[量测、锚点与关节豁免细则](DETAILS.md)。
+`session.query(f, q)` 在局部整帧回答 `bbox3d`、`anchor`、`intersect`、`contact`、`belowGround`。`of: ['part.*']` 可检查装配，每次最多 50 项。见[量测细则](DETAILS.md)。
+
+拼装用 `bake.mjs` 的 `bakeAssembly` 预先求解，`assembly.dsl` 在渲染时只应用矩阵。见[配方与烘焙接口](DETAILS.md#拼装烘焙)。
 
 ## 资产与自检
 

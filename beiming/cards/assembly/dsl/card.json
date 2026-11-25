@@ -1,0 +1,34 @@
+{
+  "format": "card/0.1",
+  "id": "assembly.dsl",
+  "version": "1.0.0",
+  "kind": "assembly",
+  "title": "刚体拼装步骤",
+  "intent": "将七种拼装步骤烘焙为世界空间的刚体矩阵，按零件名在 Blender 中回放。",
+  "visibleToAgent": true,
+  "livesIn": ["bake", "source:blender"],
+  "impl": [
+    { "livesIn": "bake", "entry": "cards/assembly/dsl/bake.mjs", "shape": "evaluate", "hosts": [], "selftest": "cards/assembly/dsl/selftest.test.mjs" },
+    { "livesIn": "source:blender", "entry": "cards/assembly/dsl/index.py", "shape": "create", "hosts": [{ "host": "cycles", "version": "5.2.0" }], "selftest": "cards/assembly/dsl/selftest.test.mjs" }
+  ],
+  "params": {
+    "baked": { "type": "data", "unit": "none", "schema": "schema.json", "default": null, "coupling": "asset-batch" },
+    "assetAlias": { "type": "string", "unit": "none", "default": "", "coupling": "asset-batch" },
+    "progress": { "type": "number", "unit": "ratio", "range": [0, 1], "default": 1, "coupling": "none" },
+    "animate": { "type": "boolean", "unit": "none", "default": false, "coupling": "none" }
+  },
+  "ports": {
+    "in": [], "out": [], "order": { "before": [], "after": [] },
+    "requires": [
+      "烘焙入口 evaluate({recipe, meshes, outPath}) 以北冥 Y-up 世界坐标读取初始代理三角网格。outPath 可省。",
+      "渲染参数 baked 必填，可传 asm-baked/0.1 对象或 worker 可读的 JSON 文件名。设 assetAlias 时将其作为每个烘焙零件名的场景前缀。",
+      "progress 为相对初始姿态的进度，1 表示到位。animate 打开后，镜头首帧为 0、末帧为 progress，单帧直接到位。"
+    ]
+  },
+  "conditions": { "appliesWhen": ["已具备初始世界坐标三角网格，需沿方向贴合、嵌入、局部搜索或成组移动刚体。"], "notWhen": ["连续动力学模拟或柔体变形。"] },
+  "calibration": "probe-axes-turntable",
+  "verify": { "selftest": "离线烘焙七种步骤，逐字节核对两遍输出，单行编辑只改变所选子树，坏配方明确报错。", "predicates": [] },
+  "provenance": { "cases": [], "note": "按装配关系展开选择器，预计算每个零件的世界变换；在渲染端按初始姿态和绝对进度回放。" },
+  "status": [{ "level": "reproduced", "host": "cycles", "source": "5.2.0", "gpu": "apple-m5-pro", "date": "2026-11-25" }],
+  "exams": ["03B-1", "cal:assembly.dsl"]
+}
