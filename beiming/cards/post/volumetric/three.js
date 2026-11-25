@@ -183,14 +183,14 @@ float scatter(vec3 p){
   float sun=direct*(1.-layer*(1.-hole))*(1.-dusk);
   return sun*(vis*(1.+4.5*rim)-baseline) + vis*beamGain*direct*hole*layer;
 }
-float distanceAt(ivec2 pos,ivec2 sz){
-  vec4 d=texelFetch(tDepth,clamp(pos,ivec2(0),sz-1),0);
+float distanceAt(vec2 uv){
+  vec4 d=texture2D(tDepth,uv); // Nearest/Clamp; let the sampler resolve texel boundary ties.
   return d.a==0. ? skyCut : d.r;
 }
 void main(){
-  ivec2 sz=textureSize(tDepth,0), p=ivec2(uvScreen*vec2(sz));
+  vec2 texel=1./vec2(textureSize(tDepth,0));
   float limit=0.;
-  for(int y=-1;y<=1;y+=2) for(int x=-1;x<=1;x+=2) limit=max(limit,distanceAt(p+ivec2(x,y),sz));
+  for(int y=-1;y<=1;y+=2) for(int x=-1;x<=1;x+=2) limit=max(limit,distanceAt(uvScreen+vec2(x,y)*texel));
   limit=limit>=skyCut ? 110. : min(240.,limit);
   vec3 ray=mat3(worldFromView)*vec3((2.*uvScreen-1.)*invFocal,-1.);
   float phase=fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))));
@@ -226,7 +226,10 @@ const slots = names => Object.fromEntries(names.split(' ').map(k=>[k,{value:null
  * renderShaft(renderer, metricDepthTexture) also exposes the internally owned quarter-size target for inspection. */
 export function create({THREE}, params) {
   const {enabled,beamGain,anisotropy,extinction,baseline}=settings(params);
-  const geom=new THREE.PlaneGeometry(2,2), scene=new THREE.Scene(), camera=new THREE.Camera();
+  // A single interpolation plane: quarter-size taps land exactly on full-size texel boundaries.
+  const geom=new THREE.BufferGeometry();
+  geom.setAttribute('position',new THREE.Float32BufferAttribute([-1,-1,0, 3,-1,0, -1,3,0],3));
+  const scene=new THREE.Scene(), camera=new THREE.Camera();
   const mesh=(fragmentShader,uniforms)=>{
     const material=new THREE.ShaderMaterial({uniforms,vertexShader,fragmentShader, depthTest:false,depthWrite:false,
       blending:THREE.NoBlending,toneMapped:false});

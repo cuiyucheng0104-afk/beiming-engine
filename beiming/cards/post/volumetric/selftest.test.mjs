@@ -87,7 +87,7 @@ test('页面注入渲染库：浮点目标实渲与离线结果相符', async t 
     t.skip('WebGL2 浮点颜色目标不可用'); return;
   }
   const f = fixture(); f.cameraWorld[13] = 2; f.clouds = cloud(); f.sunDirection=[0.3,0.1,-1];
-  const params={anisotropy:0.35,extinction:0.05};
+  const params={mode:'standalone',anisotropy:0.35,extinction:0.05};
   const { volumetricCPU } = await import('./three.js'); const expected = volumetricCPU(f,params).color;
   const inputs = {...f, params, color:[...f.color], depth:[...f.depth], shadow:{...f.shadow,data:[...f.shadow.data]},clouds:{...f.clouds,data:[...f.clouds.data]}};
   const pixels = await page.evaluate(async f => {
