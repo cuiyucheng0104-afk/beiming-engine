@@ -8,6 +8,8 @@
 // （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
 //   着色点标志 SD_BACKFACING 的名字与数值，着色点与闭包的字段名（ShaderData、ShaderClosure）：kernel/types.h
 //   闭包种类 CLOSURE_* 的名字（数值是这里自己的）：kernel/svm/types.h（ClosureType，去掉 _ID 后缀）
+//   shader_setup_closures 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重：kernel/svm/closure.h
+//   （svm_node_closure_bsdf 的 CLOSURE_BSDF_PRINCIPLED_ID 分支），照原式重写
 // 菲涅耳种类 FRESNEL_* 的名字与次序取自 kernel/closure/bsdf_microfacet.h 的 enum MicrofacetFresnel，那个文件是 BSD-3-Clause
 // （版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation，许可全文见仓库根的 LICENSES/BSD-3-Clause.txt）。
 // ------------------------------------------------------------------------------------------------
@@ -23,7 +25,8 @@
 //   - 照 Cycles 逐函数移植、要进函数级比对的函数（../../shaders/ 下的那些）签名只收标量与向量，不收这里的结构。
 //     收结构的只有这里与 closure.wgsl 的分发函数：它们取出字段，再调标量签名的函数。
 // 「上游顶替」：还没照 Cycles 移植的材质由上游原来的代码顶着，圈在名字带 legacy 的字段与函数里，移植完一块删一块。
-// 现在只有一种材质走移植的闭包：金属度为 1、没有清漆、没有透射的金属（CLOSURE_BSDF_MICROFACET_GGX）；别的都是上游顶替。
+// 走移植的闭包的是没有清漆、透射、漫反射粗糙度、不透明度都是 1 的材质（原理化 BSDF 的金属、电介质高光、漫反射，
+// 见 shader_setup_closures）；别的是上游顶替。
 // 新写的代码不许读 legacy，也不许调名字带 legacy 的函数；
 // 眼下读着 legacy 的地方都列在 closure.wgsl「上游顶替」一节的例外清单里。
 // 字段的状态：「已落地」有写有读；「已写未读」现在就写、还没人读；「已定义」含义定了、等后面的移植来写。
@@ -34,11 +37,11 @@ const MAX_CLOSURE: u32 = 4u;
 // 闭包种类。名字照 Cycles，数值是这里自己的：往后追加，已有的数值不改。
 const CLOSURE_NONE: u32 = 0u;
 const CLOSURE_LEGACY: u32 = 1u;                // 上游顶替：求值与采样转给上游的 eval_bsdf_k、pdf_bsdf、sample_bsdf
-const CLOSURE_BSDF_MICROFACET_GGX: u32 = 2u;   // GGX 微表面反射。现在只接了 F82_TINT 菲涅耳、各向同性（纯金属）
-const CLOSURE_BSDF_DIFFUSE: u32 = 3u;          // 已定义
+const CLOSURE_BSDF_MICROFACET_GGX: u32 = 2u;   // GGX 微表面反射，各向同性。接了 F82_TINT（金属）与 GENERALIZED_SCHLICK（电介质高光）两种菲涅耳
+const CLOSURE_BSDF_DIFFUSE: u32 = 3u;          // 朗伯漫反射（bsdf_diffuse）
 const CLOSURE_BSDF_TRANSPARENT: u32 = 4u;      // 已定义
 
-// 菲涅耳种类，数值照 Cycles 的 MicrofacetFresnel。F82_TINT 已落地，其余已定义。
+// 菲涅耳种类，数值照 Cycles 的 MicrofacetFresnel。F82_TINT、GENERALIZED_SCHLICK 已落地，其余已定义。
 // （CONDUCTOR 要一个复数折射率，Closure 里还没有放它的字段：种类号先占着，用到时加两个字段。）
 const FRESNEL_NONE: u32 = 0u;
 const FRESNEL_DIELECTRIC: u32 = 1u;
@@ -136,8 +139,9 @@ fn shader_setup_from_hit(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<
         (*sd).object = instance_at(h.inst).info.y;
     } else {
         let i = h.tri;
-        var e1 = tri_verts[i * 3u + 1u].xyz;
-        var e2 = tri_verts[i * 3u + 2u].xyz;
+        let v0 = tri_verts[i * 3u].xyz;
+        var e1 = tri_verts[i * 3u + 1u].xyz - v0;
+        var e2 = tri_verts[i * 3u + 2u].xyz - v0;
         var a = attrs[i];
         if (has(F_INST) && h.inst != NO_INST) {
             let r = instance_at(h.inst);
@@ -170,14 +174,34 @@ fn shader_eval_inputs(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32
 }
 
 // 第三步：按材质输入值填闭包与自发光。只读 ShaderInputs，不读材质记录。归移植闭包的人。
-// 现在每个着色点至多一个闭包。发光卡片（上游的 card：只发光、不散射）没有闭包。
-//   - 金属度为 1、没有清漆、没有透射：照 Cycles 移植的 GGX 微表面闭包，F82-tint 菲涅耳，底色当 F0，边缘色取
-//     specular_tint（材质记录里的，默认白）；alpha 取粗糙度的平方；能量补偿读材质记录 flags 的
-//     MATERIAL_FLAG_MULTISCATTER（上传前按全局开关 energyCompensation 统一写的，非 0 即开）。
-//     粗糙度沿用上游的 0.02 下限（Cycles 没有）：去掉它画面会变，而且低于这个下限闭包会
-//     落进奇异的一支（采样标签带 LABEL_SINGULAR），积分主循环现在把这个标签当「穿过光滑玻璃」处理，要一并改。
-//   - 别的（带清漆或透射的金属也在内）：一个上游顶替的闭包；它另要的上游 Lobes 在 surface_shader_prepare_closures
-//     里算（closure.wgsl）。
+// 发光卡片（上游的 card：只发光、不散射）没有闭包。带清漆、透射、漫反射粗糙度或不透明度小于 1 的材质整个走一个上游顶替的
+// 闭包（CLOSURE_LEGACY；它另要的上游 Lobes 在 surface_shader_prepare_closures 里算）。别的材质照 Cycles 的原理化 BSDF
+// （kernel/svm/closure.h svm_node_closure_bsdf 的 CLOSURE_BSDF_PRINCIPLED_ID 分支）里「无清漆、无光泽、无次表面、无透射、
+// 无薄膜、各向同性、漫反射粗糙度 0」那一条路填至多三个闭包，次序与 Cycles 相同：
+//   1. 金属：金属度大于 CLOSURE_WEIGHT_CUTOFF（1e-5，svm/types.h）时，GGX 加 F82-tint，权重是金属度乘剩下的权重，
+//      F0 是夹到 1 以内的底色，边缘色夹到 1 以内；之后剩下的权重乘 (1 − 金属度)。
+//   2. 电介质高光：按高光等级调过的 eta（principled_specular_f0_eta）不为 1 时，GGX 加广义 Schlick
+//      （f0 = F0·高光染色、f90 = 1、exponent = −eta、反射染色 1、透射染色 0），权重是剩下的权重；
+//      剩下的权重按它的反照率衰减（closure_layering_weight）。
+//   3. 漫反射：bsdf_diffuse，权重是底色乘剩下的权重。
+// 每个闭包分配时照 Cycles 的 bsdf_alloc：权重的平均小于 1e-5 就不建（closure_sample_weight），sample_weight 取权重的平均，
+// 微表面的再乘估出来的反照率的平均与能量补偿的 darkening 的平均（bsdf_microfacet_setup_fresnel_*，乘的次序照 Cycles）。
+// 微表面的 alpha 取粗糙度的平方（ShaderInputs.roughness 已夹在 0 到 1），不带上游的 0.02 下限：粗糙度为 0 时是奇异的一瓣，
+// 积分主循环按 Cycles 的做法处理（integrator.wgsl 里 through 的那个判断）。能量补偿（Cycles 的多重散射 GGX）读材质记录
+// flags 的 MATERIAL_FLAG_MULTISCATTER（上传前按全局开关 energyCompensation 统一写的）。
+// 没有移的（这条路上都不出现，或这里没有）：发光被光泽与清漆衰减的那一步（principled_bsdf_emission：没有清漆与光泽，
+// 衰减是 1）、maybe_ensure_valid_specular_reflection（只在着色器带凹凸校正标志时才改法线）、各向异性的切线。
+// 把闭包放进第 n 格。下标写成常数：按变量下标往着色点的闭包数组里写，苹果显卡上整个着色点会被挪到内存里，
+// 有 24 盏灯的计时场景稳态慢了几倍（实测）
+fn closure_store(sd: ptr<function, ShadingPoint>, n: u32, c: Closure) {
+    switch (n) {
+        case 0u: { (*sd).closure[0] = c; }
+        case 1u: { (*sd).closure[1] = c; }
+        case 2u: { (*sd).closure[2] = c; }
+        default: { (*sd).closure[3] = c; }
+    }
+}
+
 fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) {
     (*sd).emission = inputs.emission;
     (*sd).num_closure = 0u;
@@ -186,22 +210,86 @@ fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) 
     c.weight = vec3<f32>(1.0);
     c.sample_weight = 1.0;
     c.N = inputs.N;
-    if (inputs.metallic >= 1.0 && inputs.coat_weight <= 0.0 && inputs.transmission_weight <= 0.0) {
-        let alpha = roughness_to_alpha(max(inputs.roughness, 0.02));
-        let f = bsdf_microfacet_setup_fresnel_f82_tint(c.N, (*sd).wi, alpha, inputs.base_color, inputs.specular_tint, (inputs.flags & MATERIAL_FLAG_MULTISCATTER) != 0u);
-        c.kind = CLOSURE_BSDF_MICROFACET_GGX;
-        c.weight = f.weight;
-        c.alpha_x = alpha;
-        c.alpha_y = alpha;
-        c.energy_scale = f.energy_scale;
-        c.fresnel_type = FRESNEL_F82_TINT;
-        c.f0 = inputs.base_color;
-        c.f90_or_b = f.b;
-    } else {
+    if (inputs.coat_weight > 0.0 || inputs.transmission_weight > 0.0 || inputs.diffuse_roughness > 0.0 || inputs.alpha < 1.0) {
         c.kind = CLOSURE_LEGACY;
+        (*sd).closure[0] = c;
+        (*sd).num_closure = 1u;
+        return;
     }
-    (*sd).closure[0] = c;
-    (*sd).num_closure = 1u;
+    let N = inputs.N;
+    let wi = (*sd).wi;
+    let preserve = (inputs.flags & MATERIAL_FLAG_MULTISCATTER) != 0u;
+    let alpha = saturate(roughness_to_alpha(inputs.roughness));
+    var weight = vec3<f32>(1.0);
+    var n = 0u;
+    // 1. 金属
+    if (inputs.metallic > 1e-5) {
+        c = Closure();
+        c.weight = inputs.metallic * weight;
+        c.sample_weight = closure_sample_weight(c.weight);
+        if (c.sample_weight > 0.0) {
+            c.kind = CLOSURE_BSDF_MICROFACET_GGX;
+            c.N = N;
+            c.alpha_x = alpha;
+            c.alpha_y = alpha;
+            c.ior = 1.0;
+            c.fresnel_type = FRESNEL_F82_TINT;
+            c.f0 = min(inputs.base_color, vec3<f32>(1.0));
+            let f = bsdf_microfacet_setup_fresnel_f82_tint(N, wi, alpha, c.f0, min(inputs.specular_tint, vec3<f32>(1.0)), preserve);
+            c.f90_or_b = f.b;
+            c.sample_weight *= average(bsdf_microfacet_estimate_albedo_f82_tint(N, wi, alpha, c.f0, true));
+            c.energy_scale = f.energy_scale;
+            if (preserve) {
+                c.weight *= f.weight;
+                c.sample_weight *= average(f.weight);
+            }
+            closure_store(sd, n, c);
+            n += 1u;
+        }
+        weight *= 1.0 - inputs.metallic;
+    }
+    // 2. 电介质高光
+    let fe = principled_specular_f0_eta(inputs.ior, inputs.specular_ior_level);
+    if (fe.y != 1.0) {
+        c = Closure();
+        c.weight = weight;
+        c.sample_weight = closure_sample_weight(c.weight);
+        if (c.sample_weight > 0.0) {
+            c.kind = CLOSURE_BSDF_MICROFACET_GGX;
+            c.N = N;
+            c.alpha_x = alpha;
+            c.alpha_y = alpha;
+            c.ior = fe.y;
+            c.fresnel_type = FRESNEL_GENERALIZED_SCHLICK;
+            c.f90_or_b = vec3<f32>(1.0);
+            c.exponent = -fe.y;
+            c.reflection_tint = vec3<f32>(1.0);
+            c.transmission_tint = vec3<f32>(0.0);
+            let g = bsdf_microfacet_setup_fresnel_generalized_schlick(N, wi, alpha, c.ior, fe.x * inputs.specular_tint, c.f90_or_b, c.exponent, c.reflection_tint, c.transmission_tint, preserve);
+            c.f0 = g.f0;
+            c.sample_weight *= average(bsdf_microfacet_estimate_albedo_generalized_schlick(N, wi, alpha, c.ior, c.f0, c.f90_or_b, c.exponent, c.reflection_tint, c.transmission_tint, true, true));
+            c.energy_scale = g.energy_scale;
+            if (preserve) {
+                c.weight *= g.weight;
+                c.sample_weight *= average(g.weight);
+            }
+            closure_store(sd, n, c);
+            n += 1u;
+            // 剩下的权重按这一层的反照率衰减（Cycles 在这里调 bsdf_albedo(…, true, false)：只算反射，这个闭包没有透射，相同）
+            weight = closure_layering_weight(closure_albedo(c, wi), weight);
+        }
+    }
+    // 3. 漫反射（次表面份额是 0：底色乘 (1 − 0) 就是底色）
+    c = Closure();
+    c.weight = inputs.base_color * weight;
+    c.sample_weight = closure_sample_weight(c.weight);
+    if (c.sample_weight > 0.0) {
+        c.kind = CLOSURE_BSDF_DIFFUSE;
+        c.N = N;
+        closure_store(sd, n, c);
+        n += 1u;
+    }
+    (*sd).num_closure = n;
 }
 
 // 只算透明度的一档求值：命中点放过多少光（每个通道 0 到 1；0 是挡住）。不许发任何光线，不许调图案节点。
@@ -216,10 +304,12 @@ fn shader_eval_shadow(h: Hit, d: vec3<f32>, t: f32) -> vec3<f32> {
     return g.share * g.tint;
 }
 
-// 灯采样点上的发光：发光三角 `em` 上重心坐标 (b1, b2) 的一点朝 -l 发出的辐亮度。
-// 现在转给上游的 emitter_radiance（light.wgsl）；上游的灯光函数仍直接调它。归做灯的人填。还没有调用者。
+// 灯采样点上的发光：发光三角 `em` 上重心坐标 (b1, b2) 的一点朝 -l 发出的辐亮度。口径照 Cycles 在灯采样点上求的表面发光
+// （integrator/surface_shader.h surface_shader_emission：发光量乘 emissive_simple_eval，两面都发光）；发光量（发光色、
+// 发光贴图、物体的功率倍数、材质函数）仍由上游的 emitter_radiance（light.wgsl）给。调用者：上游采样发光三角的
+// sample_emitter、sample_emitter_ris（它们先按上游的规矩丢掉背对的单面卡片，再取发光值；采样的概率密度归做灯的人）。
 fn shader_eval_emission(em: EmitterTri, b1: f32, b2: f32, l: vec3<f32>) -> vec3<f32> {
-    return emitter_radiance(em, b1, b2, l);
+    return emissive_simple_eval(normalize(cross(em.e1, em.e2)), -l) * emitter_radiance(em, b1, b2, l);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -354,8 +444,11 @@ fn mat_in_at(ti: u32, u: f32, v: f32, view: vec3<f32>, lod: f32) -> MatIn {
     let a = attrs[ti];
     let m = material_at(bitcast<u32>(a.uv.w));
     let w = 1.0 - u - v;
-    let p = tri_verts[ti * 3u].xyz + tri_verts[ti * 3u + 1u].xyz * u + tri_verts[ti * 3u + 2u].xyz * v;
-    let ng = normalize(cross(tri_verts[ti * 3u + 1u].xyz, tri_verts[ti * 3u + 2u].xyz));
+    let v0 = tri_verts[ti * 3u].xyz;
+    let e1 = tri_verts[ti * 3u + 1u].xyz - v0;
+    let e2 = tri_verts[ti * 3u + 2u].xyz - v0;
+    let p = v0 + e1 * u + e2 * v;
+    let ng = normalize(cross(e1, e2));
     var n = normalize(a.n0.xyz * w + a.n1.xyz * u + a.n2.xyz * v);
     let t = normalize(a.t.xyz - n * dot(n, a.t.xyz) + vec3<f32>(1e-9));
     let oi = object_of(a);
@@ -444,8 +537,9 @@ fn legacy_shader_inputs(m: Material, emissive: vec3<f32>, base: vec3<f32>, rough
 fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     if (is_proc(h)) { return surface_proc(o, d, h, width); }
     let i = h.tri;
-    var e1 = tri_verts[i * 3u + 1u].xyz;
-    var e2 = tri_verts[i * 3u + 2u].xyz;
+    let v0 = tri_verts[i * 3u].xyz;
+    var e1 = tri_verts[i * 3u + 1u].xyz - v0;
+    var e2 = tri_verts[i * 3u + 2u].xyz - v0;
     var a = attrs[i];
     if (has(F_INST) && h.inst != NO_INST) {
         let r = instance_at(h.inst);
@@ -541,6 +635,8 @@ fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     var se = SurfaceEval();
     se.surface = s;
     se.inputs = legacy_shader_inputs(m, s.emissive, base, rough, metal, n, s.coat, s.transmission);
+    // 北冥：three.js 的无光照材质不反光，上游把它的高光强度置 0；移植的闭包读高光等级，这里同样置 0
+    if (has(F_UNLIT) && m.tex1.z == MAT_UNLIT) { se.inputs.specular_ior_level = 0.0; }
     return se;
 }
 

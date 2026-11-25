@@ -176,16 +176,23 @@ mod tests {
     /// 追加的 `integrator`、`film` 两块各自的字段也逐个比。物体扩展表的一项同样。
     #[test]
     fn the_parameters_are_the_kernels() {
-        use crate::gpu::{KernelFilm, KernelIntegrator, Params, FILM_FIXED, SOBOL_INDEX_MASK};
+        use crate::gpu::{KernelFilm, KernelFilterTable, KernelIntegrator, Params, FILM_FIXED, SOBOL_INDEX_MASK};
         use crate::scene::GpuObjectExt;
         let (m, _) = parse(&variant(0, false));
-        let want = fields!(Params; cam_pos, cam_fwd, cam_right, cam_up, size, counts, env, misc, sky_color, counts2, time, fog, fog_color, vol, vol2, raster, cache, motion, group_first, light_lod, emit_power, lod_view, ltree, procs, aerial, background, ltile, ltile2, lt_cam, table_first, word_first, live_first, live_len, integrator, film, table_first_ext);
+        let want = fields!(Params; cam_pos, cam_fwd, cam_right, cam_up, size, counts, env, misc, sky_color, counts2, time, fog, fog_color, vol, vol2, raster, cache, motion, group_first, light_lod, emit_power, lod_view, ltree, procs, aerial, background, ltile, ltile2, lt_cam, table_first, word_first, live_first, live_len, integrator, film, table_first_ext, filter_table);
         assert_eq!(members(&m, "Params"), (want, std::mem::size_of::<Params>()));
         let want = fields!(KernelIntegrator; max_bounce, max_diffuse_bounce, max_glossy_bounce, max_transmission_bounce, transparent_max_bounce, transparent_min_bounce, min_bounce, sampling_pattern, sample_clamp_direct, sample_clamp_indirect, filter_glossy, light_inv_rr_threshold, seed, sobol_index_mask, pass_kind, background_transparent);
         assert_eq!(members(&m, "KernelIntegrator"), (want, std::mem::size_of::<KernelIntegrator>()));
         let want = fields!(KernelFilm; film_stride, film_lightgroup_first, num_lightgroups, reserved);
         assert_eq!(members(&m, "KernelFilm"), (want, std::mem::size_of::<KernelFilm>()));
         assert_eq!((std::mem::size_of::<KernelIntegrator>(), std::mem::size_of::<KernelFilm>()), (4 * 16, 16));
+        let want = fields!(KernelFilterTable; use_filter_table, reserved0, reserved1, reserved2, table);
+        assert_eq!(members(&m, "KernelFilterTable"), (want, std::mem::size_of::<KernelFilterTable>()));
+        assert_eq!(std::mem::size_of::<KernelFilterTable>(), 257 * 16);
+        // 像素滤波：盒式宽 1 不查表（全 0）；别的宽度与种类照 Cycles 建表
+        assert_eq!(KernelFilterTable::new(crate::pixel_filter::FilterType::Box, 1.0), KernelFilterTable::default());
+        let g = KernelFilterTable::new(crate::pixel_filter::FilterType::Gaussian, 1.5);
+        assert_eq!((g.use_filter_table, g.table[255][2], g.table[0][0]), (1, crate::pixel_filter::filter_table(crate::pixel_filter::FilterType::Gaussian, 1.5)[1022], crate::pixel_filter::filter_table(crate::pixel_filter::FilterType::Gaussian, 1.5)[0]));
         let want = fields!(GpuObjectExt; entity_id, object_flag, receiver_light_set, lightgroup, shadow_terminator_shading_offset, shadow_terminator_geometry_offset, reserved0, reserved1);
         assert_eq!(members(&m, "ObjectExt"), (want, std::mem::size_of::<GpuObjectExt>()));
         assert_eq!(constant(&m, "OBJECT_EXT_VEC4") as usize * 16, std::mem::size_of::<GpuObjectExt>());
@@ -306,6 +313,27 @@ mod tests {
         assert!(built_by_position("let e = MyClosure(a);", "Closure").is_none());
     }
 
+    /// 北冥：着色点的闭包数组只按常数下标读写（条文 STRUCTURES.md「只活在一次调用里的结构」里那一条）。按变量下标取，
+    /// SPIR-V 后端把整个数组拷进函数内的临时变量，英伟达显卡上那份拷贝落在本地内存里；苹果显卡上整个着色点被挪到内存里。
+    /// 两块显卡上计时场景都慢一成以上，读数却不变，别的检查发现不了。查内核源码全文，注释不算。
+    #[test]
+    fn closures_are_indexed_by_constants() {
+        let variable = |code: &str| {
+            code.match_indices(".closure[").map(|(i, m)| &code[i + m.len()..]).find(|rest| {
+                let n = rest.find(']').unwrap_or(0);
+                n == 0 || !rest[..n].bytes().all(|b| b.is_ascii_digit())
+            }).map(|rest| rest.chars().take(24).collect::<String>())
+        };
+        let code = without_comments(&kernel_template());
+        assert!(code.contains(".closure[0]"), "内核里没有按下标读闭包数组的地方：改了字段名的话这条检查要跟着改");
+        assert_eq!(variable(&code), None, "按变量下标读写了着色点的闭包数组（改成 switch 分到常数下标）");
+        // 这条检查自己的对照
+        assert!(variable("let c = sd.closure[k];").is_some());
+        assert!(variable("(*sd).closure[n] = c;").is_some());
+        assert!(variable("(*sd).closure[n + 1u] = c;").is_some());
+        assert!(variable("c = sd.closure[3]; d = (*sd).closure[0].kind;").is_none());
+    }
+
     /// Kernel variants in the merged layout: valid WGSL, no entry point with more than eight storage buffers, none
     /// declared beyond them (a pipeline layout counts what is declared), no length of a view's buffer in the source,
     /// and `MergedLive`'s members where the renderer puts their sections.
@@ -393,7 +421,7 @@ mod tests {
             assert!(kernel_template().contains(&format!("const {constant}: u32 = {}u;", bytes / 16)), "{constant}");
             assert_eq!(layout(&m, name).1 as usize, bytes, "{name}");
         }
-        assert_eq!(<Table as crate::heap::Section>::COUNT, Table::ObjectExt as usize + 1);
+        assert_eq!(<Table as crate::heap::Section>::COUNT, Table::GgxGenSchlickS as usize + 1);
         // The emitters' triangles.
         assert!(kernel_template().contains(&format!("const EMITTER_TRI_VEC4: u32 = {}u;", std::mem::size_of::<crate::GpuEmitterTri>() / 16)));
         assert!(kernel_template().contains("let b = P.table_first[2].w + i * EMITTER_TRI_VEC4;"));
@@ -417,6 +445,16 @@ mod tests {
         assert!(<Table as crate::heap::Section>::COUNT <= 12 + 8, "`Params::table_first_ext` names the rest");
         assert_eq!(Table::ObjectExt as usize, 12, "`table_first_ext[0].x`");
         assert!(kernel_template().contains("let b = P.table_first_ext[0].x + object * OBJECT_EXT_VEC4;"));
+        // 北冥：广义 Schlick 的两张表在 `table_first_ext[0].z`、`[0].w`，`[0].y` 留给图案节点表。
+        assert_eq!(<Table as crate::heap::Section>::COUNT, 12 + crate::heap::EXT_SLOTS.len());
+        assert_eq!(crate::heap::EXT_SLOTS[Table::ObjectExt as usize - 12], 0);
+        assert_eq!(crate::heap::EXT_SLOTS[Table::GgxGenSchlickIorS as usize - 12], 2, "`table_first_ext[0].z`");
+        assert_eq!(crate::heap::EXT_SLOTS[Table::GgxGenSchlickS as usize - 12], 3, "`table_first_ext[0].w`");
+        assert!(kernel_template().contains("fn table_ggx_gen_schlick_ior_s() -> i32 { return i32(P.table_first_ext[0].z * 4u); }"));
+        assert!(kernel_template().contains("fn table_ggx_gen_schlick_s() -> i32 { return i32(P.table_first_ext[0].w * 4u); }"));
+        // 数据：两张表接在一起，末一个数与 Cycles shader.tables 的 table_ggx_gen_schlick_s 末一个数相同
+        let t = crate::ggx_gen_schlick_tables();
+        assert_eq!((t.len(), t[0], t[t.len() - 1]), (2 * crate::GGX_GEN_SCHLICK_LEN, 0.0, 0.445448));
     }
 
     /// The loop guard opens every loop of the kernel but counted ones (`for (var i = N; i < M; i++)`, literals), the

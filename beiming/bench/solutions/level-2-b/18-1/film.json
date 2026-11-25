@@ -1,0 +1,110 @@
+{
+  "format": "film/3.0",
+  "id": "sol_18_1",
+  "seed": 181,
+  "title": "标准答案 18-1 旁白讲解场景的版式与字幕节奏",
+  "exam": "18-1",
+  "output": {
+    "size": [1920, 1080],
+    "fps": "30/1",
+    "frames": 900
+  },
+  "assets": {
+    "narration": "asset:narration-18-1@1",
+    "copy": "asset:copy-18-1@1"
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 300,
+      "source": "three",
+      "host": "page",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 18101,
+      "cards": [
+        {
+          "as": "det",
+          "use": "page.det2d@1",
+          "params": {
+            "font": "locked-sans"
+          }
+        },
+        {
+          "as": "cues",
+          "use": "time.narration@1",
+          "params": {
+            "anticipationSec": 0
+          }
+        },
+        {
+          "as": "subs",
+          "use": "overlay.subs@1",
+          "params": {
+            "earlySec": 0,
+            "holdSec": 0.2
+          }
+        }
+      ]
+    },
+    {
+      "id": "s02",
+      "in": 300,
+      "out": 600,
+      "source": "three",
+      "host": "page",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 18102
+    },
+    {
+      "id": "s03",
+      "in": 600,
+      "out": 900,
+      "source": "three",
+      "host": "page",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 18103
+    }
+  ],
+  "transitions": [
+    { "id": "to-s02", "at": 300, "type": "cut" },
+    { "id": "to-s03", "at": 600, "type": "cut" }
+  ],
+  "overlays": [
+    { "id": "sub1", "shot": "s01", "anchor": "screen", "pos": [0.5, 0.94], "text": "Scene one opens cleanly", "in": 15, "out": 153 },
+    { "id": "sub2", "shot": "s01", "anchor": "screen", "pos": [0.5, 0.94], "text": "Key metrics stay balanced", "in": 153, "out": 288 },
+    { "id": "sub3", "shot": "s02", "anchor": "screen", "pos": [0.5, 0.94], "text": "Scene two compares trends", "in": 315, "out": 450 },
+    { "id": "sub4", "shot": "s02", "anchor": "screen", "pos": [0.5, 0.94], "text": "Clear margins frame content", "in": 450, "out": 588 },
+    { "id": "sub5", "shot": "s03", "anchor": "screen", "pos": [0.5, 0.94], "text": "Scene three wraps up", "in": 615, "out": 756 },
+    { "id": "sub6", "shot": "s03", "anchor": "screen", "pos": [0.5, 0.94], "text": "Final summary holds steady", "in": 756, "out": 888 }
+  ],
+  "style": {
+    "tokens": {
+      "paper": "#F4F0E9",
+      "ink": "#1A1714"
+    },
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "audio": {
+    "mode": "script",
+    "narration": [
+      { "id": "vo-s01", "at": 15, "asset": "narration" },
+      { "id": "vo-s02", "at": 315, "asset": "narration" },
+      { "id": "vo-s03", "at": 615, "asset": "narration" }
+    ]
+  },
+  "predicates": {
+    "base": ["floor@1"],
+    "extra": []
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709",
+    "card": "deliver.encode@1"
+  }
+}

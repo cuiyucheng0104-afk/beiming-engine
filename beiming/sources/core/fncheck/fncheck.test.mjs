@@ -1,15 +1,27 @@
 // 函数级比对外壳的测试。纯逻辑部分任何机器都跑；端到端部分要编得出 Cycles、拿得到硬件 WebGPU 适配器，
 // 缺了就跳过并写明缺什么；BEIMING_FNCHECK_E2E=1 时缺工具链算失败。
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import process from 'node:process';
 import { test } from 'node:test';
-import { chi2Test, directionChi2, gammaQ, ggxAlbedo, gridChi2, mcMean, polygonIrradiance } from './checks.mjs';
+import { OUT, buildRenderer, sourceKey } from '../chassis/build.mjs';
+import { chi2Test, directionChi2, gammaQ, ggxAlbedo, gridChi2, mcMean, polygonIrradiance, reciprocity } from './checks.mjs';
 import { compare } from './compare.mjs';
-import { FUNCTIONS, crs, dot3, outWidth, width } from './registry.mjs';
-import { CORE, check, makeInputs, shaderSource } from './run.mjs';
+import { FILTER_TABLES, FUNCTIONS, crs, dot3, outWidth, width } from './registry.mjs';
+import { CORE, check, filterTables, makeInputs, runHost, shaderSource } from './run.mjs';
 
 const E2E = process.env.BEIMING_FNCHECK_E2E === '1';
 const byName = name => FUNCTIONS.find(f => f.name === name);
+
+/** 宿主一侧的渲染程序：E2E=1 时现编；否则只用编好的（chassis/build.mjs 的 out/bin），没有就返回 null。
+ *  不设 E2E 时不现编：CI 上从头编带 wgpu 的 release 要好几分钟，会拖垮整组测试的时限 */
+function prebuiltRenderer() {
+  if (E2E) return buildRenderer().bin;
+  const bin = path.join(OUT, 'bin', `core-render-${sourceKey([])}${process.platform === 'win32' ? '.exe' : ''}`);
+  return fs.existsSync(bin) ? bin : null;
+}
 
 test('同一种子产生同一串输入字节，换种子就变，值都落在登记的范围里', () => {
   const f = byName('fresnel_f82');
@@ -53,11 +65,12 @@ test('容差边界：恰好等于容差算过，超一点不过；任一边非�
 });
 
 test('登记表里每个函数在它的 WGSL 文件和标准答案程序里都有，参数个数对得上', async () => {
-  const cpp = await readFile(new URL('./cycles/ref.cpp', import.meta.url), 'utf8');
-  for (const name of NEW) assert.ok(byName(name), `登记表里没有 ${name}`);
+  const cpp = (await readFile(new URL('./cycles/ref.cpp', import.meta.url), 'utf8')) + (await readFile(new URL('./cycles/ref_imaging.h', import.meta.url), 'utf8'));
+  for (const name of [...NEW, ...NEW_IMAGING]) assert.ok(byName(name), `登记表里没有 ${name}`);
   for (const f of FUNCTIONS) {
     const wgsl = await readFile(`${CORE}/${f.file}`, 'utf8');
-    const m = wgsl.match(new RegExp(`\\nfn ${f.wgsl}\\(([^)]*)\\)`));
+    // 宿主一侧的几项是 Rust 的 pub fn
+    const m = wgsl.match(new RegExp(`\\n${f.host ? 'pub fn' : 'fn'} ${f.wgsl}\\(([^)]*)\\)`));
     assert.ok(m, `${f.file} 里没有 fn ${f.wgsl}`);
     // 有 call 的项由它拼出调用（补常量实参），参数个数不必与输入个数相同
     if (!f.call) assert.equal(m[1].split(',').filter(s => s.trim()).length, f.inputs.length, f.name);
@@ -124,6 +137,21 @@ const NEW = [
   'bsdf_microfacet_sample_ggx', 'bsdf_microfacet_ggx_sample',
   'safe_asinf', 'ray_quad_intersect', 'area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_rect_sample_tiny', 'area_light_rect_sample_grazing',
   'area_light_sample', 'area_light_eval_from_intersection', 'area_light_intersect',
+  // 原理化 BSDF 非金属那一半
+  'fresnel_dielectric_polarized', 'fresnel_dielectric_polarized_inside', 'fresnel_dielectric_ccl', 'fresnel_dielectric_ccl_inside', 'fresnel_dielectric_Fss',
+  'ior_from_F0', 'F0_from_ior', 'inverse_lerp', 'safe_divide_color', 'closure_layering_weight',
+  'lookup_table_read_3D_ggx_gen_schlick_ior_s', 'lookup_table_read_3D_ggx_gen_schlick_s',
+  'generalized_schlick_fresnel', 'generalized_schlick_fresnel_regular', 'microfacet_fresnel_generalized_schlick',
+  'bsdf_microfacet_estimate_albedo_generalized_schlick', 'bsdf_microfacet_estimate_albedo_f82_tint', 'bsdf_microfacet_setup_fresnel_generalized_schlick',
+  'bsdf_microfacet_eval_ggx_generalized_schlick', 'bsdf_microfacet_eval_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_eval_generalized_schlick',
+  'bsdf_microfacet_sample_ggx_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_sample_generalized_schlick',
+  'bsdf_blur', 'sample_cos_hemisphere', 'bsdf_diffuse_eval', 'bsdf_diffuse_sample', 'emissive_pdf', 'emissive_simple_eval',
+];
+
+// 成像一路：像素滤波的滤波函数与建表（宿主一侧），查表与夹取（内核）
+const NEW_IMAGING = [
+  'filter_func_box', 'filter_func_gaussian', 'filter_func_blackman_harris', 'filter_table_box', 'filter_table_gaussian', 'filter_table_blackman_harris',
+  'filter_table_read_box', 'filter_table_read_gaussian', 'filter_table_read_blackman_harris', 'film_clamp_light',
 ];
 
 /** 端到端测试的公共前置：缺工具链时跳过（E2E=1 时抛出），返回 null */
@@ -141,7 +169,7 @@ test('端到端：每个登记的函数 100 万组随机输入，WGSL 与 Cycles
     t.diagnostic(`${r.name}: groups=${r.groups} maxRel=${r.maxRel.toExponential(3)} maxRelNonTiny=${r.maxRelNonTiny.toExponential(3)} abs=${r.abs.toExponential(2)} fails=${r.fails} nonFinite=${r.nonFinite} 标准全零的组=${(r.zeroRef / r.groups * 100).toFixed(2)}% 不比的组=${(r.skipped / r.groups * 100).toFixed(3)}% 所需abs=${r.needAbs.toExponential(2)}${r.branches ? ` 分支=${Object.entries(r.branches).map(([b, c]) => `${b}:${(c / r.groups * 100).toFixed(2)}%`).join('，')}` : ''}`);
     // 实测差值要在 abs 的一半以内
     assert.ok(r.needAbs <= r.abs / 2, `${r.name} 所需 abs ${r.needAbs} 超过登记的 abs 的一半`);
-    assert.equal(r.groups, 1_000_000, r.name);
+    assert.equal(r.groups, byName(r.name).n ?? 1_000_000, r.name);
     assert.ok(r.maxRelNonTiny <= 1e-4, `${r.name} 在绝对容差不兜底的地方相对误差 ${r.maxRelNonTiny}`);
     assert.equal(r.fails, 0, `${r.name} 不合格：${JSON.stringify(r.worst[0])}`);
   }
@@ -163,18 +191,68 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
   ]) {
     await breakOne(t, file, src, from, to, expect, nIn, nOut);
   }
+  // 原理化 BSDF 非金属那一半，各改错一项：
+  for (const [from, to, expect, nIn, nOut] of [
+    // 电介质的菲涅耳：非偏振取平均的 1/2 改成 0.51。用它的广义 Schlick（exponent < 0 那一支）、求值、采样、能量补偿一并不合格；
+    // 一般那一支（exponent ≥ 0）不经它，照旧合格
+    ['return (f.x + f.y) * (1.0 / 2.0);', 'return (f.x + f.y) * 0.51;', ['fresnel_dielectric_ccl', 'fresnel_dielectric_ccl_inside', 'generalized_schlick_fresnel', 'microfacet_fresnel_generalized_schlick',
+      'bsdf_microfacet_eval_ggx_generalized_schlick', 'bsdf_microfacet_ggx_eval_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_sample_generalized_schlick'], 2, 1],
+    // 电介质的 F0：(ior − 1)/(ior + 1) 的平方漏掉平方（电介质高光的 (F0, eta) 也经它）。能量补偿那一项也用它（s = (Fss − F0)/(1 − F0)），但改错之后 F0
+    // 总大于 Fss、s 被夹成 0，与对的 s（几个百分点）只在粗糙时差得出 1e-4，10 万组里没有超出的组，所以它不在名单里
+    ['return sqr((ior - 1.0) / (ior + 1.0));', 'return (ior - 1.0) / (ior + 1.0);', ['F0_from_ior', 'principled_specular_f0_eta', 'generalized_schlick_fresnel', 'microfacet_fresnel_generalized_schlick',
+      'bsdf_microfacet_eval_ggx_generalized_schlick', 'bsdf_microfacet_ggx_eval_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_sample_generalized_schlick'], 1, 1],
+    // 层间权重：剩下的权重多乘 0.99（标准为 0 的组被测也是 0，最差一组落在标准不为 0 的组上）
+    ['return weight * saturate(1.0 - reduce_max(safe_divide_color(layer_albedo, weight)));', 'return 0.99 * weight * saturate(1.0 - reduce_max(safe_divide_color(layer_albedo, weight)));', ['closure_layering_weight'], 6, 3],
+    // 漫反射：求值的 1/π 改成 0.32
+    ['let cosNO = max(dot(N, wo), 0.0) * M_1_PI_F;', 'let cosNO = max(dot(N, wo), 0.0) * 0.32;', ['bsdf_diffuse_eval'], 6, 4],
+    // 发光值：双面改成单面（只认几何法线那一侧）
+    ['let cosNI = abs(dot(Ng, wi));', 'let cosNI = dot(Ng, wi);', ['emissive_pdf', 'emissive_simple_eval'], 6, 1],
+    // 滤光泽：alpha 与模糊粗糙度取大写成取小
+    ['return vec2f(max(roughness, alpha_x), max(roughness, alpha_y));', 'return vec2f(min(roughness, alpha_x), max(roughness, alpha_y));', ['bsdf_blur'], 3, 2],
+  ]) {
+    await breakOne(t, file, src, from, to, expect, nIn, nOut);
+  }
+  // 电介质高光的 (F0, eta)：高光等级乘 2 写成乘 2.1；ior < 1 时 eta 漏了取倒数
+  const util = 'shaders/util.wgsl', usrc = await readFile(`${CORE}/${util}`, 'utf8');
+  await breakOne(t, util, usrc, 'f0 *= 2.0 * specular_ior_level;', 'f0 *= 2.1 * specular_ior_level;', ['principled_specular_f0_eta'], 2, 2);
+  await breakOne(t, util, usrc, 'eta = 1.0 / eta;', 'eta = eta;', ['principled_specular_f0_eta'], 2, 2);
   const light = 'shaders/area_light.wgsl', lsrc = await readFile(`${CORE}/${light}`, 'utf8');
   // 面光：矩形右边界的 0.5 改成 0.51，走立体角那一支的四项不合格；平面近似的两项（tiny、grazing）概率密度不用 x1，照旧合格
   await breakOne(t, light, lsrc, 'let x1 = xc + 0.5 * len_u;', 'let x1 = xc + 0.51 * len_u;', ['area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_sample', 'area_light_eval_from_intersection'], 16, 4);
   // 辐射通量换成辐射亮度的 1/π 改成 0.32，只有带 eval_fac 的两项不合格
   await breakOne(t, light, lsrc, 'M_1_PI_F * invarea', '0.32 * invarea', ['area_light_sample', 'area_light_eval_from_intersection'], 20, 10);
+  // 三角形求交：换回上游的 Möller–Trumbore（闭区间、无容差），防水一项不合格；逐组那一项在边界上本来就不比中没中，照旧合格。
+  // 这两处只跑三角形求交的两项（各自只让自己那一项不合格），不碰宿主一侧
+  const TRI = ['ray_triangle_intersect', 'ray_triangle_intersect_pair'];
+  const start = usrc.indexOf('fn ray_triangle_intersect('), end = usrc.indexOf('\n}\n', start) + 3;
+  await breakOne(t, util, usrc, usrc.slice(start, end), `fn ray_triangle_intersect(ray_P: vec3f, ray_D: vec3f, ray_tmin: f32, ray_tmax: f32, tri_a: vec3f, tri_b: vec3f, tri_c: vec3f) -> TriangleHit {
+  let e1 = tri_b - tri_a;
+  let e2 = tri_c - tri_a;
+  let pv = cross(ray_D, e2);
+  let det = dot(e1, pv);
+  if (abs(det) < 1e-12) { return TriangleHit(); }
+  let inv = 1.0 / det;
+  let tv = ray_P - tri_a;
+  let u = dot(tv, pv) * inv;
+  if (u < 0.0 || u > 1.0) { return TriangleHit(); }
+  let qv = cross(tv, e1);
+  let v = dot(ray_D, qv) * inv;
+  if (v < 0.0 || u + v > 1.0) { return TriangleHit(); }
+  let t = dot(e2, qv) * inv;
+  if (!(t >= ray_tmin && t <= ray_tmax)) { return TriangleHit(); }
+  return TriangleHit(true, u, v, t);
+}
+`, ['ray_triangle_intersect_pair'], 20, 1, TRI);
+  // u、v 对调：逐组那一项不合格，防水一项不看 u、v，照旧合格
+  await breakOne(t, util, usrc, 'return TriangleHit(true, min(U * rcp_uvw, 1.0), min(V * rcp_uvw, 1.0), t);', 'return TriangleHit(true, min(V * rcp_uvw, 1.0), min(U * rcp_uvw, 1.0), t);', ['ray_triangle_intersect'], 17, 4, TRI);
 });
 
-async function breakOne(t, file, src, from, to, expect, nIn, nOut) {
+// names：只跑这几项（不写就是全部）。只给着色器一侧的项时不碰宿主一侧，不编渲染程序
+async function breakOne(t, file, src, from, to, expect, nIn, nOut, names) {
   {
     const broken = src.replace(from, to);
     assert.notEqual(broken, src, `要改的那一项在 WGSL 里找不到了：${from}`);
-    const r = await e2e(t, { n: 100_000, seed: 3, wgsl: { [file]: broken } });
+    const r = await e2e(t, { n: 100_000, seed: 3, wgsl: { [file]: broken }, ...(names && { names }) });
     if (!r) return;
     assert.equal(r.ok, false);
     assert.deepEqual(r.results.filter(x => x.fails > 0).map(x => x.name), expect);
@@ -345,4 +423,172 @@ test('端到端数学裁判：均匀矩形面光照小面元，采样估计的�
     // 样本数给够：标准误差不到容差的四分之一
     assert.ok(r[k].stderr / c.exact < 5e-4, `${c.name} 标准误差 ${r[k].stderr}`);
   });
+});
+
+// ------------------------------------------------------------------------------------------------ 成像一路
+
+test('端到端：成像一路故意改错一项，对应的函数报不过（查表、夹取改着色器；三种滤波改宿主一侧的 Rust）', { timeout: 900_000 }, async t => {
+  const file = 'shaders/imaging.wgsl', src = await readFile(`${CORE}/${file}`, 'utf8');
+  // 查表：插值的后一项读错成前一格，三张表的查表都不合格
+  await breakOne(t, file, src, 'return (1.0 - t) * data0 + t * data1;', 'return (1.0 - t) * data0 + t * data0;', ['filter_table_read_box', 'filter_table_read_gaussian', 'filter_table_read_blackman_harris'], 1, 1);
+  // 夹取：直接、间接按 bounce > 1 分（相机射线之后第一次弹射的直接光被当成间接光）
+  await breakOne(t, file, src, 'select(sample_clamp_direct, sample_clamp_indirect, bounce > 0)', 'select(sample_clamp_direct, sample_clamp_indirect, bounce > 1)', ['film_clamp_light'], 6, 3);
+  // 宿主一侧：三种滤波各改错一项，在源码的拷贝上改了再编（../chassis/build.mjs 的 inject，工作树不动）
+  const pf = 'path/src/pixel_filter.rs';
+  const inject = [
+    // 盒式：建表前宽度多乘 1%（滤波函数本身恒为 1，错只出在表上）
+    { file: pf, from: 'FilterType::Box => (filter_func_box, width),', to: 'FilterType::Box => (filter_func_box, width * 1.01),' },
+    // 高斯：6/宽度写成 6.1/宽度
+    { file: pf, from: 'let v = v * (6.0 / width);', to: 'let v = v * (6.1 / width);' },
+    // Blackman-Harris：第二项的系数 0.48829 写成 0.48
+    { file: pf, from: '0.35875 - 0.48829 * v.cos()', to: '0.35875 - 0.48 * v.cos()' },
+  ];
+  const r = await e2e(t, { names: NEW_IMAGING.slice(0, 6), n: 100_000, seed: 3, inject });
+  if (!r) return;
+  assert.deepEqual(r.results.filter(x => x.fails > 0).map(x => x.name), ['filter_func_gaussian', 'filter_func_blackman_harris', 'filter_table_box', 'filter_table_gaussian', 'filter_table_blackman_harris']);
+});
+
+// 像素滤波的采样分布：内核的查表（filter_table_read）查宿主一侧 Rust 建的表（与 Cycles 建的逐位相同，见 filter_table_* 三项），
+// 样本是像素内的偏移 o（像素中心 0.5）。期望的分布是这张表本身给出的：表是分段线性的反函数，第 s 段（s = 0…1022）占随机数的
+// 1/1023，在 [表[s], 表[s+1]] 上均匀；最后一格是 0（Cycles 建表时只写到倒数第二格），所以最后一段反着铺在 [0, 表[1022]] 上。
+// 这里检验的是查表与这个分布配不配对。表本身与连续的滤波函数并不完全一样：对称的一支在半边累积分布为 1 的那一格跳到支撑的
+// 端点，两头各有 1/1023 的随机数均匀铺在尾巴上，加上最后一段，一共约 0.3% 的样本不照滤波函数分布。【实测】高斯宽 1.5 的表
+// 对连续的高斯，100 万个样本、64 箱的 χ² 期望是 2514（自由度约 55），所以不拿连续的滤波函数做这一项的期望。
+// 偏移映射到 [0, 1]：x = (o − (0.5 − R)) / 2R（R 是支撑半宽：盒式 w/2，高斯 1.5w，Blackman-Harris w），y 是另一个均匀数
+// （只为套 gridChi2），64×1 个箱。
+const FILTER_R = [w => w / 2, w => 1.5 * w, w => w];
+const FILTER_HELPERS = `
+fn filter_chi2_sample(u: vec3f, offset: i32, R: f32) -> vec3f { return vec3f((filter_table_read(u.x, offset) - (0.5 - R)) / (2.0 * R), u.y, 1.0); }
+// 表（从 offset 起）给出的偏移 o 处的概率密度（对 do）：单调的 1022 段二分找所在的段，加上反铺的最后一段
+fn filter_table_density(o: f32, offset: i32) -> f32 {
+  var d = 0.0;
+  let last = filter_table_value(offset + 1022);
+  if (o >= 0.0 && o <= last) { d += 1.0 / (1023.0 * last); }
+  if (o < filter_table_value(offset) || o > last) { return d; }
+  var lo = 0;
+  var hi = 1022;
+  while (hi - lo > 1) {
+    let mid = (lo + hi) / 2;
+    if (filter_table_value(offset + mid) <= o) { lo = mid; } else { hi = mid; }
+  }
+  let w = filter_table_value(offset + hi) - filter_table_value(offset + lo);
+  if (w > 0.0) { d += 1.0 / (1023.0 * w); }
+  return d;
+}
+fn filter_chi2_density(x: f32, offset: i32, R: f32) -> f32 { return filter_table_density((0.5 - R) + x * 2.0 * R, offset) * 2.0 * R; }
+`;
+
+test('端到端 χ²：像素滤波的查表（查宿主一侧建的表）给出的偏移照表的分布；宽度对不上、分布变形时检验不过', { timeout: 900_000 }, async t => {
+  let tables;
+  try {
+    const bin = prebuiltRenderer();
+    if (!bin) { t.skip('没有编好的渲染程序（设 BEIMING_FNCHECK_E2E=1 现编）'); return; }
+    // 照 FILTER_TABLES 建的三张，再接上宽度各乘 1.1 的三张（反例的密度用）
+    tables = Float32Array.from([...filterTables(bin, runHost), ...runHost(bin, 'filter_table', Float32Array.from(FILTER_TABLES.flatMap(([k, w]) => [k, w * 1.1])), 3 * 1024)]);
+  } catch (e) {
+    if (e.missing && !E2E) { t.skip(`缺工具链：${e.missing}`); return; }
+    throw e;
+  }
+  const kinds = ['盒式', '高斯', 'Blackman-Harris'];
+  const level = 1 - (1 - 0.01) ** (1 / kinds.length);
+  const cases = kinds.flatMap((name, k) => {
+    const R = FILTER_R[FILTER_TABLES[k][0]](FILTER_TABLES[k][1]), sample = `filter_chi2_sample(u, ${k * 1024}, ${R})`;
+    return [
+      { name, sample, density: `filter_chi2_density(p.x, ${k * 1024}, ${R})` },
+      // 反例：密度用宽 1.1 倍的表
+      { name: `反例（宽度） ${name}`, bad: true, sample, density: `filter_chi2_density(p.x, ${(3 + k) * 1024}, ${R})` },
+      // 反例二：支撑集与归一化都不变，只把随机数换成它的平方
+      { name: `反例（只变形） ${name}`, bad: true, sample: `filter_chi2_sample(vec3f(u.x * u.x, u.y, u.z), ${k * 1024}, ${R})`, density: `filter_chi2_density(p.x, ${k * 1024}, ${R})` },
+    ];
+  });
+  const r = await gpuOnly(t, () => gridChi2({ source: shaderSource() + FILTER_HELPERS, cases, n: 1_000_000, seed: 1, nx: 64, ny: 1, sub: 64, filterTables: tables }));
+  if (!r) return;
+  for (const c of r) {
+    t.diagnostic(`${c.name}: χ²=${c.chi2.toFixed(1)} dof=${c.dof} p=${c.p.toExponential(3)} 落在区间外 ${c.lost.observed}（期望 ${c.lost.expected.toFixed(1)}）`);
+    if (c.bad) { assert.ok(c.p < level, `${c.name} 应当不过，p=${c.p}`); continue; }
+    assert.ok(c.p >= level, `${c.name} 不过：p=${c.p} < ${level}`);
+  }
+});
+
+// 原理化 BSDF 的电介质高光（GGX、广义 Schlick、只有反射；f0 取折射率 1.5 的 F0、f90 = 1、exponent = −1.5，照
+// kernel/svm/closure.h 高光分支的默认值）与漫反射
+const DIELECTRIC = (ior = 1.5) => `${ior}, vec3f(F0_from_ior(${ior})), vec3f(1.0), ${-ior}, vec3f(1.0), vec3f(0.0)`;
+const PRINCIPLED_HELPERS = `
+fn chi2_wi(cos_i: f32) -> vec3f { return vec3f(sqrt(1.0 - cos_i * cos_i), 0.0, cos_i); }
+fn chi2_dielectric_sample(u: vec3f, alpha: f32, cos_i: f32) -> vec4f {
+  let s = bsdf_microfacet_ggx_sample_generalized_schlick(vec3f(0.0, 0.0, 1.0), vec3f(0.0, 0.0, 1.0), chi2_wi(cos_i), alpha, ${DIELECTRIC()}, 1.0, u.xy);
+  return vec4f(s.wo, f32(s.label != LABEL_NONE));
+}
+fn chi2_dielectric_pdf(wo: vec3f, alpha: f32, cos_i: f32) -> f32 {
+  return bsdf_microfacet_ggx_eval_generalized_schlick(vec3f(0.0, 0.0, 1.0), chi2_wi(cos_i), wo, alpha, ${DIELECTRIC()}, 1.0).pdf;
+}
+fn chi2_diffuse_sample(u: vec3f, N: vec3f) -> vec4f {
+  let s = bsdf_diffuse_sample(N, N, u.xy);
+  return vec4f(s.wo, f32(s.pdf > 0.0));
+}
+`;
+
+test('端到端 χ²：电介质高光与漫反射的采样方向分布与概率密度配对；故意不配对时检验不过', { timeout: 600_000 }, async t => {
+  const alphas = [0.05, 0.2, 0.5, 1];
+  const normals = [[0, 0, 1], [0.3, -0.5, 0.812404]];
+  const pairs = alphas.length * 3 + normals.length;
+  const level = 1 - (1 - 0.01) ** (1 / pairs);
+  const cases = [
+    ...alphas.flatMap(alpha => [1, 0.7, 0.26].flatMap(cosI => [
+      { name: `电介质 alpha=${alpha} cosI=${cosI}`, sample: `chi2_dielectric_sample(u, ${alpha}, ${cosI})`, pdf: `chi2_dielectric_pdf(wo, ${alpha}, ${cosI})` },
+      { name: `反例 电介质 alpha=${alpha} cosI=${cosI}`, bad: true, sample: `chi2_dielectric_sample(u, ${alpha}, ${cosI})`, pdf: `chi2_dielectric_pdf(wo, ${alpha * 1.1}, ${cosI})` },
+    ])),
+    ...normals.flatMap(N => [
+      { name: `漫反射 N=[${N}]`, sample: `chi2_diffuse_sample(u, vec3f(${N.join(', ')}))`, pdf: `bsdf_diffuse_eval(vec3f(${N.join(', ')}), wo).pdf` },
+      // 反例：概率密度按 cos^1.1 归一化前的形状给，分布形状与采样对不上
+      { name: `反例 漫反射 N=[${N}]`, bad: true, sample: `chi2_diffuse_sample(u, vec3f(${N.join(', ')}))`, pdf: `pow(bsdf_diffuse_eval(vec3f(${N.join(', ')}), wo).pdf * M_PI_F, 1.1) * 2.1 / (2.0 * M_PI_F)` },
+    ]),
+  ];
+  const r = await gpuOnly(t, () => directionChi2({ source: shaderSource() + PRINCIPLED_HELPERS, cases, n: 1_000_000, seed: 1 }));
+  if (!r) return;
+  for (const c of r) {
+    t.diagnostic(`${c.name}: χ²=${c.chi2.toFixed(1)} dof=${c.dof} p=${c.p.toExponential(3)} 被拒样本 ${c.lost.observed}（期望 ${c.lost.expected.toFixed(1)}）`);
+    if (c.bad) assert.ok(c.p < level, `${c.name} 应当不过，p=${c.p}`);
+    else assert.ok(c.p >= level, `${c.name} 不过：p=${c.p} < ${level}`);
+  }
+});
+
+test('端到端反照率：电介质高光（关能量补偿）与漫反射对出射半球积分不超过 1.001', { timeout: 600_000 }, async t => {
+  const cases = [];
+  // 粗糙度从 0.1 起，理由同金属那一项
+  for (const roughness of [0.1, 0.2, 0.3, 0.5, 0.7, 1]) {
+    for (const cosI of [1, 0.7, 0.3, 0.1, 0.05]) {
+      // f0 = f90 = 1：反射率恒为 1，是这个闭包反照率的上界（折射率只经 s 插在 f0 与 f90 之间，这里不起作用）
+      cases.push({ name: '电介质 f0=f90=1', roughness, cosI, alpha: roughness_to_alpha(roughness), eval: `bsdf_microfacet_ggx_eval_generalized_schlick(N, wi, wo, alpha, 1.5, vec3f(1.0), vec3f(1.0), -1.5, vec3f(1.0), vec3f(0.0), 1.0).eval.x` });
+    }
+  }
+  // 漫反射：alpha 只决定求积用的半向量分布（取 1，盖住整个半球）
+  for (const cosI of [1, 0.5, 0.05]) cases.push({ name: '漫反射', roughness: 1, cosI, alpha: 1, eval: 'bsdf_diffuse_eval(N, wo).eval.x' });
+  const r = await gpuOnly(t, () => ggxAlbedo({ source: shaderSource(), cases, m: 1024 }));
+  if (!r) return;
+  let max = 0;
+  cases.forEach((c, k) => {
+    t.diagnostic(`${c.name} roughness=${c.roughness} cosI=${c.cosI}: 反照率 ${r[k].toFixed(6)}`);
+    max = Math.max(max, r[k]);
+    assert.ok(r[k] <= 1.001, `${c.name} ${JSON.stringify(c)} 反照率 ${r[k]} 超过 1.001`);
+  });
+  // 漫反射的积分该是 1：求积本身准不准也在这里看
+  cases.forEach((c, k) => { if (c.name === '漫反射') assert.ok(Math.abs(r[k] - 1) < 1e-3, `漫反射 cosI=${c.cosI} 积出 ${r[k]}`); });
+  t.diagnostic(`最大反照率 ${max.toFixed(6)}`);
+});
+
+test('端到端互易：电介质高光与漫反射交换两个方向，BSDF 的相对差不超过 1e-4；故意不互易时检验不过', { timeout: 600_000 }, async t => {
+  const cases = [
+    ...[0.1, 0.3, 0.6, 1].map(roughness => ({ name: `电介质 粗糙度 ${roughness}`, eval: `bsdf_microfacet_eval_ggx_generalized_schlick(N, wi, wo, ${roughness_to_alpha(roughness)}, ${DIELECTRIC()}).eval.x` })),
+    { name: '漫反射', eval: 'bsdf_diffuse_eval(N, wo).eval.x' },
+    // 反例：能量补偿的倍率随入射方向变（microfacet_ggx_preserve_energy 按入射余弦查表），乘上它就不互易
+    { name: '反例 电介质乘入射方向的能量补偿', bad: true, eval: `bsdf_microfacet_eval_ggx_generalized_schlick(N, wi, wo, 0.25, ${DIELECTRIC()}).eval.x * microfacet_ggx_preserve_energy(N, wi, 0.25, vec3f(1.0)).energy_scale` },
+  ];
+  const r = await gpuOnly(t, () => reciprocity({ source: shaderSource(), cases, n: 1_000_000, seed: 1 }));
+  if (!r) return;
+  for (const c of r) {
+    t.diagnostic(`${c.name}: 最大相对差 ${c.maxRel.toExponential(3)}（参与比较 ${c.counted} 组，最差一组 cos 与两边的值 [${c.worst}]）`);
+    if (c.bad) assert.ok(c.maxRel > 1e-4, `${c.name} 应当不互易`);
+    else { assert.ok(c.maxRel <= 1e-4, `${c.name} 相对差 ${c.maxRel}`); assert.ok(c.counted > 900_000, c.name); }
+  }
 });

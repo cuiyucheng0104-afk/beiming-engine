@@ -6,13 +6,16 @@
 // file：WGSL 函数所在的文件；比对时 SHADERS 里的文件全部拼进一个着色器，所以函数可以调用别的文件里的函数。
 // call：可选，(实参 WGSL 表达式数组) => 调用表达式，给要补常量实参的函数用（例如查表函数的表偏移）。
 // gen：可选，(next: () => [0,1) 均匀数) => { 输入名: 数或数组 }，逐组生成彼此相关的输入（正交基、相对灯面的位置）；有它时 inputs 不写范围。
+// host：可选，为真时被测的是宿主一侧的 Rust（core-render fncheck-host 逐组算），file 是 Rust 源文件，不上显卡。
+// n：可选，这一项的组数（不写就用外壳的 --n）。filterTables：可选，为真时外壳先按 FILTER_TABLES 让标准答案程序建表，
+// 经存储缓冲交给着色器（gpu.mjs 的 runGpu 的 filterTables）。
 // branch：可选，(一组输入) => 分支名，只用来在报告里数各分支的比例。
 // skip：可选，(标准答案的一组输出, 被测的一组输出, 这一组的输入) => 真时这一组不比、只计数。只给登记处写明了理由的病态区域用。
 // 合格：|被测−标准| ≤ rel·|标准| + abs。rel 一律 1e-4。
 // abs 只给有相减抵消的函数：两个 O(1) 的数相减得到接近 0 的结果时，两边哪怕只差 1 ULP 的舍入（WGSL 的 sqrt、
 // 除法不保证正确舍入，编译器还可能合成 FMA），相对误差也会大到几十个百分点。这类函数的 abs 取「抵消发生处的
 // 量级上 4 个 ULP」，再乘上相减之后的放大系数；实测的最大差值都在它的一半以内。
-export const SHADERS = ['shaders/microfacet.wgsl', 'shaders/util.wgsl', 'shaders/ggx_tables.wgsl', 'shaders/area_light.wgsl'];
+export const SHADERS = ['shaders/microfacet.wgsl', 'shaders/util.wgsl', 'shaders/ggx_tables.wgsl', 'shaders/area_light.wgsl', 'shaders/imaging.wgsl'];
 const BSD = SHADERS[0], APACHE = SHADERS[1], LIGHT = SHADERS[3];
 const entry = (name, inputs, out, abs = 0, more = {}) => ({ name, file: BSD, wgsl: name, ref: name, inputs, out, rel: 1e-4, abs, ...more });
 
@@ -262,5 +265,240 @@ FUNCTIONS.push(
       const g = lightGeom(next, RAY), r = towards(next, g, [-1.5, 1.5]);
       return { ...r, ray_tmin: 0, ray_tmax: r.t * linU(next, [0.5, 2]), quad_P: g.co, inv_quad_u: mul(g.axis_u, 1 / g.len_u), inv_quad_v: mul(g.axis_v, 1 / g.len_v), quad_n: g.dir };
     },
+  }),
+);
+
+// 下面是成像一路：像素滤波（宿主一侧照 scene/film.cpp 建表，内核拿一个随机数查表）与贡献的夹取（kernel/film/light_passes.h）。
+// 滤波函数与建表在宿主一侧：被测的是 Rust（path/src/pixel_filter.rs，经 core-render fncheck-host 逐组算），登记 host: true；
+// 查表与夹取在内核里：被测的是 WGSL（shaders/imaging.wgsl），在显卡上算。
+// 查表的三项用的是 Cycles 自己建的三张表（FILTER_TABLES，次序与 cycles/ref_imaging.h 的 filter_tables_fixed 相同）：
+// 外壳先让标准答案程序按这三组参数建表，经存储缓冲给 imaging.wgsl 要的 filter_table_value(i)（gpu.mjs 的 LUT_PRELUDE），只比查表本身；
+// 建表对不对由 filter_table 一项逐项比。
+const IMAGING = 'shaders/imaging.wgsl';
+const PIXEL_FILTER = 'path/src/pixel_filter.rs';
+/** 查表比对用的三张表：[种类（scene/film.h 的 FilterType：0 盒式、1 高斯、2 Blackman-Harris）, 宽度] */
+export const FILTER_TABLES = [[0, 2.0], [1, 1.5], [2, 1.5]];
+export const FILTER_TABLE_SIZE = 1024;
+const hostFn = (name, inputs, out, abs = 0, more = {}) => entry(name, inputs, out, abs, { file: PIXEL_FILTER, host: true, ...more });
+// 滤波函数只在建表用到的定义域上比：自变量 v 在 [0, 宽度/2]，宽度是建表时放大过的（高斯乘 3、Blackman-Harris 乘 2），
+// 界面上的宽度 0.01 到 10 像素，所以放大后取到 0.01 到 30
+const WIDTH = [0.01, 30];
+const filterIn = next => { const width = logU(next, WIDTH); return { v: width / 2 * next(), width }; };
+// Blackman-Harris 在 v = 宽度/2 处是四个 O(1) 的系数加减抵消到 6e-5，量级 1 上 4 个 ULP
+const BH_ABS = 4 * ULP1;
+// 建表：种类三选一，界面上的宽度 0.01 到 10 像素对数均匀。表里的数是 0.5·(1 ± y)，y 贴近 1 时相减抵消；y 由约一千项的累加和
+// 反查出来，两边滤波函数差的一个 ULP 会在累加里放大。表值的量级到 0.5 + 支撑半宽（高斯宽 10 时 15.5），abs 按这个量级给
+// 【实测】所需 abs 见测试输出，在这个 abs 的一半以内
+const TABLE_ABS = 64 * 16 * ULP1;
+// 查表：自变量取到 [0, 1] 外面一点，覆盖 saturate 与 t == 0 的那一支；表值到 2.75（高斯宽 1.5 的支撑半宽 2.25 加 0.5），
+// 插值 (1 − t)·d0 + t·d1 在过 0 处相减抵消，abs 给量级 4 上 4 个 ULP
+const READ_ABS = 4 * 4 * ULP1;
+const read = (name, k) => entry(`filter_table_read_${name}`, [['x', 'f32', [-0.1, 1.1]]], 1, READ_ABS, { file: IMAGING, wgsl: 'filter_table_read', filterTables: true, call: ([x]) => `filter_table_read(${x}, ${k * FILTER_TABLE_SIZE})` });
+// 夹取：贡献的三个分量正负都有、对数均匀取在 1e-3 到 1e3，各有 5% 是 0、+∞、−∞、非数（照 ensure_finite 清成 0）；bounce 取 −1 到 2
+// （相机射线上的发光是 −1）；两个上限对数均匀取在 1e-2 到 1e4，各有 20% 是 FLT_MAX（不夹）
+const SPECIAL = [0, Infinity, -Infinity, NaN];
+function clampIn(next) {
+  const comp = () => { const r = next(); return r < 0.2 ? SPECIAL[Math.floor(r / 0.05)] : (next() < 0.5 ? -1 : 1) * logU(next, [1e-3, 1e3]); };
+  const limit = () => (next() < 0.2 ? 3.4028234663852886e38 : logU(next, [1e-2, 1e4]));
+  return { L: [comp(), comp(), comp()], bounce: Math.floor(next() * 4) - 1, sample_clamp_direct: limit(), sample_clamp_indirect: limit() };
+}
+FUNCTIONS.push(
+  hostFn('filter_func_box', [['v', 'f32'], ['width', 'f32']], 1, 0, { gen: filterIn }),
+  hostFn('filter_func_gaussian', [['v', 'f32'], ['width', 'f32']], 1, 0, { gen: filterIn }),
+  hostFn('filter_func_blackman_harris', [['v', 'f32'], ['width', 'f32']], 1, BH_ABS, { gen: filterIn }),
+  // 建表，三种各一项。一组是一整张表（1024 个数），各取 1000 组：100 万组要写 4 GB
+  ...['box', 'gaussian', 'blackman_harris'].map((kind, type) => hostFn(`filter_table_${kind}`, [['type', 'f32'], ['width', 'f32']], FILTER_TABLE_SIZE, TABLE_ABS, {
+    wgsl: 'filter_table', ref: 'filter_table', n: 1000, gen: next => ({ type, width: logU(next, [0.01, 10]) }),
+  })),
+  read('box', 0),
+  read('gaussian', 1),
+  read('blackman_harris', 2),
+  entry('film_clamp_light', [['L', 'vec3f'], ['bounce', 'f32'], ['sample_clamp_direct', 'f32'], ['sample_clamp_indirect', 'f32']], 3, 0, {
+    file: IMAGING, gen: clampIn, call: ([L, b, d, i]) => `film_clamp_light(${L}, i32(${b}), ${d}, ${i})`,
+    branch: i => (Number.isFinite(i[0]) && Number.isFinite(i[1]) && Number.isFinite(i[2]) ? (i[3] > 0 ? '间接' : '直接') : '有非有限分量'),
+  }),
+);
+// 下面是原理化 BSDF 非金属那一半（电介质高光：GGX 加广义 Schlick，只有反射；漫反射；发光值；滤光泽）与它们用到的
+// 工具函数。闭包一层的输入范围同上面金属的理由：N 固定为 (0, 0, 1)、alpha 取 [0.1, 1]、随机数离开圆盘边缘、贴地出射不比。
+// 原理化 BSDF 给电介质高光的是 f90 = 1、exponent = −eta、reflection_tint = 1、transmission_tint = 0（kernel/svm/closure.h），
+// 这里 f0、f90、两个染色在 [0, 1] 里取，exponent 取 [−4, −1.01]（eta 到 4）；广义 Schlick 的一般那一支（exponent ≥ 0）
+// 与 ior < 1（含全反射）单独一项。
+const IOR = [1.01, 4, 'log'];
+const NEG_EXP = [-4, -1.01];
+/** η < 1 时贴着临界角：η² − (1 − cos²θi) 的绝对值小于 1e-2（双精度算）的组不比。输入的前两个是 cosθi、η */
+const NEAR_CRITICAL = (ref, test, i) => Math.abs(i[1] * i[1] - (1 - i[0] * i[0])) < 1e-2;
+const GS_IN = [['ior', 'f32', IOR], ['f0', 'vec3f', UNIT], ['f90', 'vec3f', UNIT], ['exponent', 'f32', NEG_EXP], ['reflection_tint', 'vec3f', UNIT], ['transmission_tint', 'vec3f', UNIT]];
+const GS_EVAL_IN = [['N', 'dir', NZ], ['wi', 'dir', HEMI], ['wo', 'dir', [-0.2, 1]], ['alpha', 'f32', ALPHA_CLOSURE], ...GS_IN];
+const GS_SAMPLE_IN = alpha => [['N', 'dir', NZ], ['Ng', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', alpha], ...GS_IN];
+FUNCTIONS.push(
+  // 偏振反射率。条件不好的两处在 float32 下 Cycles 原式本身就不准，照上面金属闭包那一批的做法收窄或跳过（理由【实测】见核对报告）：
+  //   - η 贴近 1：r_s = (cosθi − √(cos²θi + η² − 1))/(…) 的分子相消；η 取 [1.01, 4]（原理化 BSDF 的电介质高光 eta 只在
+  //     这一侧：ior ≥ 1 时 eta = ior 或 ior_from_F0 的值，都不小于 1，等于 1 时不建闭包）。
+  //   - η < 1 贴着临界角：η² − (1 − cos²θi) 贴近 0，开方把一个 ULP 放大成 cosθt 的大误差。η < 1 另登记一项，
+  //     那个差的绝对值小于 1e-2 的组不比。
+  // 反射率在 η 接近 1、正入射时很小：量级 1 的数相减之后平方，给 4 个 ULP
+  entry('fresnel_dielectric_polarized', [['cos_theta_i', 'f32', [-1, 1]], ['eta', 'f32', IOR]], 2, 4 * ULP1),
+  entry('fresnel_dielectric_polarized_inside', [['cos_theta_i', 'f32', [-1, 1]], ['eta', 'f32', [0.25, 0.99, 'log']]], 2, 4 * ULP1, { wgsl: 'fresnel_dielectric_polarized', ref: 'fresnel_dielectric_polarized', skip: NEAR_CRITICAL }),
+  entry('fresnel_dielectric_ccl', [['cos_theta_i', 'f32', [-1, 1]], ['eta', 'f32', IOR]], 1, 4 * ULP1),
+  entry('fresnel_dielectric_ccl_inside', [['cos_theta_i', 'f32', [-1, 1]], ['eta', 'f32', [0.25, 0.99, 'log']]], 1, 4 * ULP1, { wgsl: 'fresnel_dielectric_ccl', ref: 'fresnel_dielectric_ccl', skip: NEAR_CRITICAL }),
+  entry('fresnel_dielectric_Fss', [['eta', 'f32', [0.25, 4, 'log']]], 1, 4 * ULP1),
+  entry('ior_from_F0', [['f0', 'f32', [-0.1, 1.1]]], 1),
+  // (ior − 1) 在 ior 接近 1 时相消，取 [1.01, 4] 加 [0.25, 0.99] 两段的整个 [0.25, 4]
+  entry('F0_from_ior', [['ior', 'f32', [0.25, 4, 'log']]], 1, 4 * ULP1),
+  // 电介质高光的 (F0, eta)：Cycles 里是 svm_node_closure_bsdf 原理化分支内联的一段（kernel/svm/closure.h:426-436），标准答案程序
+  // 用 Cycles 的 F0_from_ior、ior_from_F0 照那一段的式子组装。ior 取 ior < 1 与 ior > 1 两段（各离开 1 一点，理由同 F0_from_ior），
+  // 高光等级四分之一取 0、四分之一取 0.5（走不走调整那一支的分界）、其余在 [0, 1] 里均匀取（含大于 0.5）。调用方先把等级夹到不小于 0
+  entry('principled_specular_f0_eta', [['ior', 'f32'], ['specular_ior_level', 'f32']], 2, 4 * ULP1, {
+    file: APACHE,
+    gen: next => {
+      const side = next() < 0.5, u = next(), k = next();
+      return { ior: side ? 0.25 * (0.99 / 0.25) ** u : 1.01 * (4 / 1.01) ** u, specular_ior_level: k < 0.25 ? 0 : k < 0.5 ? 0.5 : next() };
+    },
+    branch: i => `${i[0] < 1 ? 'ior<1' : 'ior>1'}/${i[1] === 0 ? '等级0' : i[1] === 0.5 ? '等级0.5' : i[1] > 0.5 ? '等级>0.5' : '等级<0.5'}`,
+  }),
+  entry('inverse_lerp', [['a', 'f32', [0, 0.5]], ['b', 'f32', [0.6, 1]], ['x', 'f32', [0, 1]]], 1, 4 * ULP1, { file: APACHE }),
+  // 除数取 0 与非 0 各半：分量是 0 的概率不够，用 gen 逐组生成
+  entry('safe_divide_color', [['a', 'vec3f'], ['b', 'vec3f']], 3, 0, { file: APACHE, gen: next => ({ a: [next(), next(), next()], b: [0, 1, 2].map(() => (next() < 0.5 ? 0 : 0.01 + next())) }) }),
+  // 1 − max(albedo / weight) 在比值接近 1 时相消：量级 1 上的 4 个 ULP，再乘 weight（不超过 1）
+  entry('closure_layering_weight', [['layer_albedo', 'vec3f'], ['weight', 'vec3f']], 3, 4 * ULP1, { gen: next => { const w = [0, 1, 2].map(() => (next() < 0.1 ? 0 : 0.01 + next())); return { weight: w, layer_albedo: w.map(x => x * next() * 1.2) }; } }),
+  entry('lookup_table_read_3D_ggx_gen_schlick_ior_s', [['x', 'f32', [-0.1, 1.1]], ['y', 'f32', [-0.1, 1.1]], ['z', 'f32', [-0.1, 1.1]]], 1, 0, { file: APACHE, wgsl: 'lookup_table_read_3D', call: ([x, y, z]) => `lookup_table_read_3D(${x}, ${y}, ${z}, table_ggx_gen_schlick_ior_s(), 16, 16, 16)` }),
+  entry('lookup_table_read_3D_ggx_gen_schlick_s', [['x', 'f32', [-0.1, 1.1]], ['y', 'f32', [-0.1, 1.1]], ['z', 'f32', [-0.1, 1.1]]], 1, 0, { file: APACHE, wgsl: 'lookup_table_read_3D', call: ([x, y, z]) => `lookup_table_read_3D(${x}, ${y}, ${z}, table_ggx_gen_schlick_s(), 16, 16, 16)` }),
+  // F = f0 + s·(f90 − f0) 与 1 − F：量级 1 的相减；s 来自 (F_real − F0)/(1 − F0)，正入射附近两个接近的数相减
+  entry('generalized_schlick_fresnel', [['ior', 'f32', IOR], ['cos_theta_i', 'f32', UNIT], ['f0', 'vec3f', UNIT], ['f90', 'vec3f', UNIT], ['exponent', 'f32', NEG_EXP], ['reflection_tint', 'vec3f', UNIT], ['transmission_tint', 'vec3f', UNIT]], { reflectance: 3, transmittance: 3 }, 4 * ULP1),
+  // 一般那一支：exponent ≥ 0，ior 取 [0.5, 2]（含 ior < 1 的全反射与用折射角的那一支）。cosθi 取到 0.999 为止：
+  // pow(1 − cos, e) 在显卡上是 exp2·log2，底数贴近 0 时相对误差大。ior < 1 贴着全反射（1 − (1 − cos²θi)/ior² 的绝对值
+  // 小于 1e-2）的组不比：开方把一个 ULP 放大成折射角余弦的大误差，再经 pow 放大 e 倍
+  entry('generalized_schlick_fresnel_regular', [['ior', 'f32', [0.5, 2, 'log']], ['cos_theta_i', 'f32', [0, 0.999]], ['f0', 'vec3f', UNIT], ['f90', 'vec3f', UNIT], ['exponent', 'f32', [0.5, 8]], ['reflection_tint', 'vec3f', UNIT], ['transmission_tint', 'vec3f', UNIT]], { reflectance: 3, transmittance: 3 }, 16 * ULP1, {
+    wgsl: 'generalized_schlick_fresnel', ref: 'generalized_schlick_fresnel', skip: (ref, test, i) => Math.abs(1 - (1 - i[1] * i[1]) / (i[0] * i[0])) < 1e-2,
+  }),
+  entry('microfacet_fresnel_generalized_schlick', [['cos_theta_i', 'f32', UNIT], ...GS_IN], 3, 4 * ULP1),
+  entry('bsdf_microfacet_estimate_albedo_generalized_schlick', [['N', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA], ...GS_IN], 3, 4 * ULP1, { call: a => `bsdf_microfacet_estimate_albedo_generalized_schlick(${a.join(', ')}, true, true)` }),
+  entry('bsdf_microfacet_estimate_albedo_f82_tint', [['N', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA], ['f0', 'vec3f', UNIT]], 3, 0, { call: a => `bsdf_microfacet_estimate_albedo_f82_tint(${a.join(', ')}, true)` }),
+  // darkening = (1 + Fms·missing)/energy_scale：Fss = f0 + s·(f90 − f0) 的相减同上
+  entry('bsdf_microfacet_setup_fresnel_generalized_schlick', [['N', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA], ...GS_IN], { f0: 3, energy_scale: 1, weight: 3 }, 4 * ULP1, { call: a => `bsdf_microfacet_setup_fresnel_generalized_schlick(${a.join(', ')}, true)` }),
+  entry('bsdf_microfacet_eval_ggx_generalized_schlick', GS_EVAL_IN, EVAL_OUT, 4 * ULP1),
+  entry('bsdf_microfacet_eval_ggx_generalized_schlick_singular', [['N', 'dir', NZ], ['wi', 'dir', HEMI], ['wo', 'dir', [-0.2, 1]], ['alpha', 'f32', ALPHA_SINGULAR], ...GS_IN], EVAL_OUT, 0, { wgsl: 'bsdf_microfacet_eval_ggx_generalized_schlick', ref: 'bsdf_microfacet_eval_ggx_generalized_schlick' }),
+  entry('bsdf_microfacet_ggx_eval_generalized_schlick', [...GS_EVAL_IN, ['energy_scale', 'f32', [1, 2]]], EVAL_OUT, 4 * ULP1),
+  entry('bsdf_microfacet_sample_ggx_generalized_schlick', [...GS_SAMPLE_IN(ALPHA_CLOSURE), ['rand', 'vec2f', RAND]], SAMPLE_OUT, SAMPLE_ABS, { skip: GRAZING }),
+  // 纯镜面：求值乘了 1e6，反射率里 s = (F_real − F0)/(1 − F0) 在正入射附近的相消（量级 1 上的几个 ULP）跟着放大 1e6 倍；
+  // abs 兜不住求值又不能放宽到方向上，所以 f0、f90 取 [0.01, 1]（反射率不低于 0.01 的量级），不取 0 附近
+  entry('bsdf_microfacet_sample_ggx_generalized_schlick_singular', [['N', 'dir', NZ], ['Ng', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA_SINGULAR], ['ior', 'f32', IOR], ['f0', 'vec3f', [0.01, 1]], ['f90', 'vec3f', [0.01, 1]], ['exponent', 'f32', NEG_EXP], ['reflection_tint', 'vec3f', [0.01, 1]], ['transmission_tint', 'vec3f', UNIT], ['rand', 'vec2f', UNIT]], SAMPLE_OUT, 4 * ULP1, { wgsl: 'bsdf_microfacet_sample_ggx_generalized_schlick', ref: 'bsdf_microfacet_sample_ggx_generalized_schlick' }),
+  entry('bsdf_microfacet_ggx_sample_generalized_schlick', [...GS_SAMPLE_IN(ALPHA_CLOSURE), ['energy_scale', 'f32', [1, 2]], ['rand', 'vec2f', RAND]], SAMPLE_OUT, SAMPLE_ABS, { skip: GRAZING }),
+  // 滤光泽：Cycles 的 bsdf_blur 分发到 bsdf_microfacet_blur（kernel/closure/bsdf.h），alpha 与模糊粗糙度取大
+  entry('bsdf_blur', [['alpha_x', 'f32', UNIT], ['alpha_y', 'f32', UNIT], ['roughness', 'f32', [0, 0.5]]], 2, 0, { wgsl: 'bsdf_microfacet_blur' }),
+  // 余弦半球采样：随机数离开圆盘边缘（理由同 microfacet_ggx_sample_vndf），方向分量经 make_orthonormals 与 to_global 相加抵消
+  entry('sample_cos_hemisphere', [['N', 'dir', [-1, 1]], ['rand', 'vec2f', RAND]], { wo: 3, pdf: 1 }, 32 * ULP1),
+  entry('bsdf_diffuse_eval', [['N', 'dir', [-1, 1]], ['wo', 'dir', [-1, 1]]], EVAL_OUT, 4 * ULP1),
+  entry('bsdf_diffuse_sample', [['N', 'dir', [-1, 1]], ['Ng', 'dir', [-1, 1]], ['rand', 'vec2f', RAND]], SAMPLE_OUT, 32 * ULP1, {
+    // 方向贴着几何法线的地平线（|Ng·wo| < 1e-5）时两边可能一边判在上面、一边判在下面
+    skip: (ref, test, i) => [ref, test].some(o => Math.abs(o[4] * i[3] + o[5] * i[4] + o[6] * i[5]) < 1e-5),
+  }),
+  entry('emissive_pdf', [['Ng', 'dir', [-1, 1]], ['wi', 'dir', [-1, 1]]], 1),
+  entry('emissive_simple_eval', [['Ng', 'dir', [-1, 1]], ['wi', 'dir', [-1, 1]]], 3),
+);
+
+// 三角形求交（util/math_intersect.h 的 ray_triangle_intersect，内核的软件求交用它）。输入不能只均匀取：要守的是公共边与
+// 顶点上不漏，均匀取的射线几乎碰不到边。三角形任意朝向、边长 1e-2 到 1e3；射线方向是单位向量。分两项：
+//   ray_triangle_intersect       逐组对 Cycles 比中没中与 u、v、t，只在单精度条件良好的区域（WELL_TRI）：最短的高不小于
+//                                0.3 倍最长边，方向与法线夹角的余弦不小于 0.3，起点离目标 0.1 到 10 倍边长，三角形离原点不超过
+//                                10 倍边长。出了这个区域，U、V、W 是大数相消再除以小数（放大约 κ/(cos·高²) 倍），一两个 ULP 的
+//                                舍入次序（显卡可能合成 FMA）就决定中没中与 u、v 的末几位，比的不是移植。
+//                                【实测】苹果显卡上放到高 0.05、余弦 0.05、起点 1e-2 倍边长时，t 差到相对 3.5e-4，u、v 差到 1.2e-4
+//   ray_triangle_intersect_pair  防水：不收窄（高 0.05、余弦 0.05、起点到 1e3 倍边长、离原点到 100 倍边长），只看公共边上
+//                                两个三角形有没有一个打中，与条件数无关（见那一项）
+// 目标点按四类取：
+//   uniform  重心坐标在 [-0.2, 1.2] 里（有中有不中）
+//   edge     在某条边上（双精度里正好在边上），再沿平面内垂直于边的方向挪开 0 或 ±1e-9 到 1e-3 倍边长
+//   vertex   在某个顶点上，再沿平面内任意方向挪开 0 或 1e-9 到 1e-3 倍边长
+//   tmax     uniform 的目标，tmax 取交点距离的 0.5 到 0.99 或 1.01 到 2 倍（有被截掉的）
+// 除 tmax 一类外 tmin = 0、tmax = 1e30。
+const TRI_KINDS = ['uniform', 'edge', 'vertex', 'tmax'];
+const WELL_TRI = { flat: 0.3, cos: 0.3, dist: [0.1, 10], far: 10 };
+const WIDE_TRI = { flat: 0.05, cos: 0.05, dist: [1e-2, 1e3], far: 100 };
+// 中没中可以两边不同的带宽（重心坐标，乘条件数 κ，见 triCond）。【实测】WELL_TRI 里两边不同的组 |最小重心坐标|/κ 最大
+// 5.4e-7（苹果显卡与英伟达显卡相同；100 万组里约 3.2% 的组两边不同，都在边界上），取约 4 倍
+const TRI_BAND = 4e-6;
+function triGeom(next, { flat, far }) {
+  const size = logU(next, [1e-2, 1e3]);
+  const center = mul([linU(next, [-1, 1]), linU(next, [-1, 1]), linU(next, [-1, 1])], size * logU(next, [1e-2, far]));
+  for (;;) {
+    const tri = [0, 1, 2].map(() => add(center, [linU(next, [-1, 1]), linU(next, [-1, 1]), linU(next, [-1, 1])], size));
+    const n = crs(add(tri[1], tri[0], -1), add(tri[2], tri[0], -1)), long = Math.max(...[0, 1, 2].map(k => Math.hypot(...add(tri[(k + 1) % 3], tri[k], -1))));
+    // 最短的高 = 2·面积/最长边
+    if (Math.hypot(...n) / long > flat * long) return { tri, n: mul(n, 1 / Math.hypot(...n)), size: long };
+  }
+}
+/** 从离 target dist 倍 size 处、与法线 n 夹角余弦不小于 cos 的一侧打向 target 的射线 */
+function rayAt(next, target, n, size, { cos, dist }) {
+  const [u, v] = rotation(next), w = crs(u, v);
+  let d = add(add(mul(u, linU(next, [-1, 1])), v, linU(next, [-1, 1])), w, linU(next, [-1, 1]));
+  d = mul(d, 1 / Math.hypot(...d));
+  // 法线分量不够就把它抬到 cos 以上
+  const c = dot3(d, n), side = c < 0 ? -1 : 1;
+  if (Math.abs(c) < cos) { d = add(d, n, side * (cos - Math.abs(c)) * 1.01); d = mul(d, 1 / Math.hypot(...d)); }
+  if (Math.abs(dot3(d, n)) < cos) d = mul(n, side);
+  const t = size * logU(next, dist);
+  return { ray_P: add(target, d, t), ray_D: mul(d, -1), t };
+}
+/** 挪开的距离（以边长为单位）：四分之一的组正好是 0 */
+const nudge = next => (next() < 0.25 ? 0 : logU(next, [1e-9, 1e-3]) * (next() < 0.5 ? -1 : 1));
+function triCase(next, kind) {
+  const { tri, n, size } = triGeom(next, WELL_TRI);
+  let target;
+  if (kind === 'edge') {
+    const k = Math.floor(next() * 3), a = tri[k], b = tri[(k + 1) % 3], e = add(b, a, -1), s = linU(next, [0.02, 0.98]);
+    const out = crs(e, n);
+    target = add(add(a, e, s), out, nudge(next) * size / Math.hypot(...out));
+  } else if (kind === 'vertex') {
+    const [p] = rotation(next), m = crs(n, crs(p, n)), len = Math.hypot(...m) || 1;
+    target = add(tri[Math.floor(next() * 3)], m, Math.abs(nudge(next)) * size / len);
+  } else {
+    const b1 = linU(next, [-0.2, 1.2]), b2 = linU(next, [-0.2, 1.2]);
+    target = add(add(tri[0], add(tri[1], tri[0], -1), b1), add(tri[2], tri[0], -1), b2);
+  }
+  const r = rayAt(next, target, n, size, WELL_TRI);
+  const tmax = kind === 'tmax' ? r.t * (next() < 0.5 ? linU(next, [0.5, 0.99]) : linU(next, [1.01, 2])) : 1e30;
+  return { ray_P: r.ray_P, ray_D: r.ray_D, ray_tmin: 0, ray_tmax: tmax, tri_a: tri[0], tri_b: tri[1], tri_c: tri[2] };
+}
+/** 双精度里射线与三角形所在平面的交点：重心坐标里最小的那个（负数在三角形外）与条件数 κ = max(最长边, 起点到交点、原点到交点
+ *  的距离) / 最长边。单精度下 U、V、W 的舍入误差约为 κ·ε 乘上 U+V+W 的量级，skip 用它判一组是不是贴在边界上 */
+function triCond(i) {
+  const P = at(i, 0), D = at(i, 3), A = at(i, 8), B = at(i, 11), C = at(i, 14);
+  const e1 = add(B, A, -1), e2 = add(C, A, -1), n = crs(e1, e2), t = dot3(add(A, P, -1), n) / dot3(D, n), X = add(P, D, t);
+  const nn = dot3(n, n), b1 = dot3(crs(add(X, A, -1), e2), n) / nn, b2 = dot3(crs(e1, add(X, A, -1)), n) / nn;
+  const size = Math.max(...[e1, e2, add(C, B, -1)].map(e => Math.hypot(...e)));
+  return { mb: Math.min(1 - b1 - b2, b1, b2), kappa: Math.max(size, Math.hypot(...add(X, P, -1)), Math.hypot(...X)) / size };
+}
+const TRI_IN = [['ray_P', 'vec3f'], ['ray_D', 'vec3f'], ['ray_tmin', 'f32'], ['ray_tmax', 'f32'], ['tri_a', 'vec3f'], ['tri_b', 'vec3f'], ['tri_c', 'vec3f']];
+FUNCTIONS.push(
+  // 中没中：边界上（|最小重心坐标| < TRI_BAND·κ）两边可能一边判中一边判不中：容差 FLT_EPSILON·|U+V+W| 的门槛两侧各差一两个
+  // ULP（标准答案一侧 SSE 与 NEON 的倒数是近似值，dot、cross 的舍入次序也可能与显卡不同），这些组不比；两边都判中时照常比
+  // u、v、t。u、v 是 U/(U+V+W)，贴边时 U 抵消到接近 0，abs 给在 u、v 上。【实测】u、v 的差最大 7.9e-6（苹果显卡；英伟达显卡 7.8e-6；
+  // 都在 κ 为 8 到 16 那一档），t 的相对差最大 2.8e-6（英伟达 2.5e-6）。比对外壳按 |差| − rel·|标准| 算的所需 abs：苹果 5.1e-6、
+  // 英伟达 7.8e-6；外壳要求它在 abs 的一半以内，abs 取 256 个 [1, 2) 的 ULP（3.1e-5）
+  entry('ray_triangle_intersect', TRI_IN, { hit: 1, u: 1, v: 1, t: 1 }, 256 * ULP1, {
+    file: APACHE,
+    gen: next => triCase(next, TRI_KINDS[Math.floor(next() * 4)]),
+    branch: i => { const { mb } = triCond(i); return i[7] < 1e29 ? 'tmax 截断' : Math.abs(mb) < 1e-5 ? '贴边或贴顶点' : mb < 0 ? '三角形外' : '三角形内'; },
+    skip: (ref, test, i) => { const { mb, kappa } = triCond(i); return ref[0] !== test[0] && Math.abs(mb) < TRI_BAND * kappa; },
+  }),
+  // 防水：两个三角形 (a, b, c) 与 (c, b, d) 共用边 b–c，射线打向这条公共边（双精度里正好在边上，或挪开不到 1e-9 倍边长）、
+  // 穿过曲面，WIDE_TRI 的范围（不收窄：公共边在两个三角形里算出来只差符号，合成 FMA 时也一样，与条件数无关）。
+  // 输出两个里有没有一个打中，标准答案与被测都必须是 1；上游的 Möller–Trumbore 在这里漏
+  entry('ray_triangle_intersect_pair', [...TRI_IN, ['tri_d', 'vec3f']], 1, 0, {
+    file: APACHE, wgsl: 'ray_triangle_intersect',
+    gen: next => {
+      for (;;) {
+        const { tri: [a, b, c], n, size } = triGeom(next, WIDE_TRI), e = add(c, b, -1), mid = add(b, e, 0.5);
+        // d：在 b–c 另一侧，可以折起来（与 a 不共面）
+        const d = add(add(mid, add(mid, a, -1), linU(next, [0.5, 2])), n, linU(next, [-0.5, 0.5]) * size);
+        const out = crs(e, n), target = add(add(b, e, linU(next, [0.02, 0.98])), out, (next() < 0.5 ? 0 : linU(next, [-1e-9, 1e-9])) * size / Math.hypot(...out));
+        const r = rayAt(next, target, n, size, WIDE_TRI);
+        // 射线要穿过曲面：两个三角形对射线朝同一面（折得太狠时射线擦过的是轮廓边，两个都不中才对）
+        const n2 = crs(add(b, c, -1), add(d, c, -1)), c2 = dot3(n2, r.ray_D) / Math.hypot(...n2);
+        if (dot3(n, r.ray_D) * c2 > 0 && Math.abs(c2) >= WIDE_TRI.cos) return { ray_P: r.ray_P, ray_D: r.ray_D, ray_tmin: 0, ray_tmax: 1e30, tri_a: a, tri_b: b, tri_c: c, tri_d: d };
+      }
+    },
+    call: a => `(ray_triangle_intersect(${a.slice(0, 7).join(', ')}).hit || ray_triangle_intersect(${a[0]}, ${a[1]}, ${a[2]}, ${a[3]}, ${a[6]}, ${a[5]}, ${a[7]}).hit)`,
   }),
 );

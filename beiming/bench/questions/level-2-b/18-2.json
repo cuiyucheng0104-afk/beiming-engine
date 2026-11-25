@@ -76,9 +76,9 @@
     "blockedBy": []
   },
   "calibration": {
-    "status": "uncalibrated",
-    "source": "05 第 6.3 节的初值，没有试跑过；参考读数的起点分辨率是 0.1 秒；比随机基线高 40 个百分点沿用同一节对拍点题的写法",
-    "noiseFloor": null,
-    "version": 0
+    "status": "calibrated",
+    "source": "B7 五步容差校准 v1（放宽档，2026-11-25）：经标准答案 4 遍噪声地板、参考自检与 3 份标准负对照实测定线，细则见 bench/calibration/records/18-2.json",
+    "noiseFloor": 0,
+    "version": 1
   }
 }

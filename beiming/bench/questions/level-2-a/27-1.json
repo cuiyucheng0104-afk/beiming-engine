@@ -5,7 +5,10 @@
   "title": "网格拍点剪辑",
   "brief": "做一条 17 秒、30 帧每秒、1080×1080 的角色短片，共 510 帧，配 150 BPM 的音乐（一拍 12 帧）。所有换镜头都落在 12 帧的整数倍上；镜头长度只用 1、2、4、8 拍，片尾不足一拍的 6 帧算最后一个镜头的收尾，不计拍数；第一个换镜头在第 8 拍（第 96 帧），从灰模切到彩色。整片响度 -14 LUFS，上下不超过 1；真峰值不高于 -1 dBTP。",
   "deliverable": {
-    "size": [1080, 1080],
+    "size": [
+      1080,
+      1080
+    ],
     "fps": "30/1",
     "frames": 510,
     "audio": "required"
@@ -29,7 +32,12 @@
       "args": {
         "gridFrames": 12,
         "firstCut": 96,
-        "shotBeats": [1, 2, 4, 8]
+        "shotBeats": [
+          1,
+          2,
+          4,
+          8
+        ]
       },
       "pass": "第一个换镜头在第 96 帧；检出的换镜头帧 100% 是 12 的整数倍；镜头长度只用 1、2、4、8 拍",
       "weight": 0.6
@@ -38,7 +46,10 @@
       "metric": "audio.loudness",
       "source": "film-audio",
       "args": {
-        "rangeLufs": [-15, -13],
+        "rangeLufs": [
+          -15,
+          -13
+        ],
         "maxTruePeakDbtp": -1
       },
       "pass": "整片响度在 -15 到 -13 LUFS 之间（两端都算），真峰值不高于 -1 dBTP",
@@ -65,9 +76,9 @@
     "blockedBy": []
   },
   "calibration": {
-    "status": "uncalibrated",
-    "source": "案例量测与考题设计调研第 6 节给的初值，还没试跑",
-    "noiseFloor": null,
-    "version": 0
+    "status": "calibrated",
+    "source": "B7 五步容差校准 v1（严档，2026-11-25）：经标准答案 4 遍噪声地板、参考自检与 3 份标准负对照实测定线，细则见 bench/calibration/records/27-1.json",
+    "noiseFloor": 0,
+    "version": 1
   }
 }

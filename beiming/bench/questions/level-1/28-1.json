@@ -84,9 +84,9 @@
     "blockedBy": []
   },
   "calibration": {
-    "status": "uncalibrated",
-    "source": "05 第 6.1 节的初值，没有试跑过",
-    "noiseFloor": null,
-    "version": 0
+    "status": "calibrated",
+    "source": "B7 五步容差校准 v1（严档，2026-11-25）：经标准答案 4 遍噪声地板、参考自检与 3 份标准负对照实测定线，细则见 bench/calibration/records/28-1.json",
+    "noiseFloor": 0,
+    "version": 1
   }
 }

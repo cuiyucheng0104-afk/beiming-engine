@@ -1,0 +1,72 @@
+{
+  "format": "film/3.0",
+  "id": "sol_28_1",
+  "seed": 281,
+  "title": "标准答案 28-1 环绕取景",
+  "exam": "28-1",
+  "output": {
+    "size": [1920, 824],
+    "fps": "24/1",
+    "frames": 288
+  },
+  "assets": {
+    "subject": "asset:mech-head-proxy@1"
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 288,
+      "source": "three",
+      "host": "page",
+      "mode": "cards-data",
+      "colorRef": "scene",
+      "seed": 281,
+      "cards": [
+        {
+          "as": "fit",
+          "use": "camera.fit@1",
+          "params": {
+            "view": "orbit",
+            "azimuthDeg": 0,
+            "elevationDeg": 10,
+            "margin": 0.7,
+            "fovYDeg": 35
+          }
+        },
+        {
+          "as": "orbit",
+          "use": "camera.orbit@1",
+          "params": {
+            "target": [0, 0, 0],
+            "elevationDeg": 10,
+            "startAzimuthDeg": 0,
+            "turns": 1,
+            "frames": 288,
+            "fovYDeg": 35
+          }
+        }
+      ],
+      "roles": {
+        "hero": "subject"
+      }
+    }
+  ],
+  "style": {
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "audio": {
+    "mode": "none"
+  },
+  "predicates": {
+    "base": ["floor@1"],
+    "extra": []
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709",
+    "card": "deliver.encode@1"
+  }
+}

@@ -19,13 +19,15 @@ pub mod scene;
 pub mod script;
 pub mod skin;
 pub mod cycles_hash;
+// 北冥：照 Cycles 移植的像素滤波建表
+pub mod pixel_filter;
 pub mod sample;
 pub mod sky;
 pub mod texpack;
 pub mod pipeline_cache;
 pub mod world;
 
-use glam::{Vec3, Vec3A};
+use glam::Vec3;
 use std::path::PathBuf;
 use web_time::Instant;
 
@@ -87,7 +89,7 @@ pub fn emitter_tri(k: usize, tri_verts: &[[f32; 4]], a: &scene::GpuTriAttr, mate
         return None;
     }
     let v = |j: usize| Vec3::new(tri_verts[k * 3 + j][0], tri_verts[k * 3 + j][1], tri_verts[k * 3 + j][2]);
-    let (e1, e2) = (v(1), v(2));
+    let (e1, e2) = (v(1) - v(0), v(2) - v(0));
     let nominal = a.x[2] > 0.0;
     let area = if nominal { a.x[2] } else { 0.5 * e1.cross(e2).length() };
     if !(area * lum > 0.0) {
@@ -142,16 +144,16 @@ pub struct GpuEmitterTri {
 }
 
 impl GpuEmitterTri {
-    /// `e`'s, from its triangle's rows (v0, e1, e2: `Prepared::tri_verts`), with path code `code`.
+    /// `e`'s, from its triangle's rows (its three vertices: `Prepared::tri_verts`), with path code `code`.
     pub fn new(e: &EmitterTri, rows: &[[f32; 4]], code: u32) -> GpuEmitterTri {
-        let v = |r: usize| [rows[r][0], rows[r][1], rows[r][2]];
-        GpuEmitterTri { v0: v(0), tri: e.tri, e1: v(1), inst: e.inst, e2: v(2), code: code | if e.moves { EMITTER_MOVES } else { 0 } }
+        let v = |r: usize| glam::Vec3A::new(rows[r][0], rows[r][1], rows[r][2]);
+        GpuEmitterTri::of(e, [v(0), v(1), v(2)], code)
     }
 
     /// As `new`, from its vertices.
     pub fn of(e: &EmitterTri, [a, b, c]: [glam::Vec3A; 3], code: u32) -> GpuEmitterTri {
         let (e1, e2) = (b - a, c - a);
-        GpuEmitterTri::new(e, &[[a.x, a.y, a.z, 0.0], [e1.x, e1.y, e1.z, 0.0], [e2.x, e2.y, e2.z, 0.0]], code)
+        GpuEmitterTri { v0: a.to_array(), tri: e.tri, e1: e1.to_array(), inst: e.inst, e2: e2.to_array(), code: code | if e.moves { EMITTER_MOVES } else { 0 } }
     }
 
     /// Its vertices.
@@ -474,10 +476,9 @@ pub fn prepare_as(hwrt: bool, sc: &mut scene::Scene, timings: &mut Vec<(String, 
     let mut attrs = Vec::with_capacity(sc.attrs.len());
     for &i in &bvh.order {
         let [a, b, c] = sc.tris[i as usize];
-        let (e1, e2): (Vec3A, Vec3A) = (b - a, c - a);
         tri_verts.push([a.x, a.y, a.z, f32::from_bits(sc.tri_flags[i as usize])]);
-        tri_verts.push([e1.x, e1.y, e1.z, 0.0]);
-        tri_verts.push([e2.x, e2.y, e2.z, 0.0]);
+        tri_verts.push([b.x, b.y, b.z, 0.0]);
+        tri_verts.push([c.x, c.y, c.z, 0.0]);
         attrs.push(sc.attrs[i as usize]);
     }
     // Instanced meshes (hardware RT): the model-space pool after every traversal group, one BLAS per mesh.
@@ -486,10 +487,9 @@ pub fn prepare_as(hwrt: bool, sc: &mut scene::Scene, timings: &mut Vec<(String, 
     let deforming = scene::deforming_pool(&sc.meshes);
     for (k, (t, a)) in sc.pool_tris.iter().zip(&sc.pool_attrs).enumerate() {
         let [a0, b, c] = *t;
-        let (e1, e2): (Vec3A, Vec3A) = (b - a0, c - a0);
         tri_verts.push([a0.x, a0.y, a0.z, f32::from_bits(if k < deforming { scene::TRI_DYNAMIC } else { 0 })]);
-        tri_verts.push([e1.x, e1.y, e1.z, 0.0]);
-        tri_verts.push([e2.x, e2.y, e2.z, 0.0]);
+        tri_verts.push([b.x, b.y, b.z, 0.0]);
+        tri_verts.push([c.x, c.y, c.z, 0.0]);
         attrs.push(*a);
     }
     sc.gpu_instances = sc.instances.iter().map(|i| { let m = sc.meshes[i.mesh as usize]; i.gpu(pool_first as u32 + m.first, m.opaque) }).collect();
@@ -682,6 +682,8 @@ pub fn prepare_as(hwrt: bool, sc: &mut scene::Scene, timings: &mut Vec<(String, 
         film: gpu::KernelFilm::new(0),
         // (`gpu::Uploaded::place`, with the buffers.)
         table_first_ext: [[0; 4]; 2],
+        // （北冥：不查滤波表，像素内均匀抖动。要像素滤波的调用方换成 `KernelFilterTable::new`。）
+        filter_table: gpu::KernelFilterTable::default(),
     };
     let mut params = params;
     params.set_preset(&sc.preset.native, &cam.exposure);
@@ -936,6 +938,28 @@ pub fn glass_energy(mu: f64, alpha: f64, eta: f64, n: usize) -> f64 {
         }
     }
     sum / (n * n) as f64
+}
+
+/// 北冥：广义 Schlick 的一张表有几个数（16×16×16）。
+pub const GGX_GEN_SCHLICK_LEN: usize = 4096;
+
+/// 北冥：Cycles 的 table_ggx_gen_schlick_ior_s 与 table_ggx_gen_schlick_s 接在一起（各 `GGX_GEN_SCHLICK_LEN` 个），
+/// 从 ../shaders/ggx_gen_schlick.tables 读（`//` 开头的行是注释，其余是带 f 后缀、逗号分隔的数）。内核按 float 读
+/// （`heap::Table::GgxGenSchlickIorS`、`GgxGenSchlickS`；pathtrace.wgsl 的 `lookup_table_fetch`）。
+pub fn ggx_gen_schlick_tables() -> &'static [f32] {
+    static T: std::sync::OnceLock<Vec<f32>> = std::sync::OnceLock::new();
+    T.get_or_init(|| {
+        let v: Vec<f32> = include_str!("../../shaders/ggx_gen_schlick.tables")
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("//"))
+            .flat_map(|l| l.split(','))
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.trim_end_matches('f').parse::<f32>().expect("ggx_gen_schlick.tables: a number"))
+            .collect();
+        assert_eq!(v.len(), 2 * GGX_GEN_SCHLICK_LEN, "ggx_gen_schlick.tables");
+        v
+    })
 }
 
 /// `glass_energy` over the table's nodes, entering then leaving, four values a vec4 (`heap::Table::GlassEnergy`; once

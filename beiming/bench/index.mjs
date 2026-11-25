@@ -1,4 +1,4 @@
-// 考题、跑题器、看板与人工审片三页面（B1 / B8 / B9 / B11）统一导出入口
+// 考题、跑题器、看板、人工审片三页面与每日小卷/全卷调度（B1 / B8 / B9 / B11 / B13 / B14）统一导出入口
 export {
   formatMetricRef,
   normalizeQuestionDraft,
@@ -41,3 +41,12 @@ export {
   recordBlindBallot,
   unblindBlindSession,
 } from './wall.mjs';
+export {
+  SUITE_FORMAT,
+  DEFAULT_MINI_MAX_BUDGET_SHARE,
+  DEFAULT_T2_UNIT_TOKENS,
+  discoverSuiteQuestions,
+  planMiniExam,
+  planFullExam1,
+  runExamSuite,
+} from './suite.mjs';

@@ -1,0 +1,98 @@
+{
+  "format": "film/3.0",
+  "id": "sol_27_1",
+  "seed": 271,
+  "title": "标准答案 27-1 网格拍点剪辑",
+  "exam": "27-1",
+  "output": {
+    "size": [1080, 1080],
+    "fps": "30/1",
+    "frames": 510
+  },
+  "timeline": {
+    "bpm": 150,
+    "beatFrames": 12
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 96,
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 27101,
+      "cards": [
+        {
+          "as": "timeline",
+          "use": "time.timeline@1",
+          "params": {
+            "holdFrames": 1,
+            "beatFrames": 12
+          }
+        },
+        {
+          "as": "grid",
+          "use": "time.cut-grid@1",
+          "params": {
+            "origin": "film",
+            "gridFrames": 12,
+            "minShotFrames": 12,
+            "offsetFrames": 0,
+            "startFrame": 0,
+            "endFrame": 504,
+            "marksAre": "durations",
+            "marks": [96, 48, 48, 24, 24, 48, 24, 12, 12, 24, 48, 48, 48]
+          }
+        }
+      ]
+    },
+    { "id": "s02", "in": 96, "out": 144, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 27102 },
+    { "id": "s03", "in": 144, "out": 192, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 27103 },
+    { "id": "s04", "in": 192, "out": 216, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 27104 },
+    { "id": "s05", "in": 216, "out": 240, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 27105 },
+    { "id": "s06", "in": 240, "out": 288, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 27106 },
+    { "id": "s07", "in": 288, "out": 312, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 27107 },
+    { "id": "s08", "in": 312, "out": 324, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 27108 },
+    { "id": "s09", "in": 324, "out": 336, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 27109 },
+    { "id": "s10", "in": 336, "out": 360, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 27110 },
+    { "id": "s11", "in": 360, "out": 408, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 27111 },
+    { "id": "s12", "in": 408, "out": 456, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 27112 },
+    { "id": "s13", "in": 456, "out": 510, "source": "core", "host": "offscreen", "mode": "cards-data", "colorRef": "display", "seed": 27113 }
+  ],
+  "transitions": [
+    { "id": "to-s02", "at": 96, "type": "cut" },
+    { "id": "to-s03", "at": 144, "type": "cut" },
+    { "id": "to-s04", "at": 192, "type": "cut" },
+    { "id": "to-s05", "at": 216, "type": "cut" },
+    { "id": "to-s06", "at": 240, "type": "cut" },
+    { "id": "to-s07", "at": 288, "type": "cut" },
+    { "id": "to-s08", "at": 312, "type": "cut" },
+    { "id": "to-s09", "at": 324, "type": "cut" },
+    { "id": "to-s10", "at": 336, "type": "cut" },
+    { "id": "to-s11", "at": 360, "type": "cut" },
+    { "id": "to-s12", "at": 408, "type": "cut" },
+    { "id": "to-s13", "at": 456, "type": "cut" }
+  ],
+  "style": {
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "audio": {
+    "mode": "track",
+    "loudness": -14,
+    "truePeak": -1,
+    "card": "audio.master@1"
+  },
+  "predicates": {
+    "base": ["floor@1"],
+    "extra": []
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709",
+    "card": "deliver.encode@1"
+  }
+}

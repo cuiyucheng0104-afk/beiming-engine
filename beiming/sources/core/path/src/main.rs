@@ -12,9 +12,12 @@
 //!                         (北冥：读场景包、选一帧建成内核的场景，不渲；stdout 一行统计的 JSON，--record 写场景包核对记录)
 //!   core-render render-pack <pack dir> -o out.png [--frame k] [--spp N] [--width W --height H] [--hdr out.raw]
 //!                         [--signals PREFIX] [--no-denoise] [--stats out.json] [--preset name] [--override JSON]
-//!                         [--passes DIR]
+//!                         [--passes DIR] [--pixel-filter box|gaussian|blackman-harris] [--filter-width PX]
+//!                         [--clamp-direct X] [--clamp-indirect X] [--filter-glossy X]
 //!                         (北冥：读场景包、渲一帧。读不对时 stderr 一行 {"error":{code,at,message}}，退出码照错误码的前缀。
-//!                         --passes：照输出通道出层，每个通道一个文件，加通道声明 passes.json，见 write_passes)
+//!                         --passes：照输出通道出层，每个通道一个文件，加通道声明 passes.json，见 write_passes。
+//!                         像素滤波、夹取、滤光泽照 Cycles 的口径，见 CyclesFilm；上游的亮度夹取在这一路关掉)
+//!   core-render fncheck-host <函数标识>   # 北冥：宿主一侧照 Cycles 移植的函数，给函数级比对外壳逐组算（stdin 进 f32，stdout 出 f32）
 //!   core-render serve [--presets DIR]      # JSON-lines jobs on stdin, keeps the GPU device and game runtimes warm
 //!   core-render setup <bundle.js>          # setup cost in the embedded runtime
 //!   core-render info                       # print adapter info
@@ -50,6 +53,30 @@ struct Job {
     passes: Option<PathBuf>,
     /// 北冥：背景对相机不可见（场景包的 world.visibleToCamera 是 false）：相机射线没打到表面的样本不透明度与颜色记 0。
     transparent: bool,
+    /// 北冥：照 Cycles 口径的成像参数（只有 render-pack 给）。给了就关掉上游的亮度夹取（`Params::misc[0]`）。
+    cycles_film: Option<CyclesFilm>,
+}
+
+/// 北冥：render-pack 的像素滤波、夹取与滤光泽，照 Cycles 宿主一侧写进内核的口径（scene/film.cpp、scene/integrator.cpp:
+/// 269、311-315）：滤波表照种类与宽度建（盒式宽 1 不查表）；两个夹取上限是用户值乘 3、滤光泽是用户值的倒数，用户给 0 时
+/// 这一格写 0（不夹、不滤；Cycles 写 FLT_MAX，内核在 0 上做同样的事）。参数的范围照 Blender 界面的（intern/cycles/blender/
+/// addon/properties.py）：滤波宽度 0.01 到 10 像素，两个夹取 0 到 1e8，滤光泽 0 到 10。
+struct CyclesFilm {
+    filter_table: gpu::KernelFilterTable,
+    sample_clamp_direct: f32,
+    sample_clamp_indirect: f32,
+    filter_glossy: f32,
+}
+
+impl CyclesFilm {
+    fn write(&self, p: &mut gpu::Params) {
+        // 上游的亮度夹取关掉：物理参考是不夹的，夹取只认上面两格
+        p.misc[0] = f32::MAX;
+        p.integrator.sample_clamp_direct = self.sample_clamp_direct;
+        p.integrator.sample_clamp_indirect = self.sample_clamp_indirect;
+        p.integrator.filter_glossy = self.filter_glossy;
+        p.filter_table = self.filter_table;
+    }
 }
 
 /// The game state to render: a bundle's scene for a room, at its initial state or a room's committed state.
@@ -180,6 +207,7 @@ fn main() -> Result<()> {
                 signals: flag("--signals").map(PathBuf::from),
                 passes: None,
                 transparent: false,
+                cycles_film: None,
             };
             let stats = render(&g, &job, &presets, init_ms, &mut Hosts::default())?;
             println!("{}", serde_json::to_string(&stats)?);
@@ -267,6 +295,7 @@ fn main() -> Result<()> {
                         signals: v["signals"].as_str().map(PathBuf::from),
                         passes: None,
                         transparent: false,
+                        cycles_film: None,
                     };
                     // (A `live` job asks for the real-time renderer, which this build does not have.)
                     match v["live"].as_u64() {
@@ -284,11 +313,46 @@ fn main() -> Result<()> {
                 }
             }
         }
+        "fncheck-host" => fncheck_host(args.get(2).map(String::as_str).unwrap_or(""))?,
         _ => {
-            eprintln!("usage: core-render render <bundle.js> -o out.png [--assets DIR] [--state f.json] [--camera JSON] [--spp N] | pack-info <pack dir> | render-pack <pack dir> -o out.png | serve | setup | info");
+            eprintln!("usage: core-render render <bundle.js> -o out.png [--assets DIR] [--state f.json] [--camera JSON] [--spp N] | pack-info <pack dir> | render-pack <pack dir> -o out.png | serve | setup | info | fncheck-host <id>");
             std::process::exit(2);
         }
     }
+    Ok(())
+}
+
+/// 北冥：`fncheck-host <函数标识>`：宿主一侧照 Cycles 移植的函数（`pixel_filter`），协议同函数级比对外壳的标准答案程序
+/// （../../fncheck/cycles/ref.cpp）：stdin 是小端 f32 流，每组 n_in 个；stdout 每组 n_out 个。标识不认识退出 1，最后一组不完整退出 2。
+fn fncheck_host(id: &str) -> Result<()> {
+    use beiming_core_path::pixel_filter as pf;
+    type F = fn(&[f32], &mut [f32]);
+    let (n_in, n_out, f): (usize, usize, F) = match id {
+        "filter_func_box" => (2, 1, |i, o| o[0] = pf::filter_func_box(i[0], i[1])),
+        "filter_func_gaussian" => (2, 1, |i, o| o[0] = pf::filter_func_gaussian(i[0], i[1])),
+        "filter_func_blackman_harris" => (2, 1, |i, o| o[0] = pf::filter_func_blackman_harris(i[0], i[1])),
+        // 输入：种类（scene/film.h 的 FilterType 的数值）、宽度
+        "filter_table" => (2, pf::FILTER_TABLE_SIZE, |i, o| {
+            let kind = [pf::FilterType::Box, pf::FilterType::Gaussian, pf::FilterType::BlackmanHarris][i[0] as usize];
+            o.copy_from_slice(&pf::filter_table(kind, i[1]));
+        }),
+        _ => {
+            eprintln!("unknown function id: {id}");
+            std::process::exit(1);
+        }
+    };
+    let mut input = vec![];
+    std::io::Read::read_to_end(&mut std::io::stdin().lock(), &mut input)?;
+    if input.len() % (4 * n_in) != 0 {
+        eprintln!("truncated input: {} bytes is not a whole number of {n_in}-float groups", input.len());
+        std::process::exit(2);
+    }
+    let floats: Vec<f32> = input.chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect();
+    let mut out = vec![0.0f32; floats.len() / n_in * n_out];
+    for (i, o) in floats.chunks_exact(n_in).zip(out.chunks_exact_mut(n_out)) {
+        f(i, o);
+    }
+    std::io::Write::write_all(&mut std::io::stdout().lock(), &out.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>())?;
     Ok(())
 }
 
@@ -304,6 +368,27 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
         return Err(usage("--width", "画面的宽和高都要大于 0".into()));
     }
     let overrides: Option<serde_json::Value> = flag("--override").map(|s| serde_json::from_str(&s)).transpose()?;
+    // 北冥：像素滤波、夹取、滤光泽（CyclesFilm）。不给就是盒式宽 1、不夹、不滤
+    let real = |name: &str, lo: f32, hi: f32, default: f32| -> Result<f32> {
+        let Some(s) = flag(name) else { return Ok(default) };
+        match s.parse::<f32>() {
+            Ok(v) if v >= lo && v <= hi => Ok(v),
+            _ => Err(usage(name, format!("{s:?} 不是 [{lo}, {hi}] 里的数"))),
+        }
+    };
+    let kind = match flag("--pixel-filter") {
+        None => beiming_core_path::pixel_filter::FilterType::Box,
+        Some(s) => beiming_core_path::pixel_filter::FilterType::parse(&s).ok_or_else(|| usage("--pixel-filter", format!("{s:?} 不是 box、gaussian、blackman-harris")))?,
+    };
+    let width = real("--filter-width", 0.01, 10.0, 1.0)?;
+    let times3 = |v: f32| if v == 0.0 { 0.0 } else { v * 3.0 };
+    let glossy = real("--filter-glossy", 0.0, 10.0, 0.0)?;
+    let film = CyclesFilm {
+        filter_table: gpu::KernelFilterTable::new(kind, width),
+        sample_clamp_direct: times3(real("--clamp-direct", 0.0, 1e8, 0.0)?),
+        sample_clamp_indirect: times3(real("--clamp-indirect", 0.0, 1e8, 0.0)?),
+        filter_glossy: if glossy == 0.0 { 0.0 } else { 1.0 / glossy },
+    };
     let t_total = Instant::now();
     let p = pack::load(&dir)?;
     if cmd == "pack-info" {
@@ -336,6 +421,7 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
         signals: flag("--signals").map(PathBuf::from),
         passes: flag("--passes").map(PathBuf::from),
         transparent: !p.world_visible,
+        cycles_film: Some(film),
     };
     let mut stats = finish(&g, b.scene, &job, init_ms, timings, t_total)?;
     stats["pack"] = serde_json::json!({ "id": p.id, "frame": frame, "frames": p.count });
@@ -460,6 +546,9 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
         params.motion[1] = 1.0;
     }
     params.integrator.background_transparent = job.transparent as u32;
+    if let Some(f) = &job.cycles_film {
+        f.write(&mut params);
+    }
     let frame = g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, beiming_core_path::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, spp, job.passes.is_some(), &mut timings)?;
     let passes = match &job.passes {
         Some(dir) => Some(write_passes(dir, &frame, &params)?),

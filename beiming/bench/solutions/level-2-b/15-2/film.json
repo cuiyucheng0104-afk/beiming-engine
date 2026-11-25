@@ -1,0 +1,63 @@
+{
+  "format": "film/3.0",
+  "id": "sol_15_2",
+  "seed": 152,
+  "title": "标准答案 15-2 细密画风格的锁死机位",
+  "exam": "15-2",
+  "output": {
+    "size": [1080, 608],
+    "fps": "30/1",
+    "frames": 300
+  },
+  "assets": {
+    "scene": "asset:studio-balls@1"
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 300,
+      "source": "three",
+      "host": "page",
+      "mode": "cards-data",
+      "colorRef": "scene",
+      "seed": 152,
+      "cards": [
+        {
+          "as": "cam",
+          "use": "camera.drift@1",
+          "params": {
+            "mode": "locked",
+            "pos": [0, 1.2, 4],
+            "yawDeg": 0,
+            "pitchDeg": -8,
+            "pan": [0, 0],
+            "pushMeters": 0,
+            "zoom": 1,
+            "fovYDeg": 38
+          }
+        }
+      ],
+      "roles": {
+        "hero": "scene"
+      }
+    }
+  ],
+  "style": {
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "audio": {
+    "mode": "none"
+  },
+  "predicates": {
+    "base": ["floor@1"],
+    "extra": []
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709",
+    "card": "deliver.encode@1"
+  }
+}
