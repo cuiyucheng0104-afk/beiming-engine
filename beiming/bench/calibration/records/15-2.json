@@ -1,0 +1,316 @@
+{
+  "format": "bench-calibration/0.1",
+  "questionId": "15-2",
+  "slug": "15-2",
+  "group": "level-2-b",
+  "version": 1,
+  "status": "calibrated",
+  "tier": "relaxed",
+  "tierLabel": "放宽档",
+  "tierRationale": "参考为平台重压版，机位锁死像素估测口径按放宽档管理并配逐帧矩阵硬约束",
+  "calibratedOn": "2026-11-25",
+  "noiseFloor": 0,
+  "calibrationField": {
+    "status": "calibrated",
+    "source": "B7 五步容差校准 v1（放宽档，2026-11-25）：经标准答案 4 遍噪声地板、参考自检与 3 份标准负对照实测定线，细则见 bench/calibration/records/15-2.json",
+    "noiseFloor": 0,
+    "version": 1
+  },
+  "step1NoiseFloor": {
+    "measurementCount": 4,
+    "allFullScore": true,
+    "repeatMeasureDelta": 0,
+    "repeatRenderDelta": 0,
+    "noiseFloor": 0,
+    "repeatMeasureByMetric": {
+      "meta.camera-static.frames": 0,
+      "motion.zoom-pan.pairs[0].scale": 0,
+      "motion.zoom-pan.pairs[0].dx": 0,
+      "motion.zoom-pan.pairs[0].dy": 0,
+      "motion.zoom-pan.pairs[0].error": 0,
+      "motion.zoom-pan.pairs[0].stillError": 0,
+      "motion.zoom-pan.pairs[1].scale": 0,
+      "motion.zoom-pan.pairs[1].dx": 0,
+      "motion.zoom-pan.pairs[1].dy": 0,
+      "motion.zoom-pan.pairs[1].error": 0,
+      "motion.zoom-pan.pairs[1].stillError": 0
+    },
+    "repeatRenderByMetric": {
+      "meta.camera-static.frames": 0,
+      "motion.zoom-pan.pairs[0].scale": 0,
+      "motion.zoom-pan.pairs[0].dx": 0,
+      "motion.zoom-pan.pairs[0].dy": 0,
+      "motion.zoom-pan.pairs[0].error": 0,
+      "motion.zoom-pan.pairs[0].stillError": 0,
+      "motion.zoom-pan.pairs[1].scale": 0,
+      "motion.zoom-pan.pairs[1].dx": 0,
+      "motion.zoom-pan.pairs[1].dy": 0,
+      "motion.zoom-pan.pairs[1].error": 0,
+      "motion.zoom-pan.pairs[1].stillError": 0
+    },
+    "runScores": [
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "step2ReferenceCheck": {
+    "solution": {
+      "pass": true,
+      "score": 1,
+      "basePass": true,
+      "cardsUsed": [
+        "camera.drift",
+        "deliver.encode"
+      ]
+    },
+    "positiveBaseline": {
+      "pass": true,
+      "score": 1
+    },
+    "fixtures": [
+      {
+        "ref": "bench/refs/level-2-b/15-2.json",
+        "role": "positive-reference",
+        "expectedOutcome": "pass",
+        "actualPass": true,
+        "actualScore": 1,
+        "ok": true
+      },
+      {
+        "ref": "bench/refs/level-2-b/15-2.json#15-2-drifting-1",
+        "role": "reference-negative",
+        "expectedOutcome": "fail",
+        "actualPass": false,
+        "actualScore": 0.5,
+        "ok": true
+      },
+      {
+        "ref": "bench/refs/level-2-b/15-2.json#15-2-drifting-2",
+        "role": "reference-negative",
+        "expectedOutcome": "fail",
+        "actualPass": false,
+        "actualScore": 0.5,
+        "ok": true
+      },
+      {
+        "ref": "bench/refs/level-2-b/15-2.json#15-2-drifting-3",
+        "role": "reference-negative",
+        "expectedOutcome": "fail",
+        "actualPass": false,
+        "actualScore": 0.5,
+        "ok": true
+      },
+      {
+        "ref": "bench/refs/level-2-b/15-2.json#15-2-drifting-4",
+        "role": "reference-negative",
+        "expectedOutcome": "fail",
+        "actualPass": false,
+        "actualScore": 0.5,
+        "ok": true
+      },
+      {
+        "ref": "bench/refs/level-2-b/15-2.json#15-2-drifting-5",
+        "role": "reference-negative",
+        "expectedOutcome": "fail",
+        "actualPass": false,
+        "actualScore": 0.5,
+        "ok": true
+      }
+    ],
+    "allOk": true
+  },
+  "step3NegativeControls": {
+    "total": 3,
+    "rejected": 3,
+    "allRejectedAsDeclared": true,
+    "controls": [
+      {
+        "id": "15-2-disable-card",
+        "kind": "disable-card",
+        "pass": false,
+        "score": 0,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0,
+          1
+        ],
+        "expectedFailedIndices": [
+          0,
+          1
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "meta.camera-static",
+            "pass": false,
+            "frames": 300,
+            "changedAt": 1
+          },
+          {
+            "index": 1,
+            "metric": "motion.zoom-pan",
+            "pass": false,
+            "pairCount": 2,
+            "maxScaleDev": 0.025,
+            "maxPanPx": 5.3852,
+            "maxErrorGap": 17.895116
+          }
+        ]
+      },
+      {
+        "id": "15-2-shift-2f",
+        "kind": "shift-2f",
+        "pass": false,
+        "score": 0,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0,
+          1
+        ],
+        "expectedFailedIndices": [
+          0,
+          1
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "meta.camera-static",
+            "pass": false,
+            "frames": 300,
+            "changedAt": 2
+          },
+          {
+            "index": 1,
+            "metric": "motion.zoom-pan",
+            "pass": false,
+            "pairCount": 2,
+            "maxScaleDev": 0,
+            "maxPanPx": 2,
+            "maxErrorGap": 9.60074
+          }
+        ]
+      },
+      {
+        "id": "15-2-random-beats",
+        "kind": "random-beats",
+        "pass": false,
+        "score": 0,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0,
+          1
+        ],
+        "expectedFailedIndices": [
+          0,
+          1
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "meta.camera-static",
+            "pass": false,
+            "frames": 300,
+            "changedAt": 108
+          },
+          {
+            "index": 1,
+            "metric": "motion.zoom-pan",
+            "pass": false,
+            "pairCount": 2,
+            "maxScaleDev": 0,
+            "maxPanPx": 3.6056,
+            "maxErrorGap": 16.041244
+          }
+        ]
+      }
+    ]
+  },
+  "step4Thresholds": {
+    "allSeparated": true,
+    "noiseFloorSafe": true,
+    "positiveSampleCount": 3,
+    "negativeSampleCount": 8,
+    "items": [
+      {
+        "index": 0,
+        "metric": "meta.camera-static",
+        "weight": 0.5,
+        "adoptedArgs": {
+          "frames": 300
+        },
+        "positiveCount": 3,
+        "positivePassCount": 3,
+        "negativeTriggeredCount": 3,
+        "positiveWorst": {
+          "sample": "solution:15-2",
+          "pass": true,
+          "frames": 300,
+          "changedAt": null
+        },
+        "negativeBest": {
+          "sample": "15-2-disable-card",
+          "pass": false,
+          "frames": 300,
+          "changedAt": 1
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 3/3 全过，3 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      },
+      {
+        "index": 1,
+        "metric": "motion.zoom-pan",
+        "weight": 0.5,
+        "adoptedArgs": {
+          "pairs": [
+            [
+              0,
+              150
+            ],
+            [
+              0,
+              299
+            ]
+          ],
+          "scale": 1,
+          "maxPanPx": 0,
+          "maxErrorGap": 0,
+          "maxPan": 8
+        },
+        "positiveCount": 3,
+        "positivePassCount": 3,
+        "negativeTriggeredCount": 8,
+        "positiveWorst": {
+          "sample": "solution:15-2",
+          "pass": true,
+          "pairCount": 2,
+          "maxScaleDev": 0,
+          "maxPanPx": 0,
+          "maxErrorGap": 0
+        },
+        "negativeBest": {
+          "sample": "15-2-drifting-5",
+          "pass": false,
+          "pairCount": 2,
+          "maxScaleDev": 0.02,
+          "maxPanPx": 2,
+          "maxErrorGap": 1.32
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 3/3 全过，8 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      }
+    ]
+  },
+  "step5TierAndRecord": {
+    "tier": "relaxed",
+    "tierLabel": "放宽档",
+    "version": 1,
+    "status": "calibrated",
+    "calibratedOn": "2026-11-25",
+    "recordPath": "bench/calibration/records/15-2.json",
+    "questionPath": "bench/questions/level-2-b/15-2.json"
+  }
+}

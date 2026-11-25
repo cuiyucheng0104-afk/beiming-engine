@@ -60,7 +60,9 @@ test('B2-1 一级 4 道考题文件存在且原文与对象均通过 B1 validate
     assert.deepEqual(pub.deliverable, deliverable);
     assert.deepEqual(pub.needs, needs);
     assert.equal(pub.scoring.reduce((sum, item) => sum + item.weight, 0), 1, `${name} 权重和不是 1`);
-    assert.equal(pub.calibration.status, 'uncalibrated');
+    assert.equal(pub.calibration.status, 'calibrated');
+    assert.equal(pub.calibration.version, 1);
+    assert.ok(typeof pub.calibration.noiseFloor === 'number' && Number.isFinite(pub.calibration.noiseFloor) && pub.calibration.noiseFloor >= 0);
     for (const text of pub.basePredicates) assert.ok(registered(text.match(/^[A-Za-z_.]+/)[0]), `${name} 的 ${text} 没登记`);
     // 参考都指向仓库里脱敏的读数夹具（相对 beiming/）
     assert.ok(pub.refs.length > 0);

@@ -1,0 +1,321 @@
+{
+  "format": "bench-calibration/0.1",
+  "questionId": "28-1",
+  "slug": "28-1",
+  "group": "level-1",
+  "version": 1,
+  "status": "calibrated",
+  "tier": "strict",
+  "tierLabel": "严档",
+  "tierRationale": "严格交付基线（全帧包围盒留白与首尾闭环），按严档定线",
+  "calibratedOn": "2026-11-25",
+  "noiseFloor": 0,
+  "calibrationField": {
+    "status": "calibrated",
+    "source": "B7 五步容差校准 v1（严档，2026-11-25）：经标准答案 4 遍噪声地板、参考自检与 3 份标准负对照实测定线，细则见 bench/calibration/records/28-1.json",
+    "noiseFloor": 0,
+    "version": 1
+  },
+  "step1NoiseFloor": {
+    "measurementCount": 4,
+    "allFullScore": true,
+    "repeatMeasureDelta": 0,
+    "repeatRenderDelta": 0,
+    "noiseFloor": 0,
+    "repeatMeasureByMetric": {
+      "meta.bbox-limits.frames": 0,
+      "meta.bbox-limits.maxW": 0,
+      "meta.bbox-limits.minH": 0,
+      "meta.bbox-limits.maxH": 0,
+      "meta.bbox-limits.minMarginLr": 0,
+      "meta.bbox-limits.minMarginTb": 0,
+      "loop.closure-psnr.closurePsnr": 0,
+      "loop.closure-psnr.adjacentPsnr": 0,
+      "pixel.bbox.maxDiffPx": 0
+    },
+    "repeatRenderByMetric": {
+      "meta.bbox-limits.frames": 0,
+      "meta.bbox-limits.maxW": 0,
+      "meta.bbox-limits.minH": 0,
+      "meta.bbox-limits.maxH": 0,
+      "meta.bbox-limits.minMarginLr": 0,
+      "meta.bbox-limits.minMarginTb": 0,
+      "loop.closure-psnr.closurePsnr": 0,
+      "loop.closure-psnr.adjacentPsnr": 0,
+      "pixel.bbox.maxDiffPx": 0
+    },
+    "runScores": [
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "step2ReferenceCheck": {
+    "solution": {
+      "pass": true,
+      "score": 1,
+      "basePass": true,
+      "cardsUsed": [
+        "camera.fit",
+        "camera.orbit",
+        "deliver.encode"
+      ]
+    },
+    "positiveBaseline": {
+      "pass": true,
+      "score": 1
+    },
+    "fixtures": [
+      {
+        "ref": "bench/refs/level-1/28-1-negative.json",
+        "role": "original-negative",
+        "expectedOutcome": "fail",
+        "actualPass": false,
+        "actualScoringPass": false,
+        "actualBasePass": false,
+        "actualScore": 0,
+        "ok": true
+      }
+    ],
+    "allOk": true
+  },
+  "step3NegativeControls": {
+    "total": 3,
+    "rejected": 3,
+    "allRejectedAsDeclared": true,
+    "controls": [
+      {
+        "id": "28-1-disable-card",
+        "kind": "disable-card",
+        "pass": false,
+        "score": 0.2,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0,
+          1
+        ],
+        "expectedFailedIndices": [
+          0,
+          1
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "meta.bbox-limits",
+            "pass": false,
+            "frames": 288,
+            "maxW": 0.3021,
+            "maxH": 0.8738,
+            "minMarginLr": 0.3125,
+            "minMarginTb": 0.0631
+          },
+          {
+            "index": 1,
+            "metric": "loop.closure-psnr",
+            "pass": false,
+            "closurePsnr": 18.0395,
+            "adjacentPsnr": 27.0848,
+            "closureMinusAdjacentDb": -9.0453
+          },
+          {
+            "index": 2,
+            "metric": "pixel.bbox",
+            "pass": true,
+            "maxDiffPx": 0
+          }
+        ]
+      },
+      {
+        "id": "28-1-shift-2f",
+        "kind": "shift-2f",
+        "pass": false,
+        "score": 0.8,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          2
+        ],
+        "expectedFailedIndices": [
+          2
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "meta.bbox-limits",
+            "pass": true,
+            "frames": 288,
+            "maxW": 0.3021,
+            "maxH": 0.6796,
+            "minMarginLr": 0.3125,
+            "minMarginTb": 0.1602
+          },
+          {
+            "index": 1,
+            "metric": "loop.closure-psnr",
+            "pass": true,
+            "closurePsnr": 26.5471,
+            "adjacentPsnr": 26.5471,
+            "closureMinusAdjacentDb": 0
+          },
+          {
+            "index": 2,
+            "metric": "pixel.bbox",
+            "pass": false,
+            "maxDiffPx": 14
+          }
+        ]
+      },
+      {
+        "id": "28-1-random-beats",
+        "kind": "random-beats",
+        "pass": false,
+        "score": 0.2,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0,
+          1
+        ],
+        "expectedFailedIndices": [
+          0,
+          1
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "meta.bbox-limits",
+            "pass": false,
+            "frames": 288,
+            "maxW": 0.3021,
+            "maxH": 0.835,
+            "minMarginLr": 0.3208,
+            "minMarginTb": 0.0825
+          },
+          {
+            "index": 1,
+            "metric": "loop.closure-psnr",
+            "pass": false,
+            "closurePsnr": 18.479,
+            "adjacentPsnr": 26.5471,
+            "closureMinusAdjacentDb": -8.0681
+          },
+          {
+            "index": 2,
+            "metric": "pixel.bbox",
+            "pass": true,
+            "maxDiffPx": 0
+          }
+        ]
+      }
+    ]
+  },
+  "step4Thresholds": {
+    "allSeparated": true,
+    "noiseFloorSafe": true,
+    "positiveSampleCount": 2,
+    "negativeSampleCount": 4,
+    "items": [
+      {
+        "index": 0,
+        "metric": "meta.bbox-limits",
+        "weight": 0.5,
+        "adoptedArgs": {
+          "maxW": 0.6,
+          "maxH": 0.7,
+          "minMarginLr": 0.2,
+          "minMarginTb": 0.15
+        },
+        "positiveCount": 2,
+        "positivePassCount": 2,
+        "negativeTriggeredCount": 3,
+        "positiveWorst": {
+          "sample": "positive-baseline:28-1",
+          "pass": true,
+          "frames": 288,
+          "maxW": 0.3021,
+          "maxH": 0.6796,
+          "minMarginLr": 0.3125,
+          "minMarginTb": 0.1602
+        },
+        "negativeBest": {
+          "sample": "28-1-disable-card",
+          "pass": false,
+          "frames": 288,
+          "maxW": 0.3021,
+          "maxH": 0.8738,
+          "minMarginLr": 0.3125,
+          "minMarginTb": 0.0631
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 2/2 全过，3 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      },
+      {
+        "index": 1,
+        "metric": "loop.closure-psnr",
+        "weight": 0.3,
+        "adoptedArgs": {
+          "a": 0,
+          "b": 287,
+          "ref": [
+            0,
+            1
+          ],
+          "marginDb": 1
+        },
+        "positiveCount": 2,
+        "positivePassCount": 2,
+        "negativeTriggeredCount": 3,
+        "positiveWorst": {
+          "sample": "solution:28-1",
+          "pass": true,
+          "closurePsnr": 34.1552,
+          "adjacentPsnr": 34.1584,
+          "closureMinusAdjacentDb": -0.0032
+        },
+        "negativeBest": {
+          "sample": "28-1-disable-card",
+          "pass": false,
+          "closurePsnr": 18.0395,
+          "adjacentPsnr": 27.0848,
+          "closureMinusAdjacentDb": -9.0453
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 2/2 全过，3 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      },
+      {
+        "index": 2,
+        "metric": "pixel.bbox",
+        "weight": 0.2,
+        "adoptedArgs": {
+          "tolPx": 8
+        },
+        "positiveCount": 2,
+        "positivePassCount": 2,
+        "negativeTriggeredCount": 2,
+        "positiveWorst": {
+          "sample": "solution:28-1",
+          "pass": true,
+          "maxDiffPx": 0
+        },
+        "negativeBest": {
+          "sample": "28-1-shift-2f",
+          "pass": false,
+          "maxDiffPx": 14
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 2/2 全过，2 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      }
+    ]
+  },
+  "step5TierAndRecord": {
+    "tier": "strict",
+    "tierLabel": "严档",
+    "version": 1,
+    "status": "calibrated",
+    "calibratedOn": "2026-11-25",
+    "recordPath": "bench/calibration/records/28-1.json",
+    "questionPath": "bench/questions/level-1/28-1.json"
+  }
+}

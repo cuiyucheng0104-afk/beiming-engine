@@ -1,0 +1,235 @@
+{
+  "format": "bench-calibration/0.1",
+  "questionId": "18-2",
+  "slug": "18-2",
+  "group": "level-2-b",
+  "version": 1,
+  "status": "calibrated",
+  "tier": "relaxed",
+  "tierLabel": "放宽档",
+  "tierRationale": "参考为平台重压版，运镜提前量与帧容差按放宽档管理并由随机基线提升兜底",
+  "calibratedOn": "2026-11-25",
+  "noiseFloor": 0,
+  "calibrationField": {
+    "status": "calibrated",
+    "source": "B7 五步容差校准 v1（放宽档，2026-11-25）：经标准答案 4 遍噪声地板、参考自检与 3 份标准负对照实测定线，细则见 bench/calibration/records/18-2.json",
+    "noiseFloor": 0,
+    "version": 1
+  },
+  "step1NoiseFloor": {
+    "measurementCount": 4,
+    "allFullScore": true,
+    "repeatMeasureDelta": 0,
+    "repeatRenderDelta": 0,
+    "noiseFloor": 0,
+    "repeatMeasureByMetric": {
+      "narration.timing.eventFrames[0]": 0,
+      "narration.timing.eventFrames[1]": 0,
+      "narration.timing.markFrames[0]": 0,
+      "narration.timing.markFrames[1]": 0,
+      "narration.timing.range[0]": 0,
+      "narration.timing.range[1]": 0,
+      "narration.timing.offsetsFrames[0]": 0,
+      "narration.timing.offsetsFrames[1]": 0,
+      "narration.timing.hitRate": 0,
+      "narration.timing.randomRate": 0
+    },
+    "repeatRenderByMetric": {
+      "narration.timing.eventFrames[0]": 0,
+      "narration.timing.eventFrames[1]": 0,
+      "narration.timing.markFrames[0]": 0,
+      "narration.timing.markFrames[1]": 0,
+      "narration.timing.range[0]": 0,
+      "narration.timing.range[1]": 0,
+      "narration.timing.offsetsFrames[0]": 0,
+      "narration.timing.offsetsFrames[1]": 0,
+      "narration.timing.hitRate": 0,
+      "narration.timing.randomRate": 0
+    },
+    "runScores": [
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "step2ReferenceCheck": {
+    "solution": {
+      "pass": true,
+      "score": 1,
+      "basePass": true,
+      "cardsUsed": [
+        "time.narration",
+        "camera.cue-kf",
+        "deliver.encode"
+      ]
+    },
+    "positiveBaseline": {
+      "pass": true,
+      "score": 1
+    },
+    "fixtures": [
+      {
+        "ref": "bench/refs/level-2-b/18-2.json",
+        "role": "positive-reference",
+        "expectedOutcome": "pass",
+        "actualPass": true,
+        "actualScore": 1,
+        "ok": true
+      }
+    ],
+    "allOk": true
+  },
+  "step3NegativeControls": {
+    "total": 3,
+    "rejected": 3,
+    "allRejectedAsDeclared": true,
+    "controls": [
+      {
+        "id": "18-2-disable-card",
+        "kind": "disable-card",
+        "pass": false,
+        "score": 0,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0
+        ],
+        "expectedFailedIndices": [
+          0
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "narration.timing",
+            "pass": false,
+            "moveCount": 2,
+            "maxOffsetFrames": 27,
+            "hitRate": 0,
+            "randomRate": 0.01,
+            "lift": -0.01
+          }
+        ]
+      },
+      {
+        "id": "18-2-shift-2f",
+        "kind": "shift-2f",
+        "pass": false,
+        "score": 0,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0
+        ],
+        "expectedFailedIndices": [
+          0
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "narration.timing",
+            "pass": false,
+            "moveCount": 2,
+            "maxOffsetFrames": 2,
+            "hitRate": 0,
+            "randomRate": 0.01,
+            "lift": -0.01
+          }
+        ]
+      },
+      {
+        "id": "18-2-random-beats",
+        "kind": "random-beats",
+        "pass": false,
+        "score": 0,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0
+        ],
+        "expectedFailedIndices": [
+          0
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "narration.timing",
+            "pass": false,
+            "moveCount": 2,
+            "maxOffsetFrames": 37,
+            "hitRate": 0,
+            "randomRate": 0.01,
+            "lift": -0.01
+          }
+        ]
+      }
+    ]
+  },
+  "step4Thresholds": {
+    "allSeparated": true,
+    "noiseFloorSafe": true,
+    "positiveSampleCount": 3,
+    "negativeSampleCount": 3,
+    "items": [
+      {
+        "index": 0,
+        "metric": "narration.timing",
+        "weight": 1,
+        "adoptedArgs": {
+          "events": [
+            "cue_a",
+            "cue_b"
+          ],
+          "leadFrames": [
+            15,
+            27
+          ],
+          "moves": 2,
+          "tolFrames": 1,
+          "minLiftOverRandom": 0.4,
+          "minRunFrames": 6,
+          "maxPan": 4,
+          "scales": [
+            0.975,
+            1,
+            1.025
+          ],
+          "refFrames": [
+            3396,
+            4015
+          ]
+        },
+        "positiveCount": 3,
+        "positivePassCount": 3,
+        "negativeTriggeredCount": 3,
+        "positiveWorst": {
+          "sample": "bench/refs/level-2-b/18-2.json",
+          "pass": true,
+          "moveCount": 2,
+          "maxOffsetFrames": 0.3,
+          "hitRate": 1,
+          "randomRate": 0.0097,
+          "lift": 0.9903
+        },
+        "negativeBest": {
+          "sample": "18-2-shift-2f",
+          "pass": false,
+          "moveCount": 2,
+          "maxOffsetFrames": 2,
+          "hitRate": 0,
+          "randomRate": 0.01,
+          "lift": -0.01
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 3/3 全过，3 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      }
+    ]
+  },
+  "step5TierAndRecord": {
+    "tier": "relaxed",
+    "tierLabel": "放宽档",
+    "version": 1,
+    "status": "calibrated",
+    "calibratedOn": "2026-11-25",
+    "recordPath": "bench/calibration/records/18-2.json",
+    "questionPath": "bench/questions/level-2-b/18-2.json"
+  }
+}
