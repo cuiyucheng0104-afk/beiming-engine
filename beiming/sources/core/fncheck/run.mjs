@@ -5,7 +5,6 @@
 //   node beiming/sources/core/fncheck/run.mjs [函数名…] [--n 1000000] [--seed 1]
 // 退出码：0 全部合格；4 有函数不合格；3 缺工具链（git、C++ 编译器、网络、硬件 WebGPU）。
 import { Buffer } from 'node:buffer';
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,7 +12,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { CliError, defineCommand, isMain, runCli, usageError } from '../../../../tools/lib/cli.mjs';
 import { buildRenderer } from '../chassis/build.mjs';
-import { COMMIT, OUT, TAG, buildRef, runRef } from './cycles/build.mjs';
+import { COMMIT, OUT, TAG, buildRef, runRef, runStdin } from './cycles/build.mjs';
 import { compare } from './compare.mjs';
 import { kernel, runGpu } from './gpu.mjs';
 import { FILTER_TABLES, FILTER_TABLE_SIZE, FUNCTIONS, SHADERS, outWidth, size, width } from './registry.mjs';
@@ -31,8 +30,7 @@ export function filterTables(bin, run = runRef) {
 
 /** 宿主一侧的被测程序跑一个函数（core-render fncheck-host，协议同标准答案程序） */
 export function runHost(bin, id, input, count) {
-  const r = spawnSync(bin, ['fncheck-host', id], { input: Buffer.from(input.buffer, input.byteOffset, input.byteLength), maxBuffer: 1 << 30 });
-  if (r.error) throw r.error;
+  const r = runStdin(bin, ['fncheck-host', id], input);
   if (r.status !== 0) throw new Error(`core-render fncheck-host ${id} 退出码 ${r.status}：${r.stderr}`);
   if (r.stdout.length !== count * 4) throw new Error(`core-render fncheck-host ${id} 输出 ${r.stdout.length} 字节，应为 ${count * 4}`);
   return new Float32Array(r.stdout.buffer.slice(r.stdout.byteOffset, r.stdout.byteOffset + r.stdout.length));

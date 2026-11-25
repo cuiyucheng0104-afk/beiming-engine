@@ -9,7 +9,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { chromeArgs, chromeExecutable } from '../../../../engine/render/lib/gpu.mjs';
 import { missing } from './cycles/build.mjs';
-import { size } from './registry.mjs';
+import { FILTER_TABLES, FILTER_TABLE_SIZE, size } from './registry.mjs';
 
 /** 广义 Schlick 的两张表（各 4096 个数，接在一起）：内核放在表缓冲里，这里照样绑成存储缓冲 lut（第 2 个绑定）。
  *  数据与内核读的是同一份文件（../shaders/ggx_gen_schlick.tables；内核一侧 path/src/lib.rs 的 ggx_gen_schlick_tables） */
@@ -104,10 +104,11 @@ window.runAll = async jobs => {
 const WEBGPU_ARGS = process.platform === 'linux' ? ['--enable-unsafe-webgpu', '--enable-features=Vulkan'] : [];
 
 /** jobs: [{ name, code: 计算着色器（入口 fncheck_main）, input: Float32Array, n: 线程数, nOut: 每个线程写几个 f32 }]
- *  filterTables：可选，像素滤波表（Float32Array），接在 lut 的两张表后面，着色器里由 filter_table_value(i) 读
+ *  filterTables：可选，像素滤波表（Float32Array），接在 lut 的两张表后面，着色器里由 filter_table_value(i) 读；不给时接同样长的
+ *  全 0，读到的是 0（与原来的空表一样），不越出缓冲
  *  → { adapter, outputs: Float32Array[] }（与 jobs 同序） */
 export async function runGpu(jobs, { filterTables } = {}) {
-  const lut = filterTables ? Float32Array.from([...LUT, ...filterTables]) : LUT;
+  const lut = Float32Array.from([...LUT, ...(filterTables ?? new Float32Array(FILTER_TABLES.length * FILTER_TABLE_SIZE))]);
   const ins = new Map(jobs.map(j => [j.name, j.input]));
   const outs = new Map();
   const srv = http.createServer((req, res) => {
