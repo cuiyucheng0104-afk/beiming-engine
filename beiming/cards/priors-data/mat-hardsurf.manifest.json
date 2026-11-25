@@ -24,9 +24,9 @@
     "skipped-or-conflict": 0
   },
   "emittedCounts": {
-    "priorsTotal": 296,
-    "priorsDetail": 256,
-    "priorsSummary": 40,
+    "priorsTotal": 298,
+    "priorsDetail": 257,
+    "priorsSummary": 41,
     "cardPriors": 392,
     "practices": 113,
     "excludedDetails": 39
@@ -6267,6 +6267,7 @@
       "targets": [
         "mat-hardsurf.d118.metallic",
         "mat-hardsurf.d118.roughness",
+        "mat-hardsurf.d118.roughness-oak",
         "mat-hardsurf.d118.display-color"
       ]
     },
@@ -6617,7 +6618,9 @@
       "summaryOf": "d118",
       "link": "values",
       "route": "portable",
-      "targets": []
+      "targets": [
+        "mat-hardsurf.sum.s029"
+      ]
     },
     {
       "sourceId": "s030",

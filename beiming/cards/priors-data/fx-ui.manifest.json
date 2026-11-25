@@ -7,27 +7,27 @@
   "summaryRows": 140,
   "order": "ledger 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "源总数 = 明细条目 + 跨案例对照表汇总行；汇总行去向随所指同案例真实明细，不另算明细",
-  "portableCount": 58,
-  "cardCoupledCount": 334,
+  "portableCount": 56,
+  "cardCoupledCount": 336,
   "practiceCount": 114,
   "excludedOrConflictCount": 22,
   "detailRouteCounts": {
-    "portable": 36,
-    "card-coupled": 239,
+    "portable": 35,
+    "card-coupled": 240,
     "practice": 91,
     "skipped-or-conflict": 22
   },
   "summaryRouteCounts": {
-    "portable": 22,
-    "card-coupled": 95,
+    "portable": 21,
+    "card-coupled": 96,
     "practice": 23,
     "skipped-or-conflict": 0
   },
   "emittedCounts": {
-    "priorsTotal": 104,
-    "priorsDetail": 90,
-    "priorsSummary": 14,
-    "cardPriors": 239,
+    "priorsTotal": 102,
+    "priorsDetail": 89,
+    "priorsSummary": 13,
+    "cardPriors": 240,
     "practices": 91,
     "excludedDetails": 22
   },
@@ -286,14 +286,14 @@
       "count": 45
     },
     {
-      "cardId": "layout.panels",
-      "target": "layout.panels",
-      "inSpec": true,
-      "count": 27
-    },
-    {
       "cardId": "particle.ballistic",
       "target": "particle.ballistic",
+      "inSpec": true,
+      "count": 28
+    },
+    {
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "inSpec": true,
       "count": 27
     },
@@ -690,17 +690,17 @@
     "detailSampleSize": 233,
     "summarySampleSize": 84,
     "sampleSize": 317,
-    "disagreeCount": 10,
-    "disagreeRate": 0.031546,
-    "fullPopulationDisagreeCount": 21,
-    "fullPopulationDisagreeRate": 0.039773,
+    "disagreeCount": 12,
+    "disagreeRate": 0.037855,
+    "fullPopulationDisagreeCount": 23,
+    "fullPopulationDisagreeRate": 0.043561,
     "seed200Verified": true,
     "seed200PassCount": 200,
     "seed200Worst": {
       "seed": 60,
-      "disagreeCount": 18,
+      "disagreeCount": 20,
       "sampleSize": 317,
-      "disagreeRate": 0.056782
+      "disagreeRate": 0.063091
     },
     "sample": [
       {
@@ -1354,9 +1354,9 @@
       {
         "sourceId": "d061",
         "kind": "detail",
-        "ledgerRoute": "portable",
+        "ledgerRoute": "card-coupled",
         "blindRoute": "portable",
-        "agree": true,
+        "agree": false,
         "reason": "可独立复用的特效与材质线性RGB色表"
       },
       {
@@ -3082,9 +3082,9 @@
       {
         "sourceId": "s023",
         "kind": "summary",
-        "ledgerRoute": "portable",
+        "ledgerRoute": "card-coupled",
         "blindRoute": "portable",
-        "agree": true,
+        "agree": false,
         "reason": "汇总随所指明细 d061：可独立复用的特效与材质线性RGB色表"
       },
       {
@@ -3879,10 +3879,10 @@
       "caseId": "case-13",
       "summaryOf": "d061",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s023"
-      ]
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
+      "targets": []
     },
     {
       "sourceId": "s024",
@@ -4407,9 +4407,11 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "targets": [
-        "fx-ui.d061.base-color"
+        "fx-ui.d061.card"
       ]
     },
     {

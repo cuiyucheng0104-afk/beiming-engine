@@ -29,14 +29,14 @@ const EXPECTED_TOTALS = Object.freeze({
 });
 
 const EXPECTED_SHA256 = Object.freeze({
-  'fx-ui.json': 'sha256:960a7007047383c3110a55f646e23c62601957ffd73c8c944beadd33f17f6ea9',
-  'fx-ui.card-priors.json': 'sha256:31566e6c100325ea7d56b8c750da17072ed92403e54cde8c9294e9ed0b32a312',
+  'fx-ui.json': 'sha256:cbee6ea9e9d31a2dd8b0ab5019a55947b9733ee302b2660b8726441f03d9dc99',
+  'fx-ui.card-priors.json': 'sha256:487b97fa04b2ee531a0d3a1681c18a6e94ebd0b07a2349eb02bc3e283dbec775',
   'fx-ui.practices.json': 'sha256:70a1e56ffa28bae8c8cd741dba6aa84ad962d9d52bb639a59afb4ae404b22cf3',
-  'fx-ui.manifest.json': 'sha256:3911ec3d45b32b9f81ff8ec7b99586c7b9bc34d967b3744cb89a3b18c28a4efb',
-  'mat-hardsurf.json': 'sha256:f66045e2e959f0151afeba05ef683126ab7f06a2227321d1e660511c066cdaef',
+  'fx-ui.manifest.json': 'sha256:07a92a00be4f35b096dbbaccae9e2f9a859f82fd6d671e6a33584a7cc6ad5a44',
+  'mat-hardsurf.json': 'sha256:f00183fe4ebf017977a0c44ca2738d796e86dd1b6f7c844d6ffdb154f02ba72f',
   'mat-hardsurf.card-priors.json': 'sha256:a025e694aa2a3327ae2ad499fb633eb2d36611727887215ce203586cf95301a7',
   'mat-hardsurf.practices.json': 'sha256:7c3d4648a05c803ed60a19a6141e3914effa63947e9a5efd60b4484c2f104375',
-  'mat-hardsurf.manifest.json': 'sha256:2b75f0bb3adcf2b8577294333743f2e83e98764fc45d8d40ed40d4e6b99c8b8f',
+  'mat-hardsurf.manifest.json': 'sha256:41c4f3fc0bcec07096f82278fae1c49ae58995f2d8fa1561fa59e7ba9f47eaed',
   'render-pipe.json': 'sha256:3db3cedd4064f4054ebfe139a9c3bd208ee7082092f17a108d729a38925caf6f',
   'render-pipe.card-priors.json': 'sha256:b2baf66b115d9d8605becc463a7909f32d81f7859fde62326d7c63deefcb402b',
   'render-pipe.practices.json': 'sha256:8b7d5b0c1de647c4d536d83285cb203fb69397b2d934b0b410969017fa842747',
@@ -833,12 +833,23 @@ test('R2 公开 API 回归：物理取量、时间语义隔离、汇总精确指
   }
 });
 
-test('C12-A 回归：mat-hardsurf.s029 精确指回 d118，render-pipe.d027 归 skipped-or-conflict 并挂接冲突', () => {
+test('C12-A 回归：mat-hardsurf.s029 精确指回 d118 橡木粗糙度、fx-ui.s023/d061 归挂卡，render-pipe.d027 归 skipped-or-conflict 并挂接冲突', () => {
   const s029Row = getBatch3MigrationManifest('mat-hardsurf').ledger.find((r) => r.sourceId === 's029');
   assert.ok(s029Row);
   assert.equal(s029Row.summaryOf, 'd118');
   assert.equal(s029Row.link, 'values');
   assert.equal(s029Row.route, 'portable');
+  assert.deepEqual(s029Row.targets, ['mat-hardsurf.sum.s029']);
+  const s029Entry = loadMatHardsurfPriorsStore().get('mat-hardsurf.sum.s029');
+  assert.ok(s029Entry && s029Entry.value === 0.82 && s029Entry.unit === 'ratio');
+  assert.deepEqual(s029Entry.summaryOf, ['mat-hardsurf.d118.roughness-oak']);
+
+  const fxLedger = getBatch3MigrationManifest('fx-ui').ledger;
+  const d061Row = fxLedger.find((r) => r.sourceId === 'd061');
+  const s023Row = fxLedger.find((r) => r.sourceId === 's023');
+  assert.equal(d061Row?.route, 'card-coupled');
+  assert.equal(s023Row?.route, 'card-coupled');
+  assert.equal(s023Row?.summaryOf, 'd061');
 
   const d027Row = getBatch3MigrationManifest('render-pipe').ledger.find((r) => r.sourceId === 'd027');
   assert.ok(d027Row);

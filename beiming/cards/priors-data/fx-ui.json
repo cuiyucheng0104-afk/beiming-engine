@@ -277,35 +277,6 @@
       }
     },
     {
-      "id": "fx-ui.d061.base-color",
-      "domain": "fx-particles-ui-2d",
-      "topic": "fx-ui.s2.base-color",
-      "title": "特效颜色表 C(线性 RGB)（线性基色 RGB）",
-      "value": [
-        1,
-        0.86,
-        0.62
-      ],
-      "unit": "rgb-linear",
-      "colorSpace": "scene-linear-rec709",
-      "conditions": {
-        "appliesWhen": [
-          "第 2 节：特效颜色表 C(线性 RGB)（线性基色 RGB）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "文档",
-        "docRef": "特效粒子界面二维汇编 · 第 2 节 · d061",
-        "note": "whiteHot(1,.86,.62)、ember(1,.46,.12)、gold(1,.7,.28)、lumen(1,.8,.46)、amber(1,.52,.14)、spectral(.5,.78,1)、spectralCore(.8,.92,1)、夜哨点(1,.74,.34)、stone(.42,.4,.37)、dust(.5,.44,.35)、wood(.34,.23,.13)、straw(.66,.54,.3)、ash(.07,.065,.06)；冷蓝目标色 LIN_BFE3FF=(.521,.768,1)"
-      },
-      "verifiedInOurStack": false,
-      "ext": {
-        "c12.sourceId": "d061",
-        "c12.section": "2"
-      }
-    },
-    {
       "id": "fx-ui.d066.speed",
       "domain": "fx-particles-ui-2d",
       "topic": "fx-ui.s3.speed",
@@ -2267,38 +2238,6 @@
       ],
       "ext": {
         "c12.sourceId": "s015",
-        "c12.section": "2"
-      }
-    },
-    {
-      "id": "fx-ui.sum.s023",
-      "domain": "fx-particles-ui-2d",
-      "topic": "fx-ui.s2.base-color",
-      "title": "火与冰的 HDR 颜色对照（线性）（案例 13 CombatFX）（汇总）",
-      "value": [
-        1,
-        0.86,
-        0.62
-      ],
-      "unit": "rgb-linear",
-      "colorSpace": "scene-linear-rec709",
-      "conditions": {
-        "appliesWhen": [
-          "第 2 节跨案例对照汇总：火与冰的 HDR 颜色对照（线性）（案例 13 CombatFX）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "文档",
-        "docRef": "特效粒子界面二维汇编 · 第 2 节 · s023",
-        "note": "火与冰的 HDR 颜色对照（线性）（案例 13 CombatFX）：案例 13 CombatFX（线性 RGB）：whiteHot (1,.86,.62)、ember (1,.46,.12)、gold (1,.7,.28)、lumen (1,.8,.46)、amber (1,.52,.14)、spectral (.5,.78,1)、ash (.07,.065,.06)；火花强度 I=5–10"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "fx-ui.d061.base-color"
-      ],
-      "ext": {
-        "c12.sourceId": "s023",
         "c12.section": "2"
       }
     },

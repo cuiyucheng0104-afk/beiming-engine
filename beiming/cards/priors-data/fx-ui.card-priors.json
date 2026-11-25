@@ -1110,6 +1110,26 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "fx-ui.d061.card",
+      "sourceId": "d061",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
+      "section": "2",
+      "caseId": "case-13",
+      "title": "特效颜色表 C(线性 RGB)",
+      "text": "whiteHot(1,.86,.62)、ember(1,.46,.12)、gold(1,.7,.28)、lumen(1,.8,.46)、amber(1,.52,.14)、spectral(.5,.78,1)、spectralCore(.8,.92,1)、夜哨点(1,.74,.34)、stone(.42,.4,.37)、dust(.5,.44,.35)、wood(.34,.23,.13)、straw(.66,.54,.3)、ash(.07,.065,.06)；冷蓝目标色 LIN_BFE3FF=(.521,.768,1)",
+      "quantities": [],
+      "routeNote": "多槽位 CombatFX 特效线性 RGB 色表预设，挂卡耦合",
+      "coupling": "与第 2 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "特效粒子界面二维汇编 · 第 2 节 · d061",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "fx-ui.d062.card",
       "sourceId": "d062",
       "cardId": "particle.premult",

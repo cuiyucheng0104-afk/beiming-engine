@@ -4177,6 +4177,30 @@
       }
     },
     {
+      "id": "mat-hardsurf.d118.roughness-oak",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s2.roughness-oak",
+      "title": "材质表（橡木粗糙度）",
+      "value": 0.82,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：材质表（橡木粗糙度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 2 节 · d118",
+        "note": "stone lime[150,144,132] rough 0.93；stoneDark[96,92,88] 0.95；mossStone[118,120,100] 0.97；cobble[120,112,100] 0.95；oak 0.82；iron #2B2B2E metal 0.8 rough 0.5；rust #5A3322 0.45/0.8；bronze #6F5A36 0.85/0.38；gold #D6A84A 1/0.3；ember #2A1408 自发光 #FF7A2A×1.2；wax #E8DCC0 自发光 #FFC070×0.15；slate rough 0.62 metal 0.05；thatch rough 1。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d118",
+        "c12.section": "2"
+      }
+    },
+    {
       "id": "mat-hardsurf.d118.display-color",
       "domain": "material-shading",
       "topic": "mat-hardsurf.s2.display-color",
@@ -7047,6 +7071,33 @@
       ],
       "ext": {
         "c12.sourceId": "s028",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "mat-hardsurf.sum.s029",
+      "domain": "material-shading",
+      "topic": "mat-hardsurf.s2.roughness-oak",
+      "title": "木与树皮对照（案例 13 kit 橡木）（汇总）",
+      "value": 0.82,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节跨案例对照汇总：木与树皮对照（案例 13 kit 橡木）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "材质与硬表面建模汇编 · 第 3 节 · s029",
+        "note": "木与树皮对照（案例 13 kit 橡木）：案例 13 kit 橡木（three WebGL）：oak 粗糙 0.82"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "mat-hardsurf.d118.roughness-oak"
+      ],
+      "ext": {
+        "c12.sourceId": "s029",
         "c12.section": "3"
       }
     },
