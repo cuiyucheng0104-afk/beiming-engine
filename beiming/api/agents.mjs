@@ -49,6 +49,8 @@ const AGENT_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 const DATA_IMAGE_PREFIX_RE = /^data:image\/[a-z0-9.+-]+;base64,/i;
 // 单张 L5 视觉审片选票的默认输出 token 上限（每次请求必带 max_tokens，用于可执行上界与防失控输出）
 export const DEFAULT_REVIEW_MAX_OUTPUT_TOKENS = 1_024;
+export const DEFAULT_REVIEW_CONCURRENCY = 1;
+const MAX_REVIEW_CONCURRENCY = 16;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const REVIEW_MIN_IMAGE_TOKENS = 1_024;
 const REVIEW_FALLBACK_IMAGE_TOKENS = 2_048;
@@ -509,6 +511,38 @@ export async function runHandsOnAgent({
 
 class ModelResponseError extends Error {}
 
+function canAttachUsageProperty(err) {
+  if (typeof err !== 'object' || err === null || !Object.isExtensible(err)) return false;
+  let cur = err;
+  while (cur) {
+    const desc = Object.getOwnPropertyDescriptor(cur, 'usage');
+    if (desc) {
+      return 'value' in desc ? desc.writable === true : typeof desc.set === 'function';
+    }
+    cur = Object.getPrototypeOf(cur);
+  }
+  return true;
+}
+
+function attachUsageToLoopError(err, finalUsage) {
+  if (canAttachUsageProperty(err)) {
+    try {
+      err.usage = finalUsage;
+      return err;
+    } catch {
+      // 代理或异常 setter 拒写时回退包装新 Error，确保不丢用量
+    }
+  }
+  const wrapped = new Error(err instanceof Error ? err.message : String(err), { cause: err });
+  if (err && typeof err === 'object') {
+    for (const key of ['name', 'code', 'model', 'status']) {
+      if (key in err && err[key] !== undefined) wrapped[key] = err[key];
+    }
+  }
+  wrapped.usage = finalUsage;
+  return wrapped;
+}
+
 export const reviewFailure = error =>
   (error instanceof ModelResponseError || error?.code === 'usage.bad-argument')
     ? error.message
@@ -565,9 +599,10 @@ function parseReview(text, frames) {
 
 /**
  * 异族视觉审片客户端（L5 三视角 × 3 票 = 9 票完整规程）。
- * 交回 { model, perspectives, votesPerPerspective, review({ brief, images, loudness, film, filmId, candidates, budgetCheck, maxTokens, signal }) }；
+ * 交回 { model, perspectives, votesPerPerspective, concurrency, review({ brief, images, loudness, film, filmId, candidates, budgetCheck, maxTokens, signal }) }；
  * review 按三个视角各投 3 票（共 9 票）：
- * - 每票调用模型前先执行 budgetCheck / maxTokens 预算闸检查，超限时立即停票并保留已投票与 stoppedReason；
+ * - 默认 concurrency = 1（严格逐票高水位预算边界）；显式配置 1..16 或 BEIMING_REVIEW_CONCURRENCY 时按固定 slotIndex 槽位有界并发并确定性保序归档；
+ * - 每票调用模型前先执行 budgetCheck / maxTokens 预算闸检查，在途预留暂满时等待已有票结算后再复检，真正超限时立即停票并保留已投票与 stoppedReason；
  * - 收到响应后先累计 usage 并写入带 film 字段的外部用量账本，再解析校验单票；
  * - 单张坏票或上游失败仅隔离记入 invalidBallots，不中断其余选票，也不丢失已花 token。
  */
@@ -580,6 +615,7 @@ export function createOpenAiVisionReviewer({
   votesPerPerspective = 3,
   maxTokens = null,
   maxOutputTokens = DEFAULT_REVIEW_MAX_OUTPUT_TOKENS,
+  concurrency = DEFAULT_REVIEW_CONCURRENCY,
 } = {}) {
   requireConfig('审片客户端', { endpoint: 'BEIMING_REVIEW_ENDPOINT', apiKey: 'BEIMING_REVIEW_API_KEY', model: 'BEIMING_REVIEW_MODEL' }, { endpoint, apiKey, model, ledgerPath });
   if (!Number.isSafeInteger(votesPerPerspective) || votesPerPerspective < 1) {
@@ -591,10 +627,14 @@ export function createOpenAiVisionReviewer({
   if (!Number.isSafeInteger(maxOutputTokens) || maxOutputTokens < 1) {
     throw Object.assign(new Error('maxOutputTokens 必须是正安全整数'), { code: 'usage.bad-argument' });
   }
+  if (!Number.isSafeInteger(concurrency) || concurrency < 1 || concurrency > MAX_REVIEW_CONCURRENCY) {
+    throw Object.assign(new Error(`concurrency 必须是 1..${MAX_REVIEW_CONCURRENCY} 的安全整数`), { code: 'usage.bad-argument' });
+  }
   return {
     model,
     perspectives,
     votesPerPerspective,
+    concurrency,
     async review({
       brief,
       images = [],
@@ -635,7 +675,22 @@ export function createOpenAiVisionReviewer({
           image_url: { url: `data:image/png;base64,${buf.toString('base64')}` },
         };
       });
-      const totalBallots = planned.reduce((n, item) => n + item.votes, 0);
+      const tasks = [];
+      for (const { p, votes } of planned) {
+        const issueKeys = Array.isArray(p.issueKeys) && p.issueKeys.length
+          ? p.issueKeys
+          : (Object.hasOwn(L5_ISSUE_KEYS, p.id) ? L5_ISSUE_KEYS[p.id] : []);
+        for (let voteIndex = 0; voteIndex < votes; voteIndex++) {
+          tasks.push({
+            slotIndex: tasks.length,
+            p,
+            voteIndex,
+            votes,
+            issueKeys,
+          });
+        }
+      }
+      const totalBallots = tasks.length;
       const effectiveMaxTokens = [maxTokens, reqMaxTokens]
         .filter((v) => Number.isSafeInteger(v) && v >= 0)
         .reduce((min, v) => Math.min(min, v), Infinity);
@@ -643,16 +698,24 @@ export function createOpenAiVisionReviewer({
         ? Math.min(maxOutputTokens, reqMaxOutputTokens)
         : maxOutputTokens;
 
-      const ballots = [];
-      const invalidBallots = [];
+      const ballotSlots = new Array(totalBallots).fill(null);
       let inputTokens = 0;
       let outputTokens = 0;
       let maxObservedInputTokens = 0;
       let maxObservedTotalTokens = 0;
       let lastModel = model;
-      let ballotIndex = 0;
       let executedBallots = 0;
       let stoppedReason = null;
+      let inFlightReservedTokens = 0;
+      const inFlight = new Set();
+      const hasBudgetCheck = typeof budgetCheck === 'function';
+      // 无外部 settle 租约且显式带有限 maxTokens 时保持串行，防止变价单票场景并发冲破本地上限
+      let effectiveConcurrency = (!hasBudgetCheck && Number.isFinite(effectiveMaxTokens))
+        ? 1
+        : Math.min(concurrency, Math.max(1, totalBallots));
+      // 传入 budgetCheck 时先放行首票完成高水位标定与 settle 探测，再展开并发
+      let probeSettled = !hasBudgetCheck;
+      let settledSeq = 0;
 
       const recordUsage = (usedModel, usage, perspectiveId, voteIdx) => {
         const uIn = count(usage?.inputTokens);
@@ -677,29 +740,162 @@ export function createOpenAiVisionReviewer({
         return uTotal;
       };
 
-      for (const { p, votes } of planned) {
-        if (stoppedReason) break;
-        const issueKeys = Array.isArray(p.issueKeys) && p.issueKeys.length
-          ? p.issueKeys
-          : (L5_ISSUE_KEYS[p.id] ?? []);
-        for (let voteIndex = 0; voteIndex < votes; voteIndex++) {
+      const executeSlot = async ({
+        task,
+        candidateOrder,
+        systemContent,
+        content,
+        requestMaxTokens,
+        localReserveAmount,
+        settleReservation,
+      }) => {
+        let res = null;
+        let ballotTotalTokens = 0;
+        let chatFailed = false;
+        let settleThrew = false;
+        let localReleased = false;
+        const releaseLocal = () => {
+          if (!localReleased) {
+            localReleased = true;
+            inFlightReservedTokens -= localReserveAmount;
+          }
+        };
+        try {
+          res = await chat({
+            endpoint,
+            apiKey,
+            ...(signal ? { signal } : {}),
+            body: {
+              model,
+              max_tokens: requestMaxTokens,
+              messages: [
+                { role: 'system', content: systemContent },
+                { role: 'user', content },
+              ],
+            },
+          });
+          ballotTotalTokens = recordUsage(res.model, res.usage, task.p.id, task.voteIndex);
+          releaseLocal();
+        } catch (err) {
+          chatFailed = true;
+          if (err?.usage && (count(err.usage.inputTokens) > 0 || count(err.usage.outputTokens) > 0)) {
+            const errModel = typeof err.model === 'string' && err.model.trim() ? err.model : model;
+            ballotTotalTokens = recordUsage(errModel, err.usage, task.p.id, task.voteIndex);
+          }
+          releaseLocal();
+          if (signal?.aborted) {
+            stoppedReason = 'canceled';
+          } else {
+            ballotSlots[task.slotIndex] = {
+              kind: 'invalid',
+              invalid: {
+                perspective: task.p.id,
+                voteIndex: task.voteIndex,
+                reason: reviewFailure(err),
+              },
+            };
+          }
+        } finally {
+          releaseLocal();
+          if (settleReservation) {
+            try {
+              settleReservation(ballotTotalTokens);
+            } catch {
+              settleThrew = true;
+              stoppedReason = stoppedReason ?? 'budget.check-error';
+            }
+          }
+          if (task.slotIndex === 0) probeSettled = true;
+          settledSeq++;
+        }
+
+        if (chatFailed || settleThrew) return;
+
+        const answer = typeof res.message.content === 'string'
+          ? res.message.content
+          : (Array.isArray(res.message.content) ? res.message.content.map((part) => part?.text ?? '').join('') : '');
+        try {
+          const parsedBallot = parseReview(answer, film?.output?.frames);
+          if (parsedBallot.candidateGrades) {
+            if (candidateOrder.length === 0) {
+              if (parsedBallot.candidateGrades.length === 0) {
+                delete parsedBallot.candidateGrades;
+              } else if (
+                parsedBallot.candidateGrades.length === 1
+                && resolvedFilmId
+                && parsedBallot.candidateGrades[0].id === resolvedFilmId
+              ) {
+                const selfGrade = parsedBallot.candidateGrades[0].grade;
+                if (parsedBallot.grade !== undefined && parsedBallot.grade !== selfGrade) {
+                  throw new ModelResponseError(
+                    `审片选票单片等级矛盾：grade（${parsedBallot.grade}）与 candidateGrades[${resolvedFilmId}]（${selfGrade}）不一致`,
+                  );
+                }
+                if (parsedBallot.grade === undefined) parsedBallot.grade = selfGrade;
+                delete parsedBallot.candidateGrades;
+              } else {
+                const bad = parsedBallot.candidateGrades.find((cg) => cg.id !== resolvedFilmId) ?? parsedBallot.candidateGrades[0];
+                throw new ModelResponseError(`审片选票包含未知候选 ID：${bad.id}`);
+              }
+            } else {
+              const allowed = new Set(candidateOrder);
+              const seen = new Set();
+              for (const cg of parsedBallot.candidateGrades) {
+                if (!allowed.has(cg.id)) throw new ModelResponseError(`审片选票包含未知候选 ID：${cg.id}`);
+                if (seen.has(cg.id)) throw new ModelResponseError(`审片选票包含重复候选 ID：${cg.id}`);
+                seen.add(cg.id);
+              }
+            }
+          }
+          ballotSlots[task.slotIndex] = {
+            kind: 'ok',
+            ballot: {
+              perspective: task.p.id,
+              voteIndex: task.voteIndex,
+              ...(candidateOrder.length ? { candidateOrder } : {}),
+              ...parsedBallot,
+            },
+          };
+        } catch (err) {
+          ballotSlots[task.slotIndex] = {
+            kind: 'invalid',
+            invalid: {
+              perspective: task.p.id,
+              voteIndex: task.voteIndex,
+              reason: reviewFailure(err),
+            },
+          };
+        }
+      };
+
+      let nextTaskIdx = 0;
+      let hasLoopErr = false;
+      let loopErr = null;
+      try {
+        while (nextTaskIdx < totalBallots && !stoppedReason) {
+          const currentLimit = probeSettled ? effectiveConcurrency : 1;
+          while (inFlight.size >= currentLimit && !stoppedReason) {
+            await Promise.race(inFlight);
+          }
+          if (stoppedReason) break;
           if (signal?.aborted) {
             stoppedReason = 'canceled';
             break;
           }
 
+          const task = tasks[nextTaskIdx];
           const orderedCandidates = shuffleCandidatesForBallot(candidates, {
             filmId: resolvedFilmId ?? 'film',
-            perspective: p.id,
-            voteIndex,
+            perspective: task.p.id,
+            voteIndex: task.voteIndex,
           });
           const candidateOrder = orderedCandidates.map((c, idx) =>
             (typeof c === 'string' ? c : String(c?.id ?? idx)).trim(),
           );
           const text = [
-            `审片视角：${p.title}（${p.id}）· 第 ${voteIndex + 1}/${votes} 票`,
-            `视角关注点：${p.focus}`,
-            `本视角封闭 issueKey 枚举（每条意见必填且仅限此表）：${issueKeys.join(', ')}`,
+            `审片视角：${task.p.title}（${task.p.id}）· 第 ${task.voteIndex + 1}/${task.votes} 票`,
+            `视角关注点：${task.p.focus}`,
+            `本视角封闭 issueKey 枚举（每条意见必填且仅限此表）：${task.issueKeys.join(', ')}`,
             `等级词枚举：${L5_GRADES.join(' / ')}`,
             `需求原文：${brief || '（没有给）'}`,
             `片子：${JSON.stringify(film)}`,
@@ -713,7 +909,7 @@ export function createOpenAiVisionReviewer({
             `图：${images.map((img, i) => `第 ${i + 1} 张 ${img.name}`).join('；') || '（没有图）'}。联系表（contact）每格左上角是全片帧号；切点条带（cut）是切点前 3 帧到后 2 帧，红线是切口；keyframe-f<帧号> 为未缩放的原尺寸关键帧，请直接据以检查构图细节、主体清晰度与文字可读性。`,
           ].join('\n');
           const content = [{ type: 'text', text }, ...imageParts];
-          const systemContent = `[ROLE:reviewer][PERSPECTIVE:${p.id}][VOTE:${voteIndex + 1}]\n${DELEGATE_ROLES.reviewer.systemPrompt}`;
+          const systemContent = `[ROLE:reviewer][PERSPECTIVE:${task.p.id}][VOTE:${task.voteIndex + 1}]\n${DELEGATE_ROLES.reviewer.systemPrompt}`;
 
           // 发票前计算可执行保守上界（文本 + 图像 + 输出上限，且不低于已观测单票高水位；首票绝不为 0）
           const spentTokens = inputTokens + outputTokens;
@@ -721,170 +917,191 @@ export function createOpenAiVisionReviewer({
           const inputUpperBound = Math.max(staticInputBound, maxObservedInputTokens);
           let requestMaxTokens = configuredMaxOutput;
           if (Number.isFinite(effectiveMaxTokens)) {
-            const localRemaining = effectiveMaxTokens - spentTokens;
+            const localRemaining = effectiveMaxTokens - (spentTokens + inFlightReservedTokens);
             const minRequired = Math.max(inputUpperBound + 1, maxObservedTotalTokens);
             if (localRemaining < minRequired) {
+              if (inFlight.size > 0) {
+                await Promise.race(inFlight);
+                continue;
+              }
               stoppedReason = 'budget.tokens';
               break;
             }
-            requestMaxTokens = Math.min(requestMaxTokens, Math.floor(localRemaining - inputUpperBound));
-            if (requestMaxTokens < 1) {
+            const localMaxOut = Math.floor(localRemaining - inputUpperBound);
+            if (localMaxOut < 1 || (localMaxOut < requestMaxTokens && inFlight.size > 0)) {
+              if (inFlight.size > 0) {
+                await Promise.race(inFlight);
+                continue;
+              }
               stoppedReason = 'budget.tokens';
               break;
             }
+            requestMaxTokens = Math.min(requestMaxTokens, localMaxOut);
           }
           const estimatedNextTokens = Math.max(inputUpperBound + requestMaxTokens, maxObservedTotalTokens);
+          const localReserveAmount = Number.isFinite(effectiveMaxTokens) ? estimatedNextTokens : 0;
 
           let settleReservation = null;
-          if (typeof budgetCheck === 'function') {
+          let hasSettle = false;
+          if (hasBudgetCheck) {
+            const seqBefore = settledSeq;
             let decision;
             try {
               decision = await budgetCheck({
-                ballotIndex,
+                ballotIndex: task.slotIndex,
                 totalBallots,
                 spentTokens,
                 estimatedInputTokens: inputUpperBound,
                 maxOutputTokens: requestMaxTokens,
                 maxObservedTokens: maxObservedTotalTokens,
                 estimatedNextTokens,
-                perspective: p.id,
-                voteIndex,
+                perspective: task.p.id,
+                voteIndex: task.voteIndex,
               });
             } catch {
               // 预算回调抛错时停止后续投票，保留已投出的全部有效票与累计 usage 交回 layerL5/work 记账
               stoppedReason = 'budget.check-error';
               break;
             }
-            if (decision === false || (decision && typeof decision === 'object' && (decision.ok === false || decision.allow === false))) {
-              stoppedReason = (decision && typeof decision === 'object' && typeof decision.reason === 'string' && decision.reason.trim())
-                ? decision.reason.trim()
-                : 'budget.tokens';
+            if (stoppedReason || signal?.aborted) {
+              if (!stoppedReason && signal?.aborted) stoppedReason = 'canceled';
+              if (decision && typeof decision === 'object' && typeof decision.settle === 'function') {
+                try { decision.settle(0); } catch { /* 已有停票原因时不覆盖 */ }
+              }
               break;
             }
+            if (decision === false || (decision && typeof decision === 'object' && (decision.ok === false || decision.allow === false))) {
+              const reason = (decision && typeof decision === 'object' && typeof decision.reason === 'string' && decision.reason.trim())
+                ? decision.reason.trim()
+                : 'budget.tokens';
+              if (reason === 'budget.tokens') {
+                if (inFlight.size > 0) {
+                  await Promise.race(inFlight);
+                  continue;
+                }
+                if (settledSeq !== seqBefore) {
+                  continue;
+                }
+              }
+              stoppedReason = reason;
+              break;
+            }
+            if (decision && typeof decision === 'object' && typeof decision.settle === 'function') {
+              settleReservation = decision.settle;
+              hasSettle = true;
+            }
+            if (!hasSettle) {
+              effectiveConcurrency = 1;
+              if (inFlight.size > 0 || settledSeq !== seqBefore) {
+                if (inFlight.size > 0) {
+                  await Promise.allSettled([...inFlight]);
+                }
+                continue;
+              }
+            }
             if (decision && typeof decision === 'object') {
-              if (typeof decision.settle === 'function') settleReservation = decision.settle;
               if (decision.maxOutputTokens !== undefined) {
                 if (!Number.isSafeInteger(decision.maxOutputTokens) || decision.maxOutputTokens < 1) {
                   try { settleReservation?.(0); } catch { /* 释放无用量预留失败时不覆盖停票原因 */ }
+                  if (inFlight.size > 0) {
+                    await Promise.race(inFlight);
+                    continue;
+                  }
+                  if (settledSeq !== seqBefore) {
+                    continue;
+                  }
                   stoppedReason = 'budget.tokens';
                   break;
+                }
+                if (decision.maxOutputTokens < requestMaxTokens && (inFlight.size > 0 || settledSeq !== seqBefore)) {
+                  try { settleReservation?.(0); } catch { /* 释放被在途预留截断的临时预留 */ }
+                  if (inFlight.size > 0) {
+                    await Promise.race(inFlight);
+                  }
+                  continue;
                 }
                 requestMaxTokens = Math.min(requestMaxTokens, decision.maxOutputTokens);
               } else if (!settleReservation && Number.isFinite(decision.remaining)) {
                 const minRequired = Math.max(inputUpperBound + 1, maxObservedTotalTokens);
                 if (decision.remaining < minRequired) {
-                  stoppedReason = 'budget.tokens';
-                  break;
-                }
-                requestMaxTokens = Math.min(requestMaxTokens, Math.floor(decision.remaining - inputUpperBound));
-                if (requestMaxTokens < 1) {
-                  stoppedReason = 'budget.tokens';
-                  break;
-                }
-              }
-            }
-          }
-
-          let res = null;
-          let ballotTotalTokens = 0;
-          let chatFailed = false;
-          try {
-            res = await chat({
-              endpoint,
-              apiKey,
-              ...(signal ? { signal } : {}),
-              body: {
-                model,
-                max_tokens: requestMaxTokens,
-                messages: [
-                  { role: 'system', content: systemContent },
-                  { role: 'user', content },
-                ],
-              },
-            });
-            ballotTotalTokens = recordUsage(res.model, res.usage, p.id, voteIndex);
-          } catch (err) {
-            chatFailed = true;
-            if (err?.usage && (count(err.usage.inputTokens) > 0 || count(err.usage.outputTokens) > 0)) {
-              const errModel = typeof err.model === 'string' && err.model.trim() ? err.model : model;
-              ballotTotalTokens = recordUsage(errModel, err.usage, p.id, voteIndex);
-            }
-            if (signal?.aborted) {
-              stoppedReason = 'canceled';
-            } else {
-              invalidBallots.push({
-                perspective: p.id,
-                voteIndex,
-                reason: reviewFailure(err),
-              });
-            }
-          } finally {
-            if (settleReservation) {
-              try {
-                settleReservation(ballotTotalTokens);
-              } catch {
-                stoppedReason = stoppedReason ?? 'budget.check-error';
-              }
-            }
-          }
-
-          if (stoppedReason) break;
-          if (chatFailed) {
-            ballotIndex++;
-            continue;
-          }
-
-          const answer = typeof res.message.content === 'string'
-            ? res.message.content
-            : (Array.isArray(res.message.content) ? res.message.content.map((part) => part?.text ?? '').join('') : '');
-          try {
-            const parsedBallot = parseReview(answer, film?.output?.frames);
-            if (parsedBallot.candidateGrades) {
-              if (candidateOrder.length === 0) {
-                if (parsedBallot.candidateGrades.length === 0) {
-                  delete parsedBallot.candidateGrades;
-                } else if (
-                  parsedBallot.candidateGrades.length === 1
-                  && resolvedFilmId
-                  && parsedBallot.candidateGrades[0].id === resolvedFilmId
-                ) {
-                  const selfGrade = parsedBallot.candidateGrades[0].grade;
-                  if (parsedBallot.grade !== undefined && parsedBallot.grade !== selfGrade) {
-                    throw new ModelResponseError(
-                      `审片选票单片等级矛盾：grade（${parsedBallot.grade}）与 candidateGrades[${resolvedFilmId}]（${selfGrade}）不一致`,
-                    );
+                  if (inFlight.size > 0) {
+                    await Promise.race(inFlight);
+                    continue;
                   }
-                  if (parsedBallot.grade === undefined) parsedBallot.grade = selfGrade;
-                  delete parsedBallot.candidateGrades;
-                } else {
-                  const bad = parsedBallot.candidateGrades.find((cg) => cg.id !== resolvedFilmId) ?? parsedBallot.candidateGrades[0];
-                  throw new ModelResponseError(`审片选票包含未知候选 ID：${bad.id}`);
+                  if (settledSeq !== seqBefore) {
+                    continue;
+                  }
+                  stoppedReason = 'budget.tokens';
+                  break;
                 }
-              } else {
-                const allowed = new Set(candidateOrder);
-                const seen = new Set();
-                for (const cg of parsedBallot.candidateGrades) {
-                  if (!allowed.has(cg.id)) throw new ModelResponseError(`审片选票包含未知候选 ID：${cg.id}`);
-                  if (seen.has(cg.id)) throw new ModelResponseError(`审片选票包含重复候选 ID：${cg.id}`);
-                  seen.add(cg.id);
+                const granted = Math.floor(decision.remaining - inputUpperBound);
+                if (granted < 1) {
+                  if (inFlight.size > 0) {
+                    await Promise.race(inFlight);
+                    continue;
+                  }
+                  if (settledSeq !== seqBefore) {
+                    continue;
+                  }
+                  stoppedReason = 'budget.tokens';
+                  break;
                 }
+                if (granted < requestMaxTokens && (inFlight.size > 0 || settledSeq !== seqBefore)) {
+                  if (inFlight.size > 0) {
+                    await Promise.race(inFlight);
+                  }
+                  continue;
+                }
+                requestMaxTokens = Math.min(requestMaxTokens, granted);
               }
             }
-            ballots.push({
-              perspective: p.id,
-              voteIndex,
-              ...(candidateOrder.length ? { candidateOrder } : {}),
-              ...parsedBallot,
-            });
-          } catch (err) {
-            invalidBallots.push({
-              perspective: p.id,
-              voteIndex,
-              reason: reviewFailure(err),
-            });
+            if (stoppedReason || signal?.aborted) {
+              if (!stoppedReason && signal?.aborted) stoppedReason = 'canceled';
+              try { settleReservation?.(0); } catch { /* 已有停票原因时不覆盖 */ }
+              break;
+            }
           }
-          ballotIndex++;
+
+          inFlightReservedTokens += localReserveAmount;
+          nextTaskIdx++;
+          const p = executeSlot({
+            task,
+            candidateOrder,
+            systemContent,
+            content,
+            requestMaxTokens,
+            localReserveAmount,
+            settleReservation,
+          }).finally(() => {
+            inFlight.delete(p);
+          });
+          inFlight.add(p);
+          if (hasBudgetCheck && !hasSettle) {
+            await Promise.allSettled([...inFlight]);
+          }
         }
+      } catch (err) {
+        hasLoopErr = true;
+        loopErr = err;
+      } finally {
+        if (inFlight.size > 0) {
+          await Promise.allSettled([...inFlight]);
+        }
+      }
+      if (hasLoopErr) {
+        const totalTokens = inputTokens + outputTokens;
+        if (totalTokens > 0) {
+          throw attachUsageToLoopError(loopErr, { inputTokens, outputTokens, totalTokens });
+        }
+        throw loopErr;
+      }
+
+      const ballots = [];
+      const invalidBallots = [];
+      for (const entry of ballotSlots) {
+        if (!entry) continue;
+        if (entry.kind === 'ok') ballots.push(entry.ballot);
+        else if (entry.kind === 'invalid') invalidBallots.push(entry.invalid);
       }
 
       return {
@@ -906,6 +1123,23 @@ export function createOpenAiVisionReviewer({
 
 /** 照环境变量建审片客户端：三项都配了才建，否则交回 null（审片如实写 not-run） */
 export function reviewerFromEnv({ env = process.env, ledgerPath } = {}) {
-  const { BEIMING_REVIEW_ENDPOINT: endpoint, BEIMING_REVIEW_API_KEY: apiKey, BEIMING_REVIEW_MODEL: model } = env;
-  return endpoint && apiKey && model ? createOpenAiVisionReviewer({ endpoint, apiKey, model, ledgerPath }) : null;
+  const {
+    BEIMING_REVIEW_ENDPOINT: endpoint,
+    BEIMING_REVIEW_API_KEY: apiKey,
+    BEIMING_REVIEW_MODEL: model,
+    BEIMING_REVIEW_CONCURRENCY: rawConcurrency,
+  } = env;
+  let concurrency = DEFAULT_REVIEW_CONCURRENCY;
+  if (rawConcurrency !== undefined && rawConcurrency !== null && String(rawConcurrency).trim() !== '') {
+    const trimmed = String(rawConcurrency).trim();
+    if (!/^\d+$/.test(trimmed)) {
+      throw Object.assign(new Error(`BEIMING_REVIEW_CONCURRENCY 必须是 1..${MAX_REVIEW_CONCURRENCY} 的安全整数`), { code: 'usage.bad-argument' });
+    }
+    const parsed = Number(trimmed);
+    if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > MAX_REVIEW_CONCURRENCY) {
+      throw Object.assign(new Error(`BEIMING_REVIEW_CONCURRENCY 必须是 1..${MAX_REVIEW_CONCURRENCY} 的安全整数`), { code: 'usage.bad-argument' });
+    }
+    concurrency = parsed;
+  }
+  return endpoint && apiKey && model ? createOpenAiVisionReviewer({ endpoint, apiKey, model, ledgerPath, concurrency }) : null;
 }

@@ -1,0 +1,173 @@
+{
+  "format": "card/0.1",
+  "id": "overlay.anchored",
+  "version": "1.0.0",
+  "kind": "two-d",
+  "title": "锚点引线标注",
+  "intent": "照每帧元数据的实体屏幕锚点或包围盒排引线与标签框，相机动时标注跟着主体走",
+  "visibleToAgent": true,
+  "livesIn": [
+    "comp"
+  ],
+  "impl": [
+    {
+      "livesIn": "comp",
+      "entry": "cards/two-d/overlay-anchored/index.mjs",
+      "shape": "create",
+      "hosts": [],
+      "selftest": "cards/two-d/overlay-anchored/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "callouts": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": [
+        {
+          "id": "callout-body",
+          "entity": "gpu.body",
+          "text": "GPU CORE",
+          "dx": 72,
+          "dy": -48
+        }
+      ],
+      "coupling": "resolution"
+    },
+    "safeMarginPx": {
+      "type": "number",
+      "unit": "px",
+      "range": [
+        0,
+        240
+      ],
+      "default": 24,
+      "coupling": "resolution"
+    },
+    "fontPx": {
+      "type": "number",
+      "unit": "px",
+      "range": [
+        8,
+        96
+      ],
+      "default": 18,
+      "coupling": "resolution"
+    },
+    "padPx": {
+      "type": "number",
+      "unit": "px",
+      "range": [
+        2,
+        48
+      ],
+      "default": 8,
+      "coupling": "resolution"
+    },
+    "dotRadiusPx": {
+      "type": "number",
+      "unit": "px",
+      "range": [
+        1,
+        24
+      ],
+      "default": 4,
+      "coupling": "resolution"
+    },
+    "strokePx": {
+      "type": "number",
+      "unit": "px",
+      "range": [
+        1,
+        12
+      ],
+      "default": 2,
+      "coupling": "resolution"
+    },
+    "ink": {
+      "type": "color",
+      "unit": "none",
+      "space": "display",
+      "default": "#FFFFFF",
+      "coupling": "view-transform"
+    },
+    "fill": {
+      "type": "color",
+      "unit": "none",
+      "space": "display",
+      "default": "#101824",
+      "coupling": "view-transform"
+    }
+  },
+  "ports": {
+    "in": [
+      {
+        "name": "meta",
+        "type": "frame-meta"
+      }
+    ],
+    "out": [
+      {
+        "name": "readings",
+        "type": "frame-meta"
+      }
+    ],
+    "order": {
+      "before": [
+        "comp.finish",
+        "deliver.encode"
+      ],
+      "after": [
+        "comp.display"
+      ]
+    },
+    "requires": [
+      "合成工具给的 ctx 带 size（[宽, 高]，像素）与可选的 frames（每帧 meta/0.1 元数据表或按帧查询函数）；每条 callout 指定 entity（实体名）与可选 anchor（锚点名）、text、偏移 dx/dy 及起止局部帧号 [startFrame, endFrame)",
+      "每帧锚点坐标只从这一帧的 frame-meta 里取（优先取 entity.anchors[anchor].screen，未指定 anchor 时取 entity.bbox2d 中心；严格按 meta/0.1 像素单位读取并核对画幅范围 [0, 宽] × [0, 高]）：相机或零件运动时标注自动跟随，不需要改任何二维代码",
+      "标签框一律按 safeMarginPx 钳制在安全画幅内，引线从锚点经折点连到标签框侧边；Handle.object.layout(f, frameMeta) 交出 items、texts 与 readings，Handle.object.draw(f, rgba, frameMeta) 往显示参考 8 位 RGBA（直通透明度）上叠出锚点圆点、引线、标签框与复用 overlay.title 绘制的文字字形",
+      "空标注表、重复 id、越界帧区间、画幅外锚点坐标、非有限偏移或损坏颜色输入，create 与 layout/draw 一律报 usage.bad-argument"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "三维硬件拆解、工程爆炸图或空间示意图里，需要在合成阶段把二维文字标签与折线引线精确钉在三维零件的屏幕投影锚点上"
+    ],
+    "notWhen": [
+      "固定在画幅底部的旁白字幕（用 overlay.subs）或居中大标题（用 overlay.title）",
+      "场景参考线性画面：这张卡在色调映射之后往显示参考 8 位 RGBA 上叠标注"
+    ]
+  },
+  "calibration": "probe-thin-geometry",
+  "verify": {
+    "selftest": "1280 × 720：相机平移或旋转使实体锚点在画面里移动时，不改任何二维参数，引线起点与标签框严格跟随每帧 meta/0.1 里的锚点平移且保持恒定偏移；靠近画面边缘时标签框被钳制在 safeMarginPx 安全区内不出画；往全黑 8 位 RGBA 上绘制的亮像素 100% 落在各自总包围盒内，且顺序/乱序/单帧求解逐位一致",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "相机动了但标签还停在原地",
+      "fix": "不要把屏幕像素死写在二维层里：每帧把渲染器测出的 meta/0.1（含 entities[].bbox2d 或 anchors）传给 layout/draw"
+    },
+    {
+      "symptom": "零件移到画幅边上时标签框被切掉半截",
+      "fix": "保持 safeMarginPx 不小于 16 像素，layout 会自动把标签框钳进安全区并重连折线引线"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "每一帧的引线与标签框完全由当帧 frame-meta 的实体屏幕锚点经闭式几何偏移与安全框钳制算出，无跨帧平滑状态"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "node",
+      "source": "24.13.1",
+      "gpu": "none",
+      "date": "2026-11-23"
+    }
+  ],
+  "exams": [
+    "1-2",
+    "7-1",
+    "cal:overlay.anchored"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "23-2-shift-2f",
+  "questionId": "23-2",
+  "kind": "shift-2f",
+  "disabledCards": [],
+  "seed": null,
+  "description": "片内 5 个章节切换起点（第 2 到第 6 章）相对配乐拍点网格整体晚 2 帧（83.333 毫秒）：正对照这 5 个章节起点比最近拍点晚 20 毫秒（容差内），晚 2 帧后离最近拍点差 103.333 毫秒（约 2.48 帧）；反方向早 2 帧时离拍点差 63.333 毫秒（约 1.52 帧）同样超过 1 帧容差。配乐强起音不变，第二条判分线照过。",
+  "perturbation": {
+    "chapterShiftFrames": 2
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "beat.onset-hit",
+      "why": "后 5 个章节起点离最近拍点差 103.333 毫秒，超过 1 帧（41.667 毫秒）容差"
+    }
+  ]
+}
