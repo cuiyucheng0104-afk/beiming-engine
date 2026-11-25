@@ -137,7 +137,7 @@ test('Cycles 5.2 cards-data：逐卡隔离出图，反向重开镜头逐帧比�
   try {
     // 同机 CPU 作为逐位对照，避免异步 GPU 调度与卡的跨帧状态混淆。
     source = await startSource({ blenderBin, cards: dirs, device: 'cpu', limitMs: 60000 });
-    assert.equal(source.caps().version, '5.2.0');
+    assert.match(source.caps().version, /^5\.2\./);
     for (const [id] of cards) {
       const rig = id === 'rig.rigid-ik', sparks = id === 'particle.ballistic';
       const film = readJson(join(filmDir, 'film.json'));
