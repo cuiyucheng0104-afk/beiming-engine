@@ -93,6 +93,8 @@ struct ShadingPoint {
     object_flag: u32,               // 物体标志，位照 Cycles（第 3 位：物体是镜像的）。已定义
     time: f32,                      // 这条光线的时刻。已定义，恒 0
     lcg_state: u32,                 // 局部求交随机取子集用的小随机数状态。已定义
+    inst: u32,                      // 放置这个三角形的实例记录（NO_INST：没经实例，三角形本身就在世界空间；过程几何也记 NO_INST）。
+                                    // 已落地（阴影射线的起点偏移取世界空间的顶点与顶点法线，light.wgsl 的 shadow_tri）
     emission: vec3<f32>,            // 这个点的自发光，单独一个量，不占闭包。已落地
     num_closure: u32,               // 闭包个数。0：只发光、不散射，路径到这里结束。已落地
     closure: array<Closure, MAX_CLOSURE>,
@@ -154,6 +156,7 @@ fn shader_setup_from_hit(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<
         n = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
         (*sd).object = object_of(a);
     }
+    (*sd).inst = select(NO_INST, h.inst, !is_proc(h) && has(F_INST));
     if (!(dot(ng, d) < 0.0)) {
         (*sd).flag |= SD_BACKFACING;
         ng = -ng;

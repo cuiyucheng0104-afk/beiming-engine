@@ -2757,7 +2757,7 @@ mod tests {
                 _ => panic!("{name} 不是结构"),
             }
         };
-        assert_eq!(members("ShadingPoint"), ["P", "N", "Ng", "wi", "object", "prim", "u", "v", "ray_length", "flag", "object_flag", "time", "lcg_state", "emission", "num_closure", "closure", "legacy"]);
+        assert_eq!(members("ShadingPoint"), ["P", "N", "Ng", "wi", "object", "prim", "u", "v", "ray_length", "flag", "object_flag", "time", "lcg_state", "inst", "emission", "num_closure", "closure", "legacy"]);
         assert_eq!(members("Closure"), ["kind", "weight", "sample_weight", "N", "alpha_x", "alpha_y", "ior", "energy_scale", "fresnel_type", "f0", "f90_or_b", "exponent", "reflection_tint", "transmission_tint"]);
         assert_eq!(members("ShaderInputs"), ["base_color", "metallic", "roughness", "ior", "specular_ior_level", "specular_tint", "emission", "alpha", "diffuse_roughness", "flags", "coat_weight", "transmission_weight", "N"]);
         for (write, count) in [
