@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cards/lighting/studio/schema.json",
+  "title": "棚灯主体锚点、自定义面光、受光集合及局部帧提示",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "anchor": { "$ref": "#/$defs/point" },
+    "receiverCollection": { "$ref": "#/$defs/collection" },
+    "lights": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/light" } },
+    "cues": { "type": "array", "items": { "$ref": "#/$defs/cue" } }
+  },
+  "$defs": {
+    "point": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+    "collection": { "type": "string", "pattern": "\\S" },
+    "name": { "type": "string", "pattern": "^[A-Za-z0-9_]+(?![\\s\\S])", "not": { "const": "rig" } },
+    "preset": { "enum": ["hero", "explode", "poster", "mech-matte", "mech-plated", "wide-matte", "custom"] },
+    "gain": { "type": "number", "minimum": 0, "maximum": 1000 },
+    "light": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "position", "size", "watts"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "position": { "$ref": "#/$defs/point" },
+        "target": { "$ref": "#/$defs/point" },
+        "widthAxis": { "$ref": "#/$defs/point" },
+        "size": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "exclusiveMinimum": 0 } },
+        "watts": { "type": "number", "minimum": 0 },
+        "color": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number", "minimum": 0, "maximum": 1 } },
+        "bodyOnly": { "type": "boolean" },
+        "receiverCollection": { "$ref": "#/$defs/collection" }
+      },
+      "if": { "required": ["receiverCollection"] },
+      "then": { "properties": { "bodyOnly": { "const": true } } }
+    },
+    "cue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame"],
+      "minProperties": 2,
+      "properties": {
+        "frame": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "preset": { "$ref": "#/$defs/preset" },
+        "exposureScale": { "type": "number", "minimum": 0.000001, "maximum": 1000 },
+        "gains": { "type": "object", "propertyNames": { "$ref": "#/$defs/name" }, "additionalProperties": { "$ref": "#/$defs/gain" } }
+      }
+    }
+  }
+}

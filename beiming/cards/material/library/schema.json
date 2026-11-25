@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cards/material/library/schema.json",
+  "title": "场景网格对象名或通配符到工业材质名的映射",
+  "type": "object",
+  "propertyNames": { "type": "string", "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000]+(?![\\s\\S])" },
+  "additionalProperties": {
+    "type": "string",
+    "enum": [
+      "cap", "chip", "choke", "copper", "die", "emit_white", "fan_blade", "fan_hub", "fin_black",
+      "frame_black", "frame_dark", "frame_edge", "gold", "nickel", "pad_white", "pcb_black",
+      "plastic_black", "port_metal", "rubber", "steel", "substrate"
+    ]
+  }
+}
