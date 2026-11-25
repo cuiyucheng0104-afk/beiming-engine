@@ -27,7 +27,7 @@ pub mod texpack;
 pub mod pipeline_cache;
 pub mod world;
 
-use glam::{Vec3, Vec3A};
+use glam::Vec3;
 use std::path::PathBuf;
 use web_time::Instant;
 
@@ -89,7 +89,7 @@ pub fn emitter_tri(k: usize, tri_verts: &[[f32; 4]], a: &scene::GpuTriAttr, mate
         return None;
     }
     let v = |j: usize| Vec3::new(tri_verts[k * 3 + j][0], tri_verts[k * 3 + j][1], tri_verts[k * 3 + j][2]);
-    let (e1, e2) = (v(1), v(2));
+    let (e1, e2) = (v(1) - v(0), v(2) - v(0));
     let nominal = a.x[2] > 0.0;
     let area = if nominal { a.x[2] } else { 0.5 * e1.cross(e2).length() };
     if !(area * lum > 0.0) {
@@ -144,16 +144,16 @@ pub struct GpuEmitterTri {
 }
 
 impl GpuEmitterTri {
-    /// `e`'s, from its triangle's rows (v0, e1, e2: `Prepared::tri_verts`), with path code `code`.
+    /// `e`'s, from its triangle's rows (its three vertices: `Prepared::tri_verts`), with path code `code`.
     pub fn new(e: &EmitterTri, rows: &[[f32; 4]], code: u32) -> GpuEmitterTri {
-        let v = |r: usize| [rows[r][0], rows[r][1], rows[r][2]];
-        GpuEmitterTri { v0: v(0), tri: e.tri, e1: v(1), inst: e.inst, e2: v(2), code: code | if e.moves { EMITTER_MOVES } else { 0 } }
+        let v = |r: usize| glam::Vec3A::new(rows[r][0], rows[r][1], rows[r][2]);
+        GpuEmitterTri::of(e, [v(0), v(1), v(2)], code)
     }
 
     /// As `new`, from its vertices.
     pub fn of(e: &EmitterTri, [a, b, c]: [glam::Vec3A; 3], code: u32) -> GpuEmitterTri {
         let (e1, e2) = (b - a, c - a);
-        GpuEmitterTri::new(e, &[[a.x, a.y, a.z, 0.0], [e1.x, e1.y, e1.z, 0.0], [e2.x, e2.y, e2.z, 0.0]], code)
+        GpuEmitterTri { v0: a.to_array(), tri: e.tri, e1: e1.to_array(), inst: e.inst, e2: e2.to_array(), code: code | if e.moves { EMITTER_MOVES } else { 0 } }
     }
 
     /// Its vertices.
@@ -476,10 +476,9 @@ pub fn prepare_as(hwrt: bool, sc: &mut scene::Scene, timings: &mut Vec<(String, 
     let mut attrs = Vec::with_capacity(sc.attrs.len());
     for &i in &bvh.order {
         let [a, b, c] = sc.tris[i as usize];
-        let (e1, e2): (Vec3A, Vec3A) = (b - a, c - a);
         tri_verts.push([a.x, a.y, a.z, f32::from_bits(sc.tri_flags[i as usize])]);
-        tri_verts.push([e1.x, e1.y, e1.z, 0.0]);
-        tri_verts.push([e2.x, e2.y, e2.z, 0.0]);
+        tri_verts.push([b.x, b.y, b.z, 0.0]);
+        tri_verts.push([c.x, c.y, c.z, 0.0]);
         attrs.push(sc.attrs[i as usize]);
     }
     // Instanced meshes (hardware RT): the model-space pool after every traversal group, one BLAS per mesh.
@@ -488,10 +487,9 @@ pub fn prepare_as(hwrt: bool, sc: &mut scene::Scene, timings: &mut Vec<(String, 
     let deforming = scene::deforming_pool(&sc.meshes);
     for (k, (t, a)) in sc.pool_tris.iter().zip(&sc.pool_attrs).enumerate() {
         let [a0, b, c] = *t;
-        let (e1, e2): (Vec3A, Vec3A) = (b - a0, c - a0);
         tri_verts.push([a0.x, a0.y, a0.z, f32::from_bits(if k < deforming { scene::TRI_DYNAMIC } else { 0 })]);
-        tri_verts.push([e1.x, e1.y, e1.z, 0.0]);
-        tri_verts.push([e2.x, e2.y, e2.z, 0.0]);
+        tri_verts.push([b.x, b.y, b.z, 0.0]);
+        tri_verts.push([c.x, c.y, c.z, 0.0]);
         attrs.push(*a);
     }
     sc.gpu_instances = sc.instances.iter().map(|i| { let m = sc.meshes[i.mesh as usize]; i.gpu(pool_first as u32 + m.first, m.opaque) }).collect();

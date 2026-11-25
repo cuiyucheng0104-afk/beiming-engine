@@ -139,8 +139,9 @@ fn shader_setup_from_hit(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<
         (*sd).object = instance_at(h.inst).info.y;
     } else {
         let i = h.tri;
-        var e1 = tri_verts[i * 3u + 1u].xyz;
-        var e2 = tri_verts[i * 3u + 2u].xyz;
+        let v0 = tri_verts[i * 3u].xyz;
+        var e1 = tri_verts[i * 3u + 1u].xyz - v0;
+        var e2 = tri_verts[i * 3u + 2u].xyz - v0;
         var a = attrs[i];
         if (has(F_INST) && h.inst != NO_INST) {
             let r = instance_at(h.inst);
@@ -443,8 +444,11 @@ fn mat_in_at(ti: u32, u: f32, v: f32, view: vec3<f32>, lod: f32) -> MatIn {
     let a = attrs[ti];
     let m = material_at(bitcast<u32>(a.uv.w));
     let w = 1.0 - u - v;
-    let p = tri_verts[ti * 3u].xyz + tri_verts[ti * 3u + 1u].xyz * u + tri_verts[ti * 3u + 2u].xyz * v;
-    let ng = normalize(cross(tri_verts[ti * 3u + 1u].xyz, tri_verts[ti * 3u + 2u].xyz));
+    let v0 = tri_verts[ti * 3u].xyz;
+    let e1 = tri_verts[ti * 3u + 1u].xyz - v0;
+    let e2 = tri_verts[ti * 3u + 2u].xyz - v0;
+    let p = v0 + e1 * u + e2 * v;
+    let ng = normalize(cross(e1, e2));
     var n = normalize(a.n0.xyz * w + a.n1.xyz * u + a.n2.xyz * v);
     let t = normalize(a.t.xyz - n * dot(n, a.t.xyz) + vec3<f32>(1e-9));
     let oi = object_of(a);
@@ -533,8 +537,9 @@ fn legacy_shader_inputs(m: Material, emissive: vec3<f32>, base: vec3<f32>, rough
 fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     if (is_proc(h)) { return surface_proc(o, d, h, width); }
     let i = h.tri;
-    var e1 = tri_verts[i * 3u + 1u].xyz;
-    var e2 = tri_verts[i * 3u + 2u].xyz;
+    let v0 = tri_verts[i * 3u].xyz;
+    var e1 = tri_verts[i * 3u + 1u].xyz - v0;
+    var e2 = tri_verts[i * 3u + 2u].xyz - v0;
     var a = attrs[i];
     if (has(F_INST) && h.inst != NO_INST) {
         let r = instance_at(h.inst);

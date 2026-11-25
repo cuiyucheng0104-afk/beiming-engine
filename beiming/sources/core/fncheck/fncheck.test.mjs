@@ -221,13 +221,38 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
   await breakOne(t, light, lsrc, 'let x1 = xc + 0.5 * len_u;', 'let x1 = xc + 0.51 * len_u;', ['area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_sample', 'area_light_eval_from_intersection'], 16, 4);
   // 辐射通量换成辐射亮度的 1/π 改成 0.32，只有带 eval_fac 的两项不合格
   await breakOne(t, light, lsrc, 'M_1_PI_F * invarea', '0.32 * invarea', ['area_light_sample', 'area_light_eval_from_intersection'], 20, 10);
+  // 三角形求交：换回上游的 Möller–Trumbore（闭区间、无容差），防水一项不合格；逐组那一项在边界上本来就不比中没中，照旧合格。
+  // 这两处只跑三角形求交的两项（各自只让自己那一项不合格），不碰宿主一侧
+  const TRI = ['ray_triangle_intersect', 'ray_triangle_intersect_pair'];
+  const start = usrc.indexOf('fn ray_triangle_intersect('), end = usrc.indexOf('\n}\n', start) + 3;
+  await breakOne(t, util, usrc, usrc.slice(start, end), `fn ray_triangle_intersect(ray_P: vec3f, ray_D: vec3f, ray_tmin: f32, ray_tmax: f32, tri_a: vec3f, tri_b: vec3f, tri_c: vec3f) -> TriangleHit {
+  let e1 = tri_b - tri_a;
+  let e2 = tri_c - tri_a;
+  let pv = cross(ray_D, e2);
+  let det = dot(e1, pv);
+  if (abs(det) < 1e-12) { return TriangleHit(); }
+  let inv = 1.0 / det;
+  let tv = ray_P - tri_a;
+  let u = dot(tv, pv) * inv;
+  if (u < 0.0 || u > 1.0) { return TriangleHit(); }
+  let qv = cross(tv, e1);
+  let v = dot(ray_D, qv) * inv;
+  if (v < 0.0 || u + v > 1.0) { return TriangleHit(); }
+  let t = dot(e2, qv) * inv;
+  if (!(t >= ray_tmin && t <= ray_tmax)) { return TriangleHit(); }
+  return TriangleHit(true, u, v, t);
+}
+`, ['ray_triangle_intersect_pair'], 20, 1, TRI);
+  // u、v 对调：逐组那一项不合格，防水一项不看 u、v，照旧合格
+  await breakOne(t, util, usrc, 'return TriangleHit(true, min(U * rcp_uvw, 1.0), min(V * rcp_uvw, 1.0), t);', 'return TriangleHit(true, min(V * rcp_uvw, 1.0), min(U * rcp_uvw, 1.0), t);', ['ray_triangle_intersect'], 17, 4, TRI);
 });
 
-async function breakOne(t, file, src, from, to, expect, nIn, nOut) {
+// names：只跑这几项（不写就是全部）。只给着色器一侧的项时不碰宿主一侧，不编渲染程序
+async function breakOne(t, file, src, from, to, expect, nIn, nOut, names) {
   {
     const broken = src.replace(from, to);
     assert.notEqual(broken, src, `要改的那一项在 WGSL 里找不到了：${from}`);
-    const r = await e2e(t, { n: 100_000, seed: 3, wgsl: { [file]: broken } });
+    const r = await e2e(t, { n: 100_000, seed: 3, wgsl: { [file]: broken }, ...(names && { names }) });
     if (!r) return;
     assert.equal(r.ok, false);
     assert.deepEqual(r.results.filter(x => x.fails > 0).map(x => x.name), expect);
