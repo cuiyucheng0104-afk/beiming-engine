@@ -1,0 +1,80 @@
+{
+  "format": "question/0.1",
+  "id": "900-1",
+  "level": 5,
+  "title": "同框混合三渲二角色与写实物体",
+  "brief": "做一条 10 秒、24 帧每秒、1920×1080、240 帧的同框混合镜头，不带声音，不换镜头。卡通三渲二角色与写实刚体物体（按 08 第 5 节口径先对刚体无贴图物体承诺）在同一帧物理光照场中同框交互，要求两者之间互相投射接触阴影、镜面反射、漫反射溢色与环境遮蔽，不得通过前后图层硬叠伪造。",
+  "deliverable": {
+    "size": [
+      1920,
+      1080
+    ],
+    "fps": "24/1",
+    "frames": 240,
+    "audio": "none"
+  },
+  "assets": {},
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=24, frames=240)",
+    "no_cut @ all",
+    "inside_frame(toon_hero, margin=0.05) @ all",
+    "visible(toon_hero) >= 0.25 @ all",
+    "no_intersect(toon_hero, rigid_prop, tol=0.002) @ all",
+    "noise_residual(film) <= 4.5 @ all",
+    "alias_edge(film) <= 0.6 @ all"
+  ],
+  "scoring": [
+    {
+      "metric": "hybrid.mutual-shadow-reflection",
+      "source": "render-stats",
+      "args": {
+        "rigidTextured": false,
+        "requireMutualShadow": true,
+        "requireMutualReflection": true
+      },
+      "pass": "卡通角色与刚体无贴图写实闭合体在同一帧互相投影与反射成立，接触影与反射轮廓连续准确",
+      "weight": 0.5
+    },
+    {
+      "metric": "hybrid.color-bleed-occlusion",
+      "source": "film",
+      "args": {
+        "requireMutualBleed": true,
+        "requireMutualOcclusion": true,
+        "maxSeamPx": 1
+      },
+      "pass": "卡通角色与写实刚体间的漫反射溢色与互相遮蔽连续自洽，边缘无硬抠像白边或错层",
+      "weight": 0.5
+    }
+  ],
+  "controls": {
+    "referencePass": "核心路径追踪写实接管与 G18 同框混合基线在互相投影、反射、溢色与遮蔽上均得满分",
+    "negative": "前后分层合成而无互相投影反射、缺少互遮蔽或溢色中断的假混合提交必须判不合格"
+  },
+  "needs": [
+    "core.pathtrace-hybrid",
+    "deliver.encode"
+  ],
+  "budget": {
+    "tokens": 600000,
+    "wallMs": 2400000,
+    "gpuSeconds": 600
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": true,
+    "blockedBy": [
+      "核心接管写实（core 路径追踪写实接管）",
+      "G18 同框混合卡通与写实闭合体互相投影反射"
+    ]
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "08 第 5 节刚体无贴图同框混合承诺初值，待核心写实接管与 G18 落地后校准",
+    "noiseFloor": null,
+    "version": 0
+  },
+  "ext": {
+    "bench.code": "B22-1"
+  }
+}

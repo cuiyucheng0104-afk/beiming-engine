@@ -2,6 +2,9 @@
 
 import { expandEventFrames } from './events.mjs';
 
+/** 非枚举考题上下文标记：不污染冻结 shot-input.schema.json 的可枚举键，仅供宿主机内部策略拦截读取。 */
+export const SHOT_INPUT_EXAM = Symbol.for('beiming.eval.exam');
+
 /** 出帧用的那一套：镜头条目带 renderer 对象时是它里面的 source、host、mode、entry，不带时是条目顶层的这四样。 */
 export const renderingOf = (shot) => shot.renderer ?? shot;
 
@@ -29,7 +32,7 @@ export function shotInput(film, shotId, events) {
   const entry = film.shots.find((s) => s.id === shotId);
   if (!entry) throw new RangeError(`片子描述里没有镜头 ${shotId}`);
   const overlays = (film.overlays ?? []).filter((o) => o.shot === shotId);
-  return structuredClone({
+  const out = structuredClone({
     film: film.id,
     output: { size: film.output.size, fps: film.output.fps },
     shot: entry,
@@ -38,4 +41,13 @@ export function shotInput(film, shotId, events) {
     ...(overlays.length ? { overlays } : {}),
     ...(film.style?.tokens ? { tokens: film.style.tokens } : {}),
   });
+  if (film.exam) {
+    Object.defineProperty(out, SHOT_INPUT_EXAM, {
+      value: structuredClone(film.exam),
+      enumerable: false,
+      configurable: false,
+      writable: false,
+    });
+  }
+  return out;
 }
