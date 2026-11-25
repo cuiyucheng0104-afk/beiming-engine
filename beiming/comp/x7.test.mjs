@@ -36,6 +36,14 @@ const distance = ([x, y], [u, v]) => Math.hypot(x - u, y - v);
 const near = (actual, expected, tolerance, label) => assert.ok(Math.abs(actual - expected) <= tolerance,
   `${label}: ${actual}, expected ${expected} ± ${tolerance}`);
 
+let HAS_FFMPEG = false;
+try {
+  const bin = tools();
+  HAS_FFMPEG = spawnSync(bin.ffmpeg, ['-version'], { stdio: 'ignore', windowsHide: true, timeout: 15000 }).status === 0
+    && spawnSync(bin.ffprobe, ['-version'], { stdio: 'ignore', windowsHide: true, timeout: 15000 }).status === 0;
+} catch (e) { if (e?.code !== 'env.ffmpeg-missing') throw e; }
+const NEED_FFMPEG = { skip: !HAS_FFMPEG && '环境缺少 ffmpeg / ffprobe' };
+
 function workDir(t) {
   const root = mkdtempSync(join(tmpdir(), 'beiming-x7-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -195,6 +203,7 @@ test('X7 stitch：overlay 校验、旧图逐字一致、AgX/sRGB 后直通 alpha
     rgba[((f * 32 + y) * 32 + x) * 4 + 3] = y < 16 ? 0 : x < 16 ? 255 : f % 2 ? 64 : 128;
   }
   const overlay = { pattern, start: 7, kind: 'png', opacity: 0.5 };
+  if (!HAS_FFMPEG) return;
   encodePng(pattern, [32, 32], rgba, 3, overlay.start);
   assert.throws(() => graphWith({ ...overlay, start: 9 }, { checkFiles: true }), (e) => bad(e) && /0010\.png/.test(e.message));
   mkdirSync(framePath(pattern, 10));
@@ -254,7 +263,7 @@ function projectShot(root, cameraX) {
   return { pattern, meta };
 }
 
-test('X7 离线：同一标注配置跟随两组运动机位并分别交付硬切六件套', async (t) => {
+test('X7 离线：同一标注配置跟随两组运动机位并分别交付硬切六件套', NEED_FFMPEG, async (t) => {
   assert.equal(typeof composeMixedFilm, 'function');
   const root = workDir(t);
   const view = offlineView(root);
@@ -329,7 +338,7 @@ def build(ctx):
             'meta': lambda f: {'anchors': {'board#chip': [0, 0, 0.30]}}}
 `;
 
-test('X7 实渲：Blender 5.2 + three 页面宿主，同一透明镜头跟随两套机位再硬切 three', { timeout: 300_000 }, async (t) => {
+test('X7 实渲：Blender 5.2 + three 页面宿主，同一透明镜头跟随两套机位再硬切 three', { timeout: 300_000, ...NEED_FFMPEG }, async (t) => {
   const bin = process.env.BLENDER_BIN || findBlender();
   const version = bin && spawnSync(bin, ['--version'], { encoding: 'utf8', shell: false, windowsHide: true, timeout: 15000 }).stdout;
   if (!/^Blender 5\.2\.\d+\b/.test(version ?? '')) return t.skip('需要 Blender 5.2');
