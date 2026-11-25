@@ -244,8 +244,8 @@ test('S12：Blender 实测穿插、接触、最小间隙、评值网格、坐标
   ]);
   for (const { value, at } of anchors) near(value, Math.hypot(...at));
   assert.deepEqual((await query('belowGround', ['shallow', 'deep'])).items, [
-    { a: 'deep', value: 0.75, unit: 'm', at: [4, -0.75, -2] },
-    { a: 'shallow', value: 0.25, unit: 'm', at: [5, -0.25, -2] },
+    { a: 'deep', value: 0.75, unit: 'm', at: [3.5, -0.75, -2.5] },
+    { a: 'shallow', value: 0.25, unit: 'm', at: [4.5, -0.25, -2.5] },
   ]);
   assert.deepEqual((await query('belowGround', ['deep', 'shallow'], { tol: 0.25 })).items.map((i) => i.a), ['deep']);
   const crowd = observed(await query('belowGround', ['crowd.*']), 53);

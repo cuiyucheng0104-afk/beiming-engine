@@ -447,8 +447,8 @@ def run_query(plan, scene, depsgraph, entities, anchors, ignored, convert):
         if kind == 'bbox3d':
             items.append(item(a, math.dist(box[:3], box[3:]), box))
         elif -box[1] > tol:
-            cx, _cy, cz = lerp(box[:3], box[3:], .5)
-            items.append(item(a, -box[1], (cx, box[1], cz)))
+            low = min((p for m in by_name[a] for p in m.points), key=lambda p: (p[1], p[0], p[2]))
+            items.append(item(a, -low[1], low))
     for a, b in pairs:
         if kind == 'intersect' and frozenset((a, b)) in ignored:
             continue

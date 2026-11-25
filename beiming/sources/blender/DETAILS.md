@@ -14,7 +14,7 @@ const touches = fit.items.some(({ value }) => value <= 0.0005);
 | --- | --- | --- |
 | `bbox3d` | 评值网格世界 AABB 的对角线 | `[minX, minY, minZ, maxX, maxY, maxZ]` |
 | `anchor` | 锚点到世界原点的欧氏距离 | `[x, y, z]`，`a` 写成 `entity#anchorName` |
-| `belowGround` | `-minY`，只返回严格大于 `tol` 的下陷 | AABB 底面中心 `[cx, minY, cz]` |
+| `belowGround` | `-minY`，只返回严格大于 `tol` 的下陷 | 评值网格的最低顶点 `[x, minY, z]`（同 `y` 按 `x`、`z` 升序确定性破平，与 `three`/`core` 同口径） |
 | `intersect` | 最大采样穿插深度，只返回严格大于 `tol` 的读数 | 取得该深度的世界坐标 |
 | `contact` | 两实体的最小欧氏间隙，相接或相穿时为零 | 最近两点的中点，相交时可为交点 |
 
