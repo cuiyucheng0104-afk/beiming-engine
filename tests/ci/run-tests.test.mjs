@@ -147,7 +147,7 @@ test('domainOf / inScope：路径规则', () => {
   assert.equal(domainOf('tests/a.test.mjs'), 'root');
   assert.equal(domainOf('engine/audio/test_audio.py'), 'audio');
   assert.equal(domainOf('beiming/api/api.test.mjs'), 'beiming-api');
-  assert.equal(domainOf('beiming/bench/exam.test.mjs'), 'beiming-api');
+  assert.equal(domainOf('beiming/bench/exam.test.mjs'), 'beiming-bench');
   assert.equal(domainOf('beiming/cards/m1a-cards.test.mjs'), 'beiming');
   assert.equal(domainOf('engine/look/look.test.mjs'), 'engine');
   assert.equal(domainOf('tools/repo-check/rules/core/x.test.mjs'), 'tools');

@@ -1,0 +1,12 @@
+{
+  "format": "card/0.1", "id": "three.patch", "version": "1.0.0", "kind": "mechanism", "visibleToAgent": false,
+  "title": "着色器锚点补丁", "intent": "在指定版本的材质编译阶段按字面锚点插入或替换源码，避免静默失效和缓存串用。",
+  "livesIn": ["source:three"],
+  "impl": [{ "livesIn": "source:three", "entry": "cards/mechanism/three-patch/index.mjs", "shape": "create", "hosts": [{"host":"page","version":"0.187.0"}], "selftest": "cards/mechanism/three-patch/selftest.test.mjs" }],
+  "params": {},
+  "ports": {"in":[], "out":[], "order":{"before":[],"after":[]}, "requires":["原生镜头传入 THREE 命名空间，按名取机制。每条补丁须给出 stage、anchor、mode、code。默认仅允许 0.187.0，升级先核查锚点再显式指定 allowedVersions。"]},
+  "conditions": {"appliesWhen":["多种材质变体复用有顺序的着色器片段。"], "notWhen":["同一锚点出现多次，或宿主没有可核验的版本号。"]},
+  "calibration":"probe-gray-chart", "verify":{"selftest":"核验宿主版本、两阶段唯一命中、补丁原子性及材质缓存变体。", "predicates":[]},
+  "provenance":{"cases":[], "note":"按精确子串的位置切片，不通过正则或全局块表改写材质。"},
+  "status":[{"level":"reproduced", "host":"page", "source":"0.187.0", "gpu":"none", "date":"2026-11-25"}], "exams":["cal:three.patch"]
+}
