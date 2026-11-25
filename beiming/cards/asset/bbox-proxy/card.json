@@ -1,0 +1,56 @@
+{
+  "format": "card/0.1",
+  "id": "asset.bbox-proxy",
+  "version": "1.0.0",
+  "kind": "asset",
+  "title": "包围盒契约与缺件代理",
+  "intent": "按整机包围盒检查零件越界、尺寸与让位距离，为缺失的必需件生成可出帧的代理网格",
+  "visibleToAgent": true,
+  "livesIn": ["source:blender"],
+  "impl": [{
+    "livesIn": "source:blender",
+    "entry": "cards/asset/bbox-proxy/proxy.py",
+    "shape": "create",
+    "hosts": [{ "host": "cycles", "version": "5.2.0" }],
+    "selftest": "cards/asset/bbox-proxy/selftest.test.mjs"
+  }],
+  "params": {
+    "spec": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": {
+        "envelope": [-0.5, -0.5, -0.5, 0.5, 0.5, 0.5],
+        "parts": [{ "name": "body", "size": [0.5, 0.5, 0.5] }]
+      },
+      "coupling": "asset-batch"
+    },
+    "fallbackMissing": { "type": "boolean", "unit": "none", "default": true, "coupling": "none" },
+    "clearanceTol": { "type": "number", "unit": "m", "range": [0, 0.1], "default": 0.0005, "coupling": "scene-scale" },
+    "envelopeScale": { "type": "number", "unit": "none", "range": [0.001, 1000], "default": 1, "coupling": "scene-scale" }
+  },
+  "ports": {
+    "in": [],
+    "out": [{ "name": "bbox", "type": "bbox-world" }, { "name": "readings", "type": "frame-meta" }],
+    "order": { "before": [], "after": [] },
+    "requires": [
+      "envelope、bbox、size、center 与 minGap 使用北冥右手 +Y 向上米制；size 缺省以原点为中心",
+      "part.entity 可绑定场景里同名的 Mesh 并沿用其已有实体归属；缺少绑定或对象时，必需件按 fallbackMissing 处理，可选件跳过",
+      "envelopeScale 以原点缩放整机与名义零件坐标及最小间隙，clearanceTol 以米计，作用于越界量、各轴尺寸差和欧氏 AABB 间隙",
+      "卡实例的 fallbackMissing 优先于 spec.fallbackMissing；Handle.contract 交明细，帧读数交 loadedCount、proxiedCount 等计数"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["硬表面零件并行制作，需要尺寸与让位检查，且缺件时仍要装入镜头出帧"],
+    "notWhen": ["需要判断凹形网格之间的精确表面距离或逐帧碰撞"]
+  },
+  "calibration": "probe-axes-turntable",
+  "verify": {
+    "selftest": "合成零件逐轴检查越界与缩尺，核对让位差值、阈值、缺件降级和各面绕序；Blender 实跑验证代理可见及元数据计数",
+    "predicates": []
+  },
+  "pitfalls": [{ "symptom": "让位检查报错", "fix": "把契约间隙与包围盒转换到同一米制坐标，检查相关零件的装配位置" }],
+  "provenance": { "cases": [], "note": "按 K2 整机包围盒、名义尺寸与让位契约生成八顶点盒体代理" },
+  "status": [{ "level": "reproduced", "host": "cycles", "source": "5.2.0", "gpu": "apple-m5-pro", "date": "2026-11-25" }],
+  "exams": ["1-2", "cal:asset.bbox-proxy"]
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cards/asset/bbox-proxy/schema.json",
+  "title": "北冥右手 +Y 向上米制包围盒契约",
+  "type": "object",
+  "required": ["envelope", "parts"],
+  "additionalProperties": false,
+  "properties": {
+    "envelope": { "$ref": "#/$defs/bbox" },
+    "fallbackMissing": { "type": "boolean" },
+    "parts": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/part" } }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)*(?![\\s\\S])" },
+    "bbox": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "type": "number" } },
+    "center": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+    "size": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number", "exclusiveMinimum": 0 } },
+    "part": {
+      "type": "object",
+      "required": ["name"],
+      "oneOf": [{ "required": ["bbox"] }, { "required": ["size"] }],
+      "dependentRequired": { "center": ["size"] },
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "entity": { "$ref": "#/$defs/name" },
+        "bbox": { "$ref": "#/$defs/bbox" },
+        "center": { "$ref": "#/$defs/center" },
+        "size": { "$ref": "#/$defs/size" },
+        "required": { "type": "boolean" },
+        "clearances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["against", "minGap"],
+            "additionalProperties": false,
+            "properties": {
+              "against": { "$ref": "#/$defs/name" },
+              "minGap": { "type": "number", "minimum": 0 }
+            }
+          }
+        }
+      }
+    }
+  }
+}
