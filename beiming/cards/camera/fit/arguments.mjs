@@ -43,6 +43,7 @@ export function argumentsOf(inputs, params, f, sub) {
     if (!Object.hasOwn(p, k)) p[k] = spec.default;
     const n = p[k];
     if (spec.range && (!Number.isFinite(n) || n < spec.range[0] || n > spec.range[1] || (spec.type === 'integer' && !Number.isSafeInteger(n)))) bad(`${k} 超出范围`);
+    if (spec.type === 'boolean' && typeof n !== 'boolean') bad(`${k} 必须是布尔值`);
   }
   return p;
 }

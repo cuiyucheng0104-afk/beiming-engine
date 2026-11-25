@@ -1,0 +1,36 @@
+{
+  "format": "card/0.1",
+  "id": "assembly.explode",
+  "version": "1.0.0",
+  "kind": "assembly",
+  "title": "零件径向爆炸展开",
+  "intent": "围绕装配中心按轴权重与分组偏移展开或回收零件",
+  "livesIn": ["source:blender"],
+  "impl": [{
+    "livesIn": "source:blender", "entry": "cards/assembly/explode/explode.py", "shape": "create",
+    "hosts": [{ "host": "cycles", "version": "5.2.0" }], "selftest": "cards/assembly/explode/selftest.test.mjs"
+  }],
+  "params": {
+    "parts": { "type": "data", "unit": "none", "schema": "parts.schema.json", "default": [{ "id": "part", "rest_pos": [0, 0, 0] }], "coupling": "asset-batch" },
+    "phase": { "type": "data", "unit": "none", "schema": "phase.schema.json", "default": { "startFrame": 0, "endFrame": 24, "from": 0, "to": 1 }, "coupling": "fps" },
+    "axisWeights": { "type": "data", "unit": "none", "schema": "weights.schema.json", "default": [1, 1, 1], "coupling": "none" },
+    "scaleM": { "type": "number", "unit": "m", "range": [0, 1000], "default": 1, "coupling": "scene-scale" },
+    "center": { "type": "data", "unit": "m", "schema": "center.schema.json", "default": null, "coupling": "scene-scale" },
+    "groupOffsets": { "type": "data", "unit": "m", "schema": "group-offsets.schema.json", "default": {}, "coupling": "scene-scale" },
+    "bindings": { "type": "data", "unit": "none", "schema": "bindings.schema.json", "default": {}, "coupling": "asset-batch" }
+  },
+  "ports": {
+    "in": [], "out": [{ "name": "readings", "type": "frame-meta" }], "order": { "before": [], "after": [] },
+    "requires": [
+      "parts 位置、center 与 groupOffsets 都使用北冥右手 +Y 向上米制坐标，center 缺省取各零件位置平均；scaleM 是径向位移，组偏移额外相加",
+      "phase 是镜头局部帧区间及两端进度，只在区间内线性变化；bindings 以零件 ID 指定现有 Blender 物体名，位置是对象的父级局部坐标，不改朝向或实体归属",
+      "Handle.sample(f, sub) 只算位置，可不绑定场景物体"
+    ]
+  },
+  "conditions": { "appliesWhen": ["展示装配层次或分离结构"], "notWhen": ["需要绕障碍运动或保证任意两件不相交"] },
+  "calibration": "boxes-explode@1",
+  "verify": { "selftest": "检查端点、递增间距、倒放、子帧与场景写入；径向尺度为零且没有组偏移时对照还原", "predicates": [] },
+  "provenance": { "cases": [], "note": "以显式静止位置计算径向与分组位移" },
+  "status": [{ "level": "read", "host": "cycles", "source": "5.2.0", "gpu": "none", "date": "2026-11-25" }],
+  "exams": ["1-2", "cal:assembly.explode"]
+}

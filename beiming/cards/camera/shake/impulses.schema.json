@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["frame"],
+    "additionalProperties": false,
+    "properties": {
+      "frame": { "type": "number" },
+      "strength": { "type": "number", "minimum": 0 }
+    }
+  }
+}

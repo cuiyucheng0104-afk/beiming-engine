@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["startFrame", "endFrame", "from", "to"],
+  "properties": {
+    "startFrame": { "type": "integer" },
+    "endFrame": { "type": "integer" },
+    "from": { "type": "number", "minimum": 0, "maximum": 1 },
+    "to": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

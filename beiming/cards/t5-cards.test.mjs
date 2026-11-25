@@ -46,11 +46,14 @@ test('四张卡：C1、全目录零泄漏、自测与唯一入口、校准场景
     assert.deepEqual(scanCardLeaks(raw), []);
     assert.deepEqual(validateCard(card), { ok: true, schemaErrors: [], violations: {}, leaks: [] }, id);
     for (const name of readdirSync(join(HERE, dir))) assert.deepEqual(scanCardLeaks(readFileSync(join(HERE, dir, name), 'utf8')), [], name);
-    assert.equal(card.id, id); assert.equal(card.version, '1.0.0'); assert.equal(card.kind, dir.split('/')[0]);
+    assert.equal(card.id, id); assert.equal(card.kind, dir.split('/')[0]);
+    if (id === 'camera.fit') assert.match(card.version, /^1\.\d+\.\d+$/);
+    else assert.equal(card.version, '1.0.0');
     assert.equal(card.status.length, 1);
     assert.ok(['reproduced', 'measured'].includes(card.status[0].level));
     assert.ok(exams.every(exam => card.exams.includes(exam)));
-    assert.deepEqual(card.livesIn, [where]); assert.equal(card.impl.length, 1);
+    assert.deepEqual(card.livesIn, id === 'camera.fit' ? [where, 'source:blender'] : [where]);
+    assert.equal(card.impl.length, card.livesIn.length);
     const [impl] = card.impl, shape = where === 'data' ? 'evaluate' : 'create';
     assert.equal(impl.livesIn, where); assert.equal(impl.shape, shape);
     assert.equal(impl.selftest, `cards/${dir}/selftest.test.mjs`); assert.ok(existsSync(join(BM, impl.selftest)));

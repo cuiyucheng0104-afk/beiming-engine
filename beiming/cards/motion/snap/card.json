@@ -1,0 +1,33 @@
+{
+  "format": "card/0.1",
+  "id": "motion.snap",
+  "version": "1.0.0",
+  "kind": "motion",
+  "title": "飞入扣合与阻尼余振",
+  "intent": "在局部帧区间内平滑飞入，接触后轻微越位回弹，结束精确回到静止姿态",
+  "livesIn": ["source:blender"],
+  "impl": [{
+    "livesIn": "source:blender", "entry": "cards/motion/snap/snap.py", "shape": "create",
+    "hosts": [{ "host": "cycles", "version": "5.2.0" }], "selftest": "cards/motion/snap/selftest.test.mjs"
+  }],
+  "params": {
+    "part": { "type": "data", "unit": "none", "schema": "part.schema.json", "default": { "t0": 0, "fly_frames": 18, "rest_pos": [0, 0, 0], "rest_rot_deg": [0, 0, 0], "start_offset": [1, 0, 0], "start_rot_deg": [0, 20, 0] }, "coupling": "asset-batch" },
+    "overshoot": { "type": "number", "unit": "none", "range": [0, 1], "default": 0.045, "coupling": "none" },
+    "settleFrames": { "type": "integer", "unit": "frames", "range": [0, 1000000], "default": 6, "coupling": "fps" },
+    "object": { "type": "string", "unit": "none", "default": "", "coupling": "asset-batch" }
+  },
+  "ports": {
+    "in": [], "out": [{ "name": "readings", "type": "frame-meta" }], "order": { "before": [], "after": [] },
+    "requires": [
+      "part 可以直接使用装配排程的零件行；t0 与 fly_frames 使用镜头局部帧，位置与 start_offset 是父级局部的北冥 +Y 向上米制，两个朝向都是绝对 XYZ 欧拉角、单位度",
+      "fly_frames 包含回弹。settleFrames 最多占时段一半；overshoot 为 0 时接触后不越位",
+      "object 非空时绝对写入同名 Blender 物体的位置与朝向；Handle.sample(f, sub) 可在没有场景时独立求值"
+    ]
+  },
+  "conditions": { "appliesWhen": ["零件用飞入、接触、轻微回弹表现扣合"], "notWhen": ["需要由物理碰撞或关节约束决定轨迹"] },
+  "calibration": "probe-moving-cube",
+  "verify": { "selftest": "验证起点、飞行、越位与精确静止终点，并比较乱序帧、子帧与零越位负对照", "predicates": [] },
+  "provenance": { "cases": [], "note": "平滑飞行段接有界阻尼余振，起始与静止姿态显式给出" },
+  "status": [{ "level": "read", "host": "cycles", "source": "5.2.0", "gpu": "none", "date": "2026-11-25" }],
+  "exams": ["cal:motion.snap"]
+}
