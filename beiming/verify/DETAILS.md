@@ -119,3 +119,41 @@ const transition = evaluateAssertion('no_ghost(120)', film, measured);
 ### 实渲核验
 
 测试 V14-9 用页面宿主（`beiming/host/page`）把一致性校准片裁成两个镜头实渲：改 s01 的快门角只变 `[0, 3)`，改 s02 的背景只变 `[3, 6)`；加锁重渲每遍新起一个帧源进程（裁出来的锁只钉了帧源，带 `allowPartialLock`），6 帧逐位相同；串扰与第二遍动过参数的负对照都判红。本机没有无头浏览器（二进制不存在）时这一条跳过，别的启动错误照常算失败。
+
+## 噪声地板乘 k：对拍阶梯第 3 级以后的门
+
+`floorgate.mjs` 从 `index.mjs` 导出 `floorGate`、`welchGate`，阈值在 `floor-gate.json`。k、量和 Welch 的参数都只从阈值文件读，调用方传不进来。
+
+```js
+import { floorGate, welchGate } from './index.mjs';
+const r = floorGate({ pack, value: hdrFlip(cyclesSeed, coreSeed).value }); // r.status：pass、fail、unset
+const w = welchGate(coreSeeds, cyclesSeeds);                                // 门看 w.pass
+```
+
+- **判据**：核心对 Cycles 的 HDR-FLIP 平均值 ≤ k × `pack.floor.seedVsSeedFlipMean`，k = 1.25，等于算过。地板是 Cycles 换种子对 Cycles，同采样、同机器，由标准答案机填进参考包清单（[参考包契约](../kernel/contracts/ref-pack/CONTRACT.md) 3.3、5.4）。
+- **`value` 怎么量**：核心的一张种子图对 Cycles 的一张种子图，采样数都是 `pack.samples`，HDR-FLIP 的参数和标准答案机量地板时一样。不能拿收敛图去比：收敛图的噪声小，门会松约 √2 倍。地板的 FLIP 用哪一种、怎么挑种子，参考包契约 5.4 还是待探针，标准答案机定下来以后两边照同一组参数。
+- **未定线**：`floor` 缺段、缺键或有一项是 `null`，返回 `unset`，不判过，也不产出 `judging`（RP3）。判了的返回 `judging: { metric, k, threshold }`，门值就是地板乘 k（RP4），可以直接放进参考包核对记录的 `judgings`。
+- **拒收**：`value` 不在 [0, 1] 内；地板不在 (0, 1] 内，地板是 0 说明两个种子出了同一张图，是坏包。
+- **只收 FLIP**：峰值信噪比越大越好，乘 k 没有意义，也不适合比带噪的图。
+- **Welch 不乘 k**：t 统计量已经除以换种子的标准误，本身就是相对噪声比的。`welchGate` 要每边正好 16 个种子，α = 1%、8×8 块，都照阈值文件。
+- **第 2 级**的数学门登记在 `floor-gate.json` 的 `math.level2`，合并门逐项核对它和 `chassis/level2.mjs` 里 `export const GATES = { … };` 那一行的字面量相同：改这一行就得同时改阈值文件并签字。只锁这一行，`GATES` 在代码里怎么用（之后再赋值、判据里换成写死的数）这里看不出来，靠评审。**第 1 级**的门写在函数级比对的测试里，本门不锁，是已知缺口。
+
+### 合并门：阈值写死、回归集只许涨
+
+`npm run check` 的「阈值与回归集」一步跑 `beiming/verify/floorguard.mjs`，跑的是 merge-base 上的那一份（基准上还没有时才跑现在这份）：同一个 PR 改合并门自己，或把它连同 `GATES.md` 一起删掉，都放不了自己的行。基准上和现在都没有合并门、也没有 `GATES.md` 时才跳过。合并门只用 Node 内置模块；它的命令行（`--repo`、`--base`）和退出码以后不能改，因为新的 `check-all` 要拿来调基准上旧的那一份。
+
+和 merge-base 比四件事，工作区里没提交的改动也查：
+
+1. **受保护的文件**（`floor-gate.json`、`beiming/sources/core/GATES.md`、`floorgate.mjs`、`floorguard.mjs`）改了或删了，这个 PR 在 `signoffs.json` 末尾**新加**的签字里必须有一条 `path` 是它、`from` 和 `to` 等于改动前后内容的 sha256（删掉记 `deleted`）。条目七项都要写：`path`、`from`、`to`、`change`（改了哪一格、改之前是什么）、`readingsSeen`（改的时候已经看到了哪些读数）、`signer`（红队）、`review`（复核记录在哪）。基准上已有的旧签字不算，不能重放。签完又改一笔，哈希对不上，要重签。第一次加进来的文件不算改动。受保护的路径每一级都必须是普通目录或文件，任何一级换成符号链接都判不过。只换了换行（CRLF）不算改动，哈希也照 LF 算。这就是 `GATES.md` 第 7 节第 5 条的签字形式。
+2. **回归集**（`regress-set.json`）只许加项：merge-base 上的每一项现在必须原样还在，删一项、改一项、id 重复都拦。要换做法就加一项新的。登记了 `count` 的项，测试核对条数不大于代码里现在的条数；没登记 `count` 的项（`analytic`、`mirror`、`edge`），从代码里删案例这里看不出来。
+3. **签字记录**只许在末尾追加，旧条目删了或改了都拦。
+4. **第 2 级的数学门**：见上。
+
+基准：`--base`，否则环境变量 `BEIMING_FLOORGATE_BASE`，否则 `origin/main`。CI 的检查任务在推到 main 时把它设成推之前的提交，PR 上留空。退出码：0 过，4 被拦，3 取不到基准（要完整克隆，CI 是 `fetch-depth: 0`；远程不叫 `origin` 时设环境变量）。
+
+**限制**：
+
+- 签字是写在文件里的声明，防得住顺手改和无意改，防不住有推送权限的人故意伪造；要防伪造，得换成由人持钥的签名提交，或者开分支保护加指定评审。
+- 同一个 PR 改 `tools/check-all.mjs` 或 CI 配置，可以把这一步摘掉或换掉，这里拦不住，靠评审。
+- 强推到 main 之后，推之前的提交可能取不到，这一步判退出码 3。
+- 回归集里的项要显卡，托管 CI 上跑不了：合并门只管「只许涨」，各项本身在两台机器上跑。

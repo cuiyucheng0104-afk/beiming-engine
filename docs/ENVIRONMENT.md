@@ -223,6 +223,7 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `BEIMING_TEST_NETWORK` | 测试与 CI | 设 1 表示可以联网：`npm test` 才跑声明 `requires: network` 的测试域 | 不设，同上 |
 | `BEIMING_SYNTAX_ROOT` | 测试与 CI（内部） | `npm run check` 传给语法检查子进程的仓库根，不要手动设 | 由 check-all 设置 |
 | `BEIMING_SYNTAX_FILES` | 测试与 CI（内部） | `npm run check` 传给语法检查子进程的待查文件清单（JSON 数组），不要手动设 | 由 check-all 设置 |
+| `BEIMING_FLOORGATE_BASE` | 测试与 CI | `npm run check` 的「阈值与回归集」一步取 merge-base 用的基准；CI 推到 main 时设成推之前的提交，全零的提交号当没设 | `origin/main` |
 | `BEIMING_EVAL_ROOT` | 评测（tools/eval） | 评测根：被测检出、会话记录与报告都在这里；必须在仓库外，且各级上级目录里没有 `CLAUDE.md`、`AGENTS.md`（见 [evals/agent/README.md](../evals/agent/README.md)「会话隔离」）；`--root` 优先 | `~/.cache/beiming/evals`；家目录里有个人指令文件时会被拒绝，正式评测设到家目录之外 |
 | `BEIMING_EVAL_CLAUDE` | 评测（tools/eval） | 驱动被测会话的 claude 可执行文件（也可以是 `cli.js` 或测试桩 `.mjs`）；`--claude` 优先 | PATH 里的 `claude` |
 | `BEIMING_EVAL_HOME` | 评测（tools/eval） | 评测工具当作家目录的位置；测试用，在假家目录里构造个人指令文件 | 系统家目录 |

@@ -45,7 +45,8 @@ test('全部通过：exit 0；测试步骤带上 run-tests 的汇总', { skip: !
   const r = await runNode(CHECK_ALL, ['--root', root, ...FAST, '--json'], { timeoutMs: 300000 });
   assert.equal(r.code, 0, r.stderr);
   const by = Object.fromEntries(r.json.steps.map(s => [s.id, s]));
-  assert.deepEqual(Object.keys(by), ['repo', 'plan', 'tests', 'styles', 'cases', 'directing', 'syntax', 'changelog']);
+  assert.deepEqual(Object.keys(by), ['repo', 'plan', 'tests', 'styles', 'cases', 'directing', 'syntax', 'changelog', 'floorgate']);
+  assert.equal(by.floorgate.status, 'skip', '没有 GATES.md 与 beiming/verify/floorguard.mjs 时跳过');
   for (const id of ['repo', 'plan', 'tests', 'styles', 'cases', 'syntax', 'changelog']) assert.equal(by[id].status, 'pass', `${id}：${by[id].reason}`);
   assert.equal(by.directing.status, 'skip', '没有 tools/check_directing_docs.py 时跳过');
   assert.equal(by.tests.details.summary.tests, 1);

@@ -1,0 +1,10 @@
+{
+  "format": "beiming.verify.floor-gate/1",
+  "k": 1.25,
+  "floorMetric": "seedVsSeedFlipMean",
+  "welch": { "alpha": 0.01, "seeds": 16, "blockSize": 8 },
+  "math": {
+    "level2": { "furnaceRel": 0.005, "analyticRel": 0.002, "analyticSE": 3, "analyticFloor": 2e-6 }
+  },
+  "floorLevels": [3, 4, 5, 7]
+}

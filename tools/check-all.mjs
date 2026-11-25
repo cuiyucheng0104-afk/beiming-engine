@@ -16,6 +16,7 @@
 //   directing  导演规范       <python> tools/check_directing_docs.py routes/directing（工具不在时跳过）
 //   syntax     语法           node --check 全部 .js/.mjs/.cjs，Python 全部 .py 做 ast 解析，全部 .json 解析，sh -n 全部 .sh（cases/ 除外）
 //   changelog  更新日志       node tests/ci/changelog.mjs check（Keep a Changelog 结构）
+//   floorgate  阈值与回归集   node <merge-base 上的> beiming/verify/floorguard.mjs（阈值改动要签字、回归集只许涨；基准见 BEIMING_FLOORGATE_BASE）
 //   eslint     JS lint        只报告：eslint（devDependencies 里有才跑），列出错误 / 警告数量与最多的规则
 //   ruff       Python lint    只报告：ruff check（ruff.toml），列出数量与最多的规则
 // 分组别名：lint = eslint + ruff。
@@ -34,7 +35,7 @@ import {
 } from './run-tests.mjs';
 
 const HERE = ROOT;   // 本仓库（check-all 自己的工具：run-tests、changelog、语法检查）
-const STEP_IDS = ['repo', 'plan', 'tests', 'styles', 'cases', 'directing', 'syntax', 'changelog', 'eslint', 'ruff'];
+const STEP_IDS = ['repo', 'plan', 'tests', 'styles', 'cases', 'directing', 'syntax', 'changelog', 'floorgate', 'eslint', 'ruff'];
 const GROUPS = { lint: ['eslint', 'ruff'] };
 
 // 每一步：title、blocking、tool（必须存在的文件，相对 --root）、build(ctx) → { cmd, args, parse? } 或 inline(ctx)
@@ -58,6 +59,7 @@ const STEPS = {
     build: c => ({ cmd: process.execPath, args: [path.join(HERE, 'tests/ci/changelog.mjs'), 'check', '--file', c.at('CHANGELOG.md'), '--json'], json: true }),
     details: j => j && { versions: j.versions, unreleasedEntries: j.unreleasedEntries },
   },
+  floorgate: { title: '阈值与回归集', blocking: true, inline: floorGuardStep },
   eslint: { title: 'JS lint（只报告）', blocking: false, inline: eslintReport },
   ruff: { title: 'Python lint（只报告）', blocking: false, inline: ruffReport },
 };
@@ -207,6 +209,38 @@ async function runStep(st, def, ctx) {
     if (r.code === EXIT.USAGE) { st.exitCode = EXIT.FAIL; st.reason = st.reason || '子命令报用法错误：check-all 与该工具的参数约定不一致，需要修 check-all'; }
     else if (r.code === null) { st.exitCode = EXIT.FAIL; st.reason = st.reason || `被信号 ${r.signal} 结束`; }
     st.reason = st.reason || lastMeaningful(st.logTail) || `退出码 ${r.code}`;
+  }
+}
+
+// 合并门跑 merge-base 上的那一份 floorguard.mjs：同一个 PR 改合并门自己、或把它连同 GATES.md 一起删掉，都放不了自己的行。
+// 基准上还没有时跑现在这份；基准和现在都没有（别的仓库、测试用的假仓库）才跳过。
+async function floorGuardStep(st, ctx) {
+  const REL = 'beiming/verify/floorguard.mjs';
+  const head = ctx.at(REL);
+  const present = fs.existsSync(head) || fs.existsSync(ctx.at('beiming/sources/core/GATES.md'));
+  const env = process.env.BEIMING_FLOORGATE_BASE?.trim();
+  const base = env && !/^0+$/.test(env) ? env : 'origin/main';
+  const g = (...a) => spawnSync('git', ['-C', ctx.root, ...a], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true });
+  const mb = g('merge-base', base, 'HEAD');
+  if (mb.status !== 0) {
+    if (!present) { st.status = 'skip'; st.reason = `${REL} 不存在`; return; }
+    st.status = 'fail'; st.exitCode = EXIT.ENV; st.reason = `取不到基准 ${base} 的 merge-base（要完整克隆；或设 BEIMING_FLOORGATE_BASE）：${(mb.stderr || mb.error?.message || '').trim()}`; return;
+  }
+  const commit = mb.stdout.trim();
+  let script = head, tmp = null;
+  if (g('cat-file', '-e', `${commit}:${REL}`).status === 0) {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'floorguard-'));
+    script = path.join(tmp, 'floorguard.mjs');
+    fs.writeFileSync(script, g('show', `${commit}:${REL}`).stdout);
+  } else if (!fs.existsSync(head)) {
+    if (!present) { st.status = 'skip'; st.reason = `${REL} 不存在`; return; }
+    st.status = 'fail'; st.exitCode = EXIT.CONTRACT; st.reason = `缺 ${REL}，但 GATES.md 还在：合并门不能跳过`; return;
+  }
+  try {
+    await runStep(st, { build: () => ({ cmd: process.execPath, args: [script, '--repo', ctx.root, '--base', commit] }) }, ctx);
+    if (tmp) st.reason = `（跑的是 ${commit.slice(0, 12)} 上的合并门）${st.reason || ''}`;
+  } finally {
+    if (tmp) fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
 
