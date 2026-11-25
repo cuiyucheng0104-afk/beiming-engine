@@ -4,6 +4,7 @@
 // 两种作者模式：build-script 调镜头的入口文件搭场景；cards-data 不写镜头代码，跑固定装载脚本（卡的运行时接口契约 3.4 的六步），
 // 和页面宿主 host/page/runtime.js 同构：这里做装载之前的检查、解参数和先后要求，并在求值核里跑数据层的卡（算 tracks）；
 // 第 1 到 6 步里碰场景的部分在 worker 里（loader.py），资产的载入在 assets.py。
+import { Buffer } from 'node:buffer';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -14,6 +15,7 @@ import process from 'node:process';
 import { createInterface } from 'node:readline';
 import { clearTimeout, setTimeout } from 'node:timers';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { types } from 'node:util';
 import { hashCardContents, validateCard } from '../../cards/index.mjs';
 import { checkInstanceNames, expandOverlays, implFor, orderPairs, parseCardRef, resolveParams, unfitReason } from '../../cards/runtime.mjs';
 import { caps, DRAFT_MAX_SIZE } from './caps.mjs';
@@ -35,9 +37,10 @@ const CYCLES_MAX_SAMPLES = 2 ** 24; // CyclesRenderSettings.samples 的 RNA 上�
 const ENV_KEYS = ['lock', 'tier', 'workspace', 'filmDir'];
 
 export class SourceError extends Error {
-  constructor(code, message) {
+  constructor(code, message, next) {
     super(message);
     this.code = code;
+    if (next !== undefined) this.next = next;
   }
 }
 
@@ -245,6 +248,87 @@ export function planRender(c, shot, size, tier, opts = {}, want, locked = {}) {
   };
 }
 
+export function planFrame(frames, f) {
+  if (!Number.isInteger(f) || f < 0 || f >= frames) throw bad(`帧号必须是 [0, ${frames}) 里的整数`);
+  return f;
+}
+
+const QUERY_KEYS = ['kind', 'of', 'against', 'tol'];
+const QUERY_TARGET = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*(\.\*)?$/;
+const QUERY_LIMIT = 50;
+const byBytes = (a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b));
+const isData = (d) => d?.enumerable && Object.hasOwn(d, 'value');
+
+function queryRecord(v) {
+  if (v === null || typeof v !== 'object' || types.isProxy(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  if (proto === null) return true;
+  if (types.isProxy(proto)) return false;
+  // vm 里造的普通对象也收。内建 Object 的 prototype 固定指回那个上下文的根原型。
+  const ctor = Object.getOwnPropertyDescriptor(proto, 'constructor')?.value;
+  return typeof ctor === 'function' && !types.isProxy(ctor) &&
+    Function.prototype.toString.call(ctor) === 'function Object() { [native code] }' &&
+    Object.getOwnPropertyDescriptor(ctor, 'prototype')?.value === proto;
+}
+
+/** 只从属性描述符抄写，拒绝 Proxy、访问器、稀疏数组和额外的键。未声明的 kind 先报 F8。 */
+export function planQuery(c, q, names) {
+  const kind = queryRecord(q) ? Object.getOwnPropertyDescriptor(q, 'kind') : undefined;
+  if (!isData(kind) || typeof kind.value !== 'string') throw bad('场景查询必须是普通对象，kind 是自有的字符串数据属性');
+  if (!c.sceneQuery.includes(kind.value)) {
+    throw new SourceError('contract.unsupported-query', `这个帧源不答 ${kind.value} 查询`, [
+      { verb: 'POST /v1/films/{id}/observe/query', why: `改问 caps().sceneQuery 里列了的种类：${c.sceneQuery.join('、')}` },
+    ]);
+  }
+  const fields = Object.getOwnPropertyDescriptors(q);
+  for (const key of Reflect.ownKeys(fields)) {
+    if (!QUERY_KEYS.includes(key) || !isData(fields[key])) throw bad('场景查询只收 kind、of、against、tol 四种自有的可枚举数据属性');
+  }
+  const given = (key) => Object.hasOwn(fields, key);
+  const tol = given('tol') ? fields.tol.value : 0;
+  if (!finite(tol) || tol < 0) throw bad('tol 必须是不小于 0 的有限数（米）');
+  const match = (key) => {
+    const v = given(key) ? fields[key].value : undefined;
+    const invalid = () => bad(`${key} 必须是至少一项的纯数据数组，每项是实体名或「前缀.*」`);
+    if (types.isProxy(v) || !Array.isArray(v)) throw invalid();
+    const d = Object.getOwnPropertyDescriptors(v), n = d.length.value;
+    if (n === 0 || Reflect.ownKeys(d).length !== n + 1) throw invalid();
+    const targets = new Set();
+    for (let i = 0; i < n; i++) {
+      if (!Object.hasOwn(d, i) || !isData(d[i])) throw invalid();
+      const t = d[i].value;
+      if (typeof t !== 'string' || !QUERY_TARGET.test(t)) throw invalid();
+      if (t.endsWith('.*')) {
+        for (const name of names) if (name.startsWith(t.slice(0, -1))) targets.add(name);
+      } else if (names.includes(t)) targets.add(t);
+      else throw bad(`${key} 里的实体 ${t} 这个镜头里没有`);
+    }
+    return [...targets].sort(byBytes);
+  };
+  const of = match('of');
+  const against = given('against') ? match('against') : undefined;
+  return { kind: kind.value, of, tol: tol + 0, ...(against !== undefined && { against }) };
+}
+
+/** 应答已经过 worker 的 F9，再在 IPC 边界校验、排序和截断。 */
+export function finishQuery(kind, result) {
+  const invalid = () => new SourceError('contract.bad-value', `Blender ${kind} 查询应答格式或数值错误`);
+  const paired = kind === 'intersect' || kind === 'contact';
+  if (!record(result) || result.kind !== kind || !Array.isArray(result.items)) throw invalid();
+  const cut = Object.hasOwn(result, 'truncated') ? result.truncated : 0;
+  if (!Number.isSafeInteger(cut) || cut < 0 || (cut > 0 && result.items.length < QUERY_LIMIT)) throw invalid();
+  const items = Array.from(result.items, (i) => {
+    if (!record(i) || typeof i.a !== 'string' || !i.a || (paired && (typeof i.b !== 'string' || !i.b)) ||
+        !finite(i.value) || i.value < 0 || i.unit !== 'm' || !Array.isArray(i.at) ||
+        i.at.length !== (kind === 'bbox3d' ? 6 : 3) || i.at.includes(undefined) || !i.at.every(finite)) throw invalid();
+    return { a: i.a, ...(paired && { b: i.b }), value: i.value + 0, unit: 'm', at: i.at.map((v) => v + 0) };
+  });
+  items.sort((a, b) => b.value - a.value || byBytes(a.a, b.a) || (paired ? byBytes(a.b, b.b) : 0));
+  const truncated = cut + Math.max(0, items.length - QUERY_LIMIT);
+  if (!Number.isSafeInteger(truncated)) throw invalid();
+  return { kind, items: items.slice(0, QUERY_LIMIT), ...(truncated > 0 && { truncated }) };
+}
+
 /** 起 worker 进程，交回 { call, stop }。call 一次只发一条请求；limitMs 给了的话，一条请求超过这么多毫秒就杀掉进程。 */
 function startWorker(blenderBin, scratch, limitMs, handshakeMs, stopMs, cpuOnly = false) {
   const child = spawn(blenderBin, ['-b', '-noaudio', '--factory-startup', '--python', WORKER, '--', scratch, ...(cpuOnly ? ['--cpu'] : [])], { stdio: ['pipe', 'pipe', 'pipe'] });
@@ -448,7 +532,9 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
       current = null;
       throw e;
     }
-    const inRange = (f) => { if (!Number.isInteger(f) || f < 0 || f >= frames) throw bad(`帧号必须是 [0, ${frames}) 里的整数，给的是 ${show(f)}`); };
+    const names = entities.map((e) => e.name);
+    const tracksAt = (f) => prepared?.filming ? [f - 1, f, f + 1].map((t) => prepared.segmentAt(inputs, t)) : [];
+    let initialTracks;
     let renders = 0;
 
     return Object.assign(session, {
@@ -457,12 +543,11 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
       /** 渲一帧：各层写到 env.workspace 下面的 r<会话内请求序号>-f<帧号>/<通道名>.<类型>，交回元数据和层引用 */
       async render(f, opts, want) {
         if (current !== session) throw bad('会话已经关了');
-        inRange(f);
+        planFrame(frames, f);
         const plan = planRender(CAPS, shot, output.size, env.tier, opts ?? {}, want, locked);
         const dir = `r${pad(renders++, 3)}-f${pad(f, 4)}`;
         // 第 5 步要的轨道值：出第 f 帧交 f − 1、f、f + 1 三个整帧，原生运动模糊的快门窗口落在这里面
-        const tracks = prepared?.filming ? [f - 1, f, f + 1].map((t) => prepared.segmentAt(inputs, t)) : [];
-        const res = await worker.call('render', { f, plan, workspace: resolve(env.workspace), dir, ...(prepared ? { tracks } : {}) });
+        const res = await worker.call('render', { f, plan, workspace: resolve(env.workspace), dir, ...(prepared ? { tracks: tracksAt(f) } : {}) });
         const texts = Array.isArray(res.texts) && res.texts.length ? res.texts : null;
         const readings = used(res.readings) ? res.readings : undefined;
         const shotFields = [];
@@ -502,9 +587,12 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
         return { meta, layers: res.layers };
       },
 
-      /** 场景查询一种都没声明（能力声明的 sceneQuery 是空的）：问什么都报 contract.unsupported-query */
-      async query(_f, q) {
-        throw new SourceError('contract.unsupported-query', `这个帧源不答 ${show(record(q) ? own(q, 'kind') : undefined)} 查询`);
+      async query(f, q) {
+        if (current !== session) throw bad('会话已经关了');
+        planFrame(frames, f);
+        const plan = planQuery(CAPS, q, names);
+        const tracks = prepared ? { tracks: tracksAt(f), initialTracks: initialTracks ??= tracksAt(0) } : {};
+        return finishQuery(plan.kind, await worker.call('query', { frame: f, plan, ...tracks }));
       },
 
       async close() {

@@ -46,6 +46,7 @@ def _sibling(name):
 LOADER = _sibling('loader')
 ASSETS = _sibling('assets')
 RUNTIME = _sibling('runtime')
+QUERY = _sibling('query')
 Fail = LOADER.Fail
 
 # Blender 的 (x, y, z) → 北冥的 (x, z, -y)
@@ -209,7 +210,15 @@ def op_open(job):
                 for e in sorted(declared, key=lambda e: ids[e['name']])]
     for e in entities:
         # 一个实体占的物体：自己名下的，加名字以它的名字加 . 开头的实体名下的
+        e['_roots'] = [o for o, n in owner.items() if n == e['name']]
         e['_objects'] = [o for o, n in owner.items() if n == e['name'] or n.startswith(e['name'] + '.')]
+    ignored = set()
+    for pair in built.get('ignore_pairs', ()):
+        if (not isinstance(pair, (list, tuple)) or len(pair) != 2 or
+                not all(isinstance(n, str) and n in ids for n in pair) or pair[0] == pair[1]):
+            raise Fail('contract.bad-value', 'ignore_pairs 每项必须是两个不同的已声明实体名')
+        ignored.add(frozenset(pair))
+    STATE.update(query_entities={e['name']: e for e in entities}, ignore_pairs=ignored)
     aux = scene.copy()
     uncrop(aux.render)
     aux.cycles.device = 'CPU'
@@ -406,6 +415,54 @@ def owned(ids_image, entity):
     return int(np.isin(ids_image, mine).sum())
 
 
+def apply_cards(scene, loaded, frame, tracks):
+    samples = {(int(s['t']), 0.0): {k: v for k, v in s.items() if k != 't'} for s in tracks}
+    loaded.state(frame, 0.0, samples)
+    if scene.render.engine != 'CYCLES' or scene.render.motion_blur_position != 'START':
+        raise Fail(None, '卡在第 %d 帧把渲染器或快门位置改成了 %s / %s；这个帧源只用 Cycles 且快门从帧起点打开' % (
+            frame, scene.render.engine, scene.render.motion_blur_position))
+    scene.frame_set(frame, subframe=0.0)
+
+
+def op_query(job):
+    scene = bpy.context.scene
+    frame, plan = job['frame'], job['plan']
+
+    def measure_query():
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        anchors = {}
+        if plan['kind'] == 'anchor' and plan['of'] and 'meta' in STATE:
+            names = set(plan['of'])
+            extra = STATE['meta'](frame)
+            if isinstance(extra, RUNTIME.MetaCollector):
+                anchors = extra.query_anchors(names)
+            elif extra is not None:
+                positions = extra.get('anchors', {})
+                picked = {key: pos for key, pos in positions.items() if isinstance(key, str) and key.split('#', 1)[0] in names}
+                anchors = RUNTIME.MetaCollector({'anchors': picked}).query_anchors(names)
+        return QUERY.run_query(plan, scene, depsgraph, STATE['query_entities'], anchors,
+                               STATE['ignore_pairs'], RUNTIME.to_beiming)
+
+    try:
+        if 'kernel' in STATE:
+            with STATE['kernel'].query_pose(scene, frame):
+                return measure_query()
+        previous = scene.frame_current, scene.frame_subframe
+        loaded = STATE.get('loaded')
+        try:
+            scene.frame_set(frame, subframe=0.)
+            if loaded is not None:
+                apply_cards(scene, loaded, frame, job['tracks'])
+            return measure_query()
+        finally:
+            if loaded is not None:
+                f, tracks = STATE.get('render_pose', (0, job['initialTracks']))
+                apply_cards(scene, loaded, f, tracks)
+            scene.frame_set(previous[0], subframe=previous[1])
+    except (ValueError, TypeError, AttributeError, OverflowError) as e:
+        raise Fail('contract.bad-value', str(e)) from e
+
+
 def op_render(job):
     scene = bpy.context.scene
     plan = job['plan']
@@ -419,12 +476,8 @@ def op_render(job):
         scene.frame_set(job['f'], subframe=0.0)
     if loaded is not None:
         # 第 5 步：先 tracks.apply，再按 create 的次序调各张卡的 apply；写完再求一遍值，让写进去的关键帧生效
-        samples = {(int(s['t']), 0.0): {k: v for k, v in s.items() if k != 't'} for s in job['tracks']}
-        loaded.state(job['f'], 0.0, samples)
-        if scene.render.engine != 'CYCLES' or scene.render.motion_blur_position != 'START':
-            raise Fail(None, '卡在第 %d 帧把渲染器或快门位置改成了 %s / %s；这个帧源只用 Cycles 且快门从帧起点打开' % (
-                job['f'], scene.render.engine, scene.render.motion_blur_position))
-        scene.frame_set(job['f'], subframe=0.0)
+        apply_cards(scene, loaded, job['f'], job['tracks'])
+        STATE['render_pose'] = job['f'], job['tracks']
     aux_scene.frame_set(job['f'], subframe=0.0)
     camera, entities, tris, cam_rot = measure(scene, plan['size'])
     t1 = clock()
@@ -530,7 +583,7 @@ def op_close(_job):
     return {}
 
 
-OPS = {'hello': op_hello, 'open': op_open, 'render': op_render, 'close': op_close}
+OPS = {'hello': op_hello, 'open': op_open, 'render': op_render, 'query': op_query, 'close': op_close}
 
 
 def reply(message):

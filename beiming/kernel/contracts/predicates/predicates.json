@@ -194,7 +194,7 @@
       "requires": [
         "meta"
       ],
-      "since": "planned"
+      "since": "0.1"
     },
     {
       "name": "bbox_h",
@@ -212,7 +212,7 @@
       "requires": [
         "meta"
       ],
-      "since": "planned"
+      "since": "0.1"
     },
     {
       "name": "margin_lr",
@@ -230,7 +230,7 @@
       "requires": [
         "meta"
       ],
-      "since": "planned"
+      "since": "0.1"
     },
     {
       "name": "margin_tb",
@@ -248,7 +248,7 @@
       "requires": [
         "meta"
       ],
-      "since": "planned"
+      "since": "0.1"
     },
     {
       "name": "orbit_total",
@@ -319,7 +319,7 @@
       "requiresPerEntity": [
         "objectId"
       ],
-      "since": "planned"
+      "since": "0.1"
     },
     {
       "name": "luma_p99",
@@ -337,7 +337,7 @@
       "requiresPerEntity": [
         "objectId"
       ],
-      "since": "planned"
+      "since": "0.1"
     },
     {
       "name": "onset",
@@ -409,7 +409,7 @@
       "requires": [
         "meta"
       ],
-      "since": "planned"
+      "since": "0.1"
     },
     {
       "name": "no_intersect",
@@ -439,7 +439,7 @@
       "only": [
         "blender"
       ],
-      "since": "planned"
+      "since": "0.1"
     },
     {
       "name": "contact",
@@ -469,7 +469,7 @@
       "only": [
         "blender"
       ],
-      "since": "planned"
+      "since": "0.1"
     },
     {
       "name": "key_fill_ratio",
@@ -506,7 +506,7 @@
       "requires": [
         "meta"
       ],
-      "since": "planned"
+      "since": "0.1"
     },
     {
       "name": "fx_visible",
@@ -529,7 +529,7 @@
       "requires": [
         "meta"
       ],
-      "since": "planned"
+      "since": "0.1"
     },
     {
       "name": "no_ghost",
@@ -544,7 +544,7 @@
         "render-stats"
       ],
       "requires": [],
-      "since": "planned"
+      "since": "0.1"
     },
     {
       "name": "encoded_readback",
@@ -554,7 +554,7 @@
         "render-stats"
       ],
       "requires": [],
-      "since": "planned"
+      "since": "0.1"
     }
   ],
   "templates": [
@@ -610,6 +610,45 @@
           ],
           "limited": true,
           "when": "has-text"
+        }
+      ]
+    },
+    {
+      "name": "assembly",
+      "version": "1.0.0",
+      "roles": [
+        "hero",
+        "mustSee"
+      ],
+      "items": [
+        {
+          "expr": "inside_frame(hero, margin=0.05)",
+          "uses": [
+            "inside_frame"
+          ],
+          "limited": false
+        },
+        {
+          "expr": "at_rest(hero)",
+          "uses": [
+            "at_rest"
+          ],
+          "limited": false
+        },
+        {
+          "expr": "no_intersect(hero, mustSee)",
+          "uses": [
+            "no_intersect"
+          ],
+          "limited": false
+        },
+        {
+          "expr": "cut_at(shots) ; no_cut",
+          "uses": [
+            "cut_at",
+            "no_cut"
+          ],
+          "limited": true
         }
       ]
     }

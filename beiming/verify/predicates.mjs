@@ -342,7 +342,291 @@ function subtract(from, to, cuts) {
   return left;
 }
 
+/* ---------------- M3：空间、画面与编码读回 ---------------- */
+
+const atMost = (value) => ({ op: '<=', value });
+const ratio = (v) => Number.isFinite(v) && v >= 0 && v <= 1;
+const finiteVec = (v, n) => Array.isArray(v) && v.length === n && Array.from(v).every(Number.isFinite);
+const wholeFilm = (range, film) => range[0] === 0 && range[1] === film.output?.frames;
+const missingReading = (a) => skipped(a.text, `范围内缺少 ${a.name} 所需的有效量测`);
+// 建议文字不伪装成可自动应用的 PA 补丁；toVerdict 写入 hint，不写机器 fix。
+const repair = (a, measured, frame, expected, hint) => fail(a.text, measured, frame, expected, [hint], hint);
+
+// 以超限幅度选最严重的反例（包括闭区间的两端）。有反例优先报红，否则缺证据不得报绿。
+function judgeSamples(a, rows, cmp, unit, hint, first = false) {
+  let worst, score = -Infinity, missing = false;
+  for (const row of rows) {
+    const { value } = row;
+    if (!Number.isFinite(value)) { missing = true; continue; }
+    const d = cmp.op === 'in' ? Math.max(cmp.lo - value, value - cmp.hi)
+      : cmp.op === '>=' ? cmp.value - value : value - cmp.value;
+    if (d > score) { worst = row; score = d; }
+    if (first && d > 0) break;
+  }
+  if (score > 0) return repair(a, { ...worst, unit }, worst.frame, `${a.name} ${cmpText(cmp)} ${unit}`, hint);
+  return missing || !worst ? missingReading(a) : pass(a.text, { ...worst, unit });
+}
+
+function patternsFor(ref, shot) {
+  if (ref.name === 'mustSee') return Array.isArray(shot.roles?.mustSee) ? shot.roles.mustSee.filter(n => typeof n === 'string') : [];
+  const name = entityName(ref, shot);
+  return name ? [name] : [];
+}
+const matchesName = (name, pattern) => typeof name === 'string' && (pattern.endsWith('.*') ? name.startsWith(pattern.slice(0, -1)) : name === pattern);
+const shotRange = (shot, range) => [Math.max(shot.in, range[0]), Math.min(shot.out, range[1])];
+
+// 角色在各自镜头里解析；缺实体的抽样也交给判定器，避免只拿有利的样本过门。
+function* entitySamples(ref, measured, range, shots) {
+  for (const shot of shots) {
+    const samples = sampledIn(measured, shotRange(shot, range));
+    const patterns = patternsFor(ref, shot);
+    if (!samples.length || !patterns.length) { yield { shot, frame: samples[0]?.frame ?? null }; continue; }
+    for (const { frame, meta } of samples) for (const pattern of patterns) {
+      const found = objectsIn(meta?.entities).filter(e => matchesName(e.name, pattern));
+      if (!found.length) yield { shot, frame, meta, name: pattern };
+      else for (const e of found) yield { shot, frame, meta, e, name: e.name };
+    }
+  }
+}
+
+function framing(a, bound, film, measured, range, shots) {
+  const rows = [];
+  for (const { frame, name, meta, e } of entitySamples(bound.entity, measured, range, shots)) {
+    let value;
+    if (isBox(e?.bbox2d) && isSize(meta.size) && meta.size.every(Number.isFinite)) {
+      const [x0, y0, x1, y1] = e.bbox2d, [w, h] = meta.size;
+      if (x0 <= x1 && y0 <= y1) {
+        // 保留负边距：裁成 0 会把已经越界的实体判成恰好贴边。
+        value = { bbox_w: (x1 - x0) / w, bbox_h: (y1 - y0) / h,
+          margin_lr: Math.min(x0, w - x1) / w, margin_tb: Math.min(y0, h - y1) / h }[a.name];
+      }
+    }
+    rows.push({ frame, entity: name, value });
+  }
+  return judgeSamples(a, rows, a.cmp ?? { op: 'in', lo: 0, hi: 1 }, '画幅比例', '调整 camera.fit、取景距离或构图偏移，再抽帧核对包围盒。', true);
+}
+
+function geometryQuery(a, bound, film, m, range, shots) {
+  const intersect = a.name === 'no_intersect', kind = intersect ? 'intersect' : 'contact';
+  const limit = intersect ? bound.tol : bound.max;
+  const max = (limit?.value ?? 0) * (limit?.unit === 'mm' ? 0.001 : 1);
+  if (!Number.isFinite(max) || max < 0 || (limit?.unit && limit.unit !== 'mm')) return repair(a, { limit }, null, '非负距离（米或 mm）', '改用以米计的非负数或显式 mm 后缀。');
+  const queries = objectsIn(m.queries);
+  if (intersect) for (const i of objectsIn(m.intersections)) queries.push({ kind, ...i });
+  const rows = [];
+  for (const shot of shots) {
+    const pa = patternsFor(bound.a, shot), pb = patternsFor(bound.b, shot);
+    const sr = shotRange(shot, range);
+    const hit = new Set();
+    // 查询没记全片帧号时只能用于全片断言；跨镜头复用还须绑定相同、帧源都合格。
+    const signature = s => JSON.stringify([patternsFor(bound.a, s), patternsFor(bound.b, s)]);
+    const sharedBinding = shots.length === shotsOf(film).length && shots.every(s => signature(s) === signature(shot));
+    const applies = (frame, shotId) => Number.isInteger(frame) ? inRange(frame, sr)
+      : frame == null && wholeFilm(range, film) && (shotId === shot.id || sharedBinding);
+    // 空的全景穿插明细表示完成了完整查询；没有查询字段、查的是别种东西均不作此解。
+    let clean = intersect && Array.isArray(m.intersections) && m.intersections.length === 0, sampled = clean;
+    for (const q of queries) {
+      const r = q.result ?? q;
+      if (r.kind !== kind || (r.status && r.status !== 'ok') || (q.shot && q.shot !== shot.id)) continue;
+      const baseFrame = q.frame ?? r.frame;
+      if (applies(baseFrame, q.shot)) {
+        sampled = true;
+        if (r.truncated) rows.push({});
+        if (Array.isArray(r.items) && r.items.length === 0 && intersect && !r.truncated) clean = true;
+      }
+      for (const item of Array.isArray(r.items) ? objectsIn(r.items) : [r]) {
+        const frame = item.frame ?? baseFrame ?? null;
+        if (!applies(frame, q.shot) || typeof item.a !== 'string' || typeof item.b !== 'string' || item.a === item.b) continue;
+        sampled = true;
+        for (const left of pa) for (const right of pb) {
+          if (!(matchesName(item.a, left) && matchesName(item.b, right) || matchesName(item.b, left) && matchesName(item.a, right))) continue;
+          const depth = intersect ? item.depth ?? item.value : item.value;
+          rows.push({ frame, a: item.a, b: item.b, value: Number.isFinite(depth) && depth >= 0 && (!item.unit || item.unit === 'm') ? depth : undefined });
+          hit.add(`${left}:${right}`);
+        }
+      }
+    }
+    if (!sampled || !pa.length || !pb.length) rows.push({});
+    else for (const left of pa) for (const right of pb) {
+      // mustSee 可以包含 hero 本身；同一实体不和自己做穿插查询。相同的通配模式仍可能涵盖不同零件。
+      if (intersect && left === right && !left.includes('*')) continue;
+      if (!hit.has(`${left}:${right}`)) rows.push(clean ? { frame: null, value: 0 } : {});
+    }
+  }
+  return judgeSamples(a, rows, atMost(max), 'm', intersect ? '沿装配轴退回零件，消除反例帧的穿插后重做 intersect 查询。' : '沿接触法线移动零件至贴合，再量 contact 间隙。');
+}
+
+function trackRows(tracks) {
+  if (Array.isArray(tracks)) return objectsIn(tracks).map(r => ({ ...r, name: r.entity ?? r.name }));
+  return Object.entries(tracks ?? {}).flatMap(([name, rows]) => objectsIn(rows).map(r => ({ ...r, name })));
+}
+function motionValue(e) {
+  const m = e?.motion ?? e?.speed ?? e?.velocity;
+  if (m?.unit && m.unit !== 'm/frame') return undefined;
+  const v = m?.speed ?? m;
+  return finiteVec(v, 3) ? Math.hypot(...v) : Number.isFinite(v) && v >= 0 ? v : undefined;
+}
+function displacement(e, prev) {
+  const distance = (p, q, i) => Math.hypot(p[i] - q[i], p[i + 1] - q[i + 1], p[i + 2] - q[i + 2]);
+  if (finiteVec(e.pos, 3) && finiteVec(prev?.pos, 3)) return distance(e.pos, prev.pos, 0);
+  if (finiteVec(e.bbox3d, 6) && finiteVec(prev?.bbox3d, 6)) return Math.max(distance(e.bbox3d, prev.bbox3d, 0), distance(e.bbox3d, prev.bbox3d, 3));
+}
+function atRest(a, bound, film, m, range, shots) {
+  const tracks = trackRows(m.tracks), rows = [];
+  for (const shot of shots) {
+    const sr = shotRange(shot, range), byFrame = new Map();
+    for (const t of tracks) if (Number.isInteger(t.frame) && inRange(t.frame, sr)) {
+      if (!byFrame.has(t.frame)) byFrame.set(t.frame, new Map());
+      byFrame.get(t.frame).set(t.name, t);
+    }
+    for (const { frame, meta } of sampledIn(m, sr)) {
+      if (!byFrame.has(frame)) byFrame.set(frame, new Map());
+      const ents = byFrame.get(frame);
+      for (const e of objectsIn(meta?.entities)) ents.set(e.name, { ...ents.get(e.name), ...e });
+    }
+    const perShot = { frames: [...byFrame].map(([frame, ents]) => ({ frame, meta: { entities: [...ents.values()] } })) };
+    const previous = new Map(), checked = new Set();
+    for (const { frame, e, name } of entitySamples(bound.entity, perShot, sr, [shot])) {
+      if (!e) { rows.push({}); continue; }
+      const motion = motionValue(e);
+      // meta.motion 是 m/frame；跨多帧的总位移不是同一个量，只在缺少速度时作后备证据。
+      const value = motion ?? displacement(e, previous.get(name));
+      if (Number.isFinite(value)) {
+        rows.push({ frame, entity: name, value, motionUnit: motion == null ? 'm' : 'm/frame' }); checked.add(name);
+      } else if (previous.has(name) || !(finiteVec(e.pos, 3) || finiteVec(e.bbox3d, 6))) rows.push({});
+      previous.set(name, e);
+    }
+    for (const name of previous.keys()) if (!checked.has(name)) rows.push({});
+  }
+  return judgeSamples(a, rows, a.cmp ?? atMost(0.0001), 'm（位移）或 m/frame（速度）', '钳住到位后的轨道末键，去除持续插值或抖动。');
+}
+
+function exposure(a, bound, film, m, range, shots) {
+  const luma = a.name === 'luma_p99', key = luma ? 'lumaP99' : 'highlightClipRatio';
+  const stat = s => s?.[key] ?? (luma ? s?.luma?.p99 : s?.clipHigh);
+  const rows = [];
+  if (bound.entity) {
+    for (const { frame, e, meta, name } of entitySamples(bound.entity, m, range, shots)) {
+      rows.push({ frame, entity: name, value: e?.[key] ?? stat(meta?.stats?.byEntity?.[name]) });
+    }
+  } else {
+    const reading = luma ? m.lumaPercentile : m.highlightClipRatio ?? m.clipHighlightRatio;
+    const covered = new Set();
+    for (const r of objectsIn(reading?.perFrame)) if (Number.isInteger(r.frame) && inRange(r.frame, range)) {
+      rows.push({ frame: r.frame, value: luma ? r.p99 : r.value });
+      covered.add(r.frame);
+    }
+    for (const { frame, meta } of sampledIn(m, range)) {
+      const value = stat(meta?.stats);
+      if (value != null || !covered.has(frame)) rows.push({ frame, value });
+    }
+    if (wholeFilm(range, film) && !rows.some(r => Number.isFinite(r.value))) {
+      const value = typeof reading === 'number' ? reading : luma ? reading?.summary?.p99 ?? reading?.value : reading?.value;
+      // 有逐帧报告就不以全片汇总代替缺帧；O8 空掩膜也不是 0% 反白的证据。
+      if (!Array.isArray(reading?.perFrame) && reading?.totalPixels !== 0 && Number.isFinite(value)) rows.splice(0, rows.length, { frame: null, value });
+    }
+  }
+  for (const r of rows) if (luma ? !(Number.isFinite(r.value) && r.value >= 0) : !ratio(r.value)) r.value = undefined;
+  return judgeSamples(a, rows, a.cmp ?? atMost(luma ? 0.98 : 0.02), luma ? '归一化亮度' : '面积比例', '降低曝光或高光灯强度，按同一实体掩膜重新量测。');
+}
+
+// 距离来自元数据，单位 m；薄透镜计算一律先换到 mm，最后换为水平像素。
+function focusSample(e, meta) {
+  if (Number.isFinite(e?.cocPx) && e.cocPx >= 0) return { value: e.cocPx };
+  const camera = meta?.camera, raw = e?.depthRange ?? e?.depth;
+  const depth = Number.isFinite(raw) ? [raw, raw] : raw;
+  if (!camera || !finiteVec(depth, 2) || depth[0] <= 0 || depth[1] < depth[0]) return {};
+  const size = meta.size, sh = camera.sensorHeightM * 1000;
+  const f = camera.focalLengthMm ?? sh / (2 * Math.tan(camera.fovYDeg * Math.PI / 360));
+  const s = (camera.focusDistance ?? camera.focusDist) * 1000, n = camera.fStop ?? camera.fstop;
+  const sensor = camera.sensorWidthMm ?? sh * size?.[0] / size?.[1];
+  if (isSize(size) && [f, s, n, sensor].every(x => Number.isFinite(x) && x > 0) && s > f) {
+    const k = f * f / (n * (s - f)) * (size[0] / sensor);
+    return { depth, value: Math.max(...depth.map(d => k * Math.abs(d * 1000 - s) / (d * 1000))) };
+  }
+  // 仅有景深区间只能证明其标定上限，不据此捏造一个精确 CoC。
+  return { depth, dofRange: camera.dofRange };
+}
+function inFocus(a, bound, film, m, range, shots) {
+  const hint = '把焦平面移到主体深度，或收小光圈，再量近远端 CoC。';
+  let missing = false, result;
+  for (const { frame, name, e, meta } of entitySamples(bound.entity, m, range, shots)) {
+    const r = { frame, entity: name, ...focusSample(e, meta) };
+    const limit = meta?.camera?.maxCocPx ?? 2, cmp = a.cmp ?? atMost(limit);
+    if (!(Number.isFinite(limit) && limit >= 0)) { missing = true; continue; }
+    if (Number.isFinite(r.value)) {
+      if (!cmpOk(r.value, cmp)) return repair(a, { ...r, unit: 'px' }, frame, `主体 CoC ${cmpText(cmp)} px`, hint);
+    } else if (finiteVec(r.dofRange, 2) && r.dofRange[0] <= r.dofRange[1] && cmp.op === '<=' && cmp.value === limit) {
+      if (r.depth[0] < r.dofRange[0] || r.depth[1] > r.dofRange[1]) return repair(a, r, frame, `主体深度位于 [${r.dofRange}] m（CoC <= ${limit} px）`, hint);
+    } else { missing = true; continue; }
+    result = r;
+  }
+  return missing || !result ? missingReading(a) : pass(a.text, result);
+}
+
+function fxVisible(a, bound, film, m, range, shots) {
+  const rows = [];
+  for (const { frame, name, e } of entitySamples(bound.entity, m, range, shots)) if (ratio(e?.pxArea)) rows.push({ frame, entity: name, value: e.pxArea });
+  const diff = m.fxDiff;
+  for (const r of Array.isArray(diff) ? objectsIn(diff) : [diff]) {
+    const value = r?.areaRatio ?? r?.changedAreaRatio ?? r?.value ?? r;
+    if (!ratio(value)) continue;
+    const frame = r?.frame ?? null;
+    if (frame !== null ? !Number.isInteger(frame) || !inRange(frame, range) : !wholeFilm(range, film)) continue;
+    if (!shots.some(shot => (frame === null || inRange(frame, [shot.in, shot.out])) &&
+      (!r.entity || patternsFor(bound.entity, shot).some(p => matchesName(r.entity, p))))) continue;
+    rows.push({ frame, entity: r?.entity ?? bound.entity.name, value });
+  }
+  const peak = rows.reduce((best, r) => !best || r.value > best.value ? r : best, null);
+  return judgeSamples(a, peak ? [peak] : [], { op: '>=', value: bound.minArea.value }, '画幅面积比例', '增大特效屏占或调整遮挡，比较开启与关闭特效的差图。');
+}
+
+function noGhost(a, bound, film, m, range) {
+  const record = m.cutGhost ?? m.renderStats?.cutGhost;
+  const want = (bound.cut.name === 'shots' ? shotsOf(film).slice(1).map(s => s.in) : [bound.cut.value]).filter(f => inRange(f, range));
+  const perCut = new Map(objectsIn(record?.perCut).map(c => [c.cutFrame, c]));
+  let missing = !want.length;
+  const cmp = a.cmp ?? atMost(0.15);
+  for (const frame of want) {
+    const r = perCut.get(frame);
+    if (!r || (r.status && r.status !== 'ok') || !ratio(r.ghostEnergy)) { missing = true; continue; }
+    if (r.hasGhost === true || !cmpOk(r.ghostEnergy, cmp)) return repair(a, r, frame, `切点无重影且 ghostEnergy ${cmpText(cmp)}`, '在切点钳制 blur.subframe 的快门采样，不取前镜末帧。');
+  }
+  return missing ? missingReading(a) : pass(a.text, { cuts: want });
+}
+
+function encodedReadback(a, bound, film, m) {
+  const out = m.output ?? {}, frames = film.output?.frames, fps = parseFps(film.output?.fps);
+  const rate = fps && Number(fps.num) / Number(fps.den), duration = out.durationSec ?? out.duration;
+  const parts = [[out.colorSpace, out.color_space], [out.colorPrimaries, out.color_primaries],
+    [out.colorTrc, out.colorTransfer, out.color_transfer], [out.colorRange, out.color_range]];
+  const tuple = parts.map(aliases => aliases.find(v => v !== undefined));
+  const tag = 'bt709/bt709/bt709/tv', expected = tag.split('/');
+  const got = { colorTag: out.colorTag, colorTuple: tuple, frames: out.frames, durationSec: duration, truePeakDbtp: m.audio?.truePeakDbtp };
+  // 全标签与分字段若同时出现，不允许互相矛盾；单个 bt709 绝非完整读回。
+  const tupleOK = tuple.every((t, i) => t === expected[i]);
+  const conflicting = parts.some((aliases, i) => aliases.some(v => v !== undefined && v !== expected[i]));
+  if (conflicting || !(out.colorTag === tag || tupleOK && (out.colorTag == null || out.colorTag === 'bt709'))) {
+    return repair(a, got, null, `编码后四个色彩标签为 ${tag}`, '编码时设置 BT.709 矩阵、原色、传递函数与 tv 范围，再用 ffprobe 读回。');
+  }
+  if (!Number.isSafeInteger(frames) || frames <= 0 || out.frames !== frames) {
+    const frame = Number.isSafeInteger(out.frames) && out.frames >= 0 && out.frames < frames ? out.frames : null;
+    return repair(a, got, frame, `解码恰好 ${frames} 帧`, '核对切片的半开区间和编码帧数，重编码后计数解码帧。');
+  }
+  if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(rate) || rate <= 0 || duration < (frames - 0.5) / rate || duration > (frames + 0.5) / rate) {
+    return repair(a, got, null, `读回视频时长为 ${frames} / (${film.output?.fps}) 秒，误差不超过半帧`, '读回视频流实际时长，检查帧率和裁切时间基。');
+  }
+  if (hasAudio(film) && !(Number.isFinite(m.audio?.truePeakDbtp) && m.audio.truePeakDbtp <= -1)) {
+    return repair(a, got, null, '编码后音轨实测 truePeakDbtp <= -1.0 dBTP', '降低母带限幅上限，重编码后解码音轨再量真峰值。');
+  }
+  return pass(a.text, got);
+}
+
 const EVALUATORS = {
+  no_intersect: geometryQuery, contact: geometryQuery, at_rest: atRest,
+  bbox_w: framing, bbox_h: framing, margin_lr: framing, margin_tb: framing,
+  highlight_clip_ratio: exposure, luma_p99: exposure,
+  in_focus: inFocus, fx_visible: fxVisible, no_ghost: noGhost, encoded_readback: encodedReadback,
   delivery(a, bound, film, measured) {
     const out = measured.output;
     if (!isObj(out)) return skipped(a.text, '没有成片的量测（measured.output）');
@@ -577,9 +861,11 @@ export function evaluateAssertion(text, film, measured = {}, options = {}) {
   const range = scopeRange(a.scope, film);
   if (!range) return fail(a.text, null, null, '范围解得出', []);
   const pred = registered(a.name);
-  const needsEntities = pred.reads.some((r) => r.startsWith('meta.entities'));
+  const needsEntities = pred.reads.some((r) => r.startsWith('meta.entities')) || Boolean(c.bound.entity && pred.requiresPerEntity?.length);
   const inScope = shotsOf(film).filter((s) => Number.isInteger(s.in) && Number.isInteger(s.out) && s.in < range[1] && s.out > range[0]);
-  const judgeable = inScope.filter((s) => !(needsEntities || !limitedItem) || shotConformance(s, measured) !== 'limited');
+  const judgeable = inScope.filter((s) => (!pred.only || pred.only.includes(sourceOf(s))) &&
+    (!(needsEntities || pred.only || !limitedItem) || shotConformance(s, measured) !== 'limited'));
+  if (pred.only && !judgeable.length) return skipped(a.text, `范围内没有支持该场景查询的 ${pred.only.join('/')} 镜头`);
   if (needsEntities && !inScope.length) return fail(a.text, null, null, '范围里有镜头', []);
   if (needsEntities && !judgeable.length) return skipped(a.text, '范围里的镜头都是 limited 合规档，交不出 entities');
   return ev(a, c.bound, film, measured, range, judgeable);
