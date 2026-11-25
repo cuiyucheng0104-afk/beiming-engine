@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "minProperties": 1,
+  "additionalProperties": false,
+  "$defs": {
+    "point": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+    "positive": { "type": "number", "exclusiveMinimum": 0 }
+  },
+  "properties": {
+    "streak": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["points", "startFrame", "strideFrames", "trailFrames", "halfWidthM"],
+      "properties": {
+        "points": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/point" } },
+        "startFrame": { "type": "number" },
+        "strideFrames": { "$ref": "#/$defs/positive" },
+        "trailFrames": { "type": "integer", "minimum": 1, "maximum": 120 },
+        "halfWidthM": { "$ref": "#/$defs/positive" }
+      }
+    },
+    "ring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["center", "startFrame", "radiusM", "widthM", "segments"],
+      "properties": {
+        "center": { "$ref": "#/$defs/point" },
+        "startFrame": { "type": "number" },
+        "radiusM": { "$ref": "#/$defs/positive" },
+        "widthM": { "$ref": "#/$defs/positive" },
+        "segments": { "type": "integer", "minimum": 3, "maximum": 512 }
+      }
+    }
+  }
+}

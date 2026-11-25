@@ -1,0 +1,42 @@
+{
+  "format": "card/0.1",
+  "id": "rig.rigid-ik",
+  "version": "1.0.0",
+  "kind": "motion",
+  "title": "刚体两段反解",
+  "intent": "给定髋部、踝部目标和膝盖朝向，按两段定长反解刚体骨段，驱动场景中的装配零件",
+  "visibleToAgent": true,
+  "livesIn": ["source:blender"],
+  "impl": [{
+    "livesIn": "source:blender",
+    "entry": "cards/motion/rig-rigid-ik/index.py",
+    "shape": "create",
+    "hosts": [{"host": "cycles", "version": "5.2.0"}],
+    "selftest": "cards/motion/rig-rigid-ik/selftest.test.mjs"
+  }],
+  "params": {
+    "spec": {
+      "type": "data", "unit": "none", "schema": "schema.json", "coupling": "scene-scale",
+      "default": {
+        "hip": [0, 1, 0], "ankle": [0, 0, 0], "pole": [0, 0, 1], "l1": 0.55, "l2": 0.55,
+        "rootOffset": [0, -0.15, 0], "targetAnkle": [0.2, 0.05, 0.1],
+        "startFrame": 0, "endFrame": 24, "bindings": {}
+      }
+    }
+  },
+  "ports": {
+    "in": [], "out": [{"name": "readings", "type": "frame-meta"}],
+    "order": {"before": [], "after": []},
+    "requires": ["站姿髋踝间距须在两骨段可达区间内。坐标为右手系、Y 向上、单位米，pole 是膝盖弯曲的方向向量。", "bindings 将 root、upper、lower、foot 分别映射到场景中已装载的对象名数组。每个对象只绑定一段，绑定时记录世界矩阵。"]
+  },
+  "conditions": {
+    "appliesWhen": ["定格拼装或机械臂需要固定骨长，并将刚体变换应用到已加载零件"],
+    "notWhen": ["软体变形、蒙皮权重或多段动力学求解"]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {"selftest": "验证两段骨长、极向量半平面、瞄准轴、站姿恒等、超程钳制及子帧乱序复算。", "predicates": []},
+  "pitfalls": [{"symptom": "膝关节向侧面翻折", "fix": "将 pole 指向期望弯曲的半平面，避开髋踝连线。"}],
+  "provenance": {"cases": [], "note": "按余弦定理求膝点，利用站姿与当前骨段的正交基计算刚体位移。"},
+  "status": [{"level": "reproduced", "host": "cycles", "source": "5.2.0", "gpu": "apple-m5-pro", "date": "2026-11-25"}],
+  "exams": ["cal:rig.rigid-ik"]
+}

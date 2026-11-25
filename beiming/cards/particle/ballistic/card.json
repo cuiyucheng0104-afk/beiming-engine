@@ -1,0 +1,29 @@
+{
+  "format": "card/0.1",
+  "id": "particle.ballistic",
+  "version": "1.0.0",
+  "kind": "particle",
+  "title": "闭式弹道火花",
+  "intent": "按出生记录求阻尼弹道、地面反弹及镜头方向的扇出，任意抽帧重建火花和拖尾",
+  "visibleToAgent": true,
+  "livesIn": ["data", "source:blender"],
+  "impl": [
+    { "livesIn": "data", "entry": "cards/particle/ballistic/index.mjs", "shape": "evaluate", "hosts": [], "selftest": "cards/particle/ballistic/selftest.test.mjs" },
+    { "livesIn": "source:blender", "entry": "cards/particle/ballistic/blender.py", "shape": "create", "hosts": [{ "host": "cycles", "version": "5.2.0" }], "selftest": "cards/particle/ballistic/selftest.test.mjs" }
+  ],
+  "params": {
+    "particles": { "type": "data", "schema": "schema.json", "unit": "none", "coupling": "scene-scale", "default": [
+      { "position": [-0.10, 0.08, -1], "velocity": [0.45, 0.68, 0], "drag": 0.4, "gravity": -1.1, "life": 2, "groundY": 0, "restitution": 0.35, "sizeM": 0.025 },
+      { "position": [0.08, 0.06, -1], "velocity": [-0.24, 0.5, 0.06], "gravity": -0.9, "life": 2, "groundY": 0, "sizeM": 0.02 }
+    ] },
+    "stepFps": { "type": "number", "unit": "Hz", "coupling": "fps", "default": 12, "range": [0.01, 1000] }
+  },
+  "ports": { "in": [], "out": [{ "name": "particles", "type": "tracks.particles" }, { "name": "readings", "type": "frame-meta" }], "order": { "before": [], "after": [] }, "requires": ["position 是北冥 Y 朝上的米坐标，velocity 为米每秒，birth、life 用秒；帧号按镜头局部帧率换算。可传 groundY 和 restitution 将落到地面以下的高度按系数反射。", "data 求值可传列主序视图与投影矩阵、像素视口得到屏幕中心。fan 控制沿视线运动时的展宽，pull 为沿视轴朝镜头拉近的米数。"] },
+  "conditions": { "appliesWhen": ["已知各粒子的出生时刻与初速度，需要任意帧独立出图"], "notWhen": ["粒子要与任意曲面碰撞或互相施力"] },
+  "calibration": "probe-moving-cube",
+  "verify": { "selftest": "核对弱阻尼级数、地面高度反射、单精度死亡边界、视空间偏移及随机访问帧。", "predicates": [] },
+  "pitfalls": [{ "symptom": "镜头沿速度方向观察时粒子束过窄", "fix": "传入当帧相机，给火花设置 fan 及不同 seed。" }, { "symptom": "同一帧各粒子的形状节拍不同", "fix": "用全局时间乘 stepFps 再取整。" }],
+  "provenance": { "cases": [], "note": "从线性阻力与恒定重力的时间积分构造三维位置，独立以相机基向量计算显示中心。" },
+  "status": [{ "level": "reproduced", "host": "cycles", "source": "5.2.0", "gpu": "apple-m5-pro", "date": "2026-11-25" }],
+  "exams": ["cal:particle.ballistic"]
+}

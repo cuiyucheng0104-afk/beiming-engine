@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "vector": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } }
+  },
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["position", "velocity", "life"],
+    "properties": {
+      "position": { "$ref": "#/$defs/vector" },
+      "velocity": { "$ref": "#/$defs/vector" },
+      "life": { "type": "number", "exclusiveMinimum": 0 },
+      "birth": { "type": "number" },
+      "drag": { "type": "number", "minimum": 0 },
+      "gravity": { "type": "number" },
+      "groundY": { "type": "number" },
+      "restitution": { "type": "number", "minimum": 0, "maximum": 1 },
+      "sizeM": { "type": "number", "exclusiveMinimum": 0 },
+      "seed": { "type": "number", "minimum": 0, "maximum": 1 },
+      "fan": { "type": "number", "minimum": 0 },
+      "pull": { "type": "number", "minimum": 0 }
+    }
+  }
+}
