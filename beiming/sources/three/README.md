@@ -4,7 +4,8 @@
 
 | 文件 | 在哪跑 | 管什么 |
 |---|---|---|
-| `caps.mjs` | 页面、node | 能力声明 `caps(library)`，默认值都在这里（子帧采样数 8、两档的采样数和缩放） |
+| `caps.mjs` | 页面、node | 能力声明 `caps(library, opts)`，默认值都在这里（`hosts: ['page']`、子帧采样数 8、两档的采样数和缩放） |
+| `hosts.mjs` | 页面、node | 宿主注册表 `THREE_HOSTS`（`page` 主线，`offscreen` 离屏实验宿主，不进主线验收与考题）与 `resolveThreeHost` |
 | `plan.mjs` | 页面、node | `planOpen`：装不装得了；`planRender`：输出、快门、子帧相位、尺寸；`planQuery`：场景查询的种类、写法、实体名；`parseShutterArgs`：`--shutter <度> --samples <子帧数>` 换成 `RenderOpts.shutter`。快门角也认兼容写法 `angle` |
 | `source.js` | 页面 | 渲染器 `createThreeSource({ THREE, host })`，只有它碰 WebGL；`averageDisplaySrgbFrames` 纯函数 |
 | `two-d.js` | 页面 | 二维讲解舞台 `createTwoDStage`：Canvas 2D、SVG、DOM 元素各是一个实体，见 `DETAILS.md` |
@@ -37,7 +38,8 @@
 
 - `motion` 交不出；场景查询只答 `bbox3d`、`anchor`、`belowGround`，别的报 `contract.unsupported-query`（带 `next`），见 `DETAILS.md`；每像素只取 1 个样本，多了报 `contract.unsupported-option`。
 - 作者模式默认只有 `native-code`；`startSource({ cards })` 提供了卡才有 `cards-data`。
+- 宿主与正式写片/签锁边界：正式 `film.json` / `film.lock` 全链路（`applyFilmWrite` → `L1` → `lock-gen` → 冻结 `LK4` 与 `source/registry.json`）只收具体宿主 `'page'`，一致拒绝 `'any'` 与 `'offscreen'`，确保离屏实验宿主无法混入主线正式锁；`host: 'any'` 作为 three 帧源与双宿主实验对拍入口（`resolveThreeHost`、`openOffscreenHost`、`page` 宿主对拍 `PSNR ≥ 50 dB` / 差 `> 5/255` 占比 `≤ 0.1%`）的宿主选择器工作，在主线验收、基准考题（含 `shotInput` 非枚举考题标记）或默认未开启实验宿主时仅落 `'page'`，显式 `offscreen` 报 `contract.unsupported-mode`。
 - 没有场景包：实体编号按名字字节序从 1 起；类别：点云 `particles`，名下有实体的 `assembly`，其余 `part`。
 - 资产没接；叠加层要的卡还没有，都报 `contract.unsupported-input`。
 
-测试：`node --test 'beiming/sources/three/*.test.mjs'`。`render`、`s3`、`s4`、`s7`、`s18` 起无头浏览器实渲（起不了跳过）。卡、后期链、可见比例另见 `beiming/cards/m1a-cards.test.mjs`。
+测试：`node --test 'beiming/sources/three/*.test.mjs'`。`render`、`s3`、`s4`、`s7`、`s8`、`s18` 起无头浏览器实渲（起不了跳过）。卡、后期链、可见比例另见 `beiming/cards/m1a-cards.test.mjs`。
