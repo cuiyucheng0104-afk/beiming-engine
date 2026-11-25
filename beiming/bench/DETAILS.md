@@ -220,6 +220,19 @@ node beiming/bench/board.mjs build --out-dir <目录> [--as-of <YYYY-MM-DD>] [--
   - 二级批一：`23-2`（`time.cut-grid` 6 章节 120 BPM 元数据与踩拍强起音）、`27-1`（`time.cut-grid` + `time.timeline` + `audio.master` 首切 96 帧、12 帧网格与 `-14 LUFS` 响度）、`29-2`（`audio.event-mix` 独立配乐分轨吸音 + `overlay.cursor` 11 次点击后第 2 帧切画面）、`30-1`（`time.timeline` + `time.events` + `time.envelope` 返回值串联驱动 `m01..m20` 随 `80 -> 96` BPM 行为重求值联动、绝对时间 `title_enter` 第 48 帧不变与画面/音频脉冲包络）；
   - 二级批二：`15-2`（`camera.drift` 零漂移锁死机位 300 帧一致矩阵与静止纹理实测）、`18-1`（`time.narration` + `overlay.subs` + `page.det2d` 三场 `#F4F0E9` 底色占比、3 帧淡出、首尾留白，配合 5×7 点阵逐像素字形渲染与纯解码像素模板匹配 OCR 核验 `text_matches(copy)`）、`18-2`（`time.narration` + `camera.cue-kf` 提前 15/27 帧两次快速运镜与音频起声核验）、`5-1`（`audio.align` 在 `[0.97, 1.03]` 内拉伸对位使 120 Hz 以下低频重击精准落于第 624 帧唯一硬切）。全部 12 题的交付规格谓词严格取自 `ffprobe` / `deliverSpec` 对成片的实测值。
 
+## 容差校准五步（B7）
+
+按 `05 §6.5` 对一级与二级全部 12 道公开考题执行实测容差校准，将全部 12 题的 `calibration` 从初值（`status: 'uncalibrated', version: 0, noiseFloor: null`）正式定版为 `status: 'calibrated', version: 1`。代码 [calibration/index.mjs](calibration/index.mjs)，12 份结构化校准记录 `beiming/bench/calibration/records/<slug>.json`（格式标识 `bench-calibration/0.1`），测试 `node --test beiming/bench/b7-calibration.test.mjs`，命令行 `node beiming/bench/calibration/index.mjs run [--write] [--id <id>] [--as-of <YYYY-MM-DD>]`。
+
+- **契约边界与零泄露**：冻结的 `question.schema.json` 中 `calibration` 声明了 `additionalProperties: false`，公开考题 JSON 的 `calibration` 严格仅保留 `status`、`source`、`noiseFloor`、`version` 四键；`calibration.source` 写明分档、校准日期与记录路径且不含裸指标名（满足 `B1_METRIC_NAMESPACE`）。分档理由、4 遍噪声地板明细、参考夹具与负对照实测读数全部落入 `beiming/bench/calibration/records/<slug>.json`，全部记录与题面均过 `validateQuestion`、`validateCalibrationRecord` 与 `scanQuestionLeaks` 零泄露检查。
+- **五步流程（`calibrateQuestion(id, opts)`）**：
+  1. **Step 1（噪声地板）**：调用 `B20` `measureNoiseFloor` 执行 4 组真实成片量测（首渲 2 遍 + 独立重渲 2 遍，`measurementCount === 4` 且 4 遍全部满分），记录 `repeatMeasureDelta`、`repeatRenderDelta` 与 `noiseFloor`（12 题实测均为 `0`）。
+  2. **Step 2（参考自检）**：核验 `B20` 标准答案满分通过、合成正对照基线满分通过，并通过官方判分器（`evaluate-b2.mjs` / `evaluate-b3.mjs` / `evaluate-b4.mjs`）逐一核验 `beiming/bench/refs/` 下全部参考夹具——正参考全过，4 份原作反例夹具（`28-1-negative.json`、`23-2.original.json`、`27-1.original.json`、`30-1.hardcoded.json`）及 `01-1` 预览反例、`15-2` 漂移反例 100% 拦截。
+  3. **Step 3（负对照）**：真实调用 `run-b5-l1.mjs`、`run-b5-l2a.mjs`、`run-b6.mjs` 执行每题全部 3 份标准负对照（`disable-card`、`shift-2f`、`random-beats`），全量 36/36 判不过且失分项与声明一致。
+  4. **Step 4（定线）**：逐条评分指标汇总正样本最差读数、触发负样本最好读数与现行 `scoring[].args`，机器核验正样本 100% 通过、负样本 100% 拦截、容差落在正负样本之间偏严一侧且噪声地板显著小于安全余量。
+  5. **Step 5（分档与写回）**：按参考素材来源分为**严档**（9 题：`1-1`/`01-1`、`23-1`、`28-1`、`29-1`、`23-2`、`27-1`、`29-2`、`30-1`、`5-1`，作者原文件或严格交付基线）与**放宽档**（3 题：`15-2`、`18-1`、`18-2`，参考为平台重压版），生成深冻结可读记录并写回考题 `calibration`。
+- **看板换尺子标记联动**：当历史前一日为 `version: 0, status: 'uncalibrated'`、当日传入 `v1 calibrated` 的 12 道公开考题调用 `buildBoard` / `appendBoardHistory` / `renderBoardHtml` 时，看板自动在 `calibrationChanges`、矩阵行 `calibrationChanged`、历史当日条目与 HTML「今日校准变更」中标出全部 12 题；次日无变更时自动清零。
+
 ## 小卷与全卷调度（B13 / B14）
 
 代码 [suite.mjs](suite.mjs)（经 [index.mjs](index.mjs) 重导出），测试 `node --test beiming/bench/b13-b14-suite.test.mjs`。

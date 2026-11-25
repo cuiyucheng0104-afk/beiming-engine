@@ -1,0 +1,384 @@
+{
+  "format": "bench-calibration/0.1",
+  "questionId": "23-2",
+  "slug": "23-2",
+  "group": "level-2-a",
+  "version": 1,
+  "status": "calibrated",
+  "tier": "strict",
+  "tierLabel": "严档",
+  "tierRationale": "作者原文件严格基线（章节踩拍与强起音对齐），按严档定线",
+  "calibratedOn": "2026-11-25",
+  "noiseFloor": 0,
+  "calibrationField": {
+    "status": "calibrated",
+    "source": "B7 五步容差校准 v1（严档，2026-11-25）：经标准答案 4 遍噪声地板、参考自检与 3 份标准负对照实测定线，细则见 bench/calibration/records/23-2.json",
+    "noiseFloor": 0,
+    "version": 1
+  },
+  "step1NoiseFloor": {
+    "measurementCount": 4,
+    "allFullScore": true,
+    "repeatMeasureDelta": 0,
+    "repeatRenderDelta": 0,
+    "noiseFloor": 0,
+    "repeatMeasureByMetric": {
+      "width": 0,
+      "height": 0,
+      "fps": 0,
+      "frames": 0,
+      "cuts[0]": 0,
+      "cuts[1]": 0,
+      "cuts[2]": 0,
+      "cuts[3]": 0,
+      "cuts[4]": 0,
+      "chaptersMs[0]": 0,
+      "chaptersMs[1]": 0,
+      "chaptersMs[2]": 0,
+      "chaptersMs[3]": 0,
+      "chaptersMs[4]": 0,
+      "chaptersMs[5]": 0,
+      "beat.periodMs": 0,
+      "beat.phaseMs": 0,
+      "strongOnsetsMs[0]": 0,
+      "strongOnsetsMs[1]": 0,
+      "strongOnsetsMs[2]": 0,
+      "strongOnsetsMs[3]": 0,
+      "strongOnsetsMs[4]": 0,
+      "strongOnsetsMs[5]": 0,
+      "strongOnsetsMs[6]": 0,
+      "strongOnsetsMs[7]": 0,
+      "strongOnsetsMs[8]": 0,
+      "strongOnsetsMs[9]": 0,
+      "strongOnsetsMs[10]": 0,
+      "strongOnsetsMs[11]": 0,
+      "strongOnsetsMs[12]": 0,
+      "strongOnsetsMs[13]": 0,
+      "strongOnsetsMs[14]": 0,
+      "strongOnsetsMs[15]": 0,
+      "strongOnsetsMs[16]": 0,
+      "strongOnsetsMs[17]": 0,
+      "strongOnsetsMs[18]": 0,
+      "strongOnsetsMs[19]": 0,
+      "strongOnsetsMs[20]": 0,
+      "strongOnsetsMs[21]": 0,
+      "strongOnsetsMs[22]": 0,
+      "strongOnsetsMs[23]": 0,
+      "strongOnsetsMs[24]": 0,
+      "strongOnsetsMs[25]": 0,
+      "strongOnsetsMs[26]": 0,
+      "strongOnsetsMs[27]": 0,
+      "strongOnsetsMs[28]": 0,
+      "strongOnsetsMs[29]": 0,
+      "strongOnsetsMs[30]": 0,
+      "strongOnsetsMs[31]": 0,
+      "strongOnsetsMs[32]": 0,
+      "strongOnsetsMs[33]": 0,
+      "strongOnsetsMs[34]": 0,
+      "strongOnsetsMs[35]": 0,
+      "strongOnsetsMs[36]": 0,
+      "strongOnsetsMs[37]": 0,
+      "strongOnsetsMs[38]": 0,
+      "strongOnsetsMs[39]": 0,
+      "strongOnsetsMs[40]": 0,
+      "strongOnsetsMs[41]": 0,
+      "strongOnsetsMs[42]": 0,
+      "strongOnsetsMs[43]": 0,
+      "strongOnsetsMs[44]": 0,
+      "strongOnsetsMs[45]": 0,
+      "strongOnsetsMs[46]": 0,
+      "strongOnsetsMs[47]": 0,
+      "strongOnsetsMs[48]": 0,
+      "strongOnsetsMs[49]": 0,
+      "strongOnsetsMs[50]": 0,
+      "strongOnsetsMs[51]": 0,
+      "strongOnsetsMs[52]": 0,
+      "strongOnsetsMs[53]": 0,
+      "strongOnsetsMs[54]": 0
+    },
+    "repeatRenderByMetric": {
+      "width": 0,
+      "height": 0,
+      "fps": 0,
+      "frames": 0,
+      "cuts[0]": 0,
+      "cuts[1]": 0,
+      "cuts[2]": 0,
+      "cuts[3]": 0,
+      "cuts[4]": 0,
+      "chaptersMs[0]": 0,
+      "chaptersMs[1]": 0,
+      "chaptersMs[2]": 0,
+      "chaptersMs[3]": 0,
+      "chaptersMs[4]": 0,
+      "chaptersMs[5]": 0,
+      "beat.periodMs": 0,
+      "beat.phaseMs": 0,
+      "strongOnsetsMs[0]": 0,
+      "strongOnsetsMs[1]": 0,
+      "strongOnsetsMs[2]": 0,
+      "strongOnsetsMs[3]": 0,
+      "strongOnsetsMs[4]": 0,
+      "strongOnsetsMs[5]": 0,
+      "strongOnsetsMs[6]": 0,
+      "strongOnsetsMs[7]": 0,
+      "strongOnsetsMs[8]": 0,
+      "strongOnsetsMs[9]": 0,
+      "strongOnsetsMs[10]": 0,
+      "strongOnsetsMs[11]": 0,
+      "strongOnsetsMs[12]": 0,
+      "strongOnsetsMs[13]": 0,
+      "strongOnsetsMs[14]": 0,
+      "strongOnsetsMs[15]": 0,
+      "strongOnsetsMs[16]": 0,
+      "strongOnsetsMs[17]": 0,
+      "strongOnsetsMs[18]": 0,
+      "strongOnsetsMs[19]": 0,
+      "strongOnsetsMs[20]": 0,
+      "strongOnsetsMs[21]": 0,
+      "strongOnsetsMs[22]": 0,
+      "strongOnsetsMs[23]": 0,
+      "strongOnsetsMs[24]": 0,
+      "strongOnsetsMs[25]": 0,
+      "strongOnsetsMs[26]": 0,
+      "strongOnsetsMs[27]": 0,
+      "strongOnsetsMs[28]": 0,
+      "strongOnsetsMs[29]": 0,
+      "strongOnsetsMs[30]": 0,
+      "strongOnsetsMs[31]": 0,
+      "strongOnsetsMs[32]": 0,
+      "strongOnsetsMs[33]": 0,
+      "strongOnsetsMs[34]": 0,
+      "strongOnsetsMs[35]": 0,
+      "strongOnsetsMs[36]": 0,
+      "strongOnsetsMs[37]": 0,
+      "strongOnsetsMs[38]": 0,
+      "strongOnsetsMs[39]": 0,
+      "strongOnsetsMs[40]": 0,
+      "strongOnsetsMs[41]": 0,
+      "strongOnsetsMs[42]": 0,
+      "strongOnsetsMs[43]": 0,
+      "strongOnsetsMs[44]": 0,
+      "strongOnsetsMs[45]": 0,
+      "strongOnsetsMs[46]": 0,
+      "strongOnsetsMs[47]": 0,
+      "strongOnsetsMs[48]": 0,
+      "strongOnsetsMs[49]": 0,
+      "strongOnsetsMs[50]": 0,
+      "strongOnsetsMs[51]": 0,
+      "strongOnsetsMs[52]": 0,
+      "strongOnsetsMs[53]": 0,
+      "strongOnsetsMs[54]": 0
+    },
+    "runScores": [
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "step2ReferenceCheck": {
+    "solution": {
+      "pass": true,
+      "score": 1,
+      "basePass": true,
+      "cardsUsed": [
+        "time.cut-grid",
+        "deliver.encode"
+      ]
+    },
+    "positiveBaseline": {
+      "pass": true,
+      "score": 1
+    },
+    "fixtures": [
+      {
+        "ref": "bench/refs/level-2-a/23-2.reference.json",
+        "role": "positive-reference",
+        "expectedOutcome": "pass",
+        "actualPass": true,
+        "actualBasePass": true,
+        "actualScore": 1,
+        "ok": true
+      },
+      {
+        "ref": "bench/refs/level-2-a/23-2.original.json",
+        "role": "original-negative",
+        "expectedOutcome": "fail",
+        "actualPass": false,
+        "actualBasePass": false,
+        "actualScore": 0.4,
+        "ok": true
+      }
+    ],
+    "allOk": true
+  },
+  "step3NegativeControls": {
+    "total": 3,
+    "rejected": 3,
+    "allRejectedAsDeclared": true,
+    "controls": [
+      {
+        "id": "23-2-disable-card",
+        "kind": "disable-card",
+        "pass": false,
+        "score": 0.4,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0
+        ],
+        "expectedFailedIndices": [
+          0
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "beat.onset-hit",
+            "pass": false,
+            "chapters": 6,
+            "maxOffBeatMs": 103
+          },
+          {
+            "index": 1,
+            "metric": "beat.onset-hit",
+            "pass": true,
+            "hits": 47,
+            "events": 55,
+            "hitRate": 0.8545
+          }
+        ]
+      },
+      {
+        "id": "23-2-shift-2f",
+        "kind": "shift-2f",
+        "pass": false,
+        "score": 0.4,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0
+        ],
+        "expectedFailedIndices": [
+          0
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "beat.onset-hit",
+            "pass": false,
+            "chapters": 6,
+            "maxOffBeatMs": 103.3333
+          },
+          {
+            "index": 1,
+            "metric": "beat.onset-hit",
+            "pass": true,
+            "hits": 47,
+            "events": 55,
+            "hitRate": 0.8545
+          }
+        ]
+      },
+      {
+        "id": "23-2-random-beats",
+        "kind": "random-beats",
+        "pass": false,
+        "score": 0.4,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0
+        ],
+        "expectedFailedIndices": [
+          0
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "beat.onset-hit",
+            "pass": false,
+            "chapters": 6,
+            "maxOffBeatMs": 230
+          },
+          {
+            "index": 1,
+            "metric": "beat.onset-hit",
+            "pass": true,
+            "hits": 47,
+            "events": 55,
+            "hitRate": 0.8545
+          }
+        ]
+      }
+    ]
+  },
+  "step4Thresholds": {
+    "allSeparated": true,
+    "noiseFloorSafe": true,
+    "positiveSampleCount": 3,
+    "negativeSampleCount": 4,
+    "items": [
+      {
+        "index": 0,
+        "metric": "beat.onset-hit",
+        "weight": 0.6,
+        "adoptedArgs": {
+          "event": "chapter",
+          "count": 6,
+          "bpm": 120,
+          "tolFrames": 1
+        },
+        "positiveCount": 3,
+        "positivePassCount": 3,
+        "negativeTriggeredCount": 4,
+        "positiveWorst": {
+          "sample": "positive-baseline:23-2",
+          "pass": true,
+          "chapters": 6,
+          "maxOffBeatMs": 20
+        },
+        "negativeBest": {
+          "sample": "23-2-disable-card",
+          "pass": false,
+          "chapters": 6,
+          "maxOffBeatMs": 103
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 3/3 全过，4 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      },
+      {
+        "index": 1,
+        "metric": "beat.onset-hit",
+        "weight": 0.4,
+        "adoptedArgs": {
+          "event": "strong-onset",
+          "bpm": 120,
+          "tolMs": 30,
+          "minHitRate": 0.8
+        },
+        "positiveCount": 3,
+        "positivePassCount": 3,
+        "negativeTriggeredCount": 0,
+        "positiveWorst": {
+          "sample": "positive-baseline:23-2",
+          "pass": true,
+          "hits": 47,
+          "events": 55,
+          "hitRate": 0.8545
+        },
+        "negativeBest": null,
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 3/3 全过（本题负对照主故障落在协同判分项上），现行容差线保持严档基线且噪声地板（0）满足稳定性要求"
+      }
+    ]
+  },
+  "step5TierAndRecord": {
+    "tier": "strict",
+    "tierLabel": "严档",
+    "version": 1,
+    "status": "calibrated",
+    "calibratedOn": "2026-11-25",
+    "recordPath": "bench/calibration/records/23-2.json",
+    "questionPath": "bench/questions/level-2-a/23-2.json"
+  }
+}

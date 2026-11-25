@@ -152,7 +152,9 @@ test('B4-2 题号、代号、参考夹具、要用的卡和随机对照照 05 �
     assert.deepEqual(q.refs, [`bench/refs/level-2-b/${id}.json`], id);
     assert.equal(reference(id).question, id);
     assert.equal(q.flags.hidden, false);
-    assert.deepEqual(q.calibration, { ...q.calibration, status: 'uncalibrated', noiseFloor: null, version: 0 });
+    assert.equal(q.calibration.status, 'calibrated');
+    assert.equal(q.calibration.version, 1);
+    assert.ok(typeof q.calibration.noiseFloor === 'number' && Number.isFinite(q.calibration.noiseFloor) && q.calibration.noiseFloor >= 0);
   }
   // 对位题必须带随机对照；15-2 考的是机位锁死，没有可对的事件
   for (const id of ['5-1', '18-1', '18-2']) assert.ok(question(id).controls.random, `${id} 缺随机对照`);

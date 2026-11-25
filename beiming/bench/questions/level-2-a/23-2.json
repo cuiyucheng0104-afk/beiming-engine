@@ -5,7 +5,10 @@
   "title": "章节落拍",
   "brief": "做一条 28 秒、24 帧每秒、1920×1080 的角色分解展示片，共 672 帧，配 120 BPM 的音乐（一拍 12 帧）。成片带章节元数据，正好 6 个章节；6 个章节的起点都落在拍点上，离最近的拍点不超过 1 帧。配乐的强起音压在拍上：离拍点 30 毫秒以内的强起音不少于 80%。",
   "deliverable": {
-    "size": [1920, 1080],
+    "size": [
+      1920,
+      1080
+    ],
     "fps": "24/1",
     "frames": 672,
     "audio": "required"
@@ -64,9 +67,9 @@
     "blockedBy": []
   },
   "calibration": {
-    "status": "uncalibrated",
-    "source": "案例量测与考题设计调研第 6 节给的初值，还没试跑",
-    "noiseFloor": null,
-    "version": 0
+    "status": "calibrated",
+    "source": "B7 五步容差校准 v1（严档，2026-11-25）：经标准答案 4 遍噪声地板、参考自检与 3 份标准负对照实测定线，细则见 bench/calibration/records/23-2.json",
+    "noiseFloor": 0,
+    "version": 1
   }
 }

@@ -1,0 +1,339 @@
+{
+  "format": "bench-calibration/0.1",
+  "questionId": "1-1",
+  "slug": "01-1",
+  "group": "level-1",
+  "version": 1,
+  "status": "calibrated",
+  "tier": "strict",
+  "tierLabel": "严档",
+  "tierRationale": "严格交付基线（全片成片封装、响度与无黑帧/冻结），按严档定线",
+  "calibratedOn": "2026-11-25",
+  "noiseFloor": 0,
+  "calibrationField": {
+    "status": "calibrated",
+    "source": "B7 五步容差校准 v1（严档，2026-11-25）：经标准答案 4 遍噪声地板、参考自检与 3 份标准负对照实测定线，细则见 bench/calibration/records/01-1.json",
+    "noiseFloor": 0,
+    "version": 1
+  },
+  "step1NoiseFloor": {
+    "measurementCount": 4,
+    "allFullScore": true,
+    "repeatMeasureDelta": 0,
+    "repeatRenderDelta": 0,
+    "noiseFloor": 0,
+    "repeatMeasureByMetric": {
+      "deliver.spec.width": 0,
+      "deliver.spec.height": 0,
+      "deliver.spec.fps": 0,
+      "deliver.spec.frames": 0,
+      "deliver.spec.audioChannels": 0,
+      "audio.loudness.lufs": 0,
+      "audio.loudness.truePeakDbtp": 0,
+      "frame.black-freeze-dup.blackFrames": 0,
+      "frame.black-freeze-dup.freezeSegments": 0,
+      "frame.black-freeze-dup.duplicateFrames": 0
+    },
+    "repeatRenderByMetric": {
+      "deliver.spec.width": 0,
+      "deliver.spec.height": 0,
+      "deliver.spec.fps": 0,
+      "deliver.spec.frames": 0,
+      "deliver.spec.audioChannels": 0,
+      "audio.loudness.lufs": 0,
+      "audio.loudness.truePeakDbtp": 0,
+      "frame.black-freeze-dup.blackFrames": 0,
+      "frame.black-freeze-dup.freezeSegments": 0,
+      "frame.black-freeze-dup.duplicateFrames": 0
+    },
+    "runScores": [
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "step2ReferenceCheck": {
+    "solution": {
+      "pass": true,
+      "score": 1,
+      "basePass": true,
+      "cardsUsed": [
+        "deliver.encode",
+        "audio.master"
+      ]
+    },
+    "positiveBaseline": {
+      "pass": true,
+      "score": 1
+    },
+    "fixtures": [
+      {
+        "ref": "bench/refs/level-1/01-1-reference.json",
+        "role": "positive-reference",
+        "expectedOutcome": "scoring-pass",
+        "actualPass": false,
+        "actualScoringPass": true,
+        "actualBasePass": false,
+        "actualScore": 1,
+        "ok": true
+      },
+      {
+        "ref": "bench/refs/level-1/01-1-reference.json#preview",
+        "role": "preview-negative",
+        "expectedOutcome": "fail",
+        "actualPass": false,
+        "actualScoringPass": false,
+        "actualBasePass": false,
+        "actualScore": 0.5,
+        "ok": true
+      }
+    ],
+    "allOk": true
+  },
+  "step3NegativeControls": {
+    "total": 3,
+    "rejected": 3,
+    "allRejectedAsDeclared": true,
+    "controls": [
+      {
+        "id": "01-1-disable-card",
+        "kind": "disable-card",
+        "pass": false,
+        "score": 0.25,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0,
+          1
+        ],
+        "expectedFailedIndices": [
+          0,
+          1
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "deliver.spec",
+            "pass": false,
+            "width": 1920,
+            "height": 1080,
+            "fps": 30,
+            "frames": 1104,
+            "audioChannels": 2,
+            "colorMatch": false
+          },
+          {
+            "index": 1,
+            "metric": "audio.loudness",
+            "pass": false,
+            "lufs": -9.5,
+            "truePeakDbtp": 0.8
+          },
+          {
+            "index": 2,
+            "metric": "frame.black-freeze-dup",
+            "pass": true,
+            "blackFrames": 0,
+            "freezeSegments": 0,
+            "duplicateFrames": 0
+          }
+        ]
+      },
+      {
+        "id": "01-1-shift-2f",
+        "kind": "shift-2f",
+        "pass": false,
+        "score": 0.75,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          2
+        ],
+        "expectedFailedIndices": [
+          2
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "deliver.spec",
+            "pass": true,
+            "width": 1920,
+            "height": 1080,
+            "fps": 30,
+            "frames": 1104,
+            "audioChannels": 2,
+            "colorMatch": true
+          },
+          {
+            "index": 1,
+            "metric": "audio.loudness",
+            "pass": true,
+            "lufs": -14.1,
+            "truePeakDbtp": -1.7
+          },
+          {
+            "index": 2,
+            "metric": "frame.black-freeze-dup",
+            "pass": false,
+            "blackFrames": 2,
+            "freezeSegments": 0,
+            "duplicateFrames": 0
+          }
+        ]
+      },
+      {
+        "id": "01-1-random-beats",
+        "kind": "random-beats",
+        "pass": false,
+        "score": 0.75,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          2
+        ],
+        "expectedFailedIndices": [
+          2
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "deliver.spec",
+            "pass": true,
+            "width": 1920,
+            "height": 1080,
+            "fps": 30,
+            "frames": 1104,
+            "audioChannels": 2,
+            "colorMatch": true
+          },
+          {
+            "index": 1,
+            "metric": "audio.loudness",
+            "pass": true,
+            "lufs": -14.1,
+            "truePeakDbtp": -1.7
+          },
+          {
+            "index": 2,
+            "metric": "frame.black-freeze-dup",
+            "pass": false,
+            "blackFrames": 0,
+            "freezeSegments": 25,
+            "duplicateFrames": 1011
+          }
+        ]
+      }
+    ]
+  },
+  "step4Thresholds": {
+    "allSeparated": true,
+    "noiseFloorSafe": true,
+    "positiveSampleCount": 3,
+    "negativeSampleCount": 4,
+    "items": [
+      {
+        "index": 0,
+        "metric": "deliver.spec",
+        "weight": 0.25,
+        "adoptedArgs": {
+          "color": "bt709"
+        },
+        "positiveCount": 3,
+        "positivePassCount": 3,
+        "negativeTriggeredCount": 1,
+        "positiveWorst": {
+          "sample": "solution:01-1",
+          "pass": true,
+          "width": 1920,
+          "height": 1080,
+          "fps": 30,
+          "frames": 1104,
+          "audioChannels": 2,
+          "colorMatch": true
+        },
+        "negativeBest": {
+          "sample": "01-1-disable-card",
+          "pass": false,
+          "width": 1920,
+          "height": 1080,
+          "fps": 30,
+          "frames": 1104,
+          "audioChannels": 2,
+          "colorMatch": false
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 3/3 全过，1 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      },
+      {
+        "index": 1,
+        "metric": "audio.loudness",
+        "weight": 0.5,
+        "adoptedArgs": {
+          "lufs": [
+            -14.5,
+            -13.5
+          ],
+          "maxTruePeakDbtp": -1
+        },
+        "positiveCount": 3,
+        "positivePassCount": 3,
+        "negativeTriggeredCount": 2,
+        "positiveWorst": {
+          "sample": "positive-baseline:01-1",
+          "pass": true,
+          "lufs": -14.1,
+          "truePeakDbtp": -1.7
+        },
+        "negativeBest": {
+          "sample": "bench/refs/level-1/01-1-reference.json#preview",
+          "pass": false,
+          "lufs": -14.2,
+          "truePeakDbtp": -0.8
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 3/3 全过，2 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      },
+      {
+        "index": 2,
+        "metric": "frame.black-freeze-dup",
+        "weight": 0.25,
+        "adoptedArgs": {
+          "blackLevel": 32,
+          "blackPercent": 98,
+          "freezeDiff": 0.15,
+          "freezeFrames": 15,
+          "duplicateDiff": 0
+        },
+        "positiveCount": 3,
+        "positivePassCount": 3,
+        "negativeTriggeredCount": 2,
+        "positiveWorst": {
+          "sample": "solution:01-1",
+          "pass": true,
+          "blackFrames": 0,
+          "freezeSegments": 0,
+          "duplicateFrames": 0
+        },
+        "negativeBest": {
+          "sample": "01-1-shift-2f",
+          "pass": false,
+          "blackFrames": 2,
+          "freezeSegments": 0,
+          "duplicateFrames": 0
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 3/3 全过，2 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      }
+    ]
+  },
+  "step5TierAndRecord": {
+    "tier": "strict",
+    "tierLabel": "严档",
+    "version": 1,
+    "status": "calibrated",
+    "calibratedOn": "2026-11-25",
+    "recordPath": "bench/calibration/records/01-1.json",
+    "questionPath": "bench/questions/level-1/01-1.json"
+  }
+}
