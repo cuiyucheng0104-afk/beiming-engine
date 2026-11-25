@@ -69,10 +69,13 @@ test('T11 卡文件、校准场景、注册表、数据 schema 与卡目录泄�
 });
 
 test('T11 两张卡的离线自测均可独立运行，且导入不留下字节码', () => {
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
   for (const { dir, entry } of CARDS) {
-    const run = spawnSync(process.execPath, ['--test', join(BEIMING, dir, 'selftest.test.mjs')], { encoding: 'utf8', timeout: 30000 });
+    const run = spawnSync(process.execPath, ['--test', join(BEIMING, dir, 'selftest.test.mjs')], { encoding: 'utf8', timeout: 30000, env });
     assert.ifError(run.error);
     assert.equal(run.status, 0, run.stdout + run.stderr);
+    assert.match(run.stdout + run.stderr, /pass [1-9]/, run.stdout + run.stderr);
     assert.deepEqual(cardFiles(dir), ['card.json', entry, 'schema.json', 'selftest.test.mjs'].sort());
   }
 });
