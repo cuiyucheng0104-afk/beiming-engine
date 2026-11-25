@@ -583,3 +583,19 @@ test('S8-7 冻结 shot-input.schema.json 合规与相对 PLAYWRIGHT_BROWSERS_PAT
     );
   }
 });
+
+test('S8-8 共用 planOpen 的非 three 帧源（如 core 声明 host:offscreen）不误入 resolveThreeHost', () => {
+  const coreCaps = {
+    id: 'core',
+    hosts: ['offscreen'],
+    modes: ['build-script'],
+    outputs: { color: true, depth: false, objectId: false, normal: false, motion: false, denoiseAlbedo: false, denoiseNormal: false, lightgroups: false },
+  };
+  const coreInput = {
+    film: 'core-compat',
+    output: { size: [64, 36], fps: '24/1' },
+    shot: { id: 's01', in: 0, out: 1, source: 'core', host: 'offscreen', mode: 'build-script', entry: 'pack', colorRef: 'scene', seed: 7 },
+  };
+  const plan = planOpen(coreCaps, coreInput, { lock: null, tier: 'final' });
+  assert.deepEqual(plan, { seed: 7 });
+});

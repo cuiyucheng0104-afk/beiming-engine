@@ -75,7 +75,7 @@ export function planOpen(caps, input, env, library = {}) {
   if (source !== caps.id) throw bad(`出这个镜头的帧源是 ${source}，不是 ${caps.id}`);
   if (!['draft', 'final'].includes(env.tier)) throw bad(`档位只能是 draft、final，给的是 ${env.tier}`);
   const allowExperimental = Array.isArray(caps.hosts) && caps.hosts.includes('offscreen');
-  const resolvedHost = (host === 'any' || host === 'offscreen')
+  const resolvedHost = (caps.id === 'three' && (host === 'any' || host === 'offscreen'))
     ? resolveThreeHost(shot, {
       allowExperimental,
       mainline: Boolean(env.mainline || env.mainlineAcceptance),
