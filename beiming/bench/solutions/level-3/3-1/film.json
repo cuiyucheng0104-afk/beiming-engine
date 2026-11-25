@@ -1,0 +1,31 @@
+{
+  "format": "film/3.0", "id": "sol_03b_1", "exam": "3-1", "seed": 301,
+  "title": "硬表面机甲：三件贴合装配",
+  "output": { "size": [1920, 1080], "fps": "30/1", "frames": 180 },
+  "shots": [{
+    "id": "assembly", "in": 0, "out": 180, "source": "blender", "host": "cycles", "mode": "cards-data", "colorRef": "scene",
+    "roles": { "hero": "kit", "mustSee": ["part.base", "part.body", "part.lid"] },
+    "params": {
+      "solids": [
+        { "id": "part.base", "center": [0, 0.06, 0], "half": [0.22, 0.06, 0.14] },
+        { "id": "part.body", "center": [0, 0.48, 0], "half": [0.15, 0.05, 0.10] },
+        { "id": "part.lid", "center": [0, 0.80, 0], "half": [0.16, 0.025, 0.11] }
+      ],
+      "recipe": { "units": "m", "root": "part.base", "steps": [
+        { "target": "part.body", "op": "slide", "onto": "part.base", "dir": [0, -1, 0] },
+        { "target": "part.lid", "op": "slide", "onto": "part.body", "dir": [0, -1, 0] }
+      ] },
+      "fixedCamera": { "pos": [0, 0.14, 0.8], "target": [0, 0.14, 0], "fovDeg": 36 }
+    },
+    "cards": [
+      { "as": "landing", "use": "assembly.dsl@1", "params": {} },
+      { "as": "flight", "use": "assembly.schedule@1", "params": { "startFrame": 0, "gapFrames": 20, "flyFrames": 30, "offsetM": 0.62, "spinDeg": 0 } },
+      { "as": "fit", "use": "camera.fit@1", "params": { "azimuthDeg": 22, "elevationDeg": 14, "fovYDeg": 38, "windowFrames": 8, "smoothAlpha": 0.25, "margin": 0.87, "groundY": 0, "groundClearanceM": 0.025 } },
+      { "as": "studio", "use": "light.studio@1", "params": { "preset": "wide-matte", "subjectScaleM": 1 } }
+    ]
+  }],
+  "style": { "view": { "scene": "agx-mhc", "display": "srgb" } },
+  "audio": { "mode": "none" },
+  "predicates": { "base": ["floor@1"], "extra": [] },
+  "delivery": { "master": "h264-crf14-bt709", "card": "deliver.encode@1" }
+}
