@@ -39,6 +39,10 @@ export default function () {
 }
 `;
 const MODES = { sw: '软件求交', hw: '硬件求交' };
+// 只比原始输出、不比状态的上游场景：上游测试判它用的解析值照上游自己的着色模型算，移植之后不适用，状态不再说明对错
+export const OUTPUT_ONLY = {
+  'surface/wet-layer-gltf': '湿与干的亮度比，上游的解析值 0.549 照上游的高光模型算；材质改走移植的原理化 BSDF 之后读数是 0.5689，上游测试判它不过',
+};
 const sha256 = data => createHash('sha256').update(data).digest('hex');
 const median = xs => [...xs].sort((a, b) => a - b)[xs.length >> 1];
 
@@ -180,7 +184,8 @@ export function compare(base, now) {
     const unstable = new Set(a.unstable);
     for (const id of keys(a.scenes, b.scenes)) {
       // 已登记不稳定的只比状态
-      const [x, y] = [a.scenes[id], b.scenes[id]].map(s => (unstable.has(id) ? s?.split(' ')[0] : s));
+      // 已登记只比原始输出的不比状态
+      const [x, y] = [a.scenes[id], b.scenes[id]].map(s => (unstable.has(id) ? s?.split(' ')[0] : id in OUTPUT_ONLY ? s?.split(' ')[1] ?? s : s));
       if (x === y) continue;
       const [sx, sy] = [x, y].map(s => s?.split(' ')[0] ?? '没有这个场景');
       diffs.push(`上游场景 ${id}（${MODES[mode]}）：${sx === sy ? `状态都是 ${sx}，原始输出不同` : `状态 ${sx} → ${sy}`}`);
