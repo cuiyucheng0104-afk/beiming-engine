@@ -890,3 +890,25 @@ test('exam-15 M4 B18：level-4 三道垫脚题（41-1 / 41-2 / 41-3）纳入 exa
   assert.equal(rBadRef.ok, false);
   assert.equal(rBadRef.exitCode, 4);
 });
+
+test('exam-16 M4 B19：level-4 四级整镜公开题（42-1）纳入 exam 19 题核验，9 项负对照全拦且缺 gates-m4.json 引用必退 exit 4', async (t) => {
+  const report = await runExam({ outDir: null });
+  assert.equal(report.ok, true, JSON.stringify(report.error));
+  assert.equal(report.summary.evaluatedQuestions, 19);
+  assert.equal(report.summary.passedQuestions, 19);
+  assert.equal(report.summary.skippedQuestions, 5);
+  const q42 = report.questions.find((entry) => entry.id === '42-1');
+  assert.ok(q42, '缺少 42-1');
+  assert.equal(q42.pass, true);
+  assert.equal(q42.score, 1);
+  assert.equal(q42.negativeControlsChecked, 9);
+  assert.equal(q42.negativeControlsRejected, 9);
+
+  const badRefDir = makeTempDir(t);
+  const broken42 = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-4/42-1.json'), 'utf8'));
+  broken42.refs = ['bench/refs/level-4/42-1.json'];
+  fs.writeFileSync(path.join(badRefDir, '42-1.json'), JSON.stringify(broken42, null, 2));
+  const rBadRef = await runExam({ questionsDir: badRefDir, outDir: null });
+  assert.equal(rBadRef.ok, false);
+  assert.equal(rBadRef.exitCode, 4);
+});

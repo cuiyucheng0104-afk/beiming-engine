@@ -405,7 +405,7 @@ test('B13/B14-CLI: --help 退出 0，缺参退出 2，预算超限/隐藏题不�
   const runCliProc = (args) => spawnSync(process.execPath, [SUITE_CLI, ...args], { cwd: REPO, encoding: 'utf8' });
 
   // --help
-  for (const args of [['--help'], ['mini', '--help'], ['full-1', '--help']]) {
+  for (const args of [['--help'], ['mini', '--help'], ['full-1', '--help'], ['full-4', '--help']]) {
     const r = runCliProc(args);
     assert.equal(r.status, 0, `${args.join(' ')} stderr: ${r.stderr}`);
     assert.match(r.stdout, /用法：/);
@@ -512,6 +512,7 @@ test('B16-full-3: 保持 full-2 23 场不变，新增 full-3 精确 26 场计分
   assert.equal(bank.publicQuestions.length, 12);
   assert.equal(bank.level3Questions.length, 3);
   assert.equal(bank.level4Questions.length, 3);
+  assert.equal(bank.level4ShotQuestions.length, 1);
 
   const models = ['family-a', 'family-b'];
   const asOf = '2026-11-26';

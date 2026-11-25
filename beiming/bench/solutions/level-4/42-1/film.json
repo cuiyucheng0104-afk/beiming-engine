@@ -1,0 +1,81 @@
+{
+  "format": "film/3.0",
+  "id": "sol_m4_shot_fire_breath",
+  "exam": "42-1",
+  "seed": 421,
+  "title": "峡谷吐息整镜：脊线运动、三层射流粒子与线性 HDR 后期链联调",
+  "output": { "size": [1920, 1080], "fps": "60/1", "frames": 96 },
+  "shots": [
+    {
+      "id": "fire-breath",
+      "in": 0,
+      "out": 96,
+      "source": "three",
+      "host": "page",
+      "mode": "cards-data",
+      "colorRef": "scene",
+      "roles": { "hero": "serpent" },
+      "params": {
+        "rasterSize": [48, 27],
+        "checkFrames": [2796, 2808, 2820, 2838, 2856, 2874, 2882]
+      },
+      "cards": [
+        {
+          "as": "breath",
+          "use": "fx.breath@1",
+          "params": {}
+        },
+        {
+          "as": "sweep",
+          "use": "motion.sweep-body@1",
+          "params": { "bodyLength": 172, "segments": 300, "bankGain": 0.42 }
+        },
+        {
+          "as": "roll",
+          "use": "motion.roll-bank@1",
+          "params": { "maxRollStepDeg": 5, "maxTwistStepDeg": 6 }
+        },
+        {
+          "as": "ao",
+          "use": "post.ao@1",
+          "params": { "enabled": true, "strength": 0.9, "radius": 1.2, "bias": 0.03, "samples": 12 }
+        },
+        {
+          "as": "bloom",
+          "use": "post.bloom@1",
+          "params": { "enabled": true, "additive": false, "threshold": 0, "knee": 0, "intensity": 0.12, "radius": 1.0 }
+        },
+        {
+          "as": "volumetric",
+          "use": "post.volumetric@1",
+          "params": { "enabled": true, "beamGain": 14, "anisotropy": 0.45, "extinction": 0.008, "mode": "standalone" }
+        },
+        {
+          "as": "grade",
+          "use": "post.grade-cl@1",
+          "params": {
+            "exposure": 1.06,
+            "bloom": 0.14,
+            "vignette": 0.42,
+            "caBase": 0.006,
+            "saturation": 1.08,
+            "contrast": 0.44,
+            "gamma": 2.2,
+            "grain": 0.018,
+            "ditherMode": "triangular",
+            "shaftColor": [1.1, 0.78, 0.45]
+          }
+        },
+        {
+          "as": "lightPool",
+          "use": "light.emit-pool@1",
+          "params": { "defaultRangeM": 180, "decay": 1.7 }
+        }
+      ]
+    }
+  ],
+  "style": { "view": { "scene": "agx-mhc", "display": "srgb" } },
+  "audio": { "mode": "none" },
+  "predicates": { "base": ["floor@1"], "extra": [] },
+  "delivery": { "master": "h264-crf14-bt709", "card": "deliver.encode@1" }
+}

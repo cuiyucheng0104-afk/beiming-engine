@@ -1,0 +1,72 @@
+{
+  "format": "question/0.1",
+  "id": "42-1",
+  "level": 4,
+  "title": "峡谷吐息整镜：脊线运动、三层射流粒子与线性 HDR 后期链联调",
+  "brief": "在单镜内完整合成三维向心引导轨弧长延迟扫掠脊线、平行输运与曲率倾斜标架、闭式指数阻尼三层吐息粒子云、多发光体能量加权聚光池，以及半分辨率双边环境光遮蔽、多级泛光、体积光散射与 ACES 终混调色链输出 sRGB 成片。各代表采样帧的火舌亮峰归一化位置偏差、火舌主轴投影跨度相对误差、泛光横向自然衰减半径相对误差及相邻代表帧对联合火区帧间变化活力相对误差均须满足公开阈值表对应门限。",
+  "deliverable": { "size": [1920, 1080], "fps": "60/1", "frames": 96, "audio": "none" },
+  "assets": {},
+  "refs": ["bench/refs/level-4/42-1.json", "bench/questions/level-4/gates-m4.json"],
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=60, frames=96)",
+    "no_cut",
+    "inside_frame(hero) @ all",
+    "encoded_readback"
+  ],
+  "scoring": [
+    {
+      "metric": "deliver.spec",
+      "args": {},
+      "pass": "分辨率、帧率、总帧数与无声编码配置符合交付规格。",
+      "weight": 0.16
+    },
+    {
+      "metric": "shot.peak-position",
+      "args": { "gateRef": "full_shot_fire_breath", "metrics": ["peakPositionMaxRelError"] },
+      "pass": "逐代表帧从火舌亮区像素坐标独立复算相对参考基线的归一化亮峰位置偏差，严格控制在公开门表 full_shot_fire_breath 锁定的位置相对误差上限以内。",
+      "weight": 0.22
+    },
+    {
+      "metric": "shot.plume-length",
+      "args": { "gateRef": "full_shot_fire_breath", "metrics": ["plumeLengthMaxRelError"] },
+      "pass": "逐代表帧沿火舌主轴投影区间独立复算火舌有效跨度长度，相对参考基线的长度相对误差严格低于公开门表 full_shot_fire_breath 锁定的上限。",
+      "weight": 0.2
+    },
+    {
+      "metric": "shot.bloom-radius",
+      "args": { "gateRef": "full_shot_fire_breath", "metrics": ["bloomRadiusMaxRelError"] },
+      "pass": "逐代表帧从暖色辉光横向能量二阶矩独立复算泛光横向自然衰减半径，相对参考基线的半径相对误差严格低于公开门表 full_shot_fire_breath 锁定的上限。",
+      "weight": 0.2
+    },
+    {
+      "metric": "shot.fire-vigor",
+      "args": { "gateRef": "full_shot_fire_breath", "metrics": ["fireVigorMaxRelError"] },
+      "pass": "从相邻代表帧对的联合火区独立复算线性 HDR 与显示 sRGB 的平均绝对帧间亮度变化活力，相对参考基线的误差严格控制在公开门表 full_shot_fire_breath 锁定的上限以内。",
+      "weight": 0.22
+    }
+  ],
+  "controls": {
+    "referencePass": "完整启用脊线延迟扫掠、平行输运倾斜标架、闭式吐息粒子、发光池、双边遮蔽、泛光、体积光、终混调色与交付编码的标准工程应得满分。",
+    "negative": "分别关闭闭式吐息粒子、脊线延迟扫掠、平行输运倾斜标架、双边环境光遮蔽、多级泛光、体积光散射、终混调色、发光池或撤去交付编码卡，均须判为不合格。"
+  },
+  "needs": [
+    "fx.breath",
+    "motion.sweep-body",
+    "motion.roll-bank",
+    "post.ao",
+    "post.bloom",
+    "post.volumetric",
+    "post.grade-cl",
+    "light.emit-pool",
+    "deliver.encode"
+  ],
+  "budget": { "tokens": 1800000, "wallMs": 2400000, "gpuSeconds": 300 },
+  "flags": { "hidden": false, "expectedFail": false, "blockedBy": [] },
+  "calibration": {
+    "status": "calibrated",
+    "source": "公开峡谷吐息整镜四特征对拍与消融锁门表（gates-m4.json#full_shot_fire_breath）。",
+    "noiseFloor": 0,
+    "version": 1
+  },
+  "ext": { "bench.code": "M4-SHOT", "bench.fullShot": true }
+}

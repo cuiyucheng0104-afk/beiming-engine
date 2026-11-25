@@ -37,8 +37,13 @@ import {
   scoreSteppingStone,
   validSteppingStoneReading,
 } from './questions/level-4/evaluate-b18.mjs';
+import {
+  scoreLevel4Shot,
+  validLevel4ShotReading,
+} from './questions/level-4/evaluate-b19.mjs';
 import { runLevel3Controls } from './solutions/level-3/run-b17.mjs';
 import { runSteppingStoneControls } from './solutions/level-4/run-b18.mjs';
+import { runLevel4ShotControls } from './solutions/level-4/run-b19.mjs';
 import { RESULT_FORMAT, runExamQuestion } from './runner.mjs';
 import {
   projectPublicQuestion,
@@ -67,7 +72,9 @@ const LEVEL1_IDS = new Set(['29-1', '28-1', '23-1', '1-1']);
 const LEVEL2A_IDS = new Set(['27-1', '29-2', '23-2', '30-1']);
 const LEVEL2B_IDS = new Set(B6_QUESTION_IDS);
 const LEVEL3_IDS = new Set(['3-1', '31-1', '1-2']);
-const LEVEL4_IDS = new Set(['41-1', '41-2', '41-3']);
+const LEVEL4_STEPPING_STONE_IDS = new Set(['41-1', '41-2', '41-3']);
+const LEVEL4_SHOT_IDS = new Set(['42-1']);
+const LEVEL4_IDS = new Set([...LEVEL4_STEPPING_STONE_IDS, ...LEVEL4_SHOT_IDS]);
 const REQUIRED_QUESTION_SETS = Object.freeze([
   Object.freeze({ name: 'level-4', evaluator: 'evaluate-b18.mjs', ids: Object.freeze([...LEVEL4_IDS]) }),
   Object.freeze({ name: 'level-3', evaluator: 'evaluate-b17.mjs', ids: Object.freeze([...LEVEL3_IDS]) }),
@@ -301,7 +308,7 @@ function evaluateBasePredicate(text, film, measured) {
   return 'fail';
 }
 
-function evaluateBasePredicates(question, film, measured) {
+export function evaluateBasePredicates(question, film, measured) {
   return Object.fromEntries(
     (question.basePredicates ?? []).map((text) => [text, evaluateBasePredicate(text, film, measured)]),
   );
@@ -332,9 +339,16 @@ function validateRefData(question, data, refLabel) {
     return errors;
   }
 
-  if (LEVEL4_IDS.has(question.id)) {
+  if (LEVEL4_STEPPING_STONE_IDS.has(question.id)) {
     if (data.kind !== 'reference' || !validSteppingStoneReading(question, data.readings)) {
       bad('四级垫脚题缺少完整的逐帧参考量测');
+    }
+    return errors;
+  }
+
+  if (LEVEL4_SHOT_IDS.has(question.id)) {
+    if (data.kind !== 'reference' || !validLevel4ShotReading(question, data.readings)) {
+      bad('四级整镜题缺少完整的代表帧与帧间活力参考量测');
     }
     return errors;
   }
@@ -1048,7 +1062,7 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
       const refs = question.refs ?? [];
       const refPath = refs.find((r) => !String(r).endsWith('gates-m4.json'));
       const gatesPath = refs.find((r) => String(r).endsWith('gates-m4.json'));
-      if (!refPath || !gatesPath) return failOutcome('四级垫脚题须同时声明参考读数夹具与 gates-m4.json');
+      if (!refPath || !gatesPath) return failOutcome('四级题须同时声明参考读数夹具与 gates-m4.json');
       const ref = JSON.parse(fs.readFileSync(resolveRefPath(benchDir, refPath), 'utf8'));
       const gates = JSON.parse(fs.readFileSync(resolveRefPath(benchDir, gatesPath), 'utf8'));
       const errors = [
@@ -1056,12 +1070,17 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
         ...validateRefData(question, gates, gatesPath),
       ];
       if (errors.length) return failOutcome(errors.join('；'));
-      const refOk = scoreSteppingStone(question, ref.readings, { gates }).pass;
-      const { positive, negatives } = runSteppingStoneControls(question, { gates });
+      const isFullShot = LEVEL4_SHOT_IDS.has(question.id);
+      const refOk = isFullShot
+        ? scoreLevel4Shot(question, ref.readings, { gates }).pass
+        : scoreSteppingStone(question, ref.readings, { gates }).pass;
+      const { positive, negatives } = isFullShot
+        ? runLevel4ShotControls(question, { gates })
+        : runSteppingStoneControls(question, { gates });
       const rejected = Object.values(negatives).filter((v) => !v.pass && v.score < 1).length;
       const checked = Object.keys(negatives).length;
       const controlsOk = refOk && checked > 0 && rejected === checked;
-      const evidence = (pass) => ({ pass, basis: 'offline-eval-b18' });
+      const evidence = (pass) => ({ pass, basis: isFullShot ? 'offline-eval-b19' : 'offline-eval-b18' });
       return {
         pass: controlsOk && positive.pass && positive.score === 1,
         controlsOk,
@@ -1070,10 +1089,10 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
         negativeControlsRejected: rejected,
         predicates: Object.fromEntries(positive.base.map((item) => [item.predicate, evidence(item.pass)])),
         metrics: Object.fromEntries(positive.items.map((item) => [item.metric, evidence(controlsOk && item.pass)])),
-        detail: !refOk ? '四级垫脚题参考读数未通过' : !controlsOk ? `负对照只拦截 ${rejected}/${checked}` : positive.pass ? 'ok' : '标准答案未通过',
+        detail: !refOk ? '四级题参考读数未通过' : !controlsOk ? `负对照只拦截 ${rejected}/${checked}` : positive.pass ? 'ok' : '标准答案未通过',
       };
     } catch (err) {
-      return failOutcome(`四级垫脚题离线核验失败：${err.message}`);
+      return failOutcome(`四级题离线核验失败：${err.message}`);
     }
   }
 
