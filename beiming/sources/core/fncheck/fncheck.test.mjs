@@ -1,9 +1,12 @@
 // 函数级比对外壳的测试。纯逻辑部分任何机器都跑；端到端部分要编得出 Cycles、拿得到硬件 WebGPU 适配器，
 // 缺了就跳过并写明缺什么；BEIMING_FNCHECK_E2E=1 时缺工具链算失败。
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import process from 'node:process';
 import { test } from 'node:test';
-import { buildRenderer } from '../chassis/build.mjs';
+import { OUT, buildRenderer, sourceKey } from '../chassis/build.mjs';
 import { chi2Test, directionChi2, gammaQ, ggxAlbedo, gridChi2, mcMean, polygonIrradiance, reciprocity } from './checks.mjs';
 import { compare } from './compare.mjs';
 import { FILTER_TABLES, FUNCTIONS, crs, dot3, outWidth, width } from './registry.mjs';
@@ -11,6 +14,14 @@ import { CORE, check, filterTables, makeInputs, runHost, shaderSource } from './
 
 const E2E = process.env.BEIMING_FNCHECK_E2E === '1';
 const byName = name => FUNCTIONS.find(f => f.name === name);
+
+/** 宿主一侧的渲染程序：E2E=1 时现编；否则只用编好的（chassis/build.mjs 的 out/bin），没有就返回 null。
+ *  不设 E2E 时不现编：CI 上从头编带 wgpu 的 release 要好几分钟，会拖垮整组测试的时限 */
+function prebuiltRenderer() {
+  if (E2E) return buildRenderer().bin;
+  const bin = path.join(OUT, 'bin', `core-render-${sourceKey([])}${process.platform === 'win32' ? '.exe' : ''}`);
+  return fs.existsSync(bin) ? bin : null;
+}
 
 test('同一种子产生同一串输入字节，换种子就变，值都落在登记的范围里', () => {
   const f = byName('fresnel_f82');
@@ -445,7 +456,8 @@ fn filter_chi2_density(x: f32, offset: i32, R: f32) -> f32 { return filter_table
 test('端到端 χ²：像素滤波的查表（查宿主一侧建的表）给出的偏移照表的分布；宽度对不上、分布变形时检验不过', { timeout: 900_000 }, async t => {
   let tables;
   try {
-    const bin = buildRenderer().bin;
+    const bin = prebuiltRenderer();
+    if (!bin) { t.skip('没有编好的渲染程序（设 BEIMING_FNCHECK_E2E=1 现编）'); return; }
     // 照 FILTER_TABLES 建的三张，再接上宽度各乘 1.1 的三张（反例的密度用）
     tables = Float32Array.from([...filterTables(bin, runHost), ...runHost(bin, 'filter_table', Float32Array.from(FILTER_TABLES.flatMap(([k, w]) => [k, w * 1.1])), 3 * 1024)]);
   } catch (e) {

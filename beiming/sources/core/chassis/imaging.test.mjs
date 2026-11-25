@@ -1,8 +1,11 @@
 // 成像一路第 2 级（imaging.mjs）的测试。纯逻辑部分任何机器都跑；端到端部分要 cargo 与显卡，缺了就跳过并写明缺什么；
 // BEIMING_CHASSIS_E2E=1 时缺工具链算失败。
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import process from 'node:process';
 import { test } from 'node:test';
+import { OUT, sourceKey } from './build.mjs';
 import { CORNER, GATES, GLOSSY, GLOSSY_REF, KNIFE_CASES, NEGATIVE, clampedSky, cornerBounces, cornerQuads, filterCdf, geometryOk, glossyPack, mirrorBounces, mirrorQuads, regionReading, runImaging, viewBounces } from './imaging.mjs';
 
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
@@ -60,6 +63,11 @@ test('连续滤波函数的累积分布：两端是 0 与 1，对称，盒式是
 });
 
 test('端到端：成像一路的第 2 级（刀口剖面、几何、夹取、滤光泽、逐位相同、负对照）', { timeout: 7_200_000 }, async t => {
+  // runImaging 一上来就编渲染程序：不设 E2E、又没有编好的，就不在这里现编（CI 上从头编要好几分钟，编完才发现没有显卡）
+  if (!E2E && !fs.existsSync(path.join(OUT, 'bin', `core-render-${sourceKey([])}${process.platform === 'win32' ? '.exe' : ''}`))) {
+    t.skip('没有编好的渲染程序（设 BEIMING_CHASSIS_E2E=1 现编）');
+    return;
+  }
   let rep;
   try {
     rep = await runImaging({ log: s => t.diagnostic(s) });
