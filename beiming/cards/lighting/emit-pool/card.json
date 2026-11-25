@@ -1,0 +1,104 @@
+{
+  "format": "card/0.1",
+  "id": "light.emit-pool",
+  "version": "1.0.0",
+  "kind": "lighting",
+  "title": "发光体合成点光池",
+  "intent": "将多组发光粒子或发射源按辐射强度加权归并为单盏点光源的位置、颜色与作用半径，零发光时安全退化",
+  "visibleToAgent": true,
+  "livesIn": ["data", "source:three"],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/lighting/emit-pool/index.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/lighting/emit-pool/selftest.test.mjs"
+    },
+    {
+      "livesIn": "source:three",
+      "entry": "cards/lighting/emit-pool/three.js",
+      "shape": "create",
+      "hosts": [{ "host": "page", "version": "0.187.0" }],
+      "selftest": "cards/lighting/emit-pool/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "defaultRangeM": {
+      "type": "number",
+      "unit": "m",
+      "range": [1, 5000],
+      "default": 150,
+      "coupling": "scene-scale"
+    },
+    "decay": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 4],
+      "default": 1.7,
+      "coupling": "none"
+    },
+    "minIntensity": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 10],
+      "default": 0.0001,
+      "coupling": "none"
+    },
+    "intensityScale": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 100],
+      "default": 1.0,
+      "coupling": "none"
+    },
+    "baseColor": {
+      "type": "color",
+      "unit": "none",
+      "space": "scene-linear-rec709",
+      "default": "#ff611a",
+      "coupling": "view-transform"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      { "name": "light", "type": "tracks.light" },
+      { "name": "readings", "type": "frame-meta" }
+    ],
+    "order": { "before": [], "after": [] },
+    "requires": [
+      "以各发光体的辐射强度 I_k > 0 为权重，求加权质心位置 P = sum(I_k * P_k) / sum(I_k)、加权线性色温 C = sum(I_k * C_k) / sum(I_k) 与加权作用半径 D = sum(I_k * D_k) / sum(I_k)，总强度为 sum(I_k)",
+      "当总强度不大于 minIntensity 时，点光 intensity 严格置 0，位置与颜色保持有限回退值，绝不出现除零 NaN"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["场景中存在多道吐息火流、闪电爆点或发光球体，需要用单盏动态点光照亮环境而避免多光源逐像素开销"],
+    "notWhen": ["各发光体相距极远且要求在地面投出多套彼此独立的方向阴影"]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "核对多发光体能量加权质心、色温与作用半径的闭式合成值，零发光或亚阈值输入安全归零，以及 Three.js PointLight 状态同步。",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "发光特效熄灭的瞬间整个场景变黑或材质出现 NaN 坏点",
+      "fix": "在除以总强度 sum(I_k) 之前必须先判 sum(I_k) > minIntensity，未达阈值时直接把 light.intensity 置 0。"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "基于辐射强度一阶矩守恒将多点辐射源归并为单盏等效点光源。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": ["cal:light.emit-pool"]
+}

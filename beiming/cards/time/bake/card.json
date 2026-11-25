@@ -1,0 +1,86 @@
+{
+  "format": "card/0.1",
+  "id": "time.bake",
+  "version": "1.0.0",
+  "kind": "time",
+  "title": "确定性预演烘焙表",
+  "intent": "将带历史状态或积分轨迹的系统按固定步长预演并烘焙为不可变表，支持线性与三次插值及任意帧乱序 O(1) 查询",
+  "visibleToAgent": true,
+  "livesIn": ["data"],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/time/bake/index.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/time/bake/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "spec": {
+      "type": "data",
+      "schema": "schema.json",
+      "unit": "none",
+      "coupling": "fps",
+      "default": {
+        "durationS": 4.0,
+        "sampleHz": 30,
+        "substeps": 2,
+        "warmupSteps": 15,
+        "interpolation": "cubic",
+        "tracks": [
+          {
+            "id": "pendulum-main",
+            "lengthM": 1.5,
+            "drag": 0.088,
+            "damping": 0.3,
+            "windBase": [2.3, -0.8],
+            "gustAmp": 5.5,
+            "gustTimeS": 1.0
+          }
+        ]
+      }
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      { "name": "baked", "type": "tracks.baked" },
+      { "name": "readings", "type": "frame-meta" }
+    ],
+    "order": { "before": [], "after": [] },
+    "requires": [
+      "预演阶段从起始时刻（含可选预热步 warmupSteps）按固定步长 dt = 1 / (sampleHz * substeps) 单向推进状态方程，并将采样点冻结为不可变连续浮点表",
+      "查询阶段仅按目标时刻做 O(1) 下标映射与线性或 Catmull-Rom 三次插值，保证正序、逆序、跳帧及并发单帧求值与顺序推演逐位一致"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["风场驱动的悬挂灯笼、旗帜摆角、柔性尾流相位等无法写成初等闭式函数但要求跳帧渲染零漂移的带记忆动力系统"],
+    "notWhen": ["可直接由无状态闭式时间函数求值的简单匀速或谐振运动"]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "核对阻尼风摆动力系统烘焙表在随机乱序帧查询下与从头顺序积分逐位一致，并核验三次 Catmull-Rom 插值在采样网格点与子帧中点上的收敛精度。",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "渲染器分段并行出帧或从片尾跳帧预览时摆角突跳",
+      "fix": "切勿在渲染帧循环里按上一渲染帧的差值做欧拉积分；必须在初始化或求值前调用 bakeTrajectory 一次性烘成全片时间表，出帧时只做 O(1) 查表。"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "在固定子步长网格上预先完成常微分方程初值积分并冻结为只读采样表，将跨帧状态依赖转化为纯函数查表。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "kernel-eval",
+      "source": "0.1.0",
+      "gpu": "none",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": ["cal:time.bake"]
+}

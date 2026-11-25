@@ -1,0 +1,84 @@
+{
+  "format": "card/0.1",
+  "id": "particle.minpx",
+  "version": "1.0.0",
+  "kind": "particle",
+  "title": "屏幕像素最小尺寸护栏",
+  "intent": "按透视视场角与视口像素高将远处亚像素粒子钳制到最小像素尺寸，并附二维面积能量守恒系数 (origPx/clampedPx)^2 防止远距闪烁或过曝",
+  "visibleToAgent": true,
+  "livesIn": ["source:three"],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "cards/particle/minpx/three.js",
+      "shape": "create",
+      "hosts": [{ "host": "page", "version": "0.187.0" }],
+      "selftest": "cards/particle/minpx/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "minPx": {
+      "type": "number",
+      "unit": "px",
+      "range": [0.25, 16],
+      "default": 1.25,
+      "coupling": "resolution"
+    },
+    "fovYDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [5, 170],
+      "default": 40,
+      "coupling": "none"
+    },
+    "baseSizeM": {
+      "type": "number",
+      "unit": "m",
+      "range": [0.001, 50],
+      "default": 0.08,
+      "coupling": "scene-scale"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [{ "name": "readings", "type": "frame-meta" }],
+    "order": { "before": [], "after": [] },
+    "requires": [
+      "必须按透视投影公式 pxK = 2 * tan(fovY / 2) / viewportHeight 计算单位深度每像素对应的世界尺寸，严禁写死与视场角及分辨率脱钩的常数",
+      "二维点或公告板尺寸被钳制到 minWorldSize = minPx * depth * pxK 时，片元能量必须乘以二维面积比 (origPx / clampedPx)^2 以保持总辐射通量守恒"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["火星、冰晶、水滴或细碎残骸向远景退行到亚像素尺寸，需要防止光栅化漏采样闪烁且不引出远景过曝白雾"],
+    "notWhen": ["近景大体积云团（投影尺寸恒远大于 minPx）"]
+  },
+  "calibration": "probe-thin-geometry",
+  "verify": {
+    "selftest": "核对近距不触发钳制、远距钳制到 minPx 且总能量 (clampedPx^2 * energyScale) 等于原始能量 (origPx^2)，并对比未补偿、仅一维线性衰减及写死深度常数的错误反例。",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "远处粒子群不闪烁了但糊成一片刺眼白雾",
+      "fix": "二维公告板面积随尺寸平方增长，能量补偿必须用 (origPx / clampedPx)^2，不能不补偿或只乘一维线性比。"
+    },
+    {
+      "symptom": "切换到 4K 或改了镜头焦距后最小像素护栏失效",
+      "fix": "用 2 * tan(fovY / 2) / viewportHeight 动态更新 uPxK，不要在着色器里写死 -mv.z * 0.00062 这类固定比例。"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "由针孔相机视锥几何导出屏幕像素下限对应的世界尺寸，并按立体角面积守恒补偿辐射亮度。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": ["cal:particle.minpx"]
+}

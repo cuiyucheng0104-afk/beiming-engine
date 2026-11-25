@@ -12,6 +12,7 @@
 这一段汇总从 v1.0 到工业级交付升级完成前的全部变更，按合入顺序归类。升级以 [docs/decisions/2026-11-10-industrial-baseline.md](docs/decisions/2026-11-10-industrial-baseline.md) 的 D01–D13 为准，拆成多个工作包推进，目标是让仓库成为按 A、B、C、D 四条路线组织的技术模版仓库：agent 读完入口文档就能选对路线，按模版建作品，用统一的命令出片；成片先过机器 QA 与人工创作闸门，才标为交付；每个 PR 都有测试、无显卡冒烟出片与 Windows 路径检查把关。各工作包合入时，在下面的分类里追加自己的条目。
 
 ### Added
+- 新增预乘加光遮挡粒子、深度软粒子、屏幕像素最小尺寸护栏、闭式吐息粒子流、发光体点光池与确定性预演烘焙表六张技术卡（`particle.premult`、`particle.soft`、`particle.minpx`、`fx.breath`、`light.emit-pool`、`time.bake`），支持按帧闭式重放、Three.js 材质合成与 O(1) 乱序跳帧查询。
 - 新增四张纯函数脊线运动学技术卡：`motion.sweep-body`（轨道延迟扫掠脊线）、`motion.roll-bank`（平行输运与向心倾斜/翻滚标架）、`motion.swim`（弧长传播行波侧摆）与 `motion.impulse`（事件驱动平滑推力脉冲），均支持任意顺序抽帧逐位一致求值。
 - Three 后期链新增屏幕空间环境光遮蔽、Karis 防萤火泛光和阴影步进体积光三张卡，可独立开关；材质可用版本锁定的着色器锚点补丁。
 - 看板新增「核心对 Cycles」（O13）：支持从 G 组与 V19 结果聚合 1–8 级连续阶梯过级（任一级判红、未定线或缺级自动退回上一级，不采信自报级别）及同场景同采样速度比（强制校验并排展示显卡、采样数与分辨率），并在离线静态页与 `board.mjs build --core-vs-cycles` 命令行中每日自动更新。
