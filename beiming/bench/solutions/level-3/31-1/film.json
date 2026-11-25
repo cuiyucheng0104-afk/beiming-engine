@@ -1,0 +1,36 @@
+{
+  "format": "film/3.0",
+  "id": "sol_31_1",
+  "title": "双机位硬表面模块锚定标注与硬切",
+  "exam": "31-1",
+  "seed": 3101,
+  "output": { "size": [1280, 720], "fps": "24/1", "frames": 120 },
+  "shots": [
+    {
+      "id": "module", "in": 0, "out": 72, "source": "blender", "host": "cycles",
+      "mode": "build-script", "entry": "module.py", "colorRef": "scene", "seed": 3101,
+      "params": {
+        "background": "#182028", "fovYDeg": 40, "cameraX": [-0.55, 0.55],
+        "cameraY": 0.18, "cameraZ": 6, "travelX": 0.45, "anchor": [0.3, 0.1, 0.24],
+        "parts": [
+          { "id": "case", "center": [0, 0, 0], "size": [2.4, 1.3, 0.2], "color": "#445465" },
+          { "id": "plate", "center": [0.3, 0.1, 0.17], "size": [0.95, 0.65, 0.14], "color": "#839BA7" }
+        ]
+      },
+      "cards": [{ "as": "label", "use": "overlay.anchored@1", "params": {
+        "callouts": [{ "id": "pin", "entity": "module", "anchor": "pin", "text": "MODULE", "dx": 52, "dy": -28 }],
+        "dotRadiusPx": 7, "strokePx": 1, "fontPx": 14, "ink": "#FFFFFF"
+      } }]
+    },
+    {
+      "id": "slate", "in": 72, "out": 120, "source": "three", "host": "page",
+      "mode": "native-code", "entry": "slate.shot.js", "colorRef": "display", "seed": 3102,
+      "params": { "background": "#2048D0" }
+    }
+  ],
+  "transitions": [{ "id": "to-slate", "at": 72, "type": "cut" }],
+  "style": { "view": { "scene": "agx-mhc", "display": "srgb" } },
+  "audio": { "mode": "none" },
+  "predicates": { "base": ["floor@1"], "extra": [] },
+  "delivery": { "master": "h264-crf14-bt709", "web": true, "contact": true, "card": "deliver.encode@1" }
+}

@@ -31,6 +31,8 @@ import {
 } from './questions/level-1/evaluate-b2.mjs';
 import { evaluate as evaluateLevel2a } from './questions/level-2-a/evaluate-b3.mjs';
 import { score as scoreLevel2b } from './questions/level-2-b/evaluate-b4.mjs';
+import { scoreLevel3, validLevel3Reading } from './questions/level-3/evaluate-b17.mjs';
+import { runLevel3Controls } from './solutions/level-3/run-b17.mjs';
 import { RESULT_FORMAT, runExamQuestion } from './runner.mjs';
 import {
   projectPublicQuestion,
@@ -58,7 +60,9 @@ const HELP = `北冥考题库离线考试核验入口
 const LEVEL1_IDS = new Set(['29-1', '28-1', '23-1', '1-1']);
 const LEVEL2A_IDS = new Set(['27-1', '29-2', '23-2', '30-1']);
 const LEVEL2B_IDS = new Set(B6_QUESTION_IDS);
+const LEVEL3_IDS = new Set(['3-1', '31-1', '1-2']);
 const REQUIRED_QUESTION_SETS = Object.freeze([
+  Object.freeze({ name: 'level-3', evaluator: 'evaluate-b17.mjs', ids: Object.freeze([...LEVEL3_IDS]) }),
   Object.freeze({ name: 'level-1', evaluator: 'evaluate-b2.mjs', ids: Object.freeze([...LEVEL1_IDS]) }),
   Object.freeze({ name: 'level-2-a', evaluator: 'evaluate-b3.mjs', ids: Object.freeze([...LEVEL2A_IDS]) }),
   Object.freeze({ name: 'level-2-b', evaluator: 'evaluate-b4.mjs', ids: Object.freeze([...LEVEL2B_IDS]) }),
@@ -306,6 +310,11 @@ function validateRefData(question, data, refLabel) {
   }
   if (typeof data.question !== 'string' || data.question !== question.id) {
     bad(`题号字段 question=${JSON.stringify(data.question)} 与题目 ${question.id} 不匹配`);
+    return errors;
+  }
+
+  if (LEVEL3_IDS.has(question.id)) {
+    if (data.kind !== 'reference' || !validLevel3Reading(question, data.readings)) bad('三级题缺少完整的逐帧参考量测');
     return errors;
   }
 
@@ -599,7 +608,7 @@ function isHardcoded30_1Sample(question, data) {
 function validateRefs(question, benchDir) {
   const errors = [];
   const refs = question.refs ?? [];
-  if ((LEVEL1_IDS.has(question.id) || LEVEL2A_IDS.has(question.id) || LEVEL2B_IDS.has(question.id)) && refs.length === 0) {
+  if ((LEVEL1_IDS.has(question.id) || LEVEL2A_IDS.has(question.id) || LEVEL2B_IDS.has(question.id) || LEVEL3_IDS.has(question.id)) && refs.length === 0) {
     errors.push(`题目 ${question.id} 缺少参考夹具声明（refs 为空）`);
     return errors;
   }
@@ -1000,6 +1009,31 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     metrics: {},
     detail,
   });
+
+  if (LEVEL3_IDS.has(question.id)) {
+    try {
+      if (question.refs?.length !== 1) return failOutcome('三级题须声明一份完整的参考夹具');
+      const ref = JSON.parse(fs.readFileSync(resolveRefPath(benchDir, question.refs[0]), 'utf8'));
+      const errors = validateRefData(question, ref, question.refs[0]);
+      if (errors.length) return failOutcome(errors.join('；'));
+      const refOk = scoreLevel3(question, ref.readings).pass;
+      const { positive, negatives } = runLevel3Controls(question);
+      const rejected = Object.values(negatives).filter(v => !v.pass && v.score < 1).length;
+      const checked = Object.keys(negatives).length;
+      const controlsOk = refOk && checked > 0 && rejected === checked;
+      const evidence = pass => ({ pass, basis: 'offline-eval-b17' });
+      return {
+        pass: controlsOk && positive.pass && positive.score === 1,
+        controlsOk, positiveScore: controlsOk ? positive.score : 0,
+        negativeControlsChecked: checked, negativeControlsRejected: rejected,
+        predicates: Object.fromEntries(positive.base.map(item => [item.predicate, evidence(item.pass)])),
+        metrics: Object.fromEntries(positive.items.map(item => [item.metric, evidence(controlsOk && item.pass)])),
+        detail: !refOk ? '三级题参考读数未通过' : !controlsOk ? `负对照只拦截 ${rejected}/${checked}` : positive.pass ? 'ok' : '标准答案未通过',
+      };
+    } catch (err) {
+      return failOutcome(`三级工程离线核验失败：${err.message}`);
+    }
+  }
 
   if (LEVEL1_IDS.has(question.id)) {
     const refRel = question.refs?.[0];
