@@ -85,9 +85,9 @@ test('ci.yml：六个 job 都在，各有时限；权限只读；windows-paths �
   assert.match(text, /workflow_call:/);
 });
 
-test('ci.yml：render 的 tests 三片与 smoke 并行且互不拖累；smoke-render 汇总各路，release.yml 要的产物名只由 smoke 一路上传', () => {
+test('ci.yml：render 的 tests 四片与 smoke 并行且互不拖累；smoke-render 汇总各路，release.yml 要的产物名只由 smoke 一路上传', () => {
   const jobs = jobsOf(read('.github/workflows/ci.yml'));
-  assert.match(jobs.render, /- part: tests-beiming\n\s+tests_args: --only beiming,audio\n\s+- part: tests-beiming-api\n\s+tests_args: --only beiming-api\n\s+- part: tests-rest\n\s+tests_args: --skip beiming,beiming-api,audio\n\s+- part: smoke\n/);
+  assert.match(jobs.render, /- part: tests-beiming\n\s+tests_args: --only beiming,audio\n\s+- part: tests-beiming-api\n\s+tests_args: --only beiming-api\n\s+- part: tests-beiming-bench\n\s+tests_args: --only beiming-bench\n\s+- part: tests-rest\n\s+tests_args: --skip beiming,beiming-api,beiming-bench,audio\n\s+- part: smoke\n/);
   // 各 --only 分片并集要等于 --skip 集合，确保不漏域（新增的域自动落进 --skip 那一片）
   const onlyDomains = [...jobs.render.matchAll(/--only ([\w,-]+)/g)].flatMap(m => m[1].split(',')).sort();
   const skipDomains = /--skip ([\w,-]+)/.exec(jobs.render)[1].split(',').sort();
