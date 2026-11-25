@@ -62,6 +62,7 @@ import {
   formatFpsFraction,
   probeDeliverableSpecAsync,
   runFfmpegSync,
+  scanCroppedGrayFramesAsync,
   writeFfmetadataChapters,
   writeWav48k,
 } from './media.mjs';
@@ -631,11 +632,11 @@ async function measure01_1(question, film, rendered) {
   const bfd = needDetailedBfd ? await blackFreezeDup(deliverablePath, frameArgs) : null;
   const measuredForPred = {
     output: buildMeasuredOutput(probe),
-    blackFrames: bfd ? bfd.details.black : [],
-    freezes: bfd ? bfd.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })) : [],
+    blackFrames: bfd?.details?.black ?? [],
+    freezes: (bfd?.details?.freezes ?? []).map(([a, b]) => ({ in: a, out: b + 1 })),
     audio: {
-      loudnessLufs: master['audio.loudness'].lufs,
-      truePeakDbtp: master['audio.loudness'].truePeakDbtp,
+      loudnessLufs: master['audio.loudness']?.lufs ?? null,
+      truePeakDbtp: master['audio.loudness']?.truePeakDbtp ?? null,
     },
   };
   const { base, baseResults } = buildL1Base(question, film, probe, measuredForPred);
@@ -694,20 +695,26 @@ async function measure23_1(question, film, rendered) {
     blackFreezeDup(deliverablePath),
     cutYdif(deliverablePath, 24),
   ]);
-  const actualSize = [probe.width, probe.height];
-  const actualFrames = probe.frames;
-  const indices = [0, 1];
+  const actualSize = [probe?.width ?? 0, probe?.height ?? 0];
+  const actualFrames = Number.isInteger(probe?.frames) && probe.frames > 0 ? probe.frames : 0;
+  const indices = [0, 1].filter((k) => k < actualFrames);
   for (let k = 36; k < actualFrames; k++) indices.push(k);
   const decoded = decodeSelectedFramesRgb(deliverablePath, indices, actualSize);
-  const nearest = readNearest((k) => decoded.get(k), [36, actualFrames]);
-  const closure = readClosure(decoded.get(0), decoded.get(actualFrames - 1), decoded.get(1));
+  let availEnd = 36;
+  while (availEnd < actualFrames && decoded.has(availEnd)) availEnd++;
+  const nearest = decoded.has(0) && availEnd > 36
+    ? readNearest((k) => decoded.get(k), [36, availEnd])
+    : { nearest: null };
+  const closure = actualFrames >= 2 && decoded.has(0) && decoded.has(1) && decoded.has(actualFrames - 1)
+    ? readClosure(decoded.get(0), decoded.get(actualFrames - 1), decoded.get(1))
+    : { closurePsnr: null, adjacentPsnr: null };
 
   const orbitDeg = computeOrbitTotalDeg(metaDoc.frames.map((x) => x.meta.camera), metaDoc.target, true);
   const measuredForPred = {
     output: buildMeasuredOutput(probe, specRes),
-    blackFrames: bfdRes.details.black,
-    freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
-    cuts: cutRes.value,
+    blackFrames: bfdRes?.details?.black ?? [],
+    freezes: (bfdRes?.details?.freezes ?? []).map(([a, b]) => ({ in: a, out: b + 1 })),
+    cuts: cutRes?.value ?? [],
     orbitTotalDeg: { 'camera:subject': orbitDeg },
   };
   const { base, baseResults } = buildL1Base(question, film, probe, measuredForPred);
@@ -788,25 +795,29 @@ async function measure28_1(question, film, rendered) {
     blackFreezeDup(deliverablePath),
     cutYdif(deliverablePath, 24),
   ]);
-  const actualSize = [probe.width, probe.height];
-  const actualFrames = probe.frames;
+  const actualSize = [probe?.width ?? 0, probe?.height ?? 0];
+  const actualFrames = Number.isInteger(probe?.frames) && probe.frames > 0 ? probe.frames : 0;
   const sampleIds = [0, 1, 72, 144, 216, actualFrames - 1].filter((k) => k >= 0 && k < actualFrames);
   const decoded = decodeSelectedFramesRgb(deliverablePath, sampleIds, actualSize);
 
   const boxes = metaDoc.frames.map((entry) => entry.meta.entities[0].bbox2d);
-  const framing = readFraming(boxes, actualSize);
-  const closure = readClosure(decoded.get(0), decoded.get(actualFrames - 1), decoded.get(1));
+  const framing = actualSize[0] > 0 && actualSize[1] > 0
+    ? readFraming(boxes, actualSize)
+    : { frames: 0, maxW: null, minH: null, maxH: null, minMarginLr: null, minMarginTb: null };
+  const closure = actualFrames >= 2 && decoded.has(0) && decoded.has(1) && decoded.has(actualFrames - 1)
+    ? readClosure(decoded.get(0), decoded.get(actualFrames - 1), decoded.get(1))
+    : { closurePsnr: null, adjacentPsnr: null };
   const pixelSamples = [0, 72, 144, 216, actualFrames - 1]
-    .filter((k) => k >= 0 && k < actualFrames && k < boxes.length)
+    .filter((k) => k >= 0 && k < actualFrames && k < boxes.length && decoded.has(k))
     .map((k) => ({ frame: decoded.get(k), box: boxes[k] }));
   const pixelBoxes = readPixelBoxes(pixelSamples, metaDoc.background, 20);
 
   const orbitDeg = computeOrbitTotalDeg(metaDoc.frames.map((x) => x.meta.camera), metaDoc.target, true);
   const measuredForPred = {
     output: buildMeasuredOutput(probe, specRes),
-    blackFrames: bfdRes.details.black,
-    freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
-    cuts: cutRes.value,
+    blackFrames: bfdRes?.details?.black ?? [],
+    freezes: (bfdRes?.details?.freezes ?? []).map(([a, b]) => ({ in: a, out: b + 1 })),
+    cuts: cutRes?.value ?? [],
     frames: metaDoc.frames,
     orbitTotalDeg: { 'camera:subject': orbitDeg },
   };
@@ -882,15 +893,19 @@ async function measure29_1(question, film, rendered) {
     deliverSpec(deliverablePath),
     blackFreezeDup(deliverablePath),
   ]);
-  const actualSize = [probe.width, probe.height];
+  const actualSize = [probe?.width ?? 0, probe?.height ?? 0];
+  const actualFrames = Number.isInteger(probe?.frames) && probe.frames > 0 ? probe.frames : 0;
   const layoutArgs = argsOfL1(question, 'layout.edges');
-  const decoded = decodeSelectedFramesRgb(deliverablePath, [layoutArgs.frame], actualSize);
-  const layoutReading = readLayout(decoded.get(layoutArgs.frame), layoutArgs, question.deliverable.size);
+  const sampleIds = layoutArgs.frame >= 0 && layoutArgs.frame < actualFrames ? [layoutArgs.frame] : [];
+  const decoded = decodeSelectedFramesRgb(deliverablePath, sampleIds, actualSize);
+  const layoutReading = decoded.has(layoutArgs.frame)
+    ? readLayout(decoded.get(layoutArgs.frame), layoutArgs, question.deliverable.size)
+    : { bands: null, edgeErrorsPx: null, sideErrorsPx: null, lineColorError: null };
 
   const measuredForPred = {
     output: buildMeasuredOutput(probe, specRes),
-    blackFrames: bfdRes.details.black,
-    freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
+    blackFrames: bfdRes?.details?.black ?? [],
+    freezes: (bfdRes?.details?.freezes ?? []).map(([a, b]) => ({ in: a, out: b + 1 })),
     frames: metaDoc.frames,
   };
   const { base, baseResults } = buildL1Base(question, film, probe, measuredForPred);
@@ -966,10 +981,14 @@ async function render23_2(question, film, outDir) {
 
 async function measure23_2(question, film, rendered) {
   const { deliverablePath } = rendered;
-  const [probe, readings] = await Promise.all([
-    probeDeliverableSpecAsync(deliverablePath),
-    read23_2(deliverablePath, film),
-  ]);
+  const probe = await probeDeliverableSpecAsync(deliverablePath);
+  const readings = await read23_2(deliverablePath, film).catch((err) => ({
+    width: probe?.width ?? null,
+    height: probe?.height ?? null,
+    fps: probe?.fps ?? null,
+    frames: probe?.frames ?? null,
+    unreadable: String(err?.message ?? err),
+  }));
   const verdict = applyProbeDeliveryGateToL2a(question, evaluateL2a(question, readings), probe);
   return { readings, basePredicates: verdict.base, verdict, probe };
 }
@@ -1001,10 +1020,14 @@ async function render27_1(question, film, outDir) {
 
 async function measure27_1(question, film, rendered) {
   const { deliverablePath } = rendered;
-  const [probe, readings] = await Promise.all([
-    probeDeliverableSpecAsync(deliverablePath),
-    read27_1(deliverablePath, film),
-  ]);
+  const probe = await probeDeliverableSpecAsync(deliverablePath);
+  const readings = await read27_1(deliverablePath, film).catch((err) => ({
+    width: probe?.width ?? null,
+    height: probe?.height ?? null,
+    fps: probe?.fps ?? null,
+    frames: probe?.frames ?? null,
+    unreadable: String(err?.message ?? err),
+  }));
   const verdict = applyProbeDeliveryGateToL2a(question, evaluateL2a(question, readings), probe);
   return { readings, basePredicates: verdict.base, verdict, probe };
 }
@@ -1111,10 +1134,14 @@ async function render29_2(question, film, outDir) {
 async function measure29_2(question, film, rendered) {
   const { deliverablePath, artifacts } = rendered;
   const eventsDoc = JSON.parse(readFileSync(artifacts.eventsPath, 'utf8'));
-  const [probe, readings] = await Promise.all([
-    probeDeliverableSpecAsync(deliverablePath),
-    read29_2(deliverablePath, eventsDoc, { musicFile: artifacts.musicWav, film }),
-  ]);
+  const probe = await probeDeliverableSpecAsync(deliverablePath);
+  const readings = await read29_2(deliverablePath, eventsDoc, { musicFile: artifacts.musicWav, film }).catch((err) => ({
+    width: probe?.width ?? null,
+    height: probe?.height ?? null,
+    fps: probe?.fps ?? null,
+    frames: probe?.frames ?? null,
+    unreadable: String(err?.message ?? err),
+  }));
   const verdict = applyProbeDeliveryGateToL2a(question, evaluateL2a(question, readings), probe);
   return { readings, basePredicates: verdict.base, verdict, probe };
 }
@@ -1227,19 +1254,21 @@ async function render30_1(question, film, outDir) {
     releaseFrames: envCard?.releaseFrames ?? DEFAULT_30_1_ENVELOPE.releaseFrames,
   };
 
-  // 由 time.timeline / time.events / time.envelope 三张卡返回值直接产出 80 BPM 事件表与逐帧脉冲包络
+  // 由 time.timeline / time.events / time.envelope 三张卡按当前工程 film.timeline.bpm 真实产出事件表与逐帧脉冲包络
   const resolved = evaluate30_1Cards({
     bpm: film.timeline?.bpm ?? 80,
     fpsFraction: fps,
     frames,
     envelopeParams,
   });
-  const beatTablePath = join(outDir, 'beat-events.json');
+  const eventsPath = join(outDir, 'events.json');
   writeFileSync(
-    beatTablePath,
+    eventsPath,
     JSON.stringify({
+      format: 'events/0.1',
       bpm: resolved.bpm,
       beatFrames: resolved.beatFrames,
+      envelopeParams,
       beatEvents: resolved.beatEvents,
       absoluteEvents: resolved.absoluteEvents,
     }, null, 2),
@@ -1287,28 +1316,125 @@ async function render30_1(question, film, outDir) {
 
   return {
     deliverablePath,
-    artifacts: { audioWav: wavPath, beatTablePath },
-    resolveEvents: (probeArgs) => resolve30_1Events({ ...probeArgs, envelopeParams }),
+    artifacts: { audioWav: wavPath, eventsPath, beatTablePath: eventsPath },
+    resolveProbeEvents: (probeArgs) => resolve30_1Events({ ...probeArgs, envelopeParams }),
     cardsUsed: ['time.timeline', 'time.events', 'time.envelope', 'audio.master', 'deliver.encode'],
   };
 }
 
+/** 从 30-1 真实解码 MP4 底部脉动条相对上方基准亮度的跳变提取节拍脉动上升沿帧号（安全钳制到实际解码帧数） */
+function detect30_1PulseRisingFrames(deliverablePath, actualFrames, attackFrames = DEFAULT_30_1_ENVELOPE.attackFrames) {
+  const w = 64, h = 36;
+  const grayFrames = decodeAllFramesGray(deliverablePath, [w, h], actualFrames);
+  const n = grayFrames.length;
+  if (n === 0) return { frames: [], decodedFrames: 0 };
+  const deltas = new Float64Array(n);
+  for (let f = 0; f < n; f++) {
+    const g = grayFrames[f];
+    let topSum = 0, topCnt = 0;
+    for (let y = 4; y < 24; y++) {
+      const off = y * w;
+      for (let x = 4; x < 60; x++) {
+        topSum += g[off + x];
+        topCnt++;
+      }
+    }
+    let botSum = 0, botCnt = 0;
+    for (let y = 30; y < 35; y++) {
+      const off = y * w;
+      for (let x = 4; x < 60; x++) {
+        botSum += g[off + x];
+        botCnt++;
+      }
+    }
+    deltas[f] = botSum / botCnt - topSum / topCnt;
+  }
+  const riseThresh = Math.min(12, Math.max(6, (48 / Math.max(1, attackFrames)) * 0.5));
+  const offThresh = riseThresh * 0.4;
+  const edges = [];
+  if (attackFrames === 0) {
+    for (let f = 0; f < n; f++) {
+      if (deltas[f] >= riseThresh && (f === 0 || deltas[f - 1] < offThresh)) {
+        if (!edges.length || f - edges.at(-1) >= 6) edges.push(f);
+      }
+    }
+  } else {
+    for (let f = 0; f + 1 < n; f++) {
+      if (deltas[f] < offThresh && deltas[f + 1] >= riseThresh) {
+        if (!edges.length || f - edges.at(-1) >= 6) edges.push(f);
+      }
+    }
+  }
+  return { frames: edges, decodedFrames: n };
+}
+
 async function measure30_1(question, film, rendered) {
-  const { deliverablePath } = rendered;
+  const { deliverablePath, artifacts } = rendered;
+  const eventsPath = artifacts?.eventsPath ?? artifacts?.beatTablePath;
+  let renderedDoc = null;
+  if (typeof eventsPath === 'string') {
+    try {
+      renderedDoc = JSON.parse(readFileSync(eventsPath, 'utf8'));
+    } catch {
+      renderedDoc = null;
+    }
+  }
+  const envCard = film.shots?.[0]?.cards?.find((c) => c.use?.startsWith('time.envelope'))?.params;
+  const envelopeParams = renderedDoc?.envelopeParams ?? {
+    attackFrames: envCard?.attackFrames ?? DEFAULT_30_1_ENVELOPE.attackFrames,
+    holdFrames: envCard?.holdFrames ?? DEFAULT_30_1_ENVELOPE.holdFrames,
+    releaseFrames: envCard?.releaseFrames ?? DEFAULT_30_1_ENVELOPE.releaseFrames,
+  };
+
   const [probe, filmMeta, loud] = await Promise.all([
     probeDeliverableSpecAsync(deliverablePath),
-    readFilm(deliverablePath),
-    audioLoudness(deliverablePath),
+    readFilm(deliverablePath).catch((err) => ({ unreadable: String(err?.message ?? err) })),
+    audioLoudness(deliverablePath).catch(() => ({ value: null, details: { truePeakDbtp: null } })),
   ]);
+  const actualFrames = Number.isInteger(probe?.frames) && probe.frames > 0 ? probe.frames : 0;
+  const pulseScan = actualFrames > 0
+    ? detect30_1PulseRisingFrames(deliverablePath, actualFrames, envelopeParams.attackFrames)
+    : { frames: [], decodedFrames: 0 };
+
+  // 核对落盘基线事件与成片底部节拍脉动条上升沿一致（绝不擅自按题面 baseBpm 覆盖重算）
+  const renderedBeats = Array.isArray(renderedDoc?.beatEvents) ? renderedDoc.beatEvents : [];
+  const pulseLimit = envelopeParams.attackFrames > 0 ? pulseScan.decodedFrames - 1 : pulseScan.decodedFrames;
+  const observableBeats = renderedBeats.filter((e) => Number.isSafeInteger(e?.frame) && e.frame >= 0 && e.frame < pulseLimit);
+  const allObservableMatched = observableBeats.length > 0
+    && observableBeats.every((e) => pulseScan.frames.some((vf) => Math.abs(vf - e.frame) <= 1));
+  const fullMatchOk = actualFrames < question.deliverable.frames
+    || (observableBeats.length === renderedBeats.length && pulseScan.frames.length >= renderedBeats.length);
+  const videoPulseOk = Boolean(renderedDoc) && renderedBeats.length > 0 && allObservableMatched && fullMatchOk;
+
+  const followArgs = question.scoring.find((s) => s.metric === 'timeline.bpm-follow')?.args;
+  const baseBpm = followArgs?.baseBpm ?? 80;
+  const probeEval = typeof rendered.resolveProbeEvents === 'function'
+    ? rendered.resolveProbeEvents
+    : (probeArgs) => resolve30_1Events({ ...probeArgs, envelopeParams });
+
+  const resolveEvents = (probeArgs) => {
+    if (probeArgs.bpm === baseBpm) {
+      if (!videoPulseOk) {
+        return { beatEvents: [], absoluteEvents: [], bpm: renderedDoc?.bpm ?? null };
+      }
+      return {
+        beatEvents: renderedDoc.beatEvents,
+        absoluteEvents: renderedDoc.absoluteEvents,
+        bpm: renderedDoc.bpm,
+      };
+    }
+    return probeEval(probeArgs);
+  };
+
   const readings = await read30_1({
-    resolveEvents: rendered.resolveEvents ?? resolve30_1Events,
+    resolveEvents,
     question,
     filmMeta: {
       ...filmMeta,
       ...(probe?.fpsFraction ? { fpsFraction: probe.fpsFraction } : {}),
       shots: film.shots,
-      loudnessLufs: loud.value,
-      truePeakDbtp: loud.details.truePeakDbtp,
+      loudnessLufs: loud?.value ?? null,
+      truePeakDbtp: loud?.details?.truePeakDbtp ?? null,
     },
   });
   const verdict = applyProbeDeliveryGateToL2a(question, evaluateL2a(question, readings), probe);
@@ -1385,12 +1511,13 @@ async function measure15_2(question, film, rendered) {
     cutYdif(deliverablePath, 24),
   ]);
 
-  const actualSize = [probe.width, probe.height];
-  const actualFrames = probe.frames;
+  const actualSize = [probe?.width ?? 0, probe?.height ?? 0];
+  const actualFrames = Number.isInteger(probe?.frames) && probe.frames > 0 ? probe.frames : 0;
   const zoomArgs = question.scoring.find((s) => s.metric === 'motion.zoom-pan').args;
   const indices = [...new Set(zoomArgs.pairs.flat())].filter((idx) => idx >= 0 && idx < actualFrames);
   const grayMap = decodeSelectedFramesGray(deliverablePath, indices, actualSize);
-  const hasAllPairs = zoomArgs.pairs.every(([a, b]) => grayMap.has(a) && grayMap.has(b));
+  const hasAllPairs = actualSize[0] > 0 && actualSize[1] > 0
+    && zoomArgs.pairs.every(([a, b]) => grayMap.has(a) && grayMap.has(b));
   const pairs = hasAllPairs ? zoomArgs.pairs.map(([a, b]) => [grayMap.get(a), grayMap.get(b)]) : [];
 
   const cameras = metaDoc.cameras.map(({ world, proj }) => ({ world, proj }));
@@ -1404,9 +1531,9 @@ async function measure15_2(question, film, rendered) {
   const orbitDeg = computeOrbitTotalDeg(metaDoc.cameras, metaDoc.target, false);
   const measuredForPred = {
     output: buildMeasuredOutput(probe, specRes),
-    blackFrames: bfdRes.details.black,
-    freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
-    cuts: cutRes.value,
+    blackFrames: bfdRes?.details?.black ?? [],
+    freezes: (bfdRes?.details?.freezes ?? []).map(([a, b]) => ({ in: a, out: b + 1 })),
+    cuts: cutRes?.value ?? [],
     orbitTotalDeg: { 'camera:scene': orbitDeg },
   };
   const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred, question.deliverable));
@@ -1714,7 +1841,7 @@ const SCENES_18_1 = [
   },
 ];
 
-function build18_1TimingAndSubs(size, fps, frames) {
+function build18_1Subs(size, fps) {
   const timing = {
     scenes: SCENES_18_1.map(({ scene, startSec, durSec, audioStartSec, audioDurSec }) => ({
       scene, startSec, durSec, audioStartSec, audioDurSec,
@@ -1734,6 +1861,11 @@ function build18_1TimingAndSubs(size, fps, frames) {
     { size, fps, shot: { in: 0 } },
     { timing, blocks, earlySec: 0, holdSec: 0.2, heightFrac: 0.05, bottomFrac: 0.06, charAspect: 0.6, maxWords: 8, maxChars: 36, font: 'BM Det2D' },
   );
+  return { timing, cues, subsHandle };
+}
+
+function build18_1TimingAndSubs(size, fps, frames) {
+  const { timing, cues, subsHandle } = build18_1Subs(size, fps);
   const plan = stagePlan(
     { size, frames },
     SCENES_18_1.map((s, idx) => ({
@@ -1840,126 +1972,173 @@ async function measure18_1(question, film, rendered) {
     blackFreezeDup(deliverablePath),
   ]);
 
-  const actualSize = [probe.width, probe.height];
-  const actualFps = probe.fps;
-  const actualFrames = probe.frames;
-  const actualFpsFrac = probe.fpsFraction ?? normalizeFpsFraction(specRes?.details?.frameRate);
+  const actualSize = [probe?.width ?? 0, probe?.height ?? 0];
+  const actualFps = Number.isFinite(probe?.fps) && probe.fps > 0 ? probe.fps : 0;
+  const actualFrames = Number.isInteger(probe?.frames) && probe.frames > 0 ? probe.frames : 0;
+  const actualFpsFrac = probe?.fpsFraction ?? normalizeFpsFraction(specRes?.details?.frameRate) ?? question.deliverable.fps;
   const spanSec = actualFps > 0 ? actualFrames / actualFps : 0;
-  const { subsHandle } = build18_1TimingAndSubs(actualSize, actualFpsFrac, actualFrames);
+  const subsHandle = actualSize[0] > 0 && actualSize[1] > 0 && typeof actualFpsFrac === 'string'
+    ? build18_1Subs(actualSize, actualFpsFrac).subsHandle
+    : null;
 
-  // 1) 从真实 MP4 音频解出旁白说话段（起声与收声）
-  const pcm = decodeAudioMono48k(deliverablePath);
-  const lagArgs = question.scoring.find((s) => s.args.maxSubtitleLagSec !== undefined).args;
-  const speech = detectSpeechSpansFromPcm(pcm, { pauseDb: lagArgs.pauseDb, minPauseSec: lagArgs.minPauseSec });
-  const onsetsSec = speech.map(([from]) => from);
+  try {
+    // 1) 从真实 MP4 音频解出旁白说话段（起声与收声）
+    const pcm = probe?.audio ? decodeAudioMono48k(deliverablePath) : new Float32Array(0);
+    const lagArgs = question.scoring.find((s) => s.args.maxSubtitleLagSec !== undefined).args;
+    const speech = detectSpeechSpansFromPcm(pcm, { pauseDb: lagArgs.pauseDb, minPauseSec: lagArgs.minPauseSec });
+    const onsetsSec = speech.map(([from]) => from);
 
-  // 2) 从真实 MP4 解码全片 160x90 灰度序列，量测内容区淡出帧数与字幕区像素更替时刻
-  const inW = 160, inH = 90;
-  const grayFrames = decodeAllFramesGray(deliverablePath, [inW, inH], actualFrames);
-  const scanCount = grayFrames.length;
-  const contentMean = new Array(scanCount);
-  const bandDarkEnergy = new Array(scanCount);
-  const bandDiffEnergy = new Array(scanCount);
-  for (let f = 0; f < scanCount; f++) {
-    const g = grayFrames[f];
-    const prevG = f > 0 ? grayFrames[f - 1] : null;
-    let sum = 0, cnt = 0, darkEnergy = 0, diffEnergy = 0;
-    for (let y = 18; y < 54; y++) {
-      for (let x = 44; x < 116; x++) {
-        sum += g[y * inW + x];
-        cnt++;
+    // 2) 从真实 MP4 解码全片 160x90 灰度序列，量测内容区淡出帧数与字幕区像素更替时刻
+    const inW = 160, inH = 90;
+    const grayFrames = actualFrames > 0 ? decodeAllFramesGray(deliverablePath, [inW, inH], actualFrames) : [];
+    const scanCount = grayFrames.length;
+    const contentMean = new Array(scanCount);
+    const bandDarkEnergy = new Array(scanCount);
+    const bandDiffEnergy = new Array(scanCount);
+    for (let f = 0; f < scanCount; f++) {
+      const g = grayFrames[f];
+      const prevG = f > 0 ? grayFrames[f - 1] : null;
+      let sum = 0, cnt = 0, darkEnergy = 0, diffEnergy = 0;
+      for (let y = 18; y < 54; y++) {
+        for (let x = 44; x < 116; x++) {
+          sum += g[y * inW + x];
+          cnt++;
+        }
+      }
+      for (let y = 78; y < 86; y++) {
+        const off = y * inW;
+        for (let x = 0; x < inW; x++) {
+          const cur = g[off + x];
+          if (cur < 232) darkEnergy += 232 - cur;
+          if (prevG) diffEnergy += Math.abs(cur - prevG[off + x]);
+        }
+      }
+      contentMean[f] = sum / cnt;
+      bandDarkEnergy[f] = darkEnergy;
+      bandDiffEnergy[f] = prevG ? diffEnergy : darkEnergy;
+    }
+
+    // 内容区均值连变段 → 场景淡出帧数与场景边界
+    const fadeRuns = [];
+    for (let f = 1; f < scanCount; f++) {
+      if (Math.abs(contentMean[f] - contentMean[f - 1]) > 2.0) {
+        if (fadeRuns.length && fadeRuns.at(-1)[1] === f - 1) fadeRuns.at(-1)[1] = f;
+        else fadeRuns.push([f, f]);
       }
     }
-    for (let y = 78; y < 86; y++) {
-      const off = y * inW;
-      for (let x = 0; x < inW; x++) {
-        const cur = g[off + x];
-        if (cur < 232) darkEnergy += 232 - cur;
-        if (prevG) diffEnergy += Math.abs(cur - prevG[off + x]);
+    const fadeFrames = fadeRuns.map(([first, last]) => last - first);
+    const sceneEdgesSec = actualFps > 0 ? [0, ...fadeRuns.map(([, last]) => last / actualFps), spanSec] : [0, 0];
+
+    // 字幕带墨迹存在且帧间像素显著变化 → 每块字幕真实出现/更替时刻
+    const appearSec = [];
+    if (actualFps > 0) {
+      for (let f = 0; f < scanCount; f++) {
+        if (bandDarkEnergy[f] > 800 && bandDiffEnergy[f] > 800) {
+          appearSec.push(Math.round((f / actualFps) * 1000) / 1000);
+        }
       }
     }
-    contentMean[f] = sum / cnt;
-    bandDarkEnergy[f] = darkEnergy;
-    bandDiffEnergy[f] = prevG ? diffEnergy : darkEnergy;
-  }
 
-  // 内容区均值连变段 → 场景淡出帧数与场景边界
-  const fadeRuns = [];
-  for (let f = 1; f < scanCount; f++) {
-    if (Math.abs(contentMean[f] - contentMean[f - 1]) > 2.0) {
-      if (fadeRuns.length && fadeRuns.at(-1)[1] === f - 1) fadeRuns.at(-1)[1] = f;
-      else fadeRuns.push([f, f]);
+    const perScene = sceneEdgesSec.slice(1).map((end, idx) => ({
+      start: sceneEdgesSec[idx],
+      end,
+      said: speech.filter(([from]) => from >= sceneEdgesSec[idx] && from < end),
+    }));
+    const roundMs = (v) => Math.round(v * 1000) / 1000;
+    const leadSec = perScene.map(({ start, said }) => (said.length ? roundMs(said[0][0] - start) : 0));
+    const tailSec = perScene.map(({ end, said }) => (said.length ? roundMs(end - said.at(-1)[1]) : 0));
+
+    // 3) 三个场景各抽中间一帧全尺寸 RGBA，真实调 readBaseShare（observe colorPalette）量底色占比
+    const validMidFrames = actualFrames > 0
+      ? perScene
+        .map(({ start, end }) => Math.min(actualFrames - 1, Math.max(0, Math.round(((start + end) / 2) * actualFps))))
+        .filter((f) => f >= 0 && f < actualFrames)
+      : [];
+    const rgbMap = decodeSelectedFramesRgb(deliverablePath, validMidFrames, actualSize);
+    const paletteArgs = question.scoring.find((s) => s.metric === 'color.palette').args;
+    const paletteFrames = validMidFrames.map((f) => rgbMap.get(f)).filter(Boolean);
+    const paletteReading = paletteFrames.length ? readBaseShare(paletteFrames, paletteArgs) : { shares: [] };
+
+    // 4) 全帧覆查 text_matches(copy) @ all：
+    //    对每个字幕块覆盖的全部解码帧 [startFrame, Math.min(endFrame, decodedFrames)) 逐帧扫描全尺寸字幕带灰度像素；
+    //    块首帧必调 ocrSubtitleLineFromGray，其余帧与上一已识别帧逐字节 Buffer.compare，只要有任意像素差异立即重跑 OCR。
+    const sampledTextFrames = [];
+    const bandY0 = Math.floor(actualSize[1] * 0.88);
+    const bandY1 = Math.min(actualSize[1], Math.ceil(actualSize[1] * 0.96));
+    const bandH = bandY1 - bandY0;
+    if (subsHandle && actualSize[0] > 0 && bandH > 0 && actualFrames > 0) {
+      const subBlocks = [...subsHandle.object.table].sort((a, b) => a.startFrame - b.startFrame);
+      const bandBytes = actualSize[0] * bandH;
+      const prevBand = Buffer.allocUnsafe(bandBytes);
+      const fullGray = new Uint8Array(actualSize[0] * actualSize[1]);
+      let blockCursor = 0;
+      let activeRow = null;
+      let hasPrev = false;
+      let lastOcr = [];
+      await scanCroppedGrayFramesAsync(
+        deliverablePath,
+        { x: 0, y: bandY0, width: actualSize[0], height: bandH },
+        (f, bandBuf) => {
+          while (blockCursor < subBlocks.length && f >= subBlocks[blockCursor].endFrame) {
+            blockCursor++;
+          }
+          const row = blockCursor < subBlocks.length && f >= subBlocks[blockCursor].startFrame
+            ? subBlocks[blockCursor]
+            : null;
+          if (!row) {
+            activeRow = null;
+            hasPrev = false;
+            return;
+          }
+          if (row !== activeRow) {
+            activeRow = row;
+            hasPrev = false;
+          }
+          if (!hasPrev || Buffer.compare(bandBuf, prevBand) !== 0) {
+            fullGray.set(bandBuf, bandY0 * actualSize[0]);
+            lastOcr = ocrSubtitleLineFromGray(fullGray, actualSize[0], actualSize[1]);
+            bandBuf.copy(prevBand);
+            hasPrev = true;
+          }
+          sampledTextFrames.push({ frame: f, meta: subsHandle.meta(f), ocr: lastOcr });
+        },
+      );
     }
+
+    const subtitleLag = readSubtitleLag(appearSec, onsetsSec, spanSec, lagArgs.maxSubtitleLagSec);
+    const readings = {
+      'narration.timing': {
+        appearSec,
+        onsetsSec,
+        spanSec,
+        ...subtitleLag,
+        fadeFrames,
+        leadSec,
+        tailSec,
+      },
+      'color.palette': paletteReading,
+    };
+
+    const measuredForPred = {
+      output: buildMeasuredOutput(probe, specRes),
+      blackFrames: bfdRes?.details?.black ?? [],
+      freezes: (bfdRes?.details?.freezes ?? []).map(([a, b]) => ({ in: a, out: b + 1 })),
+      frames: sampledTextFrames,
+    };
+    const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred, question.deliverable));
+    const scoringVerdict = scoreL2b(question, readings);
+    const basePass = baseResults.every((r) => r.pass);
+    const verdict = {
+      ...scoringVerdict,
+      basePass,
+      scoringPass: scoringVerdict.pass,
+      pass: basePass && scoringVerdict.pass,
+      base: baseResults,
+    };
+    return { readings, basePredicates: baseResults, verdict, probe };
+  } finally {
+    subsHandle?.dispose();
   }
-  const fadeFrames = fadeRuns.map(([first, last]) => last - first);
-  const sceneEdgesSec = [0, ...fadeRuns.map(([, last]) => last / actualFps), spanSec];
-
-  // 字幕带墨迹存在且帧间像素显著变化 → 每块字幕真实出现/更替时刻
-  const appearSec = [];
-  for (let f = 0; f < scanCount; f++) {
-    if (bandDarkEnergy[f] > 800 && bandDiffEnergy[f] > 800) {
-      appearSec.push(Math.round((f / actualFps) * 1000) / 1000);
-    }
-  }
-
-  const perScene = sceneEdgesSec.slice(1).map((end, idx) => ({
-    start: sceneEdgesSec[idx],
-    end,
-    said: speech.filter(([from]) => from >= sceneEdgesSec[idx] && from < end),
-  }));
-  const roundMs = (v) => Math.round(v * 1000) / 1000;
-  const leadSec = perScene.map(({ start, said }) => (said.length ? roundMs(said[0][0] - start) : 0));
-  const tailSec = perScene.map(({ end, said }) => (said.length ? roundMs(end - said.at(-1)[1]) : 0));
-
-  // 3) 三个场景各抽中间一帧全尺寸 RGBA，真实调 readBaseShare（observe colorPalette）量底色占比
-  const midFrames = perScene.map(({ start, end }) => Math.min(actualFrames - 1, Math.max(0, Math.round(((start + end) / 2) * actualFps))));
-  const rgbMap = decodeSelectedFramesRgb(deliverablePath, midFrames, actualSize);
-  const paletteArgs = question.scoring.find((s) => s.metric === 'color.palette').args;
-  const paletteReading = readBaseShare(midFrames.map((f) => rgbMap.get(f)), paletteArgs);
-
-  // 4) 核验 text_matches(copy) @ all：从真实解码全尺寸 MP4 视频帧像素做 5×7 模板匹配 OCR（绝不抄写 expectedText/copy）
-  const sampleSubFrames = subsHandle.object.table
-    .map((row) => Math.min(row.endFrame - 1, row.startFrame + 10))
-    .filter((f) => f >= 0 && f < actualFrames);
-  const subGrayMap = decodeSelectedFramesGray(deliverablePath, sampleSubFrames, actualSize);
-  const sampledTextFrames = sampleSubFrames.map((f) => {
-    const meta = subsHandle.meta(f);
-    const ocr = ocrSubtitleLineFromGray(subGrayMap.get(f), actualSize[0], actualSize[1]);
-    return { frame: f, meta, ocr };
-  });
-  subsHandle.dispose();
-
-  const subtitleLag = readSubtitleLag(appearSec, onsetsSec, spanSec, lagArgs.maxSubtitleLagSec);
-  const readings = {
-    'narration.timing': {
-      appearSec,
-      onsetsSec,
-      spanSec,
-      ...subtitleLag,
-      fadeFrames,
-      leadSec,
-      tailSec,
-    },
-    'color.palette': paletteReading,
-  };
-
-  const measuredForPred = {
-    output: buildMeasuredOutput(probe, specRes),
-    blackFrames: bfdRes.details.black,
-    freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
-    frames: sampledTextFrames,
-  };
-  const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred, question.deliverable));
-  const scoringVerdict = scoreL2b(question, readings);
-  const basePass = baseResults.every((r) => r.pass);
-  const verdict = {
-    ...scoringVerdict,
-    basePass,
-    scoringPass: scoringVerdict.pass,
-    pass: basePass && scoringVerdict.pass,
-    base: baseResults,
-  };
-  return { readings, basePredicates: baseResults, verdict, probe };
 }
 
 async function render18_2(question, film, outDir) {
@@ -2037,23 +2216,25 @@ async function measure18_2(question, film, rendered) {
     deliverSpec(deliverablePath),
     blackFreezeDup(deliverablePath),
   ]);
-  const actualFps = probe.fps;
-  const actualFrames = probe.frames;
+  const actualFps = Number.isFinite(probe?.fps) && probe.fps > 0 ? probe.fps : 0;
+  const actualFrames = Number.isInteger(probe?.frames) && probe.frames > 0 ? probe.frames : 0;
 
   // 从真实 MP4 音频解出 3 句旁白起声，第 2、3 句对应 cue_a、cue_b
-  const pcm = decodeAudioMono48k(deliverablePath);
+  const pcm = probe?.audio ? decodeAudioMono48k(deliverablePath) : new Float32Array(0);
   const speech = detectSpeechSpansFromPcm(pcm, { pauseDb: -45, minPauseSec: 0.25 });
   const audioOnsetFrames = speech.map(([from]) => Math.round(from * actualFps));
   const eventFrames = [audioOnsetFrames[1], audioOnsetFrames[2]];
 
   // 从真实 MP4 解码 192x108 灰度序列，用 evaluate-b4 readMoveStarts 实测两次快速运镜起帧
   const scanSize = [192, 108];
-  const grayFrames = decodeAllFramesGray(deliverablePath, scanSize, actualFrames);
+  const grayFrames = actualFrames > 0 ? decodeAllFramesGray(deliverablePath, scanSize, actualFrames) : [];
   const scanCount = grayFrames.length;
   const args = question.scoring[0].args;
-  const markFrames = readMoveStarts((k) => grayFrames[k], [0, scanCount], scanSize, args);
+  const markFrames = scanCount >= 2 ? readMoveStarts((k) => grayFrames[k], [0, scanCount], scanSize, args) : [];
   const expected = eventFrames.map((f, i) => f - args.leadFrames[i]);
-  const hitSummary = readHits(expected, markFrames, [0, actualFrames], args.tolFrames);
+  const hitSummary = actualFrames > 0
+    ? readHits(expected, markFrames, [0, actualFrames], args.tolFrames)
+    : { offsetsFrames: [], hitRate: 0, randomRate: 0 };
 
   const readings = {
     'narration.timing': {
@@ -2066,8 +2247,8 @@ async function measure18_2(question, film, rendered) {
 
   const measuredForPred = {
     output: buildMeasuredOutput(probe, specRes),
-    blackFrames: bfdRes.details.black,
-    freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
+    blackFrames: bfdRes?.details?.black ?? [],
+    freezes: (bfdRes?.details?.freezes ?? []).map(([a, b]) => ({ in: a, out: b + 1 })),
     eventFrames: { cue_a: eventFrames[0], cue_b: eventFrames[1] },
     audioOnsetFrames,
   };
@@ -2150,26 +2331,38 @@ async function measure5_1(question, film, rendered) {
     blackFreezeDup(deliverablePath),
     cutYdif(deliverablePath, 24),
   ]);
-  const actualFps = probe.fps;
-  const actualFrames = probe.frames;
+  const actualFps = Number.isFinite(probe?.fps) && probe.fps > 0 ? probe.fps : 0;
+  const actualFrames = Number.isInteger(probe?.frames) && probe.frames > 0 ? probe.frames : 0;
 
   // 从真实 MP4 音轨与源配乐 track.wav 分别解码 PCM，计算 20 ms 能量包络并交 readMusicAlign
-  const filmPcm = decodeAudioMono48k(deliverablePath);
+  const filmPcm = probe?.audio ? decodeAudioMono48k(deliverablePath) : new Float32Array(0);
   const trackPcm = decodeAudioMono48k(artifacts.trackWav);
   const alignArgs = question.scoring.find((s) => s.metric === 'music.align').args;
   const hitArgs = question.scoring.find((s) => s.metric === 'beat.onset-hit').args;
 
-  const musicAlign = readMusicAlign(
-    { filmEnvelope: rmsEnvelope(filmPcm, alignArgs.stepSec), trackEnvelope: rmsEnvelope(trackPcm, alignArgs.stepSec), fps: actualFps },
-    alignArgs,
-  );
-  const { peaks } = detectLowBandPeaks(filmPcm, actualFps, actualFrames, { maxHz: hitArgs.maxHz, riseDb: hitArgs.riseDb });
-  const hitSummary = readHits(cutRes.value, peaks, [0, actualFrames], hitArgs.tolFrames);
+  let musicAlign = { corr: null, stretch: null, offsetSec: null };
+  if (actualFps > 0 && filmPcm.length > 0 && trackPcm.length > 0) {
+    try {
+      musicAlign = readMusicAlign(
+        { filmEnvelope: rmsEnvelope(filmPcm, alignArgs.stepSec), trackEnvelope: rmsEnvelope(trackPcm, alignArgs.stepSec), fps: actualFps },
+        alignArgs,
+      );
+    } catch {
+      musicAlign = { corr: null, stretch: null, offsetSec: null };
+    }
+  }
+  const cuts = cutRes?.value ?? [];
+  const { peaks } = actualFps > 0 && actualFrames > 0
+    ? detectLowBandPeaks(filmPcm, actualFps, actualFrames, { maxHz: hitArgs.maxHz, riseDb: hitArgs.riseDb })
+    : { peaks: [] };
+  const hitSummary = actualFrames > 0
+    ? readHits(cuts, peaks, [0, actualFrames], hitArgs.tolFrames)
+    : { offsetsFrames: [], hitRate: 0, randomRate: 0 };
 
   const readings = {
     'music.align': musicAlign,
     'beat.onset-hit': {
-      eventFrames: cutRes.value,
+      eventFrames: cuts,
       markFrames: peaks,
       range: [0, actualFrames],
       ...hitSummary,
@@ -2178,9 +2371,9 @@ async function measure5_1(question, film, rendered) {
 
   const measuredForPred = {
     output: buildMeasuredOutput(probe, specRes),
-    blackFrames: bfdRes.details.black,
-    freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
-    cuts: cutRes.value,
+    blackFrames: bfdRes?.details?.black ?? [],
+    freezes: (bfdRes?.details?.freezes ?? []).map(([a, b]) => ({ in: a, out: b + 1 })),
+    cuts,
   };
   const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred, question.deliverable));
   const scoringVerdict = scoreL2b(question, readings);

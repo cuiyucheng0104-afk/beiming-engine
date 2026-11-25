@@ -196,9 +196,10 @@ export async function encodeRawFramesStream({
   return outPath;
 }
 
-/** 用单次 FFmpeg select 解码指定帧号列表（返回 Map<frameIndex, { width, height, rgba }>） */
+/** 用单次 FFmpeg select 解码指定帧号列表（返回 Map<frameIndex, { width, height, rgba }>，短片自动钳制不抛越界错） */
 export function decodeSelectedFramesRgb(filePath, frameIndices, [width, height]) {
-  const unique = [...new Set(frameIndices)].sort((a, b) => a - b);
+  if (!(width > 0 && height > 0)) return new Map();
+  const unique = [...new Set(frameIndices.filter((n) => Number.isInteger(n) && n >= 0))].sort((a, b) => a - b);
   if (!unique.length) return new Map();
   const expr = unique.map((n) => `eq(n\\,${n})`).join('+');
   const raw = runFfmpegSync([
@@ -208,11 +209,9 @@ export function decodeSelectedFramesRgb(filePath, frameIndices, [width, height])
     '-f', 'rawvideo', '-pix_fmt', 'rgba', '-',
   ], { maxBuffer: unique.length * width * height * 4 + 1024 * 1024 });
   const stride = width * height * 4;
-  if (raw.length !== unique.length * stride) {
-    throw new Error(`解码帧字节数不符: 期望 ${unique.length * stride}, 实际 ${raw.length}`);
-  }
+  const decodedCount = Math.min(unique.length, Math.floor(raw.length / stride));
   const map = new Map();
-  for (let i = 0; i < unique.length; i++) {
+  for (let i = 0; i < decodedCount; i++) {
     const slice = new Uint8Array(stride);
     slice.set(raw.subarray(i * stride, (i + 1) * stride));
     map.set(unique[i], { width, height, rgba: slice });
@@ -222,11 +221,13 @@ export function decodeSelectedFramesRgb(filePath, frameIndices, [width, height])
 
 /** 解码全部帧为灰度（可选缩放到 [outW, outH] 加速运动与淡出分析） */
 export function decodeAllFramesGray(filePath, [outW, outH], expectedFrames) {
+  if (!(outW > 0 && outH > 0)) return [];
+  const safeExpected = Number.isFinite(expectedFrames) && expectedFrames > 0 ? expectedFrames : 1;
   const raw = runFfmpegSync([
     '-i', resolve(filePath),
     '-vf', `scale=${outW}:${outH}:flags=area,format=gray`,
     '-f', 'rawvideo', '-pix_fmt', 'gray', '-',
-  ], { maxBuffer: expectedFrames * outW * outH + 4 * 1024 * 1024 });
+  ], { maxBuffer: safeExpected * outW * outH + 8 * 1024 * 1024 });
   const stride = outW * outH;
   const count = Math.floor(raw.length / stride);
   const frames = new Array(count);
@@ -238,9 +239,10 @@ export function decodeAllFramesGray(filePath, [outW, outH], expectedFrames) {
   return frames;
 }
 
-/** 解码指定帧号列表为灰度帧（Map<frameIndex, Uint8Array>） */
+/** 解码指定帧号列表为灰度帧（Map<frameIndex, Uint8Array>，短片自动钳制不抛越界错） */
 export function decodeSelectedFramesGray(filePath, frameIndices, [width, height]) {
-  const unique = [...new Set(frameIndices)].sort((a, b) => a - b);
+  if (!(width > 0 && height > 0)) return new Map();
+  const unique = [...new Set(frameIndices.filter((n) => Number.isInteger(n) && n >= 0))].sort((a, b) => a - b);
   if (!unique.length) return new Map();
   const expr = unique.map((n) => `eq(n\\,${n})`).join('+');
   const raw = runFfmpegSync([
@@ -250,16 +252,65 @@ export function decodeSelectedFramesGray(filePath, frameIndices, [width, height]
     '-f', 'rawvideo', '-pix_fmt', 'gray', '-',
   ], { maxBuffer: unique.length * width * height + 1024 * 1024 });
   const stride = width * height;
-  if (raw.length !== unique.length * stride) {
-    throw new Error(`解码灰度帧字节数不符: 期望 ${unique.length * stride}, 实际 ${raw.length}`);
-  }
+  const decodedCount = Math.min(unique.length, Math.floor(raw.length / stride));
   const map = new Map();
-  for (let i = 0; i < unique.length; i++) {
+  for (let i = 0; i < decodedCount; i++) {
     const plane = new Uint8Array(stride);
     plane.set(raw.subarray(i * stride, (i + 1) * stride));
     map.set(unique[i], plane);
   }
   return map;
+}
+
+/** 流式裁剪并逐帧解码全片灰度带（单帧缓冲复用、零整片堆峰值，用于全帧逐字节字幕带覆查） */
+export async function scanCroppedGrayFramesAsync(filePath, { x, y, width, height }, onFrame) {
+  if (!(width > 0 && height > 0) || !(x >= 0 && y >= 0)) return 0;
+  const frameBytes = width * height;
+  const args = [
+    '-nostdin', '-hide_banner', '-v', 'error',
+    '-i', resolve(filePath),
+    '-vf', `format=gray,crop=${width}:${height}:${x}:${y}`,
+    '-vsync', '0',
+    '-f', 'rawvideo', '-pix_fmt', 'gray', '-',
+  ];
+  const child = spawn(ffmpegBin(), args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  let stderr = '';
+  child.stderr.setEncoding('utf8').on('data', (chunk) => { stderr = (stderr + chunk).slice(-2048); });
+
+  const frameBuf = Buffer.allocUnsafe(frameBytes);
+  let filled = 0;
+  let frameIndex = 0;
+  let callbackErr = null;
+
+  return new Promise((accept, reject) => {
+    child.stdout.on('data', (chunk) => {
+      if (callbackErr) return;
+      let offset = 0;
+      while (offset < chunk.length) {
+        const need = frameBytes - filled;
+        const take = Math.min(need, chunk.length - offset);
+        chunk.copy(frameBuf, filled, offset, offset + take);
+        filled += take;
+        offset += take;
+        if (filled === frameBytes) {
+          filled = 0;
+          try {
+            onFrame(frameIndex++, frameBuf);
+          } catch (err) {
+            callbackErr = err;
+            if (child.exitCode === null) child.kill();
+            return;
+          }
+        }
+      }
+    });
+    child.once('error', reject);
+    child.once('close', (code) => {
+      if (callbackErr) reject(callbackErr);
+      else if (code === 0) accept(frameIndex);
+      else reject(new Error(`ffmpeg 裁剪灰度解码失败 (code=${code}): ${stderr}`));
+    });
+  });
 }
 
 /** 解码音轨为 48 kHz 单声道 Float32Array（用于包络/低频重击/旁白起收声量测） */

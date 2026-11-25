@@ -167,12 +167,13 @@ export function validateSolutionFilm(idOrFilm) {
 
 export async function renderSolution(id, outDir, opts = {}) {
   const spec = loadSolutionSpec(id);
+  const film = opts?.film ?? spec.film;
   const pipeline = PIPELINES[spec.slug];
   if (!pipeline) throw new RangeError(`未实现标准答案渲染器：${spec.slug}`);
   if (typeof outDir !== 'string' || !outDir.trim()) throw new TypeError('renderSolution 需要有效的 outDir 目录路径');
   const targetDir = ensureOutDir(resolve(outDir));
   const t0 = Date.now();
-  const result = await pipeline.render(spec.question, spec.film, targetDir, opts);
+  const result = await pipeline.render(spec.question, film, targetDir, opts);
   const elapsedMs = Date.now() - t0;
   return {
     format: SOLUTION_FORMAT,
@@ -187,13 +188,14 @@ export async function renderSolution(id, outDir, opts = {}) {
 
 export async function measureSolution(id, rendered, opts = {}) {
   const spec = loadSolutionSpec(id);
+  const film = opts?.film ?? spec.film;
   const pipeline = PIPELINES[spec.slug];
   if (!pipeline) throw new RangeError(`未实现标准答案量测器：${spec.slug}`);
   if (!rendered || typeof rendered !== 'object' || typeof rendered.deliverablePath !== 'string') {
     throw new TypeError('measureSolution 需要 renderSolution 返回的产物对象');
   }
   const t0 = Date.now();
-  const result = await pipeline.measure(spec.question, spec.film, rendered, opts);
+  const result = await pipeline.measure(spec.question, film, rendered, opts);
   const elapsedMs = Date.now() - t0;
   return {
     format: SOLUTION_FORMAT,
