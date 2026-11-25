@@ -88,11 +88,11 @@ test('内核源码的来源：来源说明写了上游与固定提交，上游�
   const sources = ['src', 'shaders'].flatMap(d => fs.readdirSync(path.join(KERNEL, d)).map(f => `${d}/${f}`));
   // 从上游 pathtrace.wgsl 按阶段分出来的几段，来源行写的是上游那一个文件
   const split = ['closure', 'film', 'integrator', 'intersect', 'light', 'shader', 'volume'].map(n => `shaders/${n}.wgsl`);
-  // 照 Cycles 移植的两个哈希文件不是上游 ThreeRT 的：Apache-2.0，版权与许可写在文件头
-  const cycles = ['shaders/hash.wgsl', 'src/cycles_hash.rs'];
+  // 照 Cycles 移植的两个哈希文件与像素滤波的建表不是上游 ThreeRT 的：Apache-2.0，版权与许可写在文件头
+  const cycles = ['shaders/hash.wgsl', 'src/cycles_hash.rs', 'src/pixel_filter.rs'];
   // 北冥新写的文件（不是上游的，也没有照 Cycles 取东西）：MIT，文件头写版权人
   const own = ['src/pack.rs'];
-  assert.equal(sources.length, 35);
+  assert.equal(sources.length, 36);
   // （下面的正则里有许可标识的字样，它不是本文件的许可声明：让许可覆盖的扫描跳过这一段。）
   // REUSE-IgnoreStart
   for (const f of cycles) {
