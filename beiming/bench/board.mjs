@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 看板（B9）：把跑题器的结果、作业账本、技术卡和先验表汇成一份快照（bench-board/0.1），再出一张离线静态页和每日历史。
-//   node beiming/bench/board.mjs build --out-dir <目录> [--as-of <YYYY-MM-DD>] [--questions-dir …] [--results-dir …] [--ledger …] [--cards-dir …] [--priors …] [--extra …]
+//   node beiming/bench/board.mjs build --out-dir <目录> [--as-of <YYYY-MM-DD>] [--questions-dir …] [--results-dir …] [--ledger …] [--cards-dir …] [--priors …] [--core-vs-cycles …] [--extra …]
 // buildBoard、renderBoardHtml、appendBoardHistory 是纯函数：不读墙钟、不读文件，日期由调用方给；只有命令行外壳在没写 --as-of 时取 UTC 当天。
 // 入参先抄成纯数据（不调取值器、不触发 Proxy 陷阱）再扫泄露，后面只读这份副本。口径见 DETAILS.md「看板」。
 import fs from 'node:fs';
@@ -27,6 +27,10 @@ export const FILM_TYPES = Object.freeze([
 /** 定稿简报 v2 §4 / meta/0.1：每帧元数据 source.renderer 允许的渲染器集合。 */
 export const ALLOWED_RENDERERS = Object.freeze(['blender', 'three', 'core', 'legacy-page']);
 const FILM_TYPE_IDS = Object.freeze(FILM_TYPES.map((t) => t.id));
+const FILM_TYPE_LABEL = Object.freeze(Object.assign(Object.create(null), Object.fromEntries(FILM_TYPES.map((t) => [t.id, t.label]))));
+const CORE_VS_CYCLES_MAX_LEVEL = 8;
+const CORE_VS_CYCLES_GATE_STATUSES = Object.freeze(['pass', 'fail', 'unset']);
+const BLOCKED_REASON_LABEL = Object.freeze(Object.assign(Object.create(null), { fail: '判红退级', unset: '未定线退级', missing: '缺级阻塞' }));
 const STALE_DAYS = 14, TOTAL_PACKS = 5, TOTAL_SWITCHES = 56, MAX_DEPTH = 64;
 const RESULT_FORMAT = 'bench-result/0.1', QUESTION_FORMAT = 'question/0.1';
 const UNSUPPORTED = 'unsupported-capability', NO_NAME = 'unspecified';
@@ -36,7 +40,7 @@ const SCORED = ['pass', 'fail', 'error', 'timeout', 'failed', 'expected-fail'];
 const CARD_STATUS = { read: 'read-only', 'read-only': 'read-only', candidate: 'candidate', reproduced: 'reproduced', measured: 'verified', verified: 'verified', 'film-verified': 'production-proven', 'production-proven': 'production-proven' };
 const STATUS_ORDER = ['read-only', 'candidate', 'reproduced', 'verified', 'production-proven'];
 const RULERS = ['noise.residual', 'clip.highlight-ratio', 'alias.edge'];
-const INPUT_KEYS = ['asOf', 'questions', 'results', 'cards', 'sourceCapabilities', 'ledger', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'priors', 'packParity', 'harvest', 'history', 'scoreboardMetric', 'frameMeta'];
+const INPUT_KEYS = ['asOf', 'questions', 'results', 'cards', 'sourceCapabilities', 'ledger', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'priors', 'packParity', 'harvest', 'history', 'scoreboardMetric', 'frameMeta', 'coreVsCycles'];
 
 /* ---------------- 入参门禁 ---------------- */
 
@@ -684,6 +688,268 @@ function readCoreFrameShare(input, at = '看板的 coreFrameShare') {
   return { overall, byFilmType };
 }
 
+const nonBlank = (v, at) => (typeof v === 'string' && v.trim() !== '' ? v : bad(`${at} 必须是非空字符串`));
+const posNumber = (v, at) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : bad(`${at} 必须是正数`, RangeError));
+const posInt = (v, at) => (Number.isSafeInteger(v) && v >= 1 ? v : bad(`${at} 必须是正整数`, RangeError));
+const ladderLevel = (v, at) => (Number.isSafeInteger(v) && v >= 1 && v <= CORE_VS_CYCLES_MAX_LEVEL
+  ? v
+  : bad(`${at} 必须是 1 到 ${CORE_VS_CYCLES_MAX_LEVEL} 的整数`, RangeError));
+
+function parseCoreVsCyclesSpeed(raw, at, allowComputed = false) {
+  const keys = allowComputed
+    ? ['coreMs', 'cyclesMs', 'speedRatio', 'coreOverCyclesRatio', 'gpu', 'samples', 'resolution']
+    : ['coreMs', 'cyclesMs', 'gpu', 'samples', 'resolution'];
+  const s = only(obj(raw, at), keys, at);
+  const coreMs = posNumber(s.coreMs, `${at}/coreMs`);
+  const cyclesMs = posNumber(s.cyclesMs, `${at}/cyclesMs`);
+  const gpu = nonBlank(s.gpu, `${at}/gpu`);
+  const samples = posInt(s.samples, `${at}/samples`);
+  if (!Array.isArray(s.resolution) || s.resolution.length !== 2) {
+    bad(`${at}/resolution 必须是 [正整数宽, 正整数高]`, RangeError);
+  }
+  const width = posInt(s.resolution[0], `${at}/resolution/0`);
+  const height = posInt(s.resolution[1], `${at}/resolution/1`);
+  const speedRatio = cyclesMs / coreMs;
+  const coreOverCyclesRatio = coreMs / cyclesMs;
+  if (!Number.isFinite(speedRatio) || speedRatio <= 0 || !Number.isFinite(coreOverCyclesRatio) || coreOverCyclesRatio <= 0) {
+    bad(`${at} 的速度比超出有效正数范围`, RangeError);
+  }
+  if (allowComputed) {
+    const givenSpeed = posNumber(s.speedRatio, `${at}/speedRatio`);
+    const givenCoreOver = posNumber(s.coreOverCyclesRatio, `${at}/coreOverCyclesRatio`);
+    if (Math.abs(givenSpeed - speedRatio) > 1e-9 * Math.max(1, speedRatio)) {
+      bad(`${at}/speedRatio 与 cyclesMs / coreMs 不一致`, RangeError);
+    }
+    if (Math.abs(givenCoreOver - coreOverCyclesRatio) > 1e-9 * Math.max(1, coreOverCyclesRatio)) {
+      bad(`${at}/coreOverCyclesRatio 与 coreMs / cyclesMs 不一致`, RangeError);
+    }
+  }
+  return { coreMs, cyclesMs, speedRatio, coreOverCyclesRatio, gpu, samples, resolution: [width, height] };
+}
+
+function sameSpeed(a, b) {
+  return a.coreMs === b.coreMs
+    && a.cyclesMs === b.cyclesMs
+    && a.gpu === b.gpu
+    && a.samples === b.samples
+    && a.resolution[0] === b.resolution[0]
+    && a.resolution[1] === b.resolution[1];
+}
+
+function parseCoreVsCyclesGate(raw, at, strictKeys = false) {
+  const g = strictKeys ? only(obj(raw, at), ['level', 'status', 'gateId', 'metric', 'value', 'threshold'], at) : obj(raw, at);
+  const lv = ladderLevel(g.level, `${at}/level`);
+  const status = oneOf(g.status, CORE_VS_CYCLES_GATE_STATUSES, `${at}/status`);
+  const out = { level: lv, status };
+  if (g.gateId !== undefined) out.gateId = nonBlank(g.gateId, `${at}/gateId`);
+  if (g.metric !== undefined) out.metric = nonBlank(g.metric, `${at}/metric`);
+  if (g.value !== undefined) out.value = number(g.value, `${at}/value`);
+  if (g.threshold !== undefined) out.threshold = number(g.threshold, `${at}/threshold`);
+  return out;
+}
+
+function sortCoreVsCyclesGates(gates) {
+  return [...gates].sort((a, b) => a.level - b.level
+    || cmp(Object.hasOwn(a, 'gateId') ? a.gateId : '', Object.hasOwn(b, 'gateId') ? b.gateId : '')
+    || cmp(Object.hasOwn(a, 'metric') ? a.metric : '', Object.hasOwn(b, 'metric') ? b.metric : '')
+    || cmp(a.status, b.status));
+}
+
+function evaluateCoreVsCyclesLadder(gates) {
+  const byLevel = new Map();
+  let maxRegistered = 0;
+  for (const gate of gates) {
+    if (gate.level > maxRegistered) maxRegistered = gate.level;
+    const bucket = byLevel.get(gate.level);
+    if (bucket) bucket.push(gate);
+    else byLevel.set(gate.level, [gate]);
+  }
+  if (maxRegistered === 0) return { passedLevel: 0, blockedAtLevel: 1, blockedReason: 'missing' };
+  for (let k = 1; k <= CORE_VS_CYCLES_MAX_LEVEL; k += 1) {
+    const levelGates = byLevel.get(k);
+    if (!levelGates || levelGates.length === 0) {
+      if (k < maxRegistered) return { passedLevel: k - 1, blockedAtLevel: k, blockedReason: 'missing' };
+      return { passedLevel: k - 1, blockedAtLevel: null, blockedReason: null };
+    }
+    if (levelGates.some((gate) => gate.status === 'fail')) {
+      return { passedLevel: k - 1, blockedAtLevel: k, blockedReason: 'fail' };
+    }
+    if (levelGates.some((gate) => gate.status === 'unset')) {
+      return { passedLevel: k - 1, blockedAtLevel: k, blockedReason: 'unset' };
+    }
+  }
+  return { passedLevel: CORE_VS_CYCLES_MAX_LEVEL, blockedAtLevel: null, blockedReason: null };
+}
+
+function aggregateCoreVsCyclesScenes(scenes) {
+  const stats = new Map(FILM_TYPES.map(({ id }) => [id, { maxPassedLevel: 0, sceneCount: 0, blockedCount: 0 }]));
+  let overallMax = 0;
+  let overallBlocked = 0;
+  let speedCount = 0;
+  for (const scene of scenes) {
+    const bucket = stats.get(scene.filmType);
+    bucket.sceneCount += 1;
+    if (scene.passedLevel > bucket.maxPassedLevel) bucket.maxPassedLevel = scene.passedLevel;
+    if (scene.passedLevel > overallMax) overallMax = scene.passedLevel;
+    if (scene.blockedAtLevel !== null) {
+      bucket.blockedCount += 1;
+      overallBlocked += 1;
+    }
+    if (scene.speed !== null) speedCount += 1;
+  }
+  const byFilmType = Object.fromEntries(FILM_TYPES.map(({ id, label: typeLabel }) => {
+    const bucket = stats.get(id);
+    return [id, { label: typeLabel, maxPassedLevel: bucket.maxPassedLevel, sceneCount: bucket.sceneCount, blockedCount: bucket.blockedCount }];
+  }));
+  return {
+    maxLevel: CORE_VS_CYCLES_MAX_LEVEL,
+    overall: { maxPassedLevel: overallMax, sceneCount: scenes.length, blockedCount: overallBlocked, speedCount },
+    byFilmType,
+    scenes,
+  };
+}
+
+/** O13：聚合 G 组与 V19 的核心对 Cycles 阶梯过级与同场景速度比；严禁采信自报 passedLevel，任一级 fail/unset/缺级即截断并退回上一级。 */
+function readCoreVsCycles(input) {
+  if (input === undefined) return aggregateCoreVsCyclesScenes([]);
+  let rawEntries;
+  if (Array.isArray(input)) {
+    rawEntries = input;
+  } else if (isObj(input)) {
+    only(input, ['entries'], '/coreVsCycles');
+    if (!Array.isArray(input.entries)) bad('/coreVsCycles/entries 必须是数组');
+    rawEntries = input.entries;
+  } else {
+    bad('/coreVsCycles 必须是数组或含 entries 的对象');
+  }
+  const grouped = new Map();
+  rawEntries.forEach((raw, i) => {
+    const at = `/coreVsCycles/${i}`;
+    const item = obj(raw, at);
+    const filmType = oneOf(item.filmType, FILM_TYPE_IDS, `${at}/filmType`);
+    const scene = nonBlank(item.scene, `${at}/scene`);
+    if (!Array.isArray(item.gates)) bad(`${at}/gates 必须是数组`);
+    const parsedGates = item.gates.map((rawGate, j) => parseCoreVsCyclesGate(rawGate, `${at}/gates/${j}`, false));
+    const speed = item.speed === undefined ? null : parseCoreVsCyclesSpeed(item.speed, `${at}/speed`, false);
+    const key = tupleKey(filmType, scene);
+    let bucket = grouped.get(key);
+    if (!bucket) {
+      bucket = { filmType, scene, gates: [], gateIds: new Set(), speed: null };
+      grouped.set(key, bucket);
+    }
+    for (const gate of parsedGates) {
+      if (Object.hasOwn(gate, 'gateId')) {
+        const gk = tupleKey(gate.level, gate.gateId);
+        if (bucket.gateIds.has(gk)) bad(`${at}/gates 里同一级别有重复的 gateId`);
+        bucket.gateIds.add(gk);
+      }
+      bucket.gates.push(gate);
+    }
+    if (speed !== null) {
+      if (bucket.speed !== null && !sameSpeed(bucket.speed, speed)) {
+        bad(`${at}/speed 与同场景已有 speed 不一致`, RangeError);
+      }
+      bucket.speed = speed;
+    }
+  });
+  const sorted = [...grouped.values()].sort((a, b) => cmp(a.filmType, b.filmType) || cmp(a.scene, b.scene));
+  const scenes = sorted.map((bucket) => {
+    const gates = sortCoreVsCyclesGates(bucket.gates);
+    const ladder = evaluateCoreVsCyclesLadder(gates);
+    return {
+      filmType: bucket.filmType,
+      filmTypeLabel: FILM_TYPE_LABEL[bucket.filmType],
+      scene: bucket.scene,
+      passedLevel: ladder.passedLevel,
+      blockedAtLevel: ladder.blockedAtLevel,
+      blockedReason: ladder.blockedReason,
+      gates,
+      speed: bucket.speed,
+    };
+  });
+  return aggregateCoreVsCyclesScenes(scenes);
+}
+
+/** 校验看板快照上的 coreVsCycles 结构、阶梯计算与速度比一致性（供 checkBoard / renderBoardHtml 复核）。 */
+function readCoreVsCyclesSnapshot(input, at = '看板的 coreVsCycles') {
+  const c = only(obj(input, at), ['maxLevel', 'overall', 'byFilmType', 'scenes'], at);
+  if (c.maxLevel !== CORE_VS_CYCLES_MAX_LEVEL) bad(`${at}/maxLevel 必须是 ${CORE_VS_CYCLES_MAX_LEVEL}`, RangeError);
+  if (!Array.isArray(c.scenes)) bad(`${at}/scenes 必须是数组`);
+  const seen = new Set();
+  let prev = null;
+  const scenes = c.scenes.map((raw, i) => {
+    const sAt = `${at}/scenes/${i}`;
+    const s = only(obj(raw, sAt), ['filmType', 'filmTypeLabel', 'scene', 'passedLevel', 'blockedAtLevel', 'blockedReason', 'gates', 'speed'], sAt);
+    const filmType = oneOf(s.filmType, FILM_TYPE_IDS, `${sAt}/filmType`);
+    const expectedLabel = FILM_TYPE_LABEL[filmType];
+    if (nonBlank(s.filmTypeLabel, `${sAt}/filmTypeLabel`) !== expectedLabel) {
+      bad(`${sAt}/filmTypeLabel 必须是 ${expectedLabel}`);
+    }
+    const scene = nonBlank(s.scene, `${sAt}/scene`);
+    const key = tupleKey(filmType, scene);
+    if (seen.has(key)) bad(`${at}/scenes 里有重复的片型与场景`);
+    seen.add(key);
+    if (prev && (cmp(prev.filmType, filmType) || cmp(prev.scene, scene)) > 0) {
+      bad(`${at}/scenes 未按 filmType/scene 排序`, RangeError);
+    }
+    prev = { filmType, scene };
+    if (!Array.isArray(s.gates)) bad(`${sAt}/gates 必须是数组`);
+    const gateIds = new Set();
+    const gates = s.gates.map((rawGate, j) => {
+      const gate = parseCoreVsCyclesGate(rawGate, `${sAt}/gates/${j}`, true);
+      if (Object.hasOwn(gate, 'gateId')) {
+        const gk = tupleKey(gate.level, gate.gateId);
+        if (gateIds.has(gk)) bad(`${sAt}/gates 里同一级别有重复的 gateId`);
+        gateIds.add(gk);
+      }
+      return gate;
+    });
+    const expected = evaluateCoreVsCyclesLadder(gates);
+    const passedLevel = count(s.passedLevel, `${sAt}/passedLevel`);
+    if (passedLevel !== expected.passedLevel) {
+      bad(`${sAt}/passedLevel 与 gates 阶梯计算结果不一致`, RangeError);
+    }
+    if (s.blockedAtLevel !== expected.blockedAtLevel) {
+      bad(`${sAt}/blockedAtLevel 与 gates 阶梯计算结果不一致`, RangeError);
+    }
+    if (s.blockedReason !== expected.blockedReason) {
+      bad(`${sAt}/blockedReason 与 gates 阶梯计算结果不一致`, RangeError);
+    }
+    const speed = s.speed === null ? null : parseCoreVsCyclesSpeed(s.speed, `${sAt}/speed`, true);
+    return {
+      filmType,
+      filmTypeLabel: expectedLabel,
+      scene,
+      passedLevel: expected.passedLevel,
+      blockedAtLevel: expected.blockedAtLevel,
+      blockedReason: expected.blockedReason,
+      gates,
+      speed,
+    };
+  });
+  const rebuilt = aggregateCoreVsCyclesScenes(scenes);
+  const byRaw = only(obj(c.byFilmType, `${at}/byFilmType`), FILM_TYPE_IDS, `${at}/byFilmType`);
+  for (const { id, label: typeLabel } of FILM_TYPES) {
+    const fAt = `${at}/byFilmType/${id}`;
+    const given = only(obj(byRaw[id], fAt), ['label', 'maxPassedLevel', 'sceneCount', 'blockedCount'], fAt);
+    const exp = rebuilt.byFilmType[id];
+    if (nonBlank(given.label, `${fAt}/label`) !== typeLabel) bad(`${fAt}/label 必须是 ${typeLabel}`);
+    if (count(given.maxPassedLevel, `${fAt}/maxPassedLevel`) !== exp.maxPassedLevel
+      || count(given.sceneCount, `${fAt}/sceneCount`) !== exp.sceneCount
+      || count(given.blockedCount, `${fAt}/blockedCount`) !== exp.blockedCount) {
+      bad(`${fAt} 与 scenes 汇总不一致`, RangeError);
+    }
+  }
+  const ov = only(obj(c.overall, `${at}/overall`), ['maxPassedLevel', 'sceneCount', 'blockedCount', 'speedCount'], `${at}/overall`);
+  if (count(ov.maxPassedLevel, `${at}/overall/maxPassedLevel`) !== rebuilt.overall.maxPassedLevel
+    || count(ov.sceneCount, `${at}/overall/sceneCount`) !== rebuilt.overall.sceneCount
+    || count(ov.blockedCount, `${at}/overall/blockedCount`) !== rebuilt.overall.blockedCount
+    || count(ov.speedCount, `${at}/overall/speedCount`) !== rebuilt.overall.speedCount) {
+    bad(`${at}/overall 与 scenes 汇总不一致`, RangeError);
+  }
+  return rebuilt;
+}
+
 /* ---------------- 历史 ---------------- */
 
 function historyRow(board, datedIds = new Set()) {
@@ -755,6 +1021,7 @@ function checkBoard(board) {
   if (b.format !== BOARD_FORMAT) bad(`看板的 format 不是 ${BOARD_FORMAT}`);
   day(b.asOf, '看板的 asOf');
   if (b.coreFrameShare !== undefined) readCoreFrameShare(b.coreFrameShare, '看板的 coreFrameShare');
+  if (b.coreVsCycles !== undefined) readCoreVsCyclesSnapshot(b.coreVsCycles, '看板的 coreVsCycles');
   return b;
 }
 
@@ -763,7 +1030,7 @@ function checkBoard(board) {
 /**
  * 纯函数：由落盘数据算出看板快照（深冻结）。inputs 只有 asOf（YYYY-MM-DD）必填，其余没给就是没有数据：
  * questions（题目文件）、results（bench-result/0.1）、cards（卡文件）、sourceCapabilities、ledger（job-ledger/0.1 行）、jobs（作业记录）、
- * parity、energy、blindPicks、pureFunctionGate、locality、rebuild、priors、packParity、harvest、history（之前的每日行）、scoreboardMetric、frameMeta（按片型分组的每帧元数据）。
+ * parity、energy、blindPicks、pureFunctionGate、locality、rebuild、priors、packParity、harvest、history（之前的每日行）、scoreboardMetric、frameMeta（按片型分组的每帧元数据）、coreVsCycles（G 组与 V19 核心对 Cycles 阶梯门控与速度比）。
  * 入参不是纯数据、字段不对、带私有内容，都抛 code 为 usage.bad-argument 的 TypeError / RangeError。
  */
 export function buildBoard(inputs) {
@@ -778,6 +1045,7 @@ export function buildBoard(inputs) {
   const rebuild = input.rebuild === undefined ? emptyObj() : only(obj(input.rebuild, '/rebuild'), ['exact', 'tolerance', 'nightlyLegacy'], '/rebuild');
   const scoreboardMetric = readScoreboardMetric(input.scoreboardMetric);
   const coreFrameShare = readFrameMeta(input.frameMeta);
+  const coreVsCycles = input.coreVsCycles === undefined ? null : readCoreVsCycles(input.coreVsCycles);
   const board = {
     format: BOARD_FORMAT,
     asOf,
@@ -800,6 +1068,7 @@ export function buildBoard(inputs) {
     },
     calibrationChanges,
     ...(scoreboardMetric ? { scoreboardMetric } : {}),
+    ...(coreVsCycles ? { coreVsCycles } : {}),
   };
   const datedIds = new Set(sorted.filter((q) => q.calibration?.updatedAt === asOf).map((q) => q.id));
   return freezeOut({ ...board, history: upsert(earlier, historyRow(board, datedIds)) });
@@ -922,6 +1191,39 @@ ${facts([
   ])}
 <p class="note">口径仅认宿主每帧元数据 source.renderer === "core"，不采信作业自报；接管过门前每格为 0 亦照样显示。</p>`;
 
+  const coreVsCycles = board.coreVsCycles === undefined ? readCoreVsCycles(undefined) : readCoreVsCyclesSnapshot(board.coreVsCycles, '看板的 coreVsCycles');
+  const cvcSummaryRows = FILM_TYPES.map(({ id, label: typeLabel }) => {
+    const item = coreVsCycles.byFilmType[id];
+    return h`<tr><th scope="row">${typeLabel}</th><td>L${fmt(item.maxPassedLevel, 0)} / L${fmt(coreVsCycles.maxLevel, 0)}</td><td>${fmt(item.sceneCount, 0)}</td><td>${fmt(item.blockedCount, 0)}</td></tr>`;
+  });
+  const cvcSceneRows = coreVsCycles.scenes.length
+    ? coreVsCycles.scenes.map((scene) => {
+      const levelClass = scene.blockedAtLevel !== null ? 'fail' : scene.passedLevel > 0 ? 'pass' : 'unrun';
+      const badge = scene.blockedAtLevel !== null
+        ? h`<span class="badge fail">L${fmt(scene.blockedAtLevel, 0)} ${label(BLOCKED_REASON_LABEL, scene.blockedReason)}（退回 L${fmt(scene.passedLevel, 0)}）</span>`
+        : h`<span class="badge pass">连续通过至 L${fmt(scene.passedLevel, 0)}</span>`;
+      const ratioText = (v) => `${fmt(v, v < 0.01 ? 4 : 2)}x`;
+      const speedRatioCell = scene.speed ? `${ratioText(scene.speed.speedRatio)}（核心/Cycles ${ratioText(scene.speed.coreOverCyclesRatio)}）` : '—';
+      const timingCell = scene.speed ? `${fmt(scene.speed.coreMs, 2)} ms / ${fmt(scene.speed.cyclesMs, 2)} ms` : '—';
+      const gpuCell = scene.speed ? scene.speed.gpu : '—';
+      const samplesCell = scene.speed ? `${fmt(scene.speed.samples, 0)} spp` : '—';
+      const resolutionCell = scene.speed ? `${fmt(scene.speed.resolution[0], 0)}×${fmt(scene.speed.resolution[1], 0)}` : '—';
+      return h`<tr><td>${scene.filmTypeLabel}</td><th scope="row">${scene.scene}</th><td class="${levelClass}">L${fmt(scene.passedLevel, 0)} / L${fmt(coreVsCycles.maxLevel, 0)}</td><td>${badge}</td><td>${speedRatioCell}</td><td>${timingCell}</td><td>${gpuCell}</td><td>${samplesCell}</td><td>${resolutionCell}</td></tr>`;
+    })
+    : [h`<tr><td colspan="9" class="unrun">暂无核心对 Cycles 门控读数（接管过门前显示零态）</td></tr>`];
+  const coreVsCyclesHtml = h`<div class="scroll"><table data-core-vs-cycles-summary>
+<caption>按四类片型汇总：最高连续过级（0–8 级）、已测场景数与阻塞/退级场景数。</caption>
+<thead><tr><th scope="col">片型</th><th scope="col">最高连续过级</th><th scope="col">已测场景数</th><th scope="col">阻塞/退级场景数</th></tr></thead>
+<tbody>${cvcSummaryRows}</tbody>
+<tfoot><tr><th scope="row">总计</th><td>L${fmt(coreVsCycles.overall.maxPassedLevel, 0)} / L${fmt(coreVsCycles.maxLevel, 0)}</td><td>${fmt(coreVsCycles.overall.sceneCount, 0)}</td><td>${fmt(coreVsCycles.overall.blockedCount, 0)}</td></tr></tfoot>
+</table></div>
+<div class="scroll"><table data-core-vs-cycles-scenes>
+<caption>逐场景阶梯过级与同场景同采样速度比（速度比旁并排展示显卡、采样数与分辨率）。</caption>
+<thead><tr><th scope="col">片型</th><th scope="col">场景</th><th scope="col">当前阶梯级数</th><th scope="col">门控/退级标记</th><th scope="col">速度比（Cycles / 核心）</th><th scope="col">核心耗时 / Cycles 耗时</th><th scope="col">显卡</th><th scope="col">采样数</th><th scope="col">分辨率</th></tr></thead>
+<tbody>${cvcSceneRows}</tbody>
+</table></div>
+<p class="note">阶梯过级仅按 1–8 级逐级门控计算，不采信自报级别；任一级判红（fail）、未定线（unset）或缺级时即在该级截断并退回上一级；速度比必须并排注明显卡、采样数与分辨率。</p>`;
+
   const grid = h`<div class="scroll"><table>
 <caption>每格是这道题在这个帧源、这个做题模型上最新一次的得分（0 到 1）。写着「${UNSUPPORTED_REASON}」的格和没跑的格不进任何均分；做题出错、超时、预期失败记 0 分，照算。</caption>
 <thead><tr><th scope="col">考题</th>${matrix.columns.map((column) => h`<th scope="col">${who(column)}</th>`)}<th scope="col">行均分</th></tr></thead>
@@ -988,6 +1290,7 @@ ${repeatHtml}
 <main>
 <section><h2>四个指标</h2>${indicators}</section>
 <section><h2>核心出帧占比</h2>${coreShareHtml}</section>
+<section data-section="core-vs-cycles"><h2>核心对 Cycles</h2>${coreVsCyclesHtml}</section>
 <section><h2>考题 × 帧源 × 做题模型</h2>${grid}</section>
 <section><h2>整合进度</h2>${integration}</section>
 <section><h2>反向指标</h2>${reverseHtml}</section>
@@ -1009,7 +1312,7 @@ export function renderBoardHtml(board) {
 // 做题目录等是做题方能写的地方，里面的 JSON 不当成绩读
 const RUN_PRIVATE_DIRS = new Set(['worktree', 'session', 'tmp', 'transcript', '.git', 'node_modules']);
 const CARD_SKIP_DIRS = new Set(['.git', 'node_modules', 'priors-data']);
-const EXTRA_KEYS = ['sourceCapabilities', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'packParity', 'harvest', 'scoreboardMetric', 'frameMeta'];
+const EXTRA_KEYS = ['sourceCapabilities', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'packParity', 'harvest', 'scoreboardMetric', 'frameMeta', 'coreVsCycles'];
 const hasPrivateMarker = (s) => scanQuestionLeaks(String(s)).some((l) => l.code !== 'local-path');
 function shownPath(s) {
   return /^(?:[\\/]|file:|~[\\/]|[a-z]:[\\/])/i.test(s) || hasPrivateText(s) ? '<路径已隐去>' : s;
@@ -1126,6 +1429,16 @@ function publishBoard(outDir, inputs) {
   });
 }
 
+function extractCoreVsCyclesFileEntries(data) {
+  if (Array.isArray(data)) return data;
+  if (isObj(data) && Object.hasOwn(data, 'entries') && !Object.hasOwn(data, 'filmType')) {
+    if (!Array.isArray(data.entries)) throw wrong('核心对 Cycles 结果文件的 entries 必须是数组');
+    return data.entries;
+  }
+  if (isObj(data) && Object.hasOwn(data, 'filmType') && Object.hasOwn(data, 'scene')) return [data];
+  throw wrong('核心对 Cycles 结果文件必须是条目数组、单条场景对象或含 entries 数组的对象');
+}
+
 const BUILD = {
   spec: {
     summary: '生成看板：board.json（bench-board/0.1）、history.json（每天一行）、index.html（离线静态页）',
@@ -1138,6 +1451,7 @@ const BUILD = {
       ledger: { type: 'string', placeholder: '文件', desc: '作业账本 ledger.jsonl（job-ledger/0.1）' },
       'cards-dir': { type: 'string', placeholder: '目录', desc: '技术卡目录，递归找 card.json' },
       priors: { type: 'list', placeholder: '文件,…', desc: '先验表（priors/0.1），可以写几份' },
+      'core-vs-cycles': { type: 'string', placeholder: '文件或目录', desc: '核心对 Cycles（G 组与 V19）结果 JSON 文件或目录' },
       extra: { type: 'string', placeholder: '文件', desc: `别处来的数，一个 JSON 对象，键只能是 ${EXTRA_KEYS.join('、')}` },
     },
     notes: ['输入里有 lab://、原包或案例库路径、exams-hidden、本机路径、裸哈希，或题目没过校验时不写任何文件（exit 2 / 4）。', '标准输出是一行 JSON 摘要。'],
@@ -1193,6 +1507,16 @@ const BUILD = {
       if (!isObj(data) || !Object.keys(data).every((key) => EXTRA_KEYS.includes(key))) throw wrong(`--extra 要是一个对象，键只能是 ${EXTRA_KEYS.join('、')}`);
       Object.assign(inputs, data);
     }
+    if (opts['core-vs-cycles']) {
+      if (inputs.coreVsCycles !== undefined) throw wrong('--core-vs-cycles 与 --extra.coreVsCycles 不能同时提供');
+      const target = cliPath(opts['core-vs-cycles'], '核心对 Cycles 结果');
+      const st = statSafe(target, '核心对 Cycles 结果');
+      if (!st || (!st.isFile() && !st.isDirectory())) throw wrong(`读不到核心对 Cycles 结果 ${shownPath(target)}`);
+      inputs.coreVsCycles = st.isFile()
+        ? extractCoreVsCyclesFileEntries(readJsonFile(target, '核心对 Cycles 结果').data)
+        : jsonFilesIn(target, '核心对 Cycles 结果', DEFAULT_SKIP_DIRS, { scanRaw: true, rejectDuplicates: true })
+          .flatMap(({ data }) => extractCoreVsCyclesFileEntries(data));
+    }
     let board;
     try {
       board = publishBoard(outDir, inputs);
@@ -1205,6 +1529,7 @@ const BUILD = {
       questions: inputs.questions?.length ?? 0, results: inputs.results?.length ?? 0, cards: inputs.cards?.length ?? 0, ledgerRows: inputs.ledger?.length ?? 0,
       priors: board.integrationProgress.priorsVerified.detailCount, historyRows: board.history.length,
       overallMean: board.matrix.overallMean, scoredCells: board.matrix.scoredCells, unsupportedCells: board.matrix.unsupportedCells,
+      coreVsCyclesScenes: board.coreVsCycles?.overall.sceneCount ?? 0,
     };
     return { data: summary, outputs: ['board.json', 'history.json', 'index.html'], text: JSON.stringify(summary) };
   },
