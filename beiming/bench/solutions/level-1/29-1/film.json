@@ -1,0 +1,65 @@
+{
+  "format": "film/3.0",
+  "id": "sol_29_1",
+  "seed": 291,
+  "title": "标准答案 29-1 上下分屏版式",
+  "exam": "29-1",
+  "output": {
+    "size": [1080, 1350],
+    "fps": "30/1",
+    "frames": 600
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 600,
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 291,
+      "cards": [
+        {
+          "as": "panels",
+          "use": "layout.panels@1",
+          "params": {
+            "direction": "vertical",
+            "rows": 2,
+            "columns": 1,
+            "margin": 44,
+            "gap": 46,
+            "dividerPx": 4,
+            "background": "#090906",
+            "dividerColor": "#CBFB03"
+          }
+        }
+      ],
+      "roles": {
+        "hero": "panel_top",
+        "mustSee": ["panel_top", "panel_bottom", "divider"]
+      }
+    }
+  ],
+  "style": {
+    "tokens": {
+      "bg": "#090906",
+      "accent": "#CBFB03"
+    },
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "audio": {
+    "mode": "none"
+  },
+  "predicates": {
+    "base": ["floor@1"],
+    "extra": []
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709",
+    "card": "deliver.encode@1"
+  }
+}

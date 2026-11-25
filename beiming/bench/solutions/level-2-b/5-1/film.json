@@ -1,0 +1,74 @@
+{
+  "format": "film/3.0",
+  "id": "sol_05_1",
+  "seed": 51,
+  "title": "标准答案 5-1 配乐拉伸对位，低频重击落在硬切上",
+  "exam": "5-1",
+  "output": {
+    "size": [1920, 1080],
+    "fps": "24/1",
+    "frames": 720
+  },
+  "assets": {
+    "track": "asset:track-05-1@1"
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 624,
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 5101,
+      "cards": [
+        {
+          "as": "align",
+          "use": "audio.align@1",
+          "params": {
+            "stretchMin": 0.97,
+            "stretchMax": 1.03,
+            "splice": false,
+            "crossfadeMs": 25,
+            "lowHz": 120,
+            "hitFloor": 0.25
+          }
+        }
+      ]
+    },
+    {
+      "id": "s02",
+      "in": 624,
+      "out": 720,
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 5102
+    }
+  ],
+  "transitions": [
+    { "id": "to-s02", "at": 624, "type": "cut" }
+  ],
+  "events": [
+    { "id": "hard-cut", "frame": 624, "shot": "s02" }
+  ],
+  "style": {
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "audio": {
+    "mode": "track"
+  },
+  "predicates": {
+    "base": ["floor@1"],
+    "extra": []
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709",
+    "card": "deliver.encode@1"
+  }
+}

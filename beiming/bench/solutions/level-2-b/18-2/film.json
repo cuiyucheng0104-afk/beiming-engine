@@ -1,0 +1,86 @@
+{
+  "format": "film/3.0",
+  "id": "sol_18_2",
+  "seed": 182,
+  "title": "标准答案 18-2 旁白触发词驱动的地图快速运镜",
+  "exam": "18-2",
+  "output": {
+    "size": [1920, 1080],
+    "fps": "30/1",
+    "frames": 600
+  },
+  "assets": {
+    "narration": "asset:narration-18-2@1"
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 600,
+      "source": "three",
+      "host": "page",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 182,
+      "cards": [
+        {
+          "as": "cues",
+          "use": "time.narration@1",
+          "params": {
+            "anticipationSec": 0
+          }
+        },
+        {
+          "as": "cam",
+          "use": "camera.cue-kf@1",
+          "params": {
+            "moves": [
+              {
+                "cue": "cue_a",
+                "cueOffsetFrames": -15,
+                "durationFrames": 30,
+                "from": [0, 0],
+                "to": [900, 0],
+                "zoomFrom": 1,
+                "zoomTo": 1
+              },
+              {
+                "cue": "cue_b",
+                "cueOffsetFrames": -27,
+                "durationFrames": 30,
+                "from": [900, 0],
+                "to": [1800, 0],
+                "zoomFrom": 1,
+                "zoomTo": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "events": [
+    { "id": "cue-a", "frame": 240, "shot": "s01", "audio": "vo.cue", "sync": "onset" },
+    { "id": "cue-b", "frame": 480, "shot": "s01", "audio": "vo.cue", "sync": "onset" }
+  ],
+  "style": {
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "audio": {
+    "mode": "script",
+    "narration": [
+      { "id": "vo-main", "at": 30, "asset": "narration" }
+    ]
+  },
+  "predicates": {
+    "base": ["floor@1"],
+    "extra": []
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709",
+    "card": "deliver.encode@1"
+  }
+}

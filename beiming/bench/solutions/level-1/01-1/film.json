@@ -1,0 +1,45 @@
+{
+  "format": "film/3.0",
+  "id": "sol_01_1",
+  "seed": 101,
+  "title": "标准答案 01-1 成片交付与母带规格",
+  "exam": "1-1",
+  "output": {
+    "size": [1920, 1080],
+    "fps": "30/1",
+    "frames": 1104
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 1104,
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 101,
+      "cards": []
+    }
+  ],
+  "style": {
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "audio": {
+    "mode": "track",
+    "loudness": -14,
+    "truePeak": -1,
+    "card": "audio.master@1"
+  },
+  "predicates": {
+    "base": ["floor@1"],
+    "extra": []
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709",
+    "card": "deliver.encode@1"
+  }
+}
