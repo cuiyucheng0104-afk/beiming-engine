@@ -1,0 +1,35 @@
+{
+  "format": "card/0.1",
+  "id": "fx.streak-ring",
+  "kind": "particle",
+  "version": "1.0.0",
+  "title": "运动光带与地面冲击环",
+  "intent": "从等间隔世界坐标与事件帧重建朝向相机的拖尾和指数扩散的发光圆环",
+  "visibleToAgent": true,
+  "livesIn": ["source:blender"],
+  "impl": [{
+    "livesIn": "source:blender", "shape": "create", "entry": "cards/particle/fx-streak-ring/index.py",
+    "selftest": "cards/particle/fx-streak-ring/selftest.test.mjs", "hosts": [{"host": "cycles", "version": "5.2.0"}]
+  }],
+  "params": {
+    "spec": {
+      "type": "data", "unit": "none", "coupling": "scene-scale", "schema": "schema.json",
+      "default": {
+        "streak": {
+          "points": [[-0.48,0.03,-1.2],[-0.14,0.23,-1.2],[0.21,0.18,-1.1],[0.47,0.01,-1.15]],
+          "startFrame": 0, "strideFrames": 4, "trailFrames": 6, "halfWidthM": 0.055
+        },
+        "ring": {"center": [0,-0.15,-1.2], "startFrame": 0, "radiusM": 0.4, "widthM": 0.055, "segments": 48}
+      }
+    }
+  },
+  "ports": {"in": [], "out": [{"name": "readings", "type": "frame-meta"}], "order": {"before": [], "after": []},
+    "requires": ["坐标用北冥右手系，Y 朝上，单位米。光带取 points 等间隔折线的最近 trailFrames 帧，每半帧采一点，宽度随速度和拖尾年龄衰减。", "光带和冲击环可分别提供。圆环从 startFrame 起在 XZ 平面扩散 30 帧，radiusM 为增长量，widthM 为初始内侧半宽。"]},
+  "conditions": {"appliesWhen": ["运动边缘需要拖光或触地时需要一次向外扩散的亮环"], "notWhen": ["需要与场景碰撞或受风场驱动的粒子流"]},
+  "calibration": "probe-thin-geometry",
+  "verify": {"selftest": "校验朝向镜头的带宽方向、环半径与宽度、亮度和拓扑、启停边界及乱序求值逐字节一致。", "predicates": []},
+  "pitfalls": [{"symptom": "轨迹停止后拖尾消失", "fix": "在 points 中给出覆盖运动段的不同位置，按实际采样间隔设置 strideFrames。"}],
+  "provenance": {"cases": [], "note": "按当前帧插值轨迹与相机视线构造截面，按冲击年龄解析求出三圈共用的顶点与亮度。"},
+  "status": [{"level": "reproduced", "host": "cycles", "source": "5.2.0", "gpu": "apple-m5-pro", "date": "2026-11-25"}],
+  "exams": ["cal:fx.streak-ring"]
+}

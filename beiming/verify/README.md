@@ -43,3 +43,7 @@ const result = welchTest(seedsA, seedsB, { blockSize: 8 }); // 门只看 result.
 ```sh
 node --test "beiming/verify/**/*.test.mjs"
 ```
+
+## 噪声地板乘 k
+
+`floorgate.mjs` 的门与合并门见 [DETAILS.md](DETAILS.md)。

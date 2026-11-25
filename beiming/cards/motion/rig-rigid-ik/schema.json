@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["hip", "ankle", "pole", "l1", "l2", "targetAnkle", "rootOffset", "startFrame", "endFrame"],
+  "properties": {
+    "hip": {"$ref": "#/$defs/vec"}, "ankle": {"$ref": "#/$defs/vec"}, "pole": {"$ref": "#/$defs/vec"},
+    "l1": {"type": "number", "exclusiveMinimum": 0}, "l2": {"type": "number", "exclusiveMinimum": 0},
+    "targetAnkle": {"$ref": "#/$defs/vec"}, "rootOffset": {"$ref": "#/$defs/vec"},
+    "startFrame": {"type": "number"}, "endFrame": {"type": "number"},
+    "bindings": {
+      "type": "object", "propertyNames": {"enum": ["root", "upper", "lower", "foot"]},
+      "additionalProperties": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+    }
+  },
+  "$defs": {"vec": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}}}
+}

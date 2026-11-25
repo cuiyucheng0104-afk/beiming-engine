@@ -1,0 +1,132 @@
+{
+  "format": "card/0.1",
+  "id": "mat.ao-ink",
+  "version": "1.0.0",
+  "kind": "material",
+  "title": "AO 缝隙勾线",
+  "intent": "按局部遮蔽将凹角的线性色混向墨色",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:blender"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:blender",
+      "entry": "cards/material/ao-ink/index.py",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "cycles",
+          "version": "5.2.0"
+        }
+      ],
+      "selftest": "cards/material/ao-ink/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "target": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": {
+        "object": "body"
+      },
+      "coupling": "none"
+    },
+    "distanceM": {
+      "type": "number",
+      "unit": "m",
+      "range": [
+        1e-06,
+        100
+      ],
+      "default": 0.06,
+      "coupling": "scene-scale"
+    },
+    "samples": {
+      "type": "integer",
+      "unit": "none",
+      "range": [
+        1,
+        32
+      ],
+      "default": 8,
+      "coupling": "host-api"
+    },
+    "inkColor": {
+      "type": "color",
+      "unit": "none",
+      "space": "scene-linear-rec709",
+      "default": "#040405",
+      "coupling": "none"
+    },
+    "inkStrength": {
+      "type": "number",
+      "unit": "none",
+      "range": [
+        0,
+        1
+      ],
+      "default": 0.85,
+      "coupling": "none"
+    },
+    "inside": {
+      "type": "boolean",
+      "unit": "none",
+      "default": false,
+      "coupling": "none"
+    },
+    "enabled": {
+      "type": "boolean",
+      "unit": "none",
+      "default": true,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "readings",
+        "type": "frame-meta"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "target 只能指定一个 object 或 material。物体取活动材质，材质须启用节点并含 Principled BSDF。把创建目标的卡写在本卡之前。",
+      "inkColor 写成线性 RGB 的 #RRGGBB 色串。贴图或原色接到 Mix 的基色输入。inside 切换 AO 探测方向；enabled 为 false 或 inkStrength 为 0 时沿用原节点树。"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "硬表面板件的槽口、接缝与内折角需要局部暗线"
+    ],
+    "notWhen": [
+      "需要屏幕空间轮廓线或整面重新着色"
+    ]
+  },
+  "calibration": "probe-occlusion",
+  "verify": {
+    "selftest": "离线核对线性色和开关；实渲槽内折角，量化勾线开启后共同可见像素的暗化。",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [],
+    "note": "把 AO 遮蔽因子经缓动色带映射为墨色混合权重。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "cycles",
+      "source": "5.2.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": [
+    "cal:mat.ao-ink"
+  ]
+}
