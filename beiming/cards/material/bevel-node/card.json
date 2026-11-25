@@ -1,0 +1,109 @@
+{
+  "format": "card/0.1",
+  "id": "mat.bevel-node",
+  "version": "1.0.0",
+  "kind": "material",
+  "title": "Cycles 着色倒角",
+  "intent": "为硬边补上可控的镜面高光过渡",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:blender"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:blender",
+      "entry": "cards/material/bevel-node/index.py",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "cycles",
+          "version": "5.2.0"
+        }
+      ],
+      "selftest": "cards/material/bevel-node/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "target": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": {
+        "object": "body"
+      },
+      "coupling": "none"
+    },
+    "radiusM": {
+      "type": "number",
+      "unit": "m",
+      "range": [
+        1e-06,
+        100
+      ],
+      "default": 0.015,
+      "coupling": "scene-scale"
+    },
+    "samples": {
+      "type": "integer",
+      "unit": "none",
+      "range": [
+        2,
+        16
+      ],
+      "default": 4,
+      "coupling": "host-api"
+    },
+    "enabled": {
+      "type": "boolean",
+      "unit": "none",
+      "default": true,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "readings",
+        "type": "frame-meta"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "target 只能指定一个 object 或 material。物体取活动材质，材质须启用节点并含 Principled BSDF。把创建目标的卡写在本卡之前。",
+      "radiusM 控制着色倒角半径，已有 Normal 连线送入倒角节点。enabled 为 false 时沿用原节点树。"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "硬表面棱边需要细窄的反射过渡"
+    ],
+    "notWhen": [
+      "宿主不支持 Cycles Bevel 或倒角须改变轮廓"
+    ]
+  },
+  "calibration": "studio-balls@1",
+  "verify": {
+    "selftest": "离线核对参数范围；直角盒的共同可见像素测量倒角开启前后的亮度差，轮廓须一致。",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [],
+    "note": "使用 Cycles Bevel 法线输入与输出，保留材质原有法线链。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "cycles",
+      "source": "5.2.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": [
+    "cal:mat.bevel-node"
+  ]
+}

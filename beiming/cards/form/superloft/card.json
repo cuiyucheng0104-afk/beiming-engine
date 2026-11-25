@@ -1,0 +1,129 @@
+{
+  "format": "card/0.1",
+  "id": "form.superloft",
+  "version": "1.0.0",
+  "kind": "form",
+  "title": "超椭圆截面放样",
+  "intent": "沿脊线平滑连接圆形、椭圆和圆角矩形截面",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:blender"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:blender",
+      "entry": "cards/form/superloft/index.py",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "cycles",
+          "version": "5.2.0"
+        }
+      ],
+      "selftest": "cards/form/superloft/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "sections": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": [
+        {
+          "rx": 0.5,
+          "ry": 0.4,
+          "exponent": 2,
+          "center": [
+            0,
+            0.6,
+            -0.6
+          ]
+        },
+        {
+          "rx": 0.5,
+          "ry": 0.4,
+          "exponent": 2,
+          "center": [
+            0,
+            0.6,
+            0.6
+          ]
+        }
+      ],
+      "coupling": "scene-scale"
+    },
+    "radialSegments": {
+      "type": "integer",
+      "unit": "none",
+      "range": [
+        4,
+        256
+      ],
+      "default": 48,
+      "coupling": "none"
+    },
+    "capEnds": {
+      "type": "boolean",
+      "unit": "none",
+      "default": true,
+      "coupling": "none"
+    },
+    "name": {
+      "type": "string",
+      "unit": "none",
+      "default": "superloft",
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "bbox",
+        "type": "bbox-world"
+      },
+      {
+        "name": "readings",
+        "type": "frame-meta"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "按脊线顺序给出 center（北冥 Y-up 米制）与截面半径 rx、ry。局部截面垂直于脊线切向，首环以世界 X 在平面上的投影为基准，近 X 轴时用 Y。",
+      "以 exponent=2 得椭圆，增大指数使轮廓变方。twistDeg 绕局部切向旋转，单位度；相邻截面大于 45 度的扭转会插入过渡环。",
+      "capEnds 为 true 时封闭两端。脊线点须分离，相邻段避免急折或让大截面在弯处相交。name 用英数字或下划线。"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "硬表面罩壳、圆角构件或曲线过渡体需要独立截面控制"
+    ],
+    "notWhen": [
+      "脊线有折返或大截面挤在急弯内"
+    ]
+  },
+  "calibration": "probe-axes-turntable",
+  "verify": {
+    "selftest": "离线检查轮廓方程、扭转和封盖绕序；实渲 n=2/8 的轮廓并读取实际顶点半径，同帧异序重渲逐位相等。",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [],
+    "note": "沿径向投影采样超椭圆，沿脊线平行传输截面基底，连接侧面后独立封端。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "cycles",
+      "source": "5.2.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": [
+    "cal:form.superloft"
+  ]
+}
