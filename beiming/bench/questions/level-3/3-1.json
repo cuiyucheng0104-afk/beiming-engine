@@ -1,0 +1,24 @@
+{
+  "format": "question/0.1", "id": "3-1", "level": 3,
+  "title": "硬表面机甲模块依次装配",
+  "brief": "零件装配最终落位已由装配烘焙给定，不要求自由建模。从底件开始依次飞入并扣合，末两秒完全静止。每个零件与它正下方的支承面贴合；棚灯须照清三个零件，全片滑窗取景，机位离地至少 2 厘米。",
+  "deliverable": {"size": [1920, 1080], "fps": "30/1", "frames": 180, "audio": "none"},
+  "assets": {}, "refs": ["bench/refs/level-3/3-1.json"],
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=30, frames=180)", "at_rest(hero) @ [120,180)",
+    "no_intersect(part.*, support, tol=0.5mm) @ [120,180)", "contact(part.*, support, max=0.5mm) @ [120,180)",
+    "inside_frame(hero, 0.02) @ all", "camera.height >= 0.02 @ all"
+  ],
+  "scoring": [
+    {"metric":"deliver.spec", "args":{}, "pass":"分辨率、帧率、帧数与音轨符合交付规格。", "weight":0.2},
+    {"metric":"assembly.settle", "args":{"targets":[[0,0.06,0],[0,0.17,0],[0,0.245,0]], "starts":[0,20,40], "probeFrames":8, "tauFrames":[6,8], "remaining":[0.22,0.38], "minTravelM":0.2, "restFrom":120, "maxRestErrorM":0.0005, "maxStepM":0.000001}, "pass":"三件按第 0、20、40 帧开始扣合；起飞时距目标至少 20 厘米，之后逐帧接近，在 6 至 8 帧内首次衰减至初始距离的 1/e，8 帧后剩余距离为起飞时的 22% 至 38%。从第 120 帧到结束，中心距给定落位最多 0.5 毫米，相邻帧移动不超过 1 微米。", "weight":0.3},
+    {"metric":"assembly.contact", "args":{"from":120, "maxGapM":0.0005, "maxDepthM":0.0005}, "pass":"到位后的每帧、每对支承面都在 0.5 毫米接触公差内，超过公差的穿插一次也不允许。", "weight":0.25},
+    {"metric":"camera.coverage", "args":{"margin":0.02, "minHeightM":0.02, "from":120, "maxGapM":0.0005, "keyFill":[1.5,6]}, "pass":"全程四边留白至少 2%，机位离地至少 2 厘米，灰卡主辅照度比为 1.5 至 6；静止段不悬空。", "weight":0.25}
+  ],
+  "controls":{"referencePass":"给定落位的三件标准工程应得满分。", "negative":"分别撤去烘焙、排程、动态取景、棚灯或交付卡，按退化后的逐帧读数判为不合格。"},
+  "needs":["assembly.dsl","assembly.schedule","camera.fit","light.studio","deliver.encode"],
+  "budget":{"tokens":1800000,"wallMs":2400000,"gpuSeconds":300},
+  "flags":{"hidden":false,"expectedFail":false,"blockedBy":[]},
+  "calibration":{"status":"uncalibrated","source":"公开几何与离线技术卡对照；尚未做人群校准。","noiseFloor":null,"version":0},
+  "ext":{"bench.code":"03B-1","bench.m3AcceptanceIncluded":true}
+}

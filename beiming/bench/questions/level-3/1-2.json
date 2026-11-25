@@ -1,0 +1,20 @@
+{
+  "format":"question/0.1", "id":"1-2", "level":3,
+  "title":"多材质显卡模块的单镜爆炸拆解",
+  "brief":"把显卡模块的三个硬表面部件分别做成发光、金属和哑黑材质。单镜内从装配位展开，再原路收回；展开时每件相对装配位的距离单调增加。棚光下三种材质应有可测的亮度分层，动态取景不得裁掉外扩部件。",
+  "deliverable":{"size":[1920,1080],"fps":"30/1","frames":120,"audio":"none"},
+  "assets":{}, "refs":["bench/refs/level-3/1-2.json"],
+  "basePredicates":["delivery(width=1920, height=1080, fps=30, frames=120)", "inside_frame(hero, 0.02) @ all", "key_fill_ratio(film) in [1.5, 6.0]", "highlight_clip_ratio(film) <= 0.05"],
+  "scoring":[
+    {"metric":"assembly.excursion", "args":{"targets":[[-0.28,0.12,0],[0,0.12,0],[0.28,0.12,0]],"peakFrame":60,"minTravelM":0.1,"returnToleranceM":0.0005}, "pass":"各件从装配位单调外扩，第 60 帧至少外移 10 厘米，然后单调收回；起止位置误差均不超过 0.5 毫米。", "weight":0.3},
+    {"metric":"lighting.exposure", "args":{"keyFill":[1.5,6],"maxClipRatio":0.05}, "pass":"每帧主辅灰卡照度比在 1.5 至 6 之间，均匀抽样画幅上的高光裁切占比不超过 5%。", "weight":0.25},
+    {"metric":"material.separation", "args":{"minLumaGap":0}, "pass":"同一棚灯下逐帧实测的材质亮度从高到低严格为发光、金属、哑黑，不得并列。", "weight":0.25},
+    {"metric":"camera.coverage", "args":{"margin":0.02}, "pass":"按交付规格输出，所有部件在整个单镜的每一帧均在画内，四边留白不少于 2%。", "weight":0.2}
+  ],
+  "controls":{"referencePass":"单镜爆炸拆解的标准工程得满分。", "negative":"撤去外扩、棚光、材质库、交付卡中的任何一张，标准工程均不能通过。"},
+  "needs":["assembly.explode","light.studio","mat.library","deliver.encode"],
+  "budget":{"tokens":1800000,"wallMs":2400000,"gpuSeconds":300},
+  "flags":{"hidden":false,"expectedFail":false,"blockedBy":[]},
+  "calibration":{"status":"uncalibrated","source":"公开装配位、材质见证片与逐帧画幅读数。","noiseFloor":null,"version":0},
+  "ext":{"bench.code":"01-2","bench.m3AcceptanceIncluded":false,"bench.acceptanceNote":"本题接入题库；M3 阶段验收只计 3-1 与 31-1。"}
+}

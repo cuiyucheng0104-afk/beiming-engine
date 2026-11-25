@@ -54,8 +54,11 @@ export {
   SUITE_FORMAT,
   DEFAULT_MINI_MAX_BUDGET_SHARE,
   DEFAULT_T2_UNIT_TOKENS,
+  discoverQuestions,
   discoverSuiteQuestions,
   planMiniExam,
   planFullExam1,
+  planFullExam2,
   runExamSuite,
+  runFullExam2,
 } from './suite.mjs';
