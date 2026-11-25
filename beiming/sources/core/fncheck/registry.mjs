@@ -396,3 +396,109 @@ FUNCTIONS.push(
   entry('emissive_pdf', [['Ng', 'dir', [-1, 1]], ['wi', 'dir', [-1, 1]]], 1),
   entry('emissive_simple_eval', [['Ng', 'dir', [-1, 1]], ['wi', 'dir', [-1, 1]]], 3),
 );
+
+// 三角形求交（util/math_intersect.h 的 ray_triangle_intersect，内核的软件求交用它）。输入不能只均匀取：要守的是公共边与
+// 顶点上不漏，均匀取的射线几乎碰不到边。三角形任意朝向、边长 1e-2 到 1e3；射线方向是单位向量。分两项：
+//   ray_triangle_intersect       逐组对 Cycles 比中没中与 u、v、t，只在单精度条件良好的区域（WELL_TRI）：最短的高不小于
+//                                0.3 倍最长边，方向与法线夹角的余弦不小于 0.3，起点离目标 0.1 到 10 倍边长，三角形离原点不超过
+//                                10 倍边长。出了这个区域，U、V、W 是大数相消再除以小数（放大约 κ/(cos·高²) 倍），一两个 ULP 的
+//                                舍入次序（显卡可能合成 FMA）就决定中没中与 u、v 的末几位，比的不是移植。
+//                                【实测】苹果显卡上放到高 0.05、余弦 0.05、起点 1e-2 倍边长时，t 差到相对 3.5e-4，u、v 差到 1.2e-4
+//   ray_triangle_intersect_pair  防水：不收窄（高 0.05、余弦 0.05、起点到 1e3 倍边长、离原点到 100 倍边长），只看公共边上
+//                                两个三角形有没有一个打中，与条件数无关（见那一项）
+// 目标点按四类取：
+//   uniform  重心坐标在 [-0.2, 1.2] 里（有中有不中）
+//   edge     在某条边上（双精度里正好在边上），再沿平面内垂直于边的方向挪开 0 或 ±1e-9 到 1e-3 倍边长
+//   vertex   在某个顶点上，再沿平面内任意方向挪开 0 或 1e-9 到 1e-3 倍边长
+//   tmax     uniform 的目标，tmax 取交点距离的 0.5 到 0.99 或 1.01 到 2 倍（有被截掉的）
+// 除 tmax 一类外 tmin = 0、tmax = 1e30。
+const TRI_KINDS = ['uniform', 'edge', 'vertex', 'tmax'];
+const WELL_TRI = { flat: 0.3, cos: 0.3, dist: [0.1, 10], far: 10 };
+const WIDE_TRI = { flat: 0.05, cos: 0.05, dist: [1e-2, 1e3], far: 100 };
+// 中没中可以两边不同的带宽（重心坐标，乘条件数 κ，见 triCond）。【实测】WELL_TRI 里两边不同的组 |最小重心坐标|/κ 最大
+// 5.4e-7（苹果显卡与英伟达显卡相同；100 万组里约 3.2% 的组两边不同，都在边界上），取约 4 倍
+const TRI_BAND = 4e-6;
+function triGeom(next, { flat, far }) {
+  const size = logU(next, [1e-2, 1e3]);
+  const center = mul([linU(next, [-1, 1]), linU(next, [-1, 1]), linU(next, [-1, 1])], size * logU(next, [1e-2, far]));
+  for (;;) {
+    const tri = [0, 1, 2].map(() => add(center, [linU(next, [-1, 1]), linU(next, [-1, 1]), linU(next, [-1, 1])], size));
+    const n = crs(add(tri[1], tri[0], -1), add(tri[2], tri[0], -1)), long = Math.max(...[0, 1, 2].map(k => Math.hypot(...add(tri[(k + 1) % 3], tri[k], -1))));
+    // 最短的高 = 2·面积/最长边
+    if (Math.hypot(...n) / long > flat * long) return { tri, n: mul(n, 1 / Math.hypot(...n)), size: long };
+  }
+}
+/** 从离 target dist 倍 size 处、与法线 n 夹角余弦不小于 cos 的一侧打向 target 的射线 */
+function rayAt(next, target, n, size, { cos, dist }) {
+  const [u, v] = rotation(next), w = crs(u, v);
+  let d = add(add(mul(u, linU(next, [-1, 1])), v, linU(next, [-1, 1])), w, linU(next, [-1, 1]));
+  d = mul(d, 1 / Math.hypot(...d));
+  // 法线分量不够就把它抬到 cos 以上
+  const c = dot3(d, n), side = c < 0 ? -1 : 1;
+  if (Math.abs(c) < cos) { d = add(d, n, side * (cos - Math.abs(c)) * 1.01); d = mul(d, 1 / Math.hypot(...d)); }
+  if (Math.abs(dot3(d, n)) < cos) d = mul(n, side);
+  const t = size * logU(next, dist);
+  return { ray_P: add(target, d, t), ray_D: mul(d, -1), t };
+}
+/** 挪开的距离（以边长为单位）：四分之一的组正好是 0 */
+const nudge = next => (next() < 0.25 ? 0 : logU(next, [1e-9, 1e-3]) * (next() < 0.5 ? -1 : 1));
+function triCase(next, kind) {
+  const { tri, n, size } = triGeom(next, WELL_TRI);
+  let target;
+  if (kind === 'edge') {
+    const k = Math.floor(next() * 3), a = tri[k], b = tri[(k + 1) % 3], e = add(b, a, -1), s = linU(next, [0.02, 0.98]);
+    const out = crs(e, n);
+    target = add(add(a, e, s), out, nudge(next) * size / Math.hypot(...out));
+  } else if (kind === 'vertex') {
+    const [p] = rotation(next), m = crs(n, crs(p, n)), len = Math.hypot(...m) || 1;
+    target = add(tri[Math.floor(next() * 3)], m, Math.abs(nudge(next)) * size / len);
+  } else {
+    const b1 = linU(next, [-0.2, 1.2]), b2 = linU(next, [-0.2, 1.2]);
+    target = add(add(tri[0], add(tri[1], tri[0], -1), b1), add(tri[2], tri[0], -1), b2);
+  }
+  const r = rayAt(next, target, n, size, WELL_TRI);
+  const tmax = kind === 'tmax' ? r.t * (next() < 0.5 ? linU(next, [0.5, 0.99]) : linU(next, [1.01, 2])) : 1e30;
+  return { ray_P: r.ray_P, ray_D: r.ray_D, ray_tmin: 0, ray_tmax: tmax, tri_a: tri[0], tri_b: tri[1], tri_c: tri[2] };
+}
+/** 双精度里射线与三角形所在平面的交点：重心坐标里最小的那个（负数在三角形外）与条件数 κ = max(最长边, 起点到交点、原点到交点
+ *  的距离) / 最长边。单精度下 U、V、W 的舍入误差约为 κ·ε 乘上 U+V+W 的量级，skip 用它判一组是不是贴在边界上 */
+function triCond(i) {
+  const P = at(i, 0), D = at(i, 3), A = at(i, 8), B = at(i, 11), C = at(i, 14);
+  const e1 = add(B, A, -1), e2 = add(C, A, -1), n = crs(e1, e2), t = dot3(add(A, P, -1), n) / dot3(D, n), X = add(P, D, t);
+  const nn = dot3(n, n), b1 = dot3(crs(add(X, A, -1), e2), n) / nn, b2 = dot3(crs(e1, add(X, A, -1)), n) / nn;
+  const size = Math.max(...[e1, e2, add(C, B, -1)].map(e => Math.hypot(...e)));
+  return { mb: Math.min(1 - b1 - b2, b1, b2), kappa: Math.max(size, Math.hypot(...add(X, P, -1)), Math.hypot(...X)) / size };
+}
+const TRI_IN = [['ray_P', 'vec3f'], ['ray_D', 'vec3f'], ['ray_tmin', 'f32'], ['ray_tmax', 'f32'], ['tri_a', 'vec3f'], ['tri_b', 'vec3f'], ['tri_c', 'vec3f']];
+FUNCTIONS.push(
+  // 中没中：边界上（|最小重心坐标| < TRI_BAND·κ）两边可能一边判中一边判不中：容差 FLT_EPSILON·|U+V+W| 的门槛两侧各差一两个
+  // ULP（标准答案一侧 SSE 与 NEON 的倒数是近似值，dot、cross 的舍入次序也可能与显卡不同），这些组不比；两边都判中时照常比
+  // u、v、t。u、v 是 U/(U+V+W)，贴边时 U 抵消到接近 0，abs 给在 u、v 上。【实测】u、v 的差最大 7.9e-6（苹果显卡；英伟达显卡 7.8e-6；
+  // 都在 κ 为 8 到 16 那一档），t 的相对差最大 2.8e-6（英伟达 2.5e-6）。比对外壳按 |差| − rel·|标准| 算的所需 abs：苹果 5.1e-6、
+  // 英伟达 7.8e-6；外壳要求它在 abs 的一半以内，abs 取 256 个 [1, 2) 的 ULP（3.1e-5）
+  entry('ray_triangle_intersect', TRI_IN, { hit: 1, u: 1, v: 1, t: 1 }, 256 * ULP1, {
+    file: APACHE,
+    gen: next => triCase(next, TRI_KINDS[Math.floor(next() * 4)]),
+    branch: i => { const { mb } = triCond(i); return i[7] < 1e29 ? 'tmax 截断' : Math.abs(mb) < 1e-5 ? '贴边或贴顶点' : mb < 0 ? '三角形外' : '三角形内'; },
+    skip: (ref, test, i) => { const { mb, kappa } = triCond(i); return ref[0] !== test[0] && Math.abs(mb) < TRI_BAND * kappa; },
+  }),
+  // 防水：两个三角形 (a, b, c) 与 (c, b, d) 共用边 b–c，射线打向这条公共边（双精度里正好在边上，或挪开不到 1e-9 倍边长）、
+  // 穿过曲面，WIDE_TRI 的范围（不收窄：公共边在两个三角形里算出来只差符号，合成 FMA 时也一样，与条件数无关）。
+  // 输出两个里有没有一个打中，标准答案与被测都必须是 1；上游的 Möller–Trumbore 在这里漏
+  entry('ray_triangle_intersect_pair', [...TRI_IN, ['tri_d', 'vec3f']], 1, 0, {
+    file: APACHE, wgsl: 'ray_triangle_intersect',
+    gen: next => {
+      for (;;) {
+        const { tri: [a, b, c], n, size } = triGeom(next, WIDE_TRI), e = add(c, b, -1), mid = add(b, e, 0.5);
+        // d：在 b–c 另一侧，可以折起来（与 a 不共面）
+        const d = add(add(mid, add(mid, a, -1), linU(next, [0.5, 2])), n, linU(next, [-0.5, 0.5]) * size);
+        const out = crs(e, n), target = add(add(b, e, linU(next, [0.02, 0.98])), out, (next() < 0.5 ? 0 : linU(next, [-1e-9, 1e-9])) * size / Math.hypot(...out));
+        const r = rayAt(next, target, n, size, WIDE_TRI);
+        // 射线要穿过曲面：两个三角形对射线朝同一面（折得太狠时射线擦过的是轮廓边，两个都不中才对）
+        const n2 = crs(add(b, c, -1), add(d, c, -1)), c2 = dot3(n2, r.ray_D) / Math.hypot(...n2);
+        if (dot3(n, r.ray_D) * c2 > 0 && Math.abs(c2) >= WIDE_TRI.cos) return { ray_P: r.ray_P, ray_D: r.ray_D, ray_tmin: 0, ray_tmax: 1e30, tri_a: a, tri_b: b, tri_c: c, tri_d: d };
+      }
+    },
+    call: a => `(ray_triangle_intersect(${a.slice(0, 7).join(', ')}).hit || ray_triangle_intersect(${a[0]}, ${a[1]}, ${a[2]}, ${a[3]}, ${a[6]}, ${a[5]}, ${a[7]}).hit)`,
+  }),
+);

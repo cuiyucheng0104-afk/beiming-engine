@@ -262,3 +262,78 @@ fn ray_quad_intersect(ray_P: vec3f, ray_D: vec3f, ray_tmin: f32, ray_tmax: f32, 
   // NOTE: Return barycentric coordinates in the same notation as Embree and OptiX.
   return QuadHit(true, hit, t, v + 0.5, -u - v);
 }
+
+// util/math_intersect.h:140-149: ray_triangle_dot（不带 SSE 的那一支，逐分量乘了再加）
+fn ray_triangle_dot(a: vec3f, b: vec3f) -> f32 {
+  return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+// util/math_intersect.h:151-161: ray_triangle_cross（不带 SSE 的那一支）
+fn ray_triangle_cross(a: vec3f, b: vec3f) -> vec3f {
+  return vec3f(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+}
+
+// util/math_intersect.h:116-138: ray_triangle_reciprocal（不带 SIMD 的那一支，1/x；SSE 与 NEON 两支是近似倒数加一步牛顿迭代）
+fn ray_triangle_reciprocal(x: f32) -> f32 {
+  return 1.0 / x;
+}
+
+// util/math_intersect.h:163-222: ray_triangle_intersect 的输出。没打中时 Cycles 不写输出指针，这里其余字段为 0。
+// u、v 是 tri_b、tri_c 的重心坐标（u 由不含 tri_b 的那条边算出），与硬件求交的 barycentrics 同一口径
+struct TriangleHit {
+  hit: bool,
+  u: f32,
+  v: f32,
+  t: f32,
+}
+
+// util/math_intersect.h:163-222: ray_triangle_intersect，Embree 的 Plücker 坐标求交。每条边各算一次
+// cross(边, 两端之和)·D，两个三角形的公共边算出来只差符号，再给 FLT_EPSILON·|U+V+W| 的容差：公共边上不会两边都判不中
+fn ray_triangle_intersect(ray_P: vec3f, ray_D: vec3f, ray_tmin: f32, ray_tmax: f32, tri_a: vec3f, tri_b: vec3f, tri_c: vec3f) -> TriangleHit {
+  // This implementation matches the Plücker coordinates triangle intersection
+  // in Embree.
+
+  // Calculate vertices relative to ray origin.
+  let v0 = tri_a - ray_P;
+  let v1 = tri_b - ray_P;
+  let v2 = tri_c - ray_P;
+
+  // Calculate triangle edges.
+  let e0 = v2 - v0;
+  let e1 = v0 - v1;
+  let e2 = v1 - v2;
+
+  // Perform edge tests.
+  let U = ray_triangle_dot(ray_triangle_cross(e0, v2 + v0), ray_D);
+  let V = ray_triangle_dot(ray_triangle_cross(e1, v0 + v1), ray_D);
+  let W = ray_triangle_dot(ray_triangle_cross(e2, v1 + v2), ray_D);
+
+  let UVW = U + V + W;
+  // FLT_EPSILON（C 标准库 float.h，2^-23）
+  let eps = 1.192092896e-07 * abs(UVW);
+  let minUVW = min(U, min(V, W));
+  let maxUVW = max(U, max(V, W));
+
+  if (!(minUVW >= -eps || maxUVW <= eps)) {
+    return TriangleHit();
+  }
+
+  // Calculate geometry normal and denominator.
+  let Ng1 = ray_triangle_cross(e1, e0);
+  let Ng = Ng1 + Ng1;
+  let den = dot(Ng, ray_D);
+  // Avoid division by 0.
+  if (den == 0.0) {
+    return TriangleHit();
+  }
+
+  // Perform depth test.
+  let T = dot(v0, Ng);
+  let t = T / den;
+  if (!(t >= ray_tmin && t <= ray_tmax)) {
+    return TriangleHit();
+  }
+
+  let rcp_uvw = select(ray_triangle_reciprocal(UVW), 0.0, abs(UVW) < 1e-18);
+  return TriangleHit(true, min(U * rcp_uvw, 1.0), min(V * rcp_uvw, 1.0), t);
+}

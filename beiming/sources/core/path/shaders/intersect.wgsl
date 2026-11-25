@@ -150,23 +150,12 @@ fn proc_normal(h: Hit) -> vec3<f32> {
     return select(INF, tn, tn <= tf);
 }
 
+// 北冥：三角形求交换成照 Cycles 移植的 ray_triangle_intersect（util.wgsl，防水的 Plücker 边测试）；上游的 Möller–Trumbore
+// 是闭区间、无容差，网格的公共边上两个三角形可能都判不中。接受的范围照上游（0 < t < tmax，与离开起点的偏移配套）
 @if(!hwrt) fn intersect_tri(o: vec3<f32>, d: vec3<f32>, i: u32, tmax: f32) -> vec3<f32> {
-    let v0 = tri_verts[i * 3u].xyz;
-    let e1 = tri_verts[i * 3u + 1u].xyz;
-    let e2 = tri_verts[i * 3u + 2u].xyz;
-    let pv = cross(d, e2);
-    let det = dot(e1, pv);
-    if (abs(det) < 1e-12) { return vec3<f32>(INF, 0.0, 0.0); }
-    let inv = 1.0 / det;
-    let tv = o - v0;
-    let u = dot(tv, pv) * inv;
-    if (u < 0.0 || u > 1.0) { return vec3<f32>(INF, 0.0, 0.0); }
-    let qv = cross(tv, e1);
-    let v = dot(d, qv) * inv;
-    if (v < 0.0 || u + v > 1.0) { return vec3<f32>(INF, 0.0, 0.0); }
-    let t = dot(e2, qv) * inv;
-    if (t <= 0.0 || t >= tmax) { return vec3<f32>(INF, 0.0, 0.0); }
-    return vec3<f32>(t, u, v);
+    let h = ray_triangle_intersect(o, d, 0.0, tmax, tri_verts[i * 3u].xyz, tri_verts[i * 3u + 1u].xyz, tri_verts[i * 3u + 2u].xyz);
+    if (!h.hit || h.t <= 0.0 || h.t >= tmax) { return vec3<f32>(INF, 0.0, 0.0); }
+    return vec3<f32>(h.t, h.u, h.v);
 }
 
 // mode: TRACE_CLOSEST, TRACE_SHADOW (any hit among shadow casters), TRACE_ANY (any hit on any surface).
@@ -385,8 +374,9 @@ fn glass_hit(h: Hit, d: vec3<f32>, t: f32) -> GlassAt {
 // 北冥：直接读材质记录（Material）的已知例外，上游留下的；清单在 closure.wgsl「读 legacy 的例外清单」。
 fn glass_at(h: Hit, d: vec3<f32>, t: f32) -> GlassAt {
     var a = attrs[h.tri];
-    var e1 = tri_verts[h.tri * 3u + 1u].xyz;
-    var e2 = tri_verts[h.tri * 3u + 2u].xyz;
+    let v0 = tri_verts[h.tri * 3u].xyz;
+    var e1 = tri_verts[h.tri * 3u + 1u].xyz - v0;
+    var e2 = tri_verts[h.tri * 3u + 2u].xyz - v0;
     if (has(F_INST) && h.inst != NO_INST) {
         let r = instance_at(h.inst);
         e1 = inst_vec(r, e1);

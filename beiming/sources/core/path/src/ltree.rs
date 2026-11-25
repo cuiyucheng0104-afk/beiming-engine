@@ -94,10 +94,9 @@ struct Item {
     w: f32,
 }
 
-/// A triangle's vertices from the prepared v0, e1, e2 rows.
+/// A triangle's vertices from its prepared rows.
 pub fn tri_vertices(rows: &[[f32; 4]]) -> [[f32; 3]; 3] {
-    let v0 = [rows[0][0], rows[0][1], rows[0][2]];
-    [v0, [v0[0] + rows[1][0], v0[1] + rows[1][1], v0[2] + rows[1][2]], [v0[0] + rows[2][0], v0[1] + rows[2][1], v0[2] + rows[2][2]]]
+    [0, 1, 2].map(|k| [rows[k][0], rows[k][1], rows[k][2]])
 }
 
 fn bounds(vs: &[[f32; 3]]) -> ([f32; 3], [f32; 3]) {

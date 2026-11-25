@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 北冥 · 对拍阶梯第 2 级：我方 GGX 金属闭包与矩形面光接进路径追踪内核（build.mjs 从 ../path/ 编出的 core-render）后渲图对答案。
 //   上游自带的漫反射白炉用我们的程序跑要过，画面中央的均值与记下来的数相等；金属白炉 22 个读数对 Cycles（±0.5%）；
-//   电介质与混合白炉（原理化 BSDF）14 个读数、底色 0 的电介质白炉 7 个读数对 Cycles（±0.5%）；镜中的矩形纯光对 F·L（0.2%）；Pharr 自发光球与矩形面光照漫反射平面四种几何对解析值
+//   电介质与混合白炉（原理化 BSDF）14 个读数、底色 0 的电介质白炉 7 个读数对 Cycles（±0.5%）；镜中的矩形纯光对 F·L（0.2%）；网格的公共边上相机射线不漏（软件求交一个都不许少，苹果显卡的硬件求交只钉上限）；Pharr 自发光球与矩形面光照漫反射平面四种几何对解析值
 //   （32 个种子，0.2% 以内，且在 3 个标准误或相对 2e-6 以内）；闭包、面光、接线故意改错十四项，每项必须不过；
 //   同种子两遍逐字节相同。
 //   node beiming/sources/core/chassis/level2.mjs [--out 报告.json]
@@ -163,8 +163,9 @@ export default function () {
 }`;
 }
 
-/** 镜中的矩形纯光：z = 0 上粗糙度 0、金属度 0 的平面（平面挪开 (3, 1)：两个三角形的公共边不经过看的那一小块。
- *  相机射线打在公共边上时会丢掉一部分样本，纯金属镜在那条线上的像素少 0.1% 到 1%，全图均值少 7.6e-5，与这里要量的无关）（底色 0.8：电介质高光是奇异的一瓣，压在漫反射上），世界是黑的，
+/** 镜中的矩形纯光：z = 0 上粗糙度 0、金属度 0 的平面，两个三角形的公共边过原点、斜穿看的那一小块（底色 0.8：电介质高光是奇异的一瓣，
+ *  压在漫反射上），世界是黑的。软件求交在公共边上不漏（见 edge）；苹果显卡默认的硬件求交器在那里漏一点相机射线，读数随之少约
+ *  8e-5（相对），在 0.2% 的门内，不另作处理（内核条文「与 Cycles、与上游不一样的地方」第 47 条）。
  *  边长 size 的方形纯光放在离原点 R、与法线夹角 alpha 的方向上正对原点；相机在镜像方向上离原点 Zc，视角窄到每条相机射线
  *  经镜面反射都打在灯上。奇异的一瓣照 Cycles 不做多重重要性采样（PATH_RAY_MIS_SKIP），所以镜里的灯是 F·L 的全份；
  *  做错了按 power_heuristic(pb, pl) 加权：pb 约为 1e6 乘这一瓣的选中概率（约 0.11），pl = 1/灯的立体角（约 1e5），丢约一半。
@@ -179,7 +180,6 @@ export default function () {
   const scene = new Scene();
   scene.environment = new SkyColor(0xffffff, 0);
   const m = new Mesh(new PlaneGeometry(20, 20), new MeshPhysicalMaterial({ color: new Color().setRGB(${a}, ${a}, ${a}), roughness: 0, metalness: 0, ior: ${MIRROR.ior} }));
-  m.position.set(3, 1, 0);
   scene.add(m);
   const r = new RectAreaLight(0xffffff, ${L}, ${size}, ${size});
   r.position.set(${light});
@@ -216,8 +216,8 @@ function bundle(name, source) {
 // ---------------------------------------------------------------------------------------------------------------
 // 渲染：一个 core-render serve 进程是一个种子（THREERT_SEED 在进程启动时读一次；内核的环境变量沿用上游的名字）
 
-async function serve(bin, seed) {
-  const p = spawn(bin, ['serve', '--presets', PRESETS], { cwd: UPSTREAM, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, THREERT_SEED: String(seed) } });
+async function serve(bin, seed, env = {}) {
+  const p = spawn(bin, ['serve', '--presets', PRESETS], { cwd: UPSTREAM, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, THREERT_SEED: String(seed), ...env } });
   let err = '';
   p.stderr.on('data', d => { err = (err + d).slice(-4000); });
   const lines = createInterface({ input: p.stdout })[Symbol.asyncIterator]();
@@ -241,11 +241,11 @@ async function serve(bin, seed) {
 }
 
 /** 每个种子开一个渲染进程，把 jobs（{ game, spp, tag, read(image) → 数 }）各渲一遍，返回 [作业][种子] 的读数 */
-async function renderSeeds(bin, seeds, jobs) {
+async function renderSeeds(bin, seeds, jobs, env = {}) {
   const out = jobs.map(() => []);
   let adapter;
   for (const seed of seeds) {
-    const s = await serve(bin, seed);
+    const s = await serve(bin, seed, env);
     adapter = s.adapter;
     try {
       for (const [k, j] of jobs.entries()) out[k].push(j.read(await s.render(j.game, j.spp, j.tag)));
@@ -340,6 +340,45 @@ export async function mirror(bin, { seeds = MIRROR_SEEDS } = {}) {
   const exact = fresnelDielectric(Math.cos((MIRROR.alpha * Math.PI) / 180), MIRROR.ior) * MIRROR.L;
   return [{ name: '镜中矩形灯', seeds: seeds.length, spp: ANALYTIC.spp, mean, se, exact, rel: mean / exact - 1, z: (mean - exact) / se, turned: meanSe(readings[1]).mean }];
 }
+
+/** 网格的公共边：z = 0 上两个三角形的方形自发光平面（PlaneGeometry(20, 20)，底色 0、高光 0、辐亮度 Le），世界是黑的；相机照
+ *  镜中测试的几何（离原点 3、斜 60°、视角 0.02°，看原点周围约 1 mm），对角线（两个三角形的公共边）斜穿画面。被平面盖满的像素
+ *  该正好是 Le，少的就是从公共边穿过去的相机射线：数低于 Le·(1 − 1e-6) 的像素。无噪声，读数与种子无关。
+ *  视角宽了测不出来（每个像素里打在边上那一窄条的比例太小）。软件求交（THREERT_HWRT=0）与默认的求交（有硬件光追时是硬件）各一遍。
+ *  判法（edgeOk）：软件求交与英伟达的硬件求交一个像素都不许少；苹果显卡的硬件求交器本身在公共边上漏（内核条文「与 Cycles、
+ *  与上游不一样的地方」第 47 条），只钉上限 EDGE.appleHwrtMax（实测 65 个像素的约 1.5 倍），苹果修好了也不会红 */
+export const EDGE = { Le: 1, half: 10, image: 64, spp: 1024, D: 3, tilt: 60, fov: 0.02, appleHwrtMax: 97 };
+function edgeScene(p = EDGE) {
+  const { Le, half, image, D, tilt, fov } = p, t = (tilt * Math.PI) / 180;
+  return `${head}
+export default function () {
+  const scene = new Scene();
+  scene.environment = new SkyColor(0xffffff, ${p.sky ?? 0});
+  scene.add(new Mesh(new PlaneGeometry(${2 * half}, ${2 * half}), new MeshPhysicalMaterial({ color: new Color().setRGB(0, 0, 0), metalness: 0, roughness: 1, specularIntensity: 0, emissive: new Color().setRGB(1, 1, 1), emissiveIntensity: ${Le} })));
+  ${cam(`${-D * Math.sin(t)}, 0, ${D * Math.cos(t)}`, fov)}
+  return { scene, camera: c, options: ${opts(image, {})} };
+}`;
+}
+/** 读数：{ hwrt, short（少的像素数）, worst（最差一个像素少的比例）, mean, rel（全图均值对 Le 的相对差） }。hwrt 为假时强制软件求交；
+ *  为真时用默认的求交（显卡没有硬件光追时也是软件求交，这时 hwrt 记成假）。dump 拿到原始图（调试用） */
+export async function edge(bin, { hwrt = true, scene = EDGE, dump } = {}) {
+  const env = hwrt ? {} : { THREERT_HWRT: '0' };
+  const read = ({ px, w, h }) => {
+    let s = 0, short = 0, worst = 0;
+    for (let i = 0; i < w * h; i++) { const v = lum(px, i); s += v; if (v < scene.Le * (1 - 1e-6)) short++; worst = Math.max(worst, 1 - v / scene.Le); }
+    if (dump) dump({ px, w, h });
+    return { mean: s / (w * h), short, worst };
+  };
+  const tag = `edge-${scene.tilt}-${scene.fov}-${scene.half}-${scene.sky ?? 0}`;
+  const { readings, adapter } = await renderSeeds(bin, [1], [{ tag, spp: scene.spp, game: await bundle(tag, edgeScene(scene)), read }], env);
+  const info = JSON.parse(spawnSync(bin, ['info'], { encoding: 'utf8', env: { ...process.env, ...env } }).stdout);
+  const r = readings[0][0];
+  return { adapter, backend: info.backend, hwrt: info.hwrt, spp: scene.spp, ...r, rel: r.mean / scene.Le - 1 };
+}
+export const edgeOk = r => r.short <= (r.hwrt && r.backend === 'Metal' ? EDGE.appleHwrtMax : 0);
+// 公共边的负对照：容差 FLT_EPSILON·|U+V+W| 放到门槛的另一侧（公共边上 |U| 不到容差时两个三角形都判不中，不再防水），
+// 软件求交下必须有少了的像素（两台机器上漏得不一样多，只判有没有）
+export const EDGE_NEGATIVE = { name: '三角形求交：容差放反，公共边不再防水', inject: { file: 'shaders/util.wgsl', from: 'if (!(minUVW >= -eps || maxUVW <= eps)) {', to: 'if (!(minUVW >= eps || maxUVW <= -eps)) {' } };
 
 /** Pharr 的自发光球：全图像素亮度的均值对 Le/(1 − albedo)，判法与矩形面光的解析场景相同（analyticOk） */
 export async function pharr(bin, { seeds = ANALYTIC.seeds } = {}) {
@@ -527,6 +566,10 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   say('镜中的矩形纯光');
   const mirrorRows = await mirror(ours.bin);
 
+  say('网格的公共边');
+  const edgeRows = [await edge(ours.bin, { hwrt: true }), await edge(ours.bin, { hwrt: false })];
+  const edgeNegative = { name: EDGE_NEGATIVE.name, inject: EDGE_NEGATIVE.inject, ...(await edge(buildRenderer({ inject: [EDGE_NEGATIVE.inject] }).bin, { hwrt: false })) };
+
   say('Pharr 自发光球');
   const emissive = await pharr(ours.bin);
 
@@ -564,6 +607,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
     电介质白炉: principled.every(r => Math.abs(r.rel) <= GATES.furnaceRel && r.se / r.cycles < GATES.furnaceRel / 10),
     F0白炉: principledF0.every(r => Math.abs(r.rel) <= GATES.furnaceRel && r.se / r.cycles < GATES.furnaceRel / 10),
     奇异镜面: mirrorRows.every(mirrorOk),
+    公共边: edgeRows.every(edgeOk) && edgeNegative.short > 0,
     自发光: emissive.every(analyticOk),
     负对照: negative.every(negativeOk),
     确定性: det.identical,
@@ -576,7 +620,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
     furnace: { spp: FURNACE.spp, seeds: FURNACE.seeds, D: FURNACE.D[0], image: CYCLES.image, rows: main.rows, camera, nearRows: near.rows },
     principled: { spp: FURNACE.spp, seeds: FURNACE.seeds, D: FURNACE.D[0], source: PRINCIPLED.source, rows: principled },
     principledF0: { spp: FURNACE.spp, seeds: FURNACE.seeds, D: FURNACE.D[0], source: PRINCIPLED_F0.source, rows: principledF0 },
-    mirror: mirrorRows, mirrorSetup: MIRROR,
+    mirror: mirrorRows, mirrorSetup: MIRROR, edge: edgeRows, edgeSetup: EDGE, edgeNegative,
     emissive, emissiveSetup: PHARR,
     analytic: ana, analyticSetup: RECT, negative, determinism: det,
   };
@@ -603,6 +647,8 @@ export const command = defineCommand({
     for (const r of report.principled.rows) ctx.out(`${Math.abs(r.rel) <= GATES.furnaceRel ? '✓' : '✗'} 白炉 原理化 金属度 ${r.metalness} 粗糙度 ${r.roughness}  我方 ${r.ours.toFixed(6)} ± ${r.se.toExponential(1)}  Cycles ${r.cycles.toFixed(6)}  相对差 ${r.rel.toExponential(2)}`);
     for (const r of report.principledF0.rows) ctx.out(`${Math.abs(r.rel) <= GATES.furnaceRel ? '✓' : '✗'} 白炉 原理化 底色 0 ${r.key}  我方 ${r.ours.toFixed(6)} ± ${r.se.toExponential(1)}  Cycles ${r.cycles.toFixed(6)}  相对差 ${r.rel.toExponential(2)}`);
     for (const a of report.mirror) ctx.out(`${mirrorOk(a) ? '✓' : '✗'} ${a.name}  我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(1)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误（只记录）`);
+    for (const r of report.edge) ctx.out(`${edgeOk(r) ? '✓' : '✗'} 网格的公共边（${r.hwrt ? '硬件求交' : '软件求交'}）  少了的像素 ${r.short}（${r.hwrt && r.backend === 'Metal' ? `苹果显卡的硬件求交器漏，上限 ${EDGE.appleHwrtMax}` : '不许有'}）  最差一个像素少 ${(r.worst * 100).toFixed(2)}%  全图均值相对差 ${r.rel.toExponential(2)}`);
+    ctx.out(`${report.edgeNegative.short > 0 ? '✓' : '✗'} 负对照 ${report.edgeNegative.name}：软件求交少了 ${report.edgeNegative.short} 个像素（必须有）`);
     for (const a of report.emissive) ctx.out(`${analyticOk(a) ? '✓' : '✗'} ${a.name}  我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(1)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
     for (const a of report.analytic) ctx.out(`${analyticOk(a) ? '✓' : '✗'} 面光 ${a.name}  我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(1)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
     for (const a of report.analytic.filter(passedByFloor)) ctx.out(`提示 面光 ${a.name} 超过了 ${GATES.analyticSE} 个标准误，是按数值精度的底（相对 ${GATES.analyticFloor}）过的`);

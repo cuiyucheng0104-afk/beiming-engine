@@ -12,6 +12,7 @@
 #include "kernel/light/area.h"
 #include "kernel/sample/mapping.h"
 #include "util/projection.h"
+#include "util/math_intersect.h"
 #include "util/transform.h"
 
 // 宿主侧的预计算表原文（static const float 数组），Cycles 的 scene/shader.cpp 也是这样包含它的
@@ -415,6 +416,21 @@ static const Entry table[] = {
        const bool hit = area_light_intersect(&k, &ray, &t);
        o[0] = float(hit);
        o[1] = hit ? t : 0.0f;
+     }},
+    {"ray_triangle_intersect", 17, 4, [](const float *i, float *o) {
+       float u = 0.0f, v = 0.0f, t = 0.0f;
+       const bool hit = ray_triangle_intersect(get3(i), get3(i + 3), i[6], i[7], get3(i + 8), get3(i + 11), get3(i + 14), &u, &v, &t);
+       o[0] = float(hit);
+       o[1] = hit ? u : 0.0f;
+       o[2] = hit ? v : 0.0f;
+       o[3] = hit ? t : 0.0f;
+     }},
+    /* 共用边 b–c 的两个三角形 (a, b, c) 与 (c, b, d)：有没有一个打中 */
+    {"ray_triangle_intersect_pair", 20, 1, [](const float *i, float *o) {
+       float u, v, t;
+       const bool h1 = ray_triangle_intersect(get3(i), get3(i + 3), i[6], i[7], get3(i + 8), get3(i + 11), get3(i + 14), &u, &v, &t);
+       const bool h2 = ray_triangle_intersect(get3(i), get3(i + 3), i[6], i[7], get3(i + 14), get3(i + 11), get3(i + 17), &u, &v, &t);
+       o[0] = float(h1 || h2);
      }},
 };
 
