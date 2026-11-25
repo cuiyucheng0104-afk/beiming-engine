@@ -28,6 +28,15 @@
   "verify":{"selftest":"逐级核对常量守恒、Karis 抗孤立亮点、宽核降采样和帐篷升采样；独立 CPU 参考与浮点渲染目标对拍","predicates":[]},
   "pitfalls":[{"symptom":"光晕过暗或颜色变灰","fix":"检查输入是否为线性 HDR；threshold 与 knee 是峰值和软膝半宽，默认零表示不过滤。clamp 只限制提取层，不截断原片。"},{"symptom":"宽光晕过强","fix":"默认 intensity 按能量归一化混合原片和光晕；需要线性辐射叠加时设 additive 为 true，只加光晕、不衰减原片。radius 以较粗层的像素为单位调整帐篷半径。已经取出半尺寸光晕单独调色时不要重复混合。"}],
   "provenance":{"cases":[],"note":"按离散采样核与场景线性像素中心约定独立实现，四级下采样与三级上采样分别保留独立目标"},
-  "status":[{"level":"reproduced","host":"page","source":"0.187.0","gpu":"apple-m5-pro","date":"2026-11-25"}],
+  "status":[
+    {
+      "level": "measured",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-26",
+      "parityReport": "sha256:a7478818c36a6183e37c62e6bf9549050a8e85b9849358c722593c318acc172b"
+    }
+  ],
   "exams":["cal:post.bloom"]
 }

@@ -97,7 +97,7 @@ for (const [id, dir] of T19_CARDS) {
     assert.equal(card.impl[0].shape, 'evaluate');
     assert.equal(card.impl[0].entry, `cards/${dir}/index.mjs`);
     assert.equal(card.impl[0].selftest, `cards/${dir}/selftest.test.mjs`);
-    assert.equal(card.status[0].level, 'reproduced');
+    assert.ok(['reproduced', 'measured'].includes(card.status[0].level));
     assert.deepEqual(card.exams, [`cal:${id}`]);
     assert.ok(existsSync(join(dirname(HERE), card.impl[0].entry)));
     assert.ok(existsSync(join(dirname(HERE), card.impl[0].selftest)));

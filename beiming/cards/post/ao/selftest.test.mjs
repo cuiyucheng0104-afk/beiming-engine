@@ -20,7 +20,7 @@ test('AO card: contract, public files and host entry', () => {
   const card = JSON.parse(readFileSync(new URL('./card.json', import.meta.url)));
   assert.deepEqual(validateCard(card), { ok: true, schemaErrors: [], violations: {}, leaks: [] });
   assert.equal(card.id, 'post.ao');
-  assert.equal(card.status[0].level, 'reproduced');
+  assert.ok(['reproduced', 'measured'].includes(card.status[0].level));
   assert.ok(card.ports.order.after.includes('post.hdr-chain'));
   assert.ok(card.ports.requires.some(s => s.includes('post.hdr-chain') && s.includes('false')));
   for (const name of ['three.js', 'selftest.test.mjs', 'card.json']) {

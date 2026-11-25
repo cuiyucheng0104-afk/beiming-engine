@@ -69,11 +69,12 @@
   },
   "status": [
     {
-      "level": "reproduced",
+      "level": "measured",
       "host": "page",
       "source": "0.187.0",
       "gpu": "apple-m5-pro",
-      "date": "2026-11-25"
+      "date": "2026-11-26",
+      "parityReport": "sha256:e771970a286ffa8fc2cf015cf6d9d61222868bf2b635abd9d1ff1c802fcbf8fe"
     }
   ],
   "exams": ["cal:particle.soft"]

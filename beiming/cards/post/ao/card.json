@@ -37,6 +37,15 @@
   "verify": {"selftest": "平面及背景无遮挡，台阶只在凹处变暗；比较两种深度编码、两个双边轴的中间值与关闭遮蔽的负对照。", "predicates": []},
   "pitfalls": [{"symptom": "遮蔽宽度随画幅变化不对或穿过轮廓", "fix": "核对透视投影、最近邻深度与行序；不要用相机到表面的欧氏距离替代平面深度。"}],
   "provenance": {"cases": [], "note": "以局部深度差较小的一侧估计法线，在半尺寸屏幕采样邻域，再按深度门控横纵模糊。"},
-  "status": [{"level": "reproduced", "host": "page", "source": "0.187.0", "gpu": "swiftshader", "date": "2026-11-25"}],
+  "status": [
+    {
+      "level": "measured",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "swiftshader",
+      "date": "2026-11-26",
+      "parityReport": "sha256:fc01c32ef534efc74c30c0f0b49b5380267f2d9af7bec1d400f6a32c900bac2a"
+    }
+  ],
   "exams": ["cal:post.ao"]
 }

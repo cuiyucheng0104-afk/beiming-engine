@@ -13,6 +13,7 @@
 
 ### Added
 - 题库新增 M4 B19 第 4 级整镜公开题 `42-1`（峡谷吐息整镜）、离线评分器 `evaluate-b19.mjs`、标准答案工程 `solutions/level-4/42-1/film.json` 与 `run-b19.mjs` 9 项逐卡关闭负对照，接入 `exam.mjs`（19 道公开题核验）与 `suite.mjs full-4`（全卷四精确 28 次计分调度），并完成 FX15 M4 技术卡跨题复用涨分实证。
+- 完成峡谷吐息 `film.lock` 全部 25 张技术卡逐张负对照全红验收（公开脱敏清单 `fire-breath/v15-controls.json`），独立复核将 22 张锁内未晋升卡升级为 `measured`（全库 `measured` 达 39 张）并重签 `film.lock`，同步修复生物材质同渲染器切换 `atmo.height-fog` 时的着色器缓存键串扰，附 `m4-v15-promotion.test.mjs`。
 - 题库新增 M4 B18 三道四级垫脚题（`41-1` 线性 HDR 后期链对拍、`41-2` 多段扫掠脊线运动学、`41-3` 指数阻尼吐息粒子闭式重放）、单一公开锁定阈值源 `gates-m4.json`、离线评分器 `evaluate-b18.mjs` 及真实调用 T17–T20 技术卡的标准答案与逐卡负对照，并接入 `exam.mjs`（18 道公开题核验）与 `suite.mjs full-3`（全卷三 26 次计分调度）。
 - Three 页面帧源新增 96 帧峡谷吐息镜头，组合二十张技术卡，可读回线性 HDR、深度、实体编号及后期各层，并按卡关闭做对照。
 - 新增 M4 T18 六张观感、大气与着色技术卡（`post.grade-cl`、`post.lens-fx`、`fx.post-state`、`atmo.height-fog`、`shade.px-lod`、`shade.thin-line`）：覆盖 ACES 拟合与分离色调终混调色链（CPU/WebGL2 双端等价）、冲击波环形折射与能量守恒径向拖影、确定性后期参数事件包络、解析指数高度雾（水平射线泰勒防奇异与太阳内散射）、屏幕像素分级淡出及细线最小像素宽覆盖率守恒护栏，配套单卡自测与跨卡联调验收。

@@ -190,18 +190,20 @@
   },
   "status": [
     {
-      "level": "reproduced",
+      "level": "measured",
       "host": "page",
       "source": "0.187.0",
       "gpu": "apple-m5-pro",
-      "date": "2026-11-25"
+      "date": "2026-11-26",
+      "parityReport": "sha256:7015c2926efed3cbd2530904401076093bf52916bfdcb98caee3b199d66b2713"
     },
     {
-      "level": "reproduced",
+      "level": "measured",
       "host": "node",
       "source": "24.13.1",
       "gpu": "none",
-      "date": "2026-11-25"
+      "date": "2026-11-26",
+      "parityReport": "sha256:7015c2926efed3cbd2530904401076093bf52916bfdcb98caee3b199d66b2713"
     }
   ],
   "exams": [

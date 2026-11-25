@@ -26,6 +26,15 @@
   "verify": {"selftest":"常密度遮挡柱的已知积分、天空及表面深度边界、云缘与开口的开关、四分之一分辨率通道与 WebGL2 合成结果。", "predicates":[]},
   "pitfalls": [{"symptom":"晴空里看不到光，遮挡处反而变暗", "fix":"默认 correction 给已有解析雾加带符号的散射差值。未铺底雾的镜头选 standalone，直接积可见的正散射。"},{"symptom":"阴影似乎跟着镜头移动", "fix":"提供同一子帧的相机和光源矩阵；阴影矩阵须直接映到归一化贴图坐标。"}],
   "provenance": {"cases":[], "note":"以世界坐标进行定长采样；全屏通道只负责与宿主交换纹理。"},
-  "status": [{"level":"reproduced","host":"page","source":"0.187.0","gpu":"swiftshader","date":"2026-11-25"}],
+  "status": [
+    {
+      "level": "measured",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "swiftshader",
+      "date": "2026-11-26",
+      "parityReport": "sha256:46103893acd7f83b9197b5991a0682fc574fe2e6f13d1ce86cafbb27c030f3c2"
+    }
+  ],
   "exams": ["cal:post.volumetric"]
 }
