@@ -1,0 +1,174 @@
+{
+  "format": "card/0.1",
+  "id": "motion.sweep-body",
+  "version": "1.0.0",
+  "kind": "motion",
+  "title": "轨道扫掠脊线主卡",
+  "intent": "沿时间与弧长参数化轨道延迟扫掠躯干脊线，组合平行输运、翻滚倾斜、行波侧摆与推力脉冲输出逐节点标架",
+  "visibleToAgent": true,
+  "livesIn": ["data"],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/motion/sweep-body/index.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/motion/sweep-body/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "trajectory": {
+      "type": "data",
+      "schema": "schema.json",
+      "unit": "none",
+      "coupling": "scene-scale",
+      "default": {
+        "controlPoints": [
+          [20, 10, 0],
+          [0, 18, 20],
+          [-20, 26, 0],
+          [0, 34, -20],
+          [20, 42, 0]
+        ],
+        "timeKeys": [
+          [0, 0],
+          [4, 2],
+          [8, 4]
+        ],
+        "timeKeyMode": "cpIndex",
+        "arcLengthDivisions": 2000,
+        "railSampleSpacing": 0.25,
+        "impulses": []
+      }
+    },
+    "bodyLength": {
+      "type": "number",
+      "unit": "m",
+      "range": [0.1, 100000],
+      "default": 40,
+      "coupling": "scene-scale"
+    },
+    "segments": {
+      "type": "integer",
+      "unit": "none",
+      "range": [2, 4096],
+      "default": 80,
+      "coupling": "none"
+    },
+    "sampleCount": {
+      "type": "integer",
+      "unit": "none",
+      "range": [2, 4096],
+      "default": 41,
+      "coupling": "none"
+    },
+    "swimAmplitude": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 100],
+      "default": 1,
+      "coupling": "none"
+    },
+    "swimCalm": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 10],
+      "default": 1,
+      "coupling": "none"
+    },
+    "swimStir": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 10],
+      "default": 0,
+      "coupling": "none"
+    },
+    "swimPhaseDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [-360000, 360000],
+      "default": 0,
+      "coupling": "none"
+    },
+    "bankGain": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 10],
+      "default": 0.42,
+      "coupling": "none"
+    },
+    "scriptedRollDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [-3600, 3600],
+      "default": 0,
+      "coupling": "none"
+    },
+    "maxRollStepDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [0.01, 180],
+      "default": 5,
+      "coupling": "none"
+    },
+    "maxTwistStepDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [0.01, 180],
+      "default": 6,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      { "name": "spine", "type": "tracks.spine" },
+      { "name": "readings", "type": "frame-meta" }
+    ],
+    "order": {
+      "before": [],
+      "after": ["motion.impulse", "motion.swim", "motion.roll-bank"]
+    },
+    "requires": [
+      "轨道可由三维控制点经向心 Catmull-Rom 自动弧长重采样，或直接给出等弧长采样点列",
+      "输出逐弧长节点 { pos, tan, nor, bin, s }，所有标架均为右手正交单位基，任意顺序抽帧逐位一致"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "细长柔性躯干沿三维轨道前行，需要组合行波侧摆、推力脉冲与平行输运翻滚倾斜标架"
+    ],
+    "notWhen": [
+      "主体为刚性多段铰接骨骼，不需要沿轨道弧长延迟扫掠"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "核对单调三次弧长映射、向心样条求值、正交单位标架、相邻扭转跳变限幅、乱序抽帧逐位一致及脉冲/游动波开关。",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "头部经过相邻控制点时出现忽快忽慢或倒退",
+      "fix": "使用单调三次插值 timeKeys，并保证时间序列严格递增、弧长非递减。"
+    },
+    {
+      "symptom": "长镜头逐帧求值开销偏高",
+      "fix": "先调用 compileRail 预编译不可变轨道表，再在 ctx.compiledRail 传入各帧求值。"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "组合 motion.impulse、motion.swim 与 motion.roll-bank 的纯函数轨道延迟扫掠脊线求解器。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "kernel-eval",
+      "source": "0.1.0",
+      "gpu": "none",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": ["cal:motion.sweep-body"]
+}

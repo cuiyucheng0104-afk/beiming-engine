@@ -1,0 +1,129 @@
+{
+  "format": "card/0.1",
+  "id": "motion.roll-bank",
+  "version": "1.0.0",
+  "kind": "motion",
+  "title": "翻滚倾斜平行输运标架",
+  "intent": "由路径曲率驱动向心倾斜并叠加脚本翻滚角与步进限幅平行输运，输出无翻折连续标架",
+  "visibleToAgent": true,
+  "livesIn": ["data"],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/motion/roll-bank/index.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/motion/roll-bank/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "config": {
+      "type": "data",
+      "schema": "schema.json",
+      "unit": "none",
+      "coupling": "scene-scale",
+      "default": {
+        "bankGain": 0.42,
+        "bankSaturation": 0.5,
+        "gravity": 9.8,
+        "maxSpeedSq": 3600,
+        "curvatureHalfSpan": 12,
+        "curvatureSmoothHalfSpan": 8,
+        "tightCurlLow": 0.045,
+        "tightCurlHigh": 0.075,
+        "verticalGuardLow": 0.8,
+        "verticalGuardHigh": 0.97,
+        "fallbackAxis": [0, 0, 1],
+        "viewRollTargetDot": 0.3,
+        "viewRollMaxAngleRad": 1.5
+      }
+    },
+    "maxRollStepDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [0.01, 180],
+      "default": 5,
+      "coupling": "none"
+    },
+    "maxTwistStepDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [0.01, 180],
+      "default": 6,
+      "coupling": "none"
+    },
+    "scriptedRollDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [-3600, 3600],
+      "default": 0,
+      "coupling": "none"
+    },
+    "speed": {
+      "type": "number",
+      "unit": "m/s",
+      "range": [0, 10000],
+      "default": 20,
+      "coupling": "scene-scale"
+    },
+    "viewRollWeight": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 0,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      { "name": "frames", "type": "tracks.frames" },
+      { "name": "readings", "type": "frame-meta" }
+    ],
+    "order": {
+      "before": ["motion.sweep-body"],
+      "after": []
+    },
+    "requires": [
+      "支持沿轨道预计算限幅平行输运参考法向与平滑曲率倾斜场，也支持逐节点实时求解倾斜与翻滚",
+      "过竖直切线时平滑切换至备用轴并限幅翻滚步进，避免万向锁与 180 度翻转"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "三维空间曲线包含大倾角攀升、俯冲或高速转弯，需要连续无翻折的法向与副法向标架"
+    ],
+    "notWhen": [
+      "主体姿态完全由外部骨骼动画关键帧直接给定"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "核对过竖直环路平行输运正交单位性、步进限幅防翻转、速度曲率倾斜饱和、脚本翻滚角及乱序抽帧一致。",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "高速急弯处身体向内过度翻倒",
+      "fix": "保持 bankSaturation 大于 0，使向心倾斜随速度与曲率平滑饱和在合理倾角内。"
+    },
+    {
+      "symptom": "过垂直段时相邻截面出现剧烈麻花扭转",
+      "fix": "使用步进限幅 maxRollStepDeg 并启用 verticalGuard 平滑过渡。"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "纯函数平行输运标架与曲率向心倾斜求解器，支持轨道预计算场、脚本翻滚及视向背脊滚转。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "kernel-eval",
+      "source": "0.1.0",
+      "gpu": "none",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": ["cal:motion.roll-bank"]
+}
