@@ -6,4 +6,5 @@ export * from './audio.mjs';
 export * from './script-audio.mjs';
 export { FOLEY_VOICES } from './foley.mjs';
 export * from './deliver.mjs';
+export { composeMixedFilm, measureOverlayAnchorCenter, renderAnchoredOverlayFrames } from './mixed.mjs';
 export { bakeAgxLut, SHAPER } from './lut/bake-agx.mjs';

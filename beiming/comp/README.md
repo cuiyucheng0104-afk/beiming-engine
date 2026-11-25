@@ -2,6 +2,17 @@
 
 接收[帧源](../kernel/contracts/source/CONTRACT.md)与[输出通道](../kernel/contracts/passes/CONTRACT.md)，按[片子描述](../kernel/contracts/film/CONTRACT.md)交付成片。公共入口在 `index.mjs`；跨组件交接遵循[目录归属契约](../kernel/contracts/ownership/CONTRACT.md)，引用旧目录须命中白名单。
 
+## 混用镜头
+
+`frames[shotId].overlay` 接收 `{ pattern, start?, kind?: 'png', opacity? }`。带 `%0Nd` 的直通 RGBA PNG 与底图逐帧配对，`start` 默认 0，`opacity` 默认 1，值域 `(0, 1]`。叠加在 AgX 或 sRGB 显示变换之后、收尾与 BT.709 转换之前。
+
+```js
+const overlay = await renderAnchoredOverlayFrames({ meta, params, outDir: overlayDir })
+await composeMixedFilm({ ...deliverOpts, overlayShot: 's01', overlay })
+```
+
+`meta` 按局部帧号排列，尺寸与底图一致。`params.callouts` 指定实体、可选锚点名、文字及相对偏移。换机位只需传入新帧和新 `meta`。传入已启动的 `pageSource` 会用 three 页面宿主渲染 `x7-overlay.shot.js`，省略则由 `overlay.anchored` 离屏绘制。`overlayDir` 是父目录已存在的新目录。交付开启 `web` 和 `contact`，切点来自片子镜头表。`run.json` 的编码参数记录叠加输入路径。
+
 ## 流式输出
 
 `encode(opts)`、`deliver(opts)` 默认同步。传 `sinkFactory` 后返回 Promise，参数错误也会拒绝。例如 `await deliver({ ...opts, sinkFactory: openEncoderSink })`。
