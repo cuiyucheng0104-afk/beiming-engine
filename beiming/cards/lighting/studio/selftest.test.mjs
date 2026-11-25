@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+const python = process.env.BEIMING_PY || (process.platform === 'win32' ? 'python' : 'python3');
 const entry = fileURLToPath(new URL('./index.py', import.meta.url));
 function offline(source) {
   const script = `import runpy, sys, math, copy
@@ -11,7 +12,7 @@ assert 'bpy' not in sys.modules and 'mathutils' not in sys.modules
 def close(a, b): return math.isclose(a,b,rel_tol=1e-6,abs_tol=1e-8)
 def near(a, b): return all(map(close,a,b)) and len(a)==len(b)
 ` + source;
-  const proc = spawnSync('python3', ['-I', '-B', '-c', script, entry], { encoding: 'utf8', timeout: 15000, env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+  const proc = spawnSync(python, ['-I', '-B', '-c', script, entry], { encoding: 'utf8', timeout: 15000, env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
   assert.ifError(proc.error);
   assert.equal(proc.status, 0, proc.stderr);
 }
