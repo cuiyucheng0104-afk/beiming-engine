@@ -124,20 +124,26 @@ export function buildRef(opts) {
 
 /** 跑一个从 stdin 读 float32 流的程序（标准答案程序、core-render fncheck-host）。input 先写进临时文件、文件作 stdin 交给它，
  *  不用 spawnSync 的 input：macOS 上 spawnSync 往管道写几 MB 的 input 偶尔写不完也不关管道，子进程停在读 stdin，两边都不动，
- *  整个测试挂到超时（Node 24.13，同一个调用压测约每几百次一次；改成文件作 stdin 之后 1500 次没有一次） */
+ *  整个测试挂到超时（Node 24.13，同一个调用压测约每几百次一次；改成文件作 stdin 之后 1500 次没有一次）。
+ *  启动失败（含程序不存在）照原样抛出 spawnSync 的错误，不当成缺工具链 */
 export function runStdin(cmd, args, input) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fncheck-'));
   const file = path.join(dir, 'in.f32');
   try {
     fs.writeFileSync(file, Buffer.from(input.buffer, input.byteOffset, input.byteLength));
     const fd = fs.openSync(file, 'r');
-    try { return sh(cmd, args, { stdio: [fd, 'pipe', 'pipe'] }); } finally { fs.closeSync(fd); }
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    try {
+      const r = spawnSync(cmd, args, { stdio: [fd, 'pipe', 'pipe'], maxBuffer: 1 << 30 });
+      if (r.error) throw r.error;
+      return r;
+    } finally { fs.closeSync(fd); }
+  } finally { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 }); }
 }
 
 /** 跑一个函数：input 是每组 nIn 个 float32 的扁平数组，返回 count 个 float32 */
 export function runRef(bin, id, input, count) {
-  const r = runStdin(bin, [id], input);
+  let r;
+  try { r = runStdin(bin, [id], input); } catch (e) { throw e.code === 'ENOENT' ? missing(`找不到 ${bin}`) : e; }
   if (r.status !== 0) throw new Error(`标准答案程序 ${id} 退出码 ${r.status}：${r.stderr}`);
   if (r.stdout.length !== count * 4) throw new Error(`标准答案程序 ${id} 输出 ${r.stdout.length} 字节，应为 ${count * 4}`);
   return new Float32Array(r.stdout.buffer.slice(r.stdout.byteOffset, r.stdout.byteOffset + r.stdout.length));
