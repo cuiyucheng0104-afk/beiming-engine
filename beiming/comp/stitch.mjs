@@ -9,7 +9,8 @@
 //   幅度 = round(grain × 100)，单位是 8 位码值的噪声强度；只加在亮度上，色度不动；种子用 all_seed，本机 FFmpeg 8 的 c0_seed 不生效）。grain、vignette 都是 0 时一个收尾滤镜都不挂，滤镜图等于分流加格式换算。
 import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
+import { basename, dirname } from 'node:path';
 import { FFMPEG, FFPROBE } from '../../engine/render/lib/ffmpeg.mjs';
 
 export class CompError extends Error {
@@ -132,9 +133,32 @@ function sequenceKind(seq) {
   throw bad(`认不出帧序列的格式：${seq.pattern}（只收 .exr、.png）`);
 }
 
+function normalizeOverlay({ id, in: from }, overlay, count, checkFiles) {
+  if (!overlay || typeof overlay !== 'object' || Array.isArray(overlay)) throw bad(`镜头 ${id} 的 overlay 必须是对象`);
+  const { pattern, start = 0, kind = 'png', opacity = 1 } = overlay;
+  if (kind !== 'png' || typeof pattern !== 'string' || !/\.png$/i.test(pattern)) throw bad(`镜头 ${id} 的 overlay 只收 PNG 序列`);
+  const width = /^[^%]*%0([1-9]\d*)d[^%]*$/.exec(basename(pattern))?.[1];
+  if (!width || Number(width) > 255 || pattern.includes('\0') || dirname(pattern).includes('%')) {
+    throw bad(`镜头 ${id} 的 overlay 文件名需要一个有效的 %0Nd 占位符`);
+  }
+  // image2 用 int 保存帧编号。
+  if (!Number.isInteger(start) || start < 0 || start + count - 1 > 2147483647) {
+    throw bad(`镜头 ${id} 的 overlay 帧编号必须在 [0, 2147483647] 内`);
+  }
+  if (!Number.isFinite(opacity) || opacity <= 0 || opacity > 1) throw bad(`镜头 ${id} 的 overlay.opacity 必须在 (0, 1]`);
+  if (checkFiles) {
+    for (let i = 0; i < count; i++) {
+      const file = framePath(pattern, start + i);
+      if (!statSync(file, { throwIfNoEntry: false })?.isFile()) throw bad(`镜头 ${id} 的 overlay 缺第 ${from + i} 帧的 PNG 文件：${file}`);
+    }
+  }
+  return { pattern, start, kind, opacity };
+}
+
 /**
  * 校验并规范化一个镜头的帧序列描述。
- * shot：{ id, in, out, colorRef, pattern, start?, kind?, transfer? }
+ * shot：{ id, in, out, colorRef, pattern, start?, kind?, transfer?, overlay? }
+ *   overlay：{ pattern, start?, kind?: 'png', opacity? }，显示编码的直通透明度 PNG。
  *   pattern 带 %0Nd；start 是第一个文件的编号（默认 0，镜头局部帧号）；kind 是 exr 或 png；
  *   transfer 是 linear 或 srgb（exr 默认 linear，png 默认 srgb）。
  */
@@ -159,7 +183,9 @@ export function normalizeShot(shot, { checkFiles = true } = {}) {
       if (!existsSync(p)) throw bad(`镜头 ${shot.id} 缺第 ${shot.in + i} 帧（全片帧号）的文件：${p}`);
     }
   }
-  return { id: shot.id, in: shot.in, out: shot.out, colorRef: shot.colorRef, pattern: shot.pattern, start, kind, transfer, count };
+  const normalized = { id: shot.id, in: shot.in, out: shot.out, colorRef: shot.colorRef, pattern: shot.pattern, start, kind, transfer, count };
+  if (shot.overlay !== undefined) normalized.overlay = normalizeOverlay(shot, shot.overlay, count, checkFiles);
+  return normalized;
 }
 
 /** 一个镜头的分流滤镜（不含输入标签）：转 32 位浮点 RGB、截帧、缩放到成片尺寸，再按 colorRef 走显示变换 */
@@ -191,7 +217,7 @@ export function branchFilter(shot, { size, fps, view, index = 0 }) {
 
 /**
  * 拼接图：返回 { inputs, filter, label }。
- *   inputs  每个镜头一组 ffmpeg 输入参数（按镜头次序，输入编号 = 下标）
+ *   inputs  每个底图镜头一组参数（输入编号 = 镜头下标），可选的 PNG 叠加序列随后按镜头顺序追加
  *   filter  -filter_complex 的串；末尾输出 [label]，像素格式 yuv420p、有限范围 BT.709 矩阵（色彩标注由编码那步挂 setparams）
  * spec：{ shots, size: [宽, 高]（像素）, fps: "num/den", view: { lutPath, shaper }, finish: { grain, vignette }, transitions, seed, checkFiles }
  * 硬切之外的转场报错；镜头必须首尾相接、从 0 帧起。
@@ -214,13 +240,23 @@ export function stitchGraph(spec) {
     if (t.type !== 'cut') throw bad(`转场 ${t.id} 的类型是 ${t.type}：本模块只做硬切`);
     if (!cuts.has(t.at)) throw bad(`转场 ${t.id} 的帧 ${t.at} 不是镜头交界`);
   }
-  const inputs = list.map((s) => [
-    '-f', 'image2', '-framerate', `${fps.num}/${fps.den}`, '-start_number', String(s.start), '-i', s.pattern,
-  ]);
+  const sequenceInput = ({ start, pattern }) => [
+    '-f', 'image2', '-framerate', `${fps.num}/${fps.den}`, '-start_number', String(start), '-i', pattern,
+  ];
+  const inputs = list.map(sequenceInput);
   const filters = list.map((s) => finishOff ? { rgb: null, yuv: null } : finishFilters(finish, spec.shotSeeds?.[s.id] ?? seed));
   const parts = list.map((s, i) => {
-    const chain = [branchFilter(s, { size, fps, view, index: i }), 'setsar=1', filters[i].rgb, TO_YUV709, filters[i].yuv].filter(Boolean);
-    return `[${i}:v]${chain.join(',')}[b${i}]`;
+    let display = `[${i}:v]${branchFilter(s, { size, fps, view, index: i })}`;
+    if (s.overlay) {
+      const layer = inputs.length;
+      inputs.push(sequenceInput(s.overlay));
+      const alpha = s.overlay.opacity < 1 ? `,colorchannelmixer=aa=${num(s.overlay.opacity)}` : '';
+      display += `,format=rgba[base${i}];[${layer}:v]trim=end_frame=${s.count},setpts=PTS-STARTPTS,`
+        + `scale=${size.join(':')}:flags=bicubic,format=rgba,setsar=1${alpha}[layer${i}];`
+        + `[base${i}][layer${i}]overlay=0:0:format=auto:shortest=1`;
+    }
+    const chain = [display, 'setsar=1', filters[i].rgb, TO_YUV709, filters[i].yuv].filter(Boolean);
+    return `${chain.join(',')}[b${i}]`;
   });
   const joined = list.length > 1 ? `${list.map((_, i) => `[b${i}]`).join('')}concat=n=${list.length}:v=1:a=0` : '[b0]null';
   parts.push(`${joined}[vout]`);
