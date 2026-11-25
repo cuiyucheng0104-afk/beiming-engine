@@ -5,7 +5,7 @@
   "backend": "Metal",
   "driver": ""
  },
- "kernel": "10acd7e3caf37e2b",
+ "kernel": "9500db68305b3647",
  "upstreamCommit": "c946cc96bdb08979224e851a7fc67a066b1b456b",
  "level2": {
   "白炉 GGX 0.05": 0.9999891913480892,
@@ -71,8 +71,8 @@
     "geometry/edit-move-live": "unsupported",
     "geometry/emitter-added-live": "unsupported",
     "geometry/emitter-added-tree-live": "unsupported",
-    "geometry/emitter-instance": "pass 09d86569a47b441fb1eab029a66b77a4799284bd6a2d2ceffa23c60ed738c3ca",
-    "geometry/emitter-model": "pass 28b09cdcb17e71504f4aabc7ea04bb0ee092a5521a774d0b99560c9ec7847c99",
+    "geometry/emitter-instance": "pass 7f2059eed22bebaea9eadf7eaa0a4265a25bc7c8b6b38648d9ebaeab199378b5",
+    "geometry/emitter-model": "pass d742efaaf151aff59333e60e16f355650a325fcccee2d0843696f0f0fe1c6a92",
     "geometry/emitter-removed-live": "unsupported",
     "geometry/groups": "pass 42b1ec274527bf3c30d518bfafbab2cbb05f4e57a1f92443ea380286117933ee",
     "geometry/grow-live": "unsupported",
@@ -86,8 +86,8 @@
     "glass/internal-reflection": "pass 01bb2abf15108f81e162e1c48e06df1cdf5dd44acd6416e3dceb8c620f5879a2",
     "glass/rough-enter-compensated": "pass edda240cc723450d852dad2fcc5ad28eb2568ed703545a05a5f7197a57cab9a6",
     "glass/rough-enter": "pass a8c2a0adc64f605dbd784109660e73f26caa6087d8f4be7f7e8d0b93f3277b86",
-    "glass/rough-lamp-wide": "pass ceecf3a8a87507fb3c0ab3bda9c58c2e6ee707f87f94fc92a87f39fddfa0f179",
-    "glass/rough-lamp": "pass 20ea61ae4a010dbfc2377ca373914e923df642e18fa28ffbdb7354b6877b149d",
+    "glass/rough-lamp-wide": "pass db21bedbe49f914cb17f892b37ccfc811de58ba2ec8a6e236693e1d9f6a7a2e9",
+    "glass/rough-lamp": "pass d3f68bfa34abfb7cba8a13881342fbdb6d63679e625a6e1a22e9cbebd2894d7e",
     "glass/rough-leave-compensated-live": "unsupported",
     "glass/rough-leave-compensated": "pass cfdbebeac07c0c82f0ed4b2e0cd1d7feab477343f4b0b69e94ea91ba8a9feff2",
     "glass/rough-leave-low": "pass 84766bbc7969e44e8257b9aa2d30729d2328f999933f06122b7afe6d9f3ceb10",
@@ -171,7 +171,7 @@
     "shadow/cutout-emitter-live-exact": "unsupported",
     "shadow/cutout-emitter": "pass 70a135c4bc8aca3a40d9c79dcbaf9ad7b8318ae7cc8c03c73a4439a2cce733af",
     "shadow/directional": "pass a3372f2f49fdbe336dbfc2c8ca6d0727af310bb9da4674a1fbe16c46c51d77e1",
-    "shadow/emitter-no-cast": "pass 0a06044fa28164133685ede26578f317c14ba51e33c3c3c9e9595c353c69bd7b",
+    "shadow/emitter-no-cast": "pass 21ec0fda1dc5ba1e6c1d69da66279b6cbaf368595c38b6aa72cd54b41c18498d",
     "shadow/glass-tint-live-exact": "unsupported",
     "shadow/glass-tint-live": "unsupported",
     "shadow/glass-tint": "pass 0c4e901961fa320d70e3077ca69f211e7722ea66c27856ececa324dc8c087839",
@@ -277,7 +277,7 @@
     "water/scatter-live": "unsupported",
     "water/scatter": "pass e5866d4119bd8459adf1ebc6902fc2c01832f184dc695de5d5a70b2013847e7a",
     "wind/pivot-sway-live": "unsupported",
-    "wind/pivot-sway": "pass 13509d252fe7ada926240b3baaab2a99c77e7703424e494a8caf1bee54e07eed"
+    "wind/pivot-sway": "pass e8cd5e1e7469cefebdb45aea207f36bb22a6040fa14c10922363b33a9842ee50"
    }
   },
   "hw": {
@@ -321,8 +321,8 @@
     "geometry/edit-move-live": "unsupported",
     "geometry/emitter-added-live": "unsupported",
     "geometry/emitter-added-tree-live": "unsupported",
-    "geometry/emitter-instance": "pass 6f9756ccf292ac670ee24bfebbb54ea0af203ed5686a6159acee8eddb1d0f18c",
-    "geometry/emitter-model": "pass 1d228970325a8899ba83ed4e9714f8b63266a6e75a25292bf7f4259452d25fdc",
+    "geometry/emitter-instance": "pass 8feee8c8f5165d0b01b39f6279a917a256e6c2cdad628cfffbebbb1ff6de8a2c",
+    "geometry/emitter-model": "pass f7f9bfe6f1552e8e8dd81704bb387611d76fc35ee5d6f9d48a1febf47a152321",
     "geometry/emitter-removed-live": "unsupported",
     "geometry/groups": "pass 42b1ec274527bf3c30d518bfafbab2cbb05f4e57a1f92443ea380286117933ee",
     "geometry/grow-live": "unsupported",
@@ -336,8 +336,8 @@
     "glass/internal-reflection": "pass 3163ef9c2ace99251fe2ec7f83b2dfc922393891f9f6d168965d22bef7e93c6a",
     "glass/rough-enter-compensated": "pass 37730036bed6f726457ff5581165effb08d18d3c714744b962cd03116e1bdfdf",
     "glass/rough-enter": "pass be81ad702b7c970f5355c65395054694d18c71b3efd570348f5a4d35a2866343",
-    "glass/rough-lamp-wide": "pass 5f8a3089e94c840df17e97e22be224af9632bbe8295f0123c1991ba1a39426f9",
-    "glass/rough-lamp": "pass ceb43c22303340b6a28f416fde96dfc8d676efe348f6bb372af294dc878431b7",
+    "glass/rough-lamp-wide": "pass 3513442f315d279af39f43ddd6cf11765251b66b9da4d7305136a3070845d2d8",
+    "glass/rough-lamp": "pass 9d352f4791d376f91680b67038cd94f6a2bafeaf9e6c1317bf5bd2b59ed7a1ee",
     "glass/rough-leave-compensated-live": "unsupported",
     "glass/rough-leave-compensated": "pass dc2090f9d5b1cbafdf6f211e16d54444badfcdecb9aad3977ff01d87ca700a38",
     "glass/rough-leave-low": "pass 7fc5a2180753fb8449e07730e9ae45becd9234e41dac2806239b1d11febe327f",
@@ -421,7 +421,7 @@
     "shadow/cutout-emitter-live-exact": "unsupported",
     "shadow/cutout-emitter": "pass 9ea643ec97da81f326f58c3fed8d0711d1e24d81efd0ae0cdb7bb00f604dcb6c",
     "shadow/directional": "pass a3372f2f49fdbe336dbfc2c8ca6d0727af310bb9da4674a1fbe16c46c51d77e1",
-    "shadow/emitter-no-cast": "pass caa27bbca015ac61d847c7e3706ab29f21eaf9426de1d91e59252a26f14b3daf",
+    "shadow/emitter-no-cast": "pass 059b1f3c583d999fd2fb0c1bac0cfa0484743978306a74b01bd3bf8c868bf851",
     "shadow/glass-tint-live-exact": "unsupported",
     "shadow/glass-tint-live": "unsupported",
     "shadow/glass-tint": "pass 3562fce4b97e476b1cae51da0d697876dd09e58a68e5cdbe19dcf6cf79fc3185",
@@ -527,7 +527,7 @@
     "water/scatter-live": "unsupported",
     "water/scatter": "pass ccc5735de3f76355fc35329871a83fe97f0698d30a915b1e6c294dfdd1a4ad40",
     "wind/pivot-sway-live": "unsupported",
-    "wind/pivot-sway": "pass 9afe3593e22869e78a56c156bf8bfe01e24d8326f48acdc72382d1dbe93f4fb9"
+    "wind/pivot-sway": "pass 61d0c12ce1561bd791010d0d8027080a0e8ce7d76b602b392d9814aa8f7ddf69"
    }
   }
  },
@@ -542,18 +542,18 @@
   "width": 1920,
   "height": 1080,
   "spp": 256,
-  "firstFrameMs": 2298.2,
-  "steadyS": 1.5607,
+  "firstFrameMs": 2450,
+  "steadyS": 1.5694000000000001,
   "samples": {
    "firstFrameMs": [
-    2288.8,
-    2325.9,
-    2298.2
+    2639.4,
+    2450,
+    2375.6
    ],
    "steadyS": [
-    1.5631,
-    1.5591,
-    1.5607
+    1.5872,
+    1.5689000000000002,
+    1.5694000000000001
    ]
   }
  }

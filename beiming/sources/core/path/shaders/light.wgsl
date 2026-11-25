@@ -229,9 +229,10 @@ fn sky_mis(d: vec3<f32>, pdf: f32) -> vec3<f32> {
 // （PATH_RAY_MIS_SKIP 时取 1），逐盏写进颜色与它的灯组（film_add_forward）。半角与概率密度由记录里的 one_minus_cosangle 现算
 // （宿主 scene/light.cpp 存 sun.angle、sun.pdf，这里少存两格）。
 fn sun_disks(d: vec3<f32>, pdf: f32) {
+    let receiver = light_receiver_set(state.mis_ray_object);
     for (var i = 0u; i < P.counts2.x; i++) {
         let li = light_at(i);
-        if ((li.cy.w & SHADER_USE_MIS) == 0u) { continue; }
+        if ((li.cy.w & SHADER_USE_MIS) == 0u || !light_linked(li, receiver)) { continue; }
         let one_minus_cosangle = bitcast<f32>(li.cy.y);
         let angle = 2.0 * asin(sqrt(0.5 * one_minus_cosangle));
         let e = sun_light_eval_from_intersection(li.dir.xyz, angle, bitcast<f32>(li.cy.x), M_1_2PI_F / one_minus_cosangle, d);
@@ -344,9 +345,10 @@ fn bm_rect_sample(li: Light, x: vec3<f32>, u: vec2<f32>) -> LS {
 // o 是着色点本身，不是沿法线挪开之后的射线起点：光源采样一侧从着色点本身算，两侧要用同一个点。
 // 灯不挡光，射线照常往前走；不投影的灯在光源一侧不查遮挡，这一侧也不查。
 fn bm_rect_hits(o: vec3<f32>, d: vec3<f32>, t_hit: f32, pdf_b: f32) {
+    let receiver = light_receiver_set(state.mis_ray_object);
     for (var i = P.counts2.x; i < P.counts.x; i++) {
         let li = light_at(i);
-        if (u32(li.pos.w) != 3u || all(li.color.rgb <= vec3<f32>(0.0)) || (li.cy.w & SHADER_USE_MIS) == 0u) { continue; }
+        if (u32(li.pos.w) != 3u || all(li.color.rgb <= vec3<f32>(0.0)) || (li.cy.w & SHADER_USE_MIS) == 0u || !light_linked(li, receiver)) { continue; }
         let r = bm_rect(li);
         let h = area_light_intersect(o, d, 0.0, select(t_hit, INF, li.ext.w < 0.5), li.pos.xyz, r.u, r.len_u, r.v, r.len_v, li.dir.xyz, r.invarea);
         if (!h.hit) { continue; }
@@ -792,6 +794,19 @@ fn env_light(sd: ShadingPoint, o: vec3<f32>) -> vec3<f32> {
 const SHADER_USE_MIS: u32 = 1u << 28u;
 const LIGHTGROUP_SLOT_MASK: u32 = 0xffffu;
 
+// 灯光链接：照 Cycles 的 light_link_object_match（kernel/light/light.h:62-78），接收者的集合号那一位在灯的成员掩码（记录的 cy.z）里。
+// 集合号是接收者物体的 ObjectExt.receiver_light_set（light_receiver_set）
+fn light_linked(li: Light, receiver_set: u32) -> bool {
+    return ((1u << receiver_set) & li.cy.z) != 0u;
+}
+
+// 物体的接收者集合号：光源一侧取着色点的物体（Cycles 的 light_link_receiver_nee），前向取 state.mis_ray_object
+// （light_link_receiver_forward）。没有物体（OBJECT_NONE：介质散射处）记 0：Cycles 在那里不查链接，0 号集合也受所有没链接的灯照
+fn light_receiver_set(object: u32) -> u32 {
+    if (object == OBJECT_NONE) { return 0u; }
+    return object_ext_at(object).receiver_light_set;
+}
+
 // 这盏灯写进 film 的第几个灯组（LIGHTGROUP_NONE：不进灯组）
 fn light_lightgroup(li: Light) -> u32 {
     let slot = li.cy.w & LIGHTGROUP_SLOT_MASK;
@@ -912,10 +927,11 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
     if (lamp_local) { lamp_end = P.counts.x; }
     var local_w = 1.0;
     @if(light_pick) { local_w = pick_w; }
+    let receiver = light_receiver_set(sd.object);
     for (var i = 0u; i < lamp_end; i++) {
         let li = light_at(i);
         // A light gone black (a moon that has set, the sun at night) costs neither its BSDF nor its shadow ray.
-        if (all(li.color.rgb <= vec3<f32>(0.0))) { continue; }
+        if (all(li.color.rgb <= vec3<f32>(0.0)) || !light_linked(li, receiver)) { continue; }
         let sun = i < P.counts2.x;
         // （随机数的编号同上游：平行光取 D_SUN、D_SUN_VIS，本地灯取 D_LOCAL 与它的阴影射线那一路，各按灯的下标分开）
         let rd = select(rng_sub(rng_legacy(D_LOCAL), i), rng_sub(rng_legacy(D_SUN), i), sun);
