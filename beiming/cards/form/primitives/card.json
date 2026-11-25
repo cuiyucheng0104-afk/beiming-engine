@@ -1,0 +1,94 @@
+{
+  "format": "card/0.1",
+  "id": "form.primitives",
+  "version": "1.0.0",
+  "kind": "form",
+  "title": "硬表面几何原语",
+  "intent": "生成毫米至米级的倒角盒、两端倒角圆柱与中槽板件",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:blender"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:blender",
+      "entry": "cards/form/primitives/index.py",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "cycles",
+          "version": "5.2.0"
+        }
+      ],
+      "selftest": "cards/form/primitives/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "spec": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": {
+        "kind": "box",
+        "sizeM": [
+          1,
+          1,
+          1
+        ]
+      },
+      "coupling": "scene-scale"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "bbox",
+        "type": "bbox-world"
+      },
+      {
+        "name": "readings",
+        "type": "frame-meta"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "center 与 sizeM 使用北冥右手 Y-up 米制坐标，center 缺省为原点，Blender 对象名默认 body。",
+      "箱体与圆柱可设 bevelM、bevelSegments。倒角宽度必须小于最短半尺寸；圆柱沿 Y 轴，高度和半径分别由 heightM 和 radiusM 指定。",
+      "板件从 +Y 面下切居中的 X/Z 矩形槽，slotDepthM 等于板厚时贯通。槽宽、长分别小于板件的 X、Z 尺寸。"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "需要尺寸可控并可直接出帧的硬表面基础件"
+    ],
+    "notWhen": [
+      "需要任意轮廓或偏心槽口"
+    ]
+  },
+  "calibration": "probe-axes-turntable",
+  "verify": {
+    "selftest": "核对三/四边面、外绕序、边的双向配对、倒角细分、槽体积和外包尺寸；Cycles 帧回读检查可见像素和世界包围盒。",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [],
+    "note": "以内盒投影生成圆角盒，按径向环生成圆柱，按嵌套矩形环构造盲槽或通孔。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "cycles",
+      "source": "5.2.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": [
+    "1-2",
+    "cal:form.primitives"
+  ]
+}

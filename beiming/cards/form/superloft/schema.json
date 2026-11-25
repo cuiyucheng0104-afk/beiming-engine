@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "minItems": 2,
+  "maxItems": 64,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "rx": {
+        "type": "number",
+        "minimum": 1e-05,
+        "maximum": 1000
+      },
+      "ry": {
+        "type": "number",
+        "minimum": 1e-05,
+        "maximum": 1000
+      },
+      "exponent": {
+        "type": "number",
+        "minimum": 1
+      },
+      "center": {
+        "type": "array",
+        "minItems": 3,
+        "maxItems": 3,
+        "items": {
+          "type": "number",
+          "minimum": -10000,
+          "maximum": 10000
+        }
+      },
+      "twistDeg": {
+        "type": "number",
+        "minimum": -360,
+        "maximum": 360,
+        "description": "绕局部脊线切向的右手角，单位为度。"
+      }
+    },
+    "required": [
+      "rx",
+      "ry",
+      "exponent",
+      "center"
+    ]
+  }
+}

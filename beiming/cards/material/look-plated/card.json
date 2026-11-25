@@ -1,0 +1,147 @@
+{
+  "format": "card/0.1",
+  "id": "look.plated",
+  "version": "1.0.0",
+  "kind": "material",
+  "title": "电镀与银镜流光",
+  "intent": "为金属主体提供镜面底板、半球渐变反射和环绕移动高光",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:blender"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:blender",
+      "entry": "cards/material/look-plated/index.py",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "cycles",
+          "version": "5.2.0"
+        }
+      ],
+      "selftest": "cards/material/look-plated/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "target": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": {
+        "object": "body"
+      },
+      "coupling": "none"
+    },
+    "variant": {
+      "type": "string",
+      "unit": "none",
+      "default": "plated",
+      "coupling": "none"
+    },
+    "stripCount": {
+      "type": "integer",
+      "unit": "none",
+      "range": [
+        1,
+        32
+      ],
+      "default": 7,
+      "coupling": "none"
+    },
+    "radiusM": {
+      "type": "number",
+      "unit": "m",
+      "range": [
+        0.05,
+        1000
+      ],
+      "default": 3.5,
+      "coupling": "scene-scale"
+    },
+    "heightM": {
+      "type": "number",
+      "unit": "m",
+      "range": [
+        0.05,
+        1000
+      ],
+      "default": 1.6,
+      "coupling": "scene-scale"
+    },
+    "sweepRateDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [
+        -360,
+        360
+      ],
+      "default": 1.5,
+      "coupling": "fps"
+    },
+    "exposureScale": {
+      "type": "number",
+      "unit": "none",
+      "range": [
+        0,
+        100
+      ],
+      "default": 1,
+      "coupling": "none"
+    },
+    "sweepEnabled": {
+      "type": "boolean",
+      "unit": "none",
+      "default": true,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "readings",
+        "type": "frame-meta"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "target 只能指定一个 object 或 material。物体取活动材质，材质须启用节点并含 Principled BSDF。把创建目标的卡写在本卡之前。",
+      "每场景一个摄影棚，灯条环绕坐标原点、镜面地板位于 Y=0。variant 可选 plated 或 silver。",
+      "sweepRateDeg 按局部帧每帧走度数，站在 +X 一侧开始朝 +Z。关闭 sweepEnabled 后灯条固定在第 0 帧。",
+      "保留 Principled 已连线的输入，先设电镀外观再接 AO 勾线，可让勾线以电镀色为基底。"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "静止金属主体需要沿表面移动的窄条高光"
+    ],
+    "notWhen": [
+      "场景需要沿用另一套世界反射和地板"
+    ]
+  },
+  "calibration": "studio-balls@1",
+  "verify": {
+    "selftest": "按帧与子帧核对灯条闭式相位；固定机位实渲两个帧号，开启流光有像素差，关闭流光逐位一致。",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [],
+    "note": "将各灯条的等间隔初相位叠加同一闭式扫角，并以半球权重调制世界亮带。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "cycles",
+      "source": "5.2.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": [
+    "cal:look.plated"
+  ]
+}
