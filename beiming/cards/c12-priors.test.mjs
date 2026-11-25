@@ -29,18 +29,18 @@ const EXPECTED_TOTALS = Object.freeze({
 });
 
 const EXPECTED_SHA256 = Object.freeze({
-  'fx-ui.json': 'sha256:c55d96407a4e5364a9463c3773895e5198db8ea1a8fc8a445328458452e8c19c',
-  'fx-ui.card-priors.json': 'sha256:ecd7b94c6e4f7a13c9add30859c6f07b157240bfabdcce04f548a2730845afc6',
-  'fx-ui.practices.json': 'sha256:8cb2022bafc55b91c4cb55f7584f9eae21e47d6269d7bc058aa78f41ccf3ba40',
-  'fx-ui.manifest.json': 'sha256:7872192e01fd0575ed00cb9c87efddc7e55bd14d06fd1fefd78bfdc179d7f163',
-  'mat-hardsurf.json': 'sha256:d0b826a775b4217017798db526d39c1520880c849c0e37702c8b677de7d493d4',
-  'mat-hardsurf.card-priors.json': 'sha256:8f7219337fa36db2bcdb75b81f57c1d2285dcb1b6f6af6411a0f6c88fc991db6',
-  'mat-hardsurf.practices.json': 'sha256:520f079120f37fb7233533d259580204c0e1c9d007e1502eaf5b84472270cf62',
-  'mat-hardsurf.manifest.json': 'sha256:e836109c79024646db814f2fcdebd4b519ed1757cd7bf3a4f04c59679edeeab8',
-  'render-pipe.json': 'sha256:23a5b92d918b4570452745e0d10c1ff798ea347eeac4376268f7901452f723c9',
-  'render-pipe.card-priors.json': 'sha256:003590e070e8a79c2f47399ef6cf85941d241149dc1b624e3bf9e0576424dd46',
-  'render-pipe.practices.json': 'sha256:c4479e3efaaa84d0602e496cebd298d49667aff3312393717ce623914599f9db',
-  'render-pipe.manifest.json': 'sha256:7326ab2843c054e8c256be1de43487c7f6b70b94fc29b130732d96b240fa9892',
+  'fx-ui.json': 'sha256:960a7007047383c3110a55f646e23c62601957ffd73c8c944beadd33f17f6ea9',
+  'fx-ui.card-priors.json': 'sha256:31566e6c100325ea7d56b8c750da17072ed92403e54cde8c9294e9ed0b32a312',
+  'fx-ui.practices.json': 'sha256:70a1e56ffa28bae8c8cd741dba6aa84ad962d9d52bb639a59afb4ae404b22cf3',
+  'fx-ui.manifest.json': 'sha256:3911ec3d45b32b9f81ff8ec7b99586c7b9bc34d967b3744cb89a3b18c28a4efb',
+  'mat-hardsurf.json': 'sha256:f66045e2e959f0151afeba05ef683126ab7f06a2227321d1e660511c066cdaef',
+  'mat-hardsurf.card-priors.json': 'sha256:a025e694aa2a3327ae2ad499fb633eb2d36611727887215ce203586cf95301a7',
+  'mat-hardsurf.practices.json': 'sha256:7c3d4648a05c803ed60a19a6141e3914effa63947e9a5efd60b4484c2f104375',
+  'mat-hardsurf.manifest.json': 'sha256:2b75f0bb3adcf2b8577294333743f2e83e98764fc45d8d40ed40d4e6b99c8b8f',
+  'render-pipe.json': 'sha256:3db3cedd4064f4054ebfe139a9c3bd208ee7082092f17a108d729a38925caf6f',
+  'render-pipe.card-priors.json': 'sha256:b2baf66b115d9d8605becc463a7909f32d81f7859fde62326d7c63deefcb402b',
+  'render-pipe.practices.json': 'sha256:8b7d5b0c1de647c4d536d83285cb203fb69397b2d934b0b410969017fa842747',
+  'render-pipe.manifest.json': 'sha256:b653c38da9f0f3246997bf11f602b244306502f640378299b237717e6c359065',
 });
 
 // 05 §5 全部 92 张正式技术卡清单（挂卡 target/cardId 必须严格落在此集合内）
@@ -353,7 +353,7 @@ test('三份可移植先验整表过 C9：0 错误、0 泄露、单位与色彩�
     for (const e of priors) {
       assert.ok(PRIOR_UNITS.includes(e.unit), `${e.id}: unit=${e.unit}`);
       if (e.unit === 'count') {
-        assert.match(e.topic, /\.(?:label-count|pin-count|bone-count|morph-count|material-count)$/, `${e.id}: 仅特定资产/界面参照规模允许 count`);
+        assert.match(e.topic, /\.(?:label-count|pin-count|bone-count|morph-count|material-count|triangle-count)$/, `${e.id}: 仅特定资产/界面参照规模允许 count`);
       }
       assert.equal(e.verifiedInOurStack, false, e.id);
       assert.equal(Object.hasOwn(e, 'readbackEvidence'), false, e.id);
@@ -601,7 +601,7 @@ test('挂卡先验严格取自 05 §5 的 92 张正式卡、cardId===target 且�
 
 test('冲突挂接、caseId 规范与案例 13 章号修复一致', () => {
   const CASE_ID_RE = /^case-(?:\d{2,3}(?:r|-legacy|-original)?|ext\d{2}|multi)$/;
-  const expectedAttached = { 'fx-ui': 1, 'mat-hardsurf': 6, 'render-pipe': 4 };
+  const expectedAttached = { 'fx-ui': 0, 'mat-hardsurf': 5, 'render-pipe': 2 };
 
   for (const col of C12_COLLECTIONS) {
     const { priors, cardPriors, practices, manifest } = DATA[col];
@@ -696,16 +696,13 @@ test('数值忠实度、色彩空间、千分位、省略前导零与随机算�
   assert.ok(linEntries.length >= 40, 'mat-hardsurf 应含标准 PBR 线性基色');
   assert.equal(linEntries.every((e) => e.colorSpace === 'scene-linear-rec709'), true);
 
-  // 2. 显示空间 RGB（srgb-display）及同色冲突挂接
-  const d365 = loadFxUiPriorsStore().get('fx-ui.d365.display-color');
-  assert.ok(d365);
-  assert.equal(d365.unit, 'rgb-display');
-  assert.equal(d365.colorSpace, 'srgb-display');
-  assert.equal(d365.ext['c12.hex'], '#D1FE17');
-  assert.deepEqual(d365.value, [0.819608, 0.996078, 0.090196]);
-  assert.equal(d365.conflicts.length, 1);
-  assert.equal(d365.conflicts[0].unit, 'rgb-display');
-  assert.equal(d365.conflicts[0].colorSpace, 'srgb-display');
+  // 2. 显示空间 RGB（srgb-display）与可移植色值溯源
+  const d276Color = loadFxUiPriorsStore().get('fx-ui.d276.display-color');
+  assert.ok(d276Color);
+  assert.equal(d276Color.unit, 'rgb-display');
+  assert.equal(d276Color.colorSpace, 'srgb-display');
+  assert.match(d276Color.ext['c12.hex'], /^#[0-9A-F]{6}$/);
+  assert.ok(DATA['fx-ui'].cardPriors.some((e) => e.sourceId === 'd365'));
 
   // 3. 千分位大数与冲突（1,134 帧、5,376 帧 vs 5,375 帧）
   assert.equal(loadRenderPipePriorsStore().get('render-pipe.d054.frame-count').value, 1134);
@@ -713,23 +710,21 @@ test('数值忠实度、色彩空间、千分位、省略前导零与随机算�
   assert.equal(d112Frames.value, 5376);
   assert.equal(d112Frames.conflicts[0].value, 5375);
 
-  // 4. 全部 9 条含数值随机区间的记录在 card-priors.json 中结构化保留 jitter（含省略前导零 .4+rand×.8 与 -.08·rnd()）
+  // 4. 含数值随机区间的挂卡记录在 card-priors.json 中结构化保留 jitter（含省略前导零 -.08·rnd()），且 d226 可移植基底不含 jitter
   const fxCardBySrc = new Map(DATA['fx-ui'].cardPriors.map((e) => [e.sourceId, e]));
   const matCardBySrc = new Map(DATA['mat-hardsurf'].cardPriors.map((e) => [e.sourceId, e]));
-  for (const sid of ['d093', 'd095', 'd116', 'd117']) {
+  for (const sid of ['d093', 'd095']) {
     const qs = fxCardBySrc.get(sid)?.quantities.filter((q) => Object.hasOwn(q, 'jitter')) || [];
     assert.ok(qs.length > 0, `fx-ui ${sid} 应含结构化随机区间`);
   }
-  for (const sid of ['d153', 'd226', 'd339', 'd436', 'd447']) {
+  for (const sid of ['d153', 'd339', 'd436', 'd447']) {
     const qs = matCardBySrc.get(sid)?.quantities.filter((q) => Object.hasOwn(q, 'jitter')) || [];
     assert.ok(qs.length > 0, `mat-hardsurf ${sid} 应含结构化随机区间`);
   }
-  const d226Speed = matCardBySrc.get('d226').quantities.find((q) => q.expr === '.4+rand×.8');
-  assert.deepEqual(d226Speed.value, [0.4, 1.2]);
-  assert.equal(d226Speed.jitter, 0.8);
   const d447Noise = matCardBySrc.get('d447').quantities.find((q) => q.expr === '-.08·rnd()');
   assert.deepEqual(d447Noise.value, [-0.08, 0]);
   assert.equal(d447Noise.jitter, 0.08);
+  assert.equal(loadMatHardsurfPriorsStore().get('mat-hardsurf.d226.roughness')?.value, 0.15);
 });
 
 test('R1 公开 API 回归：合成时长、语义邻近过渡时间、同量同子案例汇总、脱敏与分流口径', () => {
@@ -753,11 +748,10 @@ test('R1 公开 API 回归：合成时长、语义邻近过渡时间、同量同
   assert.ok(s095Sum.summaryOf.some((id) => id.startsWith('mat-hardsurf.d536.')), JSON.stringify(s095Sum.summaryOf));
   assert.equal(row('mat-hardsurf', 's084').summaryOf, 'd030');
 
-  // 4. 案例 03-B 无声编码汇总 s074 指回同子案例主出处 d113（不跨子案例串到 03-T 的 d121）
+  // 4. 案例 03-B 无声编码汇总 s074 指回同子案例主出处 d113（不跨子案例串到 03-T 的 d121），去向随明细 d113（practice）
   const s074Row = row('render-pipe', 's074');
   assert.equal(s074Row.summaryOf, 'd113');
-  assert.equal(s074Row.route, 'portable');
-  assert.deepEqual(rp.get('render-pipe.sum.s074').summaryOf, ['render-pipe.d113.resolution']);
+  assert.equal(s074Row.route, 'practice');
 
   // 5. 七个热度色带端点汇总 s022 指回真实包含端点的色带明细 d036 及 d039–d043
   const s022Row = row('fx-ui', 's022');
@@ -772,10 +766,10 @@ test('R1 公开 API 回归：合成时长、语义邻近过渡时间、同量同
   for (const g of collectNgrams(d309.text)) {
     assert.equal(IP_HASHES.has(sha16(g)), false, `fx-ui d309 仍含未脱敏专名哈希：${sha16(g)}`);
   }
-  const d591 = mat.get('mat-hardsurf.d591.length');
-  assert.ok(d591, 'mat-hardsurf.d591.length 应归可移植尺寸先验');
-  assert.equal(d591.value, 8);
-  for (const g of collectNgrams(d591.provenance.note)) {
+  const d591 = DATA['mat-hardsurf'].cardPriors.find((e) => e.sourceId === 'd591');
+  assert.ok(d591, 'mat-hardsurf d591 应存在于挂卡先验');
+  assert.ok(d591.quantities.some((q) => q.value === 8 && q.unit === 'mm'));
+  for (const g of collectNgrams(d591.text)) {
     assert.equal(IP_HASHES.has(sha16(g)), false, `mat-hardsurf d591 仍含未脱敏专名哈希：${sha16(g)}`);
   }
 
@@ -793,12 +787,16 @@ test('R2 公开 API 回归：物理取量、时间语义隔离、汇总精确指
     const r = getBatch3MigrationManifest(lib).ledger.find((x) => x.sourceId === id);
     return [r.summaryOf, ...(r.alsoSummarizes ?? [])];
   };
+  const row = (lib, sid) => getBatch3MigrationManifest(lib).ledger.find((x) => x.sourceId === sid);
 
-  // 1-3. 物理量与二维面积精确折算（速度不串长度、抽样步长不串总帧数、二维百分比面积相乘）
-  assert.equal(value('fx-ui', 'd315.length'), 3000);
-  assert.equal(value('fx-ui', 'd315.speed'), 634);
-  assert.equal(value('fx-ui', 'd333.frame-count'), 27);
-  assert.ok(Math.abs(value('fx-ui', 'd374.area-ratio') - 0.026) < 1e-8, String(value('fx-ui', 'd374.area-ratio')));
+  // 1-3. 物理量分离与冲突拦截（d315 在做法表中速度不串长度，d333 冲突对账归 skipped-or-conflict）
+  const d315Practice = DATA['fx-ui'].practices.find((e) => e.sourceId === 'd315');
+  assert.ok(d315Practice);
+  assert.ok(d315Practice.quantities.some((q) => q.value === 3000 && q.unit === 'm'));
+  assert.ok(d315Practice.quantities.some((q) => q.value === 634 && q.unit === 'm/s'));
+  assert.equal(row('fx-ui', 'd333').route, 'skipped-or-conflict');
+  assert.equal(entry('fx-ui', 'd333.frame-count'), undefined);
+  assert.equal(row('fx-ui', 'd374').route, 'practice');
 
   // 4-5. 编译耗时、时间轴触发时刻、代数倍率与轮询间隔绝不冒充无条件片段时长 duration
   assert.notEqual(value('render-pipe', 'd031.duration'), 100);
@@ -807,7 +805,8 @@ test('R2 公开 API 回归：物理取量、时间语义隔离、汇总精确指
   assert.equal(entry('render-pipe', 'd068.duration'), undefined);
   assert.notEqual(value('fx-ui', 'd227.duration'), 0.55);
   assert.notEqual(value('fx-ui', 'd238.duration'), 0.9);
-  assert.equal(value('fx-ui', 'd238.interval'), 0.9);
+  const d238Card = DATA['fx-ui'].cardPriors.find((e) => e.sourceId === 'd238');
+  assert.ok(d238Card.quantities.some((q) => q.value === 0.9 && q.unit === 's'));
 
   // 6-10. 汇总精确指回点名明细，且次引用零跨节/跨材质污染
   assert.ok(links('fx-ui', 's004').includes('d008'), JSON.stringify(links('fx-ui', 's004')));
@@ -822,16 +821,30 @@ test('R2 公开 API 回归：物理取量、时间语义隔离、汇总精确指
   assert.equal(links('mat-hardsurf', 's063').includes('d188'), false);
 
   // 11-12. 无扩展名原工程目录与具名光标/零件配对标识已彻底脱敏（零私有明文入库）
-  const d294Note = entry('fx-ui', 'd294.resolution').provenance.note;
-  assert.doesNotMatch(d294Note, /\bframes\/[a-z0-9_-]+/i);
-  for (const g of collectNgrams(d294Note)) {
-    assert.equal(IP_HASHES.has(sha16(g)), false, `d294 note 命中专名哈希：${sha16(g)}`);
+  const d294Text = DATA['fx-ui'].practices.find((e) => e.sourceId === 'd294').text;
+  assert.doesNotMatch(d294Text, /\bframes\/[a-z0-9_-]+/i);
+  for (const g of collectNgrams(d294Text)) {
+    assert.equal(IP_HASHES.has(sha16(g)), false, `d294 text 命中专名哈希：${sha16(g)}`);
   }
-  const d336Note = entry('fx-ui', 'd336.distance').provenance.note;
-  assert.doesNotMatch(d336Note, /\b(?:INLET|COWL\s+LOWER)\s+L\b/);
-  for (const g of collectNgrams(d336Note)) {
-    assert.equal(IP_HASHES.has(sha16(g)), false, `d336 note 命中专名哈希：${sha16(g)}`);
+  const d336Text = DATA['fx-ui'].cardPriors.find((e) => e.sourceId === 'd336').text;
+  assert.doesNotMatch(d336Text, /\b(?:INLET|COWL\s+LOWER)\s+L\b/);
+  for (const g of collectNgrams(d336Text)) {
+    assert.equal(IP_HASHES.has(sha16(g)), false, `d336 text 命中专名哈希：${sha16(g)}`);
   }
+});
+
+test('C12-A 回归：mat-hardsurf.s029 精确指回 d118，render-pipe.d027 归 skipped-or-conflict 并挂接冲突', () => {
+  const s029Row = getBatch3MigrationManifest('mat-hardsurf').ledger.find((r) => r.sourceId === 's029');
+  assert.ok(s029Row);
+  assert.equal(s029Row.summaryOf, 'd118');
+  assert.equal(s029Row.link, 'values');
+  assert.equal(s029Row.route, 'portable');
+
+  const d027Row = getBatch3MigrationManifest('render-pipe').ledger.find((r) => r.sourceId === 'd027');
+  assert.ok(d027Row);
+  assert.equal(d027Row.route, 'skipped-or-conflict');
+  const d026Samples = loadRenderPipePriorsStore().get('render-pipe.d026.samples');
+  assert.ok(d026Samples && Array.isArray(d026Samples.conflicts) && d026Samples.conflicts.length >= 2);
 });
 
 test('独立盲审记录完备，canonical 种子 42 抽样可复现且 200 种子全过 <= 10%', () => {
@@ -857,8 +870,8 @@ test('独立盲审记录完备，canonical 种子 42 抽样可复现且 200 种�
     const summaries = manifest.ledger.filter((r) => r.kind === 'summary');
     const rng = mulberry32(42);
     const expectedIds = [
-      ...sampleWithoutReplacement(details, minDetails, rng).map((r) => r.sourceId),
-      ...sampleWithoutReplacement(summaries, minSummaries, rng).map((r) => r.sourceId),
+      ...sampleWithoutReplacement(details, ba.detailSampleSize, rng).map((r) => r.sourceId),
+      ...sampleWithoutReplacement(summaries, ba.summarySampleSize, rng).map((r) => r.sourceId),
     ];
     assert.deepEqual(ba.sample.map((x) => x.sourceId), expectedIds, `${col} seed 42 抽样序列不一致`);
     assert.equal(ba.sample.filter((x) => !x.agree).length, ba.disagreeCount, col);

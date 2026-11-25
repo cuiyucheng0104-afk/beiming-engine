@@ -7,29 +7,29 @@
   "summaryRows": 140,
   "order": "ledger 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "源总数 = 明细条目 + 跨案例对照表汇总行；汇总行去向随所指同案例真实明细，不另算明细",
-  "portableCount": 242,
-  "cardCoupledCount": 241,
-  "practiceCount": 29,
-  "excludedOrConflictCount": 16,
+  "portableCount": 58,
+  "cardCoupledCount": 334,
+  "practiceCount": 114,
+  "excludedOrConflictCount": 22,
   "detailRouteCounts": {
-    "portable": 162,
-    "card-coupled": 190,
-    "practice": 20,
-    "skipped-or-conflict": 16
+    "portable": 36,
+    "card-coupled": 239,
+    "practice": 91,
+    "skipped-or-conflict": 22
   },
   "summaryRouteCounts": {
-    "portable": 80,
-    "card-coupled": 51,
-    "practice": 9,
+    "portable": 22,
+    "card-coupled": 95,
+    "practice": 23,
     "skipped-or-conflict": 0
   },
   "emittedCounts": {
-    "priorsTotal": 461,
-    "priorsDetail": 408,
-    "priorsSummary": 53,
-    "cardPriors": 190,
-    "practices": 20,
-    "excludedDetails": 16
+    "priorsTotal": 104,
+    "priorsDetail": 90,
+    "priorsSummary": 14,
+    "cardPriors": 239,
+    "practices": 91,
+    "excludedDetails": 22
   },
   "files": {
     "priors": "fx-ui.json",
@@ -37,7 +37,7 @@
     "practices": "fx-ui.practices.json"
   },
   "rules": {
-    "method": "严格对齐 05 §8.1 执行四路分流；先判 skipped-or-conflict，再判跨实现工序与修法 practice，再判独立可复用物理/规格量 portable，其余与特定场景/着色器/档位强耦合者归 card-coupled",
+    "method": "严格对齐 05 §8.1 执行全量 1,574 条跨家族语义分流（semantic-v3 终审裁决）：先由结构化冲突对账拦截（conflict-bullet / conflict-table / 多版本采样冲突对账）归 skipped-or-conflict，其余明细直读语义标签 P/C/M/X；仅标为 P 时调用 extractPortableQuantities 提取合规 priors/0.1 数值（无合法数值可提则降级归 card-coupled，useAsDefault: false）",
     "portable": "可脱离原场景着色器算式与多档位容量表独立复用的物理、光学、标准 PBR 材质基底（scene-linear-rec709 线性基色/金属度/粗糙度/IOR/清漆/光泽）、真实构件物理尺寸（mm/cm/m）、资产与编码交付规格（分辨率/像素密度/宽高比/骨骼与形态键规模/帧率/响度 LUFS/dBTP）、界面 sRGB 色值与触控/排版几何、以及明确独立的速度/寿命/代际频率/时间常数/阈值量",
     "cardCoupled": "与特定角色/场景/着色器公式、多档画质/LOD/粒子池容量配置、后期调色/泛光多参数预设、放样轮廓坐标阵列或特定模板强耦合的参数包；每条同时记 cardId 与字面 target，严格取自 05 §5 的 92 张正式技术卡，useAsDefault: false",
     "practice": "主体为跨实现可复用的算法机制、建模/UV/刚性蒙皮/分件工序、渲染排队/报错即停策略、设计原则与排错修法（kind: method | fix）",
@@ -283,85 +283,91 @@
       "cardId": "fx.streak-ring",
       "target": "fx.streak-ring",
       "inSpec": true,
-      "count": 34
-    },
-    {
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
-      "inSpec": true,
-      "count": 32
+      "count": 45
     },
     {
       "cardId": "layout.panels",
       "target": "layout.panels",
       "inSpec": true,
-      "count": 19
+      "count": 27
     },
     {
-      "cardId": "time.envelope",
-      "target": "time.envelope",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "inSpec": true,
-      "count": 13
+      "count": 27
     },
     {
       "cardId": "fx.breath",
       "target": "fx.breath",
       "inSpec": true,
-      "count": 11
+      "count": 23
     },
     {
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "cardId": "time.envelope",
+      "target": "time.envelope",
       "inSpec": true,
-      "count": 11
+      "count": 16
     },
     {
       "cardId": "wind.gust-wake",
       "target": "wind.gust-wake",
       "inSpec": true,
-      "count": 11
+      "count": 16
     },
     {
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
+      "cardId": "overlay.subs",
+      "target": "overlay.subs",
       "inSpec": true,
-      "count": 9
+      "count": 14
     },
     {
       "cardId": "overlay.cursor",
       "target": "overlay.cursor",
       "inSpec": true,
-      "count": 9
+      "count": 13
     },
     {
       "cardId": "overlay.title",
       "target": "overlay.title",
       "inSpec": true,
-      "count": 9
+      "count": 13
     },
     {
       "cardId": "post.bloom",
       "target": "post.bloom",
       "inSpec": true,
-      "count": 8
+      "count": 12
     },
     {
-      "cardId": "particle.premult",
-      "target": "particle.premult",
+      "cardId": "overlay.anchored",
+      "target": "overlay.anchored",
       "inSpec": true,
-      "count": 7
+      "count": 10
     },
     {
       "cardId": "post.volumetric",
       "target": "post.volumetric",
       "inSpec": true,
-      "count": 7
+      "count": 8
     },
     {
       "cardId": "page.det2d",
       "target": "page.det2d",
       "inSpec": true,
-      "count": 5
+      "count": 6
+    },
+    {
+      "cardId": "particle.premult",
+      "target": "particle.premult",
+      "inSpec": true,
+      "count": 3
+    },
+    {
+      "cardId": "camera.shake",
+      "target": "camera.shake",
+      "inSpec": true,
+      "count": 1
     },
     {
       "cardId": "light.emit-pool",
@@ -370,14 +376,14 @@
       "count": 1
     },
     {
-      "cardId": "particle.minpx",
-      "target": "particle.minpx",
+      "cardId": "particle.ambient",
+      "target": "particle.ambient",
       "inSpec": true,
       "count": 1
     },
     {
-      "cardId": "particle.on-twos",
-      "target": "particle.on-twos",
+      "cardId": "particle.minpx",
+      "target": "particle.minpx",
       "inSpec": true,
       "count": 1
     },
@@ -481,9 +487,7 @@
       "title": "黄绿强调色",
       "detail": "黄绿强调色：冲突：本条强调色 #D1FE17（取自水印牌），与 V 节蓝图与 2D+3D 两条写的 #D1EF17 两位互换。可能是笔误，两个值各有出处，未核实。",
       "evidenceLevel": "推断",
-      "attachedTo": [
-        "fx-ui.d365.display-color"
-      ]
+      "attachedTo": []
     },
     {
       "sourceId": "d387",
@@ -509,7 +513,23 @@
       "section": "3",
       "caseId": "case-ext01",
       "title": "雷击时刻表与包络",
-      "reason": "纯证据/验收注记或仅含标题无正文的空条目"
+      "reason": "仅标题与文档索引，无数值或做法"
+    },
+    {
+      "sourceId": "d101",
+      "sourceLine": 359,
+      "section": "4",
+      "caseId": "case-ext06",
+      "title": "fx_kit 清单",
+      "reason": "仅特效资产清单无具体数值或做法"
+    },
+    {
+      "sourceId": "d118",
+      "sourceLine": 425,
+      "section": "5",
+      "caseId": "case-13",
+      "title": "本章不存在的内容",
+      "reason": "仅缺失说明无参数无做法"
     },
     {
       "sourceId": "d191",
@@ -517,15 +537,47 @@
       "section": "10",
       "caseId": "case-13",
       "title": "颜色>1 当自发光掩码",
-      "reason": "纯交叉引用指针条目，无新参数或做法"
+      "reason": "仅交叉引用材质区条目无具体内容"
     },
     {
-      "sourceId": "d359",
-      "sourceLine": 1247,
+      "sourceId": "d306",
+      "sourceLine": 1085,
+      "section": "21",
+      "caseId": "case-20",
+      "title": "画面元素未公开",
+      "reason": "绘图库字体配色均未公开的空壳占位"
+    },
+    {
+      "sourceId": "d329",
+      "sourceLine": 1146,
+      "section": "22",
+      "caseId": "case-23",
+      "title": "与 005 同路数",
+      "reason": "跨案例索引对照无独立事实"
+    },
+    {
+      "sourceId": "d333",
+      "sourceLine": 1159,
+      "section": "22",
+      "caseId": "case-05",
+      "title": "图层密度实测",
+      "reason": "官方5-6%与实测0.62%冲突对账未解"
+    },
+    {
+      "sourceId": "d356",
+      "sourceLine": 1240,
       "section": "24",
-      "caseId": "case-15",
-      "title": "画面不放字",
-      "reason": "未公开或仅列名称无参数无做法"
+      "caseId": "case-18",
+      "title": "角标",
+      "reason": "角标来源冲突对账未解"
+    },
+    {
+      "sourceId": "d371",
+      "sourceLine": 1275,
+      "section": "24",
+      "caseId": "case-multi",
+      "title": "“某生成平台 某代码模型”角标不能当重压证据",
+      "reason": "角标来源矛盾与证据效力辨析冲突项"
     },
     {
       "sourceId": "d376",
@@ -633,31 +685,31 @@
     }
   ],
   "blindAudit": {
-    "method": "独立规则盲审（不引用转换器路由或量提取模块），按 05 §8.1 四路口径重判；分层无放回抽样 >=10% 明细 + >=10% 汇总，遍历 mulberry32(Math.imul(seed, 0x9e3779b1)) 全部 200 个种子",
+    "method": "跨模型独立盲审（Gemini 4 独立初判 semantic/<col>.semantic-routes.tsv 对照 DeepSeek V4 Pro 终审总账，汇总随所指明细核对）；分层无放回抽样 >=10%（50%）明细 + >=10%（50%）汇总，遍历 mulberry32(Math.imul(seed, 0x9e3779b1)) 全部 200 个种子",
     "canonicalSeed": 42,
-    "detailSampleSize": 39,
-    "summarySampleSize": 14,
-    "sampleSize": 53,
-    "disagreeCount": 1,
-    "disagreeRate": 0.018868,
-    "fullPopulationDisagreeCount": 7,
-    "fullPopulationDisagreeRate": 0.013258,
+    "detailSampleSize": 233,
+    "summarySampleSize": 84,
+    "sampleSize": 317,
+    "disagreeCount": 10,
+    "disagreeRate": 0.031546,
+    "fullPopulationDisagreeCount": 21,
+    "fullPopulationDisagreeRate": 0.039773,
     "seed200Verified": true,
     "seed200PassCount": 200,
     "seed200Worst": {
-      "seed": 54,
-      "disagreeCount": 3,
-      "sampleSize": 53,
-      "disagreeRate": 0.056604
+      "seed": 60,
+      "disagreeCount": 18,
+      "sampleSize": 317,
+      "disagreeRate": 0.056782
     },
     "sample": [
       {
         "sourceId": "d138",
         "kind": "detail",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "几何雨丝受光进景深并复用水模块的雨做法"
       },
       {
         "sourceId": "d174",
@@ -665,23 +717,23 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "特定危险区贴花与粒子发射公式预设"
       },
       {
         "sourceId": "d368",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
         "agree": true,
-        "reason": "二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "需求逐版迭代及旧档旁出新版工作流"
       },
       {
         "sourceId": "d231",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "耦合案例 02条形与准星多参数预设"
       },
       {
         "sourceId": "d272",
@@ -689,15 +741,15 @@
         "ledgerRoute": "practice",
         "blindRoute": "practice",
         "agree": true,
-        "reason": "跨实现可复用的物理模拟/预烘/滞回/颗粒合成算法、界面架构或制作复用纪律"
+        "reason": "伪造键码与捕获阶段改键统一做法"
       },
       {
         "sourceId": "d308",
         "kind": "detail",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "复用视口统计叠层与代理标签作展示做法"
       },
       {
         "sourceId": "d104",
@@ -705,7 +757,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "光叶粒子专用叶形公式与弯曲预设"
       },
       {
         "sourceId": "d121",
@@ -713,7 +765,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "5种特定烟源参数与画质分档倍率配置表"
       },
       {
         "sourceId": "d016",
@@ -721,7 +773,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "特定粒子系统49槽编号与缓冲渲染序表"
       },
       {
         "sourceId": "d351",
@@ -729,7 +781,7 @@
         "ledgerRoute": "practice",
         "blindRoute": "practice",
         "agree": true,
-        "reason": "跨实现可复用的物理模拟/预烘/滞回/颗粒合成算法、界面架构或制作复用纪律"
+        "reason": "锁定指定词屏幕位置不动的页面匹配剪辑做法"
       },
       {
         "sourceId": "d232",
@@ -737,15 +789,15 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "耦合案例 02敌方标记池与分档距离"
       },
       {
         "sourceId": "d301",
         "kind": "detail",
-        "ledgerRoute": "practice",
-        "blindRoute": "practice",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "跨实现可复用的物理模拟/预烘/滞回/颗粒合成算法、界面架构或制作复用纪律"
+        "reason": "特定新闻片双字体与西里尔覆盖视觉规范"
       },
       {
         "sourceId": "d040",
@@ -753,7 +805,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "挂钩案例 02青焰色带贴图节点"
       },
       {
         "sourceId": "d227",
@@ -761,15 +813,15 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "横幅淡入停留淡出独立时序规格"
       },
       {
         "sourceId": "d179",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "独立可复用的特效运动速度、持续/刷新时序、触发尺度或最小像素阈值"
+        "reason": "特定头目仪式死亡事件与着色器绑定"
       },
       {
         "sourceId": "d015",
@@ -777,7 +829,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "特定粒子池容量上限与内存缓冲配置表"
       },
       {
         "sourceId": "d013",
@@ -785,7 +837,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "多档位桌面与手机特效池容量配置表"
       },
       {
         "sourceId": "d006",
@@ -793,7 +845,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "专用光晕8种程序化形状着色器预设"
       },
       {
         "sourceId": "d331",
@@ -801,7 +853,7 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "20px网格与双层边线像素几何亮度规格"
       },
       {
         "sourceId": "d066",
@@ -809,15 +861,15 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "独立可复用的特效运动速度、持续/刷新时序、触发尺度或最小像素阈值"
+        "reason": "独立时间包络与火星运动物理参数"
       },
       {
         "sourceId": "d290",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
         "agree": true,
-        "reason": "二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "Blender自动化逐帧重绘截图与导出法"
       },
       {
         "sourceId": "d136",
@@ -825,15 +877,15 @@
         "ledgerRoute": "practice",
         "blindRoute": "practice",
         "agree": true,
-        "reason": "跨实现可复用的物理模拟/预烘/滞回/颗粒合成算法、界面架构或制作复用纪律"
+        "reason": "纯函数加绕相机循环盒实现零CPU粒子更新"
       },
       {
         "sourceId": "d063",
         "kind": "detail",
-        "ledgerRoute": "practice",
-        "blindRoute": "practice",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "跨实现可复用的物理模拟/预烘/滞回/颗粒合成算法、界面架构或制作复用纪律"
+        "reason": "特定于案例 02的10级龙息预设"
       },
       {
         "sourceId": "d058",
@@ -841,23 +893,23 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "专用灰金色火舌片元噪声与配色公式"
       },
       {
         "sourceId": "d262",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "案例 13分享卡固定版式与六格模板"
       },
       {
         "sourceId": "d140",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "独立可复用的特效运动速度、持续/刷新时序、触发尺度或最小像素阈值"
+        "reason": "耦合uAura与噪声的专用边缘光公式"
       },
       {
         "sourceId": "d033",
@@ -865,23 +917,23 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "独立可复用的特效运动速度、持续/刷新时序、触发尺度或最小像素阈值"
+        "reason": "可独立复用的吐息射速阻力浮力寿命射程"
       },
       {
         "sourceId": "d327",
         "kind": "detail",
         "ledgerRoute": "card-coupled",
-        "blindRoute": "portable",
-        "agree": false,
-        "reason": "二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定模型逐帧装配进度与三角面数表"
       },
       {
         "sourceId": "d165",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "独立可复用的特效运动速度、持续/刷新时序、触发尺度或最小像素阈值"
+        "reason": "箭矢多材质命中与发射耦合特效参数包"
       },
       {
         "sourceId": "d190",
@@ -889,31 +941,31 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "NPC乙灯笼专属光晕闪烁点光预设"
       },
       {
         "sourceId": "d300",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "特定新闻片分帧色值与占比读数"
       },
       {
         "sourceId": "d169",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "独立可复用的特效运动速度、持续/刷新时序、触发尺度或最小像素阈值"
+        "reason": "绑定突刺踏步关键帧的尘震与相机参数"
       },
       {
         "sourceId": "d011",
         "kind": "detail",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "特效顶点统一计算高度雾衰减做法"
       },
       {
         "sourceId": "d141",
@@ -921,15 +973,15 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "特定亮金件与状态变量的受击自照预设"
       },
       {
         "sourceId": "d084",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "独立可复用的特效运动速度、持续/刷新时序、触发尺度或最小像素阈值"
+        "reason": "四类动作爆发多发射器与贴花预设"
       },
       {
         "sourceId": "d340",
@@ -937,79 +989,1759 @@
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "16:9动态字幕配色字高比圆角与倾角"
       },
       {
         "sourceId": "d129",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "独立可复用的特效运动速度、持续/刷新时序、触发尺度或最小像素阈值"
+        "reason": "绑定分档数量与日夜配色的树关飞屑预设"
       },
       {
         "sourceId": "d091",
         "kind": "detail",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "独立可复用的特效运动速度、持续/刷新时序、触发尺度或最小像素阈值"
+        "reason": "绑定劈石特效的多粒子与焦痕余热公式预设"
       },
       {
         "sourceId": "d143",
         "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定头目身高坐标的苏醒扫描线预设"
+      },
+      {
+        "sourceId": "d081",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "耦合河道水位与贴花枚举的改写逻辑"
+      },
+      {
+        "sourceId": "d294",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "meta驱动2D合成与联系表校验管线做法"
+      },
+      {
+        "sourceId": "d365",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定水印底板的黄绿强调色方案与实测"
+      },
+      {
+        "sourceId": "d372",
+        "kind": "detail",
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "独立可复用的特效运动速度、持续/刷新时序、触发尺度或最小像素阈值"
+        "reason": "右上角16%×10%水印安全区比例规格"
       },
       {
-        "sourceId": "s017",
+        "sourceId": "d024",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "专用物质着色器假光照与片元噪声预设"
+      },
+      {
+        "sourceId": "d357",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "竖屏三行拼接版式像素尺寸与分隔缝规格"
+      },
+      {
+        "sourceId": "d355",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定显卡案例角标文案、坐标与标识设定"
+      },
+      {
+        "sourceId": "d073",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "预警圈裂纹扩展与缩圈闪白设计法"
+      },
+      {
+        "sourceId": "d012",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "实例化合批与单着色器多贴花分支技巧"
+      },
+      {
+        "sourceId": "d218",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定游戏图标SVG几何路径与配色"
+      },
+      {
+        "sourceId": "d220",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "三层血条scaleX优化与差值更新做法"
+      },
+      {
+        "sourceId": "d078",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "五类贴花共用fireBand着色器公式"
+      },
+      {
+        "sourceId": "d242",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "挂钩飞行速度阈值的放射线着色器公式"
+      },
+      {
+        "sourceId": "d315",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "按影片时间线推算慢放倍数的字幕做法"
+      },
+      {
+        "sourceId": "d323",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "复用前版渲染并CPU合成去章前15帧"
+      },
+      {
+        "sourceId": "d215",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "案例 01 重制版专属2D色板与系统字体配置"
+      },
+      {
+        "sourceId": "d223",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "三倍宽纸带罗盘滚动与标签优先级做法"
+      },
+      {
+        "sourceId": "d230",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "耦合案例 13龙翅应变与结局卡"
+      },
+      {
+        "sourceId": "d280",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定成片图层顺序、帧段与文案配置"
+      },
+      {
+        "sourceId": "d044",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "可独立复用的线性RGB元素与阵营灯色"
+      },
+      {
+        "sourceId": "d199",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "单表面五模式擦除线对比与双标注表现做法"
+      },
+      {
+        "sourceId": "d106",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "灰烬池光照运动公式与分档池容量"
+      },
+      {
+        "sourceId": "d233",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "连击播报警告受击与喊字独立时长上限"
+      },
+      {
+        "sourceId": "d279",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "低分噪声放大叠加与切条错位故障算法"
+      },
+      {
+        "sourceId": "d144",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定胸口坐标的头目死亡裂纹参数"
+      },
+      {
+        "sourceId": "d168",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定戟挂点坐标的下劈命中特效预设"
+      },
+      {
+        "sourceId": "d115",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "SmokeColumn分档数与熄灭公式"
+      },
+      {
+        "sourceId": "d017",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定三池混合模式与深度偏移状态配置"
+      },
+      {
+        "sourceId": "d004",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "形状噪声抽帧与位移满帧解耦一拍二技巧"
+      },
+      {
+        "sourceId": "d200",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "破碎模拟五要素拆分与先预览再终渲流程"
+      },
+      {
+        "sourceId": "d038",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "挂钩案例 02巨型头目熔金色带贴图节点"
+      },
+      {
+        "sourceId": "d378",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "徽记两种画法差异未核实的冲突说明"
+      },
+      {
+        "sourceId": "d095",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定粒子池与昼夜格挡逻辑的金属火花预设"
+      },
+      {
+        "sourceId": "d276",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "12角色十六进制sRGB区分色表"
+      },
+      {
+        "sourceId": "d322",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "practice",
+        "agree": false,
+        "reason": "平面带视锥标记联动上下分屏视图"
+      },
+      {
+        "sourceId": "d198",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "沿骨管状切割刚体运动与先骨后皮再生做法"
+      },
+      {
+        "sourceId": "d287",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定帧段片名卡向实测包围框变形参数"
+      },
+      {
+        "sourceId": "d306",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "绘图库字体配色均未公开的空壳占位"
+      },
+      {
+        "sourceId": "d221",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "血条尺寸比例位置与受击低血阈值时长"
+      },
+      {
+        "sourceId": "d072",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "实例化地面贴花与程序化纹理做法"
+      },
+      {
+        "sourceId": "d001",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "通用闭式弹道公式复用五种发射宏技巧"
+      },
+      {
+        "sourceId": "d192",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "粒子出生太阳10步遮挡采样与昼夜收敛做法"
+      },
+      {
+        "sourceId": "d061",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "可独立复用的特效与材质线性RGB色表"
+      },
+      {
+        "sourceId": "d289",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定采样阶梯图标签文案与锚点预设"
+      },
+      {
+        "sourceId": "d229",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "耦合案例 13弓箭机制与箭羽配色"
+      },
+      {
+        "sourceId": "d268",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "三端输入判定与data属性贴字切换做法"
+      },
+      {
+        "sourceId": "d118",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "仅说明缺失模拟与对应物，无新参数或做法"
+      },
+      {
+        "sourceId": "d031",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "挂钩外部案例 01白霜技能预设与锁定参数包"
+      },
+      {
+        "sourceId": "d256",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "引路光线专用网格与着色器参数预设"
+      },
+      {
+        "sourceId": "d275",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定采样阶梯片音效与第0帧故障预设"
+      },
+      {
+        "sourceId": "d177",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定头目事件与挂点贴花特效绑定"
+      },
+      {
+        "sourceId": "d258",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "案例 13世界地图三层坐标与存档键"
+      },
+      {
+        "sourceId": "d097",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定粒子池形状与冷蓝配色的幽灵火花预设"
+      },
+      {
+        "sourceId": "d089",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定特定裂口场景的冲击环与贴花公式预设"
+      },
+      {
+        "sourceId": "d002",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定角色场景的精灵实例总数统计"
+      },
+      {
+        "sourceId": "d124",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "固定场景烟源坐标及雨滴汁液滴水预设"
+      },
+      {
+        "sourceId": "d359",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "画面生成不内嵌文字、标签由后期另加的做法"
+      },
+      {
+        "sourceId": "d376",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "焦痕半径多版本取值并存的冲突说明"
+      },
+      {
+        "sourceId": "d153",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "主角专属光晕地面光与余烬配置"
+      },
+      {
+        "sourceId": "d083",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "死亡爆发多发射器与粒子形状预设"
+      },
+      {
+        "sourceId": "d037",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "挂钩案例 02敌方紫火色带贴图节点"
+      },
+      {
+        "sourceId": "d026",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "防丑限幅降级补能量与确定性通用做法"
+      },
+      {
+        "sourceId": "d054",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "专用夜哨点火焰片元着色与配色公式"
+      },
+      {
+        "sourceId": "d274",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "案例 02触屏双环控件与扇区预设"
+      },
+      {
+        "sourceId": "d049",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "专用火墙片元着色公式与渲染状态"
+      },
+      {
+        "sourceId": "d269",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "案例 13 17类事件震动预设表"
+      },
+      {
+        "sourceId": "d324",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定特定角色与角标的仿Blender界面"
+      },
+      {
+        "sourceId": "d065",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "专用闪电着色器公式与色表预设"
+      },
+      {
+        "sourceId": "d254",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "界面转场时长及防误触确认窗口规格"
+      },
+      {
+        "sourceId": "d248",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定余烬粒子系统参数与绘制预设"
+      },
+      {
+        "sourceId": "d137",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "阵风包络、雾LUT平滑与差分侧倾等技巧"
+      },
+      {
+        "sourceId": "d077",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "SHADOW钟影贴花专用着色器公式"
+      },
+      {
+        "sourceId": "d086",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "闪电爬行生长及可见岩面筛选做法"
+      },
+      {
+        "sourceId": "d334",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定特定成片帧号的逐帧格子密度明细"
+      },
+      {
+        "sourceId": "d209",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "UI可读性字号对比度与触控下限"
+      },
+      {
+        "sourceId": "d008",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "EnemyFX特定池容量与渲染顺序表"
+      },
+      {
+        "sourceId": "d183",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定铁门事件灰尘调用与震屏公式"
+      },
+      {
+        "sourceId": "d003",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "闭式运动与显示判定同源及出生记录架构"
+      },
+      {
+        "sourceId": "d163",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定角色与脱壳状态刀光配色挂点绑定"
+      },
+      {
+        "sourceId": "d307",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "多代理代码生成统一风格虚构广告牌做法"
+      },
+      {
+        "sourceId": "d302",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定歌词视频二维声部配色与时间点布局"
+      },
+      {
+        "sourceId": "d266",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定游戏设置项与多档画质DPR配置"
+      },
+      {
+        "sourceId": "d360",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "同时间轴三行叠放配同段音乐的三联对比做法"
+      },
+      {
+        "sourceId": "d187",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "头目一专属点光状态与武器插值预设"
+      },
+      {
+        "sourceId": "d219",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "card-coupled",
+        "agree": false,
+        "reason": "特定奇幻技能图标提示词模板与清单"
+      },
+      {
+        "sourceId": "d052",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "专用火焰广告牌着色公式与渐变预设"
+      },
+      {
+        "sourceId": "d154",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "主角特定世界坐标站点与出入场配置"
+      },
+      {
+        "sourceId": "d193",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "单点光抢占阈值与线性升起指数衰减包络"
+      },
+      {
+        "sourceId": "d028",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "预乘混合同时实现加光与烟遮挡做法"
+      },
+      {
+        "sourceId": "d202",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "游戏内全手写SVG与画布无位图界面做法"
+      },
+      {
+        "sourceId": "d010",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "桌面与手机分档特效池容量配置表"
+      },
+      {
+        "sourceId": "d314",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "数据集中溯源与动态变更标注上屏做法"
+      },
+      {
+        "sourceId": "d051",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定火笼状态机的粒子与光点预设"
+      },
+      {
+        "sourceId": "d155",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "回声符印专属图集着色器与特效预设"
+      },
+      {
+        "sourceId": "d160",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "独立的预警闪光时长与星芒比例"
+      },
+      {
+        "sourceId": "d246",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "耦合特定南北行画面的程序画转场卡"
+      },
+      {
+        "sourceId": "d103",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "飘尘粒子专属运动包络与默认预设"
+      },
+      {
+        "sourceId": "d022",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "亚像素最小尺寸限制与能量守恒防闪烁做法"
+      },
+      {
+        "sourceId": "d092",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定琥珀碎壳机制与碎片池的特效参数"
+      },
+      {
+        "sourceId": "d164",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定幽灵剑资产拖尾配色与材质绑定"
+      },
+      {
+        "sourceId": "d358",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定案例专属角标文案、配色与像素坐标"
+      },
+      {
+        "sourceId": "d217",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定徽记SVG路径动画与卡片倍率"
+      },
+      {
+        "sourceId": "d316",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "屏上标注真实仿真数并注明进度条做法"
+      },
+      {
+        "sourceId": "d253",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定关卡评分公式切档与徽章动效"
+      },
+      {
+        "sourceId": "d330",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "相机投影绘PNG与洁净母带重合成管线"
+      },
+      {
+        "sourceId": "d125",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定设备分档与柳叶着色器的引导轨迹预设"
+      },
+      {
+        "sourceId": "d363",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "1080×1350分屏边距与中缝排版规格"
+      },
+      {
+        "sourceId": "d250",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "独立界面动效时长缓动与弹簧参数表"
+      },
+      {
+        "sourceId": "d030",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "可独立复用的余烬与烟初速阻尼尺寸色值"
+      },
+      {
+        "sourceId": "d080",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "六种贴花专用片元公式与噪声参数"
+      },
+      {
+        "sourceId": "d150",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "幽灵专属顶点摆动与布料行波公式"
+      },
+      {
+        "sourceId": "d288",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定接缝帧段相机框缩放曲线与对比"
+      },
+      {
+        "sourceId": "d128",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定树关分档与4叶形图集的落叶粒子预设"
+      },
+      {
+        "sourceId": "d101",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "仅特效资产清单无具体数值或做法"
+      },
+      {
+        "sourceId": "d312",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "选中改属性展示的软件演示编排规范"
+      },
+      {
+        "sourceId": "d286",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定图纸段坐标、卡框尺寸与帧段配置"
+      },
+      {
+        "sourceId": "d235",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "practice",
+        "agree": false,
+        "reason": "三维画面叠加二维动作层与三渲二做法"
+      },
+      {
+        "sourceId": "d284",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "S7镜头特定片名打字序列及声明配置"
+      },
+      {
+        "sourceId": "d201",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "雷击物理因果链、一镜调度与模块化并行管线"
+      },
+      {
+        "sourceId": "d021",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "粒子包络闪烁炭火冷却与速度拉伸做法"
+      },
+      {
+        "sourceId": "d181",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "誊写者地面符文专属贴图与动态预设"
+      },
+      {
+        "sourceId": "d034",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "可独立复用的吐息多层发射率速度尺寸"
+      },
+      {
+        "sourceId": "d341",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "字幕缓动禁溶解与逐层模糊闪色落地做法"
+      },
+      {
+        "sourceId": "d311",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "同BVH射线描边分屏与代码引线展示做法"
+      },
+      {
+        "sourceId": "d380",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "图层密度分母口径差异未重算冲突项"
+      },
+      {
+        "sourceId": "d270",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "滞回双阈值防闪烁做法"
+      },
+      {
+        "sourceId": "d116",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "无状态粒子仅传时间并解析求阻力重力与摆动"
+      },
+      {
+        "sourceId": "d100",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "刚体四元数积分碰撞冲量与休眠通用算法"
+      },
+      {
+        "sourceId": "d048",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定火环效果的多参数联合预设"
+      },
+      {
+        "sourceId": "d379",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "格子填充率官方与实测口径冲突比较"
+      },
+      {
+        "sourceId": "d326",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定场景角色的大纲层级与关键帧表"
+      },
+      {
+        "sourceId": "d283",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "S2镜头卡体坐标刻度尺与投影自检配置"
+      },
+      {
+        "sourceId": "d043",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "挂钩案例 02色带贴图火星行端点预设"
+      },
+      {
+        "sourceId": "d075",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "WARN警示圈专用着色器参数预设"
+      },
+      {
+        "sourceId": "d142",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "耦合aFx与角色变量的专用发光缝公式"
+      },
+      {
+        "sourceId": "d249",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "各界面元素独立的过渡与关键帧时长"
+      },
+      {
+        "sourceId": "d381",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "光标数量与助手数口径不一致冲突项"
+      },
+      {
+        "sourceId": "d278",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "通用缓动与线性插值数学算法公式"
+      },
+      {
+        "sourceId": "d364",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "右上角26%×10%水印安全区规格"
+      },
+      {
+        "sourceId": "d247",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定标题页骨架层级配色与过渡"
+      },
+      {
+        "sourceId": "d236",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "practice",
+        "agree": false,
+        "reason": "CSS描边填充顺序与三层叠字做法"
+      },
+      {
+        "sourceId": "d339",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "skipped-or-conflict",
+        "agree": false,
+        "reason": "社区非内置特效快捷标签词条索引列表"
+      },
+      {
+        "sourceId": "d117",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "card-coupled",
+        "agree": false,
+        "reason": "绑定树冠叶台分布及专属着色的亚像素保能量"
+      },
+      {
+        "sourceId": "d255",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "引路叶控件变体滞回与读数参数包"
+      },
+      {
+        "sourceId": "d377",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "焦痕半径6.5m与多值并存冲突说明"
+      },
+      {
+        "sourceId": "d374",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "三维点投影二维光标防错位分屏做法"
+      },
+      {
+        "sourceId": "d296",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定界面衬线与无衬线双字体搭配配置"
+      },
+      {
+        "sourceId": "d167",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定头目二阶段爆发事件联合参数包"
+      },
+      {
+        "sourceId": "d182",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "誊写者事件专属骨点偏移与扇角"
+      },
+      {
+        "sourceId": "d005",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "预乘混合兼做纯加色与软粒子淡出做法"
+      },
+      {
+        "sourceId": "d371",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "角标来源矛盾与证据效力辨析冲突项"
+      },
+      {
+        "sourceId": "d082",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "冲击波耦合贴花草地全局量与头目判定"
+      },
+      {
+        "sourceId": "d067",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "龙息蓄力球受嘴距与色阶预设耦合"
+      },
+      {
+        "sourceId": "d267",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "案例 13 12键触屏环形布局预设"
+      },
+      {
+        "sourceId": "d386",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "跨条目色值笔误冲突对账，无确定参数"
+      },
+      {
+        "sourceId": "d273",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "键鼠手触蓄力时长、死区与灵敏度参数"
+      },
+      {
+        "sourceId": "d319",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "踩拍倒放爆炸装配与橙色轮廓展示编排"
+      },
+      {
+        "sourceId": "d014",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "两池共用管线与49压14浮点架构做法"
+      },
+      {
+        "sourceId": "d238",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "命中字状态机与池配置规则包"
+      },
+      {
+        "sourceId": "d127",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定场景盒子与深度缩放的远景光点预设"
+      },
+      {
+        "sourceId": "d099",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定村庄坐标与角色步态的运动尘预设"
+      },
+      {
+        "sourceId": "d173",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定头目受击抖动速度分档参数表"
+      },
+      {
+        "sourceId": "d023",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "十种专用发光程序化片元形状参数预设"
+      },
+      {
+        "sourceId": "d132",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定树关v1.9与设备分档的4子系统配置"
+      },
+      {
+        "sourceId": "d309",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定城市场景对象名前缀与编号上限表"
+      },
+      {
+        "sourceId": "d349",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "挤压拉伸比例与错峰弹入等独立动效时序数值"
+      },
+      {
+        "sourceId": "d178",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定头目二阶段与事件特效参数包"
+      },
+      {
+        "sourceId": "d373",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "practice",
+        "agree": false,
+        "reason": "终渲加双同步视口并排切换的演示编排"
+      },
+      {
+        "sourceId": "d062",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定龙焰几何、封顶色与分档绘制预算"
+      },
+      {
+        "sourceId": "d018",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "稀释采样累加器与幂律补偿能量降级算法"
+      },
+      {
+        "sourceId": "d344",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定字体图元词汇与专属色规视觉预设"
+      },
+      {
+        "sourceId": "d135",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定树关汁液井区的粒子统一变量配置"
+      },
+      {
+        "sourceId": "d123",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定种子与三频噪声权重定义的烟贴图预设"
+      },
+      {
+        "sourceId": "d184",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "顶点动画与池面涟漪共用参数同步"
+      },
+      {
+        "sourceId": "d133",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定4种天空预设的大气雾池多参数配置表"
+      },
+      {
+        "sourceId": "d107",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "燃烧叶专用烧蚀发光公式与物理预设"
+      },
+      {
+        "sourceId": "d047",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定火环网格分级顶点数与GPU配置"
+      },
+      {
+        "sourceId": "d041",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "挂钩案例 02辉焰色带贴图节点"
+      },
+      {
+        "sourceId": "d245",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定加载页渐变纹样提示与卡顿文案"
+      },
+      {
+        "sourceId": "d079",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "耦合地形水面的贴花池与网格分档"
+      },
+      {
+        "sourceId": "d291",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定GUI布局换算坐标与场景三角面数"
+      },
+      {
+        "sourceId": "d076",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "FLOOR整场预警专用着色器预设"
+      },
+      {
+        "sourceId": "d039",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "挂钩案例 02地狱火色带贴图节点"
+      },
+      {
+        "sourceId": "d292",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "故障单图三通道单独采样错位防发亮做法"
+      },
+      {
+        "sourceId": "d224",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "安全框射线求交与安全区探针做法"
+      },
+      {
+        "sourceId": "d234",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "耦合案例 02全屏HUD坐标布局表"
+      },
+      {
+        "sourceId": "d157",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "专用刀光拖尾着色器公式与池化参数包"
+      },
+      {
+        "sourceId": "d259",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定世界地图底图多场混色光照预设"
+      },
+      {
+        "sourceId": "d213",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定触控交互层CSS配色预设"
+      },
+      {
+        "sourceId": "d320",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "人形绑定控制器分区配色与形状画法"
+      },
+      {
+        "sourceId": "d185",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定水花粒子分型速度与水波参数包"
+      },
+      {
+        "sourceId": "d265",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定游戏错误卡通知与装备日志界面"
+      },
+      {
+        "sourceId": "d139",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "耦合特定着色器变量的专用发光公式"
+      },
+      {
+        "sourceId": "d345",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "逐字模糊淡入锐化错峰与避让主体的动效做法"
+      },
+      {
+        "sourceId": "s048",
         "kind": "summary",
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d057：与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "汇总随所指明细 d121：5种特定烟源参数与画质分档倍率配置表"
       },
       {
-        "sourceId": "s103",
+        "sourceId": "s034",
         "kind": "summary",
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d361：二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "汇总随所指明细 d069：独立贴花物理尺寸与光学自发光色"
+      },
+      {
+        "sourceId": "s124",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "practice",
+        "agree": false,
+        "reason": "汇总随所指明细 d297：图表与数字附带小来源行及来源卡规范"
+      },
+      {
+        "sourceId": "s003",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d015：特定粒子池容量上限与内存缓冲配置表"
+      },
+      {
+        "sourceId": "s119",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d266：特定游戏设置项与多档画质DPR配置"
+      },
+      {
+        "sourceId": "s112",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d237：耦合案例 02五级命中字赛璐璐色表"
       },
       {
         "sourceId": "s131",
         "kind": "summary",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d347：二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "汇总随所指明细 d347：蓝图视觉风格专属配色与图元预设包"
       },
       {
-        "sourceId": "s134",
+        "sourceId": "s133",
         "kind": "summary",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
         "agree": true,
-        "reason": "汇总随所指明细 d346：二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "汇总随所指明细 d345：逐字模糊淡入锐化错峰与避让主体的动效做法"
       },
       {
-        "sourceId": "s010",
+        "sourceId": "s106",
         "kind": "summary",
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d003：与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "汇总随所指明细 d231：耦合案例 02条形与准星多参数预设"
       },
       {
-        "sourceId": "s128",
+        "sourceId": "s045",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d121：5种特定烟源参数与画质分档倍率配置表"
+      },
+      {
+        "sourceId": "s033",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d071：固定特效池容量与风暴龙变体数值"
+      },
+      {
+        "sourceId": "s026",
         "kind": "summary",
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d330：二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "汇总随所指明细 d030：可独立复用的余烬与烟初速阻尼尺寸色值"
+      },
+      {
+        "sourceId": "s113",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d237：耦合案例 02五级命中字赛璐璐色表"
+      },
+      {
+        "sourceId": "s134",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d346：特定腕表标注样式与时间轴文案锚点预设"
+      },
+      {
+        "sourceId": "s118",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d262：案例 13分享卡固定版式与六格模板"
+      },
+      {
+        "sourceId": "s032",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d065：专用闪电着色器公式与色表预设"
+      },
+      {
+        "sourceId": "s128",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d330：相机投影绘PNG与洁净母带重合成管线"
+      },
+      {
+        "sourceId": "s030",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d056：绑定火星粒子缓冲与多端裁切预设"
+      },
+      {
+        "sourceId": "s042",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d098：绑定材质池与贴花核心的多材质命中预设"
+      },
+      {
+        "sourceId": "s084",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d190：NPC乙灯笼专属光晕闪烁点光预设"
+      },
+      {
+        "sourceId": "s082",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d188：头目二专属笼火火堆点光耦合公式"
+      },
+      {
+        "sourceId": "s056",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d130：绑定分档数量与日夜盒尺寸的尘埃萤火预设"
       },
       {
         "sourceId": "s006",
@@ -1017,39 +2749,7 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d013：与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
-      },
-      {
-        "sourceId": "s018",
-        "kind": "summary",
-        "ledgerRoute": "card-coupled",
-        "blindRoute": "card-coupled",
-        "agree": true,
-        "reason": "汇总随所指明细 d052：与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
-      },
-      {
-        "sourceId": "s107",
-        "kind": "summary",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
-        "agree": true,
-        "reason": "汇总随所指明细 d227：二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
-      },
-      {
-        "sourceId": "s075",
-        "kind": "summary",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
-        "agree": true,
-        "reason": "汇总随所指明细 d185：独立可复用的特效运动速度、持续/刷新时序、触发尺度或最小像素阈值"
-      },
-      {
-        "sourceId": "s076",
-        "kind": "summary",
-        "ledgerRoute": "portable",
-        "blindRoute": "portable",
-        "agree": true,
-        "reason": "汇总随所指明细 d186：独立可复用的特效运动速度、持续/刷新时序、触发尺度或最小像素阈值"
+        "reason": "汇总随所指明细 d013：多档位桌面与手机特效池容量配置表"
       },
       {
         "sourceId": "s022",
@@ -1057,23 +2757,487 @@
         "ledgerRoute": "card-coupled",
         "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d043：与特定角色、场景着色器算式、多档位容量表或预设包强耦合，须重标定，挂卡"
+        "reason": "汇总随所指明细 d043：挂钩案例 02色带贴图火星行端点预设"
       },
       {
-        "sourceId": "s085",
+        "sourceId": "s110",
         "kind": "summary",
-        "ledgerRoute": "practice",
-        "blindRoute": "practice",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
         "agree": true,
-        "reason": "汇总随所指明细 d063：跨实现可复用的物理模拟/预烘/滞回/颗粒合成算法、界面架构或制作复用纪律"
+        "reason": "汇总随所指明细 d237：耦合案例 02五级命中字赛璐璐色表"
       },
       {
-        "sourceId": "s113",
+        "sourceId": "s050",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d115：SmokeColumn分档数与熄灭公式"
+      },
+      {
+        "sourceId": "s021",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d029：挂钩外部案例 01红火着色参数与技能预设包"
+      },
+      {
+        "sourceId": "s104",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d217：特定徽记SVG路径动画与卡片倍率"
+      },
+      {
+        "sourceId": "s135",
         "kind": "summary",
         "ledgerRoute": "portable",
         "blindRoute": "portable",
         "agree": true,
-        "reason": "汇总随所指明细 d237：二维界面显示色、分辨率、触控/版式像素几何、水印面积占比或时序参数"
+        "reason": "汇总随所指明细 d357：竖屏三行拼接版式像素尺寸与分隔缝规格"
+      },
+      {
+        "sourceId": "s037",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d168：绑定戟挂点坐标的下劈命中特效预设"
+      },
+      {
+        "sourceId": "s009",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d001：通用闭式弹道公式复用五种发射宏技巧"
+      },
+      {
+        "sourceId": "s127",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d312：选中改属性展示的软件演示编排规范"
+      },
+      {
+        "sourceId": "s095",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d215：案例 01 重制版专属2D色板与系统字体配置"
+      },
+      {
+        "sourceId": "s019",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d048：特定火环效果的多参数联合预设"
+      },
+      {
+        "sourceId": "s069",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d162：箭尾迹专用着色器衰减与池化预设"
+      },
+      {
+        "sourceId": "s071",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d171：绑定头目骨骼与时间轴的苏醒特效包"
+      },
+      {
+        "sourceId": "s125",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "portable",
+        "agree": false,
+        "reason": "汇总随所指明细 d304：同屏标签3至4个上限与离线渲染耗时规格"
+      },
+      {
+        "sourceId": "s060",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d138：几何雨丝受光进景深并复用水模块的雨做法"
+      },
+      {
+        "sourceId": "s024",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d054：专用夜哨点火焰片元着色与配色公式"
+      },
+      {
+        "sourceId": "s094",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d210：特定UI系统字体栈字重与描边投影"
+      },
+      {
+        "sourceId": "s105",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d220：三层血条scaleX优化与差值更新做法"
+      },
+      {
+        "sourceId": "s083",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d193：单点光抢占阈值与线性升起指数衰减包络"
+      },
+      {
+        "sourceId": "s075",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d185：特定水花粒子分型速度与水波参数包"
+      },
+      {
+        "sourceId": "s092",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d205：SVG防缩放发糊、字体预加载与安全区做法"
+      },
+      {
+        "sourceId": "s049",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d121：5种特定烟源参数与画质分档倍率配置表"
+      },
+      {
+        "sourceId": "s107",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d227：横幅淡入停留淡出独立时序规格"
+      },
+      {
+        "sourceId": "s005",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d010：桌面与手机分档特效池容量配置表"
+      },
+      {
+        "sourceId": "s035",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d035：依赖基础吐息卡的超级吐息乘数预设包"
+      },
+      {
+        "sourceId": "s073",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d172：绑定特定角色与时间线的死亡溶解预设"
+      },
+      {
+        "sourceId": "s101",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d299：特定选举新闻片专属配色与面积占比"
+      },
+      {
+        "sourceId": "s098",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d206：绑定特定头目条规则与主题配色"
+      },
+      {
+        "sourceId": "s130",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d328：角色材质贴图分辨率骨骼形态键规模"
+      },
+      {
+        "sourceId": "s093",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d208：响应式根字号clamp缩放区间数值"
+      },
+      {
+        "sourceId": "s039",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d090：绑定外部案例 01撞击的碎屑配色与闪光公式预设"
+      },
+      {
+        "sourceId": "s088",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d200：破碎模拟五要素拆分与先预览再终渲流程"
+      },
+      {
+        "sourceId": "s020",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d062：绑定龙焰几何、封顶色与分档绘制预算"
+      },
+      {
+        "sourceId": "s054",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d128：绑定树关分档与4叶形图集的落叶粒子预设"
+      },
+      {
+        "sourceId": "s062",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d149：幽灵与主角专属消散公式及骨骼绑定"
+      },
+      {
+        "sourceId": "s046",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d121：5种特定烟源参数与画质分档倍率配置表"
+      },
+      {
+        "sourceId": "s109",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d237：耦合案例 02五级命中字赛璐璐色表"
+      },
+      {
+        "sourceId": "s057",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d131：绑定设备段数与草地引导遮罩的风线预设"
+      },
+      {
+        "sourceId": "s123",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d292：故障单图三通道单独采样错位防发亮做法"
+      },
+      {
+        "sourceId": "s031",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d060：绑定柴堆白桦事件的火星池与预设"
+      },
+      {
+        "sourceId": "s116",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d288：特定接缝帧段相机框缩放曲线与对比"
+      },
+      {
+        "sourceId": "s023",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d061：可独立复用的特效与材质线性RGB色表"
+      },
+      {
+        "sourceId": "s078",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d089：绑定特定裂口场景的冲击环与贴花公式预设"
+      },
+      {
+        "sourceId": "s140",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "practice",
+        "agree": false,
+        "reason": "汇总随所指明细 d370：请求中明确水印留空以防遮挡的交付做法"
+      },
+      {
+        "sourceId": "s051",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d102：案例 02烟雾15行专属sRGB调色板"
+      },
+      {
+        "sourceId": "s115",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d254：界面转场时长及防误触确认窗口规格"
+      },
+      {
+        "sourceId": "s064",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d172：绑定特定角色与时间线的死亡溶解预设"
+      },
+      {
+        "sourceId": "s117",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d258：案例 13世界地图三层坐标与存档键"
+      },
+      {
+        "sourceId": "s013",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d136：纯函数加绕相机循环盒实现零CPU粒子更新"
+      },
+      {
+        "sourceId": "s038",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d079：耦合地形水面的贴花池与网格分档"
+      },
+      {
+        "sourceId": "s120",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d267：案例 13 12键触屏环形布局预设"
+      },
+      {
+        "sourceId": "s074",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d177：特定头目事件与挂点贴花特效绑定"
+      },
+      {
+        "sourceId": "s027",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d066：独立时间包络与火星运动物理参数"
+      },
+      {
+        "sourceId": "s028",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d090：绑定外部案例 01撞击的碎屑配色与闪光公式预设"
+      },
+      {
+        "sourceId": "s089",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d202：游戏内全手写SVG与画布无位图界面做法"
+      },
+      {
+        "sourceId": "s014",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d029：挂钩外部案例 01红火着色参数与技能预设包"
+      },
+      {
+        "sourceId": "s063",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d149：幽灵与主角专属消散公式及骨骼绑定"
+      },
+      {
+        "sourceId": "s080",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d035：依赖基础吐息卡的超级吐息乘数预设包"
+      },
+      {
+        "sourceId": "s081",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d187：头目一专属点光状态与武器插值预设"
+      },
+      {
+        "sourceId": "s085",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d063：特定于案例 02的10级龙息预设"
+      },
+      {
+        "sourceId": "s012",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d106：灰烬池光照运动公式与分档池容量"
       }
     ]
   },
@@ -1084,11 +3248,9 @@
       "section": "1",
       "kind": "summary",
       "caseId": "case-ext01",
-      "summaryOf": "d002",
+      "summaryOf": "d030",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "portable",
       "targets": []
     },
     {
@@ -1102,9 +3264,7 @@
         "d007"
       ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": []
     },
     {
@@ -1113,10 +3273,7 @@
       "section": "1",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d014",
-      "alsoSummarizes": [
-        "d015"
-      ],
+      "summaryOf": "d015",
       "link": "values",
       "route": "card-coupled",
       "cardId": "post.volumetric",
@@ -1186,7 +3343,7 @@
       "caseId": "case-ext01",
       "summaryOf": "d137",
       "link": "values",
-      "route": "portable",
+      "route": "practice",
       "targets": []
     },
     {
@@ -1195,7 +3352,7 @@
       "section": "1",
       "kind": "summary",
       "caseId": "case-ext01",
-      "summaryOf": "d027",
+      "summaryOf": "d001",
       "link": "gist",
       "route": "practice",
       "targets": []
@@ -1208,9 +3365,7 @@
       "caseId": "case-02",
       "summaryOf": "d003",
       "link": "gist",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": []
     },
     {
@@ -1221,9 +3376,7 @@
       "caseId": "case-13",
       "summaryOf": "d019",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
+      "route": "practice",
       "targets": []
     },
     {
@@ -1232,9 +3385,14 @@
       "section": "1",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d188",
+      "summaryOf": "d106",
+      "alsoSummarizes": [
+        "d108"
+      ],
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "time.envelope",
+      "target": "time.envelope",
       "targets": []
     },
     {
@@ -1254,11 +3412,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": [
-        "fx-ui.d001.card"
+        "fx-ui.d001.practice"
       ]
     },
     {
@@ -1280,11 +3436,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": [
-        "fx-ui.d003.card"
+        "fx-ui.d003.practice"
       ]
     },
     {
@@ -1293,11 +3447,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "particle.on-twos",
-      "target": "particle.on-twos",
+      "route": "practice",
       "targets": [
-        "fx-ui.d004.card"
+        "fx-ui.d004.practice"
       ]
     },
     {
@@ -1306,11 +3458,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "particle.premult",
-      "target": "particle.premult",
+      "route": "practice",
       "targets": [
-        "fx-ui.d005.card"
+        "fx-ui.d005.practice"
       ]
     },
     {
@@ -1358,11 +3508,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": [
-        "fx-ui.d009.card"
+        "fx-ui.d009.practice"
       ]
     },
     {
@@ -1384,11 +3532,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": [
-        "fx-ui.d011.card"
+        "fx-ui.d011.practice"
       ]
     },
     {
@@ -1397,11 +3543,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
+      "route": "practice",
       "targets": [
-        "fx-ui.d012.card"
+        "fx-ui.d012.practice"
       ]
     },
     {
@@ -1423,11 +3567,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "post.volumetric",
-      "target": "post.volumetric",
+      "route": "practice",
       "targets": [
-        "fx-ui.d014.card"
+        "fx-ui.d014.practice"
       ]
     },
     {
@@ -1475,11 +3617,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "post.bloom",
-      "target": "post.bloom",
+      "route": "practice",
       "targets": [
-        "fx-ui.d018.card"
+        "fx-ui.d018.practice"
       ]
     },
     {
@@ -1488,11 +3628,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
+      "route": "practice",
       "targets": [
-        "fx-ui.d019.card"
+        "fx-ui.d019.practice"
       ]
     },
     {
@@ -1501,10 +3639,11 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "targets": [
-        "fx-ui.d020.lifetime",
-        "fx-ui.d020.interval"
+        "fx-ui.d020.card"
       ]
     },
     {
@@ -1513,11 +3652,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "post.volumetric",
-      "target": "post.volumetric",
+      "route": "practice",
       "targets": [
-        "fx-ui.d021.card"
+        "fx-ui.d021.practice"
       ]
     },
     {
@@ -1526,11 +3663,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "particle.premult",
-      "target": "particle.premult",
+      "route": "practice",
       "targets": [
-        "fx-ui.d022.card"
+        "fx-ui.d022.practice"
       ]
     },
     {
@@ -1565,11 +3700,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": [
-        "fx-ui.d025.card"
+        "fx-ui.d025.practice"
       ]
     },
     {
@@ -1578,11 +3711,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": [
-        "fx-ui.d026.card"
+        "fx-ui.d026.practice"
       ]
     },
     {
@@ -1602,11 +3733,9 @@
       "section": "1",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "card-coupled",
-      "cardId": "particle.premult",
-      "target": "particle.premult",
+      "route": "practice",
       "targets": [
-        "fx-ui.d028.card"
+        "fx-ui.d028.practice"
       ]
     },
     {
@@ -1617,10 +3746,10 @@
       "caseId": "case-ext01",
       "summaryOf": "d029",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s014"
-      ]
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
+      "targets": []
     },
     {
       "sourceId": "s015",
@@ -1645,11 +3774,14 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d053",
+      "alsoSummarizes": [
+        "d055"
+      ],
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s016"
-      ]
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
+      "targets": []
     },
     {
       "sourceId": "s017",
@@ -1684,14 +3816,11 @@
       "kind": "summary",
       "caseId": "case-13",
       "summaryOf": "d048",
-      "alsoSummarizes": [
-        "d049"
-      ],
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s019"
-      ]
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
+      "targets": []
     },
     {
       "sourceId": "s020",
@@ -1717,7 +3846,9 @@
         "d031"
       ],
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": []
     },
     {
@@ -1748,10 +3879,10 @@
       "caseId": "case-13",
       "summaryOf": "d061",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "fx-ui.sum.s023"
+      ]
     },
     {
       "sourceId": "s024",
@@ -1813,10 +3944,10 @@
       "caseId": "case-ext01",
       "summaryOf": "d090",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s028"
-      ]
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
+      "targets": []
     },
     {
       "sourceId": "s029",
@@ -1850,10 +3981,10 @@
       "caseId": "case-13",
       "summaryOf": "d060",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s031"
-      ]
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
+      "targets": []
     },
     {
       "sourceId": "d029",
@@ -1861,11 +3992,11 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": [
-        "fx-ui.d029.dimension",
-        "fx-ui.d029.angle",
-        "fx-ui.d029.duration"
+        "fx-ui.d029.card"
       ]
     },
     {
@@ -1940,9 +4071,11 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": [
-        "fx-ui.d035.duration"
+        "fx-ui.d035.card"
       ]
     },
     {
@@ -2055,11 +4188,9 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "portable",
       "targets": [
-        "fx-ui.d044.card"
+        "fx-ui.d044.base-color"
       ]
     },
     {
@@ -2068,10 +4199,11 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "targets": [
-        "fx-ui.d045.ratio",
-        "fx-ui.d045.length"
+        "fx-ui.d045.card"
       ]
     },
     {
@@ -2106,9 +4238,11 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d048.duration"
+        "fx-ui.d048.card"
       ]
     },
     {
@@ -2117,9 +4251,11 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "targets": [
-        "fx-ui.d049.length"
+        "fx-ui.d049.card"
       ]
     },
     {
@@ -2167,9 +4303,11 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
       "targets": [
-        "fx-ui.d053.dimension"
+        "fx-ui.d053.card"
       ]
     },
     {
@@ -2256,11 +4394,11 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "targets": [
-        "fx-ui.d060.speed",
-        "fx-ui.d060.lifetime",
-        "fx-ui.d060.acceleration"
+        "fx-ui.d060.card"
       ]
     },
     {
@@ -2269,11 +4407,9 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "portable",
       "targets": [
-        "fx-ui.d061.card"
+        "fx-ui.d061.base-color"
       ]
     },
     {
@@ -2295,9 +4431,11 @@
       "section": "2",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": [
-        "fx-ui.d063.practice"
+        "fx-ui.d063.card"
       ]
     },
     {
@@ -2324,10 +4462,10 @@
       "caseId": "case-02",
       "summaryOf": "d071",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s033"
-      ]
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
+      "targets": []
     },
     {
       "sourceId": "s034",
@@ -2354,7 +4492,9 @@
       "caseId": "case-02",
       "summaryOf": "d035",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": []
     },
     {
@@ -2365,10 +4505,10 @@
       "caseId": "case-13",
       "summaryOf": "d082",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s036"
-      ]
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
+      "targets": []
     },
     {
       "sourceId": "s037",
@@ -2378,10 +4518,10 @@
       "caseId": "case-13",
       "summaryOf": "d168",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s037"
-      ]
+      "route": "card-coupled",
+      "cardId": "camera.shake",
+      "target": "camera.shake",
+      "targets": []
     },
     {
       "sourceId": "s038",
@@ -2389,9 +4529,14 @@
       "section": "3",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d082",
+      "summaryOf": "d079",
+      "alsoSummarizes": [
+        "d082"
+      ],
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": []
     },
     {
@@ -2470,10 +4615,11 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d070.speed",
-        "fx-ui.d070.duration"
+        "fx-ui.d070.card"
       ]
     },
     {
@@ -2482,10 +4628,11 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": [
-        "fx-ui.d071.frequency",
-        "fx-ui.d071.interval"
+        "fx-ui.d071.card"
       ]
     },
     {
@@ -2494,11 +4641,9 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "fx.streak-ring",
-      "target": "fx.streak-ring",
+      "route": "practice",
       "targets": [
-        "fx-ui.d072.card"
+        "fx-ui.d072.practice"
       ]
     },
     {
@@ -2507,11 +4652,9 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "fx.streak-ring",
-      "target": "fx.streak-ring",
+      "route": "practice",
       "targets": [
-        "fx-ui.d073.card"
+        "fx-ui.d073.practice"
       ]
     },
     {
@@ -2520,11 +4663,9 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "particle.premult",
-      "target": "particle.premult",
+      "route": "practice",
       "targets": [
-        "fx-ui.d074.card"
+        "fx-ui.d074.practice"
       ]
     },
     {
@@ -2546,10 +4687,11 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
       "targets": [
-        "fx-ui.d076.length",
-        "fx-ui.d076.speed"
+        "fx-ui.d076.card"
       ]
     },
     {
@@ -2610,9 +4752,11 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
       "targets": [
-        "fx-ui.d081.duration"
+        "fx-ui.d081.card"
       ]
     },
     {
@@ -2621,12 +4765,11 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d082.radius",
-        "fx-ui.d082.duration",
-        "fx-ui.d082.length",
-        "fx-ui.d082.lifetime"
+        "fx-ui.d082.card"
       ]
     },
     {
@@ -2635,13 +4778,11 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
       "targets": [
-        "fx-ui.d083.dimension",
-        "fx-ui.d083.angular-speed",
-        "fx-ui.d083.speed",
-        "fx-ui.d083.lifetime",
-        "fx-ui.d083.duration"
+        "fx-ui.d083.card"
       ]
     },
     {
@@ -2650,10 +4791,11 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "post.volumetric",
+      "target": "post.volumetric",
       "targets": [
-        "fx-ui.d084.duration",
-        "fx-ui.d084.lifetime"
+        "fx-ui.d084.card"
       ]
     },
     {
@@ -2662,13 +4804,11 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
       "targets": [
-        "fx-ui.d085.duration",
-        "fx-ui.d085.radius",
-        "fx-ui.d085.angular-speed",
-        "fx-ui.d085.angle",
-        "fx-ui.d085.ratio"
+        "fx-ui.d085.card"
       ]
     },
     {
@@ -2677,10 +4817,9 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d086.frame-interval",
-        "fx-ui.d086.duration"
+        "fx-ui.d086.practice"
       ]
     },
     {
@@ -2701,11 +4840,9 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "card-coupled",
-      "cardId": "light.emit-pool",
-      "target": "light.emit-pool",
+      "route": "practice",
       "targets": [
-        "fx-ui.d088.card"
+        "fx-ui.d088.practice"
       ]
     },
     {
@@ -2714,12 +4851,11 @@
       "section": "3",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d089.duration",
-        "fx-ui.d089.radius",
-        "fx-ui.d089.length",
-        "fx-ui.d089.distance"
+        "fx-ui.d089.card"
       ]
     },
     {
@@ -2733,10 +4869,10 @@
         "d091"
       ],
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s039"
-      ]
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
+      "targets": []
     },
     {
       "sourceId": "s040",
@@ -2759,10 +4895,10 @@
       "caseId": "case-13",
       "summaryOf": "d096",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s041"
-      ]
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
+      "targets": []
     },
     {
       "sourceId": "s042",
@@ -2772,10 +4908,10 @@
       "caseId": "case-13",
       "summaryOf": "d098",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s042"
-      ]
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
+      "targets": []
     },
     {
       "sourceId": "s043",
@@ -2785,10 +4921,10 @@
       "caseId": "case-13",
       "summaryOf": "d098",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s043"
-      ]
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
+      "targets": []
     },
     {
       "sourceId": "s044",
@@ -2801,9 +4937,7 @@
         "d093"
       ],
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": []
     },
     {
@@ -2812,10 +4946,11 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "targets": [
-        "fx-ui.d090.speed",
-        "fx-ui.d090.lifetime"
+        "fx-ui.d090.card"
       ]
     },
     {
@@ -2824,9 +4959,11 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d091.speed"
+        "fx-ui.d091.card"
       ]
     },
     {
@@ -2861,10 +4998,11 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "targets": [
-        "fx-ui.d094.lifetime",
-        "fx-ui.d094.distance"
+        "fx-ui.d094.card"
       ]
     },
     {
@@ -2886,10 +5024,11 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "targets": [
-        "fx-ui.d096.lifetime",
-        "fx-ui.d096.ratio"
+        "fx-ui.d096.card"
       ]
     },
     {
@@ -2898,9 +5037,11 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "targets": [
-        "fx-ui.d097.lifetime"
+        "fx-ui.d097.card"
       ]
     },
     {
@@ -2909,11 +5050,11 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d098.lifetime",
-        "fx-ui.d098.angular-speed",
-        "fx-ui.d098.duration"
+        "fx-ui.d098.card"
       ]
     },
     {
@@ -2935,11 +5076,9 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": [
-        "fx-ui.d100.card"
+        "fx-ui.d100.practice"
       ]
     },
     {
@@ -2948,12 +5087,8 @@
       "section": "4",
       "kind": "detail",
       "caseId": "case-ext06",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
-      "targets": [
-        "fx-ui.d101.card"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceId": "s045",
@@ -3028,10 +5163,10 @@
       "caseId": "case-13",
       "summaryOf": "d115",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s050"
-      ]
+      "route": "card-coupled",
+      "cardId": "time.envelope",
+      "target": "time.envelope",
+      "targets": []
     },
     {
       "sourceId": "s051",
@@ -3080,10 +5215,10 @@
       "caseId": "case-13",
       "summaryOf": "d128",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s054"
-      ]
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
+      "targets": []
     },
     {
       "sourceId": "s055",
@@ -3093,10 +5228,10 @@
       "caseId": "case-13",
       "summaryOf": "d129",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s055"
-      ]
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": []
     },
     {
       "sourceId": "s056",
@@ -3106,7 +5241,9 @@
       "caseId": "case-13",
       "summaryOf": "d130",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": []
     },
     {
@@ -3143,7 +5280,9 @@
       "caseId": "case-13",
       "summaryOf": "d114",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": []
     },
     {
@@ -3154,9 +5293,7 @@
       "caseId": "case-14",
       "summaryOf": "d138",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "fx.streak-ring",
-      "target": "fx.streak-ring",
+      "route": "practice",
       "targets": []
     },
     {
@@ -3178,10 +5315,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "time.envelope",
+      "target": "time.envelope",
       "targets": [
-        "fx-ui.d103.speed",
-        "fx-ui.d103.angular-speed"
+        "fx-ui.d103.card"
       ]
     },
     {
@@ -3268,9 +5406,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d110.duration"
+        "fx-ui.d110.card"
       ]
     },
     {
@@ -3279,10 +5419,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "page.det2d",
+      "target": "page.det2d",
       "targets": [
-        "fx-ui.d111.ratio",
-        "fx-ui.d111.lifetime"
+        "fx-ui.d111.card"
       ]
     },
     {
@@ -3291,9 +5432,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d112.duration"
+        "fx-ui.d112.card"
       ]
     },
     {
@@ -3315,12 +5458,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d114.radius",
-        "fx-ui.d114.dimension",
-        "fx-ui.d114.speed",
-        "fx-ui.d114.duration"
+        "fx-ui.d114.card"
       ]
     },
     {
@@ -3329,11 +5471,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "time.envelope",
+      "target": "time.envelope",
       "targets": [
-        "fx-ui.d115.dimension",
-        "fx-ui.d115.lifetime",
-        "fx-ui.d115.duration"
+        "fx-ui.d115.card"
       ]
     },
     {
@@ -3342,11 +5484,9 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "wind.gust-wake",
-      "target": "wind.gust-wake",
+      "route": "practice",
       "targets": [
-        "fx-ui.d116.card"
+        "fx-ui.d116.practice"
       ]
     },
     {
@@ -3355,11 +5495,9 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "fx.streak-ring",
-      "target": "fx.streak-ring",
+      "route": "practice",
       "targets": [
-        "fx-ui.d117.card"
+        "fx-ui.d117.practice"
       ]
     },
     {
@@ -3368,12 +5506,8 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
-      "targets": [
-        "fx-ui.d118.card"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceId": "d119",
@@ -3381,10 +5515,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": [
-        "fx-ui.d119.interval",
-        "fx-ui.d119.length"
+        "fx-ui.d119.card"
       ]
     },
     {
@@ -3393,12 +5528,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": [
-        "fx-ui.d120.duration",
-        "fx-ui.d120.interval",
-        "fx-ui.d120.length",
-        "fx-ui.d120.transition-time"
+        "fx-ui.d120.card"
       ]
     },
     {
@@ -3498,16 +5632,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d128.grid-px",
-        "fx-ui.d128.size-ratio",
-        "fx-ui.d128.angular-speed",
-        "fx-ui.d128.duration",
-        "fx-ui.d128.ratio",
-        "fx-ui.d128.dimension",
-        "fx-ui.d128.distance",
-        "fx-ui.d128.threshold-px"
+        "fx-ui.d128.card"
       ]
     },
     {
@@ -3516,11 +5645,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
       "targets": [
-        "fx-ui.d129.threshold-px",
-        "fx-ui.d129.duration",
-        "fx-ui.d129.distance"
+        "fx-ui.d129.card"
       ]
     },
     {
@@ -3529,9 +5658,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d130.length"
+        "fx-ui.d130.card"
       ]
     },
     {
@@ -3566,10 +5697,11 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d133.interval",
-        "fx-ui.d133.time-constant"
+        "fx-ui.d133.card"
       ]
     },
     {
@@ -3578,11 +5710,9 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "fx.streak-ring",
-      "target": "fx.streak-ring",
+      "route": "practice",
       "targets": [
-        "fx-ui.d134.card"
+        "fx-ui.d134.practice"
       ]
     },
     {
@@ -3615,12 +5745,9 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-ext01",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d137.interval",
-        "fx-ui.d137.duration",
-        "fx-ui.d137.focal-length",
-        "fx-ui.d137.length"
+        "fx-ui.d137.practice"
       ]
     },
     {
@@ -3629,11 +5756,9 @@
       "section": "5",
       "kind": "detail",
       "caseId": "case-14",
-      "route": "card-coupled",
-      "cardId": "fx.streak-ring",
-      "target": "fx.streak-ring",
+      "route": "practice",
       "targets": [
-        "fx-ui.d138.card"
+        "fx-ui.d138.practice"
       ]
     },
     {
@@ -3683,7 +5808,9 @@
       "caseId": "case-13",
       "summaryOf": "d172",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": []
     },
     {
@@ -3705,10 +5832,11 @@
       "section": "6",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d140.ratio",
-        "fx-ui.d140.speed"
+        "fx-ui.d140.card"
       ]
     },
     {
@@ -3743,9 +5871,11 @@
       "section": "6",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
       "targets": [
-        "fx-ui.d143.length"
+        "fx-ui.d143.card"
       ]
     },
     {
@@ -3858,10 +5988,11 @@
       "section": "6",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d152.duration",
-        "fx-ui.d152.dimension"
+        "fx-ui.d152.card"
       ]
     },
     {
@@ -3911,10 +6042,10 @@
       "caseId": "case-13",
       "summaryOf": "d157",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s065"
-      ]
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
+      "targets": []
     },
     {
       "sourceId": "s066",
@@ -3950,10 +6081,10 @@
       "caseId": "case-13",
       "summaryOf": "d161",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s068"
-      ]
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
+      "targets": []
     },
     {
       "sourceId": "s069",
@@ -3987,11 +6118,11 @@
       "section": "7",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": [
-        "fx-ui.d157.duration",
-        "fx-ui.d157.ratio",
-        "fx-ui.d157.length"
+        "fx-ui.d157.card"
       ]
     },
     {
@@ -4000,12 +6131,11 @@
       "section": "7",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "post.volumetric",
+      "target": "post.volumetric",
       "targets": [
-        "fx-ui.d158.ratio",
-        "fx-ui.d158.angular-speed",
-        "fx-ui.d158.speed",
-        "fx-ui.d158.lifetime"
+        "fx-ui.d158.card"
       ]
     },
     {
@@ -4038,9 +6168,11 @@
       "section": "7",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
       "targets": [
-        "fx-ui.d161.lifetime"
+        "fx-ui.d161.card"
       ]
     },
     {
@@ -4088,10 +6220,11 @@
       "section": "7",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "post.volumetric",
+      "target": "post.volumetric",
       "targets": [
-        "fx-ui.d165.distance",
-        "fx-ui.d165.duration"
+        "fx-ui.d165.card"
       ]
     },
     {
@@ -4102,10 +6235,10 @@
       "caseId": "case-13",
       "summaryOf": "d168",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s070"
-      ]
+      "route": "card-coupled",
+      "cardId": "camera.shake",
+      "target": "camera.shake",
+      "targets": []
     },
     {
       "sourceId": "s071",
@@ -4115,10 +6248,10 @@
       "caseId": "case-13",
       "summaryOf": "d171",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s071"
-      ]
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
+      "targets": []
     },
     {
       "sourceId": "s072",
@@ -4141,10 +6274,10 @@
       "caseId": "case-13",
       "summaryOf": "d172",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s073"
-      ]
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
+      "targets": []
     },
     {
       "sourceId": "s074",
@@ -4154,7 +6287,9 @@
       "caseId": "case-13",
       "summaryOf": "d177",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": []
     },
     {
@@ -4163,10 +6298,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d166.ratio",
-        "fx-ui.d166.speed"
+        "fx-ui.d166.card"
       ]
     },
     {
@@ -4188,10 +6324,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "camera.shake",
+      "target": "camera.shake",
       "targets": [
-        "fx-ui.d168.duration",
-        "fx-ui.d168.length"
+        "fx-ui.d168.card"
       ]
     },
     {
@@ -4200,9 +6337,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": [
-        "fx-ui.d169.duration"
+        "fx-ui.d169.card"
       ]
     },
     {
@@ -4224,10 +6363,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d171.event-time",
-        "fx-ui.d171.length"
+        "fx-ui.d171.card"
       ]
     },
     {
@@ -4236,11 +6376,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d172.duration",
-        "fx-ui.d172.ratio",
-        "fx-ui.d172.dimension"
+        "fx-ui.d172.card"
       ]
     },
     {
@@ -4275,10 +6415,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d175.transition-time",
-        "fx-ui.d175.duration"
+        "fx-ui.d175.card"
       ]
     },
     {
@@ -4300,9 +6441,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d177.duration"
+        "fx-ui.d177.card"
       ]
     },
     {
@@ -4311,14 +6454,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "particle.ambient",
+      "target": "particle.ambient",
       "targets": [
-        "fx-ui.d178.radius",
-        "fx-ui.d178.dimension",
-        "fx-ui.d178.angle",
-        "fx-ui.d178.duration",
-        "fx-ui.d178.length",
-        "fx-ui.d178.distance"
+        "fx-ui.d178.card"
       ]
     },
     {
@@ -4327,9 +6467,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
       "targets": [
-        "fx-ui.d179.length"
+        "fx-ui.d179.card"
       ]
     },
     {
@@ -4351,10 +6493,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": [
-        "fx-ui.d181.pixels",
-        "fx-ui.d181.duration"
+        "fx-ui.d181.card"
       ]
     },
     {
@@ -4363,10 +6506,11 @@
       "section": "8",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": [
-        "fx-ui.d182.distance",
-        "fx-ui.d182.angle"
+        "fx-ui.d182.card"
       ]
     },
     {
@@ -4390,10 +6534,10 @@
       "caseId": "case-13",
       "summaryOf": "d185",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s075"
-      ]
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": []
     },
     {
       "sourceId": "s076",
@@ -4403,7 +6547,9 @@
       "caseId": "case-13",
       "summaryOf": "d186",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
       "targets": []
     },
     {
@@ -4414,10 +6560,10 @@
       "caseId": "case-13",
       "summaryOf": "d081",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s077"
-      ]
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": []
     },
     {
       "sourceId": "s078",
@@ -4427,10 +6573,10 @@
       "caseId": "case-ext01",
       "summaryOf": "d089",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s078"
-      ]
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
+      "targets": []
     },
     {
       "sourceId": "d184",
@@ -4438,11 +6584,9 @@
       "section": "9",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "wind.gust-wake",
-      "target": "wind.gust-wake",
+      "route": "practice",
       "targets": [
-        "fx-ui.d184.card"
+        "fx-ui.d184.practice"
       ]
     },
     {
@@ -4451,11 +6595,11 @@
       "section": "9",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
       "targets": [
-        "fx-ui.d185.duration",
-        "fx-ui.d185.ratio",
-        "fx-ui.d185.interval"
+        "fx-ui.d185.card"
       ]
     },
     {
@@ -4464,10 +6608,11 @@
       "section": "9",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
       "targets": [
-        "fx-ui.d186.length",
-        "fx-ui.d186.interval"
+        "fx-ui.d186.card"
       ]
     },
     {
@@ -4489,10 +6634,10 @@
       "caseId": "case-02",
       "summaryOf": "d035",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s080"
-      ]
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
+      "targets": []
     },
     {
       "sourceId": "s081",
@@ -4515,7 +6660,9 @@
       "caseId": "case-13",
       "summaryOf": "d188",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "light.emit-pool",
+      "target": "light.emit-pool",
       "targets": []
     },
     {
@@ -4526,9 +6673,7 @@
       "caseId": "case-13",
       "summaryOf": "d193",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
+      "route": "practice",
       "targets": []
     },
     {
@@ -4563,10 +6708,11 @@
       "section": "10",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "light.emit-pool",
+      "target": "light.emit-pool",
       "targets": [
-        "fx-ui.d188.length",
-        "fx-ui.d188.distance"
+        "fx-ui.d188.card"
       ]
     },
     {
@@ -4621,11 +6767,9 @@
       "section": "10",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
+      "route": "practice",
       "targets": [
-        "fx-ui.d193.card"
+        "fx-ui.d193.practice"
       ]
     },
     {
@@ -4636,7 +6780,9 @@
       "caseId": "case-02",
       "summaryOf": "d063",
       "link": "values",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": []
     },
     {
@@ -4647,9 +6793,7 @@
       "caseId": "case-ext03",
       "summaryOf": "d194",
       "link": "gist",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": []
     },
     {
@@ -4660,9 +6804,7 @@
       "caseId": "case-17",
       "summaryOf": "d197",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "fx.streak-ring",
-      "target": "fx.streak-ring",
+      "route": "practice",
       "targets": []
     },
     {
@@ -4682,11 +6824,9 @@
       "section": "11",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": [
-        "fx-ui.d194.card"
+        "fx-ui.d194.practice"
       ]
     },
     {
@@ -4695,11 +6835,9 @@
       "section": "11",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "card-coupled",
-      "cardId": "page.det2d",
-      "target": "page.det2d",
+      "route": "practice",
       "targets": [
-        "fx-ui.d195.card"
+        "fx-ui.d195.practice"
       ]
     },
     {
@@ -4708,11 +6846,9 @@
       "section": "11",
       "kind": "detail",
       "caseId": "case-ext04",
-      "route": "card-coupled",
-      "cardId": "fx.streak-ring",
-      "target": "fx.streak-ring",
+      "route": "practice",
       "targets": [
-        "fx-ui.d196.card"
+        "fx-ui.d196.practice"
       ]
     },
     {
@@ -4721,11 +6857,9 @@
       "section": "11",
       "kind": "detail",
       "caseId": "case-17",
-      "route": "card-coupled",
-      "cardId": "fx.streak-ring",
-      "target": "fx.streak-ring",
+      "route": "practice",
       "targets": [
-        "fx-ui.d197.card"
+        "fx-ui.d197.practice"
       ]
     },
     {
@@ -4745,11 +6879,9 @@
       "section": "11",
       "kind": "detail",
       "caseId": "case-17",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": [
-        "fx-ui.d199.card"
+        "fx-ui.d199.practice"
       ]
     },
     {
@@ -4769,11 +6901,9 @@
       "section": "11",
       "kind": "detail",
       "caseId": "case-12",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": [
-        "fx-ui.d201.card"
+        "fx-ui.d201.practice"
       ]
     },
     {
@@ -4784,7 +6914,7 @@
       "caseId": "case-13",
       "summaryOf": "d202",
       "link": "gist",
-      "route": "portable",
+      "route": "practice",
       "targets": []
     },
     {
@@ -4808,7 +6938,7 @@
       "caseId": "case-01r",
       "summaryOf": "d294",
       "link": "gist",
-      "route": "portable",
+      "route": "practice",
       "targets": []
     },
     {
@@ -4819,10 +6949,8 @@
       "caseId": "case-ext08",
       "summaryOf": "d205",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s092"
-      ]
+      "route": "practice",
+      "targets": []
     },
     {
       "sourceId": "d202",
@@ -4830,9 +6958,9 @@
       "section": "12",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d202.resolution"
+        "fx-ui.d202.practice"
       ]
     },
     {
@@ -4841,11 +6969,9 @@
       "section": "12",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "page.det2d",
-      "target": "page.det2d",
+      "route": "practice",
       "targets": [
-        "fx-ui.d203.card"
+        "fx-ui.d203.practice"
       ]
     },
     {
@@ -4867,10 +6993,9 @@
       "section": "12",
       "kind": "detail",
       "caseId": "case-ext08",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d205.resolution",
-        "fx-ui.d205.pixels"
+        "fx-ui.d205.practice"
       ]
     },
     {
@@ -4894,7 +7019,9 @@
       "caseId": "case-02",
       "summaryOf": "d210",
       "link": "gist",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": []
     },
     {
@@ -4905,7 +7032,9 @@
       "caseId": "case-01r",
       "summaryOf": "d215",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.anchored",
+      "target": "overlay.anchored",
       "targets": []
     },
     {
@@ -4916,7 +7045,9 @@
       "caseId": "case-18",
       "summaryOf": "d301",
       "link": "values",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": []
     },
     {
@@ -4938,10 +7069,10 @@
       "caseId": "case-13",
       "summaryOf": "d206",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s098"
-      ]
+      "route": "card-coupled",
+      "cardId": "time.envelope",
+      "target": "time.envelope",
+      "targets": []
     },
     {
       "sourceId": "s099",
@@ -4951,10 +7082,10 @@
       "caseId": "case-02",
       "summaryOf": "d211",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s099"
-      ]
+      "route": "card-coupled",
+      "cardId": "page.det2d",
+      "target": "page.det2d",
+      "targets": []
     },
     {
       "sourceId": "s100",
@@ -4964,10 +7095,10 @@
       "caseId": "case-01r",
       "summaryOf": "d215",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s100"
-      ]
+      "route": "card-coupled",
+      "cardId": "overlay.anchored",
+      "target": "overlay.anchored",
+      "targets": []
     },
     {
       "sourceId": "s101",
@@ -4977,10 +7108,10 @@
       "caseId": "case-18",
       "summaryOf": "d299",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s101"
-      ]
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
+      "targets": []
     },
     {
       "sourceId": "s102",
@@ -4990,10 +7121,10 @@
       "caseId": "case-29",
       "summaryOf": "d365",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s102"
-      ]
+      "route": "card-coupled",
+      "cardId": "overlay.cursor",
+      "target": "overlay.cursor",
+      "targets": []
     },
     {
       "sourceId": "s103",
@@ -5014,9 +7145,11 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "time.envelope",
+      "target": "time.envelope",
       "targets": [
-        "fx-ui.d206.display-color"
+        "fx-ui.d206.card"
       ]
     },
     {
@@ -5064,9 +7197,11 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d210.pixels"
+        "fx-ui.d210.card"
       ]
     },
     {
@@ -5075,9 +7210,11 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "page.det2d",
+      "target": "page.det2d",
       "targets": [
-        "fx-ui.d211.display-color"
+        "fx-ui.d211.card"
       ]
     },
     {
@@ -5086,9 +7223,11 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.title",
+      "target": "overlay.title",
       "targets": [
-        "fx-ui.d212.display-color"
+        "fx-ui.d212.card"
       ]
     },
     {
@@ -5097,9 +7236,11 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.title",
+      "target": "overlay.title",
       "targets": [
-        "fx-ui.d213.display-color"
+        "fx-ui.d213.card"
       ]
     },
     {
@@ -5108,11 +7249,11 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d214.pixels",
-        "fx-ui.d214.touch-target-px",
-        "fx-ui.d214.distance"
+        "fx-ui.d214.card"
       ]
     },
     {
@@ -5121,9 +7262,11 @@
       "section": "13",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.anchored",
+      "target": "overlay.anchored",
       "targets": [
-        "fx-ui.d215.display-color"
+        "fx-ui.d215.card"
       ]
     },
     {
@@ -5134,7 +7277,9 @@
       "caseId": "case-13",
       "summaryOf": "d217",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.anchored",
+      "target": "overlay.anchored",
       "targets": []
     },
     {
@@ -5143,11 +7288,9 @@
       "section": "14",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "practice",
       "targets": [
-        "fx-ui.d216.card"
+        "fx-ui.d216.practice"
       ]
     },
     {
@@ -5156,12 +7299,11 @@
       "section": "14",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.anchored",
+      "target": "overlay.anchored",
       "targets": [
-        "fx-ui.d217.display-color",
-        "fx-ui.d217.angle",
-        "fx-ui.d217.duration",
-        "fx-ui.d217.ratio"
+        "fx-ui.d217.card"
       ]
     },
     {
@@ -5183,11 +7325,9 @@
       "section": "14",
       "kind": "detail",
       "caseId": "case-04",
-      "route": "card-coupled",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
+      "route": "practice",
       "targets": [
-        "fx-ui.d219.card"
+        "fx-ui.d219.practice"
       ]
     },
     {
@@ -5196,15 +7336,13 @@
       "section": "15",
       "kind": "summary",
       "caseId": "case-13",
-      "summaryOf": "d221",
+      "summaryOf": "d220",
       "alsoSummarizes": [
-        "d220"
+        "d221"
       ],
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s105"
-      ]
+      "route": "practice",
+      "targets": []
     },
     {
       "sourceId": "s106",
@@ -5214,10 +7352,10 @@
       "caseId": "case-02",
       "summaryOf": "d231",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s106"
-      ]
+      "route": "card-coupled",
+      "cardId": "time.envelope",
+      "target": "time.envelope",
+      "targets": []
     },
     {
       "sourceId": "s107",
@@ -5243,10 +7381,10 @@
       "caseId": "case-02",
       "summaryOf": "d233",
       "link": "values",
-      "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
-      "targets": []
+      "route": "portable",
+      "targets": [
+        "fx-ui.sum.s108"
+      ]
     },
     {
       "sourceId": "d220",
@@ -5254,11 +7392,9 @@
       "section": "15",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d220.duration",
-        "fx-ui.d220.ratio",
-        "fx-ui.d220.transition-time"
+        "fx-ui.d220.practice"
       ]
     },
     {
@@ -5280,9 +7416,9 @@
       "section": "15",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d222.duration"
+        "fx-ui.d222.practice"
       ]
     },
     {
@@ -5291,11 +7427,9 @@
       "section": "15",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d223.resolution",
-        "fx-ui.d223.angle",
-        "fx-ui.d223.pixels"
+        "fx-ui.d223.practice"
       ]
     },
     {
@@ -5304,9 +7438,9 @@
       "section": "15",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d224.duration"
+        "fx-ui.d224.practice"
       ]
     },
     {
@@ -5315,10 +7449,11 @@
       "section": "15",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d225.duration",
-        "fx-ui.d225.transition-time"
+        "fx-ui.d225.card"
       ]
     },
     {
@@ -5327,10 +7462,9 @@
       "section": "15",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d226.duration",
-        "fx-ui.d226.interval"
+        "fx-ui.d226.practice"
       ]
     },
     {
@@ -5391,13 +7525,11 @@
       "section": "15",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "time.envelope",
+      "target": "time.envelope",
       "targets": [
-        "fx-ui.d231.display-color",
-        "fx-ui.d231.pixels",
-        "fx-ui.d231.ratio",
-        "fx-ui.d231.duration",
-        "fx-ui.d231.angle"
+        "fx-ui.d231.card"
       ]
     },
     {
@@ -5419,11 +7551,15 @@
       "section": "15",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
+      "route": "portable",
       "targets": [
-        "fx-ui.d233.card"
+        "fx-ui.d233.display-color",
+        "fx-ui.d233.duration",
+        "fx-ui.d233.event-time",
+        "fx-ui.d233.angle",
+        "fx-ui.d233.pixels",
+        "fx-ui.d233.interval",
+        "fx-ui.d233.ratio"
       ]
     },
     {
@@ -5432,12 +7568,11 @@
       "section": "15",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d234.display-color",
-        "fx-ui.d234.pixels",
-        "fx-ui.d234.grid-px",
-        "fx-ui.d234.ratio"
+        "fx-ui.d234.card"
       ]
     },
     {
@@ -5448,10 +7583,10 @@
       "caseId": "case-02",
       "summaryOf": "d237",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s109"
-      ]
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
+      "targets": []
     },
     {
       "sourceId": "s110",
@@ -5461,7 +7596,9 @@
       "caseId": "case-02",
       "summaryOf": "d237",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": []
     },
     {
@@ -5472,7 +7609,9 @@
       "caseId": "case-02",
       "summaryOf": "d237",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": []
     },
     {
@@ -5483,7 +7622,9 @@
       "caseId": "case-02",
       "summaryOf": "d237",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": []
     },
     {
@@ -5497,7 +7638,9 @@
         "d239"
       ],
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": []
     },
     {
@@ -5519,12 +7662,11 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.title",
+      "target": "overlay.title",
       "targets": [
-        "fx-ui.d236.display-color",
-        "fx-ui.d236.pixels",
-        "fx-ui.d236.grid-px",
-        "fx-ui.d236.ratio"
+        "fx-ui.d236.card"
       ]
     },
     {
@@ -5533,11 +7675,11 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": [
-        "fx-ui.d237.display-color",
-        "fx-ui.d237.ratio",
-        "fx-ui.d237.angle"
+        "fx-ui.d237.card"
       ]
     },
     {
@@ -5546,13 +7688,11 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "particle.ballistic",
+      "target": "particle.ballistic",
       "targets": [
-        "fx-ui.d238.interval",
-        "fx-ui.d238.duration",
-        "fx-ui.d238.transition-time",
-        "fx-ui.d238.pixels",
-        "fx-ui.d238.length"
+        "fx-ui.d238.card"
       ]
     },
     {
@@ -5574,9 +7714,9 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d240.pixels"
+        "fx-ui.d240.practice"
       ]
     },
     {
@@ -5585,12 +7725,11 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "page.det2d",
+      "target": "page.det2d",
       "targets": [
-        "fx-ui.d241.display-color",
-        "fx-ui.d241.angle",
-        "fx-ui.d241.ratio",
-        "fx-ui.d241.event-time"
+        "fx-ui.d241.card"
       ]
     },
     {
@@ -5599,9 +7738,11 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d242.duration"
+        "fx-ui.d242.card"
       ]
     },
     {
@@ -5610,14 +7751,11 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "fx.breath",
+      "target": "fx.breath",
       "targets": [
-        "fx-ui.d243.display-color",
-        "fx-ui.d243.event-time",
-        "fx-ui.d243.ratio",
-        "fx-ui.d243.pixels",
-        "fx-ui.d243.duration",
-        "fx-ui.d243.interval"
+        "fx-ui.d243.card"
       ]
     },
     {
@@ -5626,10 +7764,9 @@
       "section": "16",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d244.ratio",
-        "fx-ui.d244.frame-count"
+        "fx-ui.d244.practice"
       ]
     },
     {
@@ -5666,9 +7803,6 @@
       "kind": "summary",
       "caseId": "case-01r",
       "summaryOf": "d288",
-      "alsoSummarizes": [
-        "d287"
-      ],
       "link": "values",
       "route": "card-coupled",
       "cardId": "time.envelope",
@@ -5694,10 +7828,11 @@
       "section": "17",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.cursor",
+      "target": "overlay.cursor",
       "targets": [
-        "fx-ui.d246.pixels",
-        "fx-ui.d246.transition-time"
+        "fx-ui.d246.card"
       ]
     },
     {
@@ -5706,16 +7841,11 @@
       "section": "17",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.title",
+      "target": "overlay.title",
       "targets": [
-        "fx-ui.d247.display-color",
-        "fx-ui.d247.font-size",
-        "fx-ui.d247.pixels",
-        "fx-ui.d247.ratio",
-        "fx-ui.d247.transition-time",
-        "fx-ui.d247.event-time",
-        "fx-ui.d247.interval",
-        "fx-ui.d247.duration"
+        "fx-ui.d247.card"
       ]
     },
     {
@@ -5724,12 +7854,11 @@
       "section": "17",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
       "targets": [
-        "fx-ui.d248.lifetime",
-        "fx-ui.d248.ratio",
-        "fx-ui.d248.angular-speed",
-        "fx-ui.d248.duration"
+        "fx-ui.d248.card"
       ]
     },
     {
@@ -5776,16 +7905,11 @@
       "section": "17",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "time.envelope",
+      "target": "time.envelope",
       "targets": [
-        "fx-ui.d252.display-color",
-        "fx-ui.d252.duration",
-        "fx-ui.d252.pixels",
-        "fx-ui.d252.ratio",
-        "fx-ui.d252.size-ratio",
-        "fx-ui.d252.grid-px",
-        "fx-ui.d252.fill-ratio",
-        "fx-ui.d252.angle"
+        "fx-ui.d252.card"
       ]
     },
     {
@@ -5794,11 +7918,11 @@
       "section": "17",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "time.envelope",
+      "target": "time.envelope",
       "targets": [
-        "fx-ui.d253.duration",
-        "fx-ui.d253.ratio",
-        "fx-ui.d253.pixels"
+        "fx-ui.d253.card"
       ]
     },
     {
@@ -5838,10 +7962,10 @@
       "caseId": "case-13",
       "summaryOf": "d262",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s118"
-      ]
+      "route": "card-coupled",
+      "cardId": "overlay.title",
+      "target": "overlay.title",
+      "targets": []
     },
     {
       "sourceId": "s119",
@@ -5862,14 +7986,11 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
       "targets": [
-        "fx-ui.d255.angle",
-        "fx-ui.d255.transition-time",
-        "fx-ui.d255.interval",
-        "fx-ui.d255.duration",
-        "fx-ui.d255.ratio",
-        "fx-ui.d255.pixels"
+        "fx-ui.d255.card"
       ]
     },
     {
@@ -5930,10 +8051,11 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d260.resolution",
-        "fx-ui.d260.ratio"
+        "fx-ui.d260.card"
       ]
     },
     {
@@ -5942,13 +8064,11 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.cursor",
+      "target": "overlay.cursor",
       "targets": [
-        "fx-ui.d261.display-color",
-        "fx-ui.d261.resolution",
-        "fx-ui.d261.duration",
-        "fx-ui.d261.length",
-        "fx-ui.d261.threshold-px"
+        "fx-ui.d261.card"
       ]
     },
     {
@@ -5957,11 +8077,11 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.title",
+      "target": "overlay.title",
       "targets": [
-        "fx-ui.d262.display-color",
-        "fx-ui.d262.resolution",
-        "fx-ui.d262.duration"
+        "fx-ui.d262.card"
       ]
     },
     {
@@ -5970,9 +8090,9 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d263.duration"
+        "fx-ui.d263.practice"
       ]
     },
     {
@@ -5993,9 +8113,11 @@
       "section": "18",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d265.interval"
+        "fx-ui.d265.card"
       ]
     },
     {
@@ -6019,10 +8141,10 @@
       "caseId": "case-13",
       "summaryOf": "d267",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s120"
-      ]
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
+      "targets": []
     },
     {
       "sourceId": "s121",
@@ -6032,10 +8154,10 @@
       "caseId": "case-02",
       "summaryOf": "d274",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s121"
-      ]
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
+      "targets": []
     },
     {
       "sourceId": "d267",
@@ -6043,10 +8165,11 @@
       "section": "19",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d267.resolution",
-        "fx-ui.d267.angle"
+        "fx-ui.d267.card"
       ]
     },
     {
@@ -6055,10 +8178,9 @@
       "section": "19",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d268.pixels",
-        "fx-ui.d268.interval"
+        "fx-ui.d268.practice"
       ]
     },
     {
@@ -6067,10 +8189,11 @@
       "section": "19",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d269.duration",
-        "fx-ui.d269.ratio"
+        "fx-ui.d269.card"
       ]
     },
     {
@@ -6113,11 +8236,10 @@
       "section": "19",
       "kind": "detail",
       "caseId": "case-13",
-      "route": "card-coupled",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
+      "route": "portable",
       "targets": [
-        "fx-ui.d273.card"
+        "fx-ui.d273.duration",
+        "fx-ui.d273.fov"
       ]
     },
     {
@@ -6126,14 +8248,11 @@
       "section": "19",
       "kind": "detail",
       "caseId": "case-02",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d274.resolution",
-        "fx-ui.d274.angle",
-        "fx-ui.d274.ratio",
-        "fx-ui.d274.touch-target-px",
-        "fx-ui.d274.fov",
-        "fx-ui.d274.pixels"
+        "fx-ui.d274.card"
       ]
     },
     {
@@ -6155,9 +8274,7 @@
       "caseId": "case-01-legacy",
       "summaryOf": "d292",
       "link": "gist",
-      "route": "card-coupled",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
+      "route": "practice",
       "targets": []
     },
     {
@@ -6203,11 +8320,9 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "card-coupled",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
+      "route": "practice",
       "targets": [
-        "fx-ui.d278.card"
+        "fx-ui.d278.practice"
       ]
     },
     {
@@ -6240,10 +8355,9 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d281.frame-count",
-        "fx-ui.d281.pixels"
+        "fx-ui.d281.practice"
       ]
     },
     {
@@ -6265,11 +8379,11 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.anchored",
+      "target": "overlay.anchored",
       "targets": [
-        "fx-ui.d283.length",
-        "fx-ui.d283.pixels",
-        "fx-ui.d283.frame-count"
+        "fx-ui.d283.card"
       ]
     },
     {
@@ -6278,12 +8392,11 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.cursor",
+      "target": "overlay.cursor",
       "targets": [
-        "fx-ui.d284.grid-px",
-        "fx-ui.d284.event-frame",
-        "fx-ui.d284.frame-interval",
-        "fx-ui.d284.pixels"
+        "fx-ui.d284.card"
       ]
     },
     {
@@ -6292,10 +8405,9 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d285.frame-count",
-        "fx-ui.d285.ratio"
+        "fx-ui.d285.practice"
       ]
     },
     {
@@ -6304,12 +8416,11 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.cursor",
+      "target": "overlay.cursor",
       "targets": [
-        "fx-ui.d286.length",
-        "fx-ui.d286.pixels",
-        "fx-ui.d286.corner-radius",
-        "fx-ui.d286.grid-px"
+        "fx-ui.d286.card"
       ]
     },
     {
@@ -6318,10 +8429,11 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.title",
+      "target": "overlay.title",
       "targets": [
-        "fx-ui.d287.frame-count",
-        "fx-ui.d287.size-ratio"
+        "fx-ui.d287.card"
       ]
     },
     {
@@ -6356,12 +8468,9 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d290.resolution",
-        "fx-ui.d290.event-frame",
-        "fx-ui.d290.frame-count",
-        "fx-ui.d290.duration"
+        "fx-ui.d290.practice"
       ]
     },
     {
@@ -6383,11 +8492,9 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01-legacy",
-      "route": "card-coupled",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
+      "route": "practice",
       "targets": [
-        "fx-ui.d292.card"
+        "fx-ui.d292.practice"
       ]
     },
     {
@@ -6396,9 +8503,9 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01-original",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d293.frame-count"
+        "fx-ui.d293.practice"
       ]
     },
     {
@@ -6407,9 +8514,9 @@
       "section": "20",
       "kind": "detail",
       "caseId": "case-01r",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d294.resolution"
+        "fx-ui.d294.practice"
       ]
     },
     {
@@ -6418,12 +8525,14 @@
       "section": "21",
       "kind": "summary",
       "caseId": "case-18",
-      "summaryOf": "d301",
+      "summaryOf": "d297",
       "alsoSummarizes": [
         "d298"
       ],
       "link": "gist",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": []
     },
     {
@@ -6434,10 +8543,10 @@
       "caseId": "case-20",
       "summaryOf": "d304",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s125"
-      ]
+      "route": "card-coupled",
+      "cardId": "overlay.subs",
+      "target": "overlay.subs",
+      "targets": []
     },
     {
       "sourceId": "s126",
@@ -6467,9 +8576,11 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-18",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d295.margin-px"
+        "fx-ui.d295.card"
       ]
     },
     {
@@ -6517,11 +8628,11 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-18",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d299.display-color",
-        "fx-ui.d299.size-ratio",
-        "fx-ui.d299.ratio"
+        "fx-ui.d299.card"
       ]
     },
     {
@@ -6530,11 +8641,11 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-18",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d300.display-color",
-        "fx-ui.d300.duration",
-        "fx-ui.d300.ratio"
+        "fx-ui.d300.card"
       ]
     },
     {
@@ -6543,9 +8654,11 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-18",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
       "targets": [
-        "fx-ui.d301.practice"
+        "fx-ui.d301.card"
       ]
     },
     {
@@ -6567,11 +8680,9 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-20",
-      "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
+      "route": "practice",
       "targets": [
-        "fx-ui.d303.card"
+        "fx-ui.d303.practice"
       ]
     },
     {
@@ -6580,11 +8691,11 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-20",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.subs",
+      "target": "overlay.subs",
       "targets": [
-        "fx-ui.d304.label-count",
-        "fx-ui.d304.frame-count",
-        "fx-ui.d304.render-time"
+        "fx-ui.d304.card"
       ]
     },
     {
@@ -6593,11 +8704,9 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-20",
-      "route": "card-coupled",
-      "cardId": "time.envelope",
-      "target": "time.envelope",
+      "route": "practice",
       "targets": [
-        "fx-ui.d305.card"
+        "fx-ui.d305.practice"
       ]
     },
     {
@@ -6606,12 +8715,8 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-20",
-      "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
-      "targets": [
-        "fx-ui.d306.card"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceId": "d307",
@@ -6630,11 +8735,9 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-22",
-      "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
+      "route": "practice",
       "targets": [
-        "fx-ui.d308.card"
+        "fx-ui.d308.practice"
       ]
     },
     {
@@ -6667,11 +8770,9 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-26",
-      "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
+      "route": "practice",
       "targets": [
-        "fx-ui.d311.card"
+        "fx-ui.d311.practice"
       ]
     },
     {
@@ -6713,11 +8814,9 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-12",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d315.speed",
-        "fx-ui.d315.duration",
-        "fx-ui.d315.length"
+        "fx-ui.d315.practice"
       ]
     },
     {
@@ -6726,11 +8825,9 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-17",
-      "route": "card-coupled",
-      "cardId": "particle.ballistic",
-      "target": "particle.ballistic",
+      "route": "practice",
       "targets": [
-        "fx-ui.d316.card"
+        "fx-ui.d316.practice"
       ]
     },
     {
@@ -6739,11 +8836,9 @@
       "section": "21",
       "kind": "detail",
       "caseId": "case-21",
-      "route": "card-coupled",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
+      "route": "practice",
       "targets": [
-        "fx-ui.d317.card"
+        "fx-ui.d317.practice"
       ]
     },
     {
@@ -6768,10 +8863,8 @@
         "d331"
       ],
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s128"
-      ]
+      "route": "practice",
+      "targets": []
     },
     {
       "sourceId": "s129",
@@ -6792,15 +8885,13 @@
       "section": "22",
       "kind": "summary",
       "caseId": "case-23",
-      "summaryOf": "d324",
+      "summaryOf": "d328",
       "alsoSummarizes": [
-        "d328"
+        "d324"
       ],
       "link": "values",
       "route": "portable",
-      "targets": [
-        "fx-ui.sum.s130"
-      ]
+      "targets": []
     },
     {
       "sourceId": "d319",
@@ -6808,9 +8899,9 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-27",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d319.duration"
+        "fx-ui.d319.practice"
       ]
     },
     {
@@ -6819,11 +8910,9 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-27",
-      "route": "card-coupled",
-      "cardId": "overlay.cursor",
-      "target": "overlay.cursor",
+      "route": "practice",
       "targets": [
-        "fx-ui.d320.card"
+        "fx-ui.d320.practice"
       ]
     },
     {
@@ -6869,10 +8958,11 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-23",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.cursor",
+      "target": "overlay.cursor",
       "targets": [
-        "fx-ui.d324.fps",
-        "fx-ui.d324.duration"
+        "fx-ui.d324.card"
       ]
     },
     {
@@ -6881,11 +8971,9 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-23",
-      "route": "card-coupled",
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
+      "route": "portable",
       "targets": [
-        "fx-ui.d325.card"
+        "fx-ui.d325.triangle-count"
       ]
     },
     {
@@ -6932,10 +9020,8 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-23",
-      "route": "practice",
-      "targets": [
-        "fx-ui.d329.practice"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceId": "d330",
@@ -6943,11 +9029,9 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-05",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d330.fill-ratio",
-        "fx-ui.d330.frame-count",
-        "fx-ui.d330.ratio"
+        "fx-ui.d330.practice"
       ]
     },
     {
@@ -6969,12 +9053,11 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-05",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.anchored",
+      "target": "overlay.anchored",
       "targets": [
-        "fx-ui.d332.margin-px",
-        "fx-ui.d332.size-ratio",
-        "fx-ui.d332.ratio",
-        "fx-ui.d332.duration"
+        "fx-ui.d332.card"
       ]
     },
     {
@@ -6983,14 +9066,8 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-05",
-      "route": "portable",
-      "targets": [
-        "fx-ui.d333.fill-ratio",
-        "fx-ui.d333.frame-interval",
-        "fx-ui.d333.frame-count",
-        "fx-ui.d333.pixels",
-        "fx-ui.d333.size-ratio"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceId": "d334",
@@ -7011,11 +9088,9 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-05",
-      "route": "card-coupled",
-      "cardId": "overlay.anchored",
-      "target": "overlay.anchored",
+      "route": "practice",
       "targets": [
-        "fx-ui.d335.card"
+        "fx-ui.d335.practice"
       ]
     },
     {
@@ -7024,10 +9099,11 @@
       "section": "22",
       "kind": "detail",
       "caseId": "case-05",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.cursor",
+      "target": "overlay.cursor",
       "targets": [
-        "fx-ui.d336.frame-interval",
-        "fx-ui.d336.distance"
+        "fx-ui.d336.card"
       ]
     },
     {
@@ -7064,10 +9140,10 @@
       "caseId": "case-ext03",
       "summaryOf": "d347",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s131"
-      ]
+      "route": "card-coupled",
+      "cardId": "overlay.subs",
+      "target": "overlay.subs",
+      "targets": []
     },
     {
       "sourceId": "s132",
@@ -7090,9 +9166,7 @@
       "caseId": "case-ext03",
       "summaryOf": "d345",
       "link": "gist",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "practice",
       "targets": []
     },
     {
@@ -7103,7 +9177,9 @@
       "caseId": "case-ext03",
       "summaryOf": "d346",
       "link": "values",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.subs",
+      "target": "overlay.subs",
       "targets": []
     },
     {
@@ -7139,10 +9215,9 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d341.pixels",
-        "fx-ui.d341.frame-count"
+        "fx-ui.d341.practice"
       ]
     },
     {
@@ -7151,9 +9226,11 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.subs",
+      "target": "overlay.subs",
       "targets": [
-        "fx-ui.d342.display-color"
+        "fx-ui.d342.card"
       ]
     },
     {
@@ -7162,11 +9239,9 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "practice",
       "targets": [
-        "fx-ui.d343.card"
+        "fx-ui.d343.practice"
       ]
     },
     {
@@ -7175,9 +9250,11 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.subs",
+      "target": "overlay.subs",
       "targets": [
-        "fx-ui.d344.display-color"
+        "fx-ui.d344.card"
       ]
     },
     {
@@ -7186,11 +9263,9 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "practice",
       "targets": [
-        "fx-ui.d345.card"
+        "fx-ui.d345.practice"
       ]
     },
     {
@@ -7199,10 +9274,11 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.subs",
+      "target": "overlay.subs",
       "targets": [
-        "fx-ui.d346.display-color",
-        "fx-ui.d346.ratio"
+        "fx-ui.d346.card"
       ]
     },
     {
@@ -7211,11 +9287,11 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.subs",
+      "target": "overlay.subs",
       "targets": [
-        "fx-ui.d347.display-color",
-        "fx-ui.d347.pixels",
-        "fx-ui.d347.interval"
+        "fx-ui.d347.card"
       ]
     },
     {
@@ -7224,9 +9300,11 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "practice",
+      "route": "card-coupled",
+      "cardId": "overlay.subs",
+      "target": "overlay.subs",
       "targets": [
-        "fx-ui.d348.practice"
+        "fx-ui.d348.card"
       ]
     },
     {
@@ -7249,9 +9327,11 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-ext03",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.subs",
+      "target": "overlay.subs",
       "targets": [
-        "fx-ui.d350.display-color"
+        "fx-ui.d350.card"
       ]
     },
     {
@@ -7282,11 +9362,9 @@
       "section": "23",
       "kind": "detail",
       "caseId": "case-56",
-      "route": "card-coupled",
-      "cardId": "overlay.subs",
-      "target": "overlay.subs",
+      "route": "practice",
       "targets": [
-        "fx-ui.d353.card"
+        "fx-ui.d353.practice"
       ]
     },
     {
@@ -7339,10 +9417,8 @@
       "caseId": "case-25",
       "summaryOf": "d374",
       "link": "values",
-      "route": "portable",
-      "targets": [
-        "fx-ui.sum.s138"
-      ]
+      "route": "practice",
+      "targets": []
     },
     {
       "sourceId": "s139",
@@ -7398,12 +9474,8 @@
       "section": "24",
       "kind": "detail",
       "caseId": "case-18",
-      "route": "card-coupled",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
-      "targets": [
-        "fx-ui.d356.card"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceId": "d357",
@@ -7435,8 +9507,10 @@
       "section": "24",
       "kind": "detail",
       "caseId": "case-15",
-      "route": "skipped-or-conflict",
-      "targets": []
+      "route": "practice",
+      "targets": [
+        "fx-ui.d359.practice"
+      ]
     },
     {
       "sourceId": "d360",
@@ -7444,9 +9518,9 @@
       "section": "24",
       "kind": "detail",
       "caseId": "case-15",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d360.duration"
+        "fx-ui.d360.practice"
       ]
     },
     {
@@ -7507,9 +9581,11 @@
       "section": "24",
       "kind": "detail",
       "caseId": "case-29",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.cursor",
+      "target": "overlay.cursor",
       "targets": [
-        "fx-ui.d365.display-color"
+        "fx-ui.d365.card"
       ]
     },
     {
@@ -7544,9 +9620,9 @@
       "section": "24",
       "kind": "detail",
       "caseId": "case-29",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d368.resolution"
+        "fx-ui.d368.practice"
       ]
     },
     {
@@ -7579,12 +9655,8 @@
       "section": "24",
       "kind": "detail",
       "caseId": "case-multi",
-      "route": "card-coupled",
-      "cardId": "overlay.title",
-      "target": "overlay.title",
-      "targets": [
-        "fx-ui.d371.card"
-      ]
+      "route": "skipped-or-conflict",
+      "targets": []
     },
     {
       "sourceId": "d372",
@@ -7603,11 +9675,11 @@
       "section": "24",
       "kind": "detail",
       "caseId": "case-24",
-      "route": "portable",
+      "route": "card-coupled",
+      "cardId": "overlay.title",
+      "target": "overlay.title",
       "targets": [
-        "fx-ui.d373.resolution",
-        "fx-ui.d373.duration",
-        "fx-ui.d373.fps"
+        "fx-ui.d373.card"
       ]
     },
     {
@@ -7616,13 +9688,9 @@
       "section": "24",
       "kind": "detail",
       "caseId": "case-25",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d374.display-color",
-        "fx-ui.d374.area-ratio",
-        "fx-ui.d374.resolution",
-        "fx-ui.d374.duration",
-        "fx-ui.d374.grid-px"
+        "fx-ui.d374.practice"
       ]
     },
     {
@@ -7631,9 +9699,9 @@
       "section": "24",
       "kind": "detail",
       "caseId": "case-34",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "fx-ui.d375.resolution"
+        "fx-ui.d375.practice"
       ]
     },
     {

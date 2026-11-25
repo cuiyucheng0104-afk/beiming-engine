@@ -11,7 +11,7 @@
       "title": "渲染器设置与像素上限",
       "text": "WebGL2；antialias:false、alpha:false、depth:false、stencil:false；输出线性色彩空间、不做色调映射；PCFSoftShadowMap；需要 RGBA16F 渲染目标；像素上限 3.7e6，cap=sqrt(3.7e6/(cssW·cssH))。像素上限 370 万像素在 原实现源码，?capture 不做自适应。",
       "quantities": [],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "外部案例 01专属WebGL渲染器选项与像素上限",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -40,7 +40,7 @@
           "rawUnit": "秒"
         }
       ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "外部案例 01专属后期遍数分层与镜头跳过配置",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -60,7 +60,7 @@
       "title": "采样量与「没有」清单",
       "text": "没有路径追踪/降噪概念；阴影 PCF 半径 2.4；MSAA 4（低档 2）；云烘焙 230 步；体积光 14 步；AO 12 点；太阳光芒等效 512 采样。景深、运动模糊：源码中未找到。渲染分辨率/采样数/降噪：分组清单 那一组没有（在 01 章）。",
       "quantities": [],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "外部案例 01各专用通道采样数与低档预设包",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -80,7 +80,7 @@
       "title": "渲染器构造与相机",
       "text": "three WebGL2。antialias false、alpha false、stencil false、powerPreference 'high-performance'（原实现源码）。`renderer.toneMapping = NoToneMapping`，`outputColorSpace = SRGBColorSpace`，终合成手写 sRGB 分段函数（12.92、1.055、1/2.4、0.0031308）（原实现源码，原实现源码）。相机 PerspectiveCamera(62, 1, 0.5, 60000)，初始位置 (0, 1400, 40)（原实现源码）。three REVISION 186；画布分辨率=窗口×min(DPR,画质档上限)×renderScale；renderScale 钳制 0.25–2（原实现源码）；深度 DepthTexture FloatType（32 位浮点，原实现源码）；全程线性 HDR 半浮点，最后一个通道做曝光/色调映射/调色/手写 sRGB 编码；每帧耗时/总耗时/显卡未量。",
       "quantities": [],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "特定项目渲染器构造与场景相机配置",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -126,7 +126,7 @@
           "rawUnit": "帧"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定八段渲染管线配置",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -134,32 +134,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d006",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d007.card",
-      "sourceId": "d007",
-      "cardId": "time.seeded",
-      "target": "time.seeded",
-      "section": "1",
-      "caseId": "case-02",
-      "title": "调试视图与改离线出片的三处改动",
-      "text": "调试视图 `?view=` none/bloom/rays/mask/depth/clouds/scene（原实现源码），逐通道截图，没运行验证。改成逐帧离线出片（推断，未试）：把 原实现源码 的真实 dt 换成 1/输出帧率（模拟本为 120 Hz 固定步）；`?capture` 保留绘图缓冲，逐帧读画布（原实现源码）；鸟群/花瓣/每龙时钟初值用 Math.random()（原实现源码），要换固定种子。",
-      "quantities": [
-        {
-          "value": 120,
-          "unit": "Hz",
-          "rawUnit": "Hz"
-        }
-      ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
-      "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d007",
       "verifiedInOurStack": false
     },
     {
@@ -172,7 +146,7 @@
       "title": "渲染器上下文与相机",
       "text": "antialias:false, alpha:true, depth:true, stencil:false, premultipliedAlpha:true, powerPreference:\"high-performance\"；shadowMap.enabled=true，PCFShadowMap（采样函数被替换成自写 PCSS）；ACESFilmicToneMapping，实际在最终总成着色器里执行；曝光 toneMappingExposure = 当前天气预设 exposure（0.9–1.8）；SRGBColorSpace；场景缓冲线性半精度浮点，前向渲染；相机 PerspectiveCamera(55, w/h, 0.1, 6000)；场景不开硬件 MSAA，靠后期多重采样目标或 FXAA。像素比 effPR = pixelRatio × RES；PR_MAX = min(设备像素比, 档位 pr)；RES 为分辨率滑块 0.5–1。各向异性 低/中/高/手机/超 = 8/8/8/4/16。雾：内置雾被换成「高度雾 + 太阳前向散射」，scene.fog 只为打开宏。",
       "quantities": [],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "特定项目渲染器上下文、相机与画质档",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -198,7 +172,7 @@
           "rawUnit": "s"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定后期大总成着色器配置",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -218,7 +192,7 @@
       "title": "着色器时钟 uTime 是真实时间 2 倍与各子系统吃哪种时间",
       "text": "每帧 clock.t += dt×2（原实现源码）；全包唯一调用 `advanceClock(simT)`（原实现源码）；写 uTime.value 不改时钟只计 foreign++；暂停/开地图也照走。凡 uTime×k 换算的周期/频率/速度：真实角速度=k×2、周期=2π÷(2k)、行波相速=2k÷q。自起名时间量都是 1 倍：uSmokeT、uFaunaT、uClothT、uKTime、uClock、uFT、uSeaT、uYardT、uGwT、uT 等（小动物/烟/布是 uTime÷2，其余自己 += dt）。CPU 时间混用：CPU 代码多用 dt/simT（1 倍，受慢动作），但村镇、大教堂、古墓、zone_19的 update(dt, time) 与光源池拿到的 time 是 U.uTime.value（2 倍）；游戏流程里 c.time 也是 2 倍但无人读（原实现源码）。子系统吃哪种时间：realDt（1 真实）输入、sky.update、相机、HUD、引路叶、标题镜头；simT（1 模拟）wind、weather、tickGate、glowTree、spectres、audio.update、dragonFar、post.render；子步 dt：ctrl/anim/cape/flow/fx/bow/arrows、r16 模块；光源池 update(realDt, camera, U.uTime.value)。；「注入覆盖」机制（推断）：所有材质 onBeforeCompile 经 injectCommon 把 U 的每一项写进 shader.uniforms，自己写入 uTime 的值被丢弃；依赖 three 0.186 把 material.uniforms 原样交给 onBeforeCompile（库不在包里）。全包自建 uTime:{value:0} 的地方 13 处，仅龙材质（原实现源码）因注入后又 Object.assign 覆盖而走 1 倍",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定项目二倍着色器时钟与模块耦合表",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -226,57 +200,6 @@
       "evidenceLabel": "推断",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d011",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d012.card",
-      "sourceId": "d012",
-      "cardId": "post.hdr-chain",
-      "target": "post.hdr-chain",
-      "section": "1",
-      "caseId": "case-13",
-      "title": "全局统一变量注入",
-      "text": "改写 THREE.Material.prototype.onBeforeCompile，所有材质自动拿到全局统一变量表 U（49 个全局 uniform）（原实现源码，76-124）。",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d012",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d013.card",
-      "sourceId": "d013",
-      "cardId": "time.seeded",
-      "target": "time.seeded",
-      "section": "1",
-      "caseId": "case-13",
-      "title": "主循环每帧顺序与菜单跳帧",
-      "text": "25 步压成 8 步：①算时间步长，跑前面「静音」子步（角色、动画、斗篷）②推进着色器时钟③风→天空 G.sky.update→天气④世界模块（村/教堂/古墓/zone_19或巨树）→最后一个子步的角色⑤写玩家位置、更新最多 8 个「压草者」⑥相机（放在全部角色之后，跟拍不滞后一帧）→特效、音频、界面⑦灯光池选灯→出图 G.post.render→拷贝场景颜色给下一帧反射用⑧自适应分辨率统计；每 0.5 s 刷新帧率显示（原实现源码）。菜单盖住世界超过 0.55 s 整帧跳过出图（原实现源码）。",
-      "quantities": [
-        {
-          "value": 0.5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.55,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d013",
       "verifiedInOurStack": false
     },
     {
@@ -289,7 +212,7 @@
       "title": "缓冲与一帧 23 步",
       "text": "4 倍 MSAA 离屏缓冲 + FXAA；半浮点 RGBA；线性空间，最后一步才转 sRGB（原实现源码）。一帧 23 步：场景→AO(半)→AO 模糊×2→体积光(半)→体积光模糊×2→合成→运动模糊→泛光下 6 级→上 5 级→自动曝光→最终调色→FXAA（原实现源码）。最终调色一遍过：色散、锐化、泛光混合、曝光、分离调色、暗角、AgX、颗粒，同一个着色器（原实现源码）。自检入口：`window.__game`、`setCam`/`camOnPath`、`advance(dt,n)` 固定步长推进；`?fly=1`、`?start=N`、`?nofur=1`、`?fur=1`、`?skins=none`、`?q=ultra`；合成着色器 3 个调试视图（只看 AO、只看体积光、只看深度）。",
       "quantities": [],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "特定项目23步管线与调试入口参数集",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -309,7 +232,7 @@
       "title": "太阳光与雾塞进 three 自带材质",
       "text": "改写 three `lights_fragment_begin`：第 0 盏平行光取光后乘 `clSunK(vFogW)`（查 256×256 云影贴图、风暴前沿、黄昏线、龙撕开的云洞）；three 雾片段整个换成自己的空气透视 `clFog`；材质仍是 MeshStandardMaterial 等现成类（原实现源码）。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定改写内置光照雾片段",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -350,7 +273,7 @@
           "rawUnit": "m"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "专用卡通着色器描边参数",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -370,7 +293,7 @@
       "title": "云合成",
       "text": "4 抽头双边上采样；深度权重 `exp(−|zi−z|/(0.04z+0.5))`；云 alpha 锐化 `smoothstep(0.1, 0.62, a)`；无匹配回退阈值权重和 < 0.02；浓云 alpha > 0.5 处把深度拉到云前沿（原实现源码）。云 alpha 在全分辨率锐化避免低分辨率阶梯边；云时间上采样 2×2。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "专用云双边上采样与合成着色器公式预设",
       "coupling": "与第 1 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -390,7 +313,7 @@
       "title": "MSAA 规则",
       "text": "MSAA 只在场景目标；low 档 2×；其余档 dpr×renderScale ≥ 1.75 时 2×，否则 4×；`?msaa=N` 覆盖（原实现源码）。无 FXAA/SMAA/TAA（推断）。",
       "quantities": [],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "特定项目分档与像素比关联的MSAA预设",
       "coupling": "与第 2 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -410,7 +333,7 @@
       "title": "MSAA 与 FXAA 规则",
       "text": "档位采样数为 0 则 0（采样 0 时开 FXAA）；否则像素比 ≥1.5 取 min(2,档位值)，否则取档位值（原实现源码）。FXAA 3.11；对比阈值 max(0.0312, 最大亮度×0.125)；亚像素 sub²×0.75；搜索 7 步 [1.5,2,2,2,2,4,8]（手机 3 步 [2,4,8]）。CAS 锐化：分母 mix(8,5,强度)，按 FXAA 位移 1-smoothstep(0,.25,fin) 淡掉；在 x/(1+x) 压缩后的颜色上算；基值 低/中/高/手机/超 = 0/0.3/0.35/0.5/0.42；分辨率越低越接近 0.6；桌面锐化基值 min(max(档位,.6),档位+.45(1-min(1,实际PR/DPR)))。",
       "quantities": [],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "多档画质抗锯齿与CAS锐化联合参数预设",
       "coupling": "与第 2 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -446,7 +369,7 @@
           "rawUnit": "帧"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定项目多档画质阴影尺寸与刷新率配置表",
       "coupling": "与第 2 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -454,82 +377,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 2 节 · d022",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d024.card",
-      "sourceId": "d024",
-      "cardId": "post.hdr-chain",
-      "target": "post.hdr-chain",
-      "section": "2",
-      "caseId": "case-multi",
-      "title": "运动模糊、景深、抗锯齿一起做",
-      "text": "案例 07（07）：每个最终帧 = 8 到 64 个子渲染的平均，各自在时间上、镜头孔径上、像素分数偏移上错开；静镜头约 8 个，快镜头最多 64；个别镜头可缩短快门：狼的火箭姿势约 45° 而非常规 180°。估算（推断算术）：4,236 帧按 8 次 ≥33,888 次，按 64 次 ≤271,104 次，真实总数未公开。闪电雷暴巨城（12）：20 s 一镜到底、1920×1080、60 fps（1,200 帧）；three+GLSL；每帧 8 个抖动子采样（运动模糊/抗锯齿/景深），街道最快段 96；1,200 帧在 某生成平台 GPU 上每遍约 6 分钟；约 15600 栋楼；时间轴控制慢动作（250 倍与 80000 倍为官方时间轴说明，未验证物理精度）。",
-      "quantities": [
-        {
-          "value": 45,
-          "unit": "deg",
-          "rawUnit": "°"
-        },
-        {
-          "value": 180,
-          "unit": "deg",
-          "rawUnit": "°"
-        },
-        {
-          "value": 4236,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": 20,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 60,
-          "unit": "fps",
-          "rawUnit": "fps"
-        },
-        {
-          "value": 1200,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": 1200,
-          "unit": "frame",
-          "rawUnit": "帧"
-        }
-      ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 2 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 2 节 · d024",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d025.card",
-      "sourceId": "d025",
-      "cardId": "post.hdr-chain",
-      "target": "post.hdr-chain",
-      "section": "2",
-      "caseId": "case-07",
-      "title": "镜头首帧运动模糊泄漏的修法",
-      "text": "镜头第一帧的运动模糊采样会回溯到上一镜头，使每次剪切起始带鬼影双重曝光；引擎修复 = 把每个采样钳制在本镜头内，一次清除一整类缺陷。",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 2 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 2 节 · d025",
       "verifiedInOurStack": false
     },
     {
@@ -563,7 +410,7 @@
           "rawUnit": "m"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定脚本Cycles配置与冲突",
       "coupling": "与第 3 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -574,79 +421,110 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "render-pipe.d038.card",
-      "sourceId": "d038",
+      "id": "render-pipe.d030.card",
+      "sourceId": "d030",
       "cardId": "blender.cycles",
       "target": "blender.cycles",
       "section": "3",
       "caseId": "case-multi",
-      "title": "Blender 版本兼容与脚本关键调用",
-      "text": "脚本同时兼容 Blender 4.5 与 5.2：节点插口一律按序号取（5.x 把 Fac 改名 Factor）；不用 5.x 专有 API；Thin Film 不用（4.5 与 5.2 金属处理不同）。渲染脚本关键调用：`studio.setup(samples=, res=(w,h), transparent=True, motion_blur=blur)`；`scene.render.use_persistent_data=True`；`cy.use_denoising=True`；`cy.denoiser=\"OPENIMAGEDENOISE\"`；`if hasattr(cy,\"denoising_use_gpu\"): cy.denoising_use_gpu=True`；每帧同时导出 meta JSON（15 锚点屏幕坐标+深度 z 米、整卡 bbox、焦段、机位、yaw_deg、explode）。另一台本地工作站 上任何时候只跑一个 Blender；不传 工程文件，只传脚本，每次从脚本重建整个场景。",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 3 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d038",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d043.card",
-      "sourceId": "d043",
-      "cardId": "blender.cycles",
-      "target": "blender.cycles",
-      "section": "4",
-      "caseId": "case-26",
-      "title": "路径追踪器能力清单（餐馆单 kernel 版）",
-      "text": "单个 compute kernel；自建 BVH（SAH）；对太阳盘/天空/发光三角形做多重重要性采样（MIS）；Sobol 序列 + Owen 打乱；分层 BSDF：清漆（clear coat）压 GGX 压漫反射、薄/实心玻璃、咖啡与琥珀玻璃内部吸收；大厅含灰尘体积；相机为镜头模型（薄透镜、光圈叶片、猫眼焦外、畸变、镜头位移、快门运动模糊）；天空 = 物理大气（Rayleigh/Mie/臭氧多次散射）按太阳高度计算，厅内太阳高度 +9°；GPU 后期：albedo/法线/深度引导的非局部均值降噪→泛光→光晕(halation)→色差→AgX 色调映射（look 未公开）。案例 19版增加：空气尘埃对太阳单次散射（形成光柱）、炭炉烟雾 = 随时间变化程序密度含自阴影；案例 19官方自报 316 万三角形、383 材质、53 人、43 万根毛。案例 25（悬挑住宅）版扩展：材质（耐候钢/层状砂岩/锌/CLT/光伏/河）、有限尺寸太阳、每帧重建运动几何；太阳位置由场地经纬度与日期计算：10 月 12 日 07:20 当地时间、方位角 106°、高度角 9°。",
+      "title": "渲染设置",
+      "text": "案例 03-T：Cycles；1920×1080、30 fps、900 帧；采样数、降噪、反弹未公开；测试帧本机 8 张，900 帧在 某生成平台 GPU；提示词要求 GPU OptiX/CUDA 降噪、AgX — Medium High Contrast、快门 0.5。参考图设置为 1080p（非提示词所写 8K）【冲突：提示词 8K 与参考图 1080p】。发布片 30 秒、30 fps、最终 900 帧经 某生成平台 GPU 渲染。；案例 28：先本地写调试脚本并渲 8 张测试静帧（每镜一张）自检（装配与转头不散架、眼牙随颅骨与颌运动、玻璃金属写实）；终渲 900 帧 Cycles + GPU OptiX/CUDA 降噪于 某生成平台 GPU，先报价待确认；下载 原包素材 与 工程文件。`/gpu` 渲染，渲染器、采样、色彩管理、降噪、帧数未公开；录屏 Motion Blur 复选框勾选。玻璃头 Compositor：物理正确运动模糊（shutter 0.5）；动画景深（微距镜头焦点始终跟踪活动部件，中景跟踪眼睛）；Glare(Fog Glow) 用于太阳穴与眼睛指示灯；色彩配置 AgX — Medium High Contrast。",
       "quantities": [
         {
-          "value": 9,
-          "unit": "deg",
-          "rawUnit": "°"
+          "value": 30,
+          "unit": "fps",
+          "rawUnit": "fps"
         },
         {
-          "value": 106,
-          "unit": "deg",
-          "rawUnit": "°"
+          "value": 900,
+          "unit": "frame",
+          "rawUnit": "帧"
         },
         {
-          "value": 9,
-          "unit": "deg",
-          "rawUnit": "°"
+          "value": 900,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 30,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 30,
+          "unit": "fps",
+          "rawUnit": "fps"
+        },
+        {
+          "value": 900,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 900,
+          "unit": "frame",
+          "rawUnit": "帧"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 4 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "routeNote": "特定机械头渲染合成配置",
+      "coupling": "与第 3 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
       "evidenceLevel": "推断",
       "evidenceLabel": "推断",
       "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d043",
+      "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d030",
       "verifiedInOurStack": false
     },
     {
-      "id": "render-pipe.d046.card",
-      "sourceId": "d046",
+      "id": "render-pipe.d039.card",
+      "sourceId": "d039",
       "cardId": "blender.cycles",
       "target": "blender.cycles",
       "section": "4",
-      "caseId": "case-26",
-      "title": "光组分离保存",
-      "text": "路径追踪器分别保存 5 个光组（太阳、天空、灯、霓虹 A、霓虹 B），同一批采样按组重新合成；霓虹在剪辑里闪烁/熄灭/调亮度无需重渲；原文结尾也把它当最重要建议（「从第一次渲染起就分开存光组」）；关键设计使「霓虹闪灭+声音同步」成立，我们在成片上验证了闪烁与声音同帧。与北冥「颜色、深度、法线、物体编号」分层图同一路思路。",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "caseId": "case-multi",
+      "title": "同一自写 WebGPU 路径追踪器家族",
+      "text": "014、019、021、026 是同一个自写 WebGPU 路径追踪器（先为餐馆写，后扩到案例 19，再迁到案例 14与案例 21），再遇到这一家族先查 026 第 7 节对照表。引擎演化读法：从餐馆「静态场景+光组重组」长成案例 19「母帧+逐帧窗口+人物和体积」，再原样用到案例 21和案例 14；四地共同限制：相机只摇和俯仰无视差（案例 19最后一镜除外）；014 与 021 切点一帧不差（84/162/222/300），各镜 84/78/60/78/60 帧，是同一剪辑模板，两条新镜头都 78 帧，对得上原文「两个新镜头各 78 个窗口」。成片：案例 14 15 秒 5 镜、案例 21 15.0 秒 5 镜、案例 19 21.5 秒 6 镜，1920×1080、24 fps。",
+      "quantities": [
+        {
+          "value": 60,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 78,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 15,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 15,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 21.5,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 24,
+          "unit": "fps",
+          "rawUnit": "fps"
+        }
+      ],
+      "routeNote": "特定家族剪辑与成片规格",
       "coupling": "与第 4 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
       "evidenceLevel": "文档",
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d046",
+      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d039",
       "verifiedInOurStack": false
     },
     {
@@ -659,7 +537,7 @@
       "title": "渲染器与参数（18 新闻讲解片）",
       "text": "无头浏览器驱动调用本机 某平台 无头浏览器（桌面工作站 默认路径，需改），`headless:'new'`，视口 1920×1080 `deviceScaleFactor:1`；页面接口 `window.ready`、`window.renderFrame(t)`。无头浏览器 参数：`--hide-scrollbars --force-color-profile=srgb --font-render-hinting=none --disable-lcd-text --disable-background-timer-throttling --disable-renderer-backgrounding`（原实现源码 只有前 4 个）；CDP `Page.captureScreenshot`（png、optimizeForSpeed:true、clip 1920×1080、scale 1）。该文件有版权，见权利栏。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定无头浏览器启动参数与CDP截图选项集合",
       "coupling": "与第 5 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -667,46 +545,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d050",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d053.card",
-      "sourceId": "d053",
-      "cardId": "page.det2d",
-      "target": "page.det2d",
-      "section": "5",
-      "caseId": "case-07",
-      "title": "帧即时间纯函数与相机剪切表",
-      "text": "单个 three 页面只暴露一个函数「给时间画那一帧」；固定随机种子、无时钟；带历史的效果（如稻草暴风雪）从头以固定步长模拟并缓存；相机放剪切表（位置/目标/焦距/光圈/对焦点关键帧），统一求值器生成平滑曲线，每镜头前后各多出额外帧使第 0 帧已在运动；时间冻结 = 世界冻结而相机仍在飞，倒带 = 同一相机运动反向播放。结果帧可乱序、多机并行。",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 5 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d053",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d059.card",
-      "sourceId": "d059",
-      "cardId": "blender.cycles",
-      "target": "blender.cycles",
-      "section": "6",
-      "caseId": "case-multi",
-      "title": "云 GPU 渲染流程（僵尸手 24、案例 22 22、玻璃头 28）",
-      "text": "僵尸手：先本地渲 6 张检查帧（手背伤口+骨、蜘蛛拱、爬行一步、空翻空中、手枪、带控制器的 OK）自检无扭曲手指/撕裂网格/伤口钉紧贴/僵尸着色器丰富；再用 /gpu 列 GPU 与价、确认无遗留任务、报价、上传 工程文件、显示 GPU/预计积分/最高费用、确认「yes」后才开始；Cycles 高质量 + GPU 降噪（OptiX 或 OIDN）；导出 H.264 -crf 15；持续跟进不因报错放弃；笔记本上传帧太慢改云上重渲，并拆成两台 GPU 相向渲染，完成后关机；前两版被自己判为前景手指失焦、地平线有刺眼辉线，第三版才入片；全程约 3.5 小时。；案例 22：每 GPU 一个 Blender 进程，渲染可续；渲完拷回帧检查闪烁（指标阈值未公开）；先向用户展示价格并等确认再租 GPU（某生成平台 GPU 经 `/gpu` 命令）；结束后关机。",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 6 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d059",
       "verifiedInOurStack": false
     },
     {
@@ -719,7 +557,7 @@
       "title": "色调映射 hybrid 与调色顺序",
       "text": "色调映射 hybrid：`mix(neutral(c), agxPunchy(c×1.1), smoothstep(0.45, 1.5, 最大通道))`；Neutral 压缩起点 0.8−0.04=0.76、去饱和 0.05（原版 0.15）；AgX Punchy 幂 1.35、饱和 1.4；AgX EV 范围 −12.47393 到 4.026069；亮度权重 (0.2126, 0.7152, 0.0722)（原实现源码）。保色混合色调映射：低于 0.76 的手绘色原样通过，只压高光（原实现源码）。；调色顺序：饱和 → 暗部加蓝 `+= shadowTint × shadowAmt × (1 − clamp(亮度×2.2))²` → 高光偏暖 `×= mix(1, highlightTint, smoothstep(0.35,1.0,亮度))` → 色温 `×(1+0.06w, 1+0.01w, 1−0.07w)` → sRGB → 对比 S 曲线 `c²(3−2c)` 混合量 `clamp((contrast−1)×2.5, −1, 1)` → 暗角 `smoothstep(0.45,1.25,length(vd))`，`×= mix(1, vignetteTint, v×vignette×1.6)` → 抖动（原实现源码）。；抖动颗粒：`(IGN − 0.5) × (1/255 + 0.006)`，IGN 常数 52.9829189、(0.06711056, 0.00583715)，每帧按 `fract(uTime)×64` 偏移（原实现源码）。防色带做法。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "绑定特定管线色调映射与调色公式包",
       "coupling": "与第 7 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -727,6 +565,40 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 7 节 · d062",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "render-pipe.d063.card",
+      "sourceId": "d063",
+      "cardId": "post.hue-keep",
+      "target": "post.hue-keep",
+      "section": "7",
+      "caseId": "case-13",
+      "title": "曝光链、ACES 与发光体保色",
+      "text": "ACES 前乘预设 exposure，再乘自动曝光倍数并夹 0.25–4；自动曝光只提亮；生效的预设：第一世界夜（下限 .05、上限 2）、巨树 4 套（下限 .02–.05、上限 1.25–2）；其余 4 套下限 0、3 s 后停算（原实现源码）。白平衡 `hdr *= g.wb`；很亮的近场发光体（曝光后峰值通道 0.7–2.0，深度 60–140 m 渐隐）混向「只对峰值通道做色调映射」的结果，防止火焰被 ACES 漂白发白；强度 uHueKeep=min(1,.9×scale)×max(...)（原实现源码）。",
+      "quantities": [
+        {
+          "value": 3,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": [
+            60,
+            140
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "routeNote": "曝光链与保色公式绑定场景预设",
+      "coupling": "与第 7 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 7 节 · d063",
       "verifiedInOurStack": false
     },
     {
@@ -745,7 +617,7 @@
           "rawUnit": "像素"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "耦合镜头抖动与调色链的多参数预设",
       "coupling": "与第 7 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -765,7 +637,7 @@
       "title": "自写 AgX 与分离调色",
       "text": "渲染器自带色调映射关掉，自写 AgX，对比度 1.34，饱和度 1.04。分离调色：暗部乘 (0.86, 1.0, 1.1)，亮部乘 (1.08, 1.0, 0.88)，在色调映射之前做。相机模拟一步：自动曝光、泛光、暗部偏冷亮部偏暖的分离调色、暗角、胶片颗粒、轻微色散（原实现源码）；9 种全屏着色器（原实现源码）。AgX 本身是公开算法，依赖一段特定实现。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定着色器实现的AgX与分离调色预设",
       "coupling": "与第 7 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -785,7 +657,7 @@
       "title": "色彩管理在其他案例",
       "text": "餐馆：bloom、halation、色差、AgX 色调映射（look 未公开）。案例 22：AgX Medium High Contrast，合成器调色，每镜头曝光自动匹配主镜头。玻璃头：AgX — Medium High Contrast。Blender 默认链见",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "其他案例后期色彩管理配置记录",
       "coupling": "与第 7 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -805,7 +677,7 @@
       "title": "泛光",
       "text": "阈值 1.0、软膝 0.5、散射 0.85、6 级；预过滤 `rq = clamp(br − T + K, 0, 2K)`，`rq = rq²/(4K+1e-4)`，输出 `c × max(rq, br−T)/br`；输入钳制 64；第 1 级 Karis 权重 `1/(1+最大通道)`；下采样 13 抽头（Jimenez 2014，权重 中心 0.125、四角 0.03125、四边 0.0625、内四点 0.125）；上采样 3×3 帐篷（权重 4/2/1 除 16）加法混合。强度 `grade.bloom × 0.22`（算得 0.165 / 0.209 / 0.198，推断）。预设 bloom：afternoon 0.75 / storm 0.95 / victory 0.9。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "专用泛光着色器公式与三套场景预设",
       "coupling": "与第 8 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -849,7 +721,7 @@
           "rawUnit": "s"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "泛光级数与关键帧脉冲预设包",
       "coupling": "与第 8 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -869,7 +741,7 @@
       "title": "泛光链、宽光晕与镜头脏污",
       "text": "泛光亮部提取（改 UnrealBloomPass）：软膝 k=smoothWidth 0.6，s=clamp(v-阈值+k,0,2k)²/(4k)；自发光 em=uEmis·smoothstep(uEmisLo,Hi,v)·smoothstep(.3,.65,sat)·min(1,uEmisCap/v)；Reinhard 软上限 wt*=1/(1+v·wt/uBloomCap)；抽头夹 300（原实现源码）。每帧参数：strength=(g.bloom??0.3+0.25 夜)+..；radius=0.6+0.18 守夜火；threshold=(g.bloomThreshold??1.05)×max(1,1/曝光)；uEmis=(g.emissiveBloom??0.5)；uEmisLo/Hi/Cap=1.2/3/2.4 ÷曝光；uBloomCap=6÷曝光；构造初值 0.32/0.6/1.05（原实现源码）；黄昏阈值 1.35、正午 1.8（原实现源码）。泛光链：亮部 ÷4，5 级逐级÷2；模糊核 [6,10,14,18,22]（四分之一分辨率×0.5）；5 级染色 (1,1,1),(1,.97,.9),(1,.92,.78),(1,.88,.68),(1,.84,.6)；三路亮部提取，软上限 6/曝光；亮部半分辨率级为四分之一分辨率（按调用推断）；宽光晕取第 3、4 级加暖色 (1,.86,.64)，权重第 3 级 .4/第 4 级 .6，光晕 中/高 .22、超 .3，上限 .8；脏污强度 0.9（原实现源码）。；镜头脏污贴图（只 ultra）：512×288 单通道；种子 1337 LCG；7 大斑 r60-150 α.05-.10；46 中斑 r5-21 α(.08-.30)×(.45+离中心×1.4)；70 小点 r.8-3 α.25-.6；2 条弧形擦痕宽 10-24 α.05；强度 0.9×dirtScale（原实现源码）。可用自己的 Canvas 生成。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "专用泛光链公式与分场景分档预设包",
       "coupling": "与第 8 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -889,7 +761,7 @@
       "title": "泛光",
       "text": "混合 0.085，半径 1.0，散布 0.72；6 级下采样（1/2 到 1/64）+5 级上采样（1/32 到 1/2）；第一级下采样用亮度加权平均防闪烁；输入亮度上限 64。自动曝光读泛光第 5 级平均亮度",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定泛光多级采样与混合散布预设包",
       "coupling": "与第 8 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -897,6 +769,26 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 8 节 · d070",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "render-pipe.d071.card",
+      "sourceId": "d071",
+      "cardId": "post.volumetric",
+      "target": "post.volumetric",
+      "section": "8",
+      "caseId": "case-02",
+      "title": "太阳光束、鬼影",
+      "text": "光束：遮罩深度 4 抽头；太阳辉光 `mu^300×2.5 + mu^28×0.35`；遮罩 = 天空×(1−云alpha)×辉光；径向采样 28 次；第 1 次模糊 density/decay 0.9/0.94，第 2 次 0.9×0.28 / 0.985；起点 IGN 抖动；开启门槛 太阳朝向点积 > 0.05，淡入 `smoothstep(0.05,0.4,facing)`；终合成强度 `grade.godrays × 淡入 × 0.8`；星芒 `0.8 + 0.2|sin(6a+0.4)|^8 + 0.14|sin(11a+1.3)|^24`，衰减 `exp(−距离×2.2)`。光束色 afternoon 0xfff2dc / storm 0xffc070 / victory 0xffd49a（原实现源码）。；鬼影 5 个 + 1 圈彩虹晕，沿太阳到画面中心的轴：#0 轴位 0.45 半径 0.045 强度 0.50 实心 色 (0.55,0.85,1.0)；#1 0.80/0.080/0.40 环形 (1.0,0.75,0.45)；#2 1.25/0.030/0.60 实心 (0.6,1.0,0.75)；#3 1.60/0.130/0.30 环形 (0.75,0.6,1.0)；#4 2.00/0.060/0.40 实心 (1.0,0.9,0.6)；彩虹晕 半径 0.34 宽 0.03 强度 0.25；总乘数 0.3（原实现源码）。flare 预设 0.55 / 0.75 / 0.8（afternoon / storm / victory）。",
+      "quantities": [],
+      "routeNote": "专用太阳光束鬼影公式与多套配色预设",
+      "coupling": "与第 8 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 8 节 · d071",
       "verifiedInOurStack": false
     },
     {
@@ -909,7 +801,7 @@
       "title": "太阳光芒",
       "text": "1/4 分辨率；朝向点积>0.15 才做；遮罩 exp(−|q|²·1.6)、亮度阈 smoothstep(0.9,3.0)；径向模糊长度 0.06/0.2/0.62、各 8 点（等效 512 采样）；颜色 (1.0,0.72,0.46)×uGod 0.55。常数 god=0.55。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "专用太阳光芒径向模糊公式与配色预设",
       "coupling": "与第 8 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -938,7 +830,7 @@
           "rawUnit": "m"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "屏幕光束公式与分档配置耦合预设",
       "coupling": "与第 8 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -946,26 +838,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 8 节 · d073",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d074.card",
-      "sourceId": "d074",
-      "cardId": "post.volumetric",
-      "target": "post.volumetric",
-      "section": "8",
-      "caseId": "case-ext01",
-      "title": "体积光模糊的注释与代码对不上【冲突】",
-      "text": "原实现源码 注释说体积光「quarter resolution, two blur passes」，代码里没有模糊遍，只在调色时做 4 个双线性采样的平均（原实现源码）",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 8 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 8 节 · d074",
       "verifiedInOurStack": false
     },
     {
@@ -978,7 +850,7 @@
       "title": "三套调色预设（afternoon / storm / victory）",
       "text": "曝光 1.0 / 0.96 / 1.02；饱和 1.14 / 1.04 / 1.12；对比 1.04 / 1.16 / 1.05；暗角 0.3 / 0.45 / 0.32；色温 warmth 0.0 / 0.08 / 0.12；bloom 0.75 / 0.95 / 0.9；flare 0.55 / 0.75 / 0.8；godrays 见。shadowTint 0x22407a / 0x1e2c56 / 0x2a3470；shadowAmt 0.07 / 0.1 / 0.08；highlightTint 0xfffcf6 / 0xffeed8 / 0xfff0dc；vignetteTint [0.8,0.86,0.94] / [0.74,0.77,0.86] / [0.8,0.82,0.92]（原实现源码）。午后预设：暗角形状 smoothstep(0.45,1.25,半径)，色调 [0.8,0.86,0.94]；暗部加色 0x22407a 量 0.07；高光着色 0xfffcf6；对比度 1.04（S 曲线混合量 0.1，推断）。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "三套场景调色曝光对比染色暗角预设",
       "coupling": "与第 9 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -998,7 +870,7 @@
       "title": "色差",
       "text": "chromatic 0.0012（UV，R、B 反向偏移），遮罩 `smoothstep(0.12,0.5,dot(dc,dc))`，只在画面边缘，速度模糊生效时不做色差（原实现源码）",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定后期色差遮罩公式与联合条件预设",
       "coupling": "与第 9 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1092,7 +964,7 @@
           "rawUnit": "m"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "屏幕冲击色散冲击环事件预设包",
       "coupling": "与第 9 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1100,6 +972,32 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 9 节 · d078",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "render-pipe.d079.card",
+      "sourceId": "d079",
+      "cardId": "comp.finish",
+      "target": "comp.finish",
+      "section": "9",
+      "caseId": "case-13",
+      "title": "调色查找表与 gradeTable",
+      "text": "烘进 32³ 查找表：21 个调色参数先烘进 32×32×32 颜色表（摊成 1024×32 条带，半浮点贴图），最终着色器每像素只查一次（双线性+层间插值）；任一参数变化才重烘（原实现源码）。Canvas/WebGL 都能用。；gradeTable（显示空间，色调映射之后）：对比 clamp((c-.45)·对比+.45)，混 S 曲线 c²(3-2c)，量 (对比-1)·1.2；暗部加 (-.022,.006,.03)·uTeal；亮部加 (.034,.014,-.03)·(uWarm×8)；阴影冷化混向亮度×钢灰 (.8,.97,1.3)（强度可推向 (.68,.94,1.44)）；提亮目标 (.1,.11,.13)；饱和 mix(l,c,sat)；压黑 c*=1-强度(1-黑点)(1-smoothstep(0,膝,l))（原实现源码）。默认值：uWarm 0.1, uSat 1.1, uContrast 1.05, uTeal 1, uLift 0, uVignette 0.55, uGrain 0.03, uCA 1（色差基值 0.0035）（原实现源码）。作者另给的 3D 表 1.2 s 淡入；巨树 grade.toe 比出厂 0.02 更硬。",
+      "quantities": [
+        {
+          "value": 1.2,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "routeNote": "专用调色查找表与gradeTable公式预设",
+      "coupling": "与第 9 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 9 节 · d079",
       "verifiedInOurStack": false
     },
     {
@@ -1112,7 +1010,7 @@
       "title": "暗角、颗粒、色差",
       "text": "暗角：vig=1-smoothstep(0.2,0.98,椭圆半径 dc·(1,0.9)·1.3)，mix(1,vig,uVignette+0.2 灰烬+0.3 死亡)（原实现源码）。胶片颗粒：两个不同尺度哈希噪声相加-1；量 mix(uGrain,0.075,灰烬)×(1.1-0.6 亮度)×0.6；为 0 时整段跳过（原实现源码）。色差：ca=(0.0035uCA+0.006 受伤+0.004 死亡+0.002 灰烬+0.007 城门震)·r²，红蓝反向偏移；为 0 省两次取样（原实现源码）。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "玩法状态耦合的暗角颗粒色差公式预设",
       "coupling": "与第 9 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1132,7 +1030,7 @@
       "title": "最终调色数值",
       "text": "色散 0.1、锐化 0.35（越亮越弱）、泛光混合、曝光、分离调色、暗角、AgX、颗粒，同一个着色器（原实现源码）。暗角 0.44；颗粒 0.03（越亮越弱）；过场遮幅 0.11 到 0.12。分离调色见",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定作品单遍调色与后期多参数预设",
       "coupling": "与第 9 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1140,6 +1038,32 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 9 节 · d081",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "render-pipe.d082.card",
+      "sourceId": "d082",
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
+      "section": "9",
+      "caseId": "case-13",
+      "title": "屏幕反馈与灰烬视觉",
+      "text": "屏幕反馈（受伤/低血量/闪白等）：低血量去饱和 0.55 边缘压暗 .45+.35 心跳；受伤边缘混红 (.5,.025,.02)×.85；闪白 (1,.88,.62)×.82；死亡 亮度×(.62,.16,.13)；守夜火 HDR×1.12（原实现源码，玩法耦合只作参考）。灰烬视觉：全画面转灰（(0.3,0.59,0.11) 灰度、420 列竖划痕每秒 14 帧、概率 0.0014、亮度 0.2），只保留发光的金色（色相 0.02–0.22）（原实现源码；第 01 章摘录，时钟复查候选）。",
+      "quantities": [
+        {
+          "value": 14,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "routeNote": "玩法耦合屏幕反馈与灰烬视觉预设",
+      "coupling": "与第 9 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 9 节 · d082",
       "verifiedInOurStack": false
     },
     {
@@ -1152,7 +1076,7 @@
       "title": "冲刺径向模糊（游戏向）",
       "text": "闪避 0.5，冲刺技能 0.32，每秒衰减 2.4",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "动作耦合径向模糊强度预设",
       "coupling": "与第 9 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1191,7 +1115,7 @@
           "rawUnit": "%"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "SSAO螺旋采样与模糊权重属着色器预设包",
       "coupling": "与第 10 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1202,34 +1126,70 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "render-pipe.d086.card",
-      "sourceId": "d086",
+      "id": "render-pipe.d085.card",
+      "sourceId": "d085",
       "cardId": "post.bilateral-up",
       "target": "post.bilateral-up",
       "section": "10",
-      "caseId": "case-10",
-      "title": "环境遮蔽",
-      "text": "半径 0.75 米，强度 1.15，偏移 0.03，混合 0.92；采样 high=12；半分辨率 + 横竖两遍保边模糊；亮度 0.6 到 3.0 之间的像素遮蔽逐步减弱 65%（直射处淡掉）",
+      "caseId": "case-13",
+      "title": "AO、接触阴影、合成策略",
+      "text": "半分辨率螺旋采样 + 接触阴影：AO_N 12/AO_TURNS 7/CS_N 14；世界半径 uRadius（半分辨率 1/全分辨率 0.8）×clamp(0.3+0.1d,0.45,1)；地平线余弦 0.1；深度偏移 0.012+0.003d；强度×5/N；淡出 35-75 m（半）/45-95 m（全）；模糊权重 exp(-i²·0.12)，深度容差 0.035d+0.05（原实现源码）。AOPass：屏幕空间遮蔽，采样 8/10/16 个；75 m 外不遮蔽；朝太阳走 14 步找接触阴影。宏默认 12 与档位表 8/10/16 并存，原笔记未说明关系。合成策略：只压环境光份额；aoStrength 0.8，aoMin（下限）0.55，aoCharacter 0.55，aoLit [0.35,1]（曝光后亮度在此区间最多保留 30% 遮蔽，即亮处最多保留 30%）；夜×(1-.35)（分组清单 记夜里 ×0.65），室内×(1-.4)；角色椭圆内再减 .55；接触阴影强度 0.55，长 0.5 m，厚 0.35 m，距离 30/26 m（原实现源码）。",
       "quantities": [
         {
-          "value": 0.75,
+          "value": [
+            35,
+            75
+          ],
           "unit": "m",
-          "rawUnit": "米"
+          "rawUnit": "m"
         },
         {
-          "value": 0.65,
+          "value": [
+            45,
+            95
+          ],
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 75,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.3,
           "unit": "ratio",
           "rawUnit": "%"
+        },
+        {
+          "value": 0.3,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.5,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.35,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 26,
+          "unit": "m",
+          "rawUnit": "m"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "多档AO与接触阴影合成参数耦合预设",
       "coupling": "与第 10 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
       "evidenceLevel": "文档",
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 10 节 · d086",
+      "docRef": "渲染管线采样后期性能汇编 · 第 10 节 · d085",
       "verifiedInOurStack": false
     },
     {
@@ -1256,7 +1216,7 @@
           "rawUnit": "%"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "SSR步进命中与淡出参数属预设包",
       "coupling": "与第 10 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1297,7 +1257,7 @@
           "rawUnit": "m"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "散射公式与热浪雾效参数耦合预设",
       "coupling": "与第 10 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1356,7 +1316,7 @@
           "rawUnit": "ms"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "运动模糊多参数与骑士椭圆预设耦合",
       "coupling": "与第 11 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1382,7 +1342,7 @@
           "rawUnit": "px"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "景深CoC公式与过场阈值属预设包",
       "coupling": "与第 11 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1402,7 +1362,7 @@
       "title": "速度模糊",
       "text": "8 抽头径向，步长 `方向×uSpeed×0.045×m`，中心保护 `m = smoothstep(0.12,0.55,到中心距离)`，启用门槛 uSpeed > 0.001；输入上限 0.8，中心钳在 0.3–0.7（原实现源码）。景深：现行管线没有（原实现源码 注释）。运动模糊：无逐物体",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "耦合uSpeed的径向速度模糊着色器公式",
       "coupling": "与第 11 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1410,32 +1370,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 11 节 · d092",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d093.card",
-      "sourceId": "d093",
-      "cardId": "blur.subframe",
-      "target": "blur.subframe",
-      "section": "11",
-      "caseId": "case-10",
-      "title": "运动模糊",
-      "text": "快门 0.42，拖影最长为屏幕尺寸 2.6%，8 个采样；帧率低于 60 时快门按比例缩短；只算相机运动，角色 alpha=0 遮罩不参与（原实现源码）。角色材质把透明通道写 0 当遮罩",
-      "quantities": [
-        {
-          "value": 0.026,
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 11 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 11 节 · d093",
       "verifiedInOurStack": false
     },
     {
@@ -1459,7 +1393,7 @@
           "rawUnit": "Hz"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "绑定固定时刻的闪电风暴光曲线",
       "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1498,7 +1432,7 @@
           "rawUnit": "帧"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "绑定特定雷击时间点的预压暗关键帧",
       "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1518,7 +1452,7 @@
       "title": "调色脉冲（fade / white / flash / exposure / bloom / god）",
       "text": "fade=sm(0,2.8)·(1−sm(88.3,89.75))；white=p(67.5,0.034,0.028)；flash=p(24.05,0.1,0.6)+0.35·strikes+0.8·p(42,0.04,0.3)+0.7·p(49.5,0.03,0.25)+0.9·p(51,0.04,0.35)+0.6·p(57,0.05,0.4)+0.5·p(63,0.08,0.5)+1.1·p(67.5,0.04,0.3)；exposure=1+0.10·p(24.05,0.12,0.8)+0.10·min(strikes,1.5)+0.22·p(42,0.04,0.25)+0.25·p(49.5,0.03,0.18)+0.25·p(51,0.04,0.3)+0.12·p(57,0.05,0.3)+0.10·win(63,67.5,0.4,0.1)+4·white−0.28·preDip，再×lerp(1,0.3,sm(86.6,88.2))（≈−1.74 档）；bloom=0.06+0.05·p(24,0.2,1.5)+0.04·p(42,0.05,0.5)+0.04·p(49.5,0.04,0.4)+0.05·p(51,0.05,0.6)+0.05·win(63,67.5,0.6,0.1)+0.22·p(67.5,0.05,0.7)；god=常数 0.55；kick 由 FX 写入（原实现源码）。曝光公式（分组清单 记法）：1+0.10p(24.05,0.12,0.8)+…+4·white−0.28·preDip",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "绑定全片时间轴的调色曝光脉冲",
       "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1538,7 +1472,7 @@
       "title": "阵风 gust 与风相位表",
       "text": "gust=0.10+0.06·sin(0.37t)+0.5·p(10.2,1.6,3.2)+0.4·p(14.9,0.25,1.8)+0.25·p(20,2,4)+0.5·p(19.4,0.4,1.9)+1.0·p(24.12,0.28,2.6)+0.45·p(33.2,1.5,3)+0.5·p(42,0.2,2.0)+0.45·p(47.6,0.6,1.6)+0.3·p(49.6,0.15,1.2)+0.6·p(51,0.2,2.2)+0.6·p(57,0.2,2.5)+0.3·win(63,67.5,1,0.2)+1.4·p(67.6,0.25,3.5)；windPhase 表 WN=90·60+2=5402 格，wtab[i]=wtab[i−1]+(0.9+2.4·gust(i/60))/60；平静相位速度约 1.14/s，gust=1 约 3.3/s（原实现源码）",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "绑定90秒片长的阵风相位表预设",
       "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1558,7 +1492,7 @@
       "title": "震动 shakeAmt",
       "text": "p(24,0.22,1.15)+0.25·p(15,0.05,0.5)+0.3·p(84,0.05,0.6)+0.3·p(20.9,0.4,0.7)+0.2·p(17.15,0.05,0.4)+0.45·p(19.55,0.05,0.5)+0.25·strikes+0.3·p(39.1,0.2,0.9)+0.8·p(42,0.03,0.5)+0.35·p(48.3,0.4,0.6)+0.5·p(49.58,0.03,0.4)+1.0·p(51,0.03,0.55)+0.9·p(57,0.04,0.7)+0.22·win(63,67.5,0.5,0.1)·(0.6+0.4·flick(t,7))+1.7·p(67.5,0.04,0.9)（原实现源码）",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "绑定固定时刻的镜头震动脉冲表",
       "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1594,7 +1528,7 @@
           "rawUnit": "s"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "绑定两龙退场时间的风暴光公式",
       "coupling": "与第 12 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1602,46 +1536,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 12 节 · d101",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d102.card",
-      "sourceId": "d102",
-      "cardId": "post.grade-lut",
-      "target": "post.grade-lut",
-      "section": "13",
-      "caseId": "case-15",
-      "title": "三种手绘风格的后期做法",
-      "text": "水粉：笔刷引擎先把每个元素画成平涂明暗团块，再用不透明扁刷重绘：每笔有「蘸满起笔、鬃毛纹、干尾」；有对比处笔触沿边，平面区保持方向（天空水平、山坡对角、树皮竖向）；亮部偏暖、暗部偏冷、全片无轮廓线；顶层笔触画三遍并在 2 拍上循环切换使画面「boil」（每两帧轮换）。迷幻水彩：色洗 = 一层层软、变形的多边形用 multiply 混合，重叠处像颜料般混色（品红叠黄变红橙）；云/领子/精灵留白纸；每帧再过一道缓慢扭曲颜料、加深干燥边缘、加盐斑的通道，随后加固定在纸上不动的颗粒与纸齿；女孩见到精灵与大笑时各从脸部扩散一次晕染。传统纹样风格：矿物色平涂 + 深色细线；浅色页边 + 青金石蓝底金点花边框；树冠伸出上边框；草地 = 扇贝形色带铺满小植物；平面倾斜空间无线性透视。参数全未公开。",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 13 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d102",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d103.card",
-      "sourceId": "d103",
-      "cardId": "post.grade-lut",
-      "target": "post.grade-lut",
-      "section": "13",
-      "caseId": "case-07",
-      "title": "风格后处理与色彩脚本",
-      "text": "两个色调、明暗交界软边、加轮廓线；笔触纹理只出现在受光处；脸部明暗借自一个光滑头部形状（只有一条干净分界线）；衣服区域材质交界处有干净描边。色彩脚本：每个段落一套调色板：紫色傍晚 + 一扇琥珀窗、更冷更低饱和的时间冻结、倒带时扫过正午、青蓝清晨 + 金色稻草；标题由实物搭成：「首段标题词」稻草捆、「中段标题词」捆扎树枝、「末段标题词」砖，字母在音乐强拍上组装。",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 13 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d103",
       "verifiedInOurStack": false
     },
     {
@@ -1844,7 +1738,7 @@
           "rawUnit": "%"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定三套风格镜头的成片配色与色相读数包",
       "coupling": "与第 13 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1873,7 +1767,7 @@
           "rawUnit": "%"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定新闻片案例的专属配色表与禁用清单",
       "coupling": "与第 13 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1881,6 +1775,93 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d105",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "render-pipe.d107.card",
+      "sourceId": "d107",
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
+      "section": "13",
+      "caseId": "case-05",
+      "title": "像素图层（Canvas2D 叠层）与闪烁判据",
+      "text": "Canvas2D + 无头浏览器；格子 96×54（每格 20×20 px），方格 16×16 px（格内第 2–17 像素）；不透明度约 0.6；5–6% 格子填充（分母未写，实测整屏占 0.62%–1.87%）；黄绿边线约 RGB(144,145,88)；方格边线两层各 1 px，亮度约 145 与 95–100；实心方格比底色亮约 60；背景淡十字间距约 240 px；底部横刻度 x=96–1824（宽度 90%）、y≈1020；不放文字。实测格子统计：官方剧照 透视外壳 空心 32、实心 19，合计 51（0.98%）；成片每 24 帧取一帧共 27 帧平均 32.3 个（0.62%），最多 97 个（1.87%，第 156 帧）；检测偏保守是下限。；闪烁判据（QA）：画面分左中右三份，各算每帧平均亮度 v；第 i 帧满足 `abs(v[i]−v[i−1]) > 8`、`abs(v[i]−v[i+1]) > 8` 同向、`abs(v[i−1]−v[i+1])` 小于两个跳变较小者的一半则报；实扫成片命中 3 处（帧 195/319/220）全是快速运动。",
+      "quantities": [
+        {
+          "value": 20,
+          "unit": "px",
+          "rawUnit": "px"
+        },
+        {
+          "value": 16,
+          "unit": "px",
+          "rawUnit": "px"
+        },
+        {
+          "value": [
+            0.05,
+            0.06
+          ],
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": [
+            0.0062,
+            0.0187
+          ],
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 1,
+          "unit": "px",
+          "rawUnit": "px"
+        },
+        {
+          "value": 240,
+          "unit": "px",
+          "rawUnit": "px"
+        },
+        {
+          "value": 0.9,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.0098,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 24,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 27,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 0.0062,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.0187,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "routeNote": "特定像素叠层与闪烁检测预设",
+      "coupling": "与第 13 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "实测",
+      "evidenceLabel": "实测",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d107",
       "verifiedInOurStack": false
     },
     {
@@ -1893,7 +1874,7 @@
       "title": "游戏自写后期链概述（案例 16 16、案例 10 10）",
       "text": "案例 16：环境光遮蔽、带太阳阴影体积雾、泛光、景深、自动曝光、调色、FXAA，low/medium/high/ultra 预设按 GPU 选；案例 10：体积光束与雾、运动模糊、泛光、眼睛适应（自动曝光）、调色、按帧率自适应渲染分辨率",
       "quantities": [],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "特定游戏后期链与分档预设",
       "coupling": "与第 13 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1934,7 +1915,7 @@
           "rawUnit": "毫秒"
         }
       ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "外部案例 01七级画质档位与对象减量表",
       "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -1954,7 +1935,7 @@
       "title": "四档画质",
       "text": "low / medium / high（默认）/ ultra：像素比上限 maxDpr 1 / 1.5 / 2 / 2；renderScale 0.75 / 1 / 1 / 1；shadows 0 / 1 / 1 / 2（low 档关阴影）；云缓冲 0.25 / 0.33 / 0.5 / 0.5；云主步数 / 光照步数 48/4、64/5、80/6、128/8；godrays false / true / true / true；vegetation 0.35 / 0.6 / 1 / 1.4；terrainLod 0.6 / 0.8 / 1 / 1.3；particles 0.5 / 0.75 / 1 / 1.25；水面反射 0.3 / 0.4 / 0.5 / 0.6（原实现源码）。没有按帧率自动降档，也没有动态分辨率；ao、outlines 两键无读取点，是空键（推断）。植被 DMAX/D0 按 √q；粒子池按档位；云 alpha 在全分辨率锐化避免低分辨率阶梯边。",
       "quantities": [],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "案例 02四档画质参数配置表",
       "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2010,7 +1991,7 @@
           "rawUnit": "m"
         }
       ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "案例 13主档位与后期预设表",
       "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2036,7 +2017,7 @@
           "rawUnit": "帧"
         }
       ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "案例 10四档画质配置表",
       "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2062,7 +2043,7 @@
           "rawUnit": "%"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "桌面与手机特效档位及容量表",
       "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2082,7 +2063,7 @@
       "title": "环境粒子档位、每帧 CPU、缓存键、几何参考（29）",
       "text": "环境粒子 DENS 顺序[low,medium,high,mobile,ultra]：落叶 1200/1800/2400/500/3000；尘埃 1100/手机 550/超高 1400；风线 46/手机 24/超高 56；手机上限 叶 650/尘 420/风线 22 条×14 段（原实现源码）。每帧 CPU 与不画不算：CPU 只在 CombatFX.update 遍历活粒子（发光池最多 3552 批量+48 预留，物质池最多 1352+48），环境粒子零 CPU，动物每秒 12 次节拍写 4 个小缓冲，烟只更新统一变量；粒子池空网格 visible=false；光柱灰尘等点精灵看不见时把 gl_Position 置屏幕外省光栅化；update 每帧 dt=min(max(dt,0),0.1)；顺序：motionFx→涉水→锚点→发射器（rate×dt 累加够 1 调回调）→loot→_simulate 发光/物质→_write×2→贴花→冲击波→点光（原实现源码）。缓存键：烟贴图缓存 PUFF；着色器键 life-smoke-分组清单、lf-leaves-tree19h、lf-leaves6、lf-leaves-tree15、lf-leaves-tree19、life-smoke-r16、life-fauna-r16、life-fish-r16、life-drips-r16。几何参考：粒子方片 4/2；贴花 1369/2592（手机 529/968）；小动物 19/14；鱼 4/2；叶（回廊）4/2；叶（树关）12/12；风线 50/48（手机 30/28）；烟精灵 4/2；回廊动物总三角形 131×14=1834，鱼 16×2=32（推算，没验证）。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "环境粒子分档容量与场景缓存键",
       "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2108,7 +2089,7 @@
           "rawUnit": "m"
         }
       ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "特定场景手机精简画质预设档",
       "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2128,7 +2109,7 @@
       "title": "Boss 与敌人档位总表",
       "text": "档位总表（对应 低/高 或 桌面/手机）：车削 seg 16/10；铃铛 seg 28/16；布裙 nS×nR 18×6 / 12×4；纸牌 60/30；叶片 60/24；光点池 900/450；灰烬池 480/240；落叶池 320/160；火环分段 128/72；贴花池 48/48；bossN(n)=n / max(1,round(n·.5))；bossFxScale 1/.5；bossTele() 1 / min(2,max(1.3,900/窗口高))（原实现源码）。手机档（boss 一）：披风子步 2/迭代 3、关光泽；火光池 800、光叶池 800；一次性粒子数减半 bossN=max(1,round(n×0.5))；光环粒子速率 bossFxScale 0.5。预警放大 bossTele：电脑 1；手机或触屏且高<700 时 clamp(900/屏高,1.3,2)；闪光、光球、贴花线宽放大；uTele 桌面 1，触屏 min(2,max(1.3,900/高度))。噪声降档：mobile 档身体噪声 n1 固定 .5。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定Boss与敌人分档配置总表",
       "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2148,7 +2129,7 @@
       "title": "普通敌人移动端降级（15、16）",
       "text": "15：BODY.lo 用 navigator.userAgent 判断 /Mobi|移动端|移动设备|移动设备/；BODY.on 由 globalThis.__lfBodyLoft!==false 控制默认开；手机放样环段×0.7 levels 0（原实现源码）。16：根须 SDF 整个关闭（sdfOn 对 mobile/mobile-low 一律关，其余看 globalThis.__lfSDF!==false 且网址无 sdf=0）；贴图 128 而非 512；细分段数×.55（sg()，sg(22)=max(8,round(12.1))=12，sg(40)=22）；不加 applyDetail；冠羽飞鸟/趋光飞蛾图集 128 且不挂凹凸；潜伏者贴图 128 且 buildGeo(false) 不用 SDF（原实现源码）。",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定敌人移动端降级配置表",
       "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2244,7 +2225,7 @@
           "rawUnit": "s"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "巨树场景与网格多档画质配置",
       "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2285,7 +2266,7 @@
           "rawUnit": "fps"
         }
       ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "特定游戏平台性能目标汇总",
       "coupling": "与第 15 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2293,123 +2274,6 @@
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 15 节 · d134",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d136.card",
-      "sourceId": "d136",
-      "cardId": "light.pcss",
-      "target": "light.pcss",
-      "section": "16",
-      "caseId": "case-13",
-      "title": "自适应降级梯子与动态分辨率",
-      "text": "只在游玩、无菜单、无过场、无新着色器编译、帧时≤250 ms 时统计；128 帧环形缓冲，每 0.5 s 评估，至少 24 样本；降一级：中位数>22 ms 或均值>17.9 ms 持续 2 s；升一级：90 分位≤17.5 ms 持续 5 s（upWait 起始 5 s，12 s 内又降则等待翻倍，最多 80 s）；降级顺序：先把像素比降到 prSoft（中 1、高 1.25）→每级关一个特性（体积光、草壳层、接触阴影，高档共 3 级；A7 另记冒名树）→再 4 级缩草距离（×0.8 到 ×0.68）、远树细节（1 到 0.2）、阴影距离（110、85 m）→最后按 0.15 一步降像素比到下限 0.85；求助：最低档仍中位数>25 ms 持续 10 s 发 lf-perf-slow 事件（原实现源码）。仅对实时 WebGL 有意义，成片渲染无用。；动态分辨率（固定分配 + 子矩形视口）：渲染目标按最高像素比分配一次；降分辨率只缩绘制视口；uRS/uRSMax 映射纹理坐标；比例夹 0.25–1，不重建缓冲；用户滑块夹 0.5–1【冲突：分组清单 菜单读出 resScale 0.6–1 与 adaptiveRes，自适应压低时显示「当前 N×M（占上限 X%）」（读 DBG.info().prBase 与 DBG.ladder().prMax），滑块下限 0.5 与 0.6 不一致，原笔记没解释，可能是内部夹值与菜单范围的差别】（原实现源码）。画质档与动态分辨率（菜单）：质量档 low/medium/high/ultra/mobile（像素比上限 1/1.25/1.5/2/1.25）；ultra 手机不提供除非已选中；mobile 仅 G.device.mobile、G.quality===\"mobile\" 或 ?q=mobile。",
-      "quantities": [
-        {
-          "value": 250,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 128,
-          "unit": "frame",
-          "rawUnit": "帧"
-        },
-        {
-          "value": 0.5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 22,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 17.9,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 17.5,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 12,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 80,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 85,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 25,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 10,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
-      "coupling": "与第 16 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 16 节 · d136",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d139.card",
-      "sourceId": "d139",
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
-      "section": "16",
-      "caseId": "case-13",
-      "title": "质量档来源与布娃娃降档",
-      "text": "每 1 秒重探测，来源 G.quality→body/html data-quality→URL ?q=；布娃娃迭代桌面 6/移动低档 3；入睡后不再步进；exhaleT>1.6 后连姿势都不写；低模不算锁链；超 plantDist 不做贴地。画质档判定 moundsTier()：读 ?q= 参数→window.G.quality/QUALITY/body.dataset.quality→UA 为 移动设备/移动设备/移动端 或「粗指针无细指针」返回 mobile→否则 high；low=tier===\"low\"||mobile（util:945-960）",
-      "quantities": [
-        {
-          "value": 1,
-          "unit": "s",
-          "rawUnit": "秒"
-        }
-      ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
-      "coupling": "与第 16 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 16 节 · d139",
       "verifiedInOurStack": false
     },
     {
@@ -2438,7 +2302,7 @@
           "rawUnit": "秒"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定敌人双端距离分级矩阵",
       "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2446,231 +2310,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d140",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d141.card",
-      "sourceId": "d141",
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
-      "section": "17",
-      "caseId": "case-13",
-      "title": "敌人遮挡剔除与近相机淡出",
-      "text": "离相机<9 米（OCC_NEAR）或玩家<7 米（OCC_PLAYER）、溶解/攻击/处决中不测；从相机向头顶上 .25 米和身高 .6 处左右各 w=半径+0.45+距离·0.004 发 3 射线，全被挡才算一次，连续 2 次才剔除；重测间隔已剔除 0.1+dc/500，未剔除 0.2+dc/220，再加 0~0.04 随机；射线先每 2.5 米查地形（余量 .3）再查 8 米网格碰撞体（收缩 .12，只算半径≥0.6）；`?occl=0` 关闭（原实现源码）。近相机淡出：相机距敌身体<1.2 米时 uNearFade=min(0.85,(1.2-dist)/0.7·0.85)（原实现源码）",
-      "quantities": [
-        {
-          "value": 9,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 7,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 0.25,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 2.5,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 8,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 1.2,
-          "unit": "m",
-          "rawUnit": "米"
-        }
-      ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
-      "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d141",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d142.card",
-      "sourceId": "d142",
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
-      "section": "17",
-      "caseId": "case-13",
-      "title": "原实现源码 线段对碰撞体与刷怪避火",
-      "text": "圆柱二次方程、旋转盒 slab 法，8 米网格，长线段每 4 米采样查 3×3 邻格，时间戳 Uint32Array 去重（满了倍增）；视线检测只算半径≥0.6、收缩 0.02、地形每 1.2 米查、两端 0.5 米跳过（原实现源码）。刷怪避火与推开：非高台刷怪点在篝火 30 米内则以 31/34/38 米半径每 0.2 弧度绕圈挪出；巡逻路线 0.5 米步检高差≤0.9 米、0.4/1.2 米高处无碰撞；敌人间推开 r1+r2+.12（头目 1.0/普通 .5）（原实现源码）",
-      "quantities": [
-        {
-          "value": 8,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 4,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 1.2,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 0.5,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 30,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 38,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 0.2,
-          "unit": "rad",
-          "rawUnit": "弧度"
-        },
-        {
-          "value": 0.5,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 0.9,
-          "unit": "m",
-          "rawUnit": "米"
-        },
-        {
-          "value": 1.2,
-          "unit": "m",
-          "rawUnit": "米"
-        }
-      ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d142",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d143.card",
-      "sourceId": "d143",
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
-      "section": "17",
-      "caseId": "case-13",
-      "title": "动画相机零分配与子步",
-      "text": "姿势全是预分配 Float32Array(79)，临时向量/四元数/矩阵为模块级复用，关键帧动作加载时一次展开运行时只查表插值；挥砍修饰缓存 tr._acc/tr._tw；模拟子步≤0.05 秒；Spring 自带 0.02 秒细分；相机跟随手感 0.008 秒最多 12 步；视野弹簧 0.012 秒；动画控制器跟模拟子步，相机每帧只一次（原实现源码）",
-      "quantities": [
-        {
-          "value": 0.05,
-          "unit": "s",
-          "rawUnit": "秒"
-        },
-        {
-          "value": 0.02,
-          "unit": "s",
-          "rawUnit": "秒"
-        },
-        {
-          "value": 0.008,
-          "unit": "s",
-          "rawUnit": "秒"
-        },
-        {
-          "value": 0.012,
-          "unit": "s",
-          "rawUnit": "秒"
-        }
-      ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d143",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d144.card",
-      "sourceId": "d144",
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
-      "section": "17",
-      "caseId": "case-13",
-      "title": "相机检测预算",
-      "text": "步进 20 点；抬升两轮各 20 点；视线检查 8-14 点；敌人只取镜头为中心 ±(R+2) 方框内；瞄准辅助每 0.2 秒重选；视线导演每 0.16 秒扫描；木结构淡出只在巨树关卡只对两段命名网格射线检测先包围球粗筛；设备差异：ANALOG 触屏 .055、ASSIST 仅触屏、MELEE_ASSIST 仅触屏、camMotion 0-1 缩放手感、shakeScale 0-1.5；质量档位/LOD 在这 7 个文件源码中未找到（原实现源码）",
-      "quantities": [
-        {
-          "value": 0.2,
-          "unit": "s",
-          "rawUnit": "秒"
-        },
-        {
-          "value": 0.16,
-          "unit": "s",
-          "rawUnit": "秒"
-        }
-      ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d144",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d145.card",
-      "sourceId": "d145",
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
-      "section": "17",
-      "caseId": "case-13",
-      "title": "龙动画 LOD",
-      "text": "LOD2：关全部弹簧（springs=false）尾端物理复位更新降 30Hz；LOD3 再关前摇差分（每帧省两次 evalKeys）；屏幕外降 30Hz 不发尘土；LOD 来自骨架 lodCtl.update(cam,dt,{occluded}) 或 lodFor(距离)；无弹簧时颈尾逐节直接取目标（k=1）尾摆幅度×.5；零分配预分配 Float32Array(74)；stats.ms（.05 平滑）maxMs（.995 衰减）；quality 参数只存不用；动画层面无移动端专门降级（仅 泪滴特效 分辨率减半）（原实现源码）",
-      "quantities": [
-        {
-          "value": 30,
-          "unit": "Hz",
-          "rawUnit": "Hz"
-        },
-        {
-          "value": 30,
-          "unit": "Hz",
-          "rawUnit": "Hz"
-        }
-      ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
-      "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d145",
       "verifiedInOurStack": false
     },
     {
@@ -2735,7 +2374,7 @@
           "rawUnit": "米"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定头目距离剔除与粒子池预设",
       "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2781,7 +2420,7 @@
           "rawUnit": "帧"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定头目距离剔除与点光节流预设",
       "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -2789,106 +2428,6 @@
       "evidenceLabel": "推断",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d147",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d148.card",
-      "sourceId": "d148",
-      "cardId": "light.pcss",
-      "target": "light.pcss",
-      "section": "17",
-      "caseId": "case-13",
-      "title": "几何缓存、近/远景双网格、LOD 材质、实例化（15）",
-      "text": "几何缓存：每类敌人几何只建一次，SDF 近远景版各 defineBody 注册一次；重装敌兵 缓存键含 BODY.on（旧路径追加 |v18）（原实现源码）。近/远景双网格：精细部件 big:false + bigOnly 低面替身；放样 lod:{rings,seg}：守卫敌兵 躯干近 16×20 远 9×12；重装敌兵 近 22×24 远 10×14；队长敌兵 披风近 22 列远 8 列；琥珀体素近 0.025/0.021 远 0.045（原实现源码）。LOD 材质：每类一份 __lod 低成本材质（无贴图）粗糙/金属：守卫敌兵 0.78/0.3；琥珀敌兵 0.6/0.2；Archer 0.8/0.2；重装敌兵 0.78/0.3；队长敌兵 0.75/0.35（原实现源码）。实例化与预算：碎片池 InstancedMesh 72、箭池 32+尾迹 32，frustumCulled=false；碎片池 4 毫秒节流；箭尾迹视深 60-110 米渐隐；Spring dt>0.034 拆两步；琥珀壳 noShadow:true，脱壳后关 shadowMesh（原实现源码）",
-      "quantities": [
-        {
-          "value": 4,
-          "unit": "ms",
-          "rawUnit": "毫秒"
-        },
-        {
-          "value": [
-            60,
-            110
-          ],
-          "unit": "m",
-          "rawUnit": "米"
-        }
-      ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
-      "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d148",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d149.card",
-      "sourceId": "d149",
-      "cardId": "light.pcss",
-      "target": "light.pcss",
-      "section": "17",
-      "caseId": "case-13",
-      "title": "SDF 双档体素、两档网格、缓存、实例化、阴影",
-      "text": "SDF_VOX={near:.012,far:.026}（默认 voxel .0095）；远档体素大 2.17 倍，体素数约少 10 倍（2.17³≈10.2，推断）；defineBody(\"rooted.<kind>.<lod>\",…,{levels:[\"tree\"],tiers:[\"low\",\"medium\",\"high\",\"ultra\"]}) 行者/弓手各 near/far 共 4 个；near 以 {big:false}、far 以 {bigOnly:true} 加入；失败 console.warn 退回基本体拼装（原实现源码）。两档网格 big 标志：big:false 细节件（瞳孔缠带手指小页片）只在近处；big:true 低模替代（pageLo gearLo）只在远处/投影；切换距离在 原实现源码 Rig（第 06 块）（原实现源码）。缓存：模块级变量缓存（GEO/TEX/原工程目录），同类只建一次；冠羽飞鸟/趋光飞蛾按 tier（mobile/high）缓存；boneUV 用 Map 缓存；SDF 构建统计记 globalThis.__lfSDFStats[\"rooted.<kind>\"]={near 三角,far 三角,buildMs}（原实现源码）。实例化：冠羽飞鸟/趋光飞蛾每个种群一个 Flock（一个 InstancedMesh），一个种群共用一份几何材质，每只只改 4 个实例属性；落叶 44 一个 InstancedMesh；符文 6+3 实例；地刺 10 实例（原实现源码）。阴影与代价：ghostDepth 第二份蒙皮网格使幽灵绘制次数翻倍；潜伏者 body.castShadow 默认 false，仅 _shadowWant&&sink<.5&&alive 时开；幽灵 Rig(…,{shadow:false})（原实现源码）。各材质键总表：行者 bark/root/cloth/glow/__lod；冠羽飞鸟/趋光飞蛾一份 flockMaterial；潜伏者 lurkerMaterial；NPC己 makeMats+amber+5 种武器；誊写者 robe/hide/page/book/metal/glow；幽灵 ghost/void/face/eyes/blade",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d149",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d150.card",
-      "sourceId": "d150",
-      "cardId": "shade.px-lod",
-      "target": "shade.px-lod",
-      "section": "17",
-      "caseId": "case-13",
-      "title": "贴图预算、磁盘缓存",
-      "text": "延迟烘贴图预算：桌面 1024²、移动 512²（?cathtex=128/256/512/1024 覆盖）；texLazy 移动 true 桌面 false；移动初始只烘 128² 占位（雕石/砌石/地板各 128²），玩家距教堂<TEX_START=150 m 才逐帧续烘，每帧 TEX_BUDGET=2.5 ms（<TEX_CLOSE=30 m 提到 TEX_BUDGET_CLOSE=8 ms，<TEX_NEAR=6 m 一次烘完）；烘制逐行 yield（church:17-21,104-111,459-474；mats:781-885）。磁盘缓存：砌石/雕石贴图 getOrBakeTextures(\"cath.grain|19|${S}|v1\")（bakecache）；北门 span.northdoor|${256 or 512}|v1；churchMaterialsGen 的 CACHE 对相同 lite/texSize/lazy 整体复用（mats:864-879；northdoor:687）",
-      "quantities": [
-        {
-          "value": 150,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 2.5,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 30,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 8,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 6,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
-      "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d150",
       "verifiedInOurStack": false
     },
     {
@@ -2965,7 +2504,7 @@
           "rawUnit": "ms"
         }
       ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "大教堂场景剔除距离与渲染配置绑定",
       "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -3112,7 +2651,7 @@
           "rawUnit": "m"
         }
       ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "墓地插地剑放置公式与细节分级耦合",
       "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -3132,7 +2671,7 @@
       "title": "zone_19（20）桌面/移动分级与其他预算",
       "text": "火焰 16/9；火星池 120/60；灰烬/落叶 600/80 vs 260/36（落叶层隐藏）；烟实例 20/10；地面圆盘 64×192 vs 44×128；地面着色器完整 vs PY_LITE；地面叶/叶堆 3000/620 vs 1200/260；炭化木 380/150；白桦冠层 18 张/棵投影 vs 10 张不投影；灯笼投影/铭牌 开 vs 关；灰幕飘尘 40/20；可破坏物图集 1024+各向异性 8 vs 512+4；碎片活跃上限 无 vs 72；割麦田 开/关；布景阴影（非移动且非 low）vs 关。其他预算：mergeSmall：布景 4e4、zone_19砌体 1200、路上板车 4000、门叶 4000；粒子/烟 frustumCulled=false（包围球不可靠）；zone_19 quality=QUALITY 建造时一次决定，setQuality 只切阴影与粒子可见性",
       "quantities": [],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "特定某区域桌面与移动分级预算配置表",
       "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -3204,7 +2743,7 @@
           "rawUnit": "m"
         }
       ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "特定巨树远近版、手机分级与着色器宏预设",
       "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -3288,7 +2827,7 @@
           "rawUnit": "Hz"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定幽灵与生物的多档距离裁剪配置表",
       "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -3329,7 +2868,7 @@
           "rawUnit": "m"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定枫松距离分级与场景着色器阈值表",
       "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -3337,37 +2876,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d156",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d157.card",
-      "sourceId": "d157",
-      "cardId": "light.emit-pool",
-      "target": "light.emit-pool",
-      "section": "17",
-      "caseId": "case-ext01",
-      "title": "岩石、距离场、降耗取舍",
-      "text": "岩石一次绘制：54 件合成一个网格，近件在前，所有不透明之后画（renderOrder 3）；着色器块体层按 fw 门槛（<1.8 m、<0.575 m）开启并按 lod 淡出（原实现源码）。距离场取面粗块跳过：每 4×4×4 格先算中心距离，远离表面整块跳过（原实现源码）；`bound` 让远处点不算复杂形状。降耗取舍：泛光 7→4 级；点光只留 1 盏真灯；体积光入水段关闭；岩石最贵着色器最后画；叶片洗牌 + setDrawRange；LV 门槛按像素覆盖米数",
-      "quantities": [
-        {
-          "value": 1.8,
-          "unit": "m",
-          "rawUnit": "m"
-        },
-        {
-          "value": 0.575,
-          "unit": "m",
-          "rawUnit": "m"
-        }
-      ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d157",
       "verifiedInOurStack": false
     },
     {
@@ -3391,7 +2899,7 @@
           "rawUnit": "s"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定外部案例 01场景水镜、尾迹与特效定额配置",
       "coupling": "与第 17 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -3402,90 +2910,168 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "render-pipe.d165.card",
-      "sourceId": "d165",
+      "id": "render-pipe.d159.card",
+      "sourceId": "d159",
       "cardId": "time.bake",
       "target": "time.bake",
       "section": "18",
-      "caseId": "case-13",
-      "title": "点光池",
-      "text": "固定 N 个真实 PointLight（low 2/med 3/high 4/mobile 2/ultra 6）；评分 I·R²/(d²+R²)，视锥内×2，身后×0.25，已占×1.3；淡变 0.1 s；暖色（r≥1.35b）自动闪烁 14%、抖动 0.05 m、范围×1.15；闪烁正弦 7.1/13.7/23.3 权重 .5/.3/.2，阵风 max(0,sin1.7t)^6（原实现源码）",
+      "caseId": "case-ext01",
+      "title": "加载分步与分项耗时",
+      "text": "加载分步：9 步权重 30/14/8/14/14/6/3/6/8（合计 103）；实测各步 4406/2821/191/1182/2545/932/54/0/1002 ms，合计 14,125 ms，另有声音后台线程 9,075 ms（单机单窗口，显卡被占用，只当量级；源码 + 实测）。分组清单 分项（loadMs 14,125 ms）：painting the sky 4,406（其中云烘焙 skyBake 811）；raising the mountains 2,821；building the red halls 191；growing maples and pines 1,182；waking the dragons 2,545；mist, water, leaves 932；moving the air 54；tuning the erhu 0（只启后台线程）；first light 1,002；配乐合成 scoreMs 9,075（后台线程不占上面时间）；龙外观分项 上头部取面 834 下颌 112 腿 361 角 2 牙 5，红龙整套 1,396 白龙 48（网格共用）；湿身表 红龙 14 白龙 16；灯笼和布摆动表 380（算风 179）；尾迹 766（经过表 487）；水 494；云影烘焙 106 + 挑起始位置 100。",
       "quantities": [
         {
-          "value": 0.1,
-          "unit": "s",
-          "rawUnit": "s"
+          "value": 1002,
+          "unit": "ms",
+          "rawUnit": "ms"
         },
         {
-          "value": 0.14,
-          "unit": "ratio",
-          "rawUnit": "%"
+          "value": 14125,
+          "unit": "ms",
+          "rawUnit": "ms"
         },
         {
-          "value": 0.05,
-          "unit": "m",
-          "rawUnit": "m"
+          "value": 9075,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 14125,
+          "unit": "ms",
+          "rawUnit": "ms"
         }
       ],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "外部案例 01场景加载分步与资产实测耗时",
       "coupling": "与第 18 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
       "evidenceLevel": "源码",
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 18 节 · d165",
+      "docRef": "渲染管线采样后期性能汇编 · 第 18 节 · d159",
       "verifiedInOurStack": false
     },
     {
-      "id": "render-pipe.d167.card",
-      "sourceId": "d167",
+      "id": "render-pipe.d160.card",
+      "sourceId": "d160",
       "cardId": "time.bake",
       "target": "time.bake",
       "section": "18",
-      "caseId": "case-16",
-      "title": "案例 16 网页包瘦身",
-      "text": "模型间共享的贴图只存一份；首访 350 MB → 约 235 MB；用「前后对每张贴图指纹」证明无损",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "caseId": "case-ext01",
+      "title": "一次性烘焙表",
+      "text": "云影 256² CPU（bakeMs）；5 张岩石细节 GPU 两遍；风相位 5402 格；悬挂摆动 2701×185；植物「经过表」；湿身表按 1/24 s。plan 约 1600 偏移 × 主角点和 14×172 地面采样（planMs）；太阳色调按 0.25 秒一档（每档变化不到千分之一，不通知材质）。云烘焙内存约 284 MiB 显存（笔记算式，移动端会出问题；分组清单 F5）",
+      "quantities": [
+        {
+          "value": 0.041667,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.25,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "routeNote": "外部案例 01场景一次性烘焙表与显存配置",
       "coupling": "与第 18 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
       "evidenceLevel": "文档",
       "evidenceLabel": "文档",
       "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 18 节 · d167",
+      "docRef": "渲染管线采样后期性能汇编 · 第 18 节 · d160",
       "verifiedInOurStack": false
     },
     {
-      "id": "render-pipe.d168.card",
-      "sourceId": "d168",
+      "id": "render-pipe.d161.card",
+      "sourceId": "d161",
       "cardId": "time.bake",
       "target": "time.bake",
       "section": "18",
-      "caseId": "case-22",
-      "title": "三角形预算（案例 22）",
-      "text": "第一轮约 1,200 万三角形（带实例化），视口终点读数 12,121,208 吻合；第二轮约 2,000 万；预算「带实例化」；每对象平均约 1,013 三角形（推断算术，没验证）。08 面数预算：全套 134,326 三角面（游戏资产量级）；「细节交给材质和重复小件」（实测）。23 三档 LOD：LOD0 88,265；LOD1 48,188（54.6%）；LOD2 13,837（15.7%）；每档减面方法未公开（原文陈述，无验证）",
+      "caseId": "case-ext01",
+      "title": "天空 ?fast 缩小烘焙与云贴图内存",
+      "text": "烘焙贴图 1280/1216/1792/1280（约正常 0.31–0.34 倍像素）；云全程只算一次，显示每像素最多 7 次 lay（每次 5 次纹理读取）；need() 逐块判断，387 块只画需要的；限时作业每次 90 毫秒；步进上限 230 步，远处光照步数 4 而不是 5；天空 renderOrder 1000 深度测试开；云贴图 284 MiB；岩石顶点 39.2 MiB + 索引 15.5 MiB",
       "quantities": [
         {
-          "value": 0.546,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.157,
-          "unit": "ratio",
-          "rawUnit": "%"
+          "value": 90,
+          "unit": "ms",
+          "rawUnit": "毫秒"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "天空云降分辨预设与显存占用特定",
       "coupling": "与第 18 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
-      "evidenceLevel": "推断",
-      "evidenceLabel": "推断",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
       "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 18 节 · d168",
+      "docRef": "渲染管线采样后期性能汇编 · 第 18 节 · d161",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "render-pipe.d162.card",
+      "sourceId": "d162",
+      "cardId": "time.bake",
+      "target": "time.bake",
+      "section": "18",
+      "caseId": "case-ext01",
+      "title": "龙的外观烘焙与每帧重写缓冲",
+      "text": "距离场格点合计 960,384 + 198,800 + 626,560 = 1,785,744；湿度规划 2,161 时刻 × na 环（172 m 时 na=87，约 18.8 万次 pathAt）；每帧 CPU 重写：舌 225 顶点、4 根胡须各 376 顶点、uWetAge 64 浮点；缓存键 龙体/头/腿网格、dragon4frill、dragon2horn、mane4，两龙同一程序；材质 transparent=true、forceSinglePass=true，vis=1 时 NoBlending，所以淡入淡出不切程序；每条龙头部 21 个网格。龙身每帧重写缓冲：红龙 335,916 字节、白龙 295,740 字节（顶点数×9 浮点×4 字节）；DynamicDrawUsage；每条轨道 12000 份弧长表 + 每 0.25 m 一点；tGone 用 1/240 s 步长扫描",
+      "quantities": [
+        {
+          "value": 172,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.25,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.004167,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "routeNote": "双龙网格缓冲与烘焙格点配置耦合",
+      "coupling": "与第 18 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 18 节 · d162",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "render-pipe.d163.card",
+      "sourceId": "d163",
+      "cardId": "time.bake",
+      "target": "time.bake",
+      "section": "18",
+      "caseId": "case-13",
+      "title": "贴图烘焙、骨骼纹理、合批",
+      "text": "贴图烘焙：占位 4×4 纯色，requestIdleCallback（超时 1500 ms）每回调烘一个，缓存键带版本（dragon.scales|h|v1）；贴图总计桌面 18.25 MiB，移动 ≈4.56 MiB；各向异性 8，三线性。 贴图尺寸：hideAlb/hideNrm/scute 1024²，card 256²，shaft 256²，keratin 256×512，iris 256²，veins 1024×1152，incl 512×256。 骨骼纹理 4×129 RGBA32F，8256 字节，texelFetch。 / 合批：森林 40 m 格子 multiDraw；建筑每材质 1–2 个网格。vegTier 判断：URL、UA、触屏、pointer coarse、屏幕≤600 且内存≤4GB。几乎全部有桌面/移动双值（/ / /）。采样数/降噪/分辨率/帧率：分组清单 本组无（实时 WebGL，无路径追踪）",
+      "quantities": [
+        {
+          "value": 1500,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 40,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "routeNote": "龙资产贴图尺寸表与骨骼纹理预设",
+      "coupling": "与第 18 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
+      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 18 节 · d163",
       "verifiedInOurStack": false
     },
     {
@@ -3514,7 +3100,7 @@
           "rawUnit": "s"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "音频轻量档复音混响配置表绑定",
       "coupling": "与第 19 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -3534,7 +3120,7 @@
       "title": "轻量档判定与其他降级",
       "text": "判定：UA 含 移动设备/移动设备/移动设备/移动端，或 桌面工作站 且触点>1，或 G.quality===\"mobile\"，或 ?audio=lite/mobile、?q=mobile；脚步无左右声像；拟音省略 clank_heavy；弓弦只 1 把锯齿和 2 个共振峰且无噪声层；后台挂起 ctx.suspend()（原实现源码）",
       "quantities": [],
-      "routeNote": "画质档位、LOD 分级或渲染器开关配置，与目标管线强绑定，挂卡",
+      "routeNote": "特定项目音频轻量档判定与音效降级预设",
       "coupling": "与第 19 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -3542,98 +3128,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 19 节 · d170",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d171.card",
-      "sourceId": "d171",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
-      "section": "19",
-      "caseId": "case-13",
-      "title": "Worker 占空比限速",
-      "text": "每键算完休息 rest=min(400, ms×(1/duty−1)) 毫秒（急单不休息）；duty=0.45 时上一键 100 ms→休息 122.2 ms（bank.worker:12309）",
-      "quantities": [
-        {
-          "value": 100,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 122.2,
-          "unit": "ms",
-          "rawUnit": "ms"
-        }
-      ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 19 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 19 节 · d171",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d172.card",
-      "sourceId": "d172",
-      "cardId": "audio.master",
-      "target": "audio.master",
-      "section": "19",
-      "caseId": "case-13",
-      "title": "渲染挪出主线程与兜底",
-      "text": "bank Worker 渲染音效、prep Worker 渲染混响噪声；未命中本次跳过发声并发急单；Worker 5 秒无回应回退主线程；pump 每帧预算 2.5 ms（轻量 1.2 ms）；prep 超时 20 s 返回 null 退回主线程现算；Engine 仅当 prep.sr===ctx.sampleRate 才用预渲染（原实现源码）",
-      "quantities": [
-        {
-          "value": 5,
-          "unit": "s",
-          "rawUnit": "秒"
-        },
-        {
-          "value": 2.5,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 1.2,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 20,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 19 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 19 节 · d172",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d173.card",
-      "sourceId": "d173",
-      "cardId": "audio.master",
-      "target": "audio.master",
-      "section": "19",
-      "caseId": "case-13",
-      "title": "复音/剔除总览与三层缓存",
-      "text": "44（+10）路；距离 160 剔除；同键冷却；声像池 14+6 满了顶替最早结束。三层缓存：内存 Map；IndexedDB 采样缓存（桌面 140 MB/轻量 56 MB）；预渲染缓存（键 prep:48000）；WARM 89 个字面量键 + FOLEY_KEYS 12 + harp:* 10 个音高 + 全部 voice_*（某称号 除外），initWith 末尾一次 eng.bank.warm；头目战预热 PEAL_KEYS；区域切换 warmRegion；每秒按玩家周围 8 方向 + 脚下探区域预热（原实现源码）。离线预览复用缓存：GameAudio({prep:false}) + opts.offline，预览间用 GameAudio._previewBanks 按采样率分桶共享缓存（原实现源码）",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 19 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 19 节 · d173",
       "verifiedInOurStack": false
     },
     {
@@ -3652,7 +3146,7 @@
           "rawUnit": "ms"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定音效预热键表与轻量档逐项降级配置",
       "coupling": "与第 19 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -3688,7 +3182,7 @@
           "rawUnit": "s"
         }
       ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定配乐轻量档声部与预热配置",
       "coupling": "与第 19 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
@@ -3696,174 +3190,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "见出处",
       "docRef": "渲染管线采样后期性能汇编 · 第 19 节 · d175",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d176.card",
-      "sourceId": "d176",
-      "cardId": "layout.panels",
-      "target": "layout.panels",
-      "section": "19",
-      "caseId": "case-13",
-      "title": "界面自身节省手段",
-      "text": "HUD 写入前比差值不脏不碰 DOM；条与罗盘 will-change:transform + translate3d；小怪血条池 4/命中标记池 8/通知最多 3；余烬画布 dpr≤1.25 页面隐藏跳过绘制；旅行卡画布≤1.5；分享页手机/触屏不用 backdrop-filter；世界地图底图分片烘焙（6 ms 预算）；分享卡分四片（每片让一帧）；加载画面卡住时假进度保持动",
-      "quantities": [
-        {
-          "value": 6,
-          "unit": "ms",
-          "rawUnit": "ms"
-        }
-      ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 19 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 19 节 · d176",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d177.card",
-      "sourceId": "d177",
-      "cardId": "audio.master",
-      "target": "audio.master",
-      "section": "19",
-      "caseId": "case-ext01",
-      "title": "声音内存与让路",
-      "text": "Worker 里四条 Float32Array(3,969,000)=63,504,000 字节；回传两条 31,752,000 字节转移不复制；AudioBuffer 31,752,000 字节；fill() 每片 131,072 采样每次最多占 2.5 ms；start() 等第一帧最多 3000 ms；真峰值 >0.45 才做 4 倍内插；picture() 对 1801 点调相机和龙头，world() 对两龙 4501 点；锣 22 分音×2 振子×441,000 采样=19,404,000 步；cym 长款 96 分音×83,790=8,043,840 步",
-      "quantities": [
-        {
-          "value": 2.5,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 3000,
-          "unit": "ms",
-          "rawUnit": "ms"
-        }
-      ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 19 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 19 节 · d177",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d178.card",
-      "sourceId": "d178",
-      "cardId": "post.hdr-chain",
-      "target": "post.hdr-chain",
-      "section": "20",
-      "caseId": "case-ext01",
-      "title": "每帧三角面与绘制调用",
-      "text": "截图模式 1630×927 抽 11 个时刻（画两遍读第二遍，含一次同步读像素，含阴影遍和湖面镜子遍）：5 s 开场 115 调用/4,580,843 三角/53.6 ms；15 s DRUMS 163/7,103,837/35.7；24 s ROAR 173/6,984,447/20.7；30 s DESCENT 219/7,939,361/19.9；42 s CLASH1 221/7,962,742/25.8；51 s CLASH2 230/7,974,212/19.6；57.3 s SPLASH 后 0.3 s 160/5,127,243/24.7；65 s BEAM 232/7,790,372/20.7；67.6 s BLAST 后 0.1 s 217/7,744,804/22.3；75 s FINALE 215/7,720,997/18.8；85 s GONG 后 156/7,122,387/17.4；范围：三角面 458 万–797 万，绘制调用 115–232（含阴影与湖镜）。场景 255 个网格（实体 150 + 特效层 105），83 个实例化。每帧最多 19 遍。",
-      "quantities": [
-        {
-          "value": 5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 53.6,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 15,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 24,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 30,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 42,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 51,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 57.3,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.3,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 65,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 67.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.1,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 75,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 85,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 20 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 20 节 · d178",
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "render-pipe.d179.card",
-      "sourceId": "d179",
-      "cardId": "post.hdr-chain",
-      "target": "post.hdr-chain",
-      "section": "20",
-      "caseId": "case-ext01",
-      "title": "本机读回的限制",
-      "text": "页面报 本地一体机芯片（Metal）；上一轮实时打开页面自降到最低档（画质 0.5、隔帧），当时显卡被别的渲染占用，不能作性能结论",
-      "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
-      "coupling": "与第 20 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
-      "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
-      "useAsDefault": false,
-      "evidenceLevel": "文档",
-      "evidenceLabel": "文档",
-      "verificationLabel": "见出处",
-      "docRef": "渲染管线采样后期性能汇编 · 第 20 节 · d179",
       "verifiedInOurStack": false
     },
     {
@@ -3876,7 +3202,7 @@
       "title": "特效随机种子与池上限",
       "text": "特效随机 Math.random 临时换 mulberry32 种子 2654435769 保证可复现；池上限 发光点 1040/520、叶 600/300、碎片 360/180、贴花 96（桌面/移动）；颜色绘制调用预算 ≤12（桌面）/≤7（移动）。龙特效其余数值（FlameTube、吐息、贴花、碎片、Glint）转交特效与粒子那一份，见第 22 节",
       "quantities": [],
-      "routeNote": "与特定场景、角色部件、着色器算式或多参数预设强耦合，须在目标帧源重新标定读回，挂卡",
+      "routeNote": "特定项目桌面与移动分档特效粒子池容量表",
       "coupling": "与第 20 节该案例的特定实现（着色器、节点、常量表或预算）耦合，数值为原实现取值",
       "recalibrate": "在北冥对应技术卡的目标帧源里重新标定并读回后，才可写入卡的 default；在此之前仅作参考",
       "useAsDefault": false,
