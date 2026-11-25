@@ -1,6 +1,7 @@
 """Build-script 镜头运行库。时间与元数据不依赖 bpy；只在分解矩阵时需要 mathutils。"""
 import re
 import sys
+from contextlib import contextmanager
 from fractions import Fraction
 
 sys.dont_write_bytecode = True
@@ -253,6 +254,44 @@ class StateKernel:
     def write(self, scene, f):
         write_state_keys(scene, f, self)
 
+    @contextmanager
+    def query_pose(self, scene, f):
+        """在整帧暂用 state(f) 的绝对值，保留渲染用的动作、插口和曲线。"""
+        sample = _channels(self.state(_int(f, 'frame')))
+        if self._layout is not None and sample.keys() != self._layout:
+            raise ValueError('state(f) 在每个样本必须交齐同一组物体/插口通道')
+        previous = scene.frame_current, scene.frame_subframe
+        saved = {(target, prop): getattr(target, prop) for target, prop in sample}
+        for key, value in saved.items():
+            if hasattr(value, '__len__'):
+                saved[key] = tuple(value)
+        rotations = {target: target.rotation_mode for target, prop in sample if prop.startswith('rotation_')}
+        for target, mode in rotations.items():
+            prop = {'QUATERNION': 'rotation_quaternion', 'AXIS_ANGLE': 'rotation_axis_angle'}.get(mode, 'rotation_euler')
+            saved[target, prop] = tuple(getattr(target, prop))
+        try:
+            scene.frame_set(f, subframe=0.)
+            for (target, prop), value in sample.items():
+                _set_pose_property(target, prop, value)
+            for layer in scene.view_layers:
+                layer.update()
+            _update_hidden_pose(scene, {target.id_data for target, _prop in sample})
+            yield
+        finally:
+            for target, mode in rotations.items():
+                target.rotation_mode = mode
+            for (target, prop), value in saved.items():
+                setattr(target, prop, value)
+            scene.frame_set(previous[0], subframe=previous[1])
+
+
+def _set_pose_property(target, prop, value):
+    if prop == 'rotation_quaternion':
+        target.rotation_mode = 'QUATERNION'
+    elif prop == 'rotation_euler' and target.rotation_mode in ('QUATERNION', 'AXIS_ANGLE'):
+        target.rotation_mode = 'XYZ'
+    setattr(target, prop, value)
+
 
 def write_state_keys(scene, f, kernel):
     """只求三个样本；只替换所声明通道的曲线，保留同物体/节点树上不归这个核管的动画。"""
@@ -281,13 +320,9 @@ def write_state_keys(scene, f, kernel):
                     curves.remove(curve)
     for t, sample in zip((f - 1, f, f + 1), samples):
         for (target, p), v in sample.items():
-            if p == 'rotation_quaternion':
-                target.rotation_mode = 'QUATERNION'
-                if sum(a*b for a, b in zip(v, samples[1][target, p])) < 0:
-                    v = tuple(-x for x in v)
-            elif p == 'rotation_euler' and target.rotation_mode in ('QUATERNION', 'AXIS_ANGLE'):
-                target.rotation_mode = 'XYZ'
-            setattr(target, p, v)
+            if p == 'rotation_quaternion' and sum(a*b for a, b in zip(v, samples[1][target, p])) < 0:
+                v = tuple(-x for x in v)
+            _set_pose_property(target, p, v)
             if not target.keyframe_insert(data_path=p, frame=t):
                 raise ValueError(f'不能为 {p} 在第 {t} 帧写关键帧')
     for owner, managed in paths.items():
@@ -297,9 +332,13 @@ def write_state_keys(scene, f, kernel):
                     for pt in curve.keyframe_points:
                         pt.interpolation = 'CONSTANT' if curve.data_path in _VISIBILITY else 'LINEAR'
     scene.frame_set(f, subframe=0.)
+    _update_hidden_pose(scene, paths)
+
+
+def _update_hidden_pose(scene, owners):
     # 禁用视口的物体会求值 location，却保留上次可见时的 matrix_world。先让依赖图
     # 在当前姿态上更新一次，再还原视口开关；否则量到的世界包围盒取决于访问顺序。
-    hidden = [owner for owner in paths if getattr(owner, 'hide_viewport', False)]
+    hidden = [owner for owner in owners if getattr(owner, 'hide_viewport', False)]
     if hidden:
         try:
             for obj in hidden:
@@ -339,6 +378,10 @@ class MetaCollector:
         if not isinstance(key, str) or not re.fullmatch('[^#]+#[^#]+', key) or key in self._anchors:
             raise ValueError(f'锚点 {key!r} 重复或不是「实体名#锚点名」')
         self._anchors[key] = to_beiming(pos) if blender else _vec(pos, 3)
+
+    def query_anchors(self, names):
+        """只交所问实体的北冥世界坐标。查询不用相机投影。"""
+        return {key: pos for key, pos in self._anchors.items() if key.split('#', 1)[0] in names}
 
     def merge(self, measured, size, base_size=None):
         """不回写 measure() 的实体；透视投影用相机的列主序刚体世界矩阵与投影矩阵。"""
