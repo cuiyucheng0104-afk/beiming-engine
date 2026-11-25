@@ -1,0 +1,45 @@
+{
+  "format": "card/0.1",
+  "id": "mat.library",
+  "version": "1.0.0",
+  "kind": "material",
+  "title": "工业硬表面程序化材质库",
+  "intent": "按场景网格名分配拉丝金属、模塑黑件、导热垫和发光面等 21 种材质，无需 UV 或外部贴图",
+  "visibleToAgent": true,
+  "livesIn": ["source:blender"],
+  "impl": [{
+    "livesIn": "source:blender",
+    "entry": "cards/material/library/index.py",
+    "shape": "create",
+    "hosts": [{ "host": "cycles", "version": "5.2.0" }],
+    "selftest": "cards/material/library/selftest.test.mjs"
+  }],
+  "params": {
+    "assignments": { "type": "data", "unit": "none", "schema": "schema.json", "default": {}, "coupling": "asset-batch" }
+  },
+  "ports": {
+    "in": [],
+    "out": [{ "name": "readings", "type": "frame-meta" }],
+    "order": { "before": [], "after": [] },
+    "requires": [
+      "assignments 的键是当前场景网格的精确名或区分大小写的通配符（*、?、字符组），值是材质名，如 copper。空映射只建库",
+      "精确名优先于通配符。同一网格命中多个不同材质的通配规则时须给精确名消歧；未匹配到网格的规则报错。分配计数按对象去重",
+      "每个指定对象的所有材质槽都采用该表面，保留原有面槽编号；dispose 恢复分配前的槽位及其归属",
+      "Object 坐标按米取样。相机距表面 0.1225 至 0.35 米时，微凹凸从全强度淡出至零",
+      "Handle.materials 按名称提供 21 个实际材质；readings() 和 meta(f).readings 返回材质数、分配网格数、纯金属和发光材质数，以及逐材质的金属度、粗糙度和发光强度基线"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["在 Cycles 棚拍中区分金属、喷砂黑件、电路板及自发光标记"],
+    "notWhen": ["需要保留同一网格原有的逐面配色，或必须依赖 UV 图集和图像贴图"]
+  },
+  "calibration": "studio-balls@1",
+  "verify": {
+    "selftest": "脱离宿主检查 21 个材质基线、插口和距离淡出连线，拒绝错误分配；宿主验收比较铜、哑黑与自发光的显示趋势",
+    "predicates": []
+  },
+  "pitfalls": [{ "symptom": "压花或磨砂颗粒被拉长", "fix": "应用网格的非均匀物体缩放，再按米检查 Object 坐标尺度" }],
+  "provenance": { "cases": [], "note": "基于 L18 标准球金属度、粗糙度与发光输入和表面工艺独立实现；不内置外部贴图或工程素材" },
+  "status": [{ "level": "reproduced", "host": "cycles", "source": "5.2.0", "gpu": "apple-m5-pro", "date": "2026-11-25" }],
+  "exams": ["1-2", "cal:mat.library"]
+}

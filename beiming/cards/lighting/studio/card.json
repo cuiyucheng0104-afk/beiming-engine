@@ -1,0 +1,47 @@
+{
+  "format": "card/0.1",
+  "id": "light.studio",
+  "version": "1.0.0",
+  "kind": "lighting",
+  "title": "摄影棚布光方案",
+  "intent": "按主体尺度求矩形面光的位置、边长与瓦数，在产品和拼装镜头中保留反射带和明暗层次",
+  "visibleToAgent": true,
+  "livesIn": ["source:blender"],
+  "impl": [{
+    "livesIn": "source:blender",
+    "entry": "cards/lighting/studio/index.py",
+    "shape": "create",
+    "hosts": [{ "host": "cycles", "version": "5.2.0" }],
+    "selftest": "cards/lighting/studio/selftest.test.mjs"
+  }],
+  "params": {
+    "preset": { "type": "string", "unit": "none", "default": "hero", "coupling": "none" },
+    "subjectScaleM": { "type": "number", "unit": "m", "range": [0.000001, 1000000], "default": 1, "coupling": "scene-scale" },
+    "exposureScale": { "type": "number", "unit": "ratio", "range": [0.000001, 1000], "default": 1, "coupling": "none" },
+    "spec": { "type": "data", "unit": "none", "schema": "schema.json", "default": {}, "coupling": "scene-scale" }
+  },
+  "ports": {
+    "in": [], "out": [{ "name": "lights", "type": "frame-meta" }],
+    "order": { "before": [], "after": [] },
+    "requires": [
+      "preset 选 hero、explode、poster、mech-matte、mech-plated、wide-matte，或 custom 配 spec.lights。灯和自有世界对相机不可见；不改相机、渲染色管与材质",
+      "spec.anchor 是北冥 +Y 向上世界坐标（米）；自定义 position、target、size、watts 按一米主体给值。偏移和边长乘 subjectScaleM，瓦数乘其平方再乘曝光倍数；color 是线性 RGB",
+      "主体专用灯 bodyOnly 使用 spec.receiverCollection 指定的 Blender 集合；自定义灯可指定自己的 receiverCollection。缺少所需集合时报错，不扩散到全场",
+      "spec.cues 按局部 frame 严格递增；preset、exposureScale 是从该帧起生效的绝对值，gains 是逐灯倍率（0 为关闭）。切方案时清空上套逐灯倍率，沿用曝光。电镀竖条按局部帧与子帧绕主体旋转",
+      "readings() 交最近 apply 的读数，meta(f) 独立求整帧读数：lightCount（方案灯数）、linkedCount、totalWatts、keyWatts（无 key 时为零）、subjectScaleM、exposureScale"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["硬表面产品棚拍、拼装与海报镜头，需要按主体物理尺度保持棚灯亮度及反射带角宽"],
+    "notWhen": ["要求保留既有环境光，或需要外景日照和天空光"]
+  },
+  "calibration": "studio-balls@1",
+  "verify": {
+    "selftest": "逐灯核对六套标定的功率、位置、宽边方向与受光范围，验证百倍尺度律、乱序跨方案切换及参数反例",
+    "predicates": []
+  },
+  "pitfalls": [{ "symptom": "放大主体后成品的高光位置改变", "fix": "相机、主体与世界锚点同步缩放，以实际主体尺度重新求棚灯，不额外缩放灯具物体" }],
+  "provenance": { "cases": [], "note": "使用半米四球标定的逐灯测量值换算一米基准，自行求解灯位、面光总功率和间接光" },
+  "status": [{ "level": "reproduced", "host": "cycles", "source": "5.2.0", "gpu": "apple-m5-pro", "date": "2026-11-25" }],
+  "exams": ["cal:light.studio"]
+}
