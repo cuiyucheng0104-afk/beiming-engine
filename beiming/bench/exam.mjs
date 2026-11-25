@@ -32,7 +32,13 @@ import {
 import { evaluate as evaluateLevel2a } from './questions/level-2-a/evaluate-b3.mjs';
 import { score as scoreLevel2b } from './questions/level-2-b/evaluate-b4.mjs';
 import { scoreLevel3, validLevel3Reading } from './questions/level-3/evaluate-b17.mjs';
+import {
+  loadM4Gates,
+  scoreSteppingStone,
+  validSteppingStoneReading,
+} from './questions/level-4/evaluate-b18.mjs';
 import { runLevel3Controls } from './solutions/level-3/run-b17.mjs';
+import { runSteppingStoneControls } from './solutions/level-4/run-b18.mjs';
 import { RESULT_FORMAT, runExamQuestion } from './runner.mjs';
 import {
   projectPublicQuestion,
@@ -61,7 +67,9 @@ const LEVEL1_IDS = new Set(['29-1', '28-1', '23-1', '1-1']);
 const LEVEL2A_IDS = new Set(['27-1', '29-2', '23-2', '30-1']);
 const LEVEL2B_IDS = new Set(B6_QUESTION_IDS);
 const LEVEL3_IDS = new Set(['3-1', '31-1', '1-2']);
+const LEVEL4_IDS = new Set(['41-1', '41-2', '41-3']);
 const REQUIRED_QUESTION_SETS = Object.freeze([
+  Object.freeze({ name: 'level-4', evaluator: 'evaluate-b18.mjs', ids: Object.freeze([...LEVEL4_IDS]) }),
   Object.freeze({ name: 'level-3', evaluator: 'evaluate-b17.mjs', ids: Object.freeze([...LEVEL3_IDS]) }),
   Object.freeze({ name: 'level-1', evaluator: 'evaluate-b2.mjs', ids: Object.freeze([...LEVEL1_IDS]) }),
   Object.freeze({ name: 'level-2-a', evaluator: 'evaluate-b3.mjs', ids: Object.freeze([...LEVEL2A_IDS]) }),
@@ -90,7 +98,7 @@ export function discoverQuestionFiles(questionsDir) {
       if (entry.name.startsWith('.')) continue;
       const abs = path.join(dir, entry.name);
       if (entry.isDirectory()) walkDir(abs);
-      else if (entry.isFile() && entry.name.endsWith('.json')) found.push(abs);
+      else if (entry.isFile() && entry.name.endsWith('.json') && entry.name !== 'gates-m4.json') found.push(abs);
     }
   };
   walkDir(questionsDir);
@@ -114,7 +122,7 @@ function findEmptyQuestionSubdirs(questionsDir) {
       const abs = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (walk(abs)) hasJson = true;
-      } else if (entry.isFile() && entry.name.endsWith('.json')) {
+      } else if (entry.isFile() && entry.name.endsWith('.json') && entry.name !== 'gates-m4.json') {
         hasJson = true;
       }
     }
@@ -308,8 +316,26 @@ function validateRefData(question, data, refLabel) {
     bad('必须是非空 JSON 对象');
     return errors;
   }
+  if (LEVEL4_IDS.has(question.id) && String(refLabel).endsWith('gates-m4.json')) {
+    try {
+      const g = loadM4Gates(data);
+      if (g.source !== 'spec-05-sec4-l10-locked' || g.lockPolicy !== 'FX16') {
+        bad('四级阈值表缺少锁定的 source 或 lockPolicy');
+      }
+    } catch (e) {
+      bad(`四级阈值表不合法：${e.message}`);
+    }
+    return errors;
+  }
   if (typeof data.question !== 'string' || data.question !== question.id) {
     bad(`题号字段 question=${JSON.stringify(data.question)} 与题目 ${question.id} 不匹配`);
+    return errors;
+  }
+
+  if (LEVEL4_IDS.has(question.id)) {
+    if (data.kind !== 'reference' || !validSteppingStoneReading(question, data.readings)) {
+      bad('四级垫脚题缺少完整的逐帧参考量测');
+    }
     return errors;
   }
 
@@ -608,9 +634,16 @@ function isHardcoded30_1Sample(question, data) {
 function validateRefs(question, benchDir) {
   const errors = [];
   const refs = question.refs ?? [];
-  if ((LEVEL1_IDS.has(question.id) || LEVEL2A_IDS.has(question.id) || LEVEL2B_IDS.has(question.id) || LEVEL3_IDS.has(question.id)) && refs.length === 0) {
+  if ((LEVEL1_IDS.has(question.id) || LEVEL2A_IDS.has(question.id) || LEVEL2B_IDS.has(question.id) || LEVEL3_IDS.has(question.id) || LEVEL4_IDS.has(question.id)) && refs.length === 0) {
     errors.push(`题目 ${question.id} 缺少参考夹具声明（refs 为空）`);
     return errors;
+  }
+  if (LEVEL4_IDS.has(question.id)) {
+    const hasReadingRef = refs.some((r) => !String(r).endsWith('gates-m4.json'));
+    const hasGatesRef = refs.some((r) => String(r).endsWith('gates-m4.json'));
+    if (!hasReadingRef || !hasGatesRef) {
+      errors.push(`四级垫脚题 ${question.id} 须在 refs 中同时声明参考读数夹具与 gates-m4.json`);
+    }
   }
   const loadedRefs = [];
   for (const ref of refs) {
@@ -1009,6 +1042,40 @@ export function evaluateOfflineQuestion({ question, benchDir = HERE }) {
     metrics: {},
     detail,
   });
+
+  if (LEVEL4_IDS.has(question.id)) {
+    try {
+      const refs = question.refs ?? [];
+      const refPath = refs.find((r) => !String(r).endsWith('gates-m4.json'));
+      const gatesPath = refs.find((r) => String(r).endsWith('gates-m4.json'));
+      if (!refPath || !gatesPath) return failOutcome('四级垫脚题须同时声明参考读数夹具与 gates-m4.json');
+      const ref = JSON.parse(fs.readFileSync(resolveRefPath(benchDir, refPath), 'utf8'));
+      const gates = JSON.parse(fs.readFileSync(resolveRefPath(benchDir, gatesPath), 'utf8'));
+      const errors = [
+        ...validateRefData(question, ref, refPath),
+        ...validateRefData(question, gates, gatesPath),
+      ];
+      if (errors.length) return failOutcome(errors.join('；'));
+      const refOk = scoreSteppingStone(question, ref.readings, { gates }).pass;
+      const { positive, negatives } = runSteppingStoneControls(question, { gates });
+      const rejected = Object.values(negatives).filter((v) => !v.pass && v.score < 1).length;
+      const checked = Object.keys(negatives).length;
+      const controlsOk = refOk && checked > 0 && rejected === checked;
+      const evidence = (pass) => ({ pass, basis: 'offline-eval-b18' });
+      return {
+        pass: controlsOk && positive.pass && positive.score === 1,
+        controlsOk,
+        positiveScore: controlsOk ? positive.score : 0,
+        negativeControlsChecked: checked,
+        negativeControlsRejected: rejected,
+        predicates: Object.fromEntries(positive.base.map((item) => [item.predicate, evidence(item.pass)])),
+        metrics: Object.fromEntries(positive.items.map((item) => [item.metric, evidence(controlsOk && item.pass)])),
+        detail: !refOk ? '四级垫脚题参考读数未通过' : !controlsOk ? `负对照只拦截 ${rejected}/${checked}` : positive.pass ? 'ok' : '标准答案未通过',
+      };
+    } catch (err) {
+      return failOutcome(`四级垫脚题离线核验失败：${err.message}`);
+    }
+  }
 
   if (LEVEL3_IDS.has(question.id)) {
     try {

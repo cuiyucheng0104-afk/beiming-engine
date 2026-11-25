@@ -1,0 +1,55 @@
+{
+  "format": "question/0.1",
+  "id": "41-2",
+  "level": 4,
+  "title": "多段扫掠脊线与平行输运标架运动学",
+  "brief": "沿三维向心样条引导轨与单调三次时间弧长映射扫掠多段柔性长体脊线，叠加带沿身传播延迟的推力脉冲位移场、随速度包络调制的侧向与垂向行波游动场，以及防天顶翻转的平行输运与曲率倾斜标架。全窗口逐帧逐弧长采样点的三维位置均方根误差与相邻弧长超额扭转角跳变均须满足公开阈值表对应门限。",
+  "deliverable": { "size": [1920, 1080], "fps": "60/1", "frames": 24, "audio": "none" },
+  "assets": {},
+  "refs": ["bench/refs/level-4/41-2.json", "bench/questions/level-4/gates-m4.json"],
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=60, frames=24)",
+    "no_cut",
+    "inside_frame(hero) @ all"
+  ],
+  "scoring": [
+    {
+      "metric": "deliver.spec",
+      "args": {},
+      "pass": "分辨率、帧率、总帧数与无声编码配置符合交付规格。",
+      "weight": 0.22
+    },
+    {
+      "metric": "spine.position-rmse",
+      "args": { "gateRef": "stepping_stone_2_dragon_spine", "metrics": ["positionRmseMaxM"] },
+      "pass": "在完整评测时间窗口内，逐帧逐弧长节点独立复算相对参考脊线轨迹的三维位置均方根误差，严格低于公开门表 stepping_stone_2_dragon_spine 锁定的位置误差上限。",
+      "weight": 0.28
+    },
+    {
+      "metric": "spine.twist-jump",
+      "args": { "gateRef": "stepping_stone_2_dragon_spine", "metrics": ["maxTwistJumpErrorDeg"] },
+      "pass": "逐帧沿脊线弧长序列独立复算平行输运标架的相邻节点扭转角步进差与法向正交性，最大超额扭转角跳变严格低于公开门表 stepping_stone_2_dragon_spine 锁定的角度上限。",
+      "weight": 0.26
+    },
+    {
+      "metric": "spine.kinematics-coupling",
+      "args": { "gateRef": "stepping_stone_2_dragon_spine" },
+      "pass": "引导轨弧长延迟扫掠、推力脉冲传播与行波游动在全窗口协同生效，标架切向、法向与副法向逐节点保持右手单位正交。",
+      "weight": 0.24
+    }
+  ],
+  "controls": {
+    "referencePass": "完整合成引导轨弧长扫掠、推力脉冲、行波游动与平行输运倾斜标架的标准工程应得满分。",
+    "negative": "分别清空推力脉冲、置零行波游动、禁用平行输运倾斜标架、破坏弧长延迟扫掠或撤去交付编码卡，均须判为不合格。"
+  },
+  "needs": ["motion.sweep-body", "motion.roll-bank", "motion.swim", "motion.impulse", "deliver.encode"],
+  "budget": { "tokens": 1800000, "wallMs": 2400000, "gpuSeconds": 300 },
+  "flags": { "hidden": false, "expectedFail": false, "blockedBy": [] },
+  "calibration": {
+    "status": "calibrated",
+    "source": "公开三维脊线轨迹对拍与消融锁门表（gates-m4.json#stepping_stone_2_dragon_spine）。",
+    "noiseFloor": 0,
+    "version": 1
+  },
+  "ext": { "bench.code": "M4-SS2", "bench.steppingStone": true }
+}

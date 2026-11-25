@@ -1,0 +1,67 @@
+{
+  "format": "film/3.0",
+  "id": "sol_m4_ss1",
+  "exam": "41-1",
+  "seed": 411,
+  "title": "线性 HDR 后期链：材质补丁、双边遮蔽、泛光、体积光与终混调色",
+  "output": { "size": [1920, 1080], "fps": "60/1", "frames": 6 },
+  "shots": [
+    {
+      "id": "post-chain",
+      "in": 0,
+      "out": 6,
+      "source": "three",
+      "host": "page",
+      "mode": "cards-data",
+      "colorRef": "scene",
+      "roles": { "hero": "plume" },
+      "params": {
+        "rasterSize": [48, 27],
+        "checkFrames": [300, 1440, 2520, 2838, 3900, 4500],
+        "camera": { "near": 0.3, "far": 1200, "fov": 40 }
+      },
+      "cards": [
+        {
+          "as": "patch",
+          "use": "three.patch@1",
+          "params": { "allowedVersions": ["0.187.0"] }
+        },
+        {
+          "as": "ao",
+          "use": "post.ao@1",
+          "params": { "enabled": true, "strength": 0.9, "radius": 1.2, "bias": 0.03, "samples": 12 }
+        },
+        {
+          "as": "bloom",
+          "use": "post.bloom@1",
+          "params": { "enabled": true, "additive": false, "threshold": 0, "knee": 0, "intensity": 0.085, "radius": 1.0 }
+        },
+        {
+          "as": "volumetric",
+          "use": "post.volumetric@1",
+          "params": { "enabled": true, "beamGain": 12, "anisotropy": 0.45, "extinction": 0.008, "mode": "standalone" }
+        },
+        {
+          "as": "grade",
+          "use": "post.grade-cl@1",
+          "params": {
+            "exposure": 1.15,
+            "bloom": 0.14,
+            "vignette": 0.42,
+            "caBase": 0.006,
+            "saturation": 1.08,
+            "contrast": 0.44,
+            "gamma": 2.2,
+            "grain": 0.018,
+            "ditherMode": "triangular",
+            "shaftColor": [1.1, 0.78, 0.45]
+          }
+        }
+      ]
+    }
+  ],
+  "style": { "view": { "scene": "agx-mhc", "display": "srgb" } },
+  "audio": { "mode": "none" },
+  "predicates": { "base": ["floor@1"], "extra": [] },
+  "delivery": { "master": "h264-crf14-bt709", "card": "deliver.encode@1" }
+}

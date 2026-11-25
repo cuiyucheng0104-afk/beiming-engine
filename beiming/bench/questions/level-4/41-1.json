@@ -1,0 +1,55 @@
+{
+  "format": "question/0.1",
+  "id": "41-1",
+  "level": 4,
+  "title": "线性 HDR 后期链通道级对拍",
+  "brief": "给定多帧场景线性 HDR 颜色与米制深度输入，依次串联材质着色器锚点补丁、半分辨率双边环境光遮蔽、四级 Karis 降采样与帐篷上采样泛光、四分之一分辨率体积光散射及 ACES 终混调色链输出 sRGB 成片。逐帧实测图像对参考输出的峰值信噪比、均方根误差与超差像素比例均须满足公开阈值表对应门限。",
+  "deliverable": { "size": [1920, 1080], "fps": "60/1", "frames": 6, "audio": "none" },
+  "assets": {},
+  "refs": ["bench/refs/level-4/41-1.json", "bench/questions/level-4/gates-m4.json"],
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=60, frames=6)",
+    "no_cut",
+    "encoded_readback"
+  ],
+  "scoring": [
+    {
+      "metric": "deliver.spec",
+      "args": {},
+      "pass": "分辨率、帧率、总帧数与无声编码配置符合交付规格。",
+      "weight": 0.22
+    },
+    {
+      "metric": "post.shader-patch",
+      "args": { "gateRef": "stepping_stone_1_post_chain", "stages": ["vertexShader", "fragmentShader"] },
+      "pass": "材质着色器补丁在固定宿主版本下按锚点无损注入且程序缓存键隔离生效，不污染全局着色器模板。",
+      "weight": 0.24
+    },
+    {
+      "metric": "post.srgb-psnr",
+      "args": { "gateRef": "stepping_stone_1_post_chain", "metrics": ["finalSrgbPsnrMinDb", "finalSrgbRmseMax"] },
+      "pass": "逐帧从 sRGB 成片像素独立复算相对参考帧的均方根误差与峰值信噪比，全部达到公开门表 stepping_stone_1_post_chain 锁定的信噪比下限与均方根误差上限。",
+      "weight": 0.28
+    },
+    {
+      "metric": "post.srgb-diff-ge5",
+      "args": { "gateRef": "stepping_stone_1_post_chain", "metrics": ["finalSrgbDiffGe5PxRatioMaxPct"] },
+      "pass": "逐帧从 sRGB 成片像素独立统计三通道最大绝对差超差像素占比，全部控制在公开门表 stepping_stone_1_post_chain 锁定的百分比上限以内。",
+      "weight": 0.26
+    }
+  ],
+  "controls": {
+    "referencePass": "完整启用材质补丁、双边环境光遮蔽、多级泛光、体积光散射与终混调色的标准工程应得满分。",
+    "negative": "分别关闭环境光遮蔽、泛光、体积光、终混调色、材质补丁或交付编码卡，按退化后的逐帧像素读数判为不合格。"
+  },
+  "needs": ["three.patch", "post.ao", "post.bloom", "post.volumetric", "post.grade-cl", "deliver.encode"],
+  "budget": { "tokens": 1800000, "wallMs": 2400000, "gpuSeconds": 300 },
+  "flags": { "hidden": false, "expectedFail": false, "blockedBy": [] },
+  "calibration": {
+    "status": "calibrated",
+    "source": "公开线性 HDR 后期链通道对拍与消融锁门表（gates-m4.json#stepping_stone_1_post_chain）。",
+    "noiseFloor": 0,
+    "version": 1
+  },
+  "ext": { "bench.code": "M4-SS1", "bench.steppingStone": true }
+}
