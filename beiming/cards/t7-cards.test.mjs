@@ -53,7 +53,7 @@ test('T7-1 三张卡文件存在且全部通过 validateCard 与零泄露扫描'
   assert.deepEqual(scanCardLeaks(readFileSync(fileURLToPath(import.meta.url), 'utf8')), [], '这份测试自己');
 });
 
-test('T7-2 目录、类别、落点、形状、考题和任务书的表一致；标 reproduced；入口和自测在卡目录里；注册表找得到，默认参数过卡内的结构定义', async () => {
+test('T7-2 目录、类别、落点、形状、考题和任务书的表一致；标 reproduced 或 measured；入口和自测在卡目录里；注册表找得到，默认参数过卡内的结构定义', async () => {
   const cards = Object.keys(T7_SPEC).map(readCard), registry = createCardRegistry(cards, { allowReproduced: true });
   for (const card of cards) {
     const [dir, kind, exams] = T7_SPEC[card.id], [impl] = card.impl;
@@ -61,7 +61,8 @@ test('T7-2 目录、类别、落点、形状、考题和任务书的表一致；
     assert.deepEqual([impl.entry, impl.selftest], [`cards/${dir}/comp.mjs`, `cards/${dir}/selftest.test.mjs`], card.id);
     assert.ok(existsSync(join(BEIMING, impl.entry)) && existsSync(join(BEIMING, impl.selftest)), `${card.id} 的入口和自测文件在`);
     assert.deepEqual(Object.keys(await import(pathToFileURL(join(BEIMING, impl.entry)).href)), ['create'], `${card.id} 只有一个卡入口`);
-    assert.deepEqual(card.status.map((s) => s.level), ['reproduced'], card.id);
+    assert.equal(card.status.length, 1, card.id);
+    assert.ok(['reproduced', 'measured'].includes(card.status[0].level), card.id);
     assert.equal(registry.getCard(card.id)?.id, card.id);
     assert.ok(registry.searchCards({ kind: card.kind, livesIn: 'comp', q: card.title }).some((c) => c.id === card.id), `按标题搜不到 ${card.id}`);
     const resolved = params(card.id);

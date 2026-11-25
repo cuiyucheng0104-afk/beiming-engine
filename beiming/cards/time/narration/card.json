@@ -42,6 +42,6 @@
     { "symptom": "相邻两帧的触发点挤在同一帧", "fix": "帧号是毫秒乘帧率再四舍五入；要错开就用 offsetSec 挪" }
   ],
   "provenance": { "cases": [], "note": "词面归一后做连续短语匹配，时间在整数毫秒上算；触发点不早于所在场景的起点" },
-  "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-22" }],
+  "status": [{ "level": "measured", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-25", "parityReport": "sha256:230b2e0d28aef555682a293eb94a42466de8f2bae95f92a15e228c687fe63555" }],
   "exams": ["18-1", "18-2", "cal:time.narration"]
 }

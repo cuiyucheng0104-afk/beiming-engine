@@ -53,6 +53,6 @@
     { "symptom": "文字框比画面上的字宽或者窄", "fix": "框是按字符数乘字高乘 charAspect 估的；换了字体照它的平均字宽调 charAspect" }
   ],
   "provenance": { "cases": [], "note": "字幕块首尾相接：前一块停在后一块起始词之前 earlySec；场景里最后一块停到配音结束之后 holdSec。时间在整数毫秒上算" },
-  "status": [{ "level": "reproduced", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-22" }],
+  "status": [{ "level": "measured", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-25", "parityReport": "sha256:481c91cd52d2031a635c5a32b8cfcbb2fe4c349cd0b92c229ceec8819795de25" }],
   "exams": ["18-1", "cal:overlay.subs"]
 }

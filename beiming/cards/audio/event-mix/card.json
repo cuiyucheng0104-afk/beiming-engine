@@ -52,6 +52,6 @@
     { "symptom": "混完整体变轻了", "fix": "峰值超过 ceilingDb 时是整体降增益，不做限幅；看交回的 scaleDb，嫌轻就把 gainDb 调小，别让音效把峰值顶上去" }
   ],
   "provenance": { "cases": [], "note": "事件时刻换采样点是 round((frame + sub) × 48000 × 帧率分母 ÷ 帧率分子)，先乘完再除一次；起音每 5 毫秒量一步：窗口从这一步第一个不是 0 的采样点起往后看满一步（两个声道各自平方再平均，再除以窗口里的采样数），上一个窗口量过的不再量，比紧邻的前一步涨得最多的那一步，50 毫秒内只认一个" },
-  "status": [{ "level": "reproduced", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-22" }],
+  "status": [{ "level": "measured", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-25", "parityReport": "sha256:73c4acb7b2d2b987eab109d76753d9c7528f5350c24774fc1c0a6424d70ea435" }],
   "exams": ["29-2"]
 }

@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { EvalError, contractError, envError } from '../../tools/eval/lib/cli.mjs';
 import { hasFfmpeg } from '../../tools/eval/lib/synth.mjs';
-import { projectPublicQuestion, runExamQuestion } from './index.mjs';
+import { CACHE_READ_TOKEN_WEIGHT, computeBilledTokens, computeRawTokens, projectPublicQuestion, runExamQuestion } from './index.mjs';
 import { solverEnv } from './runner.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -94,7 +94,9 @@ test('B8-2 公开题：隔离目录、公开投影题面、过程观测、标准
   assert.equal(saved.assertions.length, sample.basePredicates.length + sample.scoring.length);
   assert.deepEqual(saved.assertions.filter((a) => a.pass).map((a) => a.name), ['meta.bbox-limits']);
   assert.deepEqual([[...new Set(saved.assertions.map((a) => a.basis))], saved.unmeasured], [['judge'], 0]);
-  assert.equal((await readJson(join(res.runDir, 'observation.json'))).isolation, 'in-process');
+  const observation = await readJson(join(res.runDir, 'observation.json'));
+  assert.equal(observation.isolation, 'in-process');
+  assert.equal(observation.tokenBreakdown, null);
   assert.deepEqual({ ...saved.cost, wallMs: 0 }, { tokens: 1200, turns: 1, toolCalls: null, wallMs: 0, gpuSeconds: 3 });
   assert.deepEqual(saved.artifacts.map((a) => a.path), ['submission.json']);
   assert.match(saved.artifacts[0].sha256, /^sha256:[0-9a-f]{64}$/);
@@ -170,7 +172,7 @@ console.log(JSON.stringify({ type: 'result', subtype: 'success', num_turns: 3, u
   assert.equal(ok.code, 0, ok.stderr);
   assert.deepEqual([ok.json.ok, ok.json.data.status, ok.json.data.score, ok.json.data.source, ok.json.data.unmeasured], [true, 'pass', 1, 'core', 0]);
   assert.deepEqual(ok.json.data.assertions.map((a) => [a.kind, a.pass, a.basis]), [['base', true, 'host'], ['scoring', true, 'host']]);
-  assert.deepEqual({ ...ok.json.data.cost, wallMs: 0 }, { tokens: 125, turns: 3, toolCalls: 1, wallMs: 0, gpuSeconds: 2 });
+  assert.deepEqual({ ...ok.json.data.cost, wallMs: 0 }, { tokens: 121, turns: 3, toolCalls: 1, wallMs: 0, gpuSeconds: 2 });
   assert.deepEqual(ok.json.outputs, [ok.json.data.resultFile]);
   assert.deepEqual((await readJson(join(ok.json.data.runDir, 'observation.json'))).transcript, ['turn-01.jsonl', 'turn-01.stderr.log']);
 
@@ -189,6 +191,8 @@ console.log(JSON.stringify({ type: 'result', subtype: 'success', num_turns: 3, u
   const viaClaude = cli(['run', '--question', qFile, '--root', root, '--model', 'm1', '--claude', stub]);
   assert.equal(viaClaude.code, 0, viaClaude.stderr);
   assert.equal(viaClaude.json.data.model, 'm1');
+  assert.equal(viaClaude.json.data.cost.tokens, null);
+  assert.equal((await readJson(join(viaClaude.json.data.runDir, 'observation.json'))).tokenBreakdown, null);
   const meta = await readJson(join(viaClaude.json.data.runDir, 'transcript/turn-01.jsonl'));
   assert.match(meta.model, /--model m1 .*--setting-sources project --strict-mcp-config --mcp-config .*session[\\/]mcp\.json$/);
 
@@ -200,6 +204,74 @@ console.log(JSON.stringify({ type: 'result', subtype: 'success', num_turns: 3, u
     assert.deepEqual([r.status, JSON.parse(r.stdout).data.status], [0, 'pass'], r.stderr);
   }
   assert.doesNotMatch(readFileSync(RUNNER, 'utf8'), /tools\/lib\//, '跑题器只引 tools/eval/');
+});
+
+test('token 计费纯函数：缺失字段、非有限数、权重边界与舍入', () => {
+  assert.equal(CACHE_READ_TOKEN_WEIGHT, 0.1);
+  for (const usage of [undefined, null, [], 'usage', 10, {}]) {
+    assert.equal(computeRawTokens(usage), 0);
+    assert.equal(computeBilledTokens(usage), 0);
+  }
+  const partial = { input_tokens: 10, output_tokens: Infinity, cache_creation_input_tokens: NaN, cache_read_input_tokens: '5' };
+  assert.equal(computeRawTokens(partial), 10);
+  assert.equal(computeBilledTokens(partial), 10);
+  const usage = { input_tokens: 100, output_tokens: 20, cache_creation_input_tokens: 30, cache_read_input_tokens: 5 };
+  assert.equal(computeRawTokens(usage), 155);
+  assert.equal(computeBilledTokens(usage, 0), 150);
+  assert.equal(computeBilledTokens(usage, 1), 155);
+  assert.equal(computeBilledTokens(usage, 0.5), 153);
+  for (const [read, billed] of [[4, 0], [5, 1], [14, 1], [15, 2]]) {
+    assert.equal(computeBilledTokens({ cache_read_input_tokens: read }), billed);
+  }
+  for (const weight of [-0.1, 1.01, -Infinity, Infinity, NaN, '0.1', null, false]) {
+    assert.throws(() => computeBilledTokens(null, weight), RangeError);
+  }
+});
+
+test('命令模式按每条 usage 折算缓存读取并以计费 token 判预算', async (t) => {
+  const sample = example('minimal.json');
+  const { qFile, root, dir } = await setup(t, { ...sample, budget: { ...sample.budget, tokens: 300_000 } });
+  const solverFile = join(dir, 'usage.mjs');
+  await writeFile(solverFile, `
+    for (const usage of JSON.parse(process.argv[2])) console.log(JSON.stringify({ type: 'result', usage }));
+  `);
+  const solve = (usages) => runExamQuestion({
+    questionFile: qFile, evalRoot: root, judge: allPass,
+    solverCmd: `"${process.execPath}" "${solverFile}" '${JSON.stringify(usages)}'`,
+  });
+
+  await t.test('高缓存命中扣除权重后通过', async () => {
+    const run = await solve([{ input_tokens: 20_000, output_tokens: 10_000, cache_creation_input_tokens: 50_000, cache_read_input_tokens: 1_400_000 }]);
+    const result = await readJson(run.resultFile);
+    assert.equal(result.cost.tokens, 220_000);
+    assert.equal(result.score, 1);
+    assert.equal(result.status, 'pass');
+    assert.deepEqual(result.overBudget, []);
+    const observation = await readJson(join(run.runDir, 'observation.json'));
+    assert.deepEqual(observation.tokenBreakdown, {
+      billedTokens: 220_000, rawTokens: 1_480_000, inputTokens: 20_000, outputTokens: 10_000,
+      cacheCreationTokens: 50_000, cacheReadTokens: 1_400_000, cacheReadWeight: 0.1,
+    });
+  });
+
+  await t.test('未缓存且超过预算的满分卷失败', async () => {
+    const run = await solve([{ input_tokens: 320_000, output_tokens: 20_000, cache_read_input_tokens: 0 }]);
+    const result = await readJson(run.resultFile);
+    assert.equal(result.cost.tokens, 340_000);
+    assert.equal(result.score, 1);
+    assert.equal(result.status, 'fail');
+    assert.deepEqual(result.overBudget, ['tokens']);
+  });
+
+  await t.test('多条 usage 分别舍入后再汇总', async () => {
+    const run = await solve([{ input_tokens: 10, cache_read_input_tokens: 5 }, { output_tokens: 3, cache_read_input_tokens: 5 }]);
+    assert.equal(run.cost.tokens, 15);
+    const observation = await readJson(join(run.runDir, 'observation.json'));
+    assert.deepEqual(observation.tokenBreakdown, {
+      billedTokens: 15, rawTokens: 23, inputTokens: 10, outputTokens: 3,
+      cacheCreationTokens: 0, cacheReadTokens: 10, cacheReadWeight: 0.1,
+    });
+  });
 });
 
 test('B8-6 默认判分：成片怎么找、切点实测、没有量测器的指标不采信自报', NEED_FFMPEG, async (t) => {

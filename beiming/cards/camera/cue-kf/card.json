@@ -28,6 +28,6 @@
     { "symptom": "两个动作只量到一次持续运镜", "fix": "让首尾姿态接得上，并在两段之间留出静止帧。每帧位移远小于一个像素时，像素判分也可能量不到；按帧数和画幅选位移。" }
   ],
   "provenance": { "cases": [], "note": "用命名事件加偏移做关键帧，按二维中心与相对放大率插值；无外部素材。" },
-  "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-23" }],
+  "status": [{ "level": "measured", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-25", "parityReport": "sha256:a75cee4440e1410efac216c35af0a97dd4069b8882a370b85c320a1522f38fbb" }],
   "exams": ["18-2", "cal:camera.cue-kf"]
 }

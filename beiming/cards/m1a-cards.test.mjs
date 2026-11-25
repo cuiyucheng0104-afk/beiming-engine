@@ -112,11 +112,11 @@ test('每张卡的卡文件过契约校验（结构加 CF 各条）；卡目录�
   }
 });
 
-test('每张卡：给模型看、版本 1.0.0、状态里有 reproduced、挂着 cal:<卡名>、参数的默认值过得了自己的检查', () => {
+test('每张卡：给模型看、版本 1.0.0、状态里有 reproduced 或 measured、挂着 cal:<卡名>、参数的默认值过得了自己的检查', () => {
   for (const c of CARDS) {
     const card = readJson(join(c.abs, 'card.json'));
     assert.deepEqual([card.visibleToAgent, card.version], [true, '1.0.0'], c.dir);
-    assert.ok(card.status.some((s) => s.level === 'reproduced'), c.dir);
+    assert.ok(card.status.some((s) => ['reproduced', 'measured'].includes(s.level)), c.dir);
     assert.ok(card.exams.includes(`cal:${c.id}`), c.dir);
     assert.deepEqual(Object.keys(resolveParams(card, {})), Object.keys(card.params), c.dir);
   }

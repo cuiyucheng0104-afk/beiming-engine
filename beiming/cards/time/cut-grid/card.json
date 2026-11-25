@@ -47,6 +47,6 @@
     { "symptom": "报放不下", "fix": "endFrame 之前排不下这么多个最短镜头：减镜头、调小 minShotFrames 或者把片尾放长" }
   ],
   "provenance": { "cases": [], "note": "对到最近的网格点，再按最短镜头长往后推，切点个数不变；镜头的区间和事件表里的切点条目都从这组帧号来" },
-  "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-22" }],
+  "status": [{ "level": "measured", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-25", "parityReport": "sha256:f4c5a293400cad06e461c5148b934f9db6176f35a2925a69888465129a36b2d3" }],
   "exams": ["27-1", "23-2", "cal:time.cut-grid"]
 }

@@ -56,6 +56,6 @@
     { "symptom": "切画面之后还看得见上一次点击的波纹", "fix": "波纹默认 10 帧、切画面在第 2 帧，这是本意；不要就把 rippleFrames 调到不大于 cutDelayFrames" }
   ],
   "provenance": { "cases": [], "note": "位置是帧号的闭式函数：两次点击之间按最小加加速度的五次缓动滑动，两头速度和加速度都是 0；下压和波纹只看离上一次点击过了几帧" },
-  "status": [{ "level": "reproduced", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-22" }],
+  "status": [{ "level": "measured", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-25", "parityReport": "sha256:73c4acb7b2d2b987eab109d76753d9c7528f5350c24774fc1c0a6424d70ea435" }],
   "exams": ["29-2"]
 }
