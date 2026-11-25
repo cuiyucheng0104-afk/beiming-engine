@@ -1,0 +1,86 @@
+{
+  "format": "question/0.1",
+  "id": "24-1",
+  "level": 5,
+  "title": "僵尸手爬行与后空翻",
+  "brief": "做一条 20 秒、30 帧每秒、1920×1080、600 帧的僵尸手角色动作镜头，不带声音，不换镜头。僵尸手先指尖着地爬行 6–8 步，随后蹲下蓄力完成 360° 后空翻并稳态落地；全片指尖入地不超过 0.002 单位，手腕与指节二次运动相对于主驱动滞后 2–4 帧。",
+  "deliverable": {
+    "size": [
+      1920,
+      1080
+    ],
+    "fps": "30/1",
+    "frames": 600,
+    "audio": "none"
+  },
+  "assets": {},
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=30, frames=600)",
+    "no_cut @ all",
+    "inside_frame(zombie_hand, margin=0.05) @ all",
+    "visible(zombie_hand) >= 0.3 @ all",
+    "contact(fingertips, ground, max=0.002) @ all",
+    "no_intersect(fingertips, ground, tol=0.002) @ all",
+    "at_rest(zombie_hand) @ [570,600)"
+  ],
+  "scoring": [
+    {
+      "metric": "rig.crawl-backflip-cycle",
+      "source": "rig-probe",
+      "args": {
+        "crawlSteps": [
+          6,
+          8
+        ],
+        "flipDeg": 360,
+        "maxPenetration": 0.002
+      },
+      "pass": "指尖着地爬行 6–8 步后蹲下蓄力完成 360° 后空翻，全片指尖入地不超过 0.002 单位",
+      "weight": 0.6
+    },
+    {
+      "metric": "rig.secondary-lag",
+      "source": "rig-probe",
+      "args": {
+        "lagFrames": [
+          2,
+          4
+        ]
+      },
+      "pass": "指节与腕部二次运动滞后主驱动 2–4 帧且关节角速度连续无穿模突变",
+      "weight": 0.4
+    }
+  ],
+  "controls": {
+    "referencePass": "完整骨骼绑定与接触探针基线在 6–8 步爬行、360° 后空翻、0.002 单位入地容差与 2–4 帧二次滞后上均得满分",
+    "negative": "指尖入地超过 0.002 单位、爬行步数不在 6–8 步范围、未完成 360° 后空翻或无 2–4 帧二次滞后的提交必须判不合格"
+  },
+  "needs": [
+    "rig.skeleton",
+    "probe.contact",
+    "probe.joint-vel",
+    "deliver.encode"
+  ],
+  "budget": {
+    "tokens": 600000,
+    "wallMs": 2400000,
+    "gpuSeconds": 480
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": true,
+    "blockedBy": [
+      "缺骨骼绑定与 IK/FK（rig.skeleton）",
+      "缺接触探针与关节角速度探针（probe.contact、probe.joint-vel）"
+    ]
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "05 第 6.4 节预期失败题初值，待骨骼绑定与探针落地后校准",
+    "noiseFloor": null,
+    "version": 0
+  },
+  "ext": {
+    "bench.code": "024-1"
+  }
+}
