@@ -25,5 +25,5 @@
   "pitfalls": [{ "symptom": "镜头沿速度方向观察时粒子束过窄", "fix": "传入当帧相机，给火花设置 fan 及不同 seed。" }, { "symptom": "同一帧各粒子的形状节拍不同", "fix": "用全局时间乘 stepFps 再取整。" }],
   "provenance": { "cases": [], "note": "从线性阻力与恒定重力的时间积分构造三维位置，独立以相机基向量计算显示中心。" },
   "status": [{ "level": "reproduced", "host": "cycles", "source": "5.2.0", "gpu": "apple-m5-pro", "date": "2026-11-25" }],
-  "exams": ["03B-1", "cal:particle.ballistic"]
+  "exams": ["cal:particle.ballistic"]
 }

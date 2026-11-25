@@ -31,5 +31,5 @@
   "pitfalls": [{"symptom": "轨迹停止后拖尾消失", "fix": "在 points 中给出覆盖运动段的不同位置，按实际采样间隔设置 strideFrames。"}],
   "provenance": {"cases": [], "note": "按当前帧插值轨迹与相机视线构造截面，按冲击年龄解析求出三圈共用的顶点与亮度。"},
   "status": [{"level": "reproduced", "host": "cycles", "source": "5.2.0", "gpu": "apple-m5-pro", "date": "2026-11-25"}],
-  "exams": ["03B-1", "cal:fx.streak-ring"]
+  "exams": ["cal:fx.streak-ring"]
 }

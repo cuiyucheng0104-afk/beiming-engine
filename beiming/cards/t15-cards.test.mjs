@@ -26,7 +26,7 @@ for (const [id, dir] of cards) {
     assert.equal(card.id, id);
     assert.equal(card.kind, dir.split('/')[0]);
     assert.equal(card.visibleToAgent, true);
-    assert.deepEqual(card.exams, ['03B-1', `cal:${id}`]);
+    assert.deepEqual(card.exams, [`cal:${id}`]);
     const registry = createCardRegistry([card], { allowReproduced: true });
     assert.equal(registry.getCard(`${id}@1`).id, id);
     assert.ok(registry.searchCards({ kind: card.kind }).some(row => row.id === id));
