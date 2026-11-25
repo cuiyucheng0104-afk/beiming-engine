@@ -247,7 +247,7 @@ test('合并门：命令行被拦退出 4，基准解析不出来退出 3，参�
 });
 
 const checkAll = (root) => spawnSync(process.execPath, [path.join(REPO, 'tools/check-all.mjs'), '--root', root, '--only', 'floorgate', '--json'],
-  { encoding: 'utf8', env: { ...process.env, BEIMING_FLOORGATE_BASE: 'main' } });
+  { encoding: 'utf8', env: { ...process.env, BEIMING_FLOORGATE_BASE: 'main', GITHUB_ACTIONS: '' } }); // 在 Actions 上 check-all 会往标准输出打分组标记
 
 test('check-all：跑的是 merge-base 上的合并门，同一个 PR 把合并门改成放行也没用', (t) => {
   const root = repo(t);
@@ -287,7 +287,7 @@ test('合并门：上一级目录换成符号链接被拦；只把换行改成 C
 });
 
 test('check-all：本仓库里这一步真的在跑，不是跳过', () => {
-  const r = spawnSync(process.execPath, [path.join(REPO, 'tools/check-all.mjs'), '--root', REPO, '--only', 'floorgate', '--json'], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [path.join(REPO, 'tools/check-all.mjs'), '--root', REPO, '--only', 'floorgate', '--json'], { encoding: 'utf8', env: { ...process.env, GITHUB_ACTIONS: '' } });
   const step = JSON.parse(r.stdout).steps[0];
   assert.equal(step.id, 'floorgate');
   assert.notEqual(step.status, 'skip', step.reason);
