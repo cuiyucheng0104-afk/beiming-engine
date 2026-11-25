@@ -7,7 +7,7 @@ export {
   scanQuestionLeaks,
   validateQuestion,
 } from './validate-question.mjs';
-export { RESULT_FORMAT, SOURCES, defaultJudge, runExamQuestion } from './runner.mjs';
+export { RESULT_FORMAT, SOURCES, defaultJudge, hasBlockedByChanged, runExamQuestion } from './runner.mjs';
 export {
   ALLOWED_RENDERERS,
   BOARD_FORMAT,

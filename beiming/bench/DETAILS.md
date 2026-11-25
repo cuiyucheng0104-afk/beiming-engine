@@ -38,9 +38,10 @@
 | `in-process` | `solver` 是函数（测试和内嵌用） | 没有：和宿主同一个进程 |
 | `none` | `expectedFail` 没实跑 | 没起做题进程 |
 
-`seatbelt` 挡三样，别的照常放行：
+`seatbelt` 挡以下几样，别的照常放行：
 
 - **原题**读不到。隐藏题在仓库外时，它所在的目录整个读不到（别的隐藏题、答案常放在一起）。所以隐藏题单独放一个目录，做题命令别放在里面；这个目录要是装着运行目录、家目录或 node，就只挡原题这一个文件。
+- **用户个人目录与显式拒绝目录**读不到（公开题与隐藏题均生效，同时覆盖原路径与 `realpathSync` 解析路径）：自动拒读 `os.homedir()` 下已存在的 `Desktop`、`Documents`、`Downloads`，同时拒读 `runExamQuestion` 的可选参数 `denyReadDirs`（字符串数组或 `null`/`undefined`，保留目录名首尾空格，非法类型抛 `usageError`）与环境变量 `BEIMING_DENY_READ_DIRS`（按 `path.delimiter` 拆分、保留路径空格、过滤空白段与控制字符/引号，含尚未创建的 `path.resolve` 目录路径）。若运行目录、`REPO` 或 `process.execPath` 恰好落入上述目录内且该目录不是 `os.homedir()` 或其祖先，则通过 `(require-all (subpath <dir>) (require-not (subpath <keep>)) ...)` 精准挖空受保护子路径并仅放行祖先链 `file-read-metadata`，继续拒读所有同级兄弟目录。`BEIMING_DENY_READ_DIRS` 不透传给做题子进程。
 - 运行目录里宿主写的 `meta.json` 读不到，`result.json`、`observation.json` 写不了（做题进程留下的后台进程也改不了结果）。
 - **别的运行**（`<root>/<题号>/<runId>/` 往下，里面有别人交的成片）读不到内容；运行根里别的文件照常能读。
 
@@ -73,6 +74,14 @@
 `observation.json` 记做题方式、`isolation`、退出码、是否超时、出错原因、开销和会话记录的文件名；`meta.json` 记题号、原题哈希、平台和开始时刻。运行目录里不放原题、原题路径和判分细节。
 
 隐藏题另外不回显：逐项的指标名和断言原文、`blockedBy` 的原文、超时信息里的预算数值。校验不过的报错只说类别和处数。
+
+## 预期失败门控 `hasBlockedByChanged`
+
+代码 [runner.mjs](runner.mjs)（经 [index.mjs](index.mjs) 重导出），测试 `node --test beiming/bench/b10-b22.test.mjs`。
+
+- `hasBlockedByChanged(currentBlockedBy, previousBlockedBy)`：纯函数。`previousBlockedBy` 为 `null`、`undefined` 或隐藏题落盘脱敏占位 `["[hidden]"]`（元素 `trim()` 后仅含 `"[hidden]"`）时返回 `false`；双方为字符串数组时先对元素做 `trim()` 并过滤空串，再按去重排序集合比较，内容相同返回 `false`，存在增删改返回 `true`；传入既非空值也非字符串数组的非法参数（含数组空洞、非字符串项、代理与访问器）抛 `usageError`（`exitCode: 2`）。
+- `runExamQuestion({ ..., forceExpectedFail = false, previousBlockedBy = null, rerunOnBlockedByChange = false, denyReadDirs = null })`：未开启 `rerunOnBlockedByChange` 时保持向后兼容，照旧 `skip = expectedFail && !forceExpectedFail`；开启 `rerunOnBlockedByChange: true` 时直接复用 `hasBlockedByChanged(blockedBy, prevBlockedBy)` 判定，无变化（含未传 `previousBlockedBy` 或传回脱敏占位 `["[hidden]"]`）则直接跳过（不调 `solver`、`gpuSeconds` 为 `0`、`status: 'expected-fail'`），变化时才放行重跑 `solver` 与 `judge`，隐藏题的 `blockedBy` 原文仍维持 `[hidden]` 脱敏边界。`denyReadDirs` 为可选字符串数组（或 `null`/`undefined`），与环境变量 `BEIMING_DENY_READ_DIRS` 一起收紧 macOS `seatbelt` 拒读目录边界。
+- 公开预期失败题集位于 `beiming/bench/questions/expected-fail/`，已登记 `10-1`（逆光熊猫毛）、`14-1`（雨夜小巷五镜）、`24-1`（`bench.code: 024-1`，僵尸手爬行与后空翻）、`30-2`（`bench.code: 外01-2`，龙头特写）与 `900-1`（`bench.code: B22-1`，同框混合三渲二角色与写实物体），`exam.mjs` 自动发现并记为 `expected-fail` 跳过，不计入失败。
 
 ## 看板
 
