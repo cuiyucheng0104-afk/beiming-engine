@@ -465,7 +465,7 @@ test('原话账本门禁：拒绝空原话、非法帧区间、非法验证层�
       'inside_frame(',
       'visible()',
       'no_cut ; visible(hero)',
-      'highlight_clip_ratio(hero) <= 0.02',
+      'key_fill_ratio(hero) <= 2',
       '',
     ]) {
       assert.throws(() => confirmRejectionTriage(ledgerDir, e1.id, {
