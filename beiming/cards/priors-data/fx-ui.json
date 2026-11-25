@@ -1,0 +1,2593 @@
+{
+  "format": "priors/0.1",
+  "entries": [
+    {
+      "id": "fx-ui.d030.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.duration",
+      "title": "余烬与烟（ROAR、FIRE2）（时长）",
+      "value": [
+        24,
+        27
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：余烬与烟（ROAR、FIRE2）（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · d030",
+        "note": "余烬与烟（ROAR、FIRE2）：余烬：ROAR 700 余烬/300 烟，采样 24.0–27.0 s；FIRE2 620/170，46.4–48.5 s；余烬初速 46 m/s 阻尼 1.1，颜色 (12.0,3.2,0.5)；烟初速 62*uSR、阻尼 2.2、尺寸 1.6→9.5 m。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d030",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.d030.speed",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.speed",
+      "title": "余烬与烟（ROAR、FIRE2）（速度）",
+      "value": 46,
+      "unit": "m/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：余烬与烟（ROAR、FIRE2）（速度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · d030",
+        "note": "余烬与烟（ROAR、FIRE2）：余烬：ROAR 700 余烬/300 烟，采样 24.0–27.0 s；FIRE2 620/170，46.4–48.5 s；余烬初速 46 m/s 阻尼 1.1，颜色 (12.0,3.2,0.5)；烟初速 62*uSR、阻尼 2.2、尺寸 1.6→9.5 m。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d030",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.d030.dimension",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.dimension",
+      "title": "余烬与烟（ROAR、FIRE2）（物理尺寸）",
+      "value": 9.5,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：余烬与烟（ROAR、FIRE2）（物理尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · d030",
+        "note": "余烬与烟（ROAR、FIRE2）：余烬：ROAR 700 余烬/300 烟，采样 24.0–27.0 s；FIRE2 620/170，46.4–48.5 s；余烬初速 46 m/s 阻尼 1.1，颜色 (12.0,3.2,0.5)；烟初速 62*uSR、阻尼 2.2、尺寸 1.6→9.5 m。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d030",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.d033.speed",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.speed",
+      "title": "吐息主火舌基础参数（7.2）（速度）",
+      "value": 70,
+      "unit": "m/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：吐息主火舌基础参数（7.2）（速度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "推断",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · d033",
+        "note": "吐息主火舌基础参数（7.2）：dps 60、muzzle 70 m/s、drag 0.6 /s、buoyancy 3 m/s²、life 1.15 s、spread 0.12 rad、fullRange 35 m、maxRange 60 m、rate 340 个/s；视觉射程 58.1 m（推断）。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d033",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.d033.acceleration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.acceleration",
+      "title": "吐息主火舌基础参数（7.2）（加速度）",
+      "value": 3,
+      "unit": "m/s^2",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：吐息主火舌基础参数（7.2）（加速度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "推断",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · d033",
+        "note": "吐息主火舌基础参数（7.2）：dps 60、muzzle 70 m/s、drag 0.6 /s、buoyancy 3 m/s²、life 1.15 s、spread 0.12 rad、fullRange 35 m、maxRange 60 m、rate 340 个/s；视觉射程 58.1 m（推断）。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d033",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.d033.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.duration",
+      "title": "吐息主火舌基础参数（7.2）（时长）",
+      "value": 1.15,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：吐息主火舌基础参数（7.2）（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "推断",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · d033",
+        "note": "吐息主火舌基础参数（7.2）：dps 60、muzzle 70 m/s、drag 0.6 /s、buoyancy 3 m/s²、life 1.15 s、spread 0.12 rad、fullRange 35 m、maxRange 60 m、rate 340 个/s；视觉射程 58.1 m（推断）。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d033",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.d033.angle",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.angle",
+      "title": "吐息主火舌基础参数（7.2）（角度）",
+      "value": 0.12,
+      "unit": "rad",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：吐息主火舌基础参数（7.2）（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "推断",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · d033",
+        "note": "吐息主火舌基础参数（7.2）：dps 60、muzzle 70 m/s、drag 0.6 /s、buoyancy 3 m/s²、life 1.15 s、spread 0.12 rad、fullRange 35 m、maxRange 60 m、rate 340 个/s；视觉射程 58.1 m（推断）。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d033",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.d033.length",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.length",
+      "title": "吐息主火舌基础参数（7.2）（长度尺度）",
+      "value": 35,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：吐息主火舌基础参数（7.2）（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "推断",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · d033",
+        "note": "吐息主火舌基础参数（7.2）：dps 60、muzzle 70 m/s、drag 0.6 /s、buoyancy 3 m/s²、life 1.15 s、spread 0.12 rad、fullRange 35 m、maxRange 60 m、rate 340 个/s；视觉射程 58.1 m（推断）。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d033",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.d034.length",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.length",
+      "title": "吐息发射层（主火舌、侧舔、blade、core、ember、smoke、口部闪光）（长度尺度）",
+      "value": [
+        2.3,
+        3.5
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：吐息发射层（主火舌、侧舔、blade、core、ember、smoke、口部闪光）（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · d034",
+        "note": "发射层：主火舌 340/s，初速 70×(0.82–1.08)，寿命 1.15×(0.72–1.05)，size 0.3–0.45→2.3–3.5 m；侧舔 44/s；blade 45/s；core 白热芯 200/s；ember 70/s；smoke 14/s；口部闪光 45/s；芯线丝带 coreLife 0.42 s；起喷渐强 0.08 s。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d034",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.d034.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.duration",
+      "title": "吐息发射层（主火舌、侧舔、blade、core、ember、smoke、口部闪光）（时长）",
+      "value": 0.42,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：吐息发射层（主火舌、侧舔、blade、core、ember、smoke、口部闪光）（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · d034",
+        "note": "发射层：主火舌 340/s，初速 70×(0.82–1.08)，寿命 1.15×(0.72–1.05)，size 0.3–0.45→2.3–3.5 m；侧舔 44/s；blade 45/s；core 白热芯 200/s；ember 70/s；smoke 14/s；口部闪光 45/s；芯线丝带 coreLife 0.42 s；起喷渐强 0.08 s。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d034",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.d044.base-color",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.base-color",
+      "title": "元素灯色（线性 RGB）（线性基色 RGB）",
+      "value": [
+        1,
+        0.52,
+        0.16
+      ],
+      "unit": "rgb-linear",
+      "colorSpace": "scene-linear-rec709",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节：元素灯色（线性 RGB）（线性基色 RGB）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "源码",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · d044",
+        "note": "元素灯色（线性 RGB）：ember (1.0,0.52,0.16)、azure (0.3,0.62,1.0)、radiant (1.0,0.84,0.52)、lightning (0.35,0.85,1.0)、storm (0.82,0.84,1.0)；敌 (0.62,0.26,1.0)、ace (0.3,0.46,1.0)、巨型头目 (1.0,0.36,0.1)。源码 原实现源码。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d044",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.d066.speed",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s3.speed",
+      "title": "雷击包络与落脚灯、落脚火星（速度）",
+      "value": 58,
+      "unit": "m/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：雷击包络与落脚灯、落脚火星（速度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 3 节 · d066",
+        "note": "雷击包络 `e^(-d/0.07)+0.6e^(-(d-0.11)/0.05)`；落脚灯 1900；火星 220 颗 58 m/s 阻尼 2.4 重力 14 寿命 0.5 s。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d066",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "fx-ui.d066.lifetime",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s3.lifetime",
+      "title": "雷击包络与落脚灯、落脚火星（生命周期）",
+      "value": 0.5,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：雷击包络与落脚灯、落脚火星（生命周期）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 3 节 · d066",
+        "note": "雷击包络 `e^(-d/0.07)+0.6e^(-(d-0.11)/0.05)`；落脚灯 1900；火星 220 颗 58 m/s 阻尼 2.4 重力 14 寿命 0.5 s。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d066",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "fx-ui.d068.speed",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s3.speed",
+      "title": "爆炸碎屑与龙珠色（速度）",
+      "value": 170,
+      "unit": "m/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：爆炸碎屑与龙珠色（速度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 3 节 · d068",
+        "note": "爆炸碎屑：火星 800 颗 170 m/s；冰片 700 片 150 m/s。龙珠色 中心 (10.5,7.4,3.0)→边 (5.4,2.3,0.34)，外晕 (2.25,1.22,0.34)；晚星 `C_STAR=(9,6.2,2.5)`，核 420。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d068",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "fx-ui.d069.radius",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s3.radius",
+      "title": "焦痕与霜痕贴花（尺寸半径）",
+      "value": [
+        4.6,
+        13
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：焦痕与霜痕贴花（尺寸半径）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "推断",
+        "docRef": "特效粒子界面二维汇编 · 第 3 节 · d069",
+        "note": "贴花：读场景深度还原世界坐标，焦痕半径 4.6–13 m，霜痕 7.5 m，焦痕自发光 `uE=(3.4,0.95,0.12)`，霜色 (0.80,0.90,1.04)。；冲突：本条焦痕半径 4.6–13 m，与下面「冲击前沿与贴花」条的焦痕半径 6.5 m 并存。6.5 落在 4.6–13 之内，更可能是不同镜头、不同落点的取值，未核实。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d069",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "fx-ui.d069.length",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s3.length",
+      "title": "焦痕与霜痕贴花（长度尺度）",
+      "value": 7.5,
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：焦痕与霜痕贴花（长度尺度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "推断",
+        "docRef": "特效粒子界面二维汇编 · 第 3 节 · d069",
+        "note": "贴花：读场景深度还原世界坐标，焦痕半径 4.6–13 m，霜痕 7.5 m，焦痕自发光 `uE=(3.4,0.95,0.12)`，霜色 (0.80,0.90,1.04)。；冲突：本条焦痕半径 4.6–13 m，与下面「冲击前沿与贴花」条的焦痕半径 6.5 m 并存。6.5 落在 4.6–13 之内，更可能是不同镜头、不同落点的取值，未核实。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d069",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "fx-ui.d087.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s3.duration",
+      "title": "硬闪与爆炸白场（时长）",
+      "value": 0.034,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：硬闪与爆炸白场（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "源码",
+        "docRef": "特效粒子界面二维汇编 · 第 3 节 · d087",
+        "note": "前 N 帧恒 1 之后指数衰减：爆炸 0.034 s 满亮、时间常数 0.055 s；闪光前一两帧压暗：曝光 −0.28、提前 0.036 s（原实现源码）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d087",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "fx-ui.d087.time-constant",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s3.time-constant",
+      "title": "硬闪与爆炸白场（响应时间常数）",
+      "value": 0.055,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节：硬闪与爆炸白场（响应时间常数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "源码",
+        "docRef": "特效粒子界面二维汇编 · 第 3 节 · d087",
+        "note": "前 N 帧恒 1 之后指数衰减：爆炸 0.034 s 满亮、时间常数 0.055 s；闪光前一两帧压暗：曝光 −0.28、提前 0.036 s（原实现源码）"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d087",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "fx-ui.d160.lifetime",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s7.lifetime",
+      "title": "武器闪光预警（生命周期）",
+      "value": [
+        0.3,
+        0.42
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 7 节：武器闪光预警（生命周期）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 7 节 · d160",
+        "note": "镜头星芒：一个光点加两条沿相机右向(拉伸 12)和上向(拉伸 7)的细线，寿命 0.3–0.42 秒"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d160",
+        "c12.section": "7"
+      }
+    },
+    {
+      "id": "fx-ui.d208.resolution",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s13.resolution",
+      "title": "根字号与rem缩放（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：根字号与rem缩放（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 13 节 · d208",
+        "note": "html{font-size:clamp(15px,calc(0.9vh+0.45vw),21px)}(覆盖第152行13px版)；1920×1080算得18.36 px；1280×720算得12.24被下限抬到15 px；所有尺寸用rem整界面等比缩放；CSS约2650行99个@keyframes"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d208",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "fx-ui.d208.pixels",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s13.pixels",
+      "title": "根字号与rem缩放（像素尺寸）",
+      "value": 15,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：根字号与rem缩放（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 13 节 · d208",
+        "note": "html{font-size:clamp(15px,calc(0.9vh+0.45vw),21px)}(覆盖第152行13px版)；1920×1080算得18.36 px；1280×720算得12.24被下限抬到15 px；所有尺寸用rem整界面等比缩放；CSS约2650行99个@keyframes"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d208",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "fx-ui.d209.resolution",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s13.resolution",
+      "title": "设计地板（可读性）（画面分辨率）",
+      "value": {
+        "width": 1280,
+        "height": 720
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：设计地板（可读性）（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 13 节 · d209",
+        "note": "第 6 轮 复查记录：根字号不低于 15 px（1280×720 曾 13 px 使 .6–.72 rem 大写标签低于 10 px），Cinzel 大写标签 max(.8rem,13px) 字距≤.28em，值≥15 px，暗金标签抬到约 4.5:1；第 2 轮 11 px 地板；第 4 轮 12.5 px 微标签；触屏点击目标 44 px、短屏 ≤540 px 高时字号地板 ≥12 px；设置/控制页拆分页"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d209",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "fx-ui.d209.font-size",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s13.font-size",
+      "title": "设计地板（可读性）（字号像素）",
+      "value": 15,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：设计地板（可读性）（字号像素）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 13 节 · d209",
+        "note": "第 6 轮 复查记录：根字号不低于 15 px（1280×720 曾 13 px 使 .6–.72 rem 大写标签低于 10 px），Cinzel 大写标签 max(.8rem,13px) 字距≤.28em，值≥15 px，暗金标签抬到约 4.5:1；第 2 轮 11 px 地板；第 4 轮 12.5 px 微标签；触屏点击目标 44 px、短屏 ≤540 px 高时字号地板 ≥12 px；设置/控制页拆分页"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d209",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "fx-ui.d209.pixels",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s13.pixels",
+      "title": "设计地板（可读性）（像素尺寸）",
+      "value": 13,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：设计地板（可读性）（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 13 节 · d209",
+        "note": "第 6 轮 复查记录：根字号不低于 15 px（1280×720 曾 13 px 使 .6–.72 rem 大写标签低于 10 px），Cinzel 大写标签 max(.8rem,13px) 字距≤.28em，值≥15 px，暗金标签抬到约 4.5:1；第 2 轮 11 px 地板；第 4 轮 12.5 px 微标签；触屏点击目标 44 px、短屏 ≤540 px 高时字号地板 ≥12 px；设置/控制页拆分页"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d209",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "fx-ui.d209.touch-target-px",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s13.touch-target-px",
+      "title": "设计地板（可读性）（触控尺寸像素）",
+      "value": 44,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节：设计地板（可读性）（触控尺寸像素）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 13 节 · d209",
+        "note": "第 6 轮 复查记录：根字号不低于 15 px（1280×720 曾 13 px 使 .6–.72 rem 大写标签低于 10 px），Cinzel 大写标签 max(.8rem,13px) 字距≤.28em，值≥15 px，暗金标签抬到约 4.5:1；第 2 轮 11 px 地板；第 4 轮 12.5 px 微标签；触屏点击目标 44 px、短屏 ≤540 px 高时字号地板 ≥12 px；设置/控制页拆分页"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d209",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "fx-ui.d221.transition-time",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.transition-time",
+      "title": "血条宽度与触发阈值（过渡时长）",
+      "value": 0.6,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：血条宽度与触发阈值（过渡时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d221",
+        "note": "血条宽=clamp(最大值×0.0385,9,38)rem；体力条clamp(最大值×0.128,7,30)rem；宽度过渡0.6 s(--ease-out)升级后\"长长\"；单次掉血>血上限6%触发hit(抖动0.35 s bar-hit左右−3,+2,−1 px亮度1.8)；单次回血>5%触发heal(光晕0.9 s)；血量<25%持续脉动low(1.1 s low-hp)；体力从>0.5降到≤0.5触发empty(橙红闪0.7 s)；HUD位置左上left2.6rem top2.3rem；头目条bottom7.2vh宽min(60rem,64vw)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d221",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d221.threshold-ratio",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.threshold-ratio",
+      "title": "血条宽度与触发阈值（阈值比例）",
+      "value": 0.06,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：血条宽度与触发阈值（阈值比例）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d221",
+        "note": "血条宽=clamp(最大值×0.0385,9,38)rem；体力条clamp(最大值×0.128,7,30)rem；宽度过渡0.6 s(--ease-out)升级后\"长长\"；单次掉血>血上限6%触发hit(抖动0.35 s bar-hit左右−3,+2,−1 px亮度1.8)；单次回血>5%触发heal(光晕0.9 s)；血量<25%持续脉动low(1.1 s low-hp)；体力从>0.5降到≤0.5触发empty(橙红闪0.7 s)；HUD位置左上left2.6rem top2.3rem；头目条bottom7.2vh宽min(60rem,64vw)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d221",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d221.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.duration",
+      "title": "血条宽度与触发阈值（时长）",
+      "value": 0.35,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：血条宽度与触发阈值（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d221",
+        "note": "血条宽=clamp(最大值×0.0385,9,38)rem；体力条clamp(最大值×0.128,7,30)rem；宽度过渡0.6 s(--ease-out)升级后\"长长\"；单次掉血>血上限6%触发hit(抖动0.35 s bar-hit左右−3,+2,−1 px亮度1.8)；单次回血>5%触发heal(光晕0.9 s)；血量<25%持续脉动low(1.1 s low-hp)；体力从>0.5降到≤0.5触发empty(橙红闪0.7 s)；HUD位置左上left2.6rem top2.3rem；头目条bottom7.2vh宽min(60rem,64vw)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d221",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d227.transition-time",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.transition-time",
+      "title": "横幅时序表（横幅淡入时长）",
+      "value": 1.2,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：横幅时序表（横幅淡入时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d227",
+        "note": "种类 淡入/停留/淡出/总计 s/独占/暗角：area 1.2/3/1.7/5.9/否/无；夜哨点 0.9/2.5/1.8/5.2/否/无；death 1.6/2.6/1.4/5.6/是/红；victory 1.5/4.6/2.2/8.3/是/金；item 0.45/2.8/0.8/4.05/否/无；title 2.4/5.2/2.6/10.2/是/金；returned 1.4/5.6/2.4/9.4/是/金；ending2 2.2/6.4/2.6/11.2/是/金；退场后outT×0.55 s即允许下一条开始；暗角过渡2.4 s；同种互斥清队列；area 8 s内同名不重播"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d227",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d227.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.duration",
+      "title": "横幅时序表（横幅总计显示时长）",
+      "value": 5.9,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：横幅时序表（横幅总计显示时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d227",
+        "note": "种类 淡入/停留/淡出/总计 s/独占/暗角：area 1.2/3/1.7/5.9/否/无；夜哨点 0.9/2.5/1.8/5.2/否/无；death 1.6/2.6/1.4/5.6/是/红；victory 1.5/4.6/2.2/8.3/是/金；item 0.45/2.8/0.8/4.05/否/无；title 2.4/5.2/2.6/10.2/是/金；returned 1.4/5.6/2.4/9.4/是/金；ending2 2.2/6.4/2.6/11.2/是/金；退场后outT×0.55 s即允许下一条开始；暗角过渡2.4 s；同种互斥清队列；area 8 s内同名不重播"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d227",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d227.interval",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.interval",
+      "title": "横幅时序表（时间间隔或窗口）",
+      "value": 8,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：横幅时序表（时间间隔或窗口）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d227",
+        "note": "种类 淡入/停留/淡出/总计 s/独占/暗角：area 1.2/3/1.7/5.9/否/无；夜哨点 0.9/2.5/1.8/5.2/否/无；death 1.6/2.6/1.4/5.6/是/红；victory 1.5/4.6/2.2/8.3/是/金；item 0.45/2.8/0.8/4.05/否/无；title 2.4/5.2/2.6/10.2/是/金；returned 1.4/5.6/2.4/9.4/是/金；ending2 2.2/6.4/2.6/11.2/是/金；退场后outT×0.55 s即允许下一条开始；暗角过渡2.4 s；同种互斥清队列；area 8 s内同名不重播"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d227",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d228.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.duration",
+      "title": "提示卡/通知/字幕参数（时长）",
+      "value": 5.5,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：提示卡/通知/字幕参数（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d228",
+        "note": "提示卡默认5.5 s(最少1.5)切换淡出260 ms底部金色计时线scaleX线性；通知条默认3.6 s同屏上限3条淡出650 ms进入0.35/0.5 s退出0.6 s，\"Picked up — Amber Seed\"按破折号拆小标题与正文并按正则猜图标；字幕默认4 s，说话人正则 ^(\\p{Lu}[\\p{L}\\p{M}'’ .-]{1,40}):\\s+(.+)$ 识别\"名字: 台词\"，旁白在对话期间排队最多等6 s；字幕大小S1.2rem/M1.4rem/L1.7rem；字幕位置bottom15.5vh(有头目条7.2vh+5.6rem)；准星呼吸1.6 s ret-breathe缩放1→0.88，弹出0.35 s ret-pop(2.2倍转45°→正位)；黑边摄影9vh/过场11vh过渡0.8 s；黑场fadeBlack速度=abs(目标−当前)/秒数线性；点按提示伪键保持140 ms；补充：body.photo 时上下黑边高 9vh，body.cinema 高 11vh，过渡 0.8 s。；并列出处（重复条已合并）：「摄影模式」 (原实现源码)，案例 13"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d228",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d228.transition-time",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.transition-time",
+      "title": "提示卡/通知/字幕参数（过渡时长）",
+      "value": 260,
+      "unit": "ms",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：提示卡/通知/字幕参数（过渡时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d228",
+        "note": "提示卡默认5.5 s(最少1.5)切换淡出260 ms底部金色计时线scaleX线性；通知条默认3.6 s同屏上限3条淡出650 ms进入0.35/0.5 s退出0.6 s，\"Picked up — Amber Seed\"按破折号拆小标题与正文并按正则猜图标；字幕默认4 s，说话人正则 ^(\\p{Lu}[\\p{L}\\p{M}'’ .-]{1,40}):\\s+(.+)$ 识别\"名字: 台词\"，旁白在对话期间排队最多等6 s；字幕大小S1.2rem/M1.4rem/L1.7rem；字幕位置bottom15.5vh(有头目条7.2vh+5.6rem)；准星呼吸1.6 s ret-breathe缩放1→0.88，弹出0.35 s ret-pop(2.2倍转45°→正位)；黑边摄影9vh/过场11vh过渡0.8 s；黑场fadeBlack速度=abs(目标−当前)/秒数线性；点按提示伪键保持140 ms；补充：body.photo 时上下黑边高 9vh，body.cinema 高 11vh，过渡 0.8 s。；并列出处（重复条已合并）：「摄影模式」 (原实现源码)，案例 13"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d228",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d228.angle",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.angle",
+      "title": "提示卡/通知/字幕参数（角度）",
+      "value": 45,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：提示卡/通知/字幕参数（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "推断",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d228",
+        "note": "提示卡默认5.5 s(最少1.5)切换淡出260 ms底部金色计时线scaleX线性；通知条默认3.6 s同屏上限3条淡出650 ms进入0.35/0.5 s退出0.6 s，\"Picked up — Amber Seed\"按破折号拆小标题与正文并按正则猜图标；字幕默认4 s，说话人正则 ^(\\p{Lu}[\\p{L}\\p{M}'’ .-]{1,40}):\\s+(.+)$ 识别\"名字: 台词\"，旁白在对话期间排队最多等6 s；字幕大小S1.2rem/M1.4rem/L1.7rem；字幕位置bottom15.5vh(有头目条7.2vh+5.6rem)；准星呼吸1.6 s ret-breathe缩放1→0.88，弹出0.35 s ret-pop(2.2倍转45°→正位)；黑边摄影9vh/过场11vh过渡0.8 s；黑场fadeBlack速度=abs(目标−当前)/秒数线性；点按提示伪键保持140 ms；补充：body.photo 时上下黑边高 9vh，body.cinema 高 11vh，过渡 0.8 s。；并列出处（重复条已合并）：「摄影模式」 (原实现源码)，案例 13"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d228",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d233.display-color",
+      "domain": "color-grade-delivery",
+      "topic": "fx-ui.s15.display-color",
+      "title": "连击/播报/名称卡/警告/受击（显示空间主色 #FFA860）",
+      "value": [
+        1,
+        0.658824,
+        0.376471
+      ],
+      "unit": "rgb-display",
+      "colorSpace": "srgb-display",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：连击/播报/名称卡/警告/受击（显示空间主色 #FFA860）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d233",
+        "note": "连击窗口 6 s；count≥5 hot（数字 #ffa860 条 #ffd08a→#ff6a3a）；连击数字弹跳 340 ms scale 1.7 rotate −6°→1；击杀播报入场 260 ms translateX(30px)，出场延迟 3200 ms 后 500 ms 淡出，上限 4 行，小龙击杀 2.5 s 内合并；名称卡默认 3.2 s（波次卡 2.6），scaleY 0.2 字距 0.6em→到位（10%）→保持到 85%→淡出；警告胶囊时长 clamp(传入,缺省 1.7,下限 1.1,上限 3)，从 translateY(−10px) scale .92 落入；受击暗角 opacity=min(1,0.35+强度)→0 650 ms，强度=clamp(伤害占最大生命×3,0.1,1)；受击方向弧 700 ms 前 40% 保持；玩家面板抖动 260 ms −5→4→−2→0 px；低血暗角 lowpulse .83s opacity .35↔.9；招式喊字入场首次 300 ms translateX(−46px) skewX(−18deg) scale 1.35，寿命 wingover 1.5/loop 1.7/dash 1.1/nearmiss 1.2/skyfall 1.8/inferno 2.0/denied 1.0/skim 0.5，同屏最多 3 条"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d233",
+        "c12.section": "15",
+        "c12.hex": "#FFA860"
+      }
+    },
+    {
+      "id": "fx-ui.d233.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.duration",
+      "title": "连击/播报/名称卡/警告/受击（时长）",
+      "value": 6,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：连击/播报/名称卡/警告/受击（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d233",
+        "note": "连击窗口 6 s；count≥5 hot（数字 #ffa860 条 #ffd08a→#ff6a3a）；连击数字弹跳 340 ms scale 1.7 rotate −6°→1；击杀播报入场 260 ms translateX(30px)，出场延迟 3200 ms 后 500 ms 淡出，上限 4 行，小龙击杀 2.5 s 内合并；名称卡默认 3.2 s（波次卡 2.6），scaleY 0.2 字距 0.6em→到位（10%）→保持到 85%→淡出；警告胶囊时长 clamp(传入,缺省 1.7,下限 1.1,上限 3)，从 translateY(−10px) scale .92 落入；受击暗角 opacity=min(1,0.35+强度)→0 650 ms，强度=clamp(伤害占最大生命×3,0.1,1)；受击方向弧 700 ms 前 40% 保持；玩家面板抖动 260 ms −5→4→−2→0 px；低血暗角 lowpulse .83s opacity .35↔.9；招式喊字入场首次 300 ms translateX(−46px) skewX(−18deg) scale 1.35，寿命 wingover 1.5/loop 1.7/dash 1.1/nearmiss 1.2/skyfall 1.8/inferno 2.0/denied 1.0/skim 0.5，同屏最多 3 条"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d233",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d233.event-time",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.event-time",
+      "title": "连击/播报/名称卡/警告/受击（时间轴事件时刻）",
+      "value": 340,
+      "unit": "ms",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：连击/播报/名称卡/警告/受击（时间轴事件时刻）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d233",
+        "note": "连击窗口 6 s；count≥5 hot（数字 #ffa860 条 #ffd08a→#ff6a3a）；连击数字弹跳 340 ms scale 1.7 rotate −6°→1；击杀播报入场 260 ms translateX(30px)，出场延迟 3200 ms 后 500 ms 淡出，上限 4 行，小龙击杀 2.5 s 内合并；名称卡默认 3.2 s（波次卡 2.6），scaleY 0.2 字距 0.6em→到位（10%）→保持到 85%→淡出；警告胶囊时长 clamp(传入,缺省 1.7,下限 1.1,上限 3)，从 translateY(−10px) scale .92 落入；受击暗角 opacity=min(1,0.35+强度)→0 650 ms，强度=clamp(伤害占最大生命×3,0.1,1)；受击方向弧 700 ms 前 40% 保持；玩家面板抖动 260 ms −5→4→−2→0 px；低血暗角 lowpulse .83s opacity .35↔.9；招式喊字入场首次 300 ms translateX(−46px) skewX(−18deg) scale 1.35，寿命 wingover 1.5/loop 1.7/dash 1.1/nearmiss 1.2/skyfall 1.8/inferno 2.0/denied 1.0/skim 0.5，同屏最多 3 条"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d233",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d233.angle",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.angle",
+      "title": "连击/播报/名称卡/警告/受击（角度）",
+      "value": -6,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：连击/播报/名称卡/警告/受击（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d233",
+        "note": "连击窗口 6 s；count≥5 hot（数字 #ffa860 条 #ffd08a→#ff6a3a）；连击数字弹跳 340 ms scale 1.7 rotate −6°→1；击杀播报入场 260 ms translateX(30px)，出场延迟 3200 ms 后 500 ms 淡出，上限 4 行，小龙击杀 2.5 s 内合并；名称卡默认 3.2 s（波次卡 2.6），scaleY 0.2 字距 0.6em→到位（10%）→保持到 85%→淡出；警告胶囊时长 clamp(传入,缺省 1.7,下限 1.1,上限 3)，从 translateY(−10px) scale .92 落入；受击暗角 opacity=min(1,0.35+强度)→0 650 ms，强度=clamp(伤害占最大生命×3,0.1,1)；受击方向弧 700 ms 前 40% 保持；玩家面板抖动 260 ms −5→4→−2→0 px；低血暗角 lowpulse .83s opacity .35↔.9；招式喊字入场首次 300 ms translateX(−46px) skewX(−18deg) scale 1.35，寿命 wingover 1.5/loop 1.7/dash 1.1/nearmiss 1.2/skyfall 1.8/inferno 2.0/denied 1.0/skim 0.5，同屏最多 3 条"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d233",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d233.pixels",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.pixels",
+      "title": "连击/播报/名称卡/警告/受击（像素尺寸）",
+      "value": 30,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：连击/播报/名称卡/警告/受击（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d233",
+        "note": "连击窗口 6 s；count≥5 hot（数字 #ffa860 条 #ffd08a→#ff6a3a）；连击数字弹跳 340 ms scale 1.7 rotate −6°→1；击杀播报入场 260 ms translateX(30px)，出场延迟 3200 ms 后 500 ms 淡出，上限 4 行，小龙击杀 2.5 s 内合并；名称卡默认 3.2 s（波次卡 2.6），scaleY 0.2 字距 0.6em→到位（10%）→保持到 85%→淡出；警告胶囊时长 clamp(传入,缺省 1.7,下限 1.1,上限 3)，从 translateY(−10px) scale .92 落入；受击暗角 opacity=min(1,0.35+强度)→0 650 ms，强度=clamp(伤害占最大生命×3,0.1,1)；受击方向弧 700 ms 前 40% 保持；玩家面板抖动 260 ms −5→4→−2→0 px；低血暗角 lowpulse .83s opacity .35↔.9；招式喊字入场首次 300 ms translateX(−46px) skewX(−18deg) scale 1.35，寿命 wingover 1.5/loop 1.7/dash 1.1/nearmiss 1.2/skyfall 1.8/inferno 2.0/denied 1.0/skim 0.5，同屏最多 3 条"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d233",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d233.interval",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.interval",
+      "title": "连击/播报/名称卡/警告/受击（时间间隔或窗口）",
+      "value": 3200,
+      "unit": "ms",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：连击/播报/名称卡/警告/受击（时间间隔或窗口）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d233",
+        "note": "连击窗口 6 s；count≥5 hot（数字 #ffa860 条 #ffd08a→#ff6a3a）；连击数字弹跳 340 ms scale 1.7 rotate −6°→1；击杀播报入场 260 ms translateX(30px)，出场延迟 3200 ms 后 500 ms 淡出，上限 4 行，小龙击杀 2.5 s 内合并；名称卡默认 3.2 s（波次卡 2.6），scaleY 0.2 字距 0.6em→到位（10%）→保持到 85%→淡出；警告胶囊时长 clamp(传入,缺省 1.7,下限 1.1,上限 3)，从 translateY(−10px) scale .92 落入；受击暗角 opacity=min(1,0.35+强度)→0 650 ms，强度=clamp(伤害占最大生命×3,0.1,1)；受击方向弧 700 ms 前 40% 保持；玩家面板抖动 260 ms −5→4→−2→0 px；低血暗角 lowpulse .83s opacity .35↔.9；招式喊字入场首次 300 ms translateX(−46px) skewX(−18deg) scale 1.35，寿命 wingover 1.5/loop 1.7/dash 1.1/nearmiss 1.2/skyfall 1.8/inferno 2.0/denied 1.0/skim 0.5，同屏最多 3 条"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d233",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d233.ratio",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.ratio",
+      "title": "连击/播报/名称卡/警告/受击（比例）",
+      "value": 0.1,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节：连击/播报/名称卡/警告/受击（比例）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · d233",
+        "note": "连击窗口 6 s；count≥5 hot（数字 #ffa860 条 #ffd08a→#ff6a3a）；连击数字弹跳 340 ms scale 1.7 rotate −6°→1；击杀播报入场 260 ms translateX(30px)，出场延迟 3200 ms 后 500 ms 淡出，上限 4 行，小龙击杀 2.5 s 内合并；名称卡默认 3.2 s（波次卡 2.6），scaleY 0.2 字距 0.6em→到位（10%）→保持到 85%→淡出；警告胶囊时长 clamp(传入,缺省 1.7,下限 1.1,上限 3)，从 translateY(−10px) scale .92 落入；受击暗角 opacity=min(1,0.35+强度)→0 650 ms，强度=clamp(伤害占最大生命×3,0.1,1)；受击方向弧 700 ms 前 40% 保持；玩家面板抖动 260 ms −5→4→−2→0 px；低血暗角 lowpulse .83s opacity .35↔.9；招式喊字入场首次 300 ms translateX(−46px) skewX(−18deg) scale 1.35，寿命 wingover 1.5/loop 1.7/dash 1.1/nearmiss 1.2/skyfall 1.8/inferno 2.0/denied 1.0/skim 0.5，同屏最多 3 条"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d233",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.d249.transition-time",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s17.transition-time",
+      "title": "页面级过渡与关键帧(主要)（过渡时长）",
+      "value": 1.4,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节：页面级过渡与关键帧(主要)（过渡时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 17 节 · d249",
+        "note": "#loading 1.4 s；#title 1.6 s；.title-center位移1.6 s --ease-out；.title-logo位移1.3 s透明1 s；#hud透明0.8 s；#banners 0.6 s；.bn-vignette 2.4 s；.banner .bl缩放1.4 s；.letterbox高度0.8 s；.prompt透明0.3位移0.4；.reticle 0.15 s；sigil-breathe 5 s(缩放0.985→1.015透明0.82→1)；core-pulse 5 s光核0.55→1；leaf-fall 6 s(淡入15%位移(14,46))；obj-upd 2.2 s(从左滑入10 px先亮后归位)；mk-pulse 2.2 s罗盘目标标记光晕"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d249",
+        "c12.section": "17"
+      }
+    },
+    {
+      "id": "fx-ui.d249.ratio",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s17.ratio",
+      "title": "页面级过渡与关键帧(主要)（比例）",
+      "value": 0.15,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节：页面级过渡与关键帧(主要)（比例）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 17 节 · d249",
+        "note": "#loading 1.4 s；#title 1.6 s；.title-center位移1.6 s --ease-out；.title-logo位移1.3 s透明1 s；#hud透明0.8 s；#banners 0.6 s；.bn-vignette 2.4 s；.banner .bl缩放1.4 s；.letterbox高度0.8 s；.prompt透明0.3位移0.4；.reticle 0.15 s；sigil-breathe 5 s(缩放0.985→1.015透明0.82→1)；core-pulse 5 s光核0.55→1；leaf-fall 6 s(淡入15%位移(14,46))；obj-upd 2.2 s(从左滑入10 px先亮后归位)；mk-pulse 2.2 s罗盘目标标记光晕"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d249",
+        "c12.section": "17"
+      }
+    },
+    {
+      "id": "fx-ui.d249.pixels",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s17.pixels",
+      "title": "页面级过渡与关键帧(主要)（像素尺寸）",
+      "value": 10,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节：页面级过渡与关键帧(主要)（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 17 节 · d249",
+        "note": "#loading 1.4 s；#title 1.6 s；.title-center位移1.6 s --ease-out；.title-logo位移1.3 s透明1 s；#hud透明0.8 s；#banners 0.6 s；.bn-vignette 2.4 s；.banner .bl缩放1.4 s；.letterbox高度0.8 s；.prompt透明0.3位移0.4；.reticle 0.15 s；sigil-breathe 5 s(缩放0.985→1.015透明0.82→1)；core-pulse 5 s光核0.55→1；leaf-fall 6 s(淡入15%位移(14,46))；obj-upd 2.2 s(从左滑入10 px先亮后归位)；mk-pulse 2.2 s罗盘目标标记光晕"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d249",
+        "c12.section": "17"
+      }
+    },
+    {
+      "id": "fx-ui.d250.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s17.duration",
+      "title": "界面动效时长缓动（时长）",
+      "value": 7.5,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节：界面动效时长缓动（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 17 节 · d250",
+        "note": "缓动 --ease-out=cubic-bezier(.16,.84,.3,1)，--ease-io=cubic-bezier(.65,0,.35,1)；加载画面淡出 1.4 s/标题淡入 1.6 s ease；徽记呼吸 5 s/外环自转 90 s/落叶 6 s（无限）；片名高光扫过 7.5 s 延迟 1.2 s；「按任意键」脉动 2.8 s；加载条填充 0.45 s、菜单下划线 0.45 s、确认闪 0.5 s；血条宽度 0.6/受击抖 0.35/回血光晕 0.9/低血脉动 1.1 s；头目条出场 1.4 s（三次方缓出 1−(1−t)³）/第二阶段流光 2.4 s 线性无限；横幅 地名 1.2+3+1.7 s、胜利 1.5+4.6+2.2 s、片名卡 2.4+5.2+2.6 s（淡入+停留+淡出）；提示卡 5.5 s/通知条 3.6 s/字幕 4 s/黑边 0.8 s；引路叶浮动 2.4 s/光晕 2.4 s/脉冲 0.9 s，方向弹簧刚度 100 阻尼 20（临界）；地图飞行 0.55 s/北展 1.2 s；威胁箭头脉动 1.15−0.7×紧急度 s；另有 99 个 @keyframes"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d250",
+        "c12.section": "17"
+      }
+    },
+    {
+      "id": "fx-ui.d250.interval",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s17.interval",
+      "title": "界面动效时长缓动（时间间隔或窗口）",
+      "value": 1.2,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节：界面动效时长缓动（时间间隔或窗口）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 17 节 · d250",
+        "note": "缓动 --ease-out=cubic-bezier(.16,.84,.3,1)，--ease-io=cubic-bezier(.65,0,.35,1)；加载画面淡出 1.4 s/标题淡入 1.6 s ease；徽记呼吸 5 s/外环自转 90 s/落叶 6 s（无限）；片名高光扫过 7.5 s 延迟 1.2 s；「按任意键」脉动 2.8 s；加载条填充 0.45 s、菜单下划线 0.45 s、确认闪 0.5 s；血条宽度 0.6/受击抖 0.35/回血光晕 0.9/低血脉动 1.1 s；头目条出场 1.4 s（三次方缓出 1−(1−t)³）/第二阶段流光 2.4 s 线性无限；横幅 地名 1.2+3+1.7 s、胜利 1.5+4.6+2.2 s、片名卡 2.4+5.2+2.6 s（淡入+停留+淡出）；提示卡 5.5 s/通知条 3.6 s/字幕 4 s/黑边 0.8 s；引路叶浮动 2.4 s/光晕 2.4 s/脉冲 0.9 s，方向弹簧刚度 100 阻尼 20（临界）；地图飞行 0.55 s/北展 1.2 s；威胁箭头脉动 1.15−0.7×紧急度 s；另有 99 个 @keyframes"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d250",
+        "c12.section": "17"
+      }
+    },
+    {
+      "id": "fx-ui.d254.display-color",
+      "domain": "color-grade-delivery",
+      "topic": "fx-ui.s17.display-color",
+      "title": "屏幕/转场（显示空间主色 #FFFDF6）",
+      "value": [
+        1,
+        0.992157,
+        0.964706
+      ],
+      "unit": "rgb-display",
+      "colorSpace": "srgb-display",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节：屏幕/转场（显示空间主色 #FFFDF6）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 17 节 · d254",
+        "note": "启动屏淡出 opacity .8s；进度条 min(420px,70vw)×3px width .25s；屏幕切换 .scr opacity .45s；HUD 显隐 .5s；面板开合 .3s 从下 10px；面板防误触 700 ms；二次确认 3000 ms；结算屏出现延迟 1800 ms；标题→实时画面 进标题 2600 ms 后触发；换图不交叉淡化：veil 520 ms ease-in 盖满→全遮挡下换图→等 2 个动画帧→1150 ms ease-out 散开（旧 2.4 s 交叉淡化是“double exposure”被否）；veil radial-gradient(120% 95% at 64% 38%,#fffdf6 0%,#f4f1ea 34%,#dfe7f3 68%,#b9cbe6 100%)；原画镜头推移 kenburns 38s ease-in-out infinite alternate scale 1.02→1.12 平移(−1.5%,1%)；LOGO 入场 logo-in 1.4s cubic-bezier(.2,.8,.2,1) 从左 24 px；菜单焦点右移 8 px+金色渐变底；26 个 CSS @keyframes（kenburns 38s、flare 7s、logo-in 1.4s、gradein .7s、bestin .6s、lowpulse .83s、objflash 1.2s、hpblink .83s、xpflash .55s、blink4 .25s steps(2)、lockspin 3s、atkpulse .3s、wkpulse .7s、warnblink .25s×4、edgepulse .3s、breathe 1.8s 等）；一次性弹出/盖章/滑入几乎都用 element.animate()；减弱动效关掉 6 个"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d254",
+        "c12.section": "17",
+        "c12.hex": "#FFFDF6"
+      }
+    },
+    {
+      "id": "fx-ui.d254.pixels",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s17.pixels",
+      "title": "屏幕/转场（像素尺寸）",
+      "value": 420,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节：屏幕/转场（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 17 节 · d254",
+        "note": "启动屏淡出 opacity .8s；进度条 min(420px,70vw)×3px width .25s；屏幕切换 .scr opacity .45s；HUD 显隐 .5s；面板开合 .3s 从下 10px；面板防误触 700 ms；二次确认 3000 ms；结算屏出现延迟 1800 ms；标题→实时画面 进标题 2600 ms 后触发；换图不交叉淡化：veil 520 ms ease-in 盖满→全遮挡下换图→等 2 个动画帧→1150 ms ease-out 散开（旧 2.4 s 交叉淡化是“double exposure”被否）；veil radial-gradient(120% 95% at 64% 38%,#fffdf6 0%,#f4f1ea 34%,#dfe7f3 68%,#b9cbe6 100%)；原画镜头推移 kenburns 38s ease-in-out infinite alternate scale 1.02→1.12 平移(−1.5%,1%)；LOGO 入场 logo-in 1.4s cubic-bezier(.2,.8,.2,1) 从左 24 px；菜单焦点右移 8 px+金色渐变底；26 个 CSS @keyframes（kenburns 38s、flare 7s、logo-in 1.4s、gradein .7s、bestin .6s、lowpulse .83s、objflash 1.2s、hpblink .83s、xpflash .55s、blink4 .25s steps(2)、lockspin 3s、atkpulse .3s、wkpulse .7s、warnblink .25s×4、edgepulse .3s、breathe 1.8s 等）；一次性弹出/盖章/滑入几乎都用 element.animate()；减弱动效关掉 6 个"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d254",
+        "c12.section": "17"
+      }
+    },
+    {
+      "id": "fx-ui.d254.interval",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s17.interval",
+      "title": "屏幕/转场（时间间隔或窗口）",
+      "value": 700,
+      "unit": "ms",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节：屏幕/转场（时间间隔或窗口）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 17 节 · d254",
+        "note": "启动屏淡出 opacity .8s；进度条 min(420px,70vw)×3px width .25s；屏幕切换 .scr opacity .45s；HUD 显隐 .5s；面板开合 .3s 从下 10px；面板防误触 700 ms；二次确认 3000 ms；结算屏出现延迟 1800 ms；标题→实时画面 进标题 2600 ms 后触发；换图不交叉淡化：veil 520 ms ease-in 盖满→全遮挡下换图→等 2 个动画帧→1150 ms ease-out 散开（旧 2.4 s 交叉淡化是“double exposure”被否）；veil radial-gradient(120% 95% at 64% 38%,#fffdf6 0%,#f4f1ea 34%,#dfe7f3 68%,#b9cbe6 100%)；原画镜头推移 kenburns 38s ease-in-out infinite alternate scale 1.02→1.12 平移(−1.5%,1%)；LOGO 入场 logo-in 1.4s cubic-bezier(.2,.8,.2,1) 从左 24 px；菜单焦点右移 8 px+金色渐变底；26 个 CSS @keyframes（kenburns 38s、flare 7s、logo-in 1.4s、gradein .7s、bestin .6s、lowpulse .83s、objflash 1.2s、hpblink .83s、xpflash .55s、blink4 .25s steps(2)、lockspin 3s、atkpulse .3s、wkpulse .7s、warnblink .25s×4、edgepulse .3s、breathe 1.8s 等）；一次性弹出/盖章/滑入几乎都用 element.animate()；减弱动效关掉 6 个"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d254",
+        "c12.section": "17"
+      }
+    },
+    {
+      "id": "fx-ui.d254.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s17.duration",
+      "title": "屏幕/转场（时长）",
+      "value": 3000,
+      "unit": "ms",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节：屏幕/转场（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 17 节 · d254",
+        "note": "启动屏淡出 opacity .8s；进度条 min(420px,70vw)×3px width .25s；屏幕切换 .scr opacity .45s；HUD 显隐 .5s；面板开合 .3s 从下 10px；面板防误触 700 ms；二次确认 3000 ms；结算屏出现延迟 1800 ms；标题→实时画面 进标题 2600 ms 后触发；换图不交叉淡化：veil 520 ms ease-in 盖满→全遮挡下换图→等 2 个动画帧→1150 ms ease-out 散开（旧 2.4 s 交叉淡化是“double exposure”被否）；veil radial-gradient(120% 95% at 64% 38%,#fffdf6 0%,#f4f1ea 34%,#dfe7f3 68%,#b9cbe6 100%)；原画镜头推移 kenburns 38s ease-in-out infinite alternate scale 1.02→1.12 平移(−1.5%,1%)；LOGO 入场 logo-in 1.4s cubic-bezier(.2,.8,.2,1) 从左 24 px；菜单焦点右移 8 px+金色渐变底；26 个 CSS @keyframes（kenburns 38s、flare 7s、logo-in 1.4s、gradein .7s、bestin .6s、lowpulse .83s、objflash 1.2s、hpblink .83s、xpflash .55s、blink4 .25s steps(2)、lockspin 3s、atkpulse .3s、wkpulse .7s、warnblink .25s×4、edgepulse .3s、breathe 1.8s 等）；一次性弹出/盖章/滑入几乎都用 element.animate()；减弱动效关掉 6 个"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d254",
+        "c12.section": "17"
+      }
+    },
+    {
+      "id": "fx-ui.d254.transition-time",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s17.transition-time",
+      "title": "屏幕/转场（过渡时长）",
+      "value": 2600,
+      "unit": "ms",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节：屏幕/转场（过渡时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 17 节 · d254",
+        "note": "启动屏淡出 opacity .8s；进度条 min(420px,70vw)×3px width .25s；屏幕切换 .scr opacity .45s；HUD 显隐 .5s；面板开合 .3s 从下 10px；面板防误触 700 ms；二次确认 3000 ms；结算屏出现延迟 1800 ms；标题→实时画面 进标题 2600 ms 后触发；换图不交叉淡化：veil 520 ms ease-in 盖满→全遮挡下换图→等 2 个动画帧→1150 ms ease-out 散开（旧 2.4 s 交叉淡化是“double exposure”被否）；veil radial-gradient(120% 95% at 64% 38%,#fffdf6 0%,#f4f1ea 34%,#dfe7f3 68%,#b9cbe6 100%)；原画镜头推移 kenburns 38s ease-in-out infinite alternate scale 1.02→1.12 平移(−1.5%,1%)；LOGO 入场 logo-in 1.4s cubic-bezier(.2,.8,.2,1) 从左 24 px；菜单焦点右移 8 px+金色渐变底；26 个 CSS @keyframes（kenburns 38s、flare 7s、logo-in 1.4s、gradein .7s、bestin .6s、lowpulse .83s、objflash 1.2s、hpblink .83s、xpflash .55s、blink4 .25s steps(2)、lockspin 3s、atkpulse .3s、wkpulse .7s、warnblink .25s×4、edgepulse .3s、breathe 1.8s 等）；一次性弹出/盖章/滑入几乎都用 element.animate()；减弱动效关掉 6 个"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d254",
+        "c12.section": "17"
+      }
+    },
+    {
+      "id": "fx-ui.d254.ratio",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s17.ratio",
+      "title": "屏幕/转场（比例）",
+      "value": 1.2,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节：屏幕/转场（比例）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 17 节 · d254",
+        "note": "启动屏淡出 opacity .8s；进度条 min(420px,70vw)×3px width .25s；屏幕切换 .scr opacity .45s；HUD 显隐 .5s；面板开合 .3s 从下 10px；面板防误触 700 ms；二次确认 3000 ms；结算屏出现延迟 1800 ms；标题→实时画面 进标题 2600 ms 后触发；换图不交叉淡化：veil 520 ms ease-in 盖满→全遮挡下换图→等 2 个动画帧→1150 ms ease-out 散开（旧 2.4 s 交叉淡化是“double exposure”被否）；veil radial-gradient(120% 95% at 64% 38%,#fffdf6 0%,#f4f1ea 34%,#dfe7f3 68%,#b9cbe6 100%)；原画镜头推移 kenburns 38s ease-in-out infinite alternate scale 1.02→1.12 平移(−1.5%,1%)；LOGO 入场 logo-in 1.4s cubic-bezier(.2,.8,.2,1) 从左 24 px；菜单焦点右移 8 px+金色渐变底；26 个 CSS @keyframes（kenburns 38s、flare 7s、logo-in 1.4s、gradein .7s、bestin .6s、lowpulse .83s、objflash 1.2s、hpblink .83s、xpflash .55s、blink4 .25s steps(2)、lockspin 3s、atkpulse .3s、wkpulse .7s、warnblink .25s×4、edgepulse .3s、breathe 1.8s 等）；一次性弹出/盖章/滑入几乎都用 element.animate()；减弱动效关掉 6 个"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d254",
+        "c12.section": "17"
+      }
+    },
+    {
+      "id": "fx-ui.d257.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s18.duration",
+      "title": "引路卡（时长）",
+      "value": 7.5,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 18 节：引路卡（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 18 节 · d257",
+        "note": "顶部居中文字卡，样式JS内字符串注入；显示默认7.5 s；出现过渡0.35 s消失0.8 s；有头目条下移到9.4rem；进度刻度细线+9×9 px旋转45°小菱形(已完成实心当前发光)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d257",
+        "c12.section": "18"
+      }
+    },
+    {
+      "id": "fx-ui.d257.transition-time",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s18.transition-time",
+      "title": "引路卡（过渡时长）",
+      "value": 0.35,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 18 节：引路卡（过渡时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 18 节 · d257",
+        "note": "顶部居中文字卡，样式JS内字符串注入；显示默认7.5 s；出现过渡0.35 s消失0.8 s；有头目条下移到9.4rem；进度刻度细线+9×9 px旋转45°小菱形(已完成实心当前发光)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d257",
+        "c12.section": "18"
+      }
+    },
+    {
+      "id": "fx-ui.d257.angle",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s18.angle",
+      "title": "引路卡（角度）",
+      "value": 45,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 18 节：引路卡（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 18 节 · d257",
+        "note": "顶部居中文字卡，样式JS内字符串注入；显示默认7.5 s；出现过渡0.35 s消失0.8 s；有头目条下移到9.4rem；进度刻度细线+9×9 px旋转45°小菱形(已完成实心当前发光)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d257",
+        "c12.section": "18"
+      }
+    },
+    {
+      "id": "fx-ui.d264.interval",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s18.interval",
+      "title": "对话框（时间间隔或窗口）",
+      "value": 0.13,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 18 节：对话框（时间间隔或窗口）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 18 节 · d264",
+        "note": "打字机cps=46字符/s；逗号分号冒号后停0.13 s，句号问号叹号省略号破折号后(且后面是空白)停0.3 s；arm=0.28 s(刚出现0.28 s内不接受确认防误触)；fade=3(尾部渐隐字符数)；文本分三个span(dt-on已打/dt-fd渐隐/dt-off未打)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d264",
+        "c12.section": "18"
+      }
+    },
+    {
+      "id": "fx-ui.d264.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s18.duration",
+      "title": "对话框（时长）",
+      "value": 0.28,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 18 节：对话框（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 18 节 · d264",
+        "note": "打字机cps=46字符/s；逗号分号冒号后停0.13 s，句号问号叹号省略号破折号后(且后面是空白)停0.3 s；arm=0.28 s(刚出现0.28 s内不接受确认防误触)；fade=3(尾部渐隐字符数)；文本分三个span(dt-on已打/dt-fd渐隐/dt-off未打)"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d264",
+        "c12.section": "18"
+      }
+    },
+    {
+      "id": "fx-ui.d271.touch-target-px",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s19.touch-target-px",
+      "title": "移动端界面降级（触控尺寸像素）",
+      "value": 44,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 19 节：移动端界面降级（触控尺寸像素）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 19 节 · d271",
+        "note": "触屏不显示键盘提示条；触屏点击目标≥44 px；短屏(高≤540 px手机横屏)面板全高HUD贴边；手机竖屏弹转屏卡加载条继续走；viewport-fit=cover配刘海安全区；视口 width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d271",
+        "c12.section": "19"
+      }
+    },
+    {
+      "id": "fx-ui.d271.pixels",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s19.pixels",
+      "title": "移动端界面降级（像素尺寸）",
+      "value": 540,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 19 节：移动端界面降级（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 19 节 · d271",
+        "note": "触屏不显示键盘提示条；触屏点击目标≥44 px；短屏(高≤540 px手机横屏)面板全高HUD贴边；手机竖屏弹转屏卡加载条继续走；viewport-fit=cover配刘海安全区；视口 width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d271",
+        "c12.section": "19"
+      }
+    },
+    {
+      "id": "fx-ui.d273.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s19.duration",
+      "title": "输入参数（时长）",
+      "value": 0.3,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 19 节：输入参数（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 19 节 · d273",
+        "note": "键鼠：指针锁定优先带 unadjustedMovement，失败退拖拽；左键按住≥0.3 s 算重击蓄力，<0.2 s 轻点；单次位移限幅±200 px；手柄：默认 动作布局另有 classic（?padlayout=），死区 0.16，摇杆曲线指数 1.8，17 种震动事件 [强,弱,毫秒]，如 parry [.75,1,170]；触屏：12 个按钮，主按钮直径 clamp(m×0.2,64,104)，摇杆半径 clamp(m×0.155,48,84)，视角灵敏度每英寸 1.45 rad，可左手镜像"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d273",
+        "c12.section": "19"
+      }
+    },
+    {
+      "id": "fx-ui.d273.fov",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s19.fov",
+      "title": "输入参数（视场角）",
+      "value": 1.45,
+      "unit": "rad",
+      "conditions": {
+        "appliesWhen": [
+          "第 19 节：输入参数（视场角）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 19 节 · d273",
+        "note": "键鼠：指针锁定优先带 unadjustedMovement，失败退拖拽；左键按住≥0.3 s 算重击蓄力，<0.2 s 轻点；单次位移限幅±200 px；手柄：默认 动作布局另有 classic（?padlayout=），死区 0.16，摇杆曲线指数 1.8，17 种震动事件 [强,弱,毫秒]，如 parry [.75,1,170]；触屏：12 个按钮，主按钮直径 clamp(m×0.2,64,104)，摇杆半径 clamp(m×0.155,48,84)，视角灵敏度每英寸 1.45 rad，可左手镜像"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d273",
+        "c12.section": "19"
+      }
+    },
+    {
+      "id": "fx-ui.d276.display-color",
+      "domain": "color-grade-delivery",
+      "topic": "fx-ui.s20.display-color",
+      "title": "12角色光标色（显示空间主色 #EFEBE1）",
+      "value": [
+        0.937255,
+        0.921569,
+        0.882353
+      ],
+      "unit": "rgb-display",
+      "colorSpace": "srgb-display",
+      "conditions": {
+        "appliesWhen": [
+          "第 20 节：12角色光标色（显示空间主色 #EFEBE1）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01r",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 20 节 · d276",
+        "note": "12角色光标色：LEAD #EFEBE1,REF #FFD60A,SHROUD #7FE3FF,FANS #78FFAA,COOLER #5AAAFF,PCB #3CDC78,IO #C8A0FF,LOOK #FF78C8,MUSIC #FFBE5A,TYPE #FFFFFF,SWARM #FF6E6E,REVIEW #BEFF3C"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d276",
+        "c12.section": "20",
+        "c12.hex": "#EFEBE1"
+      }
+    },
+    {
+      "id": "fx-ui.d325.triangle-count",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s22.triangle-count",
+      "title": "界面显示真数字（三角面规模计数）",
+      "value": 88265,
+      "unit": "count",
+      "conditions": {
+        "appliesWhen": [
+          "第 22 节：界面显示真数字（三角面规模计数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-23",
+        "evidenceLevel": "实测",
+        "docRef": "特效粒子界面二维汇编 · 第 22 节 · d325",
+        "note": "装配进度、三角面、物体数、骨骼、材质、贴图分辨率都显示真数字；界面是为分解片重画的，非录屏；只有总数 88,265 能与原文 LOD0 对上，104/16/20/4096 无第二来源"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d325",
+        "c12.section": "22"
+      }
+    },
+    {
+      "id": "fx-ui.d328.pixels",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s22.pixels",
+      "title": "属性面板（像素尺寸）",
+      "value": 4096,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 22 节：属性面板（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-23",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 22 节 · d328",
+        "note": "第 194 帧：Materials 16、Texture maps 20、Resolution 4096 px、Applied 17%；之后 Armature：Bones 113、Deforming 104、Blendshapes 57、Pose、Rig Type→Avatar 某游戏引擎 Humanoid、Modifiers Armature；界面在第 230–242 帧间姿势从 rest 换成 motion test"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d328",
+        "c12.section": "22"
+      }
+    },
+    {
+      "id": "fx-ui.d328.ratio",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s22.ratio",
+      "title": "属性面板（比例）",
+      "value": 0.17,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 22 节：属性面板（比例）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-23",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 22 节 · d328",
+        "note": "第 194 帧：Materials 16、Texture maps 20、Resolution 4096 px、Applied 17%；之后 Armature：Bones 113、Deforming 104、Blendshapes 57、Pose、Rig Type→Avatar 某游戏引擎 Humanoid、Modifiers Armature；界面在第 230–242 帧间姿势从 rest 换成 motion test"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d328",
+        "c12.section": "22"
+      }
+    },
+    {
+      "id": "fx-ui.d331.grid-cell",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s22.grid-cell",
+      "title": "格子几何（栅格单格尺寸）",
+      "value": {
+        "width": 20,
+        "height": 20
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 22 节：格子几何（栅格单格尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 22 节 · d331",
+        "note": "格子 20×20 px（1920÷96，1080÷54）；方格 16×16 px 占格内第 2–17 像素四周各留 2 px；边线两层：外层 1 px 暗底上亮度约 145，内层 1 px 约 95–100；黄绿边线约 RGB(144,145,88)（6 像素，含 JPEG 压缩）；实心方格内部比底色亮约 60"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d331",
+        "c12.section": "22"
+      }
+    },
+    {
+      "id": "fx-ui.d331.pixels",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s22.pixels",
+      "title": "格子几何（像素尺寸）",
+      "value": 2,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 22 节：格子几何（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 22 节 · d331",
+        "note": "格子 20×20 px（1920÷96，1080÷54）；方格 16×16 px 占格内第 2–17 像素四周各留 2 px；边线两层：外层 1 px 暗底上亮度约 145，内层 1 px 约 95–100；黄绿边线约 RGB(144,145,88)（6 像素，含 JPEG 压缩）；实心方格内部比底色亮约 60"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d331",
+        "c12.section": "22"
+      }
+    },
+    {
+      "id": "fx-ui.d331.grid-px",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s22.grid-px",
+      "title": "格子几何（像素尺寸）",
+      "value": 1,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 22 节：格子几何（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 22 节 · d331",
+        "note": "格子 20×20 px（1920÷96，1080÷54）；方格 16×16 px 占格内第 2–17 像素四周各留 2 px；边线两层：外层 1 px 暗底上亮度约 145，内层 1 px 约 95–100；黄绿边线约 RGB(144,145,88)（6 像素，含 JPEG 压缩）；实心方格内部比底色亮约 60"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d331",
+        "c12.section": "22"
+      }
+    },
+    {
+      "id": "fx-ui.d340.display-color",
+      "domain": "color-grade-delivery",
+      "topic": "fx-ui.s23.display-color",
+      "title": "参考复刻:动态字幕广告（显示空间主色 #EAEAE3）",
+      "value": [
+        0.917647,
+        0.917647,
+        0.890196
+      ],
+      "unit": "rgb-display",
+      "colorSpace": "srgb-display",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节：参考复刻:动态字幕广告（显示空间主色 #EAEAE3）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext03",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 23 节 · d340",
+        "note": "2D 平面动图、16:9、一镜到底;底色 #EAEAE3 骨白+左上 #F3DDEB 淡紫粉雾+右下 #E2E7B4 黄绿雾+细胶片颗粒;字体单一粗几何无衬线 Bold、紧字距、句首大写、居中、近黑 #1A1A18;字高约占画面 7%,小标签 2.5%,卡片圆角 20 px、倾斜 2°"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d340",
+        "c12.section": "23",
+        "c12.hex": "#EAEAE3"
+      }
+    },
+    {
+      "id": "fx-ui.d340.size-ratio",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s23.size-ratio",
+      "title": "参考复刻:动态字幕广告（尺寸占比）",
+      "value": 0.07,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节：参考复刻:动态字幕广告（尺寸占比）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext03",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 23 节 · d340",
+        "note": "2D 平面动图、16:9、一镜到底;底色 #EAEAE3 骨白+左上 #F3DDEB 淡紫粉雾+右下 #E2E7B4 黄绿雾+细胶片颗粒;字体单一粗几何无衬线 Bold、紧字距、句首大写、居中、近黑 #1A1A18;字高约占画面 7%,小标签 2.5%,卡片圆角 20 px、倾斜 2°"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d340",
+        "c12.section": "23"
+      }
+    },
+    {
+      "id": "fx-ui.d340.corner-radius",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s23.corner-radius",
+      "title": "参考复刻:动态字幕广告（圆角像素）",
+      "value": 20,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节：参考复刻:动态字幕广告（圆角像素）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext03",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 23 节 · d340",
+        "note": "2D 平面动图、16:9、一镜到底;底色 #EAEAE3 骨白+左上 #F3DDEB 淡紫粉雾+右下 #E2E7B4 黄绿雾+细胶片颗粒;字体单一粗几何无衬线 Bold、紧字距、句首大写、居中、近黑 #1A1A18;字高约占画面 7%,小标签 2.5%,卡片圆角 20 px、倾斜 2°"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d340",
+        "c12.section": "23"
+      }
+    },
+    {
+      "id": "fx-ui.d340.angle",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s23.angle",
+      "title": "参考复刻:动态字幕广告（角度）",
+      "value": 2,
+      "unit": "deg",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节：参考复刻:动态字幕广告（角度）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext03",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 23 节 · d340",
+        "note": "2D 平面动图、16:9、一镜到底;底色 #EAEAE3 骨白+左上 #F3DDEB 淡紫粉雾+右下 #E2E7B4 黄绿雾+细胶片颗粒;字体单一粗几何无衬线 Bold、紧字距、句首大写、居中、近黑 #1A1A18;字高约占画面 7%,小标签 2.5%,卡片圆角 20 px、倾斜 2°"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d340",
+        "c12.section": "23"
+      }
+    },
+    {
+      "id": "fx-ui.d349.ratio",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s23.ratio",
+      "title": "2D 动画原则（比例）",
+      "value": 0.2,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节：2D 动画原则（比例）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext03",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 23 节 · d349",
+        "note": "2D 动画原则：预备(anticipation)、挤压拉伸最多 20%、快速运动用 smear 帧、2 帧描边动画画涂鸦;标题逐词弹入错峰 40 ms(另例 30 ms)、一个强调词后面 200 ms 荧光笔扫过、出场字母像气泡弹掉"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d349",
+        "c12.section": "23"
+      }
+    },
+    {
+      "id": "fx-ui.d349.frame-count",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s23.frame-count",
+      "title": "2D 动画原则（帧数）",
+      "value": 2,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节：2D 动画原则（帧数）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext03",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 23 节 · d349",
+        "note": "2D 动画原则：预备(anticipation)、挤压拉伸最多 20%、快速运动用 smear 帧、2 帧描边动画画涂鸦;标题逐词弹入错峰 40 ms(另例 30 ms)、一个强调词后面 200 ms 荧光笔扫过、出场字母像气泡弹掉"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d349",
+        "c12.section": "23"
+      }
+    },
+    {
+      "id": "fx-ui.d349.interval",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s23.interval",
+      "title": "2D 动画原则（时间间隔或窗口）",
+      "value": 40,
+      "unit": "ms",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节：2D 动画原则（时间间隔或窗口）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext03",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 23 节 · d349",
+        "note": "2D 动画原则：预备(anticipation)、挤压拉伸最多 20%、快速运动用 smear 帧、2 帧描边动画画涂鸦;标题逐词弹入错峰 40 ms(另例 30 ms)、一个强调词后面 200 ms 荧光笔扫过、出场字母像气泡弹掉"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d349",
+        "c12.section": "23"
+      }
+    },
+    {
+      "id": "fx-ui.d349.duration",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s23.duration",
+      "title": "2D 动画原则（时长）",
+      "value": 30,
+      "unit": "ms",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节：2D 动画原则（时长）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext03",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 23 节 · d349",
+        "note": "2D 动画原则：预备(anticipation)、挤压拉伸最多 20%、快速运动用 smear 帧、2 帧描边动画画涂鸦;标题逐词弹入错峰 40 ms(另例 30 ms)、一个强调词后面 200 ms 荧光笔扫过、出场字母像气泡弹掉"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d349",
+        "c12.section": "23"
+      }
+    },
+    {
+      "id": "fx-ui.d352.resolution",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s23.resolution",
+      "title": "AE 演示文稿/软件产品/协作白板（画面分辨率）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节：AE 演示文稿/软件产品/协作白板（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-44",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 23 节 · d352",
+        "note": "幻灯片+品牌资产+音乐跟拍；对话图1920×1080，附视频600×338；SaaS界面串讲+logo揭示；白板：移动光标、便签出现、手绘批注、连接箭头，保留原布局"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d352",
+        "c12.section": "23"
+      }
+    },
+    {
+      "id": "fx-ui.d357.resolution",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.resolution",
+      "title": "拼接片版式（画面分辨率）",
+      "value": {
+        "width": 1080,
+        "height": 1920
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节：拼接片版式（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · d357",
+        "note": "总 1080×1920；上黑边 y0–22（23 行）；传统纹样风格 y23–630（608 行）；黑缝 y631–655（25）；水粉 y656–1263；黑缝 y1264–1289（26）；迷幻水彩 y1290–1897；下黑边 y1898–1919（22）；每行 = 1920×1080×0.5625，607.5 取整 608"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d357",
+        "c12.section": "24"
+      }
+    },
+    {
+      "id": "fx-ui.d361.display-color",
+      "domain": "color-grade-delivery",
+      "topic": "fx-ui.s24.display-color",
+      "title": "画布与双面板（显示空间主色 #0F0F11）",
+      "value": [
+        0.058824,
+        0.058824,
+        0.066667
+      ],
+      "unit": "rgb-display",
+      "colorSpace": "srgb-display",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节：画布与双面板（显示空间主色 #0F0F11）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-27",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · d361",
+        "note": "主片 2304×2304 正方形；画布底 #0F0F11；左面板(成片) x48–1127、y192–2111=1080×1920（9:16）；右面板(拼装) x1176–2255、y192–2111；左右留边各 48、上下各 192、面板间隔 48；圆角约 16–20 px（顶边面板从 x=64 起往下 20 px 回到 x=48）；左面板单独裁出就是标准竖屏"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d361",
+        "c12.section": "24",
+        "c12.hex": "#0F0F11"
+      }
+    },
+    {
+      "id": "fx-ui.d361.resolution",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.resolution",
+      "title": "画布与双面板（画面分辨率）",
+      "value": {
+        "width": 2304,
+        "height": 2304
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节：画布与双面板（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-27",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · d361",
+        "note": "主片 2304×2304 正方形；画布底 #0F0F11；左面板(成片) x48–1127、y192–2111=1080×1920（9:16）；右面板(拼装) x1176–2255、y192–2111；左右留边各 48、上下各 192、面板间隔 48；圆角约 16–20 px（顶边面板从 x=64 起往下 20 px 回到 x=48）；左面板单独裁出就是标准竖屏"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d361",
+        "c12.section": "24"
+      }
+    },
+    {
+      "id": "fx-ui.d361.corner-radius",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.corner-radius",
+      "title": "画布与双面板（圆角像素）",
+      "value": [
+        16,
+        20
+      ],
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节：画布与双面板（圆角像素）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-27",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · d361",
+        "note": "主片 2304×2304 正方形；画布底 #0F0F11；左面板(成片) x48–1127、y192–2111=1080×1920（9:16）；右面板(拼装) x1176–2255、y192–2111；左右留边各 48、上下各 192、面板间隔 48；圆角约 16–20 px（顶边面板从 x=64 起往下 20 px 回到 x=48）；左面板单独裁出就是标准竖屏"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d361",
+        "c12.section": "24"
+      }
+    },
+    {
+      "id": "fx-ui.d361.pixels",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.pixels",
+      "title": "画布与双面板（像素尺寸）",
+      "value": 20,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节：画布与双面板（像素尺寸）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-27",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · d361",
+        "note": "主片 2304×2304 正方形；画布底 #0F0F11；左面板(成片) x48–1127、y192–2111=1080×1920（9:16）；右面板(拼装) x1176–2255、y192–2111；左右留边各 48、上下各 192、面板间隔 48；圆角约 16–20 px（顶边面板从 x=64 起往下 20 px 回到 x=48）；左面板单独裁出就是标准竖屏"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d361",
+        "c12.section": "24"
+      }
+    },
+    {
+      "id": "fx-ui.d363.display-color",
+      "domain": "color-grade-delivery",
+      "topic": "fx-ui.s24.display-color",
+      "title": "分屏版式（1080×1350）（显示空间主色 #CBFB03）",
+      "value": [
+        0.796078,
+        0.984314,
+        0.011765
+      ],
+      "unit": "rgb-display",
+      "colorSpace": "srgb-display",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节：分屏版式（1080×1350）（显示空间主色 #CBFB03）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · d363",
+        "note": "分屏版式（1080×1350）：上边距 y0–43(44 行近黑)；上半成品渲染 y44–651(608 行，右上角标)；中缝上段 y652–672(21 行)；分隔线 y673–676(4 行：中间两行 #CBFB03，外侧两行半透明 #D3EB9D)；中缝下段 y677–697(21)；下半光标建造 y698–1305(608 行，浅米色图纸底)；下边距 y1306–1349(44)。两块 1080×608=16:9 上下摆；与原文“上下边距 44、中缝 46、4 像素黄绿线”一个不差；补充：4:5 1080×1350，两张 16:9（1080×608）叠放，上下边距 44 px、两图间 46 px 含 4 px 酸橙绿线；无字幕，唯一文字为四光标标签 Walls/Doors/Furniture/Light、图纸自带小尺寸标注、17.5 s 起一张酸橙绿尾卡「案例 29 · drawn, built and rendered in code」；光标、点击环、房间闪烁、新图纸墨色全为 #D1FE17（取自水印牌）；平面上用带视锥的酸橙绿标记显示上图相机站位。与实测一致。；并列出处（重复条已合并）：「分屏版面尺寸」原文，案例 29 公寓分屏；该出处标：证据 原文陈述，验证 作者成片用过"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d363",
+        "c12.section": "24",
+        "c12.hex": "#CBFB03"
+      }
+    },
+    {
+      "id": "fx-ui.d363.resolution",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.resolution",
+      "title": "分屏版式（1080×1350）（画面分辨率）",
+      "value": {
+        "width": 1080,
+        "height": 608
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节：分屏版式（1080×1350）（画面分辨率）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · d363",
+        "note": "分屏版式（1080×1350）：上边距 y0–43(44 行近黑)；上半成品渲染 y44–651(608 行，右上角标)；中缝上段 y652–672(21 行)；分隔线 y673–676(4 行：中间两行 #CBFB03，外侧两行半透明 #D3EB9D)；中缝下段 y677–697(21)；下半光标建造 y698–1305(608 行，浅米色图纸底)；下边距 y1306–1349(44)。两块 1080×608=16:9 上下摆；与原文“上下边距 44、中缝 46、4 像素黄绿线”一个不差；补充：4:5 1080×1350，两张 16:9（1080×608）叠放，上下边距 44 px、两图间 46 px 含 4 px 酸橙绿线；无字幕，唯一文字为四光标标签 Walls/Doors/Furniture/Light、图纸自带小尺寸标注、17.5 s 起一张酸橙绿尾卡「案例 29 · drawn, built and rendered in code」；光标、点击环、房间闪烁、新图纸墨色全为 #D1FE17（取自水印牌）；平面上用带视锥的酸橙绿标记显示上图相机站位。与实测一致。；并列出处（重复条已合并）：「分屏版面尺寸」原文，案例 29 公寓分屏；该出处标：证据 原文陈述，验证 作者成片用过"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d363",
+        "c12.section": "24"
+      }
+    },
+    {
+      "id": "fx-ui.d363.margin-px",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.margin-px",
+      "title": "分屏版式（1080×1350）（边距或间隙像素）",
+      "value": 4,
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节：分屏版式（1080×1350）（边距或间隙像素）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · d363",
+        "note": "分屏版式（1080×1350）：上边距 y0–43(44 行近黑)；上半成品渲染 y44–651(608 行，右上角标)；中缝上段 y652–672(21 行)；分隔线 y673–676(4 行：中间两行 #CBFB03，外侧两行半透明 #D3EB9D)；中缝下段 y677–697(21)；下半光标建造 y698–1305(608 行，浅米色图纸底)；下边距 y1306–1349(44)。两块 1080×608=16:9 上下摆；与原文“上下边距 44、中缝 46、4 像素黄绿线”一个不差；补充：4:5 1080×1350，两张 16:9（1080×608）叠放，上下边距 44 px、两图间 46 px 含 4 px 酸橙绿线；无字幕，唯一文字为四光标标签 Walls/Doors/Furniture/Light、图纸自带小尺寸标注、17.5 s 起一张酸橙绿尾卡「案例 29 · drawn, built and rendered in code」；光标、点击环、房间闪烁、新图纸墨色全为 #D1FE17（取自水印牌）；平面上用带视锥的酸橙绿标记显示上图相机站位。与实测一致。；并列出处（重复条已合并）：「分屏版面尺寸」原文，案例 29 公寓分屏；该出处标：证据 原文陈述，验证 作者成片用过"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d363",
+        "c12.section": "24"
+      }
+    },
+    {
+      "id": "fx-ui.d363.event-time",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.event-time",
+      "title": "分屏版式（1080×1350）（时间轴事件时刻）",
+      "value": 17.5,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节：分屏版式（1080×1350）（时间轴事件时刻）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · d363",
+        "note": "分屏版式（1080×1350）：上边距 y0–43(44 行近黑)；上半成品渲染 y44–651(608 行，右上角标)；中缝上段 y652–672(21 行)；分隔线 y673–676(4 行：中间两行 #CBFB03，外侧两行半透明 #D3EB9D)；中缝下段 y677–697(21)；下半光标建造 y698–1305(608 行，浅米色图纸底)；下边距 y1306–1349(44)。两块 1080×608=16:9 上下摆；与原文“上下边距 44、中缝 46、4 像素黄绿线”一个不差；补充：4:5 1080×1350，两张 16:9（1080×608）叠放，上下边距 44 px、两图间 46 px 含 4 px 酸橙绿线；无字幕，唯一文字为四光标标签 Walls/Doors/Furniture/Light、图纸自带小尺寸标注、17.5 s 起一张酸橙绿尾卡「案例 29 · drawn, built and rendered in code」；光标、点击环、房间闪烁、新图纸墨色全为 #D1FE17（取自水印牌）；平面上用带视锥的酸橙绿标记显示上图相机站位。与实测一致。；并列出处（重复条已合并）：「分屏版面尺寸」原文，案例 29 公寓分屏；该出处标：证据 原文陈述，验证 作者成片用过"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d363",
+        "c12.section": "24"
+      }
+    },
+    {
+      "id": "fx-ui.d364.area-ratio",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.area-ratio",
+      "title": "水印预留（二维区域面积占比）",
+      "value": 0.026,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节：水印预留（二维区域面积占比）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · d364",
+        "note": "右上角约 26% 宽 × 10% 高留给水印；重要内容不裁"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d364",
+        "c12.section": "24"
+      }
+    },
+    {
+      "id": "fx-ui.d370.area-ratio",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.area-ratio",
+      "title": "水印位置（二维区域面积占比）",
+      "value": 0.016,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节：水印位置（二维区域面积占比）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · d370",
+        "note": "请求里写清水印位置交付物就不会被挡：026 写“右上角放水印”，021 写“右上角约 16%×10% 留空”；角标“某生成平台 某代码模型”是制作代理按请求自己加的(请求 2 原文 “某生成平台 某代码模型 watermark top right”，作者原文件里确有)；冲突：本条说角标是制作代理按请求自己加的（请求 2 原文 “某生成平台 某代码模型 watermark top right”，作者原文件里确有）；18 新闻讲解片复盘写「平台叠加」，两者矛盾，未解。"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d370",
+        "c12.section": "24"
+      }
+    },
+    {
+      "id": "fx-ui.d372.area-ratio",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.area-ratio",
+      "title": "水印安全区（二维区域面积占比）",
+      "value": 0.016,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节：水印安全区（二维区域面积占比）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-21",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · d372",
+        "note": "右上角空出约 宽 16% × 高 10%(16:9)留给水印;城市名卡短暂出现"
+      },
+      "verifiedInOurStack": false,
+      "ext": {
+        "c12.sourceId": "d372",
+        "c12.section": "24"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s015",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.speed",
+      "title": "火焰主体参数对照（案例 02 吐息）（汇总）",
+      "value": 70,
+      "unit": "m/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节跨案例对照汇总：火焰主体参数对照（案例 02 吐息）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · s015",
+        "note": "火焰主体参数对照（案例 02 吐息）：案例 02 吐息（flame 池）：340 个/s；muzzle 70 m/s、drag 0.6/s、buoyancy 3 m/s²、life 1.15 s、spread 0.12 rad、fullRange 35 m、maxRange 60 m；主火舌初速 70×(0.82–1.08)、寿命 1.15×(0.72–1.05)、size 0.3–0.45→2.3–3.5 m；core 200/s、ember 70/s、smoke 14/s"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d033.speed"
+      ],
+      "ext": {
+        "c12.sourceId": "s015",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s026",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s2.duration",
+      "title": "火星与余烬发射对照（外部案例 01 余烬）（汇总）",
+      "value": [
+        24,
+        27
+      ],
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节跨案例对照汇总：火星与余烬发射对照（外部案例 01 余烬）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · s026",
+        "note": "火星与余烬发射对照（外部案例 01 余烬）：外部案例 01 余烬（实例精灵）：ROAR 700 余烬/300 烟（采样 24.0–27.0 s）；FIRE2 620/170（46.4–48.5 s）；余烬初速 46 m/s 阻尼 1.1；烟初速 62*uSR 阻尼 2.2 尺寸 1.6→9.5 m"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d030.duration"
+      ],
+      "ext": {
+        "c12.sourceId": "s026",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s027",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s3.speed",
+      "title": "火星与余烬发射对照（外部案例 01 落脚火星）（汇总）",
+      "value": 58,
+      "unit": "m/s",
+      "conditions": {
+        "appliesWhen": [
+          "第 2 节跨案例对照汇总：火星与余烬发射对照（外部案例 01 落脚火星）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 2 节 · s027",
+        "note": "火星与余烬发射对照（外部案例 01 落脚火星）：外部案例 01 落脚火星（实例精灵）：220 颗 58 m/s 阻尼 2.4 重力 14 寿命 0.5 s"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d066.speed"
+      ],
+      "ext": {
+        "c12.sourceId": "s027",
+        "c12.section": "2"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s034",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s3.radius",
+      "title": "冲击波、爆发与贴花尺寸对照（外部案例 01）（汇总）",
+      "value": [
+        4.6,
+        13
+      ],
+      "unit": "m",
+      "conditions": {
+        "appliesWhen": [
+          "第 3 节跨案例对照汇总：冲击波、爆发与贴花尺寸对照（外部案例 01）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext01",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 3 节 · s034",
+        "note": "冲击波、爆发与贴花尺寸对照（外部案例 01）：外部案例 01（屏幕空间环+贴花）：环半径 4+95(1−e^(−3d)) m，持续 1.1 s；焦痕半径 6.5 m 与 4.6–13 m 并存（冲突）；霜痕 7.5 m；焦痕自发光 uE=(3.4,0.95,0.12)；爆炸火星 800 颗 170 m/s；冰片 700 片 150 m/s"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d069.radius"
+      ],
+      "ext": {
+        "c12.sourceId": "s034",
+        "c12.section": "3"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s093",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s13.resolution",
+      "title": "根字号与字体对照（案例 13）（汇总）",
+      "value": {
+        "width": 1920,
+        "height": 1080
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节跨案例对照汇总：根字号与字体对照（案例 13）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 13 节 · s093",
+        "note": "根字号与字体对照（案例 13）：案例 13（CSS rem）：html font-size clamp(15px, calc(0.9vh+0.45vw), 21px)；1920×1080=18.36 px；1280×720 被下限抬到 15 px；显示 Cinzel、正文 Cormorant Garamond（网络字体服务 外链）"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d208.resolution"
+      ],
+      "ext": {
+        "c12.sourceId": "s093",
+        "c12.section": "13"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s103",
+      "domain": "color-grade-delivery",
+      "topic": "fx-ui.s24.display-color",
+      "title": "主色与强调色对照（案例 27）（汇总）",
+      "value": [
+        0.058824,
+        0.058824,
+        0.066667
+      ],
+      "unit": "rgb-display",
+      "colorSpace": "srgb-display",
+      "conditions": {
+        "appliesWhen": [
+          "第 13 节跨案例对照汇总：主色与强调色对照（案例 27）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-27",
+        "evidenceLevel": "实测",
+        "docRef": "特效粒子界面二维汇编 · 第 13 节 · s103",
+        "note": "主色与强调色对照（案例 27）：案例 27（实测）：画布底 #0F0F11；青柠色箭头光标"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d361.display-color"
+      ],
+      "ext": {
+        "c12.sourceId": "s103",
+        "c12.section": "13",
+        "c12.hex": "#0F0F11"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s107",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.transition-time",
+      "title": "HUD 元件时长对照（案例 13 横幅）（汇总）",
+      "value": 1.2,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节跨案例对照汇总：HUD 元件时长对照（案例 13 横幅）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · s107",
+        "note": "HUD 元件时长对照（案例 13 横幅）：案例 13 横幅（DOM）：area 1.2/3/1.7=5.9 s；victory 1.5/4.6/2.2=8.3 s；title 2.4/5.2/2.6=10.2 s；提示卡 5.5 s；通知 3.6 s；字幕 4 s"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d227.transition-time"
+      ],
+      "ext": {
+        "c12.sourceId": "s107",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s108",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s15.duration",
+      "title": "HUD 元件时长对照（案例 02）（汇总）",
+      "value": 6,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 15 节跨案例对照汇总：HUD 元件时长对照（案例 02）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-02",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 15 节 · s108",
+        "note": "HUD 元件时长对照（案例 02）：案例 02（DOM）：名称卡默认 3.2 s（波次卡 2.6）；警告胶囊 1.1–3 s（缺省 1.7）；连击窗口 6 s；击杀播报出场延迟 3200 ms；受击暗角 650 ms；方向弧 700 ms"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d233.duration"
+      ],
+      "ext": {
+        "c12.sourceId": "s108",
+        "c12.section": "15"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s114",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s17.duration",
+      "title": "动效时长与缓动对照（案例 13）（汇总）",
+      "value": 7.5,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "第 17 节跨案例对照汇总：动效时长与缓动对照（案例 13）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-13",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 17 节 · s114",
+        "note": "动效时长与缓动对照（案例 13）：案例 13（CSS）：加载淡出 1.4 s；标题淡入 1.6 s；徽记呼吸 5 s；片名高光扫过 7.5 s（延迟 1.2 s）；缓动 --ease-out cubic-bezier(.16,.84,.3,1)、--ease-io cubic-bezier(.65,0,.35,1)"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d250.duration"
+      ],
+      "ext": {
+        "c12.sourceId": "s114",
+        "c12.section": "17"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s132",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s23.ratio",
+      "title": "动态字幕与 2D 动效规则对照（2D 动画原则）（汇总）",
+      "value": 0.2,
+      "unit": "ratio",
+      "conditions": {
+        "appliesWhen": [
+          "第 23 节跨案例对照汇总：动态字幕与 2D 动效规则对照（2D 动画原则）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-ext03",
+        "evidenceLevel": "文档",
+        "docRef": "特效粒子界面二维汇编 · 第 23 节 · s132",
+        "note": "动态字幕与 2D 动效规则对照（2D 动画原则）：2D 动画原则（原文）：挤压拉伸最多 20%；标题逐词弹入错峰 40 ms（另例 30 ms）；强调词后 200 ms 荧光笔扫过"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d349.ratio"
+      ],
+      "ext": {
+        "c12.sourceId": "s132",
+        "c12.section": "23"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s135",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.resolution",
+      "title": "版式与水印预留对照（案例 15）（汇总）",
+      "value": {
+        "width": 1080,
+        "height": 1920
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节跨案例对照汇总：版式与水印预留对照（案例 15）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-15",
+        "evidenceLevel": "实测",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · s135",
+        "note": "版式与水印预留对照（案例 15）：案例 15（实测）：总 1080×1920；三行各 608 行；黑缝 25/26 行；上黑边 23 行、下黑边 22 行"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d357.resolution"
+      ],
+      "ext": {
+        "c12.sourceId": "s135",
+        "c12.section": "24"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s136",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.resolution",
+      "title": "版式与水印预留对照（案例 27）（汇总）",
+      "value": {
+        "width": 2304,
+        "height": 2304
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节跨案例对照汇总：版式与水印预留对照（案例 27）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-27",
+        "evidenceLevel": "实测",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · s136",
+        "note": "版式与水印预留对照（案例 27）：案例 27（实测）：主片 2304×2304；左面板 x48–1127、y192–2111（1080×1920）；右面板 x1176–2255；圆角约 16–20 px"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d361.resolution"
+      ],
+      "ext": {
+        "c12.sourceId": "s136",
+        "c12.section": "24"
+      }
+    },
+    {
+      "id": "fx-ui.sum.s137",
+      "domain": "fx-particles-ui-2d",
+      "topic": "fx-ui.s24.resolution",
+      "title": "版式与水印预留对照（案例 29）（汇总）",
+      "value": {
+        "width": 1080,
+        "height": 608
+      },
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "第 24 节跨案例对照汇总：版式与水印预留对照（案例 29）"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-29",
+        "evidenceLevel": "实测",
+        "docRef": "特效粒子界面二维汇编 · 第 24 节 · s137",
+        "note": "版式与水印预留对照（案例 29）：案例 29（实测）：1080×1350；上边距 44、中缝 46（含 4 行分隔线）、下边距 44；两块 1080×608；水印预留约 26% 宽×10% 高"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "fx-ui.d363.resolution"
+      ],
+      "ext": {
+        "c12.sourceId": "s137",
+        "c12.section": "24"
+      }
+    }
+  ]
+}
