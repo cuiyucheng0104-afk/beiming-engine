@@ -29,17 +29,9 @@ createPriorsStore(table).query({ unit: 'LUFS', onlyVerified: true });
 - `verifiedInOurStack: true` 必须带 `readbackEvidence` 对象（含字符串 `envKey`、`reportSha256`），`false` 不得带；`false` 的值没在我方读回，不能当默认值。`get`/`query` 返回条目带 `readbackLabel`，`get`/`query`/`stats` 返回深冻结只读视图。
 - 汇总行用无重复的字符串 ID 数组 `summaryOf` 指回明细，默认不进查询，`stats().detailCount` 不计。同子题、同案例、同适用条件只收一条。
 - 拒收私有路径（`复刻/`、`调研资料/`、`北冥引擎规划/`、`实验室/`、`原包源码`、`cards-overlay`、`exams-hidden`）、`lab://`、本机路径（含 `~`、`/tmp/`、`file:///`，公开 `http(s)` 路由不误伤）、不带规范小写 `sha256:` 前缀的 64 位十六进制，以及非纯 JSON、保留键、重复 JSON 键、超安全整数、孤立代理码元。自检：`node --test beiming/cards/priors.test.mjs`。
+## 批次先验库（C10 / C11 / C12）
 
-## 第二批先验（C11）
-
-`priors-batch2.mjs` 载入三份参数汇编迁入的数据：`arch-scene`（建筑、场景、地形与水，526 条）、`motion-rig`（动作与骨骼，609 条）、`light-cam`（光照、天空大气与相机，687 条）。
-
-```js
-import { loadBatch2PriorsStore, getBatch2CardPriors } from './index.mjs';
-loadBatch2PriorsStore('light-cam').query({ unit: 'mm' });
-getBatch2CardPriors('camera.shake'); // 三份都查；第二参限定某一份
-```
-
-- `loadBatch2PriorsStore(collection)`（另有 `loadArchScenePriorsStore` 等三个别名）回可移植量的检索库，条目全部「未在我方读回」。
-- `getBatch2CardPriors(cardId, collection?)` 回挂卡先验（`useAsDefault: false`，卡在目标帧源重新标定读回前只作参考）；`getBatch2Practices(collection?)` 回做法与修法。
-- `getBatch2MigrationManifest(collection)` 回总账：`rows` 逐条记去向 `route`、案例 `caseId`、挂卡行的目标卡 `target`、汇总行指回的明细 `summaryOf`。有可移植量的汇总行用 `detailRefs` 列出明细先验 ID。`routeOverrides` 记改判理由，`summaryLinkOverrides` 在改过汇总关联时保留原主明细和并列明细。`blindAudit` 记当前采用的冻结票与分歧（建筑、光照用 R3，动作用 R2）。前两份的 R2 原票在 `audit.r2BlindAudit`。单测另按三审原种子回放三份共 184 票。已知源文修复见 `knownFixes`。集合名见 `C11_COLLECTIONS`，写错抛 `TypeError`。自检：`node --test beiming/cards/c11-priors.test.mjs`。
+- 第一批（C10）：`priors-audio-subs.mjs` 载入 `audio-subs`（540 条），经 `index.mjs` 导出 `loadAudioSubsPriorsStore` 等；自检 `node --test beiming/cards/c10-priors.test.mjs`。
+- 第二批（C11）：`priors-batch2.mjs` 载入 `C11_COLLECTIONS`（`arch-scene` 526、`motion-rig` 609、`light-cam` 687 条）；导出 `loadBatch2PriorsStore(collection)`（及三别名）、`getBatch2CardPriors(cardId, collection?)`（`useAsDefault: false`）、`getBatch2Practices(collection?)`、`getBatch2MigrationManifest(collection)`（`rows`、`detailRefs`、`routeOverrides`、`summaryLinkOverrides`、`blindAudit`、`knownFixes`；未知集合抛 `TypeError`）。自检 `node --test beiming/cards/c11-priors.test.mjs`。
+- 第三批（C12）：`priors-batch3.mjs` 载入 `C12_COLLECTIONS`（`fx-ui` 528、`mat-hardsurf` 759、`render-pipe` 287 条，共 1,574 条，数据在 `priors-data/<集合>.{json,card-priors.json,practices.json,manifest.json}`）；导出 `loadBatch3PriorsStore(collection)`（及三别名，直传 `createPriorsStore`）、`getBatch3CardPriors(cardId, collection?)`（`useAsDefault: false`）、`getBatch3Practices(collection?)`、`getBatch3MigrationManifest(collection)`（深冻结只读，未知集合抛 `RangeError`）。自检 `node --test beiming/cards/c12-priors.test.mjs`。
+  - C12 依 05 §8.1 判定：主体为独立物理/时序/工程尺寸/交付/通用界面规范/单一 PBR 标量入 `portable`（无合法值可提则降级挂卡）；特定角色/技能/着色器公式/多槽色板/模板参数包入 `card-coupled`（`useAsDefault: false`）；跨项目通用算法/工序/排错入 `practice`；纯指针/空壳/版本冲突对账入 `skipped-or-conflict`。
