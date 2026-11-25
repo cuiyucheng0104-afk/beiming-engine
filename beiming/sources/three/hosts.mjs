@@ -1,7 +1,7 @@
 // three 帧源的宿主注册表与 host:'any' 解析策略。
 // 主线验收与基准考题只准入浏览器页面宿主（page）；Node + Dawn 离屏宿主（offscreen）登记为显式实验宿主条目，
 // 仅在显式开启实验对拍（allowExperimental: true 且非主线验收、非考题）时参与 host:'any' 双宿主展开与离屏渲染。
-import { renderingOf } from '../../kernel/eval/input.mjs';
+import { renderingOf, SHOT_INPUT_EXAM } from '../../kernel/eval/input.mjs';
 
 export class SourceError extends Error {
   /** next 是可选的「接下来可以怎么办」：一组可执行的替代办法，每项 { verb, why }（和 API 错误信封的 next 同一个写法） */
@@ -87,7 +87,7 @@ export function resolveThreeHost(shot, opts = {}) {
     throw bad(`three 帧源不认识宿主 ${host}（只支持 page、offscreen 或 any）`);
   }
 
-  const inExam = exam || hasExam(shot.exam) || hasExam(rawShot.exam);
+  const inExam = exam || hasExam(shot[SHOT_INPUT_EXAM]) || hasExam(shot.exam) || hasExam(rawShot.exam);
   const experimentalAllowed = allowExperimental && !mainline && !inExam;
 
   if (!experimentalAllowed) {

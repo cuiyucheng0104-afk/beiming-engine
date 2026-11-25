@@ -1,7 +1,7 @@
 // 装载和出帧之前的计划：这个镜头装不装得了、要的输出交不交得出、生效的快门、子帧相位、输出尺寸。
 // 纯函数，不碰渲染器，页面和 node 两边都引用。交不出的请求一律报带错误码的错，不少交、不换一种交。
 import { checkInstanceNames, expandOverlays, implFor, parseCardRef, unfitReason } from '../../cards/runtime.mjs';
-import { renderingOf } from '../../kernel/eval/input.mjs';
+import { renderingOf, SHOT_INPUT_EXAM } from '../../kernel/eval/input.mjs';
 import { shutterSubs } from '../../kernel/eval/time.mjs';
 import { resolveThreeHost, SourceError } from './hosts.mjs';
 
@@ -79,7 +79,7 @@ export function planOpen(caps, input, env, library = {}) {
     ? resolveThreeHost(shot, {
       allowExperimental,
       mainline: Boolean(env.mainline || env.mainlineAcceptance),
-      exam: Boolean(env.exam || input.exam),
+      exam: Boolean(env.exam || input.exam || input[SHOT_INPUT_EXAM]),
     })
     : host;
   const hostList = Array.isArray(resolvedHost) ? resolvedHost : [resolvedHost];

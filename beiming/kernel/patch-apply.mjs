@@ -375,9 +375,7 @@ function expected(e) {
   }
 }
 
-const patchSourceRegistry = structuredClone(sourceRegistry);
-patchSourceRegistry.sources.three.hosts = [...patchSourceRegistry.sources.three.hosts, 'any'];
-const filmContext = { registries: { source: patchSourceRegistry }, schema: null };
+const filmContext = { registries: { source: sourceRegistry }, schema: null };
 
 // 第 6 步在一份片子描述上查出的全部违反：没定义的键一列，其余值域违反一列。每处带一个跨状态可比的 id。
 function violations(doc, base) {

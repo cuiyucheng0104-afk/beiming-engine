@@ -38,6 +38,7 @@
 
 - `motion` 交不出；场景查询只答 `bbox3d`、`anchor`、`belowGround`，别的报 `contract.unsupported-query`（带 `next`），见 `DETAILS.md`；每像素只取 1 个样本，多了报 `contract.unsupported-option`。
 - 作者模式默认只有 `native-code`；`startSource({ cards })` 提供了卡才有 `cards-data`。
+- 宿主与正式写片/签锁边界：正式 `film.json` / `film.lock` 全链路（`applyFilmWrite` → `L1` → `lock-gen` → 冻结 `LK4` 与 `source/registry.json`）只收具体宿主 `'page'`，一致拒绝 `'any'` 与 `'offscreen'`，确保离屏实验宿主无法混入主线正式锁；`host: 'any'` 作为 three 帧源与双宿主实验对拍入口（`resolveThreeHost`、`openOffscreenHost`、`page` 宿主对拍 `PSNR ≥ 50 dB` / 差 `> 5/255` 占比 `≤ 0.1%`）的宿主选择器工作，在主线验收、基准考题（含 `shotInput` 非枚举考题标记）或默认未开启实验宿主时仅落 `'page'`，显式 `offscreen` 报 `contract.unsupported-mode`。
 - 没有场景包：实体编号按名字字节序从 1 起；类别：点云 `particles`，名下有实体的 `assembly`，其余 `part`。
 - 资产没接；叠加层要的卡还没有，都报 `contract.unsupported-input`。
 

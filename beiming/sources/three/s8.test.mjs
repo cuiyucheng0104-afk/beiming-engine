@@ -4,10 +4,12 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { issueAccountToken } from '../../api/auth.mjs';
 import { scaffold } from '../../api/films.mjs';
+import { startServer } from '../../api/server.mjs';
 import {
   compareHostFrames,
   linearRgbaToUint8,
@@ -17,8 +19,9 @@ import {
 import { startSource } from '../../host/page/host.mjs';
 import { checks as lockChecks } from '../../kernel/contracts/lock/check.mjs';
 import { loadContracts } from '../../kernel/contracts/validate.mjs';
-import { shotInput } from '../../kernel/eval/input.mjs';
+import { SHOT_INPUT_EXAM, shotInput } from '../../kernel/eval/input.mjs';
 import { applyFilmWrite } from '../../kernel/patch-apply.mjs';
+import { checkL1 } from '../../verify/l1.mjs';
 import { caps } from './caps.mjs';
 import { listThreeHosts, resolveThreeHost, SourceError, THREE_HOSTS } from './hosts.mjs';
 import { planOpen } from './plan.mjs';
@@ -26,23 +29,32 @@ import { planOpen } from './plan.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const isCode = (code) => (err) => err instanceof SourceError && err.code === code;
 
-function isChromiumInstalled() {
-  if (process.env.BEIMING_CHROME) return existsSync(process.env.BEIMING_CHROME);
+function resolvePlaywrightBrowsersDir(env = process.env, cwd = process.cwd()) {
+  const root = resolve(HERE, '../../..');
+  const envPath = env.PLAYWRIGHT_BROWSERS_PATH;
+  let base;
+  if (envPath === '0') {
+    base = join(root, 'node_modules/playwright-core/.local-browsers');
+  } else if (envPath) {
+    base = envPath;
+  } else {
+    base = process.platform === 'darwin'
+      ? join(homedir(), 'Library/Caches/ms-playwright')
+      : process.platform === 'win32'
+        ? join(env.LOCALAPPDATA || join(homedir(), 'AppData/Local'), 'ms-playwright')
+        : join(env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'ms-playwright');
+  }
+  return isAbsolute(base) ? base : resolve(env.INIT_CWD || cwd, base);
+}
+
+function isChromiumInstalled(env = process.env, cwd = process.cwd()) {
+  if (env.BEIMING_CHROME) return existsSync(env.BEIMING_CHROME);
   try {
     const root = resolve(HERE, '../../..');
     const bj = JSON.parse(readFileSync(join(root, 'node_modules/playwright-core/browsers.json'), 'utf8'));
     const rev = bj.browsers.find((b) => b.name === 'chromium-headless-shell')?.revision;
     if (!rev) return false;
-    const env = process.env.PLAYWRIGHT_BROWSERS_PATH;
-    const base = env === '0'
-      ? join(root, 'node_modules/playwright-core/.local-browsers')
-      : env
-        ? env
-        : process.platform === 'darwin'
-          ? join(homedir(), 'Library/Caches/ms-playwright')
-          : process.platform === 'win32'
-            ? join(process.env.LOCALAPPDATA || join(homedir(), 'AppData/Local'), 'ms-playwright')
-            : join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'ms-playwright');
+    const base = resolvePlaywrightBrowsersDir(env, cwd);
     return existsSync(join(base, `chromium_headless_shell-${rev}`));
   } catch {
     return false;
@@ -143,7 +155,8 @@ test('S8-2 resolveThreeHost 与 planOpen：主线/考题/默认只落 page 并�
   assert.equal(resolveThreeHost({ ...anyShot, exam: '1-1' }, { allowExperimental: true }), 'page');
   assert.throws(() => resolveThreeHost({ ...offShot, exam: '1-1' }, { allowExperimental: true }), isCode('contract.unsupported-mode'));
 
-  // 正式写片补丁（applyFilmWrite）与 shotInput 考题上下文保留：普通片与考题片写 shots/*/host = 'any' 均通过 D11，写 'offscreen' 均被拒
+  // 正式写片补丁（applyFilmWrite）与冻结 source/registry.json / LK4 一致：普通片与考题片只收具体宿主 'page'，一致拒绝 'any' 与 'offscreen'；
+  // 同时 shotInput(examFilm, 's01') 通过非枚举 Symbol 保留考题上下文，不污染冻结 shot-input.schema.json
   const question = JSON.parse(readFileSync(resolve(HERE, '../../kernel/contracts/question-file/examples/minimal.json'), 'utf8'));
   for (const q of [undefined, question]) {
     const { film } = scaffold({ id: 'review', question: q });
@@ -153,14 +166,16 @@ test('S8-2 resolveThreeHost 与 planOpen：主线/考题/默认只落 page 并�
       { rev: 1 },
     );
     assert.equal(put('page').ok, true);
-    assert.equal(put('offscreen').ok, false);
-    const rAny = put('any');
-    assert.equal(rAny.ok, true, `${q?.id ?? '普通片'} 写 host:'any' 应通过 D11，实际: ${rAny.code} ${rAny.message}`);
+    assert.equal(put('any').ok, false, `${q?.id ?? '普通片'} 正式写片不得接受抽象选择器 host:'any'`);
+    assert.equal(put('offscreen').ok, false, `${q?.id ?? '普通片'} 正式写片不得接受实验宿主 host:'offscreen'`);
   }
   const { film: examFilm } = scaffold({ id: 'review', question });
   examFilm.shots = [{ ...anyShot }];
   const examInput = shotInput(examFilm, 's01');
-  assert.equal(examInput.exam, question.id);
+  assert.equal(examInput.exam, undefined);
+  assert.equal(Object.hasOwn(examInput, 'exam'), false);
+  assert.equal(JSON.stringify(examInput).includes('"exam"'), false);
+  assert.equal(examInput[SHOT_INPUT_EXAM], question.id);
   assert.equal(resolveThreeHost(examInput, { allowExperimental: true }), 'page');
 
   // 2. 实验对拍模式（allowExperimental: true 且非主线/非考题）：host:'any' 展开为 ['page', 'offscreen']
@@ -461,4 +476,110 @@ test('S8-5 严格跳过条件：仅在真实缺少 Dawn 或 Chromium 时跳过�
   );
   assert.notEqual(r.status, 0, '两个宿主均已安装，临时目录故障应使真实对拍失败');
   assert.ok(!r.stdout.includes('# SKIP'), '两个宿主均已安装时，临时目录故障不得标为 # SKIP');
+});
+
+test('S8-6 正式写片与签锁链（applyFilmWrite / HTTP PUT / L1 / LK4）一致只收具体宿主 page，拒绝 any 与 offscreen', async () => {
+  const question = JSON.parse(readFileSync(resolve(HERE, '../../kernel/contracts/question-file/examples/minimal.json'), 'utf8'));
+  // L1 与冻结 LK4 核验：正式片子与锁文件只收具体宿主 page，一致拒绝 any（含 three 与非 three）和 offscreen
+  const { film: fPage } = scaffold({ id: 'l1-page' });
+  fPage.shots[0].host = 'page';
+  assert.equal(checkL1(fPage).ok, true, JSON.stringify(checkL1(fPage).diagnostics));
+  const { film: fAny } = scaffold({ id: 'l1-any' });
+  fAny.shots[0].host = 'any';
+  assert.equal(checkL1(fAny).ok, false);
+  const { film: fOff } = scaffold({ id: 'l1-off' });
+  fOff.shots[0].host = 'offscreen';
+  assert.equal(checkL1(fOff).ok, false);
+  const { film: fCoreAny } = scaffold({ id: 'l1-core-any' });
+  fCoreAny.shots[0] = { id: 's01', in: 0, out: fCoreAny.output.frames, source: 'core', host: 'any', mode: 'cards-data', colorRef: 'display' };
+  assert.equal(checkL1(fCoreAny).ok, false);
+
+  const pageLock = { sources: { three: { host: 'page', version: caps().version } } };
+  assert.deepEqual(lockChecks.LK4({ format: 'lock-check/0.1', lock: pageLock, film: fPage }), []);
+  assert.ok(lockChecks.LK4({ format: 'lock-check/0.1', lock: pageLock, film: fAny }).length > 0);
+  assert.ok(lockChecks.LK4({ format: 'lock-check/0.1', lock: pageLock, film: fOff }).length > 0);
+
+  // 正式 HTTP PUT（applyFilmWrite → L1）：普通片与考题 1-1 写 page 返回 200，写 any 与 offscreen 均返回 422 且回读仍为 page
+  const dataDir = await mkdtemp(join(tmpdir(), 'beiming-s8-put-'));
+  const account = issueAccountToken(dataDir);
+  const api = await startServer({ dataDir, reviewer: null });
+  async function call(method, path, token, body) {
+    const res = await fetch(api.url + path, {
+      method,
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+    return [res.status, await res.json()];
+  }
+  try {
+    for (const opts of [{}, { exam: question.id }]) {
+      const [created, result] = await call('POST', '/v1/films', account, opts);
+      assert.equal(created, 200);
+      const { film, token } = result.data;
+      const path = `/v1/films/${film}/film`;
+      const put = (rev, value) => call('PUT', path, token, {
+        format: 'patch/0.1',
+        rev,
+        ops: [{ op: 'set', path: 'shots/s01/host', value }],
+      });
+      const [sPage, rPage] = await put(1, 'page');
+      assert.equal(sPage, 200);
+      const [sAny] = await put(rPage.data.rev, 'any');
+      assert.equal(sAny, 422, `${opts.exam ?? '普通片'} 正式 PUT host:'any' 必须与冻结 LK4 / source/registry.json 一致返回 422`);
+      const [sOff] = await put(rPage.data.rev, 'offscreen');
+      assert.equal(sOff, 422, `${opts.exam ?? '普通片'} 正式 PUT host:'offscreen' 必须被拒绝`);
+      const [sRead, after] = await call('GET', path, token);
+      assert.equal(sRead, 200);
+      assert.equal(after.data.film.shots[0].host, 'page');
+    }
+  } finally {
+    await api.close();
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
+
+test('S8-7 冻结 shot-input.schema.json 合规与相对 PLAYWRIGHT_BROWSERS_PATH（INIT_CWD）解析', async () => {
+  const question = JSON.parse(readFileSync(resolve(HERE, '../../kernel/contracts/question-file/examples/minimal.json'), 'utf8'));
+  const { validate } = await loadContracts();
+  for (const q of [undefined, question]) {
+    const { film } = scaffold({ id: 'review', question: q });
+    const input = shotInput(film, 's01');
+    assert.equal(input.shot.host, 'page');
+    assert.deepEqual(validate(input, 'source', 'shot-input.schema.json').schemaErrors, []);
+    assert.equal(Object.hasOwn(input, 'exam'), false);
+    assert.equal(JSON.stringify(input).includes('"exam"'), false);
+    if (q) {
+      assert.equal(input[SHOT_INPUT_EXAM], q.id);
+      assert.equal(resolveThreeHost(input, { allowExperimental: true }), 'page');
+    } else {
+      assert.equal(input[SHOT_INPUT_EXAM], undefined);
+    }
+  }
+
+  // 相对 PLAYWRIGHT_BROWSERS_PATH 必须优先以 INIT_CWD 为基准（对齐 Playwright 行为），而非只用 process.cwd()
+  const fakeHome = homedir();
+  const relDir = resolvePlaywrightBrowsersDir(
+    { INIT_CWD: fakeHome, PLAYWRIGHT_BROWSERS_PATH: 'Library/Caches/ms-playwright' },
+    '/tmp/unrelated-cwd',
+  );
+  assert.equal(relDir, join(fakeHome, 'Library/Caches/ms-playwright'));
+  const absDir = resolvePlaywrightBrowsersDir(
+    { INIT_CWD: '/tmp/ignored', PLAYWRIGHT_BROWSERS_PATH: '/opt/pw-browsers' },
+    '/tmp/unrelated-cwd',
+  );
+  assert.equal(absDir, '/opt/pw-browsers');
+  const fallbackDir = resolvePlaywrightBrowsersDir(
+    { PLAYWRIGHT_BROWSERS_PATH: 'rel-browsers' },
+    '/tmp/my-cwd',
+  );
+  assert.equal(fallbackDir, resolve('/tmp/my-cwd', 'rel-browsers'));
+  if (process.platform === 'darwin' && existsSync(join(fakeHome, 'Library/Caches/ms-playwright'))) {
+    assert.equal(
+      isChromiumInstalled({ INIT_CWD: fakeHome, PLAYWRIGHT_BROWSERS_PATH: 'Library/Caches/ms-playwright' }, '/tmp/unrelated-cwd'),
+      isChromiumInstalled({}, '/tmp/unrelated-cwd'),
+    );
+  }
 });

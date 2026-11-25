@@ -3,7 +3,7 @@
 // 严禁进入主线验收与基准考题；不引用 engine/offscreen/ 旧目录，保持架构守卫 100% 绿灯。
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { renderingOf } from '../../kernel/eval/input.mjs';
+import { renderingOf, SHOT_INPUT_EXAM } from '../../kernel/eval/input.mjs';
 import { stream, streamName } from '../../kernel/eval/rng.mjs';
 import { caps, VERSION } from '../../sources/three/caps.mjs';
 import { resolveThreeHost, THREE_HOSTS } from '../../sources/three/hosts.mjs';
@@ -147,7 +147,7 @@ export function compareHostFrames(pageRgba, offscreenRgba, opts = {}) {
  */
 export async function openOffscreenHost(opts = {}) {
   if (opts !== undefined && !isPlainObj(opts)) throw bad('openOffscreenHost 的 opts 必须是普通对象');
-  if (opts?.mainline === true || opts?.mainlineAcceptance === true || hasExam(opts?.exam)) {
+  if (opts?.mainline === true || opts?.mainlineAcceptance === true || hasExam(opts?.exam) || opts?.context === 'exam') {
     throw new SourceError('contract.unsupported-mode', 'three 离屏实验宿主（offscreen）严禁用于主线验收或基准考题');
   }
 
@@ -168,7 +168,7 @@ export async function openOffscreenHost(opts = {}) {
       throw bad('input 必须是包含 shot 与 output 的普通对象');
     }
     if (!isPlainObj(env)) throw bad('env 必须是普通对象');
-    const inExam = hasExam(env.exam) || hasExam(input.exam) || hasExam(input.shot.exam);
+    const inExam = hasExam(input?.[SHOT_INPUT_EXAM]) || hasExam(input?.exam) || hasExam(input.shot.exam) || hasExam(env.exam) || env.context === 'exam';
     if (env.mainline === true || env.mainlineAcceptance === true || inExam) {
       throw new SourceError('contract.unsupported-mode', 'three 离屏实验宿主（offscreen）严禁用于主线验收或基准考题');
     }
