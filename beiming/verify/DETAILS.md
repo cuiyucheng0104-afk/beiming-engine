@@ -1,8 +1,36 @@
-# Welch 检验细则
+# 验收：细则
 
-[README.md](README.md) 的补充：`welch.mjs` 的数值口径、通道选择、校准实测、已知误报漏报和输入校验边界。接口与输出结构看 README。文末另有 `controllability.mjs` 两项回归作业（局部性、加锁重建）的细则。
+[README.md](README.md) 的补充。下面依次说明 M3 验收谓词与拼装模板、Welch 检验的数值口径，以及局部性、加锁重建两项回归作业。
 
-## 做法与数值口径
+## M3 验收谓词（V12 / V13）
+
+用 `evaluateAssertion(expr, film, measured)` 判一条断言。帧号是全片帧号，`@ [a,b)` 不含 `b`。`pass` 是有证据且达标；`skipped` 带原因，不可当作通过。反例看 `counterexampleFrame`、`measured`、`expected` 与修复建议；全片的编码标签、时长和音频峰值不一定能定位到单帧。
+
+| 判什么 | 断言与实测口径 |
+|---|---|
+| 穿插与接触 | `no_intersect(a, b, tol=0.5mm)` 检查最大穿插深度，默认不容许穿插；`contact(a, b, max=1mm)` 检查间隙上限。取 Blender 的 `measured.queries`，例如 `{frame, result:{kind:'contact', items:[{a,b,value,unit:'m'}]}}`。查询缺失不等于零间隙。 |
+| 到位静止 | `at_rest(hero) @ [24,48)` 看实体运动读数或相邻抽样位置的变化，默认上限 `0.0001`。需要检查到位以后的保持段时，给区间而非只给到位帧。 |
+| 取景 | `bbox_w` / `bbox_h` 是 `bbox2d` 的宽高除以画幅宽高；`margin_lr` / `margin_tb` 分别看相对的两边中较小的边距，不能用平均值掩盖贴边。例如 `margin_lr(hero) >= 0.05`、`bbox_h(hero) in [0.4,0.7]`。 |
+| 反白与曝光 | `highlight_clip_ratio()` 看高光削顶像素占比，默认 `<= 0.02`；`luma_p99()` 看归一化亮度的 99 分位，默认 `<= 0.98`。有实体参数时只认实体统计，不能拿整片平均替代金属端面或地面读数。整片可直接传 O8/O9 读数。 |
+| 焦内 | `in_focus(hero)` 看主体深度范围，薄透镜弥散圆按画幅宽度换成像素；焦距和传感器宽用 mm，对焦距离和主体深度用 m。也可给直接读回的 `cocPx` 或相机景深范围，默认弥散圆上限 2 px。 |
+| 特效可见度 | `fx_visible(glow, minArea=0.03)` 看区间内最大的可见面积占比，不要求特效每帧常亮；证据是实体 `pxArea` 或开关特效差图。 |
+| 切镜重影 | `no_ghost(120)` 取 O9 对切点 120 的 `perCut` 读数；`no_ghost(shots)` 按镜头表核对切点。默认要求能量 `<= 0.15` 且未标出重影；低对比度、缺相邻帧都不能作为干净硬切的证据。 |
+| 编码后读回 | `encoded_readback()` 只认编码后实测：完整 `bt709/bt709/bt709/tv` 标签或等价四元组、严格相等的帧数、与 `frames/fps` 相差不超过半帧的时长。有音轨还须提供编码后 `audio.truePeakDbtp <= -1.0`。缺字段直接 `fail`，不能用编码配置或编码前峰值代替。 |
+
+O9 两种读数可直接传给求值器，不需导入媒体解码器到验收模块：
+
+```js
+const measured = {
+  lumaPercentile: await lumaPercentile(video, { cuts: [120] }),
+  cutGhost: await cutGhost(video, { cuts: [120] }),
+};
+const exposure = evaluateAssertion('luma_p99() <= 0.98', film, measured);
+const transition = evaluateAssertion('no_ghost(120)', film, measured);
+```
+
+`template:assembly@1`（V7）要求每个镜头绑定 `hero` 和非空的 `mustSee` 实体列表。在 `floor@1` 六条之外，模板另有四项：`inside_frame(hero, margin=0.05)`、`at_rest(hero)`、`no_intersect(hero, mustSee)`、`cut_at(shots) ; no_cut`。通过 `registeredTemplate('assembly', 1)` 取得登记原件，用 `enforcePredicateFloor(film, template, { entities })` 核角色与 base，再用 `evaluateItem` 逐项取证；`evaluateFloor` 仍只判冻结的六条。
+
+## Welch 检验：做法与数值口径
 
 - **做法**：三通道先取线性亮度，按 `blockSize × blockSize` 求块均值（尾块按实际像素数平均），每个单元算两边的均值和无偏方差，做 Welch t 检验（Welch–Satterthwaite 自由度，双侧 p 值），再对参检单元做 Benjamini–Hochberg 校正。
 - **数值口径**：块均值与偏差图均对精确商作单次最近偶数舍入：块均值是「块内像素的精确和除以像素数」这个有理数的最近双精度数，每个单元的 `biasMap` 是「两边 2K 个带符号样本的精确和除以 K」的最近双精度数（两边共有的大数先精确相消）。不先把和舍入成 53 位再除，所以 3、5 个像素的尾块、不是 2 的幂的 K、商落进次正规区时都不多舍一次，`[5.25, 6×2^-52, 0]` 对 `[5.25, 9×2^-52, 0]` 这样只差 1 个末位的块均值不会被并成相等。块均值只取决于这批像素的多重集：同一批像素怎么排列都得逐位相同的均值，`[-2^54, 2^54, 100]` 对 `[-2^54, 2^54, 101]` 这种大数相消后才露出来的差也照常检出。判据按实现的顺序：先看 `maxAbs × n < 2^1023`，满足就用 Shewchuk 精确求和（同 Python 的 `math.fsum`）算出 `sum`；`sum === 0` 时对任意除数直接返回 0；和不为 0 时，只有除数是 2 的幂且 `abs(sum) >= divisor × 2^-1021` 才走只移指数的快速路径；其余（含 `maxAbs × n >= 2^1023`）保留整数余数作单次最近偶数舍入（BigInt 整数除法）。两条路算的是同一个精确商，后者慢：640×360、K=16 实测 3×3 块约 1.4 秒（8×8 块约 0.14 秒），K=5 逐像素约 0.87 秒（K=16 约 0.61 秒）。方差不用边读边更新的算法：每组先减去组内最小值，再按离差的量级除掉一个 2 的幂后中心化、平方、精确求和，所以 `1` 与 `1 + 2^-52` 这样只差 1 个末位的样本方差不会被舍成 0，同一组种子换个次序 p 值逐位相同。自由度按两边方差之比算。样本整体乘同一个正数（1e-250 到 1e250 都测过）p 值不变，乘的是 2 的幂时逐位不变。贴近双精度上限、几个数相加就溢出的块和单元也走 BigInt，结果与常规路径是同一个函数；两边符号相反又都贴近 1.8e308、均值差不可表示时 `biasMap` 记 `±Infinity`，检验照常出结果。分辨率的下限是双精度本身：两个精确均值的相对差小于 2^-52（或差值小于最小次正规数）时可能落到同一个双精度数上，这样的单元算相等；t 的绝对值超过约 1e154（平方溢出）时 p 记 0。全高清三通道 K=16 逐像素约 5 秒、8×8 块约 1.5 秒（Darwin arm64、Node 24 实测）。

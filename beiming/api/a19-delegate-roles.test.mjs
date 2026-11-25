@@ -1690,8 +1690,8 @@ test('A19-12 [R2-B3 & R2-B4] 重复候选 ID 拒收、无 film 时 totalFrames �
   const examAgg = aggregateL5Votes(votes(p), { film, question });
   assert.deepEqual(examAgg.validatedExtraPredicates, [p]);
   assert.deepEqual(examAgg.rejectedPredicates, []);
-  // 而如果 L5 自己建议未实现的计划谓词 bbox_w，仍须拦截
-  const plannedAgg = aggregateL5Votes(votes('bbox_w(subject) <= 0.50 @ all'), { film, question });
+  // 而如果 L5 自己建议未实现的计划谓词 key_fill_ratio，仍须拦截
+  const plannedAgg = aggregateL5Votes(votes('key_fill_ratio(subject) <= 2 @ all'), { film, question });
   assert.deepEqual(plannedAgg.validatedExtraPredicates, []);
   assert.equal(plannedAgg.rejectedPredicates.length, 1);
 

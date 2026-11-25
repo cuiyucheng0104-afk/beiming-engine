@@ -540,7 +540,7 @@ test('L1 非法输入和 planned 断言各有诊断', () => {
     assert.equal(result.ok, false);
     assert.ok(result.diagnostics.length);
   }
-  const film = makeFilm({ predicates: { base: ['floor@1'], extra: ['bbox_w(hero) >= 0.1', 'no_intersect(kit.*, kit.*, tol=0.3mm)'] } });
+  const film = makeFilm({ predicates: { base: ['floor@1'], extra: ['key_fill_ratio(hero) >= 2', 'orbit_total(camera, hero) >= 90'] } });
   const r = checkL1(film);
   assert.equal(r.ok, false);
   assert.equal(r.diagnostics.filter((d) => d.code === 'contract.bad-value' && d.evidence === 'predicate.planned' && d.hint).length, 2);
@@ -677,7 +677,7 @@ test('二审 N1 & N2：完全在画外或被完全遮挡的实体不误判 no-pi
   const { validate } = await loadContracts();
   const badFilm = makeFilm({
     output: { size: [W, H], fps: '29.97', frames: 240 },
-    predicates: { base: ['floor@1', 'template:nope@1'], extra: ['bbox_w(hero) >= 0.1', 'no_cut ;visible(hero)', 'unknown_pred(hero)'] },
+    predicates: { base: ['floor@1', 'template:nope@1'], extra: ['key_fill_ratio(hero) >= 2', 'no_cut ;visible(hero)', 'unknown_pred(hero)'] },
   });
   badFilm.shots[0].out = 119.5;
   badFilm.style.tokens.ink = '#1a2b3c';
