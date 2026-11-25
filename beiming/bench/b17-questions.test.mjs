@@ -103,10 +103,11 @@ test('可选编码读回：爆炸题逐帧见证图经交付卡编码，按解�
   assert.equal(verdict.pass, true, JSON.stringify(verdict));
 });
 
-test('exam 扫描并真实核验 15 道公开题，expected-fail 不计入通过', async () => {
+test('exam 扫描并真实核验至少 15 道公开题（含全部三级题），expected-fail 不计入通过', async () => {
   const report = await runExam({ outDir: null });
   assert.ok(report.ok, JSON.stringify(report.error));
-  assert.equal(report.summary.passedQuestions, 15);
+  assert.ok(report.summary.passedQuestions >= 15);
+  assert.equal(report.summary.passedQuestions, report.summary.evaluatedQuestions);
   assert.equal(report.summary.skippedQuestions, 5);
   for (const [id] of cases) assert.equal(report.questions.find(q => q.id === id).score, 1);
 });

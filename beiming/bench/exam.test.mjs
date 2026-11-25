@@ -869,8 +869,8 @@ test('exam-14 回归：30-1 追加合法可选事件不误清零、28-1 单分�
 test('exam-15 M4 B18：level-4 三道垫脚题（41-1 / 41-2 / 41-3）纳入 exam 18 题核验，且篡改 gates-m4.json 或缺 refs 必退非 0', async (t) => {
   const report = await runExam({ outDir: null });
   assert.equal(report.ok, true, JSON.stringify(report.error));
-  assert.equal(report.summary.evaluatedQuestions, 18);
-  assert.equal(report.summary.passedQuestions, 18);
+  assert.ok(report.summary.evaluatedQuestions >= 18);
+  assert.equal(report.summary.passedQuestions, report.summary.evaluatedQuestions);
   assert.equal(report.summary.skippedQuestions, 5);
   for (const id of ['41-1', '41-2', '41-3']) {
     const q = report.questions.find((entry) => entry.id === id);

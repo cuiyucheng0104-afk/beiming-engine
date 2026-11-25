@@ -277,10 +277,10 @@ test('B18-6: exam.mjs 纳入 level-4 三道垫脚题（18 道公开题全过 + 5
   const report = await runExam({ outDir: null });
   assert.equal(report.ok, true, JSON.stringify(report.error));
   assert.equal(report.exitCode, 0);
-  assert.equal(report.summary.passedQuestions, 18);
-  assert.equal(report.summary.evaluatedQuestions, 18);
+  assert.ok(report.summary.passedQuestions >= 18);
+  assert.equal(report.summary.passedQuestions, report.summary.evaluatedQuestions);
   assert.equal(report.summary.skippedQuestions, 5);
-  assert.equal(report.summary.totalQuestions, 23);
+  assert.equal(report.summary.totalQuestions, report.summary.evaluatedQuestions + report.summary.skippedQuestions);
   for (const [id] of STEPPING_STONES) {
     const qReport = report.questions.find((q) => q.id === id);
     assert.ok(qReport, `exam 报告缺少 ${id}`);
