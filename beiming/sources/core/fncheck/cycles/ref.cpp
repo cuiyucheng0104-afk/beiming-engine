@@ -5,8 +5,12 @@
 #include "kernel/device/cpu/compat.h"
 #include "kernel/device/cpu/globals.h"
 #include "kernel/types.h"
+#include "kernel/closure/bsdf.h"
+#include "kernel/closure/bsdf_diffuse.h"
 #include "kernel/closure/bsdf_microfacet.h"
+#include "kernel/closure/emissive.h"
 #include "kernel/light/area.h"
+#include "kernel/sample/mapping.h"
 #include "util/projection.h"
 #include "util/transform.h"
 
@@ -50,6 +54,7 @@ static void init_tables()
   ThreadKernelGlobalsCPU *g = reinterpret_cast<ThreadKernelGlobalsCPU *>(kg_storage);
   g->data.tables.ggx_E = add_table(table_ggx_E, 1024);
   g->data.tables.ggx_Eavg = add_table(table_ggx_Eavg, 32);
+  g->data.tables.ggx_gen_schlick_ior_s = add_table(table_ggx_gen_schlick_ior_s, 4096);
   g->data.tables.ggx_gen_schlick_s = add_table(table_ggx_gen_schlick_s, 4096);
   g->lookup_table.data = lut.data();
   g->lookup_table.width = int(lut.size());
@@ -80,6 +85,43 @@ struct Metal {
     bsdf->energy_scale = energy_scale;
   }
 };
+
+/* 电介质高光：照原理化 BSDF 的高光分支（kernel/svm/closure.h）那样，先 bsdf_microfacet_ggx_setup（只有反射），
+ * 再挂上广义 Schlick 菲涅耳（无薄膜）。输入依次是 ior、f0、f90、exponent、reflection_tint、transmission_tint（14 个 float） */
+struct Dielectric {
+  ShaderClosure sc = {};
+  FresnelGeneralizedSchlick fresnel = {};
+  MicrofacetBsdf *bsdf = (MicrofacetBsdf *)&sc;
+
+  Dielectric(const float3 N, const float alpha, const float *i, const float energy_scale = 1.0f)
+  {
+    bsdf->N = N;
+    bsdf->weight = one_spectrum();
+    bsdf->sample_weight = 1.0f;
+    bsdf->alpha_x = bsdf->alpha_y = alpha;
+    bsdf->ior = i[0];
+    bsdf_microfacet_ggx_setup(bsdf);
+    fresnel.f0 = get3(i + 1);
+    fresnel.f90 = get3(i + 4);
+    fresnel.exponent = i[7];
+    fresnel.reflection_tint = get3(i + 8);
+    fresnel.transmission_tint = get3(i + 11);
+    bsdf->fresnel_type = MicrofacetFresnel::GENERALIZED_SCHLICK;
+    bsdf->fresnel = &fresnel;
+    bsdf->energy_scale = energy_scale;
+  }
+};
+
+/* 漫反射闭包：bsdf_diffuse_setup 只填 N 与 type */
+static ShaderClosure diffuse(const float3 N)
+{
+  ShaderClosure sc = {};
+  sc.N = N;
+  sc.type = CLOSURE_BSDF_DIFFUSE_ID;
+  sc.weight = one_spectrum();
+  sc.sample_weight = 1.0f;
+  return sc;
+}
 
 /* 求值：返回零时 Cycles 不写 *pdf，这里预置 0 */
 static void eval_out(float *o, const Spectrum eval, const float pdf)
@@ -198,6 +240,134 @@ static const Entry table[] = {
        const int label = bsdf_microfacet_ggx_sample(kg, &m.sc, get3(i + 3), get3(i + 6), make_float3(i[17], i[18], 0.0f), &eval, &wo, &pdf, &rough, &eta);
        sample_out(o, label, eval, wo, pdf);
      }},
+    {"fresnel_dielectric_polarized", 2, 2, [](const float *i, float *o) { put2(o, fresnel_dielectric_polarized(i[0], i[1], nullptr, nullptr)); }},
+    {"fresnel_dielectric_ccl", 2, 1, [](const float *i, float *o) { o[0] = fresnel_dielectric(i[0], i[1], nullptr); }},
+    {"fresnel_dielectric_Fss", 1, 1, [](const float *i, float *o) { o[0] = fresnel_dielectric_Fss(i[0]); }},
+    {"ior_from_F0", 1, 1, [](const float *i, float *o) { o[0] = ior_from_F0(i[0]); }},
+    {"F0_from_ior", 1, 1, [](const float *i, float *o) { o[0] = F0_from_ior(i[0]); }},
+    {"principled_specular_f0_eta", 2, 2, [](const float *i, float *o) {
+       /* kernel/svm/closure.h:426-436 原理化分支按高光等级调折射率的那一段（内联在 svm_node_closure_bsdf 里，不是函数），
+        * 照式子组装；specular_ior_level 在 Cycles 里先夹到不小于 0，这里的输入都不小于 0 */
+       const float ior = i[0], specular_ior_level = i[1];
+       float eta = ior;
+       float f0 = F0_from_ior(eta);
+       if (specular_ior_level != 0.5f) {
+         f0 *= 2.0f * specular_ior_level;
+         eta = ior_from_F0(f0);
+         if (ior < 1.0f) {
+           eta = 1.0f / eta;
+         }
+       }
+       o[0] = f0;
+       o[1] = eta;
+     }},
+    {"inverse_lerp", 3, 1, [](const float *i, float *o) { o[0] = inverse_lerp(i[0], i[1], i[2]); }},
+    {"safe_divide_color", 6, 3, [](const float *i, float *o) { put3(o, safe_divide_color(get3(i), get3(i + 3))); }},
+    {"closure_layering_weight", 6, 3, [](const float *i, float *o) { put3(o, closure_layering_weight(get3(i), get3(i + 3))); }},
+    {"lookup_table_read_3D_ggx_gen_schlick_ior_s", 3, 1, [](const float *i, float *o) { o[0] = lookup_table_read_3D(kg, i[0], i[1], i[2], kernel_data.tables.ggx_gen_schlick_ior_s, 16, 16, 16); }},
+    {"lookup_table_read_3D_ggx_gen_schlick_s", 3, 1, [](const float *i, float *o) { o[0] = lookup_table_read_3D(kg, i[0], i[1], i[2], kernel_data.tables.ggx_gen_schlick_s, 16, 16, 16); }},
+    {"generalized_schlick_fresnel", 15, 6, [](const float *i, float *o) {
+       /* 输入依次是 ior、cos_theta_i、f0、f90、exponent、reflection_tint、transmission_tint */
+       FresnelGeneralizedSchlick f = {};
+       f.f0 = get3(i + 2);
+       f.f90 = get3(i + 5);
+       f.exponent = i[8];
+       f.reflection_tint = get3(i + 9);
+       f.transmission_tint = get3(i + 12);
+       Spectrum r, t;
+       float cos_theta_t = 0.0f;
+       generalized_schlick_fresnel(kg, &f, i[0], i[1], &cos_theta_t, &r, &t);
+       put3(o, r);
+       put3(o + 3, t);
+     }},
+    {"microfacet_fresnel_generalized_schlick", 15, 3, [](const float *i, float *o) {
+       Dielectric d(make_float3(0.0f, 0.0f, 1.0f), 0.5f, i + 1);
+       Spectrum r, t;
+       float cos_theta_t;
+       microfacet_fresnel(kg, d.bsdf, i[0], &cos_theta_t, &r, &t);
+       put3(o, r);
+     }},
+    {"bsdf_microfacet_estimate_albedo_generalized_schlick", 21, 3, [](const float *i, float *o) {
+       Dielectric d(get3(i), i[6], i + 7);
+       put3(o, bsdf_microfacet_estimate_albedo(kg, get3(i + 3), d.bsdf, true, true));
+     }},
+    {"bsdf_microfacet_estimate_albedo_f82_tint", 10, 3, [](const float *i, float *o) {
+       Metal m(get3(i), i[6], get3(i + 7), zero_float3(), 1.0f);
+       put3(o, bsdf_microfacet_estimate_albedo(kg, get3(i + 3), m.bsdf, true, true));
+     }},
+    {"bsdf_microfacet_setup_fresnel_generalized_schlick", 21, 7, [](const float *i, float *o) {
+       Dielectric d(get3(i), i[6], i + 7);
+       bsdf_microfacet_setup_fresnel_generalized_schlick(kg, d.bsdf, get3(i + 3), &d.fresnel, true);
+       put3(o, d.fresnel.f0);
+       o[3] = d.bsdf->energy_scale;
+       put3(o + 4, d.bsdf->weight);
+     }},
+    {"bsdf_microfacet_eval_ggx_generalized_schlick", 24, 4, [](const float *i, float *o) {
+       Dielectric d(get3(i), i[9], i + 10);
+       float pdf = 0.0f;
+       const Spectrum e = bsdf_microfacet_eval<MicrofacetType::GGX>(kg, &d.sc, get3(i + 3), get3(i + 6), &pdf);
+       eval_out(o, e, pdf);
+     }},
+    {"bsdf_microfacet_ggx_eval_generalized_schlick", 25, 4, [](const float *i, float *o) {
+       Dielectric d(get3(i), i[9], i + 10, i[24]);
+       float pdf = 0.0f;
+       const Spectrum e = bsdf_microfacet_ggx_eval(kg, &d.sc, get3(i + 3), get3(i + 6), &pdf);
+       eval_out(o, e, pdf);
+     }},
+    {"bsdf_microfacet_sample_ggx_generalized_schlick", 26, 8, [](const float *i, float *o) {
+       Dielectric d(get3(i), i[9], i + 10);
+       Spectrum eval = zero_spectrum();
+       float3 wo = zero_float3();
+       float pdf = 0.0f, eta;
+       float2 rough;
+       /* rand.z 只用来在反射与折射之间选；只有反射时 pdf_reflect 为 1，取 0 一定选反射 */
+       const int label = bsdf_microfacet_sample<MicrofacetType::GGX>(kg, &d.sc, get3(i + 3), get3(i + 6), make_float3(i[24], i[25], 0.0f), &eval, &wo, &pdf, &rough, &eta);
+       sample_out(o, label, eval, wo, pdf);
+     }},
+    {"bsdf_microfacet_ggx_sample_generalized_schlick", 27, 8, [](const float *i, float *o) {
+       Dielectric d(get3(i), i[9], i + 10, i[24]);
+       Spectrum eval = zero_spectrum();
+       float3 wo = zero_float3();
+       float pdf = 0.0f, eta;
+       float2 rough;
+       const int label = bsdf_microfacet_ggx_sample(kg, &d.sc, get3(i + 3), get3(i + 6), make_float3(i[25], i[26], 0.0f), &eval, &wo, &pdf, &rough, &eta);
+       sample_out(o, label, eval, wo, pdf);
+     }},
+    {"bsdf_blur", 3, 2, [](const float *i, float *o) {
+       Metal m(make_float3(0.0f, 0.0f, 1.0f), 0.5f);
+       m.bsdf->alpha_x = i[0];
+       m.bsdf->alpha_y = i[1];
+       bsdf_blur(&m.sc, i[2]);
+       o[0] = m.bsdf->alpha_x;
+       o[1] = m.bsdf->alpha_y;
+     }},
+    {"sample_cos_hemisphere", 5, 4, [](const float *i, float *o) {
+       float3 wo;
+       float pdf;
+       sample_cos_hemisphere(get3(i), get2(i + 3), &wo, &pdf);
+       put3(o, wo);
+       o[3] = pdf;
+     }},
+    {"bsdf_diffuse_eval", 6, 4, [](const float *i, float *o) {
+       const ShaderClosure sc = diffuse(get3(i));
+       float pdf = 0.0f;
+       const Spectrum e = bsdf_diffuse_eval(&sc, zero_float3(), get3(i + 3), &pdf);
+       eval_out(o, e, pdf);
+     }},
+    {"bsdf_diffuse_sample", 8, 8, [](const float *i, float *o) {
+       const ShaderClosure sc = diffuse(get3(i));
+       Spectrum eval = zero_spectrum();
+       float3 wo = zero_float3();
+       float pdf = 0.0f;
+       const int label = bsdf_diffuse_sample(&sc, get3(i + 3), zero_float3(), get2(i + 6), &eval, &wo, &pdf);
+       /* 几何法线下面的方向：Cycles 照写 wo、label，eval 与 pdf 为 0，原样输出 */
+       o[0] = float(label);
+       put3(o + 1, eval);
+       put3(o + 4, wo);
+       o[7] = pdf;
+     }},
+    {"emissive_pdf", 6, 1, [](const float *i, float *o) { o[0] = emissive_pdf(get3(i), get3(i + 3)); }},
+    {"emissive_simple_eval", 6, 3, [](const float *i, float *o) { put3(o, emissive_simple_eval(get3(i), get3(i + 3))); }},
     {"safe_asinf", 1, 1, [](const float *i, float *o) { o[0] = safe_asinf(i[0]); }},
     {"ray_quad_intersect", 20, 7, [](const float *i, float *o) {
        float3 P = zero_float3();
@@ -248,6 +418,9 @@ static const Entry table[] = {
      }},
 };
 
+// 成像一组（像素滤波、夹取）另放一个文件，表名 imaging_table
+#include "ref_imaging.h"
+
 static_assert(sizeof(float) == 4, "float32 required");  // 只在小端主机上用（arm64、x86-64），不做字节序转换
 
 int main(int argc, char **argv)
@@ -256,11 +429,15 @@ int main(int argc, char **argv)
   for (const Entry &t : table) {
     if (argc == 2 && strcmp(t.id, argv[1]) == 0) e = &t;
   }
+  for (const Entry &t : imaging_table) {
+    if (argc == 2 && strcmp(t.id, argv[1]) == 0) e = &t;
+  }
   if (!e) {
     fprintf(stderr, "unknown function id: %s\n", argc == 2 ? argv[1] : "(none)");
     return 1;
   }
   init_tables();
+  init_imaging_tables();
   std::vector<float> in(e->n_in), out(e->n_out);
   for (;;) {
     const size_t got = fread(in.data(), sizeof(float), e->n_in, stdin);

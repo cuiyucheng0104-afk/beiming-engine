@@ -11,25 +11,26 @@
 | 项目 | ThreeRT，<https://github.com/meshy-dev/ThreeRT> |
 | 固定提交 | `c946cc96bdb08979224e851a7fc67a066b1b456b` |
 | 许可 | MIT，版权人 Meshy LLC（2026）。许可全文原样放在 [LICENSE-upstream.txt](LICENSE-upstream.txt) |
-| 本目录的许可 | 默认 MIT：上游的部分版权归 Meshy LLC，北冥改写与新增的部分版权归北冥引擎，逐路径登记在仓库根的 `REUSE.toml`。有十一个文件带着照 Blender Cycles 取的东西，版权与许可写在各自的文件头（文件头优先于 `REUSE.toml`），见下面「照 Cycles 取的部分」 |
+| 本目录的许可 | 默认 MIT：上游的部分版权归 Meshy LLC，北冥改写与新增的部分版权归北冥引擎，逐路径登记在仓库根的 `REUSE.toml`。有十二个文件带着照 Blender Cycles 取的东西，版权与许可写在各自的文件头（文件头优先于 `REUSE.toml`），见下面「照 Cycles 取的部分」 |
 
 每个源自上游的 `.rs` 与 `.wgsl` 文件第一行都写了它对应上游的哪个路径。
 
 ### 照 Cycles 取的部分
 
-Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee`），下面的路径相对 `intern/cycles/`。没有整段搬代码的地方只取了名字、数值或函数的骨架，也照实标出来，和共用目录 `../shaders/` 下四个移植着色器的做法一致。
+Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee`），下面的路径相对 `intern/cycles/`。没有整段搬代码的地方只取了名字、数值或函数的骨架，也照实标出来，和共用目录 `../shaders/` 下几个移植着色器的做法一致。
 
 | 本目录的文件 | 许可 | 照 Cycles 取了什么 | Cycles 的文件（许可） |
 |---|---|---|---|
 | `shaders/hash.wgsl`、`src/cycles_hash.rs` | Apache-2.0 | 像素种子的哈希函数 `hash_iqnt2d`，逐行移植 | `util/hash.h`（Apache-2.0） |
 | `shaders/integrator.wgsl` | MIT 与 Apache-2.0 | 路径标志位 `PATH_RAY_*`、可见类 `PATH_RAY_VISIBILITY_*`、`PRNG_BOUNCE_NUM`、`LABEL_VOLUME_SCATTER` 的名字与数值，光线的字段名；路径状态的字段名；`path_state_next` 的骨架 | `kernel/types.h`、`kernel/integrator/state_template.h`、`kernel/integrator/path_state.h`（都是 Apache-2.0） |
 | `shaders/sample.wgsl` | MIT 与 Apache-2.0 | 随机维度的枚举 `PRNG_*` 的名字与数值；取数接口 `path_rng_1D`、`path_rng_2D`、`path_rng_3D`、`path_branched_rng_2D`；像素种子的式子 | `kernel/types.h`、`kernel/integrator/path_state.h`、`kernel/sample/pattern.h`（都是 Apache-2.0） |
-| `shaders/shader.wgsl` | MIT、Apache-2.0 与 BSD-3-Clause | 着色点标志 `SD_BACKFACING` 的名字与数值，着色点与闭包的字段名；闭包种类 `CLOSURE_*` 的名字（数值是这里自己的）；菲涅耳种类 `FRESNEL_*` 的名字与次序 | `kernel/types.h`、`kernel/svm/types.h`（Apache-2.0）；菲涅耳种类来自 `kernel/closure/bsdf_microfacet.h`（BSD-3-Clause，版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation） |
-| `shaders/closure.wgsl` | MIT 与 Apache-2.0 | 采样标签 `LABEL_TRANSMIT`、`LABEL_DIFFUSE` 的名字与数值；`surface_shader_*` 这一组函数的名字与分工；`bsdf_eval` 按闭包种类分发的骨架 | `kernel/types.h`、`kernel/integrator/surface_shader.h`、`kernel/closure/bsdf.h`（都是 Apache-2.0） |
+| `shaders/shader.wgsl` | MIT、Apache-2.0 与 BSD-3-Clause | 着色点标志 `SD_BACKFACING` 的名字与数值，着色点与闭包的字段名；闭包种类 `CLOSURE_*` 的名字（数值是这里自己的）；菲涅耳种类 `FRESNEL_*` 的名字与次序；`shader_setup_closures` 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重的算法（`kernel/svm/closure.h` 的 `svm_node_closure_bsdf` 原理化分支，照原式重写） | `kernel/types.h`、`kernel/svm/types.h`（Apache-2.0）；菲涅耳种类来自 `kernel/closure/bsdf_microfacet.h`（BSD-3-Clause，版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation） |
+| `shaders/closure.wgsl` | MIT 与 Apache-2.0 | 采样标签 `LABEL_TRANSMIT` 的名字与数值；`surface_shader_*` 这一组函数的名字与分工，多个闭包之间的选择、求值求和与按 `sample_weight` 加权的概率密度（`surface_shader_bsdf_bssrdf_pick`、`_surface_shader_bsdf_eval_mis`、`surface_shader_bsdf_sample_closure`）、滤光泽与发光，逐函数照原式移植；`bsdf_eval`、`bsdf_sample` 按闭包种类分发、`bsdf_albedo`；求值的漫反射与光泽两份（`bsdf_eval_accum`）；闭包的取样权重（`closure_sample_weight`）；降噪反照率取哪些闭包 | `kernel/types.h`、`kernel/integrator/surface_shader.h`、`kernel/closure/bsdf.h`、`kernel/film/light_passes.h`、`kernel/closure/alloc.h`、`kernel/film/denoising_passes.h`（都是 Apache-2.0） |
 | `shaders/pathtrace.wgsl` | MIT 与 Apache-2.0 | 物体标志 `SD_OBJECT_NEGATIVE_SCALE` 的名字与数值；积分器参数块 `KernelIntegrator` 的字段名；物体扩展表 `ObjectExt` 的四个字段名（`receiver_light_set`、`lightgroup`、两个阴影终止偏移） | `kernel/types.h`、`kernel/data_template.h`（都是 Apache-2.0） |
 | `shaders/intersect.wgsl` | MIT 与 Apache-2.0 | `LOCAL_MAX_HITS` 的名字与数值、`LocalIntersection` 的字段名；`trace_local` 这个问法 | `kernel/types.h`、`kernel/bvh/bvh.h`（都是 Apache-2.0） |
 | `src/gpu.rs` | MIT 与 Apache-2.0 | 积分器参数块 `KernelIntegrator` 的字段名（着色器里那一份在 CPU 上的镜像） | `kernel/data_template.h`（Apache-2.0） |
 | `src/sample.rs` | MIT 与 Apache-2.0 | `PRNG_BOUNCE_NUM` 的名字与数值；像素种子的式子 `rng_pixel` | `kernel/types.h`、`kernel/sample/pattern.h`（都是 Apache-2.0） |
+| `src/pixel_filter.rs` | Apache-2.0 | 像素滤波的三个滤波函数与建重要性采样表（`filter_func_box`、`filter_func_gaussian`、`filter_func_blackman_harris`、`filter_table`），与它用的累积分布求值、反函数（对称的一支），逐行移植 | `scene/film.cpp`、`util/math_cdf.h`、`util/math_cdf.cpp`（都是 Apache-2.0） |
 | `src/scene.rs` | MIT 与 Apache-2.0 | 物体扩展表 `GpuObjectExt` 的四个字段名与物体标志的位（着色器里那一份在 CPU 上的镜像） | `kernel/types.h`（Apache-2.0） |
 
 许可全文在仓库根的 `LICENSES/`（`MIT.txt`、`Apache-2.0.txt`、`BSD-3-Clause.txt`）。其余文件（`shaders/` 下的 `film`、`light`、`volume`、`records`、`trace_hw` 与 `src/` 下表里没列的那些）没有照 Cycles 定义什么，是 MIT。这张表按「在哪个文件里定义」算：结构的字段、常数、式子写在哪个文件，哪个文件就标；别的文件只是用到这些名字的（比如 `src/merged.rs` 与 `src/gpu.rs` 的库测试里按名字核对两侧的字段表与编号、`src/lib.rs` 填积分器参数），不另标。
@@ -63,11 +64,11 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 | `src/denoise.rs` | `renderer/src/denoise.rs` | 没改 |
 | `src/desc.rs` | `renderer/src/desc.rs` | 删去切掉的几类 |
 | `src/files.rs` | `renderer/src/files.rs` | 删去切掉的几类；预设的内嵌路径改指本目录的 `presets/` |
-| `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的四个着色器（见下一节）；全局参数追加三块、材质表与物体扩展表的上传、输出缓冲的分配与读回（见下一节末）；加了守着内核结构的测试（见下一节「四样内部结构的冻结」） |
+| `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的五个着色器（见下一节）；全局参数追加四块（第四块是像素滤波表，见下一节「像素滤波与夹取」）、成像的两个编译开关、材质表与物体扩展表的上传、输出缓冲的分配与读回（见下一节末）；加了守着内核结构的测试（见下一节「四样内部结构的冻结」） |
 | `src/heap.rs` | `renderer/src/heap.rs` | 删去切掉的几类；多一张物体扩展表（见下一节末） |
-| `src/lib.rs` | `renderer/src/lib.rs` | 删去切掉的几类；文档里的程序名；填全局参数追加的三块 |
+| `src/lib.rs` | `renderer/src/lib.rs` | 删去切掉的几类；文档里的程序名；填全局参数追加的四块 |
 | `src/ltree.rs` | `renderer/src/ltree.rs` | 删去切掉的几类 |
-| `src/main.rs` | `renderer/src/main.rs` | 删去切掉的几类；库名与程序名 |
+| `src/main.rs` | `renderer/src/main.rs` | 删去切掉的几类；库名与程序名；`render-pack` 的像素滤波、夹取、滤光泽参数与关掉上游的亮度夹取（见下一节「像素滤波与夹取」）；比对外壳用的 `fncheck-host` 子命令 |
 | `src/merged.rs` | `renderer/src/merged.rs` | 删去切掉的几类；加了锁住两侧格式与编号的测试（见下一节末与「四样内部结构的冻结」） |
 | `src/pipeline_cache.rs` | `renderer/src/pipeline_cache.rs` | 没改 |
 | `src/post.rs` | `renderer/src/post.rs` | 没改 |
@@ -129,6 +130,32 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 这一步的渲染结果允许末位变化（原来的接线求值时多一次「除以余弦再乘回」，建立闭包的几项也是每次现算）。实测：第 2 级 24 个读数与改之前的相对差不超过 2e-8；每个读数用 8 个种子取均值，改前改后的差不到合成标准误的百分之一；上游自带的渲染测试里不含纯金属的 121 个场景原始输出逐字节相同，含纯金属的 5 个（`cache/mirror-metal`、`cache/mirror-sun`、`furnace/metal-energy-compensated`、`material/metal-f0`、`surface/windows-mirror`）像素相对差的中位数在 1e-7 上下，每张图有零到三个孤立像素超过 1e-5（两台机器、两种求交合起来最大的一个是 7e-3；默认种子下全图均值的相对差不超过 1e-6）。它们是对末位变化敏感的病态像素：换一个种子它们换地方、个数相仿，同一个种子下两台机器超标的是同一批；关掉俄罗斯轮盘这几个像素照旧；只把求值结果的大小改一个末位，一个像素都不超。是哪一个离散判断翻了面没有逐个追，这里不下结论。两台机器的基线在这一步之后重记过。
 
 写法上又踩到三处，都写在各自的注释里：`bsdf_eval` 收一个闭包而不收整个着色点（收整个着色点时苹果显卡上过程几何的阴影场景会随机丢样本）；上游的 `Lobes` 对所有闭包都算（只给上游顶替算时苹果显卡上别的材质像素末位会变）；`light_mis` 不按闭包种类分支（试过三种写法，不是苹果显卡就是英伟达显卡上别的材质像素末位会变）。
+
+### 原理化 BSDF 的非金属那一半
+
+在纯金属的闭包之外，把 Cycles 原理化 BSDF（`kernel/svm/closure.h` 的 `svm_node_closure_bsdf`）里「无清漆、无光泽、无次表面、无透射、无薄膜、各向同性、漫反射粗糙度 0」那一条路整条移进来：一个着色点至多三个闭包（金属、电介质高光、漫反射），层与层之间的权重、多个闭包之间的选择与求和、自发光、滤光泽都照 Cycles。冻结标记升到 1.2.0。
+
+- `../shaders/microfacet.wgsl`（BSD-3-Clause）加：电介质的菲涅耳（`fresnel_dielectric_polarized`、`fresnel_dielectric_ccl`，后者对应 Cycles 的 `fresnel_dielectric`，内核里上游另有一个同名函数，所以带后缀）、`fresnel_dielectric_Fss`、`F0_from_ior`、`ior_from_F0`、`closure_layering_weight`（`kernel/closure/bsdf_util.h`）；广义 Schlick 的菲涅耳、反照率估计、建立、求值与采样（`generalized_schlick_fresnel`、`microfacet_fresnel` 的那一支、`bsdf_microfacet_estimate_albedo` 的广义 Schlick 与 F82 两支、`bsdf_microfacet_setup_fresnel_generalized_schlick`、`bsdf_microfacet_eval`、`bsdf_microfacet_sample` 的反射那一条路、`bsdf_microfacet_blur`，`kernel/closure/bsdf_microfacet.h`）；`sample_cos_hemisphere`（`kernel/sample/mapping.h`）；`bsdf_diffuse_eval`、`bsdf_diffuse_sample`（`kernel/closure/bsdf_diffuse.h`）；`emissive_pdf`、`emissive_simple_eval`（`kernel/closure/emissive.h`）。
+- `../shaders/util.wgsl`（Apache-2.0）加：`lookup_table_read_3D`（`kernel/util/lookup_table.h`）、`inverse_lerp`、`reduce_max`、`safe_divide_color`（`util/`），按高光等级调折射率的那一段（`principled_specular_f0_eta`，`kernel/svm/closure.h`）与滤光泽的模糊粗糙度（`filter_glossy_roughness`，`kernel/integrator/surface_shader.h`；全局参数的 `filter_glossy` 照 Cycles 宿主一侧存 1 / blur_glossy，0 关，内核直接把它传进来）；采样标签 `LABEL_DIFFUSE` 从 `shaders/closure.wgsl` 挪到这里。
+- `../shaders/ggx_gen_schlick.tables`（新文件，Apache-2.0，数据）：`scene/shader.tables` 的 `table_ggx_gen_schlick_ior_s`、`table_ggx_gen_schlick_s` 两张表（各 4096 个数，原样照抄，与源文件逐个相同）。内核把它们放进表缓冲（`src/heap.rs` 的 `Table::GgxGenSchlickIorS`、`GgxGenSchlickS`，首地址在 `table_first_ext[0].z`、`[0].w`，`src/lib.rs` 的 `ggx_gen_schlick_tables` 读这份文件），`../shaders/util.wgsl` 的 `lookup_table_read_3D` 经 `lookup_table_read_2D_buf`、`lookup_table_read_buf`（`kernel/util/lookup_table.h` 的 `lookup_table_read_2D`、`lookup_table_read` 读 `lookup_table` 的那一份）按偏移读，取数的 `lookup_table_fetch` 在 `shaders/pathtrace.wgsl`。起先照能量补偿表的做法接在 `ggx_tables.wgsl` 的常数数组后面，英伟达显卡上内核编译不出来（naga 按运行时下标取常数数组会把整个数组拷进临时变量），改成照 Cycles 放进内核数据按偏移读；`ggx_tables.wgsl` 回到原来的 1056 个数，一个字没改。函数级比对外壳把同一份数据绑成第 2 个存储缓冲（`../fncheck/gpu.mjs`）。
+- `shaders/shader.wgsl`：`shader_setup_closures` 按上面那条路建闭包；不在这条路上的材质（带清漆、透射、漫反射粗糙度、不透明度小于 1 的）整个走上游顶替。移植的闭包不再带上游的 0.02 粗糙度下限。`shader_eval_emission` 照 Cycles 的口径取发光值。three.js 的无光照材质高光等级置 0。
+- `shaders/closure.wgsl`：按种类分发的求值与采样（金属、电介质高光、漫反射），多个闭包的选择、求和与合起来的概率密度，采样之后的通量权重改用采样函数自己的求值与密度再并进其余闭包（原来是采到方向后再求值一遍），`bsdf_albedo` 照 Cycles 的口径，滤光泽，发光两面，降噪反照率。上游的灯光函数用的 `surface_shader_bsdf_eval_legacy` 与 `light_mis` 对移植的闭包改调 `surface_shader_bsdf_eval`（条文里点名的例外）。
+- `shaders/light.wgsl`：`sample_emitter`、`sample_emitter_ris` 取发光值改经 `shader_eval_emission`（值不变：两个函数先按上游的规矩丢掉背对的单面卡片）。`sky_mis`、`sun_disks`、`bm_rect_hits` 见到 `PATH_RAY_MIS_SKIP` 时权重取 1（`kernel/light/sample.h` 的 `light_sample_mis_weight_forward_background`、`light_sample_mis_weight_forward_lamp`）。
+- `shaders/integrator.wgsl`：主循环里「穿过光滑玻璃」只认奇异的透射一瓣（`LABEL_TRANSMIT | LABEL_SINGULAR`），移植的闭包的奇异反射走普通的一支，并照 `kernel/integrator/path_state.h` 的 `path_state_next` 置 `PATH_RAY_MIS_SKIP`；相机命中处的降噪反照率读 `surface_shader_denoising_albedo`。相机光线与累加那几段没动。
+- `src/scene.rs`：`build_material` 按场景描述的 `specularIntensity` 填材质记录的高光等级（它的一半）。
+
+这一步有意改变渲染结果：非金属材质从上游顶替换成移植的闭包，读数会变，回归基线要重记。纯金属的第 2 级读数仍在门内（采样的权重改成 Cycles 的做法，末位会变）。
+
+### 像素滤波与夹取
+
+照 Cycles（同一提交）把像素滤波与贡献的夹取接进内核，只在 `render-pack` 一路由命令行打开（参数见 [README.md](README.md)「读场景包」）。不加这些参数时内核与加它们之前逐字相同，渲染结果逐位不变。
+
+- `src/pixel_filter.rs`（新文件，Apache-2.0）：宿主一侧建像素滤波的重要性采样表，照 `scene/film.cpp` 的 `filter_func_box`、`filter_func_gaussian`、`filter_func_blackman_harris`、`filter_table`（建表前高斯的宽度乘 3、Blackman-Harris 乘 2）与 `util/math_cdf.h`、`math_cdf.cpp` 的累积分布求值与反函数（对称的一支）逐行移植，全用 f32、次序照原式。`fncheck-host` 子命令把这几个函数交给函数级比对外壳逐项比 Cycles 自己建的表。
+- `../shaders/imaging.wgsl`（新文件，Apache-2.0）：查表 `filter_table_read`（`kernel/util/lookup_table.h` 的 `lookup_table_read`，用法照 `kernel/camera/camera.h:460-465`）；夹取 `film_clamp_light`（`kernel/film/light_passes.h:126-148`，开了 `__CLAMP_SAMPLE__` 的那一支）与它用的 `isfinite_safe`、`ensure_finite3`（`util/math_base.h`、`util/math_float3.h`）。表放在哪里归调用方：本文件只调 `filter_table_value(i)`。
+- `shaders/pathtrace.wgsl`、`src/gpu.rs`：全局参数末尾追加第四块 `filter_table`（`KernelFilterTable`，257 个 vec4：一个「查不查表」的标志、三格预留、1024 个数）；两个编译开关 `pixel_filter`、`sample_clamp`（`KernelVariant` 的两个字段，`FilmSwitches::of` 按全局参数决定，管线与着色器按它分开缓存）。起先写成运行时分支，不开的场景回归有 174 处不同（白炉读数差 1e-11 量级），所以放到编译开关后面。
+- `shaders/film.wgsl`：`filter_table_value` 读全局参数的表；`film_clamp_contribution` 把两个上限里是 0 的换成浮点最大值再调 `film_clamp_light`。`shaders/integrator.wgsl` 的主循环在 `sample_clamp` 的变体里，十一处 `film_add_light` 之前各夹一次，弹射数照 Cycles 各调用处的口径（直接光用顶点号；发光、背景、雾、介质发光用顶点号减 1）。相机光线在 `pixel_filter` 的变体里拿像素滤波的两个随机数查表得到像素内的偏移，每个样本的权重是 1。
+- `src/main.rs`：`render-pack` 的 `--pixel-filter`、`--filter-width`、`--clamp-direct`、`--clamp-indirect`、`--filter-glossy`（`CyclesFilm`）。两个夹取上限写进全局参数时乘 3、滤光泽写 1 / 用户值，照 `scene/integrator.cpp:269`、`:311-315`；用户给 0 时写 0（关），Cycles 在那里写浮点最大值。`render-pack` 一路把上游的亮度夹取 `misc.x`（原来是 `NativePreset::firefly_clamp` 算的 2^EV × 预设的 `clampIndirect`，场景包的曝光恒为 EV 0，所以电影预设是 64、预览 16）写成浮点最大值：物理参考是不夹的。
+- 函数级比对外壳（`../fncheck/`）加成像一组：三个滤波函数、三种建表、三种查表与夹取，标准答案程序直接调 Cycles 的真函数（`scene/film.cpp` 里的 static 函数由 `cycles/build.mjs` 从源码缓存原样截出，不进仓库）。第 2 级在 `../chassis/imaging.mjs`：刀口剖面对 Cycles 表给出的分布，夹取经粗糙度 0 的金属（奇异闭包）看天空。
 
 ### 路径状态与光线
 
@@ -203,7 +230,7 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 这一步不改内核的行为（两台机器上回归基线逐位相同），加的是标记与检查：
 
 - 冻结标记 [FREEZE.json](FREEZE.json)：四样结构、版本、冻结日期、条文与登记表的位置、改动的规矩，并按文件钉住着色器里的结构定义（去掉注释与空白之后的摘要）、常数（类型与数值的原文）与函数签名。[../chassis/freeze.mjs](../chassis/freeze.mjs) 从源码重算了比：标记在且一致退出 0，否则 4；名字属于登记类的常数（闭包种类号、材质标志位、路径标志位、随机维度、输出缓冲的位置等）声明了而没进标记也算不一致：这一条扫的是内核 `shaders/` 下的全部着色器加共用目录里编进内核的四个着色器（其中 `../shaders/util.wgsl` 放着四个采样标签，也钉进了标记），不只是标记已经钉住的文件；声明不写类型、前面带属性、写在一行里的第二个，都认。有意改了结构之后用 `--update` 重写钉住的值，标记的差异随改动一起提交。
-- `src/merged.rs` 的三条测试：`the_closure_kinds_keep_their_numbers`（闭包种类号的快照：已有的数值不许变，新种类要先登记）、`the_bounce_stride_is_the_kernels`（每次弹射占的随机维度个数两侧同值）、`call_structs_are_not_built_by_position`（只活在一次调用里的结构没有位置式构造，按内核源码全文查；名字与括号之间有空白也认）。
+- `src/merged.rs` 的四条测试：`the_closure_kinds_keep_their_numbers`（闭包种类号的快照：已有的数值不许变，新种类要先登记）、`the_bounce_stride_is_the_kernels`（每次弹射占的随机维度个数两侧同值）、`call_structs_are_not_built_by_position`（只活在一次调用里的结构没有位置式构造，按内核源码全文查；名字与括号之间有空白也认）、`closures_are_indexed_by_constants`（着色点的闭包数组只按常数下标读写，按内核源码全文查）。
 - `src/gpu.rs` 的 `shading_point_is_written`：着色点、闭包、材质输入值的字段名单，与它们和光线里「现在只写不读」各项的写入语句，做法同 `path_state_is_written`；两条都按出现次数查写入语句（同一句有两处的，少一处也红）。
 - [../chassis/freeze.test.mjs](../chassis/freeze.test.mjs)：仓库里的标记与代码一致；检查认得出该认的改动；条文提到了标记钉住的每个名字；照 Cycles 取值的常数（路径标志位与可见类、随机维度的枚举与每次弹射的个数、菲涅耳种类、着色点与物体的标志、采样标签）与 Cycles 头文件里的同名枚举逐个相等。最后一项要本机有函数级比对用的 Cycles 源码缓存，没有就跳过。
 - 两处着色器只改了注释：`shaders/shader.wgsl` 开头指向条文；`shaders/closure.wgsl` 的例外清单补上灯光一侧直接读材质记录的几个上游函数。

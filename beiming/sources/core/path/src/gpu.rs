@@ -49,11 +49,11 @@ pub struct Gpu {
     pub merged: bool,
     /// By (material-function code hash, the features that change the source: `KernelVariant::flags`, 北冥：要不要辅助层
     /// `KernelVariant::aux`).
-    modules: std::sync::Mutex<std::collections::HashMap<(u64, u32, bool), wgpu::ShaderModule>>,
+    modules: std::sync::Mutex<std::collections::HashMap<(u64, u32, FilmSwitches), wgpu::ShaderModule>>,
     pipeline_layout: wgpu::PipelineLayout,
     /// Kernel variants by (feature mask, material-function code hash, 北冥：要不要辅助层, 入口): `FEAT` compiles out the
     /// features a scene does not use (they cost registers even when idle).
-    pipelines: std::sync::Mutex<std::collections::HashMap<(u32, u64, bool, &'static str), wgpu::ComputePipeline>>,
+    pipelines: std::sync::Mutex<std::collections::HashMap<(u32, u64, FilmSwitches, &'static str), wgpu::ComputePipeline>>,
     layout: wgpu::BindGroupLayout,
     /// Group 1, the live viewport's: primary visibility (texture_2d<u32>), the radiance cache (`CacheBuffers`) and
     /// what the live passes read of a trace (`KernelBufs`). Offline renders bind `no_vis` (1x1 texture `no_vis_view`,
@@ -184,6 +184,38 @@ impl KernelFilm {
     }
 }
 
+/// 北冥：像素滤波的重要性采样表（pathtrace.wgsl `KernelFilterTable`，全局参数末尾追加的一块）。表照 Cycles 的
+/// scene/film.cpp 建（`pixel_filter::filter_table`），内核拿像素滤波的随机数查它（../../shaders/imaging.wgsl
+/// `filter_table_read`）。`use_filter_table` 为 0 时不查表、像素内均匀抖动：这是盒式宽 1 与默认的样子（与 Cycles
+/// 盒式宽 1 的表同分布：表在节点 j 上是 j/1022、最后一格是 0，最后一段把余下 1/1023 的随机数反着铺满 [0, 1]）。
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct KernelFilterTable {
+    pub use_filter_table: u32,
+    pub reserved0: u32,
+    pub reserved1: u32,
+    pub reserved2: u32,
+    /// `FILTER_TABLE_SIZE` 个数，每个 vec4 装四个
+    pub table: [[f32; 4]; crate::pixel_filter::FILTER_TABLE_SIZE / 4],
+}
+
+impl Default for KernelFilterTable {
+    fn default() -> KernelFilterTable {
+        bytemuck::Zeroable::zeroed()
+    }
+}
+
+impl KernelFilterTable {
+    /// 一次渲染的像素滤波：盒式宽 1 不查表（见上），其余照 Cycles 建表。`width` 是 Cycles 的滤波宽度（像素）
+    pub fn new(kind: crate::pixel_filter::FilterType, width: f32) -> KernelFilterTable {
+        if kind == crate::pixel_filter::FilterType::Box && width == 1.0 {
+            return KernelFilterTable::default();
+        }
+        let t = crate::pixel_filter::filter_table(kind, width);
+        KernelFilterTable { use_filter_table: 1, reserved0: 0, reserved1: 0, reserved2: 0, table: std::array::from_fn(|k| std::array::from_fn(|j| t[4 * k + j])) }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable, Default)]
 pub struct Params {
@@ -244,12 +276,14 @@ pub struct Params {
     /// the last four's lengths. As written: zeros (the kernel asks the buffers).
     pub live_first: [[u32; 4]; 2],
     pub live_len: [u32; 4],
-    /// 北冥：末尾追加的三块（pathtrace.wgsl 同名）。已有的块长度冻结，要加东西就在末尾再追加自己的一整块。
+    /// 北冥：末尾追加的四块（pathtrace.wgsl 同名）。已有的块长度冻结，要加东西就在末尾再追加自己的一整块。
     pub integrator: KernelIntegrator,
     pub film: KernelFilm,
     /// 北冥加的表的首地址（`heap::Table` 里排在上游 12 张之后的，`Uploaded::place`）：物体扩展表、图案节点表、
     /// 广义 Schlick 的两张能量表；后四格空闲。还没有的表是 0。
     pub table_first_ext: [[u32; 4]; 2],
+    /// 北冥：像素滤波的表（`KernelFilterTable`），归成像一路。
+    pub filter_table: KernelFilterTable,
 }
 
 /// Room the live view's in-place geometry edits grow into (live/edits.rs `edit_geometry`), past the scene's own data:
@@ -467,7 +501,10 @@ impl Uploaded {
     pub fn place(&self, p: &mut Params) {
         let first = self.heap.firsts();
         p.table_first = std::array::from_fn(|k| std::array::from_fn(|j| first.get(k * 4 + j).copied().unwrap_or(0)));
-        p.table_first_ext = std::array::from_fn(|k| std::array::from_fn(|j| first.get(12 + k * 4 + j).copied().unwrap_or(0)));
+        p.table_first_ext = [[0; 4]; 2];
+        for (k, &slot) in crate::heap::EXT_SLOTS.iter().enumerate() {
+            p.table_first_ext[slot / 4][slot % 4] = first[12 + k];
+        }
         let first = self.words.firsts();
         p.word_first = std::array::from_fn(|k| first.get(k).copied().unwrap_or(0));
     }
@@ -534,7 +571,7 @@ const RECORDS: &str = include_str!("../shaders/records.wgsl");
 
 /// (pathtrace.wgsl first: a module's imports and directives come before its declarations.)
 /// 北冥：内核主体按阶段分成了几个文件（pathtrace.wgsl 的开头列着哪个阶段在哪个文件）。
-const KERNEL_FILES: [&str; 16] = [
+const KERNEL_FILES: [&str; 17] = [
     include_str!("../shaders/pathtrace.wgsl"),
     RECORDS,
     include_str!("../shaders/sample.wgsl"),
@@ -553,6 +590,8 @@ const KERNEL_FILES: [&str; 16] = [
     include_str!("../../shaders/util.wgsl"),
     include_str!("../../shaders/area_light.wgsl"),
     include_str!("../../shaders/ggx_tables.wgsl"),
+    // 北冥：照 Cycles 移植的像素滤波查表与贡献的夹取
+    include_str!("../../shaders/imaging.wgsl"),
 ];
 
 /// The kernel's source: its files as one WESL module, every device's and scene's variant in it under `@if`.
@@ -613,6 +652,28 @@ pub struct KernelVariant {
     /// 北冥：这次渲染要辅助层（编译开关 `aux`）：多一个入口 `AUX_ENTRY`（辅助样本），颜色样本数覆盖率。没有它时颜色内核里
     /// 没有这两样（每个颜色样本读辅助那一格、入口里按 `pass_kind` 分支，英伟达显卡上稳态慢 4% 到 5%）。
     pub aux: bool,
+    /// 北冥：这次渲染查像素滤波表（编译开关 `pixel_filter`，`KernelFilterTable::use_filter_table`）。没有它时相机射线的像素内
+    /// 偏移就是像素滤波的两个随机数本身（盒式宽 1），内核与没有这一项时逐字相同。
+    pub pixel_filter: bool,
+    /// 北冥：这次渲染照 Cycles 的口径夹取（编译开关 `sample_clamp`，`KernelIntegrator` 的两个夹取上限有一个不是 0）。没有它时
+    /// 内核里没有 Cycles 的夹取，与没有这一项时逐字相同。
+    pub sample_clamp: bool,
+}
+
+/// 北冥：一次渲染按全局参数决定的三个编译开关（`KernelVariant` 的 `aux`、`pixel_filter`、`sample_clamp`）。不是显卡的开关：
+/// 管线与着色器按它分开缓存。
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct FilmSwitches {
+    pub aux: bool,
+    pub pixel_filter: bool,
+    pub sample_clamp: bool,
+}
+
+impl FilmSwitches {
+    /// 这次渲染的参数要哪几个开关；`aux`：要不要辅助层
+    pub fn of(p: &Params, aux: bool) -> FilmSwitches {
+        FilmSwitches { aux, pixel_filter: p.filter_table.use_filter_table != 0, sample_clamp: p.integrator.sample_clamp_direct != 0.0 || p.integrator.sample_clamp_indirect != 0.0 }
+    }
 }
 
 /// 北冥：内核的两个入口：颜色样本（每个变体都有）；辅助样本（只在 `KernelVariant::aux` 的变体里）。
@@ -626,7 +687,7 @@ impl KernelVariant {
     }
 
     /// The flags of the kernel's conditional translation (pathtrace.wgsl's head).
-    pub fn flags(&self) -> [(&'static str, bool); 12] {
+    pub fn flags(&self) -> [(&'static str, bool); 14] {
         let k = &self.switches;
         [
             ("hwrt", self.hwrt),
@@ -641,6 +702,8 @@ impl KernelVariant {
             ("whole_tables", self.whole_tables),
             ("guard", self.guard.is_some()),
             ("aux", self.aux),
+            ("pixel_filter", self.pixel_filter),
+            ("sample_clamp", self.sample_clamp),
         ]
     }
 
@@ -1550,16 +1613,17 @@ impl Gpu {
 
     /// The path-tracing kernel specialised for a scene (feature mask + material functions), compiled on first use.
     pub fn pipeline(&self, k: &Kernel) -> wgpu::ComputePipeline {
-        self.pipeline_of(k, false, COLOR_ENTRY)
+        self.pipeline_of(k, FilmSwitches::default(), COLOR_ENTRY)
     }
 
-    /// 北冥：`pipeline`，指定要不要辅助层（`KernelVariant::aux`）与入口（`COLOR_ENTRY`、`AUX_ENTRY`）。
-    pub fn pipeline_of(&self, k: &Kernel, aux: bool, entry: &'static str) -> wgpu::ComputePipeline {
+    /// 北冥：`pipeline`，指定这次渲染的编译开关（`FilmSwitches`：辅助层、像素滤波表、Cycles 的夹取）与入口（`COLOR_ENTRY`、
+    /// `AUX_ENTRY`）。
+    pub fn pipeline_of(&self, k: &Kernel, film: FilmSwitches, entry: &'static str) -> wgpu::ComputePipeline {
         let mut cache = self.pipelines.lock().unwrap();
         cache
-            .entry((k.features, k.hash, aux, entry))
+            .entry((k.features, k.hash, film, entry))
             .or_insert_with(|| {
-                let module = self.kernel_module(k, aux);
+                let module = self.kernel_module(k, film);
                 let constants = k.constants();
                 let p = self.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                     label: Some("pathtrace"),
@@ -1576,13 +1640,13 @@ impl Gpu {
     }
 
     /// The kernel module for a scene: the shared one, or with its material functions spliced in.
-    fn kernel_module(&self, k: &Kernel, aux: bool) -> wgpu::ShaderModule {
+    fn kernel_module(&self, k: &Kernel, film: FilmSwitches) -> wgpu::ShaderModule {
         let patches = k.features & F_SOURCE;
-        if !aux && patches == 0 && k.functions.is_empty() && k.volume_functions.is_empty() && k.geometry_functions.is_empty() {
+        if film == FilmSwitches::default() && patches == 0 && k.functions.is_empty() && k.volume_functions.is_empty() && k.geometry_functions.is_empty() {
             return self.module.clone();
         }
         let mut mods = self.modules.lock().unwrap();
-        mods.entry((k.hash, patches, aux))
+        mods.entry((k.hash, patches, film))
             .or_insert_with(|| {
                 let splice = |src: &str, marker: &str, code: &str| -> String {
                     if code.is_empty() {
@@ -1594,7 +1658,7 @@ impl Gpu {
                 };
                 let src = splice(&splice(&splice(&self.source, "material-functions", &k.functions), "volume-functions", &k.volume_functions), "geometry-functions", &k.geometry_functions);
                 // The variant: this device's traversal, switches, layout and loop guard, this scene's features.
-                let v = KernelVariant { merged: self.merged, uniform_tables: self.uniform_tables, whole_tables: self.whole_tables, guard: loop_guard_of(false), aux, ..KernelVariant::new(self.hwrt, self.switches, patches) };
+                let v = KernelVariant { merged: self.merged, uniform_tables: self.uniform_tables, whole_tables: self.whole_tables, guard: loop_guard_of(false), aux: film.aux, pixel_filter: film.pixel_filter, sample_clamp: film.sample_clamp, ..KernelVariant::new(self.hwrt, self.switches, patches) };
                 // A scene's functions that do not compile (a game's own WGSL) cost the game its functions, not the
                 // app its renderer: the kernel is made without them, and the game's log says why. (A panic here took
                 // the engine down, and ThreeRT for Android then took the device for one without a renderer.)
@@ -1744,6 +1808,8 @@ impl Gpu {
             (Table::GlassEnergy, bytemuck::cast_slice(crate::glass_energy_lut()), 0),
             (Table::EmitterTris, bytemuck::cast_slice(emitter_tris), 0),
             (Table::ObjectExt, bytemuck::cast_slice(&object_ext), room.objects * std::mem::size_of::<crate::scene::GpuObjectExt>()),
+            (Table::GgxGenSchlickIorS, bytemuck::cast_slice(&crate::ggx_gen_schlick_tables()[..crate::GGX_GEN_SCHLICK_LEN]), 0),
+            (Table::GgxGenSchlickS, bytemuck::cast_slice(&crate::ggx_gen_schlick_tables()[crate::GGX_GEN_SCHLICK_LEN..]), 0),
         ];
         assert!(parts.iter().enumerate().all(|(k, p)| p.0.index() == k), "the tables in `Table`'s order");
         let heap = Heap::filled(d, &parts.map(|p| (p.1.len() + p.2) as u64), |put| parts.iter().for_each(|p| put(p.0, 0, p.1)));
@@ -2204,8 +2270,9 @@ impl Gpu {
             return Err(anyhow!("全局参数的 integrator.sobol_index_mask 是 0：每个样本会取同一个点。用 KernelIntegrator::new 填"));
         }
         let up = self.upload(scene, &self.film_buffer(w, h, &base.film)?, tri_verts, groups, nodes, emitters, emitter_tris, light_tree, env, env_cdf, energy, timings)?;
-        let pipeline = self.pipeline_of(&up.kernel, aux, COLOR_ENTRY);
-        let aux_pipeline = aux.then(|| self.pipeline_of(&up.kernel, true, AUX_ENTRY));
+        let film = FilmSwitches::of(&base, aux);
+        let pipeline = self.pipeline_of(&up.kernel, film, COLOR_ENTRY);
+        let aux_pipeline = aux.then(|| self.pipeline_of(&up.kernel, film, AUX_ENTRY));
         let (b_film, b_params, bg) = (&up.film, &up.params, &up.bg);
         let film_size = b_film.size();
         let stopped_before = self.guard_trips(&self.no_vis_bufs)?;
@@ -2538,7 +2605,7 @@ mod tests {
                 let plain = KernelVariant::new(hwrt, k, 0);
                 let all_features = KernelVariant::new(hwrt, k, F_SOURCE);
                 // （北冥：要辅助层的变体多一个入口 AUX_ENTRY，两个后端把每个入口都生成一遍。）
-                for v in [plain, KernelVariant { uniform_tables: true, ..all_features }, KernelVariant { whole_tables: true, ..all_features }, KernelVariant { guard: Some(1 << 16), ..all_features }, KernelVariant { merged: true, ..plain }, KernelVariant { merged: true, guard: Some(1 << 16), ..all_features }, KernelVariant { aux: true, ..plain }, KernelVariant { aux: true, merged: true, guard: Some(1 << 16), ..all_features }] {
+                for v in [plain, KernelVariant { uniform_tables: true, ..all_features }, KernelVariant { whole_tables: true, ..all_features }, KernelVariant { guard: Some(1 << 16), ..all_features }, KernelVariant { merged: true, ..plain }, KernelVariant { merged: true, guard: Some(1 << 16), ..all_features }, KernelVariant { aux: true, ..plain }, KernelVariant { aux: true, merged: true, guard: Some(1 << 16), ..all_features }, KernelVariant { aux: true, pixel_filter: true, sample_clamp: true, ..all_features }] {
                     // （合并布局是浏览器的，那里没有硬件求交。）
                     if v.merged && v.hwrt {
                         continue;
@@ -2548,7 +2615,8 @@ mod tests {
                 }
             }
         }
-        assert_eq!(n, 8 * 8 + 8 * 5);
+        // （北冥：成像一路的两个开关 pixel_filter、sample_clamp 与 aux 一起开的一种，软件、硬件求交各一。）
+        assert_eq!(n, 8 * 9 + 8 * 6);
         let bad = "struct S { a: vec3<f32>, b: f32 };\nfn half(p: ptr<function, vec3<f32>>) { *p = *p * 0.5; }\n@group(0) @binding(0) var<storage, read_write> out: array<vec4<f32>>;\n@compute @workgroup_size(1) fn main() {\n    var s = S();\n    s.a = vec3<f32>(1.0);\n    half(&s.a);\n    out[0] = vec4<f32>(s.a, s.b);\n}\n";
         naga_valid(bad);
         let crash = std::panic::catch_unwind(|| codegen_valid(bad)).expect_err("成员指针当实参：SPIR-V 后端现在生成得出来了");

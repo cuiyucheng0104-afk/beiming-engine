@@ -5,11 +5,12 @@
 //   mcMean：一个采样估计量在显卡上逐样本算、回到 JS 用双精度求平均（面光辐照度对解析形状因子）。
 // 两者都不依赖 Cycles：比的是我方采样函数与我方概率密度函数彼此是否一致，以及求值的积分是否不超过 1。
 import { makeInputs } from './run.mjs';
-import { runGpu } from './gpu.mjs';
+import { LUT_PRELUDE, runGpu } from './gpu.mjs';
 import { crs, dot3 } from './registry.mjs';
 
 /** 包一个计算着色器：每线程执行 body，inp 至少被读一次（自动布局只收被用到的绑定） */
 const job = (source, helpers, body) => `${source}
+${LUT_PRELUDE}
 ${helpers}
 @group(0) @binding(0) var<storage, read> inp: array<f32>;
 @group(0) @binding(1) var<storage, read_write> outp: array<f32>;
@@ -132,7 +133,7 @@ export async function directionChi2({ source, cases, n = 1_000_000, seed = 1, nT
  * vec3f(x, y, 1 有效 | 0 被拒)，x、y ∈ [0, 1]；density 是用变量 p（vec2f）写的 WGSL 表达式，给出对 dx·dy 的概率密度。
  * nx×ny 个箱，每箱 sub×sub 个点的中点法，另加一箱「被拒」，期望 n·(1 − 全部箱的积分)。返回同 directionChi2。
  */
-export async function gridChi2({ source, cases, n = 1_000_000, seed = 1, nx = 64, ny = 64, sub = 8 }) {
+export async function gridChi2({ source, cases, n = 1_000_000, seed = 1, nx = 64, ny = 64, sub = 8, filterTables }) {
   const u = makeInputs({ name: 'gridChi2', inputs: [['u', 'vec3f', [0, 1]]] }, n, seed);
   const nb = nx * ny;
   const jobs = cases.flatMap((c, k) => [
@@ -150,7 +151,7 @@ export async function gridChi2({ source, cases, n = 1_000_000, seed = 1, nx = 64
   }
   outp[i] = sum / ${nx * ny * sub * sub}.0;`) },
   ]);
-  const { outputs } = await runGpu(jobs);
+  const { outputs } = await runGpu(jobs, { filterTables });
   return cases.map((c, k) => {
     const s = outputs[2 * k], integral = outputs[2 * k + 1];
     const observed = new Float64Array(nb + 1), expected = new Float64Array(nb + 1);
@@ -225,4 +226,37 @@ export function polygonIrradiance(P, N, corners) {
     e += Math.atan2(lc, dot3(a, b)) * dot3(N, c) / lc;
   }
   return Math.abs(e) / 2;
+}
+
+/**
+ * 反射叶的互易：f(wi, wo) = f(wo, wi)，f 是不含出射余弦的 BSDF，也就是 eval(wi, wo)/cos(N, wo)（eval 是 Cycles 约定的求值，
+ * 已含出射方向的余弦）。cases: [{ name, eval }]，eval 是 WGSL 表达式，可用 N = (0, 0, 1)、wi、wo，给出求值的一个通道。
+ * 两个方向在上半球里按面积均匀取（u 的四个分量），余弦都不小于 cosMin（贴地时 λ ∝ 1/cos 把一个 ULP 放大，同闭包一层的收窄）；
+ * 两边都是 0 的组不算，一边是 0 另一边不是记作相对误差 1。返回每个 case 的 { maxRel, worst: [wi.z, wo.z, 两边的值], counted }
+ */
+export async function reciprocity({ source, cases, n = 1_000_000, seed = 1, cosMin = 0.05 }) {
+  const u = makeInputs({ name: 'reciprocity', inputs: [['u', 'vec3f', [0, 1]], ['v', 'f32', [0, 1]]] }, n, seed);
+  const jobs = cases.map((c, k) => ({ name: `r${k}`, input: u, n, nOut: 4, code: job(source, `fn recip_eval(N: vec3f, wi: vec3f, wo: vec3f) -> f32 { return ${c.eval}; }
+fn recip_dir(z: f32, phi: f32) -> vec3f { let r = sqrt(max(1.0 - z * z, 0.0)); return vec3f(r * cos(phi), r * sin(phi), z); }`, `
+  if (i >= ${n}u) { return; }
+  let N = vec3f(0.0, 0.0, 1.0);
+  let wi = recip_dir(${cosMin} + (1.0 - ${cosMin}) * inp[i * 4u], 6.283185307179586 * inp[i * 4u + 1u]);
+  let wo = recip_dir(${cosMin} + (1.0 - ${cosMin}) * inp[i * 4u + 2u], 6.283185307179586 * inp[i * 4u + 3u]);
+  outp[i * 4u] = recip_eval(N, wi, wo) / wo.z;
+  outp[i * 4u + 1u] = recip_eval(N, wo, wi) / wi.z;
+  outp[i * 4u + 2u] = wi.z;
+  outp[i * 4u + 3u] = wo.z;`) }));
+  const { outputs } = await runGpu(jobs);
+  return cases.map((c, k) => {
+    const o = outputs[k];
+    let maxRel = 0, worst = null, counted = 0;
+    for (let i = 0; i < n; i++) {
+      const a = o[4 * i], b = o[4 * i + 1];
+      if (a === 0 && b === 0) continue;
+      counted++;
+      const rel = Math.abs(a - b) / Math.max(Math.abs(a), Math.abs(b));
+      if (!(rel <= maxRel)) { maxRel = rel; worst = [o[4 * i + 2], o[4 * i + 3], a, b]; }
+    }
+    return { ...c, maxRel, worst, counted };
+  });
 }
