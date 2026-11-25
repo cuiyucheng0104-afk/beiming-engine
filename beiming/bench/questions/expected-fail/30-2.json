@@ -1,0 +1,79 @@
+{
+  "format": "question/0.1",
+  "id": "30-2",
+  "level": 5,
+  "title": "龙头特写",
+  "brief": "做一条 10 秒、24 帧每秒、1920×1080、240 帧的龙头特写镜头，不带声音，不换镜头。要求以距离场雕刻取面构建龙头连续曲面，并在皮肤表层实现逐像素叠压鳞片随屏幕像素分辨率平滑分级淡出，镜头推进拉远过程中细节区不出现高频闪烁或锯齿。",
+  "deliverable": {
+    "size": [
+      1920,
+      1080
+    ],
+    "fps": "24/1",
+    "frames": 240,
+    "audio": "none"
+  },
+  "assets": {},
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=24, frames=240)",
+    "no_cut @ all",
+    "inside_frame(dragon_head, margin=0.05) @ all",
+    "visible(dragon_head) >= 0.5 @ all",
+    "in_focus(dragon_head) @ all",
+    "noise_residual(film) <= 4.5 @ all",
+    "alias_edge(film) <= 0.6 @ all"
+  ],
+  "scoring": [
+    {
+      "metric": "sdf.surface-carve",
+      "source": "frame-meta",
+      "args": {
+        "minContinuity": 0.99
+      },
+      "pass": "距离场雕刻取面光滑连续，龙头轮廓与棱角过渡无等值面撕裂或离散网格阶梯",
+      "weight": 0.4
+    },
+    {
+      "metric": "scales.px-lod-stability",
+      "source": "film",
+      "args": {
+        "maxFlickerCode8": 4.5,
+        "maxAliasPx": 0.6
+      },
+      "pass": "逐像素叠压鳞片随屏幕像素尺寸平滑分级淡出，细节区在镜头推拉下无摩尔纹或闪烁",
+      "weight": 0.6
+    }
+  ],
+  "controls": {
+    "referencePass": "距离场取面与分级淡出鳞片参考渲染在曲面质量与细节区抗闪烁上均得满分",
+    "negative": "使用粗糙网格近似或鳞片缺少屏幕像素分级淡出导致细节区明显闪烁锯齿的提交必须判不合格"
+  },
+  "needs": [
+    "form.sdf-nets",
+    "shade.scales",
+    "shade.px-lod",
+    "deliver.encode"
+  ],
+  "budget": {
+    "tokens": 600000,
+    "wallMs": 2400000,
+    "gpuSeconds": 600
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": true,
+    "blockedBy": [
+      "缺距离场取面（form.sdf-nets）",
+      "缺叠压鳞片与屏幕像素分级淡出（shade.scales、shade.px-lod）"
+    ]
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "05 第 6.4 节预期失败题初值，待距离场与鳞片分级卡落地后校准",
+    "noiseFloor": null,
+    "version": 0
+  },
+  "ext": {
+    "bench.code": "外01-2"
+  }
+}

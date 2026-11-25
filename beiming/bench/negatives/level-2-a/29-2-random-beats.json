@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "29-2-random-beats",
+  "questionId": "29-2",
+  "kind": "random-beats",
+  "disabledCards": [],
+  "seed": 20261124,
+  "description": "11 次光标点击不跟配乐起音走，换成固定种子在 600 帧里取的 11 个随机拍点（两两至少隔 12 帧），每次点击后第 2 帧照常切画面（第一条判分线照过）。随机点击的起音命中率落回随机基线以下。",
+  "perturbation": {
+    "clickTrigger": "random-beats"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 1,
+      "metric": "beat.onset-hit",
+      "why": "11 个随机点击帧仅命中 3 次起音（27.3%），低于 80% 下限且低于 34.3% 随机基线"
+    }
+  ]
+}

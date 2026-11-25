@@ -1,0 +1,28 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "01-1-disable-card",
+  "questionId": "01-1",
+  "kind": "disable-card",
+  "disabledCards": [
+    "deliver.encode",
+    "audio.master"
+  ],
+  "seed": null,
+  "description": "关掉交付编码和音频母带两张卡：视频流不写传递函数与原色两项 bt709 标签（读回 unknown），双声道混音总线不做响度归一与真峰值限幅（整片响度 -9.5 LUFS、真峰值 0.8 dBTP）。画面连续运动没有黑帧、冻结和重复帧，画面连续性那一条照过；两处改动各打穿一条判分线。",
+  "perturbation": {
+    "colorTags": false,
+    "audioMaster": false
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "deliver.spec",
+      "why": "传递函数与原色两项色彩标签读回 unknown，不是题面要求的 bt709"
+    },
+    {
+      "scoring": 1,
+      "metric": "audio.loudness",
+      "why": "整片响度 -9.5 LUFS 超出 [-14.5, -13.5] LUFS，真峰值 0.8 dBTP 高于 -1 dBTP 上限"
+    }
+  ]
+}

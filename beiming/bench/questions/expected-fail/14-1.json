@@ -1,0 +1,88 @@
+{
+  "format": "question/0.1",
+  "id": "14-1",
+  "level": 4,
+  "title": "雨夜小巷五镜",
+  "brief": "做一条 15 秒、24 帧每秒、1920×1080、360 帧的写实雨夜小巷五镜短片，不带声音。五个镜头分别在第 84、162、222、300 帧硬切；片名自第 318 帧起在画面左下角清晰入场。全片以写实路径追踪表现湿润石板路面的雨滴涟漪与霓虹反射。",
+  "deliverable": {
+    "size": [
+      1920,
+      1080
+    ],
+    "fps": "24/1",
+    "frames": 360,
+    "audio": "none"
+  },
+  "assets": {},
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=24, frames=360)",
+    "cut_at(84)",
+    "cut_at(162)",
+    "cut_at(222)",
+    "cut_at(300)",
+    "no_ghost(84)",
+    "no_ghost(162)",
+    "no_ghost(222)",
+    "no_ghost(300)",
+    "text_matches(copy) @ [318,360)",
+    "readable(text(*), hold=1.0, contrast=4.5, safe=0.05) @ [318,360)",
+    "noise_residual(film) <= 4.5 @ all",
+    "alias_edge(film) <= 0.6 @ all"
+  ],
+  "scoring": [
+    {
+      "metric": "pathtrace.neon-reflection",
+      "source": "film",
+      "args": {
+        "shots": 5,
+        "minSpecularFidelity": 0.85
+      },
+      "pass": "五镜写实路径追踪雨夜湿润地面水洼反射霓虹与高光弹射物理自洽",
+      "weight": 0.5
+    },
+    {
+      "metric": "alley.rain-ripple-cut",
+      "source": "film-meta",
+      "args": {
+        "cuts": [
+          84,
+          162,
+          222,
+          300
+        ],
+        "titleInFrame": 318,
+        "titleCorner": "bottom-left"
+      },
+      "pass": "第 84/162/222/300 帧四处切点准确且无鬼影，雨滴涟漪清晰，片名自第 318 帧起稳态落于左下角安全区",
+      "weight": 0.5
+    }
+  ],
+  "controls": {
+    "referencePass": "写实路径追踪参考渲染在五镜切点（84/162/222/300 帧）、第 318 帧片名入场与雨夜霓虹涟漪反射上均得满分",
+    "negative": "切点偏离 84/162/222/300 帧、片名早于第 318 帧出现或缺少雨夜涟漪与霓虹写实反射的提交必须判不合格"
+  },
+  "needs": [
+    "fx.rain-ripple",
+    "overlay.title",
+    "deliver.encode"
+  ],
+  "budget": {
+    "tokens": 600000,
+    "wallMs": 2400000,
+    "gpuSeconds": 600
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": true,
+    "blockedBy": [
+      "缺路径追踪（core 写实路径追踪帧源）",
+      "缺雨夜涟漪与霓虹反射（fx.rain-ripple）"
+    ]
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "05 第 6.4 节预期失败题初值，待写实路径追踪与雨夜涟漪卡落地后校准",
+    "noiseFloor": null,
+    "version": 0
+  }
+}

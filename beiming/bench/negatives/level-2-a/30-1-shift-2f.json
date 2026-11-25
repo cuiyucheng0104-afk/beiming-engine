@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "30-1-shift-2f",
+  "questionId": "30-1",
+  "kind": "shift-2f",
+  "disabledCards": [],
+  "seed": null,
+  "description": "20 个跟拍命名时刻（m01–m20）在节拍表求值后整体晚偏 2 帧：把节拍表从 80 BPM 改到 96 BPM 重新求值时，20 个事件仍按 80/96 等比位移（偏差在 1 帧容差内，第二条行为跟随检查照过），但在 80 BPM 下原本压在 18 帧整数倍拍点上的 17 个事件全部偏离拍点 2 帧（超过 1 帧容差），落拍命中率掉到 0%。",
+  "perturbation": {
+    "eventShiftFrames": 2
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "beat.onset-hit",
+      "why": "跟拍命名时刻整体晚 2 帧后全部偏离 80 BPM 拍点网格 2 帧以上，落拍率 0%（要求不低于 85%）"
+    }
+  ]
+}

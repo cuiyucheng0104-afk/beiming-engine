@@ -1,6 +1,6 @@
 # 考题：细则
 
-[README.md](README.md) 是索引；这里放跑题器的判分口径、隔离边界和落盘字段，[看板](#看板)的输入与口径，以及[成片墙、原话账本与盲选页](#成片墙原话账本与盲选页)的流程和隔离规则。代码 [runner.mjs](runner.mjs)（隔离和观测复用 `tools/eval/lib`）、[board.mjs](board.mjs)、[wall.mjs](wall.mjs)，测试 `node --test beiming/bench/runner.test.mjs`（要真片的两条在没有 FFmpeg 的机器上跳过）与 `node --test beiming/bench/wall.test.mjs`。
+[README.md](README.md) 是索引；这里放跑题器的判分口径、隔离边界和落盘字段，[看板](#看板)的输入与口径，[成片墙、原话账本与盲选页](#成片墙原话账本与盲选页)的流程和隔离规则，以及[标准负对照核验](#标准负对照核验)的模型与判分口径。代码 [runner.mjs](runner.mjs)（隔离和观测复用 `tools/eval/lib`）、[board.mjs](board.mjs)、[wall.mjs](wall.mjs)、[negatives/level-1/run-b5-l1.mjs](negatives/level-1/run-b5-l1.mjs)、[negatives/level-2-a/run-b5-l2a.mjs](negatives/level-2-a/run-b5-l2a.mjs)、[negatives/level-2-b/run-b6.mjs](negatives/level-2-b/run-b6.mjs)，测试 `node --test beiming/bench/runner.test.mjs`（要真片的两条在没有 FFmpeg 的机器上跳过）、`node --test beiming/bench/wall.test.mjs`、`node --test beiming/bench/b5-negatives.test.mjs` 与 `node --test beiming/bench/b6-negatives.test.mjs`。
 
 ## 默认判分 `defaultJudge`
 
@@ -38,9 +38,10 @@
 | `in-process` | `solver` 是函数（测试和内嵌用） | 没有：和宿主同一个进程 |
 | `none` | `expectedFail` 没实跑 | 没起做题进程 |
 
-`seatbelt` 挡三样，别的照常放行：
+`seatbelt` 挡以下几样，别的照常放行：
 
 - **原题**读不到。隐藏题在仓库外时，它所在的目录整个读不到（别的隐藏题、答案常放在一起）。所以隐藏题单独放一个目录，做题命令别放在里面；这个目录要是装着运行目录、家目录或 node，就只挡原题这一个文件。
+- **用户个人目录与显式拒绝目录**读不到（公开题与隐藏题均生效，同时覆盖原路径与 `realpathSync` 解析路径）：自动拒读 `os.homedir()` 下已存在的 `Desktop`、`Documents`、`Downloads`，同时拒读 `runExamQuestion` 的可选参数 `denyReadDirs`（字符串数组或 `null`/`undefined`，保留目录名首尾空格，非法类型抛 `usageError`）与环境变量 `BEIMING_DENY_READ_DIRS`（按 `path.delimiter` 拆分、保留路径空格、过滤空白段与控制字符/引号，含尚未创建的 `path.resolve` 目录路径）。若运行目录、`REPO` 或 `process.execPath` 恰好落入上述目录内且该目录不是 `os.homedir()` 或其祖先，则通过 `(require-all (subpath <dir>) (require-not (subpath <keep>)) ...)` 精准挖空受保护子路径并仅放行祖先链 `file-read-metadata`，继续拒读所有同级兄弟目录。`BEIMING_DENY_READ_DIRS` 不透传给做题子进程。
 - 运行目录里宿主写的 `meta.json` 读不到，`result.json`、`observation.json` 写不了（做题进程留下的后台进程也改不了结果）。
 - **别的运行**（`<root>/<题号>/<runId>/` 往下，里面有别人交的成片）读不到内容；运行根里别的文件照常能读。
 
@@ -73,6 +74,14 @@
 `observation.json` 记做题方式、`isolation`、退出码、是否超时、出错原因、开销和会话记录的文件名；`meta.json` 记题号、原题哈希、平台和开始时刻。运行目录里不放原题、原题路径和判分细节。
 
 隐藏题另外不回显：逐项的指标名和断言原文、`blockedBy` 的原文、超时信息里的预算数值。校验不过的报错只说类别和处数。
+
+## 预期失败门控 `hasBlockedByChanged`
+
+代码 [runner.mjs](runner.mjs)（经 [index.mjs](index.mjs) 重导出），测试 `node --test beiming/bench/b10-b22.test.mjs`。
+
+- `hasBlockedByChanged(currentBlockedBy, previousBlockedBy)`：纯函数。`previousBlockedBy` 为 `null`、`undefined` 或隐藏题落盘脱敏占位 `["[hidden]"]`（元素 `trim()` 后仅含 `"[hidden]"`）时返回 `false`；双方为字符串数组时先对元素做 `trim()` 并过滤空串，再按去重排序集合比较，内容相同返回 `false`，存在增删改返回 `true`；传入既非空值也非字符串数组的非法参数（含数组空洞、非字符串项、代理与访问器）抛 `usageError`（`exitCode: 2`）。
+- `runExamQuestion({ ..., forceExpectedFail = false, previousBlockedBy = null, rerunOnBlockedByChange = false, denyReadDirs = null })`：未开启 `rerunOnBlockedByChange` 时保持向后兼容，照旧 `skip = expectedFail && !forceExpectedFail`；开启 `rerunOnBlockedByChange: true` 时直接复用 `hasBlockedByChanged(blockedBy, prevBlockedBy)` 判定，无变化（含未传 `previousBlockedBy` 或传回脱敏占位 `["[hidden]"]`）则直接跳过（不调 `solver`、`gpuSeconds` 为 `0`、`status: 'expected-fail'`），变化时才放行重跑 `solver` 与 `judge`，隐藏题的 `blockedBy` 原文仍维持 `[hidden]` 脱敏边界。`denyReadDirs` 为可选字符串数组（或 `null`/`undefined`），与环境变量 `BEIMING_DENY_READ_DIRS` 一起收紧 macOS `seatbelt` 拒读目录边界。
+- 公开预期失败题集位于 `beiming/bench/questions/expected-fail/`，已登记 `10-1`（逆光熊猫毛）、`14-1`（雨夜小巷五镜）、`24-1`（`bench.code: 024-1`，僵尸手爬行与后空翻）、`30-2`（`bench.code: 外01-2`，龙头特写）与 `900-1`（`bench.code: B22-1`，同框混合三渲二角色与写实物体），`exam.mjs` 自动发现并记为 `expected-fail` 跳过，不计入失败。
 
 ## 看板
 
@@ -187,4 +196,12 @@ node beiming/bench/board.mjs build --out-dir <目录> [--as-of <YYYY-MM-DD>] [--
 - 零泄露门禁：`publicSession`（`bench-blind-public/0.1`）只保留中立编号 `pair-01` 与槽位 `pair-01-L` / `pair-01-R`，剔除 `targetSource`、原始 `pair.id`、双方 `source` / `label` 与审片选择；`createBlindSession` 与 `renderBlindPageHtml` 对公开字段与媒体路径做循环百分号解码（容错非法 `%`）+ NFKC 归一扫描，命中任何候选来源名、标签或内置来源词（`beiming`、`北冥`、`cycles`、`blender`、`reference`、`gpt` 等）即拒收；盲选页标题与正文全部中立（不含「北冥」字样），导出的选票 JSON 自带 ISO-8601 `submittedAt` 与 `layoutDigest`。
 - `recordBlindBallot(ballotStore, publicSession, { sessionId, layoutDigest, voter, votes, submittedAt })`：校验 `ballot.sessionId` 与 `ballot.layoutDigest`（提供时必须与当前会话完全一致，禁止跨会话静默覆写）、核验每组投票仅限 `'left' | 'right' | 'tie'` 且不重不漏、强制校验 `submittedAt >= decisionLine.committedAt`（按纪元纳秒精确比较），向受控目录追加写入 `ballots.jsonl`（或推入内存数组），回 `bench-blind-ballot/0.1`。
 - `unblindBlindSession(publicSession, answerKey, ballot)`：核对会话、`answerKey.layoutDigest` 与公开槽位现算 `layoutDigest`（禁止同场重排后用旧答案键静默揭盲）及判定线一致后揭盲，回 `bench-blind-report/0.1`：汇总双方胜出数、`ties`、`targetWinsOrTies`、U7 判定 `passed`（`targetWins + ties >= minWinsOrTies`）及可直接传入 `buildBoard({ blindPicks })` 的 `boardBlindPicks`；提供 `reviewerChoice`（或 `reviewerPerspectives`）时计算审片与人类一致率 `agreementRate`，当 `agreementRate < 0.6` 时置 `disablePerspective: true`（恰为 `0.6` 保留）。
+
+## 标准负对照核验
+
+代码 [negatives/level-1/run-b5-l1.mjs](negatives/level-1/run-b5-l1.mjs)（B5 第一部分，覆盖 B2 一级四题 `01-1`、`23-1`、`28-1`、`29-1` 共 12 份夹具）、[negatives/level-2-a/run-b5-l2a.mjs](negatives/level-2-a/run-b5-l2a.mjs)（B5 第二部分，覆盖 B3 二级第一批四题 `23-2`、`27-1`、`29-2`、`30-1` 共 12 份夹具）与 [negatives/level-2-b/run-b6.mjs](negatives/level-2-b/run-b6.mjs)（B6，覆盖 B4 二级第二批四题 `5-1`、`18-1`、`18-2`、`15-2` 共 12 份夹具），测试 `node --test beiming/bench/b5-negatives.test.mjs` 与 `node --test beiming/bench/b6-negatives.test.mjs`。
+
+- **夹具契约（`bench-negative/0.1`）**：每份夹具固定九栏 `format`、`id`（`<题号>-<种类>`）、`questionId`、`kind`（`disable-card`、`shift-2f`、`random-beats`）、`disabledCards`（`disable-card` 点名题面 `needs` 里关掉的卡，另外两类为空数组）、`seed`（`random-beats` 必填安全整数种子，另外两类为 `null`）、`description`、`perturbation`、`expectedFailedMetrics`（`[{ scoring, metric, why }]`，下标与指标名对齐题面 `scoring[]` 且不重复）。全部夹具与核验代码均通过 `scanQuestionLeaks` 及专名门禁扫描。
+- **真实量测与正式判分**：每道题由参数化合成信号/行为模型在题目 `deliverable` 时间线上现造信号，经真实检测器（原始像素帧间 YDIF > 24 与 `observe` 的 `telemetry` 切点核对、`23-1` 逐帧渲染平面 YDIF > 24 实测切点写入 `measured.cuts`、`layoutEdges`、`loopClosurePsnr`（对齐 `evaluate-b2.mjs` 认可两帧逐像素全等时的 `PSNR === Infinity`）、`pixelBbox`，面向带响度门限/判分题（`01-1`、`27-1`、`30-1`）的 48 kHz 立体声合成 PCM 与 ITU-R BS.1770-4 两阶段门控（`-70 LUFS` 绝对门限 + `-10 LU` 相对门限）K 加权积分响度及 4 倍过采样真峰值实测，对齐已合入 B6（`run-b6.mjs`）同类合成包络方案按 `evaluate-b3` 10 ms 窗用于 `23-2` 与 `29-2` 起音对照的确定性对数能量包络 `buildLogRmsEnvelope` + `detectOnsetsFromEnvelope`（`synthesizeAudioTrack(questionId)` 仅面向带响度判分的 `'27-1'`、`'30-1'`，对 `'23-2'`、`'29-2'` 或未登记题号明确抛 `RangeError`，不提供恒定响度正弦轨）、拍点网格估计、逐帧黑帧/冻结/重复帧检测，以及 `cards/time/timeline/evaluate.mjs` 的时间线行为重求值）提取读数，再交给各自正式评估器（`evaluate-b2.mjs`、`evaluate-b3.mjs`、`evaluate-b4.mjs`）判分并逐帧如实求值基础谓词（不跨帧复用不同几何的 `meta`；随机拍点采用确定性 O(count) Floyd 无放回抽样）。`30-1` 严格遵守 2026-11-23 管理员裁定，只做 `80 -> 96` BPM 纯行为重求值检查（与 `evaluate-b3.mjs` 的 `read30_1` 逐位一致），零源码静态扫描。
+- **入口与隔离**：`buildPositiveBaseline(questionId)` 验证默认参数正对照满分通过（`pass === true`、`score === 1`；`run-b5-l1.mjs` 的 `loadQuestion`、`measure`、`buildPositiveBaseline`、`evaluatePerturbedModel` 统一兼容公开题号 `'1-1'` 与内部登记名 `'01-1'`，同时保持 `B5_L1_QUESTION_IDS` 不变）；`evaluateNegativeControl(controlOrId)` 先过 `validateNegativeControl` 严格校验类型、登记的卡与故障参数（禁止种类互相冒充），再核验 `verdict.pass === false`、`verdict.score < 1` 且 `failedAsDeclared === true`（实际失分项与 `expectedFailedMetrics` 一一对应且读数留有该类故障痕迹）；`evaluatePerturbedModel(questionId, perturbation, seed)` 供撤销改动、反向错位与换种子实验使用。每次调用返回深拷贝的参数与读数，原地篡改返回值不影响后续核验。
 

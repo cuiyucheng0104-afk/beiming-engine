@@ -1,0 +1,19 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "01-1-shift-2f",
+  "questionId": "01-1",
+  "kind": "shift-2f",
+  "disabledCards": [],
+  "seed": null,
+  "description": "成片画面轨道在 1104 帧交付容器里整体晚进 2 帧：片头第 0、1 帧露出未渲染的黑场引带，第 2 帧起画面才正常进入。模型假设说明：母带规格与响度本身对时间平移不敏感，这份负对照拦得住靠的是模型假设固定长度交付容器在画面错位时首尾露出未渲染黑帧；错位 1 帧同样会检出黑帧判不过。",
+  "perturbation": {
+    "videoShiftFrames": 2
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 2,
+      "metric": "frame.black-freeze-dup",
+      "why": "片头检出 2 帧黑帧，超过 0 帧黑帧的要求"
+    }
+  ]
+}
