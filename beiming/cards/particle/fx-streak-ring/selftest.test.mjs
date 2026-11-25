@@ -3,16 +3,17 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+const pythonBin = process.env.BEIMING_PY || (process.platform === 'win32' ? 'python' : 'python3');
 const entry = fileURLToPath(new URL('./index.py', import.meta.url));
 const setup = `
 import json, math, runpy, sys
 from pathlib import Path
 fx = runpy.run_path(sys.argv[1])
-spec = json.loads(Path(sys.argv[1]).with_name('card.json').read_text())['params']['spec']['default']
+spec = json.loads(Path(sys.argv[1]).with_name('card.json').read_text(encoding='utf-8'))['params']['spec']['default']
 frame = fx['evaluate_fx_frame']
 `;
 function python(program) {
-  const r = spawnSync('python3', ['-IB', '-c', setup + program, entry], {
+  const r = spawnSync(pythonBin, ['-IB', '-c', setup + program, entry], {
     encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
   });
   assert.equal(r.status, 0, r.error?.message ?? r.stderr);
