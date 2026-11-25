@@ -1,0 +1,45 @@
+{
+  "format": "gates-m4/0.1",
+  "id": "gates-m4",
+  "level": 4,
+  "source": "spec-05-sec4-l10-locked",
+  "lockPolicy": "FX16",
+  "stepping_stone_1_post_chain": {
+    "finalSrgbPsnrMinDb": 50,
+    "finalSrgbRmseMax": 0.00316228,
+    "finalSrgbDiffGe5PxRatioMaxPct": 0.1
+  },
+  "stepping_stone_2_dragon_spine": {
+    "positionRmseMaxM": 0.01,
+    "maxTwistJumpErrorDeg": 0.5
+  },
+  "stepping_stone_3_particle_replay": {
+    "screenPosErrorMaxPx": 1
+  },
+  "full_shot_fire_breath": {
+    "peakPositionMaxRelError": 0.03,
+    "plumeLengthMaxRelError": 0.1,
+    "bloomRadiusMaxRelError": 0.15,
+    "fireVigorMaxRelError": 0.2
+  },
+  "gates": {
+    "stepping_stone_1_post_chain": {
+      "finalSrgbPsnrMinDb": 50,
+      "finalSrgbRmseMax": 0.00316228,
+      "finalSrgbDiffGe5PxRatioMaxPct": 0.1
+    },
+    "stepping_stone_2_dragon_spine": {
+      "positionRmseMaxM": 0.01,
+      "maxTwistJumpErrorDeg": 0.5
+    },
+    "stepping_stone_3_particle_replay": {
+      "screenPosErrorMaxPx": 1
+    },
+    "full_shot_fire_breath": {
+      "peakPositionMaxRelError": 0.03,
+      "plumeLengthMaxRelError": 0.1,
+      "bloomRadiusMaxRelError": 0.15,
+      "fireVigorMaxRelError": 0.2
+    }
+  }
+}

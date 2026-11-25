@@ -1,0 +1,63 @@
+{
+  "format": "question/0.1",
+  "id": "41-3",
+  "level": 4,
+  "title": "指数阻尼吐息粒子云闭式重放与像素能量守恒",
+  "brief": "基于确定性四维出生属性表与无状态闭式指数阻尼积分重放主火流、余烬与烟尘三层粒子云，配合软粒子线性深度淡出、远距最小屏幕像素尺寸护栏与二维面积平方能量守恒、单通道预乘加光兼烟雾遮挡混合、发光池能量加权聚光以及带记忆轨道的预演烘焙表，支持任意乱序抽帧逐位一致重放。各采样帧屏幕投影位置误差须严格小于公开阈值表对应门限。",
+  "deliverable": { "size": [1920, 1080], "fps": "60/1", "frames": 7, "audio": "none" },
+  "assets": {},
+  "refs": ["bench/refs/level-4/41-3.json", "bench/questions/level-4/gates-m4.json"],
+  "basePredicates": [
+    "delivery(width=1920, height=1080, fps=60, frames=7)",
+    "no_cut",
+    "inside_frame(hero) @ all"
+  ],
+  "scoring": [
+    {
+      "metric": "deliver.spec",
+      "args": {},
+      "pass": "分辨率、帧率、总帧数与无声编码配置符合交付规格。",
+      "weight": 0.22
+    },
+    {
+      "metric": "particle.screen-replay",
+      "args": { "gateRef": "stepping_stone_3_particle_replay", "metrics": ["screenPosErrorMaxPx"] },
+      "pass": "逐帧对主火流、余烬与烟尘三层活跃粒子独立复算屏幕投影坐标与加权质心，相对参考读回的屏幕位置误差严格低于公开门表 stepping_stone_3_particle_replay 锁定的像素上限。",
+      "weight": 0.28
+    },
+    {
+      "metric": "particle.random-access-bake",
+      "args": { "gateRef": "stepping_stone_3_particle_replay" },
+      "pass": "闭式粒子求值与预演烘焙表在顺次求值与逆序乱序抽帧下的粒子屏幕位置及烘焙轨道读数逐位一致。",
+      "weight": 0.26
+    },
+    {
+      "metric": "particle.energy-soft-pool",
+      "args": { "gateRef": "stepping_stone_3_particle_replay" },
+      "pass": "最小像素护栏遵循二维面积平方能量守恒，软粒子深度淡出、预乘加光遮挡混合与多发光体加权聚光池读数均与物理公式自洽。",
+      "weight": 0.24
+    }
+  ],
+  "controls": {
+    "referencePass": "按标称阻尼系数与二维面积平方能量守恒闭式重放三层粒子云并启用软粒子、预乘混合、聚光池与预演烘焙的标准工程应得满分。",
+    "negative": "分别对阻尼系数施加上下扰动、关闭最小像素面积平方能量守恒、关闭软粒子深度淡出、关闭预乘混合、关闭发光池、破坏预演烘焙表或撤去交付编码卡，均须判为不合格。"
+  },
+  "needs": [
+    "particle.premult",
+    "particle.soft",
+    "particle.minpx",
+    "fx.breath",
+    "light.emit-pool",
+    "time.bake",
+    "deliver.encode"
+  ],
+  "budget": { "tokens": 1800000, "wallMs": 2400000, "gpuSeconds": 300 },
+  "flags": { "hidden": false, "expectedFail": false, "blockedBy": [] },
+  "calibration": {
+    "status": "calibrated",
+    "source": "公开粒子点云闭式重放与消融锁门表（gates-m4.json#stepping_stone_3_particle_replay）。",
+    "noiseFloor": 0,
+    "version": 1
+  },
+  "ext": { "bench.code": "M4-SS3", "bench.steppingStone": true }
+}

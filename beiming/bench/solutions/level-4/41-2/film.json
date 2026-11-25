@@ -1,0 +1,78 @@
+{
+  "format": "film/3.0",
+  "id": "sol_m4_ss2",
+  "exam": "41-2",
+  "seed": 412,
+  "title": "多段扫掠脊线：向心引导轨、推力脉冲、行波游动与平行输运倾斜标架",
+  "output": { "size": [1920, 1080], "fps": "60/1", "frames": 24 },
+  "shots": [
+    {
+      "id": "spine-sweep",
+      "in": 0,
+      "out": 24,
+      "source": "three",
+      "host": "page",
+      "mode": "cards-data",
+      "colorRef": "scene",
+      "roles": { "hero": "spine" },
+      "params": {
+        "windowSec": [36, 59],
+        "bodyLength": 172,
+        "segments": 86,
+        "stationStepM": 4
+      },
+      "cards": [
+        {
+          "as": "sweep",
+          "use": "motion.sweep-body@1",
+          "params": {
+            "bodyLength": 172,
+            "segments": 86,
+            "sampleCount": 44,
+            "maxRollStepDeg": 5,
+            "maxTwistStepDeg": 6,
+            "bankGain": 0.42,
+            "swimAmplitude": 1
+          }
+        },
+        {
+          "as": "roll",
+          "use": "motion.roll-bank@1",
+          "params": {
+            "maxRollStepDeg": 5,
+            "maxTwistStepDeg": 6,
+            "speed": 28
+          }
+        },
+        {
+          "as": "swim",
+          "use": "motion.swim@1",
+          "params": {
+            "bodyLength": 172,
+            "amplitude": 1,
+            "calm": 1,
+            "stir": 0.35,
+            "speed": 28
+          }
+        },
+        {
+          "as": "impulse",
+          "use": "motion.impulse@1",
+          "params": {
+            "bodyLength": 172,
+            "events": [
+              { "t0": 37.5, "duration": 4.2, "dir": [0.35, 0.88, -0.32], "amp": 4.8, "reach": 32, "whip": 42, "tailFade": 0.6, "envelope": "smooth-window" },
+              { "t0": 42.0, "duration": 3.8, "dir": [-0.45, 0.76, 0.46], "amp": 5.2, "reach": 34, "whip": 45, "tailFade": 0.5, "envelope": "attack-decay" },
+              { "t0": 50.2, "duration": 5.0, "dir": [0.28, -0.82, 0.50], "amp": 6.0, "reach": 36, "whip": 48, "tailFade": 0.8, "envelope": "smooth-window" },
+              { "t0": 55.5, "duration": 4.0, "dir": [-0.30, 0.90, -0.31], "amp": 4.5, "reach": 30, "whip": 40, "tailFade": 0.5, "envelope": "cosine" }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "style": { "view": { "scene": "agx-mhc", "display": "srgb" } },
+  "audio": { "mode": "none" },
+  "predicates": { "base": ["floor@1"], "extra": [] },
+  "delivery": { "master": "h264-crf14-bt709", "card": "deliver.encode@1" }
+}

@@ -1,0 +1,84 @@
+{
+  "format": "film/3.0",
+  "id": "sol_m4_ss3",
+  "exam": "41-3",
+  "seed": 413,
+  "title": "指数阻尼吐息粒子闭式重放：三层射流、最小像素守恒、软粒子、预乘混合、聚光池与预演烘焙",
+  "output": { "size": [1920, 1080], "fps": "60/1", "frames": 7 },
+  "shots": [
+    {
+      "id": "particle-replay",
+      "in": 0,
+      "out": 7,
+      "source": "three",
+      "host": "page",
+      "mode": "cards-data",
+      "colorRef": "scene",
+      "roles": { "hero": "plume" },
+      "params": {
+        "checkFrames": [2796, 2808, 2820, 2838, 2856, 2874, 2882],
+        "counts": { "fire": 160, "emb": 96, "smoke": 48 }
+      },
+      "cards": [
+        {
+          "as": "premult",
+          "use": "particle.premult@1",
+          "params": { "emitColor": "#ff7a1a", "smokeColor": "#22262b", "alphaOcc": 0.35, "gain": 1.25 }
+        },
+        {
+          "as": "soft",
+          "use": "particle.soft@1",
+          "params": { "softnessM": 3.0, "nearM": 0.3, "farM": 4000 }
+        },
+        {
+          "as": "minpx",
+          "use": "particle.minpx@1",
+          "params": { "minPx": 1.25, "fovYDeg": 40, "baseSizeM": 0.08 }
+        },
+        {
+          "as": "breath",
+          "use": "fx.breath@1",
+          "params": {
+            "spec": {
+              "count": 160,
+              "seed": 11,
+              "mouth": [-12.0, 2.0, 0.0],
+              "direction": [0.96, 0.12, 0.25],
+              "roar": 0.85,
+              "beam": 0.15,
+              "beamLengthM": 33.0,
+              "reach": 1.95,
+              "drag": 2.6,
+              "speedMps": 70.0
+            }
+          }
+        },
+        {
+          "as": "pool",
+          "use": "light.emit-pool@1",
+          "params": { "defaultRangeM": 150, "decay": 1.7, "minIntensity": 0.0001, "intensityScale": 1.0, "baseColor": "#ff611a" }
+        },
+        {
+          "as": "bake",
+          "use": "time.bake@1",
+          "params": {
+            "spec": {
+              "durationS": 4.0,
+              "sampleHz": 60,
+              "substeps": 4,
+              "warmupSteps": 15,
+              "interpolation": "cubic",
+              "tracks": [
+                { "id": "plume_wake", "lengthM": 2.4, "drag": 0.088, "damping": 0.3, "windBase": [2.3, -0.8], "gustAmp": 5.0, "gustTimeS": 0.6 }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "style": { "view": { "scene": "agx-mhc", "display": "srgb" } },
+  "audio": { "mode": "none" },
+  "predicates": { "base": ["floor@1"], "extra": [] },
+  "delivery": { "master": "h264-crf14-bt709", "card": "deliver.encode@1" }
+}
