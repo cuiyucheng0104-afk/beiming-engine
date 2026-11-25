@@ -865,3 +865,28 @@ test('exam-14 回归：30-1 追加合法可选事件不误清零、28-1 单分�
   assert.equal(legacyRes.pass, false);
   assert.equal(legacyRes.score, 0);
 });
+
+test('exam-15 M4 B18：level-4 三道垫脚题（41-1 / 41-2 / 41-3）纳入 exam 18 题核验，且篡改 gates-m4.json 或缺 refs 必退非 0', async (t) => {
+  const report = await runExam({ outDir: null });
+  assert.equal(report.ok, true, JSON.stringify(report.error));
+  assert.equal(report.summary.evaluatedQuestions, 18);
+  assert.equal(report.summary.passedQuestions, 18);
+  assert.equal(report.summary.skippedQuestions, 5);
+  for (const id of ['41-1', '41-2', '41-3']) {
+    const q = report.questions.find((entry) => entry.id === id);
+    assert.ok(q, `缺少 ${id}`);
+    assert.equal(q.pass, true);
+    assert.equal(q.score, 1);
+    assert.ok(q.negativeControlsChecked >= 5);
+    assert.equal(q.negativeControlsRejected, q.negativeControlsChecked);
+  }
+
+  // 移除 41-1 的 gates-m4.json 引用必须触发契约错误 exit 4
+  const badRefDir = makeTempDir(t);
+  const q41 = JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, 'level-4/41-1.json'), 'utf8'));
+  q41.refs = ['bench/refs/level-4/41-1.json'];
+  fs.writeFileSync(path.join(badRefDir, '41-1.json'), JSON.stringify(q41, null, 2));
+  const rBadRef = await runExam({ questionsDir: badRefDir, outDir: null });
+  assert.equal(rBadRef.ok, false);
+  assert.equal(rBadRef.exitCode, 4);
+});

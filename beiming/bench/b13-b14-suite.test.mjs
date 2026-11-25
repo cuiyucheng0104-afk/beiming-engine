@@ -498,3 +498,42 @@ test('B13/B14-guard: 仓内路径拒收、并发跑题与 solverForRun 注入', 
   assert.equal(res.summary.budgetCapTokens, 750_000);
   assert.equal(res.summary.actualWithinBudgetCap, false);
 });
+
+test('B16-full-3: 保持 full-2 23 场不变，新增 full-3 精确 26 场计分（全卷二 23 场 + B18 3 道四级垫脚题）', async (t) => {
+  const { planFullExam2, planFullExam3, runFullExam3 } = await import('./suite.mjs');
+  const root = makeTempDir(t, 'beiming-b16-full3-');
+  const hiddenDir = path.join(root, 'hidden');
+  const evalRoot = path.join(root, 'evals');
+  const boardDir = path.join(root, 'board');
+  fs.mkdirSync(hiddenDir);
+  createHiddenFixtures(hiddenDir);
+
+  const bank = discoverSuiteQuestions({ questionsDir: QUESTIONS_DIR, hiddenDir });
+  assert.equal(bank.publicQuestions.length, 12);
+  assert.equal(bank.level3Questions.length, 3);
+  assert.equal(bank.level4Questions.length, 3);
+
+  const models = ['family-a', 'family-b'];
+  const asOf = '2026-11-26';
+  const plan2 = planFullExam2({ ...bank, models, asOf });
+  assert.equal(plan2.scoredRunCount, 23);
+
+  const plan3 = planFullExam3({ ...bank, models, asOf });
+  assert.equal(plan3.scoredRunCount, 26);
+  assert.equal(plan3.steppingStoneRunCount, 3);
+  assert.deepEqual(plan3.runs.slice(20, 23).map((r) => r.questionId), ['41-1', '41-2', '41-3']);
+
+  const res3 = await runFullExam3({
+    asOf,
+    evalRoot,
+    boardDir,
+    hiddenDir,
+    models,
+    solver: async () => ({ tokens: 120_000, gpuSeconds: 1.0 }),
+    judge: allPassJudge,
+  });
+  assert.equal(res3.summary.scoredRuns, 26);
+  assert.equal(res3.summary.passedRuns, 26);
+  assert.equal(res3.summary.expectedFailRuns, 5);
+});
+
