@@ -25,11 +25,12 @@ const DEFAULT_SKIP_DIRS = new Set(['.git', 'node_modules']);
 export const SUITE_FORMAT = 'bench-suite/0.1';
 export const DEFAULT_MINI_MAX_BUDGET_SHARE = 0.4;
 export const DEFAULT_T2_UNIT_TOKENS = 250_000;
-// B12 定价在 B13/B14 实测后修订，供 B15 全卷二与 B16 全卷三估算。
+// B12 定价在 B13/B14 实测后修订，供 B15 全卷二与 B16 全卷三/全卷四估算。
 const B15_T2_TOKENS = 800_000;
 const B15_T3_TOKENS = 1_800_000;
 const B15_LEVEL3_IDS = ['3-1', '31-1'];
-const B18_STEPPING_STONE_IDS = ['41-1', '41-2', '41-3'];
+export const B18_STEPPING_STONE_IDS = Object.freeze(['41-1', '41-2', '41-3']);
+export const B19_LEVEL4_SHOT_IDS = Object.freeze(['42-1']);
 
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -208,13 +209,19 @@ export function discoverSuiteQuestions({ questionsDir = DEFAULT_QUESTIONS_DIR, h
   const publicQuestions = [];
   const level3Questions = [];
   const level4Questions = [];
+  const level4ShotQuestions = [];
   const expectedFailQuestions = [];
   for (const entry of loadAndValidateQuestions(resolvedQuestionsDir, { isHiddenBank: false })) {
     if (entry.question.flags?.hidden === true) continue;
     if (entry.question.flags?.expectedFail === true) expectedFailQuestions.push(entry);
     else if (entry.question.level === 3) level3Questions.push(entry);
-    else if (entry.question.level === 4) level4Questions.push(entry);
-    else publicQuestions.push(entry);
+    else if (entry.question.level === 4) {
+      if (entry.question.ext?.['bench.fullShot'] === true || B19_LEVEL4_SHOT_IDS.includes(entry.question.id)) {
+        level4ShotQuestions.push(entry);
+      } else {
+        level4Questions.push(entry);
+      }
+    } else publicQuestions.push(entry);
   }
 
   const hiddenQuestions = [];
@@ -238,12 +245,20 @@ export function discoverSuiteQuestions({ questionsDir = DEFAULT_QUESTIONS_DIR, h
     }
   }
 
-  checkUniqueIds([...publicQuestions, ...level3Questions, ...level4Questions, ...hiddenQuestions, ...expectedFailQuestions], '题库');
+  checkUniqueIds([
+    ...publicQuestions,
+    ...level3Questions,
+    ...level4Questions,
+    ...level4ShotQuestions,
+    ...hiddenQuestions,
+    ...expectedFailQuestions,
+  ], '题库');
 
   return {
     publicQuestions: sortQuestionEntries(publicQuestions),
     level3Questions: sortQuestionEntries(level3Questions),
     level4Questions: sortQuestionEntries(level4Questions),
+    level4ShotQuestions: sortQuestionEntries(level4ShotQuestions),
     hiddenQuestions: sortQuestionEntries(hiddenQuestions),
     expectedFailQuestions: sortQuestionEntries(expectedFailQuestions),
   };
@@ -367,6 +382,10 @@ export function planFullExam3(options) {
   return planFullExam('full-3', options);
 }
 
+export function planFullExam4(options) {
+  return planFullExam('full-4', options);
+}
+
 // 用 UTC 周一作轮换边界。纯组卷时未提供看板日期或周序号，从第零周开始。
 function rotationWeek(asOf) {
   if (asOf === undefined) return 0;
@@ -404,6 +423,42 @@ function full3PublicRuns({ publicBank, level3Bank, level4Bank, models, primarySo
   ];
 }
 
+function full4PublicRuns({
+  publicBank,
+  level3Bank,
+  level4Bank,
+  models,
+  primarySource,
+  level3Source,
+  steppingStoneSource,
+  level4ShotSource = steppingStoneSource,
+  weekIndex,
+}) {
+  const baseRuns = full3PublicRuns({
+    publicBank,
+    level3Bank,
+    level4Bank,
+    models,
+    primarySource,
+    level3Source,
+    steppingStoneSource,
+    weekIndex,
+  });
+  const fullShots = B19_LEVEL4_SHOT_IDS.map((id) => level4Bank.find((entry) => entry.question.id === id));
+  if (fullShots.some((entry) => !entry || entry.question.level !== 4 || entry.question.ext?.['bench.steppingStone'] === true)) {
+    throw contractError('contract.invalid-question', '全卷四需要纳入 M4 B19 的四级整镜公开题（42-1）');
+  }
+  return [
+    ...baseRuns,
+    ...fullShots.map((entry) => plannedRun(entry, models[0], level4ShotSource)),
+  ];
+}
+
+function isLevel4HiddenVariant(entry) {
+  const q = entry?.question;
+  return Boolean(q && (q.level === 4 || q.ext?.['bench.variantOf'] === '42-1'));
+}
+
 function plannedRun({ file, question }, model, source) {
   return {
     questionId: question.id, questionFile: file, level: question.level,
@@ -416,6 +471,7 @@ function planFullExam(kind, {
   level3Questions = [],
   level4Questions = [],
   steppingStoneQuestions,
+  level4ShotQuestions = [],
   hiddenQuestions = [],
   expectedFailQuestions = [],
   models,
@@ -423,13 +479,14 @@ function planFullExam(kind, {
   primarySource = source,
   level3Source = 'blender',
   steppingStoneSource = primarySource,
+  level4ShotSource = steppingStoneSource,
   hiddenModel = null,
   hiddenCount = 3,
   secondFamilyCount = 6,
   asOf,
   weekIndex,
   previousBlockedBy = {},
-  unitTokens = (kind === 'full-2' || kind === 'full-3') ? B15_T2_TOKENS : DEFAULT_T2_UNIT_TOKENS,
+  unitTokens = (kind === 'full-2' || kind === 'full-3' || kind === 'full-4') ? B15_T2_TOKENS : DEFAULT_T2_UNIT_TOKENS,
   level3UnitTokens = B15_T3_TOKENS,
 } = {}) {
   if (!Array.isArray(publicQuestions)) {
@@ -471,9 +528,9 @@ function planFullExam(kind, {
 
   let level3Bank = [];
   let level4Bank = [];
-  if (kind === 'full-2' || kind === 'full-3') {
+  if (kind === 'full-2' || kind === 'full-3' || kind === 'full-4') {
     if (hiddenCount !== 3 || secondFamilyCount !== 6) {
-      throw contractError('contract.invalid-run-count', '全卷二/全卷三固定抽取六道第二家族题与三道隐藏题');
+      throw contractError('contract.invalid-run-count', '全卷二/全卷三/全卷四固定抽取六道第二家族题与三道基础隐藏题');
     }
     if (!validModels.includes(chosenHiddenModel)) throw usageError('隐藏题模型必须属于本卷的两个家族');
     if (!Array.isArray(level3Questions)) throw usageError('level3Questions 必须是数组');
@@ -484,11 +541,14 @@ function planFullExam(kind, {
     if (level3Bank.some(({ question: q }) => q.level !== 3 || q.flags?.hidden || q.flags?.expectedFail)) {
       throw contractError('contract.invalid-question', 'level3Questions 只接受三级公开计分题');
     }
-    if (kind === 'full-3') {
+    if (kind === 'full-3' || kind === 'full-4') {
       const rawL4 = steppingStoneQuestions ?? level4Questions;
       if (!Array.isArray(rawL4)) throw usageError('level4Questions 必须是数组');
+      if (!Array.isArray(level4ShotQuestions)) throw usageError('level4ShotQuestions 必须是数组');
       assertSource(steppingStoneSource);
-      level4Bank = rawL4.map((entry, i) => normalizeQuestionEntry(entry, i, 'level4Questions'));
+      assertSource(level4ShotSource);
+      const combinedL4 = kind === 'full-4' ? [...rawL4, ...level4ShotQuestions] : rawL4;
+      level4Bank = combinedL4.map((entry, i) => normalizeQuestionEntry(entry, i, 'level4Questions'));
       if (level4Bank.some(({ question: q }) => q.level !== 4 || q.flags?.hidden || q.flags?.expectedFail)) {
         throw contractError('contract.invalid-question', 'level4Questions 只接受四级公开计分题');
       }
@@ -503,17 +563,31 @@ function planFullExam(kind, {
   const sortedHidden = sortQuestionEntries(normHidden);
   const sortedExpectedFail = sortQuestionEntries(normExpectedFail);
 
-  if (sortedHidden.length < hiddenCount) {
+  const baseHidden = sortedHidden.filter((entry) => !isLevel4HiddenVariant(entry));
+  if (baseHidden.length < hiddenCount) {
     throw withErrorMeta(
-      new RangeError(`隐藏题数量不足：需要 ${hiddenCount} 道，实际只有 ${sortedHidden.length} 道`),
+      new RangeError(`隐藏题数量不足：需要 ${hiddenCount} 道，实际只有 ${baseHidden.length} 道`),
       'contract.insufficient-hidden-questions',
       EXIT.CONTRACT,
     );
   }
-  const selectedHidden = sortedHidden.slice(0, hiddenCount);
+  const selectedBaseHidden = baseHidden.slice(0, hiddenCount);
+  let selectedLevel4Hidden = [];
+  if (kind === 'full-4') {
+    const level4Hidden = sortedHidden.filter(isLevel4HiddenVariant);
+    if (level4Hidden.length < 1) {
+      throw withErrorMeta(
+        new RangeError(`四级隐藏变体题数量不足：需要 1 道，实际只有 ${level4Hidden.length} 道`),
+        'contract.insufficient-hidden-questions',
+        EXIT.CONTRACT,
+      );
+    }
+    selectedLevel4Hidden = level4Hidden.slice(0, 1);
+  }
+  const selectedHidden = [...selectedBaseHidden, ...selectedLevel4Hidden];
 
-  const publicRuns = kind === 'full-3'
-    ? full3PublicRuns({
+  const publicRuns = kind === 'full-4'
+    ? full4PublicRuns({
         publicBank: sortedPublic,
         level3Bank,
         level4Bank,
@@ -521,13 +595,29 @@ function planFullExam(kind, {
         primarySource: validSource,
         level3Source,
         steppingStoneSource,
+        level4ShotSource,
         weekIndex: weekIndex ?? rotationWeek(asOf),
       })
-    : kind === 'full-2'
-      ? full2PublicRuns({ publicBank: sortedPublic, level3Bank, models: validModels, primarySource: validSource,
-          level3Source, weekIndex: weekIndex ?? rotationWeek(asOf) })
-      : sortedPublic.flatMap((entry) => validModels.map((model) => plannedRun(entry, model, validSource)));
-  const runs = [...publicRuns, ...selectedHidden.map((entry) => plannedRun(entry, chosenHiddenModel, validSource))];
+    : kind === 'full-3'
+      ? full3PublicRuns({
+          publicBank: sortedPublic,
+          level3Bank,
+          level4Bank,
+          models: validModels,
+          primarySource: validSource,
+          level3Source,
+          steppingStoneSource,
+          weekIndex: weekIndex ?? rotationWeek(asOf),
+        })
+      : kind === 'full-2'
+        ? full2PublicRuns({ publicBank: sortedPublic, level3Bank, models: validModels, primarySource: validSource,
+            level3Source, weekIndex: weekIndex ?? rotationWeek(asOf) })
+        : sortedPublic.flatMap((entry) => validModels.map((model) => plannedRun(entry, model, validSource)));
+  const runs = [
+    ...publicRuns,
+    ...selectedBaseHidden.map((entry) => plannedRun(entry, chosenHiddenModel, validSource)),
+    ...selectedLevel4Hidden.map((entry) => plannedRun(entry, chosenHiddenModel, level4ShotSource)),
+  ];
 
   const prevMap = previousBlockedBy ?? {};
   const expectedFailRuns = sortedExpectedFail.map((entry) => {
@@ -549,7 +639,7 @@ function planFullExam(kind, {
 
   const reruns = expectedFailRuns.filter((r) => r.forceExpectedFail);
   const estimatedTokens = [...runs, ...reruns].reduce((sum, r) =>
-    sum + ((kind === 'full-2' || kind === 'full-3') && r.level >= 3 ? level3UnitTokens : unitTokens), 0);
+    sum + ((kind === 'full-2' || kind === 'full-3' || kind === 'full-4') && r.level >= 3 ? level3UnitTokens : unitTokens), 0);
   return freezeDeep({
     format: SUITE_FORMAT,
     kind,
@@ -558,12 +648,25 @@ function planFullExam(kind, {
     scoredRunCount: runs.length,
     publicRunCount: publicRuns.length,
     hiddenRunCount: selectedHidden.length,
-    ...(kind === 'full-2' || kind === 'full-3'
+    ...(kind === 'full-2' || kind === 'full-3' || kind === 'full-4'
       ? {
           primaryRunCount: sortedPublic.length,
           secondFamilyCount,
           level3RunCount: B15_LEVEL3_IDS.length,
-          ...(kind === 'full-3' ? { steppingStoneRunCount: B18_STEPPING_STONE_IDS.length, level4RunCount: B18_STEPPING_STONE_IDS.length } : {}),
+          ...(kind === 'full-3'
+            ? {
+                steppingStoneRunCount: B18_STEPPING_STONE_IDS.length,
+                level4RunCount: B18_STEPPING_STONE_IDS.length,
+              }
+            : {}),
+          ...(kind === 'full-4'
+            ? {
+                steppingStoneRunCount: B18_STEPPING_STONE_IDS.length,
+                level4ShotRunCount: B19_LEVEL4_SHOT_IDS.length,
+                level4HiddenRunCount: selectedLevel4Hidden.length,
+                level4RunCount: B18_STEPPING_STONE_IDS.length + B19_LEVEL4_SHOT_IDS.length + selectedLevel4Hidden.length,
+              }
+            : {}),
         }
       : {}),
     expectedFailCount: expectedFailRuns.length,
@@ -813,6 +916,10 @@ export function runFullExam3(options) {
   return runExamSuite({ ...options, mode: 'full-3' });
 }
 
+export function runFullExam4(options) {
+  return runExamSuite({ ...options, mode: 'full-4' });
+}
+
 /** 发现题库，按卷型隔离跑题，并原子续写看板与脱敏报告。 */
 export async function runExamSuite({
   mode,
@@ -826,6 +933,7 @@ export async function runExamSuite({
   primarySource = source,
   level3Source = 'blender',
   steppingStoneSource = primarySource,
+  level4ShotSource = steppingStoneSource,
   hiddenModel = null,
   hiddenCount = 3,
   secondFamilyCount = 6,
@@ -847,8 +955,8 @@ export async function runExamSuite({
   cardsDir = null,
   priors = [],
 } = {}) {
-  if (!['mini', 'full-1', 'full-2', 'full-3'].includes(mode)) {
-    throw usageError(`未知卷型 ${String(mode)}`, '卷型可选 mini、full-1、full-2 或 full-3', 'usage.bad-argument');
+  if (!['mini', 'full-1', 'full-2', 'full-3', 'full-4'].includes(mode)) {
+    throw usageError(`未知卷型 ${String(mode)}`, '卷型可选 mini、full-1、full-2、full-3 或 full-4', 'usage.bad-argument');
   }
   if (!isCalendarDate(asOf)) {
     throw usageError(`asOf 必须是 YYYY-MM-DD 日期，收到 ${String(asOf)}`, '传合法日期，例如 2026-11-25', 'usage.bad-argument');
@@ -883,7 +991,7 @@ export async function runExamSuite({
         unitTokens,
         onOverBudget,
       })
-    : planFullExam(mode, { ...discovered, models, primarySource, level3Source, steppingStoneSource, hiddenModel, hiddenCount,
+    : planFullExam(mode, { ...discovered, models, primarySource, level3Source, steppingStoneSource, level4ShotSource, hiddenModel, hiddenCount,
         secondFamilyCount, weekIndex, asOf, previousBlockedBy, unitTokens, level3UnitTokens });
 
   const plannedItems = mode === 'mini' ? plan.runs : [...plan.runs, ...plan.expectedFailRuns];
@@ -913,8 +1021,8 @@ export async function runExamSuite({
   const wallMs = results.reduce((sum, r) => sum + (Number.isFinite(r.cost?.wallMs) ? r.cost.wallMs : 0), 0);
   const gpuSeconds = results.reduce((sum, r) => sum + (Number.isFinite(r.cost?.gpuSeconds) ? r.cost.gpuSeconds : 0), 0);
 
-  // 全卷二/全卷三的门控复跑另计成本和结果，固定的 23/26 道验收样本保持同一分母。
-  const scoredResults = (mode === 'full-2' || mode === 'full-3') ? results.slice(0, plan.scoredRunCount) : results.filter((r) => r.status !== 'expected-fail');
+  // 全卷二/全卷三/全卷四的门控复跑另计成本和结果，固定的 23/26/28 道验收样本保持同一分母。
+  const scoredResults = (mode === 'full-2' || mode === 'full-3' || mode === 'full-4') ? results.slice(0, plan.scoredRunCount) : results.filter((r) => r.status !== 'expected-fail');
   const passedRuns = scoredResults.filter((r) => r.status === 'pass').length;
   const failedRuns = scoredResults.filter((r) => r.status === 'fail').length;
   const errorRuns = scoredResults.filter((r) => r.status === 'error').length;
@@ -926,9 +1034,10 @@ export async function runExamSuite({
 
   const allQuestions = [
     ...discovered.publicQuestions,
-    ...((mode === 'full-2' || mode === 'full-3') ? discovered.level3Questions.filter(({ question }) => B15_LEVEL3_IDS.includes(question.id)) : []),
-    ...(mode === 'full-3' ? discovered.level4Questions.filter(({ question }) => B18_STEPPING_STONE_IDS.includes(question.id)) : []),
-    ...discovered.hiddenQuestions,
+    ...((mode === 'full-2' || mode === 'full-3' || mode === 'full-4') ? discovered.level3Questions.filter(({ question }) => B15_LEVEL3_IDS.includes(question.id)) : []),
+    ...((mode === 'full-3' || mode === 'full-4') ? discovered.level4Questions.filter(({ question }) => B18_STEPPING_STONE_IDS.includes(question.id)) : []),
+    ...(mode === 'full-4' ? (discovered.level4ShotQuestions ?? []).filter(({ question }) => B19_LEVEL4_SHOT_IDS.includes(question.id)) : []),
+    ...discovered.hiddenQuestions.filter((entry) => mode === 'full-4' ? true : !isLevel4HiddenVariant(entry)),
     ...discovered.expectedFailQuestions,
   ].map((entry) => projectQuestionForBoard(entry.question));
   const evalResults = collectEvalResults(resolvedEvalRoot);
@@ -1142,6 +1251,19 @@ const FULL3 = {
   handler: (ctx) => runFullCli(ctx, 'full-3'),
 };
 
+const FULL4 = {
+  spec: {
+    ...FULL3.spec,
+    summary: '运行全卷四（B16/B19）：全卷三 26 次 + 1 道四级整镜公开题（42-1）+ 1 道四级整镜隐藏变体，共 28 次计分',
+    usage: 'node beiming/bench/suite.mjs full-4 --as-of YYYY-MM-DD --eval-root <dir> --board-dir <dir> --models m1,m2 --hidden-dir <dir> [选项]',
+    options: {
+      ...FULL3.spec.options,
+      'level4-shot-source': { type: 'string', choices: SOURCES, default: 'three', desc: '四级整镜公开题与隐藏变体的帧源' },
+    },
+  },
+  handler: (ctx) => runFullCli(ctx, 'full-4'),
+};
+
 async function runFullCli({ opts }, mode) {
   requireCommonOpts(opts);
   let previousBlockedBy = {};
@@ -1158,6 +1280,7 @@ async function runFullCli({ opts }, mode) {
       primarySource: opts['primary-source'],
       level3Source: opts['level3-source'],
       steppingStoneSource: opts['stepping-stone-source'],
+      level4ShotSource: opts['level4-shot-source'],
       weekIndex: opts['week-index'],
       secondFamilyCount: opts['second-family-count'],
       level3UnitTokens: opts['level3-unit-tokens'],
@@ -1177,8 +1300,8 @@ async function runFullCli({ opts }, mode) {
       cardsDir: opts['cards-dir'] ?? null,
       priors: opts.priors,
     });
-    const label = mode === 'full-3' ? '全卷三' : mode === 'full-2' ? '全卷二' : '全卷一';
-    const data = (mode === 'full-2' || mode === 'full-3') ? {
+    const label = mode === 'full-4' ? '全卷四' : mode === 'full-3' ? '全卷三' : mode === 'full-2' ? '全卷二' : '全卷一';
+    const data = (mode === 'full-2' || mode === 'full-3' || mode === 'full-4') ? {
       ...res,
       plan: sanitizePlanForReport(res.plan),
       results: res.results.map(sanitizeResultForReport),
@@ -1206,7 +1329,7 @@ const isMain = () => {
 if (isMain()) {
   await runCli({
     command: 'beiming/bench/suite.mjs',
-    subcommands: { mini: MINI, 'full-1': FULL1, 'full-2': FULL2, 'full-3': FULL3 },
+    subcommands: { mini: MINI, 'full-1': FULL1, 'full-2': FULL2, 'full-3': FULL3, 'full-4': FULL4 },
     summary: '北冥考题每日小卷与全卷调度引擎',
   });
 }
