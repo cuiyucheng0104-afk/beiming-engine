@@ -460,7 +460,7 @@ test('端到端 χ²：像素滤波的查表（查宿主一侧建的表）给出
       { name: `反例（只变形） ${name}`, bad: true, sample: `filter_chi2_sample(vec3f(u.x * u.x, u.y, u.z), ${k * 1024}, ${R})`, density: `filter_chi2_density(p.x, ${k * 1024}, ${R})` },
     ];
   });
-  const r = await gpuOnly(t, () => gridChi2({ source: shaderSource({}, tables) + FILTER_HELPERS, cases, n: 1_000_000, seed: 1, nx: 64, ny: 1, sub: 64 }));
+  const r = await gpuOnly(t, () => gridChi2({ source: shaderSource() + FILTER_HELPERS, cases, n: 1_000_000, seed: 1, nx: 64, ny: 1, sub: 64, filterTables: tables }));
   if (!r) return;
   for (const c of r) {
     t.diagnostic(`${c.name}: χ²=${c.chi2.toFixed(1)} dof=${c.dof} p=${c.p.toExponential(3)} 落在区间外 ${c.lost.observed}（期望 ${c.lost.expected.toFixed(1)}）`);

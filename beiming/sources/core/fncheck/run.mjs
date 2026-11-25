@@ -16,13 +16,13 @@ import { buildRenderer } from '../chassis/build.mjs';
 import { COMMIT, OUT, TAG, buildRef, runRef } from './cycles/build.mjs';
 import { compare } from './compare.mjs';
 import { kernel, runGpu } from './gpu.mjs';
-import { FILTER_TABLES, FILTER_TABLE_SIZE, FUNCTIONS, SHADERS, filterTableStub, outWidth, size, width } from './registry.mjs';
+import { FILTER_TABLES, FILTER_TABLE_SIZE, FUNCTIONS, SHADERS, outWidth, size, width } from './registry.mjs';
 
 export const CORE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-/** 把 SHADERS 里的 WGSL 文件拼成一个模块；overrides 按文件名代替原文（测试用来故意改错一项）。filterTables 是
- *  imaging.wgsl 要读的滤波表（FILTER_TABLES 次序的几张表接在一起），不给时全 0 */
-export const shaderSource = (overrides = {}, filterTables = null) => `${SHADERS.map(file => overrides[file] ?? fs.readFileSync(path.join(CORE, file), 'utf8')).join('\n')}\n${filterTableStub(filterTables)}`;
+/** 把 SHADERS 里的 WGSL 文件拼成一个模块；overrides 按文件名代替原文（测试用来故意改错一项）。imaging.wgsl 要读的滤波表
+ *  不在这里：经 runGpu 的 filterTables 放进存储缓冲 */
+export const shaderSource = (overrides = {}) => SHADERS.map(file => overrides[file] ?? fs.readFileSync(path.join(CORE, file), 'utf8')).join('\n');
 
 /** 按 FILTER_TABLES 建出的几张表，接在一起：bin 是标准答案程序（Cycles 建的表）或 core-render（宿主一侧 Rust 建的表） */
 export function filterTables(bin, run = runRef) {
@@ -92,10 +92,11 @@ function branchCounts(f, input, n) {
 export async function check({ names = FUNCTIONS.map(f => f.name), n = 1_000_000, seed = 1, wgsl, inject = [], allowFetch = true } = {}) {
   const fns = names.map(name => FUNCTIONS.find(f => f.name === name) ?? (() => { throw usageError('unknown-function', `登记表里没有函数 ${name}`, `可用：${FUNCTIONS.map(f => f.name).join(' ')}`); })());
   const bin = buildRef({ allowFetch });
-  const source = shaderSource(wgsl, fns.some(f => f.filterTables) ? filterTables(bin) : null);
+  const source = shaderSource(wgsl);
+  const tables = fns.some(f => f.filterTables) ? filterTables(bin) : undefined;
   const jobs = fns.map(f => ({ f, n: f.n ?? n, input: makeInputs(f, f.n ?? n, seed) }));
   const onGpu = jobs.filter(j => !j.f.host), onHost = jobs.filter(j => j.f.host);
-  const gpu = onGpu.length ? await runGpu(onGpu.map(j => ({ name: j.f.name, code: kernel(source, j.f), input: j.input, n: j.n, nOut: outWidth(j.f) }))) : { adapter: null, outputs: [] };
+  const gpu = onGpu.length ? await runGpu(onGpu.map(j => ({ name: j.f.name, code: kernel(source, j.f), input: j.input, n: j.n, nOut: outWidth(j.f) })), { filterTables: tables }) : { adapter: null, outputs: [] };
   const host = onHost.length ? buildRenderer({ inject }).bin : null;
   const tested = new Map([...onGpu.map((j, k) => [j, gpu.outputs[k]]), ...onHost.map(j => [j, runHost(host, j.f.ref, j.input, j.n * outWidth(j.f))])]);
   const results = jobs.map(j => ({

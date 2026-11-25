@@ -18,11 +18,14 @@ export const LUT = Float32Array.from(fs.readFileSync(path.join(path.dirname(file
 if (LUT.length !== 8192 || LUT.some(Number.isNaN)) throw new Error('ggx_gen_schlick.tables 应有 8192 个数');
 
 /** 移植的查表函数要的三个函数（../shaders/util.wgsl 的 lookup_table_read_buf 上面的说明），与内核 path/shaders/pathtrace.wgsl
- *  的同名函数对应：内核从整个表缓冲里取数、偏移是表的首地址，这里 lut 只放这两张表 */
+ *  的同名函数对应：内核从整个表缓冲里取数、偏移是表的首地址，这里 lut 先放这两张表。
+ *  imaging.wgsl 要的 filter_table_value(i) 也从 lut 读，像素滤波表接在这两张后面（runGpu 的 filterTables）；内核一侧在
+ *  path/shaders/film.wgsl。不写成常数数组：几千个数的常数数组按运行时下标取，英伟达上编译与运行都慢到卡住（STRUCTURES.md 第 49 行的规矩） */
 export const LUT_PRELUDE = `@group(0) @binding(2) var<storage, read> lut: array<f32>;
 fn lookup_table_fetch(i: i32) -> f32 { return lut[i]; }
 fn table_ggx_gen_schlick_ior_s() -> i32 { return 0; }
-fn table_ggx_gen_schlick_s() -> i32 { return 4096; }`;
+fn table_ggx_gen_schlick_s() -> i32 { return 4096; }
+fn filter_table_value(i: i32) -> f32 { return lut[${LUT.length} + i]; }`;
 
 /** 生成计算着色器：每个线程算一组，输入按 f32 紧凑排列（不用 vec3 存储，免得按 16 字节对齐）。source 是拼好的 WGSL 模块 */
 export function kernel(source, f) {
@@ -101,14 +104,16 @@ window.runAll = async jobs => {
 const WEBGPU_ARGS = process.platform === 'linux' ? ['--enable-unsafe-webgpu', '--enable-features=Vulkan'] : [];
 
 /** jobs: [{ name, code: 计算着色器（入口 fncheck_main）, input: Float32Array, n: 线程数, nOut: 每个线程写几个 f32 }]
+ *  filterTables：可选，像素滤波表（Float32Array），接在 lut 的两张表后面，着色器里由 filter_table_value(i) 读
  *  → { adapter, outputs: Float32Array[] }（与 jobs 同序） */
-export async function runGpu(jobs) {
+export async function runGpu(jobs, { filterTables } = {}) {
+  const lut = filterTables ? Float32Array.from([...LUT, ...filterTables]) : LUT;
   const ins = new Map(jobs.map(j => [j.name, j.input]));
   const outs = new Map();
   const srv = http.createServer((req, res) => {
     const [, kind, name] = req.url.split('/');
     if (req.url === '/') return res.writeHead(200, { 'content-type': 'text/html' }).end(PAGE);
-    if (req.url === '/lut') return res.end(Buffer.from(LUT.buffer, LUT.byteOffset, LUT.byteLength));
+    if (req.url === '/lut') return res.end(Buffer.from(lut.buffer, lut.byteOffset, lut.byteLength));
     if (kind === 'in' && ins.has(name)) { const a = ins.get(name); return res.end(Buffer.from(a.buffer, a.byteOffset, a.byteLength)); }
     if (kind === 'out' && req.method === 'POST') {
       const chunks = [];

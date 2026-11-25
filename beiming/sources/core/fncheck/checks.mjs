@@ -133,7 +133,7 @@ export async function directionChi2({ source, cases, n = 1_000_000, seed = 1, nT
  * vec3f(x, y, 1 有效 | 0 被拒)，x、y ∈ [0, 1]；density 是用变量 p（vec2f）写的 WGSL 表达式，给出对 dx·dy 的概率密度。
  * nx×ny 个箱，每箱 sub×sub 个点的中点法，另加一箱「被拒」，期望 n·(1 − 全部箱的积分)。返回同 directionChi2。
  */
-export async function gridChi2({ source, cases, n = 1_000_000, seed = 1, nx = 64, ny = 64, sub = 8 }) {
+export async function gridChi2({ source, cases, n = 1_000_000, seed = 1, nx = 64, ny = 64, sub = 8, filterTables }) {
   const u = makeInputs({ name: 'gridChi2', inputs: [['u', 'vec3f', [0, 1]]] }, n, seed);
   const nb = nx * ny;
   const jobs = cases.flatMap((c, k) => [
@@ -151,7 +151,7 @@ export async function gridChi2({ source, cases, n = 1_000_000, seed = 1, nx = 64
   }
   outp[i] = sum / ${nx * ny * sub * sub}.0;`) },
   ]);
-  const { outputs } = await runGpu(jobs);
+  const { outputs } = await runGpu(jobs, { filterTables });
   return cases.map((c, k) => {
     const s = outputs[2 * k], integral = outputs[2 * k + 1];
     const observed = new Float64Array(nb + 1), expected = new Float64Array(nb + 1);

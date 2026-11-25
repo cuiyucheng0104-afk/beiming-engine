@@ -8,7 +8,7 @@
 // gen：可选，(next: () => [0,1) 均匀数) => { 输入名: 数或数组 }，逐组生成彼此相关的输入（正交基、相对灯面的位置）；有它时 inputs 不写范围。
 // host：可选，为真时被测的是宿主一侧的 Rust（core-render fncheck-host 逐组算），file 是 Rust 源文件，不上显卡。
 // n：可选，这一项的组数（不写就用外壳的 --n）。filterTables：可选，为真时外壳先按 FILTER_TABLES 让标准答案程序建表，
-// 拼进着色器（filterTableStub）。
+// 经存储缓冲交给着色器（gpu.mjs 的 runGpu 的 filterTables）。
 // branch：可选，(一组输入) => 分支名，只用来在报告里数各分支的比例。
 // skip：可选，(标准答案的一组输出, 被测的一组输出, 这一组的输入) => 真时这一组不比、只计数。只给登记处写明了理由的病态区域用。
 // 合格：|被测−标准| ≤ rel·|标准| + abs。rel 一律 1e-4。
@@ -272,19 +272,13 @@ FUNCTIONS.push(
 // 滤波函数与建表在宿主一侧：被测的是 Rust（path/src/pixel_filter.rs，经 core-render fncheck-host 逐组算），登记 host: true；
 // 查表与夹取在内核里：被测的是 WGSL（shaders/imaging.wgsl），在显卡上算。
 // 查表的三项用的是 Cycles 自己建的三张表（FILTER_TABLES，次序与 cycles/ref_imaging.h 的 filter_tables_fixed 相同）：
-// 外壳先让标准答案程序按这三组参数建表，拼成 imaging.wgsl 要的 filter_table_value(i)（filterTableStub），只比查表本身；
+// 外壳先让标准答案程序按这三组参数建表，经存储缓冲给 imaging.wgsl 要的 filter_table_value(i)（gpu.mjs 的 LUT_PRELUDE），只比查表本身；
 // 建表对不对由 filter_table 一项逐项比。
 const IMAGING = 'shaders/imaging.wgsl';
 const PIXEL_FILTER = 'path/src/pixel_filter.rs';
 /** 查表比对用的三张表：[种类（scene/film.h 的 FilterType：0 盒式、1 高斯、2 Blackman-Harris）, 宽度] */
 export const FILTER_TABLES = [[0, 2.0], [1, 1.5], [2, 1.5]];
 export const FILTER_TABLE_SIZE = 1024;
-/** imaging.wgsl 要的表：values 是 FILTER_TABLES 次序的几张表接在一起；不给时全 0（不比查表的检验用） */
-export const filterTableStub = values => (values
-  ? `const FNCHECK_FILTER_TABLE = array<f32, ${values.length}>(${[...values].map(v => (Number.isInteger(v) ? `${v}.0` : `${v}`)).join(', ')});
-fn filter_table_value(i: i32) -> f32 { return FNCHECK_FILTER_TABLE[i]; }
-`
-  : 'fn filter_table_value(i: i32) -> f32 { return 0.0; }\n');
 const hostFn = (name, inputs, out, abs = 0, more = {}) => entry(name, inputs, out, abs, { file: PIXEL_FILTER, host: true, ...more });
 // 滤波函数只在建表用到的定义域上比：自变量 v 在 [0, 宽度/2]，宽度是建表时放大过的（高斯乘 3、Blackman-Harris 乘 2），
 // 界面上的宽度 0.01 到 10 像素，所以放大后取到 0.01 到 30
