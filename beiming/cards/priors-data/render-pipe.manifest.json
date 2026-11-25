@@ -1,0 +1,5550 @@
+{
+  "format": "priors-migration/0.1",
+  "collection": "render-pipe",
+  "source": "渲染管线、采样、后期与性能分级（案例库参数汇编，只读；不入库）",
+  "totalSourceEntries": 287,
+  "detailEntries": 186,
+  "summaryRows": 101,
+  "order": "ledger 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
+  "counting": "源总数 = 明细条目 + 跨案例对照表汇总行；汇总行去向随所指同案例真实明细，不另算明细",
+  "portableCount": 64,
+  "cardCoupledCount": 130,
+  "practiceCount": 79,
+  "excludedOrConflictCount": 14,
+  "detailRouteCounts": {
+    "portable": 29,
+    "card-coupled": 87,
+    "practice": 58,
+    "skipped-or-conflict": 12
+  },
+  "summaryRouteCounts": {
+    "portable": 35,
+    "card-coupled": 43,
+    "practice": 21,
+    "skipped-or-conflict": 2
+  },
+  "emittedCounts": {
+    "priorsTotal": 131,
+    "priorsDetail": 106,
+    "priorsSummary": 25,
+    "cardPriors": 87,
+    "practices": 58,
+    "excludedDetails": 12
+  },
+  "files": {
+    "priors": "render-pipe.json",
+    "cardPriors": "render-pipe.card-priors.json",
+    "practices": "render-pipe.practices.json"
+  },
+  "rules": {
+    "method": "严格对齐 05 §8.1 执行全量 1,574 条跨家族语义分流（semantic-v3 终审裁决）：先由结构化冲突对账拦截（conflict-bullet / conflict-table / 多版本采样冲突对账）归 skipped-or-conflict，其余明细直读语义标签 P/C/M/X；仅标为 P 时调用 extractPortableQuantities 提取合规 priors/0.1 数值（无合法数值可提则降级归 card-coupled，useAsDefault: false）",
+    "portable": "可脱离原场景着色器算式与多档位容量表独立复用的物理、光学、标准 PBR 材质基底（scene-linear-rec709 线性基色/金属度/粗糙度/IOR/清漆/光泽）、真实构件物理尺寸（mm/cm/m）、资产与编码交付规格（分辨率/像素密度/宽高比/骨骼与形态键规模/帧率/响度 LUFS/dBTP）、界面 sRGB 色值与触控/排版几何、以及明确独立的速度/寿命/代际频率/时间常数/阈值量",
+    "cardCoupled": "与特定角色/场景/着色器公式、多档画质/LOD/粒子池容量配置、后期调色/泛光多参数预设、放样轮廓坐标阵列或特定模板强耦合的参数包；每条同时记 cardId 与字面 target，严格取自 05 §5 的 92 张正式技术卡，useAsDefault: false",
+    "practice": "主体为跨实现可复用的算法机制、建模/UV/刚性蒙皮/分件工序、渲染排队/报错即停策略、设计原则与排错修法（kind: method | fix）",
+    "skippedOrConflict": "冲突对账行、多版本未决采样对账、汇编编排说明、纯指针/未公开/未量/受限读回、纯证据或状态注记及单片实例坐标摆放表；同单位可比冲突挂入对应可移植先验 conflicts[]，全部冲突留档 manifest.conflicts",
+    "evidence": "证据等级取最弱一级映射（推断 > 文档 > 源码 > 实测，绝不升级），全部条目 verifiedInOurStack: false",
+    "summaryRule": "汇总行按源表显式外键 localRefs、子案例标识与同节同主题准则通过 summaryOf 指回真实明细（次要引用严禁跨节污染），严格继承主明细去向与挂卡 target；link 仅在 valueCol 含显著匹配数值或色值时标 values，否则标 gist"
+  },
+  "fixes": [
+    {
+      "issue": "case13-chapter-label",
+      "description": "把案例 13 分章号误标成案例号的行统一归回 case-13，并在 docRef 仅附一次规范章号",
+      "occurrencesInSource": 0,
+      "examples": []
+    },
+    {
+      "issue": "multi-tier-pool-coupled",
+      "description": "多档画质粒子池容量、着色器场公式与单片放样坐标表归 card-coupled，独立物理/尺寸/交付/时序规格进 portable"
+    }
+  ],
+  "cases": [
+    {
+      "caseId": "case-01-legacy",
+      "label": "案例 01 旧版：v3 建模片"
+    },
+    {
+      "caseId": "case-01-original",
+      "label": "案例 01 原作：发布片"
+    },
+    {
+      "caseId": "case-01r",
+      "label": "案例 01 重制版：全代码 GPU 建模片（含过程片）"
+    },
+    {
+      "caseId": "case-02",
+      "label": "案例 02：浏览器龙骑空战游戏"
+    },
+    {
+      "caseId": "case-03",
+      "label": "案例 03：透明机械头与机甲拼装片（案例 03-T/G/B/C）"
+    },
+    {
+      "caseId": "case-05",
+      "label": "案例 05：产品定妆片"
+    },
+    {
+      "caseId": "case-06",
+      "label": "案例 06：像素动作游戏"
+    },
+    {
+      "caseId": "case-07",
+      "label": "案例 07：代码卡通片"
+    },
+    {
+      "caseId": "case-10",
+      "label": "案例 10：竹林动作游戏"
+    },
+    {
+      "caseId": "case-12",
+      "label": "案例 12：雷暴城市短片"
+    },
+    {
+      "caseId": "case-13",
+      "label": "案例 13：纯代码奇幻动作游戏（含 01–16 分章）"
+    },
+    {
+      "caseId": "case-14",
+      "label": "案例 14：雨夜小巷"
+    },
+    {
+      "caseId": "case-15",
+      "label": "案例 15：锁机位卡通短片"
+    },
+    {
+      "caseId": "case-16",
+      "label": "案例 16：浏览器冒险游戏"
+    },
+    {
+      "caseId": "case-17",
+      "label": "案例 17：大规模粒子生物模拟"
+    },
+    {
+      "caseId": "case-18",
+      "label": "案例 18：新闻讲解片"
+    },
+    {
+      "caseId": "case-19",
+      "label": "案例 19：落日集市（路径追踪）"
+    },
+    {
+      "caseId": "case-20",
+      "label": "案例 20：代码合成歌声短片"
+    },
+    {
+      "caseId": "case-21",
+      "label": "案例 21：晨市"
+    },
+    {
+      "caseId": "case-22",
+      "label": "案例 22：代理搭建的电影城市"
+    },
+    {
+      "caseId": "case-23",
+      "label": "案例 23：打斗女主"
+    },
+    {
+      "caseId": "case-24",
+      "label": "案例 24：僵尸手绑定动画"
+    },
+    {
+      "caseId": "case-26",
+      "label": "案例 26：写实餐馆"
+    },
+    {
+      "caseId": "case-27",
+      "label": "案例 27：机器人流行乐短片"
+    },
+    {
+      "caseId": "case-28",
+      "label": "案例 28：机械头环绕片"
+    },
+    {
+      "caseId": "case-29",
+      "label": "案例 29：住宅漫游分屏"
+    },
+    {
+      "caseId": "case-ext01",
+      "label": "外部案例 01：代码动画短片（龙与山门）"
+    },
+    {
+      "caseId": "case-multi",
+      "label": "跨案例汇总、冲突对账或通用编排说明"
+    }
+  ],
+  "cards": [
+    {
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "inSpec": true,
+      "count": 14
+    },
+    {
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "inSpec": true,
+      "count": 10
+    },
+    {
+      "cardId": "fx.post-state",
+      "target": "fx.post-state",
+      "inSpec": true,
+      "count": 6
+    },
+    {
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
+      "inSpec": true,
+      "count": 6
+    },
+    {
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "inSpec": true,
+      "count": 5
+    },
+    {
+      "cardId": "time.bake",
+      "target": "time.bake",
+      "inSpec": true,
+      "count": 5
+    },
+    {
+      "cardId": "time.seeded",
+      "target": "time.seeded",
+      "inSpec": true,
+      "count": 5
+    },
+    {
+      "cardId": "comp.finish",
+      "target": "comp.finish",
+      "inSpec": true,
+      "count": 4
+    },
+    {
+      "cardId": "post.bloom",
+      "target": "post.bloom",
+      "inSpec": true,
+      "count": 4
+    },
+    {
+      "cardId": "post.lens-fx",
+      "target": "post.lens-fx",
+      "inSpec": true,
+      "count": 4
+    },
+    {
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
+      "inSpec": true,
+      "count": 3
+    },
+    {
+      "cardId": "comp.display",
+      "target": "comp.display",
+      "inSpec": true,
+      "count": 3
+    },
+    {
+      "cardId": "light.emit-pool",
+      "target": "light.emit-pool",
+      "inSpec": true,
+      "count": 3
+    },
+    {
+      "cardId": "post.bilateral-up",
+      "target": "post.bilateral-up",
+      "inSpec": true,
+      "count": 3
+    },
+    {
+      "cardId": "audio.master",
+      "target": "audio.master",
+      "inSpec": true,
+      "count": 2
+    },
+    {
+      "cardId": "layout.panels",
+      "target": "layout.panels",
+      "inSpec": true,
+      "count": 2
+    },
+    {
+      "cardId": "post.grade-cl",
+      "target": "post.grade-cl",
+      "inSpec": true,
+      "count": 2
+    },
+    {
+      "cardId": "post.volumetric",
+      "target": "post.volumetric",
+      "inSpec": true,
+      "count": 2
+    },
+    {
+      "cardId": "blur.subframe",
+      "target": "blur.subframe",
+      "inSpec": true,
+      "count": 1
+    },
+    {
+      "cardId": "comp.tonemap-hybrid",
+      "target": "comp.tonemap-hybrid",
+      "inSpec": true,
+      "count": 1
+    },
+    {
+      "cardId": "page.det2d",
+      "target": "page.det2d",
+      "inSpec": true,
+      "count": 1
+    },
+    {
+      "cardId": "post.hue-keep",
+      "target": "post.hue-keep",
+      "inSpec": true,
+      "count": 1
+    }
+  ],
+  "conflicts": [
+    {
+      "sourceId": "d027",
+      "caseId": "case-01-legacy",
+      "title": "Cycles 设置",
+      "detail": "AgX + \"AgX - Medium High Contrast\"；Cycles 设 METAL，所有设备 use=True，device GPU；max_bounces 8；use_denoising True；use_adaptive_sampling True；samples 参数传入；PNG RGB；`render_settings(\"CYCLES\",(W,W*9//16),SPP)`；`compute_device_type=\"METAL\"`；`use_motion_blur=False`（位置逐帧直接设，无关键帧，运动模糊不起作用）；备用 EEVEE：`taa_render_samples=samples`、`use_raytracing=True`；相机 `clip_start=0.01`，DOF 用 fstop；`blender -b --factory-startup --python-exit-code 1 -P …`。；成片样本数【冲突】：06 制作日志写「32 采样 + 降噪，约 5 秒/帧」「720 帧约 53 分钟，4.4 秒/帧」，07 清单写「20 采样 + 降噪」；分组清单 另写：v1 32 采样约 5 s/帧（240 帧），v2/v3 成片 720 帧 20 采样（原实现源码）约 53 分钟 4.4 s/帧，v3 重渲 240 帧 3.7 s/帧；阶梯 64spp；预览 1280 宽 48 采样每张 3.5–5.5 s；镜头 A 景深过浅整卡发糊，光圈 f/2.8 改 f/11；运动模糊因部件位置逐帧直设无关键帧而不起作用，关掉。",
+      "evidenceLevel": "源码",
+      "attachedTo": [
+        "render-pipe.d026.samples"
+      ]
+    },
+    {
+      "sourceId": "d028",
+      "caseId": "case-03",
+      "title": "案例 03-G 与 案例 03-B 本地渲染设置",
+      "detail": "案例 03-G：Cycles，GPU（桌面系统 OPTIX/CUDA，其余 METAL）；采样默认 48（`--samples`）；自适应阈值 0.02；降噪 OPENIMAGEDENOISE，GPU 降噪；AgX，Look = AgX - Medium High Contrast；世界背景见光照。（原实现源码）；案例 03-B：同上，采样默认 64，1920×1080，30 fps；max_bounces 6，diffuse_bounces 2，glossy_bounces 4；`use_persistent_data=True`；PNG 输出；AgX Medium High Contrast（原实现源码）。另一处记法【冲突】：案例 03-B 00 首页「渲染与动画」写 Blender 5.2 本机 Metal；1920×1080 30 fps；128 采样，自适应阈值 0.02，OIDN(GPU)；反弹总 6/漫射 2/光泽 4；AgX+Medium High Contrast；整机挂在缩放 0.01 的根下（1/100 模型约 189 mm 高 → 场景 1.89 m）。64 是脚本默认，128 是首页对成片的写法，没有读回哪个是成片实际值。",
+      "evidenceLevel": "源码",
+      "attachedTo": []
+    },
+    {
+      "sourceId": "d030",
+      "caseId": "case-multi",
+      "title": "渲染设置",
+      "detail": "案例 03-T：Cycles；1920×1080、30 fps、900 帧；采样数、降噪、反弹未公开；测试帧本机 8 张，900 帧在 某生成平台 GPU；提示词要求 GPU OptiX/CUDA 降噪、AgX — Medium High Contrast、快门 0.5。参考图设置为 1080p（非提示词所写 8K）【冲突：提示词 8K 与参考图 1080p】。发布片 30 秒、30 fps、最终 900 帧经 某生成平台 GPU 渲染。；案例 28：先本地写调试脚本并渲 8 张测试静帧（每镜一张）自检（装配与转头不散架、眼牙随颅骨与颌运动、玻璃金属写实）；终渲 900 帧 Cycles + GPU OptiX/CUDA 降噪于 某生成平台 GPU，先报价待确认；下载 原包素材 与 工程文件。`/gpu` 渲染，渲染器、采样、色彩管理、降噪、帧数未公开；录屏 Motion Blur 复选框勾选。玻璃头 Compositor：物理正确运动模糊（shutter 0.5）；动画景深（微距镜头焦点始终跟踪活动部件，中景跟踪眼睛）；Glare(Fog Glow) 用于太阳穴与眼睛指示灯；色彩配置 AgX — Medium High Contrast。",
+      "evidenceLevel": "推断",
+      "attachedTo": []
+    },
+    {
+      "sourceId": "d036",
+      "caseId": "case-01r",
+      "title": "采样阶梯（--ladder）",
+      "detail": "案例 01 重制版：样本 [1, 2, 4, 8, 16, 32, 64, 128]（第 9 档 0 = 成片第 0 帧本身，开降噪出 原包素材），同机位同灯光，关自适应采样、关降噪渲出真实噪点收敛，各存 原包素材（每拍半一个档位）；这是为过程片做的特效素材，不是质量标定。过程片阶梯段 288–323 全局帧共 9 档×4 帧；渲染时垫 INK 黑底的 RGBA。`use_denoising=False; use_adaptive_sampling=False`。旧版 v3 用同样的阶梯【冲突】：分组清单 写「1→128 同样的阶梯（说明里写 1→96 是原片 案例 01 原作 的）」，分组清单 写「阶梯 64spp」。",
+      "evidenceLevel": "文档",
+      "attachedTo": []
+    },
+    {
+      "sourceId": "d074",
+      "caseId": "case-ext01",
+      "title": "体积光模糊的注释与代码对不上【冲突】",
+      "detail": "原实现源码 注释说体积光「quarter resolution, two blur passes」，代码里没有模糊遍，只在调色时做 4 个双线性采样的平均（原实现源码）",
+      "evidenceLevel": "源码",
+      "attachedTo": []
+    },
+    {
+      "sourceId": "d112",
+      "caseId": "case-18",
+      "title": "编码（作者与公开版）与规格表",
+      "detail": "作者：H.264 High CRF 15，AAC 192 kbps，1920×1080 30 fps，5,376 帧（原文陈述，只是原文说法）。公开版：x264 core 165 r3223 两遍编码 340 kbps（实际 343,661 bps），yuv420p，5,375 帧 179.167 s【冲突：作者 5,376 帧与公开版 5,375 帧差一帧，原笔记未解释】；AAC 48 kHz 单声道 77,891 bps；文件 9,628,845 B；带角标（实测，我们自己量过）。其它规格：720p 片段 H.264 Main 4,134,779 bps、600 帧 20.0 s；600×338 片段 900 帧 30 s 无音轨 CRF 23；剧照 1920×1080 约 194–202 KB；拼图 3272×940（8 列×4 行，每格 409×235）；webp 600×338 1,046 B。",
+      "evidenceLevel": "文档",
+      "attachedTo": [
+        "render-pipe.d112.frame-count"
+      ]
+    },
+    {
+      "sourceId": "d115",
+      "caseId": "case-15",
+      "title": "拼接片编码与发布重压判断",
+      "detail": "拼接片 libx264 core 165 r3223，两遍编码目标 7000 kbps，vbv_maxrate 7500、vbv_bufsize 14000，ref=5 subme=8 trellis=2 bframes=3 b_adapt=1 direct=3 me=hex rc_lookahead=50 keyint=250 aq=1:1.00，threads=18；H.264 High yuv420p bt709 tv 范围；实际 6,747,506 bps，8,682,062 B；AAC LC 44.1 kHz 立体声 187,351 bps。小版 600×1066 x264 core 164 r3108 crf=23，1,600,727 bps，对拼接片逐帧缩后 PSNR 40.86 dB，响度相同，是平台转码；webp 600×1066 对拼接片第 0 帧 PSNR 33.38 dB；剧照 1080×608，118,786–307,164 B；某生成平台 标志 png 400×400。发布重压判断：简报给单条成片 `--crf 16`；公开版两遍 7000 kbps；下载库 191 条视频中 11 条用同一版 x264 core 165 r3223 两遍编码，其中 9 条同位置带同样角标（001、009、014、015、018、021、025；012、022 无角标）；018 原文写成片 CRF 15 而公开版两遍 340 kbps，说明重压在作者之后【冲突：023、026 作者原文件（CRF 16）也带角标，026 的请求要求代理自己加水印、021 的请求要求给水印留角，所以「角标 = 重压」的结论被 023 复盘改正，015、018 复盘据此改正】。轨道名线索：两段视频轨道名 “系统媒体 Video/Audio”（某系统平台 系统媒体框架 写法），可能在某系统平台软件里过过一手（推断，证据弱，没验证）。",
+      "evidenceLevel": "推断",
+      "attachedTo": []
+    },
+    {
+      "sourceId": "d125",
+      "caseId": "case-13",
+      "title": "主档位 QUALITY_PRESETS、PostFX.QUALITY 与 R16 特性表",
+      "detail": "主档位（原实现源码）：low pr1/shadow1024/far100/lights2；medium pr1.25/1536/120/3；high pr1.5/2048/140/4；mobile pr1（弱）或 1.5/1024/70/2；ultra pr3/4096（实压 3072）/140/6。后期档位表 PostFX.QUALITY（原实现源码）：mobile: msaa0 rays24 raysDiv4 bloomDiv2 lite mbN0 sharp.5 ao0；low: msaa0 rays32 mbN6 sharp0 ao0；medium: msaa2 rays36 mbN5 sharp.3 ao2（半分辨率）aoN8 halo.22；high: msaa4 rays44 mbN6 sharp.35 ao2 aoN10 halo.22；ultra: msaa4 rays56 mbN12 sharp.42 ao1（全分辨率）aoN16 halo.3 dirt 开。；分组清单 汇总（；原实现源码）：像素比上限 低/中/高/手机/超 = 1 / 1.25 / 1.5 / 1 或 1.5（平板 1）/ 3；多重采样（像素比<1.5 / ≥1.5）0/0→FXAA、2/2、4/2、0→FXAA 3 步、4/2；阴影图 / 远端 1024/100 m、1536/120 m、2048/140 m、1024 单级/70 m、3072/150 m【冲突：超档阴影远端 150 m对 140 m（分组清单），阴影图 4096 实压 3072 与 3072 一致】；阴影模式 three 原生 / 近级 PCSS / 近级 PCSS / three 原生 / 两级 PCSS；光束步数/分辨率 32/÷2、32/÷2、44/÷2、24/÷4、56/÷2（分组清单 A3 记 low rays32、medium rays36、high rays44，与 分组清单 中档 32 不同，【冲突：中档光束步数 36（分组清单）对 32】）；AO 关、半分辨率 8 点、半分辨率 10 点、关、全分辨率 16 点；接触阴影 关/关/开/关/开；体积光 关/关/1/4·13 步/关/1/2·28 步；运动模糊抽头上限 6/5/6/关/12；点光槽 2/3/4/2/6；探针分辨率 64/64/128/64/128；SSR 关/关/半/关/全；草密度 .45/.78/1/.35/1.2；树数 3500/5200/7000/2200/8500。；R16 特性表（原实现源码）：detailScales HIGH3/MOBILE1/MEDIUM2；probesPx 128/64；fieldShells 2/1；ssr half/off/full；aniso 8/4/16；texHalf mobile/low true。全局画质档：5 档低/中/高/手机/超；一个档名同时驱动 QUALITY_PRESETS、PostFX.QUALITY、R16Q 三张表，天空另有 setShadowQuality；桌面默认高档，但封顶：软件光栅和 集成显卡 HD/UHD 封顶低档，核显/APU 封顶中档（原实现源码）。显卡上限分类：SwiftShader/llvmpipe→low；移动 GPU→low/mobile；集成显卡/核显→medium；某显卡芯片 APU→medium。",
+      "evidenceLevel": "源码",
+      "attachedTo": []
+    },
+    {
+      "sourceId": "d136",
+      "caseId": "case-13",
+      "title": "自适应降级梯子与动态分辨率",
+      "detail": "只在游玩、无菜单、无过场、无新着色器编译、帧时≤250 ms 时统计；128 帧环形缓冲，每 0.5 s 评估，至少 24 样本；降一级：中位数>22 ms 或均值>17.9 ms 持续 2 s；升一级：90 分位≤17.5 ms 持续 5 s（upWait 起始 5 s，12 s 内又降则等待翻倍，最多 80 s）；降级顺序：先把像素比降到 prSoft（中 1、高 1.25）→每级关一个特性（体积光、草壳层、接触阴影，高档共 3 级；A7 另记冒名树）→再 4 级缩草距离（×0.8 到 ×0.68）、远树细节（1 到 0.2）、阴影距离（110、85 m）→最后按 0.15 一步降像素比到下限 0.85；求助：最低档仍中位数>25 ms 持续 10 s 发 lf-perf-slow 事件（原实现源码）。仅对实时 WebGL 有意义，成片渲染无用。；动态分辨率（固定分配 + 子矩形视口）：渲染目标按最高像素比分配一次；降分辨率只缩绘制视口；uRS/uRSMax 映射纹理坐标；比例夹 0.25–1，不重建缓冲；用户滑块夹 0.5–1【冲突：分组清单 菜单读出 resScale 0.6–1 与 adaptiveRes，自适应压低时显示「当前 N×M（占上限 X%）」（读 DBG.info().prBase 与 DBG.ladder().prMax），滑块下限 0.5 与 0.6 不一致，原笔记没解释，可能是内部夹值与菜单范围的差别】（原实现源码）。画质档与动态分辨率（菜单）：质量档 low/medium/high/ultra/mobile（像素比上限 1/1.25/1.5/2/1.25）；ultra 手机不提供除非已选中；mobile 仅 G.device.mobile、G.quality===\"mobile\" 或 ?q=mobile。",
+      "evidenceLevel": "文档",
+      "attachedTo": []
+    },
+    {
+      "sourceId": "d158",
+      "caseId": "case-ext01",
+      "title": "特效固定数量、水镜、SPLASH 降载、龙的 Wake",
+      "detail": "水镜最贵的开销：镜子分辨率 0.42 倍；scissor 只画湖面在画面最高行；实时隔帧；草不进镜子；远树高处岩石换替身；看不到的龙跳过；Wake 每帧只写 uniform（16+16 vec4 身体点、4+4 前沿、4+4 阵风槽）；石子 ≤520 实例矩阵重写；Water 每帧 40 事件、12 犁水点、6 领子、4 压沟、1 鼓包；抛水网格加载时预画两遍。特效全固定数量：70_fx 不读画质档；不在时间窗的系统整网格不画；单粒子剔除把顶点甩出裁剪空间；6 条闪电共用一个 stripGeo，4 张水幕共用 sheetGeo，卡片共用一个 quad；加载时预编译 Post.warm() 与 R.compileAsync；甩水 30 Hz 模拟（6.55+6.15+6.15=18.85 s，约 566 步）；零分配。空气 SPLASH 降载：云瀑、扬尘整块隐藏；detail 雾流透明度×0；尘粒实例 600→300；叶实例取 leafN[1]（但两个值都是 2,760，注释说 2600，注释与代码不符【冲突：注释 2600 对代码 2,760】）；最多 9 次实例化绘制（没验证）。分组清单 总结：本组五章检索结果没有 tier/quality 档位代码，数量固定；记入 G.info 的耗时没有数值，笔记只给了计数",
+      "evidenceLevel": "推断",
+      "attachedTo": []
+    }
+  ],
+  "excluded": [
+    {
+      "sourceId": "d027",
+      "sourceLine": 244,
+      "section": "3",
+      "caseId": "case-01-legacy",
+      "title": "Cycles 设置",
+      "reason": "多版本记录采样数分歧对账，无单一采信定值"
+    },
+    {
+      "sourceId": "d029",
+      "sourceLine": 257,
+      "section": "3",
+      "caseId": "case-03",
+      "title": "案例 03-B 编码命令与 QA 在第 14 节；03 头部渲染踩坑见第 21 节",
+      "reason": "纯交叉引用指针条目，无新数值或做法"
+    },
+    {
+      "sourceId": "d045",
+      "sourceLine": 367,
+      "section": "4",
+      "caseId": "case-multi",
+      "title": "各家对照",
+      "reason": "四案例能力对照索引无做法"
+    },
+    {
+      "sourceId": "d074",
+      "sourceLine": 587,
+      "section": "8",
+      "caseId": "case-ext01",
+      "title": "体积光模糊的注释与代码对不上【冲突】",
+      "reason": "注释与代码实现不一致的冲突对账条目"
+    },
+    {
+      "sourceId": "d076",
+      "sourceLine": 609,
+      "section": "9",
+      "caseId": "case-ext01",
+      "title": "调色（见）",
+      "reason": "纯交叉指针条目，无新数值与做法"
+    },
+    {
+      "sourceId": "d109",
+      "sourceLine": 774,
+      "section": "13",
+      "caseId": "case-multi",
+      "title": "色彩范围 yuvj 提示（见）",
+      "reason": "仅交叉指针条目，无新数值或做法"
+    },
+    {
+      "sourceId": "d116",
+      "sourceLine": 823,
+      "section": "14",
+      "caseId": "case-01-original",
+      "title": "案例 01 原作 的 BT.709 标签（同）",
+      "reason": "仅交叉引用指针无实质内容"
+    },
+    {
+      "sourceId": "d133",
+      "sourceLine": 908,
+      "section": "15",
+      "caseId": "case-13",
+      "title": "大教堂、古墓、zone_19、发光巨树、幽灵、主角（18–22）的分档",
+      "reason": "仅交叉索引指针无具体参数"
+    },
+    {
+      "sourceId": "d166",
+      "sourceLine": 1067,
+      "section": "18",
+      "caseId": "case-02",
+      "title": "未量项",
+      "reason": "帧耗帧率显存均未量的占位与交叉指针行"
+    },
+    {
+      "sourceId": "d179",
+      "sourceLine": 1117,
+      "section": "20",
+      "caseId": "case-ext01",
+      "title": "本机读回的限制",
+      "reason": "测试时显卡被占导致降档的无效性能说明"
+    },
+    {
+      "sourceId": "d183",
+      "sourceLine": 1134,
+      "section": "21",
+      "caseId": "case-01-original",
+      "title": "编码踩坑汇总",
+      "reason": "仅含编码踩坑编号的交叉引用指针条目"
+    },
+    {
+      "sourceId": "d186",
+      "sourceLine": 1143,
+      "section": "21",
+      "caseId": "case-multi",
+      "title": "渲染器注释与代码不一致与「没有」清单",
+      "reason": "注释与代码分歧对账及跨节交叉指针条目"
+    }
+  ],
+  "blindAudit": {
+    "method": "跨模型独立盲审（Gemini 4 独立初判 semantic/<col>.semantic-routes.tsv 对照 DeepSeek V4 Pro 终审总账，汇总随所指明细核对）；分层无放回抽样 >=10%（50%）明细 + >=10%（50%）汇总，遍历 mulberry32(Math.imul(seed, 0x9e3779b1)) 全部 200 个种子",
+    "canonicalSeed": 42,
+    "detailSampleSize": 112,
+    "summarySampleSize": 61,
+    "sampleSize": 173,
+    "disagreeCount": 9,
+    "disagreeRate": 0.052023,
+    "fullPopulationDisagreeCount": 12,
+    "fullPopulationDisagreeRate": 0.041812,
+    "seed200Verified": true,
+    "seed200PassCount": 200,
+    "seed200Worst": {
+      "seed": 138,
+      "disagreeCount": 12,
+      "sampleSize": 173,
+      "disagreeRate": 0.069364
+    },
+    "sample": [
+      {
+        "sourceId": "d066",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "skipped-or-conflict",
+        "agree": false,
+        "reason": "无新数值的案例名称汇总与指针条目"
+      },
+      {
+        "sourceId": "d084",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "SSAO螺旋采样半径淡出模糊多参数预设包"
+      },
+      {
+        "sourceId": "d177",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "音频零拷贝回传、分片限时让路与按需内插"
+      },
+      {
+        "sourceId": "d111",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "practice",
+        "agree": false,
+        "reason": "精准切音轨、响度修正与联系表制作工序"
+      },
+      {
+        "sourceId": "d131",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定敌人移动端降级配置表"
+      },
+      {
+        "sourceId": "d148",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "几何缓存、双网格、LOD材质与池化做法"
+      },
+      {
+        "sourceId": "d052",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "单帧200ms预算、H.264编码与音轨交付规格"
+      },
+      {
+        "sourceId": "d061",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "先测速分块入队与只补变动帧管线要点"
+      },
+      {
+        "sourceId": "d012",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "改写原型为全材质注入全局变量的做法"
+      },
+      {
+        "sourceId": "d169",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "桌面与移动音频轻量档复音混响配置表"
+      },
+      {
+        "sourceId": "d114",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "主片、片段、网页缩略与附图交付规格"
+      },
+      {
+        "sourceId": "d146",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "石像头目隐藏冻结距离表与手机粒子池预设"
+      },
+      {
+        "sourceId": "d025",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "钳制运动模糊采样在本镜头内防鬼影做法"
+      },
+      {
+        "sourceId": "d112",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "主片、片段、剧照与拼图媒体交付规格表"
+      },
+      {
+        "sourceId": "d090",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "耦合骑士椭圆与翻滚权重的相机运动模糊预设"
+      },
+      {
+        "sourceId": "d091",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "仅过场用的黄金角景深CoC公式与阻尼预设"
+      },
+      {
+        "sourceId": "d027",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "card-coupled",
+        "agree": false,
+        "reason": "特定项目Cycles渲染参数包及采样冲突"
+      },
+      {
+        "sourceId": "d150",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "距离触发分帧烘培贴图与版本化磁盘缓存"
+      },
+      {
+        "sourceId": "d160",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定外部案例 01场景一次性烘焙表与显存配置"
+      },
+      {
+        "sourceId": "d040",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "高采样母帧加固定种子只重渲可见窗口算法"
+      },
+      {
+        "sourceId": "d142",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "线段碰撞扫描、网格时间戳去重与避火挪点"
+      },
+      {
+        "sourceId": "d073",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "场景耦合屏幕光束公式与分档配置表"
+      },
+      {
+        "sourceId": "d041",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "真平移视差镜头回退逐帧渲染策略"
+      },
+      {
+        "sourceId": "d039",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "skipped-or-conflict",
+        "agree": false,
+        "reason": "四案例同源引擎归并索引与剪辑帧数对账"
+      },
+      {
+        "sourceId": "d130",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定Boss与敌人分档配置总表"
+      },
+      {
+        "sourceId": "d076",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "纯交叉指针条目，无新数值与做法"
+      },
+      {
+        "sourceId": "d029",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "纯交叉引用指针条目，无新数值或做法"
+      },
+      {
+        "sourceId": "d159",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定外部案例 01场景加载权重与各资产实测耗时"
+      },
+      {
+        "sourceId": "d089",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "挂post/sky的散射公式与龙火热浪预设"
+      },
+      {
+        "sourceId": "d100",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "原实现源码固定时刻的镜头震动脉冲表"
+      },
+      {
+        "sourceId": "d006",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定项目八段管线与专属特效阶段配置"
+      },
+      {
+        "sourceId": "d016",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "practice",
+        "agree": false,
+        "reason": "改写内置光照与雾片段保留标准材质做法"
+      },
+      {
+        "sourceId": "d119",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "打包成片与图集分辨率码率规格"
+      },
+      {
+        "sourceId": "d080",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "玩法状态耦合的暗角颗粒色差公式预设"
+      },
+      {
+        "sourceId": "d056",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "截图模式锁像素比、关自适应与保留缓冲做法"
+      },
+      {
+        "sourceId": "d166",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "帧耗帧率显存均未量的占位与交叉指针行"
+      },
+      {
+        "sourceId": "d026",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "离线渲染采样、光线反弹、降噪与输出规格"
+      },
+      {
+        "sourceId": "d060",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "skipped-or-conflict",
+        "agree": false,
+        "reason": "已并入的交叉指针条目"
+      },
+      {
+        "sourceId": "d083",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定动作耦合的径向模糊强度衰减预设"
+      },
+      {
+        "sourceId": "d057",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "云端无头分块渲染校验与流式编码流程"
+      },
+      {
+        "sourceId": "d147",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "休眠头目二距离剔除表、点光节流与包围球"
+      },
+      {
+        "sourceId": "d003",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "无状态闭式纯函数时钟与预烘焙查表做法"
+      },
+      {
+        "sourceId": "d180",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定项目桌面与移动分档特效粒子池容量表"
+      },
+      {
+        "sourceId": "d049",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "时间纯函数页面契约与离屏画布预画复用做法"
+      },
+      {
+        "sourceId": "d174",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定音效预热键表与轻量档逐项降级配置"
+      },
+      {
+        "sourceId": "d173",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "音频三层缓存、声像池顶替与邻域预热策略"
+      },
+      {
+        "sourceId": "d020",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定项目分档与像素比关联的MSAA预设"
+      },
+      {
+        "sourceId": "d151",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "大教堂远近壳剔除距离、渲染序与探针配置"
+      },
+      {
+        "sourceId": "d117",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "成片编码分辨率帧率码率交付规格"
+      },
+      {
+        "sourceId": "d118",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "成片与预告编码分辨率码率交付规格"
+      },
+      {
+        "sourceId": "d062",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "绑定特定管线色调映射与调色公式包"
+      },
+      {
+        "sourceId": "d128",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "环境粒子分档容量与场景缓存键"
+      },
+      {
+        "sourceId": "d157",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "粗块SDF跳过、重着色后画与洗牌裁绘做法"
+      },
+      {
+        "sourceId": "d019",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "专用云双边上采样与合成着色器公式预设"
+      },
+      {
+        "sourceId": "d050",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定无头浏览器启动参数与CDP截图选项集合"
+      },
+      {
+        "sourceId": "d121",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "三个成片素材编码与色彩交付规格"
+      },
+      {
+        "sourceId": "d125",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "案例 13主档位与后期预设表"
+      },
+      {
+        "sourceId": "d144",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "相机射线采样预算、框选与包围球粗筛做法"
+      },
+      {
+        "sourceId": "d145",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "关弹簧降频与省关键帧的动画LOD做法"
+      },
+      {
+        "sourceId": "d113",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "无声编码防覆盖与黑帧冻帧QA检测工序"
+      },
+      {
+        "sourceId": "d078",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定影片事件关键帧与冲击着色器预设"
+      },
+      {
+        "sourceId": "d127",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "桌面与手机特效档位及容量表"
+      },
+      {
+        "sourceId": "d059",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "本地自检报价分块云渲与关机协作流程"
+      },
+      {
+        "sourceId": "d094",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "建模参考转台关后效与恒定棚光布光工序规范"
+      },
+      {
+        "sourceId": "d103",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "受光区笔触与代理法线明暗等风格化后处理做法"
+      },
+      {
+        "sourceId": "d002",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "外部案例 01专属后期遍数分层与镜头跳过配置"
+      },
+      {
+        "sourceId": "d072",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "专用太阳光芒径向模糊公式与配色预设"
+      },
+      {
+        "sourceId": "d007",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "实时改确定性离线出片三步工程做法"
+      },
+      {
+        "sourceId": "d044",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "室内5cm逐顶点光缓存预计算与混合追踪"
+      },
+      {
+        "sourceId": "d077",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定后期色差遮罩公式与联合条件预设"
+      },
+      {
+        "sourceId": "d183",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "仅含编码踩坑编号的交叉引用指针条目"
+      },
+      {
+        "sourceId": "d034",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "多分辨率帧率与H264码率交付规格"
+      },
+      {
+        "sourceId": "d009",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "practice",
+        "agree": false,
+        "reason": "全屏后期合并单遍大总成与惰性拷贝技巧"
+      },
+      {
+        "sourceId": "d163",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定龙资产贴图尺寸表、骨骼纹理与分级"
+      },
+      {
+        "sourceId": "d033",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "锁片分块排队与只补变动帧渲染策略"
+      },
+      {
+        "sourceId": "d048",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "路径追踪取舍、CPU共BVH算线框与抽帧质检做法"
+      },
+      {
+        "sourceId": "d053",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "时间纯函数并行、定步长缓存与相机剪切表做法"
+      },
+      {
+        "sourceId": "d068",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定影片泛光级数参数与关键帧脉冲包"
+      },
+      {
+        "sourceId": "d001",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "外部案例 01专属WebGL渲染器选项与像素上限"
+      },
+      {
+        "sourceId": "d030",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "案例 03-T机械头专用渲染、跟焦与辉光合成配置"
+      },
+      {
+        "sourceId": "d075",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "三套场景调色曝光对比染色暗角预设"
+      },
+      {
+        "sourceId": "d015",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "预乘混合兼加光遮挡与粒子剔除预热技巧"
+      },
+      {
+        "sourceId": "d153",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定某区域桌面与移动分级预算配置表"
+      },
+      {
+        "sourceId": "d133",
+        "kind": "detail",
+        "ledgerRoute": "skipped-or-conflict",
+        "blindRoute": "skipped-or-conflict",
+        "agree": true,
+        "reason": "仅交叉索引指针无具体参数"
+      },
+      {
+        "sourceId": "d022",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定项目多档画质阴影尺寸与刷新率配置表"
+      },
+      {
+        "sourceId": "d096",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "原实现源码固定时刻的闪电与风暴光曲线"
+      },
+      {
+        "sourceId": "d070",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定泛光多级采样与混合散布预设包"
+      },
+      {
+        "sourceId": "d143",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "预分配缓冲零分配动画与固定子步积分做法"
+      },
+      {
+        "sourceId": "d149",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "SDF双档体素回退、双网格与种群实例化"
+      },
+      {
+        "sourceId": "d055",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "离线粒子量、30fps节拍帧数与渲染耗时规格"
+      },
+      {
+        "sourceId": "d058",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "GPU降噪帧耗时实测与分层采样规格"
+      },
+      {
+        "sourceId": "d093",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "快门0.42最大拖影2.6%及降帧比例等独立规格"
+      },
+      {
+        "sourceId": "d037",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "纯函数状态加三帧关键帧做运动模糊"
+      },
+      {
+        "sourceId": "d081",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定作品单遍调色与后期多参数预设"
+      },
+      {
+        "sourceId": "d104",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定三套风格镜头的成片配色与色相读数包"
+      },
+      {
+        "sourceId": "d042",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "4K高采样母帧精确重投影免噪点渲染做法"
+      },
+      {
+        "sourceId": "d071",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "专用太阳光束鬼影公式与多套配色预设"
+      },
+      {
+        "sourceId": "d011",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定项目二倍着色器时钟与模块耦合表"
+      },
+      {
+        "sourceId": "d156",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定枫松距离分级与场景着色器阈值表"
+      },
+      {
+        "sourceId": "d108",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "practice",
+        "agree": false,
+        "reason": "游戏后期处理管线阶段编排与自适应做法"
+      },
+      {
+        "sourceId": "d014",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定项目23步管线与调试入口参数集"
+      },
+      {
+        "sourceId": "d167",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "共享贴图去重瘦身与指纹校验无损做法"
+      },
+      {
+        "sourceId": "d024",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "离线子采样数、快门角与成片帧率耗时规格"
+      },
+      {
+        "sourceId": "d137",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "独立降分辨率检查周期、倍率与回升等待"
+      },
+      {
+        "sourceId": "d152",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "特定墓地插地剑放置公式与细节着色器分级"
+      },
+      {
+        "sourceId": "d168",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "场景面数预算与资产三档LOD面数规格"
+      },
+      {
+        "sourceId": "d124",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "案例 02四档画质参数配置表"
+      },
+      {
+        "sourceId": "d017",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "逐帧加权合成多发光事件共用一点光技巧"
+      },
+      {
+        "sourceId": "d023",
+        "kind": "detail",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "4K母版超采样分辨率与帧率耗时规格"
+      },
+      {
+        "sourceId": "d069",
+        "kind": "detail",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "专用泛光链公式与分场景分档预设包"
+      },
+      {
+        "sourceId": "d164",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "烘焙缓存、分片预编译空画与遮挡跳帧做法"
+      },
+      {
+        "sourceId": "d038",
+        "kind": "detail",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "Blender跨版本兼容与脚本重建流程"
+      },
+      {
+        "sourceId": "s081",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d118：成片与预告编码分辨率码率交付规格"
+      },
+      {
+        "sourceId": "s036",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d003：无状态闭式纯函数时钟与预烘焙查表做法"
+      },
+      {
+        "sourceId": "s005",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d003：无状态闭式纯函数时钟与预烘焙查表做法"
+      },
+      {
+        "sourceId": "s028",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d042：4K高采样母帧精确重投影免噪点渲染做法"
+      },
+      {
+        "sourceId": "s094",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d140：特定敌人桌面移动双端距离分级与状态矩阵"
+      },
+      {
+        "sourceId": "s022",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d032：宽幅24fps与16位PNG交付规格"
+      },
+      {
+        "sourceId": "s073",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d110：1080p高质成片与音频标准编码交付规格"
+      },
+      {
+        "sourceId": "s071",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d093：快门0.42最大拖影2.6%及降帧比例等独立规格"
+      },
+      {
+        "sourceId": "s059",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d069：专用泛光链公式与分场景分档预设包"
+      },
+      {
+        "sourceId": "s092",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d137：独立降分辨率检查周期、倍率与回升等待"
+      },
+      {
+        "sourceId": "s032",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d053：时间纯函数并行、定步长缓存与相机剪切表做法"
+      },
+      {
+        "sourceId": "s044",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d032：宽幅24fps与16位PNG交付规格"
+      },
+      {
+        "sourceId": "s052",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d064：耦合镜头抖动与调色链的多参数预设"
+      },
+      {
+        "sourceId": "s023",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d033：锁片分块排队与只补变动帧渲染策略"
+      },
+      {
+        "sourceId": "s037",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d058：GPU降噪帧耗时实测与分层采样规格"
+      },
+      {
+        "sourceId": "s001",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d001：外部案例 01专属WebGL渲染器选项与像素上限"
+      },
+      {
+        "sourceId": "s040",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d058：GPU降噪帧耗时实测与分层采样规格"
+      },
+      {
+        "sourceId": "s089",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d126：案例 10四档画质配置表"
+      },
+      {
+        "sourceId": "s078",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d115：两遍编码高码率拼接片与多端派生交付规格"
+      },
+      {
+        "sourceId": "s048",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d057：云端无头分块渲染校验与流式编码流程"
+      },
+      {
+        "sourceId": "s004",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d014：特定项目23步管线与调试入口参数集"
+      },
+      {
+        "sourceId": "s030",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d050：特定无头浏览器启动参数与CDP截图选项集合"
+      },
+      {
+        "sourceId": "s057",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d068：特定影片泛光级数参数与关键帧脉冲包"
+      },
+      {
+        "sourceId": "s066",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d085：原实现源码的多档AO与接触阴影合成预设"
+      },
+      {
+        "sourceId": "s067",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "card-coupled",
+        "agree": false,
+        "reason": "汇总随所指明细 d086：环境遮蔽半径采样与亮度衰减多参数预设"
+      },
+      {
+        "sourceId": "s098",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d156：特定枫松距离分级与场景着色器阈值表"
+      },
+      {
+        "sourceId": "s034",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d055：离线粒子量、30fps节拍帧数与渲染耗时规格"
+      },
+      {
+        "sourceId": "s010",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d020：特定项目分档与像素比关联的MSAA预设"
+      },
+      {
+        "sourceId": "s051",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d062：绑定特定管线色调映射与调色公式包"
+      },
+      {
+        "sourceId": "s080",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d034：多分辨率帧率与H264码率交付规格"
+      },
+      {
+        "sourceId": "s062",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d064：耦合镜头抖动与调色链的多参数预设"
+      },
+      {
+        "sourceId": "s085",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d006：特定项目八段管线与专属特效阶段配置"
+      },
+      {
+        "sourceId": "s060",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d070：特定泛光多级采样与混合散布预设包"
+      },
+      {
+        "sourceId": "s003",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d008：特定项目渲染器上下文、相机与画质档"
+      },
+      {
+        "sourceId": "s063",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d079：专用调色着色器公式与默认参数预设包"
+      },
+      {
+        "sourceId": "s047",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d023：4K母版超采样分辨率与帧率耗时规格"
+      },
+      {
+        "sourceId": "s026",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d040：高采样母帧加固定种子只重渲可见窗口算法"
+      },
+      {
+        "sourceId": "s038",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d058：GPU降噪帧耗时实测与分层采样规格"
+      },
+      {
+        "sourceId": "s075",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d112：主片、片段、剧照与拼图媒体交付规格表"
+      },
+      {
+        "sourceId": "s011",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d021：多档画质抗锯齿与CAS锐化联合参数预设"
+      },
+      {
+        "sourceId": "s027",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d040：高采样母帧加固定种子只重渲可见窗口算法"
+      },
+      {
+        "sourceId": "s082",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d119：打包成片与图集分辨率码率规格"
+      },
+      {
+        "sourceId": "s076",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d112：主片、片段、剧照与拼图媒体交付规格表"
+      },
+      {
+        "sourceId": "s035",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d024：离线子采样数、快门角与成片帧率耗时规格"
+      },
+      {
+        "sourceId": "s043",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d031：分段并行防编译、干净底片与五道关"
+      },
+      {
+        "sourceId": "s056",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d026：离线渲染采样、光线反弹、降噪与输出规格"
+      },
+      {
+        "sourceId": "s019",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d028：案例 03-G与案例 03-B特定脚本渲染配置与缩放预设"
+      },
+      {
+        "sourceId": "s053",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d063：绑定场景天气预设的曝光与保色公式"
+      },
+      {
+        "sourceId": "s031",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d052：单帧200ms预算、H.264编码与音轨交付规格"
+      },
+      {
+        "sourceId": "s091",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d136：环形缓冲滞回与固定分配子视口动态分辨率"
+      },
+      {
+        "sourceId": "s084",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d121：三个成片素材编码与色彩交付规格"
+      },
+      {
+        "sourceId": "s100",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d138：滞回防抖、远处降频、缓存预热与预算探针"
+      },
+      {
+        "sourceId": "s045",
+        "kind": "summary",
+        "ledgerRoute": "practice",
+        "blindRoute": "practice",
+        "agree": true,
+        "reason": "汇总随所指明细 d042：4K高采样母帧精确重投影免噪点渲染做法"
+      },
+      {
+        "sourceId": "s014",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d024：离线子采样数、快门角与成片帧率耗时规格"
+      },
+      {
+        "sourceId": "s049",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d024：离线子采样数、快门角与成片帧率耗时规格"
+      },
+      {
+        "sourceId": "s083",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d120：成片视频音频编码与色彩交付规格"
+      },
+      {
+        "sourceId": "s013",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d023：4K母版超采样分辨率与帧率耗时规格"
+      },
+      {
+        "sourceId": "s018",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d028：案例 03-G与案例 03-B特定脚本渲染配置与缩放预设"
+      },
+      {
+        "sourceId": "s016",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d026：离线渲染采样、光线反弹、降噪与输出规格"
+      },
+      {
+        "sourceId": "s015",
+        "kind": "summary",
+        "ledgerRoute": "portable",
+        "blindRoute": "portable",
+        "agree": true,
+        "reason": "汇总随所指明细 d024：离线子采样数、快门角与成片帧率耗时规格"
+      },
+      {
+        "sourceId": "s065",
+        "kind": "summary",
+        "ledgerRoute": "card-coupled",
+        "blindRoute": "card-coupled",
+        "agree": true,
+        "reason": "汇总随所指明细 d084：SSAO螺旋采样半径淡出模糊多参数预设包"
+      }
+    ]
+  },
+  "ledger": [
+    {
+      "sourceId": "s001",
+      "sourceLine": 49,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d001",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": []
+    },
+    {
+      "sourceId": "s002",
+      "sourceLine": 50,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-02",
+      "summaryOf": "d005",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": []
+    },
+    {
+      "sourceId": "s003",
+      "sourceLine": 51,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d008",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": []
+    },
+    {
+      "sourceId": "s004",
+      "sourceLine": 52,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-10",
+      "summaryOf": "d014",
+      "alsoSummarizes": [
+        "d065"
+      ],
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "time.seeded",
+      "target": "time.seeded",
+      "targets": []
+    },
+    {
+      "sourceId": "s005",
+      "sourceLine": 58,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d003",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s006",
+      "sourceLine": 59,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-02",
+      "summaryOf": "d006",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "time.seeded",
+      "target": "time.seeded",
+      "targets": []
+    },
+    {
+      "sourceId": "s007",
+      "sourceLine": 60,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d010",
+      "alsoSummarizes": [
+        "d011"
+      ],
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s007"
+      ]
+    },
+    {
+      "sourceId": "s008",
+      "sourceLine": 61,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-10",
+      "summaryOf": "d014",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "time.seeded",
+      "target": "time.seeded",
+      "targets": []
+    },
+    {
+      "sourceId": "d001",
+      "sourceLine": 65,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": [
+        "render-pipe.d001.card"
+      ]
+    },
+    {
+      "sourceId": "d002",
+      "sourceLine": 71,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": [
+        "render-pipe.d002.card"
+      ]
+    },
+    {
+      "sourceId": "d003",
+      "sourceLine": 77,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d003.practice"
+      ]
+    },
+    {
+      "sourceId": "d004",
+      "sourceLine": 83,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": [
+        "render-pipe.d004.card"
+      ]
+    },
+    {
+      "sourceId": "d005",
+      "sourceLine": 88,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": [
+        "render-pipe.d005.card"
+      ]
+    },
+    {
+      "sourceId": "d006",
+      "sourceLine": 94,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "time.seeded",
+      "target": "time.seeded",
+      "targets": [
+        "render-pipe.d006.card"
+      ]
+    },
+    {
+      "sourceId": "d007",
+      "sourceLine": 101,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d007.practice"
+      ]
+    },
+    {
+      "sourceId": "d008",
+      "sourceLine": 107,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": [
+        "render-pipe.d008.card"
+      ]
+    },
+    {
+      "sourceId": "d009",
+      "sourceLine": 113,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": [
+        "render-pipe.d009.card"
+      ]
+    },
+    {
+      "sourceId": "d010",
+      "sourceLine": 120,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d010.interval",
+        "render-pipe.d010.duration"
+      ]
+    },
+    {
+      "sourceId": "d011",
+      "sourceLine": 126,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "time.seeded",
+      "target": "time.seeded",
+      "targets": [
+        "render-pipe.d011.card"
+      ]
+    },
+    {
+      "sourceId": "d012",
+      "sourceLine": 132,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d012.practice"
+      ]
+    },
+    {
+      "sourceId": "d013",
+      "sourceLine": 137,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d013.practice"
+      ]
+    },
+    {
+      "sourceId": "d014",
+      "sourceLine": 141,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "time.seeded",
+      "target": "time.seeded",
+      "targets": [
+        "render-pipe.d014.card"
+      ]
+    },
+    {
+      "sourceId": "d015",
+      "sourceLine": 145,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-02",
+        "case-ext01"
+      ],
+      "route": "practice",
+      "targets": [
+        "render-pipe.d015.practice"
+      ]
+    },
+    {
+      "sourceId": "d016",
+      "sourceLine": 153,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": [
+        "render-pipe.d016.card"
+      ]
+    },
+    {
+      "sourceId": "d017",
+      "sourceLine": 157,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d017.practice"
+      ]
+    },
+    {
+      "sourceId": "d018",
+      "sourceLine": 161,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "time.seeded",
+      "target": "time.seeded",
+      "targets": [
+        "render-pipe.d018.card"
+      ]
+    },
+    {
+      "sourceId": "d019",
+      "sourceLine": 165,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": [
+        "render-pipe.d019.card"
+      ]
+    },
+    {
+      "sourceId": "s009",
+      "sourceLine": 177,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d004",
+      "alsoSummarizes": [
+        "d001"
+      ],
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": []
+    },
+    {
+      "sourceId": "s010",
+      "sourceLine": 178,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-02",
+      "summaryOf": "d020",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": []
+    },
+    {
+      "sourceId": "s011",
+      "sourceLine": 179,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d021",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": []
+    },
+    {
+      "sourceId": "s012",
+      "sourceLine": 180,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-10",
+      "summaryOf": "d126",
+      "alsoSummarizes": [
+        "d014"
+      ],
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": []
+    },
+    {
+      "sourceId": "s013",
+      "sourceLine": 181,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-06",
+      "summaryOf": "d023",
+      "link": "values",
+      "route": "portable",
+      "targets": []
+    },
+    {
+      "sourceId": "s014",
+      "sourceLine": 182,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-07",
+      "summaryOf": "d024",
+      "link": "values",
+      "route": "portable",
+      "targets": []
+    },
+    {
+      "sourceId": "s015",
+      "sourceLine": 183,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-12",
+      "summaryOf": "d024",
+      "link": "values",
+      "route": "portable",
+      "targets": []
+    },
+    {
+      "sourceId": "d020",
+      "sourceLine": 187,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": [
+        "render-pipe.d020.card"
+      ]
+    },
+    {
+      "sourceId": "d021",
+      "sourceLine": 191,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": [
+        "render-pipe.d021.card"
+      ]
+    },
+    {
+      "sourceId": "d022",
+      "sourceLine": 197,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-02",
+        "case-10",
+        "case-13",
+        "case-ext01"
+      ],
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d022.card"
+      ]
+    },
+    {
+      "sourceId": "d023",
+      "sourceLine": 201,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-06",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d023.resolution",
+        "render-pipe.d023.fps"
+      ]
+    },
+    {
+      "sourceId": "d024",
+      "sourceLine": 207,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-07",
+        "case-12"
+      ],
+      "route": "portable",
+      "targets": [
+        "render-pipe.d024.resolution",
+        "render-pipe.d024.shutter-angle",
+        "render-pipe.d024.frame-count",
+        "render-pipe.d024.duration",
+        "render-pipe.d024.fps"
+      ]
+    },
+    {
+      "sourceId": "d025",
+      "sourceLine": 213,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-07",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d025.practice"
+      ]
+    },
+    {
+      "sourceId": "s016",
+      "sourceLine": 225,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-01r",
+      "summaryOf": "d026",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s016"
+      ]
+    },
+    {
+      "sourceId": "s017",
+      "sourceLine": 226,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-01-legacy",
+      "summaryOf": "d027",
+      "link": "values",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "s018",
+      "sourceLine": 227,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-03",
+      "summaryOf": "d028",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
+      "targets": []
+    },
+    {
+      "sourceId": "s019",
+      "sourceLine": 228,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-03",
+      "summaryOf": "d028",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
+      "targets": []
+    },
+    {
+      "sourceId": "s020",
+      "sourceLine": 229,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-03",
+      "summaryOf": "d030",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
+      "targets": []
+    },
+    {
+      "sourceId": "s021",
+      "sourceLine": 230,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-05",
+      "summaryOf": "d031",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s022",
+      "sourceLine": 231,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-22",
+      "summaryOf": "d032",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s022"
+      ]
+    },
+    {
+      "sourceId": "s023",
+      "sourceLine": 232,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-01-original",
+      "summaryOf": "d033",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s024",
+      "sourceLine": 233,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-multi",
+      "summaryOf": "d034",
+      "link": "gist",
+      "route": "portable",
+      "targets": []
+    },
+    {
+      "sourceId": "d026",
+      "sourceLine": 237,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-01r",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d026.resolution",
+        "render-pipe.d026.samples",
+        "render-pipe.d026.noise-threshold",
+        "render-pipe.d026.exposure",
+        "render-pipe.d026.shutter-ratio",
+        "render-pipe.d026.f-stop",
+        "render-pipe.d026.frame-count",
+        "render-pipe.d026.pixels"
+      ]
+    },
+    {
+      "sourceId": "d027",
+      "sourceLine": 244,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-01-legacy",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "d028",
+      "sourceLine": 251,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-03",
+      "route": "card-coupled",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
+      "targets": [
+        "render-pipe.d028.card"
+      ]
+    },
+    {
+      "sourceId": "d029",
+      "sourceLine": 257,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-03",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "d030",
+      "sourceLine": 259,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-03",
+        "case-28"
+      ],
+      "route": "card-coupled",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
+      "targets": [
+        "render-pipe.d030.card"
+      ]
+    },
+    {
+      "sourceId": "d031",
+      "sourceLine": 266,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-03",
+        "case-05"
+      ],
+      "route": "practice",
+      "targets": [
+        "render-pipe.d031.practice"
+      ]
+    },
+    {
+      "sourceId": "d032",
+      "sourceLine": 274,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-22",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d032.resolution",
+        "render-pipe.d032.samples",
+        "render-pipe.d032.noise-threshold",
+        "render-pipe.d032.fps",
+        "render-pipe.d032.frame-count",
+        "render-pipe.d032.duration",
+        "render-pipe.d032.angle"
+      ]
+    },
+    {
+      "sourceId": "d033",
+      "sourceLine": 280,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-01-original",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d033.practice"
+      ]
+    },
+    {
+      "sourceId": "d034",
+      "sourceLine": 286,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-27",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d034.resolution",
+        "render-pipe.d034.fps",
+        "render-pipe.d034.frame-count",
+        "render-pipe.d034.duration"
+      ]
+    },
+    {
+      "sourceId": "d035",
+      "sourceLine": 292,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-08",
+        "case-23"
+      ],
+      "route": "practice",
+      "targets": [
+        "render-pipe.d035.practice"
+      ]
+    },
+    {
+      "sourceId": "d036",
+      "sourceLine": 297,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-01r",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d036.practice"
+      ]
+    },
+    {
+      "sourceId": "d037",
+      "sourceLine": 303,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-01r",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d037.practice"
+      ]
+    },
+    {
+      "sourceId": "d038",
+      "sourceLine": 309,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d038.practice"
+      ]
+    },
+    {
+      "sourceId": "s025",
+      "sourceLine": 322,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-14",
+      "summaryOf": "d040",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s026",
+      "sourceLine": 323,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-19",
+      "summaryOf": "d040",
+      "alsoSummarizes": [
+        "d041"
+      ],
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s027",
+      "sourceLine": 324,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-21",
+      "summaryOf": "d040",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s028",
+      "sourceLine": 325,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-26",
+      "summaryOf": "d042",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s029",
+      "sourceLine": 326,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-29",
+      "summaryOf": "d044",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "d039",
+      "sourceLine": 330,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-14",
+        "case-19",
+        "case-21",
+        "case-26"
+      ],
+      "route": "card-coupled",
+      "cardId": "blender.cycles",
+      "target": "blender.cycles",
+      "targets": [
+        "render-pipe.d039.card"
+      ]
+    },
+    {
+      "sourceId": "d040",
+      "sourceLine": 336,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-14",
+        "case-19",
+        "case-21"
+      ],
+      "route": "practice",
+      "targets": [
+        "render-pipe.d040.practice"
+      ]
+    },
+    {
+      "sourceId": "d041",
+      "sourceLine": 344,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-19",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d041.practice"
+      ]
+    },
+    {
+      "sourceId": "d042",
+      "sourceLine": 349,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-26",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d042.practice"
+      ]
+    },
+    {
+      "sourceId": "d043",
+      "sourceLine": 355,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-26",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d043.practice"
+      ]
+    },
+    {
+      "sourceId": "d044",
+      "sourceLine": 361,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-29",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d044.practice"
+      ]
+    },
+    {
+      "sourceId": "d045",
+      "sourceLine": 367,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-21"
+      ],
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "d046",
+      "sourceLine": 371,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-26",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d046.practice"
+      ]
+    },
+    {
+      "sourceId": "d047",
+      "sourceLine": 377,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-14",
+        "case-21",
+        "case-22"
+      ],
+      "route": "portable",
+      "targets": [
+        "render-pipe.d047.duration",
+        "render-pipe.d047.angle",
+        "render-pipe.d047.frame-count"
+      ]
+    },
+    {
+      "sourceId": "d048",
+      "sourceLine": 383,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-19",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d048.practice"
+      ]
+    },
+    {
+      "sourceId": "s030",
+      "sourceLine": 396,
+      "section": "5",
+      "kind": "summary",
+      "caseId": "case-18",
+      "summaryOf": "d050",
+      "alsoSummarizes": [
+        "d051"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "page.det2d",
+      "target": "page.det2d",
+      "targets": []
+    },
+    {
+      "sourceId": "s031",
+      "sourceLine": 397,
+      "section": "5",
+      "kind": "summary",
+      "caseId": "case-15",
+      "summaryOf": "d052",
+      "alsoSummarizes": [
+        "d049"
+      ],
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s031"
+      ]
+    },
+    {
+      "sourceId": "s032",
+      "sourceLine": 398,
+      "section": "5",
+      "kind": "summary",
+      "caseId": "case-07",
+      "summaryOf": "d053",
+      "alsoSummarizes": [
+        "d057"
+      ],
+      "link": "gist",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s033",
+      "sourceLine": 399,
+      "section": "5",
+      "kind": "summary",
+      "caseId": "case-20",
+      "summaryOf": "d054",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s033"
+      ]
+    },
+    {
+      "sourceId": "s034",
+      "sourceLine": 400,
+      "section": "5",
+      "kind": "summary",
+      "caseId": "case-17",
+      "summaryOf": "d055",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s034"
+      ]
+    },
+    {
+      "sourceId": "s035",
+      "sourceLine": 401,
+      "section": "5",
+      "kind": "summary",
+      "caseId": "case-12",
+      "summaryOf": "d024",
+      "link": "values",
+      "route": "portable",
+      "targets": []
+    },
+    {
+      "sourceId": "s036",
+      "sourceLine": 402,
+      "section": "5",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d003",
+      "link": "gist",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "d049",
+      "sourceLine": 406,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-15",
+        "case-ext11"
+      ],
+      "route": "practice",
+      "targets": [
+        "render-pipe.d049.practice"
+      ]
+    },
+    {
+      "sourceId": "d050",
+      "sourceLine": 412,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-18",
+      "route": "card-coupled",
+      "cardId": "page.det2d",
+      "target": "page.det2d",
+      "targets": [
+        "render-pipe.d050.card"
+      ]
+    },
+    {
+      "sourceId": "d051",
+      "sourceLine": 418,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-18",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d051.practice"
+      ]
+    },
+    {
+      "sourceId": "d052",
+      "sourceLine": 423,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-15",
+        "case-18"
+      ],
+      "route": "portable",
+      "targets": [
+        "render-pipe.d052.frame-count",
+        "render-pipe.d052.frame-time",
+        "render-pipe.d052.fps"
+      ]
+    },
+    {
+      "sourceId": "d053",
+      "sourceLine": 430,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-07",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d053.practice"
+      ]
+    },
+    {
+      "sourceId": "d054",
+      "sourceLine": 435,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d054.frame-count",
+        "render-pipe.d054.render-time"
+      ]
+    },
+    {
+      "sourceId": "d055",
+      "sourceLine": 438,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-17",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d055.duration",
+        "render-pipe.d055.fps",
+        "render-pipe.d055.frame-count"
+      ]
+    },
+    {
+      "sourceId": "d056",
+      "sourceLine": 442,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-02",
+        "case-ext01"
+      ],
+      "route": "practice",
+      "targets": [
+        "render-pipe.d056.practice"
+      ]
+    },
+    {
+      "sourceId": "s037",
+      "sourceLine": 454,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-01r",
+      "summaryOf": "d058",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s037"
+      ]
+    },
+    {
+      "sourceId": "s038",
+      "sourceLine": 455,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-01r",
+      "summaryOf": "d058",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s038"
+      ]
+    },
+    {
+      "sourceId": "s039",
+      "sourceLine": 456,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-01r",
+      "summaryOf": "d058",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s039"
+      ]
+    },
+    {
+      "sourceId": "s040",
+      "sourceLine": 457,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-01r",
+      "summaryOf": "d058",
+      "link": "values",
+      "route": "portable",
+      "targets": []
+    },
+    {
+      "sourceId": "s041",
+      "sourceLine": 458,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-01-legacy",
+      "summaryOf": "d027",
+      "link": "values",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "s042",
+      "sourceLine": 459,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-01-original",
+      "summaryOf": "d033",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s043",
+      "sourceLine": 460,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-05",
+      "summaryOf": "d031",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s044",
+      "sourceLine": 461,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-22",
+      "summaryOf": "d032",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s044"
+      ]
+    },
+    {
+      "sourceId": "s045",
+      "sourceLine": 462,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-26",
+      "summaryOf": "d042",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s046",
+      "sourceLine": 463,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-29",
+      "summaryOf": "d044",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s047",
+      "sourceLine": 464,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-06",
+      "summaryOf": "d023",
+      "link": "values",
+      "route": "portable",
+      "targets": []
+    },
+    {
+      "sourceId": "s048",
+      "sourceLine": 465,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-07",
+      "summaryOf": "d057",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s049",
+      "sourceLine": 466,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-12",
+      "summaryOf": "d024",
+      "link": "values",
+      "route": "portable",
+      "targets": []
+    },
+    {
+      "sourceId": "s050",
+      "sourceLine": 467,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-24",
+      "summaryOf": "d059",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "d057",
+      "sourceLine": 471,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-07",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d057.practice"
+      ]
+    },
+    {
+      "sourceId": "d058",
+      "sourceLine": 477,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-01r",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d058.resolution",
+        "render-pipe.d058.render-time",
+        "render-pipe.d058.ratio",
+        "render-pipe.d058.frame-count",
+        "render-pipe.d058.duration"
+      ]
+    },
+    {
+      "sourceId": "d059",
+      "sourceLine": 484,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-03",
+        "case-24"
+      ],
+      "route": "practice",
+      "targets": [
+        "render-pipe.d059.practice"
+      ]
+    },
+    {
+      "sourceId": "d060",
+      "sourceLine": 490,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-05",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d060.practice"
+      ]
+    },
+    {
+      "sourceId": "d061",
+      "sourceLine": 493,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d061.practice"
+      ]
+    },
+    {
+      "sourceId": "s051",
+      "sourceLine": 505,
+      "section": "7",
+      "kind": "summary",
+      "caseId": "case-02",
+      "summaryOf": "d062",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "comp.tonemap-hybrid",
+      "target": "comp.tonemap-hybrid",
+      "targets": []
+    },
+    {
+      "sourceId": "s052",
+      "sourceLine": 506,
+      "section": "7",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d064",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "comp.display",
+      "target": "comp.display",
+      "targets": []
+    },
+    {
+      "sourceId": "s053",
+      "sourceLine": 507,
+      "section": "7",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d063",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.hue-keep",
+      "target": "post.hue-keep",
+      "targets": []
+    },
+    {
+      "sourceId": "s054",
+      "sourceLine": 508,
+      "section": "7",
+      "kind": "summary",
+      "caseId": "case-10",
+      "summaryOf": "d065",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "comp.display",
+      "target": "comp.display",
+      "targets": []
+    },
+    {
+      "sourceId": "s055",
+      "sourceLine": 509,
+      "section": "7",
+      "kind": "summary",
+      "caseId": "case-26",
+      "summaryOf": "d043",
+      "link": "gist",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s056",
+      "sourceLine": 510,
+      "section": "7",
+      "kind": "summary",
+      "caseId": "case-multi",
+      "summaryOf": "d026",
+      "link": "gist",
+      "route": "portable",
+      "targets": []
+    },
+    {
+      "sourceId": "d062",
+      "sourceLine": 514,
+      "section": "7",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "comp.tonemap-hybrid",
+      "target": "comp.tonemap-hybrid",
+      "targets": [
+        "render-pipe.d062.card"
+      ]
+    },
+    {
+      "sourceId": "d063",
+      "sourceLine": 522,
+      "section": "7",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "post.hue-keep",
+      "target": "post.hue-keep",
+      "targets": [
+        "render-pipe.d063.card"
+      ]
+    },
+    {
+      "sourceId": "d064",
+      "sourceLine": 527,
+      "section": "7",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "comp.display",
+      "target": "comp.display",
+      "targets": [
+        "render-pipe.d064.card"
+      ]
+    },
+    {
+      "sourceId": "d065",
+      "sourceLine": 531,
+      "section": "7",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "comp.display",
+      "target": "comp.display",
+      "targets": [
+        "render-pipe.d065.card"
+      ]
+    },
+    {
+      "sourceId": "d066",
+      "sourceLine": 535,
+      "section": "7",
+      "kind": "detail",
+      "caseId": "case-03",
+      "route": "card-coupled",
+      "cardId": "comp.display",
+      "target": "comp.display",
+      "targets": [
+        "render-pipe.d066.card"
+      ]
+    },
+    {
+      "sourceId": "s057",
+      "sourceLine": 547,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d068",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
+      "targets": []
+    },
+    {
+      "sourceId": "s058",
+      "sourceLine": 548,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-02",
+      "summaryOf": "d067",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
+      "targets": []
+    },
+    {
+      "sourceId": "s059",
+      "sourceLine": 549,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d069",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.lens-fx",
+      "target": "post.lens-fx",
+      "targets": []
+    },
+    {
+      "sourceId": "s060",
+      "sourceLine": 550,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-10",
+      "summaryOf": "d070",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
+      "targets": []
+    },
+    {
+      "sourceId": "d067",
+      "sourceLine": 554,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
+      "targets": [
+        "render-pipe.d067.card"
+      ]
+    },
+    {
+      "sourceId": "d068",
+      "sourceLine": 559,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
+      "targets": [
+        "render-pipe.d068.card"
+      ]
+    },
+    {
+      "sourceId": "d069",
+      "sourceLine": 564,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "post.lens-fx",
+      "target": "post.lens-fx",
+      "targets": [
+        "render-pipe.d069.card"
+      ]
+    },
+    {
+      "sourceId": "d070",
+      "sourceLine": 571,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
+      "targets": [
+        "render-pipe.d070.card"
+      ]
+    },
+    {
+      "sourceId": "d071",
+      "sourceLine": 574,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "post.volumetric",
+      "target": "post.volumetric",
+      "targets": [
+        "render-pipe.d071.card"
+      ]
+    },
+    {
+      "sourceId": "d072",
+      "sourceLine": 579,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "post.bloom",
+      "target": "post.bloom",
+      "targets": [
+        "render-pipe.d072.card"
+      ]
+    },
+    {
+      "sourceId": "d073",
+      "sourceLine": 583,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "post.volumetric",
+      "target": "post.volumetric",
+      "targets": [
+        "render-pipe.d073.card"
+      ]
+    },
+    {
+      "sourceId": "d074",
+      "sourceLine": 587,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "s061",
+      "sourceLine": 598,
+      "section": "9",
+      "kind": "summary",
+      "caseId": "case-02",
+      "summaryOf": "d075",
+      "alsoSummarizes": [
+        "d077"
+      ],
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "comp.finish",
+      "target": "comp.finish",
+      "targets": []
+    },
+    {
+      "sourceId": "s062",
+      "sourceLine": 599,
+      "section": "9",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d064",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "comp.display",
+      "target": "comp.display",
+      "targets": []
+    },
+    {
+      "sourceId": "s063",
+      "sourceLine": 600,
+      "section": "9",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d079",
+      "alsoSummarizes": [
+        "d080"
+      ],
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "comp.finish",
+      "target": "comp.finish",
+      "targets": []
+    },
+    {
+      "sourceId": "s064",
+      "sourceLine": 601,
+      "section": "9",
+      "kind": "summary",
+      "caseId": "case-10",
+      "summaryOf": "d081",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "comp.finish",
+      "target": "comp.finish",
+      "targets": []
+    },
+    {
+      "sourceId": "d075",
+      "sourceLine": 605,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "comp.finish",
+      "target": "comp.finish",
+      "targets": [
+        "render-pipe.d075.card"
+      ]
+    },
+    {
+      "sourceId": "d076",
+      "sourceLine": 609,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "d077",
+      "sourceLine": 611,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "post.grade-cl",
+      "target": "post.grade-cl",
+      "targets": [
+        "render-pipe.d077.card"
+      ]
+    },
+    {
+      "sourceId": "d078",
+      "sourceLine": 614,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "post.grade-cl",
+      "target": "post.grade-cl",
+      "targets": [
+        "render-pipe.d078.card"
+      ]
+    },
+    {
+      "sourceId": "d079",
+      "sourceLine": 619,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "comp.finish",
+      "target": "comp.finish",
+      "targets": [
+        "render-pipe.d079.card"
+      ]
+    },
+    {
+      "sourceId": "d080",
+      "sourceLine": 625,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "comp.finish",
+      "target": "comp.finish",
+      "targets": [
+        "render-pipe.d080.card"
+      ]
+    },
+    {
+      "sourceId": "d081",
+      "sourceLine": 630,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "comp.finish",
+      "target": "comp.finish",
+      "targets": [
+        "render-pipe.d081.card"
+      ]
+    },
+    {
+      "sourceId": "d082",
+      "sourceLine": 633,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
+      "targets": [
+        "render-pipe.d082.card"
+      ]
+    },
+    {
+      "sourceId": "d083",
+      "sourceLine": 637,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
+      "targets": [
+        "render-pipe.d083.card"
+      ]
+    },
+    {
+      "sourceId": "s065",
+      "sourceLine": 648,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d084",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.bilateral-up",
+      "target": "post.bilateral-up",
+      "targets": []
+    },
+    {
+      "sourceId": "s066",
+      "sourceLine": 649,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d085",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.bilateral-up",
+      "target": "post.bilateral-up",
+      "targets": []
+    },
+    {
+      "sourceId": "s067",
+      "sourceLine": 650,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-10",
+      "summaryOf": "d086",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s067"
+      ]
+    },
+    {
+      "sourceId": "d084",
+      "sourceLine": 654,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "post.bilateral-up",
+      "target": "post.bilateral-up",
+      "targets": [
+        "render-pipe.d084.card"
+      ]
+    },
+    {
+      "sourceId": "d085",
+      "sourceLine": 657,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "post.bilateral-up",
+      "target": "post.bilateral-up",
+      "targets": [
+        "render-pipe.d085.card"
+      ]
+    },
+    {
+      "sourceId": "d086",
+      "sourceLine": 662,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d086.radius",
+        "render-pipe.d086.ratio"
+      ]
+    },
+    {
+      "sourceId": "d087",
+      "sourceLine": 665,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "post.bilateral-up",
+      "target": "post.bilateral-up",
+      "targets": [
+        "render-pipe.d087.card"
+      ]
+    },
+    {
+      "sourceId": "d088",
+      "sourceLine": 668,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-10",
+        "case-13"
+      ],
+      "route": "portable",
+      "targets": [
+        "render-pipe.d088.time-constant"
+      ]
+    },
+    {
+      "sourceId": "d089",
+      "sourceLine": 673,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "post.lens-fx",
+      "target": "post.lens-fx",
+      "targets": [
+        "render-pipe.d089.card"
+      ]
+    },
+    {
+      "sourceId": "s068",
+      "sourceLine": 686,
+      "section": "11",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d004",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "post.hdr-chain",
+      "target": "post.hdr-chain",
+      "targets": []
+    },
+    {
+      "sourceId": "s069",
+      "sourceLine": 687,
+      "section": "11",
+      "kind": "summary",
+      "caseId": "case-02",
+      "summaryOf": "d092",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "post.lens-fx",
+      "target": "post.lens-fx",
+      "targets": []
+    },
+    {
+      "sourceId": "s070",
+      "sourceLine": 688,
+      "section": "11",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d090",
+      "alsoSummarizes": [
+        "d091"
+      ],
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "blur.subframe",
+      "target": "blur.subframe",
+      "targets": []
+    },
+    {
+      "sourceId": "s071",
+      "sourceLine": 689,
+      "section": "11",
+      "kind": "summary",
+      "caseId": "case-10",
+      "summaryOf": "d093",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s071"
+      ]
+    },
+    {
+      "sourceId": "s072",
+      "sourceLine": 690,
+      "section": "11",
+      "kind": "summary",
+      "caseId": "case-multi",
+      "summaryOf": "d026",
+      "alsoSummarizes": [
+        "d027"
+      ],
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s072"
+      ]
+    },
+    {
+      "sourceId": "d090",
+      "sourceLine": 694,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "blur.subframe",
+      "target": "blur.subframe",
+      "targets": [
+        "render-pipe.d090.card"
+      ]
+    },
+    {
+      "sourceId": "d091",
+      "sourceLine": 699,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "post.lens-fx",
+      "target": "post.lens-fx",
+      "targets": [
+        "render-pipe.d091.card"
+      ]
+    },
+    {
+      "sourceId": "d092",
+      "sourceLine": 702,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "post.lens-fx",
+      "target": "post.lens-fx",
+      "targets": [
+        "render-pipe.d092.card"
+      ]
+    },
+    {
+      "sourceId": "d093",
+      "sourceLine": 705,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d093.ratio"
+      ]
+    },
+    {
+      "sourceId": "d094",
+      "sourceLine": 709,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-28",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d094.practice"
+      ]
+    },
+    {
+      "sourceId": "d095",
+      "sourceLine": 718,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d095.practice"
+      ]
+    },
+    {
+      "sourceId": "d096",
+      "sourceLine": 721,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "fx.post-state",
+      "target": "fx.post-state",
+      "targets": [
+        "render-pipe.d096.card"
+      ]
+    },
+    {
+      "sourceId": "d097",
+      "sourceLine": 724,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "fx.post-state",
+      "target": "fx.post-state",
+      "targets": [
+        "render-pipe.d097.card"
+      ]
+    },
+    {
+      "sourceId": "d098",
+      "sourceLine": 727,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "fx.post-state",
+      "target": "fx.post-state",
+      "targets": [
+        "render-pipe.d098.card"
+      ]
+    },
+    {
+      "sourceId": "d099",
+      "sourceLine": 730,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "fx.post-state",
+      "target": "fx.post-state",
+      "targets": [
+        "render-pipe.d099.card"
+      ]
+    },
+    {
+      "sourceId": "d100",
+      "sourceLine": 733,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "fx.post-state",
+      "target": "fx.post-state",
+      "targets": [
+        "render-pipe.d100.card"
+      ]
+    },
+    {
+      "sourceId": "d101",
+      "sourceLine": 736,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "fx.post-state",
+      "target": "fx.post-state",
+      "targets": [
+        "render-pipe.d101.card"
+      ]
+    },
+    {
+      "sourceId": "d102",
+      "sourceLine": 743,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-15",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d102.practice"
+      ]
+    },
+    {
+      "sourceId": "d103",
+      "sourceLine": 748,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-07",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d103.practice"
+      ]
+    },
+    {
+      "sourceId": "d104",
+      "sourceLine": 752,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-15",
+      "route": "card-coupled",
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
+      "targets": [
+        "render-pipe.d104.card"
+      ]
+    },
+    {
+      "sourceId": "d105",
+      "sourceLine": 758,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-18",
+      "route": "card-coupled",
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
+      "targets": [
+        "render-pipe.d105.card"
+      ]
+    },
+    {
+      "sourceId": "d106",
+      "sourceLine": 761,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-03",
+        "case-ext11"
+      ],
+      "route": "practice",
+      "targets": [
+        "render-pipe.d106.practice"
+      ]
+    },
+    {
+      "sourceId": "d107",
+      "sourceLine": 766,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-05",
+      "route": "card-coupled",
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
+      "targets": [
+        "render-pipe.d107.card"
+      ]
+    },
+    {
+      "sourceId": "d108",
+      "sourceLine": 771,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-10",
+        "case-16"
+      ],
+      "route": "card-coupled",
+      "cardId": "post.grade-lut",
+      "target": "post.grade-lut",
+      "targets": [
+        "render-pipe.d108.card"
+      ]
+    },
+    {
+      "sourceId": "d109",
+      "sourceLine": 774,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "s073",
+      "sourceLine": 784,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-01r",
+      "summaryOf": "d110",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s073"
+      ]
+    },
+    {
+      "sourceId": "s074",
+      "sourceLine": 785,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-03",
+      "summaryOf": "d113",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s075",
+      "sourceLine": 786,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-18",
+      "summaryOf": "d112",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s075"
+      ]
+    },
+    {
+      "sourceId": "s076",
+      "sourceLine": 787,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-18",
+      "summaryOf": "d112",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s076"
+      ]
+    },
+    {
+      "sourceId": "s077",
+      "sourceLine": 788,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-20",
+      "summaryOf": "d114",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s077"
+      ]
+    },
+    {
+      "sourceId": "s078",
+      "sourceLine": 789,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-15",
+      "summaryOf": "d115",
+      "link": "values",
+      "route": "portable",
+      "targets": []
+    },
+    {
+      "sourceId": "s079",
+      "sourceLine": 790,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-23",
+      "summaryOf": "d117",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s079"
+      ]
+    },
+    {
+      "sourceId": "s080",
+      "sourceLine": 791,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-27",
+      "summaryOf": "d034",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s080"
+      ]
+    },
+    {
+      "sourceId": "s081",
+      "sourceLine": 792,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-29",
+      "summaryOf": "d118",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s081"
+      ]
+    },
+    {
+      "sourceId": "s082",
+      "sourceLine": 793,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-22",
+      "summaryOf": "d119",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s082"
+      ]
+    },
+    {
+      "sourceId": "s083",
+      "sourceLine": 794,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-19",
+      "summaryOf": "d120",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s083"
+      ]
+    },
+    {
+      "sourceId": "s084",
+      "sourceLine": 795,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-03",
+      "summaryOf": "d121",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s084"
+      ]
+    },
+    {
+      "sourceId": "s085",
+      "sourceLine": 796,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-02",
+      "summaryOf": "d006",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "time.seeded",
+      "target": "time.seeded",
+      "targets": []
+    },
+    {
+      "sourceId": "d110",
+      "sourceLine": 800,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-01r",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d110.resolution",
+        "render-pipe.d110.fps",
+        "render-pipe.d110.frame-count"
+      ]
+    },
+    {
+      "sourceId": "d111",
+      "sourceLine": 805,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-01r",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d111.event-time",
+        "render-pipe.d111.gain-db",
+        "render-pipe.d111.loudness",
+        "render-pipe.d111.true-peak",
+        "render-pipe.d111.duration",
+        "render-pipe.d111.frame-count"
+      ]
+    },
+    {
+      "sourceId": "d112",
+      "sourceLine": 809,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d112.resolution",
+        "render-pipe.d112.fps",
+        "render-pipe.d112.frame-count",
+        "render-pipe.d112.duration",
+        "render-pipe.d112.frequency"
+      ]
+    },
+    {
+      "sourceId": "d113",
+      "sourceLine": 813,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-03",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d113.practice"
+      ]
+    },
+    {
+      "sourceId": "d114",
+      "sourceLine": 816,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d114.resolution",
+        "render-pipe.d114.fps",
+        "render-pipe.d114.frame-count",
+        "render-pipe.d114.duration",
+        "render-pipe.d114.frequency"
+      ]
+    },
+    {
+      "sourceId": "d115",
+      "sourceLine": 819,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-15",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d115.resolution",
+        "render-pipe.d115.frequency",
+        "render-pipe.d115.psnr"
+      ]
+    },
+    {
+      "sourceId": "d116",
+      "sourceLine": 823,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-01-original",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "d117",
+      "sourceLine": 825,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-23",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d117.resolution",
+        "render-pipe.d117.fps",
+        "render-pipe.d117.frame-count",
+        "render-pipe.d117.duration",
+        "render-pipe.d117.frequency"
+      ]
+    },
+    {
+      "sourceId": "d118",
+      "sourceLine": 829,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-29",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d118.resolution",
+        "render-pipe.d118.fps",
+        "render-pipe.d118.frame-count",
+        "render-pipe.d118.duration"
+      ]
+    },
+    {
+      "sourceId": "d119",
+      "sourceLine": 832,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-22",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d119.resolution",
+        "render-pipe.d119.fps",
+        "render-pipe.d119.frame-count",
+        "render-pipe.d119.duration"
+      ]
+    },
+    {
+      "sourceId": "d120",
+      "sourceLine": 835,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-19",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d120.resolution",
+        "render-pipe.d120.fps",
+        "render-pipe.d120.frame-count",
+        "render-pipe.d120.duration"
+      ]
+    },
+    {
+      "sourceId": "d121",
+      "sourceLine": 838,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-03",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d121.resolution",
+        "render-pipe.d121.fps",
+        "render-pipe.d121.frame-count",
+        "render-pipe.d121.duration",
+        "render-pipe.d121.frequency"
+      ]
+    },
+    {
+      "sourceId": "d122",
+      "sourceLine": 841,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-01-original",
+        "case-03",
+        "case-06",
+        "case-07",
+        "case-12",
+        "case-14",
+        "case-17",
+        "case-19",
+        "case-21"
+      ],
+      "route": "portable",
+      "targets": [
+        "render-pipe.d122.resolution",
+        "render-pipe.d122.duration",
+        "render-pipe.d122.fps",
+        "render-pipe.d122.frame-count"
+      ]
+    },
+    {
+      "sourceId": "s086",
+      "sourceLine": 852,
+      "section": "15",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d123",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": []
+    },
+    {
+      "sourceId": "s087",
+      "sourceLine": 853,
+      "section": "15",
+      "kind": "summary",
+      "caseId": "case-02",
+      "summaryOf": "d124",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": []
+    },
+    {
+      "sourceId": "s088",
+      "sourceLine": 854,
+      "section": "15",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d125",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "light.emit-pool",
+      "target": "light.emit-pool",
+      "targets": []
+    },
+    {
+      "sourceId": "s089",
+      "sourceLine": 855,
+      "section": "15",
+      "kind": "summary",
+      "caseId": "case-10",
+      "summaryOf": "d126",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": []
+    },
+    {
+      "sourceId": "d123",
+      "sourceLine": 859,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d123.card"
+      ]
+    },
+    {
+      "sourceId": "d124",
+      "sourceLine": 865,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d124.card"
+      ]
+    },
+    {
+      "sourceId": "d125",
+      "sourceLine": 869,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "light.emit-pool",
+      "target": "light.emit-pool",
+      "targets": [
+        "render-pipe.d125.card"
+      ]
+    },
+    {
+      "sourceId": "d126",
+      "sourceLine": 877,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d126.card"
+      ]
+    },
+    {
+      "sourceId": "d127",
+      "sourceLine": 881,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "render-pipe.d127.card"
+      ]
+    },
+    {
+      "sourceId": "d128",
+      "sourceLine": 885,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "light.emit-pool",
+      "target": "light.emit-pool",
+      "targets": [
+        "render-pipe.d128.card"
+      ]
+    },
+    {
+      "sourceId": "d129",
+      "sourceLine": 889,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "render-pipe.d129.card"
+      ]
+    },
+    {
+      "sourceId": "d130",
+      "sourceLine": 893,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "render-pipe.d130.card"
+      ]
+    },
+    {
+      "sourceId": "d131",
+      "sourceLine": 897,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "render-pipe.d131.card"
+      ]
+    },
+    {
+      "sourceId": "d132",
+      "sourceLine": 901,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d132.card"
+      ]
+    },
+    {
+      "sourceId": "d133",
+      "sourceLine": 908,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "d134",
+      "sourceLine": 911,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-02",
+        "case-04",
+        "case-13",
+        "case-16"
+      ],
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d134.card"
+      ]
+    },
+    {
+      "sourceId": "s090",
+      "sourceLine": 923,
+      "section": "16",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d135",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s090"
+      ]
+    },
+    {
+      "sourceId": "s091",
+      "sourceLine": 924,
+      "section": "16",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d136",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s092",
+      "sourceLine": 925,
+      "section": "16",
+      "kind": "summary",
+      "caseId": "case-10",
+      "summaryOf": "d137",
+      "link": "values",
+      "route": "portable",
+      "targets": [
+        "render-pipe.sum.s092"
+      ]
+    },
+    {
+      "sourceId": "s093",
+      "sourceLine": 926,
+      "section": "16",
+      "kind": "summary",
+      "caseId": "case-02",
+      "summaryOf": "d124",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": []
+    },
+    {
+      "sourceId": "d135",
+      "sourceLine": 930,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d135.interval",
+        "render-pipe.d135.duration"
+      ]
+    },
+    {
+      "sourceId": "d136",
+      "sourceLine": 934,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d136.practice"
+      ]
+    },
+    {
+      "sourceId": "d137",
+      "sourceLine": 939,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d137.duration",
+        "render-pipe.d137.interval",
+        "render-pipe.d137.ratio"
+      ]
+    },
+    {
+      "sourceId": "d138",
+      "sourceLine": 942,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d138.practice"
+      ]
+    },
+    {
+      "sourceId": "d139",
+      "sourceLine": 946,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d139.practice"
+      ]
+    },
+    {
+      "sourceId": "s094",
+      "sourceLine": 959,
+      "section": "17",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d140",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": []
+    },
+    {
+      "sourceId": "s095",
+      "sourceLine": 960,
+      "section": "17",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d147",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "light.emit-pool",
+      "target": "light.emit-pool",
+      "targets": []
+    },
+    {
+      "sourceId": "s096",
+      "sourceLine": 961,
+      "section": "17",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d146",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": []
+    },
+    {
+      "sourceId": "s097",
+      "sourceLine": 962,
+      "section": "17",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d151",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": []
+    },
+    {
+      "sourceId": "s098",
+      "sourceLine": 963,
+      "section": "17",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d156",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": []
+    },
+    {
+      "sourceId": "d140",
+      "sourceLine": 967,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d140.card"
+      ]
+    },
+    {
+      "sourceId": "d141",
+      "sourceLine": 971,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d141.practice"
+      ]
+    },
+    {
+      "sourceId": "d142",
+      "sourceLine": 974,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d142.practice"
+      ]
+    },
+    {
+      "sourceId": "d143",
+      "sourceLine": 977,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d143.practice"
+      ]
+    },
+    {
+      "sourceId": "d144",
+      "sourceLine": 980,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d144.practice"
+      ]
+    },
+    {
+      "sourceId": "d145",
+      "sourceLine": 983,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d145.practice"
+      ]
+    },
+    {
+      "sourceId": "d146",
+      "sourceLine": 988,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d146.card"
+      ]
+    },
+    {
+      "sourceId": "d147",
+      "sourceLine": 991,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "light.emit-pool",
+      "target": "light.emit-pool",
+      "targets": [
+        "render-pipe.d147.card"
+      ]
+    },
+    {
+      "sourceId": "d148",
+      "sourceLine": 994,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d148.practice"
+      ]
+    },
+    {
+      "sourceId": "d149",
+      "sourceLine": 997,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d149.practice"
+      ]
+    },
+    {
+      "sourceId": "d150",
+      "sourceLine": 1002,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d150.practice"
+      ]
+    },
+    {
+      "sourceId": "d151",
+      "sourceLine": 1005,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d151.card"
+      ]
+    },
+    {
+      "sourceId": "d152",
+      "sourceLine": 1008,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d152.card"
+      ]
+    },
+    {
+      "sourceId": "d153",
+      "sourceLine": 1011,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d153.card"
+      ]
+    },
+    {
+      "sourceId": "d154",
+      "sourceLine": 1014,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d154.card"
+      ]
+    },
+    {
+      "sourceId": "d155",
+      "sourceLine": 1017,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d155.card"
+      ]
+    },
+    {
+      "sourceId": "d156",
+      "sourceLine": 1022,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "light.pcss",
+      "target": "light.pcss",
+      "targets": [
+        "render-pipe.d156.card"
+      ]
+    },
+    {
+      "sourceId": "d157",
+      "sourceLine": 1025,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d157.practice"
+      ]
+    },
+    {
+      "sourceId": "d158",
+      "sourceLine": 1028,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "render-pipe.d158.card"
+      ]
+    },
+    {
+      "sourceId": "s099",
+      "sourceLine": 1039,
+      "section": "18",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "summaryOf": "d159",
+      "link": "values",
+      "route": "card-coupled",
+      "cardId": "time.bake",
+      "target": "time.bake",
+      "targets": []
+    },
+    {
+      "sourceId": "s100",
+      "sourceLine": 1040,
+      "section": "18",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d138",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "s101",
+      "sourceLine": 1041,
+      "section": "18",
+      "kind": "summary",
+      "caseId": "case-13",
+      "summaryOf": "d150",
+      "link": "values",
+      "route": "practice",
+      "targets": []
+    },
+    {
+      "sourceId": "d159",
+      "sourceLine": 1045,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "time.bake",
+      "target": "time.bake",
+      "targets": [
+        "render-pipe.d159.card"
+      ]
+    },
+    {
+      "sourceId": "d160",
+      "sourceLine": 1049,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "time.bake",
+      "target": "time.bake",
+      "targets": [
+        "render-pipe.d160.card"
+      ]
+    },
+    {
+      "sourceId": "d161",
+      "sourceLine": 1052,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "time.bake",
+      "target": "time.bake",
+      "targets": [
+        "render-pipe.d161.card"
+      ]
+    },
+    {
+      "sourceId": "d162",
+      "sourceLine": 1055,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "time.bake",
+      "target": "time.bake",
+      "targets": [
+        "render-pipe.d162.card"
+      ]
+    },
+    {
+      "sourceId": "d163",
+      "sourceLine": 1058,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "time.bake",
+      "target": "time.bake",
+      "targets": [
+        "render-pipe.d163.card"
+      ]
+    },
+    {
+      "sourceId": "d164",
+      "sourceLine": 1061,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d164.practice"
+      ]
+    },
+    {
+      "sourceId": "d165",
+      "sourceLine": 1064,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d165.practice"
+      ]
+    },
+    {
+      "sourceId": "d166",
+      "sourceLine": 1067,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "d167",
+      "sourceLine": 1070,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-16",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d167.practice"
+      ]
+    },
+    {
+      "sourceId": "d168",
+      "sourceLine": 1073,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-22",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d168.triangle-count",
+        "render-pipe.d168.ratio"
+      ]
+    },
+    {
+      "sourceId": "d169",
+      "sourceLine": 1082,
+      "section": "19",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "audio.master",
+      "target": "audio.master",
+      "targets": [
+        "render-pipe.d169.card"
+      ]
+    },
+    {
+      "sourceId": "d170",
+      "sourceLine": 1085,
+      "section": "19",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "audio.master",
+      "target": "audio.master",
+      "targets": [
+        "render-pipe.d170.card"
+      ]
+    },
+    {
+      "sourceId": "d171",
+      "sourceLine": 1088,
+      "section": "19",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d171.practice"
+      ]
+    },
+    {
+      "sourceId": "d172",
+      "sourceLine": 1091,
+      "section": "19",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d172.practice"
+      ]
+    },
+    {
+      "sourceId": "d173",
+      "sourceLine": 1094,
+      "section": "19",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d173.practice"
+      ]
+    },
+    {
+      "sourceId": "d174",
+      "sourceLine": 1097,
+      "section": "19",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
+      "targets": [
+        "render-pipe.d174.card"
+      ]
+    },
+    {
+      "sourceId": "d175",
+      "sourceLine": 1100,
+      "section": "19",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "layout.panels",
+      "target": "layout.panels",
+      "targets": [
+        "render-pipe.d175.card"
+      ]
+    },
+    {
+      "sourceId": "d176",
+      "sourceLine": 1103,
+      "section": "19",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d176.practice"
+      ]
+    },
+    {
+      "sourceId": "d177",
+      "sourceLine": 1106,
+      "section": "19",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d177.practice"
+      ]
+    },
+    {
+      "sourceId": "d178",
+      "sourceLine": 1113,
+      "section": "20",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "portable",
+      "targets": [
+        "render-pipe.d178.resolution",
+        "render-pipe.d178.triangle-count",
+        "render-pipe.d178.duration"
+      ]
+    },
+    {
+      "sourceId": "d179",
+      "sourceLine": 1117,
+      "section": "20",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "d180",
+      "sourceLine": 1120,
+      "section": "20",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "time.seeded",
+      "target": "time.seeded",
+      "targets": [
+        "render-pipe.d180.card"
+      ]
+    },
+    {
+      "sourceId": "d181",
+      "sourceLine": 1127,
+      "section": "21",
+      "kind": "detail",
+      "caseId": "case-07",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d181.practice"
+      ]
+    },
+    {
+      "sourceId": "d182",
+      "sourceLine": 1131,
+      "section": "21",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d182.practice"
+      ]
+    },
+    {
+      "sourceId": "d183",
+      "sourceLine": 1134,
+      "section": "21",
+      "kind": "detail",
+      "caseId": "case-01-original",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "d184",
+      "sourceLine": 1137,
+      "section": "21",
+      "kind": "detail",
+      "caseId": "case-03",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d184.practice"
+      ]
+    },
+    {
+      "sourceId": "d185",
+      "sourceLine": 1140,
+      "section": "21",
+      "kind": "detail",
+      "caseId": "case-01-legacy",
+      "route": "practice",
+      "targets": [
+        "render-pipe.d185.practice"
+      ]
+    },
+    {
+      "sourceId": "d186",
+      "sourceLine": 1143,
+      "section": "21",
+      "kind": "detail",
+      "caseId": "case-multi",
+      "coveredCases": [
+        "case-02",
+        "case-13",
+        "case-ext01"
+      ],
+      "route": "skipped-or-conflict",
+      "targets": []
+    }
+  ]
+}

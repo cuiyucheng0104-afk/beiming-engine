@@ -1,0 +1,1631 @@
+{
+  "format": "practices/0.1",
+  "entries": [
+    {
+      "id": "render-pipe.d003.practice",
+      "sourceId": "d003",
+      "section": "1",
+      "caseId": "case-ext01",
+      "title": "时钟与纯函数",
+      "text": "固定 60 帧/秒；120 Hz 屏每两次刷新画一帧；90 s 循环，80 BPM，30 小节；每一帧是片中时间的纯函数。全部粒子、水、风为 `t` 的闭式函数，不存状态，可任意跳帧（04/05/06/07/08 都强调）。需要「记忆」的东西（灯笼的摆、被龙扫过的树、湿身、湖面涟漪）加载时把整部片预先走一遍写成表，播放时只查表：灯笼摆按每秒 30 个样本积分 90 秒，植物只记离它最近 3 次「龙经过」，湿身按每 1/24 秒扫一遍全片。闪光、曝光、泛光、震动、阵风都是 pulse(t, 节拍时间, 上升, 衰减) 加权和；风相位预算成 5402 格表（原实现源码）；云影起始位置加载时用 1600 个候选偏移打分挑选（原实现源码）；任何帧可单独渲染。",
+      "quantities": [
+        {
+          "value": 120,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 90,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 90,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 0.041667,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d003"
+    },
+    {
+      "id": "render-pipe.d007.practice",
+      "sourceId": "d007",
+      "section": "1",
+      "caseId": "case-02",
+      "title": "调试视图与改离线出片的三处改动",
+      "text": "调试视图 `?view=` none/bloom/rays/mask/depth/clouds/scene（原实现源码），逐通道截图，没运行验证。改成逐帧离线出片（推断，未试）：把 原实现源码 的真实 dt 换成 1/输出帧率（模拟本为 120 Hz 固定步）；`?capture` 保留绘图缓冲，逐帧读画布（原实现源码）；鸟群/花瓣/每龙时钟初值用 Math.random()（原实现源码），要换固定种子。",
+      "quantities": [
+        {
+          "value": 120,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d007"
+    },
+    {
+      "id": "render-pipe.d012.practice",
+      "sourceId": "d012",
+      "section": "1",
+      "caseId": "case-13",
+      "title": "全局统一变量注入",
+      "text": "改写 THREE.Material.prototype.onBeforeCompile，所有材质自动拿到全局统一变量表 U（49 个全局 uniform）（原实现源码，76-124）。",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d012"
+    },
+    {
+      "id": "render-pipe.d013.practice",
+      "sourceId": "d013",
+      "section": "1",
+      "caseId": "case-13",
+      "title": "主循环每帧顺序与菜单跳帧",
+      "text": "25 步压成 8 步：①算时间步长，跑前面「静音」子步（角色、动画、斗篷）②推进着色器时钟③风→天空 G.sky.update→天气④世界模块（村/教堂/古墓/zone_19或巨树）→最后一个子步的角色⑤写玩家位置、更新最多 8 个「压草者」⑥相机（放在全部角色之后，跟拍不滞后一帧）→特效、音频、界面⑦灯光池选灯→出图 G.post.render→拷贝场景颜色给下一帧反射用⑧自适应分辨率统计；每 0.5 s 刷新帧率显示（原实现源码）。菜单盖住世界超过 0.55 s 整帧跳过出图（原实现源码）。",
+      "quantities": [
+        {
+          "value": 0.5,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.55,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d013"
+    },
+    {
+      "id": "render-pipe.d015.practice",
+      "sourceId": "d015",
+      "section": "1",
+      "caseId": "case-multi",
+      "title": "预乘 alpha 与剔除、软深度",
+      "text": "外部案例 01：预乘 alpha 一种混合 (`One,OneMinusSrcAlpha`)：alpha=0 加光、alpha=覆盖率做遮挡（；原实现源码，统一 PMB）；剔除粒子 `gl_Position=vec4(2,2,2,1)`；软深度 `softZ(vVZ,k)`；alpha-to-coverage 用于叶、发、鳍。；细粒子像素下限：火星 `max(尺寸,-z*0.00062)`；水滴 `-z*0.00072`；鳞片 `-z*0.00085`；快门拉条：绳长 `宽+速度*0.0085`，珠 `宽+速度*0.0125`（1/60 s 快门）。；烘焙噪声贴图：puffTex 256²（`n=fbm2(uv*5+3)*0.9+fbm2(uv*11)*0.35`，`a=smoothstep(1,0.15,r+(n-0.55)*0.75)`）；noiseTex 256² 5 层周期 fbm。；预编译：`Post.warm()`、`R.compileAsync`、`G.R.compile`，避免首次出现卡帧。记忆类效果加载时烘焙：湿度钟 24 Hz 扫 90 s；甩水 30 Hz 模拟，上限 22000/6000/6000；火焰表 12 样本。",
+      "quantities": [
+        {
+          "value": 0.016667,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 24,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 90,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 30,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d015"
+    },
+    {
+      "id": "render-pipe.d017.practice",
+      "sourceId": "d017",
+      "section": "1",
+      "caseId": "case-ext01",
+      "title": "单盏点光合并",
+      "text": "两股吐息、闪光、光球、龙珠每帧按强度加权合成一个位置/颜色/距离，喂给同一盏 PointLight（原实现源码）；注释：多一盏灯会让山谷每个受光像素全片多付一次代价；建筑灯池「about 0.2 ms each at 3.7 megapixels」（原实现源码），只有山门一盏是真灯，`?pools` 默认 1。",
+      "quantities": [
+        {
+          "value": 0.2,
+          "unit": "ms",
+          "rawUnit": "ms"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 1 节 · d017"
+    },
+    {
+      "id": "render-pipe.d025.practice",
+      "sourceId": "d025",
+      "section": "2",
+      "caseId": "case-07",
+      "title": "镜头首帧运动模糊泄漏的修法",
+      "text": "镜头第一帧的运动模糊采样会回溯到上一镜头，使每次剪切起始带鬼影双重曝光；引擎修复 = 把每个采样钳制在本镜头内，一次清除一整类缺陷。",
+      "quantities": [],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 2 节 · d025"
+    },
+    {
+      "id": "render-pipe.d031.practice",
+      "sourceId": "d031",
+      "section": "3",
+      "caseId": "case-multi",
+      "title": "Blender 渲染设置与分段",
+      "text": "Blender 5.2 Cycles；某生成平台 GPU 约 12 块显卡；OptiX；1920×1080（预览 720p）；24 fps；720 帧；采样 256；自适应阈值 0.02；降噪 OIDN 带反照率和法线通道；运动模糊快门 180° 位置 START；景深带跟焦（光圈未公开）；焦段穿行 18 mm、定妆 50 mm；色彩管理 AgX（Look、曝光未公开）；输出干净底片 ProRes（档位位深未公开）；反弹次数未公开。预览 720p、终渲 1080p；预览分辨率比例 600×338 小样。；每帧耗时与分段：1080p 每帧约 9–10 s；每块显卡第一帧约 100 s（OptiX 编译）；60 帧一段共 12 段；局部缺陷只重渲那一段按帧拼回（局部重渲每段约 11 分钟，总计 1.9 显卡小时，我们核算）；测试渲染也送 GPU（本地共享队列曾等 15 分钟）；不上传缓存和助手 输出目录 目录（用忽略文件挡）。推算：720×9.5 s=6,840 s=1.9 显卡小时，12 段并行每段 60×9.5+100=670 s≈11 min，官方说「整片约 1 小时」差的时间未说明；段太小会被首帧编译吃掉。；干净底片：ProRes 不带图层和颗粒，是合成源头；改图层、调色、声音只重合成不重渲。工程流程：不保留 工程文件，从代码重建约 15 秒；`原文档:integration-audit`；五道关口：三张最终画质测试帧→分镜→预览→终渲→质检。",
+      "quantities": [
+        {
+          "value": 24,
+          "unit": "fps",
+          "rawUnit": "fps"
+        },
+        {
+          "value": 720,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 180,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 18,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": 50,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": [
+            9,
+            10
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 100,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 60,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 9.5,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 6840,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 670,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 15,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d031"
+    },
+    {
+      "id": "render-pipe.d033.practice",
+      "sourceId": "d033",
+      "section": "3",
+      "caseId": "case-01-original",
+      "title": "Cycles 设置与队列",
+      "text": "Blender Cycles、本机 GPU；预览 960×540、少采样、只渲需要看的帧，约 0.2 s/帧；终片 625 帧（25 fps × 25 s）1080p、96 自适应采样 + 降噪、含运动模糊与景深，每帧 1.6–8 s，GPU 约 40 min、挂钟约 2 h（队列与其他项目共享）；2D 层 625 帧 CPU 合成约 2 分钟，故 v2 只补渲 21 帧；首版 4 时 31 分，v2 为 5 时 02 分；过程版另耗 1 时 48 分。渲染队列策略：动画锁定后只渲一次终片；lead 设定锁定时间，把片段切成 ≤5 分钟的块逐个入队，使预览不排在长终渲后面；Gate3 时仍在渲的镜头以预览显示并加标签。色彩空间标记：编码时要打 BT.709 标签；预览未打标签，在高清播放器中片子的两种标志色偏移；终片与网页版已加标签。",
+      "quantities": [
+        {
+          "value": 625,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 25,
+          "unit": "fps",
+          "rawUnit": "fps"
+        },
+        {
+          "value": 25,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": [
+            1.6,
+            8
+          ],
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 625,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 21,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d033"
+    },
+    {
+      "id": "render-pipe.d035.practice",
+      "sourceId": "d035",
+      "section": "3",
+      "caseId": "case-multi",
+      "title": "渲染器未公开",
+      "text": "23：EEVEE/Cycles、采样、灯光、色彩管理均未写、量不出。案例 08 视口「延时片」：Blender 5.2.3；1920×1080 30 fps 750 帧 25.000 s；时间轴 1–1420；1420÷750≈1.89 场景帧/视频帧；Solid 带选中橙色描边，帧 1123 起带材质；Statistics 叠加层入镜；做法 = 按帧显隐 + 逐帧截图。",
+      "quantities": [
+        {
+          "value": 30,
+          "unit": "fps",
+          "rawUnit": "fps"
+        },
+        {
+          "value": 750,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 25,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d035"
+    },
+    {
+      "id": "render-pipe.d036.practice",
+      "sourceId": "d036",
+      "section": "3",
+      "caseId": "case-01r",
+      "title": "采样阶梯（--ladder）",
+      "text": "案例 01 重制版：样本 [1, 2, 4, 8, 16, 32, 64, 128]（第 9 档 0 = 成片第 0 帧本身，开降噪出 原包素材），同机位同灯光，关自适应采样、关降噪渲出真实噪点收敛，各存 原包素材（每拍半一个档位）；这是为过程片做的特效素材，不是质量标定。过程片阶梯段 288–323 全局帧共 9 档×4 帧；渲染时垫 INK 黑底的 RGBA。`use_denoising=False; use_adaptive_sampling=False`。旧版 v3 用同样的阶梯【冲突】：分组清单 写「1→128 同样的阶梯（说明里写 1→96 是原片 案例 01 原作 的）」，分组清单 写「阶梯 64spp」。",
+      "quantities": [
+        {
+          "value": 4,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 64,
+          "unit": "spp",
+          "rawUnit": "spp"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d036"
+    },
+    {
+      "id": "render-pipe.d037.practice",
+      "sourceId": "d037",
+      "section": "3",
+      "caseId": "case-01r",
+      "title": "逐帧纯函数状态与运动模糊的三帧关键帧法（Cycles）",
+      "text": "`film.state(f)` 是纯函数，机位与部件位置只由帧号决定；渲第 f 帧前把 f−1、f、f+1 的状态写成关键帧（Rig.set_frame），让 Cycles 在快门区间内插值得到运动模糊；帧间互不依赖，可抽帧/分段补渲。夹范围：每个 take 起止帧用本 take 状态夹住，转场帧不会模糊到下一个 take。脚本想设线性插值，但本机 Blender 5.2 读回实为 BEZIER/AUTO_CLAMPED（偏好设置对 keyframe_insert 无效），另一台本地工作站 4.5 未读回。改机位只补渲变动帧：v1→v2 只补渲 312 帧 + 23 帧，其余 456 帧复用。",
+      "quantities": [
+        {
+          "value": 312,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 23,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 456,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d037"
+    },
+    {
+      "id": "render-pipe.d038.practice",
+      "sourceId": "d038",
+      "section": "3",
+      "caseId": "case-multi",
+      "title": "Blender 版本兼容与脚本关键调用",
+      "text": "脚本同时兼容 Blender 4.5 与 5.2：节点插口一律按序号取（5.x 把 Fac 改名 Factor）；不用 5.x 专有 API；Thin Film 不用（4.5 与 5.2 金属处理不同）。渲染脚本关键调用：`studio.setup(samples=, res=(w,h), transparent=True, motion_blur=blur)`；`scene.render.use_persistent_data=True`；`cy.use_denoising=True`；`cy.denoiser=\"OPENIMAGEDENOISE\"`；`if hasattr(cy,\"denoising_use_gpu\"): cy.denoising_use_gpu=True`；每帧同时导出 meta JSON（15 锚点屏幕坐标+深度 z 米、整卡 bbox、焦段、机位、yaw_deg、explode）。另一台本地工作站 上任何时候只跑一个 Blender；不传 工程文件，只传脚本，每次从脚本重建整个场景。",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 3 节 · d038"
+    },
+    {
+      "id": "render-pipe.d040.practice",
+      "sourceId": "d040",
+      "section": "4",
+      "caseId": "case-multi",
+      "title": "做法与算术",
+      "text": "每镜先渲一张干净 4K 母帧（448–640 spp）；每帧只重渲相机当下看到的窗口，像素网格和随机种子与母帧相同，32–48 spp（014/021；案例 19窗口 spp 未写）；没动的地方与母帧逐像素一致，静态街无闪烁，帧间只有真实运动。镜头只摇和俯仰，不能平移，所有镜头运动无视差；4K 母帧确切像素数是假定。依赖固定种子。；采样量算术（推断，假定 4K=3840×2160）：母帧 3840×2160×448=3,715,891,200；78 个窗口 78×1920×1080×32=5,175,705,600；一镜合计 8,891,596,800；对照全按 448 直渲 72,459,878,400；比 1/8.15。采样从 1024 降到 448–640 再加 32–48 窗口，是为有人物和运动物体时控总耗时（推断）。验收建议（未做）：取静止区域逐帧做差期望为 0；案例 19成片 19.98 Mbps H.264，帧间差混了运动和压缩噪声，无法验证。；案例 14同套：新两镜头（水面、镜中）各 448-spp 母帧 + 78 窗口 @32 spp，连同新案例 21镜约 30 分钟（单张工作站 GPU），三个原始案例 14镜头约 17 分钟。",
+      "quantities": [
+        {
+          "value": [
+            448,
+            640
+          ],
+          "unit": "spp",
+          "rawUnit": "spp"
+        },
+        {
+          "value": [
+            32,
+            48
+          ],
+          "unit": "spp",
+          "rawUnit": "spp"
+        },
+        {
+          "value": 32,
+          "unit": "spp",
+          "rawUnit": "spp"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d040"
+    },
+    {
+      "id": "render-pipe.d041.practice",
+      "sourceId": "d041",
+      "section": "4",
+      "caseId": "case-19",
+      "title": "相机真动，逐帧渲",
+      "text": "最后一镜穿过万寿菊花环，逐帧渲，相机真动，128 spp，72 帧：缓慢前推、近远物体相对位移（视差）、对焦从花环拉到街。只有相机真动的镜头才逐帧重渲。",
+      "quantities": [
+        {
+          "value": 128,
+          "unit": "spp",
+          "rawUnit": "spp"
+        },
+        {
+          "value": 72,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d041"
+    },
+    {
+      "id": "render-pipe.d042.practice",
+      "sourceId": "d042",
+      "section": "4",
+      "caseId": "case-26",
+      "title": "1024 spp 与精确重投影",
+      "text": "开场两镜（外景/窗）4K 母帧 3840×2160，每像素 1024 采样，一块工作站显卡分别 56 s 与 131 s；算术：3840×2160×1024=8,493,465,600 像素采样，约 1.52 亿/s 与 6,480 万/s（推断）。镜头运动是对该母帧精确重投影的三脚架平移/俯仰，无采样噪点且无叠加；六个镜头（外景/带 OPEN 招牌的窗/大厅/沿吧台/菜单与出餐口/杯）各为同一场景里放一台相机、各出干净 4K 母帧。网格 CPU 光线投射：478 帧由光线投射器 CPU 版 4 个进程 4 分 7 秒（247 s÷478≈0.52 s/帧，单进程约 2.07 s/帧）；场景约 380 万三角面、28 种程序材质。",
+      "quantities": [
+        {
+          "value": 56,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 131,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 8493465600,
+          "unit": "px",
+          "rawUnit": "像素"
+        },
+        {
+          "value": 478,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 247,
+          "unit": "s",
+          "rawUnit": "分秒"
+        },
+        {
+          "value": 247,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d042"
+    },
+    {
+      "id": "render-pipe.d043.practice",
+      "sourceId": "d043",
+      "section": "4",
+      "caseId": "case-26",
+      "title": "路径追踪器能力清单（餐馆单 kernel 版）",
+      "text": "单个 compute kernel；自建 BVH（SAH）；对太阳盘/天空/发光三角形做多重重要性采样（MIS）；Sobol 序列 + Owen 打乱；分层 BSDF：清漆（clear coat）压 GGX 压漫反射、薄/实心玻璃、咖啡与琥珀玻璃内部吸收；大厅含灰尘体积；相机为镜头模型（薄透镜、光圈叶片、猫眼焦外、畸变、镜头位移、快门运动模糊）；天空 = 物理大气（Rayleigh/Mie/臭氧多次散射）按太阳高度计算，厅内太阳高度 +9°；GPU 后期：albedo/法线/深度引导的非局部均值降噪→泛光→光晕(halation)→色差→AgX 色调映射（look 未公开）。案例 19版增加：空气尘埃对太阳单次散射（形成光柱）、炭炉烟雾 = 随时间变化程序密度含自阴影；案例 19官方自报 316 万三角形、383 材质、53 人、43 万根毛。案例 25（悬挑住宅）版扩展：材质（耐候钢/层状砂岩/锌/CLT/光伏/河）、有限尺寸太阳、每帧重建运动几何；太阳位置由场地经纬度与日期计算：10 月 12 日 07:20 当地时间、方位角 106°、高度角 9°。",
+      "quantities": [
+        {
+          "value": 9,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 106,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 9,
+          "unit": "deg",
+          "rawUnit": "°"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d043"
+    },
+    {
+      "id": "render-pipe.d044.practice",
+      "sourceId": "d044",
+      "section": "4",
+      "caseId": "case-29",
+      "title": "室内逐顶点光缓存",
+      "text": "室内大部分光经多次反弹到达难以采样；方案：几何细分至约 5 cm，GPU 在 300 万个顶点（3.0 百万）各算 2048 条路径的完整路径追踪光照 = 61 亿条路径，某款旗舰显卡 上 142 秒；帧渲染时直接光（太阳/天空/灯）与首次漫反弹用真实射线，更深反弹读缓存；窗口 portal 只经七扇窗采样天空；62 个灯组按功率与距离挑选。3D 场景由同一模型派生：118 万三角面、102 种程序材质（带倒角与木纹的橡木板、石英岩、洞石/石灰华、bouclé、亚麻、皮革）；平台是否 WebGPU、是否与 026 同一套未说。速度：1080p 48 spp 每帧约 1 s；4K 静帧 384 spp 约 30 s（约每秒 1 亿像素采样，算术一致）；补渲 55 帧玩偶屋（去顶）转台在 某款旗舰显卡 上 230 s；屏幕层单独绘制再在 CPU 合成；原先的搭建渲染未重算，酸橙绿墨色由合成里色相偏移得来，开头 15 帧在 CPU 上重渲（去掉大图签）。某款旗舰显卡 与 另一台本地工作站 工作站同卡，可作速度参照。",
+      "quantities": [
+        {
+          "value": 0.05,
+          "unit": "m",
+          "rawUnit": "cm"
+        },
+        {
+          "value": 142,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 48,
+          "unit": "spp",
+          "rawUnit": "spp"
+        },
+        {
+          "value": 1,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 384,
+          "unit": "spp",
+          "rawUnit": "spp"
+        },
+        {
+          "value": 30,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 55,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 230,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 15,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d044"
+    },
+    {
+      "id": "render-pipe.d046.practice",
+      "sourceId": "d046",
+      "section": "4",
+      "caseId": "case-26",
+      "title": "光组分离保存",
+      "text": "路径追踪器分别保存 5 个光组（太阳、天空、灯、霓虹 A、霓虹 B），同一批采样按组重新合成；霓虹在剪辑里闪烁/熄灭/调亮度无需重渲；原文结尾也把它当最重要建议（「从第一次渲染起就分开存光组」）；关键设计使「霓虹闪灭+声音同步」成立，我们在成片上验证了闪烁与声音同帧。与北冥「颜色、深度、法线、物体编号」分层图同一路思路。",
+      "quantities": [],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d046"
+    },
+    {
+      "id": "render-pipe.d048.practice",
+      "sourceId": "d048",
+      "section": "4",
+      "caseId": "case-19",
+      "title": "路径追踪的已知局限",
+      "text": "餐厅：太阳穿玻璃与铬的焦散未计算；所有运镜都是无视差的平移/俯仰；霓虹与灯被调到高于物理值以便黎明可读；网格面板只有线框且由 CPU 版射线投射器而非 GPU kernel 算（几何与 BVH 同）；杯网格单元约 0.5 mm 小于面板一像素故读作实心酸橙形；源码行用开源等宽字体而非场景笔画字体；声音只测了响度（−14.0 LUFS）没听；检查只到文件完整性/每 6 帧联系表/每个切点/水印角。案例 19：人物仍是最弱处（雕塑式人形无细节眼睛/头发、手指不抓握；焦内人物像人体模型）；运动物体无自带运动模糊；六镜头里五个只能平移俯仰无视差；炉烟在俯仰末尾遮住右三分之一；牛脸在阴影中眼睛只是暗点无高光；酒店招牌是干净平板、洗衣风太弱、芒果过光滑；天城体仅与系统字体目视比对未经母语者审。",
+      "quantities": [
+        {
+          "value": 0.5,
+          "unit": "mm",
+          "rawUnit": "mm"
+        },
+        {
+          "value": -14,
+          "unit": "LUFS",
+          "rawUnit": "LUFS"
+        },
+        {
+          "value": 6,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 4 节 · d048"
+    },
+    {
+      "id": "render-pipe.d049.practice",
+      "sourceId": "d049",
+      "section": "5",
+      "caseId": "case-multi",
+      "title": "HF 页面契约（案例 15、Canvas2D 风格测试）",
+      "text": "Canvas2D（或 SVG），禁止 three/WebGL；1920×1080、24 fps、10.0 s（240 帧）；`window.HF = { meta:{w:1920,h:1080,fps:24,duration:10}, isReady:false, seek: async (t)=>{drawFrame(t)} }`，准备好后 `HF.isReady=true`；每帧是 t 的纯函数，随机数固定种子，禁用 Math.random / Date / requestAnimationFrame；重的静态画在离屏画布预画一次复用；每帧成本 <200 ms（简报要求，非实测）。辅助库：原实现源码（水彩洗/铅笔笔触/草场/树冠/积云）、原实现源码（缓动/随机/噪声）。要求至少 3 轮对照真实画家的自评迭代。",
+      "quantities": [
+        {
+          "value": 24,
+          "unit": "fps",
+          "rawUnit": "fps"
+        },
+        {
+          "value": 10,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 240,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 200,
+          "unit": "ms",
+          "rawUnit": "ms"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d049"
+    },
+    {
+      "id": "render-pipe.d051.practice",
+      "sourceId": "d051",
+      "section": "5",
+      "caseId": "case-18",
+      "title": "逐帧并行、本地服务、单帧预览（18）",
+      "text": "一个浏览器多页，默认 `--workers 6`，共享计数器 `next++` 取下一帧；帧数 `Math.round(duration*FPS)`；输出 原包素材（五位补零），每 300 帧打进度；可选 `--from --to --out`。本地服务：Node http，只监听 127.0.0.1 随机端口，`Cache-Control: no-store`，拒绝根目录外路径；MIME 含 html/js/mjs/json/ttf/png/css；原因 = 页面 fetch() 读 原实现数据文件，file:// 读不了。单帧预览：`node 原实现源码 原包素材:42.5` 用 page.screenshot 存 PNG，并打印页面 console。renderFrame(t) 在 canvas 上画完整 1920×1080，不沿用上帧状态，故可乱序多 worker 并行；各场景共用缓动、滚动数字、关键帧、二维地图相机辅助函数；每个场景一个文件。验收建议：同一帧在不同渲染顺序下输出一致（推断，官方没说怎么验）。",
+      "quantities": [
+        {
+          "value": 300,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d051"
+    },
+    {
+      "id": "render-pipe.d053.practice",
+      "sourceId": "d053",
+      "section": "5",
+      "caseId": "case-07",
+      "title": "帧即时间纯函数与相机剪切表",
+      "text": "单个 three 页面只暴露一个函数「给时间画那一帧」；固定随机种子、无时钟；带历史的效果（如稻草暴风雪）从头以固定步长模拟并缓存；相机放剪切表（位置/目标/焦距/光圈/对焦点关键帧），统一求值器生成平滑曲线，每镜头前后各多出额外帧使第 0 帧已在运动；时间冻结 = 世界冻结而相机仍在飞，倒带 = 同一相机运动反向播放。结果帧可乱序、多机并行。",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d053"
+    },
+    {
+      "id": "render-pipe.d056.practice",
+      "sourceId": "d056",
+      "section": "5",
+      "caseId": "case-multi",
+      "title": "截图模式",
+      "text": "外部案例 01截图模式 1630×927 抽 11 个时刻；`?capture` 不做自适应、像素比默认 1；`?dpr ?q ?fast ?nomsaa` 等开关见外部案例 01量测方法。案例 02 `?capture` 保留绘图缓冲（见）。",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "实测",
+      "evidenceLabel": "实测",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 5 节 · d056"
+    },
+    {
+      "id": "render-pipe.d057.practice",
+      "sourceId": "d057",
+      "section": "6",
+      "caseId": "case-07",
+      "title": "云端无头渲染",
+      "text": "无头浏览器 + 无头浏览器驱动；租用 某显卡厂商 云端大算力 GPU 云 GPU，脚本把工程同步到服务器，一个分块起 8 个渲染进程。进程：加载页面→跑几帧预热→渲自己的范围→逐帧检查是否空白或丢 GPU→有问题换新浏览器重试；分块无损存，最后全部解码流式送入一次 ffmpeg 编码，每步核帧数（早先直接拼文件曾悄悄丢 1 帧）；备用：服务器占用时部分版本在 桌面工作站 渲；分块大小、GPU 台数、每帧耗时、费用、无损格式、CRF 未公开。规格：2 分 56 秒，1080p，24 fps；首个完整剪辑约 11 小时；原始重渲染租用 云端大算力 GPU 云服务器。",
+      "quantities": [
+        {
+          "value": 1,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 176,
+          "unit": "s",
+          "rawUnit": "分秒"
+        },
+        {
+          "value": 24,
+          "unit": "fps",
+          "rawUnit": "fps"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d057"
+    },
+    {
+      "id": "render-pipe.d059.practice",
+      "sourceId": "d059",
+      "section": "6",
+      "caseId": "case-multi",
+      "title": "云 GPU 渲染流程（僵尸手 24、案例 22 22、玻璃头 28）",
+      "text": "僵尸手：先本地渲 6 张检查帧（手背伤口+骨、蜘蛛拱、爬行一步、空翻空中、手枪、带控制器的 OK）自检无扭曲手指/撕裂网格/伤口钉紧贴/僵尸着色器丰富；再用 /gpu 列 GPU 与价、确认无遗留任务、报价、上传 工程文件、显示 GPU/预计积分/最高费用、确认「yes」后才开始；Cycles 高质量 + GPU 降噪（OptiX 或 OIDN）；导出 H.264 -crf 15；持续跟进不因报错放弃；笔记本上传帧太慢改云上重渲，并拆成两台 GPU 相向渲染，完成后关机；前两版被自己判为前景手指失焦、地平线有刺眼辉线，第三版才入片；全程约 3.5 小时。；案例 22：每 GPU 一个 Blender 进程，渲染可续；渲完拷回帧检查闪烁（指标阈值未公开）；先向用户展示价格并等确认再租 GPU（某生成平台 GPU 经 `/gpu` 命令）；结束后关机。",
+      "quantities": [],
+      "kind": "fix",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d059"
+    },
+    {
+      "id": "render-pipe.d060.practice",
+      "sourceId": "d060",
+      "section": "6",
+      "caseId": "case-05",
+      "title": "局部重渲与窗口",
+      "text": "局部缺陷只重渲那一段按帧拼回；60 帧一段共 12 段；段太小会被首帧编译（每块显卡首帧约 100 s，OptiX 编译）吃掉；不保留缓存和助手 输出目录 发到显卡机器。已并入。（指针条目，无新数值）",
+      "quantities": [
+        {
+          "value": 60,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 100,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d060"
+    },
+    {
+      "id": "render-pipe.d061.practice",
+      "sourceId": "d061",
+      "section": "6",
+      "caseId": "case-multi",
+      "title": "渲染队列与提速要点汇总（可直接照用）",
+      "text": "先用测速确定降噪放 GPU；终版动画锁定后只渲一次，片段切 ≤5 分钟块入队；改机位只补渲变动帧；母帧加窗口；云 GPU 先报价等确认再开始，结束后关机；段落大小 ≥ 首帧编译开销的数倍。",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 6 节 · d061"
+    },
+    {
+      "id": "render-pipe.d094.practice",
+      "sourceId": "d094",
+      "section": "11",
+      "caseId": "case-28",
+      "title": "为建模参考关闭的效果（案例 28 360 轨道）",
+      "text": "景深关闭（全深度对焦）、关闭运动模糊，无镜头光晕/泛光/眩光条/色差/畸变/鱼眼/暗角/镜头脏污/雾/粒子；灰色无反射地板，固定柔和棚光，曝光对比白平衡恒定；接触点有精确接触阴影，不悬浮不滑动",
+      "quantities": [],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 11 节 · d094"
+    },
+    {
+      "id": "render-pipe.d095.practice",
+      "sourceId": "d095",
+      "section": "12",
+      "caseId": "case-ext01",
+      "title": "脉冲记号",
+      "text": "pulse(t,t0,att,rel)（原实现源码）：t0 前 0，t0..t0+att 为 smoothstep 升到 1，之后 exp(−(t−t0−att)/rel)；win(a,b,升,降)；闪光/曝光/泛光/震动/阵风全是它的加权和。闪前压暗 −0.28、提前 0.036 s（约 2 帧）",
+      "quantities": [
+        {
+          "value": 0.036,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 2,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 12 节 · d095"
+    },
+    {
+      "id": "render-pipe.d102.practice",
+      "sourceId": "d102",
+      "section": "13",
+      "caseId": "case-15",
+      "title": "三种手绘风格的后期做法",
+      "text": "水粉：笔刷引擎先把每个元素画成平涂明暗团块，再用不透明扁刷重绘：每笔有「蘸满起笔、鬃毛纹、干尾」；有对比处笔触沿边，平面区保持方向（天空水平、山坡对角、树皮竖向）；亮部偏暖、暗部偏冷、全片无轮廓线；顶层笔触画三遍并在 2 拍上循环切换使画面「boil」（每两帧轮换）。迷幻水彩：色洗 = 一层层软、变形的多边形用 multiply 混合，重叠处像颜料般混色（品红叠黄变红橙）；云/领子/精灵留白纸；每帧再过一道缓慢扭曲颜料、加深干燥边缘、加盐斑的通道，随后加固定在纸上不动的颗粒与纸齿；女孩见到精灵与大笑时各从脸部扩散一次晕染。传统纹样风格：矿物色平涂 + 深色细线；浅色页边 + 青金石蓝底金点花边框；树冠伸出上边框；草地 = 扇贝形色带铺满小植物；平面倾斜空间无线性透视。参数全未公开。",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d102"
+    },
+    {
+      "id": "render-pipe.d103.practice",
+      "sourceId": "d103",
+      "section": "13",
+      "caseId": "case-07",
+      "title": "风格后处理与色彩脚本",
+      "text": "两个色调、明暗交界软边、加轮廓线；笔触纹理只出现在受光处；脸部明暗借自一个光滑头部形状（只有一条干净分界线）；衣服区域材质交界处有干净描边。色彩脚本：每个段落一套调色板：紫色傍晚 + 一扇琥珀窗、更冷更低饱和的时间冻结、倒带时扫过正午、青蓝清晨 + 金色稻草；标题由实物搭成：「首段标题词」稻草捆、「中段标题词」捆扎树枝、「末段标题词」砖，字母在音乐强拍上组装。",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d103"
+    },
+    {
+      "id": "render-pipe.d106.practice",
+      "sourceId": "d106",
+      "section": "13",
+      "caseId": "case-multi",
+      "title": "干净底片与合成流程",
+      "text": "干净底片（ProRes，不带图层和颗粒）是合成源头，改图层、调色、声音只重新合成（05 / 案例 03-T）。案例 03-T：提示词要求指示灯加 Glare（Fog Glow）；发布片无字幕和图形层（实测）。合成匹配清单（某生成平台 技能目录页）：抠像（keying）、跟踪（tracking）、清理（cleanup）；匹配光照、氛围、景深、运动模糊、颗粒；缺层才生成；交付预览 + 可编辑 AE 工程（保留跟踪/遮罩/特效/图层）。AE 插画/动态设计/通用动效（040/041/042）：保留可编辑图层与关键帧；插画轻动作 + 眨眼 + 漂浮卡片 + 绕行锦鲤 + 旋转形状（参考图 3840×2160）；多语言日德西（参考图 1280×720），处理字体字长换行；通用动效参考图 1920×1080。AE 视觉特效合成与镜头清理（053/055）：先分析抠像/跟踪/清理，匹配灯光、氛围、景深、运动模糊、颗粒，保留蒙版/效果/跟踪数据；清理：跟踪蒙版，连续播放检查补丁与闪烁而非单帧。某剪辑调色软件 调色（060）：平衡曝光白平衡→对比饱和肤色→镜头匹配；清晰节点结构，单独保留原调色版本。",
+      "quantities": [],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 13 节 · d106"
+    },
+    {
+      "id": "render-pipe.d113.practice",
+      "sourceId": "d113",
+      "section": "14",
+      "caseId": "case-03",
+      "title": "案例 03-B 无声编码命令与 QA",
+      "text": "`ffmpeg -framerate 30 -i 原包素材 -vf \"scale=1920:1080:in_range=pc:out_range=tv:out_color_matrix=bt709:flags=lanczos+accurate_rnd+full_chroma_int,format=yuv420p\" -r 30 -c:v libx264 -preset slow -crf 14 -profile:v high -g 60 -bf 2 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709:range=tv -an -movflags +faststart`；另出 1280 宽 crf23 预览；已存在版本报错不覆盖；QA 含 `blackdetect=d=0.1:pix_th=0.10` 与 `freezedetect=n=0.001:d=0.5`",
+      "quantities": [],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 14 节 · d113"
+    },
+    {
+      "id": "render-pipe.d136.practice",
+      "sourceId": "d136",
+      "section": "16",
+      "caseId": "case-13",
+      "title": "自适应降级梯子与动态分辨率",
+      "text": "只在游玩、无菜单、无过场、无新着色器编译、帧时≤250 ms 时统计；128 帧环形缓冲，每 0.5 s 评估，至少 24 样本；降一级：中位数>22 ms 或均值>17.9 ms 持续 2 s；升一级：90 分位≤17.5 ms 持续 5 s（upWait 起始 5 s，12 s 内又降则等待翻倍，最多 80 s）；降级顺序：先把像素比降到 prSoft（中 1、高 1.25）→每级关一个特性（体积光、草壳层、接触阴影，高档共 3 级；A7 另记冒名树）→再 4 级缩草距离（×0.8 到 ×0.68）、远树细节（1 到 0.2）、阴影距离（110、85 m）→最后按 0.15 一步降像素比到下限 0.85；求助：最低档仍中位数>25 ms 持续 10 s 发 lf-perf-slow 事件（原实现源码）。仅对实时 WebGL 有意义，成片渲染无用。；动态分辨率（固定分配 + 子矩形视口）：渲染目标按最高像素比分配一次；降分辨率只缩绘制视口；uRS/uRSMax 映射纹理坐标；比例夹 0.25–1，不重建缓冲；用户滑块夹 0.5–1【冲突：分组清单 菜单读出 resScale 0.6–1 与 adaptiveRes，自适应压低时显示「当前 N×M（占上限 X%）」（读 DBG.info().prBase 与 DBG.ladder().prMax），滑块下限 0.5 与 0.6 不一致，原笔记没解释，可能是内部夹值与菜单范围的差别】（原实现源码）。画质档与动态分辨率（菜单）：质量档 low/medium/high/ultra/mobile（像素比上限 1/1.25/1.5/2/1.25）；ultra 手机不提供除非已选中；mobile 仅 G.device.mobile、G.quality===\"mobile\" 或 ?q=mobile。",
+      "quantities": [
+        {
+          "value": 250,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 128,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 0.5,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 22,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 17.9,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 2,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 17.5,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 5,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 5,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 12,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 80,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 85,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 25,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 10,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 16 节 · d136"
+    },
+    {
+      "id": "render-pipe.d138.practice",
+      "sourceId": "d138",
+      "section": "16",
+      "caseId": "case-13",
+      "title": "滞回、远处降频、构建代价、预算自报",
+      "text": "滞回：细节档 8% 迟滞 +2 帧确认 +0.3 s 交叉淡入；龙 L2/L3 560/600 m；地形 150/135 m。远处敌人降频：60 m 外每 0.1 s 更新一次并冻结骨骼上传；小动物 12 Hz 节拍 + GPU 外推。构建/预热代价：不缓存首开要等工作线程 12 s；首次算出的身体、贴图存浏览器库。预算自报：面数预算 head.stats.budget、trisReport() 预算探针、__wandTrisLog；龙特效绘制次数 预算≤12 高档/≤7 手机；关卡灯光预算 lightpool `分组清单: the level's light budget`（原实现源码）。",
+      "quantities": [
+        {
+          "value": 0.08,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 2,
+          "unit": "frame",
+          "rawUnit": "帧"
+        },
+        {
+          "value": 0.3,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 600,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 135,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 60,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.1,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 12,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 12,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 16 节 · d138"
+    },
+    {
+      "id": "render-pipe.d139.practice",
+      "sourceId": "d139",
+      "section": "16",
+      "caseId": "case-13",
+      "title": "质量档来源与布娃娃降档",
+      "text": "每 1 秒重探测，来源 G.quality→body/html data-quality→URL ?q=；布娃娃迭代桌面 6/移动低档 3；入睡后不再步进；exhaleT>1.6 后连姿势都不写；低模不算锁链；超 plantDist 不做贴地。画质档判定 moundsTier()：读 ?q= 参数→window.G.quality/QUALITY/body.dataset.quality→UA 为 移动设备/移动设备/移动端 或「粗指针无细指针」返回 mobile→否则 high；low=tier===\"low\"||mobile（util:945-960）",
+      "quantities": [
+        {
+          "value": 1,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 16 节 · d139"
+    },
+    {
+      "id": "render-pipe.d141.practice",
+      "sourceId": "d141",
+      "section": "17",
+      "caseId": "case-13",
+      "title": "敌人遮挡剔除与近相机淡出",
+      "text": "离相机<9 米（OCC_NEAR）或玩家<7 米（OCC_PLAYER）、溶解/攻击/处决中不测；从相机向头顶上 .25 米和身高 .6 处左右各 w=半径+0.45+距离·0.004 发 3 射线，全被挡才算一次，连续 2 次才剔除；重测间隔已剔除 0.1+dc/500，未剔除 0.2+dc/220，再加 0~0.04 随机；射线先每 2.5 米查地形（余量 .3）再查 8 米网格碰撞体（收缩 .12，只算半径≥0.6）；`?occl=0` 关闭（原实现源码）。近相机淡出：相机距敌身体<1.2 米时 uNearFade=min(0.85,(1.2-dist)/0.7·0.85)（原实现源码）",
+      "quantities": [
+        {
+          "value": 9,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 7,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.25,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 2.5,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 8,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 1.2,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d141"
+    },
+    {
+      "id": "render-pipe.d142.practice",
+      "sourceId": "d142",
+      "section": "17",
+      "caseId": "case-13",
+      "title": "原实现源码 线段对碰撞体与刷怪避火",
+      "text": "圆柱二次方程、旋转盒 slab 法，8 米网格，长线段每 4 米采样查 3×3 邻格，时间戳 Uint32Array 去重（满了倍增）；视线检测只算半径≥0.6、收缩 0.02、地形每 1.2 米查、两端 0.5 米跳过（原实现源码）。刷怪避火与推开：非高台刷怪点在篝火 30 米内则以 31/34/38 米半径每 0.2 弧度绕圈挪出；巡逻路线 0.5 米步检高差≤0.9 米、0.4/1.2 米高处无碰撞；敌人间推开 r1+r2+.12（头目 1.0/普通 .5）（原实现源码）",
+      "quantities": [
+        {
+          "value": 8,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 4,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 1.2,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.5,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 30,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 38,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.2,
+          "unit": "rad",
+          "rawUnit": "弧度"
+        },
+        {
+          "value": 0.5,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 0.9,
+          "unit": "m",
+          "rawUnit": "米"
+        },
+        {
+          "value": 1.2,
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d142"
+    },
+    {
+      "id": "render-pipe.d143.practice",
+      "sourceId": "d143",
+      "section": "17",
+      "caseId": "case-13",
+      "title": "动画相机零分配与子步",
+      "text": "姿势全是预分配 Float32Array(79)，临时向量/四元数/矩阵为模块级复用，关键帧动作加载时一次展开运行时只查表插值；挥砍修饰缓存 tr._acc/tr._tw；模拟子步≤0.05 秒；Spring 自带 0.02 秒细分；相机跟随手感 0.008 秒最多 12 步；视野弹簧 0.012 秒；动画控制器跟模拟子步，相机每帧只一次（原实现源码）",
+      "quantities": [
+        {
+          "value": 0.05,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 0.02,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 0.008,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 0.012,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d143"
+    },
+    {
+      "id": "render-pipe.d144.practice",
+      "sourceId": "d144",
+      "section": "17",
+      "caseId": "case-13",
+      "title": "相机检测预算",
+      "text": "步进 20 点；抬升两轮各 20 点；视线检查 8-14 点；敌人只取镜头为中心 ±(R+2) 方框内；瞄准辅助每 0.2 秒重选；视线导演每 0.16 秒扫描；木结构淡出只在巨树关卡只对两段命名网格射线检测先包围球粗筛；设备差异：ANALOG 触屏 .055、ASSIST 仅触屏、MELEE_ASSIST 仅触屏、camMotion 0-1 缩放手感、shakeScale 0-1.5；质量档位/LOD 在这 7 个文件源码中未找到（原实现源码）",
+      "quantities": [
+        {
+          "value": 0.2,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 0.16,
+          "unit": "s",
+          "rawUnit": "秒"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d144"
+    },
+    {
+      "id": "render-pipe.d145.practice",
+      "sourceId": "d145",
+      "section": "17",
+      "caseId": "case-13",
+      "title": "龙动画 LOD",
+      "text": "LOD2：关全部弹簧（springs=false）尾端物理复位更新降 30Hz；LOD3 再关前摇差分（每帧省两次 evalKeys）；屏幕外降 30Hz 不发尘土；LOD 来自骨架 lodCtl.update(cam,dt,{occluded}) 或 lodFor(距离)；无弹簧时颈尾逐节直接取目标（k=1）尾摆幅度×.5；零分配预分配 Float32Array(74)；stats.ms（.05 平滑）maxMs（.995 衰减）；quality 参数只存不用；动画层面无移动端专门降级（仅 泪滴特效 分辨率减半）（原实现源码）",
+      "quantities": [
+        {
+          "value": 30,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        },
+        {
+          "value": 30,
+          "unit": "Hz",
+          "rawUnit": "Hz"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d145"
+    },
+    {
+      "id": "render-pipe.d148.practice",
+      "sourceId": "d148",
+      "section": "17",
+      "caseId": "case-13",
+      "title": "几何缓存、近/远景双网格、LOD 材质、实例化（15）",
+      "text": "几何缓存：每类敌人几何只建一次，SDF 近远景版各 defineBody 注册一次；重装敌兵 缓存键含 BODY.on（旧路径追加 |v18）（原实现源码）。近/远景双网格：精细部件 big:false + bigOnly 低面替身；放样 lod:{rings,seg}：守卫敌兵 躯干近 16×20 远 9×12；重装敌兵 近 22×24 远 10×14；队长敌兵 披风近 22 列远 8 列；琥珀体素近 0.025/0.021 远 0.045（原实现源码）。LOD 材质：每类一份 __lod 低成本材质（无贴图）粗糙/金属：守卫敌兵 0.78/0.3；琥珀敌兵 0.6/0.2；Archer 0.8/0.2；重装敌兵 0.78/0.3；队长敌兵 0.75/0.35（原实现源码）。实例化与预算：碎片池 InstancedMesh 72、箭池 32+尾迹 32，frustumCulled=false；碎片池 4 毫秒节流；箭尾迹视深 60-110 米渐隐；Spring dt>0.034 拆两步；琥珀壳 noShadow:true，脱壳后关 shadowMesh（原实现源码）",
+      "quantities": [
+        {
+          "value": 4,
+          "unit": "ms",
+          "rawUnit": "毫秒"
+        },
+        {
+          "value": [
+            60,
+            110
+          ],
+          "unit": "m",
+          "rawUnit": "米"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d148"
+    },
+    {
+      "id": "render-pipe.d149.practice",
+      "sourceId": "d149",
+      "section": "17",
+      "caseId": "case-13",
+      "title": "SDF 双档体素、两档网格、缓存、实例化、阴影",
+      "text": "SDF_VOX={near:.012,far:.026}（默认 voxel .0095）；远档体素大 2.17 倍，体素数约少 10 倍（2.17³≈10.2，推断）；defineBody(\"rooted.<kind>.<lod>\",…,{levels:[\"tree\"],tiers:[\"low\",\"medium\",\"high\",\"ultra\"]}) 行者/弓手各 near/far 共 4 个；near 以 {big:false}、far 以 {bigOnly:true} 加入；失败 console.warn 退回基本体拼装（原实现源码）。两档网格 big 标志：big:false 细节件（瞳孔缠带手指小页片）只在近处；big:true 低模替代（pageLo gearLo）只在远处/投影；切换距离在 原实现源码 Rig（第 06 块）（原实现源码）。缓存：模块级变量缓存（GEO/TEX/原工程目录），同类只建一次；冠羽飞鸟/趋光飞蛾按 tier（mobile/high）缓存；boneUV 用 Map 缓存；SDF 构建统计记 globalThis.__lfSDFStats[\"rooted.<kind>\"]={near 三角,far 三角,buildMs}（原实现源码）。实例化：冠羽飞鸟/趋光飞蛾每个种群一个 Flock（一个 InstancedMesh），一个种群共用一份几何材质，每只只改 4 个实例属性；落叶 44 一个 InstancedMesh；符文 6+3 实例；地刺 10 实例（原实现源码）。阴影与代价：ghostDepth 第二份蒙皮网格使幽灵绘制次数翻倍；潜伏者 body.castShadow 默认 false，仅 _shadowWant&&sink<.5&&alive 时开；幽灵 Rig(…,{shadow:false})（原实现源码）。各材质键总表：行者 bark/root/cloth/glow/__lod；冠羽飞鸟/趋光飞蛾一份 flockMaterial；潜伏者 lurkerMaterial；NPC己 makeMats+amber+5 种武器；誊写者 robe/hide/page/book/metal/glow；幽灵 ghost/void/face/eyes/blade",
+      "quantities": [],
+      "kind": "fix",
+      "evidenceLevel": "推断",
+      "evidenceLabel": "推断",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d149"
+    },
+    {
+      "id": "render-pipe.d150.practice",
+      "sourceId": "d150",
+      "section": "17",
+      "caseId": "case-13",
+      "title": "贴图预算、磁盘缓存",
+      "text": "延迟烘贴图预算：桌面 1024²、移动 512²（?cathtex=128/256/512/1024 覆盖）；texLazy 移动 true 桌面 false；移动初始只烘 128² 占位（雕石/砌石/地板各 128²），玩家距教堂<TEX_START=150 m 才逐帧续烘，每帧 TEX_BUDGET=2.5 ms（<TEX_CLOSE=30 m 提到 TEX_BUDGET_CLOSE=8 ms，<TEX_NEAR=6 m 一次烘完）；烘制逐行 yield（church:17-21,104-111,459-474；mats:781-885）。磁盘缓存：砌石/雕石贴图 getOrBakeTextures(\"cath.grain|19|${S}|v1\")（bakecache）；北门 span.northdoor|${256 or 512}|v1；churchMaterialsGen 的 CACHE 对相同 lite/texSize/lazy 整体复用（mats:864-879；northdoor:687）",
+      "quantities": [
+        {
+          "value": 150,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 2.5,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 30,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 8,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 6,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d150"
+    },
+    {
+      "id": "render-pipe.d157.practice",
+      "sourceId": "d157",
+      "section": "17",
+      "caseId": "case-ext01",
+      "title": "岩石、距离场、降耗取舍",
+      "text": "岩石一次绘制：54 件合成一个网格，近件在前，所有不透明之后画（renderOrder 3）；着色器块体层按 fw 门槛（<1.8 m、<0.575 m）开启并按 lod 淡出（原实现源码）。距离场取面粗块跳过：每 4×4×4 格先算中心距离，远离表面整块跳过（原实现源码）；`bound` 让远处点不算复杂形状。降耗取舍：泛光 7→4 级；点光只留 1 盏真灯；体积光入水段关闭；岩石最贵着色器最后画；叶片洗牌 + setDrawRange；LV 门槛按像素覆盖米数",
+      "quantities": [
+        {
+          "value": 1.8,
+          "unit": "m",
+          "rawUnit": "m"
+        },
+        {
+          "value": 0.575,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 17 节 · d157"
+    },
+    {
+      "id": "render-pipe.d164.practice",
+      "sourceId": "d164",
+      "section": "18",
+      "caseId": "case-13",
+      "title": "烘焙缓存与预热",
+      "text": "烘焙缓存：IndexedDB 某地-bakecache；键 <构建号>|<档位>|<条目id>；写队列上限 96 MiB；SDF 缓存键 v19.sdf.4.<id>#<参数哈希>（原实现源码）。预热与内存回收：建造切片预算桌面 160 ms/手机 90 ms；renderer.compile + 深度着色器；分片空画（桌面 600 ms/手机 250 ms 字节预算，初始 24 MB/3 MB）；菜单盖世界>0.55 s 跳过出图（原实现源码）。仅实时场景用",
+      "quantities": [
+        {
+          "value": 160,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 90,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 600,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 250,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 0.55,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 18 节 · d164"
+    },
+    {
+      "id": "render-pipe.d165.practice",
+      "sourceId": "d165",
+      "section": "18",
+      "caseId": "case-13",
+      "title": "点光池",
+      "text": "固定 N 个真实 PointLight（low 2/med 3/high 4/mobile 2/ultra 6）；评分 I·R²/(d²+R²)，视锥内×2，身后×0.25，已占×1.3；淡变 0.1 s；暖色（r≥1.35b）自动闪烁 14%、抖动 0.05 m、范围×1.15；闪烁正弦 7.1/13.7/23.3 权重 .5/.3/.2，阵风 max(0,sin1.7t)^6（原实现源码）",
+      "quantities": [
+        {
+          "value": 0.1,
+          "unit": "s",
+          "rawUnit": "s"
+        },
+        {
+          "value": 0.14,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.05,
+          "unit": "m",
+          "rawUnit": "m"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 18 节 · d165"
+    },
+    {
+      "id": "render-pipe.d167.practice",
+      "sourceId": "d167",
+      "section": "18",
+      "caseId": "case-16",
+      "title": "案例 16 网页包瘦身",
+      "text": "模型间共享的贴图只存一份；首访 350 MB → 约 235 MB；用「前后对每张贴图指纹」证明无损",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 18 节 · d167"
+    },
+    {
+      "id": "render-pipe.d171.practice",
+      "sourceId": "d171",
+      "section": "19",
+      "caseId": "case-13",
+      "title": "Worker 占空比限速",
+      "text": "每键算完休息 rest=min(400, ms×(1/duty−1)) 毫秒（急单不休息）；duty=0.45 时上一键 100 ms→休息 122.2 ms（bank.worker:12309）",
+      "quantities": [
+        {
+          "value": 100,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 122.2,
+          "unit": "ms",
+          "rawUnit": "ms"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 19 节 · d171"
+    },
+    {
+      "id": "render-pipe.d172.practice",
+      "sourceId": "d172",
+      "section": "19",
+      "caseId": "case-13",
+      "title": "渲染挪出主线程与兜底",
+      "text": "bank Worker 渲染音效、prep Worker 渲染混响噪声；未命中本次跳过发声并发急单；Worker 5 秒无回应回退主线程；pump 每帧预算 2.5 ms（轻量 1.2 ms）；prep 超时 20 s 返回 null 退回主线程现算；Engine 仅当 prep.sr===ctx.sampleRate 才用预渲染（原实现源码）",
+      "quantities": [
+        {
+          "value": 5,
+          "unit": "s",
+          "rawUnit": "秒"
+        },
+        {
+          "value": 2.5,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 1.2,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 20,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 19 节 · d172"
+    },
+    {
+      "id": "render-pipe.d173.practice",
+      "sourceId": "d173",
+      "section": "19",
+      "caseId": "case-13",
+      "title": "复音/剔除总览与三层缓存",
+      "text": "44（+10）路；距离 160 剔除；同键冷却；声像池 14+6 满了顶替最早结束。三层缓存：内存 Map；IndexedDB 采样缓存（桌面 140 MB/轻量 56 MB）；预渲染缓存（键 prep:48000）；WARM 89 个字面量键 + FOLEY_KEYS 12 + harp:* 10 个音高 + 全部 voice_*（某称号 除外），initWith 末尾一次 eng.bank.warm；头目战预热 PEAL_KEYS；区域切换 warmRegion；每秒按玩家周围 8 方向 + 脚下探区域预热（原实现源码）。离线预览复用缓存：GameAudio({prep:false}) + opts.offline，预览间用 GameAudio._previewBanks 按采样率分桶共享缓存（原实现源码）",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 19 节 · d173"
+    },
+    {
+      "id": "render-pipe.d176.practice",
+      "sourceId": "d176",
+      "section": "19",
+      "caseId": "case-13",
+      "title": "界面自身节省手段",
+      "text": "HUD 写入前比差值不脏不碰 DOM；条与罗盘 will-change:transform + translate3d；小怪血条池 4/命中标记池 8/通知最多 3；余烬画布 dpr≤1.25 页面隐藏跳过绘制；旅行卡画布≤1.5；分享页手机/触屏不用 backdrop-filter；世界地图底图分片烘焙（6 ms 预算）；分享卡分四片（每片让一帧）；加载画面卡住时假进度保持动",
+      "quantities": [
+        {
+          "value": 6,
+          "unit": "ms",
+          "rawUnit": "ms"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 19 节 · d176"
+    },
+    {
+      "id": "render-pipe.d177.practice",
+      "sourceId": "d177",
+      "section": "19",
+      "caseId": "case-ext01",
+      "title": "声音内存与让路",
+      "text": "Worker 里四条 Float32Array(3,969,000)=63,504,000 字节；回传两条 31,752,000 字节转移不复制；AudioBuffer 31,752,000 字节；fill() 每片 131,072 采样每次最多占 2.5 ms；start() 等第一帧最多 3000 ms；真峰值 >0.45 才做 4 倍内插；picture() 对 1801 点调相机和龙头，world() 对两龙 4501 点；锣 22 分音×2 振子×441,000 采样=19,404,000 步；cym 长款 96 分音×83,790=8,043,840 步",
+      "quantities": [
+        {
+          "value": 2.5,
+          "unit": "ms",
+          "rawUnit": "ms"
+        },
+        {
+          "value": 3000,
+          "unit": "ms",
+          "rawUnit": "ms"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 19 节 · d177"
+    },
+    {
+      "id": "render-pipe.d181.practice",
+      "sourceId": "d181",
+      "section": "21",
+      "caseId": "case-07",
+      "title": "渲染踩坑清单",
+      "text": "共享 GPU 服务器在他人用时慢 5–10 倍（启动前先查 GPU）；草在所有外景消失：一个只在片段着色器可用的函数被草的顶点着色器也加载，着色器编译失败但画面仍「合理」，改为任何着色器错误即停渲；某显卡厂商 上画面发灰需着色器声明 high 整数精度；一个天空因光角越过 180° 翻转一帧由琥珀变海军蓝，改为从该镜头第一帧起量角；失败帧会在磁盘留旧图混入剪辑，改为失败帧即删；笔记本长渲染内存耗尽崩机。同类：简单拼接曾悄悄丢 1 帧（见）；镜头首帧运动模糊泄漏（见）。",
+      "quantities": [
+        {
+          "value": 180,
+          "unit": "deg",
+          "rawUnit": "°"
+        },
+        {
+          "value": 1,
+          "unit": "frame",
+          "rawUnit": "帧"
+        }
+      ],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 21 节 · d181"
+    },
+    {
+      "id": "render-pipe.d182.practice",
+      "sourceId": "d182",
+      "section": "21",
+      "caseId": "case-13",
+      "title": "调试 URL 开关与验收手段（案例 13）",
+      "text": "?q= ?r16=off ?lut=0 ?mblur=0 ?cath16=0 ?bossgap=0 ?sdf=0 等；第 01 章渲染部分列 36 个；每个新效果都能单独关掉。其他：?occl=0、?cathshell=0、?bdetail=0/1、?cathtex=、?audio=lite、substep 1–4。同类：案例 02 `?view=`、`?msaa=N`、案例 10 自检入口、外部案例 01 `?dpr ?q ?fast ?nomsaa ?pools ?capture`",
+      "quantities": [],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 21 节 · d182"
+    },
+    {
+      "id": "render-pipe.d184.practice",
+      "sourceId": "d184",
+      "section": "21",
+      "caseId": "case-03",
+      "title": "03 头部渲染踩坑（案例 03-G）",
+      "text": "金属件正对镜头的平面会整片反白（金色炮口平端面渲白，改成圆台/斜面后显金色）；实心头盔会从别的零件凹坑里露出来（炮座凹坑底必须留在头盔表面前面）",
+      "quantities": [],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 21 节 · d184"
+    },
+    {
+      "id": "render-pipe.d185.practice",
+      "sourceId": "d185",
+      "section": "21",
+      "caseId": "case-01-legacy",
+      "title": "旧版样帧迭代（关口 1，01 旧版）",
+      "text": "v1 曝光过亮外壳像磨砂塑料叶片发白→灯功率降到约 1/4，外壳凹凸改细，叶片改哑黑；v2 整体太暗金属看不出形→加两块大反光板，改 Cycles；v3 PCB 走线像网格裂纹外壳偏浅灰→走线改正交细线外壳调深地面改黑镜；v4 通过",
+      "quantities": [],
+      "kind": "fix",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "文档",
+      "verificationLabel": "见出处",
+      "docRef": "渲染管线采样后期性能汇编 · 第 21 节 · d185"
+    }
+  ]
+}
