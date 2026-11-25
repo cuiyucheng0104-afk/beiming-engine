@@ -1297,10 +1297,62 @@ fn tri_normal(p: [[f64; 3]; 3]) -> [f64; 3] {
 /// 第 `k` 帧建成内核的 `World`。网格、材质、每行实例（一行一个 `Instanced` 物体，矩阵原样进实例表，不经平移-旋转-缩放
 /// 分解）、灯、相机、背景。缩放全为 0 的那一行这一帧不建。灯与相机的物体变换由矩阵分解得来，`build` 之后再按原样的
 /// 矩阵重算一次（矩形纯光、点光、平行光、相机）；只有相机看得见的矩形灯（发光卡片）用分解过的变换。
+/// 法线照 Cycles 的存储精度过一遍（`crate::packed_normal`）。关掉只给负对照用
+pub const CYCLES_NORMAL_PACKING: bool = true;
+
+/// 第 `k` 帧给内核的几何：法线照 Cycles 过一遍存储精度。每个顶点法线编成 `packed_normal` 的码（blender/mesh.cpp:672、:765）；
+/// 只被一行实例用的网格（Cycles 的 `apply_static_transforms`，scene/object.cpp:1172-1238：几何只有一个使用者、没有次表面、
+/// 没有真位移、不细分、不开运动模糊，场景包都满足；变换是恒等时 Object::apply_transform 直接返回）再照 `Mesh::apply_transform`
+/// 把码烘进世界空间（解码、乘逆转置、归一化、再编码）。内核拿到的是 SIMD 版解码出来的法线（Cycles 在处理器上取法线用它）。
+/// 内核仍按实例矩阵在渲染时变换法线，所以烘过的世界空间法线 nw 换回模型空间存：n′ = normalize(Lᵀ·nw)（L 是实例矩阵的线性
+/// 部分），内核的法线矩阵 (L⁻¹)ᵀ 乘回去就是 nw（只差单精度的舍入，远小于编码的步长）。位置不烘（照旧由实例矩阵变换）：
+/// 照 Cycles 把位置也烘进世界空间试过，第 4 级读数只在第四位有效数字上动，没有可见改善
+fn kernel_geometry(p: &Pack, k: usize) -> Vec<world::Geometry> {
+    let mut users = vec![0usize; p.geometry.len()];
+    let mut user = vec![0usize; p.geometry.len()];
+    for (i, r) in p.rows.iter().enumerate() {
+        if let Some(u) = users.get_mut(r[0] as usize) {
+            *u += 1;
+            user[r[0] as usize] = i;
+        }
+    }
+    p.geometry
+        .iter()
+        .enumerate()
+        .map(|(gi, g)| {
+            let mut g = g.clone();
+            if !CYCLES_NORMAL_PACKING {
+                return g;
+            }
+            let m = p.frames_instances.row(k, user[gi]);
+            let l = glam::DMat3::from_cols_array(&[m[0], m[1], m[2], m[4], m[5], m[6], m[8], m[9], m[10]].map(|x| x as f64));
+            let bake = users[gi] == 1 && l.determinant() != 0.0 && m.iter().zip(&[1.0f32, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]).any(|(a, b)| a != b);
+            // 逆转置的行（transform_direction 按行乘），双精度求再存成单精度
+            let nt = l.inverse().transpose();
+            let ntfm = [0, 1, 2].map(|r| [0, 1, 2].map(|c| nt.col(c)[r] as f32));
+            for n in g.normals.chunks_exact_mut(3) {
+                let mut code = crate::packed_normal::encode([n[0], n[1], n[2]]);
+                if bake {
+                    code = crate::packed_normal::apply_transform(code, ntfm);
+                }
+                let d = crate::packed_normal::decode_simd(code);
+                let out = if bake {
+                    let v = (l.transpose() * glam::DVec3::new(d[0] as f64, d[1] as f64, d[2] as f64)).normalize();
+                    [v.x as f32, v.y as f32, v.z as f32]
+                } else {
+                    d
+                };
+                n.copy_from_slice(&out);
+            }
+            g
+        })
+        .collect()
+}
+
 pub fn world_at(p: &Pack, k: usize, size: (u32, u32)) -> Result<world::World> {
     let mut w = world::World::default();
-    for (i, g) in p.geometry.iter().enumerate() {
-        w.set_geometry(1 + i as u32, g.clone())?;
+    for (i, g) in kernel_geometry(p, k).into_iter().enumerate() {
+        w.set_geometry(1 + i as u32, g)?;
     }
     for (i, m) in p.materials.iter().enumerate() {
         let c = m.params.base_color.unwrap_or([0.8; 3]).map(|x| x as f32);
@@ -1718,6 +1770,31 @@ mod tests {
         }
         let b = build(&p, 0, (64, 32), None, &presets(), None).unwrap();
         assert_eq!(b.placed.iter().map(|x| (x.drawn, x.triangles)).collect::<Vec<_>>(), vec![(true, 1), (false, 0)]);
+    }
+
+    #[test]
+    fn normals_take_cycles_storage_precision() {
+        use crate::packed_normal::{apply_transform, decode_simd, encode};
+        // 两行共用一个网格：只编码再解码，朝 +z 的法线解码后偏开约 2^-16
+        let p = pack(0, false);
+        let g = kernel_geometry(&p, 0);
+        for (a, b) in p.geometry[0].normals.chunks_exact(3).zip(g[0].normals.chunks_exact(3)) {
+            assert_eq!(b, decode_simd(encode([a[0], a[1], a[2]])));
+            assert_ne!(a, b);
+        }
+        // 只剩一行、绕 x 转 90°：码烘进世界空间，存回模型空间，实例矩阵乘回去等于世界空间的码解出来的法线
+        let mut p = pack(0, false);
+        p.rows.truncate(1);
+        let m = Mat4::from_rotation_x(std::f32::consts::FRAC_PI_2);
+        p.frames_instances.data[..16].copy_from_slice(&m.to_cols_array());
+        let g = kernel_geometry(&p, 0);
+        let r = glam::Mat3::from_mat4(m);
+        let ntfm = [0, 1, 2].map(|i| [0, 1, 2].map(|j| r.col(j)[i]));
+        for (a, b) in p.geometry[0].normals.chunks_exact(3).zip(g[0].normals.chunks_exact(3)) {
+            let want = decode_simd(apply_transform(encode([a[0], a[1], a[2]]), ntfm));
+            let got = r * Vec3::from_slice(b);
+            assert!((got - Vec3::from(want)).abs().max_element() < 1e-6, "{got:?} ≠ {want:?}");
+        }
     }
 
     /// 景深：内核算出的孔径直径等于契约 5.11 的 sensorHeight ÷ (2 tan(fovY / 2)) ÷ fstop，画面宽高比变了也一样。

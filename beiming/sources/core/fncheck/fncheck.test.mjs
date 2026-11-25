@@ -66,7 +66,7 @@ test('容差边界：恰好等于容差算过，超一点不过；任一边非�
 
 test('登记表里每个函数在它的 WGSL 文件和标准答案程序里都有，参数个数对得上', async () => {
   const cpp = (await readFile(new URL('./cycles/ref.cpp', import.meta.url), 'utf8')) + (await readFile(new URL('./cycles/ref_imaging.h', import.meta.url), 'utf8'));
-  for (const name of [...NEW, ...NEW_IMAGING]) assert.ok(byName(name), `登记表里没有 ${name}`);
+  for (const name of [...NEW, ...NEW_IMAGING, ...NEW_NORMAL_PACK]) assert.ok(byName(name), `登记表里没有 ${name}`);
   for (const f of FUNCTIONS) {
     const wgsl = await readFile(`${CORE}/${f.file}`, 'utf8');
     // 宿主一侧的几项是 Rust 的 pub fn
@@ -178,6 +178,8 @@ const NEW = [
 ];
 
 // 成像一路：像素滤波的滤波函数与建表（宿主一侧），查表与夹取（内核）
+// 法线的存储精度（宿主一侧）
+const NEW_NORMAL_PACK = ['packed_normal_encode', 'packed_normal_decode', 'packed_normal_decode_simd'];
 const NEW_IMAGING = [
   'filter_func_box', 'filter_func_gaussian', 'filter_func_blackman_harris', 'filter_table_box', 'filter_table_gaussian', 'filter_table_blackman_harris',
   'filter_table_read_box', 'filter_table_read_gaussian', 'filter_table_read_blackman_harris', 'film_clamp_light',
@@ -493,6 +495,19 @@ test('端到端：成像一路故意改错一项，对应的函数报不过（�
   const r = await e2e(t, { names: NEW_IMAGING.slice(0, 6), n: 100_000, seed: 3, inject });
   if (!r) return;
   assert.deepEqual(r.results.filter(x => x.fails > 0).map(x => x.name), ['filter_func_gaussian', 'filter_func_blackman_harris', 'filter_table_box', 'filter_table_gaussian', 'filter_table_blackman_harris']);
+});
+
+test('端到端：法线的存储精度改错一项，对应的函数报不过（宿主一侧的 Rust，在源码的拷贝上改了再编）', { timeout: 900_000 }, async t => {
+  const pn = 'path/src/packed_normal.rs';
+  const inject = [
+    // 编码：四舍五入的 + 0.5 写成 + 0.4（落在格子上半段的分量少一格）
+    { file: pn, from: 'let q = |v: f32| (v * hmu + (hmu + 0.5))', to: 'let q = |v: f32| (v * hmu + (hmu + 0.4))' },
+    // SIMD 版解码：符号按「大于 0」选写成「小于 0」（下半球折回去的那一支错）
+    { file: pn, from: 'nx += if nx > 0.0 { -t } else { t };', to: 'nx += if nx < 0.0 { -t } else { t };' },
+  ];
+  const r = await e2e(t, { names: ['packed_normal_encode', 'packed_normal_decode', 'packed_normal_decode_simd'], n: 100_000, seed: 3, inject });
+  if (!r) return;
+  assert.deepEqual(r.results.filter(x => x.fails > 0).map(x => x.name), ['packed_normal_encode', 'packed_normal_decode_simd']);
 });
 
 // 像素滤波的采样分布：内核的查表（filter_table_read）查宿主一侧 Rust 建的表（与 Cycles 建的逐位相同，见 filter_table_* 三项），

@@ -280,6 +280,17 @@ const PIXEL_FILTER = 'path/src/pixel_filter.rs';
 export const FILTER_TABLES = [[0, 2.0], [1, 1.5], [2, 1.5]];
 export const FILTER_TABLE_SIZE = 1024;
 const hostFn = (name, inputs, out, abs = 0, more = {}) => entry(name, inputs, out, abs, { file: PIXEL_FILTER, host: true, ...more });
+// 法线的存储精度（宿主一侧：path/src/packed_normal.rs，照 util/types_normal.h）。编码收单位向量（整个球面；另有一成取在坐标轴、
+// 坐标面附近，八面体的折边与顶点上）；解码收码的两半（0 到 65535 的整数），call 只写明两半怎么拼成 Rust 函数收的码
+// （fncheck-host 按标识分发，见 path/src/main.rs）。rel 取 0：码与分量要逐位相同
+const NORMAL_PACK = 'path/src/packed_normal.rs';
+const codeIn = next => ({ dx: Math.floor(next() * 65536), dy: Math.floor(next() * 65536) });
+function packDir(next) {
+  const z = 2 * next() - 1, phi = 2 * Math.PI * next(), r = Math.sqrt(1 - z * z);
+  const v = [r * Math.cos(phi), r * Math.sin(phi), z];
+  if (next() < 0.1) { const k = Math.floor(next() * 3); v[k] = (next() < 0.5 ? -1 : 1) * 1e-7 * next(); const l = Math.hypot(...v); return { n: v.map(x => x / l) }; }
+  return { n: v };
+}
 // 滤波函数只在建表用到的定义域上比：自变量 v 在 [0, 宽度/2]，宽度是建表时放大过的（高斯乘 3、Blackman-Harris 乘 2），
 // 界面上的宽度 0.01 到 10 像素，所以放大后取到 0.01 到 30
 const WIDTH = [0.01, 30];
@@ -303,6 +314,13 @@ function clampIn(next) {
   return { L: [comp(), comp(), comp()], bounce: Math.floor(next() * 4) - 1, sample_clamp_direct: limit(), sample_clamp_indirect: limit() };
 }
 FUNCTIONS.push(
+  hostFn('packed_normal_encode', [['n', 'vec3f']], 2, 0, { file: NORMAL_PACK, wgsl: 'encode', gen: packDir, rel: 0 }),
+  // 标量版最后一步是 normalize：Cycles 开 SSE 的构建（标准答案机是 x86-64，SSE4.2 是它的最低要求，util/optimization.h）里是
+  // _mm_div_ps(a, sqrt(dot))，真除；标准答案程序在本机 arm64 上编、没开 SSE2NEON，走标量的 a / len(a)，而 float3 除以标量
+  // 在那一支是乘倒数（util/math_float3.h:93-101）。宿主一侧照标准答案机的真除写，两边差一个末位：abs 给 2 个 [1, 2) 的 ULP。
+  // 【实测】100 万组里 55% 的组差一个末位，最大 6e-8
+  hostFn('packed_normal_decode', [['dx', 'f32'], ['dy', 'f32']], 3, 2 * ULP1, { file: NORMAL_PACK, wgsl: 'decode', gen: codeIn, rel: 0, call: ([dx, dy]) => `decode(${dx} | ${dy} << 16)` }),
+  hostFn('packed_normal_decode_simd', [['dx', 'f32'], ['dy', 'f32']], 3, 0, { file: NORMAL_PACK, wgsl: 'decode_simd', gen: codeIn, rel: 0, call: ([dx, dy]) => `decode_simd(${dx} | ${dy} << 16)` }),
   hostFn('filter_func_box', [['v', 'f32'], ['width', 'f32']], 1, 0, { gen: filterIn }),
   hostFn('filter_func_gaussian', [['v', 'f32'], ['width', 'f32']], 1, 0, { gen: filterIn }),
   hostFn('filter_func_blackman_harris', [['v', 'f32'], ['width', 'f32']], 1, BH_ABS, { gen: filterIn }),

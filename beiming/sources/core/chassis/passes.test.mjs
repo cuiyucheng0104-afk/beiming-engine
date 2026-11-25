@@ -160,7 +160,8 @@ test('两块错开的板：深度、编号、法线取首个样本，边缘上�
       // 每个像素：编号就是像素中心那条射线打到的；深度与法线是那块板在像素中心的值（不是两块的混合）
       assert.equal(id[p], center.id, `(${x}, ${y}) 的编号`);
       assert.ok(near(depth[p], center.depth, 1e-5), `(${x}, ${y}) 的深度 ${depth[p]}，${center.id} 号板在那里是 ${center.depth}`);
-      [0, 1, 2].forEach(c => assert.ok(Math.abs(normal[p * 3 + c] - center.normal[c]) <= 1e-5, `(${x}, ${y}) 的法线`));
+      // 法线照 Cycles 存成 16 位八面体编码（path/src/packed_normal.rs），每个分量偏开到 2^-15 上下
+      [0, 1, 2].forEach(c => assert.ok(Math.abs(normal[p * 3 + c] - center.normal[c]) <= 4e-5, `(${x}, ${y}) 的法线`));
       assert.ok(Math.abs(cov[p] - k / spp) <= 1e-6, `(${x}, ${y}) 的覆盖率 ${cov[p]}，数出来 ${k}/${spp}`);
       if (k > 0 && k < spp) {
         mixed++;

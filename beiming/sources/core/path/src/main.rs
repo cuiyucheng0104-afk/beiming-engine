@@ -338,6 +338,14 @@ fn fncheck_host(id: &str) -> Result<()> {
     use beiming_core_path::pixel_filter as pf;
     type F = fn(&[f32], &mut [f32]);
     let (n_in, n_out, f): (usize, usize, F) = match id {
+        // 法线的存储精度（packed_normal.rs）：码拆成两半 dx、dy，各存成一个 f32（整数值，不超过 65535）
+        "packed_normal_encode" => (3, 2, |i, o| {
+            let c = beiming_core_path::packed_normal::encode([i[0], i[1], i[2]]);
+            o[0] = (c & 0xffff) as f32;
+            o[1] = (c >> 16) as f32;
+        }),
+        "packed_normal_decode" => (2, 3, |i, o| o.copy_from_slice(&beiming_core_path::packed_normal::decode(i[0] as u32 | (i[1] as u32) << 16))),
+        "packed_normal_decode_simd" => (2, 3, |i, o| o.copy_from_slice(&beiming_core_path::packed_normal::decode_simd(i[0] as u32 | (i[1] as u32) << 16))),
         "filter_func_box" => (2, 1, |i, o| o[0] = pf::filter_func_box(i[0], i[1])),
         "filter_func_gaussian" => (2, 1, |i, o| o[0] = pf::filter_func_gaussian(i[0], i[1])),
         "filter_func_blackman_harris" => (2, 1, |i, o| o[0] = pf::filter_func_blackman_harris(i[0], i[1])),

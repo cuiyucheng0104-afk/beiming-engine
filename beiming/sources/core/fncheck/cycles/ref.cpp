@@ -528,6 +528,22 @@ static const Entry table[] = {
        o[0] = float(hit);
        o[1] = hit ? t : 0.0f;
      }},
+    /* 法线的存储精度（util/types_normal.h）：码拆成两半 dx、dy 各一个 float */
+    {"packed_normal_encode", 3, 2, [](const float *i, float *o) {
+       const packed_normal n(get3(i));
+       o[0] = float(n.value & 0xFFFFu);
+       o[1] = float(n.value >> 16);
+     }},
+    {"packed_normal_decode", 2, 3, [](const float *i, float *o) {
+       packed_normal n;
+       n.value = uint(i[0]) | (uint(i[1]) << 16);
+       put3(o, n.decode());
+     }},
+    {"packed_normal_decode_simd", 2, 3, [](const float *i, float *o) {
+       float4 nx, ny, nz;
+       packed_normal_decode_simd(make_int4(int(uint(i[0]) | (uint(i[1]) << 16)), 0, 0, 0), nx, ny, nz);
+       put3(o, make_float3(nx.x, ny.x, nz.x));
+     }},
     {"point_light_sample", 10, 12, [](const float *i, float *o) {
        const KernelLight k = point_light(i);
        LightSample ls{};

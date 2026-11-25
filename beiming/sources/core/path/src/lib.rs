@@ -20,6 +20,7 @@ pub mod script;
 pub mod skin;
 pub mod cycles_hash;
 // 北冥：照 Cycles 移植的像素滤波建表
+pub mod packed_normal;
 pub mod pixel_filter;
 pub mod sample;
 pub mod sky;
