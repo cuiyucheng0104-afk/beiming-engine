@@ -1,0 +1,21 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "23-1-disable-card",
+  "questionId": "23-1",
+  "kind": "disable-card",
+  "disabledCards": [
+    "camera.orbit"
+  ],
+  "seed": null,
+  "description": "关掉环绕相机卡的整圈闭合约束：相机在 72 帧里只转了 350°，没有转满 360°。后半段里离第 0 帧最像的仍然是第 71 帧（第一条判分线照过），但第 71 帧离第 0 帧还差约 14.9°（是相邻两帧 4.86° 步进的 3 倍以上），首尾闭合误差比超限。",
+  "perturbation": {
+    "orbitDegrees": 350
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 1,
+      "metric": "loop.closure-psnr",
+      "why": "第 0 帧对第 71 帧的均方根误差是相邻帧的 3.05 倍，超过 1.1 倍上限"
+    }
+  ]
+}

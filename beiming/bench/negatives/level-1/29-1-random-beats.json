@@ -1,0 +1,24 @@
+{
+  "format": "bench-negative/0.1",
+  "id": "29-1-random-beats",
+  "questionId": "29-1",
+  "kind": "random-beats",
+  "disabledCards": [],
+  "seed": 20261124,
+  "description": "分屏与分隔线受固定种子在 600 帧里取的 12 个随机拍点脉冲驱动：按第 300 帧离最近随机拍点的距离产生面板左右缩进与分隔线偏色闪烁，第 300 帧同时出现左右非通栏边距与分隔线超限色差。",
+  "perturbation": {
+    "pulseTrigger": "random-beats"
+  },
+  "expectedFailedMetrics": [
+    {
+      "scoring": 0,
+      "metric": "layout.edges",
+      "why": "随机拍点脉冲下第 300 帧上下面板左右两侧各缩进 21 像素，未通栏，超过 0 像素误差上限"
+    },
+    {
+      "scoring": 1,
+      "metric": "layout.edges",
+      "why": "随机拍点闪烁下第 300 帧分隔线中心两行最大通道差达 21 级，超过 4 级容差"
+    }
+  ]
+}
