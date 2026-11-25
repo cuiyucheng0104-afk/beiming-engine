@@ -37,7 +37,7 @@ const { parts } = await loadBakedAssembly('asm.baked.json');
 
 每个步骤推荐写成表中的对象，也可按 `[target, op, ...参数]` 排成数组，参数顺序同表。`asm-baked/0.1` 中的 `parts` 按零件名 UTF-8 字节序写出。每件有 `matrix4x4`（行优先、相对于初始世界姿态的刚体变换，平移在最后一列）、`parent`、`touched`。另有 `steps` 摘要和 `recipeSha256` 配方指纹。变换已在世界空间累计，回放时**不要再乘父件矩阵**。时间、进程与文件路径不参与序列化。
 
-回放时给 `assembly.dsl` 的 `baked` 参数传上述对象或已烘焙 JSON 的文件名；`assetAlias: 'kit'` 将 `tab` 对应到镜头物体 `kit.tab`。`progress` 默认 1；`animate: true` 时按镜头从 0 到 `progress` 展示。卡从创建时的世界姿态计算每一帧，不依赖上一帧。**当前正式装载限制**：这张卡指定的题号 `03B-1` 不符合现行 card-file 题号格式，会在 `cards-data` 装载前被拒绝；独立烘焙接口不受此限制。
+回放时给 `assembly.dsl` 的 `baked` 参数传上述对象或已烘焙 JSON 的文件名；`assetAlias: 'kit'` 将 `tab` 对应到镜头物体 `kit.tab`。`progress` 默认 1；`animate: true` 时按镜头从 0 到 `progress` 对相对旋转和平移做线性进度插值（`u=0`/`u=1` 精确对齐初/终姿态）。卡从创建时的世界姿态计算每一帧，不依赖上一帧，且 `exams` 符合 card-file 题号格式（`cal:assembly.dsl`），可直接通过 `cards-data` 装载。
 
 ## 场景查询
 
