@@ -45,7 +45,7 @@
 //   shader.wgsl      材质求值：着色点与闭包的结构、求值的三步（shader_setup_from_hit、shader_eval_inputs、
 //                    shader_setup_closures）；上游的 Surface、贴图、材质函数、镂空测试（alpha_pass）、surface 与 surface_proc
 //   closure.wgsl     闭包：积分器碰材质的那一组函数（surface_shader_*）；上游的 Lobes、玻璃、求值与采样（eval_bsdf_k、
-//                    pdf_bsdf、sample_bsdf、light_mis、pdf_spec）
+//                    pdf_bsdf、sample_bsdf）
 //   light.wgsl       灯光：发光体表与灯光树、环境、天空与发光体的权重、直接光（direct_light、local_lights 等）
 //   volume.wgsl      体积：大气透视、高度雾、有界介质
 //   integrator.wgsl  路径状态 PathState（模块级的私有变量 state，上游原来散在各处的私有全局都并在里面）、光线 Ray、

@@ -84,18 +84,8 @@ struct PathLegacy {
     // Where the last vertex sampled emitters: its normal (0 = none: fog), with which a BSDF ray's emitter hit weighs its
     // MIS by the light tree's pmf there (emit_mis). （点是正式字段 state.mis_origin_P）
     mis_n: vec3<f32>,
-    // At camera hits, the direct light from directional lights (the sun: a tiny disk, so nearly deterministic) and its
-    // specular part: the live viewport keeps it in a signal of its own (no denoiser; short history while things
-    // change). Local lights stay in the denoised signals: their soft shadows are noisy, and on Kabukicho moving them
-    // here cost motion and static error (excess 1.71 / 1.86 / 2.20 -> 1.92 / 1.95 / 2.33, k = 1 SSIM 0.640 -> 0.620).
-    dl_det: vec3<f32>,
-    dl_det_spec: vec3<f32>,
     // Whether a cutout let the last shadow ray through (the shadow rays' functions clear it, `trace` sets it).
     shadow_hole: bool,
-    // Set around a `direct_light` that no BSDF ray follows (where a path ends without the cache): its light samples
-    // take the whole of their light. Weighed against a BSDF ray that is never traced they kept their MIS share alone:
-    // of a uniform sky on a Lambert surface, ln 17 / 16 = 18 %.
-    nee_alone: bool,
     // `direct_light` without the sky: a surface seen in a reflection lights itself from the lights, the sky's light
     // there is the radiance cache's.
     lights_only: bool,
@@ -249,31 +239,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     state.throughput = vec3<f32>(1.0);
     var albedo = vec3<f32>(0.0);
     var normal = vec3<f32>(0.0);
-    var anim = false;
     var e0 = vec3<f32>(0.0); // emission / sky seen directly (camera ray): the live denoiser leaves it unfiltered
     // Diffuse / specular split at the first hit: specular direct light, the specular share of the first BSDF sample
-    // (everything gathered after it scales the same way), radiance before it, roughness, reflection hit distance.
+    // (everything gathered after it scales the same way), radiance before it.
     var spec0 = vec3<f32>(0.0);
     var k_spec = vec3<f32>(0.0);
     var rad0 = vec3<f32>(0.0);
     var split = false;
-    var rough0 = 1.0;
-    var spec_lobe = false;
-    var spec_t = 0.0;
     state.mis_ray_pdf = 0.0;
-    // The camera hit's specular-lobe sample for the reflection resolve: direction, lobe pdf, path weight, albedo E;
-    // and whether the camera hit's sample went through glass.
-    var refl_l = vec3<f32>(0.0);
-    var refl_pdf = 0.0;
-    var refl_w = vec3<f32>(0.0);
-    var refl_e = vec3<f32>(0.0);
-    var through0 = false;
-    // The camera hit is transmissive (glass, water): its reflections stay in the specular signal too (the resolve's
-    // neighbours there mostly went through, so it had no rays to rebuild them from: live glass lost its reflection).
-    var glass0 = false;
     var mv = vec4<f32>(0.0);
-    state.legacy.dl_det = vec3<f32>(0.0);
-    state.legacy.dl_det_spec = vec3<f32>(0.0);
     state.flag = PATH_RAY_MIS_SKIP;
     state.legacy.behind_glass = false;
     state.legacy.bent = false;
@@ -408,7 +382,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             }
             @if(sample_clamp) c = film_clamp_contribution(c, i32(depth) - 1);
             if (depth == 0u) { e0 += c; }
-            if (depth == 1u && spec_lobe) { spec_t = 1.0e4; }
             film_add_light(c, depth, LIGHTGROUP_NONE);
             break;
         }
@@ -427,10 +400,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             // surface_shader_denoising_albedo）；法线取闭包用的法线，还是上游的口径。）
             albedo = select(surface_shader_denoising_albedo(sd), sd.emission / max(max(sd.emission.r, max(sd.emission.g, sd.emission.b)), 1e-6), sd.num_closure == 0u);
             normal = inputs.N;
-            anim = sd.legacy.surface.anim;
-            rough0 = sd.legacy.surface.roughness;
         }
-        if (depth == 1u && spec_lobe) { spec_t = hit.t; }
         // Emission (one-sided for rect light cards)
         let le = surface_shader_emission(sd);
         if (any(le > vec3<f32>(0.0))) {
@@ -501,15 +471,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             k_spec = state.legacy.split_frac;
             rad0 = film_sample.L;
             split = true;
-            spec_lobe = glossy;
-            through0 = through;
-            glass0 = has(F_GLASS) && sd.legacy.surface.transmission > 0.0;
-            refl_e = sd.legacy.lobes.e_spec;
-            if ((bs.label & (LABEL_REFLECT | LABEL_GLOSSY)) == (LABEL_REFLECT | LABEL_GLOSSY) && sd.legacy.lobes.coat <= 0.0) {
-                refl_l = l;
-                refl_pdf = pdf_spec(sd, l);
-                refl_w = wgt;
-            }
         }
         if ((!through && pdf <= 0.0) || all(wgt <= vec3<f32>(0.0))) { break; }
         state.throughput *= wgt;

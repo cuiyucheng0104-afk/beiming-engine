@@ -312,7 +312,7 @@ fn emitter_culled(em: EmitterTri) -> bool {
 struct LS { c: vec3<f32>, l: vec3<f32>, sl: vec3<f32>, dist: f32, pdf: f32 };
 
 // 北冥：矩形纯光（不画卡片的那种）在离线路径里走照 Cycles 移植的球面矩形采样（../../shaders/area_light.wgsl），并和材质采样
-// 做多重重要性采样：光源一侧在 local_lights 里乘 light_mis，材质一侧见 bm_rect_hits（两边用同一对概率密度，权重和为 1）。
+// 做多重重要性采样：光源一侧见 direct_light（上游顶替的闭包是 local_lights），材质一侧见 bm_rect_hits（两边用同一对概率密度，权重和为 1）。
 // 灯的参数换成 Cycles KernelLight 的写法：单位轴、全长、面积的倒数（大于 0 表示矩形）。
 struct BmRect { u: vec3<f32>, len_u: f32, v: vec3<f32>, len_v: f32, invarea: f32 };
 
@@ -515,7 +515,7 @@ fn local_lights(sd: ShadingPoint, o: vec3<f32>, x: vec3<f32>, vol: bool, d: vec3
                     let vis = light_vis(li.ext.w >= 0.5, light_origin(sd, o, ls.l), ls.sl, ls.dist * 0.999, rng_sub(rd ^ 0x40000000u, i));
                     if (any(vis > vec3<f32>(0.0))) {
                         var c = ls.c;
-                        if (ls.pdf > 0.0) { c *= light_mis(ls.pdf, sd, ls.l); }
+                        if (ls.pdf > 0.0) { c *= power_heuristic(ls.pdf, surface_shader_bsdf_eval(sd, ls.l, SHADER_USE_MIS).pdf); }
                         sum += c * f * tr3(vis);
                         state.legacy.dl_spec += c * f * tr3(vis) * e.spec_frac;
                     }
@@ -579,7 +579,7 @@ fn local_lights(sd: ShadingPoint, o: vec3<f32>, x: vec3<f32>, vol: bool, d: vec3
         }
         if (any(c > vec3<f32>(0.0))) {
             let vis = light_vis(light_at(pick).ext.w >= 0.5, light_origin(sd, o, pick_ls.l), pick_ls.sl, pick_ls.dist * 0.999, rng_sub(rd, 0xffffffffu));
-            if (!vol && pick_ls.pdf > 0.0) { c *= light_mis(pick_ls.pdf, sd, pick_ls.l); }
+            if (!vol && pick_ls.pdf > 0.0) { c *= power_heuristic(pick_ls.pdf, surface_shader_bsdf_eval(sd, pick_ls.l, SHADER_USE_MIS).pdf); }
             if (any(vis > vec3<f32>(0.0))) {
                 let r = c * tr3(vis) * (wsum * f32(count) / (f32(m_cand) * pick_ph));
                 sum += r;
@@ -753,7 +753,7 @@ fn hg_phase(g: f32, c: f32) -> f32 {
             let vis = light_vis(li.ext.w >= 0.5, light_origin(sd, o, l), l, INF, rng_sub(rng_legacy(D_SUN_VIS), i));
             if (any(vis > vec3<f32>(0.0))) {
                 let pdf_l = 1.0 / (2.0 * PI * (1.0 - cos_max));
-                sum += li.color.rgb * f * light_mis(pdf_l, sd, l) * tr3(vis);
+                sum += li.color.rgb * f * power_heuristic(pdf_l, surface_shader_bsdf_eval(sd, l, SHADER_USE_MIS).pdf) * tr3(vis);
             }
         }
     }
@@ -784,7 +784,7 @@ fn env_light(sd: ShadingPoint, o: vec3<f32>) -> vec3<f32> {
         let pdf_e = env_pdf(l);
         if (pdf_e > 0.0) {
             let vis = sky_tr(light_origin(sd, o, l), l, rng_legacy(D_ENV_VIS));
-            if (any(vis > vec3<f32>(0.0))) { return env_radiance(l) * f * light_mis(pdf_e, sd, l) / pdf_e * tr3(vis); }
+            if (any(vis > vec3<f32>(0.0))) { return env_radiance(l) * f * power_heuristic(pdf_e, surface_shader_bsdf_eval(sd, l, SHADER_USE_MIS).pdf) / pdf_e * tr3(vis); }
         }
     }
     return vec3<f32>(0.0);
@@ -934,15 +934,11 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
             if (any(vis > vec3<f32>(0.0))) {
                 let pdf_l = 1.0 / (2.0 * PI * (1.0 - cos_max));
                 let frac = e.spec_frac;
-                let wgt = light_mis(pdf_l, sd, l);
+                let wgt = power_heuristic(pdf_l, surface_shader_bsdf_eval(sd, l, SHADER_USE_MIS).pdf);
                 sum += li.color.rgb * f * wgt * tr3(vis);
                 state.legacy.dl_spec += li.color.rgb * f * wgt * tr3(vis) * frac;
             }
         }
-    }
-    if (state.bounce == 0u) {
-        state.legacy.dl_det += sum;
-        state.legacy.dl_det_spec += state.legacy.dl_spec;
     }
     // gpu.rs `KernelSwitches::light_pick`: past the camera hit, the directional lights and one of the other kinds a
     // scene has (local lights, emitters, the sky), weighted by their number.
@@ -1045,7 +1041,7 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
                 let vis = emitter_tr(light_origin(sd, o, es.l), es.l, es.dist * 0.999, rng_legacy(D_EMIT_VIS));
                 if (vis > 0.0) {
                     let frac = e.spec_frac;
-                    let wgt = light_mis(es.pdf_w, sd, es.l) * tr1(vis);
+                    let wgt = power_heuristic(es.pdf_w, surface_shader_bsdf_eval(sd, es.l, SHADER_USE_MIS).pdf) * tr1(vis);
                     sum += es.le * f * wgt * es.w;
                     state.legacy.dl_spec += es.le * f * wgt * es.w * frac;
                 }
