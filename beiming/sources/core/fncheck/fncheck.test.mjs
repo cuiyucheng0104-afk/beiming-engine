@@ -186,9 +186,9 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
     // 一般那一支（exponent ≥ 0）不经它，照旧合格
     ['return (f.x + f.y) * (1.0 / 2.0);', 'return (f.x + f.y) * 0.51;', ['fresnel_dielectric_ccl', 'fresnel_dielectric_ccl_inside', 'generalized_schlick_fresnel', 'microfacet_fresnel_generalized_schlick',
       'bsdf_microfacet_eval_ggx_generalized_schlick', 'bsdf_microfacet_ggx_eval_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_sample_generalized_schlick'], 2, 1],
-    // 电介质的 F0：(ior − 1)/(ior + 1) 的平方漏掉平方。能量补偿那一项也用它（s = (Fss − F0)/(1 − F0)），但改错之后 F0
+    // 电介质的 F0：(ior − 1)/(ior + 1) 的平方漏掉平方（电介质高光的 (F0, eta) 也经它）。能量补偿那一项也用它（s = (Fss − F0)/(1 − F0)），但改错之后 F0
     // 总大于 Fss、s 被夹成 0，与对的 s（几个百分点）只在粗糙时差得出 1e-4，10 万组里没有超出的组，所以它不在名单里
-    ['return sqr((ior - 1.0) / (ior + 1.0));', 'return (ior - 1.0) / (ior + 1.0);', ['F0_from_ior', 'generalized_schlick_fresnel', 'microfacet_fresnel_generalized_schlick',
+    ['return sqr((ior - 1.0) / (ior + 1.0));', 'return (ior - 1.0) / (ior + 1.0);', ['F0_from_ior', 'principled_specular_f0_eta', 'generalized_schlick_fresnel', 'microfacet_fresnel_generalized_schlick',
       'bsdf_microfacet_eval_ggx_generalized_schlick', 'bsdf_microfacet_ggx_eval_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_sample_generalized_schlick'], 1, 1],
     // 层间权重：剩下的权重多乘 0.99（标准为 0 的组被测也是 0，最差一组落在标准不为 0 的组上）
     ['return weight * saturate(1.0 - reduce_max(safe_divide_color(layer_albedo, weight)));', 'return 0.99 * weight * saturate(1.0 - reduce_max(safe_divide_color(layer_albedo, weight)));', ['closure_layering_weight'], 6, 3],
