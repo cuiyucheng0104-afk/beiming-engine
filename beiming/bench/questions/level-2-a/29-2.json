@@ -5,7 +5,10 @@
   "title": "点击踩起音",
   "brief": "做一条 20 秒、30 帧每秒、1080×1350 的短片，共 600 帧，自带配乐。画面里有一个光标，全片正好点击 11 次；每次点击之后的第 2 帧切画面（切点帧号减点击帧号等于 2）；每次点击都踩在配乐的起音上，离最近的起音不超过 1 帧。",
   "deliverable": {
-    "size": [1080, 1350],
+    "size": [
+      1080,
+      1350
+    ],
     "fps": "30/1",
     "frames": 600,
     "audio": "required"
@@ -63,9 +66,9 @@
     "blockedBy": []
   },
   "calibration": {
-    "status": "uncalibrated",
-    "source": "案例量测与考题设计调研第 6 节给的初值，还没试跑",
-    "noiseFloor": null,
-    "version": 0
+    "status": "calibrated",
+    "source": "B7 五步容差校准 v1（严档，2026-11-25）：经标准答案 4 遍噪声地板、参考自检与 3 份标准负对照实测定线，细则见 bench/calibration/records/29-2.json",
+    "noiseFloor": 0,
+    "version": 1
   }
 }

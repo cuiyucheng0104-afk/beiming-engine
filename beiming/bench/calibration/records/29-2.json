@@ -1,0 +1,325 @@
+{
+  "format": "bench-calibration/0.1",
+  "questionId": "29-2",
+  "slug": "29-2",
+  "group": "level-2-a",
+  "version": 1,
+  "status": "calibrated",
+  "tier": "strict",
+  "tierLabel": "严档",
+  "tierRationale": "作者原文件严格基线（点击后 2 帧切点与配乐起音命中），按严档定线",
+  "calibratedOn": "2026-11-25",
+  "noiseFloor": 0,
+  "calibrationField": {
+    "status": "calibrated",
+    "source": "B7 五步容差校准 v1（严档，2026-11-25）：经标准答案 4 遍噪声地板、参考自检与 3 份标准负对照实测定线，细则见 bench/calibration/records/29-2.json",
+    "noiseFloor": 0,
+    "version": 1
+  },
+  "step1NoiseFloor": {
+    "measurementCount": 4,
+    "allFullScore": true,
+    "repeatMeasureDelta": 0,
+    "repeatRenderDelta": 0,
+    "noiseFloor": 0,
+    "repeatMeasureByMetric": {
+      "width": 0,
+      "height": 0,
+      "fps": 0,
+      "frames": 0,
+      "cuts[0]": 0,
+      "cuts[1]": 0,
+      "cuts[2]": 0,
+      "cuts[3]": 0,
+      "cuts[4]": 0,
+      "cuts[5]": 0,
+      "cuts[6]": 0,
+      "cuts[7]": 0,
+      "cuts[8]": 0,
+      "cuts[9]": 0,
+      "cuts[10]": 0,
+      "eventsFrames": 0,
+      "clicks[0]": 0,
+      "clicks[1]": 0,
+      "clicks[2]": 0,
+      "clicks[3]": 0,
+      "clicks[4]": 0,
+      "clicks[5]": 0,
+      "clicks[6]": 0,
+      "clicks[7]": 0,
+      "clicks[8]": 0,
+      "clicks[9]": 0,
+      "clicks[10]": 0,
+      "onsetsMs[0]": 0,
+      "onsetsMs[1]": 0,
+      "onsetsMs[2]": 0,
+      "onsetsMs[3]": 0,
+      "onsetsMs[4]": 0,
+      "onsetsMs[5]": 0,
+      "onsetsMs[6]": 0,
+      "onsetsMs[7]": 0,
+      "onsetsMs[8]": 0,
+      "onsetsMs[9]": 0,
+      "onsetsMs[10]": 0
+    },
+    "repeatRenderByMetric": {
+      "width": 0,
+      "height": 0,
+      "fps": 0,
+      "frames": 0,
+      "cuts[0]": 0,
+      "cuts[1]": 0,
+      "cuts[2]": 0,
+      "cuts[3]": 0,
+      "cuts[4]": 0,
+      "cuts[5]": 0,
+      "cuts[6]": 0,
+      "cuts[7]": 0,
+      "cuts[8]": 0,
+      "cuts[9]": 0,
+      "cuts[10]": 0,
+      "eventsFrames": 0,
+      "clicks[0]": 0,
+      "clicks[1]": 0,
+      "clicks[2]": 0,
+      "clicks[3]": 0,
+      "clicks[4]": 0,
+      "clicks[5]": 0,
+      "clicks[6]": 0,
+      "clicks[7]": 0,
+      "clicks[8]": 0,
+      "clicks[9]": 0,
+      "clicks[10]": 0,
+      "onsetsMs[0]": 0,
+      "onsetsMs[1]": 0,
+      "onsetsMs[2]": 0,
+      "onsetsMs[3]": 0,
+      "onsetsMs[4]": 0,
+      "onsetsMs[5]": 0,
+      "onsetsMs[6]": 0,
+      "onsetsMs[7]": 0,
+      "onsetsMs[8]": 0,
+      "onsetsMs[9]": 0,
+      "onsetsMs[10]": 0
+    },
+    "runScores": [
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "step2ReferenceCheck": {
+    "solution": {
+      "pass": true,
+      "score": 1,
+      "basePass": true,
+      "cardsUsed": [
+        "overlay.cursor",
+        "audio.event-mix",
+        "deliver.encode"
+      ]
+    },
+    "positiveBaseline": {
+      "pass": true,
+      "score": 1
+    },
+    "fixtures": [
+      {
+        "ref": "bench/refs/level-2-a/29-2.reference.json",
+        "role": "positive-reference",
+        "expectedOutcome": "pass",
+        "actualPass": true,
+        "actualBasePass": true,
+        "actualScore": 1,
+        "ok": true
+      }
+    ],
+    "allOk": true
+  },
+  "step3NegativeControls": {
+    "total": 3,
+    "rejected": 3,
+    "allRejectedAsDeclared": true,
+    "controls": [
+      {
+        "id": "29-2-disable-card",
+        "kind": "disable-card",
+        "pass": false,
+        "score": 0,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0,
+          1
+        ],
+        "expectedFailedIndices": [
+          0,
+          1
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "cut.ydif",
+            "pass": false,
+            "clicks": 11,
+            "uncutCount": 11
+          },
+          {
+            "index": 1,
+            "metric": "beat.onset-hit",
+            "pass": false,
+            "hits": 3,
+            "events": 11,
+            "hitRate": 0.2727,
+            "randomBaseline": 0.3433,
+            "lift": -0.0706
+          }
+        ]
+      },
+      {
+        "id": "29-2-shift-2f",
+        "kind": "shift-2f",
+        "pass": false,
+        "score": 0.4,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          1
+        ],
+        "expectedFailedIndices": [
+          1
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "cut.ydif",
+            "pass": true,
+            "clicks": 11,
+            "uncutCount": 0
+          },
+          {
+            "index": 1,
+            "metric": "beat.onset-hit",
+            "pass": false,
+            "hits": 6,
+            "events": 11,
+            "hitRate": 0.5455,
+            "randomBaseline": 0.3433,
+            "lift": 0.2021
+          }
+        ]
+      },
+      {
+        "id": "29-2-random-beats",
+        "kind": "random-beats",
+        "pass": false,
+        "score": 0.4,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          1
+        ],
+        "expectedFailedIndices": [
+          1
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "cut.ydif",
+            "pass": true,
+            "clicks": 11,
+            "uncutCount": 0
+          },
+          {
+            "index": 1,
+            "metric": "beat.onset-hit",
+            "pass": false,
+            "hits": 3,
+            "events": 11,
+            "hitRate": 0.2727,
+            "randomBaseline": 0.3433,
+            "lift": -0.0706
+          }
+        ]
+      }
+    ]
+  },
+  "step4Thresholds": {
+    "allSeparated": true,
+    "noiseFloorSafe": true,
+    "positiveSampleCount": 3,
+    "negativeSampleCount": 3,
+    "items": [
+      {
+        "index": 0,
+        "metric": "cut.ydif",
+        "weight": 0.4,
+        "adoptedArgs": {
+          "event": "click",
+          "count": 11,
+          "lagFrames": 2
+        },
+        "positiveCount": 3,
+        "positivePassCount": 3,
+        "negativeTriggeredCount": 1,
+        "positiveWorst": {
+          "sample": "solution:29-2",
+          "pass": true,
+          "clicks": 11,
+          "uncutCount": 0
+        },
+        "negativeBest": {
+          "sample": "29-2-disable-card",
+          "pass": false,
+          "clicks": 11,
+          "uncutCount": 11
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 3/3 全过，1 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      },
+      {
+        "index": 1,
+        "metric": "beat.onset-hit",
+        "weight": 0.6,
+        "adoptedArgs": {
+          "event": "click",
+          "tolFrames": 1,
+          "minHitRate": 0.8,
+          "minLift": 0.4
+        },
+        "positiveCount": 3,
+        "positivePassCount": 3,
+        "negativeTriggeredCount": 3,
+        "positiveWorst": {
+          "sample": "positive-baseline:29-2",
+          "pass": true,
+          "hits": 9,
+          "events": 11,
+          "hitRate": 0.8182,
+          "randomBaseline": 0.3433,
+          "lift": 0.4748
+        },
+        "negativeBest": {
+          "sample": "29-2-shift-2f",
+          "pass": false,
+          "hits": 6,
+          "events": 11,
+          "hitRate": 0.5455,
+          "randomBaseline": 0.3433,
+          "lift": 0.2021
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 3/3 全过，3 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      }
+    ]
+  },
+  "step5TierAndRecord": {
+    "tier": "strict",
+    "tierLabel": "严档",
+    "version": 1,
+    "status": "calibrated",
+    "calibratedOn": "2026-11-25",
+    "recordPath": "bench/calibration/records/29-2.json",
+    "questionPath": "bench/questions/level-2-a/29-2.json"
+  }
+}

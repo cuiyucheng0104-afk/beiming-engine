@@ -1,0 +1,428 @@
+{
+  "format": "bench-calibration/0.1",
+  "questionId": "30-1",
+  "slug": "30-1",
+  "group": "level-2-a",
+  "version": 1,
+  "status": "calibrated",
+  "tier": "strict",
+  "tierLabel": "严档",
+  "tierRationale": "严格行为基线（80→96 BPM 重求值跟拍位移与命名时刻命中），按严档定线",
+  "calibratedOn": "2026-11-25",
+  "noiseFloor": 0,
+  "calibrationField": {
+    "status": "calibrated",
+    "source": "B7 五步容差校准 v1（严档，2026-11-25）：经标准答案 4 遍噪声地板、参考自检与 3 份标准负对照实测定线，细则见 bench/calibration/records/30-1.json",
+    "noiseFloor": 0,
+    "version": 1
+  },
+  "step1NoiseFloor": {
+    "measurementCount": 4,
+    "allFullScore": true,
+    "repeatMeasureDelta": 0,
+    "repeatRenderDelta": 0,
+    "noiseFloor": 0,
+    "repeatMeasureByMetric": {
+      "width": 0,
+      "height": 0,
+      "fps": 0,
+      "frames": 0,
+      "cuts[0]": 0,
+      "cuts[1]": 0,
+      "cuts[2]": 0,
+      "cuts[3]": 0,
+      "cuts[4]": 0,
+      "cuts[5]": 0,
+      "cuts[6]": 0,
+      "cuts[7]": 0,
+      "cuts[8]": 0,
+      "loudnessLufs": 0,
+      "truePeakDbtp": 0,
+      "baseBpm": 0,
+      "probeBpm": 0,
+      "beatEvents[0].frame": 0,
+      "beatEvents[1].frame": 0,
+      "beatEvents[2].frame": 0,
+      "beatEvents[3].frame": 0,
+      "beatEvents[4].frame": 0,
+      "beatEvents[5].frame": 0,
+      "beatEvents[6].frame": 0,
+      "beatEvents[7].frame": 0,
+      "beatEvents[8].frame": 0,
+      "beatEvents[9].frame": 0,
+      "beatEvents[10].frame": 0,
+      "beatEvents[11].frame": 0,
+      "beatEvents[12].frame": 0,
+      "beatEvents[13].frame": 0,
+      "beatEvents[14].frame": 0,
+      "beatEvents[15].frame": 0,
+      "beatEvents[16].frame": 0,
+      "beatEvents[17].frame": 0,
+      "beatEvents[18].frame": 0,
+      "beatEvents[19].frame": 0,
+      "probeBeatEvents[0].frame": 0,
+      "probeBeatEvents[1].frame": 0,
+      "probeBeatEvents[2].frame": 0,
+      "probeBeatEvents[3].frame": 0,
+      "probeBeatEvents[4].frame": 0,
+      "probeBeatEvents[5].frame": 0,
+      "probeBeatEvents[6].frame": 0,
+      "probeBeatEvents[7].frame": 0,
+      "probeBeatEvents[8].frame": 0,
+      "probeBeatEvents[9].frame": 0,
+      "probeBeatEvents[10].frame": 0,
+      "probeBeatEvents[11].frame": 0,
+      "probeBeatEvents[12].frame": 0,
+      "probeBeatEvents[13].frame": 0,
+      "probeBeatEvents[14].frame": 0,
+      "probeBeatEvents[15].frame": 0,
+      "probeBeatEvents[16].frame": 0,
+      "probeBeatEvents[17].frame": 0,
+      "probeBeatEvents[18].frame": 0,
+      "probeBeatEvents[19].frame": 0,
+      "absoluteEvents[0].frame": 0,
+      "probeAbsoluteEvents[0].frame": 0
+    },
+    "repeatRenderByMetric": {
+      "width": 0,
+      "height": 0,
+      "fps": 0,
+      "frames": 0,
+      "cuts[0]": 0,
+      "cuts[1]": 0,
+      "cuts[2]": 0,
+      "cuts[3]": 0,
+      "cuts[4]": 0,
+      "cuts[5]": 0,
+      "cuts[6]": 0,
+      "cuts[7]": 0,
+      "cuts[8]": 0,
+      "loudnessLufs": 0,
+      "truePeakDbtp": 0,
+      "baseBpm": 0,
+      "probeBpm": 0,
+      "beatEvents[0].frame": 0,
+      "beatEvents[1].frame": 0,
+      "beatEvents[2].frame": 0,
+      "beatEvents[3].frame": 0,
+      "beatEvents[4].frame": 0,
+      "beatEvents[5].frame": 0,
+      "beatEvents[6].frame": 0,
+      "beatEvents[7].frame": 0,
+      "beatEvents[8].frame": 0,
+      "beatEvents[9].frame": 0,
+      "beatEvents[10].frame": 0,
+      "beatEvents[11].frame": 0,
+      "beatEvents[12].frame": 0,
+      "beatEvents[13].frame": 0,
+      "beatEvents[14].frame": 0,
+      "beatEvents[15].frame": 0,
+      "beatEvents[16].frame": 0,
+      "beatEvents[17].frame": 0,
+      "beatEvents[18].frame": 0,
+      "beatEvents[19].frame": 0,
+      "probeBeatEvents[0].frame": 0,
+      "probeBeatEvents[1].frame": 0,
+      "probeBeatEvents[2].frame": 0,
+      "probeBeatEvents[3].frame": 0,
+      "probeBeatEvents[4].frame": 0,
+      "probeBeatEvents[5].frame": 0,
+      "probeBeatEvents[6].frame": 0,
+      "probeBeatEvents[7].frame": 0,
+      "probeBeatEvents[8].frame": 0,
+      "probeBeatEvents[9].frame": 0,
+      "probeBeatEvents[10].frame": 0,
+      "probeBeatEvents[11].frame": 0,
+      "probeBeatEvents[12].frame": 0,
+      "probeBeatEvents[13].frame": 0,
+      "probeBeatEvents[14].frame": 0,
+      "probeBeatEvents[15].frame": 0,
+      "probeBeatEvents[16].frame": 0,
+      "probeBeatEvents[17].frame": 0,
+      "probeBeatEvents[18].frame": 0,
+      "probeBeatEvents[19].frame": 0,
+      "absoluteEvents[0].frame": 0,
+      "probeAbsoluteEvents[0].frame": 0
+    },
+    "runScores": [
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "step2ReferenceCheck": {
+    "solution": {
+      "pass": true,
+      "score": 1,
+      "basePass": true,
+      "cardsUsed": [
+        "time.timeline",
+        "time.events",
+        "time.envelope",
+        "audio.master",
+        "deliver.encode"
+      ]
+    },
+    "positiveBaseline": {
+      "pass": true,
+      "score": 1
+    },
+    "fixtures": [
+      {
+        "ref": "bench/refs/level-2-a/30-1.reference.json",
+        "role": "positive-reference",
+        "expectedOutcome": "pass",
+        "actualPass": true,
+        "actualBasePass": true,
+        "actualScore": 1,
+        "ok": true
+      },
+      {
+        "ref": "bench/refs/level-2-a/30-1.hardcoded.json",
+        "role": "original-negative",
+        "expectedOutcome": "fail",
+        "actualPass": false,
+        "actualBasePass": true,
+        "actualScore": 0.6,
+        "ok": true
+      }
+    ],
+    "allOk": true
+  },
+  "step3NegativeControls": {
+    "total": 3,
+    "rejected": 3,
+    "allRejectedAsDeclared": true,
+    "controls": [
+      {
+        "id": "30-1-disable-card",
+        "kind": "disable-card",
+        "pass": false,
+        "score": 0.6,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          1
+        ],
+        "expectedFailedIndices": [
+          1
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "beat.onset-hit",
+            "pass": true,
+            "beatEventsCount": 20,
+            "hitRate": 0.85,
+            "randomBaseline": 0.1667,
+            "lift": 0.6833,
+            "requiredHitRate": 0.85
+          },
+          {
+            "index": 1,
+            "metric": "timeline.bpm-follow",
+            "pass": false,
+            "movedRatio": null,
+            "movableRatio": null,
+            "requiredMovedRatio": null
+          }
+        ]
+      },
+      {
+        "id": "30-1-shift-2f",
+        "kind": "shift-2f",
+        "pass": false,
+        "score": 0.4,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0
+        ],
+        "expectedFailedIndices": [
+          0
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "beat.onset-hit",
+            "pass": false,
+            "beatEventsCount": 20,
+            "hitRate": 0,
+            "randomBaseline": 0.1667,
+            "lift": -0.1667,
+            "requiredHitRate": 0
+          },
+          {
+            "index": 1,
+            "metric": "timeline.bpm-follow",
+            "pass": true,
+            "movedRatio": null,
+            "movableRatio": null,
+            "requiredMovedRatio": null
+          }
+        ]
+      },
+      {
+        "id": "30-1-random-beats",
+        "kind": "random-beats",
+        "pass": false,
+        "score": 0.4,
+        "failedAsDeclared": true,
+        "failedIndices": [
+          0
+        ],
+        "expectedFailedIndices": [
+          0
+        ],
+        "observations": [
+          {
+            "index": 0,
+            "metric": "beat.onset-hit",
+            "pass": false,
+            "beatEventsCount": 20,
+            "hitRate": 0.25,
+            "randomBaseline": 0.1667,
+            "lift": 0.0833,
+            "requiredHitRate": 0.25
+          },
+          {
+            "index": 1,
+            "metric": "timeline.bpm-follow",
+            "pass": true,
+            "movedRatio": null,
+            "movableRatio": null,
+            "requiredMovedRatio": null
+          }
+        ]
+      }
+    ]
+  },
+  "step4Thresholds": {
+    "allSeparated": true,
+    "noiseFloorSafe": true,
+    "positiveSampleCount": 3,
+    "negativeSampleCount": 4,
+    "items": [
+      {
+        "index": 0,
+        "metric": "beat.onset-hit",
+        "weight": 0.6,
+        "adoptedArgs": {
+          "bpm": 80,
+          "minBeatEvents": 20,
+          "tolFrames": 1,
+          "minHitRate": 0.85,
+          "minLift": 0.4,
+          "requiredEventIds": [
+            "m01",
+            "m02",
+            "m03",
+            "m04",
+            "m05",
+            "m06",
+            "m07",
+            "m08",
+            "m09",
+            "m10",
+            "m11",
+            "m12",
+            "m13",
+            "m14",
+            "m15",
+            "m16",
+            "m17",
+            "m18",
+            "m19",
+            "m20"
+          ]
+        },
+        "positiveCount": 3,
+        "positivePassCount": 3,
+        "negativeTriggeredCount": 2,
+        "positiveWorst": {
+          "sample": "positive-baseline:30-1",
+          "pass": true,
+          "beatEventsCount": 20,
+          "hitRate": 0.85,
+          "randomBaseline": 0.1667,
+          "lift": 0.6833,
+          "requiredHitRate": 0.85
+        },
+        "negativeBest": {
+          "sample": "30-1-random-beats",
+          "pass": false,
+          "beatEventsCount": 20,
+          "hitRate": 0.25,
+          "randomBaseline": 0.1667,
+          "lift": 0.0833,
+          "requiredHitRate": 0.25
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 3/3 全过，2 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      },
+      {
+        "index": 1,
+        "metric": "timeline.bpm-follow",
+        "weight": 0.4,
+        "adoptedArgs": {
+          "baseBpm": 80,
+          "probeBpm": 96,
+          "tolFrames": 1,
+          "minMovedRatio": 1,
+          "minMovableRatio": 0.5,
+          "requiredEventIds": [
+            "m01",
+            "m02",
+            "m03",
+            "m04",
+            "m05",
+            "m06",
+            "m07",
+            "m08",
+            "m09",
+            "m10",
+            "m11",
+            "m12",
+            "m13",
+            "m14",
+            "m15",
+            "m16",
+            "m17",
+            "m18",
+            "m19",
+            "m20"
+          ]
+        },
+        "positiveCount": 3,
+        "positivePassCount": 3,
+        "negativeTriggeredCount": 2,
+        "positiveWorst": {
+          "sample": "solution:30-1",
+          "pass": true,
+          "movedRatio": null,
+          "movableRatio": null,
+          "requiredMovedRatio": null
+        },
+        "negativeBest": {
+          "sample": "30-1-disable-card",
+          "pass": false,
+          "movedRatio": null,
+          "movableRatio": null,
+          "requiredMovedRatio": null
+        },
+        "strictSideOfGap": true,
+        "noiseFloorSafe": true,
+        "marginNote": "正样本 3/3 全过，2 份对应负样本 100% 拦截，现行容差线落在正负样本之间偏严一侧且噪声地板（0）显著小于安全余量"
+      }
+    ]
+  },
+  "step5TierAndRecord": {
+    "tier": "strict",
+    "tierLabel": "严档",
+    "version": 1,
+    "status": "calibrated",
+    "calibratedOn": "2026-11-25",
+    "recordPath": "bench/calibration/records/30-1.json",
+    "questionPath": "bench/questions/level-2-a/30-1.json"
+  }
+}
