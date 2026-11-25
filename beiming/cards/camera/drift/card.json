@@ -27,6 +27,6 @@
   "verify": { "selftest": "锁死与零漂移逐帧、逐子帧相机矩阵相同；斜向机位的线性平移和推进按局部轴计算；投影随光学变焦。", "predicates": [] },
   "pitfalls": [{ "symptom": "写了推进量而画面没动", "fix": "把 mode 设为 linear；locked 即使给了非零运动量也完全锁死。" }],
   "provenance": { "cases": [], "note": "从静态姿态与镜头局部时间直接求值，不积分上一帧的机位。" },
-  "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-23" }],
+  "status": [{ "level": "measured", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-25", "parityReport": "sha256:a8c66ad182b8f20b2fcea462176729c2d1bbf32a857eb707d28f30dcc739ebab" }],
   "exams": ["15-2"]
 }

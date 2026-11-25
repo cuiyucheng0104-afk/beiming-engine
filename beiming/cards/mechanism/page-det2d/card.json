@@ -23,6 +23,6 @@
   "calibration": "probe-gray-chart",
   "verify": {"selftest": "核验字体字节与就绪状态；实渲纸底、字形、淡出和三个场景，从层文件按顺序、乱序及单帧新会话复核颜色哈希。", "predicates": []},
   "provenance": {"cases": [], "note": "二维舞台、页面宿主和仓库自带的 OFL 子集。"},
-  "status": [{"level": "reproduced", "host": "page", "source": "0.187.0", "gpu": "apple-m5-pro", "date": "2026-11-23"}],
+  "status": [{"level": "measured", "host": "page", "source": "0.187.0", "gpu": "apple-m5-pro", "date": "2026-11-25", "parityReport": "sha256:481c91cd52d2031a635c5a32b8cfcbb2fe4c349cd0b92c229ceec8819795de25"}],
   "exams": ["18-1"]
 }

@@ -73,6 +73,10 @@
 
 `observation.json` 记做题方式、`isolation`、退出码、是否超时、出错原因、开销和会话记录的文件名；`meta.json` 记题号、原题哈希、平台和开始时刻。运行目录里不放原题、原题路径和判分细节。
 
+命令与模型模式逐条读取会话结果的 `usage`。普通输入、输出和缓存写入的 token 全额计入，缓存读取按 `Math.round(cache_read_input_tokens * 0.1)` 逐条折算后汇总。`cost.tokens` 与 `overBudget` 使用折算后的总数。缺失或非有限数值按 0 计。函数模式直接使用 `solver` 返回的 `tokens`。
+
+`observation.json` 的 `tokenBreakdown` 记录 `billedTokens`（计费总数）、`rawTokens`（四项原始总数）、`inputTokens`、`outputTokens`、`cacheCreationTokens`、`cacheReadTokens`（各项原始累计值）和 `cacheReadWeight`（`0.1`）。没有可用的会话 `usage` 时，`tokenBreakdown` 为 `null`。
+
 隐藏题另外不回显：逐项的指标名和断言原文、`blockedBy` 的原文、超时信息里的预算数值。校验不过的报错只说类别和处数。
 
 ## 预期失败门控 `hasBlockedByChanged`

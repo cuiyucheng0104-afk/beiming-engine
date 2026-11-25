@@ -18,6 +18,6 @@
   "verify": { "selftest": "72 帧和 60 帧转台：每步弦长含首尾接缝相等，最后一帧不重复第零帧；子帧也落在同一圆上", "predicates": [] },
   "pitfalls": [{ "symptom": "循环接缝处方向或速度不连续", "fix": "整圈用整数 turns 且 frames 填循环的总帧数，不含重复的片尾；仰角勿取正负 90 度（此时位置在轴上）" }],
   "provenance": { "cases": [], "note": "用局部帧和子帧的连续相位解球坐标与相机朝向，不累加上一帧的姿态" },
-  "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-23" }],
+  "status": [{ "level": "measured", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-25", "parityReport": "sha256:c7e726fbe0ae694b81565197477d3fe8cc94f0717ce8eef82e79b570c86710cf" }],
   "exams": ["28-1", "23-1", "cal:camera.orbit"]
 }

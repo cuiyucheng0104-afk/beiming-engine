@@ -35,7 +35,8 @@ test('T8 成卡：C1 原文与对象、校准场景、自测入口、题号；�
       assert.deepEqual(scanCardLeaks(readFileSync(join(file.parentPath, file.name), 'utf8')), [], `${dir}/${file.name}`);
     }
     assert.deepEqual([card.id, card.kind, card.livesIn, card.visibleToAgent], [id, dir.split('/')[0], [landing], visible]);
-    assert.deepEqual(card.status.map((row) => row.level), ['reproduced']);
+    assert.equal(card.status.length, 1);
+    assert.ok(['reproduced', 'measured'].includes(card.status[0].level));
     assert.ok(card.exams.includes(exam) && loadQuestion(exam).needs.includes(id));
     assert.equal(json(join(here, '../calib', card.calibration, 'scene.json')).id, card.calibration);
     const [impl] = card.impl;

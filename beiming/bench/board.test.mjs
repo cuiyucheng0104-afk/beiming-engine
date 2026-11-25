@@ -858,7 +858,7 @@ test('命令行：从题目、结果、账本、卡、先验的真实文件端�
   assert.equal(board.fourIndicators.unattended.rate, 1);
   assert.equal(board.integrationProgress.priorsVerified.verifiedCount, 1);
   assert.equal(board.integrationProgress.harvest.drafted, 2);
-  assert.equal(board.integrationProgress.cards.byStatus.reproduced, 1);
+  assert.equal(board.integrationProgress.cards.byStatus.verified, 1);
   const html = readFileSync(join(out, 'index.html'), 'utf8');
   assert.ok(html.includes('2026-11-22') && html.includes(escapeHtml(q11.title)) && html.includes('隐藏题 9-1'));
   assert.ok(!/https?:|<script/i.test(html));

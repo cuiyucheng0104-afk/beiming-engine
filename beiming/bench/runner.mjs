@@ -26,6 +26,7 @@ import { projectPublicQuestion, validateQuestion } from './validate-question.mjs
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const RESULT_FORMAT = 'bench-result/0.1';
 export const SOURCES = ['three', 'blender', 'core'];
+export const CACHE_READ_TOKEN_WEIGHT = 0.1;
 const PROMPT = '读当前目录的 question.json，按题面做题。成片存成当前目录的 deliverable.mp4；用了显卡就把秒数写进 submission.json 的 cost.gpuSeconds。';
 const num = (v) => (Number.isFinite(v) ? v : null);
 const inside = (p, dir) => (dir === '/' ? p.startsWith('/') : p === dir || p.startsWith(dir + path.sep));
@@ -160,6 +161,31 @@ function whyInvalid(r) {
   return [r.leaks?.length && `泄露 ${r.leaks.length} 处`, r.schemaErrors?.length && `结构 ${r.schemaErrors.length} 处`, ...Object.keys(r.violations ?? {})].filter(Boolean).join('、');
 }
 
+const isTokenUsage = (usage) => usage !== null && typeof usage === 'object' && !Array.isArray(usage);
+
+function readTokenCounts(usage) {
+  const fields = isTokenUsage(usage) ? usage : {};
+  return {
+    inputTokens: num(fields.input_tokens) ?? 0,
+    outputTokens: num(fields.output_tokens) ?? 0,
+    cacheCreationTokens: num(fields.cache_creation_input_tokens) ?? 0,
+    cacheReadTokens: num(fields.cache_read_input_tokens) ?? 0,
+  };
+}
+
+export function computeRawTokens(usage) {
+  const { inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens } = readTokenCounts(usage);
+  return inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens;
+}
+
+export function computeBilledTokens(usage, cacheReadWeight = CACHE_READ_TOKEN_WEIGHT) {
+  if (!Number.isFinite(cacheReadWeight) || cacheReadWeight < 0 || cacheReadWeight > 1) {
+    throw new RangeError('缓存读取 token 权重必须是 [0, 1] 内的有限数');
+  }
+  const { inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens } = readTokenCounts(usage);
+  return inputTokens + outputTokens + cacheCreationTokens + Math.round(cacheReadTokens * cacheReadWeight);
+}
+
 // 用命令做题：标准输出存成 transcript/turn-01.jsonl，是 Claude Code 的 stream-json 时从里面数轮次、工具调用和 token
 async function solveByCommand(run, { argv, model, claude, timeoutMs, profile }) {
   let [cmd, ...args] = argv ?? [];
@@ -176,11 +202,22 @@ async function solveByCommand(run, { argv, model, claude, timeoutMs, profile }) 
   // 套了 sandbox-exec 时命令起不来不报 error：它自己 exit 71，stderr 以 sandbox-exec: execvp() 开头
   if (r.error || (profile && r.exitCode === 71 && r.stderr.startsWith('sandbox-exec: execvp()'))) throw envError('env.solver-missing', `做题命令启动不了（${r.error?.code ?? r.error?.message ?? r.stderr.trim()}）`, '检查 --solver-cmd；用 --model 时确认 claude 在 PATH 里，或用 --claude 指定可执行文件');
   const t = loadTranscript(run.dir);
-  const used = t.results.filter((x) => x.usage);
+  let tokenBreakdown = null;
+  for (const { usage } of t.results) {
+    if (!isTokenUsage(usage)) continue;
+    tokenBreakdown ??= {
+      billedTokens: 0, rawTokens: 0, inputTokens: 0, outputTokens: 0,
+      cacheCreationTokens: 0, cacheReadTokens: 0, cacheReadWeight: CACHE_READ_TOKEN_WEIGHT,
+    };
+    const counts = readTokenCounts(usage);
+    for (const [key, value] of Object.entries(counts)) tokenBreakdown[key] += value;
+    tokenBreakdown.billedTokens += computeBilledTokens(usage);
+    tokenBreakdown.rawTokens += computeRawTokens(usage);
+  }
   return {
     exitCode: r.exitCode, timedOut: r.timedOut, model: t.inits[0]?.model ?? null, toolCalls: t.toolUses.length,
     turns: t.results.reduce((n, x) => n + (x.numTurns ?? 0), 0) || null,
-    tokens: used.length ? used.reduce((n, { usage: u }) => n + (u.input_tokens ?? 0) + (u.output_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0), 0) : null,
+    tokens: tokenBreakdown?.billedTokens ?? null, tokenBreakdown,
   };
 }
 
@@ -391,6 +428,7 @@ export async function runExamQuestion({
   writeJson(path.join(dir, 'observation.json'), {
     runId, questionId: question.id, solver: how, isolation: !sandboxed ? (skip ? 'none' : 'in-process') : profile ? 'seatbelt' : 'process-cwd',
     exitCode: solved.exitCode ?? null, timedOut: Boolean(solved.timedOut), error, cost, overBudget,
+    tokenBreakdown: sandboxed ? (solved.tokenBreakdown ?? null) : null,
     transcript: fs.readdirSync(path.join(dir, 'transcript')).sort(), startedAt: startedAt.toISOString(), endedAt,
   });
   const result = {

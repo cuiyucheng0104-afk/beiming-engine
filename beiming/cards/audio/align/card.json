@@ -50,6 +50,6 @@
     { "symptom": "hits 找到的重击比听到的少", "fix": "能量不到最响那一下 hitFloor 倍的不算；调小 hitFloor，或者锚点直接写 sourceSec" }
   ],
   "provenance": { "cases": [], "note": "正片时刻 = 偏移 + 拉伸比 × 配乐时刻，两个锚点解出两个未知数；找重击时每个声道各自低通、平方之后再平均；重采样是线性插值；剪接的接缝在 ±20 毫秒里挑归一化互相关最大的位置再线性交叉淡化" },
-  "status": [{ "level": "reproduced", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-22" }],
+  "status": [{ "level": "measured", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-25", "parityReport": "sha256:e42268d4984d59681b3313c77822a2f5c87aa06ad20432b4afa8447911464fec" }],
   "exams": ["5-1"]
 }

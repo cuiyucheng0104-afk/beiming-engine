@@ -18,6 +18,6 @@
   "verify": { "selftest": "三个不同包围盒与手算距离差小于一微米；斜视角独立投影的八角都在框内且极值角贴边；整圈可复用同一距离", "predicates": [] },
   "pitfalls": [{ "symptom": "转到侧面时裁切主体", "fix": "先用 view=orbit 求出整圈共用的 distance 与 target，把它们交给相同仰角与视场角的 camera.orbit；不同相机轨道不要同时写入宿主" }, { "symptom": "留白方向与预期相反", "fix": "margin 是可占的屏幕比例，不是留白比例；越小留白越多" }],
   "provenance": { "cases": [], "note": "由八个透视投影角点的不等式直接反解，不用包围球近似" },
-  "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-23" }],
+  "status": [{ "level": "measured", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-25", "parityReport": "sha256:c651a1d82b475007fb84a6471a36b11cf6a8c699831cba119027b3debaff90e6" }],
   "exams": ["28-1", "cal:camera.fit"]
 }

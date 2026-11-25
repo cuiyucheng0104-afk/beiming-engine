@@ -82,13 +82,13 @@ test('T6-2 time.cut-grid 27-1 切点 100% 是 12 的倍数，且三张旁白/字
   assert.ok([...frames, end].every(multipleOf(12)), `有切点不在 12 帧的网格上：${frames}`);
 });
 
-test('T6-3 每张卡：类别、落点、形状和任务书一致，入口和自测在卡目录里，状态 reproduced，挂着考题，对外只有一个卡入口', async () => {
+test('T6-3 每张卡：类别、落点、形状和任务书一致，入口和自测在卡目录里，状态有 reproduced 或 measured，挂着考题，对外只有一个卡入口', async () => {
   for (const [id, cardPath] of T6_CARD_PATHS) {
     const card = readJson(cardPath), [impl] = card.impl, [kind, livesIn, shape, exams] = T6_SPEC[id], dir = `cards/${path.relative(HERE, path.dirname(cardPath)).split(path.sep).join('/')}`;
     assert.deepEqual([card.kind, card.livesIn, card.impl.length, impl.livesIn, impl.shape, card.visibleToAgent, card.version], [kind, [livesIn], 1, livesIn, shape, true, '1.0.0'], id);
     assert.ok(impl.entry.startsWith(`${dir}/`) && impl.selftest === `${dir}/selftest.test.mjs`, `${id} 的入口和自测在卡目录里`);
     assert.ok(fs.existsSync(path.join(HERE, '..', impl.entry)) && fs.existsSync(path.join(HERE, '..', impl.selftest)), `${id} 的入口和自测文件在`);
-    assert.ok(card.status.some((s) => s.level === 'reproduced'), id);
+    assert.ok(card.status.some((s) => ['reproduced', 'measured'].includes(s.level)), id);
     for (const exam of exams) assert.ok(card.exams.includes(exam), `${id} 挂着 ${exam}`);
     const exported = Object.keys(await import(pathToFileURL(path.join(HERE, '..', impl.entry)))).filter((k) => ['create', 'evaluate'].includes(k));
     assert.deepEqual(exported, [shape], id);

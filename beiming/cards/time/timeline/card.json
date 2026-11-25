@@ -80,11 +80,12 @@
   },
   "status": [
     {
-      "level": "reproduced",
+      "level": "measured",
       "host": "kernel-eval",
       "source": "0.1.0",
       "gpu": "none",
-      "date": "2026-11-21"
+      "date": "2026-11-25",
+      "parityReport": "sha256:732ebd88b7a2804b01dc92c0707173fc9d872f74df4b35d97815ea42d568c5cc"
     }
   ],
   "exams": [

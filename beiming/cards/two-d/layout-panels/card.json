@@ -33,6 +33,6 @@
   "verify": { "selftest": "从实际合成的 1080 × 1350 画面读取两个 1080 × 608 面板及居中 4 像素分隔线的十二条边和分隔线颜色；另验奇数余量、网格、中心裁切和逐帧独立。", "predicates": [] },
   "pitfalls": [{ "symptom": "某格的边沿比另一格多 1 像素", "fix": "扣除边距与中缝后的可用像素不能整除；若要严格等大，调整画幅、边距或中缝使它整除。" }],
   "provenance": { "cases": [], "note": "按整数商和余数分配格子；显示空间逐行复制，不经采样器。" },
-  "status": [{ "level": "reproduced", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-23" }],
+  "status": [{ "level": "measured", "host": "node", "source": "24.13.1", "gpu": "none", "date": "2026-11-25", "parityReport": "sha256:be2a8693f85188a1337d9a7edb102bc4398c62534ba2add0ecd0e5185bae2890" }],
   "exams": ["29-1"]
 }
