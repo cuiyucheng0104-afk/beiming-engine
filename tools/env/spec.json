@@ -1023,6 +1023,16 @@
       ]
     },
     {
+      "name": "BEIMING_FLOORGATE_BASE",
+      "group": "测试与 CI（tools/run-tests、tools/check-all）",
+      "purpose": "npm run check 的「阈值与回归集」一步拿来取 merge-base 的基准；CI 推到 main 时设成推之前的提交，全零的提交号当没设",
+      "default": "origin/main",
+      "readBy": [
+        "tools/check-all.mjs",
+        "beiming/verify/floorguard.mjs"
+      ]
+    },
+    {
       "name": "BEIMING_EVAL_ROOT",
       "group": "评测（tools/eval）",
       "purpose": "评测根：每次运行的被测检出、会话记录与报告都在这里；必须在仓库外，且各级上级目录里没有 CLAUDE.md、AGENTS.md（见 evals/agent/README.md「会话隔离」）；--root 优先",

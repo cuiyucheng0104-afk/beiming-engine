@@ -18,6 +18,7 @@
 - 新增拼装烘焙器（S13）与 `assembly.dsl` 技术卡（T9）：七种步骤可在渲染前烘成确定性的零件刚体矩阵，支持按从属子树调整装配；渲染时只读位姿，不再求碰撞。见[拼装烘焙接口](beiming/sources/blender/DETAILS.md#拼装烘焙)。
 - 新增 Blender 草稿档与终稿档对拍（S14），逐项比较基础谓词、角色包围盒和 AgX 显示亮度分位，定位跨档超差的帧、实体和分位。
 - Blender 卡库新增 `light.studio` 与 `mat.library`（M3 T13）：六套棚光随主体尺寸重算灯位、灯面和功率，21 种无 UV 硬表面材质可按对象名或通配符批量绑定。
+- 验收模块新增「噪声地板乘 k」的门（`beiming/verify/floorgate.mjs`）：核心对 Cycles 的 HDR-FLIP 平均值不超过 k 乘参考包 `floor` 里 Cycles 换种子的 FLIP 平均值即判过，k 取 1.25；`floor` 没有填全时判「未定线」，不判过。k、Welch 的 α 与种子数写死在 `floor-gate.json`，调用方传不进来；回归集登记在 `regress-set.json`。`npm run check` 新增「阈值与回归集」一步，运行 merge-base 上那一份 `beiming/verify/floorguard.mjs`：阈值文件、`GATES.md`、门与合并门本身有改动时，本 PR 必须新加一条对上改动前后哈希的签字；回归集和签字记录只许追加；第 2 级的数学门须与阈值文件一致。基准默认 `origin/main`，可用 `BEIMING_FLOORGATE_BASE` 指定，推到 main 时 CI 用推送之前的提交。`GATES.md` 第 7 节的签字形式由此定下。详见 `beiming/verify/DETAILS.md`。
 - 新增团队片收获模块 `beiming/harvest`（M3 H1–H4）。通过基础谓词且已渲染读回的片子可起草模块卡、检查、参数先验和 L1 规则。待审队列按不同片号记录复用，候选卡对检索隐藏。第二部片复用后，独立会话可凭自测、校准、纯函数门和已确认单位将卡晋升至 `reproduced`，队列统计可直接送入看板。
 - Blender 卡库新增 M3 两张资产卡（T11）。`asset.bbox-proxy` 检查零件是否越界、尺寸是否偏离规格以及让位间隙是否达标。`asset.stl-kit` 读取二进制与 ASCII STL，统一为北冥 +Y 向上米制，并生成资产清单和四视图机位。两张卡都能用具名代理盒补齐缺件，让镜头继续出帧并记录代理数量。
 - 感知模块新增 `luma.percentile` 与 `cut.ghost`（O9），可从内存帧或编码成片定位曝光跳变和跨切点重影。验收模块启用 13 个 M3 谓词（V12/V13），覆盖穿插与接触、静止、取景、过曝、焦点、特效可见度、切镜与编码后读回；新增 `template:assembly@1`（V7），在冻结的 `floor@1` 之外核对拼装片。详见 `beiming/observe/DETAILS.md` 和 `beiming/verify/DETAILS.md`。

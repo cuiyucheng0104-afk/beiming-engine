@@ -130,6 +130,8 @@ jobs:
       - name: 检查（= npm run check -- --skip tests）
         env:
           BEIMING_PY: ${{ steps.py.outputs.python-path }}
+          # 推到 main 时 origin/main 就是 HEAD，阈值与回归集那一步要和推之前的提交比；PR 留空，用 origin/main
+          BEIMING_FLOORGATE_BASE: ${{ github.event_name == 'push' && github.event.before || '' }}
         run: node tools/check-all.mjs --skip tests --report out/ci/check.json
       - name: 上传检查报告
         if: always()

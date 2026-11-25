@@ -1,0 +1,15 @@
+{
+  "format": "beiming.verify.regress-set/1",
+  "items": [
+    { "id": "level1.fncheck", "level": 1, "runner": "beiming/sources/core/fncheck/run.mjs", "count": 81 },
+    { "id": "level2.furnace-metal", "level": 2, "runner": "beiming/sources/core/chassis/level2.mjs", "count": 22 },
+    { "id": "level2.furnace-principled", "level": 2, "runner": "beiming/sources/core/chassis/level2.mjs", "count": 14 },
+    { "id": "level2.furnace-principled-f0", "level": 2, "runner": "beiming/sources/core/chassis/level2.mjs", "count": 7 },
+    { "id": "level2.analytic", "level": 2, "runner": "beiming/sources/core/chassis/level2.mjs" },
+    { "id": "level2.mirror", "level": 2, "runner": "beiming/sources/core/chassis/level2.mjs" },
+    { "id": "level2.edge", "level": 2, "runner": "beiming/sources/core/chassis/level2.mjs" },
+    { "id": "level2.imaging-knife", "level": 2, "runner": "beiming/sources/core/chassis/imaging.mjs", "count": 7 },
+    { "id": "level2.imaging-clamp", "level": 2, "runner": "beiming/sources/core/chassis/imaging.mjs", "count": 8 },
+    { "id": "level2.imaging-negative", "level": 2, "runner": "beiming/sources/core/chassis/imaging.mjs", "count": 7 }
+  ]
+}
