@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
 import { readFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { serialize } from 'node:v8';
 import { test } from 'node:test';
 import { launchBrowser } from '../../../engine/render/lib/gpu.mjs';
 import { loadCards, startServer } from '../../host/page/host.mjs';
@@ -61,9 +61,23 @@ test('镜头状态按绝对时钟求值：乱序拍回包含粒子历史的同�
   const { samplePostState } = await import('./fire-breath/pipeline.js');
   const frames = [2796, 2820, 2856, 2882],
     seq = new Map();
+  // 按 IEEE-754 64 位位型与二进制视图逐位规范化，避免 v8.serialize 受 Smi/HeapNumber 隐藏类升级影响。
+  const f64 = new Float64Array(1);
+  const u64 = new BigUint64Array(f64.buffer);
+  const canonical = (value) =>
+    JSON.stringify(value, (_key, item) => {
+      if (typeof item === 'number') {
+        f64[0] = item;
+        return `f64:${u64[0].toString(16).padStart(16, '0')}`;
+      }
+      if (ArrayBuffer.isView(item)) {
+        return `bin:${item.constructor.name}:${Buffer.from(item.buffer, item.byteOffset, item.byteLength).toString('hex')}`;
+      }
+      return item;
+    });
   const digest = (f) =>
     createHash('sha256')
-      .update(serialize([sampleFrame(f, 0.25, {}), samplePostState(f, 0.25, {})]))
+      .update(canonical([sampleFrame(f, 0.25, {}), samplePostState(f, 0.25, {})]))
       .digest('hex');
   for (let f = 2790; f < 2886; f++) {
     const hash = digest(f);
