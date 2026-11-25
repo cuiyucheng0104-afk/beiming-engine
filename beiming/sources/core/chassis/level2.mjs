@@ -468,12 +468,12 @@ const NEGATIVE = [
   },
   {
     target: 'mis_origin', name: '接线：材质采样打到矩形纯光时从沿法线挪开的射线起点算（两侧的权重配不平）',
-    inject: { file: 'path/shaders/integrator.wgsl', from: 'bm_rect_hits(state.legacy.bm_x, ray.D,', to: 'bm_rect_hits(ray.P, ray.D,' },
+    inject: { file: 'path/shaders/integrator.wgsl', from: 'bm_rect_hits(state.mis_origin_P, ray.D,', to: 'bm_rect_hits(ray.P, ray.D,' },
     run: async bin => analytic(bin, { geoms: [NEAR] }), fine: true, gate: GATES.analyticFloor, near: 2.0e-4,
   },
   {
     target: 'mis_occluder', name: '接线：材质采样打到矩形纯光时遮挡距离直接拿 hit.t 比（灯紧贴背后的面时这一侧整份丢掉）',
-    inject: { file: 'path/shaders/integrator.wgsl', from: 'select(hit.t / 0.999, INF, hit.tri == 0xffffffffu)', to: 'select(hit.t, INF, hit.tri == 0xffffffffu)' },
+    inject: { file: 'path/shaders/integrator.wgsl', from: 'select(hit.t + dot(ray.P - state.mis_origin_P, ray.D), INF, hit.tri == 0xffffffffu)', to: 'select(hit.t, INF, hit.tri == 0xffffffffu)' },
     run: async bin => analytic(bin, { seeds: ANALYTIC.seeds.slice(0, 8), geoms: [PLATE] }), fine: true, gate: GATES.analyticFloor, near: -1.48e-3,
   },
   // 原理化 BSDF 的接线：电介质高光、层间权重、漫反射、多闭包选择、自发光各改错一项

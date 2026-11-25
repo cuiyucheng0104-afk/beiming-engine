@@ -267,11 +267,12 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `visibility` | u32 | 这一段光线的可见类 `PATH_RAY_VISIBILITY_*` | `main` 开头、`path_state_next` | 已写未读（只有骨架） |
 | `mis_ray_object` | u32 | 上一个散射点所在的物体（物体表的下标）；介质散射记 `OBJECT_NONE` | 主循环 | 已写未读 |
 | `first_hit_object` | u32 | 相机射线首次命中的物体（物体表的下标）；没打到表面（含在介质里先散射了）记 `OBJECT_NONE`。覆盖率用：`film_write_sample` 读它的实体编号 | `main` 开头、主循环第 0 个顶点；只在要辅助层的变体（编译开关 `aux`）里写 | 已落地（1.1.0 加） |
+| `mis_origin_P` | vec3 | 上一个散射点本身（没有沿法线挪开；介质散射处就是散射点）：材质采样的射线打到矩形纯光时从它算命中与概率密度、打到发光三角时从它算灯光树的选灯概率，与光源采样一侧用同一个点。Cycles 没有这个字段（它不挪射线起点，`ray.P` 就是这个点），名字照 `mis_origin_n` 取 | 主循环（表面弹射与介质散射）、`volume.wgsl` | 已落地（1.2.2 加，替掉上游的 `legacy.bm_x` 与 `legacy.mis_x`） |
 | `legacy` | `PathLegacy` | 上游的路径状态，照 Cycles 没有对应 | 各处 | 已落地，对应功能移植后删 |
 
 已登记、还没加的字段（加字段不算破坏，这里只占名字）：`pass_diffuse_weight`、`pass_glossy_weight`（分通道对拍用）、`denoising_feature_throughput`（降噪特征用）。
 
-`PathLegacy` 里现在有：`behind_glass`、`bent`、`straight`、`mirror_path`、`bm_surf`、`rays_off`、`split_frac`、`dl_spec`、`sampled_spec`、`sampled_trans`、`mis_x`、`mis_n`、`dl_det`、`dl_det_spec`、`shadow_hole`、`nee_alone`、`lights_only`、`rng_path`、`bm_x`（这一段射线出发的着色点本身，没有沿法线挪开；材质采样打到矩形纯光时从它算命中与概率密度，与光源采样一侧用同一个点）。没有并进来的上游私有量不是路径状态：求交里过程几何的调用上下文（`gdata_first`、`gdata_count`、`media_voxels`）、灯光瓦片的每像素状态（`lt_list`、`lt_list_n`、`lt_fb`）、循环守卫的计数。
+`PathLegacy` 里现在有：`behind_glass`、`bent`、`straight`、`mirror_path`、`bm_surf`、`rays_off`、`split_frac`、`dl_spec`、`sampled_spec`、`sampled_trans`、`mis_n`、`dl_det`、`dl_det_spec`、`shadow_hole`、`nee_alone`、`lights_only`、`rng_path`（1.2.2 起 `bm_x`、`mis_x` 并成正式字段 `mis_origin_P`）。没有并进来的上游私有量不是路径状态：求交里过程几何的调用上下文（`gdata_first`、`gdata_count`、`media_voxels`）、灯光瓦片的每像素状态（`lt_list`、`lt_list_n`、`lt_fb`）、循环守卫的计数。
 
 `path_state_next(label)` 在每次弹射之后更新路径状态，照 Cycles 的同名函数，**现在只有骨架**：下一段光线的可见类与随机维度的偏移。分类计数、各类弹射上限、其余路径标志位归移植闭包的人照 Cycles 补。`PATH_RAY_MIS_SKIP` 在主循环里设与清：相机射线、上游顶替的穿过光滑玻璃，以及（1.2.0 起）移植的闭包采到的奇异一瓣（`LABEL_SINGULAR`，照 Cycles `path_state_next` 的 `PATH_RAY_SINGULAR | PATH_RAY_MIS_SKIP`）之后设，别的弹射清。
 

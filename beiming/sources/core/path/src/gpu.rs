@@ -2712,7 +2712,7 @@ mod tests {
         };
         assert_eq!(
             members("PathState"),
-            ["render_pixel_index", "sample", "bounce", "diffuse_bounce", "glossy_bounce", "transmission_bounce", "transparent_bounce", "rng_pixel", "rng_offset", "flag", "mis_ray_pdf", "min_ray_pdf", "continuation_probability", "throughput", "visibility", "mis_ray_object", "first_hit_object", "legacy"]
+            ["render_pixel_index", "sample", "bounce", "diffuse_bounce", "glossy_bounce", "transmission_bounce", "transparent_bounce", "rng_pixel", "rng_offset", "flag", "mis_ray_pdf", "min_ray_pdf", "continuation_probability", "throughput", "visibility", "mis_ray_object", "first_hit_object", "mis_origin_P", "legacy"]
         );
         let mut ray = members("Ray");
         ray.sort();
@@ -2725,6 +2725,8 @@ mod tests {
             ("state.min_ray_pdf = min(pdf, state.min_ray_pdf);", 1),
             ("state.min_ray_pdf = min(state.mis_ray_pdf, state.min_ray_pdf);", 1),
             ("state.mis_ray_object = sd.object;", 1),
+            ("state.mis_origin_P = sd.P;", 1),
+            ("state.mis_origin_P = x;", 3),
             ("path_state_next(bs.label);", 1),
             ("path_state_next(LABEL_VOLUME_SCATTER);", 1),
             ("state.visibility = visibility;", 1),

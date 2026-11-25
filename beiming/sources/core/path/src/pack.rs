@@ -1133,6 +1133,9 @@ pub fn read_glb(bytes: &[u8], meshes: &[Mesh]) -> R<(Vec<world::Geometry>, usize
 /// 上面的式子有前提：Blender 一侧同步给 Cycles 的 strength = 灯色 × energy × 2^exposure（开色温时还乘色温色），所以这里
 /// 假定灯的曝光为 0、不开色温、normalize 开、面光是矩形（不是圆、椭圆）、灯矩阵不带缩放（Cycles 的面积会乘缩放）。
 /// 这些前提由导出器保证，读入器不查。
+/// 平行光的张角（全角，度）：场景包契约没有这个字段，取 Blender 新建灯的默认值（DNA_light_types.h 的 `sun_angle = DEG2RADF(0.526f)`）。
+pub const SUN_ANGLE_DEG: f32 = 0.526;
+
 pub fn kernel_light(l: &Light, watts: f64) -> desc::Light {
     let color = l.color.map(|c| c as f32);
     match l.kind {
@@ -1149,7 +1152,7 @@ pub fn kernel_light(l: &Light, watts: f64) -> desc::Light {
             visible: l.visible,
         },
         LightKind::Point { .. } => desc::Light::Point { color, cast_shadow: true, intensity: (watts / (4.0 * std::f64::consts::PI)) as f32, radius: 0.0, range: 0.0, volumetric_scattering: 1.0, specular_scale: 1.0 },
-        LightKind::Sun { irradiance, .. } => desc::Light::Directional { color, cast_shadow: true, intensity: irradiance as f32, angular_diameter: 0.0, volumetric_scattering: 1.0, specular_scale: 1.0 },
+        LightKind::Sun { irradiance, .. } => desc::Light::Directional { color, cast_shadow: true, intensity: irradiance as f32, angular_diameter: SUN_ANGLE_DEG, volumetric_scattering: 1.0, specular_scale: 1.0 },
     }
 }
 

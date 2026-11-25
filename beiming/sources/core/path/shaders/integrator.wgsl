@@ -81,9 +81,8 @@ struct PathLegacy {
     sampled_spec: bool,
     // The last BSDF sample went through the surface (glass: refraction, a delta lobe).
     sampled_trans: bool,
-    // Where the last vertex sampled emitters (its point and normal, 0 = none: fog): a BSDF ray's emitter hit weighs
-    // its MIS by the light tree's pmf there (emit_mis).
-    mis_x: vec3<f32>,
+    // Where the last vertex sampled emitters: its normal (0 = none: fog), with which a BSDF ray's emitter hit weighs its
+    // MIS by the light tree's pmf there (emit_mis). （点是正式字段 state.mis_origin_P）
     mis_n: vec3<f32>,
     // At camera hits, the direct light from directional lights (the sun: a tiny disk, so nearly deterministic) and its
     // specular part: the live viewport keeps it in a signal of its own (no denoiser; short history while things
@@ -102,9 +101,6 @@ struct PathLegacy {
     lights_only: bool,
     // 上游随机数编号里的「这次调用的第几条路径」，离线恒为 0。编号换成按 rng_offset 之后只剩实时那一支的 rng_white 读它
     rng_path: u32,
-    // 这一段射线出发的着色点本身（没有沿法线挪开）。bm_rect_hits 从它算矩形纯光的命中与概率密度：光源采样一侧
-    // 也是从着色点本身算的，两侧要用同一个点，多重重要性采样的权重才配得平（Cycles 不挪射线起点，没有这个问题）
-    bm_x: vec3<f32>,
 };
 
 struct PathState {
@@ -128,6 +124,9 @@ struct PathState {
     mis_ray_object: u32,            // 上一个散射点所在的物体（物体表的下标；灯光链接用）。已写未读
     first_hit_object: u32,          // 相机射线首次命中的物体（物体表的下标），没打到表面：OBJECT_NONE。覆盖率用（film.wgsl 的
                                     // film_write_sample 拿它的实体编号与辅助样本的比）。已落地（只在编译开关 aux 的变体里写）
+    mis_origin_P: vec3<f32>,        // 上一个散射点本身（没有沿法线挪开；介质散射处就是散射点）：材质采样的射线打到矩形纯光时从它算
+                                    // 命中与密度，打到发光三角时从它算灯光树的选灯概率，与光源采样一侧用同一个点。Cycles 没有这个
+                                    // 字段（它不挪射线起点，ray.P 就是这个点），名字照 mis_origin_n 取。已落地
     legacy: PathLegacy,             // 上游的状态，见上
 };
 
@@ -364,6 +363,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 state.mis_ray_pdf = hg_phase(tk.g, dot(nd, ray.D));
                 state.min_ray_pdf = min(state.mis_ray_pdf, state.min_ray_pdf);
                 state.mis_ray_object = OBJECT_NONE;
+                state.mis_origin_P = x;
                 path_state_next(LABEL_VOLUME_SCATTER);
                 state.legacy.bm_surf = false;
                 state.flag &= ~PATH_RAY_MIS_SKIP;
@@ -385,16 +385,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             }
         }
         if (!LIVE && state.legacy.bm_surf) {
-            // （遮挡距离 hit.t 是从挪开的起点量的，灯距从着色点本身量，两个起点不同，不能直接比。光源采样一侧的阴影
-            // 射线从挪开的起点打、长度取灯距乘 0.999，在这之内没有遮挡物就算照得到；这里用同一条判法：hit.t 除以
-            // 0.999 再与灯距比。直接拿 hit.t 比的话，灯紧贴背后的面时这一侧会把灯判成被挡住，两侧权重加不到 1。）
-            var c = state.throughput * bm_rect_hits(state.legacy.bm_x, ray.D, select(hit.t / 0.999, INF, hit.tri == 0xffffffffu), state.mis_ray_pdf);
-            if (depth > 1u && !state.legacy.straight) {
-                let lum = luminance(c);
-                if (lum > clamp_v) { c *= clamp_v / lum; }
-            }
-            @if(sample_clamp) c = film_clamp_contribution(c, i32(depth) - 1);
-            film_add_light(c, depth, LIGHTGROUP_NONE);
+            // （遮挡距离 hit.t 是从挪开的起点 ray.P 量的，灯距从着色点本身 mis_origin_P 量。光源采样一侧的阴影射线从挪开的
+            // 起点打到灯上那一点为止；这里换成同一条判法：遮挡物离着色点本身的距离是 hit.t 加上两个起点之差在方向上的分量。
+            // 直接拿 hit.t 比的话，灯紧贴背后的面时这一侧会把灯判成被挡住，两侧权重加不到 1。逐盏写进颜色与灯组，见 bm_rect_hits）
+            bm_rect_hits(state.mis_origin_P, ray.D, select(hit.t + dot(ray.P - state.mis_origin_P, ray.D), INF, hit.tri == 0xffffffffu), state.mis_ray_pdf);
         }
         if (hit.tri == 0xffffffffu) {
             // 北冥：背景对相机不可见（P.integrator.background_transparent）时，相机射线什么都没打到的样本不透明度与颜色都记 0
@@ -404,7 +398,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 film_sample.L = vec3<f32>(0.0);
                 break;
             }
-            var c = state.throughput * sky_mis(ray.D, select(0.0, state.mis_ray_pdf, depth > 0u && !state.legacy.bent));
+            let sky_pdf = select(0.0, state.mis_ray_pdf, depth > 0u && !state.legacy.bent);
+            // 平行光的盘：逐盏写进颜色与灯组（sun_disks），不进 c
+            if (sky_pdf > 0.0) { sun_disks(ray.D, sky_pdf); }
+            var c = state.throughput * sky_mis(ray.D, sky_pdf);
             if (depth > 1u && !state.legacy.straight) {
                 let lum = luminance(c);
                 if (lum > clamp_v) { c *= clamp_v / lum; }
@@ -552,7 +549,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             if (path_rng_1D(PRNG_TERMINATE) > state.continuation_probability) { break; }
             state.throughput /= state.continuation_probability;
         }
-        state.legacy.bm_x = sd.P;
+        state.mis_origin_P = sd.P;
         ray.P = offset_origin(sd.P, select(sd.Ng, -sd.Ng, dot(l, sd.Ng) < 0.0));
         ray.D = l;
     }

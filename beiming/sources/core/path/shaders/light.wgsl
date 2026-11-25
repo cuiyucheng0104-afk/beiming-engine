@@ -220,22 +220,26 @@ fn sky_mis(d: vec3<f32>, pdf: f32) -> vec3<f32> {
     }
     var c = env_radiance(d) * wgt;
     if (has(F_AERIAL) && pdf <= 0.0) { c = aerial_light(d); }
-    if (pdf > 0.0) { c += sun_disks(d, pdf); }
     return c;
 }
 
-// The directional lights' disks a BSDF ray (pdf `pdf`) falls in, MIS-weighted against their cones' sampling.
-fn sun_disks(d: vec3<f32>, pdf: f32) -> vec3<f32> {
-    var c = vec3<f32>(0.0);
+// 北冥：材质采样的射线（概率密度 pdf > 0，不是相机射线）逃逸时落进的平行光的盘：照 Cycles 的 integrate_sun_lights
+// （kernel/integrator/shade_background.h:169-246）逐盏算，只认做多重重要性采样的灯（张角大于 0），求值照
+// sun_light_eval_from_intersection（../../shaders/area_light.wgsl），权重照 light_sample_mis_weight_forward_distant
+// （PATH_RAY_MIS_SKIP 时取 1），逐盏写进颜色与它的灯组（film_add_forward）。半角与概率密度由记录里的 one_minus_cosangle 现算
+// （宿主 scene/light.cpp 存 sun.angle、sun.pdf，这里少存两格）。
+fn sun_disks(d: vec3<f32>, pdf: f32) {
     for (var i = 0u; i < P.counts2.x; i++) {
         let li = light_at(i);
-        if (dot(d, -li.dir.xyz) >= li.dir.w) {
-            let omega = 2.0 * PI * (1.0 - li.dir.w);
-            // （PATH_RAY_MIS_SKIP 时照 Cycles 的 light_sample_mis_weight_forward_distant 转到的 light_sample_mis_weight_forward_lamp（light/sample.h:531）取权重 1）
-            c += (li.color.rgb / omega) * select(power_heuristic(pdf, 1.0 / omega), 1.0, (state.flag & PATH_RAY_MIS_SKIP) != 0u);
-        }
+        if ((li.cy.w & SHADER_USE_MIS) == 0u) { continue; }
+        let one_minus_cosangle = bitcast<f32>(li.cy.y);
+        let angle = 2.0 * asin(sqrt(0.5 * one_minus_cosangle));
+        let e = sun_light_eval_from_intersection(li.dir.xyz, angle, bitcast<f32>(li.cy.x), M_1_2PI_F / one_minus_cosangle, d);
+        if (e.eval_fac == 0.0) { continue; }
+        let c = li.color.rgb * e.eval_fac;
+        if (all(c == vec3<f32>(0.0))) { continue; }
+        film_add_forward(c * select(power_heuristic(pdf, e.pdf), 1.0, (state.flag & PATH_RAY_MIS_SKIP) != 0u), light_lightgroup(li));
     }
-    return c;
 }
 
 // What light sampling reads of an emitter's attributes (UVs, material, object, texel density), as shading has them
@@ -265,7 +269,7 @@ fn emit_mis(hit: Hit, d: vec3<f32>, pdf: f32) -> f32 {
     let cos_l = abs(dot(normalize(cr), d));
     if (lt_on()) {
         // The light tree's pmf where the ray left (the vertex that sampled emitters), per area of the hit triangle.
-        let sel = emitter_sel(entry - 1u, em, ha, state.legacy.mis_x, state.legacy.mis_n);
+        let sel = emitter_sel(entry - 1u, em, ha, state.mis_origin_P, state.legacy.mis_n);
         if (!(sel > 0.0)) { return 1.0; }
         return power_heuristic(pdf, sel / max(area, 1e-12) * hit.t * hit.t / max(cos_l, 1e-6));
     }
@@ -334,23 +338,24 @@ fn bm_rect_sample(li: Light, x: vec3<f32>, u: vec2<f32>) -> LS {
     return LS(bm_rect_le(li, r) * (ls.eval_fac / ls.pdf), ls.D, ls.D, ls.t, ls.pdf);
 }
 
-// 表面顶点按材质采样的方向 d（立体角概率密度 pdf_b）在 t_hit 之前打到的矩形纯光，按多重重要性采样加权。
-// o 是着色点本身，不是沿法线挪开之后的射线起点：光源采样一侧（bm_rect_sample）从着色点本身算，两侧要用同一个点。
+// 表面顶点按材质采样的方向 d（立体角概率密度 pdf_b）在 t_hit 之前打到的矩形纯光：照 Cycles 的 integrate_light_forward
+// （kernel/integrator/shade_light.h:19-76）逐盏算，只认做多重重要性采样的灯（light.h:260），权重照
+// light_sample_mis_weight_forward_lamp（light/sample.h:522-560；选灯概率按 1，同光源一侧），逐盏写进颜色与灯组（film_add_forward）。
+// o 是着色点本身，不是沿法线挪开之后的射线起点：光源采样一侧从着色点本身算，两侧要用同一个点。
 // 灯不挡光，射线照常往前走；不投影的灯在光源一侧不查遮挡，这一侧也不查。
-fn bm_rect_hits(o: vec3<f32>, d: vec3<f32>, t_hit: f32, pdf_b: f32) -> vec3<f32> {
-    var c = vec3<f32>(0.0);
+fn bm_rect_hits(o: vec3<f32>, d: vec3<f32>, t_hit: f32, pdf_b: f32) {
     for (var i = P.counts2.x; i < P.counts.x; i++) {
         let li = light_at(i);
-        if (u32(li.pos.w) != 3u || all(li.color.rgb <= vec3<f32>(0.0))) { continue; }
+        if (u32(li.pos.w) != 3u || all(li.color.rgb <= vec3<f32>(0.0)) || (li.cy.w & SHADER_USE_MIS) == 0u) { continue; }
         let r = bm_rect(li);
         let h = area_light_intersect(o, d, 0.0, select(t_hit, INF, li.ext.w < 0.5), li.pos.xyz, r.u, r.len_u, r.v, r.len_v, li.dir.xyz, r.invarea);
         if (!h.hit) { continue; }
         let e = area_light_eval_from_intersection(o, d, h.t, li.pos.xyz, r.u, r.len_u, r.v, r.len_v, li.dir.xyz, r.invarea);
         if (!(e.pdf > 0.0)) { continue; }
-        // （PATH_RAY_MIS_SKIP 时照 Cycles 的 light_sample_mis_weight_forward_lamp（light/sample.h:531）取权重 1）
-        c += bm_rect_le(li, r) * e.eval_fac * select(power_heuristic(pdf_b, e.pdf), 1.0, (state.flag & PATH_RAY_MIS_SKIP) != 0u);
+        // （PATH_RAY_MIS_SKIP 时照 Cycles 取权重 1）
+        let w = select(power_heuristic(pdf_b, e.pdf), 1.0, (state.flag & PATH_RAY_MIS_SKIP) != 0u);
+        film_add_forward(bm_rect_le(li, r) * e.eval_fac * w, light_lightgroup(li));
     }
-    return c;
 }
 
 // Point / spot light seen from x: punctual intensity x attenuation (unshadowed), direction to the light centre `l`,
@@ -825,6 +830,18 @@ fn film_add_direct(c: vec3<f32>, lightgroup: u32) {
     film_add_light(dl, state.bounce, lightgroup);
 }
 
+// 材质采样的射线在路上打到的一盏灯（已乘 MIS 权重，没乘通量）写进颜色与它的灯组：乘通量，照积分器路上找到的发光一处的规矩
+// 夹取（弹射数用这一段射线的顶点号减 1，照 Cycles 的 film_write_surface_emission），再 film_add_light。
+fn film_add_forward(c: vec3<f32>, lightgroup: u32) {
+    var e = state.throughput * c;
+    if (state.bounce > 1u && !state.legacy.straight) {
+        let lum = luminance(e);
+        if (lum > P.misc.x) { e *= P.misc.x / lum; }
+    }
+    @if(sample_clamp) e = film_clamp_contribution(e, i32(state.bounce) - 1);
+    film_add_light(e, state.bounce, lightgroup);
+}
+
 // 北冥：参数从 (Surface, Lobes, 视线) 换成着色点。
 // 移植的闭包上，平行光与本地灯（本地灯不超过 RIS_EXACT 盏时）照 Cycles 的 integrate_surface_direct_light
 // （kernel/integrator/shade_surface.h:319-487）逐盏算：每盏灯各采一次（选灯概率按 1，两侧密度都不乘它：期望与 Cycles 相同），
@@ -952,14 +969,14 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
     // alike. The tree's bound has no two-sided cosine; without one the estimate is the same, its noise a little more.)
     var ne = sd.legacy.surface.n;
     if (two_sided(sd.legacy.lobes)) { ne = vec3<f32>(0.0); }
-    state.legacy.mis_x = o;
     state.legacy.mis_n = ne;
     var emitters = P.counts.y;
     @if(light_pick) if (!take_emit) { emitters = 0u; }
     if (emitters > 0u) {
         var es: ES;
         // With the light tree its candidates are already near the point: P.ltree.y of them at camera hits, one elsewhere.
-        if (lt_on()) { es = sample_emitter_ris(o, ne, select(1u, u32(P.ltree.w), state.bounce == 0u), sd, rng_legacy(D_EMIT)); } else if (seen_directly()) { es = sample_emitter_ris(o, ne, select(EMIT_RIS_M / 2u, EMIT_RIS_M, state.bounce == 0u), sd, rng_legacy(D_EMIT)); } else if (P.light_lod.w > 0.0) { es = sample_emitter_ris(o, ne, 2u, sd, rng_legacy(D_EMIT)); } else { es = sample_emitter(o, ne, rng_legacy(D_EMIT)); }
+        // （从没挪动的着色点取：材质采样一侧 emit_mis 从 state.mis_origin_P 算选灯概率，两侧用同一个点）
+        if (lt_on()) { es = sample_emitter_ris(sd.P, ne, select(1u, u32(P.ltree.w), state.bounce == 0u), sd, rng_legacy(D_EMIT)); } else if (seen_directly()) { es = sample_emitter_ris(sd.P, ne, select(EMIT_RIS_M / 2u, EMIT_RIS_M, state.bounce == 0u), sd, rng_legacy(D_EMIT)); } else if (P.light_lod.w > 0.0) { es = sample_emitter_ris(sd.P, ne, 2u, sd, rng_legacy(D_EMIT)); } else { es = sample_emitter(sd.P, ne, rng_legacy(D_EMIT)); }
         if (es.pdf_w > 0.0) {
             let e = surface_shader_bsdf_eval_legacy(sd, es.l, 1.0);
             let f = e.eval;
