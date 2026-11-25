@@ -1,0 +1,360 @@
+{
+  "assets": {},
+  "cards": {
+    "atmo.height-fog": {
+      "impl": [
+        "source:three"
+      ],
+      "sha256": "42c782b0e9ece79ab543d70a9f528a99da04f9ce4441f1ee5e266f4400a87ed8",
+      "verified": {
+        "gpu": "apple-m5-pro",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "comp.display": {
+      "from": "style.view",
+      "impl": [
+        "comp"
+      ],
+      "sha256": "1bb230c23458c46d3fff24397fe54f765aa07a53059dde08f9de1c9b2afc5445",
+      "verified": {
+        "gpu": "none",
+        "host": "node",
+        "level": "reproduced",
+        "source": "24.13.1"
+      },
+      "version": "1.0.0"
+    },
+    "deliver.encode": {
+      "from": "delivery",
+      "impl": [
+        "comp"
+      ],
+      "sha256": "db4a08f70546181a5306f0110930a3021e4141752189cb024018cbb36b0a8f78",
+      "verified": {
+        "gpu": "none",
+        "host": "node",
+        "level": "measured",
+        "source": "24.13.1"
+      },
+      "version": "1.0.0"
+    },
+    "fx.breath": {
+      "impl": [
+        "data",
+        "source:three"
+      ],
+      "sha256": "4560071570ab6fe3a388dc67c12efa9f8b5abdb18793f6836fcabeb2cea3e710",
+      "verified": {
+        "gpu": "apple-m5-pro",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "fx.post-state": {
+      "impl": [
+        "data"
+      ],
+      "sha256": "f1803e5ceb966054a433ba917b74486bdd86bee0f61f75186039d64b748f54cc",
+      "verified": {
+        "gpu": "none",
+        "host": "kernel-eval",
+        "level": "reproduced",
+        "source": "0.1.0"
+      },
+      "version": "1.0.0"
+    },
+    "light.emit-pool": {
+      "impl": [
+        "data",
+        "source:three"
+      ],
+      "sha256": "582c7f60cde41ec30ccb3fb40c2acdde0347759b0f50ec35b226dc3c93c6dfb8",
+      "verified": {
+        "gpu": "apple-m5-pro",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "motion.impulse": {
+      "impl": [
+        "data"
+      ],
+      "sha256": "20a9122c637281c5347c36bdd9ee188245c1ea187799c15bfae7d7c7f2154983",
+      "verified": {
+        "gpu": "none",
+        "host": "kernel-eval",
+        "level": "reproduced",
+        "source": "0.1.0"
+      },
+      "version": "1.0.0"
+    },
+    "motion.roll-bank": {
+      "impl": [
+        "data"
+      ],
+      "sha256": "a2bb68634e57fa153b7c360678b2583c9ef4b7e8213c0c343e7f3b80dccb8329",
+      "verified": {
+        "gpu": "none",
+        "host": "kernel-eval",
+        "level": "reproduced",
+        "source": "0.1.0"
+      },
+      "version": "1.0.0"
+    },
+    "motion.sweep-body": {
+      "impl": [
+        "data"
+      ],
+      "sha256": "b1b48fcc02a7a8908a5971627cf01f6c73e913b9fddc4d60961f91e26e5fe6a7",
+      "verified": {
+        "gpu": "none",
+        "host": "kernel-eval",
+        "level": "reproduced",
+        "source": "0.1.0"
+      },
+      "version": "1.0.0"
+    },
+    "motion.swim": {
+      "impl": [
+        "data"
+      ],
+      "sha256": "d638f3e3362d01dada456d4a2a46a9770a8a0731b05709a49d122104063c8864",
+      "verified": {
+        "gpu": "none",
+        "host": "kernel-eval",
+        "level": "reproduced",
+        "source": "0.1.0"
+      },
+      "version": "1.0.0"
+    },
+    "particle.minpx": {
+      "impl": [
+        "source:three"
+      ],
+      "sha256": "5192ddee33eb2ce62ed4a13c48c5068cf1e347851076474067cc9e2033560e19",
+      "verified": {
+        "gpu": "apple-m5-pro",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "particle.premult": {
+      "impl": [
+        "source:three"
+      ],
+      "sha256": "d39cf4aa6bc5e48b1a96fa5683e51062c547311b91acc3282f4eb6acc623c48a",
+      "verified": {
+        "gpu": "apple-m5-pro",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "particle.soft": {
+      "impl": [
+        "source:three"
+      ],
+      "sha256": "96cd9f3955430c8011c5c953ffa2076121f8856ccfe83a1c67e7cac3e39d6379",
+      "verified": {
+        "gpu": "apple-m5-pro",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "post.ao": {
+      "impl": [
+        "source:three"
+      ],
+      "sha256": "39f804991b18b8215dc6cf5e3107253e1bf79bfe1fdfaa88557949a59cb96d61",
+      "verified": {
+        "gpu": "swiftshader",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "post.bloom": {
+      "impl": [
+        "source:three"
+      ],
+      "sha256": "c48386b3c6f0ad5a87f005d235c31bd67c59a43f75c7b3c14574fc1bb21f9a35",
+      "verified": {
+        "gpu": "apple-m5-pro",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "post.grade-cl": {
+      "impl": [
+        "source:three",
+        "comp"
+      ],
+      "sha256": "f4492272a6c70b9a0716862ff288192f520796e092e71ba2a4d90f1aab88a658",
+      "verified": {
+        "gpu": "apple-m5-pro",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "post.lens-fx": {
+      "impl": [
+        "source:three"
+      ],
+      "sha256": "7b1e06365652f4dee6a62d2d35c1613db19f8ff73a293b768b5f5caf34e47ee0",
+      "verified": {
+        "gpu": "apple-m5-pro",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "post.volumetric": {
+      "impl": [
+        "source:three"
+      ],
+      "sha256": "701322ba6b292560fc0a053053fd2fecf1d2eaea86502de72900ee280862b180",
+      "verified": {
+        "gpu": "swiftshader",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "shade.px-lod": {
+      "impl": [
+        "source:three"
+      ],
+      "sha256": "79c4c634c013e4951f7b42cf088cb2aeb8e1beefc3f77da008046469dffba623",
+      "verified": {
+        "gpu": "apple-m5-pro",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "shade.thin-line": {
+      "impl": [
+        "source:three"
+      ],
+      "sha256": "62d02ad7a4ee825cafab5daa6a39515f76b3139baf070751edfa2cbe55ece34b",
+      "verified": {
+        "gpu": "apple-m5-pro",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "three.patch": {
+      "impl": [
+        "source:three"
+      ],
+      "sha256": "e8b3d457cea956a6f44c4335e275fb7d24259af9bc0a9e363c70b8a8db00d970",
+      "verified": {
+        "gpu": "none",
+        "host": "page",
+        "level": "reproduced",
+        "source": "0.187.0"
+      },
+      "version": "1.0.0"
+    },
+    "time.bake": {
+      "impl": [
+        "data"
+      ],
+      "sha256": "f1c917c3d2be9878df58a03a3cd0f976229bb21d56ba300269e71a0c30783407",
+      "verified": {
+        "gpu": "none",
+        "host": "kernel-eval",
+        "level": "reproduced",
+        "source": "0.1.0"
+      },
+      "version": "1.0.0"
+    },
+    "time.events": {
+      "impl": [
+        "data"
+      ],
+      "sha256": "4005bf1a79b7d4e7931bf4ad2dac5cffaab25236154ea385040fd67e10f180eb",
+      "verified": {
+        "gpu": "none",
+        "host": "kernel-eval",
+        "level": "measured",
+        "source": "0.1.0"
+      },
+      "version": "1.0.0"
+    },
+    "time.seeded": {
+      "impl": [
+        "data"
+      ],
+      "sha256": "b14e991778dd2652057fa7d72998f3a39b7a7741cf96bb87e84f1543bc083a55",
+      "verified": {
+        "gpu": "none",
+        "host": "kernel-eval",
+        "level": "reproduced",
+        "source": "0.1.0"
+      },
+      "version": "1.0.0"
+    },
+    "time.timeline": {
+      "impl": [
+        "data"
+      ],
+      "sha256": "43b653f3f1a8151ecee93de0217bb9fe6ae537439cfa87ab1f8deef81b802fe6",
+      "verified": {
+        "gpu": "none",
+        "host": "kernel-eval",
+        "level": "measured",
+        "source": "0.1.0"
+      },
+      "version": "1.0.0"
+    }
+  },
+  "contracts": "0.1.0",
+  "film": "serpent-fire-breath",
+  "format": "lock/1.0",
+  "issuer": "local",
+  "seeds": {
+    "film": 0,
+    "fire-breath": 0
+  },
+  "shots": {
+    "fire-breath": {
+      "shutterSamples": 1
+    }
+  },
+  "sources": {
+    "three": {
+      "host": "page",
+      "version": "0.187.0"
+    }
+  },
+  "templates": {
+    "floor": "1.0.0"
+  },
+  "view": {
+    "agx-mhc": "sha256:621448558a9b4fb90903e3949f2bb1fb0511a8edcf4c7af80c1dbe2dabe08ab9"
+  }
+}

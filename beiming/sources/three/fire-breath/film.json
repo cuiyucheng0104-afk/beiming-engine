@@ -1,0 +1,33 @@
+{
+  "format": "film/3.0",
+  "id": "serpent-fire-breath",
+  "title": "峡谷吐息",
+  "seed": 0,
+  "output": { "size": [1920, 1080], "fps": "60/1", "frames": 96 },
+  "shots": [{
+    "id": "fire-breath", "in": 0, "out": 96,
+    "source": "three", "host": "page", "mode": "native-code", "entry": "shot.js",
+    "colorRef": "scene", "seed": 0, "shutter": { "angleDeg": 0, "samples": 1 },
+    "roles": { "hero": "serpent" },
+    "params": { "dataCards": ["motion.sweep-body@1", "motion.roll-bank@1", "motion.swim@1", "motion.impulse@1", "time.bake@1", "fx.post-state@1"] },
+    "cards": [
+      { "as": "patch", "use": "three.patch@1", "params": {} },
+      { "as": "fog", "use": "atmo.height-fog@1", "params": {} },
+      { "as": "lod", "use": "shade.px-lod@1", "params": {} },
+      { "as": "line", "use": "shade.thin-line@1", "params": {} },
+      { "as": "breath", "use": "fx.breath@1", "params": {} },
+      { "as": "premult", "use": "particle.premult@1", "params": {} },
+      { "as": "soft", "use": "particle.soft@1", "params": {} },
+      { "as": "minpx", "use": "particle.minpx@1", "params": {} },
+      { "as": "lightPool", "use": "light.emit-pool@1", "params": {} },
+      { "as": "ambient", "use": "post.ao@1", "params": {} },
+      { "as": "bloom", "use": "post.bloom@1", "params": {} },
+      { "as": "shaft", "use": "post.volumetric@1", "params": {} },
+      { "as": "lens", "use": "post.lens-fx@1", "params": {} },
+      { "as": "grade", "use": "post.grade-cl@1", "params": {} }
+    ]
+  }],
+  "style": { "view": { "scene": "agx-mhc", "display": "srgb" } },
+  "predicates": { "base": ["floor@1"] },
+  "delivery": { "master": "h264-crf14-bt709" }
+}
