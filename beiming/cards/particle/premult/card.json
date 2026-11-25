@@ -1,0 +1,87 @@
+{
+  "format": "card/0.1",
+  "id": "particle.premult",
+  "version": "1.0.0",
+  "kind": "particle",
+  "title": "预乘加光遮挡粒子",
+  "intent": "以单通道预乘混合在同一渲染批次内同时表达纯加光粒子（alpha=0）与烟尘半透明遮挡（alpha>0）",
+  "visibleToAgent": true,
+  "livesIn": ["source:three"],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "cards/particle/premult/three.js",
+      "shape": "create",
+      "hosts": [{ "host": "page", "version": "0.187.0" }],
+      "selftest": "cards/particle/premult/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "emitColor": {
+      "type": "color",
+      "unit": "none",
+      "space": "scene-linear-rec709",
+      "default": "#ff7a1a",
+      "coupling": "view-transform"
+    },
+    "smokeColor": {
+      "type": "color",
+      "unit": "none",
+      "space": "scene-linear-rec709",
+      "default": "#22262b",
+      "coupling": "view-transform"
+    },
+    "alphaOcc": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 0.35,
+      "coupling": "none"
+    },
+    "gain": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 64],
+      "default": 1.0,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [{ "name": "readings", "type": "frame-meta" }],
+    "order": { "before": [], "after": [] },
+    "requires": [
+      "材质固定启用 premultipliedAlpha=true 与 CustomBlending（blendSrc=OneFactor, blendDst=OneMinusSrcAlphaFactor, blendEquation=AddEquation），并关闭 depthWrite",
+      "片元输出遵循 vec4(rgb_emit + rgb_smoke * alpha_occ, alpha_occ)：当 alpha_occ=0 时退化为纯能量加光，当 alpha_occ>0 时按 Porter-Duff 遮挡背景并叠加自发光"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["同一粒子层或特效通道需要同时绘制火星自发光与浓烟遮挡而不切渲染状态"],
+    "notWhen": ["不透明刚体网格或需要写入深度缓冲的实心几何体"]
+  },
+  "calibration": "probe-occlusion",
+  "verify": {
+    "selftest": "核对 alpha_occ=0 纯加光、emit=0 纯遮挡以及加光加遮挡多步链式混合数值，并核验 Three.js ShaderMaterial 的 CustomBlending 与 premultipliedAlpha 状态。",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "烟尘边缘出现亮白圈或过曝块",
+      "fix": "烟尘漫反射分量必须在片元输出前乘以 alpha_occ，只有纯自发光项不乘 alpha_occ。"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "基于单模式预乘 alpha 合成公式 C_out = C_src * 1 + C_dst * (1 - alpha_occ) 统一加光与半透明遮挡。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": ["cal:particle.premult"]
+}

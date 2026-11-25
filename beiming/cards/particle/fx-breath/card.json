@@ -1,0 +1,89 @@
+{
+  "format": "card/0.1",
+  "id": "fx.breath",
+  "version": "1.0.0",
+  "kind": "particle",
+  "title": "闭式阻尼吐息与尾流粒子",
+  "intent": "按指数阻力闭式积分、湍流摆动与发射采样表求值射流、余烬和烟尘，任意帧复算位置与屏幕质心",
+  "visibleToAgent": true,
+  "livesIn": ["data", "source:three"],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/particle/fx-breath/index.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/particle/fx-breath/selftest.test.mjs"
+    },
+    {
+      "livesIn": "source:three",
+      "entry": "cards/particle/fx-breath/three.js",
+      "shape": "create",
+      "hosts": [{ "host": "page", "version": "0.187.0" }],
+      "selftest": "cards/particle/fx-breath/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "spec": {
+      "type": "data",
+      "schema": "schema.json",
+      "unit": "none",
+      "coupling": "scene-scale",
+      "default": {
+        "count": 64,
+        "seed": 11,
+        "mouth": [-8.0, 1.5, 0.0],
+        "direction": [0.95, 0.1, 0.29],
+        "roar": 0.85,
+        "beam": 0.0,
+        "beamLengthM": 30.0,
+        "reach": 1.4,
+        "drag": 2.6,
+        "speedMps": 70.0,
+        "softnessM": 3.0,
+        "minPx": 1.25
+      }
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      { "name": "particles", "type": "tracks.particles" },
+      { "name": "readings", "type": "frame-meta" }
+    ],
+    "order": { "before": [], "after": [] },
+    "requires": [
+      "每个粒子沿射流方向的基础位移由闭式阻尼公式 dist = v0 * (1 - exp(-age * drag)) / drag 与光束模式线性插值给出，无跨帧积分状态",
+      "source:three 落点组合 particle.premult 预乘混合、particle.soft 深度软淡出与 particle.minpx 最小屏幕像素护栏"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["高温火焰射流、持续能量光束以及随发射轨迹派生的余烬与浓烟尾流，要求任意跳帧无漂移且屏幕质心误差小于 1 像素"],
+    "notWhen": ["需要与任意动态网格做逐帧刚体碰撞求解的碎片"]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "核对主射流、余烬、浓烟三层闭式位置与屏幕能量质心复算误差 < 1.0 px，阻力系数 ±10% 负对照偏移 >> 1.0 px 必红，且乱序抽帧逐位一致。",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "跳帧或逆序渲染时射流形态与顺序播放不一致",
+      "fix": "粒子相位必须只由全局时间 uTime 与固定出生属性 aR 的闭式函数 fract(uTime / life + aR.x) 或 uTime - uT0 - aR.x * uSpan 给出。"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "从指数空气阻力解析积分与正交基锥形展开直接求值，结合 16×16 公告板求积与 Porter-Duff 软深度累积计算屏幕质心。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": ["cal:fx.breath"]
+}

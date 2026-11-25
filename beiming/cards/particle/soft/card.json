@@ -1,0 +1,80 @@
+{
+  "format": "card/0.1",
+  "id": "particle.soft",
+  "version": "1.0.0",
+  "kind": "particle",
+  "title": "深度软粒子淡出",
+  "intent": "按场景线性深度与粒子视图深度差 clamp((sceneDepth - particleDepth) / softness, 0, 1) 平滑衰减近面交界透明度，消除公告板穿插硬边",
+  "visibleToAgent": true,
+  "livesIn": ["source:three"],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "cards/particle/soft/three.js",
+      "shape": "create",
+      "hosts": [{ "host": "page", "version": "0.187.0" }],
+      "selftest": "cards/particle/soft/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "softnessM": {
+      "type": "number",
+      "unit": "m",
+      "range": [0.01, 100],
+      "default": 3.0,
+      "coupling": "scene-scale"
+    },
+    "nearM": {
+      "type": "number",
+      "unit": "m",
+      "range": [0.01, 100],
+      "default": 0.3,
+      "coupling": "scene-scale"
+    },
+    "farM": {
+      "type": "number",
+      "unit": "m",
+      "range": [1, 100000],
+      "default": 4000,
+      "coupling": "scene-scale"
+    }
+  },
+  "ports": {
+    "in": [{ "name": "depth", "type": "depth-view" }],
+    "out": [{ "name": "readings", "type": "frame-meta" }],
+    "order": { "before": [], "after": [] },
+    "requires": [
+      "片元通过 tDepth、uNear、uFar、uRes 还原场景视图空间线性深度 sceneZ()，与当前片元视图深度 myViewZ 比较",
+      "正深度口径 clamp((sceneDepth - particleDepth) / softnessM, 0, 1) 与负视图 Z 口径 clamp((myViewZ - sceneViewZ) / softnessM, 0, 1) 代数恒等"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["火焰、烟雾、水雾等大尺寸半透明粒子公告板与地形、岩石或角色表面相交"],
+    "notWhen": ["未提供主场景深度纹理或几何体本身为不透明硬表面"]
+  },
+  "calibration": "probe-occlusion",
+  "verify": {
+    "selftest": "核对正线性深度差与负视图 Z 差在分离、过渡、接触和穿入四种情形下的一致性，以及透视非线性深度缓冲反解与二维视口采样。",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "粒子靠近地面时仍被切出明显直线硬边",
+      "fix": "不要在非线性 [0,1] 深度缓冲上直接做减法，必须先按 uNear/uFar 反解到线性米制视图深度再除以 softnessM。"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "由透视投影深度公式反解线性视图 Z，并在过渡厚度内做线性钳制衰减。"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": ["cal:particle.soft"]
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "vec3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["count", "mouth", "direction"],
+  "properties": {
+    "count": { "type": "integer", "minimum": 1, "maximum": 4096 },
+    "seed": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+    "mouth": { "$ref": "#/$defs/vec3" },
+    "direction": { "$ref": "#/$defs/vec3" },
+    "roar": { "type": "number", "minimum": 0, "maximum": 4 },
+    "beam": { "type": "number", "minimum": 0, "maximum": 1 },
+    "beamLengthM": { "type": "number", "exclusiveMinimum": 0, "maximum": 100000 },
+    "reach": { "type": "number", "exclusiveMinimum": 0, "maximum": 20 },
+    "drag": { "type": "number", "exclusiveMinimum": 0, "maximum": 50 },
+    "speedMps": { "type": "number", "exclusiveMinimum": 0, "maximum": 1000 },
+    "softnessM": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
+    "minPx": { "type": "number", "exclusiveMinimum": 0, "maximum": 16 }
+  }
+}
