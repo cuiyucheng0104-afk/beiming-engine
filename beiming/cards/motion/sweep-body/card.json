@@ -163,11 +163,12 @@
   },
   "status": [
     {
-      "level": "reproduced",
+      "level": "measured",
       "host": "kernel-eval",
       "source": "0.1.0",
       "gpu": "none",
-      "date": "2026-11-25"
+      "date": "2026-11-26",
+      "parityReport": "sha256:77669ed4cc914910a24aaf6e9d8edf2677ba181ce8254f981cb4f6761e7d247a"
     }
   ],
   "exams": ["cal:motion.sweep-body"]

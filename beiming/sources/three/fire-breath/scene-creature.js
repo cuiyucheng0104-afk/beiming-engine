@@ -404,7 +404,7 @@ export function creature(T, i, params, height) {
         `#include <lights_fragment_end>\nvec3 lightVector=normalize(mat3(viewMatrix)*vec3(.558,.423,.714));float translucence=pow(1.-abs(dot(normal,lightVector)),${pale ? '1.55' : '3.5'})*smoothstep(.05,.83,taper);reflectedLight.indirectDiffuse+=vec3(1.,.69,.37)*translucence*${pale ? '2.75' : '1.05'};`,
       );
   };
-  horn.customProgramCacheKey = () => `keratin-${i}`;
+  horn.customProgramCacheKey = () => `keratin-${i}-${+!off(params, 'atmo.height-fog')}`;
   const paintFace = skin.onBeforeCompile;
   skin.onBeforeCompile = function (sh, r) {
     paintFace.call(this, sh, r);
@@ -423,7 +423,7 @@ export function creature(T, i, params, height) {
         `#include <normal_fragment_maps>\nfloat lift=.085*(.5+facet.x)*cos(2.9*facet.y)-.016*bevel;vec3 dx=dFdx(-vViewPosition),dy=dFdy(-vViewPosition),A=cross(dy,normal),B=cross(normal,dx);float J=dot(dx,A);normal=normalize(abs(J)*normal-sign(J)*(dFdx(lift)*A+dFdy(lift)*B));`,
       );
   };
-  skin.customProgramCacheKey = () => `face-scutes-${i}`;
+  skin.customProgramCacheKey = () => `face-scutes-${i}-${+!off(params, 'atmo.height-fog')}`;
   // Relief and gold rims are parameterized by arc length rather than world coordinates, so the scales move with the skin.
   // Existing fog hooks run first. Cache separate programs for the geometry's scale field and ordinary skin.
   const paint = hide.onBeforeCompile;
@@ -455,7 +455,7 @@ export function creature(T, i, params, height) {
         `#include <normal_fragment_maps>\nfloat relief=detail*((.14*tileLift-.068*edge)*(1.-belly)-.036*seam*belly);vec3 sx=dFdx(-vViewPosition),sy=dFdy(-vViewPosition),bx=cross(sy,normal),by=cross(normal,sx);float det=dot(sx,bx);normal=normalize(abs(det)*normal-sign(det)*(dFdx(relief)*bx+dFdy(relief)*by));`,
       );
   };
-  hide.customProgramCacheKey = () => `flight-scale-${i}-${off(params, 'shade.px-lod')}`;
+  hide.customProgramCacheKey = () => `flight-scale-${i}-${+!off(params, 'atmo.height-fog')}-${off(params, 'shade.px-lod')}`;
   if (!off(params, 'three.patch'))
     patchCard({ THREE: T }).attachMaterialPatch(hide, [
       {

@@ -147,11 +147,12 @@
   },
   "status": [
     {
-      "level": "reproduced",
+      "level": "measured",
       "host": "kernel-eval",
       "source": "0.1.0",
       "gpu": "none",
-      "date": "2026-11-25"
+      "date": "2026-11-26",
+      "parityReport": "sha256:0005a1c71b69fc5d50e9aa550d5aa89f7b9c65486bf04b145f70195a10352978"
     }
   ],
   "exams": ["cal:motion.swim"]
