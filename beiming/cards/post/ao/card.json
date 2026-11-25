@@ -1,0 +1,42 @@
+{
+  "format": "card/0.1",
+  "id": "post.ao",
+  "version": "1.0.0",
+  "kind": "post",
+  "title": "屏幕空间环境遮蔽",
+  "intent": "用透视深度重建凹角与接触处，在线性高动态颜色上压暗，不改变透明度。",
+  "visibleToAgent": true,
+  "livesIn": ["source:three"],
+  "impl": [{
+    "livesIn": "source:three", "entry": "cards/post/ao/three.js", "shape": "create",
+    "hosts": [{"host": "page", "version": "0.187.0"}], "selftest": "cards/post/ao/selftest.test.mjs"
+  }],
+  "params": {
+    "enabled": {"type": "boolean", "unit": "none", "default": true, "coupling": "none"},
+    "strength": {"type": "number", "unit": "none", "range": [0, 1], "default": 0.9, "coupling": "none"},
+    "radius": {"type": "number", "unit": "none", "range": [0.01, 10], "default": 1, "coupling": "scene-scale"},
+    "bias": {"type": "number", "unit": "m", "range": [0, 2], "default": 0.03, "coupling": "scene-scale"},
+    "samples": {"type": "integer", "unit": "none", "range": [1, 32], "default": 12, "coupling": "resolution"},
+    "nearM": {"type": "number", "unit": "m", "range": [0.000001, 10000], "default": 0.1, "coupling": "scene-scale"},
+    "farM": {"type": "number", "unit": "m", "range": [0.001, 10000000], "default": 100, "coupling": "scene-scale"},
+    "fovYDeg": {"type": "number", "unit": "deg", "range": [1, 179], "default": 40, "coupling": "scene-scale"}
+  },
+  "ports": {
+    "in": [{"name": "color", "type": "scene-linear-rgba"}, {"name": "depth", "type": "depth-view"}],
+    "out": [{"name": "color", "type": "scene-linear-rgba"}],
+    "order": {"before": ["post.bloom", "post.volumetric"], "after": ["post.hdr-chain"]},
+    "requires": [
+      "使用 post.hdr-chain 时把它放在本卡前面，其 ao、bloom 旧开关都设为 false，只保留 HDR 直通。",
+      "Handle.object 是一张全屏网格；页面宿主在 tInput 填线性 HDR，在 tDepth 填同尺寸最近邻采样的正向视平面米深度。",
+      "使用轨道透视相机或 ctx.camera；没有时用 nearM、farM、fovYDeg 对齐场景相机，farM 必须大于 nearM。",
+      "radius 是自适应世界半径的倍率，bias 是以米计的基础偏置；enabled 为 false 时颜色逐像素直通。"
+    ]
+  },
+  "conditions": {"appliesWhen": ["不透明几何的接触阴影应在后续透明特效与泛光前写入颜色"], "notWhen": ["正交投影、只有欧氏距离或只有屏幕颜色而没有视平面深度"]},
+  "calibration": "probe-occlusion",
+  "verify": {"selftest": "平面及背景无遮挡，台阶只在凹处变暗；比较两种深度编码、两个双边轴的中间值与关闭遮蔽的负对照。", "predicates": []},
+  "pitfalls": [{"symptom": "遮蔽宽度随画幅变化不对或穿过轮廓", "fix": "核对透视投影、最近邻深度与行序；不要用相机到表面的欧氏距离替代平面深度。"}],
+  "provenance": {"cases": [], "note": "以局部深度差较小的一侧估计法线，在半尺寸屏幕采样邻域，再按深度门控横纵模糊。"},
+  "status": [{"level": "reproduced", "host": "page", "source": "0.187.0", "gpu": "swiftshader", "date": "2026-11-25"}],
+  "exams": ["cal:post.ao"]
+}

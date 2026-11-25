@@ -1,0 +1,33 @@
+{
+  "format": "card/0.1",
+  "id": "post.bloom",
+  "version": "1.0.0",
+  "kind": "post",
+  "title": "四级线性泛光",
+  "intent": "把高动态亮部扩散到邻近像素，压低孤立亮点的贡献，同时保留宽而柔和的光晕",
+  "visibleToAgent": true,
+  "livesIn": ["source:three"],
+  "impl": [{"livesIn":"source:three","entry":"cards/post/bloom/three.js","shape":"create","hosts":[{"host":"page","version":"0.187.0"}],"selftest":"cards/post/bloom/selftest.test.mjs"}],
+  "params": {
+    "additive": {"type":"boolean","unit":"none","default":false,"coupling":"none"},
+    "enabled": {"type":"boolean","unit":"none","default":true,"coupling":"none"},
+    "threshold": {"type":"number","unit":"none","range":[0,65504],"default":0,"coupling":"none"},
+    "knee": {"type":"number","unit":"none","range":[0,65504],"default":0,"coupling":"none"},
+    "intensity": {"type":"number","unit":"none","range":[0,1],"default":0.085,"coupling":"none"},
+    "radius": {"type":"number","unit":"none","range":[0,8],"default":1,"coupling":"none"},
+    "clamp": {"type":"number","unit":"none","range":[0,65504],"default":65504,"coupling":"none"}
+  },
+  "ports": {
+    "in": [{"name":"color","type":"scene-linear-rgba"}],
+    "out": [{"name":"color","type":"scene-linear-rgba"}],
+    "order": {"before":[],"after":[]},
+    "requires": ["场景与半透明特效合成后、曝光和显示变换之前的线性 HDR 纹理；宿主设置全屏网格的 uniforms.tInput，绘制到同尺寸浮点目标", "WebGL2 可渲染且可线性过滤 RGBA16F；每级尺寸向下折半，最小为一个像素"]
+  },
+  "conditions": {"appliesWhen":["需要保留 HDR 层次的柔和光晕"],"notWhen":["输入已经做过显示变换，或者需要仅对指定物体发光"]},
+  "calibration":"probe-gray-chart",
+  "verify":{"selftest":"逐级核对常量守恒、Karis 抗孤立亮点、宽核降采样和帐篷升采样；独立 CPU 参考与浮点渲染目标对拍","predicates":[]},
+  "pitfalls":[{"symptom":"光晕过暗或颜色变灰","fix":"检查输入是否为线性 HDR；threshold 与 knee 是峰值和软膝半宽，默认零表示不过滤。clamp 只限制提取层，不截断原片。"},{"symptom":"宽光晕过强","fix":"默认 intensity 按能量归一化混合原片和光晕；需要线性辐射叠加时设 additive 为 true，只加光晕、不衰减原片。radius 以较粗层的像素为单位调整帐篷半径。已经取出半尺寸光晕单独调色时不要重复混合。"}],
+  "provenance":{"cases":[],"note":"按离散采样核与场景线性像素中心约定独立实现，四级下采样与三级上采样分别保留独立目标"},
+  "status":[{"level":"reproduced","host":"page","source":"0.187.0","gpu":"apple-m5-pro","date":"2026-11-25"}],
+  "exams":["cal:post.bloom"]
+}
