@@ -1,0 +1,154 @@
+{
+  "format": "card/0.1",
+  "id": "fx.post-state",
+  "version": "1.0.0",
+  "kind": "time",
+  "title": "后期参数与事件包络求值器",
+  "intent": "按纯函数时间轴求值后期参数结构体，将闪光脉冲、闪电回闪、持续窗口、镜头撞击、冲击波环与暮光衰减叠加输出，保证任意乱序抽帧逐位一致",
+  "visibleToAgent": true,
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/time/fx-post-state/index.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/time/fx-post-state/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "exposure": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 16],
+      "default": 1,
+      "coupling": "view-transform"
+    },
+    "bloom": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 0.06,
+      "coupling": "none"
+    },
+    "ao": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 0.9,
+      "coupling": "none"
+    },
+    "shaft": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 2],
+      "default": 1,
+      "coupling": "none"
+    },
+    "god": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 4],
+      "default": 0.55,
+      "coupling": "none"
+    },
+    "ca": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 0.05],
+      "default": 0.006,
+      "coupling": "resolution"
+    },
+    "vignette": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 0.42,
+      "coupling": "none"
+    },
+    "fadeInSec": {
+      "type": "number",
+      "unit": "s",
+      "range": [0, 30],
+      "default": 0,
+      "coupling": "none"
+    },
+    "fadeOutStartSec": {
+      "type": "number",
+      "unit": "s",
+      "range": [-1, 3600],
+      "default": -1,
+      "coupling": "none"
+    },
+    "durationSec": {
+      "type": "number",
+      "unit": "s",
+      "range": [0.1, 3600],
+      "default": 90,
+      "coupling": "none"
+    },
+    "events": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": [],
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "postState",
+        "type": "tracks.postState"
+      }
+    ],
+    "order": {
+      "before": [
+        "post.lens-fx",
+        "post.grade-cl"
+      ],
+      "after": []
+    },
+    "requires": [
+      "inputs.fps 为帧率分数串（如 '60/1'）或正数，inputs.shot.in 为起始全片帧号；输出 postState 含 exposure/bloom/ao/shaft/god/ca/vignette/flash/fade/shake/white 与 lens.{fringe,kick,ring}"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "需要由时间线事件确定性驱动后期曝光、闪光、震动、冲击波环与淡入淡出包络"
+    ],
+    "notWhen": [
+      "后期状态依赖物理积分或跨帧递归衰减"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "验证零事件基线与首尾淡入淡出归零、pulse/strike/window/hit/ring/dusk 六类事件叠加、乱序抽帧逐位一致与坏参数拒收",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "乱序渲染同一帧得到不同闪光强度",
+      "fix": "所有闪烁噪声与脉冲包络必须以绝对时刻 t 的纯函数计算，不保存上一帧状态"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "纯函数后期状态结构体与事件驱动包络求值器，直接对接 post.grade-cl 与 post.lens-fx"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "kernel-eval",
+      "source": "0.1.0",
+      "gpu": "none",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": [
+    "cal:fx.post-state"
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fx-post-state/schema.json",
+  "title": "后期事件包络列表",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["kind", "at"],
+    "additionalProperties": false,
+    "properties": {
+      "kind": {
+        "enum": ["pulse", "strike", "window", "hit", "ring", "dusk"]
+      },
+      "at": { "type": "number" },
+      "end": { "type": "number" },
+      "duration": { "type": "number", "minimum": 0 },
+      "attack": { "type": "number", "minimum": 0 },
+      "release": { "type": "number", "exclusiveMinimum": 0 },
+      "tau": { "type": "number", "exclusiveMinimum": 0 },
+      "window": { "type": "number", "exclusiveMinimum": 0 },
+      "restrikeDelay": { "type": "number", "minimum": 0 },
+      "restrikeGain": { "type": "number", "minimum": 0 },
+      "restrikeTau": { "type": "number", "exclusiveMinimum": 0 },
+      "flash": { "type": "number" },
+      "exposure": { "type": "number" },
+      "bloom": { "type": "number" },
+      "ao": { "type": "number" },
+      "shaft": { "type": "number" },
+      "god": { "type": "number" },
+      "shake": { "type": "number" },
+      "kick": { "type": "number" },
+      "white": { "type": "number" },
+      "fringe": { "type": "number" },
+      "amp": { "type": "number", "minimum": 0 },
+      "preDip": { "type": "number", "minimum": 0 },
+      "dipLead": { "type": "number", "minimum": 0 },
+      "dipGap": { "type": "number", "minimum": 0 },
+      "flickerHz": { "type": "number", "minimum": 0 },
+      "flickerBase": { "type": "number" },
+      "flickerAmp": { "type": "number" },
+      "center": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": { "type": "number" }
+      },
+      "radius0": { "type": "number", "minimum": 0 },
+      "radiusMax": { "type": "number", "minimum": 0 },
+      "rate": { "type": "number", "minimum": 0 },
+      "strength": { "type": "number", "minimum": 0 },
+      "decay": { "type": "number", "exclusiveMinimum": 0 },
+      "widthMin": { "type": "number", "exclusiveMinimum": 0 },
+      "widthFactor": { "type": "number", "minimum": 0 },
+      "widthGrowth": { "type": "number", "minimum": 0 },
+      "squash": { "type": "number", "exclusiveMinimum": 0 },
+      "angleDeg": { "type": "number" },
+      "targetScale": { "type": "number", "minimum": 0 }
+    }
+  }
+}

@@ -1,0 +1,210 @@
+{
+  "format": "card/0.1",
+  "id": "post.grade-cl",
+  "version": "1.0.0",
+  "kind": "post",
+  "title": "终混调色与显示变换链",
+  "intent": "将场景线性高动态画面与泛光、光束、体积光柱合成，依次执行径向色差、曝光、暗角、ACES 曲线拟合、冷暖分离色调、S 型反差、伽马显示变换、8 位抖动/颗粒与淡入淡出",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:three",
+    "comp"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "cards/post/grade-cl/three.js",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "page",
+          "version": "0.187.0"
+        }
+      ],
+      "selftest": "cards/post/grade-cl/selftest.test.mjs"
+    },
+    {
+      "livesIn": "comp",
+      "entry": "cards/post/grade-cl/comp.mjs",
+      "shape": "create",
+      "hosts": [],
+      "selftest": "cards/post/grade-cl/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "exposure": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 16],
+      "default": 1,
+      "coupling": "view-transform"
+    },
+    "bloom": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 0.06,
+      "coupling": "none"
+    },
+    "god": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 4],
+      "default": 0.55,
+      "coupling": "none"
+    },
+    "caBase": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 0.05],
+      "default": 0.006,
+      "coupling": "resolution"
+    },
+    "vignette": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 0.42,
+      "coupling": "none"
+    },
+    "flash": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 8],
+      "default": 0,
+      "coupling": "none"
+    },
+    "fade": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 1,
+      "coupling": "none"
+    },
+    "shake": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 8],
+      "default": 0,
+      "coupling": "none"
+    },
+    "kick": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 4],
+      "default": 0,
+      "coupling": "none"
+    },
+    "saturation": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 2],
+      "default": 1.06,
+      "coupling": "view-transform"
+    },
+    "contrast": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 0.44,
+      "coupling": "view-transform"
+    },
+    "gamma": {
+      "type": "number",
+      "unit": "none",
+      "range": [1, 3],
+      "default": 2.2,
+      "coupling": "view-transform"
+    },
+    "grain": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 0.2],
+      "default": 0.018,
+      "coupling": "resolution"
+    },
+    "ditherMode": {
+      "type": "string",
+      "unit": "none",
+      "default": "hash",
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [
+      {
+        "name": "color",
+        "type": "scene-linear-rgba"
+      },
+      {
+        "name": "postState",
+        "type": "tracks.postState"
+      }
+    ],
+    "out": [
+      {
+        "name": "color",
+        "type": "scene-linear-rgba"
+      }
+    ],
+    "order": {
+      "before": [
+        "deliver.encode"
+      ],
+      "after": [
+        "post.lens-fx",
+        "fx.post-state"
+      ]
+    },
+    "requires": [
+      "three 帧源一侧 Handle.object 是全屏网格通道，uniforms.tC 为线性 HDR 主色，tB/tG/tS 可选提供泛光、光束与四分之一分辨率体积光柱",
+      "comp 一侧既可通过 create().object.grade(inputs, size) 也可直接调用 evaluate(inputs, params, size) 进行纯 CPU 显示变换"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "需要把场景线性 HDR、泛光与体积光柱合成为带 ACES 拟合、分离色调、暗角与抖动的 8 位显示成片"
+    ],
+    "notWhen": [
+      "需要输出未经色调映射的线性 EXR 中间层"
+    ]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "验证 ACES 拟合单调有界、阴影偏冷高光偏暖分离色调、暗角四角衰减、径向色差分离、Bloom/Shaft/Flash 合成、fade=0 归黑，以及 CPU 与 WebGL2 着色器同输入误差 <= 1/255",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "CPU 与 WebGL2 核验出现上下翻转",
+      "fix": "EXR/PNG 自顶向下缓冲使用默认 origin='top-left'，WebGL readPixels 自底向上缓冲传 origin='bottom-left'"
+    },
+    {
+      "symptom": "ACES 矩阵转置导致色彩发绿或发紫",
+      "fix": "GLSL mat3 按列主序构造，CPU 矩阵乘法须与 GLSL 列向量右乘一致"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "通用电影级 ACES RRT/ODT 拟合终混调色链，支持 CPU/WebGL2 双端等价求值与可选融合镜头特效参数"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    },
+    {
+      "level": "reproduced",
+      "host": "node",
+      "source": "24.13.1",
+      "gpu": "none",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": [
+    "cal:post.grade-cl"
+  ]
+}

@@ -1,0 +1,128 @@
+{
+  "format": "card/0.1",
+  "id": "shade.thin-line",
+  "version": "1.0.0",
+  "kind": "shading",
+  "title": "细线最小像素宽与覆盖率守恒护栏",
+  "intent": "将细丝、毛发、须线等细长几何的屏幕像素宽夹紧至不低于 minPx，同时按 origPx / clampedPx 衰减覆盖率与透明度，实现一维能量守恒并防止远距断线或过粗闪烁",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:three"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "cards/shading/thin-line/three.js",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "page",
+          "version": "0.187.0"
+        }
+      ],
+      "selftest": "cards/shading/thin-line/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "worldWidth": {
+      "type": "number",
+      "unit": "m",
+      "range": [0.0001, 10],
+      "default": 0.03,
+      "coupling": "scene-scale"
+    },
+    "minPx": {
+      "type": "number",
+      "unit": "px",
+      "range": [0.5, 8],
+      "default": 1.24,
+      "coupling": "resolution"
+    },
+    "baseAlpha": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 1,
+      "coupling": "none"
+    },
+    "coveragePower": {
+      "type": "number",
+      "unit": "none",
+      "range": [0.5, 4],
+      "default": 1,
+      "coupling": "none"
+    },
+    "color": {
+      "type": "color",
+      "unit": "none",
+      "space": "display",
+      "default": "#F2E4CE",
+      "coupling": "view-transform"
+    },
+    "fovYDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [5, 140],
+      "default": 45,
+      "coupling": "none"
+    },
+    "viewportHeight": {
+      "type": "integer",
+      "unit": "px",
+      "range": [64, 8640],
+      "default": 1080,
+      "coupling": "resolution"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "readings",
+        "type": "frame-meta"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "细线带状几何提供 position（中心脊线）、aTangent（世界/局部切向）与 aSide（-1/+1 侧向偏移）；每帧调用 updateCamera(camera, viewportHeight) 同步 uPxK"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "毛发、触须、钢索、天线等亚像素级细线在远距镜头中易断成虚线或闪烁"
+    ],
+    "notWhen": [
+      "实体粗柱或覆盖宽度恒大于数个像素的常规网格"
+    ]
+  },
+  "calibration": "probe-thin-geometry",
+  "verify": {
+    "selftest": "验证近处保留原始物理线宽且 coverage=1；中远距夹紧至 minPx 且 coverage=origPx/clampedPx；一维积分通量 clampedPx*effectiveAlpha 与 origPx*baseAlpha 严格相等",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "远距细线只做最小像素宽夹紧而不衰减透明度导致变粗过亮",
+      "fix": "必须同步按 coverage = origPx / clampedPx 乘到透明度或辐射度上以维持一维积分能量守恒"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "最小屏幕像素宽夹紧与一维覆盖率能量守恒细线着色护栏"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": [
+    "cal:shade.thin-line"
+  ]
+}
