@@ -263,11 +263,25 @@ function diffNumericMaps(a, b) {
   return { maxDelta, byMetric };
 }
 
+function mergeMaxMetricDiffs(a, b) {
+  const byMetric = { ...a.byMetric };
+  let maxDelta = a.maxDelta;
+  for (const [key, val] of Object.entries(b.byMetric)) {
+    const prev = Object.hasOwn(byMetric, key) ? byMetric[key] : 0;
+    const merged = Math.max(prev, val);
+    byMetric[key] = merged;
+    if (merged > maxDelta) maxDelta = merged;
+  }
+  return { maxDelta, byMetric };
+}
+
 /**
- * 执行容差校准第 1 步（噪声地板量测）：
- * 1) 同一份成片量两遍 → repeatMeasureDelta；
- * 2) 独立重渲第二份成片再量一遍 → repeatRenderDelta；
- * 3) 汇总全部有限数值读数的最大自然抖动 noiseFloor。
+ * 执行容差校准第 1 步（05 §6.5 噪声地板量测，共 4 组实测读数）：
+ * 1) 首渲片落盘至独立目录 run-a 后真实量测两遍（m1a、m1b）；
+ * 2) 独立重渲第二份成片至 run-b 后真实量测两遍（m2a、m2b）；
+ * 3) repeatMeasureDelta = max(diff(m1a, m1b), diff(m2a, m2b))，
+ *    repeatRenderDelta  = max(diff(m1a, m2a), diff(m1b, m2b))，
+ *    noiseFloor = Math.max(repeatMeasureDelta, repeatRenderDelta)。
  */
 export async function measureNoiseFloor(id, outDir, opts = {}) {
   const spec = loadSolutionSpec(id);
@@ -277,33 +291,45 @@ export async function measureNoiseFloor(id, outDir, opts = {}) {
   const dirB = join(root, 'run-b');
 
   const renderA = await renderSolution(spec.questionId, dirA, opts);
-  const measA1 = await measureSolution(spec.questionId, renderA, opts);
-  const measA2 = await measureSolution(spec.questionId, renderA, opts);
+  const m1a = await measureSolution(spec.questionId, renderA, opts);
+  const m1b = await measureSolution(spec.questionId, renderA, opts);
 
   const renderB = await renderSolution(spec.questionId, dirB, opts);
-  const measB = await measureSolution(spec.questionId, renderB, opts);
+  const m2a = await measureSolution(spec.questionId, renderB, opts);
+  const m2b = await measureSolution(spec.questionId, renderB, opts);
 
-  const flatA1 = flattenNumericMetrics(measA1.readings);
-  const flatA2 = flattenNumericMetrics(measA2.readings);
-  const flatB = flattenNumericMetrics(measB.readings);
+  const flat1a = flattenNumericMetrics(m1a.readings);
+  const flat1b = flattenNumericMetrics(m1b.readings);
+  const flat2a = flattenNumericMetrics(m2a.readings);
+  const flat2b = flattenNumericMetrics(m2b.readings);
 
-  const repMeasure = diffNumericMaps(flatA1, flatA2);
-  const repRender = diffNumericMaps(flatA1, flatB);
+  const repMeasure = mergeMaxMetricDiffs(
+    diffNumericMaps(flat1a, flat1b),
+    diffNumericMaps(flat2a, flat2b),
+  );
+  const repRender = mergeMaxMetricDiffs(
+    diffNumericMaps(flat1a, flat2a),
+    diffNumericMaps(flat1b, flat2b),
+  );
   const noiseFloor = Math.max(repMeasure.maxDelta, repRender.maxDelta);
 
   return {
     format: SOLUTION_FORMAT,
     questionId: spec.questionId,
     slug: spec.slug,
+    measurementCount: 4,
     noiseFloor,
     repeatMeasureDelta: repMeasure.maxDelta,
     repeatRenderDelta: repRender.maxDelta,
     repeatMeasureByMetric: repMeasure.byMetric,
     repeatRenderByMetric: repRender.byMetric,
+    run1Measurements: [m1a.verdict, m1b.verdict],
+    run2Measurements: [m2a.verdict, m2b.verdict],
     runs: {
-      first: measA1.verdict,
-      repeatMeasure: measA2.verdict,
-      secondRender: measB.verdict,
+      first: m1a.verdict,
+      repeatMeasure: m1b.verdict,
+      secondRender: m2a.verdict,
+      secondRenderRepeatMeasure: m2b.verdict,
     },
   };
 }

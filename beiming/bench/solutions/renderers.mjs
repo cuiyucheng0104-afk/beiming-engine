@@ -59,6 +59,7 @@ import {
   decodeSelectedFramesRgb,
   encodeRawFramesStream,
   encodeSpecFor,
+  formatFpsFraction,
   probeDeliverableSpecAsync,
   runFfmpegSync,
   writeFfmetadataChapters,
@@ -71,6 +72,93 @@ const fpsFloat = (fpsStr) => {
   const parsed = parseFps(fpsStr);
   return Number(parsed.num) / Number(parsed.den);
 };
+
+function normalizeFpsFraction(raw) {
+  if (typeof raw !== 'string') return null;
+  const parts = raw.split('/').map(Number);
+  if (parts.length !== 2) return null;
+  return formatFpsFraction(parts[0], parts[1]);
+}
+
+/** 严格从真实 ffprobe / deliverSpec 构造 measured.output（绝不回填题面 deliverable 或常量） */
+function buildMeasuredOutput(probe, specRes = null) {
+  const width = probe?.width ?? specRes?.value?.width ?? null;
+  const height = probe?.height ?? specRes?.value?.height ?? null;
+  const frames = probe?.frames ?? specRes?.value?.frames ?? null;
+  const fps = probe?.fpsFraction
+    ?? formatFpsFraction(probe?.fpsNum, probe?.fpsDen)
+    ?? normalizeFpsFraction(specRes?.details?.frameRate)
+    ?? null;
+  const colorTag = probe?.color_space ?? specRes?.value?.color_space ?? null;
+  return {
+    size: [width, height],
+    fps,
+    fpsNum: probe?.fpsNum ?? null,
+    fpsDen: probe?.fpsDen ?? null,
+    frames,
+    colorTag,
+    color_transfer: probe?.color_transfer ?? specRes?.value?.color_transfer ?? null,
+    color_primaries: probe?.color_primaries ?? specRes?.value?.color_primaries ?? null,
+    audio: Boolean(probe?.audio),
+    audioChannels: probe?.audioChannels ?? 0,
+  };
+}
+
+/** 按 runner.mjs:defaultJudge 口径核对 ffprobe 实测有理数帧率与音频声道要求 */
+function checkProbeDeliverableExtras(output, deliverable) {
+  if (!output || !deliverable) return { ok: true, mismatched: [] };
+  const mismatched = [];
+  if (typeof deliverable.fps === 'string') {
+    const parsedWant = parseFps(deliverable.fps);
+    const wantNum = Number(parsedWant?.num);
+    const wantDen = Number(parsedWant?.den);
+    const gotNum = output.fpsNum;
+    const gotDen = output.fpsDen;
+    if (!(Number.isInteger(gotNum) && Number.isInteger(gotDen) && gotDen > 0 && gotNum * wantDen === wantNum * gotDen)) {
+      mismatched.push('fps');
+    }
+  }
+  if (typeof deliverable.audio === 'string') {
+    const hasAudio = Boolean(output.audio);
+    const ch = output.audioChannels ?? 0;
+    const audioOk = deliverable.audio === 'none'
+      ? (!hasAudio && ch === 0)
+      : deliverable.audio === 'mono'
+        ? (hasAudio && ch === 1)
+        : deliverable.audio === 'stereo'
+          ? (hasAudio && ch === 2)
+          : deliverable.audio === 'required'
+            ? (hasAudio && ch >= 1)
+            : false;
+    if (!audioOk) mismatched.push('audio');
+  }
+  return { ok: mismatched.length === 0, mismatched };
+}
+
+/** 对二级批一（evaluateL2a）结果追加 ffprobe 实测精确有理数帧率与音频门控核验 */
+function applyProbeDeliveryGateToL2a(question, verdict, probe) {
+  const want = question.deliverable;
+  const out = buildMeasuredOutput(probe);
+  const [wantW, wantH] = want.size;
+  const extras = checkProbeDeliverableExtras(out, want);
+  const specOk = Boolean(probe)
+    && out.size[0] === wantW
+    && out.size[1] === wantH
+    && out.frames === want.frames
+    && out.colorTag === 'bt709'
+    && extras.ok;
+  if (specOk) return verdict;
+  const base = verdict.base.map((entry) => {
+    if (!entry.predicate.startsWith('delivery(')) return entry;
+    return {
+      ...entry,
+      pass: false,
+      status: 'fail',
+      why: `ffprobe 实测规格与题面 deliverable 不符（${JSON.stringify({ width: out.size[0], height: out.size[1], fps: out.fps, frames: out.frames, audioChannels: out.audioChannels, colorTag: out.colorTag })}）`,
+    };
+  });
+  return { ...verdict, base, basePass: false, pass: false };
+}
 
 function makeRng(seed) {
   let a = seed >>> 0;
@@ -94,11 +182,22 @@ function cmpHolds(value, cmp) {
 const dropComparisonUnit = (text) => text.replace(/(\])\s*(?:deg|f|s|mm)\b/g, '$1');
 
 /** 通用基础谓词求值：已上线谓词交 verify/predicates.mjs，planned 几何/环绕/起音谓词由真实量测逐项核对 */
-export function evaluateBasePredicate(text, film, measured) {
+export function evaluateBasePredicate(text, film, measured, deliverable = null) {
   const stripped = dropComparisonUnit(text);
   const checked = checkAssertion(stripped);
   if (checked.ok) {
     const res = evaluateAssertion(stripped, film, measured);
+    if (res.status === 'pass' && checked.assertion.name === 'delivery' && deliverable) {
+      const extras = checkProbeDeliverableExtras(measured?.output, deliverable);
+      if (!extras.ok) {
+        return {
+          predicate: text,
+          pass: false,
+          status: 'fail',
+          detail: { ...res, ok: false, status: 'fail', mismatched: extras.mismatched },
+        };
+      }
+    }
     return { predicate: text, pass: res.status === 'pass', status: res.status, detail: res };
   }
   const onlyPlanned = Boolean(checked.assertion)
@@ -452,22 +551,22 @@ function detectLowBandPeaks(pcm, fps, frames, { maxHz = 120, riseDb = 6 } = {}) 
   return { frameDb, peaks };
 }
 
-/** 基础门拼装：deliverable 规格 + basePredicates 逐条核验 */
+/** 基础门拼装：deliverable 规格 + basePredicates 逐条核验（全部来自真实 ffprobe 实测） */
 function buildL1Base(question, film, probe, measured) {
   const predicates = {};
   const baseResults = question.basePredicates.map((text) => {
-    const r = evaluateBasePredicate(text, film, measured);
+    const r = evaluateBasePredicate(text, film, measured, question.deliverable);
     predicates[text] = r.pass ? 'pass' : 'fail';
     return r;
   });
   return {
     base: {
       spec: {
-        width: probe.width,
-        height: probe.height,
-        fps: probe.fps,
-        frames: probe.frames,
-        audioChannels: probe.audioChannels,
+        width: probe?.width ?? null,
+        height: probe?.height ?? null,
+        fps: probe?.fps ?? null,
+        frames: probe?.frames ?? null,
+        audioChannels: probe?.audioChannels ?? 0,
       },
       predicates,
     },
@@ -531,12 +630,7 @@ async function measure01_1(question, film, rendered) {
   const needDetailedBfd = !bfdSummary || bfdSummary.blackFrames > 0 || bfdSummary.freezeSegments > 0;
   const bfd = needDetailedBfd ? await blackFreezeDup(deliverablePath, frameArgs) : null;
   const measuredForPred = {
-    output: {
-      size: [probe.width, probe.height],
-      fps: question.deliverable.fps,
-      frames: probe.frames,
-      colorTag: probe.color_space,
-    },
+    output: buildMeasuredOutput(probe),
     blackFrames: bfd ? bfd.details.black : [],
     freezes: bfd ? bfd.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })) : [],
     audio: {
@@ -592,7 +686,6 @@ async function render23_1(question, film, outDir) {
 
 async function measure23_1(question, film, rendered) {
   const { deliverablePath, artifacts } = rendered;
-  const { size, frames } = question.deliverable;
   const metaDoc = JSON.parse(readFileSync(artifacts.frameMetaPath, 'utf8'));
 
   const [probe, specRes, bfdRes, cutRes] = await Promise.all([
@@ -601,15 +694,17 @@ async function measure23_1(question, film, rendered) {
     blackFreezeDup(deliverablePath),
     cutYdif(deliverablePath, 24),
   ]);
+  const actualSize = [probe.width, probe.height];
+  const actualFrames = probe.frames;
   const indices = [0, 1];
-  for (let k = 36; k < frames; k++) indices.push(k);
-  const decoded = decodeSelectedFramesRgb(deliverablePath, indices, size);
-  const nearest = readNearest((k) => decoded.get(k), [36, frames]);
-  const closure = readClosure(decoded.get(0), decoded.get(frames - 1), decoded.get(1));
+  for (let k = 36; k < actualFrames; k++) indices.push(k);
+  const decoded = decodeSelectedFramesRgb(deliverablePath, indices, actualSize);
+  const nearest = readNearest((k) => decoded.get(k), [36, actualFrames]);
+  const closure = readClosure(decoded.get(0), decoded.get(actualFrames - 1), decoded.get(1));
 
   const orbitDeg = computeOrbitTotalDeg(metaDoc.frames.map((x) => x.meta.camera), metaDoc.target, true);
   const measuredForPred = {
-    output: { size: [specRes.value.width, specRes.value.height], fps: question.deliverable.fps, frames: specRes.value.frames, colorTag: specRes.value.color_space },
+    output: buildMeasuredOutput(probe, specRes),
     blackFrames: bfdRes.details.black,
     freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
     cuts: cutRes.value,
@@ -685,7 +780,6 @@ async function render28_1(question, film, outDir) {
 
 async function measure28_1(question, film, rendered) {
   const { deliverablePath, artifacts } = rendered;
-  const { size, frames } = question.deliverable;
   const metaDoc = JSON.parse(readFileSync(artifacts.frameMetaPath, 'utf8'));
 
   const [probe, specRes, bfdRes, cutRes] = await Promise.all([
@@ -694,18 +788,22 @@ async function measure28_1(question, film, rendered) {
     blackFreezeDup(deliverablePath),
     cutYdif(deliverablePath, 24),
   ]);
-  const sampleIds = [0, 1, 72, 144, 216, frames - 1];
-  const decoded = decodeSelectedFramesRgb(deliverablePath, sampleIds, size);
+  const actualSize = [probe.width, probe.height];
+  const actualFrames = probe.frames;
+  const sampleIds = [0, 1, 72, 144, 216, actualFrames - 1].filter((k) => k >= 0 && k < actualFrames);
+  const decoded = decodeSelectedFramesRgb(deliverablePath, sampleIds, actualSize);
 
   const boxes = metaDoc.frames.map((entry) => entry.meta.entities[0].bbox2d);
-  const framing = readFraming(boxes, size);
-  const closure = readClosure(decoded.get(0), decoded.get(frames - 1), decoded.get(1));
-  const pixelSamples = [0, 72, 144, 216, frames - 1].map((k) => ({ frame: decoded.get(k), box: boxes[k] }));
+  const framing = readFraming(boxes, actualSize);
+  const closure = readClosure(decoded.get(0), decoded.get(actualFrames - 1), decoded.get(1));
+  const pixelSamples = [0, 72, 144, 216, actualFrames - 1]
+    .filter((k) => k >= 0 && k < actualFrames && k < boxes.length)
+    .map((k) => ({ frame: decoded.get(k), box: boxes[k] }));
   const pixelBoxes = readPixelBoxes(pixelSamples, metaDoc.background, 20);
 
   const orbitDeg = computeOrbitTotalDeg(metaDoc.frames.map((x) => x.meta.camera), metaDoc.target, true);
   const measuredForPred = {
-    output: { size: [specRes.value.width, specRes.value.height], fps: question.deliverable.fps, frames: specRes.value.frames, colorTag: specRes.value.color_space },
+    output: buildMeasuredOutput(probe, specRes),
     blackFrames: bfdRes.details.black,
     freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
     cuts: cutRes.value,
@@ -777,7 +875,6 @@ async function render29_1(question, film, outDir) {
 
 async function measure29_1(question, film, rendered) {
   const { deliverablePath, artifacts } = rendered;
-  const { size } = question.deliverable;
   const metaDoc = JSON.parse(readFileSync(artifacts.frameMetaPath, 'utf8'));
 
   const [probe, specRes, bfdRes] = await Promise.all([
@@ -785,12 +882,13 @@ async function measure29_1(question, film, rendered) {
     deliverSpec(deliverablePath),
     blackFreezeDup(deliverablePath),
   ]);
+  const actualSize = [probe.width, probe.height];
   const layoutArgs = argsOfL1(question, 'layout.edges');
-  const decoded = decodeSelectedFramesRgb(deliverablePath, [layoutArgs.frame], size);
-  const layoutReading = readLayout(decoded.get(layoutArgs.frame), layoutArgs, size);
+  const decoded = decodeSelectedFramesRgb(deliverablePath, [layoutArgs.frame], actualSize);
+  const layoutReading = readLayout(decoded.get(layoutArgs.frame), layoutArgs, question.deliverable.size);
 
   const measuredForPred = {
-    output: { size: [specRes.value.width, specRes.value.height], fps: question.deliverable.fps, frames: specRes.value.frames, colorTag: specRes.value.color_space },
+    output: buildMeasuredOutput(probe, specRes),
     blackFrames: bfdRes.details.black,
     freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
     frames: metaDoc.frames,
@@ -872,7 +970,7 @@ async function measure23_2(question, film, rendered) {
     probeDeliverableSpecAsync(deliverablePath),
     read23_2(deliverablePath, film),
   ]);
-  const verdict = evaluateL2a(question, readings);
+  const verdict = applyProbeDeliveryGateToL2a(question, evaluateL2a(question, readings), probe);
   return { readings, basePredicates: verdict.base, verdict, probe };
 }
 
@@ -907,7 +1005,7 @@ async function measure27_1(question, film, rendered) {
     probeDeliverableSpecAsync(deliverablePath),
     read27_1(deliverablePath, film),
   ]);
-  const verdict = evaluateL2a(question, readings);
+  const verdict = applyProbeDeliveryGateToL2a(question, evaluateL2a(question, readings), probe);
   return { readings, basePredicates: verdict.base, verdict, probe };
 }
 
@@ -1017,25 +1115,102 @@ async function measure29_2(question, film, rendered) {
     probeDeliverableSpecAsync(deliverablePath),
     read29_2(deliverablePath, eventsDoc, { musicFile: artifacts.musicWav, film }),
   ]);
-  const verdict = evaluateL2a(question, readings);
+  const verdict = applyProbeDeliveryGateToL2a(question, evaluateL2a(question, readings), probe);
   return { readings, basePredicates: verdict.base, verdict, probe };
 }
 
 const BEAT_INDICES_30_1 = Array.from({ length: 20 }, (_, i) => (i + 1) * 4);
+const DEFAULT_30_1_ENVELOPE = Object.freeze({ attackFrames: 2, holdFrames: 4, releaseFrames: 6 });
 
-/** 30-1 行为重求值函数：完全由 time.timeline / time.events / time.envelope 随给定 BPM 现场计算 */
-export function resolve30_1Events({ bpm, fpsFraction, frames, beatFrames, frameAtBeat, frameAtSeconds }) {
-  const beatEvents = BEAT_INDICES_30_1.map((beat, idx) => {
-    const id = `m${String(idx + 1).padStart(2, '0')}`;
-    const frame = Math.min(frames - 1, Math.max(0, frameAtBeat(beat)));
-    // 经 time.timeline 与 time.envelope 验算该帧时间与脉动包络
-    evalTimeline({ fps: fpsFraction, shot: { in: 0 } }, { holdFrames: 1, beatFrames }, frame, 0);
-    evalEnvelope({}, { at: frame, attackFrames: 2, holdFrames: 4, releaseFrames: 6 }, frame, 0);
-    return { id, frame };
-  });
-  const localEvents = beatEvents.map((e) => ({ id: e.id, kind: 'named', f: e.frame, sub: 0 }));
-  evalEvents({ events: localEvents }, { kind: 'named' }, beatEvents[0].frame, 0);
-  const absoluteEvents = [{ id: 'title_enter', frame: frameAtSeconds(2.0) }];
+/**
+ * 30-1 三张时间卡串联求值（严禁并行手算绕开）：
+ * 1) time.timeline：以单位帧求秒长并按给定 BPM 换算 beatFrames，再逐帧产出全片 { beat, seconds } 网格；
+ * 2) time.events：以 time.timeline 网格定位的时刻表逐帧产出 { hits, sinceFrames }；
+ * 3) time.envelope：以 time.events 的 sinceFrames 逐帧产出 [0, 1] 脉动包络 pulseEnvelope，
+ *    beatEvents 仅从 time.events 命中且经 time.envelope 真实拉起脉冲上升沿的帧产出，
+ *    absoluteEvents 仅从 time.events 命中产出；删掉任一张卡的调用均会立即报错或判分失败。
+ */
+function evaluate30_1Cards({ bpm, fpsFraction, frames, envelopeParams = DEFAULT_30_1_ENVELOPE }) {
+  if (!Number.isFinite(bpm) || bpm <= 0 || typeof fpsFraction !== 'string' || !Number.isInteger(frames) || frames <= 0) {
+    throw new RangeError('30-1 时间卡求值参数不合法');
+  }
+  const unitStep = evalTimeline({ fps: fpsFraction, shot: { in: 0 } }, { holdFrames: 1, beatFrames: 1 }, 1, 0)?.time;
+  if (!Number.isFinite(unitStep?.seconds) || unitStep.seconds <= 0) {
+    throw new RangeError('30-1 time.timeline 未返回有效帧时长');
+  }
+  const beatFrames = 60 / (bpm * unitStep.seconds);
+  const timeline = new Array(frames);
+  for (let f = 0; f < frames; f++) {
+    const t = evalTimeline({ fps: fpsFraction, shot: { in: 0 } }, { holdFrames: 1, beatFrames }, f, 0)?.time;
+    if (!Number.isFinite(t?.beat) || !Number.isFinite(t?.seconds)) {
+      throw new RangeError(`30-1 time.timeline 在第 ${f} 帧未返回有效节拍/秒读数`);
+    }
+    timeline[f] = t;
+  }
+
+  const nearestFrameBy = (pick, target) => {
+    let bestF = 0;
+    let bestErr = Infinity;
+    for (let f = 0; f < frames; f++) {
+      const err = Math.abs(pick(timeline[f]) - target);
+      if (err < bestErr) {
+        bestErr = err;
+        bestF = f;
+      }
+    }
+    return bestF;
+  };
+
+  const rawBeatSchedule = BEAT_INDICES_30_1.map((beat, idx) => ({
+    id: `m${String(idx + 1).padStart(2, '0')}`,
+    kind: 'named',
+    f: nearestFrameBy((t) => t.beat, beat),
+    sub: 0,
+  }));
+  const rawAbsSchedule = [{
+    id: 'title_enter',
+    kind: 'named',
+    f: nearestFrameBy((t) => t.seconds, 2.0),
+    sub: 0,
+  }];
+
+  const beatHitsAtFrame = new Array(frames);
+  const beatSinceFrames = new Array(frames);
+  const absoluteEvents = [];
+  for (let f = 0; f < frames; f++) {
+    const beatEv = evalEvents({ events: rawBeatSchedule }, { kind: 'named' }, f, 0).events;
+    beatHitsAtFrame[f] = beatEv.hits;
+    beatSinceFrames[f] = beatEv.sinceFrames;
+    const absEv = evalEvents({ events: rawAbsSchedule }, { kind: 'named' }, f, 0).events;
+    for (const id of absEv.hits) absoluteEvents.push({ id, frame: f });
+  }
+
+  const { attackFrames, holdFrames, releaseFrames } = envelopeParams;
+  const pulseEnvelope = new Float32Array(frames);
+  for (let f = 0; f < frames; f++) {
+    const since = beatSinceFrames[f];
+    if (since === null) continue;
+    pulseEnvelope[f] = evalEnvelope({}, { at: 0, attackFrames, holdFrames, releaseFrames }, since, 0).envelope.value;
+  }
+
+  const beatEvents = [];
+  for (let f = 0; f < frames; f++) {
+    const hits = beatHitsAtFrame[f];
+    if (!hits.length) continue;
+    const nextIdx = Math.min(frames - 1, f + 1);
+    const rises = attackFrames === 0
+      ? pulseEnvelope[f] > 0
+      : (pulseEnvelope[f] === 0 && nextIdx > f && pulseEnvelope[nextIdx] > 0);
+    if (!rises) continue;
+    for (const id of hits) beatEvents.push({ id, frame: f });
+  }
+
+  return { beatEvents, absoluteEvents, bpm, beatFrames, pulseEnvelope };
+}
+
+/** 30-1 行为重求值函数：完全由 time.timeline / time.events / time.envelope 三张时间卡返回值串联驱动 */
+export function resolve30_1Events({ bpm, fpsFraction, frames, envelopeParams = DEFAULT_30_1_ENVELOPE }) {
+  const { beatEvents, absoluteEvents } = evaluate30_1Cards({ bpm, fpsFraction, frames, envelopeParams });
   return { beatEvents, absoluteEvents, bpm };
 }
 
@@ -1043,30 +1218,77 @@ async function render30_1(question, film, outDir) {
   const { size, fps, frames } = question.deliverable;
   const spec = encodeSpecFor(size, fps, film.delivery.master);
   const cuts = film.shots.slice(1).map((s) => s.in);
-  const durationSec = frames / fpsFloat(fps);
+  const fpsVal = fpsFloat(fps);
+  const durationSec = frames / fpsVal;
+  const envCard = film.shots[0].cards.find((c) => c.use.startsWith('time.envelope'))?.params;
+  const envelopeParams = {
+    attackFrames: envCard?.attackFrames ?? DEFAULT_30_1_ENVELOPE.attackFrames,
+    holdFrames: envCard?.holdFrames ?? DEFAULT_30_1_ENVELOPE.holdFrames,
+    releaseFrames: envCard?.releaseFrames ?? DEFAULT_30_1_ENVELOPE.releaseFrames,
+  };
 
-  // 调用 time.timeline / time.events / time.envelope 计算 80 BPM 事件表与包络
-  const beatFrames = (fpsFloat(fps) * 60) / 80;
-  const resolved = resolve30_1Events({
-    bpm: 80,
+  // 由 time.timeline / time.events / time.envelope 三张卡返回值直接产出 80 BPM 事件表与逐帧脉冲包络
+  const resolved = evaluate30_1Cards({
+    bpm: film.timeline?.bpm ?? 80,
     fpsFraction: fps,
     frames,
-    beatFrames,
-    frameAtBeat: (beat) => Math.round(beat * beatFrames),
-    frameAtSeconds: (sec) => Math.round(sec * fpsFloat(fps)),
+    envelopeParams,
   });
   const beatTablePath = join(outDir, 'beat-events.json');
-  writeFileSync(beatTablePath, JSON.stringify(resolved, null, 2), 'utf8');
+  writeFileSync(
+    beatTablePath,
+    JSON.stringify({
+      bpm: resolved.bpm,
+      beatFrames: resolved.beatFrames,
+      beatEvents: resolved.beatEvents,
+      absoluteEvents: resolved.absoluteEvents,
+    }, null, 2),
+    'utf8',
+  );
 
-  const { channels } = synthesizeMasteredTone(durationSec, { targetLufs: -14.0, targetPeak: -1.5, loopSec: 4 });
+  // 用 time.envelope 返回的 pulseEnvelope 直接调制音频节拍包络与画面底部脉动条
+  const { channels } = synthesizeMasteredTone(durationSec, { targetLufs: -14.2, targetPeak: -2.5, loopSec: 4 });
+  const spf = SAMPLE_RATE / fpsVal;
+  for (let i = 0; i < channels[0].length; i++) {
+    const fIdx = Math.min(frames - 1, Math.floor(i / spf));
+    const gain = 0.96 + 0.16 * resolved.pulseEnvelope[fIdx];
+    channels[0][i] *= gain;
+    channels[1][i] *= gain;
+  }
   const wavPath = writeWav48k(join(outDir, 'master.wav'), channels);
   const deliverablePath = join(outDir, 'deliverable.mp4');
 
-  await encodeShotFlipVideo({ outPath: deliverablePath, size, fps, frames, cuts, spec, audioPath: wavPath });
+  const inW = Math.max(16, Math.floor(size[0] / 30));
+  const inH = Math.max(16, Math.floor(size[1] / 30));
+  const bandStartRow = Math.floor(inH * 0.8);
+  const plane = Buffer.allocUnsafe(inW * inH);
+  await encodeRawFramesStream({
+    outPath: deliverablePath,
+    inSize: [inW, inH],
+    outSize: size,
+    pixFmt: 'gray',
+    fps,
+    spec,
+    audioPath: wavPath,
+    crf: 14,
+    writeFrames: async (push) => {
+      let shotIdx = 0;
+      for (let f = 0; f < frames; f++) {
+        while (shotIdx < cuts.length && f >= cuts[shotIdx]) shotIdx++;
+        const baseLuma = (shotIdx % 2 === 0 ? 64 : 188) + (f % 2) * 4;
+        const pulseLuma = Math.min(244, Math.round(baseLuma + resolved.pulseEnvelope[f] * 48));
+        plane.fill(baseLuma, 0, bandStartRow * inW);
+        plane.fill(pulseLuma, bandStartRow * inW, inH * inW);
+        const p = push(plane);
+        if (p) await p;
+      }
+    },
+  });
+
   return {
     deliverablePath,
     artifacts: { audioWav: wavPath, beatTablePath },
-    resolveEvents: resolve30_1Events,
+    resolveEvents: (probeArgs) => resolve30_1Events({ ...probeArgs, envelopeParams }),
     cardsUsed: ['time.timeline', 'time.events', 'time.envelope', 'audio.master', 'deliver.encode'],
   };
 }
@@ -1083,12 +1305,13 @@ async function measure30_1(question, film, rendered) {
     question,
     filmMeta: {
       ...filmMeta,
+      ...(probe?.fpsFraction ? { fpsFraction: probe.fpsFraction } : {}),
       shots: film.shots,
       loudnessLufs: loud.value,
       truePeakDbtp: loud.details.truePeakDbtp,
     },
   });
-  const verdict = evaluateL2a(question, readings);
+  const verdict = applyProbeDeliveryGateToL2a(question, evaluateL2a(question, readings), probe);
   return { readings, basePredicates: verdict.base, verdict, probe };
 }
 
@@ -1154,7 +1377,6 @@ async function render15_2(question, film, outDir) {
 
 async function measure15_2(question, film, rendered) {
   const { deliverablePath, artifacts } = rendered;
-  const { size } = question.deliverable;
   const metaDoc = JSON.parse(readFileSync(artifacts.frameMetaPath, 'utf8'));
   const [probe, specRes, bfdRes, cutRes] = await Promise.all([
     probeDeliverableSpecAsync(deliverablePath),
@@ -1163,13 +1385,16 @@ async function measure15_2(question, film, rendered) {
     cutYdif(deliverablePath, 24),
   ]);
 
+  const actualSize = [probe.width, probe.height];
+  const actualFrames = probe.frames;
   const zoomArgs = question.scoring.find((s) => s.metric === 'motion.zoom-pan').args;
-  const indices = [...new Set(zoomArgs.pairs.flat())];
-  const grayMap = decodeSelectedFramesGray(deliverablePath, indices, size);
-  const pairs = zoomArgs.pairs.map(([a, b]) => [grayMap.get(a), grayMap.get(b)]);
+  const indices = [...new Set(zoomArgs.pairs.flat())].filter((idx) => idx >= 0 && idx < actualFrames);
+  const grayMap = decodeSelectedFramesGray(deliverablePath, indices, actualSize);
+  const hasAllPairs = zoomArgs.pairs.every(([a, b]) => grayMap.has(a) && grayMap.has(b));
+  const pairs = hasAllPairs ? zoomArgs.pairs.map(([a, b]) => [grayMap.get(a), grayMap.get(b)]) : [];
 
   const cameras = metaDoc.cameras.map(({ world, proj }) => ({ world, proj }));
-  const lockReading = readLock(pairs, size, { maxPan: zoomArgs.maxPan });
+  const lockReading = hasAllPairs ? readLock(pairs, actualSize, { maxPan: zoomArgs.maxPan }) : { pairs: [] };
   const staticCheck = readCameraStatic(cameras);
   const readings = {
     'meta.camera-static': { cameras, ...staticCheck },
@@ -1178,13 +1403,13 @@ async function measure15_2(question, film, rendered) {
 
   const orbitDeg = computeOrbitTotalDeg(metaDoc.cameras, metaDoc.target, false);
   const measuredForPred = {
-    output: { size: [specRes.value.width, specRes.value.height], fps: question.deliverable.fps, frames: specRes.value.frames, colorTag: specRes.value.color_space },
+    output: buildMeasuredOutput(probe, specRes),
     blackFrames: bfdRes.details.black,
     freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
     cuts: cutRes.value,
     orbitTotalDeg: { 'camera:scene': orbitDeg },
   };
-  const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred));
+  const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred, question.deliverable));
   const scoringVerdict = scoreL2b(question, readings);
   const basePass = baseResults.every((r) => r.pass);
   const verdict = {
@@ -1195,6 +1420,274 @@ async function measure15_2(question, film, rendered) {
     base: baseResults,
   };
   return { readings, basePredicates: baseResults, verdict, probe };
+}
+
+/* ---------------- 内置 5×7 点阵像素字形表与真实解码像素模板匹配 OCR（供 18-1 使用） ---------------- */
+
+// 每项格式：[字符, 有效列宽 w (1..5), r0..r6 七行位掩码（高位在左：第 c 列对应 (mask >> (w - 1 - c)) & 1）]
+const GLYPH_SPECS_5X7 = Object.freeze([
+  [' ', 3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+  ['0', 5, 0x0e, 0x13, 0x15, 0x15, 0x19, 0x11, 0x0e],
+  ['1', 3, 0x02, 0x06, 0x02, 0x02, 0x02, 0x02, 0x07],
+  ['2', 5, 0x0e, 0x11, 0x01, 0x06, 0x08, 0x10, 0x1f],
+  ['3', 5, 0x1e, 0x01, 0x01, 0x0e, 0x01, 0x01, 0x1e],
+  ['4', 5, 0x02, 0x06, 0x0a, 0x12, 0x1f, 0x02, 0x02],
+  ['5', 5, 0x1f, 0x10, 0x1e, 0x01, 0x01, 0x11, 0x0e],
+  ['6', 5, 0x0e, 0x10, 0x1e, 0x11, 0x11, 0x11, 0x0e],
+  ['7', 5, 0x1f, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08],
+  ['8', 5, 0x0e, 0x11, 0x11, 0x0e, 0x11, 0x11, 0x0e],
+  ['9', 5, 0x0e, 0x11, 0x11, 0x0f, 0x01, 0x01, 0x0e],
+  ['A', 5, 0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
+  ['B', 5, 0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e],
+  ['C', 5, 0x0e, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0e],
+  ['D', 5, 0x1c, 0x12, 0x11, 0x11, 0x11, 0x12, 0x1c],
+  ['E', 5, 0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f],
+  ['F', 5, 0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x10],
+  ['G', 5, 0x0e, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0e],
+  ['H', 5, 0x11, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
+  ['I', 3, 0x07, 0x02, 0x02, 0x02, 0x02, 0x02, 0x07],
+  ['J', 5, 0x07, 0x02, 0x02, 0x02, 0x12, 0x12, 0x0c],
+  ['K', 5, 0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11],
+  ['L', 5, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f],
+  ['M', 5, 0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11],
+  ['N', 5, 0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11],
+  ['O', 5, 0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e],
+  ['P', 5, 0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10],
+  ['Q', 5, 0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d],
+  ['R', 5, 0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11],
+  ['S', 5, 0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e],
+  ['T', 5, 0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04],
+  ['U', 5, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e],
+  ['V', 5, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0a, 0x04],
+  ['W', 5, 0x11, 0x11, 0x11, 0x15, 0x15, 0x1b, 0x11],
+  ['X', 5, 0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11],
+  ['Y', 5, 0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04],
+  ['Z', 5, 0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f],
+  ['a', 4, 0x00, 0x00, 0x06, 0x01, 0x07, 0x09, 0x07],
+  ['b', 4, 0x08, 0x08, 0x0e, 0x09, 0x09, 0x09, 0x0e],
+  ['c', 4, 0x00, 0x00, 0x07, 0x08, 0x08, 0x08, 0x07],
+  ['d', 4, 0x01, 0x01, 0x07, 0x09, 0x09, 0x09, 0x07],
+  ['e', 4, 0x00, 0x00, 0x06, 0x09, 0x0f, 0x08, 0x07],
+  ['f', 4, 0x03, 0x04, 0x0e, 0x04, 0x04, 0x04, 0x04],
+  ['g', 4, 0x00, 0x00, 0x07, 0x09, 0x07, 0x01, 0x06],
+  ['h', 4, 0x08, 0x08, 0x0e, 0x09, 0x09, 0x09, 0x09],
+  ['i', 3, 0x02, 0x00, 0x06, 0x02, 0x02, 0x02, 0x07],
+  ['j', 3, 0x01, 0x00, 0x03, 0x01, 0x01, 0x05, 0x02],
+  ['k', 4, 0x08, 0x08, 0x09, 0x0a, 0x0c, 0x0a, 0x09],
+  ['l', 2, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x01],
+  ['m', 5, 0x00, 0x00, 0x1a, 0x15, 0x15, 0x15, 0x11],
+  ['n', 4, 0x00, 0x00, 0x0e, 0x09, 0x09, 0x09, 0x09],
+  ['o', 4, 0x00, 0x00, 0x06, 0x09, 0x09, 0x09, 0x06],
+  ['p', 4, 0x00, 0x00, 0x0e, 0x09, 0x0e, 0x08, 0x08],
+  ['q', 4, 0x00, 0x00, 0x07, 0x09, 0x07, 0x01, 0x01],
+  ['r', 4, 0x00, 0x00, 0x0b, 0x0c, 0x08, 0x08, 0x08],
+  ['s', 4, 0x00, 0x00, 0x07, 0x08, 0x06, 0x01, 0x0e],
+  ['t', 4, 0x04, 0x04, 0x0e, 0x04, 0x04, 0x05, 0x02],
+  ['u', 4, 0x00, 0x00, 0x09, 0x09, 0x09, 0x09, 0x07],
+  ['v', 5, 0x00, 0x00, 0x11, 0x11, 0x11, 0x0a, 0x04],
+  ['w', 5, 0x00, 0x00, 0x11, 0x11, 0x15, 0x15, 0x0a],
+  ['x', 5, 0x00, 0x00, 0x11, 0x0a, 0x04, 0x0a, 0x11],
+  ['y', 4, 0x00, 0x00, 0x09, 0x09, 0x07, 0x01, 0x0e],
+  ['z', 4, 0x00, 0x00, 0x0f, 0x02, 0x04, 0x08, 0x0f],
+  ['.', 2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x03],
+  [',', 2, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x02],
+  ['-', 4, 0x00, 0x00, 0x00, 0x0f, 0x00, 0x00, 0x00],
+  [':', 2, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00],
+  ['!', 1, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x01],
+  ['?', 5, 0x0e, 0x11, 0x02, 0x04, 0x04, 0x00, 0x04],
+  ['/', 4, 0x01, 0x01, 0x02, 0x02, 0x04, 0x04, 0x08],
+  ['(', 3, 0x01, 0x02, 0x04, 0x04, 0x04, 0x02, 0x01],
+  [')', 3, 0x04, 0x02, 0x01, 0x01, 0x01, 0x02, 0x04],
+  ["'", 1, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00],
+]);
+
+const GLYPH_MAP_5X7 = new Map(
+  GLYPH_SPECS_5X7.map(([ch, w, ...masks]) => {
+    const bits = new Uint8Array(w * 7);
+    for (let r = 0; r < 7; r++) {
+      const m = masks[r];
+      for (let c = 0; c < w; c++) bits[r * w + c] = (m >> (w - 1 - c)) & 1;
+    }
+    return [ch, { ch, w, bits }];
+  }),
+);
+
+const GLYPH_TEMPLATES_5X7 = Object.freeze(
+  [...GLYPH_MAP_5X7.values()].filter((g) => g.ch !== ' '),
+);
+
+function measureGlyphTextWidth(text, dotPx = 1, gapDots = 1) {
+  let width = 0;
+  for (let i = 0; i < text.length; i++) {
+    const glyph = GLYPH_MAP_5X7.get(text[i]);
+    if (!glyph) throw new RangeError(`5x7 字形表不支持字符：${JSON.stringify(text[i])}`);
+    width += glyph.w * dotPx;
+    if (i + 1 < text.length) width += gapDots * dotPx;
+  }
+  return width;
+}
+
+/** 按 5×7 点阵字形表逐像素把字幕字符串画进 RGBA 帧缓冲 */
+function drawGlyphText5x7(u32, bufW, bufH, text, startX, startY, inkWord, dotPx = 1, gapDots = 1) {
+  let cursorX = startX;
+  for (let i = 0; i < text.length; i++) {
+    const glyph = GLYPH_MAP_5X7.get(text[i]);
+    if (!glyph) throw new RangeError(`5x7 字形表不支持字符：${JSON.stringify(text[i])}`);
+    const gw = glyph.w;
+    if (text[i] !== ' ') {
+      for (let r = 0; r < 7; r++) {
+        for (let c = 0; c < gw; c++) {
+          if (!glyph.bits[r * gw + c]) continue;
+          const py0 = startY + r * dotPx;
+          const px0 = cursorX + c * dotPx;
+          for (let dy = 0; dy < dotPx; dy++) {
+            const py = py0 + dy;
+            if (py < 0 || py >= bufH) continue;
+            const rowOff = py * bufW;
+            for (let dx = 0; dx < dotPx; dx++) {
+              const px = px0 + dx;
+              if (px >= 0 && px < bufW) u32[rowOff + px] = inkWord;
+            }
+          }
+        }
+      }
+    }
+    cursorX += (gw + gapDots) * dotPx;
+  }
+}
+
+/**
+ * 纯解码像素模板匹配 OCR（严禁读取任何 expectedText / copy / meta.texts）：
+ * 从解码后的整帧灰度像素里裁剪字幕带、二值化墨迹、按列投影切分连通字形单元，
+ * 逐字采样 5×7 中心像素核并与字形模板做汉明距离匹配，返回识别到的字符串与实测像素包围盒。
+ * 若字幕区空白、被实心矩形涂抹或包含无法匹配的损坏字形，返回空数组或含 '?' 的不匹配串。
+ */
+export function ocrSubtitleLineFromGray(gray, width, height) {
+  if (!gray || !(width > 0) || !(height > 0)) return [];
+  const bandY0 = Math.floor(height * 0.88);
+  const bandY1 = Math.min(height, Math.ceil(height * 0.96));
+  if (bandY1 <= bandY0) return [];
+
+  // 采样字幕带顶行作为纸面底色参考，同时找最暗墨迹像素
+  let bgSum = 0;
+  for (let x = 0; x < width; x++) bgSum += gray[bandY0 * width + x];
+  const bgLuma = bgSum / width;
+  let minLuma = 255;
+  for (let y = bandY0; y < bandY1; y++) {
+    const off = y * width;
+    for (let x = 0; x < width; x++) {
+      const v = gray[off + x];
+      if (v < minLuma) minLuma = v;
+    }
+  }
+  if (bgLuma - minLuma < 60) return [];
+  const threshold = bgLuma - Math.max(55, (bgLuma - minLuma) * 0.45);
+
+  let topY = bandY1;
+  let botY = -1;
+  for (let y = bandY0; y < bandY1; y++) {
+    const off = y * width;
+    for (let x = 0; x < width; x++) {
+      if (gray[off + x] < threshold) {
+        if (y < topY) topY = y;
+        if (y > botY) botY = y;
+      }
+    }
+  }
+  if (botY < topY) return [];
+
+  const dotPx = Math.max(1, Math.round(width / 480));
+  const lineH = botY - topY + 1;
+  if (lineH < Math.max(3, 3 * dotPx) || lineH > 8 * dotPx) {
+    return [{ text: '?', bbox2d: [0, topY, width, botY + 1] }];
+  }
+
+  // 列投影切分水平连通字形单元
+  const runs = [];
+  let runStart = -1;
+  for (let x = 0; x < width; x++) {
+    let hasInk = false;
+    for (let y = topY; y <= botY; y++) {
+      if (gray[y * width + x] < threshold) {
+        hasInk = true;
+        break;
+      }
+    }
+    if (hasInk) {
+      if (runStart < 0) runStart = x;
+    } else if (runStart >= 0) {
+      runs.push([runStart, x - 1]);
+      runStart = -1;
+    }
+  }
+  if (runStart >= 0) runs.push([runStart, width - 1]);
+  if (!runs.length) return [];
+
+  // 5×7 字形底行对齐行底（所有字母/数字均触及第 6 行）
+  const row0Y = botY + 1 - 7 * dotPx;
+  const pad = dotPx >= 4 ? 1 : 0;
+  let recognized = '';
+
+  for (let i = 0; i < runs.length; i++) {
+    const [rx0, rx1] = runs[i];
+    if (i > 0) {
+      const gapPx = rx0 - runs[i - 1][1] - 1;
+      if (gapPx >= 2.5 * dotPx) recognized += ' ';
+    }
+    const runW = rx1 - rx0 + 1;
+    const cols = Math.round(runW / dotPx);
+    if (cols < 1 || cols > 5 || Math.abs(runW - cols * dotPx) > Math.max(2, dotPx * 0.6)) {
+      recognized += '?';
+      continue;
+    }
+
+    const sampled = new Uint8Array(cols * 7);
+    for (let r = 0; r < 7; r++) {
+      const cy0 = row0Y + r * dotPx + pad;
+      const cy1 = row0Y + (r + 1) * dotPx - pad;
+      for (let c = 0; c < cols; c++) {
+        const cx0 = rx0 + c * dotPx + pad;
+        const cx1 = rx0 + (c + 1) * dotPx - pad;
+        let sum = 0;
+        let cnt = 0;
+        for (let y = cy0; y < cy1; y++) {
+          if (y < 0 || y >= height) continue;
+          const off = y * width;
+          for (let x = cx0; x < cx1; x++) {
+            if (x < 0 || x >= width) continue;
+            sum += gray[off + x];
+            cnt++;
+          }
+        }
+        sampled[r * cols + c] = cnt > 0 && (sum / cnt) < threshold ? 1 : 0;
+      }
+    }
+
+    let bestCh = '?';
+    let bestErr = Infinity;
+    let secondErr = Infinity;
+    for (const tpl of GLYPH_TEMPLATES_5X7) {
+      const wMax = Math.max(cols, tpl.w);
+      let err = Math.abs(cols - tpl.w) * 2;
+      for (let r = 0; r < 7; r++) {
+        for (let c = 0; c < wMax; c++) {
+          const sb = c < cols ? sampled[r * cols + c] : 0;
+          const tb = c < tpl.w ? tpl.bits[r * tpl.w + c] : 0;
+          if (sb !== tb) err++;
+        }
+      }
+      if (err < bestErr) {
+        secondErr = bestErr;
+        bestErr = err;
+        bestCh = tpl.ch;
+      } else if (err < secondErr) {
+        secondErr = err;
+      }
+    }
+    recognized += (bestErr <= 2 && bestErr < secondErr) ? bestCh : '?';
+  }
+
+  return [{ text: recognized, bbox2d: [runs[0][0], topY, runs.at(-1)[1] + 1, botY + 1] }];
 }
 
 const SCENES_18_1 = [
@@ -1245,7 +1738,7 @@ function build18_1TimingAndSubs(size, fps, frames) {
     { size, frames },
     SCENES_18_1.map((s, idx) => ({
       name: `panel_${idx + 1}`,
-      rect: [528, 216, 1392, 648], // 864x432 = 18.0% 画面面积，底色纸面约占 80.5%
+      rect: [528, 216, 1392, 648], // 864x432 = 18.0% 画面面积，底色纸面约占 81.5%
       fill: `#${s.color.map((c) => c.toString(16).padStart(2, '0')).join('')}`,
       text: s.label,
       fontPx: 48,
@@ -1268,8 +1761,9 @@ async function render18_1(question, film, outDir) {
   const audioChannels = synthesizeNarrationStereo(frames / fpsFloat(fps), sentences);
   const wavPath = writeWav48k(join(outDir, 'narration.wav'), audioChannels);
 
-  // 160x90（精确 1/12 比例）绘制 #F4F0E9 纸面（~80.5%）、内容面板（18%，场尾 3 帧线性淡出）、字幕区（每块字幕不同宽度暗条）
-  const inW = size[0] / 12, inH = size[1] / 12; // 160x90
+  // 480x270（精确 1/4 比例，经 flags=neighbor 放大至 1920x1080 使 5×7 字形每点为清晰 4×4 像素格）
+  const scaleDiv = 4;
+  const inW = size[0] / scaleDiv, inH = size[1] / scaleDiv; // 480x270
   const rgba = new Uint8Array(inW * inH * 4);
   const u32 = new Uint32Array(rgba.buffer);
   // #F5F2E9 与 #F4F0E9 同属 16 档色格 [15,15,14] 且距边界 >= 2 级，经 BT.709 YUV420p 往返后 100% 落在 [15,15,14]
@@ -1292,7 +1786,7 @@ async function render18_1(question, film, outDir) {
         u32.fill(paperWord);
         const p = plan.find((item) => f >= item.from && f < item.until);
         if (p) {
-          const [rx0, ry0, rx1, ry1] = p.rect.map((v) => Math.round(v / 12));
+          const [rx0, ry0, rx1, ry1] = p.rect.map((v) => Math.round(v / scaleDiv));
           const left = p.until - f;
           const alpha = p.fade > 0 && left <= p.fade ? left / (p.fade + 1) : 1;
           const fillRgb = [1, 3, 5].map((i) => parseInt(p.fill.slice(i, i + 2), 16));
@@ -1304,18 +1798,22 @@ async function render18_1(question, film, outDir) {
             const d = (f % 2 === 0 ? 1 : -1) * 8;
             const hi = packRgba(blended.map((c) => Math.min(255, c + d)));
             const lo = packRgba(blended.map((c) => Math.max(0, c - d)));
-            for (let y = ry0 + 4; y < ry0 + 14; y++) {
-              u32.fill(hi, y * inW + rx0 + 4, y * inW + rx0 + 18);
-              u32.fill(lo, y * inW + rx0 + 18, y * inW + rx0 + 32);
+            for (let y = ry0 + 12; y < ry0 + 42; y++) {
+              u32.fill(hi, y * inW + rx0 + 12, y * inW + rx0 + 54);
+              u32.fill(lo, y * inW + rx0 + 54, y * inW + rx0 + 96);
             }
           }
         }
-        // 字幕带（y in [78, 86)）：每块字幕以唯一长度墨迹横条呈现，整块切换
+        // 字幕带：按 overlay.subs 给出的 table 与 bbox 用 5×7 点阵像素字形逐像素真实绘制字幕文本
         const row = subTable.find((r) => f >= r.startFrame && f < r.endFrame);
         if (row) {
-          const barW = 28 + row.index * 14;
-          const x0 = Math.floor((inW - barW) / 2);
-          for (let y = 80; y < 84; y++) u32.fill(inkWord, y * inW + x0, y * inW + x0 + barW);
+          const [bx0, by0, bx1, by1] = row.bbox;
+          const boxY0 = Math.round(by0 / scaleDiv);
+          const boxY1 = Math.round(by1 / scaleDiv);
+          const textW = measureGlyphTextWidth(row.text, 1, 1);
+          const textX0 = Math.round((bx0 + bx1) / (2 * scaleDiv) - textW / 2);
+          const textY0 = boxY0 + Math.floor((boxY1 - boxY0 - 7) / 2);
+          drawGlyphText5x7(u32, inW, inH, row.text, textX0, textY0, inkWord, 1, 1);
         }
         const wait = push(rgba);
         if (wait) await wait;
@@ -1335,10 +1833,6 @@ async function render18_1(question, film, outDir) {
 
 async function measure18_1(question, film, rendered) {
   const { deliverablePath } = rendered;
-  const { size, fps, frames } = question.deliverable;
-  const fpsVal = fpsFloat(fps);
-  const spanSec = frames / fpsVal;
-  const { subsHandle } = build18_1TimingAndSubs(size, fps, frames);
 
   const [probe, specRes, bfdRes] = await Promise.all([
     probeDeliverableSpecAsync(deliverablePath),
@@ -1346,20 +1840,30 @@ async function measure18_1(question, film, rendered) {
     blackFreezeDup(deliverablePath),
   ]);
 
+  const actualSize = [probe.width, probe.height];
+  const actualFps = probe.fps;
+  const actualFrames = probe.frames;
+  const actualFpsFrac = probe.fpsFraction ?? normalizeFpsFraction(specRes?.details?.frameRate);
+  const spanSec = actualFps > 0 ? actualFrames / actualFps : 0;
+  const { subsHandle } = build18_1TimingAndSubs(actualSize, actualFpsFrac, actualFrames);
+
   // 1) 从真实 MP4 音频解出旁白说话段（起声与收声）
   const pcm = decodeAudioMono48k(deliverablePath);
   const lagArgs = question.scoring.find((s) => s.args.maxSubtitleLagSec !== undefined).args;
   const speech = detectSpeechSpansFromPcm(pcm, { pauseDb: lagArgs.pauseDb, minPauseSec: lagArgs.minPauseSec });
   const onsetsSec = speech.map(([from]) => from);
 
-  // 2) 从真实 MP4 解码全片 160x90 灰度序列，量测内容区淡出帧数与字幕条更替时刻
+  // 2) 从真实 MP4 解码全片 160x90 灰度序列，量测内容区淡出帧数与字幕区像素更替时刻
   const inW = 160, inH = 90;
-  const grayFrames = decodeAllFramesGray(deliverablePath, [inW, inH], frames);
-  const contentMean = new Array(frames);
-  const bandDark = new Array(frames);
-  for (let f = 0; f < frames; f++) {
+  const grayFrames = decodeAllFramesGray(deliverablePath, [inW, inH], actualFrames);
+  const scanCount = grayFrames.length;
+  const contentMean = new Array(scanCount);
+  const bandDarkEnergy = new Array(scanCount);
+  const bandDiffEnergy = new Array(scanCount);
+  for (let f = 0; f < scanCount; f++) {
     const g = grayFrames[f];
-    let sum = 0, cnt = 0, dark = 0;
+    const prevG = f > 0 ? grayFrames[f - 1] : null;
+    let sum = 0, cnt = 0, darkEnergy = 0, diffEnergy = 0;
     for (let y = 18; y < 54; y++) {
       for (let x = 44; x < 116; x++) {
         sum += g[y * inW + x];
@@ -1367,31 +1871,34 @@ async function measure18_1(question, film, rendered) {
       }
     }
     for (let y = 78; y < 86; y++) {
+      const off = y * inW;
       for (let x = 0; x < inW; x++) {
-        if (g[y * inW + x] < 120) dark++;
+        const cur = g[off + x];
+        if (cur < 232) darkEnergy += 232 - cur;
+        if (prevG) diffEnergy += Math.abs(cur - prevG[off + x]);
       }
     }
     contentMean[f] = sum / cnt;
-    bandDark[f] = dark;
+    bandDarkEnergy[f] = darkEnergy;
+    bandDiffEnergy[f] = prevG ? diffEnergy : darkEnergy;
   }
 
   // 内容区均值连变段 → 场景淡出帧数与场景边界
   const fadeRuns = [];
-  for (let f = 1; f < frames; f++) {
+  for (let f = 1; f < scanCount; f++) {
     if (Math.abs(contentMean[f] - contentMean[f - 1]) > 2.0) {
       if (fadeRuns.length && fadeRuns.at(-1)[1] === f - 1) fadeRuns.at(-1)[1] = f;
       else fadeRuns.push([f, f]);
     }
   }
   const fadeFrames = fadeRuns.map(([first, last]) => last - first);
-  const sceneEdgesSec = [0, ...fadeRuns.map(([, last]) => last / fpsVal), spanSec];
+  const sceneEdgesSec = [0, ...fadeRuns.map(([, last]) => last / actualFps), spanSec];
 
-  // 字幕条墨迹像素数显著跳变（且非空）→ 每块字幕出现时刻
+  // 字幕带墨迹存在且帧间像素显著变化 → 每块字幕真实出现/更替时刻
   const appearSec = [];
-  for (let f = 0; f < frames; f++) {
-    const prev = f > 0 ? bandDark[f - 1] : 0;
-    if (bandDark[f] > 40 && Math.abs(bandDark[f] - prev) > 20) {
-      appearSec.push(Math.round((f / fpsVal) * 1000) / 1000);
+  for (let f = 0; f < scanCount; f++) {
+    if (bandDarkEnergy[f] > 800 && bandDiffEnergy[f] > 800) {
+      appearSec.push(Math.round((f / actualFps) * 1000) / 1000);
     }
   }
 
@@ -1401,25 +1908,24 @@ async function measure18_1(question, film, rendered) {
     said: speech.filter(([from]) => from >= sceneEdgesSec[idx] && from < end),
   }));
   const roundMs = (v) => Math.round(v * 1000) / 1000;
-  const leadSec = perScene.map(({ start, said }) => roundMs(said[0][0] - start));
-  const tailSec = perScene.map(({ end, said }) => roundMs(end - said.at(-1)[1]));
+  const leadSec = perScene.map(({ start, said }) => (said.length ? roundMs(said[0][0] - start) : 0));
+  const tailSec = perScene.map(({ end, said }) => (said.length ? roundMs(end - said.at(-1)[1]) : 0));
 
   // 3) 三个场景各抽中间一帧全尺寸 RGBA，真实调 readBaseShare（observe colorPalette）量底色占比
-  const midFrames = perScene.map(({ start, end }) => Math.round(((start + end) / 2) * fpsVal));
-  const rgbMap = decodeSelectedFramesRgb(deliverablePath, midFrames, size);
+  const midFrames = perScene.map(({ start, end }) => Math.min(actualFrames - 1, Math.max(0, Math.round(((start + end) / 2) * actualFps))));
+  const rgbMap = decodeSelectedFramesRgb(deliverablePath, midFrames, actualSize);
   const paletteArgs = question.scoring.find((s) => s.metric === 'color.palette').args;
   const paletteReading = readBaseShare(midFrames.map((f) => rgbMap.get(f)), paletteArgs);
 
-  // 4) 核验 text_matches(copy) @ all（基于 overlay.subs meta 与真实解码字幕条墨迹存在性）
-  const sampledTextFrames = subsHandle.object.table.map((row) => {
-    const f = Math.min(row.endFrame - 1, row.startFrame + 10);
+  // 4) 核验 text_matches(copy) @ all：从真实解码全尺寸 MP4 视频帧像素做 5×7 模板匹配 OCR（绝不抄写 expectedText/copy）
+  const sampleSubFrames = subsHandle.object.table
+    .map((row) => Math.min(row.endFrame - 1, row.startFrame + 10))
+    .filter((f) => f >= 0 && f < actualFrames);
+  const subGrayMap = decodeSelectedFramesGray(deliverablePath, sampleSubFrames, actualSize);
+  const sampledTextFrames = sampleSubFrames.map((f) => {
     const meta = subsHandle.meta(f);
-    const hasInk = bandDark[f] > 40;
-    return {
-      frame: f,
-      meta,
-      ocr: hasInk ? meta.texts.map((t) => ({ text: t.text, bbox2d: t.bbox2d })) : [],
-    };
+    const ocr = ocrSubtitleLineFromGray(subGrayMap.get(f), actualSize[0], actualSize[1]);
+    return { frame: f, meta, ocr };
   });
   subsHandle.dispose();
 
@@ -1438,12 +1944,12 @@ async function measure18_1(question, film, rendered) {
   };
 
   const measuredForPred = {
-    output: { size: [specRes.value.width, specRes.value.height], fps: question.deliverable.fps, frames: specRes.value.frames, colorTag: specRes.value.color_space },
+    output: buildMeasuredOutput(probe, specRes),
     blackFrames: bfdRes.details.black,
     freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
     frames: sampledTextFrames,
   };
-  const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred));
+  const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred, question.deliverable));
   const scoringVerdict = scoreL2b(question, readings);
   const basePass = baseResults.every((r) => r.pass);
   const verdict = {
@@ -1526,45 +2032,46 @@ async function render18_2(question, film, outDir) {
 
 async function measure18_2(question, film, rendered) {
   const { deliverablePath } = rendered;
-  const { fps, frames } = question.deliverable;
-  const fpsVal = fpsFloat(fps);
   const [probe, specRes, bfdRes] = await Promise.all([
     probeDeliverableSpecAsync(deliverablePath),
     deliverSpec(deliverablePath),
     blackFreezeDup(deliverablePath),
   ]);
+  const actualFps = probe.fps;
+  const actualFrames = probe.frames;
 
   // 从真实 MP4 音频解出 3 句旁白起声，第 2、3 句对应 cue_a、cue_b
   const pcm = decodeAudioMono48k(deliverablePath);
   const speech = detectSpeechSpansFromPcm(pcm, { pauseDb: -45, minPauseSec: 0.25 });
-  const audioOnsetFrames = speech.map(([from]) => Math.round(from * fpsVal));
+  const audioOnsetFrames = speech.map(([from]) => Math.round(from * actualFps));
   const eventFrames = [audioOnsetFrames[1], audioOnsetFrames[2]];
 
-  // 从真实 MP4 解码 600 帧 192x108 灰度序列，用 evaluate-b4 readMoveStarts 实测两次快速运镜起帧
+  // 从真实 MP4 解码 192x108 灰度序列，用 evaluate-b4 readMoveStarts 实测两次快速运镜起帧
   const scanSize = [192, 108];
-  const grayFrames = decodeAllFramesGray(deliverablePath, scanSize, frames);
+  const grayFrames = decodeAllFramesGray(deliverablePath, scanSize, actualFrames);
+  const scanCount = grayFrames.length;
   const args = question.scoring[0].args;
-  const markFrames = readMoveStarts((k) => grayFrames[k], [0, frames], scanSize, args);
+  const markFrames = readMoveStarts((k) => grayFrames[k], [0, scanCount], scanSize, args);
   const expected = eventFrames.map((f, i) => f - args.leadFrames[i]);
-  const hitSummary = readHits(expected, markFrames, [0, frames], args.tolFrames);
+  const hitSummary = readHits(expected, markFrames, [0, actualFrames], args.tolFrames);
 
   const readings = {
     'narration.timing': {
       eventFrames,
       markFrames,
-      range: [0, frames],
+      range: [0, actualFrames],
       ...hitSummary,
     },
   };
 
   const measuredForPred = {
-    output: { size: [specRes.value.width, specRes.value.height], fps: question.deliverable.fps, frames: specRes.value.frames, colorTag: specRes.value.color_space },
+    output: buildMeasuredOutput(probe, specRes),
     blackFrames: bfdRes.details.black,
     freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
     eventFrames: { cue_a: eventFrames[0], cue_b: eventFrames[1] },
     audioOnsetFrames,
   };
-  const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred));
+  const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred, question.deliverable));
   const scoringVerdict = scoreL2b(question, readings);
   const basePass = baseResults.every((r) => r.pass);
   const verdict = {
@@ -1636,8 +2143,6 @@ async function render5_1(question, film, outDir) {
 
 async function measure5_1(question, film, rendered) {
   const { deliverablePath, artifacts } = rendered;
-  const { fps, frames } = question.deliverable;
-  const fpsVal = fpsFloat(fps);
 
   const [probe, specRes, bfdRes, cutRes] = await Promise.all([
     probeDeliverableSpecAsync(deliverablePath),
@@ -1645,6 +2150,8 @@ async function measure5_1(question, film, rendered) {
     blackFreezeDup(deliverablePath),
     cutYdif(deliverablePath, 24),
   ]);
+  const actualFps = probe.fps;
+  const actualFrames = probe.frames;
 
   // 从真实 MP4 音轨与源配乐 track.wav 分别解码 PCM，计算 20 ms 能量包络并交 readMusicAlign
   const filmPcm = decodeAudioMono48k(deliverablePath);
@@ -1653,29 +2160,29 @@ async function measure5_1(question, film, rendered) {
   const hitArgs = question.scoring.find((s) => s.metric === 'beat.onset-hit').args;
 
   const musicAlign = readMusicAlign(
-    { filmEnvelope: rmsEnvelope(filmPcm, alignArgs.stepSec), trackEnvelope: rmsEnvelope(trackPcm, alignArgs.stepSec), fps: fpsVal },
+    { filmEnvelope: rmsEnvelope(filmPcm, alignArgs.stepSec), trackEnvelope: rmsEnvelope(trackPcm, alignArgs.stepSec), fps: actualFps },
     alignArgs,
   );
-  const { peaks } = detectLowBandPeaks(filmPcm, fpsVal, frames, { maxHz: hitArgs.maxHz, riseDb: hitArgs.riseDb });
-  const hitSummary = readHits(cutRes.value, peaks, [0, frames], hitArgs.tolFrames);
+  const { peaks } = detectLowBandPeaks(filmPcm, actualFps, actualFrames, { maxHz: hitArgs.maxHz, riseDb: hitArgs.riseDb });
+  const hitSummary = readHits(cutRes.value, peaks, [0, actualFrames], hitArgs.tolFrames);
 
   const readings = {
     'music.align': musicAlign,
     'beat.onset-hit': {
       eventFrames: cutRes.value,
       markFrames: peaks,
-      range: [0, frames],
+      range: [0, actualFrames],
       ...hitSummary,
     },
   };
 
   const measuredForPred = {
-    output: { size: [specRes.value.width, specRes.value.height], fps: question.deliverable.fps, frames: specRes.value.frames, colorTag: specRes.value.color_space },
+    output: buildMeasuredOutput(probe, specRes),
     blackFrames: bfdRes.details.black,
     freezes: bfdRes.details.freezes.map(([a, b]) => ({ in: a, out: b + 1 })),
     cuts: cutRes.value,
   };
-  const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred));
+  const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred, question.deliverable));
   const scoringVerdict = scoreL2b(question, readings);
   const basePass = baseResults.every((r) => r.pass);
   const verdict = {

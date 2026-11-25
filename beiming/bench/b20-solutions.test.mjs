@@ -16,8 +16,12 @@ import {
   loadSolutionFilm,
   loadSolutionSpec,
   measureNoiseFloor,
+  measureSolution,
+  renderSolution,
   validateSolutionFilm,
 } from './solutions/index.mjs';
+import { runFfmpegSync } from './solutions/media.mjs';
+import { ocrSubtitleLineFromGray, resolve30_1Events } from './solutions/renderers.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SOLUTIONS_DIR = join(HERE, 'solutions');
@@ -170,15 +174,21 @@ test('B20-4 噪声地板量测与 CLI verify：代表题同片复量与独立重
     const reports = await Promise.all(sampleIds.map((id) => measureNoiseFloor(id, join(root, id))));
     for (const nf of reports) {
       assert.equal(nf.format, SOLUTION_FORMAT);
+      assert.equal(nf.measurementCount, 4, `${nf.slug} measurementCount 应为 4`);
+      assert.equal(nf.run1Measurements.length, 2, `${nf.slug} run1Measurements`);
+      assert.equal(nf.run2Measurements.length, 2, `${nf.slug} run2Measurements`);
       assert.ok(Number.isFinite(nf.repeatMeasureDelta) && nf.repeatMeasureDelta >= 0, `${nf.slug} repeatMeasureDelta`);
       assert.ok(Number.isFinite(nf.repeatRenderDelta) && nf.repeatRenderDelta >= 0, `${nf.slug} repeatRenderDelta`);
       assert.ok(Number.isFinite(nf.noiseFloor) && nf.noiseFloor >= 0, `${nf.slug} noiseFloor`);
-      assert.equal(nf.runs.first.pass, true, `${nf.slug} first`);
-      assert.equal(nf.runs.first.score, 1, `${nf.slug} first score`);
-      assert.equal(nf.runs.repeatMeasure.pass, true, `${nf.slug} repeatMeasure`);
-      assert.equal(nf.runs.repeatMeasure.score, 1, `${nf.slug} repeatMeasure score`);
-      assert.equal(nf.runs.secondRender.pass, true, `${nf.slug} secondRender`);
-      assert.equal(nf.runs.secondRender.score, 1, `${nf.slug} secondRender score`);
+      for (const [label, v] of [
+        ['first', nf.runs.first],
+        ['repeatMeasure', nf.runs.repeatMeasure],
+        ['secondRender', nf.runs.secondRender],
+        ['secondRenderRepeatMeasure', nf.runs.secondRenderRepeatMeasure],
+      ]) {
+        assert.equal(v.pass, true, `${nf.slug} ${label}`);
+        assert.equal(v.score, 1, `${nf.slug} ${label} score`);
+      }
     }
 
     // CLI verify 单题冒烟
@@ -195,5 +205,87 @@ test('B20-4 噪声地板量测与 CLI verify：代表题同片复量与独立重
   } finally {
     rmSync(root, { recursive: true, force: true });
     assert.equal(existsSync(root), false, '噪声地板临时目录应已彻底清理');
+  }
+});
+
+test('B20-5 R1 回归守卫：18-1 真实像素 OCR 拦实心块与单字损坏、30-1 三张时间卡串联求值、15-2 ffprobe 实测拦错帧率与多音轨', async (t) => {
+  if (!requireOrSkipMedia(t)) return;
+  const root = mkdtempSync(join(tmpdir(), 'beiming-b20-r1-'));
+  try {
+    // 1) 18-1：实心矩形覆盖字幕区、清空字幕区或抹坏单字均必须被真实像素 OCR 拦下
+    const r18 = await renderSolution('18-1', join(root, '18-1-orig'));
+    const solidBarMp4 = join(root, '18-1-solidbar.mp4');
+    runFfmpegSync([
+      '-i', r18.deliverablePath,
+      '-vf', 'drawbox=x=0:y=950:w=1920:h=86:color=0xF5F2E9@1:t=fill,drawbox=x=792:y=960:w=336:h=48:color=0x1A1714@1:t=fill',
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', '-pix_fmt', 'yuv420p',
+      '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
+      '-c:a', 'copy', solidBarMp4,
+    ]);
+    const m18Bar = await measureSolution('18-1', { ...r18, deliverablePath: solidBarMp4 });
+    assert.equal(m18Bar.verdict.pass, false, '18-1 实心墨迹块覆盖字幕区必须判不过');
+    assert.equal(
+      m18Bar.basePredicates.find((p) => p.predicate.includes('text_matches')).pass,
+      false,
+      '18-1 实心块必须令 text_matches(copy) 判 fail',
+    );
+
+    const corruptMp4 = join(root, '18-1-corrupt.mp4');
+    runFfmpegSync([
+      '-i', r18.deliverablePath,
+      '-vf', 'drawbox=x=950:y=970:w=24:h=32:color=0xF5F2E9@1:t=fill',
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', '-pix_fmt', 'yuv420p',
+      '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
+      '-c:a', 'copy', corruptMp4,
+    ]);
+    const m18Corrupt = await measureSolution('18-1', { ...r18, deliverablePath: corruptMp4 });
+    assert.equal(m18Corrupt.verdict.pass, false, '18-1 损坏单个字形必须判不过');
+    assert.equal(
+      m18Corrupt.basePredicates.find((p) => p.predicate.includes('text_matches')).pass,
+      false,
+      '18-1 单字损坏必须令 text_matches(copy) 判 fail',
+    );
+    assert.deepEqual(ocrSubtitleLineFromGray(new Uint8Array(1920 * 1080).fill(245), 1920, 1080), []);
+
+    // 2) 30-1：time.timeline / time.events / time.envelope 串联求值随 80 -> 96 BPM 联动且 title_enter 固定第 48 帧
+    const ev80 = resolve30_1Events({ bpm: 80, fpsFraction: '24/1', frames: 2160 });
+    const ev96 = resolve30_1Events({ bpm: 96, fpsFraction: '24/1', frames: 2160 });
+    assert.deepEqual(ev80.beatEvents.map((e) => e.frame), Array.from({ length: 20 }, (_, i) => (i + 1) * 72));
+    assert.deepEqual(ev96.beatEvents.map((e) => e.frame), Array.from({ length: 20 }, (_, i) => (i + 1) * 60));
+    assert.deepEqual(ev80.absoluteEvents, [{ id: 'title_enter', frame: 48 }]);
+    assert.deepEqual(ev96.absoluteEvents, [{ id: 'title_enter', frame: 48 }]);
+    assert.throws(() => resolve30_1Events({ bpm: 0, fpsFraction: '24/1', frames: 2160 }), RangeError);
+    assert.throws(() => resolve30_1Events({ bpm: 80, fpsFraction: null, frames: 2160 }), RangeError);
+
+    // 3) 15-2：错帧率 24/1 必须由 ffprobe 实测出 fps=24 并判 pass === false；多出音轨亦被拦下
+    const r15 = await renderSolution('15-2', join(root, '15-2-orig'));
+    const fps24Mp4 = join(root, '15-2-24fps.mp4');
+    runFfmpegSync([
+      '-i', r15.deliverablePath,
+      '-vf', 'setpts=N/(24*TB)',
+      '-r', '24/1',
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '12', '-g', '1', '-pix_fmt', 'yuv420p',
+      '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
+      fps24Mp4,
+    ]);
+    const m15BadFps = await measureSolution('15-2', { ...r15, deliverablePath: fps24Mp4 });
+    assert.equal(m15BadFps.probe.fps, 24, '15-2 错帧率片应由 ffprobe 实测出 24 fps');
+    assert.equal(m15BadFps.probe.fpsNum, 24);
+    assert.equal(m15BadFps.probe.fpsDen, 1);
+    assert.equal(m15BadFps.basePredicates[0].pass, false, '15-2 错帧率必须令 delivery 谓词失败');
+    assert.equal(m15BadFps.verdict.pass, false, '15-2 错帧率必须判 pass === false');
+
+    const audioMp4 = join(root, '15-2-with-audio.mp4');
+    runFfmpegSync([
+      '-i', r15.deliverablePath,
+      '-f', 'lavfi', '-i', 'sine=frequency=440:duration=10',
+      '-c:v', 'copy', '-c:a', 'alac', '-shortest', audioMp4,
+    ]);
+    const m15Audio = await measureSolution('15-2', { ...r15, deliverablePath: audioMp4 });
+    assert.equal(m15Audio.probe.audio, true);
+    assert.equal(m15Audio.verdict.pass, false, '15-2 无声题混入音轨必须判 pass === false');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    assert.equal(existsSync(root), false, 'R1 回归临时目录应已彻底清理');
   }
 });

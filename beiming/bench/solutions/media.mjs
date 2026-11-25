@@ -276,6 +276,24 @@ export function decodeAudioMono48k(filePath) {
   return new Float32Array(aligned.buffer);
 }
 
+function gcdInt(a, b) {
+  let x = Math.abs(Math.trunc(a));
+  let y = Math.abs(Math.trunc(b));
+  while (y !== 0) {
+    const t = x % y;
+    x = y;
+    y = t;
+  }
+  return x || 1;
+}
+
+/** 将 ffprobe 实测有理数帧率规约成标准分数串（如 "30/1"、"24/1"、"30000/1001"） */
+export function formatFpsFraction(fpsNum, fpsDen) {
+  if (!Number.isInteger(fpsNum) || !Number.isInteger(fpsDen) || fpsNum <= 0 || fpsDen <= 0) return null;
+  const g = gcdInt(fpsNum, fpsDen);
+  return `${fpsNum / g}/${fpsDen / g}`;
+}
+
 /** 与 runner.mjs 同口径的 ffprobe 成片规格核验（异步非阻塞，可与指标并行执行） */
 export async function probeDeliverableSpecAsync(filePath) {
   const args = [
@@ -307,6 +325,7 @@ export async function probeDeliverableSpecAsync(filePath) {
     fpsNum,
     fpsDen,
     fps: fpsDen ? fpsNum / fpsDen : null,
+    fpsFraction: formatFpsFraction(fpsNum, fpsDen),
     frames: Number(v.nb_read_frames),
     audio: Boolean(a),
     audioChannels: a?.channels ?? 0,
@@ -338,6 +357,7 @@ export function probeDeliverableSpec(filePath) {
     fpsNum,
     fpsDen,
     fps: fpsDen ? fpsNum / fpsDen : null,
+    fpsFraction: formatFpsFraction(fpsNum, fpsDen),
     frames: Number(v.nb_read_frames),
     audio: Boolean(a),
     audioChannels: a?.channels ?? 0,
