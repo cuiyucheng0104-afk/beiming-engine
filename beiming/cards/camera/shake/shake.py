@@ -54,6 +54,8 @@ def create(ctx, params):
     except (TypeError, ValueError, ZeroDivisionError, OverflowError) as exc:
         raise ValueError('fps 须为正数或有理数字符串') from exc
     enabled = params.get('enabled', True)
+    if not isinstance(enabled, bool):
+        raise ValueError('enabled 必须是布尔值')
     amp_pos = params.get('ampPosM', 0.02)
     amp_rot = params.get('ampRotDeg', 0.8)
     config = dict(decay_frames=params.get('decayFrames', 8.0), freq_hz=params.get('freqHz', 18.0),
