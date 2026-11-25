@@ -31,6 +31,10 @@
 //   guard                 the loop guard (gpu.rs `loop_guard_of`, `guard_loops`)
 //   aux                   北冥：这次渲染要辅助层（gpu.rs `KernelVariant::aux`）：多一个入口 aux_sample（辅助样本），颜色样本
 //                         数覆盖率。不要辅助层时编出来的颜色内核里没有这两样
+//   pixel_filter          北冥：这次渲染查像素滤波表（gpu.rs `KernelVariant::pixel_filter`，成像一路）：相机射线的像素内偏移查
+//                         P.filter_table。没有它时偏移就是像素滤波的两个随机数本身（盒式宽 1）
+//   sample_clamp          北冥：这次渲染照 Cycles 的口径夹取（gpu.rs `KernelVariant::sample_clamp`，成像一路）：每次贡献经
+//                         film_clamp_contribution。没有它时只有上游的亮度夹取
 // The numbers a variant is compiled for are WESL constants (`import constants::`, gpu.rs `KernelVariant::constants`): the
 // uniform tables' lengths, the loop guard's limit.
 //
@@ -46,7 +50,8 @@
 //   volume.wgsl      体积：大气透视、高度雾、有界介质
 //   integrator.wgsl  路径状态 PathState（模块级的私有变量 state，上游原来散在各处的私有全局都并在里面）、光线 Ray、
 //                    积分主循环（main，相机光线也在里面）
-//   film.wgsl        输出：输出缓冲 film 与读写它的一组函数（film_add_light、film_write_aux、film_write_sample）；第 1 组的缓冲
+//   film.wgsl        输出：输出缓冲 film 与读写它的一组函数（film_add_light、film_write_aux、film_write_sample）；第 1 组的缓冲；
+//                    Cycles 口径的夹取的分发（film_clamp_contribution）与像素滤波表的读法（filter_table_value）
 // 拼接次序见 gpu.rs 的 `KERNEL_FILES`；本文件必须排第一个（模块的 import 与 enable 要在声明之前）。
 @if(uniform_tables) import constants::{UT_TEX_INFO, UT_OBJECTS, UT_INSTANCES, UT_MEDIA};
 @if(merged || guard) import constants::GUARD_WORDS;
@@ -121,7 +126,7 @@ const F_LISTS: u32 = 134217728u; // light tiles (`lt_list_start`): a scene whose
 const F_SPECULAR_TINT: u32 = 268435456u; // 北冥：有材质的边缘色（Material.specular_tint）不是白：材质求值从材质记录读它
 fn has(f: u32) -> bool { return (FEAT & f) != 0u; }
 
-// 北冥：全局参数末尾追加的三块（integrator、film、table_first_ext）。全局参数是进缓冲的格式：已有的块长度冻结；
+// 北冥：全局参数末尾追加的四块（integrator、film、table_first_ext、filter_table）。全局参数是进缓冲的格式：已有的块长度冻结；
 // 要加东西就在末尾追加自己命名的一整块，并登记块名与主人。Rust 一侧的镜像是 gpu::Params 与同名的结构，库测试
 // 逐字段比两侧的偏移与总长度。
 // 积分器的参数，字段名照 Cycles 的 KernelIntegrator。4 个 vec4。
@@ -135,9 +140,9 @@ struct KernelIntegrator {
     transparent_min_bounce: u32,    // 已定义，0
     min_bounce: u32,                // 已定义，0：俄罗斯轮盘的起始深度现在还读上游的 P.counts.w
     sampling_pattern: u32,          // 采样图案，只有 0（Sobol-Burley）
-    sample_clamp_direct: f32,       // 夹取。已定义，0：现在还用上游的亮度夹取（P.misc.x）
+    sample_clamp_direct: f32,       // 夹取的两个上限：存用户值 × 3，0 关（Cycles 关着时存 FLT_MAX）。编译开关 sample_clamp 的变体里读
     sample_clamp_indirect: f32,
-    filter_glossy: f32,             // 已定义，0
+    filter_glossy: f32,             // 滤光泽：存 1 / blur_glossy（照 Cycles 宿主一侧的存法），0 关（Cycles 关着时存 FLT_MAX）
     light_inv_rr_threshold: f32,    // 已定义，0
     seed: u32,                      // 随机数的全局种子。放的是用户种子过一次 hash_hp 之后的值（sample.wgsl 的 rng_start 要的那个）。
                                     // 已落地
@@ -155,6 +160,17 @@ struct KernelFilm {
     film_lightgroup_first: u32,     // 第 0 个灯组在像素里的位置（固定部分的长度）
     num_lightgroups: u32,           // 这次渲染请求的灯组数（不是场景里的灯组数）
     reserved: u32,
+};
+
+// 像素滤波的重要性采样表（成像一路）。表照 Cycles 的 scene/film.cpp 在宿主一侧建（src/pixel_filter.rs），内核拿像素滤波的
+// 随机数查它得到像素内的偏移（../../shaders/imaging.wgsl 的 filter_table_read，表的数由 film.wgsl 的 filter_table_value 读）。
+// use_filter_table 为 0：不查表，像素内均匀抖动（盒式宽 1 与默认）。257 个 vec4。
+struct KernelFilterTable {
+    @align(16) use_filter_table: u32,
+    reserved0: u32,
+    reserved1: u32,
+    reserved2: u32,
+    table: array<vec4<f32>, 256>,   // FILTER_TABLE_SIZE 个数，每个 vec4 装四个
 };
 
 struct Params {
@@ -199,6 +215,7 @@ struct Params {
     //   [0].x 物体扩展表（object_ext_at，已落地，全 0）   [0].y 图案节点表（已定义，0）
     //   [0].z、[0].w 广义 Schlick 的两张能量表（已定义，0）   [1] 的四格空闲
     table_first_ext: array<vec4<u32>, 2>,
+    filter_table: KernelFilterTable, // 北冥：像素滤波的表（成像一路）
 };
 
 // (`TriAttr`, a triangle's attributes: records.wgsl.)
@@ -284,6 +301,12 @@ fn lt_node(i: u32) -> vec4<f32> { return table_f(i); }
 fn light_group_at(i: u32) -> vec4<f32> { return table_f(P.table_first[0].w + i); }
 fn energy_at(i: u32) -> vec4<f32> { return table_f(P.table_first[2].y + i); }
 fn glass_energy_at(i: u32) -> vec4<f32> { return table_f(P.table_first[2].z + i); }
+// 北冥：移植的查表函数（../../shaders/util.wgsl 的 lookup_table_read_buf 一族）从表缓冲里按 float 取数，对应 Cycles 的
+// kernel_data_fetch(lookup_table, i)；i 是整个表缓冲里的第几个 float。广义 Schlick 的两张表（各 4096 个数，
+// ../../shaders/ggx_gen_schlick.tables）首地址在 P.table_first_ext[0].z、[0].w（以 vec4 计，这里换成 float 数）。
+fn lookup_table_fetch(i: i32) -> f32 { let u = u32(i); return bitcast<f32>(tables[u >> 2u][u & 3u]); }
+fn table_ggx_gen_schlick_ior_s() -> i32 { return i32(P.table_first_ext[0].z * 4u); }
+fn table_ggx_gen_schlick_s() -> i32 { return i32(P.table_first_ext[0].w * 4u); }
 // 北冥：物体扩展表。每个物体 2 个 vec4，与上游的物体表同下标（着色点的 object）、定长；首地址在
 // P.table_first_ext[0].x。各家只填自己的格子，不改长度。现在全是 0，还没有读者。Rust 一侧的镜像是 scene::GpuObjectExt。
 // （运动矢量要的前后两刻变换不放这里，到做运动模糊时另定。）

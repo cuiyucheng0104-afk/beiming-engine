@@ -7,7 +7,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { polygonIrradiance } from '../fncheck/checks.mjs';
 import { COMMIT, KERNEL, SHADERS, singleCopyProblems, sourceKey } from './build.mjs';
-import { CYCLES, DIFFUSE, GATES, analyticOk, discPixels, negativeOk, negativeTolerance, passedByFloor, rectMean, runLevel2 } from './level2.mjs';
+import { CYCLES, DIFFUSE, GATES, PRINCIPLED, PRINCIPLED_F0, analyticOk, discPixels, fresnelDielectric, mirrorOk, negativeOk, negativeTolerance, passedByFloor, rectMean, runLevel2 } from './level2.mjs';
 
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const ROUGHNESS = ['0.05', '0.10', '0.20', '0.30', '0.40', '0.50', '0.60', '0.70', '0.80', '0.90', '1.00'];
@@ -21,6 +21,20 @@ test('Cycles 读数：两套各 11 档粗糙度共 22 个，带来源说明，�
   assert.match(CYCLES.source.script_sha256, /^[0-9a-f]{64}$/);
   assert.deepEqual(CYCLES.image, { width: 128, height: 128, sphere_radius_px: 51.2, inner_disc_frac: 0.9, pixels: 6676 });
   assert.doesNotMatch(JSON.stringify(CYCLES), /\/Users\/|\/home\/|[A-Z]:\\|192\.168\./);
+});
+
+test('电介质与混合白炉的 Cycles 读数：金属度 0 的 11 档与金属度 0.5 的 3 档，做法与金属白炉相同且核对过，没有本机路径', () => {
+  const keys = [...['0.00', '0.10', '0.20', '0.30', '0.40', '0.50', '0.60', '0.70', '0.80', '0.90', '1.00'].map(r => `0.00/${r}`), '0.50/0.20', '0.50/0.50', '0.50/0.80'];
+  assert.deepEqual(Object.keys(PRINCIPLED.readings), keys);
+  for (const k of keys) assert.ok(Math.abs(PRINCIPLED.readings[k] - 1) < 2e-3, k);
+  assert.match(PRINCIPLED.source.renderer, /Blender 5\.2\.3.*e13b728c6880/);
+  assert.match(PRINCIPLED.source.script_sha256, /^[0-9a-f]{64}$/);
+  // 金属白炉的脚本没变：同一份做法
+  assert.equal(PRINCIPLED.source.base_script_sha256, CYCLES.source.script_sha256);
+  assert.equal(PRINCIPLED.source.method_check.reading, CYCLES.GGX['0.50']);
+  assert.equal(PRINCIPLED.source.principled_defaults.distribution, 'MULTI_GGX');
+  assert.deepEqual(PRINCIPLED.image, CYCLES.image);
+  assert.doesNotMatch(JSON.stringify(PRINCIPLED), /\/Users\/|\/home\/|[A-Z]:\\|192\.168\./);
 });
 
 test('内盘掩码与 Cycles 的读数口径相同：128×128、像素中心离画面中心小于 0.9×51.2 像素的正好 6676 个', () => {
@@ -49,6 +63,9 @@ test('判据：白炉 ±0.5%，解析场景 0.2% 以内，且在 3 个标准误�
   const a = (rel, z) => analyticOk({ rel, z });
   assert.deepEqual([a(1.9e-6, 3.9), a(2.1e-6, 3.9), a(2e-5, 2.9), a(3e-3, 0.1), a(-1.9e-6, -9)], [true, false, true, false, true]);
   assert.deepEqual([[1.9e-6, 3.9], [1.9e-6, 2.9], [2.1e-6, 3.9]].map(([rel, z]) => passedByFloor({ rel, z })), [true, false, false]);
+  // 镜中的矩形纯光只判相对差；解析值里的菲涅耳：正入射 ((η−1)/(η+1))²，掠射趋于 1
+  assert.deepEqual([1.9e-3, -2.1e-3, -0.44].map(rel => mirrorOk({ rel, z: 50 })), [true, false, false]);
+  assert.ok(Math.abs(fresnelDielectric(1, 1.5) - 0.04) < 1e-15 && fresnelDielectric(1e-6, 1.5) > 0.9999);
 });
 
 test('负对照的判法：粗的三项读数在门外且落在登记值的 ±5% 之内；细的几项要解析场景的判法判它不过，读数在登记值的 ±30% 之内', () => {
@@ -74,11 +91,11 @@ test('内核源码的来源：来源说明写了上游与固定提交，上游�
   const sources = ['src', 'shaders'].flatMap(d => fs.readdirSync(path.join(KERNEL, d)).map(f => `${d}/${f}`));
   // 从上游 pathtrace.wgsl 按阶段分出来的几段，来源行写的是上游那一个文件
   const split = ['closure', 'film', 'integrator', 'intersect', 'light', 'shader', 'volume'].map(n => `shaders/${n}.wgsl`);
-  // 照 Cycles 移植的两个哈希文件不是上游 ThreeRT 的：Apache-2.0，版权与许可写在文件头
-  const cycles = ['shaders/hash.wgsl', 'src/cycles_hash.rs'];
+  // 照 Cycles 移植的两个哈希文件与像素滤波的建表不是上游 ThreeRT 的：Apache-2.0，版权与许可写在文件头
+  const cycles = ['shaders/hash.wgsl', 'src/cycles_hash.rs', 'src/pixel_filter.rs'];
   // 北冥新写的文件（不是上游的，也没有照 Cycles 取东西）：MIT，文件头写版权人
   const own = ['src/pack.rs'];
-  assert.equal(sources.length, 35);
+  assert.equal(sources.length, 36);
   // （下面的正则里有许可标识的字样，它不是本文件的许可声明：让许可覆盖的扫描跳过这一段。）
   // REUSE-IgnoreStart
   for (const f of cycles) {
@@ -115,11 +132,11 @@ test('内核源码的来源：来源说明写了上游与固定提交，上游�
   }
 });
 
-test('内核的包名与程序名不用上游项目名；四个移植的着色器仓库里只有一份，内核直接读它', () => {
+test('内核的包名与程序名不用上游项目名；五个移植的着色器仓库里只有一份，内核直接读它', () => {
   const cargo = fs.readFileSync(path.join(KERNEL, 'Cargo.toml'), 'utf8');
   assert.match(cargo, /^name = "beiming-core-path"$/m);
   assert.match(cargo, /^\[\[bin\]\]\nname = "core-render"$/m);
-  assert.equal(SHADERS.length, 4);
+  assert.equal(SHADERS.length, 5);
   assert.deepEqual(singleCopyProblems(), []);
   for (const f of SHADERS) assert.ok(fs.existsSync(path.join(KERNEL, '..', 'shaders', f)), f);
   // 程序按源码内容的摘要命名，负对照的改错也算进摘要
@@ -143,7 +160,7 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
   }
   await t.test('构建：从仓库内的源码编，上游的提交号对，上游自带的漫反射白炉过且均值与记录相等', () => {
     assert.equal(rep.core.source, 'beiming/sources/core/path');
-    assert.equal(rep.core.shaders.length, 4);
+    assert.equal(rep.core.shaders.length, SHADERS.length);
     assert.equal(rep.upstream.commit, COMMIT);
     const d = rep.diffuseFurnace;
     t.diagnostic(`漫反射白炉：${d.adapter}（${d.backend}）均值 ${d.mean}，记录 ${d.recorded}，${d.rule}`);
@@ -167,8 +184,38 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
       assert.ok(analyticOk(a), `${a.name} 相对差 ${a.rel}，差 ${a.z} 个标准误`);
     }
   });
-  await t.test('负对照：闭包、面光、接线故意改错六项，每项必须不过，读数落在登记值的容差之内（粗的三项 ±5%，细的三项 ±30%）', () => {
-    assert.deepEqual(rep.negative.map(n => n.target), ['closure', 'area_light', 'mis', 'area_light_fine', 'mis_origin', 'mis_occluder']);
+  await t.test('电介质与混合白炉：原理化 BSDF 14 个读数都在 Cycles 的 ±0.5% 之内，噪声远小于门限', () => {
+    assert.equal(rep.principled.rows.length, 14);
+    assert.equal(rep.principled.rows.length, Object.keys(PRINCIPLED.readings).length);
+    for (const r of rep.principled.rows) {
+      t.diagnostic(`金属度 ${r.metalness} 粗糙度 ${r.roughness}: 我方 ${r.ours.toFixed(6)} ± ${r.se.toExponential(1)}  Cycles ${r.cycles.toFixed(6)}  相对差 ${r.rel.toExponential(2)}`);
+      assert.ok(Math.abs(r.rel) <= GATES.furnaceRel, `${r.key} 相对差 ${r.rel}`);
+      assert.ok(r.se / r.cycles < GATES.furnaceRel / 10, `${r.key} 标准误 ${r.se}`);
+    }
+  });
+  await t.test('Pharr 自发光球：32 个种子，像素均值对 Le/(1 − 反照率) 0.2% 以内，且在 3 个标准误或相对 2e-6 以内', () => {
+    assert.deepEqual(rep.emissive.map(a => [a.name, a.seeds]), [['Pharr 自发光球', 32]]);
+    for (const a of rep.emissive) {
+      t.diagnostic(`${a.name}: 我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(2)}  解析 ${a.exact}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误`);
+      assert.ok(analyticOk(a), `${a.name} 相对差 ${a.rel}，差 ${a.z} 个标准误`);
+    }
+  });
+  await t.test('对 F0 敏感的电介质白炉：底色 0 的原理化 BSDF 7 个读数（折射率、高光等级、高光染色各几档）都在 Cycles 的 ±0.5% 之内', () => {
+    assert.equal(rep.principledF0.rows.length, Object.keys(PRINCIPLED_F0.readings).length);
+    for (const r of rep.principledF0.rows) {
+      t.diagnostic(`${r.key}: 我方 ${r.ours.toFixed(6)} ± ${r.se.toExponential(1)}  Cycles ${r.cycles.toFixed(6)}  相对差 ${r.rel.toExponential(2)}`);
+      assert.ok(Math.abs(r.rel) <= GATES.furnaceRel, `${r.key} 相对差 ${r.rel}`);
+      assert.ok(r.se / r.cycles < GATES.furnaceRel / 10, `${r.key} 标准误 ${r.se}`);
+    }
+  });
+  await t.test('奇异的镜面：粗糙度 0、金属度 0 的平面镜里的小矩形纯光对 F·L 在 0.2% 以内', () => {
+    for (const a of rep.mirror) {
+      t.diagnostic(`${a.name}: 我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(2)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误（只记录）`);
+      assert.ok(mirrorOk(a), `${a.name} 相对差 ${a.rel}`);
+    }
+  });
+  await t.test('负对照：闭包、面光、接线、原理化 BSDF、奇异的一瓣故意改错十四项，每项必须不过，读数落在登记值的容差之内（粗的十一项 ±5%，细的三项 ±30%）', () => {
+    assert.deepEqual(rep.negative.map(n => n.target), ['closure', 'area_light', 'mis', 'area_light_fine', 'mis_origin', 'mis_occluder', 'dielectric_fresnel', 'layering', 'diffuse', 'pick', 'emission', 'mis_skip', 'specular_f0', 'specular_exponent']);
     for (const n of rep.negative) {
       t.diagnostic(`${n.name}: 最大相对差 ${n.worstRel.toExponential(2)}（门限 ${n.gate}，登记值 ${n.near}，容差 ±${negativeTolerance(n) * 100}%）`);
       assert.ok(negativeOk(n), n.name);

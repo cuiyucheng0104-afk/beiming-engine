@@ -33,7 +33,7 @@ await s.close(); await src.stop();
 |---|---|---|
 | `color` | 出 | R、G、B、A，场景线性，不降噪的样本均值，RGB 已预乘 A |
 | `depth`、`objectId`、`normal` | 出 | 取辅助样本（sub = 0、针孔、像素中心，每像素一个），不做平均；`objectId` 的层引用只带 `id`，覆盖率在同目录的 `objectId.coverage.f32`（帧源接口契约 3.3「带覆盖率的 objectId 怎么装进文件」待定，层引用没有放第二个文件的格子） |
-| `denoiseAlbedo`、`denoiseNormal` | 出 | 法线照 Cycles 降噪特征的相机空间；反照率还是上游口径 |
+| `denoiseAlbedo`、`denoiseNormal` | 出 | 法线照 Cycles 降噪特征的相机空间；反照率照 Cycles 取相机首次命中处漫反射类闭包的反照率之和（不跟反射、不按粗糙度加权；带清漆或透射的材质还是上游口径的底色） |
 | `motion` | 不出 | 场景包只有整数帧的状态，快门打开到关上的位置算不出来（场景包契约第 6 节帧间怎么取待定）；能力声明写 `false`。输出通道契约 PS1 对出层方要七个固定通道，这一条现在不满足 |
 | `lightgroup:*` | 不出 | 逐盏写灯组要改直接光的夹取，还没做 |
 

@@ -55,10 +55,19 @@ pub enum Table {
     /// 北冥：物体扩展表（`scene::GpuObjectExt`），每个物体两个 vec4，与 `Objects` 同下标。从这一张起是北冥加的表：
     /// 首地址在 `Params::table_first_ext`（上游的 `table_first` 只有 12 格，已经占满）。
     ObjectExt,
+    /// 北冥：Cycles 的 table_ggx_gen_schlick_ior_s（4096 个 f32，lib.rs `ggx_gen_schlick_tables` 的前一半），
+    /// 移植的 `lookup_table_read_3D` 读它。首地址在 `table_first_ext[0].z`（见 `EXT_SLOTS`）。
+    GgxGenSchlickIorS,
+    /// 北冥：Cycles 的 table_ggx_gen_schlick_s（后一半），首地址在 `table_first_ext[0].w`。
+    GgxGenSchlickS,
 }
 
+/// 北冥加的表（`Table` 第 12 张起）各占 `Params::table_first_ext` 的哪一格（0 到 7，`[k / 4][k % 4]`），照 STRUCTURES.md
+/// 的登记表：`[0].y` 留给图案节点表，还没有这张表，那一格是 0。
+pub const EXT_SLOTS: [usize; 3] = [0, 2, 3];
+
 impl Section for Table {
-    const COUNT: usize = 13;
+    const COUNT: usize = 15;
     const UNIT: u64 = 16;
     const LABEL: &'static str = "tables";
     fn index(self) -> usize {

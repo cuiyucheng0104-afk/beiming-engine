@@ -7,7 +7,7 @@
 //   constants  具名常数：类型与数值的原文
 //   functions  函数的签名原文（参数表与返回类型）
 // 另有 families：名字以这些前缀开头的常数是登记过的编号，着色器里声明了而标记里没有就算不一致（加了号没登记）。
-// 这一条扫的是内核 shaders/ 下的全部着色器，加共用目录里编进内核的那四个（build.mjs 的 SHADERS）：标记没有钉住的
+// 这一条扫的是内核 shaders/ 下的全部着色器，加共用目录里编进内核的那五个（build.mjs 的 SHADERS）：标记没有钉住的
 // 文件里声明了这类常数，同样算不一致。声明怎么写都认：不写类型的（const X = 1u;）、前面带属性的（@if(…) const X…）、
 // 一行里第二个、函数里面的；注释里的不算。
 // 改了结构而没更新标记，这里不过；更新标记是一次看得见的改动（--update 之后标记的差异进提交），同时要改条文里对应的
@@ -51,7 +51,7 @@ export function familyConstants(src, prefixes) {
   return [...stripComments(src).matchAll(/\bconst\s+([A-Za-z_][A-Za-z0-9_]*)\s*[:=]/g)].map(m => m[1]).filter(n => prefixes.some(p => n.startsWith(p)));
 }
 
-/** 登记类编号要扫的文件（相对内核目录 `dir`）：shaders/ 下的全部着色器，加共用目录里编进内核的四个 */
+/** 登记类编号要扫的文件（相对内核目录 `dir`）：shaders/ 下的全部着色器，加共用目录里编进内核的五个 */
 export function scanFiles(dir) {
   return [...fs.readdirSync(path.join(dir, 'shaders')).filter(f => f.endsWith('.wgsl')).sort().map(f => `shaders/${f}`), ...SHADERS.map(f => `../shaders/${f}`)];
 }

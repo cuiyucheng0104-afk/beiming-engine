@@ -1,11 +1,13 @@
 // 标准答案一侧：按固定标签取 Cycles 源码到被忽略的 out/ 缓存（只取内核与 util 两个目录，加宿主侧的预计算表
-// scene/shader.tables 一个文件），核对提交号，
-// 再把 ref.cpp 编成本机小程序。Cycles 源码（Apache-2.0，其中闭包文件是 BSD-3-Clause）只在缓存里，不进仓库。
+// scene/shader.tables 与像素滤波建表的 scene/film.cpp、film.h 三个文件），核对提交号，
+// 再把 ref.cpp 编成本机小程序。宿主侧的 film.cpp 整个编不进来（它要场景、设备那一整套），所以从缓存里按标记截出
+// 像素滤波那一段（filmFilterSource），写到 out/ 下生成的头文件里给 ref.cpp 包含；截出来的是原文，不改一个字。Cycles 源码（Apache-2.0，其中闭包文件是 BSD-3-Clause）只在缓存里，不进仓库。
 // 缺工具（git、编译器、网络）时抛出的错误带 .missing，测试据此跳过。
 import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +19,33 @@ export const COMMIT = 'e13b728c6880d3084d9d57c30031ed5df8b39dee';
 const REPO = 'https://projects.blender.org/blender/blender.git';
 const SRC = path.join(OUT, `blender-${TAG}`);
 // 稀疏检出的范围（非锥形模式，才能只取单个文件）。改了这里，旧缓存缺的文件在下次 allowFetch 时补取
-const SPARSE = ['/intern/cycles/kernel/', '/intern/cycles/util/', '/intern/cycles/scene/shader.tables'];
+const SPARSE = ['/intern/cycles/kernel/', '/intern/cycles/util/', '/intern/cycles/scene/shader.tables', '/intern/cycles/scene/film.cpp', '/intern/cycles/scene/film.h'];
+
+/** 在 text 里截出从 from 起、到 to 之前的一段（from、to 都要恰好出现一次）：截不到就是源码变了，拒绝往下走 */
+function cut(text, from, to, file) {
+  const a = text.indexOf(from), b = text.indexOf(to, a + 1);
+  if (a < 0 || text.indexOf(from, a + 1) >= 0 || b < 0) throw new Error(`拒绝编译：${file} 里找不到恰好一处「${from}」……「${to}」`);
+  return text.slice(a, b);
+}
+
+/** 像素滤波那一段的原文：scene/film.h 的 FilterType，scene/film.cpp 的三个滤波函数与 filter_table（到「Film」一节之前） */
+export function filmFilterSource(src) {
+  const read = f => fs.readFileSync(path.join(src, 'intern', 'cycles', 'scene', f), 'utf8');
+  return [
+    '// 生成的文件（fncheck/cycles/build.mjs 的 filmFilterSource）：从 Cycles 源码缓存原样截出的两段，不进仓库',
+    '#pragma once',
+    '#include <cassert>',
+    '#include "kernel/types.h"',
+    '#include "util/math.h"',
+    '#include "util/math_cdf.h"',
+    '#include "util/vector.h"',
+    'CCL_NAMESPACE_BEGIN',
+    cut(read('film.h'), 'enum FilterType {', 'class Film', 'scene/film.h'),
+    cut(read('film.cpp'), '/* Pixel Filter */', '/* Film */', 'scene/film.cpp'),
+    'CCL_NAMESPACE_END',
+    '',
+  ].join('\n');
+}
 
 export const missing = what => Object.assign(new Error(what), { missing: what });
 
@@ -77,19 +105,45 @@ export function buildRef(opts) {
     `-I${path.join(HERE, 'shim')}`, `-I${path.join(src, 'intern', 'cycles')}`,
   ];
   const cpp = path.join(HERE, 'ref.cpp');
-  const key = createHash('sha256').update([cxx, COMMIT, ...flags, fs.readFileSync(cpp, 'utf8'), fs.readFileSync(path.join(HERE, 'shim/tbb/spin_mutex.h'), 'utf8')].join('\0')).digest('hex').slice(0, 16);
+  // 像素滤波那一段生成到 out/gen/（ref.cpp 包含 cycles_film_filter.h）；宿主侧的 util/math_cdf.cpp 与 ccl::vector 的分配器
+  // util/guarded_allocator.cpp 一起编
+  const gen = path.join(OUT, 'gen'), filter = filmFilterSource(src);
+  fs.mkdirSync(gen, { recursive: true });
+  if (!fs.existsSync(path.join(gen, 'cycles_film_filter.h')) || fs.readFileSync(path.join(gen, 'cycles_film_filter.h'), 'utf8') !== filter) fs.writeFileSync(path.join(gen, 'cycles_film_filter.h'), filter);
+  flags.push(`-I${gen}`);
+  const sources = [cpp, ...['math_cdf.cpp', 'guarded_allocator.cpp'].map(f => path.join(src, 'intern', 'cycles', 'util', f))];
+  const key = createHash('sha256').update([cxx, COMMIT, ...flags, fs.readFileSync(cpp, 'utf8'), fs.readFileSync(path.join(HERE, 'ref_imaging.h'), 'utf8'), filter, fs.readFileSync(path.join(HERE, 'shim/tbb/spin_mutex.h'), 'utf8'), fs.readFileSync(path.join(HERE, 'shim/atomic_ops.h'), 'utf8')].join('\0')).digest('hex').slice(0, 16);
   const bin = path.join(OUT, `cycles-ref-${key}`);
   if (!fs.existsSync(bin)) {
-    const r = sh(cxx, [...flags, cpp, '-o', `${bin}.tmp`], { encoding: 'utf8' });
+    const r = sh(cxx, [...flags, ...sources, '-o', `${bin}.tmp`], { encoding: 'utf8' });
     if (r.status !== 0) throw new Error(`标准答案程序编不过（${cxx}）：\n${r.stderr}`);
     fs.renameSync(`${bin}.tmp`, bin);
   }
   return bin;
 }
 
+/** 跑一个从 stdin 读 float32 流的程序（标准答案程序、core-render fncheck-host）。input 先写进临时文件、文件作 stdin 交给它，
+ *  不用 spawnSync 的 input：macOS 上 spawnSync 往管道写几 MB 的 input 偶尔写不完也不关管道，子进程停在读 stdin，两边都不动，
+ *  整个测试挂到超时（Node 24.13，同一个调用压测约每几百次一次；改成文件作 stdin 之后 1500 次没有一次）。
+ *  启动失败（含程序不存在）照原样抛出 spawnSync 的错误，不当成缺工具链 */
+export function runStdin(cmd, args, input) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fncheck-'));
+  const file = path.join(dir, 'in.f32');
+  try {
+    fs.writeFileSync(file, Buffer.from(input.buffer, input.byteOffset, input.byteLength));
+    const fd = fs.openSync(file, 'r');
+    try {
+      const r = spawnSync(cmd, args, { stdio: [fd, 'pipe', 'pipe'], maxBuffer: 1 << 30 });
+      if (r.error) throw r.error;
+      return r;
+    } finally { fs.closeSync(fd); }
+  } finally { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 }); }
+}
+
 /** 跑一个函数：input 是每组 nIn 个 float32 的扁平数组，返回 count 个 float32 */
 export function runRef(bin, id, input, count) {
-  const r = sh(bin, [id], { input: Buffer.from(input.buffer, input.byteOffset, input.byteLength) });
+  let r;
+  try { r = runStdin(bin, [id], input); } catch (e) { throw e.code === 'ENOENT' ? missing(`找不到 ${bin}`) : e; }
   if (r.status !== 0) throw new Error(`标准答案程序 ${id} 退出码 ${r.status}：${r.stderr}`);
   if (r.stdout.length !== count * 4) throw new Error(`标准答案程序 ${id} 输出 ${r.stdout.length} 字节，应为 ${count * 4}`);
   return new Float32Array(r.stdout.buffer.slice(r.stdout.byteOffset, r.stdout.byteOffset + r.stdout.length));
