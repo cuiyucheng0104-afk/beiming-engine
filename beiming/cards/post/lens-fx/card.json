@@ -1,0 +1,180 @@
+{
+  "format": "card/0.1",
+  "id": "post.lens-fx",
+  "version": "1.0.0",
+  "kind": "post",
+  "title": "冲击波折射与径向拖影镜头特效",
+  "intent": "在屏幕空间施加冲击波环形折射扭曲、径向缩放拖影与边缘加强色散；全部强度为 0 时精确恒等",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:three"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "cards/post/lens-fx/three.js",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "page",
+          "version": "0.187.0"
+        }
+      ],
+      "selftest": "cards/post/lens-fx/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "ringCenterX": {
+      "type": "number",
+      "unit": "none",
+      "range": [-1, 2],
+      "default": 0.5,
+      "coupling": "none"
+    },
+    "ringCenterY": {
+      "type": "number",
+      "unit": "none",
+      "range": [-1, 2],
+      "default": 0.5,
+      "coupling": "none"
+    },
+    "ringRadius": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 4],
+      "default": 0,
+      "coupling": "none"
+    },
+    "ringWidth": {
+      "type": "number",
+      "unit": "none",
+      "range": [0.005, 1],
+      "default": 0.05,
+      "coupling": "none"
+    },
+    "ringStrength": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 0.25],
+      "default": 0,
+      "coupling": "none"
+    },
+    "ringSquash": {
+      "type": "number",
+      "unit": "none",
+      "range": [0.1, 4],
+      "default": 1,
+      "coupling": "none"
+    },
+    "ringAngleDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [-180, 180],
+      "default": 0,
+      "coupling": "none"
+    },
+    "kick": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 4],
+      "default": 0,
+      "coupling": "none"
+    },
+    "smearCenterX": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 0.5,
+      "coupling": "none"
+    },
+    "smearCenterY": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 0.5,
+      "coupling": "none"
+    },
+    "fringe": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 2],
+      "default": 0,
+      "coupling": "resolution"
+    },
+    "shake": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 8],
+      "default": 0,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [
+      {
+        "name": "color",
+        "type": "scene-linear-rgba"
+      },
+      {
+        "name": "postState",
+        "type": "tracks.postState"
+      }
+    ],
+    "out": [
+      {
+        "name": "color",
+        "type": "scene-linear-rgba"
+      }
+    ],
+    "order": {
+      "before": [
+        "post.grade-cl"
+      ],
+      "after": [
+        "fx.post-state"
+      ]
+    },
+    "requires": [
+      "Handle.object 是全屏网格通道，uniforms.tC 为线性 HDR 画面；所有强度为 0 时直接按 texelFetch 逐像素原样输出"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "撞击、爆炸或强震动瞬间需要屏幕空间冲击波折射、径向推拉拖影与边缘色散"
+    ],
+    "notWhen": [
+      "镜头静止且无冲击事件：isActive() 为 false 时可跳过该通道以节省一次全屏采样"
+    ]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "验证全零强度时逐像素 maxAbs=0 恒等；开启冲击波环在波前内外产生反向折射位移；开启径向拖影与色散在均匀场严格能量守恒并在高对比边缘产生可测径向偏移与色差",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "冲击波圆环在宽屏画面被拉成横椭圆",
+      "fix": "冲击波距离计算须先对 x 方向乘宽高比 asp=width/height，反算 UV 偏移时再除以 asp"
+    },
+    {
+      "symptom": "径向拖影导致画面整体变亮或变暗",
+      "fix": "四抽头权重 [1.4, 1.2, 0.9, 0.5] 总和精确为 4.0，除以 4.0 后保证均匀场能量守恒"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "屏幕空间各向异性高斯导数冲击波折射、能量守恒径向缩放拖影与边缘色散通道"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": [
+    "cal:post.lens-fx"
+  ]
+}

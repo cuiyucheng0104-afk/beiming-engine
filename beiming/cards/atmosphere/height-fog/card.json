@@ -1,0 +1,148 @@
+{
+  "format": "card/0.1",
+  "id": "atmo.height-fog",
+  "version": "1.0.0",
+  "kind": "atmosphere",
+  "title": "解析指数高度雾",
+  "intent": "沿视线解析积分指数高度雾密度与高空大气散射，水平射线泰勒展开消除 0/0 奇异并叠加太阳前向内散射着色",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:three"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "cards/atmosphere/height-fog/three.js",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "page",
+          "version": "0.187.0"
+        }
+      ],
+      "selftest": "cards/atmosphere/height-fog/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "heightScale": {
+      "type": "number",
+      "unit": "m",
+      "range": [0.5, 1000],
+      "default": 28,
+      "coupling": "scene-scale"
+    },
+    "mistDensity": {
+      "type": "number",
+      "unit": "1/m",
+      "range": [0, 0.2],
+      "default": 0.0023,
+      "coupling": "scene-scale"
+    },
+    "airDensity": {
+      "type": "number",
+      "unit": "1/m",
+      "range": [0, 0.05],
+      "default": 0.0006,
+      "coupling": "scene-scale"
+    },
+    "floorY": {
+      "type": "number",
+      "unit": "m",
+      "range": [-1000, 1000],
+      "default": -10,
+      "coupling": "scene-scale"
+    },
+    "phaseMode": {
+      "type": "string",
+      "unit": "none",
+      "default": "power",
+      "coupling": "none"
+    },
+    "hgG": {
+      "type": "number",
+      "unit": "none",
+      "range": [-0.95, 0.95],
+      "default": 0.65,
+      "coupling": "none"
+    },
+    "sunLit": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 2],
+      "default": 1,
+      "coupling": "none"
+    },
+    "dusk": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 0,
+      "coupling": "none"
+    },
+    "gloom": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 1],
+      "default": 0,
+      "coupling": "none"
+    },
+    "flash": {
+      "type": "number",
+      "unit": "none",
+      "range": [0, 4],
+      "default": 0,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "readings",
+        "type": "frame-meta"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "世界坐标为米制 Y 朝上右手系；patchMaterial(mat) 将解析高度雾注入 Three.js 材质片元阶段，也可调用 evaluate() 做纯 CPU 核对"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "大尺度室外山谷、海岸或城市景深需要随海拔指数衰减的近地雾与空气透视"
+    ],
+    "notWhen": [
+      "需要非均匀局部体积云或带遮挡阴影的三维网格步进雾"
+    ]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "验证水平射线泰勒展开无奇异且与解析极限连续一致、光学厚度与数值积分误差 < 1e-6、随距离严格单调增强、低谷雾浓于高空、迎太阳前向散射更亮更暖",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "相机水平眺望时远景出现黑点或 NaN 闪烁",
+      "fix": "在 |k * (y1 - y0)| < 1e-3 时切入四阶泰勒展开 1 - d/2 + d^2/6 - d^3/24，避免 (e0 - e1) / (k * dy) 数值相消与除零"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "双介质（指数高度雾 + 均匀高空大气）解析积分与太阳前向内散射（幂次相位与 Henyey-Greenstein 相位）"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": [
+    "cal:atmo.height-fog"
+  ]
+}

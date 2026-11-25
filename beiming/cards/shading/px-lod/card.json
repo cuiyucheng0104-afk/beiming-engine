@@ -1,0 +1,114 @@
+{
+  "format": "card/0.1",
+  "id": "shade.px-lod",
+  "version": "1.0.0",
+  "kind": "shading",
+  "title": "屏幕像素覆盖分级淡出",
+  "intent": "根据世界特征尺度、视图深度、视场角与视口高度计算屏幕像素覆盖宽度，经 smoothstep 在亚像素区间平滑淡出高频细节以消除摩尔纹闪烁",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:three"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "cards/shading/px-lod/three.js",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "page",
+          "version": "0.187.0"
+        }
+      ],
+      "selftest": "cards/shading/px-lod/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "worldSize": {
+      "type": "number",
+      "unit": "m",
+      "range": [0.0001, 100],
+      "default": 0.25,
+      "coupling": "scene-scale"
+    },
+    "fadeStartPx": {
+      "type": "number",
+      "unit": "px",
+      "range": [0.1, 64],
+      "default": 1.2,
+      "coupling": "resolution"
+    },
+    "fadeEndPx": {
+      "type": "number",
+      "unit": "px",
+      "range": [0.2, 128],
+      "default": 4.5,
+      "coupling": "resolution"
+    },
+    "fovYDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [5, 140],
+      "default": 45,
+      "coupling": "none"
+    },
+    "viewportHeight": {
+      "type": "integer",
+      "unit": "px",
+      "range": [64, 8640],
+      "default": 1080,
+      "coupling": "resolution"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "readings",
+        "type": "frame-meta"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "每帧渲染前调用 updateCamera(camera, viewportHeight) 同步 uPxK = 2 * tan(fovY / 2) / viewportHeight；片元侧使用 GLSL_PX_LOD 计算细节保留权重"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "程序化微凹凸、鳞片、织物或高频规则纹理在远距运动时产生摩尔纹或高光闪烁"
+    ],
+    "notWhen": [
+      "大块低频漫反射贴图已由硬件各向异性 Mipmap 完整覆盖"
+    ]
+  },
+  "calibration": "probe-thin-geometry",
+  "verify": {
+    "selftest": "验证屏幕像素覆盖公式 px = worldSize * H / (2 * depth * tan(fovY/2))、近处满权重 1.0、中距随深度严格单调递减、远距亚像素归 0 防闪烁",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "换分辨率或变焦后高频细节淡出时机跑偏",
+      "fix": "切勿按固定米制距离硬切，必须按实时相机 fov 与实际渲染视口高度重算 uPxK"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "屏幕空间像素覆盖率驱动的程序化细节平滑分级淡出（近处 1.0，亚像素归 0）"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-25"
+    }
+  ],
+  "exams": [
+    "cal:shade.px-lod"
+  ]
+}
