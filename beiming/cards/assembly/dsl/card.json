@@ -30,5 +30,5 @@
   "verify": { "selftest": "离线烘焙七种步骤，逐字节核对两遍输出，单行编辑只改变所选子树，坏配方明确报错。", "predicates": [] },
   "provenance": { "cases": [], "note": "按装配关系展开选择器，预计算每个零件的世界变换；在渲染端按初始姿态和绝对进度回放。" },
   "status": [{ "level": "reproduced", "host": "cycles", "source": "5.2.0", "gpu": "apple-m5-pro", "date": "2026-11-25" }],
-  "exams": ["03B-1", "cal:assembly.dsl"]
+  "exams": ["cal:assembly.dsl"]
 }

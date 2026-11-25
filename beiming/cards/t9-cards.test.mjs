@@ -27,7 +27,7 @@ test('双落点的清单、卡目录泄漏扫描、注册发现与参数 schema'
   const card = await json(join(dir, 'card.json'));
   assert.deepEqual(card.status, [{ level: 'reproduced', host: 'cycles', source: '5.2.0', gpu: 'apple-m5-pro', date: '2026-11-25' }]);
   assert.deepEqual([card.kind, card.version, card.visibleToAgent, card.livesIn, card.exams],
-    ['assembly','1.0.0',true,['bake','source:blender'],['03B-1','cal:assembly.dsl']]);
+    ['assembly','1.0.0',true,['bake','source:blender'],['cal:assembly.dsl']]);
   assert.deepEqual(card.impl.map(({ livesIn, entry, shape, hosts, selftest }) => [livesIn, entry, shape, hosts, selftest]), [
     ['bake','cards/assembly/dsl/bake.mjs','evaluate',[],'cards/assembly/dsl/selftest.test.mjs'],
     ['source:blender','cards/assembly/dsl/index.py','create',[{ host: 'cycles', version: '5.2.0' }],'cards/assembly/dsl/selftest.test.mjs'],
