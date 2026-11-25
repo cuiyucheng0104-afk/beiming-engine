@@ -1,0 +1,352 @@
+{
+  "format": "v15-controls/0.1",
+  "shotId": "fire-breath",
+  "date": "2026-11-26",
+  "viewport": [
+    1920,
+    1080
+  ],
+  "totalLockCards": 25,
+  "rejectedCount": 25,
+  "controls": [
+    {
+      "id": "atmo.height-fog",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 25.6272,
+        "diffGe5Pct": 28.6214,
+        "maxAbsU8": 97,
+        "hdrRmse": 0.029814,
+        "hdrMaxAbs": 2.1875,
+        "haloDropPx": 9.709
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "comp.display",
+      "group": "base-and-delivery",
+      "scope": "base-and-delivery",
+      "metrics": {
+        "linearBypassPsnrDb": 13.6362,
+        "linearBypassDiffGe5Pct": 96.0938,
+        "linearBypassMaxAbsU8": 73,
+        "sceneRefGuardRejected": true
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "deliver.encode",
+      "group": "base-and-delivery",
+      "scope": "base-and-delivery",
+      "metrics": {
+        "missingBt709Tags": 3,
+        "untaggedPresetRejected": true
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "fx.breath",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 15.6747,
+        "diffGe5Pct": 53.7323,
+        "maxAbsU8": 233,
+        "hdrRmse": 1.110852,
+        "hdrMaxAbs": 44.171143,
+        "haloDropPx": 11.911
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "fx.post-state",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 83.5871,
+        "diffGe5Pct": 0,
+        "maxAbsU8": 6,
+        "hdrRmse": 0,
+        "hdrMaxAbs": 0,
+        "haloDropPx": 0.001,
+        "tail2790ChangedPx": 3161,
+        "activePulsePsnrDb": 17.2934,
+        "activePulseDiffGe5Pct": 99.2644
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "light.emit-pool",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 23.9798,
+        "diffGe5Pct": 41.7989,
+        "maxAbsU8": 214,
+        "hdrRmse": 0.182105,
+        "hdrMaxAbs": 44.165527,
+        "haloDropPx": 37.569
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "motion.impulse",
+      "group": "l10-noop-compliant-m4",
+      "scope": "full-window-l10-noop-compliant",
+      "metrics": {
+        "psnrDb": 14.9322,
+        "diffGe5Pct": 93.023,
+        "hdrRmse": 1.148487,
+        "rivalSpineRmseM": 3.5987,
+        "fullWindowRmseM": 2.1427,
+        "fullWindowMaxDispM": 11.2
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "motion.roll-bank",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 24.128,
+        "diffGe5Pct": 18.4696,
+        "maxAbsU8": 215,
+        "hdrRmse": 0.252997,
+        "hdrMaxAbs": 40.234375,
+        "haloDropPx": 16.047
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "motion.sweep-body",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 22.3312,
+        "diffGe5Pct": 11.1522,
+        "maxAbsU8": 213,
+        "hdrRmse": 0.142216,
+        "hdrMaxAbs": 19.9375,
+        "haloDropPx": -8.277
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "motion.swim",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 27.4782,
+        "diffGe5Pct": 5.1716,
+        "maxAbsU8": 195,
+        "hdrRmse": 0.165053,
+        "hdrMaxAbs": 19.9375,
+        "haloDropPx": 6.915
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "particle.minpx",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 76.8691,
+        "diffGe5Pct": 0.0005,
+        "maxAbsU8": 53,
+        "hdrRmse": 0.000292,
+        "hdrMaxAbs": 0.421875,
+        "haloDropPx": 0.001
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "particle.premult",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 20.0405,
+        "diffGe5Pct": 19.4329,
+        "maxAbsU8": 218,
+        "hdrRmse": 0.525779,
+        "hdrMaxAbs": 12.089844,
+        "haloDropPx": 28.068
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "particle.soft",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 44.6631,
+        "diffGe5Pct": 0.5643,
+        "maxAbsU8": 165,
+        "hdrRmse": 0.059959,
+        "hdrMaxAbs": 27.5,
+        "haloDropPx": 1.05
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "post.ao",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 29.4278,
+        "diffGe5Pct": 20.5418,
+        "maxAbsU8": 80,
+        "hdrRmse": 0.030638,
+        "hdrMaxAbs": 6.46875,
+        "haloDropPx": 0.473
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "post.bloom",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 47.8059,
+        "diffGe5Pct": 1.6252,
+        "maxAbsU8": 87,
+        "hdrRmse": 0,
+        "hdrMaxAbs": 0,
+        "haloDropPx": 1.511
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "post.grade-cl",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 24.9509,
+        "diffGe5Pct": 96.2511,
+        "maxAbsU8": 159,
+        "hdrRmse": 0,
+        "hdrMaxAbs": 0,
+        "haloDropPx": 8.14
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "post.lens-fx",
+      "group": "l10-noop-compliant-m4",
+      "scope": "impact-frame-l10-noop-compliant",
+      "metrics": {
+        "neutralShotChangedPx": 0,
+        "impactPsnrDb": 21.4994,
+        "impactDiffGe5Pct": 63.3826,
+        "impactMaxAbsU8": 199,
+        "haloDropPx": 3.095
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "post.volumetric",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 25.9393,
+        "diffGe5Pct": 78.6875,
+        "maxAbsU8": 64,
+        "hdrRmse": 0,
+        "hdrMaxAbs": 0,
+        "haloDropPx": 20.418
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "shade.px-lod",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 46.193,
+        "diffGe5Pct": 1.7047,
+        "maxAbsU8": 57,
+        "hdrRmse": 0.005194,
+        "hdrMaxAbs": 0.517578,
+        "haloDropPx": 0.207
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "shade.thin-line",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 65.724,
+        "diffGe5Pct": 0.0138,
+        "maxAbsU8": 72,
+        "hdrRmse": 0.001219,
+        "hdrMaxAbs": 0.565796,
+        "haloDropPx": 0.012
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "three.patch",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 45.9032,
+        "diffGe5Pct": 0.6079,
+        "maxAbsU8": 94,
+        "hdrRmse": 0.010794,
+        "hdrMaxAbs": 13.160156,
+        "haloDropPx": 22.717
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "time.bake",
+      "group": "fire2-active-m4",
+      "scope": "fire-breath-shot",
+      "metrics": {
+        "psnrDb": 33.3515,
+        "diffGe5Pct": 1.1025,
+        "maxAbsU8": 201,
+        "hdrRmse": 0.067144,
+        "hdrMaxAbs": 9.732422,
+        "haloDropPx": 0.666,
+        "windBendRmse": 0.811429,
+        "windBendMaxAbs": 1.217705
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "time.events",
+      "group": "base-and-delivery",
+      "scope": "base-and-delivery",
+      "metrics": {
+        "expectedHits": 1,
+        "emptyHits": 0,
+        "missedHits": 1,
+        "sinceFramesMissing": true
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "time.seeded",
+      "group": "base-and-delivery",
+      "scope": "base-and-delivery",
+      "metrics": {
+        "sampleCount": 768,
+        "zeroStreamRmse": 0.574948,
+        "zeroStreamMaxAbs": 0.996422
+      },
+      "negativeControlRejected": true
+    },
+    {
+      "id": "time.timeline",
+      "group": "base-and-delivery",
+      "scope": "base-and-delivery",
+      "metrics": {
+        "globalFrameError": 2790,
+        "secondsError": 46.5
+      },
+      "negativeControlRejected": true
+    }
+  ]
+}

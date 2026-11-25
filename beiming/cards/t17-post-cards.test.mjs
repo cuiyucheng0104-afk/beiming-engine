@@ -21,7 +21,8 @@ test('四张卡可按名取，只有三张后期卡能搜到；公开文件通�
       if (file !== 'card.json') continue;
       const card = JSON.parse(raw);
       assert.deepEqual(validateCard(card), { ok: true, schemaErrors: [], violations: {}, leaks: [] }, card.id);
-      assert.deepEqual([card.id, card.status[0].level, card.livesIn], [ids[i], 'reproduced', ['source:three']]);
+      assert.deepEqual([card.id, card.livesIn], [ids[i], ['source:three']]);
+      assert.ok(['reproduced', 'measured'].includes(card.status[0].level), card.id);
       cards.push(card);
     }
   }

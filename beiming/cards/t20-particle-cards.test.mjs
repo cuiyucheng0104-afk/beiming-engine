@@ -106,7 +106,7 @@ test('T20-1 全部 6 张技术卡通过 validateCard、scanCardLeaks、createCar
     assert.equal(card.visibleToAgent, true);
     assert.deepEqual(card.livesIn, spec.livesIn);
     assert.deepEqual(card.exams, [`cal:${spec.id}`]);
-    assert.equal(card.status[0].level, 'reproduced');
+    assert.ok(['reproduced', 'measured'].includes(card.status[0].level));
     assert.equal(readJson(join(BEIMING, 'calib', card.calibration, 'scene.json')).id, card.calibration);
 
     const resolved = resolveParams(card, {});

@@ -75,11 +75,12 @@
   },
   "status": [
     {
-      "level": "reproduced",
+      "level": "measured",
       "host": "kernel-eval",
       "source": "0.1.0",
       "gpu": "none",
-      "date": "2026-11-25"
+      "date": "2026-11-26",
+      "parityReport": "sha256:16122f4fffffeeb3cc4c305760e28d378f85ed44422f3d28fd68e473455a56f7"
     }
   ],
   "exams": ["cal:time.bake"]

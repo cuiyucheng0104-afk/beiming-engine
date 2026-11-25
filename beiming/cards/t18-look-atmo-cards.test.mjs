@@ -46,7 +46,7 @@ test('T18-1：6 张卡全部通过 validateCard、scanCardLeaks、dataValidators
     assert.equal(card.id, spec.id);
     assert.equal(card.kind, spec.kind);
     assert.deepEqual(card.livesIn, spec.livesIn);
-    assert.ok(card.status.every((s) => s.level === 'reproduced'), `${spec.id} 初始 status 应为 reproduced`);
+    assert.ok(card.status.every((s) => ['reproduced', 'measured'].includes(s.level)), `${spec.id} status 应为 reproduced 或 measured`);
     for (const [name, validate] of dataValidators(card)) {
       assert.equal(validate(card.params[name].default), true, `${spec.id} 默认 data 参数 ${name} 未过 schema`);
     }

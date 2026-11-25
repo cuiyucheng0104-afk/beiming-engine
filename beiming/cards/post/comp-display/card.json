@@ -76,11 +76,12 @@
   },
   "status": [
     {
-      "level": "reproduced",
+      "level": "measured",
       "host": "node",
       "source": "24.13.1",
       "gpu": "none",
-      "date": "2026-11-21"
+      "date": "2026-11-26",
+      "parityReport": "sha256:3ec41ba1d1c5701d6cc1ce130ede839e1523843093df45cab73d21a191d12f9f"
     }
   ],
   "exams": [

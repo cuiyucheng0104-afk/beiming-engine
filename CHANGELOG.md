@@ -12,6 +12,7 @@
 这一段汇总从 v1.0 到工业级交付升级完成前的全部变更，按合入顺序归类。升级以 [docs/decisions/2026-11-10-industrial-baseline.md](docs/decisions/2026-11-10-industrial-baseline.md) 的 D01–D13 为准，拆成多个工作包推进，目标是让仓库成为按 A、B、C、D 四条路线组织的技术模版仓库：agent 读完入口文档就能选对路线，按模版建作品，用统一的命令出片；成片先过机器 QA 与人工创作闸门，才标为交付；每个 PR 都有测试、无显卡冒烟出片与 Windows 路径检查把关。各工作包合入时，在下面的分类里追加自己的条目。
 
 ### Added
+- 完成峡谷吐息 `film.lock` 全部 25 张技术卡逐张负对照全红验收（公开脱敏清单 `fire-breath/v15-controls.json`），独立复核将 22 张锁内未晋升卡升级为 `measured`（全库 `measured` 达 39 张）并重签 `film.lock`，同步修复生物材质同渲染器切换 `atmo.height-fog` 时的着色器缓存键串扰，附 `m4-v15-promotion.test.mjs`。
 - 题库新增 M4 B18 三道四级垫脚题（`41-1` 线性 HDR 后期链对拍、`41-2` 多段扫掠脊线运动学、`41-3` 指数阻尼吐息粒子闭式重放）、单一公开锁定阈值源 `gates-m4.json`、离线评分器 `evaluate-b18.mjs` 及真实调用 T17–T20 技术卡的标准答案与逐卡负对照，并接入 `exam.mjs`（18 道公开题核验）与 `suite.mjs full-3`（全卷三 26 次计分调度）。
 - Three 页面帧源新增 96 帧峡谷吐息镜头，组合二十张技术卡，可读回线性 HDR、深度、实体编号及后期各层，并按卡关闭做对照。
 - 新增 M4 T18 六张观感、大气与着色技术卡（`post.grade-cl`、`post.lens-fx`、`fx.post-state`、`atmo.height-fog`、`shade.px-lod`、`shade.thin-line`）：覆盖 ACES 拟合与分离色调终混调色链（CPU/WebGL2 双端等价）、冲击波环形折射与能量守恒径向拖影、确定性后期参数事件包络、解析指数高度雾（水平射线泰勒防奇异与太阳内散射）、屏幕像素分级淡出及细线最小像素宽覆盖率守恒护栏，配套单卡自测与跨卡联调验收。
