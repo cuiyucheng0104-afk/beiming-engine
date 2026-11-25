@@ -3,7 +3,8 @@
 //   每个场景包核心照参考包的设置出 16 个种子，两道门照 beiming/verify 的「噪声地板乘 k」：
 //     floor  核心一个种子对参考包 seed00 的整帧 HDR-FLIP 平均值 ≤ k × 参考包 floor.seedVsSeedFlipMean（量法与标准答案机量地板时相同）
 //     welch  核心 16 个种子对参考包 16 个种子，Welch 检验（α、块大小、种子数照阈值文件），门看 pass
-//   逐球记平均亮度对收敛图的相对差，只记不判。负对照：关掉多重散射 GGX 的能量补偿，粗糙金属那一包两道门里至少一道必须不过。
+//   逐球记平均亮度对收敛图的相对差，只记不判。负对照：关掉多重散射 GGX 的能量补偿，粗糙金属那一包两道门里至少一道必须不过；
+//   常量世界强行开回环境的光源采样（在 out/ 下的源码副本里改了另编），白炉底色那一包两道门里至少一道必须不过。
 //   node beiming/sources/core/chassis/level3.mjs --root <参考包根目录> [--only <场景包名>] [--out 报告.json]
 //   参考包根目录下要有 coverage.json、scene-packs/、refs/（标准答案机的产物，不进仓库）；不给 --root 时读环境变量 BEIMING_CORE_LADDER_ROOT。
 // 退出码：0 全部过；4 有一项不过；3 缺工具链或参考包；2 用法错误。
@@ -23,6 +24,9 @@ export const SEEDS = Array.from({ length: THRESHOLDS.welch.seeds }, (_, k) => k)
 // 对上 Cycles：原理化 BSDF 默认的分布是多重散射 GGX（能量补偿开）；弹射上限照参考包清单的 bounces.max
 export const MATCH = (ref) => ({ energyCompensation: 1, maxBounces: ref.bounces.max });
 export const NEGATIVE = { name: '关掉多重散射 GGX 的能量补偿', pack: 'l3-furnace-rough-m1', override: { energyCompensation: 0 } };
+// 第二条负对照：场景包的常量世界照 Cycles 不做环境的光源采样（render-pack 的 background_light）；在源码副本里强行开回，
+// 白炉的底色那一包两道门里至少一道必须不过
+export const ENV_NEGATIVE = { name: '常量世界强行开回环境的光源采样', pack: 'l3-furnace-base', inject: [{ file: 'path/src/main.rs', from: '    if !job.background_light {\n        params.counts2[1] = 0;\n    }', to: '    if false && !job.background_light {\n        params.counts2[1] = 0;\n    }' }] };
 
 const lum = (a, i) => 0.2126 * a[3 * i] + 0.7152 * a[3 * i + 1] + 0.0722 * a[3 * i + 2];
 const frame = (w, h, data) => ({ width: w, height: h, data, channels: 3 });
@@ -136,8 +140,15 @@ export async function runLevel3({ root, only, log = () => {} }) {
     const r = judgePack(root, bin, ng, { override: { ...MATCH(readRef(root, ng.ref).ref), ...NEGATIVE.override } });
     negative = { name: NEGATIVE.name, pack: ng.pack, floor: r.floor, welch: r.welch, caught: !r.ok };
   }
-  return { format: 'beiming.core.level3/1', k: THRESHOLDS.k, alpha: THRESHOLDS.welch.alpha, seeds: SEEDS.length, adapter: rows[0]?.adapter ?? null, rows, negative,
-    ok: rows.every((r) => r.ok) && (negative === null || negative.caught) };
+  let envNegative = null;
+  const eg = packs.find((g) => g.pack === ENV_NEGATIVE.pack);
+  if (eg) {
+    log(`负对照：${ENV_NEGATIVE.name}（${eg.pack}）`);
+    const r = judgePack(root, buildRenderer({ inject: ENV_NEGATIVE.inject }).bin, eg);
+    envNegative = { name: ENV_NEGATIVE.name, pack: eg.pack, floor: r.floor, welch: r.welch, caught: !r.ok };
+  }
+  return { format: 'beiming.core.level3/1', k: THRESHOLDS.k, alpha: THRESHOLDS.welch.alpha, seeds: SEEDS.length, adapter: rows[0]?.adapter ?? null, rows, negative, envNegative,
+    ok: rows.every((r) => r.ok) && (negative === null || negative.caught) && (envNegative === null || envNegative.caught) };
 }
 
 export const command = defineCommand({
@@ -165,6 +176,7 @@ export const command = defineCommand({
       const worst = r.balls.reduce((a, b) => (Math.abs(b.rel) > Math.abs(a.rel) ? b : a));
       ctx.out(`${r.ok ? '✓' : '✗'} ${r.pack}  HDR-FLIP ${r.floor.value.toExponential(3)}（门 ${r.floor.threshold?.toExponential(3) ?? '未定线'}，${r.floor.status}）  Welch 显著比例 ${r.welch.significantRatio.toExponential(2)}（α ${r.welch.alpha}，p 值直方图${r.welch.flat ? '平' : '不平'}）  最差的球 ${worst.entity} 相对差 ${worst.rel.toExponential(2)}（${worst.z.toFixed(1)} 个标准误）`);
     }
+    if (report.envNegative) ctx.out(`${report.envNegative.caught ? '✓' : '✗'} 负对照 ${report.envNegative.name}（${report.envNegative.pack}）：HDR-FLIP ${report.envNegative.floor.status}，Welch ${report.envNegative.welch.pass ? '过' : '不过'}（必须至少一道不过）`);
     if (report.negative) ctx.out(`${report.negative.caught ? '✓' : '✗'} 负对照 ${report.negative.name}（${report.negative.pack}）：HDR-FLIP ${report.negative.floor.status}，Welch ${report.negative.welch.pass ? '过' : '不过'}（必须至少一道不过）`);
     ctx.out(`报告：${file}`);
     return { data: report, outputs: [{ path: file, kind: 'report' }], ...(!report.ok && { error: { code: 'contract.chassis-level3', message: '第 3 级有不过的项', hint: `明细见 ${file}` } }) };

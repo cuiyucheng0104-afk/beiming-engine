@@ -53,6 +53,10 @@ struct Job {
     passes: Option<PathBuf>,
     /// 北冥：背景对相机不可见（场景包的 world.visibleToCamera 是 false）：相机射线没打到表面的样本不透明度与颜色记 0。
     transparent: bool,
+    /// 北冥：环境做不做光源采样（直接采样一条阴影射线，与材质采样做多重重要性采样）。照 Cycles：世界着色器不随方向变、又没有入口光时，
+    /// 背景灯整盏关掉（scene/light.cpp:548 `is_enabled = has_portal || (use_mis && has_surface_spatial_varying)`），环境只经材质采样逃逸的
+    /// 射线拿到、权重取 1。场景包的世界只有一个常量颜色、没有入口光（场景包契约），所以 render-pack 恒为假；场景脚本照旧（世界可以是贴图）。
+    background_light: bool,
     /// 北冥：照 Cycles 口径的成像参数（只有 render-pack 给）。给了就关掉上游的亮度夹取（`Params::misc[0]`）。
     cycles_film: Option<CyclesFilm>,
     /// 北冥：要出的分灯组（render-pack 带 --passes 时是场景包里的全部组名，下标就是灯记录里的槽位）。空：不请求灯组。
@@ -209,6 +213,7 @@ fn main() -> Result<()> {
                 signals: flag("--signals").map(PathBuf::from),
                 passes: None,
                 transparent: false,
+                background_light: true,
                 cycles_film: None,
                 lightgroups: vec![],
             };
@@ -298,6 +303,7 @@ fn main() -> Result<()> {
                         signals: v["signals"].as_str().map(PathBuf::from),
                         passes: None,
                         transparent: false,
+                background_light: true,
                         cycles_film: None,
                 lightgroups: vec![],
                     };
@@ -425,6 +431,8 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
         signals: flag("--signals").map(PathBuf::from),
         passes: flag("--passes").map(PathBuf::from),
         transparent: !p.world_visible,
+        // 场景包的世界恒是常量颜色：照 Cycles 关掉背景灯（见 Job::background_light）
+        background_light: false,
         cycles_film: Some(film),
         lightgroups: if args.iter().any(|a| a == "--passes") { p.lightgroups() } else { vec![] },
     };
@@ -565,6 +573,10 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
         params.motion[1] = 1.0;
     }
     params.integrator.background_transparent = job.transparent as u32;
+    // （内核里环境的光源采样与逃逸一侧的多重重要性采样都认 counts2[1]：0 时不采环境、逃逸的射线全权重计入）
+    if !job.background_light {
+        params.counts2[1] = 0;
+    }
     if let Some(f) = &job.cycles_film {
         f.write(&mut params);
     }

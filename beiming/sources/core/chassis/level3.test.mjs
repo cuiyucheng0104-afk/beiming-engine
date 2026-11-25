@@ -8,7 +8,7 @@ import process from 'node:process';
 import { test } from 'node:test';
 import { THRESHOLDS } from '../../../verify/floorgate.mjs';
 import { OUT, sourceKey } from './build.mjs';
-import { MATCH, NEGATIVE, SEEDS, ballReadings, level3Packs, runLevel3 } from './level3.mjs';
+import { ENV_NEGATIVE, MATCH, NEGATIVE, SEEDS, ballReadings, level3Packs, runLevel3 } from './level3.mjs';
 
 const ROOT = process.env.BEIMING_CORE_LADDER_ROOT;
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
@@ -17,6 +17,8 @@ test('设置：每边种子数照阈值文件；对上 Cycles 开能量补偿、
   assert.equal(SEEDS.length, THRESHOLDS.welch.seeds);
   assert.deepEqual(MATCH({ bounces: { max: 8 } }), { energyCompensation: 1, maxBounces: 8 });
   assert.deepEqual(NEGATIVE.override, { energyCompensation: 0 });
+  // 环境那条负对照的注入在内核源码里恰好有一处
+  for (const i of ENV_NEGATIVE.inject) assert.equal(fs.readFileSync(path.join(OUT, '..', '..', 'beiming', 'sources', 'core', i.file), 'utf8').split(i.from).length, 2, i.from);
 });
 
 test('覆盖表：只取第 3 级，按场景包归组；同一包指向不同参考包时拒收', (t) => {
@@ -70,5 +72,6 @@ test('端到端：第 3 级六包过两道门，负对照判得出', { timeout: 
     assert.ok(r.welch.pass, `${r.pack} 的 Welch 显著比例 ${r.welch.significantRatio}、p 值直方图${r.welch.flat ? '平' : '不平'}`);
   }
   assert.ok(rep.negative?.caught, '负对照（关能量补偿）两道门都过了，门判不出来');
+  assert.ok(rep.envNegative?.caught, '负对照（常量世界开回环境的光源采样）两道门都过了，门判不出来');
   assert.ok(rep.ok);
 });

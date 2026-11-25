@@ -566,7 +566,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 8. （1.2.0 起删掉：微表面闭包的采样照 Cycles 用采样函数自己返回的求值与密度，再并进其余闭包。）
 9. `sampled_roughness` 的口径是粗糙度（alpha 的平方根），不是 Cycles 的 alpha：积分器拿它算射线锥与「镜面路径」。
 10. 上游顶替专用的求值返回 `{ eval, spec_frac }`，不带概率密度；要密度的地方直接调上游的 `pdf_bsdf`。
-11. 直接光每盏灯各采一次、选灯概率按 1（Cycles 按光源树或灯的分布每个点抽一盏），两侧的概率密度都不乘选灯概率：期望相同，噪声更小，逐样本对不上。移植的闭包上逐盏的灯与环境的求值经 `surface_shader_bsdf_eval`，不再多查几何法线（1.2.3 起与 Cycles 相同）；上游顶替的闭包、多于 `RIS_EXACT` 盏的本地灯与发光三角仍经 `surface_shader_bsdf_eval_legacy`，它对移植的闭包另查一次几何法线（Cycles 的求值不查）。
+11. 直接光每盏灯各采一次、选灯概率按 1（Cycles 按光源树或灯的分布每个点抽一盏），两侧的概率密度都不乘选灯概率：期望相同，噪声更小，逐样本对不上。移植的闭包上逐盏的灯与环境的求值经 `surface_shader_bsdf_eval`，不再多查几何法线（1.2.3 起与 Cycles 相同）；上游顶替的闭包、多于 `RIS_EXACT` 盏的本地灯与发光三角仍经 `surface_shader_bsdf_eval_legacy`，它对移植的闭包另查一次几何法线（Cycles 的求值不查）。环境的光源采样照 Cycles 的开关：场景包那一路（`render-pack`）的世界只有常量颜色、没有入口光，照 `scene/light.cpp:548`（`is_enabled = has_portal || (use_mis && has_surface_spatial_varying)`）整盏关掉，宿主把 `counts2[1]` 写 0，环境只经材质采样逃逸的射线拿到、权重取 1（`src/main.rs` 的 `Job::background_light`）；场景脚本那一路照旧由上游的判法定。
 12. 按闭包种类分发的 `bsdf_eval` 收一个闭包，不收整个着色点。
 13. `shader_eval_shadow` 收的是命中、方向与距离，不是着色点。
 14. 能量补偿对移植的闭包读材质记录的那一位，对上游顶替仍读全局开关。

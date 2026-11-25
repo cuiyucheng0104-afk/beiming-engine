@@ -168,6 +168,7 @@ Cycles 的原理化 BSDF 给金属与电介质高光的闭包用的是 `valid_re
 - 灯光链接：光源一侧的接收者是着色点的物体（`light_link_receiver_nee`），前向是 `state.mis_ray_object`（`light_link_receiver_forward`），对灯的成员掩码判（`light_link_object_match`，`kernel/light/light.h:34-78`）。集合号与成员掩码由 `src/pack.rs` 照 Blender 的建法（`source/blender/depsgraph/intern/depsgraph_light_linking.cc` 的 `LinkingData::link_object`、`end_build`、`EmitterSetMembership::get_mask`）算，集合号只到 31（成员掩码 32 位；Cycles 到 63）。
 - 阴影射线的起点：先照 `shadow_ray_offset` 把着色点往交界线外挪（只对平滑着色的三角形：物体的几何偏移大于 0；场景包的网格都带逐角法线，照平滑算，几何偏移取 Blender 物体的默认 0.1，`scene/object.cpp:91-92`），再沿几何法线挪开（代替 Cycles 跳过自己的图元；Cycles 说要打中自己这个面时往光的反方向挪）。经实例放置的三角形只做线性部分（偏移只用到顶点之差；Cycles 在物体空间算抛物线再把插值的法线变到世界空间，物体不等比缩放时与这里差一点）。着色点为此加了 `inst`（放置三角形的实例记录）。
 - 灯记录（`Light` / `GpuLight`）加第 6 个 vec4 `cy`（整数格）：`eval_fac`、平行光的 `one_minus_cosangle`（照 `scene/light.cpp` 的 `SunLight::copy_to_kernel`，不存 cos：张角 0.526° 时 f32 的 cos 只剩约 0.5% 的有效位）、灯光链接的成员掩码、灯组槽位与 `SHADER_USE_MIS`。强度口径不变（矩形是辐亮度、点光是辐射强度、平行光是辐照度，场景脚本的灯同口径），`eval_fac` 只存 color 里还没并进去的那部分。平行光张角取 Blender 新建灯的默认 0.526°（场景包契约没有这个字段）；点光半径 0，材质一侧的密度当 0（不做多重重要性采样）。矩形纯光去掉上游挡光板的 smoothstep 与衰减范围（Cycles 的矩形灯 spread 180° 时没有这两项）。
+- 环境：场景包的世界只有常量颜色、没有入口光，照 `scene/light.cpp:548` 关掉背景灯（`src/main.rs` 的 `Job::background_light`，宿主把 `counts2[1]` 写 0）：不做环境的光源采样，材质采样逃逸时全权重计入。场景脚本那一路不变。
 - `render-pack --passes` 请求场景包里的全部灯组，出 `lightgroup-<名>.f32`，通道声明里是 `lightgroup:<名>`（文件名里冒号换成连字符）。
 
 场景脚本那一路的画面也变了：逐盏夹取（上游的亮度夹取 `misc.x` 现在逐盏用）、矩形灯去掉挡光板、带半径的点光照 Cycles 按圆盘采样、环境一支对移植的闭包不再查几何法线。点光的衰减范围与聚光锥（上游的附加项）照旧乘在强度上。
