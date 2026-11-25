@@ -1,0 +1,28 @@
+{
+  "format": "film/3.0", "id": "sol_01_2", "exam": "1-2", "seed": 102,
+  "title": "三种工业表面的显卡模块拆解复原",
+  "output": { "size": [1920, 1080], "fps": "30/1", "frames": 120 },
+  "shots": [{
+    "id": "explode", "in": 0, "out": 120, "source": "blender", "host": "cycles", "mode": "cards-data", "colorRef": "scene",
+    "roles": { "hero": "kit", "mustSee": ["part.indicator", "part.shield", "part.frame"] },
+    "params": {
+      "solids": [
+        { "id": "part.indicator", "center": [-0.28, 0.12, 0], "half": [0.14, 0.09, 0.055] },
+        { "id": "part.shield", "group": "middle", "center": [0, 0.12, 0], "half": [0.14, 0.12, 0.08] },
+        { "id": "part.frame", "center": [0.28, 0.12, 0], "half": [0.14, 0.09, 0.075] }
+      ],
+      "returnFrame": 119, "exposure": 0.13,
+      "fixedCamera": { "pos": [0, 0.12, 0.84], "target": [0, 0.12, 0], "fovDeg": 36 }
+    },
+    "cards": [
+      { "as": "separate", "use": "assembly.explode@1", "params": { "phase": { "startFrame": 0, "endFrame": 60, "from": 0, "to": 1 }, "scaleM": 0.24, "groupOffsets": { "middle": [0, 0.21, 0] } } },
+      { "as": "surface", "use": "mat.library@1", "params": { "assignments": { "part.indicator": "emit_white", "part.shield": "steel", "part.frame": "frame_black" } } },
+      { "as": "studio", "use": "light.studio@1", "params": { "preset": "hero", "subjectScaleM": 1, "spec": { "cues": [{ "frame": 0, "gains": { "fill": 1.5 } }] } } },
+      { "as": "fit", "use": "camera.fit@1", "params": { "azimuthDeg": 8, "elevationDeg": 10, "fovYDeg": 36, "margin": 0.9, "windowFrames": 4, "smoothAlpha": 0.3, "groundY": 0, "groundClearanceM": 0.025 } }
+    ]
+  }],
+  "style": { "view": { "scene": "agx-mhc", "display": "srgb" } },
+  "audio": { "mode": "none" },
+  "predicates": { "base": ["floor@1"], "extra": [] },
+  "delivery": { "master": "h264-crf14-bt709", "card": "deliver.encode@1" }
+}
