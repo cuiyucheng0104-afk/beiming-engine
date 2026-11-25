@@ -257,8 +257,9 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
   await breakOne(t, light, lsrc, 'let invarea = select(1.0, 1.0 / (r_sq * M_PI_F), r_sq > 0.0);\n  ls.pdf', 'let invarea = select(1.0, 1.0 / r_sq, r_sq > 0.0);\n  ls.pdf', ['point_light_sample'], 10, 12, LAMPS);
   // 锥的概率密度 1/(2π) 改成 1/π：采样不合格（张角 0 那一支照旧）
   await breakOne(t, light, lsrc, 'let pdf = M_1_2PI_F / one_minus_cos_angle;', 'let pdf = M_1_PI_F / one_minus_cos_angle;', ['sun_light_sample'], 7, 12, LAMPS);
-  // 求交后的求值：判在盘外的 > 改成 >=：没有组恰好在边界上，所以改成把张角放大 1%
-  await breakOne(t, light, lsrc, 'if (vector_angle(-co, ray_D) > angle) {', 'if (vector_angle(-co, ray_D) > angle * 1.01) {', ['sun_light_eval_from_intersection'], 9, 2, LAMPS);
+  // 求交后的求值：判在盘外的 > 改成 >=：没有组恰好在边界上，所以改成把张角缩小 1%（最差一组是标准落在盘里、被测判在盘外：
+  // 标准为 0 的组不算相对误差，放大张角的话最差一组的相对误差记 0）
+  await breakOne(t, light, lsrc, 'if (vector_angle(-co, ray_D) > angle) {', 'if (vector_angle(-co, ray_D) > angle * 0.99) {', ['sun_light_eval_from_intersection'], 9, 2, LAMPS);
   // 抛物线近似的第一项系数：a·u·(u − 1) 写成 a·u·(u − 1.1)；起点偏移经它一并不合格
   await breakOne(t, light, lsrc, 'var h = a * u * (u - 1.0) +', 'var h = a * u * (u - 1.1) +', ['shadow_ray_smooth_surface_offset', 'shadow_ray_offset'], 29, 3, LAMPS);
   // 交界线附近挪的份额：2 − (NgL + NL)/cutoff 写成 1.9 − …：只有起点偏移不合格
