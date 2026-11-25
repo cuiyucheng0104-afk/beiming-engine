@@ -519,6 +519,8 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
       const common = { frames, fps: output.fps, size: output.size, seed: locked.seed, tokens: input.tokens ?? {}, tier: env.tier, colorRef: shot.colorRef };
       if (renderingOf(shot).mode === 'cards-data') {
         prepared = await prepareCards(input, locked, library, assetLib);
+        // 数据式镜头的源是装载时的镜头描述和内容锁；实际文件夹不参与指纹。
+        prepared.sourceSha256 = sha256(JSON.stringify([input, env.lock]));
         const opened = await worker.call('open', { ...common, ...prepared.job });
         entities = opened.entities;
         // worker 交的是第 −1 帧起的逐帧数组，换成以帧号为键的表：求值核按 bbox[实体名][f] 取，f 可以是 −1
@@ -593,6 +595,22 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
         const plan = planQuery(CAPS, q, names);
         const tracks = prepared ? { tracks: tracksAt(f), initialTracks: initialTracks ??= tracksAt(0) } : {};
         return finishQuery(plan.kind, await worker.call('query', { frame: f, plan, ...tracks }));
+      },
+
+      /** 按请求顺序导出镜头局部整帧；省略 frames 时导出全镜头。 */
+      async exportScenePack(options) {
+        if (current !== session) throw bad('会话已经关了');
+        if (!record(options) || typeof options.outDir !== 'string' || !options.outDir.trim()) throw bad('outDir 必须是目录路径');
+        const selected = options.frames === undefined ? Array.from({ length: frames }, (_, i) => i) : options.frames;
+        if (!Array.isArray(selected) || !selected.length) throw bad('frames 必须是非空帧号数组');
+        const frameList = Array.from(selected, (f) => planFrame(frames, f));
+        const slug = String(shot.id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'shot';
+        const { packId = `pack:${slug}@1`, label = String(shot.id), sourceSha256 = prepared?.sourceSha256 } = options;
+        if (typeof packId !== 'string' || !/^pack:[a-z0-9][a-z0-9-]*@[1-9][0-9]*$/.test(packId)) throw bad('packId 必须是 pack:<名称>@<版本>');
+        if (typeof label !== 'string') throw bad('label 必须是字符串');
+        if (sourceSha256 !== undefined && (typeof sourceSha256 !== 'string' || !/^[0-9a-f]{64}$/.test(sourceSha256))) throw bad('sourceSha256 必须是小写十六进制 SHA-256');
+        const tracks = prepared ? { tracks: Object.fromEntries(frameList.map((f) => [f, tracksAt(f)])), initialTracks: initialTracks ??= tracksAt(0) } : {};
+        return worker.call('export_pack', { outDir: resolve(options.outDir), frames: frameList, packId, label, sourceSha256, ...tracks });
       },
 
       async close() {
