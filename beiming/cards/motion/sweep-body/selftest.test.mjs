@@ -92,6 +92,44 @@ test('扫掠脊线标架正交单位、无扭转翻折且弧长插值准确', ()
   close(norm3(mid.nor), 1, 1e-6);
 });
 
+test('直线轨道沿弧长延迟采样：身体各节点严格落在 sh - a 的历史位置上', () => {
+  const straight = {
+    controlPoints: [[0, 0, 0], [10, 0, 0], [20, 0, 0], [30, 0, 0]],
+    timeKeys: [[0, 0], [1, 1], [2, 2], [3, 3]],
+    timeKeyMode: 'cpIndex',
+    arcLengthDivisions: 600,
+    railSampleSpacing: 0.25,
+    impulses: [],
+  };
+  const rail = compileRail(straight, { bodyLength: 10, segments: 20 });
+  const res = sweepSpineAt(rail, 2.0, {
+    bodyLength: 10,
+    segments: 20,
+    sampleArclengths: [0, 5, 10],
+    swimAmplitude: 0,
+    bankGain: 0,
+    impulses: [],
+  });
+  // t = 2s 时头部位于 x = 20m，沿身弧长 a = 0 / 5 / 10m 必须精确落在 sh - a = 20 / 15 / 10m
+  close(res.nodes[0].pos[0], 20, 1e-3);
+  close(res.nodes[1].pos[0], 15, 1e-3);
+  close(res.nodes[2].pos[0], 10, 1e-3);
+  close(res.rawFrames[0].pos[0], 20, 1e-3);
+  close(res.rawFrames[res.rawFrames.length - 1].pos[0], 10, 1e-3);
+
+  const res2 = sweepSpineAt(rail, 2.5, {
+    bodyLength: 10,
+    segments: 20,
+    sampleArclengths: [0, 5, 10],
+    swimAmplitude: 0,
+    bankGain: 0,
+    impulses: [],
+  });
+  close(res2.nodes[0].pos[0], 25, 1e-3);
+  close(res2.nodes[1].pos[0], 20, 1e-3);
+  close(res2.nodes[2].pos[0], 15, 1e-3);
+});
+
 test('纯函数乱序抽帧逐位一致', () => {
   const traj = makeHelixTrajectory();
   const params = {
