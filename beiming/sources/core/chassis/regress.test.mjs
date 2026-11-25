@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { COMMIT } from './build.mjs';
-import { BASELINES, baselineName, compare, tally } from './regress.mjs';
+import { BASELINES, OUTPUT_ONLY, baselineName, compare, tally } from './regress.mjs';
 
 const A = 'a'.repeat(64), B = 'b'.repeat(64);
 const sample = () => ({
@@ -48,6 +48,16 @@ test('比较：登记为不稳定的场景只比状态', () => {
   assert.deepEqual(compare(sample(), now).diffs, []);
   now.upstream.hw.scenes['procedural/shadow'] = `fail ${B}`;
   assert.match(compare(sample(), now).diffs[0], /procedural\/shadow（硬件求交）：状态 pass → fail/);
+});
+
+test('比较：登记为只比原始输出的场景不比状态，原始输出变了照样算不同', () => {
+  const id = Object.keys(OUTPUT_ONLY)[0];
+  const base = sample(), now = sample();
+  base.upstream.sw.scenes[id] = 'pass aaaa';
+  now.upstream.sw.scenes[id] = 'fail aaaa';
+  assert.deepEqual(compare(base, now).diffs, []);
+  now.upstream.sw.scenes[id] = 'fail bbbb';
+  assert.equal(compare(base, now).diffs.length, 1);
 });
 
 test('比较：cargo test 有失败或通过数变少算不同，变多只提示；计时慢 10% 以上与驱动变了只提示', () => {

@@ -935,6 +935,9 @@ pub fn build_material(id: u32, m: &desc::Material, textures: &HashMap<u32, world
         layer: [m.transmission.unwrap_or(0.0).clamp(0.0, 1.0), m.ior.unwrap_or(1.5).max(1.0), m.clearcoat.unwrap_or(0.0).clamp(0.0, 1.0), m.clearcoat_roughness.unwrap_or(0.0).clamp(0.0, 1.0)],
         mp: [[0.0; 4]; 8],
         mt: [-1; 8],
+        // 北冥：高光等级。three.js 的 specularIntensity 乘在 F0 上（默认 1），Blender 原理化 BSDF 的高光等级乘 2 之后乘在 F0 上
+        // （默认 0.5，kernel/svm/closure.h），所以等级取它的一半；与上游的高光强度 params[2] 同值，两者的 F0 只在折射率 1.5 时相等。
+        specular_ior_level: 0.5 * m.specular_intensity.unwrap_or(1.0),
         ..Default::default()
     };
     if let Some(sh) = &m.shader {

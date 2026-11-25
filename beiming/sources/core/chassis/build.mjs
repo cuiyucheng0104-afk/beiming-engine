@@ -1,6 +1,6 @@
 // 渲染底盘的构建：渲染程序 core-render 从仓库里的 beiming/sources/core/path/ 编（cargo build --locked --release），
 // 构建目录与编好的程序都放在仓库根被忽略的 out/chassis/ 下，不往源码目录里写东西。内核用 include_str! 直接读
-// beiming/sources/core/shaders/ 下的四个着色器，仓库里只有那一份；编之前核对这一点。编好的程序按源码内容的摘要另存，
+// beiming/sources/core/shaders/ 下的五个着色器，仓库里只有那一份；编之前核对这一点。编好的程序按源码内容的摘要另存，
 // 摘要没变就不重编；摘要变了，先清掉构建目录里内核这个包上次的产物再编（cargo 只看文件时间，见 freshTarget）。负对照要故意改错源码时，把源码拷到 out/ 下的临时目录里改、在那里编，不动工作树里被跟踪的文件。
 // 上游 ThreeRT（MIT，版权人 Meshy LLC）只在场景入口上还用得着：按固定提交取到 out/chassis/ 的缓存，核对提交号，
 // 只用它的场景打包工具、场景库、自带的测试脚本与素材根目录；渲染程序不从那里编。来源见 ../path/PROVENANCE.md。
@@ -20,9 +20,10 @@ export const OUT = path.join(CORE, '..', '..', '..', 'out', 'chassis');
 /** 内核源码与它的预设 */
 export const KERNEL = path.join(CORE, 'path');
 export const PRESETS = path.join(KERNEL, 'presets');
-export const SHADERS = ['microfacet.wgsl', 'util.wgsl', 'area_light.wgsl', 'ggx_tables.wgsl'];
-/** 进构建的东西（相对 beiming/sources/core/）：内核的清单、锁、工具链、源码、着色器、预设，加上四个移植的着色器 */
-const INPUTS = ['path/Cargo.toml', 'path/Cargo.lock', 'path/rust-toolchain.toml', 'path/src', 'path/shaders', 'path/presets', ...SHADERS.map(f => `shaders/${f}`)];
+export const SHADERS = ['microfacet.wgsl', 'util.wgsl', 'area_light.wgsl', 'ggx_tables.wgsl', 'imaging.wgsl'];
+/** 进构建的东西（相对 beiming/sources/core/）：内核的清单、锁、工具链、源码、着色器、预设，加上五个移植的着色器与
+ *  内核 include_str! 读的广义 Schlick 两张表的数据（path/src/lib.rs 的 ggx_gen_schlick_tables） */
+const INPUTS = ['path/Cargo.toml', 'path/Cargo.lock', 'path/rust-toolchain.toml', 'path/src', 'path/shaders', 'path/presets', ...SHADERS.map(f => `shaders/${f}`), 'shaders/ggx_gen_schlick.tables'];
 const EXE = process.platform === 'win32' ? '.exe' : '';
 
 export const COMMIT = 'c946cc96bdb08979224e851a7fc67a066b1b456b';
@@ -99,7 +100,7 @@ function inputFiles() {
   return out;
 }
 
-/** 四个移植的着色器在仓库里只有一份：内核从 ../../shaders/ 读，path/ 下没有同名文件 */
+/** 五个移植的着色器在仓库里只有一份：内核从 ../../shaders/ 读，path/ 下没有同名文件 */
 export function singleCopyProblems() {
   const gpu = fs.readFileSync(path.join(KERNEL, 'src', 'gpu.rs'), 'utf8');
   const copies = inputFiles().filter(f => f.startsWith('path/') && SHADERS.includes(path.basename(f)));

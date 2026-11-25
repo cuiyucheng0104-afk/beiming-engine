@@ -6,13 +6,16 @@
 // file：WGSL 函数所在的文件；比对时 SHADERS 里的文件全部拼进一个着色器，所以函数可以调用别的文件里的函数。
 // call：可选，(实参 WGSL 表达式数组) => 调用表达式，给要补常量实参的函数用（例如查表函数的表偏移）。
 // gen：可选，(next: () => [0,1) 均匀数) => { 输入名: 数或数组 }，逐组生成彼此相关的输入（正交基、相对灯面的位置）；有它时 inputs 不写范围。
+// host：可选，为真时被测的是宿主一侧的 Rust（core-render fncheck-host 逐组算），file 是 Rust 源文件，不上显卡。
+// n：可选，这一项的组数（不写就用外壳的 --n）。filterTables：可选，为真时外壳先按 FILTER_TABLES 让标准答案程序建表，
+// 经存储缓冲交给着色器（gpu.mjs 的 runGpu 的 filterTables）。
 // branch：可选，(一组输入) => 分支名，只用来在报告里数各分支的比例。
 // skip：可选，(标准答案的一组输出, 被测的一组输出, 这一组的输入) => 真时这一组不比、只计数。只给登记处写明了理由的病态区域用。
 // 合格：|被测−标准| ≤ rel·|标准| + abs。rel 一律 1e-4。
 // abs 只给有相减抵消的函数：两个 O(1) 的数相减得到接近 0 的结果时，两边哪怕只差 1 ULP 的舍入（WGSL 的 sqrt、
 // 除法不保证正确舍入，编译器还可能合成 FMA），相对误差也会大到几十个百分点。这类函数的 abs 取「抵消发生处的
 // 量级上 4 个 ULP」，再乘上相减之后的放大系数；实测的最大差值都在它的一半以内。
-export const SHADERS = ['shaders/microfacet.wgsl', 'shaders/util.wgsl', 'shaders/ggx_tables.wgsl', 'shaders/area_light.wgsl'];
+export const SHADERS = ['shaders/microfacet.wgsl', 'shaders/util.wgsl', 'shaders/ggx_tables.wgsl', 'shaders/area_light.wgsl', 'shaders/imaging.wgsl'];
 const BSD = SHADERS[0], APACHE = SHADERS[1], LIGHT = SHADERS[3];
 const entry = (name, inputs, out, abs = 0, more = {}) => ({ name, file: BSD, wgsl: name, ref: name, inputs, out, rel: 1e-4, abs, ...more });
 
@@ -263,4 +266,133 @@ FUNCTIONS.push(
       return { ...r, ray_tmin: 0, ray_tmax: r.t * linU(next, [0.5, 2]), quad_P: g.co, inv_quad_u: mul(g.axis_u, 1 / g.len_u), inv_quad_v: mul(g.axis_v, 1 / g.len_v), quad_n: g.dir };
     },
   }),
+);
+
+// 下面是成像一路：像素滤波（宿主一侧照 scene/film.cpp 建表，内核拿一个随机数查表）与贡献的夹取（kernel/film/light_passes.h）。
+// 滤波函数与建表在宿主一侧：被测的是 Rust（path/src/pixel_filter.rs，经 core-render fncheck-host 逐组算），登记 host: true；
+// 查表与夹取在内核里：被测的是 WGSL（shaders/imaging.wgsl），在显卡上算。
+// 查表的三项用的是 Cycles 自己建的三张表（FILTER_TABLES，次序与 cycles/ref_imaging.h 的 filter_tables_fixed 相同）：
+// 外壳先让标准答案程序按这三组参数建表，经存储缓冲给 imaging.wgsl 要的 filter_table_value(i)（gpu.mjs 的 LUT_PRELUDE），只比查表本身；
+// 建表对不对由 filter_table 一项逐项比。
+const IMAGING = 'shaders/imaging.wgsl';
+const PIXEL_FILTER = 'path/src/pixel_filter.rs';
+/** 查表比对用的三张表：[种类（scene/film.h 的 FilterType：0 盒式、1 高斯、2 Blackman-Harris）, 宽度] */
+export const FILTER_TABLES = [[0, 2.0], [1, 1.5], [2, 1.5]];
+export const FILTER_TABLE_SIZE = 1024;
+const hostFn = (name, inputs, out, abs = 0, more = {}) => entry(name, inputs, out, abs, { file: PIXEL_FILTER, host: true, ...more });
+// 滤波函数只在建表用到的定义域上比：自变量 v 在 [0, 宽度/2]，宽度是建表时放大过的（高斯乘 3、Blackman-Harris 乘 2），
+// 界面上的宽度 0.01 到 10 像素，所以放大后取到 0.01 到 30
+const WIDTH = [0.01, 30];
+const filterIn = next => { const width = logU(next, WIDTH); return { v: width / 2 * next(), width }; };
+// Blackman-Harris 在 v = 宽度/2 处是四个 O(1) 的系数加减抵消到 6e-5，量级 1 上 4 个 ULP
+const BH_ABS = 4 * ULP1;
+// 建表：种类三选一，界面上的宽度 0.01 到 10 像素对数均匀。表里的数是 0.5·(1 ± y)，y 贴近 1 时相减抵消；y 由约一千项的累加和
+// 反查出来，两边滤波函数差的一个 ULP 会在累加里放大。表值的量级到 0.5 + 支撑半宽（高斯宽 10 时 15.5），abs 按这个量级给
+// 【实测】所需 abs 见测试输出，在这个 abs 的一半以内
+const TABLE_ABS = 64 * 16 * ULP1;
+// 查表：自变量取到 [0, 1] 外面一点，覆盖 saturate 与 t == 0 的那一支；表值到 2.75（高斯宽 1.5 的支撑半宽 2.25 加 0.5），
+// 插值 (1 − t)·d0 + t·d1 在过 0 处相减抵消，abs 给量级 4 上 4 个 ULP
+const READ_ABS = 4 * 4 * ULP1;
+const read = (name, k) => entry(`filter_table_read_${name}`, [['x', 'f32', [-0.1, 1.1]]], 1, READ_ABS, { file: IMAGING, wgsl: 'filter_table_read', filterTables: true, call: ([x]) => `filter_table_read(${x}, ${k * FILTER_TABLE_SIZE})` });
+// 夹取：贡献的三个分量正负都有、对数均匀取在 1e-3 到 1e3，各有 5% 是 0、+∞、−∞、非数（照 ensure_finite 清成 0）；bounce 取 −1 到 2
+// （相机射线上的发光是 −1）；两个上限对数均匀取在 1e-2 到 1e4，各有 20% 是 FLT_MAX（不夹）
+const SPECIAL = [0, Infinity, -Infinity, NaN];
+function clampIn(next) {
+  const comp = () => { const r = next(); return r < 0.2 ? SPECIAL[Math.floor(r / 0.05)] : (next() < 0.5 ? -1 : 1) * logU(next, [1e-3, 1e3]); };
+  const limit = () => (next() < 0.2 ? 3.4028234663852886e38 : logU(next, [1e-2, 1e4]));
+  return { L: [comp(), comp(), comp()], bounce: Math.floor(next() * 4) - 1, sample_clamp_direct: limit(), sample_clamp_indirect: limit() };
+}
+FUNCTIONS.push(
+  hostFn('filter_func_box', [['v', 'f32'], ['width', 'f32']], 1, 0, { gen: filterIn }),
+  hostFn('filter_func_gaussian', [['v', 'f32'], ['width', 'f32']], 1, 0, { gen: filterIn }),
+  hostFn('filter_func_blackman_harris', [['v', 'f32'], ['width', 'f32']], 1, BH_ABS, { gen: filterIn }),
+  // 建表，三种各一项。一组是一整张表（1024 个数），各取 1000 组：100 万组要写 4 GB
+  ...['box', 'gaussian', 'blackman_harris'].map((kind, type) => hostFn(`filter_table_${kind}`, [['type', 'f32'], ['width', 'f32']], FILTER_TABLE_SIZE, TABLE_ABS, {
+    wgsl: 'filter_table', ref: 'filter_table', n: 1000, gen: next => ({ type, width: logU(next, [0.01, 10]) }),
+  })),
+  read('box', 0),
+  read('gaussian', 1),
+  read('blackman_harris', 2),
+  entry('film_clamp_light', [['L', 'vec3f'], ['bounce', 'f32'], ['sample_clamp_direct', 'f32'], ['sample_clamp_indirect', 'f32']], 3, 0, {
+    file: IMAGING, gen: clampIn, call: ([L, b, d, i]) => `film_clamp_light(${L}, i32(${b}), ${d}, ${i})`,
+    branch: i => (Number.isFinite(i[0]) && Number.isFinite(i[1]) && Number.isFinite(i[2]) ? (i[3] > 0 ? '间接' : '直接') : '有非有限分量'),
+  }),
+);
+// 下面是原理化 BSDF 非金属那一半（电介质高光：GGX 加广义 Schlick，只有反射；漫反射；发光值；滤光泽）与它们用到的
+// 工具函数。闭包一层的输入范围同上面金属的理由：N 固定为 (0, 0, 1)、alpha 取 [0.1, 1]、随机数离开圆盘边缘、贴地出射不比。
+// 原理化 BSDF 给电介质高光的是 f90 = 1、exponent = −eta、reflection_tint = 1、transmission_tint = 0（kernel/svm/closure.h），
+// 这里 f0、f90、两个染色在 [0, 1] 里取，exponent 取 [−4, −1.01]（eta 到 4）；广义 Schlick 的一般那一支（exponent ≥ 0）
+// 与 ior < 1（含全反射）单独一项。
+const IOR = [1.01, 4, 'log'];
+const NEG_EXP = [-4, -1.01];
+/** η < 1 时贴着临界角：η² − (1 − cos²θi) 的绝对值小于 1e-2（双精度算）的组不比。输入的前两个是 cosθi、η */
+const NEAR_CRITICAL = (ref, test, i) => Math.abs(i[1] * i[1] - (1 - i[0] * i[0])) < 1e-2;
+const GS_IN = [['ior', 'f32', IOR], ['f0', 'vec3f', UNIT], ['f90', 'vec3f', UNIT], ['exponent', 'f32', NEG_EXP], ['reflection_tint', 'vec3f', UNIT], ['transmission_tint', 'vec3f', UNIT]];
+const GS_EVAL_IN = [['N', 'dir', NZ], ['wi', 'dir', HEMI], ['wo', 'dir', [-0.2, 1]], ['alpha', 'f32', ALPHA_CLOSURE], ...GS_IN];
+const GS_SAMPLE_IN = alpha => [['N', 'dir', NZ], ['Ng', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', alpha], ...GS_IN];
+FUNCTIONS.push(
+  // 偏振反射率。条件不好的两处在 float32 下 Cycles 原式本身就不准，照上面金属闭包那一批的做法收窄或跳过（理由【实测】见核对报告）：
+  //   - η 贴近 1：r_s = (cosθi − √(cos²θi + η² − 1))/(…) 的分子相消；η 取 [1.01, 4]（原理化 BSDF 的电介质高光 eta 只在
+  //     这一侧：ior ≥ 1 时 eta = ior 或 ior_from_F0 的值，都不小于 1，等于 1 时不建闭包）。
+  //   - η < 1 贴着临界角：η² − (1 − cos²θi) 贴近 0，开方把一个 ULP 放大成 cosθt 的大误差。η < 1 另登记一项，
+  //     那个差的绝对值小于 1e-2 的组不比。
+  // 反射率在 η 接近 1、正入射时很小：量级 1 的数相减之后平方，给 4 个 ULP
+  entry('fresnel_dielectric_polarized', [['cos_theta_i', 'f32', [-1, 1]], ['eta', 'f32', IOR]], 2, 4 * ULP1),
+  entry('fresnel_dielectric_polarized_inside', [['cos_theta_i', 'f32', [-1, 1]], ['eta', 'f32', [0.25, 0.99, 'log']]], 2, 4 * ULP1, { wgsl: 'fresnel_dielectric_polarized', ref: 'fresnel_dielectric_polarized', skip: NEAR_CRITICAL }),
+  entry('fresnel_dielectric_ccl', [['cos_theta_i', 'f32', [-1, 1]], ['eta', 'f32', IOR]], 1, 4 * ULP1),
+  entry('fresnel_dielectric_ccl_inside', [['cos_theta_i', 'f32', [-1, 1]], ['eta', 'f32', [0.25, 0.99, 'log']]], 1, 4 * ULP1, { wgsl: 'fresnel_dielectric_ccl', ref: 'fresnel_dielectric_ccl', skip: NEAR_CRITICAL }),
+  entry('fresnel_dielectric_Fss', [['eta', 'f32', [0.25, 4, 'log']]], 1, 4 * ULP1),
+  entry('ior_from_F0', [['f0', 'f32', [-0.1, 1.1]]], 1),
+  // (ior − 1) 在 ior 接近 1 时相消，取 [1.01, 4] 加 [0.25, 0.99] 两段的整个 [0.25, 4]
+  entry('F0_from_ior', [['ior', 'f32', [0.25, 4, 'log']]], 1, 4 * ULP1),
+  // 电介质高光的 (F0, eta)：Cycles 里是 svm_node_closure_bsdf 原理化分支内联的一段（kernel/svm/closure.h:426-436），标准答案程序
+  // 用 Cycles 的 F0_from_ior、ior_from_F0 照那一段的式子组装。ior 取 ior < 1 与 ior > 1 两段（各离开 1 一点，理由同 F0_from_ior），
+  // 高光等级四分之一取 0、四分之一取 0.5（走不走调整那一支的分界）、其余在 [0, 1] 里均匀取（含大于 0.5）。调用方先把等级夹到不小于 0
+  entry('principled_specular_f0_eta', [['ior', 'f32'], ['specular_ior_level', 'f32']], 2, 4 * ULP1, {
+    file: APACHE,
+    gen: next => {
+      const side = next() < 0.5, u = next(), k = next();
+      return { ior: side ? 0.25 * (0.99 / 0.25) ** u : 1.01 * (4 / 1.01) ** u, specular_ior_level: k < 0.25 ? 0 : k < 0.5 ? 0.5 : next() };
+    },
+    branch: i => `${i[0] < 1 ? 'ior<1' : 'ior>1'}/${i[1] === 0 ? '等级0' : i[1] === 0.5 ? '等级0.5' : i[1] > 0.5 ? '等级>0.5' : '等级<0.5'}`,
+  }),
+  entry('inverse_lerp', [['a', 'f32', [0, 0.5]], ['b', 'f32', [0.6, 1]], ['x', 'f32', [0, 1]]], 1, 4 * ULP1, { file: APACHE }),
+  // 除数取 0 与非 0 各半：分量是 0 的概率不够，用 gen 逐组生成
+  entry('safe_divide_color', [['a', 'vec3f'], ['b', 'vec3f']], 3, 0, { file: APACHE, gen: next => ({ a: [next(), next(), next()], b: [0, 1, 2].map(() => (next() < 0.5 ? 0 : 0.01 + next())) }) }),
+  // 1 − max(albedo / weight) 在比值接近 1 时相消：量级 1 上的 4 个 ULP，再乘 weight（不超过 1）
+  entry('closure_layering_weight', [['layer_albedo', 'vec3f'], ['weight', 'vec3f']], 3, 4 * ULP1, { gen: next => { const w = [0, 1, 2].map(() => (next() < 0.1 ? 0 : 0.01 + next())); return { weight: w, layer_albedo: w.map(x => x * next() * 1.2) }; } }),
+  entry('lookup_table_read_3D_ggx_gen_schlick_ior_s', [['x', 'f32', [-0.1, 1.1]], ['y', 'f32', [-0.1, 1.1]], ['z', 'f32', [-0.1, 1.1]]], 1, 0, { file: APACHE, wgsl: 'lookup_table_read_3D', call: ([x, y, z]) => `lookup_table_read_3D(${x}, ${y}, ${z}, table_ggx_gen_schlick_ior_s(), 16, 16, 16)` }),
+  entry('lookup_table_read_3D_ggx_gen_schlick_s', [['x', 'f32', [-0.1, 1.1]], ['y', 'f32', [-0.1, 1.1]], ['z', 'f32', [-0.1, 1.1]]], 1, 0, { file: APACHE, wgsl: 'lookup_table_read_3D', call: ([x, y, z]) => `lookup_table_read_3D(${x}, ${y}, ${z}, table_ggx_gen_schlick_s(), 16, 16, 16)` }),
+  // F = f0 + s·(f90 − f0) 与 1 − F：量级 1 的相减；s 来自 (F_real − F0)/(1 − F0)，正入射附近两个接近的数相减
+  entry('generalized_schlick_fresnel', [['ior', 'f32', IOR], ['cos_theta_i', 'f32', UNIT], ['f0', 'vec3f', UNIT], ['f90', 'vec3f', UNIT], ['exponent', 'f32', NEG_EXP], ['reflection_tint', 'vec3f', UNIT], ['transmission_tint', 'vec3f', UNIT]], { reflectance: 3, transmittance: 3 }, 4 * ULP1),
+  // 一般那一支：exponent ≥ 0，ior 取 [0.5, 2]（含 ior < 1 的全反射与用折射角的那一支）。cosθi 取到 0.999 为止：
+  // pow(1 − cos, e) 在显卡上是 exp2·log2，底数贴近 0 时相对误差大。ior < 1 贴着全反射（1 − (1 − cos²θi)/ior² 的绝对值
+  // 小于 1e-2）的组不比：开方把一个 ULP 放大成折射角余弦的大误差，再经 pow 放大 e 倍
+  entry('generalized_schlick_fresnel_regular', [['ior', 'f32', [0.5, 2, 'log']], ['cos_theta_i', 'f32', [0, 0.999]], ['f0', 'vec3f', UNIT], ['f90', 'vec3f', UNIT], ['exponent', 'f32', [0.5, 8]], ['reflection_tint', 'vec3f', UNIT], ['transmission_tint', 'vec3f', UNIT]], { reflectance: 3, transmittance: 3 }, 16 * ULP1, {
+    wgsl: 'generalized_schlick_fresnel', ref: 'generalized_schlick_fresnel', skip: (ref, test, i) => Math.abs(1 - (1 - i[1] * i[1]) / (i[0] * i[0])) < 1e-2,
+  }),
+  entry('microfacet_fresnel_generalized_schlick', [['cos_theta_i', 'f32', UNIT], ...GS_IN], 3, 4 * ULP1),
+  entry('bsdf_microfacet_estimate_albedo_generalized_schlick', [['N', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA], ...GS_IN], 3, 4 * ULP1, { call: a => `bsdf_microfacet_estimate_albedo_generalized_schlick(${a.join(', ')}, true, true)` }),
+  entry('bsdf_microfacet_estimate_albedo_f82_tint', [['N', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA], ['f0', 'vec3f', UNIT]], 3, 0, { call: a => `bsdf_microfacet_estimate_albedo_f82_tint(${a.join(', ')}, true)` }),
+  // darkening = (1 + Fms·missing)/energy_scale：Fss = f0 + s·(f90 − f0) 的相减同上
+  entry('bsdf_microfacet_setup_fresnel_generalized_schlick', [['N', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA], ...GS_IN], { f0: 3, energy_scale: 1, weight: 3 }, 4 * ULP1, { call: a => `bsdf_microfacet_setup_fresnel_generalized_schlick(${a.join(', ')}, true)` }),
+  entry('bsdf_microfacet_eval_ggx_generalized_schlick', GS_EVAL_IN, EVAL_OUT, 4 * ULP1),
+  entry('bsdf_microfacet_eval_ggx_generalized_schlick_singular', [['N', 'dir', NZ], ['wi', 'dir', HEMI], ['wo', 'dir', [-0.2, 1]], ['alpha', 'f32', ALPHA_SINGULAR], ...GS_IN], EVAL_OUT, 0, { wgsl: 'bsdf_microfacet_eval_ggx_generalized_schlick', ref: 'bsdf_microfacet_eval_ggx_generalized_schlick' }),
+  entry('bsdf_microfacet_ggx_eval_generalized_schlick', [...GS_EVAL_IN, ['energy_scale', 'f32', [1, 2]]], EVAL_OUT, 4 * ULP1),
+  entry('bsdf_microfacet_sample_ggx_generalized_schlick', [...GS_SAMPLE_IN(ALPHA_CLOSURE), ['rand', 'vec2f', RAND]], SAMPLE_OUT, SAMPLE_ABS, { skip: GRAZING }),
+  // 纯镜面：求值乘了 1e6，反射率里 s = (F_real − F0)/(1 − F0) 在正入射附近的相消（量级 1 上的几个 ULP）跟着放大 1e6 倍；
+  // abs 兜不住求值又不能放宽到方向上，所以 f0、f90 取 [0.01, 1]（反射率不低于 0.01 的量级），不取 0 附近
+  entry('bsdf_microfacet_sample_ggx_generalized_schlick_singular', [['N', 'dir', NZ], ['Ng', 'dir', NDIR], ['wi', 'dir', HEMI], ['alpha', 'f32', ALPHA_SINGULAR], ['ior', 'f32', IOR], ['f0', 'vec3f', [0.01, 1]], ['f90', 'vec3f', [0.01, 1]], ['exponent', 'f32', NEG_EXP], ['reflection_tint', 'vec3f', [0.01, 1]], ['transmission_tint', 'vec3f', UNIT], ['rand', 'vec2f', UNIT]], SAMPLE_OUT, 4 * ULP1, { wgsl: 'bsdf_microfacet_sample_ggx_generalized_schlick', ref: 'bsdf_microfacet_sample_ggx_generalized_schlick' }),
+  entry('bsdf_microfacet_ggx_sample_generalized_schlick', [...GS_SAMPLE_IN(ALPHA_CLOSURE), ['energy_scale', 'f32', [1, 2]], ['rand', 'vec2f', RAND]], SAMPLE_OUT, SAMPLE_ABS, { skip: GRAZING }),
+  // 滤光泽：Cycles 的 bsdf_blur 分发到 bsdf_microfacet_blur（kernel/closure/bsdf.h），alpha 与模糊粗糙度取大
+  entry('bsdf_blur', [['alpha_x', 'f32', UNIT], ['alpha_y', 'f32', UNIT], ['roughness', 'f32', [0, 0.5]]], 2, 0, { wgsl: 'bsdf_microfacet_blur' }),
+  // 余弦半球采样：随机数离开圆盘边缘（理由同 microfacet_ggx_sample_vndf），方向分量经 make_orthonormals 与 to_global 相加抵消
+  entry('sample_cos_hemisphere', [['N', 'dir', [-1, 1]], ['rand', 'vec2f', RAND]], { wo: 3, pdf: 1 }, 32 * ULP1),
+  entry('bsdf_diffuse_eval', [['N', 'dir', [-1, 1]], ['wo', 'dir', [-1, 1]]], EVAL_OUT, 4 * ULP1),
+  entry('bsdf_diffuse_sample', [['N', 'dir', [-1, 1]], ['Ng', 'dir', [-1, 1]], ['rand', 'vec2f', RAND]], SAMPLE_OUT, 32 * ULP1, {
+    // 方向贴着几何法线的地平线（|Ng·wo| < 1e-5）时两边可能一边判在上面、一边判在下面
+    skip: (ref, test, i) => [ref, test].some(o => Math.abs(o[4] * i[3] + o[5] * i[4] + o[6] * i[5]) < 1e-5),
+  }),
+  entry('emissive_pdf', [['Ng', 'dir', [-1, 1]], ['wi', 'dir', [-1, 1]]], 1),
+  entry('emissive_simple_eval', [['Ng', 'dir', [-1, 1]], ['wi', 'dir', [-1, 1]]], 3),
 );

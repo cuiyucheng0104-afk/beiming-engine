@@ -1,8 +1,8 @@
 {
   "schema": "beiming.core.freeze/1",
   "name": "核心帧源路径追踪内核的四样内部结构",
-  "version": "1.1.0",
-  "frozen": "2026-11-24",
+  "version": "1.2.0",
+  "frozen": "2026-11-25",
   "structures": [
     "材质记录",
     "光线负载",
@@ -40,7 +40,8 @@
         "Material": "149896d4e8ceaf915761db165bc70e77a881d10bc5d91e3affd9b9dba42d65e8",
         "KernelIntegrator": "2367e5f3cf51884191a931ed744238213fffc32e88235836bbb0c08fb95165fd",
         "KernelFilm": "3341edfec35bbd8fc9f88b147081746256ff6d92881b060d50b1af4b16d645e8",
-        "Params": "6a7571c9cde0015c02dd36c65af91c59aff17b286b58e0e54fa814b0cf3b8562",
+        "KernelFilterTable": "42be0a2c684596eafd6ff4ef733c94b59d184d95276d670b54b003cb4b2b1487",
+        "Params": "b07d43ae873039cd127746445d6746c813b509adee95e79b7baab616358cf72e",
         "ObjectExt": "2ed64bfa6c339ec884681b9b659b81845449e45512e4cfc0c4be4a56714ce026"
       },
       "constants": {
@@ -88,7 +89,8 @@
         "shader_eval_inputs": "(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> ShaderInputs",
         "shader_setup_closures": "(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs)",
         "shader_eval_shadow": "(h: Hit, d: vec3<f32>, t: f32) -> vec3<f32>",
-        "shader_eval_emission": "(em: EmitterTri, b1: f32, b2: f32, l: vec3<f32>) -> vec3<f32>"
+        "shader_eval_emission": "(em: EmitterTri, b1: f32, b2: f32, l: vec3<f32>) -> vec3<f32>",
+        "closure_store": "(sd: ptr<function, ShadingPoint>, n: u32, c: Closure)"
       }
     },
     "shaders/closure.wgsl": {
@@ -99,8 +101,7 @@
         "ClosureEval": "e7298d98859c3a0261baea31f5e835437c637e6c853e8be1bfc5eeef75466735"
       },
       "constants": {
-        "LABEL_TRANSMIT": "i32 = 1",
-        "LABEL_DIFFUSE": "i32 = 4"
+        "LABEL_TRANSMIT": "i32 = 1"
       },
       "functions": {
         "surface_shader_prepare_closures": "(sd: ptr<function, ShadingPoint>)",
@@ -110,7 +111,15 @@
         "surface_shader_bsdf_sample_closure": "(sd: ShadingPoint, k: u32, rand: vec3<f32>) -> BsdfSample",
         "surface_shader_emission": "(sd: ShadingPoint) -> vec3<f32>",
         "surface_shader_transparency": "(sd: ShadingPoint) -> vec3<f32>",
-        "bsdf_albedo": "(sd: ShadingPoint, k: u32) -> vec3<f32>"
+        "bsdf_albedo": "(sd: ShadingPoint, k: u32) -> vec3<f32>",
+        "bsdf_sample": "(c: Closure, Ng: vec3<f32>, wi: vec3<f32>, rand: vec3<f32>) -> MicrofacetSample",
+        "bsdf_eval_accum": "(e: ptr<function, BsdfEval>, kind: u32, value: vec3<f32>)",
+        "surface_shader_bsdf_eval_mis": "(sd: ShadingPoint, wo: vec3<f32>, skip: u32, e: ptr<function, BsdfEval>, sum_pdf_in: f32, sum_sample_weight_in: f32) -> f32",
+        "closure_albedo": "(c: Closure, wi: vec3<f32>) -> vec3<f32>",
+        "closure_sample_weight": "(weight: vec3<f32>) -> f32",
+        "surface_shader_denoising_albedo": "(sd: ShadingPoint) -> vec3<f32>",
+        "bsdf_eval_mis_one": "(c: Closure, wi: vec3<f32>, wo: vec3<f32>, e: ptr<function, BsdfEval>) -> vec2<f32>",
+        "bsdf_blur": "(sd: ptr<function, ShadingPoint>, k: u32, roughness: f32) -> Closure"
       }
     },
     "shaders/integrator.wgsl": {
@@ -227,7 +236,8 @@
         "LABEL_NONE": "i32 = 0",
         "LABEL_REFLECT": "i32 = 2",
         "LABEL_GLOSSY": "i32 = 8",
-        "LABEL_SINGULAR": "i32 = 16"
+        "LABEL_SINGULAR": "i32 = 16",
+        "LABEL_DIFFUSE": "i32 = 4"
       }
     }
   }
