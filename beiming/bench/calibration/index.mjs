@@ -3,7 +3,7 @@
 // 命令行：node beiming/bench/calibration/index.mjs run [--write] [--id <id>] [--as-of <YYYY-MM-DD>]
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isCalendarDate } from '../../cards/status.mjs';
@@ -222,7 +222,8 @@ function parseFpsNumber(fps) {
 function resolveRefAbs(refRel) {
   const normalized = refRel.startsWith('beiming/') ? refRel.slice('beiming/'.length) : refRel;
   const abs = resolve(BEIMING_DIR, normalized);
-  if (!abs.startsWith(BEIMING_DIR + '/') && abs !== BEIMING_DIR) {
+  const rel = relative(BEIMING_DIR, abs);
+  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     throw new RangeError(`参考路径越界：${refRel}`);
   }
   return { abs, normalized };
