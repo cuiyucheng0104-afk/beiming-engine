@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { scanCardLeaks, validateCard } from '../../validate-card.mjs';
-import { open } from '../../../../tests/engine/lib/browser.mjs';
+import { launchBrowser } from '../../../../engine/render/lib/gpu.mjs';
+import { startServer } from '../../../host/page/host.mjs';
 import { bloomReference } from './three.js';
 
 const fixture = (width, height, channels, f) => ({ width, height,
@@ -78,38 +79,39 @@ test('阈值、软膝、上限影响提取；半径改变扩散，强度只混�
 });
 
 test('WebGL2：从仅有近邻过滤的宿主纹理生成七张浮点层，与 CPU 逐层核对，复用且可缩放', async t => {
-  const b = await open();
-  if (b.skip) return t.skip(b.skip);
-  t.after(() => b.close());
-  const probe = await b.page('capabilities.html', '<!doctype html><title>WebGL2</title>');
-  const floatTargets = await probe.page.evaluate(() => Boolean(document.createElement('canvas').getContext('webgl2')?.getExtension('EXT_color_buffer_float')));
-  await probe.close();
+  let browser;
+  try { browser = await launchBrowser(); } catch (e) { return t.skip(e.message.split('\n')[0]); }
+  t.after(() => browser.close());
+  const server = await startServer();
+  t.after(() => server.close());
+  const page = await browser.newPage();
+  await page.goto(server.origin);
+  const floatTargets = await page.evaluate(() => Boolean(document.createElement('canvas').getContext('webgl2')?.getExtension('EXT_color_buffer_float')));
   if (!floatTargets) return t.skip('无可渲染浮点目标的 WebGL2 上下文');
-  const p = await b.page('bloom.html', `<!doctype html><script type="module">
-    import * as T from '/node_modules/three-webgpu/build/three.module.js';
-    import {create,bloomReference} from '/beiming/cards/post/bloom/three.js';
-    const r=new T.WebGLRenderer(), camera=new T.Camera(), opt={additive:true,radius:1.25,threshold:0.3,knee:0.2,clamp:5,intensity:0.4};
-    const h=create({THREE:T},opt), errors=[];
-    for (const [w,height] of [[61,37],[38,48]]) {
-      const color=Float32Array.from({length:w*height*4},(_,i)=>i%4===3?0.625:(i*89%317)/39);
-      const tex=new T.DataTexture(color,w,height,T.RGBAFormat,T.FloatType); tex.needsUpdate=true;
-      const dst=new T.WebGLRenderTarget(w,height,{type:T.FloatType});
-      const cpu=bloomReference({width:w,height,color},opt);
-      h.object.material.uniforms.tInput.value=tex; r.setRenderTarget(dst); r.render(h.object,camera);
-      if (r.getRenderTarget()!==dst) throw new Error('目标未归还宿主');
-      for (const [list,ref] of [[h.targets.down,cpu.down],[h.targets.up,cpu.up]]) {
-        if(list.length!==ref.length) throw new Error('中间层数错误');
-        list.forEach((rt,j)=>{
-          const raw=new Uint16Array(rt.width*rt.height*4); r.readRenderTargetPixels(rt,0,0,rt.width,rt.height,raw);
-          errors.push(ref[j].data.reduce((max,v,i)=>Math.max(max,Math.abs(v-T.DataUtils.fromHalfFloat(raw[Math.floor(i/3)*4+i%3]))),0));
+  const errors = await page.evaluate(async () => {
+    const [T, { create, bloomReference }] = await Promise.all([import('three'), import('/beiming/cards/post/bloom/three.js')]);
+    const r = new T.WebGLRenderer(), camera = new T.Camera(), opt = { additive: true, radius: 1.25, threshold: 0.3, knee: 0.2, clamp: 5, intensity: 0.4 };
+    const h = create({ THREE: T }, opt), errs = [];
+    for (const [w, height] of [[61, 37], [38, 48]]) {
+      const color = Float32Array.from({ length: w * height * 4 }, (_, i) => i % 4 === 3 ? 0.625 : (i * 89 % 317) / 39);
+      const tex = new T.DataTexture(color, w, height, T.RGBAFormat, T.FloatType); tex.needsUpdate = true;
+      const dst = new T.WebGLRenderTarget(w, height, { type: T.FloatType });
+      const cpu = bloomReference({ width: w, height, color }, opt);
+      h.object.material.uniforms.tInput.value = tex; r.setRenderTarget(dst); r.render(h.object, camera);
+      if (r.getRenderTarget() !== dst) throw new Error('目标未归还宿主');
+      for (const [list, ref] of [[h.targets.down, cpu.down], [h.targets.up, cpu.up]]) {
+        if (list.length !== ref.length) throw new Error('中间层数错误');
+        list.forEach((rt, j) => {
+          const raw = new Uint16Array(rt.width * rt.height * 4); r.readRenderTargetPixels(rt, 0, 0, rt.width, rt.height, raw);
+          errs.push(ref[j].data.reduce((max, v, i) => Math.max(max, Math.abs(v - T.DataUtils.fromHalfFloat(raw[Math.floor(i / 3) * 4 + i % 3]))), 0));
         });
       }
-      const out=new Float32Array(color.length); r.readRenderTargetPixels(dst,0,0,w,height,out);
-      errors.push(out.reduce((m,v,i)=>Math.max(m,Math.abs(v-cpu.color[i])),0)); dst.dispose(); tex.dispose();
+      const out = new Float32Array(color.length); r.readRenderTargetPixels(dst, 0, 0, w, height, out);
+      errs.push(out.reduce((m, v, i) => Math.max(m, Math.abs(v - cpu.color[i])), 0)); dst.dispose(); tex.dispose();
     }
-    h.dispose(); r.dispose(); window.RESULT=errors;
-    </script>`);
-  const errors = await p.result();
-  assert.equal(errors.length,16);
+    h.dispose(); r.dispose();
+    return errs;
+  });
+  assert.equal(errors.length, 16);
   assert.ok(errors.every(x => x !== null && x < 0.016), JSON.stringify(errors));
 });

@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { chromium } from 'playwright-core';
-import { chromeArgs, chromeExecutable } from '../../../../engine/render/lib/gpu.mjs';
+import { launchBrowser } from '../../../../engine/render/lib/gpu.mjs';
 import { startServer } from '../../../host/page/host.mjs';
 import { scanCardLeaks, validateCard } from '../../validate-card.mjs';
 
@@ -79,7 +78,7 @@ test('云缘与开口可增光，太阳阴影会遮断光柱', async () => {
 
 test('页面注入渲染库：浮点目标实渲与离线结果相符', async t => {
   let browser;
-  try { browser = await chromium.launch({executablePath:chromeExecutable(),args:chromeArgs()}); }
+  try { browser = await launchBrowser(); }
   catch (e) { t.skip(`浏览器不可用：${e.message.split('\n')[0]}`); return; }
   t.after(() => browser.close()); const server = await startServer(); t.after(() => server.close());
   const page = await browser.newPage(); await page.goto(server.origin);
@@ -91,8 +90,7 @@ test('页面注入渲染库：浮点目标实渲与离线结果相符', async t 
   const { volumetricCPU } = await import('./three.js'); const expected = volumetricCPU(f,params).color;
   const inputs = {...f, params, color:[...f.color], depth:[...f.depth], shadow:{...f.shadow,data:[...f.shadow.data]},clouds:{...f.clouds,data:[...f.clouds.data]}};
   const pixels = await page.evaluate(async f => {
-    const THREE = await import('/node_modules/three-webgpu/build/three.module.js');
-    const {create} = await import('/beiming/cards/post/volumetric/three.js');
+    const [THREE, { create }] = await Promise.all([import('three'), import('/beiming/cards/post/volumetric/three.js')]);
     const r = new THREE.WebGLRenderer(), scene = new THREE.Scene(); const textures = [];
     function tex(data,w,h,type,format) { const t = new THREE.DataTexture(data,w,h,format,type); t.needsUpdate = true; textures.push(t); return t; }
     const depth = new Float32Array(f.width*f.height*4); for (let i=0;i<f.depth.length;i++) { depth[4*i]=f.depth[i]; depth[4*i+3]=1; }
