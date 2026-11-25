@@ -1,0 +1,54 @@
+{
+  "format": "card/0.1",
+  "id": "asset.stl-kit",
+  "version": "1.0.0",
+  "kind": "asset",
+  "title": "STL 套件与四视图盘点",
+  "intent": "导入 STL 零件并归一到北冥米制坐标，缺件用代理盒补齐，生成套件盘点及四个取景机位",
+  "visibleToAgent": true,
+  "livesIn": ["source:blender"],
+  "impl": [{
+    "livesIn": "source:blender",
+    "entry": "cards/asset/stl-kit/stl_kit.py",
+    "shape": "create",
+    "hosts": [{ "host": "cycles", "version": "5.2.0" }],
+    "selftest": "cards/asset/stl-kit/selftest.test.mjs"
+  }],
+  "params": {
+    "kit": {
+      "type": "data",
+      "unit": "none",
+      "schema": "schema.json",
+      "default": { "parts": [{ "name": "body", "size": [0.5, 0.5, 0.5] }] },
+      "coupling": "asset-batch"
+    },
+    "unitScale": { "type": "number", "unit": "none", "range": [0.0001, 1000], "default": 0.001, "coupling": "scene-scale" },
+    "missingPolicy": { "type": "string", "unit": "none", "default": "proxy", "coupling": "none" },
+    "upAxis": { "type": "string", "unit": "none", "default": "Z", "coupling": "none" },
+    "inventoryViews": { "type": "boolean", "unit": "none", "default": true, "coupling": "none" }
+  },
+  "ports": {
+    "in": [],
+    "out": [{ "name": "bbox", "type": "bbox-world" }, { "name": "readings", "type": "frame-meta" }],
+    "order": { "before": [], "after": [] },
+    "requires": [
+      "每件可给 STL 文件 path 或内联 bytes（字节整数列表或标准 base64）；相对 path 基于 Blender 进程的工作目录",
+      "upAxis 只接受 Y 或 Z。默认按毫米导入 Z 向上的 STL；fallbackBbox、size 和 center 直接使用北冥 +Y 向上米制",
+      "missingPolicy 只接受 proxy 或 error。代理模式需要 fallbackBbox 或 size，size 缺省以原点为中心；损坏 STL 报错",
+      "Handle.inventory 交零件名、来源、三角面数、AABB 与几何摘要；Handle.views 交方形画幅的四个机位，帧读数交盘点计数"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["硬表面装配需要导入、替换和盘点 STL 零件，临时缺件仍需出帧"],
+    "notWhen": ["输入依赖材质、骨骼、节点层级或变形信息"]
+  },
+  "calibration": "probe-axes-turntable",
+  "verify": {
+    "selftest": "正反例覆盖二进制与 ASCII STL、毫米及坐标轴换算、代理及严格缺件模式、确定性四视图；Blender 实跑检查网格与代理的帧及元数据",
+    "predicates": []
+  },
+  "pitfalls": [{ "symptom": "实件偏转或过大", "fix": "按 STL 导出时的向上轴和单位设置 upAxis 和 unitScale" }],
+  "provenance": { "cases": [], "note": "按 STL 的二进制布局与 ASCII 文法读取三角面，盘点机位按合并 AABB 的八角点计算" },
+  "status": [{ "level": "reproduced", "host": "cycles", "source": "5.2.0", "gpu": "apple-m5-pro", "date": "2026-11-25" }],
+  "exams": ["cal:asset.stl-kit"]
+}

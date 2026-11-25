@@ -22,7 +22,7 @@ export const caps = (version, library = {}) => ({
     normal: { type: 'f32', note: '相机空间的着色法线，长度 1；sub = 0 关运动模糊和景深另渲，1 采样；什么都没打到写 (0, 0, 0)' },
     motion: false,
   },
-  sceneQuery: [],
+  sceneQuery: ['bbox3d', 'anchor', 'intersect', 'contact', 'belowGround'],
   motionBlur: { mode: 'native', auxAt: 'sub0', conflicts: ['motion'] },
   determinism: 'tolerance',
   draft: { kind: 'cycles-low', samples: 24, scale: 0.5, denoise: 'gpu' },

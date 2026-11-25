@@ -43,8 +43,12 @@ return {'entities': [{'name': 'body', 'class': 'part', 'objects': [body]}],
 
 检查次序见帧源接口 5.14：模式不支持报 `contract.unsupported-mode`，缺锁报 `env.lock-required`，卡、资产或轨道不合报 `contract.unsupported-input`。
 
+## 场景查询
+
+`session.query(f, q)` 在镜头局部整帧回答 `bbox3d`、`anchor`、`intersect`、`contact`、`belowGround`。用 `of: ['part.*']` 可检查装配，省略 `against` 时在组内两两量测。坐标用北冥 Y-up 米制，每次最多 50 项。见[量测、锚点与关节豁免细则](DETAILS.md)。
+
 ## 资产与自检
 
-`startSource({ assets })` 接收 `{资产引用: 文件路径}`，可覆盖自带资产。`.json` 用 `kit-spec/0.1` 搭硬表面几何、材质、灯和环境光（米、右手 Y-up、线性光）；`.glb/.gltf` 用 glTF 导入器；`.stl` 原样当 Blender Z-up 米；`.blend` 追加物体不取相机。每个网格一个零件，名字只留字母、数字、下划线，重名加 `_2`、`_3`。自带 `rtx-card.json`（`asset:rtx-card@1`）是 `film-min` 的 `s01` 用的三件双槽显卡。
+支持 `kit-spec/0.1`、glTF、STL 和 `.blend` 资产。见[资产装载细则](DETAILS.md#资产装载)。
 
 `node --test beiming/sources/blender/*.test.mjs` 测装载、运行库与实渲；`node --test beiming/cards/blender-cards.test.mjs` 测机制卡与 `s01`。没有 Blender 只跳过实渲；按 `BEIMING_BLENDER`、macOS 应用目录、`PATH` 找可执行文件。

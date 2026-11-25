@@ -48,7 +48,7 @@ test('能力声明：结构合法，落在登记表 blender 一项之内', () =>
   for (const [name, type] of Object.entries(reg.outputs)) assert.equal(CAPS.outputs[name] === false ? false : CAPS.outputs[name].type, type, name);
   assert.deepEqual(Object.keys(CAPS.outputs).filter((k) => k !== 'meta').sort(), Object.keys(reg.outputs).sort());
   assert.deepEqual(CAPS.modes, ['build-script']);
-  assert.deepEqual(CAPS.sceneQuery, []);
+  assert.deepEqual(CAPS.sceneQuery, reg.sceneQuery);
   for (const mode of CAPS.modes) assert.ok(reg.modes.includes(mode), mode);
   // 提供了卡，作者模式里才有「卡加数据」
   const withCards = caps('5.2.0', { 'blender.cycles': {} });
@@ -371,7 +371,7 @@ test('实跑：常驻 Blender 渲校准镜头，层文件、元数据、交并�
     await assert.rejects(() => src.open(input, { tier: 'final', workspace: env.workspace, filmDir: root }), code('usage.bad-argument'));
     await assert.rejects(() => session.render(25, {}, ['color']), code('usage.bad-argument'));
     await assert.rejects(() => session.render(0, {}, ['color', 'motion']), code('contract.unsupported-output'));
-    await assert.rejects(() => session.query(0, { kind: 'bbox3d', of: ['cube'] }), code('contract.unsupported-query'));
+    await assert.rejects(() => session.query(0, { kind: 'volume', of: ['cube'] }), code('contract.unsupported-query'));
 
     const want = ['color', 'depth', 'objectId', 'normal', 'meta'];
     const frames = {};
@@ -627,10 +627,15 @@ test('实跑：卡加数据模式载入 .glb、.stl、.blend 资产，零件进�
         clean(manifest, 'source', 'manifest.schema.json');
         // 别名是装配体，零件各是一个实体 <别名>.<零件名>；名字里的连字符换成下划线
         assert.deepEqual(manifest.entities.map((e) => [e.name, e.class]), [['box', 'assembly'], ...names.map((n) => [`box.${n}`, 'part'])], ref);
+        const partName = `box.${names.at(-1)}`;
+        const queried = await session.query(2, { kind: 'bbox3d', of: [partName] });
+        clean(queried, 'source', 'query-result.schema.json');
         const { meta, layers } = await session.render(1, {}, ['color', 'objectId', 'meta']);
         clean(meta);
         const ids = await readLayer(env.workspace, layers.objectId, 'u32');
-        const cube = meta.entities.find((e) => e.name === `box.${names.at(-1)}`);
+        const cube = meta.entities.find((e) => e.name === partName);
+        queried.items[0].at.forEach((v, i) => near(v, cube.bbox3d[i], 1e-6, `${ref} 查询和元数据的 bbox3d[${i}]`));
+        assert.deepEqual(await session.query(0, { kind: 'bbox3d', of: [partName] }), queried);
         [-0.5, -0.5, -3.5, 0.5, 0.5, -2.5].forEach((v, i) => near(cube.bbox3d[i], v, 1e-4, `${ref} 方块的 bbox3d[${i}]`));
         const iou = iouOf(idBox(ids, cube.id), cube.bbox2d);
         t.diagnostic(`${ref}：方块编号层包围盒的交并比 ${iou.toFixed(4)}`);

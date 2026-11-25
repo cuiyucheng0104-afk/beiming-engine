@@ -82,6 +82,16 @@
 - 内存上界守卫：`totalFrames <= maxFrames`（默认 60，合法下限 9）时全量解码；超过 `maxFrames` 时取首、中、尾三段互不重叠的确定性等距连续窗口（每段长 `floor(maxFrames / 3) >= 3` 帧，同时支撑 `noiseResidual` 与 `aliasEdge.flicker`），每段解码完立即计算并释放帧缓冲，最终聚合取最差/最大 `value`（`videoAliasEdge` 同时取最大 `flicker`）。
 - 返回标准 `{ metric, unit, value, details }`：`videoNoiseResidual` 为 `metric:noise.residual` / `code8`，`videoAliasEdge` 为 `metric:alias.edge` / `px`，`details` 保留 `status`、`staticRatio`、`flicker`、`flickerUnit`、`edgePixels`、`sampledFrames`、`totalFrames` 与各段读数 `segments`。单帧视频调 `videoNoiseResidual` 返回 `value: null`、`details.status: 'insufficient-frames'` 不抛异常；缺少 `ffprobe` / `ffmpeg`（`ENOENT`）时照 `video-audio.mjs` 同口径返回 `{ metric, value: null, details: { code: 'tool-missing', tool }, unit }`；非法路径、未知选项或非法 `maxFrames` 抛带 `code: 'usage.bad-argument'` 的 `RangeError`。
 
+## 亮度分位与切镜重影（O9，`metrics/luma-ghost.mjs`）
+
+`lumaPercentile(input, opts)` 和 `cutGhost(input, opts)` 共用两种输入：内存帧数组直接返回读数；传视频路径则返回 Promise，经 ffmpeg 以 `-fps_mode passthrough` 流式解出灰度 Y4M，不落盘。缺解码工具返回 `status: 'tool-missing'`，不是零亮度或零重影。可从 `observe/index.mjs` 或 `metrics/index.mjs` 导入；`runLumaGhostMetric` 的名字可带 `metric:` 前缀。
+
+- 内存帧形如 `{width, height, data, channels?, frame?}`。`Uint8Array` 的满幅是 255，`Float32Array` 的满幅是 1（不是可超过 1 的场景 HDR）。RGB/RGBA 按 Rec.709 合成亮度，不把 alpha 加进亮度。切点 `c` 是**后镜首帧**的全片帧号，不是采样数组下标。
+- `lumaPercentile(frames, {cuts: [120]})` 的 `perFrame` 逐帧给 `p01/p50/p99`；`summary` 是所有像素合在一起的 nearest-rank 分位（排序后取第 `ceil(q*N)` 个），不是逐帧分位的平均。`pXX` 用 `[0,1]`，`code8.pXX` 用 `[0,255]`。`crossCutExposureDelta` 的差是 `c` 减 `c-1`，正值表示变亮；`maxCrossCutDeltaP50`、`maxCrossCutDeltaP99` 取变化量的最大绝对值，没有有效切点时是 `null`。不传 `cuts` 时，以相邻帧的平均绝对亮度差 `> cutThreshold`（默认 0.15）作切点；抽帧不连续时不跨过缺帧计算。
+- `cutGhost(frames, {cuts: [120], threshold: 0.15})` 对每个切点取 `c-1,c,c+1`，把后镜首帧沿「后镜稳定帧 → 前镜末帧」方向投影。`ghostEnergy` 是截断到 `[0,1]` 的拟合混合系数，乘上残差解释度与按前后镜亮度差平方加权的像素支持率；若后镜两帧只相差可配准的一像素平移，不算前镜渗透。能量为正且达到 `threshold` 才标记重影。`perCut` 给 `cutFrame`、`status`、`ghostEnergy` 与 `hasGhost`；`ghostFrames` 只列出命中的后镜首帧。`missing-frames`（三帧不齐）或 `low-contrast`（前后镜太像）都没有足够证据，不能当作硬切验过。这个读数针对旧镜头渗入首帧，不是一般的镜内运动模糊检测器。
+
+验收时可将两个完整结果分别放进 `measured.lumaPercentile`、`measured.cutGhost`，让 `luma_p99`、`no_ghost` 直接定位反例；详见 [验收细则](../verify/DETAILS.md)。
+
 ## 亚像素光流与 LDR-FLIP（`metrics/flow-flip.mjs`）
 
 `flowField`、`imageFlip` 从组件和 `metrics/index.mjs` 都能导入；也可用 `FLOW_FLIP_METRICS[name]` 或 `runFlowFlipMetric(name, ...args)`，`name` 可带 `metric:` 前缀。两者均不读文件、时钟、显卡或随机源，不改输入。帧给 `{ width, height, rgba | rgb | luma | data }`，恰好一个像素载荷，行优先；`data` 按长度推断 1、3、4 通道，单通道按灰度，alpha 不参加量测。只收 8 位无符号或钳位数组、Float32/64 数组。帧、ROI、选项只读普通对象的自有数据描述符；拒绝 Proxy、访问器、未知键、稀疏序列、共享像素缓冲、非有限样本（包括 alpha）以及不合法的尺寸、参数。像素视图只按原生类型、内部长度与数字下标读取，标准成员不许在实例上遮蔽。错误统一抛 `RangeError`，`code: 'usage.bad-argument'`。
