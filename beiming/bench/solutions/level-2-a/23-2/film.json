@@ -1,0 +1,118 @@
+{
+  "format": "film/3.0",
+  "id": "sol_23_2",
+  "seed": 232,
+  "title": "标准答案 23-2 章节落拍",
+  "exam": "23-2",
+  "output": {
+    "size": [1920, 1080],
+    "fps": "24/1",
+    "frames": 672
+  },
+  "timeline": {
+    "bpm": 120,
+    "beatFrames": 12
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 96,
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 2321,
+      "cards": [
+        {
+          "as": "grid",
+          "use": "time.cut-grid@1",
+          "params": {
+            "origin": "film",
+            "gridFrames": 12,
+            "minShotFrames": 24,
+            "offsetFrames": 0,
+            "startFrame": 0,
+            "endFrame": 672,
+            "marksAre": "cuts",
+            "marks": [96, 192, 312, 432, 552]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s02",
+      "in": 96,
+      "out": 192,
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 2322
+    },
+    {
+      "id": "s03",
+      "in": 192,
+      "out": 312,
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 2323
+    },
+    {
+      "id": "s04",
+      "in": 312,
+      "out": 432,
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 2324
+    },
+    {
+      "id": "s05",
+      "in": 432,
+      "out": 552,
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 2325
+    },
+    {
+      "id": "s06",
+      "in": 552,
+      "out": 672,
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
+      "colorRef": "display",
+      "seed": 2326
+    }
+  ],
+  "transitions": [
+    { "id": "to-s02", "at": 96, "type": "cut" },
+    { "id": "to-s03", "at": 192, "type": "cut" },
+    { "id": "to-s04", "at": 312, "type": "cut" },
+    { "id": "to-s05", "at": 432, "type": "cut" },
+    { "id": "to-s06", "at": 552, "type": "cut" }
+  ],
+  "style": {
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "audio": {
+    "mode": "track"
+  },
+  "predicates": {
+    "base": ["floor@1"],
+    "extra": []
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709",
+    "card": "deliver.encode@1"
+  }
+}
