@@ -55,6 +55,8 @@ struct Job {
     transparent: bool,
     /// 北冥：照 Cycles 口径的成像参数（只有 render-pack 给）。给了就关掉上游的亮度夹取（`Params::misc[0]`）。
     cycles_film: Option<CyclesFilm>,
+    /// 北冥：要出的分灯组（render-pack 带 --passes 时是场景包里的全部组名，下标就是灯记录里的槽位）。空：不请求灯组。
+    lightgroups: Vec<String>,
 }
 
 /// 北冥：render-pack 的像素滤波、夹取与滤光泽，照 Cycles 宿主一侧写进内核的口径（scene/film.cpp、scene/integrator.cpp:
@@ -208,6 +210,7 @@ fn main() -> Result<()> {
                 passes: None,
                 transparent: false,
                 cycles_film: None,
+                lightgroups: vec![],
             };
             let stats = render(&g, &job, &presets, init_ms, &mut Hosts::default())?;
             println!("{}", serde_json::to_string(&stats)?);
@@ -296,6 +299,7 @@ fn main() -> Result<()> {
                         passes: None,
                         transparent: false,
                         cycles_film: None,
+                lightgroups: vec![],
                     };
                     // (A `live` job asks for the real-time renderer, which this build does not have.)
                     match v["live"].as_u64() {
@@ -422,6 +426,7 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
         passes: flag("--passes").map(PathBuf::from),
         transparent: !p.world_visible,
         cycles_film: Some(film),
+        lightgroups: if args.iter().any(|a| a == "--passes") { p.lightgroups() } else { vec![] },
     };
     let mut stats = finish(&g, b.scene, &job, init_ms, timings, t_total)?;
     stats["pack"] = serde_json::json!({ "id": p.id, "frame": frame, "frames": p.count });
@@ -438,9 +443,11 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
 /// 通道的数值照输出通道契约：color 是 RGBA（RGB 是样本均值，已经预乘 A）；depth、objectId、normal 取辅助样本；
 /// denoiseAlbedo 是上游口径的反照率均值；denoiseNormal 照 Cycles 的降噪特征换到它的相机空间（看 +Z、Y 向上：
 /// kernel/film/denoising_passes.h 把世界空间的法线经 worldtocamera 变过去），见 STRUCTURES.md「输出通道」。
-/// 不出 motion（场景包没有帧间的状态）与分灯组。另写一份通道声明 passes.json（passes/0.1，只列交出的六个通道）。
+/// 分灯组 `lightgroup:<名>` 每组一个文件 `lightgroup-<名>.f32`（RGB；文件名里冒号换成连字符，Windows 不收冒号），名字与次序照
+/// `lightgroups`（场景包里的全部组）。不出 motion（场景包没有帧间的状态）。另写一份通道声明 passes.json（passes/0.1，列交出的
+/// 六个固定通道与各分灯组）。
 /// 返回给 stdout 统计的一段：每个通道的文件、形状 [高, 宽, 分量数]、分量名与类型。
-fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params) -> Result<serde_json::Value> {
+fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params, lightgroups: &[String]) -> Result<serde_json::Value> {
     let aux = frame.aux.as_ref().ok_or_else(|| anyhow!("要出层，渲染却没有带辅助层"))?;
     std::fs::create_dir_all(dir)?;
     let (h, w) = (frame.height as usize, frame.width as usize);
@@ -464,6 +471,14 @@ fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params) -> Result<
         std::fs::write(dir.join(file), bytemuck::cast_slice::<f32, u8>(data))?;
         layers.insert(name.to_string(), entry(file, comps.len(), comps, "f32"));
     }
+    if frame.lightgroups.len() != lightgroups.len() {
+        return Err(anyhow!("要出 {} 个分灯组，渲染读回了 {} 个", lightgroups.len(), frame.lightgroups.len()));
+    }
+    for (name, group) in lightgroups.iter().zip(&frame.lightgroups) {
+        let file = format!("lightgroup-{name}.f32");
+        std::fs::write(dir.join(&file), bytemuck::cast_slice::<f32, u8>(&flat(group)))?;
+        layers.insert(format!("lightgroup:{name}"), entry(&file, 3, &["R", "G", "B"], "f32"));
+    }
     std::fs::write(dir.join("objectId.u32"), bytemuck::cast_slice::<u32, u8>(&aux.id))?;
     layers.insert("objectId".into(), entry("objectId.u32", 1, &["id"], "u32"));
     // 通道声明：各通道的属性照输出通道契约 3.1 的登记表
@@ -482,6 +497,10 @@ fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params) -> Result<
             ch("denoiseNormal", &[("X", f), ("Y", f), ("Z", f)], "none", "accumulate"),
         ],
     });
+    let mut table = table;
+    if let Some(chs) = table["channels"].as_array_mut() {
+        chs.extend(lightgroups.iter().map(|name| ch(&format!("lightgroup:{name}"), &[("R", f), ("G", f), ("B", f)], lin, "accumulate")));
+    }
     std::fs::write(dir.join("passes.json"), serde_json::to_vec_pretty(&table)?)?;
     Ok(serde_json::json!({ "dir": dir, "table": "passes.json", "layers": layers }))
 }
@@ -549,9 +568,12 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
     if let Some(f) = &job.cycles_film {
         f.write(&mut params);
     }
+    if !job.lightgroups.is_empty() {
+        params.film = gpu::KernelFilm::new(job.lightgroups.len() as u32);
+    }
     let frame = g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, beiming_core_path::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, spp, job.passes.is_some(), &mut timings)?;
     let passes = match &job.passes {
-        Some(dir) => Some(write_passes(dir, &frame, &params)?),
+        Some(dir) => Some(write_passes(dir, &frame, &params, &job.lightgroups)?),
         None => None,
     };
     if let Some(prefix) = &job.signals {

@@ -252,7 +252,9 @@ const MATERIAL_CLASS_EMISSION: u32 = 1u;
 const MATERIAL_CLASS_TRANSPARENT: u32 = 2u;
 const MATERIAL_CLASS_TOON: u32 = 3u;
 // See scene::GpuLight (x = volumetric scattering scale, specular scale, rect barn-door cosine, -).
-struct Light { pos: vec4<f32>, dir: vec4<f32>, color: vec4<f32>, ext: vec4<f32>, x: vec4<f32> };
+// 北冥：cy 是照 Cycles 的 KernelLight 加的一格（src/scene.rs GpuLight 的 cy）：eval_fac 与 one_minus_cosangle 的位、灯光链接的
+// 成员掩码、灯组槽位与 SHADER_USE_MIS。存成整数：浮点格里放小整数的位会被驱动冲成 0
+struct Light { pos: vec4<f32>, dir: vec4<f32>, color: vec4<f32>, ext: vec4<f32>, x: vec4<f32>, cy: vec4<u32> };
 
 @group(0) @binding(0) var<uniform> P: Params;
 @group(0) @binding(1) var<storage, read> tri_verts: array<vec4<f32>>;
@@ -350,7 +352,7 @@ fn emitter_tri_at(i: u32) -> EmitterTri {
     // counts: the tests hold them to the renderer's records). Slower than the views below where it was measured
     // (docs/RUNTIME.md "The scene's tables"): an offset from the parameters at every read, the records' assembly.
     const MATERIAL_VEC4: u32 = 26u;
-    const LIGHT_VEC4: u32 = 5u;
+    const LIGHT_VEC4: u32 = 6u;
     const INSTANCE_VEC4: u32 = 10u;
     const MEDIUM_VEC4: u32 = 14u;
     fn material_at(i: u32) -> Material {
@@ -367,7 +369,7 @@ fn emitter_tri_at(i: u32) -> EmitterTri {
     }
     fn light_at(i: u32) -> Light {
         let b = P.table_first[0].z + i * LIGHT_VEC4;
-        return Light(table_f(b), table_f(b + 1u), table_f(b + 2u), table_f(b + 3u), table_f(b + 4u));
+        return Light(table_f(b), table_f(b + 1u), table_f(b + 2u), table_f(b + 3u), table_f(b + 4u), tables[b + 5u]);
     }
     fn emitter_at(i: u32) -> vec4<f32> { return table_f(P.table_first[1].x + i); }
     fn tex_info_at(i: u32) -> vec4<f32> { return table_f(P.table_first[1].y + i); }

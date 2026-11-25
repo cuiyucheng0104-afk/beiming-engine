@@ -121,19 +121,22 @@ const near = (a, b, rel) => Math.abs(a - b) <= rel * Math.max(Math.abs(a), Math.
 const SHAPES = { color: 4, depth: 1, objectId: 1, 'objectId.coverage': 1, normal: 3, denoiseAlbedo: 3, denoiseNormal: 3 };
 const FILES = { color: 'color.f32', depth: 'depth.f32', objectId: 'objectId.u32', 'objectId.coverage': 'objectId.coverage.f32', normal: 'normal.f32', denoiseAlbedo: 'denoiseAlbedo.f32', denoiseNormal: 'denoiseNormal.f32' };
 
-/** 出层目录：七个文件的字节数照 [高, 宽, 分量数] × 4；stdout 里的层表与文件一致；通道声明过结构定义与 PS1 的名字要求 */
+/** 出层目录：七个文件与每个分灯组一个文件（两个测试包都只有一盏灯 key，组名就是灯名）的字节数照 [高, 宽, 分量数] × 4；
+ *  stdout 里的层表与文件一致；通道声明过结构定义与 PS1 的名字要求，分灯组排在六个固定通道之后 */
 async function checkFiles(dir, stats, w, h) {
   const names = fs.readdirSync(dir).sort();
-  assert.deepEqual(names, [...Object.values(FILES), 'passes.json'].sort());
-  for (const [name, k] of Object.entries(SHAPES)) {
-    assert.equal(fs.statSync(path.join(dir, FILES[name])).size, h * w * k * 4, name);
+  const groups = { 'lightgroup:key': 'lightgroup-key.f32' };
+  assert.deepEqual(names, [...Object.values(FILES), ...Object.values(groups), 'passes.json'].sort());
+  for (const [name, k] of [...Object.entries(SHAPES), ...Object.keys(groups).map(g => [g, 3])]) {
+    const file = FILES[name] ?? groups[name];
+    assert.equal(fs.statSync(path.join(dir, file)).size, h * w * k * 4, name);
     assert.deepEqual(stats.passes.layers[name].shape, [h, w, k], name);
-    assert.equal(stats.passes.layers[name].file, FILES[name], name);
+    assert.equal(stats.passes.layers[name].file, file, name);
   }
   const table = JSON.parse(fs.readFileSync(path.join(dir, 'passes.json'), 'utf8'));
   const { validate } = await loadContracts();
   assert.deepEqual(validate(table), { contract: 'passes', schemaErrors: [], violations: {} });
-  assert.deepEqual(table.channels.map(c => c.name), ['color', 'depth', 'objectId', 'normal', 'denoiseAlbedo', 'denoiseNormal']);
+  assert.deepEqual(table.channels.map(c => c.name), ['color', 'depth', 'objectId', 'normal', 'denoiseAlbedo', 'denoiseNormal', ...Object.keys(groups)]);
   return table;
 }
 

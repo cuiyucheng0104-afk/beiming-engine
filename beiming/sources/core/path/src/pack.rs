@@ -6,8 +6,8 @@
 //! 清单 `pack.json`、几何文件（GLB）、实例表（u32）、每帧状态表（f32），全部校验；选一帧建成内核的 `World`，
 //! 再走现有的 `scene::build`。读入方是信任边界：一切错都报成带错误码的 `PackError`，不 panic、不越界读。
 //!
-//! 只做到「读对、读全、读不对就报清楚」。图案节点与灯光链接照契约逐字段解析、校验，留在 `Pack` 里，**不生效**
-//! （统计里列在 `notApplied`）。没登记参数的三种闭包、正交相机、动态网格、材质逐帧表都报 `contract.unsupported-input`。
+//! 只做到「读对、读全、读不对就报清楚」。图案节点照契约逐字段解析、校验，留在 `Pack` 里，**不生效**
+//! （统计里列在 `notApplied`）。灯光链接与分灯组生效：见 `Pack::light_links`、`Pack::lightgroups`。没登记参数的三种闭包、正交相机、动态网格、材质逐帧表都报 `contract.unsupported-input`。
 
 use crate::{desc, scene, world};
 use anyhow::Result;
@@ -258,9 +258,9 @@ pub struct Light {
     pub kind: LightKind,
     pub color: [f64; 3],
     pub visible: bool,
-    /// 灯光链接（只读、只校验，不生效）。
+    /// 灯光链接（`Pack::light_links`）。
     pub link: Option<Vec<String>>,
-    /// 分灯组名（不写时就是灯名；只读，不生效）。
+    /// 分灯组名（不写时就是灯名；`Pack::lightgroups`）。
     pub group: String,
 }
 
@@ -1153,7 +1153,75 @@ pub fn kernel_light(l: &Light, watts: f64) -> desc::Light {
     }
 }
 
+/// 灯光链接的接收者集合号只到这个数（灯记录的成员掩码是 32 位；Cycles 到 63）。
+pub const MAX_RECEIVER_SET: u32 = 31;
+/// 物体的阴影终止几何偏移：Blender 新建物体的默认值（scene/object.cpp:91-92；标准答案机没改这项设置）。
+pub const SHADOW_TERMINATOR_GEOMETRY_OFFSET: f32 = 0.1;
+
+/// 灯光链接照 Blender 的建法（source/blender/depsgraph/intern/depsgraph_light_linking.cc 的 `LinkingData::link_object`、
+/// `end_build`、`EmitterSetMembership::get_mask`）落成的两样：每一行实例的接收者集合号，与每盏灯的成员掩码。
+pub struct LightLinks {
+    /// 按实例行：接收者集合号，0 是不在任何灯的链接名单里（Blender 的 `LightSet::DEFAULT_ID`）。
+    pub receiver_set: Vec<u32>,
+    /// 按灯：第 s 位是 1，集合号为 s 的接收者受它照。没写链接的灯全 1（`LIGHT_LINK_MASK_ALL`）。
+    pub membership: Vec<u32>,
+}
+
 impl Pack {
+    /// 分灯组：组名按它在灯清单里第一次出现的次序，下标就是灯组槽位（输出通道 `lightgroup:<名>` 也按这个次序）。
+    pub fn lightgroups(&self) -> Vec<String> {
+        let mut out: Vec<String> = vec![];
+        for l in &self.lights {
+            if !out.contains(&l.group) {
+                out.push(l.group.clone());
+            }
+        }
+        out
+    }
+    /// 第 `j` 盏灯的灯组槽位。
+    pub fn lightgroup_slot(&self, j: usize) -> u32 {
+        self.lightgroups().iter().position(|g| *g == self.lights[j].group).unwrap_or(scene::LIGHTGROUP_SLOT_NONE as usize) as u32
+    }
+    /// 灯光链接。每盏写了链接的灯是一个「链接集合」（它名单里的实体）；一行实例的集合是「把它列进名单的那些灯」（只有包含，
+    /// 没有排除），相同的集合合成一个号，从 1 起按实例行的次序编；灯的成员掩码是名单里有它的那些集合号（一个都没有时视为全部，
+    /// Blender 的 `get_mask`）。集合号超过 `MAX_RECEIVER_SET` 报 `contract.unsupported-input`。
+    pub fn light_links(&self) -> std::result::Result<LightLinks, PackError> {
+        let linked: Vec<usize> = (0..self.lights.len()).filter(|&j| self.lights[j].link.is_some()).collect();
+        let mut sets: Vec<u64> = vec![];
+        let mut receiver_set = vec![0u32; self.rows.len()];
+        for (i, name) in self.names.iter().enumerate().take(self.rows.len()) {
+            let mut include = 0u64;
+            for (k, &j) in linked.iter().enumerate() {
+                if self.lights[j].link.as_ref().is_some_and(|ls| ls.iter().any(|pat| link_matches(pat, name))) {
+                    include |= 1 << k;
+                }
+            }
+            if include == 0 {
+                continue;
+            }
+            let id = match sets.iter().position(|s| *s == include) {
+                Some(at) => at + 1,
+                None => {
+                    sets.push(include);
+                    sets.len()
+                }
+            };
+            if id as u32 > MAX_RECEIVER_SET {
+                return Err(fail(UNSUPPORTED, "lights", format!("灯光链接要 {id} 个接收者集合，内核的成员掩码只有 32 位（集合号到 {MAX_RECEIVER_SET}）")));
+            }
+            receiver_set[i] = id as u32;
+        }
+        let membership = (0..self.lights.len())
+            .map(|j| match linked.iter().position(|&x| x == j) {
+                None => u32::MAX,
+                Some(k) => {
+                    let m = sets.iter().enumerate().filter(|(_, s)| *s >> k & 1 == 1).fold(0u32, |m, (at, _)| m | 1 << (at + 1));
+                    if m == 0 { u32::MAX } else { m }
+                }
+            })
+            .collect();
+        Ok(LightLinks { receiver_set, membership })
+    }
     /// 第 `k` 帧这盏灯的功率：灯表有 watts 列取表里的，没有取清单里的（契约 5.5）。
     pub fn watts(&self, k: usize, j: usize) -> f64 {
         let t = &self.frames_lights;
@@ -1314,6 +1382,7 @@ pub fn build(p: &Pack, k: usize, size: (u32, u32), preset: Option<&str>, presets
     let mut sc = scene::build(&w, Path::new("."), presets, overrides)?;
     let aspect = size.0 as f64 / size.1.max(1) as f64;
     sc.camera = scene::camera_data(p.camera_matrix(k), &p.camera_desc(k, aspect));
+    let links = p.light_links()?;
     let light0 = row_id(p.rows.len());
     for (slot, id) in sc.retained.light_nodes.clone().iter().enumerate() {
         let Some(j) = id.checked_sub(light0).map(|j| j as usize).filter(|j| *j < p.lights.len()) else { continue };
@@ -1325,6 +1394,8 @@ pub fn build(p: &Pack, k: usize, size: (u32, u32), preset: Option<&str>, presets
             gl.pos = [0.0, 0.0, 0.0, 0.0];
             gl.dir = [d.x, d.y, d.z, gl.dir[3]];
         }
+        gl.cy[2] = links.membership[j];
+        gl.cy[3] = (gl.cy[3] & !scene::LIGHTGROUP_SLOT_MASK) | p.lightgroup_slot(j);
         sc.lights[slot] = gl;
     }
 
@@ -1370,6 +1441,9 @@ pub fn build(p: &Pack, k: usize, size: (u32, u32), preset: Option<&str>, presets
         if let Some(o) = object.filter(|o| (*o as usize) < ext.len()) {
             ext[o as usize].entity_id = r[2] as f32;
             ext[o as usize].object_flag = if r[3] == 1 { scene::SD_OBJECT_NEGATIVE_SCALE } else { 0 };
+            ext[o as usize].receiver_light_set = links.receiver_set[i];
+            // 场景包的网格都带逐角法线，照平滑着色算（标准答案机导入时全部 use_smooth）
+            ext[o as usize].shadow_terminator_geometry_offset = SHADOW_TERMINATOR_GEOMETRY_OFFSET;
         }
         placed.push(Placed { row: i, object, drawn, triangles: if drawn { g.indices.len() / 3 } else { 0 }, probe });
     }
@@ -1413,7 +1487,8 @@ pub fn info(p: &Pack, k: usize, b: &Built) -> Value {
         "patternNodes": p.materials.iter().map(|m| m.pattern.len()).sum::<usize>(),
         "lightLinks": linked.len(),
         "zeroCornerNormals": p.zero_normals,
-        "notApplied": { "pattern": patterned, "lightLinks": linked, "lightGroups": p.lights.iter().map(|l| json!({ "light": l.name, "group": l.group })).collect::<Vec<_>>() },
+        "notApplied": { "pattern": patterned },
+        "lightGroups": p.lightgroups(),
         "kernel": { "objects": b.scene.objects.len() / b.scene.object_stride(), "flatTriangles": b.scene.tris.len(), "instances": b.scene.instances.len(), "lights": b.scene.lights.len() },
     })
 }
@@ -1463,6 +1538,28 @@ mod tests {
         assert_eq!((p.meshes.len(), p.names.len(), p.lights.len(), p.materials[0].pattern.len()), (1, 2, 3, 2));
         assert_eq!(p.lights[0].link.as_deref(), Some(&["kit.*".to_string()][..]));
         assert_eq!(p.lights[1].group, "bulb");
+    }
+
+    #[test]
+    fn light_links_and_groups_follow_blender() {
+        let mut v = manifest();
+        v["lights"][1]["link"] = json!(["kit.b"]);
+        v["lights"][2]["group"] = json!("key");
+        let mut p = parse_manifest(&v).unwrap();
+        p.names = vec!["kit.a".into(), "kit.b".into(), "ground".into()];
+        p.rows = vec![[0; 4]; 3];
+        // kit.a 只在 key 的名单里（集合 1），kit.b 在 key 与 bulb 的名单里（集合 2），ground 不在任何名单里（集合 0）
+        let l = p.light_links().unwrap();
+        assert_eq!(l.receiver_set, [1, 2, 0]);
+        assert_eq!(l.membership, [0b110, 0b100, u32::MAX]);
+        // 组名按第一次出现的次序；sun 并进 key 那一组
+        assert_eq!(p.lightgroups(), ["key", "bulb"]);
+        assert_eq!((0..3).map(|j| p.lightgroup_slot(j)).collect::<Vec<_>>(), [0, 1, 0]);
+        // 集合号超过 31 不收
+        p.lights = (0..33).map(|k| Light { link: Some(vec![format!("e{k}")]), ..p.lights[0].clone() }).collect();
+        p.names = (0..33).map(|k| format!("e{k}")).collect();
+        p.rows = vec![[0; 4]; 33];
+        assert_eq!(p.light_links().err().map(|e| e.code), Some(UNSUPPORTED));
     }
 
     fn err_of(f: impl FnOnce(&mut Value)) -> PackError {
