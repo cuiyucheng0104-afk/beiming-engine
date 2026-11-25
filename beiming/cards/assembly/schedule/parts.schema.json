@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "rest_pos"],
+    "properties": {
+      "id": { "type": "string", "pattern": "^[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)*$" },
+      "rest_pos": { "$ref": "#/$defs/vec3" },
+      "rest_rot_deg": { "$ref": "#/$defs/vec3" },
+      "group": { "type": "string", "minLength": 1 },
+      "order": { "type": "number" }
+    }
+  },
+  "$defs": { "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 } }
+}

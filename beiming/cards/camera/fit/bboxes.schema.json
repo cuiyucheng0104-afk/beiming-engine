@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "逐镜头局部帧的世界轴对齐包围盒（米），null 改用静态 bbox",
+  "oneOf": [
+    { "type": "null" },
+    { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/box" } }
+  ],
+  "$defs": {
+    "box": {
+      "type": "object", "required": ["min", "max"], "additionalProperties": false,
+      "properties": { "min": { "$ref": "#/$defs/point" }, "max": { "$ref": "#/$defs/point" } }
+    },
+    "point": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } }
+  }
+}

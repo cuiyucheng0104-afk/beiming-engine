@@ -1,0 +1,37 @@
+{
+  "format": "card/0.1",
+  "id": "camera.shake",
+  "version": "1.0.0",
+  "kind": "camera",
+  "title": "事件冲量相机震动",
+  "intent": "将镜头局部帧的事件冲量叠加为阻尼相机位移与旋转，不更换活动机位",
+  "livesIn": ["source:blender"],
+  "impl": [{
+    "livesIn": "source:blender", "entry": "cards/camera/shake/shake.py", "shape": "create",
+    "hosts": [{ "host": "cycles", "version": "5.2.0" }], "selftest": "cards/camera/shake/selftest.test.mjs"
+  }],
+  "params": {
+    "impulses": { "type": "data", "unit": "none", "schema": "impulses.schema.json", "default": [], "coupling": "fps" },
+    "decayFrames": { "type": "number", "unit": "frames", "range": [0.001, 1000000], "default": 8, "coupling": "fps" },
+    "freqHz": { "type": "number", "unit": "Hz", "range": [0, 240], "default": 18, "coupling": "fps" },
+    "ampPosM": { "type": "number", "unit": "m", "range": [0, 1000], "default": 0.02, "coupling": "scene-scale" },
+    "ampRotDeg": { "type": "number", "unit": "deg", "range": [0, 180], "default": 0.8, "coupling": "none" },
+    "enabled": { "type": "boolean", "unit": "none", "default": true, "coupling": "none" },
+    "baseCard": { "type": "string", "unit": "none", "default": "", "coupling": "host-api" }
+  },
+  "ports": {
+    "in": [{ "name": "camera", "type": "tracks.camera" }],
+    "out": [{ "name": "readings", "type": "frame-meta" }],
+    "order": { "before": [], "after": ["camera.fit"] },
+    "requires": [
+      "impulses 用镜头局部帧；strength 缺省为 1，可用 0 关闭单条事件。Handle.sample(f, sub) 交北冥世界轴的米制位移、XYZ 欧拉度偏移",
+      "作用于无父对象的活动机位：已有 tracks 相机会自动重算其底轨；由其他 Blender 卡按帧驱动机位时，baseCard 要给出该卡的实例名；没有底轨或底卡则沿用静止机位"
+    ]
+  },
+  "conditions": { "appliesWhen": ["需要用短促的镜头余振强调接触或冲击事件"], "notWhen": ["需要用相机抖动重建真实摄影稳定器"] },
+  "calibration": "probe-moving-cube",
+  "verify": { "selftest": "检查冲量前为零、衰减、子帧与乱序结果；无冲量、零强度和禁用都不修改活动机位", "predicates": [] },
+  "provenance": { "cases": [], "note": "按事件时间相加的指数阻尼振荡" },
+  "status": [{ "level": "read", "host": "cycles", "source": "5.2.0", "gpu": "none", "date": "2026-11-25" }],
+  "exams": ["cal:camera.shake"]
+}

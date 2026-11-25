@@ -1,8 +1,11 @@
 {
-  "format": "card/0.1", "id": "camera.fit", "version": "1.0.0", "kind": "camera",
-  "title": "静态主体求解取景", "intent": "对静止主体的世界包围盒整段只解一次相机距离，使八个角都落在指定透视安全框内", "visibleToAgent": true,
-  "livesIn": ["data"],
-  "impl": [{ "livesIn": "data", "shape": "evaluate", "hosts": [], "entry": "cards/camera/fit/evaluate.mjs", "selftest": "cards/camera/fit/selftest.test.mjs" }],
+  "format": "card/0.1", "id": "camera.fit", "version": "1.1.0", "kind": "camera",
+  "title": "静态与逐帧求解取景", "intent": "用主体的世界包围盒求相机距离；静态整段只解一次，动态用滑动最大与平滑提前容纳主体变化", "visibleToAgent": true,
+  "livesIn": ["data", "source:blender"],
+  "impl": [
+    { "livesIn": "data", "shape": "evaluate", "hosts": [], "entry": "cards/camera/fit/evaluate.mjs", "selftest": "cards/camera/fit/selftest.test.mjs" },
+    { "livesIn": "source:blender", "shape": "create", "hosts": [{ "host": "cycles", "version": "5.2.0" }], "entry": "cards/camera/fit/index.py", "selftest": "cards/camera/fit/blender_selftest.test.mjs" }
+  ],
   "params": {
     "bbox": { "type": "data", "unit": "m", "default": { "min": [-0.5, -0.5, -0.5], "max": [0.5, 0.5, 0.5] }, "schema": "bbox.schema.json", "coupling": "scene-scale" },
     "margin": { "type": "number", "unit": "none", "range": [0.7, 0.98], "default": 0.9, "coupling": "none" },
@@ -10,12 +13,25 @@
     "elevationDeg": { "type": "number", "unit": "deg", "range": [-90, 90], "default": 0, "coupling": "none" },
     "fovYDeg": { "type": "number", "unit": "deg", "range": [1, 170], "default": 40, "coupling": "none" },
     "aspect": { "type": "number", "unit": "none", "range": [0.01, 100], "default": 1.7777777777777777, "coupling": "resolution" },
-    "view": { "type": "string", "unit": "none", "default": "fixed", "coupling": "none" }
+    "view": { "type": "string", "unit": "none", "default": "fixed", "coupling": "none" },
+    "bboxes": { "type": "data", "unit": "m", "schema": "bboxes.schema.json", "default": null, "coupling": "scene-scale" },
+    "windowFrames": { "type": "integer", "unit": "frame", "range": [0, 300], "default": 0, "coupling": "fps" },
+    "smoothAlpha": { "type": "number", "unit": "none", "range": [0.01, 1], "default": 1, "coupling": "none" },
+    "groundY": { "type": "number", "unit": "m", "range": [-1000, 1000], "default": -1000, "coupling": "scene-scale" },
+    "groundClearanceM": { "type": "number", "unit": "m", "range": [0, 100], "default": 0, "coupling": "scene-scale" },
+    "nearClipM": { "type": "number", "unit": "m", "range": [0.0001, 10], "default": 0.05, "coupling": "scene-scale" },
+    "useSlidingMax": { "type": "boolean", "unit": "none", "default": true, "coupling": "none" }
   },
-  "ports": { "in": [], "out": [{ "name": "camera", "type": "tracks.camera" }], "order": { "before": [], "after": [] }, "requires": ["bbox 是整段固定的世界轴对齐包围盒，aspect 须与实际画幅宽高比一致"] },
-  "conditions": { "appliesWhen": ["静止主体或已知整段固定包围盒；fixed 解指定视角，orbit 解指定仰角全周所需的单一距离"], "notWhen": ["包围盒逐帧变化，需要滑动窗口最大值", "运镜需要地面净空或近裁剪面约束"] },
+  "ports": { "in": [], "out": [{ "name": "camera", "type": "tracks.camera" }], "order": { "before": [], "after": [] }, "requires": [
+    "aspect 须与实际画幅宽高比一致；bbox 和 bboxes 使用右手 +Y 向上的世界米制",
+    "bboxes=null 时只用静态 bbox；否则按镜头局部帧使用非空序列，子帧保持该帧姿态，越界读首尾端点",
+    "动态 windowFrames 是前后各取的半径；smoothAlpha 是当前帧的 EMA 权重。关闭 useSlidingMax 可能使快速展开的主体出画",
+    "动态机位低于 groundY+groundClearanceM 时，正仰角后拉抬高机位，负仰角整段改为水平；nearClipM 是最近角的深度下限",
+    "Blender 相机的剪裁起点为 nearClipM，数据落点的 nearClipM 至少设为宿主相机的剪裁起点；静态求距仍不受地面和近裁限制"
+  ] },
+  "conditions": { "appliesWhen": ["静止主体或固定包围盒；fixed 解指定视角，orbit 解指定仰角全周所需的单一距离", "逐帧包围盒已知的拼装或爆炸镜头"], "notWhen": ["有意出画或须保留给定的低机位而不受地面限制"] },
   "calibration": "probe-axes-turntable",
-  "verify": { "selftest": "三个不同包围盒与手算距离差小于一微米；斜视角独立投影的八角都在框内且极值角贴边；整圈可复用同一距离", "predicates": [] },
+  "verify": { "selftest": "静态解析真值和整圈投影；动态逐帧核对入画、地面净空、近裁以及 JS 与 Blender 相机姿态，去掉滑动最大时爆炸段判红", "predicates": [] },
   "pitfalls": [{ "symptom": "转到侧面时裁切主体", "fix": "先用 view=orbit 求出整圈共用的 distance 与 target，把它们交给相同仰角与视场角的 camera.orbit；不同相机轨道不要同时写入宿主" }, { "symptom": "留白方向与预期相反", "fix": "margin 是可占的屏幕比例，不是留白比例；越小留白越多" }],
   "provenance": { "cases": [], "note": "由八个透视投影角点的不等式直接反解，不用包围球近似" },
   "status": [{ "level": "measured", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-25", "parityReport": "sha256:c651a1d82b475007fb84a6471a36b11cf6a8c699831cba119027b3debaff90e6" }],

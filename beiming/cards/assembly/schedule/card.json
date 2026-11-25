@@ -1,0 +1,36 @@
+{
+  "format": "card/0.1",
+  "id": "assembly.schedule",
+  "version": "1.0.0",
+  "kind": "assembly",
+  "title": "分组装配排程",
+  "intent": "按分组、优先级和静止位置生成可复现的零件飞入排程与到位事件",
+  "livesIn": ["source:blender"],
+  "impl": [{
+    "livesIn": "source:blender", "entry": "cards/assembly/schedule/schedule.py", "shape": "create",
+    "hosts": [{ "host": "cycles", "version": "5.2.0" }], "selftest": "cards/assembly/schedule/selftest.test.mjs"
+  }],
+  "params": {
+    "parts": { "type": "data", "unit": "none", "schema": "parts.schema.json", "default": [{ "id": "part", "rest_pos": [0, 0, 0] }], "coupling": "asset-batch" },
+    "groups": { "type": "data", "unit": "none", "schema": "groups.schema.json", "default": [], "coupling": "asset-batch" },
+    "startFrame": { "type": "integer", "unit": "frames", "range": [0, 1000000], "default": 0, "coupling": "fps" },
+    "gapFrames": { "type": "integer", "unit": "frames", "range": [0, 1000000], "default": 3, "coupling": "fps" },
+    "flyFrames": { "type": "integer", "unit": "frames", "range": [1, 1000000], "default": 18, "coupling": "fps" },
+    "offsetM": { "type": "number", "unit": "m", "range": [0, 1000], "default": 1, "coupling": "scene-scale" },
+    "spinDeg": { "type": "number", "unit": "deg", "range": [0, 360], "default": 30, "coupling": "none" }
+  },
+  "ports": {
+    "in": [], "out": [{ "name": "events", "type": "events" }, { "name": "readings", "type": "frame-meta" }],
+    "order": { "before": [], "after": [] },
+    "requires": [
+      "parts 的静止位姿使用北冥右手 +Y 向上坐标，位移米制、XYZ 欧拉角用度。ID 唯一；groups 从先到后列出组名，未列组按名字排序；组内按 order、距原点距离和 ID 排序",
+      "Handle.schedule 的零件行可交给 motion.snap；Handle.events 是镜头局部到位表，不自动写到影片时间轴"
+    ]
+  },
+  "conditions": { "appliesWhen": ["多个零件按组和节奏飞入装配"], "notWhen": ["要求按装配约束自动求避碰路线"] },
+  "calibration": "boxes-explode@1",
+  "verify": { "selftest": "检查组序、并列稳定排序、种子、起止帧和到位事件；打乱采样顺序，改变组序或归零间隔作负对照", "predicates": [] },
+  "provenance": { "cases": [], "note": "基于静止位姿和显式优先级的确定性装配顺序" },
+  "status": [{ "level": "read", "host": "cycles", "source": "5.2.0", "gpu": "none", "date": "2026-11-25" }],
+  "exams": ["cal:assembly.schedule"]
+}

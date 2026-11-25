@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["t0", "fly_frames", "rest_pos", "rest_rot_deg", "start_offset", "start_rot_deg"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)*$" },
+    "arrive": { "type": "integer" },
+    "t0": { "type": "integer" },
+    "fly_frames": { "type": "integer", "minimum": 1 },
+    "rest_pos": { "$ref": "#/$defs/vec3" },
+    "rest_rot_deg": { "$ref": "#/$defs/vec3" },
+    "start_offset": { "$ref": "#/$defs/vec3" },
+    "start_rot_deg": { "$ref": "#/$defs/vec3" }
+  },
+  "$defs": { "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 } }
+}
