@@ -21,7 +21,7 @@ test('S14 A：按各自帧尺寸归一，偏移、相离、零面积及非法包
   assert.equal(normalizedBboxIou([0, 0, 128, 72], halfSize, [128, 0, 384, 144], fullSize), 1 / 3);
   assert.equal(normalizedBboxIou([0, 0, 128, 72], halfSize, [256, 0, 512, 144], fullSize), 0);
   assert.equal(normalizedBboxIou([32, 18, 32, 72], halfSize, [64, 36, 256, 144], fullSize), 0);
-  for (const box of [[-1, 0, 128, 72], [0, 0, 257, 72], [40, 0, 39, 1], [0, 0, NaN, 72], [0, , 128, 72], null]) {
+  for (const box of [[-1, 0, 128, 72], [0, 0, 257, 72], [40, 0, 39, 1], [0, 0, NaN, 72], Array(4), null]) {
     assert.throws(() => normalizedBboxIou(box, halfSize, [64, 36, 256, 144], fullSize), /bbox2d/);
   }
   assert.throws(() => normalizedBboxIou([0, 0, 1, 1], [Infinity, 1], [0, 0, 1, 1], fullSize), /size/);
