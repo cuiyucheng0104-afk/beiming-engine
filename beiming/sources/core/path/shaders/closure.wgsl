@@ -181,8 +181,10 @@ fn bsdf_eval_mis_bump_one(c: Closure, Ns: vec3<f32>, wi: vec3<f32>, wo: vec3<f32
 }
 
 // 对所有闭包求值求和，概率密度按 sample_weight 加权平均：照 Cycles 的 surface_shader_bsdf_eval（无路径引导）。
-// `light_shader_flags`：灯的着色标志，现在都传 0，没人读（不用多重重要性采样的灯把概率密度置 0 那一步归做灯的人）。
-// 要先调过 surface_shader_prepare_closures。调用者：上游的灯光函数经 surface_shader_bsdf_eval_legacy 与 light_mis 调它。
+// `light_shader_flags`：灯的着色标志（light.wgsl 的 SHADER_USE_MIS 等，位照 Cycles）。照 Cycles（surface_shader.h:405-409），
+// 不带 SHADER_USE_MIS 时概率密度置 0：这盏灯只由光源采样照到，材质采样打中它的概率是 0。按灯排除某类闭包（SHADER_EXCLUDE_*）不移。
+// 要先调过 surface_shader_prepare_closures。调用者：light.wgsl 的直接光（逐盏的灯与环境），上游的灯光函数经
+// surface_shader_bsdf_eval_legacy 与 light_mis 调它。
 fn surface_shader_bsdf_eval(sd: ShadingPoint, wo: vec3<f32>, light_shader_flags: u32) -> BsdfEval {
     var r = BsdfEval();
     if (sd.num_closure == 0u) { return r; }
@@ -190,9 +192,10 @@ fn surface_shader_bsdf_eval(sd: ShadingPoint, wo: vec3<f32>, light_shader_flags:
         // 上游顶替：密度与求值直接转给上游的两个函数，次序照上游（先密度后求值）
         r.pdf = pdf_bsdf(sd.legacy.surface, sd.legacy.lobes, sd.wi, wo);
         r.sum = eval_bsdf(sd.legacy.surface, sd.legacy.lobes, sd.wi, wo);
-        return r;
+    } else {
+        r.pdf = surface_shader_bsdf_eval_mis(sd, wo, MAX_CLOSURE, &r, 0.0, 0.0);
     }
-    r.pdf = surface_shader_bsdf_eval_mis(sd, wo, MAX_CLOSURE, &r, 0.0, 0.0);
+    if ((light_shader_flags & SHADER_USE_MIS) == 0u) { r.pdf = 0.0; }
     return r;
 }
 
@@ -705,7 +708,7 @@ fn light_mis(pdf_l: f32, sd: ShadingPoint, l: vec3<f32>) -> f32 {
     let lb = sd.legacy.lobes;
     let v = sd.wi;
     var pb: f32;
-    if (sd.closure[0].kind == CLOSURE_LEGACY) { pb = pdf_bsdf(s, lb, v, l); } else { pb = surface_shader_bsdf_eval(sd, l, 0u).pdf; }
+    if (sd.closure[0].kind == CLOSURE_LEGACY) { pb = pdf_bsdf(s, lb, v, l); } else { pb = surface_shader_bsdf_eval(sd, l, SHADER_USE_MIS).pdf; }
     let w = power_heuristic(pdf_l, pb);
     if (!approx(A_CUTOUT_PATHS) || !has(F_MASKED) || !state.legacy.shadow_hole) { return w; }
     var see = 0.0;

@@ -1,7 +1,13 @@
 // 标准答案程序：直接包含 Cycles 内核的真实头文件、调用真实函数（不抄函数体），按函数标识分发。
 // 用法：ref <函数标识> < 输入 > 输出。输入是小端 float32 流，每组 n_in 个；输出每组 n_out 个。
 // 退出码：0 成功；1 函数标识不认识；2 最后一组不完整。
-// 要闭包结构体或查找表的函数，在这里填好真的 MicrofacetBsdf、FresnelF82Tint 和内核全局数据，再调真函数；面光填真的 KernelLight 与 Ray。
+// 要闭包结构体或查找表的函数，在这里填好真的 MicrofacetBsdf、FresnelF82Tint 和内核全局数据，再调真函数；面光填真的 KernelLight 与 Ray；
+// 阴影射线的起点偏移填真的 ShaderData 与一个三角形的内核数据（顶点、角法线的压缩码、物体）。
+/* kernel/light/sample.h 经 util/half.h 在 arm64 上直接用 NEON 的内建函数（__ARM_NEON 那一支），头文件本身不包含 arm_neon.h：
+ * Cycles 的构建靠 util/simd.h 带进来，这里没开 SSE 那一套，先自己包含 */
+#if defined(__ARM_NEON)
+#  include <arm_neon.h>
+#endif
 #include "kernel/device/cpu/compat.h"
 #include "kernel/device/cpu/globals.h"
 #include "kernel/types.h"
@@ -10,6 +16,9 @@
 #include "kernel/closure/bsdf_microfacet.h"
 #include "kernel/closure/emissive.h"
 #include "kernel/light/area.h"
+#include "kernel/light/point.h"
+#include "kernel/light/sample.h"
+#include "kernel/light/sun.h"
 #include "kernel/sample/mapping.h"
 #include "util/projection.h"
 #include "util/math_intersect.h"
@@ -166,6 +175,88 @@ static KernelLight area_light(const float *i)
   k.area.dir = get3(i + 11);
   k.area.invarea = i[14];
   return k;
+}
+
+/* 点光：输入依次是 co、spot.radius、spot.eval_fac（5 个 float），不是球形（is_sphere 为假）。平行光：co、sun.one_minus_cosangle、
+ * sun.eval_fac；求交后的求值另要 sun.angle（半角）与 sun.pdf。KernelLight 里有联合体，先整块清零 */
+static KernelLight point_light(const float *i)
+{
+  KernelLight k;
+  memset(&k, 0, sizeof(k));
+  k.type = LIGHT_POINT;
+  k.co = get3(i);
+  k.spot.radius = i[3];
+  k.spot.eval_fac = i[4];
+  k.spot.is_sphere = false;
+  return k;
+}
+static KernelLight sun_light(const float3 co, const float one_minus_cosangle, const float eval_fac, const float angle, const float pdf)
+{
+  KernelLight k;
+  memset(&k, 0, sizeof(k));
+  k.type = LIGHT_SUN;
+  k.co = co;
+  k.sun.one_minus_cosangle = one_minus_cosangle;
+  k.sun.eval_fac = eval_fac;
+  k.sun.angle = angle;
+  k.sun.pdf = pdf;
+  return k;
+}
+/* 点光、平行光的采样：LightSample 的 P、Ng、t、D、pdf、eval_fac（12 个 float） */
+static void lamp_sample_out(float *o, const LightSample &ls)
+{
+  put3(o, ls.P);
+  put3(o + 3, float3(ls.Ng));
+  o[6] = ls.t;
+  put3(o + 7, ls.D);
+  o[10] = ls.pdf;
+  o[11] = ls.eval_fac;
+}
+
+/* 阴影射线起点偏移要的一个三角形：物体 0、图元 0，顶点 V 与角法线（SD_OBJECT_HAS_CORNER_NORMALS）放进内核数据，世界空间
+ * （SD_OBJECT_TRANSFORM_APPLIED，不再变换）。Cycles 的角法线是压缩码（util/types_normal.h 的 packed_normal：两个 16 位整数），
+ * 输入直接给码的两半 dx、dy（每个法线两个 float），连同解码之后的法线 N（被测一侧用它；生成一侧照 SIMD 版逐步舍入算出来）；这里
+ * 先按码解一遍，与给的 N 不逐位相同时整组输出非数（输入的生成写错了），不拿码去对不上的法线比。物体的 shadow_terminator_geometry_offset 取 cutoff */
+static KernelObject tri_object;
+static packed_uint3 tri_vindex_data[1];
+static packed_float3 tri_verts_data[3];
+static packed_normal tri_normal_data[3];
+static ShaderData tri_sd;
+static bool set_triangle(const float *V, const float *N, const float *codes, const float cutoff)
+{
+  ThreadKernelGlobalsCPU *g = reinterpret_cast<ThreadKernelGlobalsCPU *>(kg_storage);
+  tri_object = {};
+  tri_object.position_offset = 0;
+  tri_object.normal_offset = 0;
+  tri_object.shadow_terminator_geometry_offset = cutoff;
+  tri_vindex_data[0] = make_packed_uint3(0, 1, 2);
+  for (int k = 0; k < 3; k++) {
+    tri_verts_data[k] = get3(V + 3 * k);
+    tri_normal_data[k].value = uint(codes[2 * k]) | (uint(codes[2 * k + 1]) << 16);
+  }
+  /* 解码照 Cycles 在处理器上取角法线的那一份（geom/attribute.h 的 attribute_data_fetch_normals 用 SIMD 版，舍入与标量版不同） */
+  float4 nx, ny, nz;
+  packed_normal_decode_simd(make_int4(int(tri_normal_data[0].value), int(tri_normal_data[1].value), int(tri_normal_data[2].value), 0), nx, ny, nz);
+  const float dec[9] = {nx.x, ny.x, nz.x, nx.y, ny.y, nz.y, nx.z, ny.z, nz.z};
+  bool same = true;
+  for (int k = 0; k < 9; k++) {
+    same = same && dec[k] == N[k];
+  }
+  g->objects.data = &tri_object;
+  g->objects.width = 1;
+  g->tri_vindex.data = tri_vindex_data;
+  g->tri_vindex.width = 1;
+  g->tri_verts.data = tri_verts_data;
+  g->tri_verts.width = 3;
+  g->attributes_normal.data = tri_normal_data;
+  g->attributes_normal.width = 3;
+  tri_sd = {};
+  tri_sd.type = PRIMITIVE_TRIANGLE;
+  tri_sd.shader = SHADER_SMOOTH_NORMAL;
+  tri_sd.object = 0;
+  tri_sd.prim = 0;
+  tri_sd.object_flag = SD_OBJECT_TRANSFORM_APPLIED | SD_OBJECT_HAS_CORNER_NORMALS;
+  return same;
 }
 
 /* 采样：返回 false 时 Cycles 只写了一部分字段（ls->P 已是灯心），这里一律写 0 */
@@ -436,6 +527,56 @@ static const Entry table[] = {
        const bool hit = area_light_intersect(&k, &ray, &t);
        o[0] = float(hit);
        o[1] = hit ? t : 0.0f;
+     }},
+    {"point_light_sample", 10, 12, [](const float *i, float *o) {
+       const KernelLight k = point_light(i);
+       LightSample ls{};
+       point_light_sample(&k, get2(i + 5), get3(i + 7), zero_float3(), 0, &ls);
+       lamp_sample_out(o, ls);
+     }},
+    {"point_light_eval_from_intersection", 12, 2, [](const float *i, float *o) {
+       const KernelLight k = point_light(i + 7);
+       const LightEval e = point_light_eval_from_intersection(&k, get3(i), get3(i + 3), i[6], zero_float3(), 0);
+       o[0] = e.eval_fac;
+       o[1] = e.pdf;
+     }},
+    {"sun_light_sample", 7, 12, [](const float *i, float *o) {
+       const KernelLight k = sun_light(get3(i), i[3], i[4], 0.0f, 0.0f);
+       LightSample ls{};
+       sun_light_sample(&k, get2(i + 5), &ls);
+       lamp_sample_out(o, ls);
+     }},
+    {"sun_light_eval_from_intersection", 9, 2, [](const float *i, float *o) {
+       const KernelLight k = sun_light(get3(i), 0.0f, i[4], i[3], i[5]);
+       const LightEval e = sun_light_eval_from_intersection(&k, get3(i + 6));
+       o[0] = e.eval_fac;
+       o[1] = e.pdf;
+     }},
+    /* 输入依次是 V0..V2（9）、解码之后的角法线 N0..N2（9）、三个压缩码的两半（6）、sd->u、sd->v、Ng */
+    {"shadow_ray_smooth_surface_offset", 29, 3, [](const float *i, float *o) {
+       if (!set_triangle(i, i + 9, i + 18, 0.0f)) {
+         put3(o, make_float3(NAN, NAN, NAN));
+         return;
+       }
+       tri_sd.u = i[24];
+       tri_sd.v = i[25];
+       put3(o, shadow_ray_smooth_surface_offset(kg, &tri_sd, get3(i + 26)));
+     }},
+    /* 输入依次是 sd->P、sd->N、sd->Ng、L、cutoff（13）、V0..V2（9）、角法线（9）、压缩码（6）、sd->u、sd->v；输出挪过的起点与 skip_self */
+    {"shadow_ray_offset", 39, 4, [](const float *i, float *o) {
+       if (!set_triangle(i + 13, i + 22, i + 31, i[12])) {
+         put3(o, make_float3(NAN, NAN, NAN));
+         o[3] = NAN;
+         return;
+       }
+       tri_sd.P = get3(i);
+       tri_sd.N = get3(i + 3);
+       tri_sd.Ng = get3(i + 6);
+       tri_sd.u = i[37];
+       tri_sd.v = i[38];
+       bool skip_self = true;
+       put3(o, shadow_ray_offset(kg, &tri_sd, get3(i + 9), &skip_self));
+       o[3] = float(skip_self);
      }},
     {"ray_triangle_intersect", 17, 4, [](const float *i, float *o) {
        float u = 0.0f, v = 0.0f, t = 0.0f;

@@ -387,3 +387,31 @@ fn ray_triangle_intersect(ray_P: vec3f, ray_D: vec3f, ray_tmin: f32, ray_tmax: f
   let rcp_uvw = select(ray_triangle_reciprocal(UVW), 0.0, abs(UVW) < 1e-18);
   return TriangleHit(true, min(U * rcp_uvw, 1.0), min(V * rcp_uvw, 1.0), t);
 }
+
+// util/math_fast.h:309-336: fast_atan2f（多项式近似，最大误差约 6.6e-6）。madd(a, b, c) 是 a·b + c（-ffp-contract=off 下不合成
+// FMA，这里照样分两步写）
+fn fast_atan2f(y: f32, x: f32) -> f32 {
+  let a = abs(x);
+  let b = abs(y);
+
+  let k = select(select(select(a / b, b / a, !(b > a)), 1.0, a == b), 0.0, b == 0.0);
+  let s = 1.0 - (1.0 - k); // Crush denormals
+  let t = s * s;
+
+  var r = s * (0.43157974 * t + 1.0) / ((0.05831938 * t + 0.76443945) * t + 1.0);
+
+  if (b > a) {
+    // Account for arg reduction.
+    r = M_PI_2_F - r;
+  }
+  // Test sign bit of x.
+  if ((bitcast<u32>(x) & 0x80000000u) != 0u) {
+    r = M_PI_F - r;
+  }
+  return copysignf(r, y);
+}
+
+// util/math_fast.h:339-342: vector_angle
+fn vector_angle(a: vec3f, b: vec3f) -> f32 {
+  return 2.0 * fast_atan2f(len_ccl(a - b), len_ccl(a + b));
+}

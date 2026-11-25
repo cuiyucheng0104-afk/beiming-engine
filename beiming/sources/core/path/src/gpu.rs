@@ -2865,7 +2865,7 @@ mod tests {
             assert!(!lit.contains("fn sun_light("), "last_direct takes the directional lights already");
             let sun = v(hwrt, KernelSwitches { last_sun: true, ..Default::default() });
             assert_eq!((sun.matches("film_add_light(dz, depth, LIGHTGROUP_NONE);").count(), sun.matches("fn sun_light(").count(), sun.matches("state.throughput * sun_light(sd)").count()), (1, 1, 1));
-            assert!(!plain.contains("sun_light"));
+            assert!(!plain.contains("fn sun_light(") && !plain.contains("sun_light(sd)"));
             assert_eq!(lit.matches("env_on = take_env && has_env && !state.legacy.lights_only;").count(), 1);
             assert_eq!(lit.contains("let steps = 4u;"), hwrt);
             assert_eq!(v(hwrt, KernelSwitches { cutout_lite: 2, ..Default::default() }) == plain, !hwrt);

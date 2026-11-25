@@ -172,6 +172,9 @@ const NEW = [
   'bsdf_blur', 'sample_cos_hemisphere', 'bsdf_diffuse_eval', 'bsdf_diffuse_sample', 'emissive_pdf', 'emissive_simple_eval',
   // 金属与电介质高光换法线、凹凸阴影项
   'ensure_valid_specular_reflection', 'bump_shadowing_term',
+  // 点光、平行光，阴影射线的起点偏移
+  'point_light_sample', 'point_light_eval_from_intersection', 'sun_light_sample', 'sun_light_eval_from_intersection',
+  'shadow_ray_smooth_surface_offset', 'shadow_ray_offset',
 ];
 
 // 成像一路：像素滤波的滤波函数与建表（宿主一侧），查表与夹取（内核）
@@ -248,6 +251,18 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
   await breakOne(t, file, src, 'let threshold = min(0.9 * Iz, 0.01);', 'let threshold = min(0.9 * Iz, 0.1);', ['ensure_valid_specular_reflection'], 9, 3, BUMP);
   await breakOne(t, util, usrc, 'let bump_alpha2 = saturate(0.125 * tan2_d);', 'let bump_alpha2 = saturate(0.15 * tan2_d);', ['bump_shadowing_term'], 11, 1, BUMP);
   const light = 'shaders/area_light.wgsl', lsrc = await readFile(`${CORE}/${light}`, 'utf8');
+  // 点光、平行光与阴影射线的起点偏移，各改错一项（只跑这六项）：
+  const LAMPS = ['point_light_sample', 'point_light_eval_from_intersection', 'sun_light_sample', 'sun_light_eval_from_intersection', 'shadow_ray_smooth_surface_offset', 'shadow_ray_offset'];
+  // 点光圆盘的面积倒数漏掉 π：两项的圆盘那一支不合格
+  await breakOne(t, light, lsrc, 'let invarea = select(1.0, 1.0 / (r_sq * M_PI_F), r_sq > 0.0);\n  ls.pdf', 'let invarea = select(1.0, 1.0 / r_sq, r_sq > 0.0);\n  ls.pdf', ['point_light_sample'], 10, 12, LAMPS);
+  // 锥的概率密度 1/(2π) 改成 1/π：采样不合格（张角 0 那一支照旧）
+  await breakOne(t, light, lsrc, 'let pdf = M_1_2PI_F / one_minus_cos_angle;', 'let pdf = M_1_PI_F / one_minus_cos_angle;', ['sun_light_sample'], 7, 12, LAMPS);
+  // 求交后的求值：判在盘外的 > 改成 >=：没有组恰好在边界上，所以改成把张角放大 1%
+  await breakOne(t, light, lsrc, 'if (vector_angle(-co, ray_D) > angle) {', 'if (vector_angle(-co, ray_D) > angle * 1.01) {', ['sun_light_eval_from_intersection'], 9, 2, LAMPS);
+  // 抛物线近似的第一项系数：a·u·(u − 1) 写成 a·u·(u − 1.1)；起点偏移经它一并不合格
+  await breakOne(t, light, lsrc, 'var h = a * u * (u - 1.0) +', 'var h = a * u * (u - 1.1) +', ['shadow_ray_smooth_surface_offset', 'shadow_ray_offset'], 29, 3, LAMPS);
+  // 交界线附近挪的份额：2 − (NgL + NL)/cutoff 写成 1.9 − …：只有起点偏移不合格
+  await breakOne(t, light, lsrc, 'clamp(2.0 - (NgL + NL) / offset_cutoff, 0.0, 1.0)', 'clamp(1.9 - (NgL + NL) / offset_cutoff, 0.0, 1.0)', ['shadow_ray_offset'], 39, 4, LAMPS);
   // 面光：矩形右边界的 0.5 改成 0.51，走立体角那一支的四项不合格；平面近似的两项（tiny、grazing）概率密度不用 x1，照旧合格
   await breakOne(t, light, lsrc, 'let x1 = xc + 0.5 * len_u;', 'let x1 = xc + 0.51 * len_u;', ['area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_sample', 'area_light_eval_from_intersection'], 16, 4);
   // 辐射通量换成辐射亮度的 1/π 改成 0.32，只有带 eval_fac 的两项不合格

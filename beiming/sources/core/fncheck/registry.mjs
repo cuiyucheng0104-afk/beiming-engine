@@ -582,3 +582,121 @@ FUNCTIONS.push(
     call: a => `(ray_triangle_intersect(${a.slice(0, 7).join(', ')}).hit || ray_triangle_intersect(${a[0]}, ${a[1]}, ${a[2]}, ${a[3]}, ${a[6]}, ${a[5]}, ${a[7]}).hit)`,
   }),
 );
+
+// 下面是点光、平行光的采样与求交后的求值（kernel/light/point.h 不是球形的那一条路、kernel/light/sun.h），与阴影射线避开明暗交界线的
+// 起点偏移（kernel/light/sample.h 的 shadow_ray_offset、shadow_ray_smooth_surface_offset），来源都是 Apache-2.0 的文件。
+// 几何量彼此相关，用 gen 逐组生成，全部用双精度算完再存成 float32。
+const unit = next => { const z = 2 * next() - 1, phi = 2 * Math.PI * next(), r = Math.sqrt(1 - z * z); return [r * Math.cos(phi), r * Math.sin(phi), z]; };
+const norm3 = v => mul(v, 1 / Math.hypot(...v));
+/** v 绕一个与它正交的随机轴转 theta 弧度（v 是单位向量） */
+function turn(next, v, theta) {
+  const a = norm3(crs(v, Math.abs(v[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0])), b = crs(v, a), phi = 2 * Math.PI * next();
+  return add(mul(v, Math.cos(theta)), add(mul(a, Math.cos(phi)), b, Math.sin(phi)), Math.sin(theta));
+}
+const F32_MAX = 3.4028234663852886e38;
+/** 点光：灯心 co 在 [-2, 2]³，着色点离它 0.1 到 10（对数均匀）；半径一半是 0（灯心那一支，内核里场景包的点光都是这一支），一半取
+ *  0.01% 到一半距离（圆盘那一支）；eval_fac 对数均匀取在 1e-3 到 1。距离不取到 0.1 以下：方向 D = (灯上一点 − P)/t 是两个量级到 4 的
+ *  坐标相减，灯上那一点（灯心加圆盘上的偏移）在 float32 里差一个 ULP(4)，方向就差 ULP(4)/t；【实测】100 万组里距离 0.014 时
+ *  方向分量差 8.6e-6（相对 2e-4）。这是 Cycles 原式在 float32 下的病态，不是移植的差别 */
+function pointGeom(next) {
+  const co = [linU(next, [-2, 2]), linU(next, [-2, 2]), linU(next, [-2, 2])], d = logU(next, [0.1, 10]);
+  const radius = next() < 0.5 ? 0 : d * logU(next, [1e-4, 0.5]);
+  return { co, radius, d, P: add(co, unit(next), d), eval_fac: logU(next, [1e-3, 1]) };
+}
+// 平行光张角的病态带：vector_angle 的 len(a − b) 在两个单位向量很近时是 float32 分量相减抵消出来的，相对误差约 ULP(1)/角度；
+// 张角 1e-4 弧度时到 1e-3。fast_atan2f 里「压掉非规格化数」的 1 − (1 − k) 把角度按 ULP(1) 一档档取整（约 1.2e-7 弧度）：
+// 【实测】标准答案一侧照原式取整，显卡一侧编译器把它化简成 k，两边在边界附近差到 1e-7。离张角边界不到 2e-3 倍张角（再加 1e-6）
+// 的方向不比（两边可能一边判在盘里一边判在外面）。边界用双精度里的夹角 2·atan2(|a − b|, |a + b|) 量（acos 在 1 附近病态）
+const SUN_EDGE = (angle, theta) => Math.abs(theta - angle) < 2e-3 * angle + 1e-6;
+const sunTheta = i => { const a = mul(at(i, 0), -1 / Math.hypot(...at(i, 0))), b = mul(at(i, 6), 1 / Math.hypot(...at(i, 6))); return 2 * Math.atan2(Math.hypot(...add(a, b, -1)), Math.hypot(...add(a, b))); };
+/** Cycles 的角法线压缩码（util/types_normal.h）：编码只用来取一个码（双精度近似即可），解码照处理器上 SIMD 版
+ *  （packed_normal_decode_simd）逐步舍入，标准答案程序拿码解出来的法线与这里的逐位相同 */
+function encodeNormal(n) {
+  const l1 = Math.abs(n[0]) + Math.abs(n[1]) + Math.abs(n[2]) + 1e-6;
+  let vx = n[0] / l1, vy = n[1] / l1;
+  if (n[2] < 0) [vx, vy] = [(1 - Math.abs(vy)) * Math.sign(vx || 1), (1 - Math.abs(vx)) * Math.sign(vy || 1)];
+  const q = v => Math.min(Math.max(Math.trunc(v * 32767.5 + 32768), 0), 65535);
+  return [q(vx), q(vy)];
+}
+function decodeNormal([dx, dy]) {
+  const f = Math.fround, inv = f(2 / 65535);
+  let nx = f(f(dx * inv) - 1), ny = f(f(dy * inv) - 1);
+  const nz = f(f(1 - Math.abs(nx)) - Math.abs(ny)), t = Math.max(-nz, 0);
+  nx = nx > 0 ? f(nx - t) : f(nx + t);
+  ny = ny > 0 ? f(ny - t) : f(ny + t);
+  const il = f(1 / f(Math.sqrt(f(f(f(nx * nx) + f(ny * ny)) + f(nz * nz)))));
+  return [f(nx * il), f(ny * il), f(nz * il)];
+}
+/** 光滑网格上的一个三角形：三个顶点在半径 R（0.3 到 3）的球面上、彼此张开 0.01 到 0.3 弧度；角法线是球面法线（五分之一的组再随机
+ *  偏开至多 0.2 弧度），压缩成码再照 Cycles 解码；着色点在三角形里均匀取；四分之一的组打在背面（Ng 与插值出来的 N 一起翻）。
+ *  L 六成取在明暗交界线附近（与 N 的夹角余弦在 −0.2 到 0.3），其余在整个球面上均匀取；cutoff 七成取 Blender 的默认 0.1，
+ *  一成半在 0.01 到 0.5 里对数均匀，一成半是 0（不挪）。全部用双精度算完再存成 float32（顶点先存，P、N、Ng 由存过的顶点算） */
+function smoothGeom(next) {
+  const f3 = v => v.map(Math.fround);
+  const c = [linU(next, [-1, 1]), linU(next, [-1, 1]), linU(next, [-1, 1])], R = logU(next, [0.3, 3]), base = unit(next), s = logU(next, [0.01, 0.3]);
+  const dirs = [0, 1, 2].map(k => turn(next, base, s * linU(next, [0.5, 1]) + 1e-3 * k));
+  const V = dirs.map(d => f3(add(c, d, R)));
+  const bend = next() < 0.2;
+  const codes = dirs.map(d => encodeNormal(bend ? turn(next, d, linU(next, [0, 0.2])) : d));
+  const N = codes.map(decodeNormal);
+  let u = next(), v = next();
+  if (u + v > 1) [u, v] = [1 - u, 1 - v];
+  [u, v] = [Math.fround(u), Math.fround(v)];
+  const w = 1 - u - v, P = f3(add(add(mul(V[0], w), V[1], u), V[2], v));
+  let Ng = norm3(crs(add(V[1], V[0], -1), add(V[2], V[0], -1)));
+  if (dot3(Ng, base) < 0) Ng = mul(Ng, -1);
+  let Ns = norm3(add(add(mul(N[0], w), N[1], u), N[2], v));
+  if (next() < 0.25) [Ng, Ns] = [mul(Ng, -1), mul(Ns, -1)];
+  const L = next() < 0.6 ? turn(next, Ns, Math.acos(linU(next, [-0.2, 0.3]))) : unit(next);
+  const r = next(), cutoff = r < 0.7 ? 0.1 : r < 0.85 ? logU(next, [0.01, 0.5]) : 0;
+  return { V0: V[0], V1: V[1], V2: V[2], N0: N[0], N1: N[1], N2: N[2], codes: codes.flat(), u, v, P, N: f3(Ns), Ng: f3(Ng), L, cutoff };
+}
+const TRI_V = [['V0', 'vec3f'], ['V1', 'vec3f'], ['V2', 'vec3f'], ['N0', 'vec3f'], ['N1', 'vec3f'], ['N2', 'vec3f']];
+const CODES = [['c0x', 'f32'], ['c0y', 'f32'], ['c1x', 'f32'], ['c1y', 'f32'], ['c2x', 'f32'], ['c2y', 'f32']];
+const withCodes = g => ({ ...g, c0x: g.codes[0], c0y: g.codes[1], c1x: g.codes[2], c1y: g.codes[3], c2x: g.codes[4], c2y: g.codes[5] });
+FUNCTIONS.push(
+  // 采样点、方向的分量是量级到 7 的数相减（圆盘那一支还带显卡 cos、sin 约 2e-7 的绝对误差乘半径），abs 给在分量上
+  light('point_light_sample', [['co', 'vec3f'], ['radius', 'f32'], ['eval_fac', 'f32'], ['rand', 'vec2f'], ['P', 'vec3f']], { P: 3, Ng: 3, t: 1, D: 3, pdf: 1, eval_fac: 1 }, 32 * ULP1, {
+    gen: next => ({ ...pointGeom(next), rand: [next(), next()] }),
+    branch: i => (i[3] > 0 ? '圆盘' : '灯心'),
+  }),
+  // 射线打向圆盘上的一点（半径 0 的组打向灯心），一成的组 t 是 FLT_MAX（Cycles 不算密度那一支）
+  light('point_light_eval_from_intersection', [['ray_P', 'vec3f'], ['ray_D', 'vec3f'], ['t', 'f32'], ['co', 'vec3f'], ['radius', 'f32'], ['eval_fac', 'f32']], { eval_fac: 1, pdf: 1 }, 0, {
+    gen: next => {
+      const g = pointGeom(next), lightN = norm3(add(g.P, g.co, -1)), a = norm3(crs(lightN, Math.abs(lightN[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0])), b = crs(lightN, a);
+      const rr = g.radius * Math.sqrt(next()), phi = 2 * Math.PI * next(), Q = add(add(g.co, a, rr * Math.cos(phi)), b, rr * Math.sin(phi));
+      const d = add(Q, g.P, -1), t = Math.hypot(...d);
+      return { ray_P: g.P, ray_D: mul(d, 1 / t), t: next() < 0.1 ? F32_MAX : t, co: g.co, radius: g.radius, eval_fac: g.eval_fac };
+    },
+    branch: i => (i[6] > 1e38 ? 't 是 FLT_MAX' : i[10] > 0 ? '圆盘' : '灯心'),
+  }),
+  // 1 − cos 半角：一成半是 0（张角 0：锥退化成一个方向），其余在 1e-6 到 1 里对数均匀（半角约 0.08° 到 90°）。方向分量量级 1，
+  // 圆盘采样的 cos、sin 误差乘上 √(2·one_minus_cosangle)
+  light('sun_light_sample', [['co', 'vec3f'], ['one_minus_cosangle', 'f32'], ['eval_fac', 'f32'], ['rand', 'vec2f']], { P: 3, Ng: 3, t: 1, D: 3, pdf: 1, eval_fac: 1 }, 32 * ULP1, {
+    gen: next => ({ co: unit(next), one_minus_cosangle: next() < 0.15 ? 0 : logU(next, [1e-6, 1]), eval_fac: logU(next, [1e-3, 1]), rand: [next(), next()] }),
+    branch: i => (i[3] > 0 ? '锥' : '张角 0'),
+  }),
+  // 半角一成是 0，其余在 1e-4 到 1.5 弧度里对数均匀；方向是 −co 转开 0 到 2 倍半角。离边界太近的不比（SUN_EDGE）
+  light('sun_light_eval_from_intersection', [['co', 'vec3f'], ['angle', 'f32'], ['eval_fac', 'f32'], ['pdf', 'f32'], ['ray_D', 'vec3f']], { eval_fac: 1, pdf: 1 }, 0, {
+    gen: next => {
+      const co = unit(next), angle = next() < 0.1 ? 0 : logU(next, [1e-4, 1.5]), theta = angle * linU(next, [0, 2]);
+      return { co, angle, eval_fac: logU(next, [1e-3, 1]), pdf: logU(next, [1e-3, 1e5]), ray_D: turn(next, mul(co, -1), theta) };
+    },
+    branch: i => (i[3] === 0 ? '张角 0' : sunTheta(i) > i[3] ? '盘外' : '盘里'),
+    skip: (ref, test, i) => i[3] > 0 && SUN_EDGE(i[3], sunTheta(i)),
+  }),
+  // 偏移 n·h：h 是顶点差与角法线差的点积组合，量级到 R·s² ≈ 0.3；顶点坐标量级到 4，差的舍入约 ULP(4)，abs 给在分量上
+  light('shadow_ray_smooth_surface_offset', [...TRI_V, ...CODES, ['u', 'f32'], ['v', 'f32'], ['Ng', 'vec3f']], 3, 32 * 4 * ULP1, {
+    gen: next => { const g = withCodes(smoothGeom(next)); return { ...g, Ng: next() < 0.5 ? g.Ng : mul(g.Ng, -1) }; },
+    call: a => `shadow_ray_smooth_surface_offset(${[...a.slice(0, 6), a[12], a[13], a[14]].join(', ')})`,
+    branch: i => (dot3(add(add(mul(at(i, 9), 1 - i[24] - i[25]), at(i, 12), i[24]), at(i, 15), i[25]), at(i, 26)) > 0 ? '法线同侧' : '法线翻过'),
+  }),
+  // 挪过的起点 = sd.P + 偏移·挪的份额；sd.P 量级到 4。L 贴着 N 或 Ng 的面（余弦不到 1e-5）的组不比：transmit 与 skip_self 两个判断
+  // 在那里两边可能一边判正一边判负
+  light('shadow_ray_offset', [['sd_P', 'vec3f'], ['sd_N', 'vec3f'], ['sd_Ng', 'vec3f'], ['L', 'vec3f'], ['cutoff', 'f32'], ...TRI_V, ...CODES, ['u', 'f32'], ['v', 'f32']], { P: 3, skip_self: 1 }, 32 * 4 * ULP1, {
+    gen: next => { const g = withCodes(smoothGeom(next)); return { ...g, sd_P: g.P, sd_N: g.N, sd_Ng: g.Ng }; },
+    call: a => `shadow_ray_offset(${a[0]}, ${a[1]}, ${a[2]}, ${a[3]}, true, ${a[4]}, ${a.slice(5, 11).join(', ')}, ${a[17]}, ${a[18]})`,
+    branch: i => { const NL = dot3(at(i, 3), at(i, 9)); return i[12] === 0 ? '不挪（cutoff 0）' : Math.abs(NL) < i[12] ? '贴着明暗交界线' : '离交界线远'; },
+    skip: (ref, test, i) => Math.abs(dot3(at(i, 3), at(i, 9))) < 1e-5 || Math.abs(dot3(at(i, 6), at(i, 9))) < 1e-5,
+  }),
+);

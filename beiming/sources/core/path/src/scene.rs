@@ -1008,6 +1008,18 @@ fn sun_cy(angle: f32) -> [u32; 4] {
     cy
 }
 
+/// 点光与聚光记录的 `cy`：照 Cycles 的 scene/light.cpp `PointLight::copy_to_kernel`（:131-157）与 kernel/light/point.h。color 是辐射强度
+/// I = 功率 / 4π；Cycles 的 eval_fac 是 1 / (π·球面积)，乘上强度 4π·I 再除以圆盘采样的密度（面积 π·r² 上均匀、换到立体角），
+/// 半径 r > 0 时这里要存的是 1 / (π·r²)；半径 0 时球面积取 4，正好是 I 本身，存 1。不做多重重要性采样（Cycles 只在 r > 0 时做；
+/// 内核里材质采样打不中点光，见 light.wgsl）。
+fn point_cy(radius: f32) -> [u32; 4] {
+    let mut cy = GpuLight::cy_default(false);
+    if radius > 0.0 {
+        cy[0] = (1.0 / (std::f32::consts::PI * radius * radius)).to_bits();
+    }
+    cy
+}
+
 pub fn gpu_light(l: &Light, m: Mat4, power: f32) -> Option<GpuLight> {
     let pos = m.transform_point3(Vec3::ZERO);
     let dir = m.transform_vector3(Vec3::NEG_Z).normalize();
@@ -1034,7 +1046,7 @@ pub fn gpu_light(l: &Light, m: Mat4, power: f32) -> Option<GpuLight> {
                 color: [color[0] * intensity, color[1] * intensity, color[2] * intensity, *range],
                 ext: [0.0, 0.0, 0.0, *cast_shadow as u32 as f32],
                 x: [*volumetric_scattering, *specular_scale, 0.0, 0.0],
-                cy: GpuLight::cy_default(false),
+                cy: point_cy(*radius),
             }
         }
         Light::Spot { color, intensity, radius, range, angle, penumbra, cast_shadow, volumetric_scattering, specular_scale } => {
@@ -1048,7 +1060,7 @@ pub fn gpu_light(l: &Light, m: Mat4, power: f32) -> Option<GpuLight> {
                 color: [color[0] * intensity, color[1] * intensity, color[2] * intensity, *range],
                 ext: [cos_outer, 1.0 / (cos_inner - cos_outer).max(1e-4), 0.0, *cast_shadow as u32 as f32],
                 x: [*volumetric_scattering, *specular_scale, 0.0, 0.0],
-                cy: GpuLight::cy_default(false),
+                cy: point_cy(*radius),
             }
         }
         Light::Rect { visible: true, .. } => return None,
