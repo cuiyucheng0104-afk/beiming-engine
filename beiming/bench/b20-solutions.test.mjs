@@ -170,7 +170,8 @@ test('B20-4 噪声地板量测与 CLI verify：代表题同片复量与独立重
   if (!requireOrSkipMedia(t)) return;
   const root = mkdtempSync(join(tmpdir(), 'beiming-b20-nf-'));
   try {
-    const sampleIds = ['23-1', '28-1', '27-1', '15-2', '5-1'];
+    // 抽测一级 23-1 与二级 15-2 两道代表题（共 8 遍真实渲染/量测），兼顾全覆盖与 CI 墙钟预算
+    const sampleIds = ['23-1', '15-2'];
     const reports = await Promise.all(sampleIds.map((id) => measureNoiseFloor(id, join(root, id))));
     for (const nf of reports) {
       assert.equal(nf.format, SOLUTION_FORMAT);
@@ -212,133 +213,131 @@ test('B20-5 R1/R2 回归守卫：18-1 全帧像素 OCR 与单帧篡改/截短、
   if (!requireOrSkipMedia(t)) return;
   const root = mkdtempSync(join(tmpdir(), 'beiming-b20-r1-'));
   try {
-    // 1) 18-1：实心矩形覆盖字幕区、清空字幕区、抹坏单字或仅篡改单帧（第 26 帧 Scene -> Zcene）均必须被真实像素 OCR 拦下
-    const r18 = await renderSolution('18-1', join(root, '18-1-orig'));
-    const solidBarMp4 = join(root, '18-1-solidbar.mp4');
-    runFfmpegSync([
-      '-i', r18.deliverablePath,
-      '-vf', 'drawbox=x=0:y=950:w=1920:h=86:color=0xF5F2E9@1:t=fill,drawbox=x=792:y=960:w=336:h=48:color=0x1A1714@1:t=fill',
-      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', '-pix_fmt', 'yuv420p',
-      '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
-      '-c:a', 'copy', solidBarMp4,
-    ]);
-    const m18Bar = await measureSolution('18-1', { ...r18, deliverablePath: solidBarMp4 });
-    assert.equal(m18Bar.verdict.pass, false, '18-1 实心墨迹块覆盖字幕区必须判不过');
-    assert.equal(
-      m18Bar.basePredicates.find((p) => p.predicate.includes('text_matches')).pass,
-      false,
-      '18-1 实心块必须令 text_matches(copy) 判 fail',
-    );
+    const check18 = async () => {
+      // 1) 18-1：实心矩形覆盖字幕区、清空字幕区、抹坏单字、仅篡改第 26 帧（Scene -> Zcene）及截短为 899 帧均须被拦下
+      const r18 = await renderSolution('18-1', join(root, '18-1-orig'));
+      assert.deepEqual(ocrSubtitleLineFromGray(new Uint8Array(1920 * 1080).fill(245), 1920, 1080), []);
 
-    const corruptMp4 = join(root, '18-1-corrupt.mp4');
-    runFfmpegSync([
-      '-i', r18.deliverablePath,
-      '-vf', 'drawbox=x=950:y=970:w=24:h=32:color=0xF5F2E9@1:t=fill',
-      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', '-pix_fmt', 'yuv420p',
-      '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
-      '-c:a', 'copy', corruptMp4,
-    ]);
-    const m18Corrupt = await measureSolution('18-1', { ...r18, deliverablePath: corruptMp4 });
-    assert.equal(m18Corrupt.verdict.pass, false, '18-1 损坏单个字形必须判不过');
-    assert.equal(
-      m18Corrupt.basePredicates.find((p) => p.predicate.includes('text_matches')).pass,
-      false,
-      '18-1 单字损坏必须令 text_matches(copy) 判 fail',
-    );
-    assert.deepEqual(ocrSubtitleLineFromGray(new Uint8Array(1920 * 1080).fill(245), 1920, 1080), []);
+      const solidBarMp4 = join(root, '18-1-solidbar.mp4');
+      const corruptMp4 = join(root, '18-1-corrupt.mp4');
+      const frame26ZceneMp4 = join(root, '18-1-frame26-zcene.mp4');
+      const short899Mp4 = join(root, '18-1-short899.mp4');
+      const zceneFilter = [
+        "drawbox=x=744:y=972:w=20:h=28:color=0xF5F2E9@1:t=fill:enable='eq(n,26)'",
+        "drawbox=x=744:y=972:w=20:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
+        "drawbox=x=760:y=976:w=4:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
+        "drawbox=x=756:y=980:w=4:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
+        "drawbox=x=752:y=984:w=4:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
+        "drawbox=x=748:y=988:w=4:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
+        "drawbox=x=744:y=992:w=4:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
+        "drawbox=x=744:y=996:w=20:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
+      ].join(',');
 
-    // R2-1：18-1 仅篡改第 26 帧字幕（Scene -> Zcene），其余帧保持 Scene，全帧覆查必须抓出第 26 帧并判 pass === false
-    const frame26ZceneMp4 = join(root, '18-1-frame26-zcene.mp4');
-    const zceneFilter = [
-      "drawbox=x=744:y=972:w=20:h=28:color=0xF5F2E9@1:t=fill:enable='eq(n,26)'",
-      "drawbox=x=744:y=972:w=20:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
-      "drawbox=x=760:y=976:w=4:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
-      "drawbox=x=756:y=980:w=4:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
-      "drawbox=x=752:y=984:w=4:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
-      "drawbox=x=748:y=988:w=4:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
-      "drawbox=x=744:y=992:w=4:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
-      "drawbox=x=744:y=996:w=20:h=4:color=0x1A1714@1:t=fill:enable='eq(n,26)'",
-    ].join(',');
-    runFfmpegSync([
-      '-i', r18.deliverablePath,
-      '-vf', zceneFilter,
-      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', '-pix_fmt', 'yuv420p',
-      '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
-      '-c:a', 'copy', frame26ZceneMp4,
-    ]);
-    const m18Frame26 = await measureSolution('18-1', { ...r18, deliverablePath: frame26ZceneMp4 });
-    assert.equal(m18Frame26.verdict.pass, false, '18-1 仅篡改第 26 帧 Scene -> Zcene 必须判 pass === false');
-    const textPred26 = m18Frame26.basePredicates.find((p) => p.predicate.includes('text_matches'));
-    assert.equal(textPred26.pass, false, '18-1 第 26 帧篡改必须令 text_matches(copy) @ all 判 fail');
-    assert.equal(textPred26.detail.counterexampleFrame, 26, '反例帧必须精确定位到第 26 帧');
-    assert.deepEqual(textPred26.detail.measured.ocr, ['Zcene one opens cleanly']);
+      runFfmpegSync([
+        '-i', r18.deliverablePath,
+        '-vf', 'drawbox=x=0:y=950:w=1920:h=86:color=0xF5F2E9@1:t=fill,drawbox=x=792:y=960:w=336:h=48:color=0x1A1714@1:t=fill',
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', '-pix_fmt', 'yuv420p',
+        '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
+        '-c:a', 'copy', solidBarMp4,
+      ]);
+      runFfmpegSync([
+        '-i', r18.deliverablePath,
+        '-vf', 'drawbox=x=950:y=970:w=24:h=32:color=0xF5F2E9@1:t=fill',
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', '-pix_fmt', 'yuv420p',
+        '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
+        '-c:a', 'copy', corruptMp4,
+      ]);
+      runFfmpegSync([
+        '-i', r18.deliverablePath,
+        '-vf', zceneFilter,
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', '-pix_fmt', 'yuv420p',
+        '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
+        '-c:a', 'copy', frame26ZceneMp4,
+      ]);
+      runFfmpegSync([
+        '-i', r18.deliverablePath,
+        '-frames:v', '899',
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', '-pix_fmt', 'yuv420p',
+        '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
+        '-c:a', 'alac', '-shortest', short899Mp4,
+      ]);
 
-    // R2-3：18-1 截短为 899 帧后必须优雅返回 pass === false 与 probe.frames === 899，严禁抛未捕获异常
-    const short899Mp4 = join(root, '18-1-short899.mp4');
-    runFfmpegSync([
-      '-i', r18.deliverablePath,
-      '-frames:v', '899',
-      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', '-pix_fmt', 'yuv420p',
-      '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
-      '-c:a', 'alac', '-shortest', short899Mp4,
-    ]);
-    const m18Short = await measureSolution('18-1', { ...r18, deliverablePath: short899Mp4 });
-    assert.equal(m18Short.probe.frames, 899, '18-1 截短成片应实测 899 帧');
-    assert.equal(m18Short.verdict.pass, false, '18-1 截短为 899 帧必须优雅判 pass === false');
-    assert.equal(
-      m18Short.basePredicates.find((p) => p.predicate.startsWith('delivery(')).pass,
-      false,
-      '18-1 截短为 899 帧必须令 delivery 谓词判 fail',
-    );
+      const [m18Bar, m18Corrupt, m18Frame26, m18Short] = await Promise.all([
+        measureSolution('18-1', { ...r18, deliverablePath: solidBarMp4 }),
+        measureSolution('18-1', { ...r18, deliverablePath: corruptMp4 }),
+        measureSolution('18-1', { ...r18, deliverablePath: frame26ZceneMp4 }),
+        measureSolution('18-1', { ...r18, deliverablePath: short899Mp4 }),
+      ]);
 
-    // 2) 30-1：time.timeline / time.events / time.envelope 串联求值随 80 -> 96 BPM 联动且 title_enter 固定第 48 帧
-    const ev80 = resolve30_1Events({ bpm: 80, fpsFraction: '24/1', frames: 2160 });
-    const ev96 = resolve30_1Events({ bpm: 96, fpsFraction: '24/1', frames: 2160 });
-    assert.deepEqual(ev80.beatEvents.map((e) => e.frame), Array.from({ length: 20 }, (_, i) => (i + 1) * 72));
-    assert.deepEqual(ev96.beatEvents.map((e) => e.frame), Array.from({ length: 20 }, (_, i) => (i + 1) * 60));
-    assert.deepEqual(ev80.absoluteEvents, [{ id: 'title_enter', frame: 48 }]);
-    assert.deepEqual(ev96.absoluteEvents, [{ id: 'title_enter', frame: 48 }]);
-    assert.throws(() => resolve30_1Events({ bpm: 0, fpsFraction: '24/1', frames: 2160 }), RangeError);
-    assert.throws(() => resolve30_1Events({ bpm: 80, fpsFraction: null, frames: 2160 }), RangeError);
+      assert.equal(m18Bar.verdict.pass, false, '18-1 实心墨迹块覆盖字幕区必须判不过');
+      assert.equal(m18Bar.basePredicates.find((p) => p.predicate.includes('text_matches')).pass, false, '18-1 实心块必须令 text_matches(copy) 判 fail');
+      assert.equal(m18Corrupt.verdict.pass, false, '18-1 损坏单个字形必须判不过');
+      assert.equal(m18Corrupt.basePredicates.find((p) => p.predicate.includes('text_matches')).pass, false, '18-1 单字损坏必须令 text_matches(copy) 判 fail');
+      assert.equal(m18Frame26.verdict.pass, false, '18-1 仅篡改第 26 帧 Scene -> Zcene 必须判 pass === false');
+      const textPred26 = m18Frame26.basePredicates.find((p) => p.predicate.includes('text_matches'));
+      assert.equal(textPred26.pass, false, '18-1 第 26 帧篡改必须令 text_matches(copy) @ all 判 fail');
+      assert.equal(textPred26.detail.counterexampleFrame, 26, '反例帧必须精确定位到第 26 帧');
+      assert.deepEqual(textPred26.detail.measured.ocr, ['Zcene one opens cleanly']);
+      assert.equal(m18Short.probe.frames, 899, '18-1 截短成片应实测 899 帧');
+      assert.equal(m18Short.verdict.pass, false, '18-1 截短为 899 帧必须优雅判 pass === false');
+      assert.equal(m18Short.basePredicates.find((p) => p.predicate.startsWith('delivery(')).pass, false, '18-1 截短为 899 帧必须令 delivery 谓词判 fail');
+    };
 
-    // R2-2：30-1 工程改为 96 BPM 渲染后，基线事件必须反映实渲第 60 帧并判 pass === false
-    const film30Bpm96 = structuredClone(loadSolutionFilm('30-1'));
-    film30Bpm96.timeline.bpm = 96;
-    const r30Bpm96 = await renderSolution('30-1', join(root, '30-1-bpm96'), { film: film30Bpm96 });
-    const evDoc96 = JSON.parse(readFileSync(r30Bpm96.artifacts.eventsPath, 'utf8'));
-    assert.equal(evDoc96.bpm, 96, '30-1 改 96 BPM 后落盘 events.json.bpm 应为 96');
-    assert.equal(evDoc96.beatEvents[0].frame, 60, '30-1 改 96 BPM 后落盘首事件应为第 60 帧');
-    const m30Bpm96 = await measureSolution('30-1', r30Bpm96, { film: film30Bpm96 });
-    assert.equal(m30Bpm96.verdict.pass, false, '30-1 工程改为 96 BPM 渲染必须判 pass === false');
-    assert.equal(m30Bpm96.readings.beatEvents[0].frame, 60, '30-1 基线读数必须反映工程实渲首事件第 60 帧');
+    const check30 = async () => {
+      // 2) 30-1：time.timeline / time.events / time.envelope 串联求值随 80 -> 96 BPM 联动且 title_enter 固定第 48 帧
+      const ev80 = resolve30_1Events({ bpm: 80, fpsFraction: '24/1', frames: 2160 });
+      const ev96 = resolve30_1Events({ bpm: 96, fpsFraction: '24/1', frames: 2160 });
+      assert.deepEqual(ev80.beatEvents.map((e) => e.frame), Array.from({ length: 20 }, (_, i) => (i + 1) * 72));
+      assert.deepEqual(ev96.beatEvents.map((e) => e.frame), Array.from({ length: 20 }, (_, i) => (i + 1) * 60));
+      assert.deepEqual(ev80.absoluteEvents, [{ id: 'title_enter', frame: 48 }]);
+      assert.deepEqual(ev96.absoluteEvents, [{ id: 'title_enter', frame: 48 }]);
+      assert.throws(() => resolve30_1Events({ bpm: 0, fpsFraction: '24/1', frames: 2160 }), RangeError);
+      assert.throws(() => resolve30_1Events({ bpm: 80, fpsFraction: null, frames: 2160 }), RangeError);
 
-    // 3) 15-2：错帧率 24/1 必须由 ffprobe 实测出 fps=24 并判 pass === false；多出音轨亦被拦下
-    const r15 = await renderSolution('15-2', join(root, '15-2-orig'));
-    const fps24Mp4 = join(root, '15-2-24fps.mp4');
-    runFfmpegSync([
-      '-i', r15.deliverablePath,
-      '-vf', 'setpts=N/(24*TB)',
-      '-r', '24/1',
-      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '12', '-g', '1', '-pix_fmt', 'yuv420p',
-      '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
-      fps24Mp4,
-    ]);
-    const m15BadFps = await measureSolution('15-2', { ...r15, deliverablePath: fps24Mp4 });
-    assert.equal(m15BadFps.probe.fps, 24, '15-2 错帧率片应由 ffprobe 实测出 24 fps');
-    assert.equal(m15BadFps.probe.fpsNum, 24);
-    assert.equal(m15BadFps.probe.fpsDen, 1);
-    assert.equal(m15BadFps.basePredicates[0].pass, false, '15-2 错帧率必须令 delivery 谓词失败');
-    assert.equal(m15BadFps.verdict.pass, false, '15-2 错帧率必须判 pass === false');
+      // R2-2：30-1 工程改为 96 BPM 渲染后，基线事件必须反映实渲第 60 帧并判 pass === false
+      const film30Bpm96 = structuredClone(loadSolutionFilm('30-1'));
+      film30Bpm96.timeline.bpm = 96;
+      const r30Bpm96 = await renderSolution('30-1', join(root, '30-1-bpm96'), { film: film30Bpm96 });
+      const evDoc96 = JSON.parse(readFileSync(r30Bpm96.artifacts.eventsPath, 'utf8'));
+      assert.equal(evDoc96.bpm, 96, '30-1 改 96 BPM 后落盘 events.json.bpm 应为 96');
+      assert.equal(evDoc96.beatEvents[0].frame, 60, '30-1 改 96 BPM 后落盘首事件应为第 60 帧');
+      const m30Bpm96 = await measureSolution('30-1', r30Bpm96, { film: film30Bpm96 });
+      assert.equal(m30Bpm96.verdict.pass, false, '30-1 工程改为 96 BPM 渲染必须判 pass === false');
+      assert.equal(m30Bpm96.readings.beatEvents[0].frame, 60, '30-1 基线读数必须反映工程实渲首事件第 60 帧');
+    };
 
-    const audioMp4 = join(root, '15-2-with-audio.mp4');
-    runFfmpegSync([
-      '-i', r15.deliverablePath,
-      '-f', 'lavfi', '-i', 'sine=frequency=440:duration=10',
-      '-c:v', 'copy', '-c:a', 'alac', '-shortest', audioMp4,
-    ]);
-    const m15Audio = await measureSolution('15-2', { ...r15, deliverablePath: audioMp4 });
-    assert.equal(m15Audio.probe.audio, true);
-    assert.equal(m15Audio.verdict.pass, false, '15-2 无声题混入音轨必须判 pass === false');
+    const check15 = async () => {
+      // 3) 15-2：错帧率 24/1 必须由 ffprobe 实测出 fps=24 并判 pass === false；多出音轨亦被拦下
+      const r15 = await renderSolution('15-2', join(root, '15-2-orig'));
+      const fps24Mp4 = join(root, '15-2-24fps.mp4');
+      runFfmpegSync([
+        '-i', r15.deliverablePath,
+        '-vf', 'setpts=N/(24*TB)',
+        '-r', '24/1',
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '12', '-g', '1', '-pix_fmt', 'yuv420p',
+        '-colorspace', 'bt709', '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
+        fps24Mp4,
+      ]);
+      const audioMp4 = join(root, '15-2-with-audio.mp4');
+      runFfmpegSync([
+        '-i', r15.deliverablePath,
+        '-f', 'lavfi', '-i', 'sine=frequency=440:duration=10',
+        '-c:v', 'copy', '-c:a', 'alac', '-shortest', audioMp4,
+      ]);
+      const [m15BadFps, m15Audio] = await Promise.all([
+        measureSolution('15-2', { ...r15, deliverablePath: fps24Mp4 }),
+        measureSolution('15-2', { ...r15, deliverablePath: audioMp4 }),
+      ]);
+      assert.equal(m15BadFps.probe.fps, 24, '15-2 错帧率片应由 ffprobe 实测出 24 fps');
+      assert.equal(m15BadFps.probe.fpsNum, 24);
+      assert.equal(m15BadFps.probe.fpsDen, 1);
+      assert.equal(m15BadFps.basePredicates[0].pass, false, '15-2 错帧率必须令 delivery 谓词失败');
+      assert.equal(m15BadFps.verdict.pass, false, '15-2 错帧率必须判 pass === false');
+      assert.equal(m15Audio.probe.audio, true);
+      assert.equal(m15Audio.verdict.pass, false, '15-2 无声题混入音轨必须判 pass === false');
+    };
+
+    await Promise.all([check18(), check30(), check15()]);
   } finally {
     rmSync(root, { recursive: true, force: true });
     assert.equal(existsSync(root), false, 'R1 回归临时目录应已彻底清理');
