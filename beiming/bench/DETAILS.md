@@ -233,5 +233,13 @@ node beiming/bench/board.mjs build --out-dir <目录> [--as-of <YYYY-MM-DD>] [--
   5. **Step 5（分档与写回）**：按参考素材来源分为**严档**（9 题：`1-1`/`01-1`、`23-1`、`28-1`、`29-1`、`23-2`、`27-1`、`29-2`、`30-1`、`5-1`，作者原文件或严格交付基线）与**放宽档**（3 题：`15-2`、`18-1`、`18-2`，参考为平台重压版），生成深冻结可读记录并写回考题 `calibration`。
 - **看板换尺子标记联动**：当历史前一日为 `version: 0, status: 'uncalibrated'`、当日传入 `v1 calibrated` 的 12 道公开考题调用 `buildBoard` / `appendBoardHistory` / `renderBoardHtml` 时，看板自动在 `calibrationChanges`、矩阵行 `calibrationChanged`、历史当日条目与 HTML「今日校准变更」中标出全部 12 题；次日无变更时自动清零。
 
+## 小卷与全卷调度（B13 / B14）
 
+代码 [suite.mjs](suite.mjs)（经 [index.mjs](index.mjs) 重导出），测试 `node --test beiming/bench/b13-b14-suite.test.mjs`。
+
+- **常量与题库发现**：导出 `SUITE_FORMAT = 'bench-suite/0.1'`、`DEFAULT_MINI_MAX_BUDGET_SHARE = 0.4`、`DEFAULT_T2_UNIT_TOKENS = 250_000` 与 `discoverSuiteQuestions({ questionsDir, hiddenDir })`。递归校验 `questionsDir`（跳过隐藏题，仅收公开题与预期失败题）及可选仓库外 `hiddenDir`（仅收 `flags.hidden === true` 隐藏题），任一题未过 `validateQuestion` 抛 `contract.question-invalid`（exit 4），按 `level` 升序 + `id` 字典序返回 `{ publicQuestions, hiddenQuestions, expectedFailQuestions }`。
+- **每日小卷 `planMiniExam`（B13）**：按 `start = (dayIndex * count) % N` 从排序后的公开题中连续取 `min(count, N)` 题（`count = 6` 时两天轮完 12 题无重复，`count = 3` 时四天轮完），按 `(dayIndex + i) % models.length` 交替分配给 1–2 个模型家族；强制核验 `estimatedTokens <= Math.floor(validationBudgetTokens * maxBudgetShare)`（默认不超过当天验证栏的 40%），超限时 `onOverBudget === 'reject'` 抛 `RangeError`（`code = 'budget.exceeds-daily-cap'`），`'trim'` 自动裁减题数至预算上限内（不足 1 题仍拒），返回深冻结计划。
+- **全卷一 `planFullExam1`（B14）**：要求 `models` 恰含 2 个不重复模型家族；公开题（12 道）× 双家族（24 次）+ 仓库外隐藏题（默认 3 道，传 `hiddenCount: 0` 可无隐藏题干跑，不足时抛 `RangeError`）× 单一模型家族（`hiddenModel ?? models[0]`，3 次）合计 27 次计分运行；预期失败题逐一通过 `hasBlockedByChanged` 门控，未变时 `forceExpectedFail: false`（0 solver 调用、直接落 `expected-fail`），变化时 `forceExpectedFail: true` 放行重跑。
+- **异步执行与看板每日落盘 `runExamSuite`**：隔离调用 `runExamQuestion`（支持 `solver` / `solverForRun` / `solverCmd` / `solverCmdForRun` / `judge` 并透传 `previousBlockedBy` 与 `rerunOnBlockedByChange: true`），汇总 `evalRoot` 内已有 `bench-result/0.1` 与现有 `boardDir/history.json`，经 `buildBoard`、`appendBoardHistory`、`renderBoardHtml` 将 `board.json`、`history.json`、`index.html` 与脱敏 `suite-report.json`（过 `scanQuestionLeaks` 与本机路径零泄露校验，隐藏题不含题面、逐项与文件路径）原子写入 `boardDir`。
+- **CLI 入口**：支持 `node beiming/bench/suite.mjs mini ...` 与 `node beiming/bench/suite.mjs full-1 ...`，`--help` 退出 0，参数错误退出 2，契约或预算超限退出 4。
 
