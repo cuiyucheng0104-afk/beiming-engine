@@ -7,7 +7,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { polygonIrradiance } from '../fncheck/checks.mjs';
 import { COMMIT, KERNEL, SHADERS, singleCopyProblems, sourceKey } from './build.mjs';
-import { CYCLES, DIFFUSE, GATES, PRINCIPLED, analyticOk, discPixels, negativeOk, negativeTolerance, passedByFloor, rectMean, runLevel2 } from './level2.mjs';
+import { CYCLES, DIFFUSE, GATES, PRINCIPLED, PRINCIPLED_F0, analyticOk, discPixels, fresnelDielectric, mirrorOk, negativeOk, negativeTolerance, passedByFloor, rectMean, runLevel2 } from './level2.mjs';
 
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const ROUGHNESS = ['0.05', '0.10', '0.20', '0.30', '0.40', '0.50', '0.60', '0.70', '0.80', '0.90', '1.00'];
@@ -63,6 +63,9 @@ test('判据：白炉 ±0.5%，解析场景 0.2% 以内，且在 3 个标准误�
   const a = (rel, z) => analyticOk({ rel, z });
   assert.deepEqual([a(1.9e-6, 3.9), a(2.1e-6, 3.9), a(2e-5, 2.9), a(3e-3, 0.1), a(-1.9e-6, -9)], [true, false, true, false, true]);
   assert.deepEqual([[1.9e-6, 3.9], [1.9e-6, 2.9], [2.1e-6, 3.9]].map(([rel, z]) => passedByFloor({ rel, z })), [true, false, false]);
+  // 镜中的矩形纯光只判相对差；解析值里的菲涅耳：正入射 ((η−1)/(η+1))²，掠射趋于 1
+  assert.deepEqual([1.9e-3, -2.1e-3, -0.44].map(rel => mirrorOk({ rel, z: 50 })), [true, false, false]);
+  assert.ok(Math.abs(fresnelDielectric(1, 1.5) - 0.04) < 1e-15 && fresnelDielectric(1e-6, 1.5) > 0.9999);
 });
 
 test('负对照的判法：粗的三项读数在门外且落在登记值的 ±5% 之内；细的几项要解析场景的判法判它不过，读数在登记值的 ±30% 之内', () => {
@@ -197,8 +200,22 @@ test('端到端：第 2 级（构建、白炉对 Cycles、解析场景、负对�
       assert.ok(analyticOk(a), `${a.name} 相对差 ${a.rel}，差 ${a.z} 个标准误`);
     }
   });
-  await t.test('负对照：闭包、面光、接线、原理化 BSDF 故意改错十一项，每项必须不过，读数落在登记值的容差之内（粗的八项 ±5%，细的三项 ±30%）', () => {
-    assert.deepEqual(rep.negative.map(n => n.target), ['closure', 'area_light', 'mis', 'area_light_fine', 'mis_origin', 'mis_occluder', 'dielectric_fresnel', 'layering', 'diffuse', 'pick', 'emission']);
+  await t.test('对 F0 敏感的电介质白炉：底色 0 的原理化 BSDF 7 个读数（折射率、高光等级、高光染色各几档）都在 Cycles 的 ±0.5% 之内', () => {
+    assert.equal(rep.principledF0.rows.length, Object.keys(PRINCIPLED_F0.readings).length);
+    for (const r of rep.principledF0.rows) {
+      t.diagnostic(`${r.key}: 我方 ${r.ours.toFixed(6)} ± ${r.se.toExponential(1)}  Cycles ${r.cycles.toFixed(6)}  相对差 ${r.rel.toExponential(2)}`);
+      assert.ok(Math.abs(r.rel) <= GATES.furnaceRel, `${r.key} 相对差 ${r.rel}`);
+      assert.ok(r.se / r.cycles < GATES.furnaceRel / 10, `${r.key} 标准误 ${r.se}`);
+    }
+  });
+  await t.test('奇异的镜面：粗糙度 0、金属度 0 的平面镜里的小矩形纯光对 F·L 在 0.2% 以内', () => {
+    for (const a of rep.mirror) {
+      t.diagnostic(`${a.name}: 我方 ${a.mean.toPrecision(7)} ± ${a.se.toExponential(2)}  解析 ${a.exact.toPrecision(7)}  相对差 ${a.rel.toExponential(2)}  ${a.z.toFixed(2)} 个标准误（只记录）`);
+      assert.ok(mirrorOk(a), `${a.name} 相对差 ${a.rel}`);
+    }
+  });
+  await t.test('负对照：闭包、面光、接线、原理化 BSDF、奇异的一瓣故意改错十四项，每项必须不过，读数落在登记值的容差之内（粗的十一项 ±5%，细的三项 ±30%）', () => {
+    assert.deepEqual(rep.negative.map(n => n.target), ['closure', 'area_light', 'mis', 'area_light_fine', 'mis_origin', 'mis_occluder', 'dielectric_fresnel', 'layering', 'diffuse', 'pick', 'emission', 'mis_skip', 'specular_f0', 'specular_exponent']);
     for (const n of rep.negative) {
       t.diagnostic(`${n.name}: 最大相对差 ${n.worstRel.toExponential(2)}（门限 ${n.gate}，登记值 ${n.near}，容差 ±${negativeTolerance(n) * 100}%）`);
       assert.ok(negativeOk(n), n.name);

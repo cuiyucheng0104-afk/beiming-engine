@@ -245,6 +245,22 @@ static const Entry table[] = {
     {"fresnel_dielectric_Fss", 1, 1, [](const float *i, float *o) { o[0] = fresnel_dielectric_Fss(i[0]); }},
     {"ior_from_F0", 1, 1, [](const float *i, float *o) { o[0] = ior_from_F0(i[0]); }},
     {"F0_from_ior", 1, 1, [](const float *i, float *o) { o[0] = F0_from_ior(i[0]); }},
+    {"principled_specular_f0_eta", 2, 2, [](const float *i, float *o) {
+       /* kernel/svm/closure.h:426-436 原理化分支按高光等级调折射率的那一段（内联在 svm_node_closure_bsdf 里，不是函数），
+        * 照式子组装；specular_ior_level 在 Cycles 里先夹到不小于 0，这里的输入都不小于 0 */
+       const float ior = i[0], specular_ior_level = i[1];
+       float eta = ior;
+       float f0 = F0_from_ior(eta);
+       if (specular_ior_level != 0.5f) {
+         f0 *= 2.0f * specular_ior_level;
+         eta = ior_from_F0(f0);
+         if (ior < 1.0f) {
+           eta = 1.0f / eta;
+         }
+       }
+       o[0] = f0;
+       o[1] = eta;
+     }},
     {"inverse_lerp", 3, 1, [](const float *i, float *o) { o[0] = inverse_lerp(i[0], i[1], i[2]); }},
     {"safe_divide_color", 6, 3, [](const float *i, float *o) { put3(o, safe_divide_color(get3(i), get3(i + 3))); }},
     {"closure_layering_weight", 6, 3, [](const float *i, float *o) { put3(o, closure_layering_weight(get3(i), get3(i + 3))); }},

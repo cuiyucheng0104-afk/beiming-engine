@@ -493,7 +493,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let bs = surface_shader_bsdf_sample_closure(sd, pick.closure, pick.rand);
         let l = bs.wo;
         // （穿过光滑玻璃：上游顶替的奇异的透射一瓣。没有概率密度，不做多重重要性采样，后面的东西算全份。移植的闭包的奇异
-        // 一瓣（粗糙度 0 的镜面反射）不算在这里：它照 Cycles 带着乘了 1e6 的概率密度走下面普通的一支。）
+        // 一瓣（粗糙度 0 的镜面反射）不算在这里：它照 Cycles 带着乘了 1e6 的概率密度走下面普通的一支，并置 PATH_RAY_MIS_SKIP。）
         let through = (bs.label & (LABEL_SINGULAR | LABEL_TRANSMIT)) == (LABEL_SINGULAR | LABEL_TRANSMIT);
         // （采到的是光泽或奇异的一瓣，不是漫反射：上游的 state.legacy.sampled_spec || state.legacy.sampled_trans。）
         let glossy = (bs.label & (LABEL_GLOSSY | LABEL_SINGULAR)) != 0;
@@ -529,7 +529,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             state.mis_ray_pdf = pdf;
             // （有概率密度的弹射才记最小值：穿过光滑玻璃的那一瓣没有密度，上面两支不记。）
             state.min_ray_pdf = min(pdf, state.min_ray_pdf);
-            state.flag &= ~PATH_RAY_MIS_SKIP;
+            // （奇异的一瓣照 Cycles 的 path_state_next（integrator/path_state.h:217-223）置 PATH_RAY_MIS_SKIP：这个着色点上
+            // 光源一侧对它求值为 0，下一次打到灯、天空、太阳盘、矩形纯光都取权重 1。别的弹射清掉它。）
+            if ((bs.label & LABEL_SINGULAR) != 0) {
+                state.flag |= PATH_RAY_MIS_SKIP;
+            } else {
+                state.flag &= ~PATH_RAY_MIS_SKIP;
+            }
             state.legacy.behind_glass = false;
             state.legacy.bent = false;
         }

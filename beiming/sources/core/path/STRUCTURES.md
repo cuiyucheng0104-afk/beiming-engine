@@ -271,13 +271,13 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 `PathLegacy` 里现在有：`behind_glass`、`bent`、`straight`、`mirror_path`、`bm_surf`、`rays_off`、`split_frac`、`dl_spec`、`sampled_spec`、`sampled_trans`、`mis_x`、`mis_n`、`dl_det`、`dl_det_spec`、`shadow_hole`、`nee_alone`、`lights_only`、`rng_path`、`bm_x`（这一段射线出发的着色点本身，没有沿法线挪开；材质采样打到矩形纯光时从它算命中与概率密度，与光源采样一侧用同一个点）。没有并进来的上游私有量不是路径状态：求交里过程几何的调用上下文（`gdata_first`、`gdata_count`、`media_voxels`）、灯光瓦片的每像素状态（`lt_list`、`lt_list_n`、`lt_fb`）、循环守卫的计数。
 
-`path_state_next(label)` 在每次弹射之后更新路径状态，照 Cycles 的同名函数，**现在只有骨架**：下一段光线的可见类与随机维度的偏移。分类计数、各类弹射上限、其余路径标志位归移植闭包的人照 Cycles 补。`PATH_RAY_MIS_SKIP` 还按上游的规矩在主循环里设与清（上游的「镜面弹射」与 Cycles 的「奇异的一瓣」不是同一个判法）。
+`path_state_next(label)` 在每次弹射之后更新路径状态，照 Cycles 的同名函数，**现在只有骨架**：下一段光线的可见类与随机维度的偏移。分类计数、各类弹射上限、其余路径标志位归移植闭包的人照 Cycles 补。`PATH_RAY_MIS_SKIP` 在主循环里设与清：相机射线、上游顶替的穿过光滑玻璃，以及（1.2.0 起）移植的闭包采到的奇异一瓣（`LABEL_SINGULAR`，照 Cycles `path_state_next` 的 `PATH_RAY_SINGULAR | PATH_RAY_MIS_SKIP`）之后设，别的弹射清。
 
 ### 路径标志位与可见类
 
 两个枚举，位都照 Cycles（`PathRayFlag` 与 `PathRayVisibilityFlag`）。
 
-路径标志位（`state.flag`）：`PATH_RAY_REFLECT`（第 0 位）、`PATH_RAY_SINGULAR`（1）、`PATH_RAY_TRANSPARENT`（2）、`PATH_RAY_DIFFUSE_ANCESTOR`（4）、`PATH_RAY_EMISSION`（5）、`PATH_RAY_MIS_HAD_TRANSMISSION`（6）、`PATH_RAY_MIS_SKIP`（7）、`PATH_RAY_SINGLE_PASS_DONE`（8）、`PATH_RAY_TRANSPARENT_BACKGROUND`（9）、`PATH_RAY_TERMINATE_ON_NEXT_SURFACE`（10）、`PATH_RAY_TERMINATE_AFTER_TRANSPARENT`（12）、`PATH_RAY_DENOISING_FEATURES`（17）、`PATH_RAY_SURFACE_PASS`（18）、`PATH_RAY_SHADOW_FOR_AO`（20）、`PATH_RAY_SHADOW_FOR_LIGHT_LINKING`（25）。只有 `PATH_RAY_MIS_SKIP` 已落地（相机射线和镜面弹射之后，下一次打到灯不做多重重要性采样）；其余已定义。
+路径标志位（`state.flag`）：`PATH_RAY_REFLECT`（第 0 位）、`PATH_RAY_SINGULAR`（1）、`PATH_RAY_TRANSPARENT`（2）、`PATH_RAY_DIFFUSE_ANCESTOR`（4）、`PATH_RAY_EMISSION`（5）、`PATH_RAY_MIS_HAD_TRANSMISSION`（6）、`PATH_RAY_MIS_SKIP`（7）、`PATH_RAY_SINGLE_PASS_DONE`（8）、`PATH_RAY_TRANSPARENT_BACKGROUND`（9）、`PATH_RAY_TERMINATE_ON_NEXT_SURFACE`（10）、`PATH_RAY_TERMINATE_AFTER_TRANSPARENT`（12）、`PATH_RAY_DENOISING_FEATURES`（17）、`PATH_RAY_SURFACE_PASS`（18）、`PATH_RAY_SHADOW_FOR_AO`（20）、`PATH_RAY_SHADOW_FOR_LIGHT_LINKING`（25）。只有 `PATH_RAY_MIS_SKIP` 已落地（相机射线、穿过光滑玻璃、奇异的一瓣之后，下一次打到发光面、天空、太阳盘、矩形纯光不做多重重要性采样，权重取 1：`emit_mis` 的调用处、`sky_mis`、`sun_disks`、`bm_rect_hits` 都认它）；其余已定义。
 
 可见类（`state.visibility`）：`PATH_RAY_VISIBILITY_NONE`（0）、`PATH_RAY_VISIBILITY_CAMERA`（第 0 位）、`PATH_RAY_VISIBILITY_TRANSMIT`（1）、`PATH_RAY_VISIBILITY_DIFFUSE`（2）、`PATH_RAY_VISIBILITY_GLOSSY`（3）、`PATH_RAY_VISIBILITY_VOLUME_SCATTER`（4）、`PATH_RAY_VISIBILITY_SHADOW_OPAQUE`（5）、`PATH_RAY_VISIBILITY_SHADOW_TRANSPARENT`（6）。相机、透射、漫反射、光泽、介质散射五位有人写；两位阴影类已定义。没有读者。
 
@@ -875,7 +875,7 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 
 - **多闭包的直接光归移植闭包的人（1.2.0 已做）。** 上游的灯光函数拿材质求值经 `surface_shader_bsdf_eval_legacy`，它对移植的闭包改成调 `surface_shader_bsdf_eval` 对全部闭包求和；`light_mis` 对移植的闭包的密度改成经闭包分发。这是「新代码不碰名字带 `legacy` 的函数」的点名例外，只限这两处。
 - **凹凸阴影项与阴影终止偏移**（Cycles 做在它的求值入口里，要用着色点）做在收着色点的分发函数里（`surface_shader_bsdf_eval` 那一层），不做在 `bsdf_eval(c, wi, wo)` 里：后者只收一个闭包，签名不为它改。
-- **主循环里的「穿过光滑玻璃」（1.2.0 已改）**：只有奇异的透射一瓣（`LABEL_TRANSMIT | LABEL_SINGULAR`，上游顶替的光滑玻璃）算穿过；移植的闭包的奇异反射一瓣照 Cycles 带着乘了 1e6 的概率密度走普通的一支（多重重要性采样的密度、最小密度照记，后面的矩形纯光照常经 `bm_rect_hits` 取光）。
+- **主循环里的「穿过光滑玻璃」（1.2.0 已改）**：只有奇异的透射一瓣（`LABEL_TRANSMIT | LABEL_SINGULAR`，上游顶替的光滑玻璃）算穿过；移植的闭包的奇异反射一瓣照 Cycles 带着乘了 1e6 的概率密度走普通的一支（多重重要性采样的密度、最小密度照记），并照 Cycles 的 `path_state_next` 置 `PATH_RAY_MIS_SKIP`：这个着色点上光源一侧对奇异的一瓣求值为 0，所以下一次打到发光面、天空、太阳盘、矩形纯光（`bm_rect_hits`）时权重取 1，不按 `power_heuristic` 加权。
 - **阴影链接与发光网格的成员集**由做灯的人另开一张表（见「物体扩展表」）。**直接光调用处的夹取**改成逐盏夹归做灯的人（现在夹的是几盏灯的和，见「输出通道」）。
 - **图案节点的结果在闭包移植完之前只到得了已移植的闭包。** 倒角改的是 `ShaderInputs.N`、遮蔽改的是底色，而上游顶替的闭包与上游的灯光函数读的是 `sd.legacy.surface`。过渡期不许为了让效果到达上游顶替而去写 `legacy` 的表面量；图案节点先在已移植的闭包上验。
 - **材质的图案节点表位置**（`pattern_first`、`pattern_count`）现在没有带进 `ShaderInputs`。做图案节点的人用到时加字段带出来，不另读一次材质记录（过程几何的材质号算法不一样）。

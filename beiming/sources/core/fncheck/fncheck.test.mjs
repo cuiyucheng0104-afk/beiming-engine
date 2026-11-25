@@ -201,6 +201,10 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
   ]) {
     await breakOne(t, file, src, from, to, expect, nIn, nOut);
   }
+  // 电介质高光的 (F0, eta)：高光等级乘 2 写成乘 2.1；ior < 1 时 eta 漏了取倒数
+  const util = 'shaders/util.wgsl', usrc = await readFile(`${CORE}/${util}`, 'utf8');
+  await breakOne(t, util, usrc, 'f0 *= 2.0 * specular_ior_level;', 'f0 *= 2.1 * specular_ior_level;', ['principled_specular_f0_eta'], 2, 2);
+  await breakOne(t, util, usrc, 'eta = 1.0 / eta;', 'eta = eta;', ['principled_specular_f0_eta'], 2, 2);
   const light = 'shaders/area_light.wgsl', lsrc = await readFile(`${CORE}/${light}`, 'utf8');
   // 面光：矩形右边界的 0.5 改成 0.51，走立体角那一支的四项不合格；平面近似的两项（tiny、grazing）概率密度不用 x1，照旧合格
   await breakOne(t, light, lsrc, 'let x1 = xc + 0.5 * len_u;', 'let x1 = xc + 0.51 * len_u;', ['area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_sample', 'area_light_eval_from_intersection'], 16, 4);

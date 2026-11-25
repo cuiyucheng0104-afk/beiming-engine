@@ -214,7 +214,8 @@ fn sky_mis(d: vec3<f32>, pdf: f32) -> vec3<f32> {
     // three.js scene.background: what camera rays (and paths bent straight through glass) see where nothing is.
     if (has(F_BACKGROUND) && pdf <= 0.0) { return P.background.rgb; }
     var wgt = 1.0;
-    if (pdf > 0.0 && P.counts2.y != 0u) {
+    // （PATH_RAY_MIS_SKIP：上一次弹射是奇异的一瓣，照 Cycles 的 light_sample_mis_weight_forward_background（light/sample.h:582）取权重 1。）
+    if (pdf > 0.0 && P.counts2.y != 0u && (state.flag & PATH_RAY_MIS_SKIP) == 0u) {
         wgt = power_heuristic(pdf, env_pdf(d));
     }
     var c = env_radiance(d) * wgt;
@@ -230,7 +231,8 @@ fn sun_disks(d: vec3<f32>, pdf: f32) -> vec3<f32> {
         let li = light_at(i);
         if (dot(d, -li.dir.xyz) >= li.dir.w) {
             let omega = 2.0 * PI * (1.0 - li.dir.w);
-            c += (li.color.rgb / omega) * power_heuristic(pdf, 1.0 / omega);
+            // （PATH_RAY_MIS_SKIP 时照 Cycles 的 light_sample_mis_weight_forward_distant 转到的 light_sample_mis_weight_forward_lamp（light/sample.h:531）取权重 1）
+            c += (li.color.rgb / omega) * select(power_heuristic(pdf, 1.0 / omega), 1.0, (state.flag & PATH_RAY_MIS_SKIP) != 0u);
         }
     }
     return c;
@@ -352,7 +354,8 @@ fn bm_rect_hits(o: vec3<f32>, d: vec3<f32>, t_hit: f32, pdf_b: f32) -> vec3<f32>
         if (!h.hit) { continue; }
         let e = area_light_eval_from_intersection(o, d, h.t, li.pos.xyz, r.u, r.len_u, r.v, r.len_v, li.dir.xyz, r.invarea);
         if (!(e.pdf > 0.0)) { continue; }
-        c += bm_rect_le(li, r, d, h.t * h.t) * e.eval_fac * power_heuristic(pdf_b, e.pdf);
+        // （PATH_RAY_MIS_SKIP 时照 Cycles 的 light_sample_mis_weight_forward_lamp（light/sample.h:531）取权重 1）
+        c += bm_rect_le(li, r, d, h.t * h.t) * e.eval_fac * select(power_heuristic(pdf_b, e.pdf), 1.0, (state.flag & PATH_RAY_MIS_SKIP) != 0u);
     }
     return c;
 }

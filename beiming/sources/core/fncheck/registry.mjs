@@ -345,6 +345,17 @@ FUNCTIONS.push(
   entry('ior_from_F0', [['f0', 'f32', [-0.1, 1.1]]], 1),
   // (ior − 1) 在 ior 接近 1 时相消，取 [1.01, 4] 加 [0.25, 0.99] 两段的整个 [0.25, 4]
   entry('F0_from_ior', [['ior', 'f32', [0.25, 4, 'log']]], 1, 4 * ULP1),
+  // 电介质高光的 (F0, eta)：Cycles 里是 svm_node_closure_bsdf 原理化分支内联的一段（kernel/svm/closure.h:426-436），标准答案程序
+  // 用 Cycles 的 F0_from_ior、ior_from_F0 照那一段的式子组装。ior 取 ior < 1 与 ior > 1 两段（各离开 1 一点，理由同 F0_from_ior），
+  // 高光等级四分之一取 0、四分之一取 0.5（走不走调整那一支的分界）、其余在 [0, 1] 里均匀取（含大于 0.5）。调用方先把等级夹到不小于 0
+  entry('principled_specular_f0_eta', [['ior', 'f32'], ['specular_ior_level', 'f32']], 2, 4 * ULP1, {
+    file: APACHE,
+    gen: next => {
+      const side = next() < 0.5, u = next(), k = next();
+      return { ior: side ? 0.25 * (0.99 / 0.25) ** u : 1.01 * (4 / 1.01) ** u, specular_ior_level: k < 0.25 ? 0 : k < 0.5 ? 0.5 : next() };
+    },
+    branch: i => `${i[0] < 1 ? 'ior<1' : 'ior>1'}/${i[1] === 0 ? '等级0' : i[1] === 0.5 ? '等级0.5' : i[1] > 0.5 ? '等级>0.5' : '等级<0.5'}`,
+  }),
   entry('inverse_lerp', [['a', 'f32', [0, 0.5]], ['b', 'f32', [0.6, 1]], ['x', 'f32', [0, 1]]], 1, 4 * ULP1, { file: APACHE }),
   // 除数取 0 与非 0 各半：分量是 0 的概率不够，用 gen 逐组生成
   entry('safe_divide_color', [['a', 'vec3f'], ['b', 'vec3f']], 3, 0, { file: APACHE, gen: next => ({ a: [next(), next(), next()], b: [0, 1, 2].map(() => (next() < 0.5 ? 0 : 0.01 + next())) }) }),
