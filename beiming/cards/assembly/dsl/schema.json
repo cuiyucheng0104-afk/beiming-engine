@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "已烘焙的拼装矩阵或烘焙产物文件名",
+  "oneOf": [
+    { "type": "null" },
+    { "type": "string", "minLength": 1 },
+    {
+      "type": "object",
+      "required": ["format", "recipeSha256", "parts", "steps"],
+      "properties": {
+        "format": { "const": "asm-baked/0.1" },
+        "recipeSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "steps": { "type": "array", "items": { "type": "object" } },
+        "parts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["matrix4x4", "parent", "touched"],
+            "properties": {
+              "matrix4x4": {
+                "type": "array", "minItems": 4, "maxItems": 4,
+                "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } }
+              },
+              "parent": { "type": ["string", "null"] },
+              "touched": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
