@@ -12,6 +12,7 @@
 这一段汇总从 v1.0 到工业级交付升级完成前的全部变更，按合入顺序归类。升级以 [docs/decisions/2026-11-10-industrial-baseline.md](docs/decisions/2026-11-10-industrial-baseline.md) 的 D01–D13 为准，拆成多个工作包推进，目标是让仓库成为按 A、B、C、D 四条路线组织的技术模版仓库：agent 读完入口文档就能选对路线，按模版建作品，用统一的命令出片；成片先过机器 QA 与人工创作闸门，才标为交付；每个 PR 都有测试、无显卡冒烟出片与 Windows 路径检查把关。各工作包合入时，在下面的分类里追加自己的条目。
 
 ### Added
+- 新增团队片收获模块 `beiming/harvest`（M3 H1–H4）。通过基础谓词且已渲染读回的片子可起草模块卡、检查、参数先验和 L1 规则。待审队列按不同片号记录复用，候选卡对检索隐藏。第二部片复用后，独立会话可凭自测、校准、纯函数门和已确认单位将卡晋升至 `reproduced`，队列统计可直接送入看板。
 - Blender 卡库新增 M3 两张资产卡（T11）。`asset.bbox-proxy` 检查零件是否越界、尺寸是否偏离规格以及让位间隙是否达标。`asset.stl-kit` 读取二进制与 ASCII STL，统一为北冥 +Y 向上米制，并生成资产清单和四视图机位。两张卡都能用具名代理盒补齐缺件，让镜头继续出帧并记录代理数量。
 - 感知模块新增 `luma.percentile` 与 `cut.ghost`（O9），可从内存帧或编码成片定位曝光跳变和跨切点重影。验收模块启用 13 个 M3 谓词（V12/V13），覆盖穿插与接触、静止、取景、过曝、焦点、特效可见度、切镜与编码后读回；新增 `template:assembly@1`（V7），在冻结的 `floor@1` 之外核对拼装片。详见 `beiming/observe/DETAILS.md` 和 `beiming/verify/DETAILS.md`。
 - Blender 帧源支持五种整帧场景查询（S12）。`bbox3d`、`anchor`、`belowGround` 交回北冥 Y-up 世界坐标，`intersect` 用评值网格 BVH 检查穿插，`contact` 量最小表面间隙。装配可用通配符自检和显式关节豁免，查询后仍可独立渲染原帧。详见 [Blender 查询细则](beiming/sources/blender/DETAILS.md)。
