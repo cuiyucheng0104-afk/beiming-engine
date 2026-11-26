@@ -98,3 +98,17 @@ test('three-frame motion threshold is strict; joins 0.2s gaps and splits 0.3s ga
   assert.deepEqual(run(new Uint8Array(10)), []);
   assert.throws(() => run([0, NaN, 2]), RangeError);
 });
+
+test('the first regional frame has no predecessor', () => {
+  assert.throws(() => narrationTiming(new Int16Array(), {...emptyRoi,
+    regionalMotion: { meanDifferences: [3, 0, 0], startSec: 0 }}), RangeError);
+});
+
+test('a grid anchor of 1.15 s starts listening at 1.35 s; off-grid anchors floor', () => {
+  const pcm = new Int16Array(32000);
+  pcm.fill(500, 134 * 160, 136 * 160);
+  const value = narrationTiming(pcm, {...emptyRoi, sceneInk: {
+    counts: new Uint8Array(90), pauseStartsSec: [1.1499999, 1.15, 1.159],
+  }}).value;
+  assert.deepEqual(value.sceneTransitions.map(s => s.nextAudibleSec), [1.34, 1.35, 1.35]);
+});

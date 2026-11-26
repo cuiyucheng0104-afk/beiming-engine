@@ -110,7 +110,11 @@ function sceneTransitions({ counts, pauseStartsSec }, audible) {
         break;
       }
     }
-    const firstAudible = audible.indexOf(1, Math.floor(pauseStartSec * 100) + 20);
+    // A decimal grid time can multiply to just below its own integer window (1.15 * 100).
+    const scaled = pauseStartSec * 100;
+    const nearest = Math.round(scaled);
+    const anchorWindow = nearest / 100 === pauseStartSec ? nearest : Math.floor(scaled);
+    const firstAudible = audible.indexOf(1, anchorWindow + 20);
     const nextAudibleSec = firstAudible < 0 ? null : firstAudible / 100;
     return { pauseStartSec, fadeStartFrame, fadeEndFrame,
       fadeFrames: fadeEndFrame === null ? null : fadeEndFrame - fadeStartFrame, nextAudibleSec,
@@ -122,6 +126,7 @@ function sceneTransitions({ counts, pauseStartsSec }, audible) {
 function motionIntervals({ meanDifferences, startSec }) {
   if (!Number.isFinite(startSec) || startSec < 0) throw new RangeError('Invalid motion startSec');
   numericSeries(meanDifferences, n => Number.isFinite(n) && n >= 0 && n <= 255, 'meanDifferences');
+  if (meanDifferences.length && meanDifferences[0] !== 0) throw new RangeError('Expected zero difference at first frame');
   const intervals = [];
   let last = -Infinity;
   for (let i = 0; i + 2 < meanDifferences.length; i += 3) {
