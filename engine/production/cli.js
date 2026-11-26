@@ -63,7 +63,8 @@ const loadValid = (target, label = 'film.json') => { const L = load(target); ret
 
 const check = defineCommand({
   name: 'film.js check',
-  summary: '校验 film.json v2（v1 自动升级读取）：镜头表、事件、档位、闸门、署名、AIGC、qa 段、路线专属段',
+  summary: '校验 film.json v2 的镜头表、事件、档位、闸门、署名、AIGC、qa 段与路线专属段',
+  description: [`v1 作品请先运行 ${PROG} upgrade <作品目录> --write，按提示补齐字段后再检查。`],
   usage: [`${PROG} check <作品目录|film.json> [--template] [--strict] [--no-files] [--json]`],
   positionals: [{ name: 'target', label: '<作品目录|film.json>', describe: '作品目录（films/<名>）或它的 film.json' }],
   options: {

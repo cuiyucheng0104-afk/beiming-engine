@@ -42,7 +42,7 @@
 ## 3. 期望值从哪来
 
 - **交付档位**：权威表是 `engine/production/profiles.json`（P05 维护，D07）。缺这个文件、缺某个档位或缺字段时，用 `tools/qa/profiles.builtin.json` 的内置值兜底，**报告里逐项写 warn**，说明哪些值来自兜底。内置值与 D07 一致：默认 `web-1080p24`（1920×1080、24 fps、H.264 High、yuv420p、BT.709 有限范围且四项标注齐全、AAC-LC 48 kHz 立体声、−14 LUFS ±1 LU、真峰值 ≤ −1.0 dBTP）；另有 `master-1080p24`、`uhd-2160p24`、`vertical-1080x1920-30`、`broadcast-1080p25`（−23 LUFS ±0.5）、《北冥》专用 `beiming-1040p24`。
-- **作品描述 film.json**（附录 C6；v1 的 `{route,title,dur,fps,size}` 自动升级，`frameCount = round(dur × fps)`）：帧数、画幅、镜头表（切点）、事件（声画同步）、`aigc`（D11 标识）、`audio.mode`（`none` 时不要求音轨），以及下面的 `qa` 段。
+- **作品描述 film.json**（v2，附录 C6）：帧数、画幅、镜头表（切点）、事件（声画同步）、`aigc`（D11 标识）、`audio.mode`（`none` 时不要求音轨），以及下面的 `qa` 段。
 - 检查代码里不写死数字；阈值都在档位的 `visual`、`texts`、`plates`、`sync`、`safeArea` 段，作品可在 film.json 的 `qa` 段按需覆盖（覆盖了什么，报告的「期望」一栏照实写出）。
 
 ### film.json 的 `qa` 段

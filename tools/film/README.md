@@ -100,25 +100,25 @@ films/<名>/out/
 
 ## 5. film.json 里编排器读的字段
 
-兼容 v1（`{route, title, dur, fps, size}`）与 v2（附录 C6）；v2 一律读 `output`，`dur / fps / size` 兼容镜像编排器不再需要。字段级完整校验归作品描述包的 `node engine/production/film.js check`，`film check` 会转调它。
+出片编排使用 film.json v2（附录 C6）。`npm run film -- check <作品目录>` 转调 `node engine/production/film.js check`。旧 v1 文件先运行 `node engine/production/film.js upgrade <作品目录> --write`，按提示补齐字段，再检查。时长与画幅以 `output` 为准。
 
-| 字段 | v1 | v2 | 说明 |
-|---|---|---|---|
-| 路线 | `route` | `route` | a / b / c / d；旧名 beiming、raea 按别名处理并告警 |
-| 片名 | `title` | `title` | 还是 `{{TITLE}}` 占位符时拒绝（那是模版目录） |
-| 时间与画幅 | `dur` `fps` `size` | `output.{profile,width,height,fps,frameCount}` | v1 的帧数 = round(dur × fps) |
-| 交付档位 | 按画幅帧率对号，对不上记 custom | `output.profile` | `--profile` 覆盖；终渲必须是明确档位（D07）；定义取 `engine/production/profiles.json`，缺时用与 D07 一致的内置表并告警 |
-| 镜头表 | `shots[{id,in,out}]` | 同 | 半开区间、首尾相接覆盖整片才拿来标切点，否则告警 |
-| 事件表 | `events[{id,frame,shot}]` | 同 | 预演提示音的位置；QA 声画同步按 `events[].audio` 核对 |
-| 声音 | 按约定推断（`sound.py` / `mix.py`） | `audio.{mode: script\|wav\|none\|native, script, wav, telemetry?, telemetryScale?, dialogue?, qa?}` | `--audio` 覆盖（none、x.wav、x.py / x.sh / x.mjs）；`telemetry: true` 开画面遥测；B 由 `native.audio` 在准备阶段生成 |
-| 闸门 | — | `gates.{look,animatic}` | final 永远必审 |
-| 页面目录 | — | `page`（相对作品目录）或 `entry`（html，相对路径基准） | 缺省是作品目录；镜像作品是 entry 所在目录 |
-| 镜像 | — | `mirror.{paths: "repo", outDir}` | 路径相对仓库根；运行目录在 outDir |
-| 海报帧 | `poster`（秒） | `posterFrame`（帧） | 缺省片长 60% 处 |
-| 拍点核对 | `cuecheck.{grid,tolMs,silence,quietDb}` | 同 | 写了才跑，超差退出码 4 |
-| 原生 | `native.*` | 同 | 原样交给 `engine/native/prepare.mjs` 与 `engine/render/native.mjs` |
-| 物理光追 | — | `pathtrace.{preset,spp,animaticSpp,denoise,seed,shotSpp,overlay}` | D 路线专用：采样、降噪与按镜头 ID 升采样配置（D13） |
-| AIGC | — | `aigc.{contains,note,kinds?,tools?}` | 成片隐式标识 + 播放页显式标识（D11） |
+| 字段 | film.json v2 | 说明 |
+|---|---|---|
+| 路线 | `route` | a / b / c / d；旧名 beiming、raea 按别名处理并告警 |
+| 片名 | `title` | 还是 `{{TITLE}}` 占位符时拒绝（那是模版目录） |
+| 时间与画幅 | `output.{profile,width,height,fps,frameCount}` | 时长由 `frameCount / fps` 得出 |
+| 交付档位 | `output.profile` | `--profile` 覆盖；终渲必须是明确档位（D07）；定义取 `engine/production/profiles.json`，缺时用与 D07 一致的内置表并告警 |
+| 镜头表 | `shots[{id,in,out}]` | 半开区间、首尾相接覆盖整片才拿来标切点，否则告警 |
+| 事件表 | `events[{id,frame,shot}]` | 预演提示音的位置；QA 声画同步按 `events[].audio` 核对 |
+| 声音 | `audio.{mode: script\|wav\|none\|native, script, wav, telemetry?, telemetryScale?, dialogue?, qa?}` | `--audio` 覆盖（none、x.wav、x.py / x.sh / x.mjs）；`telemetry: true` 开画面遥测；B 由 `native.audio` 在准备阶段生成 |
+| 闸门 | `gates.{look,animatic}` | 人工闸通过 `--delivery-mode review` 启用 |
+| 页面目录 | `page`（相对作品目录）或 `entry`（html，相对路径基准） | 缺省是作品目录；镜像作品是 entry 所在目录 |
+| 镜像 | `mirror.{paths: "repo", outDir}` | 路径相对仓库根；运行目录在 outDir |
+| 海报帧 | `posterFrame`（帧） | 缺省片长 60% 处 |
+| 拍点核对 | `cuecheck.{grid,tolMs,silence,quietDb}` | 写了才跑，超差退出码 4 |
+| 原生 | `native.*` | 原样交给 `engine/native/prepare.mjs` 与 `engine/render/native.mjs` |
+| 物理光追 | `pathtrace.{preset,spp,animaticSpp,denoise,seed,shotSpp,overlay}` | D 路线专用：采样、降噪与按镜头 ID 升采样配置（D13） |
+| AIGC | `aigc.{contains,note,kinds?,tools?}` | 成片隐式标识 + 播放页显式标识（D11） |
 
 声音脚本除了旧约定（写 `<作品>/out/mix.wav`），还能读环境变量 `BEIMING_AUDIO_OUT`（直接写到运行目录 `audio/mix.wav`，最好）、`BEIMING_AUDIO_STEMS`（分轨目录 `audio/stems/`）、`BEIMING_DIALOGUE_DIR`（自动构建的 `dialogue.json` 产物目录）、`BEIMING_KINEMATICS`（开启 `audio.telemetry` 时的 `kinematics.json` 路径）、`BEIMING_FILM`、`BEIMING_RUN`、`BEIMING_EVENTS`、`BEIMING_TIMELINE`、`BEIMING_DUR`、`BEIMING_FPS`、`BEIMING_FRAMES`、`BEIMING_WIDTH`、`BEIMING_HEIGHT`、`BEIMING_PROFILE`；`PYTHON` 指向选中的解释器。
 

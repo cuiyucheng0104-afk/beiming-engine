@@ -33,7 +33,7 @@ export const CHECK_DOC = {
   summary: '出片前的只读检查（不渲帧、不写作品目录、不建运行目录）',
   usage: ['npm run film -- check <作品目录> [--profile <档位>] [--page <目录>] [--json]'],
   description: [
-    '  1. 作品描述  node engine/production/film.js check（作品描述包的校验器：镜头首尾相接、事件落在镜头内、引用存在…）',
+    '  1. 校验 film.json v2 的镜头、事件与文件引用；v1 先运行 node engine/production/film.js upgrade <作品目录> --write，按提示补齐字段',
     '  2. 页面契约  A / C 打开页面等 READY，查 render / DUR / 帧数 / 软件渲染（写了 fonts 的先核对本片字体子集）；B 跑 native.mjs --check-only',
     '  3. 编排视图  路线、档位、帧数、切点、闸门要求',
   ],

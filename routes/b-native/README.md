@@ -63,7 +63,7 @@ films/<名字>/
 
 ## 契约
 
-- **film.json**：v1 `{ route: "b", title, dur, fps, size: [宽, 高], events?, aigc?, credits?, native }`，或 v2（`output.{profile,width,height,fps,frameCount}`，见加固计划附录 C6）。帧数 = `round(dur × fps)`；尺寸是 ≥ 16 的偶数。交付档位取 `output.profile`，否则按尺寸与帧率推断，对不上用自定义档并提示。v2 里 `dur` / `fps` / `size` 是 v1 兼容镜像，必须与 `output` 相同——**改画幅、帧率、时长时两处一起改**（换画幅时 `output.profile` 也换成匹配的档位，或删掉它与 `deliveries` 落到自定义档）；不一致 exit 4，不会悄悄按其中一处渲。
+- **film.json** 由 `npm run new` 生成 v2，`npm run film -- check` 要求 v2。出片流程使用通过检查的作品描述。已有 v1 作品先执行 `node engine/production/film.js upgrade <作品目录> --write`，按提示补齐字段。直接运行原生渲染器时仍可读取 v1 的 `dur`、`fps` 和 `size`，帧数为 `round(dur × fps)`。v2 以 `output.{profile,width,height,fps,frameCount}` 为准（见加固计划附录 C6）。尺寸为 ≥ 16 的偶数。直接渲染时若未声明档位，按尺寸和帧率推断，对不上则提示使用自定义档。v2 留下的 `dur`、`fps`、`size` 兼容镜像必须与 `output` 一致，否则退出 4。
 - **film.tsx**：`registerRoot` 一个 `Composition`，宽高帧率帧数从 film.json 读（模版直接 `import film from './film.json'`），`id` 只用字母、数字、连字符。画面只读 `useCurrentFrame()`；不用 `useState`、计时器、`Date.now`、无种子随机。
 - **import**：`film.tsx` 用 `import … from '../../engine/native/index.ts'` 取通用件（作品放在仓库内两级深的目录）；作品目录里的其他模块只能 import 作品目录里的文件；组件库不 import three 或 Node 模块。
 - **素材路径**：`staticFile('x')` = 作品 `media/x`；`ShaderMesh` 的纹理写 `'media/x.png'`。渲染入口按 film.json 与源码里的字面量逐个检查素材，并核对 `media/prepared.json` 的 sha256（prepare 之后被改过 → exit 4）。

@@ -61,7 +61,7 @@
 
 不允许出现没有消费者的时间字段（`orphan-time-field`，判错）：时间只写在 `shots[].in / out`、`events[].frame / end`、`qa.intentional[].from / to`、`qa.waivers[].frames`、`timeline`（C 路线是 `tempo` + `cues`）与 `posterFrame`。白名单之外的字段，只要名字像时间就判错，不管写在顶层、镜头、事件、`output` 还是 `qa` 段：常见时间名本身（`poster`、`dur`、`duration`、`t`、`t0`、`start`、`at`、`delay`、`fps`、`tempo`…）；最后一段是时间单位（`startSec`、`durationMs`、`holdSec`、`fadeFrames`、`startTime`、`beatSec`）；`t` 加大写或数字开头（`tStart`、`t_end`）；时间动词加时刻或长度（`fadeIn`、`cutAt`、`inPoint`、`frameCount`）。字段名按 camelCase / 下划线切段再判，`items`、`endCard`、`fadeColor`、`startScale` 这类不会误判；值是布尔的不算。规则实现与测试：`film.js` 的 `isTimeLikeField`、`tests/production/film.test.mjs`。其他未知字段只提示。完整字段见 `film.schema.json`。
 
-**v1 迁移**：没有 `schemaVersion` 的 v1 记录 `{ route, title, dur, fps, size, native?, poster?, cuecheck? }` 用 `node engine/production/film.js upgrade <作品> --write` 显式迁移（`frameCount = round(dur × fps)`，默认整片一个镜头）。v2 里可以暂留 `dur` / `fps` / `size` 作兼容镜像（给还没改读 film.js 的旧工具），但必须与 `output` 一致。早期 v2 草稿的旧写法（顶层 `holds`、`sync: true / false`、事件里的 `cue`）判错并给出搬法，`upgrade --write` 自动换成现行写法（库：`migrateV2`）。
+**v1 迁移**：`check` 要求 v2。没有 `schemaVersion` 的 v1 记录 `{ route, title, dur, fps, size, native?, poster?, cuecheck? }` 用 `node engine/production/film.js upgrade <作品> --write` 显式迁移（`frameCount = round(dur × fps)`，默认整片一个镜头）。按迁移命令的提示补齐字段后再运行 `check`。v2 里可以暂留 `dur` / `fps` / `size` 作兼容镜像（给还没改读 film.js 的旧工具），但必须与 `output` 一致。早期 v2 草稿的旧写法（顶层 `holds`、`sync: true / false`、事件里的 `cue`）判错并给出搬法，`upgrade --write` 自动换成现行写法（库：`migrateV2`）。
 
 ## 2. 时间
 
