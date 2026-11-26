@@ -13,7 +13,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { test } from 'node:test';
 import { OUT, PRESETS, buildRenderer, sourceKey } from './build.mjs';
-import { IDENTITY, MOVING, movingPack, translate, writePack } from './scenepack.mjs';
+import { camera, f32s, inverse, mul, objects, point, screen } from './moving.mjs';
+import { movingPack, translate, writePack } from './scenepack.mjs';
 
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const EXE = process.platform === 'win32' ? '.exe' : '';
@@ -88,27 +89,6 @@ function diffs(got, want) {
   return bad;
 }
 
-// motion 照输出通道契约 5.6 在双精度里从缓冲的命中点重算（只有刚体；movingPack 的墙不动）
-const mul = (a, b) => Array.from({ length: 16 }, (_, i) => [0, 1, 2, 3].reduce((s, k) => s + a[k * 4 + (i % 4)] * b[Math.floor(i / 4) * 4 + k], 0));
-const pt = (m, p) => [0, 1, 2].map(c => m[c] * p[0] + m[4 + c] * p[1] + m[8 + c] * p[2] + m[12 + c]);
-const vc = (m, v) => [0, 1, 2].map(c => m[c] * v[0] + m[4 + c] * v[1] + m[8 + c] * v[2]);
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const unit = v => { const l = Math.hypot(...v); return v.map(x => x / l); };
-function invAffine(m) {
-  const [a, b, c, d, e, f, g, h, i] = [m[0], m[4], m[8], m[1], m[5], m[9], m[2], m[6], m[10]];
-  const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
-  const r = [(e * i - f * h), -(b * i - c * h), (b * f - c * e), -(d * i - f * g), (a * i - c * g), -(a * f - c * d), (d * h - e * g), -(a * h - b * g), (a * e - b * d)].map(x => x / det);
-  const inv = [r[0], r[3], r[6], 0, r[1], r[4], r[7], 0, r[2], r[5], r[8], 0, 0, 0, 0, 1];
-  const t = pt(inv, m.slice(12, 15));
-  return [...inv.slice(0, 12), -t[0], -t[1], -t[2], 1];
-}
-function screen(m, x) {
-  const fwd = unit(vc(m, [0, 0, -1])), right = unit(cross(fwd, unit(vc(m, [0, 1, 0])))), up = cross(right, fwd);
-  const d = [0, 1, 2].map(k => x[k] - m[12 + k]), z = dot(d, fwd), tan = Math.tan(Math.fround(MOVING.fovY) / 2);
-  return [(dot(d, right) / (z * tan * (W / H)) + 1) * 0.5 * W, (1 - dot(d, up) / (z * tan)) * 0.5 * H];
-}
-
 const SPEC = { board: k => translate(0.05 * k, 0.02 * k, -0.1 * k), camera: k => translate(0.03 * k, 0, 3) };
 
 test('读回一致性：通道文件和着色器写进输出缓冲的原值逐位相同，motion 和缓冲里的命中点重算的一致；每个文件改一位、换一份缓冲都查得出', (t) => {
@@ -130,8 +110,7 @@ test('读回一致性：通道文件和着色器写进输出缓冲的原值逐�
 
   // motion：缓冲里的命中点（第 8 格）照两帧的矩阵重算
   const stride = film.length / (W * H * 4);
-  const f32m = m => m.map(Math.fround);
-  const mats = { 1: k => f32m(SPEC.board(k)), 2: () => IDENTITY };
+  const mats = k => Object.fromEntries(objects(SPEC, k).map(o => [o.id, o.m]));
   const motion = f32(got['motion.f32']);
   let [max, hits] = [0, 0];
   for (let p = 0; p < W * H; p++) {
@@ -140,8 +119,8 @@ test('读回一致性：通道文件和着色器写进输出缓冲的原值逐�
     if (hit[3] === 0) { assert.deepEqual([motion[p * 2], motion[p * 2 + 1]], [0, 0]); continue; }
     hits++;
     const x = hit.slice(0, 3);
-    const y = pt(mul(mats[id](2), invAffine(mats[id](1))), x);
-    const [s0, s1] = [screen(f32m(SPEC.camera(1)), x), screen(f32m(SPEC.camera(2)), y)];
+    const y = point(mul(mats(2)[id], inverse(mats(1)[id])), x);
+    const [s0, s1] = [screen(camera(f32s(SPEC.camera(1)), W, H), x), screen(camera(f32s(SPEC.camera(2)), W, H), y)];
     max = Math.max(max, Math.abs(motion[p * 2] - (s1[0] - s0[0])), Math.abs(motion[p * 2 + 1] - (s1[1] - s0[1])));
   }
   t.diagnostic(`命中点 ${hits} 个，motion 和缓冲命中点重算的最大差 ${max.toExponential(3)} 像素`);

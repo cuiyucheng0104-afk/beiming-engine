@@ -12,7 +12,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { test } from 'node:test';
 import { OUT, PRESETS, buildRenderer, sourceKey } from './build.mjs';
-import { IDENTITY, MOVING, movingPack, translate, writePack } from './scenepack.mjs';
+import { camera, f32s, hit, mul, objects, point, rotateX, rotateY, screen } from './moving.mjs';
+import { IDENTITY, movingPack, translate, writePack } from './scenepack.mjs';
 
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const EXE = process.platform === 'win32' ? '.exe' : '';
@@ -47,70 +48,15 @@ function render(t, bin, pack, frame, mode) {
   return { motion: read('motion.f32', Float32Array), id: read('objectId.u32', Uint32Array) };
 }
 
-// ------------------------------------------------------------------------------------------------ 双精度的几何
-
-const f32s = m => m.map(Math.fround); // 包里存的是 32 位浮点：解析值用同样的数
-/** 列主序 4×4 相乘 a × b */
-const mul = (a, b) => Array.from({ length: 16 }, (_, i) => [0, 1, 2, 3].reduce((s, k) => s + a[k * 4 + (i % 4)] * b[Math.floor(i / 4) * 4 + k], 0));
-const rotY = a => [Math.cos(a), 0, -Math.sin(a), 0, 0, 1, 0, 0, Math.sin(a), 0, Math.cos(a), 0, 0, 0, 0, 1];
-const rotX = a => [1, 0, 0, 0, 0, Math.cos(a), Math.sin(a), 0, 0, -Math.sin(a), Math.cos(a), 0, 0, 0, 0, 1];
-const point = (m, p) => [0, 1, 2].map(c => m[c] * p[0] + m[4 + c] * p[1] + m[8 + c] * p[2] + m[12 + c]);
-const vec = (m, v) => [0, 1, 2].map(c => m[c] * v[0] + m[4 + c] * v[1] + m[8 + c] * v[2]);
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const sub = (a, b) => a.map((x, i) => x - b[i]);
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const unit = v => { const l = Math.hypot(...v); return v.map(x => x / l); };
-/** 仿射矩阵的逆（左上 3×3 求逆，平移跟着变） */
-function inverse(m) {
-  const [a, b, c, d, e, f, g, h, i] = [m[0], m[4], m[8], m[1], m[5], m[9], m[2], m[6], m[10]];
-  const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
-  const r = [(e * i - f * h), -(b * i - c * h), (b * f - c * e), -(d * i - f * g), (a * i - c * g), -(a * f - c * d), (d * h - e * g), -(a * h - b * g), (a * e - b * d)].map(x => x / det);
-  const inv = [r[0], r[3], r[6], 0, r[1], r[4], r[7], 0, r[2], r[5], r[8], 0, 0, 0, 0, 1];
-  const t = point(inv, m.slice(12, 15));
-  return [...inv.slice(0, 12), -t[0], -t[1], -t[2], 1];
-}
-/** 相机：基照内核（前 = M(0,0,-1)，上 = M(0,1,0)，右 = 前 × 上，再上 = 右 × 前） */
-function cam(m) {
-  const fwd = unit(vec(m, [0, 0, -1]));
-  const right = unit(cross(fwd, unit(vec(m, [0, 1, 0]))));
-  return { pos: m.slice(12, 15), fwd, right, up: cross(right, fwd), tan: Math.tan(Math.fround(MOVING.fovY) / 2), aspect: W / H };
-}
-const screen = (c, x) => {
-  const d = sub(x, c.pos), z = dot(d, c.fwd);
-  return [(dot(d, c.right) / (z * c.tan * c.aspect) + 1) * 0.5 * W, (1 - dot(d, c.up) / (z * c.tan)) * 0.5 * H];
-};
-
-/**
- * 像素 (i, j) 中心那条射线：打到哪个实体、命中点在网格自己坐标里的位置；离板边不到 MARGIN 的像素（两边都可能）返回 null。
- * objects：[{ id, half, z, m }]：网格在自己坐标里 z 平面上、半边长 half，m 是这一帧的实例矩阵。
- */
-function hit(c, objects, i, j) {
-  const ndc = [(i + 0.5) / W * 2 - 1, 1 - (j + 0.5) / H * 2];
-  const d = [0, 1, 2].map(k => c.fwd[k] + c.right[k] * ndc[0] * c.tan * c.aspect + c.up[k] * ndc[1] * c.tan);
-  let best = null;
-  for (const o of objects) {
-    const inv = inverse(o.m);
-    const [ol, dl] = [point(inv, c.pos), vec(inv, d)];
-    const t = (o.z - ol[2]) / dl[2];
-    if (!(t > 0)) continue;
-    const p = [ol[0] + t * dl[0], ol[1] + t * dl[1], o.z];
-    const edge = o.half - Math.max(Math.abs(p[0]), Math.abs(p[1]));
-    if (Math.abs(edge) < MARGIN) return null;
-    if (edge > 0 && (!best || t < best.t)) best = { t, id: o.id, local: p, o };
-  }
-  return best;
-}
-
 /** 解析的 motion：第 F 帧的命中点在另一帧 G 的屏幕位置，减像素中心；forward 为假时取反（后一帧减前一帧） */
 function analytic(spec, f, g, forward) {
-  const mats = k => [{ id: 1, half: MOVING.board, z: 0, m: f32s(spec.board(k)) }, { id: 2, half: MOVING.wall, z: Math.fround(MOVING.wallAt), m: IDENTITY }];
-  const [cf, cg] = [cam(f32s(spec.camera(f))), cam(f32s(spec.camera(g)))];
+  const [cf, cg] = [camera(f32s(spec.camera(f)), W, H), camera(f32s(spec.camera(g)), W, H)];
   const out = [];
   for (let j = 0; j < H; j++) {
     for (let i = 0; i < W; i++) {
-      const h = hit(cf, mats(f), i, j);
+      const h = hit(cf, objects(spec, f), i, j, MARGIN);
       if (!h) continue;
-      const other = mats(g).find(o => o.id === h.id).m;
+      const other = objects(spec, g).find(o => o.id === h.id).m;
       const s = screen(cg, point(other, h.local));
       const v = [s[0] - (i + 0.5), s[1] - (j + 0.5)];
       out.push({ p: j * W + i, id: h.id, motion: forward ? v : v.map(x => -x) });
@@ -121,8 +67,8 @@ function analytic(spec, f, g, forward) {
 
 const CASES = {
   '板平移（含沿视线方向）': { board: k => translate(0.04 * k, -0.03 * k, -0.15 * k), camera: () => translate(0, 0, 3) },
-  '板旋转': { board: k => mul(rotY(0.2 * k), rotX(0.1 * k)), camera: () => translate(0, 0, 3) },
-  '相机移动并转动': { board: () => IDENTITY, camera: k => mul(translate(0.08 * k, 0.05 * k, 3 - 0.2 * k), rotY(0.03 * k)) },
+  '板旋转': { board: k => mul(rotateY(0.2 * k), rotateX(0.1 * k)), camera: () => translate(0, 0, 3) },
+  '相机移动并转动': { board: () => IDENTITY, camera: k => mul(translate(0.08 * k, 0.05 * k, 3 - 0.2 * k), rotateY(0.03 * k)) },
 };
 const COUNT = 3;
 
