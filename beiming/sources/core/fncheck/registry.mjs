@@ -442,9 +442,9 @@ FUNCTIONS.push(
 // cos_NH = dot(N, H)）。方向在整个球面上按面积均匀取，长度在 [0.25, 4) 按对数均匀取、分 4 小段（一段一个二进制量级），100 万组；
 // 逐组照常比。门槛照实测定（种子 1，小段平均的绝对值最大者）：
 //   写法                               苹果显卡     英伟达 RTX 5090
-//   乘 inverse_len（现用）                −0.004       −0.005
-//   内建 normalize                         0.050       −0.094
-//   a / len_ccl(a)（normalize_ccl 的式子）  0.048       −0.095
+//   乘 inverse_len（现用）                −0.003       −0.002
+//   内建 normalize                         0.048       −0.093
+// 另一串输入（同样的分布）上量过 a / len_ccl(a)（normalize_ccl 的式子）：0.048、−0.095，与内建 normalize 相同到小数第二位。
 // 门槛 0.03，同上面那两项：现用的写法有 6 倍余量，内建的两台都超出（fncheck.test.mjs 的负对照「改回内建 normalize」）
 const NLEN = [0.25, 4];
 const NLEN_BIAS = [{ lo: NLEN[0], hi: NLEN[1], bins: 4, max: 0.03 }];

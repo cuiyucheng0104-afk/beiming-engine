@@ -427,7 +427,7 @@ test('端到端：GGX 求值的 1/|H| 改回原式或故意偏半个末位、着
       assert.ok(x.bias.fails > 0, `${what} ${x.name}`);
     }
   }
-  // 着色法线的 normalize_unbiased 改回内建 normalize：|N| − 1 的平均偏差两台都必须判不过（【实测】英伟达上 −0.094、苹果显卡上 0.05，门槛 0.03）
+  // 着色法线的 normalize_unbiased 改回内建 normalize：|N| − 1 的平均偏差两台都必须判不过（【实测】英伟达上 −0.093、苹果显卡上 0.048，门槛 0.03）
   const nsite = 'return a * inverse_len(a);';
   assert.equal(usrc.split(nsite).length, 2, `util.wgsl 里找不到：${nsite}`);
   const r = await e2e(t, { n: 1_000_000, seed: 1, wgsl: { [util]: usrc.replace(nsite, 'return normalize(a);') }, names: ['normalize_unbiased_len_bias'] });
